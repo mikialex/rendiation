@@ -72,7 +72,7 @@ fn parse_st_test() {
 
   test_parse_statement(
     "
-        for let i = 0; false; false   {
+        for (let i = 0; false; i++)   {
             print();
         }
     ",
@@ -204,7 +204,7 @@ fn parse_function_test5() {
       let sample_offset = texel_size * direction;
       var sum: vec4<f32>;
       for (var i: i32 = 2; i < weights.weight_count; i++) {
-          vec4 samples = textureSample(texture, sp, uv + float(i) * sample_offset);
+          let samples = textureSample(texture, sp, uv + float(i) * sample_offset);
           sum = lin_space(1.0, sum, weights.weights[i], samples);
       }
     }

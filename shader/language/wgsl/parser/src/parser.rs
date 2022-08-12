@@ -647,6 +647,7 @@ pub fn parse_singular_expression<'a>(lexer: &mut Lexer<'a>) -> Result<Expression
 
 // EXP_SINGLE
 pub fn parse_primary_expression<'a>(lexer: &mut Lexer<'a>) -> Result<Expression, ParseError<'a>> {
+  let mut backup = lexer.clone();
   let r = match lexer.next().token {
     Token::Number { .. } => Expression::PrimitiveConst(PrimitiveConstValue::Numeric(
       NumericTypeConstValue::Float(1.), // todo
@@ -674,7 +675,8 @@ pub fn parse_primary_expression<'a>(lexer: &mut Lexer<'a>) -> Result<Expression,
       inner
     }
     Token::BuiltInType(_) => {
-      let ty = PrimitiveType::try_parse(lexer)?;
+      let ty = PrimitiveType::parse(&mut backup)?;
+      *lexer = backup;
       Expression::PrimitiveConstruct {
         ty,
         arguments: parse_function_parameters(lexer)?,
@@ -682,7 +684,8 @@ pub fn parse_primary_expression<'a>(lexer: &mut Lexer<'a>) -> Result<Expression,
     }
     Token::Word(name) => {
       if let Token::Paren('(') = lexer.peek().token {
-        let call = FunctionCall::try_parse(lexer)?;
+        let call = FunctionCall::parse(&mut backup)?;
+        *lexer = backup;
         Expression::FunctionCall(call)
       } else {
         Expression::Ident(Ident {
@@ -842,17 +845,5 @@ impl SyntaxElement for Vec<PostFixExpression> {
     }
 
     Ok(r)
-  }
-}
-
-impl SyntaxElement for CompoundAssignmentOperator {
-  fn parse<'a>(lexer: &mut Lexer<'a>) -> Result<Self, ParseError<'a>> {
-    // let first = match lexer.next().token {
-    //   Token::Operation('+') => Some(Self::Add),
-    //   _ => None,
-    // };
-    // lexer.expect(Token::Assign)?;
-    // first.ok_or(err)
-    todo!()
   }
 }

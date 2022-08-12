@@ -270,7 +270,13 @@ impl<'a> Lexer<'a> {
           _ => (Token::Operation(cur), og_chars),
         }
       }
-      '+' | '*' | '/' | '%' | '^' => (Token::Operation(cur), chars.as_str()),
+      '+' | '*' | '/' | '%' | '^' => {
+        input = chars.as_str();
+        match chars.next() {
+          Some('+') => (Token::Increment, chars.as_str()),
+          _ => (Token::Operation(cur), input),
+        }
+      }
       '!' => {
         input = chars.as_str();
         if chars.next() == Some('=') {
