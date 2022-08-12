@@ -29,7 +29,7 @@ fn gen_wgsl_function(wgsl: &str) -> proc_macro2::TokenStream {
     .iter()
     .map(|f_name| {
       let name = gen_fn_meta_name(f_name);
-      quote! { #name, }
+      quote! { & #name, }
     })
     .collect();
 

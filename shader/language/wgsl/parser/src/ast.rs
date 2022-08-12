@@ -306,6 +306,7 @@ impl FunctionCall {
   pub fn is_builtin(&self) -> bool {
     match self.name.name.as_str() {
       "dot" | "cross" | "abs" | "transpose" | "normalize" | "textureSample" => true,
+      "f32" | "f16" | "u32" | "i32" | "bool" => true, // https://www.w3.org/TR/WGSL/#construction-from-components
       _ => false,
     }
   }
