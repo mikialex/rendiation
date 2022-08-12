@@ -1,4 +1,5 @@
 #![feature(min_specialization)]
+#![allow(clippy::option_map_unit_fn)]
 
 mod ast;
 pub use ast::*;

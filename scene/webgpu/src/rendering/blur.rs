@@ -9,11 +9,11 @@ pub struct LinearBlurConfig {
 
 #[repr(C)]
 // #[std140_layout]
-// #[derive(Clone, Copy, ShaderStruct)]
+#[derive(Clone, Copy, ShaderStruct)]
 pub struct ShaderSamplingWeights {
   /// we max support 32 weight, but maybe not used them all.
   /// this array is just used as a fixed size container.
-  pub weights: [f32; 32],
+  // pub weights: [f32; 32],
   /// the actually sample count we used.
   pub weight_count: u32,
 }
@@ -29,20 +29,20 @@ wgsl_function!(
   }
 );
 
-// wgsl_function!(
-//   fn linear_blur(
-//     direction: vec2<f32>,
-//     weights: ShaderSamplingWeights,
-//     texture: texture_2d<f32>,
-//     sp: sampler,
-//     uv: vec2<f32>,
-//     texel_size: vec2<f32>
-//   ) -> f32 {
-//     let sample_offset = texel_size * direction;
-//     var sum: vec4<f32>;
-//     for (var i: i32 = 2; i < weights.weight_count; i++) {
-//         vec4 samples = textureSample(texture, sp, uv + float(i) * sample_offset);
-//         sum = lin_space(1.0, sum, weights.weights[i], samples);
-//     }
-//   }
-// );
+wgsl_function!(
+  fn linear_blur(
+    direction: vec2<f32>,
+    weights: ShaderSamplingWeights,
+    texture: texture_2d<f32>,
+    sp: sampler,
+    uv: vec2<f32>,
+    texel_size: vec2<f32>,
+  ) -> f32 {
+    let sample_offset = texel_size * direction;
+    var sum: vec4<f32>;
+    for (var i: i32 = 2; i < weights.weight_count; i++) {
+        let samples = textureSample(texture, sp, uv + f32(i) * sample_offset);
+        sum = lin_space(1.0, sum, weights.weights[i], samples);
+    }
+  }
+);

@@ -2,6 +2,8 @@ use std::ops::Range;
 
 use crate::*;
 
+use CompoundAssignmentOperator as AssignOp;
+
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum Keyword {
   If,
@@ -41,6 +43,12 @@ pub enum Token<'a> {
   LogicalOperation(char),
   ShiftOperation(char),
   Arrow,
+  Increment,
+  Decrement,
+  CompoundAssign(CompoundAssignmentOperator),
+  Assign,
+  Equals,
+  NotEquals,
   Unknown(char),
   UnterminatedString,
   Trivia,
@@ -131,6 +139,12 @@ impl<'a> Lexer<'a> {
         Token::Bool(_) => "boolean",
         Token::End => "",
         Token::BuiltInType(_) => "builtin_type",
+        Token::Increment => "increment",
+        Token::Decrement => "decrement",
+        Token::Assign => "assign",
+        Token::Equals => "equals",
+        Token::NotEquals => "not equals",
+        Token::CompoundAssign(_) => "compound assign operator",
       };
       Err(ParseError::Unexpected(next.token, description))
     }
@@ -254,21 +268,48 @@ impl<'a> Lexer<'a> {
       '-' => {
         let og_chars = chars.as_str();
         match chars.next() {
+          Some('-') => (Token::Decrement, chars.as_str()),
           Some('>') => (Token::Arrow, chars.as_str()),
+          Some('=') => (Token::CompoundAssign(AssignOp::Sub), chars.as_str()),
           Some('0'..='9') | Some('.') => self.consume_number(),
           _ => (Token::Operation(cur), og_chars),
         }
       }
-      '+' | '*' | '/' | '%' | '^' => (Token::Operation(cur), chars.as_str()),
+      '+' | '*' | '/' | '%' | '^' => {
+        input = chars.as_str();
+        match chars.next() {
+          Some('+') => (Token::Increment, chars.as_str()),
+          Some('=') => (
+            match cur {
+              '+' => Token::CompoundAssign(AssignOp::Add),
+              '*' => Token::CompoundAssign(AssignOp::Mul),
+              '/' => Token::CompoundAssign(AssignOp::Div),
+              '%' => Token::CompoundAssign(AssignOp::Mod),
+              '^' => Token::CompoundAssign(AssignOp::Xor),
+              _ => unreachable!(),
+            },
+            chars.as_str(),
+          ),
+          _ => (Token::Operation(cur), input),
+        }
+      }
       '!' => {
         input = chars.as_str();
         if chars.next() == Some('=') {
-          (Token::LogicalOperation(cur), chars.as_str())
+          (Token::NotEquals, chars.as_str())
         } else {
           (Token::Operation(cur), input)
         }
       }
-      '=' | '&' | '|' => {
+      '=' => {
+        input = chars.as_str();
+        if chars.next() == Some('=') {
+          (Token::Equals, chars.as_str())
+        } else {
+          (Token::Assign, input)
+        }
+      }
+      '&' | '|' => {
         input = chars.as_str();
         if chars.next() == Some(cur) {
           (Token::LogicalOperation(cur), chars.as_str())
