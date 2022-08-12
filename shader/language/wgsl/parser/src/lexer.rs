@@ -2,6 +2,8 @@ use std::ops::Range;
 
 use crate::*;
 
+use CompoundAssignmentOperator as AssignOp;
+
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum Keyword {
   If,
@@ -43,6 +45,7 @@ pub enum Token<'a> {
   Arrow,
   Increment,
   Decrement,
+  CompoundAssign(CompoundAssignmentOperator),
   Assign,
   Equals,
   NotEquals,
@@ -141,6 +144,7 @@ impl<'a> Lexer<'a> {
         Token::Assign => "assign",
         Token::Equals => "equals",
         Token::NotEquals => "not equals",
+        Token::CompoundAssign(_) => "compound assign operator",
       };
       Err(ParseError::Unexpected(next.token, description))
     }
@@ -266,6 +270,7 @@ impl<'a> Lexer<'a> {
         match chars.next() {
           Some('-') => (Token::Decrement, chars.as_str()),
           Some('>') => (Token::Arrow, chars.as_str()),
+          Some('=') => (Token::CompoundAssign(AssignOp::Sub), chars.as_str()),
           Some('0'..='9') | Some('.') => self.consume_number(),
           _ => (Token::Operation(cur), og_chars),
         }
@@ -274,6 +279,17 @@ impl<'a> Lexer<'a> {
         input = chars.as_str();
         match chars.next() {
           Some('+') => (Token::Increment, chars.as_str()),
+          Some('=') => (
+            match cur {
+              '+' => Token::CompoundAssign(AssignOp::Add),
+              '*' => Token::CompoundAssign(AssignOp::Mul),
+              '/' => Token::CompoundAssign(AssignOp::Div),
+              '%' => Token::CompoundAssign(AssignOp::Mod),
+              '^' => Token::CompoundAssign(AssignOp::Xor),
+              _ => unreachable!(),
+            },
+            chars.as_str(),
+          ),
           _ => (Token::Operation(cur), input),
         }
       }

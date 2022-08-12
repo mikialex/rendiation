@@ -445,9 +445,17 @@ impl SyntaxElement for VariableStatement {
 impl SyntaxElement for Assignment {
   fn parse<'a>(lexer: &mut Lexer<'a>) -> Result<Self, ParseError<'a>> {
     let lhs = LhsExpression::parse(lexer)?;
-    lexer.expect(Token::Assign)?;
-    let exp = Expression::parse(lexer)?;
-    Ok(Assignment { lhs, value: exp })
+    let assign_op = match lexer.next().token {
+      Token::Assign => None,
+      Token::CompoundAssign(ass) => Some(ass),
+      _ => return Err(ParseError::Any("expect assign or assign op")),
+    };
+    let value = Expression::parse(lexer)?;
+    Ok(Assignment {
+      lhs,
+      assign_op,
+      value,
+    })
   }
 }
 
@@ -461,6 +469,7 @@ pub fn parse_expression_like_statement<'a>(
   loop {
     match checker.next().token {
       Token::Assign => has_assign = true,
+      Token::CompoundAssign(_) => has_assign = true,
       Token::Increment => is_increment = true,
       Token::Decrement => is_decrement = true,
       Token::Separator(';') => break,
@@ -783,7 +792,13 @@ pub fn parse_function_parameters<'a>(
       arguments.push(arg);
       match lexer.next().token {
         Token::Paren(')') => break,
-        Token::Separator(',') => (),
+        Token::Separator(',') => {
+          // the last ',' is optional
+          if lexer.peek().token == Token::Paren(')') {
+            let _ = lexer.next();
+            break;
+          }
+        }
         other => return Err(ParseError::Unexpected(other, "argument list separator")),
       }
     }

@@ -150,10 +150,16 @@ impl ASTElement for VariableStatement {
   }
 }
 
+impl ASTElement for CompoundAssignmentOperator {}
 impl ASTElement for Assignment {
   fn visit_children<T>(&self, visitor: &mut T) {
-    let Self { lhs, value } = self;
+    let Self {
+      lhs,
+      value,
+      assign_op,
+    } = self;
     lhs.visit_by(visitor);
+    assign_op.as_ref().map(|i| i.visit_by(visitor));
     value.visit_by(visitor);
   }
 }
