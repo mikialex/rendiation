@@ -41,18 +41,8 @@ impl ViewerPipeline {
       .by(scene.by_main_camera(&mut content.gizmo))
       .by(scene.by_main_camera_and_self(&mut content.camera_helpers));
 
-    let highlight_compose = (!content.selections.is_empty()).then(|| {
-      let mut selected_mask = attachment()
-        .format(HIGH_LIGHT_MASK_TARGET_FORMAT)
-        .request(ctx);
-
-      pass("highlight-selected-mask")
-        .with_color(selected_mask.write(), clear(color_same(0.)))
-        .render(ctx)
-        .by(scene.by_main_camera(highlight(&content.selections)));
-
-      self.highlight.draw(selected_mask.read_into())
-    });
+    let highlight_compose = (!content.selections.is_empty())
+    .then(|| self.highlight.draw(&content.selections, ctx, scene));
 
     pass("compose-all")
       .with_color(final_target, get_main_pass_load_op(scene))

@@ -71,7 +71,7 @@ impl ShaderGraphProvider for FatlineMaterialGPU {
   }
 }
 
-wgsl_function!(
+wgsl_fn!(
   fn fatline_vertex(
     projection: mat4x4<f32>,
     view: mat4x4<f32>,
@@ -154,7 +154,7 @@ wgsl_function!(
   }
 );
 
-wgsl_function!(
+wgsl_fn!(
   fn discard_fatline_round_corner(uv: vec2<f32>) -> bool {
     if (abs(vUv.y) > 1.0) {
       let a = vUv.x;

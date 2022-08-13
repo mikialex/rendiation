@@ -102,7 +102,7 @@ impl<T: ShadingBackground> ShaderGraphProvider for ShadingBackgroundTask<T> {
   }
 }
 
-wgsl_function!(
+wgsl_fn!(
   fn background_direction(vertex_index: u32, view: mat4x4<f32>, projection_inv: mat4x4<f32>) -> vec3<f32> {
     // hacky way to draw a large triangle
     let tmp1 = i32(vertex_index) / 2;
