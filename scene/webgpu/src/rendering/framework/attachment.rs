@@ -67,6 +67,10 @@ impl Drop for Attachment {
 }
 
 impl Attachment {
+  pub fn des(&self) -> &AttachmentDescriptor {
+    &self.des
+  }
+
   pub fn write(&mut self) -> AttachmentWriteView<&mut Self> {
     let view = self.texture.create_view(()).into();
     AttachmentWriteView {

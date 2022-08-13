@@ -108,11 +108,13 @@ impl ShaderGraphProvider for DefaultPassDispatcher {
     builder.vertex(|builder, _| {
       let pass = pass.using().expand();
       builder.register::<RenderBufferSize>(pass.buffer_size);
+      builder.register::<TexelSize>(pass.texel_size);
       Ok(())
     })?;
     builder.fragment(|builder, _| {
       let pass = pass.using().expand();
       builder.register::<RenderBufferSize>(pass.buffer_size);
+      builder.register::<TexelSize>(pass.texel_size);
 
       for &format in &self.formats.color_formats {
         builder.define_out_by(channel(format));
