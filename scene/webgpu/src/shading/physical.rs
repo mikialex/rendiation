@@ -27,7 +27,12 @@ impl LightableSurfaceShading for PhysicalShading {
     direct_light: &ExpandedNode<ShaderIncidentLight>,
     ctx: &ExpandedNode<ShaderLightingGeometricCtx>,
   ) -> ExpandedNode<ShaderLightingResult> {
-    todo!()
+    physical_shading(
+      direct_light.construct(),
+      ctx.construct(),
+      self_node.construct(),
+    )
+    .expand()
   }
 }
 
