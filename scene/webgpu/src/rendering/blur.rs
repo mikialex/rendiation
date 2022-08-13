@@ -23,13 +23,15 @@ pub struct LinearBlurTask<'a, T> {
   lighter: &'a LinearBlurConfig,
 }
 
-wgsl_function!(
+// fn linear_blur(src: AttachmentReadView<T>)
+
+wgsl_fn!(
   fn lin_space(w0: f32, d0: vec4<f32>, w1: f32, d1: vec4<f32>) -> f32 {
     return (w0 * d0 + w1 * d1);
   }
 );
 
-wgsl_function!(
+wgsl_fn!(
   fn linear_blur(
     direction: vec2<f32>,
     weights: ShaderSamplingWeights,

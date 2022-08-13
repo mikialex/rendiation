@@ -7,7 +7,7 @@ use wgsl_parser::*;
 
 /// Create shadergraph function by parsing wgsl source code.
 #[proc_macro]
-pub fn wgsl_function(input: TokenStream) -> TokenStream {
+pub fn wgsl_fn(input: TokenStream) -> TokenStream {
   let input = input
     .into_iter()
     .map(|t| t.span())

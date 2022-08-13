@@ -91,7 +91,7 @@ impl<'a, T> ShaderGraphProvider for HighLightComposeTask<'a, T> {
   }
 }
 
-wgsl_function!(
+wgsl_fn!(
   fn edge_intensity(
     uv: vec2<f32>,
     mask: texture_2d<f32>,

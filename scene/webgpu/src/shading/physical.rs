@@ -36,7 +36,7 @@ impl LightableSurfaceShading for PhysicalShading {
   }
 }
 
-wgsl_function!(
+wgsl_fn!(
   fn physical_shading(
     directLight: ShaderIncidentLight,
     geometry: ShaderLightingGeometricCtx,
@@ -59,14 +59,14 @@ wgsl_function!(
   }
 );
 
-wgsl_function!(
+wgsl_fn!(
   // Reduces shadow mapping artifacts near tangent
   fn biasNDotL(nDotL: f32) -> f32 {
     return clamp(nDotL * 1.08 - 0.08, 0.0, 1.0);
   }
 );
 
-wgsl_function!(
+wgsl_fn!(
   // https://www.cs.cornell.edu/~srm/publications/EGSR07-btdf.pdf
   fn D_GGX(NoH: f32, roughness4: f32) -> f32 {
     let d = (NoH * roughness4 - NoH) * NoH + 1.0;
@@ -74,7 +74,7 @@ wgsl_function!(
   }
 );
 
-wgsl_function!(
+wgsl_fn!(
   // NOTE: Basically same as
   // https://de45xmedrsdbp.cloudfront.net/Resources/files/2013SiggraphPresentationsNotes-26915738.pdf
   // However, calculate a F90 instead of using 1.0 directlly
@@ -85,7 +85,7 @@ wgsl_function!(
   }
 );
 
-wgsl_function!(
+wgsl_fn!(
   // NOTE: the microfacet model G part
   // TODO: Need reference for this part (1.0 or 0.5)
   fn visibility(nDotL: f32, nDotV: f32, roughness4: f32) -> f32 {
@@ -95,13 +95,13 @@ wgsl_function!(
   }
 );
 
-wgsl_function!(
+wgsl_fn!(
   fn evaluateBRDFDiffuse(diffuseColor: vec3<f32>) -> vec3<f32> {
     return INVERSE_PI * diffuseColor;
   }
 );
 
-wgsl_function!(
+wgsl_fn!(
   fn evaluateBRDFSpecular(
     V: vec3<f32>,
     L: vec3<f32>,
