@@ -32,12 +32,34 @@ impl HighLighter {
 }
 
 impl HighLighter {
-  pub fn draw<T: 'static>(&self, mask: AttachmentReadView<T>) -> impl PassContent + '_ {
+  /// We expose this function for users could use any input.
+  pub fn draw_result<T: 'static>(&self, mask: AttachmentReadView<T>) -> impl PassContent + '_ {
     HighLightComposeTask {
       mask,
       lighter: self,
     }
     .draw_quad()
+  }
+
+  pub fn draw<'i, T>(
+    &self,
+    objects: T,
+    ctx: &mut FrameCtx,
+    scene: &Scene<WebGPUScene>,
+  ) -> impl PassContent + '_
+  where
+    T: IntoIterator<Item = &'i dyn SceneRenderable> + Copy,
+  {
+    let mut selected_mask = attachment()
+      .format(HIGH_LIGHT_MASK_TARGET_FORMAT)
+      .request(ctx);
+
+    pass("highlight-selected-mask")
+      .with_color(selected_mask.write(), clear(color_same(0.)))
+      .render(ctx)
+      .by(scene.by_main_camera(highlight(objects)));
+
+    self.draw_result(selected_mask.read_into())
   }
 }
 
