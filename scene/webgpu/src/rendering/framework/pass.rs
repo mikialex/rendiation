@@ -22,8 +22,8 @@ pub struct PassDescriptor<'a> {
   desc: RenderPassDescriptorOwned,
 }
 
-impl<'a> From<AttachmentWriteView<&'a mut Attachment>> for RenderTargetView {
-  fn from(val: AttachmentWriteView<&'a mut Attachment>) -> Self {
+impl<'a> From<AttachmentView<&'a mut Attachment>> for RenderTargetView {
+  fn from(val: AttachmentView<&'a mut Attachment>) -> Self {
     val.view
   }
 }
@@ -62,7 +62,7 @@ impl<'a> PassDescriptor<'a> {
   }
 
   #[must_use]
-  pub fn resolve_to(mut self, attachment: AttachmentWriteView<&'a mut Attachment>) -> Self {
+  pub fn resolve_to(mut self, attachment: AttachmentView<&'a mut Attachment>) -> Self {
     self.desc.resolve_target = attachment.view.into();
     self
   }

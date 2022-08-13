@@ -7,6 +7,7 @@ pub struct LinearBlurConfig {
   pub direction: Vec2<f32>,
 }
 
+/// we separate this struct because weights data is decoupled with the blur direction
 #[repr(C)]
 #[std140_layout]
 #[derive(Clone, Copy, ShaderStruct)]
@@ -19,7 +20,7 @@ pub struct ShaderSamplingWeights {
 }
 
 pub struct LinearBlurTask<'a, T> {
-  input: AttachmentReadView<T>,
+  input: AttachmentView<T>,
   config: &'a UniformBufferDataView<LinearBlurConfig>,
   weights: &'a UniformBufferDataView<ShaderSamplingWeights>,
 }
@@ -55,10 +56,26 @@ impl<'a, T> ShaderPassBuilder for LinearBlurTask<'a, T> {
   }
 }
 
-fn draw_linear_blur<T>(
+pub fn draw_cross_blur<T>(
+  config: &CrossBlurData,
+  input: AttachmentView<T>,
+  ctx: &mut FrameCtx,
+) -> Attachment {
+  let x_result = draw_linear_blur(&config.x, &config.weights, input, ctx);
+  let y_result = draw_linear_blur(&config.y, &config.weights, x_result.read(), ctx);
+  y_result
+}
+
+pub struct CrossBlurData {
+  x: UniformBufferDataView<LinearBlurConfig>,
+  y: UniformBufferDataView<LinearBlurConfig>,
+  weights: UniformBufferDataView<ShaderSamplingWeights>,
+}
+
+pub fn draw_linear_blur<T>(
   config: &UniformBufferDataView<LinearBlurConfig>,
   weights: &UniformBufferDataView<ShaderSamplingWeights>,
-  input: AttachmentReadView<T>,
+  input: AttachmentView<T>,
   ctx: &mut FrameCtx,
 ) -> Attachment {
   let attachment: &Attachment = todo!();

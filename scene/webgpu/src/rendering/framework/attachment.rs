@@ -50,7 +50,7 @@ pub fn depth_attachment() -> AttachmentDescriptor {
   }
 }
 
-#[derive(Clone)]
+/// Ownership is always transferred, do not support clone.
 pub struct Attachment {
   pool: ResourcePool,
   des: AttachmentDescriptor,
@@ -58,6 +58,7 @@ pub struct Attachment {
   key: PooledTextureKey,
 }
 
+/// When it drops, return the texture to the reusing pool;
 impl Drop for Attachment {
   fn drop(&mut self) {
     let mut pool = self.pool.inner.borrow_mut();
@@ -71,43 +72,38 @@ impl Attachment {
     &self.des
   }
 
-  pub fn write(&mut self) -> AttachmentWriteView<&mut Self> {
+  pub fn write(&mut self) -> AttachmentView<&mut Self> {
     let view = self.texture.create_view(()).into();
-    AttachmentWriteView {
+    AttachmentView {
       _resource: self,
       view,
     }
   }
 
-  pub fn read(&self) -> AttachmentReadView<&Self> {
+  pub fn read(&self) -> AttachmentView<&Self> {
     assert_eq!(self.des.sample_count, 1); // todo support latter
-    AttachmentReadView {
+    AttachmentView {
       _resource: self,
       view: self.texture.create_view(()).into(),
     }
   }
 
-  pub fn read_into(self) -> AttachmentReadView<Self> {
+  pub fn read_into(self) -> AttachmentView<Self> {
     assert_eq!(self.des.sample_count, 1); // todo support latter
     let view = self.texture.create_view(()).into();
-    AttachmentReadView {
+    AttachmentView {
       _resource: self,
       view,
     }
   }
 }
 
-pub struct AttachmentWriteView<T> {
+pub struct AttachmentView<T> {
   _resource: T,
   pub(super) view: RenderTargetView,
 }
 
-pub struct AttachmentReadView<T> {
-  _resource: T,
-  pub(super) view: RenderTargetView,
-}
-
-impl<T> BindingSource for AttachmentReadView<T> {
+impl<T> BindingSource for AttachmentView<T> {
   type Uniform = RenderTargetView;
 
   fn get_uniform(&self) -> Self::Uniform {
@@ -115,7 +111,7 @@ impl<T> BindingSource for AttachmentReadView<T> {
   }
 }
 
-impl<T> ShaderUniformProvider for AttachmentReadView<T> {
+impl<T> ShaderUniformProvider for AttachmentView<T> {
   type Node = ShaderTexture2D;
 }
 
