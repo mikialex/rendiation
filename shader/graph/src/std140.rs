@@ -5,7 +5,7 @@ pub trait Std140TypeMapper {
 }
 
 impl<T: Std140> Std140TypeMapper for T {
-  default type StorageType = Self;
+  type StorageType = Self;
 }
 
 /// Trait implemented for all `std140` primitives. Generally should not be
@@ -62,9 +62,6 @@ unsafe impl Std140 for Bool {
 impl Std140TypeMapper for bool {
   type StorageType = Bool;
 }
-impl ShaderFieldTypeMapper for Bool {
-  type ShaderType = bool;
-}
 
 unsafe impl Std140 for Vec2<f32> {
   const ALIGNMENT: usize = 8;
@@ -85,9 +82,6 @@ unsafe impl Std140 for Shader140Mat2 {
 impl Std140TypeMapper for Mat2<f32> {
   type StorageType = Shader140Mat2;
 }
-impl ShaderFieldTypeMapper for Shader140Mat2 {
-  type ShaderType = Mat2<f32>;
-}
 
 unsafe impl Std140 for Shader140Mat3 {
   const ALIGNMENT: usize = 16;
@@ -95,15 +89,6 @@ unsafe impl Std140 for Shader140Mat3 {
 }
 impl Std140TypeMapper for Mat3<f32> {
   type StorageType = Shader140Mat3;
-}
-impl ShaderFieldTypeMapper for Shader140Mat3 {
-  type ShaderType = Mat3<f32>;
-}
-
-impl<T: ShaderStructMemberValueNodeType, const U: usize> ShaderFieldTypeMapper
-  for Shader140Array<T, U>
-{
-  type ShaderType = [T; U];
 }
 
 unsafe impl Std140 for Mat4<f32> {
@@ -179,4 +164,32 @@ unsafe impl<T: Std140, const U: usize> Std140 for Shader140Array<T, U> {
   const ALIGNMENT: usize = max(4, T::ALIGNMENT);
 
   const PAD_AT_END: bool = true;
+}
+
+impl<T: ShaderStructMemberValueNodeType, const N: usize> ShaderGraphNodeType for [T; N] {
+  const TYPE: ShaderValueType = ShaderValueType::Fixed(
+    ShaderStructMemberValueType::FixedSizeArray((&T::MEMBER_TYPE, N)),
+  );
+}
+
+impl<T: ShaderStructMemberValueNodeType, const N: usize> ShaderGraphNodeType
+  for Shader140Array<T, N>
+{
+  const TYPE: ShaderValueType = ShaderValueType::Fixed(
+    ShaderStructMemberValueType::FixedSizeArray((&T::MEMBER_TYPE, N)),
+  );
+}
+
+impl<T: ShaderStructMemberValueNodeType, const N: usize> ShaderStructMemberValueNodeType
+  for [T; N]
+{
+  const MEMBER_TYPE: ShaderStructMemberValueType =
+    ShaderStructMemberValueType::FixedSizeArray((&T::MEMBER_TYPE, N));
+}
+
+impl<T: ShaderStructMemberValueNodeType, const N: usize> ShaderStructMemberValueNodeType
+  for Shader140Array<T, N>
+{
+  const MEMBER_TYPE: ShaderStructMemberValueType =
+    ShaderStructMemberValueType::FixedSizeArray((&T::MEMBER_TYPE, N));
 }

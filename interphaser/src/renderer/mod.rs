@@ -302,7 +302,7 @@ impl WebGPUxUIRenderer {
 
 #[repr(C)]
 #[derive(Debug, Copy, Clone, ShaderStruct, Zeroable, Pod)]
-struct UIGlobalParameter {
+pub struct UIGlobalParameter {
   pub screen_size: Vec2<f32>,
 }
 

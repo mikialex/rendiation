@@ -8,12 +8,12 @@ pub struct LinearBlurConfig {
 }
 
 #[repr(C)]
-// #[std140_layout]
+#[std140_layout]
 #[derive(Clone, Copy, ShaderStruct)]
 pub struct ShaderSamplingWeights {
   /// we max support 32 weight, but maybe not used them all.
   /// this array is just used as a fixed size container.
-  // pub weights: [f32; 32],
+  pub weights: Shader140Array<f32, 32>,
   /// the actually sample count we used.
   pub weight_count: u32,
 }

@@ -22,7 +22,7 @@ fn derive_shader_struct(s: &StructInfo) -> proc_macro2::TokenStream {
     quote! {
      shadergraph::ShaderStructFieldMetaInfo {
        name: #field_str,
-       ty: <<#ty as shadergraph::ShaderFieldTypeMapper>::ShaderType as shadergraph::ShaderStructMemberValueNodeType>::TYPE,
+       ty: <<#ty as shadergraph::ShaderFieldTypeMapper>::ShaderType as shadergraph::ShaderStructMemberValueNodeType>::MEMBER_TYPE,
        ty_deco: None,
      },
     }
@@ -62,7 +62,7 @@ fn derive_shader_struct(s: &StructInfo) -> proc_macro2::TokenStream {
     }
 
     impl shadergraph::ShaderStructMemberValueNodeType for #struct_name {
-      const TYPE: shadergraph::ShaderStructMemberValueType =
+      const MEMBER_TYPE: shadergraph::ShaderStructMemberValueType =
         shadergraph::ShaderStructMemberValueType::Struct(&#meta_info_name);
     }
 

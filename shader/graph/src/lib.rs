@@ -1,4 +1,3 @@
-#![feature(specialization)]
 #![feature(core_intrinsics)]
 #![feature(const_type_name)]
 #![allow(incomplete_features)]

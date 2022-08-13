@@ -311,14 +311,14 @@ impl FunctionCall {
       //https://www.w3.org/TR/WGSL/#array-builtin-functions
       "arrayLength" => true,
       // https://www.w3.org/TR/WGSL/#numeric-builtin-functions
-      "abs" | "acos" | "acosh" | "asin" | "asinh" | "atan" | "atan2" | "atanh" | "atan"
-      | "ceil" | "clamp" | "cos" | "cosh" | "countLeadingZeros" | "countOneBits"
-      | "countTrailingZeros" | "cross" | "degrees" | "distance" | "dot" | "exp" | "exp2"
-      | "extractBits " | "faceForward" | "firstLeadingBit" | "firstTrailingBit" | "floor"
-      | "fma" | "fract" | "frexp" | "insertBits" | "inverseSqrt" | "ldexp" | "length" | "log"
-      | "log2" | "max" | "min" | "mix" | "modf" | "normalize" | "pow" | "quantizeToF16"
-      | "radians" | "reflect" | "refract" | "round" | "sign" | "sin" | "sinh" | "saturate"
-      | "smoothstep" | "sqrt" | "step" | "tan" | "tanh" | "transpose" | "trunc" => true,
+      "abs" | "acos" | "acosh" | "asin" | "asinh" | "atan" | "atan2" | "atanh" | "ceil"
+      | "clamp" | "cos" | "cosh" | "countLeadingZeros" | "countOneBits" | "countTrailingZeros"
+      | "cross" | "degrees" | "distance" | "dot" | "exp" | "exp2" | "extractBits "
+      | "faceForward" | "firstLeadingBit" | "firstTrailingBit" | "floor" | "fma" | "fract"
+      | "frexp" | "insertBits" | "inverseSqrt" | "ldexp" | "length" | "log" | "log2" | "max"
+      | "min" | "mix" | "modf" | "normalize" | "pow" | "quantizeToF16" | "radians" | "reflect"
+      | "refract" | "round" | "sign" | "sin" | "sinh" | "saturate" | "smoothstep" | "sqrt"
+      | "step" | "tan" | "tanh" | "transpose" | "trunc" => true,
       // https://www.w3.org/TR/WGSL/#construction-from-components
       "f32" | "f16" | "u32" | "i32" | "bool" => true,
       // https://www.w3.org/TR/WGSL/#derivative-builtin-functions
