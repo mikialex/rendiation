@@ -133,18 +133,47 @@ pub const fn max_arr<const N: usize>(input: [usize; N]) -> usize {
 }
 
 #[repr(C, align(16))]
-#[derive(Clone, Copy, Default)]
+#[derive(Clone, Copy, Default, Debug)]
 pub struct Shader140ArrayWrapper<T> {
   pub inner: T,
+}
+
+impl<T> From<T> for Shader140ArrayWrapper<T> {
+  fn from(inner: T) -> Self {
+    Self { inner }
+  }
 }
 
 unsafe impl<T: Zeroable> Zeroable for Shader140ArrayWrapper<T> {}
 unsafe impl<T: Pod> Pod for Shader140ArrayWrapper<T> {}
 
 #[repr(C)]
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 pub struct Shader140Array<T, const U: usize> {
   pub inner: [Shader140ArrayWrapper<T>; U],
+}
+
+impl<T, const U: usize> From<[T; U]> for Shader140Array<T, U> {
+  fn from(value: [T; U]) -> Self {
+    Self {
+      inner: value.map(Into::into),
+    }
+  }
+}
+
+impl<T, const U: usize> TryFrom<Vec<T>> for Shader140Array<T, U> {
+  type Error = &'static str; // todo improve
+
+  fn try_from(value: Vec<T>) -> Result<Self, Self::Error> {
+    let inner = value
+      .into_iter()
+      .map(Into::into)
+      .collect::<Vec<_>>()
+      .try_into()
+      .map_err(|_| "length too big for array")?;
+
+    Ok(Self { inner })
+  }
 }
 
 /// note: rust std does't impl Default

@@ -19,6 +19,36 @@ pub struct ShaderSamplingWeights {
   pub weight_count: u32,
 }
 
+impl ShaderSamplingWeights {
+  pub fn gaussian(kernel_radius: usize) -> Self {
+    let size = 2. * kernel_radius as f32 + 1.;
+    let sigma = (size + 1.) / 6.;
+    let two_sigma_square = 2.0 * sigma * sigma;
+    let sigma_root = (two_sigma_square * f32::PI()).sqrt();
+
+    let mut weights = Vec::new();
+    let mut total = 0.0;
+    // for (let i = -kernelRadius; i <= kernelRadius; ++i) {
+    //     const distance = i * i;
+    //     const index = i + kernelRadius;
+    //     weights[index] = Math.exp(-distance / twoSigmaSquare) / sigmaRoot;
+    //     total += weights[index];
+    // }
+    // for (let i = 0; i < weights.length; i++) {
+    //     weights[i] /= total;
+    // }
+    let weight_count = weights.len();
+
+    let weights = vec![0.; 32].try_into().unwrap();
+    let weight_count = 32;
+    Self {
+      weights,
+      weight_count,
+      ..Zeroable::zeroed()
+    }
+  }
+}
+
 pub struct LinearBlurTask<'a, T> {
   input: AttachmentView<T>,
   config: &'a UniformBufferDataView<LinearBlurConfig>,
@@ -74,6 +104,27 @@ pub struct CrossBlurData {
   x: UniformBufferDataView<LinearBlurConfig>,
   y: UniformBufferDataView<LinearBlurConfig>,
   weights: UniformBufferDataView<ShaderSamplingWeights>,
+}
+
+impl CrossBlurData {
+  pub fn new(gpu: &GPU) -> Self {
+    let x = LinearBlurConfig {
+      direction: Vec2::new(1., 0.),
+      ..Zeroable::zeroed()
+    };
+    let y = LinearBlurConfig {
+      direction: Vec2::new(0., 1.),
+      ..Zeroable::zeroed()
+    };
+    let x = UniformBufferDataResource::create_with_source(x, &gpu.device).create_default_view();
+    let y = UniformBufferDataResource::create_with_source(y, &gpu.device).create_default_view();
+
+    let weights = ShaderSamplingWeights::gaussian(32);
+    let weights =
+      UniformBufferDataResource::create_with_source(weights, &gpu.device).create_default_view();
+
+    Self { x, y, weights }
+  }
 }
 
 pub fn draw_linear_blur<'a, T: AsRef<Attachment> + 'a>(
