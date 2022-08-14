@@ -26,6 +26,11 @@ pub struct LinearBlurTask<'a, T> {
 }
 
 impl<'a, T> ShaderHashProvider for LinearBlurTask<'a, T> {}
+impl<'a, T> ShaderHashProviderAny for LinearBlurTask<'a, T> {
+  fn hash_pipeline_and_with_type_id(&self, hasher: &mut PipelineHasher) {
+    self.config.type_id().hash(hasher);
+  }
+}
 impl<'a, T> ShaderGraphProvider for LinearBlurTask<'a, T> {
   fn build(
     &self,
@@ -56,14 +61,13 @@ impl<'a, T> ShaderPassBuilder for LinearBlurTask<'a, T> {
   }
 }
 
-pub fn draw_cross_blur<T>(
+pub fn draw_cross_blur<T: AsRef<Attachment>>(
   config: &CrossBlurData,
   input: AttachmentView<T>,
   ctx: &mut FrameCtx,
 ) -> Attachment {
   let x_result = draw_linear_blur(&config.x, &config.weights, input, ctx);
-  let y_result = draw_linear_blur(&config.y, &config.weights, x_result.read(), ctx);
-  y_result
+  draw_linear_blur(&config.y, &config.weights, x_result.read_into(), ctx)
 }
 
 pub struct CrossBlurData {
@@ -72,17 +76,15 @@ pub struct CrossBlurData {
   weights: UniformBufferDataView<ShaderSamplingWeights>,
 }
 
-pub fn draw_linear_blur<T>(
-  config: &UniformBufferDataView<LinearBlurConfig>,
-  weights: &UniformBufferDataView<ShaderSamplingWeights>,
+pub fn draw_linear_blur<'a, T: AsRef<Attachment> + 'a>(
+  config: &'a UniformBufferDataView<LinearBlurConfig>,
+  weights: &'a UniformBufferDataView<ShaderSamplingWeights>,
   input: AttachmentView<T>,
   ctx: &mut FrameCtx,
 ) -> Attachment {
-  let attachment: &Attachment = todo!();
-  let des = attachment.des().clone();
-  let dst = des.request(ctx);
+  let mut dst = input.resource().as_ref().des().clone().request(ctx);
 
-  let task = LinearBlurTask {
+  let task: LinearBlurTask<'a, T> = LinearBlurTask {
     input,
     config,
     weights,

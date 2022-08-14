@@ -58,6 +58,12 @@ pub struct Attachment {
   key: PooledTextureKey,
 }
 
+impl AsRef<Attachment> for Attachment {
+  fn as_ref(&self) -> &Attachment {
+    self
+  }
+}
+
 /// When it drops, return the texture to the reusing pool;
 impl Drop for Attachment {
   fn drop(&mut self) {
@@ -75,7 +81,7 @@ impl Attachment {
   pub fn write(&mut self) -> AttachmentView<&mut Self> {
     let view = self.texture.create_view(()).into();
     AttachmentView {
-      _resource: self,
+      resource: self,
       view,
     }
   }
@@ -83,7 +89,7 @@ impl Attachment {
   pub fn read(&self) -> AttachmentView<&Self> {
     assert_eq!(self.des.sample_count, 1); // todo support latter
     AttachmentView {
-      _resource: self,
+      resource: self,
       view: self.texture.create_view(()).into(),
     }
   }
@@ -92,15 +98,21 @@ impl Attachment {
     assert_eq!(self.des.sample_count, 1); // todo support latter
     let view = self.texture.create_view(()).into();
     AttachmentView {
-      _resource: self,
+      resource: self,
       view,
     }
   }
 }
 
 pub struct AttachmentView<T> {
-  _resource: T,
+  resource: T,
   pub(super) view: RenderTargetView,
+}
+
+impl<T> AttachmentView<T> {
+  pub fn resource(&self) -> &T {
+    &self.resource
+  }
 }
 
 impl<T> BindingSource for AttachmentView<T> {

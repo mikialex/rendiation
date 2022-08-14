@@ -33,7 +33,7 @@ impl HighLighter {
 
 impl HighLighter {
   /// We expose this function for users could use any input.
-  pub fn draw_result<T: 'static>(&self, mask: AttachmentView<T>) -> impl PassContent + '_ {
+  pub fn draw_result<'a, T: 'a>(&'a self, mask: AttachmentView<T>) -> impl PassContent + 'a {
     HighLightComposeTask {
       mask,
       lighter: self,
