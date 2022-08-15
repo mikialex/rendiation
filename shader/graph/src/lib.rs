@@ -1,4 +1,3 @@
-#![feature(specialization)]
 #![feature(const_type_name)]
 #![allow(incomplete_features)]
 

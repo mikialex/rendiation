@@ -71,7 +71,7 @@ impl ShaderGraphProvider for FatlineMaterialGPU {
   }
 }
 
-wgsl_function!(
+wgsl_fn!(
   fn fatline_vertex(
     projection: mat4x4<f32>,
     view: mat4x4<f32>,
@@ -113,15 +113,15 @@ wgsl_function!(
       var dir = ndcEnd - ndcStart;
 
       // account for clip-space aspect ratio
-      dir.x = dir.x * aspect;
+      dir.x *= aspect;
       dir = normalize(dir);
 
       // perpendicular to dir
       var offset = vec2<f32>(dir.y, -dir.x);
 
       // undo aspect ratio adjustment
-      dir.x = dir.x / aspect;
-      offset.x = offset.x / aspect;
+      dir.x /= aspect;
+      offset.x /= aspect;
 
       // sign flip
       if (position.x < 0.0) {
@@ -130,13 +130,13 @@ wgsl_function!(
 
       // end caps
       if (position.y < 0.0) {
-          offset = offset - dir;
+          offset -= dir;
       } else if (position.y > 1.0) {
-          offset = offset + dir;
+          offset += dir;
       }
 
       // adjust for fatLineWidth
-      offset = offset * width;
+      offset *= width;
       // adjust for clip-space to screen-space conversion // maybe resolution should be based on viewport ...
       offset = offset / view_size.y;
 
@@ -154,7 +154,7 @@ wgsl_function!(
   }
 );
 
-wgsl_function!(
+wgsl_fn!(
   fn discard_fatline_round_corner(uv: vec2<f32>) -> bool {
     if (abs(vUv.y) > 1.0) {
       let a = vUv.x;

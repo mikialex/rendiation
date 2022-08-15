@@ -6,7 +6,7 @@ pub struct QuadVertexOut {
   pub uv: Vec2<f32>,
 }
 
-wgsl_function!(
+wgsl_fn!(
   fn generate_quad(
     vertex_index: u32
   ) -> QuadVertexOut {

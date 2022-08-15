@@ -2,7 +2,7 @@ use crate::*;
 
 pub struct CopyFrame<T> {
   sampler: ImmediateSampler,
-  source: AttachmentReadView<T>,
+  source: AttachmentView<T>,
 }
 struct CopyFrameTypeMark;
 impl<T> ShaderHashProvider for CopyFrame<T> {
@@ -15,7 +15,7 @@ impl<T> ShaderHashProviderAny for CopyFrame<T> {
   }
 }
 
-pub fn copy_frame<T>(source: AttachmentReadView<T>, blend: Option<BlendState>) -> impl PassContent {
+pub fn copy_frame<T>(source: AttachmentView<T>, blend: Option<BlendState>) -> impl PassContent {
   CopyFrame {
     source,
     sampler: Default::default(),

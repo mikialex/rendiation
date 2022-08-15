@@ -34,6 +34,13 @@ pub fn derive_shader_struct(input: TokenStream) -> TokenStream {
 /// Validate the struct if possible to create std140 memory layout version.
 ///
 /// Convert the struct into std140 version by type mapping and insert correct paddings between fields
+///
+/// Note: some primitive types, like bool, Mat3<f32> have totally different memory layouts that we can't
+/// insert padding into type itself. In this situation, the user should use their pre converted type like
+/// Bool, Std140Mat3 instead of the original one.
+///
+/// The other design choice is, theoretically we could directly convert the field into the std140 one for bool and mat3,
+/// but we don't, because this will cause too many confuse in users's code.
 #[proc_macro_attribute]
 pub fn std140_layout(_args: TokenStream, input: TokenStream) -> TokenStream {
   let input = parse_macro_input!(input as syn::DeriveInput);

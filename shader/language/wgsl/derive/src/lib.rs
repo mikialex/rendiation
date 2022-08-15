@@ -1,13 +1,21 @@
+#![feature(proc_macro_span)]
+
 use proc_macro::TokenStream;
-// use crate::shader::gen_meta_name;
 use quote::{format_ident, quote};
 use shader_derives_shared::*;
 use wgsl_parser::*;
 
 /// Create shadergraph function by parsing wgsl source code.
 #[proc_macro]
-pub fn wgsl_function(input: TokenStream) -> TokenStream {
-  let input = format!("{}", input);
+pub fn wgsl_fn(input: TokenStream) -> TokenStream {
+  let input = input
+    .into_iter()
+    .map(|t| t.span())
+    .reduce(|p, n| p.join(n).unwrap())
+    .unwrap()
+    .source_text()
+    .unwrap();
+
   gen_wgsl_function(input.as_str()).into()
 }
 
@@ -21,7 +29,7 @@ fn gen_wgsl_function(wgsl: &str) -> proc_macro2::TokenStream {
     .iter()
     .map(|f_name| {
       let name = gen_fn_meta_name(f_name);
-      quote! { #name, }
+      quote! { & #name, }
     })
     .collect();
 

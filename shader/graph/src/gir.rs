@@ -318,12 +318,52 @@ pub enum ShaderFieldDecorator {
   Location(usize),
 }
 
+/// This trait is to mapping the real struct ty into the shadergraph node ty.
+/// These types may be different because the std140 type substitution
 pub trait ShaderFieldTypeMapper {
   type ShaderType: ShaderStructMemberValueNodeType;
 }
 
-impl<T: ShaderStructMemberValueNodeType> ShaderFieldTypeMapper for T {
-  type ShaderType = T;
+// Impl notes:
+//
+// impl<T: ShaderStructMemberValueNodeType> ShaderFieldTypeMapper for T {
+//   type ShaderType = T;
+// }
+//
+// The reason we can not use this(above) with default ShaderType specialization is
+//  the compiler can't infer this type equality:
+// `let v: <rendiation_algebra::Vec4<f32> as ShaderFieldTypeMapper>::ShaderType = Vec4::default();`
+//
+//  So we have to impl for all the types we know
+
+macro_rules! shader_field_ty_mapper {
+  ($src:ty, $dst:ty) => {
+    impl ShaderFieldTypeMapper for $src {
+      type ShaderType = $dst;
+    }
+  };
+}
+
+// standard
+shader_field_ty_mapper!(f32, Self);
+shader_field_ty_mapper!(u32, Self);
+shader_field_ty_mapper!(i32, Self);
+shader_field_ty_mapper!(Vec2<f32>, Self);
+shader_field_ty_mapper!(Vec3<f32>, Self);
+shader_field_ty_mapper!(Vec4<f32>, Self);
+shader_field_ty_mapper!(Mat2<f32>, Self);
+shader_field_ty_mapper!(Mat3<f32>, Self);
+shader_field_ty_mapper!(Mat4<f32>, Self);
+
+// std140
+shader_field_ty_mapper!(Shader140Mat2, Mat2<f32>);
+shader_field_ty_mapper!(Shader140Mat3, Mat3<f32>);
+shader_field_ty_mapper!(Bool, bool);
+
+impl<T: ShaderStructMemberValueNodeType, const U: usize> ShaderFieldTypeMapper
+  for Shader140Array<T, U>
+{
+  type ShaderType = [T; U];
 }
 
 #[derive(Debug)]
@@ -366,7 +406,7 @@ impl ShaderStructMetaInfoOwned {
   pub fn add_field<T: ShaderStructMemberValueNodeType>(mut self, name: &str) -> Self {
     self.fields.push(ShaderStructFieldMetaInfoOwned {
       name: name.to_owned(),
-      ty: T::TYPE,
+      ty: T::MEMBER_TYPE,
       ty_deco: None,
     });
     self
@@ -389,8 +429,8 @@ pub trait ShaderGraphNodeType: 'static + Copy {
   }
 }
 
-pub trait ShaderStructMemberValueNodeType {
-  const TYPE: ShaderStructMemberValueType;
+pub trait ShaderStructMemberValueNodeType: ShaderGraphNodeType {
+  const MEMBER_TYPE: ShaderStructMemberValueType;
 }
 
 pub trait PrimitiveShaderGraphNodeType: ShaderGraphNodeType + Default {
@@ -398,6 +438,7 @@ pub trait PrimitiveShaderGraphNodeType: ShaderGraphNodeType + Default {
   fn to_primitive(&self) -> PrimitiveShaderValue;
 }
 
+/// Mark self type could use as vertex buffer input
 pub trait VertexInShaderGraphNodeType: PrimitiveShaderGraphNodeType {
   fn to_vertex_format() -> VertexFormat;
 }

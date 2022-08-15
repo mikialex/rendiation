@@ -1,116 +1,83 @@
 use crate::*;
 
-impl<T: PrimitiveShaderGraphNodeType> ShaderGraphNodeType for T {
-  const TYPE: ShaderValueType =
-    ShaderValueType::Fixed(ShaderStructMemberValueType::Primitive(T::PRIMITIVE_TYPE));
+macro_rules! sg_node_impl {
+  ($ty: ty, $ty_value: expr) => {
+    impl ShaderGraphNodeType for $ty {
+      const TYPE: ShaderValueType = $ty_value;
+    }
+  };
 }
 
-impl<T: PrimitiveShaderGraphNodeType> ShaderStructMemberValueNodeType for T {
-  const TYPE: ShaderStructMemberValueType =
-    ShaderStructMemberValueType::Primitive(T::PRIMITIVE_TYPE);
+sg_node_impl!(AnyType, ShaderValueType::Never);
+sg_node_impl!(ShaderSampler, ShaderValueType::Sampler);
+sg_node_impl!(ShaderCompareSampler, ShaderValueType::CompareSampler);
+
+// Impl Notes:
+//
+// impl<T: PrimitiveShaderGraphNodeType> ShaderGraphNodeType for T {
+//   const TYPE: ShaderValueType =
+//     ShaderValueType::Fixed(ShaderStructMemberValueType::Primitive(T::PRIMITIVE_TYPE));
+// }
+// impl<T: PrimitiveShaderGraphNodeType> ShaderStructMemberValueNodeType for T {
+//   const TYPE: ShaderStructMemberValueType =
+//     ShaderStructMemberValueType::Primitive(T::PRIMITIVE_TYPE);
+// }
+//
+// We can not use above auto impl but the macro because rust not support trait associate const specialization
+
+/// Impl note: why we not use the follow code instead of macro?
+macro_rules! primitive_ty {
+  ($ty: ty, $primitive_ty_value: expr, $to_primitive: expr) => {
+    sg_node_impl!(
+      $ty,
+      ShaderValueType::Fixed(ShaderStructMemberValueType::Primitive($primitive_ty_value))
+    );
+
+    impl ShaderStructMemberValueNodeType for $ty {
+      const MEMBER_TYPE: ShaderStructMemberValueType =
+        ShaderStructMemberValueType::Primitive($primitive_ty_value);
+    }
+
+    impl PrimitiveShaderGraphNodeType for $ty {
+      const PRIMITIVE_TYPE: PrimitiveShaderValueType = $primitive_ty_value;
+      fn to_primitive(&self) -> PrimitiveShaderValue {
+        $to_primitive(*self)
+      }
+    }
+  };
 }
 
-impl ShaderGraphNodeType for AnyType {
-  const TYPE: ShaderValueType = ShaderValueType::Never;
+// we group them together just to skip rustfmt entirely
+#[rustfmt::skip]
+mod impls {
+  use crate::*;
+  primitive_ty!(bool, PrimitiveShaderValueType::Bool,  PrimitiveShaderValue::Bool);
+  primitive_ty!(u32, PrimitiveShaderValueType::Uint32,  PrimitiveShaderValue::Uint32);
+  primitive_ty!(i32, PrimitiveShaderValueType::Int32,  PrimitiveShaderValue::Int32);
+  primitive_ty!(f32, PrimitiveShaderValueType::Float32,  PrimitiveShaderValue::Float32);
+  primitive_ty!(Vec2<f32>, PrimitiveShaderValueType::Vec2Float32,  PrimitiveShaderValue::Vec2Float32);
+  primitive_ty!(Vec3<f32>, PrimitiveShaderValueType::Vec3Float32,  PrimitiveShaderValue::Vec3Float32);
+  primitive_ty!(Vec4<f32>, PrimitiveShaderValueType::Vec4Float32,  PrimitiveShaderValue::Vec4Float32);
+  primitive_ty!(Mat2<f32>, PrimitiveShaderValueType::Mat2Float32,  PrimitiveShaderValue::Mat2Float32);
+  primitive_ty!(Mat3<f32>, PrimitiveShaderValueType::Mat3Float32,  PrimitiveShaderValue::Mat3Float32);
+  primitive_ty!(Mat4<f32>, PrimitiveShaderValueType::Mat4Float32,  PrimitiveShaderValue::Mat4Float32);
 }
 
-impl PrimitiveShaderGraphNodeType for bool {
-  const PRIMITIVE_TYPE: PrimitiveShaderValueType = PrimitiveShaderValueType::Bool;
-  fn to_primitive(&self) -> PrimitiveShaderValue {
-    PrimitiveShaderValue::Bool(*self)
-  }
+macro_rules! vertex_input_node_impl {
+  ($ty: ty, $format: expr) => {
+    impl VertexInShaderGraphNodeType for $ty {
+      fn to_vertex_format() -> VertexFormat {
+        $format
+      }
+    }
+  };
 }
+vertex_input_node_impl!(f32, VertexFormat::Float32);
+vertex_input_node_impl!(Vec2<f32>, VertexFormat::Float32x2);
+vertex_input_node_impl!(Vec3<f32>, VertexFormat::Float32x3);
+vertex_input_node_impl!(Vec4<f32>, VertexFormat::Float32x4);
 
-impl PrimitiveShaderGraphNodeType for u32 {
-  const PRIMITIVE_TYPE: PrimitiveShaderValueType = PrimitiveShaderValueType::Uint32;
-  fn to_primitive(&self) -> PrimitiveShaderValue {
-    PrimitiveShaderValue::Uint32(*self)
-  }
-}
-impl PrimitiveShaderGraphNodeType for i32 {
-  const PRIMITIVE_TYPE: PrimitiveShaderValueType = PrimitiveShaderValueType::Int32;
-  fn to_primitive(&self) -> PrimitiveShaderValue {
-    PrimitiveShaderValue::Int32(*self)
-  }
-}
-
-impl PrimitiveShaderGraphNodeType for f32 {
-  const PRIMITIVE_TYPE: PrimitiveShaderValueType = PrimitiveShaderValueType::Float32;
-  fn to_primitive(&self) -> PrimitiveShaderValue {
-    PrimitiveShaderValue::Float32(*self)
-  }
-}
-
-impl VertexInShaderGraphNodeType for f32 {
-  fn to_vertex_format() -> VertexFormat {
-    VertexFormat::Float32
-  }
-}
-
-impl PrimitiveShaderGraphNodeType for Vec2<f32> {
-  const PRIMITIVE_TYPE: PrimitiveShaderValueType = PrimitiveShaderValueType::Vec2Float32;
-  fn to_primitive(&self) -> PrimitiveShaderValue {
-    PrimitiveShaderValue::Vec2Float32(*self)
-  }
-}
-impl VertexInShaderGraphNodeType for Vec2<f32> {
-  fn to_vertex_format() -> VertexFormat {
-    VertexFormat::Float32x2
-  }
-}
-
-impl PrimitiveShaderGraphNodeType for Vec3<f32> {
-  const PRIMITIVE_TYPE: PrimitiveShaderValueType = PrimitiveShaderValueType::Vec3Float32;
-  fn to_primitive(&self) -> PrimitiveShaderValue {
-    PrimitiveShaderValue::Vec3Float32(*self)
-  }
-}
-impl VertexInShaderGraphNodeType for Vec3<f32> {
-  fn to_vertex_format() -> VertexFormat {
-    VertexFormat::Float32x3
-  }
-}
-
-impl PrimitiveShaderGraphNodeType for Vec4<f32> {
-  const PRIMITIVE_TYPE: PrimitiveShaderValueType = PrimitiveShaderValueType::Vec4Float32;
-  fn to_primitive(&self) -> PrimitiveShaderValue {
-    PrimitiveShaderValue::Vec4Float32(*self)
-  }
-}
-impl VertexInShaderGraphNodeType for Vec4<f32> {
-  fn to_vertex_format() -> VertexFormat {
-    VertexFormat::Float32x4
-  }
-}
-
-impl ShaderGraphNodeType for ShaderSampler {
-  const TYPE: ShaderValueType = ShaderValueType::Sampler;
-}
-impl ShaderGraphNodeType for ShaderCompareSampler {
-  const TYPE: ShaderValueType = ShaderValueType::CompareSampler;
-}
-
-impl PrimitiveShaderGraphNodeType for Mat2<f32> {
-  const PRIMITIVE_TYPE: PrimitiveShaderValueType = PrimitiveShaderValueType::Mat2Float32;
-  fn to_primitive(&self) -> PrimitiveShaderValue {
-    PrimitiveShaderValue::Mat2Float32(*self)
-  }
-}
-
-impl PrimitiveShaderGraphNodeType for Mat3<f32> {
-  const PRIMITIVE_TYPE: PrimitiveShaderValueType = PrimitiveShaderValueType::Mat3Float32;
-  fn to_primitive(&self) -> PrimitiveShaderValue {
-    PrimitiveShaderValue::Mat3Float32(*self)
-  }
-}
-
-impl PrimitiveShaderGraphNodeType for Mat4<f32> {
-  const PRIMITIVE_TYPE: PrimitiveShaderValueType = PrimitiveShaderValueType::Mat4Float32;
-  fn to_primitive(&self) -> PrimitiveShaderValue {
-    PrimitiveShaderValue::Mat4Float32(*self)
-  }
-}
-
+// these impl not use macro because not helping
 impl ShaderGraphNodeType for ShaderTexture2D {
   const TYPE: ShaderValueType = ShaderValueType::Texture {
     dimension: TextureViewDimension::D2,
@@ -287,11 +254,4 @@ impl Node<ShaderSamplerCombinedTexture> {
     }
     .insert_graph()
   }
-}
-
-impl<T: ShaderStructMemberValueNodeType, const N: usize> ShaderStructMemberValueNodeType
-  for [T; N]
-{
-  const TYPE: ShaderStructMemberValueType =
-    ShaderStructMemberValueType::FixedSizeArray((&T::TYPE, N));
 }

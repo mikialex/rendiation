@@ -92,7 +92,6 @@ impl<T: ShadingBackground> ShaderGraphProvider for ShadingBackgroundTask<T> {
     &self,
     builder: &mut ShaderGraphRenderPipelineBuilder,
   ) -> Result<(), ShaderGraphBuildError> {
-    // logic
     let direction = builder.vertex(|builder, _| {
       let proj_inv = builder.query::<CameraProjectionMatrix>()?.get().inverse();
       let view = builder.query::<CameraViewMatrix>()?.get();
@@ -103,16 +102,16 @@ impl<T: ShadingBackground> ShaderGraphProvider for ShadingBackgroundTask<T> {
   }
 }
 
-wgsl_function!(
+wgsl_fn!(
   fn background_direction(vertex_index: u32, view: mat4x4<f32>, projection_inv: mat4x4<f32>) -> vec3<f32> {
     // hacky way to draw a large triangle
     let tmp1 = i32(vertex_index) / 2;
     let tmp2 = i32(vertex_index) & 1;
     let pos = vec4<f32>(
-        f32(tmp1) * 4.0 - 1.0,
-        f32(tmp2) * 4.0 - 1.0,
-        1.0,
-        1.0
+      f32(tmp1) * 4.0 - 1.0,
+      f32(tmp2) * 4.0 - 1.0,
+      1.0,
+      1.0
     );
 
     // transposition = inversion for this orthonormal matrix
