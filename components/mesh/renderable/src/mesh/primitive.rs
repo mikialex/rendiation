@@ -8,10 +8,6 @@ pub trait PrimitiveData<U> {
   fn from_data(data: &U, offset: usize) -> Self;
 }
 
-pub trait IndexedPrimitiveData<U, IU>: PrimitiveData<U> {
-  fn from_indexed_data(index: &IU, data: &U, offset: usize) -> Self;
-}
-
 impl<T, U> PrimitiveData<U> for Triangle<T>
 where
   T: Copy,
@@ -22,28 +18,6 @@ where
     let a = data.index_get(offset).unwrap();
     let b = data.index_get(offset + 1).unwrap();
     let c = data.index_get(offset + 2).unwrap();
-    Triangle { a, b, c }
-  }
-}
-
-impl<I, T, U, IU> IndexedPrimitiveData<U, IU> for Triangle<T>
-where
-  I: IndexType,
-  T: Copy,
-  U: IndexGet<Output = T>,
-  IU: IndexGet<Output = I>,
-{
-  #[inline(always)]
-  fn from_indexed_data(index: &IU, data: &U, offset: usize) -> Self {
-    let a = data
-      .index_get(index.index_get(offset).unwrap().into_usize())
-      .unwrap();
-    let b = data
-      .index_get(index.index_get(offset + 1).unwrap().into_usize())
-      .unwrap();
-    let c = data
-      .index_get(index.index_get(offset + 2).unwrap().into_usize())
-      .unwrap();
     Triangle { a, b, c }
   }
 }
@@ -61,25 +35,6 @@ where
   }
 }
 
-impl<I, T, U, IU> IndexedPrimitiveData<U, IU> for LineSegment<T>
-where
-  I: IndexType,
-  T: Copy,
-  U: IndexGet<Output = T>,
-  IU: IndexGet<Output = I>,
-{
-  #[inline(always)]
-  fn from_indexed_data(index: &IU, data: &U, offset: usize) -> Self {
-    let start = data
-      .index_get(index.index_get(offset).unwrap().into_usize())
-      .unwrap();
-    let end = data
-      .index_get(index.index_get(offset + 1).unwrap().into_usize())
-      .unwrap();
-    LineSegment::line_segment(start, end)
-  }
-}
-
 impl<T, U> PrimitiveData<U> for Point<T>
 where
   T: Copy,
@@ -91,37 +46,40 @@ where
   }
 }
 
-impl<I, T, U, IU> IndexedPrimitiveData<U, IU> for Point<T>
-where
-  I: IndexType,
-  T: Copy,
-  U: IndexGet<Output = T>,
-  IU: IndexGet<Output = I>,
-{
-  #[inline(always)]
-  fn from_indexed_data(index: &IU, data: &U, offset: usize) -> Self {
-    Point(
-      data
-        .index_get(index.index_get(offset).unwrap().into_usize())
-        .unwrap(),
-    )
-  }
-}
-
+/// we should move this trait to math/geometry?
 pub trait Functor {
   type Unwrapped;
   type Wrapped<B>: Functor;
 
-  fn map<F, B>(self, f: F) -> Self::Wrapped<B>
+  fn f_map<F, B>(self, f: F) -> Self::Wrapped<B>
   where
     F: FnMut(Self::Unwrapped) -> B;
 }
+
 impl<A> Functor for Triangle<A> {
   type Unwrapped = A;
   type Wrapped<B> = Triangle<B>;
 
-  fn map<F: FnMut(A) -> B, B>(self, mut f: F) -> Triangle<B> {
-    todo!()
+  fn f_map<F: FnMut(A) -> B, B>(self, f: F) -> Triangle<B> {
+    self.map(f)
+  }
+}
+
+impl<A> Functor for LineSegment<A> {
+  type Unwrapped = A;
+  type Wrapped<B> = LineSegment<B>;
+
+  fn f_map<F: FnMut(A) -> B, B>(self, f: F) -> LineSegment<B> {
+    self.map(f)
+  }
+}
+
+impl<A> Functor for Point<A> {
+  type Unwrapped = A;
+  type Wrapped<B> = Point<B>;
+
+  fn f_map<F: FnMut(A) -> B, B>(self, f: F) -> Point<B> {
+    self.map(f)
   }
 }
 

@@ -39,8 +39,8 @@ impl<V> Triangle<V> {
   }
 }
 
-impl<V: Copy> Triangle<V> {
-  pub fn map<U>(&self, f: impl Fn(V) -> U) -> Triangle<U> {
+impl<V> Triangle<V> {
+  pub fn map<U>(self, mut f: impl FnMut(V) -> U) -> Triangle<U> {
     Triangle {
       a: f(self.a),
       b: f(self.b),
@@ -48,7 +48,7 @@ impl<V: Copy> Triangle<V> {
     }
   }
   #[must_use]
-  pub fn flip(&self) -> Self {
+  pub fn flip(self) -> Self {
     Triangle {
       a: self.c,
       b: self.b,

@@ -87,8 +87,8 @@ impl<'a, V: Copy> Iterator for LineSegmentIter<'a, V> {
   }
 }
 
-impl<V: Copy> LineSegment<V> {
-  pub fn map<U>(&self, f: impl Fn(V) -> U) -> LineSegment<U> {
+impl<V> LineSegment<V> {
+  pub fn map<U>(self, mut f: impl FnMut(V) -> U) -> LineSegment<U> {
     LineSegment {
       start: f(self.start),
       end: f(self.end),
@@ -97,16 +97,19 @@ impl<V: Copy> LineSegment<V> {
   }
 
   #[must_use]
-  pub fn swap(&self) -> Self {
+  pub fn swap(self) -> Self {
     Self::line_segment(self.end, self.start)
   }
 
   #[must_use]
-  pub fn swap_if(&self, prediction: impl FnOnce(Self) -> bool) -> Self {
-    if prediction(*self) {
+  pub fn swap_if(self, prediction: impl FnOnce(Self) -> bool) -> Self
+  where
+    Self: Copy,
+  {
+    if prediction(self) {
       self.swap()
     } else {
-      *self
+      self
     }
   }
 }

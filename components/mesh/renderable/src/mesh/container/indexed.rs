@@ -249,7 +249,7 @@ where
   #[inline(always)]
   fn primitive_at(&self, primitive_index: usize) -> Self::Primitive {
     let index: T::Primitive<IU::Output> = self.index_primitive_at(primitive_index);
-    index.map(|i| self.vertex.index_get(i.into_usize()).unwrap())
+    index.f_map(|i| self.vertex.index_get(i.into_usize()).unwrap())
   }
 }
 
