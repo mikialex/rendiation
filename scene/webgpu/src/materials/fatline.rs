@@ -141,12 +141,7 @@ wgsl_fn!(
       offset = offset / view_size.y;
 
       // select end
-      var clip: vec4<f32>;
-      if (position.y < 0.5) {
-          clip = clipStart;
-      } else {
-          clip = clipEnd;
-      }
+      let clip = select(clipEnd, clipStart, position.y < 0.5);
 
       // back to clip space
       offset = offset * clip.w;
@@ -158,12 +153,7 @@ wgsl_fn!(
   fn discard_fatline_round_corner(uv: vec2<f32>) -> bool {
     if (abs(vUv.y) > 1.0) {
       let a = vUv.x;
-      let b: f32;
-      if (vUv.y > 0.0) {
-        b = vUv.y - 1.0;
-      } else {
-        b = vUv.y + 1.0;
-      }
+      let b = vUv.y + select(1.0, -1.0, vUv.y > 0.0);
       let len2 = a * a + b * b;
       if (len2 > 1.0) {
         return true;
