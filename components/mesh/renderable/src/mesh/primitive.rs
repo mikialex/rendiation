@@ -46,6 +46,8 @@ where
   }
 }
 
+pub type FunctorInner<T> = <T as Functor>::Unwrapped;
+pub type FunctorSelf<T, U> = <T as Functor>::Wrapped<U>;
 /// we should move this trait to math/geometry?
 pub trait Functor {
   type Unwrapped;

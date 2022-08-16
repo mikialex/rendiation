@@ -237,9 +237,10 @@ where
   IU: IndexContainer,
   T: PrimitiveTopologyMeta,
   T::Primitive<IU::Output>: PrimitiveData<IU> + Functor,
-  <T::Primitive<IU::Output> as Functor>::Unwrapped: IndexType,
+  FunctorInner<T::Primitive<IU::Output>>: IndexType,
 {
-  type Primitive = <T::Primitive<IU::Output> as Functor>::Wrapped<U::Output>;
+  // sadly we can not directly write T::Primitive<U::Output>
+  type Primitive = FunctorSelf<T::Primitive<IU::Output>, U::Output>;
 
   #[inline(always)]
   fn primitive_count(&self) -> usize {
@@ -259,7 +260,7 @@ where
   IU: IndexContainer,
   T: PrimitiveTopologyMeta,
   T::Primitive<IU::Output>: PrimitiveData<IU>,
-  <T::Primitive<IU::Output> as Functor>::Unwrapped: IndexType,
+  FunctorInner<T::Primitive<IU::Output>>: IndexType,
 {
   type IndexPrimitive = T::Primitive<IU::Output>;
 
