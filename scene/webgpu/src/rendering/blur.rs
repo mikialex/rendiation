@@ -26,7 +26,7 @@ impl ShaderSamplingWeights {
     let two_sigma_square = 2.0 * sigma * sigma;
     let sigma_root = (two_sigma_square * f32::PI()).sqrt();
 
-    let mut weights = Vec::new();
+    let mut weights: Vec<f32> = Vec::new();
     let mut total = 0.0;
     // for (let i = -kernelRadius; i <= kernelRadius; ++i) {
     //     const distance = i * i;

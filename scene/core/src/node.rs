@@ -7,10 +7,10 @@ pub type SceneNodeData = Identity<SceneNodeDataImpl>;
 pub type SceneNodeHandle = ArenaTreeNodeHandle<SceneNodeData>;
 
 pub struct SceneNodeDataImpl {
-  pub visible: bool,
   pub local_matrix: Mat4<f32>,
-  pub net_visible: bool,
   pub world_matrix: Mat4<f32>,
+  pub visible: bool,
+  pub net_visible: bool,
 }
 
 impl AsRef<Self> for SceneNodeDataImpl {

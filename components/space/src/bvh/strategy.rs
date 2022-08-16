@@ -1,4 +1,4 @@
-use rendiation_geometry::SurfaceAreaMeasure;
+use rendiation_geometry::SurfaceAreaMeasurable;
 
 use crate::utils::{bounding_from_build_source, CenterAblePrimitive, TreeBuildOption};
 
@@ -86,7 +86,7 @@ impl<B: BalanceTreeBounding> BVHBuildStrategy<B> for BalanceTree {
   }
 }
 
-pub trait SAHBounding: BalanceTreeBounding + Default + SurfaceAreaMeasure<f32> {
+pub trait SAHBounding: BalanceTreeBounding + Default + SurfaceAreaMeasurable<f32> {
   fn get_unit_from_center_by_axis(
     center: &<Self as CenterAblePrimitive>::Center,
     axis: Self::AxisType,
@@ -246,7 +246,7 @@ impl<B: SAHBounding> BVHBuildStrategy<B> for SAH<B> {
       });
 
     let mut best = 0;
-    let mut best_cost = std::f32::INFINITY;
+    let mut best_cost = f32::INFINITY;
     self
       .partition_decision
       .iter()

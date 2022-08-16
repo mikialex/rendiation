@@ -108,7 +108,7 @@ pub trait BufferLikeTexture2D: Texture2D {
   fn as_byte(&self) -> &[u8];
 }
 
-pub trait Texture2dSampleAble: Texture2D {
+pub trait Texture2DSampleAble: Texture2D {
   #[inline]
   fn sample_impl<T, Address, Filter>(
     &self,

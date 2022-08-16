@@ -1,6 +1,6 @@
 use rendiation_algebra::{Lerp, NormalizedVector, Scalar, Vec2, Vec3};
 
-use crate::{AddressMode, FilterMode, Texture2D, Texture2dSampleAble};
+use crate::{AddressMode, FilterMode, Texture2D, Texture2DSampleAble};
 
 // https://github.com/Hyper3D/hyper3d-envmapgen/blob/master/rust/src/cubemap.rs
 
@@ -21,7 +21,7 @@ where
 // http://www.cim.mcgill.ca/~langer/557/18-slides.pdf
 impl<P, T> CubeTexture<P, T>
 where
-  T: Texture2dSampleAble<Pixel = P>,
+  T: Texture2DSampleAble<Pixel = P>,
 {
   pub fn sample<S>(
     &self,

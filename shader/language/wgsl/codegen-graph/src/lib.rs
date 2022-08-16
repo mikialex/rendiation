@@ -601,8 +601,8 @@ fn gen_bind_entry(
       item_index,
       gen_type_impl(entry.0),
     ));
-    *item_index += 1;
   }
+  *item_index += 1;
 }
 
 fn gen_entry(

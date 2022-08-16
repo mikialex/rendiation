@@ -13,8 +13,8 @@ pub use background::*;
 pub mod model;
 pub use model::*;
 
-pub mod lights;
-pub use lights::*;
+pub mod light;
+pub use light::*;
 
 pub mod camera;
 pub use camera::*;

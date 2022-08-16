@@ -34,7 +34,7 @@ impl AddressMode {
 /// How edges should be handled in texture addressing.
 pub trait TextureAddressMode {
   const ENUM: AddressMode;
-  /// correct uv to [1, 1]
+  /// correct uv to [0, 1]
   fn correct<T: Scalar>(uv: T) -> T;
 }
 

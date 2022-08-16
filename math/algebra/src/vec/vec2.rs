@@ -9,15 +9,10 @@ pub struct Vec2<T> {
   pub y: T,
 }
 
-pub fn vec2<T>(x: T, y: T) -> Vec2<T> {
-  Vec2::new(x, y)
-}
-
 unsafe impl<T: bytemuck::Zeroable> bytemuck::Zeroable for Vec2<T> {}
 unsafe impl<T: bytemuck::Pod> bytemuck::Pod for Vec2<T> {}
 
 impl<T: Scalar> VectorDimension<2> for Vec2<T> {}
-impl<T: Scalar> VectorSelfCrateImpl for Vec2<T> {}
 impl<T: Scalar> RealVector<T> for Vec2<T> {}
 impl<T> VectorSpace<T> for Vec2<T> where
   T: Add<T, Output = T> + Sub<T, Output = T> + Mul<T, Output = T> + Div<T, Output = T> + Copy
@@ -29,7 +24,7 @@ impl<T: Scalar> InnerProductSpace<T> for Vec2<T> {
     self.x * b.x + self.y * b.y
   }
 }
-impl<T: One + Zero + Copy + Sub<T, Output = T>> Vector<T> for Vec2<T> {
+impl<T: One + Zero + Copy> Vector<T> for Vec2<T> {
   #[inline]
   fn create<F>(f: F) -> Self
   where

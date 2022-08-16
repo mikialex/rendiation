@@ -53,7 +53,7 @@ pub trait SpaceLineSegmentShape<T: Scalar, V> {
   {
     let delta = T::eval::<{ scalar_transmute(0.00001) }>();
     let t1 = (t - delta).max(T::zero());
-    let t2 = t + delta.min(T::one());
+    let t2 = (t + delta).min(T::one());
 
     let pt1 = self.sample(t1, start, end);
     let pt2 = self.sample(t2, start, end);
