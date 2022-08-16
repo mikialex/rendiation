@@ -236,9 +236,10 @@ where
   U: VertexContainer,
   IU: IndexContainer,
   T: PrimitiveTopologyMeta,
-  T::Primitive<U::Output>: IndexedPrimitiveData<U, IU>,
+  T::Primitive<IU::Output>: PrimitiveData<IU> + Functor,
+  <T::Primitive<IU::Output> as Functor>::Unwrapped: IndexType,
 {
-  type Primitive = T::Primitive<U::Output>;
+  type Primitive = <T::Primitive<IU::Output> as Functor>::Wrapped<U::Output>;
 
   #[inline(always)]
   fn primitive_count(&self) -> usize {
@@ -247,8 +248,8 @@ where
 
   #[inline(always)]
   fn primitive_at(&self, primitive_index: usize) -> Self::Primitive {
-    let index = primitive_index * T::STEP;
-    T::Primitive::from_indexed_data(&self.index, &self.vertex, index)
+    let index: T::Primitive<IU::Output> = self.index_primitive_at(primitive_index);
+    index.map(|i| self.vertex.index_get(i.into_usize()).unwrap())
   }
 }
 
@@ -257,14 +258,15 @@ where
   U: VertexContainer,
   IU: IndexContainer,
   T: PrimitiveTopologyMeta,
-  T::Primitive<U::Output>: IndexedPrimitiveData<U, IU>,
+  T::Primitive<IU::Output>: PrimitiveData<IU>,
+  <T::Primitive<IU::Output> as Functor>::Unwrapped: IndexType,
 {
-  type IndexPrimitive = <T::Primitive<U::Output> as IndexedPrimitiveData<U, IU>>::IndexIndicator;
+  type IndexPrimitive = T::Primitive<IU::Output>;
 
   #[inline(always)]
   fn index_primitive_at(&self, primitive_index: usize) -> Self::IndexPrimitive {
     let index = primitive_index * T::STEP;
-    T::Primitive::create_index_indicator(&self.index, index)
+    T::Primitive::<IU::Output>::from_data(&self.index, index)
   }
 }
 
