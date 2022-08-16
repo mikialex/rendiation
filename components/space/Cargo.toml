@@ -18,4 +18,5 @@ rendiation-algebra = {path = "../../math/algebra"}
 rendiation-geometry = {path = "../../math/geometry"}
 
 log = "0.4"
-rand = {version = "0.7.3", features = ["wasm-bindgen"]}
+rand = "0.8.5"
+rand_chacha = "0.3.1"

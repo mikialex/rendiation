@@ -114,6 +114,16 @@ impl<T: BinarySpaceTree<D, N>, const N: usize, const D: usize> BSTTreeBuilder<T,
   }
   fn apply_index_source(&mut self, index_source: &mut [usize], range: Range<usize>) {
     let mut start = range.start;
+
+    {
+      let mut count = 0;
+      self.crossed.iter().for_each(|&i| {
+        index_source[start + count] = i;
+        count += 1;
+      });
+      start += count;
+    }
+
     let ranges = &mut self.ranges;
     self
       .partitions
@@ -127,8 +137,7 @@ impl<T: BinarySpaceTree<D, N>, const N: usize, const D: usize> BSTTreeBuilder<T,
         });
         ranges[index] = start..start + count;
         start += count;
-      })
-    // TODO write crossed indices to index_source
+      });
   }
 }
 
@@ -199,18 +208,16 @@ impl<T: BinarySpaceTree<D, N>, const N: usize, const D: usize> BSTTree<T, N, D> 
       builder.apply_index_source(index_source, node.primitive_range.clone());
       (node_index, node.depth)
     };
-    let boundings = builder.bounding.clone();
+    let bounding = builder.bounding.clone();
     let ranges = builder.ranges.clone();
     // builder should not be used any more
-
-    // TODO skip child creation if all partitions are empty? (all crossed)
 
     let mut child = [0; N];
     for (i, range) in ranges.iter().enumerate() {
       let child_index = nodes.len();
       nodes.push(BSTNode {
         phantom: PhantomData,
-        bounding: boundings[i],
+        bounding: bounding[i],
         primitive_range: range.clone(),
         depth: depth + 1,
         self_index: child_index,
