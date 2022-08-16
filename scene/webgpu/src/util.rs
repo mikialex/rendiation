@@ -2,12 +2,14 @@ use crate::*;
 
 pub struct ValueIDGenerator<T> {
   inner: HashMap<T, usize>,
+  values: Vec<T>,
 }
 
 impl<T> Default for ValueIDGenerator<T> {
   fn default() -> Self {
     Self {
       inner: HashMap::default(),
+      values: Vec::new(),
     }
   }
 }
@@ -34,15 +36,18 @@ where
   T: Eq + Hash + Clone,
 {
   pub fn get_uuid(&mut self, v: &T) -> ValueID<T> {
-    let count = self.inner.len();
-    let id = self
-      .inner
-      .raw_entry_mut()
-      .from_key(v)
-      .or_insert_with(|| (v.clone(), count));
+    let count = self.values.len();
+    let id = self.inner.raw_entry_mut().from_key(v).or_insert_with(|| {
+      self.values.push(v.clone());
+      (v.clone(), count)
+    });
     ValueID {
       value: *id.1,
       ty: PhantomData,
     }
+  }
+
+  pub fn get_value(&self, id: ValueID<T>) -> Option<&T> {
+    return self.values.get(id.value);
   }
 }

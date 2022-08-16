@@ -110,7 +110,7 @@ pub struct StateControlGPU<T: WebGPUMaterial> {
 
 impl<T: WebGPUMaterial> ShaderHashProvider for StateControlGPU<T> {
   fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
-    self.state_id.get().hash(hasher); // todo where is updating
+    self.state_id.get().hash(hasher);
     self.gpu.hash_pipeline(hasher);
   }
 }
@@ -129,6 +129,15 @@ impl<T: WebGPUMaterial> ShaderGraphProvider for StateControlGPU<T> {
     &self,
     builder: &mut ShaderGraphRenderPipelineBuilder,
   ) -> Result<(), shadergraph::ShaderGraphBuildError> {
+    builder.fragment(|builder, _| {
+      STATE_ID
+        .lock()
+        .unwrap()
+        .get_value(self.state_id.get())
+        .unwrap()
+        .apply_pipeline_builder(builder);
+      Ok(())
+    })?;
     self.gpu.build(builder)
   }
 }
