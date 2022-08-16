@@ -241,11 +241,6 @@ where
   type Primitive = T::Primitive<U::Output>;
 
   #[inline(always)]
-  fn draw_count(&self) -> usize {
-    self.index.len()
-  }
-
-  #[inline(always)]
   fn primitive_count(&self) -> usize {
     (self.index.len() - T::STRIDE) / T::STEP + 1
   }
@@ -270,5 +265,12 @@ where
   fn index_primitive_at(&self, primitive_index: usize) -> Self::IndexPrimitive {
     let index = primitive_index * T::STEP;
     T::Primitive::create_index_indicator(&self.index, index)
+  }
+}
+
+impl<T, U, IU: CollectionSize> GPUConsumableMeshBuffer for IndexedMesh<T, U, IU> {
+  #[inline(always)]
+  fn draw_count(&self) -> usize {
+    self.index.len()
   }
 }

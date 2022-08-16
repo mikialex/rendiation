@@ -105,7 +105,7 @@ where
   V: Pod,
   IU: IndexGet + AsGPUBytes + IndexBufferSourceTypeProvider,
   V: ShaderGraphVertexInProvider,
-  IndexedMesh<T, Vec<V>, IU>: AbstractIndexMesh,
+  IndexedMesh<T, Vec<V>, IU>: GPUConsumableMeshBuffer,
   T: PrimitiveTopologyMeta,
 {
   type GPU = TypedMeshGPU<Self>;
@@ -175,7 +175,7 @@ impl<V, T, IU> IndexedMesh<T, Vec<V>, IU>
 where
   V: Pod,
   IU: IndexGet + AsGPUBytes + IndexBufferSourceTypeProvider,
-  Self: AbstractIndexMesh,
+  Self: GPUConsumableMeshBuffer,
 {
   pub fn create_gpu(&self, device: &gpu::Device) -> MeshGPU {
     let vertex = bytemuck::cast_slice(self.vertex.as_slice());

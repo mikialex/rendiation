@@ -31,16 +31,8 @@ impl<T: IndexGet<Output: IndexType> + CollectionSize> IndexContainer for T {}
 pub trait AbstractMesh {
   type Primitive;
 
-  fn draw_count(&self) -> usize;
   fn primitive_count(&self) -> usize;
   fn primitive_at(&self, primitive_index: usize) -> Self::Primitive;
-
-  fn get_full_group(&self) -> MeshGroup {
-    MeshGroup {
-      start: 0,
-      count: self.draw_count(),
-    }
-  }
 
   fn primitive_iter(&self) -> AbstractMeshIter<'_, Self>
   where
@@ -56,7 +48,7 @@ pub trait AbstractMesh {
   /// if the group outside the bound, will be clamped
   fn primitive_iter_group(&self, group: MeshGroup) -> AbstractMeshIter<'_, Self>
   where
-    Self: Sized,
+    Self: Sized + GPUConsumableMeshBuffer,
   {
     let draw_count = self.draw_count();
     let step = draw_count / self.primitive_count();
@@ -67,6 +59,19 @@ pub trait AbstractMesh {
       mesh: self,
       current: clamped_start,
       count: group.count.min(draw_count - clamped_start) / step,
+    }
+  }
+}
+
+/// Provide basic count and grouping info in gpu rendering ctx.
+/// Indicate this type could be used in gpu rendering (contains well specific vertex/index buffer)
+pub trait GPUConsumableMeshBuffer {
+  fn draw_count(&self) -> usize;
+
+  fn get_full_group(&self) -> MeshGroup {
+    MeshGroup {
+      start: 0,
+      count: self.draw_count(),
     }
   }
 }
@@ -122,7 +127,7 @@ pub trait AbstractIndexMesh: AbstractMesh {
   /// if the group outside the bound, will be clamped
   fn index_primitive_iter_group(&self, group: MeshGroup) -> AbstractIndexMeshIter<'_, Self>
   where
-    Self: Sized,
+    Self: Sized + GPUConsumableMeshBuffer,
   {
     let draw_count = self.draw_count();
     let step = draw_count / self.primitive_count();

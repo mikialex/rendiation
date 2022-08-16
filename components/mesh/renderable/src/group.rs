@@ -1,6 +1,6 @@
 use std::ops::Range;
 
-use crate::mesh::AbstractMesh;
+use crate::{mesh::AbstractMesh, GPUConsumableMeshBuffer};
 
 #[derive(Copy, Clone, Debug)]
 pub struct MeshGroup {
@@ -41,7 +41,7 @@ impl MeshGroupsInfo {
     }
   }
 
-  pub fn full_from_mesh<T: AbstractMesh>(mesh: &T) -> Self {
+  pub fn full_from_mesh<T: GPUConsumableMeshBuffer>(mesh: &T) -> Self {
     let mut ranges = MeshGroupsInfo::new();
     ranges.push(0, mesh.draw_count());
     ranges
@@ -71,7 +71,7 @@ impl<T> GroupedMesh<T> {
   }
 }
 
-impl<T: AbstractMesh> GroupedMesh<T> {
+impl<T: GPUConsumableMeshBuffer> GroupedMesh<T> {
   pub fn full(mesh: T) -> Self {
     let groups = MeshGroupsInfo::full_from_mesh(&mesh);
     Self { mesh, groups }

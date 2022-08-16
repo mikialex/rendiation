@@ -1,6 +1,9 @@
 use std::cell::Cell;
 
-use crate::group::{GroupedMesh, MeshDrawGroup, MeshGroup};
+use crate::{
+  group::{GroupedMesh, MeshDrawGroup, MeshGroup},
+  GPUConsumableMeshBuffer,
+};
 
 use super::AbstractMesh;
 use rendiation_algebra::Vec3;
@@ -48,7 +51,7 @@ impl Default for MeshBufferHitList {
 
 impl<G> IntersectAbleAbstractMesh for G
 where
-  G: AbstractMesh,
+  G: AbstractMesh + GPUConsumableMeshBuffer,
   G::Primitive: IntersectAble<Ray3, OptionalNearest<HitPoint3D>, Config>,
 {
   fn intersect_list(
@@ -107,7 +110,10 @@ pub trait IntersectAbleGroupedMesh {
   ) -> OptionalNearest<MeshBufferHitPoint>;
 }
 
-impl<T: IntersectAbleAbstractMesh + AbstractMesh> IntersectAbleGroupedMesh for GroupedMesh<T> {
+impl<T> IntersectAbleGroupedMesh for GroupedMesh<T>
+where
+  T: IntersectAbleAbstractMesh + AbstractMesh + GPUConsumableMeshBuffer,
+{
   fn intersect_list(
     &self,
     ray: Ray3,
