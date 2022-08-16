@@ -66,10 +66,11 @@ pub fn test_bst_build() {
 
   let root = tree.create_node_ref(0);
   visit(&"".into(), "root".into(), true, &root);
-  //TODO verify tree
+
+  //TODO test tree
 
   assert_eq!(
     COUNT,
     HashSet::<usize>::from_iter(tree.sorted_primitive_index.iter().cloned()).len()
-  )
+  );
 }

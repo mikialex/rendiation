@@ -210,7 +210,6 @@ impl<T: BinarySpaceTree<D, N>, const N: usize, const D: usize> BSTTree<T, N, D> 
     };
     let bounding = builder.bounding.clone();
     let ranges = builder.ranges.clone();
-    // builder should not be used any more
 
     let mut child = [0; N];
     for (i, range) in ranges.iter().enumerate() {
