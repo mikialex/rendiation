@@ -19,6 +19,15 @@ impl<T: IndexGet<Output: Copy> + CollectionSize> VertexContainer for T {}
 pub trait IndexContainer: IndexGet<Output: IndexType> + CollectionSize {}
 impl<T: IndexGet<Output: IndexType> + CollectionSize> IndexContainer for T {}
 
+// note3: we have tried abstract mesh parametrize over primitive
+// This is super useful and the final correct abstraction
+// but finally we meet conflict impl issue:
+//
+// impl<T, U, IU> AbstractMesh<T::Primitive<U::Output>> for IndexedMesh<T, U, IU>
+// impl<T, U, IU> AbstractMesh<T::Primitive<IU::Output>> for IndexedMesh<T, U, IU>
+//
+//  The type system can not reason about T::Primitive<U::Output> and T::Primitive<IU::Output> will be different types
+
 pub trait AbstractMesh {
   type Primitive;
 
