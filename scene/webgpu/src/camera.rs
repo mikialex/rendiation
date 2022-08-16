@@ -91,7 +91,7 @@ pub struct CameraGPUTransform {
 impl CameraGPU {
   pub fn update(&mut self, gpu: &GPU, camera: &Camera) -> &mut Self {
     self.ubo.resource.mutate(|uniform| {
-      let world_matrix = camera.node.visit(|node| node.local_matrix);
+      let world_matrix = camera.node.visit(|node| node.world_matrix);
       uniform.view = world_matrix.inverse_or_identity();
       uniform.rotation = world_matrix.extract_rotation_mat();
       uniform.projection = camera.projection_matrix;

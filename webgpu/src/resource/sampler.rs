@@ -36,6 +36,7 @@ impl InitResourceByAllocation for RawSampler {
 /// make desc hashable
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct GPUSamplerDescriptor {
+  /// How to deal with out of bounds accesses in the u (i.e. x) direction
   pub address_mode_u: AddressMode,
   /// How to deal with out of bounds accesses in the v (i.e. y) direction
   pub address_mode_v: AddressMode,

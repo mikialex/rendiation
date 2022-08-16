@@ -246,7 +246,7 @@ impl<B: SAHBounding> BVHBuildStrategy<B> for SAH<B> {
       });
 
     let mut best = 0;
-    let mut best_cost = std::f32::INFINITY;
+    let mut best_cost = f32::INFINITY;
     self
       .partition_decision
       .iter()

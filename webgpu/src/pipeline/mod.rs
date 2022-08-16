@@ -11,7 +11,7 @@ pub struct GPURenderPipeline {
 }
 
 impl GPURenderPipeline {
-  pub fn new(pipeline: gpu::RenderPipeline, bg_layouts: Vec<GPUBindGroupLayout>) -> Self {
+  fn new(pipeline: gpu::RenderPipeline, bg_layouts: Vec<GPUBindGroupLayout>) -> Self {
     let inner = GPURenderPipelineInner {
       pipeline,
       bg_layouts,
