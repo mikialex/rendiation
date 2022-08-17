@@ -22,6 +22,7 @@ use std::{
 impl<T, U, IU> IndexedMesh<T, U, IU>
 where
   Self: AbstractIndexMesh<IndexPrimitive = Triangle<IU::Output>>,
+  Self: AbstractMesh,
   IU: IndexContainer,
   U: Clone,
 {
@@ -48,7 +49,8 @@ where
 
 impl<T, U, IU> IndexedMesh<T, U, IU>
 where
-  Self: AbstractIndexMesh<IndexPrimitive = Triangle<IU::Output>, Primitive = Triangle<U::Output>>,
+  Self: AbstractIndexMesh<IndexPrimitive = Triangle<IU::Output>>,
+  Self: AbstractMesh<Primitive = Triangle<U::Output>>,
   U: VertexContainer + FromIterator<U::Output>,
   IU: IndexContainer,
   U::Output: Deref<Target = Vec3<f32>>,

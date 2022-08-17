@@ -233,36 +233,40 @@ impl<T, U, IU> IndexedMesh<T, U, IU> {
 
 impl<T, U, IU> AbstractMesh for IndexedMesh<T, U, IU>
 where
+  Self: AbstractIndexMesh,
   U: VertexContainer,
-  IU: IndexContainer,
   T: PrimitiveTopologyMeta,
-  T::Primitive<IU::Output>: PrimitiveData<IU> + Functor,
-  FunctorInner<T::Primitive<IU::Output>>: IndexType,
+  IndexPrimitiveOf<Self>: Functor<Unwrapped: IndexType>,
 {
   // sadly we can not directly write T::Primitive<U::Output>
-  type Primitive = FunctorSelf<T::Primitive<IU::Output>, U::Output>;
+  type Primitive = FunctorMapped<IndexPrimitiveOf<Self>, U::Output>;
+
+  #[inline(always)]
+  fn primitive_count(&self) -> usize {
+    AbstractIndexMesh::primitive_count(self)
+  }
+
+  #[inline(always)]
+  fn primitive_at(&self, primitive_index: usize) -> Self::Primitive {
+    let index = self.index_primitive_at(primitive_index);
+    index.f_map(|i| self.vertex.index_get(i.into_usize()).unwrap())
+  }
+}
+
+type IndexPrimitiveOf<T> = <T as AbstractIndexMesh>::IndexPrimitive;
+
+impl<T, U, IU> AbstractIndexMesh for IndexedMesh<T, U, IU>
+where
+  IU: IndexContainer,
+  T: PrimitiveTopologyMeta,
+  T::Primitive<IU::Output>: PrimitiveData<IU>,
+{
+  type IndexPrimitive = T::Primitive<IU::Output>;
 
   #[inline(always)]
   fn primitive_count(&self) -> usize {
     (self.index.len() - T::STRIDE) / T::STEP + 1
   }
-
-  #[inline(always)]
-  fn primitive_at(&self, primitive_index: usize) -> Self::Primitive {
-    let index: T::Primitive<IU::Output> = self.index_primitive_at(primitive_index);
-    index.f_map(|i| self.vertex.index_get(i.into_usize()).unwrap())
-  }
-}
-
-impl<T, U, IU> AbstractIndexMesh for IndexedMesh<T, U, IU>
-where
-  U: VertexContainer,
-  IU: IndexContainer,
-  T: PrimitiveTopologyMeta,
-  T::Primitive<IU::Output>: PrimitiveData<IU>,
-  FunctorInner<T::Primitive<IU::Output>>: IndexType,
-{
-  type IndexPrimitive = T::Primitive<IU::Output>;
 
   #[inline(always)]
   fn index_primitive_at(&self, primitive_index: usize) -> Self::IndexPrimitive {

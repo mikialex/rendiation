@@ -108,9 +108,10 @@ impl<'a, G: AbstractMesh> CollectionSize for AbstractMeshIter<'a, G> {
   }
 }
 
-pub trait AbstractIndexMesh: AbstractMesh {
+pub trait AbstractIndexMesh {
   type IndexPrimitive;
 
+  fn primitive_count(&self) -> usize;
   fn index_primitive_at(&self, primitive_index: usize) -> Self::IndexPrimitive;
 
   fn index_primitive_iter(&self) -> AbstractIndexMeshIter<'_, Self>
