@@ -229,16 +229,54 @@ impl<T, U, IU> IndexedMesh<T, U, IU> {
       _phantom: PhantomData,
     }
   }
+
+  pub fn as_index_view(&self) -> IndexView<Self> {
+    IndexView { mesh: self }
+  }
 }
 
 impl<T, U, IU> AbstractMesh for IndexedMesh<T, U, IU>
 where
+  for<'a> IndexView<'a, Self>: AbstractMesh<Primitive = T::Primitive<IU::Output>>,
   U: VertexContainer,
   IU: IndexContainer,
   T: PrimitiveTopologyMeta,
-  T::Primitive<U::Output>: IndexedPrimitiveData<U, IU>,
+  T::Primitive<IU::Output>: Functor<Unwrapped: IndexType>,
 {
-  type Primitive = T::Primitive<U::Output>;
+  // sadly we can not directly write T::Primitive<U::Output>
+  type Primitive = FunctorMapped<T::Primitive<IU::Output>, U::Output>;
+
+  #[inline(always)]
+  fn primitive_count(&self) -> usize {
+    self.as_index_view().primitive_count()
+  }
+
+  #[inline(always)]
+  fn primitive_at(&self, primitive_index: usize) -> Self::Primitive {
+    let index = self.as_index_view().primitive_at(primitive_index);
+    index.f_map(|i| self.vertex.index_get(i.into_usize()).unwrap())
+  }
+}
+
+pub struct IndexView<'a, T> {
+  pub mesh: &'a T,
+}
+
+impl<'a, T> std::ops::Deref for IndexView<'a, T> {
+  type Target = T;
+
+  fn deref(&self) -> &Self::Target {
+    self.mesh
+  }
+}
+
+impl<'a, T, U, IU> AbstractMesh for IndexView<'a, IndexedMesh<T, U, IU>>
+where
+  IU: IndexContainer,
+  T: PrimitiveTopologyMeta,
+  T::Primitive<IU::Output>: PrimitiveData<IU>,
+{
+  type Primitive = T::Primitive<IU::Output>;
 
   #[inline(always)]
   fn primitive_count(&self) -> usize {
@@ -248,23 +286,7 @@ where
   #[inline(always)]
   fn primitive_at(&self, primitive_index: usize) -> Self::Primitive {
     let index = primitive_index * T::STEP;
-    T::Primitive::from_indexed_data(&self.index, &self.vertex, index)
-  }
-}
-
-impl<T, U, IU> AbstractIndexMesh for IndexedMesh<T, U, IU>
-where
-  U: VertexContainer,
-  IU: IndexContainer,
-  T: PrimitiveTopologyMeta,
-  T::Primitive<U::Output>: IndexedPrimitiveData<U, IU>,
-{
-  type IndexPrimitive = <T::Primitive<U::Output> as IndexedPrimitiveData<U, IU>>::IndexIndicator;
-
-  #[inline(always)]
-  fn index_primitive_at(&self, primitive_index: usize) -> Self::IndexPrimitive {
-    let index = primitive_index * T::STEP;
-    T::Primitive::create_index_indicator(&self.index, index)
+    T::Primitive::<IU::Output>::from_data(&self.index, index)
   }
 }
 

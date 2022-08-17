@@ -1,6 +1,6 @@
 use std::ops::Range;
 
-use crate::{mesh::AbstractMesh, GPUConsumableMeshBuffer};
+use crate::GPUConsumableMeshBuffer;
 
 #[derive(Copy, Clone, Debug)]
 pub struct MeshGroup {

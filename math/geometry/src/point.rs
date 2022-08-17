@@ -23,8 +23,8 @@ where
   }
 }
 
-impl<U: Copy> Point<U> {
-  pub fn map<V>(&self, f: impl Fn(U) -> V) -> Point<V> {
+impl<U> Point<U> {
+  pub fn map<V>(self, mut f: impl FnMut(U) -> V) -> Point<V> {
     Point(f(self.0))
   }
 }

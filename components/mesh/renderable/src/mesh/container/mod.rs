@@ -19,15 +19,6 @@ impl<T: IndexGet<Output: Copy> + CollectionSize> VertexContainer for T {}
 pub trait IndexContainer: IndexGet<Output: IndexType> + CollectionSize {}
 impl<T: IndexGet<Output: IndexType> + CollectionSize> IndexContainer for T {}
 
-// note3: we have tried abstract mesh parametrize over primitive
-// This is super useful and the final correct abstraction
-// but finally we meet conflict impl issue:
-//
-// impl<T, U, IU> AbstractMesh<T::Primitive<U::Output>> for IndexedMesh<T, U, IU>
-// impl<T, U, IU> AbstractMesh<T::Primitive<IU::Output>> for IndexedMesh<T, U, IU>
-//
-//  The type system can not reason about T::Primitive<U::Output> and T::Primitive<IU::Output> will be different types
-
 pub trait AbstractMesh {
   type Primitive;
 
@@ -102,72 +93,6 @@ impl<'a, G: AbstractMesh> Iterator for AbstractMeshIter<'a, G> {
 }
 
 impl<'a, G: AbstractMesh> CollectionSize for AbstractMeshIter<'a, G> {
-  #[inline(always)]
-  fn len(&self) -> usize {
-    self.mesh.primitive_count() - self.current
-  }
-}
-
-pub trait AbstractIndexMesh: AbstractMesh {
-  type IndexPrimitive;
-
-  fn index_primitive_at(&self, primitive_index: usize) -> Self::IndexPrimitive;
-
-  fn index_primitive_iter(&self) -> AbstractIndexMeshIter<'_, Self>
-  where
-    Self: Sized,
-  {
-    AbstractIndexMeshIter {
-      mesh: self,
-      current: 0,
-      count: self.primitive_count(),
-    }
-  }
-
-  /// if the group outside the bound, will be clamped
-  fn index_primitive_iter_group(&self, group: MeshGroup) -> AbstractIndexMeshIter<'_, Self>
-  where
-    Self: Sized + GPUConsumableMeshBuffer,
-  {
-    let draw_count = self.draw_count();
-    let step = draw_count / self.primitive_count();
-
-    let clamped_start = group.start.min(draw_count);
-
-    AbstractIndexMeshIter {
-      mesh: self,
-      current: clamped_start,
-      count: group.count.min(draw_count - clamped_start) / step,
-    }
-  }
-}
-
-pub struct AbstractIndexMeshIter<'a, G> {
-  mesh: &'a G,
-  current: usize,
-  count: usize,
-}
-
-impl<'a, G: AbstractIndexMesh> Iterator for AbstractIndexMeshIter<'a, G> {
-  type Item = G::IndexPrimitive;
-
-  #[inline(always)]
-  fn next(&mut self) -> Option<Self::Item> {
-    if self.current == self.count {
-      return None;
-    }
-    let p = self.mesh.index_primitive_at(self.current);
-    self.current += 1;
-    Some(p)
-  }
-
-  fn size_hint(&self) -> (usize, Option<usize>) {
-    let len = self.mesh.primitive_count() - self.current;
-    (len, Some(len))
-  }
-}
-
-impl<'a, G: AbstractIndexMesh> CollectionSize for AbstractIndexMeshIter<'a, G> {
   #[inline(always)]
   fn len(&self) -> usize {
     self.mesh.primitive_count() - self.current

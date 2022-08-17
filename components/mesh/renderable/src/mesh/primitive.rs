@@ -8,12 +8,6 @@ pub trait PrimitiveData<U> {
   fn from_data(data: &U, offset: usize) -> Self;
 }
 
-pub trait IndexedPrimitiveData<U, IU>: PrimitiveData<U> {
-  type IndexIndicator;
-  fn from_indexed_data(index: &IU, data: &U, offset: usize) -> Self;
-  fn create_index_indicator(index: &IU, offset: usize) -> Self::IndexIndicator;
-}
-
 impl<T, U> PrimitiveData<U> for Triangle<T>
 where
   T: Copy,
@@ -24,37 +18,6 @@ where
     let a = data.index_get(offset).unwrap();
     let b = data.index_get(offset + 1).unwrap();
     let c = data.index_get(offset + 2).unwrap();
-    Triangle { a, b, c }
-  }
-}
-
-impl<I, T, U, IU> IndexedPrimitiveData<U, IU> for Triangle<T>
-where
-  I: IndexType,
-  T: Copy,
-  U: IndexGet<Output = T>,
-  IU: IndexGet<Output = I>,
-{
-  type IndexIndicator = Triangle<I>;
-  #[inline(always)]
-  fn from_indexed_data(index: &IU, data: &U, offset: usize) -> Self {
-    let a = data
-      .index_get(index.index_get(offset).unwrap().into_usize())
-      .unwrap();
-    let b = data
-      .index_get(index.index_get(offset + 1).unwrap().into_usize())
-      .unwrap();
-    let c = data
-      .index_get(index.index_get(offset + 2).unwrap().into_usize())
-      .unwrap();
-    Triangle { a, b, c }
-  }
-
-  #[inline(always)]
-  fn create_index_indicator(index: &IU, offset: usize) -> Self::IndexIndicator {
-    let a = index.index_get(offset).unwrap();
-    let b = index.index_get(offset + 1).unwrap();
-    let c = index.index_get(offset + 2).unwrap();
     Triangle { a, b, c }
   }
 }
@@ -72,32 +35,6 @@ where
   }
 }
 
-impl<I, T, U, IU> IndexedPrimitiveData<U, IU> for LineSegment<T>
-where
-  I: IndexType,
-  T: Copy,
-  U: IndexGet<Output = T>,
-  IU: IndexGet<Output = I>,
-{
-  type IndexIndicator = LineSegment<I>;
-  #[inline(always)]
-  fn from_indexed_data(index: &IU, data: &U, offset: usize) -> Self {
-    let start = data
-      .index_get(index.index_get(offset).unwrap().into_usize())
-      .unwrap();
-    let end = data
-      .index_get(index.index_get(offset + 1).unwrap().into_usize())
-      .unwrap();
-    LineSegment::line_segment(start, end)
-  }
-  #[inline(always)]
-  fn create_index_indicator(index: &IU, offset: usize) -> Self::IndexIndicator {
-    let start = index.index_get(offset).unwrap();
-    let end = index.index_get(offset + 1).unwrap();
-    LineSegment::line_segment(start, end)
-  }
-}
-
 impl<T, U> PrimitiveData<U> for Point<T>
 where
   T: Copy,
@@ -109,31 +46,47 @@ where
   }
 }
 
-impl<I, T, U, IU> IndexedPrimitiveData<U, IU> for Point<T>
-where
-  I: IndexType,
-  T: Copy,
-  U: IndexGet<Output = T>,
-  IU: IndexGet<Output = I>,
-{
-  type IndexIndicator = I;
-  #[inline(always)]
-  fn from_indexed_data(index: &IU, data: &U, offset: usize) -> Self {
-    Point(
-      data
-        .index_get(index.index_get(offset).unwrap().into_usize())
-        .unwrap(),
-    )
-  }
+pub type FunctorInner<T> = <T as Functor>::Unwrapped;
+pub type FunctorMapped<T, U> = <T as Functor>::Wrapped<U>;
+/// we should move this trait to math/geometry?
+pub trait Functor {
+  type Unwrapped;
+  type Wrapped<B>: Functor;
 
-  #[inline(always)]
-  fn create_index_indicator(index: &IU, offset: usize) -> Self::IndexIndicator {
-    index.index_get(offset).unwrap()
+  fn f_map<F, B>(self, f: F) -> Self::Wrapped<B>
+  where
+    F: FnMut(Self::Unwrapped) -> B;
+}
+
+impl<A> Functor for Triangle<A> {
+  type Unwrapped = A;
+  type Wrapped<B> = Triangle<B>;
+
+  fn f_map<F: FnMut(A) -> B, B>(self, f: F) -> Triangle<B> {
+    self.map(f)
+  }
+}
+
+impl<A> Functor for LineSegment<A> {
+  type Unwrapped = A;
+  type Wrapped<B> = LineSegment<B>;
+
+  fn f_map<F: FnMut(A) -> B, B>(self, f: F) -> LineSegment<B> {
+    self.map(f)
+  }
+}
+
+impl<A> Functor for Point<A> {
+  type Unwrapped = A;
+  type Wrapped<B> = Point<B>;
+
+  fn f_map<F: FnMut(A) -> B, B>(self, f: F) -> Point<B> {
+    self.map(f)
   }
 }
 
 pub trait PrimitiveTopologyMeta: 'static {
-  type Primitive<V>;
+  type Primitive<V>: Functor;
   const STEP: usize;
   const STRIDE: usize;
   const ENUM: PrimitiveTopology;

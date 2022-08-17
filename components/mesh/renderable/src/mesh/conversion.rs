@@ -21,7 +21,8 @@ use std::{
 
 impl<T, U, IU> IndexedMesh<T, U, IU>
 where
-  Self: AbstractIndexMesh<IndexPrimitive = Triangle<IU::Output>>,
+  for<'a> IndexView<'a, Self>: AbstractMesh<Primitive = Triangle<IU::Output>>,
+  Self: AbstractMesh,
   IU: IndexContainer,
   U: Clone,
 {
@@ -32,7 +33,7 @@ where
     let mut deduplicate_set = HashSet::<LineSegment<IU::Output>>::new();
     self
       .primitive_iter()
-      .zip(self.index_primitive_iter())
+      .zip(self.as_index_view().primitive_iter())
       .for_each(|(_, f)| {
         f.for_each_edge(|edge| {
           deduplicate_set.insert(edge.swap_if(|l| l.start < l.end));
@@ -48,7 +49,8 @@ where
 
 impl<T, U, IU> IndexedMesh<T, U, IU>
 where
-  Self: AbstractIndexMesh<IndexPrimitive = Triangle<IU::Output>, Primitive = Triangle<U::Output>>,
+  for<'a> IndexView<'a, Self>: AbstractMesh<Primitive = Triangle<IU::Output>>,
+  Self: AbstractMesh<Primitive = Triangle<U::Output>>,
   U: VertexContainer + FromIterator<U::Output>,
   IU: IndexContainer,
   U::Output: Deref<Target = Vec3<f32>>,
@@ -60,7 +62,7 @@ where
     let mut edges = HashMap::<LineSegment<IU::Output>, (usize, Option<usize>)>::new();
     self
       .primitive_iter()
-      .zip(self.index_primitive_iter())
+      .zip(self.as_index_view().primitive_iter())
       .enumerate()
       .for_each(|(face_id, (_, f))| {
         f.for_each_edge(|edge| {
@@ -92,7 +94,6 @@ where
   for<'a> &'a IU: IntoIterator<Item = IU::Output>,
   for<'a> &'a U: IntoIterator<Item = &'a U::Output>,
   U: VertexContainer,
-  Self: AbstractIndexMesh,
 {
   pub fn merge_vertex_by_sorting(
     &self,
@@ -176,7 +177,6 @@ where
 
 impl<T, U, IU> IndexedMesh<T, U, IU>
 where
-  Self: AbstractIndexMesh, // we add this bound for better semantic constraint
   U: Clone,
 {
   pub fn create_point_cloud(&self) -> NoneIndexedMesh<PointList, U> {
