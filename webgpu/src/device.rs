@@ -127,6 +127,9 @@ pub trait ShaderHashProvider {
   fn hash_pipeline(&self, _hasher: &mut PipelineHasher) {}
 }
 
+/// Some type is not 'static, which is not impl Any, but we still require shader hash
+/// impl with itself's type identity info. In this case, the user should impl this trait
+/// manually.
 pub trait ShaderHashProviderAny: ShaderHashProvider {
   fn hash_pipeline_and_with_type_id(&self, hasher: &mut PipelineHasher);
 }

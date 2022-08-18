@@ -25,7 +25,6 @@ impl<M: WebGPUMesh> ShaderGraphProvider for TransformInstanceGPU<M> {
     builder: &mut ShaderGraphRenderPipelineBuilder,
   ) -> Result<(), ShaderGraphBuildError> {
     self.mesh_gpu.build(builder)?;
-    builder.log_result = true;
     builder.vertex(|builder, _| {
       builder.register_vertex::<ShaderMat4VertexInput>(VertexStepMode::Instance);
 
