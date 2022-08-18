@@ -24,7 +24,7 @@ fn main() {
   let window_init_config = WindowConfig {
     size: (1200., 800.).into(),
     title: "viewer".to_owned(),
-    position: (500., 500.).into(),
+    position: (50., 50.).into(),
   };
 
   #[cfg(target_arch = "wasm32")]

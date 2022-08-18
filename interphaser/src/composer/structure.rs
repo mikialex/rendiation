@@ -276,3 +276,69 @@ where
     self.children.iter_mut().for_each(|c| c.event(model, event))
   }
 }
+
+/// using Enum Discriminant to decide if we should cache UI Component instance
+pub struct EnumMatcher<T> {
+  com: Option<(Box<dyn UIComponent<T>>, std::mem::Discriminant<T>)>,
+  matcher: Box<dyn Fn(&T) -> Box<dyn UIComponent<T>>>,
+}
+
+impl<T> EnumMatcher<T> {
+  pub fn by(matcher: impl Fn(&T) -> Box<dyn UIComponent<T>> + 'static) -> Self {
+    Self {
+      com: None,
+      matcher: Box::new(matcher),
+    }
+  }
+}
+
+impl<T> Component<T> for EnumMatcher<T> {
+  fn event(&mut self, model: &mut T, event: &mut EventCtx) {
+    if let Some((com, _)) = &mut self.com {
+      com.event(model, event)
+    }
+  }
+
+  fn update(&mut self, model: &T, ctx: &mut UpdateCtx) {
+    let current_dis = std::mem::discriminant(model);
+
+    let com = if let Some((com, dis)) = &mut self.com {
+      if current_dis != *dis {
+        *com = (self.matcher)(model);
+        *dis = current_dis;
+      };
+      com
+    } else {
+      &mut self.com.insert(((self.matcher)(model), current_dis)).0
+    };
+
+    com.update(model, ctx)
+  }
+}
+
+impl<T> LayoutAble for EnumMatcher<T> {
+  fn layout(&mut self, constraint: LayoutConstraint, ctx: &mut LayoutCtx) -> LayoutResult {
+    if let Some((com, _)) = &mut self.com {
+      com.layout(constraint, ctx)
+    } else {
+      LayoutResult {
+        size: constraint.min(),
+        baseline_offset: 0.,
+      }
+    }
+  }
+
+  fn set_position(&mut self, position: UIPosition) {
+    if let Some((inner, _)) = &mut self.com {
+      inner.set_position(position)
+    }
+  }
+}
+
+impl<T> Presentable for EnumMatcher<T> {
+  fn render(&mut self, builder: &mut PresentationBuilder) {
+    if let Some((inner, _)) = &mut self.com {
+      inner.render(builder)
+    }
+  }
+}

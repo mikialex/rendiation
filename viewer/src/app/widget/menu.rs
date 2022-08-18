@@ -65,12 +65,22 @@ fn menu_title() -> impl UIComponent<MenuList> {
   )
 }
 
-// fn menu_item() -> impl UIComponent<MenuList> {
-//   Container::sized((200., 50.))
-// }
+fn menu_expand() -> impl UIComponent<MenuList> {
+  Container::adapt(AdaptChildSelfBehavior::Child).wrap(
+    For::by(|_| Child::flex(menu_item(), 1.)) //
+      .extend(Flex::column())
+      .lens(lens!(MenuList, items)),
+  )
+}
 
-// struct EnumMatcher<T> {
-//   com: Box<dyn UIComponent<dyn Any>>,
-//   disc: Discriminant<T>,
-//   matcher: Box<dyn FnOnce(T) -> Box<dyn Any>>,
-// }
+fn menu_item() -> impl UIComponent<MenuItem> {
+  EnumMatcher::by(|item| match item {
+    MenuItem::SubList { .. } => {
+      todo!()
+    }
+    MenuItem::Item { .. } => {
+      todo!()
+    }
+    MenuItem::Separation => Box::new(Container::sized((UILength::Px(50.), UILength::Px(500.)))),
+  })
+}
