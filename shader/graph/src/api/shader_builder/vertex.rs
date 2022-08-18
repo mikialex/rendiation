@@ -240,9 +240,9 @@ impl VertexInBuilder for Mat4<f32> {
     let format = Vec4::<f32>::to_vertex_format();
     
     builder.push(format, vertex_builder.register_vertex_in::<SemanticShaderMat4VertexInColum<S, 0>>());
-    builder.push(format, vertex_builder.register_vertex_in::<SemanticShaderMat4VertexInColum<S, 0>>());
-    builder.push(format, vertex_builder.register_vertex_in::<SemanticShaderMat4VertexInColum<S, 0>>());
-    builder.push(format, vertex_builder.register_vertex_in::<SemanticShaderMat4VertexInColum<S, 0>>());
+    builder.push(format, vertex_builder.register_vertex_in::<SemanticShaderMat4VertexInColum<S, 1>>());
+    builder.push(format, vertex_builder.register_vertex_in::<SemanticShaderMat4VertexInColum<S, 2>>());
+    builder.push(format, vertex_builder.register_vertex_in::<SemanticShaderMat4VertexInColum<S, 3>>());
     
     let c1 = vertex_builder.query::<SemanticShaderMat4VertexInColum<S, 0>>().unwrap().get();
     let c2 = vertex_builder.query::<SemanticShaderMat4VertexInColum<S, 1>>().unwrap().get();

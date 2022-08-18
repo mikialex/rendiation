@@ -104,33 +104,45 @@ pub fn load_default_scene(scene: &mut Scene<WebGPUScene>) {
     let material = PhysicalMaterial::<WebGPUScene> {
       albedo: Vec3::splat(1.),
       sampler: TextureSampler::default(),
-      texture,
+      texture: texture.clone(),
     }
     .use_state();
-    // material.states.depth_compare = webgpu::CompareFunction::Always;
     let child = scene.root().create_child();
 
     let model: MeshModel<_, _> = MeshModelImpl::new(material, mesh, child).into();
     scene.add_model(model)
   }
 
-  // {
-  //   let mesh = TransformInstance {
-  //     mesh: CubeMeshParameter::default().tessellate(),
-  //     transforms: vec![Mat4::translate(10., 10., 10.)],
-  //   };
-  //   let mesh = mesh.into_resourced();
-  //   let mut material = PhysicalMaterial::<WebGPUScene> {
-  //     albedo: Vec3::splat(1.),
-  //     sampler: TextureSampler::default(),
-  //     texture,
-  //   }
-  //   .use_state()
-  //   .into_resourced();
+  {
+    let mesh = IndexedMeshBuilder::<TriangleList, Vec<Vertex>>::default()
+      .triangulate_parametric(
+        &SphereMeshParameter::default().make_surface(),
+        TessellationConfig { u: 16, v: 16 },
+        true,
+      )
+      .build_mesh_into();
+    let mesh = MeshSource::new(mesh);
 
-  //   let model = MeshModel::new(material, mesh, scene.root().create_child());
-  //   scene.add_model(model)
-  // }
+    let mesh = TransformInstance {
+      mesh,
+      transforms: vec![
+        Mat4::translate((10., 0., 0.)),
+        Mat4::translate((10., 0., 2.)),
+        Mat4::translate((10., 0., 4.)),
+        Mat4::translate((10., 0., 6.)),
+      ],
+    };
+    let material = PhysicalMaterial::<WebGPUScene> {
+      albedo: Vec3::splat(1.),
+      sampler: TextureSampler::default(),
+      texture,
+    }
+    .use_state();
+
+    let model: MeshModel<_, _> =
+      MeshModelImpl::new(material, mesh, scene.root().create_child()).into();
+    scene.add_model(model)
+  }
 
   let up = Vec3::new(0., 1., 0.);
 

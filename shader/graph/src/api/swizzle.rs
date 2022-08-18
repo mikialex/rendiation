@@ -111,7 +111,11 @@ where
 }
 
 impl From<Node<Mat4<f32>>> for Node<Mat3<f32>> {
-  fn from(_: Node<Mat4<f32>>) -> Self {
-    todo!()
+  fn from(n: Node<Mat4<f32>>) -> Self {
+    ShaderGraphNodeExpr::MatShrink {
+      source: n.handle(),
+      dimension: 3,
+    }
+    .insert_graph()
   }
 }

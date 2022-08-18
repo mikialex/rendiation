@@ -472,6 +472,15 @@ fn gen_expr(data: &ShaderGraphNodeExpr, cx: &mut CodeGenCtx) -> String {
           .join(", ")
       )
     }
+    ShaderGraphNodeExpr::MatShrink { source, dimension } => {
+      let from = cx.get_node_gen_result_var(*source);
+      // wgsl is terrible!
+      // todo, support node -> type and check;
+      // todo, we only support 4 -> 3 now;
+      // todo, check self if 4
+      assert_eq!(*dimension, 3);
+      format!("mat3x3({from}[0].xyz, {from}[1].xyz, {from}[2].xyz)")
+    }
     ShaderGraphNodeExpr::MatInverse(n) => format!("inverse({})", cx.get_node_gen_result_var(*n)),
     ShaderGraphNodeExpr::MatTranspose(n) => {
       format!("transpose({})", cx.get_node_gen_result_var(*n))

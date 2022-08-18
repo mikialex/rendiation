@@ -25,6 +25,7 @@ impl<M: WebGPUMesh> ShaderGraphProvider for TransformInstanceGPU<M> {
     builder: &mut ShaderGraphRenderPipelineBuilder,
   ) -> Result<(), ShaderGraphBuildError> {
     self.mesh_gpu.build(builder)?;
+    builder.log_result = true;
     builder.vertex(|builder, _| {
       builder.register_vertex::<ShaderMat4VertexInput>(VertexStepMode::Instance);
 
@@ -33,7 +34,7 @@ impl<M: WebGPUMesh> ShaderGraphProvider for TransformInstanceGPU<M> {
       let world_normal_mat = world_normal_mat.inverse().transpose();
 
       if let Ok(position) = builder.query::<GeometryPosition>() {
-        position.set(world_mat * position.get())
+        position.set((world_mat * (position.get(), 1.).into()).xyz())
       }
 
       if let Ok(normal) = builder.query::<GeometryNormal>() {
@@ -103,36 +104,3 @@ impl<M: WebGPUMesh> WebGPUMesh for TransformInstance<M> {
     // todo support picking?
   }
 }
-
-// impl<M: WebGPUMesh> WebGPUSceneMesh for Identity<TransformInstance<M>> {
-//   fn check_update_gpu<'a>(
-//     &self,
-//     res: &'a mut GPUMeshCache,
-//     sub_res: &mut AnyMap,
-//     gpu: &GPU,
-//   ) -> &'a dyn RenderComponentAny {
-//     let type_id = TypeId::of::<StencilFaceState>();
-
-//     // let mapper = self
-//     //   .inner
-//     //   .entry(type_id)
-//     //   .or_insert_with(|| Box::new(MeshIdentityMapper::<M>::default()))
-//     //   .downcast_mut::<MeshIdentityMapper<M>>()
-//     //   .unwrap();
-//     // mapper.get_update_or_insert_with_logic(m, |x| match x {
-//     //   ResourceLogic::Create(m) => ResourceLogicResult::Create(m.create(gpu, storage)),
-//     //   ResourceLogic::Update(gpu_m, m) => {
-//     //     m.update(gpu_m, gpu, storage);
-//     //     ResourceLogicResult::Update(gpu_m)
-//     //   }
-//     // })
-//   }
-
-//   fn topology(&self) -> webgpu::PrimitiveTopology {
-//     WebGPUMesh::topology(self)
-//   }
-
-//   fn draw_impl(&self, group: MeshDrawGroup) -> DrawCommand {
-//     WebGPUMesh::draw_impl(self, group)
-//   }
-// }

@@ -207,6 +207,7 @@ impl ShaderGraphNode {
           visitor(texture);
           visitor(position);
         }
+        ShaderGraphNodeExpr::MatShrink { source, .. } => visitor(source),
         ShaderGraphNodeExpr::MatInverse(n) => visitor(n),
         ShaderGraphNodeExpr::MatTranspose(n) => visitor(n),
         ShaderGraphNodeExpr::Swizzle { source, .. } => visitor(source),
@@ -273,6 +274,7 @@ impl ShaderGraphNode {
           visitor(texture);
           visitor(position);
         }
+        ShaderGraphNodeExpr::MatShrink { source, .. } => visitor(source),
         ShaderGraphNodeExpr::MatInverse(n) => visitor(n),
         ShaderGraphNodeExpr::MatTranspose(n) => visitor(n),
         ShaderGraphNodeExpr::Swizzle { source, .. } => visitor(source),

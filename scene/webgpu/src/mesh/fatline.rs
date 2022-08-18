@@ -2,7 +2,7 @@ use crate::*;
 
 use rendiation_renderable_mesh::{
   group::{GroupedMesh, MeshDrawGroup},
-  mesh::{AbstractMesh, IndexedMesh, IntersectAbleGroupedMesh, NoneIndexedMesh, TriangleList},
+  mesh::{IndexedMesh, IntersectAbleGroupedMesh, NoneIndexedMesh, TriangleList},
   vertex::Vertex,
   MeshGPU,
 };

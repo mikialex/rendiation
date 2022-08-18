@@ -23,6 +23,10 @@ pub enum ShaderGraphNodeExpr {
     target: PrimitiveShaderValueType,
     parameters: Vec<ShaderGraphNodeRawHandle>,
   },
+  MatShrink {
+    source: ShaderGraphNodeRawHandle,
+    dimension: usize,
+  },
   MatInverse(ShaderGraphNodeRawHandle),
   MatTranspose(ShaderGraphNodeRawHandle),
   Operator(OperatorNode),
