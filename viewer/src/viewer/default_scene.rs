@@ -101,7 +101,7 @@ pub fn load_default_scene(scene: &mut Scene<WebGPUScene>) {
     }
     let mesh = builder.build_mesh();
     let mesh = MeshSource::new(mesh);
-    let mut material = PhysicalMaterial::<WebGPUScene> {
+    let material = PhysicalMaterial::<WebGPUScene> {
       albedo: Vec3::splat(1.),
       sampler: TextureSampler::default(),
       texture,

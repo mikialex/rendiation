@@ -63,7 +63,7 @@ impl TextWebGPURenderer {
     });
 
     let uniform_layout = device.create_bind_group_layout(&webgpu::BindGroupLayoutDescriptor {
-      label: Some("wgpu_glyph::TextGPURenderer uniforms"),
+      label: Some("TextWebGPURenderer uniforms"),
       entries: &[
         webgpu::BindGroupLayoutEntry {
           binding: 0,
@@ -198,7 +198,7 @@ fn create_bindgroup(
   cache: &webgpu::TextureView,
 ) -> webgpu::BindGroup {
   device.create_bind_group(&webgpu::BindGroupDescriptor {
-    label: Some("wgpu_glyph::TextGPURenderer uniforms"),
+    label: Some("TextWebGPURenderer uniforms"),
     layout,
     entries: &[
       webgpu::BindGroupEntry {
