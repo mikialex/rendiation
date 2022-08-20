@@ -15,7 +15,7 @@ impl<T: Std140> Resource for UniformBuffer<T> {
   }
 }
 
-impl<T: Pod> InitResourceBySource for UniformBuffer<T> {
+impl<T: Std140> InitResourceBySource for UniformBuffer<T> {
   type Source = T;
 
   fn create_resource_with_source(
@@ -158,7 +158,7 @@ impl<T: Std140> UniformBufferData<T> {
   }
 }
 
-impl<T> BindableResourceView for UniformBufferData<T> {
+impl<T: Std140> BindableResourceView for UniformBufferData<T> {
   fn as_bindable(&self) -> gpu::BindingResource {
     self.gpu.as_entire_binding()
   }

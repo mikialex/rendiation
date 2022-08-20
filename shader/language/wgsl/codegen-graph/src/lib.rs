@@ -83,7 +83,7 @@ fn gen_vertex_shader(
       code.write_raw("VertexOut");
     },
   );
-  cx.gen_fn_and_ty_depends(&mut code, gen_struct);
+  cx.gen_fn_and_ty_depends(&mut code, gen_none_host_shareable_struct);
   code.output() + code_entry.output().as_str()
 }
 
@@ -132,7 +132,7 @@ fn gen_fragment_shader(
       code.write_raw("FragmentOut");
     },
   );
-  cx.gen_fn_and_ty_depends(&mut code, gen_struct);
+  cx.gen_fn_and_ty_depends(&mut code, gen_none_host_shareable_struct);
   code.output() + code_entry.output().as_str()
 }
 
@@ -539,6 +539,10 @@ fn gen_uniform_structs(
   //   })
 }
 
+fn gen_none_host_shareable_struct(builder: &mut CodeBuilder, meta: &ShaderStructMetaInfoOwned) {
+  gen_struct(builder, meta, false)
+}
+
 /// The shadergraph struct not mark any alignment info (as same as glsl)
 /// but the wgsl requires explicit alignment and size mark, so we have to generate these.
 ///
@@ -555,8 +559,8 @@ fn gen_struct(builder: &mut CodeBuilder, meta: &ShaderStructMetaInfoOwned, is_un
   if is_uniform {
     let mut current_byte_used = 0;
     let mut previous: Option<&ShaderStructMemberValueType> = None;
-    for ShaderStructFieldMetaInfoOwned { name, ty, ty_deco } in &meta.fields {
-      let explicit_align = None;
+    for ShaderStructFieldMetaInfoOwned { name, ty, .. } in &meta.fields {
+      let mut explicit_align: Option<usize> = None;
       if let Some(previous) = previous {
         let previous_align_require = previous.align_of_self(StructLayoutTarget::Std140);
         if current_byte_used % previous_align_require != 0 {
@@ -566,7 +570,7 @@ fn gen_struct(builder: &mut CodeBuilder, meta: &ShaderStructMetaInfoOwned, is_un
 
       let explicit_align = explicit_align
         .map(|a| format!("align {}", a))
-        .unwrap_or(format!(""));
+        .unwrap_or_default();
 
       builder.write_ln(format!(
         "{} {}: {},",
