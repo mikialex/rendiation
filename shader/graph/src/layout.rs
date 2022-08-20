@@ -53,7 +53,7 @@ impl ShaderStructMemberValueType {
     }
   }
 
-  pub fn size_of_self(&self) -> usize {
+  pub fn size_of_self(&self, target: StructLayoutTarget) -> usize {
     match self {
       ShaderStructMemberValueType::Primitive(t) => t.size_of_self(),
       ShaderStructMemberValueType::Struct(t) => (*t).to_owned().size_of_self(),
@@ -76,10 +76,6 @@ impl PrimitiveShaderValueType {
       PrimitiveShaderValueType::Mat3Float32 => 16,
       PrimitiveShaderValueType::Mat4Float32 => 16,
     }
-  }
-
-  pub fn align_of_self_std140(&self) -> usize {
-    self.align_of_self()
   }
 
   pub fn size_of_self(&self) -> usize {

@@ -515,7 +515,7 @@ fn gen_uniform_structs(code: &mut CodeBuilder, builder: &ShaderGraphBuilder) {
 
 /// the shadergraph struct not mark any alignment info (as same as glsl)
 /// but the wgsl requires explicit alignment and size mark, so we have to generate these.
-fn gen_struct(builder: &mut CodeBuilder, meta: &ShaderStructMetaInfoOwned, is_uniform: bool) {
+fn gen_struct(builder: &mut CodeBuilder, meta: &ShaderStructMetaInfoOwned) {
   builder.write_ln(format!("struct {} {{", meta.name));
   builder.tab();
 
@@ -525,7 +525,7 @@ fn gen_struct(builder: &mut CodeBuilder, meta: &ShaderStructMetaInfoOwned, is_un
     for ShaderStructFieldMetaInfoOwned { name, ty, ty_deco } in &meta.fields {
       let explicit_align = None;
       if let Some(previous) = previous {
-        let previous_align_require = previous.align_of_self_std140();
+        let previous_align_require = previous.align_of_self(StructLayoutTarget::Std140);
         if current_byte_used % previous_align_require != 0 {
           explicit_align = previous_align_require.into();
         }
@@ -542,7 +542,7 @@ fn gen_struct(builder: &mut CodeBuilder, meta: &ShaderStructMetaInfoOwned, is_un
         gen_fix_type_impl(*ty)
       ));
 
-      current_byte_used += ty.size_of_self();
+      current_byte_used += ty.size_of_self(StructLayoutTarget::Std430);
       previous = Some(ty)
     }
   } else {
