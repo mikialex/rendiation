@@ -42,7 +42,14 @@ fn gen_vertex_shader(
   let mut code = CodeBuilder::default();
   let mut cx = CodeGenCtx::default();
 
-  gen_uniform_structs(&mut code, &builder);
+  gen_uniform_structs(
+    &mut code,
+    &mut cx,
+    &pipeline_builder.bindgroups,
+    ShaderStages::Fragment,
+  );
+  builder.struct_defines.iter().for_each(|s| cx.add_ty_dep(s));
+
   gen_vertex_out_struct(&mut code, vertex);
   gen_bindings(
     &mut code,
@@ -88,7 +95,15 @@ fn gen_fragment_shader(
 
   let mut code = CodeBuilder::default();
   let mut cx = CodeGenCtx::default();
-  gen_uniform_structs(&mut code, &builder);
+
+  gen_uniform_structs(
+    &mut code,
+    &mut cx,
+    &pipeline_builder.bindgroups,
+    ShaderStages::Fragment,
+  );
+  builder.struct_defines.iter().for_each(|s| cx.add_ty_dep(s));
+
   gen_fragment_out_struct(&mut code, fragment);
   gen_bindings(
     &mut code,
@@ -506,11 +521,22 @@ fn gen_input_name(input: &ShaderGraphInputNode) -> String {
   }
 }
 
-fn gen_uniform_structs(code: &mut CodeBuilder, builder: &ShaderGraphBuilder) {
-  builder
-    .struct_defines
-    .iter()
-    .for_each(|&meta| gen_struct(code, &meta.to_owned(), true))
+fn gen_uniform_structs(
+  code: &mut CodeBuilder,
+  cx: &mut CodeGenCtx,
+  bindings: &ShaderGraphBindGroupBuilder,
+  stage: ShaderStages,
+) {
+  // bindings
+  // builder
+  //   .struct_defines
+  //   .iter()
+  //   .for_each(|&meta| {
+  //     if gen_uniform_structs {
+
+  //     }
+  //     gen_struct(code, &meta.to_owned(), true)
+  //   })
 }
 
 /// The shadergraph struct not mark any alignment info (as same as glsl)

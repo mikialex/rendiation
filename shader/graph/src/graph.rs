@@ -144,6 +144,9 @@ impl ShaderGraphNodeRawHandle {
 pub struct ShaderGraphBuilder {
   pub scopes: Vec<ShaderGraphScope>,
   /// if struct insert order matters, we have to use linked hashmap
+  ///
+  /// this only contains struct used directly by node api.
+  /// the struct used by shader fragments will be considered later
   pub struct_defines: HashSet<&'static ShaderStructMetaInfo>,
 }
 

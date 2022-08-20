@@ -3,7 +3,13 @@ use crate::*;
 pub struct CodeGenCtx {
   var_guid: usize,
   scopes: Vec<CodeGenScopeCtx>,
+
+  /// first generated uniform structs(recursively)
+  generated_uniform_types: HashSet<&'static ShaderStructMetaInfo>,
+
+  /// new collected(recursively) in main function logic, deduplicate by self
   depend_functions: HashSet<&'static ShaderFunctionMetaInfo>,
+  /// new collected(recursively) in main function logic, deduplicate by self and uniform ones
   depend_types: HashSet<&'static ShaderStructMetaInfo>,
 }
 
@@ -12,6 +18,7 @@ impl Default for CodeGenCtx {
     Self {
       var_guid: Default::default(),
       scopes: vec![Default::default()],
+      generated_uniform_types: Default::default(),
       depend_functions: Default::default(),
       depend_types: Default::default(),
     }
@@ -35,6 +42,11 @@ impl CodeGenCtx {
     self.scopes.pop().unwrap()
   }
 
+  /// note, recursive is done outside
+  pub fn add_generated_uniform_structs(&mut self, meta: &'static ShaderStructMetaInfo) -> bool {
+    self.generated_uniform_types.insert(meta)
+  }
+
   pub fn add_fn_dep(&mut self, meta: &'static ShaderFunctionMetaInfo) {
     if self.depend_functions.insert(meta) {
       for ty in meta.depend_types {
@@ -46,7 +58,11 @@ impl CodeGenCtx {
     }
   }
 
-  fn add_ty_dep(&mut self, meta: &'static ShaderStructMetaInfo) {
+  pub fn add_ty_dep(&mut self, meta: &'static ShaderStructMetaInfo) {
+    if self.generated_uniform_types.contains(meta) {
+      return;
+    }
+
     if self.depend_types.insert(meta) {
       for f in meta.fields {
         if let ShaderStructMemberValueType::Struct(s) = f.ty {
