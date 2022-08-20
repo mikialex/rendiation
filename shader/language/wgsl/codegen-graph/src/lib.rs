@@ -1,3 +1,5 @@
+#![feature(let_chains)]
+
 use shadergraph::*;
 
 pub struct WGSL;
@@ -40,7 +42,7 @@ fn gen_vertex_shader(
   let mut code = CodeBuilder::default();
   let mut cx = CodeGenCtx::default();
 
-  gen_structs(&mut code, &builder);
+  gen_uniform_structs(&mut code, &builder);
   gen_vertex_out_struct(&mut code, vertex);
   gen_bindings(
     &mut code,
@@ -86,7 +88,7 @@ fn gen_fragment_shader(
 
   let mut code = CodeBuilder::default();
   let mut cx = CodeGenCtx::default();
-  gen_structs(&mut code, &builder);
+  gen_uniform_structs(&mut code, &builder);
   gen_fragment_out_struct(&mut code, fragment);
   gen_bindings(
     &mut code,
@@ -153,7 +155,7 @@ fn gen_vertex_out_struct(code: &mut CodeBuilder, vertex: &ShaderGraphVertexBuild
       });
     });
 
-  gen_struct(code, &shader_struct);
+  gen_struct(code, &shader_struct, false);
 }
 
 fn _gen_interpolation(int: ShaderVaryingInterpolation) -> &'static str {
@@ -187,7 +189,7 @@ fn gen_fragment_out_struct(code: &mut CodeBuilder, frag: &ShaderGraphFragmentBui
     });
   });
 
-  gen_struct(code, &shader_struct);
+  gen_struct(code, &shader_struct, false);
 }
 
 fn gen_node_with_dep_in_entry(
@@ -504,41 +506,75 @@ fn gen_input_name(input: &ShaderGraphInputNode) -> String {
   }
 }
 
-fn gen_structs(code: &mut CodeBuilder, builder: &ShaderGraphBuilder) {
+fn gen_uniform_structs(code: &mut CodeBuilder, builder: &ShaderGraphBuilder) {
   builder
     .struct_defines
     .iter()
-    .for_each(|&meta| gen_struct(code, &meta.to_owned()))
+    .for_each(|&meta| gen_struct(code, &meta.to_owned(), true))
 }
 
-fn gen_struct(builder: &mut CodeBuilder, meta: &ShaderStructMetaInfoOwned) {
+/// the shadergraph struct not mark any alignment info (as same as glsl)
+/// but the wgsl requires explicit alignment and size mark, so we have to generate these.
+fn gen_struct(builder: &mut CodeBuilder, meta: &ShaderStructMetaInfoOwned, is_uniform: bool) {
   builder.write_ln(format!("struct {} {{", meta.name));
   builder.tab();
-  for ShaderStructFieldMetaInfoOwned { name, ty, ty_deco } in &meta.fields {
-    let built_in_deco = if let Some(ty_deco) = ty_deco {
-      match ty_deco {
-        ShaderFieldDecorator::BuiltIn(built_in) => format!(
-          "@builtin({})",
-          match built_in {
-            ShaderBuiltInDecorator::VertexIndex => "vertex_index",
-            ShaderBuiltInDecorator::InstanceIndex => "instance_index",
-            ShaderBuiltInDecorator::VertexPositionOut => "position",
-            ShaderBuiltInDecorator::FragmentPositionIn => "position",
-          }
-        ),
-        ShaderFieldDecorator::Location(location) => format!("@location({location})"),
-      }
-    } else {
-      "".to_owned()
-    };
 
-    builder.write_ln(format!(
-      "{} {}: {},",
-      built_in_deco,
-      name,
-      gen_fix_type_impl(*ty)
-    ));
+  if is_uniform {
+    let mut current_byte_used = 0;
+    let mut previous: Option<&ShaderStructMemberValueType> = None;
+    for ShaderStructFieldMetaInfoOwned { name, ty, ty_deco } in &meta.fields {
+      let explicit_align = None;
+      if let Some(previous) = previous {
+        let previous_align_require = previous.align_of_self_std140();
+        if current_byte_used % previous_align_require != 0 {
+          explicit_align = previous_align_require.into();
+        }
+      };
+
+      let explicit_align = explicit_align
+        .map(|a| format!("align {}", a))
+        .unwrap_or(format!(""));
+
+      builder.write_ln(format!(
+        "{} {}: {},",
+        explicit_align,
+        name,
+        gen_fix_type_impl(*ty)
+      ));
+
+      current_byte_used += ty.size_of_self();
+      previous = Some(ty)
+    }
+  } else {
+    for ShaderStructFieldMetaInfoOwned { name, ty, ty_deco } in &meta.fields {
+      let built_in_deco = if let Some(ty_deco) = ty_deco {
+        match ty_deco {
+          ShaderFieldDecorator::BuiltIn(built_in) => format!(
+            "@builtin({})",
+            match built_in {
+              ShaderBuiltInDecorator::VertexIndex => "vertex_index",
+              ShaderBuiltInDecorator::InstanceIndex => "instance_index",
+              ShaderBuiltInDecorator::VertexPositionOut => "position",
+              ShaderBuiltInDecorator::FragmentPositionIn => "position",
+            }
+          ),
+          ShaderFieldDecorator::Location(location) => format!("@location({location})"),
+        }
+      } else {
+        "".to_owned()
+      };
+
+      if is_uniform {}
+
+      builder.write_ln(format!(
+        "{} {}: {},",
+        built_in_deco,
+        name,
+        gen_fix_type_impl(*ty)
+      ));
+    }
   }
+
   builder.un_tab();
   builder.write_ln("};");
 }

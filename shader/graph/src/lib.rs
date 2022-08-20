@@ -17,6 +17,9 @@ pub use link::*;
 pub mod traits_impl;
 pub use traits_impl::*;
 
+pub mod layout;
+pub use layout::*;
+
 pub mod std140;
 pub use std140::*;
 
