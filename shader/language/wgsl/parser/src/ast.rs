@@ -138,6 +138,7 @@ pub struct VariableStatement {
   pub init: Option<Expression>,
 }
 
+#[allow(clippy::large_enum_variant)]
 #[derive(Debug)]
 pub enum Statement {
   Block(Block),

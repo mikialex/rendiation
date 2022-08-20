@@ -527,6 +527,33 @@ fn gen_uniform_structs(
   bindings: &ShaderGraphBindGroupBuilder,
   stage: ShaderStages,
 ) {
+  fn gen_uniform_structs(
+    code: &mut CodeBuilder,
+    cx: &mut CodeGenCtx,
+    meta: &'static ShaderStructMetaInfo,
+  ) {
+    if cx.add_generated_uniform_structs(meta) {
+      gen_struct(code, &meta.to_owned(), true);
+
+      for f in meta.fields {
+        if let ShaderStructMemberValueType::Struct(s) = f.ty {
+          gen_uniform_structs(code, cx, s)
+        }
+      }
+    }
+  }
+
+  for g in &bindings.bindings {
+    for (ty, vis) in &g.bindings {
+      let vis = vis.get();
+      if vis.is_visible_to(stage) {
+        if let ShaderValueType::Fixed(ShaderStructMemberValueType::Struct(meta)) = ty {
+          gen_uniform_structs(code, cx, meta)
+        }
+      }
+    }
+  }
+
   // bindings
   // builder
   //   .struct_defines
