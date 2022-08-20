@@ -513,9 +513,16 @@ fn gen_uniform_structs(code: &mut CodeBuilder, builder: &ShaderGraphBuilder) {
     .for_each(|&meta| gen_struct(code, &meta.to_owned(), true))
 }
 
-/// the shadergraph struct not mark any alignment info (as same as glsl)
+/// The shadergraph struct not mark any alignment info (as same as glsl)
 /// but the wgsl requires explicit alignment and size mark, so we have to generate these.
-fn gen_struct(builder: &mut CodeBuilder, meta: &ShaderStructMetaInfoOwned) {
+///
+/// When some struct requires 140 layout, we can assure all the type the struct used is also
+/// std140, this is statically constraint by traits. That means if we generate all uniform
+/// structs and it's dependency struct first, the following struct  and it's dependency struct
+/// we meet in function dependency collecting can regard them as pure shader class. This also
+/// applied to future 430 layout support in future.
+///
+fn gen_struct(builder: &mut CodeBuilder, meta: &ShaderStructMetaInfoOwned, is_uniform: bool) {
   builder.write_ln(format!("struct {} {{", meta.name));
   builder.tab();
 
@@ -563,8 +570,6 @@ fn gen_struct(builder: &mut CodeBuilder, meta: &ShaderStructMetaInfoOwned) {
       } else {
         "".to_owned()
       };
-
-      if is_uniform {}
 
       builder.write_ln(format!(
         "{} {}: {},",
