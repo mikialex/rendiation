@@ -81,7 +81,7 @@ where
         .intersect_nearest_bvh(ray, &self.bvh, &MeshBufferIntersectConfig::default());
 
     PossibleIntersection(nearest.0.map(|hit| {
-      let primitive = self.mesh.primitive_at(hit.primitive_index);
+      let primitive = self.mesh.primitive_at(hit.primitive_index).unwrap();
       let geometric_normal = self.face_normal[hit.primitive_index];
       let shading_normal = primitive.get_normal(hit.hit.position);
       Intersection {

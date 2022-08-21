@@ -4,8 +4,12 @@ use rendiation_geometry::Triangle;
 
 use crate::*;
 
-pub trait PrimitiveData<U> {
-  fn from_data(data: &U, offset: usize) -> Self;
+pub trait PrimitiveData<U>: Sized {
+  fn from_data(data: &U, offset: usize) -> Option<Self>;
+  /// ## Safety
+  ///
+  /// Users should responsible for offset is in bound, bound checking is skipped here
+  unsafe fn from_data_unchecked(data: &U, offset: usize) -> Self;
 }
 
 impl<T, U> PrimitiveData<U> for Triangle<T>
@@ -14,10 +18,17 @@ where
   U: IndexGet<Output = T>,
 {
   #[inline(always)]
-  fn from_data(data: &U, offset: usize) -> Self {
-    let a = data.index_get(offset).unwrap();
-    let b = data.index_get(offset + 1).unwrap();
-    let c = data.index_get(offset + 2).unwrap();
+  fn from_data(data: &U, offset: usize) -> Option<Self> {
+    let a = data.index_get(offset)?;
+    let b = data.index_get(offset + 1)?;
+    let c = data.index_get(offset + 2)?;
+    Triangle { a, b, c }.into()
+  }
+  #[inline(always)]
+  unsafe fn from_data_unchecked(data: &U, offset: usize) -> Self {
+    let a = data.index_get(offset).unwrap_unchecked();
+    let b = data.index_get(offset + 1).unwrap_unchecked();
+    let c = data.index_get(offset + 2).unwrap_unchecked();
     Triangle { a, b, c }
   }
 }
@@ -28,9 +39,15 @@ where
   U: IndexGet<Output = T>,
 {
   #[inline(always)]
-  fn from_data(data: &U, offset: usize) -> Self {
-    let start = data.index_get(offset).unwrap();
-    let end = data.index_get(offset + 1).unwrap();
+  fn from_data(data: &U, offset: usize) -> Option<Self> {
+    let start = data.index_get(offset)?;
+    let end = data.index_get(offset + 1)?;
+    LineSegment::line_segment(start, end).into()
+  }
+  #[inline(always)]
+  unsafe fn from_data_unchecked(data: &U, offset: usize) -> Self {
+    let start = data.index_get(offset).unwrap_unchecked();
+    let end = data.index_get(offset + 1).unwrap_unchecked();
     LineSegment::line_segment(start, end)
   }
 }
@@ -41,8 +58,12 @@ where
   U: IndexGet<Output = T>,
 {
   #[inline(always)]
-  fn from_data(data: &U, offset: usize) -> Self {
-    Point(data.index_get(offset).unwrap())
+  fn from_data(data: &U, offset: usize) -> Option<Self> {
+    Point(data.index_get(offset)?).into()
+  }
+  #[inline(always)]
+  unsafe fn from_data_unchecked(data: &U, offset: usize) -> Self {
+    Point(data.index_get(offset).unwrap_unchecked())
   }
 }
 
@@ -56,6 +77,10 @@ pub trait Functor {
   fn f_map<F, B>(self, f: F) -> Self::Wrapped<B>
   where
     F: FnMut(Self::Unwrapped) -> B;
+
+  fn f_filter_map<F, B>(self, f: F) -> Option<Self::Wrapped<B>>
+  where
+    F: FnMut(Self::Unwrapped) -> Option<B>;
 }
 
 impl<A> Functor for Triangle<A> {
@@ -64,6 +89,10 @@ impl<A> Functor for Triangle<A> {
 
   fn f_map<F: FnMut(A) -> B, B>(self, f: F) -> Triangle<B> {
     self.map(f)
+  }
+
+  fn f_filter_map<F: FnMut(A) -> Option<B>, B>(self, f: F) -> Option<Triangle<B>> {
+    self.filter_map(f)
   }
 }
 
@@ -74,6 +103,10 @@ impl<A> Functor for LineSegment<A> {
   fn f_map<F: FnMut(A) -> B, B>(self, f: F) -> LineSegment<B> {
     self.map(f)
   }
+
+  fn f_filter_map<F: FnMut(A) -> Option<B>, B>(self, f: F) -> Option<LineSegment<B>> {
+    self.filter_map(f)
+  }
 }
 
 impl<A> Functor for Point<A> {
@@ -82,6 +115,10 @@ impl<A> Functor for Point<A> {
 
   fn f_map<F: FnMut(A) -> B, B>(self, f: F) -> Point<B> {
     self.map(f)
+  }
+
+  fn f_filter_map<F: FnMut(A) -> Option<B>, B>(self, f: F) -> Option<Point<B>> {
+    self.filter_map(f)
   }
 }
 

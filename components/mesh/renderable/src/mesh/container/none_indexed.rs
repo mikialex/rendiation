@@ -29,9 +29,15 @@ where
   }
 
   #[inline(always)]
-  fn primitive_at(&self, primitive_index: usize) -> Self::Primitive {
+  fn primitive_at(&self, primitive_index: usize) -> Option<Self::Primitive> {
     let index = primitive_index * T::STEP;
     T::Primitive::from_data(&self.data, index)
+  }
+
+  #[inline(always)]
+  unsafe fn primitive_at_unchecked(&self, primitive_index: usize) -> Self::Primitive {
+    let index = primitive_index * T::STEP;
+    T::Primitive::from_data_unchecked(&self.data, index)
   }
 }
 
