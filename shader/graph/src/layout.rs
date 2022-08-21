@@ -8,16 +8,27 @@ pub enum StructLayoutTarget {
 
 impl ShaderStructMetaInfoOwned {
   pub fn align_of_self(&self, target: StructLayoutTarget) -> usize {
-    self
+    let align = self
       .fields
       .iter()
       .map(|field| field.ty.align_of_self(target))
       .max()
-      .unwrap_or(1)
+      .unwrap_or(1);
+
+    match target {
+      StructLayoutTarget::Std140 => round_up(16, align),
+      StructLayoutTarget::Std430 => align,
+    }
   }
 
-  pub fn size_of_self(&self) -> usize {
-    todo!()
+  pub fn size_of_self(&self, target: StructLayoutTarget) -> usize {
+    let size = self
+      .fields
+      .iter()
+      .map(|field| field.ty.size_of_self(target))
+      .sum();
+
+    round_up(self.align_of_self(target), size)
   }
 }
 
@@ -36,13 +47,7 @@ impl ShaderStructMemberValueType {
   pub fn align_of_self(&self, target: StructLayoutTarget) -> usize {
     match self {
       ShaderStructMemberValueType::Primitive(t) => t.align_of_self(),
-      ShaderStructMemberValueType::Struct(t) => {
-        let align = (*t).to_owned().align_of_self(target);
-        match target {
-          StructLayoutTarget::Std140 => round_up(16, align),
-          StructLayoutTarget::Std430 => align,
-        }
-      }
+      ShaderStructMemberValueType::Struct(t) => (*t).to_owned().align_of_self(target),
       ShaderStructMemberValueType::FixedSizeArray((t, _)) => {
         let align = t.align_of_self(target);
         match target {
@@ -56,8 +61,10 @@ impl ShaderStructMemberValueType {
   pub fn size_of_self(&self, target: StructLayoutTarget) -> usize {
     match self {
       ShaderStructMemberValueType::Primitive(t) => t.size_of_self(),
-      ShaderStructMemberValueType::Struct(t) => (*t).to_owned().size_of_self(),
-      ShaderStructMemberValueType::FixedSizeArray(t) => todo!(),
+      ShaderStructMemberValueType::Struct(t) => (*t).to_owned().size_of_self(target),
+      ShaderStructMemberValueType::FixedSizeArray((ty, size)) => {
+        size * round_up(self.align_of_self(target), ty.size_of_self(target))
+      }
     }
   }
 }

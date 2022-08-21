@@ -51,11 +51,6 @@ fn gen_vertex_shader(
   builder.struct_defines.iter().for_each(|s| cx.add_ty_dep(s));
 
   gen_vertex_out_struct(&mut code, vertex);
-  gen_bindings(
-    &mut code,
-    &pipeline_builder.bindgroups,
-    ShaderStages::Vertex,
-  );
 
   let mut code_entry = CodeBuilder::default();
   gen_entry(
@@ -84,6 +79,12 @@ fn gen_vertex_shader(
     },
   );
   cx.gen_fn_and_ty_depends(&mut code, gen_none_host_shareable_struct);
+  gen_bindings(
+    &mut code,
+    &pipeline_builder.bindgroups,
+    ShaderStages::Vertex,
+  );
+
   code.output() + code_entry.output().as_str()
 }
 
@@ -105,11 +106,6 @@ fn gen_fragment_shader(
   builder.struct_defines.iter().for_each(|s| cx.add_ty_dep(s));
 
   gen_fragment_out_struct(&mut code, fragment);
-  gen_bindings(
-    &mut code,
-    &pipeline_builder.bindgroups,
-    ShaderStages::Fragment,
-  );
 
   let mut code_entry = CodeBuilder::default();
   gen_entry(
@@ -133,6 +129,13 @@ fn gen_fragment_shader(
     },
   );
   cx.gen_fn_and_ty_depends(&mut code, gen_none_host_shareable_struct);
+
+  gen_bindings(
+    &mut code,
+    &pipeline_builder.bindgroups,
+    ShaderStages::Fragment,
+  );
+
   code.output() + code_entry.output().as_str()
 }
 
@@ -553,17 +556,6 @@ fn gen_uniform_structs(
       }
     }
   }
-
-  // bindings
-  // builder
-  //   .struct_defines
-  //   .iter()
-  //   .for_each(|&meta| {
-  //     if gen_uniform_structs {
-
-  //     }
-  //     gen_struct(code, &meta.to_owned(), true)
-  //   })
 }
 
 fn gen_none_host_shareable_struct(builder: &mut CodeBuilder, meta: &ShaderStructMetaInfoOwned) {
