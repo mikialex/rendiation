@@ -4,8 +4,10 @@ use crate::*;
 pub struct Container {
   pub color: Color,
   pub child_align: ContainerAlignment,
+  /// extra relative offset
   pub child_offset: ContainerItemOffset,
   pub size: LayoutSource<ContainerSize>,
+  /// for simplicity, we only support outer border now
   pub border: QuadBorder,
   pub margin: QuadBoundaryWidth,
   pub padding: QuadBoundaryWidth,
@@ -121,6 +123,7 @@ impl ContainerSize {
           .shrink(container.margin)
           .shrink(container.border.width)
           .shrink(container.padding);
+
         let child_size = child.layout(child_constraint, ctx).size;
         let self_size = match behavior {
           AdaptChildSelfBehavior::Max => constraint
@@ -188,8 +191,8 @@ impl<C: LayoutAble> LayoutAbility<C> for Container {
     let align_offset = self.child_align.make_offset(self.layout.size, child_size);
 
     inner.set_position(UIPosition {
-      x: align_offset.x + self.child_offset.x,
-      y: align_offset.y + self.child_offset.y,
+      x: align_offset.x + self.child_offset.x + self.margin.left + self.padding.left  + self.border.width.left,
+      y: align_offset.y + self.child_offset.y + self.margin.top + self.padding.top  + self.border.width.top,
     });
 
     self.layout.size.with_default_baseline()
