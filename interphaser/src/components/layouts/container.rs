@@ -96,22 +96,37 @@ impl ContainerSize {
   pub fn compute_size_pair(
     &self,
     constraint: LayoutConstraint,
+    container: &Container,
     child: &mut dyn LayoutAble,
     ctx: &mut LayoutCtx,
   ) -> (UISize, UISize) {
     match self {
       Self::ConstraintChild { size } => {
         let size = size.into_pixel(constraint.max);
-        let size = constraint.clamp(size);
 
-        let child_size = child.layout(LayoutConstraint::from_max(size), ctx).size;
+        let size = constraint.clamp(size).inset_boundary(&container.margin);
+
+        let child_max = size
+          .inset_boundary(&container.border.width)
+          .inset_boundary(&container.padding);
+
+        let child_size = child
+          .layout(LayoutConstraint::from_max(child_max), ctx)
+          .size;
 
         (size, child_size)
       }
       Self::AdaptChild { behavior } => {
-        let child_size = child.layout(constraint, ctx).size;
+        let child_constraint = constraint
+          .shrink(container.margin)
+          .shrink(container.border.width)
+          .shrink(container.padding);
+        let child_size = child.layout(child_constraint, ctx).size;
         let self_size = match behavior {
-          AdaptChildSelfBehavior::Max => constraint.max,
+          AdaptChildSelfBehavior::Max => constraint
+            .max
+            .inset_boundary(&container.margin)
+            .inset_boundary(&container.border.width),
           AdaptChildSelfBehavior::Child => child_size,
         };
         (self_size, child_size)
@@ -163,7 +178,10 @@ impl<C: LayoutAble> LayoutAbility<C> for Container {
       return self.layout.size.with_default_baseline();
     }
 
-    let (self_size, child_size) = self.size.get().compute_size_pair(constraint, inner, ctx);
+    let (self_size, child_size) = self
+      .size
+      .get()
+      .compute_size_pair(constraint, self, inner, ctx);
 
     self.layout.size = self_size;
 

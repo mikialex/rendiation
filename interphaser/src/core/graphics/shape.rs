@@ -1,4 +1,4 @@
-use crate::UIPosition;
+use crate::{UIPosition, UISize};
 
 pub trait Shape {
   // fn create_path(&self, builder: &mut Path2dBuilder);
@@ -47,12 +47,28 @@ impl Default for QuadRadius {
   }
 }
 
-#[derive(Default)]
+#[derive(Default, Debug, Clone, Copy)]
 pub struct QuadBoundaryWidth {
   pub top: f32,
   pub bottom: f32,
   pub left: f32,
   pub right: f32,
+}
+
+impl From<QuadBoundaryWidth> for UISize {
+  fn from(v: QuadBoundaryWidth) -> Self {
+    (v.left + v.right, v.top + v.bottom).into()
+  }
+}
+
+impl UISize {
+  pub fn inset_boundary(self, b: &QuadBoundaryWidth) -> Self {
+    (
+      (self.width - b.left - b.right).max(0.),
+      (self.height - b.top - b.bottom).max(0.),
+    )
+      .into()
+  }
 }
 
 impl QuadBoundaryWidth {
