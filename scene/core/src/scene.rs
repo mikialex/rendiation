@@ -24,7 +24,7 @@ pub struct Scene<S: SceneContent> {
   /// All lights in the scene
   pub lights: Arena<SceneLight<S>>,
   /// All models in the scene
-  pub models: Vec<S::Model>,
+  pub models: Arena<S::Model>,
 
   nodes: Arc<RwLock<ArenaTree<SceneNodeData>>>,
   root: SceneNode,
@@ -52,7 +52,7 @@ impl<S: SceneContent> Scene<S> {
       default_camera,
       cameras: Arena::new(),
       lights: Arena::new(),
-      models: Vec::new(),
+      models: Arena::new(),
 
       active_camera: None,
       extension: Default::default(),

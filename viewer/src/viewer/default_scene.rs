@@ -86,7 +86,7 @@ pub fn load_default_scene(scene: &mut Scene<WebGPUScene>) {
     child.set_local_matrix(Mat4::translate((2., 0., 3.)));
 
     let model: MeshModel<_, _> = MeshModelImpl::new(material, mesh, child).into();
-    scene.add_model(model)
+    let _ = scene.add_model(model);
   }
 
   {
@@ -110,7 +110,8 @@ pub fn load_default_scene(scene: &mut Scene<WebGPUScene>) {
     let child = scene.root().create_child();
 
     let model: MeshModel<_, _> = MeshModelImpl::new(material, mesh, child).into();
-    scene.add_model(model)
+    let model_handle = scene.add_model(model);
+    // scene.remove_model(model_handle);
   }
 
   {
@@ -141,7 +142,7 @@ pub fn load_default_scene(scene: &mut Scene<WebGPUScene>) {
 
     let model: MeshModel<_, _> =
       MeshModelImpl::new(material, mesh, scene.root().create_child()).into();
-    scene.add_model(model)
+    let _ = scene.add_model(model);
   }
 
   let up = Vec3::new(0., 1., 0.);
@@ -159,6 +160,7 @@ pub fn load_default_scene(scene: &mut Scene<WebGPUScene>) {
     let camera_node = scene.root().create_child();
     camera_node.set_local_matrix(Mat4::lookat(Vec3::splat(3.), Vec3::splat(0.), up));
     let camera = SceneCamera::create_camera(camera, camera_node);
-    scene.cameras.insert(camera);
+    let camera_handle = scene.add_camera(camera);
+    // scene.remove_camera(camera_handle);
   }
 }

@@ -195,8 +195,19 @@ pub struct GPUResourceSubCache {
   pub texture_cubes: IdentityMapper<GPUTextureCubeView, [Box<dyn WebGPUTexture2dSource>; 6]>,
 }
 
+use arena::Handle;
+pub type ModelItem = <WebGPUScene as SceneContent>::Model;
+pub type ModelHandle = Handle<ModelItem>;
+pub type CameraItem = SceneCamera;
+pub type CameraHandle = Handle<SceneCamera>;
+
 pub trait WebGPUSceneExtension {
-  fn add_model(&mut self, model: impl SceneModelShareable + 'static);
+  #[must_use]
+  fn add_model(&mut self, model: impl SceneModelShareable + 'static) -> ModelHandle;
+  fn remove_model(&mut self, handle: ModelHandle) -> Option<ModelItem>;
+  #[must_use]
+  fn add_camera(&mut self, camera: CameraItem) -> CameraHandle;
+  fn remove_camera(&mut self, handle: CameraHandle) -> Option<CameraItem>;
 
   fn build_interactive_ctx<'a>(
     &'a self,
@@ -214,9 +225,19 @@ pub trait WebGPUSceneExtension {
 use std::cmp::Ordering;
 
 impl WebGPUSceneExtension for Scene<WebGPUScene> {
-  fn add_model(&mut self, model: impl SceneModelShareable + 'static) {
-    self.models.push(Box::new(model));
+  fn add_model(&mut self, model: impl SceneModelShareable + 'static) -> ModelHandle {
+    self.models.insert(Box::new(model))
   }
+  fn remove_model(&mut self, handle: ModelHandle) -> Option<ModelItem> {
+    self.models.remove(handle)
+  }
+  fn add_camera(&mut self, camera: CameraItem) -> CameraHandle {
+    self.cameras.insert(camera)
+  }
+  fn remove_camera(&mut self, handle: CameraHandle) -> Option<CameraItem> {
+    self.cameras.remove(handle)
+  }
+
   fn build_interactive_ctx<'a>(
     &'a self,
     normalized_position: Vec2<f32>,
@@ -237,7 +258,7 @@ impl WebGPUSceneExtension for Scene<WebGPUScene> {
     &self,
     ctx: &SceneRayInteractiveCtx,
   ) -> Option<(&dyn SceneModelShareable, MeshBufferHitPoint)> {
-    interaction_picking(self.models.iter().map(|m| m.as_ref()), ctx)
+    interaction_picking(self.models.iter().map(|(_, m)| m.as_ref()), ctx)
   }
 }
 

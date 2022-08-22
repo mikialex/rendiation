@@ -25,6 +25,6 @@ where
     scene
       .models
       .iter()
-      .for_each(|model| model.render(pass, &pass.default_dispatcher(), camera))
+      .for_each(|(_, model)| model.render(pass, &pass.default_dispatcher(), camera))
   }
 }

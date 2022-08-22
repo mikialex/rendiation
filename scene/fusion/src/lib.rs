@@ -1,3 +1,4 @@
+use arena::Handle;
 use rendiation_scene_core::SceneContent;
 use rendiation_scene_raytracing::*;
 use rendiation_scene_webgpu::*;
@@ -19,11 +20,12 @@ pub trait FusionBackground: RayTracingBackground + WebGPUBackground {}
 pub trait FusionModel: RayTracingModel + SceneRenderableShareable + 'static {}
 
 pub trait FusionSceneExtension {
-  fn add_model(&mut self, model: impl FusionModel);
+  #[must_use]
+  fn add_model(&mut self, model: impl FusionModel) -> Handle<Box<dyn FusionModel>>;
 }
 
 impl FusionSceneExtension for Scene<FusionScene> {
-  fn add_model(&mut self, model: impl FusionModel) {
-    self.models.push(Box::new(model));
+  fn add_model(&mut self, model: impl FusionModel) -> Handle<Box<dyn FusionModel>> {
+    self.models.insert(Box::new(model))
   }
 }
