@@ -252,9 +252,15 @@ where
   }
 
   #[inline(always)]
-  fn primitive_at(&self, primitive_index: usize) -> Self::Primitive {
-    let index = self.as_index_view().primitive_at(primitive_index);
-    index.f_map(|i| self.vertex.index_get(i.into_usize()).unwrap())
+  fn primitive_at(&self, primitive_index: usize) -> Option<Self::Primitive> {
+    let index = self.as_index_view().primitive_at(primitive_index)?;
+    index.f_filter_map(|i| self.vertex.index_get(i.into_usize()))
+  }
+
+  #[inline(always)]
+  unsafe fn primitive_at_unchecked(&self, primitive_index: usize) -> Self::Primitive {
+    let index = self.as_index_view().primitive_at_unchecked(primitive_index);
+    index.f_map(|i| self.vertex.index_get(i.into_usize()).unwrap_unchecked())
   }
 }
 
@@ -284,9 +290,15 @@ where
   }
 
   #[inline(always)]
-  fn primitive_at(&self, primitive_index: usize) -> Self::Primitive {
+  fn primitive_at(&self, primitive_index: usize) -> Option<Self::Primitive> {
     let index = primitive_index * T::STEP;
     T::Primitive::<IU::Output>::from_data(&self.index, index)
+  }
+
+  #[inline(always)]
+  unsafe fn primitive_at_unchecked(&self, primitive_index: usize) -> Self::Primitive {
+    let index = primitive_index * T::STEP;
+    T::Primitive::<IU::Output>::from_data_unchecked(&self.index, index)
   }
 }
 

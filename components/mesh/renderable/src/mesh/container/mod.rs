@@ -23,13 +23,31 @@ pub trait AbstractMesh {
   type Primitive;
 
   fn primitive_count(&self) -> usize;
-  fn primitive_at(&self, primitive_index: usize) -> Self::Primitive;
+  fn primitive_at(&self, primitive_index: usize) -> Option<Self::Primitive>;
+  /// ## Safety
+  ///
+  /// bound checking is skipped
+  unsafe fn primitive_at_unchecked(&self, primitive_index: usize) -> Self::Primitive;
 
   fn primitive_iter(&self) -> AbstractMeshIter<'_, Self>
   where
     Self: Sized,
   {
     AbstractMeshIter {
+      mesh: self,
+      current: 0,
+      count: self.primitive_count(),
+    }
+  }
+
+  /// ## Safety
+  ///
+  /// bound checking is skipped
+  unsafe fn primitive_iter_unchecked(&self) -> AbstractMeshUncheckIter<'_, Self>
+  where
+    Self: Sized,
+  {
+    AbstractMeshUncheckIter {
       mesh: self,
       current: 0,
       count: self.primitive_count(),
@@ -47,6 +65,30 @@ pub trait AbstractMesh {
     let clamped_start = group.start.min(draw_count);
 
     AbstractMeshIter {
+      mesh: self,
+      current: clamped_start,
+      count: group.count.min(draw_count - clamped_start) / step,
+    }
+  }
+
+  /// ## Safety
+  ///
+  /// bound checking is skipped
+  ///
+  /// if the group outside the bound, will be clamped
+  unsafe fn primitive_iter_group_unchecked(
+    &self,
+    group: MeshGroup,
+  ) -> AbstractMeshUncheckIter<'_, Self>
+  where
+    Self: Sized + GPUConsumableMeshBuffer,
+  {
+    let draw_count = self.draw_count();
+    let step = draw_count / self.primitive_count();
+
+    let clamped_start = group.start.min(draw_count);
+
+    AbstractMeshUncheckIter {
       mesh: self,
       current: clamped_start,
       count: group.count.min(draw_count - clamped_start) / step,
@@ -83,7 +125,7 @@ impl<'a, G: AbstractMesh> Iterator for AbstractMeshIter<'a, G> {
     }
     let p = self.mesh.primitive_at(self.current);
     self.current += 1;
-    Some(p)
+    p
   }
 
   fn size_hint(&self) -> (usize, Option<usize>) {
@@ -93,6 +135,38 @@ impl<'a, G: AbstractMesh> Iterator for AbstractMeshIter<'a, G> {
 }
 
 impl<'a, G: AbstractMesh> CollectionSize for AbstractMeshIter<'a, G> {
+  #[inline(always)]
+  fn len(&self) -> usize {
+    self.mesh.primitive_count() - self.current
+  }
+}
+
+pub struct AbstractMeshUncheckIter<'a, G> {
+  mesh: &'a G,
+  current: usize,
+  count: usize,
+}
+
+impl<'a, G: AbstractMesh> Iterator for AbstractMeshUncheckIter<'a, G> {
+  type Item = G::Primitive;
+
+  #[inline(always)]
+  fn next(&mut self) -> Option<Self::Item> {
+    if self.current == self.count {
+      return None;
+    }
+    let p = unsafe { self.mesh.primitive_at_unchecked(self.current) };
+    self.current += 1;
+    Some(p)
+  }
+
+  fn size_hint(&self) -> (usize, Option<usize>) {
+    let len = self.mesh.primitive_count() - self.current;
+    (len, Some(len))
+  }
+}
+
+impl<'a, G: AbstractMesh> CollectionSize for AbstractMeshUncheckIter<'a, G> {
   #[inline(always)]
   fn len(&self) -> usize {
     self.mesh.primitive_count() - self.current

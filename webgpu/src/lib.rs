@@ -1,4 +1,5 @@
-#![feature(min_specialization)]
+#![feature(specialization)]
+#![allow(incomplete_features)]
 
 mod device;
 mod encoder;

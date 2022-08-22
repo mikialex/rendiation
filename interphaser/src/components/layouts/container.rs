@@ -92,6 +92,7 @@ impl ContainerSize {
     }
   }
 
+  /// (self size, child size)
   pub fn compute_size_pair(
     &self,
     constraint: LayoutConstraint,

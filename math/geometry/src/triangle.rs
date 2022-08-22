@@ -47,6 +47,15 @@ impl<V> Triangle<V> {
       c: f(self.c),
     }
   }
+  pub fn filter_map<U>(self, mut f: impl FnMut(V) -> Option<U>) -> Option<Triangle<U>> {
+    Triangle {
+      a: f(self.a)?,
+      b: f(self.b)?,
+      c: f(self.c)?,
+    }
+    .into()
+  }
+
   #[must_use]
   pub fn flip(self) -> Self {
     Triangle {

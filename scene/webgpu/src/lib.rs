@@ -1,6 +1,7 @@
-#![feature(min_specialization)]
+#![feature(specialization)]
 #![feature(hash_raw_entry)]
 #![allow(clippy::field_reassign_with_default)]
+#![allow(incomplete_features)]
 
 pub mod background;
 pub mod camera;
