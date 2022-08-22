@@ -63,6 +63,7 @@ impl CanvasPrinter for ViewerImpl {
 pub struct ViewerImpl {
   content: Viewer3dContent,
   ctx: Option<Viewer3dRenderingCtx>,
+  pub(crate) terminal: Terminal,
   size: Size,
 }
 
@@ -71,6 +72,7 @@ impl Default for ViewerImpl {
     Self {
       content: Viewer3dContent::new(),
       size: Size::from_u32_pair_min_one((100, 100)),
+      terminal: Default::default(),
       ctx: None,
     }
   }

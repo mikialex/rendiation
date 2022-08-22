@@ -19,6 +19,16 @@ impl Container {
     Self::size(ContainerSize::ConstraintChild { size: size.into() })
   }
 
+  pub fn padding(mut self, padding: impl Into<QuadBoundaryWidth>) -> Self {
+    self.padding = padding.into();
+    self
+  }
+
+  pub fn margin(mut self, margin: impl Into<QuadBoundaryWidth>) -> Self {
+    self.margin = margin.into();
+    self
+  }
+
   pub fn adapt(behavior: AdaptChildSelfBehavior) -> Self {
     Self::size(ContainerSize::AdaptChild { behavior })
   }
@@ -191,8 +201,16 @@ impl<C: LayoutAble> LayoutAbility<C> for Container {
     let align_offset = self.child_align.make_offset(self.layout.size, child_size);
 
     inner.set_position(UIPosition {
-      x: align_offset.x + self.child_offset.x + self.margin.left + self.padding.left  + self.border.width.left,
-      y: align_offset.y + self.child_offset.y + self.margin.top + self.padding.top  + self.border.width.top,
+      x: align_offset.x
+        + self.child_offset.x
+        + self.margin.left
+        + self.padding.left
+        + self.border.width.left,
+      y: align_offset.y
+        + self.child_offset.y
+        + self.margin.top
+        + self.padding.top
+        + self.border.width.top,
     });
 
     self.layout.size.with_default_baseline()

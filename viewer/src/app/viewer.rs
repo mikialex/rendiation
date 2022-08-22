@@ -33,7 +33,7 @@ pub fn viewer() -> impl UIComponent<ViewerImpl> {
   AbsoluteAnchor::default().wrap(
     absolute_group()
       .child(AbsChild::new(GPUCanvas::default()))
-      // .child(AbsChild::new(build_todo().lens(lens!(Viewer, todo))))
+      .child(AbsChild::new(terminal().lens(lens!(ViewerImpl, terminal))).with_position((0., 600.)))
       .child(AbsChild::new(perf_panel())),
   )
 }
@@ -54,7 +54,9 @@ fn create_menu() -> MenuModel {
 }
 
 fn perf_panel<T: 'static>() -> impl UIComponent<T> {
-  Container::sized((500., 200.)).wrap(
+  Container::sized((500., 200.))
+    .padding(QuadBoundaryWidth::equal(5.))
+    .wrap(
     Text::default()
     .with_layout(TextLayoutConfig::SizedBox{
         line_wrap: LineWrap::Multiple,
@@ -73,4 +75,22 @@ fn perf_panel<T: 'static>() -> impl UIComponent<T> {
       s.content.set(content);
     })
   )
+}
+
+#[derive(Default)]
+pub struct Terminal {
+  pub outputs: Vec<String>,
+  pub command_history: Vec<String>,
+  pub current_command_editing: String,
+}
+
+fn terminal() -> impl UIComponent<Terminal> {
+  Container::sized((UILength::ParentPercent(100.), UILength::Px(50.)))
+    .padding(QuadBoundaryWidth::equal(5.))
+    .wrap(
+      Text::default()
+        .editable()
+        .lens(lens!(Terminal, current_command_editing)), //
+    )
+    .extend(ClickHandler::by(|_, _, _| println!("active")))
 }

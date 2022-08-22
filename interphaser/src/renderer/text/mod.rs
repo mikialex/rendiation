@@ -69,9 +69,11 @@ impl TextRenderer {
         }
       },
       |action| match action {
-        VertexCacheAction::Add { hash, data } => self
-          .gpu_vertex_cache
-          .add_cache(hash, create_gpu_text(&gpu.device, data.as_slice()).unwrap()),
+        VertexCacheAction::Add { hash, data } => {
+          if let Some(text) = create_gpu_text(&gpu.device, data.as_slice()) {
+            self.gpu_vertex_cache.add_cache(hash, text);
+          }
+        }
         VertexCacheAction::Remove(hash) => self.gpu_vertex_cache.drop_cache(hash),
       },
     );
