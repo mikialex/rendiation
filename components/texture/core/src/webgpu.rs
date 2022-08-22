@@ -7,7 +7,7 @@ use image::*;
 use rendiation_texture_types::Size;
 use rendiation_webgpu::{TextureFormat, WebGPUTexture2dSource};
 
-use crate::{Texture2DBuffer, Texture2DSource};
+use crate::{Texture2D, Texture2DBuffer, Texture2DSource};
 
 pub trait TextureFormatDecider {
   const FORMAT: TextureFormat;
@@ -22,15 +22,7 @@ impl TextureFormatDecider for u8 {
 
 // https://github.com/gpuweb/gpuweb/issues/66
 pub fn rgb_to_rgba(input: ImageBuffer<Rgb<u8>, Vec<u8>>) -> ImageBuffer<Rgba<u8>, Vec<u8>> {
-  let mut target = ImageBuffer::new(input.width(), input.height());
-  // todo: could be optimized
-  target
-    .pixels_mut()
-    .zip(input.pixels())
-    .for_each(|(target, source)| {
-      *target = Rgba([source.0[0], source.0[1], source.0[2], 255]);
-    });
-  target
+  input.map(|r| Rgba([r[0], r[1], r[2], 255]))
 }
 
 impl<P, C> WebGPUTexture2dSource for Texture2DSource<image::ImageBuffer<P, C>>

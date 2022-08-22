@@ -57,12 +57,16 @@ pub fn menu() -> impl UIComponent<MenuModel> {
 }
 
 fn menu_title() -> impl UIComponent<MenuList> {
-  Container::adapt(AdaptChildSelfBehavior::Child).wrap(
-    Text::default()
-      .with_layout(TextLayoutConfig::SingleLineShrink)
-      .bind(|s, t| s.content.set(t)) //
-      .lens(lens!(MenuList, name)),
-  )
+  Container::adapt(AdaptChildSelfBehavior::Child)
+    .bind(|s, _| {
+      s.padding = QuadBoundaryWidth::equal(3.);
+    })
+    .wrap(
+      Text::default()
+        .with_layout(TextLayoutConfig::SingleLineShrink)
+        .bind(|s, t| s.content.set(t)) //
+        .lens(lens!(MenuList, name)),
+    )
 }
 
 fn menu_expand() -> impl UIComponent<MenuList> {

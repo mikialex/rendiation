@@ -55,6 +55,17 @@ pub struct QuadBoundaryWidth {
   pub right: f32,
 }
 
+impl QuadBoundaryWidth {
+  pub fn equal(size: f32) -> Self {
+    Self {
+      top: size,
+      bottom: size,
+      left: size,
+      right: size,
+    }
+  }
+}
+
 #[derive(Default)]
 pub struct QuadBorder {
   pub radius: QuadRadius,
