@@ -96,10 +96,51 @@ impl<M: WebGPUMesh> WebGPUMesh for TransformInstance<M> {
     self.mesh.topology()
   }
 
-  fn try_pick(
+  fn try_pick(&self, f: &mut dyn FnMut(&dyn IntersectAbleGroupedMesh)) {
+    self.mesh.try_pick(&mut |target| {
+      let wrapped = InstanceTransformedPickImpl {
+        mat: &self.transforms,
+        mesh: target,
+      };
+      f(&wrapped as &dyn IntersectAbleGroupedMesh)
+    });
+  }
+}
+
+struct InstanceTransformedPickImpl<'a> {
+  pub mat: &'a [Mat4<f32>],
+  pub mesh: &'a dyn IntersectAbleGroupedMesh,
+}
+
+impl<'a> IntersectAbleGroupedMesh for InstanceTransformedPickImpl<'a> {
+  fn intersect_list(
     &self,
-    _f: &mut dyn FnMut(&dyn rendiation_renderable_mesh::mesh::IntersectAbleGroupedMesh),
+    ray: Ray3,
+    conf: &MeshBufferIntersectConfig,
+    result: &mut MeshBufferHitList,
+    group: MeshDrawGroup,
   ) {
-    // todo support picking?
+    self.mat.iter().for_each(|mat| {
+      let world_inv = mat.inverse_or_identity();
+      let local_ray = ray.clone().apply_matrix_into(world_inv);
+      self.mesh.intersect_list(local_ray, conf, result, group)
+    })
+  }
+
+  fn intersect_nearest(
+    &self,
+    ray: Ray3,
+    conf: &MeshBufferIntersectConfig,
+    group: MeshDrawGroup,
+  ) -> OptionalNearest<MeshBufferHitPoint> {
+    self
+      .mat
+      .iter()
+      .fold(OptionalNearest::none(), |mut pre, mat| {
+        let world_inv = mat.inverse_or_identity();
+        let local_ray = ray.clone().apply_matrix_into(world_inv);
+        let r = self.mesh.intersect_nearest(local_ray, conf, group);
+        *pre.refresh_nearest(r)
+      })
   }
 }

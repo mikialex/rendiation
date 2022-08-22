@@ -96,6 +96,15 @@ impl<V> LineSegment<V> {
     }
   }
 
+  pub fn filter_map<U>(self, mut f: impl FnMut(V) -> Option<U>) -> Option<LineSegment<U>> {
+    LineSegment {
+      start: f(self.start)?,
+      end: f(self.end)?,
+      shape: StraitLine::default(),
+    }
+    .into()
+  }
+
   #[must_use]
   pub fn swap(self) -> Self {
     Self::line_segment(self.end, self.start)

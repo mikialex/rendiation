@@ -27,4 +27,8 @@ impl<U> Point<U> {
   pub fn map<V>(self, mut f: impl FnMut(U) -> V) -> Point<V> {
     Point(f(self.0))
   }
+
+  pub fn filter_map<V>(self, mut f: impl FnMut(U) -> Option<V>) -> Option<Point<V>> {
+    Point(f(self.0)?).into()
+  }
 }

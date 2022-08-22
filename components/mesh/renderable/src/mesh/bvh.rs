@@ -75,7 +75,7 @@ where
       |leaf| {
         leaf
           .iter_primitive(bvh)
-          .map(|&i| (self.primitive_at(i), i))
+          .filter_map(|&i| (self.primitive_at(i)?, i).into())
           .filter_map(|(p, primitive_index)| {
             p.intersect(&ray, conf)
               .map(|hit| MeshBufferHitPoint {
@@ -103,7 +103,7 @@ where
       |leaf| {
         leaf
           .iter_primitive(bvh)
-          .map(|&i| (self.primitive_at(i), i))
+          .filter_map(|&i| (self.primitive_at(i)?, i).into())
           .for_each(|(p, primitive_index)| {
             nearest.refresh_nearest(p.intersect(&ray, conf).map(|hit| MeshBufferHitPoint {
               hit,
