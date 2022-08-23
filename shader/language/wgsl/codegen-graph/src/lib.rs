@@ -1,6 +1,7 @@
-#![feature(let_chains)]
-
 use shadergraph::*;
+
+mod ctx;
+use ctx::*;
 
 pub struct WGSL;
 
@@ -48,7 +49,10 @@ fn gen_vertex_shader(
     &pipeline_builder.bindgroups,
     ShaderStages::Fragment,
   );
-  builder.struct_defines.iter().for_each(|s| cx.add_ty_dep(s));
+  builder
+    .struct_defines
+    .iter()
+    .for_each(|s| cx.add_struct_dep(s));
 
   gen_vertex_out_struct(&mut code, vertex);
 
@@ -103,7 +107,10 @@ fn gen_fragment_shader(
     &pipeline_builder.bindgroups,
     ShaderStages::Fragment,
   );
-  builder.struct_defines.iter().for_each(|s| cx.add_ty_dep(s));
+  builder
+    .struct_defines
+    .iter()
+    .for_each(|s| cx.add_struct_dep(s));
 
   gen_fragment_out_struct(&mut code, fragment);
 
@@ -536,13 +543,21 @@ fn gen_uniform_structs(
     meta: &'static ShaderStructMetaInfo,
   ) {
     if cx.add_generated_uniform_structs(meta) {
-      gen_struct(code, &meta.to_owned(), true);
-
       for f in meta.fields {
-        if let ShaderStructMemberValueType::Struct(s) = f.ty {
-          gen_uniform_structs(code, cx, s)
+        match f.ty {
+          ShaderStructMemberValueType::Primitive(_) => {}
+          ShaderStructMemberValueType::Struct(s) => gen_uniform_structs(code, cx, s),
+          ShaderStructMemberValueType::FixedSizeArray((ty, _)) => {
+            if let Some(wrapper) = check_should_wrap(ty) {
+              if cx.add_special_uniform_array_wrapper(wrapper) {
+                gen_wrapper_struct(code, wrapper)
+              }
+            }
+          }
         }
       }
+
+      gen_struct(code, &meta.to_owned(), true);
     }
   }
 
@@ -562,14 +577,68 @@ fn gen_none_host_shareable_struct(builder: &mut CodeBuilder, meta: &ShaderStruct
   gen_struct(builder, meta, false)
 }
 
-/// The shadergraph struct not mark any alignment info (as same as glsl)
-/// but the wgsl requires explicit alignment and size mark, so we have to generate these.
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
+pub enum ReWrappedPrimitiveArrayItem {
+  Bool,
+  Int32,
+  Uint32,
+  Float32,
+  Vec2Float32,
+  Vec3Float32,
+}
+
+fn gen_wrapper_struct(builder: &mut CodeBuilder, w: ReWrappedPrimitiveArrayItem) {
+  let (struct_name, raw_ty) = match w {
+    ReWrappedPrimitiveArrayItem::Bool => ("bool", "bool"),
+    ReWrappedPrimitiveArrayItem::Int32 => ("i32", "i32"),
+    ReWrappedPrimitiveArrayItem::Uint32 => ("u32", "u32"),
+    ReWrappedPrimitiveArrayItem::Float32 => ("f32", "f32"),
+    ReWrappedPrimitiveArrayItem::Vec2Float32 => ("vec2f32", "vec2<f32>"),
+    ReWrappedPrimitiveArrayItem::Vec3Float32 => ("vec3f32", "vec3<f32>"),
+  };
+
+  builder.write_ln(format!(
+    "struct UniformArray_{struct_name} {{ @size(16) inner: {raw_ty} }}"
+  ));
+}
+
+fn check_should_wrap(ty: &ShaderStructMemberValueType) -> Option<ReWrappedPrimitiveArrayItem> {
+  let t = if let ShaderStructMemberValueType::Primitive(ty) = ty {
+    match ty {
+      PrimitiveShaderValueType::Bool => ReWrappedPrimitiveArrayItem::Bool,
+      PrimitiveShaderValueType::Int32 => ReWrappedPrimitiveArrayItem::Int32,
+      PrimitiveShaderValueType::Uint32 => ReWrappedPrimitiveArrayItem::Uint32,
+      PrimitiveShaderValueType::Float32 => ReWrappedPrimitiveArrayItem::Float32,
+      PrimitiveShaderValueType::Vec2Float32 => ReWrappedPrimitiveArrayItem::Vec2Float32,
+      PrimitiveShaderValueType::Vec3Float32 => ReWrappedPrimitiveArrayItem::Vec3Float32,
+      _ => return None,
+    }
+  } else {
+    return None;
+  };
+  Some(t)
+}
+
+/// The shadergraph struct not mark any alignment info
+/// but the wgsl requires explicit alignment and size mark, so we have to generate these annotation.
+/// or even replace/wrapping the type to satisfy the layout requirements of uniform/storage.
 ///
-/// When some struct requires 140 layout, we can assure all the type the struct used is also
+/// When some struct requires 140 layout, we can assure all the type the struct's fields used are also
 /// std140, this is statically constraint by traits. That means if we generate all uniform
-/// structs and it's dependency struct first, the following struct  and it's dependency struct
+/// structs and it's dependency struct first, the following struct and it's dependency struct
 /// we meet in function dependency collecting can regard them as pure shader class. This also
 /// applied to future 430 layout support in future.
+///
+/// the `array<f32, N>`,  `array<u32, N>`, is not qualified for uniform, for these cases
+/// we generate `array<UniformArray_f32, N>` type. The UniformArray_f32 is
+/// ```
+/// struct UniformArray_f32 {
+///   @size(16) inner: f32,
+/// }
+/// ```
+///
+/// For struct's size not align to 16 but used in array, when we generate the struct, we explicitly
+/// add last field size/alignment to meet the requirement.
 ///
 fn gen_struct(builder: &mut CodeBuilder, meta: &ShaderStructMetaInfoOwned, is_uniform: bool) {
   builder.write_ln(format!("struct {} {{", meta.name));

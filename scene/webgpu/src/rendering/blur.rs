@@ -168,7 +168,7 @@ wgsl_fn!(
     var sum: vec4<f32>;
     for (var i: i32 = 2; i < weights.weight_count; i++) {
         let samples = textureSample(texture, sp, uv + f32(i) * sample_offset);
-        sum = lin_space(1.0, sum, weights.weights[i], samples);
+        sum = lin_space(1.0, sum, weights.weights[i].inner, samples);
     }
     return sum;
   }

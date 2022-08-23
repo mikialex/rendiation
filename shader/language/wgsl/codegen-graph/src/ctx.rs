@@ -1,3 +1,5 @@
+use std::collections::*;
+
 use crate::*;
 
 pub struct CodeGenCtx {
@@ -11,6 +13,8 @@ pub struct CodeGenCtx {
   depend_functions: HashSet<&'static ShaderFunctionMetaInfo>,
   /// new collected(recursively) in main function logic, deduplicate by self and uniform ones
   depend_types: HashSet<&'static ShaderStructMetaInfo>,
+
+  pub(crate) uniform_array_wrappers: HashSet<ReWrappedPrimitiveArrayItem>,
 }
 
 impl Default for CodeGenCtx {
@@ -21,6 +25,7 @@ impl Default for CodeGenCtx {
       generated_uniform_types: Default::default(),
       depend_functions: Default::default(),
       depend_types: Default::default(),
+      uniform_array_wrappers: Default::default(),
     }
   }
 }
@@ -28,9 +33,6 @@ impl Default for CodeGenCtx {
 impl CodeGenCtx {
   pub fn top_scope_mut(&mut self) -> &mut CodeGenScopeCtx {
     self.scopes.last_mut().unwrap()
-  }
-  pub fn top_scope(&self) -> &CodeGenScopeCtx {
-    self.scopes.last().unwrap()
   }
 
   pub fn push_scope(&mut self) -> &mut CodeGenScopeCtx {
@@ -47,10 +49,17 @@ impl CodeGenCtx {
     self.generated_uniform_types.insert(meta)
   }
 
+  pub fn add_special_uniform_array_wrapper(
+    &mut self,
+    wrapper: ReWrappedPrimitiveArrayItem,
+  ) -> bool {
+    self.uniform_array_wrappers.insert(wrapper)
+  }
+
   pub fn add_fn_dep(&mut self, meta: &'static ShaderFunctionMetaInfo) {
     if self.depend_functions.insert(meta) {
       for ty in meta.depend_types {
-        self.add_ty_dep(ty)
+        self.add_struct_dep(ty)
       }
       for f in meta.depend_functions {
         self.add_fn_dep(f)
@@ -58,17 +67,23 @@ impl CodeGenCtx {
     }
   }
 
-  pub fn add_ty_dep(&mut self, meta: &'static ShaderStructMetaInfo) {
+  pub fn add_struct_dep(&mut self, meta: &'static ShaderStructMetaInfo) {
     if self.generated_uniform_types.contains(meta) {
       return;
     }
 
     if self.depend_types.insert(meta) {
       for f in meta.fields {
-        if let ShaderStructMemberValueType::Struct(s) = f.ty {
-          self.add_ty_dep(s)
-        }
+        self.add_ty_dep(f.ty);
       }
+    }
+  }
+
+  fn add_ty_dep(&mut self, ty: ShaderStructMemberValueType) {
+    match ty {
+      ShaderStructMemberValueType::Primitive(_) => {}
+      ShaderStructMemberValueType::Struct(s) => self.add_struct_dep(s),
+      ShaderStructMemberValueType::FixedSizeArray((ty, _)) => self.add_ty_dep(*ty),
     }
   }
 
