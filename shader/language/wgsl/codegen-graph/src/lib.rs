@@ -587,18 +587,32 @@ pub enum ReWrappedPrimitiveArrayItem {
   Vec3Float32,
 }
 
+fn gen_wrapper_struct_name(w: ReWrappedPrimitiveArrayItem) -> String {
+  let struct_name = match w {
+    ReWrappedPrimitiveArrayItem::Bool => "bool",
+    ReWrappedPrimitiveArrayItem::Int32 => "i32",
+    ReWrappedPrimitiveArrayItem::Uint32 => "u32",
+    ReWrappedPrimitiveArrayItem::Float32 => "f32",
+    ReWrappedPrimitiveArrayItem::Vec2Float32 => "vec2f32",
+    ReWrappedPrimitiveArrayItem::Vec3Float32 => "vec3f32",
+  };
+  format!("UniformArray_{struct_name}")
+}
+
 fn gen_wrapper_struct(builder: &mut CodeBuilder, w: ReWrappedPrimitiveArrayItem) {
-  let (struct_name, raw_ty) = match w {
-    ReWrappedPrimitiveArrayItem::Bool => ("bool", "bool"),
-    ReWrappedPrimitiveArrayItem::Int32 => ("i32", "i32"),
-    ReWrappedPrimitiveArrayItem::Uint32 => ("u32", "u32"),
-    ReWrappedPrimitiveArrayItem::Float32 => ("f32", "f32"),
-    ReWrappedPrimitiveArrayItem::Vec2Float32 => ("vec2f32", "vec2<f32>"),
-    ReWrappedPrimitiveArrayItem::Vec3Float32 => ("vec3f32", "vec3<f32>"),
+  let raw_ty = match w {
+    ReWrappedPrimitiveArrayItem::Bool => "bool",
+    ReWrappedPrimitiveArrayItem::Int32 => "i32",
+    ReWrappedPrimitiveArrayItem::Uint32 => "u32",
+    ReWrappedPrimitiveArrayItem::Float32 => "f32",
+    ReWrappedPrimitiveArrayItem::Vec2Float32 => "vec2<f32>",
+    ReWrappedPrimitiveArrayItem::Vec3Float32 => "vec3<f32>",
   };
 
+  let struct_name = gen_wrapper_struct_name(w);
+
   builder.write_ln(format!(
-    "struct UniformArray_{struct_name} {{ @size(16) inner: {raw_ty} }}"
+    "struct {struct_name} {{ @size(16) inner: {raw_ty} }};"
   ));
 }
 
@@ -664,7 +678,7 @@ fn gen_struct(builder: &mut CodeBuilder, meta: &ShaderStructMetaInfoOwned, is_un
         "{} {}: {},",
         explicit_align,
         name,
-        gen_fix_type_impl(*ty)
+        gen_fix_type_impl(*ty, true)
       ));
 
       current_byte_used += ty.size_of_self(StructLayoutTarget::Std430);
@@ -693,7 +707,7 @@ fn gen_struct(builder: &mut CodeBuilder, meta: &ShaderStructMetaInfoOwned, is_un
         "{} {}: {},",
         built_in_deco,
         name,
-        gen_fix_type_impl(*ty)
+        gen_fix_type_impl(*ty, false)
       ));
     }
   }
@@ -767,7 +781,7 @@ fn gen_bind_entry(
       },
       group_index,
       item_index,
-      gen_type_impl(entry.0),
+      gen_type_impl(entry.0, true),
     ));
   }
   *item_index += 1;
@@ -812,7 +826,7 @@ fn gen_primitive_type(ty: PrimitiveShaderValueType) -> &'static str {
   }
 }
 
-fn gen_type_impl(ty: ShaderValueType) -> String {
+fn gen_type_impl(ty: ShaderValueType, is_uniform: bool) -> String {
   match ty {
     ShaderValueType::Sampler => "sampler".to_owned(),
     ShaderValueType::CompareSampler => "sampler_comparison".to_owned(),
@@ -835,7 +849,7 @@ fn gen_type_impl(ty: ShaderValueType) -> String {
         TextureViewDimension::D3 => format!("texture{suffix}_3d<f32>"),
       }
     }
-    ShaderValueType::Fixed(ty) => gen_fix_type_impl(ty),
+    ShaderValueType::Fixed(ty) => gen_fix_type_impl(ty, is_uniform),
     ShaderValueType::Never => unreachable!("can not code generate never type"),
     ShaderValueType::SamplerCombinedTexture => {
       unreachable!("combined sampler texture should handled above")
@@ -843,12 +857,17 @@ fn gen_type_impl(ty: ShaderValueType) -> String {
   }
 }
 
-fn gen_fix_type_impl(ty: ShaderStructMemberValueType) -> String {
+fn gen_fix_type_impl(ty: ShaderStructMemberValueType, is_uniform: bool) -> String {
   match ty {
     ShaderStructMemberValueType::Primitive(ty) => gen_primitive_type(ty).to_owned(),
     ShaderStructMemberValueType::Struct(meta) => meta.name.to_owned(),
     ShaderStructMemberValueType::FixedSizeArray((ty, length)) => {
-      format!("array<{}, {}>", gen_fix_type_impl(*ty), length)
+      let type_name = if is_uniform && let Some(w) = check_should_wrap(ty) {
+        gen_wrapper_struct_name(w)
+      } else {
+        gen_fix_type_impl(*ty, is_uniform)
+      };
+      format!("array<{}, {}>", type_name, length)
     }
   }
 }
