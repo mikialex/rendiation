@@ -113,7 +113,7 @@ impl RayTracingSceneExt for Scene<RayTracingScene> {
       model: Model::new(shape, material),
       node,
     };
-    self.models.push(Box::new(model));
+    let _ = self.models.insert(Box::new(model));
     self
   }
 
@@ -129,7 +129,7 @@ impl RayTracingSceneExt for Scene<RayTracingScene> {
       model: Model::new(shape, material),
       node,
     };
-    self.models.push(Box::new(model));
+    let _ = self.models.insert(Box::new(model));
     self
   }
 
@@ -146,7 +146,7 @@ impl RayTracingSceneExt for Scene<RayTracingScene> {
 
     let mut models_in_bvh_source = Vec::new();
 
-    for model in self.models.iter() {
+    for (_, model) in self.models.iter() {
       model.get_node().visit(|node_data| {
         let mut model = Model {
           shape: model.get_shape(),
