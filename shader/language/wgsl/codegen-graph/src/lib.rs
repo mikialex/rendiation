@@ -584,7 +584,7 @@ pub enum ReWrappedPrimitiveArrayItem {
   Uint32,
   Float32,
   Vec2Float32,
-  Vec3Float32,
+  // note: vec3 is not required.
 }
 
 fn gen_wrapper_struct_name(w: ReWrappedPrimitiveArrayItem) -> String {
@@ -594,7 +594,6 @@ fn gen_wrapper_struct_name(w: ReWrappedPrimitiveArrayItem) -> String {
     ReWrappedPrimitiveArrayItem::Uint32 => "u32",
     ReWrappedPrimitiveArrayItem::Float32 => "f32",
     ReWrappedPrimitiveArrayItem::Vec2Float32 => "vec2f32",
-    ReWrappedPrimitiveArrayItem::Vec3Float32 => "vec3f32",
   };
   format!("UniformArray_{struct_name}")
 }
@@ -606,7 +605,6 @@ fn gen_wrapper_struct(builder: &mut CodeBuilder, w: ReWrappedPrimitiveArrayItem)
     ReWrappedPrimitiveArrayItem::Uint32 => "u32",
     ReWrappedPrimitiveArrayItem::Float32 => "f32",
     ReWrappedPrimitiveArrayItem::Vec2Float32 => "vec2<f32>",
-    ReWrappedPrimitiveArrayItem::Vec3Float32 => "vec3<f32>",
   };
 
   let struct_name = gen_wrapper_struct_name(w);
@@ -624,7 +622,6 @@ fn check_should_wrap(ty: &ShaderStructMemberValueType) -> Option<ReWrappedPrimit
       PrimitiveShaderValueType::Uint32 => ReWrappedPrimitiveArrayItem::Uint32,
       PrimitiveShaderValueType::Float32 => ReWrappedPrimitiveArrayItem::Float32,
       PrimitiveShaderValueType::Vec2Float32 => ReWrappedPrimitiveArrayItem::Vec2Float32,
-      PrimitiveShaderValueType::Vec3Float32 => ReWrappedPrimitiveArrayItem::Vec3Float32,
       _ => return None,
     }
   } else {
