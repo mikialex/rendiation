@@ -19,13 +19,19 @@ pub trait FusionBackground: RayTracingBackground + WebGPUBackground {}
 
 pub trait FusionModel: RayTracingModel + SceneRenderableShareable + 'static {}
 
+pub type FusionModelHandle = Handle<Box<dyn FusionModel>>;
+
 pub trait FusionSceneExtension {
   #[must_use]
-  fn add_model(&mut self, model: impl FusionModel) -> Handle<Box<dyn FusionModel>>;
+  fn add_model(&mut self, model: impl FusionModel) -> FusionModelHandle;
+  fn remove_model(&mut self, handle: FusionModelHandle) -> bool;
 }
 
 impl FusionSceneExtension for Scene<FusionScene> {
-  fn add_model(&mut self, model: impl FusionModel) -> Handle<Box<dyn FusionModel>> {
+  fn add_model(&mut self, model: impl FusionModel) -> FusionModelHandle {
     self.models.insert(Box::new(model))
+  }
+  fn remove_model(&mut self, handle: FusionModelHandle) -> bool {
+    self.models.remove(handle).is_some()
   }
 }

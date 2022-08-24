@@ -86,9 +86,9 @@ pub fn load_default_scene(scene: &mut Scene<WebGPUScene>) {
     child.set_local_matrix(Mat4::translate((2., 0., 3.)));
 
     let model: MeshModel<_, _> = MeshModelImpl::new(material, mesh, child).into();
-    // let _ = scene.add_model(model);
-    let model_handle = scene.add_model(model);
-    scene.remove_model(model_handle);
+    let _ = scene.add_model(model);
+    // let model_handle = scene.add_model(model);
+    // scene.remove_model(model_handle);
   }
 
   {
