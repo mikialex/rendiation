@@ -4,6 +4,8 @@ use crate::bst::{BSTTreeNodeRef, Oc};
 use rendiation_abstract_tree::AbstractTree;
 #[cfg(test)]
 use std::collections::HashSet;
+#[cfg(test)]
+use std::ops::Range;
 
 #[cfg(test)]
 fn print(prefix: &String, name: String, node: &BSTTreeNodeRef<Oc, 8, 3>) {
@@ -67,8 +69,18 @@ pub fn test_bst_build() {
   let root = tree.create_node_ref(0);
   visit(&"".into(), "root".into(), true, &root);
 
-  //TODO test tree
+  // test tree
+  assert!(root.node.child.is_some());
+  let mut ranges = Vec::<Range<usize>>::new();
+  root.visit_children(|child| {
+    ranges.push(child.node.primitive_range.clone());
+  });
+  assert_eq!(
+    ranges,
+    vec!(1..1, 1..4, 4..12, 12..15, 15..20, 20..23, 23..27, 27..32)
+  );
 
+  // sorted_primitive_index not corrupted
   assert_eq!(
     COUNT,
     HashSet::<usize>::from_iter(tree.sorted_primitive_index.iter().cloned()).len()
