@@ -16,7 +16,7 @@ pub struct ShaderSamplingWeights {
   /// this array is just used as a fixed size container.
   pub weights: Shader140Array<f32, 32>,
   /// the actually sample count we used.
-  pub weight_count: u32,
+  pub weight_count: i32,
 }
 
 impl ShaderSamplingWeights {
@@ -151,7 +151,7 @@ pub fn draw_linear_blur<'a, T: AsRef<Attachment> + 'a>(
 }
 
 wgsl_fn!(
-  fn lin_space(w0: f32, d0: vec4<f32>, w1: f32, d1: vec4<f32>) -> f32 {
+  fn lin_space(w0: f32, d0: vec4<f32>, w1: f32, d1: vec4<f32>) -> vec4<f32> {
     return (w0 * d0 + w1 * d1);
   }
 );

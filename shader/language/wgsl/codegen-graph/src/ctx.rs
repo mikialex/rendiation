@@ -1,6 +1,7 @@
 use std::collections::*;
 
 use crate::*;
+use linked_hash_set::*;
 
 pub struct CodeGenCtx {
   var_guid: usize,
@@ -10,9 +11,9 @@ pub struct CodeGenCtx {
   generated_uniform_types: HashSet<&'static ShaderStructMetaInfo>,
 
   /// new collected(recursively) in main function logic, deduplicate by self
-  depend_functions: HashSet<&'static ShaderFunctionMetaInfo>,
+  depend_functions: LinkedHashSet<&'static ShaderFunctionMetaInfo>,
   /// new collected(recursively) in main function logic, deduplicate by self and uniform ones
-  depend_types: HashSet<&'static ShaderStructMetaInfo>,
+  depend_types: LinkedHashSet<&'static ShaderStructMetaInfo>,
 
   pub(crate) uniform_array_wrappers: HashSet<ReWrappedPrimitiveArrayItem>,
 }
@@ -92,11 +93,11 @@ impl CodeGenCtx {
     builder: &mut CodeBuilder,
     struct_gen: impl Fn(&mut CodeBuilder, &ShaderStructMetaInfoOwned),
   ) {
-    for &ty in &self.depend_types {
+    for &ty in self.depend_types.iter().rev() {
       struct_gen(builder, &ty.to_owned())
     }
 
-    for f in &self.depend_functions {
+    for f in self.depend_functions.iter().rev() {
       builder.write_ln("").write_raw(f.function_source);
     }
   }
