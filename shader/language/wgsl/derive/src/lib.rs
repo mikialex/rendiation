@@ -19,6 +19,13 @@ pub fn wgsl_fn(input: TokenStream) -> TokenStream {
   gen_wgsl_function(input.as_str()).into()
 }
 
+fn check_is_self_generated(type_name: &str) -> bool {
+  matches!(
+    type_name,
+    "UniformArray_f32" | "UniformArray_u32" | "UniformArray_i32" | "UniformArray_vec2f32"
+  )
+}
+
 fn gen_wgsl_function(wgsl: &str) -> proc_macro2::TokenStream {
   let fun = FunctionDefine::parse_input(wgsl).expect("wgsl parse error");
 
@@ -36,9 +43,13 @@ fn gen_wgsl_function(wgsl: &str) -> proc_macro2::TokenStream {
   let foreign_types: Vec<_> = collector
     .depend_user_struct
     .iter()
-    .map(|f_name| {
-      let name = gen_struct_meta_name(f_name);
-      quote! { #name, }
+    .filter_map(|f_name| {
+      if check_is_self_generated(f_name) {
+        None
+      } else {
+        let name = gen_struct_meta_name(f_name);
+        Some(quote! { #name, })
+      }
     })
     .collect();
 
@@ -150,6 +161,17 @@ fn convert_type(ty: &TypeExpression) -> proc_macro2::TokenStream {
       PrimitiveType::Sampler => quote! { shadergraph::ShaderSampler },
     },
     TypeExpression::FixedArray((ty, size)) => {
+      if let TypeExpression::Struct(s) = ty.as_ref() {
+        if let Some(raw_ty) = match s.name.as_str() {
+          "UniformArray_f32" => Some(quote! {f32}),
+          "UniformArray_f32vec2" => Some(quote! {vec2<f32>}),
+          "UniformArray_u32" => Some(quote! {u32}),
+          "UniformArray_i32" => Some(quote! {i32}),
+          _ => None,
+        } {
+          return quote! { shadergraph::Shader140Array<#raw_ty, #size> };
+        }
+      }
       let ty = convert_type(ty);
       quote! { shadergraph::Shader140Array<#ty, #size> }
     }

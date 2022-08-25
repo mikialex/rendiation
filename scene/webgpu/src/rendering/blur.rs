@@ -169,7 +169,7 @@ wgsl_fn!(
 wgsl_fn!(
   fn linear_blur(
     direction: vec2<f32>,
-    weights: array<f32, 32>,
+    weights: array<UniformArray_f32, 32>,
     weight_count: i32,
     texture: texture_2d<f32>,
     sp: sampler,
