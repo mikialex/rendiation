@@ -419,18 +419,6 @@ impl ShaderStructMetaInfoOwned {
 
 pub trait ShaderGraphNodeType: 'static + Copy {
   const TYPE: ShaderValueType;
-  fn extract_struct_define() -> Option<&'static ShaderStructMetaInfo> {
-    match Self::TYPE {
-      ShaderValueType::Fixed(v) => {
-        if let ShaderStructMemberValueType::Struct(s) = v {
-          Some(s)
-        } else {
-          None
-        }
-      }
-      _ => None,
-    }
-  }
 }
 
 pub trait ShaderStructMemberValueNodeType: ShaderGraphNodeType {

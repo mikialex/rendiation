@@ -1,9 +1,11 @@
+use shadergraph::Std140;
+
 use crate::*;
 
 pub type UniformBufferResource<T> = ResourceRc<UniformBuffer<T>>;
 pub type UniformBufferView<T> = ResourceViewRc<UniformBuffer<T>>;
 
-impl<T: 'static> Resource for UniformBuffer<T> {
+impl<T: Std140> Resource for UniformBuffer<T> {
   type Descriptor = ();
   type View = Rc<gpu::Buffer>;
   type ViewDescriptor = ();
@@ -13,7 +15,7 @@ impl<T: 'static> Resource for UniformBuffer<T> {
   }
 }
 
-impl<T: Pod> InitResourceBySource for UniformBuffer<T> {
+impl<T: Std140> InitResourceBySource for UniformBuffer<T> {
   type Source = T;
 
   fn create_resource_with_source(
@@ -31,12 +33,12 @@ impl BindableResourceView for Rc<gpu::Buffer> {
 }
 
 /// Typed wrapper
-pub struct UniformBuffer<T> {
+pub struct UniformBuffer<T: Std140> {
   gpu: Rc<gpu::Buffer>,
   phantom: PhantomData<T>,
 }
 
-impl<T: Pod> UniformBuffer<T> {
+impl<T: Std140> UniformBuffer<T> {
   pub fn create(device: &GPUDevice, data: T) -> Self {
     let gpu = device.create_buffer_init(&gpu::util::BufferInitDescriptor {
       label: None,
@@ -58,14 +60,14 @@ impl<T: Pod> UniformBuffer<T> {
   }
 }
 
-impl<T> BindableResourceView for UniformBuffer<T> {
+impl<T: Std140> BindableResourceView for UniformBuffer<T> {
   fn as_bindable(&self) -> gpu::BindingResource {
     self.gpu.as_entire_binding()
   }
 }
 
 /// Typed uniform buffer with cpu data cache, which could being diffed when updating
-pub struct UniformBufferData<T> {
+pub struct UniformBufferData<T: Std140> {
   gpu: Rc<gpu::Buffer>,
   data: RefCell<T>,
   last: Cell<Option<T>>,
@@ -75,7 +77,7 @@ pub struct UniformBufferData<T> {
 pub type UniformBufferDataResource<T> = ResourceRc<UniformBufferData<T>>;
 pub type UniformBufferDataView<T> = ResourceViewRc<UniformBufferData<T>>;
 
-impl<T: 'static> Resource for UniformBufferData<T> {
+impl<T: Std140> Resource for UniformBufferData<T> {
   type Descriptor = ();
   type View = Rc<gpu::Buffer>;
   type ViewDescriptor = ();
@@ -85,7 +87,7 @@ impl<T: 'static> Resource for UniformBufferData<T> {
   }
 }
 
-impl<T: Pod> InitResourceBySource for UniformBufferData<T> {
+impl<T: Std140> InitResourceBySource for UniformBufferData<T> {
   type Source = T;
 
   fn create_resource_with_source(
@@ -96,7 +98,7 @@ impl<T: Pod> InitResourceBySource for UniformBufferData<T> {
   }
 }
 
-impl<T: Pod> UniformBufferData<T> {
+impl<T: Std140> UniformBufferData<T> {
   pub fn create_default(device: &GPUDevice) -> Self
   where
     T: Default,
@@ -156,7 +158,7 @@ impl<T: Pod> UniformBufferData<T> {
   }
 }
 
-impl<T> BindableResourceView for UniformBufferData<T> {
+impl<T: Std140> BindableResourceView for UniformBufferData<T> {
   fn as_bindable(&self) -> gpu::BindingResource {
     self.gpu.as_entire_binding()
   }

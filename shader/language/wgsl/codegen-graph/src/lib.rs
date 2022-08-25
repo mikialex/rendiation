@@ -1,5 +1,8 @@
 use shadergraph::*;
 
+mod ctx;
+use ctx::*;
+
 pub struct WGSL;
 
 impl WGSL {
@@ -40,13 +43,18 @@ fn gen_vertex_shader(
   let mut code = CodeBuilder::default();
   let mut cx = CodeGenCtx::default();
 
-  gen_structs(&mut code, &builder);
-  gen_vertex_out_struct(&mut code, vertex);
-  gen_bindings(
+  gen_uniform_structs(
     &mut code,
+    &mut cx,
     &pipeline_builder.bindgroups,
-    ShaderStages::Vertex,
+    ShaderStages::Fragment,
   );
+  builder
+    .struct_defines
+    .iter()
+    .for_each(|s| cx.add_struct_dep(s));
+
+  gen_vertex_out_struct(&mut code, vertex);
 
   let mut code_entry = CodeBuilder::default();
   gen_entry(
@@ -74,7 +82,13 @@ fn gen_vertex_shader(
       code.write_raw("VertexOut");
     },
   );
-  cx.gen_fn_and_ty_depends(&mut code, gen_struct);
+  cx.gen_fn_and_ty_depends(&mut code, gen_none_host_shareable_struct);
+  gen_bindings(
+    &mut code,
+    &pipeline_builder.bindgroups,
+    ShaderStages::Vertex,
+  );
+
   code.output() + code_entry.output().as_str()
 }
 
@@ -86,13 +100,19 @@ fn gen_fragment_shader(
 
   let mut code = CodeBuilder::default();
   let mut cx = CodeGenCtx::default();
-  gen_structs(&mut code, &builder);
-  gen_fragment_out_struct(&mut code, fragment);
-  gen_bindings(
+
+  gen_uniform_structs(
     &mut code,
+    &mut cx,
     &pipeline_builder.bindgroups,
     ShaderStages::Fragment,
   );
+  builder
+    .struct_defines
+    .iter()
+    .for_each(|s| cx.add_struct_dep(s));
+
+  gen_fragment_out_struct(&mut code, fragment);
 
   let mut code_entry = CodeBuilder::default();
   gen_entry(
@@ -115,7 +135,14 @@ fn gen_fragment_shader(
       code.write_raw("FragmentOut");
     },
   );
-  cx.gen_fn_and_ty_depends(&mut code, gen_struct);
+  cx.gen_fn_and_ty_depends(&mut code, gen_none_host_shareable_struct);
+
+  gen_bindings(
+    &mut code,
+    &pipeline_builder.bindgroups,
+    ShaderStages::Fragment,
+  );
+
   code.output() + code_entry.output().as_str()
 }
 
@@ -153,7 +180,7 @@ fn gen_vertex_out_struct(code: &mut CodeBuilder, vertex: &ShaderGraphVertexBuild
       });
     });
 
-  gen_struct(code, &shader_struct);
+  gen_struct(code, &shader_struct, false);
 }
 
 fn _gen_interpolation(int: ShaderVaryingInterpolation) -> &'static str {
@@ -187,7 +214,7 @@ fn gen_fragment_out_struct(code: &mut CodeBuilder, frag: &ShaderGraphFragmentBui
     });
   });
 
-  gen_struct(code, &shader_struct);
+  gen_struct(code, &shader_struct, false);
 }
 
 fn gen_node_with_dep_in_entry(
@@ -504,41 +531,187 @@ fn gen_input_name(input: &ShaderGraphInputNode) -> String {
   }
 }
 
-fn gen_structs(code: &mut CodeBuilder, builder: &ShaderGraphBuilder) {
-  builder
-    .struct_defines
-    .iter()
-    .for_each(|&meta| gen_struct(code, &meta.to_owned()))
+fn gen_uniform_structs(
+  code: &mut CodeBuilder,
+  cx: &mut CodeGenCtx,
+  bindings: &ShaderGraphBindGroupBuilder,
+  stage: ShaderStages,
+) {
+  fn gen_uniform_structs_impl(
+    code: &mut CodeBuilder,
+    cx: &mut CodeGenCtx,
+    ty: &ShaderStructMemberValueType,
+  ) {
+    match ty {
+      ShaderStructMemberValueType::Primitive(_) => {}
+      ShaderStructMemberValueType::Struct(meta) => {
+        if cx.add_generated_uniform_structs(meta) {
+          for f in meta.fields {
+            gen_uniform_structs_impl(code, cx, &f.ty);
+          }
+
+          gen_struct(code, &(*meta).to_owned(), true);
+        }
+      }
+      ShaderStructMemberValueType::FixedSizeArray((ty, _)) => {
+        if let Some(wrapper) = check_should_wrap(ty) {
+          if cx.add_special_uniform_array_wrapper(wrapper) {
+            gen_wrapper_struct(code, wrapper)
+          }
+        }
+        gen_uniform_structs_impl(code, cx, ty)
+      }
+    }
+  }
+
+  for g in &bindings.bindings {
+    for (ty, vis) in &g.bindings {
+      let vis = vis.get();
+      if vis.is_visible_to(stage) {
+        if let ShaderValueType::Fixed(ty) = ty {
+          gen_uniform_structs_impl(code, cx, ty)
+        }
+      }
+    }
+  }
 }
 
-fn gen_struct(builder: &mut CodeBuilder, meta: &ShaderStructMetaInfoOwned) {
+fn gen_none_host_shareable_struct(builder: &mut CodeBuilder, meta: &ShaderStructMetaInfoOwned) {
+  gen_struct(builder, meta, false)
+}
+
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
+pub enum ReWrappedPrimitiveArrayItem {
+  Bool,
+  Int32,
+  Uint32,
+  Float32,
+  Vec2Float32,
+  // note: vec3 is not required.
+}
+
+fn gen_wrapper_struct_name(w: ReWrappedPrimitiveArrayItem) -> String {
+  let struct_name = match w {
+    ReWrappedPrimitiveArrayItem::Bool => "bool",
+    ReWrappedPrimitiveArrayItem::Int32 => "i32",
+    ReWrappedPrimitiveArrayItem::Uint32 => "u32",
+    ReWrappedPrimitiveArrayItem::Float32 => "f32",
+    ReWrappedPrimitiveArrayItem::Vec2Float32 => "vec2f32",
+  };
+  format!("UniformArray_{struct_name}")
+}
+
+fn gen_wrapper_struct(builder: &mut CodeBuilder, w: ReWrappedPrimitiveArrayItem) {
+  let raw_ty = match w {
+    ReWrappedPrimitiveArrayItem::Bool => "bool",
+    ReWrappedPrimitiveArrayItem::Int32 => "i32",
+    ReWrappedPrimitiveArrayItem::Uint32 => "u32",
+    ReWrappedPrimitiveArrayItem::Float32 => "f32",
+    ReWrappedPrimitiveArrayItem::Vec2Float32 => "vec2<f32>",
+  };
+
+  let struct_name = gen_wrapper_struct_name(w);
+
+  builder.write_ln(format!(
+    "struct {struct_name} {{ @size(16) inner: {raw_ty} }};"
+  ));
+}
+
+fn check_should_wrap(ty: &ShaderStructMemberValueType) -> Option<ReWrappedPrimitiveArrayItem> {
+  let t = if let ShaderStructMemberValueType::Primitive(ty) = ty {
+    match ty {
+      PrimitiveShaderValueType::Bool => ReWrappedPrimitiveArrayItem::Bool,
+      PrimitiveShaderValueType::Int32 => ReWrappedPrimitiveArrayItem::Int32,
+      PrimitiveShaderValueType::Uint32 => ReWrappedPrimitiveArrayItem::Uint32,
+      PrimitiveShaderValueType::Float32 => ReWrappedPrimitiveArrayItem::Float32,
+      PrimitiveShaderValueType::Vec2Float32 => ReWrappedPrimitiveArrayItem::Vec2Float32,
+      _ => return None,
+    }
+  } else {
+    return None;
+  };
+  Some(t)
+}
+
+/// The shadergraph struct not mark any alignment info
+/// but the wgsl requires explicit alignment and size mark, so we have to generate these annotation.
+/// or even replace/wrapping the type to satisfy the layout requirements of uniform/storage.
+///
+/// When some struct requires 140 layout, we can assure all the type the struct's fields used are also
+/// std140, this is statically constraint by traits. That means if we generate all uniform
+/// structs and it's dependency struct first, the following struct and it's dependency struct
+/// we meet in function dependency collecting can regard them as pure shader class. This also
+/// applied to future 430 layout support in future.
+///
+/// the `array<f32, N>`,  `array<u32, N>`, is not qualified for uniform, for these cases
+/// we generate `array<UniformArray_f32, N>` type. The UniformArray_f32 is
+/// ```
+/// struct UniformArray_f32 {
+///   @size(16) inner: f32,
+/// }
+/// ```
+///
+/// For struct's size not align to 16 but used in array, when we generate the struct, we explicitly
+/// add last field size/alignment to meet the requirement.
+///
+fn gen_struct(builder: &mut CodeBuilder, meta: &ShaderStructMetaInfoOwned, is_uniform: bool) {
   builder.write_ln(format!("struct {} {{", meta.name));
   builder.tab();
-  for ShaderStructFieldMetaInfoOwned { name, ty, ty_deco } in &meta.fields {
-    let built_in_deco = if let Some(ty_deco) = ty_deco {
-      match ty_deco {
-        ShaderFieldDecorator::BuiltIn(built_in) => format!(
-          "@builtin({})",
-          match built_in {
-            ShaderBuiltInDecorator::VertexIndex => "vertex_index",
-            ShaderBuiltInDecorator::InstanceIndex => "instance_index",
-            ShaderBuiltInDecorator::VertexPositionOut => "position",
-            ShaderBuiltInDecorator::FragmentPositionIn => "position",
-          }
-        ),
-        ShaderFieldDecorator::Location(location) => format!("@location({location})"),
-      }
-    } else {
-      "".to_owned()
-    };
 
-    builder.write_ln(format!(
-      "{} {}: {},",
-      built_in_deco,
-      name,
-      gen_fix_type_impl(*ty)
-    ));
+  if is_uniform {
+    let mut current_byte_used = 0;
+    let mut previous: Option<&ShaderStructMemberValueType> = None;
+    for ShaderStructFieldMetaInfoOwned { name, ty, .. } in &meta.fields {
+      let mut explicit_align: Option<usize> = None;
+      if let Some(previous) = previous {
+        let previous_align_require = previous.align_of_self(StructLayoutTarget::Std140);
+        if current_byte_used % previous_align_require != 0 {
+          explicit_align = previous_align_require.into();
+        }
+      };
+
+      let explicit_align = explicit_align
+        .map(|a| format!("align {}", a))
+        .unwrap_or_default();
+
+      builder.write_ln(format!(
+        "{} {}: {},",
+        explicit_align,
+        name,
+        gen_fix_type_impl(*ty, true)
+      ));
+
+      current_byte_used += ty.size_of_self(StructLayoutTarget::Std430);
+      previous = Some(ty)
+    }
+  } else {
+    for ShaderStructFieldMetaInfoOwned { name, ty, ty_deco } in &meta.fields {
+      let built_in_deco = if let Some(ty_deco) = ty_deco {
+        match ty_deco {
+          ShaderFieldDecorator::BuiltIn(built_in) => format!(
+            "@builtin({})",
+            match built_in {
+              ShaderBuiltInDecorator::VertexIndex => "vertex_index",
+              ShaderBuiltInDecorator::InstanceIndex => "instance_index",
+              ShaderBuiltInDecorator::VertexPositionOut => "position",
+              ShaderBuiltInDecorator::FragmentPositionIn => "position",
+            }
+          ),
+          ShaderFieldDecorator::Location(location) => format!("@location({location})"),
+        }
+      } else {
+        "".to_owned()
+      };
+
+      builder.write_ln(format!(
+        "{} {}: {},",
+        built_in_deco,
+        name,
+        gen_fix_type_impl(*ty, false)
+      ));
+    }
   }
+
   builder.un_tab();
   builder.write_ln("};");
 }
@@ -608,7 +781,7 @@ fn gen_bind_entry(
       },
       group_index,
       item_index,
-      gen_type_impl(entry.0),
+      gen_type_impl(entry.0, true),
     ));
   }
   *item_index += 1;
@@ -653,7 +826,7 @@ fn gen_primitive_type(ty: PrimitiveShaderValueType) -> &'static str {
   }
 }
 
-fn gen_type_impl(ty: ShaderValueType) -> String {
+fn gen_type_impl(ty: ShaderValueType, is_uniform: bool) -> String {
   match ty {
     ShaderValueType::Sampler => "sampler".to_owned(),
     ShaderValueType::CompareSampler => "sampler_comparison".to_owned(),
@@ -676,7 +849,7 @@ fn gen_type_impl(ty: ShaderValueType) -> String {
         TextureViewDimension::D3 => format!("texture{suffix}_3d<f32>"),
       }
     }
-    ShaderValueType::Fixed(ty) => gen_fix_type_impl(ty),
+    ShaderValueType::Fixed(ty) => gen_fix_type_impl(ty, is_uniform),
     ShaderValueType::Never => unreachable!("can not code generate never type"),
     ShaderValueType::SamplerCombinedTexture => {
       unreachable!("combined sampler texture should handled above")
@@ -684,12 +857,17 @@ fn gen_type_impl(ty: ShaderValueType) -> String {
   }
 }
 
-fn gen_fix_type_impl(ty: ShaderStructMemberValueType) -> String {
+fn gen_fix_type_impl(ty: ShaderStructMemberValueType, is_uniform: bool) -> String {
   match ty {
     ShaderStructMemberValueType::Primitive(ty) => gen_primitive_type(ty).to_owned(),
     ShaderStructMemberValueType::Struct(meta) => meta.name.to_owned(),
     ShaderStructMemberValueType::FixedSizeArray((ty, length)) => {
-      format!("array<{}, {}>", gen_fix_type_impl(*ty), length)
+      let type_name = if is_uniform && let Some(w) = check_should_wrap(ty) {
+        gen_wrapper_struct_name(w)
+      } else {
+        gen_fix_type_impl(*ty, is_uniform)
+      };
+      format!("array<{}, {}>", type_name, length)
     }
   }
 }

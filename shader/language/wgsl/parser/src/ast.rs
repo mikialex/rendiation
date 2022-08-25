@@ -138,6 +138,7 @@ pub struct VariableStatement {
   pub init: Option<Expression>,
 }
 
+#[allow(clippy::large_enum_variant)]
 #[derive(Debug)]
 pub enum Statement {
   Block(Block),
@@ -221,6 +222,7 @@ pub enum PrimitiveType {
 pub enum TypeExpression {
   Struct(Ident),
   Primitive(PrimitiveType),
+  FixedArray((Box<Self>, usize)),
 }
 
 #[derive(Debug)]

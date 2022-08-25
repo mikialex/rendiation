@@ -1,7 +1,7 @@
 use bytemuck::*;
 use rendiation_algebra::*;
 use rendiation_texture::Size;
-use shadergraph::{SemanticBinding, ShaderGraphProvider, ShaderStruct};
+use shadergraph::{std140_layout, SemanticBinding, ShaderGraphProvider, ShaderStruct};
 use webgpu::util::DeviceExt;
 use webgpu::*;
 
@@ -209,6 +209,7 @@ impl WebGPUxUIRenderer {
   ) -> Self {
     let global_ui_state = UIGlobalParameter {
       screen_size: Vec2::new(1000., 1000.),
+      ..Zeroable::zeroed()
     };
 
     let global_ui_state = UniformBufferData::create(device, global_ui_state);
@@ -301,7 +302,8 @@ impl WebGPUxUIRenderer {
 }
 
 #[repr(C)]
-#[derive(Debug, Copy, Clone, ShaderStruct, Zeroable, Pod)]
+#[std140_layout]
+#[derive(Debug, Copy, Clone, ShaderStruct)]
 pub struct UIGlobalParameter {
   pub screen_size: Vec2<f32>,
 }

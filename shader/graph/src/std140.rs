@@ -14,7 +14,7 @@ impl<T: Std140> Std140TypeMapper for T {
 /// # Safety
 ///
 ///  should only be impl for std140 layout type, except for primitives
-pub unsafe trait Std140: Copy + Zeroable + Pod {
+pub unsafe trait Std140: Copy + Zeroable + Pod + 'static {
   /// The required alignment of the type. Must be a power of two.
   ///
   /// This is distinct from the value returned by `std::mem::align_of` because

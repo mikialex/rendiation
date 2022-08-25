@@ -1,10 +1,21 @@
+use std::collections::*;
+
 use crate::*;
+use linked_hash_set::*;
 
 pub struct CodeGenCtx {
   var_guid: usize,
   scopes: Vec<CodeGenScopeCtx>,
-  depend_functions: HashSet<&'static ShaderFunctionMetaInfo>,
-  depend_types: HashSet<&'static ShaderStructMetaInfo>,
+
+  /// first generated uniform structs(recursively)
+  generated_uniform_types: HashSet<&'static ShaderStructMetaInfo>,
+
+  /// new collected(recursively) in main function logic, deduplicate by self
+  depend_functions: LinkedHashSet<&'static ShaderFunctionMetaInfo>,
+  /// new collected(recursively) in main function logic, deduplicate by self and uniform ones
+  depend_types: LinkedHashSet<&'static ShaderStructMetaInfo>,
+
+  uniform_array_wrappers: HashSet<ReWrappedPrimitiveArrayItem>,
 }
 
 impl Default for CodeGenCtx {
@@ -12,8 +23,10 @@ impl Default for CodeGenCtx {
     Self {
       var_guid: Default::default(),
       scopes: vec![Default::default()],
+      generated_uniform_types: Default::default(),
       depend_functions: Default::default(),
       depend_types: Default::default(),
+      uniform_array_wrappers: Default::default(),
     }
   }
 }
@@ -21,9 +34,6 @@ impl Default for CodeGenCtx {
 impl CodeGenCtx {
   pub fn top_scope_mut(&mut self) -> &mut CodeGenScopeCtx {
     self.scopes.last_mut().unwrap()
-  }
-  pub fn top_scope(&self) -> &CodeGenScopeCtx {
-    self.scopes.last().unwrap()
   }
 
   pub fn push_scope(&mut self) -> &mut CodeGenScopeCtx {
@@ -35,10 +45,22 @@ impl CodeGenCtx {
     self.scopes.pop().unwrap()
   }
 
+  /// note, recursive is done outside
+  pub fn add_generated_uniform_structs(&mut self, meta: &'static ShaderStructMetaInfo) -> bool {
+    self.generated_uniform_types.insert(meta)
+  }
+
+  pub fn add_special_uniform_array_wrapper(
+    &mut self,
+    wrapper: ReWrappedPrimitiveArrayItem,
+  ) -> bool {
+    self.uniform_array_wrappers.insert(wrapper)
+  }
+
   pub fn add_fn_dep(&mut self, meta: &'static ShaderFunctionMetaInfo) {
     if self.depend_functions.insert(meta) {
       for ty in meta.depend_types {
-        self.add_ty_dep(ty)
+        self.add_struct_dep(ty)
       }
       for f in meta.depend_functions {
         self.add_fn_dep(f)
@@ -46,13 +68,23 @@ impl CodeGenCtx {
     }
   }
 
-  fn add_ty_dep(&mut self, meta: &'static ShaderStructMetaInfo) {
+  pub fn add_struct_dep(&mut self, meta: &'static ShaderStructMetaInfo) {
+    if self.generated_uniform_types.contains(meta) {
+      return;
+    }
+
     if self.depend_types.insert(meta) {
       for f in meta.fields {
-        if let ShaderStructMemberValueType::Struct(s) = f.ty {
-          self.add_ty_dep(s)
-        }
+        self.add_ty_dep(f.ty);
       }
+    }
+  }
+
+  fn add_ty_dep(&mut self, ty: ShaderStructMemberValueType) {
+    match ty {
+      ShaderStructMemberValueType::Primitive(_) => {}
+      ShaderStructMemberValueType::Struct(s) => self.add_struct_dep(s),
+      ShaderStructMemberValueType::FixedSizeArray((ty, _)) => self.add_ty_dep(*ty),
     }
   }
 
@@ -61,11 +93,11 @@ impl CodeGenCtx {
     builder: &mut CodeBuilder,
     struct_gen: impl Fn(&mut CodeBuilder, &ShaderStructMetaInfoOwned),
   ) {
-    for &ty in &self.depend_types {
+    for &ty in self.depend_types.iter().rev() {
       struct_gen(builder, &ty.to_owned())
     }
 
-    for f in &self.depend_functions {
+    for f in self.depend_functions.iter().rev() {
       builder.write_ln("").write_raw(f.function_source);
     }
   }

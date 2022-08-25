@@ -41,7 +41,8 @@ pub struct TransformGPU {
 }
 
 #[repr(C)]
-#[derive(Clone, Copy, Zeroable, Pod, Default, PartialEq, ShaderStruct)]
+#[std140_layout]
+#[derive(Clone, Copy, Default, PartialEq, ShaderStruct)]
 pub struct TransformGPUData {
   pub world_matrix: Mat4<f32>,
 }

@@ -1,7 +1,7 @@
 use std::borrow::Cow;
 use std::mem;
 
-use rendiation_algebra::Vec2;
+use rendiation_algebra::*;
 use rendiation_texture::Size;
 use webgpu::*;
 
@@ -10,7 +10,7 @@ use crate::TextQuadInstance;
 use super::WebGPUxTextPrimitive;
 
 pub struct TextWebGPURenderer {
-  transform: UniformBufferData<[f32; 16]>,
+  transform: UniformBufferData<Mat4<f32>>,
   sampler: webgpu::Sampler,
   bindgroup_layout: webgpu::BindGroupLayout,
   bindgroup: webgpu::BindGroup,
@@ -180,20 +180,20 @@ impl TextWebGPURenderer {
 }
 
 /// Helper function to generate a generate a transform matrix.
-pub fn orthographic_projection(width: f32, height: f32) -> [f32; 16] {
+pub fn orthographic_projection(width: f32, height: f32) -> Mat4<f32> {
   #[rustfmt::skip]
     [
-        2.0 / width , 0.0, 0.0, 0.0,
-        0.0, -2.0 / height , 0.0, 0.0,
-        0.0, 0.0, 1.0, 0.0,
-        -1.0, 1.0, 0.0, 1.0,
-    ]
+      2.0 / width, 0.0,          0.0, 0.0,
+      0.0,        -2.0 / height, 0.0, 0.0,
+      0.0,         0.0,          1.0, 0.0,
+     -1.0,         1.0,          0.0, 1.0,
+    ].into()
 }
 
 fn create_bindgroup(
   device: &webgpu::Device,
   layout: &webgpu::BindGroupLayout,
-  transform: &UniformBufferData<[f32; 16]>,
+  transform: &UniformBufferData<Mat4<f32>>,
   sampler: &webgpu::Sampler,
   cache: &webgpu::TextureView,
 ) -> webgpu::BindGroup {

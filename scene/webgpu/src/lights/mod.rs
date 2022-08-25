@@ -5,7 +5,7 @@ use crate::*;
 
 pub struct LightList<T: ShaderLight> {
   pub lights: Vec<T>,
-  pub lights_gpu: UniformBufferDataView<[T; 32]>,
+  pub lights_gpu: UniformBufferDataView<Shader140Array<T, 32>>,
 }
 
 impl<T: ShaderLight> LightList<T> {
@@ -58,7 +58,7 @@ impl LightSystem {
   }
 }
 
-pub struct DrawDefer<'a, T: 'static, D, S, R> {
+pub struct DrawDefer<'a, T: ShaderLight, D, S, R> {
   pub light: &'a UniformBufferDataView<T>,
   pub defer: &'a D,
   pub shading: &'a S,
@@ -134,7 +134,7 @@ pub struct ShaderLightingGeometricCtx {
   pub view_dir: Vec3<f32>,
 }
 
-pub trait ShaderLight: ShaderGraphStructuralNodeType + Sized {
+pub trait ShaderLight: ShaderGraphStructuralNodeType + Std140 + Sized {
   fn name() -> &'static str;
 }
 
