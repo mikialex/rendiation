@@ -15,7 +15,7 @@ pub struct CodeGenCtx {
   /// new collected(recursively) in main function logic, deduplicate by self and uniform ones
   depend_types: LinkedHashSet<&'static ShaderStructMetaInfo>,
 
-  pub(crate) uniform_array_wrappers: HashSet<ReWrappedPrimitiveArrayItem>,
+  uniform_array_wrappers: HashSet<ReWrappedPrimitiveArrayItem>,
 }
 
 impl Default for CodeGenCtx {

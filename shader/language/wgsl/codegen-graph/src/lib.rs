@@ -537,27 +537,30 @@ fn gen_uniform_structs(
   bindings: &ShaderGraphBindGroupBuilder,
   stage: ShaderStages,
 ) {
-  fn gen_uniform_structs(
+  fn gen_uniform_structs_impl(
     code: &mut CodeBuilder,
     cx: &mut CodeGenCtx,
-    meta: &'static ShaderStructMetaInfo,
+    ty: &ShaderStructMemberValueType,
   ) {
-    if cx.add_generated_uniform_structs(meta) {
-      for f in meta.fields {
-        match f.ty {
-          ShaderStructMemberValueType::Primitive(_) => {}
-          ShaderStructMemberValueType::Struct(s) => gen_uniform_structs(code, cx, s),
-          ShaderStructMemberValueType::FixedSizeArray((ty, _)) => {
-            if let Some(wrapper) = check_should_wrap(ty) {
-              if cx.add_special_uniform_array_wrapper(wrapper) {
-                gen_wrapper_struct(code, wrapper)
-              }
-            }
+    match ty {
+      ShaderStructMemberValueType::Primitive(_) => {}
+      ShaderStructMemberValueType::Struct(meta) => {
+        if cx.add_generated_uniform_structs(meta) {
+          for f in meta.fields {
+            gen_uniform_structs_impl(code, cx, &f.ty);
           }
+
+          gen_struct(code, &(*meta).to_owned(), true);
         }
       }
-
-      gen_struct(code, &meta.to_owned(), true);
+      ShaderStructMemberValueType::FixedSizeArray((ty, _)) => {
+        if let Some(wrapper) = check_should_wrap(ty) {
+          if cx.add_special_uniform_array_wrapper(wrapper) {
+            gen_wrapper_struct(code, wrapper)
+          }
+        }
+        gen_uniform_structs_impl(code, cx, ty)
+      }
     }
   }
 
@@ -565,8 +568,8 @@ fn gen_uniform_structs(
     for (ty, vis) in &g.bindings {
       let vis = vis.get();
       if vis.is_visible_to(stage) {
-        if let ShaderValueType::Fixed(ShaderStructMemberValueType::Struct(meta)) = ty {
-          gen_uniform_structs(code, cx, meta)
+        if let ShaderValueType::Fixed(ty) = ty {
+          gen_uniform_structs_impl(code, cx, ty)
         }
       }
     }
