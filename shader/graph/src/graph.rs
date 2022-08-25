@@ -159,11 +159,31 @@ impl Default for ShaderGraphBuilder {
   }
 }
 
+fn extract_struct_define(
+  ty: &ShaderValueType,
+  visitor: &mut impl FnMut(&'static ShaderStructMetaInfo),
+) {
+  if let ShaderValueType::Fixed(v) = ty {
+    extract_struct_define_inner(v, visitor)
+  }
+}
+
+fn extract_struct_define_inner(
+  ty: &ShaderStructMemberValueType,
+  visitor: &mut impl FnMut(&'static ShaderStructMetaInfo),
+) {
+  match ty {
+    ShaderStructMemberValueType::Primitive(_) => {}
+    ShaderStructMemberValueType::Struct(s) => visitor(s),
+    ShaderStructMemberValueType::FixedSizeArray((ty, _)) => {
+      extract_struct_define_inner(ty, visitor)
+    }
+  }
+}
+
 impl ShaderGraphBuilder {
   pub fn check_register_type<T: ShaderGraphNodeType>(&mut self) {
-    if let Some(s) = T::extract_struct_define() {
-      self.check_insert(s)
-    }
+    extract_struct_define(&T::TYPE, &mut |s| self.check_insert(s));
   }
 
   fn check_insert(&mut self, s: &'static ShaderStructMetaInfo) {

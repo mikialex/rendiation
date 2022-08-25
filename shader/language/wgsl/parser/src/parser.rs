@@ -147,7 +147,7 @@ impl SyntaxElement for TypeExpression {
         lexer.expect(Token::Separator(','))?;
         let size = match lexer.next().token {
           Token::Number { value, .. } => {
-            if let Ok(size) = u32::from_str_radix(value, 10) {
+            if let Ok(size) = value.parse::<u32>() {
               size
             } else {
               return Err(ParseError::Any("expect array length"));
