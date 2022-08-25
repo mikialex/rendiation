@@ -39,6 +39,7 @@ pub enum Token<'a> {
   Word(&'a str),
   Keyword(Keyword),
   BuiltInType(&'a str),
+  Array,
   Operation(char),
   LogicalOperation(char),
   ShiftOperation(char),
@@ -145,6 +146,7 @@ impl<'a> Lexer<'a> {
         Token::Equals => "equals",
         Token::NotEquals => "not equals",
         Token::CompoundAssign(_) => "compound assign operator",
+        Token::Array => "array",
       };
       Err(ParseError::Unexpected(next.token, description))
     }
@@ -244,6 +246,7 @@ impl<'a> Lexer<'a> {
             Token::Keyword(Keyword::Declare(DeclarationType::Const)),
             rest,
           ),
+          "array" => (Token::Array, rest),
           "f32" | "u32" | "i32" | "bool" | "vec2" | "vec3" | "vec4" | "mat4x4" | "mat3x3"
           | "sampler" | "comparison_sampler" | "texture_2d" => (Token::BuiltInType(word), rest),
           "fn" => (Token::Keyword(Keyword::Function), rest),

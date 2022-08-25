@@ -149,5 +149,9 @@ fn convert_type(ty: &TypeExpression) -> proc_macro2::TokenStream {
       }
       PrimitiveType::Sampler => quote! { shadergraph::ShaderSampler },
     },
+    TypeExpression::FixedArray((ty, size)) => {
+      let ty = convert_type(ty);
+      quote! { shadergraph::Shader140Array<#ty, #size> }
+    }
   }
 }

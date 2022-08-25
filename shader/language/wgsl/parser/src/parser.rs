@@ -140,6 +140,24 @@ impl SyntaxElement for TypeExpression {
         TypeExpression::Struct(Ident::from(name))
       }
       Token::BuiltInType(_) => TypeExpression::Primitive(PrimitiveType::parse(lexer)?),
+      Token::Array => {
+        _ = lexer.next();
+        lexer.expect(Token::Paren('<'))?;
+        let array_ty = Self::parse(lexer)?;
+        lexer.expect(Token::Separator(','))?;
+        let size = match lexer.next().token {
+          Token::Number { value, .. } => {
+            if let Ok(size) = u32::from_str_radix(value, 10) {
+              size
+            } else {
+              return Err(ParseError::Any("expect array length"));
+            }
+          }
+          _ => return Err(ParseError::Any("expect array length")),
+        };
+        lexer.expect(Token::Paren('>'))?;
+        TypeExpression::FixedArray((Box::new(array_ty), size as usize))
+      }
       _ => return Err(ParseError::Any("cant parse type_expression")),
     };
     Ok(r)

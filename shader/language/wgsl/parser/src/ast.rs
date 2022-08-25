@@ -222,6 +222,7 @@ pub enum PrimitiveType {
 pub enum TypeExpression {
   Struct(Ident),
   Primitive(PrimitiveType),
+  FixedArray((Box<Self>, usize)),
 }
 
 #[derive(Debug)]
