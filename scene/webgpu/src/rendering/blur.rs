@@ -60,8 +60,6 @@ impl<'a, T> ShaderGraphProvider for LinearBlurTask<'a, T> {
     builder.log_result = true;
     builder.fragment(|builder, binding| {
       let config = binding.uniform_by(self.config, SB::Material).expand();
-      let weights = binding.uniform_by(&self.weights.weights, SB::Material);
-      let weight_count = binding.uniform_by(&self.weights.weight_count, SB::Material);
 
       let input = binding.uniform_by(&self.input, SB::Material);
       let sampler = binding.uniform::<GPUSamplerView>(SB::Material);
@@ -167,10 +165,12 @@ wgsl_fn!(
 );
 
 wgsl_fn!(
+  @uniform(
+    weights: array<UniformArray_f32, 32>
+    weight_count: i32,
+  )
   fn linear_blur(
     direction: vec2<f32>,
-    weights: array<UniformArray_f32, 32>,
-    weight_count: i32,
     texture: texture_2d<f32>,
     sp: sampler,
     uv: vec2<f32>,
