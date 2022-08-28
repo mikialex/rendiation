@@ -73,7 +73,15 @@ impl MaterialDeferPassResult {
 
 pub fn defer(content: usize, ctx: &mut FrameCtx, lights: &LightSystem) -> Attachment {
   // encode pass,
-  let encode_target = MaterialDeferPassResult::new(ctx);
+  let mut encode_target = MaterialDeferPassResult::new(ctx);
+
+  let encode_pass = pass("defer_encode_gbuffer")
+    .with_depth(encode_target.depth.write(), clear(1.))
+    .with_color(encode_target.world_position.write(), clear(all_zero()))
+    .with_color(encode_target.normal.write(), clear(all_zero()))
+    .with_color(encode_target.material.write(), clear(all_zero()))
+    .render(ctx);
+  // .by(todo!());
 
   // light pass,
   for lights in &lights.lights {

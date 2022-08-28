@@ -16,6 +16,8 @@ pub mod blur;
 pub use blur::*;
 pub mod defer;
 pub use defer::*;
+pub mod tonemap;
+pub use tonemap::*;
 
 use crate::*;
 
