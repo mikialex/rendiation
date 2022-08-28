@@ -14,7 +14,7 @@ both!(SpecularChannel, Vec3<f32>);
 both!(RoughnessChannel, f32);
 
 impl LightableSurfaceShading for PhysicalShading {
-  fn construct(builder: &mut ShaderGraphFragmentBuilder) -> ExpandedNode<Self> {
+  fn construct_shading(builder: &mut ShaderGraphFragmentBuilder) -> ExpandedNode<Self> {
     ExpandedNode::<Self> {
       diffuse: builder.query_or_insert_default::<ColorChannel>().get(),
       specular: builder.query_or_insert_default::<SpecularChannel>().get(),

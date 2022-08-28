@@ -14,6 +14,8 @@ pub mod framework;
 pub use framework::*;
 pub mod blur;
 pub use blur::*;
+pub mod defer;
+pub use defer::*;
 
 use crate::*;
 
