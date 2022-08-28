@@ -71,17 +71,26 @@ impl MaterialDeferPassResult {
   }
 }
 
-pub fn defer(content: usize, ctx: &mut FrameCtx, lights: &LightSystem) -> Attachment {
+pub fn defer(
+  tonemap: &ToneMap,
+  content: usize,
+  ctx: &mut FrameCtx,
+  lights: &LightSystem,
+) -> Attachment {
   // encode pass,
   let mut encode_target = MaterialDeferPassResult::new(ctx);
 
-  let encode_pass = pass("defer_encode_gbuffer")
-    .with_depth(encode_target.depth.write(), clear(1.))
-    .with_color(encode_target.world_position.write(), clear(all_zero()))
-    .with_color(encode_target.normal.write(), clear(all_zero()))
-    .with_color(encode_target.material.write(), clear(all_zero()))
-    .render(ctx);
-  // .by(todo!());
+  {
+    let encode_pass = pass("defer_encode_gbuffer")
+      .with_depth(encode_target.depth.write(), clear(1.))
+      .with_color(encode_target.world_position.write(), clear(all_zero()))
+      .with_color(encode_target.normal.write(), clear(all_zero()))
+      .with_color(encode_target.material.write(), clear(all_zero()))
+      .render(ctx);
+    // .by(todo!());
+  }
+
+  let mut hdr_result = attachment().format(TextureFormat::Rgba32Float).request(ctx);
 
   // light pass,
   for lights in &lights.lights {
@@ -89,7 +98,13 @@ pub fn defer(content: usize, ctx: &mut FrameCtx, lights: &LightSystem) -> Attach
   }
 
   // tone mapping,
-  todo!()
+  let mut ldr_result = attachment().format(TextureFormat::Rgba8Unorm).request(ctx);
+  pass("tonemap")
+    .with_color(ldr_result.write(), load())
+    .render(ctx)
+    .by(tonemap.tonemap(hdr_result.read()));
+
+  ldr_result
 }
 
 pub struct DrawDefer<'a, T: ShaderLight, D, S, R> {
