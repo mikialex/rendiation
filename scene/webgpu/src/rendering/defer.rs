@@ -76,6 +76,7 @@ pub fn defer(
   content: usize,
   ctx: &mut FrameCtx,
   lights: &LightSystem,
+  shading: &impl Shading,
 ) -> Attachment {
   // encode pass,
   let mut encode_target = MaterialDeferPassResult::new(ctx);
@@ -94,11 +95,22 @@ pub fn defer(
 
   // light pass,
   for lights in &lights.lights {
+    // let defer = DrawDefer {
+    //   light: todo!(),
+    //   defer: todo!(),
+    //   shading,
+    //   target: todo!(),
+    // };
+
+    pass("light_pass")
+      .with_color(hdr_result.write(), load())
+      .render(ctx);
     // lights.drasw_defer_passes(ctx)
   }
 
   // tone mapping,
   let mut ldr_result = attachment().format(TextureFormat::Rgba8Unorm).request(ctx);
+
   pass("tonemap")
     .with_color(ldr_result.write(), load())
     .render(ctx)
@@ -106,6 +118,12 @@ pub fn defer(
 
   ldr_result
 }
+
+pub trait DirectShaderLightPassApply {
+  fn draw_defer_impl(active_pass: &mut ActiveRenderPass, shading: &impl LightableSurfaceShading);
+}
+
+impl<T: DirectShaderLight> DirectShaderLightPassApply for T {}
 
 pub struct DrawDefer<'a, T: ShaderLight, D, S, R> {
   pub light: &'a UniformBufferDataView<T>,
@@ -160,5 +178,16 @@ where
 
       Ok(())
     })
+  }
+}
+
+impl<'a, T: ShaderLight, D, S, R> ShaderHashProvider for DrawDefer<'a, T: ShaderLight, D, S, R> {
+  fn hash_pipeline(&self, _: &mut PipelineHasher) {}
+}
+
+impl<'a, T: ShaderLight, D, S, R> ShaderHashProviderAny for DrawDefer<'a, T: ShaderLight, D, S, R> {
+  fn hash_pipeline_and_with_type_id(&self, hasher: &mut PipelineHasher) {
+    // self.lighter.type_id().hash(hasher);
+    todo!()
   }
 }
