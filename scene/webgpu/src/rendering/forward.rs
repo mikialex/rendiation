@@ -22,9 +22,8 @@ where
   S::Model: Deref<Target = dyn SceneModelShareable>,
 {
   fn render(&mut self, pass: &mut SceneRenderPass, scene: &Scene<S>, camera: &SceneCamera) {
-    scene
-      .models
-      .iter()
-      .for_each(|(_, model)| model.render(pass, &pass.default_dispatcher(), camera))
+    let mut render_list = RenderList::<S>::default();
+    render_list.prepare(scene, camera);
+    render_list.setup_pass(pass, scene, &pass.default_dispatcher(), camera);
   }
 }
