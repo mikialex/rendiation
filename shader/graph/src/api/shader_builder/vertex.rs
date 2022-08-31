@@ -145,22 +145,19 @@ impl ShaderGraphVertexBuilder {
 
   pub fn set_vertex_out<T>(
     &mut self,
-    node: impl Into<Node<<T as SemanticVertexShaderValue>::ValueType>>,
+    node: impl Into<Node<T::ValueType>>,
   ) where
-    T: SemanticVertexShaderValue,
     T: SemanticFragmentShaderValue,
-    <T as SemanticVertexShaderValue>::ValueType: PrimitiveShaderGraphNodeType,
-    T: SemanticFragmentShaderValue<ValueType = <T as SemanticVertexShaderValue>::ValueType>,
+    T::ValueType: PrimitiveShaderGraphNodeType,
   {
     let location = self.vertex_out.len();
     let node = node.into();
     let id = TypeId::of::<T>();
     self.vertex_out.entry(id).or_insert_with(|| VertexIOInfo {
       node: node.cast_untyped_node(),
-      ty: <T as SemanticVertexShaderValue>::ValueType::PRIMITIVE_TYPE,
+      ty: T::ValueType::PRIMITIVE_TYPE,
       location,
     });
-    self.register::<T>(node);
     self.vertex_out_not_synced_to_fragment.insert(id);
   }
 

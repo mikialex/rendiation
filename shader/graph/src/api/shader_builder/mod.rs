@@ -72,13 +72,17 @@ impl ShaderGraphRenderPipelineBuilder {
   pub fn fragment<T>(
     &mut self,
     logic: impl FnOnce(
-      &mut ShaderGraphFragmentBuilder,
+      &mut ShaderGraphFragmentBuilderView,
       &mut ShaderGraphBindGroupDirectBuilder,
     ) -> Result<T, ShaderGraphBuildError>,
   ) -> Result<T, ShaderGraphBuildError> {
     self.vertex.sync_fragment_out(&mut self.fragment);
     set_current_building(ShaderStages::Fragment.into());
-    let result = logic(&mut self.fragment, &mut self.bindgroups.wrap())?;
+    let mut builder = ShaderGraphFragmentBuilderView {
+      base: &mut self.fragment,
+      vertex: &mut self.vertex,
+    };
+    let result = logic(&mut builder, &mut self.bindgroups.wrap())?;
     set_current_building(None);
     Ok(result)
   }

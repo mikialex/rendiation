@@ -7,6 +7,58 @@ pub trait SemanticFragmentShaderValue: Any {
   const NAME: &'static str = std::any::type_name::<Self>();
 }
 
+pub struct ShaderGraphFragmentBuilderView<'a> {
+  pub(crate) base: &'a mut ShaderGraphFragmentBuilder,
+  pub(crate) vertex: &'a mut ShaderGraphVertexBuilder,
+}
+
+impl<'a> ShaderGraphFragmentBuilderView<'a> {
+  pub fn query_or_interpolate_by<T, V>(&mut self) -> Node<T::ValueType>
+  where
+    T: SemanticFragmentShaderValue,
+    T::ValueType: PrimitiveShaderGraphNodeType,
+    V: SemanticVertexShaderValue,
+    T: SemanticFragmentShaderValue<ValueType = <V as SemanticVertexShaderValue>::ValueType>,
+  {
+    if let Ok(r) = self.query::<T>() {
+      return r.get();
+    }
+
+    set_current_building(ShaderStages::Vertex.into());
+    let is_ok = {
+      let v_node = self.vertex.query::<V>();
+      if let Ok(v_node) = v_node {
+        self.vertex.set_vertex_out::<T>(v_node.get());
+        true
+      } else {
+        false
+      }
+    };
+    set_current_building(None);
+    self.vertex.sync_fragment_out(self.base);
+    set_current_building(ShaderStages::Fragment.into());
+
+    if is_ok {
+      self.query::<T>().unwrap().get()
+    } else {
+      self.query_or_insert_default::<T>().get()
+    }
+  }
+}
+
+impl<'a> Deref for ShaderGraphFragmentBuilderView<'a> {
+  type Target = ShaderGraphFragmentBuilder;
+
+  fn deref(&self) -> &Self::Target {
+    self.base
+  }
+}
+impl<'a> DerefMut for ShaderGraphFragmentBuilderView<'a> {
+  fn deref_mut(&mut self) -> &mut Self::Target {
+    self.base
+  }
+}
+
 pub struct ShaderGraphFragmentBuilder {
   // user fragment in
   pub fragment_in: HashMap<
