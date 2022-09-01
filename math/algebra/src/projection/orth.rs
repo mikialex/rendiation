@@ -40,6 +40,7 @@ impl<T: Scalar> Projection<T> for OrthographicProjection<T> {
   }
 }
 
+#[derive(Debug, Copy, Clone)]
 pub struct ViewFrustumOrthographicProjection<T> {
   orth: OrthographicProjection<T>,
   aspect: T,
@@ -47,6 +48,15 @@ pub struct ViewFrustumOrthographicProjection<T> {
 }
 
 impl<T: Scalar> ViewFrustumOrthographicProjection<T> {
+  pub fn get_orth(&self) -> &OrthographicProjection<T> {
+    &self.orth
+  }
+
+  pub fn set_near_far(&mut self, near: T, far: T) {
+    self.orth.near = near;
+    self.orth.far = far;
+  }
+
   pub fn set_aspect(&mut self, aspect: T) {
     self.aspect = aspect;
     self.update_orth();

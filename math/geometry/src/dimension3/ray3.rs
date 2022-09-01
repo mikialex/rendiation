@@ -164,6 +164,12 @@ impl HyperRayCaster<f32, Vec3<f32>, Vec2<f32>> for OrthographicProjection<f32> {
   }
 }
 
+impl HyperRayCaster<f32, Vec3<f32>, Vec2<f32>> for ViewFrustumOrthographicProjection<f32> {
+  fn cast_ray(&self, normalized_position: Vec2<f32>) -> HyperRay<f32, Vec3<f32>> {
+    self.get_orth().cast_ray(normalized_position)
+  }
+}
+
 impl HyperRayCaster<f32, Vec3<f32>, Vec2<f32>> for PerspectiveProjection<f32> {
   fn cast_ray(&self, normalized_position: Vec2<f32>) -> HyperRay<f32, Vec3<f32>> {
     let ndc = Vec3::new(normalized_position.x, normalized_position.y, -0.5);
