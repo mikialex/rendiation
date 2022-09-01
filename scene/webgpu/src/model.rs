@@ -9,6 +9,9 @@ where
   Me: WebGPUMesh,
   Ma: WebGPUMaterial,
 {
+  fn is_transparent(&self) -> bool {
+    self.visit(|model| model.is_transparent())
+  }
   fn render(
     &self,
     pass: &mut SceneRenderPass,
@@ -103,6 +106,9 @@ where
   Me: WebGPUMesh,
   Ma: WebGPUMaterial,
 {
+  fn is_transparent(&self) -> bool {
+    self.material.visit(|mat| mat.is_transparent())
+  }
   fn render(
     &self,
     pass: &mut SceneRenderPass,

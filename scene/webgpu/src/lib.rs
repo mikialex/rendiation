@@ -65,6 +65,9 @@ impl SceneContent for WebGPUScene {
 }
 
 pub trait SceneRenderable {
+  fn is_transparent(&self) -> bool {
+    false
+  }
   fn render(
     &self,
     pass: &mut SceneRenderPass,
@@ -137,6 +140,9 @@ pub trait SceneRenderableShareable: SceneRenderable {
 }
 
 impl SceneRenderable for Box<dyn SceneRenderableShareable> {
+  fn is_transparent(&self) -> bool {
+    self.as_ref().is_transparent()
+  }
   fn render(
     &self,
     pass: &mut SceneRenderPass,
