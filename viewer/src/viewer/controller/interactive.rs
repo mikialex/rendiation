@@ -60,6 +60,10 @@ impl<T: SceneRenderable, S> Component<S, System3D> for InteractiveWatchable<T, S
 }
 
 impl<T: SceneRenderable, S> SceneRenderable for InteractiveWatchable<T, S> {
+  fn is_transparent(&self) -> bool {
+    self.inner.is_transparent()
+  }
+
   fn render(
     &self,
     pass: &mut SceneRenderPass,

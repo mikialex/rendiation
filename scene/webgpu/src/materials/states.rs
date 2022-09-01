@@ -164,6 +164,6 @@ where
     self.material.is_keep_mesh_shape()
   }
   fn is_transparent(&self) -> bool {
-    false
+    self.states.blend.is_some()
   }
 }

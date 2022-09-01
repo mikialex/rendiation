@@ -4,7 +4,8 @@ pub struct RenderList<P>
 where
   P: SceneContent,
 {
-  pub(crate) models: Vec<(Handle<<P as SceneContent>::Model>, f32)>,
+  pub(crate) opaque: Vec<(Handle<<P as SceneContent>::Model>, f32)>,
+  pub(crate) transparent: Vec<(Handle<<P as SceneContent>::Model>, f32)>,
 }
 
 impl<P> Default for RenderList<P>
@@ -12,7 +13,10 @@ where
   P: SceneContent,
 {
   fn default() -> Self {
-    Self { models: Vec::new() }
+    Self {
+      opaque: Vec::new(),
+      transparent: Vec::new(),
+    }
   }
 }
 
@@ -30,15 +34,25 @@ where
     let camera_pos = camera_mat.position();
     let camera_forward = camera_mat.forward() * -1.;
 
-    self.models.clear();
+    self.opaque.clear();
+    self.transparent.clear();
 
     for (h, m) in scene.models.iter() {
       let model_pos = m.get_node().get_world_matrix().position();
       let depth = (model_pos - camera_pos).dot(camera_forward);
-      self.models.push((h, depth));
+
+      let is_transparent = (m.deref() as &dyn SceneModelShareable).is_transparent();
+      if is_transparent {
+        self.transparent.push((h, depth));
+      } else {
+        self.opaque.push((h, depth));
+      }
     }
 
-    self.models.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap());
+    self.opaque.sort_by(|a, b| a.1.partial_cmp(&b.1).unwrap());
+    self
+      .transparent
+      .sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap());
   }
 
   pub fn setup_pass(
@@ -48,9 +62,13 @@ where
     dispatcher: &dyn RenderComponentAny,
     camera: &SceneCamera,
   ) {
-    self.models.iter().for_each(|(handle, _)| {
+    self.opaque.iter().for_each(|(handle, _)| {
       let model = scene.models.get(*handle).unwrap();
       model.render(gpu_pass, dispatcher, camera)
-    })
+    });
+    self.transparent.iter().for_each(|(handle, _)| {
+      let model = scene.models.get(*handle).unwrap();
+      model.render(gpu_pass, dispatcher, camera)
+    });
   }
 }

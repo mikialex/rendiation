@@ -68,6 +68,7 @@ pub trait SceneRenderable {
   fn is_transparent(&self) -> bool {
     false
   }
+
   fn render(
     &self,
     pass: &mut SceneRenderPass,
