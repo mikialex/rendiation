@@ -2307,6 +2307,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "shadergraph-testing"
+version = "0.1.0"
+dependencies = [
+ "naga",
+ "shadergraph",
+ "wgsl-codegen-graph",
+ "wgsl-shader-derives",
+]
+
+[[package]]
 name = "simba"
 version = "0.5.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"

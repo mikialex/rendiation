@@ -1,83 +1,43 @@
-use crate::*;
-use glsl_shader_derives::*;
+use wgsl_shader_derives::*;
 
-glsl_function!(
-  vec3 importanceSampleCone(const in vec2 coords, const in float cosConeAngle) {
-    float phi = TWO_PI * coords.x;
-
-    float cosTheta = cosConeAngle * (1.0 - coords.y) + coords.y;
-    float sinTheta = sqrt(max(0.0001, 1.0 - cosTheta * cosTheta));
-
-    vec3 h;
-    h.x = sinTheta * cos(phi);
-    h.y = sinTheta * sin(phi);
-    h.z = cosTheta;
-
-    return h;
+wgsl_fn!(
+  // source: https://github.com/selfshadow/ltc_code/blob/master/webgl/shaders/ltc/ltc_blit.fs
+  fn RRTAndODTFit(v: vec3<f32>, toneMappingExposure: f32) -> vec3<f32> {
+    let a = v * (v + 0.0245786) - 0.000090537;
+    let b = v * (0.983729 * v + 0.4329510) + 0.238081;
+    return a / b;
   }
 );
 
-glsl_function!(
-  float linstep(float minVal, float maxVal, float val) {
-    // NOTE: smoothstep is important to the seams introduced by the cubemap
-    return smoothstep(minVal, maxVal, val);
+wgsl_fn!(
+  // this implementation of ACES is modified to accommodate a brighter viewing environment.
+  // the scale factor of 1/0.6 is subjective. see discussion in #19621.
+
+  fn ACESFilmicToneMapping(color: vec3<f32>, toneMappingExposure: f32) -> vec3<f32> {
+    // sRGB => XYZ => D65_2_D60 => AP1 => RRT_SAT
+    let ACESInputMat = mat3x3<f32>(
+      vec3<f32>( 0.59719, 0.07600, 0.02840 ), // transposed from source
+      vec3<f32>( 0.35458, 0.90834, 0.13383 ),
+      vec3<f32>( 0.04823, 0.01566, 0.83777 )
+    );
+
+    // ODT_SAT => XYZ => D60_2_D65 => sRGB
+    let ACESOutputMat = mat3x3<f32>(
+      vec3<f32>(  1.60475, -0.10208, -0.00327 ), // transposed from source
+      vec3<f32>( -0.53108,  1.10813, -0.07276 ),
+      vec3<f32>( -0.07367, -0.00605,  1.07602 )
+    );
+
+    color *= toneMappingExposure / 0.6;
+
+    color = ACESInputMat * color;
+
+    // Apply RRT and ODT
+    color = RRTAndODTFit(color);
+
+    color = ACESOutputMat * color;
+
+    // Clamp to [0, 1]
+    return saturate(color);
   }
 );
-
-glsl_function!(
-  float reduceLightBleeding(float p_max, float amount) {
-    return linstep(amount, 1.0, p_max);
-  }
-);
-
-glsl_function!(
-  float chebyshevUpperBound(vec2 moments, float mean, float minVariance, float lightBleedingReduction) {
-    // Compute variance
-    float variance = moments.y - (moments.x * moments.x);
-    variance = max(variance, minVariance);
-
-    // Compute probabilistic upper bound
-    float d = mean - moments.x;
-    float pMax = variance / (variance + (d * d));
-
-    pMax = reduceLightBleeding(pMax, lightBleedingReduction);
-
-    // One-tailed Chebyshev
-    return (mean <= moments.x ? 1.0 : pMax);
-  }
-);
-
-#[test]
-fn build_shader_function() {
-  let a = consts(1).mutable();
-  let c = consts(0).mutable();
-
-  for_by(5, |for_ctx, i| {
-    let b = 1;
-    if_by(i.greater_than(0), || {
-      a.set(a.get() + b.into());
-      for_ctx.do_continue();
-    });
-    c.set(c.get() + i);
-  });
-
-  // let d = my_shader_function(1.2, 2.3);
-}
-
-// #[shader_function]
-// pub fn my_shader_function(a: Node<f32>, b: Node<f32>) -> Node<f32> {
-//     let c = a + b;
-//     if_by(c.greater_than(0.), || early_return(2.));
-//     c + 1.0.into()
-// }
-
-// pub fn my_shader_function(a: impl Into<Node<f32>>, b: impl Into<Node<f32>>) -> Node<f32> {
-//   let a = a.into();
-//   let b = b.into();
-
-//   function((a, b), |(a, b)| {
-//     let c = a + b;
-//     if_by(c.greater_than(0.), || early_return(2.));
-//     c + 1.0.into()
-//   })
-// }

@@ -73,7 +73,7 @@ fn gen_wgsl_function(wgsl: &str) -> proc_macro2::TokenStream {
       let name = format_ident!("{}", &name.name);
       let ty = convert_type(ty);
       (
-        quote! { #name: impl Into<Node<#ty>>, },
+        quote! { #name: impl Into<shadergraph::Node<#ty>>, },
         quote! {
          let #name = #name.into().handle();
          parameters.push(#name);
