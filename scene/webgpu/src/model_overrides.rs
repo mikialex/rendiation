@@ -65,6 +65,10 @@ impl<Me, Ma> SceneNodeControlled for OverridableMeshModelImpl<Me, Ma> {
 }
 
 impl<Me: WebGPUMesh, Ma: WebGPUMaterial> SceneRenderable for OverridableMeshModelImpl<Me, Ma> {
+  fn is_transparent(&self) -> bool {
+    self.inner.is_transparent()
+  }
+
   fn render(
     &self,
     pass: &mut SceneRenderPass,
