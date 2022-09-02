@@ -58,8 +58,6 @@ impl ShaderGraphProvider for FatlineMaterialGPU {
       Ok(())
     })?;
 
-    builder.log_result = true;
-
     builder.fragment(|builder, _| {
       let uv = builder.query::<FragmentUv>()?.get();
       let color = builder.query::<FragmentColorAndAlpha>()?.get();
@@ -152,7 +150,7 @@ wgsl_fn!(
 );
 
 wgsl_fn!(
-  fn discard_fatline_round_corner(uv: vec2<f32>) -> bool {
+  fn discard_fatline_round_corner(vUv: vec2<f32>) -> bool {
     if (abs(vUv.y) > 1.0) {
       let a = vUv.x;
       let b = vUv.y + select(1.0, -1.0, vUv.y > 0.0);

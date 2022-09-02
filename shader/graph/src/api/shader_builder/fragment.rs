@@ -165,11 +165,18 @@ impl ShaderGraphFragmentBuilder {
     slot: usize,
     node: impl Into<Node<Vec4<f32>>>,
   ) -> Result<(), ShaderGraphBuildError> {
+    // because discard has side effect, we have to use a write to get correct dependency
+    let write = ShaderGraphNode::Write {
+      new: node.into().handle(),
+      old: None,
+    }
+    .insert_graph();
+
     self
       .frag_output
       .get_mut(slot)
       .ok_or(ShaderGraphBuildError::FragmentOutputSlotNotDeclared)?
-      .0 = node.into();
+      .0 = write;
     Ok(())
   }
 
