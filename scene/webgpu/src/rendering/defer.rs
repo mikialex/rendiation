@@ -76,7 +76,7 @@ pub fn defer(
   content: usize,
   ctx: &mut FrameCtx,
   lights: &LightSystem,
-  shading: &impl Shading,
+  shading: &impl LightableSurfaceShading,
 ) -> Attachment {
   // encode pass,
   let mut encode_target = MaterialDeferPassResult::new(ctx);
@@ -123,7 +123,11 @@ pub trait DirectShaderLightPassApply {
   fn draw_defer_impl(active_pass: &mut ActiveRenderPass, shading: &impl LightableSurfaceShading);
 }
 
-impl<T: DirectShaderLight> DirectShaderLightPassApply for T {}
+impl<T: DirectShaderLight> DirectShaderLightPassApply for T {
+  fn draw_defer_impl(active_pass: &mut ActiveRenderPass, shading: &impl LightableSurfaceShading) {
+    todo!()
+  }
+}
 
 pub struct DrawDefer<'a, T: ShaderLight, D, S, R> {
   pub light: &'a UniformBufferDataView<T>,
@@ -181,11 +185,11 @@ where
   }
 }
 
-impl<'a, T: ShaderLight, D, S, R> ShaderHashProvider for DrawDefer<'a, T: ShaderLight, D, S, R> {
+impl<'a, T: ShaderLight, D, S, R> ShaderHashProvider for DrawDefer<'a, T, D, S, R> {
   fn hash_pipeline(&self, _: &mut PipelineHasher) {}
 }
 
-impl<'a, T: ShaderLight, D, S, R> ShaderHashProviderAny for DrawDefer<'a, T: ShaderLight, D, S, R> {
+impl<'a, T: ShaderLight, D, S, R> ShaderHashProviderAny for DrawDefer<'a, T, D, S, R> {
   fn hash_pipeline_and_with_type_id(&self, hasher: &mut PipelineHasher) {
     // self.lighter.type_id().hash(hasher);
     todo!()
