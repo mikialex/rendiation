@@ -25,9 +25,15 @@ impl ShaderGraphNodeExpr {
   }
 }
 
+fn get_current_graph_stack_bottom() -> usize {
+  modify_graph(|graph| {
+    graph.scopes[0].graph_guid // scope 0 should always exist
+  })
+}
+
 impl ShaderSideEffectNode {
   pub fn insert_graph_bottom(self) {
-    self.insert_graph(0);
+    self.insert_graph(get_current_graph_stack_bottom());
   }
   pub fn insert_graph(self, target_scope_id: usize) {
     modify_graph(|graph| {
@@ -111,9 +117,9 @@ impl ShaderControlFlowNode {
       }
     }
 
-    // visit all the captured write node in this scope generate before, and check
-    // if it's same and generate dep and a write node, if not, pass the captured
-    // to parent scope
+    // visit all the captured write nodes in this scope generated before, and check
+    // if it's same and generate dep and a write node. if not same, pass the captured nodes
+    // to the parent scope
     for write in writes {
       let im_write = ShaderGraphNode::Write {
         target: write.1,

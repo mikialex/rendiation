@@ -58,12 +58,14 @@ impl ShaderGraphProvider for FatlineMaterialGPU {
       Ok(())
     })?;
 
+    builder.log_result = true;
+
     builder.fragment(|builder, _| {
       let uv = builder.query::<FragmentUv>()?.get();
       let color = builder.query::<FragmentColorAndAlpha>()?.get();
 
       if_by(discard_fatline_round_corner(uv), || {
-        // builder.discard(); todo!
+        builder.discard();
       });
 
       builder.set_fragment_out(0, color)
