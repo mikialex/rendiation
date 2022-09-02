@@ -262,36 +262,32 @@ fn gen_node(
   code: &mut CodeBuilder,
 ) {
   match data {
-    ShaderGraphNode::Write {
-      source,
-      target,
-      implicit,
-    } => {
-      if *implicit {
-        let name = cx.create_new_unique_name();
-        code.write_ln(format!(
-          "var {} = {};",
-          name,
-          cx.get_node_gen_result_var(*target)
-        ));
-        cx.top_scope_mut().code_gen_history.insert(
-          handle,
-          MiddleVariableCodeGenResult {
-            var_name: name,
-            statement: "".to_owned(),
-          },
-        );
-      } else {
-        let var_name = cx.get_node_gen_result_var(*target).to_owned();
+    ShaderGraphNode::Write { new, old } => {
+      if let Some(old) = *old {
+        let var_name = cx.get_node_gen_result_var(old).to_owned();
         code.write_ln(format!(
           "{} = {};",
-          cx.get_node_gen_result_var(*target),
-          cx.get_node_gen_result_var(*source)
+          cx.get_node_gen_result_var(old),
+          cx.get_node_gen_result_var(*new)
         ));
         cx.top_scope_mut().code_gen_history.insert(
           handle,
           MiddleVariableCodeGenResult {
             var_name,
+            statement: "".to_owned(),
+          },
+        );
+      } else {
+        let name = cx.create_new_unique_name();
+        code.write_ln(format!(
+          "var {} = {};",
+          name,
+          cx.get_node_gen_result_var(*new)
+        ));
+        cx.top_scope_mut().code_gen_history.insert(
+          handle,
+          MiddleVariableCodeGenResult {
+            var_name: name,
             statement: "".to_owned(),
           },
         );

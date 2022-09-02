@@ -97,9 +97,8 @@ impl<T: ShaderGraphNodeType> NodeMutable<T> {
       }
 
       ShaderGraphNode::Write {
-        source: node.handle(),
-        target: self.get().handle(),
-        implicit: false,
+        new: node.handle(),
+        old: self.get().handle().into(),
       }
       .insert_into_graph::<AnyType>(builder)
     });

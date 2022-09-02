@@ -51,13 +51,10 @@ pub enum ShaderGraphNode {
   Input(ShaderGraphInputNode),
   /// This is workaround for some case
   UnNamed,
+  /// the old maybe not exist, but we require a side effect wirte
   Write {
-    source: ShaderGraphNodeRawHandle,
-    target: ShaderGraphNodeRawHandle,
-    /// implicit true is describe the write behavior
-    /// of a scope to a value, the wrote value is a new
-    /// value could be depend, so it's a new node.
-    implicit: bool,
+    new: ShaderGraphNodeRawHandle,
+    old: Option<ShaderGraphNodeRawHandle>,
   },
   ControlFlow(ShaderControlFlowNode),
   SideEffect(ShaderSideEffectNode),

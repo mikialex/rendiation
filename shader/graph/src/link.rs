@@ -122,9 +122,8 @@ impl ShaderControlFlowNode {
     // to the parent scope
     for write in writes {
       let im_write = ShaderGraphNode::Write {
-        target: write.1,
-        source: node.handle(),
-        implicit: true,
+        old: None,
+        new: write.1,
       }
       .insert_into_graph_inner::<AnyType>(top, ShaderValueType::Never);
 
@@ -232,9 +231,13 @@ impl ShaderGraphNode {
       },
       ShaderGraphNode::Input(_) => {}
       ShaderGraphNode::UnNamed => {}
-      ShaderGraphNode::Write { source, target, .. } => {
+      ShaderGraphNode::Write {
+        new: source,
+        old: target,
+        ..
+      } => {
         visitor(source);
-        visitor(target);
+        target.as_ref().map(visitor);
       }
       ShaderGraphNode::ControlFlow(cf) => match cf {
         ShaderControlFlowNode::If { condition, .. } => visitor(condition),
@@ -299,9 +302,13 @@ impl ShaderGraphNode {
       },
       ShaderGraphNode::Input(_) => {}
       ShaderGraphNode::UnNamed => {}
-      ShaderGraphNode::Write { source, target, .. } => {
+      ShaderGraphNode::Write {
+        new: source,
+        old: target,
+        ..
+      } => {
         visitor(source);
-        visitor(target);
+        target.as_mut().map(visitor);
       }
       ShaderGraphNode::ControlFlow(cf) => match cf {
         ShaderControlFlowNode::If { condition, .. } => visitor(condition),
