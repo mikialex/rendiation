@@ -1,8 +1,9 @@
+use crate::*;
 use rendiation_algebra::Vec3;
 
-use crate::{SceneContent, SceneNodeHandle};
+pub type SceneLight<S> = SceneItemRef<SceneLightInner<S>>;
 
-pub struct SceneLight<S: SceneContent> {
+pub struct SceneLightInner<S: SceneContent> {
   pub light: S::Light,
   pub node: SceneNodeHandle,
 }

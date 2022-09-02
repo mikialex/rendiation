@@ -17,11 +17,11 @@ pub fn setup_viewport<'a>(cb: &CameraViewBounds, pass: &mut GPURenderPass<'a>, b
 
 #[derive(Default)]
 pub struct CameraGPUStore {
-  inner: IdentityMapper<CameraGPU, Camera>,
+  inner: IdentityMapper<CameraGPU, SceneCameraInner>,
 }
 
 impl std::ops::Deref for CameraGPUStore {
-  type Target = IdentityMapper<CameraGPU, Camera>;
+  type Target = IdentityMapper<CameraGPU, SceneCameraInner>;
 
   fn deref(&self) -> &Self::Target {
     &self.inner
@@ -90,7 +90,7 @@ pub struct CameraGPUTransform {
 }
 
 impl CameraGPU {
-  pub fn update(&mut self, gpu: &GPU, camera: &Camera) -> &mut Self {
+  pub fn update(&mut self, gpu: &GPU, camera: &SceneCameraInner) -> &mut Self {
     self.ubo.resource.mutate(|uniform| {
       let world_matrix = camera.node.visit(|node| node.world_matrix);
       uniform.view = world_matrix.inverse_or_identity();

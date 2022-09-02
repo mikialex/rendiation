@@ -27,3 +27,39 @@ where
     render_list.setup_pass(pass, scene, &pass.default_dispatcher(), camera);
   }
 }
+
+/// contains gpu data that support forward rendering
+pub struct ForwardLightingSystem {
+  pub lights: Vec<Box<dyn Any>>,
+}
+
+impl ForwardLightingSystem {
+  pub fn update_by_scene(&mut self, scene: Scene<WebGPUScene>) {
+    //
+  }
+}
+
+pub struct LightList<T: ShaderLight> {
+  pub lights: Vec<T>,
+  pub lights_gpu: UniformBufferDataView<Shader140Array<T, 32>>,
+}
+
+impl<T: ShaderLight> LightList<T> {
+  pub fn update(&mut self) {
+    //
+  }
+
+  // pub fn collect_lights_for_naive_forward<S: LightableSurfaceShading>(
+  //   builder: &mut ShaderGraphRenderPipelineBuilder,
+  //   shading: ExpandedNode<S>,
+  // ) -> Result<(), ShaderGraphBuildError> {
+  //   builder.fragment(|builder, binding| {
+  //     let lights = todo!();
+  //     let light_result = todo!();
+  //     // for_by(lights, |_, _| {
+  //     //   //
+  //     // });
+  //     Ok(())
+  //   })
+  // }
+}

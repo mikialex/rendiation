@@ -4,7 +4,7 @@ use rendiation_texture::Size;
 
 use crate::*;
 
-pub type SceneCamera = SceneItemRef<Camera>;
+pub type SceneCamera = SceneItemRef<SceneCameraInner>;
 
 impl HyperRayCaster<f32, Vec3<f32>, Vec2<f32>> for SceneCamera {
   fn cast_ray(&self, normalized_position: Vec2<f32>) -> HyperRay<f32, Vec3<f32>> {
@@ -23,7 +23,7 @@ impl SceneCamera {
     p: impl ResizableProjection<f32> + RayCaster3<f32> + 'static,
     node: SceneNode,
   ) -> Self {
-    let mut inner = Camera {
+    let mut inner = SceneCameraInner {
       bounds: Default::default(),
       projection: Box::new(p),
       projection_matrix: Mat4::one(),
@@ -96,20 +96,20 @@ impl<T: ResizableProjection<f32> + RayCaster3<f32>> CameraProjection for T {
   }
 }
 
-pub struct Camera {
+pub struct SceneCameraInner {
   pub bounds: CameraViewBounds,
   pub projection: Box<dyn CameraProjection>,
   pub projection_matrix: Mat4<f32>,
   pub node: SceneNode,
 }
 
-impl AsRef<Self> for Camera {
+impl AsRef<Self> for SceneCameraInner {
   fn as_ref(&self) -> &Self {
     self
   }
 }
 
-impl Camera {
+impl SceneCameraInner {
   pub fn view_size_in_pixel(&self, frame_size: Size) -> Vec2<f32> {
     let width: usize = frame_size.width.into();
     let width = width as f32 * self.bounds.width;

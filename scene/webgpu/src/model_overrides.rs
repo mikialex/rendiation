@@ -40,7 +40,7 @@ pub trait WorldMatrixOverride {
 }
 
 pub struct WorldMatrixOverrideCtx<'a> {
-  pub camera: &'a Camera,
+  pub camera: &'a SceneCameraInner,
   pub buffer_size: Size,
 }
 

@@ -71,11 +71,15 @@ impl MaterialDeferPassResult {
   }
 }
 
+pub struct DeferLightingSystem {
+  pub lights: Vec<Box<dyn Any>>,
+}
+
 pub fn defer(
   tonemap: &ToneMap,
   content: usize,
   ctx: &mut FrameCtx,
-  lights: &LightSystem,
+  lights: &DeferLightingSystem,
   shading: &impl LightableSurfaceShading,
 ) -> Attachment {
   // encode pass,
