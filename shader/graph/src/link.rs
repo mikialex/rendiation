@@ -242,9 +242,9 @@ impl ShaderGraphNode {
       ShaderGraphNode::ControlFlow(cf) => match cf {
         ShaderControlFlowNode::If { condition, .. } => visitor(condition),
         ShaderControlFlowNode::For { source, .. } => match source {
-          ShaderIteratorAble::Const(_) => {}
-          ShaderIteratorAble::Count(c) => visitor(c),
-          ShaderIteratorAble::FixedArray { array, .. } => visitor(array),
+          ShaderIterator::Const(_) => {}
+          ShaderIterator::Count(c) => visitor(c),
+          ShaderIterator::FixedArray { array, .. } => visitor(array),
         },
       },
       ShaderGraphNode::SideEffect(_) => {}
@@ -314,9 +314,9 @@ impl ShaderGraphNode {
       ShaderGraphNode::ControlFlow(cf) => match cf {
         ShaderControlFlowNode::If { condition, .. } => visitor(condition),
         ShaderControlFlowNode::For { source, .. } => match source {
-          ShaderIteratorAble::Const(_) => {}
-          ShaderIteratorAble::Count(c) => visitor(c),
-          ShaderIteratorAble::FixedArray { array, .. } => visitor(array),
+          ShaderIterator::Const(_) => {}
+          ShaderIterator::Count(c) => visitor(c),
+          ShaderIterator::FixedArray { array, .. } => visitor(array),
         },
       },
       ShaderGraphNode::SideEffect(_) => {}

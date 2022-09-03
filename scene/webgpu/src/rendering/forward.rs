@@ -60,10 +60,10 @@ impl<T: ShaderLight> LightList<T> {
   ) -> Result<(), ShaderGraphBuildError> {
     builder.fragment(|builder, binding| {
       let lights = binding.uniform_by(&self.lights_gpu, SB::Pass);
-      let light_result = todo!();
-      // for_by(lights, |_, _| {
-      //   //
-      // });
+      let light_result = consts(Vec3::zero()).mutable();
+      for_by(lights, |_, _| {
+        //
+      });
       Ok(())
     })
   }

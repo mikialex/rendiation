@@ -74,14 +74,18 @@ pub enum ShaderControlFlowNode {
     scope: ShaderGraphScope,
   },
   For {
-    source: ShaderIteratorAble,
+    source: ShaderIterator,
     scope: ShaderGraphScope,
     iter: ShaderGraphNodeRawHandle,
   },
   // While,
 }
 
-pub enum ShaderIteratorAble {
+pub trait ShaderIteratorAble {
+  type Item: ShaderGraphNodeType;
+}
+
+pub enum ShaderIterator {
   Const(u32),
   Count(ShaderGraphNodeRawHandle),
   FixedArray {

@@ -14,25 +14,35 @@ impl ForCtx {
   }
 }
 
-impl From<u32> for ShaderIteratorAble {
+impl From<u32> for ShaderIterator {
   fn from(v: u32) -> Self {
-    ShaderIteratorAble::Const(v)
+    ShaderIterator::Const(v)
   }
 }
 
-impl<T, const U: usize> From<Node<Shader140Array<T, U>>> for ShaderIteratorAble {
+impl ShaderIteratorAble for u32 {
+  type Item = u32;
+}
+
+impl<T, const U: usize> From<Node<Shader140Array<T, U>>> for ShaderIterator {
   fn from(v: Node<Shader140Array<T, U>>) -> Self {
-    ShaderIteratorAble::FixedArray {
+    ShaderIterator::FixedArray {
       array: v.handle(),
       length: U,
     }
   }
 }
 
+impl<T: ShaderGraphNodeType, const U: usize> ShaderIteratorAble for Node<Shader140Array<T, U>> {
+  type Item = T;
+}
+
 #[inline(never)]
-pub fn for_by<T>(iterable: impl Into<ShaderIteratorAble>, logic: impl Fn(&ForCtx, Node<T>))
-where
-  T: ShaderGraphNodeType,
+pub fn for_by<T: Into<ShaderIterator> + ShaderIteratorAble>(
+  iterable: T,
+  logic: impl Fn(&ForCtx, Node<T::Item>),
+) where
+  T::Item: ShaderGraphNodeType,
 {
   let (i_node, target_scope_id) = modify_graph(|builder| {
     let node = ShaderGraphNode::UnNamed.insert_into_graph(builder);

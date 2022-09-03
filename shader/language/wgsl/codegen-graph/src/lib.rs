@@ -322,14 +322,14 @@ fn gen_node(
         } => {
           let name = cx.get_node_gen_result_var(*iter);
           let head = match source {
-            ShaderIteratorAble::Const(v) => {
+            ShaderIterator::Const(v) => {
               format!("for(var {name}: i32 = 0; {name} < {v}; {name} = {name} + 1) {{")
             }
-            ShaderIteratorAble::Count(v) => format!(
+            ShaderIterator::Count(v) => format!(
               "for(var {name}: i32 = 0; {name} < {count}; {name} = {name} + 1) {{",
               count = cx.get_node_gen_result_var(*v)
             ),
-            ShaderIteratorAble::FixedArray { length, .. } => {
+            ShaderIterator::FixedArray { length, .. } => {
               format!("for(var {name}: i32 = 0; {name} < {length}; {name} = {name} + 1) {{",)
             }
           };
