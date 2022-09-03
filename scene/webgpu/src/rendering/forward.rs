@@ -34,8 +34,12 @@ pub struct ForwardLightingSystem {
 }
 
 impl ForwardLightingSystem {
-  pub fn update_by_scene(&mut self, scene: Scene<WebGPUScene>) {
-    //
+  pub fn update_by_scene(&mut self, scene: &Scene<WebGPUScene>) {
+    for (_, light) in &scene.lights {
+      let light = &light.read().light;
+
+      //
+    }
   }
 }
 
@@ -49,17 +53,18 @@ impl<T: ShaderLight> LightList<T> {
     //
   }
 
-  // pub fn collect_lights_for_naive_forward<S: LightableSurfaceShading>(
-  //   builder: &mut ShaderGraphRenderPipelineBuilder,
-  //   shading: ExpandedNode<S>,
-  // ) -> Result<(), ShaderGraphBuildError> {
-  //   builder.fragment(|builder, binding| {
-  //     let lights = todo!();
-  //     let light_result = todo!();
-  //     // for_by(lights, |_, _| {
-  //     //   //
-  //     // });
-  //     Ok(())
-  //   })
-  // }
+  pub fn collect_lights_for_naive_forward<S: LightableSurfaceShading>(
+    &self,
+    builder: &mut ShaderGraphRenderPipelineBuilder,
+    shading: ExpandedNode<S>,
+  ) -> Result<(), ShaderGraphBuildError> {
+    builder.fragment(|builder, binding| {
+      let lights = binding.uniform_by(&self.lights_gpu, SB::Pass);
+      let light_result = todo!();
+      // for_by(lights, |_, _| {
+      //   //
+      // });
+      Ok(())
+    })
+  }
 }

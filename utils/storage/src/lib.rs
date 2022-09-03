@@ -160,13 +160,13 @@ impl<T> StorageBehavior<T> for EpochVecStorage {
   fn get(c: &Self::Container, handle: Self::Handle) -> Option<&T> {
     let store = c.inner.get(handle.handle)?;
     let value = store.item.as_ref()?;
-    (store.epoch == handle.epoch).then(|| value)
+    (store.epoch == handle.epoch).then_some(value)
   }
 
   fn get_mut(c: &mut Self::Container, handle: Self::Handle) -> Option<&mut T> {
     let store = c.inner.get_mut(handle.handle)?;
     let value = store.item.as_mut()?;
-    (store.epoch == handle.epoch).then(|| value)
+    (store.epoch == handle.epoch).then_some(value)
   }
 
   fn size(c: &Self::Container) -> usize {

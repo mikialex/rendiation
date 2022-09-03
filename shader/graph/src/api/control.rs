@@ -20,6 +20,15 @@ impl From<u32> for ShaderIteratorAble {
   }
 }
 
+impl<T, const U: usize> From<Node<Shader140Array<T, U>>> for ShaderIteratorAble {
+  fn from(v: Node<Shader140Array<T, U>>) -> Self {
+    ShaderIteratorAble::FixedArray {
+      array: v.handle(),
+      length: U,
+    }
+  }
+}
+
 #[inline(never)]
 pub fn for_by<T>(iterable: impl Into<ShaderIteratorAble>, logic: impl Fn(&ForCtx, Node<T>))
 where

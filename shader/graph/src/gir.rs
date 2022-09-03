@@ -83,7 +83,11 @@ pub enum ShaderControlFlowNode {
 
 pub enum ShaderIteratorAble {
   Const(u32),
-  Count(Node<u32>),
+  Count(ShaderGraphNodeRawHandle),
+  FixedArray {
+    array: ShaderGraphNodeRawHandle,
+    length: usize,
+  },
 }
 
 #[derive(Clone)]

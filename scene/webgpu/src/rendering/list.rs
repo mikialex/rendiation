@@ -26,7 +26,7 @@ where
   P::Model: Deref<Target = dyn SceneModelShareable>,
 {
   pub fn prepare(&mut self, scene: &Scene<P>, camera: &SceneCamera) {
-    if !scene.active_camera.is_some() {
+    if scene.active_camera.is_none() {
       return;
     }
 

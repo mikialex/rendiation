@@ -327,8 +327,11 @@ fn gen_node(
             }
             ShaderIteratorAble::Count(v) => format!(
               "for(var {name}: i32 = 0; {name} < {count}; {name} = {name} + 1) {{",
-              count = cx.get_node_gen_result_var(v.handle())
+              count = cx.get_node_gen_result_var(*v)
             ),
+            ShaderIteratorAble::FixedArray { length, .. } => {
+              format!("for(var {name}: i32 = 0; {name} < {length}; {name} = {name} + 1) {{",)
+            }
           };
           code.write_ln(head).tab();
 

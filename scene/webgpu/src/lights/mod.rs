@@ -3,6 +3,15 @@ pub use directional::*;
 
 use crate::*;
 
+pub trait WebGPUSceneLight {
+  fn check_update_gpu<'a>(
+    &self,
+    res: &'a mut GPUMaterialCache,
+    sub_res: &mut GPUResourceSubCache,
+    gpu: &GPU,
+  ) -> &'a dyn RenderComponentAny;
+}
+
 #[derive(Copy, Clone, ShaderStruct)]
 pub struct ShaderIncidentLight {
   pub color: Vec3<f32>,
@@ -22,7 +31,9 @@ pub struct ShaderLightingGeometricCtx {
   pub view_dir: Vec3<f32>,
 }
 
-pub trait ShaderLight: ShaderGraphStructuralNodeType + Std140 + Sized {
+pub trait ShaderLight:
+  ShaderGraphStructuralNodeType + ShaderStructMemberValueNodeType + Std140 + Sized
+{
   fn name() -> &'static str;
 }
 
