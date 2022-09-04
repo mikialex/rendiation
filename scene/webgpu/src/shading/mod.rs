@@ -14,3 +14,29 @@ pub trait LightableSurfaceShading: ShaderGraphStructuralNodeType {
     ctx: &ExpandedNode<ShaderLightingGeometricCtx>,
   ) -> ExpandedNode<ShaderLightingResult>;
 }
+
+pub trait LightableSurfaceShadingDyn {
+  fn construct_shading_dyn(&self, builder: &mut ShaderGraphFragmentBuilder) -> Box<dyn Any>;
+
+  fn compute_lighting_dyn(
+    &self,
+    self_node: &dyn Any,
+    direct_light: &ExpandedNode<ShaderIncidentLight>,
+    ctx: &ExpandedNode<ShaderLightingGeometricCtx>,
+  ) -> ExpandedNode<ShaderLightingResult>;
+}
+impl<T: LightableSurfaceShading> LightableSurfaceShadingDyn for T {
+  fn construct_shading_dyn(&self, builder: &mut ShaderGraphFragmentBuilder) -> Box<dyn Any> {
+    Box::new(Self::construct_shading(builder))
+  }
+
+  fn compute_lighting_dyn(
+    &self,
+    self_node: &dyn Any,
+    direct_light: &ExpandedNode<ShaderIncidentLight>,
+    ctx: &ExpandedNode<ShaderLightingGeometricCtx>,
+  ) -> ExpandedNode<ShaderLightingResult> {
+    let self_node = self_node.downcast_ref::<ExpandedNode<Self>>().unwrap();
+    Self::compute_lighting(self_node, direct_light, ctx)
+  }
+}

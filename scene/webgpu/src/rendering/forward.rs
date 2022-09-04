@@ -30,7 +30,7 @@ where
 
 /// contains gpu data that support forward rendering
 pub struct ForwardLightingSystem {
-  pub lights: HashMap<TypeId, Box<dyn Any>>,
+  pub lights_collections: HashMap<TypeId, Box<dyn LightCollectionCompute>>,
 }
 
 impl ForwardLightingSystem {
@@ -42,26 +42,35 @@ impl ForwardLightingSystem {
     }
   }
 
-  pub fn collect_lights<S: LightableSurfaceShading>(
+  pub fn collect_lights(
     &self,
     builder: &mut ShaderGraphRenderPipelineBuilder,
+    shading_impl: &dyn LightableSurfaceShadingDyn,
   ) -> Result<(), ShaderGraphBuildError> {
     builder.fragment(|builder, binding| {
       let camera_position = builder.query::<FragmentWorldPosition>()?.get(); // todo
       let geom_position = builder.query::<FragmentWorldPosition>()?.get();
 
-      let ctx = ExpandedNode::<ShaderLightingGeometricCtx> {
+      let geom_ctx = ExpandedNode::<ShaderLightingGeometricCtx> {
         position: geom_position,
         normal: builder.query::<FragmentWorldNormal>()?.get(),
         view_dir: camera_position - geom_position,
       };
-      let shading = S::construct_shading(builder);
+      let shading = shading_impl.construct_shading_dyn(builder);
 
-      let light_specular_result = consts(Vec3::zero());
-      let light_diffuse_result = consts(Vec3::zero());
+      let mut light_specular_result = consts(Vec3::zero());
+      let mut light_diffuse_result = consts(Vec3::zero());
 
-      for (_, lights) in &self.lights {
-        //
+      for lights in self.lights_collections.values() {
+        let (diffuse, specular) = lights.collect_lights_for_naive_forward(
+          builder,
+          binding,
+          shading_impl,
+          &shading,
+          &geom_ctx,
+        )?;
+        light_specular_result = specular + light_specular_result;
+        light_diffuse_result = diffuse + light_diffuse_result;
       }
 
       let hdr_result = ExpandedNode::<ShaderLightingResult> {
@@ -86,12 +95,26 @@ impl<T: ShaderLight> LightList<T> {
   pub fn update(&mut self) {
     //
   }
+}
 
-  pub fn collect_lights_for_naive_forward<S: LightableSurfaceShading>(
+pub trait LightCollectionCompute {
+  fn collect_lights_for_naive_forward(
     &self,
     builder: &mut ShaderGraphFragmentBuilderView,
     binding: &mut ShaderGraphBindGroupDirectBuilder,
-    shading: &ExpandedNode<S>,
+    shading_impl: &dyn LightableSurfaceShadingDyn,
+    shading: &dyn Any,
+    geom_ctx: &ExpandedNode<ShaderLightingGeometricCtx>,
+  ) -> Result<(Node<Vec3<f32>>, Node<Vec3<f32>>), ShaderGraphBuildError>;
+}
+
+impl<T: ShaderLight> LightCollectionCompute for LightList<T> {
+  fn collect_lights_for_naive_forward(
+    &self,
+    builder: &mut ShaderGraphFragmentBuilderView,
+    binding: &mut ShaderGraphBindGroupDirectBuilder,
+    shading_impl: &dyn LightableSurfaceShadingDyn,
+    shading: &dyn Any,
     geom_ctx: &ExpandedNode<ShaderLightingGeometricCtx>,
   ) -> Result<(Node<Vec3<f32>>, Node<Vec3<f32>>), ShaderGraphBuildError> {
     let lights = binding.uniform_by(&self.lights_gpu, SB::Pass);
@@ -104,7 +127,7 @@ impl<T: ShaderLight> LightList<T> {
     for_by(lights, |_, light| {
       let light = light.expand();
       let incident = T::compute_direct_light(&light, &dep, geom_ctx);
-      let light_result = S::compute_lighting(shading, &incident, geom_ctx);
+      let light_result = shading_impl.compute_lighting_dyn(shading, &incident, geom_ctx);
 
       // improve impl by add assign
       light_specular_result.set(light_specular_result.get() + light_result.specular);

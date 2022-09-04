@@ -29,9 +29,12 @@ impl ShaderLight for DirectionalLightShaderInfo {
 
 impl WebGPUSceneLight for SceneItemRef<DirectionalLight> {
   fn check_update_gpu<'a>(&self, res: &'a mut ForwardLightingSystem, gpu: &GPU) {
-    let lights = res.lights.entry(self.type_id()).or_insert_with(|| todo!());
-    let lights = lights
-      .downcast_mut::<LightList<DirectionalLightShaderInfo>>()
-      .unwrap();
+    let lights = res
+      .lights_collections
+      .entry(self.type_id())
+      .or_insert_with(|| todo!());
+    // let lights = lights
+    //   .downcast_mut::<LightList<DirectionalLightShaderInfo>>()
+    //   .unwrap();
   }
 }
