@@ -153,16 +153,15 @@ pub trait LightBufferSchema {
   );
 }
 
-pub struct DrawDefer<'a, T: ShaderLight, D, S, R> {
-  pub light: &'a UniformBufferDataView<T>,
-  pub defer: &'a D,
+pub struct DrawDefer<'a, D, S, R> {
+  pub light: &'a dyn LightCollectionCompute,
   pub shading: &'a S,
+  pub defer: &'a D,
   pub target: &'a R,
 }
 
-impl<'a, T, S, D, R> ShaderGraphProvider for DrawDefer<'a, T, D, S, R>
+impl<'a, S, D, R> ShaderGraphProvider for DrawDefer<'a, D, S, R>
 where
-  T: ShaderLight,
   S: LightableSurfaceShading,
   D: DeferGBufferSchema<S>,
   R: LightBufferSchema,
@@ -172,16 +171,14 @@ where
     builder: &mut ShaderGraphRenderPipelineBuilder,
   ) -> Result<(), ShaderGraphBuildError> {
     builder.fragment(|builder, binding| {
-      let light = binding.uniform_by(self.light, SB::Pass).expand();
-
       let geom_ctx = D::reconstruct_geometry_ctx(builder);
 
       let shading = D::reconstruct_shading(builder);
 
-      let dep = T::create_dep(builder);
-      let incident_light = T::compute_direct_light(&light, &dep, &geom_ctx);
-
-      let result = S::compute_lighting(&shading, &incident_light, &geom_ctx);
+      let result =
+        self
+          .light
+          .compute_lights_grouped(builder, binding, self.shading, &shading, &geom_ctx)?;
 
       R::write_lighting(builder, result);
 
@@ -190,13 +187,14 @@ where
   }
 }
 
-impl<'a, T: ShaderLight, D, S, R> ShaderHashProvider for DrawDefer<'a, T, D, S, R> {
+impl<'a, D, S, R> ShaderHashProvider for DrawDefer<'a, D, S, R> {
   fn hash_pipeline(&self, _: &mut PipelineHasher) {}
 }
 
-impl<'a, T: ShaderLight, D, S, R> ShaderHashProviderAny for DrawDefer<'a, T, D, S, R> {
+impl<'a, D: Any, S: Any, R: Any> ShaderHashProviderAny for DrawDefer<'a, D, S, R> {
   fn hash_pipeline_and_with_type_id(&self, hasher: &mut PipelineHasher) {
-    // self.lighter.type_id().hash(hasher);
-    todo!()
+    TypeId::of::<D>().hash(hasher);
+    TypeId::of::<S>().hash(hasher);
+    TypeId::of::<R>().hash(hasher);
   }
 }

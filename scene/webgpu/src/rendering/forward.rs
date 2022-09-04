@@ -42,7 +42,7 @@ impl ForwardLightingSystem {
     }
   }
 
-  pub fn collect_lights(
+  pub fn compute_lights(
     &self,
     builder: &mut ShaderGraphRenderPipelineBuilder,
     shading_impl: &dyn LightableSurfaceShadingDyn,
@@ -62,13 +62,8 @@ impl ForwardLightingSystem {
       let mut light_diffuse_result = consts(Vec3::zero());
 
       for lights in self.lights_collections.values() {
-        let (diffuse, specular) = lights.collect_lights_for_naive_forward(
-          builder,
-          binding,
-          shading_impl,
-          &shading,
-          &geom_ctx,
-        )?;
+        let (diffuse, specular) =
+          lights.compute_lights(builder, binding, shading_impl, &shading, &geom_ctx)?;
         light_specular_result = specular + light_specular_result;
         light_diffuse_result = diffuse + light_diffuse_result;
       }
@@ -98,7 +93,7 @@ impl<T: ShaderLight> LightList<T> {
 }
 
 pub trait LightCollectionCompute {
-  fn collect_lights_for_naive_forward(
+  fn compute_lights(
     &self,
     builder: &mut ShaderGraphFragmentBuilderView,
     binding: &mut ShaderGraphBindGroupDirectBuilder,
@@ -106,10 +101,23 @@ pub trait LightCollectionCompute {
     shading: &dyn Any,
     geom_ctx: &ExpandedNode<ShaderLightingGeometricCtx>,
   ) -> Result<(Node<Vec3<f32>>, Node<Vec3<f32>>), ShaderGraphBuildError>;
+
+  fn compute_lights_grouped(
+    &self,
+    builder: &mut ShaderGraphFragmentBuilderView,
+    binding: &mut ShaderGraphBindGroupDirectBuilder,
+    shading_impl: &dyn LightableSurfaceShadingDyn,
+    shading: &dyn Any,
+    geom_ctx: &ExpandedNode<ShaderLightingGeometricCtx>,
+  ) -> Result<ExpandedNode<ShaderLightingResult>, ShaderGraphBuildError> {
+    let (diffuse, specular) =
+      self.compute_lights(builder, binding, shading_impl, shading, geom_ctx)?;
+    Ok(ExpandedNode::<ShaderLightingResult> { diffuse, specular })
+  }
 }
 
 impl<T: ShaderLight> LightCollectionCompute for LightList<T> {
-  fn collect_lights_for_naive_forward(
+  fn compute_lights(
     &self,
     builder: &mut ShaderGraphFragmentBuilderView,
     binding: &mut ShaderGraphBindGroupDirectBuilder,
