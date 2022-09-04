@@ -70,10 +70,11 @@ impl<T: ShaderLight> LightList<T> {
         normal: builder.query::<FragmentWorldNormal>()?.get(),
         view_dir: camera_position - geom_position,
       };
+      let dep = T::create_dep(builder);
 
       for_by(lights, |_, light| {
         let light = light.expand();
-        // let light_result = T::compute_direct_light(builder, &light, &ctx);
+        let light_result = T::compute_direct_light(&light, &dep, &ctx);
         //
       });
       Ok(())

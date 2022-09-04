@@ -178,7 +178,8 @@ where
 
       let shading = D::reconstruct_shading(builder);
 
-      let incident_light = T::compute_direct_light(builder, &light, &geom_ctx);
+      let dep = T::create_dep(builder);
+      let incident_light = T::compute_direct_light(&light, &dep, &geom_ctx);
 
       let result = S::compute_lighting(&shading, &incident_light, &geom_ctx);
 
