@@ -4,12 +4,15 @@ pub struct MaterialDeferPassResult {
   world_position: Attachment,
   depth: Attachment,
   normal: Attachment,
-  material: Attachment,
+  // todo, merge material2 to normal, use ycocog encode for specular3->2
+  material1: Attachment, // diffuse3+roughness1
+  material2: Attachment, // specular3
 }
 
 const WORLD_POSITION_FORMAT: TextureFormat = TextureFormat::Rgba32Float;
 const NORMAL_FORMAT: TextureFormat = TextureFormat::Rg32Float;
-const MATERIAL_FORMAT: TextureFormat = TextureFormat::Rgba32Float;
+const MATERIAL1_FORMAT: TextureFormat = TextureFormat::Rgba8Unorm;
+const MATERIAL2_FORMAT: TextureFormat = TextureFormat::Rgba8Unorm;
 
 impl DeferGBufferSchema<PhysicalShading> for MaterialDeferPassResult {
   fn reconstruct(
@@ -25,7 +28,8 @@ impl DeferGBufferSchema<PhysicalShading> for MaterialDeferPassResult {
   > {
     let world_position = binding.uniform_by(&self.world_position.read(), SB::Pass);
     let normal = binding.uniform_by(&self.normal.read(), SB::Pass);
-    let material = binding.uniform_by(&self.material.read(), SB::Pass);
+    let material1 = binding.uniform_by(&self.material1.read(), SB::Pass);
+    let material2 = binding.uniform_by(&self.material2.read(), SB::Pass);
 
     let sampler = binding.uniform::<GPUSamplerView>(SB::Material);
 
@@ -33,7 +37,8 @@ impl DeferGBufferSchema<PhysicalShading> for MaterialDeferPassResult {
 
     let world_position = world_position.sample(sampler, uv).xyz();
     let normal = normal.sample(sampler, uv).xyz();
-    let material = material.sample(sampler, uv);
+    let material1 = material1.sample(sampler, uv);
+    let material2 = material2.sample(sampler, uv);
 
     let geom_ctx = ExpandedNode::<ShaderLightingGeometricCtx> {
       position: world_position,
@@ -41,7 +46,13 @@ impl DeferGBufferSchema<PhysicalShading> for MaterialDeferPassResult {
       view_dir: todo!(),
     };
 
-    Ok((geom_ctx, todo!()))
+    let shading = ExpandedNode::<ShaderPhysicalShading> {
+      diffuse: material1.xyz(),
+      specular: material2.xyz(),
+      roughness: material1.w(),
+    };
+
+    Ok((geom_ctx, shading))
   }
 }
 
@@ -50,7 +61,8 @@ impl ShaderPassBuilder for MaterialDeferPassResult {
     ctx.binding.bind(&self.world_position.read(), SB::Pass);
     ctx.binding.bind(&self.depth.read(), SB::Pass);
     ctx.binding.bind(&self.normal.read(), SB::Pass);
-    ctx.binding.bind(&self.material.read(), SB::Pass);
+    ctx.binding.bind(&self.material1.read(), SB::Pass);
+    ctx.binding.bind(&self.material2.read(), SB::Pass);
     ctx.bind_immediate_sampler(&TextureSampler::default(), SB::Material);
   }
 }
@@ -81,7 +93,7 @@ impl ShaderGraphProvider for GBufferEncodeTaskDispatcher {
     builder.fragment(|builder, _| {
       builder.define_out_by(channel(WORLD_POSITION_FORMAT));
       builder.define_out_by(channel(NORMAL_FORMAT));
-      builder.define_out_by(channel(MATERIAL_FORMAT));
+      builder.define_out_by(channel(MATERIAL1_FORMAT));
       Ok(())
     })
   }
@@ -91,29 +103,17 @@ impl ShaderGraphProvider for GBufferEncodeTaskDispatcher {
     builder: &mut ShaderGraphRenderPipelineBuilder,
   ) -> Result<(), ShaderGraphBuildError> {
     builder.fragment(|builder, _| {
-      // collect dependency,
+      // collect dependency
       let shading = PhysicalShading::construct_shading(builder);
-      let world_position = builder.query::<FragmentWorldPosition>();
-      let world_normal = builder.query::<FragmentWorldNormal>();
+      let world_position = builder.query::<FragmentWorldPosition>()?.get();
+      let world_normal = builder.query::<FragmentWorldNormal>()?.get();
       // override channel writes
-      todo!();
-      Ok(()) //
+      builder.set_fragment_out(0, (world_position, 1.))?;
+      builder.set_fragment_out(1, (world_normal, 1.))?;
+      builder.set_fragment_out(2, (shading.diffuse, shading.roughness))?;
+      builder.set_fragment_out(3, (shading.specular, 1.))?;
+      Ok(())
     })
-  }
-}
-
-impl MaterialDeferPassResult {
-  pub fn new(ctx: &mut FrameCtx) -> Self {
-    let world_position = attachment().format(WORLD_POSITION_FORMAT).request(ctx);
-    let depth = depth_attachment().request(ctx);
-    let normal = attachment().format(NORMAL_FORMAT).request(ctx);
-    let material = attachment().format(MATERIAL_FORMAT).request(ctx);
-    Self {
-      world_position,
-      depth,
-      normal,
-      material,
-    }
   }
 }
 
@@ -131,13 +131,19 @@ pub fn defer<'i, T>(
 where
   T: IntoIterator<Item = &'i dyn SceneRenderable> + Copy,
 {
-  let mut encode_target = MaterialDeferPassResult::new(ctx);
+  let mut encode_target = MaterialDeferPassResult {
+    world_position: attachment().format(WORLD_POSITION_FORMAT).request(ctx),
+    depth: depth_attachment().request(ctx),
+    normal: attachment().format(NORMAL_FORMAT).request(ctx),
+    material1: attachment().format(MATERIAL1_FORMAT).request(ctx),
+    material2: attachment().format(MATERIAL2_FORMAT).request(ctx),
+  };
 
   pass("defer_encode_gbuffer")
     .with_depth(encode_target.depth.write(), clear(1.))
     .with_color(encode_target.world_position.write(), clear(all_zero()))
     .with_color(encode_target.normal.write(), clear(all_zero()))
-    .with_color(encode_target.material.write(), clear(all_zero()))
+    .with_color(encode_target.material1.write(), clear(all_zero()))
     .render(ctx)
     .by(CameraRef::with(camera, GBufferEncodeTask { objects }));
 
