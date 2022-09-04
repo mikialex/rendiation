@@ -35,11 +35,9 @@ pub trait ShaderLight:
   ShaderGraphStructuralNodeType + ShaderStructMemberValueNodeType + Std140 + Sized
 {
   fn name() -> &'static str;
-}
-
-pub trait DirectShaderLight: ShaderLight {
   fn compute_direct_light(
-    node: &ExpandedNode<Self>,
+    builder: &mut ShaderGraphFragmentBuilderView,
+    light: &ExpandedNode<Self>,
     ctx: &ExpandedNode<ShaderLightingGeometricCtx>,
   ) -> ExpandedNode<ShaderIncidentLight>;
 }

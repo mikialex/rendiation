@@ -1,7 +1,7 @@
 use rendiation_algebra::Vec3;
 use shadergraph::*;
 
-use crate::{DirectShaderLight, ShaderIncidentLight, ShaderLight, ShaderLightingGeometricCtx};
+use crate::{ShaderIncidentLight, ShaderLight, ShaderLightingGeometricCtx};
 
 #[repr(C)]
 #[std140_layout]
@@ -15,10 +15,8 @@ impl ShaderLight for DirectionalLightShaderInfo {
   fn name() -> &'static str {
     "directional_light"
   }
-}
-
-impl DirectShaderLight for DirectionalLightShaderInfo {
   fn compute_direct_light(
+    builder: &mut ShaderGraphFragmentBuilderView,
     node: &ExpandedNode<Self>,
     _ctx: &ExpandedNode<ShaderLightingGeometricCtx>,
   ) -> ExpandedNode<ShaderIncidentLight> {

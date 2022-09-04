@@ -61,7 +61,19 @@ impl<T: ShaderLight> LightList<T> {
     builder.fragment(|builder, binding| {
       let lights = binding.uniform_by(&self.lights_gpu, SB::Pass);
       let light_result = consts(Vec3::zero()).mutable();
-      for_by(lights, |_, _| {
+
+      let camera_position: Node<Vec3<f32>> = todo!();
+      let geom_position = builder.query::<FragmentWorldPosition>()?.get();
+
+      let ctx = ExpandedNode::<ShaderLightingGeometricCtx> {
+        position: geom_position,
+        normal: builder.query::<FragmentWorldNormal>()?.get(),
+        view_dir: camera_position - geom_position,
+      };
+
+      for_by(lights, |_, light| {
+        let light = light.expand();
+        // let light_result = T::compute_direct_light(builder, &light, &ctx);
         //
       });
       Ok(())

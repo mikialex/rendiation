@@ -123,21 +123,14 @@ pub fn defer(
   ldr_result
 }
 
-pub trait DirectShaderLightPassApply {
+pub trait ShaderLightPassApply {
   fn draw_defer_impl(active_pass: &mut ActiveRenderPass, shading: &impl LightableSurfaceShading);
 }
 
-impl<T: DirectShaderLight> DirectShaderLightPassApply for T {
+impl<T: ShaderLight> ShaderLightPassApply for T {
   fn draw_defer_impl(active_pass: &mut ActiveRenderPass, shading: &impl LightableSurfaceShading) {
     todo!()
   }
-}
-
-pub struct DrawDefer<'a, T: ShaderLight, D, S, R> {
-  pub light: &'a UniformBufferDataView<T>,
-  pub defer: &'a D,
-  pub shading: &'a S,
-  pub target: &'a R,
 }
 
 /// define a specific g buffer layout.
@@ -160,9 +153,16 @@ pub trait LightBufferSchema {
   );
 }
 
+pub struct DrawDefer<'a, T: ShaderLight, D, S, R> {
+  pub light: &'a UniformBufferDataView<T>,
+  pub defer: &'a D,
+  pub shading: &'a S,
+  pub target: &'a R,
+}
+
 impl<'a, T, S, D, R> ShaderGraphProvider for DrawDefer<'a, T, D, S, R>
 where
-  T: DirectShaderLight,
+  T: ShaderLight,
   S: LightableSurfaceShading,
   D: DeferGBufferSchema<S>,
   R: LightBufferSchema,
@@ -178,7 +178,7 @@ where
 
       let shading = D::reconstruct_shading(builder);
 
-      let incident_light = T::compute_direct_light(&light, &geom_ctx);
+      let incident_light = T::compute_direct_light(builder, &light, &geom_ctx);
 
       let result = S::compute_lighting(&shading, &incident_light, &geom_ctx);
 
