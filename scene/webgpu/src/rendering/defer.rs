@@ -12,16 +12,46 @@ const NORMAL_FORMAT: TextureFormat = TextureFormat::Rg32Float;
 const MATERIAL_FORMAT: TextureFormat = TextureFormat::Rgba32Float;
 
 impl DeferGBufferSchema<PhysicalShading> for MaterialDeferPassResult {
-  fn reconstruct_geometry_ctx(
+  fn reconstruct(
+    &self,
     builder: &mut ShaderGraphFragmentBuilder,
-  ) -> ExpandedNode<ShaderLightingGeometricCtx> {
-    todo!()
-  }
+    binding: &mut ShaderGraphBindGroupDirectBuilder,
+  ) -> Result<
+    (
+      ExpandedNode<ShaderLightingGeometricCtx>,
+      ExpandedNode<ShaderPhysicalShading>,
+    ),
+    ShaderGraphBuildError,
+  > {
+    let world_position = binding.uniform_by(&self.world_position.read(), SB::Pass);
+    let normal = binding.uniform_by(&self.normal.read(), SB::Pass);
+    let material = binding.uniform_by(&self.material.read(), SB::Pass);
 
-  fn reconstruct_shading(
-    builder: &mut ShaderGraphFragmentBuilder,
-  ) -> ExpandedNode<ShaderPhysicalShading> {
-    todo!()
+    let sampler = binding.uniform::<GPUSamplerView>(SB::Material);
+
+    let uv = builder.query::<FragmentUv>()?.get();
+
+    let world_position = world_position.sample(sampler, uv).xyz();
+    let normal = normal.sample(sampler, uv).xyz();
+    let material = material.sample(sampler, uv);
+
+    let geom_ctx = ExpandedNode::<ShaderLightingGeometricCtx> {
+      position: world_position,
+      normal,
+      view_dir: todo!(),
+    };
+
+    Ok((geom_ctx, todo!()))
+  }
+}
+
+impl ShaderPassBuilder for MaterialDeferPassResult {
+  fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
+    ctx.binding.bind(&self.world_position.read(), SB::Pass);
+    ctx.binding.bind(&self.depth.read(), SB::Pass);
+    ctx.binding.bind(&self.normal.read(), SB::Pass);
+    ctx.binding.bind(&self.material.read(), SB::Pass);
+    ctx.bind_immediate_sampler(&TextureSampler::default(), SB::Material);
   }
 }
 
@@ -72,7 +102,7 @@ impl MaterialDeferPassResult {
 }
 
 pub struct DeferLightingSystem {
-  pub lights: Vec<Box<dyn Any>>,
+  pub lights: Vec<Box<dyn VisitLightCollectionCompute>>,
 }
 
 pub fn defer(
@@ -96,18 +126,20 @@ pub fn defer(
   let mut hdr_result = attachment().format(TextureFormat::Rgba32Float).request(ctx);
 
   for lights in &lights.lights {
-    let defer = DrawDefer {
-      light: todo!(),
-      defer: &encode_target,
-      shading: &PhysicalShading,
-      target: &SimpleLightSchema,
-    }
-    .draw_quad();
+    lights.visit_lights_computes(&mut |light| {
+      let defer = DrawDefer {
+        light,
+        defer: &encode_target,
+        shading: &PhysicalShading,
+        target: &SimpleLightSchema,
+      }
+      .draw_quad();
 
-    pass("light_pass")
-      .with_color(hdr_result.write(), load())
-      .render(ctx)
-      .by(defer);
+      pass("light_pass")
+        .with_color(hdr_result.write(), load())
+        .render(ctx)
+        .by(defer);
+    });
   }
 
   let mut ldr_result = attachment().format(TextureFormat::Rgba8Unorm).request(ctx);
@@ -120,17 +152,70 @@ pub fn defer(
   ldr_result
 }
 
+pub trait VisitLightCollectionCompute {
+  fn visit_lights_computes(&self, visitor: &mut dyn FnMut(&dyn LightCollectionCompute));
+}
+
+pub struct DeferLightList<T: ShaderLight> {
+  pub lights: Vec<T>,
+  pub lights_gpu: Vec<UniformBufferDataView<T>>,
+}
+
+impl<T: ShaderLight> VisitLightCollectionCompute for DeferLightList<T> {
+  fn visit_lights_computes(&self, visitor: &mut dyn FnMut(&dyn LightCollectionCompute)) {
+    self
+      .lights_gpu
+      .iter()
+      .for_each(|light| visitor(&SingleLight { light }))
+  }
+}
+
+struct SingleLight<'a, T: Std140> {
+  light: &'a UniformBufferDataView<T>,
+}
+
+impl<'a, T: Std140> ShaderPassBuilder for SingleLight<'a, T> {
+  fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
+    ctx.binding.bind(self.light, SB::Pass)
+  }
+}
+impl<'a, T: ShaderLight> LightCollectionCompute for SingleLight<'a, T> {
+  fn compute_lights(
+    &self,
+    builder: &mut ShaderGraphFragmentBuilderView,
+    binding: &mut ShaderGraphBindGroupDirectBuilder,
+    shading_impl: &dyn LightableSurfaceShadingDyn,
+    shading: &dyn Any,
+    geom_ctx: &ExpandedNode<ShaderLightingGeometricCtx>,
+  ) -> Result<(Node<Vec3<f32>>, Node<Vec3<f32>>), ShaderGraphBuildError> {
+    let light = binding.uniform_by(self.light, SB::Pass);
+
+    let dep = T::create_dep(builder);
+
+    let light = light.expand();
+    let incident = T::compute_direct_light(&light, &dep, geom_ctx);
+    let light_result = shading_impl.compute_lighting_dyn(shading, &incident, geom_ctx);
+
+    Ok((light_result.diffuse, light_result.specular))
+  }
+}
+
 /// define a specific g buffer layout.
 ///
 /// this trait is parameterized over shading, which means we could encode/reconstruct
 /// different surface shading into one schema theoretically
 pub trait DeferGBufferSchema<S: LightableSurfaceShading> {
-  fn reconstruct_geometry_ctx(
+  fn reconstruct(
+    &self,
     builder: &mut ShaderGraphFragmentBuilder,
-  ) -> ExpandedNode<ShaderLightingGeometricCtx>;
-
-  fn reconstruct_shading(builder: &mut ShaderGraphFragmentBuilder)
-    -> ExpandedNode<S::ShaderStruct>;
+    binding: &mut ShaderGraphBindGroupDirectBuilder,
+  ) -> Result<
+    (
+      ExpandedNode<ShaderLightingGeometricCtx>,
+      ExpandedNode<S::ShaderStruct>,
+    ),
+    ShaderGraphBuildError,
+  >;
 }
 
 /// define a specific light buffer layout.
@@ -152,6 +237,7 @@ impl LightBufferSchema for SimpleLightSchema {
 }
 
 pub struct DrawDefer<'a, D, S, R> {
+  /// this trait allow us using forward light list do batch light computation in single pass
   pub light: &'a dyn LightCollectionCompute,
   pub shading: &'a S,
   pub defer: &'a D,
@@ -169,9 +255,7 @@ where
     builder: &mut ShaderGraphRenderPipelineBuilder,
   ) -> Result<(), ShaderGraphBuildError> {
     builder.fragment(|builder, binding| {
-      let geom_ctx = D::reconstruct_geometry_ctx(builder);
-
-      let shading = D::reconstruct_shading(builder);
+      let (geom_ctx, shading) = self.defer.reconstruct(builder, binding)?;
 
       let result =
         self
@@ -195,8 +279,9 @@ impl<'a, D: Any, S: Any, R: Any> ShaderHashProviderAny for DrawDefer<'a, D, S, R
   }
 }
 
-impl<'a, D, S, R> ShaderPassBuilder for DrawDefer<'a, D, S, R> {
+impl<'a, D: ShaderPassBuilder, S, R> ShaderPassBuilder for DrawDefer<'a, D, S, R> {
   fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
+    self.defer.setup_pass(ctx);
     self.light.setup_pass(ctx)
   }
 }
