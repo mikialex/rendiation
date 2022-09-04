@@ -155,6 +155,12 @@ pub struct CameraRef<'a, T> {
   inner: T,
 }
 
+impl<'a, T> CameraRef<'a, T> {
+  pub fn with(camera: &'a SceneCamera, inner: T) -> Self {
+    CameraRef { camera, inner }
+  }
+}
+
 pub trait WebGPUScenePipelineHelper<S: SceneContent> {
   fn by_main_camera<T>(&self, inner: T) -> CameraRef<T>;
   fn by_main_camera_and_self<T>(&self, inner: T) -> CameraSceneRef<T, S>;

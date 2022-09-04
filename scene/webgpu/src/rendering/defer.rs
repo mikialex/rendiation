@@ -55,9 +55,25 @@ impl ShaderPassBuilder for MaterialDeferPassResult {
   }
 }
 
-pub struct GBufferEncodeTask {}
+pub struct GBufferEncodeTask<T> {
+  objects: T,
+}
 
-impl ShaderGraphProvider for GBufferEncodeTask {
+impl<'i, T> PassContentWithCamera for GBufferEncodeTask<T>
+where
+  T: IntoIterator<Item = &'i dyn SceneRenderable> + Copy,
+{
+  fn render(&mut self, pass: &mut SceneRenderPass, camera: &SceneCamera) {
+    for model in self.objects {
+      model.render(pass, &GBufferEncodeTaskDispatcher, camera)
+    }
+  }
+}
+
+struct GBufferEncodeTaskDispatcher;
+impl ShaderHashProvider for GBufferEncodeTaskDispatcher {}
+impl ShaderPassBuilder for GBufferEncodeTaskDispatcher {}
+impl ShaderGraphProvider for GBufferEncodeTaskDispatcher {
   fn build(
     &self,
     builder: &mut ShaderGraphRenderPipelineBuilder,
@@ -105,23 +121,25 @@ pub struct DeferLightingSystem {
   pub lights: Vec<Box<dyn VisitLightCollectionCompute>>,
 }
 
-pub fn defer(
+pub fn defer<'i, T>(
   tonemap: &ToneMap,
-  content: usize,
+  objects: T,
   ctx: &mut FrameCtx,
   lights: &DeferLightingSystem,
-) -> Attachment {
+  camera: &SceneCamera,
+) -> Attachment
+where
+  T: IntoIterator<Item = &'i dyn SceneRenderable> + Copy,
+{
   let mut encode_target = MaterialDeferPassResult::new(ctx);
 
-  {
-    let encode_pass = pass("defer_encode_gbuffer")
-      .with_depth(encode_target.depth.write(), clear(1.))
-      .with_color(encode_target.world_position.write(), clear(all_zero()))
-      .with_color(encode_target.normal.write(), clear(all_zero()))
-      .with_color(encode_target.material.write(), clear(all_zero()))
-      .render(ctx);
-    // .by(todo!());
-  }
+  pass("defer_encode_gbuffer")
+    .with_depth(encode_target.depth.write(), clear(1.))
+    .with_color(encode_target.world_position.write(), clear(all_zero()))
+    .with_color(encode_target.normal.write(), clear(all_zero()))
+    .with_color(encode_target.material.write(), clear(all_zero()))
+    .render(ctx)
+    .by(CameraRef::with(camera, GBufferEncodeTask { objects }));
 
   let mut hdr_result = attachment().format(TextureFormat::Rgba32Float).request(ctx);
 

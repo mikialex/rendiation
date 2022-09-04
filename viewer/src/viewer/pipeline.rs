@@ -44,7 +44,7 @@ impl ViewerPipeline {
       .by(scene.by_main_camera_and_self(&mut content.camera_helpers));
 
     let highlight_compose = (!content.selections.is_empty())
-    .then(|| self.highlight.draw(&content.selections, ctx, scene));
+    .then(|| self.highlight.draw(&content.selections, ctx, scene.active_camera.as_ref().unwrap()));
 
     let mut scene_result = attachment().request(ctx);
 
