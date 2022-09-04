@@ -1,7 +1,4 @@
-use rendiation_algebra::Vec3;
-use shadergraph::*;
-
-use crate::{ShaderIncidentLight, ShaderLight, ShaderLightingGeometricCtx};
+use crate::*;
 
 #[repr(C)]
 #[std140_layout]
@@ -27,5 +24,14 @@ impl ShaderLight for DirectionalLightShaderInfo {
       color: node.intensity,
       direction: node.direction,
     }
+  }
+}
+
+impl WebGPUSceneLight for SceneItemRef<DirectionalLight> {
+  fn check_update_gpu<'a>(&self, res: &'a mut ForwardLightingSystem, gpu: &GPU) {
+    let lights = res.lights.entry(self.type_id()).or_insert_with(|| todo!());
+    let lights = lights
+      .downcast_mut::<LightList<DirectionalLightShaderInfo>>()
+      .unwrap();
   }
 }

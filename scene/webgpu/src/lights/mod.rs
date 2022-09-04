@@ -4,12 +4,7 @@ pub use directional::*;
 use crate::*;
 
 pub trait WebGPUSceneLight {
-  fn check_update_gpu<'a>(
-    &self,
-    res: &'a mut GPUMaterialCache,
-    sub_res: &mut GPUResourceSubCache,
-    gpu: &GPU,
-  ) -> &'a dyn RenderComponentAny;
+  fn check_update_gpu<'a>(&self, res: &'a mut ForwardLightingSystem, gpu: &GPU);
 }
 
 #[derive(Copy, Clone, ShaderStruct)]
