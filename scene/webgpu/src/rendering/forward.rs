@@ -92,7 +92,13 @@ impl<T: ShaderLight> LightList<T> {
   }
 }
 
-pub trait LightCollectionCompute {
+impl<T: ShaderLight> ShaderPassBuilder for LightList<T> {
+  fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
+    ctx.binding.bind(&self.lights_gpu, SB::Pass);
+  }
+}
+
+pub trait LightCollectionCompute: ShaderPassBuilder {
   fn compute_lights(
     &self,
     builder: &mut ShaderGraphFragmentBuilderView,

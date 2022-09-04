@@ -3,7 +3,7 @@ use crate::*;
 #[repr(C)]
 #[std140_layout]
 #[derive(Copy, Clone, ShaderStruct)]
-pub struct PhysicalShading {
+pub struct ShaderPhysicalShading {
   pub diffuse: Vec3<f32>,
   pub specular: Vec3<f32>,
   pub roughness: f32,
@@ -13,9 +13,14 @@ both!(ColorChannel, Vec3<f32>);
 both!(SpecularChannel, Vec3<f32>);
 both!(RoughnessChannel, f32);
 
+pub struct PhysicalShading;
+
 impl LightableSurfaceShading for PhysicalShading {
-  fn construct_shading(builder: &mut ShaderGraphFragmentBuilder) -> ExpandedNode<Self> {
-    ExpandedNode::<Self> {
+  type ShaderStruct = ShaderPhysicalShading;
+  fn construct_shading(
+    builder: &mut ShaderGraphFragmentBuilder,
+  ) -> ExpandedNode<Self::ShaderStruct> {
+    ExpandedNode::<Self::ShaderStruct> {
       diffuse: builder.query_or_insert_default::<ColorChannel>().get(),
       specular: builder.query_or_insert_default::<SpecularChannel>().get(),
       roughness: builder.query_or_insert_default::<RoughnessChannel>().get(),
@@ -23,7 +28,7 @@ impl LightableSurfaceShading for PhysicalShading {
   }
 
   fn compute_lighting(
-    self_node: &ExpandedNode<Self>,
+    self_node: &ExpandedNode<Self::ShaderStruct>,
     direct_light: &ExpandedNode<ShaderIncidentLight>,
     ctx: &ExpandedNode<ShaderLightingGeometricCtx>,
   ) -> ExpandedNode<ShaderLightingResult> {
@@ -40,7 +45,7 @@ wgsl_fn!(
   fn physical_shading(
     directLight: ShaderIncidentLight,
     geometry: ShaderLightingGeometricCtx,
-    shading: PhysicalShading,
+    shading: ShaderPhysicalShading,
   ) -> ShaderLightingResult {
     let nDotL = biasNDotL(dot(-directLight.direction, geometry.normal));
     if nDotL == 0.0 {

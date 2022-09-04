@@ -20,7 +20,7 @@ impl DeferGBufferSchema<PhysicalShading> for MaterialDeferPassResult {
 
   fn reconstruct_shading(
     builder: &mut ShaderGraphFragmentBuilder,
-  ) -> ExpandedNode<PhysicalShading> {
+  ) -> ExpandedNode<ShaderPhysicalShading> {
     todo!()
   }
 }
@@ -80,9 +80,7 @@ pub fn defer(
   content: usize,
   ctx: &mut FrameCtx,
   lights: &DeferLightingSystem,
-  shading: &impl LightableSurfaceShading,
 ) -> Attachment {
-  // encode pass,
   let mut encode_target = MaterialDeferPassResult::new(ctx);
 
   {
@@ -97,22 +95,21 @@ pub fn defer(
 
   let mut hdr_result = attachment().format(TextureFormat::Rgba32Float).request(ctx);
 
-  // light pass,
   for lights in &lights.lights {
-    // let defer = DrawDefer {
-    //   light: todo!(),
-    //   defer: todo!(),
-    //   shading,
-    //   target: todo!(),
-    // };
+    let defer = DrawDefer {
+      light: todo!(),
+      defer: &encode_target,
+      shading: &PhysicalShading,
+      target: &SimpleLightSchema,
+    }
+    .draw_quad();
 
     pass("light_pass")
       .with_color(hdr_result.write(), load())
-      .render(ctx);
-    // lights.drasw_defer_passes(ctx)
+      .render(ctx)
+      .by(defer);
   }
 
-  // tone mapping,
   let mut ldr_result = attachment().format(TextureFormat::Rgba8Unorm).request(ctx);
 
   pass("tonemap")
@@ -121,16 +118,6 @@ pub fn defer(
     .by(tonemap.tonemap(hdr_result.read()));
 
   ldr_result
-}
-
-pub trait ShaderLightPassApply {
-  fn draw_defer_impl(active_pass: &mut ActiveRenderPass, shading: &impl LightableSurfaceShading);
-}
-
-impl<T: ShaderLight> ShaderLightPassApply for T {
-  fn draw_defer_impl(active_pass: &mut ActiveRenderPass, shading: &impl LightableSurfaceShading) {
-    todo!()
-  }
 }
 
 /// define a specific g buffer layout.
@@ -142,7 +129,8 @@ pub trait DeferGBufferSchema<S: LightableSurfaceShading> {
     builder: &mut ShaderGraphFragmentBuilder,
   ) -> ExpandedNode<ShaderLightingGeometricCtx>;
 
-  fn reconstruct_shading(builder: &mut ShaderGraphFragmentBuilder) -> ExpandedNode<S>;
+  fn reconstruct_shading(builder: &mut ShaderGraphFragmentBuilder)
+    -> ExpandedNode<S::ShaderStruct>;
 }
 
 /// define a specific light buffer layout.
@@ -150,7 +138,17 @@ pub trait LightBufferSchema {
   fn write_lighting(
     builder: &mut ShaderGraphFragmentBuilder,
     result: ExpandedNode<ShaderLightingResult>,
-  );
+  ) -> Result<(), ShaderGraphBuildError>;
+}
+
+pub struct SimpleLightSchema;
+impl LightBufferSchema for SimpleLightSchema {
+  fn write_lighting(
+    builder: &mut ShaderGraphFragmentBuilder,
+    result: ExpandedNode<ShaderLightingResult>,
+  ) -> Result<(), ShaderGraphBuildError> {
+    builder.set_fragment_out(0, ((result.specular + result.diffuse), 1.0))
+  }
 }
 
 pub struct DrawDefer<'a, D, S, R> {
@@ -180,9 +178,7 @@ where
           .light
           .compute_lights_grouped(builder, binding, self.shading, &shading, &geom_ctx)?;
 
-      R::write_lighting(builder, result);
-
-      Ok(())
+      R::write_lighting(builder, result)
     })
   }
 }
@@ -196,5 +192,11 @@ impl<'a, D: Any, S: Any, R: Any> ShaderHashProviderAny for DrawDefer<'a, D, S, R
     TypeId::of::<D>().hash(hasher);
     TypeId::of::<S>().hash(hasher);
     TypeId::of::<R>().hash(hasher);
+  }
+}
+
+impl<'a, D, S, R> ShaderPassBuilder for DrawDefer<'a, D, S, R> {
+  fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
+    self.light.setup_pass(ctx)
   }
 }
