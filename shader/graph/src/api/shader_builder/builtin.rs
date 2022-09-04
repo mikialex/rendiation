@@ -10,6 +10,16 @@ macro_rules! only_vertex {
   };
 }
 
+#[macro_export]
+macro_rules! only_fragment {
+  ($Type: ident, $NodeType: ty) => {
+    pub struct $Type;
+    impl SemanticFragmentShaderValue for $Type {
+      type ValueType = $NodeType;
+    }
+  };
+}
+
 only_vertex!(GeometryPosition2D, Vec2<f32>);
 only_vertex!(GeometryPosition, Vec3<f32>);
 only_vertex!(GeometryNormal, Vec3<f32>);
