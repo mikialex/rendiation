@@ -10,7 +10,7 @@ use core::iter::{self, Extend, FromIterator, FusedIterator};
 /// # Examples
 ///
 /// ```
-/// use generational_arena::Arena;
+/// use arena::Arena;
 ///
 /// let mut arena = Arena::new();
 /// for i in 0..10 {
@@ -94,7 +94,7 @@ impl<'a, T> IntoIterator for &'a Arena<T> {
 /// # Examples
 ///
 /// ```
-/// use generational_arena::Arena;
+/// use arena::Arena;
 ///
 /// let mut arena = Arena::new();
 /// for i in 0..10 {
@@ -200,7 +200,7 @@ impl<'a, T> IntoIterator for &'a mut Arena<T> {
 /// # Examples
 ///
 /// ```
-/// use generational_arena::Arena;
+/// use arena::Arena;
 ///
 /// let mut arena = Arena::new();
 /// for i in 0..10 {
@@ -300,7 +300,7 @@ impl<'a, T> FusedIterator for IterMut<'a, T> {}
 /// # Examples
 ///
 /// ```
-/// use generational_arena::Arena;
+/// use arena::Arena;
 ///
 /// let mut arena = Arena::new();
 /// let idx_1 = arena.insert("hello");
