@@ -1,5 +1,6 @@
 use crate as shadergraph;
 use crate::*;
+use wgpu_types::TextureFormat;
 
 #[derive(ShaderStruct, Clone, Copy, Default)]
 pub struct TestUniform {
@@ -44,6 +45,7 @@ impl ShaderGraphProvider for TestUniform {
 
     builder.fragment(|builder, _| {
       let uniform = uniform.using().expand();
+      builder.define_out_by(channel(TextureFormat::Rgba32Float));
       builder.set_fragment_out(0, (uniform.data3, 1.))?;
       Ok(())
     })

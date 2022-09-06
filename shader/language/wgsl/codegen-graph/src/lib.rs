@@ -670,7 +670,7 @@ fn gen_struct(builder: &mut CodeBuilder, meta: &ShaderStructMetaInfoOwned, is_un
       };
 
       let explicit_align = explicit_align
-        .map(|a| format!("align {}", a))
+        .map(|a| format!(" @align({})", a))
         .unwrap_or_default();
 
       builder.write_ln(format!(

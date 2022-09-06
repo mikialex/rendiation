@@ -2312,6 +2312,7 @@ version = "0.1.0"
 dependencies = [
  "naga",
  "shadergraph",
+ "wgpu-types",
  "wgsl-codegen-graph",
  "wgsl-shader-derives",
 ]

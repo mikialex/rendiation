@@ -1,5 +1,5 @@
 use crate::*;
-
+use wgpu_types::TextureFormat;
 struct Test;
 
 struct TestSemantic;
@@ -25,6 +25,7 @@ impl ShaderGraphProvider for Test {
     builder.fragment(|builder, _| {
       let v = builder.get_fragment_in::<TestSemantic>()?;
       // let v2 = builder.get_fragment_in_anonymous(varying);
+      builder.define_out_by(channel(TextureFormat::Rgba32Float));
       builder.set_fragment_out(0, v)
     })
   }
