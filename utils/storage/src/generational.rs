@@ -24,3 +24,13 @@ impl<T> StorageBehavior<T> for GenerationalVecStorage {
     c.len()
   }
 }
+
+impl<T> NoneOverlappingStorage<T> for GenerationalVecStorage {
+  fn get_mut_pair(
+    c: &mut Self::Container,
+    handle: (Self::Handle, Self::Handle),
+  ) -> Option<(&mut T, &mut T)> {
+    let (a, b) = c.get2_mut(handle.0, handle.1);
+    (a?, b?).into()
+  }
+}

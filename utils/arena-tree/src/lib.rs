@@ -36,27 +36,27 @@ impl<T> ArenaTreeNode<T> {
     self.handle
   }
 
-  pub fn add_child(&mut self, child_to_add: &mut ArenaTreeNode<T>) -> &mut Self {
-    if child_to_add.parent.is_some() {
-      panic!("child node already has a parent");
-    }
-    child_to_add.parent = Some(self.handle);
-    self.children.push(child_to_add.handle);
-    self
-  }
+  // pub fn add_child(&mut self, child_to_add: &mut ArenaTreeNode<T>) -> &mut Self {
+  //   if child_to_add.parent.is_some() {
+  //     panic!("child node already has a parent");
+  //   }
+  //   child_to_add.parent = Some(self.handle);
+  //   self.children.push(child_to_add.handle);
+  //   self
+  // }
 
-  pub fn remove_child(&mut self, child_to_remove: &mut ArenaTreeNode<T>) -> &mut Self {
-    let child_index = self
-      .children
-      .iter()
-      .position(|&x| x == child_to_remove.handle)
-      .expect("tried to remove nonexistent child");
+  // pub fn remove_child(&mut self, child_to_remove: &mut ArenaTreeNode<T>) -> &mut Self {
+  //   let child_index = self
+  //     .children
+  //     .iter()
+  //     .position(|&x| x == child_to_remove.handle)
+  //     .expect("tried to remove nonexistent child");
 
-    child_to_remove.parent = None;
+  //   child_to_remove.parent = None;
 
-    self.children.swap_remove(child_index);
-    self
-  }
+  //   self.children.swap_remove(child_index);
+  //   self
+  // }
 }
 
 impl<T> ArenaTree<T> {
@@ -66,10 +66,6 @@ impl<T> ArenaTree<T> {
     };
     tree.create_node(root_data);
     tree
-  }
-
-  pub fn root(&self) -> ArenaTreeNodeHandle<T> {
-    Handle::from_raw_parts(0, 0)
   }
 
   pub fn nodes(&self) -> &Arena<ArenaTreeNode<T>> {
@@ -83,16 +79,8 @@ impl<T> ArenaTree<T> {
     handle
   }
 
-  pub fn free_node(&mut self, handle: ArenaTreeNodeHandle<T>) {
+  pub fn delete_node(&mut self, handle: ArenaTreeNodeHandle<T>) {
     self.nodes.remove(handle);
-  }
-
-  pub fn get_root_node(&self) -> &ArenaTreeNode<T> {
-    self.nodes.get(self.root()).unwrap()
-  }
-
-  pub fn get_root_node_mut(&mut self) -> &mut ArenaTreeNode<T> {
-    self.nodes.get_mut(self.root()).unwrap()
   }
 
   pub fn get_node(&self, handle: ArenaTreeNodeHandle<T>) -> &ArenaTreeNode<T> {
@@ -103,13 +91,21 @@ impl<T> ArenaTree<T> {
     self.nodes.get_mut(handle).unwrap()
   }
 
+  pub fn get_parent_child_pair(
+    &mut self,
+    parent_id: ArenaTreeNodeHandle<T>,
+    child_id: ArenaTreeNodeHandle<T>,
+  ) -> (&mut ArenaTreeNode<T>, &mut ArenaTreeNode<T>) {
+    self.nodes.get_mut_pair((parent_id, child_id)).unwrap()
+  }
+
   pub fn node_add_child_by_id(
     &mut self,
     parent_id: ArenaTreeNodeHandle<T>,
     child_id: ArenaTreeNodeHandle<T>,
   ) {
     let (parent, child) = self.get_parent_child_pair(parent_id, child_id);
-    parent.add(child);
+    todo!()
   }
 
   pub fn node_remove_child_by_id(
@@ -118,16 +114,7 @@ impl<T> ArenaTree<T> {
     child_id: ArenaTreeNodeHandle<T>,
   ) {
     let (parent, child) = self.get_parent_child_pair(parent_id, child_id);
-    parent.remove(child);
-  }
-
-  pub fn get_parent_child_pair(
-    &mut self,
-    parent_id: ArenaTreeNodeHandle<T>,
-    child_id: ArenaTreeNodeHandle<T>,
-  ) -> (&mut ArenaTreeNode<T>, &mut ArenaTreeNode<T>) {
-    let (parent, child) = self.nodes.get2_mut(parent_id, child_id);
-    (parent.unwrap(), child.unwrap())
+    todo!()
   }
 
   // pub fn traverse_iter(&self, start: ArenaTreeNodeHandle<T>) -> TraverseIter<'_, T> {
