@@ -63,8 +63,24 @@ impl<T, S: StorageBehavior<T>> Storage<T, S> {
     S::get(&self.data, h.handle)
   }
 
+  /// # Safety
+  ///
+  /// Any bound check or underlayer check is skipped
+  /// .
+  pub unsafe fn get_unchecked(&self, h: Handle<T, S>) -> &T {
+    self.get(h).unwrap_unchecked()
+  }
+
   pub fn get_mut(&mut self, h: Handle<T, S>) -> Option<&mut T> {
     S::get_mut(&mut self.data, h.handle)
+  }
+
+  /// # Safety
+  ///
+  /// Any bound check or underlayer check is skipped
+  /// .
+  pub unsafe fn get_mut_unchecked(&mut self, h: Handle<T, S>) -> &mut T {
+    self.get_mut(h).unwrap_unchecked()
   }
 
   pub fn contains(&self, h: Handle<T, S>) -> bool {
@@ -73,5 +89,29 @@ impl<T, S: StorageBehavior<T>> Storage<T, S> {
 
   pub fn size(&self) -> usize {
     S::size(&self.data)
+  }
+}
+
+pub trait NoneOverlappingStorage<T>: StorageBehavior<T> {
+  fn get_mut_pair(
+    c: &mut Self::Container,
+    handle: (Self::Handle, Self::Handle),
+  ) -> Option<(&mut T, &mut T)>;
+}
+
+impl<T, S: NoneOverlappingStorage<T>> Storage<T, S> {
+  pub fn get_mut_pair(&mut self, handle: (Handle<T, S>, Handle<T, S>)) -> Option<(&mut T, &mut T)> {
+    S::get_mut_pair(&mut self.data, (handle.0.handle, handle.1.handle))
+  }
+
+  /// # Safety
+  ///
+  /// Any bound check or underlayer check is skipped
+  /// .
+  pub unsafe fn get_mut_pair_unchecked(
+    &mut self,
+    handle: (Handle<T, S>, Handle<T, S>),
+  ) -> (&mut T, &mut T) {
+    S::get_mut_pair(&mut self.data, (handle.0.handle, handle.1.handle)).unwrap_unchecked()
   }
 }
