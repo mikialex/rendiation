@@ -27,12 +27,13 @@ only_vertex!(GeometryUV, Vec2<f32>);
 only_vertex!(GeometryColor, Vec3<f32>);
 only_vertex!(GeometryColorWithAlpha, Vec4<f32>);
 
-only_vertex!(WorldMatrix, Mat4<f32>);
 only_vertex!(WorldVertexPosition, Vec3<f32>);
 only_vertex!(ClipPosition, Vec4<f32>);
 
-only_vertex!(CameraProjectionMatrix, Mat4<f32>);
-only_vertex!(CameraViewMatrix, Mat4<f32>);
+both!(WorldMatrix, Mat4<f32>);
+
+both!(CameraProjectionMatrix, Mat4<f32>);
+both!(CameraViewMatrix, Mat4<f32>);
 
 #[macro_export]
 macro_rules! both {

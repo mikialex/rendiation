@@ -69,12 +69,18 @@ impl ShaderGraphProvider for CameraGPU {
     &self,
     builder: &mut ShaderGraphRenderPipelineBuilder,
   ) -> Result<(), ShaderGraphBuildError> {
+    let camera = builder
+      .uniform_by(&self.ubo, SB::Camera)
+      .using_both(|builder, camera| {
+        builder.register::<CameraViewMatrix>(camera.view);
+        builder.register::<CameraProjectionMatrix>(camera.projection);
+      });
+
     builder.vertex(|builder, binding| {
-      let camera = binding.uniform_by(&self.ubo, SB::Camera).expand();
+      let camera = camera.using().expand();
       let position = builder.query::<WorldVertexPosition>()?.get();
-      builder.register::<CameraViewMatrix>(camera.view);
-      builder.register::<CameraProjectionMatrix>(camera.projection);
       builder.register::<ClipPosition>(camera.projection * camera.view * (position, 1.).into());
+
       Ok(())
     })
   }
