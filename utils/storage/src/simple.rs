@@ -10,6 +10,9 @@ impl<T> StorageBehavior<T> for VecStorage {
     c.push(v);
     Handle::new(c.len() - 1)
   }
+  fn remove(c: &mut Self::Container, handle: Self::Handle) -> Option<T> {
+    todo!()
+  }
   fn get(c: &Self::Container, handle: Self::Handle) -> Option<&T> {
     c.get(handle)
   }
@@ -33,6 +36,9 @@ impl<T: PartialEq + Copy> StorageBehavior<T> for DeduplicateVecStorage {
       c.len() - 1
     });
     Handle::new(index)
+  }
+  fn remove(c: &mut Self::Container, handle: Self::Handle) -> Option<T> {
+    todo!()
   }
 
   fn get(c: &Self::Container, handle: Self::Handle) -> Option<&T> {

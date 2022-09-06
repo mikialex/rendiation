@@ -11,6 +11,9 @@ impl<T> StorageBehavior<T> for GenerationalVecStorage {
   fn insert(c: &mut Self::Container, v: T) -> Handle<T, Self> {
     Handle::new(c.insert(v))
   }
+  fn remove(c: &mut Self::Container, handle: Self::Handle) -> Option<T> {
+    c.remove(handle)
+  }
   fn get(c: &Self::Container, handle: Self::Handle) -> Option<&T> {
     c.get(handle)
   }

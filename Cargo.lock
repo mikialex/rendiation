@@ -98,8 +98,8 @@ dependencies = [
 name = "arena-tree"
 version = "0.0.1"
 dependencies = [
- "arena",
  "rendiation-abstract-tree",
+ "storage",
 ]
 
 [[package]]

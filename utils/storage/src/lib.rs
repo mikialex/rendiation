@@ -36,6 +36,7 @@ pub trait StorageBehavior<T>: Sized {
   type Handle: Copy;
 
   fn insert(c: &mut Self::Container, v: T) -> Handle<T, Self>;
+  fn remove(c: &mut Self::Container, handle: Self::Handle) -> Option<T>;
   fn get(c: &Self::Container, handle: Self::Handle) -> Option<&T>;
   fn get_mut(c: &mut Self::Container, handle: Self::Handle) -> Option<&mut T>;
   fn size(c: &Self::Container) -> usize;
@@ -52,6 +53,10 @@ impl<T, S: StorageBehavior<T>> Default for Storage<T, S> {
 impl<T, S: StorageBehavior<T>> Storage<T, S> {
   pub fn insert(&mut self, v: T) -> Handle<T, S> {
     S::insert(&mut self.data, v)
+  }
+
+  pub fn remove(&mut self, h: Handle<T, S>) -> Option<T> {
+    S::remove(&mut self.data, h.handle)
   }
 
   pub fn get(&self, h: Handle<T, S>) -> Option<&T> {

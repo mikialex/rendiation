@@ -4,5 +4,5 @@ name = "arena-tree"
 version = "0.0.1"
 
 [dependencies]
-arena = {path = "../arena"}
 rendiation-abstract-tree = {path = "../abstract-tree"}
+storage = {path = "../storage"}
