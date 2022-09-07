@@ -1,6 +1,6 @@
 use crate::{
   utils::{bounding_from_build_source, BuildPrimitive, CenterAblePrimitive, TreeBuildOption},
-  AbstractTree,
+  AbstractTreeNode,
 };
 use std::{iter::FromIterator, marker::PhantomData, ops::Range};
 
@@ -48,7 +48,7 @@ where
   pub node: &'a BSTNode<T, N, D>,
 }
 
-impl<'a, T, const N: usize, const D: usize> AbstractTree for BSTTreeNodeRef<'a, T, N, D>
+impl<'a, T, const N: usize, const D: usize> AbstractTreeNode for BSTTreeNodeRef<'a, T, N, D>
 where
   T: BinarySpaceTree<D, N>,
 {

@@ -14,7 +14,7 @@ impl<'a, T> Clone for ArenaTreeNodeRef<'a, T> {
   }
 }
 
-impl<'a, T> AbstractTree for ArenaTreeNodeRef<'a, T> {
+impl<'a, T> AbstractTreeNode for ArenaTreeNodeRef<'a, T> {
   fn visit_children(&self, mut visitor: impl FnMut(&Self)) {
     // for child in &self.node.children {
     //   visitor(&self.tree.create_node_ref(*child))
@@ -23,7 +23,7 @@ impl<'a, T> AbstractTree for ArenaTreeNodeRef<'a, T> {
   }
 }
 
-impl<'a, T> AbstractParentTree for ArenaTreeNodeRef<'a, T> {
+impl<'a, T> AbstractParentAddressableTreeNode for ArenaTreeNodeRef<'a, T> {
   fn get_parent(&self) -> Option<Self> {
     self.node.parent.map(|p| self.tree.create_node_ref(p))
   }

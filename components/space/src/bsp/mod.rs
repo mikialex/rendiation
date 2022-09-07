@@ -9,7 +9,7 @@ use crate::*;
 
 pub mod csg;
 
-impl<T> AbstractTree for BspNode<T> {
+impl<T> AbstractTreeNode for BspNode<T> {
   fn visit_children(&self, mut visitor: impl FnMut(&Self)) {
     if let Some(n) = self.front.as_ref() {
       visitor(n.as_ref())
@@ -20,7 +20,7 @@ impl<T> AbstractTree for BspNode<T> {
   }
 }
 
-impl<T> AbstractTreeMut for BspNode<T> {
+impl<T> AbstractTreeMutNode for BspNode<T> {
   fn visit_children_mut(&mut self, mut visitor: impl FnMut(&mut Self)) {
     if let Some(n) = self.front.as_mut() {
       visitor(n.as_mut())

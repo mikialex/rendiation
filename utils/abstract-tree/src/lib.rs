@@ -7,7 +7,7 @@ pub enum NextTraverseVisit {
   SkipChildren,
 }
 
-pub trait AbstractTree {
+pub trait AbstractTreeNode {
   fn visit_children(&self, visitor: impl FnMut(&Self));
   fn children_count(&self) -> usize {
     let mut visit_count = 0;
@@ -59,7 +59,7 @@ pub trait AbstractTree {
     &self,
     visitor: &mut impl FnMut(&Self, Option<&Self>) -> NextTraverseVisit,
   ) where
-    Self: AbstractParentTree + Clone,
+    Self: AbstractParentAddressableTreeNode + Clone,
   {
     use NextTraverseVisit::*;
     let mut stack = Vec::new();
@@ -91,7 +91,7 @@ pub trait AbstractTree {
     max_depth + 1
   }
 }
-pub trait AbstractTreeMut {
+pub trait AbstractTreeMutNode {
   fn visit_children_mut(&mut self, visitor: impl FnMut(&mut Self));
   fn traverse_mut(&mut self, visitor: &mut impl FnMut(&mut Self)) {
     visitor(self);
@@ -99,7 +99,7 @@ pub trait AbstractTreeMut {
   }
 }
 
-pub trait AbstractParentTree: Sized {
+pub trait AbstractParentAddressableTreeNode: Sized {
   /// this actually requires self is cheap to create/clone
   fn get_parent(&self) -> Option<Self>;
 
