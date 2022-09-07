@@ -5,8 +5,8 @@ pub use arena::{Arena, Handle as ArenaHandle};
 impl<T> StorageBehavior<T> for Arena<T> {
   type Handle = ArenaHandle<T>;
 
-  fn insert(&mut self, v: T) -> Handle<T, Self> {
-    Handle::new(self.insert(v))
+  fn insert(&mut self, v: T) -> Self::Handle {
+    self.insert(v)
   }
   fn remove(&mut self, handle: Self::Handle) -> Option<T> {
     self.remove(handle)
@@ -30,7 +30,7 @@ impl<T> NoneOverlappingStorage<T> for Arena<T> {
 }
 
 impl<T> HandlePredictableStorage<T> for Arena<T> {
-  fn insert_with(&mut self, creator: impl FnOnce(Handle<T, Self>) -> T) -> Handle<T, Self> {
-    Handle::new(self.insert_with(|handle| creator(Handle::new(handle))))
+  fn insert_with(&mut self, creator: impl FnOnce(Self::Handle) -> T) -> Self::Handle {
+    self.insert_with(creator)
   }
 }
