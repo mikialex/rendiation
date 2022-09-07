@@ -86,7 +86,9 @@ impl SceneNodeInner {
       handle,
     };
 
-    nodes_info.node_add_child_by(self.inner.handle, handle);
+    nodes_info
+      .node_add_child_by(self.inner.handle, handle)
+      .unwrap();
 
     Self {
       nodes: self.nodes.clone(),

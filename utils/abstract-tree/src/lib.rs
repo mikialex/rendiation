@@ -91,11 +91,22 @@ pub trait AbstractTreeNode {
     max_depth + 1
   }
 }
+
 pub trait AbstractTreeMutNode {
   fn visit_children_mut(&mut self, visitor: impl FnMut(&mut Self));
   fn traverse_mut(&mut self, visitor: &mut impl FnMut(&mut Self)) {
     visitor(self);
     self.visit_children_mut(|child| child.traverse_mut(visitor))
+  }
+}
+
+/// note: this requires parent and child able to get mutable at same time,
+/// and impose restrictions on memory assumptions
+pub trait AbstractTreePairMutNode {
+  fn visit_parent_children_pair_mut(&mut self, visitor: impl FnMut(&mut Self, Option<&mut Self>));
+  fn traverse_pair_mut(&mut self, visitor: &mut impl FnMut(&mut Self, Option<&mut Self>)) {
+    visitor(self, None);
+    self.visit_parent_children_pair_mut(|child, _| child.traverse_pair_mut(visitor))
   }
 }
 

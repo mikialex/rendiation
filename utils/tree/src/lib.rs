@@ -39,6 +39,7 @@ impl<T> TreeNode<T> {
   }
 }
 
+#[derive(Debug)]
 pub enum TreeMutationError {
   DetachNoneParentNode,
   AttachNodeButHasParent,
