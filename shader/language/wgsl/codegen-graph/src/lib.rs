@@ -294,54 +294,44 @@ fn gen_node(
       }
       code
     }
-    ShaderGraphNode::ControlFlow(cf) => {
-      let name = cx.create_new_unique_name();
-      cx.top_scope_mut().code_gen_history.insert(
-        handle,
-        MiddleVariableCodeGenResult {
-          var_name: name, // "error_cf".to_owned(),
-          statement: "".to_owned(),
-        },
-      );
-      match cf {
-        ShaderControlFlowNode::If { condition, scope } => {
-          code
-            .write_ln(format!(
-              "if ({}) {{",
-              cx.get_node_gen_result_var(*condition)
-            ))
-            .tab();
+    ShaderGraphNode::ControlFlow(cf) => match cf {
+      ShaderControlFlowNode::If { condition, scope } => {
+        code
+          .write_ln(format!(
+            "if ({}) {{",
+            cx.get_node_gen_result_var(*condition)
+          ))
+          .tab();
 
-          gen_scope_full(scope, cx, code);
+        gen_scope_full(scope, cx, code);
 
-          code.un_tab().write_ln("}")
-        }
-        ShaderControlFlowNode::For {
-          source,
-          scope,
-          iter,
-        } => {
-          let name = cx.get_node_gen_result_var(*iter);
-          let head = match source {
-            ShaderIterator::Const(v) => {
-              format!("for(var {name}: i32 = 0; {name} < {v}; {name} = {name} + 1) {{")
-            }
-            ShaderIterator::Count(v) => format!(
-              "for(var {name}: i32 = 0; {name} < {count}; {name} = {name} + 1) {{",
-              count = cx.get_node_gen_result_var(*v)
-            ),
-            ShaderIterator::FixedArray { length, .. } => {
-              format!("for(var {name}: i32 = 0; {name} < {length}; {name} = {name} + 1) {{",)
-            }
-          };
-          code.write_ln(head).tab();
-
-          gen_scope_full(scope, cx, code);
-
-          code.un_tab().write_ln("}")
-        }
+        code.un_tab().write_ln("}")
       }
-    }
+      ShaderControlFlowNode::For {
+        source,
+        scope,
+        iter,
+      } => {
+        let name = cx.get_node_gen_result_var(*iter);
+        let head = match source {
+          ShaderIterator::Const(v) => {
+            format!("for(var {name}: i32 = 0; {name} < {v}; {name} = {name} + 1) {{")
+          }
+          ShaderIterator::Count(v) => format!(
+            "for(var {name}: i32 = 0; {name} < {count}; {name} = {name} + 1) {{",
+            count = cx.get_node_gen_result_var(*v)
+          ),
+          ShaderIterator::FixedArray { length, .. } => {
+            format!("for(var {name}: i32 = 0; {name} < {length}; {name} = {name} + 1) {{",)
+          }
+        };
+        code.write_ln(head).tab();
+
+        gen_scope_full(scope, cx, code);
+
+        code.un_tab().write_ln("}")
+      }
+    },
     ShaderGraphNode::SideEffect(effect) => match effect {
       ShaderSideEffectNode::Continue => code.write_ln("continue;"),
       ShaderSideEffectNode::Break => code.write_ln("break;"),
@@ -466,14 +456,10 @@ fn gen_expr(data: &ShaderGraphNodeExpr, cx: &mut CodeGenCtx) -> String {
         let right = cx.get_node_gen_result_var(*right);
         format!("{} {} {}", left, op, right)
       }
-      OperatorNode::Index {
-        array,
-        entry,
-      } => {
+      OperatorNode::Index { array, entry } => {
         let array = cx.get_node_gen_result_var(*array);
         let index = cx.get_node_gen_result_var(*entry);
         format!("{} {} {} {}", array, "[]", index, "]")
-        
       }
     },
     ShaderGraphNodeExpr::FieldGet {
