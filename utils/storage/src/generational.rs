@@ -8,9 +8,6 @@ impl<T> StorageBehavior<T> for Arena<T> {
   fn insert(&mut self, v: T) -> Self::Handle {
     self.insert(v)
   }
-  fn remove(&mut self, handle: Self::Handle) -> Option<T> {
-    self.remove(handle)
-  }
   fn get(&self, handle: Self::Handle) -> Option<&T> {
     self.get(handle)
   }
@@ -19,6 +16,12 @@ impl<T> StorageBehavior<T> for Arena<T> {
   }
   fn size(&self) -> usize {
     self.len()
+  }
+}
+
+impl<T> RemoveAbleStorage<T> for Arena<T> {
+  fn remove(&mut self, handle: Self::Handle) -> Option<T> {
+    self.remove(handle)
   }
 }
 

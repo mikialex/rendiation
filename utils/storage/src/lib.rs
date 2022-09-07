@@ -1,7 +1,7 @@
 use std::marker::PhantomData;
 
+pub mod deduplication;
 pub mod generational;
-pub mod simple;
 
 /// Generic data container
 ///
@@ -22,7 +22,6 @@ pub trait StorageBehavior<T>: Sized + Default {
   type Handle: Copy;
 
   fn insert(&mut self, v: T) -> Self::Handle;
-  fn remove(&mut self, handle: Self::Handle) -> Option<T>;
   fn get(&self, handle: Self::Handle) -> Option<&T>;
   fn get_mut(&mut self, handle: Self::Handle) -> Option<&mut T>;
   fn size(&self) -> usize;
@@ -43,10 +42,6 @@ impl<T, S: StorageBehavior<T>> Default for Storage<T, S> {
 impl<T, S: StorageBehavior<T>> Storage<T, S> {
   pub fn insert(&mut self, v: T) -> S::Handle {
     S::insert(&mut self.data, v)
-  }
-
-  pub fn remove(&mut self, h: S::Handle) -> Option<T> {
-    S::remove(&mut self.data, h)
   }
 
   pub fn get(&self, h: S::Handle) -> Option<&T> {
@@ -79,6 +74,15 @@ impl<T, S: StorageBehavior<T>> Storage<T, S> {
 
   pub fn size(&self) -> usize {
     S::size(&self.data)
+  }
+}
+
+pub trait RemoveAbleStorage<T>: StorageBehavior<T> {
+  fn remove(&mut self, handle: Self::Handle) -> Option<T>;
+}
+impl<T, S: RemoveAbleStorage<T>> Storage<T, S> {
+  pub fn remove(&mut self, h: S::Handle) -> Option<T> {
+    S::remove(&mut self.data, h)
   }
 }
 

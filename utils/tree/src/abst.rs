@@ -16,10 +16,12 @@ impl<'a, T> Clone for ArenaTreeNodeRef<'a, T> {
 
 impl<'a, T> AbstractTreeNode for ArenaTreeNodeRef<'a, T> {
   fn visit_children(&self, mut visitor: impl FnMut(&Self)) {
-    // for child in &self.node.children {
-    //   visitor(&self.tree.create_node_ref(*child))
-    // }
-    todo!()
+    let mut next = self.node.first_child;
+    while let Some(next_to_visit) = next {
+      let child = self.tree.create_node_ref(next_to_visit);
+      visitor(&child);
+      next = child.node.next_sibling
+    }
   }
 }
 
