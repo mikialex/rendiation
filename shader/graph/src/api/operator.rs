@@ -200,7 +200,6 @@ where
     OperatorNode::Index {
       array: self.handle(),
       entry: node.handle(),
-      operator: IndexOperator::BRACKET,
     }
     .insert_graph()
   }

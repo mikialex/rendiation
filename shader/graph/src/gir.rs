@@ -117,12 +117,6 @@ pub enum BinaryOperator {
   LogicalOr,
   LogicalAnd,
 }
-
-#[derive(Debug)]
-pub enum IndexOperator {
-  BRACKET,
-}
-
 pub enum OperatorNode {
   Unary {
     one: ShaderGraphNodeRawHandle,
@@ -136,7 +130,6 @@ pub enum OperatorNode {
   Index {
     array: ShaderGraphNodeRawHandle,
     entry: ShaderGraphNodeRawHandle,
-    operator: IndexOperator,
   },
 }
 

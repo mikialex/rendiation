@@ -469,14 +469,10 @@ fn gen_expr(data: &ShaderGraphNodeExpr, cx: &mut CodeGenCtx) -> String {
       OperatorNode::Index {
         array,
         entry,
-        operator,
       } => {
-        let (left_op, right_op) = match operator {
-          IndexOperator::BRACKET => ("[", "]"),
-        };
         let array = cx.get_node_gen_result_var(*array);
         let index = cx.get_node_gen_result_var(*entry);
-        format!("{} {} {} {}", array, left_op, index, right_op)
+        format!("{} {} {} {}", array, "[]", index, "]")
         
       }
     },
