@@ -39,6 +39,11 @@ impl<T> TreeNode<T> {
   }
 }
 
+pub enum TreeMutationError {
+  DetachNoneParentNode,
+  AttachNodeButHasParent,
+}
+
 impl<T> TreeCollection<T> {
   pub fn nodes(&self) -> &Storage<TreeNode<T>, Arena<TreeNode<T>>> {
     &self.nodes
@@ -69,28 +74,75 @@ impl<T> TreeCollection<T> {
 
   pub fn get_parent_child_pair(
     &mut self,
-    parent_id: TreeNodeHandle<T>,
-    child_id: TreeNodeHandle<T>,
+    parent: TreeNodeHandle<T>,
+    child: TreeNodeHandle<T>,
   ) -> (&mut TreeNode<T>, &mut TreeNode<T>) {
-    self.nodes.get_mut_pair((parent_id, child_id)).unwrap()
+    self.nodes.get_mut_pair((parent, child)).unwrap()
   }
 
-  pub fn node_add_child_by_id(
+  pub fn node_add_child_by(
     &mut self,
-    parent_id: TreeNodeHandle<T>,
-    child_id: TreeNodeHandle<T>,
-  ) {
-    let (parent, child) = self.get_parent_child_pair(parent_id, child_id);
-    todo!()
+    parent: TreeNodeHandle<T>,
+    child_to_attach: TreeNodeHandle<T>,
+  ) -> Result<(), TreeMutationError> {
+    let old_first_child = {
+      let (parent_node, child_node_to_attach) = self.get_parent_child_pair(parent, child_to_attach);
+
+      if child_node_to_attach.parent.is_some() {
+        return Err(TreeMutationError::AttachNodeButHasParent);
+      }
+
+      child_node_to_attach.parent = Some(parent);
+
+      parent_node.first_child.replace(child_to_attach)
+    };
+
+    if let Some(old_first_child) = old_first_child {
+      let (old_first_child_node, child_node_to_attach) = self
+        .nodes
+        .get_mut_pair((old_first_child, child_to_attach))
+        .unwrap();
+
+      old_first_child_node.previous_sibling = Some(child_to_attach);
+      child_node_to_attach.next_sibling = Some(old_first_child)
+    }
+
+    Ok(())
   }
 
-  pub fn node_remove_child_by_id(
+  pub fn node_detach_parent(
     &mut self,
-    parent_id: TreeNodeHandle<T>,
-    child_id: TreeNodeHandle<T>,
-  ) {
-    let (parent, child) = self.get_parent_child_pair(parent_id, child_id);
-    todo!()
+    child_to_detach: TreeNodeHandle<T>,
+  ) -> Result<(), TreeMutationError> {
+    let child = self.get_node_mut(child_to_detach);
+
+    // cleanup child's sib and parent relations:
+    // if take parent failed, we safely early exist and keep tree states sound.
+    let parent = child
+      .parent
+      .take()
+      .ok_or(TreeMutationError::DetachNoneParentNode)?;
+    let child_prev = child.previous_sibling.take();
+    let child_next = child.next_sibling.take();
+
+    if let Some(child_prev) = child_prev {
+      // cleanup possible pre relation:
+      let child_prev = self.get_node_mut(child_prev);
+      child_prev.next_sibling = child_next;
+    } else {
+      // cleanup possible parent to first child relation:
+      // means I'm the first child for parent
+      let parent = self.get_node_mut(parent);
+      parent.first_child = child_next;
+    }
+
+    // cleanup possible next relation:
+    if let Some(child_next) = child_next {
+      let child_next = self.get_node_mut(child_next);
+      child_next.previous_sibling = child_prev;
+    }
+
+    Ok(())
   }
 
   // pub fn traverse_iter(&self, start: ArenaTreeNodeHandle<T>) -> TraverseIter<'_, T> {

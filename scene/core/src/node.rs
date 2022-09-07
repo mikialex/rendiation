@@ -86,7 +86,7 @@ impl SceneNodeInner {
       handle,
     };
 
-    nodes_info.node_add_child_by_id(self.inner.handle, handle);
+    nodes_info.node_add_child_by(self.inner.handle, handle);
 
     Self {
       nodes: self.nodes.clone(),
@@ -111,9 +111,7 @@ impl SceneNodeInner {
 impl Drop for SceneNodeInner {
   fn drop(&mut self) {
     let nodes = &mut self.nodes.write().unwrap().nodes;
-    if let Some(parent) = self.parent.as_ref() {
-      nodes.node_remove_child_by_id(parent.handle, self.inner.handle);
-    }
+    nodes.node_detach_parent(self.inner.handle).ok();
   }
 }
 
