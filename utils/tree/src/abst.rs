@@ -1,8 +1,8 @@
 use crate::*;
 
 pub struct ArenaTreeNodeRef<'a, T> {
-  pub tree: &'a ArenaTree<T>,
-  pub node: &'a ArenaTreeNode<T>,
+  pub tree: &'a TreeCollection<T>,
+  pub node: &'a TreeNode<T>,
 }
 
 impl<'a, T> Clone for ArenaTreeNodeRef<'a, T> {
@@ -29,8 +29,8 @@ impl<'a, T> AbstractParentTree for ArenaTreeNodeRef<'a, T> {
   }
 }
 
-impl<T> ArenaTree<T> {
-  pub fn create_node_ref(&self, handle: ArenaTreeNodeHandle<T>) -> ArenaTreeNodeRef<T> {
+impl<T> TreeCollection<T> {
+  pub fn create_node_ref(&self, handle: TreeNodeHandle<T>) -> ArenaTreeNodeRef<T> {
     ArenaTreeNodeRef {
       tree: self,
       node: self.get_node(handle),

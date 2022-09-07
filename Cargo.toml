@@ -4,7 +4,7 @@ members = [
   "math/geometry",
   "utils/arena",
   "utils/arena-graph",
-  "utils/arena-tree",
+  "utils/tree",
   "utils/storage",
   "utils/abstract-tree",
   "utils/abstract-graph",

@@ -1,8 +1,8 @@
 use crate::*;
 
 use arena::Arena;
-use arena_tree::{ArenaTree, NextTraverseVisit};
 use rendiation_algebra::PerspectiveProjection;
+use tree::{NextTraverseVisit, TreeCollection};
 
 pub trait SceneContent: Clone + Copy + 'static {
   type BackGround;
@@ -34,13 +34,13 @@ pub struct Scene<S: SceneContent> {
 
 pub struct SceneNodesCollection {
   pub(crate) root: SceneNodeHandle,
-  pub(crate) nodes: ArenaTree<SceneNodeData>,
+  pub(crate) nodes: TreeCollection<SceneNodeData>,
 }
 
 impl Default for SceneNodesCollection {
   fn default() -> Self {
     let root = SceneNodeData::default();
-    let mut nodes = ArenaTree::default();
+    let mut nodes = TreeCollection::default();
     let root = nodes.create_node(root);
     Self { root, nodes }
   }

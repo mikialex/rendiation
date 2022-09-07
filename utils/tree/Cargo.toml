@@ -1,6 +1,6 @@
 [package]
 edition = "2021"
-name = "arena-tree"
+name = "tree"
 version = "0.0.1"
 
 [dependencies]

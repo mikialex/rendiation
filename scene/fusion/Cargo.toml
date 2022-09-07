@@ -7,7 +7,6 @@ version = "0.1.0"
 [dependencies]
 arena = {path = "../../utils/arena"}
 arena-graph = {path = "../../utils/arena-graph"}
-arena-tree = {path = "../../utils/arena-tree"}
 bytemuck = {version = "1.4.1", features = ["derive"]}
 log = "0.4"
 once_cell = "1.4.0"
@@ -20,3 +19,4 @@ rendiation-scene-webgpu = {path = "../webgpu"}
 rendiation-texture = {path = "../../components/texture/core", features = ["webgpu"]}
 rendiation-webgpu = {path = "../../webgpu"}
 space-algorithm = {path = "../../components/space"}
+tree = {path = "../../utils/tree"}

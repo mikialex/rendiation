@@ -1,10 +1,10 @@
 use crate::*;
 
-use arena_tree::ArenaTreeNodeHandle;
 use rendiation_algebra::*;
+use tree::TreeNodeHandle;
 
 pub type SceneNodeData = Identity<SceneNodeDataImpl>;
-pub type SceneNodeHandle = ArenaTreeNodeHandle<SceneNodeData>;
+pub type SceneNodeHandle = TreeNodeHandle<SceneNodeData>;
 
 pub struct SceneNodeDataImpl {
   pub local_matrix: Mat4<f32>,

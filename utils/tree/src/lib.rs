@@ -3,21 +3,21 @@ use storage::{generational::GenerationalVecStorage, *};
 
 mod abst;
 
-pub struct ArenaTree<T> {
-  nodes: Storage<ArenaTreeNode<T>, GenerationalVecStorage>,
+pub struct TreeCollection<T> {
+  nodes: Storage<TreeNode<T>, GenerationalVecStorage>,
 }
-pub type ArenaTreeNodeHandle<T> = Handle<ArenaTreeNode<T>, GenerationalVecStorage>;
+pub type TreeNodeHandle<T> = Handle<TreeNode<T>, GenerationalVecStorage>;
 
-pub struct ArenaTreeNode<T> {
-  handle: ArenaTreeNodeHandle<T>,
-  parent: Option<ArenaTreeNodeHandle<T>>,
-  previous_sibling: Option<ArenaTreeNodeHandle<T>>,
-  next_sibling: Option<ArenaTreeNodeHandle<T>>,
-  first_child: Option<ArenaTreeNodeHandle<T>>,
+pub struct TreeNode<T> {
+  handle: TreeNodeHandle<T>,
+  parent: Option<TreeNodeHandle<T>>,
+  previous_sibling: Option<TreeNodeHandle<T>>,
+  next_sibling: Option<TreeNodeHandle<T>>,
+  first_child: Option<TreeNodeHandle<T>>,
   data: T,
 }
 
-impl<T> Default for ArenaTree<T> {
+impl<T> Default for TreeCollection<T> {
   fn default() -> Self {
     Self {
       nodes: Default::default(),
@@ -25,7 +25,7 @@ impl<T> Default for ArenaTree<T> {
   }
 }
 
-impl<T> ArenaTreeNode<T> {
+impl<T> TreeNode<T> {
   pub fn data(&self) -> &T {
     &self.data
   }
@@ -34,18 +34,18 @@ impl<T> ArenaTreeNode<T> {
     &mut self.data
   }
 
-  pub fn handle(&self) -> ArenaTreeNodeHandle<T> {
+  pub fn handle(&self) -> TreeNodeHandle<T> {
     self.handle
   }
 }
 
-impl<T> ArenaTree<T> {
-  pub fn nodes(&self) -> &Storage<ArenaTreeNode<T>, GenerationalVecStorage> {
+impl<T> TreeCollection<T> {
+  pub fn nodes(&self) -> &Storage<TreeNode<T>, GenerationalVecStorage> {
     &self.nodes
   }
 
-  pub fn create_node(&mut self, data: T) -> ArenaTreeNodeHandle<T> {
-    self.nodes.insert_with(|handle| ArenaTreeNode {
+  pub fn create_node(&mut self, data: T) -> TreeNodeHandle<T> {
+    self.nodes.insert_with(|handle| TreeNode {
       handle,
       parent: None,
       previous_sibling: None,
@@ -55,30 +55,30 @@ impl<T> ArenaTree<T> {
     })
   }
 
-  pub fn delete_node(&mut self, handle: ArenaTreeNodeHandle<T>) {
+  pub fn delete_node(&mut self, handle: TreeNodeHandle<T>) {
     self.nodes.remove(handle);
   }
 
-  pub fn get_node(&self, handle: ArenaTreeNodeHandle<T>) -> &ArenaTreeNode<T> {
+  pub fn get_node(&self, handle: TreeNodeHandle<T>) -> &TreeNode<T> {
     self.nodes.get(handle).unwrap()
   }
 
-  pub fn get_node_mut(&mut self, handle: ArenaTreeNodeHandle<T>) -> &mut ArenaTreeNode<T> {
+  pub fn get_node_mut(&mut self, handle: TreeNodeHandle<T>) -> &mut TreeNode<T> {
     self.nodes.get_mut(handle).unwrap()
   }
 
   pub fn get_parent_child_pair(
     &mut self,
-    parent_id: ArenaTreeNodeHandle<T>,
-    child_id: ArenaTreeNodeHandle<T>,
-  ) -> (&mut ArenaTreeNode<T>, &mut ArenaTreeNode<T>) {
+    parent_id: TreeNodeHandle<T>,
+    child_id: TreeNodeHandle<T>,
+  ) -> (&mut TreeNode<T>, &mut TreeNode<T>) {
     self.nodes.get_mut_pair((parent_id, child_id)).unwrap()
   }
 
   pub fn node_add_child_by_id(
     &mut self,
-    parent_id: ArenaTreeNodeHandle<T>,
-    child_id: ArenaTreeNodeHandle<T>,
+    parent_id: TreeNodeHandle<T>,
+    child_id: TreeNodeHandle<T>,
   ) {
     let (parent, child) = self.get_parent_child_pair(parent_id, child_id);
     todo!()
@@ -86,8 +86,8 @@ impl<T> ArenaTree<T> {
 
   pub fn node_remove_child_by_id(
     &mut self,
-    parent_id: ArenaTreeNodeHandle<T>,
-    child_id: ArenaTreeNodeHandle<T>,
+    parent_id: TreeNodeHandle<T>,
+    child_id: TreeNodeHandle<T>,
   ) {
     let (parent, child) = self.get_parent_child_pair(parent_id, child_id);
     todo!()
