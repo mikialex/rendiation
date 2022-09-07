@@ -26,10 +26,24 @@ pub struct Scene<S: SceneContent> {
   /// All models in the scene
   pub models: Arena<S::Model>,
 
-  nodes: Arc<RwLock<ArenaTree<SceneNodeData>>>,
+  nodes: Arc<RwLock<SceneNodesCollection>>,
   root: SceneNode,
 
   pub extension: S::SceneExt,
+}
+
+pub struct SceneNodesCollection {
+  pub(crate) root: SceneNodeHandle,
+  pub(crate) nodes: ArenaTree<SceneNodeData>,
+}
+
+impl Default for SceneNodesCollection {
+  fn default() -> Self {
+    let root = SceneNodeData::default();
+    let mut nodes = ArenaTree::default();
+    let root = nodes.create_node(root);
+    Self { root, nodes }
+  }
 }
 
 impl<S: SceneContent> Scene<S> {
@@ -37,7 +51,7 @@ impl<S: SceneContent> Scene<S> {
     &self.root
   }
   pub fn new() -> Self {
-    let nodes: Arc<RwLock<ArenaTree<SceneNodeData>>> = Default::default();
+    let nodes: Arc<RwLock<SceneNodesCollection>> = Default::default();
 
     let root = SceneNode::from_root(nodes.clone());
 
@@ -61,7 +75,7 @@ impl<S: SceneContent> Scene<S> {
 
   pub fn maintain(&mut self) {
     let mut nodes = self.nodes.write().unwrap();
-    let root = nodes.root();
+    let root = nodes.root;
     nodes.traverse_mut(root, &mut Vec::new(), |this, parent| {
       let node_data = this.data_mut();
       node_data.hierarchy_update(parent.map(|p| p.data()).map(|d| d.deref()));
