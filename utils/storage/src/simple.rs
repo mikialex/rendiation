@@ -2,52 +2,62 @@ use crate::*;
 
 pub struct VecStorage;
 
-impl<T> StorageBehavior<T> for VecStorage {
-  type Container = Vec<T>;
+impl<T> StorageBehavior<T> for Vec<T> {
   type Handle = usize;
 
-  fn insert(c: &mut Self::Container, v: T) -> Handle<T, Self> {
-    c.push(v);
-    Handle::new(c.len() - 1)
+  fn insert(&mut self, v: T) -> Handle<T, Self> {
+    self.push(v);
+    Handle::new(self.len() - 1)
   }
-  fn remove(c: &mut Self::Container, handle: Self::Handle) -> Option<T> {
+  fn remove(&mut self, handle: Self::Handle) -> Option<T> {
     todo!()
   }
-  fn get(c: &Self::Container, handle: Self::Handle) -> Option<&T> {
-    c.get(handle)
+  fn get(&self, handle: Self::Handle) -> Option<&T> {
+    self.get(handle)
   }
-  fn get_mut(c: &mut Self::Container, handle: Self::Handle) -> Option<&mut T> {
-    c.get_mut(handle)
+  fn get_mut(&mut self, handle: Self::Handle) -> Option<&mut T> {
+    self.get_mut(handle)
   }
-  fn size(c: &Self::Container) -> usize {
-    c.len()
+  fn size(&self) -> usize {
+    self.len()
   }
 }
 
-pub struct DeduplicateVecStorage;
-impl<T: PartialEq + Copy> StorageBehavior<T> for DeduplicateVecStorage {
-  type Container = Vec<T>;
+pub struct DeduplicateVec<T> {
+  inner: Vec<T>,
+}
+
+impl<T> Default for DeduplicateVec<T> {
+  fn default() -> Self {
+    Self {
+      inner: Default::default(),
+    }
+  }
+}
+
+impl<T: PartialEq + Copy> StorageBehavior<T> for DeduplicateVec<T> {
   type Handle = usize;
 
-  fn insert(c: &mut Self::Container, v: T) -> Handle<T, Self> {
-    c.push(v);
-    let index = c.iter().position(|&cv| cv == v).unwrap_or_else(|| {
-      c.push(v);
-      c.len() - 1
-    });
-    Handle::new(index)
+  fn insert(&mut self, v: T) -> Handle<T, Self> {
+    // self.push(v);
+    // let index = self.iter().position(|&cv| cv == v).unwrap_or_else(|| {
+    //   self.push(v);
+    //   self.len() - 1
+    // });
+    // Handle::new(index)
+    todo!()
   }
-  fn remove(c: &mut Self::Container, handle: Self::Handle) -> Option<T> {
+  fn remove(&mut self, handle: Self::Handle) -> Option<T> {
     todo!()
   }
 
-  fn get(c: &Self::Container, handle: Self::Handle) -> Option<&T> {
-    c.get(handle)
+  fn get(&self, handle: Self::Handle) -> Option<&T> {
+    self.get(handle)
   }
-  fn get_mut(c: &mut Self::Container, handle: Self::Handle) -> Option<&mut T> {
-    c.get_mut(handle)
+  fn get_mut(&mut self, handle: Self::Handle) -> Option<&mut T> {
+    self.get_mut(handle)
   }
-  fn size(c: &Self::Container) -> usize {
-    c.len()
+  fn size(&self) -> usize {
+    self.inner.len()
   }
 }

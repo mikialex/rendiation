@@ -5,7 +5,8 @@ pub mod simple;
 
 /// Generic data container
 pub struct Storage<T, S: StorageBehavior<T>> {
-  data: S::Container,
+  data: S,
+  phantom: PhantomData<T>,
 }
 pub struct Handle<T, S: StorageBehavior<T>> {
   phantom: PhantomData<S>,
@@ -31,21 +32,24 @@ impl<T, S: StorageBehavior<T>> Handle<T, S> {
   }
 }
 
-pub trait StorageBehavior<T>: Sized {
-  type Container: Default;
+pub trait StorageBehavior<T>: Sized + Default {
   type Handle: Copy;
 
-  fn insert(c: &mut Self::Container, v: T) -> Handle<T, Self>;
-  fn remove(c: &mut Self::Container, handle: Self::Handle) -> Option<T>;
-  fn get(c: &Self::Container, handle: Self::Handle) -> Option<&T>;
-  fn get_mut(c: &mut Self::Container, handle: Self::Handle) -> Option<&mut T>;
-  fn size(c: &Self::Container) -> usize;
+  fn insert(&mut self, v: T) -> Handle<T, Self>;
+  fn remove(&mut self, handle: Self::Handle) -> Option<T>;
+  fn get(&self, handle: Self::Handle) -> Option<&T>;
+  fn get_mut(&mut self, handle: Self::Handle) -> Option<&mut T>;
+  fn size(&self) -> usize;
+  fn is_empty(&self) -> bool {
+    self.size() == 0
+  }
 }
 
 impl<T, S: StorageBehavior<T>> Default for Storage<T, S> {
   fn default() -> Self {
     Self {
       data: Default::default(),
+      phantom: PhantomData,
     }
   }
 }
@@ -93,10 +97,7 @@ impl<T, S: StorageBehavior<T>> Storage<T, S> {
 }
 
 pub trait NoneOverlappingStorage<T>: StorageBehavior<T> {
-  fn get_mut_pair(
-    c: &mut Self::Container,
-    handle: (Self::Handle, Self::Handle),
-  ) -> Option<(&mut T, &mut T)>;
+  fn get_mut_pair(&mut self, handle: (Self::Handle, Self::Handle)) -> Option<(&mut T, &mut T)>;
 }
 
 impl<T, S: NoneOverlappingStorage<T>> Storage<T, S> {
@@ -117,10 +118,7 @@ impl<T, S: NoneOverlappingStorage<T>> Storage<T, S> {
 }
 
 pub trait HandlePredictableStorage<T>: StorageBehavior<T> {
-  fn insert_with(
-    c: &mut Self::Container,
-    creator: impl FnOnce(Handle<T, Self>) -> T,
-  ) -> Handle<T, Self>;
+  fn insert_with(&mut self, creator: impl FnOnce(Handle<T, Self>) -> T) -> Handle<T, Self>;
 }
 impl<T, S: HandlePredictableStorage<T>> Storage<T, S> {
   pub fn insert_with(&mut self, creator: impl FnOnce(Handle<T, S>) -> T) -> Handle<T, S> {

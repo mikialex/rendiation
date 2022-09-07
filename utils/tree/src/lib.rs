@@ -1,12 +1,12 @@
 pub use rendiation_abstract_tree::*;
-use storage::{generational::GenerationalVecStorage, *};
+use storage::{generational::Arena, *};
 
 mod abst;
 
 pub struct TreeCollection<T> {
-  nodes: Storage<TreeNode<T>, GenerationalVecStorage>,
+  nodes: Storage<TreeNode<T>, Arena<TreeNode<T>>>,
 }
-pub type TreeNodeHandle<T> = Handle<TreeNode<T>, GenerationalVecStorage>;
+pub type TreeNodeHandle<T> = Handle<TreeNode<T>, Arena<TreeNode<T>>>;
 
 pub struct TreeNode<T> {
   handle: TreeNodeHandle<T>,
@@ -40,7 +40,7 @@ impl<T> TreeNode<T> {
 }
 
 impl<T> TreeCollection<T> {
-  pub fn nodes(&self) -> &Storage<TreeNode<T>, GenerationalVecStorage> {
+  pub fn nodes(&self) -> &Storage<TreeNode<T>, Arena<TreeNode<T>>> {
     &self.nodes
   }
 
