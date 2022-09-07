@@ -196,7 +196,7 @@ impl<T, const U: usize> Node<Shader140Array<T, U>>
 where
   T: ShaderGraphNodeType,
 {
-  pub fn connect(&self, node: Node<impl ShaderGraphNodeType>) -> Node<T> {
+  pub fn index(&self, node: Node<impl ShaderGraphNodeType>) -> Node<T> {
     OperatorNode::Index {
       array: self.handle(),
       entry: node.handle(),
