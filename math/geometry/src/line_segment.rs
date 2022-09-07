@@ -54,36 +54,8 @@ impl<V> LineSegment<V> {
     }
   }
 
-  pub fn iter_point(&self) -> LineSegmentIter<'_, V> {
-    LineSegmentIter::new(self)
-  }
-}
-
-pub struct LineSegmentIter<'a, V> {
-  line_segment: &'a LineSegment<V>,
-  visit_count: i8,
-}
-
-impl<'a, V> LineSegmentIter<'a, V> {
-  pub fn new(line3: &'a LineSegment<V>) -> Self {
-    Self {
-      line_segment: line3,
-      visit_count: -1,
-    }
-  }
-}
-
-impl<'a, V: Copy> Iterator for LineSegmentIter<'a, V> {
-  type Item = V;
-  fn next(&mut self) -> Option<Self::Item> {
-    self.visit_count += 1;
-    if self.visit_count == 0 {
-      Some(self.line_segment.start)
-    } else if self.visit_count == 1 {
-      Some(self.line_segment.end)
-    } else {
-      None
-    }
+  pub fn iter_point(&self) -> impl Iterator<Item = &V> {
+    once(&self.start).chain(once(&self.end))
   }
 }
 
