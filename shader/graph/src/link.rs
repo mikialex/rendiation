@@ -122,7 +122,7 @@ impl ShaderControlFlowNode {
     // to the parent scope
     for write in writes {
       let im_write = ShaderGraphNode::Write {
-        old: None,
+        old: Some(node.handle()),
         new: write.1,
       }
       .insert_into_graph_inner::<AnyType>(top, ShaderValueType::Never);
@@ -222,6 +222,10 @@ impl ShaderGraphNode {
           OperatorNode::Binary { left, right, .. } => {
             visitor(left);
             visitor(right);
+          },
+          OperatorNode::Index { array, entry, .. } => {
+            visitor(array);
+            visitor(entry);
           }
         },
         ShaderGraphNodeExpr::FieldGet { struct_node, .. } => visitor(struct_node),
@@ -294,6 +298,10 @@ impl ShaderGraphNode {
           OperatorNode::Binary { left, right, .. } => {
             visitor(left);
             visitor(right);
+          },
+          OperatorNode::Index { array, entry, .. } => {
+            visitor(array);
+            visitor(entry);
           }
         },
         ShaderGraphNodeExpr::FieldGet { struct_node, .. } => visitor(struct_node),

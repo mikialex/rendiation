@@ -295,10 +295,11 @@ fn gen_node(
       code
     }
     ShaderGraphNode::ControlFlow(cf) => {
+      let name = cx.create_new_unique_name();
       cx.top_scope_mut().code_gen_history.insert(
         handle,
         MiddleVariableCodeGenResult {
-          var_name: "error_cf".to_owned(),
+          var_name: name, // "error_cf".to_owned(),
           statement: "".to_owned(),
         },
       );
@@ -464,6 +465,19 @@ fn gen_expr(data: &ShaderGraphNodeExpr, cx: &mut CodeGenCtx) -> String {
         let left = cx.get_node_gen_result_var(*left);
         let right = cx.get_node_gen_result_var(*right);
         format!("{} {} {}", left, op, right)
+      }
+      OperatorNode::Index {
+        array,
+        entry,
+        operator,
+      } => {
+        let (left_op, right_op) = match operator {
+          IndexOperator::BRACKET => ("[", "]"),
+        };
+        let array = cx.get_node_gen_result_var(*array);
+        let index = cx.get_node_gen_result_var(*entry);
+        format!("{} {} {} {}", array, left_op, index, right_op)
+        
       }
     },
     ShaderGraphNodeExpr::FieldGet {

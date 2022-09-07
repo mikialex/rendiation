@@ -191,3 +191,17 @@ impl Node<bool> {
     .insert_graph()
   }
 }
+
+impl<T, const U: usize> Node<Shader140Array<T, U>>
+where
+  T: ShaderGraphNodeType,
+{
+  pub fn connect(&self, node: Node<impl ShaderGraphNodeType>) -> Node<T> {
+    OperatorNode::Index {
+      array: self.handle(),
+      entry: node.handle(),
+      operator: IndexOperator::BRACKET,
+    }
+    .insert_graph()
+  }
+}
