@@ -115,3 +115,15 @@ impl<T, S: NoneOverlappingStorage<T>> Storage<T, S> {
     S::get_mut_pair(&mut self.data, (handle.0.handle, handle.1.handle)).unwrap_unchecked()
   }
 }
+
+pub trait HandlePredictableStorage<T>: StorageBehavior<T> {
+  fn insert_with(
+    c: &mut Self::Container,
+    creator: impl FnOnce(Handle<T, Self>) -> T,
+  ) -> Handle<T, Self>;
+}
+impl<T, S: HandlePredictableStorage<T>> Storage<T, S> {
+  pub fn insert_with(&mut self, creator: impl FnOnce(Handle<T, S>) -> T) -> Handle<T, S> {
+    S::insert_with(&mut self.data, creator)
+  }
+}

@@ -34,3 +34,12 @@ impl<T> NoneOverlappingStorage<T> for GenerationalVecStorage {
     (a?, b?).into()
   }
 }
+
+impl<T> HandlePredictableStorage<T> for GenerationalVecStorage {
+  fn insert_with(
+    c: &mut Self::Container,
+    creator: impl FnOnce(Handle<T, Self>) -> T,
+  ) -> Handle<T, Self> {
+    Handle::new(c.insert_with(|handle| creator(Handle::new(handle))))
+  }
+}

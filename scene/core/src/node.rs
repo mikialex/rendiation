@@ -53,7 +53,7 @@ struct SceneNodeRef {
 impl Drop for SceneNodeRef {
   fn drop(&mut self) {
     let mut nodes = self.nodes.write().unwrap();
-    nodes.free_node(self.handle)
+    nodes.delete_node(self.handle)
   }
 }
 

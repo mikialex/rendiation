@@ -17,9 +17,11 @@ pub struct ArenaTreeNode<T> {
   data: T,
 }
 
-impl<T: Default> Default for ArenaTree<T> {
+impl<T> Default for ArenaTree<T> {
   fn default() -> Self {
-    Self::new(Default::default())
+    Self {
+      nodes: Default::default(),
+    }
   }
 }
 
@@ -35,48 +37,22 @@ impl<T> ArenaTreeNode<T> {
   pub fn handle(&self) -> ArenaTreeNodeHandle<T> {
     self.handle
   }
-
-  // pub fn add_child(&mut self, child_to_add: &mut ArenaTreeNode<T>) -> &mut Self {
-  //   if child_to_add.parent.is_some() {
-  //     panic!("child node already has a parent");
-  //   }
-  //   child_to_add.parent = Some(self.handle);
-  //   self.children.push(child_to_add.handle);
-  //   self
-  // }
-
-  // pub fn remove_child(&mut self, child_to_remove: &mut ArenaTreeNode<T>) -> &mut Self {
-  //   let child_index = self
-  //     .children
-  //     .iter()
-  //     .position(|&x| x == child_to_remove.handle)
-  //     .expect("tried to remove nonexistent child");
-
-  //   child_to_remove.parent = None;
-
-  //   self.children.swap_remove(child_index);
-  //   self
-  // }
 }
 
 impl<T> ArenaTree<T> {
-  pub fn new(root_data: T) -> Self {
-    let mut tree = Self {
-      nodes: Arena::new(),
-    };
-    tree.create_node(root_data);
-    tree
-  }
-
-  pub fn nodes(&self) -> &Arena<ArenaTreeNode<T>> {
+  pub fn nodes(&self) -> &Storage<ArenaTreeNode<T>, GenerationalVecStorage> {
     &self.nodes
   }
 
-  pub fn create_node(&mut self, node_data: T) -> ArenaTreeNodeHandle<T> {
-    let node = ArenaTreeNode::new(node_data);
-    let handle = self.nodes.insert(node);
-    self.nodes.get_mut(handle).unwrap().handle = handle;
-    handle
+  pub fn create_node(&mut self, data: T) -> ArenaTreeNodeHandle<T> {
+    self.nodes.insert_with(|handle| ArenaTreeNode {
+      handle,
+      parent: None,
+      previous_sibling: None,
+      next_sibling: None,
+      first_child: None,
+      data,
+    })
   }
 
   pub fn delete_node(&mut self, handle: ArenaTreeNodeHandle<T>) {

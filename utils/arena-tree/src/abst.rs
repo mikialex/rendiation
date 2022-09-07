@@ -16,12 +16,10 @@ impl<'a, T> Clone for ArenaTreeNodeRef<'a, T> {
 
 impl<'a, T> AbstractTree for ArenaTreeNodeRef<'a, T> {
   fn visit_children(&self, mut visitor: impl FnMut(&Self)) {
-    for child in &self.node.children {
-      visitor(&self.tree.create_node_ref(*child))
-    }
-  }
-  fn children_count(&self) -> usize {
-    self.node.children.len()
+    // for child in &self.node.children {
+    //   visitor(&self.tree.create_node_ref(*child))
+    // }
+    todo!()
   }
 }
 
