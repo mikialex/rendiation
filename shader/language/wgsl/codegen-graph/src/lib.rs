@@ -459,7 +459,8 @@ fn gen_expr(data: &ShaderGraphNodeExpr, cx: &mut CodeGenCtx) -> String {
       OperatorNode::Index { array, entry } => {
         let array = cx.get_node_gen_result_var(*array);
         let index = cx.get_node_gen_result_var(*entry);
-        format!("{} {} {} {}", array, "[]", index, "]")
+        format!("{} {} {} {}", array, "[", index, "]")
+        
       }
     },
     ShaderGraphNodeExpr::FieldGet {
