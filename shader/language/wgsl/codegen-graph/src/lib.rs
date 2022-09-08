@@ -472,7 +472,7 @@ fn gen_expr(data: &ShaderGraphNodeExpr, cx: &mut CodeGenCtx) -> String {
       } => {
         let array = cx.get_node_gen_result_var(*array);
         let index = cx.get_node_gen_result_var(*entry);
-        format!("{} {} {} {}", array, "[]", index, "]")
+        format!("{} {} {} {}", array, "]", index, "]")
         
       }
     },
