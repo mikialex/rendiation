@@ -39,3 +39,32 @@ impl<T> TreeCollection<T> {
     }
   }
 }
+
+pub struct ArenaTreeNodeMutPtr<T> {
+  pub(crate) tree: *mut TreeCollection<T>,
+  pub(crate) node: *mut TreeNode<T>,
+}
+
+impl<T> ArenaTreeNodeMutPtr<T> {
+  pub fn mutate(&mut self, mut mutator: impl FnMut(&mut TreeNode<T>)) {
+    unsafe { mutator(&mut (*self.node)) }
+  }
+}
+
+/// todo test it with miri
+impl<T> AbstractTreePairMutNode for ArenaTreeNodeMutPtr<T> {
+  fn visit_self_child_pair_mut(&mut self, mut visitor: impl FnMut(&mut Self, &mut Self)) {
+    unsafe {
+      let mut next = (*self.node).first_child;
+      while let Some(next_to_visit) = next {
+        let child = (*self.tree).get_node_mut(next_to_visit) as *mut TreeNode<T>;
+        let mut child = ArenaTreeNodeMutPtr {
+          tree: self.tree,
+          node: child,
+        };
+        visitor(self, &mut child);
+        next = (*child.node).next_sibling
+      }
+    }
+  }
+}

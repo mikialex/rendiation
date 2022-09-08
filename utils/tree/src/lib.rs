@@ -1,3 +1,4 @@
+use abst::ArenaTreeNodeMutPtr;
 pub use rendiation_abstract_tree::*;
 use storage::{generational::Arena, *};
 
@@ -153,32 +154,35 @@ impl<T> TreeCollection<T> {
   //   }
   // }
 
-  // pub fn traverse_mut(
-  //   &mut self,
-  //   start_index: ArenaTreeNodeHandle<T>,
-  //   visit_stack: &mut Vec<ArenaTreeNodeHandle<T>>,
-  //   mut visitor: impl FnMut(&mut ArenaTreeNode<T>, Option<&mut ArenaTreeNode<T>>) -> NextTraverseVisit,
-  // ) {
-  //   use NextTraverseVisit::*;
-  //   visit_stack.clear();
-  //   visit_stack.push(start_index);
+  pub fn traverse_mut(
+    &mut self,
+    start: TreeNodeHandle<T>,
+    mut visitor: impl FnMut(&mut TreeNode<T>, &mut TreeNode<T>) -> NextTraverseVisit,
+  ) {
+    let tree = self as *mut _;
+    let node = self.get_node_mut(start);
+    ArenaTreeNodeMutPtr { tree, node }.traverse_pair_mut(visitor);
 
-  //   while let Some(index) = visit_stack.pop() {
-  //     let (next, this) = if let Some(parent_index) = self.get_node(index).parent {
-  //       let (parent, this) = self.get_parent_child_pair(parent_index, index);
-  //       (visitor(this, Some(parent)), this)
-  //     } else {
-  //       let this = self.get_node_mut(index);
-  //       (visitor(this, None), this)
-  //     };
+    // use NextTraverseVisit::*;
+    // visit_stack.clear();
+    // visit_stack.push(start_index);
 
-  //     match next {
-  //       Exit => return,
-  //       VisitChildren => visit_stack.extend(this.children.iter().cloned()),
-  //       SkipChildren => continue,
-  //     };
-  //   }
-  // }
+    // while let Some(index) = visit_stack.pop() {
+    //   let (next, this) = if let Some(parent_index) = self.get_node(index).parent {
+    //     let (parent, this) = self.get_parent_child_pair(parent_index, index);
+    //     (visitor(this, Some(parent)), this)
+    //   } else {
+    //     let this = self.get_node_mut(index);
+    //     (visitor(this, None), this)
+    //   };
+
+    //   match next {
+    //     Exit => return,
+    //     VisitChildren => visit_stack.extend(this.children.iter().cloned()),
+    //     SkipChildren => continue,
+    //   };
+    // }
+  }
 }
 
 // pub struct TraverseIter<'a, T> {
