@@ -41,7 +41,7 @@ where
       });
     let new_index = deduplicate_set
       .iter()
-      .flat_map(|l| l.iter_point())
+      .flat_map(|l| l.iter_point().copied())
       .collect();
     IndexedMesh::new(self.vertex.clone(), new_index)
   }

@@ -31,12 +31,12 @@ use rendiation_algebra::*;
 pub use rendiation_scene_core::*;
 
 use arena::Handle;
-use arena_tree::ArenaTreeNodeHandle;
 pub use rendiation_scene_core::*;
 use space_algorithm::{
   bvh::{FlattenBVH, SAH},
   utils::TreeBuildOption,
 };
+use tree::TreeNodeHandle;
 
 pub struct ModelNode {
   model: Model,
@@ -278,6 +278,6 @@ impl RayTraceable for SceneAcceleration {
   }
 }
 
-pub type NodeHandle = ArenaTreeNodeHandle<SceneNode>;
+pub type NodeHandle = TreeNodeHandle<SceneNode>;
 pub type ModelHandle = usize;
 pub type LightHandle = Handle<Light>;

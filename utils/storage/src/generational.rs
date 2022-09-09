@@ -1,23 +1,39 @@
 use crate::*;
 
-use arena::{Arena, Handle as ArenaHandle};
+pub use arena::{Arena, Handle as ArenaHandle};
 
-pub struct GenerationalVecStorage;
-
-impl<T> StorageBehavior<T> for GenerationalVecStorage {
-  type Container = Arena<T>;
+impl<T> StorageBehavior<T> for Arena<T> {
   type Handle = ArenaHandle<T>;
 
-  fn insert(c: &mut Self::Container, v: T) -> Handle<T, Self> {
-    Handle::new(c.insert(v))
+  fn insert(&mut self, v: T) -> Self::Handle {
+    self.insert(v)
   }
-  fn get(c: &Self::Container, handle: Self::Handle) -> Option<&T> {
-    c.get(handle)
+  fn get(&self, handle: Self::Handle) -> Option<&T> {
+    self.get(handle)
   }
-  fn get_mut(c: &mut Self::Container, handle: Self::Handle) -> Option<&mut T> {
-    c.get_mut(handle)
+  fn get_mut(&mut self, handle: Self::Handle) -> Option<&mut T> {
+    self.get_mut(handle)
   }
-  fn size(c: &Self::Container) -> usize {
-    c.len()
+  fn size(&self) -> usize {
+    self.len()
+  }
+}
+
+impl<T> RemoveAbleStorage<T> for Arena<T> {
+  fn remove(&mut self, handle: Self::Handle) -> Option<T> {
+    self.remove(handle)
+  }
+}
+
+impl<T> NoneOverlappingStorage<T> for Arena<T> {
+  fn get_mut_pair(&mut self, handle: (Self::Handle, Self::Handle)) -> Option<(&mut T, &mut T)> {
+    let (a, b) = self.get2_mut(handle.0, handle.1);
+    (a?, b?).into()
+  }
+}
+
+impl<T> HandlePredictableStorage<T> for Arena<T> {
+  fn insert_with(&mut self, creator: impl FnOnce(Self::Handle) -> T) -> Self::Handle {
+    self.insert_with(creator)
   }
 }

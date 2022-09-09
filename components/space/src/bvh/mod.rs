@@ -12,7 +12,7 @@ pub use strategy::*;
 
 use crate::{
   utils::{bounding_from_build_source, BuildPrimitive, CenterAblePrimitive, TreeBuildOption},
-  AbstractTree,
+  AbstractTreeNode,
 };
 
 pub trait BVHBounding:
@@ -33,7 +33,7 @@ pub struct BVHTreeNodeRef<'a, B: BVHBounding> {
   pub node: &'a FlattenBVHNode<B>,
 }
 
-impl<'a, B: BVHBounding> AbstractTree for BVHTreeNodeRef<'a, B> {
+impl<'a, B: BVHBounding> AbstractTreeNode for BVHTreeNodeRef<'a, B> {
   fn visit_children(&self, mut visitor: impl FnMut(&Self)) {
     if let Some(n) = self.node.left_child_offset() {
       visitor(&self.tree.create_node_ref(n))
