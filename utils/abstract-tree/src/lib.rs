@@ -90,6 +90,30 @@ pub trait AbstractTreeNode {
     self.visit_children(|child| max_depth = max_depth.max(child.get_max_children_depth()));
     max_depth + 1
   }
+
+  fn traverse_iter(&self) -> TraverseIter<Self>
+  where
+    Self: Sized + Clone,
+  {
+    TraverseIter {
+      visit_stack: vec![self.clone()],
+    }
+  }
+}
+
+pub struct TraverseIter<T> {
+  visit_stack: Vec<T>,
+}
+
+impl<T: AbstractTreeNode + Clone> Iterator for TraverseIter<T> {
+  type Item = T;
+
+  fn next(&mut self) -> Option<Self::Item> {
+    self.visit_stack.pop().map(|item| {
+      item.visit_children(|child| self.visit_stack.push(child.clone()));
+      item
+    })
+  }
 }
 
 pub trait AbstractTreeMutNode {
