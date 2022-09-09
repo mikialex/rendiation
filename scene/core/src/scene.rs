@@ -76,11 +76,10 @@ impl<S: SceneContent> Scene<S> {
   pub fn maintain(&mut self) {
     let mut nodes = self.nodes.write().unwrap();
     let root = nodes.root;
-    nodes.nodes.traverse_mut_pair(root, |this, parent| {
+    nodes.nodes.traverse_mut_pair(root, |parent, this| {
       let node_data = this.data_mut();
       node_data.hierarchy_update(Some(parent.data()));
     });
-    todo!()
   }
 }
 

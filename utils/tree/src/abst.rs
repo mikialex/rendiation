@@ -47,6 +47,7 @@ pub struct ArenaTreeNodeMutPtr<T> {
 
 /// todo test it with miri
 impl<T> AbstractTreePairMutNode for ArenaTreeNodeMutPtr<T> {
+  /// parent child
   fn visit_self_child_pair_mut(&mut self, mut visitor: impl FnMut(&mut Self, &mut Self)) {
     unsafe {
       let mut next = (*self.node).first_child;
