@@ -1,4 +1,4 @@
-use abst::ArenaTreeNodeMutPtr;
+use abst::TreeNodeMutPtr;
 pub use rendiation_abstract_tree::*;
 use storage::{generational::Arena, *};
 
@@ -147,13 +147,6 @@ impl<T> TreeCollection<T> {
     Ok(())
   }
 
-  // pub fn traverse_iter(&self, start: ArenaTreeNodeHandle<T>) -> TraverseIter<'_, T> {
-  //   TraverseIter {
-  //     tree: self,
-  //     visit_stack: vec![start],
-  //   }
-  // }
-
   pub fn traverse_mut_pair(
     &mut self,
     start: TreeNodeHandle<T>,
@@ -161,28 +154,10 @@ impl<T> TreeCollection<T> {
   ) {
     let tree = self as *mut _;
     let node = self.get_node_mut(start);
-    ArenaTreeNodeMutPtr { tree, node }.traverse_pair_mut(&mut |parent, child| {
+    TreeNodeMutPtr { tree, node }.traverse_pair_mut(&mut |parent, child| {
       let parent = unsafe { &mut (*parent.node) };
       let child = unsafe { &mut (*child.node) };
       visitor(parent, child)
     });
   }
 }
-
-// pub struct TraverseIter<'a, T> {
-//   tree: &'a ArenaTree<T>,
-//   visit_stack: Vec<ArenaTreeNodeHandle<T>>,
-// }
-
-// impl<'a, T> Iterator for TraverseIter<'a, T> {
-//   type Item = (ArenaTreeNodeHandle<T>, &'a T);
-
-//   fn next(&mut self) -> Option<Self::Item> {
-//     self.visit_stack.pop().map(|handle| {
-//       let nodes = &self.tree;
-//       let node = nodes.get_node(handle);
-//       self.visit_stack.extend(node.children.iter().cloned());
-//       (handle, node.data())
-//     })
-//   }
-// }
