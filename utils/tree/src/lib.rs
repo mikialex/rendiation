@@ -154,34 +154,18 @@ impl<T> TreeCollection<T> {
   //   }
   // }
 
-  pub fn traverse_mut(
+  pub fn traverse_mut_pair(
     &mut self,
     start: TreeNodeHandle<T>,
-    mut visitor: impl FnMut(&mut TreeNode<T>, &mut TreeNode<T>) -> NextTraverseVisit,
+    mut visitor: impl FnMut(&mut TreeNode<T>, &mut TreeNode<T>),
   ) {
     let tree = self as *mut _;
     let node = self.get_node_mut(start);
-    ArenaTreeNodeMutPtr { tree, node }.traverse_pair_mut(visitor);
-
-    // use NextTraverseVisit::*;
-    // visit_stack.clear();
-    // visit_stack.push(start_index);
-
-    // while let Some(index) = visit_stack.pop() {
-    //   let (next, this) = if let Some(parent_index) = self.get_node(index).parent {
-    //     let (parent, this) = self.get_parent_child_pair(parent_index, index);
-    //     (visitor(this, Some(parent)), this)
-    //   } else {
-    //     let this = self.get_node_mut(index);
-    //     (visitor(this, None), this)
-    //   };
-
-    //   match next {
-    //     Exit => return,
-    //     VisitChildren => visit_stack.extend(this.children.iter().cloned()),
-    //     SkipChildren => continue,
-    //   };
-    // }
+    ArenaTreeNodeMutPtr { tree, node }.traverse_pair_mut(&mut |parent, child| {
+      let parent = unsafe { &mut (*parent.node) };
+      let child = unsafe { &mut (*child.node) };
+      visitor(parent, child)
+    });
   }
 }
 

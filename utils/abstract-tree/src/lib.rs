@@ -103,7 +103,9 @@ pub trait AbstractTreeMutNode {
 /// note: this requires parent and child able to get mutable at same time,
 /// and impose restrictions on memory assumptions
 pub trait AbstractTreePairMutNode {
+  /// self child
   fn visit_self_child_pair_mut(&mut self, visitor: impl FnMut(&mut Self, &mut Self));
+  /// self child
   fn traverse_pair_mut(&mut self, visitor: &mut impl FnMut(&mut Self, &mut Self)) {
     self.visit_self_child_pair_mut(|self_node, child| {
       visitor(self_node, child);
