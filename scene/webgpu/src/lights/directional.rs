@@ -8,6 +8,16 @@ pub struct DirectionalLightShaderInfo {
   pub direction: Vec3<f32>,
 }
 
+impl From<DirectionalLight> for DirectionalLightShaderInfo {
+  fn from(dir: DirectionalLight) -> Self {
+    Self {
+      intensity: dir.intensity,
+      direction: dir.direction,
+      ..Zeroable::zeroed()
+    }
+  }
+}
+
 impl ShaderLight for DirectionalLightShaderInfo {
   fn name() -> &'static str {
     "directional_light"
@@ -28,14 +38,18 @@ impl ShaderLight for DirectionalLightShaderInfo {
 }
 
 impl WebGPUSceneLight for SceneItemRef<DirectionalLight> {
-  fn check_update_gpu<'a>(&self, sys: &'a mut ForwardLightingSystem, gpu: &GPU) {
+  fn collect<'a>(&self, sys: &'a mut ForwardLightingSystem) {
     let lights = sys
       .lights_collections
       .entry(self.type_id())
-      .or_insert_with(|| Box::new(LightList::<DirectionalLightShaderInfo>::new(gpu)));
+      .or_insert_with(|| Box::new(LightList::<DirectionalLightShaderInfo>::new()));
     let lights = lights
       .as_any_mut()
       .downcast_mut::<LightList<DirectionalLightShaderInfo>>()
       .unwrap();
+
+    let light: DirectionalLight = **self.read();
+
+    lights.lights.push(light.into())
   }
 }

@@ -29,26 +29,35 @@ where
 }
 
 /// contains gpu data that support forward rendering
+///
+/// all uniform is update once in a frame. for convenience.
+#[derive(Default)]
 pub struct ForwardLightingSystem {
   pub lights_collections: HashMap<TypeId, Box<dyn ForwardLightCollection>>,
 }
 
-pub trait ForwardLightCollection: LightCollectionCompute + Any {
+pub trait ForwardLightCollection: LightCollectionCompute + LightCollectionBase + Any {
   fn as_any_mut(&mut self) -> &mut dyn Any;
 }
-impl<T: LightCollectionCompute + Any> ForwardLightCollection for T {
+impl<T: LightCollectionCompute + LightCollectionBase + Any> ForwardLightCollection for T {
   fn as_any_mut(&mut self) -> &mut dyn Any {
     self
   }
 }
 
 impl ForwardLightingSystem {
-  pub fn update_by_scene(&mut self, scene: &Scene<WebGPUScene>) {
+  pub fn update_by_scene(&mut self, scene: &Scene<WebGPUScene>, gpu: &GPU) {
+    self.lights_collections.values_mut().for_each(|c| c.reset());
+
     for (_, light) in &scene.lights {
       let light = &light.read().light;
-
-      //
+      light.collect(self)
     }
+
+    self
+      .lights_collections
+      .values_mut()
+      .for_each(|c| c.update_gpu(gpu));
   }
 
   pub fn compute_lights(
@@ -71,10 +80,12 @@ impl ForwardLightingSystem {
       let mut light_diffuse_result = consts(Vec3::zero());
 
       for lights in self.lights_collections.values() {
-        let (diffuse, specular) =
-          lights.compute_lights(builder, binding, shading_impl, &shading, &geom_ctx)?;
-        light_specular_result = specular + light_specular_result;
-        light_diffuse_result = diffuse + light_diffuse_result;
+        if lights.has_lights() {
+          let (diffuse, specular) =
+            lights.compute_lights(builder, binding, shading_impl, &shading, &geom_ctx)?;
+          light_specular_result = specular + light_specular_result;
+          light_diffuse_result = diffuse + light_diffuse_result;
+        }
       }
 
       builder.register::<HDRLightResult>(light_diffuse_result + light_specular_result);
@@ -86,27 +97,52 @@ impl ForwardLightingSystem {
 
 pub struct LightList<T: ShaderLight> {
   pub lights: Vec<T>,
-  pub lights_gpu: UniformBufferDataView<Shader140Array<T, 32>>,
+  pub lights_gpu: Option<UniformBufferDataView<Shader140Array<T, 32>>>,
 }
 
 impl<T: ShaderLight> LightList<T> {
-  pub fn new(gpu: &GPU) -> Self
+  pub fn new() -> Self
   where
     T: Default,
   {
     let lights = Default::default();
-    let source = vec![T::default(); 32].try_into().unwrap();
-    let lights_gpu = UniformBufferDataResource::create_with_source(source, &gpu.device);
-    let lights_gpu = lights_gpu.create_default_view();
-    Self { lights, lights_gpu }
+    Self {
+      lights,
+      lights_gpu: None,
+    }
+  }
+}
+
+pub trait LightCollectionBase {
+  fn reset(&mut self);
+  fn update_gpu(&mut self, gpu: &GPU);
+  fn has_lights(&self) -> bool;
+}
+
+impl<T: ShaderLight> LightCollectionBase for LightList<T> {
+  fn reset(&mut self) {
+    self.lights.clear();
+    self.lights_gpu.take();
   }
 
-  pub fn update(&mut self) {}
+  fn update_gpu(&mut self, gpu: &GPU) {
+    let source: Vec<_> = self.lights.iter().copied().take(32).collect();
+    let source = source.try_into().unwrap();
+    let lights_gpu = UniformBufferDataResource::create_with_source(source, &gpu.device);
+    let lights_gpu = lights_gpu.create_default_view();
+    self.lights_gpu = lights_gpu.into();
+  }
+
+  fn has_lights(&self) -> bool {
+    self.lights_gpu.is_some()
+  }
 }
 
 impl<T: ShaderLight> ShaderPassBuilder for LightList<T> {
   fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
-    ctx.binding.bind(&self.lights_gpu, SB::Pass);
+    ctx
+      .binding
+      .bind(self.lights_gpu.as_ref().unwrap(), SB::Pass);
   }
 }
 
@@ -143,7 +179,7 @@ impl<T: ShaderLight> LightCollectionCompute for LightList<T> {
     shading: &dyn Any,
     geom_ctx: &ExpandedNode<ShaderLightingGeometricCtx>,
   ) -> Result<(Node<Vec3<f32>>, Node<Vec3<f32>>), ShaderGraphBuildError> {
-    let lights = binding.uniform_by(&self.lights_gpu, SB::Pass);
+    let lights = binding.uniform_by(self.lights_gpu.as_ref().unwrap(), SB::Pass);
 
     let dep = T::create_dep(builder);
 
