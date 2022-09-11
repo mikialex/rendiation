@@ -68,13 +68,7 @@ impl ForwardLightingSystem {
         light_diffuse_result = diffuse + light_diffuse_result;
       }
 
-      let hdr_result = ExpandedNode::<ShaderLightingResult> {
-        diffuse: light_diffuse_result,
-        specular: light_specular_result,
-      }
-      .construct();
-
-      builder.register::<HDRLightResult>(hdr_result);
+      builder.register::<HDRLightResult>(light_diffuse_result + light_specular_result);
 
       Ok(())
     })
