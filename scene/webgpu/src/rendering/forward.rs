@@ -30,7 +30,16 @@ where
 
 /// contains gpu data that support forward rendering
 pub struct ForwardLightingSystem {
-  pub lights_collections: HashMap<TypeId, Box<dyn LightCollectionCompute>>,
+  pub lights_collections: HashMap<TypeId, Box<dyn ForwardLightCollection>>,
+}
+
+pub trait ForwardLightCollection: LightCollectionCompute + Any {
+  fn as_any_mut(&mut self) -> &mut dyn Any;
+}
+impl<T: LightCollectionCompute + Any> ForwardLightCollection for T {
+  fn as_any_mut(&mut self) -> &mut dyn Any {
+    self
+  }
 }
 
 impl ForwardLightingSystem {
@@ -81,9 +90,18 @@ pub struct LightList<T: ShaderLight> {
 }
 
 impl<T: ShaderLight> LightList<T> {
-  pub fn update(&mut self) {
-    //
+  pub fn new(gpu: &GPU) -> Self
+  where
+    T: Default,
+  {
+    let lights = Default::default();
+    let source = vec![T::default(); 32].try_into().unwrap();
+    let lights_gpu = UniformBufferDataResource::create_with_source(source, &gpu.device);
+    let lights_gpu = lights_gpu.create_default_view();
+    Self { lights, lights_gpu }
   }
+
+  pub fn update(&mut self) {}
 }
 
 impl<T: ShaderLight> ShaderPassBuilder for LightList<T> {

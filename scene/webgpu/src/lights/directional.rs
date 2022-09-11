@@ -2,7 +2,7 @@ use crate::*;
 
 #[repr(C)]
 #[std140_layout]
-#[derive(Copy, Clone, ShaderStruct)]
+#[derive(Copy, Clone, ShaderStruct, Default)]
 pub struct DirectionalLightShaderInfo {
   pub intensity: Vec3<f32>,
   pub direction: Vec3<f32>,
@@ -28,13 +28,14 @@ impl ShaderLight for DirectionalLightShaderInfo {
 }
 
 impl WebGPUSceneLight for SceneItemRef<DirectionalLight> {
-  fn check_update_gpu<'a>(&self, res: &'a mut ForwardLightingSystem, gpu: &GPU) {
-    let lights = res
+  fn check_update_gpu<'a>(&self, sys: &'a mut ForwardLightingSystem, gpu: &GPU) {
+    let lights = sys
       .lights_collections
       .entry(self.type_id())
-      .or_insert_with(|| todo!());
-    // let lights = lights
-    //   .downcast_mut::<LightList<DirectionalLightShaderInfo>>()
-    //   .unwrap();
+      .or_insert_with(|| Box::new(LightList::<DirectionalLightShaderInfo>::new(gpu)));
+    let lights = lights
+      .as_any_mut()
+      .downcast_mut::<LightList<DirectionalLightShaderInfo>>()
+      .unwrap();
   }
 }

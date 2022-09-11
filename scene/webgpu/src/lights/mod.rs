@@ -3,7 +3,7 @@ pub use directional::*;
 
 use crate::*;
 
-pub trait WebGPUSceneLight {
+pub trait WebGPUSceneLight: Any {
   fn check_update_gpu<'a>(&self, res: &'a mut ForwardLightingSystem, gpu: &GPU);
 }
 
