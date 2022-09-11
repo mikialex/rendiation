@@ -8,7 +8,7 @@ use std::{cmp, fmt::Debug, hash::Hash, marker::PhantomData};
 /// # Examples
 ///
 /// ```
-/// use generational_arena::Arena;
+/// use arena::Arena;
 ///
 /// let mut arena = Arena::new();
 /// let idx = arena.insert(123);

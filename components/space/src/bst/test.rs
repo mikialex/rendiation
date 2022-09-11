@@ -1,7 +1,7 @@
 #[cfg(test)]
 use crate::bst::{BSTTreeNodeRef, Oc};
 #[cfg(test)]
-use rendiation_abstract_tree::AbstractTree;
+use rendiation_abstract_tree::AbstractTreeNode;
 #[cfg(test)]
 use std::collections::HashSet;
 #[cfg(test)]
@@ -9,7 +9,7 @@ use std::ops::Range;
 
 #[cfg(test)]
 fn print(prefix: &String, name: String, node: &BSTTreeNodeRef<Oc, 8, 3>) {
-  if node.node.primitive_range.len() > 0 {
+  if !node.node.primitive_range.is_empty() {
     println!(
       "{}+- {}, primitive_index range [{}, {})",
       prefix, name, node.node.primitive_range.start, node.node.primitive_range.end,

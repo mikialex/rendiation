@@ -34,8 +34,8 @@ impl<V> Triangle<V> {
     Self { a, b, c }
   }
 
-  pub fn iter_point(&self) -> Face3Iter<'_, V> {
-    Face3Iter::new(self)
+  pub fn iter_point(&self) -> impl Iterator<Item = &V> {
+    once(&self.a).chain(once(&self.b)).chain(once(&self.c))
   }
 }
 
@@ -62,36 +62,6 @@ impl<V> Triangle<V> {
       a: self.c,
       b: self.b,
       c: self.a,
-    }
-  }
-}
-
-pub struct Face3Iter<'a, V> {
-  face3: &'a Triangle<V>,
-  visit_count: i8,
-}
-
-impl<'a, V> Face3Iter<'a, V> {
-  pub fn new(face3: &'a Triangle<V>) -> Self {
-    Self {
-      face3,
-      visit_count: -1,
-    }
-  }
-}
-
-impl<'a, V: Copy> Iterator for Face3Iter<'a, V> {
-  type Item = V;
-  fn next(&mut self) -> Option<Self::Item> {
-    self.visit_count += 1;
-    if self.visit_count == 0 {
-      Some(self.face3.a)
-    } else if self.visit_count == 1 {
-      Some(self.face3.b)
-    } else if self.visit_count == 2 {
-      Some(self.face3.c)
-    } else {
-      None
     }
   }
 }

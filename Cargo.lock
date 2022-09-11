@@ -95,14 +95,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "arena-tree"
-version = "0.0.1"
-dependencies = [
- "arena",
- "rendiation-abstract-tree",
-]
-
-[[package]]
 name = "arrayvec"
 version = "0.7.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2030,7 +2022,6 @@ version = "0.1.0"
 dependencies = [
  "anymap",
  "arena",
- "arena-tree",
  "bytemuck",
  "log",
  "once_cell",
@@ -2038,6 +2029,7 @@ dependencies = [
  "rendiation-geometry",
  "rendiation-renderable-mesh",
  "rendiation-texture",
+ "tree",
 ]
 
 [[package]]
@@ -2046,7 +2038,6 @@ version = "0.1.0"
 dependencies = [
  "arena",
  "arena-graph",
- "arena-tree",
  "bytemuck",
  "log",
  "once_cell",
@@ -2059,6 +2050,7 @@ dependencies = [
  "rendiation-texture",
  "rendiation-webgpu",
  "space-algorithm",
+ "tree",
 ]
 
 [[package]]
@@ -2066,7 +2058,6 @@ name = "rendiation-scene-raytracing"
 version = "0.1.0"
 dependencies = [
  "arena",
- "arena-tree",
  "dyn-clone",
  "image",
  "indicatif",
@@ -2081,6 +2072,7 @@ dependencies = [
  "space-algorithm",
  "statrs",
  "tobj 2.0.4",
+ "tree",
 ]
 
 [[package]]
@@ -2090,7 +2082,6 @@ dependencies = [
  "anymap",
  "arena",
  "arena-graph",
- "arena-tree",
  "bytemuck",
  "log",
  "once_cell",
@@ -2102,6 +2093,7 @@ dependencies = [
  "rendiation-texture",
  "rendiation-webgpu",
  "shadergraph",
+ "tree",
  "wgsl-shader-derives",
 ]
 
@@ -2434,6 +2426,9 @@ dependencies = [
 [[package]]
 name = "storage"
 version = "0.0.1"
+dependencies = [
+ "arena",
+]
 
 [[package]]
 name = "strsim"
@@ -2555,6 +2550,14 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a31142970826733df8241ef35dc040ef98c679ab14d7c3e54d827099b3acecaa"
 dependencies = [
  "serde",
+]
+
+[[package]]
+name = "tree"
+version = "0.0.1"
+dependencies = [
+ "rendiation-abstract-tree",
+ "storage",
 ]
 
 [[package]]

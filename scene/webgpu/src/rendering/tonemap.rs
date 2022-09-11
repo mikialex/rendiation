@@ -17,47 +17,34 @@ pub enum ToneMapType {
   Cineon,
   ACESFilmic,
 }
-
-struct ToneMapTask<'a, T> {
-  hdr: AttachmentView<T>,
-  config: &'a ToneMap,
-}
-
-impl<'a, T> ShaderHashProviderAny for ToneMapTask<'a, T> {
-  fn hash_pipeline_and_with_type_id(&self, hasher: &mut PipelineHasher) {
-    self.config.type_id().hash(hasher);
-    self.hash_pipeline(hasher);
-  }
-}
-impl<'a, T> ShaderHashProvider for ToneMapTask<'a, T> {
+impl ShaderHashProvider for ToneMap {
   fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
-    std::mem::discriminant(&self.config.ty).hash(hasher)
+    std::mem::discriminant(&self.ty).hash(hasher)
   }
 }
-impl<'a, T> ShaderPassBuilder for ToneMapTask<'a, T> {
+impl ShaderPassBuilder for ToneMap {
   fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
-    ctx.binding.bind(&self.config.exposure, SB::Material);
-    ctx.binding.bind(&self.hdr, SB::Material);
-    ctx.bind_immediate_sampler(&TextureSampler::default(), SB::Material);
+    ctx.binding.bind(&self.exposure, SB::Material);
   }
 }
-
-impl<'a, T> ShaderGraphProvider for ToneMapTask<'a, T> {
+impl ShaderGraphProvider for ToneMap {
   fn build(
     &self,
     builder: &mut ShaderGraphRenderPipelineBuilder,
   ) -> Result<(), ShaderGraphBuildError> {
     builder.fragment(|builder, binding| {
-      let exposure = binding.uniform_by(&self.config.exposure, SB::Material);
+      let exposure = binding.uniform_by(&self.exposure, SB::Material);
+      let hdr = builder.query::<HDRLightResult>()?.get();
 
-      let hdr = binding.uniform_by(&self.hdr, SB::Material);
-      let sampler = binding.uniform::<GPUSamplerView>(SB::Material);
+      let mapped = match self.ty {
+        ToneMapType::Linear => LinearToneMapping(hdr, exposure),
+        ToneMapType::Reinhard => ReinhardToneMapping(hdr, exposure),
+        ToneMapType::Cineon => OptimizedCineonToneMapping(hdr, exposure),
+        ToneMapType::ACESFilmic => ACESFilmicToneMapping(hdr, exposure),
+      };
 
-      let uv = builder.query::<FragmentUv>()?.get();
-      let input = hdr.sample(sampler, uv).xyz();
-      let mapped = LinearToneMapping(input, exposure);
-
-      builder.set_fragment_out(0, (mapped, 1.))
+      builder.register::<LDRLightResult>(mapped);
+      Ok(())
     })
   }
 }
@@ -131,3 +118,52 @@ wgsl_fn!(
     return saturate(color);
   }
 );
+
+struct ToneMapTask<'a, T> {
+  hdr: AttachmentView<T>,
+  config: &'a ToneMap,
+}
+
+impl<'a, T> ShaderHashProviderAny for ToneMapTask<'a, T> {
+  fn hash_pipeline_and_with_type_id(&self, hasher: &mut PipelineHasher) {
+    self.config.type_id().hash(hasher);
+    self.hash_pipeline(hasher);
+  }
+}
+impl<'a, T> ShaderHashProvider for ToneMapTask<'a, T> {
+  fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
+    self.config.hash_pipeline(hasher)
+  }
+}
+impl<'a, T> ShaderPassBuilder for ToneMapTask<'a, T> {
+  fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
+    ctx.binding.bind(&self.hdr, SB::Material);
+    ctx.bind_immediate_sampler(&TextureSampler::default(), SB::Material);
+    self.config.setup_pass(ctx)
+  }
+}
+
+impl<'a, T> ShaderGraphProvider for ToneMapTask<'a, T> {
+  fn build(
+    &self,
+    builder: &mut ShaderGraphRenderPipelineBuilder,
+  ) -> Result<(), ShaderGraphBuildError> {
+    builder.fragment(|builder, binding| {
+      let hdr = binding.uniform_by(&self.hdr, SB::Material);
+      let sampler = binding.uniform::<GPUSamplerView>(SB::Material);
+
+      let uv = builder.query::<FragmentUv>()?.get();
+      let hdr = hdr.sample(sampler, uv).xyz();
+
+      builder.register::<HDRLightResult>(hdr);
+      Ok(())
+    })?;
+
+    self.config.build(builder)?;
+
+    builder.fragment(|builder, _| {
+      let ldr = builder.query::<LDRLightResult>()?.get();
+      builder.set_fragment_out(0, (ldr, 1.))
+    })
+  }
+}

@@ -1,6 +1,6 @@
 use std::{collections::HashSet, hash::Hash};
 
-pub trait AbstractDirectedGraph {
+pub trait AbstractDirectedGraphNode {
   fn visit_backward(&self, visitor: impl FnMut(&Self) -> bool);
   fn visit_forward(&self, visitor: impl FnMut(&Self) -> bool);
 
@@ -16,7 +16,7 @@ pub trait AbstractDirectedGraph {
       visited: HashSet<T>,
     }
 
-    fn visit<T: AbstractDirectedGraph + Hash + Eq + Clone>(
+    fn visit<T: AbstractDirectedGraphNode + Hash + Eq + Clone>(
       node: &T,
       ctx: &mut Ctx<T>,
       visitor: &mut impl FnMut(&T),

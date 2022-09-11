@@ -3,8 +3,8 @@ pub use directional::*;
 
 use crate::*;
 
-pub trait WebGPUSceneLight {
-  fn check_update_gpu<'a>(&self, res: &'a mut ForwardLightingSystem, gpu: &GPU);
+pub trait WebGPUSceneLight: Any {
+  fn collect(&self, res: &mut ForwardLightingSystem);
 }
 
 #[derive(Copy, Clone, ShaderStruct)]
@@ -13,7 +13,8 @@ pub struct ShaderIncidentLight {
   pub direction: Vec3<f32>,
 }
 
-only_fragment!(HDRLightResult, ShaderLightingResult);
+only_fragment!(HDRLightResult, Vec3<f32>);
+only_fragment!(LDRLightResult, Vec3<f32>);
 
 #[derive(Copy, Clone, ShaderStruct)]
 pub struct ShaderLightingResult {

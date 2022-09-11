@@ -5,6 +5,7 @@ use crate::*;
 pub struct ViewerPipeline {
   highlight: HighLighter,
   blur: CrossBlurData,
+  forward_lights: ForwardLightingSystem,
 }
 
 impl ViewerPipeline {
@@ -12,6 +13,7 @@ impl ViewerPipeline {
     Self {
       highlight: HighLighter::new(gpu),
       blur: CrossBlurData::new(gpu),
+      forward_lights: Default::default(),
     }
   }
 }

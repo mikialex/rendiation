@@ -126,6 +126,9 @@ impl ShaderControlFlowNode {
         new: write.1,
       }
       .insert_into_graph_inner::<AnyType>(top, ShaderValueType::Never);
+      top
+        .nodes
+        .connect_node(node.handle().handle, im_write.handle().handle);
 
       write.0.current.set(im_write.handle());
 
@@ -223,6 +226,10 @@ impl ShaderGraphNode {
             visitor(left);
             visitor(right);
           }
+          OperatorNode::Index { array, entry, .. } => {
+            visitor(array);
+            visitor(entry);
+          }
         },
         ShaderGraphNodeExpr::FieldGet { struct_node, .. } => visitor(struct_node),
         ShaderGraphNodeExpr::StructConstruct { fields, .. } => fields.iter().for_each(visitor),
@@ -294,6 +301,10 @@ impl ShaderGraphNode {
           OperatorNode::Binary { left, right, .. } => {
             visitor(left);
             visitor(right);
+          }
+          OperatorNode::Index { array, entry, .. } => {
+            visitor(array);
+            visitor(entry);
           }
         },
         ShaderGraphNodeExpr::FieldGet { struct_node, .. } => visitor(struct_node),

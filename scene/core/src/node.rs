@@ -1,10 +1,10 @@
 use crate::*;
 
-use arena_tree::{ArenaTree, ArenaTreeNodeHandle};
 use rendiation_algebra::*;
+use tree::TreeNodeHandle;
 
 pub type SceneNodeData = Identity<SceneNodeDataImpl>;
-pub type SceneNodeHandle = ArenaTreeNodeHandle<SceneNodeData>;
+pub type SceneNodeHandle = TreeNodeHandle<SceneNodeData>;
 
 pub struct SceneNodeDataImpl {
   pub local_matrix: Mat4<f32>,
@@ -46,29 +46,29 @@ impl SceneNodeDataImpl {
 
 #[derive(Clone)]
 struct SceneNodeRef {
-  nodes: Arc<RwLock<ArenaTree<SceneNodeData>>>,
+  nodes: Arc<RwLock<SceneNodesCollection>>,
   handle: SceneNodeHandle,
 }
 
 impl Drop for SceneNodeRef {
   fn drop(&mut self) {
     let mut nodes = self.nodes.write().unwrap();
-    nodes.free_node(self.handle)
+    nodes.nodes.delete_node(self.handle)
   }
 }
 
 pub struct SceneNodeInner {
-  nodes: Arc<RwLock<ArenaTree<SceneNodeData>>>,
+  nodes: Arc<RwLock<SceneNodesCollection>>,
   parent: Option<Arc<SceneNodeRef>>,
   inner: Arc<SceneNodeRef>,
 }
 
 impl SceneNodeInner {
-  pub fn from_root(nodes: Arc<RwLock<ArenaTree<SceneNodeData>>>) -> Self {
+  pub fn from_root(nodes: Arc<RwLock<SceneNodesCollection>>) -> Self {
     let nodes_info = nodes.read().unwrap();
     let root = SceneNodeRef {
       nodes: nodes.clone(),
-      handle: nodes_info.root(),
+      handle: nodes_info.root,
     };
     Self {
       nodes: nodes.clone(),
@@ -79,14 +79,16 @@ impl SceneNodeInner {
 
   #[must_use]
   pub fn create_child(&self) -> Self {
-    let mut nodes_info = self.nodes.write().unwrap();
+    let nodes_info = &mut self.nodes.write().unwrap().nodes;
     let handle = nodes_info.create_node(Identity::new(SceneNodeDataImpl::default())); // todo use from
     let inner = SceneNodeRef {
       nodes: self.nodes.clone(),
       handle,
     };
 
-    nodes_info.node_add_child_by_id(self.inner.handle, handle);
+    nodes_info
+      .node_add_child_by(self.inner.handle, handle)
+      .unwrap();
 
     Self {
       nodes: self.nodes.clone(),
@@ -96,13 +98,13 @@ impl SceneNodeInner {
   }
 
   pub fn mutate<F: FnMut(&mut SceneNodeData) -> T, T>(&self, mut f: F) -> T {
-    let mut nodes = self.nodes.write().unwrap();
+    let nodes = &mut self.nodes.write().unwrap().nodes;
     let node = nodes.get_node_mut(self.inner.handle).data_mut();
     f(node)
   }
 
   pub fn visit<F: FnMut(&SceneNodeData) -> T, T>(&self, mut f: F) -> T {
-    let nodes = self.nodes.read().unwrap();
+    let nodes = &self.nodes.read().unwrap().nodes;
     let node = nodes.get_node(self.inner.handle).data();
     f(node)
   }
@@ -110,10 +112,8 @@ impl SceneNodeInner {
 
 impl Drop for SceneNodeInner {
   fn drop(&mut self) {
-    let mut nodes = self.nodes.write().unwrap();
-    if let Some(parent) = self.parent.as_ref() {
-      nodes.node_remove_child_by_id(parent.handle, self.inner.handle);
-    }
+    let nodes = &mut self.nodes.write().unwrap().nodes;
+    nodes.node_detach_parent(self.inner.handle).ok();
   }
 }
 
@@ -123,7 +123,7 @@ pub struct SceneNode {
 }
 
 impl SceneNode {
-  pub fn from_root(nodes: Arc<RwLock<ArenaTree<SceneNodeData>>>) -> Self {
+  pub fn from_root(nodes: Arc<RwLock<SceneNodesCollection>>) -> Self {
     let inner = SceneNodeInner::from_root(nodes);
     Self {
       inner: Arc::new(RwLock::new(inner)),
@@ -142,21 +142,21 @@ impl SceneNode {
 
   pub fn mutate<F: FnMut(&mut SceneNodeData) -> T, T>(&self, mut f: F) -> T {
     let inner = self.inner.read().unwrap();
-    let mut nodes = inner.nodes.write().unwrap();
+    let nodes = &mut inner.nodes.write().unwrap().nodes;
     let node = nodes.get_node_mut(inner.inner.handle).data_mut();
     f(node)
   }
 
   pub fn visit<F: FnMut(&SceneNodeData) -> T, T>(&self, mut f: F) -> T {
     let inner = self.inner.read().unwrap();
-    let nodes = inner.nodes.read().unwrap();
+    let nodes = &inner.nodes.read().unwrap().nodes;
     let node = nodes.get_node(inner.inner.handle).data();
     f(node)
   }
 
   pub fn visit_parent<F: FnMut(&SceneNodeData) -> T, T>(&self, mut f: F) -> Option<T> {
     let inner = self.inner.read().unwrap();
-    let nodes = inner.nodes.read().unwrap();
+    let nodes = &inner.nodes.read().unwrap().nodes;
     if let Some(parent) = &inner.parent {
       let node = nodes.get_node(parent.handle).data();
       f(node).into()

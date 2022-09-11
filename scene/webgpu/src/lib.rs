@@ -58,7 +58,7 @@ pub struct WebGPUScene;
 impl SceneContent for WebGPUScene {
   type BackGround = Box<dyn WebGPUBackground>;
   type Model = Box<dyn SceneModelShareable>;
-  type Light = Box<dyn SceneRenderableShareable>;
+  type Light = Box<dyn WebGPUSceneLight>;
   type Texture2D = Box<dyn WebGPUTexture2dSource>;
   type TextureCube = [Box<dyn WebGPUTexture2dSource>; 6];
   type SceneExt = ();
@@ -198,7 +198,6 @@ pub struct GPUResourceSceneCache {
 /// GPU cache container for given scene
 #[derive(Default)]
 pub struct GPUResourceSubCache {
-  // pub uniforms: IdentityMapper<GPUTexture2d, Box<dyn WebGPUTexture2dSource>>,
   pub texture_2ds: IdentityMapper<GPUTexture2dView, dyn WebGPUTexture2dSource>,
   pub texture_cubes: IdentityMapper<GPUTextureCubeView, [Box<dyn WebGPUTexture2dSource>; 6]>,
 }
