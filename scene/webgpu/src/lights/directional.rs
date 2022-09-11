@@ -38,11 +38,11 @@ impl ShaderLight for DirectionalLightShaderInfo {
 }
 
 impl WebGPUSceneLight for SceneItemRef<DirectionalLight> {
-  fn collect<'a>(&self, sys: &'a mut ForwardLightingSystem) {
+  fn collect(&self, sys: &mut ForwardLightingSystem) {
     let lights = sys
       .lights_collections
       .entry(self.type_id())
-      .or_insert_with(|| Box::new(LightList::<DirectionalLightShaderInfo>::new()));
+      .or_insert_with(|| Box::new(LightList::<DirectionalLightShaderInfo>::default()));
     let lights = lights
       .as_any_mut()
       .downcast_mut::<LightList<DirectionalLightShaderInfo>>()

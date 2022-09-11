@@ -4,7 +4,7 @@ pub use directional::*;
 use crate::*;
 
 pub trait WebGPUSceneLight: Any {
-  fn collect<'a>(&self, res: &'a mut ForwardLightingSystem);
+  fn collect(&self, res: &mut ForwardLightingSystem);
 }
 
 #[derive(Copy, Clone, ShaderStruct)]

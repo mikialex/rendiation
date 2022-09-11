@@ -95,22 +95,10 @@ impl ForwardLightingSystem {
   }
 }
 
+#[derive(Default)]
 pub struct LightList<T: ShaderLight> {
   pub lights: Vec<T>,
   pub lights_gpu: Option<UniformBufferDataView<Shader140Array<T, 32>>>,
-}
-
-impl<T: ShaderLight> LightList<T> {
-  pub fn new() -> Self
-  where
-    T: Default,
-  {
-    let lights = Default::default();
-    Self {
-      lights,
-      lights_gpu: None,
-    }
-  }
 }
 
 pub trait LightCollectionBase {
