@@ -18,34 +18,34 @@ use std::ops::{AddAssign, DivAssign, MulAssign, RemAssign, SubAssign};
 { 
   ($m11:expr, $m12:expr, 
    $m21:expr, $m22:expr) =>
-	{
-		rendiation_algebra::Mat2::new(
-			$m11, $m12,
-			$m21, $m22,
-		)
-	};
-	($m11:expr, $m12:expr, $m13:expr, 
-	 $m21:expr, $m22:expr, $m23:expr, 
-	 $m31:expr, $m32:expr, $m33:expr) =>
-	{
-		rendiation_algebra::Mat3::new(
-			$m11, $m12, $m13,
-			$m21, $m22, $m23,
-			$m31, $m32, $m33
-		)
-	};
-	($m11:expr, $m12:expr, $m13:expr, $m14:expr, 
-	 $m21:expr, $m22:expr, $m23:expr, $m24:expr, 
-	 $m31:expr, $m32:expr, $m33:expr, $m34:expr,
-	 $m41:expr, $m42:expr, $m43:expr, $m44:expr) =>
-	{
-		rendiation_algebra::Mat4::new(
-			$m11, $m12, $m13, $m14,
-			$m21, $m22, $m23, $m24,
-			$m31, $m32, $m33, $m34,
-			$m41, $m42, $m43, $m44,
-		)
-	};
+  {
+    rendiation_algebra::Mat2::new(
+      $m11, $m12,
+      $m21, $m22,
+    )
+  };
+  ($m11:expr, $m12:expr, $m13:expr, 
+   $m21:expr, $m22:expr, $m23:expr, 
+   $m31:expr, $m32:expr, $m33:expr) =>
+  {
+    rendiation_algebra::Mat3::new(
+      $m11, $m12, $m13,
+      $m21, $m22, $m23,
+      $m31, $m32, $m33
+    )
+  };
+  ($m11:expr, $m12:expr, $m13:expr, $m14:expr, 
+   $m21:expr, $m22:expr, $m23:expr, $m24:expr, 
+   $m31:expr, $m32:expr, $m33:expr, $m34:expr,
+   $m41:expr, $m42:expr, $m43:expr, $m44:expr) =>
+  {
+    rendiation_algebra::Mat4::new(
+      $m11, $m12, $m13, $m14,
+      $m21, $m22, $m23, $m24,
+      $m31, $m32, $m33, $m34,
+      $m41, $m42, $m43, $m44,
+    )
+  };
 }
 
 macro_rules! impl_matrix {
