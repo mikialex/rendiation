@@ -42,12 +42,12 @@ impl Deref for GPURenderPipeline {
 
 pub fn create_bindgroup_layout_by_node_ty<'a>(
   device: &GPUDevice,
-  iter: impl Iterator<Item = (&'a ShaderValueType, gpu::ShaderStages)>,
+  iter: impl Iterator<Item = &'a ShaderGraphBindEntry>,
 ) -> GPUBindGroupLayout {
   let entries: Vec<_> = iter
     .enumerate()
-    .map(|(i, (ty, visibility))| {
-      let ty = match ty {
+    .map(|(i, entry)| {
+      let ty = match entry.ty {
         ShaderValueType::Fixed(_) => gpu::BindingType::Buffer {
           ty: gpu::BufferBindingType::Uniform,
           has_dynamic_offset: false,
@@ -60,13 +60,10 @@ pub fn create_bindgroup_layout_by_node_ty<'a>(
           sample_type,
         } => gpu::BindingType::Texture {
           multisampled: false,
-          sample_type: *sample_type,
-          view_dimension: *dimension,
+          sample_type,
+          view_dimension: dimension,
         },
         ShaderValueType::Never => unreachable!(),
-        ShaderValueType::SamplerCombinedTexture => {
-          todo!()
-        }
         ShaderValueType::CompareSampler => {
           gpu::BindingType::Sampler(gpu::SamplerBindingType::Comparison)
         }
@@ -74,7 +71,7 @@ pub fn create_bindgroup_layout_by_node_ty<'a>(
 
       gpu::BindGroupLayoutEntry {
         binding: i as u32,
-        visibility,
+        visibility: gpu::ShaderStages::VERTEX_FRAGMENT,
         ty,
         count: None,
       }
@@ -126,19 +123,7 @@ impl GPUDevice {
     let layouts: Vec<_> = bindings
       .bindings
       .iter()
-      .map(|binding| {
-        let iter = binding.bindings.iter().map(|(ty, vis)| {
-          let visibility = match vis.get() {
-            ShaderStageVisibility::Vertex => gpu::ShaderStages::VERTEX,
-            ShaderStageVisibility::Fragment => gpu::ShaderStages::FRAGMENT,
-            ShaderStageVisibility::Both => gpu::ShaderStages::VERTEX_FRAGMENT,
-            ShaderStageVisibility::None => gpu::ShaderStages::NONE,
-          };
-          (ty, visibility)
-        });
-
-        create_bindgroup_layout_by_node_ty(self, iter)
-      })
+      .map(|binding| create_bindgroup_layout_by_node_ty(self, binding.bindings.iter()))
       .collect();
 
     let layouts_ref: Vec<_> = layouts.iter().map(|l| l.inner.as_ref()).collect();

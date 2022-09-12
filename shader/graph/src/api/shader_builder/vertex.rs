@@ -27,7 +27,7 @@ pub struct ShaderGraphVertexBuilder {
   pub primitive_state: PrimitiveState,
 
   // user semantic vertex
-  registry: SemanticRegistry,
+  pub(crate) registry: SemanticRegistry,
 
   // user vertex out
   pub vertex_out: HashMap<TypeId, VertexIOInfo>,

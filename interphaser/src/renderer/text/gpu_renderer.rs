@@ -67,7 +67,7 @@ impl TextWebGPURenderer {
       entries: &[
         webgpu::BindGroupLayoutEntry {
           binding: 0,
-          visibility: webgpu::ShaderStages::VERTEX,
+          visibility: webgpu::ShaderStages::VERTEX_FRAGMENT,
           ty: webgpu::BindingType::Buffer {
             ty: webgpu::BufferBindingType::Uniform,
             has_dynamic_offset: false,
@@ -77,13 +77,13 @@ impl TextWebGPURenderer {
         },
         webgpu::BindGroupLayoutEntry {
           binding: 1,
-          visibility: webgpu::ShaderStages::FRAGMENT,
+          visibility: webgpu::ShaderStages::VERTEX_FRAGMENT,
           ty: webgpu::BindingType::Sampler(webgpu::SamplerBindingType::Filtering),
           count: None,
         },
         webgpu::BindGroupLayoutEntry {
           binding: 2,
-          visibility: webgpu::ShaderStages::FRAGMENT,
+          visibility: webgpu::ShaderStages::VERTEX_FRAGMENT,
           ty: webgpu::BindingType::Texture {
             sample_type: webgpu::TextureSampleType::Float { filterable: true },
             view_dimension: webgpu::TextureViewDimension::D2,

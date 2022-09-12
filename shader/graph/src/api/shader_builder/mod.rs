@@ -178,6 +178,13 @@ impl SemanticRegistry {
       .ok_or(ShaderGraphBuildError::MissingRequiredDependency(name))
   }
 
+  pub fn reg<T: SemanticVertexShaderValue + SemanticFragmentShaderValue>(
+    &mut self,
+    node: impl Into<Node<<T as SemanticVertexShaderValue>::ValueType>>,
+  ) {
+    self.register(TypeId::of::<T>(), node.into().cast_untyped_node());
+  }
+
   pub fn register(&mut self, id: TypeId, node: NodeUntyped) -> &NodeMutable<AnyType> {
     let node = node.mutable();
     self.registered.insert(id, node);
@@ -231,9 +238,9 @@ pub(crate) fn set_current_building(current: Option<ShaderStages>) {
   graph.current = current
 }
 
-pub(crate) fn get_current_stage_unwrap() -> ShaderStages {
+pub(crate) fn get_current_stage() -> Option<ShaderStages> {
   let graph = IN_BUILDING_SHADER_GRAPH.get_mut().as_mut().unwrap();
-  graph.current.unwrap()
+  graph.current
 }
 
 pub(crate) fn set_build_graph() {
