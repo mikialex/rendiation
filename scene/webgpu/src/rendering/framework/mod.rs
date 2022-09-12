@@ -7,10 +7,10 @@ pub use attachment::*;
 use crate::*;
 
 pub struct FrameCtx<'a> {
+  pub gpu: &'a GPU,
   pool: &'a ResourcePool,
   msaa_sample_count: u32,
   frame_size: Size,
-  gpu: &'a GPU,
   encoder: GPUCommandEncoder,
   resources: &'a mut GPUResourceCache,
 }

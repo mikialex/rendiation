@@ -37,18 +37,18 @@ impl ShaderGraphProvider for FatlineMaterialGPU {
     builder: &mut ShaderGraphRenderPipelineBuilder,
   ) -> Result<(), ShaderGraphBuildError> {
     builder.vertex(|builder, binding| {
-      let uv = builder.query::<GeometryUV>()?.get();
-      let color_with_alpha = builder.query::<GeometryColorWithAlpha>()?.get();
+      let uv = builder.query::<GeometryUV>()?;
+      let color_with_alpha = builder.query::<GeometryColorWithAlpha>()?;
       let material = binding.uniform_by(&self.uniform, SB::Material).expand();
 
       let vertex_position = fatline_vertex(
-        builder.query::<CameraProjectionMatrix>()?.get(),
-        builder.query::<CameraViewMatrix>()?.get(),
-        builder.query::<WorldMatrix>()?.get(),
-        builder.query::<FatLineStart>()?.get(),
-        builder.query::<FatLineEnd>()?.get(),
-        builder.query::<GeometryPosition>()?.get(),
-        builder.query::<RenderBufferSize>()?.get(),
+        builder.query::<CameraProjectionMatrix>()?,
+        builder.query::<CameraViewMatrix>()?,
+        builder.query::<WorldMatrix>()?,
+        builder.query::<FatLineStart>()?,
+        builder.query::<FatLineEnd>()?,
+        builder.query::<GeometryPosition>()?,
+        builder.query::<RenderBufferSize>()?,
         material.width,
       );
 
@@ -59,8 +59,8 @@ impl ShaderGraphProvider for FatlineMaterialGPU {
     })?;
 
     builder.fragment(|builder, _| {
-      let uv = builder.query::<FragmentUv>()?.get();
-      let color = builder.query::<FragmentColorAndAlpha>()?.get();
+      let uv = builder.query::<FragmentUv>()?;
+      let color = builder.query::<FragmentColorAndAlpha>()?;
 
       if_by(discard_fatline_round_corner(uv), || {
         builder.discard();

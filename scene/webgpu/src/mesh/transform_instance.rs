@@ -28,15 +28,15 @@ impl<M: WebGPUMesh> ShaderGraphProvider for TransformInstanceGPU<M> {
     builder.vertex(|builder, _| {
       builder.register_vertex::<ShaderMat4VertexInput>(VertexStepMode::Instance);
 
-      let world_mat = builder.query::<TransformInstanceMat>()?.get();
+      let world_mat = builder.query::<TransformInstanceMat>()?;
       let world_normal_mat: Node<Mat3<f32>> = world_mat.into();
       let world_normal_mat = world_normal_mat.inverse().transpose();
 
-      if let Ok(position) = builder.query::<GeometryPosition>() {
+      if let Ok(position) = builder.query_mut::<GeometryPosition>() {
         position.set((world_mat * (position.get(), 1.).into()).xyz())
       }
 
-      if let Ok(normal) = builder.query::<GeometryNormal>() {
+      if let Ok(normal) = builder.query_mut::<GeometryNormal>() {
         normal.set(world_normal_mat * normal.get())
       }
 

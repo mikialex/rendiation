@@ -99,8 +99,8 @@ impl<'a, T> ShaderGraphProvider for HighLightComposeTask<'a, T> {
       let mask = binding.uniform_by(&self.mask, SB::Material);
       let sampler = binding.uniform::<GPUSamplerView>(SB::Material);
 
-      let uv = builder.query::<FragmentUv>()?.get();
-      let size = builder.query::<RenderBufferSize>()?.get();
+      let uv = builder.query::<FragmentUv>()?;
+      let size = builder.query::<RenderBufferSize>()?;
 
       builder.set_fragment_out(
         0,

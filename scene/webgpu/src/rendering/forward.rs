@@ -36,6 +36,29 @@ pub struct ForwardLightingSystem {
   pub lights_collections: HashMap<TypeId, Box<dyn ForwardLightCollection>>,
 }
 
+impl ShaderPassBuilder for ForwardLightingSystem {
+  fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
+    for lights in self.lights_collections.values() {
+      lights.setup_pass(ctx)
+    }
+  }
+}
+
+impl ShaderGraphProvider for ForwardLightingSystem {
+  fn post_build(
+    &self,
+    builder: &mut ShaderGraphRenderPipelineBuilder,
+  ) -> Result<(), ShaderGraphBuildError> {
+    self.compute_lights(builder, &PhysicalShading)?;
+    // todo get current shading
+    // todo tonemap, write channel
+    builder.fragment(|builder, _| {
+      let ldr = builder.query::<LDRLightResult>()?;
+      builder.set_fragment_out(0, (ldr, 1.))
+    })
+  }
+}
+
 pub trait ForwardLightCollection: LightCollectionCompute + LightCollectionBase + Any {
   fn as_any_mut(&mut self) -> &mut dyn Any;
 }
@@ -66,12 +89,12 @@ impl ForwardLightingSystem {
     shading_impl: &dyn LightableSurfaceShadingDyn,
   ) -> Result<(), ShaderGraphBuildError> {
     builder.fragment(|builder, binding| {
-      let camera_position = builder.query::<CameraWorldMatrix>()?.get().position();
-      let geom_position = builder.query::<FragmentWorldPosition>()?.get();
+      let camera_position = builder.query::<CameraWorldMatrix>()?.position();
+      let geom_position = builder.query::<FragmentWorldPosition>()?;
 
       let geom_ctx = ExpandedNode::<ShaderLightingGeometricCtx> {
         position: geom_position,
-        normal: builder.query::<FragmentWorldNormal>()?.get(),
+        normal: builder.query::<FragmentWorldNormal>()?,
         view_dir: camera_position - geom_position,
       };
       let shading = shading_impl.construct_shading_dyn(builder);

@@ -64,7 +64,7 @@ fn gen_vertex_shader(
       code.write_ln("var out: VertexOut;");
 
       if let Ok(position) = vertex.query::<ClipPosition>() {
-        let root = gen_node_with_dep_in_entry(position.get().handle(), &builder, &mut cx, code);
+        let root = gen_node_with_dep_in_entry(position.handle(), &builder, &mut cx, code);
         code.write_ln(format!("out.position = {root};"));
       }
 

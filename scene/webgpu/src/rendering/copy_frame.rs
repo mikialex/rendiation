@@ -54,7 +54,7 @@ impl<T> ShaderGraphProvider for CopyFrame<T> {
       let sampler = binding.uniform_by(&self.sampler, SB::Material);
       let source = binding.uniform_by(&self.source, SB::Material);
 
-      let uv = builder.query::<FragmentUv>()?.get();
+      let uv = builder.query::<FragmentUv>()?;
       let value = source.sample(sampler, uv);
       builder.set_fragment_out(0, value)
     })

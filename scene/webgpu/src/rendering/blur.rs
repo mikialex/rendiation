@@ -66,8 +66,8 @@ impl<'a, T> ShaderGraphProvider for LinearBlurTask<'a, T> {
       let input = binding.uniform_by(&self.input, SB::Material);
       let sampler = binding.uniform::<GPUSamplerView>(SB::Material);
 
-      let uv = builder.query::<FragmentUv>()?.get();
-      let size = builder.query::<TexelSize>()?.get();
+      let uv = builder.query::<FragmentUv>()?;
+      let size = builder.query::<TexelSize>()?;
 
       let blurred = linear_blur(
         config.direction,

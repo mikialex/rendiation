@@ -33,14 +33,14 @@ impl DeferGBufferSchema<PhysicalShading> for MaterialDeferPassResult {
 
     let sampler = binding.uniform::<GPUSamplerView>(SB::Material);
 
-    let uv = builder.query::<FragmentUv>()?.get();
+    let uv = builder.query::<FragmentUv>()?;
 
     let world_position = world_position.sample(sampler, uv).xyz();
     let normal = normal.sample(sampler, uv).xyz();
     let material1 = material1.sample(sampler, uv);
     let material2 = material2.sample(sampler, uv);
 
-    let camera_position = builder.query::<CameraWorldMatrix>()?.get().position();
+    let camera_position = builder.query::<CameraWorldMatrix>()?.position();
 
     let geom_ctx = ExpandedNode::<ShaderLightingGeometricCtx> {
       position: world_position,
@@ -107,8 +107,8 @@ impl ShaderGraphProvider for GBufferEncodeTaskDispatcher {
     builder.fragment(|builder, _| {
       // collect dependency
       let shading = PhysicalShading::construct_shading(builder);
-      let world_position = builder.query::<FragmentWorldPosition>()?.get();
-      let world_normal = builder.query::<FragmentWorldNormal>()?.get();
+      let world_position = builder.query::<FragmentWorldPosition>()?;
+      let world_normal = builder.query::<FragmentWorldNormal>()?;
       // override channel writes
       builder.set_fragment_out(0, (world_position, 1.))?;
       builder.set_fragment_out(1, (world_normal, 1.))?;

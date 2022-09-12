@@ -34,7 +34,7 @@ impl ShaderGraphProvider for ToneMap {
   ) -> Result<(), ShaderGraphBuildError> {
     builder.fragment(|builder, binding| {
       let exposure = binding.uniform_by(&self.exposure, SB::Material);
-      let hdr = builder.query::<HDRLightResult>()?.get();
+      let hdr = builder.query::<HDRLightResult>()?;
 
       let mapped = match self.ty {
         ToneMapType::Linear => LinearToneMapping(hdr, exposure),
@@ -152,7 +152,7 @@ impl<'a, T> ShaderGraphProvider for ToneMapTask<'a, T> {
       let hdr = binding.uniform_by(&self.hdr, SB::Material);
       let sampler = binding.uniform::<GPUSamplerView>(SB::Material);
 
-      let uv = builder.query::<FragmentUv>()?.get();
+      let uv = builder.query::<FragmentUv>()?;
       let hdr = hdr.sample(sampler, uv).xyz();
 
       builder.register::<HDRLightResult>(hdr);
@@ -162,7 +162,7 @@ impl<'a, T> ShaderGraphProvider for ToneMapTask<'a, T> {
     self.config.build(builder)?;
 
     builder.fragment(|builder, _| {
-      let ldr = builder.query::<LDRLightResult>()?.get();
+      let ldr = builder.query::<LDRLightResult>()?;
       builder.set_fragment_out(0, (ldr, 1.))
     })
   }

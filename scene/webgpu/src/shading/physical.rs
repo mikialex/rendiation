@@ -21,9 +21,9 @@ impl LightableSurfaceShading for PhysicalShading {
     builder: &mut ShaderGraphFragmentBuilder,
   ) -> ExpandedNode<Self::ShaderStruct> {
     ExpandedNode::<Self::ShaderStruct> {
-      diffuse: builder.query_or_insert_default::<ColorChannel>().get(),
-      specular: builder.query_or_insert_default::<SpecularChannel>().get(),
-      roughness: builder.query_or_insert_default::<RoughnessChannel>().get(),
+      diffuse: builder.query_or_insert_default::<ColorChannel>(),
+      specular: builder.query_or_insert_default::<SpecularChannel>(),
+      roughness: builder.query_or_insert_default::<RoughnessChannel>(),
     }
   }
 

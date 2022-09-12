@@ -11,7 +11,7 @@ impl ShaderGraphProvider for Test {
     builder.vertex(|builder, _| {
       let a = consts(1.) + consts(2.);
       let a: Node<_> = (Vec3::zero(), a).into();
-      let position = builder.query_or_insert_default::<ClipPosition>();
+      let position = builder.query_or_insert_default::<ClipPosition>().mutable();
       position.set(a);
 
       position.set(Vec4::zero());
@@ -35,6 +35,8 @@ impl ShaderGraphProvider for Test {
         let r: Node<Vec4<f32>> = (Vec3::zero(), a.get()).into();
         position.set(r);
       });
+
+      builder.register::<ClipPosition>(position.get());
 
       Ok(())
     })

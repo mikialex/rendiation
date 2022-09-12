@@ -56,7 +56,7 @@ impl ShaderGraphProvider for TransformGPU {
   ) -> Result<(), ShaderGraphBuildError> {
     builder.vertex(|builder, binding| {
       let model = binding.uniform_by(&self.ubo, SB::Object).expand();
-      let position = builder.query::<GeometryPosition>()?.get();
+      let position = builder.query::<GeometryPosition>()?;
       let position = model.world_matrix * (position, 1.).into();
 
       builder.register::<WorldMatrix>(model.world_matrix);

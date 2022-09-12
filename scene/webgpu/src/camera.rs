@@ -80,7 +80,7 @@ impl ShaderGraphProvider for CameraGPU {
 
     builder.vertex(|builder, _| {
       let camera = camera.using().expand();
-      let position = builder.query::<WorldVertexPosition>()?.get();
+      let position = builder.query::<WorldVertexPosition>()?;
       builder.register::<ClipPosition>(camera.projection * camera.view * (position, 1.).into());
 
       Ok(())

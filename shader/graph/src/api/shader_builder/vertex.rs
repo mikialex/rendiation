@@ -83,7 +83,7 @@ impl ShaderGraphVertexBuilder {
       })
   }
 
-  pub fn query<T: SemanticVertexShaderValue>(
+  pub fn query_mut<T: SemanticVertexShaderValue>(
     &self,
   ) -> Result<&NodeMutable<T::ValueType>, ShaderGraphBuildError> {
     self
@@ -92,13 +92,19 @@ impl ShaderGraphVertexBuilder {
       .map(|n| unsafe { std::mem::transmute(n) })
   }
 
-  pub fn query_or_insert_default<T>(&mut self) -> &NodeMutable<T::ValueType>
+  pub fn query<T: SemanticVertexShaderValue>(
+    &self,
+  ) -> Result<Node<T::ValueType>, ShaderGraphBuildError> {
+    Ok(self.query_mut::<T>()?.get())
+  }
+
+  pub fn query_or_insert_default<T>(&mut self) -> Node<T::ValueType>
   where
     T: SemanticVertexShaderValue,
     T::ValueType: PrimitiveShaderGraphNodeType,
   {
     if let Ok(n) = self.registry.query(TypeId::of::<T>(), T::NAME) {
-      unsafe { std::mem::transmute(n) }
+      unsafe { n.get().cast_type() }
     } else {
       let default: T::ValueType = Default::default();
       self.register::<T>(default)
@@ -108,11 +114,11 @@ impl ShaderGraphVertexBuilder {
   pub fn register<T: SemanticVertexShaderValue>(
     &mut self,
     node: impl Into<Node<T::ValueType>>,
-  ) -> &NodeMutable<T::ValueType> {
+  ) -> Node<T::ValueType> {
     let n = self
       .registry
-      .register(TypeId::of::<T>(), node.into().cast_untyped_node());
-    unsafe { std::mem::transmute(n) }
+      .register(TypeId::of::<T>(), node.into().cast_untyped_node()).get();
+    unsafe { n.cast_type() }
   }
 
   /// return registered location
@@ -241,10 +247,10 @@ impl VertexInBuilder for Mat4<f32> {
     builder.push(format, vertex_builder.register_vertex_in::<SemanticShaderMat4VertexInColum<S, 2>>());
     builder.push(format, vertex_builder.register_vertex_in::<SemanticShaderMat4VertexInColum<S, 3>>());
     
-    let c1 = vertex_builder.query::<SemanticShaderMat4VertexInColum<S, 0>>().unwrap().get();
-    let c2 = vertex_builder.query::<SemanticShaderMat4VertexInColum<S, 1>>().unwrap().get();
-    let c3 = vertex_builder.query::<SemanticShaderMat4VertexInColum<S, 2>>().unwrap().get();
-    let c4 = vertex_builder.query::<SemanticShaderMat4VertexInColum<S, 3>>().unwrap().get();
+    let c1 = vertex_builder.query::<SemanticShaderMat4VertexInColum<S, 0>>().unwrap();
+    let c2 = vertex_builder.query::<SemanticShaderMat4VertexInColum<S, 1>>().unwrap();
+    let c3 = vertex_builder.query::<SemanticShaderMat4VertexInColum<S, 2>>().unwrap();
+    let c4 = vertex_builder.query::<SemanticShaderMat4VertexInColum<S, 3>>().unwrap();
 
     let mat: Node<Self> = (c1, c2, c3, c4).into();
     vertex_builder.register::<S>(mat);

@@ -28,6 +28,8 @@ impl ViewerPipeline {
   ) {
     let scene = &mut content.scene;
 
+    self.forward_lights.update_by_scene(scene, ctx.gpu);
+
     let mut scene_depth = depth_attachment().request(ctx);
 
     let mut msaa_color = ctx.multisampled_attachment().request(ctx);

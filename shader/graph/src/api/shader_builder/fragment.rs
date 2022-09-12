@@ -21,14 +21,14 @@ impl<'a> ShaderGraphFragmentBuilderView<'a> {
     T: SemanticFragmentShaderValue<ValueType = <V as SemanticVertexShaderValue>::ValueType>,
   {
     if let Ok(r) = self.query::<T>() {
-      return r.get();
+      return r;
     }
 
     set_current_building(ShaderStages::Vertex.into());
     let is_ok = {
       let v_node = self.vertex.query::<V>();
       if let Ok(v_node) = v_node {
-        self.vertex.set_vertex_out::<T>(v_node.get());
+        self.vertex.set_vertex_out::<T>(v_node);
         true
       } else {
         false
@@ -39,9 +39,9 @@ impl<'a> ShaderGraphFragmentBuilderView<'a> {
     set_current_building(ShaderStages::Fragment.into());
 
     if is_ok {
-      self.query::<T>().unwrap().get()
+      self.query::<T>().unwrap()
     } else {
-      self.query_or_insert_default::<T>().get()
+      self.query_or_insert_default::<T>()
     }
   }
 }
@@ -103,7 +103,7 @@ impl ShaderGraphFragmentBuilder {
     ShaderSideEffectNode::Termination.insert_graph_bottom();
   }
 
-  pub fn query<T: SemanticFragmentShaderValue>(
+  pub fn query_mut<T: SemanticFragmentShaderValue>(
     &self,
   ) -> Result<&NodeMutable<T::ValueType>, ShaderGraphBuildError> {
     self
@@ -112,13 +112,19 @@ impl ShaderGraphFragmentBuilder {
       .map(|n| unsafe { std::mem::transmute(n) })
   }
 
-  pub fn query_or_insert_default<T>(&mut self) -> &NodeMutable<T::ValueType>
+  pub fn query<T: SemanticFragmentShaderValue>(
+    &self,
+  ) -> Result<Node<T::ValueType>, ShaderGraphBuildError> {
+    Ok(self.query_mut::<T>()?.get())
+  }
+
+  pub fn query_or_insert_default<T>(&mut self) -> Node<T::ValueType>
   where
     T: SemanticFragmentShaderValue,
     T::ValueType: PrimitiveShaderGraphNodeType,
   {
     if let Ok(n) = self.registry.query(TypeId::of::<T>(), T::NAME) {
-      unsafe { std::mem::transmute(n) }
+      unsafe { n.get().cast_type() }
     } else {
       let default: T::ValueType = Default::default();
       self.register::<T>(default)
@@ -128,11 +134,11 @@ impl ShaderGraphFragmentBuilder {
   pub fn register<T: SemanticFragmentShaderValue>(
     &mut self,
     node: impl Into<Node<T::ValueType>>,
-  ) -> &NodeMutable<T::ValueType> {
+  ) -> Node<T::ValueType> {
     let n = self
       .registry
       .register(TypeId::of::<T>(), node.into().cast_untyped_node());
-    unsafe { std::mem::transmute(n) }
+    unsafe { n.get().cast_type() }
   }
 
   pub fn get_fragment_in<T>(
