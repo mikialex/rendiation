@@ -68,6 +68,7 @@ impl<T: Scalar> SquareMatrix<T> for Mat4<T> {
     let m = self;
     let inv_det = T::one() / det;
 
+    #[rustfmt::skip]
     Self {
       a1:  inv_det * (m.b2 * (m.c3 * m.d4 - m.c4 * m.d3) + m.b3 * (m.c4 * m.d2 - m.c2 * m.d4) + m.b4 * (m.c2 * m.d3 - m.c3 * m.d2)),
       a2: -inv_det * (m.a2 * (m.c3 * m.d4 - m.c4 * m.d3) + m.a3 * (m.c4 * m.d2 - m.c2 * m.d4) + m.a4 * (m.c2 * m.d3 - m.c3 * m.d2)),
@@ -504,8 +505,8 @@ impl<T: Scalar> Mat4<T> {
   pub fn decompose(&self) -> (Vec3<T>, Quat<T>, Vec3<T>) {
     let mut scale = self.get_scale();
 
-		// if determine is negative, we need to invert one scale
-		if self.det() < T::zero() {
+    // if determine is negative, we need to invert one scale
+    if self.det() < T::zero() {
       scale.x *= -T::one()
     }
 

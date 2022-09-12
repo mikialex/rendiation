@@ -65,7 +65,7 @@ where
   fn mul(self, v: Vec2<T>) -> Vec2<T> {
     Vec2 {
       x: v.x * self.a1 + v.y * self.b1,
-      y: v.x * self.a2 + v.y * self.b2 
+      y: v.x * self.a2 + v.y * self.b2,
     }
   }
 }

@@ -90,7 +90,6 @@ fn build_mesh() {
   ));
   assert_eq!(err.is_err(), true);
 
-  
   let err = mesh.build_triangle_face(Triangle::new(
     BuildingVertex::Attached(b),
     BuildingVertex::Detached("_"),

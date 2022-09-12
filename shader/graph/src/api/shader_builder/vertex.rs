@@ -117,7 +117,8 @@ impl ShaderGraphVertexBuilder {
   ) -> Node<T::ValueType> {
     let n = self
       .registry
-      .register(TypeId::of::<T>(), node.into().cast_untyped_node()).get();
+      .register(TypeId::of::<T>(), node.into().cast_untyped_node())
+      .get();
     unsafe { n.cast_type() }
   }
 
@@ -149,10 +150,8 @@ impl ShaderGraphVertexBuilder {
     self.vertex_layouts.push(layout)
   }
 
-  pub fn set_vertex_out<T>(
-    &mut self,
-    node: impl Into<Node<T::ValueType>>,
-  ) where
+  pub fn set_vertex_out<T>(&mut self, node: impl Into<Node<T::ValueType>>)
+  where
     T: SemanticFragmentShaderValue,
     T::ValueType: PrimitiveShaderGraphNodeType,
   {
@@ -266,4 +265,3 @@ impl<S: 'static, const N: usize> SemanticVertexShaderValue
 {
   type ValueType = Vec4<f32>;
 }
-

@@ -1,4 +1,3 @@
-
 #[macro_export]
 macro_rules! impl_as_ref_self {
   ($ArrayN:ident) => {
@@ -7,13 +6,13 @@ macro_rules! impl_as_ref_self {
         self
       }
     }
-    
+
     impl<T> AsMut<Self> for $ArrayN<T> {
       fn as_mut(&mut self) -> &mut Self {
         self
       }
-    }    
-  }
+    }
+  };
 }
 
 /// Generate array conversion implementations for a compound array type
