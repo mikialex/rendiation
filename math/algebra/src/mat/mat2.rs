@@ -18,7 +18,7 @@ impl<T: Scalar> SquareMatrix<T> for Mat2<T> {
     let (a1, a2) = (self.a1, self.b1);
     let (b1, b2) = (self.a2, self.b2);
     #[rustfmt::skip]
-    Mat2 { 
+    Mat2 {
       a1, a2,
       b1, b2,
     }

@@ -19,7 +19,7 @@ impl<T: Scalar> SquareMatrix<T> for Mat3<T> {
     #[rustfmt::skip]
     Mat3::new(
       self.a1, self.b1, self.c1,
-      self.a2, self.b2, self.c2, 
+      self.a2, self.b2, self.c2,
       self.a3, self.b3, self.c3,
     )
   }
@@ -188,8 +188,8 @@ where
 
     #[rustfmt::skip]
     Mat3::new(
-      a1, a2, a3, 
-      b1, b2, b3, 
+      a1, a2, a3,
+      b1, b2, b3,
       c1, c2, c3
     )
   }
@@ -211,8 +211,8 @@ where
 
     #[rustfmt::skip]
     Mat3::new(
-      a1, a2, a3, 
-      b1, b2, b3, 
+      a1, a2, a3,
+      b1, b2, b3,
       c1, c2, c3
     )
   }
@@ -234,8 +234,8 @@ where
 
     #[rustfmt::skip]
     Mat3::new(
-      a1, a2, a3, 
-      b1, b2, b3, 
+      a1, a2, a3,
+      b1, b2, b3,
       c1, c2, c3
     )
   }
@@ -266,8 +266,8 @@ where
 
     #[rustfmt::skip]
     Mat3::new(
-      a1, a2, a3, 
-      b1, b2, b3, 
+      a1, a2, a3,
+      b1, b2, b3,
       c1, c2, c3
     )
   }
@@ -280,8 +280,8 @@ where
 
     #[rustfmt::skip]
     Mat3::new(
-      a1, a2, a3, 
-      b1, b2, b3, 
+      a1, a2, a3,
+      b1, b2, b3,
       c1, c2, c3
     )
   }
@@ -294,8 +294,8 @@ where
 
     #[rustfmt::skip]
     Mat3::new(
-      a1, a2, a3, 
-      b1, b2, b3, 
+      a1, a2, a3,
+      b1, b2, b3,
       c1, c2, c3
     )
   }
@@ -356,7 +356,7 @@ impl<T> Mat3<T> {
   pub fn to_mat2(self) -> Mat2<T> {
     #[rustfmt::skip]
     Mat2 {
-      a1: self.a1, a2: self.a2, 
+      a1: self.a1, a2: self.a2,
       b1: self.b1, b2: self.b2,
     }
   }

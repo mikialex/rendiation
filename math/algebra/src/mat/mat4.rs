@@ -31,7 +31,7 @@ impl<T: Scalar> SquareMatrix<T> for Mat4<T> {
     let m = self;
 
       m.a1 * m.b2 * m.c3 * m.d4
-    - m.a1 * m.b2 * m.c4 * m.d3 
+    - m.a1 * m.b2 * m.c4 * m.d3
     + m.a1 * m.b3 * m.c4 * m.d2
     - m.a1 * m.b3 * m.c2 * m.d4
     + m.a1 * m.b4 * m.c2 * m.d3
@@ -84,7 +84,7 @@ impl<T: Scalar> SquareMatrix<T> for Mat4<T> {
       c2: -inv_det * (m.a1 * (m.c2 * m.d4 - m.c4 * m.d2) + m.a2 * (m.c4 * m.d1 - m.c1 * m.d4) + m.a4 * (m.c1 * m.d2 - m.c2 * m.d1)),
       c3:  inv_det * (m.a1 * (m.b2 * m.d4 - m.b4 * m.d2) + m.a2 * (m.b4 * m.d1 - m.b1 * m.d4) + m.a4 * (m.b1 * m.d2 - m.b2 * m.d1)),
       c4: -inv_det * (m.a1 * (m.b2 * m.c4 - m.b4 * m.c2) + m.a2 * (m.b4 * m.c1 - m.b1 * m.c4) + m.a4 * (m.b1 * m.c2 - m.b2 * m.c1)),
-      
+
       d1: -inv_det * (m.b1 * (m.c2 * m.d3 - m.c3 * m.d2) + m.b2 * (m.c3 * m.d1 - m.c1 * m.d3) + m.b3 * (m.c1 * m.d2 - m.c2 * m.d1)),
       d2:  inv_det * (m.a1 * (m.c2 * m.d3 - m.c3 * m.d2) + m.a2 * (m.c3 * m.d1 - m.c1 * m.d3) + m.a3 * (m.c1 * m.d2 - m.c2 * m.d1)),
       d3: -inv_det * (m.a1 * (m.b2 * m.d3 - m.b3 * m.d2) + m.a2 * (m.b3 * m.d1 - m.b1 * m.d3) + m.a3 * (m.b1 * m.d2 - m.b2 * m.d1)),
@@ -234,9 +234,9 @@ where
     let right = forward.cross(up);
     #[rustfmt::skip]
     Mat4::new(
-      right.x,    right.y,    right.z,     T::zero(), 
-      up.x,       up.y,       up.z,        T::zero(), 
-      forward.x,  forward.y,  forward.z,   T::zero(), 
+      right.x,    right.y,    right.z,     T::zero(),
+      up.x,       up.y,       up.z,        T::zero(),
+      forward.x,  forward.y,  forward.z,   T::zero(),
       position.x, position.y,  position.z, T::one(),
     )
   }
@@ -274,9 +274,9 @@ where
 
     #[rustfmt::skip]
     Mat4::new(
-      T::one(),   T::zero(), T::zero(), T::zero(), 
-      T::zero(),  cos,       sin,       T::zero(), 
-      T::zero(), -sin,       cos,       T::zero(), 
+      T::one(),   T::zero(), T::zero(), T::zero(),
+      T::zero(),  cos,       sin,       T::zero(),
+      T::zero(), -sin,       cos,       T::zero(),
       T::zero(),  T::zero(), T::zero(), T::one(),
     )
   }
@@ -286,9 +286,9 @@ where
 
     #[rustfmt::skip]
     Mat4::new(
-      cos,       T::zero(), -sin,       T::zero(), 
-      T::zero(), T::one(),   T::zero(), T::zero(), 
-      sin,       T::zero(),  cos,       T::zero(), 
+      cos,       T::zero(), -sin,       T::zero(),
+      T::zero(), T::one(),   T::zero(), T::zero(),
+      sin,       T::zero(),  cos,       T::zero(),
       T::zero(), T::zero(),  T::zero(), T::one(),
     )
   }
@@ -298,9 +298,9 @@ where
 
     #[rustfmt::skip]
     Mat4::new(
-      cos,       sin,       T::zero(), T::zero(), 
-     -sin,       cos,       T::zero(), T::zero(), 
-      T::zero(), T::zero(), T::one(),  T::zero(), 
+      cos,       sin,       T::zero(), T::zero(),
+     -sin,       cos,       T::zero(), T::zero(),
+      T::zero(), T::zero(), T::one(),  T::zero(),
       T::zero(), T::zero(), T::zero(), T::one(),
     )
   }
@@ -333,9 +333,9 @@ where
 
     #[rustfmt::skip]
     Mat4::new(
-      x,    zero, zero, zero, 
-      zero, y,    zero, zero, 
-      zero, zero, z,    zero, 
+      x,    zero, zero, zero,
+      zero, y,    zero, zero,
+      zero, zero, z,    zero,
       zero, zero, zero, one,
     )
   }
@@ -347,9 +347,9 @@ where
 
     #[rustfmt::skip]
     Mat4::new(
-      one,  zero, zero, zero, 
-      zero, one,  zero, zero, 
-      zero, zero, one,  zero, 
+      one,  zero, zero, zero,
+      zero, one,  zero, zero,
+      zero, zero, one,  zero,
       x,    y,    z,    one,
     )
   }
