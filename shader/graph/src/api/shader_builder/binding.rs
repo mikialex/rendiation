@@ -54,36 +54,40 @@ impl Default for ShaderGraphBindGroupBuilder {
 
 #[derive(Clone)]
 pub struct UniformNodePreparer<T> {
-  bindgroup_index: usize,
-  entry_index: usize,
   phantom: PhantomData<T>,
-  visibility_modifier: Rc<Cell<ShaderStageVisibility>>,
+  entry: ShaderGraphBindEntry,
 }
 
 impl<T: ShaderGraphNodeType> UniformNodePreparer<T> {
   pub fn using(&self) -> Node<T> {
-    match get_current_stage_unwrap() {
-      ShaderStages::Vertex => match self.visibility_modifier.get() {
-        ShaderStageVisibility::Fragment => {
-          self.visibility_modifier.set(ShaderStageVisibility::Both)
-        }
-        ShaderStageVisibility::None => self.visibility_modifier.set(ShaderStageVisibility::Vertex),
-        _ => {}
-      },
-      ShaderStages::Fragment => match self.visibility_modifier.get() {
-        ShaderStageVisibility::Vertex => self.visibility_modifier.set(ShaderStageVisibility::Both),
-        ShaderStageVisibility::None => self
-          .visibility_modifier
-          .set(ShaderStageVisibility::Fragment),
-        _ => {}
-      },
-    }
+    let node = match get_current_stage().unwrap() {
+      ShaderStages::Vertex => self.entry.vertex_node,
+      ShaderStages::Fragment => self.entry.fragment_node,
+    };
 
-    ShaderGraphInputNode::Uniform {
-      bindgroup_index: self.bindgroup_index,
-      entry_index: self.entry_index,
+    unsafe { node.into_node() }
+  }
+
+  #[must_use]
+  pub fn using_both(
+    self,
+    builder: &mut ShaderGraphRenderPipelineBuilder,
+    register: impl Fn(&mut SemanticRegistry, Node<T>),
+  ) -> Self {
+    unsafe {
+      set_current_building(ShaderStages::Vertex.into());
+      register(
+        &mut builder.vertex.registry,
+        self.entry.vertex_node.into_node(),
+      );
+      set_current_building(ShaderStages::Fragment.into());
+      register(
+        &mut builder.fragment.registry,
+        self.entry.fragment_node.into_node(),
+      );
+      set_current_building(None);
     }
-    .insert_graph()
+    self
   }
 }
 
@@ -98,15 +102,32 @@ impl ShaderGraphBindGroupBuilder {
     let entry_index = bindgroup.bindings.len();
     let ty = N::TYPE;
 
-    let visibility_modifier = Rc::new(Cell::new(ShaderStageVisibility::None));
-
-    bindgroup.bindings.push((ty, visibility_modifier.clone()));
-
-    UniformNodePreparer {
+    let node = ShaderGraphInputNode::Uniform {
       bindgroup_index,
       entry_index,
+    };
+
+    let current_stage = get_current_stage();
+
+    set_current_building(ShaderStages::Vertex.into());
+    let vertex_node = node.clone().insert_graph::<N>().handle();
+
+    set_current_building(ShaderStages::Fragment.into());
+    let fragment_node = node.insert_graph::<N>().handle();
+
+    set_current_building(current_stage);
+
+    let entry = ShaderGraphBindEntry {
+      ty,
+      vertex_node,
+      fragment_node,
+    };
+
+    bindgroup.bindings.push(entry);
+
+    UniformNodePreparer {
       phantom: Default::default(),
-      visibility_modifier,
+      entry,
     }
   }
 

@@ -40,10 +40,12 @@ impl DeferGBufferSchema<PhysicalShading> for MaterialDeferPassResult {
     let material1 = material1.sample(sampler, uv);
     let material2 = material2.sample(sampler, uv);
 
+    let camera_position = builder.query::<CameraWorldMatrix>()?.get().position();
+
     let geom_ctx = ExpandedNode::<ShaderLightingGeometricCtx> {
       position: world_position,
       normal,
-      view_dir: todo!(),
+      view_dir: camera_position - world_position,
     };
 
     let shading = ExpandedNode::<ShaderPhysicalShading> {

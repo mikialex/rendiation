@@ -276,7 +276,6 @@ pub enum ShaderValueType {
     dimension: TextureViewDimension,
     sample_type: TextureSampleType,
   },
-  SamplerCombinedTexture,
   Never,
 }
 
@@ -459,29 +458,12 @@ pub enum ShaderVaryingInterpolation {
 
 #[derive(Default, Clone)]
 pub struct ShaderGraphBindGroup {
-  pub bindings: Vec<(ShaderValueType, Rc<Cell<ShaderStageVisibility>>)>,
+  pub bindings: Vec<ShaderGraphBindEntry>,
 }
 
-// use bitset
 #[derive(Clone, Copy)]
-pub enum ShaderStageVisibility {
-  Vertex,
-  Fragment,
-  Both,
-  None,
-}
-
-impl ShaderStageVisibility {
-  pub fn is_visible_to(&self, stage: ShaderStages) -> bool {
-    match self {
-      ShaderStageVisibility::Vertex => {
-        matches!(stage, ShaderStages::Vertex)
-      }
-      ShaderStageVisibility::Fragment => {
-        matches!(stage, ShaderStages::Fragment)
-      }
-      ShaderStageVisibility::Both => true,
-      ShaderStageVisibility::None => false,
-    }
-  }
+pub struct ShaderGraphBindEntry {
+  pub ty: ShaderValueType,
+  pub vertex_node: ShaderGraphNodeRawHandle,
+  pub fragment_node: ShaderGraphNodeRawHandle,
 }

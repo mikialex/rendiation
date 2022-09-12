@@ -314,7 +314,7 @@ impl UIGlobalParameter {
       label: None,
       entries: &[webgpu::BindGroupLayoutEntry {
         binding: 0,
-        visibility: webgpu::ShaderStages::VERTEX,
+        visibility: webgpu::ShaderStages::VERTEX_FRAGMENT,
         ty: webgpu::BindingType::Buffer {
           has_dynamic_offset: false,
           min_binding_size: None,

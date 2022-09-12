@@ -460,7 +460,6 @@ fn gen_expr(data: &ShaderGraphNodeExpr, cx: &mut CodeGenCtx) -> String {
         let array = cx.get_node_gen_result_var(*array);
         let index = cx.get_node_gen_result_var(*entry);
         format!("{} {} {} {}", array, "[", index, "]")
-        
       }
     },
     ShaderGraphNodeExpr::FieldGet {
@@ -531,7 +530,7 @@ fn gen_uniform_structs(
   code: &mut CodeBuilder,
   cx: &mut CodeGenCtx,
   bindings: &ShaderGraphBindGroupBuilder,
-  stage: ShaderStages,
+  _stage: ShaderStages,
 ) {
   fn gen_uniform_structs_impl(
     code: &mut CodeBuilder,
@@ -561,12 +560,9 @@ fn gen_uniform_structs(
   }
 
   for g in &bindings.bindings {
-    for (ty, vis) in &g.bindings {
-      let vis = vis.get();
-      if vis.is_visible_to(stage) {
-        if let ShaderValueType::Fixed(ty) = ty {
-          gen_uniform_structs_impl(code, cx, ty)
-        }
+    for ShaderGraphBindEntry { ty, .. } in &g.bindings {
+      if let ShaderValueType::Fixed(ty) = ty {
+        gen_uniform_structs_impl(code, cx, ty)
       }
     }
   }
@@ -723,63 +719,31 @@ fn gen_bindings(
     .enumerate()
     .for_each(|(group_index, b)| {
       let mut item_index = 0;
-      b.bindings.iter().for_each(|entry| match entry.0 {
-        ShaderValueType::SamplerCombinedTexture => {
-          gen_bind_entry(
-            code,
-            &(
-              ShaderValueType::Texture {
-                dimension: TextureViewDimension::D2,
-                sample_type: TextureSampleType::Float { filterable: true },
-              },
-              entry.1.get(),
-            ),
-            group_index,
-            &mut item_index,
-            stage,
-          );
-          gen_bind_entry(
-            code,
-            &(ShaderValueType::Sampler, entry.1.get()),
-            group_index,
-            &mut item_index,
-            stage,
-          );
-        }
-        _ => {
-          gen_bind_entry(
-            code,
-            &(entry.0, entry.1.get()),
-            group_index,
-            &mut item_index,
-            stage,
-          );
-        }
-      });
+      b.bindings
+        .iter()
+        .for_each(|entry| gen_bind_entry(code, entry, group_index, &mut item_index, stage));
     })
 }
 
 fn gen_bind_entry(
   code: &mut CodeBuilder,
-  entry: &(ShaderValueType, ShaderStageVisibility),
+  entry: &ShaderGraphBindEntry,
   group_index: usize,
   item_index: &mut usize,
-  stage: ShaderStages,
+  _stage: ShaderStages,
 ) {
-  if entry.1.is_visible_to(stage) {
-    code.write_ln(format!(
-      "@group({}) @binding({}) var{} uniform_b_{}_i_{}: {};",
-      group_index,
-      item_index,
-      match entry.0 {
-        ShaderValueType::Fixed(_) => "<uniform>",
-        _ => "",
-      },
-      group_index,
-      item_index,
-      gen_type_impl(entry.0, true),
-    ));
-  }
+  code.write_ln(format!(
+    "@group({}) @binding({}) var{} uniform_b_{}_i_{}: {};",
+    group_index,
+    item_index,
+    match entry.ty {
+      ShaderValueType::Fixed(_) => "<uniform>",
+      _ => "",
+    },
+    group_index,
+    item_index,
+    gen_type_impl(entry.ty, true),
+  ));
   *item_index += 1;
 }
 
@@ -847,9 +811,6 @@ fn gen_type_impl(ty: ShaderValueType, is_uniform: bool) -> String {
     }
     ShaderValueType::Fixed(ty) => gen_fix_type_impl(ty, is_uniform),
     ShaderValueType::Never => unreachable!("can not code generate never type"),
-    ShaderValueType::SamplerCombinedTexture => {
-      unreachable!("combined sampler texture should handled above")
-    }
   }
 }
 
