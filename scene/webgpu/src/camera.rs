@@ -75,6 +75,7 @@ impl ShaderGraphProvider for CameraGPU {
         let camera = camera.expand();
         r.reg::<CameraViewMatrix>(camera.view);
         r.reg::<CameraProjectionMatrix>(camera.projection);
+        r.reg::<CameraWorldMatrix>(camera.world);
       });
 
     builder.vertex(|builder, _| {
@@ -94,12 +95,14 @@ pub struct CameraGPUTransform {
   pub projection: Mat4<f32>,
   pub rotation: Mat4<f32>,
   pub view: Mat4<f32>,
+  pub world: Mat4<f32>,
 }
 
 impl CameraGPU {
   pub fn update(&mut self, gpu: &GPU, camera: &SceneCameraInner) -> &mut Self {
     self.ubo.resource.mutate(|uniform| {
       let world_matrix = camera.node.visit(|node| node.world_matrix);
+      uniform.world = world_matrix;
       uniform.view = world_matrix.inverse_or_identity();
       uniform.rotation = world_matrix.extract_rotation_mat();
       uniform.projection = camera.projection_matrix;

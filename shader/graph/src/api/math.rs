@@ -13,3 +13,16 @@ where
     ShaderGraphNodeExpr::MatTranspose(self.handle()).insert_graph()
   }
 }
+
+impl Node<Mat4<f32>> {
+  pub fn position(self) -> Node<Vec3<f32>> {
+    self.nth_colum(3).xyz()
+  }
+  pub fn nth_colum(self, n: impl Into<Node<i32>>) -> Node<Vec4<f32>> {
+    ShaderGraphNodeExpr::Operator(OperatorNode::Index {
+      array: self.handle(),
+      entry: n.into().handle(),
+    })
+    .insert_graph()
+  }
+}

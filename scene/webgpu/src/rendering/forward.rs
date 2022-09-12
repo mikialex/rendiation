@@ -66,7 +66,7 @@ impl ForwardLightingSystem {
     shading_impl: &dyn LightableSurfaceShadingDyn,
   ) -> Result<(), ShaderGraphBuildError> {
     builder.fragment(|builder, binding| {
-      let camera_position = builder.query::<FragmentWorldPosition>()?.get(); // todo
+      let camera_position = builder.query::<CameraWorldMatrix>()?.get().position();
       let geom_position = builder.query::<FragmentWorldPosition>()?.get();
 
       let geom_ctx = ExpandedNode::<ShaderLightingGeometricCtx> {

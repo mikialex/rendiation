@@ -34,6 +34,7 @@ both!(WorldMatrix, Mat4<f32>);
 
 both!(CameraProjectionMatrix, Mat4<f32>);
 both!(CameraViewMatrix, Mat4<f32>);
+both!(CameraWorldMatrix, Mat4<f32>);
 
 #[macro_export]
 macro_rules! both {
