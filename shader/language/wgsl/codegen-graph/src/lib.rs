@@ -652,15 +652,12 @@ fn gen_struct(builder: &mut CodeBuilder, meta: &ShaderStructMetaInfoOwned, is_un
 
   if is_uniform {
     let mut current_byte_used = 0;
-    let mut previous: Option<&ShaderStructMemberValueType> = None;
     for ShaderStructFieldMetaInfoOwned { name, ty, .. } in &meta.fields {
       let mut explicit_align: Option<usize> = None;
-      if let Some(previous) = previous {
-        let previous_align_require = previous.align_of_self(StructLayoutTarget::Std140);
-        if current_byte_used % previous_align_require != 0 {
-          explicit_align = previous_align_require.into();
-        }
-      };
+      let align_require = ty.align_of_self(StructLayoutTarget::Std140);
+      if current_byte_used % align_require != 0 {
+        explicit_align = align_require.into();
+      }
 
       let explicit_align = explicit_align
         .map(|a| format!(" @align({})", a))
@@ -673,8 +670,7 @@ fn gen_struct(builder: &mut CodeBuilder, meta: &ShaderStructMetaInfoOwned, is_un
         gen_fix_type_impl(*ty, true)
       ));
 
-      current_byte_used += ty.size_of_self(StructLayoutTarget::Std430);
-      previous = Some(ty)
+      current_byte_used += ty.size_of_self(StructLayoutTarget::Std140);
     }
   } else {
     for ShaderStructFieldMetaInfoOwned { name, ty, ty_deco } in &meta.fields {
