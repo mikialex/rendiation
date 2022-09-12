@@ -637,7 +637,7 @@ fn check_should_wrap(ty: &ShaderStructMemberValueType) -> Option<ReWrappedPrimit
 ///
 /// the `array<f32, N>`,  `array<u32, N>`, is not qualified for uniform, for these cases
 /// we generate `array<UniformArray_f32, N>` type. The UniformArray_f32 is
-/// ```
+/// ```ignore
 /// struct UniformArray_f32 {
 ///   @size(16) inner: f32,
 /// }

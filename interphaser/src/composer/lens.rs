@@ -41,7 +41,7 @@ pub trait Lens<T: ?Sized, U: ?Sized> {
 /// See also the `lens` macro.
 ///
 /// ```
-/// let lens = druid::lens::Field::new(|x: &Vec<u32>| &x[42], |x| &mut x[42]);
+/// let lens = interphaser::Field::new(|x: &Vec<u32>| &x[42], |x| &mut x[42]);
 /// ```
 #[derive(Clone, Copy)]
 pub struct Field<Get, GetMut> {
@@ -83,10 +83,10 @@ where
 /// ```
 /// struct Foo { x: Bar }
 /// struct Bar { y: [i32; 10] }
-/// let lens = druid::lens!(Foo, x);
-/// let lens = druid::lens!((u32, bool), 1);
-/// let lens = druid::lens!([u8], [4]);
-/// let lens = druid::lens!(Foo, x.y[5]);
+/// let lens = interphaser::lens!(Foo, x);
+/// let lens = interphaser::lens!((u32, bool), 1);
+/// let lens = interphaser::lens!([u8], [4]);
+/// let lens = interphaser::lens!(Foo, x.y[5]);
 /// ```
 #[macro_export]
 macro_rules! lens {

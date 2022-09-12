@@ -165,15 +165,15 @@ impl<T> Arena<T> {
   /// # Examples
   ///
   /// ```
-  /// use generational_arena::{Arena, Handle};
+  /// use arena::{Arena, Handle};
   ///
   /// let mut arena = Arena::new();
   ///
-  /// match arena.try_insert_with(|idx| (42, idx)) {
+  /// match arena.try_insert_with(|idx| (42, idx.into_raw_parts().0)) {
   ///     Ok(idx) => {
   ///         // Insertion succeeded.
   ///         assert_eq!(arena[idx].0, 42);
-  ///         assert_eq!(arena[idx].1, idx);
+  ///         assert_eq!(arena[idx].1, idx.into_raw_parts().0);
   ///     }
   ///     Err(x) => {
   ///         // Insertion failed.
@@ -243,13 +243,13 @@ impl<T> Arena<T> {
   /// # Examples
   ///
   /// ```
-  /// use generational_arena::{Arena, Handle};
+  /// use arena::{Arena, Handle};
   ///
   /// let mut arena = Arena::new();
   ///
-  /// let idx = arena.insert_with(|idx| (42, idx));
+  /// let idx = arena.insert_with(|idx| (42, idx.into_raw_parts().0));
   /// assert_eq!(arena[idx].0, 42);
-  /// assert_eq!(arena[idx].1, idx);
+  /// assert_eq!(arena[idx].1, idx.into_raw_parts().0);
   /// ```
   #[inline]
   pub fn insert_with(&mut self, create: impl FnOnce(Handle<T>) -> T) -> Handle<T> {

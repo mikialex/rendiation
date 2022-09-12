@@ -1,5 +1,6 @@
 #![feature(const_type_name)]
 #![allow(incomplete_features)]
+#![feature(local_key_cell_methods)]
 
 pub mod code_gen;
 pub use code_gen::*;
@@ -30,7 +31,7 @@ pub use shader_derives::*;
 use arena_graph::*;
 use std::{
   any::{Any, TypeId},
-  cell::{Cell, RefCell, UnsafeCell},
+  cell::{Cell, RefCell},
   collections::HashMap,
   collections::HashSet,
   hash::{Hash, Hasher},
