@@ -89,8 +89,7 @@ wgsl_fn!(
 wgsl_fn!(
   // this implementation of ACES is modified to accommodate a brighter viewing environment.
   // the scale factor of 1/0.6 is subjective. see discussion in #19621.
-
-  fn ACESFilmicToneMapping(color: vec3<f32>, toneMappingExposure: f32) -> vec3<f32> {
+  fn ACESFilmicToneMapping(c: vec3<f32>, toneMappingExposure: f32) -> vec3<f32> {
     // sRGB => XYZ => D65_2_D60 => AP1 => RRT_SAT
     let ACESInputMat = mat3x3<f32>(
       vec3<f32>( 0.59719, 0.07600, 0.02840 ), // transposed from source
@@ -105,12 +104,14 @@ wgsl_fn!(
       vec3<f32>( -0.07367, -0.00605,  1.07602 )
     );
 
+    var color = c;
+
     color *= toneMappingExposure / 0.6;
 
     color = ACESInputMat * color;
 
     // Apply RRT and ODT
-    color = RRTAndODTFit(color);
+    color = RRTAndODTFit(color, toneMappingExposure);
 
     color = ACESOutputMat * color;
 
