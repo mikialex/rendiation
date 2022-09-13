@@ -61,6 +61,9 @@ impl ShaderGraphProvider for TransformGPU {
 
       builder.register::<WorldMatrix>(model.world_matrix);
       builder.register::<WorldVertexPosition>(position.xyz());
+
+      let normal = builder.query::<GeometryNormal>()?; // todo normal transform
+      builder.register::<WorldVertexNormal>(normal);
       Ok(())
     })
   }

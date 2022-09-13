@@ -6,6 +6,7 @@ pub struct ViewerPipeline {
   highlight: HighLighter,
   blur: CrossBlurData,
   forward_lights: ForwardLightingSystem,
+  tonemap: ToneMap,
 }
 
 impl ViewerPipeline {
@@ -14,6 +15,7 @@ impl ViewerPipeline {
       highlight: HighLighter::new(gpu),
       blur: CrossBlurData::new(gpu),
       forward_lights: Default::default(),
+      tonemap: ToneMap::new(gpu)
     }
   }
 }
@@ -57,7 +59,10 @@ impl ViewerPipeline {
       .with_depth(scene_depth.write(), clear(1.))
       .render(ctx)
       .by(scene.by_main_camera_and_self(BackGroundRendering))
-      .by(scene.by_main_camera_and_self(ForwardScene))
+      .by(scene.by_main_camera_and_self(ForwardScene{
+        lights: &self.forward_lights, 
+        tonemap: &self.tonemap
+      }))
       .by(copy_frame(widgets_result.read_into(), BlendState::PREMULTIPLIED_ALPHA_BLENDING.into()));
 
 

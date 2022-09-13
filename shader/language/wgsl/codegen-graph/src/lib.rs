@@ -866,6 +866,7 @@ pub fn gen_primitive_literal(v: PrimitiveShaderValue) -> String {
   #[allow(clippy::match_like_matches_macro)]
   let require_constructor = match v {
     PrimitiveShaderValue::Bool(_) => false,
+    PrimitiveShaderValue::Int32(_) => false,
     PrimitiveShaderValue::Uint32(_) => false,
     PrimitiveShaderValue::Float32(_) => false,
     _ => true,

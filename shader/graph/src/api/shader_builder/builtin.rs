@@ -28,6 +28,7 @@ only_vertex!(GeometryColor, Vec3<f32>);
 only_vertex!(GeometryColorWithAlpha, Vec4<f32>);
 
 only_vertex!(WorldVertexPosition, Vec3<f32>);
+only_vertex!(WorldVertexNormal, Vec3<f32>);
 only_vertex!(ClipPosition, Vec4<f32>);
 
 both!(WorldMatrix, Mat4<f32>);

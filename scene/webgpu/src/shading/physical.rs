@@ -51,16 +51,17 @@ wgsl_fn!(
     if nDotL == 0.0 {
       return;
     }
-    let directDiffuseBRDF = evaluateBRDFDiffuse(material.diffuse);
+    let directDiffuseBRDF = evaluateBRDFDiffuse(shading.diffuse);
     let directSpecularBRDF = evaluateBRDFSpecular(
-      geometry.viewDir,
+      geometry.view_dir,
       -directLight.direction,
       geometry.normal,
-      material.specular,
-      material.roughness,
+      shading.specular,
+      shading.roughness,
     );
-    reflectedLight.directDiffuse += directLight.color * directDiffuseBRDF * nDotL;
-    reflectedLight.directSpecular += directLight.color * directSpecularBRDF * nDotL;
+    var result: ShaderLightingResult;
+    result.diffuse += directLight.color * directDiffuseBRDF * nDotL;
+    result.specular += directLight.color * directSpecularBRDF * nDotL;
   }
 );
 
@@ -75,7 +76,8 @@ wgsl_fn!(
   // https://www.cs.cornell.edu/~srm/publications/EGSR07-btdf.pdf
   fn D_GGX(NoH: f32, roughness4: f32) -> f32 {
     let d = (NoH * roughness4 - NoH) * NoH + 1.0;
-    return roughness4 / (PI * d * d);
+    // return roughness4 / (PI * d * d); todo support constant
+    return roughness4 / (3.1415926 * d * d);
   }
 );
 
@@ -102,7 +104,8 @@ wgsl_fn!(
 
 wgsl_fn!(
   fn evaluateBRDFDiffuse(diffuseColor: vec3<f32>) -> vec3<f32> {
-    return INVERSE_PI * diffuseColor;
+    // return INVERSE_PI * diffuseColor; todo support constant
+    return 0.3183098 * diffuseColor;
   }
 );
 
@@ -114,6 +117,7 @@ wgsl_fn!(
     specularColor: vec3<f32>,
     roughness: f32,
   ) -> vec3<f32> {
+    let EPSILON_SHADING = 0.0001; // todo constant
     let H = normalize(L + V);
     let nDotL = max(dot(L, N), 0.0);
     let nDotV = max(EPSILON_SHADING, dot(N, V));
