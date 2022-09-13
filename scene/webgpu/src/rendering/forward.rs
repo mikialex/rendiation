@@ -33,7 +33,7 @@ where
 /// all uniform is update once in a frame. for convenience.
 #[derive(Default)]
 pub struct ForwardLightingSystem {
-  pub lights_collections: HashMap<TypeId, Box<dyn ForwardLightCollection>>,
+  pub lights_collections: LinkedHashMap<TypeId, Box<dyn ForwardLightCollection>>,
 }
 
 impl ShaderPassBuilder for ForwardLightingSystem {
@@ -70,7 +70,10 @@ impl<T: LightCollectionCompute + LightCollectionBase + Any> ForwardLightCollecti
 
 impl ForwardLightingSystem {
   pub fn update_by_scene(&mut self, scene: &Scene<WebGPUScene>, gpu: &GPU) {
-    self.lights_collections.values_mut().for_each(|c| c.reset());
+    self
+      .lights_collections
+      .iter_mut()
+      .for_each(|(_, c)| c.reset());
 
     for (_, light) in &scene.lights {
       let light = &light.read().light;
@@ -79,8 +82,8 @@ impl ForwardLightingSystem {
 
     self
       .lights_collections
-      .values_mut()
-      .for_each(|c| c.update_gpu(gpu));
+      .iter_mut()
+      .for_each(|(_, c)| c.update_gpu(gpu));
   }
 
   pub fn compute_lights(
