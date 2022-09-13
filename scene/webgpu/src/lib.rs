@@ -43,6 +43,7 @@ use webgpu::util::DeviceExt;
 use webgpu::*;
 use wgsl_shader_derives::*;
 
+use __core::hash::Hasher;
 use core::ops::Deref;
 use std::{
   any::{Any, TypeId},

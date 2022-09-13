@@ -205,6 +205,11 @@ impl<'a, T: Std140> ShaderPassBuilder for SingleLight<'a, T> {
     ctx.binding.bind(self.light, SB::Pass)
   }
 }
+impl<'a, T: Std140> ShaderHashProvider for SingleLight<'a, T> {
+  fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
+    TypeId::of::<T>().hash(hasher)
+  }
+}
 impl<'a, T: ShaderLight> LightCollectionCompute for SingleLight<'a, T> {
   fn compute_lights(
     &self,
@@ -302,6 +307,7 @@ impl<'a, D: Any, S: Any, R: Any> ShaderHashProviderAny for DrawDefer<'a, D, S, R
     TypeId::of::<D>().hash(hasher);
     TypeId::of::<S>().hash(hasher);
     TypeId::of::<R>().hash(hasher);
+    self.light.hash_pipeline(hasher);
   }
 }
 

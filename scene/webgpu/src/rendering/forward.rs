@@ -34,6 +34,7 @@ where
 #[derive(Default)]
 pub struct ForwardLightingSystem {
   pub lights_collections: LinkedHashMap<TypeId, Box<dyn ForwardLightCollection>>,
+  light_hash_cache: u64,
 }
 
 impl ShaderPassBuilder for ForwardLightingSystem {
@@ -41,6 +42,12 @@ impl ShaderPassBuilder for ForwardLightingSystem {
     for lights in self.lights_collections.values() {
       lights.setup_pass(ctx)
     }
+  }
+}
+
+impl ShaderHashProvider for ForwardLightingSystem {
+  fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
+    self.light_hash_cache.hash(hasher);
   }
 }
 
@@ -84,6 +91,12 @@ impl ForwardLightingSystem {
       .lights_collections
       .iter_mut()
       .for_each(|(_, c)| c.update_gpu(gpu));
+
+    let mut hasher = PipelineHasher::default();
+    for lights in self.lights_collections.values() {
+      lights.hash_pipeline(&mut hasher)
+    }
+    self.light_hash_cache = hasher.finish();
   }
 
   pub fn compute_lights(
@@ -160,7 +173,14 @@ impl<T: ShaderLight> ShaderPassBuilder for LightList<T> {
   }
 }
 
-pub trait LightCollectionCompute: ShaderPassBuilder {
+impl<T: ShaderLight> ShaderHashProvider for LightList<T> {
+  fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
+    TypeId::of::<T>().hash(hasher);
+    self.lights.len().hash(hasher);
+  }
+}
+
+pub trait LightCollectionCompute: ShaderPassBuilder + ShaderHashProvider {
   fn compute_lights(
     &self,
     builder: &mut ShaderGraphFragmentBuilderView,
