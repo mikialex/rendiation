@@ -21,7 +21,8 @@ impl ShaderGraphProvider for FlatMaterialGPU {
     builder.fragment(|builder, binding| {
       let uniform = binding.uniform_by(&self.uniform, SB::Material).expand();
 
-      builder.set_fragment_out(0, uniform.color)
+      builder.register::<DefaultDisplay>(uniform.color);
+      Ok(())
     })
   }
 }

@@ -66,7 +66,8 @@ impl ShaderGraphProvider for FatlineMaterialGPU {
         builder.discard();
       });
 
-      builder.set_fragment_out(0, color)
+      builder.register::<DefaultDisplay>(color);
+      Ok(())
     })
   }
 }

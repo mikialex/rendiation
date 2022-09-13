@@ -43,6 +43,7 @@ impl ShaderGraphProvider for WidgetDispatcher {
     &self,
     builder: &mut ShaderGraphRenderPipelineBuilder,
   ) -> Result<(), ShaderGraphBuildError> {
+    self.inner.post_build(builder)?;
     builder.fragment(|builder, _| {
       // todo improve, we should only override blend
       MaterialStates {

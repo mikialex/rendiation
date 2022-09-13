@@ -58,7 +58,8 @@ impl ShadingBackground for EnvMapBackgroundGPU {
       let cube = binding.uniform_by(&self.texture, SB::Material);
       let sampler = binding.uniform_by(&self.sampler, SB::Material);
       cube.sample(sampler, direction);
-      builder.set_fragment_out(0, cube.sample(sampler, direction))
+      builder.register::<DefaultDisplay>(cube.sample(sampler, direction));
+      Ok(())
     })
   }
 }

@@ -132,6 +132,7 @@ impl<'a, 'b, 'c> SceneRenderPass<'a, 'b, 'c> {
     DefaultPassDispatcher {
       formats: self.ctx.pass.formats().clone(),
       pass_info: self.pass_info.clone(),
+      auto_write: true,
     }
   }
 }
