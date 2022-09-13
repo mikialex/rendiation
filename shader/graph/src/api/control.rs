@@ -44,15 +44,16 @@ pub fn for_by<T: Into<ShaderIterator> + ShaderIteratorAble>(
 ) where
   T::Item: ShaderGraphNodeType,
 {
-  let (i_node, target_scope_id) = modify_graph(|builder| {
-    let node = ShaderGraphNode::UnNamed.insert_into_graph(builder);
+  let (item_node, index_node, target_scope_id) = modify_graph(|builder| {
+    let item_node = ShaderGraphNode::UnNamed.insert_into_graph(builder);
+    let index_node = ShaderGraphNode::UnNamed.insert_into_graph::<i32>(builder);
     let id = builder.push_scope().graph_guid;
 
-    (node, id)
+    (item_node, index_node, id)
   });
   let cx = ForCtx { target_scope_id };
 
-  logic(&cx, i_node);
+  logic(&cx, item_node);
 
   modify_graph(|builder| {
     let scope = builder.pop_scope();
@@ -60,7 +61,8 @@ pub fn for_by<T: Into<ShaderIterator> + ShaderIteratorAble>(
     ShaderControlFlowNode::For {
       source: iterable.into(),
       scope,
-      iter: i_node.handle(),
+      iter: item_node.handle(),
+      index: index_node.handle(),
     }
     .insert_into_graph(builder)
   });

@@ -248,11 +248,20 @@ impl ShaderGraphNode {
       }
       ShaderGraphNode::ControlFlow(cf) => match cf {
         ShaderControlFlowNode::If { condition, .. } => visitor(condition),
-        ShaderControlFlowNode::For { source, .. } => match source {
-          ShaderIterator::Const(_) => {}
-          ShaderIterator::Count(c) => visitor(c),
-          ShaderIterator::FixedArray { array, .. } => visitor(array),
-        },
+        ShaderControlFlowNode::For {
+          source,
+          iter,
+          index,
+          ..
+        } => {
+          visitor(iter);
+          visitor(index);
+          match source {
+            ShaderIterator::Const(_) => {}
+            ShaderIterator::Count(c) => visitor(c),
+            ShaderIterator::FixedArray { array, .. } => visitor(array),
+          }
+        }
       },
       ShaderGraphNode::SideEffect(_) => {}
     }
@@ -324,11 +333,20 @@ impl ShaderGraphNode {
       }
       ShaderGraphNode::ControlFlow(cf) => match cf {
         ShaderControlFlowNode::If { condition, .. } => visitor(condition),
-        ShaderControlFlowNode::For { source, .. } => match source {
-          ShaderIterator::Const(_) => {}
-          ShaderIterator::Count(c) => visitor(c),
-          ShaderIterator::FixedArray { array, .. } => visitor(array),
-        },
+        ShaderControlFlowNode::For {
+          source,
+          iter,
+          index,
+          ..
+        } => {
+          visitor(iter);
+          visitor(index);
+          match source {
+            ShaderIterator::Const(_) => {}
+            ShaderIterator::Count(c) => visitor(c),
+            ShaderIterator::FixedArray { array, .. } => visitor(array),
+          }
+        }
       },
       ShaderGraphNode::SideEffect(_) => {}
     }

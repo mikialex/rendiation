@@ -165,7 +165,7 @@ pub fn load_default_scene(scene: &mut Scene<WebGPUScene>) {
   }
 
   let directional_light = DirectionalLight {
-    intensity: Vec3::splat(0.5),
+    intensity: Vec3::splat(150.),
     direction: Vec3::new(1., 1., 1.).normalize(),
   };
   let directional_light =

@@ -191,7 +191,7 @@ impl<T: ShaderLight + Default> LightCollectionBase for LightList<T> {
   fn update_gpu(&mut self, gpu: &GPU) {
     let mut source = vec![T::default(); LIGHT_MAX];
     for (i, light) in self.lights.iter().enumerate() {
-      if source.len() >= LIGHT_MAX {
+      if i >= LIGHT_MAX {
         break;
       }
       source[i] = *light;

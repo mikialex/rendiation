@@ -47,9 +47,10 @@ wgsl_fn!(
     geometry: ShaderLightingGeometricCtx,
     shading: ShaderPhysicalShading,
   ) -> ShaderLightingResult {
+    var result: ShaderLightingResult;
     let nDotL = biasNDotL(dot(-directLight.direction, geometry.normal));
     if nDotL == 0.0 {
-      return;
+      return result;
     }
     let directDiffuseBRDF = evaluateBRDFDiffuse(shading.diffuse);
     let directSpecularBRDF = evaluateBRDFSpecular(
@@ -59,9 +60,9 @@ wgsl_fn!(
       shading.specular,
       shading.roughness,
     );
-    var result: ShaderLightingResult;
     result.diffuse += directLight.color * directDiffuseBRDF * nDotL;
     result.specular += directLight.color * directSpecularBRDF * nDotL;
+    return result;
   }
 );
 
@@ -85,9 +86,9 @@ wgsl_fn!(
   // NOTE: Basically same as
   // https://de45xmedrsdbp.cloudfront.net/Resources/files/2013SiggraphPresentationsNotes-26915738.pdf
   // However, calculate a F90 instead of using 1.0 directlly
-  fn fresnel(vDotH: f32, f0: f32) -> f32 {
+  fn fresnel(vDotH: f32, f0: vec3<f32>) -> vec3<f32> {
     let fc = pow(1.0 - vDotH, 5.0);
-    let f90 = clamp(f0 * 50.0, 0.0, 1.0);
+    let f90 = clamp(f0 * 50.0, vec3<f32>(0.0), vec3<f32>(1.0));
     return f90 * fc + f0 * (1.0 - fc);
   }
 );

@@ -76,6 +76,7 @@ pub enum ShaderControlFlowNode {
   For {
     source: ShaderIterator,
     scope: ShaderGraphScope,
+    index: ShaderGraphNodeRawHandle,
     iter: ShaderGraphNodeRawHandle,
   },
   // While,
