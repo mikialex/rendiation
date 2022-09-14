@@ -58,7 +58,10 @@ impl ShaderGraphVertexBuilder {
       registry: Default::default(),
       vertex_out: Default::default(),
       vertex_layouts: Default::default(),
-      primitive_state: Default::default(),
+      primitive_state: PrimitiveState {
+        cull_mode: Some(Face::Back),
+        ..Default::default()
+      },
       vertex_out_not_synced_to_fragment: Default::default(),
     }
   }

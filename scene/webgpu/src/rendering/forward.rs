@@ -97,7 +97,7 @@ impl<'a> ShaderGraphProvider for ForwardSceneLightingDispatcher<'a> {
       // let ldr = builder.query::<LDRLightResult>()?;
 
       // normal debug
-      let normal = builder.query_or_interpolate_by::<FragmentWorldNormal, WorldVertexNormal>();
+      let normal = builder.query::<FragmentWorldNormal>()?;
       let normal = (normal + consts(Vec3::one())) * consts(0.5);
       builder.set_fragment_out(0, (normal, 1.))
 
