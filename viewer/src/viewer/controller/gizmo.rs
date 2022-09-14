@@ -111,7 +111,7 @@ impl Gizmo {
       .on(active(yz_lens));
 
     let xz_t = Vec3::new(1., 0., 1.);
-    let xz_t = Mat4::translate(xz_t * plane_move) * Mat4::rotate_x(degree_90) * plane_scale;
+    let xz_t = Mat4::translate(xz_t * plane_move) * Mat4::rotate_x(-degree_90) * plane_scale;
     let xz = build_plane(root, auto_scale, xz_t)
       .eventable::<GizmoState>()
       .update(update_plane(xz_lens, BLUE))
