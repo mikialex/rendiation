@@ -413,16 +413,6 @@ fn gen_expr(data: &ShaderGraphNodeExpr, cx: &mut CodeGenCtx) -> String {
           .join(", ")
       )
     }
-    ShaderGraphNodeExpr::SamplerCombinedTextureSampling { texture, position } => {
-      let combined = cx.get_node_gen_result_var(*texture);
-      let (tex, sampler) = expand_combined(combined);
-      format!(
-        "textureSample({}, {}, {})",
-        tex,
-        sampler,
-        cx.get_node_gen_result_var(*position),
-      )
-    }
     ShaderGraphNodeExpr::TextureSampling {
       texture,
       sampler,
@@ -508,6 +498,7 @@ fn gen_expr(data: &ShaderGraphNodeExpr, cx: &mut CodeGenCtx) -> String {
           .join(", ")
       )
     }
+    ShaderGraphNodeExpr::Normalize(n) => format!("normalize({})", cx.get_node_gen_result_var(*n)),
     ShaderGraphNodeExpr::MatShrink { source, dimension } => {
       let from = cx.get_node_gen_result_var(*source);
       // wgsl is terrible!

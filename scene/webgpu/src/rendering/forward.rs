@@ -95,6 +95,11 @@ impl<'a> ShaderGraphProvider for ForwardSceneLightingDispatcher<'a> {
     builder.fragment(|builder, _| {
       let hdr = builder.query::<HDRLightResult>()?;
       // let ldr = builder.query::<LDRLightResult>()?;
+
+      // normal debug
+      // let normal = builder.query_or_interpolate_by::<FragmentWorldNormal, WorldVertexNormal>();
+      // let normal = (normal + consts(Vec3::one())) * consts(0.5);
+
       builder.set_fragment_out(0, (hdr, 1.))
     })
   }
@@ -108,6 +113,14 @@ impl<T: LightCollectionCompute + LightCollectionBase + Any> ForwardLightCollecti
     self
   }
 }
+
+wgsl_fn!(
+  fn compute_normal_by_dxdy(position: vec3<f32>) -> vec3<f32> {
+    let fdx = vec3<f32>(dpdx(position.x), dpdx(position.y), dpdx(position.z));
+    let fdy = vec3<f32>(dpdy(position.x), dpdy(position.y), dpdy(position.z));
+    return normalize(cross(fdx, fdy));
+  }
+);
 
 impl ForwardLightingSystem {
   pub fn update_by_scene(&mut self, scene: &Scene<WebGPUScene>, gpu: &GPU) {
@@ -145,10 +158,12 @@ impl ForwardLightingSystem {
         builder.query_or_interpolate_by::<FragmentWorldPosition, WorldVertexPosition>();
       let normal = builder.query_or_interpolate_by::<FragmentWorldNormal, WorldVertexNormal>();
 
+      let normal = compute_normal_by_dxdy(position);
+
       let geom_ctx = ExpandedNode::<ShaderLightingGeometricCtx> {
         position,
         normal,
-        view_dir: camera_position - position,
+        view_dir: (camera_position - position).normalize(),
       };
       let shading = shading_impl.construct_shading_dyn(builder);
 

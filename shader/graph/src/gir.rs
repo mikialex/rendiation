@@ -11,10 +11,6 @@ pub enum ShaderGraphNodeExpr {
     position: ShaderGraphNodeRawHandle,
     index: Option<ShaderGraphNodeRawHandle>,
   },
-  SamplerCombinedTextureSampling {
-    texture: ShaderGraphNodeRawHandle,
-    position: ShaderGraphNodeRawHandle,
-  },
   Swizzle {
     ty: &'static str,
     source: ShaderGraphNodeRawHandle,
@@ -29,6 +25,7 @@ pub enum ShaderGraphNodeExpr {
   },
   MatInverse(ShaderGraphNodeRawHandle),
   MatTranspose(ShaderGraphNodeRawHandle),
+  Normalize(ShaderGraphNodeRawHandle),
   Operator(OperatorNode),
   FieldGet {
     field_name: &'static str,
@@ -79,7 +76,6 @@ pub enum ShaderControlFlowNode {
     index: ShaderGraphNodeRawHandle,
     iter: ShaderGraphNodeRawHandle,
   },
-  // While,
 }
 
 pub trait ShaderIteratorAble {
@@ -188,8 +184,6 @@ pub struct ShaderDepthTextureCubeArray;
 pub struct ShaderSampler;
 #[derive(Clone, Copy)]
 pub struct ShaderCompareSampler;
-#[derive(Clone, Copy)]
-pub struct ShaderSamplerCombinedTexture;
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum PrimitiveShaderValueType {

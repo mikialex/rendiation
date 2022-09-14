@@ -238,20 +238,3 @@ impl<T: ArraySampleTarget> Node<T> {
     .insert_graph()
   }
 }
-
-impl ShaderGraphNodeType for ShaderSamplerCombinedTexture {
-  const TYPE: ShaderValueType = ShaderValueType::Texture {
-    dimension: TextureViewDimension::D2,
-    sample_type: TextureSampleType::Float { filterable: true },
-  };
-}
-
-impl Node<ShaderSamplerCombinedTexture> {
-  pub fn sample(&self, position: Node<Vec2<f32>>) -> Node<Vec4<f32>> {
-    ShaderGraphNodeExpr::SamplerCombinedTextureSampling {
-      texture: self.handle(),
-      position: position.handle(),
-    }
-    .insert_graph()
-  }
-}
