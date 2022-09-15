@@ -45,6 +45,7 @@ pub struct TransformGPU {
 #[derive(Clone, Copy, Default, PartialEq, ShaderStruct)]
 pub struct TransformGPUData {
   pub world_matrix: Mat4<f32>,
+  pub normal_matrix: Shader140Mat3,
 }
 
 impl ShaderHashProvider for TransformGPU {}
@@ -62,8 +63,8 @@ impl ShaderGraphProvider for TransformGPU {
       builder.register::<WorldMatrix>(model.world_matrix);
       builder.register::<WorldVertexPosition>(position.xyz());
 
-      let normal = builder.query::<GeometryNormal>()?; // todo normal transform
-      builder.register::<WorldVertexNormal>(normal);
+      let normal = builder.query::<GeometryNormal>()?;
+      builder.register::<WorldVertexNormal>(model.normal_matrix * normal);
       Ok(())
     })
   }
@@ -78,7 +79,10 @@ impl ShaderPassBuilder for TransformGPU {
 impl TransformGPU {
   pub fn update(&mut self, gpu: &GPU, matrix: &Mat4<f32>) -> &mut Self {
     let ubo = &self.ubo.resource;
-    ubo.mutate(|d| d.world_matrix = *matrix);
+    ubo.mutate(|d| {
+      d.world_matrix = *matrix;
+      d.normal_matrix = matrix.to_normal_matrix().into()
+    });
     ubo.update_with_diff(&gpu.queue);
     self
   }
@@ -87,7 +91,10 @@ impl TransformGPU {
     let device = &gpu.device;
 
     let ubo = UniformBufferDataResource::create_with_source(TransformGPUData::default(), device);
-    ubo.mutate(|d| d.world_matrix = *matrix);
+    ubo.mutate(|d| {
+      d.world_matrix = *matrix;
+      d.normal_matrix = matrix.to_normal_matrix().into()
+    });
     ubo.update(&gpu.queue);
     let ubo = ubo.create_view(());
 
