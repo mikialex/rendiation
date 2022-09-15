@@ -96,6 +96,7 @@
         "renderpass",
         "Rendiation",
         "Rendium",
+        "renormalize",
         "repr",
         "rgba",
         "rustfmt",

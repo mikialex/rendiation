@@ -96,12 +96,12 @@ impl<'a> ShaderGraphProvider for ForwardSceneLightingDispatcher<'a> {
       let hdr = builder.query::<HDRLightResult>()?;
       // let ldr = builder.query::<LDRLightResult>()?;
 
-      // normal debug
-      let normal = builder.query::<FragmentWorldNormal>()?;
-      let normal = (normal + consts(Vec3::one())) * consts(0.5);
-      builder.set_fragment_out(0, (normal, 1.))
+      // // normal debug
+      // let normal = builder.query::<FragmentWorldNormal>()?;
+      // let normal = (normal + consts(Vec3::one())) * consts(0.5);
+      // builder.set_fragment_out(0, (normal, 1.))
 
-      // builder.set_fragment_out(0, (hdr, 1.))
+      builder.set_fragment_out(0, (hdr, 1.))
     })
   }
 }
@@ -117,7 +117,8 @@ impl<T: LightCollectionCompute + LightCollectionBase + Any> ForwardLightCollecti
 
 wgsl_fn!(
   fn compute_normal_by_dxdy(position: vec3<f32>) -> vec3<f32> {
-    return normalize(cross(dpdx(position), dpdy(position)));
+    /// note, webgpu canvas is left handed
+    return normalize(cross(dpdy(position), dpdx(position)));
   }
 );
 
@@ -156,10 +157,11 @@ impl ForwardLightingSystem {
       let position =
         builder.query_or_interpolate_by::<FragmentWorldPosition, WorldVertexPosition>();
       let normal = builder.query_or_interpolate_by::<FragmentWorldNormal, WorldVertexNormal>();
-      // todo need re normalize
+      builder.register::<FragmentWorldNormal>(normal.normalize()); // renormalize
 
-      let normal = compute_normal_by_dxdy(position) * consts(1.0);
-      builder.register::<FragmentWorldNormal>(normal);
+      // debug
+      // let normal = compute_normal_by_dxdy(position);
+      // builder.register::<FragmentWorldNormal>(normal);
 
       let geom_ctx = ExpandedNode::<ShaderLightingGeometricCtx> {
         position,
