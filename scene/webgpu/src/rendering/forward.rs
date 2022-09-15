@@ -55,9 +55,12 @@ pub struct ForwardLightingSystem {
 impl<'a> ShaderPassBuilder for ForwardSceneLightingDispatcher<'a> {
   fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
     self.base.setup_pass(ctx);
+  }
+  fn post_setup_pass(&self, ctx: &mut GPURenderPassCtx) {
     for lights in self.lighting.lights.lights_collections.values() {
       lights.setup_pass(ctx)
     }
+    self.lighting.tonemap.setup_pass(ctx);
   }
 }
 
@@ -91,17 +94,18 @@ impl<'a> ShaderGraphProvider for ForwardSceneLightingDispatcher<'a> {
       .compute_lights(builder, &PhysicalShading)?;
 
     // todo get current shading
-    // todo tonemap
+
+    self.lighting.tonemap.build(builder)?;
+
     builder.fragment(|builder, _| {
-      let hdr = builder.query::<HDRLightResult>()?;
-      // let ldr = builder.query::<LDRLightResult>()?;
+      let ldr = builder.query::<HDRLightResult>()?;
 
       // // normal debug
       // let normal = builder.query::<FragmentWorldNormal>()?;
       // let normal = (normal + consts(Vec3::one())) * consts(0.5);
       // builder.set_fragment_out(0, (normal, 1.))
 
-      builder.set_fragment_out(0, (hdr, 1.))
+      builder.set_fragment_out(0, (ldr, 1.))
     })
   }
 }

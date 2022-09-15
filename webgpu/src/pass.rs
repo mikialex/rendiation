@@ -2,6 +2,12 @@ use crate::*;
 
 pub trait ShaderPassBuilder {
   fn setup_pass(&self, _ctx: &mut GPURenderPassCtx) {}
+  fn post_setup_pass(&self, _ctx: &mut GPURenderPassCtx) {}
+
+  fn setup_pass_self(&self, ctx: &mut GPURenderPassCtx) {
+    self.setup_pass(ctx);
+    self.post_setup_pass(ctx);
+  }
 }
 
 #[derive(Clone)]

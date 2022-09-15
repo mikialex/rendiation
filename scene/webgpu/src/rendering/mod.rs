@@ -38,7 +38,7 @@ pub trait RenderComponent: ShaderHashProvider + ShaderGraphProvider + ShaderPass
     ctx.binding.reset();
     ctx.reset_vertex_binding_index();
 
-    self.setup_pass(ctx);
+    self.setup_pass_self(ctx);
 
     ctx.pass.set_pipeline_owned(&pipeline);
 
@@ -87,6 +87,13 @@ impl<'a, 'b> RenderEmitter<'a, 'b> {
 impl<'a, 'b> ShaderPassBuilder for RenderEmitter<'a, 'b> {
   fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
     self.contents.iter().for_each(|c| c.setup_pass(ctx));
+  }
+  fn post_setup_pass(&self, ctx: &mut GPURenderPassCtx) {
+    self
+      .contents
+      .iter()
+      .rev()
+      .for_each(|c| c.post_setup_pass(ctx));
   }
 }
 
