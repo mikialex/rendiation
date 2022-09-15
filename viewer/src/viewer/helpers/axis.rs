@@ -167,7 +167,7 @@ pub fn solid_material(color: impl Into<Vec3<f32>>) -> ArrowMaterial {
   .use_state();
   material.states.depth_write_enabled = false;
   material.states.depth_compare = webgpu::CompareFunction::Always;
-  // todo add cull face controll
+  material.states.cull_mode = None;
   material
 }
 
