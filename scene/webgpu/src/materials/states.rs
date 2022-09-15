@@ -146,7 +146,7 @@ impl<T: WebGPUMaterial> ShaderGraphProvider for StateControlGPU<T> {
       builder.primitive_state.front_face = value.front_face;
       builder.primitive_state.cull_mode = value.cull_mode;
       Ok(())
-    });
+    })?;
 
     builder.fragment(|builder, _| {
       value.apply_pipeline_builder(builder);

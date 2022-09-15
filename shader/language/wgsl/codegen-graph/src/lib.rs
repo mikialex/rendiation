@@ -392,10 +392,6 @@ fn gen_node(
   };
 }
 
-fn expand_combined(var: &str) -> (String, String) {
-  (format!("{}_t", var), format!("{}_s", var))
-}
-
 fn gen_expr(data: &ShaderGraphNodeExpr, cx: &mut CodeGenCtx) -> String {
   match data {
     ShaderGraphNodeExpr::FunctionCall {
