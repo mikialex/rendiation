@@ -14,9 +14,12 @@ where
   webgpu::Operations { load, store: true }
 }
 
-pub struct ForwardScene;
+pub struct ForwardScene<'a> {
+  pub lights: &'a ForwardLightingSystem,
+  pub tonemap: &'a ToneMap,
+}
 
-impl<S> PassContentWithSceneAndCamera<S> for ForwardScene
+impl<'a, S> PassContentWithSceneAndCamera<S> for ForwardScene<'a>
 where
   S: SceneContent,
   S::Model: Deref<Target = dyn SceneModelShareable>,
@@ -24,8 +27,20 @@ where
   fn render(&mut self, pass: &mut SceneRenderPass, scene: &Scene<S>, camera: &SceneCamera) {
     let mut render_list = RenderList::<S>::default();
     render_list.prepare(scene, camera);
-    render_list.setup_pass(pass, scene, &pass.default_dispatcher(), camera);
+
+    let base = pass.default_dispatcher();
+    let dispatcher = ForwardSceneLightingDispatcher {
+      base,
+      lighting: self,
+    };
+
+    render_list.setup_pass(pass, scene, &dispatcher, camera);
   }
+}
+
+pub struct ForwardSceneLightingDispatcher<'a> {
+  base: DefaultPassDispatcher,
+  lighting: &'a ForwardScene<'a>,
 }
 
 /// contains gpu data that support forward rendering
@@ -37,30 +52,59 @@ pub struct ForwardLightingSystem {
   light_hash_cache: u64,
 }
 
-impl ShaderPassBuilder for ForwardLightingSystem {
+impl<'a> ShaderPassBuilder for ForwardSceneLightingDispatcher<'a> {
   fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
-    for lights in self.lights_collections.values() {
+    self.base.setup_pass(ctx);
+  }
+  fn post_setup_pass(&self, ctx: &mut GPURenderPassCtx) {
+    for lights in self.lighting.lights.lights_collections.values() {
       lights.setup_pass(ctx)
     }
+    self.lighting.tonemap.setup_pass(ctx);
   }
 }
 
-impl ShaderHashProvider for ForwardLightingSystem {
+impl<'a> ShaderHashProvider for ForwardSceneLightingDispatcher<'a> {
   fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
-    self.light_hash_cache.hash(hasher);
+    self.lighting.lights.light_hash_cache.hash(hasher);
   }
 }
 
-impl ShaderGraphProvider for ForwardLightingSystem {
+impl<'a> ShaderHashProviderAny for ForwardSceneLightingDispatcher<'a> {
+  fn hash_pipeline_and_with_type_id(&self, hasher: &mut PipelineHasher) {
+    self.hash_pipeline(hasher);
+    // this is so special(I think) that id could skip
+  }
+}
+
+impl<'a> ShaderGraphProvider for ForwardSceneLightingDispatcher<'a> {
+  fn build(
+    &self,
+    builder: &mut ShaderGraphRenderPipelineBuilder,
+  ) -> Result<(), ShaderGraphBuildError> {
+    self.base.build(builder)
+  }
   fn post_build(
     &self,
     builder: &mut ShaderGraphRenderPipelineBuilder,
   ) -> Result<(), ShaderGraphBuildError> {
-    self.compute_lights(builder, &PhysicalShading)?;
+    self
+      .lighting
+      .lights
+      .compute_lights(builder, &PhysicalShading)?;
+
     // todo get current shading
-    // todo tonemap, write channel
+
+    self.lighting.tonemap.build(builder)?;
+
     builder.fragment(|builder, _| {
-      let ldr = builder.query::<LDRLightResult>()?;
+      let ldr = builder.query::<HDRLightResult>()?;
+
+      // // normal debug
+      // let normal = builder.query::<FragmentWorldNormal>()?;
+      // let normal = (normal + consts(Vec3::one())) * consts(0.5);
+      // builder.set_fragment_out(0, (normal, 1.))
+
       builder.set_fragment_out(0, (ldr, 1.))
     })
   }
@@ -75,6 +119,13 @@ impl<T: LightCollectionCompute + LightCollectionBase + Any> ForwardLightCollecti
   }
 }
 
+wgsl_fn!(
+  fn compute_normal_by_dxdy(position: vec3<f32>) -> vec3<f32> {
+    /// note, webgpu canvas is left handed
+    return normalize(cross(dpdy(position), dpdx(position)));
+  }
+);
+
 impl ForwardLightingSystem {
   pub fn update_by_scene(&mut self, scene: &Scene<WebGPUScene>, gpu: &GPU) {
     self
@@ -83,7 +134,7 @@ impl ForwardLightingSystem {
       .for_each(|(_, c)| c.reset());
 
     for (_, light) in &scene.lights {
-      let light = &light.read().light;
+      let light = &light.read();
       light.collect(self)
     }
 
@@ -104,14 +155,22 @@ impl ForwardLightingSystem {
     builder: &mut ShaderGraphRenderPipelineBuilder,
     shading_impl: &dyn LightableSurfaceShadingDyn,
   ) -> Result<(), ShaderGraphBuildError> {
+    builder.log_result = true;
     builder.fragment(|builder, binding| {
       let camera_position = builder.query::<CameraWorldMatrix>()?.position();
-      let geom_position = builder.query::<FragmentWorldPosition>()?;
+      let position =
+        builder.query_or_interpolate_by::<FragmentWorldPosition, WorldVertexPosition>();
+      let normal = builder.query_or_interpolate_by::<FragmentWorldNormal, WorldVertexNormal>();
+      builder.register::<FragmentWorldNormal>(normal.normalize()); // renormalize
+
+      // debug
+      // let normal = compute_normal_by_dxdy(position);
+      // builder.register::<FragmentWorldNormal>(normal);
 
       let geom_ctx = ExpandedNode::<ShaderLightingGeometricCtx> {
-        position: geom_position,
-        normal: builder.query::<FragmentWorldNormal>()?,
-        view_dir: camera_position - geom_position,
+        position,
+        normal,
+        view_dir: (camera_position - position).normalize(),
       };
       let shading = shading_impl.construct_shading_dyn(builder);
 
@@ -119,12 +178,10 @@ impl ForwardLightingSystem {
       let mut light_diffuse_result = consts(Vec3::zero());
 
       for lights in self.lights_collections.values() {
-        if lights.has_lights() {
-          let (diffuse, specular) =
-            lights.compute_lights(builder, binding, shading_impl, &shading, &geom_ctx)?;
-          light_specular_result = specular + light_specular_result;
-          light_diffuse_result = diffuse + light_diffuse_result;
-        }
+        let (diffuse, specular) =
+          lights.compute_lights(builder, binding, shading_impl, shading.as_ref(), &geom_ctx)?;
+        light_specular_result = specular + light_specular_result;
+        light_diffuse_result = diffuse + light_diffuse_result;
       }
 
       builder.register::<HDRLightResult>(light_diffuse_result + light_specular_result);
@@ -134,34 +191,37 @@ impl ForwardLightingSystem {
   }
 }
 
+const LIGHT_MAX: usize = 8;
+
 #[derive(Default)]
 pub struct LightList<T: ShaderLight> {
   pub lights: Vec<T>,
-  pub lights_gpu: Option<UniformBufferDataView<Shader140Array<T, 32>>>,
+  pub lights_gpu: Option<UniformBufferDataView<Shader140Array<T, LIGHT_MAX>>>,
 }
 
 pub trait LightCollectionBase {
   fn reset(&mut self);
   fn update_gpu(&mut self, gpu: &GPU);
-  fn has_lights(&self) -> bool;
 }
 
-impl<T: ShaderLight> LightCollectionBase for LightList<T> {
+impl<T: ShaderLight + Default> LightCollectionBase for LightList<T> {
   fn reset(&mut self) {
     self.lights.clear();
     self.lights_gpu.take();
   }
 
   fn update_gpu(&mut self, gpu: &GPU) {
-    let source: Vec<_> = self.lights.iter().copied().take(32).collect();
+    let mut source = vec![T::default(); LIGHT_MAX];
+    for (i, light) in self.lights.iter().enumerate() {
+      if i >= LIGHT_MAX {
+        break;
+      }
+      source[i] = *light;
+    }
     let source = source.try_into().unwrap();
     let lights_gpu = UniformBufferDataResource::create_with_source(source, &gpu.device);
     let lights_gpu = lights_gpu.create_default_view();
     self.lights_gpu = lights_gpu.into();
-  }
-
-  fn has_lights(&self) -> bool {
-    self.lights_gpu.is_some()
   }
 }
 

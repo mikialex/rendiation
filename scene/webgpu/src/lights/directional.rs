@@ -37,7 +37,7 @@ impl ShaderLight for DirectionalLightShaderInfo {
   }
 }
 
-impl WebGPUSceneLight for SceneItemRef<DirectionalLight> {
+impl WebGPUSceneLight for DirectionalLight {
   fn collect(&self, sys: &mut ForwardLightingSystem) {
     let lights = sys
       .lights_collections
@@ -48,8 +48,6 @@ impl WebGPUSceneLight for SceneItemRef<DirectionalLight> {
       .downcast_mut::<LightList<DirectionalLightShaderInfo>>()
       .unwrap();
 
-    let light: DirectionalLight = **self.read();
-
-    lights.lights.push(light.into())
+    lights.lights.push((*self).into())
   }
 }

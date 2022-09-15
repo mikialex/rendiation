@@ -11,7 +11,7 @@ pub trait ParametricSurface {
 
     let u = (u - p).normalize();
     let v = (v - p).normalize();
-    v.cross(u)
+    u.cross(v)
   }
 }
 

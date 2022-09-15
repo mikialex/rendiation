@@ -311,21 +311,35 @@ fn gen_node(
         source,
         scope,
         iter,
+        index,
       } => {
-        let name = cx.get_node_gen_result_var(*iter);
-        let head = match source {
-          ShaderIterator::Const(v) => {
-            format!("for(var {name}: i32 = 0; {name} < {v}; {name} = {name} + 1) {{")
-          }
-          ShaderIterator::Count(v) => format!(
-            "for(var {name}: i32 = 0; {name} < {count}; {name} = {name} + 1) {{",
-            count = cx.get_node_gen_result_var(*v)
+        let item_name = cx.get_node_gen_result_var(*iter);
+        let name = cx.get_node_gen_result_var(*index);
+        let (head, get_item) = match source {
+          ShaderIterator::Const(v) => (
+            format!("for(var {name}: i32 = 0; {name} < {v}; {name} = {name} + 1) {{"),
+            format!("let {item_name} = name;"),
           ),
-          ShaderIterator::FixedArray { length, .. } => {
-            format!("for(var {name}: i32 = 0; {name} < {length}; {name} = {name} + 1) {{",)
+          ShaderIterator::Count(v) => (
+            format!(
+              "for(var {name}: i32 = 0; {name} < {count}; {name} = {name} + 1) {{",
+              count = cx.get_node_gen_result_var(*v)
+            ),
+            format!("let {item_name} = name;"),
+          ),
+          ShaderIterator::FixedArray { length, array } => {
+            let array = cx.get_node_gen_result_var(*array);
+            (
+              format!("for(var {name}: i32 = 0; {name} < {length}; {name} = {name} + 1) {{",),
+              format!("let {item_name} = {array }[{name}];"),
+            )
           }
         };
         code.write_ln(head).tab();
+
+        if let ShaderIterator::FixedArray { .. } = source {
+          code.write_ln(get_item);
+        }
 
         gen_scope_full(scope, cx, code);
 
@@ -397,16 +411,6 @@ fn gen_expr(data: &ShaderGraphNodeExpr, cx: &mut CodeGenCtx) -> String {
           .map(|from| { cx.get_node_gen_result_var(*from) })
           .collect::<Vec<_>>()
           .join(", ")
-      )
-    }
-    ShaderGraphNodeExpr::SamplerCombinedTextureSampling { texture, position } => {
-      let combined = cx.get_node_gen_result_var(*texture);
-      let (tex, sampler) = expand_combined(combined);
-      format!(
-        "textureSample({}, {}, {})",
-        tex,
-        sampler,
-        cx.get_node_gen_result_var(*position),
       )
     }
     ShaderGraphNodeExpr::TextureSampling {
@@ -494,6 +498,7 @@ fn gen_expr(data: &ShaderGraphNodeExpr, cx: &mut CodeGenCtx) -> String {
           .join(", ")
       )
     }
+    ShaderGraphNodeExpr::Normalize(n) => format!("normalize({})", cx.get_node_gen_result_var(*n)),
     ShaderGraphNodeExpr::MatShrink { source, dimension } => {
       let from = cx.get_node_gen_result_var(*source);
       // wgsl is terrible!
@@ -866,6 +871,7 @@ pub fn gen_primitive_literal(v: PrimitiveShaderValue) -> String {
   #[allow(clippy::match_like_matches_macro)]
   let require_constructor = match v {
     PrimitiveShaderValue::Bool(_) => false,
+    PrimitiveShaderValue::Int32(_) => false,
     PrimitiveShaderValue::Uint32(_) => false,
     PrimitiveShaderValue::Float32(_) => false,
     _ => true,

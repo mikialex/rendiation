@@ -1,12 +1,7 @@
 use crate::*;
 use rendiation_algebra::Vec3;
 
-pub type SceneLight<S> = SceneItemRef<SceneLightInner<S>>;
-
-pub struct SceneLightInner<S: SceneContent> {
-  pub light: S::Light,
-  pub node: SceneNodeHandle,
-}
+pub type SceneLight<S> = SceneItemRef<<S as SceneContent>::Light>;
 
 #[derive(Debug, Clone, Copy)]
 pub struct PointLight {

@@ -10,6 +10,7 @@ pub trait WebGPUSceneLight: Any {
 #[derive(Copy, Clone, ShaderStruct)]
 pub struct ShaderIncidentLight {
   pub color: Vec3<f32>,
+  /// from source to target
   pub direction: Vec3<f32>,
 }
 
@@ -26,6 +27,7 @@ pub struct ShaderLightingResult {
 pub struct ShaderLightingGeometricCtx {
   pub position: Vec3<f32>,
   pub normal: Vec3<f32>,
+  /// from surface to the camera
   pub view_dir: Vec3<f32>,
 }
 

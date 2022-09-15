@@ -6,6 +6,16 @@ pub struct ToneMap {
 }
 
 impl ToneMap {
+  pub fn new(gpu: &GPU) -> Self {
+    Self {
+      ty: ToneMapType::Linear,
+      exposure: UniformBufferDataResource::create_with_source(1., &gpu.device)
+        .create_default_view(),
+    }
+  }
+}
+
+impl ToneMap {
   pub fn tonemap<'a, T: 'a>(&'a self, hdr: AttachmentView<T>) -> impl PassContent + 'a {
     ToneMapTask { hdr, config: self }.draw_quad()
   }

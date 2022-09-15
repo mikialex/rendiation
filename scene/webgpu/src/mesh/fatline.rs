@@ -68,6 +68,7 @@ impl ShaderGraphProvider for FatlineMeshGPU {
       builder.register_vertex::<Vertex>(VertexStepMode::Vertex);
       builder.register_vertex::<FatLineVertex>(VertexStepMode::Instance);
       builder.primitive_state.topology = webgpu::PrimitiveTopology::TriangleList;
+      builder.primitive_state.cull_mode = None;
       Ok(())
     })
   }

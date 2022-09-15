@@ -8,8 +8,11 @@ pub struct MaterialStates {
   pub bias: webgpu::DepthBiasState,
   pub blend: Option<webgpu::BlendState>,
   pub write_mask: webgpu::ColorWrites,
+  pub front_face: FrontFace,
+  pub cull_mode: Option<Face>,
 }
 
+/// manually impl because lint complains
 impl PartialEq for MaterialStates {
   fn eq(&self, other: &Self) -> bool {
     self.depth_write_enabled == other.depth_write_enabled
@@ -18,6 +21,8 @@ impl PartialEq for MaterialStates {
       && self.bias == other.bias
       && self.blend == other.blend
       && self.write_mask == other.write_mask
+      && self.front_face == other.front_face
+      && self.cull_mode == other.cull_mode
   }
 }
 
@@ -31,6 +36,8 @@ impl std::hash::Hash for MaterialStates {
     self.bias.constant.hash(state);
     self.blend.hash(state);
     self.write_mask.hash(state);
+    self.front_face.hash(state);
+    self.cull_mode.hash(state);
   }
 }
 
@@ -79,6 +86,8 @@ impl Default for MaterialStates {
       write_mask: webgpu::ColorWrites::all(),
       bias: Default::default(),
       stencil: Default::default(),
+      front_face: FrontFace::Ccw,
+      cull_mode: Some(Face::Back),
     }
   }
 }
@@ -129,13 +138,18 @@ impl<T: WebGPUMaterial> ShaderGraphProvider for StateControlGPU<T> {
     &self,
     builder: &mut ShaderGraphRenderPipelineBuilder,
   ) -> Result<(), shadergraph::ShaderGraphBuildError> {
+    let id = STATE_ID.lock().unwrap();
+
+    let value = id.get_value(self.state_id.get()).unwrap();
+
+    builder.vertex(|builder, _| {
+      builder.primitive_state.front_face = value.front_face;
+      builder.primitive_state.cull_mode = value.cull_mode;
+      Ok(())
+    });
+
     builder.fragment(|builder, _| {
-      STATE_ID
-        .lock()
-        .unwrap()
-        .get_value(self.state_id.get())
-        .unwrap()
-        .apply_pipeline_builder(builder);
+      value.apply_pipeline_builder(builder);
       Ok(())
     })?;
     self.gpu.build(builder)

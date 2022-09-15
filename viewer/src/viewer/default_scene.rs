@@ -163,4 +163,12 @@ pub fn load_default_scene(scene: &mut Scene<WebGPUScene>) {
     let camera = SceneCamera::create_camera(camera, camera_node);
     let _ = scene.add_camera(camera);
   }
+
+  let directional_light = DirectionalLight {
+    intensity: Vec3::splat(5.),
+    direction: Vec3::new(-1., -1., -1.).normalize(),
+  };
+  let directional_light =
+    SceneItemRef::new(Box::new(directional_light) as Box<dyn WebGPUSceneLight>);
+  scene.lights.insert(directional_light);
 }
