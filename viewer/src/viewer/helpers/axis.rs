@@ -161,14 +161,10 @@ impl Arrow {
 
 pub fn solid_material(color: impl Into<Vec3<f32>>) -> ArrowMaterial {
   let color = color.into();
-  let mut material = FlatMaterial {
+  FlatMaterial {
     color: Vec4::new(color.x, color.y, color.z, 1.0),
   }
-  .use_state();
-  material.states.depth_write_enabled = false;
-  material.states.depth_compare = webgpu::CompareFunction::Always;
-  material.states.cull_mode = None;
-  material
+  .use_state_helper_like()
 }
 
 impl AxisHelper {

@@ -108,6 +108,18 @@ pub trait IntoStateControl: Sized {
       states: Default::default(),
     }
   }
+
+  /// disable depth rw, double face
+  fn use_state_helper_like(self) -> StateControl<Self> {
+    let mut states = MaterialStates::default();
+    states.depth_write_enabled = false;
+    states.depth_compare = webgpu::CompareFunction::Always;
+    states.cull_mode = None;
+    StateControl {
+      material: self,
+      states,
+    }
+  }
 }
 
 impl<T> IntoStateControl for T {}
