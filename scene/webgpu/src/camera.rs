@@ -114,10 +114,7 @@ impl CameraGPU {
   }
 
   pub fn new(gpu: &GPU) -> Self {
-    let ubo =
-      UniformBufferDataResource::create_with_source(CameraGPUTransform::default(), &gpu.device);
-    let ubo = ubo.create_view(());
-
+    let ubo = create_uniform(CameraGPUTransform::default(), gpu);
     Self { ubo }
   }
 }

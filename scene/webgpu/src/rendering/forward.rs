@@ -158,9 +158,7 @@ impl ForwardLightingSystem {
       .enumerate()
       .for_each(|(i, l)| lengths.inner[i] = Vec4::new(l as u32, 0, 0, 0).into());
 
-    self.lengths = UniformBufferDataResource::create_with_source(lengths, &gpu.device)
-      .create_default_view()
-      .into();
+    self.lengths = create_uniform(lengths, gpu).into();
 
     let mut hasher = PipelineHasher::default();
     for lights in self.lights_collections.values() {
@@ -243,8 +241,7 @@ impl<T: ShaderLight + Default> LightCollectionBase for LightList<T> {
       source[i] = *light;
     }
     let source = source.try_into().unwrap();
-    let lights_gpu = UniformBufferDataResource::create_with_source(source, &gpu.device);
-    let lights_gpu = lights_gpu.create_default_view();
+    let lights_gpu = create_uniform(source, gpu);
     self.lights_gpu = lights_gpu.into();
     self.lights.len()
   }

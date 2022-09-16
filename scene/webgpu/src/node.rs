@@ -88,15 +88,12 @@ impl TransformGPU {
   }
 
   pub fn new(gpu: &GPU, matrix: &Mat4<f32>) -> Self {
-    let device = &gpu.device;
-
-    let ubo = UniformBufferDataResource::create_with_source(TransformGPUData::default(), device);
-    ubo.mutate(|d| {
+    let ubo = create_uniform(TransformGPUData::default(), gpu);
+    ubo.resource.mutate(|d| {
       d.world_matrix = *matrix;
       d.normal_matrix = matrix.to_normal_matrix().into()
     });
-    ubo.update(&gpu.queue);
-    let ubo = ubo.create_view(());
+    ubo.resource.update(&gpu.queue);
 
     Self { ubo }
   }

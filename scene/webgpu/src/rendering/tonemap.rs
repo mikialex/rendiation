@@ -9,8 +9,7 @@ impl ToneMap {
   pub fn new(gpu: &GPU) -> Self {
     Self {
       ty: ToneMapType::Linear,
-      exposure: UniformBufferDataResource::create_with_source(1., &gpu.device)
-        .create_default_view(),
+      exposure: create_uniform(1., gpu),
     }
   }
 }

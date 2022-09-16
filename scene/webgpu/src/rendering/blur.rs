@@ -118,14 +118,12 @@ impl CrossBlurData {
       direction: Vec2::new(0., 1.),
       ..Zeroable::zeroed()
     };
-    let x = UniformBufferDataResource::create_with_source(x, &gpu.device).create_default_view();
-    let y = UniformBufferDataResource::create_with_source(y, &gpu.device).create_default_view();
+    let x = create_uniform(x, gpu);
+    let y = create_uniform(y, gpu);
 
     let (weights, count) = gaussian(32);
-    let weights =
-      UniformBufferDataResource::create_with_source(weights, &gpu.device).create_default_view();
-    let weight_count =
-      UniformBufferDataResource::create_with_source(count, &gpu.device).create_default_view();
+    let weights = create_uniform(weights, gpu);
+    let weight_count = create_uniform(count, gpu);
 
     Self {
       x,
