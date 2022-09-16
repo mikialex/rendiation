@@ -43,12 +43,17 @@ pub struct ForwardSceneLightingDispatcher<'a> {
   lighting: &'a ForwardScene<'a>,
 }
 
+const MAX_SUPPORT_LIGHT_KIND_COUNT: usize = 8;
 /// contains gpu data that support forward rendering
 ///
 /// all uniform is update once in a frame. for convenience.
 #[derive(Default)]
 pub struct ForwardLightingSystem {
   pub lights_collections: LinkedHashMap<TypeId, Box<dyn ForwardLightCollection>>,
+  /// note todo!, we don't support correct codegen for primitive wrapper array type
+  /// so we use vec4<u32> instead of u32
+  pub lengths:
+    Option<UniformBufferDataView<Shader140Array<Vec4<u32>, MAX_SUPPORT_LIGHT_KIND_COUNT>>>,
   light_hash_cache: u64,
 }
 
@@ -57,6 +62,9 @@ impl<'a> ShaderPassBuilder for ForwardSceneLightingDispatcher<'a> {
     self.base.setup_pass(ctx);
   }
   fn post_setup_pass(&self, ctx: &mut GPURenderPassCtx) {
+    ctx
+      .binding
+      .bind(self.lighting.lights.lengths.as_ref().unwrap(), SB::Pass);
     for lights in self.lighting.lights.lights_collections.values() {
       lights.setup_pass(ctx)
     }
@@ -126,6 +134,9 @@ wgsl_fn!(
   }
 );
 
+// a little bit hack
+only_fragment!(LightCount, u32);
+
 impl ForwardLightingSystem {
   pub fn update_by_scene(&mut self, scene: &Scene<WebGPUScene>, gpu: &GPU) {
     self
@@ -138,10 +149,18 @@ impl ForwardLightingSystem {
       light.collect(self)
     }
 
+    let mut lengths: Shader140Array<Vec4<u32>, MAX_SUPPORT_LIGHT_KIND_COUNT> = Default::default();
+
     self
       .lights_collections
       .iter_mut()
-      .for_each(|(_, c)| c.update_gpu(gpu));
+      .map(|(_, c)| c.update_gpu(gpu))
+      .enumerate()
+      .for_each(|(i, l)| lengths.inner[i] = Vec4::new(l as u32, 0, 0, 0).into());
+
+    self.lengths = UniformBufferDataResource::create_with_source(lengths, &gpu.device)
+      .create_default_view()
+      .into();
 
     let mut hasher = PipelineHasher::default();
     for lights in self.lights_collections.values() {
@@ -157,6 +176,7 @@ impl ForwardLightingSystem {
   ) -> Result<(), ShaderGraphBuildError> {
     builder.log_result = true;
     builder.fragment(|builder, binding| {
+      let lengths_info = binding.uniform_by(self.lengths.as_ref().unwrap(), SB::Pass);
       let camera_position = builder.query::<CameraWorldMatrix>()?.position();
       let position =
         builder.query_or_interpolate_by::<FragmentWorldPosition, WorldVertexPosition>();
@@ -177,7 +197,10 @@ impl ForwardLightingSystem {
       let mut light_specular_result = consts(Vec3::zero());
       let mut light_diffuse_result = consts(Vec3::zero());
 
-      for lights in self.lights_collections.values() {
+      for (i, lights) in self.lights_collections.values().enumerate() {
+        let length = lengths_info.index(consts(i as u32)).x();
+        builder.register::<LightCount>(length);
+
         let (diffuse, specular) =
           lights.compute_lights(builder, binding, shading_impl, shading.as_ref(), &geom_ctx)?;
         light_specular_result = specular + light_specular_result;
@@ -201,7 +224,8 @@ pub struct LightList<T: ShaderLight> {
 
 pub trait LightCollectionBase {
   fn reset(&mut self);
-  fn update_gpu(&mut self, gpu: &GPU);
+  /// return count
+  fn update_gpu(&mut self, gpu: &GPU) -> usize;
 }
 
 impl<T: ShaderLight + Default> LightCollectionBase for LightList<T> {
@@ -210,7 +234,7 @@ impl<T: ShaderLight + Default> LightCollectionBase for LightList<T> {
     self.lights_gpu.take();
   }
 
-  fn update_gpu(&mut self, gpu: &GPU) {
+  fn update_gpu(&mut self, gpu: &GPU) -> usize {
     let mut source = vec![T::default(); LIGHT_MAX];
     for (i, light) in self.lights.iter().enumerate() {
       if i >= LIGHT_MAX {
@@ -222,6 +246,7 @@ impl<T: ShaderLight + Default> LightCollectionBase for LightList<T> {
     let lights_gpu = UniformBufferDataResource::create_with_source(source, &gpu.device);
     let lights_gpu = lights_gpu.create_default_view();
     self.lights_gpu = lights_gpu.into();
+    self.lights.len()
   }
 }
 
@@ -280,7 +305,14 @@ impl<T: ShaderLight> LightCollectionCompute for LightList<T> {
     let light_specular_result = consts(Vec3::zero()).mutable();
     let light_diffuse_result = consts(Vec3::zero()).mutable();
 
-    for_by(lights, |_, light| {
+    let light_count = builder.query::<LightCount>()?;
+
+    let light_iter = ClampedShaderIter {
+      inner: lights,
+      count: light_count,
+    };
+
+    for_by(light_iter, |_, light| {
       let light = light.expand();
       let incident = T::compute_direct_light(&light, &dep, geom_ctx);
       let light_result = shading_impl.compute_lighting_dyn(shading, &incident, geom_ctx);

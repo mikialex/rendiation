@@ -253,11 +253,23 @@ impl ShaderGraphNode {
         } => {
           visitor(iter);
           visitor(index);
-          match source {
-            ShaderIterator::Const(_) => {}
-            ShaderIterator::Count(c) => visitor(c),
-            ShaderIterator::FixedArray { array, .. } => visitor(array),
+
+          fn visit_iter(
+            source: &ShaderIterator,
+            visitor: &mut impl FnMut(&ShaderGraphNodeRawHandle),
+          ) {
+            match source {
+              ShaderIterator::Const(_) => {}
+              ShaderIterator::Count(c) => visitor(c),
+              ShaderIterator::FixedArray { array, .. } => visitor(array),
+              ShaderIterator::Clamped { source, max } => {
+                visit_iter(source, visitor);
+                visitor(max)
+              }
+            }
           }
+
+          visit_iter(source, &mut visitor);
         }
       },
       ShaderGraphNode::SideEffect(_) => {}
@@ -335,11 +347,23 @@ impl ShaderGraphNode {
         } => {
           visitor(iter);
           visitor(index);
-          match source {
-            ShaderIterator::Const(_) => {}
-            ShaderIterator::Count(c) => visitor(c),
-            ShaderIterator::FixedArray { array, .. } => visitor(array),
+
+          fn visit_iter(
+            source: &mut ShaderIterator,
+            visitor: &mut impl FnMut(&mut ShaderGraphNodeRawHandle),
+          ) {
+            match source {
+              ShaderIterator::Const(_) => {}
+              ShaderIterator::Count(c) => visitor(c),
+              ShaderIterator::FixedArray { array, .. } => visitor(array),
+              ShaderIterator::Clamped { source, max } => {
+                visit_iter(source, visitor);
+                visitor(max)
+              }
+            }
           }
+
+          visit_iter(source, &mut visitor);
         }
       },
       ShaderGraphNode::SideEffect(_) => {}

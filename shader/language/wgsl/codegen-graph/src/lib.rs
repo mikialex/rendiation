@@ -315,31 +315,44 @@ fn gen_node(
       } => {
         let item_name = cx.get_node_gen_result_var(*iter);
         let name = cx.get_node_gen_result_var(*index);
-        let (head, get_item) = match source {
-          ShaderIterator::Const(v) => (
-            format!("for(var {name}: i32 = 0; {name} < {v}; {name} = {name} + 1) {{"),
-            format!("let {item_name} = name;"),
-          ),
-          ShaderIterator::Count(v) => (
-            format!(
-              "for(var {name}: i32 = 0; {name} < {count}; {name} = {name} + 1) {{",
-              count = cx.get_node_gen_result_var(*v)
+
+        fn get_iter_head(
+          cx: &CodeGenCtx,
+          source: &ShaderIterator,
+          item_name: &str,
+          name: &str,
+        ) -> (String, String) {
+          match source {
+            ShaderIterator::Const(v) => (
+              format!("for(var {name}: u32 = 0u; {name} < {v}u; {name} = {name} + 1u) {{"),
+              format!("let {item_name} = name;"),
             ),
-            format!("let {item_name} = name;"),
-          ),
-          ShaderIterator::FixedArray { length, array } => {
-            let array = cx.get_node_gen_result_var(*array);
-            (
-              format!("for(var {name}: i32 = 0; {name} < {length}; {name} = {name} + 1) {{",),
-              format!("let {item_name} = {array }[{name}];"),
-            )
+            ShaderIterator::Count(v) => (
+              format!(
+                "for(var {name}: u32 = 0u; {name} < {count}; {name} = {name} + 1u) {{",
+                count = cx.get_node_gen_result_var(*v)
+              ),
+              format!("let {item_name} = name;"),
+            ),
+            ShaderIterator::FixedArray { length, array } => {
+              let array = cx.get_node_gen_result_var(*array);
+              (
+                format!("for(var {name}: u32 = 0u; {name} < {length}u; {name} = {name} + 1u) {{",),
+                format!("let {item_name} = {array }[{name}];"),
+              )
+            }
+            ShaderIterator::Clamped { source, max } => {
+              let (head, get) = get_iter_head(cx, source, item_name, name);
+              let max = cx.get_node_gen_result_var(*max);
+              (head, format!("if ({name} >= {max}) {{ break; }}; \n {get}"))
+            }
           }
-        };
+        }
+
+        let (head, get_item) = get_iter_head(cx, source, item_name, name);
         code.write_ln(head).tab();
 
-        if let ShaderIterator::FixedArray { .. } = source {
-          code.write_ln(get_item);
-        }
+        code.write_ln(get_item);
 
         gen_scope_full(scope, cx, code);
 
@@ -778,6 +791,9 @@ fn gen_primitive_type(ty: PrimitiveShaderValueType) -> &'static str {
     PrimitiveShaderValueType::Mat3Float32 => "mat3x3<f32>",
     PrimitiveShaderValueType::Mat4Float32 => "mat4x4<f32>",
     PrimitiveShaderValueType::Uint32 => "u32",
+    PrimitiveShaderValueType::Vec2Uint32 => "vec2<u32>",
+    PrimitiveShaderValueType::Vec3Uint32 => "vec3<u32>",
+    PrimitiveShaderValueType::Vec4Uint32 => "vec4<u32>",
     PrimitiveShaderValueType::Bool => "bool",
     PrimitiveShaderValueType::Int32 => "i32",
   }
@@ -863,6 +879,18 @@ pub fn gen_primitive_literal(v: PrimitiveShaderValue) -> String {
     }
     PrimitiveShaderValue::Uint32(v) => format!("{}", v),
     PrimitiveShaderValue::Int32(v) => format!("{}", v),
+    PrimitiveShaderValue::Vec2Uint32(v) => {
+      let v: &[u32; 2] = v.as_ref();
+      uint_group(v.as_slice())
+    }
+    PrimitiveShaderValue::Vec3Uint32(v) => {
+      let v: &[u32; 3] = v.as_ref();
+      uint_group(v.as_slice())
+    }
+    PrimitiveShaderValue::Vec4Uint32(v) => {
+      let v: &[u32; 4] = v.as_ref();
+      uint_group(v.as_slice())
+    }
   };
   #[allow(clippy::match_like_matches_macro)]
   let require_constructor = match v {

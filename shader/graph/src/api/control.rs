@@ -24,6 +24,16 @@ impl ShaderIteratorAble for u32 {
   type Item = u32;
 }
 
+impl From<Node<u32>> for ShaderIterator {
+  fn from(v: Node<u32>) -> Self {
+    ShaderIterator::Count(v.handle())
+  }
+}
+
+impl ShaderIteratorAble for Node<u32> {
+  type Item = u32;
+}
+
 impl<T, const U: usize> From<Node<Shader140Array<T, U>>> for ShaderIterator {
   fn from(v: Node<Shader140Array<T, U>>) -> Self {
     ShaderIterator::FixedArray {
@@ -35,6 +45,24 @@ impl<T, const U: usize> From<Node<Shader140Array<T, U>>> for ShaderIterator {
 
 impl<T: ShaderGraphNodeType, const U: usize> ShaderIteratorAble for Node<Shader140Array<T, U>> {
   type Item = T;
+}
+
+pub struct ClampedShaderIter<T> {
+  pub inner: T,
+  pub count: Node<u32>,
+}
+
+impl<T: Into<ShaderIterator>> From<ClampedShaderIter<T>> for ShaderIterator {
+  fn from(v: ClampedShaderIter<T>) -> Self {
+    ShaderIterator::Clamped {
+      source: Box::new(v.inner.into()),
+      max: v.count.handle(),
+    }
+  }
+}
+
+impl<T: ShaderIteratorAble> ShaderIteratorAble for ClampedShaderIter<T> {
+  type Item = T::Item;
 }
 
 #[inline(never)]

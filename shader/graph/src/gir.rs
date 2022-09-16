@@ -89,6 +89,10 @@ pub enum ShaderIterator {
     array: ShaderGraphNodeRawHandle,
     length: usize,
   },
+  Clamped {
+    source: Box<Self>,
+    max: ShaderGraphNodeRawHandle,
+  },
 }
 
 #[derive(Clone)]
@@ -194,6 +198,9 @@ pub enum PrimitiveShaderValueType {
   Vec2Float32,
   Vec3Float32,
   Vec4Float32,
+  Vec2Uint32,
+  Vec3Uint32,
+  Vec4Uint32,
   Mat2Float32,
   Mat3Float32,
   Mat4Float32,
@@ -214,6 +221,9 @@ pub enum PrimitiveShaderValue {
   Vec2Float32(Vec2<f32>),
   Vec3Float32(Vec3<f32>),
   Vec4Float32(Vec4<f32>),
+  Vec2Uint32(Vec2<u32>),
+  Vec3Uint32(Vec3<u32>),
+  Vec4Uint32(Vec4<u32>),
   Mat2Float32(Mat2<f32>),
   Mat3Float32(Mat3<f32>),
   Mat4Float32(Mat4<f32>),
@@ -232,6 +242,9 @@ impl From<PrimitiveShaderValue> for PrimitiveShaderValueType {
       PrimitiveShaderValue::Mat3Float32(_) => PrimitiveShaderValueType::Mat3Float32,
       PrimitiveShaderValue::Mat4Float32(_) => PrimitiveShaderValueType::Mat4Float32,
       PrimitiveShaderValue::Bool(_) => PrimitiveShaderValueType::Bool,
+      PrimitiveShaderValue::Vec2Uint32(_) => PrimitiveShaderValueType::Vec2Uint32,
+      PrimitiveShaderValue::Vec3Uint32(_) => PrimitiveShaderValueType::Vec3Uint32,
+      PrimitiveShaderValue::Vec4Uint32(_) => PrimitiveShaderValueType::Vec4Uint32,
     }
   }
 }
@@ -357,6 +370,9 @@ shader_field_ty_mapper!(i32, Self);
 shader_field_ty_mapper!(Vec2<f32>, Self);
 shader_field_ty_mapper!(Vec3<f32>, Self);
 shader_field_ty_mapper!(Vec4<f32>, Self);
+shader_field_ty_mapper!(Vec2<u32>, Self);
+shader_field_ty_mapper!(Vec3<u32>, Self);
+shader_field_ty_mapper!(Vec4<u32>, Self);
 shader_field_ty_mapper!(Mat2<f32>, Self);
 shader_field_ty_mapper!(Mat3<f32>, Self);
 shader_field_ty_mapper!(Mat4<f32>, Self);

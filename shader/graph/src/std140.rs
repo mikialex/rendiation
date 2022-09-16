@@ -75,6 +75,18 @@ unsafe impl Std140 for Vec4<f32> {
   const ALIGNMENT: usize = 16;
 }
 
+unsafe impl Std140 for Vec2<u32> {
+  const ALIGNMENT: usize = 8;
+}
+
+unsafe impl Std140 for Vec3<u32> {
+  const ALIGNMENT: usize = 16;
+}
+
+unsafe impl Std140 for Vec4<u32> {
+  const ALIGNMENT: usize = 16;
+}
+
 unsafe impl Std140 for Shader140Mat2 {
   const ALIGNMENT: usize = 16;
   const PAD_AT_END: bool = true;
