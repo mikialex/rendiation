@@ -282,10 +282,10 @@ impl Gizmo {
       .get_world_matrix()
       .position();
 
-    let target_world_position = self.states.target_world_mat.position();
-    let view = camera_world_position - target_world_position;
+    let back_to_local = self.states.target_world_mat.inverse()?;
+    let view_dir_in_local = back_to_local * camera_world_position;
 
-    let plane_point = self.states.start_hit_world_position;
+    let plane_point = self.states.start_hit_local_position;
 
     // build world space constraint abstract interactive plane
     let (plane, constraint) = if self.states.translate.only_x_active() {
@@ -298,7 +298,7 @@ impl Gizmo {
       None
     }
     .map(|axis: Vec3<f32>| {
-      let helper_dir = axis.cross(view);
+      let helper_dir = axis.cross(view_dir_in_local);
       let normal = helper_dir.cross(axis);
       (
         Plane::from_normal_and_plane_point(normal, plane_point),
@@ -328,15 +328,21 @@ impl Gizmo {
       (0., 1., 0.).into(),
     ));
 
+    let local_ray = event
+      .interactive_ctx
+      .world_ray
+      .apply_matrix_into(back_to_local);
+
     // if we don't get any hit, we skip update.  Keeping last updated result is a reasonable behavior.
-    if let OptionalNearest(Some(new_hit)) = event.interactive_ctx.world_ray.intersect(&plane, &()) {
+    if let OptionalNearest(Some(new_hit)) = local_ray.intersect(&plane, &()) {
       let new_hit = (new_hit.position - plane_point) * constraint + plane_point;
+      let new_hit_world = self.states.target_world_mat * new_hit;
 
       // new_hit_world = M(parent) * M(new_local_translate) * M(local_rotate) * M(local_scale) * start_hit_local_position =>
       // M-1(parent) * new_hit_world = new_local_translate + M(local_rotate) * M(local_scale) * start_hit_local_position  =>
       // new_local_translate = M-1(parent) * new_hit_world - M(local_rotate) * M(local_scale) * start_hit_local_position
 
-      let new_local_translate = self.states.start_parent_world_mat.inverse()? * new_hit
+      let new_local_translate = self.states.start_parent_world_mat.inverse()? * new_hit_world
         - Mat4::from(self.states.start_local_quaternion)
           * Mat4::scale(self.states.start_local_scale)
           * self.states.start_hit_local_position;
