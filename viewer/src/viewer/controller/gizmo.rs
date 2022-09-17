@@ -117,10 +117,13 @@ impl Gizmo {
       .update(update_plane(xz_lens, BLUE))
       .on(active(xz_lens));
 
+    let rotator_x = build_rotator(root, auto_scale).eventable::<GizmoState>();
+
     #[rustfmt::skip]
     let view = collection3d()
       .with(x).with(y).with(z)
-      .with(xy).with(yz).with(xz);
+      .with(xy).with(yz).with(xz)
+      .with(rotator_x);
 
     Self {
       states: Default::default(),
@@ -355,9 +358,9 @@ impl PassContentWithCamera for &mut Gizmo {
   }
 }
 
-type PlaneMaterial = StateControl<FlatMaterial>;
+type FlatUtilMaterial = StateControl<FlatMaterial>;
 type PlaneMesh = impl WebGPUMesh;
-type PlaneModel = OverridableMeshModelImpl<PlaneMesh, PlaneMaterial>;
+type PlaneModel = OverridableMeshModelImpl<PlaneMesh, FlatUtilMaterial>;
 fn build_plane(
   root: &SceneNode,
   auto_scale: &Rc<RefCell<ViewAutoScalable>>,
@@ -383,6 +386,33 @@ fn build_plane(
   plane
 }
 
+type RotatorMesh = impl WebGPUMesh;
+type RotatorModel = OverridableMeshModelImpl<RotatorMesh, FlatUtilMaterial>;
+fn build_rotator(root: &SceneNode, auto_scale: &Rc<RefCell<ViewAutoScalable>>) -> RotatorModel {
+  let mesh = IndexedMeshBuilder::<TriangleList, Vec<Vertex>>::default()
+    .triangulate_parametric(
+      &TorusMeshParameter {
+        radius: 1.5,
+        tube_radius: 0.03,
+      }
+      .make_surface(),
+      TessellationConfig { u: 36, v: 4 },
+      true,
+    )
+    .build_mesh_into();
+
+  let mesh = MeshSource::new(mesh);
+
+  let material = solid_material(RED);
+
+  let torus = root.create_child();
+  // plane.set_local_matrix(mat);
+  let mut torus = MeshModelImpl::new(material, mesh, torus).into_matrix_overridable();
+
+  torus.push_override(auto_scale.clone());
+  torus
+}
+
 // fn build_box() -> Box<dyn SceneRenderable> {
 //   let mesh = CubeMeshParameter::default().tessellate();
 //   let mesh = MeshCell::new(MeshSource::new(mesh));
@@ -405,7 +435,7 @@ fn build_plane(
 struct GizmoState {
   translate: AxisActiveState,
   // rotation: AxisActiveState,
-  // scale: AxisActiveState,
+  scale: AxisActiveState,
   start_parent_world_mat: Mat4<f32>,
   start_local_position: Vec3<f32>,
   start_local_quaternion: Quat<f32>,

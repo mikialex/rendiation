@@ -24,10 +24,20 @@ impl<T: Scalar> SquareMatrix<T> for Mat2<T> {
     }
   }
   fn det(&self) -> T {
-    todo!()
+    self.a1 * self.b2 - self.a2 * self.b1
   }
   fn inverse(&self) -> Option<Self> {
-    todo!()
+    let det = self.det();
+    if det == T::zero() {
+      return None;
+    }
+    let inv_det = T::one() / det;
+    #[rustfmt::skip]
+    Self {
+      a1:  self.b2 * inv_det, a2: -self.b1 * inv_det,
+      b1: -self.a2 * inv_det, b2: self.a1  * inv_det,
+    }
+    .into()
   }
 
   fn max_scale(&self) -> T {

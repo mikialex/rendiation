@@ -2,8 +2,8 @@ use crate::*;
 
 #[derive(Debug, Copy, Clone)]
 pub struct TorusMeshParameter {
-  radius: f32,
-  tube_radius: f32,
+  pub radius: f32,
+  pub tube_radius: f32,
 }
 
 impl TorusMeshParameter {
