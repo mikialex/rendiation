@@ -68,20 +68,20 @@ impl<T: ShaderIteratorAble> ShaderIteratorAble for ClampedShaderIter<T> {
 #[inline(never)]
 pub fn for_by<T: Into<ShaderIterator> + ShaderIteratorAble>(
   iterable: T,
-  logic: impl Fn(&ForCtx, Node<T::Item>),
+  logic: impl Fn(&ForCtx, Node<T::Item>, Node<u32>),
 ) where
   T::Item: ShaderGraphNodeType,
 {
   let (item_node, index_node, target_scope_id) = modify_graph(|builder| {
     let item_node = ShaderGraphNode::UnNamed.insert_into_graph(builder);
-    let index_node = ShaderGraphNode::UnNamed.insert_into_graph::<i32>(builder);
+    let index_node = ShaderGraphNode::UnNamed.insert_into_graph::<u32>(builder);
     let id = builder.push_scope().graph_guid;
 
     (item_node, index_node, id)
   });
   let cx = ForCtx { target_scope_id };
 
-  logic(&cx, item_node);
+  logic(&cx, item_node, index_node);
 
   modify_graph(|builder| {
     let scope = builder.pop_scope();

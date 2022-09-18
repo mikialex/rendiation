@@ -309,7 +309,7 @@ impl<T: ShaderLight> LightCollectionCompute for LightList<T> {
       count: light_count,
     };
 
-    for_by(light_iter, |_, light| {
+    for_by(light_iter, |_, light, _| {
       let light = light.expand();
       let incident = T::compute_direct_light(&light, &dep, geom_ctx);
       let light_result = shading_impl.compute_lighting_dyn(shading, &incident, geom_ctx);

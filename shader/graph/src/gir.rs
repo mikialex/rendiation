@@ -48,7 +48,7 @@ pub enum ShaderGraphNode {
   Input(ShaderGraphInputNode),
   /// This is workaround for some case
   UnNamed,
-  /// the old maybe not exist, but we require a side effect wirte
+  /// the old maybe not exist, but we require a side effect write
   Write {
     new: ShaderGraphNodeRawHandle,
     old: Option<ShaderGraphNodeRawHandle>,

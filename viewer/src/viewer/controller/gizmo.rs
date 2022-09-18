@@ -164,9 +164,7 @@ impl Gizmo {
     self.target.is_some()
   }
   pub fn has_active(&self) -> bool {
-    self.states.translate.has_active()
-      || self.states.rotation.has_active()
-      || self.states.scale.has_active()
+    self.states.has_any_active()
   }
 
   // return if should keep target.
@@ -198,16 +196,11 @@ impl Gizmo {
       if let Some((MouseButton::Left, ElementState::Pressed)) = mouse(event.raw_event) {
         if !self.states.test_has_any_widget_mouse_down {
           keep_target = false;
-          self.states.translate.reset_active();
-          self.states.rotation.reset_active();
-          self.states.scale.reset_active();
+          self.states.reset();
         }
       }
 
-      if !self.states.translate.has_active()
-        && !self.states.rotation.has_active()
-        && !self.states.scale.has_active()
-      {
+      if !self.states.has_any_active() {
         return keep_target.into();
       }
 
@@ -218,12 +211,7 @@ impl Gizmo {
       }
 
       if let Some((MouseButton::Left, ElementState::Released)) = mouse(event.raw_event) {
-        self.states.translate.reset_active();
-        self.states.rotation.reset_active();
-        self.states.scale.reset_active();
-
-        self.states.last_dir.set(None);
-        self.states.current_angle_all.set(None);
+        self.states.reset();
       }
 
       keep_target
@@ -548,18 +536,6 @@ fn build_rotator(root: &SceneNode, auto_scale: &AutoScale, mat: Mat4<f32>) -> Ro
 //   todo!();
 // }
 
-// type CircleMaterial = StateControl<FlatMaterial>;
-// type CircleMesh = impl WebGPUMesh;
-// fn build_rotation_circle() -> OverridableMeshModelImpl<CircleMesh, CircleMaterial> {
-//   let mut position = Vec::new();
-//   let segments = 50;
-//   for i in 0..segments {
-//     let p = i as f32 / segments as f32;
-//     position.push(Vec3::new(p.cos(), p.sin(), 0.))
-//   }
-//   todo!();
-// }
-
 #[derive(Default)]
 struct GizmoState {
   translate: AxisActiveState,
@@ -583,6 +559,17 @@ struct GizmoState {
 }
 
 impl GizmoState {
+  fn has_any_active(&self) -> bool {
+    self.translate.has_active() || self.rotation.has_active() || self.scale.has_active()
+  }
+  fn reset(&mut self) {
+    self.translate.reset_active();
+    self.rotation.reset_active();
+    self.scale.reset_active();
+
+    self.last_dir.set(None);
+    self.current_angle_all.set(None);
+  }
   fn record_start(&mut self, start_hit_world_position: Vec3<f32>) {
     self.start_local_mat = self.target_local_mat;
     self.start_parent_world_mat = self.target_parent_world_mat;

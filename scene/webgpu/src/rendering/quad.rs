@@ -60,7 +60,11 @@ impl DrawcallEmitter for FullScreenQuad {
 }
 
 impl ShaderPassBuilder for FullScreenQuad {}
-impl ShaderHashProvider for FullScreenQuad {}
+impl ShaderHashProvider for FullScreenQuad {
+  fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
+    self.blend.hash(hasher)
+  }
+}
 impl ShaderGraphProvider for FullScreenQuad {
   fn build(
     &self,

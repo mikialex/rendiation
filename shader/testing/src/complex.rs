@@ -19,7 +19,7 @@ impl ShaderGraphProvider for Test {
       let a = consts(1.).mutable();
       let c = ACESFilmicToneMapping(vec3(1., 2., 3.), a.get()).mutable();
 
-      for_by(5, |for_ctx, i| {
+      for_by(5, |for_ctx, i, _| {
         let b = 1.;
         if_by(i.greater_than(0), || {
           a.set(a.get() + b.into());

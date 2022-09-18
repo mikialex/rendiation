@@ -11,18 +11,18 @@ pub struct LinearBlurConfig {
 pub struct ShaderSamplingWeights {
   /// we max support 32 weight, but maybe not used them all.
   /// this array is just used as a fixed size container.
-  pub weights: UniformBufferDataView<Shader140Array<f32, 32>>,
+  pub weights: UniformBufferDataView<Shader140Array<Vec4<f32>, 32>>,
   /// the actually sample count we used.
-  pub weight_count: UniformBufferDataView<i32>,
+  pub weight_count: UniformBufferDataView<u32>,
 }
 
-pub fn gaussian(kernel_radius: usize) -> (Shader140Array<f32, 32>, i32) {
+pub fn gaussian(kernel_radius: usize) -> (Shader140Array<Vec4<f32>, 32>, u32) {
   let size = 2. * kernel_radius as f32 + 1.;
   let sigma = (size + 1.) / 6.;
   let two_sigma_square = 2.0 * sigma * sigma;
   let sigma_root = (two_sigma_square * f32::PI()).sqrt();
 
-  let mut weights: Vec<f32> = Vec::new();
+  let mut weights: Vec<Vec4<f32>> = Vec::new();
   let mut total = 0.0;
   // for (let i = -kernelRadius; i <= kernelRadius; ++i) {
   //     const distance = i * i;
@@ -35,7 +35,7 @@ pub fn gaussian(kernel_radius: usize) -> (Shader140Array<f32, 32>, i32) {
   // }
   let weight_count = weights.len();
 
-  let weights = vec![0.; 32].try_into().unwrap();
+  let weights = vec![Vec4::<f32>::one() * 0.1; 32].try_into().unwrap();
   let weight_count = 32;
   (weights, weight_count)
 }
@@ -69,17 +69,20 @@ impl<'a, T> ShaderGraphProvider for LinearBlurTask<'a, T> {
       let uv = builder.query::<FragmentUv>()?;
       let size = builder.query::<TexelSize>()?;
 
-      let blurred = linear_blur(
-        config.direction,
-        weights,
-        weight_count,
-        input,
-        sampler,
-        uv,
-        size,
-      );
+      let sum = consts(Vec4::zero()).mutable();
 
-      builder.set_fragment_out(0, blurred)
+      let iter = ClampedShaderIter {
+        inner: weights,
+        count: weight_count,
+      };
+
+      let sample_offset = size * config.direction;
+
+      for_by(iter, |_, weight, i| {
+        sum.set(sum.get() + weight * input.sample(sampler, uv + i.as_f32() * sample_offset))
+      });
+
+      builder.set_fragment_out(0, sum.get())
     })
   }
 }
@@ -157,29 +160,3 @@ pub fn draw_linear_blur<'a, T: AsRef<Attachment> + 'a>(
 
   dst
 }
-
-wgsl_fn!(
-  fn lin_space(w0: f32, d0: vec4<f32>, w1: f32, d1: vec4<f32>) -> vec4<f32> {
-    return (w0 * d0 + w1 * d1);
-  }
-);
-
-wgsl_fn!(
-  fn linear_blur(
-    direction: vec2<f32>,
-    weights: array<UniformArray_f32, 32>,
-    weight_count: i32,
-    texture: texture_2d<f32>,
-    sp: sampler,
-    uv: vec2<f32>,
-    texel_size: vec2<f32>,
-  ) -> vec4<f32> {
-    let sample_offset = texel_size * direction;
-    var sum: vec4<f32>;
-    for (var i: i32 = 2; i < weight_count; i++) {
-        let samples = textureSample(texture, sp, uv + f32(i) * sample_offset);
-        sum = lin_space(1.0, sum, weights[i].inner, samples);
-    }
-    return sum;
-  }
-);

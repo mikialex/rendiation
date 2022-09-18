@@ -37,6 +37,17 @@ swizzle!(Vec2<f32>, f32, x, "x");
 swizzle!(Vec2<f32>, f32, y, "y");
 // todo impl rest swizzle by magic
 
+impl Node<u32> {
+  pub fn as_f32(self) -> Node<f32> {
+    let a = self.handle();
+    ShaderGraphNodeExpr::Compose {
+      target: f32::PRIMITIVE_TYPE,
+      parameters: vec![a],
+    }
+    .insert_graph()
+  }
+}
+
 impl<A, B> From<(A, B)> for Node<Vec4<f32>>
 where
   A: Into<Node<Vec3<f32>>>,

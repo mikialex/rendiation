@@ -62,8 +62,7 @@ impl ViewerPipeline {
       .by(scene.by_main_camera_and_self(ForwardScene{
         lights: &self.forward_lights, 
         tonemap: &self.tonemap
-      }))
-      .by(copy_frame(widgets_result.read_into(), BlendState::PREMULTIPLIED_ALPHA_BLENDING.into()));
+      }));
 
 
     // let scene_result = draw_cross_blur(&self.blur, scene_result.read_into(), ctx);
@@ -74,7 +73,7 @@ impl ViewerPipeline {
       .with_depth(scene_depth.write(), clear(1.))
       .render(ctx)
       .by(copy_frame(scene_result.read_into(), None))
-      .by(highlight_compose);
-      // .by(copy_frame(widgets_result.read_into(), BlendState::PREMULTIPLIED_ALPHA_BLENDING.into()));
+      .by(highlight_compose)
+      .by(copy_frame(widgets_result.read_into(), BlendState::PREMULTIPLIED_ALPHA_BLENDING.into()));
   }
 }
