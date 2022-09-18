@@ -172,7 +172,6 @@ impl ForwardLightingSystem {
     builder: &mut ShaderGraphRenderPipelineBuilder,
     shading_impl: &dyn LightableSurfaceShadingDyn,
   ) -> Result<(), ShaderGraphBuildError> {
-    builder.log_result = true;
     builder.fragment(|builder, binding| {
       let lengths_info = binding.uniform_by(self.lengths.as_ref().unwrap(), SB::Pass);
       let camera_position = builder.query::<CameraWorldMatrix>()?.position();

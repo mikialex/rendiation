@@ -70,7 +70,6 @@ impl ViewerPipeline {
 
     pass("compose-all")
       .with_color(final_target, load())
-      .with_depth(scene_depth.write(), clear(1.))
       .render(ctx)
       .by(copy_frame(scene_result.read_into(), None))
       .by(highlight_compose)

@@ -61,7 +61,6 @@ impl<'a, T> ShaderGraphProvider for LinearBlurTask<'a, T> {
     &self,
     builder: &mut ShaderGraphRenderPipelineBuilder,
   ) -> Result<(), ShaderGraphBuildError> {
-    builder.log_result = true;
     builder.fragment(|builder, binding| {
       let config = binding.uniform_by(self.config, SB::Material).expand();
       let weights = binding.uniform_by(&self.weights.weights, SB::Material);
