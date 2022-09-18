@@ -262,24 +262,41 @@ impl Gizmo {
     let rotate_dir = last_dir.cross(new_dir).signum();
     // min one is preventing float precision issue which will cause nan in acos
     let angle_delta = last_dir.dot(new_dir).min(1.).acos() * rotate_dir;
-    let angle = current_angle_all + angle_delta;
+    let mut angle = current_angle_all + angle_delta;
 
     self.states.current_angle_all.set(Some(angle));
     self.states.last_dir.set(Some(new_dir));
 
-    let mat = if self.states.rotation.only_x_active() {
-      Mat4::rotate_x(angle)
+    let axis = if self.states.rotation.only_x_active() {
+      Vec3::new(1., 0., 0.)
     } else if self.states.rotation.only_y_active() {
-      Mat4::rotate_y(angle)
+      Vec3::new(0., 1., 0.)
     } else if self.states.rotation.only_z_active() {
-      Mat4::rotate_z(angle)
+      Vec3::new(0., 0., 1.)
     } else {
       return Some(());
     };
 
+    let camera_world_position = event
+      .interactive_ctx
+      .camera
+      .read()
+      .node
+      .get_world_matrix()
+      .position();
+
+    let view_dir = camera_world_position - self.states.target_world_mat.position();
+
+    let axis_world = axis.transform_direction(self.states.target_world_mat);
+    if axis_world.dot(view_dir) < 0. {
+      angle = -angle;
+    }
+
+    let quat = Quat::rotation(axis, angle);
+
     let new_local = Mat4::translate(self.states.start_local_position)
       * Mat4::from(self.states.start_local_quaternion)
-      * mat
+      * Mat4::from(quat)
       * Mat4::scale(self.states.start_local_scale);
 
     target.set_local_matrix(new_local);
@@ -298,7 +315,8 @@ impl Gizmo {
       .position();
 
     let back_to_local = self.states.target_world_mat.inverse()?;
-    let view_dir_in_local = back_to_local * camera_world_position;
+    let view_dir = camera_world_position - self.states.target_world_mat.position();
+    let view_dir_in_local = view_dir.transform_direction(back_to_local).value;
 
     let plane_point = self.states.start_hit_local_position;
 
