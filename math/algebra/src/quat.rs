@@ -166,7 +166,7 @@ where
     }
   }
 
-  pub fn rotation(axis: &Vec3<T>, theta: T) -> Self {
+  pub fn rotation(axis: Vec3<T>, theta: T) -> Self {
     let (s, c) = (theta * T::half()).sin_cos();
 
     Self {

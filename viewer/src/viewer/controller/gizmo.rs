@@ -278,8 +278,8 @@ impl Gizmo {
     };
 
     let new_local = Mat4::translate(self.states.start_local_position)
-      * mat
       * Mat4::from(self.states.start_local_quaternion)
+      * mat
       * Mat4::scale(self.states.start_local_scale);
 
     target.set_local_matrix(new_local);
