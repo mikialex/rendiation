@@ -1,4 +1,7 @@
-use std::{cell::RefCell, rc::Rc};
+use std::{
+  cell::{Cell, RefCell},
+  rc::Rc,
+};
 
 use interphaser::{
   lens, mouse, mouse_move,
@@ -218,6 +221,9 @@ impl Gizmo {
         self.states.translate.reset_active();
         self.states.rotation.reset_active();
         self.states.scale.reset_active();
+
+        self.states.last_dir.set(None);
+        self.states.current_angle_all.set(None);
       }
 
       keep_target
@@ -250,7 +256,16 @@ impl Gizmo {
     let new_dir = current_hit_screen_position - pivot_center_screen_position;
     let new_dir = new_dir.normalize();
 
-    let angle = origin_dir.dot(new_dir).acos();
+    let current_angle_all = self.states.current_angle_all.get().unwrap_or(0.);
+    let last_dir = self.states.last_dir.get().unwrap_or(origin_dir);
+
+    let rotate_dir = last_dir.cross(new_dir).signum();
+    // min one is preventing float precision issue which will cause nan in acos
+    let angle_delta = last_dir.dot(new_dir).min(1.).acos() * rotate_dir;
+    let angle = current_angle_all + angle_delta;
+
+    self.states.current_angle_all.set(Some(angle));
+    self.states.last_dir.set(Some(new_dir));
 
     let mat = if self.states.rotation.only_x_active() {
       Mat4::rotate_x(angle)
@@ -539,6 +554,9 @@ struct GizmoState {
   start_local_mat: Mat4<f32>,
   start_hit_local_position: Vec3<f32>,
   start_hit_world_position: Vec3<f32>,
+
+  current_angle_all: Cell<Option<f32>>,
+  last_dir: Cell<Option<Vec2<f32>>>,
 
   target_local_mat: Mat4<f32>,
   target_parent_world_mat: Mat4<f32>,
