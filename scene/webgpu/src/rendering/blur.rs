@@ -16,28 +16,32 @@ pub struct ShaderSamplingWeights {
   pub weight_count: UniformBufferDataView<u32>,
 }
 
+/// radius: 0-16
 pub fn gaussian(kernel_radius: usize) -> (Shader140Array<Vec4<f32>, 32>, u32) {
+  let kernel_radius = kernel_radius.min(15) as i32;
   let size = 2. * kernel_radius as f32 + 1.;
   let sigma = (size + 1.) / 6.;
   let two_sigma_square = 2.0 * sigma * sigma;
   let sigma_root = (two_sigma_square * f32::PI()).sqrt();
 
   let mut weights: Vec<Vec4<f32>> = Vec::new();
-  let mut total = 0.0;
-  // for (let i = -kernelRadius; i <= kernelRadius; ++i) {
-  //     const distance = i * i;
-  //     const index = i + kernelRadius;
-  //     weights[index] = Math.exp(-distance / twoSigmaSquare) / sigmaRoot;
-  //     total += weights[index];
-  // }
-  // for (let i = 0; i < weights.length; i++) {
-  //     weights[i] /= total;
-  // }
+  let mut total = Vec4::zero();
+  for i in -kernel_radius..=kernel_radius {
+    let distance = (i * i) as f32;
+    let weight = (-distance / two_sigma_square).exp() / sigma_root;
+    let weight = Vec4::splat(weight);
+    weights.push(weight);
+    total += weight;
+  }
+  weights.iter_mut().for_each(|w| *w = *w / total);
   let weight_count = weights.len();
 
-  let weights = vec![Vec4::<f32>::one() * 0.1; 32].try_into().unwrap();
-  let weight_count = 32;
-  (weights, weight_count)
+  while weights.len() < 32 {
+    weights.push(Default::default());
+  }
+
+  let weights = weights.try_into().unwrap();
+  (weights, weight_count as u32)
 }
 
 pub struct LinearBlurTask<'a, T> {
@@ -79,7 +83,8 @@ impl<'a, T> ShaderGraphProvider for LinearBlurTask<'a, T> {
       let sample_offset = size * config.direction;
 
       for_by(iter, |_, weight, i| {
-        sum.set(sum.get() + weight * input.sample(sampler, uv + i.as_f32() * sample_offset))
+        let position = uv + (i.as_f32() - weight_count.as_f32() * consts(0.5)) * sample_offset;
+        sum.set(sum.get() + weight * input.sample(sampler, position))
       });
 
       builder.set_fragment_out(0, sum.get())

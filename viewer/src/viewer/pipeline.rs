@@ -65,7 +65,7 @@ impl ViewerPipeline {
       }));
 
 
-    // let scene_result = draw_cross_blur(&self.blur, scene_result.read_into(), ctx);
+    let scene_result = draw_cross_blur(&self.blur, scene_result.read_into(), ctx);
 
 
     pass("compose-all")
