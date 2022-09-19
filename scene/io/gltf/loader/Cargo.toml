@@ -1,0 +1,8 @@
+[package]
+edition = "2021"
+name = "rendiation-scene-gltf-loader"
+version = "0.0.1"
+
+[dependencies]
+gltf = "1.0.0"
+rendiation-scene-webgpu = {path = "../../../webgpu"}

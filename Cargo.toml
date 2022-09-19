@@ -21,7 +21,7 @@ members = [
   "components/fontext",
   "components/canvase",
   "interphaser",
-  "shader/graph", 
+  "shader/graph",
   "shader/testing",
   "shader/derive",
   "shader/derive-shared",
@@ -32,6 +32,7 @@ members = [
   "scene/fusion",
   "scene/webgpu",
   "scene/raytracing",
+  "scene/io/gltf/loader",
   "viewer",
   "webgpu",
 ]

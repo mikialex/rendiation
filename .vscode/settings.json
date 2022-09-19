@@ -47,6 +47,7 @@
         "gbuffer",
         "GLRAL",
         "glsl",
+        "gltf",
         "glutin",
         "GPURAL",
         "hashable",

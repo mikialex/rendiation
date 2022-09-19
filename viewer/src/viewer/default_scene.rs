@@ -179,4 +179,7 @@ pub fn load_default_scene(scene: &mut Scene<WebGPUScene>) {
   let directional_light =
     SceneItemRef::new(Box::new(directional_light) as Box<dyn WebGPUSceneLight>);
   scene.lights.insert(directional_light);
+
+  rendiation_scene_gltf_loader::load_gltf_test("../../glTF-Sample-Models/2.0/Box/glTF/Box.gltf", scene)
+    .unwrap();
 }
