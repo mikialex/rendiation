@@ -5,6 +5,7 @@ use rendiation_algebra::*;
 use rendiation_scene_webgpu::{
   MeshModel, MeshModelImpl, PhysicalMaterial, Scene, SceneNode, StateControl, WebGPUScene,
 };
+use rendiation_texture::TextureSampler;
 
 pub fn load_gltf_test(path: impl AsRef<Path>, scene: &mut Scene<WebGPUScene>) -> Result<()> {
   // let gltf = Gltf::open(path)?;
@@ -72,5 +73,74 @@ fn create_node_recursive(parent_to_attach: &SceneNode, gltf_node: &Node) {
 
 /// https://docs.rs/gltf/latest/gltf/struct.Material.html
 fn build_pbr_material(material: gltf::Material) -> StateControl<PhysicalMaterial<WebGPUScene>> {
+  let side = material.double_sided();
+  let pbr = material.pbr_metallic_roughness();
+  if let Some(albedo_texture) = pbr.base_color_texture() {
+    let texture = albedo_texture.texture();
+    let sampler = texture.sampler();
+  }
+  let material = PhysicalMaterial {
+    albedo: Vec4::from(pbr.base_color_factor()).xyz(),
+    sampler: map_sampler(sampler),
+    texture: todo!(),
+  };
   todo!()
+}
+
+fn map_sampler(sampler: gltf::texture::Sampler) -> rendiation_texture::TextureSampler {
+  rendiation_texture::TextureSampler {
+    address_mode_u: map_wrapping(sampler.wrap_s()),
+    address_mode_v: map_wrapping(sampler.wrap_t()),
+    address_mode_w: rendiation_texture::AddressMode::ClampToEdge,
+    mag_filter: sampler
+      .mag_filter()
+      .map(map_mag_filter)
+      .unwrap_or(rendiation_texture::FilterMode::Nearest),
+    min_filter: sampler
+      .min_filter()
+      .map(map_min_filter)
+      .unwrap_or(rendiation_texture::FilterMode::Nearest),
+    mipmap_filter: sampler
+      .min_filter()
+      .map(map_min_filter_mipmap)
+      .unwrap_or(rendiation_texture::FilterMode::Nearest),
+  }
+}
+
+fn map_wrapping(mode: gltf::texture::WrappingMode) -> rendiation_texture::AddressMode {
+  match mode {
+    gltf::texture::WrappingMode::ClampToEdge => rendiation_texture::AddressMode::ClampToEdge,
+    gltf::texture::WrappingMode::MirroredRepeat => rendiation_texture::AddressMode::MirrorRepeat,
+    gltf::texture::WrappingMode::Repeat => rendiation_texture::AddressMode::Repeat,
+  }
+}
+
+fn map_min_filter(min: gltf::texture::MinFilter) -> rendiation_texture::FilterMode {
+  match min {
+    gltf::texture::MinFilter::Nearest => rendiation_texture::FilterMode::Nearest,
+    gltf::texture::MinFilter::Linear => rendiation_texture::FilterMode::Linear,
+    gltf::texture::MinFilter::NearestMipmapNearest => rendiation_texture::FilterMode::Nearest,
+    gltf::texture::MinFilter::LinearMipmapNearest => rendiation_texture::FilterMode::Linear,
+    gltf::texture::MinFilter::NearestMipmapLinear => rendiation_texture::FilterMode::Nearest,
+    gltf::texture::MinFilter::LinearMipmapLinear => rendiation_texture::FilterMode::Linear,
+  }
+}
+
+/// https://www.khronos.org/opengl/wiki/Sampler_Object
+fn map_min_filter_mipmap(min: gltf::texture::MinFilter) -> rendiation_texture::FilterMode {
+  match min {
+    gltf::texture::MinFilter::Nearest => rendiation_texture::FilterMode::Nearest,
+    gltf::texture::MinFilter::Linear => rendiation_texture::FilterMode::Nearest,
+    gltf::texture::MinFilter::NearestMipmapNearest => rendiation_texture::FilterMode::Nearest,
+    gltf::texture::MinFilter::LinearMipmapNearest => rendiation_texture::FilterMode::Nearest,
+    gltf::texture::MinFilter::NearestMipmapLinear => rendiation_texture::FilterMode::Linear,
+    gltf::texture::MinFilter::LinearMipmapLinear => rendiation_texture::FilterMode::Linear,
+  }
+}
+
+fn map_mag_filter(f: gltf::texture::MagFilter) -> rendiation_texture::FilterMode {
+  match f {
+    gltf::texture::MagFilter::Nearest => todo!(),
+    gltf::texture::MagFilter::Linear => todo!(),
+  }
 }
