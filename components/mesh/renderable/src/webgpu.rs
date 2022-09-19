@@ -133,22 +133,27 @@ where
   }
 
   fn topology(&self) -> gpu::PrimitiveTopology {
-    match T::ENUM {
-      PrimitiveTopology::PointList => gpu::PrimitiveTopology::PointList,
-      PrimitiveTopology::LineList => gpu::PrimitiveTopology::LineList,
-      PrimitiveTopology::LineStrip => gpu::PrimitiveTopology::LineStrip,
-      PrimitiveTopology::TriangleList => gpu::PrimitiveTopology::TriangleList,
-      PrimitiveTopology::TriangleStrip => gpu::PrimitiveTopology::TriangleStrip,
-    }
+    map_topology(T::ENUM)
   }
 
   fn build_shader(builder: &mut ShaderGraphRenderPipelineBuilder) {
     builder
       .vertex(|builder, _| {
         builder.register_vertex::<V>(VertexStepMode::Vertex);
+        builder.primitive_state.topology = map_topology(T::ENUM);
         Ok(())
       })
       .unwrap();
+  }
+}
+
+fn map_topology(pt: PrimitiveTopology) -> gpu::PrimitiveTopology {
+  match pt {
+    PrimitiveTopology::PointList => gpu::PrimitiveTopology::PointList,
+    PrimitiveTopology::LineList => gpu::PrimitiveTopology::LineList,
+    PrimitiveTopology::LineStrip => gpu::PrimitiveTopology::LineStrip,
+    PrimitiveTopology::TriangleList => gpu::PrimitiveTopology::TriangleList,
+    PrimitiveTopology::TriangleStrip => gpu::PrimitiveTopology::TriangleStrip,
   }
 }
 
