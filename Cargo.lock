@@ -2103,6 +2103,7 @@ name = "rendiation-scene-gltf-loader"
 version = "0.0.1"
 dependencies = [
  "gltf",
+ "rendiation-algebra",
  "rendiation-scene-webgpu",
 ]
 

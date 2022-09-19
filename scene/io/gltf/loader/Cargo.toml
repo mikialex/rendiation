@@ -5,4 +5,5 @@ version = "0.0.1"
 
 [dependencies]
 gltf = "1.0.0"
+rendiation-algebra = {path = "../../../../math/algebra"}
 rendiation-scene-webgpu = {path = "../../../webgpu"}
