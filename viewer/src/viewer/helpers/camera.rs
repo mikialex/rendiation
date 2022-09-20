@@ -1,7 +1,9 @@
 use rendiation_algebra::*;
 use rendiation_renderable_mesh::{group::GroupedMesh, mesh::NoneIndexedMesh};
 
-use super::*;
+use crate::*;
+
+use super::{HelperLineMesh, HelperLineModel, WidgetDispatcher};
 
 pub struct CameraHelper {
   projection_cache: Mat4<f32>,
@@ -105,11 +107,11 @@ impl Default for CameraHelpers {
   }
 }
 
-impl PassContentWithSceneAndCamera<WebGPUScene> for &mut CameraHelpers {
+impl PassContentWithSceneAndCamera<FusionScene> for &mut CameraHelpers {
   fn render(
     &mut self,
     pass: &mut SceneRenderPass,
-    scene: &Scene<WebGPUScene>,
+    scene: &Scene<FusionScene>,
     camera: &SceneCamera,
   ) {
     if !self.enabled {

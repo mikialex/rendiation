@@ -10,7 +10,7 @@
 #![allow(clippy::field_reassign_with_default)]
 
 use rendiation_scene_core::*;
-use rendiation_scene_webgpu::*;
+use rendiation_scene_fusion::*;
 
 pub mod viewer;
 pub use viewer::*;

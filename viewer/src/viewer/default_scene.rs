@@ -19,7 +19,7 @@ pub fn load_img(path: &str) -> ImageBuffer<Rgba<u8>, Vec<u8>> {
   }
 }
 
-pub fn load_img_cube() -> <WebGPUScene as SceneContent>::TextureCube {
+pub fn load_img_cube() -> <FusionScene as SceneContent>::TextureCube {
   let path = [
     "C:/Users/mk/Desktop/rrf-resource/Park2/posx.jpg",
     "C:/Users/mk/Desktop/rrf-resource/Park2/negx.jpg",
@@ -42,7 +42,7 @@ pub fn load_img_cube() -> <WebGPUScene as SceneContent>::TextureCube {
     .unwrap()
 }
 
-pub fn load_default_scene(scene: &mut Scene<WebGPUScene>) {
+pub fn load_default_scene(scene: &mut Scene<FusionScene>) {
   scene.background = Some(Box::new(SolidBackground {
     intensity: Vec3::new(0.1, 0.1, 0.1),
   }));
@@ -53,7 +53,7 @@ pub fn load_default_scene(scene: &mut Scene<WebGPUScene>) {
     "/Users/mikialex/Desktop/test.png"
   };
 
-  let texture = SceneTexture2D::<WebGPUScene>::new(Box::new(load_img(path).into_source()));
+  let texture = SceneTexture2D::<FusionScene>::new(Box::new(load_img(path).into_source()));
 
   // let texture_cube = scene.add_texture_cube(load_img_cube());
 
@@ -75,7 +75,7 @@ pub fn load_default_scene(scene: &mut Scene<WebGPUScene>) {
       )
       .build_mesh_into();
     let mesh = MeshSource::new(mesh);
-    let material = PhysicalMaterial::<WebGPUScene> {
+    let material = PhysicalMaterial::<FusionScene> {
       albedo: Vec3::splat(1.),
       sampler: TextureSampler::default(),
       texture: texture.clone(),
@@ -103,7 +103,7 @@ pub fn load_default_scene(scene: &mut Scene<WebGPUScene>) {
     }
     let mesh = builder.build_mesh();
     let mesh = MeshSource::new(mesh);
-    let material = PhysicalMaterial::<WebGPUScene> {
+    let material = PhysicalMaterial::<FusionScene> {
       albedo: Vec3::splat(1.),
       sampler: TextureSampler::default(),
       texture: texture.clone(),
@@ -134,7 +134,7 @@ pub fn load_default_scene(scene: &mut Scene<WebGPUScene>) {
         Mat4::translate((10., 0., 6.)),
       ],
     };
-    let material = PhysicalMaterial::<WebGPUScene> {
+    let material = PhysicalMaterial::<FusionScene> {
       albedo: Vec3::splat(1.),
       sampler: TextureSampler::default(),
       texture,

@@ -3,7 +3,7 @@ use crate::*;
 pub fn get_main_pass_load_op<S>(scene: &Scene<S>) -> webgpu::Operations<webgpu::Color>
 where
   S: SceneContent,
-  S::BackGround: Deref<Target = dyn WebGPUBackground>,
+  S::BackGround: WebGPUBackground,
 {
   let load = if let Some(clear_color) = scene.background.as_ref().unwrap().require_pass_clear() {
     webgpu::LoadOp::Clear(clear_color)
@@ -138,7 +138,11 @@ wgsl_fn!(
 only_fragment!(LightCount, u32);
 
 impl ForwardLightingSystem {
-  pub fn update_by_scene(&mut self, scene: &Scene<WebGPUScene>, gpu: &GPU) {
+  pub fn update_by_scene<S>(&mut self, scene: &Scene<S>, gpu: &GPU)
+  where
+    S: SceneContent,
+    S::Light: WebGPUSceneLight,
+  {
     self
       .lights_collections
       .iter_mut()

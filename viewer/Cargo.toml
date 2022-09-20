@@ -16,10 +16,10 @@ rendiation-algebra = {path = "../math/algebra"}
 rendiation-controller = {path = "../components/controller"}
 rendiation-generative-texture = {path = "../components/texture/generative"}
 rendiation-geometry = {path = "../math/geometry"}
-rendiation-renderable-mesh = {path = "../components/mesh/renderable", features = ["webgpu"]}
 rendiation-mesh-generator = {path = "../components/mesh/generator"}
+rendiation-renderable-mesh = {path = "../components/mesh/renderable", features = ["webgpu"]}
 rendiation-scene-core = {path = "../scene/core"}
-rendiation-scene-webgpu = {path = "../scene/webgpu"}
+rendiation-scene-fusion = {path = "../scene/fusion"}
 rendiation-texture = {path = "../components/texture/core", features = ["webgpu"]}
 shadergraph = {path = "../shader/graph"}
 webgpu = {package = "rendiation-webgpu", path = "../webgpu"}

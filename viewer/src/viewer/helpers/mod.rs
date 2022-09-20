@@ -1,5 +1,5 @@
 use rendiation_scene_core::*;
-use rendiation_scene_webgpu::*;
+use rendiation_scene_fusion::*;
 use shadergraph::*;
 use webgpu::*;
 
