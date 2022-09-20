@@ -9,6 +9,18 @@ use rendiation_scene_webgpu::{
 use rendiation_texture::{Texture2DBuffer, TextureFormatDecider, TextureSampler};
 use webgpu::TextureFormat;
 
+#[derive(Clone)]
+struct TypedBuffer<T> {
+  pub buffer: std::rc::Rc<Vec<T>>,
+}
+
+/// like slice, but owned, ref counted cheap clone
+struct TypedBufferView<T> {
+  pub buffer: TypedBuffer<T>,
+  pub start: usize,
+  pub count: usize,
+}
+
 pub fn load_gltf_test(path: impl AsRef<Path>, scene: &mut Scene<WebGPUScene>) -> Result<()> {
   let (document, mut buffers, mut images) = gltf::import(path)?;
 
