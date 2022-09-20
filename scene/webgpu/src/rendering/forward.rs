@@ -17,6 +17,7 @@ where
 pub struct ForwardScene<'a> {
   pub lights: &'a ForwardLightingSystem,
   pub tonemap: &'a ToneMap,
+  pub surface_shading: &'static dyn LightableSurfaceShadingDyn,
 }
 
 impl<'a, S> PassContentWithSceneAndCamera<S> for ForwardScene<'a>
@@ -32,6 +33,7 @@ where
     let dispatcher = ForwardSceneLightingDispatcher {
       base,
       lighting: self,
+      surface_shading: self.surface_shading,
     };
 
     render_list.setup_pass(pass, scene, &dispatcher, camera);
@@ -41,6 +43,7 @@ where
 pub struct ForwardSceneLightingDispatcher<'a> {
   base: DefaultPassDispatcher,
   lighting: &'a ForwardScene<'a>,
+  surface_shading: &'static dyn LightableSurfaceShadingDyn,
 }
 
 const MAX_SUPPORT_LIGHT_KIND_COUNT: usize = 8;
@@ -99,7 +102,7 @@ impl<'a> ShaderGraphProvider for ForwardSceneLightingDispatcher<'a> {
     self
       .lighting
       .lights
-      .compute_lights(builder, &PhysicalShading)?;
+      .compute_lights(builder, self.surface_shading)?;
 
     // todo get current shading
 
