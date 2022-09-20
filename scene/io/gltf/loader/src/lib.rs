@@ -3,32 +3,54 @@ use std::path::Path;
 use gltf::{Node, Result};
 use rendiation_algebra::*;
 use rendiation_scene_webgpu::{
-  MeshModel, MeshModelImpl, PhysicalMaterial, Scene, SceneNode, StateControl, WebGPUScene,
+  IntoStateControl, MeshModel, MeshModelImpl, PhysicalMaterial, Scene, SceneNode, SceneTexture2D,
+  StateControl, TextureWithSamplingData, WebGPUScene,
 };
-use rendiation_texture::TextureSampler;
+use rendiation_texture::{Texture2DBuffer, TextureFormatDecider, TextureSampler};
+use webgpu::TextureFormat;
 
 pub fn load_gltf_test(path: impl AsRef<Path>, scene: &mut Scene<WebGPUScene>) -> Result<()> {
-  // let gltf = Gltf::open(path)?;
-  // for scene in gltf.scenes() {
-  //   for node in scene.nodes() {
-  //     println!(
-  //       "Node #{} has {} children",
-  //       node.index(),
-  //       node.children().count(),
-  //     );
-  //   }
-  // }
-  let (document, buffers, images) = gltf::import(path)?;
+  let (document, mut buffers, mut images) = gltf::import(path)?;
+
+  let mut ctx = Context {
+    images: images.drain(..).map(build_image).collect(),
+  };
+
   for gltf_scene in document.scenes() {
     for node in gltf_scene.nodes() {
-      create_node_recursive(scene.root(), &node);
+      create_node_recursive(scene.root(), &node, &mut ctx);
     }
   }
   Ok(())
 }
 
+struct Context {
+  images: Vec<SceneTexture2D<WebGPUScene>>,
+}
+
+fn build_image(data: gltf::image::Data) -> SceneTexture2D<WebGPUScene> {
+  let format = match data.format {
+    gltf::image::Format::R8 => todo!(),
+    gltf::image::Format::R8G8 => todo!(),
+    gltf::image::Format::R8G8B8 => todo!(),
+    gltf::image::Format::R8G8B8A8 => (TextureFormat::Rgba8Unorm),
+    gltf::image::Format::B8G8R8 => todo!(),
+    gltf::image::Format::B8G8R8A8 => todo!(),
+    gltf::image::Format::R16 => todo!(),
+    gltf::image::Format::R16G16 => todo!(),
+    gltf::image::Format::R16G16B16 => todo!(),
+    gltf::image::Format::R16G16B16A16 => todo!(),
+  };
+
+  let size = rendiation_texture::Size::from_u32_pair_min_one((data.width, data.height));
+
+  // let container = Texture2DBuffer::from_raw(size, data.pixels);
+
+  todo!()
+}
+
 /// https://docs.rs/gltf/latest/gltf/struct.Node.html
-fn create_node_recursive(parent_to_attach: &SceneNode, gltf_node: &Node) {
+fn create_node_recursive(parent_to_attach: &SceneNode, gltf_node: &Node, ctx: &mut Context) {
   println!(
     "Node #{} has {} children",
     gltf_node.index(),
@@ -60,31 +82,41 @@ fn create_node_recursive(parent_to_attach: &SceneNode, gltf_node: &Node) {
 
   if let Some(mesh) = gltf_node.mesh() {
     for primitive in mesh.primitives() {
-      let material = build_pbr_material(primitive.material());
+      let material = build_pbr_material(primitive.material(), ctx);
       //
       // let model: MeshModel<_, _> = MeshModelImpl::new(material, mesh, node).into();
     }
   }
 
   for gltf_node in gltf_node.children() {
-    create_node_recursive(&node, &gltf_node)
+    create_node_recursive(&node, &gltf_node, ctx)
   }
 }
 
 /// https://docs.rs/gltf/latest/gltf/struct.Material.html
-fn build_pbr_material(material: gltf::Material) -> StateControl<PhysicalMaterial<WebGPUScene>> {
-  let side = material.double_sided();
+fn build_pbr_material(
+  material: gltf::Material,
+  ctx: &mut Context,
+) -> StateControl<PhysicalMaterial<WebGPUScene>> {
   let pbr = material.pbr_metallic_roughness();
-  if let Some(albedo_texture) = pbr.base_color_texture() {
-    let texture = albedo_texture.texture();
-    let sampler = texture.sampler();
-  }
-  let material = PhysicalMaterial {
+  let albedo_texture = pbr.base_color_texture().map(|tex| {
+    let texture = tex.texture();
+    let sampler = map_sampler(texture.sampler());
+    let image_index = texture.source().index();
+    let texture = ctx.images.get(image_index).unwrap().clone();
+    TextureWithSamplingData { texture, sampler }
+  });
+
+  let mut result = PhysicalMaterial {
     albedo: Vec4::from(pbr.base_color_factor()).xyz(),
-    sampler: map_sampler(sampler),
-    texture: todo!(),
-  };
-  todo!()
+    albedo_texture,
+  }
+  .use_state();
+
+  if material.double_sided() {
+    result.states.cull_mode = None;
+  }
+  result
 }
 
 fn map_sampler(sampler: gltf::texture::Sampler) -> rendiation_texture::TextureSampler {

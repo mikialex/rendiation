@@ -54,6 +54,10 @@ pub fn load_default_scene(scene: &mut Scene<WebGPUScene>) {
   };
 
   let texture = SceneTexture2D::<WebGPUScene>::new(Box::new(load_img(path).into_source()));
+  let texture = TextureWithSamplingData {
+    texture,
+    sampler: TextureSampler::default(),
+  };
 
   // let texture_cube = scene.add_texture_cube(load_img_cube());
 
@@ -77,8 +81,7 @@ pub fn load_default_scene(scene: &mut Scene<WebGPUScene>) {
     let mesh = MeshSource::new(mesh);
     let material = PhysicalMaterial::<WebGPUScene> {
       albedo: Vec3::splat(1.),
-      sampler: TextureSampler::default(),
-      texture: texture.clone(),
+      albedo_texture: texture.clone().into(),
     }
     .use_state();
 
@@ -105,8 +108,7 @@ pub fn load_default_scene(scene: &mut Scene<WebGPUScene>) {
     let mesh = MeshSource::new(mesh);
     let material = PhysicalMaterial::<WebGPUScene> {
       albedo: Vec3::splat(1.),
-      sampler: TextureSampler::default(),
-      texture: texture.clone(),
+      albedo_texture: texture.clone().into(),
     }
     .use_state();
     let child = scene.root().create_child();
@@ -136,8 +138,7 @@ pub fn load_default_scene(scene: &mut Scene<WebGPUScene>) {
     };
     let material = PhysicalMaterial::<WebGPUScene> {
       albedo: Vec3::splat(1.),
-      sampler: TextureSampler::default(),
-      texture,
+      albedo_texture: texture.clone().into(),
     }
     .use_state();
 
@@ -180,6 +181,9 @@ pub fn load_default_scene(scene: &mut Scene<WebGPUScene>) {
     SceneItemRef::new(Box::new(directional_light) as Box<dyn WebGPUSceneLight>);
   scene.lights.insert(directional_light);
 
-  rendiation_scene_gltf_loader::load_gltf_test("../../glTF-Sample-Models/2.0/Box/glTF/Box.gltf", scene)
-    .unwrap();
+  rendiation_scene_gltf_loader::load_gltf_test(
+    "../../glTF-Sample-Models/2.0/Box/glTF/Box.gltf",
+    scene,
+  )
+  .unwrap();
 }

@@ -2106,6 +2106,7 @@ dependencies = [
  "rendiation-algebra",
  "rendiation-scene-webgpu",
  "rendiation-texture",
+ "rendiation-webgpu",
 ]
 
 [[package]]
