@@ -104,8 +104,6 @@ impl<'a> ShaderGraphProvider for ForwardSceneLightingDispatcher<'a> {
       .lights
       .compute_lights(builder, self.surface_shading)?;
 
-    // todo get current shading
-
     self.lighting.tonemap.build(builder)?;
 
     builder.fragment(|builder, _| {
