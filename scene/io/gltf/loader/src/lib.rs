@@ -1,29 +1,33 @@
 use std::{marker::PhantomData, path::Path};
 
-use gltf::{Node, Result};
+use gltf::{accessor, mesh::util::indices, Node, Result};
 use rendiation_algebra::*;
 use rendiation_scene_webgpu::{
-  IntoStateControl, MeshDrawGroup, MeshModel, MeshModelImpl, PhysicalMaterial, Scene, SceneNode,
-  SceneTexture2D, StateControl, TextureWithSamplingData, WebGPUScene, WebGPUSceneMesh,
+  AnyMap, IntoStateControl, MeshDrawGroup, MeshModel, MeshModelImpl, PhysicalMaterial, Scene,
+  SceneModelShareable, SceneNode, SceneTexture2D, StateControl, TextureWithSamplingData,
+  WebGPUScene, WebGPUSceneMesh,
 };
 use rendiation_texture::{Texture2DBuffer, TextureFormatDecider, TextureSampler};
 use webgpu::TextureFormat;
 
 /// like slice, but owned, ref counted cheap clone
+#[derive(Clone)]
 struct TypedBufferView {
   pub buffer: std::rc::Rc<Vec<u8>>,
   pub start: usize,
   pub count: usize,
   pub ty: gltf::accessor::DataType,
+  pub dimension: gltf::accessor::Dimensions,
 }
 
-struct AttributesGeometry {
+struct AttributesMesh {
   attributes: Vec<(gltf::Semantic, TypedBufferView)>,
-  indices: TypedBufferView,
+  indices: Option<TypedBufferView>,
   mode: webgpu::PrimitiveTopology,
+  // bounding: Box3<f32>,
 }
 
-impl WebGPUSceneMesh for AttributesGeometry {
+impl WebGPUSceneMesh for AttributesMesh {
   fn check_update_gpu<'a>(
     &self,
     res: &'a mut rendiation_scene_webgpu::GPUMeshCache,
@@ -42,8 +46,42 @@ impl WebGPUSceneMesh for AttributesGeometry {
   }
 }
 
-fn map_draw_mode(mode: gltf::mesh::Mode) -> Option<webgpu::PrimitiveTopology> {
+fn build_model(primitive: gltf::Primitive, ctx: &mut Context) -> impl SceneModelShareable {
+  let attributes = primitive
+    .attributes()
+    .map(|(semantic, accessor)| (semantic, build_geom_buffer(accessor, ctx)))
+    .collect();
+
+  let indices = primitive
+    .indices()
+    .map(|indices| build_geom_buffer(indices, ctx));
+
+  let mode = map_draw_mode(primitive.mode()).unwrap();
+
+  let mesh = AttributesMesh {
+    attributes,
+    indices,
+    mode,
+  };
+
+  let material = build_pbr_material(primitive.material(), ctx);
+}
+
+fn build_geom_buffer(accessor: gltf::Accessor, ctx: &mut Context) -> TypedBufferView {
   //
+}
+
+fn map_draw_mode(mode: gltf::mesh::Mode) -> Option<webgpu::PrimitiveTopology> {
+  match mode {
+    gltf::mesh::Mode::Points => webgpu::PrimitiveTopology::PointList,
+    gltf::mesh::Mode::Lines => webgpu::PrimitiveTopology::LineList,
+    gltf::mesh::Mode::LineLoop => return None,
+    gltf::mesh::Mode::LineStrip => webgpu::PrimitiveTopology::LineStrip,
+    gltf::mesh::Mode::Triangles => webgpu::PrimitiveTopology::TriangleList,
+    gltf::mesh::Mode::TriangleStrip => webgpu::PrimitiveTopology::TriangleStrip,
+    gltf::mesh::Mode::TriangleFan => return None,
+  }
+  .into()
 }
 
 pub fn load_gltf_test(path: impl AsRef<Path>, scene: &mut Scene<WebGPUScene>) -> Result<()> {
@@ -119,9 +157,7 @@ fn create_node_recursive(parent_to_attach: &SceneNode, gltf_node: &Node, ctx: &m
 
   if let Some(mesh) = gltf_node.mesh() {
     for primitive in mesh.primitives() {
-      let material = build_pbr_material(primitive.material(), ctx);
-      //
-      // let model: MeshModel<_, _> = MeshModelImpl::new(material, mesh, node).into();
+      let model = build_model(primitive, ctx);
     }
   }
 
