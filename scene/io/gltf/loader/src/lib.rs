@@ -1,24 +1,49 @@
-use std::path::Path;
+use std::{marker::PhantomData, path::Path};
 
 use gltf::{Node, Result};
 use rendiation_algebra::*;
 use rendiation_scene_webgpu::{
-  IntoStateControl, MeshModel, MeshModelImpl, PhysicalMaterial, Scene, SceneNode, SceneTexture2D,
-  StateControl, TextureWithSamplingData, WebGPUScene,
+  IntoStateControl, MeshDrawGroup, MeshModel, MeshModelImpl, PhysicalMaterial, Scene, SceneNode,
+  SceneTexture2D, StateControl, TextureWithSamplingData, WebGPUScene, WebGPUSceneMesh,
 };
 use rendiation_texture::{Texture2DBuffer, TextureFormatDecider, TextureSampler};
 use webgpu::TextureFormat;
 
-#[derive(Clone)]
-struct TypedBuffer<T> {
-  pub buffer: std::rc::Rc<Vec<T>>,
-}
-
 /// like slice, but owned, ref counted cheap clone
-struct TypedBufferView<T> {
-  pub buffer: TypedBuffer<T>,
+struct TypedBufferView {
+  pub buffer: std::rc::Rc<Vec<u8>>,
   pub start: usize,
   pub count: usize,
+  pub ty: gltf::accessor::DataType,
+}
+
+struct AttributesGeometry {
+  attributes: Vec<(gltf::Semantic, TypedBufferView)>,
+  indices: TypedBufferView,
+  mode: webgpu::PrimitiveTopology,
+}
+
+impl WebGPUSceneMesh for AttributesGeometry {
+  fn check_update_gpu<'a>(
+    &self,
+    res: &'a mut rendiation_scene_webgpu::GPUMeshCache,
+    sub_res: &mut AnyMap,
+    gpu: &webgpu::GPU,
+  ) -> &'a dyn rendiation_scene_webgpu::RenderComponentAny {
+    todo!()
+  }
+
+  fn topology(&self) -> webgpu::PrimitiveTopology {
+    self.mode
+  }
+
+  fn draw_impl(&self, group: MeshDrawGroup) -> webgpu::DrawCommand {
+    todo!()
+  }
+}
+
+fn map_draw_mode(mode: gltf::mesh::Mode) -> Option<webgpu::PrimitiveTopology> {
+  //
 }
 
 pub fn load_gltf_test(path: impl AsRef<Path>, scene: &mut Scene<WebGPUScene>) -> Result<()> {
