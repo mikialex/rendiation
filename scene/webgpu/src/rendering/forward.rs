@@ -20,6 +20,8 @@ pub struct ForwardScene<'a> {
   pub shading_override: Option<&'static dyn LightableSurfaceShadingDyn>,
 }
 
+const DEFAULT_SHADING: &'static dyn LightableSurfaceShadingDyn = &PhysicalShading;
+
 impl<'a, S> PassContentWithSceneAndCamera<S> for ForwardScene<'a>
 where
   S: SceneContent,
@@ -34,7 +36,7 @@ where
       base,
       lighting: self,
       shading_override: self.shading_override,
-      current_shading: Cell::new(&PhysicalShading),
+      current_shading: Cell::new(DEFAULT_SHADING),
     };
 
     render_list.setup_pass(pass, scene, &dispatcher, camera);
@@ -53,7 +55,6 @@ impl<'a> DispatcherDyn for ForwardSceneLightingDispatcher<'a> {
     &self,
     preferred_shading: Option<&'static dyn LightableSurfaceShadingDyn>,
   ) -> &dyn RenderComponentAny {
-    const DEFAULT_SHADING: &'static dyn LightableSurfaceShadingDyn = &PhysicalShading;
     let shading = self
       .shading_override
       .unwrap_or(preferred_shading.unwrap_or(DEFAULT_SHADING));
