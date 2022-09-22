@@ -5,6 +5,7 @@
 
 pub mod background;
 pub mod camera;
+pub mod dispatcher;
 pub mod lights;
 pub mod materials;
 pub mod mesh;
@@ -18,6 +19,7 @@ pub mod util;
 
 pub use background::*;
 pub use camera::*;
+pub use dispatcher::*;
 pub use lights::*;
 pub use materials::*;
 pub use mesh::*;
@@ -74,7 +76,7 @@ pub trait SceneRenderable {
   fn render(
     &self,
     pass: &mut SceneRenderPass,
-    dispatcher: &dyn RenderComponentAny,
+    dispatcher: &dyn DispatcherDyn,
     camera: &SceneCamera,
   );
 }
@@ -149,7 +151,7 @@ impl SceneRenderable for Box<dyn SceneRenderableShareable> {
   fn render(
     &self,
     pass: &mut SceneRenderPass,
-    dispatcher: &dyn RenderComponentAny,
+    dispatcher: &dyn DispatcherDyn,
     camera: &SceneCamera,
   ) {
     self.as_ref().render(pass, dispatcher, camera)

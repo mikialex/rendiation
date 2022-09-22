@@ -72,7 +72,7 @@ where
   fn is_keep_mesh_shape(&self) -> bool {
     true
   }
-  fn is_transparent(&self) -> bool {
-    false
+  fn preferred_shading(&self) -> Option<&'static dyn LightableSurfaceShadingDyn> {
+    Some(&PhysicalShading)
   }
 }

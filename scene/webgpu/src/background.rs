@@ -20,7 +20,7 @@ impl SceneRenderable for SolidBackground {
   fn render<'a>(
     &self,
     _pass: &mut SceneRenderPass,
-    _dispatcher: &dyn RenderComponentAny,
+    _dispatcher: &dyn DispatcherDyn,
     _camera: &SceneCamera,
   ) {
   }
@@ -36,7 +36,7 @@ impl<P: SceneContent> SceneRenderable for EnvMapBackground<P> {
   fn render<'a>(
     &self,
     _pass: &mut SceneRenderPass,
-    _dispatcher: &dyn RenderComponentAny,
+    _dispatcher: &dyn DispatcherDyn,
     _camera: &SceneCamera,
   ) {
     todo!()

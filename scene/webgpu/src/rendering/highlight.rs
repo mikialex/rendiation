@@ -143,6 +143,8 @@ pub fn highlight<T>(objects: T) -> HighLightDrawMaskTask<T> {
 
 struct HighLightMaskDispatcher;
 
+impl DispatcherDynSelf for HighLightMaskDispatcher {}
+
 pub const HIGH_LIGHT_MASK_TARGET_FORMAT: TextureFormat = TextureFormat::Rgba8Unorm;
 
 impl ShaderHashProvider for HighLightMaskDispatcher {}

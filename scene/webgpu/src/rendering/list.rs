@@ -59,7 +59,7 @@ where
     &self,
     gpu_pass: &mut SceneRenderPass,
     scene: &Scene<P>,
-    dispatcher: &dyn RenderComponentAny,
+    dispatcher: &dyn DispatcherDyn,
     camera: &SceneCamera,
   ) {
     self.opaque.iter().for_each(|(handle, _)| {

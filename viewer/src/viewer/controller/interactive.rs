@@ -67,7 +67,7 @@ impl<T: SceneRenderable, S> SceneRenderable for InteractiveWatchable<T, S> {
   fn render(
     &self,
     pass: &mut SceneRenderPass,
-    dispatcher: &dyn RenderComponentAny,
+    dispatcher: &dyn DispatcherDyn,
     camera: &SceneCamera,
   ) {
     self.inner.render(pass, dispatcher, camera)

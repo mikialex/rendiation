@@ -13,7 +13,12 @@ pub trait WebGPUMaterial: Clone + Any {
   type GPU: RenderComponentAny;
   fn create_gpu(&self, res: &mut GPUResourceSubCache, gpu: &GPU) -> Self::GPU;
   fn is_keep_mesh_shape(&self) -> bool;
-  fn is_transparent(&self) -> bool;
+  fn is_transparent(&self) -> bool {
+    false
+  }
+  fn preferred_shading(&self) -> Option<&'static dyn LightableSurfaceShadingDyn> {
+    None
+  }
 }
 
 pub trait WebGPUSceneMaterial {
@@ -87,6 +92,8 @@ pub struct DefaultPassDispatcher {
   pub auto_write: bool,
   pub pass_info: UniformBufferView<RenderPassGPUInfoData>,
 }
+
+impl DispatcherDynSelf for DefaultPassDispatcher {}
 
 impl ShaderHashProvider for DefaultPassDispatcher {
   fn hash_pipeline(&self, hasher: &mut PipelineHasher) {

@@ -156,7 +156,7 @@ impl<T> SceneRenderable for Component3DCollection<T> {
   fn render(
     &self,
     pass: &mut SceneRenderPass,
-    dispatcher: &dyn RenderComponentAny,
+    dispatcher: &dyn DispatcherDyn,
     camera: &SceneCamera,
   ) {
     for c in &self.collection {

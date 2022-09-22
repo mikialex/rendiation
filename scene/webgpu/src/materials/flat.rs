@@ -51,7 +51,7 @@ impl WebGPUMaterial for FlatMaterial {
     true
   }
 
-  fn is_transparent(&self) -> bool {
-    false
+  fn preferred_shading(&self) -> Option<&'static dyn LightableSurfaceShadingDyn> {
+    None //TODO flat shading?
   }
 }

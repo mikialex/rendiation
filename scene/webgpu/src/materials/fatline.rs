@@ -180,7 +180,4 @@ impl WebGPUMaterial for FatLineMaterial {
   fn is_keep_mesh_shape(&self) -> bool {
     false
   }
-  fn is_transparent(&self) -> bool {
-    false
-  }
 }

@@ -14,7 +14,7 @@ pub type HelperLineModel = FatlineImpl;
 pub struct WidgetDispatcher {
   inner: DefaultPassDispatcher,
 }
-
+impl DispatcherDynSelf for WidgetDispatcher {}
 impl WidgetDispatcher {
   pub fn new(inner: DefaultPassDispatcher) -> Self {
     Self { inner }

@@ -192,4 +192,7 @@ where
   fn is_transparent(&self) -> bool {
     self.states.blend.is_some()
   }
+  fn preferred_shading(&self) -> Option<&'static dyn LightableSurfaceShadingDyn> {
+    self.material.preferred_shading()
+  }
 }

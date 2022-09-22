@@ -72,7 +72,7 @@ impl<Me: WebGPUMesh, Ma: WebGPUMaterial> SceneRenderable for OverridableMeshMode
   fn render(
     &self,
     pass: &mut SceneRenderPass,
-    dispatcher: &dyn RenderComponentAny,
+    dispatcher: &dyn DispatcherDyn,
     camera: &SceneCamera,
   ) {
     let gpu = pass.ctx.gpu;

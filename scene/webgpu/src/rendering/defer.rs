@@ -79,12 +79,13 @@ where
 {
   fn render(&mut self, pass: &mut SceneRenderPass, camera: &SceneCamera) {
     for model in self.objects {
-      model.render(pass, &GBufferEncodeTaskDispatcher, camera)
+      model.render(pass, &GBufferEncodeTaskDispatcher {}, camera)
     }
   }
 }
 
-struct GBufferEncodeTaskDispatcher;
+struct GBufferEncodeTaskDispatcher {}
+impl DispatcherDynSelf for GBufferEncodeTaskDispatcher {}
 impl ShaderHashProvider for GBufferEncodeTaskDispatcher {}
 impl ShaderPassBuilder for GBufferEncodeTaskDispatcher {}
 impl ShaderGraphProvider for GBufferEncodeTaskDispatcher {

@@ -62,7 +62,7 @@ impl SceneRenderable for Arrow {
   fn render(
     &self,
     pass: &mut SceneRenderPass,
-    dispatcher: &dyn RenderComponentAny,
+    dispatcher: &dyn DispatcherDyn,
     camera: &SceneCamera,
   ) {
     self.cylinder.render(pass, dispatcher, camera);

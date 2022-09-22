@@ -15,7 +15,7 @@ where
   fn render(
     &self,
     pass: &mut SceneRenderPass,
-    dispatcher: &dyn RenderComponentAny,
+    dispatcher: &dyn DispatcherDyn,
     camera: &SceneCamera,
   ) {
     self.visit(|model| model.render(pass, dispatcher, camera))
@@ -61,25 +61,25 @@ pub fn setup_pass_core<Me, Ma>(
   pass: &mut SceneRenderPass,
   camera: &SceneCamera,
   override_node: Option<&TransformGPU>,
-  dispatcher: &dyn RenderComponentAny,
+  dispatcher: &dyn DispatcherDyn,
 ) where
   Me: WebGPUMesh,
   Ma: WebGPUMaterial,
 {
-  let gpu = pass.ctx.gpu;
-  let resources = &mut pass.resources;
-  let pass_gpu = dispatcher;
-  let camera_gpu = resources.cameras.check_update_gpu(camera, gpu);
-
   let net_visible = model.node.visit(|n| n.net_visible);
   if !net_visible {
     return;
   }
 
+  let gpu = pass.ctx.gpu;
+  let resources = &mut pass.resources;
+  let camera_gpu = resources.cameras.check_update_gpu(camera, gpu);
+
   let node_gpu =
     override_node.unwrap_or_else(|| resources.nodes.check_update_gpu(&model.node, gpu));
 
   let material = model.material.read();
+  let pass_gpu = dispatcher.create_pass_gpu(material.preferred_shading());
   let material_gpu =
     material.check_update_gpu(&mut resources.scene.materials, &mut resources.content, gpu);
 
@@ -112,7 +112,7 @@ where
   fn render(
     &self,
     pass: &mut SceneRenderPass,
-    dispatcher: &dyn RenderComponentAny,
+    dispatcher: &dyn DispatcherDyn,
     camera: &SceneCamera,
   ) {
     setup_pass_core(self, pass, camera, None, dispatcher);

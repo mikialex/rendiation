@@ -17,7 +17,7 @@ where
 pub struct ForwardScene<'a> {
   pub lights: &'a ForwardLightingSystem,
   pub tonemap: &'a ToneMap,
-  pub surface_shading: &'static dyn LightableSurfaceShadingDyn,
+  pub shading_override: Option<&'static dyn LightableSurfaceShadingDyn>,
 }
 
 impl<'a, S> PassContentWithSceneAndCamera<S> for ForwardScene<'a>
@@ -33,7 +33,8 @@ where
     let dispatcher = ForwardSceneLightingDispatcher {
       base,
       lighting: self,
-      surface_shading: self.surface_shading,
+      shading_override: self.shading_override,
+      current_shading: Cell::new(&PhysicalShading),
     };
 
     render_list.setup_pass(pass, scene, &dispatcher, camera);
@@ -43,7 +44,22 @@ where
 pub struct ForwardSceneLightingDispatcher<'a> {
   base: DefaultPassDispatcher,
   lighting: &'a ForwardScene<'a>,
-  surface_shading: &'static dyn LightableSurfaceShadingDyn,
+  shading_override: Option<&'static dyn LightableSurfaceShadingDyn>,
+  current_shading: Cell<&'static dyn LightableSurfaceShadingDyn>,
+}
+
+impl<'a> DispatcherDyn for ForwardSceneLightingDispatcher<'a> {
+  fn create_pass_gpu(
+    &self,
+    preferred_shading: Option<&'static dyn LightableSurfaceShadingDyn>,
+  ) -> &dyn RenderComponentAny {
+    const DEFAULT_SHADING: &'static dyn LightableSurfaceShadingDyn = &PhysicalShading;
+    let shading = self
+      .shading_override
+      .unwrap_or(preferred_shading.unwrap_or(DEFAULT_SHADING));
+    self.current_shading.set(shading);
+    self
+  }
 }
 
 const MAX_SUPPORT_LIGHT_KIND_COUNT: usize = 8;
@@ -78,6 +94,7 @@ impl<'a> ShaderPassBuilder for ForwardSceneLightingDispatcher<'a> {
 impl<'a> ShaderHashProvider for ForwardSceneLightingDispatcher<'a> {
   fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
     self.lighting.lights.light_hash_cache.hash(hasher);
+    self.current_shading.get().type_id().hash(hasher);
   }
 }
 
@@ -102,7 +119,7 @@ impl<'a> ShaderGraphProvider for ForwardSceneLightingDispatcher<'a> {
     self
       .lighting
       .lights
-      .compute_lights(builder, self.surface_shading)?;
+      .compute_lights(builder, self.current_shading.get())?;
 
     self.lighting.tonemap.build(builder)?;
 
