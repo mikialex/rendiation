@@ -114,7 +114,7 @@ impl<T> Mat4<T> {
 
 impl<T: Scalar> Mat4<T> {
   pub fn to_normal_matrix(self) -> Mat3<T> {
-    self.to_mat3().inverse().unwrap().transpose()
+    self.to_mat3().inverse_or_identity().transpose()
   }
 }
 

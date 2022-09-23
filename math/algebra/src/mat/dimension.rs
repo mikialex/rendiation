@@ -16,7 +16,7 @@ pub trait SquareMatrix<T: Scalar>: Sized + One {
 
   #[must_use]
   fn inverse_or_identity(&self) -> Self {
-    self.inverse().unwrap_or(Self::identity())
+    self.inverse().unwrap_or_else(|| Self::identity())
   }
 
   #[must_use]
