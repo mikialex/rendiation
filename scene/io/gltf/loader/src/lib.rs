@@ -1,14 +1,15 @@
+use std::collections::HashMap;
 use std::{path::Path, rc::Rc};
 
 use __core::hash::Hash;
 use gltf::{Node, Result as GltfResult};
 use rendiation_algebra::*;
-use rendiation_scene_webgpu::WebGPUSceneExtension;
 use rendiation_scene_webgpu::{
   AnyMap, IntoStateControl, MeshDrawGroup, MeshModel, MeshModelImpl, PhysicalMaterial, Scene,
   SceneModelShareable, SceneNode, SceneTexture2D, StateControl, TextureWithSamplingData,
   WebGPUMesh, WebGPUScene,
 };
+use rendiation_scene_webgpu::{SceneModelHandle, WebGPUSceneExtension};
 use shadergraph::*;
 use webgpu::{ShaderHashProvider, ShaderPassBuilder, TextureFormat, WebGPUTexture2dSource};
 
@@ -112,7 +113,8 @@ impl WebGPUMesh for AttributesMesh {
     }
   }
 
-  fn draw_impl(&self, group: MeshDrawGroup) -> webgpu::DrawCommand {
+  /// the current represent do not have meaningful mesh draw group concept
+  fn draw_impl(&self, _group: MeshDrawGroup) -> webgpu::DrawCommand {
     if let Some(indices) = &self.indices {
       webgpu::DrawCommand::Indexed {
         base_vertex: 0,
@@ -193,12 +195,16 @@ fn map_draw_mode(mode: gltf::mesh::Mode) -> Option<webgpu::PrimitiveTopology> {
   .into()
 }
 
-pub fn load_gltf_test(path: impl AsRef<Path>, scene: &mut Scene<WebGPUScene>) -> GltfResult<()> {
+pub fn load_gltf_test(
+  path: impl AsRef<Path>,
+  scene: &mut Scene<WebGPUScene>,
+) -> GltfResult<GltfLoadResult> {
   let (document, mut buffers, mut images) = gltf::import(path)?;
 
   let mut ctx = Context {
     images: images.drain(..).map(build_image).collect(),
     attributes: buffers.drain(..).map(|b| Rc::new(b.0)).collect(),
+    result: Default::default(),
   };
 
   for gltf_scene in document.scenes() {
@@ -206,12 +212,19 @@ pub fn load_gltf_test(path: impl AsRef<Path>, scene: &mut Scene<WebGPUScene>) ->
       create_node_recursive(scene, scene.root().clone(), &node, &mut ctx);
     }
   }
-  Ok(())
+  Ok(ctx.result)
 }
 
 struct Context {
   images: Vec<SceneTexture2D<WebGPUScene>>,
   attributes: Vec<Rc<Vec<u8>>>,
+  result: GltfLoadResult,
+}
+
+#[derive(Default)]
+pub struct GltfLoadResult {
+  pub primitive_map: HashMap<usize, SceneModelHandle>,
+  pub node_map: HashMap<usize, SceneNode>,
 }
 
 #[derive(Debug)]
@@ -273,6 +286,7 @@ fn create_node_recursive(
   );
 
   let node = parent_to_attach.create_child();
+  ctx.result.node_map.insert(gltf_node.index(), node.clone());
 
   let local_mat = match gltf_node.transform() {
     gltf::scene::Transform::Matrix { matrix } => {
@@ -297,8 +311,10 @@ fn create_node_recursive(
 
   if let Some(mesh) = gltf_node.mesh() {
     for primitive in mesh.primitives() {
+      let index = primitive.index();
       let model = build_model(&node, primitive, ctx);
-      scene.add_model(model);
+      let model_handle = scene.add_model(model);
+      ctx.result.primitive_map.insert(index, model_handle);
     }
   }
 
