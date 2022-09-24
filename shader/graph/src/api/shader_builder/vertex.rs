@@ -153,6 +153,16 @@ impl ShaderGraphVertexBuilder {
     self.vertex_layouts.push(layout)
   }
 
+  pub fn push_single_vertex_layout<T>(&mut self, step_mode: VertexStepMode)
+  where
+    T: SemanticVertexShaderValue,
+    T::ValueType: PrimitiveShaderGraphNodeType + VertexInBuilder,
+  {
+    let mut builder = AttributesListBuilder::default();
+    T::ValueType::build_attribute::<T>(&mut builder, self);
+    builder.build(self, step_mode);
+  }
+
   pub fn set_vertex_out<T>(&mut self, node: impl Into<Node<T::ValueType>>)
   where
     T: SemanticFragmentShaderValue,

@@ -1,5 +1,6 @@
 use std::{path::Path, rc::Rc};
 
+use __core::hash::Hash;
 use gltf::{Node, Result as GltfResult};
 use rendiation_algebra::*;
 use rendiation_scene_webgpu::WebGPUSceneExtension;
@@ -10,6 +11,10 @@ use rendiation_scene_webgpu::{
 };
 use shadergraph::*;
 use webgpu::{ShaderHashProvider, ShaderPassBuilder, TextureFormat, WebGPUTexture2dSource};
+
+struct GeometryBuffer {
+  buffer: Vec<u8>,
+}
 
 /// like slice, but owned, ref counted cheap clone
 #[derive(Clone)]
@@ -29,23 +34,66 @@ struct AttributesMesh {
 }
 
 struct AttributesMeshGPU {
-  attributes: Vec<(gltf::Semantic, TypedBufferView)>,
-  indices: Option<TypedBufferView>,
+  attributes: Vec<(gltf::Semantic, Rc<webgpu::Buffer>)>,
+  indices: Option<(Rc<webgpu::Buffer>, webgpu::IndexFormat)>,
   mode: webgpu::PrimitiveTopology,
 }
 
 impl ShaderPassBuilder for AttributesMeshGPU {
-  fn setup_pass(&self, _ctx: &mut webgpu::GPURenderPassCtx) {}
+  fn setup_pass(&self, ctx: &mut webgpu::GPURenderPassCtx) {
+    for (s, b) in &self.attributes {
+      match s {
+        gltf::Semantic::Positions => ctx.set_vertex_buffer_owned_next(b),
+        gltf::Semantic::Normals => ctx.set_vertex_buffer_owned_next(b),
+        gltf::Semantic::Tangents => {}
+        gltf::Semantic::Colors(_) => ctx.set_vertex_buffer_owned_next(b),
+        gltf::Semantic::TexCoords(_) => ctx.set_vertex_buffer_owned_next(b),
+        gltf::Semantic::Joints(_) => {}
+        gltf::Semantic::Weights(_) => {}
+      }
+    }
+    if let Some((buffer, index_format)) = &self.indices {
+      ctx.pass.set_index_buffer_owned(buffer, *index_format)
+    }
+  }
 }
 
-impl ShaderHashProvider for AttributesMeshGPU {}
+impl ShaderHashProvider for AttributesMeshGPU {
+  fn hash_pipeline(&self, hasher: &mut webgpu::PipelineHasher) {
+    for (s, _) in &self.attributes {
+      s.hash(hasher)
+    }
+    self.mode.hash(hasher);
+    if let Some((_, f)) = &self.indices {
+      if webgpu::PrimitiveTopology::LineStrip == self.mode
+        || webgpu::PrimitiveTopology::TriangleStrip == self.mode
+      {
+        f.hash(hasher)
+      }
+    }
+  }
+}
 impl ShaderGraphProvider for AttributesMeshGPU {
   fn build(
     &self,
-    _builder: &mut ShaderGraphRenderPipelineBuilder,
+    builder: &mut ShaderGraphRenderPipelineBuilder,
   ) -> Result<(), ShaderGraphBuildError> {
-    // default do nothing
-    Ok(())
+    let mode = VertexStepMode::Vertex;
+    builder.vertex(|builder, _| {
+      for (s, _) in &self.attributes {
+        match s {
+          gltf::Semantic::Positions => builder.push_single_vertex_layout::<GeometryPosition>(mode),
+          gltf::Semantic::Normals => builder.push_single_vertex_layout::<GeometryNormal>(mode),
+          gltf::Semantic::Tangents => {}
+          gltf::Semantic::Colors(_) => builder.push_single_vertex_layout::<GeometryColor>(mode),
+          gltf::Semantic::TexCoords(_) => builder.push_single_vertex_layout::<GeometryUV>(mode),
+          gltf::Semantic::Joints(_) => {}
+          gltf::Semantic::Weights(_) => {}
+        }
+      }
+      builder.primitive_state.topology = self.mode;
+      Ok(())
+    })
   }
 }
 

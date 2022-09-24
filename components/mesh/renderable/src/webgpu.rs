@@ -38,6 +38,7 @@ impl<T> gpu::ShaderPassBuilder for TypedMeshGPU<T> {
   }
 }
 
+/// variance info is encoded in T's type id
 impl<T: 'static> gpu::ShaderHashProvider for TypedMeshGPU<T> {}
 
 impl MeshGPU {
