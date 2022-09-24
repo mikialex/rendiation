@@ -28,6 +28,8 @@ pub struct ShaderGraphRenderPipelineBuilder {
 
   /// Log the shader build result when building shader, for debug purpose.
   pub log_result: bool,
+
+  pub context: HashMap<TypeId, Box<dyn Any>>,
 }
 
 impl Default for ShaderGraphRenderPipelineBuilder {
@@ -38,6 +40,7 @@ impl Default for ShaderGraphRenderPipelineBuilder {
       vertex: ShaderGraphVertexBuilder::new(),
       fragment: ShaderGraphFragmentBuilder::new(),
       log_result: false,
+      context: Default::default(),
     }
   }
 }
