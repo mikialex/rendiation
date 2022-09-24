@@ -1,3 +1,5 @@
+#![feature(local_key_cell_methods)]
+
 use std::collections::HashMap;
 use std::{path::Path, rc::Rc};
 
@@ -11,18 +13,20 @@ use rendiation_scene_webgpu::{
 };
 use rendiation_scene_webgpu::{SceneModelHandle, WebGPUSceneExtension};
 use shadergraph::*;
+use webgpu::util::DeviceExt;
 use webgpu::{ShaderHashProvider, ShaderPassBuilder, TextureFormat, WebGPUTexture2dSource};
 
 struct GeometryBuffer {
+  guid: u64,
   buffer: Vec<u8>,
 }
 
 /// like slice, but owned, ref counted cheap clone
 #[derive(Clone)]
 struct TypedBufferView {
-  pub buffer: Rc<Vec<u8>>,
-  pub start: usize,
-  pub count: usize,
+  pub buffer: Rc<GeometryBuffer>,
+  pub byte_start: usize,
+  pub byte_count: usize,
   pub ty: gltf::accessor::DataType,
   pub dimension: gltf::accessor::Dimensions,
 }
@@ -98,6 +102,32 @@ impl ShaderGraphProvider for AttributesMeshGPU {
   }
 }
 
+// todo impl drop, cleanup
+#[derive(Default)]
+struct AttributesGPUCache {
+  gpus: HashMap<u64, Rc<webgpu::Buffer>>,
+}
+
+impl AttributesGPUCache {
+  pub fn get(&mut self, buffer: &GeometryBuffer, gpu: &webgpu::GPU) -> Rc<webgpu::Buffer> {
+    self
+      .gpus
+      .entry(buffer.guid)
+      .or_insert_with(|| {
+        Rc::new(
+          gpu
+            .device
+            .create_buffer_init(&webgpu::util::BufferInitDescriptor {
+              label: None,
+              contents: buffer.buffer.as_slice(),
+              usage: webgpu::BufferUsages::INDEX | webgpu::BufferUsages::VERTEX,
+            }),
+        )
+      })
+      .clone()
+  }
+}
+
 impl WebGPUMesh for AttributesMesh {
   type GPU = AttributesMeshGPU;
 
@@ -106,9 +136,30 @@ impl WebGPUMesh for AttributesMesh {
   }
 
   fn create(&self, gpu: &webgpu::GPU, storage: &mut AnyMap) -> Self::GPU {
+    let cache: &mut AttributesGPUCache = storage.entry().or_insert_with(Default::default);
+
+    let attributes = self
+      .attributes
+      .iter()
+      .map(|(s, vertices)| {
+        let v = cache.get(&vertices.buffer, gpu);
+        (s.clone(), v)
+      })
+      .collect();
+
+    let indices = self.indices.as_ref().map(|i| {
+      let format = match i.ty {
+        gltf::accessor::DataType::U16 => webgpu::IndexFormat::Uint16,
+        gltf::accessor::DataType::U32 => webgpu::IndexFormat::Uint32,
+        _ => unreachable!(),
+      };
+      let v = cache.get(&i.buffer, gpu);
+      (v, format)
+    });
+
     AttributesMeshGPU {
-      attributes: todo!(),
-      indices: todo!(),
+      attributes,
+      indices,
       mode: self.mode,
     }
   }
@@ -118,13 +169,13 @@ impl WebGPUMesh for AttributesMesh {
     if let Some(indices) = &self.indices {
       webgpu::DrawCommand::Indexed {
         base_vertex: 0,
-        indices: indices.start as u32..indices.count as u32,
+        indices: indices.byte_start as u32..indices.byte_count as u32,
         instances: 0..1,
       }
     } else {
       let attribute = &self.attributes.last().unwrap().1;
       webgpu::DrawCommand::Array {
-        vertices: attribute.start as u32..attribute.count as u32,
+        vertices: attribute.byte_start as u32..attribute.byte_count as u32,
         instances: 0..1,
       }
     }
@@ -167,16 +218,37 @@ fn build_geom_buffer(accessor: gltf::Accessor, ctx: &mut Context) -> TypedBuffer
   let index = accessor.index();
   let buffer = ctx.attributes[index].clone();
 
+  UUID.set(buffer.guid + 1);
+
   let ty = accessor.data_type();
   let dimension = accessor.dimensions();
 
   let start = accessor.offset();
   let count = accessor.count();
 
+  let byte_count = count
+    * match ty {
+      gltf::accessor::DataType::I8 => 1,
+      gltf::accessor::DataType::U8 => 1,
+      gltf::accessor::DataType::I16 => 2,
+      gltf::accessor::DataType::U16 => 2,
+      gltf::accessor::DataType::U32 => 4,
+      gltf::accessor::DataType::F32 => 4,
+    }
+    * match dimension {
+      gltf::accessor::Dimensions::Scalar => 1,
+      gltf::accessor::Dimensions::Vec2 => 2,
+      gltf::accessor::Dimensions::Vec3 => 3,
+      gltf::accessor::Dimensions::Vec4 => 4,
+      gltf::accessor::Dimensions::Mat2 => 4,
+      gltf::accessor::Dimensions::Mat3 => 9,
+      gltf::accessor::Dimensions::Mat4 => 16,
+    };
+
   TypedBufferView {
     buffer,
-    start,
-    count,
+    byte_start: start,
+    byte_count,
     ty,
     dimension,
   }
@@ -195,6 +267,11 @@ fn map_draw_mode(mode: gltf::mesh::Mode) -> Option<webgpu::PrimitiveTopology> {
   .into()
 }
 
+// todo use global lock
+thread_local! {
+  static UUID: core::cell::Cell<u64> = core::cell::Cell::new(0);
+}
+
 pub fn load_gltf_test(
   path: impl AsRef<Path>,
   scene: &mut Scene<WebGPUScene>,
@@ -203,7 +280,16 @@ pub fn load_gltf_test(
 
   let mut ctx = Context {
     images: images.drain(..).map(build_image).collect(),
-    attributes: buffers.drain(..).map(|b| Rc::new(b.0)).collect(),
+    attributes: buffers
+      .drain(..)
+      .map(|buffer| {
+        let buffer = GeometryBuffer {
+          guid: UUID.get(),
+          buffer: buffer.0,
+        };
+        Rc::new(buffer)
+      })
+      .collect(),
     result: Default::default(),
   };
 
@@ -217,7 +303,7 @@ pub fn load_gltf_test(
 
 struct Context {
   images: Vec<SceneTexture2D<WebGPUScene>>,
-  attributes: Vec<Rc<Vec<u8>>>,
+  attributes: Vec<Rc<GeometryBuffer>>,
   result: GltfLoadResult,
 }
 
