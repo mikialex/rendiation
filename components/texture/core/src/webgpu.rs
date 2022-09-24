@@ -37,10 +37,6 @@ where
     P::FORMAT
   }
 
-  fn bytes_per_pixel(&self) -> usize {
-    std::mem::size_of::<P>()
-  }
-
   fn as_bytes(&self) -> &[u8] {
     self.as_raw().as_ref()
   }
@@ -59,10 +55,6 @@ where
 {
   fn format(&self) -> TextureFormat {
     P::FORMAT
-  }
-
-  fn bytes_per_pixel(&self) -> usize {
-    std::mem::size_of::<P>()
   }
 
   fn as_bytes(&self) -> &[u8] {

@@ -2104,6 +2104,7 @@ version = "0.0.1"
 dependencies = [
  "gltf",
  "rendiation-algebra",
+ "rendiation-color",
  "rendiation-scene-webgpu",
  "rendiation-texture",
  "rendiation-webgpu",

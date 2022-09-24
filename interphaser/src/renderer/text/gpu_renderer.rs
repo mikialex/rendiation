@@ -35,10 +35,6 @@ impl<'a> WebGPUTexture2dSource for TextureWriteData<'a> {
   fn size(&self) -> Size {
     self.size
   }
-
-  fn bytes_per_pixel(&self) -> usize {
-    1
-  }
 }
 
 impl TextWebGPURenderer {

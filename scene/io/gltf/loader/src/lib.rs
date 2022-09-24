@@ -2,13 +2,16 @@ use std::{marker::PhantomData, path::Path};
 
 use gltf::{accessor, mesh::util::indices, Node, Result};
 use rendiation_algebra::*;
+use rendiation_color::LinearRGBColor;
 use rendiation_scene_webgpu::{
   AnyMap, IntoStateControl, MeshDrawGroup, MeshModel, MeshModelImpl, PhysicalMaterial, Scene,
   SceneModelShareable, SceneNode, SceneTexture2D, StateControl, TextureWithSamplingData,
   WebGPUScene, WebGPUSceneMesh,
 };
-use rendiation_texture::{Texture2DBuffer, TextureFormatDecider, TextureSampler};
-use webgpu::TextureFormat;
+use rendiation_texture::{
+  EncodableLayout, Texture2DBuffer, TextureFormatDecider, TextureSampler, WrapAsTexture2DSource,
+};
+use webgpu::{TextureFormat, WebGPUTexture2dSource};
 
 /// like slice, but owned, ref counted cheap clone
 #[derive(Clone)]
@@ -42,11 +45,26 @@ impl WebGPUSceneMesh for AttributesMesh {
   }
 
   fn draw_impl(&self, group: MeshDrawGroup) -> webgpu::DrawCommand {
-    todo!()
+    if let Some(indices) = self.indices {
+      webgpu::DrawCommand::Indexed {
+        base_vertex: 0,
+        indices: (),
+        instances: 0..1,
+      }
+    } else {
+      webgpu::DrawCommand::Array {
+        vertices: (),
+        instances: 0..1,
+      }
+    }
   }
 }
 
-fn build_model(primitive: gltf::Primitive, ctx: &mut Context) -> impl SceneModelShareable {
+fn build_model(
+  node: &SceneNode,
+  primitive: gltf::Primitive,
+  ctx: &mut Context,
+) -> impl SceneModelShareable {
   let attributes = primitive
     .attributes()
     .map(|(semantic, accessor)| (semantic, build_geom_buffer(accessor, ctx)))
@@ -65,6 +83,9 @@ fn build_model(primitive: gltf::Primitive, ctx: &mut Context) -> impl SceneModel
   };
 
   let material = build_pbr_material(primitive.material(), ctx);
+
+  let model = MeshModelImpl::new(material, mesh, node.clone());
+  MeshModel::new(model)
 }
 
 fn build_geom_buffer(accessor: gltf::Accessor, ctx: &mut Context) -> TypedBufferView {
@@ -103,6 +124,27 @@ struct Context {
   images: Vec<SceneTexture2D<WebGPUScene>>,
 }
 
+#[derive(Debug)]
+pub struct GltfImage {
+  data: Vec<u8>,
+  format: webgpu::TextureFormat,
+  size: rendiation_texture::Size,
+}
+
+impl WebGPUTexture2dSource for GltfImage {
+  fn format(&self) -> webgpu::TextureFormat {
+    self.format
+  }
+
+  fn as_bytes(&self) -> &[u8] {
+    self.data.as_slice()
+  }
+
+  fn size(&self) -> rendiation_texture::Size {
+    self.size
+  }
+}
+
 fn build_image(data: gltf::image::Data) -> SceneTexture2D<WebGPUScene> {
   let format = match data.format {
     gltf::image::Format::R8 => todo!(),
@@ -119,9 +161,12 @@ fn build_image(data: gltf::image::Data) -> SceneTexture2D<WebGPUScene> {
 
   let size = rendiation_texture::Size::from_u32_pair_min_one((data.width, data.height));
 
-  // let container = Texture2DBuffer::from_raw(size, data.pixels);
-
-  todo!()
+  let image = GltfImage {
+    data: data.pixels,
+    format,
+    size,
+  };
+  SceneTexture2D::<WebGPUScene>::new(Box::new(image))
 }
 
 /// https://docs.rs/gltf/latest/gltf/struct.Node.html
@@ -157,7 +202,7 @@ fn create_node_recursive(parent_to_attach: &SceneNode, gltf_node: &Node, ctx: &m
 
   if let Some(mesh) = gltf_node.mesh() {
     for primitive in mesh.primitives() {
-      let model = build_model(primitive, ctx);
+      let model = build_model(&node, primitive, ctx);
     }
   }
 
