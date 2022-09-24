@@ -83,7 +83,7 @@ pub trait WebGPUMesh: Any {
 
   fn topology(&self) -> webgpu::PrimitiveTopology;
 
-  fn try_pick(&self, f: &mut dyn FnMut(&dyn IntersectAbleGroupedMesh));
+  fn try_pick(&self, _f: &mut dyn FnMut(&dyn IntersectAbleGroupedMesh)) {}
 }
 
 pub struct MeshSource<T> {

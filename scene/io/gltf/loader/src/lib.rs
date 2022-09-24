@@ -1,22 +1,20 @@
-use std::{marker::PhantomData, path::Path};
+use std::{path::Path, rc::Rc};
 
-use gltf::{accessor, mesh::util::indices, Node, Result};
+use gltf::{Node, Result as GltfResult};
 use rendiation_algebra::*;
-use rendiation_color::LinearRGBColor;
+use rendiation_scene_webgpu::WebGPUSceneExtension;
 use rendiation_scene_webgpu::{
   AnyMap, IntoStateControl, MeshDrawGroup, MeshModel, MeshModelImpl, PhysicalMaterial, Scene,
   SceneModelShareable, SceneNode, SceneTexture2D, StateControl, TextureWithSamplingData,
-  WebGPUScene, WebGPUSceneMesh,
+  WebGPUMesh, WebGPUScene,
 };
-use rendiation_texture::{
-  EncodableLayout, Texture2DBuffer, TextureFormatDecider, TextureSampler, WrapAsTexture2DSource,
-};
-use webgpu::{TextureFormat, WebGPUTexture2dSource};
+use shadergraph::*;
+use webgpu::{ShaderHashProvider, ShaderPassBuilder, TextureFormat, WebGPUTexture2dSource};
 
 /// like slice, but owned, ref counted cheap clone
 #[derive(Clone)]
 struct TypedBufferView {
-  pub buffer: std::rc::Rc<Vec<u8>>,
+  pub buffer: Rc<Vec<u8>>,
   pub start: usize,
   pub count: usize,
   pub ty: gltf::accessor::DataType,
@@ -30,33 +28,60 @@ struct AttributesMesh {
   // bounding: Box3<f32>,
 }
 
-impl WebGPUSceneMesh for AttributesMesh {
-  fn check_update_gpu<'a>(
+struct AttributesMeshGPU {
+  attributes: Vec<(gltf::Semantic, TypedBufferView)>,
+  indices: Option<TypedBufferView>,
+  mode: webgpu::PrimitiveTopology,
+}
+
+impl ShaderPassBuilder for AttributesMeshGPU {
+  fn setup_pass(&self, _ctx: &mut webgpu::GPURenderPassCtx) {}
+}
+
+impl ShaderHashProvider for AttributesMeshGPU {}
+impl ShaderGraphProvider for AttributesMeshGPU {
+  fn build(
     &self,
-    res: &'a mut rendiation_scene_webgpu::GPUMeshCache,
-    sub_res: &mut AnyMap,
-    gpu: &webgpu::GPU,
-  ) -> &'a dyn rendiation_scene_webgpu::RenderComponentAny {
-    todo!()
+    _builder: &mut ShaderGraphRenderPipelineBuilder,
+  ) -> Result<(), ShaderGraphBuildError> {
+    // default do nothing
+    Ok(())
+  }
+}
+
+impl WebGPUMesh for AttributesMesh {
+  type GPU = AttributesMeshGPU;
+
+  fn update(&self, gpu_mesh: &mut Self::GPU, gpu: &webgpu::GPU, storage: &mut AnyMap) {
+    *gpu_mesh = self.create(gpu, storage)
+  }
+
+  fn create(&self, gpu: &webgpu::GPU, storage: &mut AnyMap) -> Self::GPU {
+    AttributesMeshGPU {
+      attributes: todo!(),
+      indices: todo!(),
+      mode: self.mode,
+    }
+  }
+
+  fn draw_impl(&self, group: MeshDrawGroup) -> webgpu::DrawCommand {
+    if let Some(indices) = &self.indices {
+      webgpu::DrawCommand::Indexed {
+        base_vertex: 0,
+        indices: indices.start as u32..indices.count as u32,
+        instances: 0..1,
+      }
+    } else {
+      let attribute = &self.attributes.last().unwrap().1;
+      webgpu::DrawCommand::Array {
+        vertices: attribute.start as u32..attribute.count as u32,
+        instances: 0..1,
+      }
+    }
   }
 
   fn topology(&self) -> webgpu::PrimitiveTopology {
     self.mode
-  }
-
-  fn draw_impl(&self, group: MeshDrawGroup) -> webgpu::DrawCommand {
-    if let Some(indices) = self.indices {
-      webgpu::DrawCommand::Indexed {
-        base_vertex: 0,
-        indices: (),
-        instances: 0..1,
-      }
-    } else {
-      webgpu::DrawCommand::Array {
-        vertices: (),
-        instances: 0..1,
-      }
-    }
   }
 }
 
@@ -89,7 +114,22 @@ fn build_model(
 }
 
 fn build_geom_buffer(accessor: gltf::Accessor, ctx: &mut Context) -> TypedBufferView {
-  //
+  let index = accessor.index();
+  let buffer = ctx.attributes[index].clone();
+
+  let ty = accessor.data_type();
+  let dimension = accessor.dimensions();
+
+  let start = accessor.offset();
+  let count = accessor.count();
+
+  TypedBufferView {
+    buffer,
+    start,
+    count,
+    ty,
+    dimension,
+  }
 }
 
 fn map_draw_mode(mode: gltf::mesh::Mode) -> Option<webgpu::PrimitiveTopology> {
@@ -105,16 +145,17 @@ fn map_draw_mode(mode: gltf::mesh::Mode) -> Option<webgpu::PrimitiveTopology> {
   .into()
 }
 
-pub fn load_gltf_test(path: impl AsRef<Path>, scene: &mut Scene<WebGPUScene>) -> Result<()> {
+pub fn load_gltf_test(path: impl AsRef<Path>, scene: &mut Scene<WebGPUScene>) -> GltfResult<()> {
   let (document, mut buffers, mut images) = gltf::import(path)?;
 
   let mut ctx = Context {
     images: images.drain(..).map(build_image).collect(),
+    attributes: buffers.drain(..).map(|b| Rc::new(b.0)).collect(),
   };
 
   for gltf_scene in document.scenes() {
     for node in gltf_scene.nodes() {
-      create_node_recursive(scene.root(), &node, &mut ctx);
+      create_node_recursive(scene, scene.root().clone(), &node, &mut ctx);
     }
   }
   Ok(())
@@ -122,6 +163,7 @@ pub fn load_gltf_test(path: impl AsRef<Path>, scene: &mut Scene<WebGPUScene>) ->
 
 struct Context {
   images: Vec<SceneTexture2D<WebGPUScene>>,
+  attributes: Vec<Rc<Vec<u8>>>,
 }
 
 #[derive(Debug)]
@@ -170,7 +212,12 @@ fn build_image(data: gltf::image::Data) -> SceneTexture2D<WebGPUScene> {
 }
 
 /// https://docs.rs/gltf/latest/gltf/struct.Node.html
-fn create_node_recursive(parent_to_attach: &SceneNode, gltf_node: &Node, ctx: &mut Context) {
+fn create_node_recursive(
+  scene: &mut Scene<WebGPUScene>,
+  parent_to_attach: SceneNode,
+  gltf_node: &Node,
+  ctx: &mut Context,
+) {
   println!(
     "Node #{} has {} children",
     gltf_node.index(),
@@ -203,11 +250,12 @@ fn create_node_recursive(parent_to_attach: &SceneNode, gltf_node: &Node, ctx: &m
   if let Some(mesh) = gltf_node.mesh() {
     for primitive in mesh.primitives() {
       let model = build_model(&node, primitive, ctx);
+      scene.add_model(model);
     }
   }
 
   for gltf_node in gltf_node.children() {
-    create_node_recursive(&node, &gltf_node, ctx)
+    create_node_recursive(scene, node.clone(), &gltf_node, ctx)
   }
 }
 
