@@ -3,7 +3,7 @@ pub use physical::*;
 
 use crate::*;
 
-pub trait LightableSurfaceShading {
+pub trait LightableSurfaceShading: Any {
   type ShaderStruct: ShaderGraphStructuralNodeType;
   /// define how we construct a shader material instance from shader build ctx
   fn construct_shading(
@@ -18,7 +18,7 @@ pub trait LightableSurfaceShading {
   ) -> ExpandedNode<ShaderLightingResult>;
 }
 
-pub trait LightableSurfaceShadingDyn {
+pub trait LightableSurfaceShadingDyn: Any {
   fn construct_shading_dyn(&self, builder: &mut ShaderGraphFragmentBuilder) -> Box<dyn Any>;
 
   fn compute_lighting_dyn(

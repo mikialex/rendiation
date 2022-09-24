@@ -77,6 +77,7 @@ impl<'a> ShaderPassBuilder for ForwardSceneLightingDispatcher<'a> {
 impl<'a> ShaderHashProvider for ForwardSceneLightingDispatcher<'a> {
   fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
     self.lighting.lights.light_hash_cache.hash(hasher);
+    self.override_shading.type_id().hash(hasher);
   }
 }
 
