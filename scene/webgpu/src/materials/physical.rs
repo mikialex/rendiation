@@ -28,6 +28,11 @@ impl ShaderGraphProvider for PhysicalMaterialGPU {
     &self,
     builder: &mut ShaderGraphRenderPipelineBuilder,
   ) -> Result<(), ShaderGraphBuildError> {
+    builder.context.insert(
+      ShadingSelection.type_id(),
+      Box::new(Rc::new(PhysicalShading)),
+    );
+
     builder.fragment(|builder, binding| {
       let uniform = binding.uniform_by(&self.uniform, SB::Material).expand();
       let sampler = binding.uniform_by(&self.sampler, SB::Material);
