@@ -21,6 +21,9 @@ mod binding;
 pub use pipeline::*;
 mod pipeline;
 
+pub use bundle::*;
+mod bundle;
+
 use bytemuck::*;
 pub use gpu::*;
 use wgpu as gpu;
@@ -40,7 +43,7 @@ use std::{
   sync::atomic::{AtomicUsize, Ordering},
 };
 
-use gpu::util::DeviceExt;
+use gpu::util::{DeviceExt, RenderEncoder};
 use rendiation_texture_types::*;
 use typed_arena::Arena;
 

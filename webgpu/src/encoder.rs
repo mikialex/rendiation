@@ -86,6 +86,8 @@ impl GPUCommandEncoder {
       placeholder_bg: self.placeholder_bg.clone(),
       size,
       formats,
+      bundle_encoder: None,
+      bundles: Default::default(),
     }
   }
 

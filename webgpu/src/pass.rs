@@ -134,6 +134,8 @@ pub struct RenderTargetFormatsInfo {
 
 pub struct GPURenderPass<'a> {
   pub(crate) pass: gpu::RenderPass<'a>,
+  pub(crate) bundle_encoder: Option<gpu::RenderBundleEncoder<'a>>,
+  pub(crate) bundles: Vec<GPURenderBundle>,
   pub(crate) holder: &'a GPURenderPassDataHolder,
   pub(crate) placeholder_bg: Rc<gpu::BindGroup>,
   pub(crate) size: Size,
@@ -168,6 +170,26 @@ impl<'a> GPURenderPass<'a> {
 
   pub fn formats(&self) -> &RenderTargetFormatsInfo {
     &self.formats
+  }
+
+  pub fn enable_bundle_encoding(&mut self, device: &gpu::Device) {
+    let desc = gpu::RenderBundleEncoderDescriptor {
+      label: None,
+      color_formats: todo!(),
+      depth_stencil: todo!(),
+      sample_count: todo!(),
+      multiview: todo!(),
+    };
+
+    let encoder = device.create_render_bundle_encoder(&desc);
+  }
+
+  pub fn disable_bundle_encoding(&mut self) {
+    if let Some(encoder) = self.bundle_encoder {
+      self
+        .bundles
+        .push(encoder.finish(&gpu::RenderBundleDescriptor { label: None }))
+    }
   }
 
   pub fn set_pipeline_owned(&mut self, pipeline: &GPURenderPipeline) {
