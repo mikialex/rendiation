@@ -15,7 +15,7 @@ impl ShaderHashProvider for PhysicalMaterialGPU {
 }
 
 pub struct PhysicalMaterialGPU {
-  uniform: UniformBufferView<PhysicalMaterialUniform>,
+  uniform: UniformBufferDataView<PhysicalMaterialUniform>,
   albedo_texture: Option<(GPUTexture2dView, GPUSamplerView)>,
 }
 
@@ -68,8 +68,7 @@ where
       albedo: self.albedo,
       ..Zeroable::zeroed()
     };
-    let uniform = UniformBufferResource::create_with_source(uniform, &gpu.device);
-    let uniform = uniform.create_default_view();
+    let uniform = create_uniform(uniform, gpu);
 
     let albedo_texture = self.albedo_texture.as_ref().map(|t| {
       let sampler = GPUSampler::create(t.sampler.into(), &gpu.device);

@@ -20,7 +20,7 @@ pub struct FatlineMaterialUniform {
 }
 
 pub struct FatlineMaterialGPU {
-  uniform: UniformBufferView<FatlineMaterialUniform>,
+  uniform: UniformBufferDataView<FatlineMaterialUniform>,
 }
 
 impl ShaderHashProvider for FatlineMaterialGPU {}
@@ -172,8 +172,7 @@ impl WebGPUMaterial for FatLineMaterial {
       width: self.width,
       ..Zeroable::zeroed()
     };
-    let uniform = UniformBufferResource::create_with_source(uniform, &gpu.device);
-    let uniform = uniform.create_default_view();
+    let uniform = create_uniform(uniform, gpu);
 
     FatlineMaterialGPU { uniform }
   }

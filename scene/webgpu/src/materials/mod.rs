@@ -85,7 +85,7 @@ impl GPUMaterialCache {
 pub struct DefaultPassDispatcher {
   pub formats: RenderTargetFormatsInfo,
   pub auto_write: bool,
-  pub pass_info: UniformBufferView<RenderPassGPUInfoData>,
+  pub pass_info: UniformBufferDataView<RenderPassGPUInfoData>,
 }
 
 impl ShaderHashProvider for DefaultPassDispatcher {

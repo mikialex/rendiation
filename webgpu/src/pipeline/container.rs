@@ -2,10 +2,6 @@ use shadergraph::*;
 
 pub use crate::*;
 
-impl<T: ShaderGraphNodeType + Std140> ShaderUniformProvider for UniformBufferView<T> {
-  type Node = T;
-}
-
 impl<T: ShaderGraphNodeType + Std140> ShaderUniformProvider for UniformBufferDataView<T> {
   type Node = T;
 }

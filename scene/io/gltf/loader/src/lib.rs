@@ -4,6 +4,7 @@ use std::collections::HashMap;
 use std::{path::Path, rc::Rc};
 
 use __core::hash::Hash;
+use __core::num::NonZeroU64;
 use gltf::{Node, Result as GltfResult};
 use rendiation_algebra::*;
 use rendiation_scene_webgpu::{
@@ -14,7 +15,10 @@ use rendiation_scene_webgpu::{
 use rendiation_scene_webgpu::{SceneModelHandle, WebGPUSceneExtension};
 use shadergraph::*;
 use webgpu::util::DeviceExt;
-use webgpu::{ShaderHashProvider, ShaderPassBuilder, TextureFormat, WebGPUTexture2dSource};
+use webgpu::{
+  GPUBuffer, GPUBufferResource, GPUBufferResourceView, GPUBufferViewRange, Resource,
+  ShaderHashProvider, ShaderPassBuilder, TextureFormat, WebGPUTexture2dSource,
+};
 
 struct GeometryBuffer {
   guid: u64,
@@ -25,22 +29,27 @@ struct GeometryBuffer {
 #[derive(Clone)]
 struct TypedBufferView {
   pub buffer: Rc<GeometryBuffer>,
-  pub byte_start: usize,
-  pub byte_count: usize,
+  pub range: GPUBufferViewRange,
+}
+
+struct AttributeAccessor {
+  pub view: TypedBufferView,
   pub ty: gltf::accessor::DataType,
   pub dimension: gltf::accessor::Dimensions,
+  pub byte_offset: usize,
+  pub byte_count: usize,
 }
 
 struct AttributesMesh {
-  attributes: Vec<(gltf::Semantic, TypedBufferView)>,
-  indices: Option<TypedBufferView>,
+  attributes: Vec<(gltf::Semantic, AttributeAccessor)>,
+  indices: Option<AttributeAccessor>,
   mode: webgpu::PrimitiveTopology,
   // bounding: Box3<f32>,
 }
 
 struct AttributesMeshGPU {
-  attributes: Vec<(gltf::Semantic, Rc<webgpu::Buffer>)>,
-  indices: Option<(Rc<webgpu::Buffer>, webgpu::IndexFormat)>,
+  attributes: Vec<(gltf::Semantic, GPUBufferResourceView)>,
+  indices: Option<(GPUBufferResourceView, webgpu::IndexFormat)>,
   mode: webgpu::PrimitiveTopology,
 }
 
@@ -105,23 +114,22 @@ impl ShaderGraphProvider for AttributesMeshGPU {
 // todo impl drop, cleanup
 #[derive(Default)]
 struct AttributesGPUCache {
-  gpus: HashMap<u64, Rc<webgpu::Buffer>>,
+  gpus: HashMap<u64, GPUBufferResource>,
 }
 
 impl AttributesGPUCache {
-  pub fn get(&mut self, buffer: &GeometryBuffer, gpu: &webgpu::GPU) -> Rc<webgpu::Buffer> {
+  pub fn get(&mut self, buffer: &GeometryBuffer, gpu: &webgpu::GPU) -> GPUBufferResource {
     self
       .gpus
       .entry(buffer.guid)
       .or_insert_with(|| {
-        Rc::new(
-          gpu
-            .device
-            .create_buffer_init(&webgpu::util::BufferInitDescriptor {
-              label: None,
-              contents: buffer.buffer.as_slice(),
-              usage: webgpu::BufferUsages::INDEX | webgpu::BufferUsages::VERTEX,
-            }),
+        GPUBufferResource::create_with_raw(
+          GPUBuffer::create(
+            &gpu.device,
+            buffer.buffer.as_slice(),
+            webgpu::BufferUsages::INDEX | webgpu::BufferUsages::VERTEX,
+          ),
+          webgpu::BufferUsages::INDEX | webgpu::BufferUsages::VERTEX,
         )
       })
       .clone()
@@ -142,8 +150,9 @@ impl WebGPUMesh for AttributesMesh {
       .attributes
       .iter()
       .map(|(s, vertices)| {
-        let v = cache.get(&vertices.buffer, gpu);
-        (s.clone(), v)
+        let buffer = cache.get(&vertices.view.buffer, gpu);
+        let buffer_view = buffer.create_view(vertices.view.range);
+        (s.clone(), buffer_view)
       })
       .collect();
 
@@ -153,8 +162,9 @@ impl WebGPUMesh for AttributesMesh {
         gltf::accessor::DataType::U32 => webgpu::IndexFormat::Uint32,
         _ => unreachable!(),
       };
-      let v = cache.get(&i.buffer, gpu);
-      (v, format)
+      let buffer = cache.get(&i.view.buffer, gpu);
+      let buffer_view = buffer.create_view(i.view.range);
+      (buffer_view, format)
     });
 
     AttributesMeshGPU {
@@ -169,13 +179,13 @@ impl WebGPUMesh for AttributesMesh {
     if let Some(indices) = &self.indices {
       webgpu::DrawCommand::Indexed {
         base_vertex: 0,
-        indices: indices.byte_start as u32..indices.byte_count as u32,
+        indices: indices.byte_offset as u32..indices.byte_count as u32,
         instances: 0..1,
       }
     } else {
       let attribute = &self.attributes.last().unwrap().1;
       webgpu::DrawCommand::Array {
-        vertices: attribute.byte_start as u32..attribute.byte_count as u32,
+        vertices: attribute.byte_offset as u32..attribute.byte_count as u32,
         instances: 0..1,
       }
     }
@@ -214,11 +224,28 @@ fn build_model(
   MeshModel::new(model)
 }
 
-fn build_geom_buffer(accessor: gltf::Accessor, ctx: &mut Context) -> TypedBufferView {
-  let index = accessor.index();
-  let buffer = ctx.attributes[index].clone();
+fn build_data_view(view: gltf::buffer::View, ctx: &mut Context) -> TypedBufferView {
+  let buffers = &ctx.attributes;
+  ctx
+    .result
+    .view_map
+    .entry(view.index())
+    .or_insert_with(|| {
+      let buffer = buffers[view.buffer().index()].clone();
+      TypedBufferView {
+        buffer,
+        range: GPUBufferViewRange {
+          offset: view.offset() as u64,
+          size: NonZeroU64::new(view.length() as u64).into(),
+        },
+      }
+    })
+    .clone()
+}
 
-  UUID.set(buffer.guid + 1);
+fn build_geom_buffer(accessor: gltf::Accessor, ctx: &mut Context) -> AttributeAccessor {
+  let view = accessor.view().unwrap(); // not support sparse accessor
+  let view = build_data_view(view, ctx);
 
   let ty = accessor.data_type();
   let dimension = accessor.dimensions();
@@ -245,9 +272,9 @@ fn build_geom_buffer(accessor: gltf::Accessor, ctx: &mut Context) -> TypedBuffer
       gltf::accessor::Dimensions::Mat4 => 16,
     };
 
-  TypedBufferView {
-    buffer,
-    byte_start: start,
+  AttributeAccessor {
+    view,
+    byte_offset: start,
     byte_count,
     ty,
     dimension,
@@ -283,6 +310,7 @@ pub fn load_gltf_test(
     attributes: buffers
       .drain(..)
       .map(|buffer| {
+        UUID.set(UUID.get() + 1);
         let buffer = GeometryBuffer {
           guid: UUID.get(),
           buffer: buffer.0,
@@ -311,6 +339,7 @@ struct Context {
 pub struct GltfLoadResult {
   pub primitive_map: HashMap<usize, SceneModelHandle>,
   pub node_map: HashMap<usize, SceneNode>,
+  pub view_map: HashMap<usize, TypedBufferView>,
 }
 
 #[derive(Debug)]
@@ -339,7 +368,7 @@ fn build_image(data: gltf::image::Data) -> SceneTexture2D<WebGPUScene> {
     gltf::image::Format::R8 => todo!(),
     gltf::image::Format::R8G8 => todo!(),
     gltf::image::Format::R8G8B8 => todo!(),
-    gltf::image::Format::R8G8B8A8 => (TextureFormat::Rgba8Unorm),
+    gltf::image::Format::R8G8B8A8 => TextureFormat::Rgba8Unorm,
     gltf::image::Format::B8G8R8 => todo!(),
     gltf::image::Format::B8G8R8A8 => todo!(),
     gltf::image::Format::R16 => todo!(),
