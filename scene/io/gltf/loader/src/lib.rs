@@ -37,6 +37,7 @@ struct AttributeAccessor {
   pub dimension: gltf::accessor::Dimensions,
   pub start: usize,
   pub count: usize,
+  pub stride: usize,
 }
 
 struct AttributesMesh {
@@ -147,7 +148,17 @@ impl WebGPUMesh for AttributesMesh {
       .iter()
       .map(|(s, vertices)| {
         let buffer = cache.get(&vertices.view.buffer, gpu);
-        let buffer_view = buffer.create_view(vertices.view.range);
+
+        let range = GPUBufferViewRange {
+          offset: vertices.view.range.offset + vertices.start as u64 * vertices.stride as u64,
+          size: NonZeroU64::new(
+            vertices.view.range.offset + vertices.count as u64 * vertices.stride as u64,
+          )
+          .unwrap()
+          .into(),
+        };
+
+        let buffer_view = buffer.create_view(range);
         (s.clone(), buffer_view)
       })
       .collect();
@@ -159,7 +170,13 @@ impl WebGPUMesh for AttributesMesh {
         _ => unreachable!(),
       };
       let buffer = cache.get(&i.view.buffer, gpu);
-      let buffer_view = buffer.create_view(i.view.range);
+      let range = GPUBufferViewRange {
+        offset: i.view.range.offset + i.start as u64 * i.stride as u64,
+        size: NonZeroU64::new(i.view.range.offset + i.count as u64 * i.stride as u64)
+          .unwrap()
+          .into(),
+      };
+      let buffer_view = buffer.create_view(range);
       (buffer_view, format)
     });
 
@@ -273,8 +290,9 @@ fn build_geom_buffer(accessor: gltf::Accessor, ctx: &mut Context) -> AttributeAc
   AttributeAccessor {
     view,
     count,
-    start: start / byte_count,
+    start: start / stride,
     ty,
+    stride,
     dimension,
   }
 }
