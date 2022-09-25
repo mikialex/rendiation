@@ -26,14 +26,8 @@ impl WebGPUMesh for FatlineMesh {
 
   fn create(&self, gpu: &GPU, storage: &mut AnyMap) -> Self::GPU {
     let vertex = bytemuck::cast_slice(self.inner.mesh.data.as_slice());
-    let vertex = gpu
-      .device
-      .create_buffer_init(&webgpu::util::BufferInitDescriptor {
-        label: None,
-        contents: vertex,
-        usage: webgpu::BufferUsages::VERTEX,
-      });
-    let vertex = Rc::new(vertex);
+    let vertex =
+      create_gpu_buffer(vertex, webgpu::BufferUsages::VERTEX, &gpu.device).create_default_view();
 
     let instance = storage
       .entry()
@@ -84,7 +78,7 @@ impl ShaderPassBuilder for FatlineMeshGPU {
 }
 
 pub struct FatlineMeshGPU {
-  vertex: Rc<webgpu::Buffer>,
+  vertex: GPUBufferResourceView,
   /// All fatline gpu instance shall share one instance buffer
   instance: Rc<MeshGPU>,
 }
@@ -134,7 +128,7 @@ thread_local! {
   static FATLINE_INSTANCE: IndexedMesh<TriangleList, Vec<Vertex>, Vec<u16>> = create_fatline_quad()
 }
 
-fn create_fatline_quad_gpu(device: &webgpu::Device) -> FatlineQuadInstance {
+fn create_fatline_quad_gpu(device: &webgpu::GPUDevice) -> FatlineQuadInstance {
   FatlineQuadInstance {
     data: Rc::new(FATLINE_INSTANCE.with(|f| f.create_gpu(device))),
   }

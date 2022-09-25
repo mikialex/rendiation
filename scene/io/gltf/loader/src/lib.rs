@@ -14,20 +14,19 @@ use rendiation_scene_webgpu::{
 };
 use rendiation_scene_webgpu::{SceneModelHandle, WebGPUSceneExtension};
 use shadergraph::*;
-use webgpu::util::DeviceExt;
 use webgpu::{
-  GPUBuffer, GPUBufferResource, GPUBufferResourceView, GPUBufferViewRange, Resource,
+  create_gpu_buffer, GPUBufferResource, GPUBufferResourceView, GPUBufferViewRange,
   ShaderHashProvider, ShaderPassBuilder, TextureFormat, WebGPUTexture2dSource,
 };
 
-struct GeometryBuffer {
+pub struct GeometryBuffer {
   guid: u64,
   buffer: Vec<u8>,
 }
 
 /// like slice, but owned, ref counted cheap clone
 #[derive(Clone)]
-struct TypedBufferView {
+pub struct TypedBufferView {
   pub buffer: Rc<GeometryBuffer>,
   pub range: GPUBufferViewRange,
 }
@@ -123,13 +122,10 @@ impl AttributesGPUCache {
       .gpus
       .entry(buffer.guid)
       .or_insert_with(|| {
-        GPUBufferResource::create_with_raw(
-          GPUBuffer::create(
-            &gpu.device,
-            buffer.buffer.as_slice(),
-            webgpu::BufferUsages::INDEX | webgpu::BufferUsages::VERTEX,
-          ),
+        create_gpu_buffer(
+          buffer.buffer.as_slice(),
           webgpu::BufferUsages::INDEX | webgpu::BufferUsages::VERTEX,
+          &gpu.device,
         )
       })
       .clone()
@@ -236,7 +232,7 @@ fn build_data_view(view: gltf::buffer::View, ctx: &mut Context) -> TypedBufferVi
         buffer,
         range: GPUBufferViewRange {
           offset: view.offset() as u64,
-          size: NonZeroU64::new(view.length() as u64).into(),
+          size: NonZeroU64::new(view.length() as u64),
         },
       }
     })

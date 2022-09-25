@@ -1,20 +1,19 @@
-use std::rc::Rc;
-
 use bytemuck::Pod;
 use core::marker::PhantomData;
-use gpu::util::DeviceExt;
 use gpu::DrawCommand;
 use gpu::GPURenderPassCtx;
 use gpu::IndexBufferSourceType;
 use rendiation_webgpu as gpu;
+use rendiation_webgpu::create_gpu_buffer;
+use rendiation_webgpu::GPUBufferResourceView;
 use shadergraph::*;
 
 use crate::*;
 
 pub struct MeshGPU {
   range_full: MeshGroup,
-  vertex: Vec<Rc<gpu::Buffer>>,
-  index: Option<(Rc<gpu::Buffer>, gpu::IndexFormat)>,
+  vertex: Vec<GPUBufferResourceView>,
+  index: Option<(GPUBufferResourceView, gpu::IndexFormat)>,
 }
 
 pub struct TypedMeshGPU<T> {
@@ -69,8 +68,8 @@ impl<T> TypedMeshGPU<T> {
 /// The GPUMesh's cpu data source trait
 pub trait GPUMeshData {
   type GPU;
-  fn create(&self, device: &gpu::Device) -> Self::GPU;
-  fn update(&self, gpu: &mut Self::GPU, device: &gpu::Device);
+  fn create(&self, device: &gpu::GPUDevice) -> Self::GPU;
+  fn update(&self, gpu: &mut Self::GPU, device: &gpu::GPUDevice);
   fn get_group(&self, group: MeshDrawGroup) -> MeshGroup;
   fn topology(&self) -> gpu::PrimitiveTopology;
   fn draw(&self, group: MeshDrawGroup) -> DrawCommand;
@@ -110,13 +109,13 @@ where
   T: PrimitiveTopologyMeta,
 {
   type GPU = TypedMeshGPU<Self>;
-  fn create(&self, device: &gpu::Device) -> Self::GPU {
+  fn create(&self, device: &gpu::GPUDevice) -> Self::GPU {
     TypedMeshGPU {
       marker: Default::default(),
       inner: self.mesh.create_gpu(device),
     }
   }
-  fn update(&self, gpu: &mut Self::GPU, device: &gpu::Device) {
+  fn update(&self, gpu: &mut Self::GPU, device: &gpu::GPUDevice) {
     *gpu = self.create(device)
   }
 
@@ -183,21 +182,16 @@ where
   IU: IndexGet + AsGPUBytes + IndexBufferSourceTypeProvider,
   Self: GPUConsumableMeshBuffer,
 {
-  pub fn create_gpu(&self, device: &gpu::Device) -> MeshGPU {
+  pub fn create_gpu(&self, device: &gpu::GPUDevice) -> MeshGPU {
     let vertex = bytemuck::cast_slice(self.vertex.as_slice());
-    let vertex = device.create_buffer_init(&gpu::util::BufferInitDescriptor {
-      label: None,
-      contents: vertex,
-      usage: gpu::BufferUsages::VERTEX,
-    });
-    let vertex = vec![Rc::new(vertex)];
+    let vertex = create_gpu_buffer(vertex, gpu::BufferUsages::VERTEX, device).create_default_view();
 
-    let index = device.create_buffer_init(&gpu::util::BufferInitDescriptor {
-      label: None,
-      contents: self.index.as_gpu_bytes(),
-      usage: gpu::BufferUsages::INDEX,
-    });
-    let index = (Rc::new(index), self.index.format()).into();
+    let vertex = vec![vertex];
+
+    let index = create_gpu_buffer(self.index.as_gpu_bytes(), gpu::BufferUsages::INDEX, device)
+      .create_default_view();
+
+    let index = (index, self.index.format()).into();
 
     let range_full = MeshGroup {
       start: 0,

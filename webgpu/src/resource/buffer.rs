@@ -26,7 +26,7 @@ impl BindableResourceView for Rc<gpu::Buffer> {
 
 #[derive(Clone)]
 pub struct GPUBuffer {
-  gpu: Rc<gpu::Buffer>,
+  pub gpu: Rc<gpu::Buffer>,
 }
 
 impl GPUBuffer {
@@ -69,6 +69,15 @@ pub struct GPUBufferViewRange {
 pub struct GPUBufferView {
   buffer: GPUBuffer,
   range: GPUBufferViewRange,
+}
+
+/// just short convenient method
+pub fn create_gpu_buffer(
+  data: &[u8],
+  usage: gpu::BufferUsages,
+  gpu: &GPUDevice,
+) -> GPUBufferResource {
+  GPUBufferResource::create_with_raw(GPUBuffer::create(gpu, data, usage), usage)
 }
 
 /// Typed uniform buffer with cpu data cache, which could being diffed when updating
