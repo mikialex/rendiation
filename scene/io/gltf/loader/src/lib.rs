@@ -35,8 +35,8 @@ struct AttributeAccessor {
   pub view: TypedBufferView,
   pub ty: gltf::accessor::DataType,
   pub dimension: gltf::accessor::Dimensions,
-  pub byte_offset: usize,
-  pub byte_count: usize,
+  pub start: usize,
+  pub count: usize,
 }
 
 struct AttributesMesh {
@@ -175,13 +175,13 @@ impl WebGPUMesh for AttributesMesh {
     if let Some(indices) = &self.indices {
       webgpu::DrawCommand::Indexed {
         base_vertex: 0,
-        indices: indices.byte_offset as u32..indices.byte_count as u32,
+        indices: indices.start as u32..indices.count as u32,
         instances: 0..1,
       }
     } else {
       let attribute = &self.attributes.last().unwrap().1;
       webgpu::DrawCommand::Array {
-        vertices: attribute.byte_offset as u32..attribute.byte_count as u32,
+        vertices: attribute.start as u32..attribute.count as u32,
         instances: 0..1,
       }
     }
@@ -249,29 +249,31 @@ fn build_geom_buffer(accessor: gltf::Accessor, ctx: &mut Context) -> AttributeAc
   let start = accessor.offset();
   let count = accessor.count();
 
-  let byte_count = count
-    * match ty {
-      gltf::accessor::DataType::I8 => 1,
-      gltf::accessor::DataType::U8 => 1,
-      gltf::accessor::DataType::I16 => 2,
-      gltf::accessor::DataType::U16 => 2,
-      gltf::accessor::DataType::U32 => 4,
-      gltf::accessor::DataType::F32 => 4,
-    }
-    * match dimension {
-      gltf::accessor::Dimensions::Scalar => 1,
-      gltf::accessor::Dimensions::Vec2 => 2,
-      gltf::accessor::Dimensions::Vec3 => 3,
-      gltf::accessor::Dimensions::Vec4 => 4,
-      gltf::accessor::Dimensions::Mat2 => 4,
-      gltf::accessor::Dimensions::Mat3 => 9,
-      gltf::accessor::Dimensions::Mat4 => 16,
-    };
+  let stride = match ty {
+    gltf::accessor::DataType::I8 => 1,
+    gltf::accessor::DataType::U8 => 1,
+    gltf::accessor::DataType::I16 => 2,
+    gltf::accessor::DataType::U16 => 2,
+    gltf::accessor::DataType::U32 => 4,
+    gltf::accessor::DataType::F32 => 4,
+  } * match dimension {
+    gltf::accessor::Dimensions::Scalar => 1,
+    gltf::accessor::Dimensions::Vec2 => 2,
+    gltf::accessor::Dimensions::Vec3 => 3,
+    gltf::accessor::Dimensions::Vec4 => 4,
+    gltf::accessor::Dimensions::Mat2 => 4,
+    gltf::accessor::Dimensions::Mat3 => 9,
+    gltf::accessor::Dimensions::Mat4 => 16,
+  };
+
+  println!("stride {} offset {}", stride, view.range.offset);
+
+  let byte_count = count * stride;
 
   AttributeAccessor {
     view,
-    byte_offset: start,
-    byte_count,
+    count,
+    start: start / byte_count,
     ty,
     dimension,
   }

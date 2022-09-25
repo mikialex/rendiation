@@ -189,24 +189,45 @@ impl<'a> GPURenderPass<'a> {
     self.set_bind_group(index, bind_group, offsets)
   }
 
-  pub fn set_vertex_buffer_owned(&mut self, slot: u32, buffer: &GPUBufferResourceView) {
+  pub fn set_vertex_buffer_owned(&mut self, slot: u32, view: &GPUBufferResourceView) {
     let buffer = self
       .holder
       .buffers
-      .alloc(buffer.resource.resource.gpu.clone());
-    self.pass.set_vertex_buffer(slot, buffer.slice(..))
+      .alloc(view.resource.resource.gpu.clone());
+
+    // why this so stupid
+    if let Some(size) = view.desc.size {
+      self.pass.set_vertex_buffer(
+        slot,
+        buffer.slice(view.desc.offset..(view.desc.offset + u64::from(size))),
+      )
+    } else {
+      self
+        .pass
+        .set_vertex_buffer(slot, buffer.slice(view.desc.offset..))
+    }
   }
 
   pub fn set_index_buffer_owned(
     &mut self,
-    buffer: &GPUBufferResourceView,
+    view: &GPUBufferResourceView,
     index_format: gpu::IndexFormat,
   ) {
     let buffer = self
       .holder
       .buffers
-      .alloc(buffer.resource.resource.gpu.clone());
-    self.pass.set_index_buffer(buffer.slice(..), index_format)
+      .alloc(view.resource.resource.gpu.clone());
+    // why this so stupid
+    if let Some(size) = view.desc.size {
+      self.pass.set_index_buffer(
+        buffer.slice(view.desc.offset..(view.desc.offset + u64::from(size))),
+        index_format,
+      )
+    } else {
+      self
+        .pass
+        .set_index_buffer(buffer.slice(view.desc.offset..), index_format)
+    }
   }
 
   pub fn draw_by_command(&mut self, com: DrawCommand) {

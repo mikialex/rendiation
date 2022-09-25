@@ -182,7 +182,7 @@ pub fn load_default_scene(scene: &mut Scene<WebGPUScene>) {
   scene.lights.insert(directional_light);
 
   rendiation_scene_gltf_loader::load_gltf_test(
-    "../../glTF-Sample-Models/2.0/Box/glTF/Box.gltf",
+    "C:/Users/mk/Desktop/develop/glTF-Sample-Models/2.0/Box/glTF/Box.gltf",
     scene,
   )
   .unwrap();
