@@ -106,9 +106,9 @@ impl<'a> ShaderGraphProvider for ForwardSceneLightingDispatcher<'a> {
       .entry(ShadingSelection.type_id())
       .or_insert_with(|| {
         if let Some(override_shading) = &self.override_shading {
-          Box::new(override_shading.clone())
+          Box::new(override_shading.clone() as Rc<dyn LightableSurfaceShadingDyn>)
         } else {
-          Box::new(Rc::new(PhysicalShading))
+          Box::new(Rc::new(PhysicalShading) as Rc<dyn LightableSurfaceShadingDyn>)
         }
       })
       .downcast_ref::<Rc<dyn LightableSurfaceShadingDyn>>()

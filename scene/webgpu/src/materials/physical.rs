@@ -36,7 +36,7 @@ impl ShaderGraphProvider for PhysicalMaterialGPU {
   ) -> Result<(), ShaderGraphBuildError> {
     builder.context.insert(
       ShadingSelection.type_id(),
-      Box::new(Rc::new(PhysicalShading)),
+      Box::new(Rc::new(PhysicalShading) as Rc<dyn LightableSurfaceShadingDyn>),
     );
 
     builder.fragment(|builder, binding| {
