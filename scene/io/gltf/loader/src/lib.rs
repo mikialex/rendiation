@@ -175,7 +175,7 @@ impl WebGPUMesh for AttributesMesh {
       };
       let buffer = cache.get(&i.view.buffer, gpu);
       let range = GPUBufferViewRange {
-        offset: i.view.range.offset + i.start as u64 * i.stride as u64,
+        offset: i.view.range.offset,
         size: NonZeroU64::new(i.view.range.offset + i.count as u64 * i.stride as u64)
           .unwrap()
           .into(),
@@ -196,13 +196,13 @@ impl WebGPUMesh for AttributesMesh {
     if let Some(indices) = &self.indices {
       webgpu::DrawCommand::Indexed {
         base_vertex: 0,
-        indices: indices.start as u32..indices.start as u32 + indices.count as u32,
+        indices: 0..indices.count as u32,
         instances: 0..1,
       }
     } else {
       let attribute = &self.attributes.last().unwrap().1;
       webgpu::DrawCommand::Array {
-        vertices: attribute.start as u32..attribute.start as u32 + attribute.count as u32,
+        vertices: 0..attribute.count as u32,
         instances: 0..1,
       }
     }
