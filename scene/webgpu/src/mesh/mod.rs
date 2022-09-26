@@ -4,6 +4,8 @@ pub mod fatline;
 pub use fatline::*;
 pub mod transform_instance;
 pub use transform_instance::*;
+pub mod free_attributes;
+pub use free_attributes::*;
 
 use crate::*;
 

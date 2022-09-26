@@ -1,4 +1,5 @@
 use rendiation_algebra::{Mat4, Quat};
+use rendiation_scene_webgpu::AttributeSemantic;
 
 pub fn map_sampler(sampler: gltf::texture::Sampler) -> rendiation_texture::TextureSampler {
   rendiation_texture::TextureSampler {
@@ -81,5 +82,17 @@ pub fn map_transform(t: gltf::scene::Transform) -> Mat4<f32> {
       rotation,
       scale,
     } => Mat4::translate(translation) * Mat4::from(Quat::from(rotation)) * Mat4::scale(scale),
+  }
+}
+
+pub fn map_attribute_semantic(a: gltf::Semantic) -> AttributeSemantic {
+  match a {
+    gltf::Semantic::Positions => AttributeSemantic::Positions,
+    gltf::Semantic::Normals => AttributeSemantic::Normals,
+    gltf::Semantic::Tangents => AttributeSemantic::Tangents,
+    gltf::Semantic::Colors(v) => AttributeSemantic::Colors(v),
+    gltf::Semantic::TexCoords(v) => AttributeSemantic::TexCoords(v),
+    gltf::Semantic::Joints(v) => AttributeSemantic::Joints(v),
+    gltf::Semantic::Weights(v) => AttributeSemantic::Weights(v),
   }
 }

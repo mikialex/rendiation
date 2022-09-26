@@ -182,8 +182,8 @@ pub fn load_default_scene(scene: &mut Scene<WebGPUScene>) {
   scene.lights.insert(directional_light);
 
   rendiation_scene_gltf_loader::load_gltf_test(
-    "C:/Users/mk/Desktop/develop/glTF-Sample-Models/2.0/Suzanne/glTF/Suzanne.gltf",
-    // "C:/Users/mk/Desktop/develop/glTF-Sample-Models/2.0/Sponza/glTF/Sponza.gltf",
+    // "C:/Users/mk/Desktop/develop/glTF-Sample-Models/2.0/Suzanne/glTF/Suzanne.gltf",
+    "C:/Users/mk/Desktop/develop/glTF-Sample-Models/2.0/Sponza/glTF/Sponza.gltf",
     // "/Users/mikialex/dev/glTF-Sample-Models/2.0/Box/glTF/Box.gltf",
     scene,
   )

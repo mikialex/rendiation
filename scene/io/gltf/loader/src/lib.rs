@@ -3,211 +3,20 @@
 use std::collections::HashMap;
 use std::{path::Path, rc::Rc};
 
-use __core::hash::Hash;
 use __core::num::NonZeroU64;
 use gltf::{Node, Result as GltfResult};
 use rendiation_algebra::*;
 use rendiation_scene_webgpu::{
-  AnyMap, IntoStateControl, MeshDrawGroup, MeshModel, MeshModelImpl, PhysicalMaterial, Scene,
-  SceneModelShareable, SceneNode, SceneTexture2D, StateControl, TextureWithSamplingData,
-  WebGPUMesh, WebGPUScene,
+  AttributeAccessor, AttributesMesh, GeometryBuffer, IntoStateControl, MeshModel, MeshModelImpl,
+  PhysicalMaterial, Scene, SceneModelShareable, SceneNode, SceneTexture2D, StateControl,
+  TextureWithSamplingData, TypedBufferView, WebGPUScene,
 };
 use rendiation_scene_webgpu::{SceneModelHandle, WebGPUSceneExtension};
 use shadergraph::*;
-use webgpu::{
-  create_gpu_buffer, GPUBufferResource, GPUBufferResourceView, GPUBufferViewRange,
-  ShaderHashProvider, ShaderPassBuilder, TextureFormat, WebGPUTexture2dSource,
-};
+use webgpu::{GPUBufferViewRange, TextureFormat, WebGPUTexture2dSource};
 
 mod convert_utils;
 use convert_utils::*;
-
-pub struct GeometryBuffer {
-  guid: u64,
-  buffer: Vec<u8>,
-}
-
-/// like slice, but owned, ref counted cheap clone
-#[derive(Clone)]
-pub struct TypedBufferView {
-  pub buffer: Rc<GeometryBuffer>,
-  pub range: GPUBufferViewRange,
-}
-
-#[derive(Clone)]
-pub struct AttributeAccessor {
-  pub view: TypedBufferView,
-  pub ty: gltf::accessor::DataType,
-  pub dimension: gltf::accessor::Dimensions,
-  pub start: usize,
-  pub count: usize,
-  pub stride: usize,
-}
-
-impl AttributeAccessor {
-  fn compute_gpu_buffer_range(&self) -> GPUBufferViewRange {
-    let inner_offset = self.view.range.offset;
-    GPUBufferViewRange {
-      offset: inner_offset + (self.start * self.stride) as u64,
-      size: NonZeroU64::new(inner_offset + (self.count * self.stride) as u64)
-        .unwrap() // safe
-        .into(),
-    }
-  }
-}
-
-struct AttributesMesh {
-  attributes: Vec<(gltf::Semantic, AttributeAccessor)>,
-  indices: Option<AttributeAccessor>,
-  mode: webgpu::PrimitiveTopology,
-  // bounding: Box3<f32>,
-}
-
-struct AttributesMeshGPU {
-  attributes: Vec<(gltf::Semantic, GPUBufferResourceView)>,
-  indices: Option<(GPUBufferResourceView, webgpu::IndexFormat)>,
-  mode: webgpu::PrimitiveTopology,
-}
-
-impl ShaderPassBuilder for AttributesMeshGPU {
-  fn setup_pass(&self, ctx: &mut webgpu::GPURenderPassCtx) {
-    for (s, b) in &self.attributes {
-      match s {
-        gltf::Semantic::Positions => ctx.set_vertex_buffer_owned_next(b),
-        gltf::Semantic::Normals => ctx.set_vertex_buffer_owned_next(b),
-        gltf::Semantic::Tangents => {}
-        gltf::Semantic::Colors(_) => ctx.set_vertex_buffer_owned_next(b),
-        gltf::Semantic::TexCoords(_) => ctx.set_vertex_buffer_owned_next(b),
-        gltf::Semantic::Joints(_) => {}
-        gltf::Semantic::Weights(_) => {}
-      }
-    }
-    if let Some((buffer, index_format)) = &self.indices {
-      ctx.pass.set_index_buffer_owned(buffer, *index_format)
-    }
-  }
-}
-
-impl ShaderHashProvider for AttributesMeshGPU {
-  fn hash_pipeline(&self, hasher: &mut webgpu::PipelineHasher) {
-    for (s, _) in &self.attributes {
-      s.hash(hasher)
-    }
-    self.mode.hash(hasher);
-    if let Some((_, f)) = &self.indices {
-      if webgpu::PrimitiveTopology::LineStrip == self.mode
-        || webgpu::PrimitiveTopology::TriangleStrip == self.mode
-      {
-        f.hash(hasher)
-      }
-    }
-  }
-}
-impl ShaderGraphProvider for AttributesMeshGPU {
-  fn build(
-    &self,
-    builder: &mut ShaderGraphRenderPipelineBuilder,
-  ) -> Result<(), ShaderGraphBuildError> {
-    let mode = VertexStepMode::Vertex;
-    builder.vertex(|builder, _| {
-      for (s, _) in &self.attributes {
-        match s {
-          gltf::Semantic::Positions => builder.push_single_vertex_layout::<GeometryPosition>(mode),
-          gltf::Semantic::Normals => builder.push_single_vertex_layout::<GeometryNormal>(mode),
-          gltf::Semantic::Tangents => {}
-          gltf::Semantic::Colors(_) => builder.push_single_vertex_layout::<GeometryColor>(mode),
-          gltf::Semantic::TexCoords(_) => builder.push_single_vertex_layout::<GeometryUV>(mode),
-          gltf::Semantic::Joints(_) => {}
-          gltf::Semantic::Weights(_) => {}
-        }
-      }
-      builder.primitive_state.topology = self.mode;
-      Ok(())
-    })
-  }
-}
-
-// todo impl drop, cleanup
-#[derive(Default)]
-struct AttributesGPUCache {
-  gpus: HashMap<u64, GPUBufferResource>,
-}
-
-impl AttributesGPUCache {
-  pub fn get(&mut self, buffer: &GeometryBuffer, gpu: &webgpu::GPU) -> GPUBufferResource {
-    self
-      .gpus
-      .entry(buffer.guid)
-      .or_insert_with(|| {
-        create_gpu_buffer(
-          buffer.buffer.as_slice(),
-          webgpu::BufferUsages::INDEX | webgpu::BufferUsages::VERTEX,
-          &gpu.device,
-        )
-      })
-      .clone()
-  }
-}
-
-impl WebGPUMesh for AttributesMesh {
-  type GPU = AttributesMeshGPU;
-
-  fn update(&self, gpu_mesh: &mut Self::GPU, gpu: &webgpu::GPU, storage: &mut AnyMap) {
-    *gpu_mesh = self.create(gpu, storage)
-  }
-
-  fn create(&self, gpu: &webgpu::GPU, storage: &mut AnyMap) -> Self::GPU {
-    let cache: &mut AttributesGPUCache = storage.entry().or_insert_with(Default::default);
-
-    let attributes = self
-      .attributes
-      .iter()
-      .map(|(s, vertices)| {
-        let buffer = cache.get(&vertices.view.buffer, gpu);
-        let buffer_view = buffer.create_view(vertices.compute_gpu_buffer_range());
-        (s.clone(), buffer_view)
-      })
-      .collect();
-
-    let indices = self.indices.as_ref().map(|i| {
-      let format = match i.ty {
-        gltf::accessor::DataType::U16 => webgpu::IndexFormat::Uint16,
-        gltf::accessor::DataType::U32 => webgpu::IndexFormat::Uint32,
-        _ => unreachable!(),
-      };
-      let buffer = cache.get(&i.view.buffer, gpu);
-      let buffer_view = buffer.create_view(i.compute_gpu_buffer_range());
-      (buffer_view, format)
-    });
-
-    AttributesMeshGPU {
-      attributes,
-      indices,
-      mode: self.mode,
-    }
-  }
-
-  /// the current represent do not have meaningful mesh draw group concept
-  fn draw_impl(&self, _group: MeshDrawGroup) -> webgpu::DrawCommand {
-    if let Some(indices) = &self.indices {
-      webgpu::DrawCommand::Indexed {
-        base_vertex: 0,
-        indices: 0..indices.count as u32,
-        instances: 0..1,
-      }
-    } else {
-      let attribute = &self.attributes.last().unwrap().1;
-      webgpu::DrawCommand::Array {
-        vertices: 0..attribute.count as u32,
-        instances: 0..1,
-      }
-    }
-  }
-
-  fn topology(&self) -> webgpu::PrimitiveTopology {
-    self.mode
-  }
-}
 
 fn build_model(
   node: &SceneNode,
@@ -216,12 +25,22 @@ fn build_model(
 ) -> impl SceneModelShareable {
   let attributes = primitive
     .attributes()
-    .map(|(semantic, accessor)| (semantic, build_geom_buffer(accessor, ctx)))
+    .map(|(semantic, accessor)| {
+      (
+        map_attribute_semantic(semantic),
+        build_geom_buffer(accessor, ctx),
+      )
+    })
     .collect();
 
-  let indices = primitive
-    .indices()
-    .map(|indices| build_geom_buffer(indices, ctx));
+  let indices = primitive.indices().map(|indices| {
+    let format = match indices.data_type() {
+      gltf::accessor::DataType::U16 => webgpu::IndexFormat::Uint16,
+      gltf::accessor::DataType::U32 => webgpu::IndexFormat::Uint32,
+      _ => unreachable!(),
+    };
+    (format, build_geom_buffer(indices, ctx))
+  });
 
   let mode = map_draw_mode(primitive.mode()).unwrap();
 
@@ -287,15 +106,8 @@ fn build_geom_buffer(accessor: gltf::Accessor, ctx: &mut Context) -> AttributeAc
     view,
     count,
     start: start / stride,
-    ty,
     stride,
-    dimension,
   }
-}
-
-// todo use global lock
-thread_local! {
-  static UUID: core::cell::Cell<u64> = core::cell::Cell::new(0);
 }
 
 pub fn load_gltf_test(
@@ -308,14 +120,7 @@ pub fn load_gltf_test(
     images: images.drain(..).map(build_image).collect(),
     attributes: buffers
       .drain(..)
-      .map(|buffer| {
-        UUID.set(UUID.get() + 1);
-        let buffer = GeometryBuffer {
-          guid: UUID.get(),
-          buffer: buffer.0,
-        };
-        Rc::new(buffer)
-      })
+      .map(|buffer| Rc::new(GeometryBuffer::new(buffer.0)))
       .collect(),
     result: Default::default(),
   };
