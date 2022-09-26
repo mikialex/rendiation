@@ -7,19 +7,25 @@ pub struct PhysicalMaterialUniform {
   pub albedo: Vec3<f32>,
 }
 
-impl ShaderHashProvider for PhysicalMaterialGPU {}
+impl ShaderHashProvider for PhysicalMaterialGPU {
+  fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
+    // todo optimize for reduce shader permutation
+    self.albedo_texture.is_some().hash(hasher)
+  }
+}
 
 pub struct PhysicalMaterialGPU {
-  uniform: UniformBufferView<PhysicalMaterialUniform>,
-  sampler: GPUSamplerView,
-  texture: GPUTexture2dView,
+  uniform: UniformBufferDataView<PhysicalMaterialUniform>,
+  albedo_texture: Option<(GPUTexture2dView, GPUSamplerView)>,
 }
 
 impl ShaderPassBuilder for PhysicalMaterialGPU {
   fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
     ctx.binding.bind(&self.uniform, SB::Material);
-    ctx.binding.bind(&self.sampler, SB::Material);
-    ctx.binding.bind(&self.texture, SB::Material);
+    if let Some(albedo_texture) = &self.albedo_texture {
+      ctx.binding.bind(&albedo_texture.1, SB::Material);
+      ctx.binding.bind(&albedo_texture.0, SB::Material);
+    }
   }
 }
 
@@ -35,11 +41,16 @@ impl ShaderGraphProvider for PhysicalMaterialGPU {
 
     builder.fragment(|builder, binding| {
       let uniform = binding.uniform_by(&self.uniform, SB::Material).expand();
-      let sampler = binding.uniform_by(&self.sampler, SB::Material);
-      let albedo_tex = binding.uniform_by(&self.texture, SB::Material);
-
       let uv = builder.query_or_interpolate_by::<FragmentUv, GeometryUV>();
-      let albedo = albedo_tex.sample(sampler, uv).xyz() * uniform.albedo;
+
+      let albedo = if let Some(albedo_texture) = &self.albedo_texture {
+        let sampler = binding.uniform_by(&albedo_texture.1, SB::Material);
+        let albedo_tex = binding.uniform_by(&albedo_texture.0, SB::Material);
+        albedo_tex.sample(sampler, uv).xyz() * uniform.albedo
+      } else {
+        uniform.albedo
+      };
+
       builder.register::<ColorChannel>(albedo);
       builder.register::<SpecularChannel>(consts(Vec3::splat(0.1)));
       builder.register::<RoughnessChannel>(consts(0.3));
@@ -62,16 +73,18 @@ where
       albedo: self.albedo,
       ..Zeroable::zeroed()
     };
-    let uniform = UniformBufferResource::create_with_source(uniform, &gpu.device);
-    let uniform = uniform.create_default_view();
+    let uniform = create_uniform(uniform, gpu);
 
-    let sampler = GPUSampler::create(self.sampler.into(), &gpu.device);
-    let sampler = sampler.create_default_view();
+    let albedo_texture = self.albedo_texture.as_ref().map(|t| {
+      let sampler = GPUSampler::create(t.sampler.into(), &gpu.device);
+      let sampler = sampler.create_default_view();
+      let tex = check_update_gpu_2d::<S>(&t.texture, res, gpu).clone();
+      (tex, sampler)
+    });
 
     PhysicalMaterialGPU {
       uniform,
-      sampler,
-      texture: check_update_gpu_2d::<S>(&self.texture, res, gpu).clone(),
+      albedo_texture,
     }
   }
   fn is_keep_mesh_shape(&self) -> bool {

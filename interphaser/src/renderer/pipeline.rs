@@ -12,7 +12,8 @@ impl ShaderGraphProvider for SolidUIPipeline {
     &self,
     builder: &mut ShaderGraphRenderPipelineBuilder,
   ) -> Result<(), shadergraph::ShaderGraphBuildError> {
-    let global = builder.uniform::<UniformBufferView<UIGlobalParameter>>(SemanticBinding::Global);
+    let global =
+      builder.uniform::<UniformBufferDataView<UIGlobalParameter>>(SemanticBinding::Global);
 
     builder.vertex(|builder, _| {
       builder.register_vertex::<UIVertex>(VertexStepMode::Vertex);
@@ -58,7 +59,8 @@ impl ShaderGraphProvider for TextureUIPipeline {
     &self,
     builder: &mut ShaderGraphRenderPipelineBuilder,
   ) -> Result<(), shadergraph::ShaderGraphBuildError> {
-    let global = builder.uniform::<UniformBufferView<UIGlobalParameter>>(SemanticBinding::Global);
+    let global =
+      builder.uniform::<UniformBufferDataView<UIGlobalParameter>>(SemanticBinding::Global);
 
     builder.vertex(|builder, _| {
       builder.register_vertex::<UIVertex>(VertexStepMode::Vertex);

@@ -39,11 +39,11 @@ use rendiation_renderable_mesh::mesh::*;
 pub use rendiation_scene_core::*;
 use rendiation_texture::{CubeTextureFace, Size, TextureSampler};
 use shadergraph::*;
-use webgpu::util::DeviceExt;
 use webgpu::*;
 use wgsl_shader_derives::*;
 
 use __core::hash::Hasher;
+use __core::num::NonZeroU64;
 use core::ops::Deref;
 use std::{
   any::{Any, TypeId},

@@ -10,20 +10,18 @@ bytemuck = {version = "1.4.1", features = ["derive"]}
 image = "*"
 log = "0.4"
 # nfd = "0.0.4"
+fontext = {path = "../components/fontext"}
 rendiation-algebra = {path = "../math/algebra"}
 rendiation-color = {path = "../components/color"}
 rendiation-geometry = {path = "../math/geometry"}
 rendiation-renderable-mesh = {path = "../components/mesh/renderable"}
-fontext = {path = "../components/fontext"}
 rendiation-texture = {path = "../components/texture/core"}
-webgpu = {package = "rendiation-webgpu", path = "../webgpu"}
 shadergraph = {path = "../shader/graph"}
+webgpu = {package = "rendiation-webgpu", path = "../webgpu"}
 winit = {version = "0.26.0"}
-once_cell = "1.4.0"
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
-wasm-bindgen-futures = "0.4.28"
 console_error_panic_hook = "0.1.6"
-web-sys = { version = "0.3.53"}
 instant = "0.1.12"
-
+wasm-bindgen-futures = "0.4.28"
+web-sys = {version = "0.3.53"}

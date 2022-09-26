@@ -4,6 +4,8 @@ pub mod fatline;
 pub use fatline::*;
 pub mod transform_instance;
 pub use transform_instance::*;
+pub mod free_attributes;
+pub use free_attributes::*;
 
 use crate::*;
 
@@ -83,7 +85,7 @@ pub trait WebGPUMesh: Any {
 
   fn topology(&self) -> webgpu::PrimitiveTopology;
 
-  fn try_pick(&self, f: &mut dyn FnMut(&dyn IntersectAbleGroupedMesh));
+  fn try_pick(&self, _f: &mut dyn FnMut(&dyn IntersectAbleGroupedMesh)) {}
 }
 
 pub struct MeshSource<T> {

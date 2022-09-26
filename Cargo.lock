@@ -127,6 +127,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cdb031dd78e28731d87d56cc8ffef4a8f36ca26c38fe2de700543e627f8a464a"
 
 [[package]]
+name = "base64"
+version = "0.12.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3441f0f7b02788e948e47f457ca01f1d7e6d92c693bc132c22b087d3141c03ff"
+
+[[package]]
 name = "bit-set"
 version = "0.5.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -919,6 +925,43 @@ dependencies = [
 ]
 
 [[package]]
+name = "gltf"
+version = "1.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "00e0a0eace786193fc83644907097285396360e9e82e30f81a21e9b1ba836a3e"
+dependencies = [
+ "base64",
+ "byteorder",
+ "gltf-json",
+ "image",
+ "lazy_static",
+]
+
+[[package]]
+name = "gltf-derive"
+version = "1.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bdd53d6e284bb2bf02a6926e4cc4984978c1990914d6cd9deae4e31cf37cd113"
+dependencies = [
+ "inflections",
+ "proc-macro2",
+ "quote",
+ "syn",
+]
+
+[[package]]
+name = "gltf-json"
+version = "1.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9949836a9ec5e7f83f76fb9bbcbc77f254a577ebbdb0820867bc11979ef97cad"
+dependencies = [
+ "gltf-derive",
+ "serde",
+ "serde_derive",
+ "serde_json",
+]
+
+[[package]]
 name = "glyph_brush"
 version = "0.7.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1086,6 +1129,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "inflections"
+version = "1.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a257582fdcde896fd96463bf2d40eefea0580021c0712a0e2b028b60b47a837a"
+
+[[package]]
 name = "inplace_it"
 version = "0.3.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1114,7 +1163,6 @@ dependencies = [
  "image",
  "instant",
  "log",
- "once_cell",
  "rendiation-algebra",
  "rendiation-color",
  "rendiation-geometry",
@@ -2007,7 +2055,6 @@ name = "rendiation-renderable-mesh"
 version = "0.1.0"
 dependencies = [
  "bytemuck",
- "once_cell",
  "rendiation-algebra",
  "rendiation-geometry",
  "rendiation-webgpu",
@@ -2024,7 +2071,6 @@ dependencies = [
  "arena",
  "bytemuck",
  "log",
- "once_cell",
  "rendiation-algebra",
  "rendiation-geometry",
  "rendiation-renderable-mesh",
@@ -2040,7 +2086,6 @@ dependencies = [
  "arena-graph",
  "bytemuck",
  "log",
- "once_cell",
  "rendiation-algebra",
  "rendiation-geometry",
  "rendiation-renderable-mesh",
@@ -2051,6 +2096,18 @@ dependencies = [
  "rendiation-webgpu",
  "space-algorithm",
  "tree",
+]
+
+[[package]]
+name = "rendiation-scene-gltf-loader"
+version = "0.0.1"
+dependencies = [
+ "gltf",
+ "rendiation-algebra",
+ "rendiation-scene-webgpu",
+ "rendiation-texture",
+ "rendiation-webgpu",
+ "shadergraph",
 ]
 
 [[package]]
@@ -2619,7 +2676,6 @@ dependencies = [
  "image",
  "interphaser",
  "log",
- "once_cell",
  "rendiation-algebra",
  "rendiation-controller",
  "rendiation-generative-texture",
@@ -2627,6 +2683,7 @@ dependencies = [
  "rendiation-mesh-generator",
  "rendiation-renderable-mesh",
  "rendiation-scene-core",
+ "rendiation-scene-gltf-loader",
  "rendiation-scene-webgpu",
  "rendiation-texture",
  "rendiation-webgpu",

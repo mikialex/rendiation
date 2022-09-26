@@ -77,8 +77,7 @@ impl<'a> PassDescriptor<'a> {
       buffer_size,
       ..Zeroable::zeroed()
     };
-    let pass_info = UniformBufferResource::create_with_source(pass_info, &ctx.gpu.device);
-    let pass_info = pass_info.create_default_view();
+    let pass_info = create_uniform(pass_info, ctx.gpu);
 
     let c = GPURenderPassCtx::new(pass, ctx.gpu);
 

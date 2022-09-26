@@ -131,7 +131,7 @@ impl<'a, 'b> ShaderGraphProvider for RenderEmitter<'a, 'b> {
 pub struct SceneRenderPass<'a, 'b, 'c> {
   pub ctx: GPURenderPassCtx<'a, 'b>,
   pub resources: &'c mut GPUResourceCache,
-  pub pass_info: UniformBufferView<RenderPassGPUInfoData>,
+  pub pass_info: UniformBufferDataView<RenderPassGPUInfoData>,
 }
 
 impl<'a, 'b, 'c> SceneRenderPass<'a, 'b, 'c> {

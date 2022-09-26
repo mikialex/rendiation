@@ -8,7 +8,7 @@ pub struct FlatMaterialUniform {
 }
 
 pub struct FlatMaterialGPU {
-  uniform: UniformBufferView<FlatMaterialUniform>,
+  uniform: UniformBufferDataView<FlatMaterialUniform>,
 }
 
 impl ShaderHashProvider for FlatMaterialGPU {}
@@ -41,8 +41,7 @@ impl WebGPUMaterial for FlatMaterial {
       color: self.color,
       ..Zeroable::zeroed()
     };
-    let uniform = UniformBufferResource::create_with_source(uniform, &gpu.device);
-    let uniform = uniform.create_default_view();
+    let uniform = create_uniform(uniform, gpu);
 
     FlatMaterialGPU { uniform }
   }

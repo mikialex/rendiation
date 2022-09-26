@@ -98,7 +98,9 @@ pub trait WebGPUTexture2dSource: Debug {
   fn format(&self) -> gpu::TextureFormat;
   fn as_bytes(&self) -> &[u8];
   fn size(&self) -> Size;
-  fn bytes_per_pixel(&self) -> usize;
+  fn bytes_per_pixel(&self) -> usize {
+    self.format().describe().block_size as usize
+  }
 
   fn bytes_per_row_usize(&self) -> usize {
     let width: usize = self.size().width.into();
