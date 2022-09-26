@@ -53,8 +53,8 @@ pub fn map_min_filter_mipmap(min: gltf::texture::MinFilter) -> rendiation_textur
 
 pub fn map_mag_filter(f: gltf::texture::MagFilter) -> rendiation_texture::FilterMode {
   match f {
-    gltf::texture::MagFilter::Nearest => todo!(),
-    gltf::texture::MagFilter::Linear => todo!(),
+    gltf::texture::MagFilter::Nearest => rendiation_texture::FilterMode::Nearest,
+    gltf::texture::MagFilter::Linear => rendiation_texture::FilterMode::Linear,
   }
 }
 

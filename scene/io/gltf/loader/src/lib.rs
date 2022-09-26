@@ -196,13 +196,13 @@ impl WebGPUMesh for AttributesMesh {
     if let Some(indices) = &self.indices {
       webgpu::DrawCommand::Indexed {
         base_vertex: 0,
-        indices: indices.start as u32..indices.count as u32,
+        indices: indices.start as u32..indices.start as u32 + indices.count as u32,
         instances: 0..1,
       }
     } else {
       let attribute = &self.attributes.last().unwrap().1;
       webgpu::DrawCommand::Array {
-        vertices: attribute.start as u32..attribute.count as u32,
+        vertices: attribute.start as u32..attribute.start as u32 + attribute.count as u32,
         instances: 0..1,
       }
     }
@@ -366,27 +366,41 @@ impl WebGPUTexture2dSource for GltfImage {
   }
 }
 
-fn build_image(data: gltf::image::Data) -> SceneTexture2D<WebGPUScene> {
-  let format = match data.format {
-    gltf::image::Format::R8 => todo!(),
-    gltf::image::Format::R8G8 => todo!(),
-    gltf::image::Format::R8G8B8 => todo!(),
+fn build_image(data_input: gltf::image::Data) -> SceneTexture2D<WebGPUScene> {
+  let format = match data_input.format {
+    gltf::image::Format::R8 => TextureFormat::R8Unorm,
+    gltf::image::Format::R8G8 => TextureFormat::Rg8Unorm,
+    gltf::image::Format::R8G8B8 => TextureFormat::Rgba8Unorm, // padding
     gltf::image::Format::R8G8B8A8 => TextureFormat::Rgba8Unorm,
-    gltf::image::Format::B8G8R8 => todo!(),
-    gltf::image::Format::B8G8R8A8 => todo!(),
+    gltf::image::Format::B8G8R8 => TextureFormat::Bgra8Unorm, // padding
+    gltf::image::Format::B8G8R8A8 => TextureFormat::Bgra8Unorm,
+    // todo check the follow format
     gltf::image::Format::R16 => TextureFormat::R16Float,
-    gltf::image::Format::R16G16 => todo!(),
-    gltf::image::Format::R16G16B16 => todo!(),
+    gltf::image::Format::R16G16 => TextureFormat::Rg16Float,
+    gltf::image::Format::R16G16B16 => TextureFormat::Rgba16Float, // padding
     gltf::image::Format::R16G16B16A16 => TextureFormat::Rgba16Float,
   };
 
-  let size = rendiation_texture::Size::from_u32_pair_min_one((data.width, data.height));
-
-  let image = GltfImage {
-    data: data.pixels,
-    format,
-    size,
+  let data = if let Some((read_bytes, pad_bytes)) = match data_input.format {
+    gltf::image::Format::R8G8B8 => (3, &[255]).into(),
+    gltf::image::Format::B8G8R8 => (3, &[255]).into(),
+    gltf::image::Format::R16G16B16 => todo!(), // todo what's the u8 repr for f16_1.0??
+    _ => None,
+  } {
+    data_input
+      .pixels
+      .chunks(read_bytes)
+      .flat_map(|c| [c, pad_bytes])
+      .flatten()
+      .copied()
+      .collect()
+  } else {
+    data_input.pixels
   };
+
+  let size = rendiation_texture::Size::from_u32_pair_min_one((data_input.width, data_input.height));
+
+  let image = GltfImage { data, format, size };
   SceneTexture2D::<WebGPUScene>::new(Box::new(image))
 }
 
