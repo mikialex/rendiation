@@ -44,6 +44,18 @@ pub struct AttributeAccessor {
   pub stride: usize,
 }
 
+impl AttributeAccessor {
+  fn compute_gpu_buffer_range(&self) -> GPUBufferViewRange {
+    let inner_offset = self.view.range.offset;
+    GPUBufferViewRange {
+      offset: inner_offset + (self.start * self.stride) as u64,
+      size: NonZeroU64::new(inner_offset + (self.count * self.stride) as u64)
+        .unwrap() // safe
+        .into(),
+    }
+  }
+}
+
 struct AttributesMesh {
   attributes: Vec<(gltf::Semantic, AttributeAccessor)>,
   indices: Option<AttributeAccessor>,
@@ -152,17 +164,7 @@ impl WebGPUMesh for AttributesMesh {
       .iter()
       .map(|(s, vertices)| {
         let buffer = cache.get(&vertices.view.buffer, gpu);
-
-        let range = GPUBufferViewRange {
-          offset: vertices.view.range.offset + vertices.start as u64 * vertices.stride as u64,
-          size: NonZeroU64::new(
-            vertices.view.range.offset + vertices.count as u64 * vertices.stride as u64,
-          )
-          .unwrap()
-          .into(),
-        };
-
-        let buffer_view = buffer.create_view(range);
+        let buffer_view = buffer.create_view(vertices.compute_gpu_buffer_range());
         (s.clone(), buffer_view)
       })
       .collect();
@@ -174,13 +176,7 @@ impl WebGPUMesh for AttributesMesh {
         _ => unreachable!(),
       };
       let buffer = cache.get(&i.view.buffer, gpu);
-      let range = GPUBufferViewRange {
-        offset: i.view.range.offset,
-        size: NonZeroU64::new(i.view.range.offset + i.count as u64 * i.stride as u64)
-          .unwrap()
-          .into(),
-      };
-      let buffer_view = buffer.create_view(range);
+      let buffer_view = buffer.create_view(i.compute_gpu_buffer_range());
       (buffer_view, format)
     });
 
