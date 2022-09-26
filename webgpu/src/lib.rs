@@ -33,7 +33,6 @@ use std::{
   cell::{Cell, RefCell},
   collections::{hash_map::DefaultHasher, HashMap},
   hash::{Hash, Hasher},
-  marker::PhantomData,
   num::{NonZeroU32, NonZeroU8},
   ops::{Deref, DerefMut, Range},
   rc::Rc,

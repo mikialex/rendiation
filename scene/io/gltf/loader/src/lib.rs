@@ -19,6 +19,9 @@ use webgpu::{
   ShaderHashProvider, ShaderPassBuilder, TextureFormat, WebGPUTexture2dSource,
 };
 
+mod convert_utils;
+use convert_utils::*;
+
 pub struct GeometryBuffer {
   guid: u64,
   buffer: Vec<u8>,
@@ -31,7 +34,8 @@ pub struct TypedBufferView {
   pub range: GPUBufferViewRange,
 }
 
-struct AttributeAccessor {
+#[derive(Clone)]
+pub struct AttributeAccessor {
   pub view: TypedBufferView,
   pub ty: gltf::accessor::DataType,
   pub dimension: gltf::accessor::Dimensions,
@@ -283,10 +287,6 @@ fn build_geom_buffer(accessor: gltf::Accessor, ctx: &mut Context) -> AttributeAc
     gltf::accessor::Dimensions::Mat4 => 16,
   };
 
-  println!("stride {} offset {}", stride, view.range.offset);
-
-  let byte_count = count * stride;
-
   AttributeAccessor {
     view,
     count,
@@ -295,19 +295,6 @@ fn build_geom_buffer(accessor: gltf::Accessor, ctx: &mut Context) -> AttributeAc
     stride,
     dimension,
   }
-}
-
-fn map_draw_mode(mode: gltf::mesh::Mode) -> Option<webgpu::PrimitiveTopology> {
-  match mode {
-    gltf::mesh::Mode::Points => webgpu::PrimitiveTopology::PointList,
-    gltf::mesh::Mode::Lines => webgpu::PrimitiveTopology::LineList,
-    gltf::mesh::Mode::LineLoop => return None,
-    gltf::mesh::Mode::LineStrip => webgpu::PrimitiveTopology::LineStrip,
-    gltf::mesh::Mode::Triangles => webgpu::PrimitiveTopology::TriangleList,
-    gltf::mesh::Mode::TriangleStrip => webgpu::PrimitiveTopology::TriangleStrip,
-    gltf::mesh::Mode::TriangleFan => return None,
-  }
-  .into()
 }
 
 // todo use global lock
@@ -387,10 +374,10 @@ fn build_image(data: gltf::image::Data) -> SceneTexture2D<WebGPUScene> {
     gltf::image::Format::R8G8B8A8 => TextureFormat::Rgba8Unorm,
     gltf::image::Format::B8G8R8 => todo!(),
     gltf::image::Format::B8G8R8A8 => todo!(),
-    gltf::image::Format::R16 => todo!(),
+    gltf::image::Format::R16 => TextureFormat::R16Float,
     gltf::image::Format::R16G16 => todo!(),
     gltf::image::Format::R16G16B16 => todo!(),
-    gltf::image::Format::R16G16B16A16 => todo!(),
+    gltf::image::Format::R16G16B16A16 => TextureFormat::Rgba16Float,
   };
 
   let size = rendiation_texture::Size::from_u32_pair_min_one((data.width, data.height));
@@ -419,26 +406,7 @@ fn create_node_recursive(
   let node = parent_to_attach.create_child();
   ctx.result.node_map.insert(gltf_node.index(), node.clone());
 
-  let local_mat = match gltf_node.transform() {
-    gltf::scene::Transform::Matrix { matrix } => {
-      Mat4::new_from_colum(matrix[0], matrix[1], matrix[2], matrix[3])
-    }
-    gltf::scene::Transform::Decomposed {
-      translation,
-      rotation,
-      scale,
-    } => {
-      Mat4::scale(scale)
-        * Mat4::from(Quat::new(
-          rotation[0],
-          rotation[1],
-          rotation[2],
-          rotation[3],
-        ))
-        * Mat4::translate(translation)
-    }
-  };
-  node.set_local_matrix(local_mat);
+  node.set_local_matrix(map_transform(gltf_node.transform()));
 
   if let Some(mesh) = gltf_node.mesh() {
     for primitive in mesh.primitives() {
@@ -478,62 +446,4 @@ fn build_pbr_material(
     result.states.cull_mode = None;
   }
   result
-}
-
-fn map_sampler(sampler: gltf::texture::Sampler) -> rendiation_texture::TextureSampler {
-  rendiation_texture::TextureSampler {
-    address_mode_u: map_wrapping(sampler.wrap_s()),
-    address_mode_v: map_wrapping(sampler.wrap_t()),
-    address_mode_w: rendiation_texture::AddressMode::ClampToEdge,
-    mag_filter: sampler
-      .mag_filter()
-      .map(map_mag_filter)
-      .unwrap_or(rendiation_texture::FilterMode::Nearest),
-    min_filter: sampler
-      .min_filter()
-      .map(map_min_filter)
-      .unwrap_or(rendiation_texture::FilterMode::Nearest),
-    mipmap_filter: sampler
-      .min_filter()
-      .map(map_min_filter_mipmap)
-      .unwrap_or(rendiation_texture::FilterMode::Nearest),
-  }
-}
-
-fn map_wrapping(mode: gltf::texture::WrappingMode) -> rendiation_texture::AddressMode {
-  match mode {
-    gltf::texture::WrappingMode::ClampToEdge => rendiation_texture::AddressMode::ClampToEdge,
-    gltf::texture::WrappingMode::MirroredRepeat => rendiation_texture::AddressMode::MirrorRepeat,
-    gltf::texture::WrappingMode::Repeat => rendiation_texture::AddressMode::Repeat,
-  }
-}
-
-fn map_min_filter(min: gltf::texture::MinFilter) -> rendiation_texture::FilterMode {
-  match min {
-    gltf::texture::MinFilter::Nearest => rendiation_texture::FilterMode::Nearest,
-    gltf::texture::MinFilter::Linear => rendiation_texture::FilterMode::Linear,
-    gltf::texture::MinFilter::NearestMipmapNearest => rendiation_texture::FilterMode::Nearest,
-    gltf::texture::MinFilter::LinearMipmapNearest => rendiation_texture::FilterMode::Linear,
-    gltf::texture::MinFilter::NearestMipmapLinear => rendiation_texture::FilterMode::Nearest,
-    gltf::texture::MinFilter::LinearMipmapLinear => rendiation_texture::FilterMode::Linear,
-  }
-}
-
-/// https://www.khronos.org/opengl/wiki/Sampler_Object
-fn map_min_filter_mipmap(min: gltf::texture::MinFilter) -> rendiation_texture::FilterMode {
-  match min {
-    gltf::texture::MinFilter::Nearest => rendiation_texture::FilterMode::Nearest,
-    gltf::texture::MinFilter::Linear => rendiation_texture::FilterMode::Nearest,
-    gltf::texture::MinFilter::NearestMipmapNearest => rendiation_texture::FilterMode::Nearest,
-    gltf::texture::MinFilter::LinearMipmapNearest => rendiation_texture::FilterMode::Nearest,
-    gltf::texture::MinFilter::NearestMipmapLinear => rendiation_texture::FilterMode::Linear,
-    gltf::texture::MinFilter::LinearMipmapLinear => rendiation_texture::FilterMode::Linear,
-  }
-}
-
-fn map_mag_filter(f: gltf::texture::MagFilter) -> rendiation_texture::FilterMode {
-  match f {
-    gltf::texture::MagFilter::Nearest => todo!(),
-    gltf::texture::MagFilter::Linear => todo!(),
-  }
 }
