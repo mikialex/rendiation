@@ -35,12 +35,15 @@ static GLOBAL_BUFFER_ID: __core::sync::atomic::AtomicU64 = __core::sync::atomic:
 pub struct GeometryBuffer {
   guid: u64,
   buffer: Vec<u8>,
+  // improve use scene identity system
+  on_drop: RefCell<Vec<Box<dyn Any>>>,
 }
 
 impl GeometryBuffer {
   pub fn new(buffer: Vec<u8>) -> Self {
     Self {
       guid: GLOBAL_BUFFER_ID.fetch_add(1, std::sync::atomic::Ordering::Relaxed),
+      on_drop: Default::default(),
       buffer,
     }
   }
@@ -146,18 +149,36 @@ impl ShaderGraphProvider for AttributesMeshGPU {
   }
 }
 
-// todo impl drop, cleanup
 #[derive(Default)]
 struct AttributesGPUCache {
-  gpus: HashMap<u64, GPUBufferResource>,
+  gpus: Rc<RefCell<HashMap<u64, GPUBufferResource>>>,
+}
+
+struct AttributesGPUCacheDrop {
+  id: u64,
+  gpus: Rc<RefCell<HashMap<u64, GPUBufferResource>>>,
+}
+
+impl Drop for AttributesGPUCacheDrop {
+  fn drop(&mut self) {
+    self.gpus.borrow_mut().remove(&self.id);
+  }
 }
 
 impl AttributesGPUCache {
   pub fn get(&mut self, buffer: &GeometryBuffer, gpu: &webgpu::GPU) -> GPUBufferResource {
     self
       .gpus
+      .borrow_mut()
       .entry(buffer.guid)
       .or_insert_with(|| {
+        buffer
+          .on_drop
+          .borrow_mut()
+          .push(Box::new(AttributesGPUCacheDrop {
+            id: buffer.guid,
+            gpus: self.gpus.clone(),
+          }));
         create_gpu_buffer(
           buffer.buffer.as_slice(),
           webgpu::BufferUsages::INDEX | webgpu::BufferUsages::VERTEX,
