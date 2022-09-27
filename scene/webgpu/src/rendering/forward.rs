@@ -33,6 +33,7 @@ where
       base,
       lighting: self,
       override_shading: None,
+      // override_shading: Some(&PhysicalShading),
     };
 
     render_list.setup_pass(pass, scene, &dispatcher, camera);
