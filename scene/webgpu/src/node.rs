@@ -6,13 +6,13 @@ pub struct NodeGPUStore {
 }
 
 impl NodeGPUStore {
-  pub fn check_update_gpu(&mut self, node: &SceneNode, gpu: &GPU) -> &TransformGPU {
-    node.visit(|node| {
+  pub fn check_update_gpu(&mut self, n: &SceneNode, gpu: &GPU) -> &TransformGPU {
+    n.visit(|node| {
       let r = self.get_update_or_insert_with(
         node,
-        |node| TransformGPU::new(gpu, &node.world_matrix),
+        |node| TransformGPU::new(gpu, n, None),
         |node_gpu, node| {
-          node_gpu.update(gpu, &node.world_matrix);
+          node_gpu.update(gpu, n, None);
         },
       );
 
@@ -48,6 +48,17 @@ pub struct TransformGPUData {
   pub normal_matrix: Shader140Mat3,
 }
 
+impl TransformGPUData {
+  pub fn from_node(node: &SceneNode, override_mat: Option<Mat4<f32>>) -> Self {
+    let world_matrix = override_mat.unwrap_or_else(|| node.get_world_matrix());
+    Self {
+      world_matrix,
+      normal_matrix: world_matrix.to_normal_matrix().into(),
+      ..Zeroable::zeroed()
+    }
+  }
+}
+
 impl ShaderHashProvider for TransformGPU {}
 
 impl ShaderGraphProvider for TransformGPU {
@@ -77,23 +88,24 @@ impl ShaderPassBuilder for TransformGPU {
 }
 
 impl TransformGPU {
-  pub fn update(&mut self, gpu: &GPU, matrix: &Mat4<f32>) -> &mut Self {
+  pub fn update(
+    &mut self,
+    gpu: &GPU,
+    node: &SceneNode,
+    override_mat: Option<Mat4<f32>>,
+  ) -> &mut Self {
     let ubo = &self.ubo.resource;
-    ubo.mutate(|d| {
-      d.world_matrix = *matrix;
-      d.normal_matrix = matrix.to_normal_matrix().into()
-    });
-    ubo.update_with_diff(&gpu.queue);
+    ubo.set(TransformGPUData::from_node(node, override_mat));
+    ubo.upload_with_diff(&gpu.queue);
     self
   }
 
-  pub fn new(gpu: &GPU, matrix: &Mat4<f32>) -> Self {
+  pub fn new(gpu: &GPU, node: &SceneNode, override_mat: Option<Mat4<f32>>) -> Self {
     let ubo = create_uniform(TransformGPUData::default(), gpu);
-    ubo.resource.mutate(|d| {
-      d.world_matrix = *matrix;
-      d.normal_matrix = matrix.to_normal_matrix().into()
-    });
-    ubo.resource.update(&gpu.queue);
+    ubo
+      .resource
+      .set(TransformGPUData::from_node(node, override_mat));
+    ubo.resource.upload(&gpu.queue);
 
     Self { ubo }
   }

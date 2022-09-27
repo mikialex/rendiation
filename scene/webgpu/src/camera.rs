@@ -108,7 +108,7 @@ impl CameraGPU {
       uniform.projection = camera.projection_matrix;
     });
 
-    self.ubo.resource.update(&gpu.queue);
+    self.ubo.resource.upload(&gpu.queue);
 
     self
   }

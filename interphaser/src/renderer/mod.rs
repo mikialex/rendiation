@@ -286,7 +286,7 @@ impl WebGPUxUIRenderer {
       .global_ui_state
       .mutate(|t| t.screen_size = screen_size);
 
-    self.resource.global_ui_state.update(&gpu.queue);
+    self.resource.global_ui_state.upload(&gpu.queue);
 
     self.text_renderer.resize_view(screen_size, &gpu.queue);
 

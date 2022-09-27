@@ -145,7 +145,13 @@ impl<T: Std140> UniformBufferData<T> {
     self.changed.set(true);
   }
 
-  pub fn update(&self, queue: &gpu::Queue) {
+  pub fn set(&self, v: T) {
+    let mut data = self.data.borrow_mut();
+    *data = v;
+    self.changed.set(true);
+  }
+
+  pub fn upload(&self, queue: &gpu::Queue) {
     if self.changed.get() {
       let data = self.data.borrow();
       let data: &T = &data;
@@ -155,7 +161,7 @@ impl<T: Std140> UniformBufferData<T> {
     }
   }
 
-  pub fn update_with_diff(&self, queue: &gpu::Queue)
+  pub fn upload_with_diff(&self, queue: &gpu::Queue)
   where
     T: PartialEq,
   {

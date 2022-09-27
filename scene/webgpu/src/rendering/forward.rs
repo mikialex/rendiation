@@ -159,7 +159,7 @@ impl ForwardLightingSystem {
 
     for (_, light) in &scene.lights {
       let light = &light.read();
-      light.collect(self)
+      light.light.collect(self, &light.node)
     }
 
     let mut lengths: Shader140Array<Vec4<u32>, MAX_SUPPORT_LIGHT_KIND_COUNT> = Default::default();

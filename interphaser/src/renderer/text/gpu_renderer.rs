@@ -153,7 +153,7 @@ impl TextWebGPURenderer {
     self
       .transform
       .mutate(|t| *t = orthographic_projection(size.x, size.y));
-    self.transform.update(queue);
+    self.transform.upload(queue);
   }
 
   pub fn draw<'r>(&'r self, render_pass: &mut GPURenderPass<'r>, text: &'r WebGPUxTextPrimitive) {

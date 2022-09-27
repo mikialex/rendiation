@@ -165,26 +165,38 @@ pub fn load_default_scene(scene: &mut Scene<WebGPUScene>) {
     let _ = scene.add_camera(camera);
   }
 
+  let directional_light_node = scene.root().create_child();
+  directional_light_node.set_local_matrix(Mat4::lookat(Vec3::splat(3.), Vec3::splat(0.), up));
   let directional_light = DirectionalLight {
     intensity: Vec3::splat(5.),
-    direction: Vec3::new(-1., -1., -1.).normalize(),
   };
-  let directional_light =
-    SceneItemRef::new(Box::new(directional_light) as Box<dyn WebGPUSceneLight>);
+  let directional_light = SceneLightInner {
+    light: Box::new(directional_light) as Box<dyn WebGPUSceneLight>,
+    node: directional_light_node,
+  };
+  let directional_light = SceneItemRef::new(directional_light);
   scene.lights.insert(directional_light);
 
+  let directional_light_node = scene.root().create_child();
+  directional_light_node.set_local_matrix(Mat4::lookat(
+    Vec3::new(3., 3., -3.),
+    Vec3::splat(0.),
+    up,
+  ));
   let directional_light = DirectionalLight {
     intensity: Vec3::new(5., 3., 2.),
-    direction: Vec3::new(-1., -1., 1.).normalize(),
   };
-  let directional_light =
-    SceneItemRef::new(Box::new(directional_light) as Box<dyn WebGPUSceneLight>);
+  let directional_light = SceneLightInner {
+    light: Box::new(directional_light) as Box<dyn WebGPUSceneLight>,
+    node: scene.root().create_child(),
+  };
+  let directional_light = SceneItemRef::new(directional_light);
   scene.lights.insert(directional_light);
 
   rendiation_scene_gltf_loader::load_gltf_test(
     // "C:/Users/mk/Desktop/develop/glTF-Sample-Models/2.0/Suzanne/glTF/Suzanne.gltf",
-    "C:/Users/mk/Desktop/develop/glTF-Sample-Models/2.0/Sponza/glTF/Sponza.gltf",
-    // "/Users/mikialex/dev/glTF-Sample-Models/2.0/Box/glTF/Box.gltf",
+    // "C:/Users/mk/Desktop/develop/glTF-Sample-Models/2.0/Sponza/glTF/Sponza.gltf",
+    "/Users/mikialex/dev/glTF-Sample-Models/2.0/Box/glTF/Box.gltf",
     scene,
   )
   .unwrap();

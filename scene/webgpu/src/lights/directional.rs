@@ -6,16 +6,7 @@ use crate::*;
 pub struct DirectionalLightShaderInfo {
   pub intensity: Vec3<f32>,
   pub direction: Vec3<f32>,
-}
-
-impl From<DirectionalLight> for DirectionalLightShaderInfo {
-  fn from(dir: DirectionalLight) -> Self {
-    Self {
-      intensity: dir.intensity,
-      direction: dir.direction,
-      ..Zeroable::zeroed()
-    }
-  }
+  pub node_info: TransformGPUData, // maybe used later in shadowmap
 }
 
 impl ShaderLight for DirectionalLightShaderInfo {
@@ -38,7 +29,7 @@ impl ShaderLight for DirectionalLightShaderInfo {
 }
 
 impl WebGPUSceneLight for DirectionalLight {
-  fn collect(&self, sys: &mut ForwardLightingSystem) {
+  fn collect(&self, sys: &mut ForwardLightingSystem, node: &SceneNode) {
     let lights = sys
       .lights_collections
       .entry(self.type_id())
@@ -48,6 +39,13 @@ impl WebGPUSceneLight for DirectionalLight {
       .downcast_mut::<LightList<DirectionalLightShaderInfo>>()
       .unwrap();
 
-    lights.lights.push((*self).into())
+    let gpu = DirectionalLightShaderInfo {
+      intensity: self.intensity,
+      direction: node.get_world_matrix().forward().normalize().reverse(),
+      node_info: TransformGPUData::from_node(node, None),
+      ..Zeroable::zeroed()
+    };
+
+    lights.lights.push(gpu)
   }
 }
