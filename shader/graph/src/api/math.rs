@@ -2,16 +2,27 @@ use rendiation_algebra::SquareMatrix;
 
 use crate::*;
 
+pub fn make_builtin_call<T: ShaderGraphNodeType>(
+  ty: ShaderBuiltInFunction,
+  params: impl IntoIterator<Item = ShaderGraphNodeRawHandle>,
+) -> Node<T> {
+  ShaderGraphNodeExpr::FunctionCall {
+    meta: ShaderFunctionType::BuiltIn(ty),
+    parameters: params.into_iter().collect(),
+  }
+  .insert_graph()
+}
+
 impl<T> Node<T>
 where
   T: InnerProductSpace<f32> + PrimitiveShaderGraphNodeType,
 {
   pub fn normalize(self) -> Self {
-    ShaderGraphNodeExpr::Normalize(self.handle()).insert_graph()
+    make_builtin_call(ShaderBuiltInFunction::Normalize, [self.handle()])
   }
 
   pub fn length(self) -> Node<f32> {
-    ShaderGraphNodeExpr::Length(self.handle()).insert_graph()
+    make_builtin_call(ShaderBuiltInFunction::Length, [self.handle()])
   }
 }
 
@@ -20,10 +31,10 @@ where
   T: SquareMatrix<f32> + PrimitiveShaderGraphNodeType,
 {
   pub fn inverse(self) -> Self {
-    ShaderGraphNodeExpr::MatInverse(self.handle()).insert_graph()
+    make_builtin_call(ShaderBuiltInFunction::MatInverse, [self.handle()])
   }
   pub fn transpose(self) -> Self {
-    ShaderGraphNodeExpr::MatTranspose(self.handle()).insert_graph()
+    make_builtin_call(ShaderBuiltInFunction::MatTranspose, [self.handle()])
   }
 }
 

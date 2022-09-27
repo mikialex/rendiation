@@ -407,20 +407,34 @@ fn gen_node(
 
 fn gen_expr(data: &ShaderGraphNodeExpr, cx: &mut CodeGenCtx) -> String {
   match data {
-    ShaderGraphNodeExpr::FunctionCall {
-      meta: prototype,
-      parameters,
-    } => {
-      cx.add_fn_dep(prototype);
-      format!(
-        "{}({})",
-        prototype.function_name,
+    ShaderGraphNodeExpr::FunctionCall { meta, parameters } => {
+      let call = format!(
+        "({})",
         parameters
           .iter()
           .map(|from| { cx.get_node_gen_result_var(*from) })
           .collect::<Vec<_>>()
           .join(", ")
-      )
+      );
+
+      match meta {
+        ShaderFunctionType::Custom(prototype) => {
+          cx.add_fn_dep(prototype);
+          format!("{}{call}", prototype.function_name)
+        }
+        ShaderFunctionType::BuiltIn(builtin) => {
+          let name = match builtin {
+            ShaderBuiltInFunction::MatInverse => "inverse",
+            ShaderBuiltInFunction::MatTranspose => "transpose",
+            ShaderBuiltInFunction::Normalize => "normalize",
+            ShaderBuiltInFunction::Length => "length",
+            ShaderBuiltInFunction::Dot => "dot",
+            ShaderBuiltInFunction::SmoothStep => "smoothstep",
+          };
+
+          format!("{name}{call}")
+        }
+      }
     }
     ShaderGraphNodeExpr::TextureSampling {
       texture,
@@ -507,8 +521,6 @@ fn gen_expr(data: &ShaderGraphNodeExpr, cx: &mut CodeGenCtx) -> String {
           .join(", ")
       )
     }
-    ShaderGraphNodeExpr::Normalize(n) => format!("normalize({})", cx.get_node_gen_result_var(*n)),
-    ShaderGraphNodeExpr::Length(n) => format!("length({})", cx.get_node_gen_result_var(*n)),
     ShaderGraphNodeExpr::MatShrink { source, dimension } => {
       let from = cx.get_node_gen_result_var(*source);
       // wgsl is terrible!
@@ -517,10 +529,6 @@ fn gen_expr(data: &ShaderGraphNodeExpr, cx: &mut CodeGenCtx) -> String {
       // todo, check self if 4
       assert_eq!(*dimension, 3);
       format!("mat3x3({from}[0].xyz, {from}[1].xyz, {from}[2].xyz)")
-    }
-    ShaderGraphNodeExpr::MatInverse(n) => format!("inverse({})", cx.get_node_gen_result_var(*n)),
-    ShaderGraphNodeExpr::MatTranspose(n) => {
-      format!("transpose({})", cx.get_node_gen_result_var(*n))
     }
   }
 }

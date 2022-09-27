@@ -106,7 +106,7 @@ fn gen_wgsl_function(wgsl: &str) -> proc_macro2::TokenStream {
       #(#input_node_prepare)*
 
       ShaderGraphNodeExpr::FunctionCall {
-        meta: & #prototype_name,
+        meta: ShaderFunctionType::Custom(& #prototype_name),
         parameters,
       }.insert_graph()
     }

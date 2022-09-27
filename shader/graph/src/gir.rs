@@ -1,8 +1,22 @@
 use crate::*;
 
+pub enum ShaderBuiltInFunction {
+  MatInverse,
+  MatTranspose,
+  Normalize,
+  Length,
+  Dot,
+  SmoothStep,
+}
+
+pub enum ShaderFunctionType {
+  Custom(&'static ShaderFunctionMetaInfo),
+  BuiltIn(ShaderBuiltInFunction),
+}
+
 pub enum ShaderGraphNodeExpr {
   FunctionCall {
-    meta: &'static ShaderFunctionMetaInfo,
+    meta: ShaderFunctionType,
     parameters: Vec<ShaderGraphNodeRawHandle>,
   },
   TextureSampling {
@@ -23,10 +37,6 @@ pub enum ShaderGraphNodeExpr {
     source: ShaderGraphNodeRawHandle,
     dimension: usize,
   },
-  MatInverse(ShaderGraphNodeRawHandle),
-  MatTranspose(ShaderGraphNodeRawHandle),
-  Normalize(ShaderGraphNodeRawHandle),
-  Length(ShaderGraphNodeRawHandle),
   Operator(OperatorNode),
   FieldGet {
     field_name: &'static str,
