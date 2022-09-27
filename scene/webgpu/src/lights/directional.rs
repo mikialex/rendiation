@@ -10,9 +10,6 @@ pub struct DirectionalLightShaderInfo {
 }
 
 impl ShaderLight for DirectionalLightShaderInfo {
-  fn name() -> &'static str {
-    "directional_light"
-  }
   type Dependency = ();
   fn create_dep(_: &mut ShaderGraphFragmentBuilderView) -> Self::Dependency {}
   fn compute_direct_light(
@@ -30,14 +27,7 @@ impl ShaderLight for DirectionalLightShaderInfo {
 
 impl WebGPUSceneLight for DirectionalLight {
   fn collect(&self, sys: &mut ForwardLightingSystem, node: &SceneNode) {
-    let lights = sys
-      .lights_collections
-      .entry(self.type_id())
-      .or_insert_with(|| Box::new(LightList::<DirectionalLightShaderInfo>::default()));
-    let lights = lights
-      .as_any_mut()
-      .downcast_mut::<LightList<DirectionalLightShaderInfo>>()
-      .unwrap();
+    let lights = sys.get_or_create_list();
 
     let gpu = DirectionalLightShaderInfo {
       intensity: self.intensity,

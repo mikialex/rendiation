@@ -150,6 +150,14 @@ wgsl_fn!(
 only_fragment!(LightCount, u32);
 
 impl ForwardLightingSystem {
+  pub fn get_or_create_list<T: ShaderLight>(&mut self) -> &mut LightList<T> {
+    let lights = self
+      .lights_collections
+      .entry(TypeId::of::<T>())
+      .or_insert_with(|| Box::new(LightList::<T>::default()));
+    lights.as_any_mut().downcast_mut::<LightList<T>>().unwrap()
+  }
+
   pub fn update_by_scene(&mut self, scene: &Scene<WebGPUScene>, gpu: &GPU) {
     self
       .lights_collections
@@ -238,7 +246,7 @@ pub trait LightCollectionBase {
   fn update_gpu(&mut self, gpu: &GPU) -> usize;
 }
 
-impl<T: ShaderLight + Default> LightCollectionBase for LightList<T> {
+impl<T: ShaderLight> LightCollectionBase for LightList<T> {
   fn reset(&mut self) {
     self.lights.clear();
     self.lights_gpu.take();

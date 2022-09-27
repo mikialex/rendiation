@@ -10,9 +10,6 @@ pub struct PointLightShaderInfo {
 }
 
 impl ShaderLight for PointLightShaderInfo {
-  fn name() -> &'static str {
-    "point_light"
-  }
   type Dependency = ();
   fn create_dep(_: &mut ShaderGraphFragmentBuilderView) -> Self::Dependency {}
   fn compute_direct_light(
@@ -33,14 +30,7 @@ impl ShaderLight for PointLightShaderInfo {
 
 impl WebGPUSceneLight for PointLight {
   fn collect(&self, sys: &mut ForwardLightingSystem, node: &SceneNode) {
-    let lights = sys
-      .lights_collections
-      .entry(self.type_id())
-      .or_insert_with(|| Box::new(LightList::<PointLightShaderInfo>::default()));
-    let lights = lights
-      .as_any_mut()
-      .downcast_mut::<LightList<PointLightShaderInfo>>()
-      .unwrap();
+    let lights = sys.get_or_create_list();
 
     let gpu = PointLightShaderInfo {
       intensity: self.intensity,

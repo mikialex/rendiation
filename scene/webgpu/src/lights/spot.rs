@@ -13,9 +13,6 @@ pub struct SpotLightShaderInfo {
 }
 
 impl ShaderLight for SpotLightShaderInfo {
-  fn name() -> &'static str {
-    "spot_light"
-  }
   type Dependency = ();
   fn create_dep(_: &mut ShaderGraphFragmentBuilderView) -> Self::Dependency {}
   fn compute_direct_light(
@@ -41,14 +38,7 @@ impl ShaderLight for SpotLightShaderInfo {
 
 impl WebGPUSceneLight for SpotLight {
   fn collect(&self, sys: &mut ForwardLightingSystem, node: &SceneNode) {
-    let lights = sys
-      .lights_collections
-      .entry(self.type_id())
-      .or_insert_with(|| Box::new(LightList::<SpotLightShaderInfo>::default()));
-    let lights = lights
-      .as_any_mut()
-      .downcast_mut::<LightList<SpotLightShaderInfo>>()
-      .unwrap();
+    let lights = sys.get_or_create_list();
 
     let gpu = SpotLightShaderInfo {
       intensity: self.intensity,

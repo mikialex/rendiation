@@ -36,10 +36,9 @@ pub struct ShaderLightingGeometricCtx {
 }
 
 pub trait ShaderLight:
-  ShaderGraphStructuralNodeType + ShaderStructMemberValueNodeType + Std140 + Sized
+  ShaderGraphStructuralNodeType + ShaderStructMemberValueNodeType + Std140 + Sized + Default
 {
   type Dependency;
-  fn name() -> &'static str;
   fn create_dep(builder: &mut ShaderGraphFragmentBuilderView) -> Self::Dependency;
   fn compute_direct_light(
     light: &ExpandedNode<Self>,
