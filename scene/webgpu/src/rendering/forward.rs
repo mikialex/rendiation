@@ -32,7 +32,8 @@ where
     let dispatcher = ForwardSceneLightingDispatcher {
       base,
       lighting: self,
-      override_shading: Some(Rc::new(PhysicalShading)),
+      override_shading: None,
+      // override_shading: Some(&PhysicalShading),
     };
 
     render_list.setup_pass(pass, scene, &dispatcher, camera);
@@ -42,7 +43,7 @@ where
 pub struct ForwardSceneLightingDispatcher<'a> {
   base: DefaultPassDispatcher,
   lighting: &'a ForwardScene<'a>,
-  override_shading: Option<Rc<dyn LightableSurfaceShadingDyn>>,
+  override_shading: Option<&'static dyn LightableSurfaceShadingDyn>,
 }
 
 const MAX_SUPPORT_LIGHT_KIND_COUNT: usize = 8;
@@ -101,24 +102,19 @@ impl<'a> ShaderGraphProvider for ForwardSceneLightingDispatcher<'a> {
     &self,
     builder: &mut ShaderGraphRenderPipelineBuilder,
   ) -> Result<(), ShaderGraphBuildError> {
-    let shading_impl = builder
-      .context
-      .entry(ShadingSelection.type_id())
-      .or_insert_with(|| {
-        if let Some(override_shading) = &self.override_shading {
-          Box::new(override_shading.clone() as Rc<dyn LightableSurfaceShadingDyn>)
-        } else {
-          Box::new(Rc::new(PhysicalShading) as Rc<dyn LightableSurfaceShadingDyn>)
-        }
-      })
-      .downcast_ref::<Rc<dyn LightableSurfaceShadingDyn>>()
-      .unwrap()
-      .clone();
+    let shading_impl = if let Some(override_shading) = self.override_shading {
+      override_shading
+    } else {
+      builder
+        .context
+        .entry(ShadingSelection.type_id())
+        .or_insert_with(|| Box::new(&PhysicalShading as &dyn LightableSurfaceShadingDyn))
+        .downcast_ref::<&dyn LightableSurfaceShadingDyn>()
+        .unwrap()
+        .clone()
+    };
 
-    self
-      .lighting
-      .lights
-      .compute_lights(builder, shading_impl.as_ref())?;
+    self.lighting.lights.compute_lights(builder, shading_impl)?;
 
     self.lighting.tonemap.build(builder)?;
 
