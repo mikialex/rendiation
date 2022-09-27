@@ -58,7 +58,7 @@ impl CodeGenCtx {
   }
 
   pub fn add_fn_dep(&mut self, meta: &'static ShaderFunctionMetaInfo) {
-    if self.depend_functions.insert(meta) {
+    if self.depend_functions.insert_if_absent(meta) {
       for ty in meta.depend_types {
         self.add_struct_dep(ty)
       }
@@ -73,7 +73,7 @@ impl CodeGenCtx {
       return;
     }
 
-    if self.depend_types.insert(meta) {
+    if self.depend_types.insert_if_absent(meta) {
       for f in meta.fields {
         self.add_ty_dep(f.ty);
       }

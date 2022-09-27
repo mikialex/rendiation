@@ -9,6 +9,10 @@ where
   pub fn normalize(self) -> Self {
     ShaderGraphNodeExpr::Normalize(self.handle()).insert_graph()
   }
+
+  pub fn length(self) -> Node<f32> {
+    ShaderGraphNodeExpr::Length(self.handle()).insert_graph()
+  }
 }
 
 impl<T> Node<T>

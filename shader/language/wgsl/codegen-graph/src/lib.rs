@@ -508,6 +508,7 @@ fn gen_expr(data: &ShaderGraphNodeExpr, cx: &mut CodeGenCtx) -> String {
       )
     }
     ShaderGraphNodeExpr::Normalize(n) => format!("normalize({})", cx.get_node_gen_result_var(*n)),
+    ShaderGraphNodeExpr::Length(n) => format!("length({})", cx.get_node_gen_result_var(*n)),
     ShaderGraphNodeExpr::MatShrink { source, dimension } => {
       let from = cx.get_node_gen_result_var(*source);
       // wgsl is terrible!

@@ -1,5 +1,9 @@
 pub mod directional;
 pub use directional::*;
+pub mod point;
+pub use point::*;
+pub mod spot;
+pub use spot::*;
 
 use crate::*;
 
@@ -10,7 +14,7 @@ pub trait WebGPUSceneLight: Any {
 #[derive(Copy, Clone, ShaderStruct)]
 pub struct ShaderIncidentLight {
   pub color: Vec3<f32>,
-  /// from source to target
+  /// from light source to surface
   pub direction: Vec3<f32>,
 }
 

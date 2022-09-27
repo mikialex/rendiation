@@ -16,14 +16,14 @@ impl ShaderLight for DirectionalLightShaderInfo {
   type Dependency = ();
   fn create_dep(_: &mut ShaderGraphFragmentBuilderView) -> Self::Dependency {}
   fn compute_direct_light(
-    node: &ExpandedNode<Self>,
+    light: &ExpandedNode<Self>,
     _dep: &Self::Dependency,
     _ctx: &ExpandedNode<ShaderLightingGeometricCtx>,
   ) -> ExpandedNode<ShaderIncidentLight> {
     //
     ExpandedNode::<ShaderIncidentLight> {
-      color: node.intensity,
-      direction: node.direction,
+      color: light.intensity,
+      direction: light.direction,
     }
   }
 }

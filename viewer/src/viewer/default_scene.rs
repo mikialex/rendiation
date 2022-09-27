@@ -188,15 +188,28 @@ pub fn load_default_scene(scene: &mut Scene<WebGPUScene>) {
   };
   let directional_light = SceneLightInner {
     light: Box::new(directional_light) as Box<dyn WebGPUSceneLight>,
-    node: scene.root().create_child(),
+    node: directional_light_node,
   };
   let directional_light = SceneItemRef::new(directional_light);
   scene.lights.insert(directional_light);
 
+  let point_light_node = scene.root().create_child();
+  point_light_node.set_local_matrix(Mat4::translate((2., 2., 2.)));
+  let point_light = PointLight {
+    intensity: Vec3::new(5., 3., 2.),
+    cutoff_distance: 40.,
+  };
+  let point_light = SceneLightInner {
+    light: Box::new(point_light) as Box<dyn WebGPUSceneLight>,
+    node: point_light_node,
+  };
+  let point_light = SceneItemRef::new(point_light);
+  scene.lights.insert(point_light);
+
   rendiation_scene_gltf_loader::load_gltf_test(
-    // "C:/Users/mk/Desktop/develop/glTF-Sample-Models/2.0/Suzanne/glTF/Suzanne.gltf",
+    "C:/Users/mk/Desktop/develop/glTF-Sample-Models/2.0/Suzanne/glTF/Suzanne.gltf",
     // "C:/Users/mk/Desktop/develop/glTF-Sample-Models/2.0/Sponza/glTF/Sponza.gltf",
-    "/Users/mikialex/dev/glTF-Sample-Models/2.0/Box/glTF/Box.gltf",
+    // "/Users/mikialex/dev/glTF-Sample-Models/2.0/Box/glTF/Box.gltf",
     scene,
   )
   .unwrap();

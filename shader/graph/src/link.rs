@@ -215,6 +215,7 @@ impl ShaderGraphNode {
         ShaderGraphNodeExpr::MatInverse(n) => visitor(n),
         ShaderGraphNodeExpr::MatTranspose(n) => visitor(n),
         ShaderGraphNodeExpr::Normalize(n) => visitor(n),
+        ShaderGraphNodeExpr::Length(n) => visitor(n),
         ShaderGraphNodeExpr::Swizzle { source, .. } => visitor(source),
         ShaderGraphNodeExpr::Compose { parameters, .. } => parameters.iter().for_each(visitor),
         ShaderGraphNodeExpr::Operator(op) => match op {
@@ -309,6 +310,7 @@ impl ShaderGraphNode {
         ShaderGraphNodeExpr::MatInverse(n) => visitor(n),
         ShaderGraphNodeExpr::MatTranspose(n) => visitor(n),
         ShaderGraphNodeExpr::Normalize(n) => visitor(n),
+        ShaderGraphNodeExpr::Length(n) => visitor(n),
         ShaderGraphNodeExpr::Swizzle { source, .. } => visitor(source),
         ShaderGraphNodeExpr::Compose { parameters, .. } => parameters.iter_mut().for_each(visitor),
         ShaderGraphNodeExpr::Operator(op) => match op {

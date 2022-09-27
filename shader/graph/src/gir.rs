@@ -26,6 +26,7 @@ pub enum ShaderGraphNodeExpr {
   MatInverse(ShaderGraphNodeRawHandle),
   MatTranspose(ShaderGraphNodeRawHandle),
   Normalize(ShaderGraphNodeRawHandle),
+  Length(ShaderGraphNodeRawHandle),
   Operator(OperatorNode),
   FieldGet {
     field_name: &'static str,
