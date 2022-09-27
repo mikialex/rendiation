@@ -10,8 +10,8 @@ impl NodeGPUStore {
     n.visit(|node| {
       let r = self.get_update_or_insert_with(
         node,
-        |node| TransformGPU::new(gpu, n, None),
-        |node_gpu, node| {
+        |_node| TransformGPU::new(gpu, n, None),
+        |node_gpu, _node| {
           node_gpu.update(gpu, n, None);
         },
       );

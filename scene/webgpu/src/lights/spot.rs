@@ -28,15 +28,14 @@ impl ShaderLight for SpotLightShaderInfo {
     let distance_factor =
       punctual_light_intensity_to_irradiance_factor(distance, light.cutoff_distance);
 
-    // let angle_cos = direction.dot(light.direction);
-    // let angle_factor = smoothstep(light.half_cone_cos, light.half_penumbra_cos, angle_cos);
+    let direction = direction.normalize();
+    let angle_cos = direction.dot(light.direction);
+    let angle_factor = angle_cos.smoothstep(light.half_cone_cos, light.half_penumbra_cos);
 
-    todo!()
-
-    // ExpandedNode::<ShaderIncidentLight> {
-    //   color: light.intensity * distance_factor * angle_factor,
-    //   direction: direction.normalize(),
-    // }
+    ExpandedNode::<ShaderIncidentLight> {
+      color: light.intensity * distance_factor * angle_factor,
+      direction,
+    }
   }
 }
 

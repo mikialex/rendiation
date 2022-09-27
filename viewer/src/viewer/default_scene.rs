@@ -206,6 +206,21 @@ pub fn load_default_scene(scene: &mut Scene<WebGPUScene>) {
   let point_light = SceneItemRef::new(point_light);
   scene.lights.insert(point_light);
 
+  let spot_light_node = scene.root().create_child();
+  spot_light_node.set_local_matrix(Mat4::lookat(Vec3::new(-5., 5., 5.), Vec3::splat(0.), up));
+  let spot_light = SpotLight {
+    intensity: Vec3::new(180., 0., 0.),
+    cutoff_distance: 40.,
+    half_cone_angle: Deg::by(5. / 2.).to_rad(),
+    half_penumbra_angle: Deg::by(5. / 2.).to_rad(),
+  };
+  let spot_light = SceneLightInner {
+    light: Box::new(spot_light) as Box<dyn WebGPUSceneLight>,
+    node: spot_light_node,
+  };
+  let point_light = SceneItemRef::new(spot_light);
+  scene.lights.insert(point_light);
+
   rendiation_scene_gltf_loader::load_gltf_test(
     "C:/Users/mk/Desktop/develop/glTF-Sample-Models/2.0/Suzanne/glTF/Suzanne.gltf",
     // "C:/Users/mk/Desktop/develop/glTF-Sample-Models/2.0/Sponza/glTF/Sponza.gltf",

@@ -24,6 +24,22 @@ where
   pub fn length(self) -> Node<f32> {
     make_builtin_call(ShaderBuiltInFunction::Length, [self.handle()])
   }
+
+  pub fn dot(self, other: Self) -> Node<f32> {
+    make_builtin_call(ShaderBuiltInFunction::Dot, [self.handle(), other.handle()])
+  }
+}
+
+impl<T> Node<T>
+where
+  T: Lerp<T> + PrimitiveShaderGraphNodeType,
+{
+  pub fn smoothstep(self, low: Self, high: Self) -> Self {
+    make_builtin_call(
+      ShaderBuiltInFunction::SmoothStep,
+      [low.handle(), high.handle(), self.handle()],
+    )
+  }
 }
 
 impl<T> Node<T>
