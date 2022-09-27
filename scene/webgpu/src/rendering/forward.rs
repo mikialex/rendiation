@@ -191,7 +191,8 @@ impl ForwardLightingSystem {
       let position =
         builder.query_or_interpolate_by::<FragmentWorldPosition, WorldVertexPosition>();
       let normal = builder.query_or_interpolate_by::<FragmentWorldNormal, WorldVertexNormal>();
-      builder.register::<FragmentWorldNormal>(normal.normalize()); // renormalize
+      let normal = normal.normalize(); // renormalize
+      builder.register::<FragmentWorldNormal>(normal);
 
       // debug
       // let normal = compute_normal_by_dxdy(position);
