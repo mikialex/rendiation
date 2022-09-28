@@ -1,6 +1,6 @@
 #![feature(capture_disjoint_fields)]
 #![feature(array_methods)]
-#![feature(min_specialization)]
+#![feature(specialization)]
 #![feature(stmt_expr_attributes)]
 #![feature(type_alias_impl_trait)]
 #![feature(generic_associated_types)]

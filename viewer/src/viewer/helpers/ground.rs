@@ -1,4 +1,4 @@
-use __core::any::Any;
+use __core::{any::Any, hash::Hash};
 use rendiation_scene_webgpu::{
   generate_quad, CameraGPU, DrawcallEmitter, PassContentWithCamera, RenderComponent,
   RenderComponentAny, RenderEmitter,
@@ -18,7 +18,7 @@ impl PassContentWithCamera for InfinityShaderPlane {
     pass: &mut rendiation_scene_webgpu::SceneRenderPass,
     camera: &rendiation_scene_core::SceneCamera,
   ) {
-    let mut base = pass.default_dispatcher();
+    let base = pass.default_dispatcher();
 
     let resources = &mut pass.resources;
     let camera_gpu = resources.cameras.check_update_gpu(camera, pass.ctx.gpu);
@@ -60,7 +60,7 @@ impl<'a> ShaderHashProviderAny for InfinityShaderPlaneEffect<'a> {
 impl<'a> ShaderPassBuilder for InfinityShaderPlaneEffect<'a> {
   fn setup_pass(&self, ctx: &mut webgpu::GPURenderPassCtx) {
     self.camera.setup_pass(ctx);
-    ctx.binding.bind(&self.plane, SB::Object);
+    ctx.binding.bind(self.plane, SB::Object);
   }
 }
 
