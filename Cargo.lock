@@ -2689,6 +2689,7 @@ dependencies = [
  "rendiation-webgpu",
  "shadergraph",
  "wasm-bindgen-futures",
+ "wgsl-shader-derives",
 ]
 
 [[package]]

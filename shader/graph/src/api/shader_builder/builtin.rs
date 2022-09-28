@@ -59,7 +59,7 @@ both!(FragmentAlpha, f32);
 both!(FragmentSpecular, Vec3<f32>);
 both!(FragmentSpecularShininess, f32);
 both!(FragmentColor, Vec3<f32>);
-both!(FragmentColorAndAlpha, Vec4<f32>);
+both!(FragmentColorAndAlpha, Vec4<f32>); // todo remove
 
 both!(RenderBufferSize, Vec2<f32>);
 both!(TexelSize, Vec2<f32>);

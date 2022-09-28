@@ -6,6 +6,7 @@ use webgpu::*;
 pub mod axis;
 pub mod camera;
 pub mod grid;
+pub mod ground;
 
 pub type HelperLineMesh = FatlineMesh;
 pub type HelperLineModel = FatlineImpl;

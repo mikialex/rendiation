@@ -8,33 +8,33 @@ fn swizzle_node<I: ShaderGraphNodeType, T: ShaderGraphNodeType>(
   ShaderGraphNodeExpr::Swizzle { ty, source }.insert_graph()
 }
 
-// improve, how to paste string literal?
 macro_rules! swizzle {
-  ($IVec: ty, $OVec: ty, $Swi: ident, $SwiTy: tt) => {
+  ($IVec: ty, $OVec: ty, $Swi: ident) => {
     paste::item! {
       impl Node<$IVec> {
         pub fn [< $Swi >](&self) -> Node<$OVec> {
-          swizzle_node::<_, _>(self, $SwiTy)
+          swizzle_node::<_, _>(self, stringify!{$Swi})
         }
       }
     }
   };
 }
 
-swizzle!(Vec4<f32>, Vec3<f32>, xyz, "xyz");
-swizzle!(Vec4<f32>, Vec2<f32>, xy, "xy");
-swizzle!(Vec4<f32>, f32, x, "x");
-swizzle!(Vec4<u32>, u32, x, "x");
-swizzle!(Vec4<f32>, f32, y, "y");
-swizzle!(Vec4<f32>, f32, z, "z");
-swizzle!(Vec4<f32>, f32, w, "w");
+swizzle!(Vec4<f32>, Vec3<f32>, xyz);
+swizzle!(Vec4<f32>, Vec2<f32>, xy);
+swizzle!(Vec4<f32>, f32, x);
+swizzle!(Vec4<u32>, u32, x);
+swizzle!(Vec4<f32>, f32, y);
+swizzle!(Vec4<f32>, f32, z);
+swizzle!(Vec4<f32>, f32, w);
 
-swizzle!(Vec3<f32>, f32, x, "x");
-swizzle!(Vec3<f32>, f32, y, "y");
-swizzle!(Vec3<f32>, f32, z, "z");
+swizzle!(Vec3<f32>, f32, x);
+swizzle!(Vec3<f32>, f32, y);
+swizzle!(Vec3<f32>, f32, z);
+swizzle!(Vec3<f32>, Vec2<f32>, xy);
 
-swizzle!(Vec2<f32>, f32, x, "x");
-swizzle!(Vec2<f32>, f32, y, "y");
+swizzle!(Vec2<f32>, f32, x);
+swizzle!(Vec2<f32>, f32, y);
 // todo impl rest swizzle by magic
 
 impl Node<u32> {
