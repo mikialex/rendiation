@@ -84,6 +84,24 @@ where
   }
 }
 
+impl<A, B, C> From<(A, B, C)> for Node<Vec4<f32>>
+where
+  A: Into<Node<Vec2<f32>>>,
+  B: Into<Node<f32>>,
+  C: Into<Node<f32>>,
+{
+  fn from((a, b, c): (A, B, C)) -> Self {
+    let a = a.into().handle();
+    let b = b.into().handle();
+    let c = c.into().handle();
+    ShaderGraphNodeExpr::Compose {
+      target: Vec4::<f32>::PRIMITIVE_TYPE,
+      parameters: vec![a, b, c],
+    }
+    .insert_graph()
+  }
+}
+
 impl<A, B, C, D> From<(A, B, C, D)> for Node<Mat4<f32>>
 where
   A: Into<Node<Vec4<f32>>>,

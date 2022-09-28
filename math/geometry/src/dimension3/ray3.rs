@@ -35,7 +35,6 @@ impl<T: Scalar> Ray3<T> {
         return T::zero().into();
       }
 
-      // Null is preferable to undefined since undefined means.... it is undefined
       return None;
     }
 
