@@ -1,19 +1,67 @@
-use rendiation_scene_webgpu::{generate_quad, CameraGPU};
+use __core::any::Any;
+use rendiation_scene_webgpu::{
+  generate_quad, CameraGPU, DrawcallEmitter, PassContentWithCamera, RenderComponent,
+  RenderComponentAny, RenderEmitter,
+};
 use shadergraph::*;
-use webgpu::UniformBufferDataView;
+use webgpu::{ShaderHashProvider, ShaderHashProviderAny, ShaderPassBuilder, UniformBufferDataView};
 use wgsl_shader_derives::wgsl_fn;
+
+pub struct InfinityShaderPlane {
+  plane: UniformBufferDataView<ShaderPlane>,
+  shading: Box<dyn RenderComponentAny>,
+}
+
+impl PassContentWithCamera for InfinityShaderPlane {
+  fn render(
+    &mut self,
+    pass: &mut rendiation_scene_webgpu::SceneRenderPass,
+    camera: &rendiation_scene_core::SceneCamera,
+  ) {
+    let mut base = pass.default_dispatcher();
+
+    let resources = &mut pass.resources;
+    let camera_gpu = resources.cameras.check_update_gpu(camera, pass.ctx.gpu);
+
+    let effect = InfinityShaderPlaneEffect {
+      plane: &self.plane,
+      camera: camera_gpu,
+    };
+
+    let components: [&dyn RenderComponentAny; 3] = [&base, &effect, self.shading.as_ref()];
+    RenderEmitter::new(components.as_slice()).render(&mut pass.ctx, &effect);
+  }
+}
 
 #[repr(C)]
 #[std140_layout]
 #[derive(Copy, Clone, ShaderStruct)]
-pub struct InfinityShaderPlane {
+pub struct ShaderPlane {
   pub normal: Vec3<f32>,
   pub constant: f32,
 }
 
 pub struct InfinityShaderPlaneEffect<'a> {
-  plane: UniformBufferDataView<InfinityShaderPlane>,
+  plane: &'a UniformBufferDataView<ShaderPlane>,
   camera: &'a CameraGPU,
+}
+
+impl<'a> DrawcallEmitter for InfinityShaderPlaneEffect<'a> {
+  fn draw(&self, ctx: &mut webgpu::GPURenderPassCtx) {
+    ctx.pass.draw(0..4, 0..1)
+  }
+}
+impl<'a> ShaderHashProvider for InfinityShaderPlaneEffect<'a> {}
+impl<'a> ShaderHashProviderAny for InfinityShaderPlaneEffect<'a> {
+  fn hash_pipeline_and_with_type_id(&self, hasher: &mut webgpu::PipelineHasher) {
+    self.plane.type_id().hash(hasher)
+  }
+}
+impl<'a> ShaderPassBuilder for InfinityShaderPlaneEffect<'a> {
+  fn setup_pass(&self, ctx: &mut webgpu::GPURenderPassCtx) {
+    self.camera.setup_pass(ctx);
+    ctx.binding.bind(&self.plane, SB::Object);
+  }
 }
 
 impl<'a> ShaderGraphProvider for InfinityShaderPlaneEffect<'a> {
@@ -35,7 +83,7 @@ impl<'a> ShaderGraphProvider for InfinityShaderPlaneEffect<'a> {
       let view = builder.query::<CameraViewMatrix>()?;
       let view_inv = builder.query::<CameraWorldMatrix>()?;
       let uv = builder.query::<FragmentUv>()?;
-      let plane = binding.uniform_by(&self.plane, SB::Object);
+      let plane = binding.uniform_by(self.plane, SB::Object);
 
       let unprojected =
         view_inv * proj.inverse() * (uv * consts(2.) - consts(Vec2::one()), 0., 1.).into();
@@ -74,7 +122,7 @@ impl<'a> ShaderGraphProvider for InfinityShaderPlaneEffect<'a> {
 both!(IsHitInfinityPlane, f32);
 
 wgsl_fn! {
-  fn ray_plane_intersect(origin: vec3<f32>, direction: vec3<f32>, plane: InfinityShaderPlane) -> vec4<f32> {
+  fn ray_plane_intersect(origin: vec3<f32>, direction: vec3<f32>, plane: ShaderPlane) -> vec4<f32> {
     let denominator = dot(plane.normal, direction);
 
     // if denominator == T::zero() {
