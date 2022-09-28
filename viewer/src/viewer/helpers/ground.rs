@@ -48,10 +48,20 @@ impl<'a> ShaderGraphProvider for InfinityShaderPlaneEffect<'a> {
     })?;
 
     builder.fragment(|builder, binding| {
+      let proj = builder.query::<CameraProjectionMatrix>()?;
+      let view = builder.query::<CameraViewMatrix>()?;
+
       let near = builder.query::<InfinityNear>()?;
       let far = builder.query::<InfinityNear>()?;
+      let plane = binding.uniform_by(&self.plane, SB::Object).expand();
 
-      builder.register::<FragmentWorldPosition>(todo!());
+      // todo test near-far line seg hit plane
+
+      let plane_hit: Vec3<f32> = todo!();
+      let plane_hit_project = proj * view * (plane_hit, consts(1.)).into();
+      builder.set_explicit_depth(plane_hit_project.z() / plane_hit_project.w());
+
+      builder.register::<FragmentWorldPosition>(plane_hit);
       Ok(())
     })
   }
@@ -70,6 +80,8 @@ impl<'a> ShaderGraphProvider for InfinityShaderPlaneEffect<'a> {
 
 both!(InfinityNear, Vec3<f32>);
 both!(InfinityFar, Vec3<f32>);
+
+both!(CameraRayDirection, Vec3<f32>);
 
 wgsl_fn! {
   fn unproject_point(xy: vec2<f32>, z: f32, view: mat4x4<f32>, projection: mat4x4<f32>) -> vec3<f32> {
