@@ -1,8 +1,8 @@
 use __core::{any::Any, hash::Hash};
 use rendiation_scene_core::{IdentityMapper, SceneItemRef};
 use rendiation_scene_webgpu::{
-  generate_quad, CameraGPU, DrawcallEmitter, PassContentWithCamera, RenderComponent,
-  RenderComponentAny, RenderEmitter,
+  generate_quad, CameraGPU, DrawcallEmitter, MaterialStates, PassContentWithCamera,
+  RenderComponent, RenderComponentAny, RenderEmitter,
 };
 use shadergraph::*;
 use webgpu::{
@@ -107,7 +107,7 @@ impl ShaderGraphProvider for GridGroundShading {
       let shading = binding.uniform_by(&self.shading, SB::Object);
       let world_position = builder.query::<FragmentWorldPosition>()?;
 
-      builder.register::<DefaultDisplay>(consts(Vec4::new(1., 1., 1., 0.5)));
+      builder.register::<DefaultDisplay>((world_position, 0.5));
       Ok(())
     })
   }
@@ -162,6 +162,18 @@ impl<'a> ShaderGraphProvider for InfinityShaderPlaneEffect<'a> {
     })?;
 
     self.camera.build(builder)?;
+
+    builder.vertex(|builder, _| {
+      builder.primitive_state = webgpu::PrimitiveState {
+        topology: webgpu::PrimitiveTopology::TriangleStrip,
+        front_face: webgpu::FrontFace::Cw,
+        ..Default::default()
+      };
+      let world = builder.query::<WorldVertexPosition>()?;
+      builder.register::<ClipPosition>((world, 1.)); // override camera set
+      Ok(())
+    })?;
+
     builder.log_result = true;
     builder.fragment(|builder, binding| {
       let proj = builder.query::<CameraProjectionMatrix>()?;
@@ -171,8 +183,10 @@ impl<'a> ShaderGraphProvider for InfinityShaderPlaneEffect<'a> {
       let uv = builder.query::<FragmentUv>()?;
       let plane = binding.uniform_by(self.plane, SB::Object);
 
-      let unprojected =
-        view_inv * proj_inv * (uv * consts(2.) - consts(Vec2::one()), 0., 1.).into();
+      let ndc_xy = uv * consts(2.) - consts(Vec2::one());
+      let ndc_xy = ndc_xy * consts(Vec2::new(1., -1.));
+
+      let unprojected = view_inv * proj_inv * (ndc_xy, 0., 1.).into();
       let unprojected = unprojected.xyz() / unprojected.w();
 
       let origin = view_inv.position();
@@ -200,7 +214,18 @@ impl<'a> ShaderGraphProvider for InfinityShaderPlaneEffect<'a> {
     builder.fragment(|builder, _| {
       let has_hit = builder.query::<IsHitInfinityPlane>()?;
       let previous_display = builder.query::<DefaultDisplay>()?;
-      builder.register::<DefaultDisplay>((previous_display.xyz(), previous_display.w() * has_hit));
+      builder.register::<DefaultDisplay>((
+        previous_display.xyz() * has_hit,
+        previous_display.w() * has_hit,
+      ));
+
+      MaterialStates {
+        blend: webgpu::BlendState::PREMULTIPLIED_ALPHA_BLENDING.into(),
+        depth_write_enabled: true,
+        depth_compare: webgpu::CompareFunction::Always,
+        ..Default::default()
+      }
+      .apply_pipeline_builder(builder);
       Ok(())
     })
   }
