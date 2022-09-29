@@ -268,15 +268,15 @@ impl<T: 'static, U: 'static + ?Sized> IdentityMapper<T, U> {
     resource
   }
 
-  pub fn get_update_or_insert_with<X: AsRef<U>>(
+  pub fn get_update_or_insert_with<X>(
     &mut self,
     source: &Identity<X>,
-    creator: impl FnOnce(&U) -> T,
-    updater: impl FnOnce(&mut T, &U),
+    creator: impl FnOnce(&X) -> T,
+    updater: impl FnOnce(&mut T, &X),
   ) -> &mut T {
     let mut new_created = false;
     let resource = self.data.entry(source.id).or_insert_with(|| {
-      let item = creator(source.inner.as_ref());
+      let item = creator(&source.inner);
       new_created = true;
       source
         .watchers
@@ -290,7 +290,7 @@ impl<T: 'static, U: 'static + ?Sized> IdentityMapper<T, U> {
     });
 
     if new_created || self.changed.write().unwrap().remove(&source.id) {
-      updater(resource, source.inner.as_ref())
+      updater(resource, &source.inner)
     }
 
     resource

@@ -23,6 +23,7 @@ rendiation-scene-webgpu = {path = "../scene/webgpu"}
 rendiation-texture = {path = "../components/texture/core", features = ["webgpu"]}
 shadergraph = {path = "../shader/graph"}
 webgpu = {package = "rendiation-webgpu", path = "../webgpu"}
+wgsl-shader-derives = {path = "../shader/language/wgsl/derive"}
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 console_error_panic_hook = "0.1.6"

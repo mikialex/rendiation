@@ -1,7 +1,6 @@
 use crate::*;
 
 pub enum ShaderBuiltInFunction {
-  MatInverse,
   MatTranspose,
   Normalize,
   Length,
@@ -340,6 +339,8 @@ pub enum ShaderBuiltInDecorator {
   InstanceIndex,
   VertexPositionOut,
   FragmentPositionIn,
+  FrontFacing,
+  FragDepth,
 }
 
 #[derive(Debug, Copy, Clone)]
