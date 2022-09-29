@@ -1,4 +1,5 @@
 use __core::{any::Any, hash::Hash};
+use rendiation_scene_core::{IdentityMapper, SceneItemRef};
 use rendiation_scene_webgpu::{
   generate_quad, CameraGPU, DrawcallEmitter, PassContentWithCamera, RenderComponent,
   RenderComponentAny, RenderEmitter,
@@ -11,8 +12,7 @@ use webgpu::{
 use wgsl_shader_derives::wgsl_fn;
 
 pub struct GridGround {
-  // grid_config: GridGroundShadingGPU,
-  implementation: InfinityShaderPlane,
+  grid_config: SceneItemRef<GridGroundShadingGPU>,
 }
 
 impl PassContentWithCamera for GridGround {
@@ -21,34 +21,48 @@ impl PassContentWithCamera for GridGround {
     pass: &mut rendiation_scene_webgpu::SceneRenderPass,
     camera: &rendiation_scene_core::SceneCamera,
   ) {
-    self.implementation.render(pass, camera)
+    let impls: &mut IdentityMapper<InfinityShaderPlane, GridGroundShadingGPU> = pass
+      .resources
+      .custom_storage
+      .entry()
+      .or_insert_with(Default::default);
+
+    let implementation = impls.get_update_or_insert_with(
+      &self.grid_config.read(),
+      |grid_config| create_grid_gpu(*grid_config, pass.ctx.gpu),
+      |gpu, grid_config| *gpu = create_grid_gpu(*grid_config, pass.ctx.gpu),
+    );
+
+    implementation.render(pass, camera)
   }
 }
 
-impl GridGround {
-  pub fn new(gpu: &GPU) -> Self {
-    let implementation = InfinityShaderPlane {
-      plane: create_uniform(
-        ShaderPlane {
-          normal: Vec3::new(0., 1., 0.),
-          constant: 0.,
-          ..Zeroable::zeroed()
-        },
-        gpu,
-      ),
-      shading: Box::new(GridGroundShading {
-        shading: create_uniform(
-          GridGroundShadingGPU {
-            u_unit: 1.,
-            v_unit: 1.,
-            color: Vec4::splat(1.),
-            ..Zeroable::zeroed()
-          },
-          gpu,
-        ),
+fn create_grid_gpu(source: GridGroundShadingGPU, gpu: &GPU) -> InfinityShaderPlane {
+  InfinityShaderPlane {
+    plane: create_uniform(
+      ShaderPlane {
+        normal: Vec3::new(0., 1., 0.),
+        constant: 0.,
+        ..Zeroable::zeroed()
+      },
+      gpu,
+    ),
+    shading: Box::new(GridGroundShading {
+      shading: create_uniform(source, gpu),
+    }),
+  }
+}
+
+impl Default for GridGround {
+  fn default() -> Self {
+    Self {
+      grid_config: SceneItemRef::new(GridGroundShadingGPU {
+        u_unit: 1.,
+        v_unit: 1.,
+        color: Vec4::splat(1.),
+        ..Zeroable::zeroed()
       }),
-    };
-    Self { implementation }
+    }
   }
 }
 

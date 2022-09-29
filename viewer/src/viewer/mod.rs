@@ -136,7 +136,7 @@ impl Viewer3dContent {
 
     Self {
       scene,
-      ground,
+      ground: Default::default(),
       controller,
       pick_config: Default::default(),
       selections: Default::default(),
