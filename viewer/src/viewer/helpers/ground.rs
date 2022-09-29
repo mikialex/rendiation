@@ -4,8 +4,86 @@ use rendiation_scene_webgpu::{
   RenderComponentAny, RenderEmitter,
 };
 use shadergraph::*;
-use webgpu::{ShaderHashProvider, ShaderHashProviderAny, ShaderPassBuilder, UniformBufferDataView};
+use webgpu::{
+  create_uniform, ShaderHashProvider, ShaderHashProviderAny, ShaderPassBuilder,
+  UniformBufferDataView, GPU,
+};
 use wgsl_shader_derives::wgsl_fn;
+
+pub struct GridGround {
+  // grid_config: GridGroundShadingGPU,
+  implementation: InfinityShaderPlane,
+}
+
+impl PassContentWithCamera for GridGround {
+  fn render(
+    &mut self,
+    pass: &mut rendiation_scene_webgpu::SceneRenderPass,
+    camera: &rendiation_scene_core::SceneCamera,
+  ) {
+    self.implementation.render(pass, camera)
+  }
+}
+
+impl GridGround {
+  pub fn new(gpu: &GPU) -> Self {
+    let implementation = InfinityShaderPlane {
+      plane: create_uniform(
+        ShaderPlane {
+          normal: Vec3::new(0., 1., 0.),
+          constant: 0.,
+          ..Zeroable::zeroed()
+        },
+        gpu,
+      ),
+      shading: Box::new(GridGroundShading {
+        shading: create_uniform(
+          GridGroundShadingGPU {
+            u_unit: 1.,
+            v_unit: 1.,
+            color: Vec4::splat(1.),
+            ..Zeroable::zeroed()
+          },
+          gpu,
+        ),
+      }),
+    };
+    Self { implementation }
+  }
+}
+
+#[repr(C)]
+#[std140_layout]
+#[derive(Copy, Clone, ShaderStruct)]
+pub struct GridGroundShadingGPU {
+  pub u_unit: f32,
+  pub v_unit: f32,
+  pub color: Vec4<f32>,
+}
+
+pub struct GridGroundShading {
+  shading: UniformBufferDataView<GridGroundShadingGPU>,
+}
+impl ShaderHashProvider for GridGroundShading {}
+impl ShaderPassBuilder for GridGroundShading {
+  fn setup_pass(&self, ctx: &mut webgpu::GPURenderPassCtx) {
+    ctx.binding.bind(&self.shading, SB::Object);
+  }
+}
+impl ShaderGraphProvider for GridGroundShading {
+  fn build(
+    &self,
+    builder: &mut ShaderGraphRenderPipelineBuilder,
+  ) -> Result<(), ShaderGraphBuildError> {
+    builder.fragment(|builder, binding| {
+      let shading = binding.uniform_by(&self.shading, SB::Object);
+      let world_position = builder.query::<FragmentWorldPosition>()?;
+
+      builder.register::<DefaultDisplay>(consts(Vec4::new(1., 1., 1., 0.5)));
+      Ok(())
+    })
+  }
+}
 
 pub struct InfinityShaderPlane {
   plane: UniformBufferDataView<ShaderPlane>,
@@ -113,7 +191,8 @@ impl<'a> ShaderGraphProvider for InfinityShaderPlaneEffect<'a> {
   ) -> Result<(), ShaderGraphBuildError> {
     builder.fragment(|builder, _| {
       let has_hit = builder.query::<IsHitInfinityPlane>()?;
-      builder.register::<FragmentAlpha>(has_hit);
+      let previous_display = builder.query::<DefaultDisplay>()?;
+      builder.register::<DefaultDisplay>((previous_display.xyz(), previous_display.w() * has_hit));
       Ok(())
     })
   }

@@ -13,7 +13,7 @@ pub mod selection;
 
 pub mod helpers;
 use self::{
-  helpers::{axis::AxisHelper, camera::CameraHelpers, grid::GridHelper},
+  helpers::{axis::AxisHelper, camera::CameraHelpers, grid::GridHelper, ground::GridGround},
   selection::SelectionSet,
 };
 
@@ -78,6 +78,7 @@ impl Default for ViewerImpl {
 
 pub struct Viewer3dContent {
   pub scene: Scene<WebGPUScene>,
+  pub ground: GridGround,
   pub pick_config: MeshBufferIntersectConfig,
   pub selections: SelectionSet,
   pub controller: ControllerWinitAdapter<OrbitController>,
@@ -135,6 +136,7 @@ impl Viewer3dContent {
 
     Self {
       scene,
+      ground,
       controller,
       pick_config: Default::default(),
       selections: Default::default(),
