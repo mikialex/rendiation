@@ -70,8 +70,7 @@ impl Default for GridGround {
   fn default() -> Self {
     Self {
       grid_config: SceneItemRef::new(GridGroundConfig {
-        u_unit: 1.,
-        v_unit: 1.,
+        scale: Vec2::one(),
         color: Vec4::splat(1.),
         ..Zeroable::zeroed()
       }),
@@ -83,8 +82,7 @@ impl Default for GridGround {
 #[std140_layout]
 #[derive(Copy, Clone, ShaderStruct)]
 pub struct GridGroundConfig {
-  pub u_unit: f32,
-  pub v_unit: f32,
+  pub scale: Vec2<f32>,
   pub color: Vec4<f32>,
 }
 
@@ -106,11 +104,22 @@ impl ShaderGraphProvider for GridGroundShading {
       let shading = binding.uniform_by(&self.shading, SB::Object);
       let world_position = builder.query::<FragmentWorldPosition>()?;
 
-      builder.register::<DefaultDisplay>((world_position, 0.5));
+      let grid = grid(world_position, shading);
+
+      builder.register::<DefaultDisplay>(grid);
       Ok(())
     })
   }
 }
+
+wgsl_fn!(
+  fn grid(position: vec3<f32>, config: GridGroundConfig) -> vec4<f32> {
+    let coord = position.xz * config.scale;
+    let grid = abs(fract(coord - 0.5) - 0.5) / fwidth(coord);
+    let lined = min(grid.x, grid.y);
+    return vec4<f32>(0.2, 0.2, 0.2, 1.0 - min(lined, 1.0) + 0.1);
+  }
+);
 
 pub struct InfinityShaderPlane {
   plane: UniformBufferDataView<ShaderPlane>,
