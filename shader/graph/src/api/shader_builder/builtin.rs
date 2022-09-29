@@ -34,6 +34,7 @@ only_vertex!(ClipPosition, Vec4<f32>);
 both!(WorldMatrix, Mat4<f32>);
 
 both!(CameraProjectionMatrix, Mat4<f32>);
+both!(CameraProjectionInverseMatrix, Mat4<f32>);
 both!(CameraViewMatrix, Mat4<f32>);
 both!(CameraWorldMatrix, Mat4<f32>);
 

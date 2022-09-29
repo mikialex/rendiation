@@ -46,9 +46,6 @@ impl<T> Node<T>
 where
   T: SquareMatrix<f32> + PrimitiveShaderGraphNodeType,
 {
-  pub fn inverse(self) -> Self {
-    make_builtin_call(ShaderBuiltInFunction::MatInverse, [self.handle()])
-  }
   pub fn transpose(self) -> Self {
     make_builtin_call(ShaderBuiltInFunction::MatTranspose, [self.handle()])
   }

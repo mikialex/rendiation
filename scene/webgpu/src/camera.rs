@@ -75,6 +75,7 @@ impl ShaderGraphProvider for CameraGPU {
         let camera = camera.expand();
         r.reg::<CameraViewMatrix>(camera.view);
         r.reg::<CameraProjectionMatrix>(camera.projection);
+        r.reg::<CameraProjectionInverseMatrix>(camera.projection_inv);
         r.reg::<CameraWorldMatrix>(camera.world);
       });
 
@@ -93,6 +94,7 @@ impl ShaderGraphProvider for CameraGPU {
 #[derive(Clone, Copy, Default, ShaderStruct)]
 pub struct CameraGPUTransform {
   pub projection: Mat4<f32>,
+  pub projection_inv: Mat4<f32>,
   pub rotation: Mat4<f32>,
   pub view: Mat4<f32>,
   pub world: Mat4<f32>,
@@ -106,6 +108,7 @@ impl CameraGPU {
       uniform.view = world_matrix.inverse_or_identity();
       uniform.rotation = world_matrix.extract_rotation_mat();
       uniform.projection = camera.projection_matrix;
+      uniform.projection_inv = camera.projection_matrix.inverse_or_identity();
     });
 
     self.ubo.resource.upload(&gpu.queue);

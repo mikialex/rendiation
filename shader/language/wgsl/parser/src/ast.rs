@@ -341,8 +341,6 @@ impl FunctionCall {
       | "textureSampleGrad"
       | "textureSampleLevel"
       | "textureStore" => true,
-      // note: wgsl spec not support!, but naga support i don't know why?
-      "inverse" => true,
       _ => false,
     }
   }

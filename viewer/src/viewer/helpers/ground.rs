@@ -12,16 +12,18 @@ use webgpu::{
 use wgsl_shader_derives::wgsl_fn;
 
 pub struct GridGround {
-  grid_config: SceneItemRef<GridGroundShadingGPU>,
+  grid_config: SceneItemRef<GridGroundConfig>,
 }
 
-impl PassContentWithCamera for GridGround {
+impl PassContentWithCamera for &mut GridGround {
   fn render(
     &mut self,
     pass: &mut rendiation_scene_webgpu::SceneRenderPass,
     camera: &rendiation_scene_core::SceneCamera,
   ) {
-    let impls: &mut IdentityMapper<InfinityShaderPlane, GridGroundShadingGPU> = pass
+    let base = pass.default_dispatcher();
+
+    let impls: &mut IdentityMapper<InfinityShaderPlane, GridGroundConfig> = pass
       .resources
       .custom_storage
       .entry()
@@ -33,11 +35,23 @@ impl PassContentWithCamera for GridGround {
       |gpu, grid_config| *gpu = create_grid_gpu(*grid_config, pass.ctx.gpu),
     );
 
-    implementation.render(pass, camera)
+    let camera_gpu = pass
+      .resources
+      .cameras
+      .check_update_gpu(camera, pass.ctx.gpu);
+
+    let effect = InfinityShaderPlaneEffect {
+      plane: &implementation.plane,
+      camera: camera_gpu,
+    };
+
+    let components: [&dyn RenderComponentAny; 3] =
+      [&base, &effect, implementation.shading.as_ref()];
+    RenderEmitter::new(components.as_slice()).render(&mut pass.ctx, &effect);
   }
 }
 
-fn create_grid_gpu(source: GridGroundShadingGPU, gpu: &GPU) -> InfinityShaderPlane {
+fn create_grid_gpu(source: GridGroundConfig, gpu: &GPU) -> InfinityShaderPlane {
   InfinityShaderPlane {
     plane: create_uniform(
       ShaderPlane {
@@ -56,7 +70,7 @@ fn create_grid_gpu(source: GridGroundShadingGPU, gpu: &GPU) -> InfinityShaderPla
 impl Default for GridGround {
   fn default() -> Self {
     Self {
-      grid_config: SceneItemRef::new(GridGroundShadingGPU {
+      grid_config: SceneItemRef::new(GridGroundConfig {
         u_unit: 1.,
         v_unit: 1.,
         color: Vec4::splat(1.),
@@ -69,14 +83,14 @@ impl Default for GridGround {
 #[repr(C)]
 #[std140_layout]
 #[derive(Copy, Clone, ShaderStruct)]
-pub struct GridGroundShadingGPU {
+pub struct GridGroundConfig {
   pub u_unit: f32,
   pub v_unit: f32,
   pub color: Vec4<f32>,
 }
 
 pub struct GridGroundShading {
-  shading: UniformBufferDataView<GridGroundShadingGPU>,
+  shading: UniformBufferDataView<GridGroundConfig>,
 }
 impl ShaderHashProvider for GridGroundShading {}
 impl ShaderPassBuilder for GridGroundShading {
@@ -102,27 +116,6 @@ impl ShaderGraphProvider for GridGroundShading {
 pub struct InfinityShaderPlane {
   plane: UniformBufferDataView<ShaderPlane>,
   shading: Box<dyn RenderComponentAny>,
-}
-
-impl PassContentWithCamera for InfinityShaderPlane {
-  fn render(
-    &mut self,
-    pass: &mut rendiation_scene_webgpu::SceneRenderPass,
-    camera: &rendiation_scene_core::SceneCamera,
-  ) {
-    let base = pass.default_dispatcher();
-
-    let resources = &mut pass.resources;
-    let camera_gpu = resources.cameras.check_update_gpu(camera, pass.ctx.gpu);
-
-    let effect = InfinityShaderPlaneEffect {
-      plane: &self.plane,
-      camera: camera_gpu,
-    };
-
-    let components: [&dyn RenderComponentAny; 3] = [&base, &effect, self.shading.as_ref()];
-    RenderEmitter::new(components.as_slice()).render(&mut pass.ctx, &effect);
-  }
 }
 
 #[repr(C)]
@@ -163,22 +156,23 @@ impl<'a> ShaderGraphProvider for InfinityShaderPlaneEffect<'a> {
   ) -> Result<(), ShaderGraphBuildError> {
     builder.vertex(|builder, _| {
       let out = generate_quad(builder.vertex_index).expand();
-      builder.register::<FragmentUv>(out.uv);
+      builder.set_vertex_out::<FragmentUv>(out.uv);
       builder.register::<WorldVertexPosition>(out.position.xyz()); // too feed camera needs
       Ok(())
     })?;
 
     self.camera.build(builder)?;
-
+    builder.log_result = true;
     builder.fragment(|builder, binding| {
       let proj = builder.query::<CameraProjectionMatrix>()?;
+      let proj_inv = builder.query::<CameraProjectionInverseMatrix>()?;
       let view = builder.query::<CameraViewMatrix>()?;
       let view_inv = builder.query::<CameraWorldMatrix>()?;
       let uv = builder.query::<FragmentUv>()?;
       let plane = binding.uniform_by(self.plane, SB::Object);
 
       let unprojected =
-        view_inv * proj.inverse() * (uv * consts(2.) - consts(Vec2::one()), 0., 1.).into();
+        view_inv * proj_inv * (uv * consts(2.) - consts(Vec2::one()), 0., 1.).into();
       let unprojected = unprojected.xyz() / unprojected.w();
 
       let origin = view_inv.position();

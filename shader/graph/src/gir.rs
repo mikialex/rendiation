@@ -1,7 +1,6 @@
 use crate::*;
 
 pub enum ShaderBuiltInFunction {
-  MatInverse,
   MatTranspose,
   Normalize,
   Length,

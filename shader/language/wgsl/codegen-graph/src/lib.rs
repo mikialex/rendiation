@@ -424,7 +424,6 @@ fn gen_expr(data: &ShaderGraphNodeExpr, cx: &mut CodeGenCtx) -> String {
         }
         ShaderFunctionType::BuiltIn(builtin) => {
           let name = match builtin {
-            ShaderBuiltInFunction::MatInverse => "inverse",
             ShaderBuiltInFunction::MatTranspose => "transpose",
             ShaderBuiltInFunction::Normalize => "normalize",
             ShaderBuiltInFunction::Length => "length",
