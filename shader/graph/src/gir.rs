@@ -339,6 +339,8 @@ pub enum ShaderBuiltInDecorator {
   InstanceIndex,
   VertexPositionOut,
   FragmentPositionIn,
+  FrontFacing,
+  FragDepth,
 }
 
 #[derive(Debug, Copy, Clone)]

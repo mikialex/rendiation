@@ -23,13 +23,13 @@ impl PassContentWithCamera for &mut GridGround {
   ) {
     let base = pass.default_dispatcher();
 
-    let impls: &mut IdentityMapper<InfinityShaderPlane, GridGroundConfig> = pass
+    let gpus: &mut IdentityMapper<InfinityShaderPlane, GridGroundConfig> = pass
       .resources
       .custom_storage
       .entry()
       .or_insert_with(Default::default);
 
-    let implementation = impls.get_update_or_insert_with(
+    let gpu = gpus.get_update_or_insert_with(
       &self.grid_config.read(),
       |grid_config| create_grid_gpu(*grid_config, pass.ctx.gpu),
       |gpu, grid_config| *gpu = create_grid_gpu(*grid_config, pass.ctx.gpu),
@@ -41,12 +41,11 @@ impl PassContentWithCamera for &mut GridGround {
       .check_update_gpu(camera, pass.ctx.gpu);
 
     let effect = InfinityShaderPlaneEffect {
-      plane: &implementation.plane,
+      plane: &gpu.plane,
       camera: camera_gpu,
     };
 
-    let components: [&dyn RenderComponentAny; 3] =
-      [&base, &effect, implementation.shading.as_ref()];
+    let components: [&dyn RenderComponentAny; 3] = [&base, &effect, gpu.shading.as_ref()];
     RenderEmitter::new(components.as_slice()).render(&mut pass.ctx, &effect);
   }
 }
@@ -154,23 +153,19 @@ impl<'a> ShaderGraphProvider for InfinityShaderPlaneEffect<'a> {
     &self,
     builder: &mut ShaderGraphRenderPipelineBuilder,
   ) -> Result<(), ShaderGraphBuildError> {
+    self.camera.inject_uniforms(builder);
+
     builder.vertex(|builder, _| {
       let out = generate_quad(builder.vertex_index).expand();
       builder.set_vertex_out::<FragmentUv>(out.uv);
-      builder.register::<WorldVertexPosition>(out.position.xyz()); // too feed camera needs
-      Ok(())
-    })?;
+      builder.register::<ClipPosition>((out.position.xyz(), 1.));
 
-    self.camera.build(builder)?;
-
-    builder.vertex(|builder, _| {
       builder.primitive_state = webgpu::PrimitiveState {
         topology: webgpu::PrimitiveTopology::TriangleStrip,
         front_face: webgpu::FrontFace::Cw,
         ..Default::default()
       };
-      let world = builder.query::<WorldVertexPosition>()?;
-      builder.register::<ClipPosition>((world, 1.)); // override camera set
+
       Ok(())
     })?;
 
@@ -180,6 +175,7 @@ impl<'a> ShaderGraphProvider for InfinityShaderPlaneEffect<'a> {
       let proj_inv = builder.query::<CameraProjectionInverseMatrix>()?;
       let view = builder.query::<CameraViewMatrix>()?;
       let view_inv = builder.query::<CameraWorldMatrix>()?;
+
       let uv = builder.query::<FragmentUv>()?;
       let plane = binding.uniform_by(self.plane, SB::Object);
 
@@ -220,9 +216,9 @@ impl<'a> ShaderGraphProvider for InfinityShaderPlaneEffect<'a> {
       ));
 
       MaterialStates {
-        blend: webgpu::BlendState::PREMULTIPLIED_ALPHA_BLENDING.into(),
-        depth_write_enabled: true,
-        depth_compare: webgpu::CompareFunction::Always,
+        blend: webgpu::BlendState::ALPHA_BLENDING.into(),
+        depth_write_enabled: false,
+        depth_compare: webgpu::CompareFunction::LessEqual,
         ..Default::default()
       }
       .apply_pipeline_builder(builder);

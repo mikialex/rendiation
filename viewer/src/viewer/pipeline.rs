@@ -47,7 +47,6 @@ impl ViewerPipeline {
       .by(scene.by_main_camera(&mut content.axis_helper))
       .by(scene.by_main_camera(&mut content.grid_helper))
       .by(scene.by_main_camera(&mut content.gizmo))
-      .by(scene.by_main_camera(&mut content.ground))
       .by(scene.by_main_camera_and_self(&mut content.camera_helpers));
 
     let highlight_compose = (!content.selections.is_empty())
@@ -63,7 +62,8 @@ impl ViewerPipeline {
       .by(scene.by_main_camera_and_self(ForwardScene{
         lights: &self.forward_lights, 
         tonemap: &self.tonemap
-      }));
+      }))
+      .by(scene.by_main_camera(&mut content.ground));// transparent, should go last
 
 
     // let scene_result = draw_cross_blur(&self.blur, scene_result.read_into(), ctx);

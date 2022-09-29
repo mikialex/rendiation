@@ -69,15 +69,7 @@ impl ShaderGraphProvider for CameraGPU {
     &self,
     builder: &mut ShaderGraphRenderPipelineBuilder,
   ) -> Result<(), ShaderGraphBuildError> {
-    let camera = builder
-      .uniform_by(&self.ubo, SB::Camera)
-      .using_both(builder, |r, camera| {
-        let camera = camera.expand();
-        r.reg::<CameraViewMatrix>(camera.view);
-        r.reg::<CameraProjectionMatrix>(camera.projection);
-        r.reg::<CameraProjectionInverseMatrix>(camera.projection_inv);
-        r.reg::<CameraWorldMatrix>(camera.world);
-      });
+    let camera = self.inject_uniforms(builder);
 
     builder.vertex(|builder, _| {
       let camera = camera.using().expand();
@@ -101,6 +93,21 @@ pub struct CameraGPUTransform {
 }
 
 impl CameraGPU {
+  pub fn inject_uniforms(
+    &self,
+    builder: &mut ShaderGraphRenderPipelineBuilder,
+  ) -> UniformNodePreparer<CameraGPUTransform> {
+    builder
+      .uniform_by(&self.ubo, SB::Camera)
+      .using_both(builder, |r, camera| {
+        let camera = camera.expand();
+        r.reg::<CameraViewMatrix>(camera.view);
+        r.reg::<CameraProjectionMatrix>(camera.projection);
+        r.reg::<CameraProjectionInverseMatrix>(camera.projection_inv);
+        r.reg::<CameraWorldMatrix>(camera.world);
+      })
+  }
+
   pub fn update(&mut self, gpu: &GPU, camera: &SceneCameraInner) -> &mut Self {
     self.ubo.resource.mutate(|uniform| {
       let world_matrix = camera.node.visit(|node| node.world_matrix);

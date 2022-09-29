@@ -128,6 +128,12 @@ fn gen_fragment_shader(
           let root = gen_node_with_dep_in_entry(v.handle(), &builder, &mut cx, code);
           code.write_ln(format!("out.frag_out{i} = {root};"));
         });
+
+      if let Some(depth) = fragment.depth_output {
+        let root = gen_node_with_dep_in_entry(depth.handle(), &builder, &mut cx, code);
+        code.write_ln(format!("out.frag_depth_out = {root};"));
+      }
+
       code.write_ln("return out;");
     },
     |code| gen_fragment_in_declare(code, fragment),
@@ -213,6 +219,14 @@ fn gen_fragment_out_struct(code: &mut CodeBuilder, frag: &ShaderGraphFragmentBui
       ty_deco: ShaderFieldDecorator::Location(i).into(),
     });
   });
+
+  if frag.depth_output.is_some() {
+    shader_struct.fields.push(ShaderStructFieldMetaInfoOwned {
+      name: format!("frag_depth_out"),
+      ty: ShaderStructMemberValueType::Primitive(PrimitiveShaderValueType::Float32),
+      ty_deco: ShaderFieldDecorator::BuiltIn(ShaderBuiltInDecorator::FragDepth).into(),
+    });
+  }
 
   gen_struct(code, &shader_struct, false);
 }
@@ -705,6 +719,8 @@ fn gen_struct(builder: &mut CodeBuilder, meta: &ShaderStructMetaInfoOwned, is_un
               ShaderBuiltInDecorator::InstanceIndex => "instance_index",
               ShaderBuiltInDecorator::VertexPositionOut => "position",
               ShaderBuiltInDecorator::FragmentPositionIn => "position",
+              ShaderBuiltInDecorator::FrontFacing => "front_facing",
+              ShaderBuiltInDecorator::FragDepth => "frag_depth",
             }
           ),
           ShaderFieldDecorator::Location(location) => format!("@location({location})"),
