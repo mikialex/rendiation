@@ -1,9 +1,10 @@
+use winit::event::VirtualKeyCode;
+
 use crate::*;
 
 pub struct EditableText {
   text: Text,
   cursor: Option<Cursor>,
-  on_change: Option<Box<dyn Fn(&mut String)>>,
 }
 
 use std::{
@@ -29,12 +30,6 @@ impl EditableText {
     if self.cursor.is_none() {
       self.cursor = Cursor::new(self.content.get().len()).into();
     }
-  }
-
-  #[must_use]
-  pub fn on_change(mut self, on_change: impl Fn(&mut String) + 'static) -> Self {
-    self.on_change = Some(Box::new(on_change));
-    self
   }
 
   // when model updated by user side
@@ -146,21 +141,19 @@ impl Text {
     EditableText {
       text: self,
       cursor: None,
-      on_change: None,
     }
   }
 }
 
-#[derive(Default)]
 pub struct FocusEditableText;
+pub struct TextChange(pub String);
+pub struct TextKeyboardInput(pub VirtualKeyCode);
 
 impl Component<String> for EditableText {
   fn event(&mut self, model: &mut String, ctx: &mut EventCtx) {
     self.text.event(model, ctx);
 
     use winit::event::*;
-
-    let mut changed = false;
 
     if ctx
       .custom_event
@@ -176,7 +169,7 @@ impl Component<String> for EditableText {
           if let Some(virtual_keycode) = input.virtual_keycode {
             if input.state == ElementState::Pressed {
               self.handle_input(virtual_keycode, model);
-              changed = true;
+              ctx.custom_event.emit(TextKeyboardInput(virtual_keycode))
             }
           }
         }
@@ -187,17 +180,13 @@ impl Component<String> for EditableText {
         }
         WindowEvent::ReceivedCharacter(char) => {
           self.insert_at_cursor(*char, model);
-          changed = true;
+          ctx
+            .custom_event
+            .emit(TextChange(self.content.get().clone()))
         }
         _ => {}
       },
       _ => {}
-    }
-
-    if changed {
-      if let Some(on_change) = &self.on_change {
-        on_change(model);
-      }
     }
   }
 

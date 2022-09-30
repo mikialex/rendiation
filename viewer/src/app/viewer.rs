@@ -1,4 +1,4 @@
-use interphaser::*;
+use interphaser::{winit::event::VirtualKeyCode, *};
 
 use crate::{menu, MenuList, MenuModel, UIExamples, ViewerImpl};
 
@@ -79,9 +79,18 @@ fn perf_panel<T: 'static>() -> impl UIComponent<T> {
 
 #[derive(Default)]
 pub struct Terminal {
-  pub outputs: Vec<String>,
   pub command_history: Vec<String>,
   pub current_command_editing: String,
+}
+
+impl Terminal {
+  pub fn execute_current(&mut self) {
+    println!("execute: {}", self.current_command_editing);
+    self
+      .command_history
+      .push(self.current_command_editing.clone());
+    self.current_command_editing = String::new();
+  }
 }
 
 fn terminal() -> impl UIComponent<Terminal> {
@@ -98,4 +107,12 @@ fn terminal() -> impl UIComponent<Terminal> {
         .lens(lens!(Terminal, current_command_editing)), //
     )
     .extend(ClickHandler::by(|_, ctx, _| ctx.emit(FocusEditableText)))
+    .extend(SimpleHandler::<TextKeyboardInput, _>::by_state(
+      simple_handle_in_bubble(),
+      |terminal: &mut Terminal, _, e| {
+        if let TextKeyboardInput(VirtualKeyCode::Return) = e {
+          terminal.execute_current()
+        }
+      },
+    ))
 }
