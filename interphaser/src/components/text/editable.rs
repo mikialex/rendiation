@@ -25,6 +25,12 @@ impl DerefMut for EditableText {
 }
 
 impl EditableText {
+  pub fn focus(&mut self) {
+    if self.cursor.is_none() {
+      self.cursor = Cursor::new(self.content.get().len()).into();
+    }
+  }
+
   #[must_use]
   pub fn on_change(mut self, on_change: impl Fn(&mut String) + 'static) -> Self {
     self.on_change = Some(Box::new(on_change));
@@ -145,6 +151,9 @@ impl Text {
   }
 }
 
+#[derive(Default)]
+pub struct FocusEditableText;
+
 impl Component<String> for EditableText {
   fn event(&mut self, model: &mut String, ctx: &mut EventCtx) {
     self.text.event(model, ctx);
@@ -152,6 +161,14 @@ impl Component<String> for EditableText {
     use winit::event::*;
 
     let mut changed = false;
+
+    if ctx
+      .custom_event
+      .consume_if_type_is::<FocusEditableText>()
+      .is_some()
+    {
+      self.focus()
+    }
 
     match ctx.event {
       Event::WindowEvent { event, .. } => match event {

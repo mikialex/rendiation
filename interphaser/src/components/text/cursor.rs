@@ -1,8 +1,8 @@
 use crate::*;
 
 pub struct Cursor {
-  position: Option<CursorPositionInfo>,
   index: usize,
+  position: Option<CursorPositionInfo>,
   update_timestamp: Instant,
 }
 

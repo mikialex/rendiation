@@ -89,8 +89,13 @@ fn terminal() -> impl UIComponent<Terminal> {
     .padding(QuadBoundaryWidth::equal(5.))
     .wrap(
       Text::default()
+        .with_layout(TextLayoutConfig::SizedBox {
+          line_wrap: LineWrap::Single,
+          horizon_align: TextHorizontalAlignment::Left,
+          vertical_align: TextVerticalAlignment::Top,
+        })
         .editable()
         .lens(lens!(Terminal, current_command_editing)), //
     )
-    .extend(ClickHandler::by(|_, _, _| println!("active")))
+    .extend(ClickHandler::by(|_, ctx, _| ctx.emit(FocusEditableText)))
 }
