@@ -181,6 +181,10 @@ impl TextGlyphLayouter for GlyphBrushLayouter {
       })
       .collect();
 
-    LayoutedTextGlyphs { glyphs, bound }
+    LayoutedTextGlyphs {
+      source: text.content.clone(),
+      glyphs,
+      bound,
+    }
   }
 }

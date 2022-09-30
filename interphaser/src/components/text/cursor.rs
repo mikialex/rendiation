@@ -60,13 +60,15 @@ impl Cursor {
     self.position = None;
   }
 
+  // todo fix!
   fn get_position(&mut self, layout: &TextLayoutRef) -> &CursorPositionInfo {
-    let layout = &layout.layout().glyphs;
+    let layout = layout.layout();
+    let glyphs = &layout.glyphs;
 
     self.position.get_or_insert_with(|| {
       let index = if self.index == 0 { 0 } else { self.index - 1 };
-      if layout.is_empty() {
-        // in this case, no content in editor,
+      if glyphs.is_empty() {
+        // in this case, no glyph in editor,
         // we should place cursor at appropriate place
         // todo
         return CursorPositionInfo {
@@ -75,7 +77,14 @@ impl Cursor {
         };
       }
 
-      let rect = &layout[index].2;
+      let glyph_index = layout
+        .source
+        .chars()
+        .take(index)
+        .filter(|c| !c.is_control())
+        .count();
+
+      let rect = &glyphs[glyph_index.min(glyphs.len() - 1)].2;
 
       let height = rect.right_bottom[1] - rect.left_top[1];
       let position = if self.index == 0 {
