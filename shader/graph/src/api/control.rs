@@ -14,26 +14,74 @@ impl ForCtx {
   }
 }
 
-impl From<u32> for ShaderIteratorAble {
+impl From<u32> for ShaderIterator {
   fn from(v: u32) -> Self {
-    ShaderIteratorAble::Const(v)
+    ShaderIterator::Const(v)
   }
 }
 
+impl ShaderIteratorAble for u32 {
+  type Item = u32;
+}
+
+impl From<Node<u32>> for ShaderIterator {
+  fn from(v: Node<u32>) -> Self {
+    ShaderIterator::Count(v.handle())
+  }
+}
+
+impl ShaderIteratorAble for Node<u32> {
+  type Item = u32;
+}
+
+impl<T, const U: usize> From<Node<Shader140Array<T, U>>> for ShaderIterator {
+  fn from(v: Node<Shader140Array<T, U>>) -> Self {
+    ShaderIterator::FixedArray {
+      array: v.handle(),
+      length: U,
+    }
+  }
+}
+
+impl<T: ShaderGraphNodeType, const U: usize> ShaderIteratorAble for Node<Shader140Array<T, U>> {
+  type Item = T;
+}
+
+pub struct ClampedShaderIter<T> {
+  pub inner: T,
+  pub count: Node<u32>,
+}
+
+impl<T: Into<ShaderIterator>> From<ClampedShaderIter<T>> for ShaderIterator {
+  fn from(v: ClampedShaderIter<T>) -> Self {
+    ShaderIterator::Clamped {
+      source: Box::new(v.inner.into()),
+      max: v.count.handle(),
+    }
+  }
+}
+
+impl<T: ShaderIteratorAble> ShaderIteratorAble for ClampedShaderIter<T> {
+  type Item = T::Item;
+}
+
 #[inline(never)]
-pub fn for_by<T>(iterable: impl Into<ShaderIteratorAble>, logic: impl Fn(&ForCtx, Node<T>))
-where
-  T: ShaderGraphNodeType,
+pub fn for_by<T: Into<ShaderIterator> + ShaderIteratorAble>(
+  iterable: T,
+  logic: impl Fn(&ForCtx, Node<T::Item>, Node<u32>),
+) where
+  T::Item: ShaderGraphNodeType,
 {
-  let (i_node, target_scope_id) = modify_graph(|builder| {
-    let node = ShaderGraphNode::UnNamed.insert_into_graph(builder);
+  let (item_node, index_node, target_scope_id) = modify_graph(|builder| {
+    let item_node = ShaderGraphNode::UnNamed.insert_into_graph(builder);
+    let index_node = ShaderGraphNode::UnNamed.insert_into_graph::<u32>(builder);
     let id = builder.push_scope().graph_guid;
 
-    (node, id)
+    (item_node, index_node, id)
   });
   let cx = ForCtx { target_scope_id };
 
-  logic(&cx, i_node);
+  logic(&cx, item_node, index_node);
 
   modify_graph(|builder| {
     let scope = builder.pop_scope();
@@ -41,7 +89,8 @@ where
     ShaderControlFlowNode::For {
       source: iterable.into(),
       scope,
-      iter: i_node.handle(),
+      iter: item_node.handle(),
+      index: index_node.handle(),
     }
     .insert_into_graph(builder)
   });

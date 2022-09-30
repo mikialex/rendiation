@@ -7,7 +7,7 @@ pub struct TransformInstance<M> {
 
 pub struct TransformInstanceGPU<M: WebGPUMesh> {
   mesh_gpu: M::GPU,
-  instance_gpu: Rc<webgpu::Buffer>,
+  instance_gpu: GPUBufferResourceView,
 }
 
 only_vertex!(TransformInstanceMat, Mat4<f32>);
@@ -28,15 +28,16 @@ impl<M: WebGPUMesh> ShaderGraphProvider for TransformInstanceGPU<M> {
     builder.vertex(|builder, _| {
       builder.register_vertex::<ShaderMat4VertexInput>(VertexStepMode::Instance);
 
-      let world_mat = builder.query::<TransformInstanceMat>()?.get();
+      let world_mat = builder.query::<TransformInstanceMat>()?;
       let world_normal_mat: Node<Mat3<f32>> = world_mat.into();
-      let world_normal_mat = world_normal_mat.inverse().transpose();
+      // let world_normal_mat = world_normal_mat.inverse().transpose();
+      //  todo, naga not fully support wgsl spec now, so we have to comment it!
 
-      if let Ok(position) = builder.query::<GeometryPosition>() {
+      if let Ok(position) = builder.query_mut::<GeometryPosition>() {
         position.set((world_mat * (position.get(), 1.).into()).xyz())
       }
 
-      if let Ok(normal) = builder.query::<GeometryNormal>() {
+      if let Ok(normal) = builder.query_mut::<GeometryNormal>() {
         normal.set(world_normal_mat * normal.get())
       }
 
@@ -63,17 +64,17 @@ impl<M: WebGPUMesh> WebGPUMesh for TransformInstance<M> {
 
   fn create(&self, gpu: &webgpu::GPU, storage: &mut anymap::AnyMap) -> Self::GPU {
     let mesh_gpu = self.mesh.create(gpu, storage);
-    let instance_gpu = gpu
-      .device
-      .deref()
-      .create_buffer_init(&webgpu::util::BufferInitDescriptor {
-        label: None,
-        contents: bytemuck::cast_slice(self.transforms.as_slice()),
-        usage: BufferUsages::VERTEX,
-      });
+
+    let instance_gpu = create_gpu_buffer(
+      bytemuck::cast_slice(self.transforms.as_slice()),
+      webgpu::BufferUsages::VERTEX,
+      &gpu.device,
+    )
+    .create_default_view();
+
     TransformInstanceGPU {
       mesh_gpu,
-      instance_gpu: Rc::new(instance_gpu),
+      instance_gpu,
     }
   }
 

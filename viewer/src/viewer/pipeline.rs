@@ -5,6 +5,8 @@ use crate::*;
 pub struct ViewerPipeline {
   highlight: HighLighter,
   blur: CrossBlurData,
+  forward_lights: ForwardLightingSystem,
+  tonemap: ToneMap,
 }
 
 impl ViewerPipeline {
@@ -12,6 +14,8 @@ impl ViewerPipeline {
     Self {
       highlight: HighLighter::new(gpu),
       blur: CrossBlurData::new(gpu),
+      forward_lights: Default::default(),
+      tonemap: ToneMap::new(gpu)
     }
   }
 }
@@ -25,6 +29,8 @@ impl ViewerPipeline {
     final_target: RenderTargetView,
   ) {
     let scene = &mut content.scene;
+
+    self.forward_lights.update_by_scene(scene, ctx.gpu);
 
     let mut scene_depth = depth_attachment().request(ctx);
 
@@ -44,7 +50,7 @@ impl ViewerPipeline {
       .by(scene.by_main_camera_and_self(&mut content.camera_helpers));
 
     let highlight_compose = (!content.selections.is_empty())
-    .then(|| self.highlight.draw(&content.selections, ctx, scene));
+    .then(|| self.highlight.draw(&content.selections, ctx, scene.active_camera.as_ref().unwrap()));
 
     let mut scene_result = attachment().request(ctx);
 
@@ -53,20 +59,21 @@ impl ViewerPipeline {
       .with_depth(scene_depth.write(), clear(1.))
       .render(ctx)
       .by(scene.by_main_camera_and_self(BackGroundRendering))
-      .by(scene.by_main_camera_and_self(ForwardScene))
-      .by(copy_frame(widgets_result.read_into(), BlendState::PREMULTIPLIED_ALPHA_BLENDING.into()));
+      .by(scene.by_main_camera_and_self(ForwardScene{
+        lights: &self.forward_lights, 
+        tonemap: &self.tonemap
+      }))
+      .by(scene.by_main_camera(&mut content.ground));// transparent, should go last
 
-    
 
     // let scene_result = draw_cross_blur(&self.blur, scene_result.read_into(), ctx);
 
 
     pass("compose-all")
       .with_color(final_target, load())
-      .with_depth(scene_depth.write(), clear(1.))
       .render(ctx)
       .by(copy_frame(scene_result.read_into(), None))
-      .by(highlight_compose);
-      // .by(copy_frame(widgets_result.read_into(), BlendState::PREMULTIPLIED_ALPHA_BLENDING.into()));
+      .by(highlight_compose)
+      .by(copy_frame(widgets_result.read_into(), BlendState::PREMULTIPLIED_ALPHA_BLENDING.into()));
   }
 }

@@ -1,6 +1,5 @@
 use std::{iter::FromIterator, ops::Range};
 
-use rand::random;
 use rendiation_algebra::Vec3;
 use rendiation_geometry::Box3;
 
@@ -67,6 +66,13 @@ where
 }
 
 pub fn generate_boxes_in_space(count: usize, space_size: f32, box_size: f32) -> Vec<Box3> {
+  use rand::prelude::*;
+  use rand_chacha::ChaCha8Rng;
+
+  const SEED: u64 = 0x6246A426A2424AC + 0x1;
+  let mut rng = ChaCha8Rng::seed_from_u64(SEED);
+  let mut random = || rng.gen::<f32>();
+
   (0..count)
     .into_iter()
     .map(|_| {

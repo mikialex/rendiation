@@ -31,6 +31,7 @@ pub use util::*;
 
 use anymap::AnyMap;
 use bytemuck::*;
+use linked_hash_map::LinkedHashMap;
 use rendiation_algebra::*;
 use rendiation_geometry::*;
 use rendiation_renderable_mesh::group::MeshDrawGroup;
@@ -38,10 +39,11 @@ use rendiation_renderable_mesh::mesh::*;
 pub use rendiation_scene_core::*;
 use rendiation_texture::{CubeTextureFace, Size, TextureSampler};
 use shadergraph::*;
-use webgpu::util::DeviceExt;
 use webgpu::*;
 use wgsl_shader_derives::*;
 
+use __core::hash::Hasher;
+use __core::num::NonZeroU64;
 use core::ops::Deref;
 use std::{
   any::{Any, TypeId},
@@ -58,13 +60,17 @@ pub struct WebGPUScene;
 impl SceneContent for WebGPUScene {
   type BackGround = Box<dyn WebGPUBackground>;
   type Model = Box<dyn SceneModelShareable>;
-  type Light = Box<dyn SceneRenderableShareable>;
+  type Light = Box<dyn WebGPUSceneLight>;
   type Texture2D = Box<dyn WebGPUTexture2dSource>;
   type TextureCube = [Box<dyn WebGPUTexture2dSource>; 6];
   type SceneExt = ();
 }
 
 pub trait SceneRenderable {
+  fn is_transparent(&self) -> bool {
+    false
+  }
+
   fn render(
     &self,
     pass: &mut SceneRenderPass,
@@ -137,6 +143,9 @@ pub trait SceneRenderableShareable: SceneRenderable {
 }
 
 impl SceneRenderable for Box<dyn SceneRenderableShareable> {
+  fn is_transparent(&self) -> bool {
+    self.as_ref().is_transparent()
+  }
   fn render(
     &self,
     pass: &mut SceneRenderPass,
@@ -191,13 +200,21 @@ pub struct GPUResourceSceneCache {
 /// GPU cache container for given scene
 #[derive(Default)]
 pub struct GPUResourceSubCache {
-  // pub uniforms: IdentityMapper<GPUTexture2d, Box<dyn WebGPUTexture2dSource>>,
   pub texture_2ds: IdentityMapper<GPUTexture2dView, dyn WebGPUTexture2dSource>,
   pub texture_cubes: IdentityMapper<GPUTextureCubeView, [Box<dyn WebGPUTexture2dSource>; 6]>,
 }
 
+use arena::Handle;
+pub type SceneModelHandle = Handle<<WebGPUScene as SceneContent>::Model>;
+pub type SceneCameraHandle = Handle<SceneCamera>;
+
 pub trait WebGPUSceneExtension {
-  fn add_model(&mut self, model: impl SceneModelShareable + 'static);
+  #[must_use]
+  fn add_model(&mut self, model: impl SceneModelShareable + 'static) -> SceneModelHandle;
+  fn remove_model(&mut self, handle: SceneModelHandle) -> bool;
+  #[must_use]
+  fn add_camera(&mut self, camera: SceneCamera) -> SceneCameraHandle;
+  fn remove_camera(&mut self, handle: SceneCameraHandle) -> bool;
 
   fn build_interactive_ctx<'a>(
     &'a self,
@@ -215,9 +232,19 @@ pub trait WebGPUSceneExtension {
 use std::cmp::Ordering;
 
 impl WebGPUSceneExtension for Scene<WebGPUScene> {
-  fn add_model(&mut self, model: impl SceneModelShareable + 'static) {
-    self.models.push(Box::new(model));
+  fn add_model(&mut self, model: impl SceneModelShareable + 'static) -> SceneModelHandle {
+    self.models.insert(Box::new(model))
   }
+  fn remove_model(&mut self, handle: SceneModelHandle) -> bool {
+    self.models.remove(handle).is_some()
+  }
+  fn add_camera(&mut self, camera: SceneCamera) -> SceneCameraHandle {
+    self.cameras.insert(camera)
+  }
+  fn remove_camera(&mut self, handle: SceneCameraHandle) -> bool {
+    self.cameras.remove(handle).is_some()
+  }
+
   fn build_interactive_ctx<'a>(
     &'a self,
     normalized_position: Vec2<f32>,
@@ -238,7 +265,7 @@ impl WebGPUSceneExtension for Scene<WebGPUScene> {
     &self,
     ctx: &SceneRayInteractiveCtx,
   ) -> Option<(&dyn SceneModelShareable, MeshBufferHitPoint)> {
-    interaction_picking(self.models.iter().map(|m| m.as_ref()), ctx)
+    interaction_picking(self.models.iter().map(|(_, m)| m.as_ref()), ctx)
   }
 }
 

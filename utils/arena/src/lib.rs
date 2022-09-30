@@ -41,7 +41,7 @@ impl<T> Arena<T> {
   /// # Examples
   ///
   /// ```
-  /// use generational_arena::Arena;
+  /// use arena::Arena;
   ///
   /// let mut arena = Arena::<usize>::new();
   /// # let _ = arena;
@@ -57,7 +57,7 @@ impl<T> Arena<T> {
   /// # Examples
   ///
   /// ```
-  /// use generational_arena::Arena;
+  /// use arena::Arena;
   ///
   /// let mut arena = Arena::with_capacity(10);
   ///
@@ -86,7 +86,7 @@ impl<T> Arena<T> {
   /// # Examples
   ///
   /// ```
-  /// use generational_arena::Arena;
+  /// use arena::Arena;
   ///
   /// let mut arena = Arena::with_capacity(1);
   /// arena.insert(42);
@@ -124,7 +124,7 @@ impl<T> Arena<T> {
   /// # Examples
   ///
   /// ```
-  /// use generational_arena::Arena;
+  /// use arena::Arena;
   ///
   /// let mut arena = Arena::new();
   ///
@@ -165,15 +165,15 @@ impl<T> Arena<T> {
   /// # Examples
   ///
   /// ```
-  /// use generational_arena::{Arena, Handle};
+  /// use arena::{Arena, Handle};
   ///
   /// let mut arena = Arena::new();
   ///
-  /// match arena.try_insert_with(|idx| (42, idx)) {
+  /// match arena.try_insert_with(|idx| (42, idx.into_raw_parts().0)) {
   ///     Ok(idx) => {
   ///         // Insertion succeeded.
   ///         assert_eq!(arena[idx].0, 42);
-  ///         assert_eq!(arena[idx].1, idx);
+  ///         assert_eq!(arena[idx].1, idx.into_raw_parts().0);
   ///     }
   ///     Err(x) => {
   ///         // Insertion failed.
@@ -220,7 +220,7 @@ impl<T> Arena<T> {
   /// # Examples
   ///
   /// ```
-  /// use generational_arena::Arena;
+  /// use arena::Arena;
   ///
   /// let mut arena = Arena::new();
   ///
@@ -243,13 +243,13 @@ impl<T> Arena<T> {
   /// # Examples
   ///
   /// ```
-  /// use generational_arena::{Arena, Handle};
+  /// use arena::{Arena, Handle};
   ///
   /// let mut arena = Arena::new();
   ///
-  /// let idx = arena.insert_with(|idx| (42, idx));
+  /// let idx = arena.insert_with(|idx| (42, idx.into_raw_parts().0));
   /// assert_eq!(arena[idx].0, 42);
-  /// assert_eq!(arena[idx].1, idx);
+  /// assert_eq!(arena[idx].1, idx.into_raw_parts().0);
   /// ```
   #[inline]
   pub fn insert_with(&mut self, create: impl FnOnce(Handle<T>) -> T) -> Handle<T> {
@@ -287,7 +287,7 @@ impl<T> Arena<T> {
   /// # Examples
   ///
   /// ```
-  /// use generational_arena::Arena;
+  /// use arena::Arena;
   ///
   /// let mut arena = Arena::new();
   /// let idx = arena.insert(42);
@@ -331,7 +331,7 @@ impl<T> Arena<T> {
   /// # Examples
   ///
   /// ```
-  /// use generational_arena::Arena;
+  /// use arena::Arena;
   ///
   /// let mut crew = Arena::new();
   /// crew.extend(&["Jim Hawkins", "John Silver", "Alexander Smollett", "Israel Hands"]);
@@ -373,7 +373,7 @@ impl<T> Arena<T> {
   /// # Examples
   ///
   /// ```
-  /// use generational_arena::Arena;
+  /// use arena::Arena;
   ///
   /// let mut arena = Arena::new();
   /// let idx = arena.insert(42);
@@ -394,7 +394,7 @@ impl<T> Arena<T> {
   /// # Examples
   ///
   /// ```
-  /// use generational_arena::Arena;
+  /// use arena::Arena;
   ///
   /// let mut arena = Arena::new();
   /// let idx = arena.insert(42);
@@ -418,7 +418,7 @@ impl<T> Arena<T> {
   /// # Examples
   ///
   /// ```
-  /// use generational_arena::Arena;
+  /// use arena::Arena;
   ///
   /// let mut arena = Arena::new();
   /// let idx = arena.insert(42);
@@ -447,7 +447,7 @@ impl<T> Arena<T> {
   /// # Examples
   ///
   /// ```
-  /// use generational_arena::Arena;
+  /// use arena::Arena;
   ///
   /// let mut arena = Arena::new();
   /// let idx1 = arena.insert(0);
@@ -510,7 +510,7 @@ impl<T> Arena<T> {
   /// # Examples
   ///
   /// ```
-  /// use generational_arena::Arena;
+  /// use arena::Arena;
   ///
   /// let mut arena = Arena::new();
   /// assert_eq!(arena.len(), 0);
@@ -533,7 +533,7 @@ impl<T> Arena<T> {
   /// # Examples
   ///
   /// ```
-  /// use generational_arena::Arena;
+  /// use arena::Arena;
   ///
   /// let mut arena = Arena::new();
   /// assert!(arena.is_empty());
@@ -557,7 +557,7 @@ impl<T> Arena<T> {
   /// # Examples
   ///
   /// ```
-  /// use generational_arena::Arena;
+  /// use arena::Arena;
   ///
   /// let mut arena = Arena::with_capacity(10);
   /// assert_eq!(arena.capacity(), 10);
@@ -585,7 +585,7 @@ impl<T> Arena<T> {
   /// # Examples
   ///
   /// ```
-  /// use generational_arena::Arena;
+  /// use arena::Arena;
   ///
   /// let mut arena = Arena::with_capacity(10);
   /// arena.reserve(5);
@@ -620,7 +620,7 @@ impl<T> Arena<T> {
   /// # Examples
   ///
   /// ```
-  /// use generational_arena::Arena;
+  /// use arena::Arena;
   ///
   /// let mut arena = Arena::new();
   /// for i in 0..10 {
@@ -647,7 +647,7 @@ impl<T> Arena<T> {
   /// # Examples
   ///
   /// ```
-  /// use generational_arena::Arena;
+  /// use arena::Arena;
   ///
   /// let mut arena = Arena::new();
   /// for i in 0..10 {
@@ -676,7 +676,7 @@ impl<T> Arena<T> {
   /// # Examples
   ///
   /// ```
-  /// use generational_arena::Arena;
+  /// use arena::Arena;
   ///
   /// let mut arena = Arena::new();
   /// let idx_1 = arena.insert("hello");

@@ -64,8 +64,8 @@ impl From<Shader140Mat3> for Mat3<f32> {
 #[rustfmt::skip]
 #[derive(Clone, Copy, Zeroable, Pod, PartialEq, Default)]
 pub struct Shader140Mat2 {
-	pub a1:f32, pub a2:f32, _pad1: [f32; 2],
-	pub b1:f32, pub b2:f32, _pad2: [f32; 2],
+  pub a1:f32, pub a2:f32, _pad1: [f32; 2],
+  pub b1:f32, pub b2:f32, _pad2: [f32; 2],
 }
 
 impl From<Mat2<f32>> for Shader140Mat2 {

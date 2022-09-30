@@ -12,7 +12,8 @@ impl ShaderGraphProvider for SolidUIPipeline {
     &self,
     builder: &mut ShaderGraphRenderPipelineBuilder,
   ) -> Result<(), shadergraph::ShaderGraphBuildError> {
-    let global = builder.uniform::<UniformBufferView<UIGlobalParameter>>(SemanticBinding::Global);
+    let global =
+      builder.uniform::<UniformBufferDataView<UIGlobalParameter>>(SemanticBinding::Global);
 
     builder.vertex(|builder, _| {
       builder.register_vertex::<UIVertex>(VertexStepMode::Vertex);
@@ -22,8 +23,8 @@ impl ShaderGraphProvider for SolidUIPipeline {
         ..Default::default()
       };
 
-      let position = builder.query::<GeometryPosition2D>()?.get();
-      let color = builder.query::<GeometryColorWithAlpha>()?.get();
+      let position = builder.query::<GeometryPosition2D>()?;
+      let color = builder.query::<GeometryColorWithAlpha>()?;
 
       let global = global.using().expand();
 
@@ -41,7 +42,7 @@ impl ShaderGraphProvider for SolidUIPipeline {
     })?;
 
     builder.fragment(|builder, _| {
-      let color = builder.query::<FragmentColorAndAlpha>()?.get();
+      let color = builder.query::<FragmentColorAndAlpha>()?;
 
       let slot = builder.define_out_by(channel(self.target_format).with_alpha_blend());
       builder.set_fragment_out(slot, color)
@@ -58,7 +59,8 @@ impl ShaderGraphProvider for TextureUIPipeline {
     &self,
     builder: &mut ShaderGraphRenderPipelineBuilder,
   ) -> Result<(), shadergraph::ShaderGraphBuildError> {
-    let global = builder.uniform::<UniformBufferView<UIGlobalParameter>>(SemanticBinding::Global);
+    let global =
+      builder.uniform::<UniformBufferDataView<UIGlobalParameter>>(SemanticBinding::Global);
 
     builder.vertex(|builder, _| {
       builder.register_vertex::<UIVertex>(VertexStepMode::Vertex);
@@ -68,9 +70,9 @@ impl ShaderGraphProvider for TextureUIPipeline {
         ..Default::default()
       };
 
-      let position = builder.query::<GeometryPosition2D>()?.get();
-      let color = builder.query::<GeometryColorWithAlpha>()?.get();
-      let uv = builder.query::<GeometryUV>()?.get();
+      let position = builder.query::<GeometryPosition2D>()?;
+      let color = builder.query::<GeometryColorWithAlpha>()?;
+      let uv = builder.query::<GeometryUV>()?;
 
       let global = global.using().expand();
 
@@ -93,7 +95,7 @@ impl ShaderGraphProvider for TextureUIPipeline {
 
     builder.fragment(|builder, binding| {
       builder.define_out_by(channel(self.target_format).with_alpha_blend());
-      let uv = builder.query::<FragmentUv>()?.get();
+      let uv = builder.query::<FragmentUv>()?;
       let texture = binding.uniform::<GPUTexture2dView>(SemanticBinding::Material);
       let sampler = binding.uniform::<GPUSamplerView>(SemanticBinding::Material);
 

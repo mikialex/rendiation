@@ -1,4 +1,4 @@
-use super::function::reduceLightBleeding;
+use super::function::ACESFilmicToneMapping;
 use crate::*;
 
 struct Test;
@@ -11,15 +11,15 @@ impl ShaderGraphProvider for Test {
     builder.vertex(|builder, _| {
       let a = consts(1.) + consts(2.);
       let a: Node<_> = (Vec3::zero(), a).into();
-      let position = builder.query_or_insert_default::<ClipPosition>();
+      let position = builder.query_or_insert_default::<ClipPosition>().mutable();
       position.set(a);
 
       position.set(Vec4::zero());
 
       let a = consts(1.).mutable();
-      let c = reduceLightBleeding(a.get(), 2.).mutable();
+      let c = ACESFilmicToneMapping(vec3(1., 2., 3.), a.get()).mutable();
 
-      for_by(5, |for_ctx, i| {
+      for_by(5, |for_ctx, i, _| {
         let b = 1.;
         if_by(i.greater_than(0), || {
           a.set(a.get() + b.into());
@@ -31,10 +31,12 @@ impl ShaderGraphProvider for Test {
       });
 
       if_by(false, || {
-        a.set(a.get() + c.get());
+        a.set(a.get() + c.get().x());
         let r: Node<Vec4<f32>> = (Vec3::zero(), a.get()).into();
         position.set(r);
       });
+
+      builder.register::<ClipPosition>(position.get());
 
       Ok(())
     })

@@ -84,12 +84,14 @@ impl GPUMaterialCache {
 
 pub struct DefaultPassDispatcher {
   pub formats: RenderTargetFormatsInfo,
-  pub pass_info: UniformBufferView<RenderPassGPUInfoData>,
+  pub auto_write: bool,
+  pub pass_info: UniformBufferDataView<RenderPassGPUInfoData>,
 }
 
 impl ShaderHashProvider for DefaultPassDispatcher {
   fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
     self.formats.hash(hasher);
+    self.auto_write.hash(hasher);
   }
 }
 impl ShaderPassBuilder for DefaultPassDispatcher {
@@ -134,6 +136,20 @@ impl ShaderGraphProvider for DefaultPassDispatcher {
       builder.multisample.count = self.formats.sample_count;
 
       Ok(())
+    })
+  }
+
+  fn post_build(
+    &self,
+    builder: &mut ShaderGraphRenderPipelineBuilder,
+  ) -> Result<(), ShaderGraphBuildError> {
+    builder.fragment(|builder, _| {
+      if self.auto_write && !self.formats.color_formats.is_empty() {
+        let default = builder.query_or_insert_default::<DefaultDisplay>();
+        builder.set_fragment_out(0, default)
+      } else {
+        Ok(())
+      }
     })
   }
 }

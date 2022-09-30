@@ -20,7 +20,7 @@ pub struct FatlineMaterialUniform {
 }
 
 pub struct FatlineMaterialGPU {
-  uniform: UniformBufferView<FatlineMaterialUniform>,
+  uniform: UniformBufferDataView<FatlineMaterialUniform>,
 }
 
 impl ShaderHashProvider for FatlineMaterialGPU {}
@@ -37,18 +37,18 @@ impl ShaderGraphProvider for FatlineMaterialGPU {
     builder: &mut ShaderGraphRenderPipelineBuilder,
   ) -> Result<(), ShaderGraphBuildError> {
     builder.vertex(|builder, binding| {
-      let uv = builder.query::<GeometryUV>()?.get();
-      let color_with_alpha = builder.query::<GeometryColorWithAlpha>()?.get();
+      let uv = builder.query::<GeometryUV>()?;
+      let color_with_alpha = builder.query::<GeometryColorWithAlpha>()?;
       let material = binding.uniform_by(&self.uniform, SB::Material).expand();
 
       let vertex_position = fatline_vertex(
-        builder.query::<CameraProjectionMatrix>()?.get(),
-        builder.query::<CameraViewMatrix>()?.get(),
-        builder.query::<WorldMatrix>()?.get(),
-        builder.query::<FatLineStart>()?.get(),
-        builder.query::<FatLineEnd>()?.get(),
-        builder.query::<GeometryPosition>()?.get(),
-        builder.query::<RenderBufferSize>()?.get(),
+        builder.query::<CameraProjectionMatrix>()?,
+        builder.query::<CameraViewMatrix>()?,
+        builder.query::<WorldMatrix>()?,
+        builder.query::<FatLineStart>()?,
+        builder.query::<FatLineEnd>()?,
+        builder.query::<GeometryPosition>()?,
+        builder.query::<RenderBufferSize>()?,
         material.width,
       );
 
@@ -59,14 +59,15 @@ impl ShaderGraphProvider for FatlineMaterialGPU {
     })?;
 
     builder.fragment(|builder, _| {
-      let uv = builder.query::<FragmentUv>()?.get();
-      let color = builder.query::<FragmentColorAndAlpha>()?.get();
+      let uv = builder.query::<FragmentUv>()?;
+      let color = builder.query::<FragmentColorAndAlpha>()?;
 
       if_by(discard_fatline_round_corner(uv), || {
-        // builder.discard(); todo!
+        builder.discard();
       });
 
-      builder.set_fragment_out(0, color)
+      builder.register::<DefaultDisplay>(color);
+      Ok(())
     })
   }
 }
@@ -150,7 +151,7 @@ wgsl_fn!(
 );
 
 wgsl_fn!(
-  fn discard_fatline_round_corner(uv: vec2<f32>) -> bool {
+  fn discard_fatline_round_corner(vUv: vec2<f32>) -> bool {
     if (abs(vUv.y) > 1.0) {
       let a = vUv.x;
       let b = vUv.y + select(1.0, -1.0, vUv.y > 0.0);
@@ -171,8 +172,7 @@ impl WebGPUMaterial for FatLineMaterial {
       width: self.width,
       ..Zeroable::zeroed()
     };
-    let uniform = UniformBufferResource::create_with_source(uniform, &gpu.device);
-    let uniform = uniform.create_default_view();
+    let uniform = create_uniform(uniform, gpu);
 
     FatlineMaterialGPU { uniform }
   }

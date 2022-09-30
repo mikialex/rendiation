@@ -1,6 +1,6 @@
 use super::{BSTBounding, BSTTree, BinarySpaceTree};
 use crate::utils::BuildPrimitive;
-use rendiation_algebra::Vec3;
+use rendiation_algebra::vec3;
 use rendiation_geometry::Box3;
 
 pub type BinaryTree = BSTTree<Binary, 2, 1>;
@@ -21,15 +21,13 @@ impl BSTBounding<3, 8> for Box3 {
     i
   }
 
+  #[rustfmt::skip]
   fn compute_sub_space(&self, i: usize) -> Self {
     let center = self.center();
-    let half_size = self.half_size();
-    let x_dir = if i % 2 < 1 { 1.0 } else { -1.0 };
-    let y_dir = if i % 4 < 2 { 1.0 } else { -1.0 };
-    let z_dir = if i < 4 { 1.0 } else { -1.0 };
-
-    let child_center = center + half_size * Vec3::new(x_dir, y_dir, z_dir);
-    Box3::new_from_center(child_center, half_size * 0.5)
+    let (x_min, x_max) = if i & 1 > 0 { (center.x, self.max.x) } else { (self.min.x, center.x) };
+    let (y_min, y_max) = if i & 2 > 0 { (center.y, self.max.y) } else { (self.min.y, center.y) };
+    let (z_min, z_max) = if i & 4 > 0 { (center.z, self.max.z) } else { (self.min.z, center.z) };
+    Box3::new(vec3(x_min, y_min, z_min), vec3(x_max, y_max, z_max))
   }
 }
 

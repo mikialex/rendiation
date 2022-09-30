@@ -6,6 +6,7 @@ use webgpu::*;
 pub mod axis;
 pub mod camera;
 pub mod grid;
+pub mod ground;
 
 pub type HelperLineMesh = FatlineMesh;
 pub type HelperLineModel = FatlineImpl;
@@ -43,6 +44,7 @@ impl ShaderGraphProvider for WidgetDispatcher {
     &self,
     builder: &mut ShaderGraphRenderPipelineBuilder,
   ) -> Result<(), ShaderGraphBuildError> {
+    self.inner.post_build(builder)?;
     builder.fragment(|builder, _| {
       // todo improve, we should only override blend
       MaterialStates {

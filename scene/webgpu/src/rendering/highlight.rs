@@ -25,8 +25,7 @@ impl Default for HighLightData {
 impl HighLighter {
   pub fn new(gpu: &GPU) -> Self {
     Self {
-      data: UniformBufferDataResource::create_with_source(Default::default(), &gpu.device)
-        .create_default_view(),
+      data: create_uniform(Default::default(), gpu),
     }
   }
 }
@@ -45,7 +44,7 @@ impl HighLighter {
     &self,
     objects: T,
     ctx: &mut FrameCtx,
-    scene: &Scene<WebGPUScene>,
+    camera: &SceneCamera,
   ) -> impl PassContent + '_
   where
     T: IntoIterator<Item = &'i dyn SceneRenderable> + Copy,
@@ -57,7 +56,7 @@ impl HighLighter {
     pass("highlight-selected-mask")
       .with_color(selected_mask.write(), clear(color_same(0.)))
       .render(ctx)
-      .by(scene.by_main_camera(highlight(objects)));
+      .by(CameraRef::with(camera, highlight(objects)));
 
     self.draw_result(selected_mask.read_into())
   }
@@ -99,8 +98,8 @@ impl<'a, T> ShaderGraphProvider for HighLightComposeTask<'a, T> {
       let mask = binding.uniform_by(&self.mask, SB::Material);
       let sampler = binding.uniform::<GPUSamplerView>(SB::Material);
 
-      let uv = builder.query::<FragmentUv>()?.get();
-      let size = builder.query::<RenderBufferSize>()?.get();
+      let uv = builder.query::<FragmentUv>()?;
+      let size = builder.query::<RenderBufferSize>()?;
 
       builder.set_fragment_out(
         0,

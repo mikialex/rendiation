@@ -1,9 +1,6 @@
 pub mod code_builder;
 pub use code_builder::*;
 
-pub mod ctx;
-pub use ctx::*;
-
 use crate::*;
 
 pub trait ShaderGraphCodeGenTarget {
@@ -32,6 +29,15 @@ pub fn float_group(f: &[f32]) -> String {
   let v = f
     .iter()
     .map(|f| float_to_shader(*f))
+    .collect::<Vec<_>>()
+    .join(", ");
+  format!("({})", v)
+}
+
+pub fn uint_group(f: &[u32]) -> String {
+  let v = f
+    .iter()
+    .map(|f| format!("{}", f))
     .collect::<Vec<_>>()
     .join(", ");
   format!("({})", v)

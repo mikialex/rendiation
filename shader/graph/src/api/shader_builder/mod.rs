@@ -28,6 +28,8 @@ pub struct ShaderGraphRenderPipelineBuilder {
 
   /// Log the shader build result when building shader, for debug purpose.
   pub log_result: bool,
+
+  pub context: HashMap<TypeId, Box<dyn Any>>,
 }
 
 impl Default for ShaderGraphRenderPipelineBuilder {
@@ -38,6 +40,7 @@ impl Default for ShaderGraphRenderPipelineBuilder {
       vertex: ShaderGraphVertexBuilder::new(),
       fragment: ShaderGraphFragmentBuilder::new(),
       log_result: false,
+      context: Default::default(),
     }
   }
 }
@@ -72,13 +75,17 @@ impl ShaderGraphRenderPipelineBuilder {
   pub fn fragment<T>(
     &mut self,
     logic: impl FnOnce(
-      &mut ShaderGraphFragmentBuilder,
+      &mut ShaderGraphFragmentBuilderView,
       &mut ShaderGraphBindGroupDirectBuilder,
     ) -> Result<T, ShaderGraphBuildError>,
   ) -> Result<T, ShaderGraphBuildError> {
     self.vertex.sync_fragment_out(&mut self.fragment);
     set_current_building(ShaderStages::Fragment.into());
-    let result = logic(&mut self.fragment, &mut self.bindgroups.wrap())?;
+    let mut builder = ShaderGraphFragmentBuilderView {
+      base: &mut self.fragment,
+      vertex: &mut self.vertex,
+    };
+    let result = logic(&mut builder, &mut self.bindgroups.wrap())?;
     set_current_building(None);
     Ok(result)
   }
@@ -174,6 +181,13 @@ impl SemanticRegistry {
       .ok_or(ShaderGraphBuildError::MissingRequiredDependency(name))
   }
 
+  pub fn reg<T: SemanticVertexShaderValue + SemanticFragmentShaderValue>(
+    &mut self,
+    node: impl Into<Node<<T as SemanticVertexShaderValue>::ValueType>>,
+  ) {
+    self.register(TypeId::of::<T>(), node.into().cast_untyped_node());
+  }
+
   pub fn register(&mut self, id: TypeId, node: NodeUntyped) -> &NodeMutable<AnyType> {
     let node = node.mutable();
     self.registered.insert(id, node);
@@ -182,25 +196,6 @@ impl SemanticRegistry {
   }
 }
 
-struct SuperUnsafeCell<T> {
-  pub data: UnsafeCell<T>,
-}
-
-impl<T> SuperUnsafeCell<T> {
-  pub fn new(v: T) -> Self {
-    Self {
-      data: UnsafeCell::new(v),
-    }
-  }
-  #[allow(clippy::mut_from_ref)]
-  pub fn get_mut(&self) -> &mut T {
-    unsafe { &mut *(self.data.get()) }
-  }
-}
-
-unsafe impl<T> Sync for SuperUnsafeCell<T> {}
-unsafe impl<T> Send for SuperUnsafeCell<T> {}
-
 #[derive(Default)]
 pub(crate) struct PipelineShaderGraphPair {
   vertex: ShaderGraphBuilder,
@@ -208,36 +203,39 @@ pub(crate) struct PipelineShaderGraphPair {
   current: Option<ShaderStages>,
 }
 
-static IN_BUILDING_SHADER_GRAPH: once_cell::sync::Lazy<
-  SuperUnsafeCell<Option<PipelineShaderGraphPair>>,
-> = once_cell::sync::Lazy::new(|| SuperUnsafeCell::new(None));
+thread_local! {
+  static IN_BUILDING_SHADER_GRAPH: RefCell<Option<PipelineShaderGraphPair>> = RefCell::new(None);
+}
 
 pub(crate) fn modify_graph<T>(modifier: impl FnOnce(&mut ShaderGraphBuilder) -> T) -> T {
-  let graph = IN_BUILDING_SHADER_GRAPH.get_mut().as_mut().unwrap();
-  let graph = match graph.current.unwrap() {
-    ShaderStages::Vertex => &mut graph.vertex,
-    ShaderStages::Fragment => &mut graph.fragment,
-  };
+  IN_BUILDING_SHADER_GRAPH.with_borrow_mut(|graph| {
+    let graph = graph.as_mut().unwrap();
+    let graph = match graph.current.unwrap() {
+      ShaderStages::Vertex => &mut graph.vertex,
+      ShaderStages::Fragment => &mut graph.fragment,
+    };
 
-  modifier(graph)
+    modifier(graph)
+  })
 }
 
 pub(crate) fn set_current_building(current: Option<ShaderStages>) {
-  let graph = IN_BUILDING_SHADER_GRAPH.get_mut().as_mut().unwrap();
-  graph.current = current
+  IN_BUILDING_SHADER_GRAPH.with_borrow_mut(|graph| {
+    let graph = graph.as_mut().unwrap();
+    graph.current = current
+  })
 }
 
-pub(crate) fn get_current_stage_unwrap() -> ShaderStages {
-  let graph = IN_BUILDING_SHADER_GRAPH.get_mut().as_mut().unwrap();
-  graph.current.unwrap()
+pub(crate) fn get_current_stage() -> Option<ShaderStages> {
+  IN_BUILDING_SHADER_GRAPH.with_borrow_mut(|graph| graph.as_mut().unwrap().current)
 }
 
 pub(crate) fn set_build_graph() {
-  IN_BUILDING_SHADER_GRAPH
-    .get_mut()
-    .replace(Default::default());
+  IN_BUILDING_SHADER_GRAPH.with_borrow_mut(|graph| {
+    graph.replace(Default::default());
+  })
 }
 
 pub(crate) fn take_build_graph() -> PipelineShaderGraphPair {
-  IN_BUILDING_SHADER_GRAPH.get_mut().take().unwrap()
+  IN_BUILDING_SHADER_GRAPH.with_borrow_mut(|graph| graph.take().unwrap())
 }

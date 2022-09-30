@@ -8,3 +8,5 @@ version = "0.1.0"
 naga = {version = "*", features = ["wgsl-in"]}
 shadergraph = {path = "../graph"}
 wgsl-codegen-graph = {path = "../language/wgsl/codegen-graph"}
+wgsl-shader-derives = {path = "../language/wgsl/derive"}
+wgpu-types = "*"

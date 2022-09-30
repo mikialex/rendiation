@@ -14,6 +14,10 @@ pub mod framework;
 pub use framework::*;
 pub mod blur;
 pub use blur::*;
+pub mod defer;
+pub use defer::*;
+pub mod tonemap;
+pub use tonemap::*;
 
 use crate::*;
 
@@ -34,7 +38,7 @@ pub trait RenderComponent: ShaderHashProvider + ShaderGraphProvider + ShaderPass
     ctx.binding.reset();
     ctx.reset_vertex_binding_index();
 
-    self.setup_pass(ctx);
+    self.setup_pass_self(ctx);
 
     ctx.pass.set_pipeline_owned(&pipeline);
 
@@ -84,6 +88,13 @@ impl<'a, 'b> ShaderPassBuilder for RenderEmitter<'a, 'b> {
   fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
     self.contents.iter().for_each(|c| c.setup_pass(ctx));
   }
+  fn post_setup_pass(&self, ctx: &mut GPURenderPassCtx) {
+    self
+      .contents
+      .iter()
+      .rev()
+      .for_each(|c| c.post_setup_pass(ctx));
+  }
 }
 
 impl<'a, 'b> ShaderHashProvider for RenderEmitter<'a, 'b> {
@@ -120,7 +131,7 @@ impl<'a, 'b> ShaderGraphProvider for RenderEmitter<'a, 'b> {
 pub struct SceneRenderPass<'a, 'b, 'c> {
   pub ctx: GPURenderPassCtx<'a, 'b>,
   pub resources: &'c mut GPUResourceCache,
-  pub pass_info: UniformBufferView<RenderPassGPUInfoData>,
+  pub pass_info: UniformBufferDataView<RenderPassGPUInfoData>,
 }
 
 impl<'a, 'b, 'c> SceneRenderPass<'a, 'b, 'c> {
@@ -128,6 +139,7 @@ impl<'a, 'b, 'c> SceneRenderPass<'a, 'b, 'c> {
     DefaultPassDispatcher {
       formats: self.ctx.pass.formats().clone(),
       pass_info: self.pass_info.clone(),
+      auto_write: true,
     }
   }
 }
@@ -149,6 +161,12 @@ impl<'a, 'b, 'c> std::ops::DerefMut for SceneRenderPass<'a, 'b, 'c> {
 pub struct CameraRef<'a, T> {
   camera: &'a SceneCamera,
   inner: T,
+}
+
+impl<'a, T> CameraRef<'a, T> {
+  pub fn with(camera: &'a SceneCamera, inner: T) -> Self {
+    CameraRef { camera, inner }
+  }
 }
 
 pub trait WebGPUScenePipelineHelper<S: SceneContent> {

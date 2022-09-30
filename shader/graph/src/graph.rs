@@ -97,9 +97,8 @@ impl<T: ShaderGraphNodeType> NodeMutable<T> {
       }
 
       ShaderGraphNode::Write {
-        source: node.handle(),
-        target: self.get().handle(),
-        implicit: false,
+        new: node.handle(),
+        old: self.get().handle().into(),
       }
       .insert_into_graph::<AnyType>(builder)
     });
@@ -144,6 +143,9 @@ impl ShaderGraphNodeRawHandle {
 pub struct ShaderGraphBuilder {
   pub scopes: Vec<ShaderGraphScope>,
   /// if struct insert order matters, we have to use linked hashmap
+  ///
+  /// this only contains struct used directly by node api.
+  /// the struct used by shader fragments will be considered later
   pub struct_defines: HashSet<&'static ShaderStructMetaInfo>,
 }
 
@@ -156,11 +158,31 @@ impl Default for ShaderGraphBuilder {
   }
 }
 
+fn extract_struct_define(
+  ty: &ShaderValueType,
+  visitor: &mut impl FnMut(&'static ShaderStructMetaInfo),
+) {
+  if let ShaderValueType::Fixed(v) = ty {
+    extract_struct_define_inner(v, visitor)
+  }
+}
+
+fn extract_struct_define_inner(
+  ty: &ShaderStructMemberValueType,
+  visitor: &mut impl FnMut(&'static ShaderStructMetaInfo),
+) {
+  match ty {
+    ShaderStructMemberValueType::Primitive(_) => {}
+    ShaderStructMemberValueType::Struct(s) => visitor(s),
+    ShaderStructMemberValueType::FixedSizeArray((ty, _)) => {
+      extract_struct_define_inner(ty, visitor)
+    }
+  }
+}
+
 impl ShaderGraphBuilder {
   pub fn check_register_type<T: ShaderGraphNodeType>(&mut self) {
-    if let Some(s) = T::extract_struct_define() {
-      self.check_insert(s)
-    }
+    extract_struct_define(&T::TYPE, &mut |s| self.check_insert(s));
   }
 
   fn check_insert(&mut self, s: &'static ShaderStructMetaInfo) {

@@ -8,6 +8,13 @@ pub struct Texture2DBuffer<P> {
   size: Size,
 }
 
+impl<P> Texture2DBuffer<P> {
+  pub fn from_raw(data: Vec<P>, size: Size) -> Self {
+    assert_eq!(data.len(), size.area());
+    Self { data, size }
+  }
+}
+
 impl<T> core::fmt::Debug for Texture2DBuffer<T> {
   fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
     f.debug_struct("Texture2DBuffer")

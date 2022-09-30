@@ -1,6 +1,7 @@
 pub use wgpu_types::BufferAddress;
 pub use wgpu_types::ColorTargetState;
 pub use wgpu_types::DepthStencilState;
+pub use wgpu_types::Face;
 pub use wgpu_types::MultisampleState;
 pub use wgpu_types::PrimitiveState;
 pub use wgpu_types::TextureSampleType;

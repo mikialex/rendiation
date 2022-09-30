@@ -60,7 +60,11 @@ impl DrawcallEmitter for FullScreenQuad {
 }
 
 impl ShaderPassBuilder for FullScreenQuad {}
-impl ShaderHashProvider for FullScreenQuad {}
+impl ShaderHashProvider for FullScreenQuad {
+  fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
+    self.blend.hash(hasher)
+  }
+}
 impl ShaderGraphProvider for FullScreenQuad {
   fn build(
     &self,
@@ -119,7 +123,8 @@ where
   T: RenderComponentAny,
 {
   fn render(&mut self, pass: &mut SceneRenderPass) {
-    let base = pass.default_dispatcher();
+    let mut base = pass.default_dispatcher();
+    base.auto_write = false;
     let components: [&dyn RenderComponentAny; 3] = [&base, &self.quad, &self.content];
     RenderEmitter::new(components.as_slice()).render(&mut pass.ctx, &self.quad);
   }

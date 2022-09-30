@@ -13,6 +13,7 @@ where
   resources.texture_2ds.get_update_or_insert_with(
     &texture,
     |texture| {
+      let texture = texture.as_ref();
       let desc = texture.create_tex2d_desc(MipLevelCount::EmptyMipMap);
 
       GPUTexture2d::create(desc, &gpu.device)

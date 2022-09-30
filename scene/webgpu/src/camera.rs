@@ -17,11 +17,11 @@ pub fn setup_viewport<'a>(cb: &CameraViewBounds, pass: &mut GPURenderPass<'a>, b
 
 #[derive(Default)]
 pub struct CameraGPUStore {
-  inner: IdentityMapper<CameraGPU, Camera>,
+  inner: IdentityMapper<CameraGPU, SceneCameraInner>,
 }
 
 impl std::ops::Deref for CameraGPUStore {
-  type Target = IdentityMapper<CameraGPU, Camera>;
+  type Target = IdentityMapper<CameraGPU, SceneCameraInner>;
 
   fn deref(&self) -> &Self::Target {
     &self.inner
@@ -69,44 +69,62 @@ impl ShaderGraphProvider for CameraGPU {
     &self,
     builder: &mut ShaderGraphRenderPipelineBuilder,
   ) -> Result<(), ShaderGraphBuildError> {
-    builder.vertex(|builder, binding| {
-      let camera = binding.uniform_by(&self.ubo, SB::Camera).expand();
-      let position = builder.query::<WorldVertexPosition>()?.get();
-      builder.register::<CameraViewMatrix>(camera.view);
-      builder.register::<CameraProjectionMatrix>(camera.projection);
+    let camera = self.inject_uniforms(builder);
+
+    builder.vertex(|builder, _| {
+      let camera = camera.using().expand();
+      let position = builder.query::<WorldVertexPosition>()?;
       builder.register::<ClipPosition>(camera.projection * camera.view * (position, 1.).into());
+
       Ok(())
     })
   }
 }
 
 #[repr(C)]
-#[derive(Clone, Copy, Pod, Zeroable, Default, ShaderStruct)]
+#[std140_layout]
+#[derive(Clone, Copy, Default, ShaderStruct)]
 pub struct CameraGPUTransform {
   pub projection: Mat4<f32>,
+  pub projection_inv: Mat4<f32>,
   pub rotation: Mat4<f32>,
   pub view: Mat4<f32>,
+  pub world: Mat4<f32>,
 }
 
 impl CameraGPU {
-  pub fn update(&mut self, gpu: &GPU, camera: &Camera) -> &mut Self {
+  pub fn inject_uniforms(
+    &self,
+    builder: &mut ShaderGraphRenderPipelineBuilder,
+  ) -> UniformNodePreparer<CameraGPUTransform> {
+    builder
+      .uniform_by(&self.ubo, SB::Camera)
+      .using_both(builder, |r, camera| {
+        let camera = camera.expand();
+        r.reg::<CameraViewMatrix>(camera.view);
+        r.reg::<CameraProjectionMatrix>(camera.projection);
+        r.reg::<CameraProjectionInverseMatrix>(camera.projection_inv);
+        r.reg::<CameraWorldMatrix>(camera.world);
+      })
+  }
+
+  pub fn update(&mut self, gpu: &GPU, camera: &SceneCameraInner) -> &mut Self {
     self.ubo.resource.mutate(|uniform| {
       let world_matrix = camera.node.visit(|node| node.world_matrix);
+      uniform.world = world_matrix;
       uniform.view = world_matrix.inverse_or_identity();
       uniform.rotation = world_matrix.extract_rotation_mat();
       uniform.projection = camera.projection_matrix;
+      uniform.projection_inv = camera.projection_matrix.inverse_or_identity();
     });
 
-    self.ubo.resource.update(&gpu.queue);
+    self.ubo.resource.upload(&gpu.queue);
 
     self
   }
 
   pub fn new(gpu: &GPU) -> Self {
-    let ubo =
-      UniformBufferDataResource::create_with_source(CameraGPUTransform::default(), &gpu.device);
-    let ubo = ubo.create_view(());
-
+    let ubo = create_uniform(CameraGPUTransform::default(), gpu);
     Self { ubo }
   }
 }

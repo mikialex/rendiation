@@ -48,6 +48,6 @@ where
   }
 
   pub fn get_value(&self, id: ValueID<T>) -> Option<&T> {
-    return self.values.get(id.value);
+    self.values.get(id.value)
   }
 }

@@ -1,7 +1,7 @@
 use std::borrow::Cow;
 use std::mem;
 
-use rendiation_algebra::Vec2;
+use rendiation_algebra::*;
 use rendiation_texture::Size;
 use webgpu::*;
 
@@ -10,7 +10,7 @@ use crate::TextQuadInstance;
 use super::WebGPUxTextPrimitive;
 
 pub struct TextWebGPURenderer {
-  transform: UniformBufferData<[f32; 16]>,
+  transform: UniformBufferData<Mat4<f32>>,
   sampler: webgpu::Sampler,
   bindgroup_layout: webgpu::BindGroupLayout,
   bindgroup: webgpu::BindGroup,
@@ -34,10 +34,6 @@ impl<'a> WebGPUTexture2dSource for TextureWriteData<'a> {
 
   fn size(&self) -> Size {
     self.size
-  }
-
-  fn bytes_per_pixel(&self) -> usize {
-    1
   }
 }
 
@@ -67,7 +63,7 @@ impl TextWebGPURenderer {
       entries: &[
         webgpu::BindGroupLayoutEntry {
           binding: 0,
-          visibility: webgpu::ShaderStages::VERTEX,
+          visibility: webgpu::ShaderStages::VERTEX_FRAGMENT,
           ty: webgpu::BindingType::Buffer {
             ty: webgpu::BufferBindingType::Uniform,
             has_dynamic_offset: false,
@@ -77,13 +73,13 @@ impl TextWebGPURenderer {
         },
         webgpu::BindGroupLayoutEntry {
           binding: 1,
-          visibility: webgpu::ShaderStages::FRAGMENT,
+          visibility: webgpu::ShaderStages::VERTEX_FRAGMENT,
           ty: webgpu::BindingType::Sampler(webgpu::SamplerBindingType::Filtering),
           count: None,
         },
         webgpu::BindGroupLayoutEntry {
           binding: 2,
-          visibility: webgpu::ShaderStages::FRAGMENT,
+          visibility: webgpu::ShaderStages::VERTEX_FRAGMENT,
           ty: webgpu::BindingType::Texture {
             sample_type: webgpu::TextureSampleType::Float { filterable: true },
             view_dimension: webgpu::TextureViewDimension::D2,
@@ -157,7 +153,7 @@ impl TextWebGPURenderer {
     self
       .transform
       .mutate(|t| *t = orthographic_projection(size.x, size.y));
-    self.transform.update(queue);
+    self.transform.upload(queue);
   }
 
   pub fn draw<'r>(&'r self, render_pass: &mut GPURenderPass<'r>, text: &'r WebGPUxTextPrimitive) {
@@ -180,20 +176,20 @@ impl TextWebGPURenderer {
 }
 
 /// Helper function to generate a generate a transform matrix.
-pub fn orthographic_projection(width: f32, height: f32) -> [f32; 16] {
+pub fn orthographic_projection(width: f32, height: f32) -> Mat4<f32> {
   #[rustfmt::skip]
     [
-        2.0 / width , 0.0, 0.0, 0.0,
-        0.0, -2.0 / height , 0.0, 0.0,
-        0.0, 0.0, 1.0, 0.0,
-        -1.0, 1.0, 0.0, 1.0,
-    ]
+      2.0 / width, 0.0,          0.0, 0.0,
+      0.0,        -2.0 / height, 0.0, 0.0,
+      0.0,         0.0,          1.0, 0.0,
+     -1.0,         1.0,          0.0, 1.0,
+    ].into()
 }
 
 fn create_bindgroup(
   device: &webgpu::Device,
   layout: &webgpu::BindGroupLayout,
-  transform: &UniformBufferData<[f32; 16]>,
+  transform: &UniformBufferData<Mat4<f32>>,
   sampler: &webgpu::Sampler,
   cache: &webgpu::TextureView,
 ) -> webgpu::BindGroup {

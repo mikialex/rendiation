@@ -11,7 +11,7 @@ pub struct CameraHelper {
 impl CameraHelper {
   pub fn from_node_and_project_matrix(node: SceneNode, project_mat: Mat4<f32>) -> Self {
     let camera_mesh = build_debug_line_in_camera_space(project_mat.inverse_or_identity());
-    let fatline_mat = FatLineMaterial { width: 3. }.use_state();
+    let fatline_mat = FatLineMaterial { width: 3. }.use_state_helper_like();
     let fatline = HelperLineModel::new(fatline_mat, camera_mesh, node);
     Self {
       model: fatline,
@@ -93,7 +93,7 @@ fn build_debug_line_in_camera_space(project_mat: Mat4<f32>) -> HelperLineMesh {
 
 pub struct CameraHelpers {
   pub enabled: bool,
-  pub helpers: IdentityMapper<CameraHelper, Camera>,
+  pub helpers: IdentityMapper<CameraHelper, SceneCameraInner>,
 }
 
 impl Default for CameraHelpers {

@@ -1,7 +1,7 @@
 use bytemuck::*;
 use rendiation_algebra::*;
 use rendiation_texture::Size;
-use shadergraph::{SemanticBinding, ShaderGraphProvider, ShaderStruct};
+use shadergraph::{std140_layout, SemanticBinding, ShaderGraphProvider, ShaderStruct};
 use webgpu::util::DeviceExt;
 use webgpu::*;
 
@@ -209,6 +209,7 @@ impl WebGPUxUIRenderer {
   ) -> Self {
     let global_ui_state = UIGlobalParameter {
       screen_size: Vec2::new(1000., 1000.),
+      ..Zeroable::zeroed()
     };
 
     let global_ui_state = UniformBufferData::create(device, global_ui_state);
@@ -285,7 +286,7 @@ impl WebGPUxUIRenderer {
       .global_ui_state
       .mutate(|t| t.screen_size = screen_size);
 
-    self.resource.global_ui_state.update(&gpu.queue);
+    self.resource.global_ui_state.upload(&gpu.queue);
 
     self.text_renderer.resize_view(screen_size, &gpu.queue);
 
@@ -301,7 +302,8 @@ impl WebGPUxUIRenderer {
 }
 
 #[repr(C)]
-#[derive(Debug, Copy, Clone, ShaderStruct, Zeroable, Pod)]
+#[std140_layout]
+#[derive(Debug, Copy, Clone, ShaderStruct)]
 pub struct UIGlobalParameter {
   pub screen_size: Vec2<f32>,
 }
@@ -312,7 +314,7 @@ impl UIGlobalParameter {
       label: None,
       entries: &[webgpu::BindGroupLayoutEntry {
         binding: 0,
-        visibility: webgpu::ShaderStages::VERTEX,
+        visibility: webgpu::ShaderStages::VERTEX_FRAGMENT,
         ty: webgpu::BindingType::Buffer {
           has_dynamic_offset: false,
           min_binding_size: None,

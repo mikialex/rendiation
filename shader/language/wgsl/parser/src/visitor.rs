@@ -44,6 +44,7 @@ impl ASTElement for TypeExpression {
     match self {
       TypeExpression::Struct(i) => i.visit_by(visitor),
       TypeExpression::Primitive(p) => p.visit_by(visitor),
+      TypeExpression::FixedArray((t, _)) => t.visit_by(visitor),
     }
   }
 }

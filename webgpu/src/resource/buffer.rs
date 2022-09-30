@@ -1,26 +1,20 @@
+use shadergraph::Std140;
+
 use crate::*;
 
-pub type UniformBufferResource<T> = ResourceRc<UniformBuffer<T>>;
-pub type UniformBufferView<T> = ResourceViewRc<UniformBuffer<T>>;
+pub type GPUBufferResource = ResourceRc<GPUBuffer>;
+pub type GPUBufferResourceView = ResourceViewRc<GPUBuffer>;
 
-impl<T: 'static> Resource for UniformBuffer<T> {
-  type Descriptor = ();
-  type View = Rc<gpu::Buffer>;
-  type ViewDescriptor = ();
+impl Resource for GPUBuffer {
+  type Descriptor = gpu::BufferUsages;
+  type View = GPUBufferView;
+  type ViewDescriptor = GPUBufferViewRange;
 
-  fn create_view(&self, _des: &Self::ViewDescriptor) -> Self::View {
-    self.gpu.clone()
-  }
-}
-
-impl<T: Pod> InitResourceBySource for UniformBuffer<T> {
-  type Source = T;
-
-  fn create_resource_with_source(
-    source: &Self::Source,
-    device: &GPUDevice,
-  ) -> (Self, Self::Descriptor) {
-    (Self::create(device, *source), ())
+  fn create_view(&self, des: &Self::ViewDescriptor) -> Self::View {
+    GPUBufferView {
+      buffer: self.clone(),
+      range: *des,
+    }
   }
 }
 
@@ -30,27 +24,23 @@ impl BindableResourceView for Rc<gpu::Buffer> {
   }
 }
 
-/// Typed wrapper
-pub struct UniformBuffer<T> {
-  gpu: Rc<gpu::Buffer>,
-  phantom: PhantomData<T>,
+#[derive(Clone)]
+pub struct GPUBuffer {
+  pub gpu: Rc<gpu::Buffer>,
 }
 
-impl<T: Pod> UniformBuffer<T> {
-  pub fn create(device: &GPUDevice, data: T) -> Self {
+impl GPUBuffer {
+  pub fn create(device: &GPUDevice, bytes: &[u8], usage: gpu::BufferUsages) -> Self {
     let gpu = device.create_buffer_init(&gpu::util::BufferInitDescriptor {
       label: None,
-      contents: bytemuck::cast_slice(&[data]),
-      usage: gpu::BufferUsages::UNIFORM | gpu::BufferUsages::COPY_DST,
+      contents: bytes,
+      usage,
     });
-    Self {
-      gpu: Rc::new(gpu),
-      phantom: PhantomData,
-    }
+    Self { gpu: Rc::new(gpu) }
   }
 
-  pub fn update(&self, queue: &gpu::Queue, data: T) {
-    queue.write_buffer(&self.gpu, 0, bytemuck::cast_slice(&[data]))
+  pub fn update(&self, queue: &gpu::Queue, bytes: &[u8]) {
+    queue.write_buffer(&self.gpu, 0, bytes)
   }
 
   pub fn gpu(&self) -> &gpu::Buffer {
@@ -58,14 +48,40 @@ impl<T: Pod> UniformBuffer<T> {
   }
 }
 
-impl<T> BindableResourceView for UniformBuffer<T> {
+impl BindableResourceView for GPUBufferView {
   fn as_bindable(&self) -> gpu::BindingResource {
-    self.gpu.as_entire_binding()
+    gpu::BindingResource::Buffer(BufferBinding {
+      buffer: &self.buffer.gpu,
+      offset: self.range.offset,
+      size: self.range.size,
+    })
   }
 }
 
+#[derive(Debug, Copy, Clone, Default)]
+pub struct GPUBufferViewRange {
+  /// in bytes
+  pub offset: u64,
+  /// in bytes, Size of the binding, or None for using the rest of the buffer.
+  pub size: Option<std::num::NonZeroU64>,
+}
+
+pub struct GPUBufferView {
+  buffer: GPUBuffer,
+  range: GPUBufferViewRange,
+}
+
+/// just short convenient method
+pub fn create_gpu_buffer(
+  data: &[u8],
+  usage: gpu::BufferUsages,
+  gpu: &GPUDevice,
+) -> GPUBufferResource {
+  GPUBufferResource::create_with_raw(GPUBuffer::create(gpu, data, usage), usage)
+}
+
 /// Typed uniform buffer with cpu data cache, which could being diffed when updating
-pub struct UniformBufferData<T> {
+pub struct UniformBufferData<T: Std140> {
   gpu: Rc<gpu::Buffer>,
   data: RefCell<T>,
   last: Cell<Option<T>>,
@@ -75,7 +91,12 @@ pub struct UniformBufferData<T> {
 pub type UniformBufferDataResource<T> = ResourceRc<UniformBufferData<T>>;
 pub type UniformBufferDataView<T> = ResourceViewRc<UniformBufferData<T>>;
 
-impl<T: 'static> Resource for UniformBufferData<T> {
+/// just short convenient method
+pub fn create_uniform<T: Std140>(data: T, gpu: &GPU) -> UniformBufferDataView<T> {
+  UniformBufferDataResource::create_with_source(data, &gpu.device).create_default_view()
+}
+
+impl<T: Std140> Resource for UniformBufferData<T> {
   type Descriptor = ();
   type View = Rc<gpu::Buffer>;
   type ViewDescriptor = ();
@@ -85,7 +106,7 @@ impl<T: 'static> Resource for UniformBufferData<T> {
   }
 }
 
-impl<T: Pod> InitResourceBySource for UniformBufferData<T> {
+impl<T: Std140> InitResourceBySource for UniformBufferData<T> {
   type Source = T;
 
   fn create_resource_with_source(
@@ -96,7 +117,7 @@ impl<T: Pod> InitResourceBySource for UniformBufferData<T> {
   }
 }
 
-impl<T: Pod> UniformBufferData<T> {
+impl<T: Std140> UniformBufferData<T> {
   pub fn create_default(device: &GPUDevice) -> Self
   where
     T: Default,
@@ -124,7 +145,13 @@ impl<T: Pod> UniformBufferData<T> {
     self.changed.set(true);
   }
 
-  pub fn update(&self, queue: &gpu::Queue) {
+  pub fn set(&self, v: T) {
+    let mut data = self.data.borrow_mut();
+    *data = v;
+    self.changed.set(true);
+  }
+
+  pub fn upload(&self, queue: &gpu::Queue) {
     if self.changed.get() {
       let data = self.data.borrow();
       let data: &T = &data;
@@ -134,7 +161,7 @@ impl<T: Pod> UniformBufferData<T> {
     }
   }
 
-  pub fn update_with_diff(&self, queue: &gpu::Queue)
+  pub fn upload_with_diff(&self, queue: &gpu::Queue)
   where
     T: PartialEq,
   {
@@ -156,7 +183,7 @@ impl<T: Pod> UniformBufferData<T> {
   }
 }
 
-impl<T> BindableResourceView for UniformBufferData<T> {
+impl<T: Std140> BindableResourceView for UniformBufferData<T> {
   fn as_bindable(&self) -> gpu::BindingResource {
     self.gpu.as_entire_binding()
   }

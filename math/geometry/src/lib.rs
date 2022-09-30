@@ -3,6 +3,7 @@
 
 use rendiation_algebra::*;
 
+use std::iter::once;
 use std::iter::FromIterator;
 use std::marker::PhantomData;
 use std::ops::{Deref, DerefMut};
@@ -96,7 +97,10 @@ pub trait SurfaceAreaMeasurable<T: Scalar>: SpaceEntity<T, 3> + LebesgueMeasurab
     self.measure()
   }
 }
-impl<T: Scalar, X> SurfaceAreaMeasurable<T> for X where X: SpaceEntity<T, 3> + LebesgueMeasurable<T, 2> {}
+impl<T: Scalar, X> SurfaceAreaMeasurable<T> for X where
+  X: SpaceEntity<T, 3> + LebesgueMeasurable<T, 2>
+{
+}
 
 pub trait PerimeterMeasurable<T: Scalar>: SpaceEntity<T, 2> + LebesgueMeasurable<T, 1> {
   #[inline(always)]
@@ -104,7 +108,8 @@ pub trait PerimeterMeasurable<T: Scalar>: SpaceEntity<T, 2> + LebesgueMeasurable
     self.measure()
   }
 }
-impl<T: Scalar, X> PerimeterMeasurable<T> for X where X: SpaceEntity<T, 2> + LebesgueMeasurable<T, 1> {}
+impl<T: Scalar, X> PerimeterMeasurable<T> for X where X: SpaceEntity<T, 2> + LebesgueMeasurable<T, 1>
+{}
 
 pub trait SolidEntity<T: Scalar, const D: usize>:
   SpaceEntity<T, D> + LebesgueMeasurable<T, D>

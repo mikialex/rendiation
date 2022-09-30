@@ -1,8 +1,21 @@
 use crate::*;
 
+pub enum ShaderBuiltInFunction {
+  MatTranspose,
+  Normalize,
+  Length,
+  Dot,
+  SmoothStep,
+}
+
+pub enum ShaderFunctionType {
+  Custom(&'static ShaderFunctionMetaInfo),
+  BuiltIn(ShaderBuiltInFunction),
+}
+
 pub enum ShaderGraphNodeExpr {
   FunctionCall {
-    meta: &'static ShaderFunctionMetaInfo,
+    meta: ShaderFunctionType,
     parameters: Vec<ShaderGraphNodeRawHandle>,
   },
   TextureSampling {
@@ -10,10 +23,6 @@ pub enum ShaderGraphNodeExpr {
     sampler: ShaderGraphNodeRawHandle,
     position: ShaderGraphNodeRawHandle,
     index: Option<ShaderGraphNodeRawHandle>,
-  },
-  SamplerCombinedTextureSampling {
-    texture: ShaderGraphNodeRawHandle,
-    position: ShaderGraphNodeRawHandle,
   },
   Swizzle {
     ty: &'static str,
@@ -27,8 +36,6 @@ pub enum ShaderGraphNodeExpr {
     source: ShaderGraphNodeRawHandle,
     dimension: usize,
   },
-  MatInverse(ShaderGraphNodeRawHandle),
-  MatTranspose(ShaderGraphNodeRawHandle),
   Operator(OperatorNode),
   FieldGet {
     field_name: &'static str,
@@ -51,13 +58,10 @@ pub enum ShaderGraphNode {
   Input(ShaderGraphInputNode),
   /// This is workaround for some case
   UnNamed,
+  /// the old maybe not exist, but we require a side effect write
   Write {
-    source: ShaderGraphNodeRawHandle,
-    target: ShaderGraphNodeRawHandle,
-    /// implicit true is describe the write behavior
-    /// of a scope to a value, the wrote value is a new
-    /// value could be depend, so it's a new node.
-    implicit: bool,
+    new: ShaderGraphNodeRawHandle,
+    old: Option<ShaderGraphNodeRawHandle>,
   },
   ControlFlow(ShaderControlFlowNode),
   SideEffect(ShaderSideEffectNode),
@@ -77,16 +81,28 @@ pub enum ShaderControlFlowNode {
     scope: ShaderGraphScope,
   },
   For {
-    source: ShaderIteratorAble,
+    source: ShaderIterator,
     scope: ShaderGraphScope,
+    index: ShaderGraphNodeRawHandle,
     iter: ShaderGraphNodeRawHandle,
   },
-  // While,
 }
 
-pub enum ShaderIteratorAble {
+pub trait ShaderIteratorAble {
+  type Item: ShaderGraphNodeType;
+}
+
+pub enum ShaderIterator {
   Const(u32),
-  Count(Node<u32>),
+  Count(ShaderGraphNodeRawHandle),
+  FixedArray {
+    array: ShaderGraphNodeRawHandle,
+    length: usize,
+  },
+  Clamped {
+    source: Box<Self>,
+    max: ShaderGraphNodeRawHandle,
+  },
 }
 
 #[derive(Clone)]
@@ -112,7 +128,6 @@ pub enum BinaryOperator {
   LogicalOr,
   LogicalAnd,
 }
-
 pub enum OperatorNode {
   Unary {
     one: ShaderGraphNodeRawHandle,
@@ -122,6 +137,10 @@ pub enum OperatorNode {
     left: ShaderGraphNodeRawHandle,
     right: ShaderGraphNodeRawHandle,
     operator: BinaryOperator,
+  },
+  Index {
+    array: ShaderGraphNodeRawHandle,
+    entry: ShaderGraphNodeRawHandle,
   },
 }
 
@@ -179,8 +198,6 @@ pub struct ShaderDepthTextureCubeArray;
 pub struct ShaderSampler;
 #[derive(Clone, Copy)]
 pub struct ShaderCompareSampler;
-#[derive(Clone, Copy)]
-pub struct ShaderSamplerCombinedTexture;
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum PrimitiveShaderValueType {
@@ -191,6 +208,9 @@ pub enum PrimitiveShaderValueType {
   Vec2Float32,
   Vec3Float32,
   Vec4Float32,
+  Vec2Uint32,
+  Vec3Uint32,
+  Vec4Uint32,
   Mat2Float32,
   Mat3Float32,
   Mat4Float32,
@@ -211,6 +231,9 @@ pub enum PrimitiveShaderValue {
   Vec2Float32(Vec2<f32>),
   Vec3Float32(Vec3<f32>),
   Vec4Float32(Vec4<f32>),
+  Vec2Uint32(Vec2<u32>),
+  Vec3Uint32(Vec3<u32>),
+  Vec4Uint32(Vec4<u32>),
   Mat2Float32(Mat2<f32>),
   Mat3Float32(Mat3<f32>),
   Mat4Float32(Mat4<f32>),
@@ -229,6 +252,9 @@ impl From<PrimitiveShaderValue> for PrimitiveShaderValueType {
       PrimitiveShaderValue::Mat3Float32(_) => PrimitiveShaderValueType::Mat3Float32,
       PrimitiveShaderValue::Mat4Float32(_) => PrimitiveShaderValueType::Mat4Float32,
       PrimitiveShaderValue::Bool(_) => PrimitiveShaderValueType::Bool,
+      PrimitiveShaderValue::Vec2Uint32(_) => PrimitiveShaderValueType::Vec2Uint32,
+      PrimitiveShaderValue::Vec3Uint32(_) => PrimitiveShaderValueType::Vec3Uint32,
+      PrimitiveShaderValue::Vec4Uint32(_) => PrimitiveShaderValueType::Vec4Uint32,
     }
   }
 }
@@ -268,7 +294,6 @@ pub enum ShaderValueType {
     dimension: TextureViewDimension,
     sample_type: TextureSampleType,
   },
-  SamplerCombinedTexture,
   Never,
 }
 
@@ -314,6 +339,8 @@ pub enum ShaderBuiltInDecorator {
   InstanceIndex,
   VertexPositionOut,
   FragmentPositionIn,
+  FrontFacing,
+  FragDepth,
 }
 
 #[derive(Debug, Copy, Clone)]
@@ -355,6 +382,9 @@ shader_field_ty_mapper!(i32, Self);
 shader_field_ty_mapper!(Vec2<f32>, Self);
 shader_field_ty_mapper!(Vec3<f32>, Self);
 shader_field_ty_mapper!(Vec4<f32>, Self);
+shader_field_ty_mapper!(Vec2<u32>, Self);
+shader_field_ty_mapper!(Vec3<u32>, Self);
+shader_field_ty_mapper!(Vec4<u32>, Self);
 shader_field_ty_mapper!(Mat2<f32>, Self);
 shader_field_ty_mapper!(Mat3<f32>, Self);
 shader_field_ty_mapper!(Mat4<f32>, Self);
@@ -419,18 +449,6 @@ impl ShaderStructMetaInfoOwned {
 
 pub trait ShaderGraphNodeType: 'static + Copy {
   const TYPE: ShaderValueType;
-  fn extract_struct_define() -> Option<&'static ShaderStructMetaInfo> {
-    match Self::TYPE {
-      ShaderValueType::Fixed(v) => {
-        if let ShaderStructMemberValueType::Struct(s) = v {
-          Some(s)
-        } else {
-          None
-        }
-      }
-      _ => None,
-    }
-  }
 }
 
 pub trait ShaderStructMemberValueNodeType: ShaderGraphNodeType {
@@ -463,29 +481,12 @@ pub enum ShaderVaryingInterpolation {
 
 #[derive(Default, Clone)]
 pub struct ShaderGraphBindGroup {
-  pub bindings: Vec<(ShaderValueType, Rc<Cell<ShaderStageVisibility>>)>,
+  pub bindings: Vec<ShaderGraphBindEntry>,
 }
 
-// use bitset
 #[derive(Clone, Copy)]
-pub enum ShaderStageVisibility {
-  Vertex,
-  Fragment,
-  Both,
-  None,
-}
-
-impl ShaderStageVisibility {
-  pub fn is_visible_to(&self, stage: ShaderStages) -> bool {
-    match self {
-      ShaderStageVisibility::Vertex => {
-        matches!(stage, ShaderStages::Vertex)
-      }
-      ShaderStageVisibility::Fragment => {
-        matches!(stage, ShaderStages::Fragment)
-      }
-      ShaderStageVisibility::Both => true,
-      ShaderStageVisibility::None => false,
-    }
-  }
+pub struct ShaderGraphBindEntry {
+  pub ty: ShaderValueType,
+  pub vertex_node: ShaderGraphNodeRawHandle,
+  pub fragment_node: ShaderGraphNodeRawHandle,
 }

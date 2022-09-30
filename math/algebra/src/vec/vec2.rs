@@ -101,3 +101,14 @@ where
     write!(f, "({:?}, {:?})", self.x, self.y)
   }
 }
+
+impl<T> Vec2<T>
+where
+  T: Add<T, Output = T> + Sub<T, Output = T> + Mul<T, Output = T> + Copy,
+{
+  /// Return the cross product of the two vectors.
+  #[must_use]
+  pub fn cross(self, b: Self) -> T {
+    self.x * b.y - self.y * b.x
+  }
+}

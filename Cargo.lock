@@ -95,14 +95,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "arena-tree"
-version = "0.0.1"
-dependencies = [
- "arena",
- "rendiation-abstract-tree",
-]
-
-[[package]]
 name = "arrayvec"
 version = "0.7.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -133,6 +125,12 @@ name = "autocfg"
 version = "1.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cdb031dd78e28731d87d56cc8ffef4a8f36ca26c38fe2de700543e627f8a464a"
+
+[[package]]
+name = "base64"
+version = "0.12.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3441f0f7b02788e948e47f457ca01f1d7e6d92c693bc132c22b087d3141c03ff"
 
 [[package]]
 name = "bit-set"
@@ -889,10 +887,8 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8fc3cb4d91f53b50155bdcfd23f6a4c39ae1969c2ae85982b135750cccaf5fce"
 dependencies = [
  "cfg-if 1.0.0",
- "js-sys",
  "libc",
  "wasi 0.9.0+wasi-snapshot-preview1",
- "wasm-bindgen",
 ]
 
 [[package]]
@@ -926,6 +922,43 @@ dependencies = [
  "slotmap",
  "wasm-bindgen",
  "web-sys",
+]
+
+[[package]]
+name = "gltf"
+version = "1.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "00e0a0eace786193fc83644907097285396360e9e82e30f81a21e9b1ba836a3e"
+dependencies = [
+ "base64",
+ "byteorder",
+ "gltf-json",
+ "image",
+ "lazy_static",
+]
+
+[[package]]
+name = "gltf-derive"
+version = "1.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bdd53d6e284bb2bf02a6926e4cc4984978c1990914d6cd9deae4e31cf37cd113"
+dependencies = [
+ "inflections",
+ "proc-macro2",
+ "quote",
+ "syn",
+]
+
+[[package]]
+name = "gltf-json"
+version = "1.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9949836a9ec5e7f83f76fb9bbcbc77f254a577ebbdb0820867bc11979ef97cad"
+dependencies = [
+ "gltf-derive",
+ "serde",
+ "serde_derive",
+ "serde_json",
 ]
 
 [[package]]
@@ -1096,6 +1129,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "inflections"
+version = "1.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a257582fdcde896fd96463bf2d40eefea0580021c0712a0e2b028b60b47a837a"
+
+[[package]]
 name = "inplace_it"
 version = "0.3.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1124,7 +1163,6 @@ dependencies = [
  "image",
  "instant",
  "log",
- "once_cell",
  "rendiation-algebra",
  "rendiation-color",
  "rendiation-geometry",
@@ -1229,6 +1267,15 @@ name = "linked-hash-map"
 version = "0.5.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7fb9b38af92608140b86b693604b9ffcc5824240a484d1ecd4795bacb2fe88f3"
+
+[[package]]
+name = "linked_hash_set"
+version = "0.1.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "47186c6da4d81ca383c7c47c1bfc80f4b95f4720514d860a5407aaf4233f9588"
+dependencies = [
+ "linked-hash-map",
+]
 
 [[package]]
 name = "lock_api"
@@ -2008,7 +2055,6 @@ name = "rendiation-renderable-mesh"
 version = "0.1.0"
 dependencies = [
  "bytemuck",
- "once_cell",
  "rendiation-algebra",
  "rendiation-geometry",
  "rendiation-webgpu",
@@ -2023,14 +2069,13 @@ version = "0.1.0"
 dependencies = [
  "anymap",
  "arena",
- "arena-tree",
  "bytemuck",
  "log",
- "once_cell",
  "rendiation-algebra",
  "rendiation-geometry",
  "rendiation-renderable-mesh",
  "rendiation-texture",
+ "tree",
 ]
 
 [[package]]
@@ -2039,10 +2084,8 @@ version = "0.1.0"
 dependencies = [
  "arena",
  "arena-graph",
- "arena-tree",
  "bytemuck",
  "log",
- "once_cell",
  "rendiation-algebra",
  "rendiation-geometry",
  "rendiation-renderable-mesh",
@@ -2052,6 +2095,19 @@ dependencies = [
  "rendiation-texture",
  "rendiation-webgpu",
  "space-algorithm",
+ "tree",
+]
+
+[[package]]
+name = "rendiation-scene-gltf-loader"
+version = "0.0.1"
+dependencies = [
+ "gltf",
+ "rendiation-algebra",
+ "rendiation-scene-webgpu",
+ "rendiation-texture",
+ "rendiation-webgpu",
+ "shadergraph",
 ]
 
 [[package]]
@@ -2059,7 +2115,6 @@ name = "rendiation-scene-raytracing"
 version = "0.1.0"
 dependencies = [
  "arena",
- "arena-tree",
  "dyn-clone",
  "image",
  "indicatif",
@@ -2074,6 +2129,7 @@ dependencies = [
  "space-algorithm",
  "statrs",
  "tobj 2.0.4",
+ "tree",
 ]
 
 [[package]]
@@ -2083,8 +2139,8 @@ dependencies = [
  "anymap",
  "arena",
  "arena-graph",
- "arena-tree",
  "bytemuck",
+ "linked-hash-map",
  "log",
  "once_cell",
  "rendiation-algebra",
@@ -2095,6 +2151,7 @@ dependencies = [
  "rendiation-texture",
  "rendiation-webgpu",
  "shadergraph",
+ "tree",
  "wgsl-shader-derives",
 ]
 
@@ -2300,6 +2357,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "shadergraph-testing"
+version = "0.1.0"
+dependencies = [
+ "naga",
+ "shadergraph",
+ "wgpu-types",
+ "wgsl-codegen-graph",
+ "wgsl-shader-derives",
+]
+
+[[package]]
 name = "simba"
 version = "0.5.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2377,7 +2445,8 @@ version = "0.1.0"
 dependencies = [
  "criterion",
  "log",
- "rand 0.7.3",
+ "rand 0.8.5",
+ "rand_chacha 0.3.1",
  "rendiation-abstract-tree",
  "rendiation-algebra",
  "rendiation-geometry",
@@ -2415,6 +2484,9 @@ dependencies = [
 [[package]]
 name = "storage"
 version = "0.0.1"
+dependencies = [
+ "arena",
+]
 
 [[package]]
 name = "strsim"
@@ -2539,6 +2611,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "tree"
+version = "0.0.1"
+dependencies = [
+ "rendiation-abstract-tree",
+ "storage",
+]
+
+[[package]]
 name = "ttf-parser"
 version = "0.15.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2596,7 +2676,6 @@ dependencies = [
  "image",
  "interphaser",
  "log",
- "once_cell",
  "rendiation-algebra",
  "rendiation-controller",
  "rendiation-generative-texture",
@@ -2604,11 +2683,13 @@ dependencies = [
  "rendiation-mesh-generator",
  "rendiation-renderable-mesh",
  "rendiation-scene-core",
+ "rendiation-scene-gltf-loader",
  "rendiation-scene-webgpu",
  "rendiation-texture",
  "rendiation-webgpu",
  "shadergraph",
  "wasm-bindgen-futures",
+ "wgsl-shader-derives",
 ]
 
 [[package]]
@@ -2887,6 +2968,7 @@ dependencies = [
 name = "wgsl-codegen-graph"
 version = "0.1.0"
 dependencies = [
+ "linked_hash_set",
  "shadergraph",
 ]
 

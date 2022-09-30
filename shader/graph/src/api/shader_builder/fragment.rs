@@ -7,6 +7,58 @@ pub trait SemanticFragmentShaderValue: Any {
   const NAME: &'static str = std::any::type_name::<Self>();
 }
 
+pub struct ShaderGraphFragmentBuilderView<'a> {
+  pub(crate) base: &'a mut ShaderGraphFragmentBuilder,
+  pub(crate) vertex: &'a mut ShaderGraphVertexBuilder,
+}
+
+impl<'a> ShaderGraphFragmentBuilderView<'a> {
+  pub fn query_or_interpolate_by<T, V>(&mut self) -> Node<T::ValueType>
+  where
+    T: SemanticFragmentShaderValue,
+    T::ValueType: PrimitiveShaderGraphNodeType,
+    V: SemanticVertexShaderValue,
+    T: SemanticFragmentShaderValue<ValueType = <V as SemanticVertexShaderValue>::ValueType>,
+  {
+    if let Ok(r) = self.query::<T>() {
+      return r;
+    }
+
+    set_current_building(ShaderStages::Vertex.into());
+    let is_ok = {
+      let v_node = self.vertex.query::<V>();
+      if let Ok(v_node) = v_node {
+        self.vertex.set_vertex_out::<T>(v_node);
+        true
+      } else {
+        false
+      }
+    };
+    set_current_building(None);
+    self.vertex.sync_fragment_out(self.base);
+    set_current_building(ShaderStages::Fragment.into());
+
+    if is_ok {
+      self.query::<T>().unwrap()
+    } else {
+      self.query_or_insert_default::<T>()
+    }
+  }
+}
+
+impl<'a> Deref for ShaderGraphFragmentBuilderView<'a> {
+  type Target = ShaderGraphFragmentBuilder;
+
+  fn deref(&self) -> &Self::Target {
+    self.base
+  }
+}
+impl<'a> DerefMut for ShaderGraphFragmentBuilderView<'a> {
+  fn deref_mut(&mut self) -> &mut Self::Target {
+    self.base
+  }
+}
+
 pub struct ShaderGraphFragmentBuilder {
   // user fragment in
   pub fragment_in: HashMap<
@@ -51,7 +103,7 @@ impl ShaderGraphFragmentBuilder {
     ShaderSideEffectNode::Termination.insert_graph_bottom();
   }
 
-  pub fn query<T: SemanticFragmentShaderValue>(
+  pub fn query_mut<T: SemanticFragmentShaderValue>(
     &self,
   ) -> Result<&NodeMutable<T::ValueType>, ShaderGraphBuildError> {
     self
@@ -60,13 +112,19 @@ impl ShaderGraphFragmentBuilder {
       .map(|n| unsafe { std::mem::transmute(n) })
   }
 
-  pub fn query_or_insert_default<T>(&mut self) -> &NodeMutable<T::ValueType>
+  pub fn query<T: SemanticFragmentShaderValue>(
+    &self,
+  ) -> Result<Node<T::ValueType>, ShaderGraphBuildError> {
+    Ok(self.query_mut::<T>()?.get())
+  }
+
+  pub fn query_or_insert_default<T>(&mut self) -> Node<T::ValueType>
   where
     T: SemanticFragmentShaderValue,
     T::ValueType: PrimitiveShaderGraphNodeType,
   {
     if let Ok(n) = self.registry.query(TypeId::of::<T>(), T::NAME) {
-      unsafe { std::mem::transmute(n) }
+      unsafe { n.get().cast_type() }
     } else {
       let default: T::ValueType = Default::default();
       self.register::<T>(default)
@@ -76,11 +134,11 @@ impl ShaderGraphFragmentBuilder {
   pub fn register<T: SemanticFragmentShaderValue>(
     &mut self,
     node: impl Into<Node<T::ValueType>>,
-  ) -> &NodeMutable<T::ValueType> {
+  ) -> Node<T::ValueType> {
     let n = self
       .registry
       .register(TypeId::of::<T>(), node.into().cast_untyped_node());
-    unsafe { std::mem::transmute(n) }
+    unsafe { n.get().cast_type() }
   }
 
   pub fn get_fragment_in<T>(
@@ -113,11 +171,18 @@ impl ShaderGraphFragmentBuilder {
     slot: usize,
     node: impl Into<Node<Vec4<f32>>>,
   ) -> Result<(), ShaderGraphBuildError> {
+    // because discard has side effect, we have to use a write to get correct dependency
+    let write = ShaderGraphNode::Write {
+      new: node.into().handle(),
+      old: None,
+    }
+    .insert_graph();
+
     self
       .frag_output
       .get_mut(slot)
       .ok_or(ShaderGraphBuildError::FragmentOutputSlotNotDeclared)?
-      .0 = node.into();
+      .0 = write;
     Ok(())
   }
 

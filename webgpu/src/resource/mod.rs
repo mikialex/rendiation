@@ -1,8 +1,8 @@
 pub use texture::*;
 pub mod texture;
 
-mod uniform;
-pub use uniform::*;
+mod buffer;
+pub use buffer::*;
 
 mod sampler;
 pub use sampler::*;
@@ -158,10 +158,7 @@ impl<T: Resource> ResourceRc<T> {
     }
   }
 
-  pub fn create_with_raw(resource: T, desc: T::Descriptor) -> Self
-  where
-    T: InitResourceByAllocation,
-  {
+  pub fn create_with_raw(resource: T, desc: T::Descriptor) -> Self {
     Self {
       inner: Rc::new(ResourceContainer::create_with_raw(resource, desc)),
     }

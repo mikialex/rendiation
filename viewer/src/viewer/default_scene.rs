@@ -54,6 +54,10 @@ pub fn load_default_scene(scene: &mut Scene<WebGPUScene>) {
   };
 
   let texture = SceneTexture2D::<WebGPUScene>::new(Box::new(load_img(path).into_source()));
+  let texture = TextureWithSamplingData {
+    texture,
+    sampler: TextureSampler::default(),
+  };
 
   // let texture_cube = scene.add_texture_cube(load_img_cube());
 
@@ -77,8 +81,7 @@ pub fn load_default_scene(scene: &mut Scene<WebGPUScene>) {
     let mesh = MeshSource::new(mesh);
     let material = PhysicalMaterial::<WebGPUScene> {
       albedo: Vec3::splat(1.),
-      sampler: TextureSampler::default(),
-      texture: texture.clone(),
+      albedo_texture: texture.clone().into(),
     }
     .use_state();
 
@@ -86,7 +89,9 @@ pub fn load_default_scene(scene: &mut Scene<WebGPUScene>) {
     child.set_local_matrix(Mat4::translate((2., 0., 3.)));
 
     let model: MeshModel<_, _> = MeshModelImpl::new(material, mesh, child).into();
-    scene.add_model(model)
+    let _ = scene.add_model(model);
+    // let model_handle = scene.add_model(model);
+    // scene.remove_model(model_handle);
   }
 
   {
@@ -103,14 +108,13 @@ pub fn load_default_scene(scene: &mut Scene<WebGPUScene>) {
     let mesh = MeshSource::new(mesh);
     let material = PhysicalMaterial::<WebGPUScene> {
       albedo: Vec3::splat(1.),
-      sampler: TextureSampler::default(),
-      texture: texture.clone(),
+      albedo_texture: texture.clone().into(),
     }
     .use_state();
     let child = scene.root().create_child();
 
     let model: MeshModel<_, _> = MeshModelImpl::new(material, mesh, child).into();
-    scene.add_model(model)
+    let _ = scene.add_model(model);
   }
 
   {
@@ -134,14 +138,13 @@ pub fn load_default_scene(scene: &mut Scene<WebGPUScene>) {
     };
     let material = PhysicalMaterial::<WebGPUScene> {
       albedo: Vec3::splat(1.),
-      sampler: TextureSampler::default(),
-      texture,
+      albedo_texture: texture.clone().into(),
     }
     .use_state();
 
     let model: MeshModel<_, _> =
       MeshModelImpl::new(material, mesh, scene.root().create_child()).into();
-    scene.add_model(model)
+    let _ = scene.add_model(model);
   }
 
   let up = Vec3::new(0., 1., 0.);
@@ -159,6 +162,70 @@ pub fn load_default_scene(scene: &mut Scene<WebGPUScene>) {
     let camera_node = scene.root().create_child();
     camera_node.set_local_matrix(Mat4::lookat(Vec3::splat(3.), Vec3::splat(0.), up));
     let camera = SceneCamera::create_camera(camera, camera_node);
-    scene.cameras.insert(camera);
+    let _ = scene.add_camera(camera);
   }
+
+  let directional_light_node = scene.root().create_child();
+  directional_light_node.set_local_matrix(Mat4::lookat(Vec3::splat(3.), Vec3::splat(0.), up));
+  let directional_light = DirectionalLight {
+    intensity: Vec3::splat(5.),
+  };
+  let directional_light = SceneLightInner {
+    light: Box::new(directional_light) as Box<dyn WebGPUSceneLight>,
+    node: directional_light_node,
+  };
+  let directional_light = SceneItemRef::new(directional_light);
+  scene.lights.insert(directional_light);
+
+  let directional_light_node = scene.root().create_child();
+  directional_light_node.set_local_matrix(Mat4::lookat(
+    Vec3::new(3., 3., -3.),
+    Vec3::splat(0.),
+    up,
+  ));
+  let directional_light = DirectionalLight {
+    intensity: Vec3::new(5., 3., 2.),
+  };
+  let directional_light = SceneLightInner {
+    light: Box::new(directional_light) as Box<dyn WebGPUSceneLight>,
+    node: directional_light_node,
+  };
+  let directional_light = SceneItemRef::new(directional_light);
+  scene.lights.insert(directional_light);
+
+  let point_light_node = scene.root().create_child();
+  point_light_node.set_local_matrix(Mat4::translate((2., 2., 2.)));
+  let point_light = PointLight {
+    intensity: Vec3::new(5., 3., 2.),
+    cutoff_distance: 40.,
+  };
+  let point_light = SceneLightInner {
+    light: Box::new(point_light) as Box<dyn WebGPUSceneLight>,
+    node: point_light_node,
+  };
+  let point_light = SceneItemRef::new(point_light);
+  scene.lights.insert(point_light);
+
+  let spot_light_node = scene.root().create_child();
+  spot_light_node.set_local_matrix(Mat4::lookat(Vec3::new(-5., 5., 5.), Vec3::splat(0.), up));
+  let spot_light = SpotLight {
+    intensity: Vec3::new(180., 0., 0.),
+    cutoff_distance: 40.,
+    half_cone_angle: Deg::by(5. / 2.).to_rad(),
+    half_penumbra_angle: Deg::by(5. / 2.).to_rad(),
+  };
+  let spot_light = SceneLightInner {
+    light: Box::new(spot_light) as Box<dyn WebGPUSceneLight>,
+    node: spot_light_node,
+  };
+  let point_light = SceneItemRef::new(spot_light);
+  scene.lights.insert(point_light);
+
+  rendiation_scene_gltf_loader::load_gltf_test(
+    "C:/Users/mk/Desktop/develop/glTF-Sample-Models/2.0/Suzanne/glTF/Suzanne.gltf",
+    // "C:/Users/mk/Desktop/develop/glTF-Sample-Models/2.0/Sponza/glTF/Sponza.gltf",
+    // "/Users/mikialex/dev/glTF-Sample-Models/2.0/Box/glTF/Box.gltf",
+    scene,
+  )
+  .unwrap();
 }

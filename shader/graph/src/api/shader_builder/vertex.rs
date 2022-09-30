@@ -27,7 +27,7 @@ pub struct ShaderGraphVertexBuilder {
   pub primitive_state: PrimitiveState,
 
   // user semantic vertex
-  registry: SemanticRegistry,
+  pub(crate) registry: SemanticRegistry,
 
   // user vertex out
   pub vertex_out: HashMap<TypeId, VertexIOInfo>,
@@ -58,7 +58,10 @@ impl ShaderGraphVertexBuilder {
       registry: Default::default(),
       vertex_out: Default::default(),
       vertex_layouts: Default::default(),
-      primitive_state: Default::default(),
+      primitive_state: PrimitiveState {
+        cull_mode: Some(Face::Back),
+        ..Default::default()
+      },
       vertex_out_not_synced_to_fragment: Default::default(),
     }
   }
@@ -83,7 +86,7 @@ impl ShaderGraphVertexBuilder {
       })
   }
 
-  pub fn query<T: SemanticVertexShaderValue>(
+  pub fn query_mut<T: SemanticVertexShaderValue>(
     &self,
   ) -> Result<&NodeMutable<T::ValueType>, ShaderGraphBuildError> {
     self
@@ -92,13 +95,19 @@ impl ShaderGraphVertexBuilder {
       .map(|n| unsafe { std::mem::transmute(n) })
   }
 
-  pub fn query_or_insert_default<T>(&mut self) -> &NodeMutable<T::ValueType>
+  pub fn query<T: SemanticVertexShaderValue>(
+    &self,
+  ) -> Result<Node<T::ValueType>, ShaderGraphBuildError> {
+    Ok(self.query_mut::<T>()?.get())
+  }
+
+  pub fn query_or_insert_default<T>(&mut self) -> Node<T::ValueType>
   where
     T: SemanticVertexShaderValue,
     T::ValueType: PrimitiveShaderGraphNodeType,
   {
     if let Ok(n) = self.registry.query(TypeId::of::<T>(), T::NAME) {
-      unsafe { std::mem::transmute(n) }
+      unsafe { n.get().cast_type() }
     } else {
       let default: T::ValueType = Default::default();
       self.register::<T>(default)
@@ -108,11 +117,12 @@ impl ShaderGraphVertexBuilder {
   pub fn register<T: SemanticVertexShaderValue>(
     &mut self,
     node: impl Into<Node<T::ValueType>>,
-  ) -> &NodeMutable<T::ValueType> {
+  ) -> Node<T::ValueType> {
     let n = self
       .registry
-      .register(TypeId::of::<T>(), node.into().cast_untyped_node());
-    unsafe { std::mem::transmute(n) }
+      .register(TypeId::of::<T>(), node.into().cast_untyped_node())
+      .get();
+    unsafe { n.cast_type() }
   }
 
   /// return registered location
@@ -143,24 +153,29 @@ impl ShaderGraphVertexBuilder {
     self.vertex_layouts.push(layout)
   }
 
-  pub fn set_vertex_out<T>(
-    &mut self,
-    node: impl Into<Node<<T as SemanticVertexShaderValue>::ValueType>>,
-  ) where
+  pub fn push_single_vertex_layout<T>(&mut self, step_mode: VertexStepMode)
+  where
     T: SemanticVertexShaderValue,
+    T::ValueType: PrimitiveShaderGraphNodeType + VertexInBuilder,
+  {
+    let mut builder = AttributesListBuilder::default();
+    T::ValueType::build_attribute::<T>(&mut builder, self);
+    builder.build(self, step_mode);
+  }
+
+  pub fn set_vertex_out<T>(&mut self, node: impl Into<Node<T::ValueType>>)
+  where
     T: SemanticFragmentShaderValue,
-    <T as SemanticVertexShaderValue>::ValueType: PrimitiveShaderGraphNodeType,
-    T: SemanticFragmentShaderValue<ValueType = <T as SemanticVertexShaderValue>::ValueType>,
+    T::ValueType: PrimitiveShaderGraphNodeType,
   {
     let location = self.vertex_out.len();
     let node = node.into();
     let id = TypeId::of::<T>();
     self.vertex_out.entry(id).or_insert_with(|| VertexIOInfo {
       node: node.cast_untyped_node(),
-      ty: <T as SemanticVertexShaderValue>::ValueType::PRIMITIVE_TYPE,
+      ty: T::ValueType::PRIMITIVE_TYPE,
       location,
     });
-    self.register::<T>(node);
     self.vertex_out_not_synced_to_fragment.insert(id);
   }
 
@@ -238,16 +253,16 @@ impl VertexInBuilder for Mat4<f32> {
     S: SemanticVertexShaderValue<ValueType = Self>,
   {
     let format = Vec4::<f32>::to_vertex_format();
-    
+
     builder.push(format, vertex_builder.register_vertex_in::<SemanticShaderMat4VertexInColum<S, 0>>());
     builder.push(format, vertex_builder.register_vertex_in::<SemanticShaderMat4VertexInColum<S, 1>>());
     builder.push(format, vertex_builder.register_vertex_in::<SemanticShaderMat4VertexInColum<S, 2>>());
     builder.push(format, vertex_builder.register_vertex_in::<SemanticShaderMat4VertexInColum<S, 3>>());
-    
-    let c1 = vertex_builder.query::<SemanticShaderMat4VertexInColum<S, 0>>().unwrap().get();
-    let c2 = vertex_builder.query::<SemanticShaderMat4VertexInColum<S, 1>>().unwrap().get();
-    let c3 = vertex_builder.query::<SemanticShaderMat4VertexInColum<S, 2>>().unwrap().get();
-    let c4 = vertex_builder.query::<SemanticShaderMat4VertexInColum<S, 3>>().unwrap().get();
+
+    let c1 = vertex_builder.query::<SemanticShaderMat4VertexInColum<S, 0>>().unwrap();
+    let c2 = vertex_builder.query::<SemanticShaderMat4VertexInColum<S, 1>>().unwrap();
+    let c3 = vertex_builder.query::<SemanticShaderMat4VertexInColum<S, 2>>().unwrap();
+    let c4 = vertex_builder.query::<SemanticShaderMat4VertexInColum<S, 3>>().unwrap();
 
     let mat: Node<Self> = (c1, c2, c3, c4).into();
     vertex_builder.register::<S>(mat);
@@ -263,4 +278,3 @@ impl<S: 'static, const N: usize> SemanticVertexShaderValue
 {
   type ValueType = Vec4<f32>;
 }
-

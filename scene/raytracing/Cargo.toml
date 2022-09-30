@@ -14,7 +14,6 @@ statrs = "0.15.0"
 tobj = "2.0.3"
 
 arena = {path = "../../utils/arena"}
-arena-tree = {path = "../../utils/arena-tree"}
 rendiation-algebra = {path = "../../math/algebra"}
 rendiation-color = {path = "../../components/color"}
 rendiation-geometry = {path = "../../math/geometry"}
@@ -22,3 +21,4 @@ rendiation-renderable-mesh = {path = "../../components/mesh/renderable"}
 rendiation-scene-core = {path = "../core"}
 rendiation-texture = {path = "../../components/texture/core"}
 space-algorithm = {path = "../../components/space"}
+tree = {path = "../../utils/tree"}

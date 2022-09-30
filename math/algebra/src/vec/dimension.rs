@@ -60,7 +60,7 @@ pub trait RealVector<T: One + Zero + Real>: Vector<T> {
   #[inline]
   #[must_use]
   fn clamp(self, min: Self, max: Self) -> Self {
-    self.min(min).max(max)
+    self.min(max).max(min)
   }
   #[inline]
   #[must_use]

@@ -2,8 +2,8 @@ use crate::*;
 
 #[derive(Debug, Copy, Clone)]
 pub struct TorusMeshParameter {
-  radius: f32,
-  tube_radius: f32,
+  pub radius: f32,
+  pub tube_radius: f32,
 }
 
 impl TorusMeshParameter {
@@ -61,8 +61,8 @@ impl CubeMeshParameter {
     [
       ParametricPlane.transform_by(mat((1., 0., 0.), Mat4::rotate_y(f32::PI() / 2.))),
       ParametricPlane.transform_by(mat((-1., 0., 0.), Mat4::rotate_y(-f32::PI() / 2.))),
-      ParametricPlane.transform_by(mat((0., 1., 0.), Mat4::rotate_x(f32::PI() / 2.))),
-      ParametricPlane.transform_by(mat((0., -1., 0.), Mat4::rotate_x(-f32::PI() / 2.))),
+      ParametricPlane.transform_by(mat((0., 1., 0.), Mat4::rotate_x(-f32::PI() / 2.))),
+      ParametricPlane.transform_by(mat((0., -1., 0.), Mat4::rotate_x(f32::PI() / 2.))),
       ParametricPlane.transform_by(mat((0., 0., 1.), Mat4::one())),
       ParametricPlane.transform_by(mat((0., 0., -1.), Mat4::rotate_y(f32::PI()))),
     ]
@@ -151,8 +151,8 @@ impl CylinderMeshParameter {
     let range = theta_start * to_normalized..(theta_start + theta_length) * to_normalized;
 
     LineSegment2D {
-      start: Vec2::new(radius_top, height),
-      end: Vec2::new(radius_bottom, 0.),
+      start: Vec2::new(radius_bottom, 0.),
+      end: Vec2::new(radius_top, height),
     }
     .rotate_sweep()
     .map_range(0.0..1.0, range)

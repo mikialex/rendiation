@@ -115,8 +115,8 @@ impl<T: Scalar> NormalizedVector<T, Vec3<T>> {
 
     #[rustfmt::skip]
     Mat3::new(
-      nss.x, nss.y, nss.z, 
-       ns.x,  ns.y,  ns.z, 
+      nss.x, nss.y, nss.z,
+       ns.x,  ns.y,  ns.z,
         v.x,   v.y,   v.z
     )
   }

@@ -4,7 +4,7 @@ pub struct UnitCircle;
 
 impl ParametricCurve2D for UnitCircle {
   fn position(&self, position: f32) -> Vec2<f32> {
-    let (s, c) = position.sin_cos();
+    let (s, c) = (position * f32::PI() * 2.).sin_cos();
     Vec2::new(c, s)
   }
 }

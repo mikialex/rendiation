@@ -35,7 +35,6 @@ impl<T: Scalar> Ray3<T> {
         return T::zero().into();
       }
 
-      // Null is preferable to undefined since undefined means.... it is undefined
       return None;
     }
 
@@ -161,6 +160,12 @@ impl HyperRayCaster<f32, Vec3<f32>, Vec2<f32>> for OrthographicProjection<f32> {
       origin,
       direction: Vec3::new(0., 0., -1.).into_normalized(), // check if it is -1
     }
+  }
+}
+
+impl HyperRayCaster<f32, Vec3<f32>, Vec2<f32>> for ViewFrustumOrthographicProjection<f32> {
+  fn cast_ray(&self, normalized_position: Vec2<f32>) -> HyperRay<f32, Vec3<f32>> {
+    self.get_orth().cast_ray(normalized_position)
   }
 }
 

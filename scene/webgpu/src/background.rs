@@ -58,7 +58,8 @@ impl ShadingBackground for EnvMapBackgroundGPU {
       let cube = binding.uniform_by(&self.texture, SB::Material);
       let sampler = binding.uniform_by(&self.sampler, SB::Material);
       cube.sample(sampler, direction);
-      builder.set_fragment_out(0, cube.sample(sampler, direction))
+      builder.register::<DefaultDisplay>(cube.sample(sampler, direction));
+      Ok(())
     })
   }
 }
@@ -93,8 +94,8 @@ impl<T: ShadingBackground> ShaderGraphProvider for ShadingBackgroundTask<T> {
     builder: &mut ShaderGraphRenderPipelineBuilder,
   ) -> Result<(), ShaderGraphBuildError> {
     let direction = builder.vertex(|builder, _| {
-      let proj_inv = builder.query::<CameraProjectionMatrix>()?.get().inverse();
-      let view = builder.query::<CameraViewMatrix>()?.get();
+      let proj_inv = builder.query::<CameraProjectionInverseMatrix>()?;
+      let view = builder.query::<CameraViewMatrix>()?;
       Ok(background_direction(builder.vertex_index, view, proj_inv))
     })?;
 

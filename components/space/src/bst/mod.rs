@@ -1,6 +1,6 @@
 use crate::{
   utils::{bounding_from_build_source, BuildPrimitive, CenterAblePrimitive, TreeBuildOption},
-  AbstractTree,
+  AbstractTreeNode,
 };
 use std::{iter::FromIterator, marker::PhantomData, ops::Range};
 
@@ -48,7 +48,7 @@ where
   pub node: &'a BSTNode<T, N, D>,
 }
 
-impl<'a, T, const N: usize, const D: usize> AbstractTree for BSTTreeNodeRef<'a, T, N, D>
+impl<'a, T, const N: usize, const D: usize> AbstractTreeNode for BSTTreeNodeRef<'a, T, N, D>
 where
   T: BinarySpaceTree<D, N>,
 {
@@ -114,6 +114,16 @@ impl<T: BinarySpaceTree<D, N>, const N: usize, const D: usize> BSTTreeBuilder<T,
   }
   fn apply_index_source(&mut self, index_source: &mut [usize], range: Range<usize>) {
     let mut start = range.start;
+
+    {
+      let mut count = 0;
+      self.crossed.iter().for_each(|&i| {
+        index_source[start + count] = i;
+        count += 1;
+      });
+      start += count;
+    }
+
     let ranges = &mut self.ranges;
     self
       .partitions
@@ -127,7 +137,7 @@ impl<T: BinarySpaceTree<D, N>, const N: usize, const D: usize> BSTTreeBuilder<T,
         });
         ranges[index] = start..start + count;
         start += count;
-      })
+      });
   }
 }
 
@@ -179,13 +189,13 @@ impl<T: BinarySpaceTree<D, N>, const N: usize, const D: usize> BSTTree<T, N, D> 
     index_source: &mut Vec<usize>,
     nodes: &mut Vec<BSTNode<T, N, D>>,
     builder: &mut BSTTreeBuilder<T, N, D>,
-  ) -> usize {
+  ) {
     let (node_index, depth) = {
       let node_index = nodes.len() - 1;
       let node = nodes.last_mut().unwrap();
 
       if !option.should_continue(node.primitive_range.len(), node.depth) {
-        return 1;
+        return;
       }
 
       builder.reset(node.bounding);
@@ -198,23 +208,23 @@ impl<T: BinarySpaceTree<D, N>, const N: usize, const D: usize> BSTTree<T, N, D> 
       builder.apply_index_source(index_source, node.primitive_range.clone());
       (node_index, node.depth)
     };
+    let bounding = builder.bounding.clone();
+    let ranges = builder.ranges.clone();
 
     let mut child = [0; N];
-    let mut offset = 1;
-    let ranges = builder.ranges.clone();
     for (i, range) in ranges.iter().enumerate() {
+      let child_index = nodes.len();
       nodes.push(BSTNode {
         phantom: PhantomData,
-        bounding: builder.bounding[i],
+        bounding: bounding[i],
         primitive_range: range.clone(),
         depth: depth + 1,
-        self_index: nodes.len(),
+        self_index: child_index,
         child: None,
       });
-      child[i] = offset;
-      offset += Self::build(option, build_source, index_source, nodes, builder);
+      child[i] = child_index;
+      Self::build(option, build_source, index_source, nodes, builder);
     }
     nodes[node_index].child = Some(child);
-    offset
   }
 }

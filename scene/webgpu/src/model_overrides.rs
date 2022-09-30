@@ -40,7 +40,7 @@ pub trait WorldMatrixOverride {
 }
 
 pub struct WorldMatrixOverrideCtx<'a> {
-  pub camera: &'a Camera,
+  pub camera: &'a SceneCameraInner,
   pub buffer_size: Size,
 }
 
@@ -65,6 +65,10 @@ impl<Me, Ma> SceneNodeControlled for OverridableMeshModelImpl<Me, Ma> {
 }
 
 impl<Me: WebGPUMesh, Ma: WebGPUMaterial> SceneRenderable for OverridableMeshModelImpl<Me, Ma> {
+  fn is_transparent(&self) -> bool {
+    self.inner.is_transparent()
+  }
+
   fn render(
     &self,
     pass: &mut SceneRenderPass,
@@ -79,12 +83,12 @@ impl<Me: WebGPUMesh, Ma: WebGPUMaterial> SceneRenderable for OverridableMeshMode
       buffer_size: pass.size(),
     };
 
-    let world_matrix = self.compute_override_world_mat(&ctx);
+    let world_matrix = self.compute_override_world_mat(&ctx).into();
 
     let mut override_gpu = self.override_gpu.borrow_mut();
     let node_gpu = override_gpu
-      .get_or_insert_with(|| TransformGPU::new(gpu, &world_matrix))
-      .update(gpu, &world_matrix);
+      .get_or_insert_with(|| TransformGPU::new(gpu, &self.node, world_matrix))
+      .update(gpu, &self.node, world_matrix);
 
     setup_pass_core(self, pass, camera, Some(node_gpu), dispatcher);
   }

@@ -14,38 +14,36 @@ use crate::*;
 use std::ops::{Add, Div, Mul, Neg, Rem, Sub};
 use std::ops::{AddAssign, DivAssign, MulAssign, RemAssign, SubAssign};
 
-#[macro_export] macro_rules! matrix 
-{ 
+#[rustfmt::skip]
+#[macro_export] 
+macro_rules! matrix { 
   ($m11:expr, $m12:expr, 
-   $m21:expr, $m22:expr) =>
-	{
-		rendiation_algebra::Mat2::new(
-			$m11, $m12,
-			$m21, $m22,
-		)
-	};
-	($m11:expr, $m12:expr, $m13:expr, 
-	 $m21:expr, $m22:expr, $m23:expr, 
-	 $m31:expr, $m32:expr, $m33:expr) =>
-	{
-		rendiation_algebra::Mat3::new(
-			$m11, $m12, $m13,
-			$m21, $m22, $m23,
-			$m31, $m32, $m33
-		)
-	};
-	($m11:expr, $m12:expr, $m13:expr, $m14:expr, 
-	 $m21:expr, $m22:expr, $m23:expr, $m24:expr, 
-	 $m31:expr, $m32:expr, $m33:expr, $m34:expr,
-	 $m41:expr, $m42:expr, $m43:expr, $m44:expr) =>
-	{
-		rendiation_algebra::Mat4::new(
-			$m11, $m12, $m13, $m14,
-			$m21, $m22, $m23, $m24,
-			$m31, $m32, $m33, $m34,
-			$m41, $m42, $m43, $m44,
-		)
-	};
+   $m21:expr, $m22:expr) => {
+    rendiation_algebra::Mat2::new(
+      $m11, $m12,
+      $m21, $m22,
+    )
+  };
+  ($m11:expr, $m12:expr, $m13:expr, 
+   $m21:expr, $m22:expr, $m23:expr, 
+   $m31:expr, $m32:expr, $m33:expr) => {
+    rendiation_algebra::Mat3::new(
+      $m11, $m12, $m13,
+      $m21, $m22, $m23,
+      $m31, $m32, $m33
+    )
+  };
+  ($m11:expr, $m12:expr, $m13:expr, $m14:expr, 
+   $m21:expr, $m22:expr, $m23:expr, $m24:expr, 
+   $m31:expr, $m32:expr, $m33:expr, $m34:expr,
+   $m41:expr, $m42:expr, $m43:expr, $m44:expr) => {
+    rendiation_algebra::Mat4::new(
+      $m11, $m12, $m13, $m14,
+      $m21, $m22, $m23, $m24,
+      $m31, $m32, $m33, $m34,
+      $m41, $m42, $m43, $m44,
+    )
+  };
 }
 
 macro_rules! impl_matrix {
@@ -119,18 +117,24 @@ macro_rules! impl_scalar_ops {
 impl_as_ptr!(Mat2);
 impl_as_ptr!(Mat3);
 impl_as_ptr!(Mat4);
-impl_matrix!(Mat2{ a1, a2, b1, b2 }, 4, mat2);
-impl_matrix!(Mat3{ a1, a2, a3, b1, b2, b3, c1, c2, c3 }, 9, mat3);
-impl_matrix!(Mat4{ a1, a2, a3, a4, b1, b2, b3, b4, c1, c2, c3, c4, d1, d2, d3, d4 }, 16, mat4);
+#[rustfmt::skip]
+impl_matrix!(Mat2 { a1, a2, b1, b2 }, 4, mat2);
+#[rustfmt::skip]
+impl_matrix!(Mat3 { a1, a2, a3, b1, b2, b3, c1, c2, c3 }, 9, mat3);
+#[rustfmt::skip]
+impl_matrix!(Mat4 { a1, a2, a3, a4, b1, b2, b3, b4, c1, c2, c3, c4, d1, d2, d3, d4 }, 16, mat4);
+#[rustfmt::skip]
 impl_fixed_array_conversions!(Mat2<T> { a1: 0, a2: 1, b1: 2, b2: 0 }, 4);
+#[rustfmt::skip]
 impl_fixed_array_conversions!(Mat3<T> { 
   a1: 0, a2: 1, a3: 2, 
   b1: 3, b2: 4, b3: 5, 
   c1: 6, c2: 7, c3: 8 
 }, 9);
+#[rustfmt::skip]
 impl_fixed_array_conversions!(Mat4<T> { 
   a1: 0, a2: 1, a3: 2, a4: 3, 
   b1: 4, b2: 5, b3: 6, b4: 7, 
   c1: 8, c2: 9, c3:10, c4: 11, 
-  d1:12, d2:13, d3:14, d4: 15 
+  d1:12, d2:13, d3:14, d4: 15
 }, 16);

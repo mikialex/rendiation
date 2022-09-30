@@ -25,9 +25,15 @@ impl ShaderGraphNodeExpr {
   }
 }
 
+fn get_current_graph_stack_bottom() -> usize {
+  modify_graph(|graph| {
+    graph.scopes[0].graph_guid // scope 0 should always exist
+  })
+}
+
 impl ShaderSideEffectNode {
   pub fn insert_graph_bottom(self) {
-    self.insert_graph(0);
+    self.insert_graph(get_current_graph_stack_bottom());
   }
   pub fn insert_graph(self, target_scope_id: usize) {
     modify_graph(|graph| {
@@ -111,16 +117,18 @@ impl ShaderControlFlowNode {
       }
     }
 
-    // visit all the captured write node in this scope generate before, and check
-    // if it's same and generate dep and a write node, if not, pass the captured
-    // to parent scope
+    // visit all the captured write nodes in this scope generated before, and check
+    // if it's same and generate dep and a write node. if not same, pass the captured nodes
+    // to the parent scope
     for write in writes {
       let im_write = ShaderGraphNode::Write {
-        target: write.1,
-        source: node.handle(),
-        implicit: true,
+        old: None,
+        new: write.1,
       }
       .insert_into_graph_inner::<AnyType>(top, ShaderValueType::Never);
+      top
+        .nodes
+        .connect_node(node.handle().handle, im_write.handle().handle);
 
       write.0.current.set(im_write.handle());
 
@@ -203,13 +211,7 @@ impl ShaderGraphNode {
           visitor(position);
           index.as_ref().map(visitor);
         }
-        ShaderGraphNodeExpr::SamplerCombinedTextureSampling { texture, position } => {
-          visitor(texture);
-          visitor(position);
-        }
         ShaderGraphNodeExpr::MatShrink { source, .. } => visitor(source),
-        ShaderGraphNodeExpr::MatInverse(n) => visitor(n),
-        ShaderGraphNodeExpr::MatTranspose(n) => visitor(n),
         ShaderGraphNodeExpr::Swizzle { source, .. } => visitor(source),
         ShaderGraphNodeExpr::Compose { parameters, .. } => parameters.iter().for_each(visitor),
         ShaderGraphNodeExpr::Operator(op) => match op {
@@ -217,6 +219,10 @@ impl ShaderGraphNode {
           OperatorNode::Binary { left, right, .. } => {
             visitor(left);
             visitor(right);
+          }
+          OperatorNode::Index { array, entry, .. } => {
+            visitor(array);
+            visitor(entry);
           }
         },
         ShaderGraphNodeExpr::FieldGet { struct_node, .. } => visitor(struct_node),
@@ -226,16 +232,42 @@ impl ShaderGraphNode {
       },
       ShaderGraphNode::Input(_) => {}
       ShaderGraphNode::UnNamed => {}
-      ShaderGraphNode::Write { source, target, .. } => {
+      ShaderGraphNode::Write {
+        new: source,
+        old: target,
+        ..
+      } => {
         visitor(source);
-        visitor(target);
+        target.as_ref().map(visitor);
       }
       ShaderGraphNode::ControlFlow(cf) => match cf {
         ShaderControlFlowNode::If { condition, .. } => visitor(condition),
-        ShaderControlFlowNode::For { source, .. } => match source {
-          ShaderIteratorAble::Const(_) => {}
-          ShaderIteratorAble::Count(c) => visitor(&c.handle()),
-        },
+        ShaderControlFlowNode::For {
+          source,
+          iter,
+          index,
+          ..
+        } => {
+          visitor(iter);
+          visitor(index);
+
+          fn visit_iter(
+            source: &ShaderIterator,
+            visitor: &mut impl FnMut(&ShaderGraphNodeRawHandle),
+          ) {
+            match source {
+              ShaderIterator::Const(_) => {}
+              ShaderIterator::Count(c) => visitor(c),
+              ShaderIterator::FixedArray { array, .. } => visitor(array),
+              ShaderIterator::Clamped { source, max } => {
+                visit_iter(source, visitor);
+                visitor(max)
+              }
+            }
+          }
+
+          visit_iter(source, &mut visitor);
+        }
       },
       ShaderGraphNode::SideEffect(_) => {}
     }
@@ -270,13 +302,7 @@ impl ShaderGraphNode {
           visitor(position);
           index.as_mut().map(visitor);
         }
-        ShaderGraphNodeExpr::SamplerCombinedTextureSampling { texture, position } => {
-          visitor(texture);
-          visitor(position);
-        }
         ShaderGraphNodeExpr::MatShrink { source, .. } => visitor(source),
-        ShaderGraphNodeExpr::MatInverse(n) => visitor(n),
-        ShaderGraphNodeExpr::MatTranspose(n) => visitor(n),
         ShaderGraphNodeExpr::Swizzle { source, .. } => visitor(source),
         ShaderGraphNodeExpr::Compose { parameters, .. } => parameters.iter_mut().for_each(visitor),
         ShaderGraphNodeExpr::Operator(op) => match op {
@@ -284,6 +310,10 @@ impl ShaderGraphNode {
           OperatorNode::Binary { left, right, .. } => {
             visitor(left);
             visitor(right);
+          }
+          OperatorNode::Index { array, entry, .. } => {
+            visitor(array);
+            visitor(entry);
           }
         },
         ShaderGraphNodeExpr::FieldGet { struct_node, .. } => visitor(struct_node),
@@ -293,16 +323,42 @@ impl ShaderGraphNode {
       },
       ShaderGraphNode::Input(_) => {}
       ShaderGraphNode::UnNamed => {}
-      ShaderGraphNode::Write { source, target, .. } => {
+      ShaderGraphNode::Write {
+        new: source,
+        old: target,
+        ..
+      } => {
         visitor(source);
-        visitor(target);
+        target.as_mut().map(visitor);
       }
       ShaderGraphNode::ControlFlow(cf) => match cf {
         ShaderControlFlowNode::If { condition, .. } => visitor(condition),
-        ShaderControlFlowNode::For { source, .. } => match source {
-          ShaderIteratorAble::Const(_) => {}
-          ShaderIteratorAble::Count(c) => visitor(&mut c.handle()),
-        },
+        ShaderControlFlowNode::For {
+          source,
+          iter,
+          index,
+          ..
+        } => {
+          visitor(iter);
+          visitor(index);
+
+          fn visit_iter(
+            source: &mut ShaderIterator,
+            visitor: &mut impl FnMut(&mut ShaderGraphNodeRawHandle),
+          ) {
+            match source {
+              ShaderIterator::Const(_) => {}
+              ShaderIterator::Count(c) => visitor(c),
+              ShaderIterator::FixedArray { array, .. } => visitor(array),
+              ShaderIterator::Clamped { source, max } => {
+                visit_iter(source, visitor);
+                visitor(max)
+              }
+            }
+          }
+
+          visit_iter(source, &mut visitor);
+        }
       },
       ShaderGraphNode::SideEffect(_) => {}
     }

@@ -18,16 +18,26 @@ impl<T: Scalar> SquareMatrix<T> for Mat2<T> {
     let (a1, a2) = (self.a1, self.b1);
     let (b1, b2) = (self.a2, self.b2);
     #[rustfmt::skip]
-    Mat2 { 
+    Mat2 {
       a1, a2,
       b1, b2,
     }
   }
   fn det(&self) -> T {
-    todo!()
+    self.a1 * self.b2 - self.a2 * self.b1
   }
   fn inverse(&self) -> Option<Self> {
-    todo!()
+    let det = self.det();
+    if det == T::zero() {
+      return None;
+    }
+    let inv_det = T::one() / det;
+    #[rustfmt::skip]
+    Self {
+      a1:  self.b2 * inv_det, a2: -self.b1 * inv_det,
+      b1: -self.a2 * inv_det, b2: self.a1  * inv_det,
+    }
+    .into()
   }
 
   fn max_scale(&self) -> T {
@@ -65,7 +75,7 @@ where
   fn mul(self, v: Vec2<T>) -> Vec2<T> {
     Vec2 {
       x: v.x * self.a1 + v.y * self.b1,
-      y: v.x * self.a2 + v.y * self.b2 
+      y: v.x * self.a2 + v.y * self.b2,
     }
   }
 }
