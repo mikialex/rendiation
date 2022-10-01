@@ -35,8 +35,8 @@ pub fn viewer() -> impl UIComponent<ViewerImpl> {
   AbsoluteAnchor::default().wrap(
     absolute_group()
       .child(AbsChild::new(GPUCanvas::default()))
-      .child(AbsChild::new(terminal().lens(lens!(ViewerImpl, terminal))).with_position((0., 600.)))
-      .child(AbsChild::new(perf_panel())),
+      .child(AbsChild::new(terminal().lens(lens!(ViewerImpl, terminal))).with_position((0., 0.)))
+      .child(AbsChild::new(perf_panel()).with_position((0., 50.))),
   )
 }
 
