@@ -43,6 +43,7 @@ impl CanvasPrinter for ViewerImpl {
     states: &WindowState,
     position_info: CanvasWindowPositionInfo,
   ) {
+    self.terminal.check_execute(&mut self.content);
     self.content.event(event, states, position_info)
   }
 
@@ -61,7 +62,7 @@ impl CanvasPrinter for ViewerImpl {
 }
 
 pub struct ViewerImpl {
-  content: Viewer3dContent,
+  pub(crate) content: Viewer3dContent,
   ctx: Option<Viewer3dRenderingCtx>,
   pub(crate) terminal: Terminal,
   size: Size,
@@ -69,12 +70,29 @@ pub struct ViewerImpl {
 
 impl Default for ViewerImpl {
   fn default() -> Self {
-    Self {
+    let mut viewer = Self {
       content: Viewer3dContent::new(),
       size: Size::from_u32_pair_min_one((100, 100)),
       terminal: Default::default(),
       ctx: None,
-    }
+    };
+
+    viewer
+      .terminal
+      .register_command("load-gltf", |viewer, _parameters| {
+        // let path = parameters.first().unwrap();
+
+        rendiation_scene_gltf_loader::load_gltf_test(
+          // path,
+          "C:/Users/mk/Desktop/develop/glTF-Sample-Models/2.0/Suzanne/glTF/Suzanne.gltf",
+          // "C:/Users/mk/Desktop/develop/glTF-Sample-Models/2.0/Sponza/glTF/Sponza.gltf",
+          // "/Users/mikialex/dev/glTF-Sample-Models/2.0/Box/glTF/Box.gltf",
+          &mut viewer.scene,
+        )
+        .unwrap();
+      });
+
+    viewer
   }
 }
 

@@ -1,6 +1,8 @@
+use std::collections::HashMap;
+
 use interphaser::{winit::event::VirtualKeyCode, *};
 
-use crate::{menu, MenuList, MenuModel, UIExamples, ViewerImpl};
+use crate::{menu, MenuList, MenuModel, UIExamples, Viewer3dContent, ViewerImpl};
 
 pub struct ViewerApplication {
   pub ui_examples: UIExamples,
@@ -81,15 +83,42 @@ fn perf_panel<T: 'static>() -> impl UIComponent<T> {
 pub struct Terminal {
   pub command_history: Vec<String>,
   pub current_command_editing: String,
+  pub command_to_execute: Option<String>,
+  pub executor: HashMap<String, Box<dyn Fn(&mut Viewer3dContent, &mut Vec<String>)>>,
 }
 
 impl Terminal {
-  pub fn execute_current(&mut self) {
-    println!("execute: {}", self.current_command_editing);
-    self
-      .command_history
-      .push(self.current_command_editing.clone());
+  pub fn mark_execute(&mut self) {
+    self.command_to_execute = self.current_command_editing.clone().into();
     self.current_command_editing = String::new();
+  }
+
+  pub fn register_command(
+    &mut self,
+    name: impl AsRef<str>,
+    f: impl Fn(&mut Viewer3dContent, &mut Vec<String>) + 'static,
+  ) -> &mut Self {
+    self.executor.insert(name.as_ref().to_owned(), Box::new(f));
+    self
+  }
+
+  pub fn check_execute(&mut self, content: &mut Viewer3dContent) {
+    if let Some(command) = self.command_to_execute.take() {
+      let mut parameters: Vec<String> = command
+        .split_ascii_whitespace()
+        .map(|s| s.to_owned())
+        .collect();
+
+      if let Some(first) = parameters.first() {
+        if let Some(exe) = self.executor.get(first) {
+          println!("execute: {}", command);
+          exe(content, &mut parameters)
+        } else {
+          println!("unknown command {}", first)
+        }
+        self.command_history.push(command);
+      }
+    }
   }
 }
 
@@ -111,7 +140,7 @@ fn terminal() -> impl UIComponent<Terminal> {
       simple_handle_in_bubble(),
       |terminal: &mut Terminal, _, e| {
         if let TextKeyboardInput(VirtualKeyCode::Return) = e {
-          terminal.execute_current()
+          terminal.mark_execute()
         }
       },
     ))
