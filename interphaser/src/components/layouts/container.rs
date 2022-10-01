@@ -4,8 +4,10 @@ use crate::*;
 pub struct Container {
   pub color: Color,
   pub child_align: ContainerAlignment,
+  /// extra relative offset
   pub child_offset: ContainerItemOffset,
   pub size: LayoutSource<ContainerSize>,
+  /// for simplicity, we only support outer border now
   pub border: QuadBorder,
   pub margin: QuadBoundaryWidth,
   pub padding: QuadBoundaryWidth,
@@ -15,6 +17,16 @@ pub struct Container {
 impl Container {
   pub fn sized(size: impl Into<UISize<UILength>>) -> Self {
     Self::size(ContainerSize::ConstraintChild { size: size.into() })
+  }
+
+  pub fn padding(mut self, padding: impl Into<QuadBoundaryWidth>) -> Self {
+    self.padding = padding.into();
+    self
+  }
+
+  pub fn margin(mut self, margin: impl Into<QuadBoundaryWidth>) -> Self {
+    self.margin = margin.into();
+    self
   }
 
   pub fn adapt(behavior: AdaptChildSelfBehavior) -> Self {
@@ -96,22 +108,38 @@ impl ContainerSize {
   pub fn compute_size_pair(
     &self,
     constraint: LayoutConstraint,
+    container: &Container,
     child: &mut dyn LayoutAble,
     ctx: &mut LayoutCtx,
   ) -> (UISize, UISize) {
     match self {
       Self::ConstraintChild { size } => {
         let size = size.into_pixel(constraint.max);
-        let size = constraint.clamp(size);
 
-        let child_size = child.layout(LayoutConstraint::from_max(size), ctx).size;
+        let size = constraint.clamp(size).inset_boundary(&container.margin);
+
+        let child_max = size
+          .inset_boundary(&container.border.width)
+          .inset_boundary(&container.padding);
+
+        let child_size = child
+          .layout(LayoutConstraint::from_max(child_max), ctx)
+          .size;
 
         (size, child_size)
       }
       Self::AdaptChild { behavior } => {
-        let child_size = child.layout(constraint, ctx).size;
+        let child_constraint = constraint
+          .shrink(container.margin)
+          .shrink(container.border.width)
+          .shrink(container.padding);
+
+        let child_size = child.layout(child_constraint, ctx).size;
         let self_size = match behavior {
-          AdaptChildSelfBehavior::Max => constraint.max,
+          AdaptChildSelfBehavior::Max => constraint
+            .max
+            .inset_boundary(&container.margin)
+            .inset_boundary(&container.border.width),
           AdaptChildSelfBehavior::Child => child_size,
         };
         (self_size, child_size)
@@ -163,15 +191,26 @@ impl<C: LayoutAble> LayoutAbility<C> for Container {
       return self.layout.size.with_default_baseline();
     }
 
-    let (self_size, child_size) = self.size.get().compute_size_pair(constraint, inner, ctx);
+    let (self_size, child_size) = self
+      .size
+      .get()
+      .compute_size_pair(constraint, self, inner, ctx);
 
     self.layout.size = self_size;
 
     let align_offset = self.child_align.make_offset(self.layout.size, child_size);
 
     inner.set_position(UIPosition {
-      x: align_offset.x + self.child_offset.x,
-      y: align_offset.y + self.child_offset.y,
+      x: align_offset.x
+        + self.child_offset.x
+        + self.margin.left
+        + self.padding.left
+        + self.border.width.left,
+      y: align_offset.y
+        + self.child_offset.y
+        + self.margin.top
+        + self.padding.top
+        + self.border.width.top,
     });
 
     self.layout.size.with_default_baseline()

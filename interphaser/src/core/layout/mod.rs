@@ -55,7 +55,7 @@ impl<T> LayoutSource<T> {
     &mut self.value
   }
 
-  pub fn get(&mut self) -> &T {
+  pub fn get(&self) -> &T {
     &self.value
   }
 

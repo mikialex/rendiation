@@ -1,4 +1,4 @@
-use std::any::Any;
+use std::{any::Any, marker::PhantomData};
 
 use crate::*;
 use winit::event::*;
@@ -106,6 +106,16 @@ impl<T, X: EventHandlerType> EventHandler<T, X> {
   pub fn by(fun: impl Fn(&mut T, &mut EventHandleCtx, &X::Event) + 'static) -> Self {
     Self {
       state: Default::default(),
+      handler: Box::new(fun),
+    }
+  }
+
+  pub fn by_state(
+    state: X,
+    fun: impl Fn(&mut T, &mut EventHandleCtx, &X::Event) + 'static,
+  ) -> Self {
+    Self {
+      state,
       handler: Box::new(fun),
     }
   }
@@ -334,4 +344,30 @@ pub fn mouse_move(event: &Event<()>) -> Option<winit::dpi::PhysicalPosition<f64>
     WindowEvent::CursorMoved { position, .. } => Some(*position),
     _ => None,
   })
+}
+
+pub type SimpleHandler<E, T> = EventHandler<T, StatelessHandler<E>>;
+
+pub struct StatelessHandler<T>(PhantomData<T>, bool);
+
+pub fn simple_handle_in_bubble<T>() -> StatelessHandler<T> {
+  StatelessHandler(Default::default(), true)
+}
+
+impl<T> Default for StatelessHandler<T> {
+  fn default() -> Self {
+    Self(Default::default(), false)
+  }
+}
+
+impl<E> EventHandlerType for StatelessHandler<E> {
+  type Event = E;
+}
+impl<E: Any, C> EventHandlerImpl<C> for StatelessHandler<E> {
+  fn downcast_event<'a>(&mut self, event: &'a mut EventCtx, _inner: &C) -> Option<&'a Self::Event> {
+    event.custom_event.consume_if_type_is::<E>()
+  }
+  fn should_handle_in_bubble(&self) -> bool {
+    self.1
+  }
 }

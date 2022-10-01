@@ -7,6 +7,7 @@ mod editable;
 pub use editable::*;
 
 pub enum TextLayoutConfig {
+  /// The layout will use parent max box constraint as bound box
   SizedBox {
     line_wrap: LineWrap,
     horizon_align: TextHorizontalAlignment,

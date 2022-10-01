@@ -19,6 +19,9 @@ pub struct CustomEventCtx {
 }
 
 impl CustomEventCtx {
+  pub fn emit(&mut self, e: impl Any) {
+    self.events.push(Box::new(e))
+  }
   pub fn push_event(&mut self, e: impl Any) {
     self.events.push(Box::new(e))
   }

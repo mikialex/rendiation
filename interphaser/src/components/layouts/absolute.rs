@@ -80,6 +80,8 @@ where
     ctx: &mut LayoutCtx,
     inner: &mut C,
   ) -> LayoutResult {
+    // we just pass the parent constraint to children, so the anchor itself is
+    // transparent to children
     inner.into_iter().for_each(|child| {
       child.inner.layout(constraint, ctx);
     });
