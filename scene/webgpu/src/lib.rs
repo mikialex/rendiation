@@ -13,6 +13,7 @@ pub mod model_overrides;
 pub mod node;
 pub mod rendering;
 pub mod shading;
+pub mod shadow;
 pub mod texture;
 pub mod util;
 
@@ -26,6 +27,7 @@ pub use model_overrides::*;
 pub use node::*;
 pub use rendering::*;
 pub use shading::*;
+pub use shadow::*;
 pub use texture::*;
 pub use util::*;
 
