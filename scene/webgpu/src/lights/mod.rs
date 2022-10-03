@@ -38,6 +38,19 @@ pub struct ShaderLightingGeometricCtx {
 pub trait ShaderLight:
   ShaderGraphStructuralNodeType + ShaderStructMemberValueNodeType + Std140 + Sized + Default
 {
+  /// this is to avoid mutable borrow errors in for_by and if_by.
+  type Dependency;
+  fn create_dep(builder: &mut ShaderGraphFragmentBuilderView) -> Self::Dependency;
+  fn compute_direct_light(
+    light: &ExpandedNode<Self>,
+    ctx: &ExpandedNode<ShaderLightingGeometricCtx>,
+    shading: &dyn Any,
+  ) -> ExpandedNode<ShaderLightingResult>;
+}
+
+pub trait PunctualShaderLight:
+  ShaderGraphStructuralNodeType + ShaderStructMemberValueNodeType + Std140 + Sized + Default
+{
   type Dependency;
   fn create_dep(builder: &mut ShaderGraphFragmentBuilderView) -> Self::Dependency;
   fn compute_direct_light(

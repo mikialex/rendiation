@@ -182,12 +182,12 @@ pub trait VisitLightCollectionCompute {
   fn visit_lights_computes(&self, visitor: &mut dyn FnMut(&dyn LightCollectionCompute));
 }
 
-pub struct DeferLightList<T: ShaderLight> {
+pub struct DeferLightList<T: PunctualShaderLight> {
   pub lights: Vec<T>,
   pub lights_gpu: Vec<UniformBufferDataView<T>>,
 }
 
-impl<T: ShaderLight> VisitLightCollectionCompute for DeferLightList<T> {
+impl<T: PunctualShaderLight> VisitLightCollectionCompute for DeferLightList<T> {
   fn visit_lights_computes(&self, visitor: &mut dyn FnMut(&dyn LightCollectionCompute)) {
     self
       .lights_gpu
@@ -210,7 +210,7 @@ impl<'a, T: Std140> ShaderHashProvider for SingleLight<'a, T> {
     TypeId::of::<T>().hash(hasher)
   }
 }
-impl<'a, T: ShaderLight> LightCollectionCompute for SingleLight<'a, T> {
+impl<'a, T: PunctualShaderLight> LightCollectionCompute for SingleLight<'a, T> {
   fn compute_lights(
     &self,
     builder: &mut ShaderGraphFragmentBuilderView,

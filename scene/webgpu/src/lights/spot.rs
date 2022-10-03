@@ -12,7 +12,7 @@ pub struct SpotLightShaderInfo {
   pub half_penumbra_cos: f32,
 }
 
-impl ShaderLight for SpotLightShaderInfo {
+impl PunctualShaderLight for SpotLightShaderInfo {
   type Dependency = ();
   fn create_dep(_: &mut ShaderGraphFragmentBuilderView) -> Self::Dependency {}
   fn compute_direct_light(

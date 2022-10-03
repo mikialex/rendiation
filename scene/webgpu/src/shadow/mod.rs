@@ -154,11 +154,11 @@ fn build_shadow_camera(light: &DirectionalLight, node: &SceneNode) -> CameraGPUT
   CameraGPUTransform::from_proj_and_world(proj, world)
 }
 
-impl ShadowMapSystem {
-  pub fn update_shadow_maps(ctx: &mut FrameCtx) {
-    pass("depth")
-      .with_depth(depth.write(), clear(1.))
-      .render(ctx)
-      .by(todo!())
-  }
-}
+// impl ShadowMapSystem {
+//   pub fn update_shadow_maps(ctx: &mut FrameCtx) {
+//     pass("depth")
+//       .with_depth(depth.write(), clear(1.))
+//       .render(ctx)
+//       .by(todo!())
+//   }
+// }

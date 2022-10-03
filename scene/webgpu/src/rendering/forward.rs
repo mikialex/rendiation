@@ -150,7 +150,7 @@ wgsl_fn!(
 only_fragment!(LightCount, u32);
 
 impl ForwardLightingSystem {
-  pub fn get_or_create_list<T: ShaderLight>(&mut self) -> &mut LightList<T> {
+  pub fn get_or_create_list<T: PunctualShaderLight>(&mut self) -> &mut LightList<T> {
     let lights = self
       .lights_collections
       .entry(TypeId::of::<T>())
@@ -235,7 +235,7 @@ impl ForwardLightingSystem {
 const LIGHT_MAX: usize = 8;
 
 #[derive(Default)]
-pub struct LightList<T: ShaderLight> {
+pub struct LightList<T: PunctualShaderLight> {
   pub lights: Vec<T>,
   pub lights_gpu: Option<UniformBufferDataView<Shader140Array<T, LIGHT_MAX>>>,
 }
@@ -246,7 +246,7 @@ pub trait LightCollectionBase {
   fn update_gpu(&mut self, gpu: &GPU) -> usize;
 }
 
-impl<T: ShaderLight> LightCollectionBase for LightList<T> {
+impl<T: PunctualShaderLight> LightCollectionBase for LightList<T> {
   fn reset(&mut self) {
     self.lights.clear();
     self.lights_gpu.take();
@@ -267,7 +267,7 @@ impl<T: ShaderLight> LightCollectionBase for LightList<T> {
   }
 }
 
-impl<T: ShaderLight> ShaderPassBuilder for LightList<T> {
+impl<T: PunctualShaderLight> ShaderPassBuilder for LightList<T> {
   fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
     ctx
       .binding
@@ -275,7 +275,7 @@ impl<T: ShaderLight> ShaderPassBuilder for LightList<T> {
   }
 }
 
-impl<T: ShaderLight> ShaderHashProvider for LightList<T> {
+impl<T: PunctualShaderLight> ShaderHashProvider for LightList<T> {
   fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
     TypeId::of::<T>().hash(hasher);
     self.lights.len().hash(hasher);
@@ -306,7 +306,7 @@ pub trait LightCollectionCompute: ShaderPassBuilder + ShaderHashProvider {
   }
 }
 
-impl<T: ShaderLight> LightCollectionCompute for LightList<T> {
+impl<T: PunctualShaderLight> LightCollectionCompute for LightList<T> {
   fn compute_lights(
     &self,
     builder: &mut ShaderGraphFragmentBuilderView,

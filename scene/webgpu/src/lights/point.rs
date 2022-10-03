@@ -9,7 +9,7 @@ pub struct PointLightShaderInfo {
   pub cutoff_distance: f32,
 }
 
-impl ShaderLight for PointLightShaderInfo {
+impl PunctualShaderLight for PointLightShaderInfo {
   type Dependency = ();
   fn create_dep(_: &mut ShaderGraphFragmentBuilderView) -> Self::Dependency {}
   fn compute_direct_light(

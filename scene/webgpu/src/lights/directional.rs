@@ -14,7 +14,7 @@ pub struct DirectionalLightShaderInfo {
 //   enabled: bool,
 // }
 
-impl ShaderLight for DirectionalLightShaderInfo {
+impl PunctualShaderLight for DirectionalLightShaderInfo {
   type Dependency = ();
   fn create_dep(_: &mut ShaderGraphFragmentBuilderView) -> Self::Dependency {}
   fn compute_direct_light(
