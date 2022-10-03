@@ -6,8 +6,16 @@ pub struct ShadowMapAllocator {
   inner: Rc<RefCell<ShadowMapAllocatorImpl>>,
 }
 
+impl ShaderPassBuilder for ShadowMapAllocator {
+  fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
+    todo!()
+  }
+}
+
 impl ShadowMapAllocator {
-  pub fn shadow_given_light(light_id: Node<u32>, world_position: Node<Vec3<f32>>) -> Node<f32> {}
+  pub fn shadow_given_light(light_id: Node<u32>, world_position: Node<Vec3<f32>>) -> Node<f32> {
+    todo!()
+  }
 }
 
 pub struct ShadowMapAllocatorImpl {
@@ -46,13 +54,20 @@ impl ShadowMapAllocator {
   }
 }
 
+pub trait ShadowImplementation: ShaderPassBuilder + ShaderHashProvider + Any {}
+
 pub struct ShadowMapSystem {
-  pub shadow_collections: LinkedHashMap<TypeId, Box<dyn Any>>,
+  pub shadow_collections: LinkedHashMap<TypeId, Box<dyn ShadowImplementation>>,
   pub maps: ShadowMapAllocator,
 }
 
 impl ShaderPassBuilder for ShadowMapSystem {
-  fn setup_pass(&self, _ctx: &mut GPURenderPassCtx) {}
+  fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
+    for impls in self.shadow_collections.values() {
+      impls.setup_pass(ctx)
+    }
+    self.maps.setup_pass(ctx)
+  }
 }
 
 impl ShaderGraphProvider for ShadowMapSystem {
@@ -77,15 +92,21 @@ impl<'a> ShaderGraphProvider for ShadowMaskEffect<'a> {
     &self,
     builder: &mut ShaderGraphRenderPipelineBuilder,
   ) -> Result<(), ShaderGraphBuildError> {
-    // default do nothing
-    Ok(())
+    builder.fragment(|builder, _| {
+      let world_position = builder.query::<FragmentWorldPosition>()?;
+
+      todo!();
+
+      builder.register::<ShadowMask>(0.);
+      Ok(())
+    })
   }
 }
 
 #[repr(C)]
 #[std140_layout]
 #[derive(Clone, Copy, Default, ShaderStruct)]
-pub struct BasicShadowMapInfo {
+pub struct SimpleShadowMapInfo {
   pub shadow_camera: CameraGPUTransform,
   pub bias: ShadowBias,
   pub map_info: ShadowMapAddressInfo,
@@ -108,12 +129,36 @@ pub struct ShadowMapAddressInfo {
   pub offset: Vec2<f32>,
 }
 
-impl DirectionalLight {
-  fn build_shadow_camera(&self, node: &SceneNode) -> CameraGPUTransform {
-    todo!()
-  }
+struct DirectionalShadowMapExtraInfo {
+  width_extend: f32,
+  height_extend: f32,
+  up: Vec3<f32>,
 }
 
-pub fn draw_shadow_map(ctx: &mut FrameCtx) {
-  todo!()
+fn build_shadow_camera(light: &DirectionalLight, node: &SceneNode) -> CameraGPUTransform {
+  let world = node.get_world_matrix();
+  let eye = world.position();
+  let front = eye + world.forward();
+  let camera_world = Mat4::lookat(eye, front, Vec3::new(0., 1., 0.));
+
+  let orth = OrthographicProjection {
+    left: -20.,
+    right: 20.,
+    top: 20.,
+    bottom: -20.,
+    near: 0.1,
+    far: 2000.,
+  };
+
+  let proj = orth.create_projection::<WebGPU>();
+  CameraGPUTransform::from_proj_and_world(proj, world)
+}
+
+impl ShadowMapSystem {
+  pub fn update_shadow_maps(ctx: &mut FrameCtx) {
+    pass("depth")
+      .with_depth(depth.write(), clear(1.))
+      .render(ctx)
+      .by(todo!())
+  }
 }

@@ -44,6 +44,14 @@ pub fn attachment() -> AttachmentDescriptor {
 
 pub fn depth_attachment() -> AttachmentDescriptor {
   AttachmentDescriptor {
+    format: webgpu::TextureFormat::Depth32Float,
+    sample_count: 1,
+    sizer: default_sizer(),
+  }
+}
+
+pub fn depth_stencil_attachment() -> AttachmentDescriptor {
+  AttachmentDescriptor {
     format: webgpu::TextureFormat::Depth24PlusStencil8,
     sample_count: 1,
     sizer: default_sizer(),

@@ -5,8 +5,8 @@ use crate::*;
 #[derive(Copy, Clone, ShaderStruct, Default)]
 pub struct PointLightShaderInfo {
   pub intensity: Vec3<f32>,
+  pub position: Vec3<f32>,
   pub cutoff_distance: f32,
-  pub node_info: TransformGPUData, // maybe used later in shadowmap
 }
 
 impl ShaderLight for PointLightShaderInfo {
@@ -17,7 +17,7 @@ impl ShaderLight for PointLightShaderInfo {
     _dep: &Self::Dependency,
     ctx: &ExpandedNode<ShaderLightingGeometricCtx>,
   ) -> ExpandedNode<ShaderIncidentLight> {
-    let direction = ctx.position - light.node_info.expand().world_matrix.position();
+    let direction = ctx.position - light.position;
     let distance = direction.length();
     let factor = punctual_light_intensity_to_irradiance_factor(distance, light.cutoff_distance);
 
@@ -34,8 +34,8 @@ impl WebGPUSceneLight for PointLight {
 
     let gpu = PointLightShaderInfo {
       intensity: self.intensity,
+      position: node.get_world_matrix().position(),
       cutoff_distance: self.cutoff_distance,
-      node_info: TransformGPUData::from_node(node, None),
       ..Zeroable::zeroed()
     };
 

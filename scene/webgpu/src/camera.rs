@@ -92,6 +92,18 @@ pub struct CameraGPUTransform {
   pub world: Mat4<f32>,
 }
 
+impl CameraGPUTransform {
+  pub fn from_proj_and_world(proj: Mat4<f32>, world: Mat4<f32>) -> Self {
+    let mut r = Self::default();
+    r.world = world;
+    r.view = world.inverse_or_identity();
+    r.rotation = world.extract_rotation_mat();
+    r.projection = proj;
+    r.projection_inv = proj.inverse_or_identity();
+    r
+  }
+}
+
 impl CameraGPU {
   pub fn inject_uniforms(
     &self,
@@ -111,20 +123,16 @@ impl CameraGPU {
   pub fn update(&mut self, gpu: &GPU, camera: &SceneCameraInner) -> &mut Self {
     self.ubo.resource.mutate(|uniform| {
       let world_matrix = camera.node.visit(|node| node.world_matrix);
-      uniform.world = world_matrix;
-      uniform.view = world_matrix.inverse_or_identity();
-      uniform.rotation = world_matrix.extract_rotation_mat();
-      uniform.projection = camera.projection_matrix;
-      uniform.projection_inv = camera.projection_matrix.inverse_or_identity();
+      *uniform = CameraGPUTransform::from_proj_and_world(camera.projection_matrix, world_matrix);
     });
 
     self.ubo.resource.upload(&gpu.queue);
-
     self
   }
 
   pub fn new(gpu: &GPU) -> Self {
-    let ubo = create_uniform(CameraGPUTransform::default(), gpu);
-    Self { ubo }
+    Self {
+      ubo: create_uniform(CameraGPUTransform::default(), gpu),
+    }
   }
 }

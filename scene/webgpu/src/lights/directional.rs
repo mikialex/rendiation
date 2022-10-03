@@ -6,8 +6,13 @@ use crate::*;
 pub struct DirectionalLightShaderInfo {
   pub intensity: Vec3<f32>,
   pub direction: Vec3<f32>,
-  pub node_info: TransformGPUData, // maybe used later in shadowmap
 }
+
+// pub struct LightShadowInfo {
+//   ty: u32,
+//   index: u32,
+//   enabled: bool,
+// }
 
 impl ShaderLight for DirectionalLightShaderInfo {
   type Dependency = ();
@@ -32,7 +37,6 @@ impl WebGPUSceneLight for DirectionalLight {
     let gpu = DirectionalLightShaderInfo {
       intensity: self.intensity,
       direction: node.get_world_matrix().forward().normalize().reverse(),
-      node_info: TransformGPUData::from_node(node, None),
       ..Zeroable::zeroed()
     };
 
