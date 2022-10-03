@@ -6,6 +6,10 @@ pub struct ShadowMapAllocator {
   inner: Rc<RefCell<ShadowMapAllocatorImpl>>,
 }
 
+impl ShadowMapAllocator {
+  pub fn shadow_given_light(light_id: Node<u32>, world_position: Node<Vec3<f32>>) -> Node<f32> {}
+}
+
 pub struct ShadowMapAllocatorImpl {
   gpu: GPUTexture2d,
   mapping: HashMap<LightId, GPUTexture2dView>,
@@ -27,7 +31,7 @@ impl ShadowMap {
     todo!()
   }
 
-  pub fn get_view(&self, gpu: &GPU) -> GPUTexture2dView {
+  pub fn get_write_view(&self, gpu: &GPU) -> GPUTexture2dView {
     todo!()
   }
 }
@@ -42,10 +46,46 @@ impl ShadowMapAllocator {
   }
 }
 
+pub struct ShadowMapSystem {
+  pub shadow_collections: LinkedHashMap<TypeId, Box<dyn Any>>,
+  pub maps: ShadowMapAllocator,
+}
+
+impl ShaderPassBuilder for ShadowMapSystem {
+  fn setup_pass(&self, _ctx: &mut GPURenderPassCtx) {}
+}
+
+impl ShaderGraphProvider for ShadowMapSystem {
+  fn build(
+    &self,
+    builder: &mut ShaderGraphRenderPipelineBuilder,
+  ) -> Result<(), ShaderGraphBuildError> {
+    // default do nothing
+    Ok(())
+  }
+}
+
+pub struct ShadowMaskEffect<'a> {
+  pub system: &'a ShadowMapSystem,
+}
+
+only_fragment!(ShadowMask, f32);
+
+/// iterate over all shadow's and get combined results.
+impl<'a> ShaderGraphProvider for ShadowMaskEffect<'a> {
+  fn build(
+    &self,
+    builder: &mut ShaderGraphRenderPipelineBuilder,
+  ) -> Result<(), ShaderGraphBuildError> {
+    // default do nothing
+    Ok(())
+  }
+}
+
 #[repr(C)]
 #[std140_layout]
 #[derive(Clone, Copy, Default, ShaderStruct)]
-pub struct ShadowMappingInfo {
+pub struct BasicShadowMapInfo {
   pub shadow_camera: CameraGPUTransform,
   pub bias: ShadowBias,
   pub map_info: ShadowMapAddressInfo,
@@ -66,4 +106,14 @@ pub struct ShadowMapAddressInfo {
   pub layer_index: f32,
   pub size: Vec2<f32>,
   pub offset: Vec2<f32>,
+}
+
+impl DirectionalLight {
+  fn build_shadow_camera(&self, node: &SceneNode) -> CameraGPUTransform {
+    todo!()
+  }
+}
+
+pub fn draw_shadow_map(ctx: &mut FrameCtx) {
+  todo!()
 }

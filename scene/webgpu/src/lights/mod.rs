@@ -46,3 +46,14 @@ pub trait ShaderLight:
     ctx: &ExpandedNode<ShaderLightingGeometricCtx>,
   ) -> ExpandedNode<ShaderIncidentLight>;
 }
+
+/// Punctual lights are defined as parameterized, infinitely small points that emit light in
+/// well-defined directions and intensities.
+pub trait PunctualLight:
+  ShaderGraphStructuralNodeType + ShaderStructMemberValueNodeType + Std140 + Sized + Default
+{
+  fn compute_direct_light(
+    light: &ExpandedNode<Self>,
+    ctx: &ExpandedNode<ShaderLightingGeometricCtx>,
+  ) -> ExpandedNode<ShaderIncidentLight>;
+}

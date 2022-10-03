@@ -5,6 +5,8 @@ pub type SceneLight<S> = SceneItemRef<SceneLightInner<S>>;
 
 pub struct SceneLightInner<S: SceneContent> {
   pub light: S::Light,
+  /// Note: Light properties are unaffected by node transforms
+  /// — for example, range and intensity do not change with scale.
   pub node: SceneNode,
 }
 
