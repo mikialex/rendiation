@@ -17,28 +17,38 @@ pub struct LightShadowAddressInfo {
   pub enabled: Bool,
 }
 
+only_fragment!(BasicShadowMapInfoGroup, Shader140Array<BasicShadowMapInfo, 8>);
+only_fragment!(BasicShadowMap, ShaderDepthTexture2DArray);
 pub struct ShadowMapShader {
-  shadow_infos: Node<Shader140Array<BasicShadowMapInfo, 8>>,
-  map: Node<ShaderDepthTexture2DArray>,
+  pub shadow_infos: Node<Shader140Array<BasicShadowMapInfo, 8>>,
+  pub map: Node<ShaderDepthTexture2DArray>,
 }
 
 impl PunctualShaderLight for DirectionalLightShaderInfo {
   type PunctualDependency = ShadowMapShader;
-  fn create_punctual_dep(_: &mut ShaderGraphFragmentBuilderView) -> Self::PunctualDependency {
-    todo!()
+
+  fn create_punctual_dep(
+    builder: &mut ShaderGraphFragmentBuilderView,
+  ) -> Result<Self::PunctualDependency, ShaderGraphBuildError> {
+    Ok(ShadowMapShader {
+      shadow_infos: builder.query::<BasicShadowMapInfoGroup>()?,
+      map: builder.query::<BasicShadowMap>()?,
+    })
   }
+
   fn compute_incident_light(
-    light: &ExpandedNode<Self>,
+    light: &ENode<Self>,
     dep: &Self::PunctualDependency,
-    _ctx: &ExpandedNode<ShaderLightingGeometricCtx>,
-  ) -> ExpandedNode<ShaderIncidentLight> {
+    _ctx: &ENode<ShaderLightingGeometricCtx>,
+  ) -> ENode<ShaderIncidentLight> {
     let shadow_info = light.shadow.expand();
     let occlusion = consts(0.).mutable();
+
     if_by(shadow_info.enabled, || {
-      //
+      let shadow_info = dep.shadow_infos.index(shadow_info.index);
     });
-    //
-    ExpandedNode::<ShaderIncidentLight> {
+
+    ENode::<ShaderIncidentLight> {
       color: light.intensity * (consts(1.) - occlusion.get()),
       direction: light.direction,
     }

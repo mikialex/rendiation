@@ -205,7 +205,7 @@ impl ForwardLightingSystem {
       // let normal = compute_normal_by_dxdy(position);
       // builder.register::<FragmentWorldNormal>(normal);
 
-      let geom_ctx = ExpandedNode::<ShaderLightingGeometricCtx> {
+      let geom_ctx = ENode::<ShaderLightingGeometricCtx> {
         position,
         normal,
         view_dir: (camera_position - position).normalize(),
@@ -258,7 +258,7 @@ pub trait LightCollectionCompute: ShaderPassBuilder + ShaderHashProvider {
     binding: &mut ShaderGraphBindGroupDirectBuilder,
     shading_impl: &dyn LightableSurfaceShadingDyn,
     shading: &dyn Any,
-    geom_ctx: &ExpandedNode<ShaderLightingGeometricCtx>,
+    geom_ctx: &ENode<ShaderLightingGeometricCtx>,
   ) -> Result<(Node<Vec3<f32>>, Node<Vec3<f32>>), ShaderGraphBuildError>;
 
   fn compute_lights_grouped(
@@ -267,11 +267,11 @@ pub trait LightCollectionCompute: ShaderPassBuilder + ShaderHashProvider {
     binding: &mut ShaderGraphBindGroupDirectBuilder,
     shading_impl: &dyn LightableSurfaceShadingDyn,
     shading: &dyn Any,
-    geom_ctx: &ExpandedNode<ShaderLightingGeometricCtx>,
-  ) -> Result<ExpandedNode<ShaderLightingResult>, ShaderGraphBuildError> {
+    geom_ctx: &ENode<ShaderLightingGeometricCtx>,
+  ) -> Result<ENode<ShaderLightingResult>, ShaderGraphBuildError> {
     let (diffuse, specular) =
       self.compute_lights(builder, binding, shading_impl, shading, geom_ctx)?;
-    Ok(ExpandedNode::<ShaderLightingResult> { diffuse, specular })
+    Ok(ENode::<ShaderLightingResult> { diffuse, specular })
   }
 }
 
@@ -282,11 +282,11 @@ impl<T: ShaderLight> LightCollectionCompute for LightList<T> {
     binding: &mut ShaderGraphBindGroupDirectBuilder,
     shading_impl: &dyn LightableSurfaceShadingDyn,
     shading: &dyn Any,
-    geom_ctx: &ExpandedNode<ShaderLightingGeometricCtx>,
+    geom_ctx: &ENode<ShaderLightingGeometricCtx>,
   ) -> Result<(Node<Vec3<f32>>, Node<Vec3<f32>>), ShaderGraphBuildError> {
     let lights = binding.uniform_by(self.gpu.as_ref().unwrap(), SB::Pass);
 
-    let dep = T::create_dep(builder);
+    let dep = T::create_dep(builder)?;
 
     let light_specular_result = consts(Vec3::zero()).mutable();
     let light_diffuse_result = consts(Vec3::zero()).mutable();

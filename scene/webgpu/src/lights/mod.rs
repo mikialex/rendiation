@@ -40,14 +40,18 @@ pub trait ShaderLight:
 {
   /// this is to avoid mutable borrow errors in for_by and if_by.
   type Dependency;
-  fn create_dep(builder: &mut ShaderGraphFragmentBuilderView) -> Self::Dependency;
+
+  fn create_dep(
+    builder: &mut ShaderGraphFragmentBuilderView,
+  ) -> Result<Self::Dependency, ShaderGraphBuildError>;
+
   fn compute_direct_light(
-    light: &ExpandedNode<Self>,
-    ctx: &ExpandedNode<ShaderLightingGeometricCtx>,
+    light: &ENode<Self>,
+    ctx: &ENode<ShaderLightingGeometricCtx>,
     shading_impl: &dyn LightableSurfaceShadingDyn,
     shading: &dyn Any,
     dep: &Self::Dependency,
-  ) -> ExpandedNode<ShaderLightingResult>;
+  ) -> ENode<ShaderLightingResult>;
 }
 
 /// Punctual lights are defined as parameterized, infinitely small points that
@@ -56,28 +60,35 @@ pub trait PunctualShaderLight:
   ShaderGraphStructuralNodeType + ShaderStructMemberValueNodeType + Std140 + Sized + Default
 {
   type PunctualDependency;
-  fn create_punctual_dep(builder: &mut ShaderGraphFragmentBuilderView) -> Self::PunctualDependency;
+
+  fn create_punctual_dep(
+    builder: &mut ShaderGraphFragmentBuilderView,
+  ) -> Result<Self::PunctualDependency, ShaderGraphBuildError>;
+
   fn compute_incident_light(
-    light: &ExpandedNode<Self>,
+    light: &ENode<Self>,
     dep: &Self::PunctualDependency,
-    ctx: &ExpandedNode<ShaderLightingGeometricCtx>,
-  ) -> ExpandedNode<ShaderIncidentLight>;
+    ctx: &ENode<ShaderLightingGeometricCtx>,
+  ) -> ENode<ShaderIncidentLight>;
 }
 
 impl<T: PunctualShaderLight> ShaderLight for T {
   type Dependency = T::PunctualDependency;
 
-  fn create_dep(builder: &mut ShaderGraphFragmentBuilderView) -> Self::Dependency {
+  fn create_dep(
+    builder: &mut ShaderGraphFragmentBuilderView,
+  ) -> Result<Self::Dependency, ShaderGraphBuildError> {
     T::create_punctual_dep(builder)
   }
 
   fn compute_direct_light(
-    light: &ExpandedNode<Self>,
-    ctx: &ExpandedNode<ShaderLightingGeometricCtx>,
+    light: &ENode<Self>,
+    ctx: &ENode<ShaderLightingGeometricCtx>,
     shading_impl: &dyn LightableSurfaceShadingDyn,
     shading: &dyn Any,
     dep: &Self::Dependency,
-  ) -> ExpandedNode<ShaderLightingResult> {
+  ) -> ENode<ShaderLightingResult> {
+    // todo, check if incident light intensity zero
     let incident = T::compute_incident_light(light, dep, ctx);
     shading_impl.compute_lighting_by_incident_dyn(shading, &incident, ctx)
   }
