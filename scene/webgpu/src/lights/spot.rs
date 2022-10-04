@@ -50,6 +50,6 @@ impl WebGPUSceneLight for SpotLight {
       ..Zeroable::zeroed()
     };
 
-    lights.lights.push(gpu)
+    lights.source.push(gpu)
   }
 }

@@ -2,6 +2,8 @@ use crate::*;
 
 type LightId = u64;
 
+/// In shader, we want a single texture binding for all shadowmap with same format.
+/// All shadowmap are allocated in one texture with multi layers.
 pub struct ShadowMapAllocator {
   inner: Rc<RefCell<ShadowMapAllocatorImpl>>,
 }
@@ -80,33 +82,33 @@ impl ShaderGraphProvider for ShadowMapSystem {
   }
 }
 
-pub struct ShadowMaskEffect<'a> {
-  pub system: &'a ShadowMapSystem,
-}
+// pub struct ShadowMaskEffect<'a> {
+//   pub system: &'a ShadowMapSystem,
+// }
 
-only_fragment!(ShadowMask, f32);
+// only_fragment!(ShadowMask, f32);
 
-/// iterate over all shadow's and get combined results.
-impl<'a> ShaderGraphProvider for ShadowMaskEffect<'a> {
-  fn build(
-    &self,
-    builder: &mut ShaderGraphRenderPipelineBuilder,
-  ) -> Result<(), ShaderGraphBuildError> {
-    builder.fragment(|builder, _| {
-      let world_position = builder.query::<FragmentWorldPosition>()?;
+// /// iterate over all shadow's and get combined results.
+// impl<'a> ShaderGraphProvider for ShadowMaskEffect<'a> {
+//   fn build(
+//     &self,
+//     builder: &mut ShaderGraphRenderPipelineBuilder,
+//   ) -> Result<(), ShaderGraphBuildError> {
+//     builder.fragment(|builder, _| {
+//       let world_position = builder.query::<FragmentWorldPosition>()?;
 
-      todo!();
+//       todo!();
 
-      builder.register::<ShadowMask>(0.);
-      Ok(())
-    })
-  }
-}
+//       builder.register::<ShadowMask>(0.);
+//       Ok(())
+//     })
+//   }
+// }
 
 #[repr(C)]
 #[std140_layout]
 #[derive(Clone, Copy, Default, ShaderStruct)]
-pub struct SimpleShadowMapInfo {
+pub struct BasicShadowMapInfo {
   pub shadow_camera: CameraGPUTransform,
   pub bias: ShadowBias,
   pub map_info: ShadowMapAddressInfo,
@@ -127,31 +129,6 @@ pub struct ShadowMapAddressInfo {
   pub layer_index: f32,
   pub size: Vec2<f32>,
   pub offset: Vec2<f32>,
-}
-
-struct DirectionalShadowMapExtraInfo {
-  width_extend: f32,
-  height_extend: f32,
-  up: Vec3<f32>,
-}
-
-fn build_shadow_camera(light: &DirectionalLight, node: &SceneNode) -> CameraGPUTransform {
-  let world = node.get_world_matrix();
-  let eye = world.position();
-  let front = eye + world.forward();
-  let camera_world = Mat4::lookat(eye, front, Vec3::new(0., 1., 0.));
-
-  let orth = OrthographicProjection {
-    left: -20.,
-    right: 20.,
-    top: 20.,
-    bottom: -20.,
-    near: 0.1,
-    far: 2000.,
-  };
-
-  let proj = orth.create_projection::<WebGPU>();
-  CameraGPUTransform::from_proj_and_world(proj, world)
 }
 
 // impl ShadowMapSystem {

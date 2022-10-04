@@ -39,7 +39,7 @@ impl WebGPUSceneLight for PointLight {
       ..Zeroable::zeroed()
     };
 
-    lights.lights.push(gpu)
+    lights.source.push(gpu)
   }
 }
 

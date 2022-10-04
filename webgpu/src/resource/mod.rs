@@ -7,6 +7,9 @@ pub use buffer::*;
 mod sampler;
 pub use sampler::*;
 
+mod uniform_utils;
+pub use uniform_utils::*;
+
 use crate::*;
 
 pub struct ResourceViewContainer<T: Resource> {

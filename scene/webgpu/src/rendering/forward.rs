@@ -154,7 +154,7 @@ impl ForwardLightingSystem {
     let lights = self
       .lights_collections
       .entry(TypeId::of::<T>())
-      .or_insert_with(|| Box::new(LightList::<T>::default()));
+      .or_insert_with(|| Box::new(LightList::<T>::default_with(SB::Pass)));
     lights.as_any_mut().downcast_mut::<LightList<T>>().unwrap()
   }
 
@@ -233,12 +233,7 @@ impl ForwardLightingSystem {
 }
 
 const LIGHT_MAX: usize = 8;
-
-#[derive(Default)]
-pub struct LightList<T: ShaderLight> {
-  pub lights: Vec<T>,
-  pub lights_gpu: Option<UniformBufferDataView<Shader140Array<T, LIGHT_MAX>>>,
-}
+pub type LightList<T> = ClampedUniformList<T, LIGHT_MAX>;
 
 pub trait LightCollectionBase {
   fn reset(&mut self);
@@ -248,37 +243,11 @@ pub trait LightCollectionBase {
 
 impl<T: ShaderLight> LightCollectionBase for LightList<T> {
   fn reset(&mut self) {
-    self.lights.clear();
-    self.lights_gpu.take();
+    self.reset()
   }
 
   fn update_gpu(&mut self, gpu: &GPU) -> usize {
-    let mut source = vec![T::default(); LIGHT_MAX];
-    for (i, light) in self.lights.iter().enumerate() {
-      if i >= LIGHT_MAX {
-        break;
-      }
-      source[i] = *light;
-    }
-    let source = source.try_into().unwrap();
-    let lights_gpu = create_uniform(source, gpu);
-    self.lights_gpu = lights_gpu.into();
-    self.lights.len()
-  }
-}
-
-impl<T: ShaderLight> ShaderPassBuilder for LightList<T> {
-  fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
-    ctx
-      .binding
-      .bind(self.lights_gpu.as_ref().unwrap(), SB::Pass);
-  }
-}
-
-impl<T: ShaderLight> ShaderHashProvider for LightList<T> {
-  fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
-    TypeId::of::<T>().hash(hasher);
-    self.lights.len().hash(hasher);
+    self.update_gpu(gpu)
   }
 }
 
@@ -315,7 +284,7 @@ impl<T: ShaderLight> LightCollectionCompute for LightList<T> {
     shading: &dyn Any,
     geom_ctx: &ExpandedNode<ShaderLightingGeometricCtx>,
   ) -> Result<(Node<Vec3<f32>>, Node<Vec3<f32>>), ShaderGraphBuildError> {
-    let lights = binding.uniform_by(self.lights_gpu.as_ref().unwrap(), SB::Pass);
+    let lights = binding.uniform_by(self.gpu.as_ref().unwrap(), SB::Pass);
 
     let dep = T::create_dep(builder);
 
