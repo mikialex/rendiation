@@ -13,11 +13,11 @@ pub struct SpotLightShaderInfo {
 }
 
 impl PunctualShaderLight for SpotLightShaderInfo {
-  type Dependency = ();
-  fn create_dep(_: &mut ShaderGraphFragmentBuilderView) -> Self::Dependency {}
-  fn compute_direct_light(
+  type PunctualDependency = ();
+  fn create_punctual_dep(_: &mut ShaderGraphFragmentBuilderView) -> Self::PunctualDependency {}
+  fn compute_incident_light(
     light: &ExpandedNode<Self>,
-    _dep: &Self::Dependency,
+    _dep: &Self::PunctualDependency,
     ctx: &ExpandedNode<ShaderLightingGeometricCtx>,
   ) -> ExpandedNode<ShaderIncidentLight> {
     let direction = ctx.position - light.position;

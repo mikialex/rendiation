@@ -27,7 +27,7 @@ impl LightableSurfaceShading for PhysicalShading {
     }
   }
 
-  fn compute_lighting(
+  fn compute_lighting_by_incident(
     self_node: &ExpandedNode<Self::ShaderStruct>,
     direct_light: &ExpandedNode<ShaderIncidentLight>,
     ctx: &ExpandedNode<ShaderLightingGeometricCtx>,

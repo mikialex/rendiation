@@ -11,9 +11,9 @@ pub trait LightableSurfaceShading: Any {
   ) -> ExpandedNode<Self::ShaderStruct>;
 
   /// define how we compute result lighting from a give pixel of surface and lighting
-  fn compute_lighting(
+  fn compute_lighting_by_incident(
     self_node: &ExpandedNode<Self::ShaderStruct>,
-    direct_light: &ExpandedNode<ShaderIncidentLight>,
+    incident: &ExpandedNode<ShaderIncidentLight>,
     ctx: &ExpandedNode<ShaderLightingGeometricCtx>,
   ) -> ExpandedNode<ShaderLightingResult>;
 }
@@ -21,7 +21,7 @@ pub trait LightableSurfaceShading: Any {
 pub trait LightableSurfaceShadingDyn: Any {
   fn construct_shading_dyn(&self, builder: &mut ShaderGraphFragmentBuilder) -> Box<dyn Any>;
 
-  fn compute_lighting_dyn(
+  fn compute_lighting_by_incident_dyn(
     &self,
     self_node: &dyn Any,
     direct_light: &ExpandedNode<ShaderIncidentLight>,
@@ -33,7 +33,7 @@ impl<T: LightableSurfaceShading> LightableSurfaceShadingDyn for T {
     Box::new(Self::construct_shading(builder))
   }
 
-  fn compute_lighting_dyn(
+  fn compute_lighting_by_incident_dyn(
     &self,
     self_node: &dyn Any,
     direct_light: &ExpandedNode<ShaderIncidentLight>,
@@ -42,6 +42,6 @@ impl<T: LightableSurfaceShading> LightableSurfaceShadingDyn for T {
     let self_node = self_node
       .downcast_ref::<ExpandedNode<<Self as LightableSurfaceShading>::ShaderStruct>>()
       .unwrap();
-    Self::compute_lighting(self_node, direct_light, ctx)
+    Self::compute_lighting_by_incident(self_node, direct_light, ctx)
   }
 }

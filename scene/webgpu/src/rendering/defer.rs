@@ -182,12 +182,12 @@ pub trait VisitLightCollectionCompute {
   fn visit_lights_computes(&self, visitor: &mut dyn FnMut(&dyn LightCollectionCompute));
 }
 
-pub struct DeferLightList<T: PunctualShaderLight> {
+pub struct DeferLightList<T: ShaderLight> {
   pub lights: Vec<T>,
   pub lights_gpu: Vec<UniformBufferDataView<T>>,
 }
 
-impl<T: PunctualShaderLight> VisitLightCollectionCompute for DeferLightList<T> {
+impl<T: ShaderLight> VisitLightCollectionCompute for DeferLightList<T> {
   fn visit_lights_computes(&self, visitor: &mut dyn FnMut(&dyn LightCollectionCompute)) {
     self
       .lights_gpu
@@ -210,7 +210,7 @@ impl<'a, T: Std140> ShaderHashProvider for SingleLight<'a, T> {
     TypeId::of::<T>().hash(hasher)
   }
 }
-impl<'a, T: PunctualShaderLight> LightCollectionCompute for SingleLight<'a, T> {
+impl<'a, T: ShaderLight> LightCollectionCompute for SingleLight<'a, T> {
   fn compute_lights(
     &self,
     builder: &mut ShaderGraphFragmentBuilderView,
@@ -224,8 +224,7 @@ impl<'a, T: PunctualShaderLight> LightCollectionCompute for SingleLight<'a, T> {
     let dep = T::create_dep(builder);
 
     let light = light.expand();
-    let incident = T::compute_direct_light(&light, &dep, geom_ctx);
-    let light_result = shading_impl.compute_lighting_dyn(shading, &incident, geom_ctx);
+    let light_result = T::compute_direct_light(&light, geom_ctx, shading_impl, shading, &dep);
 
     Ok((light_result.diffuse, light_result.specular))
   }

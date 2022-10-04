@@ -44,29 +44,41 @@ pub trait ShaderLight:
   fn compute_direct_light(
     light: &ExpandedNode<Self>,
     ctx: &ExpandedNode<ShaderLightingGeometricCtx>,
+    shading_impl: &dyn LightableSurfaceShadingDyn,
     shading: &dyn Any,
+    dep: &Self::Dependency,
   ) -> ExpandedNode<ShaderLightingResult>;
 }
 
+/// Punctual lights are defined as parameterized, infinitely small points that
+/// emit light in well-defined directions and intensities.
 pub trait PunctualShaderLight:
   ShaderGraphStructuralNodeType + ShaderStructMemberValueNodeType + Std140 + Sized + Default
 {
-  type Dependency;
-  fn create_dep(builder: &mut ShaderGraphFragmentBuilderView) -> Self::Dependency;
-  fn compute_direct_light(
+  type PunctualDependency;
+  fn create_punctual_dep(builder: &mut ShaderGraphFragmentBuilderView) -> Self::PunctualDependency;
+  fn compute_incident_light(
     light: &ExpandedNode<Self>,
-    dep: &Self::Dependency,
+    dep: &Self::PunctualDependency,
     ctx: &ExpandedNode<ShaderLightingGeometricCtx>,
   ) -> ExpandedNode<ShaderIncidentLight>;
 }
 
-/// Punctual lights are defined as parameterized, infinitely small points that emit light in
-/// well-defined directions and intensities.
-pub trait PunctualLight:
-  ShaderGraphStructuralNodeType + ShaderStructMemberValueNodeType + Std140 + Sized + Default
-{
+impl<T: PunctualShaderLight> ShaderLight for T {
+  type Dependency = T::PunctualDependency;
+
+  fn create_dep(builder: &mut ShaderGraphFragmentBuilderView) -> Self::Dependency {
+    T::create_punctual_dep(builder)
+  }
+
   fn compute_direct_light(
     light: &ExpandedNode<Self>,
     ctx: &ExpandedNode<ShaderLightingGeometricCtx>,
-  ) -> ExpandedNode<ShaderIncidentLight>;
+    shading_impl: &dyn LightableSurfaceShadingDyn,
+    shading: &dyn Any,
+    dep: &Self::Dependency,
+  ) -> ExpandedNode<ShaderLightingResult> {
+    let incident = T::compute_incident_light(light, dep, ctx);
+    shading_impl.compute_lighting_by_incident_dyn(shading, &incident, ctx)
+  }
 }
