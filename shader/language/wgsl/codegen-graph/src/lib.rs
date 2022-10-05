@@ -222,7 +222,7 @@ fn gen_fragment_out_struct(code: &mut CodeBuilder, frag: &ShaderGraphFragmentBui
 
   if frag.depth_output.is_some() {
     shader_struct.fields.push(ShaderStructFieldMetaInfoOwned {
-      name: format!("frag_depth_out"),
+      name: "frag_depth_out".to_string(),
       ty: ShaderStructMemberValueType::Primitive(PrimitiveShaderValueType::Float32),
       ty_deco: ShaderFieldDecorator::BuiltIn(ShaderBuiltInDecorator::FragDepth).into(),
     });

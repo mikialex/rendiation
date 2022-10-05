@@ -78,6 +78,17 @@ fn check_texture_ty(name: &str) -> Option<TextureContainerType> {
   .into()
 }
 
+fn check_depth_texture_ty(name: &str) -> Option<DepthTextureContainerType> {
+  match name {
+    "texture_depth_2d" => DepthTextureContainerType::D2,
+    "texture_depth_2d_array" => DepthTextureContainerType::D2Array,
+    "texture_depth_cube" => DepthTextureContainerType::Cube,
+    "texture_depth_cube_array" => DepthTextureContainerType::CubeArray,
+    _ => return None,
+  }
+  .into()
+}
+
 fn check_value_ty(name: &str) -> Option<PrimitiveValueType> {
   match name {
     "f32" => PrimitiveValueType::Float32,
@@ -119,8 +130,12 @@ impl SyntaxElement for PrimitiveType {
             value_ty,
             container_ty,
           })
+        } else if let Some(container_ty) = check_depth_texture_ty(name) {
+          PrimitiveType::DepthTexture(container_ty)
         } else if name == "sampler" {
           PrimitiveType::Sampler
+        } else if name == "depth_sampler" {
+          PrimitiveType::DepthSampler
         } else {
           return Err(ParseError::Any("unexpected builtin type"));
         };

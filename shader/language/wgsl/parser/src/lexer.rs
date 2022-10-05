@@ -247,8 +247,33 @@ impl<'a> Lexer<'a> {
             rest,
           ),
           "array" => (Token::Array, rest),
-          "f32" | "u32" | "i32" | "bool" | "vec2" | "vec3" | "vec4" | "mat4x4" | "mat3x3"
-          | "sampler" | "comparison_sampler" | "texture_2d" => (Token::BuiltInType(word), rest),
+          "f32"
+          | "u32"
+          | "i32"
+          | "bool"
+          | "vec2"
+          | "vec3"
+          | "vec4"
+          | "mat4x4"
+          | "mat3x3"
+          | "sampler"
+          | "comparison_sampler"
+          | "texture_2d"
+          | "texture_1d"
+          | "texture_2d_array"
+          | "texture_3d"
+          | "texture_cube"
+          | "texture_cube_array"
+          | "texture_multisampled_2d"
+          | "texture_storage_1d"
+          | "texture_storage_2d"
+          | "texture_storage_2d_array"
+          | "texture_storage_3d"
+          | "texture_depth_2d"
+          | "texture_depth_2d_array"
+          | "texture_depth_cube"
+          | "texture_depth_cube_array"
+          | "texture_depth_multisampled_2d" => (Token::BuiltInType(word), rest),
           "fn" => (Token::Keyword(Keyword::Function), rest),
           _ => (Token::Word(word), rest),
         }
