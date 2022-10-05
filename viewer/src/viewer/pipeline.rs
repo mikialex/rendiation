@@ -6,6 +6,7 @@ pub struct ViewerPipeline {
   highlight: HighLighter,
   blur: CrossBlurData,
   forward_lights: ForwardLightingSystem,
+  shadows: ShadowMapSystem,
   tonemap: ToneMap,
 }
 
@@ -15,6 +16,7 @@ impl ViewerPipeline {
       highlight: HighLighter::new(gpu),
       blur: CrossBlurData::new(gpu),
       forward_lights: Default::default(),
+      shadows: ShadowMapSystem::new(gpu),
       tonemap: ToneMap::new(gpu)
     }
   }
@@ -30,7 +32,12 @@ impl ViewerPipeline {
   ) {
     let scene = &mut content.scene;
 
-    self.forward_lights.update_by_scene(scene, ctx.gpu);
+    LightUpdateCtx{
+        forward: &mut self.forward_lights,
+        shadows: &mut self.shadows,
+        ctx,
+        scene,
+    }.update();
 
     let mut scene_depth = depth_attachment().request(ctx);
 

@@ -36,8 +36,8 @@ impl PunctualShaderLight for PointLightShaderInfo {
 }
 
 impl WebGPUSceneLight for PointLight {
-  fn collect(&self, sys: &mut ForwardLightingSystem, node: &SceneNode) {
-    let lights = sys.get_or_create_list();
+  fn update(&self, ctx: &mut LightUpdateCtx, node: &SceneNode) {
+    let lights = ctx.forward.get_or_create_list();
 
     let gpu = PointLightShaderInfo {
       intensity: self.intensity,

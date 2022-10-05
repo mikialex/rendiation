@@ -7,8 +7,27 @@ pub use spot::*;
 
 use crate::*;
 
+pub struct LightUpdateCtx<'a, 'b> {
+  pub forward: &'a mut ForwardLightingSystem,
+  pub shadows: &'a mut ShadowMapSystem,
+  pub ctx: &'a mut FrameCtx<'b>,
+  pub scene: &'a Scene<WebGPUScene>,
+}
+
+impl<'a, 'b> LightUpdateCtx<'a, 'b> {
+  pub fn update(&mut self) {
+    self.forward.before_update_scene(self.ctx.gpu);
+
+    for (_, light) in &self.scene.lights {
+      let light = &light.read();
+      light.light.update(self, &light.node)
+    }
+    self.forward.after_update_scene(self.ctx.gpu);
+  }
+}
+
 pub trait WebGPUSceneLight: Any {
-  fn collect(&self, res: &mut ForwardLightingSystem, node: &SceneNode);
+  fn update(&self, ctx: &mut LightUpdateCtx, node: &SceneNode);
 }
 
 #[derive(Copy, Clone, ShaderStruct)]

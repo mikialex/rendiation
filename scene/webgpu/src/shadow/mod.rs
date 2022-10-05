@@ -61,6 +61,13 @@ pub trait ShadowImplementation: RenderComponentAny {}
 pub struct ShadowMapSystem {
   pub shadow_collections: LinkedHashMap<TypeId, Box<dyn ShadowImplementation>>,
   pub maps: ShadowMapAllocator,
+  pub sampler: RawComparisonSampler,
+}
+
+impl ShadowMapSystem {
+  pub fn new(gpu: &GPU) -> Self {
+    todo!()
+  }
 }
 
 impl ShaderPassBuilder for ShadowMapSystem {
@@ -81,29 +88,6 @@ impl ShaderGraphProvider for ShadowMapSystem {
     Ok(())
   }
 }
-
-// pub struct ShadowMaskEffect<'a> {
-//   pub system: &'a ShadowMapSystem,
-// }
-
-// only_fragment!(ShadowMask, f32);
-
-// /// iterate over all shadow's and get combined results.
-// impl<'a> ShaderGraphProvider for ShadowMaskEffect<'a> {
-//   fn build(
-//     &self,
-//     builder: &mut ShaderGraphRenderPipelineBuilder,
-//   ) -> Result<(), ShaderGraphBuildError> {
-//     builder.fragment(|builder, _| {
-//       let world_position = builder.query::<FragmentWorldPosition>()?;
-
-//       todo!();
-
-//       builder.register::<ShadowMask>(0.);
-//       Ok(())
-//     })
-//   }
-// }
 
 #[repr(C)]
 #[std140_layout]
@@ -133,9 +117,11 @@ pub struct ShadowMapAddressInfo {
 
 // impl ShadowMapSystem {
 //   pub fn update_shadow_maps(ctx: &mut FrameCtx) {
-//     pass("depth")
-//       .with_depth(depth.write(), clear(1.))
-//       .render(ctx)
-//       .by(todo!())
+//     self.shadow_collections.
+
+//     // pass("depth")
+//     //   .with_depth(depth.write(), clear(1.))
+//     //   .render(ctx)
+//     //   .by(todo!())
 //   }
 // }

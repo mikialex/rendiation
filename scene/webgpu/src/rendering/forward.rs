@@ -158,17 +158,14 @@ impl ForwardLightingSystem {
     lights.as_any_mut().downcast_mut::<LightList<T>>().unwrap()
   }
 
-  pub fn update_by_scene(&mut self, scene: &Scene<WebGPUScene>, gpu: &GPU) {
+  pub fn before_update_scene(&mut self, gpu: &GPU) {
     self
       .lights_collections
       .iter_mut()
       .for_each(|(_, c)| c.reset());
+  }
 
-    for (_, light) in &scene.lights {
-      let light = &light.read();
-      light.light.collect(self, &light.node)
-    }
-
+  pub fn after_update_scene(&mut self, gpu: &GPU) {
     let mut lengths: Shader140Array<Vec4<u32>, MAX_SUPPORT_LIGHT_KIND_COUNT> = Default::default();
 
     self
