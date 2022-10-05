@@ -37,6 +37,16 @@ impl GPUDevice {
     self.inner.sampler_cache.retrieve(&self.inner.device, desc)
   }
 
+  pub(crate) fn create_and_cache_com_sampler(
+    &self,
+    desc: impl Into<GPUSamplerDescriptor>,
+  ) -> RawComparisonSampler {
+    self
+      .inner
+      .sampler_cache
+      .retrieve_comparison(&self.inner.device, desc)
+  }
+
   pub fn get_or_cache_create_render_pipeline(
     &self,
     hasher: PipelineHasher,
@@ -97,10 +107,16 @@ impl Deref for GPUDevice {
   }
 }
 
-pub type RawSampler = Rc<gpu::Sampler>;
+#[derive(Clone)]
+pub struct RawSampler(pub Rc<gpu::Sampler>);
+
+#[derive(Clone)]
+pub struct RawComparisonSampler(pub Rc<gpu::Sampler>);
+
 #[derive(Default)]
 pub struct SamplerCache {
   cache: RefCell<HashMap<GPUSamplerDescriptor, RawSampler>>,
+  cache_compare: RefCell<HashMap<GPUSamplerDescriptor, RawComparisonSampler>>,
 }
 
 impl SamplerCache {
@@ -108,12 +124,26 @@ impl SamplerCache {
     &self,
     device: &gpu::Device,
     desc: impl Into<GPUSamplerDescriptor>,
-  ) -> Rc<gpu::Sampler> {
+  ) -> RawSampler {
     let mut map = self.cache.borrow_mut();
     let desc = desc.into();
     map
       .entry(desc.clone()) // todo optimize move
-      .or_insert_with(|| Rc::new(device.create_sampler(&desc.clone().into())))
+      .or_insert_with(|| RawSampler(Rc::new(device.create_sampler(&desc.clone().into()))))
+      .clone()
+  }
+
+  pub fn retrieve_comparison(
+    &self,
+    device: &gpu::Device,
+    desc: impl Into<GPUSamplerDescriptor>,
+  ) -> RawComparisonSampler {
+    let mut map = self.cache_compare.borrow_mut();
+    let mut desc = desc.into();
+    desc.compare = None;
+    map
+      .entry(desc.clone()) // todo optimize move
+      .or_insert_with(|| RawComparisonSampler(Rc::new(device.create_sampler(&desc.clone().into()))))
       .clone()
   }
 }

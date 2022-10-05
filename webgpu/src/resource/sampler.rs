@@ -6,9 +6,17 @@ impl BindableResourceView for gpu::Sampler {
   }
 }
 
+// we make two kinds of type to make sure the sampler type is static safe.
+// RawSampler is sampler in shader, RawComparisonSampler is sampler_compare in shader.
+
 impl BindableResourceView for RawSampler {
   fn as_bindable(&self) -> gpu::BindingResource {
-    gpu::BindingResource::Sampler(self.as_ref())
+    gpu::BindingResource::Sampler(self.0.as_ref())
+  }
+}
+impl BindableResourceView for RawComparisonSampler {
+  fn as_bindable(&self) -> gpu::BindingResource {
+    gpu::BindingResource::Sampler(self.0.as_ref())
   }
 }
 
@@ -30,6 +38,27 @@ impl Resource for RawSampler {
 impl InitResourceByAllocation for RawSampler {
   fn create_resource(desc: &Self::Descriptor, device: &GPUDevice) -> Self {
     device.create_and_cache_sampler(desc.clone())
+  }
+}
+
+pub type GPUComparisonSampler = ResourceRc<RawComparisonSampler>;
+pub type GPUComparisonSamplerView = ResourceViewRc<RawComparisonSampler>;
+
+impl Resource for RawComparisonSampler {
+  type Descriptor = gpu::SamplerDescriptor<'static>;
+
+  type View = RawComparisonSampler;
+
+  type ViewDescriptor = ();
+
+  fn create_view(&self, _: &Self::ViewDescriptor) -> Self::View {
+    self.clone()
+  }
+}
+
+impl InitResourceByAllocation for RawComparisonSampler {
+  fn create_resource(desc: &Self::Descriptor, device: &GPUDevice) -> Self {
+    device.create_and_cache_com_sampler(desc.clone())
   }
 }
 

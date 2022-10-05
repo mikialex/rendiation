@@ -19,33 +19,40 @@ pub struct LightShadowAddressInfo {
 
 only_fragment!(BasicShadowMapInfoGroup, Shader140Array<BasicShadowMapInfo, 8>);
 only_fragment!(BasicShadowMap, ShaderDepthTexture2DArray);
+only_fragment!(BasicShadowMapSampler, ShaderCompareSampler);
 only_fragment!(ShadowPosition, Vec3<f32>);
 
 wgsl_fn!(
   fn directional_shadow_occlusion(
     shadow_position: vec3<f32>,
     map: texture_depth_2d_array,
-    info: BasicShadowMapInfo,
+    d_sampler: comparison_sampler,
+    info: ShadowMapAddressInfo,
   ) -> f32 {
 
-    // float getDirectionalShadow(sampler2D shadowMap, vec2 shadowMapSize, float shadowBias, float shadowRadius, vec4 shadowCoord) {
-    //     shadowCoord.xyz /= shadowCoord.w;
-    //     shadowCoord.z += shadowBias;
+    // maybe we could use sampler's border color config, but that's not part of standard webgpu (wgpu supports)
+    let inFrustumVec = vec4<bool>(shadow_position.x >= 0.0, shadow_position.x <= 1.0, shadow_position.y >= 0.0, shadow_position.y <= 1.0);
+    let inFrustum = all(inFrustumVec);
+    let frustumTestVec = vec2<bool>(inFrustum, shadow_position.z <= 1.0);
+    let frustumTest = all(frustumTestVec);
 
-    //     bvec4 inFrustumVec = bvec4 (shadowCoord.x >= 0.0, shadowCoord.x <= 1.0, shadowCoord.y >= 0.0, shadowCoord.y <= 1.0);
-    //     bool inFrustum = all(inFrustumVec);
-    //     bvec2 frustumTestVec = bvec2(inFrustum, shadowCoord.z <= 1.0);
-    //     bool frustumTest = all(frustumTestVec);
-    //     if (frustumTest) {
-    //         return getShadow(shadowMap, shadowMapSize, shadowBias, shadowRadius, shadowCoord);
-    //     }
-    //     return 1.0;
-    // }
+    if (frustumTest) {
+      return textureSampleCompareLevel(
+        map,
+        d_sampler,
+        shadow_position.xy,
+        info.layer_index,
+        shadow_position.z,
+      );
+    } else {
+      return 1.0;
+    }
   }
 );
 
 impl PunctualShaderLight for DirectionalLightShaderInfo {
   type PunctualDependency = ();
+
   fn create_punctual_dep(
     _: &mut ShaderGraphFragmentBuilderView,
   ) -> Result<Self::PunctualDependency, ShaderGraphBuildError> {
@@ -63,11 +70,13 @@ impl PunctualShaderLight for DirectionalLightShaderInfo {
 
     if_by(shadow_info.enabled, || {
       let map = builder.query::<BasicShadowMap>().unwrap();
+      let sampler = builder.query::<BasicShadowMapSampler>().unwrap();
       let shadow_infos = builder.query::<BasicShadowMapInfoGroup>().unwrap();
       let shadow_position = builder.query::<ShadowPosition>().unwrap();
       let shadow_info = shadow_infos.index(shadow_info.index);
 
-      let occlusion_result = directional_shadow_occlusion(shadow_position, map, shadow_info);
+      let occlusion_result =
+        directional_shadow_occlusion(shadow_position, map, sampler, shadow_info.expand().map_info);
 
       occlusion.set(occlusion_result)
     });

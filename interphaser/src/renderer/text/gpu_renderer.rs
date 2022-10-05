@@ -199,7 +199,7 @@ fn create_bindgroup(
     entries: &[
       webgpu::BindGroupEntry {
         binding: 0,
-        resource: transform.as_bindable(),
+        resource: transform.create_view(&()).as_bindable(),
       },
       webgpu::BindGroupEntry {
         binding: 1,

@@ -126,7 +126,7 @@ pub struct ShadowBias {
 #[std140_layout]
 #[derive(Clone, Copy, Default, ShaderStruct)]
 pub struct ShadowMapAddressInfo {
-  pub layer_index: f32,
+  pub layer_index: u32,
   pub size: Vec2<f32>,
   pub offset: Vec2<f32>,
 }

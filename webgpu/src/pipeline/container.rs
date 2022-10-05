@@ -17,3 +17,7 @@ impl ShaderUniformProvider for GPUTextureCubeView {
 impl ShaderUniformProvider for GPUSamplerView {
   type Node = ShaderSampler;
 }
+
+impl ShaderUniformProvider for GPUComparisonSamplerView {
+  type Node = ShaderCompareSampler;
+}

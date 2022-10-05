@@ -19,7 +19,7 @@ impl PunctualShaderLight for PointLightShaderInfo {
   }
 
   fn compute_incident_light(
-    builder: &ShaderGraphFragmentBuilderView,
+    _: &ShaderGraphFragmentBuilderView,
     light: &ENode<Self>,
     _dep: &Self::PunctualDependency,
     ctx: &ENode<ShaderLightingGeometricCtx>,
