@@ -300,7 +300,8 @@ impl<T: ShaderLight> LightCollectionCompute for LightList<T> {
 
     for_by(light_iter, |_, light, _| {
       let light = light.expand();
-      let light_result = T::compute_direct_light(&light, geom_ctx, shading_impl, shading, &dep);
+      let light_result =
+        T::compute_direct_light(builder, &light, geom_ctx, shading_impl, shading, &dep);
 
       // improve impl by add assign
       light_specular_result.set(light_specular_result.get() + light_result.specular);

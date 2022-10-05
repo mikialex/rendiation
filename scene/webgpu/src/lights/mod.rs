@@ -46,6 +46,7 @@ pub trait ShaderLight:
   ) -> Result<Self::Dependency, ShaderGraphBuildError>;
 
   fn compute_direct_light(
+    builder: &ShaderGraphFragmentBuilderView,
     light: &ENode<Self>,
     ctx: &ENode<ShaderLightingGeometricCtx>,
     shading_impl: &dyn LightableSurfaceShadingDyn,
@@ -66,6 +67,7 @@ pub trait PunctualShaderLight:
   ) -> Result<Self::PunctualDependency, ShaderGraphBuildError>;
 
   fn compute_incident_light(
+    builder: &ShaderGraphFragmentBuilderView,
     light: &ENode<Self>,
     dep: &Self::PunctualDependency,
     ctx: &ENode<ShaderLightingGeometricCtx>,
@@ -82,6 +84,7 @@ impl<T: PunctualShaderLight> ShaderLight for T {
   }
 
   fn compute_direct_light(
+    builder: &ShaderGraphFragmentBuilderView,
     light: &ENode<Self>,
     ctx: &ENode<ShaderLightingGeometricCtx>,
     shading_impl: &dyn LightableSurfaceShadingDyn,
@@ -89,7 +92,7 @@ impl<T: PunctualShaderLight> ShaderLight for T {
     dep: &Self::Dependency,
   ) -> ENode<ShaderLightingResult> {
     // todo, check if incident light intensity zero
-    let incident = T::compute_incident_light(light, dep, ctx);
+    let incident = T::compute_incident_light(builder, light, dep, ctx);
     shading_impl.compute_lighting_by_incident_dyn(shading, &incident, ctx)
   }
 }

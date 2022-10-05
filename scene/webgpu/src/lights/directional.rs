@@ -19,33 +19,31 @@ pub struct LightShadowAddressInfo {
 
 only_fragment!(BasicShadowMapInfoGroup, Shader140Array<BasicShadowMapInfo, 8>);
 only_fragment!(BasicShadowMap, ShaderDepthTexture2DArray);
-pub struct ShadowMapShader {
-  pub shadow_infos: Node<Shader140Array<BasicShadowMapInfo, 8>>,
-  pub map: Node<ShaderDepthTexture2DArray>,
-}
 
 impl PunctualShaderLight for DirectionalLightShaderInfo {
-  type PunctualDependency = ShadowMapShader;
-
+  type PunctualDependency = ();
   fn create_punctual_dep(
     builder: &mut ShaderGraphFragmentBuilderView,
   ) -> Result<Self::PunctualDependency, ShaderGraphBuildError> {
-    Ok(ShadowMapShader {
-      shadow_infos: builder.query::<BasicShadowMapInfoGroup>()?,
-      map: builder.query::<BasicShadowMap>()?,
-    })
+    Ok(())
   }
 
   fn compute_incident_light(
+    builder: &ShaderGraphFragmentBuilderView,
     light: &ENode<Self>,
-    dep: &Self::PunctualDependency,
+    _dep: &Self::PunctualDependency,
     _ctx: &ENode<ShaderLightingGeometricCtx>,
   ) -> ENode<ShaderIncidentLight> {
     let shadow_info = light.shadow.expand();
     let occlusion = consts(0.).mutable();
 
     if_by(shadow_info.enabled, || {
-      let shadow_info = dep.shadow_infos.index(shadow_info.index);
+      let map = builder.query::<BasicShadowMap>().unwrap();
+      let shadow_infos = builder.query::<BasicShadowMapInfoGroup>().unwrap();
+      let shadow_position = builder.query::<BasicShadowMap>().unwrap();
+      let shadow_info = shadow_infos.index(shadow_info.index);
+
+      // occlusion.set(todo!())
     });
 
     ENode::<ShaderIncidentLight> {
@@ -73,10 +71,10 @@ impl WebGPUSceneLight for DirectionalLight {
   }
 }
 
-struct DirectionalShadowMapExtraInfo {
-  width_extend: f32,
-  height_extend: f32,
-  up: Vec3<f32>,
+pub struct DirectionalShadowMapExtraInfo {
+  pub width_extend: f32,
+  pub height_extend: f32,
+  pub up: Vec3<f32>,
 }
 
 fn build_shadow_camera(light: &DirectionalLight, node: &SceneNode) -> CameraGPUTransform {

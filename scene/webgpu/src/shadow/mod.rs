@@ -56,7 +56,7 @@ impl ShadowMapAllocator {
   }
 }
 
-pub trait ShadowImplementation: ShaderPassBuilder + ShaderHashProvider + Any {}
+pub trait ShadowImplementation: RenderComponentAny {}
 
 pub struct ShadowMapSystem {
   pub shadow_collections: LinkedHashMap<TypeId, Box<dyn ShadowImplementation>>,
@@ -139,3 +139,26 @@ pub struct ShadowMapAddressInfo {
 //       .by(todo!())
 //   }
 // }
+
+wgsl_fn!(
+  fn directional_shadow_occlusion(
+    position: vec3<f32>,
+    normal: vec3<f32>,
+    info: BasicShadowMapInfo,
+  ) -> f32 {
+
+    // float getDirectionalShadow(sampler2D shadowMap, vec2 shadowMapSize, float shadowBias, float shadowRadius, vec4 shadowCoord) {
+    //     shadowCoord.xyz /= shadowCoord.w;
+    //     shadowCoord.z += shadowBias;
+
+    //     bvec4 inFrustumVec = bvec4 (shadowCoord.x >= 0.0, shadowCoord.x <= 1.0, shadowCoord.y >= 0.0, shadowCoord.y <= 1.0);
+    //     bool inFrustum = all(inFrustumVec);
+    //     bvec2 frustumTestVec = bvec2(inFrustum, shadowCoord.z <= 1.0);
+    //     bool frustumTest = all(frustumTestVec);
+    //     if (frustumTest) {
+    //         return getShadow(shadowMap, shadowMapSize, shadowBias, shadowRadius, shadowCoord);
+    //     }
+    //     return 1.0;
+    // }
+  }
+);

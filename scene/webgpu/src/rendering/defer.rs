@@ -224,7 +224,8 @@ impl<'a, T: ShaderLight> LightCollectionCompute for SingleLight<'a, T> {
     let dep = T::create_dep(builder)?;
 
     let light = light.expand();
-    let light_result = T::compute_direct_light(&light, geom_ctx, shading_impl, shading, &dep);
+    let light_result =
+      T::compute_direct_light(builder, &light, geom_ctx, shading_impl, shading, &dep);
 
     Ok((light_result.diffuse, light_result.specular))
   }
