@@ -146,6 +146,10 @@ impl<T: Std140> UniformBufferData<T> {
     self.changed.set(true);
   }
 
+  pub fn get(&self) -> T {
+    *self.data.borrow()
+  }
+
   pub fn set(&self, v: T) {
     let mut data = self.data.borrow_mut();
     *data = v;

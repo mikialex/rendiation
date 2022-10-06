@@ -88,39 +88,70 @@ impl PunctualShaderLight for DirectionalLightShaderInfo {
   }
 }
 
-fn get_shadow_map<'a>(
+#[derive(Clone)]
+struct DirectionalShadowGPU {
+  shadow_camera: SceneCamera,
+  map: ShadowMap,
+}
+
+fn get_shadow_map(
   inner: &SceneItemRefGuard<SceneLightInner<DirectionalLight>>,
-  ctx: &'a mut LightUpdateCtx,
-) -> &'a ShadowMap {
+  gpu: &GPU,
+  resources: &mut GPUResourceCache,
+  shadows: &mut ShadowMapSystem,
+) -> DirectionalShadowGPU {
   let resolution = Size::from_usize_pair_min_one((512, 512));
 
-  ctx
-    .ctx
-    .resources
+  resources
     .scene
     .lights
     .inner
     .entry(TypeId::of::<DirectionalLight>())
-    .or_insert_with(|| Box::new(IdentityMapper::<ShadowMap, DirectionalLight>::default()))
+    .or_insert_with(|| {
+      Box::new(IdentityMapper::<DirectionalShadowGPU, DirectionalLight>::default())
+    })
     .as_any_mut()
-    .downcast_mut::<IdentityMapper<ShadowMap, DirectionalLight>>()
+    .downcast_mut::<IdentityMapper<DirectionalShadowGPU, DirectionalLight>>()
     .unwrap()
     .get_update_or_insert_with_logic(inner, |logic| match logic {
       ResourceLogic::Create(light) => {
-        ResourceLogicResult::Create(ctx.shadows.maps.allocate(ctx.ctx.gpu, resolution))
+        let shadow_camera = build_shadow_camera(light);
+        let map = shadows.maps.allocate(gpu, resolution);
+        ResourceLogicResult::Create(DirectionalShadowGPU { shadow_camera, map })
       }
       ResourceLogic::Update(shadow, light) => {
-        *shadow = ctx.shadows.maps.allocate(ctx.ctx.gpu, resolution);
+        let shadow_camera = build_shadow_camera(light);
+        let map = shadows.maps.allocate(gpu, resolution);
+        *shadow = DirectionalShadowGPU { shadow_camera, map };
         ResourceLogicResult::Update(shadow)
       }
     })
+    .clone()
+}
+
+struct SceneDepth;
+
+impl<S> PassContentWithSceneAndCamera<S> for SceneDepth
+where
+  S: SceneContent,
+  S::Model: Deref<Target = dyn SceneModelShareable>,
+{
+  fn render(&mut self, pass: &mut SceneRenderPass, scene: &Scene<S>, camera: &SceneCamera) {
+    let mut render_list = RenderList::<S>::default();
+    render_list.prepare(scene, camera);
+
+    // we could just use default, because the color channel not exist at all
+    let base = pass.default_dispatcher();
+
+    render_list.setup_pass(pass, scene, &base, camera);
+  }
 }
 
 impl WebGPUSceneLight for SceneLight<DirectionalLight> {
   // allocate shadow maps
   fn pre_update(&self, ctx: &mut LightUpdateCtx) {
     let inner = self.read();
-    get_shadow_map(&inner, ctx);
+    get_shadow_map(&inner, ctx.ctx.gpu, ctx.ctx.resources, ctx.shadows);
   }
 
   fn update(&self, ctx: &mut LightUpdateCtx) {
@@ -128,14 +159,33 @@ impl WebGPUSceneLight for SceneLight<DirectionalLight> {
     let light = &inner.light;
     let node = &inner.node;
 
-    let shadowmap = get_shadow_map(&inner, ctx);
-    let map_info = shadowmap.get_address_info();
+    let DirectionalShadowGPU { shadow_camera, map } =
+      get_shadow_map(&inner, ctx.ctx.gpu, ctx.ctx.resources, ctx.shadows);
+
+    let map_info = map.get_address_info(ctx.ctx.gpu);
+    let shadow_camera_info = ctx
+      .ctx
+      .resources
+      .cameras
+      .check_update_gpu(&shadow_camera, ctx.ctx.gpu)
+      .ubo
+      .resource
+      .get();
+
+    pass("shadow-depth")
+      .with_depth(map.get_write_view(ctx.ctx.gpu), clear(1.))
+      .render(ctx.ctx)
+      .by(CameraSceneRef {
+        camera: &shadow_camera,
+        scene: ctx.scene,
+        inner: SceneDepth,
+      });
 
     let shadows = ctx.shadows.get_or_create_list();
     let index = shadows.source.len();
 
     let mut info = BasicShadowMapInfo::default();
-    info.shadow_camera = build_shadow_camera(light, node);
+    info.shadow_camera = shadow_camera_info;
     info.bias = ShadowBias::default();
     info.map_info = map_info;
 
@@ -163,12 +213,7 @@ pub struct DirectionalShadowMapExtraInfo {
   pub up: Vec3<f32>,
 }
 
-fn build_shadow_camera(light: &DirectionalLight, node: &SceneNode) -> CameraGPUTransform {
-  let world = node.get_world_matrix();
-  let eye = world.position();
-  let front = eye + world.forward();
-  let camera_world = Mat4::lookat(eye, front, Vec3::new(0., 1., 0.));
-
+fn build_shadow_camera(light: &SceneLightInner<DirectionalLight>) -> SceneCamera {
   let orth = OrthographicProjection {
     left: -20.,
     right: 20.,
@@ -177,7 +222,31 @@ fn build_shadow_camera(light: &DirectionalLight, node: &SceneNode) -> CameraGPUT
     near: 0.1,
     far: 2000.,
   };
+  let orth = WorkAroundResizableOrth { orth };
+  SceneCamera::create_camera(orth, light.node.clone())
+}
 
-  let proj = orth.create_projection::<WebGPU>();
-  CameraGPUTransform::from_proj_and_world(proj, camera_world)
+struct WorkAroundResizableOrth<T> {
+  orth: OrthographicProjection<T>,
+}
+
+impl<T: Scalar> Projection<T> for WorkAroundResizableOrth<T> {
+  fn update_projection<S: NDCSpaceMapper>(&self, projection: &mut Mat4<T>) {
+    self.orth.update_projection::<S>(projection);
+  }
+
+  fn pixels_per_unit(&self, distance: T, view_height: T) -> T {
+    self.orth.pixels_per_unit(distance, view_height)
+  }
+}
+
+impl<T: Scalar> ResizableProjection<T> for WorkAroundResizableOrth<T> {
+  fn resize(&mut self, _size: (T, T)) {
+    // nothing!
+  }
+}
+impl HyperRayCaster<f32, Vec3<f32>, Vec2<f32>> for WorkAroundResizableOrth<f32> {
+  fn cast_ray(&self, normalized_position: Vec2<f32>) -> HyperRay<f32, Vec3<f32>> {
+    self.orth.cast_ray(normalized_position)
+  }
 }

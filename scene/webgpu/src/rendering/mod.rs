@@ -206,9 +206,9 @@ pub trait PassContentWithSceneAndCamera<S: SceneContent> {
 }
 
 pub struct CameraSceneRef<'a, T, S: SceneContent> {
-  camera: &'a SceneCamera,
-  scene: &'a Scene<S>,
-  inner: T,
+  pub camera: &'a SceneCamera,
+  pub scene: &'a Scene<S>,
+  pub inner: T,
 }
 
 impl<'a, T, S> PassContent for CameraSceneRef<'a, T, S>

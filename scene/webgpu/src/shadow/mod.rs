@@ -18,41 +18,45 @@ impl ShadowMapAllocator {
   }
 }
 
+#[derive(Default)]
 pub struct ShadowMapAllocatorImpl {
-  gpu: GPUTexture2d,
-  mapping: HashMap<usize, (GPUTexture2dView, ShadowMapAddressInfo)>,
+  id: usize,
+  gpu: Option<GPUTexture2d>,
+  mapping: HashMap<usize, ShadowMapAllocationInfo>,
 }
 
+struct ShadowMapAllocationInfo {
+  require_size: Size,
+  result: Option<ShadowMapAddressInfo>,
+}
+
+#[derive(Clone)]
 pub struct ShadowMap {
+  inner: Rc<ShadowMapInner>,
+}
+
+struct ShadowMapInner {
   id: usize,
   inner: Rc<RefCell<ShadowMapAllocatorImpl>>,
 }
 
-impl Drop for ShadowMap {
+impl Drop for ShadowMapInner {
   fn drop(&mut self) {
-    todo!()
+    self.inner.borrow_mut().mapping.remove(&self.id);
   }
 }
 
 impl ShadowMap {
-  pub fn is_content_lost(&self) -> bool {
-    todo!()
-  }
-
   pub fn get_write_view(&self, gpu: &GPU) -> GPUTexture2dView {
     todo!()
   }
 
-  pub fn get_address_info(&self) -> ShadowMapAddressInfo {
+  pub fn get_address_info(&self, gpu: &GPU) -> ShadowMapAddressInfo {
     todo!()
   }
 }
 
 impl ShadowMapAllocator {
-  pub fn with_capacity(size: Size, layer: usize, gpu: &GPU) -> Self {
-    todo!()
-  }
-
   pub fn allocate(&self, gpu: &GPU, resolution: Size) -> ShadowMap {
     todo!()
   }
@@ -134,14 +138,3 @@ pub struct ShadowMapAddressInfo {
   pub size: Vec2<f32>,
   pub offset: Vec2<f32>,
 }
-
-// impl ShadowMapSystem {
-//   pub fn update_shadow_maps(ctx: &mut FrameCtx) {
-//     self.shadow_collections.
-
-//     // pass("depth")
-//     //   .with_depth(depth.write(), clear(1.))
-//     //   .render(ctx)
-//     //   .by(todo!())
-//   }
-// }
