@@ -1,7 +1,5 @@
 use crate::*;
 
-type LightId = u64;
-
 /// In shader, we want a single texture binding for all shadowmap with same format.
 /// All shadowmap are allocated in one texture with multi layers.
 pub struct ShadowMapAllocator {
@@ -22,11 +20,11 @@ impl ShadowMapAllocator {
 
 pub struct ShadowMapAllocatorImpl {
   gpu: GPUTexture2d,
-  mapping: HashMap<LightId, (GPUTexture2dView, ShadowMapAddressInfo)>,
+  mapping: HashMap<usize, (GPUTexture2dView, ShadowMapAddressInfo)>,
 }
 
 pub struct ShadowMap {
-  layer: LightId,
+  id: usize,
   inner: Rc<RefCell<ShadowMapAllocatorImpl>>,
 }
 
@@ -55,7 +53,7 @@ impl ShadowMapAllocator {
     todo!()
   }
 
-  pub fn allocate(&self, gpu: &GPU, light: LightId, resolution: Size) -> ShadowMap {
+  pub fn allocate(&self, gpu: &GPU, resolution: Size) -> ShadowMap {
     todo!()
   }
 }

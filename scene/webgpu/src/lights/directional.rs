@@ -88,66 +88,56 @@ impl PunctualShaderLight for DirectionalLightShaderInfo {
   }
 }
 
+fn get_shadow_map<'a>(
+  inner: &SceneItemRefGuard<SceneLightInner<DirectionalLight>>,
+  ctx: &'a mut LightUpdateCtx,
+) -> &'a ShadowMap {
+  let resolution = Size::from_usize_pair_min_one((512, 512));
+
+  ctx
+    .ctx
+    .resources
+    .scene
+    .lights
+    .inner
+    .entry(TypeId::of::<DirectionalLight>())
+    .or_insert_with(|| Box::new(IdentityMapper::<ShadowMap, DirectionalLight>::default()))
+    .as_any_mut()
+    .downcast_mut::<IdentityMapper<ShadowMap, DirectionalLight>>()
+    .unwrap()
+    .get_update_or_insert_with_logic(inner, |logic| match logic {
+      ResourceLogic::Create(light) => {
+        ResourceLogicResult::Create(ctx.shadows.maps.allocate(ctx.ctx.gpu, resolution))
+      }
+      ResourceLogic::Update(shadow, light) => {
+        *shadow = ctx.shadows.maps.allocate(ctx.ctx.gpu, resolution);
+        ResourceLogicResult::Update(shadow)
+      }
+    })
+}
+
 impl WebGPUSceneLight for SceneLight<DirectionalLight> {
   // allocate shadow maps
   fn pre_update(&self, ctx: &mut LightUpdateCtx) {
     let inner = self.read();
-    let light_id = inner.id();
-    let light = &inner.light;
-    let node = &inner.node;
-
-    let type_id = TypeId::of::<DirectionalLight>();
-
-    let mapper = ctx
-      .ctx
-      .resources
-      .scene
-      .lights
-      .inner
-      .entry(type_id)
-      .or_insert_with(|| Box::new(IdentityMapper::<ShadowMap, DirectionalLight>::default()))
-      .as_any_mut()
-      .downcast_mut::<IdentityMapper<ShadowMap, DirectionalLight>>()
-      .unwrap();
-
-    let shadowmap = mapper.get_update_or_insert_with_logic(&inner, |logic| todo!());
+    get_shadow_map(&inner, ctx);
   }
 
   fn update(&self, ctx: &mut LightUpdateCtx) {
     let inner = self.read();
-    let light_id = inner.id();
     let light = &inner.light;
     let node = &inner.node;
 
-    let type_id = TypeId::of::<DirectionalLight>();
-
-    let mapper = ctx
-      .ctx
-      .resources
-      .scene
-      .lights
-      .inner
-      .entry(type_id)
-      .or_insert_with(|| Box::new(IdentityMapper::<ShadowMap, DirectionalLight>::default()))
-      .as_any_mut()
-      .downcast_mut::<IdentityMapper<ShadowMap, DirectionalLight>>()
-      .unwrap();
-
-    let shadowmap = mapper.get_update_or_insert_with_logic(&inner, |logic| todo!());
-
-    // let shadow = ctx
-    //   .shadows
-    //   .maps
-    //   .allocate(gpu, light, Size::from_usize_pair_min_one((256, 256)));
-
-    let shadow_camera = build_shadow_camera(light, node);
+    let shadowmap = get_shadow_map(&inner, ctx);
+    let map_info = shadowmap.get_address_info();
 
     let shadows = ctx.shadows.get_or_create_list();
     let index = shadows.source.len();
 
     let mut info = BasicShadowMapInfo::default();
+    info.shadow_camera = build_shadow_camera(light, node);
     info.bias = ShadowBias::default();
-    info.map_info = shadowmap.get_address_info();
+    info.map_info = map_info;
 
     shadows.source.push(info);
 
@@ -189,5 +179,5 @@ fn build_shadow_camera(light: &DirectionalLight, node: &SceneNode) -> CameraGPUT
   };
 
   let proj = orth.create_projection::<WebGPU>();
-  CameraGPUTransform::from_proj_and_world(proj, world)
+  CameraGPUTransform::from_proj_and_world(proj, camera_world)
 }
