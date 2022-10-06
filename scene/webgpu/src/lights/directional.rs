@@ -106,6 +106,7 @@ impl WebGPUSceneLight for SceneLight<DirectionalLight> {
       .inner
       .entry(type_id)
       .or_insert_with(|| Box::new(IdentityMapper::<ShadowMap, DirectionalLight>::default()))
+      .as_any_mut()
       .downcast_mut::<IdentityMapper<ShadowMap, DirectionalLight>>()
       .unwrap();
 
@@ -128,6 +129,7 @@ impl WebGPUSceneLight for SceneLight<DirectionalLight> {
       .inner
       .entry(type_id)
       .or_insert_with(|| Box::new(IdentityMapper::<ShadowMap, DirectionalLight>::default()))
+      .as_any_mut()
       .downcast_mut::<IdentityMapper<ShadowMap, DirectionalLight>>()
       .unwrap();
 

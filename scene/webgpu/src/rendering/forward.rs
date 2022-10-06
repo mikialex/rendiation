@@ -158,7 +158,7 @@ impl ForwardLightingSystem {
     lights.as_any_mut().downcast_mut::<LightList<T>>().unwrap()
   }
 
-  pub fn before_update_scene(&mut self, gpu: &GPU) {
+  pub fn before_update_scene(&mut self, _gpu: &GPU) {
     self
       .lights_collections
       .iter_mut()

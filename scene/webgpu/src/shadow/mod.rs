@@ -72,7 +72,6 @@ impl<T: Any + ShaderPassBuilder> ShadowCollection for T {
 pub struct ShadowMapSystem {
   pub shadow_collections: LinkedHashMap<TypeId, Box<dyn ShadowCollection>>,
   pub maps: ShadowMapAllocator,
-  pub map_updaters: Vec<Box<dyn Fn(&FrameCtx, &Scene<WebGPUScene>)>>,
   pub sampler: RawComparisonSampler,
 }
 
@@ -90,10 +89,6 @@ impl ShadowMapSystem {
       .entry(TypeId::of::<T>())
       .or_insert_with(|| Box::new(ShadowList::<T>::default_with(SB::Pass)));
     lights.as_any_mut().downcast_mut::<ShadowList<T>>().unwrap()
-  }
-
-  pub fn update_maps(&mut self, ctx: &FrameCtx, scene: &Scene<WebGPUScene>) {
-    self.map_updaters.drain(..).for_each(|cb| cb(ctx, scene))
   }
 }
 

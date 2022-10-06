@@ -172,8 +172,24 @@ impl GPUResourceCache {
     self.nodes.maintain();
     self.content.texture_2ds.maintain();
     self.content.texture_cubes.maintain();
-    // self.scene.lights
-    todo!()
+    self
+      .scene
+      .lights
+      .inner
+      .values_mut()
+      .for_each(|v| v.maintain());
+    self
+      .scene
+      .materials
+      .inner
+      .values_mut()
+      .for_each(|v| v.maintain());
+    self
+      .scene
+      .meshes
+      .inner
+      .values_mut()
+      .for_each(|v| v.maintain());
   }
 }
 
@@ -188,17 +204,18 @@ impl Default for GPUResourceCache {
     }
   }
 }
+
 #[derive(Default)]
 pub struct GPULightCache {
-  pub inner: HashMap<TypeId, Box<dyn Any>>,
+  pub inner: HashMap<TypeId, Box<dyn RequireMaintain>>,
 }
 #[derive(Default)]
 pub struct GPUMaterialCache {
-  pub inner: HashMap<TypeId, Box<dyn Any>>,
+  pub inner: HashMap<TypeId, Box<dyn RequireMaintain>>,
 }
 #[derive(Default)]
 pub struct GPUMeshCache {
-  pub inner: HashMap<TypeId, Box<dyn Any>>,
+  pub inner: HashMap<TypeId, Box<dyn RequireMaintain>>,
 }
 
 #[derive(Default)]

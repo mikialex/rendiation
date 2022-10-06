@@ -19,6 +19,10 @@ impl<'a, 'b> LightUpdateCtx<'a, 'b> {
     self.forward.before_update_scene(self.ctx.gpu);
 
     for (_, light) in &self.scene.lights {
+      light.pre_update(self)
+    }
+
+    for (_, light) in &self.scene.lights {
       light.update(self)
     }
     self.forward.after_update_scene(self.ctx.gpu);

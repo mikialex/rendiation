@@ -33,13 +33,11 @@ impl ViewerPipeline {
     let scene = &mut content.scene;
 
     LightUpdateCtx{
-        forward: &mut self.forward_lights,
-        shadows: &mut self.shadows,
-        ctx,
-        scene,
+      forward: &mut self.forward_lights,
+      shadows: &mut self.shadows,
+      ctx,
+      scene,
     }.update();
-
-    self.shadows.update_maps(ctx, scene);
 
     let mut scene_depth = depth_attachment().request(ctx);
 

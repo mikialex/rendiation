@@ -233,13 +233,23 @@ impl<'a, T> ResourceLogicResult<'a, T> {
   }
 }
 
-impl<T: 'static, U: 'static + ?Sized> IdentityMapper<T, U> {
-  pub fn maintain(&mut self) {
+pub trait RequireMaintain: std::any::Any {
+  fn maintain(&mut self);
+  fn as_any_mut(&mut self) -> &mut dyn std::any::Any;
+}
+
+impl<T: 'static, U: 'static + ?Sized> RequireMaintain for IdentityMapper<T, U> {
+  fn maintain(&mut self) {
     self.to_remove.write().unwrap().drain(..).for_each(|id| {
       self.data.remove(&id);
     });
   }
+  fn as_any_mut(&mut self) -> &mut dyn std::any::Any {
+    self
+  }
+}
 
+impl<T: 'static, U: 'static + ?Sized> IdentityMapper<T, U> {
   /// this to bypass the borrow limits of get_update_or_insert_with
   pub fn get_update_or_insert_with_logic<'a, 'b, X>(
     &'b mut self,
