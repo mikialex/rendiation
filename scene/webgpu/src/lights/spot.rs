@@ -43,16 +43,20 @@ impl PunctualShaderLight for SpotLightShaderInfo {
   }
 }
 
-impl WebGPUSceneLight for SpotLight {
-  fn update(&self, ctx: &mut LightUpdateCtx, node: &SceneNode) {
+impl WebGPUSceneLight for SceneLight<SpotLight> {
+  fn update(&self, ctx: &mut LightUpdateCtx) {
+    let inner = self.read();
+    let light = &inner.light;
+    let node = &inner.node;
+
     let lights = ctx.forward.get_or_create_list();
 
     let gpu = SpotLightShaderInfo {
-      intensity: self.intensity,
+      intensity: light.intensity,
       direction: node.get_world_matrix().forward().normalize().reverse(),
-      cutoff_distance: self.cutoff_distance,
-      half_cone_cos: self.half_cone_angle.cos(),
-      half_penumbra_cos: self.half_penumbra_angle.cos(),
+      cutoff_distance: light.cutoff_distance,
+      half_cone_cos: light.half_cone_angle.cos(),
+      half_penumbra_cos: light.half_penumbra_angle.cos(),
       position: node.get_world_matrix().position(),
       ..Zeroable::zeroed()
     };

@@ -39,6 +39,8 @@ impl ViewerPipeline {
         scene,
     }.update();
 
+    self.shadows.update_maps(ctx, scene);
+
     let mut scene_depth = depth_attachment().request(ctx);
 
     let mut msaa_color = ctx.multisampled_attachment().request(ctx);

@@ -169,6 +169,11 @@ pub struct GPUResourceCache {
 impl GPUResourceCache {
   pub fn maintain(&mut self) {
     self.cameras.maintain();
+    self.nodes.maintain();
+    self.content.texture_2ds.maintain();
+    self.content.texture_cubes.maintain();
+    // self.scene.lights
+    todo!()
   }
 }
 
@@ -183,7 +188,10 @@ impl Default for GPUResourceCache {
     }
   }
 }
-
+#[derive(Default)]
+pub struct GPULightCache {
+  pub inner: HashMap<TypeId, Box<dyn Any>>,
+}
 #[derive(Default)]
 pub struct GPUMaterialCache {
   pub inner: HashMap<TypeId, Box<dyn Any>>,
@@ -196,6 +204,7 @@ pub struct GPUMeshCache {
 #[derive(Default)]
 pub struct GPUResourceSceneCache {
   pub materials: GPUMaterialCache,
+  pub lights: GPULightCache,
   pub meshes: GPUMeshCache,
 }
 

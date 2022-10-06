@@ -22,7 +22,7 @@ impl ShadowMapAllocator {
 
 pub struct ShadowMapAllocatorImpl {
   gpu: GPUTexture2d,
-  mapping: HashMap<LightId, GPUTexture2dView>,
+  mapping: HashMap<LightId, (GPUTexture2dView, ShadowMapAddressInfo)>,
 }
 
 pub struct ShadowMap {
@@ -44,6 +44,10 @@ impl ShadowMap {
   pub fn get_write_view(&self, gpu: &GPU) -> GPUTexture2dView {
     todo!()
   }
+
+  pub fn get_address_info(&self) -> ShadowMapAddressInfo {
+    todo!()
+  }
 }
 
 impl ShadowMapAllocator {
@@ -56,17 +60,40 @@ impl ShadowMapAllocator {
   }
 }
 
-pub trait ShadowImplementation: RenderComponentAny {}
+pub trait ShadowCollection: Any + ShaderPassBuilder {
+  fn as_any_mut(&mut self) -> &mut dyn Any;
+}
+impl<T: Any + ShaderPassBuilder> ShadowCollection for T {
+  fn as_any_mut(&mut self) -> &mut dyn Any {
+    self
+  }
+}
 
 pub struct ShadowMapSystem {
-  pub shadow_collections: LinkedHashMap<TypeId, Box<dyn ShadowImplementation>>,
+  pub shadow_collections: LinkedHashMap<TypeId, Box<dyn ShadowCollection>>,
   pub maps: ShadowMapAllocator,
+  pub map_updaters: Vec<Box<dyn Fn(&FrameCtx, &Scene<WebGPUScene>)>>,
   pub sampler: RawComparisonSampler,
 }
+
+const SHADOW_MAX: usize = 8;
+pub type ShadowList<T> = ClampedUniformList<T, SHADOW_MAX>;
 
 impl ShadowMapSystem {
   pub fn new(gpu: &GPU) -> Self {
     todo!()
+  }
+
+  pub fn get_or_create_list<T: Std140>(&mut self) -> &mut ShadowList<T> {
+    let lights = self
+      .shadow_collections
+      .entry(TypeId::of::<T>())
+      .or_insert_with(|| Box::new(ShadowList::<T>::default_with(SB::Pass)));
+    lights.as_any_mut().downcast_mut::<ShadowList<T>>().unwrap()
+  }
+
+  pub fn update_maps(&mut self, ctx: &FrameCtx, scene: &Scene<WebGPUScene>) {
+    self.map_updaters.drain(..).for_each(|cb| cb(ctx, scene))
   }
 }
 

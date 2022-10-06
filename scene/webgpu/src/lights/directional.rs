@@ -88,15 +88,74 @@ impl PunctualShaderLight for DirectionalLightShaderInfo {
   }
 }
 
-impl WebGPUSceneLight for DirectionalLight {
-  fn update(&self, ctx: &mut LightUpdateCtx, node: &SceneNode) {
-    let lights = ctx.forward.get_or_create_list();
+impl WebGPUSceneLight for SceneLight<DirectionalLight> {
+  // allocate shadow maps
+  fn pre_update(&self, ctx: &mut LightUpdateCtx) {
+    let inner = self.read();
+    let light_id = inner.id();
+    let light = &inner.light;
+    let node = &inner.node;
 
+    let type_id = TypeId::of::<DirectionalLight>();
+
+    let mapper = ctx
+      .ctx
+      .resources
+      .scene
+      .lights
+      .inner
+      .entry(type_id)
+      .or_insert_with(|| Box::new(IdentityMapper::<ShadowMap, DirectionalLight>::default()))
+      .downcast_mut::<IdentityMapper<ShadowMap, DirectionalLight>>()
+      .unwrap();
+
+    let shadowmap = mapper.get_update_or_insert_with_logic(&inner, |logic| todo!());
+  }
+
+  fn update(&self, ctx: &mut LightUpdateCtx) {
+    let inner = self.read();
+    let light_id = inner.id();
+    let light = &inner.light;
+    let node = &inner.node;
+
+    let type_id = TypeId::of::<DirectionalLight>();
+
+    let mapper = ctx
+      .ctx
+      .resources
+      .scene
+      .lights
+      .inner
+      .entry(type_id)
+      .or_insert_with(|| Box::new(IdentityMapper::<ShadowMap, DirectionalLight>::default()))
+      .downcast_mut::<IdentityMapper<ShadowMap, DirectionalLight>>()
+      .unwrap();
+
+    let shadowmap = mapper.get_update_or_insert_with_logic(&inner, |logic| todo!());
+
+    // let shadow = ctx
+    //   .shadows
+    //   .maps
+    //   .allocate(gpu, light, Size::from_usize_pair_min_one((256, 256)));
+
+    let shadow_camera = build_shadow_camera(light, node);
+
+    let shadows = ctx.shadows.get_or_create_list();
+    let index = shadows.source.len();
+
+    let mut info = BasicShadowMapInfo::default();
+    info.bias = ShadowBias::default();
+    info.map_info = shadowmap.get_address_info();
+
+    shadows.source.push(info);
+
+    let lights = ctx.forward.get_or_create_list();
     let gpu = DirectionalLightShaderInfo {
-      intensity: self.intensity,
+      intensity: light.intensity,
       direction: node.get_world_matrix().forward().normalize().reverse(),
       shadow: LightShadowAddressInfo {
         enabled: false.into(),
+        index: index as u32,
         ..Zeroable::zeroed()
       },
       ..Zeroable::zeroed()

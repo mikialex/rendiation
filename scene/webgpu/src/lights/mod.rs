@@ -19,15 +19,15 @@ impl<'a, 'b> LightUpdateCtx<'a, 'b> {
     self.forward.before_update_scene(self.ctx.gpu);
 
     for (_, light) in &self.scene.lights {
-      let light = &light.read();
-      light.light.update(self, &light.node)
+      light.update(self)
     }
     self.forward.after_update_scene(self.ctx.gpu);
   }
 }
 
 pub trait WebGPUSceneLight: Any {
-  fn update(&self, ctx: &mut LightUpdateCtx, node: &SceneNode);
+  fn pre_update(&self, _ctx: &mut LightUpdateCtx) {}
+  fn update(&self, ctx: &mut LightUpdateCtx);
 }
 
 #[derive(Copy, Clone, ShaderStruct)]

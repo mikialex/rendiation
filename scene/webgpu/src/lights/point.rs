@@ -35,14 +35,18 @@ impl PunctualShaderLight for PointLightShaderInfo {
   }
 }
 
-impl WebGPUSceneLight for PointLight {
-  fn update(&self, ctx: &mut LightUpdateCtx, node: &SceneNode) {
+impl WebGPUSceneLight for SceneLight<PointLight> {
+  fn update(&self, ctx: &mut LightUpdateCtx) {
+    let inner = self.read();
+    let light = &inner.light;
+    let node = &inner.node;
+
     let lights = ctx.forward.get_or_create_list();
 
     let gpu = PointLightShaderInfo {
-      intensity: self.intensity,
+      intensity: light.intensity,
       position: node.get_world_matrix().position(),
-      cutoff_distance: self.cutoff_distance,
+      cutoff_distance: light.cutoff_distance,
       ..Zeroable::zeroed()
     };
 
