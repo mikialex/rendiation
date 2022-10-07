@@ -30,14 +30,11 @@ impl GPUDevice {
     }
   }
 
-  pub(crate) fn create_and_cache_sampler(
-    &self,
-    desc: impl Into<GPUSamplerDescriptor>,
-  ) -> RawSampler {
+  pub fn create_and_cache_sampler(&self, desc: impl Into<GPUSamplerDescriptor>) -> RawSampler {
     self.inner.sampler_cache.retrieve(&self.inner.device, desc)
   }
 
-  pub(crate) fn create_and_cache_com_sampler(
+  pub fn create_and_cache_com_sampler(
     &self,
     desc: impl Into<GPUSamplerDescriptor>,
   ) -> RawComparisonSampler {
@@ -126,7 +123,8 @@ impl SamplerCache {
     desc: impl Into<GPUSamplerDescriptor>,
   ) -> RawSampler {
     let mut map = self.cache.borrow_mut();
-    let desc = desc.into();
+    let mut desc = desc.into();
+    desc.compare = None;
     map
       .entry(desc.clone()) // todo optimize move
       .or_insert_with(|| RawSampler(Rc::new(device.create_sampler(&desc.clone().into()))))
@@ -139,8 +137,8 @@ impl SamplerCache {
     desc: impl Into<GPUSamplerDescriptor>,
   ) -> RawComparisonSampler {
     let mut map = self.cache_compare.borrow_mut();
-    let mut desc = desc.into();
-    desc.compare = None;
+    let desc = desc.into();
+    // should we check is compare is some?
     map
       .entry(desc.clone()) // todo optimize move
       .or_insert_with(|| RawComparisonSampler(Rc::new(device.create_sampler(&desc.clone().into()))))

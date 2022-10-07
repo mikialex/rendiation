@@ -2,6 +2,7 @@ use crate::*;
 
 /// In shader, we want a single texture binding for all shadowmap with same format.
 /// All shadowmap are allocated in one texture with multi layers.
+#[derive(Default)]
 pub struct ShadowMapAllocator {
   inner: Rc<RefCell<ShadowMapAllocatorImpl>>,
 }
@@ -23,6 +24,12 @@ pub struct ShadowMapAllocatorImpl {
   id: usize,
   gpu: Option<GPUTexture2d>,
   mapping: HashMap<usize, ShadowMapAllocationInfo>,
+}
+
+impl ShadowMapAllocatorImpl {
+  fn check_rebuild(&mut self, gpu: &GPU) -> &GPUTexture2d {
+    self.gpu.get_or_insert_with(|| todo!())
+  }
 }
 
 struct ShadowMapAllocationInfo {
@@ -82,7 +89,13 @@ pub type ShadowList<T> = ClampedUniformList<T, SHADOW_MAX>;
 
 impl ShadowMapSystem {
   pub fn new(gpu: &GPU) -> Self {
-    todo!()
+    let mut sampler = SamplerDescriptor::default();
+    sampler.compare = CompareFunction::Less.into();
+    Self {
+      shadow_collections: Default::default(),
+      maps: Default::default(),
+      sampler: gpu.device.create_and_cache_com_sampler(sampler),
+    }
   }
 
   pub fn get_or_create_list<T: Std140>(&mut self) -> &mut ShadowList<T> {
