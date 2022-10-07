@@ -13,28 +13,22 @@ impl ShaderPassBuilder for ShadowMapAllocator {
   }
 }
 
-impl ShadowMapAllocator {
-  pub fn shadow_given_light(light_id: Node<u32>, world_position: Node<Vec3<f32>>) -> Node<f32> {
-    todo!()
-  }
-}
-
 #[derive(Default)]
 pub struct ShadowMapAllocatorImpl {
   id: usize,
-  gpu: Option<GPU2DTexture>,
-  mapping: HashMap<usize, ShadowMapAllocationInfo>,
+  result: Option<ShadowMapAllocationInfo>,
+  requirements: HashMap<usize, Size>,
 }
 
 impl ShadowMapAllocatorImpl {
-  fn check_rebuild(&mut self, gpu: &GPU) -> &GPU2DTexture {
-    self.gpu.get_or_insert_with(|| todo!())
+  fn check_rebuild(&mut self, gpu: &GPU) -> &GPU2DArrayTextureView {
+    &self.result.get_or_insert_with(|| todo!()).map
   }
 }
 
 struct ShadowMapAllocationInfo {
-  require_size: Size,
-  result: Option<ShadowMapAddressInfo>,
+  map: GPU2DArrayTextureView,
+  mapping: HashMap<usize, ShadowMapAllocationInfo>,
 }
 
 #[derive(Clone)]
@@ -49,7 +43,11 @@ struct ShadowMapInner {
 
 impl Drop for ShadowMapInner {
   fn drop(&mut self) {
-    self.inner.borrow_mut().mapping.remove(&self.id);
+    let mut inner = self.inner.borrow_mut();
+    inner.requirements.remove(&self.id);
+    if let Some(result) = &mut inner.result {
+      result.mapping.remove(&self.id);
+    }
   }
 }
 
@@ -65,7 +63,19 @@ impl ShadowMap {
 
 impl ShadowMapAllocator {
   pub fn allocate(&self, gpu: &GPU, resolution: Size) -> ShadowMap {
-    todo!()
+    let mut inner = self.inner.borrow_mut();
+    inner.id += 1;
+
+    let id = inner.id;
+    inner.requirements.insert(id, resolution);
+
+    let s_inner = ShadowMapInner {
+      id,
+      inner: self.inner.clone(),
+    };
+    ShadowMap {
+      inner: Rc::new(s_inner),
+    }
   }
 }
 

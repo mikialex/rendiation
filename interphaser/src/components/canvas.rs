@@ -1,7 +1,7 @@
 use crate::*;
 use rendiation_texture::Size;
 use std::rc::Rc;
-use webgpu::{map_size_gpu, GPU2DTexture, GPU2DTextureView, GPUTexture, GPU};
+use webgpu::{map_size_gpu, GPU2DTextureView, GPUTexture, GPU};
 use winit::event::Event;
 
 pub struct GPUCanvas {
