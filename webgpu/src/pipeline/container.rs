@@ -6,11 +6,15 @@ impl<T: ShaderGraphNodeType + Std140> ShaderUniformProvider for UniformBufferDat
   type Node = T;
 }
 
-impl ShaderUniformProvider for GPUTexture2dView {
+impl ShaderUniformProvider for GPU2DTextureView {
   type Node = ShaderTexture2D;
 }
 
-impl ShaderUniformProvider for GPUTextureCubeView {
+impl ShaderUniformProvider for GPU2DArrayTextureView {
+  type Node = ShaderTexture2DArray;
+}
+
+impl ShaderUniformProvider for GPUCubeTextureView {
   type Node = ShaderTextureCube;
 }
 

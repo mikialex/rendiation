@@ -13,7 +13,7 @@ use rendiation_scene_webgpu::{
 };
 use rendiation_scene_webgpu::{SceneModelHandle, WebGPUSceneExtension};
 use shadergraph::*;
-use webgpu::{GPUBufferViewRange, TextureFormat, WebGPUTexture2dSource};
+use webgpu::{GPUBufferViewRange, TextureFormat, WebGPU2DTextureSource};
 
 mod convert_utils;
 use convert_utils::*;
@@ -153,7 +153,7 @@ pub struct GltfImage {
   size: rendiation_texture::Size,
 }
 
-impl WebGPUTexture2dSource for GltfImage {
+impl WebGPU2DTextureSource for GltfImage {
   fn format(&self) -> webgpu::TextureFormat {
     self.format
   }

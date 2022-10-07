@@ -1,15 +1,12 @@
-pub mod d1;
-pub use d1::*;
 pub mod d2;
 pub use d2::*;
-pub mod d3;
-pub use d3::*;
 pub mod cube;
 pub use cube::*;
 
 use crate::*;
 
 pub type GPUTexture = ResourceRc<gpu::Texture>;
+pub type GPUTextureView = ResourceViewRc<gpu::Texture>;
 
 impl Resource for gpu::Texture {
   type Descriptor = gpu::TextureDescriptor<'static>;
@@ -28,3 +25,39 @@ impl InitResourceByAllocation for gpu::Texture {
     device.create_texture(desc)
   }
 }
+
+impl BindableResourceView for gpu::TextureView {
+  fn as_bindable(&self) -> gpu::BindingResource {
+    todo!()
+  }
+}
+
+#[derive(Clone)]
+pub struct GPU2DTexture(pub GPUTexture);
+
+#[derive(Clone)]
+pub struct GPUCubeTexture(pub GPUTexture);
+
+#[derive(Clone)]
+pub struct GPU1DTextureView(pub GPUTextureView);
+#[derive(Clone)]
+pub struct GPU1DArrayTextureView(pub GPUTextureView);
+#[derive(Clone)]
+pub struct GPU2DTextureView(pub GPUTextureView);
+
+impl Deref for GPU2DTextureView {
+  type Target = GPUTextureView;
+
+  fn deref(&self) -> &Self::Target {
+    &self.0
+  }
+}
+
+#[derive(Clone)]
+pub struct GPU2DArrayTextureView(pub GPUTextureView);
+#[derive(Clone)]
+pub struct GPUCubeTextureView(pub GPUTextureView);
+#[derive(Clone)]
+pub struct GPUCubeArrayTextureView(pub GPUTextureView);
+#[derive(Clone)]
+pub struct GPU3DTextureView(pub GPUTextureView);

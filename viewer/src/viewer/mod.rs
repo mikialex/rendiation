@@ -28,7 +28,7 @@ use webgpu::*;
 use crate::*;
 
 impl CanvasPrinter for ViewerImpl {
-  fn draw_canvas(&mut self, gpu: &Rc<GPU>, canvas: GPUTexture2dView) {
+  fn draw_canvas(&mut self, gpu: &Rc<GPU>, canvas: GPU2DTextureView) {
     self.content.update_state();
     self.content.gizmo.update();
     self

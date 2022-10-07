@@ -22,12 +22,12 @@ impl ShadowMapAllocator {
 #[derive(Default)]
 pub struct ShadowMapAllocatorImpl {
   id: usize,
-  gpu: Option<GPUTexture2d>,
+  gpu: Option<GPU2DTexture>,
   mapping: HashMap<usize, ShadowMapAllocationInfo>,
 }
 
 impl ShadowMapAllocatorImpl {
-  fn check_rebuild(&mut self, gpu: &GPU) -> &GPUTexture2d {
+  fn check_rebuild(&mut self, gpu: &GPU) -> &GPU2DTexture {
     self.gpu.get_or_insert_with(|| todo!())
   }
 }
@@ -54,7 +54,7 @@ impl Drop for ShadowMapInner {
 }
 
 impl ShadowMap {
-  pub fn get_write_view(&self, gpu: &GPU) -> GPUTexture2dView {
+  pub fn get_write_view(&self, gpu: &GPU) -> GPU2DTextureView {
     todo!()
   }
 

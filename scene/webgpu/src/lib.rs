@@ -63,8 +63,8 @@ impl SceneContent for WebGPUScene {
   type BackGround = Box<dyn WebGPUBackground>;
   type Model = Box<dyn SceneModelShareable>;
   type Light = Box<dyn WebGPUSceneLight>;
-  type Texture2D = Box<dyn WebGPUTexture2dSource>;
-  type TextureCube = [Box<dyn WebGPUTexture2dSource>; 6];
+  type Texture2D = Box<dyn WebGPU2DTextureSource>;
+  type TextureCube = [Box<dyn WebGPU2DTextureSource>; 6];
   type SceneExt = ();
 }
 
@@ -228,8 +228,8 @@ pub struct GPUResourceSceneCache {
 /// GPU cache container for given scene
 #[derive(Default)]
 pub struct GPUResourceSubCache {
-  pub texture_2ds: IdentityMapper<GPUTexture2dView, dyn WebGPUTexture2dSource>,
-  pub texture_cubes: IdentityMapper<GPUTextureCubeView, [Box<dyn WebGPUTexture2dSource>; 6]>,
+  pub texture_2ds: IdentityMapper<GPU2DTextureView, dyn WebGPU2DTextureSource>,
+  pub texture_cubes: IdentityMapper<GPUCubeTextureView, [Box<dyn WebGPU2DTextureSource>; 6]>,
 }
 
 use arena::Handle;

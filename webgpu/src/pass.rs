@@ -12,7 +12,7 @@ pub trait ShaderPassBuilder {
 
 #[derive(Clone)]
 pub enum RenderTargetView {
-  Texture(GPUTexture2dView),
+  Texture(GPU2DTextureView),
   SurfaceTexture {
     size: Size,
     format: gpu::TextureFormat,
@@ -51,8 +51,8 @@ impl BindProvider for RenderTargetView {
   }
 }
 
-impl From<GPUTexture2dView> for RenderTargetView {
-  fn from(view: GPUTexture2dView) -> Self {
+impl From<GPU2DTextureView> for RenderTargetView {
+  fn from(view: GPU2DTextureView) -> Self {
     Self::Texture(view)
   }
 }
@@ -60,7 +60,7 @@ impl From<GPUTexture2dView> for RenderTargetView {
 impl RenderTargetView {
   pub fn as_view(&self) -> &gpu::TextureView {
     match self {
-      RenderTargetView::Texture(t) => &t.view.0,
+      RenderTargetView::Texture(t) => &t.view,
       RenderTargetView::SurfaceTexture { view, .. } => view.as_ref(),
     }
   }

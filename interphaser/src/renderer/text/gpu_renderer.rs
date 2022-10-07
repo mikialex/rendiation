@@ -23,7 +23,7 @@ pub struct TextureWriteData<'a> {
   pub size: Size,
 }
 
-impl<'a> WebGPUTexture2dSource for TextureWriteData<'a> {
+impl<'a> WebGPU2DTextureSource for TextureWriteData<'a> {
   fn format(&self) -> webgpu::TextureFormat {
     webgpu::TextureFormat::R8Unorm
   }

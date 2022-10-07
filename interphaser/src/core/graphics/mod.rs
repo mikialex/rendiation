@@ -11,7 +11,7 @@ pub use shape::*;
 
 mod api;
 pub use api::*;
-use webgpu::GPUTexture2dView;
+use webgpu::GPU2DTextureView;
 
 pub trait Presentable {
   fn render(&mut self, builder: &mut PresentationBuilder);
@@ -57,7 +57,7 @@ impl<'a> PresentationBuilder<'a> {
 #[derive(Clone)]
 pub enum Style {
   SolidColor(Color),
-  Texture(GPUTexture2dView),
+  Texture(GPU2DTextureView),
 }
 
 #[derive(Clone)]

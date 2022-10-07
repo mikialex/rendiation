@@ -20,7 +20,7 @@ struct PooledTextureKey {
 
 #[derive(Default)]
 struct SingleResourcePool {
-  cached: Vec<GPUTexture2d>,
+  cached: Vec<GPU2DTexture>,
 }
 
 #[derive(Clone, Default)]
@@ -62,7 +62,7 @@ pub fn depth_stencil_attachment() -> AttachmentDescriptor {
 pub struct Attachment {
   pool: ResourcePool,
   des: AttachmentDescriptor,
-  texture: GPUTexture2d,
+  texture: GPU2DTexture,
   key: PooledTextureKey,
 }
 
@@ -172,8 +172,8 @@ impl AttachmentDescriptor {
       .or_insert_with(Default::default);
 
     let texture = cached.cached.pop().unwrap_or_else(|| {
-      GPUTexture2d::create(
-        WebGPUTexture2dDescriptor::from_size(size)
+      GPU2DTexture::create(
+        WebGPU2DTextureDescriptor::from_size(size)
           .with_render_target_ability()
           .with_sample_count(self.sample_count)
           .with_format(self.format),

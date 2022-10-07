@@ -5,7 +5,7 @@ use rendiation_mesh_generator::{
 };
 use rendiation_renderable_mesh::{vertex::Vertex, TriangleList};
 use rendiation_texture::{rgb_to_rgba, TextureSampler, WrapAsTexture2DSource};
-use webgpu::WebGPUTexture2dSource;
+use webgpu::WebGPU2DTextureSource;
 
 use crate::*;
 
@@ -29,7 +29,7 @@ pub fn load_img_cube() -> <WebGPUScene as SceneContent>::TextureCube {
     "C:/Users/mk/Desktop/rrf-resource/Park2/negz.jpg",
   ];
 
-  fn load(path: &&str) -> Box<dyn WebGPUTexture2dSource> {
+  fn load(path: &&str) -> Box<dyn WebGPU2DTextureSource> {
     Box::new(load_img(path).into_source())
   }
 

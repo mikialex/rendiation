@@ -16,7 +16,7 @@ impl ShaderHashProvider for PhysicalMaterialGPU {
 
 pub struct PhysicalMaterialGPU {
   uniform: UniformBufferDataView<PhysicalMaterialUniform>,
-  albedo_texture: Option<(GPUTexture2dView, GPUSamplerView)>,
+  albedo_texture: Option<(GPU2DTextureView, GPUSamplerView)>,
 }
 
 impl ShaderPassBuilder for PhysicalMaterialGPU {
@@ -64,7 +64,7 @@ impl ShaderGraphProvider for PhysicalMaterialGPU {
 impl<S> WebGPUMaterial for PhysicalMaterial<S>
 where
   S: SceneContent,
-  S::Texture2D: AsRef<dyn WebGPUTexture2dSource>,
+  S::Texture2D: AsRef<dyn WebGPU2DTextureSource>,
 {
   type GPU = PhysicalMaterialGPU;
 

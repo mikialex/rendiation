@@ -92,8 +92,8 @@ impl GPUCommandEncoder {
   pub fn copy_source_to_texture_2d(
     &mut self,
     device: &GPUDevice,
-    source: impl WebGPUTexture2dSource,
-    target: &GPUTexture2d,
+    source: impl WebGPU2DTextureSource,
+    target: &GPU2DTexture,
     origin: (u32, u32),
   ) -> &mut Self {
     let (upload_buffer, size) = source.create_upload_buffer(device);
