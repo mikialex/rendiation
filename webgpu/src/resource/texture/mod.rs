@@ -33,10 +33,33 @@ impl BindableResourceView for gpu::TextureView {
 }
 
 #[derive(Clone)]
+pub struct GPU1DTexture(pub GPUTexture);
+
+#[derive(Clone)]
 pub struct GPU2DTexture(pub GPUTexture);
 
 #[derive(Clone)]
+pub struct GPU3DTexture(pub GPUTexture);
+
+#[derive(Clone)]
 pub struct GPUCubeTexture(pub GPUTexture);
+
+macro_rules! texture_inner {
+  ($ty: ty) => {
+    impl Deref for $ty {
+      type Target = GPUTexture;
+
+      fn deref(&self) -> &Self::Target {
+        &self.0
+      }
+    }
+  };
+}
+
+texture_inner!(GPU1DTexture);
+texture_inner!(GPU2DTexture);
+texture_inner!(GPU3DTexture);
+texture_inner!(GPUCubeTexture);
 
 #[derive(Clone)]
 pub struct GPU1DTextureView(pub GPUTextureView);
@@ -44,15 +67,6 @@ pub struct GPU1DTextureView(pub GPUTextureView);
 pub struct GPU1DArrayTextureView(pub GPUTextureView);
 #[derive(Clone)]
 pub struct GPU2DTextureView(pub GPUTextureView);
-
-impl Deref for GPU2DTextureView {
-  type Target = GPUTextureView;
-
-  fn deref(&self) -> &Self::Target {
-    &self.0
-  }
-}
-
 #[derive(Clone)]
 pub struct GPU2DArrayTextureView(pub GPUTextureView);
 #[derive(Clone)]
@@ -61,3 +75,31 @@ pub struct GPUCubeTextureView(pub GPUTextureView);
 pub struct GPUCubeArrayTextureView(pub GPUTextureView);
 #[derive(Clone)]
 pub struct GPU3DTextureView(pub GPUTextureView);
+
+macro_rules! texture_view_inner {
+  ($ty: ty) => {
+    impl BindingSource for $ty {
+      type Uniform = GPUTextureView;
+
+      fn get_uniform(&self) -> Self::Uniform {
+        self.0.get_uniform()
+      }
+    }
+
+    impl Deref for $ty {
+      type Target = GPUTextureView;
+
+      fn deref(&self) -> &Self::Target {
+        &self.0
+      }
+    }
+  };
+}
+
+texture_view_inner!(GPU1DTextureView);
+texture_view_inner!(GPU1DArrayTextureView);
+texture_view_inner!(GPU2DTextureView);
+texture_view_inner!(GPU2DArrayTextureView);
+texture_view_inner!(GPUCubeTextureView);
+texture_view_inner!(GPUCubeArrayTextureView);
+texture_view_inner!(GPU3DTextureView);

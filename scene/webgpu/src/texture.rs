@@ -16,7 +16,7 @@ where
       let texture = texture.as_ref();
       let desc = texture.create_tex2d_desc(MipLevelCount::EmptyMipMap);
 
-      GPU2DTexture::create(desc, &gpu.device)
+      GPUTexture::create(desc, &gpu.device)
         .upload_into(&gpu.queue, texture, 0)
         .create_default_view()
     },
@@ -42,7 +42,7 @@ where
       let desc = source[0].create_cube_desc(MipLevelCount::EmptyMipMap);
       let queue = &gpu.queue;
 
-      GPUTextureCube::create(desc, &gpu.device)
+      GPUTexture::create(desc, &gpu.device)
         .upload(queue, source[0].as_ref(), CubeTextureFace::PositiveX, 0)
         .upload(queue, source[1].as_ref(), CubeTextureFace::NegativeX, 0)
         .upload(queue, source[2].as_ref(), CubeTextureFace::PositiveY, 0)
