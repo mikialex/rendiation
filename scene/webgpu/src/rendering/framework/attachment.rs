@@ -86,8 +86,16 @@ impl Attachment {
     &self.des
   }
 
+  fn create_default_2d_view(&self) -> GPU2DTextureView {
+    self
+      .texture
+      .create_view(Default::default())
+      .try_into()
+      .unwrap()
+  }
+
   pub fn write(&mut self) -> AttachmentView<&mut Self> {
-    let view = self.texture.create_view(()).into();
+    let view = self.create_default_2d_view().into();
     AttachmentView {
       resource: self,
       view,
@@ -96,15 +104,17 @@ impl Attachment {
 
   pub fn read(&self) -> AttachmentView<&Self> {
     assert_eq!(self.des.sample_count, 1); // todo support latter
+
     AttachmentView {
       resource: self,
-      view: self.texture.create_view(()).into(),
+      view: self.create_default_2d_view().into(),
     }
   }
 
   pub fn read_into(self) -> AttachmentView<Self> {
     assert_eq!(self.des.sample_count, 1); // todo support latter
-    let view = self.texture.create_view(()).into();
+
+    let view = self.create_default_2d_view().into();
     AttachmentView {
       resource: self,
       view,
@@ -172,13 +182,22 @@ impl AttachmentDescriptor {
       .or_insert_with(Default::default);
 
     let texture = cached.cached.pop().unwrap_or_else(|| {
-      GPU2DTexture::create(
-        WebGPU2DTextureDescriptor::from_size(size)
-          .with_render_target_ability()
-          .with_sample_count(self.sample_count)
-          .with_format(self.format),
+      GPUTexture::create(
+        webgpu::TextureDescriptor {
+          label: None,
+          size: map_size_gpu(size),
+          dimension: webgpu::TextureDimension::D2,
+          format: self.format,
+          usage: webgpu::TextureUsages::TEXTURE_BINDING
+            | webgpu::TextureUsages::COPY_DST
+            | webgpu::TextureUsages::RENDER_ATTACHMENT,
+          mip_level_count: 1,
+          sample_count: self.sample_count,
+        },
         &ctx.gpu.device,
       )
+      .try_into()
+      .unwrap()
     });
 
     Attachment {

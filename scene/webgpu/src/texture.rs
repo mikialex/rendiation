@@ -15,10 +15,14 @@ where
     |texture| {
       let texture = texture.as_ref();
       let desc = texture.create_tex2d_desc(MipLevelCount::EmptyMipMap);
+      let gpu_texture = GPUTexture::create(desc, &gpu.device);
+      let gpu_texture: GPU2DTexture = gpu_texture.try_into().unwrap();
 
-      GPUTexture::create(desc, &gpu.device)
+      gpu_texture
         .upload_into(&gpu.queue, texture, 0)
         .create_default_view()
+        .try_into()
+        .unwrap()
     },
     |_, _| {},
   )
@@ -42,7 +46,10 @@ where
       let desc = source[0].create_cube_desc(MipLevelCount::EmptyMipMap);
       let queue = &gpu.queue;
 
-      GPUTexture::create(desc, &gpu.device)
+      let gpu_texture = GPUTexture::create(desc, &gpu.device);
+      let gpu_texture: GPUCubeTexture = gpu_texture.try_into().unwrap();
+
+      gpu_texture
         .upload(queue, source[0].as_ref(), CubeTextureFace::PositiveX, 0)
         .upload(queue, source[1].as_ref(), CubeTextureFace::NegativeX, 0)
         .upload(queue, source[2].as_ref(), CubeTextureFace::PositiveY, 0)
@@ -50,6 +57,8 @@ where
         .upload(queue, source[4].as_ref(), CubeTextureFace::PositiveZ, 0)
         .upload(queue, source[5].as_ref(), CubeTextureFace::NegativeZ, 0)
         .create_default_view()
+        .try_into()
+        .unwrap()
     },
     |_, _| {},
   )

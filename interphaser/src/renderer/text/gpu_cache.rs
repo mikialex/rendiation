@@ -52,7 +52,8 @@ impl WebGPUTextureCache {
     };
 
     let texture = GPUTexture::create(desc, device);
-    let view = texture.create_view(Default::default());
+    let texture: GPU2DTexture = texture.try_into().unwrap();
+    let view = texture.create_view(Default::default()).try_into().unwrap();
 
     Self { texture, view }
   }

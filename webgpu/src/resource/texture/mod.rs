@@ -61,6 +61,47 @@ texture_inner!(GPU2DTexture);
 texture_inner!(GPU3DTexture);
 texture_inner!(GPUCubeTexture);
 
+macro_rules! texture_downcast {
+  ($ty: ty, $var:tt, $check: expr, $err: tt) => {
+    impl TryFrom<GPUTexture> for $ty {
+      type Error = &'static str;
+
+      fn try_from($var: GPUTexture) -> Result<Self, Self::Error> {
+        if $check {
+          Ok(Self($var))
+        } else {
+          Err("raw texture not a 1d")
+        }
+      }
+    }
+  };
+}
+
+texture_downcast!(
+  GPU1DTexture,
+  value,
+  value.desc.dimension == gpu::TextureDimension::D1,
+  "raw texture not a 1d"
+);
+texture_downcast!(
+  GPU2DTexture,
+  value,
+  value.desc.dimension == gpu::TextureDimension::D2,
+  "raw texture not a 2d"
+);
+texture_downcast!(
+  GPU3DTexture,
+  value,
+  value.desc.dimension == gpu::TextureDimension::D3,
+  "raw texture not a 3d"
+);
+texture_downcast!(
+  GPUCubeTexture,
+  value,
+  value.desc.dimension == gpu::TextureDimension::D2 && value.desc.array_layer_count() == 6,
+  "raw texture not a cube"
+);
+
 #[derive(Clone)]
 pub struct GPU1DTextureView(pub GPUTextureView);
 #[derive(Clone)]
@@ -103,3 +144,65 @@ texture_view_inner!(GPU2DArrayTextureView);
 texture_view_inner!(GPUCubeTextureView);
 texture_view_inner!(GPUCubeArrayTextureView);
 texture_view_inner!(GPU3DTextureView);
+
+macro_rules! texture_view_downcast {
+  ($ty: ty, $var:tt, $check: expr, $err: tt) => {
+    impl TryFrom<GPUTextureView> for $ty {
+      type Error = &'static str;
+
+      fn try_from($var: GPUTextureView) -> Result<Self, Self::Error> {
+        if $check {
+          Ok(Self($var))
+        } else {
+          Err("raw texture not a 1d")
+        }
+      }
+    }
+  };
+}
+
+// todo check their view layer count
+texture_view_downcast!(
+  GPU1DTextureView,
+  value,
+  value.resource.desc.dimension == gpu::TextureDimension::D1,
+  "raw texture view not a 1d"
+);
+texture_view_downcast!(
+  GPU1DArrayTextureView,
+  value,
+  value.resource.desc.dimension == gpu::TextureDimension::D1,
+  "raw texture view not a 1d array"
+);
+texture_view_downcast!(
+  GPU2DTextureView,
+  value,
+  value.resource.desc.dimension == gpu::TextureDimension::D2,
+  "raw texture view not a 2d"
+);
+texture_view_downcast!(
+  GPU2DArrayTextureView,
+  value,
+  value.resource.desc.dimension == gpu::TextureDimension::D2,
+  "raw texture view not a 2d array"
+);
+texture_view_downcast!(
+  GPU3DTextureView,
+  value,
+  value.resource.desc.dimension == gpu::TextureDimension::D3,
+  "raw texture view not a 3d"
+);
+texture_view_downcast!(
+  GPUCubeTextureView,
+  value,
+  value.resource.desc.dimension == gpu::TextureDimension::D2
+    && value.resource.desc.array_layer_count() == 6,
+  "raw texture view not a cube"
+);
+texture_view_downcast!(
+  GPUCubeArrayTextureView,
+  value,
+  value.resource.desc.dimension == gpu::TextureDimension::D2
+    && value.resource.desc.array_layer_count() == 6,
+  "raw texture view not a cube array"
+);

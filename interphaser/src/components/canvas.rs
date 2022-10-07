@@ -90,8 +90,6 @@ impl<T: CanvasPrinter> Component<T> for GPUCanvas {
           self.content = None;
         }
 
-        let format = webgpu::TextureFormat::Rgba8UnormSrgb;
-
         let target = self.content.get_or_insert_with(|| {
           let device = &event.gpu.device;
 
@@ -108,7 +106,7 @@ impl<T: CanvasPrinter> Component<T> for GPUCanvas {
           };
 
           let texture = GPUTexture::create(desc, device);
-          texture.create_view(())
+          texture.create_view(Default::default()).try_into().unwrap()
         });
 
         model.draw_canvas(&event.gpu, target.clone());

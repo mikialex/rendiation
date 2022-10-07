@@ -146,7 +146,7 @@ pub trait WebGPU2DTextureSource: Debug {
     (buffer, size)
   }
 
-  fn create_tex2d_desc(&self, level_count: MipLevelCount) -> gpu::TextureDescriptor {
+  fn create_tex2d_desc(&self, level_count: MipLevelCount) -> gpu::TextureDescriptor<'static> {
     // todo validation;
     gpu::TextureDescriptor {
       label: None,
@@ -159,7 +159,7 @@ pub trait WebGPU2DTextureSource: Debug {
     }
   }
 
-  fn create_cube_desc(&self, level_count: MipLevelCount) -> gpu::TextureDescriptor {
+  fn create_cube_desc(&self, level_count: MipLevelCount) -> gpu::TextureDescriptor<'static> {
     // todo validation;
     gpu::TextureDescriptor {
       label: None,
