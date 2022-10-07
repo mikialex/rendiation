@@ -105,8 +105,6 @@ texture_downcast!(
 #[derive(Clone)]
 pub struct GPU1DTextureView(pub GPUTextureView);
 #[derive(Clone)]
-pub struct GPU1DArrayTextureView(pub GPUTextureView);
-#[derive(Clone)]
 pub struct GPU2DTextureView(pub GPUTextureView);
 #[derive(Clone)]
 pub struct GPU2DArrayTextureView(pub GPUTextureView);
@@ -116,6 +114,15 @@ pub struct GPUCubeTextureView(pub GPUTextureView);
 pub struct GPUCubeArrayTextureView(pub GPUTextureView);
 #[derive(Clone)]
 pub struct GPU3DTextureView(pub GPUTextureView);
+
+#[derive(Clone)]
+pub struct GPU2DDepthTextureView(pub GPUTextureView);
+#[derive(Clone)]
+pub struct GPU2DArrayDepthTextureView(pub GPUTextureView);
+#[derive(Clone)]
+pub struct GPUCubeDepthTextureView(pub GPUTextureView);
+#[derive(Clone)]
+pub struct GPUCubeArrayDepthTextureView(pub GPUTextureView);
 
 macro_rules! texture_view_inner {
   ($ty: ty) => {
@@ -138,12 +145,16 @@ macro_rules! texture_view_inner {
 }
 
 texture_view_inner!(GPU1DTextureView);
-texture_view_inner!(GPU1DArrayTextureView);
 texture_view_inner!(GPU2DTextureView);
 texture_view_inner!(GPU2DArrayTextureView);
 texture_view_inner!(GPUCubeTextureView);
 texture_view_inner!(GPUCubeArrayTextureView);
 texture_view_inner!(GPU3DTextureView);
+
+texture_view_inner!(GPU2DDepthTextureView);
+texture_view_inner!(GPU2DArrayDepthTextureView);
+texture_view_inner!(GPUCubeDepthTextureView);
+texture_view_inner!(GPUCubeArrayDepthTextureView);
 
 macro_rules! texture_view_downcast {
   ($ty: ty, $var:tt, $check: expr, $err: tt) => {
@@ -161,18 +172,12 @@ macro_rules! texture_view_downcast {
   };
 }
 
-// todo check their view layer count
+// todo check view desc dimension
 texture_view_downcast!(
   GPU1DTextureView,
   value,
   value.resource.desc.dimension == gpu::TextureDimension::D1,
   "raw texture view not a 1d"
-);
-texture_view_downcast!(
-  GPU1DArrayTextureView,
-  value,
-  value.resource.desc.dimension == gpu::TextureDimension::D1,
-  "raw texture view not a 1d array"
 );
 texture_view_downcast!(
   GPU2DTextureView,
@@ -201,6 +206,35 @@ texture_view_downcast!(
 );
 texture_view_downcast!(
   GPUCubeArrayTextureView,
+  value,
+  value.resource.desc.dimension == gpu::TextureDimension::D2
+    && value.resource.desc.array_layer_count() == 6,
+  "raw texture view not a cube array"
+);
+
+// todo check depth format
+// todo check view desc dimension
+texture_view_downcast!(
+  GPU2DDepthTextureView,
+  value,
+  value.resource.desc.dimension == gpu::TextureDimension::D2,
+  "raw texture view not a 2d depth"
+);
+texture_view_downcast!(
+  GPU2DArrayDepthTextureView,
+  value,
+  value.resource.desc.dimension == gpu::TextureDimension::D2,
+  "raw texture view not a 2d array depth"
+);
+texture_view_downcast!(
+  GPUCubeDepthTextureView,
+  value,
+  value.resource.desc.dimension == gpu::TextureDimension::D2
+    && value.resource.desc.array_layer_count() == 6,
+  "raw texture view not a cube"
+);
+texture_view_downcast!(
+  GPUCubeArrayDepthTextureView,
   value,
   value.resource.desc.dimension == gpu::TextureDimension::D2
     && value.resource.desc.array_layer_count() == 6,

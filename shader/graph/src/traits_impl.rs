@@ -117,15 +117,22 @@ impl ShaderGraphNodeType for ShaderTextureCubeArray {
     sample_type: TextureSampleType::Float { filterable: true },
   };
 }
-impl ShaderGraphNodeType for ShaderDepthTextureCube {
+
+impl ShaderGraphNodeType for ShaderDepthTexture2D {
   const TYPE: ShaderValueType = ShaderValueType::Texture {
-    dimension: TextureViewDimension::Cube,
+    dimension: TextureViewDimension::D2,
     sample_type: TextureSampleType::Depth,
   };
 }
 impl ShaderGraphNodeType for ShaderDepthTexture2DArray {
   const TYPE: ShaderValueType = ShaderValueType::Texture {
     dimension: TextureViewDimension::D2Array,
+    sample_type: TextureSampleType::Depth,
+  };
+}
+impl ShaderGraphNodeType for ShaderDepthTextureCube {
+  const TYPE: ShaderValueType = ShaderValueType::Texture {
+    dimension: TextureViewDimension::Cube,
     sample_type: TextureSampleType::Depth,
   };
 }

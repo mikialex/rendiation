@@ -6,22 +6,27 @@ impl<T: ShaderGraphNodeType + Std140> ShaderUniformProvider for UniformBufferDat
   type Node = T;
 }
 
-impl ShaderUniformProvider for GPU2DTextureView {
-  type Node = ShaderTexture2D;
+macro_rules! map_shader_ty {
+  ($ty: ty, $shader_ty: ty) => {
+    impl ShaderUniformProvider for $ty {
+      type Node = $shader_ty;
+    }
+  };
 }
+map_shader_ty!(GPU1DTextureView, ShaderTexture1D);
 
-impl ShaderUniformProvider for GPU2DArrayTextureView {
-  type Node = ShaderTexture2DArray;
-}
+map_shader_ty!(GPU2DTextureView, ShaderTexture2D);
+map_shader_ty!(GPU2DArrayTextureView, ShaderTexture2DArray);
 
-impl ShaderUniformProvider for GPUCubeTextureView {
-  type Node = ShaderTextureCube;
-}
+map_shader_ty!(GPUCubeTextureView, ShaderTextureCube);
+map_shader_ty!(GPUCubeArrayTextureView, ShaderTextureCubeArray);
 
-impl ShaderUniformProvider for GPUSamplerView {
-  type Node = ShaderSampler;
-}
+map_shader_ty!(GPU3DTextureView, ShaderTexture3D);
 
-impl ShaderUniformProvider for GPUComparisonSamplerView {
-  type Node = ShaderCompareSampler;
-}
+map_shader_ty!(GPU2DDepthTextureView, ShaderDepthTexture2D);
+map_shader_ty!(GPU2DArrayDepthTextureView, ShaderDepthTexture2DArray);
+map_shader_ty!(GPUCubeDepthTextureView, ShaderDepthTextureCube);
+map_shader_ty!(GPUCubeArrayDepthTextureView, ShaderDepthTextureCubeArray);
+
+map_shader_ty!(GPUSamplerView, ShaderSampler);
+map_shader_ty!(GPUComparisonSamplerView, ShaderCompareSampler);

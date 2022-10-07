@@ -173,62 +173,6 @@ pub trait WebGPU2DTextureSource: Debug {
   }
 }
 
-// pub struct WebGPU2DTextureDescriptor {
-//   pub size: Size,
-//   pub mip_level_count: u32,
-//   pub sample_count: u32,
-//   pub format: TextureFormat,
-//   pub usage: TextureUsages,
-// }
-
-// impl WebGPU2DTextureDescriptor {
-//   pub fn from_size(size: Size) -> Self {
-//     Self {
-//       desc: gpu::TextureDescriptor {
-//         label: None,
-//         size: gpu::Extent3d {
-//           width: Into::<usize>::into(size.width) as u32,
-//           height: Into::<usize>::into(size.height) as u32,
-//           depth_or_array_layers: 1,
-//         },
-//         mip_level_count: 1,
-//         sample_count: 1,
-//         dimension: gpu::TextureDimension::D2,
-//         format: gpu::TextureFormat::Rgba8UnormSrgb,
-//         usage: gpu::TextureUsages::TEXTURE_BINDING | gpu::TextureUsages::COPY_DST,
-//       },
-//     }
-//   }
-
-//   #[must_use]
-//   pub fn with_render_target_ability(mut self) -> Self {
-//     self.desc.usage |= gpu::TextureUsages::RENDER_ATTACHMENT;
-//     self
-//   }
-
-//   #[must_use]
-//   pub fn with_format(mut self, format: gpu::TextureFormat) -> Self {
-//     self.desc.format = format;
-//     self
-//   }
-
-//   /// todo use another type for multi sample
-//   #[must_use]
-//   pub fn with_sample_count(mut self, sample_count: u32) -> Self {
-//     self.desc.sample_count = sample_count;
-//     self
-//   }
-
-//   #[must_use]
-//   pub fn with_level_count(mut self, level_count: MipLevelCount) -> Self {
-//     self.desc.mip_level_count = level_count.get_level_count_wgpu(Size::from_u32_pair_min_one((
-//       self.desc.size.width,
-//       self.desc.size.height,
-//     )));
-//     self
-//   }
-// }
-
 pub enum MipLevelCount {
   BySize,
   EmptyMipMap,
