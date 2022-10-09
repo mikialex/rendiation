@@ -80,7 +80,7 @@ impl GPUCommandEncoder {
         .channels
         .first()
         .map(|c| &c.1)
-        .or(des.depth_stencil_target.as_ref().map(|c| &c.1))
+        .or_else(|| des.depth_stencil_target.as_ref().map(|c| &c.1))
         .map(|c| c.sample_count())
         .unwrap_or(1),
     };

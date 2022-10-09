@@ -166,7 +166,7 @@ pub struct ShaderGraphCompileResult<T: ShaderGraphCodeGenTarget> {
 
 #[derive(Default)]
 pub struct SemanticRegistry {
-  registered: HashMap<TypeId, NodeMutable<AnyType>>,
+  registered: HashMap<TypeId, Node<AnyType>>,
 }
 
 impl SemanticRegistry {
@@ -174,10 +174,11 @@ impl SemanticRegistry {
     &self,
     id: TypeId,
     name: &'static str,
-  ) -> Result<&NodeMutable<AnyType>, ShaderGraphBuildError> {
+  ) -> Result<Node<AnyType>, ShaderGraphBuildError> {
     self
       .registered
       .get(&id)
+      .copied()
       .ok_or(ShaderGraphBuildError::MissingRequiredDependency(name))
   }
 
@@ -188,8 +189,7 @@ impl SemanticRegistry {
     self.register(TypeId::of::<T>(), node.into().cast_untyped_node());
   }
 
-  pub fn register(&mut self, id: TypeId, node: NodeUntyped) -> &NodeMutable<AnyType> {
-    let node = node.mutable();
+  pub fn register(&mut self, id: TypeId, node: NodeUntyped) -> &Node<AnyType> {
     self.registered.insert(id, node);
     // fixme, rust hashmap, pain in the ass..
     self.registered.get(&id).unwrap()

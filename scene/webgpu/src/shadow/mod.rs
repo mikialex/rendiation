@@ -77,7 +77,7 @@ impl ShadowMapAllocatorImpl {
           (
             *v,
             ShadowMapAddressInfo {
-              layer_index: i as u32,
+              layer_index: i as i32,
               size: Vec2::zero(),
               offset: Vec2::zero(),
               ..Zeroable::zeroed()
@@ -135,7 +135,7 @@ impl ShadowMap {
     let mut inner = self.inner.inner.borrow_mut();
     let id = inner.id;
     let result = inner.check_rebuild(gpu);
-    let base_array_layer = result.mapping.get(&id).unwrap().layer_index;
+    let base_array_layer = result.mapping.get(&id).unwrap().layer_index as u32;
 
     (
       result
@@ -310,7 +310,7 @@ pub struct ShadowBias {
 #[std140_layout]
 #[derive(Clone, Copy, Default, ShaderStruct)]
 pub struct ShadowMapAddressInfo {
-  pub layer_index: u32,
+  pub layer_index: i32,
   pub size: Vec2<f32>,
   pub offset: Vec2<f32>,
 }

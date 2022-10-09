@@ -86,19 +86,13 @@ impl ShaderGraphVertexBuilder {
       })
   }
 
-  pub fn query_mut<T: SemanticVertexShaderValue>(
+  pub fn query<T: SemanticVertexShaderValue>(
     &self,
-  ) -> Result<&NodeMutable<T::ValueType>, ShaderGraphBuildError> {
+  ) -> Result<Node<T::ValueType>, ShaderGraphBuildError> {
     self
       .registry
       .query(TypeId::of::<T>(), T::NAME)
       .map(|n| unsafe { std::mem::transmute(n) })
-  }
-
-  pub fn query<T: SemanticVertexShaderValue>(
-    &self,
-  ) -> Result<Node<T::ValueType>, ShaderGraphBuildError> {
-    Ok(self.query_mut::<T>()?.get())
   }
 
   pub fn query_or_insert_default<T>(&mut self) -> Node<T::ValueType>
@@ -107,7 +101,7 @@ impl ShaderGraphVertexBuilder {
     T::ValueType: PrimitiveShaderGraphNodeType,
   {
     if let Ok(n) = self.registry.query(TypeId::of::<T>(), T::NAME) {
-      unsafe { n.get().cast_type() }
+      unsafe { n.cast_type() }
     } else {
       let default: T::ValueType = Default::default();
       self.register::<T>(default)
@@ -120,8 +114,7 @@ impl ShaderGraphVertexBuilder {
   ) -> Node<T::ValueType> {
     let n = self
       .registry
-      .register(TypeId::of::<T>(), node.into().cast_untyped_node())
-      .get();
+      .register(TypeId::of::<T>(), node.into().cast_untyped_node());
     unsafe { n.cast_type() }
   }
 

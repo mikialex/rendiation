@@ -61,9 +61,9 @@ impl<'a> PassDescriptor<'a> {
       .channels
       .first()
       .map(|c| &c.1)
-      .or(self.desc.depth_stencil_target.as_ref().map(|c| &c.1))
+      .or_else(|| self.desc.depth_stencil_target.as_ref().map(|c| &c.1))
       .map(|c| Vec2::from(c.size().into_usize()).map(|v| v as f32))
-      .unwrap_or(Vec2::zero())
+      .unwrap_or_else(Vec2::zero)
   }
 
   #[must_use]

@@ -41,7 +41,7 @@ wgsl_fn!(
         d_sampler,
         shadow_position.xy,
         info.layer_index,
-        shadow_position.z,
+        shadow_position.z
       );
     } else {
       return 1.0;
