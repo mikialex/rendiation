@@ -14,7 +14,7 @@ pub struct DirectionalLightShaderInfo {
 #[derive(Copy, Clone, ShaderStruct, Default)]
 pub struct LightShadowAddressInfo {
   pub index: u32,
-  pub enabled: Bool,
+  pub enabled: u32,
 }
 
 only_fragment!(BasicShadowMapInfoGroup, Shader140Array<BasicShadowMapInfo, SHADOW_MAX>);
@@ -25,7 +25,7 @@ wgsl_fn!(
   fn directional_shadow_occlusion(
     shadow_position: vec3<f32>,
     map: texture_depth_2d_array,
-    d_sampler: comparison_sampler,
+    d_sampler: sampler_comparison,
     info: ShadowMapAddressInfo,
   ) -> f32 {
 
@@ -67,7 +67,7 @@ impl PunctualShaderLight for DirectionalLightShaderInfo {
     let shadow_info = light.shadow.expand();
     let occlusion = consts(0.).mutable();
 
-    if_by(shadow_info.enabled, || {
+    if_by(shadow_info.enabled.equals(consts(1)), || {
       let map = builder.query::<BasicShadowMap>().unwrap();
       let sampler = builder.query::<BasicShadowMapSampler>().unwrap();
       let shadow_infos = builder.query::<BasicShadowMapInfoGroup>().unwrap();

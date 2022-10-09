@@ -134,7 +134,7 @@ impl SyntaxElement for PrimitiveType {
           PrimitiveType::DepthTexture(container_ty)
         } else if name == "sampler" {
           PrimitiveType::Sampler
-        } else if name == "comparison_sampler" {
+        } else if name == "sampler_comparison" {
           PrimitiveType::DepthSampler
         } else {
           return Err(ParseError::Any("unexpected builtin type"));

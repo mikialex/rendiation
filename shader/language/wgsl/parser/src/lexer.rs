@@ -257,7 +257,7 @@ impl<'a> Lexer<'a> {
           | "mat4x4"
           | "mat3x3"
           | "sampler"
-          | "comparison_sampler"
+          | "sampler_comparison"
           | "texture_2d"
           | "texture_1d"
           | "texture_2d_array"
