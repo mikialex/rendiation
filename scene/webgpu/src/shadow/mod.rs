@@ -23,7 +23,6 @@ impl ShaderGraphProvider for ShadowMapAllocator {
     &self,
     builder: &mut ShaderGraphRenderPipelineBuilder,
   ) -> Result<(), ShaderGraphBuildError> {
-    builder.log_result = true;
     let inner = self.inner.borrow();
     let inner = &inner.result.as_ref().unwrap();
     builder.fragment(|builder, binding| {

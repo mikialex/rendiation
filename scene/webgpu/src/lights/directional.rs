@@ -220,7 +220,7 @@ impl WebGPUSceneLight for SceneLight<DirectionalLight> {
       intensity: light.intensity,
       direction: node.get_world_matrix().forward().normalize().reverse(),
       shadow: LightShadowAddressInfo {
-        enabled: false.into(),
+        enabled: 1,
         index: index as u32,
         ..Zeroable::zeroed()
       },
