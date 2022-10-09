@@ -20,33 +20,47 @@ macro_rules! swizzle {
   };
 }
 
-swizzle!(Vec4<f32>, Vec3<f32>, xyz);
-swizzle!(Vec4<f32>, Vec2<f32>, xy);
-swizzle!(Vec4<f32>, f32, x);
-swizzle!(Vec4<u32>, u32, x);
-swizzle!(Vec4<f32>, f32, y);
-swizzle!(Vec4<f32>, f32, z);
-swizzle!(Vec4<f32>, f32, w);
+// we don't have impl<T> for Vec3<T> for ShaderGraphNode, so we have to do macro
+macro_rules! swizzle_all {
+  ($t: ty) => {
+    swizzle!(Vec4<$t>, Vec3<$t>, xyz);
+    swizzle!(Vec4<$t>, Vec2<$t>, xy);
+    swizzle!(Vec4<$t>, $t, x);
+    swizzle!(Vec4<$t>, $t, y);
+    swizzle!(Vec4<$t>, $t, z);
+    swizzle!(Vec4<$t>, $t, w);
 
-swizzle!(Vec3<f32>, f32, x);
-swizzle!(Vec3<f32>, f32, y);
-swizzle!(Vec3<f32>, f32, z);
-swizzle!(Vec3<f32>, Vec2<f32>, xy);
+    swizzle!(Vec3<$t>, Vec2<$t>, xy);
+    swizzle!(Vec3<$t>, $t, x);
+    swizzle!(Vec3<$t>, $t, y);
+    swizzle!(Vec3<$t>, $t, z);
 
-swizzle!(Vec2<f32>, f32, x);
-swizzle!(Vec2<f32>, f32, y);
-// todo impl rest swizzle by magic
-
-impl Node<u32> {
-  pub fn as_f32(self) -> Node<f32> {
-    let a = self.handle();
-    ShaderGraphNodeExpr::Compose {
-      target: f32::PRIMITIVE_TYPE,
-      parameters: vec![a],
-    }
-    .insert_graph()
-  }
+    swizzle!(Vec2<$t>, $t, x);
+    swizzle!(Vec2<$t>, $t, y);
+  };
 }
+
+swizzle_all!(f32);
+swizzle_all!(u32);
+
+macro_rules! num_cast {
+  ($src: ty, $dst: ty) => {
+    paste::item! {
+      impl Node<$src> {
+        pub fn [< as_ $dst >](&self) -> Node<$dst> {
+          let a = self.handle();
+          ShaderGraphNodeExpr::Compose {
+            target: $dst::PRIMITIVE_TYPE,
+            parameters: vec![a],
+          }
+          .insert_graph()
+        }
+      }
+    }
+  };
+}
+
+num_cast!(u32, f32);
 
 impl<A, B> From<(A, B)> for Node<Vec4<f32>>
 where
@@ -64,81 +78,31 @@ where
   }
 }
 
-impl<A, B, C, D> From<(A, B, C, D)> for Node<Vec4<f32>>
-where
-  A: Into<Node<f32>>,
-  B: Into<Node<f32>>,
-  C: Into<Node<f32>>,
-  D: Into<Node<f32>>,
-{
-  fn from((a, b, c, d): (A, B, C, D)) -> Self {
-    let a = a.into().handle();
-    let b = b.into().handle();
-    let c = c.into().handle();
-    let d = d.into().handle();
-    ShaderGraphNodeExpr::Compose {
-      target: Vec4::<f32>::PRIMITIVE_TYPE,
-      parameters: vec![a, b, c, d],
+macro_rules! impl_from {
+  ( { $($field: tt: $constraint: ty),+ }, $type_merged:ty) => {
+    impl< $($field),+ > From<( $($field),+ )> for Node<$type_merged>
+    where $($field: Into<Node<$constraint>>),+
+    {
+      #[allow(non_snake_case)]
+      fn from(($($field),+): ($($field),+)) -> Self {
+        $(let $field = $field.into().handle();)+
+        ShaderGraphNodeExpr::Compose {
+          target: <$type_merged>::PRIMITIVE_TYPE,
+          parameters: vec![$($field),+],
+        }
+        .insert_graph()
+      }
     }
-    .insert_graph()
   }
 }
 
-impl<A, B, C> From<(A, B, C)> for Node<Vec4<f32>>
-where
-  A: Into<Node<Vec2<f32>>>,
-  B: Into<Node<f32>>,
-  C: Into<Node<f32>>,
-{
-  fn from((a, b, c): (A, B, C)) -> Self {
-    let a = a.into().handle();
-    let b = b.into().handle();
-    let c = c.into().handle();
-    ShaderGraphNodeExpr::Compose {
-      target: Vec4::<f32>::PRIMITIVE_TYPE,
-      parameters: vec![a, b, c],
-    }
-    .insert_graph()
-  }
-}
+impl_from!({ A: f32, B: f32, C: f32, D: f32 }, Vec4<f32>);
+impl_from!({ A: Vec2<f32>, B: f32, C: f32 }, Vec4<f32>);
 
-impl<A, B, C, D> From<(A, B, C, D)> for Node<Mat4<f32>>
-where
-  A: Into<Node<Vec4<f32>>>,
-  B: Into<Node<Vec4<f32>>>,
-  C: Into<Node<Vec4<f32>>>,
-  D: Into<Node<Vec4<f32>>>,
-{
-  fn from((a, b, c, d): (A, B, C, D)) -> Self {
-    let a = a.into().handle();
-    let b = b.into().handle();
-    let c = c.into().handle();
-    let d = d.into().handle();
-    ShaderGraphNodeExpr::Compose {
-      target: Mat4::<f32>::PRIMITIVE_TYPE,
-      parameters: vec![a, b, c, d],
-    }
-    .insert_graph()
-  }
-}
+impl_from!({ A: f32, B: f32, C: f32 }, Vec3<f32>);
 
-impl<A, B, C> From<(A, B, C)> for Node<Mat3<f32>>
-where
-  A: Into<Node<Vec3<f32>>>,
-  B: Into<Node<Vec3<f32>>>,
-  C: Into<Node<Vec3<f32>>>,
-{
-  fn from((a, b, c): (A, B, C)) -> Self {
-    let a = a.into().handle();
-    let b = b.into().handle();
-    let c = c.into().handle();
-    ShaderGraphNodeExpr::Compose {
-      target: Mat3::<f32>::PRIMITIVE_TYPE,
-      parameters: vec![a, b, c],
-    }
-    .insert_graph()
-  }
-}
+impl_from!({ A: Vec4<f32>, B: Vec4<f32>, C: Vec4<f32>, D:Vec4<f32> }, Mat4<f32>);
+impl_from!({ A: Vec3<f32>, B: Vec3<f32>, C: Vec3<f32> }, Mat3<f32>);
 
 impl From<Node<Mat4<f32>>> for Node<Mat3<f32>> {
   fn from(n: Node<Mat4<f32>>) -> Self {

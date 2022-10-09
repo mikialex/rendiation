@@ -11,7 +11,28 @@ pub struct ShadowMapAllocator {
 
 impl ShaderPassBuilder for ShadowMapAllocator {
   fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
-    todo!()
+    let inner = self.inner.borrow();
+    let inner = inner.result.as_ref().unwrap();
+    ctx.binding.bind(&inner.map, SB::Pass);
+    ctx.binding.bind(&inner.sampler, SB::Pass);
+  }
+}
+
+impl ShaderGraphProvider for ShadowMapAllocator {
+  fn build(
+    &self,
+    builder: &mut ShaderGraphRenderPipelineBuilder,
+  ) -> Result<(), ShaderGraphBuildError> {
+    builder.log_result = true;
+    let inner = self.inner.borrow();
+    let inner = &inner.result.as_ref().unwrap();
+    builder.fragment(|builder, binding| {
+      let map = binding.uniform_by(&inner.map, SB::Pass);
+      let sampler = binding.uniform_by(&inner.sampler, SB::Pass);
+      builder.register::<BasicShadowMap>(map);
+      builder.register::<BasicShadowMapSampler>(sampler);
+      Ok(())
+    })
   }
 }
 
@@ -23,58 +44,69 @@ pub struct ShadowMapAllocatorImpl {
 }
 
 impl ShadowMapAllocatorImpl {
-  fn check_rebuild(&mut self, gpu: &GPU) -> &GPU2DArrayTextureView {
-    &self
-      .result
-      .get_or_insert_with(|| {
-        // we only impl naive strategy now, just ignore the size requirement
+  fn check_rebuild(&mut self, gpu: &GPU) -> &ShadowMapAllocationInfo {
+    self.result.get_or_insert_with(|| {
+      // we only impl naive strategy now, just ignore the size requirement
 
-        let size = self.requirements.len();
-        let map = GPUTexture::create(
-          webgpu::TextureDescriptor {
-            label: None,
-            size: webgpu::Extent3d {
-              width: 512,
-              height: 512,
-              depth_or_array_layers: size as u32,
-            },
-            mip_level_count: 1,
-            sample_count: 1,
-            dimension: webgpu::TextureDimension::D2,
-            format: webgpu::TextureFormat::Depth32Float,
-            usage: webgpu::TextureUsages::TEXTURE_BINDING
-              | webgpu::TextureUsages::COPY_DST
-              | webgpu::TextureUsages::RENDER_ATTACHMENT,
+      let size = self.requirements.len();
+      let map = GPUTexture::create(
+        webgpu::TextureDescriptor {
+          label: None,
+          size: webgpu::Extent3d {
+            width: 512,
+            height: 512,
+            depth_or_array_layers: size as u32,
           },
-          &gpu.device,
-        );
-        let map = map.create_view(Default::default()).try_into().unwrap();
+          mip_level_count: 1,
+          sample_count: 1,
+          dimension: webgpu::TextureDimension::D2,
+          format: webgpu::TextureFormat::Depth32Float,
+          usage: webgpu::TextureUsages::TEXTURE_BINDING
+            | webgpu::TextureUsages::COPY_DST
+            | webgpu::TextureUsages::RENDER_ATTACHMENT,
+        },
+        &gpu.device,
+      );
+      let map = map.create_view(Default::default()).try_into().unwrap();
 
-        let mapping = self
-          .requirements
-          .iter()
-          .enumerate()
-          .map(|(i, (v, _))| {
-            (
-              *v,
-              ShadowMapAddressInfo {
-                layer_index: i as u32,
-                size: Vec2::zero(),
-                offset: Vec2::zero(),
-                ..Zeroable::zeroed()
-              },
-            )
-          })
-          .collect();
+      let mapping = self
+        .requirements
+        .iter()
+        .enumerate()
+        .map(|(i, (v, _))| {
+          (
+            *v,
+            ShadowMapAddressInfo {
+              layer_index: i as u32,
+              size: Vec2::zero(),
+              offset: Vec2::zero(),
+              ..Zeroable::zeroed()
+            },
+          )
+        })
+        .collect();
 
-        ShadowMapAllocationInfo { map, mapping }
-      })
-      .map
+      let sampler = GPUComparisonSampler::create(
+        webgpu::SamplerDescriptor {
+          compare: webgpu::CompareFunction::Greater.into(),
+          ..Default::default()
+        },
+        &gpu.device,
+      )
+      .create_view(());
+
+      ShadowMapAllocationInfo {
+        map,
+        mapping,
+        sampler,
+      }
+    })
   }
 }
 
 struct ShadowMapAllocationInfo {
-  map: GPU2DArrayTextureView,
+  map: GPU2DArrayDepthTextureView,
+  sampler: GPUComparisonSamplerView,
   mapping: HashMap<usize, ShadowMapAddressInfo>,
 }
 
@@ -99,32 +131,30 @@ impl Drop for ShadowMapInner {
 }
 
 impl ShadowMap {
-  pub fn get_write_view(&self, gpu: &GPU) -> GPU2DTextureView {
-    let inner = self.inner.inner.borrow();
-    let result = inner.result.as_ref().unwrap();
-    let base_array_layer = result.mapping.get(&inner.id).unwrap().layer_index;
+  pub fn get_write_view(&self, gpu: &GPU) -> (GPU2DTextureView, ShadowMapAddressInfo) {
+    let mut inner = self.inner.inner.borrow_mut();
+    let id = inner.id;
+    let result = inner.check_rebuild(gpu);
+    let base_array_layer = result.mapping.get(&id).unwrap().layer_index;
 
-    result
-      .map
-      .resource
-      .create_view(webgpu::TextureViewDescriptor {
-        base_array_layer,
-        array_layer_count: NonZeroU32::new(1).unwrap().into(),
-        ..Default::default()
-      })
-      .try_into()
-      .unwrap()
-  }
-
-  pub fn get_address_info(&self, gpu: &GPU) -> ShadowMapAddressInfo {
-    let inner = self.inner.inner.borrow();
-    let result = inner.result.as_ref().unwrap();
-    *result.mapping.get(&inner.id).unwrap()
+    (
+      result
+        .map
+        .resource
+        .create_view(webgpu::TextureViewDescriptor {
+          base_array_layer,
+          array_layer_count: NonZeroU32::new(1).unwrap().into(),
+          ..Default::default()
+        })
+        .try_into()
+        .unwrap(),
+      *result.mapping.get(&id).unwrap(),
+    )
   }
 }
 
 impl ShadowMapAllocator {
-  pub fn allocate(&self, gpu: &GPU, resolution: Size) -> ShadowMap {
+  pub fn allocate(&self, resolution: Size) -> ShadowMap {
     let mut inner = self.inner.borrow_mut();
     inner.id += 1;
 
@@ -141,10 +171,10 @@ impl ShadowMapAllocator {
   }
 }
 
-pub trait ShadowCollection: Any + ShaderPassBuilder {
+pub trait ShadowCollection: RenderComponentAny + RebuildAbleGPUCollectionBase {
   fn as_any_mut(&mut self) -> &mut dyn Any;
 }
-impl<T: Any + ShaderPassBuilder> ShadowCollection for T {
+impl<T: RenderComponentAny + RebuildAbleGPUCollectionBase + Any> ShadowCollection for T {
   fn as_any_mut(&mut self) -> &mut dyn Any {
     self
   }
@@ -156,8 +186,53 @@ pub struct ShadowMapSystem {
   pub sampler: RawComparisonSampler,
 }
 
-const SHADOW_MAX: usize = 8;
+pub const SHADOW_MAX: usize = 8;
 pub type ShadowList<T> = ClampedUniformList<T, SHADOW_MAX>;
+
+pub struct BasicShadowMapInfoList {
+  pub list: ShadowList<BasicShadowMapInfo>,
+}
+
+impl RebuildAbleGPUCollectionBase for BasicShadowMapInfoList {
+  fn reset(&mut self) {
+    self.list.reset();
+  }
+
+  fn update_gpu(&mut self, gpu: &GPU) -> usize {
+    self.list.update_gpu(gpu)
+  }
+}
+
+impl Default for BasicShadowMapInfoList {
+  fn default() -> Self {
+    Self {
+      list: ShadowList::default_with(SB::Pass),
+    }
+  }
+}
+
+impl ShaderGraphProvider for BasicShadowMapInfoList {
+  fn build(
+    &self,
+    builder: &mut ShaderGraphRenderPipelineBuilder,
+  ) -> Result<(), ShaderGraphBuildError> {
+    builder.fragment(|builder, binding| {
+      let list = binding.uniform_by(self.list.gpu.as_ref().unwrap(), SB::Pass);
+      builder.register::<BasicShadowMapInfoGroup>(list);
+      Ok(())
+    })
+  }
+}
+impl ShaderHashProvider for BasicShadowMapInfoList {
+  fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
+    self.list.hash_pipeline(hasher)
+  }
+}
+impl ShaderPassBuilder for BasicShadowMapInfoList {
+  fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
+    self.list.setup_pass(ctx)
+  }
+}
 
 impl ShadowMapSystem {
   pub fn new(gpu: &GPU) -> Self {
@@ -170,12 +245,17 @@ impl ShadowMapSystem {
     }
   }
 
-  pub fn get_or_create_list<T: Std140>(&mut self) -> &mut ShadowList<T> {
-    let lights = self
+  pub fn before_update_scene(&mut self, _gpu: &GPU) {
+    self
       .shadow_collections
-      .entry(TypeId::of::<T>())
-      .or_insert_with(|| Box::new(ShadowList::<T>::default_with(SB::Pass)));
-    lights.as_any_mut().downcast_mut::<ShadowList<T>>().unwrap()
+      .iter_mut()
+      .for_each(|(_, c)| c.reset());
+  }
+
+  pub fn after_update_scene(&mut self, gpu: &GPU) {
+    self.shadow_collections.iter_mut().for_each(|(_, c)| {
+      c.update_gpu(gpu);
+    });
   }
 }
 
@@ -188,13 +268,24 @@ impl ShaderPassBuilder for ShadowMapSystem {
   }
 }
 
+impl ShaderHashProvider for ShadowMapSystem {
+  fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
+    for impls in self.shadow_collections.values() {
+      impls.hash_pipeline(hasher)
+    }
+    // self.maps.hash_pipeline(ctx) // we don't need this now
+  }
+}
+
 impl ShaderGraphProvider for ShadowMapSystem {
   fn build(
     &self,
     builder: &mut ShaderGraphRenderPipelineBuilder,
   ) -> Result<(), ShaderGraphBuildError> {
-    // default do nothing
-    Ok(())
+    for impls in self.shadow_collections.values() {
+      impls.build(builder)?;
+    }
+    self.maps.build(builder)
   }
 }
 

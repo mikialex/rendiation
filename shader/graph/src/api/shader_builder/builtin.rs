@@ -37,6 +37,8 @@ both!(CameraProjectionMatrix, Mat4<f32>);
 both!(CameraProjectionInverseMatrix, Mat4<f32>);
 both!(CameraViewMatrix, Mat4<f32>);
 both!(CameraWorldMatrix, Mat4<f32>);
+both!(CameraViewProjectionMatrix, Mat4<f32>);
+both!(CameraViewProjectionInverseMatrix, Mat4<f32>);
 
 only_fragment!(DefaultDisplay, Vec4<f32>);
 

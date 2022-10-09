@@ -16,6 +16,7 @@ where
 
 pub struct ForwardScene<'a> {
   pub lights: &'a ForwardLightingSystem,
+  pub shadow: &'a ShadowMapSystem,
   pub tonemap: &'a ToneMap,
 }
 
@@ -65,6 +66,8 @@ impl<'a> ShaderPassBuilder for ForwardSceneLightingDispatcher<'a> {
     self.base.setup_pass(ctx);
   }
   fn post_setup_pass(&self, ctx: &mut GPURenderPassCtx) {
+    self.lighting.shadow.setup_pass(ctx);
+
     ctx
       .binding
       .bind(self.lighting.lights.lengths.as_ref().unwrap(), SB::Pass);
@@ -78,6 +81,7 @@ impl<'a> ShaderPassBuilder for ForwardSceneLightingDispatcher<'a> {
 impl<'a> ShaderHashProvider for ForwardSceneLightingDispatcher<'a> {
   fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
     self.lighting.lights.light_hash_cache.hash(hasher);
+    self.lighting.shadow.hash_pipeline(hasher); // not sure we need cache here, maybe add it later
     self.override_shading.type_id().hash(hasher);
   }
 }
@@ -102,6 +106,8 @@ impl<'a> ShaderGraphProvider for ForwardSceneLightingDispatcher<'a> {
     &self,
     builder: &mut ShaderGraphRenderPipelineBuilder,
   ) -> Result<(), ShaderGraphBuildError> {
+    self.lighting.shadow.build(builder)?;
+
     let shading_impl = if let Some(override_shading) = self.override_shading {
       override_shading
     } else {
@@ -130,10 +136,12 @@ impl<'a> ShaderGraphProvider for ForwardSceneLightingDispatcher<'a> {
   }
 }
 
-pub trait ForwardLightCollection: LightCollectionCompute + LightCollectionBase + Any {
+pub trait ForwardLightCollection:
+  LightCollectionCompute + RebuildAbleGPUCollectionBase + Any
+{
   fn as_any_mut(&mut self) -> &mut dyn Any;
 }
-impl<T: LightCollectionCompute + LightCollectionBase + Any> ForwardLightCollection for T {
+impl<T: LightCollectionCompute + RebuildAbleGPUCollectionBase + Any> ForwardLightCollection for T {
   fn as_any_mut(&mut self) -> &mut dyn Any {
     self
   }
@@ -232,13 +240,7 @@ impl ForwardLightingSystem {
 const LIGHT_MAX: usize = 8;
 pub type LightList<T> = ClampedUniformList<T, LIGHT_MAX>;
 
-pub trait LightCollectionBase {
-  fn reset(&mut self);
-  /// return count
-  fn update_gpu(&mut self, gpu: &GPU) -> usize;
-}
-
-impl<T: ShaderLight> LightCollectionBase for LightList<T> {
+impl<T: ShaderLight> RebuildAbleGPUCollectionBase for LightList<T> {
   fn reset(&mut self) {
     self.reset()
   }

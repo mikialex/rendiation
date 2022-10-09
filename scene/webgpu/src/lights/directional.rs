@@ -17,10 +17,9 @@ pub struct LightShadowAddressInfo {
   pub enabled: Bool,
 }
 
-only_fragment!(BasicShadowMapInfoGroup, Shader140Array<BasicShadowMapInfo, 8>);
+only_fragment!(BasicShadowMapInfoGroup, Shader140Array<BasicShadowMapInfo, SHADOW_MAX>);
 only_fragment!(BasicShadowMap, ShaderDepthTexture2DArray);
 only_fragment!(BasicShadowMapSampler, ShaderCompareSampler);
-only_fragment!(ShadowPosition, Vec3<f32>);
 
 wgsl_fn!(
   fn directional_shadow_occlusion(
@@ -72,11 +71,28 @@ impl PunctualShaderLight for DirectionalLightShaderInfo {
       let map = builder.query::<BasicShadowMap>().unwrap();
       let sampler = builder.query::<BasicShadowMapSampler>().unwrap();
       let shadow_infos = builder.query::<BasicShadowMapInfoGroup>().unwrap();
-      let shadow_position = builder.query::<ShadowPosition>().unwrap();
-      let shadow_info = shadow_infos.index(shadow_info.index);
+      let shadow_info = shadow_infos.index(shadow_info.index).expand();
+
+      // another way to compute this is in vertex shader, maybe we will try it later.
+      let bias = shadow_info.bias.expand();
+      let world_position = builder.query::<FragmentWorldPosition>().unwrap();
+      let world_normal = builder.query::<FragmentWorldNormal>().unwrap();
+
+      // apply normal bias
+      let world_position = world_position + bias.normal_bias * world_normal;
+
+      let shadow_position =
+        shadow_info.shadow_camera.expand().view_projection_inv * (world_position, 1.).into();
+
+      let shadow_position = shadow_position.xyz() / shadow_position.w();
+
+      // convert to uv space and apply offset bias
+      let shadow_position = shadow_position * consts(Vec3::new(0.5, 0.5, 1.))
+        + consts(Vec3::new(1., 1., 0.))
+        + (0., 0., bias.bias).into();
 
       let occlusion_result =
-        directional_shadow_occlusion(shadow_position, map, sampler, shadow_info.expand().map_info);
+        directional_shadow_occlusion(shadow_position, map, sampler, shadow_info.map_info);
 
       occlusion.set(occlusion_result)
     });
@@ -96,7 +112,6 @@ struct DirectionalShadowGPU {
 
 fn get_shadow_map(
   inner: &SceneItemRefGuard<SceneLightInner<DirectionalLight>>,
-  gpu: &GPU,
   resources: &mut GPUResourceCache,
   shadows: &mut ShadowMapSystem,
 ) -> DirectionalShadowGPU {
@@ -116,12 +131,12 @@ fn get_shadow_map(
     .get_update_or_insert_with_logic(inner, |logic| match logic {
       ResourceLogic::Create(light) => {
         let shadow_camera = build_shadow_camera(light);
-        let map = shadows.maps.allocate(gpu, resolution);
+        let map = shadows.maps.allocate(resolution);
         ResourceLogicResult::Create(DirectionalShadowGPU { shadow_camera, map })
       }
       ResourceLogic::Update(shadow, light) => {
         let shadow_camera = build_shadow_camera(light);
-        let map = shadows.maps.allocate(gpu, resolution);
+        let map = shadows.maps.allocate(resolution);
         *shadow = DirectionalShadowGPU { shadow_camera, map };
         ResourceLogicResult::Update(shadow)
       }
@@ -151,7 +166,7 @@ impl WebGPUSceneLight for SceneLight<DirectionalLight> {
   // allocate shadow maps
   fn pre_update(&self, ctx: &mut LightUpdateCtx) {
     let inner = self.read();
-    get_shadow_map(&inner, ctx.ctx.gpu, ctx.ctx.resources, ctx.shadows);
+    get_shadow_map(&inner, ctx.ctx.resources, ctx.shadows);
   }
 
   fn update(&self, ctx: &mut LightUpdateCtx) {
@@ -160,9 +175,9 @@ impl WebGPUSceneLight for SceneLight<DirectionalLight> {
     let node = &inner.node;
 
     let DirectionalShadowGPU { shadow_camera, map } =
-      get_shadow_map(&inner, ctx.ctx.gpu, ctx.ctx.resources, ctx.shadows);
+      get_shadow_map(&inner, ctx.ctx.resources, ctx.shadows);
 
-    let map_info = map.get_address_info(ctx.ctx.gpu);
+    let (view, map_info) = map.get_write_view(ctx.ctx.gpu);
     let shadow_camera_info = ctx
       .ctx
       .resources
@@ -173,7 +188,7 @@ impl WebGPUSceneLight for SceneLight<DirectionalLight> {
       .get();
 
     pass("shadow-depth")
-      .with_depth(map.get_write_view(ctx.ctx.gpu), clear(1.))
+      .with_depth(view, clear(1.))
       .render(ctx.ctx)
       .by(CameraSceneRef {
         camera: &shadow_camera,
@@ -181,15 +196,24 @@ impl WebGPUSceneLight for SceneLight<DirectionalLight> {
         inner: SceneDepth,
       });
 
-    let shadows = ctx.shadows.get_or_create_list();
-    let index = shadows.source.len();
+    let shadows = ctx
+      .shadows
+      .shadow_collections
+      .entry(TypeId::of::<BasicShadowMapInfoList>())
+      .or_insert_with(|| Box::new(BasicShadowMapInfoList::default()));
+    let shadows = shadows
+      .as_any_mut()
+      .downcast_mut::<BasicShadowMapInfoList>()
+      .unwrap();
+
+    let index = shadows.list.source.len();
 
     let mut info = BasicShadowMapInfo::default();
     info.shadow_camera = shadow_camera_info;
     info.bias = ShadowBias::default();
     info.map_info = map_info;
 
-    shadows.source.push(info);
+    shadows.list.source.push(info);
 
     let lights = ctx.forward.get_or_create_list();
     let gpu = DirectionalLightShaderInfo {

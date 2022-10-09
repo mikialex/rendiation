@@ -228,6 +228,14 @@ fn gen_fragment_out_struct(code: &mut CodeBuilder, frag: &ShaderGraphFragmentBui
     });
   }
 
+  if shader_struct.fields.is_empty() {
+    shader_struct.fields.push(ShaderStructFieldMetaInfoOwned {
+      name: "placeholder_for_avoiding_empty_struct".to_string(),
+      ty: ShaderStructMemberValueType::Primitive(PrimitiveShaderValueType::Float32),
+      ty_deco: ShaderFieldDecorator::Location(0).into(),
+    });
+  }
+
   gen_struct(code, &shader_struct, false);
 }
 
@@ -831,19 +839,19 @@ fn gen_type_impl(ty: ShaderValueType, is_uniform: bool) -> String {
       dimension,
       sample_type,
     } => {
-      let suffix = match sample_type {
-        TextureSampleType::Float { .. } => "",
-        TextureSampleType::Depth => "_depth",
-        TextureSampleType::Sint => todo!(),
-        TextureSampleType::Uint => todo!(),
+      let (suffix, ty_suffix) = match sample_type {
+        TextureSampleType::Float { .. } => ("", "<f32>"),
+        TextureSampleType::Depth => ("_depth", ""),
+        TextureSampleType::Sint => ("", "<i32>"),
+        TextureSampleType::Uint => ("", "<u32>"),
       };
       match dimension {
-        TextureViewDimension::D1 => format!("texture{suffix}_1d<f32>"),
-        TextureViewDimension::D2 => format!("texture{suffix}_2d<f32>"),
-        TextureViewDimension::D2Array => format!("texture{suffix}_2d_array<f32>"),
-        TextureViewDimension::Cube => format!("texture{suffix}_cube<f32>"),
-        TextureViewDimension::CubeArray => format!("texture{suffix}_cube_array<f32>"),
-        TextureViewDimension::D3 => format!("texture{suffix}_3d<f32>"),
+        TextureViewDimension::D1 => format!("texture{suffix}_1d{ty_suffix}"),
+        TextureViewDimension::D2 => format!("texture{suffix}_2d{ty_suffix}"),
+        TextureViewDimension::D2Array => format!("texture{suffix}_2d_array{ty_suffix}"),
+        TextureViewDimension::Cube => format!("texture{suffix}_cube{ty_suffix}"),
+        TextureViewDimension::CubeArray => format!("texture{suffix}_cube_array{ty_suffix}"),
+        TextureViewDimension::D3 => format!("texture{suffix}_3d{ty_suffix}"),
       }
     }
     ShaderValueType::Fixed(ty) => gen_fix_type_impl(ty, is_uniform),

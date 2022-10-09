@@ -28,7 +28,7 @@ impl InitResourceByAllocation for gpu::Texture {
 
 impl BindableResourceView for gpu::TextureView {
   fn as_bindable(&self) -> gpu::BindingResource {
-    todo!()
+    gpu::BindingResource::TextureView(self)
   }
 }
 

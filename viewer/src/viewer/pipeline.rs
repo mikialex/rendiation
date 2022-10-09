@@ -68,6 +68,7 @@ impl ViewerPipeline {
       .by(scene.by_main_camera_and_self(BackGroundRendering))
       .by(scene.by_main_camera_and_self(ForwardScene{
         lights: &self.forward_lights, 
+        shadow: &&self.shadows,
         tonemap: &self.tonemap
       }))
       .by(scene.by_main_camera(&mut content.ground));// transparent, should go last

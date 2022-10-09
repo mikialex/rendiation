@@ -17,6 +17,7 @@ pub struct LightUpdateCtx<'a, 'b> {
 impl<'a, 'b> LightUpdateCtx<'a, 'b> {
   pub fn update(&mut self) {
     self.forward.before_update_scene(self.ctx.gpu);
+    self.shadows.before_update_scene(self.ctx.gpu);
 
     for (_, light) in &self.scene.lights {
       light.pre_update(self)
@@ -26,6 +27,7 @@ impl<'a, 'b> LightUpdateCtx<'a, 'b> {
       light.update(self)
     }
     self.forward.after_update_scene(self.ctx.gpu);
+    self.shadows.after_update_scene(self.ctx.gpu);
   }
 }
 

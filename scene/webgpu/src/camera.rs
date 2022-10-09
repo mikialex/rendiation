@@ -74,7 +74,7 @@ impl ShaderGraphProvider for CameraGPU {
     builder.vertex(|builder, _| {
       let camera = camera.using().expand();
       let position = builder.query::<WorldVertexPosition>()?;
-      builder.register::<ClipPosition>(camera.projection * camera.view * (position, 1.).into());
+      builder.register::<ClipPosition>(camera.view_projection * (position, 1.).into());
 
       Ok(())
     })
@@ -87,9 +87,14 @@ impl ShaderGraphProvider for CameraGPU {
 pub struct CameraGPUTransform {
   pub projection: Mat4<f32>,
   pub projection_inv: Mat4<f32>,
+
   pub rotation: Mat4<f32>,
+
   pub view: Mat4<f32>,
   pub world: Mat4<f32>,
+
+  pub view_projection: Mat4<f32>,
+  pub view_projection_inv: Mat4<f32>,
 }
 
 impl CameraGPUTransform {
@@ -100,6 +105,8 @@ impl CameraGPUTransform {
     r.rotation = world.extract_rotation_mat();
     r.projection = proj;
     r.projection_inv = proj.inverse_or_identity();
+    r.view_projection = proj * r.view;
+    r.view_projection_inv = r.view_projection.inverse_or_identity();
     r
   }
 }
@@ -117,6 +124,8 @@ impl CameraGPU {
         r.reg::<CameraProjectionMatrix>(camera.projection);
         r.reg::<CameraProjectionInverseMatrix>(camera.projection_inv);
         r.reg::<CameraWorldMatrix>(camera.world);
+        r.reg::<CameraViewProjectionMatrix>(camera.view_projection);
+        r.reg::<CameraViewProjectionInverseMatrix>(camera.view_projection_inv);
       })
   }
 
