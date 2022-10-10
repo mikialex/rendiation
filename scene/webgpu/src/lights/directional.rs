@@ -82,13 +82,13 @@ impl PunctualShaderLight for DirectionalLightShaderInfo {
       let world_position = world_position + bias.normal_bias * world_normal;
 
       let shadow_position =
-        shadow_info.shadow_camera.expand().view_projection_inv * (world_position, 1.).into();
+        shadow_info.shadow_camera.expand().view_projection * (world_position, 1.).into();
 
       let shadow_position = shadow_position.xyz() / shadow_position.w();
 
       // convert to uv space and apply offset bias
-      let shadow_position = shadow_position * consts(Vec3::new(0.5, 0.5, 1.))
-        + consts(Vec3::new(1., 1., 0.))
+      let shadow_position = shadow_position * consts(Vec3::new(0.5, -0.5, 1.))
+        + consts(Vec3::new(0.5, 0.5, 0.))
         + (0., 0., bias.bias).into();
 
       let occlusion_result =
@@ -210,7 +210,7 @@ impl WebGPUSceneLight for SceneLight<DirectionalLight> {
 
     let mut info = BasicShadowMapInfo::default();
     info.shadow_camera = shadow_camera_info;
-    info.bias = ShadowBias::default();
+    info.bias = ShadowBias::new(-0.0001, 0.0);
     info.map_info = map_info;
 
     shadows.list.source.push(info);

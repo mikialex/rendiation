@@ -39,7 +39,7 @@ impl ShaderGraphProvider for ShadowMapAllocator {
 pub struct ShadowMapAllocatorImpl {
   id: usize,
   result: Option<ShadowMapAllocationInfo>,
-  requirements: HashMap<usize, Size>,
+  requirements: LinkedHashMap<usize, Size>,
 }
 
 impl ShadowMapAllocatorImpl {
@@ -50,7 +50,7 @@ impl ShadowMapAllocatorImpl {
       let size = self.requirements.len();
       let map = GPUTexture::create(
         webgpu::TextureDescriptor {
-          label: None,
+          label: "shadow-maps".into(),
           size: webgpu::Extent3d {
             width: 512,
             height: 512,
@@ -60,9 +60,7 @@ impl ShadowMapAllocatorImpl {
           sample_count: 1,
           dimension: webgpu::TextureDimension::D2,
           format: webgpu::TextureFormat::Depth32Float,
-          usage: webgpu::TextureUsages::TEXTURE_BINDING
-            | webgpu::TextureUsages::COPY_DST
-            | webgpu::TextureUsages::RENDER_ATTACHMENT,
+          usage: webgpu::TextureUsages::TEXTURE_BINDING | webgpu::TextureUsages::RENDER_ATTACHMENT,
         },
         &gpu.device,
       );
@@ -106,7 +104,7 @@ impl ShadowMapAllocatorImpl {
 struct ShadowMapAllocationInfo {
   map: GPU2DArrayDepthTextureView,
   sampler: GPUComparisonSamplerView,
-  mapping: HashMap<usize, ShadowMapAddressInfo>,
+  mapping: LinkedHashMap<usize, ShadowMapAddressInfo>,
 }
 
 #[derive(Clone)]
@@ -132,7 +130,7 @@ impl Drop for ShadowMapInner {
 impl ShadowMap {
   pub fn get_write_view(&self, gpu: &GPU) -> (GPU2DTextureView, ShadowMapAddressInfo) {
     let mut inner = self.inner.inner.borrow_mut();
-    let id = inner.id;
+    let id = self.inner.id;
     let result = inner.check_rebuild(gpu);
     let base_array_layer = result.mapping.get(&id).unwrap().layer_index as u32;
 
@@ -141,6 +139,8 @@ impl ShadowMap {
         .map
         .resource
         .create_view(webgpu::TextureViewDescriptor {
+          label: Some("shadow-write-view"),
+          dimension: Some(webgpu::TextureViewDimension::D2),
           base_array_layer,
           array_layer_count: NonZeroU32::new(1).unwrap().into(),
           ..Default::default()
@@ -305,9 +305,19 @@ pub struct ShadowBias {
   pub normal_bias: f32,
 }
 
+impl ShadowBias {
+  pub fn new(bias: f32, normal_bias: f32) -> Self {
+    Self {
+      bias,
+      normal_bias,
+      ..Zeroable::zeroed()
+    }
+  }
+}
+
 #[repr(C)]
 #[std140_layout]
-#[derive(Clone, Copy, Default, ShaderStruct)]
+#[derive(Clone, Copy, Default, ShaderStruct, Debug)]
 pub struct ShadowMapAddressInfo {
   pub layer_index: i32,
   pub size: Vec2<f32>,
