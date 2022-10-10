@@ -17,21 +17,19 @@ pub struct PhysicalShading;
 
 impl LightableSurfaceShading for PhysicalShading {
   type ShaderStruct = ShaderPhysicalShading;
-  fn construct_shading(
-    builder: &mut ShaderGraphFragmentBuilder,
-  ) -> ExpandedNode<Self::ShaderStruct> {
-    ExpandedNode::<Self::ShaderStruct> {
+  fn construct_shading(builder: &mut ShaderGraphFragmentBuilder) -> ENode<Self::ShaderStruct> {
+    ENode::<Self::ShaderStruct> {
       diffuse: builder.query_or_insert_default::<ColorChannel>(),
       specular: builder.query_or_insert_default::<SpecularChannel>(),
       roughness: builder.query_or_insert_default::<RoughnessChannel>(),
     }
   }
 
-  fn compute_lighting(
-    self_node: &ExpandedNode<Self::ShaderStruct>,
-    direct_light: &ExpandedNode<ShaderIncidentLight>,
-    ctx: &ExpandedNode<ShaderLightingGeometricCtx>,
-  ) -> ExpandedNode<ShaderLightingResult> {
+  fn compute_lighting_by_incident(
+    self_node: &ENode<Self::ShaderStruct>,
+    direct_light: &ENode<ShaderIncidentLight>,
+    ctx: &ENode<ShaderLightingGeometricCtx>,
+  ) -> ENode<ShaderLightingResult> {
     physical_shading(
       direct_light.construct(),
       ctx.construct(),

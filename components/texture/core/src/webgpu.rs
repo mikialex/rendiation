@@ -5,7 +5,7 @@ use std::{
 
 use image::*;
 use rendiation_texture_types::Size;
-use rendiation_webgpu::{TextureFormat, WebGPUTexture2dSource};
+use rendiation_webgpu::{TextureFormat, WebGPU2DTextureSource};
 
 use crate::{Texture2D, Texture2DBuffer, Texture2DSource};
 
@@ -25,7 +25,7 @@ pub fn rgb_to_rgba(input: ImageBuffer<Rgb<u8>, Vec<u8>>) -> ImageBuffer<Rgba<u8>
   input.map(|r| Rgba([r[0], r[1], r[2], 255]))
 }
 
-impl<P, C> WebGPUTexture2dSource for Texture2DSource<image::ImageBuffer<P, C>>
+impl<P, C> WebGPU2DTextureSource for Texture2DSource<image::ImageBuffer<P, C>>
 where
   P: TextureFormatDecider + image::Pixel + 'static,
   [P::Subpixel]: EncodableLayout,
@@ -49,7 +49,7 @@ where
   }
 }
 
-impl<P> WebGPUTexture2dSource for Texture2DBuffer<P>
+impl<P> WebGPU2DTextureSource for Texture2DBuffer<P>
 where
   P: TextureFormatDecider + Clone,
 {

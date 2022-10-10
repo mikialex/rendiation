@@ -10,8 +10,8 @@ impl SceneContent for FusionScene {
   type BackGround = Box<dyn FusionBackground>;
   type Model = Box<dyn FusionModel>;
   type Light = Box<dyn SceneRenderableShareable>;
-  type Texture2D = Box<dyn WebGPUTexture2dSource>;
-  type TextureCube = [Box<dyn WebGPUTexture2dSource>; 6];
+  type Texture2D = Box<dyn WebGPU2DTextureSource>;
+  type TextureCube = [Box<dyn WebGPU2DTextureSource>; 6];
   type SceneExt = ();
 }
 

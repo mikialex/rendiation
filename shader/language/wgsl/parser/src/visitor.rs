@@ -30,12 +30,15 @@ impl ASTElement for PrimitiveType {
       PrimitiveType::Scalar(v) => v.visit_by(visitor),
       PrimitiveType::Vector(v) => v.visit_by(visitor),
       PrimitiveType::Texture(v) => v.visit_by(visitor),
+      PrimitiveType::DepthTexture(v) => v.visit_by(visitor),
       PrimitiveType::Sampler => {}
+      PrimitiveType::DepthSampler => {}
     }
   }
 }
 
 impl ASTElement for TextureType {}
+impl ASTElement for DepthTextureContainerType {}
 impl ASTElement for PrimitiveVectorType {}
 impl ASTElement for PrimitiveValueType {}
 impl ASTElement for PrimitiveConstValue {}

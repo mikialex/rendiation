@@ -222,9 +222,17 @@ fn gen_fragment_out_struct(code: &mut CodeBuilder, frag: &ShaderGraphFragmentBui
 
   if frag.depth_output.is_some() {
     shader_struct.fields.push(ShaderStructFieldMetaInfoOwned {
-      name: format!("frag_depth_out"),
+      name: "frag_depth_out".to_string(),
       ty: ShaderStructMemberValueType::Primitive(PrimitiveShaderValueType::Float32),
       ty_deco: ShaderFieldDecorator::BuiltIn(ShaderBuiltInDecorator::FragDepth).into(),
+    });
+  }
+
+  if shader_struct.fields.is_empty() {
+    shader_struct.fields.push(ShaderStructFieldMetaInfoOwned {
+      name: "placeholder_for_avoiding_empty_struct".to_string(),
+      ty: ShaderStructMemberValueType::Primitive(PrimitiveShaderValueType::Float32),
+      ty_deco: ShaderFieldDecorator::Location(0).into(),
     });
   }
 
@@ -682,6 +690,7 @@ fn check_should_wrap(ty: &ShaderStructMemberValueType) -> Option<ReWrappedPrimit
 /// For struct's size not align to 16 but used in array, when we generate the struct, we explicitly
 /// add last field size/alignment to meet the requirement.
 ///
+/// https://www.w3.org/TR/WGSL/#structure-member-layout
 fn gen_struct(builder: &mut CodeBuilder, meta: &ShaderStructMetaInfoOwned, is_uniform: bool) {
   builder.write_ln(format!("struct {} {{", meta.name));
   builder.tab();
@@ -693,6 +702,12 @@ fn gen_struct(builder: &mut CodeBuilder, meta: &ShaderStructMetaInfoOwned, is_un
       let align_require = ty.align_of_self(StructLayoutTarget::Std140);
       if current_byte_used % align_require != 0 {
         explicit_align = align_require.into();
+      }
+
+      // If a structure member itself has a structure type S, then the number of bytes between
+      // the start of that member and the start of any following member must be at least roundUp(16, SizeOf(S)).
+      if let ShaderStructMemberValueType::Struct(_) = ty {
+        explicit_align = 16.into();
       }
 
       let explicit_align = explicit_align
@@ -707,6 +722,7 @@ fn gen_struct(builder: &mut CodeBuilder, meta: &ShaderStructMetaInfoOwned, is_un
       ));
 
       current_byte_used += ty.size_of_self(StructLayoutTarget::Std140);
+      current_byte_used = round_up(current_byte_used, align_require);
     }
   } else {
     for ShaderStructFieldMetaInfoOwned { name, ty, ty_deco } in &meta.fields {
@@ -831,19 +847,19 @@ fn gen_type_impl(ty: ShaderValueType, is_uniform: bool) -> String {
       dimension,
       sample_type,
     } => {
-      let suffix = match sample_type {
-        TextureSampleType::Float { .. } => "",
-        TextureSampleType::Depth => "_depth",
-        TextureSampleType::Sint => todo!(),
-        TextureSampleType::Uint => todo!(),
+      let (suffix, ty_suffix) = match sample_type {
+        TextureSampleType::Float { .. } => ("", "<f32>"),
+        TextureSampleType::Depth => ("_depth", ""),
+        TextureSampleType::Sint => ("", "<i32>"),
+        TextureSampleType::Uint => ("", "<u32>"),
       };
       match dimension {
-        TextureViewDimension::D1 => format!("texture{suffix}_1d<f32>"),
-        TextureViewDimension::D2 => format!("texture{suffix}_2d<f32>"),
-        TextureViewDimension::D2Array => format!("texture{suffix}_2d_array<f32>"),
-        TextureViewDimension::Cube => format!("texture{suffix}_cube<f32>"),
-        TextureViewDimension::CubeArray => format!("texture{suffix}_cube_array<f32>"),
-        TextureViewDimension::D3 => format!("texture{suffix}_3d<f32>"),
+        TextureViewDimension::D1 => format!("texture{suffix}_1d{ty_suffix}"),
+        TextureViewDimension::D2 => format!("texture{suffix}_2d{ty_suffix}"),
+        TextureViewDimension::D2Array => format!("texture{suffix}_2d_array{ty_suffix}"),
+        TextureViewDimension::Cube => format!("texture{suffix}_cube{ty_suffix}"),
+        TextureViewDimension::CubeArray => format!("texture{suffix}_cube_array{ty_suffix}"),
+        TextureViewDimension::D3 => format!("texture{suffix}_3d{ty_suffix}"),
       }
     }
     ShaderValueType::Fixed(ty) => gen_fix_type_impl(ty, is_uniform),
@@ -901,8 +917,8 @@ pub fn gen_primitive_literal(v: PrimitiveShaderValue) -> String {
       let v: &[f32; 16] = v.as_ref();
       float_group(v.as_slice())
     }
-    PrimitiveShaderValue::Uint32(v) => format!("{}", v),
-    PrimitiveShaderValue::Int32(v) => format!("{}", v),
+    PrimitiveShaderValue::Uint32(v) => format!("{}u", v),
+    PrimitiveShaderValue::Int32(v) => format!("{}i", v),
     PrimitiveShaderValue::Vec2Uint32(v) => {
       let v: &[u32; 2] = v.as_ref();
       uint_group(v.as_slice())

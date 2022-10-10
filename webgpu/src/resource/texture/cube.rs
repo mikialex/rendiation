@@ -1,45 +1,11 @@
 use crate::*;
 
-/// The wrapper type that make sure the inner desc
-/// is suitable for cube texture
-pub struct WebGPUTextureCubeDescriptor {
-  pub(crate) desc: gpu::TextureDescriptor<'static>,
-}
-
-pub struct GPURawTextureCube(pub gpu::Texture);
-pub struct GPURawTextureCubeView(pub gpu::TextureView);
-
-pub type GPUTextureCube = ResourceRc<GPURawTextureCube>;
-pub type GPUTextureCubeView = ResourceViewRc<GPURawTextureCube>;
-
-impl Resource for GPURawTextureCube {
-  type Descriptor = WebGPUTextureCubeDescriptor;
-
-  type View = GPURawTextureCubeView;
-
-  type ViewDescriptor = ();
-
-  fn create_view(&self, _desc: &Self::ViewDescriptor) -> Self::View {
-    GPURawTextureCubeView(self.0.create_view(&gpu::TextureViewDescriptor {
-      dimension: Some(gpu::TextureViewDimension::Cube),
-      ..gpu::TextureViewDescriptor::default()
-    }))
-  }
-}
-
-impl InitResourceByAllocation for GPURawTextureCube {
-  fn create_resource(desc: &Self::Descriptor, device: &GPUDevice) -> Self {
-    let desc = &desc.desc;
-    GPURawTextureCube(device.create_texture(desc))
-  }
-}
-
-impl GPUTextureCube {
+impl GPUCubeTexture {
   #[must_use]
   pub fn upload(
     self,
     queue: &gpu::Queue,
-    source: &dyn WebGPUTexture2dSource,
+    source: &dyn WebGPU2DTextureSource,
     face: CubeTextureFace,
     mip_level: usize,
   ) -> Self {
@@ -50,7 +16,7 @@ impl GPUTextureCube {
   pub fn upload_with_origin(
     self,
     queue: &gpu::Queue,
-    source: &dyn WebGPUTexture2dSource,
+    source: &dyn WebGPU2DTextureSource,
     face: CubeTextureFace,
     mip_level: usize,
     origin: (usize, usize),

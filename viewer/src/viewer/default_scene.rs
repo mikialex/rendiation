@@ -5,7 +5,7 @@ use rendiation_mesh_generator::{
 };
 use rendiation_renderable_mesh::{vertex::Vertex, TriangleList};
 use rendiation_texture::{rgb_to_rgba, TextureSampler, WrapAsTexture2DSource};
-use webgpu::WebGPUTexture2dSource;
+use webgpu::WebGPU2DTextureSource;
 
 use crate::*;
 
@@ -29,7 +29,7 @@ pub fn load_img_cube() -> <WebGPUScene as SceneContent>::TextureCube {
     "C:/Users/mk/Desktop/rrf-resource/Park2/negz.jpg",
   ];
 
-  fn load(path: &&str) -> Box<dyn WebGPUTexture2dSource> {
+  fn load(path: &&str) -> Box<dyn WebGPU2DTextureSource> {
     Box::new(load_img(path).into_source())
   }
 
@@ -171,11 +171,11 @@ pub fn load_default_scene(scene: &mut Scene<WebGPUScene>) {
     intensity: Vec3::splat(5.),
   };
   let directional_light = SceneLightInner {
-    light: Box::new(directional_light) as Box<dyn WebGPUSceneLight>,
+    light: directional_light,
     node: directional_light_node,
   };
   let directional_light = SceneItemRef::new(directional_light);
-  scene.lights.insert(directional_light);
+  scene.lights.insert(Box::new(directional_light));
 
   let directional_light_node = scene.root().create_child();
   directional_light_node.set_local_matrix(Mat4::lookat(
@@ -187,11 +187,11 @@ pub fn load_default_scene(scene: &mut Scene<WebGPUScene>) {
     intensity: Vec3::new(5., 3., 2.),
   };
   let directional_light = SceneLightInner {
-    light: Box::new(directional_light) as Box<dyn WebGPUSceneLight>,
+    light: directional_light,
     node: directional_light_node,
   };
   let directional_light = SceneItemRef::new(directional_light);
-  scene.lights.insert(directional_light);
+  scene.lights.insert(Box::new(directional_light));
 
   let point_light_node = scene.root().create_child();
   point_light_node.set_local_matrix(Mat4::translate((2., 2., 2.)));
@@ -200,11 +200,11 @@ pub fn load_default_scene(scene: &mut Scene<WebGPUScene>) {
     cutoff_distance: 40.,
   };
   let point_light = SceneLightInner {
-    light: Box::new(point_light) as Box<dyn WebGPUSceneLight>,
+    light: point_light,
     node: point_light_node,
   };
   let point_light = SceneItemRef::new(point_light);
-  scene.lights.insert(point_light);
+  scene.lights.insert(Box::new(point_light));
 
   let spot_light_node = scene.root().create_child();
   spot_light_node.set_local_matrix(Mat4::lookat(Vec3::new(-5., 5., 5.), Vec3::splat(0.), up));
@@ -215,9 +215,9 @@ pub fn load_default_scene(scene: &mut Scene<WebGPUScene>) {
     half_penumbra_angle: Deg::by(5. / 2.).to_rad(),
   };
   let spot_light = SceneLightInner {
-    light: Box::new(spot_light) as Box<dyn WebGPUSceneLight>,
+    light: spot_light,
     node: spot_light_node,
   };
   let point_light = SceneItemRef::new(spot_light);
-  scene.lights.insert(point_light);
+  scene.lights.insert(Box::new(point_light));
 }

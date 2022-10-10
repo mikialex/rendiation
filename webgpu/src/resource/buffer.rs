@@ -18,12 +18,6 @@ impl Resource for GPUBuffer {
   }
 }
 
-impl BindableResourceView for Rc<gpu::Buffer> {
-  fn as_bindable(&self) -> gpu::BindingResource {
-    self.as_entire_binding()
-  }
-}
-
 #[derive(Clone)]
 pub struct GPUBuffer {
   pub gpu: Rc<gpu::Buffer>,
@@ -82,7 +76,7 @@ pub fn create_gpu_buffer(
 
 /// Typed uniform buffer with cpu data cache, which could being diffed when updating
 pub struct UniformBufferData<T: Std140> {
-  gpu: Rc<gpu::Buffer>,
+  gpu: GPUBuffer,
   data: RefCell<T>,
   last: Cell<Option<T>>,
   changed: Cell<bool>,
@@ -98,11 +92,17 @@ pub fn create_uniform<T: Std140>(data: T, gpu: &GPU) -> UniformBufferDataView<T>
 
 impl<T: Std140> Resource for UniformBufferData<T> {
   type Descriptor = ();
-  type View = Rc<gpu::Buffer>;
+  type View = GPUBufferView;
   type ViewDescriptor = ();
 
   fn create_view(&self, _des: &Self::ViewDescriptor) -> Self::View {
-    self.gpu.clone()
+    GPUBufferView {
+      buffer: self.gpu.clone(),
+      range: GPUBufferViewRange {
+        offset: 0,
+        size: None,
+      },
+    }
   }
 }
 
@@ -126,13 +126,14 @@ impl<T: Std140> UniformBufferData<T> {
   }
 
   pub fn create(device: &GPUDevice, data: T) -> Self {
-    let gpu = device.create_buffer_init(&gpu::util::BufferInitDescriptor {
-      label: None,
-      contents: bytemuck::cast_slice(&[data]),
-      usage: gpu::BufferUsages::UNIFORM | gpu::BufferUsages::COPY_DST,
-    });
+    let gpu = GPUBuffer::create(
+      device,
+      bytemuck::cast_slice(&[data]),
+      gpu::BufferUsages::UNIFORM | gpu::BufferUsages::COPY_DST,
+    );
+
     Self {
-      gpu: Rc::new(gpu),
+      gpu,
       data: RefCell::new(data),
       changed: Cell::new(false),
       last: Default::default(),
@@ -145,6 +146,10 @@ impl<T: Std140> UniformBufferData<T> {
     self.changed.set(true);
   }
 
+  pub fn get(&self) -> T {
+    *self.data.borrow()
+  }
+
   pub fn set(&self, v: T) {
     let mut data = self.data.borrow_mut();
     *data = v;
@@ -155,7 +160,7 @@ impl<T: Std140> UniformBufferData<T> {
     if self.changed.get() {
       let data = self.data.borrow();
       let data: &T = &data;
-      queue.write_buffer(&self.gpu, 0, bytemuck::cast_slice(&[*data]));
+      queue.write_buffer(&self.gpu.gpu, 0, bytemuck::cast_slice(&[*data]));
       self.changed.set(false);
       self.last.set(Some(*data));
     }
@@ -170,21 +175,11 @@ impl<T: Std140> UniformBufferData<T> {
         let data = self.data.borrow();
         let data: &T = &data;
         if last != *data {
-          queue.write_buffer(&self.gpu, 0, bytemuck::cast_slice(&[*data]))
+          queue.write_buffer(&self.gpu.gpu, 0, bytemuck::cast_slice(&[*data]))
         }
         self.last.set(Some(*data));
       } // if last is none, means we use init value, not need update
       self.changed.set(false);
     }
-  }
-
-  pub fn gpu(&self) -> &gpu::Buffer {
-    &self.gpu
-  }
-}
-
-impl<T: Std140> BindableResourceView for UniformBufferData<T> {
-  fn as_bindable(&self) -> gpu::BindingResource {
-    self.gpu.as_entire_binding()
   }
 }

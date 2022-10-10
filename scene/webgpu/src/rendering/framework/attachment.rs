@@ -20,7 +20,7 @@ struct PooledTextureKey {
 
 #[derive(Default)]
 struct SingleResourcePool {
-  cached: Vec<GPUTexture2d>,
+  cached: Vec<GPU2DTexture>,
 }
 
 #[derive(Clone, Default)]
@@ -44,6 +44,14 @@ pub fn attachment() -> AttachmentDescriptor {
 
 pub fn depth_attachment() -> AttachmentDescriptor {
   AttachmentDescriptor {
+    format: webgpu::TextureFormat::Depth32Float,
+    sample_count: 1,
+    sizer: default_sizer(),
+  }
+}
+
+pub fn depth_stencil_attachment() -> AttachmentDescriptor {
+  AttachmentDescriptor {
     format: webgpu::TextureFormat::Depth24PlusStencil8,
     sample_count: 1,
     sizer: default_sizer(),
@@ -54,7 +62,7 @@ pub fn depth_attachment() -> AttachmentDescriptor {
 pub struct Attachment {
   pool: ResourcePool,
   des: AttachmentDescriptor,
-  texture: GPUTexture2d,
+  texture: GPU2DTexture,
   key: PooledTextureKey,
 }
 
@@ -78,8 +86,16 @@ impl Attachment {
     &self.des
   }
 
+  fn create_default_2d_view(&self) -> GPU2DTextureView {
+    self
+      .texture
+      .create_view(Default::default())
+      .try_into()
+      .unwrap()
+  }
+
   pub fn write(&mut self) -> AttachmentView<&mut Self> {
-    let view = self.texture.create_view(()).into();
+    let view = self.create_default_2d_view().into();
     AttachmentView {
       resource: self,
       view,
@@ -88,15 +104,17 @@ impl Attachment {
 
   pub fn read(&self) -> AttachmentView<&Self> {
     assert_eq!(self.des.sample_count, 1); // todo support latter
+
     AttachmentView {
       resource: self,
-      view: self.texture.create_view(()).into(),
+      view: self.create_default_2d_view().into(),
     }
   }
 
   pub fn read_into(self) -> AttachmentView<Self> {
     assert_eq!(self.des.sample_count, 1); // todo support latter
-    let view = self.texture.create_view(()).into();
+
+    let view = self.create_default_2d_view().into();
     AttachmentView {
       resource: self,
       view,
@@ -164,13 +182,22 @@ impl AttachmentDescriptor {
       .or_insert_with(Default::default);
 
     let texture = cached.cached.pop().unwrap_or_else(|| {
-      GPUTexture2d::create(
-        WebGPUTexture2dDescriptor::from_size(size)
-          .with_render_target_ability()
-          .with_sample_count(self.sample_count)
-          .with_format(self.format),
+      GPUTexture::create(
+        webgpu::TextureDescriptor {
+          label: None,
+          size: map_size_gpu(size),
+          dimension: webgpu::TextureDimension::D2,
+          format: self.format,
+          usage: webgpu::TextureUsages::TEXTURE_BINDING
+            | webgpu::TextureUsages::COPY_DST
+            | webgpu::TextureUsages::RENDER_ATTACHMENT,
+          mip_level_count: 1,
+          sample_count: self.sample_count,
+        },
         &ctx.gpu.device,
       )
+      .try_into()
+      .unwrap()
     });
 
     Attachment {

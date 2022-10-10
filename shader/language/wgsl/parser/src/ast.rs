@@ -199,6 +199,14 @@ pub enum TextureContainerType {
 }
 
 #[derive(Debug)]
+pub enum DepthTextureContainerType {
+  D2,
+  D2Array,
+  Cube,
+  CubeArray,
+}
+
+#[derive(Debug)]
 pub struct TextureType {
   pub value_ty: PrimitiveValueType,
   pub container_ty: TextureContainerType,
@@ -215,7 +223,9 @@ pub enum PrimitiveType {
   Scalar(PrimitiveValueType),
   Vector(PrimitiveVectorType),
   Texture(TextureType),
+  DepthTexture(DepthTextureContainerType),
   Sampler,
+  DepthSampler,
 }
 
 #[derive(Debug)]

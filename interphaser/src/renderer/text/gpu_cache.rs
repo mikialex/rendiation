@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use rendiation_texture::{Size, TextureRange};
 use webgpu::{
-  util::DeviceExt, GPUTexture2d, GPUTexture2dView, WebGPUTexture2dDescriptor, WebGPUTexture2dSource,
+  map_size_gpu, util::DeviceExt, GPU2DTexture, GPU2DTextureView, GPUTexture, WebGPU2DTextureSource,
 };
 
 use crate::{TextHash, TextQuadInstance};
@@ -35,23 +35,31 @@ pub fn create_gpu_text(
 }
 
 pub struct WebGPUTextureCache {
-  texture: GPUTexture2d,
-  view: GPUTexture2dView,
+  texture: GPU2DTexture,
+  view: GPU2DTextureView,
 }
 
 impl WebGPUTextureCache {
   pub fn init(size: Size, device: &webgpu::GPUDevice) -> Self {
-    let desc = WebGPUTexture2dDescriptor::from_size(size) //
-      .with_format(webgpu::TextureFormat::R8Unorm);
+    let desc = webgpu::TextureDescriptor {
+      label: "text-glyph-atlas".into(),
+      size: map_size_gpu(size),
+      dimension: webgpu::TextureDimension::D2,
+      format: webgpu::TextureFormat::R8Unorm,
+      usage: webgpu::TextureUsages::TEXTURE_BINDING | webgpu::TextureUsages::COPY_DST,
+      mip_level_count: 1,
+      sample_count: 1,
+    };
 
-    let texture = GPUTexture2d::create(desc, device);
-    let view = texture.create_view(());
+    let texture = GPUTexture::create(desc, device);
+    let texture: GPU2DTexture = texture.try_into().unwrap();
+    let view = texture.create_view(Default::default()).try_into().unwrap();
 
     Self { texture, view }
   }
   pub fn update_texture(
     &self,
-    data: &dyn WebGPUTexture2dSource,
+    data: &dyn WebGPU2DTextureSource,
     range: TextureRange,
     queue: &webgpu::Queue,
   ) {

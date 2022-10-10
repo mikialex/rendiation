@@ -44,7 +44,7 @@ impl<P: SceneContent> SceneRenderable for EnvMapBackground<P> {
 }
 
 struct EnvMapBackgroundGPU {
-  texture: GPUTextureCubeView,
+  texture: GPUCubeTextureView,
   sampler: GPUSamplerView,
 }
 

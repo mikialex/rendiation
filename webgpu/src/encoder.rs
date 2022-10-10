@@ -76,7 +76,13 @@ impl GPUCommandEncoder {
         .depth_stencil_target
         .as_ref()
         .map(|(_, view)| view.format()),
-      sample_count: des.channels.first().unwrap().1.sample_count(),
+      sample_count: des
+        .channels
+        .first()
+        .map(|c| &c.1)
+        .or_else(|| des.depth_stencil_target.as_ref().map(|c| &c.1))
+        .map(|c| c.sample_count())
+        .unwrap_or(1),
     };
 
     let pass = self.encoder.begin_render_pass(&desc);
@@ -92,8 +98,8 @@ impl GPUCommandEncoder {
   pub fn copy_source_to_texture_2d(
     &mut self,
     device: &GPUDevice,
-    source: impl WebGPUTexture2dSource,
-    target: &GPUTexture2d,
+    source: impl WebGPU2DTextureSource,
+    target: &GPU2DTexture,
     origin: (u32, u32),
   ) -> &mut Self {
     let (upload_buffer, size) = source.create_upload_buffer(device);

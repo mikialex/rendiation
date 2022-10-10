@@ -16,6 +16,7 @@ where
 
 pub struct ForwardScene<'a> {
   pub lights: &'a ForwardLightingSystem,
+  pub shadow: &'a ShadowMapSystem,
   pub tonemap: &'a ToneMap,
 }
 
@@ -65,6 +66,8 @@ impl<'a> ShaderPassBuilder for ForwardSceneLightingDispatcher<'a> {
     self.base.setup_pass(ctx);
   }
   fn post_setup_pass(&self, ctx: &mut GPURenderPassCtx) {
+    self.lighting.shadow.setup_pass(ctx);
+
     ctx
       .binding
       .bind(self.lighting.lights.lengths.as_ref().unwrap(), SB::Pass);
@@ -78,6 +81,7 @@ impl<'a> ShaderPassBuilder for ForwardSceneLightingDispatcher<'a> {
 impl<'a> ShaderHashProvider for ForwardSceneLightingDispatcher<'a> {
   fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
     self.lighting.lights.light_hash_cache.hash(hasher);
+    self.lighting.shadow.hash_pipeline(hasher); // not sure we need cache here, maybe add it later
     self.override_shading.type_id().hash(hasher);
   }
 }
@@ -102,6 +106,8 @@ impl<'a> ShaderGraphProvider for ForwardSceneLightingDispatcher<'a> {
     &self,
     builder: &mut ShaderGraphRenderPipelineBuilder,
   ) -> Result<(), ShaderGraphBuildError> {
+    self.lighting.shadow.build(builder)?;
+
     let shading_impl = if let Some(override_shading) = self.override_shading {
       override_shading
     } else {
@@ -130,10 +136,12 @@ impl<'a> ShaderGraphProvider for ForwardSceneLightingDispatcher<'a> {
   }
 }
 
-pub trait ForwardLightCollection: LightCollectionCompute + LightCollectionBase + Any {
+pub trait ForwardLightCollection:
+  LightCollectionCompute + RebuildAbleGPUCollectionBase + Any
+{
   fn as_any_mut(&mut self) -> &mut dyn Any;
 }
-impl<T: LightCollectionCompute + LightCollectionBase + Any> ForwardLightCollection for T {
+impl<T: LightCollectionCompute + RebuildAbleGPUCollectionBase + Any> ForwardLightCollection for T {
   fn as_any_mut(&mut self) -> &mut dyn Any {
     self
   }
@@ -154,21 +162,18 @@ impl ForwardLightingSystem {
     let lights = self
       .lights_collections
       .entry(TypeId::of::<T>())
-      .or_insert_with(|| Box::new(LightList::<T>::default()));
+      .or_insert_with(|| Box::new(LightList::<T>::default_with(SB::Pass)));
     lights.as_any_mut().downcast_mut::<LightList<T>>().unwrap()
   }
 
-  pub fn update_by_scene(&mut self, scene: &Scene<WebGPUScene>, gpu: &GPU) {
+  pub fn before_update_scene(&mut self, _gpu: &GPU) {
     self
       .lights_collections
       .iter_mut()
       .for_each(|(_, c)| c.reset());
+  }
 
-    for (_, light) in &scene.lights {
-      let light = &light.read();
-      light.light.collect(self, &light.node)
-    }
-
+  pub fn after_update_scene(&mut self, gpu: &GPU) {
     let mut lengths: Shader140Array<Vec4<u32>, MAX_SUPPORT_LIGHT_KIND_COUNT> = Default::default();
 
     self
@@ -205,7 +210,7 @@ impl ForwardLightingSystem {
       // let normal = compute_normal_by_dxdy(position);
       // builder.register::<FragmentWorldNormal>(normal);
 
-      let geom_ctx = ExpandedNode::<ShaderLightingGeometricCtx> {
+      let geom_ctx = ENode::<ShaderLightingGeometricCtx> {
         position,
         normal,
         view_dir: (camera_position - position).normalize(),
@@ -233,52 +238,15 @@ impl ForwardLightingSystem {
 }
 
 const LIGHT_MAX: usize = 8;
+pub type LightList<T> = ClampedUniformList<T, LIGHT_MAX>;
 
-#[derive(Default)]
-pub struct LightList<T: ShaderLight> {
-  pub lights: Vec<T>,
-  pub lights_gpu: Option<UniformBufferDataView<Shader140Array<T, LIGHT_MAX>>>,
-}
-
-pub trait LightCollectionBase {
-  fn reset(&mut self);
-  /// return count
-  fn update_gpu(&mut self, gpu: &GPU) -> usize;
-}
-
-impl<T: ShaderLight> LightCollectionBase for LightList<T> {
+impl<T: ShaderLight> RebuildAbleGPUCollectionBase for LightList<T> {
   fn reset(&mut self) {
-    self.lights.clear();
-    self.lights_gpu.take();
+    self.reset()
   }
 
   fn update_gpu(&mut self, gpu: &GPU) -> usize {
-    let mut source = vec![T::default(); LIGHT_MAX];
-    for (i, light) in self.lights.iter().enumerate() {
-      if i >= LIGHT_MAX {
-        break;
-      }
-      source[i] = *light;
-    }
-    let source = source.try_into().unwrap();
-    let lights_gpu = create_uniform(source, gpu);
-    self.lights_gpu = lights_gpu.into();
-    self.lights.len()
-  }
-}
-
-impl<T: ShaderLight> ShaderPassBuilder for LightList<T> {
-  fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
-    ctx
-      .binding
-      .bind(self.lights_gpu.as_ref().unwrap(), SB::Pass);
-  }
-}
-
-impl<T: ShaderLight> ShaderHashProvider for LightList<T> {
-  fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
-    TypeId::of::<T>().hash(hasher);
-    self.lights.len().hash(hasher);
+    self.update_gpu(gpu)
   }
 }
 
@@ -289,7 +257,7 @@ pub trait LightCollectionCompute: ShaderPassBuilder + ShaderHashProvider {
     binding: &mut ShaderGraphBindGroupDirectBuilder,
     shading_impl: &dyn LightableSurfaceShadingDyn,
     shading: &dyn Any,
-    geom_ctx: &ExpandedNode<ShaderLightingGeometricCtx>,
+    geom_ctx: &ENode<ShaderLightingGeometricCtx>,
   ) -> Result<(Node<Vec3<f32>>, Node<Vec3<f32>>), ShaderGraphBuildError>;
 
   fn compute_lights_grouped(
@@ -298,11 +266,11 @@ pub trait LightCollectionCompute: ShaderPassBuilder + ShaderHashProvider {
     binding: &mut ShaderGraphBindGroupDirectBuilder,
     shading_impl: &dyn LightableSurfaceShadingDyn,
     shading: &dyn Any,
-    geom_ctx: &ExpandedNode<ShaderLightingGeometricCtx>,
-  ) -> Result<ExpandedNode<ShaderLightingResult>, ShaderGraphBuildError> {
+    geom_ctx: &ENode<ShaderLightingGeometricCtx>,
+  ) -> Result<ENode<ShaderLightingResult>, ShaderGraphBuildError> {
     let (diffuse, specular) =
       self.compute_lights(builder, binding, shading_impl, shading, geom_ctx)?;
-    Ok(ExpandedNode::<ShaderLightingResult> { diffuse, specular })
+    Ok(ENode::<ShaderLightingResult> { diffuse, specular })
   }
 }
 
@@ -313,11 +281,11 @@ impl<T: ShaderLight> LightCollectionCompute for LightList<T> {
     binding: &mut ShaderGraphBindGroupDirectBuilder,
     shading_impl: &dyn LightableSurfaceShadingDyn,
     shading: &dyn Any,
-    geom_ctx: &ExpandedNode<ShaderLightingGeometricCtx>,
+    geom_ctx: &ENode<ShaderLightingGeometricCtx>,
   ) -> Result<(Node<Vec3<f32>>, Node<Vec3<f32>>), ShaderGraphBuildError> {
-    let lights = binding.uniform_by(self.lights_gpu.as_ref().unwrap(), SB::Pass);
+    let lights = binding.uniform_by(self.gpu.as_ref().unwrap(), SB::Pass);
 
-    let dep = T::create_dep(builder);
+    let dep = T::create_dep(builder)?;
 
     let light_specular_result = consts(Vec3::zero()).mutable();
     let light_diffuse_result = consts(Vec3::zero()).mutable();
@@ -331,8 +299,8 @@ impl<T: ShaderLight> LightCollectionCompute for LightList<T> {
 
     for_by(light_iter, |_, light, _| {
       let light = light.expand();
-      let incident = T::compute_direct_light(&light, &dep, geom_ctx);
-      let light_result = shading_impl.compute_lighting_dyn(shading, &incident, geom_ctx);
+      let light_result =
+        T::compute_direct_light(builder, &light, geom_ctx, shading_impl, shading, &dep);
 
       // improve impl by add assign
       light_specular_result.set(light_specular_result.get() + light_result.specular);

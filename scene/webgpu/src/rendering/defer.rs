@@ -21,8 +21,8 @@ impl DeferGBufferSchema<PhysicalShading> for MaterialDeferPassResult {
     binding: &mut ShaderGraphBindGroupDirectBuilder,
   ) -> Result<
     (
-      ExpandedNode<ShaderLightingGeometricCtx>,
-      ExpandedNode<ShaderPhysicalShading>,
+      ENode<ShaderLightingGeometricCtx>,
+      ENode<ShaderPhysicalShading>,
     ),
     ShaderGraphBuildError,
   > {
@@ -42,13 +42,13 @@ impl DeferGBufferSchema<PhysicalShading> for MaterialDeferPassResult {
 
     let camera_position = builder.query::<CameraWorldMatrix>()?.position();
 
-    let geom_ctx = ExpandedNode::<ShaderLightingGeometricCtx> {
+    let geom_ctx = ENode::<ShaderLightingGeometricCtx> {
       position: world_position,
       normal,
       view_dir: camera_position - world_position,
     };
 
-    let shading = ExpandedNode::<ShaderPhysicalShading> {
+    let shading = ENode::<ShaderPhysicalShading> {
       diffuse: material1.xyz(),
       specular: material2.xyz(),
       roughness: material1.w(),
@@ -217,15 +217,15 @@ impl<'a, T: ShaderLight> LightCollectionCompute for SingleLight<'a, T> {
     binding: &mut ShaderGraphBindGroupDirectBuilder,
     shading_impl: &dyn LightableSurfaceShadingDyn,
     shading: &dyn Any,
-    geom_ctx: &ExpandedNode<ShaderLightingGeometricCtx>,
+    geom_ctx: &ENode<ShaderLightingGeometricCtx>,
   ) -> Result<(Node<Vec3<f32>>, Node<Vec3<f32>>), ShaderGraphBuildError> {
     let light = binding.uniform_by(self.light, SB::Pass);
 
-    let dep = T::create_dep(builder);
+    let dep = T::create_dep(builder)?;
 
     let light = light.expand();
-    let incident = T::compute_direct_light(&light, &dep, geom_ctx);
-    let light_result = shading_impl.compute_lighting_dyn(shading, &incident, geom_ctx);
+    let light_result =
+      T::compute_direct_light(builder, &light, geom_ctx, shading_impl, shading, &dep);
 
     Ok((light_result.diffuse, light_result.specular))
   }
@@ -240,20 +240,14 @@ pub trait DeferGBufferSchema<S: LightableSurfaceShading> {
     &self,
     builder: &mut ShaderGraphFragmentBuilder,
     binding: &mut ShaderGraphBindGroupDirectBuilder,
-  ) -> Result<
-    (
-      ExpandedNode<ShaderLightingGeometricCtx>,
-      ExpandedNode<S::ShaderStruct>,
-    ),
-    ShaderGraphBuildError,
-  >;
+  ) -> Result<(ENode<ShaderLightingGeometricCtx>, ENode<S::ShaderStruct>), ShaderGraphBuildError>;
 }
 
 /// define a specific light buffer layout.
 pub trait LightBufferSchema {
   fn write_lighting(
     builder: &mut ShaderGraphFragmentBuilder,
-    result: ExpandedNode<ShaderLightingResult>,
+    result: ENode<ShaderLightingResult>,
   ) -> Result<(), ShaderGraphBuildError>;
 }
 
@@ -261,7 +255,7 @@ pub struct SimpleLightSchema;
 impl LightBufferSchema for SimpleLightSchema {
   fn write_lighting(
     builder: &mut ShaderGraphFragmentBuilder,
-    result: ExpandedNode<ShaderLightingResult>,
+    result: ENode<ShaderLightingResult>,
   ) -> Result<(), ShaderGraphBuildError> {
     builder.set_fragment_out(0, ((result.specular + result.diffuse), 1.0))
   }

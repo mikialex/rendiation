@@ -219,7 +219,7 @@ impl WebGPUxUIRenderer {
       layout: &global_uniform_bind_group_layout,
       entries: &[webgpu::BindGroupEntry {
         binding: 0,
-        resource: global_ui_state.as_bindable(),
+        resource: global_ui_state.create_view(&()).as_bindable(),
       }],
       label: None,
     });

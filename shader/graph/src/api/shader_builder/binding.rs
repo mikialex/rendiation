@@ -1,6 +1,6 @@
 use crate::*;
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Hash)]
 pub enum SemanticBinding {
   Global,
   Camera,

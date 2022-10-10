@@ -178,7 +178,6 @@ impl<'a> ShaderGraphProvider for InfinityShaderPlaneEffect<'a> {
       Ok(())
     })?;
 
-    builder.log_result = true;
     builder.fragment(|builder, binding| {
       let proj = builder.query::<CameraProjectionMatrix>()?;
       let proj_inv = builder.query::<CameraProjectionInverseMatrix>()?;

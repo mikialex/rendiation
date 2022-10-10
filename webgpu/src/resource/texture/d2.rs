@@ -1,41 +1,18 @@
 use crate::*;
 
-pub struct GPURawTexture2d(pub gpu::Texture);
-pub struct GPURawTexture2dView(pub gpu::TextureView);
-
-pub type GPUTexture2d = ResourceRc<GPURawTexture2d>;
-pub type GPUTexture2dView = ResourceViewRc<GPURawTexture2d>;
-
-impl BindableResourceView for GPURawTexture2dView {
-  fn as_bindable(&self) -> gpu::BindingResource {
-    gpu::BindingResource::TextureView(&self.0)
+pub fn map_size_gpu(size: Size) -> gpu::Extent3d {
+  gpu::Extent3d {
+    width: Into::<usize>::into(size.width) as u32,
+    height: Into::<usize>::into(size.height) as u32,
+    depth_or_array_layers: 1,
   }
 }
 
-impl Resource for GPURawTexture2d {
-  type Descriptor = WebGPUTexture2dDescriptor;
-
-  type View = GPURawTexture2dView;
-
-  type ViewDescriptor = ();
-
-  fn create_view(&self, _desc: &Self::ViewDescriptor) -> Self::View {
-    GPURawTexture2dView(self.0.create_view(&Default::default()))
-  }
-}
-
-impl InitResourceByAllocation for GPURawTexture2d {
-  fn create_resource(desc: &Self::Descriptor, device: &GPUDevice) -> Self {
-    let desc = &desc.desc;
-    GPURawTexture2d(device.create_texture(desc))
-  }
-}
-
-impl GPUTexture2d {
+impl GPU2DTexture {
   pub fn upload(
     &self,
     queue: &gpu::Queue,
-    source: &dyn WebGPUTexture2dSource,
+    source: &dyn WebGPU2DTextureSource,
     mip_level: usize,
   ) -> &Self {
     self.upload_with_origin(queue, source, mip_level, TextureOrigin::zero())
@@ -45,7 +22,7 @@ impl GPUTexture2d {
   pub fn upload_into(
     self,
     queue: &gpu::Queue,
-    source: &dyn WebGPUTexture2dSource,
+    source: &dyn WebGPU2DTextureSource,
     mip_level: usize,
   ) -> Self {
     self.upload_with_origin(queue, source, mip_level, TextureOrigin::zero());
@@ -55,13 +32,13 @@ impl GPUTexture2d {
   pub fn upload_with_origin(
     &self,
     queue: &gpu::Queue,
-    source: &dyn WebGPUTexture2dSource,
+    source: &dyn WebGPU2DTextureSource,
     mip_level: usize,
     origin: TextureOrigin,
   ) -> &Self {
     queue.write_texture(
       gpu::ImageCopyTexture {
-        texture: &self.inner.resource.0,
+        texture: &self.0.inner.resource,
         mip_level: mip_level as u32,
         origin: gpu::Origin3d {
           x: origin.x as u32,
@@ -85,7 +62,7 @@ impl GPUTexture2d {
   pub fn upload_with_origin_into(
     self,
     queue: &gpu::Queue,
-    source: &dyn WebGPUTexture2dSource,
+    source: &dyn WebGPU2DTextureSource,
     mip_level: usize,
     origin: TextureOrigin,
   ) -> Self {
@@ -94,7 +71,7 @@ impl GPUTexture2d {
   }
 }
 
-pub trait WebGPUTexture2dSource: Debug {
+pub trait WebGPU2DTextureSource: Debug {
   fn format(&self) -> gpu::TextureFormat;
   fn as_bytes(&self) -> &[u8];
   fn size(&self) -> Size;
@@ -169,96 +146,30 @@ pub trait WebGPUTexture2dSource: Debug {
     (buffer, size)
   }
 
-  fn create_tex2d_desc(&self, level_count: MipLevelCount) -> WebGPUTexture2dDescriptor {
+  fn create_tex2d_desc(&self, level_count: MipLevelCount) -> gpu::TextureDescriptor<'static> {
     // todo validation;
-    WebGPUTexture2dDescriptor {
-      desc: gpu::TextureDescriptor {
-        label: None,
-        size: self.gpu_size(),
-        mip_level_count: level_count.get_level_count_wgpu(self.size()),
-        sample_count: 1,
-        dimension: gpu::TextureDimension::D2,
-        format: self.format(),
-        usage: gpu::TextureUsages::TEXTURE_BINDING | gpu::TextureUsages::COPY_DST,
-      },
+    gpu::TextureDescriptor {
+      label: None,
+      size: self.gpu_size(),
+      mip_level_count: level_count.get_level_count_wgpu(self.size()),
+      sample_count: 1,
+      dimension: gpu::TextureDimension::D2,
+      format: self.format(),
+      usage: gpu::TextureUsages::TEXTURE_BINDING | gpu::TextureUsages::COPY_DST,
     }
   }
 
-  fn create_cube_desc(&self, level_count: MipLevelCount) -> WebGPUTextureCubeDescriptor {
+  fn create_cube_desc(&self, level_count: MipLevelCount) -> gpu::TextureDescriptor<'static> {
     // todo validation;
-    WebGPUTextureCubeDescriptor {
-      desc: gpu::TextureDescriptor {
-        label: None,
-        size: self.gpu_cube_size(),
-        mip_level_count: level_count.get_level_count_wgpu(self.size()),
-        sample_count: 1,
-        dimension: gpu::TextureDimension::D2,
-        format: self.format(),
-        usage: gpu::TextureUsages::TEXTURE_BINDING | gpu::TextureUsages::COPY_DST,
-      },
+    gpu::TextureDescriptor {
+      label: None,
+      size: self.gpu_cube_size(),
+      mip_level_count: level_count.get_level_count_wgpu(self.size()),
+      sample_count: 1,
+      dimension: gpu::TextureDimension::D2,
+      format: self.format(),
+      usage: gpu::TextureUsages::TEXTURE_BINDING | gpu::TextureUsages::COPY_DST,
     }
-  }
-}
-
-/// The wrapper type that make sure the inner desc
-/// is suitable for 2d texture
-pub struct WebGPUTexture2dDescriptor {
-  desc: gpu::TextureDescriptor<'static>,
-}
-
-impl std::ops::Deref for WebGPUTexture2dDescriptor {
-  type Target = gpu::TextureDescriptor<'static>;
-
-  fn deref(&self) -> &Self::Target {
-    &self.desc
-  }
-}
-
-impl WebGPUTexture2dDescriptor {
-  pub fn from_size(size: Size) -> Self {
-    Self {
-      desc: gpu::TextureDescriptor {
-        label: None,
-        size: gpu::Extent3d {
-          width: Into::<usize>::into(size.width) as u32,
-          height: Into::<usize>::into(size.height) as u32,
-          depth_or_array_layers: 1,
-        },
-        mip_level_count: 1,
-        sample_count: 1,
-        dimension: gpu::TextureDimension::D2,
-        format: gpu::TextureFormat::Rgba8UnormSrgb,
-        usage: gpu::TextureUsages::TEXTURE_BINDING | gpu::TextureUsages::COPY_DST,
-      },
-    }
-  }
-
-  #[must_use]
-  pub fn with_render_target_ability(mut self) -> Self {
-    self.desc.usage |= gpu::TextureUsages::RENDER_ATTACHMENT;
-    self
-  }
-
-  #[must_use]
-  pub fn with_format(mut self, format: gpu::TextureFormat) -> Self {
-    self.desc.format = format;
-    self
-  }
-
-  /// todo use another type for multi sample
-  #[must_use]
-  pub fn with_sample_count(mut self, sample_count: u32) -> Self {
-    self.desc.sample_count = sample_count;
-    self
-  }
-
-  #[must_use]
-  pub fn with_level_count(mut self, level_count: MipLevelCount) -> Self {
-    self.desc.mip_level_count = level_count.get_level_count_wgpu(Size::from_u32_pair_min_one((
-      self.desc.size.width,
-      self.desc.size.height,
-    )));
-    self
   }
 }
 

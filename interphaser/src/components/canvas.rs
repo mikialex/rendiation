@@ -1,12 +1,12 @@
 use crate::*;
 use rendiation_texture::Size;
 use std::rc::Rc;
-use webgpu::{GPUTexture2d, GPUTexture2dView, WebGPUTexture2dDescriptor, GPU};
+use webgpu::{map_size_gpu, GPU2DTextureView, GPUTexture, GPU};
 use winit::event::Event;
 
 pub struct GPUCanvas {
   current_render_buffer_size: Size,
-  content: Option<GPUTexture2dView>,
+  content: Option<GPU2DTextureView>,
   layout: LayoutUnit,
 }
 
@@ -72,7 +72,7 @@ pub trait CanvasPrinter {
     position_info: CanvasWindowPositionInfo,
   );
   fn update_render_size(&mut self, layout_size: (f32, f32)) -> Size;
-  fn draw_canvas(&mut self, gpu: &Rc<GPU>, canvas: GPUTexture2dView);
+  fn draw_canvas(&mut self, gpu: &Rc<GPU>, canvas: GPU2DTextureView);
 }
 
 impl<T: CanvasPrinter> Component<T> for GPUCanvas {
@@ -90,17 +90,23 @@ impl<T: CanvasPrinter> Component<T> for GPUCanvas {
           self.content = None;
         }
 
-        let format = webgpu::TextureFormat::Rgba8UnormSrgb;
-
         let target = self.content.get_or_insert_with(|| {
           let device = &event.gpu.device;
-          let texture = GPUTexture2d::create(
-            WebGPUTexture2dDescriptor::from_size(new_size)
-              .with_render_target_ability()
-              .with_format(format),
-            device,
-          );
-          texture.create_view(())
+
+          let desc = webgpu::TextureDescriptor {
+            label: "interphase-canvas-output".into(),
+            size: map_size_gpu(new_size),
+            dimension: webgpu::TextureDimension::D2,
+            format: webgpu::TextureFormat::Rgba8UnormSrgb,
+            usage: webgpu::TextureUsages::TEXTURE_BINDING
+              | webgpu::TextureUsages::COPY_DST
+              | webgpu::TextureUsages::RENDER_ATTACHMENT,
+            mip_level_count: 1,
+            sample_count: 1,
+          };
+
+          let texture = GPUTexture::create(desc, device);
+          texture.create_view(Default::default()).try_into().unwrap()
         });
 
         model.draw_canvas(&event.gpu, target.clone());

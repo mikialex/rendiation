@@ -33,12 +33,12 @@ impl<M: WebGPUMesh> ShaderGraphProvider for TransformInstanceGPU<M> {
       // let world_normal_mat = world_normal_mat.inverse().transpose();
       //  todo, naga not fully support wgsl spec now, so we have to comment it!
 
-      if let Ok(position) = builder.query_mut::<GeometryPosition>() {
-        position.set((world_mat * (position.get(), 1.).into()).xyz())
+      if let Ok(position) = builder.query::<GeometryPosition>() {
+        builder.register::<GeometryPosition>((world_mat * (position, 1.).into()).xyz());
       }
 
-      if let Ok(normal) = builder.query_mut::<GeometryNormal>() {
-        normal.set(world_normal_mat * normal.get())
+      if let Ok(normal) = builder.query::<GeometryNormal>() {
+        builder.register::<GeometryNormal>(world_normal_mat * normal);
       }
 
       Ok(())

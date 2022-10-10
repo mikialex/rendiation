@@ -5,41 +5,52 @@ use crate::*;
 #[derive(Copy, Clone, ShaderStruct, Default)]
 pub struct PointLightShaderInfo {
   pub intensity: Vec3<f32>,
+  pub position: Vec3<f32>,
   pub cutoff_distance: f32,
-  pub node_info: TransformGPUData, // maybe used later in shadowmap
 }
 
-impl ShaderLight for PointLightShaderInfo {
-  type Dependency = ();
-  fn create_dep(_: &mut ShaderGraphFragmentBuilderView) -> Self::Dependency {}
-  fn compute_direct_light(
-    light: &ExpandedNode<Self>,
-    _dep: &Self::Dependency,
-    ctx: &ExpandedNode<ShaderLightingGeometricCtx>,
-  ) -> ExpandedNode<ShaderIncidentLight> {
-    let direction = ctx.position - light.node_info.expand().world_matrix.position();
+impl PunctualShaderLight for PointLightShaderInfo {
+  type PunctualDependency = ();
+
+  fn create_punctual_dep(
+    _: &mut ShaderGraphFragmentBuilderView,
+  ) -> Result<Self::PunctualDependency, ShaderGraphBuildError> {
+    Ok(())
+  }
+
+  fn compute_incident_light(
+    _: &ShaderGraphFragmentBuilderView,
+    light: &ENode<Self>,
+    _dep: &Self::PunctualDependency,
+    ctx: &ENode<ShaderLightingGeometricCtx>,
+  ) -> ENode<ShaderIncidentLight> {
+    let direction = ctx.position - light.position;
     let distance = direction.length();
     let factor = punctual_light_intensity_to_irradiance_factor(distance, light.cutoff_distance);
 
-    ExpandedNode::<ShaderIncidentLight> {
+    ENode::<ShaderIncidentLight> {
       color: light.intensity * factor,
       direction: direction.normalize(),
     }
   }
 }
 
-impl WebGPUSceneLight for PointLight {
-  fn collect(&self, sys: &mut ForwardLightingSystem, node: &SceneNode) {
-    let lights = sys.get_or_create_list();
+impl WebGPUSceneLight for SceneLight<PointLight> {
+  fn update(&self, ctx: &mut LightUpdateCtx) {
+    let inner = self.read();
+    let light = &inner.light;
+    let node = &inner.node;
+
+    let lights = ctx.forward.get_or_create_list();
 
     let gpu = PointLightShaderInfo {
-      intensity: self.intensity,
-      cutoff_distance: self.cutoff_distance,
-      node_info: TransformGPUData::from_node(node, None),
+      intensity: light.intensity,
+      position: node.get_world_matrix().position(),
+      cutoff_distance: light.cutoff_distance,
       ..Zeroable::zeroed()
     };
 
-    lights.lights.push(gpu)
+    lights.source.push(gpu)
   }
 }
 

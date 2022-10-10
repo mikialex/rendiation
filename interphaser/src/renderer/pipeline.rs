@@ -96,7 +96,7 @@ impl ShaderGraphProvider for TextureUIPipeline {
     builder.fragment(|builder, binding| {
       builder.define_out_by(channel(self.target_format).with_alpha_blend());
       let uv = builder.query::<FragmentUv>()?;
-      let texture = binding.uniform::<GPUTexture2dView>(SemanticBinding::Material);
+      let texture = binding.uniform::<GPU2DTextureView>(SemanticBinding::Material);
       let sampler = binding.uniform::<GPUSamplerView>(SemanticBinding::Material);
 
       builder.set_fragment_out(0, texture.sample(sampler, uv))

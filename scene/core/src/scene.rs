@@ -22,7 +22,7 @@ pub struct Scene<S: SceneContent> {
   /// All cameras in the scene
   pub cameras: Arena<SceneCamera>,
   /// All lights in the scene
-  pub lights: Arena<SceneLight<S>>,
+  pub lights: Arena<S::Light>,
   /// All models in the scene
   pub models: Arena<S::Model>,
 

@@ -159,6 +159,13 @@ fn convert_type(ty: &TypeExpression) -> proc_macro2::TokenStream {
         }
       }
       PrimitiveType::Sampler => quote! { shadergraph::ShaderSampler },
+      PrimitiveType::DepthTexture(tex) => match tex {
+        DepthTextureContainerType::D2 => quote! { shadergraph::ShaderDepthTexture2D },
+        DepthTextureContainerType::D2Array => quote! { shadergraph::ShaderDepthTexture2DArray },
+        DepthTextureContainerType::Cube => quote! { shadergraph::ShaderDepthTextureCube },
+        DepthTextureContainerType::CubeArray => quote! { shadergraph::ShaderDepthTextureCubeArray },
+      },
+      PrimitiveType::DepthSampler => quote! { shadergraph::ShaderCompareSampler },
     },
     TypeExpression::FixedArray((ty, size)) => {
       if let TypeExpression::Struct(s) = ty.as_ref() {

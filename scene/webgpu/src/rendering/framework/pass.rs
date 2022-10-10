@@ -56,9 +56,14 @@ impl<'a> PassDescriptor<'a> {
   }
 
   fn buffer_size(&self) -> Vec2<f32> {
-    let first = &self.desc.channels.first().unwrap().1;
-    let size = first.size().into_usize();
-    Vec2::new(size.0 as f32, size.1 as f32)
+    self
+      .desc
+      .channels
+      .first()
+      .map(|c| &c.1)
+      .or_else(|| self.desc.depth_stencil_target.as_ref().map(|c| &c.1))
+      .map(|c| Vec2::from(c.size().into_usize()).map(|v| v as f32))
+      .unwrap_or_else(Vec2::zero)
   }
 
   #[must_use]
