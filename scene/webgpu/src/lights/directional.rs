@@ -9,46 +9,6 @@ pub struct DirectionalLightShaderInfo {
   pub shadow: LightShadowAddressInfo,
 }
 
-#[repr(C)]
-#[std140_layout]
-#[derive(Copy, Clone, ShaderStruct, Default)]
-pub struct LightShadowAddressInfo {
-  pub index: u32,
-  pub enabled: u32,
-}
-
-only_fragment!(BasicShadowMapInfoGroup, Shader140Array<BasicShadowMapInfo, SHADOW_MAX>);
-only_fragment!(BasicShadowMap, ShaderDepthTexture2DArray);
-only_fragment!(BasicShadowMapSampler, ShaderCompareSampler);
-
-wgsl_fn!(
-  fn directional_shadow_occlusion(
-    shadow_position: vec3<f32>,
-    map: texture_depth_2d_array,
-    d_sampler: sampler_comparison,
-    info: ShadowMapAddressInfo,
-  ) -> f32 {
-
-    // maybe we could use sampler's border color config, but that's not part of standard webgpu (wgpu supports)
-    let inFrustumVec = vec4<bool>(shadow_position.x >= 0.0, shadow_position.x <= 1.0, shadow_position.y >= 0.0, shadow_position.y <= 1.0);
-    let inFrustum = all(inFrustumVec);
-    let frustumTestVec = vec2<bool>(inFrustum, shadow_position.z <= 1.0);
-    let frustumTest = all(frustumTestVec);
-
-    if (frustumTest) {
-      return textureSampleCompareLevel(
-        map,
-        d_sampler,
-        shadow_position.xy,
-        info.layer_index,
-        shadow_position.z
-      );
-    } else {
-      return 1.0;
-    }
-  }
-);
-
 impl PunctualShaderLight for DirectionalLightShaderInfo {
   type PunctualDependency = ();
 
@@ -103,6 +63,46 @@ impl PunctualShaderLight for DirectionalLightShaderInfo {
     }
   }
 }
+
+#[repr(C)]
+#[std140_layout]
+#[derive(Copy, Clone, ShaderStruct, Default)]
+pub struct LightShadowAddressInfo {
+  pub index: u32,
+  pub enabled: u32,
+}
+
+only_fragment!(BasicShadowMapInfoGroup, Shader140Array<BasicShadowMapInfo, SHADOW_MAX>);
+only_fragment!(BasicShadowMap, ShaderDepthTexture2DArray);
+only_fragment!(BasicShadowMapSampler, ShaderCompareSampler);
+
+wgsl_fn!(
+  fn directional_shadow_occlusion(
+    shadow_position: vec3<f32>,
+    map: texture_depth_2d_array,
+    d_sampler: sampler_comparison,
+    info: ShadowMapAddressInfo,
+  ) -> f32 {
+
+    // maybe we could use sampler's border color config, but that's not part of standard webgpu (wgpu supports)
+    let inFrustumVec = vec4<bool>(shadow_position.x >= 0.0, shadow_position.x <= 1.0, shadow_position.y >= 0.0, shadow_position.y <= 1.0);
+    let inFrustum = all(inFrustumVec);
+    let frustumTestVec = vec2<bool>(inFrustum, shadow_position.z <= 1.0);
+    let frustumTest = all(frustumTestVec);
+
+    if (frustumTest) {
+      return textureSampleCompareLevel(
+        map,
+        d_sampler,
+        shadow_position.xy,
+        info.layer_index,
+        shadow_position.z
+      );
+    } else {
+      return 1.0;
+    }
+  }
+);
 
 #[derive(Clone)]
 struct DirectionalShadowGPU {
