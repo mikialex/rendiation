@@ -3,6 +3,9 @@ use crate::*;
 pub mod allocator;
 pub use allocator::*;
 
+pub mod basic;
+pub use basic::*;
+
 pub struct ShadowMapSystem {
   pub shadow_collections: LinkedHashMap<TypeId, Box<dyn ShadowCollection>>,
   pub maps: ShadowMapAllocator,

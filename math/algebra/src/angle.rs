@@ -17,7 +17,7 @@ impl<T: Scalar> Deg<T> {
   pub fn to_rad(&self) -> T {
     self.value * T::pi_by_c180()
   }
-  pub fn from_rad(&self) -> T {
-    self.value * T::c180_by_pi()
+  pub fn from_rad(rad: T) -> Self {
+    Self::by(rad * T::c180_by_pi())
   }
 }

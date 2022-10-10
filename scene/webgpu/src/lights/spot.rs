@@ -10,6 +10,7 @@ pub struct SpotLightShaderInfo {
   pub cutoff_distance: f32,
   pub half_cone_cos: f32,
   pub half_penumbra_cos: f32,
+  pub shadow: LightShadowAddressInfo,
 }
 
 impl PunctualShaderLight for SpotLightShaderInfo {
@@ -22,7 +23,7 @@ impl PunctualShaderLight for SpotLightShaderInfo {
   }
 
   fn compute_incident_light(
-    _: &ShaderGraphFragmentBuilderView,
+    builder: &ShaderGraphFragmentBuilderView,
     light: &ENode<Self>,
     _dep: &Self::PunctualDependency,
     ctx: &ENode<ShaderLightingGeometricCtx>,
@@ -36,18 +37,30 @@ impl PunctualShaderLight for SpotLightShaderInfo {
     let angle_cos = direction.dot(light.direction);
     let angle_factor = angle_cos.smoothstep(light.half_cone_cos, light.half_penumbra_cos);
 
+    // todo use correct better culler
+    let shadow_factor =
+      compute_occlusion_basic(builder, light.shadow, directional_shadow_occlusion);
+
     ENode::<ShaderIncidentLight> {
-      color: light.intensity * distance_factor * angle_factor,
+      color: light.intensity * distance_factor * angle_factor * shadow_factor,
       direction,
     }
   }
 }
 
 impl WebGPUSceneLight for SceneLight<SpotLight> {
+  // allocate shadow maps
+  fn pre_update(&self, ctx: &mut LightUpdateCtx) {
+    let inner = self.read();
+    request_basic_shadow_map(&inner, ctx.ctx.resources, ctx.shadows);
+  }
+
   fn update(&self, ctx: &mut LightUpdateCtx) {
     let inner = self.read();
     let light = &inner.light;
     let node = &inner.node;
+
+    let shadow = check_update_basic_shadow_map(&inner, ctx);
 
     let lights = ctx.forward.get_or_create_list();
 
@@ -58,9 +71,22 @@ impl WebGPUSceneLight for SceneLight<SpotLight> {
       half_cone_cos: light.half_cone_angle.cos(),
       half_penumbra_cos: light.half_penumbra_angle.cos(),
       position: node.get_world_matrix().position(),
+      shadow,
       ..Zeroable::zeroed()
     };
 
     lights.source.push(gpu)
+  }
+}
+
+impl ShadowCameraCreator for SceneLightInner<SpotLight> {
+  fn build_shadow_camera(&self) -> SceneCamera {
+    let proj = PerspectiveProjection {
+      near: 0.1,
+      far: 2000.,
+      fov: Deg::from_rad(self.light.half_cone_angle * 2.),
+      aspect: 1.,
+    };
+    SceneCamera::create_camera(proj, self.node.clone())
   }
 }
