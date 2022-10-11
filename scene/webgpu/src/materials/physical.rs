@@ -5,18 +5,24 @@ use crate::*;
 #[derive(Clone, Copy, ShaderStruct)]
 pub struct PhysicalMaterialUniform {
   pub albedo: Vec3<f32>,
+  pub specular: Vec3<f32>,
+  pub glossiness: f32,
 }
 
 impl ShaderHashProvider for PhysicalMaterialGPU {
   fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
     // todo optimize for reduce shader permutation
-    self.albedo_texture.is_some().hash(hasher)
+    self.albedo_texture.is_some().hash(hasher);
+    self.specular_texture.is_some().hash(hasher);
+    self.glossiness_texture.is_some().hash(hasher);
   }
 }
 
 pub struct PhysicalMaterialGPU {
   uniform: UniformBufferDataView<PhysicalMaterialUniform>,
   albedo_texture: Option<(GPU2DTextureView, GPUSamplerView)>,
+  specular_texture: Option<(GPU2DTextureView, GPUSamplerView)>,
+  glossiness_texture: Option<(GPU2DTextureView, GPUSamplerView)>,
 }
 
 impl ShaderPassBuilder for PhysicalMaterialGPU {
@@ -61,6 +67,21 @@ impl ShaderGraphProvider for PhysicalMaterialGPU {
   }
 }
 
+fn build_texture_sampler_pair<S>(
+  t: &Texture2DWithSamplingData<S>,
+  gpu: &GPU,
+  res: &mut GPUResourceSubCache,
+) -> (GPU2DTextureView, GPUSamplerView)
+where
+  S: SceneContent,
+  S::Texture2D: AsRef<dyn WebGPU2DTextureSource>,
+{
+  let sampler = GPUSampler::create(t.sampler.into(), &gpu.device);
+  let sampler = sampler.create_default_view();
+  let tex = check_update_gpu_2d::<S>(&t.texture, res, gpu).clone();
+  (tex, sampler)
+}
+
 impl<S> WebGPUMaterial for PhysicalMaterial<S>
 where
   S: SceneContent,
@@ -75,16 +96,26 @@ where
     };
     let uniform = create_uniform(uniform, gpu);
 
-    let albedo_texture = self.albedo_texture.as_ref().map(|t| {
-      let sampler = GPUSampler::create(t.sampler.into(), &gpu.device);
-      let sampler = sampler.create_default_view();
-      let tex = check_update_gpu_2d::<S>(&t.texture, res, gpu).clone();
-      (tex, sampler)
-    });
+    let albedo_texture = self
+      .albedo_texture
+      .as_ref()
+      .map(|t| build_texture_sampler_pair::<S>(t, gpu, res));
+
+    let glossiness_texture = self
+      .glossiness_texture
+      .as_ref()
+      .map(|t| build_texture_sampler_pair::<S>(t, gpu, res));
+
+    let specular_texture = self
+      .specular_texture
+      .as_ref()
+      .map(|t| build_texture_sampler_pair::<S>(t, gpu, res));
 
     PhysicalMaterialGPU {
       uniform,
       albedo_texture,
+      specular_texture,
+      glossiness_texture,
     }
   }
   fn is_keep_mesh_shape(&self) -> bool {
