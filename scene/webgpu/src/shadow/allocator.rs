@@ -85,6 +85,9 @@ impl ShadowMapAllocatorImpl {
 
       let sampler = GPUComparisonSampler::create(
         webgpu::SamplerDescriptor {
+          mag_filter: webgpu::FilterMode::Linear,
+          min_filter: webgpu::FilterMode::Linear,
+          mipmap_filter: webgpu::FilterMode::Nearest,
           compare: webgpu::CompareFunction::Greater.into(),
           ..Default::default()
         },

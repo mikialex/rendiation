@@ -24,11 +24,30 @@ impl PunctualShaderLight for DirectionalLightShaderInfo {
     _dep: &Self::PunctualDependency,
     _ctx: &ENode<ShaderLightingGeometricCtx>,
   ) -> ENode<ShaderIncidentLight> {
-    let shadow_factor =
-      compute_occlusion_basic(builder, light.shadow, directional_shadow_occlusion);
+    let shadow_info = light.shadow.expand();
+    let occlusion = consts(1.).mutable();
+
+    if_by(shadow_info.enabled.equals(consts(1)), || {
+      let map = builder.query::<BasicShadowMap>().unwrap();
+      let sampler = builder.query::<BasicShadowMapSampler>().unwrap();
+
+      let shadow_infos = builder.query::<BasicShadowMapInfoGroup>().unwrap();
+      let shadow_info = shadow_infos.index(shadow_info.index).expand();
+
+      let shadow_position = compute_shadow_position(builder, shadow_info);
+
+      if_by(cull_directional_shadow(shadow_position), || {
+        occlusion.set(sample_shadow(
+          shadow_position,
+          map,
+          sampler,
+          shadow_info.map_info,
+        ))
+      });
+    });
 
     ENode::<ShaderIncidentLight> {
-      color: light.intensity * shadow_factor,
+      color: light.intensity * (consts(1.) - occlusion.get()),
       direction: light.direction,
     }
   }
@@ -36,30 +55,14 @@ impl PunctualShaderLight for DirectionalLightShaderInfo {
 
 wgsl_fn!(
   /// custom extra culling for directional light
-  fn directional_shadow_occlusion(
+  fn cull_directional_shadow(
     shadow_position: vec3<f32>,
-    map: texture_depth_2d_array,
-    d_sampler: sampler_comparison,
-    info: ShadowMapAddressInfo,
-  ) -> f32 {
-
+  ) -> bool {
     // maybe we could use sampler's border color config, but that's not part of standard webgpu (wgpu supports)
     let inFrustumVec = vec4<bool>(shadow_position.x >= 0.0, shadow_position.x <= 1.0, shadow_position.y >= 0.0, shadow_position.y <= 1.0);
     let inFrustum = all(inFrustumVec);
     let frustumTestVec = vec2<bool>(inFrustum, shadow_position.z <= 1.0);
-    let frustumTest = all(frustumTestVec);
-
-    if (frustumTest) {
-      return textureSampleCompareLevel(
-        map,
-        d_sampler,
-        shadow_position.xy,
-        info.layer_index,
-        shadow_position.z
-      );
-    } else {
-      return 1.0;
-    }
+    return all(frustumTestVec);
   }
 );
 

@@ -22,35 +22,62 @@ only_fragment!(BasicShadowMapInfoGroup, Shader140Array<BasicShadowMapInfo, SHADO
 only_fragment!(BasicShadowMap, ShaderDepthTexture2DArray);
 only_fragment!(BasicShadowMapSampler, ShaderCompareSampler);
 
-pub fn compute_occlusion_basic(
-  builder: &ShaderGraphFragmentBuilderView,
-  shadow_info: Node<LightShadowAddressInfo>,
-  occlusion_logic: impl Fn(
-    Node<Vec3<f32>>,
-    Node<ShaderDepthTexture2DArray>,
-    Node<ShaderCompareSampler>,
-    Node<ShadowMapAddressInfo>,
-  ) -> Node<f32>,
+pub fn sample_shadow(
+  shadow_position: Node<Vec3<f32>>,
+  map: Node<ShaderDepthTexture2DArray>,
+  sampler: Node<ShaderCompareSampler>,
+  info: Node<ShadowMapAddressInfo>,
 ) -> Node<f32> {
-  let shadow_info = shadow_info.expand();
-  let occlusion = consts(0.).mutable();
-
-  if_by(shadow_info.enabled.equals(consts(1)), || {
-    let map = builder.query::<BasicShadowMap>().unwrap();
-    let sampler = builder.query::<BasicShadowMapSampler>().unwrap();
-
-    let shadow_infos = builder.query::<BasicShadowMapInfoGroup>().unwrap();
-    let shadow_info = shadow_infos.index(shadow_info.index).expand();
-
-    let shadow_position = compute_shadow_position(builder, shadow_info);
-
-    let occlusion_result = occlusion_logic(shadow_position, map, sampler, shadow_info.map_info);
-
-    occlusion.set(occlusion_result)
-  });
-
-  consts(1.) - occlusion.get()
+  // sample_shadow_pcf_x4(shadow_position, map, sampler, info)
+  sample_shadow_pcf_x36_by_offset(shadow_position, map, sampler, info)
 }
+
+#[rustfmt::skip]
+wgsl_fn!(
+  fn sample_shadow_pcf_x4(
+    shadow_position: vec3<f32>,
+    map: texture_depth_2d_array,
+    d_sampler: sampler_comparison,
+    info: ShadowMapAddressInfo,
+  ) -> f32 {
+    return textureSampleCompareLevel(
+      map,
+      d_sampler,
+      shadow_position.xy,
+      info.layer_index,
+      shadow_position.z
+    );
+  }
+);
+
+#[rustfmt::skip]
+wgsl_fn!(
+  fn sample_shadow_pcf_x36_by_offset(
+    shadow_position: vec3<f32>,
+    map: texture_depth_2d_array,
+    d_sampler: sampler_comparison,
+    info: ShadowMapAddressInfo,
+  ) -> f32 {
+    var uv = shadow_position.xy;
+    var depth = shadow_position.z;
+    var layer = info.layer_index;
+    var ratio = 0.0;
+
+    ratio += textureSampleCompareLevel(map, d_sampler, uv, layer, depth, vec2<i32>(2, -2));
+    ratio += textureSampleCompareLevel(map, d_sampler, uv, layer, depth, vec2<i32>(2, 0));
+    ratio += textureSampleCompareLevel(map, d_sampler, uv, layer, depth, vec2<i32>(2, 2));
+
+    ratio += textureSampleCompareLevel(map, d_sampler, uv, layer, depth, vec2<i32>(0, -2));
+    ratio += textureSampleCompareLevel(map, d_sampler, uv, layer, depth, vec2<i32>(0, 0));
+    ratio += textureSampleCompareLevel(map, d_sampler, uv, layer, depth, vec2<i32>(0, 2));
+
+    ratio += textureSampleCompareLevel(map, d_sampler, uv, layer, depth, vec2<i32>(-2, -2));
+    ratio += textureSampleCompareLevel(map, d_sampler, uv, layer, depth, vec2<i32>(-2, 0));
+    ratio += textureSampleCompareLevel(map, d_sampler, uv, layer, depth, vec2<i32>(-2, 2));
+
+    return ratio / 9.;
+  }
+);
 
 pub fn compute_shadow_position(
   builder: &ShaderGraphFragmentBuilderView,
