@@ -166,7 +166,7 @@ pub fn load_default_scene(scene: &mut Scene<WebGPUScene>) {
   }
 
   let directional_light_node = scene.root().create_child();
-  directional_light_node.set_local_matrix(Mat4::lookat(Vec3::splat(3.), Vec3::splat(0.), up));
+  directional_light_node.set_local_matrix(Mat4::lookat(Vec3::splat(300.), Vec3::splat(0.), up));
   let directional_light = DirectionalLight {
     intensity: Vec3::splat(5.),
   };
@@ -179,7 +179,7 @@ pub fn load_default_scene(scene: &mut Scene<WebGPUScene>) {
 
   let directional_light_node = scene.root().create_child();
   directional_light_node.set_local_matrix(Mat4::lookat(
-    Vec3::new(3., 3., -3.),
+    Vec3::new(30., 300., -30.),
     Vec3::splat(0.),
     up,
   ));
