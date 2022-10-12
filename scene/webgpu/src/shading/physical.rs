@@ -5,23 +5,35 @@ use crate::*;
 #[derive(Copy, Clone, ShaderStruct)]
 pub struct ShaderPhysicalShading {
   pub diffuse: Vec3<f32>,
-  pub specular: Vec3<f32>,
   pub roughness: f32,
+  pub perceptual_roughness: f32,
+  pub perceptual_roughness_unclamped: f32,
+  pub f0: Vec3<f32>,
+  pub DFG: Vec3<f32>,
+  pub energy_compensation: Vec3<f32>,
 }
 
 both!(ColorChannel, Vec3<f32>);
 both!(SpecularChannel, Vec3<f32>);
+
 both!(RoughnessChannel, f32);
 
-pub struct PhysicalShading;
+pub struct PhysicalShading {
+  pub enable_geometric_specular_antialiasing: bool,
+}
 
 impl LightableSurfaceShading for PhysicalShading {
   type ShaderStruct = ShaderPhysicalShading;
   fn construct_shading(builder: &mut ShaderGraphFragmentBuilder) -> ENode<Self::ShaderStruct> {
+    let perceptual_roughness_unclamped = builder.query_or_insert_default::<RoughnessChannel>();
+
     ENode::<Self::ShaderStruct> {
       diffuse: builder.query_or_insert_default::<ColorChannel>(),
       specular: builder.query_or_insert_default::<SpecularChannel>(),
-      roughness: builder.query_or_insert_default::<RoughnessChannel>(),
+
+      perceptual_roughness_unclamped,
+      perceptual_roughness: perceptual_roughness_unclamped,
+      roughness: perceptual_roughness_unclamped * perceptual_roughness_unclamped,
     }
   }
 
