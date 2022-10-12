@@ -2,8 +2,10 @@ pub mod states;
 pub use states::*;
 pub mod flat;
 pub use flat::*;
-pub mod physical;
-pub use physical::*;
+pub mod physical_sg;
+pub use physical_sg::*;
+pub mod physical_mr;
+pub use physical_mr::*;
 pub mod fatline;
 pub use fatline::*;
 

@@ -79,9 +79,10 @@ pub fn load_default_scene(scene: &mut Scene<WebGPUScene>) {
       )
       .build_mesh_into();
     let mesh = MeshSource::new(mesh);
-    let material = PhysicalMaterial::<WebGPUScene> {
+    let material = PhysicalSpecularGlossinessMaterial::<WebGPUScene> {
       albedo: Vec3::splat(1.),
       albedo_texture: texture.clone().into(),
+      ..Default::default()
     }
     .use_state();
 
@@ -106,9 +107,10 @@ pub fn load_default_scene(scene: &mut Scene<WebGPUScene>) {
     }
     let mesh = builder.build_mesh();
     let mesh = MeshSource::new(mesh);
-    let material = PhysicalMaterial::<WebGPUScene> {
+    let material = PhysicalSpecularGlossinessMaterial::<WebGPUScene> {
       albedo: Vec3::splat(1.),
       albedo_texture: texture.clone().into(),
+      ..Default::default()
     }
     .use_state();
     let child = scene.root().create_child();
@@ -136,9 +138,10 @@ pub fn load_default_scene(scene: &mut Scene<WebGPUScene>) {
         Mat4::translate((10., 0., 6.)),
       ],
     };
-    let material = PhysicalMaterial::<WebGPUScene> {
+    let material = PhysicalSpecularGlossinessMaterial::<WebGPUScene> {
       albedo: Vec3::splat(1.),
       albedo_texture: texture.clone().into(),
+      ..Default::default()
     }
     .use_state();
 
