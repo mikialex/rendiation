@@ -45,6 +45,7 @@ pub struct PhysicalMetallicRoughnessMaterial<S: SceneContent> {
   pub base_color: Vec3<f32>,
   pub roughness: f32,
   pub metallic: f32,
+  pub reflectance: f32,
   pub emissive: Vec3<f32>,
   pub base_color_texture: Option<Texture2DWithSamplingData<S>>,
   pub metallic_roughness_texture: Option<Texture2DWithSamplingData<S>>,
@@ -61,6 +62,7 @@ impl<S: SceneContent> Default for PhysicalMetallicRoughnessMaterial<S> {
       base_color_texture: None,
       metallic_roughness_texture: None,
       emissive_texture: None,
+      reflectance: 0.5,
     }
   }
 }

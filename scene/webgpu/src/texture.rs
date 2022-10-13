@@ -10,6 +10,17 @@ impl GPUTextureSamplerPair {
     ctx.binding.bind(&self.texture, group);
     ctx.binding.bind(&self.sampler, group);
   }
+
+  pub fn uniform_and_sample(
+    &self,
+    binding: &mut ShaderGraphBindGroupDirectBuilder,
+    group: impl Into<usize> + Copy,
+    position: Node<Vec2<f32>>,
+  ) -> Node<Vec4<f32>> {
+    let sampler = binding.uniform_by(&self.sampler, group);
+    let texture = binding.uniform_by(&self.texture, group);
+    texture.sample(sampler, position)
+  }
 }
 
 pub fn build_texture_sampler_pair<S>(

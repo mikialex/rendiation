@@ -51,32 +51,47 @@ impl ShaderGraphProvider for PhysicalSpecularGlossinessMaterialGPU {
     &self,
     builder: &mut ShaderGraphRenderPipelineBuilder,
   ) -> Result<(), ShaderGraphBuildError> {
-    // builder.context.insert(
-    //   ShadingSelection.type_id(),
-    //   Box::new(&PhysicalShading as &dyn LightableSurfaceShadingDyn),
-    // );
+    builder.context.insert(
+      ShadingSelection.type_id(),
+      Box::new(&PhysicalShading as &dyn LightableSurfaceShadingDyn),
+    );
 
-    // builder.fragment(|builder, binding| {
-    //   let uniform = binding.uniform_by(&self.uniform, SB::Material).expand();
-    //   let uv = builder.query_or_interpolate_by::<FragmentUv, GeometryUV>();
+    builder.fragment(|builder, binding| {
+      let uniform = binding.uniform_by(&self.uniform, SB::Material).expand();
+      let uv = builder.query_or_interpolate_by::<FragmentUv, GeometryUV>();
 
-    //   let albedo = if let Some(albedo_texture) = &self.albedo_texture {
-    //     let sampler = binding.uniform_by(&albedo_texture.1, SB::Material);
-    //     let albedo_tex = binding.uniform_by(&albedo_texture.0, SB::Material);
-    //     albedo_tex.sample(sampler, uv).xyz() * uniform.albedo
-    //   } else {
-    //     uniform.albedo
-    //   };
+      let albedo = if let Some(tex) = &self.albedo_texture {
+        tex.uniform_and_sample(binding, SB::Material, uv).xyz() * uniform.albedo
+      } else {
+        uniform.albedo
+      };
 
-    //   builder.register::<ColorChannel>(albedo);
-    //   builder.register::<SpecularChannel>(consts(Vec3::splat(0.1)));
-    //   builder.register::<RoughnessChannel>(consts(0.3));
+      let specular = if let Some(tex) = &self.specular_texture {
+        tex.uniform_and_sample(binding, SB::Material, uv).xyz() * uniform.specular
+      } else {
+        uniform.specular
+      };
 
-    //   builder.register::<DefaultDisplay>((albedo, 1.));
-    //   Ok(())
-    // })
+      let glossiness = if let Some(tex) = &self.glossiness_texture {
+        tex.uniform_and_sample(binding, SB::Material, uv).x() * uniform.glossiness
+      } else {
+        uniform.glossiness
+      };
 
-    todo!()
+      let emissive = if let Some(tex) = &self.emissive_texture {
+        tex.uniform_and_sample(binding, SB::Material, uv).x() * uniform.emissive
+      } else {
+        uniform.emissive
+      };
+
+      builder.register::<ColorChannel>(albedo);
+      builder.register::<SpecularChannel>(specular);
+      builder.register::<EmissiveChannel>(emissive);
+      builder.register::<GlossinessChannel>(glossiness);
+
+      builder.register::<DefaultDisplay>((albedo, 1.));
+      Ok(())
+    })
   }
 }
 

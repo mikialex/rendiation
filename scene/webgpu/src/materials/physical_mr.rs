@@ -8,6 +8,7 @@ pub struct PhysicalMetallicRoughnessMaterialUniform {
   pub emissive: Vec3<f32>,
   pub roughness: f32,
   pub metallic: f32,
+  pub reflectance: f32,
 }
 
 impl ShaderHashProvider for PhysicalMetallicRoughnessMaterialGPU {
@@ -46,31 +47,44 @@ impl ShaderGraphProvider for PhysicalMetallicRoughnessMaterialGPU {
     &self,
     builder: &mut ShaderGraphRenderPipelineBuilder,
   ) -> Result<(), ShaderGraphBuildError> {
-    // builder.context.insert(
-    //   ShadingSelection.type_id(),
-    //   Box::new(&PhysicalShading as &dyn LightableSurfaceShadingDyn),
-    // );
+    builder.context.insert(
+      ShadingSelection.type_id(),
+      Box::new(&PhysicalShading as &dyn LightableSurfaceShadingDyn),
+    );
 
-    // builder.fragment(|builder, binding| {
-    //   let uniform = binding.uniform_by(&self.uniform, SB::Material).expand();
-    //   let uv = builder.query_or_interpolate_by::<FragmentUv, GeometryUV>();
+    builder.fragment(|builder, binding| {
+      let uniform = binding.uniform_by(&self.uniform, SB::Material).expand();
+      let uv = builder.query_or_interpolate_by::<FragmentUv, GeometryUV>();
 
-    //   let albedo = if let Some(albedo_texture) = &self.albedo_texture {
-    //     let sampler = binding.uniform_by(&albedo_texture.1, SB::Material);
-    //     let albedo_tex = binding.uniform_by(&albedo_texture.0, SB::Material);
-    //     albedo_tex.sample(sampler, uv).xyz() * uniform.albedo
-    //   } else {
-    //     uniform.albedo
-    //   };
+      let base_color = if let Some(tex) = &self.base_color_texture {
+        tex.uniform_and_sample(binding, SB::Material, uv).xyz() * uniform.base_color
+      } else {
+        uniform.base_color
+      };
 
-    //   builder.register::<ColorChannel>(albedo);
-    //   builder.register::<SpecularChannel>(consts(Vec3::splat(0.1)));
-    //   builder.register::<RoughnessChannel>(consts(0.3));
+      let mut metallic = uniform.metallic;
+      let mut roughness = uniform.roughness;
 
-    //   builder.register::<DefaultDisplay>((albedo, 1.));
-    //   Ok(())
-    // })
-    todo!()
+      if let Some(tex) = &self.metallic_roughness_texture {
+        let metallic_roughness = tex.uniform_and_sample(binding, SB::Material, uv);
+        metallic = metallic * metallic_roughness.x();
+        roughness = roughness * metallic_roughness.y();
+      }
+
+      let emissive = if let Some(tex) = &self.emissive_texture {
+        tex.uniform_and_sample(binding, SB::Material, uv).x() * uniform.emissive
+      } else {
+        uniform.emissive
+      };
+
+      builder.register::<ColorChannel>(base_color);
+      builder.register::<EmissiveChannel>(emissive);
+      builder.register::<MetallicChannel>(metallic);
+      builder.register::<RoughnessChannel>(roughness);
+
+      builder.register::<DefaultDisplay>((base_color, 1.));
+      Ok(())
+    })
   }
 }
 
@@ -87,6 +101,7 @@ where
       roughness: self.roughness,
       emissive: self.emissive,
       metallic: self.metallic,
+      reflectance: self.reflectance,
       ..Zeroable::zeroed()
     };
     let uniform = create_uniform(uniform, gpu);

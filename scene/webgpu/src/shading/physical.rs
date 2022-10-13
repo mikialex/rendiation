@@ -9,31 +9,79 @@ pub struct ShaderPhysicalShading {
   pub perceptual_roughness: f32,
   pub perceptual_roughness_unclamped: f32,
   pub f0: Vec3<f32>,
-  pub DFG: Vec3<f32>,
-  pub energy_compensation: Vec3<f32>,
+  // pub DFG: Vec3<f32>,
+  // pub energy_compensation: Vec3<f32>,
 }
+
+both!(EmissiveChannel, Vec3<f32>);
 
 both!(ColorChannel, Vec3<f32>);
 both!(SpecularChannel, Vec3<f32>);
 
 both!(RoughnessChannel, f32);
+both!(MetallicChannel, f32);
+both!(GlossinessChannel, f32);
+both!(ReflectanceChannel, f32);
 
-pub struct PhysicalShading {
-  pub enable_geometric_specular_antialiasing: bool,
-}
+pub struct PhysicalShading;
+// pub struct PhysicalShading {
+//   pub enable_geometric_specular_antialiasing: bool,
+// }
+
+wgsl_fn!(
+  fn v_max3(v: vec3<f32>) -> f32 {
+    return max(v.x, max(v.y, v.z));
+  }
+);
+
+wgsl_fn!(
+  fn compute_dielectric_f0(reflectance: f32) -> f32 {
+    return 0.16 * reflectance * reflectance;
+  }
+);
 
 impl LightableSurfaceShading for PhysicalShading {
   type ShaderStruct = ShaderPhysicalShading;
   fn construct_shading(builder: &mut ShaderGraphFragmentBuilder) -> ENode<Self::ShaderStruct> {
-    let perceptual_roughness_unclamped = builder.query_or_insert_default::<RoughnessChannel>();
+    let perceptual_roughness_unclamped = builder
+      .query::<RoughnessChannel>()
+      .or_else(|_| Ok(consts(1.) - builder.query::<GlossinessChannel>()?))
+      .unwrap_or_else(|_| consts(0.3));
+
+    let base_color = builder
+      .query::<ColorChannel>()
+      .unwrap_or_else(|_| consts(Vec3::splat(0.5)));
+
+    // assume specular workflow
+    let (diffuse, f0) = if let Ok(specular) = builder.query::<SpecularChannel>() {
+      let metallic = v_max3(specular);
+      (base_color * (consts(1.) - metallic), specular)
+    } else {
+      // assume metallic workflow
+      let metallic = builder
+        .query::<MetallicChannel>()
+        .unwrap_or_else(|_| consts(0.0));
+
+      let reflectance = builder
+        .query::<ReflectanceChannel>()
+        .unwrap_or_else(|_| consts(0.5));
+
+      let dielectric_f0 = compute_dielectric_f0(reflectance);
+
+      let f0 = base_color * metallic + (dielectric_f0 * (consts(1.) - metallic)).splat();
+
+      (base_color, f0)
+    };
 
     ENode::<Self::ShaderStruct> {
-      diffuse: builder.query_or_insert_default::<ColorChannel>(),
-      specular: builder.query_or_insert_default::<SpecularChannel>(),
+      diffuse,
+      f0,
 
       perceptual_roughness_unclamped,
       perceptual_roughness: perceptual_roughness_unclamped,
       roughness: perceptual_roughness_unclamped * perceptual_roughness_unclamped,
+      // DFG: consts(Vec3::zero()),
+      // energy_compensation: consts(Vec3::zero()),
     }
   }
 

@@ -264,6 +264,7 @@ fn build_pbr_material(
     base_color_texture,
     metallic_roughness_texture,
     emissive_texture,
+    reflectance: 0.5, // todo from gltf ior extension
   }
   .use_state();
 
