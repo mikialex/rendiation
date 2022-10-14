@@ -72,7 +72,11 @@ pub fn for_by<T: Into<ShaderIterator> + ShaderIteratorAble>(
 ) where
   T::Item: ShaderGraphNodeType,
 {
-  for_by_ok(iterable, |ctx, i, v| Ok(logic(ctx, i, v))).unwrap()
+  for_by_ok(iterable, |ctx, i, v| {
+    logic(ctx, i, v);
+    Ok(())
+  })
+  .unwrap()
 }
 
 #[inline(never)]
@@ -111,7 +115,11 @@ where
 
 #[inline(never)]
 pub fn if_by(condition: impl Into<Node<bool>>, logic: impl Fn()) {
-  if_by_ok(condition, || Ok(logic())).unwrap()
+  if_by_ok(condition, || {
+    logic();
+    Ok(())
+  })
+  .unwrap()
 }
 
 #[inline(never)]

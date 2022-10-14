@@ -9,9 +9,9 @@ bytemuck = {version = "1.4.1", features = ["derive"]}
 rendiation-texture-types = {path = "../components/texture/types"}
 shadergraph = {path = "../shader/graph"}
 typed-arena = "2.0.1"
-wgpu = "0.13.1"
+wgpu = "0.14"
 wgsl-codegen-graph = {path = "../shader/language/wgsl/codegen-graph"}
-winit = {version = "0.26.0"}
+winit = {version = "0.27.1"}
 
 [features]
 webgl = ["wgpu/webgl"]

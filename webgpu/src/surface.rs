@@ -20,6 +20,8 @@ pub struct GPUSurface {
   pub surface: gpu::Surface,
   pub config: gpu::SurfaceConfiguration,
   pub present_mode_supported: Vec<gpu::PresentMode>,
+  pub alpha_mode_supported: Vec<CompositeAlphaMode>,
+  pub format_supported: Vec<TextureFormat>,
   pub size: Size,
 }
 
@@ -38,7 +40,9 @@ impl GPUSurface {
       .or(formats.first())
       .expect("could not find support formats in surface");
 
-    let present_mode_supported = surface.get_supported_modes(adapter);
+    let present_mode_supported = surface.get_supported_present_modes(adapter);
+    let alpha_mode_supported = surface.get_supported_alpha_modes(adapter);
+    let format_supported = surface.get_supported_formats(adapter);
 
     let config = gpu::SurfaceConfiguration {
       usage: gpu::TextureUsages::RENDER_ATTACHMENT,
@@ -46,12 +50,15 @@ impl GPUSurface {
       width: Into::<usize>::into(size.width) as u32,
       height: Into::<usize>::into(size.height) as u32,
       present_mode: gpu::PresentMode::AutoVsync,
+      alpha_mode: CompositeAlphaMode::Auto,
     };
 
     surface.configure(device, &config);
 
     Self {
       present_mode_supported,
+      alpha_mode_supported,
+      format_supported,
       surface,
       config,
       size,
