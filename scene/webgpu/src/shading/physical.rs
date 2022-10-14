@@ -46,7 +46,7 @@ impl LightableSurfaceShading for PhysicalShading {
     let perceptual_roughness_unclamped = builder
       .query::<RoughnessChannel>()
       .or_else(|_| Ok(consts(1.) - builder.query::<GlossinessChannel>()?))
-      .unwrap_or_else(|_| consts(0.3));
+      .unwrap_or_else(|_: ShaderGraphBuildError| consts(0.3));
 
     let base_color = builder
       .query::<ColorChannel>()
