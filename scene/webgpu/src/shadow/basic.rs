@@ -82,11 +82,11 @@ wgsl_fn!(
 pub fn compute_shadow_position(
   builder: &ShaderGraphFragmentBuilderView,
   shadow_info: ENode<BasicShadowMapInfo>,
-) -> Node<Vec3<f32>> {
+) -> Result<Node<Vec3<f32>>, ShaderGraphBuildError> {
   // another way to compute this is in vertex shader, maybe we will try it later.
   let bias = shadow_info.bias.expand();
-  let world_position = builder.query::<FragmentWorldPosition>().unwrap();
-  let world_normal = builder.query::<FragmentWorldNormal>().unwrap();
+  let world_position = builder.query::<FragmentWorldPosition>()?;
+  let world_normal = builder.query::<FragmentWorldNormal>()?;
 
   // apply normal bias
   let world_position = world_position + bias.normal_bias * world_normal;
@@ -97,9 +97,11 @@ pub fn compute_shadow_position(
   let shadow_position = shadow_position.xyz() / shadow_position.w();
 
   // convert to uv space and apply offset bias
-  shadow_position * consts(Vec3::new(0.5, -0.5, 1.))
-    + consts(Vec3::new(0.5, 0.5, 0.))
-    + (0., 0., bias.bias).into()
+  Ok(
+    shadow_position * consts(Vec3::new(0.5, -0.5, 1.))
+      + consts(Vec3::new(0.5, 0.5, 0.))
+      + (0., 0., bias.bias).into(),
+  )
 }
 
 pub struct SceneDepth;

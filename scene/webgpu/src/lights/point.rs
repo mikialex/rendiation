@@ -23,15 +23,15 @@ impl PunctualShaderLight for PointLightShaderInfo {
     light: &ENode<Self>,
     _dep: &Self::PunctualDependency,
     ctx: &ENode<ShaderLightingGeometricCtx>,
-  ) -> ENode<ShaderIncidentLight> {
+  ) -> Result<ENode<ShaderIncidentLight>, ShaderGraphBuildError> {
     let direction = ctx.position - light.position;
     let distance = direction.length();
     let factor = punctual_light_intensity_to_irradiance_factor(distance, light.cutoff_distance);
 
-    ENode::<ShaderIncidentLight> {
+    Ok(ENode::<ShaderIncidentLight> {
       color: light.intensity * factor,
       direction: direction.normalize(),
-    }
+    })
   }
 }
 

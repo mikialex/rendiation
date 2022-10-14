@@ -27,7 +27,7 @@ impl PunctualShaderLight for SpotLightShaderInfo {
     light: &ENode<Self>,
     _dep: &Self::PunctualDependency,
     ctx: &ENode<ShaderLightingGeometricCtx>,
-  ) -> ENode<ShaderIncidentLight> {
+  ) -> Result<ENode<ShaderIncidentLight>, ShaderGraphBuildError> {
     let direction = ctx.position - light.position;
     let distance = direction.length();
     let distance_factor =
@@ -42,14 +42,14 @@ impl PunctualShaderLight for SpotLightShaderInfo {
 
     let intensity_factor = distance_factor * angle_factor;
 
-    if_by(shadow_info.enabled.equals(consts(1)), || {
+    if_by_ok(shadow_info.enabled.equals(consts(1)), || {
       let map = builder.query::<BasicShadowMap>().unwrap();
       let sampler = builder.query::<BasicShadowMapSampler>().unwrap();
 
       let shadow_infos = builder.query::<BasicShadowMapInfoGroup>().unwrap();
       let shadow_info = shadow_infos.index(shadow_info.index).expand();
 
-      let shadow_position = compute_shadow_position(builder, shadow_info);
+      let shadow_position = compute_shadow_position(builder, shadow_info)?;
 
       // we should have kept all light effective places inside the shadow volume
       if_by(intensity_factor.greater_than(consts(0.)), || {
@@ -60,14 +60,15 @@ impl PunctualShaderLight for SpotLightShaderInfo {
           shadow_info.map_info,
         ))
       });
-    });
+      Ok(())
+    })?;
 
     let shadow_factor = consts(1.) - occlusion.get();
 
-    ENode::<ShaderIncidentLight> {
+    Ok(ENode::<ShaderIncidentLight> {
       color: light.intensity * intensity_factor * shadow_factor,
       direction,
-    }
+    })
   }
 }
 
