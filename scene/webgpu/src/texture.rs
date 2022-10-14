@@ -17,8 +17,8 @@ impl GPUTextureSamplerPair {
     group: impl Into<usize> + Copy,
     position: Node<Vec2<f32>>,
   ) -> Node<Vec4<f32>> {
-    let sampler = binding.uniform_by(&self.sampler, group);
     let texture = binding.uniform_by(&self.texture, group);
+    let sampler = binding.uniform_by(&self.sampler, group);
     texture.sample(sampler, position)
   }
 }

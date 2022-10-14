@@ -5,9 +5,7 @@ use crate::*;
 #[derive(Copy, Clone, ShaderStruct)]
 pub struct ShaderPhysicalShading {
   pub diffuse: Vec3<f32>,
-  pub roughness: f32,
   pub perceptual_roughness: f32,
-  pub perceptual_roughness_unclamped: f32,
   pub f0: Vec3<f32>,
   // pub DFG: Vec3<f32>,
   // pub energy_compensation: Vec3<f32>,
@@ -43,7 +41,7 @@ wgsl_fn!(
 impl LightableSurfaceShading for PhysicalShading {
   type ShaderStruct = ShaderPhysicalShading;
   fn construct_shading(builder: &mut ShaderGraphFragmentBuilder) -> ENode<Self::ShaderStruct> {
-    let perceptual_roughness_unclamped = builder
+    let perceptual_roughness = builder
       .query::<RoughnessChannel>()
       .or_else(|_| Ok(consts(1.) - builder.query::<GlossinessChannel>()?))
       .unwrap_or_else(|_: ShaderGraphBuildError| consts(0.3));
@@ -76,10 +74,7 @@ impl LightableSurfaceShading for PhysicalShading {
     ENode::<Self::ShaderStruct> {
       diffuse,
       f0,
-
-      perceptual_roughness_unclamped,
-      perceptual_roughness: perceptual_roughness_unclamped,
-      roughness: perceptual_roughness_unclamped * perceptual_roughness_unclamped,
+      perceptual_roughness,
       // DFG: consts(Vec3::zero()),
       // energy_compensation: consts(Vec3::zero()),
     }
@@ -184,12 +179,13 @@ wgsl_fn!(
     let nDotH = max(EPSILON_SHADING, dot(N, H));
     let vDotH = max(EPSILON_SHADING, dot(V, H));
 
-    let roughness4 = shading.roughness * shading.roughness;
+    let roughness2 = shading.perceptual_roughness;
+    let roughness4 = roughness2 * roughness2;
 
     let f = fresnel(vDotH, shading.f0);
     let d = max(D_GGX(nDotH, roughness4), 0.0);
     let g = max(V_GGX_SmithCorrelated(nDotL, nDotV, roughness4), 0.0);
 
-    return f * (d * g);
+    return d * g * f;
   }
 );

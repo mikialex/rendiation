@@ -27,7 +27,7 @@ impl<S: SceneContent> Default for PhysicalSpecularGlossinessMaterial<S> {
   fn default() -> Self {
     Self {
       albedo: Vec3::one(),
-      specular: Vec3::one(),
+      specular: Vec3::zero(),
       glossiness: 0.5,
       emissive: Vec3::zero(),
       albedo_texture: None,

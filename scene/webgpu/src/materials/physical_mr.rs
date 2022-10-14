@@ -67,8 +67,8 @@ impl ShaderGraphProvider for PhysicalMetallicRoughnessMaterialGPU {
 
       if let Some(tex) = &self.metallic_roughness_texture {
         let metallic_roughness = tex.uniform_and_sample(binding, SB::Material, uv);
-        metallic = metallic * metallic_roughness.x();
-        roughness = roughness * metallic_roughness.y();
+        metallic *= metallic_roughness.x();
+        roughness *= metallic_roughness.y();
       }
 
       let emissive = if let Some(tex) = &self.emissive_texture {

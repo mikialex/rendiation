@@ -48,14 +48,12 @@ impl DeferGBufferSchema<PhysicalShading> for MaterialDeferPassResult {
       view_dir: camera_position - world_position,
     };
 
-    let perceptual_roughness_unclamped = material1.w();
+    let perceptual_roughness = material1.w();
 
     let shading = ENode::<ShaderPhysicalShading> {
       diffuse: material1.xyz(),
       f0: material2.xyz(),
-      perceptual_roughness_unclamped,
-      perceptual_roughness: perceptual_roughness_unclamped,
-      roughness: perceptual_roughness_unclamped * perceptual_roughness_unclamped,
+      perceptual_roughness,
     };
 
     Ok((geom_ctx, shading))
@@ -118,7 +116,7 @@ impl ShaderGraphProvider for GBufferEncodeTaskDispatcher {
       // override channel writes
       builder.set_fragment_out(0, (world_position, 1.))?;
       builder.set_fragment_out(1, (world_normal, 1.))?;
-      builder.set_fragment_out(2, (shading.diffuse, shading.perceptual_roughness_unclamped))?;
+      builder.set_fragment_out(2, (shading.diffuse, shading.perceptual_roughness))?;
       builder.set_fragment_out(3, (shading.f0, 1.))?;
       Ok(())
     })
