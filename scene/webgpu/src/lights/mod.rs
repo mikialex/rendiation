@@ -77,7 +77,7 @@ pub trait ShaderLight:
     shading_impl: &dyn LightableSurfaceShadingDyn,
     shading: &dyn Any,
     dep: &Self::Dependency,
-  ) -> ENode<ShaderLightingResult>;
+  ) -> Result<ENode<ShaderLightingResult>, ShaderGraphBuildError>;
 }
 
 /// Punctual lights are defined as parameterized, infinitely small points that
@@ -96,7 +96,7 @@ pub trait PunctualShaderLight:
     light: &ENode<Self>,
     dep: &Self::PunctualDependency,
     ctx: &ENode<ShaderLightingGeometricCtx>,
-  ) -> ENode<ShaderIncidentLight>;
+  ) -> Result<ENode<ShaderIncidentLight>, ShaderGraphBuildError>;
 }
 
 impl<T: PunctualShaderLight> ShaderLight for T {
@@ -115,9 +115,9 @@ impl<T: PunctualShaderLight> ShaderLight for T {
     shading_impl: &dyn LightableSurfaceShadingDyn,
     shading: &dyn Any,
     dep: &Self::Dependency,
-  ) -> ENode<ShaderLightingResult> {
+  ) -> Result<ENode<ShaderLightingResult>, ShaderGraphBuildError> {
     // todo, check if incident light intensity zero
-    let incident = T::compute_incident_light(builder, light, dep, ctx);
+    let incident = T::compute_incident_light(builder, light, dep, ctx)?;
     shading_impl.compute_lighting_by_incident_dyn(shading, &incident, ctx)
   }
 }

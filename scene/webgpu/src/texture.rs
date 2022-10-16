@@ -1,5 +1,43 @@
 use crate::*;
 
+pub struct GPUTextureSamplerPair {
+  pub texture: GPU2DTextureView,
+  pub sampler: GPUSamplerView,
+}
+
+impl GPUTextureSamplerPair {
+  pub fn setup_pass(&self, ctx: &mut GPURenderPassCtx, group: impl Into<usize> + Copy) {
+    ctx.binding.bind(&self.texture, group);
+    ctx.binding.bind(&self.sampler, group);
+  }
+
+  pub fn uniform_and_sample(
+    &self,
+    binding: &mut ShaderGraphBindGroupDirectBuilder,
+    group: impl Into<usize> + Copy,
+    position: Node<Vec2<f32>>,
+  ) -> Node<Vec4<f32>> {
+    let texture = binding.uniform_by(&self.texture, group);
+    let sampler = binding.uniform_by(&self.sampler, group);
+    texture.sample(sampler, position)
+  }
+}
+
+pub fn build_texture_sampler_pair<S>(
+  t: &Texture2DWithSamplingData<S>,
+  gpu: &GPU,
+  res: &mut GPUResourceSubCache,
+) -> GPUTextureSamplerPair
+where
+  S: SceneContent,
+  S::Texture2D: AsRef<dyn WebGPU2DTextureSource>,
+{
+  let sampler = GPUSampler::create(t.sampler.into(), &gpu.device);
+  let sampler = sampler.create_default_view();
+  let texture = check_update_gpu_2d::<S>(&t.texture, res, gpu).clone();
+  GPUTextureSamplerPair { texture, sampler }
+}
+
 pub fn check_update_gpu_2d<'a, P>(
   source: &SceneTexture2D<P>,
   resources: &'a mut GPUResourceSubCache,

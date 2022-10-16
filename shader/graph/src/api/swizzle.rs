@@ -8,6 +8,22 @@ fn swizzle_node<I: ShaderGraphNodeType, T: ShaderGraphNodeType>(
   ShaderGraphNodeExpr::Swizzle { ty, source }.insert_graph()
 }
 
+impl<T> Node<T>
+where
+  T: ShaderGraphNodeType + PrimitiveShaderGraphNodeType + Scalar,
+{
+  pub fn splat<V>(&self) -> Node<V>
+  where
+    V: Vector<T> + ShaderGraphNodeType,
+  {
+    ShaderGraphNodeExpr::Compose {
+      target: T::PRIMITIVE_TYPE,
+      parameters: vec![self.handle()],
+    }
+    .insert_graph()
+  }
+}
+
 macro_rules! swizzle {
   ($IVec: ty, $OVec: ty, $Swi: ident) => {
     paste::item! {

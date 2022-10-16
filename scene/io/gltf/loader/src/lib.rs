@@ -8,8 +8,8 @@ use gltf::{Node, Result as GltfResult};
 use rendiation_algebra::*;
 use rendiation_scene_webgpu::{
   AttributeAccessor, AttributesMesh, GeometryBuffer, IntoStateControl, MeshModel, MeshModelImpl,
-  PhysicalMaterial, Scene, SceneModelShareable, SceneNode, SceneTexture2D, StateControl,
-  TextureWithSamplingData, TypedBufferView, WebGPUScene,
+  PhysicalMetallicRoughnessMaterial, Scene, SceneModelShareable, SceneNode, SceneTexture2D,
+  StateControl, Texture2DWithSamplingData, TextureWithSamplingData, TypedBufferView, WebGPUScene,
 };
 use rendiation_scene_webgpu::{SceneModelHandle, WebGPUSceneExtension};
 use shadergraph::*;
@@ -241,19 +241,30 @@ fn create_node_recursive(
 fn build_pbr_material(
   material: gltf::Material,
   ctx: &mut Context,
-) -> StateControl<PhysicalMaterial<WebGPUScene>> {
+) -> StateControl<PhysicalMetallicRoughnessMaterial<WebGPUScene>> {
   let pbr = material.pbr_metallic_roughness();
-  let albedo_texture = pbr.base_color_texture().map(|tex| {
-    let texture = tex.texture();
-    let sampler = map_sampler(texture.sampler());
-    let image_index = texture.source().index();
-    let texture = ctx.images.get(image_index).unwrap().clone();
-    TextureWithSamplingData { texture, sampler }
-  });
 
-  let mut result = PhysicalMaterial {
-    albedo: Vec4::from(pbr.base_color_factor()).xyz(),
-    albedo_texture,
+  let base_color_texture = pbr
+    .base_color_texture()
+    .map(|tex| build_texture(tex.texture(), ctx));
+
+  let metallic_roughness_texture = pbr
+    .metallic_roughness_texture()
+    .map(|tex| build_texture(tex.texture(), ctx));
+
+  let emissive_texture = material
+    .emissive_texture()
+    .map(|tex| build_texture(tex.texture(), ctx));
+
+  let mut result = PhysicalMetallicRoughnessMaterial {
+    base_color: Vec4::from(pbr.base_color_factor()).xyz(),
+    roughness: pbr.roughness_factor(),
+    metallic: pbr.metallic_factor(),
+    emissive: Vec3::from(material.emissive_factor()),
+    base_color_texture,
+    metallic_roughness_texture,
+    emissive_texture,
+    reflectance: 0.5, // todo from gltf ior extension
   }
   .use_state();
 
@@ -261,4 +272,14 @@ fn build_pbr_material(
     result.states.cull_mode = None;
   }
   result
+}
+
+fn build_texture(
+  texture: gltf::texture::Texture,
+  ctx: &mut Context,
+) -> Texture2DWithSamplingData<WebGPUScene> {
+  let sampler = map_sampler(texture.sampler());
+  let image_index = texture.source().index();
+  let texture = ctx.images.get(image_index).unwrap().clone();
+  TextureWithSamplingData { texture, sampler }
 }

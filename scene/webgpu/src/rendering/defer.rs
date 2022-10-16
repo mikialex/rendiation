@@ -48,10 +48,12 @@ impl DeferGBufferSchema<PhysicalShading> for MaterialDeferPassResult {
       view_dir: camera_position - world_position,
     };
 
+    let perceptual_roughness = material1.w();
+
     let shading = ENode::<ShaderPhysicalShading> {
       diffuse: material1.xyz(),
-      specular: material2.xyz(),
-      roughness: material1.w(),
+      f0: material2.xyz(),
+      perceptual_roughness,
     };
 
     Ok((geom_ctx, shading))
@@ -107,13 +109,15 @@ impl ShaderGraphProvider for GBufferEncodeTaskDispatcher {
     builder.fragment(|builder, _| {
       // collect dependency
       let shading = PhysicalShading::construct_shading(builder);
-      let world_position = builder.query::<FragmentWorldPosition>()?;
-      let world_normal = builder.query::<FragmentWorldNormal>()?;
+      let world_position =
+        builder.query_or_interpolate_by::<FragmentWorldPosition, WorldVertexPosition>();
+      let world_normal = builder.get_or_compute_fragment_normal();
+
       // override channel writes
       builder.set_fragment_out(0, (world_position, 1.))?;
       builder.set_fragment_out(1, (world_normal, 1.))?;
-      builder.set_fragment_out(2, (shading.diffuse, shading.roughness))?;
-      builder.set_fragment_out(3, (shading.specular, 1.))?;
+      builder.set_fragment_out(2, (shading.diffuse, shading.perceptual_roughness))?;
+      builder.set_fragment_out(3, (shading.f0, 1.))?;
       Ok(())
     })
   }
@@ -225,7 +229,7 @@ impl<'a, T: ShaderLight> LightCollectionCompute for SingleLight<'a, T> {
 
     let light = light.expand();
     let light_result =
-      T::compute_direct_light(builder, &light, geom_ctx, shading_impl, shading, &dep);
+      T::compute_direct_light(builder, &light, geom_ctx, shading_impl, shading, &dep)?;
 
     Ok((light_result.diffuse, light_result.specular))
   }

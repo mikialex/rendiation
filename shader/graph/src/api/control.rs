@@ -72,6 +72,21 @@ pub fn for_by<T: Into<ShaderIterator> + ShaderIteratorAble>(
 ) where
   T::Item: ShaderGraphNodeType,
 {
+  for_by_ok(iterable, |ctx, i, v| {
+    logic(ctx, i, v);
+    Ok(())
+  })
+  .unwrap()
+}
+
+#[inline(never)]
+pub fn for_by_ok<T: Into<ShaderIterator> + ShaderIteratorAble>(
+  iterable: T,
+  logic: impl Fn(&ForCtx, Node<T::Item>, Node<u32>) -> Result<(), ShaderGraphBuildError>,
+) -> Result<(), ShaderGraphBuildError>
+where
+  T::Item: ShaderGraphNodeType,
+{
   let (item_node, index_node, target_scope_id) = modify_graph(|builder| {
     let item_node = ShaderGraphNode::UnNamed.insert_into_graph(builder);
     let index_node = ShaderGraphNode::UnNamed.insert_into_graph::<u32>(builder);
@@ -81,7 +96,7 @@ pub fn for_by<T: Into<ShaderIterator> + ShaderIteratorAble>(
   });
   let cx = ForCtx { target_scope_id };
 
-  logic(&cx, item_node, index_node);
+  logic(&cx, item_node, index_node)?;
 
   modify_graph(|builder| {
     let scope = builder.pop_scope();
@@ -94,16 +109,30 @@ pub fn for_by<T: Into<ShaderIterator> + ShaderIteratorAble>(
     }
     .insert_into_graph(builder)
   });
+
+  Ok(())
 }
 
 #[inline(never)]
 pub fn if_by(condition: impl Into<Node<bool>>, logic: impl Fn()) {
+  if_by_ok(condition, || {
+    logic();
+    Ok(())
+  })
+  .unwrap()
+}
+
+#[inline(never)]
+pub fn if_by_ok(
+  condition: impl Into<Node<bool>>,
+  logic: impl Fn() -> Result<(), ShaderGraphBuildError>,
+) -> Result<(), ShaderGraphBuildError> {
   let condition = condition.into();
   modify_graph(|builder| {
     builder.push_scope();
   });
 
-  logic();
+  logic()?;
 
   modify_graph(|builder| {
     let scope = builder.pop_scope();
@@ -111,6 +140,8 @@ pub fn if_by(condition: impl Into<Node<bool>>, logic: impl Fn()) {
 
     ShaderControlFlowNode::If { condition, scope }.insert_into_graph(builder);
   });
+
+  Ok(())
 }
 
 // /// you can only return the current function, so we don't need

@@ -4,7 +4,8 @@ use crate::*;
 #[std140_layout]
 #[derive(Copy, Clone, ShaderStruct, Default)]
 pub struct DirectionalLightShaderInfo {
-  pub intensity: Vec3<f32>,
+  /// in lx
+  pub illuminance: Vec3<f32>,
   pub direction: Vec3<f32>,
   pub shadow: LightShadowAddressInfo,
 }
@@ -23,18 +24,18 @@ impl PunctualShaderLight for DirectionalLightShaderInfo {
     light: &ENode<Self>,
     _dep: &Self::PunctualDependency,
     _ctx: &ENode<ShaderLightingGeometricCtx>,
-  ) -> ENode<ShaderIncidentLight> {
+  ) -> Result<ENode<ShaderIncidentLight>, ShaderGraphBuildError> {
     let shadow_info = light.shadow.expand();
     let occlusion = consts(1.).mutable();
 
-    if_by(shadow_info.enabled.equals(consts(1)), || {
+    if_by_ok(shadow_info.enabled.equals(consts(1)), || {
       let map = builder.query::<BasicShadowMap>().unwrap();
       let sampler = builder.query::<BasicShadowMapSampler>().unwrap();
 
       let shadow_infos = builder.query::<BasicShadowMapInfoGroup>().unwrap();
       let shadow_info = shadow_infos.index(shadow_info.index).expand();
 
-      let shadow_position = compute_shadow_position(builder, shadow_info);
+      let shadow_position = compute_shadow_position(builder, shadow_info)?;
 
       if_by(cull_directional_shadow(shadow_position), || {
         occlusion.set(sample_shadow(
@@ -44,12 +45,13 @@ impl PunctualShaderLight for DirectionalLightShaderInfo {
           shadow_info.map_info,
         ))
       });
-    });
+      Ok(())
+    })?;
 
-    ENode::<ShaderIncidentLight> {
-      color: light.intensity * (consts(1.) - occlusion.get()),
+    Ok(ENode::<ShaderIncidentLight> {
+      color: light.illuminance * (consts(1.) - occlusion.get()),
       direction: light.direction,
-    }
+    })
   }
 }
 
@@ -82,7 +84,7 @@ impl WebGPUSceneLight for SceneLight<DirectionalLight> {
 
     let lights = ctx.forward.get_or_create_list();
     let gpu = DirectionalLightShaderInfo {
-      intensity: light.intensity,
+      illuminance: light.illuminance * light.color_factor,
       direction: node.get_world_matrix().forward().normalize().reverse(),
       shadow,
       ..Zeroable::zeroed()

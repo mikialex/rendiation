@@ -7,4 +7,4 @@ version = "0.1.0"
 [dependencies]
 rendiation-algebra = {path = "../../math/algebra"}
 rendiation-geometry = {path = "../../math/geometry"}
-winit = {version = "0.26.0"}
+winit = {version = "0.27.1"}

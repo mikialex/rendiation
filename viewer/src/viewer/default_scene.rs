@@ -79,9 +79,10 @@ pub fn load_default_scene(scene: &mut Scene<WebGPUScene>) {
       )
       .build_mesh_into();
     let mesh = MeshSource::new(mesh);
-    let material = PhysicalMaterial::<WebGPUScene> {
+    let material = PhysicalSpecularGlossinessMaterial::<WebGPUScene> {
       albedo: Vec3::splat(1.),
       albedo_texture: texture.clone().into(),
+      ..Default::default()
     }
     .use_state();
 
@@ -106,9 +107,10 @@ pub fn load_default_scene(scene: &mut Scene<WebGPUScene>) {
     }
     let mesh = builder.build_mesh();
     let mesh = MeshSource::new(mesh);
-    let material = PhysicalMaterial::<WebGPUScene> {
+    let material = PhysicalSpecularGlossinessMaterial::<WebGPUScene> {
       albedo: Vec3::splat(1.),
       albedo_texture: texture.clone().into(),
+      ..Default::default()
     }
     .use_state();
     let child = scene.root().create_child();
@@ -136,9 +138,10 @@ pub fn load_default_scene(scene: &mut Scene<WebGPUScene>) {
         Mat4::translate((10., 0., 6.)),
       ],
     };
-    let material = PhysicalMaterial::<WebGPUScene> {
+    let material = PhysicalSpecularGlossinessMaterial::<WebGPUScene> {
       albedo: Vec3::splat(1.),
       albedo_texture: texture.clone().into(),
+      ..Default::default()
     }
     .use_state();
 
@@ -168,7 +171,8 @@ pub fn load_default_scene(scene: &mut Scene<WebGPUScene>) {
   let directional_light_node = scene.root().create_child();
   directional_light_node.set_local_matrix(Mat4::lookat(Vec3::splat(300.), Vec3::splat(0.), up));
   let directional_light = DirectionalLight {
-    intensity: Vec3::splat(5.),
+    illuminance: 5.,
+    color_factor: Vec3::one(),
   };
   let directional_light = SceneLightInner {
     light: directional_light,
@@ -184,7 +188,8 @@ pub fn load_default_scene(scene: &mut Scene<WebGPUScene>) {
     up,
   ));
   let directional_light = DirectionalLight {
-    intensity: Vec3::new(5., 3., 2.),
+    illuminance: 5.,
+    color_factor: Vec3::new(5., 3., 2.) / Vec3::splat(5.),
   };
   let directional_light = SceneLightInner {
     light: directional_light,
@@ -196,7 +201,8 @@ pub fn load_default_scene(scene: &mut Scene<WebGPUScene>) {
   let point_light_node = scene.root().create_child();
   point_light_node.set_local_matrix(Mat4::translate((2., 2., 2.)));
   let point_light = PointLight {
-    intensity: Vec3::new(5., 3., 2.),
+    color_factor: Vec3::new(5., 3., 2.) / Vec3::splat(5.),
+    luminance_intensity: 5.,
     cutoff_distance: 40.,
   };
   let point_light = SceneLightInner {
@@ -209,7 +215,8 @@ pub fn load_default_scene(scene: &mut Scene<WebGPUScene>) {
   let spot_light_node = scene.root().create_child();
   spot_light_node.set_local_matrix(Mat4::lookat(Vec3::new(-5., 5., 5.), Vec3::splat(0.), up));
   let spot_light = SpotLight {
-    intensity: Vec3::new(180., 0., 0.),
+    luminance_intensity: 180.,
+    color_factor: Vec3::new(1., 0., 0.),
     cutoff_distance: 40.,
     half_cone_angle: Deg::by(5. / 2.).to_rad(),
     half_penumbra_angle: Deg::by(5. / 2.).to_rad(),

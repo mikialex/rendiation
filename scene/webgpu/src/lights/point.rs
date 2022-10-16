@@ -4,7 +4,7 @@ use crate::*;
 #[std140_layout]
 #[derive(Copy, Clone, ShaderStruct, Default)]
 pub struct PointLightShaderInfo {
-  pub intensity: Vec3<f32>,
+  pub luminance_intensity: Vec3<f32>,
   pub position: Vec3<f32>,
   pub cutoff_distance: f32,
 }
@@ -23,15 +23,15 @@ impl PunctualShaderLight for PointLightShaderInfo {
     light: &ENode<Self>,
     _dep: &Self::PunctualDependency,
     ctx: &ENode<ShaderLightingGeometricCtx>,
-  ) -> ENode<ShaderIncidentLight> {
+  ) -> Result<ENode<ShaderIncidentLight>, ShaderGraphBuildError> {
     let direction = ctx.position - light.position;
     let distance = direction.length();
-    let factor = punctual_light_intensity_to_irradiance_factor(distance, light.cutoff_distance);
+    let factor = punctual_light_intensity_to_illuminance_factor(distance, light.cutoff_distance);
 
-    ENode::<ShaderIncidentLight> {
-      color: light.intensity * factor,
+    Ok(ENode::<ShaderIncidentLight> {
+      color: light.luminance_intensity * factor,
       direction: direction.normalize(),
-    }
+    })
   }
 }
 
@@ -44,7 +44,7 @@ impl WebGPUSceneLight for SceneLight<PointLight> {
     let lights = ctx.forward.get_or_create_list();
 
     let gpu = PointLightShaderInfo {
-      intensity: light.intensity,
+      luminance_intensity: light.luminance_intensity * light.color_factor,
       position: node.get_world_matrix().position(),
       cutoff_distance: light.cutoff_distance,
       ..Zeroable::zeroed()
@@ -59,8 +59,8 @@ wgsl_fn!(
   // page 32, equation 26: E[window1]
   // https://seblagarde.files.wordpress.com/2015/07/course_notes_moving_frostbite_to_pbr_v32.pdf
   // this is intended to be used on spot and point lights who are represented as luminous intensity
-  // but who must be converted to luminous irradiance for surface lighting calculation
-  fn punctual_light_intensity_to_irradiance_factor(
+  // but who must be converted to illuminance for surface lighting calculation
+  fn punctual_light_intensity_to_illuminance_factor(
     light_distance: f32,
     cutoff_distance: f32,
   ) -> f32 {
