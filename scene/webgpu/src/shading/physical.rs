@@ -7,8 +7,6 @@ pub struct ShaderPhysicalShading {
   pub diffuse: Vec3<f32>,
   pub perceptual_roughness: f32,
   pub f0: Vec3<f32>,
-  // pub DFG: Vec3<f32>,
-  // pub energy_compensation: Vec3<f32>,
 }
 
 both!(EmissiveChannel, Vec3<f32>);
@@ -22,9 +20,6 @@ both!(GlossinessChannel, f32);
 both!(ReflectanceChannel, f32);
 
 pub struct PhysicalShading;
-// pub struct PhysicalShading {
-//   pub enable_geometric_specular_antialiasing: bool,
-// }
 
 wgsl_fn!(
   fn v_max3(v: vec3<f32>) -> f32 {
@@ -75,8 +70,6 @@ impl LightableSurfaceShading for PhysicalShading {
       diffuse,
       f0,
       perceptual_roughness,
-      // DFG: consts(Vec3::zero()),
-      // energy_compensation: consts(Vec3::zero()),
     }
   }
 

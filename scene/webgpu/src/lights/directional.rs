@@ -4,7 +4,8 @@ use crate::*;
 #[std140_layout]
 #[derive(Copy, Clone, ShaderStruct, Default)]
 pub struct DirectionalLightShaderInfo {
-  pub intensity: Vec3<f32>,
+  /// in lx
+  pub illuminance: Vec3<f32>,
   pub direction: Vec3<f32>,
   pub shadow: LightShadowAddressInfo,
 }
@@ -48,7 +49,7 @@ impl PunctualShaderLight for DirectionalLightShaderInfo {
     })?;
 
     Ok(ENode::<ShaderIncidentLight> {
-      color: light.intensity * (consts(1.) - occlusion.get()),
+      color: light.illuminance * (consts(1.) - occlusion.get()),
       direction: light.direction,
     })
   }
@@ -83,7 +84,7 @@ impl WebGPUSceneLight for SceneLight<DirectionalLight> {
 
     let lights = ctx.forward.get_or_create_list();
     let gpu = DirectionalLightShaderInfo {
-      intensity: light.intensity,
+      illuminance: light.illuminance * light.color_factor,
       direction: node.get_world_matrix().forward().normalize().reverse(),
       shadow,
       ..Zeroable::zeroed()

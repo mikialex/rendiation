@@ -4,7 +4,7 @@ use crate::*;
 #[std140_layout]
 #[derive(Copy, Clone, ShaderStruct, Default)]
 pub struct SpotLightShaderInfo {
-  pub intensity: Vec3<f32>,
+  pub luminance_intensity: Vec3<f32>,
   pub position: Vec3<f32>,
   pub direction: Vec3<f32>,
   pub cutoff_distance: f32,
@@ -31,7 +31,7 @@ impl PunctualShaderLight for SpotLightShaderInfo {
     let direction = ctx.position - light.position;
     let distance = direction.length();
     let distance_factor =
-      punctual_light_intensity_to_irradiance_factor(distance, light.cutoff_distance);
+      punctual_light_intensity_to_illuminance_factor(distance, light.cutoff_distance);
 
     let direction = direction.normalize();
     let angle_cos = direction.dot(light.direction);
@@ -66,7 +66,7 @@ impl PunctualShaderLight for SpotLightShaderInfo {
     let shadow_factor = consts(1.) - occlusion.get();
 
     Ok(ENode::<ShaderIncidentLight> {
-      color: light.intensity * intensity_factor * shadow_factor,
+      color: light.luminance_intensity * intensity_factor * shadow_factor,
       direction,
     })
   }
@@ -89,7 +89,7 @@ impl WebGPUSceneLight for SceneLight<SpotLight> {
     let lights = ctx.forward.get_or_create_list();
 
     let gpu = SpotLightShaderInfo {
-      intensity: light.intensity,
+      luminance_intensity: light.luminance_intensity * light.color_factor,
       direction: node.get_world_matrix().forward().normalize().reverse(),
       cutoff_distance: light.cutoff_distance,
       half_cone_cos: light.half_cone_angle.cos(),
