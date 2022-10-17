@@ -33,12 +33,15 @@ wgsl_fn!(
 
 pub fn apply_normal_mapping(
   builder: &mut ShaderGraphFragmentBuilderView,
-  normal_adjust: Node<Vec3<f32>>,
+  normal_map_sample: Node<Vec3<f32>>,
+  uv: Node<Vec2<f32>>,
   scale: Node<f32>,
 ) -> Node<Vec3<f32>> {
   let normal = builder.get_or_compute_fragment_normal();
-  let uv = builder.query_or_interpolate_by::<FragmentUv, GeometryUV>();
   let position = builder.query_or_interpolate_by::<FragmentWorldPosition, WorldVertexPosition>();
+
+  let normal_adjust = normal_map_sample * consts(Vec3::splat(2.)) - consts(Vec3::one());
+  let normal_adjust = normal_adjust * scale.splat::<Vec3<f32>>();
 
   // todo, should we move this to upper?
   let face = builder
@@ -47,7 +50,6 @@ pub fn apply_normal_mapping(
     .select(consts(1.), consts(0.));
 
   let normal = perturb_normal_2_arb(position, normal, normal_adjust, uv, face);
-  let normal = normal * scale.splat::<Vec3<f32>>();
   builder.register::<FragmentWorldNormal>(normal);
 
   normal

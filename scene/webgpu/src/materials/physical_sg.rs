@@ -90,8 +90,8 @@ impl ShaderGraphProvider for PhysicalSpecularGlossinessMaterialGPU {
       };
 
       if let Some(tex) = &self.normal_texture {
-        let normal_adjust = tex.uniform_and_sample(binding, SB::Material, uv).xyz();
-        apply_normal_mapping(builder, normal_adjust, uniform.normal_mapping_scale);
+        let normal_sample = tex.uniform_and_sample(binding, SB::Material, uv).xyz();
+        apply_normal_mapping(builder, normal_sample, uv, uniform.normal_mapping_scale);
       }
 
       builder.register::<ColorChannel>(albedo);
