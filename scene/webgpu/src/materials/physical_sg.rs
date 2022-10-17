@@ -113,7 +113,7 @@ where
   type GPU = PhysicalSpecularGlossinessMaterialGPU;
 
   fn create_gpu(&self, res: &mut GPUResourceSubCache, gpu: &GPU) -> Self::GPU {
-    let uniform = PhysicalSpecularGlossinessMaterialUniform {
+    let mut uniform = PhysicalSpecularGlossinessMaterialUniform {
       albedo: self.albedo,
       specular: self.specular,
       emissive: self.emissive,

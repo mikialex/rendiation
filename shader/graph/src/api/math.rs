@@ -63,3 +63,12 @@ impl Node<Mat4<f32>> {
     .insert_graph()
   }
 }
+
+impl Node<bool> {
+  pub fn select<T: ShaderGraphNodeType>(&self, true_case: Node<T>, false_case: Node<T>) -> Node<T> {
+    make_builtin_call(
+      ShaderBuiltInFunction::Select,
+      [false_case.handle(), true_case.handle(), self.handle()],
+    )
+  }
+}

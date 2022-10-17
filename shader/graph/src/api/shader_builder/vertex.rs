@@ -17,10 +17,6 @@ pub struct ShaderGraphVertexBufferLayout {
 }
 
 pub struct ShaderGraphVertexBuilder {
-  // built in vertex in
-  pub vertex_index: Node<u32>,
-  pub instance_index: Node<u32>,
-
   // user vertex in
   pub vertex_in: HashMap<TypeId, VertexIOInfo>,
   pub vertex_layouts: Vec<ShaderGraphVertexBufferLayout>,
@@ -43,17 +39,7 @@ pub struct VertexIOInfo {
 
 impl ShaderGraphVertexBuilder {
   pub(crate) fn new() -> Self {
-    set_current_building(ShaderStages::Vertex.into());
-
-    let vertex_index = ShaderGraphInputNode::BuiltIn(ShaderBuiltIn::VertexIndexId).insert_graph();
-
-    let instance_index =
-      ShaderGraphInputNode::BuiltIn(ShaderBuiltIn::VertexInstanceId).insert_graph();
-    set_current_building(None);
-
-    Self {
-      vertex_index,
-      instance_index,
+    let mut result = Self {
       vertex_in: Default::default(),
       registry: Default::default(),
       vertex_out: Default::default(),
@@ -63,7 +49,20 @@ impl ShaderGraphVertexBuilder {
         ..Default::default()
       },
       vertex_out_not_synced_to_fragment: Default::default(),
-    }
+    };
+
+    set_current_building(ShaderStages::Vertex.into());
+
+    let vertex_index = ShaderGraphInputNode::BuiltIn(ShaderBuiltIn::VertexIndexId).insert_graph();
+    result.register::<VertexIndex>(vertex_index);
+
+    let instance_index =
+      ShaderGraphInputNode::BuiltIn(ShaderBuiltIn::VertexInstanceId).insert_graph();
+    result.register::<VertexInstanceIndex>(instance_index);
+
+    set_current_building(None);
+
+    result
   }
 
   pub fn sync_fragment_out(&mut self, fragment: &mut ShaderGraphFragmentBuilder) {

@@ -39,10 +39,15 @@ pub fn apply_normal_mapping(
   let normal = builder.get_or_compute_fragment_normal();
   let uv = builder.query_or_interpolate_by::<FragmentUv, GeometryUV>();
   let position = builder.query_or_interpolate_by::<FragmentWorldPosition, WorldVertexPosition>();
-  // let face_dir_sign = builder.query::<FaceSide>
 
-  let normal =
-    perturb_normal_2_arb(position, normal, normal_adjust, uv, face_dir_sign) * scale.splat();
+  // todo, should we move this to upper?
+  let face = builder
+    .query::<FragmentFrontFacing>()
+    .unwrap() // builtin type
+    .select(consts(1.), consts(0.));
+
+  let normal = perturb_normal_2_arb(position, normal, normal_adjust, uv, face);
+  let normal = normal * scale.splat::<Vec3<f32>>();
   builder.register::<FragmentWorldNormal>(normal);
 
   normal

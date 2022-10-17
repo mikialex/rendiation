@@ -6,6 +6,7 @@ pub enum ShaderBuiltInFunction {
   Length,
   Dot,
   SmoothStep,
+  Select,
 }
 
 pub enum ShaderFunctionType {
@@ -165,6 +166,10 @@ pub enum ShaderGraphInputNode {
 pub enum ShaderBuiltIn {
   VertexIndexId,
   VertexInstanceId,
+  FragmentFrontFacing,
+  FragmentSampleIndex,
+  FragmentSampleMask,
+  FragmentNDC,
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]
