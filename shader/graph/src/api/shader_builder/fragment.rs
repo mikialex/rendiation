@@ -99,7 +99,7 @@ impl ShaderGraphFragmentBuilder {
     result.register::<FragmentFrontFacing>(facing);
 
     let index = ShaderGraphInputNode::BuiltIn(ShaderBuiltIn::FragmentSampleIndex).insert_graph();
-    result.register::<FragmentFrontFacing>(index);
+    result.register::<FragmentSampleIndex>(index);
 
     let mask = ShaderGraphInputNode::BuiltIn(ShaderBuiltIn::FragmentSampleMask).insert_graph();
     result.register::<FragmentSampleMaskInput>(mask);

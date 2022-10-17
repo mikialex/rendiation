@@ -13,8 +13,8 @@ wgsl_fn!(
   ) -> vec3<f32> {
     let q0 = dpdx(position.xyz);
     let q1 = dpdy(position.xyz);
-    let st0 = dpdx(vUv.st);
-    let st1 = dpdy(vUv.st);
+    let st0 = dpdx(vUv.xy);
+    let st1 = dpdy(vUv.xy);
 
     let N = surf_norm; // normalized
 
