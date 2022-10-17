@@ -9,6 +9,7 @@ pub struct PhysicalMetallicRoughnessMaterialUniform {
   pub roughness: f32,
   pub metallic: f32,
   pub reflectance: f32,
+  pub normal_mapping_scale: f32,
 }
 
 impl ShaderHashProvider for PhysicalMetallicRoughnessMaterialGPU {
@@ -25,6 +26,7 @@ pub struct PhysicalMetallicRoughnessMaterialGPU {
   base_color_texture: Option<GPUTextureSamplerPair>,
   metallic_roughness_texture: Option<GPUTextureSamplerPair>,
   emissive_texture: Option<GPUTextureSamplerPair>,
+  normal_texture: Option<GPUTextureSamplerPair>,
 }
 
 impl ShaderPassBuilder for PhysicalMetallicRoughnessMaterialGPU {
@@ -37,6 +39,9 @@ impl ShaderPassBuilder for PhysicalMetallicRoughnessMaterialGPU {
       t.setup_pass(ctx, SB::Material)
     }
     if let Some(t) = self.emissive_texture.as_ref() {
+      t.setup_pass(ctx, SB::Material)
+    }
+    if let Some(t) = self.normal_texture.as_ref() {
       t.setup_pass(ctx, SB::Material)
     }
   }
@@ -77,6 +82,11 @@ impl ShaderGraphProvider for PhysicalMetallicRoughnessMaterialGPU {
         uniform.emissive
       };
 
+      if let Some(tex) = &self.normal_texture {
+        let normal_sample = tex.uniform_and_sample(binding, SB::Material, uv).xyz();
+        apply_normal_mapping(builder, normal_sample, uv, uniform.normal_mapping_scale);
+      }
+
       builder.register::<ColorChannel>(base_color);
       builder.register::<EmissiveChannel>(emissive);
       builder.register::<MetallicChannel>(metallic);
@@ -96,15 +106,15 @@ where
   type GPU = PhysicalMetallicRoughnessMaterialGPU;
 
   fn create_gpu(&self, res: &mut GPUResourceSubCache, gpu: &GPU) -> Self::GPU {
-    let uniform = PhysicalMetallicRoughnessMaterialUniform {
+    let mut uniform = PhysicalMetallicRoughnessMaterialUniform {
       base_color: self.base_color,
       roughness: self.roughness,
       emissive: self.emissive,
       metallic: self.metallic,
       reflectance: self.reflectance,
+      normal_mapping_scale: 1.,
       ..Zeroable::zeroed()
     };
-    let uniform = create_uniform(uniform, gpu);
 
     let base_color_texture = self
       .base_color_texture
@@ -121,11 +131,19 @@ where
       .as_ref()
       .map(|t| build_texture_sampler_pair::<S>(t, gpu, res));
 
+    let normal_texture = self.normal_texture.as_ref().map(|t| {
+      uniform.normal_mapping_scale = t.scale;
+      build_texture_sampler_pair::<S>(&t.content, gpu, res)
+    });
+
+    let uniform = create_uniform(uniform, gpu);
+
     PhysicalMetallicRoughnessMaterialGPU {
       uniform,
       base_color_texture,
       metallic_roughness_texture,
       emissive_texture,
+      normal_texture,
     }
   }
   fn is_keep_mesh_shape(&self) -> bool {

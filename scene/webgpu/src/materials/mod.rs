@@ -8,6 +8,8 @@ pub mod physical_mr;
 pub use physical_mr::*;
 pub mod fatline;
 pub use fatline::*;
+pub mod normal_mapping;
+pub use normal_mapping::*;
 
 use crate::*;
 

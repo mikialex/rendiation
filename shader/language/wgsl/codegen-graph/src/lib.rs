@@ -129,7 +129,7 @@ fn gen_fragment_shader(
           code.write_ln(format!("out.frag_out{i} = {root};"));
         });
 
-      if let Some(depth) = fragment.depth_output {
+      if let Ok(depth) = fragment.query::<FragmentDepthOutput>() {
         let root = gen_node_with_dep_in_entry(depth.handle(), &builder, &mut cx, code);
         code.write_ln(format!("out.frag_depth_out = {root};"));
       }
@@ -197,6 +197,10 @@ fn _gen_interpolation(int: ShaderVaryingInterpolation) -> &'static str {
 }
 
 fn gen_fragment_in_declare(code: &mut CodeBuilder, frag: &ShaderGraphFragmentBuilder) {
+  code.write_ln("@builtin(front_facing) bt_frag_front_facing: bool,");
+  code.write_ln("@builtin(sample_index) bt_frag_sample_index: u32,");
+  code.write_ln("@builtin(sample_mask) bt_frag_sample_mask: u32,");
+  code.write_ln("@builtin(position) bt_frag_ndc: vec4<f32>,");
   frag.fragment_in.iter().for_each(|(_, (_, ty, _int, i))| {
     // code.write_ln(format!(
     //   "@location({i}) @interpolate({}, center) fragment_in_{i}: {}",
@@ -220,7 +224,7 @@ fn gen_fragment_out_struct(code: &mut CodeBuilder, frag: &ShaderGraphFragmentBui
     });
   });
 
-  if frag.depth_output.is_some() {
+  if frag.query::<FragmentDepthOutput>().is_ok() {
     shader_struct.fields.push(ShaderStructFieldMetaInfoOwned {
       name: "frag_depth_out".to_string(),
       ty: ShaderStructMemberValueType::Primitive(PrimitiveShaderValueType::Float32),
@@ -451,6 +455,7 @@ fn gen_expr(data: &ShaderGraphNodeExpr, cx: &mut CodeGenCtx) -> String {
             ShaderBuiltInFunction::Length => "length",
             ShaderBuiltInFunction::Dot => "dot",
             ShaderBuiltInFunction::SmoothStep => "smoothstep",
+            ShaderBuiltInFunction::Select => "select",
           };
 
           format!("{name}{call}")
@@ -886,6 +891,10 @@ fn gen_built_in(ty: ShaderBuiltIn) -> &'static str {
   match ty {
     ShaderBuiltIn::VertexIndexId => "bt_vertex_vertex_id",
     ShaderBuiltIn::VertexInstanceId => "bt_vertex_instance_id",
+    ShaderBuiltIn::FragmentFrontFacing => "bt_frag_front_facing",
+    ShaderBuiltIn::FragmentSampleIndex => "bt_frag_sample_index",
+    ShaderBuiltIn::FragmentSampleMask => "bt_frag_sample_mask",
+    ShaderBuiltIn::FragmentNDC => "bt_frag_ndc",
   }
 }
 

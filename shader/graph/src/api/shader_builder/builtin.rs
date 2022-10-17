@@ -20,28 +20,6 @@ macro_rules! only_fragment {
   };
 }
 
-only_vertex!(GeometryPosition2D, Vec2<f32>);
-only_vertex!(GeometryPosition, Vec3<f32>);
-only_vertex!(GeometryNormal, Vec3<f32>);
-only_vertex!(GeometryUV, Vec2<f32>);
-only_vertex!(GeometryColor, Vec3<f32>);
-only_vertex!(GeometryColorWithAlpha, Vec4<f32>);
-
-only_vertex!(WorldVertexPosition, Vec3<f32>);
-only_vertex!(WorldVertexNormal, Vec3<f32>);
-only_vertex!(ClipPosition, Vec4<f32>);
-
-both!(WorldMatrix, Mat4<f32>);
-
-both!(CameraProjectionMatrix, Mat4<f32>);
-both!(CameraProjectionInverseMatrix, Mat4<f32>);
-both!(CameraViewMatrix, Mat4<f32>);
-both!(CameraWorldMatrix, Mat4<f32>);
-both!(CameraViewProjectionMatrix, Mat4<f32>);
-both!(CameraViewProjectionInverseMatrix, Mat4<f32>);
-
-only_fragment!(DefaultDisplay, Vec4<f32>);
-
 #[macro_export]
 macro_rules! both {
   ($Type: ident, $NodeType: ty) => {
@@ -54,6 +32,49 @@ macro_rules! both {
     }
   };
 }
+
+//////
+// wgsl builtin https://www.w3.org/TR/WGSL/#builtin-values
+
+// vertex input
+only_vertex!(VertexIndex, u32);
+only_vertex!(VertexInstanceIndex, u32);
+
+// vertex output
+only_vertex!(ClipPosition, Vec4<f32>);
+
+// fragment input
+both!(FragmentFrontFacing, bool);
+both!(FragmentNDCPosition, Vec4<f32>);
+both!(FragmentSampleIndex, u32);
+both!(FragmentSampleMaskInput, u32);
+
+// fragment output
+both!(FragmentDepthOutput, f32);
+both!(FragmentSampleMaskOutput, u32);
+
+//////
+// shader graph builtin
+
+only_vertex!(GeometryPosition2D, Vec2<f32>);
+only_vertex!(GeometryPosition, Vec3<f32>);
+only_vertex!(GeometryNormal, Vec3<f32>);
+only_vertex!(GeometryUV, Vec2<f32>);
+only_vertex!(GeometryColor, Vec3<f32>);
+only_vertex!(GeometryColorWithAlpha, Vec4<f32>);
+
+both!(WorldMatrix, Mat4<f32>);
+only_vertex!(WorldVertexPosition, Vec3<f32>);
+only_vertex!(WorldVertexNormal, Vec3<f32>);
+
+both!(CameraProjectionMatrix, Mat4<f32>);
+both!(CameraProjectionInverseMatrix, Mat4<f32>);
+both!(CameraViewMatrix, Mat4<f32>);
+both!(CameraWorldMatrix, Mat4<f32>);
+both!(CameraViewProjectionMatrix, Mat4<f32>);
+both!(CameraViewProjectionInverseMatrix, Mat4<f32>);
+
+only_fragment!(DefaultDisplay, Vec4<f32>);
 
 both!(FragmentUv, Vec2<f32>);
 both!(FragmentWorldPosition, Vec3<f32>);

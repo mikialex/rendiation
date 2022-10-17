@@ -165,7 +165,7 @@ impl<'a> ShaderGraphProvider for InfinityShaderPlaneEffect<'a> {
     self.camera.inject_uniforms(builder);
 
     builder.vertex(|builder, _| {
-      let out = generate_quad(builder.vertex_index).expand();
+      let out = generate_quad(builder.query::<VertexIndex>()?).expand();
       builder.set_vertex_out::<FragmentUv>(out.uv);
       builder.register::<ClipPosition>((out.position.xyz(), 1.));
 
@@ -202,7 +202,7 @@ impl<'a> ShaderGraphProvider for InfinityShaderPlaneEffect<'a> {
       let plane_if_hit = hit.w(); // 1 is hit, 0 is not
 
       let plane_hit_project = proj * view * (plane_hit, consts(1.)).into();
-      builder.set_explicit_depth(plane_hit_project.z() / plane_hit_project.w());
+      builder.register::<FragmentDepthOutput>(plane_hit_project.z() / plane_hit_project.w());
 
       builder.register::<FragmentWorldPosition>(plane_hit);
       builder.register::<IsHitInfinityPlane>(plane_if_hit);

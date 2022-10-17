@@ -74,7 +74,6 @@ pub struct ShaderGraphFragmentBuilder {
   pub(crate) registry: SemanticRegistry,
 
   pub frag_output: Vec<(Node<Vec4<f32>>, ColorTargetState)>,
-  pub depth_output: Option<Node<f32>>,
   // improve: check the relationship between depth_output and depth_stencil
   pub depth_stencil: Option<DepthStencilState>,
   // improve: check if all the output should be multisampled target
@@ -83,20 +82,31 @@ pub struct ShaderGraphFragmentBuilder {
 
 impl ShaderGraphFragmentBuilder {
   pub(crate) fn new() -> Self {
-    set_current_building(ShaderStages::Fragment.into());
-
-    // todo setup builtin fragment in
-
-    set_current_building(None);
-
-    Self {
+    let mut result = Self {
       fragment_in: Default::default(),
       registry: Default::default(),
       frag_output: Default::default(),
       multisample: Default::default(),
-      depth_output: None,
       depth_stencil: Default::default(),
-    }
+    };
+
+    set_current_building(ShaderStages::Fragment.into());
+
+    let frag_ndc = ShaderGraphInputNode::BuiltIn(ShaderBuiltIn::FragmentNDC).insert_graph();
+    result.register::<FragmentNDCPosition>(frag_ndc);
+
+    let facing = ShaderGraphInputNode::BuiltIn(ShaderBuiltIn::FragmentFrontFacing).insert_graph();
+    result.register::<FragmentFrontFacing>(facing);
+
+    let index = ShaderGraphInputNode::BuiltIn(ShaderBuiltIn::FragmentSampleIndex).insert_graph();
+    result.register::<FragmentSampleIndex>(index);
+
+    let mask = ShaderGraphInputNode::BuiltIn(ShaderBuiltIn::FragmentSampleMask).insert_graph();
+    result.register::<FragmentSampleMaskInput>(mask);
+
+    set_current_building(None);
+
+    result
   }
 
   pub fn discard(&self) {
@@ -185,10 +195,6 @@ impl ShaderGraphFragmentBuilder {
     slot: usize,
   ) -> Result<Node<Vec4<f32>>, ShaderGraphBuildError> {
     Ok(self.frag_output.get(slot).unwrap().0)
-  }
-
-  pub fn set_explicit_depth(&mut self, node: Node<f32>) {
-    self.depth_output = node.into()
   }
 }
 

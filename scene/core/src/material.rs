@@ -21,6 +21,13 @@ pub struct PhysicalSpecularGlossinessMaterial<S: SceneContent> {
   pub specular_texture: Option<Texture2DWithSamplingData<S>>,
   pub glossiness_texture: Option<Texture2DWithSamplingData<S>>,
   pub emissive_texture: Option<Texture2DWithSamplingData<S>>,
+  pub normal_texture: Option<NormalMapping<S>>,
+}
+
+#[derive(Clone)]
+pub struct NormalMapping<S: SceneContent> {
+  pub content: Texture2DWithSamplingData<S>,
+  pub scale: f32,
 }
 
 impl<S: SceneContent> Default for PhysicalSpecularGlossinessMaterial<S> {
@@ -34,6 +41,7 @@ impl<S: SceneContent> Default for PhysicalSpecularGlossinessMaterial<S> {
       specular_texture: None,
       glossiness_texture: None,
       emissive_texture: None,
+      normal_texture: None,
     }
   }
 }
@@ -50,6 +58,7 @@ pub struct PhysicalMetallicRoughnessMaterial<S: SceneContent> {
   pub base_color_texture: Option<Texture2DWithSamplingData<S>>,
   pub metallic_roughness_texture: Option<Texture2DWithSamplingData<S>>,
   pub emissive_texture: Option<Texture2DWithSamplingData<S>>,
+  pub normal_texture: Option<NormalMapping<S>>,
 }
 
 impl<S: SceneContent> Default for PhysicalMetallicRoughnessMaterial<S> {
@@ -63,6 +72,7 @@ impl<S: SceneContent> Default for PhysicalMetallicRoughnessMaterial<S> {
       metallic_roughness_texture: None,
       emissive_texture: None,
       reflectance: 0.5,
+      normal_texture: None,
     }
   }
 }
