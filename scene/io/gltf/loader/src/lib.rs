@@ -8,8 +8,9 @@ use gltf::{Node, Result as GltfResult};
 use rendiation_algebra::*;
 use rendiation_scene_webgpu::{
   AttributeAccessor, AttributesMesh, GeometryBuffer, IntoStateControl, MeshModel, MeshModelImpl,
-  PhysicalMetallicRoughnessMaterial, Scene, SceneModelShareable, SceneNode, SceneTexture2D,
-  StateControl, Texture2DWithSamplingData, TextureWithSamplingData, TypedBufferView, WebGPUScene,
+  NormalMapping, PhysicalMetallicRoughnessMaterial, Scene, SceneModelShareable, SceneNode,
+  SceneTexture2D, StateControl, Texture2DWithSamplingData, TextureWithSamplingData,
+  TypedBufferView, WebGPUScene,
 };
 use rendiation_scene_webgpu::{SceneModelHandle, WebGPUSceneExtension};
 use shadergraph::*;
@@ -256,6 +257,11 @@ fn build_pbr_material(
     .emissive_texture()
     .map(|tex| build_texture(tex.texture(), ctx));
 
+  let normal_texture = material.normal_texture().map(|tex| NormalMapping {
+    content: build_texture(tex.texture(), ctx),
+    scale: tex.scale(),
+  });
+
   let mut result = PhysicalMetallicRoughnessMaterial {
     base_color: Vec4::from(pbr.base_color_factor()).xyz(),
     roughness: pbr.roughness_factor(),
@@ -264,6 +270,7 @@ fn build_pbr_material(
     base_color_texture,
     metallic_roughness_texture,
     emissive_texture,
+    normal_texture,
     reflectance: 0.5, // todo from gltf ior extension
   }
   .use_state();
