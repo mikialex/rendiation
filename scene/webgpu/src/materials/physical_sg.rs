@@ -9,6 +9,8 @@ pub struct PhysicalSpecularGlossinessMaterialUniform {
   pub emissive: Vec3<f32>,
   pub glossiness: f32,
   pub normal_mapping_scale: f32,
+  pub alpha_cutoff: f32,
+  pub alpha: f32,
 }
 
 impl ShaderHashProvider for PhysicalSpecularGlossinessMaterialGPU {
@@ -119,6 +121,8 @@ where
       emissive: self.emissive,
       glossiness: self.glossiness,
       normal_mapping_scale: 1.,
+      alpha_cutoff: self.alpha_cutoff,
+      alpha: self.alpha,
       ..Zeroable::zeroed()
     };
 

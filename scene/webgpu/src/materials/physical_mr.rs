@@ -10,6 +10,8 @@ pub struct PhysicalMetallicRoughnessMaterialUniform {
   pub metallic: f32,
   pub reflectance: f32,
   pub normal_mapping_scale: f32,
+  pub alpha_cutoff: f32,
+  pub alpha: f32,
 }
 
 impl ShaderHashProvider for PhysicalMetallicRoughnessMaterialGPU {
@@ -18,6 +20,7 @@ impl ShaderHashProvider for PhysicalMetallicRoughnessMaterialGPU {
     self.base_color_texture.is_some().hash(hasher);
     self.metallic_roughness_texture.is_some().hash(hasher);
     self.emissive_texture.is_some().hash(hasher);
+    self.alpha_mode.hash(hasher);
   }
 }
 
@@ -27,6 +30,7 @@ pub struct PhysicalMetallicRoughnessMaterialGPU {
   metallic_roughness_texture: Option<GPUTextureSamplerPair>,
   emissive_texture: Option<GPUTextureSamplerPair>,
   normal_texture: Option<GPUTextureSamplerPair>,
+  alpha_mode: AlphaMode,
 }
 
 impl ShaderPassBuilder for PhysicalMetallicRoughnessMaterialGPU {
@@ -87,6 +91,20 @@ impl ShaderGraphProvider for PhysicalMetallicRoughnessMaterialGPU {
         apply_normal_mapping(builder, normal_sample, uv, uniform.normal_mapping_scale);
       }
 
+      match self.alpha_mode {
+        AlphaMode::Opaque => {}
+        AlphaMode::Mask => {
+          builder.register::<AlphaChannel>(uniform.alpha);
+          builder.register::<AlphaCutChannel>(uniform.alpha_cutoff);
+          if_by(uniform.alpha.less_than(uniform.alpha_cutoff), || {
+            builder.discard() // should we do this in pass side??
+          });
+        }
+        AlphaMode::Blend => {
+          builder.register::<AlphaChannel>(uniform.alpha);
+        }
+      };
+
       builder.register::<ColorChannel>(base_color);
       builder.register::<EmissiveChannel>(emissive);
       builder.register::<MetallicChannel>(metallic);
@@ -113,6 +131,8 @@ where
       metallic: self.metallic,
       reflectance: self.reflectance,
       normal_mapping_scale: 1.,
+      alpha_cutoff: self.alpha_cutoff,
+      alpha: self.alpha,
       ..Zeroable::zeroed()
     };
 
@@ -144,6 +164,7 @@ where
       metallic_roughness_texture,
       emissive_texture,
       normal_texture,
+      alpha_mode: self.alpha_mode,
     }
   }
   fn is_keep_mesh_shape(&self) -> bool {

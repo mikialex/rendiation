@@ -1,5 +1,5 @@
 use rendiation_algebra::{Mat4, Quat};
-use rendiation_scene_webgpu::AttributeSemantic;
+use rendiation_scene_webgpu::{AttributeSemantic, AlphaMode};
 
 pub fn map_sampler(sampler: gltf::texture::Sampler) -> rendiation_texture::TextureSampler {
   rendiation_texture::TextureSampler {
@@ -95,4 +95,12 @@ pub fn map_attribute_semantic(a: gltf::Semantic) -> AttributeSemantic {
     gltf::Semantic::Joints(v) => AttributeSemantic::Joints(v),
     gltf::Semantic::Weights(v) => AttributeSemantic::Weights(v),
   }
+}
+
+pub fn map_alpha(a: gltf::material::AlphaMode) -> AlphaMode {
+  match a {
+    gltf::material::AlphaMode::Opaque => AlphaMode::Opaque,
+    gltf::material::AlphaMode::Mask => AlphaMode::Mask,
+    gltf::material::AlphaMode::Blend => AlphaMode::Blend,
+}
 }
