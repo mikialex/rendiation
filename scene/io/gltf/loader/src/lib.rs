@@ -262,8 +262,16 @@ fn build_pbr_material(
     scale: tex.scale(),
   });
 
+  let alpha_mode = map_alpha(material.alpha_mode());
+  let alpha_cut = material.alpha_cutoff().unwrap_or(1.);
+
+  let color_and_alpha = Vec4::from(pbr.base_color_factor());
+
   let mut result = PhysicalMetallicRoughnessMaterial {
-    base_color: Vec4::from(pbr.base_color_factor()).xyz(),
+    base_color: color_and_alpha.rgb(),
+    alpha: color_and_alpha.a(),
+    alpha_cutoff: alpha_cut,
+    alpha_mode,
     roughness: pbr.roughness_factor(),
     metallic: pbr.metallic_factor(),
     emissive: Vec3::from(material.emissive_factor()),

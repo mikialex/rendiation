@@ -10,6 +10,8 @@ pub struct PhysicalMetallicRoughnessMaterialUniform {
   pub metallic: f32,
   pub reflectance: f32,
   pub normal_mapping_scale: f32,
+  pub alpha_cutoff: f32,
+  pub alpha: f32,
 }
 
 impl ShaderHashProvider for PhysicalMetallicRoughnessMaterialGPU {
@@ -18,6 +20,7 @@ impl ShaderHashProvider for PhysicalMetallicRoughnessMaterialGPU {
     self.base_color_texture.is_some().hash(hasher);
     self.metallic_roughness_texture.is_some().hash(hasher);
     self.emissive_texture.is_some().hash(hasher);
+    self.alpha_mode.hash(hasher);
   }
 }
 
@@ -27,6 +30,7 @@ pub struct PhysicalMetallicRoughnessMaterialGPU {
   metallic_roughness_texture: Option<GPUTextureSamplerPair>,
   emissive_texture: Option<GPUTextureSamplerPair>,
   normal_texture: Option<GPUTextureSamplerPair>,
+  alpha_mode: AlphaMode,
 }
 
 impl ShaderPassBuilder for PhysicalMetallicRoughnessMaterialGPU {
@@ -61,8 +65,12 @@ impl ShaderGraphProvider for PhysicalMetallicRoughnessMaterialGPU {
       let uniform = binding.uniform_by(&self.uniform, SB::Material).expand();
       let uv = builder.query_or_interpolate_by::<FragmentUv, GeometryUV>();
 
+      let mut alpha = uniform.alpha;
+
       let base_color = if let Some(tex) = &self.base_color_texture {
-        tex.uniform_and_sample(binding, SB::Material, uv).xyz() * uniform.base_color
+        let sample = tex.uniform_and_sample(binding, SB::Material, uv);
+        alpha *= sample.w();
+        sample.xyz() * uniform.base_color
       } else {
         uniform.base_color
       };
@@ -86,6 +94,23 @@ impl ShaderGraphProvider for PhysicalMetallicRoughnessMaterialGPU {
         let normal_sample = tex.uniform_and_sample(binding, SB::Material, uv).xyz();
         apply_normal_mapping(builder, normal_sample, uv, uniform.normal_mapping_scale);
       }
+
+      match self.alpha_mode {
+        AlphaMode::Opaque => {}
+        AlphaMode::Mask => {
+          let alpha = alpha
+            .less_than(uniform.alpha_cutoff)
+            .select(consts(0.), alpha);
+          builder.register::<AlphaChannel>(alpha);
+          builder.register::<AlphaCutChannel>(uniform.alpha_cutoff);
+        }
+        AlphaMode::Blend => {
+          builder.register::<AlphaChannel>(alpha);
+          builder.frag_output.iter_mut().for_each(|(_, state)| {
+            state.blend = webgpu::BlendState::ALPHA_BLENDING.into();
+          });
+        }
+      };
 
       builder.register::<ColorChannel>(base_color);
       builder.register::<EmissiveChannel>(emissive);
@@ -113,6 +138,8 @@ where
       metallic: self.metallic,
       reflectance: self.reflectance,
       normal_mapping_scale: 1.,
+      alpha_cutoff: self.alpha_cutoff,
+      alpha: self.alpha,
       ..Zeroable::zeroed()
     };
 
@@ -144,12 +171,13 @@ where
       metallic_roughness_texture,
       emissive_texture,
       normal_texture,
+      alpha_mode: self.alpha_mode,
     }
   }
   fn is_keep_mesh_shape(&self) -> bool {
     true
   }
   fn is_transparent(&self) -> bool {
-    false
+    matches!(self.alpha_mode, AlphaMode::Blend)
   }
 }
