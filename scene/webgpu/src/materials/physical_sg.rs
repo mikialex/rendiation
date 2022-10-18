@@ -190,6 +190,6 @@ where
     true
   }
   fn is_transparent(&self) -> bool {
-    false
+    matches!(self.alpha_mode, AlphaMode::Blend)
   }
 }
