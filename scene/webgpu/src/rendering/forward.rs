@@ -131,7 +131,19 @@ impl<'a> ShaderGraphProvider for ForwardSceneLightingDispatcher<'a> {
       // let normal = (normal + consts(Vec3::one())) * consts(0.5);
       // builder.set_fragment_out(0, (normal, 1.))
 
-      builder.set_fragment_out(0, (ldr, 1.))
+      let alpha = builder
+        .query::<AlphaChannel>()
+        .unwrap_or_else(|_| consts(1.0));
+
+      // should we use other way to get mask mode?
+      let alpha = if builder.query::<AlphaCutChannel>().is_ok() {
+        if_by(alpha.equals(consts(0.)), || builder.discard());
+        consts(1.)
+      } else {
+        alpha
+      };
+
+      builder.set_fragment_out(0, (ldr, alpha))
     })
   }
 }

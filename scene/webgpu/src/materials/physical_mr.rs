@@ -65,8 +65,12 @@ impl ShaderGraphProvider for PhysicalMetallicRoughnessMaterialGPU {
       let uniform = binding.uniform_by(&self.uniform, SB::Material).expand();
       let uv = builder.query_or_interpolate_by::<FragmentUv, GeometryUV>();
 
+      let mut alpha = uniform.alpha;
+
       let base_color = if let Some(tex) = &self.base_color_texture {
-        tex.uniform_and_sample(binding, SB::Material, uv).xyz() * uniform.base_color
+        let sample = tex.uniform_and_sample(binding, SB::Material, uv);
+        alpha *= sample.w();
+        sample.xyz() * uniform.base_color
       } else {
         uniform.base_color
       };
@@ -94,14 +98,17 @@ impl ShaderGraphProvider for PhysicalMetallicRoughnessMaterialGPU {
       match self.alpha_mode {
         AlphaMode::Opaque => {}
         AlphaMode::Mask => {
-          builder.register::<AlphaChannel>(uniform.alpha);
+          let alpha = alpha
+            .less_than(uniform.alpha_cutoff)
+            .select(consts(0.), alpha);
+          builder.register::<AlphaChannel>(alpha);
           builder.register::<AlphaCutChannel>(uniform.alpha_cutoff);
-          if_by(uniform.alpha.less_than(uniform.alpha_cutoff), || {
-            builder.discard() // should we do this in pass side??
-          });
         }
         AlphaMode::Blend => {
-          builder.register::<AlphaChannel>(uniform.alpha);
+          builder.register::<AlphaChannel>(alpha);
+          builder.frag_output.iter_mut().for_each(|(_, state)| {
+            state.blend = webgpu::BlendState::ALPHA_BLENDING.into();
+          });
         }
       };
 
@@ -171,6 +178,6 @@ where
     true
   }
   fn is_transparent(&self) -> bool {
-    false
+    matches!(self.alpha_mode, AlphaMode::Blend)
   }
 }

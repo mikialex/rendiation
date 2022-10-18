@@ -20,6 +20,7 @@ impl ShaderHashProvider for PhysicalSpecularGlossinessMaterialGPU {
     self.specular_texture.is_some().hash(hasher);
     self.glossiness_texture.is_some().hash(hasher);
     self.emissive_texture.is_some().hash(hasher);
+    self.alpha_mode.hash(hasher);
   }
 }
 
@@ -30,6 +31,7 @@ pub struct PhysicalSpecularGlossinessMaterialGPU {
   glossiness_texture: Option<GPUTextureSamplerPair>,
   emissive_texture: Option<GPUTextureSamplerPair>,
   normal_texture: Option<GPUTextureSamplerPair>,
+  alpha_mode: AlphaMode,
 }
 
 impl ShaderPassBuilder for PhysicalSpecularGlossinessMaterialGPU {
@@ -67,8 +69,12 @@ impl ShaderGraphProvider for PhysicalSpecularGlossinessMaterialGPU {
       let uniform = binding.uniform_by(&self.uniform, SB::Material).expand();
       let uv = builder.query_or_interpolate_by::<FragmentUv, GeometryUV>();
 
+      let mut alpha = uniform.alpha;
+
       let albedo = if let Some(tex) = &self.albedo_texture {
-        tex.uniform_and_sample(binding, SB::Material, uv).xyz() * uniform.albedo
+        let sample = tex.uniform_and_sample(binding, SB::Material, uv);
+        alpha *= sample.w();
+        sample.xyz() * uniform.albedo
       } else {
         uniform.albedo
       };
@@ -95,6 +101,23 @@ impl ShaderGraphProvider for PhysicalSpecularGlossinessMaterialGPU {
         let normal_sample = tex.uniform_and_sample(binding, SB::Material, uv).xyz();
         apply_normal_mapping(builder, normal_sample, uv, uniform.normal_mapping_scale);
       }
+
+      match self.alpha_mode {
+        AlphaMode::Opaque => {}
+        AlphaMode::Mask => {
+          let alpha = alpha
+            .less_than(uniform.alpha_cutoff)
+            .select(consts(0.), alpha);
+          builder.register::<AlphaChannel>(alpha);
+          builder.register::<AlphaCutChannel>(uniform.alpha_cutoff);
+        }
+        AlphaMode::Blend => {
+          builder.register::<AlphaChannel>(alpha);
+          builder.frag_output.iter_mut().for_each(|(_, state)| {
+            state.blend = webgpu::BlendState::ALPHA_BLENDING.into();
+          });
+        }
+      };
 
       builder.register::<ColorChannel>(albedo);
       builder.register::<SpecularChannel>(specular);
@@ -160,6 +183,7 @@ where
       glossiness_texture,
       emissive_texture,
       normal_texture,
+      alpha_mode: self.alpha_mode,
     }
   }
   fn is_keep_mesh_shape(&self) -> bool {
