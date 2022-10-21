@@ -18,6 +18,8 @@ pub mod defer;
 pub use defer::*;
 pub mod tonemap;
 pub use tonemap::*;
+pub mod debug_channels;
+pub use debug_channels::*;
 
 use crate::*;
 
