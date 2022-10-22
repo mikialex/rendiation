@@ -5,6 +5,15 @@ pub struct ScreenChannelDebugger {
   pub channels: Vec<Box<dyn ChannelVisualize>>,
 }
 
+impl ScreenChannelDebugger {
+  pub fn default_useful() -> Self {
+    Self::default()
+      .push_debug_channel(FragmentWorldNormal)
+      .push_debug_channel(FragmentUv)
+      .push_debug_channel(ColorChannel)
+  }
+}
+
 pub trait ChannelVisualize: Any {
   fn to_screen(&self, builder: &ShaderGraphFragmentBuilderView) -> Node<Vec4<f32>>;
 }
@@ -27,25 +36,62 @@ impl ShaderGraphProvider for ScreenChannelDebugger {
     &self,
     builder: &mut ShaderGraphRenderPipelineBuilder,
   ) -> Result<(), ShaderGraphBuildError> {
-    builder.fragment(|builder, binding| {
-      let ndc_position = builder.query::<FragmentNDCPosition>()?;
+    builder.log_result = true;
+    builder.fragment(|builder, _| {
+      let ndc_position = builder.query::<FragmentPosition>()?;
 
-      let mut output = consts(Vec4::new(0., 0., 0., 1.)).mutable();
+      let output = consts(Vec4::new(0., 0., 0., 1.)).mutable();
 
-      let step = 2. / self.channels.len() as f32;
-      let mut start = -1.;
+      let width = builder.query::<RenderBufferSize>()?.x();
+
+      let step = width / consts(self.channels.len() as f32);
+      let start = consts(0.).mutable();
       for channel in &self.channels {
+        let x = ndc_position.x();
+        let start_current = start.get();
+        let start_end = start_current + step;
         if_by(
-          consts(start) <= ndc_position.x() && ndc_position <= consts(start + step),
+          start_current
+            .less_than(x)
+            .and(x.less_or_equal_than(start_end)),
           || {
-            output.set(channel.to_screen(builder));
+            output.set(output.get() + channel.to_screen(builder));
           },
-        )
+        );
+        start.set(start_end);
       }
 
-      builder.set_fragment_out(0, output);
-
-      Ok(())
+      builder.set_fragment_out(0, output.get())
     })
+  }
+}
+
+impl ChannelVisualize for FragmentWorldNormal {
+  fn to_screen(&self, builder: &ShaderGraphFragmentBuilderView) -> Node<Vec4<f32>> {
+    let normal = builder
+      .query::<Self>()
+      .unwrap_or_else(|_| consts(Vec3::zero()));
+
+    (normal * consts(0.5) + consts(Vec3::splat(0.5)), 1.).into()
+  }
+}
+
+impl ChannelVisualize for FragmentUv {
+  fn to_screen(&self, builder: &ShaderGraphFragmentBuilderView) -> Node<Vec4<f32>> {
+    let uv = builder
+      .query::<Self>()
+      .unwrap_or_else(|_| consts(Vec2::zero()));
+
+    (uv, 0., 1.).into()
+  }
+}
+
+impl ChannelVisualize for ColorChannel {
+  fn to_screen(&self, builder: &ShaderGraphFragmentBuilderView) -> Node<Vec4<f32>> {
+    let value = builder
+      .query::<Self>()
+      .unwrap_or_else(|_| consts(Vec3::zero()));
+
+    (value, 1.).into()
   }
 }

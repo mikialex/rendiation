@@ -18,6 +18,7 @@ pub struct ForwardScene<'a> {
   pub lights: &'a ForwardLightingSystem,
   pub shadow: &'a ShadowMapSystem,
   pub tonemap: &'a ToneMap,
+  pub debugger: &'a ScreenChannelDebugger,
 }
 
 impl<'a, S> PassContentWithSceneAndCamera<S> for ForwardScene<'a>
@@ -33,6 +34,7 @@ where
     let dispatcher = ForwardSceneLightingDispatcher {
       base,
       lighting: self,
+      debugger: self.debugger,
       override_shading: None,
       // override_shading: Some(&PhysicalShading),
     };
@@ -45,6 +47,7 @@ pub struct ForwardSceneLightingDispatcher<'a> {
   base: DefaultPassDispatcher,
   lighting: &'a ForwardScene<'a>,
   override_shading: Option<&'static dyn LightableSurfaceShadingDyn>,
+  debugger: &'a ScreenChannelDebugger,
 }
 
 const MAX_SUPPORT_LIGHT_KIND_COUNT: usize = 8;
@@ -82,6 +85,7 @@ impl<'a> ShaderHashProvider for ForwardSceneLightingDispatcher<'a> {
   fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
     self.lighting.lights.light_hash_cache.hash(hasher);
     self.lighting.shadow.hash_pipeline(hasher); // not sure we need cache here, maybe add it later
+    self.debugger.hash_pipeline(hasher); // not sure we need cache here, maybe add it later
     self.override_shading.type_id().hash(hasher);
   }
 }
@@ -144,7 +148,9 @@ impl<'a> ShaderGraphProvider for ForwardSceneLightingDispatcher<'a> {
       };
 
       builder.set_fragment_out(0, (ldr, alpha))
-    })
+    })?;
+
+    self.debugger.build(builder)
   }
 }
 

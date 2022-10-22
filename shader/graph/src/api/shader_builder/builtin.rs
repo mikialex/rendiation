@@ -45,7 +45,7 @@ only_vertex!(ClipPosition, Vec4<f32>);
 
 // fragment input
 both!(FragmentFrontFacing, bool);
-both!(FragmentNDCPosition, Vec4<f32>);
+both!(FragmentPosition, Vec4<f32>);
 both!(FragmentSampleIndex, u32);
 both!(FragmentSampleMaskInput, u32);
 
@@ -79,9 +79,6 @@ only_fragment!(DefaultDisplay, Vec4<f32>);
 both!(FragmentUv, Vec2<f32>);
 both!(FragmentWorldPosition, Vec3<f32>);
 both!(FragmentWorldNormal, Vec3<f32>);
-both!(FragmentAlpha, f32);
-both!(FragmentSpecular, Vec3<f32>);
-both!(FragmentSpecularShininess, f32);
 both!(FragmentColor, Vec3<f32>);
 both!(FragmentColorAndAlpha, Vec4<f32>); // todo remove
 
