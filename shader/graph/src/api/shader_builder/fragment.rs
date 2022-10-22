@@ -93,7 +93,7 @@ impl ShaderGraphFragmentBuilder {
     set_current_building(ShaderStages::Fragment.into());
 
     let frag_ndc = ShaderGraphInputNode::BuiltIn(ShaderBuiltIn::FragmentNDC).insert_graph();
-    result.register::<FragmentNDCPosition>(frag_ndc);
+    result.register::<FragmentPosition>(frag_ndc);
 
     let facing = ShaderGraphInputNode::BuiltIn(ShaderBuiltIn::FragmentFrontFacing).insert_graph();
     result.register::<FragmentFrontFacing>(facing);

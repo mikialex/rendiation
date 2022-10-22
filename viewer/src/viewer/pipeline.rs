@@ -6,6 +6,7 @@ pub struct ViewerPipeline {
   highlight: HighLighter,
   blur: CrossBlurData,
   forward_lights: ForwardLightingSystem,
+  channel_debugger: ScreenChannelDebugger,
   shadows: ShadowMapSystem,
   tonemap: ToneMap,
 }
@@ -16,6 +17,7 @@ impl ViewerPipeline {
       highlight: HighLighter::new(gpu),
       blur: CrossBlurData::new(gpu),
       forward_lights: Default::default(),
+      channel_debugger: ScreenChannelDebugger::default_useful(),
       shadows: ShadowMapSystem::new(gpu),
       tonemap: ToneMap::new(gpu)
     }
@@ -68,8 +70,9 @@ impl ViewerPipeline {
       .by(scene.by_main_camera_and_self(BackGroundRendering))
       .by(scene.by_main_camera_and_self(ForwardScene{
         lights: &self.forward_lights, 
-        shadow: &&self.shadows,
-        tonemap: &self.tonemap
+        shadow: &self.shadows,
+        tonemap: &self.tonemap,
+        debugger: None // Some(&self.channel_debugger)
       }))
       .by(scene.by_main_camera(&mut content.ground));// transparent, should go last
 

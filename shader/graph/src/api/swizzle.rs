@@ -10,14 +10,14 @@ fn swizzle_node<I: ShaderGraphNodeType, T: ShaderGraphNodeType>(
 
 impl<T> Node<T>
 where
-  T: ShaderGraphNodeType + PrimitiveShaderGraphNodeType + Scalar,
+  T: ShaderGraphNodeType + Scalar,
 {
   pub fn splat<V>(&self) -> Node<V>
   where
-    V: Vector<T> + ShaderGraphNodeType,
+    V: Vector<T> + ShaderGraphNodeType + PrimitiveShaderGraphNodeType,
   {
     ShaderGraphNodeExpr::Compose {
-      target: T::PRIMITIVE_TYPE,
+      target: V::PRIMITIVE_TYPE,
       parameters: vec![self.handle()],
     }
     .insert_graph()
