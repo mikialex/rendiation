@@ -72,7 +72,7 @@ impl ViewerPipeline {
         lights: &self.forward_lights, 
         shadow: &self.shadows,
         tonemap: &self.tonemap,
-        debugger: &self.channel_debugger
+        debugger: None // Some(&self.channel_debugger)
       }))
       .by(scene.by_main_camera(&mut content.ground));// transparent, should go last
 
