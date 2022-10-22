@@ -11,6 +11,8 @@ impl ScreenChannelDebugger {
       .push_debug_channel(FragmentWorldNormal)
       .push_debug_channel(FragmentUv)
       .push_debug_channel(ColorChannel)
+      .push_debug_channel(RoughnessChannel)
+      .push_debug_channel(MetallicChannel)
   }
 }
 
@@ -91,6 +93,24 @@ impl ChannelVisualize for ColorChannel {
     let value = builder
       .query::<Self>()
       .unwrap_or_else(|_| consts(Vec3::zero()));
+
+    (value, 1.).into()
+  }
+}
+
+impl ChannelVisualize for RoughnessChannel {
+  fn to_screen(&self, builder: &ShaderGraphFragmentBuilderView) -> Node<Vec4<f32>> {
+    let value = builder.query::<Self>().unwrap_or_else(|_| consts(0.));
+    let value: Node<Vec3<f32>> = value.splat();
+
+    (value, 1.).into()
+  }
+}
+
+impl ChannelVisualize for MetallicChannel {
+  fn to_screen(&self, builder: &ShaderGraphFragmentBuilderView) -> Node<Vec4<f32>> {
+    let value = builder.query::<Self>().unwrap_or_else(|_| consts(0.));
+    let value: Node<Vec3<f32>> = value.splat();
 
     (value, 1.).into()
   }
