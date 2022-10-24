@@ -100,6 +100,7 @@
         "Rendium",
         "renormalize",
         "repr",
+        "reproject",
         "rgba",
         "rustfmt",
         "SceneDrawcall",
