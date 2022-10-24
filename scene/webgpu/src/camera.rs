@@ -74,7 +74,11 @@ impl ShaderGraphProvider for CameraGPU {
     builder.vertex(|builder, _| {
       let camera = camera.using().expand();
       let position = builder.query::<WorldVertexPosition>()?;
-      builder.register::<ClipPosition>(camera.view_projection * (position, 1.).into());
+
+      let jitter = builder.query::<TexelSize>()? * camera.jitter_normalized;
+      let jitter = (jitter, 0., 0.).into();
+
+      builder.register::<ClipPosition>(camera.view_projection * (position, 1.).into() + jitter);
 
       Ok(())
     })
@@ -95,6 +99,8 @@ pub struct CameraGPUTransform {
 
   pub view_projection: Mat4<f32>,
   pub view_projection_inv: Mat4<f32>,
+
+  pub jitter_normalized: Vec2<f32>,
 }
 
 impl CameraGPUTransform {
@@ -107,6 +113,7 @@ impl CameraGPUTransform {
     r.projection_inv = proj.inverse_or_identity();
     r.view_projection = proj * r.view;
     r.view_projection_inv = r.view_projection.inverse_or_identity();
+    r.jitter_normalized = Vec2::zero();
     r
   }
 }

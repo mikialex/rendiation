@@ -86,6 +86,7 @@ impl Default for ViewerImpl {
           // path,
           // "C:/Users/mk/Desktop/develop/glTF-Sample-Models/2.0/Suzanne/glTF/Suzanne.gltf",
           "C:/Users/mk/Desktop/develop/glTF-Sample-Models/2.0/Sponza/glTF/Sponza.gltf",
+          // "C:/Users/mk/Desktop/develop/glTF-Sample-Models/2.0/DamagedHelmet/glTF/DamagedHelmet.gltf",
           // "/Users/mikialex/dev/glTF-Sample-Models/2.0/Box/glTF/Box.gltf",
           &mut viewer.scene,
         )
