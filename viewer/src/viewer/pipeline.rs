@@ -4,6 +4,7 @@ use crate::*;
 
 pub struct ViewerPipeline {
   highlight: HighLighter,
+  taa: TAA,
   blur: CrossBlurData,
   forward_lights: ForwardLightingSystem,
   channel_debugger: ScreenChannelDebugger,
@@ -16,6 +17,7 @@ impl ViewerPipeline {
     Self {
       highlight: HighLighter::new(gpu),
       blur: CrossBlurData::new(gpu),
+      taa: TAA::new(gpu),
       forward_lights: Default::default(),
       channel_debugger: ScreenChannelDebugger::default_useful(),
       shadows: ShadowMapSystem::new(gpu),
@@ -34,7 +36,7 @@ impl ViewerPipeline {
   ) {
     let scene = &mut content.scene;
 
-    LightUpdateCtx{
+    LightUpdateCtx {
       forward: &mut self.forward_lights,
       shadows: &mut self.shadows,
       ctx,
@@ -68,22 +70,28 @@ impl ViewerPipeline {
       .with_depth(scene_depth.write(), clear(1.))
       .render(ctx)
       .by(scene.by_main_camera_and_self(BackGroundRendering))
-      .by(scene.by_main_camera_and_self(ForwardScene{
+      .by(scene.by_main_camera_and_self(ForwardScene {
         lights: &self.forward_lights, 
         shadow: &self.shadows,
         tonemap: &self.tonemap,
         debugger: None // Some(&self.channel_debugger)
       }))
-      .by(scene.by_main_camera(&mut content.ground));// transparent, should go last
+      .by(scene.by_main_camera(&mut content.ground)); // transparent, should go last
 
 
     // let scene_result = draw_cross_blur(&self.blur, scene_result.read_into(), ctx);
 
+    let taa_result = self.taa.resolve(
+      &scene_result, 
+      &scene_depth, 
+      ctx, 
+      scene.active_camera.as_ref().unwrap()
+    );
 
     pass("compose-all")
       .with_color(final_target, load())
       .render(ctx)
-      .by(copy_frame(scene_result.read_into(), None))
+      .by(copy_frame(taa_result.read(), None))
       .by(highlight_compose)
       .by(copy_frame(widgets_result.read_into(), BlendState::PREMULTIPLIED_ALPHA_BLENDING.into()));
   }
