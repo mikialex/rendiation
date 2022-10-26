@@ -7,6 +7,7 @@ pub struct ViewerPipeline {
   taa: TAA,
   blur: CrossBlurData,
   forward_lights: ForwardLightingSystem,
+  enable_channel_debugger: bool,
   channel_debugger: ScreenChannelDebugger,
   shadows: ShadowMapSystem,
   tonemap: ToneMap,
@@ -19,6 +20,7 @@ impl ViewerPipeline {
       blur: CrossBlurData::new(gpu),
       taa: TAA::new(gpu),
       forward_lights: Default::default(),
+      enable_channel_debugger: false,
       channel_debugger: ScreenChannelDebugger::default_useful(),
       shadows: ShadowMapSystem::new(gpu),
       tonemap: ToneMap::new(gpu)
@@ -35,6 +37,10 @@ impl ViewerPipeline {
     final_target: RenderTargetView,
   ) {
     let scene = &mut content.scene;
+
+    let jitter = self.taa.next_jitter();
+    ctx.resources.cameras.check_update_gpu(scene.active_camera.as_ref().unwrap(), ctx.gpu).ubo.resource
+      .mutate(|uniform| uniform.set_jitter(jitter));
 
     LightUpdateCtx {
       forward: &mut self.forward_lights,
@@ -74,7 +80,7 @@ impl ViewerPipeline {
         lights: &self.forward_lights, 
         shadow: &self.shadows,
         tonemap: &self.tonemap,
-        debugger: None // Some(&self.channel_debugger)
+        debugger: self.enable_channel_debugger.then_some(&self.channel_debugger)
       }))
       .by(scene.by_main_camera(&mut content.ground)); // transparent, should go last
 

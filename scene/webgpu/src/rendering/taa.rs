@@ -23,8 +23,10 @@ impl TAA {
     }
   }
 
-  pub fn next_jitter(&mut self) -> Vec2<f32>{
-    self.jitters[self.frame_index % SAMPLE_COUNT]
+  pub fn next_jitter(&mut self) -> Vec2<f32> {
+    let r = self.jitters[self.frame_index % SAMPLE_COUNT];
+    self.frame_index += 1;
+    r
   }
 
   pub fn resolve(
@@ -169,5 +171,5 @@ fn halton(index: usize, base: usize) -> f32 {
 }
 
 fn halton23(index: usize) -> Vec2<f32> {
-  Vec2::new(halton(index + 1, 2), halton(index + 1, 3))
+  Vec2::new(halton(index + 1, 2), halton(index + 1, 3)) - Vec2::one()
 }
