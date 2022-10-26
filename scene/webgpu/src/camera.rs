@@ -100,6 +100,7 @@ pub struct CameraGPUTransform {
   pub view_projection: Mat4<f32>,
   pub view_projection_inv: Mat4<f32>,
 
+  /// -0.5 to 0.5
   pub jitter_normalized: Vec2<f32>,
 }
 

@@ -2,8 +2,12 @@
 
 use crate::*;
 
+const SAMPLE_COUNT: usize = 32;
+
 pub struct TAA {
-  history: Attachment,
+  frame_index: usize,
+  jitters: Vec<Vec2<f32>>,
+  history: Option<Attachment>,
   current_camera: CameraGPU,
   previous_camera: CameraGPU,
 }
@@ -11,11 +15,18 @@ pub struct TAA {
 impl TAA {
   pub fn new(gpu: &GPU) -> Self {
     Self {
-      history: todo!(),
-      current_camera: todo!(),
-      previous_camera: todo!(),
+      frame_index: 0,
+      jitters: (0..SAMPLE_COUNT).into_iter().map(halton23).collect(),
+      history: None,
+      current_camera: CameraGPU::new(gpu),
+      previous_camera: CameraGPU::new(gpu),
     }
   }
+
+  pub fn next_jitter(&mut self) -> Vec2<f32>{
+    self.jitters[self.frame_index % SAMPLE_COUNT]
+  }
+
   pub fn resolve(
     &mut self,
     new_color: &Attachment,
@@ -45,12 +56,18 @@ impl TAA {
       .format(webgpu::TextureFormat::Rgba8Unorm)
       .request(ctx);
 
+    let history = self.history.get_or_insert_with(|| {
+      attachment()
+        .format(webgpu::TextureFormat::Rgba8Unorm)
+        .request(ctx)
+    });
+
     pass("taa-resolve")
       .with_color(resolve_target.write(), load())
       .render(ctx)
       .by(
         TAAResolver {
-          history: self.history.read(),
+          history: history.read(),
           new_color: new_color.read(),
           new_depth: new_depth.read(),
           current_camera: &self.current_camera,
@@ -61,9 +78,9 @@ impl TAA {
 
     // note, if the history size different than current, it's still works fine
     // and the history will be correct update to new size
-    std::mem::swap(&mut self.history, &mut resolve_target);
+    std::mem::swap(history, &mut resolve_target);
 
-    &self.history
+    history
   }
 }
 
@@ -132,4 +149,25 @@ impl<'a> ShaderHashProviderAny for TAAResolver<'a> {
     struct Marker;
     Marker.type_id().hash(hasher)
   }
+}
+
+fn halton(index: usize, base: usize) -> f32 {
+  let mut f = 1.;
+  let mut r = 0.;
+  let mut current = index;
+
+  loop {
+    f /= base as f32;
+    r += f * (current % base) as f32;
+    current = (current as f32 / base as f32).floor() as usize;
+    if current == 0 {
+      break;
+    }
+  }
+
+  r
+}
+
+fn halton23(index: usize) -> Vec2<f32> {
+  Vec2::new(halton(index + 1, 2), halton(index + 1, 3))
 }

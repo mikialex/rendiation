@@ -76,7 +76,10 @@ impl AsRef<Attachment> for Attachment {
 impl Drop for Attachment {
   fn drop(&mut self) {
     let mut pool = self.pool.inner.borrow_mut();
-    let pool = pool.attachments.get_mut(&self.key).unwrap();
+    let pool = pool
+      .attachments
+      .entry(self.key) // maybe not exist when entire pool cleared when resize
+      .or_insert_with(Default::default);
     pool.cached.push(self.texture.clone())
   }
 }
