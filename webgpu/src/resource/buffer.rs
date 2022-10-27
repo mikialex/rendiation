@@ -140,10 +140,18 @@ impl<T: Std140> UniformBufferData<T> {
     }
   }
 
-  pub fn mutate(&self, f: impl Fn(&mut T)) {
+  pub fn mutate(&self, f: impl Fn(&mut T)) -> &Self {
     let mut data = self.data.borrow_mut();
     f(&mut data);
     self.changed.set(true);
+    self
+  }
+
+  pub fn copy_cpu(&self, other: &Self) -> &Self {
+    let mut data = self.data.borrow_mut();
+    *data = *other.data.borrow();
+    self.changed.set(true);
+    self
   }
 
   pub fn get(&self) -> T {

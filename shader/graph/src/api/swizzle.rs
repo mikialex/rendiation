@@ -78,22 +78,6 @@ macro_rules! num_cast {
 
 num_cast!(u32, f32);
 
-impl<A, B> From<(A, B)> for Node<Vec4<f32>>
-where
-  A: Into<Node<Vec3<f32>>>,
-  B: Into<Node<f32>>,
-{
-  fn from((a, b): (A, B)) -> Self {
-    let a = a.into().handle();
-    let b = b.into().handle();
-    ShaderGraphNodeExpr::Compose {
-      target: Vec4::<f32>::PRIMITIVE_TYPE,
-      parameters: vec![a, b],
-    }
-    .insert_graph()
-  }
-}
-
 macro_rules! impl_from {
   ( { $($field: tt: $constraint: ty),+ }, $type_merged:ty) => {
     impl< $($field),+ > From<( $($field),+ )> for Node<$type_merged>
@@ -114,6 +98,7 @@ macro_rules! impl_from {
 
 impl_from!({ A: f32, B: f32, C: f32, D: f32 }, Vec4<f32>);
 impl_from!({ A: Vec2<f32>, B: f32, C: f32 }, Vec4<f32>);
+impl_from!({ A: Vec3<f32>, B: f32 }, Vec4<f32>);
 
 impl_from!({ A: f32, B: f32, C: f32 }, Vec3<f32>);
 

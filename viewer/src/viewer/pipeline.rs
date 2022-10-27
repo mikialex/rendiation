@@ -4,8 +4,10 @@ use crate::*;
 
 pub struct ViewerPipeline {
   highlight: HighLighter,
+  taa: TAA,
   blur: CrossBlurData,
   forward_lights: ForwardLightingSystem,
+  enable_channel_debugger: bool,
   channel_debugger: ScreenChannelDebugger,
   shadows: ShadowMapSystem,
   tonemap: ToneMap,
@@ -16,7 +18,9 @@ impl ViewerPipeline {
     Self {
       highlight: HighLighter::new(gpu),
       blur: CrossBlurData::new(gpu),
+      taa: TAA::new(gpu),
       forward_lights: Default::default(),
+      enable_channel_debugger: false,
       channel_debugger: ScreenChannelDebugger::default_useful(),
       shadows: ShadowMapSystem::new(gpu),
       tonemap: ToneMap::new(gpu)
@@ -34,7 +38,7 @@ impl ViewerPipeline {
   ) {
     let scene = &mut content.scene;
 
-    LightUpdateCtx{
+    LightUpdateCtx {
       forward: &mut self.forward_lights,
       shadows: &mut self.shadows,
       ctx,
@@ -63,27 +67,39 @@ impl ViewerPipeline {
 
     let mut scene_result = attachment().request(ctx);
 
+    let jitter = self.taa.next_jitter();
+    let gpu = ctx.resources.cameras.check_update_gpu(scene.active_camera.as_ref().unwrap(), ctx.gpu);
+    gpu.ubo.resource.mutate(|uniform| uniform.set_jitter(jitter)).upload(&ctx.gpu.queue);
+    gpu.enable_jitter = true;
+
     pass("scene")
       .with_color(scene_result.write(), get_main_pass_load_op(scene))
       .with_depth(scene_depth.write(), clear(1.))
       .render(ctx)
       .by(scene.by_main_camera_and_self(BackGroundRendering))
-      .by(scene.by_main_camera_and_self(ForwardScene{
+      .by(scene.by_main_camera_and_self(ForwardScene {
         lights: &self.forward_lights, 
         shadow: &self.shadows,
         tonemap: &self.tonemap,
-        debugger: None // Some(&self.channel_debugger)
+        debugger: self.enable_channel_debugger.then_some(&self.channel_debugger)
       }))
-      .by(scene.by_main_camera(&mut content.ground));// transparent, should go last
-
+      .by(scene.by_main_camera(&mut content.ground)); // transparent, should go last
+      
+    ctx.resources.cameras.check_update_gpu(scene.active_camera.as_ref().unwrap(), ctx.gpu).enable_jitter = false;
 
     // let scene_result = draw_cross_blur(&self.blur, scene_result.read_into(), ctx);
 
+    let taa_result = self.taa.resolve(
+      &scene_result, 
+      &scene_depth, 
+      ctx, 
+      scene.active_camera.as_ref().unwrap()
+    );
 
     pass("compose-all")
       .with_color(final_target, load())
       .render(ctx)
-      .by(copy_frame(scene_result.read_into(), None))
+      .by(copy_frame(taa_result.read(), None))
       .by(highlight_compose)
       .by(copy_frame(widgets_result.read_into(), BlendState::PREMULTIPLIED_ALPHA_BLENDING.into()));
   }

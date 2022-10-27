@@ -35,7 +35,7 @@ impl std::ops::DerefMut for CameraGPUStore {
 }
 
 impl CameraGPUStore {
-  pub fn check_update_gpu(&mut self, camera: &SceneCamera, gpu: &GPU) -> &CameraGPU {
+  pub fn check_update_gpu(&mut self, camera: &SceneCamera, gpu: &GPU) -> &mut CameraGPU {
     let camera = camera.read();
     self.get_update_or_insert_with(
       &camera,
@@ -53,10 +53,15 @@ impl CameraGPUStore {
 }
 
 pub struct CameraGPU {
+  pub enable_jitter: bool,
   pub ubo: UniformBufferDataView<CameraGPUTransform>,
 }
 
-impl ShaderHashProvider for CameraGPU {}
+impl ShaderHashProvider for CameraGPU {
+  fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
+    self.enable_jitter.hash(hasher)
+  }
+}
 
 impl ShaderPassBuilder for CameraGPU {
   fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
@@ -74,7 +79,20 @@ impl ShaderGraphProvider for CameraGPU {
     builder.vertex(|builder, _| {
       let camera = camera.using().expand();
       let position = builder.query::<WorldVertexPosition>()?;
-      builder.register::<ClipPosition>(camera.view_projection * (position, 1.).into());
+
+      let mut clip_position = camera.view_projection * (position, 1.).into();
+
+      if self.enable_jitter {
+        let jitter = if let Ok(texel_size) = builder.query::<TexelSize>() {
+          let jitter = texel_size * camera.jitter_normalized * clip_position.w();
+          (jitter, 0., 0.).into()
+        } else {
+          Vec4::zero().into()
+        };
+        clip_position += jitter;
+      }
+
+      builder.register::<ClipPosition>(clip_position);
 
       Ok(())
     })
@@ -95,19 +113,32 @@ pub struct CameraGPUTransform {
 
   pub view_projection: Mat4<f32>,
   pub view_projection_inv: Mat4<f32>,
+
+  /// -0.5 to 0.5
+  pub jitter_normalized: Vec2<f32>,
 }
 
 impl CameraGPUTransform {
-  pub fn from_proj_and_world(proj: Mat4<f32>, world: Mat4<f32>) -> Self {
-    let mut r = Self::default();
-    r.world = world;
-    r.view = world.inverse_or_identity();
-    r.rotation = world.extract_rotation_mat();
-    r.projection = proj;
-    r.projection_inv = proj.inverse_or_identity();
-    r.view_projection = proj * r.view;
-    r.view_projection_inv = r.view_projection.inverse_or_identity();
-    r
+  pub fn clear_jitter(&mut self) {
+    self.jitter_normalized = Vec2::zero();
+  }
+  pub fn set_jitter(&mut self, jitter_normalized: Vec2<f32>) {
+    self.jitter_normalized = jitter_normalized;
+  }
+
+  pub fn update_by_proj_and_world(&mut self, proj: Mat4<f32>, world: Mat4<f32>) {
+    self.world = world;
+    self.view = world.inverse_or_identity();
+    self.rotation = world.extract_rotation_mat();
+    self.projection = proj;
+    self.projection_inv = proj.inverse_or_identity();
+    self.view_projection = proj * self.view;
+    self.view_projection_inv = self.view_projection.inverse_or_identity();
+  }
+
+  pub fn update_by_scene_camera(&mut self, camera: &SceneCameraInner) {
+    let world_matrix = camera.node.visit(|node| node.world_matrix);
+    self.update_by_proj_and_world(camera.projection_matrix, world_matrix);
   }
 }
 
@@ -130,10 +161,10 @@ impl CameraGPU {
   }
 
   pub fn update(&mut self, gpu: &GPU, camera: &SceneCameraInner) -> &mut Self {
-    self.ubo.resource.mutate(|uniform| {
-      let world_matrix = camera.node.visit(|node| node.world_matrix);
-      *uniform = CameraGPUTransform::from_proj_and_world(camera.projection_matrix, world_matrix);
-    });
+    self
+      .ubo
+      .resource
+      .mutate(|uniform| uniform.update_by_scene_camera(camera));
 
     self.ubo.resource.upload(&gpu.queue);
     self
@@ -141,6 +172,7 @@ impl CameraGPU {
 
   pub fn new(gpu: &GPU) -> Self {
     Self {
+      enable_jitter: false,
       ubo: create_uniform(CameraGPUTransform::default(), gpu),
     }
   }

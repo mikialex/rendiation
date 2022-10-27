@@ -20,6 +20,8 @@ pub mod tonemap;
 pub use tonemap::*;
 pub mod debug_channels;
 pub use debug_channels::*;
+pub mod taa;
+pub use taa::*;
 
 use crate::*;
 
