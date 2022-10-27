@@ -126,18 +126,52 @@ impl<'a> ShaderGraphProvider for TAAResolver<'a> {
       let reproject_uv = position_in_previous_ndc.xy() * consts(0.5) + consts(Vec2::splat(0.5));
       let previous = history.sample(sampler, reproject_uv);
 
-      let new = new.sample(sampler, uv);
+      let texel_size = builder.query::<TexelSize>()?;
+      let previous_clamped = clamp_color(new, sampler, texel_size, uv, previous.xyz());
 
-      let output = new * consts(0.1) + previous * consts(0.9);
+      let new = new.sample(sampler, uv).xyz();
 
-      builder.set_fragment_out(0, output)
+      let ratio = 0.1;
+
+      let output = new * consts(ratio) + previous_clamped * consts(1. - ratio);
+
+      builder.set_fragment_out(0, (output, 1.))
     })
   }
 }
 
+wgsl_fn!(
+  fn clamp_color(
+    tex: texture_2d<f32>,
+    sp: sampler,
+    texel_size: vec2<f32>,
+    position: vec2<f32>,
+    previous: vec3<f32>,
+  ) -> vec3<f32> {
+    var minC = vec3<f32>(1.);
+    var maxC = vec3<f32>(0.);
+
+    for(var i: i32 = -1; i <= 1; i++) {
+      for(var j: i32 = -1; j <= 1; j++) {
+        var sample = textureSample(tex, sp, position + vec2<f32>(f32(i),f32(j)) / texel_size).xyz;
+        minC = min(minC, sample); maxC = max(maxC, sample);
+      }
+    }
+
+    return clamp(previous, minC, maxC);
+  }
+);
+
 impl<'a> ShaderPassBuilder for TAAResolver<'a> {
   fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
-    ctx.bind_immediate_sampler(&TextureSampler::default(), SB::Material);
+    ctx.bind_immediate_sampler(
+      &TextureSampler {
+        min_filter: rendiation_texture::FilterMode::Linear,
+        mag_filter: rendiation_texture::FilterMode::Linear,
+        ..Default::default()
+      },
+      SB::Material,
+    );
     ctx.binding.bind(&self.history, SB::Material);
     ctx.binding.bind(&self.new_color, SB::Material);
     ctx.binding.bind(&self.new_depth, SB::Material);
