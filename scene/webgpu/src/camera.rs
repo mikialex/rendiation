@@ -77,8 +77,12 @@ impl ShaderGraphProvider for CameraGPU {
 
       let clip_position = camera.view_projection * (position, 1.).into();
 
-      let jitter = builder.query::<TexelSize>()? * camera.jitter_normalized * clip_position.w();
-      let jitter = (jitter, 0., 0.).into();
+      let jitter = if let Ok(texel_size) = builder.query::<TexelSize>() {
+        let jitter = texel_size * camera.jitter_normalized * clip_position.w();
+        (jitter, 0., 0.).into()
+      } else {
+        Vec4::zero().into()
+      };
 
       builder.register::<ClipPosition>(clip_position + jitter);
 
