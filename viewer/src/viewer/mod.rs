@@ -138,7 +138,7 @@ impl Viewer3dRenderingCtx {
 
     self.pipeline.render(&mut ctx, content, target);
 
-    ctx.submit()
+    ctx.final_submit()
   }
 }
 

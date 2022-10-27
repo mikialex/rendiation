@@ -35,7 +35,7 @@ impl std::ops::DerefMut for CameraGPUStore {
 }
 
 impl CameraGPUStore {
-  pub fn check_update_gpu(&mut self, camera: &SceneCamera, gpu: &GPU) -> &CameraGPU {
+  pub fn check_update_gpu(&mut self, camera: &SceneCamera, gpu: &GPU) -> &mut CameraGPU {
     let camera = camera.read();
     self.get_update_or_insert_with(
       &camera,
@@ -53,10 +53,15 @@ impl CameraGPUStore {
 }
 
 pub struct CameraGPU {
+  pub enable_jitter: bool,
   pub ubo: UniformBufferDataView<CameraGPUTransform>,
 }
 
-impl ShaderHashProvider for CameraGPU {}
+impl ShaderHashProvider for CameraGPU {
+  fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
+    self.enable_jitter.hash(hasher)
+  }
+}
 
 impl ShaderPassBuilder for CameraGPU {
   fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
@@ -75,16 +80,19 @@ impl ShaderGraphProvider for CameraGPU {
       let camera = camera.using().expand();
       let position = builder.query::<WorldVertexPosition>()?;
 
-      let clip_position = camera.view_projection * (position, 1.).into();
+      let mut clip_position = camera.view_projection * (position, 1.).into();
 
-      let jitter = if let Ok(texel_size) = builder.query::<TexelSize>() {
-        let jitter = texel_size * camera.jitter_normalized * clip_position.w();
-        (jitter, 0., 0.).into()
-      } else {
-        Vec4::zero().into()
-      };
+      if self.enable_jitter {
+        let jitter = if let Ok(texel_size) = builder.query::<TexelSize>() {
+          let jitter = texel_size * camera.jitter_normalized * clip_position.w();
+          (jitter, 0., 0.).into()
+        } else {
+          Vec4::zero().into()
+        };
+        clip_position += jitter;
+      }
 
-      builder.register::<ClipPosition>(clip_position + jitter);
+      builder.register::<ClipPosition>(clip_position);
 
       Ok(())
     })
@@ -111,7 +119,7 @@ pub struct CameraGPUTransform {
 }
 
 impl CameraGPUTransform {
-  pub fn reset_jitter(&mut self) {
+  pub fn clear_jitter(&mut self) {
     self.jitter_normalized = Vec2::zero();
   }
   pub fn set_jitter(&mut self, jitter_normalized: Vec2<f32>) {
@@ -164,6 +172,7 @@ impl CameraGPU {
 
   pub fn new(gpu: &GPU) -> Self {
     Self {
+      enable_jitter: false,
       ubo: create_uniform(CameraGPUTransform::default(), gpu),
     }
   }

@@ -38,10 +38,6 @@ impl ViewerPipeline {
   ) {
     let scene = &mut content.scene;
 
-    let jitter = self.taa.next_jitter();
-    ctx.resources.cameras.check_update_gpu(scene.active_camera.as_ref().unwrap(), ctx.gpu).ubo.resource
-      .mutate(|uniform| uniform.set_jitter(jitter));
-
     LightUpdateCtx {
       forward: &mut self.forward_lights,
       shadows: &mut self.shadows,
@@ -71,6 +67,11 @@ impl ViewerPipeline {
 
     let mut scene_result = attachment().request(ctx);
 
+    let jitter = self.taa.next_jitter();
+    let gpu = ctx.resources.cameras.check_update_gpu(scene.active_camera.as_ref().unwrap(), ctx.gpu);
+    gpu.ubo.resource.mutate(|uniform| uniform.set_jitter(jitter)).upload(&ctx.gpu.queue);
+    gpu.enable_jitter = true;
+
     pass("scene")
       .with_color(scene_result.write(), get_main_pass_load_op(scene))
       .with_depth(scene_depth.write(), clear(1.))
@@ -83,7 +84,8 @@ impl ViewerPipeline {
         debugger: self.enable_channel_debugger.then_some(&self.channel_debugger)
       }))
       .by(scene.by_main_camera(&mut content.ground)); // transparent, should go last
-
+      
+    ctx.resources.cameras.check_update_gpu(scene.active_camera.as_ref().unwrap(), ctx.gpu).enable_jitter = false;
 
     // let scene_result = draw_cross_blur(&self.blur, scene_result.read_into(), ctx);
 

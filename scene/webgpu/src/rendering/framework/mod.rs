@@ -36,7 +36,13 @@ impl<'a> FrameCtx<'a> {
     }
   }
 
-  pub fn submit(self) {
+  pub fn make_submit(&mut self) {
+    let mut encoder = self.gpu.create_encoder();
+    std::mem::swap(&mut self.encoder, &mut encoder);
+    self.gpu.submit_encoder(encoder)
+  }
+
+  pub fn final_submit(self) {
     self.gpu.submit_encoder(self.encoder)
   }
 
