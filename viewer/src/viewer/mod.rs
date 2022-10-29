@@ -3,6 +3,7 @@ use std::rc::Rc;
 pub mod default_scene;
 pub use default_scene::*;
 pub mod pipeline;
+use futures::future;
 pub use pipeline::*;
 
 pub mod controller;
@@ -91,6 +92,8 @@ impl Default for ViewerImpl {
           &mut viewer.scene,
         )
         .unwrap();
+
+        Box::new(future::ready(()))
       });
 
     viewer

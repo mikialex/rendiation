@@ -1,4 +1,5 @@
 // https://www.elopezr.com/temporal-aa-and-the-quest-for-the-holy-trail/#more-3285
+// https://sugulee.wordpress.com/2021/06/21/temporal-anti-aliasingtaa-tutorial/
 
 use crate::*;
 

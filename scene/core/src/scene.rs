@@ -73,6 +73,10 @@ impl<S: SceneContent> Scene<S> {
     }
   }
 
+  pub fn get_active_camera(&self) -> &SceneCamera {
+    self.active_camera.as_ref().unwrap()
+  }
+
   pub fn maintain(&mut self) {
     let mut nodes = self.nodes.write().unwrap();
     let root = nodes.root;

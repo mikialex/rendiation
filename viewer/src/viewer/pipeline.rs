@@ -63,12 +63,12 @@ impl ViewerPipeline {
       .by(scene.by_main_camera_and_self(&mut content.camera_helpers));
 
     let highlight_compose = (!content.selections.is_empty())
-    .then(|| self.highlight.draw(&content.selections, ctx, scene.active_camera.as_ref().unwrap()));
+    .then(|| self.highlight.draw(&content.selections, ctx, scene.get_active_camera()));
 
     let mut scene_result = attachment().request(ctx);
 
     let jitter = self.taa.next_jitter();
-    let gpu = ctx.resources.cameras.check_update_gpu(scene.active_camera.as_ref().unwrap(), ctx.gpu);
+    let gpu = ctx.resources.cameras.check_update_gpu(scene.get_active_camera(), ctx.gpu);
     gpu.ubo.resource.mutate(|uniform| uniform.set_jitter(jitter)).upload(&ctx.gpu.queue);
     gpu.enable_jitter = true;
 
@@ -85,7 +85,7 @@ impl ViewerPipeline {
       }))
       .by(scene.by_main_camera(&mut content.ground)); // transparent, should go last
       
-    ctx.resources.cameras.check_update_gpu(scene.active_camera.as_ref().unwrap(), ctx.gpu).enable_jitter = false;
+    ctx.resources.cameras.check_update_gpu(scene.get_active_camera(), ctx.gpu).enable_jitter = false;
 
     // let scene_result = draw_cross_blur(&self.blur, scene_result.read_into(), ctx);
 
@@ -93,7 +93,7 @@ impl ViewerPipeline {
       &scene_result, 
       &scene_depth, 
       ctx, 
-      scene.active_camera.as_ref().unwrap()
+      scene.get_active_camera()
     );
 
     pass("compose-all")

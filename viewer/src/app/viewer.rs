@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 
+use futures::{executor::block_on, Future};
 use interphaser::{winit::event::VirtualKeyCode, *};
 
 use crate::{menu, MenuList, MenuModel, UIExamples, Viewer3dContent, ViewerImpl};
@@ -84,8 +85,11 @@ pub struct Terminal {
   pub command_history: Vec<String>,
   pub current_command_editing: String,
   pub command_to_execute: Option<String>,
-  pub executor: HashMap<String, Box<dyn Fn(&mut Viewer3dContent, &mut Vec<String>)>>,
+  pub executor: HashMap<String, TerminalCommandCb>,
 }
+
+type TerminalCommandCb =
+  Box<dyn Fn(&mut Viewer3dContent, &mut Vec<String>) -> Box<dyn Future<Output = ()> + Unpin>>;
 
 impl Terminal {
   pub fn mark_execute(&mut self) {
@@ -96,7 +100,7 @@ impl Terminal {
   pub fn register_command(
     &mut self,
     name: impl AsRef<str>,
-    f: impl Fn(&mut Viewer3dContent, &mut Vec<String>) + 'static,
+    f: impl Fn(&mut Viewer3dContent, &mut Vec<String>) -> Box<dyn Future<Output = ()> + Unpin> + 'static,
   ) -> &mut Self {
     self.executor.insert(name.as_ref().to_owned(), Box::new(f));
     self
@@ -112,7 +116,7 @@ impl Terminal {
       if let Some(first) = parameters.first() {
         if let Some(exe) = self.executor.get(first) {
           println!("execute: {}", command);
-          exe(content, &mut parameters)
+          block_on(exe(content, &mut parameters))
         } else {
           println!("unknown command {}", first)
         }
