@@ -81,17 +81,15 @@ impl Default for ViewerImpl {
     viewer
       .terminal
       .register_command("load-gltf", |viewer, _parameters| {
-        // let path = parameters.first().unwrap();
+        use rfd::FileDialog;
 
-        rendiation_scene_gltf_loader::load_gltf_test(
-          // path,
-          // "C:/Users/mk/Desktop/develop/glTF-Sample-Models/2.0/Suzanne/glTF/Suzanne.gltf",
-          "C:/Users/mk/Desktop/develop/glTF-Sample-Models/2.0/Sponza/glTF/Sponza.gltf",
-          // "C:/Users/mk/Desktop/develop/glTF-Sample-Models/2.0/DamagedHelmet/glTF/DamagedHelmet.gltf",
-          // "/Users/mikialex/dev/glTF-Sample-Models/2.0/Box/glTF/Box.gltf",
-          &mut viewer.scene,
-        )
-        .unwrap();
+        let file_path = FileDialog::new()
+          .add_filter("gltf", &["gltf", "glb"])
+          .pick_file();
+
+        if let Some(file_path) = file_path {
+          rendiation_scene_gltf_loader::load_gltf_test(file_path, &mut viewer.scene).unwrap();
+        }
 
         Box::new(future::ready(()))
       });
