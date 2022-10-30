@@ -1279,6 +1279,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "incremental"
+version = "0.0.1"
+
+[[package]]
 name = "indexmap"
 version = "1.6.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2947,6 +2951,7 @@ dependencies = [
 name = "tree"
 version = "0.0.1"
 dependencies = [
+ "incremental",
  "rendiation-abstract-tree",
  "storage",
 ]

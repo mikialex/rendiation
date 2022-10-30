@@ -2,6 +2,7 @@
 members = [
   "math/algebra",
   "math/geometry",
+  "utils/incremental",
   "utils/arena",
   "utils/arena-graph",
   "utils/tree",

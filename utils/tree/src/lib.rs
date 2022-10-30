@@ -3,6 +3,8 @@ pub use rendiation_abstract_tree::*;
 use storage::{generational::Arena, *};
 
 mod abst;
+mod inc;
+pub use inc::TreeMutation;
 
 pub struct TreeCollection<T> {
   nodes: Storage<TreeNode<T>, Arena<TreeNode<T>>>,
