@@ -117,6 +117,7 @@
         "spirv",
         "splitn",
         "SRGB",
+        "SSAO",
         "structor",
         "Subpixel",
         "swapchain",
