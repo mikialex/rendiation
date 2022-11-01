@@ -2,14 +2,34 @@ use crate::*;
 
 // https://github.com/lettier/3d-game-shaders-for-beginners/blob/master/sections/ssao.md
 
+const MAX_SAMPLE: usize = 64;
+const MAX_NOISE: usize = 64;
+
 pub struct SSAO {
-  //
+  parameters: UniformBufferDataView<SSAOParameter>,
+  samples: UniformBufferDataView<Shader140Array<f32, MAX_SAMPLE>>,
+  noises: UniformBufferDataView<Shader140Array<f32, MAX_NOISE>>,
+}
+
+impl SSAO {
+  pub fn new(gpu: &GPU) -> Self {
+    let parameters = create_uniform(SSAOParameter::default(), gpu);
+
+    let samples = todo!();
+    let noises = todo!();
+
+    Self {
+      parameters,
+      samples,
+      noises,
+    }
+  }
 }
 
 #[repr(C)]
 #[std140_layout]
 #[derive(Clone, Copy, ShaderStruct)]
-struct SSAOParameter {
+pub struct SSAOParameter {
   pub radius: f32,
   pub bias: f32,
   pub magnitude: f32,
@@ -31,7 +51,7 @@ impl Default for SSAOParameter {
 struct AOComputer<'a> {
   normal: AttachmentView<&'a Attachment>,
   depth: AttachmentView<&'a Attachment>,
-  parameter: &'a UniformBufferData<SSAOParameter>,
+  parameter: &'a UniformBufferDataView<SSAOParameter>,
 }
 
 impl<'a> ShaderHashProvider for AOComputer<'a> {}
@@ -44,24 +64,26 @@ impl<'a> ShaderHashProviderAny for AOComputer<'a> {
 impl<'a> ShaderPassBuilder for AOComputer<'a> {}
 impl<'a> ShaderGraphProvider for AOComputer<'a> {}
 
-pub fn ssao(ctx: &mut FrameCtx, depth: &Attachment, normal: &Attachment) -> Attachment {
-  let ao_result = attachment()
-    .format(webgpu::TextureFormat::Rgba8Unorm) // todo half resolution?
-    .request(ctx);
+impl SSAO {
+  pub fn draw(&self, ctx: &mut FrameCtx, depth: &Attachment, normal: &Attachment) -> Attachment {
+    let mut ao_result = attachment()
+      .format(webgpu::TextureFormat::Rgba8Unorm) // todo half resolution?
+      .request(ctx);
 
-  pass("ssao-compute")
-    .with_color(ao_result.read(), load())
-    .render(ctx)
-    .by(
-      AOComputer {
-        normal: todo!(),
-        depth: depth.read(),
-        parameter: todo!(),
-      }
-      .draw_quad(),
-    );
+    pass("ssao-compute")
+      .with_color(ao_result.write(), load())
+      .render(ctx)
+      .by(
+        AOComputer {
+          normal: normal.read(),
+          depth: depth.read(),
+          parameter: &self.parameters,
+        }
+        .draw_quad(),
+      );
 
-  // blur
+    // blur
 
-  todo!()
+    todo!()
+  }
 }
