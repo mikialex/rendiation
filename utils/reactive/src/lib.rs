@@ -1,3 +1,5 @@
+// https://www.youtube.com/watch?v=ePgWU3KZvfQ
+
 use std::sync::{Arc, RwLock};
 
 /// container for values that change (discretely) over time.
@@ -24,11 +26,12 @@ where
 }
 
 pub struct Source<T> {
-  listeners: Vec<Box<dyn Fn(&T)>>,
+  // return if should remove
+  listeners: Vec<Box<dyn Fn(&T) -> bool>>,
 }
 
 impl<T> Source<T> {
-  pub fn on(&mut self, cb: impl Fn(&T) + 'static) -> &Self {
+  pub fn on(&mut self, cb: impl Fn(&T) -> bool + 'static) -> &Self {
     self.listeners.push(Box::new(cb));
     self
   }
@@ -61,18 +64,28 @@ impl<T> Clone for EventDispatcher<T> {
   }
 }
 
+/// A stream of events.
 pub struct Stream<T> {
   inner: Arc<RwLock<Source<T>>>,
 }
 
 impl<T> EventDispatcher<T> {
+  #[allow(unused_must_use)]
   pub fn emit(&self, event: T) {
-    let inner = self.inner.write().unwrap();
-    for listener in &inner.listeners {
-      listener(&event)
+    let mut inner = self.inner.write().unwrap();
+    let mut len = inner.listeners.len();
+    let mut current = 0;
+    // remove any possible reallocation.
+    while current < len {
+      if (inner.listeners[current])(&event) {
+        inner.listeners.swap_remove(current);
+        len -= 1;
+      };
+      current += 1;
     }
   }
 
+  /// just rename, without the ability to dispatch event
   pub fn stream(&self) -> Stream<T> {
     Stream {
       inner: self.inner.clone(),
@@ -81,10 +94,17 @@ impl<T> EventDispatcher<T> {
 }
 
 impl<T> Stream<T> {
+  /// map a stream to another stream
+  ///
+  /// when the source dropped, the mapped stream will not receive any events later
   pub fn map<U: 'static>(&mut self, cb: impl Fn(&T) -> U + 'static) -> Stream<U> {
+    // dispatch default to do no allocation when created
     let dispatcher = EventDispatcher::<U>::default();
     let dis = dispatcher.clone();
-    self.inner.write().unwrap().on(move |t| dis.emit(cb(t)));
+    self.inner.write().unwrap().on(move |t| {
+      dis.emit(cb(t));
+      false
+    });
     dispatcher.stream()
   }
   // filter
