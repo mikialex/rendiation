@@ -109,4 +109,16 @@ impl<T> Stream<T> {
   }
   // filter
   // filter_map
+
+  pub fn hold(&self, initial: T) -> impl Signal<Output = T> {
+    todo!()
+  }
+
+  // pub fn fold(&self, initial: T) -> impl Signal<Output = T> {
+  //   todo!()
+  // }
+
+  pub fn merge(&self, other: &Self) -> Self {
+    todo!()
+  }
 }
