@@ -2329,6 +2329,7 @@ dependencies = [
  "arena",
  "bytemuck",
  "log",
+ "reactive",
  "rendiation-algebra",
  "rendiation-geometry",
  "rendiation-renderable-mesh",

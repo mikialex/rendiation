@@ -6,6 +6,7 @@ use std::{
 use crate::*;
 
 use arena::Arena;
+use reactive::EventDispatcher;
 
 pub type SceneTexture2D<S> = SceneItemRef<<S as SceneContent>::Texture2D>;
 pub type SceneTextureCube<S> = SceneItemRef<<S as SceneContent>::TextureCube>;
@@ -97,7 +98,8 @@ static GLOBAL_ID: AtomicUsize = AtomicUsize::new(0);
 pub struct Identity<T> {
   id: usize,
   inner: T,
-  pub watchers: RwLock<Arena<Box<dyn Watcher<T>>>>,
+  change_dispatcher: EventDispatcher<T>,
+  // pub watchers: RwLock<Arena<Box<dyn Watcher<T>>>>,
 }
 
 impl<T> AsRef<T> for Identity<T> {
@@ -191,9 +193,7 @@ pub trait Watcher<T>: Sync + Send {
 }
 
 pub struct IdentityMapper<T, U: ?Sized> {
-  data: HashMap<usize, T>,
-  to_remove: Arc<RwLock<Vec<usize>>>,
-  changed: Arc<RwLock<HashSet<usize>>>,
+  data: HashMap<usize, (T, SignalCell<bool>)>,
   phantom: PhantomData<U>,
 }
 
@@ -201,8 +201,6 @@ impl<T, U: ?Sized> Default for IdentityMapper<T, U> {
   fn default() -> Self {
     Self {
       data: Default::default(),
-      to_remove: Default::default(),
-      changed: Default::default(),
       phantom: Default::default(),
     }
   }

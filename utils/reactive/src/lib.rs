@@ -71,13 +71,13 @@ pub struct Stream<T> {
 
 impl<T> EventDispatcher<T> {
   #[allow(unused_must_use)]
-  pub fn emit(&self, event: T) {
+  pub fn emit(&self, event: &T) {
     let mut inner = self.inner.write().unwrap();
     let mut len = inner.listeners.len();
     let mut current = 0;
-    // remove any possible reallocation.
+    // avoid any possible reallocation.
     while current < len {
-      if (inner.listeners[current])(&event) {
+      if (inner.listeners[current])(event) {
         inner.listeners.swap_remove(current);
         len -= 1;
       };
@@ -100,9 +100,9 @@ impl<T> Stream<T> {
   pub fn map<U: 'static>(&mut self, cb: impl Fn(&T) -> U + 'static) -> Stream<U> {
     // dispatch default to do no allocation when created
     let dispatcher = EventDispatcher::<U>::default();
-    let dis = dispatcher.clone();
+    let dis = dispatcher.clone(); // todo weak
     self.inner.write().unwrap().on(move |t| {
-      dis.emit(cb(t));
+      dis.emit(&cb(t));
       false
     });
     dispatcher.stream()
@@ -110,9 +110,9 @@ impl<T> Stream<T> {
   // filter
   // filter_map
 
-  pub fn hold(&self, initial: T) -> impl Signal<Output = T> {
-    todo!()
-  }
+  // pub fn hold(&self, initial: T) -> impl Signal<Output = T> {
+  //   todo!()
+  // }
 
   // pub fn fold(&self, initial: T) -> impl Signal<Output = T> {
   //   todo!()

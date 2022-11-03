@@ -9,6 +9,7 @@ anymap = "0.12.1"
 arena = {path = "../../utils/arena"}
 bytemuck = {version = "1.4.1", features = ["derive"]}
 log = "0.4"
+reactive = {path = "../../utils/reactive"}
 rendiation-algebra = {path = "../../math/algebra"}
 rendiation-geometry = {path = "../../math/geometry"}
 rendiation-renderable-mesh = {path = "../../components/mesh/renderable"}
