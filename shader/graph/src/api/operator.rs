@@ -70,6 +70,23 @@ where
   }
 }
 
+impl<T> Rem for Node<T>
+where
+  T: Rem<T, Output = T>,
+  T: ShaderGraphNodeType,
+{
+  type Output = Node<T>;
+
+  fn rem(self, rhs: Self) -> Self::Output {
+    OperatorNode::Binary {
+      left: self.handle(),
+      right: rhs.handle(),
+      operator: BinaryOperator::Rem,
+    }
+    .insert_graph()
+  }
+}
+
 impl<T> AddAssign for Node<T>
 where
   Self: Add<Output = Self> + Copy,

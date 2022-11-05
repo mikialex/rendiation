@@ -332,7 +332,7 @@ impl<T: ShaderLight> LightCollectionCompute for LightList<T> {
     let light_count = builder.query::<LightCount>()?;
 
     let light_iter = ClampedShaderIter {
-      inner: lights,
+      source: lights,
       count: light_count,
     };
 

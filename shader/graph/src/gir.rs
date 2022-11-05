@@ -5,8 +5,13 @@ pub enum ShaderBuiltInFunction {
   Normalize,
   Length,
   Dot,
+  Cross,
   SmoothStep,
   Select,
+  Min,
+  Max,
+  Clamp,
+  Abs,
 }
 
 pub enum ShaderFunctionType {
@@ -120,6 +125,7 @@ pub enum BinaryOperator {
   Sub,
   Mul,
   Div,
+  Rem,
   Eq,
   NotEq,
   GreaterThan,
