@@ -29,7 +29,7 @@ where
     make_builtin_call(ShaderBuiltInFunction::Dot, [self.handle(), other.handle()])
   }
 
-  pub fn cross(self, other: Self) -> Node<f32> {
+  pub fn cross(self, other: Self) -> Node<Vec3<f32>> {
     make_builtin_call(
       ShaderBuiltInFunction::Cross,
       [self.handle(), other.handle()],

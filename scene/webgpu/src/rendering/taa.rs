@@ -117,16 +117,10 @@ impl<'a> ShaderGraphProvider for TAAResolver<'a> {
       let uv = builder.query::<FragmentUv>()?;
 
       let depth = new_depth.sample(sampler, uv).x();
-      let xy = uv * consts(2.) - consts(Vec2::one());
-      let xy = xy * consts(Vec2::new(1., -1.));
-      let position_in_current_ndc = (xy, depth, 1.).into();
 
-      let world_position = current_camera.view_projection_inv * position_in_current_ndc;
-      let position_in_previous_ndc = previous_camera.view_projection * world_position;
-      let position_in_previous_ndc = position_in_previous_ndc.xyz() / position_in_previous_ndc.w();
+      let world_position = shader_uv_space_to_world_space(&current_camera, uv, depth);
+      let (reproject_uv, _) = shader_world_space_to_uv_space(&previous_camera, world_position);
 
-      let reproject_uv =
-        position_in_previous_ndc.xy() * consts(Vec2::new(0.5, -0.5)) + consts(Vec2::splat(0.5));
       let previous = history.sample(sampler, reproject_uv);
 
       let texel_size = builder.query::<TexelSize>()?;

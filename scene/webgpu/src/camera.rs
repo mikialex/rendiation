@@ -118,6 +118,28 @@ pub struct CameraGPUTransform {
   pub jitter_normalized: Vec2<f32>,
 }
 
+pub fn shader_uv_space_to_world_space(
+  camera: &ENode<CameraGPUTransform>,
+  uv: Node<Vec2<f32>>,
+  ndc_depth: Node<f32>,
+) -> Node<Vec3<f32>> {
+  let xy = uv * consts(2.) - consts(Vec2::one());
+  let xy = xy * consts(Vec2::new(1., -1.));
+  let ndc = (xy, ndc_depth, 1.).into();
+  let world = camera.view_projection_inv * ndc;
+  world.xyz() / world.w()
+}
+
+pub fn shader_world_space_to_uv_space(
+  camera: &ENode<CameraGPUTransform>,
+  world: Node<Vec3<f32>>,
+) -> (Node<Vec2<f32>>, Node<f32>) {
+  let clip = camera.view_projection * (world, 1.).into();
+  let ndc = clip.xyz() / clip.w();
+  let uv = ndc.xy() * consts(Vec2::new(0.5, -0.5)) + consts(Vec2::splat(0.5));
+  (uv, ndc.z())
+}
+
 impl CameraGPUTransform {
   pub fn clear_jitter(&mut self) {
     self.jitter_normalized = Vec2::zero();
