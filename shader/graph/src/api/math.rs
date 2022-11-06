@@ -39,6 +39,37 @@ where
 
 impl<T> Node<T>
 where
+  T: RealVector<f32> + PrimitiveShaderGraphNodeType,
+{
+  pub fn min(self, other: Self) -> Self {
+    make_builtin_call(ShaderBuiltInFunction::Min, [self.handle(), other.handle()])
+  }
+  pub fn max(self, other: Self) -> Self {
+    make_builtin_call(ShaderBuiltInFunction::Max, [self.handle(), other.handle()])
+  }
+  pub fn clamp(self, min: Self, max: Self) -> Self {
+    make_builtin_call(
+      ShaderBuiltInFunction::Clamp,
+      [self.handle(), min.handle(), max.handle()],
+    )
+  }
+}
+
+// adhoc component-wise compute
+impl<T> Node<T>
+where
+  T: PrimitiveShaderGraphNodeType,
+{
+  pub fn abs(self) -> Self {
+    make_builtin_call(ShaderBuiltInFunction::Abs, [self.handle()])
+  }
+  pub fn pow(self, e: Self) -> Self {
+    make_builtin_call(ShaderBuiltInFunction::Pow, [self.handle(), e.handle()])
+  }
+}
+
+impl<T> Node<T>
+where
   T: Lerp<T> + PrimitiveShaderGraphNodeType,
 {
   pub fn smoothstep(self, low: Self, high: Self) -> Self {

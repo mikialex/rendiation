@@ -12,6 +12,8 @@ pub enum ShaderBuiltInFunction {
   Max,
   Clamp,
   Abs,
+  Pow,
+  // todo other math
 }
 
 pub enum ShaderFunctionType {

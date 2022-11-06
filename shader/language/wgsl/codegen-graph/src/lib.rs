@@ -461,6 +461,7 @@ fn gen_expr(data: &ShaderGraphNodeExpr, cx: &mut CodeGenCtx) -> String {
             ShaderBuiltInFunction::Max => "max",
             ShaderBuiltInFunction::Clamp => "clamp",
             ShaderBuiltInFunction::Abs => "abs",
+            ShaderBuiltInFunction::Pow => "pow",
           };
 
           format!("{name}{call}")

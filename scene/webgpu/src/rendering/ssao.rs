@@ -40,7 +40,7 @@ impl SSAO {
 
     let noises: Vec<Vec4<f32>> = (0..parameters.sample_count)
       .into_iter()
-      .map(|i| Vec4::new(rand() * 2. - 1., rand() * 2. - 1., rand() * 2. - 1., 0.))
+      .map(|_| Vec4::new(rand() * 2. - 1., rand() * 2. - 1., rand() * 2. - 1., 0.))
       .collect();
     let noises = noises.try_into().unwrap();
     let noises = create_uniform(noises, gpu);
@@ -150,7 +150,7 @@ impl<'a> ShaderGraphProvider for AOComputer<'a> {
       let binormal = normal.cross(tangent);
       let tbn: Node<Mat3<f32>> = (tangent, binormal, normal).into();
 
-      for_by(iter, |_, sample, index| {
+      for_by(iter, |_, sample, _| {
         let sample_position_offset = tbn * sample.xyz();
         let sample_position_world = position_world + sample_position_offset * parameter.radius;
 
