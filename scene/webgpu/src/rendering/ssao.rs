@@ -86,7 +86,8 @@ struct AOComputer<'a> {
   depth: AttachmentView<&'a Attachment>,
   parameter: &'a SSAO,
   source_camera: &'a SceneCamera,
-  source_camera_gpu: Option<&'a UniformBufferDataView<CameraGPUTransform>>,
+  /// this has to be cloned, because it's simple and easy
+  source_camera_gpu: Option<UniformBufferDataView<CameraGPUTransform>>,
 }
 
 impl<'a> ShaderHashProvider for AOComputer<'a> {}
@@ -104,7 +105,9 @@ impl<'a> ShaderPassBuilder for AOComputer<'a> {
     ctx.binding.bind(&self.parameter.samples, SB::Pass);
     ctx.binding.bind(&self.parameter.noises, SB::Pass);
     ctx.bind_immediate_sampler(&TextureSampler::default(), SB::Pass);
-    ctx.binding.bind(self.source_camera_gpu.unwrap(), SB::Pass);
+    ctx
+      .binding
+      .bind(self.source_camera_gpu.as_ref().unwrap(), SB::Pass);
   }
 }
 impl<'a> ShaderGraphProvider for AOComputer<'a> {
@@ -123,7 +126,7 @@ impl<'a> ShaderGraphProvider for AOComputer<'a> {
       let sampler = binding.uniform::<GPUSamplerView>(SB::Pass);
 
       let camera = binding
-        .uniform_by(self.source_camera_gpu.unwrap(), SB::Pass)
+        .uniform_by(self.source_camera_gpu.as_ref().unwrap(), SB::Pass)
         .expand();
 
       let uv = builder.query::<FragmentUv>()?;
@@ -141,10 +144,10 @@ impl<'a> ShaderGraphProvider for AOComputer<'a> {
       let position_world = shader_uv_space_to_world_space(&camera, uv, depth);
       let normal = normal_tex.sample(sampler, uv).xyz();
 
-      let noiseS = consts((MAX_NOISE as f32).sqrt() as u32);
-      let noiseX = uv.x().into_u32() % noiseS;
-      let noiseY = uv.y().into_u32() % noiseS;
-      let random = noises.index(noiseX + (noiseY * noiseS)).xyz();
+      let noise_s = consts((MAX_NOISE as f32).sqrt() as u32);
+      let noise_x = uv.x().into_u32() % noise_s;
+      let noise_y = uv.y().into_u32() % noise_s;
+      let random = noises.index(noise_x + (noise_y * noise_s)).xyz();
 
       let tangent = (random - normal * random.dot(normal)).normalize();
       let binormal = normal.cross(tangent);
@@ -178,18 +181,18 @@ impl<'a> ShaderGraphProvider for AOComputer<'a> {
   }
 }
 
-// a little hack to get camera gpu
+// a little hack to get camera gpu without copy
 impl<'a> PassContent for QuadDraw<AOComputer<'a>> {
   fn render(&mut self, pass: &mut SceneRenderPass) {
+    let mut base = pass.default_dispatcher();
     let source_camera_gpu = &pass
       .resources
       .cameras
       .check_update_gpu(self.content.source_camera, pass.ctx.gpu)
       .ubo;
 
-    self.content.source_camera_gpu = source_camera_gpu.into();
+    self.content.source_camera_gpu = source_camera_gpu.clone().into();
 
-    let mut base = pass.default_dispatcher();
     base.auto_write = false;
     let components: [&dyn RenderComponentAny; 3] = [&base, &self.quad, &self.content];
     RenderEmitter::new(components.as_slice()).render(&mut pass.ctx, &self.quad);

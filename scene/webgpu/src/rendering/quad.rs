@@ -41,7 +41,7 @@ wgsl_fn!(
   }
 );
 
-struct FullScreenQuad {
+pub struct FullScreenQuad {
   blend: Option<webgpu::BlendState>,
 }
 
