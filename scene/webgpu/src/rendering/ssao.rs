@@ -81,7 +81,7 @@ impl Default for SSAOParameter {
   }
 }
 
-struct AOComputer<'a> {
+pub struct AOComputer<'a> {
   normal: AttachmentView<&'a Attachment>,
   depth: AttachmentView<&'a Attachment>,
   parameter: &'a SSAO,
