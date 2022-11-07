@@ -2328,6 +2328,7 @@ dependencies = [
  "anymap",
  "arena",
  "bytemuck",
+ "incremental",
  "log",
  "reactive",
  "rendiation-algebra",

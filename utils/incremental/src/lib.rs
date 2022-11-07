@@ -1,49 +1,47 @@
 pub trait IncrementAble {
   type Delta;
-  type DeltaResult;
+  type Error;
 
-  fn apply(&mut self, delta: Self::Delta) -> Self::DeltaResult;
+  /// return reversed delta
+  ///
+  /// if the revered delta not actually used, I believe compiler optimization will handle this well.
+  fn apply(&mut self, delta: Self::Delta) -> Result<Self::Delta, Self::Error>;
 }
 
 pub type DeltaOf<T> = <T as IncrementAble>::Delta;
 
-pub struct IncrementInstance<T: IncrementAble> {
-  value: T,
-  deltas: Vec<T::Delta>,
-}
-
-impl<T: IncrementAble> IncrementInstance<T> {
-  pub fn push(&mut self, delta: T::Delta) {
-    self.deltas.push(delta)
-  }
-
-  pub fn flush(&mut self) {
-    self.deltas.drain(..).for_each(|d| {
-      self.value.apply(d);
-    })
-  }
-}
-
 pub enum VecDelta<T> {
   Push(T),
   Remove(usize),
+  Insert(usize, T),
   Pop,
 }
 
 impl<T> IncrementAble for Vec<T> {
   type Delta = VecDelta<T>;
-  type DeltaResult = ();
+  type Error = (); // todo
 
-  fn apply(&mut self, delta: Self::Delta) {
-    match delta {
-      VecDelta::Push(value) => self.push(value),
+  fn apply(&mut self, delta: Self::Delta) -> Result<Self::Delta, Self::Error> {
+    let r = match delta {
+      VecDelta::Push(value) => {
+        self.push(value);
+        VecDelta::Pop
+      }
       VecDelta::Remove(index) => {
-        self.remove(index);
+        let item = self.remove(index);
+        VecDelta::Insert(index, item)
+      }
+      VecDelta::Insert(index, item) => {
+        self.insert(index, item);
+        VecDelta::Remove(index)
       }
       VecDelta::Pop => {
-        self.pop();
+        let value = self.pop().unwrap();
+        VecDelta::Push(value)
       }
-    }
+    };
+
+    Ok(r)
   }
 }
 
@@ -54,19 +52,16 @@ struct VectorMap<T, U, X> {
 
 impl<T, U, X> IncrementAble for VectorMap<T, U, X>
 where
-  X: IncrementAble<Delta = VecDelta<U>, DeltaResult = ()>,
+  X: IncrementAble<Delta = VecDelta<U>, Error = ()>,
 {
   type Delta = VecDelta<T>;
-  type DeltaResult = ();
-  fn apply(&mut self, delta: VecDelta<T>) {
+  type Error = ();
+  fn apply(&mut self, delta: VecDelta<T>) -> Result<Self::Delta, Self::Error> {
     match delta {
       VecDelta::Push(value) => self.mapped.apply(VecDelta::Push((self.mapper)(&value))),
-      VecDelta::Remove(index) => {
-        self.mapped.apply(VecDelta::Remove(index));
-      }
-      VecDelta::Pop => {
-        self.mapped.apply(VecDelta::Pop);
-      }
+      VecDelta::Remove(index) => self.mapped.apply(VecDelta::Remove(index)),
+      VecDelta::Pop => self.mapped.apply(VecDelta::Pop),
+      VecDelta::Insert(_, _) => todo!(),
     }
   }
 }
@@ -111,19 +106,21 @@ where
 
 impl IncrementAble for f32 {
   type Delta = Self;
-  type DeltaResult = ();
+  type Error = ();
 
-  fn apply(&mut self, delta: Self::Delta) {
-    *self = delta
+  fn apply(&mut self, delta: Self::Delta) -> Result<Self::Delta, Self::Error> {
+    *self = delta;
+    Ok(())
   }
 }
 
 impl IncrementAble for bool {
   type Delta = Self;
-  type DeltaResult = ();
+  type Error = ();
 
-  fn apply(&mut self, delta: Self::Delta) {
-    *self = delta
+  fn apply(&mut self, delta: Self::Delta) -> Result<Self::Delta, Self::Error> {
+    *self = delta;
+    Ok(())
   }
 }
 
@@ -147,3 +144,20 @@ impl IncrementAble for bool {
 //     }
 //   }
 // }
+
+pub struct IncrementInstance<T: IncrementAble> {
+  value: T,
+  deltas: Vec<T::Delta>,
+}
+
+impl<T: IncrementAble> IncrementInstance<T> {
+  pub fn push(&mut self, delta: T::Delta) {
+    self.deltas.push(delta)
+  }
+
+  pub fn flush(&mut self) {
+    self.deltas.drain(..).for_each(|d| {
+      self.value.apply(d);
+    })
+  }
+}

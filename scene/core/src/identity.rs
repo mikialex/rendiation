@@ -5,6 +5,7 @@ use std::{
 
 use crate::*;
 
+use incremental::IncrementAble;
 use reactive::{EventDispatcher, Signal, StreamSignal};
 
 pub type SceneTexture2D<S> = SceneItemRef<<S as SceneContent>::Texture2D>;
@@ -94,14 +95,14 @@ impl<'a, T> DerefMut for SceneItemRefMutGuard<'a, T> {
 
 static GLOBAL_ID: AtomicUsize = AtomicUsize::new(0);
 
-pub struct Identity<T> {
+pub struct Identity<T: IncrementAble> {
   id: usize,
   inner: T,
-  change_dispatcher: EventDispatcher<T>,
+  change_dispatcher: EventDispatcher<T::Delta>,
   drop_dispatcher: EventDispatcher<()>,
 }
 
-impl<T> AsRef<T> for Identity<T> {
+impl<T> AsRef<T> for Identity<T> {1
   fn as_ref(&self) -> &T {
     &self.inner
   }
@@ -167,13 +168,8 @@ impl<T> std::ops::DerefMut for Identity<T> {
   }
 }
 
-struct Mapped<T> {
-  value: T,
-  value_should_update: StreamSignal<bool>,
-}
-
 pub struct IdentityMapper<T, U: ?Sized> {
-  data: HashMap<usize, Mapped<T>>,
+  data: HashMap<usize, StreamSignal<T>>,
   phantom: PhantomData<U>,
 }
 
