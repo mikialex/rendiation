@@ -159,10 +159,25 @@ pub fn default_sizer() -> Rc<dyn Fn(Size) -> Size> {
   Rc::new(|size| size)
 }
 
+pub fn ratio_sizer(ratio: f32) -> impl Fn(Size) -> Size + 'static {
+  move |size| {
+    let (width, height) = size.into_usize();
+    let width = width as f32 * ratio;
+    let height = height as f32 * ratio;
+    Size::from_usize_pair_min_one((width as usize, height as usize))
+  }
+}
+
 impl AttachmentDescriptor {
   #[must_use]
   pub fn format(mut self, format: webgpu::TextureFormat) -> Self {
     self.format = format;
+    self
+  }
+
+  #[must_use]
+  pub fn sizer(mut self, sizer: impl Fn(Size) -> Size + 'static) -> Self {
+    self.sizer = Rc::new(sizer);
     self
   }
 }

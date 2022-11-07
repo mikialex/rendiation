@@ -205,7 +205,8 @@ impl SSAO {
     source_camera: &SceneCamera,
   ) -> Attachment {
     let mut ao_result = attachment()
-      .format(webgpu::TextureFormat::Rgba8Unorm) // todo half resolution?
+      .sizer(ratio_sizer(0.5)) // half resolution!
+      .format(webgpu::TextureFormat::Rgba8Unorm)
       .request(ctx);
 
     pass("ssao-compute")
@@ -222,7 +223,7 @@ impl SSAO {
         .draw_quad(),
       );
 
-    // blur
+    // todo blur
 
     ao_result
   }
