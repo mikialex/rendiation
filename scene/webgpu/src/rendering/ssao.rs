@@ -55,6 +55,7 @@ pub struct SSAOParameter {
   pub bias: f32,
   pub magnitude: f32,
   pub contrast: f32,
+  pub noise_jit: f32,
 }
 
 impl Default for SSAOParameter {
@@ -66,6 +67,7 @@ impl Default for SSAOParameter {
       bias: 0.0001,
       magnitude: 1.0,
       contrast: 1.0,
+      noise_jit: 0.,
       ..Zeroable::zeroed()
     }
   }
@@ -129,7 +131,6 @@ impl<'a> ShaderGraphProvider for AOComputer<'a> {
         .expand();
 
       let uv = builder.query::<FragmentUv>()?;
-      let size = builder.query::<RenderBufferSize>()?;
 
       let iter = ClampedShaderIter {
         source: samples,
@@ -143,9 +144,9 @@ impl<'a> ShaderGraphProvider for AOComputer<'a> {
       let depth = depth_tex.sample(sampler, uv).x();
       let position_world = shader_uv_space_to_world_space(&camera, uv, depth);
 
-      let normal = compute_normal_by_dxdy(position_world);
+      let normal = compute_normal_by_dxdy(position_world); // wrong
 
-      let random = random3(uv) * consts(2.) - consts(Vec3::one());
+      let random = random3(uv + parameter.noise_jit.splat()) * consts(2.) - consts(Vec3::one());
       let tangent = (random - normal * random.dot(normal)).normalize();
       let binormal = normal.cross(tangent);
       let tbn: Node<Mat3<f32>> = (tangent, binormal, normal).into();
@@ -172,9 +173,6 @@ impl<'a> ShaderGraphProvider for AOComputer<'a> {
       let occlusion = occlusion.pow(parameter.magnitude);
       let occlusion = parameter.contrast * (occlusion - consts(0.5)) + consts(0.5);
 
-      // builder.set_fragment_out(0, (occlusion.splat(), 1.))
-
-      // builder.set_fragment_out(0, (random, 1.))
       builder.set_fragment_out(0, ((consts(1.) - occlusion.saturate()).splat(), 1.))
     })
   }
@@ -205,8 +203,11 @@ impl SSAO {
     depth: &Attachment,
     source_camera: &SceneCamera,
   ) -> Attachment {
+    self.parameters.resource.mutate(|p| p.noise_jit = rand());
+    self.parameters.resource.upload(&ctx.gpu.queue);
+
     let mut ao_result = attachment()
-      .sizer(ratio_sizer(0.5)) // half resolution!
+      // .sizer(ratio_sizer(0.5)) // half resolution!
       .format(webgpu::TextureFormat::Rgba8Unorm)
       .request(ctx);
 
