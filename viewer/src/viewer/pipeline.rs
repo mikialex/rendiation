@@ -91,10 +91,10 @@ impl ViewerPipeline {
       
     ctx.resources.cameras.check_update_gpu(scene.get_active_camera(), ctx.gpu).enable_jitter = false;
 
-    if self.enable_ssao {
+    // if self.enable_ssao {
       // todo, support blend?
-      let ao = self.ssao.draw(ctx, &scene_depth, todo!(), scene.get_active_camera());
-    }
+      let ao = self.ssao.draw(ctx, &scene_depth,  scene.get_active_camera());
+    // }
 
     // let scene_result = draw_cross_blur(&self.blur, scene_result.read_into(), ctx);
 
@@ -110,6 +110,7 @@ impl ViewerPipeline {
       .render(ctx)
       .by(copy_frame(taa_result.read(), None))
       .by(highlight_compose)
+      .by(copy_frame(ao.read(), None))
       .by(copy_frame(widgets_result.read_into(), BlendState::PREMULTIPLIED_ALPHA_BLENDING.into()));
   }
 }

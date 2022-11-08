@@ -462,6 +462,7 @@ fn gen_expr(data: &ShaderGraphNodeExpr, cx: &mut CodeGenCtx) -> String {
             ShaderBuiltInFunction::Clamp => "clamp",
             ShaderBuiltInFunction::Abs => "abs",
             ShaderBuiltInFunction::Pow => "pow",
+            ShaderBuiltInFunction::Saturate => "saturate",
           };
 
           format!("{name}{call}")

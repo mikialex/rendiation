@@ -66,6 +66,9 @@ where
   pub fn pow(self, e: Self) -> Self {
     make_builtin_call(ShaderBuiltInFunction::Pow, [self.handle(), e.handle()])
   }
+  pub fn saturate(self) -> Self {
+    make_builtin_call(ShaderBuiltInFunction::Saturate, [self.handle()])
+  }
 }
 
 impl<T> Node<T>

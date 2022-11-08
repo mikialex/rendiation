@@ -13,6 +13,7 @@ pub enum ShaderBuiltInFunction {
   Clamp,
   Abs,
   Pow,
+  Saturate,
   // todo other math
 }
 

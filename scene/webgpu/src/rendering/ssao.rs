@@ -3,12 +3,10 @@ use crate::*;
 // https://github.com/lettier/3d-game-shaders-for-beginners/blob/master/sections/ssao.md
 
 const MAX_SAMPLE: usize = 64;
-const MAX_NOISE: usize = 64;
 
 pub struct SSAO {
   parameters: UniformBufferDataView<SSAOParameter>,
   samples: UniformBufferDataView<Shader140Array<Vec4<f32>, MAX_SAMPLE>>,
-  noises: UniformBufferDataView<Shader140Array<Vec4<f32>, MAX_NOISE>>,
 }
 
 fn rand() -> f32 {
@@ -20,7 +18,7 @@ impl SSAO {
     let parameters = SSAOParameter::default();
 
     // improve, try other low discrepancy serials
-    let samples: Vec<Vec4<f32>> = (0..parameters.sample_count)
+    let samples: Vec<Vec4<f32>> = (0..MAX_SAMPLE)
       .into_iter()
       .map(|i| {
         // generate point in half sphere
@@ -38,19 +36,11 @@ impl SSAO {
     let samples = samples.try_into().unwrap();
     let samples = create_uniform(samples, gpu);
 
-    let noises: Vec<Vec4<f32>> = (0..parameters.sample_count)
-      .into_iter()
-      .map(|_| Vec4::new(rand() * 2. - 1., rand() * 2. - 1., rand() * 2. - 1., 0.))
-      .collect();
-    let noises = noises.try_into().unwrap();
-    let noises = create_uniform(noises, gpu);
-
     let parameters = create_uniform(parameters, gpu);
 
     Self {
       parameters,
       samples,
-      noises,
     }
   }
 }
@@ -70,25 +60,37 @@ pub struct SSAOParameter {
 impl Default for SSAOParameter {
   fn default() -> Self {
     Self {
-      noise_size: 16,
-      sample_count: 16,
-      radius: 0.6,
-      bias: 0.005,
-      magnitude: 1.1,
-      contrast: 1.1,
+      noise_size: 64,
+      sample_count: 32,
+      radius: 1.,
+      bias: 0.0001,
+      magnitude: 1.0,
+      contrast: 1.0,
       ..Zeroable::zeroed()
     }
   }
 }
 
 pub struct AOComputer<'a> {
-  normal: AttachmentView<&'a Attachment>,
   depth: AttachmentView<&'a Attachment>,
   parameter: &'a SSAO,
   source_camera: &'a SceneCamera,
   /// this has to be cloned, because it's simple and easy
   source_camera_gpu: Option<UniformBufferDataView<CameraGPUTransform>>,
 }
+
+// improve use better way
+wgsl_fn!(
+  fn random(seed: vec2<f32>) -> f32 {
+    return fract(sin(dot(seed, vec2<f32>(12.9898, 78.233))) * 43758.5453123);
+  }
+);
+
+wgsl_fn!(
+  fn random3(uv: vec2<f32>) -> vec3<f32> {
+    return vec3<f32>(random(uv), random(sin(uv + random(uv))), random(uv + cos(random(uv)) + random(uv)));
+  }
+);
 
 impl<'a> ShaderHashProvider for AOComputer<'a> {}
 impl<'a> ShaderHashProviderAny for AOComputer<'a> {
@@ -99,11 +101,9 @@ impl<'a> ShaderHashProviderAny for AOComputer<'a> {
 }
 impl<'a> ShaderPassBuilder for AOComputer<'a> {
   fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
-    ctx.binding.bind(&self.normal, SB::Pass);
     ctx.binding.bind(&self.depth, SB::Pass);
     ctx.binding.bind(&self.parameter.parameters, SB::Pass);
     ctx.binding.bind(&self.parameter.samples, SB::Pass);
-    ctx.binding.bind(&self.parameter.noises, SB::Pass);
     ctx.bind_immediate_sampler(&TextureSampler::default(), SB::Pass);
     ctx
       .binding
@@ -115,14 +115,13 @@ impl<'a> ShaderGraphProvider for AOComputer<'a> {
     &self,
     builder: &mut ShaderGraphRenderPipelineBuilder,
   ) -> Result<(), ShaderGraphBuildError> {
+    builder.log_result = true;
     builder.fragment(|builder, binding| {
-      let normal_tex = binding.uniform_by(&self.normal, SB::Pass);
       let depth_tex = binding.uniform_by(&self.depth, SB::Pass);
       let parameter = binding
         .uniform_by(&self.parameter.parameters, SB::Pass)
         .expand();
       let samples = binding.uniform_by(&self.parameter.samples, SB::Pass);
-      let noises = binding.uniform_by(&self.parameter.noises, SB::Pass);
       let sampler = binding.uniform::<GPUSamplerView>(SB::Pass);
 
       let camera = binding
@@ -130,6 +129,7 @@ impl<'a> ShaderGraphProvider for AOComputer<'a> {
         .expand();
 
       let uv = builder.query::<FragmentUv>()?;
+      let size = builder.query::<RenderBufferSize>()?;
 
       let iter = ClampedShaderIter {
         source: samples,
@@ -142,13 +142,10 @@ impl<'a> ShaderGraphProvider for AOComputer<'a> {
 
       let depth = depth_tex.sample(sampler, uv).x();
       let position_world = shader_uv_space_to_world_space(&camera, uv, depth);
-      let normal = normal_tex.sample(sampler, uv).xyz();
 
-      let noise_s = consts((MAX_NOISE as f32).sqrt() as u32);
-      let noise_x = uv.x().into_u32() % noise_s;
-      let noise_y = uv.y().into_u32() % noise_s;
-      let random = noises.index(noise_x + (noise_y * noise_s)).xyz();
+      let normal = compute_normal_by_dxdy(position_world);
 
+      let random = random3(uv) * consts(2.) - consts(Vec3::one());
       let tangent = (random - normal * random.dot(normal)).normalize();
       let binormal = normal.cross(tangent);
       let tbn: Node<Mat3<f32>> = (tangent, binormal, normal).into();
@@ -157,15 +154,14 @@ impl<'a> ShaderGraphProvider for AOComputer<'a> {
         let sample_position_offset = tbn * sample.xyz();
         let sample_position_world = position_world + sample_position_offset * parameter.radius;
 
-        let sample_position_ndc = sample_position_world; // todo
-        let sample_position_depth = depth_tex.sample(sampler, sample_position_ndc.xy()).x();
+        let (s_uv, s_depth) = shader_world_space_to_uv_space(&camera, sample_position_world);
+        let sample_position_depth = depth_tex.sample(sampler, s_uv).x();
 
         let occluded = (sample_position_depth + parameter.bias)
-          .less_or_equal_than(sample_position_ndc.y())
+          .less_or_equal_than(s_depth)
           .select(consts(0.), consts(1.));
 
-        let relative_depth_diff =
-          parameter.radius / (sample_position_depth - sample_position_ndc.y()).abs();
+        let relative_depth_diff = parameter.radius / (sample_position_depth - s_depth).abs();
         let intensity = relative_depth_diff.smoothstep(consts(0.), consts(1.));
 
         let occluded = occluded * intensity;
@@ -176,7 +172,10 @@ impl<'a> ShaderGraphProvider for AOComputer<'a> {
       let occlusion = occlusion.pow(parameter.magnitude);
       let occlusion = parameter.contrast * (occlusion - consts(0.5)) + consts(0.5);
 
-      builder.set_fragment_out(0, (occlusion.splat(), 1.))
+      // builder.set_fragment_out(0, (occlusion.splat(), 1.))
+
+      // builder.set_fragment_out(0, (random, 1.))
+      builder.set_fragment_out(0, ((consts(1.) - occlusion.saturate()).splat(), 1.))
     })
   }
 }
@@ -204,7 +203,6 @@ impl SSAO {
     &self,
     ctx: &mut FrameCtx,
     depth: &Attachment,
-    normal: &Attachment,
     source_camera: &SceneCamera,
   ) -> Attachment {
     let mut ao_result = attachment()
@@ -219,7 +217,6 @@ impl SSAO {
         AOComputer {
           source_camera,
           source_camera_gpu: None,
-          normal: normal.read(),
           depth: depth.read(),
           parameter: self,
         }
