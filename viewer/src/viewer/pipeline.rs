@@ -76,10 +76,17 @@ impl ViewerPipeline {
     gpu.ubo.resource.mutate(|uniform| uniform.set_jitter(jitter)).upload(&ctx.gpu.queue);
     gpu.enable_jitter = true;
 
-        // if self.enable_ssao {
-      // todo, support blend?
+    let ao = self.enable_ssao.then(||{
       let ao = self.ssao.draw(ctx, &scene_depth,  scene.get_active_camera());
-    // }
+      copy_frame(ao.read_into(), BlendState {
+        color: BlendComponent {
+            src_factor: BlendFactor::Dst,
+            dst_factor: BlendFactor::One,
+            operation: BlendOperation::Add,
+        },
+        alpha: BlendComponent::REPLACE,
+     }.into())
+    });
 
     pass("scene")
       .with_color(scene_result.write(), get_main_pass_load_op(scene))
@@ -92,8 +99,8 @@ impl ViewerPipeline {
         tonemap: &self.tonemap,
         debugger: self.enable_channel_debugger.then_some(&self.channel_debugger)
       }))
-      .by(scene.by_main_camera(&mut content.ground))
-      .by(copy_frame(ao.read(), None)); // transparent, should go last
+      .by(scene.by_main_camera(&mut content.ground)) // transparent, should go after opaque
+      .by(ao); 
       
     ctx.resources.cameras.check_update_gpu(scene.get_active_camera(), ctx.gpu).enable_jitter = false;
 

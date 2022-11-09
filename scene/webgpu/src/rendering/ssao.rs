@@ -63,10 +63,10 @@ impl Default for SSAOParameter {
     Self {
       noise_size: 64,
       sample_count: 32,
-      radius: 1.,
+      radius: 2.,
       bias: 0.0001,
       magnitude: 1.0,
-      contrast: 1.0,
+      contrast: 1.5,
       noise_jit: 0.,
       ..Zeroable::zeroed()
     }
