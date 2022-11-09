@@ -54,3 +54,10 @@ pub fn apply_normal_mapping(
 
   normal
 }
+
+wgsl_fn!(
+  fn compute_normal_by_dxdy(position: vec3<f32>) -> vec3<f32> {
+    /// note, webgpu canvas is left handed
+    return normalize(cross(dpdy(position), dpdx(position)));
+  }
+);

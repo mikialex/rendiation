@@ -22,6 +22,10 @@ pub mod debug_channels;
 pub use debug_channels::*;
 pub mod taa;
 pub use taa::*;
+pub mod ssao;
+pub use ssao::*;
+pub mod pass_base;
+pub use pass_base::*;
 
 use crate::*;
 

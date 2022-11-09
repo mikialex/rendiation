@@ -5,6 +5,8 @@ use crate::*;
 pub struct ViewerPipeline {
   highlight: HighLighter,
   taa: TAA,
+  enable_ssao: bool, 
+  ssao: SSAO,
   blur: CrossBlurData,
   forward_lights: ForwardLightingSystem,
   enable_channel_debugger: bool,
@@ -19,6 +21,8 @@ impl ViewerPipeline {
       highlight: HighLighter::new(gpu),
       blur: CrossBlurData::new(gpu),
       taa: TAA::new(gpu),
+      enable_ssao: true,
+      ssao: SSAO::new(gpu),
       forward_lights: Default::default(),
       enable_channel_debugger: false,
       channel_debugger: ScreenChannelDebugger::default_useful(),
@@ -72,6 +76,18 @@ impl ViewerPipeline {
     gpu.ubo.resource.mutate(|uniform| uniform.set_jitter(jitter)).upload(&ctx.gpu.queue);
     gpu.enable_jitter = true;
 
+    let ao = self.enable_ssao.then(||{
+      let ao = self.ssao.draw(ctx, &scene_depth,  scene.get_active_camera());
+      copy_frame(ao.read_into(), BlendState {
+        color: BlendComponent {
+            src_factor: BlendFactor::Dst,
+            dst_factor: BlendFactor::One,
+            operation: BlendOperation::Add,
+        },
+        alpha: BlendComponent::REPLACE,
+     }.into())
+    });
+
     pass("scene")
       .with_color(scene_result.write(), get_main_pass_load_op(scene))
       .with_depth(scene_depth.write(), clear(1.))
@@ -83,9 +99,11 @@ impl ViewerPipeline {
         tonemap: &self.tonemap,
         debugger: self.enable_channel_debugger.then_some(&self.channel_debugger)
       }))
-      .by(scene.by_main_camera(&mut content.ground)); // transparent, should go last
+      .by(scene.by_main_camera(&mut content.ground)) // transparent, should go after opaque
+      .by(ao); 
       
     ctx.resources.cameras.check_update_gpu(scene.get_active_camera(), ctx.gpu).enable_jitter = false;
+
 
     // let scene_result = draw_cross_blur(&self.blur, scene_result.read_into(), ctx);
 

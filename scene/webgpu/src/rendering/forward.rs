@@ -132,11 +132,6 @@ impl<'a> ShaderGraphProvider for ForwardSceneLightingDispatcher<'a> {
     builder.fragment(|builder, _| {
       let ldr = builder.query::<HDRLightResult>()?;
 
-      // // normal debug
-      // let normal = builder.query::<FragmentWorldNormal>()?;
-      // let normal = (normal + consts(Vec3::one())) * consts(0.5);
-      // builder.set_fragment_out(0, (normal, 1.))
-
       let alpha = builder
         .query::<AlphaChannel>()
         .unwrap_or_else(|_| consts(1.0));
@@ -169,13 +164,6 @@ impl<T: LightCollectionCompute + RebuildAbleGPUCollectionBase + Any> ForwardLigh
     self
   }
 }
-
-wgsl_fn!(
-  fn compute_normal_by_dxdy(position: vec3<f32>) -> vec3<f32> {
-    /// note, webgpu canvas is left handed
-    return normalize(cross(dpdy(position), dpdx(position)));
-  }
-);
 
 // a little bit hack
 only_fragment!(LightCount, u32);
@@ -244,10 +232,6 @@ impl ForwardLightingSystem {
       let position =
         builder.query_or_interpolate_by::<FragmentWorldPosition, WorldVertexPosition>();
       let normal = builder.get_or_compute_fragment_normal();
-
-      // debug
-      // let normal = compute_normal_by_dxdy(position);
-      // builder.register::<FragmentWorldNormal>(normal);
 
       let geom_ctx = ENode::<ShaderLightingGeometricCtx> {
         position,
@@ -332,7 +316,7 @@ impl<T: ShaderLight> LightCollectionCompute for LightList<T> {
     let light_count = builder.query::<LightCount>()?;
 
     let light_iter = ClampedShaderIter {
-      inner: lights,
+      source: lights,
       count: light_count,
     };
 

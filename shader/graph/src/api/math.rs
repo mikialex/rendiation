@@ -28,6 +28,47 @@ where
   pub fn dot(self, other: Self) -> Node<f32> {
     make_builtin_call(ShaderBuiltInFunction::Dot, [self.handle(), other.handle()])
   }
+
+  pub fn cross(self, other: Self) -> Node<Vec3<f32>> {
+    make_builtin_call(
+      ShaderBuiltInFunction::Cross,
+      [self.handle(), other.handle()],
+    )
+  }
+}
+
+impl<T> Node<T>
+where
+  T: RealVector<f32> + PrimitiveShaderGraphNodeType,
+{
+  pub fn min(self, other: Self) -> Self {
+    make_builtin_call(ShaderBuiltInFunction::Min, [self.handle(), other.handle()])
+  }
+  pub fn max(self, other: Self) -> Self {
+    make_builtin_call(ShaderBuiltInFunction::Max, [self.handle(), other.handle()])
+  }
+  pub fn clamp(self, min: Self, max: Self) -> Self {
+    make_builtin_call(
+      ShaderBuiltInFunction::Clamp,
+      [self.handle(), min.handle(), max.handle()],
+    )
+  }
+}
+
+// adhoc component-wise compute
+impl<T> Node<T>
+where
+  T: PrimitiveShaderGraphNodeType,
+{
+  pub fn abs(self) -> Self {
+    make_builtin_call(ShaderBuiltInFunction::Abs, [self.handle()])
+  }
+  pub fn pow(self, e: Self) -> Self {
+    make_builtin_call(ShaderBuiltInFunction::Pow, [self.handle(), e.handle()])
+  }
+  pub fn saturate(self) -> Self {
+    make_builtin_call(ShaderBuiltInFunction::Saturate, [self.handle()])
+  }
 }
 
 impl<T> Node<T>

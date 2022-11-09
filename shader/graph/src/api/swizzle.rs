@@ -63,7 +63,7 @@ macro_rules! num_cast {
   ($src: ty, $dst: ty) => {
     paste::item! {
       impl Node<$src> {
-        pub fn [< as_ $dst >](&self) -> Node<$dst> {
+        pub fn [< into_ $dst >](&self) -> Node<$dst> {
           let a = self.handle();
           ShaderGraphNodeExpr::Compose {
             target: $dst::PRIMITIVE_TYPE,
@@ -77,6 +77,7 @@ macro_rules! num_cast {
 }
 
 num_cast!(u32, f32);
+num_cast!(f32, u32);
 
 macro_rules! impl_from {
   ( { $($field: tt: $constraint: ty),+ }, $type_merged:ty) => {

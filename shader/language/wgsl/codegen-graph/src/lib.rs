@@ -456,6 +456,13 @@ fn gen_expr(data: &ShaderGraphNodeExpr, cx: &mut CodeGenCtx) -> String {
             ShaderBuiltInFunction::Dot => "dot",
             ShaderBuiltInFunction::SmoothStep => "smoothstep",
             ShaderBuiltInFunction::Select => "select",
+            ShaderBuiltInFunction::Cross => "cross",
+            ShaderBuiltInFunction::Min => "min",
+            ShaderBuiltInFunction::Max => "max",
+            ShaderBuiltInFunction::Clamp => "clamp",
+            ShaderBuiltInFunction::Abs => "abs",
+            ShaderBuiltInFunction::Pow => "pow",
+            ShaderBuiltInFunction::Saturate => "saturate",
           };
 
           format!("{name}{call}")
@@ -496,6 +503,7 @@ fn gen_expr(data: &ShaderGraphNodeExpr, cx: &mut CodeGenCtx) -> String {
           BinaryOperator::Sub => "-",
           BinaryOperator::Mul => "*",
           BinaryOperator::Div => "/",
+          BinaryOperator::Rem => "%",
           BinaryOperator::Eq => "==",
           BinaryOperator::NotEq => "!=",
           BinaryOperator::GreaterThan => ">",

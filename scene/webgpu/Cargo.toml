@@ -12,6 +12,7 @@ bytemuck = {version = "1.4.1", features = ["derive"]}
 linked-hash-map = "0.5.4"
 log = "0.4"
 once_cell = "1.4.0"
+rand = "0.7.3"
 rendiation-algebra = {path = "../../math/algebra"}
 rendiation-controller = {path = "../../components/controller"}
 rendiation-geometry = {path = "../../math/geometry"}

@@ -48,14 +48,14 @@ impl<T: ShaderGraphNodeType, const U: usize> ShaderIteratorAble for Node<Shader1
 }
 
 pub struct ClampedShaderIter<T> {
-  pub inner: T,
+  pub source: T,
   pub count: Node<u32>,
 }
 
 impl<T: Into<ShaderIterator>> From<ClampedShaderIter<T>> for ShaderIterator {
   fn from(v: ClampedShaderIter<T>) -> Self {
     ShaderIterator::Clamped {
-      source: Box::new(v.inner.into()),
+      source: Box::new(v.source.into()),
       max: v.count.handle(),
     }
   }

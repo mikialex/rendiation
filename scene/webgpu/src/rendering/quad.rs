@@ -41,7 +41,7 @@ wgsl_fn!(
   }
 );
 
-struct FullScreenQuad {
+pub struct FullScreenQuad {
   blend: Option<webgpu::BlendState>,
 }
 
@@ -96,8 +96,8 @@ impl ShaderGraphProvider for FullScreenQuad {
 }
 
 pub struct QuadDraw<T> {
-  quad: FullScreenQuad,
-  content: T,
+  pub quad: FullScreenQuad,
+  pub content: T,
 }
 
 pub trait UseQuadDraw: Sized {
@@ -122,7 +122,7 @@ impl<T> PassContent for QuadDraw<T>
 where
   T: RenderComponentAny,
 {
-  fn render(&mut self, pass: &mut SceneRenderPass) {
+  default fn render(&mut self, pass: &mut SceneRenderPass) {
     let mut base = pass.default_dispatcher();
     base.auto_write = false;
     let components: [&dyn RenderComponentAny; 3] = [&base, &self.quad, &self.content];
