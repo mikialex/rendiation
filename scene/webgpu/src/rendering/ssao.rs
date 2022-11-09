@@ -207,7 +207,7 @@ impl SSAO {
     self.parameters.resource.upload(&ctx.gpu.queue);
 
     let mut ao_result = attachment()
-      // .sizer(ratio_sizer(0.5)) // half resolution!
+      .sizer(ratio_sizer(0.5)) // half resolution!
       .format(webgpu::TextureFormat::Rgba8Unorm)
       .request(ctx);
 

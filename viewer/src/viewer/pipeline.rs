@@ -76,6 +76,11 @@ impl ViewerPipeline {
     gpu.ubo.resource.mutate(|uniform| uniform.set_jitter(jitter)).upload(&ctx.gpu.queue);
     gpu.enable_jitter = true;
 
+        // if self.enable_ssao {
+      // todo, support blend?
+      let ao = self.ssao.draw(ctx, &scene_depth,  scene.get_active_camera());
+    // }
+
     pass("scene")
       .with_color(scene_result.write(), get_main_pass_load_op(scene))
       .with_depth(scene_depth.write(), clear(1.))
@@ -87,14 +92,11 @@ impl ViewerPipeline {
         tonemap: &self.tonemap,
         debugger: self.enable_channel_debugger.then_some(&self.channel_debugger)
       }))
-      .by(scene.by_main_camera(&mut content.ground)); // transparent, should go last
+      .by(scene.by_main_camera(&mut content.ground))
+      .by(copy_frame(ao.read(), None)); // transparent, should go last
       
     ctx.resources.cameras.check_update_gpu(scene.get_active_camera(), ctx.gpu).enable_jitter = false;
 
-    // if self.enable_ssao {
-      // todo, support blend?
-      let ao = self.ssao.draw(ctx, &scene_depth,  scene.get_active_camera());
-    // }
 
     // let scene_result = draw_cross_blur(&self.blur, scene_result.read_into(), ctx);
 
@@ -110,7 +112,6 @@ impl ViewerPipeline {
       .render(ctx)
       .by(copy_frame(taa_result.read(), None))
       .by(highlight_compose)
-      .by(copy_frame(ao.read(), None))
       .by(copy_frame(widgets_result.read_into(), BlendState::PREMULTIPLIED_ALPHA_BLENDING.into()));
   }
 }
