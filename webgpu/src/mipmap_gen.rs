@@ -12,9 +12,24 @@ pub struct Mipmap2DGenerator {
 }
 
 impl Mipmap2DGenerator {
-  pub fn generate(&self, encoder: &GPUCommandEncoder, texture: &GPU2DTexture) {}
+  pub fn generate(&self, encoder: &GPUCommandEncoder, texture: &GPU2DTexture) {
+    // check if has good level count config
+
+    // do reduction
+    for i in 0..level_count {
+      // let pass =
+    }
+  }
 }
 
 pub trait Mipmap2dReducer {
   fn reduce(&self, input: Node<ShaderTexture2D>, range: Node<Vec4<f32>>) -> Node<f32>;
+}
+
+struct DefaultMipmapReducer;
+
+impl Mipmap2dReducer for DefaultMipmapReducer {
+  fn reduce(&self, input: Node<ShaderTexture2D>, range: Node<Vec4<f32>>) -> Node<f32> {
+    todo!()
+  }
 }
