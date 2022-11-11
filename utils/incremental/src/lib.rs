@@ -10,14 +10,14 @@ pub trait IncrementAble {
 
 pub type DeltaOf<T> = <T as IncrementAble>::Delta;
 
-pub enum VecDelta<T> {
+pub enum VecDelta<T: IncrementAble> {
   Push(T),
   Remove(usize),
   Insert(usize, T),
   Pop,
 }
 
-impl<T> IncrementAble for Vec<T> {
+impl<T: IncrementAble> IncrementAble for Vec<T> {
   type Delta = VecDelta<T>;
   type Error = (); // todo
 
@@ -52,6 +52,7 @@ struct VectorMap<T, U, X> {
 
 impl<T, U, X> IncrementAble for VectorMap<T, U, X>
 where
+  T: IncrementAble,
   X: IncrementAble<Delta = VecDelta<U>, Error = ()>,
 {
   type Delta = VecDelta<T>;
@@ -160,4 +161,161 @@ impl<T: IncrementAble> IncrementInstance<T> {
       self.value.apply(d);
     })
   }
+}
+
+// todo mvc
+
+// states
+
+struct TodoItem {
+  name: String,
+  finished: bool,
+}
+
+enum TodoItemChange {
+  Finished(bool),
+  Name(String),
+}
+
+impl IncrementAble for TodoItem {
+  type Delta = TodoItemChange;
+  type Error = ();
+  fn apply(&mut self, delta: Self::Delta) -> Result<Self::Delta, Self::Error> {
+    todo!()
+  }
+}
+
+struct TodoList {
+  list: Vec<TodoItem>,
+}
+
+enum TodoListChange {
+  List(DeltaOf<Vec<TodoItem>>),
+}
+
+impl IncrementAble for TodoList {
+  type Delta = TodoListChange;
+  type Error = ();
+  fn apply(&mut self, delta: Self::Delta) -> Result<Self::Delta, Self::Error> {
+    todo!()
+  }
+}
+
+struct PlatformEvent;
+
+enum ViewEvent<T: IncrementAble> {
+  Platform(PlatformEvent),
+  StateDelta(T::Delta),
+}
+
+/// T is state.
+trait View<T>
+where
+  T: IncrementAble,
+{
+  type Event;
+  fn event(&mut self, model: &mut T, event: &ViewEvent<T>) -> Option<Self::Event>;
+  // fn update(&mut self, model: &T);
+}
+
+struct TextBox {
+  texting: String,
+  placeholder: Box<dyn Fn()>,
+}
+
+enum TextBoxEvent {
+  Submit(String),
+}
+
+impl<T: IncrementAble> View<T> for TextBox {
+  type Event = TextBoxEvent;
+
+  fn event(&mut self, model: &mut T, event: &ViewEvent<T>) -> Option<Self::Event> {
+    let react = false;
+    // todo
+    // processing platform events
+    // modify self editing text, and dispatch events
+
+    if react {
+      Some(TextBoxEvent::Submit(self.texting))
+    } else {
+      None
+    }
+  }
+}
+
+struct Title<T: IncrementAble> {
+  title: Box<dyn Fn(DeltaOf<T>) -> Option<String>>,
+  title_current: String,
+}
+
+impl<T: IncrementAble> View<T> for Title<T> {
+  type Event = ();
+
+  fn event(&mut self, model: &mut T, event: &ViewEvent<T>) -> Option<Self::Event> {
+    match event {
+      ViewEvent::Platform(_) => todo!(),
+      ViewEvent::StateDelta(d) => {
+        if let Some(new_title) = (self.title)(d) {
+          self.title_current = new_title;
+        }
+      }
+    }
+    None
+  }
+}
+
+struct List<V, T> {
+  views: Vec<V>,
+  build_item_view: Box<dyn Fn(&T) -> V>,
+}
+
+impl<T: IncrementAble, V: View<T>> View<Vec<T>> for List<V, T> {
+  type Event = V::Event;
+
+  fn event(&mut self, model: &mut Vec<T>, event: &ViewEvent<Vec<T>>) -> Option<Self::Event> {
+    let mapped_e = match event {
+      ViewEvent::Platform(e) => {
+        for (i, view) in self.views.iter().enumerate() {
+          return view.event(model.get_mut(i).unwrap(), &ViewEvent::Platform(*e));
+        }
+      }
+      ViewEvent::StateDelta(d) => {
+        model.apply(d);
+        // map d to DeltaOf<Vec<V>>, and apply!
+        // use create or direct map sub delta!
+      }
+    };
+    None
+  }
+}
+
+fn todo_list_view() -> impl View<TodoList, Event = ()> {
+  Container::wrap(
+    TextBox::placeholder("what needs to be done?") //
+      .on(submit(|value| {
+        TodoListChange::List(VecDelta::Push(TodoItem {
+          name: value,
+          finished: false,
+        }))
+      })),
+    List::for_by(
+      |delta| matches!(delta, List),
+      |event| TodoListChange::List(VecDelta::Remove(index)),
+      todo_item_view,
+    ),
+  )
+}
+
+enum TodoItemEvent {
+  DeleteSelf,
+}
+
+fn todo_item_view() -> impl View<TodoItem, Event = TodoItemEvent> {
+  Container::wrap(
+    Title::name(bind!(Name)),
+    Toggle::status(bind!(Finished)).on(),
+    Button::name("delete") //
+      .on_click(|event, item| TodoItemEvent::Delete),
+  )
 }
