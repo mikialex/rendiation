@@ -190,8 +190,9 @@ where
   fn update(&mut self, model: &T, delta: &T::Delta);
 }
 
-struct TextBox {
+struct TextBox<T: IncrementAble> {
   texting: String,
+  text_binding: Box<dyn Fn(&DeltaOf<T>) -> Option<String>>,
   placeholder: Box<dyn Fn()>,
 }
 
@@ -199,7 +200,7 @@ enum TextBoxEvent {
   Submit(String),
 }
 
-impl<T: IncrementAble> View<T> for TextBox {
+impl<T: IncrementAble> View<T> for TextBox<T> {
   type Event = TextBoxEvent;
 
   fn event(&mut self, model: &T, event: &PlatformEvent) -> ViewDelta<Self::Event, T> {
@@ -215,7 +216,9 @@ impl<T: IncrementAble> View<T> for TextBox {
     }
   }
   fn update(&mut self, model: &T, delta: &T::Delta) {
-    todo!()
+    if let Some(new) = (self.text_binding)(delta) {
+      self.texting = new;
+    }
   }
 }
 
@@ -253,6 +256,20 @@ impl<T: IncrementAble, V: View<T>> View<Vec<T>> for List<V, T> {
   }
 
   fn update(&mut self, model: &Vec<T>, delta: &DeltaOf<Vec<T>>) {
+    match delta {
+      VecDelta::Push(v) => self.views.push((self.build_item_view)(v)),
+      VecDelta::Remove(_) => todo!(),
+      VecDelta::Insert(_, _) => todo!(),
+      VecDelta::Mutate(index, d) => {
+        let v = model.get(*index).unwrap();
+        let view = self.views.get_mut(*index).unwrap();
+        view.update(v, d)
+      }
+      VecDelta::Pop => {
+        self.views.pop();
+      }
+    }
+
     todo!()
     // map d to DeltaOf<Vec<V>>, and apply!
     // use create or direct map sub delta!
