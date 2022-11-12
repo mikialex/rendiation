@@ -134,149 +134,130 @@ where
 //   }
 // }
 
-pub struct IncrementInstance<T: IncrementAble> {
-  value: T,
-  deltas: Vec<T::Delta>,
+// todo mvc
+
+// states
+
+struct TodoItem {
+  name: String,
+  finished: bool,
 }
 
-impl<T: IncrementAble> IncrementInstance<T> {
-  pub fn push(&mut self, delta: T::Delta) {
-    self.deltas.push(delta)
-  }
+enum TodoItemChange {
+  Finished(bool),
+  Name(String),
+}
 
-  pub fn flush(&mut self) {
-    self.deltas.drain(..).for_each(|d| {
-      self.value.apply(d);
-    })
+impl IncrementAble for TodoItem {
+  type Delta = TodoItemChange;
+  type Error = ();
+  fn apply(&mut self, delta: Self::Delta) -> Result<(), Self::Error> {
+    todo!()
   }
 }
 
-// // todo mvc
+struct TodoList {
+  list: Vec<TodoItem>,
+}
 
-// // states
+enum TodoListChange {
+  List(DeltaOf<Vec<TodoItem>>),
+}
 
-// struct TodoItem {
-//   name: String,
-//   finished: bool,
-// }
+impl IncrementAble for TodoList {
+  type Delta = TodoListChange;
+  type Error = ();
+  fn apply(&mut self, delta: Self::Delta) -> Result<(), Self::Error> {
+    todo!()
+  }
+}
 
-// enum TodoItemChange {
-//   Finished(bool),
-//   Name(String),
-// }
+struct PlatformEvent;
 
-// impl IncrementAble for TodoItem {
-//   type Delta = TodoItemChange;
-//   type Error = ();
-//   fn apply(&mut self, delta: Self::Delta) -> Result<Self::Delta, Self::Error> {
-//     todo!()
-//   }
-// }
+enum ViewDelta<V, T: IncrementAble> {
+  ViewEvent(V),
+  StateDelta(T::Delta),
+  None,
+}
 
-// struct TodoList {
-//   list: Vec<TodoItem>,
-// }
+/// T is state.
+trait View<T>
+where
+  T: IncrementAble,
+{
+  type Event;
+  fn event(&mut self, model: &T, event: &PlatformEvent) -> ViewDelta<Self::Event, T>;
+  fn update(&mut self, model: &T, delta: &T::Delta);
+}
 
-// enum TodoListChange {
-//   List(DeltaOf<Vec<TodoItem>>),
-// }
+struct TextBox {
+  texting: String,
+  placeholder: Box<dyn Fn()>,
+}
 
-// impl IncrementAble for TodoList {
-//   type Delta = TodoListChange;
-//   type Error = ();
-//   fn apply(&mut self, delta: Self::Delta) -> Result<Self::Delta, Self::Error> {
-//     todo!()
-//   }
-// }
+enum TextBoxEvent {
+  Submit(String),
+}
 
-// struct PlatformEvent;
+impl<T: IncrementAble> View<T> for TextBox {
+  type Event = TextBoxEvent;
 
-// enum ViewDelta<V, T: IncrementAble> {
-//   ViewEvent(V),
-//   StateDelta(T::Delta),
-// }
+  fn event(&mut self, model: &T, event: &PlatformEvent) -> ViewDelta<Self::Event, T> {
+    let react = false;
+    // omit
+    // processing platform events
+    // modify self editing text, and dispatch events
 
-// /// T is state.
-// trait View<T>
-// where
-//   T: IncrementAble,
-// {
-//   type Event;
-//   fn event(&mut self, model: &T, event: &PlatformEvent) -> Option<ViewDelta<Self::Event, T>>;
-//   fn update(&mut self, model: &T, delta: &T::Delta);
-// }
+    if react {
+      ViewDelta::ViewEvent(TextBoxEvent::Submit(self.texting.clone()))
+    } else {
+      ViewDelta::None
+    }
+  }
+  fn update(&mut self, model: &T, delta: &T::Delta) {
+    todo!()
+  }
+}
 
-// struct TextBox {
-//   texting: String,
-//   placeholder: Box<dyn Fn()>,
-// }
+struct Title<T: IncrementAble> {
+  title: Box<dyn Fn(&DeltaOf<T>) -> Option<String>>,
+  title_current: String,
+}
 
-// enum TextBoxEvent {
-//   Submit(String),
-// }
+impl<T: IncrementAble> View<T> for Title<T> {
+  type Event = ();
 
-// impl<T: IncrementAble> View<T> for TextBox {
-//   type Event = TextBoxEvent;
+  fn event(&mut self, model: &T, event: &PlatformEvent) -> ViewDelta<Self::Event, T> {
+    ViewDelta::None
+  }
+  fn update(&mut self, model: &T, delta: &T::Delta) {
+    if let Some(new_title) = (self.title)(delta) {
+      self.title_current = new_title;
+    }
+  }
+}
 
-//   fn event(&mut self, model: &mut T, event: &PlatformEvent) -> Option<Self::Event> {
-//     let react = false;
-//     // todo
-//     // processing platform events
-//     // modify self editing text, and dispatch events
+struct List<V, T> {
+  views: Vec<V>,
+  build_item_view: Box<dyn Fn(&T) -> V>,
+}
 
-//     if react {
-//       Some(TextBoxEvent::Submit(self.texting))
-//     } else {
-//       None
-//     }
-//   }
-// }
+impl<T: IncrementAble, V: View<T>> View<Vec<T>> for List<V, T> {
+  type Event = V::Event;
 
-// struct Title<T: IncrementAble> {
-//   title: Box<dyn Fn(DeltaOf<T>) -> Option<String>>,
-//   title_current: String,
-// }
+  fn event(&mut self, model: &Vec<T>, event: &PlatformEvent) -> ViewDelta<Self::Event, Vec<T>> {
+    for (i, view) in self.views.iter_mut().enumerate() {
+      view.event(model.get(i).unwrap(), event);
+    }
+    ViewDelta::None
+  }
 
-// impl<T: IncrementAble> View<T> for Title<T> {
-//   type Event = ();
-
-//   fn event(&mut self, model: &mut T, event: &PlatformEvent) -> Option<Self::Event> {
-//     match event {
-//       ViewEvent::Platform(_) => todo!(),
-//       ViewEvent::StateDelta(d) => {
-//         if let Some(new_title) = (self.title)(d) {
-//           self.title_current = new_title;
-//         }
-//       }
-//     }
-//     None
-//   }
-// }
-
-// struct List<V, T> {
-//   views: Vec<V>,
-//   build_item_view: Box<dyn Fn(&T) -> V>,
-// }
-
-// impl<T: IncrementAble, V: View<T>> View<Vec<T>> for List<V, T> {
-//   type Event = V::Event;
-
-//   fn event(&mut self, model: &mut Vec<T>, event: &PlatformEvent) -> Option<Self::Event> {
-//     let mapped_e = match event {
-//       ViewEvent::Platform(e) => {
-//         for (i, view) in self.views.iter().enumerate() {
-//           view.event(model.get_mut(i).unwrap(), &ViewEvent::Platform(*e));
-//         }
-//       }
-//       ViewEvent::StateDelta(d) => {
-//         model.apply(d);
-//         // map d to DeltaOf<Vec<V>>, and apply!
-//         // use create or direct map sub delta!
-//       }
-//     };
-//     None
-//   }
-// }
+  fn update(&mut self, model: &Vec<T>, delta: &DeltaOf<Vec<T>>) {
+    todo!()
+    // map d to DeltaOf<Vec<V>>, and apply!
+    // use create or direct map sub delta!
+  }
+}
 
 // fn todo_list_view() -> impl View<TodoList, Event = ()> {
 //   Container::wrap(
