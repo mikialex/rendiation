@@ -2,11 +2,17 @@ use std::fmt::Debug;
 
 pub mod rev;
 
-pub trait IncrementAble {
+pub trait IncrementAble: Default {
+  /// `Delta` should be strictly the smallest atomic modification unit of `Self`
+  /// atomic means no invalid states between the modification
   type Delta;
   type Error: Debug;
 
+  /// apply the mutations into the data
   fn apply(&mut self, delta: Self::Delta) -> Result<(), Self::Error>;
+
+  /// generate sequence of delta, which could reduce into self with default value;
+  fn expand(&self, cb: impl FnMut(Self::Delta));
 }
 
 pub type DeltaOf<T> = <T as IncrementAble>::Delta;
@@ -44,36 +50,45 @@ impl<T: IncrementAble> IncrementAble for Vec<T> {
     };
     Ok(())
   }
-}
 
-struct VectorMap<T: IncrementAble, U: IncrementAble, X> {
-  mapped: X,
-  mapper: Box<dyn Fn(&T) -> U>,
-  map_delta: Box<dyn Fn(&DeltaOf<T>) -> DeltaOf<U>>,
-}
-
-impl<T, U, X> IncrementAble for VectorMap<T, U, X>
-where
-  T: IncrementAble<Error = ()>,
-  U: IncrementAble<Error = ()>,
-  X: IncrementAble<Delta = VecDelta<U>, Error = ()>,
-{
-  type Delta = VecDelta<T>;
-  type Error = ();
-  fn apply(&mut self, delta: VecDelta<T>) -> Result<(), Self::Error> {
-    match delta {
-      VecDelta::Push(value) => self.mapped.apply(VecDelta::Push((self.mapper)(&value))),
-      VecDelta::Remove(index) => self.mapped.apply(VecDelta::Remove(index)),
-      VecDelta::Pop => self.mapped.apply(VecDelta::Pop),
-      VecDelta::Insert(index, value) => self
-        .mapped
-        .apply(VecDelta::Insert(index, (self.mapper)(&value))),
-      VecDelta::Mutate(index, delta) => self
-        .mapped
-        .apply(VecDelta::Mutate(index, (self.map_delta)(&delta))),
+  fn expand(&self, mut cb: impl FnMut(Self::Delta)) {
+    for (i, v) in self.iter().enumerate() {
+      cb(VecDelta::Push(T::default()));
+      v.expand(|d| {
+        cb(VecDelta::Mutate(i, d));
+      })
     }
   }
 }
+
+// struct VectorMap<T: IncrementAble, U: IncrementAble, X> {
+//   mapped: X,
+//   mapper: Box<dyn Fn(&T) -> U>,
+//   map_delta: Box<dyn Fn(&DeltaOf<T>) -> DeltaOf<U>>,
+// }
+
+// impl<T, U, X> IncrementAble for VectorMap<T, U, X>
+// where
+//   T: IncrementAble<Error = ()> ,
+//   U: IncrementAble<Error = ()> ,
+//   X: IncrementAble<Delta = VecDelta<U>, Error = ()>,
+// {
+//   type Delta = VecDelta<T>;
+//   type Error = ();
+//   fn apply(&mut self, delta: VecDelta<T>) -> Result<(), Self::Error> {
+//     match delta {
+//       VecDelta::Push(value) => self.mapped.apply(VecDelta::Push((self.mapper)(&value))),
+//       VecDelta::Remove(index) => self.mapped.apply(VecDelta::Remove(index)),
+//       VecDelta::Pop => self.mapped.apply(VecDelta::Pop),
+//       VecDelta::Insert(index, value) => self
+//         .mapped
+//         .apply(VecDelta::Insert(index, (self.mapper)(&value))),
+//       VecDelta::Mutate(index, delta) => self
+//         .mapped
+//         .apply(VecDelta::Mutate(index, (self.map_delta)(&delta))),
+//     }
+//   }
+// }
 
 // struct VectorFilter<T, X> {
 //   mapped: X,
@@ -137,37 +152,49 @@ where
 // todo mvc
 
 // states
-
+#[derive(Default, Clone)]
 struct TodoItem {
   name: String,
   finished: bool,
 }
 
+/// should generate by macro
 enum TodoItemChange {
   Finished(bool),
   Name(String),
 }
 
+/// should generate by macro
 impl IncrementAble for TodoItem {
   type Delta = TodoItemChange;
   type Error = ();
   fn apply(&mut self, delta: Self::Delta) -> Result<(), Self::Error> {
     todo!()
   }
+
+  fn expand(&self, cb: impl FnMut(Self::Delta)) {
+    todo!()
+  }
 }
 
+#[derive(Default, Clone)]
 struct TodoList {
   list: Vec<TodoItem>,
 }
 
+/// should generate by macro
 enum TodoListChange {
   List(DeltaOf<Vec<TodoItem>>),
 }
 
+/// should generate by macro
 impl IncrementAble for TodoList {
   type Delta = TodoListChange;
   type Error = ();
   fn apply(&mut self, delta: Self::Delta) -> Result<(), Self::Error> {
+    todo!()
+  }
+  fn expand(&self, cb: impl FnMut(Self::Delta)) {
     todo!()
   }
 }
@@ -240,12 +267,12 @@ impl<T: IncrementAble> View<T> for Title<T> {
   }
 }
 
-struct List<V, T> {
+struct List<V> {
   views: Vec<V>,
-  build_item_view: Box<dyn Fn(&T) -> V>,
+  build_item_view: Box<dyn Fn() -> V>,
 }
 
-impl<T: IncrementAble, V: View<T>> View<Vec<T>> for List<V, T> {
+impl<T: IncrementAble + Clone, V: View<T>> View<Vec<T>> for List<V> {
   type Event = V::Event;
 
   fn event(&mut self, model: &Vec<T>, event: &PlatformEvent) -> ViewDelta<Self::Event, Vec<T>> {
@@ -257,7 +284,11 @@ impl<T: IncrementAble, V: View<T>> View<Vec<T>> for List<V, T> {
 
   fn update(&mut self, model: &Vec<T>, delta: &DeltaOf<Vec<T>>) {
     match delta {
-      VecDelta::Push(v) => self.views.push((self.build_item_view)(v)),
+      VecDelta::Push(v) => {
+        self.views.push((self.build_item_view)());
+        let pushed = self.views.last_mut().unwrap();
+        v.expand(|d| pushed.update(v, &d));
+      }
       VecDelta::Remove(_) => todo!(),
       VecDelta::Insert(_, _) => todo!(),
       VecDelta::Mutate(index, d) => {
