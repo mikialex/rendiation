@@ -17,28 +17,33 @@ pub enum TreeMutation<T: IncrementAble> {
   },
 }
 
-pub enum TreeMutationResult<T> {
-  Created(TreeNodeHandle<T>),
-  Nothing,
-}
-
 impl<T: IncrementAble> IncrementAble for TreeCollection<T> {
   type Delta = TreeMutation<T>;
-  type DeltaResult = TreeMutationResult<T>;
+  type Error = ();
 
-  fn apply(&mut self, delta: Self::Delta) -> TreeMutationResult<T> {
+  fn apply(&mut self, delta: Self::Delta) -> Result<(), Self::Error> {
     match delta {
-      TreeMutation::Create(d) => return TreeMutationResult::Created(self.create_node(d)),
+      TreeMutation::Create(d) => {
+        // question, how do we handle return the handle??
+        self.create_node(d);
+      }
       TreeMutation::Delete(d) => self.delete_node(d),
       TreeMutation::Mutate { node, delta } => {
-        todo!()
+        let node = self.get_node_mut(node).data_mut();
+        node.apply(delta).unwrap();
       }
       TreeMutation::Attach {
         parent_target,
         node,
-      } => todo!(),
-      TreeMutation::Detach { node } => todo!(),
+      } => self.node_add_child_by(parent_target, node).unwrap(),
+      TreeMutation::Detach { node } => {
+        self.node_detach_parent(node).unwrap();
+      }
     }
-    TreeMutationResult::Nothing
+    Ok(())
+  }
+
+  fn expand(&self, _cb: impl FnMut(Self::Delta)) {
+    todo!()
   }
 }

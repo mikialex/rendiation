@@ -1,11 +1,5 @@
 use crate::*;
 
-/// Not all type can impl this kind of reversible delta
-pub trait ReverseIncrementAble: IncrementAble {
-  /// return reversed delta
-  fn apply_rev(&mut self, delta: Self::Delta) -> Result<Self::Delta, Self::Error>;
-}
-
 impl<T: ReverseIncrementAble> ReverseIncrementAble for Vec<T> {
   fn apply_rev(&mut self, delta: Self::Delta) -> Result<Self::Delta, Self::Error> {
     let r = match delta {
