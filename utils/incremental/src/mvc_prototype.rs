@@ -1,6 +1,39 @@
 use crate::*;
 // todo mvc
 
+pub struct PlatformEvent;
+
+pub enum ViewDelta<V, T: IncrementAble> {
+  /// emit self special event
+  ViewEvent(V),
+  /// do state mutation
+  StateDelta(T::Delta),
+  /// Not reactive to event
+  None,
+}
+
+/// View type could generics over any state T, as long as the T could provide
+/// given logic for view type
+trait View<T>
+where
+  T: IncrementAble,
+{
+  /// View type's own event type
+  type Event;
+
+  /// In event loop handling, view type received platform event such as mouse move keyboard events,
+  /// and decide should reactive to it or not, if so, convert it to the mutation for model or emit
+  /// the self::Event for further outer side handling. see ViewDelta.
+  ///
+  /// In View hierarchy, event's mutation to state will pop up to the root, wrap the mutation to
+  /// parent state's delta type. and in update logic, consumed from the root
+  fn event(&mut self, model: &T, event: &PlatformEvent) -> ViewDelta<Self::Event, T>;
+
+  /// update is responsible for map the state delta to to view property change
+  /// the model here is the unmodified.
+  fn update(&mut self, model: &T, delta: &T::Delta);
+}
+
 // states
 #[derive(Default, Clone)]
 struct TodoItem {
@@ -54,28 +87,36 @@ impl IncrementAble for TodoList {
   }
 }
 
-struct PlatformEvent;
-
-enum ViewDelta<V, T: IncrementAble> {
-  ViewEvent(V),
-  StateDelta(T::Delta),
-  None,
-}
-
-/// T is state.
-trait View<T>
-where
-  T: IncrementAble,
-{
-  type Event;
-  fn event(&mut self, model: &T, event: &PlatformEvent) -> ViewDelta<Self::Event, T>;
-  fn update(&mut self, model: &T, delta: &T::Delta);
-}
-
 struct TextBox<T: IncrementAble> {
   texting: String,
-  text_binding: Box<dyn Fn(&DeltaOf<T>) -> Option<String>>,
+  text_binding: Box<dyn Fn(&DeltaOf<T>) -> Option<&String>>,
   placeholder: Box<dyn Fn()>,
+}
+
+impl<T: IncrementAble> TextBox<T> {
+  pub fn with_text(mut self, binder: impl Fn(&DeltaOf<T>) -> Option<&String> + 'static) -> Self {
+    self.text_binding = Box::new(binder);
+    self
+  }
+}
+
+fn _test(text: TextBox<TodoItem>) {
+  text.with_text(bind!(DeltaOf::<TodoItem>::Name));
+}
+
+// impl<T: IncrementAble, S> DeltaBinder<T, S> for Box<dyn Fn(&DeltaOf<T>) -> Option<String>> {}
+
+#[macro_export]
+macro_rules! bind {
+  ($Variant: path) => {
+    |delta| {
+      if let $Variant(name) = delta {
+        Some(&name)
+      } else {
+        None
+      }
+    }
+  };
 }
 
 enum TextBoxEvent {
@@ -98,8 +139,8 @@ impl<T: IncrementAble> View<T> for TextBox<T> {
     }
   }
   fn update(&mut self, model: &T, delta: &T::Delta) {
-    if let Some(new) = (self.text_binding)(delta) {
-      self.texting = new;
+    if let Some(new) = (self.text_binding)(&delta) {
+      self.texting = new.clone();
     }
   }
 }
@@ -116,7 +157,7 @@ impl<T: IncrementAble> View<T> for Title<T> {
     ViewDelta::None
   }
   fn update(&mut self, model: &T, delta: &T::Delta) {
-    if let Some(new_title) = (self.title)(delta) {
+    if let Some(new_title) = (self.title)(&delta) {
       self.title_current = new_title;
     }
   }
@@ -127,8 +168,22 @@ struct List<V> {
   build_item_view: Box<dyn Fn() -> V>,
 }
 
+impl<V> List<V> {
+  pub fn for_by(view_builder: impl Fn() -> V + 'static) -> Self {
+    Self {
+      views: Default::default(),
+      build_item_view: Box::new(view_builder),
+    }
+  }
+}
+
+struct EventWithIndex<T> {
+  event: T,
+  index: usize,
+}
+
 impl<T: IncrementAble + Clone, V: View<T>> View<Vec<T>> for List<V> {
-  type Event = V::Event;
+  type Event = EventWithIndex<V::Event>;
 
   fn event(&mut self, model: &Vec<T>, event: &PlatformEvent) -> ViewDelta<Self::Event, Vec<T>> {
     for (i, view) in self.views.iter_mut().enumerate() {
@@ -167,11 +222,9 @@ impl<T: IncrementAble + Clone, V: View<T>> View<Vec<T>> for List<V> {
 //           finished: false,
 //         }))
 //       })),
-//     List::for_by(
-//       |delta| matches!(delta, List),
-//       |event| TodoListChange::List(VecDelta::Remove(index)),
-//       todo_item_view,
-//     ),
+//     List::for_by(todo_item_view)
+//       .lens(lens!(TodoList::list))
+//       .on(inner(|event| TodoListChange::List(VecDelta::Remove(event.index)))),
 //   )
 // }
 

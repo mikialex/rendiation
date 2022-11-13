@@ -1281,6 +1281,18 @@ dependencies = [
 [[package]]
 name = "incremental"
 version = "0.0.1"
+dependencies = [
+ "incremental_derives",
+]
+
+[[package]]
+name = "incremental_derives"
+version = "0.1.0"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
+]
 
 [[package]]
 name = "indexmap"
