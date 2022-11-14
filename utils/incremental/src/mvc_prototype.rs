@@ -8,8 +8,6 @@ pub enum ViewDelta<V, T: IncrementAble> {
   ViewEvent(V),
   /// do state mutation
   StateDelta(T::Delta),
-  /// Not reactive to event
-  None,
 }
 
 /// View type could generics over any state T, as long as the T could provide
@@ -27,7 +25,7 @@ where
   ///
   /// In View hierarchy, event's mutation to state will pop up to the root, wrap the mutation to
   /// parent state's delta type. and in update logic, consumed from the root
-  fn event(&mut self, model: &T, event: &PlatformEvent) -> ViewDelta<Self::Event, T>;
+  fn event(&mut self, model: &T, event: &PlatformEvent, cb: impl FnMut(ViewDelta<Self::Event, T>));
 
   /// update is responsible for map the state delta to to view property change
   /// the model here is the unmodified.
@@ -126,16 +124,21 @@ enum TextBoxEvent {
 impl<T: IncrementAble> View<T> for TextBox<T> {
   type Event = TextBoxEvent;
 
-  fn event(&mut self, model: &T, event: &PlatformEvent) -> ViewDelta<Self::Event, T> {
+  fn event(
+    &mut self,
+    model: &T,
+    event: &PlatformEvent,
+    mut cb: impl FnMut(ViewDelta<Self::Event, T>),
+  ) {
     let react = false;
     // omit
     // processing platform events
     // modify self editing text, and dispatch events
 
     if react {
-      ViewDelta::ViewEvent(TextBoxEvent::Submit(self.texting.clone()))
-    } else {
-      ViewDelta::None
+      cb(ViewDelta::ViewEvent(TextBoxEvent::Submit(
+        self.texting.clone(),
+      )))
     }
   }
   fn update(&mut self, model: &T, delta: &T::Delta) {
@@ -153,8 +156,7 @@ struct Title<T: IncrementAble> {
 impl<T: IncrementAble> View<T> for Title<T> {
   type Event = ();
 
-  fn event(&mut self, model: &T, event: &PlatformEvent) -> ViewDelta<Self::Event, T> {
-    ViewDelta::None
+  fn event(&mut self, model: &T, event: &PlatformEvent, cb: impl FnMut(ViewDelta<Self::Event, T>)) {
   }
   fn update(&mut self, model: &T, delta: &T::Delta) {
     if let Some(new_title) = (self.title)(&delta) {
@@ -182,14 +184,23 @@ struct EventWithIndex<T> {
   index: usize,
 }
 
-impl<T: IncrementAble + Clone, V: View<T>> View<Vec<T>> for List<V> {
+impl<T: IncrementAble + Default, V: View<T>> View<Vec<T>> for List<V> {
   type Event = EventWithIndex<V::Event>;
 
-  fn event(&mut self, model: &Vec<T>, event: &PlatformEvent) -> ViewDelta<Self::Event, Vec<T>> {
+  fn event(
+    &mut self,
+    model: &Vec<T>,
+    event: &PlatformEvent,
+    mut cb: impl FnMut(ViewDelta<Self::Event, Vec<T>>),
+  ) {
     for (i, view) in self.views.iter_mut().enumerate() {
-      view.event(model.get(i).unwrap(), event);
+      view.event(model.get(i).unwrap(), event, |e| {
+        cb(match e {
+          ViewDelta::ViewEvent(e) => ViewDelta::ViewEvent(EventWithIndex { index: i, event: e }),
+          ViewDelta::StateDelta(delta) => ViewDelta::StateDelta(VecDelta::Mutate(i, delta)),
+        })
+      });
     }
-    ViewDelta::None
   }
 
   fn update(&mut self, model: &Vec<T>, delta: &DeltaOf<Vec<T>>) {

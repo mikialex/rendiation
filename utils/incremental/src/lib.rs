@@ -6,7 +6,7 @@ mod ty;
 
 use ty::*;
 
-pub trait IncrementAble: Default {
+pub trait IncrementAble {
   /// `Delta` should be strictly the smallest atomic modification unit of `Self`
   /// atomic means no invalid states between the modification
   type Delta;

@@ -39,7 +39,7 @@ pub enum VecDelta<T: IncrementAble> {
   Pop,
 }
 
-impl<T: IncrementAble> IncrementAble for Vec<T> {
+impl<T: IncrementAble + Default> IncrementAble for Vec<T> {
   type Delta = VecDelta<T>;
   type Error = (); // todo
 
