@@ -3,7 +3,7 @@ use crate::*;
 
 pub struct PlatformEvent;
 
-pub enum ViewDelta<V, T: IncrementAble> {
+pub enum ViewReaction<V, T: IncrementAble> {
   /// emit self special event
   ViewEvent(V),
   /// do state mutation
@@ -25,7 +25,12 @@ where
   ///
   /// In View hierarchy, event's mutation to state will pop up to the root, wrap the mutation to
   /// parent state's delta type. and in update logic, consumed from the root
-  fn event(&mut self, model: &T, event: &PlatformEvent, cb: impl FnMut(ViewDelta<Self::Event, T>));
+  fn event(
+    &mut self,
+    model: &T,
+    event: &PlatformEvent,
+    cb: impl FnMut(ViewReaction<Self::Event, T>),
+  );
 
   /// update is responsible for map the state delta to to view property change
   /// the model here is the unmodified.
@@ -128,7 +133,7 @@ impl<T: IncrementAble> View<T> for TextBox<T> {
     &mut self,
     model: &T,
     event: &PlatformEvent,
-    mut cb: impl FnMut(ViewDelta<Self::Event, T>),
+    mut cb: impl FnMut(ViewReaction<Self::Event, T>),
   ) {
     let react = false;
     // omit
@@ -136,7 +141,7 @@ impl<T: IncrementAble> View<T> for TextBox<T> {
     // modify self editing text, and dispatch events
 
     if react {
-      cb(ViewDelta::ViewEvent(TextBoxEvent::Submit(
+      cb(ViewReaction::ViewEvent(TextBoxEvent::Submit(
         self.texting.clone(),
       )))
     }
@@ -156,7 +161,12 @@ struct Title<T: IncrementAble> {
 impl<T: IncrementAble> View<T> for Title<T> {
   type Event = ();
 
-  fn event(&mut self, model: &T, event: &PlatformEvent, cb: impl FnMut(ViewDelta<Self::Event, T>)) {
+  fn event(
+    &mut self,
+    model: &T,
+    event: &PlatformEvent,
+    cb: impl FnMut(ViewReaction<Self::Event, T>),
+  ) {
   }
   fn update(&mut self, model: &T, delta: &T::Delta) {
     if let Some(new_title) = (self.title)(&delta) {
@@ -191,13 +201,15 @@ impl<T: IncrementAble + Default, V: View<T>> View<Vec<T>> for List<V> {
     &mut self,
     model: &Vec<T>,
     event: &PlatformEvent,
-    mut cb: impl FnMut(ViewDelta<Self::Event, Vec<T>>),
+    mut cb: impl FnMut(ViewReaction<Self::Event, Vec<T>>),
   ) {
     for (i, view) in self.views.iter_mut().enumerate() {
       view.event(model.get(i).unwrap(), event, |e| {
         cb(match e {
-          ViewDelta::ViewEvent(e) => ViewDelta::ViewEvent(EventWithIndex { index: i, event: e }),
-          ViewDelta::StateDelta(delta) => ViewDelta::StateDelta(VecDelta::Mutate(i, delta)),
+          ViewReaction::ViewEvent(e) => {
+            ViewReaction::ViewEvent(EventWithIndex { index: i, event: e })
+          }
+          ViewReaction::StateDelta(delta) => ViewReaction::StateDelta(VecDelta::Mutate(i, delta)),
         })
       });
     }
