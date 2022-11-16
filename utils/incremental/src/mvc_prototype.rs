@@ -27,7 +27,7 @@ where
   /// parent state's delta type. and in update logic, consumed from the root
   fn event(
     &mut self,
-    model: &T,
+    model: &mut T,
     event: &PlatformEvent,
     cb: &mut dyn FnMut(ViewReaction<Self::Event, T>),
   );
@@ -62,6 +62,7 @@ struct TodoItem {
   finished: bool,
 }
 
+#[derive(Clone)]
 /// should generate by macro
 enum TodoItemChange {
   Finished(bool),
@@ -72,6 +73,19 @@ enum TodoItemChange {
 impl IncrementAble for TodoItem {
   type Delta = TodoItemChange;
   type Error = ();
+
+  type Mutator<'a> = SimpleMutator<'a, Self>;
+
+  fn create_mutator<'a>(
+    &'a mut self,
+    collector: &'a mut dyn FnMut(Self::Delta),
+  ) -> Self::Mutator<'a> {
+    SimpleMutator {
+      inner: self,
+      collector,
+    }
+  }
+
   fn apply(&mut self, delta: Self::Delta) -> Result<(), Self::Error> {
     match delta {
       TodoItemChange::Finished(v) => self.finished.apply(v)?,
@@ -91,6 +105,7 @@ struct TodoList {
   list: Vec<TodoItem>,
 }
 
+#[derive(Clone)]
 /// should generate by macro
 enum TodoListChange {
   List(DeltaOf<Vec<TodoItem>>),
@@ -100,6 +115,19 @@ enum TodoListChange {
 impl IncrementAble for TodoList {
   type Delta = TodoListChange;
   type Error = ();
+
+  type Mutator<'a> = SimpleMutator<'a, Self>;
+
+  fn create_mutator<'a>(
+    &'a mut self,
+    collector: &'a mut dyn FnMut(Self::Delta),
+  ) -> Self::Mutator<'a> {
+    SimpleMutator {
+      inner: self,
+      collector,
+    }
+  }
+
   fn apply(&mut self, delta: Self::Delta) -> Result<(), Self::Error> {
     todo!()
   }
@@ -154,7 +182,7 @@ impl<T: IncrementAble> View<T> for TextBox<T> {
 
   fn event(
     &mut self,
-    model: &T,
+    model: &mut T,
     event: &PlatformEvent,
     cb: &mut dyn FnMut(ViewReaction<Self::Event, T>),
   ) {
@@ -195,7 +223,7 @@ impl<T: IncrementAble> View<T> for Title<T> {
 
   fn event(
     &mut self,
-    model: &T,
+    model: &mut T,
     event: &PlatformEvent,
     cb: &mut dyn FnMut(ViewReaction<Self::Event, T>),
   ) {
@@ -226,17 +254,21 @@ struct EventWithIndex<T> {
   index: usize,
 }
 
-impl<T: IncrementAble + Default, V: View<T>> View<Vec<T>> for List<V> {
+impl<T, V> View<Vec<T>> for List<V>
+where
+  T: IncrementAble + Default + Clone + 'static,
+  V: View<T>,
+{
   type Event = EventWithIndex<V::Event>;
 
   fn event(
     &mut self,
-    model: &Vec<T>,
+    model: &mut Vec<T>,
     event: &PlatformEvent,
     cb: &mut dyn FnMut(ViewReaction<Self::Event, Vec<T>>),
   ) {
     for (i, view) in self.views.iter_mut().enumerate() {
-      view.event(model.get(i).unwrap(), event, &mut |e| {
+      view.event(model.get_mut(i).unwrap(), event, &mut |e| {
         cb(match e {
           ViewReaction::ViewEvent(e) => {
             ViewReaction::ViewEvent(EventWithIndex { index: i, event: e })
@@ -299,7 +331,7 @@ where
 
   fn event(
     &mut self,
-    model: &T,
+    model: &mut T,
     event: &PlatformEvent,
     cb: &mut dyn FnMut(ViewReaction<Self::Event, T>),
   ) {
@@ -332,11 +364,11 @@ where
 
   fn event(
     &mut self,
-    _: &(),
+    _: &mut (),
     event: &PlatformEvent,
     cb: &mut dyn FnMut(ViewReaction<Self::Event, ()>),
   ) {
-    self.view.event(&self.state, event, &mut |e| match e {
+    self.view.event(&mut self.state, event, &mut |e| match e {
       ViewReaction::StateDelta(delta) => self.state_mutations.push(delta),
       ViewReaction::ViewEvent(e) => cb(ViewReaction::ViewEvent(e)),
     });
@@ -374,7 +406,7 @@ impl<T: IncrementAble, E> View<T> for Container<T, E> {
 
   fn event(
     &mut self,
-    model: &T,
+    model: &mut T,
     event: &PlatformEvent,
     cb: &mut dyn FnMut(ViewReaction<Self::Event, T>),
   ) {

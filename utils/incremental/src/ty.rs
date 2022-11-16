@@ -1,11 +1,35 @@
 use crate::*;
 
+pub struct SimpleMutator<'a, T: IncrementAble> {
+  inner: &'a mut T,
+  collector: &'a mut dyn FnMut(T::Delta),
+}
+
+impl<'a, T: IncrementAble> MutatorApply<T> for SimpleMutator<'a, T> {
+  fn apply(&mut self, delta: T::Delta) {
+    (self.collector)(delta.clone());
+    self.inner.apply(delta).unwrap()
+  }
+}
+
 macro_rules! simple {
   ($Type: ty) => {
     impl IncrementAble for $Type {
       type Delta = Self;
 
       type Error = ();
+
+      type Mutator<'a> = SimpleMutator<'a, Self>;
+
+      fn create_mutator<'a>(
+        &'a mut self,
+        collector: &'a mut dyn FnMut(Self::Delta),
+      ) -> Self::Mutator<'a> {
+        SimpleMutator {
+          inner: self,
+          collector,
+        }
+      }
 
       fn apply(&mut self, delta: Self::Delta) -> Result<(), Self::Error> {
         *self = delta;
@@ -33,6 +57,7 @@ simple!(f64);
 simple!(char);
 simple!(String);
 
+#[derive(Clone)]
 pub enum VecDelta<T: IncrementAble> {
   Push(T),
   Remove(usize),
@@ -41,9 +66,21 @@ pub enum VecDelta<T: IncrementAble> {
   Pop,
 }
 
-impl<T: IncrementAble + Default> IncrementAble for Vec<T> {
+impl<T: IncrementAble + Default + Clone + 'static> IncrementAble for Vec<T> {
   type Delta = VecDelta<T>;
   type Error = (); // todo
+
+  type Mutator<'a> = SimpleMutator<'a, Self>;
+
+  fn create_mutator<'a>(
+    &'a mut self,
+    collector: &'a mut dyn FnMut(Self::Delta),
+  ) -> Self::Mutator<'a> {
+    SimpleMutator {
+      inner: self,
+      collector,
+    }
+  }
 
   fn apply(&mut self, delta: Self::Delta) -> Result<(), Self::Error> {
     match delta {
