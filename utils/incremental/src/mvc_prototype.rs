@@ -177,8 +177,17 @@ impl<T: IncrementAble> View<T> for TextBox<T> {
 }
 
 struct Title<T: IncrementAble> {
-  title: Box<dyn Fn(&DeltaOf<T>) -> Option<String>>,
+  title: Box<dyn Fn(&DeltaOf<T>) -> Option<&String>>,
   title_current: String,
+}
+
+impl<T: IncrementAble> Title<T> {
+  pub fn name(binder: impl Fn(&DeltaOf<T>) -> Option<&String> + 'static) -> Self {
+    Self {
+      title: Box::new(binder),
+      title_current: Default::default(),
+    }
+  }
 }
 
 impl<T: IncrementAble> View<T> for Title<T> {
@@ -193,7 +202,7 @@ impl<T: IncrementAble> View<T> for Title<T> {
   }
   fn update(&mut self, model: &T, delta: &T::Delta) {
     if let Some(new_title) = (self.title)(&delta) {
-      self.title_current = new_title;
+      self.title_current = new_title.clone();
     }
   }
 }
@@ -405,6 +414,9 @@ fn todo_list_view() -> impl View<TodoList> {
           .into()
         })),
     )
+  // .with_child(
+  //   List::for_by(todo_item_view), //
+  // )
 }
 
 // fn todo_list_view() -> impl View<TodoList, Event = ()> {
@@ -422,15 +434,15 @@ fn todo_list_view() -> impl View<TodoList> {
 //   )
 // }
 
-// enum TodoItemEvent {
-//   DeleteSelf,
-// }
+enum TodoItemEvent {
+  DeleteSelf,
+}
 
-// fn todo_item_view() -> impl View<TodoItem, Event = TodoItemEvent> {
-//   Container::wrap(
-//     Title::name(bind!(Name)),
-//     Toggle::status(bind!(Finished)).on(),
-//     Button::name("delete") //
-//       .on_click(|event, item| TodoItemEvent::Delete),
-//   )
-// }
+fn todo_item_view() -> impl View<TodoItem, Event = ()> {
+  Container::default().with_child(
+    Title::name(bind!(DeltaOf::<TodoItem>::Name)),
+    // Toggle::status(bind!(Finished)).on(),
+    // Button::name("delete") //
+    //   .on_click(|event, item| TodoItemEvent::Delete),
+  )
+}
