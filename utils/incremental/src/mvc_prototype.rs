@@ -107,8 +107,6 @@ fn _test(text: TextBox<TodoItem>) {
   text.with_text(bind!(DeltaOf::<TodoItem>::Name));
 }
 
-// impl<T: IncrementAble, S> DeltaBinder<T, S> for Box<dyn Fn(&DeltaOf<T>) -> Option<String>> {}
-
 #[macro_export]
 macro_rules! bind {
   ($Variant: path) => {
@@ -232,6 +230,85 @@ impl<T: IncrementAble + Default, V: View<T>> View<Vec<T>> for List<V> {
       VecDelta::Pop => {
         self.views.pop();
       }
+    }
+  }
+}
+
+struct EventHandler<T: IncrementAble, V: View<T>> {
+  inner: V,
+  handler: Box<dyn Fn(&T, &ViewReaction<V::Event, T>)>,
+}
+trait WrapEventHandler<T: IncrementAble>: View<T> + Sized {
+  fn on(
+    self,
+    handler: impl Fn(&T, &ViewReaction<Self::Event, T>) + 'static,
+  ) -> EventHandler<T, Self>;
+}
+impl<T: IncrementAble, V: View<T>> WrapEventHandler<T> for V {
+  fn on(
+    self,
+    handler: impl Fn(&T, &ViewReaction<Self::Event, T>) + 'static,
+  ) -> EventHandler<T, Self> {
+    EventHandler {
+      inner: self,
+      handler: Box::new(handler),
+    }
+  }
+}
+
+impl<T, V> View<T> for EventHandler<T, V>
+where
+  T: IncrementAble,
+  V: View<T>,
+{
+  type Event = V::Event;
+
+  fn event(
+    &mut self,
+    model: &T,
+    event: &PlatformEvent,
+    mut cb: impl FnMut(ViewReaction<Self::Event, T>),
+  ) {
+    self.inner.event(model, event, |react| {
+      (self.handler)(model, &react);
+      cb(react)
+    })
+  }
+
+  fn update(&mut self, model: &T, delta: &T::Delta) {
+    self.inner.update(model, delta)
+  }
+}
+
+struct ViewRoot<T: IncrementAble, V> {
+  state: T,
+  state_mutations: Vec<T::Delta>,
+  view: V,
+}
+
+impl<T, V> View<()> for ViewRoot<T, V>
+where
+  T: IncrementAble,
+  V: View<T>,
+{
+  type Event = V::Event;
+
+  fn event(
+    &mut self,
+    _: &(),
+    event: &PlatformEvent,
+    mut cb: impl FnMut(ViewReaction<Self::Event, ()>),
+  ) {
+    self.view.event(&mut self.state, event, |e| match e {
+      ViewReaction::StateDelta(delta) => self.state_mutations.push(delta),
+      ViewReaction::ViewEvent(e) => cb(ViewReaction::ViewEvent(e)),
+    });
+  }
+
+  fn update(&mut self, _: &(), _: &()) {
+    for delta in self.state_mutations.drain(..) {
+      self.view.update(&self.state, &delta);
+      self.state.apply(delta).unwrap()
     }
   }
 }

@@ -19,6 +19,8 @@ macro_rules! simple {
   };
 }
 
+simple!(());
+
 simple!(bool);
 simple!(usize);
 simple!(u32);
