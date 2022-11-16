@@ -37,6 +37,24 @@ where
   fn update(&mut self, model: &T, delta: &T::Delta);
 }
 
+// trait ViewDyn<T>
+// where
+//   T: IncrementAble,
+// {
+//   type Event;
+
+//   fn event(
+//     &mut self,
+//     model: &T,
+//     event: &PlatformEvent,
+//     cb: &dyn FnMut(ViewReaction<Self::Event, T>),
+//   );
+
+//   /// update is responsible for map the state delta to to view property change
+//   /// the model here is the unmodified.
+//   fn update(&mut self, model: &T, delta: &T::Delta);
+// }
+
 // states
 #[derive(Default, Clone)]
 struct TodoItem {
@@ -93,10 +111,17 @@ impl IncrementAble for TodoList {
 struct TextBox<T: IncrementAble> {
   texting: String,
   text_binding: Box<dyn Fn(&DeltaOf<T>) -> Option<&String>>,
-  placeholder: Box<dyn Fn()>,
+  placeholder: String,
 }
 
 impl<T: IncrementAble> TextBox<T> {
+  pub fn placeholder(placeholder: impl Into<String>) -> Self {
+    Self {
+      texting: Default::default(),
+      text_binding: Box::new(|d| None),
+      placeholder: placeholder.into(),
+    }
+  }
   pub fn with_text(mut self, binder: impl Fn(&DeltaOf<T>) -> Option<&String> + 'static) -> Self {
     self.text_binding = Box::new(binder);
     self
@@ -236,18 +261,18 @@ impl<T: IncrementAble + Default, V: View<T>> View<Vec<T>> for List<V> {
 
 struct EventHandler<T: IncrementAble, V: View<T>> {
   inner: V,
-  handler: Box<dyn Fn(&T, &ViewReaction<V::Event, T>)>,
+  handler: Box<dyn Fn(&T, &ViewReaction<V::Event, T>) -> Option<T::Delta>>,
 }
 trait WrapEventHandler<T: IncrementAble>: View<T> + Sized {
   fn on(
     self,
-    handler: impl Fn(&T, &ViewReaction<Self::Event, T>) + 'static,
+    handler: impl Fn(&T, &ViewReaction<Self::Event, T>) -> Option<T::Delta> + 'static,
   ) -> EventHandler<T, Self>;
 }
 impl<T: IncrementAble, V: View<T>> WrapEventHandler<T> for V {
   fn on(
     self,
-    handler: impl Fn(&T, &ViewReaction<Self::Event, T>) + 'static,
+    handler: impl Fn(&T, &ViewReaction<Self::Event, T>) -> Option<T::Delta> + 'static,
   ) -> EventHandler<T, Self> {
     EventHandler {
       inner: self,
@@ -270,7 +295,9 @@ where
     mut cb: impl FnMut(ViewReaction<Self::Event, T>),
   ) {
     self.inner.event(model, event, |react| {
-      (self.handler)(model, &react);
+      if let Some(new_delta) = (self.handler)(model, &react) {
+        cb(ViewReaction::StateDelta(new_delta));
+      }
       cb(react)
     })
   }
@@ -280,6 +307,7 @@ where
   }
 }
 
+/// The actual state holder
 struct ViewRoot<T: IncrementAble, V> {
   state: T,
   state_mutations: Vec<T::Delta>,
@@ -299,7 +327,7 @@ where
     event: &PlatformEvent,
     mut cb: impl FnMut(ViewReaction<Self::Event, ()>),
   ) {
-    self.view.event(&mut self.state, event, |e| match e {
+    self.view.event(&self.state, event, |e| match e {
       ViewReaction::StateDelta(delta) => self.state_mutations.push(delta),
       ViewReaction::ViewEvent(e) => cb(ViewReaction::ViewEvent(e)),
     });
@@ -311,6 +339,33 @@ where
       self.state.apply(delta).unwrap()
     }
   }
+}
+
+// struct Container<T> {
+//   dyn_views: Vec<Box<dyn View<T, Event = ()>>>,
+// }
+
+/// library util
+fn submit<T: IncrementAble>(
+  on_submit: impl Fn(String) -> Option<T::Delta>,
+) -> impl Fn(&T, &ViewReaction<TextBoxEvent, T>) -> Option<T::Delta> {
+  move |_, e| match e {
+    ViewReaction::ViewEvent(e) => match e {
+      TextBoxEvent::Submit(content) => on_submit(content.clone()),
+    },
+    ViewReaction::StateDelta(_) => None,
+  }
+}
+
+fn todo_list_view() -> impl View<TodoList> {
+  TextBox::placeholder("what needs to be done?") //
+    .on(submit(|text| {
+      TodoListChange::List(VecDelta::Push(TodoItem {
+        name: text,
+        finished: false,
+      }))
+      .into()
+    }))
 }
 
 // fn todo_list_view() -> impl View<TodoList, Event = ()> {

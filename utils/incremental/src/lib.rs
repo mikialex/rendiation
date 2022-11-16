@@ -1,7 +1,7 @@
 use std::fmt::Debug;
 
 mod mvc_prototype;
-mod rev;
+mod rev_ty;
 mod ty;
 
 use ty::*;
