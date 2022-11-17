@@ -39,24 +39,6 @@ where
   fn update(&mut self, model: &T, delta: &T::Delta);
 }
 
-// trait ViewDyn<T>
-// where
-//   T: IncrementAble,
-// {
-//   type Event;
-
-//   fn event(
-//     &mut self,
-//     model: &T,
-//     event: &PlatformEvent,
-//     cb: &dyn FnMut(ViewReaction<Self::Event, T>),
-//   );
-
-//   /// update is responsible for map the state delta to to view property change
-//   /// the model here is the unmodified.
-//   fn update(&mut self, model: &T, delta: &T::Delta);
-// }
-
 // states
 #[derive(Default, Clone)]
 struct TodoItem {

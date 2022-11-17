@@ -1,5 +1,3 @@
-#![feature(generic_associated_types)]
-
 use abst::TreeNodeMutPtr;
 pub use rendiation_abstract_tree::*;
 use storage::{generational::Arena, *};

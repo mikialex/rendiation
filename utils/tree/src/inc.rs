@@ -85,16 +85,35 @@ impl<'a, T: IncrementAble + Clone> TreeCollectionReactiveMutator<'a, T> {
   pub fn get_node_mut(
     &'a mut self,
     node: TreeNodeHandle<T>,
-  ) -> (impl FnMut(DeltaOf<T>) + 'a, T::Mutator<'a>) {
-    let mut collector =
-      |delta| (self.collector)(DeltaOf::<TreeCollection<T>>::Mutate { node, delta });
-    (
+  ) -> MutateMapper<'a, T, impl FnMut(T::Delta) + 'a> {
+    let t = self.inner.get_node_mut(node).data_mut();
+    let collector = &mut self.collector;
+    let collector = move |delta| collector(DeltaOf::<TreeCollection<T>>::Mutate { node, delta });
+
+    MutateMapper {
+      inner: t,
       collector,
-      self
-        .inner
-        .get_node_mut(node)
-        .data_mut()
-        .create_mutator(&mut collector),
-    )
+    }
+  }
+
+  fn test(&'a mut self, node: TreeNodeHandle<T>) {
+    let mut mapper = self.get_node_mut(node);
+    let node_mutator = mapper.mutate();
+    // node_mutator.apply(delta)
+  }
+}
+
+pub struct MutateMapper<'a, T: IncrementAble, C: FnMut(T::Delta) + 'a> {
+  inner: &'a mut T,
+  collector: C,
+}
+
+impl<'a, T, C> MutateMapper<'a, T, C>
+where
+  T: IncrementAble,
+  C: FnMut(T::Delta) + 'a,
+{
+  fn mutate(&'a mut self) -> T::Mutator<'a> {
+    self.inner.create_mutator(&mut self.collector)
   }
 }

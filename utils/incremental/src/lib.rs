@@ -1,6 +1,3 @@
-#![feature(generic_associated_types)]
-#![allow(clippy::needless_lifetimes)]
-
 use std::fmt::Debug;
 
 mod mvc_prototype;
@@ -13,20 +10,19 @@ pub trait IncrementAble: Sized {
   /// `Delta` should be strictly the smallest atomic modification unit of `Self`
   /// atomic means no invalid states between the modification
   type Delta: Clone;
+
   /// mutation maybe not valid and return error back.
-  /// Self should stay valid state even if mutation failed.
+  /// should stay valid state even if mutation failed.
   type Error: Debug;
 
-  /// mutate self through a mutator, which could generate delta automatically
-  /// some state maybe not suitable to mutate by apply, because the requirement of return value
-  /// the return value is handled in mutator implementation.
+  /// Mutator encapsulate the inner mutable state to prevent direct mutation and generate delta automatically
+  /// Mutator should also direct support apply delta which constraint by MutatorApply
   ///
-  /// Mutator should encapsulate the inner mutable state to prevent direct mutation
-  /// without delta collect. Mutator should also direct support apply delta which constraint
-  /// by MutatorApply
+  /// We need this because delta could have return value.
   type Mutator<'a>: MutatorApply<Self>
   where
     Self: 'a;
+
   fn create_mutator<'a>(
     &'a mut self,
     collector: &'a mut dyn FnMut(Self::Delta),
