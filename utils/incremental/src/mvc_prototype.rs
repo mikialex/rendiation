@@ -19,9 +19,11 @@ where
   /// View type's own event type
   type Event;
 
-  /// In event loop handling, view type received platform event such as mouse move keyboard events,
-  /// and decide should reactive to it or not, if so, convert it to the mutation for model or emit
+  /// In event loop handling, the view type received platform event such as mouse move keyboard events,
+  /// and decide should reactive to it or not, if so, mutate the model or emit
   /// the self::Event for further outer side handling. see ViewDelta.
+  ///
+  /// all mutation to the model should record delta by call cb passed from caller.
   ///
   /// In View hierarchy, event's mutation to state will pop up to the root, wrap the mutation to
   /// parent state's delta type. and in update logic, consumed from the root
@@ -335,12 +337,16 @@ where
     event: &PlatformEvent,
     cb: &mut dyn FnMut(ViewReaction<Self::Event, T>),
   ) {
+    let mut reaction = Vec::new(); // todo optimize use small vec
     self.inner.event(model, event, &mut |react| {
+      reaction.push(react);
+    });
+
+    reaction.drain(..).for_each(|react| {
       if let Some(new_delta) = (self.handler)(model, &react) {
-        cb(ViewReaction::StateDelta(new_delta));
+        cb(ViewReaction::StateDelta(new_delta))
       }
-      cb(react)
-    })
+    });
   }
 
   fn update(&mut self, model: &T, delta: &T::Delta) {

@@ -1,8 +1,8 @@
 use crate::*;
 
 pub struct SimpleMutator<'a, T: IncrementAble> {
-  inner: &'a mut T,
-  collector: &'a mut dyn FnMut(T::Delta),
+  pub inner: &'a mut T,
+  pub collector: &'a mut dyn FnMut(T::Delta),
 }
 
 impl<'a, T: IncrementAble> MutatorApply<T> for SimpleMutator<'a, T> {
