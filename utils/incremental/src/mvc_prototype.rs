@@ -302,20 +302,20 @@ where
   }
 }
 
-struct EventHandler<T: IncrementAble, V: View<T>> {
+struct EventHandler<T: IncrementAble + 'static, V: View<T>> {
   inner: V,
-  handler: Box<dyn Fn(&T, &ViewReaction<V::Event, T>) -> Option<T::Delta>>,
+  handler: Box<dyn for<'a> Fn(T::Mutator<'a>, &ViewReaction<V::Event, T>)>,
 }
 trait WrapEventHandler<T: IncrementAble>: View<T> + Sized {
   fn on(
     self,
-    handler: impl Fn(&T, &ViewReaction<Self::Event, T>) -> Option<T::Delta> + 'static,
+    handler: impl for<'a> Fn(T::Mutator<'a>, &ViewReaction<Self::Event, T>) + 'static,
   ) -> EventHandler<T, Self>;
 }
 impl<T: IncrementAble, V: View<T>> WrapEventHandler<T> for V {
   fn on(
     self,
-    handler: impl Fn(&T, &ViewReaction<Self::Event, T>) -> Option<T::Delta> + 'static,
+    handler: impl for<'a> Fn(T::Mutator<'a>, &ViewReaction<Self::Event, T>) + 'static,
   ) -> EventHandler<T, Self> {
     EventHandler {
       inner: self,
@@ -343,9 +343,10 @@ where
     });
 
     reaction.drain(..).for_each(|react| {
-      if let Some(new_delta) = (self.handler)(model, &react) {
-        cb(ViewReaction::StateDelta(new_delta))
-      }
+      (self.handler)(
+        model.create_mutator(&mut |d| cb(ViewReaction::StateDelta(d))),
+        &react,
+      )
     });
   }
 
@@ -431,12 +432,16 @@ impl<T: IncrementAble, E> View<T> for Container<T, E> {
 /// library util
 fn submit<T: IncrementAble>(
   on_submit: impl Fn(String) -> Option<T::Delta>,
-) -> impl Fn(&T, &ViewReaction<TextBoxEvent, T>) -> Option<T::Delta> {
-  move |_, e| match e {
+) -> impl for<'a> Fn(T::Mutator<'a>, &ViewReaction<TextBoxEvent, T>) {
+  move |mut mutator, e| match e {
     ViewReaction::ViewEvent(e) => match e {
-      TextBoxEvent::Submit(content) => on_submit(content.clone()),
+      TextBoxEvent::Submit(content) => {
+        if let Some(delta) = on_submit(content.clone()) {
+          mutator.apply(delta);
+        }
+      }
     },
-    ViewReaction::StateDelta(_) => None,
+    ViewReaction::StateDelta(_) => {}
   }
 }
 

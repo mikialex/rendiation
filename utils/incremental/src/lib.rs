@@ -17,7 +17,7 @@ pub trait IncrementAble: Sized {
   /// Self should stay valid state even if mutation failed.
   type Error: Debug;
 
-  /// mutate self.through a mutator, which could generate delta automatically
+  /// mutate self through a mutator, which could generate delta automatically
   /// some state maybe not suitable to mutate by apply, because the requirement of return value
   /// the return value is handled in mutator implementation.
   ///

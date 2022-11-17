@@ -81,4 +81,20 @@ impl<'a, T: IncrementAble + Clone> TreeCollectionReactiveMutator<'a, T> {
     (self.collector)(TreeMutation::Create(node.clone()));
     self.inner.create_node(node)
   }
+
+  pub fn get_node_mut(
+    &'a mut self,
+    node: TreeNodeHandle<T>,
+  ) -> (impl FnMut(DeltaOf<T>) + 'a, T::Mutator<'a>) {
+    let mut collector =
+      |delta| (self.collector)(DeltaOf::<TreeCollection<T>>::Mutate { node, delta });
+    (
+      collector,
+      self
+        .inner
+        .get_node_mut(node)
+        .data_mut()
+        .create_mutator(&mut collector),
+    )
+  }
 }
