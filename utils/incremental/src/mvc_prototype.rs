@@ -10,6 +10,22 @@ pub enum ViewReaction<V, T: IncrementAble> {
   StateDelta(T::Delta),
 }
 
+enum PlatformRequest<'a, T: IncrementAble, V: View<T>> {
+  Event {
+    event: &'a PlatformInput,
+    cb: &'a mut dyn FnMut(ViewReaction<V::Event, T>),
+  },
+  Layout {
+    parent_constraint: usize,
+    cb: &'a dyn FnOnce(usize),
+  },
+  Rendering {
+    ctx: &'a usize,
+  },
+}
+
+pub enum PlatformInput {}
+
 /// View type could generics over any state T, as long as the T could provide
 /// given logic for view type
 trait View<T>
