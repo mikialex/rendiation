@@ -179,6 +179,6 @@ impl<T: Clone> Signal for StreamSignal<T> {
 
 impl<T> StreamSignal<T> {
   pub fn as_stream(&self) -> &Stream<T> {
-    &&self.stream
+    &self.stream
   }
 }

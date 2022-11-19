@@ -5,7 +5,8 @@ use std::{
 
 use crate::*;
 
-use arena::Arena;
+use incremental::IncrementAble;
+use reactive::{EventDispatcher, Signal, StreamSignal};
 
 pub type SceneTexture2D<S> = SceneItemRef<<S as SceneContent>::Texture2D>;
 pub type SceneTextureCube<S> = SceneItemRef<<S as SceneContent>::TextureCube>;
@@ -94,10 +95,11 @@ impl<'a, T> DerefMut for SceneItemRefMutGuard<'a, T> {
 
 static GLOBAL_ID: AtomicUsize = AtomicUsize::new(0);
 
-pub struct Identity<T> {
+pub struct Identity<T: IncrementAble> {
   id: usize,
   inner: T,
-  pub watchers: RwLock<Arena<Box<dyn Watcher<T>>>>,
+  change_dispatcher: EventDispatcher<T::Delta>,
+  drop_dispatcher: EventDispatcher<()>,
 }
 
 impl<T> AsRef<T> for Identity<T> {
@@ -125,7 +127,8 @@ impl<T> Identity<T> {
     Self {
       inner,
       id: GLOBAL_ID.fetch_add(1, Ordering::Relaxed),
-      watchers: Default::default(),
+      change_dispatcher: Default::default(),
+      drop_dispatcher: Default::default(),
     }
   }
 
@@ -134,21 +137,7 @@ impl<T> Identity<T> {
   }
 
   pub fn trigger_change(&mut self) {
-    let mut to_drop = Vec::with_capacity(0);
-    self
-      .watchers
-      .write()
-      .unwrap()
-      .iter_mut()
-      .for_each(|(h, w)| {
-        if !w.will_change(&self.inner, self.id) {
-          to_drop.push(h)
-        }
-      });
-
-    for handle in to_drop.drain(..) {
-      self.watchers.write().unwrap().remove(handle);
-    }
+    self.change_dispatcher.emit(&self.inner)
   }
 }
 
@@ -160,12 +149,7 @@ impl<T: Default> Default for Identity<T> {
 
 impl<T> Drop for Identity<T> {
   fn drop(&mut self) {
-    self
-      .watchers
-      .write()
-      .unwrap()
-      .iter_mut()
-      .for_each(|(_, w)| w.will_drop(&self.inner, self.id));
+    self.drop_dispatcher.emit(&())
   }
 }
 
@@ -184,16 +168,8 @@ impl<T> std::ops::DerefMut for Identity<T> {
   }
 }
 
-pub trait Watcher<T>: Sync + Send {
-  // return should continue watch
-  fn will_change(&mut self, item: &T, id: usize) -> bool;
-  fn will_drop(&mut self, item: &T, id: usize);
-}
-
 pub struct IdentityMapper<T, U: ?Sized> {
-  data: HashMap<usize, T>,
-  to_remove: Arc<RwLock<Vec<usize>>>,
-  changed: Arc<RwLock<HashSet<usize>>>,
+  data: HashMap<usize, StreamSignal<T>>,
   phantom: PhantomData<U>,
 }
 
@@ -201,8 +177,6 @@ impl<T, U: ?Sized> Default for IdentityMapper<T, U> {
   fn default() -> Self {
     Self {
       data: Default::default(),
-      to_remove: Default::default(),
-      changed: Default::default(),
       phantom: Default::default(),
     }
   }
@@ -258,71 +232,43 @@ impl<T: 'static, U: 'static + ?Sized> IdentityMapper<T, U> {
   ) -> &'b mut T {
     let mut new_created = false;
     let mut resource = self.data.entry(source.id).or_insert_with(|| {
-      let item = logic(ResourceLogic::Create(&source.inner)).unwrap_new();
+      let value = logic(ResourceLogic::Create(&source.inner)).unwrap_new();
       new_created = true;
-      source
-        .watchers
-        .write()
-        .unwrap()
-        .insert(Box::new(ResourceWatcherWithAutoClean {
-          to_remove: self.to_remove.clone(),
-          changed: self.changed.clone(),
-        }));
-      item
+
+      source.drop_dispatcher.stream().on(|v| self.data.remove(k));
+
+      let value_should_update = source.change_dispatcher.stream().map(|_| true).hold(true);
+
+      Mapped {
+        value,
+        value_should_update,
+      }
     });
 
-    if new_created || self.changed.write().unwrap().remove(&source.id) {
-      resource = logic(ResourceLogic::Update(resource, source)).unwrap_update();
+    if new_created || resource.value_should_update.sample() {
+      logic(ResourceLogic::Update(&mut resource.value, source)).unwrap_update();
     }
 
-    resource
+    &mut resource.value
   }
 
+  /// direct function version
   pub fn get_update_or_insert_with<X>(
     &mut self,
     source: &Identity<X>,
     creator: impl FnOnce(&X) -> T,
     updater: impl FnOnce(&mut T, &X),
   ) -> &mut T {
-    let mut new_created = false;
-    let resource = self.data.entry(source.id).or_insert_with(|| {
-      let item = creator(&source.inner);
-      new_created = true;
-      source
-        .watchers
-        .write()
-        .unwrap()
-        .insert(Box::new(ResourceWatcherWithAutoClean {
-          to_remove: self.to_remove.clone(),
-          changed: self.changed.clone(),
-        }));
-      item
-    });
-
-    if new_created || self.changed.write().unwrap().remove(&source.id) {
-      updater(resource, &source.inner)
-    }
-
-    resource
+    self.get_update_or_insert_with_logic(source, |logic| match logic {
+      ResourceLogic::Create(x) => ResourceLogicResult::Create(creator(x)),
+      ResourceLogic::Update(t, x) => {
+        updater(t, x);
+        ResourceLogicResult::Update(t)
+      }
+    })
   }
 
   pub fn get_unwrap<X>(&self, source: &Identity<X>) -> &T {
-    self.data.get(&source.id).unwrap()
-  }
-}
-
-struct ResourceWatcherWithAutoClean {
-  to_remove: Arc<RwLock<Vec<usize>>>,
-  changed: Arc<RwLock<HashSet<usize>>>,
-}
-
-impl<T> Watcher<T> for ResourceWatcherWithAutoClean {
-  fn will_change(&mut self, _camera: &T, id: usize) -> bool {
-    self.changed.write().unwrap().insert(id);
-    true
-  }
-
-  fn will_drop(&mut self, _camera: &T, id: usize) {
-    self.to_remove.write().unwrap().push(id);
+    &self.data.get(&source.id).unwrap().value
   }
 }
