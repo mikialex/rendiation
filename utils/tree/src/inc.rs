@@ -95,12 +95,23 @@ impl<'a, T: IncrementAble + Clone> TreeCollectionReactiveMutator<'a, T> {
       collector,
     }
   }
+}
 
-  fn test(&'a mut self, node: TreeNodeHandle<T>) {
-    let mut mapper = self.get_node_mut(node);
-    let node_mutator = mapper.mutate();
-    // node_mutator.apply(delta)
-  }
+#[test]
+fn test_nested_mutator() {
+  let mut tree = TreeCollection::<usize>::default();
+  let mut tree_collector = |_| {};
+  let root = {
+    let mut tree_mutator = tree.create_mutator(&mut tree_collector);
+    let root = tree_mutator.create(1);
+    let mut node_mutation_mapper = tree_mutator.get_node_mut(root);
+    let mut node_mutator = node_mutation_mapper.mutate();
+    node_mutator.apply(2);
+    root
+  };
+
+  let tree_root_raw = tree.get_node(root).data();
+  assert_eq!(*tree_root_raw, 2);
 }
 
 pub struct MutateMapper<'a, T: IncrementAble, C: FnMut(T::Delta) + 'a> {
@@ -113,7 +124,7 @@ where
   T: IncrementAble,
   C: FnMut(T::Delta) + 'a,
 {
-  fn mutate(&'a mut self) -> T::Mutator<'a> {
+  pub fn mutate(&'a mut self) -> T::Mutator<'a> {
     self.inner.create_mutator(&mut self.collector)
   }
 }

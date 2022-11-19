@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+
 use crate::*;
 // todo mvc
 
@@ -26,7 +28,15 @@ enum PlatformRequest<'a, T: IncrementAble, V: View<T>> {
 
 pub enum PlatformInput {}
 
-/// View type could generics over any state T, as long as the T could provide
+trait ViewBase {
+  fn visit_children(&mut self, visitor: &mut dyn FnMut(&mut dyn ViewBase));
+
+  fn process(&mut self, name: usize) {
+    self.visit_children(&mut |child| child.process(name));
+  }
+}
+
+/// View type could generic over any state T, as long as the T could provide
 /// given logic for view type
 trait View<T>
 where
