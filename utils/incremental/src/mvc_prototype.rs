@@ -67,84 +67,15 @@ where
 }
 
 // states
-#[derive(Default, Clone)]
-struct TodoItem {
-  name: String,
-  finished: bool,
+#[derive(Default, Clone, Incrementable)]
+pub struct TodoItem {
+  pub name: String,
+  pub finished: bool,
 }
 
-#[derive(Clone)]
-/// should generate by macro
-enum TodoItemChange {
-  Finished(bool),
-  Name(String),
-}
-
-/// should generate by macro
-impl IncrementAble for TodoItem {
-  type Delta = TodoItemChange;
-  type Error = ();
-
-  type Mutator<'a> = SimpleMutator<'a, Self>;
-
-  fn create_mutator<'a>(
-    &'a mut self,
-    collector: &'a mut dyn FnMut(Self::Delta),
-  ) -> Self::Mutator<'a> {
-    SimpleMutator {
-      inner: self,
-      collector,
-    }
-  }
-
-  fn apply(&mut self, delta: Self::Delta) -> Result<(), Self::Error> {
-    match delta {
-      TodoItemChange::Finished(v) => self.finished.apply(v)?,
-      TodoItemChange::Name(v) => self.name.apply(v)?,
-    }
-    Ok(())
-  }
-
-  fn expand(&self, mut cb: impl FnMut(Self::Delta)) {
-    cb(TodoItemChange::Name(self.name.clone()));
-    cb(TodoItemChange::Finished(self.finished));
-  }
-}
-
-#[derive(Default, Clone)]
-struct TodoList {
-  list: Vec<TodoItem>,
-}
-
-#[derive(Clone)]
-/// should generate by macro
-enum TodoListChange {
-  List(DeltaOf<Vec<TodoItem>>),
-}
-
-/// should generate by macro
-impl IncrementAble for TodoList {
-  type Delta = TodoListChange;
-  type Error = ();
-
-  type Mutator<'a> = SimpleMutator<'a, Self>;
-
-  fn create_mutator<'a>(
-    &'a mut self,
-    collector: &'a mut dyn FnMut(Self::Delta),
-  ) -> Self::Mutator<'a> {
-    SimpleMutator {
-      inner: self,
-      collector,
-    }
-  }
-
-  fn apply(&mut self, delta: Self::Delta) -> Result<(), Self::Error> {
-    todo!()
-  }
-  fn expand(&self, cb: impl FnMut(Self::Delta)) {
-    todo!()
-  }
+#[derive(Default, Clone, Incrementable)]
+pub struct TodoList {
+  pub list: Vec<TodoItem>,
 }
 
 struct TextBox<T: IncrementAble> {
@@ -168,7 +99,7 @@ impl<T: IncrementAble> TextBox<T> {
 }
 
 fn _test(text: TextBox<TodoItem>) {
-  text.with_text(bind!(DeltaOf::<TodoItem>::Name));
+  text.with_text(bind!(DeltaOf::<TodoItem>::name));
 }
 
 #[macro_export]
@@ -459,7 +390,7 @@ fn todo_list_view() -> impl View<TodoList> {
     .with_child(
       TextBox::placeholder("what needs to be done?") //
         .on(submit(|text| {
-          TodoListChange::List(VecDelta::Push(TodoItem {
+          TodoListDelta::list(VecDelta::Push(TodoItem {
             name: text,
             finished: false,
           }))
@@ -475,14 +406,14 @@ fn todo_list_view() -> impl View<TodoList> {
 //   Container::wrap(
 //     TextBox::placeholder("what needs to be done?") //
 //       .on(submit(|value| {
-//         TodoListChange::List(VecDelta::Push(TodoItem {
+//         TodoListDelta::List(VecDelta::Push(TodoItem {
 //           name: value,
 //           finished: false,
 //         }))
 //       })),
 //     List::for_by(todo_item_view)
 //       .lens(lens!(TodoList::list))
-//       .on(inner(|event| TodoListChange::List(VecDelta::Remove(event.index)))),
+//       .on(inner(|event| TodoListDelta::List(VecDelta::Remove(event.index)))),
 //   )
 // }
 
@@ -492,7 +423,7 @@ enum TodoItemEvent {
 
 fn todo_item_view() -> impl View<TodoItem, Event = ()> {
   Container::default().with_child(
-    Title::name(bind!(DeltaOf::<TodoItem>::Name)),
+    Title::name(bind!(DeltaOf::<TodoItem>::name)),
     // Toggle::status(bind!(Finished)).on(),
     // Button::name("delete") //
     //   .on_click(|event, item| TodoItemEvent::Delete),
