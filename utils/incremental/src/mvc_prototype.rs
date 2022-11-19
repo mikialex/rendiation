@@ -1,4 +1,5 @@
 #![allow(dead_code)]
+#![allow(unused_variables)]
 
 use crate::*;
 // todo mvc
@@ -208,7 +209,7 @@ impl<T: IncrementAble> View<T> for TextBox<T> {
     }
   }
   fn update(&mut self, model: &T, delta: &T::Delta) {
-    if let Some(new) = (self.text_binding)(&delta) {
+    if let Some(new) = (self.text_binding)(delta) {
       self.texting = new.clone();
     }
   }
@@ -239,7 +240,7 @@ impl<T: IncrementAble> View<T> for Title<T> {
   ) {
   }
   fn update(&mut self, model: &T, delta: &T::Delta) {
-    if let Some(new_title) = (self.title)(&delta) {
+    if let Some(new_title) = (self.title)(delta) {
       self.title_current = new_title.clone();
     }
   }

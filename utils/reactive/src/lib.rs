@@ -160,9 +160,7 @@ impl<T: 'static> Stream<T> {
     }
   }
 
-  pub fn merge(&self, other: &Self) -> Self {
-    todo!()
-  }
+  //todo merge
 }
 
 pub struct StreamSignal<T> {

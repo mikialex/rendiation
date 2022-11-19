@@ -52,9 +52,9 @@ impl Frame {
         // todo, should I invent two dimension iter?
         let pix: SRGBColor<f32> = pix.into();
         image::Rgba([
-          (pix.r.min(1.0).max(0.0) * 255.0) as u8,
-          (pix.g.min(1.0).max(0.0) * 255.0) as u8,
-          (pix.b.min(1.0).max(0.0) * 255.0) as u8,
+          (pix.r.clamp(0.0, 1.0) * 255.0) as u8,
+          (pix.g.clamp(0.0, 1.0) * 255.0) as u8,
+          (pix.b.clamp(0.0, 1.0) * 255.0) as u8,
           255,
         ])
       })

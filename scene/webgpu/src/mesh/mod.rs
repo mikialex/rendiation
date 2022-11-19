@@ -63,7 +63,7 @@ impl GPUMeshCache {
     let mapper = self
       .inner
       .entry(type_id)
-      .or_insert_with(|| Box::new(MeshIdentityMapper::<M>::default()))
+      .or_insert_with(|| Box::<MeshIdentityMapper<M>>::default())
       .as_any_mut()
       .downcast_mut::<MeshIdentityMapper<M>>()
       .unwrap();

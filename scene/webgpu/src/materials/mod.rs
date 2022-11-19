@@ -71,7 +71,7 @@ impl GPUMaterialCache {
     let mapper = self
       .inner
       .entry(type_id)
-      .or_insert_with(|| Box::new(MaterialIdentityMapper::<M>::default()))
+      .or_insert_with(|| Box::<MaterialIdentityMapper<M>>::default())
       .as_any_mut()
       .downcast_mut::<MaterialIdentityMapper<M>>()
       .unwrap();

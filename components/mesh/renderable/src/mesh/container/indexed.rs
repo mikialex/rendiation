@@ -80,12 +80,12 @@ impl DynIndexContainer {
       DynIndexContainer::Uint16(buffer) => {
         if index > u16::MAX as u32 {
           let buffer = self.check_upgrade_to_u32();
-          buffer.push(index as u32)
+          buffer.push(index)
         } else {
           buffer.push(index as u16)
         }
       }
-      DynIndexContainer::Uint32(buffer) => buffer.push(index as u32),
+      DynIndexContainer::Uint32(buffer) => buffer.push(index),
     }
   }
 
