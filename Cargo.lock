@@ -2276,6 +2276,7 @@ version = "0.1.0"
 dependencies = [
  "bytemuck",
  "cgmath",
+ "incremental",
  "num-traits",
  "paste",
 ]

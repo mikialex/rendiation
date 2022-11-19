@@ -12,6 +12,7 @@ impl<'a, T: IncrementAble> MutatorApply<T> for SimpleMutator<'a, T> {
   }
 }
 
+#[macro_export]
 macro_rules! simple {
   ($Type: ty) => {
     impl IncrementAble for $Type {

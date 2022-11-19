@@ -5,7 +5,7 @@ mod mvc_prototype;
 // mod rev_ty;
 mod ty;
 
-use ty::*;
+pub use ty::*;
 
 pub trait IncrementAble: Sized {
   /// `Delta` should be strictly the smallest atomic modification unit of `Self`

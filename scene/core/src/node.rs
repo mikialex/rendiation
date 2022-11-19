@@ -8,9 +8,9 @@ pub type SceneNodeHandle = TreeNodeHandle<SceneNodeData>;
 
 pub struct SceneNodeDataImpl {
   pub local_matrix: Mat4<f32>,
-  pub world_matrix: Mat4<f32>,
+  world_matrix: Mat4<f32>,
   pub visible: bool,
-  pub net_visible: bool,
+  net_visible: bool,
 }
 
 impl AsRef<Self> for SceneNodeDataImpl {
@@ -31,6 +31,14 @@ impl Default for SceneNodeDataImpl {
 }
 
 impl SceneNodeDataImpl {
+  pub fn world_matrix(&self) -> Mat4<f32> {
+    self.world_matrix
+  }
+
+  pub fn net_visible(&self) -> bool {
+    self.net_visible
+  }
+
   pub fn hierarchy_update(&mut self, parent: Option<&Self>) {
     if let Some(parent) = parent {
       self.net_visible = self.visible && parent.net_visible;

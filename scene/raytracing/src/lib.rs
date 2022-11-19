@@ -155,13 +155,13 @@ impl RayTracingSceneExt for Scene<RayTracingScene> {
           world_matrix_inverse: Default::default(),
           normal_matrix: Default::default(), // object space direction to world_space
         };
-        model.world_matrix_inverse = node_data.world_matrix.inverse_or_identity();
+        model.world_matrix_inverse = node_data.world_matrix().inverse_or_identity();
         model.normal_matrix = model.world_matrix_inverse.transpose();
-        model.world_matrix = node_data.world_matrix;
+        model.world_matrix = node_data.world_matrix();
 
         if let Some(mut bbox) = model.shape.get_bbox() {
           result.models_in_bvh.push(model);
-          models_in_bvh_source.push(*bbox.apply_matrix(node_data.world_matrix));
+          models_in_bvh_source.push(*bbox.apply_matrix(node_data.world_matrix()));
         } else {
           result.models_unbound.push(model);
         }
