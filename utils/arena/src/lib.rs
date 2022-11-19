@@ -2,10 +2,13 @@ use core::cmp;
 use core::mem;
 use core::ops;
 use core::slice;
+use incremental::*;
 use std::{marker::PhantomData, vec};
 
 pub mod handle;
+mod inc;
 pub use handle::*;
+pub use inc::*;
 pub mod iter;
 pub use iter::*;
 

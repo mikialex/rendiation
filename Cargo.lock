@@ -92,6 +92,9 @@ dependencies = [
 [[package]]
 name = "arena"
 version = "0.0.1"
+dependencies = [
+ "incremental",
+]
 
 [[package]]
 name = "arena-graph"

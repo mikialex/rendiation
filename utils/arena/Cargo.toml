@@ -4,3 +4,6 @@ name = "arena"
 version = "0.0.1"
 
 # I stole this from https://github.com/fitzgen/generational-arena;
+
+[dependencies]
+incremental = {path = "../incremental"}

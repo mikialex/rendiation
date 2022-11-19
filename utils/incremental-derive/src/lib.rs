@@ -76,7 +76,7 @@ fn derive_incremental_impl_inner(s: &StructInfo) -> proc_macro2::TokenStream {
 use syn::{punctuated::Punctuated, spanned::Spanned, Data, Field, Ident, Type, Visibility};
 struct StructInfo {
   pub struct_name: Ident,
-  pub fields_info: Vec<(Ident, Type)>,
+  pub _fields_info: Vec<(Ident, Type)>,
   pub fields_raw: Vec<Field>,
 }
 
@@ -84,7 +84,7 @@ impl StructInfo {
   pub fn new(input: &syn::DeriveInput) -> Self {
     let struct_name = input.ident.clone();
     let fields = only_named_struct_fields(input).unwrap();
-    let fields_info = fields
+    let _fields_info = fields
       .iter()
       .map(|f| {
         let field_name = f.ident.as_ref().unwrap().clone();
@@ -97,7 +97,7 @@ impl StructInfo {
 
     StructInfo {
       struct_name,
-      fields_info,
+      _fields_info,
       fields_raw,
     }
   }
@@ -106,7 +106,7 @@ impl StructInfo {
     &self,
     f: impl FnMut(&(Ident, Type)) -> proc_macro2::TokenStream,
   ) -> Vec<proc_macro2::TokenStream> {
-    self.fields_info.iter().map(f).collect()
+    self._fields_info.iter().map(f).collect()
   }
 
   pub fn map_visible_fields(
