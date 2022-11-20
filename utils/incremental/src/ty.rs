@@ -15,29 +15,14 @@ impl<'a, T: Incremental> MutatorApply<T> for SimpleMutator<'a, T> {
 #[macro_export]
 macro_rules! simple {
   ($Type: ty) => {
-    impl Incremental for $Type {
+    impl SimpleIncremental for $Type {
       type Delta = Self;
 
-      type Error = ();
-
-      type Mutator<'a> = SimpleMutator<'a, Self>;
-
-      fn create_mutator<'a>(
-        &'a mut self,
-        collector: &'a mut dyn FnMut(Self::Delta),
-      ) -> Self::Mutator<'a> {
-        SimpleMutator {
-          inner: self,
-          collector,
-        }
-      }
-
-      fn apply(&mut self, delta: Self::Delta) -> Result<(), Self::Error> {
+      fn s_apply(&mut self, delta: Self::Delta) {
         *self = delta;
-        Ok(())
       }
 
-      fn expand(&self, mut cb: impl FnMut(Self::Delta)) {
+      fn s_expand(&self, mut cb: impl FnMut(Self::Delta)) {
         cb(self.clone())
       }
     }
@@ -181,6 +166,42 @@ impl<T: Incremental + Default + Clone + 'static> Incremental for Vec<T> {
 //     }
 //   }
 // }
+
+pub trait SimpleIncremental {
+  type Delta: Clone;
+
+  fn s_apply(&mut self, delta: Self::Delta);
+  fn s_expand(&self, _: impl FnMut(Self::Delta)) {}
+}
+
+impl<T: SimpleIncremental> Incremental for T {
+  type Delta = <T as SimpleIncremental>::Delta;
+
+  type Error = ();
+
+  type Mutator<'a> = SimpleMutator<'a, Self>
+  where
+    Self: 'a;
+
+  fn create_mutator<'a>(
+    &'a mut self,
+    collector: &'a mut dyn FnMut(Self::Delta),
+  ) -> Self::Mutator<'a> {
+    SimpleMutator {
+      inner: self,
+      collector,
+    }
+  }
+
+  fn apply(&mut self, delta: Self::Delta) -> Result<(), Self::Error> {
+    self.s_apply(delta);
+    Ok(())
+  }
+
+  fn expand(&self, cb: impl FnMut(Self::Delta)) {
+    self.s_expand(cb)
+  }
+}
 
 /// not mutable
 impl<T> Incremental for std::rc::Rc<T> {

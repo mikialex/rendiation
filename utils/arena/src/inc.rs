@@ -47,6 +47,14 @@ pub struct ArenaMutator<'a, T: Incremental + Clone> {
   collector: &'a mut dyn FnMut(DeltaOf<Arena<T>>),
 }
 
+impl<'a, T: Incremental + Clone> ArenaMutator<'a, T> {
+  pub fn insert(&mut self, item: T) -> Handle<T> {
+    let handle = self.inner.insert(item.clone());
+    (self.collector)(ArenaDelta::Insert((item, handle)));
+    handle
+  }
+}
+
 impl<'a, T: Incremental + Clone> MutatorApply<Arena<T>> for ArenaMutator<'a, T> {
   fn apply(&mut self, delta: DeltaOf<Arena<T>>) {
     self.inner.apply(delta).unwrap();
