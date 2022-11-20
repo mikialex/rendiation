@@ -1,7 +1,12 @@
 #![allow(dead_code)]
 #![allow(unused_variables)]
+#![allow(unused_imports)]
 
-use std::{cell::RefCell, rc::Rc};
+use std::{
+  any::Any,
+  cell::RefCell,
+  rc::{Rc, Weak},
+};
 
 use incremental::*;
 // todo mvc
@@ -73,6 +78,7 @@ where
 pub struct TodoItem {
   pub name: String,
   pub finished: bool,
+  test: Rc<RefCell<usize>>,
 }
 
 #[derive(Default, Clone, Incrementable)]
@@ -395,6 +401,7 @@ fn todo_list_view() -> impl View<TodoList> {
           TodoListDelta::list(VecDelta::Push(TodoItem {
             name: text,
             finished: false,
+            test: Rc::new(RefCell::new(1)),
           }))
           .into()
         })),
@@ -430,4 +437,20 @@ fn todo_item_view() -> impl View<TodoItem, Event = ()> {
     // Button::name("delete") //
     //   .on_click(|event, item| TodoItemEvent::Delete),
   )
+}
+
+struct UISystem {
+  view_roots: Vec<Weak<RefCell<dyn View<(), Event = ()>>>>,
+}
+
+impl UISystem {
+  pub fn event(&mut self, event: &PlatformEvent) {
+    for view in &self.view_roots {
+      // view.borrow_mut().event(&mut (), event, &mut |_| {})
+    }
+  }
+
+  pub fn add_view_root<T: IncrementAble, V: View<T>>(&mut self, root: ViewRoot<T, V>) {
+    //
+  }
 }

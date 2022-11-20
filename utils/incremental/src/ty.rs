@@ -181,3 +181,35 @@ impl<T: IncrementAble + Default + Clone + 'static> IncrementAble for Vec<T> {
 //     }
 //   }
 // }
+
+/// not mutable
+impl<T> IncrementAble for std::rc::Rc<T> {
+  type Delta = Self;
+
+  type Error = ();
+
+  type Mutator<'a> = SimpleMutator<'a, Self>
+  where
+    Self: 'a;
+
+  fn create_mutator<'a>(
+    &'a mut self,
+    collector: &'a mut dyn FnMut(Self::Delta),
+  ) -> Self::Mutator<'a> {
+    SimpleMutator {
+      inner: self,
+      collector,
+    }
+  }
+
+  fn apply(&mut self, delta: Self::Delta) -> Result<(), Self::Error> {
+    *self = delta;
+    Ok(())
+  }
+
+  fn expand(&self, _: impl FnMut(Self::Delta)) {}
+}
+
+trait InteriorMutable<T> {
+  fn mutate(&self, f: impl FnMut(&mut T));
+}
