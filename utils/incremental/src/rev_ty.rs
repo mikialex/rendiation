@@ -1,6 +1,6 @@
 use crate::*;
 
-impl<T: ReverseIncrementAble + Default> ReverseIncrementAble for Vec<T> {
+impl<T: ReverseIncremental + Default> ReverseIncremental for Vec<T> {
   fn apply_rev(&mut self, delta: Self::Delta) -> Result<Self::Delta, Self::Error> {
     let r = match delta {
       VecDelta::Push(value) => {
@@ -29,7 +29,7 @@ impl<T: ReverseIncrementAble + Default> ReverseIncrementAble for Vec<T> {
   }
 }
 
-// impl ReverseIncrementAble for f32 {
+// impl ReverseIncremental for f32 {
 
 //   fn apply(&mut self, delta: Self::Delta) -> Result<Self::Delta, Self::Error> {
 //     let old = *self;
@@ -38,7 +38,7 @@ impl<T: ReverseIncrementAble + Default> ReverseIncrementAble for Vec<T> {
 //   }
 // }
 
-// impl ReverseIncrementAble for bool {
+// impl ReverseIncremental for bool {
 
 //   fn apply(&mut self, delta: Self::Delta) -> Result<Self::Delta, Self::Error> {
 //     let old = *self;

@@ -1,6 +1,6 @@
 use crate::*;
 
-impl<T: IncrementAble + Clone> IncrementAble for Arena<T> {
+impl<T: Incremental + Clone> Incremental for Arena<T> {
   type Delta = ArenaDelta<T>;
 
   type Error = ();
@@ -36,18 +36,18 @@ impl<T: IncrementAble + Clone> IncrementAble for Arena<T> {
 }
 
 #[derive(Clone)]
-pub enum ArenaDelta<T: IncrementAble> {
+pub enum ArenaDelta<T: Incremental> {
   Mutate((DeltaOf<T>, Handle<T>)),
   Insert((T, Handle<T>)),
   Remove(Handle<T>),
 }
 
-pub struct ArenaMutator<'a, T: IncrementAble + Clone> {
+pub struct ArenaMutator<'a, T: Incremental + Clone> {
   inner: &'a mut Arena<T>,
   collector: &'a mut dyn FnMut(DeltaOf<Arena<T>>),
 }
 
-impl<'a, T: IncrementAble + Clone> MutatorApply<Arena<T>> for ArenaMutator<'a, T> {
+impl<'a, T: Incremental + Clone> MutatorApply<Arena<T>> for ArenaMutator<'a, T> {
   fn apply(&mut self, delta: DeltaOf<Arena<T>>) {
     self.inner.apply(delta).unwrap();
   }

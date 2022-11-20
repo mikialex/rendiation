@@ -2,7 +2,7 @@ use crate::*;
 use ::incremental::*;
 
 #[derive(Clone)]
-pub enum TreeMutation<T: IncrementAble> {
+pub enum TreeMutation<T: Incremental> {
   Create(T),
   Delete(TreeNodeHandle<T>),
   Mutate {
@@ -18,7 +18,7 @@ pub enum TreeMutation<T: IncrementAble> {
   },
 }
 
-impl<T: IncrementAble + Clone> IncrementAble for TreeCollection<T> {
+impl<T: Incremental + Clone> Incremental for TreeCollection<T> {
   type Delta = TreeMutation<T>;
   type Error = ();
 
@@ -63,12 +63,12 @@ impl<T: IncrementAble + Clone> IncrementAble for TreeCollection<T> {
   }
 }
 
-pub struct TreeCollectionReactiveMutator<'a, T: IncrementAble + Clone> {
+pub struct TreeCollectionReactiveMutator<'a, T: Incremental + Clone> {
   inner: &'a mut TreeCollection<T>,
   collector: &'a mut dyn FnMut(DeltaOf<TreeCollection<T>>),
 }
 
-impl<'a, T: IncrementAble + Clone> MutatorApply<TreeCollection<T>>
+impl<'a, T: Incremental + Clone> MutatorApply<TreeCollection<T>>
   for TreeCollectionReactiveMutator<'a, T>
 {
   fn apply(&mut self, delta: DeltaOf<TreeCollection<T>>) {
@@ -76,7 +76,7 @@ impl<'a, T: IncrementAble + Clone> MutatorApply<TreeCollection<T>>
   }
 }
 
-impl<'a, T: IncrementAble + Clone> TreeCollectionReactiveMutator<'a, T> {
+impl<'a, T: Incremental + Clone> TreeCollectionReactiveMutator<'a, T> {
   pub fn create(&mut self, node: T) -> TreeNodeHandle<T> {
     (self.collector)(TreeMutation::Create(node.clone()));
     self.inner.create_node(node)
@@ -114,14 +114,14 @@ fn test_nested_mutator() {
   assert_eq!(*tree_root_raw, 2);
 }
 
-pub struct MutateMapper<'a, T: IncrementAble, C: FnMut(T::Delta) + 'a> {
+pub struct MutateMapper<'a, T: Incremental, C: FnMut(T::Delta) + 'a> {
   inner: &'a mut T,
   collector: C,
 }
 
 impl<'a, T, C> MutateMapper<'a, T, C>
 where
-  T: IncrementAble,
+  T: Incremental,
   C: FnMut(T::Delta) + 'a,
 {
   pub fn mutate(&'a mut self) -> T::Mutator<'a> {

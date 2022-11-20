@@ -1,12 +1,12 @@
 pub use incremental_derives::*;
-use std::fmt::Debug;
+use std::{any::Any, fmt::Debug};
 
 // mod rev_ty;
 mod ty;
 
 pub use ty::*;
 
-pub trait IncrementAble: Sized {
+pub trait Incremental: Sized {
   /// `Delta` should be strictly the smallest atomic modification unit of `Self`
   /// atomic means no invalid states between the modification
   type Delta: Clone;
@@ -37,14 +37,25 @@ pub trait IncrementAble: Sized {
   fn expand(&self, cb: impl FnMut(Self::Delta));
 }
 
-pub type DeltaOf<T> = <T as IncrementAble>::Delta;
+pub type DeltaOf<T> = <T as Incremental>::Delta;
 
-pub trait MutatorApply<T: IncrementAble> {
+pub trait MutatorApply<T: Incremental> {
   fn apply(&mut self, delta: T::Delta);
 }
 
 /// Not all type can impl this kind of reversible delta
-pub trait ReverseIncrementAble: IncrementAble {
+pub trait ReverseIncremental: Incremental {
   /// return reversed delta
   fn apply_rev(&mut self, delta: Self::Delta) -> Result<Self::Delta, Self::Error>;
+}
+
+/// this trait is to support incremental boxed trait object
+///
+/// Performance is maybe not good, each delta contains a heap allocation.
+///
+/// The expand method will create a lot of heap allocation? no,
+/// the expand is called by delta consumer side on demand and avoid most of cost.
+pub trait DynIncremental {
+  fn apply(&mut self, delta: Box<dyn Any>) -> Result<(), Box<dyn Any>>;
+  fn expand(&self, cb: impl FnMut(Box<dyn Any>));
 }

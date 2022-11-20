@@ -1,11 +1,11 @@
 use crate::*;
 
-pub struct SimpleMutator<'a, T: IncrementAble> {
+pub struct SimpleMutator<'a, T: Incremental> {
   pub inner: &'a mut T,
   pub collector: &'a mut dyn FnMut(T::Delta),
 }
 
-impl<'a, T: IncrementAble> MutatorApply<T> for SimpleMutator<'a, T> {
+impl<'a, T: Incremental> MutatorApply<T> for SimpleMutator<'a, T> {
   fn apply(&mut self, delta: T::Delta) {
     (self.collector)(delta.clone());
     self.inner.apply(delta).unwrap()
@@ -15,7 +15,7 @@ impl<'a, T: IncrementAble> MutatorApply<T> for SimpleMutator<'a, T> {
 #[macro_export]
 macro_rules! simple {
   ($Type: ty) => {
-    impl IncrementAble for $Type {
+    impl Incremental for $Type {
       type Delta = Self;
 
       type Error = ();
@@ -59,7 +59,7 @@ simple!(char);
 simple!(String);
 
 #[derive(Clone)]
-pub enum VecDelta<T: IncrementAble> {
+pub enum VecDelta<T: Incremental> {
   Push(T),
   Remove(usize),
   Insert(usize, T),
@@ -67,7 +67,7 @@ pub enum VecDelta<T: IncrementAble> {
   Pop,
 }
 
-impl<T: IncrementAble + Default + Clone + 'static> IncrementAble for Vec<T> {
+impl<T: Incremental + Default + Clone + 'static> Incremental for Vec<T> {
   type Delta = VecDelta<T>;
   type Error = (); // todo
 
@@ -115,17 +115,17 @@ impl<T: IncrementAble + Default + Clone + 'static> IncrementAble for Vec<T> {
   }
 }
 
-// struct VectorMap<T: IncrementAble, U: IncrementAble, X> {
+// struct VectorMap<T: Incremental, U: Incremental, X> {
 //   mapped: X,
 //   mapper: Box<dyn Fn(&T) -> U>,
 //   map_delta: Box<dyn Fn(&DeltaOf<T>) -> DeltaOf<U>>,
 // }
 
-// impl<T, U, X> IncrementAble for VectorMap<T, U, X>
+// impl<T, U, X> Incremental for VectorMap<T, U, X>
 // where
-//   T: IncrementAble<Error = ()> ,
-//   U: IncrementAble<Error = ()> ,
-//   X: IncrementAble<Delta = VecDelta<U>, Error = ()>,
+//   T: Incremental<Error = ()> ,
+//   U: Incremental<Error = ()> ,
+//   X: Incremental<Delta = VecDelta<U>, Error = ()>,
 // {
 //   type Delta = VecDelta<T>;
 //   type Error = ();
@@ -151,9 +151,9 @@ impl<T: IncrementAble + Default + Clone + 'static> IncrementAble for Vec<T> {
 //   filter: Box<dyn Fn(&T) -> bool>,
 // }
 
-// impl<T, X> IncrementAble for VectorFilter<T, X>
+// impl<T, X> Incremental for VectorFilter<T, X>
 // where
-//   X: IncrementAble<Delta = VecDelta<T>>,
+//   X: Incremental<Delta = VecDelta<T>>,
 // {
 //   type Delta = VecDelta<T>;
 //   fn apply(&mut self, delta: VecDelta<T>) {
@@ -183,7 +183,7 @@ impl<T: IncrementAble + Default + Clone + 'static> IncrementAble for Vec<T> {
 // }
 
 /// not mutable
-impl<T> IncrementAble for std::rc::Rc<T> {
+impl<T> Incremental for std::rc::Rc<T> {
   type Delta = Self;
 
   type Error = ();

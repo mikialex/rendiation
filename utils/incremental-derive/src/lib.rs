@@ -1,4 +1,4 @@
-#[proc_macro_derive(Incrementable)]
+#[proc_macro_derive(Incremental)]
 pub fn derive_incremental(input: TokenStream) -> TokenStream {
   let input = parse_macro_input!(input as syn::DeriveInput);
   derive_incremental_impl(&input).into()
@@ -42,7 +42,7 @@ fn derive_incremental_impl_inner(s: &StructInfo) -> proc_macro2::TokenStream {
       #(#incremental_variants)*
     }
 
-    impl incremental::IncrementAble for #struct_name {
+    impl incremental::Incremental for #struct_name {
       type Delta = #incremental_type_name;
       type Error = ();
 

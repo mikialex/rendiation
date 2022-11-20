@@ -13,14 +13,14 @@ use incremental::*;
 
 pub struct PlatformEvent;
 
-pub enum ViewReaction<V, T: IncrementAble> {
+pub enum ViewReaction<V, T: Incremental> {
   /// emit self special event
   ViewEvent(V),
   /// do state mutation
   StateDelta(T::Delta),
 }
 
-enum PlatformRequest<'a, T: IncrementAble, V: View<T>> {
+enum PlatformRequest<'a, T: Incremental, V: View<T>> {
   Event {
     event: &'a PlatformInput,
     cb: &'a mut dyn FnMut(ViewReaction<V::Event, T>),
@@ -48,7 +48,7 @@ trait ViewBase {
 /// given logic for view type
 trait View<T>
 where
-  T: IncrementAble,
+  T: Incremental,
 {
   /// View type's own event type
   type Event;
@@ -74,25 +74,25 @@ where
 }
 
 // states
-#[derive(Default, Clone, Incrementable)]
+#[derive(Default, Clone, Incremental)]
 pub struct TodoItem {
   pub name: String,
   pub finished: bool,
   test: Rc<RefCell<usize>>,
 }
 
-#[derive(Default, Clone, Incrementable)]
+#[derive(Default, Clone, Incremental)]
 pub struct TodoList {
   pub list: Vec<TodoItem>,
 }
 
-struct TextBox<T: IncrementAble> {
+struct TextBox<T: Incremental> {
   texting: String,
   text_binding: Box<dyn Fn(&DeltaOf<T>) -> Option<&String>>,
   placeholder: String,
 }
 
-impl<T: IncrementAble> TextBox<T> {
+impl<T: Incremental> TextBox<T> {
   pub fn placeholder(placeholder: impl Into<String>) -> Self {
     Self {
       texting: Default::default(),
@@ -127,7 +127,7 @@ enum TextBoxEvent {
   Submit(String),
 }
 
-impl<T: IncrementAble> View<T> for TextBox<T> {
+impl<T: Incremental> View<T> for TextBox<T> {
   type Event = TextBoxEvent;
 
   fn event(
@@ -154,12 +154,12 @@ impl<T: IncrementAble> View<T> for TextBox<T> {
   }
 }
 
-struct Title<T: IncrementAble> {
+struct Title<T: Incremental> {
   title: Box<dyn Fn(&DeltaOf<T>) -> Option<&String>>,
   title_current: String,
 }
 
-impl<T: IncrementAble> Title<T> {
+impl<T: Incremental> Title<T> {
   pub fn name(binder: impl Fn(&DeltaOf<T>) -> Option<&String> + 'static) -> Self {
     Self {
       title: Box::new(binder),
@@ -168,7 +168,7 @@ impl<T: IncrementAble> Title<T> {
   }
 }
 
-impl<T: IncrementAble> View<T> for Title<T> {
+impl<T: Incremental> View<T> for Title<T> {
   type Event = ();
 
   fn event(
@@ -206,7 +206,7 @@ struct EventWithIndex<T> {
 
 impl<T, V> View<Vec<T>> for List<V>
 where
-  T: IncrementAble + Default + Clone + 'static,
+  T: Incremental + Default + Clone + 'static,
   V: View<T>,
 {
   type Event = EventWithIndex<V::Event>;
@@ -250,17 +250,17 @@ where
   }
 }
 
-struct EventHandler<T: IncrementAble + 'static, V: View<T>> {
+struct EventHandler<T: Incremental + 'static, V: View<T>> {
   inner: V,
   handler: Box<dyn for<'a> Fn(T::Mutator<'a>, &ViewReaction<V::Event, T>)>,
 }
-trait WrapEventHandler<T: IncrementAble>: View<T> + Sized {
+trait WrapEventHandler<T: Incremental>: View<T> + Sized {
   fn on(
     self,
     handler: impl for<'a> Fn(T::Mutator<'a>, &ViewReaction<Self::Event, T>) + 'static,
   ) -> EventHandler<T, Self>;
 }
-impl<T: IncrementAble, V: View<T>> WrapEventHandler<T> for V {
+impl<T: Incremental, V: View<T>> WrapEventHandler<T> for V {
   fn on(
     self,
     handler: impl for<'a> Fn(T::Mutator<'a>, &ViewReaction<Self::Event, T>) + 'static,
@@ -274,7 +274,7 @@ impl<T: IncrementAble, V: View<T>> WrapEventHandler<T> for V {
 
 impl<T, V> View<T> for EventHandler<T, V>
 where
-  T: IncrementAble,
+  T: Incremental,
   V: View<T>,
 {
   type Event = V::Event;
@@ -304,7 +304,7 @@ where
 }
 
 /// The actual state holder
-struct ViewRoot<T: IncrementAble, V> {
+struct ViewRoot<T: Incremental, V> {
   state: T,
   state_mutations: Vec<T::Delta>,
   view: V,
@@ -312,7 +312,7 @@ struct ViewRoot<T: IncrementAble, V> {
 
 impl<T, V> View<()> for ViewRoot<T, V>
 where
-  T: IncrementAble,
+  T: Incremental,
   V: View<T>,
 {
   type Event = V::Event;
@@ -349,14 +349,14 @@ impl<T, E> Default for Container<T, E> {
   }
 }
 
-impl<T: IncrementAble, E> Container<T, E> {
+impl<T: Incremental, E> Container<T, E> {
   pub fn with_child(mut self, view: impl View<T, Event = E> + 'static) -> Self {
     self.dyn_views.push(Box::new(view));
     self
   }
 }
 
-impl<T: IncrementAble, E> View<T> for Container<T, E> {
+impl<T: Incremental, E> View<T> for Container<T, E> {
   type Event = E;
 
   fn event(
@@ -378,7 +378,7 @@ impl<T: IncrementAble, E> View<T> for Container<T, E> {
 }
 
 /// library util
-fn submit<T: IncrementAble>(
+fn submit<T: Incremental>(
   on_submit: impl Fn(String) -> Option<T::Delta>,
 ) -> impl for<'a> Fn(T::Mutator<'a>, &ViewReaction<TextBoxEvent, T>) {
   move |mut mutator, e| match e {
@@ -450,7 +450,7 @@ impl UISystem {
     }
   }
 
-  pub fn add_view_root<T: IncrementAble, V: View<T>>(&mut self, root: ViewRoot<T, V>) {
+  pub fn add_view_root<T: Incremental, V: View<T>>(&mut self, root: ViewRoot<T, V>) {
     //
   }
 }
