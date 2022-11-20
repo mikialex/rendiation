@@ -21,7 +21,7 @@ fn derive_incremental_impl_inner(s: &StructInfo) -> proc_macro2::TokenStream {
   let incremental_type_name = format_ident!("{}Delta", struct_name);
 
   let incremental_variants = s.map_visible_fields(|(name, ty)| {
-    quote! { #name(DeltaOf<#ty>), }
+    quote! { #name(incremental::DeltaOf<#ty>), }
   });
 
   let apply = s.map_visible_fields(|(name, _)| {
@@ -42,17 +42,17 @@ fn derive_incremental_impl_inner(s: &StructInfo) -> proc_macro2::TokenStream {
       #(#incremental_variants)*
     }
 
-    impl IncrementAble for #struct_name {
+    impl incremental::IncrementAble for #struct_name {
       type Delta = #incremental_type_name;
       type Error = ();
 
-      type Mutator<'a> = SimpleMutator<'a, Self>;
+      type Mutator<'a> = incremental::SimpleMutator<'a, Self>;
 
       fn create_mutator<'a>(
         &'a mut self,
         collector: &'a mut dyn FnMut(Self::Delta),
       ) -> Self::Mutator<'a> {
-        SimpleMutator {
+        incremental::SimpleMutator {
           inner: self,
           collector,
         }

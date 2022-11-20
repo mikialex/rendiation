@@ -1,11 +1,13 @@
 use crate::*;
 
+use incremental::Incrementable;
 use rendiation_algebra::*;
 use tree::TreeNodeHandle;
 
 pub type SceneNodeData = Identity<SceneNodeDataImpl>;
 pub type SceneNodeHandle = TreeNodeHandle<SceneNodeData>;
 
+#[derive(Incrementable)]
 pub struct SceneNodeDataImpl {
   pub local_matrix: Mat4<f32>,
   world_matrix: Mat4<f32>,

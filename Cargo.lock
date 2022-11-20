@@ -1289,6 +1289,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "incremental-ui-prototype"
+version = "0.1.0"
+dependencies = [
+ "incremental",
+]
+
+[[package]]
 name = "incremental_derives"
 version = "0.1.0"
 dependencies = [

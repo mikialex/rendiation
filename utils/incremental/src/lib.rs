@@ -1,7 +1,6 @@
 pub use incremental_derives::*;
 use std::fmt::Debug;
 
-mod mvc_prototype;
 // mod rev_ty;
 mod ty;
 

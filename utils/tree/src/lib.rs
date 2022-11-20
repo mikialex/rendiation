@@ -2,6 +2,9 @@ use abst::TreeNodeMutPtr;
 pub use rendiation_abstract_tree::*;
 use storage::{generational::Arena, *};
 
+mod share;
+pub use share::*;
+
 mod abst;
 mod inc;
 pub use inc::TreeMutation;
