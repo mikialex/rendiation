@@ -22,6 +22,14 @@ struct NodeInner<T> {
 }
 
 impl<T> NodeInner<T> {
+  pub fn create_new(inner: NodeRef<T>) -> Self {
+    Self {
+      nodes: inner.nodes.clone(),
+      parent: None,
+      inner: Arc::new(inner),
+    }
+  }
+
   #[must_use]
   pub fn create_child(&self, n: T) -> Self {
     let nodes_info = &mut self.nodes.write().unwrap();
@@ -50,12 +58,41 @@ impl<T> Drop for NodeInner<T> {
   }
 }
 
-#[derive(Clone)]
 pub struct ShareTreeNode<T> {
   inner: Arc<RwLock<NodeInner<T>>>,
 }
 
+impl<T> Clone for ShareTreeNode<T> {
+  fn clone(&self) -> Self {
+    Self {
+      inner: self.inner.clone(),
+    }
+  }
+}
+
 impl<T> ShareTreeNode<T> {
+  pub fn raw_handle(&self) -> TreeNodeHandle<T> {
+    self.inner.read().unwrap().inner.handle
+  }
+
+  #[must_use]
+  pub fn create_new_root(nodes: Arc<RwLock<TreeCollection<T>>>, n: T) -> Self {
+    let mut nodes_info = nodes.write().unwrap();
+
+    let root = nodes_info.create_node(n);
+
+    let root = NodeRef {
+      nodes: nodes.clone(),
+      handle: root,
+    };
+
+    let root = NodeInner::create_new(root);
+
+    Self {
+      inner: Arc::new(RwLock::new(root)),
+    }
+  }
+
   #[must_use]
   pub fn create_child(&self, n: T) -> Self {
     let inner = self.inner.read().unwrap();
