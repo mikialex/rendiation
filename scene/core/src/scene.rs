@@ -4,17 +4,8 @@ use arena::Arena;
 use rendiation_algebra::PerspectiveProjection;
 use tree::TreeCollection;
 
-pub trait SceneContent: Clone + Copy + 'static {
-  type BackGround;
-  type Model;
-  type Light;
-  type Texture2D;
-  type TextureCube;
-  type SceneExt: Default;
-}
-
-pub struct Scene<S: SceneContent> {
-  pub background: Option<S::BackGround>,
+pub struct Scene {
+  pub background: Option<SceneBackGround>,
 
   pub default_camera: SceneCamera,
   pub active_camera: Option<SceneCamera>,
@@ -22,14 +13,39 @@ pub struct Scene<S: SceneContent> {
   /// All cameras in the scene
   pub cameras: Arena<SceneCamera>,
   /// All lights in the scene
-  pub lights: Arena<S::Light>,
+  pub lights: Arena<SceneLightInner>,
   /// All models in the scene
-  pub models: Arena<S::Model>,
+  pub models: Arena<SceneModelType>,
 
   nodes: Arc<RwLock<SceneNodesCollection>>,
   root: SceneNode,
 
-  pub extension: S::SceneExt,
+  pub ext: DynamicExtension,
+}
+
+pub enum SceneModelType {
+  Common {
+    material: SceneMaterial,
+    mesh: SceneMesh,
+  },
+  Foreign(Box<dyn ForeignImplemented>),
+}
+
+pub enum SceneMesh {
+  Mesh,
+  Foreign(Box<dyn ForeignImplemented>),
+}
+
+pub enum SceneMaterial {
+  Material,
+  Foreign(Box<dyn ForeignImplemented>),
+}
+
+pub trait ForeignImplemented: std::any::Any {}
+
+#[derive(Default)]
+pub struct DynamicExtension {
+  inner: HashMap<std::any::TypeId, Box<dyn std::any::Any>>,
 }
 
 pub struct SceneNodesCollection {
@@ -46,7 +62,7 @@ impl Default for SceneNodesCollection {
   }
 }
 
-impl<S: SceneContent> Scene<S> {
+impl Scene {
   pub fn root(&self) -> &SceneNode {
     &self.root
   }
@@ -69,7 +85,7 @@ impl<S: SceneContent> Scene<S> {
       models: Arena::new(),
 
       active_camera: None,
-      extension: Default::default(),
+      ext: Default::default(),
     }
   }
 
@@ -87,7 +103,7 @@ impl<S: SceneContent> Scene<S> {
   }
 }
 
-impl<S: SceneContent> Default for Scene<S> {
+impl Default for Scene {
   fn default() -> Self {
     Self::new()
   }

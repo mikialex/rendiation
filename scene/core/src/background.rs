@@ -1,6 +1,10 @@
-use rendiation_algebra::*;
+use crate::*;
 
-use crate::{SceneContent, SceneTextureCube};
+pub enum SceneBackGround {
+  Solid(SolidBackground),
+  Env(EnvMapBackground),
+  Foreign(Box<dyn ForeignImplemented>),
+}
 
 pub struct SolidBackground {
   pub intensity: Vec3<f32>,
@@ -22,6 +26,6 @@ impl SolidBackground {
   }
 }
 
-pub struct EnvMapBackground<S: SceneContent> {
-  pub texture: SceneTextureCube<S>,
+pub struct EnvMapBackground {
+  pub texture: SceneTextureCube,
 }
