@@ -159,7 +159,7 @@ impl CameraGPUTransform {
   }
 
   pub fn update_by_scene_camera(&mut self, camera: &SceneCameraInner) {
-    let world_matrix = camera.node.visit(|node| node.world_matrix);
+    let world_matrix = camera.node.visit(|node| node.world_matrix());
     self.update_by_proj_and_world(camera.projection_matrix, world_matrix);
   }
 }

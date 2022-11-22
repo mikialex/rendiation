@@ -1,5 +1,3 @@
-#![feature(int_log)]
-
 use std::{num::NonZeroUsize, ops::Mul};
 
 /// Represent a none zero size(width/height)

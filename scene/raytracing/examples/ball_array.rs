@@ -70,7 +70,7 @@ fn main() {
   let spacing = 0.55;
   let count = 10;
 
-  let width_all = spacing as f32 * 2. * count as f32;
+  let width_all = spacing * 2. * count as f32;
 
   let start = width_all / -2.0 + spacing;
   let step = spacing * 2.;

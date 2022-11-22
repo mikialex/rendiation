@@ -198,7 +198,7 @@ impl Default for BillBoard {
 impl WorldMatrixOverride for BillBoard {
   fn override_mat(&self, world_matrix: Mat4<f32>, ctx: &WorldMatrixOverrideCtx) -> Mat4<f32> {
     let camera = &ctx.camera;
-    let camera_position = camera.node.visit(|n| n.world_matrix.position());
+    let camera_position = camera.node.visit(|n| n.world_matrix().position());
 
     let scale = world_matrix.get_scale();
     let scale = Mat4::scale(scale);

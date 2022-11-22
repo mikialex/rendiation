@@ -1,0 +1,7 @@
+[package]
+edition = "2021"
+name = "incremental"
+version = "0.0.1"
+
+[dependencies]
+incremental_derives = {path = "../incremental-derive"}

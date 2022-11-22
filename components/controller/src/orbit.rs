@@ -116,8 +116,7 @@ impl Controller for OrbitController {
     self.spherical.azim += self.spherical_delta.azim;
 
     self.spherical.polar = (self.spherical.polar + self.spherical_delta.polar)
-      .max(self.min_polar_angle)
-      .min(self.max_polar_angle);
+      .clamp(self.min_polar_angle, self.max_polar_angle);
 
     self.spherical.center += self.pan_offset;
 

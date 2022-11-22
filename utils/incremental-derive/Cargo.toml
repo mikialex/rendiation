@@ -1,0 +1,13 @@
+[package]
+authors = ["mikialex <18516340862@163.com>"]
+edition = "2021"
+name = "incremental_derives"
+version = "0.1.0"
+
+[lib]
+proc-macro = true
+
+[dependencies]
+proc-macro2 = "1.0.4"
+quote = "1.0.2"
+syn = "1.0.11"

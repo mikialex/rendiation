@@ -184,7 +184,7 @@ impl Gizmo {
       self.states.target_world_mat = self.root.get_world_matrix();
       self.states.target_local_mat = target.get_local_matrix();
       self.states.target_parent_world_mat = target
-        .visit_parent(|p| p.world_matrix)
+        .visit_parent(|p| p.world_matrix())
         .unwrap_or_else(Mat4::identity);
 
       if let Some((MouseButton::Left, ElementState::Pressed)) = mouse(event.raw_event) {

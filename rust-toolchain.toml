@@ -1,7 +1,7 @@
 # https://rust-lang.github.io/rustup/overrides.html#the-toolchain-file
 
 [toolchain]
-channel = "nightly-2022-08-21"
+channel = "nightly-2022-11-17"
 
 # this will auto check and update when compile
 # or use `rustup default nightly-2021-xx-xx` update

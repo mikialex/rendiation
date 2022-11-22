@@ -21,6 +21,8 @@ pub mod quat;
 pub mod std140;
 pub mod vec;
 
+mod inc;
+
 use std::ops::{AddAssign, DivAssign, MulAssign, SubAssign};
 
 pub use angle::*;
