@@ -2,7 +2,7 @@ use crate::*;
 
 pub fn get_main_pass_load_op<S>(scene: &Scene<S>) -> webgpu::Operations<webgpu::Color>
 where
-  S: SceneContent,
+  ,
   S::BackGround: Deref<Target = dyn WebGPUBackground>,
 {
   let load = if let Some(clear_color) = scene.background.as_ref().unwrap().require_pass_clear() {
@@ -23,7 +23,7 @@ pub struct ForwardScene<'a> {
 
 impl<'a, S> PassContentWithSceneAndCamera<S> for ForwardScene<'a>
 where
-  S: SceneContent,
+  ,
   S::Model: Deref<Target = dyn SceneModelShareable>,
 {
   fn render(&mut self, pass: &mut SceneRenderPass, scene: &Scene<S>, camera: &SceneCamera) {

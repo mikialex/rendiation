@@ -108,7 +108,7 @@ pub struct SceneDepth;
 
 impl<S> PassContentWithSceneAndCamera<S> for SceneDepth
 where
-  S: SceneContent,
+  ,
   S::Model: Deref<Target = dyn SceneModelShareable>,
 {
   fn render(&mut self, pass: &mut SceneRenderPass, scene: &Scene<S>, camera: &SceneCamera) {

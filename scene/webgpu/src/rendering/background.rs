@@ -4,7 +4,7 @@ pub struct BackGroundRendering;
 
 impl<S> PassContentWithSceneAndCamera<S> for BackGroundRendering
 where
-  S: SceneContent,
+  ,
   S::BackGround: Deref<Target = dyn WebGPUBackground>,
 {
   fn render(&mut self, pass: &mut SceneRenderPass, scene: &Scene<S>, camera: &SceneCamera) {

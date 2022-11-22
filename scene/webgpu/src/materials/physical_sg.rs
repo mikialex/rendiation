@@ -132,7 +132,7 @@ impl ShaderGraphProvider for PhysicalSpecularGlossinessMaterialGPU {
 
 impl<S> WebGPUMaterial for PhysicalSpecularGlossinessMaterial<S>
 where
-  S: SceneContent,
+  ,
   S::Texture2D: AsRef<dyn WebGPU2DTextureSource>,
 {
   type GPU = PhysicalSpecularGlossinessMaterialGPU;

@@ -29,7 +29,6 @@ pub fn build_texture_sampler_pair<S>(
   res: &mut GPUResourceSubCache,
 ) -> GPUTextureSamplerPair
 where
-  S: SceneContent,
   S::Texture2D: AsRef<dyn WebGPU2DTextureSource>,
 {
   let sampler = GPUSampler::create(t.sampler.into(), &gpu.device);

@@ -10,8 +10,12 @@ pub struct TextureWithSamplingData<T> {
 
 pub type Texture2DWithSamplingData = TextureWithSamplingData<SceneTexture2D>;
 
-pub struct SceneTexture2D {
+pub type SceneTexture2D = SceneItemRef<SceneTexture2DImpl>;
+pub struct SceneTexture2DImpl {
   source: usize,
 }
 
-pub type SceneTextureCube<S> = SceneItemRef<<S as SceneContent>::TextureCube>;
+pub type SceneTextureCube = SceneItemRef<SceneTextureCubeImpl>;
+pub struct SceneTextureCubeImpl {
+  source: usize,
+}

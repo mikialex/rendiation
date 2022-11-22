@@ -2,6 +2,13 @@ use rendiation_algebra::*;
 
 use crate::*;
 
+pub enum SceneMaterial {
+  PhysicalSpecularGlossiness(PhysicalSpecularGlossinessMaterial),
+  PhysicalMetallicRoughness(PhysicalMetallicRoughnessMaterial),
+  Flat(FlatMaterial),
+  Foreign(Box<dyn ForeignImplemented>),
+}
+
 /// The alpha rendering mode of a material.
 #[derive(Clone, Copy, Eq, PartialEq, Hash, Debug)]
 pub enum AlphaMode {

@@ -1,7 +1,7 @@
 use crate::*;
 
 use arena::Arena;
-use incremental::Incremental;
+use incremental::{Incremental, SimpleMutator};
 use rendiation_algebra::PerspectiveProjection;
 use tree::TreeCollection;
 
@@ -24,32 +24,42 @@ pub struct Scene {
   pub ext: DynamicExtension,
 }
 
-pub enum SceneModelType {
-  Common {
-    material: SceneMaterial,
-    mesh: SceneMesh,
-  },
-  Foreign(Box<dyn ForeignImplemented>),
+pub trait ForeignImplemented: std::any::Any + dyn_clone::DynClone + Send + Sync {
+  fn as_any(&self) -> &dyn std::any::Any;
+  fn as_mut_any(&mut self) -> &mut dyn std::any::Any;
 }
 
-pub enum SceneMesh {
-  Mesh,
-  Foreign(Box<dyn ForeignImplemented>),
-}
-
-pub enum SceneMaterial {
-  Material,
-  Foreign(Box<dyn ForeignImplemented>),
-}
-
-pub trait ForeignImplemented: std::any::Any {}
-
-#[derive(Default)]
+#[derive(Default, Clone, Debug)]
 pub struct DynamicExtension {
-  inner: HashMap<std::any::TypeId, Box<dyn std::any::Any>>,
+  inner: HashMap<std::any::TypeId, std::rc::Rc<dyn std::any::Any>>,
 }
 
-// impl<S: SceneContent> Incremental for Scene<S> {
+impl Incremental for DynamicExtension {
+  type Delta = ();
+
+  type Error = ();
+
+  type Mutator<'a> = SimpleMutator<'a, Self>
+  where
+    Self: 'a;
+
+  fn create_mutator<'a>(
+    &'a mut self,
+    collector: &'a mut dyn FnMut(Self::Delta),
+  ) -> Self::Mutator<'a> {
+    todo!()
+  }
+
+  fn apply(&mut self, delta: Self::Delta) -> Result<(), Self::Error> {
+    todo!()
+  }
+
+  fn expand(&self, cb: impl FnMut(Self::Delta)) {
+    todo!()
+  }
+}
+
+// impl Incremental for Scene<S> {
 //   type Delta;
 
 //   type Error;

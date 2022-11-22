@@ -11,7 +11,7 @@ pub struct LightUpdateCtx<'a, 'b> {
   pub forward: &'a mut ForwardLightingSystem,
   pub shadows: &'a mut ShadowMapSystem,
   pub ctx: &'a mut FrameCtx<'b>,
-  pub scene: &'a Scene<WebGPUScene>,
+  pub scene: &'a Scene,
 }
 
 impl<'a, 'b> LightUpdateCtx<'a, 'b> {

@@ -42,7 +42,7 @@ pub fn load_img_cube() -> <WebGPUScene as SceneContent>::TextureCube {
     .unwrap()
 }
 
-pub fn load_default_scene(scene: &mut Scene<WebGPUScene>) {
+pub fn load_default_scene(scene: &mut Scene) {
   scene.background = Some(Box::new(SolidBackground {
     intensity: Vec3::new(0.1, 0.1, 0.1),
   }));
@@ -53,7 +53,7 @@ pub fn load_default_scene(scene: &mut Scene<WebGPUScene>) {
     "/Users/mikialex/Desktop/test.png"
   };
 
-  let texture = SceneTexture2D::<WebGPUScene>::new(Box::new(load_img(path).into_source()));
+  let texture = SceneTexture2D::::new(Box::new(load_img(path).into_source()));
   let texture = TextureWithSamplingData {
     texture,
     sampler: TextureSampler::default(),
@@ -79,7 +79,7 @@ pub fn load_default_scene(scene: &mut Scene<WebGPUScene>) {
       )
       .build_mesh_into();
     let mesh = MeshSource::new(mesh);
-    let material = PhysicalSpecularGlossinessMaterial::<WebGPUScene> {
+    let material = PhysicalSpecularGlossinessMaterial:: {
       albedo: Vec3::splat(1.),
       albedo_texture: texture.clone().into(),
       ..Default::default()
@@ -107,7 +107,7 @@ pub fn load_default_scene(scene: &mut Scene<WebGPUScene>) {
     }
     let mesh = builder.build_mesh();
     let mesh = MeshSource::new(mesh);
-    let material = PhysicalSpecularGlossinessMaterial::<WebGPUScene> {
+    let material = PhysicalSpecularGlossinessMaterial:: {
       albedo: Vec3::splat(1.),
       albedo_texture: texture.clone().into(),
       ..Default::default()
@@ -138,7 +138,7 @@ pub fn load_default_scene(scene: &mut Scene<WebGPUScene>) {
         Mat4::translate((10., 0., 6.)),
       ],
     };
-    let material = PhysicalSpecularGlossinessMaterial::<WebGPUScene> {
+    let material = PhysicalSpecularGlossinessMaterial:: {
       albedo: Vec3::splat(1.),
       albedo_texture: texture.clone().into(),
       ..Default::default()

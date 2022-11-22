@@ -113,7 +113,7 @@ fn build_geom_buffer(accessor: gltf::Accessor, ctx: &mut Context) -> AttributeAc
 
 pub fn load_gltf_test(
   path: impl AsRef<Path>,
-  scene: &mut Scene<WebGPUScene>,
+  scene: &mut Scene,
 ) -> GltfResult<GltfLoadResult> {
   let (document, mut buffers, mut images) = gltf::import(path)?;
 
@@ -135,7 +135,7 @@ pub fn load_gltf_test(
 }
 
 struct Context {
-  images: Vec<SceneTexture2D<WebGPUScene>>,
+  images: Vec<SceneTexture2D>,
   attributes: Vec<Rc<GeometryBuffer>>,
   result: GltfLoadResult,
 }
@@ -168,7 +168,7 @@ impl WebGPU2DTextureSource for GltfImage {
   }
 }
 
-fn build_image(data_input: gltf::image::Data) -> SceneTexture2D<WebGPUScene> {
+fn build_image(data_input: gltf::image::Data) -> SceneTexture2D {
   let format = match data_input.format {
     gltf::image::Format::R8 => TextureFormat::R8Unorm,
     gltf::image::Format::R8G8 => TextureFormat::Rg8Unorm,
@@ -203,12 +203,12 @@ fn build_image(data_input: gltf::image::Data) -> SceneTexture2D<WebGPUScene> {
   let size = rendiation_texture::Size::from_u32_pair_min_one((data_input.width, data_input.height));
 
   let image = GltfImage { data, format, size };
-  SceneTexture2D::<WebGPUScene>::new(Box::new(image))
+  SceneTexture2D::::new(Box::new(image))
 }
 
 /// https://docs.rs/gltf/latest/gltf/struct.Node.html
 fn create_node_recursive(
-  scene: &mut Scene<WebGPUScene>,
+  scene: &mut Scene,
   parent_to_attach: SceneNode,
   gltf_node: &Node,
   ctx: &mut Context,
@@ -242,7 +242,7 @@ fn create_node_recursive(
 fn build_pbr_material(
   material: gltf::Material,
   ctx: &mut Context,
-) -> StateControl<PhysicalMetallicRoughnessMaterial<WebGPUScene>> {
+) -> StateControl<PhysicalMetallicRoughnessMaterial> {
   let pbr = material.pbr_metallic_roughness();
 
   let base_color_texture = pbr
@@ -292,7 +292,7 @@ fn build_pbr_material(
 fn build_texture(
   texture: gltf::texture::Texture,
   ctx: &mut Context,
-) -> Texture2DWithSamplingData<WebGPUScene> {
+) -> Texture2DWithSamplingData {
   let sampler = map_sampler(texture.sampler());
   let image_index = texture.source().index();
   let texture = ctx.images.get(image_index).unwrap().clone();

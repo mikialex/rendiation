@@ -125,7 +125,7 @@ impl ShaderGraphProvider for PhysicalMetallicRoughnessMaterialGPU {
 
 impl<S> WebGPUMaterial for PhysicalMetallicRoughnessMaterial<S>
 where
-  S: SceneContent,
+  ,
   S::Texture2D: AsRef<dyn WebGPU2DTextureSource>,
 {
   type GPU = PhysicalMetallicRoughnessMaterialGPU;

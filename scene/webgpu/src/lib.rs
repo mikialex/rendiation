@@ -57,16 +57,16 @@ use std::{
   sync::Mutex,
 };
 
-#[derive(Copy, Clone)]
-pub struct WebGPUScene;
-impl SceneContent for WebGPUScene {
-  type BackGround = Box<dyn WebGPUBackground>;
-  type Model = Box<dyn SceneModelShareable>;
-  type Light = Box<dyn WebGPUSceneLight>;
-  type Texture2D = Box<dyn WebGPU2DTextureSource>;
-  type TextureCube = [Box<dyn WebGPU2DTextureSource>; 6];
-  type SceneExt = ();
-}
+// #[derive(Copy, Clone)]
+// pub struct WebGPUScene;
+// impl SceneContent for WebGPUScene {
+//   type BackGround = Box<dyn WebGPUBackground>;
+//   type Model = Box<dyn SceneModelShareable>;
+//   type Light = Box<dyn WebGPUSceneLight>;
+//   type Texture2D = Box<dyn WebGPU2DTextureSource>;
+//   type TextureCube = [Box<dyn WebGPU2DTextureSource>; 6];
+//   type SceneExt = ();
+// }
 
 pub trait SceneRenderable {
   fn is_transparent(&self) -> bool {
@@ -259,7 +259,7 @@ pub trait WebGPUSceneExtension {
 
 use std::cmp::Ordering;
 
-impl WebGPUSceneExtension for Scene<WebGPUScene> {
+impl WebGPUSceneExtension for Scene {
   fn add_model(&mut self, model: impl SceneModelShareable + 'static) -> SceneModelHandle {
     self.models.insert(Box::new(model))
   }

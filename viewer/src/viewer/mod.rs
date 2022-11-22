@@ -99,7 +99,7 @@ impl Default for ViewerImpl {
 }
 
 pub struct Viewer3dContent {
-  pub scene: Scene<WebGPUScene>,
+  pub scene: Scene,
   pub ground: GridGround,
   pub pick_config: MeshBufferIntersectConfig,
   pub selections: SelectionSet,
