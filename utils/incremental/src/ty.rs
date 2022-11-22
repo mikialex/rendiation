@@ -171,7 +171,7 @@ pub trait SimpleIncremental {
   type Delta: Clone;
 
   fn s_apply(&mut self, delta: Self::Delta);
-  fn s_expand(&self, _: impl FnMut(Self::Delta)) {}
+  fn s_expand(&self, cb: impl FnMut(Self::Delta));
 }
 
 impl<T: SimpleIncremental> Incremental for T {
@@ -229,6 +229,43 @@ impl<T> Incremental for std::rc::Rc<T> {
   }
 
   fn expand(&self, _: impl FnMut(Self::Delta)) {}
+}
+
+impl<T: Incremental + Clone> Incremental for Option<T> {
+  type Delta = Option<T::Delta>;
+
+  type Error = T::Error;
+
+  type Mutator<'a> = SimpleMutator<'a, Self>
+  where
+    Self: 'a;
+
+  fn create_mutator<'a>(
+    &'a mut self,
+    collector: &'a mut dyn FnMut(Self::Delta),
+  ) -> Self::Mutator<'a> {
+    SimpleMutator {
+      inner: self,
+      collector,
+    }
+  }
+
+  fn apply(&mut self, delta: Self::Delta) -> Result<(), Self::Error> {
+    if let Some(d) = delta {
+      self.as_mut().unwrap().apply(d)?;
+    } else {
+      *self = None;
+    }
+    Ok(())
+  }
+
+  fn expand(&self, mut cb: impl FnMut(Self::Delta)) {
+    if let Some(inner) = self {
+      inner.expand(|d| cb(Some(d)))
+    } else {
+      cb(None)
+    }
+  }
 }
 
 trait InteriorMutable<T> {

@@ -1,4 +1,5 @@
 use crate::*;
+use incremental::{DeltaOf, Incremental, SimpleIncremental};
 use rendiation_algebra::*;
 
 pub type SceneLight<T> = SceneItemRef<SceneLightInner<T>>;
@@ -10,7 +11,29 @@ pub struct SceneLightInner<T> {
   pub node: SceneNode,
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Clone)]
+pub enum SceneLightInnerDelta<T: Incremental> {
+  Light(DeltaOf<T>),
+  Node(SceneNode),
+}
+
+impl<T: Incremental + Clone> SimpleIncremental for SceneLightInner<T> {
+  type Delta = SceneLightInnerDelta<T>;
+
+  fn s_apply(&mut self, delta: Self::Delta) {
+    match delta {
+      SceneLightInnerDelta::Light(delta) => self.light.apply(delta).unwrap(),
+      SceneLightInnerDelta::Node(delta) => self.node.s_apply(delta),
+    }
+  }
+
+  fn s_expand(&self, mut cb: impl FnMut(Self::Delta)) {
+    self.light.expand(|d| cb(SceneLightInnerDelta::Light(d)));
+    cb(SceneLightInnerDelta::Node(self.node.clone()))
+  }
+}
+
+#[derive(Debug, Clone, Copy, Incremental)]
 pub struct PointLight {
   pub color_factor: Vec3<f32>,
   /// in cd
@@ -34,7 +57,7 @@ impl PointLight {
   }
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Incremental)]
 pub struct SpotLight {
   pub color_factor: Vec3<f32>,
   /// in cd
@@ -62,7 +85,7 @@ impl SpotLight {
   }
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Incremental)]
 pub struct DirectionalLight {
   /// in lux
   ///

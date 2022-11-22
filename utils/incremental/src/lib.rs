@@ -7,7 +7,7 @@ mod ty;
 pub use ty::*;
 
 pub trait Incremental: Sized {
-  /// `Delta` should be strictly the smallest atomic modification unit of `Self`
+  /// `Delta` should be atomic modification unit of `Self`
   /// atomic means no invalid states between the modification
   type Delta: Clone;
 

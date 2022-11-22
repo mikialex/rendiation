@@ -1,6 +1,7 @@
 use crate::*;
 
 use arena::Arena;
+use incremental::Incremental;
 use rendiation_algebra::PerspectiveProjection;
 use tree::TreeCollection;
 
@@ -31,6 +32,31 @@ pub struct Scene<S: SceneContent> {
 
   pub extension: S::SceneExt,
 }
+
+// impl<S: SceneContent> Incremental for Scene<S> {
+//   type Delta;
+
+//   type Error;
+
+//   type Mutator<'a>
+//   where
+//     Self: 'a;
+
+//   fn create_mutator<'a>(
+//     &'a mut self,
+//     collector: &'a mut dyn FnMut(Self::Delta),
+//   ) -> Self::Mutator<'a> {
+//     todo!()
+//   }
+
+//   fn apply(&mut self, delta: Self::Delta) -> Result<(), Self::Error> {
+//     todo!()
+//   }
+
+//   fn expand(&self, cb: impl FnMut(Self::Delta)) {
+//     todo!()
+//   }
+// }
 
 impl<S: SceneContent> Scene<S> {
   pub fn root(&self) -> &SceneNode {

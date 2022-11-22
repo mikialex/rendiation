@@ -1,6 +1,6 @@
 use crate::*;
 
-use incremental::Incremental;
+use incremental::{Incremental, SimpleIncremental};
 use rendiation_algebra::*;
 use tree::{ShareTreeNode, TreeCollection, TreeNodeHandle};
 
@@ -57,6 +57,18 @@ impl SceneNodeDataImpl {
 #[derive(Clone)]
 pub struct SceneNode {
   inner: ShareTreeNode<SceneNodeData>,
+}
+
+impl SimpleIncremental for SceneNode {
+  type Delta = Self;
+
+  fn s_apply(&mut self, delta: Self::Delta) {
+    *self = delta;
+  }
+
+  fn s_expand(&self, mut cb: impl FnMut(Self::Delta)) {
+    cb(self.clone())
+  }
 }
 
 impl SceneNode {
