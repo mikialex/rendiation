@@ -76,7 +76,6 @@ pub struct AttributesMesh {
   pub attributes: Vec<(AttributeSemantic, AttributeAccessor)>,
   pub indices: Option<(webgpu::IndexFormat, AttributeAccessor)>,
   pub mode: webgpu::PrimitiveTopology,
-  // bounding: Box3<f32>,
 }
 
 pub struct AttributesMeshGPU {

@@ -142,10 +142,7 @@ fn get_shadow_map<T: Any>(
   inner: &SceneItemRefGuard<SceneLightInner>,
   resources: &mut GPUResourceCache,
   shadows: &mut ShadowMapSystem,
-) -> BasicShadowGPU
-where
-  SceneLightInner: ShadowCameraCreator,
-{
+) -> BasicShadowGPU {
   let resolution = Size::from_usize_pair_min_one((512, 512));
 
   resources
@@ -177,19 +174,14 @@ pub fn request_basic_shadow_map<T: Any>(
   inner: &SceneItemRefGuard<SceneLightInner>,
   resources: &mut GPUResourceCache,
   shadows: &mut ShadowMapSystem,
-) where
-  SceneLightInner: ShadowCameraCreator,
-{
+) {
   get_shadow_map(inner, resources, shadows);
 }
 
 pub fn check_update_basic_shadow_map<T: Any>(
   inner: &SceneItemRefGuard<SceneLightInner>,
   ctx: &mut LightUpdateCtx,
-) -> LightShadowAddressInfo
-where
-  SceneLightInner: ShadowCameraCreator,
-{
+) -> LightShadowAddressInfo {
   let BasicShadowGPU { shadow_camera, map } = get_shadow_map(inner, ctx.ctx.resources, ctx.shadows);
 
   let (view, map_info) = map.get_write_view(ctx.ctx.gpu);

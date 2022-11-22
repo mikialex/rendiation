@@ -2,13 +2,9 @@ use crate::*;
 
 pub type SceneFatlineMaterial = StateControl<FatLineMaterial>;
 
-pub type FatlineImpl = MeshModelImpl<FatlineMesh, SceneFatlineMaterial>;
+// pub type FatlineImpl = MeshModelImpl<FatlineMesh, SceneFatlineMaterial>;
 
-impl SceneRenderable for MeshModel
-where
-  Me: WebGPUMesh,
-  Ma: WebGPUMaterial,
-{
+impl SceneRenderable for MeshModel {
   fn is_transparent(&self) -> bool {
     self.visit(|model| model.is_transparent())
   }
@@ -22,11 +18,7 @@ where
   }
 }
 
-impl SceneRayInteractive for MeshModel
-where
-  Me: WebGPUMesh,
-  Ma: WebGPUMaterial,
-{
+impl SceneRayInteractive for MeshModel {
   fn ray_pick_nearest(&self, ctx: &SceneRayInteractiveCtx) -> OptionalNearest<MeshBufferHitPoint> {
     self.visit(|model| model.ray_pick_nearest(ctx))
   }
@@ -62,10 +54,7 @@ pub fn setup_pass_core(
   camera: &SceneCamera,
   override_node: Option<&TransformGPU>,
   dispatcher: &dyn RenderComponentAny,
-) where
-  Me: WebGPUMesh,
-  Ma: WebGPUMaterial,
-{
+) {
   let gpu = pass.ctx.gpu;
   let resources = &mut pass.resources;
   let pass_gpu = dispatcher;
@@ -79,33 +68,35 @@ pub fn setup_pass_core(
   let node_gpu =
     override_node.unwrap_or_else(|| resources.nodes.check_update_gpu(&model.node, gpu));
 
-  let material = model.material.read();
-  let material_gpu =
-    material.check_update_gpu(&mut resources.scene.materials, &mut resources.content, gpu);
+  let model = &model.model;
+  match model {
+    SceneModelType::Standard(model) => {
+      let material = model.material.read();
+      let material_gpu =
+        material.check_update_gpu(&mut resources.scene.materials, &mut resources.content, gpu);
 
-  let mesh = model.mesh.read();
-  let mesh_gpu = mesh.check_update_gpu(
-    &mut resources.scene.meshes,
-    &mut resources.custom_storage,
-    gpu,
-  );
+      let mesh = model.mesh.read();
+      let mesh_gpu = mesh.check_update_gpu(
+        &mut resources.scene.meshes,
+        &mut resources.custom_storage,
+        gpu,
+      );
 
-  let components = [pass_gpu, mesh_gpu, node_gpu, camera_gpu, material_gpu];
+      let components = [pass_gpu, mesh_gpu, node_gpu, camera_gpu, material_gpu];
 
-  let mesh: &dyn MeshDrawcallEmitter = mesh.deref();
-  let emitter = MeshDrawcallEmitterWrap {
-    group: model.group,
-    mesh,
+      let mesh: &dyn MeshDrawcallEmitter = mesh.deref();
+      let emitter = MeshDrawcallEmitterWrap {
+        group: model.group,
+        mesh,
+      };
+
+      RenderEmitter::new(components.as_slice()).render(&mut pass.ctx, &emitter);
+    }
+    SceneModelType::Foreign(_) => todo!(),
   };
-
-  RenderEmitter::new(components.as_slice()).render(&mut pass.ctx, &emitter);
 }
 
-impl SceneRenderable for MeshModelImpl
-where
-  Me: WebGPUMesh,
-  Ma: WebGPUMaterial,
-{
+impl SceneRenderable for MeshModelImpl {
   fn is_transparent(&self) -> bool {
     self.material.visit(|mat| mat.is_transparent())
   }
@@ -123,11 +114,7 @@ pub fn ray_pick_nearest_core(
   model: &MeshModelImpl,
   ctx: &SceneRayInteractiveCtx,
   world_mat: Mat4<f32>,
-) -> OptionalNearest<MeshBufferHitPoint>
-where
-  Me: WebGPUMesh,
-  Ma: WebGPUMaterial,
-{
+) -> OptionalNearest<MeshBufferHitPoint> {
   let net_visible = model.node.visit(|n| n.net_visible());
   if !net_visible {
     return OptionalNearest::none();
@@ -156,11 +143,7 @@ where
   picked
 }
 
-impl SceneRayInteractive for MeshModelImpl
-where
-  Me: WebGPUMesh,
-  Ma: WebGPUMaterial,
-{
+impl SceneRayInteractive for MeshModelImpl {
   fn ray_pick_nearest(&self, ctx: &SceneRayInteractiveCtx) -> OptionalNearest<MeshBufferHitPoint> {
     ray_pick_nearest_core(self, ctx, self.node.get_world_matrix())
   }

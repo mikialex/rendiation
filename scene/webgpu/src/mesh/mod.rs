@@ -30,6 +30,25 @@ impl<T: WebGPUSceneMesh> MeshDrawcallEmitter for T {
   }
 }
 
+impl WebGPUSceneMesh for SceneMesh {
+  fn check_update_gpu<'a>(
+    &self,
+    res: &'a mut GPUMeshCache,
+    sub_res: &mut AnyMap,
+    gpu: &GPU,
+  ) -> &'a dyn RenderComponentAny {
+    todo!()
+  }
+
+  fn topology(&self) -> webgpu::PrimitiveTopology {
+    todo!()
+  }
+
+  fn draw_impl(&self, group: MeshDrawGroup) -> DrawCommand {
+    todo!()
+  }
+}
+
 impl<M: WebGPUMesh> WebGPUSceneMesh for Identity<M> {
   fn check_update_gpu<'a>(
     &self,

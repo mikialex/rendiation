@@ -10,7 +10,7 @@ pub enum SceneModelType {
 pub type MeshModel = SceneItemRef<MeshModelImpl>;
 
 pub struct MeshModelImpl {
-  pub material: SceneModelType,
+  pub model: SceneModelType,
   pub node: SceneNode,
 }
 

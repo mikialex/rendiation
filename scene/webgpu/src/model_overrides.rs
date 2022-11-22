@@ -64,7 +64,7 @@ impl SceneNodeControlled for OverridableMeshModelImpl {
   }
 }
 
-impl<Me: WebGPUMesh, Ma: WebGPUMaterial> SceneRenderable for OverridableMeshModelImpl {
+impl SceneRenderable for OverridableMeshModelImpl {
   fn is_transparent(&self) -> bool {
     self.inner.is_transparent()
   }
@@ -94,7 +94,7 @@ impl<Me: WebGPUMesh, Ma: WebGPUMaterial> SceneRenderable for OverridableMeshMode
   }
 }
 
-impl<Me: WebGPUMesh, Ma: WebGPUMaterial> SceneRayInteractive for OverridableMeshModelImpl {
+impl SceneRayInteractive for OverridableMeshModelImpl {
   fn ray_pick_nearest(&self, ctx: &SceneRayInteractiveCtx) -> OptionalNearest<MeshBufferHitPoint> {
     let camera_ref = ctx.camera.read();
     let o_ctx = WorldMatrixOverrideCtx {
