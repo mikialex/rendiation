@@ -106,13 +106,9 @@ pub fn compute_shadow_position(
 
 pub struct SceneDepth;
 
-impl<S> PassContentWithSceneAndCamera<S> for SceneDepth
-where
-  ,
-  S::Model: Deref<Target = dyn SceneModelShareable>,
-{
-  fn render(&mut self, pass: &mut SceneRenderPass, scene: &Scene<S>, camera: &SceneCamera) {
-    let mut render_list = RenderList::<S>::default();
+impl PassContentWithSceneAndCamera for SceneDepth {
+  fn render(&mut self, pass: &mut SceneRenderPass, scene: &Scene, camera: &SceneCamera) {
+    let mut render_list = RenderList::default();
     render_list.prepare(scene, camera);
 
     // we could just use default, because the color channel not exist at all
@@ -133,12 +129,12 @@ pub trait ShadowCameraCreator {
 }
 
 fn get_shadow_map<T: Any>(
-  inner: &SceneItemRefGuard<SceneLightInner<T>>,
+  inner: &SceneItemRefGuard<SceneLightInner>,
   resources: &mut GPUResourceCache,
   shadows: &mut ShadowMapSystem,
 ) -> BasicShadowGPU
 where
-  SceneLightInner<T>: ShadowCameraCreator,
+  SceneLightInner: ShadowCameraCreator,
 {
   let resolution = Size::from_usize_pair_min_one((512, 512));
 
@@ -168,21 +164,21 @@ where
 }
 
 pub fn request_basic_shadow_map<T: Any>(
-  inner: &SceneItemRefGuard<SceneLightInner<T>>,
+  inner: &SceneItemRefGuard<SceneLightInner>,
   resources: &mut GPUResourceCache,
   shadows: &mut ShadowMapSystem,
 ) where
-  SceneLightInner<T>: ShadowCameraCreator,
+  SceneLightInner: ShadowCameraCreator,
 {
   get_shadow_map(inner, resources, shadows);
 }
 
 pub fn check_update_basic_shadow_map<T: Any>(
-  inner: &SceneItemRefGuard<SceneLightInner<T>>,
+  inner: &SceneItemRefGuard<SceneLightInner>,
   ctx: &mut LightUpdateCtx,
 ) -> LightShadowAddressInfo
 where
-  SceneLightInner<T>: ShadowCameraCreator,
+  SceneLightInner: ShadowCameraCreator,
 {
   let BasicShadowGPU { shadow_camera, map } = get_shadow_map(inner, ctx.ctx.resources, ctx.shadows);
 

@@ -1,17 +1,11 @@
 use crate::*;
 
-pub struct RenderList<P>
-where
-  P: SceneContent,
-{
-  pub(crate) opaque: Vec<(Handle<<P as SceneContent>::Model>, f32)>,
-  pub(crate) transparent: Vec<(Handle<<P as SceneContent>::Model>, f32)>,
+pub struct RenderList {
+  pub(crate) opaque: Vec<(SceneModelHandle, f32)>,
+  pub(crate) transparent: Vec<(SceneModelHandle, f32)>,
 }
 
-impl<P> Default for RenderList<P>
-where
-  P: SceneContent,
-{
+impl Default for RenderList {
   fn default() -> Self {
     Self {
       opaque: Vec::new(),
@@ -20,12 +14,8 @@ where
   }
 }
 
-impl<P> RenderList<P>
-where
-  P: SceneContent,
-  P::Model: Deref<Target = dyn SceneModelShareable>,
-{
-  pub fn prepare(&mut self, scene: &Scene<P>, camera: &SceneCamera) {
+impl RenderList {
+  pub fn prepare(&mut self, scene: &Scene, camera: &SceneCamera) {
     if scene.active_camera.is_none() {
       return;
     }
@@ -58,7 +48,7 @@ where
   pub fn setup_pass(
     &self,
     gpu_pass: &mut SceneRenderPass,
-    scene: &Scene<P>,
+    scene: &Scene,
     dispatcher: &dyn RenderComponentAny,
     camera: &SceneCamera,
   ) {

@@ -23,29 +23,22 @@ impl GPUTextureSamplerPair {
   }
 }
 
-pub fn build_texture_sampler_pair<S>(
-  t: &Texture2DWithSamplingData<S>,
+pub fn build_texture_sampler_pair(
+  t: &Texture2DWithSamplingData,
   gpu: &GPU,
   res: &mut GPUResourceSubCache,
-) -> GPUTextureSamplerPair
-where
-  S::Texture2D: AsRef<dyn WebGPU2DTextureSource>,
-{
+) -> GPUTextureSamplerPair {
   let sampler = GPUSampler::create(t.sampler.into(), &gpu.device);
   let sampler = sampler.create_default_view();
-  let texture = check_update_gpu_2d::<S>(&t.texture, res, gpu).clone();
+  let texture = check_update_gpu_2d(&t.texture, res, gpu).clone();
   GPUTextureSamplerPair { texture, sampler }
 }
 
-pub fn check_update_gpu_2d<'a, P>(
-  source: &SceneTexture2D<P>,
+pub fn check_update_gpu_2d<'a>(
+  source: &SceneTexture2D,
   resources: &'a mut GPUResourceSubCache,
   gpu: &GPU,
-) -> &'a GPU2DTextureView
-where
-  P: SceneContent,
-  P::Texture2D: AsRef<dyn WebGPU2DTextureSource>,
-{
+) -> &'a GPU2DTextureView {
   let texture = source.read();
   resources.texture_2ds.get_update_or_insert_with(
     &texture,
@@ -65,15 +58,11 @@ where
   )
 }
 
-pub fn check_update_gpu_cube<'a, P>(
-  source: &SceneTextureCube<P>,
+pub fn check_update_gpu_cube<'a>(
+  source: &SceneTextureCube,
   resources: &'a mut GPUResourceSubCache,
   gpu: &GPU,
-) -> &'a GPUCubeTextureView
-where
-  P: SceneContent,
-  P::TextureCube: AsRef<[Box<dyn WebGPU2DTextureSource>; 6]>,
-{
+) -> &'a GPUCubeTextureView {
   let texture = source.read();
 
   resources.texture_cubes.get_update_or_insert_with(

@@ -233,8 +233,6 @@ pub struct GPUResourceSubCache {
 }
 
 use arena::Handle;
-pub type SceneModelHandle = Handle<<WebGPUScene as SceneContent>::Model>;
-pub type SceneCameraHandle = Handle<SceneCamera>;
 
 pub trait WebGPUSceneExtension {
   #[must_use]

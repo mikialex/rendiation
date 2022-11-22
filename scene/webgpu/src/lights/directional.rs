@@ -122,7 +122,7 @@ struct WorkAroundResizableOrth<T> {
 
 impl<T: Scalar> Projection<T> for WorkAroundResizableOrth<T> {
   fn update_projection<S: NDCSpaceMapper>(&self, projection: &mut Mat4<T>) {
-    self.orth.update_projection::<S>(projection);
+    self.orth.update_projection::(projection);
   }
 
   fn pixels_per_unit(&self, distance: T, view_height: T) -> T {

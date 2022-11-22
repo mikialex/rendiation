@@ -1,9 +1,12 @@
 use crate::*;
 
-use arena::Arena;
+use arena::{Arena, Handle};
 use incremental::{Incremental, SimpleMutator};
 use rendiation_algebra::PerspectiveProjection;
 use tree::TreeCollection;
+
+pub type SceneModelHandle = Handle<SceneModelType>;
+pub type SceneCameraHandle = Handle<SceneCamera>;
 
 pub struct Scene {
   pub background: Option<SceneBackGround>,
