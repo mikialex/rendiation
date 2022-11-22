@@ -3,10 +3,6 @@ use crate::*;
 /// Vertex attribute semantic name.
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]
 pub enum AttributeSemantic {
-  /// Extra attribute name.
-  #[cfg(feature = "extras")]
-  Extras(String),
-
   /// XYZ vertex positions.
   Positions,
 

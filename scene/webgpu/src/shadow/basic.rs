@@ -125,7 +125,17 @@ pub struct BasicShadowGPU {
 }
 
 pub trait ShadowCameraCreator {
-  fn build_shadow_camera(&self) -> SceneCamera;
+  fn build_shadow_camera(&self, node: &SceneNode) -> SceneCamera;
+}
+
+fn build_shadow_camera(light: &SceneLightInner) -> SceneCamera {
+  match light.light {
+    SceneLightKind::PointLight(_) => todo!(),
+    SceneLightKind::SpotLight(l) => l.build_shadow_camera(&light.node),
+    SceneLightKind::DirectionalLight(l) => l.build_shadow_camera(&light.node),
+    SceneLightKind::Foreign(_) => todo!(),
+    _ => todo!(),
+  }
 }
 
 fn get_shadow_map<T: Any>(
@@ -149,12 +159,12 @@ where
     .unwrap()
     .get_update_or_insert_with_logic(inner, |logic| match logic {
       ResourceLogic::Create(light) => {
-        let shadow_camera = light.build_shadow_camera();
+        let shadow_camera = build_shadow_camera(light);
         let map = shadows.maps.allocate(resolution);
         ResourceLogicResult::Create(BasicShadowGPU { shadow_camera, map })
       }
       ResourceLogic::Update(shadow, light) => {
-        let shadow_camera = light.build_shadow_camera();
+        let shadow_camera = build_shadow_camera(light);
         let map = shadows.maps.allocate(resolution);
         *shadow = BasicShadowGPU { shadow_camera, map };
         ResourceLogicResult::Update(shadow)

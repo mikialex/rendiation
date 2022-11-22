@@ -4,7 +4,7 @@ pub type SceneFatlineMaterial = StateControl<FatLineMaterial>;
 
 pub type FatlineImpl = MeshModelImpl<FatlineMesh, SceneFatlineMaterial>;
 
-impl<Me, Ma> SceneRenderable for MeshModel<Me, Ma>
+impl SceneRenderable for MeshModel
 where
   Me: WebGPUMesh,
   Ma: WebGPUMaterial,
@@ -22,7 +22,7 @@ where
   }
 }
 
-impl<Me, Ma> SceneRayInteractive for MeshModel<Me, Ma>
+impl SceneRayInteractive for MeshModel
 where
   Me: WebGPUMesh,
   Ma: WebGPUMaterial,
@@ -32,13 +32,13 @@ where
   }
 }
 
-impl<Me, Ma> SceneNodeControlled for MeshModel<Me, Ma> {
+impl SceneNodeControlled for MeshModel {
   fn visit_node(&self, visitor: &mut dyn FnMut(&SceneNode)) {
     self.visit(|model| visitor(&model.node))
   }
 }
 
-impl<Me, Ma> SceneRenderableShareable for MeshModel<Me, Ma>
+impl SceneRenderableShareable for MeshModel
 where
   Self: SceneRenderable + Clone + 'static,
 {
@@ -56,8 +56,8 @@ where
   }
 }
 
-pub fn setup_pass_core<Me, Ma>(
-  model: &MeshModelImpl<Me, Ma>,
+pub fn setup_pass_core(
+  model: &MeshModelImpl,
   pass: &mut SceneRenderPass,
   camera: &SceneCamera,
   override_node: Option<&TransformGPU>,
@@ -101,7 +101,7 @@ pub fn setup_pass_core<Me, Ma>(
   RenderEmitter::new(components.as_slice()).render(&mut pass.ctx, &emitter);
 }
 
-impl<Me, Ma> SceneRenderable for MeshModelImpl<Me, Ma>
+impl SceneRenderable for MeshModelImpl
 where
   Me: WebGPUMesh,
   Ma: WebGPUMaterial,
@@ -119,8 +119,8 @@ where
   }
 }
 
-pub fn ray_pick_nearest_core<Me, Ma>(
-  model: &MeshModelImpl<Me, Ma>,
+pub fn ray_pick_nearest_core(
+  model: &MeshModelImpl,
   ctx: &SceneRayInteractiveCtx,
   world_mat: Mat4<f32>,
 ) -> OptionalNearest<MeshBufferHitPoint>
@@ -156,7 +156,7 @@ where
   picked
 }
 
-impl<Me, Ma> SceneRayInteractive for MeshModelImpl<Me, Ma>
+impl SceneRayInteractive for MeshModelImpl
 where
   Me: WebGPUMesh,
   Ma: WebGPUMaterial,

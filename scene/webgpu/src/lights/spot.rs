@@ -103,14 +103,14 @@ impl WebGPUSceneLight for SceneLight<SpotLight> {
   }
 }
 
-impl ShadowCameraCreator for SceneLightInner<SpotLight> {
-  fn build_shadow_camera(&self) -> SceneCamera {
+impl ShadowCameraCreator for SpotLight {
+  fn build_shadow_camera(&self, node: &SceneNode) -> SceneCamera {
     let proj = PerspectiveProjection {
       near: 0.1,
       far: 2000.,
       fov: Deg::from_rad(self.light.half_cone_angle * 2.),
       aspect: 1.,
     };
-    SceneCamera::create_camera(proj, self.node.clone())
+    SceneCamera::create_camera(proj, node.clone())
   }
 }

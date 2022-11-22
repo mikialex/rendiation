@@ -101,8 +101,8 @@ pub struct DirectionalShadowMapExtraInfo {
   pub enable_shadow: bool,
 }
 
-impl ShadowCameraCreator for SceneLightInner<DirectionalLight> {
-  fn build_shadow_camera(&self) -> SceneCamera {
+impl ShadowCameraCreator for DirectionalLight {
+  fn build_shadow_camera(&self, node: &SceneNode) -> SceneCamera {
     let orth = OrthographicProjection {
       left: -20.,
       right: 20.,
@@ -112,7 +112,7 @@ impl ShadowCameraCreator for SceneLightInner<DirectionalLight> {
       far: 2000.,
     };
     let orth = WorkAroundResizableOrth { orth };
-    SceneCamera::create_camera(orth, self.node.clone())
+    SceneCamera::create_camera(orth, node.clone())
   }
 }
 
@@ -122,7 +122,7 @@ struct WorkAroundResizableOrth<T> {
 
 impl<T: Scalar> Projection<T> for WorkAroundResizableOrth<T> {
   fn update_projection<S: NDCSpaceMapper>(&self, projection: &mut Mat4<T>) {
-    self.orth.update_projection::(projection);
+    self.orth.update_projection::<WebGPU>(projection);
   }
 
   fn pixels_per_unit(&self, distance: T, view_height: T) -> T {

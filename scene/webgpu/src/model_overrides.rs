@@ -1,11 +1,11 @@
 use crate::*;
 
-pub trait WebGPUModelExt<Me, Ma> {
-  fn into_matrix_overridable(self) -> OverridableMeshModelImpl<Me, Ma>;
+pub trait WebGPUModelExt {
+  fn into_matrix_overridable(self) -> OverridableMeshModelImpl;
 }
 
-impl<Me, Ma> WebGPUModelExt<Me, Ma> for MeshModelImpl<Me, Ma> {
-  fn into_matrix_overridable(self) -> OverridableMeshModelImpl<Me, Ma> {
+impl WebGPUModelExt for MeshModelImpl {
+  fn into_matrix_overridable(self) -> OverridableMeshModelImpl {
     OverridableMeshModelImpl {
       inner: self,
       override_gpu: Default::default(),
@@ -14,13 +14,13 @@ impl<Me, Ma> WebGPUModelExt<Me, Ma> for MeshModelImpl<Me, Ma> {
   }
 }
 
-pub struct OverridableMeshModelImpl<Me, Ma> {
-  inner: MeshModelImpl<Me, Ma>,
+pub struct OverridableMeshModelImpl {
+  inner: MeshModelImpl,
   override_gpu: RefCell<Option<TransformGPU>>,
   overrides: Vec<Box<dyn WorldMatrixOverride>>,
 }
 
-impl<Me, Ma> OverridableMeshModelImpl<Me, Ma> {
+impl OverridableMeshModelImpl {
   pub fn push_override(&mut self, o: impl WorldMatrixOverride + 'static) {
     self.overrides.push(Box::new(o));
   }
@@ -44,27 +44,27 @@ pub struct WorldMatrixOverrideCtx<'a> {
   pub buffer_size: Size,
 }
 
-impl<Me, Ma> std::ops::Deref for OverridableMeshModelImpl<Me, Ma> {
-  type Target = MeshModelImpl<Me, Ma>;
+impl std::ops::Deref for OverridableMeshModelImpl {
+  type Target = MeshModelImpl;
 
   fn deref(&self) -> &Self::Target {
     &self.inner
   }
 }
 
-impl<Me, Ma> std::ops::DerefMut for OverridableMeshModelImpl<Me, Ma> {
+impl std::ops::DerefMut for OverridableMeshModelImpl {
   fn deref_mut(&mut self) -> &mut Self::Target {
     &mut self.inner
   }
 }
 
-impl<Me, Ma> SceneNodeControlled for OverridableMeshModelImpl<Me, Ma> {
+impl SceneNodeControlled for OverridableMeshModelImpl {
   fn visit_node(&self, visitor: &mut dyn FnMut(&SceneNode)) {
     visitor(&self.inner.node)
   }
 }
 
-impl<Me: WebGPUMesh, Ma: WebGPUMaterial> SceneRenderable for OverridableMeshModelImpl<Me, Ma> {
+impl<Me: WebGPUMesh, Ma: WebGPUMaterial> SceneRenderable for OverridableMeshModelImpl {
   fn is_transparent(&self) -> bool {
     self.inner.is_transparent()
   }
@@ -94,7 +94,7 @@ impl<Me: WebGPUMesh, Ma: WebGPUMaterial> SceneRenderable for OverridableMeshMode
   }
 }
 
-impl<Me: WebGPUMesh, Ma: WebGPUMaterial> SceneRayInteractive for OverridableMeshModelImpl<Me, Ma> {
+impl<Me: WebGPUMesh, Ma: WebGPUMaterial> SceneRayInteractive for OverridableMeshModelImpl {
   fn ray_pick_nearest(&self, ctx: &SceneRayInteractiveCtx) -> OptionalNearest<MeshBufferHitPoint> {
     let camera_ref = ctx.camera.read();
     let o_ctx = WorldMatrixOverrideCtx {
