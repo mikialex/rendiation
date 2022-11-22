@@ -11,7 +11,7 @@ pub struct LightShadowAddressInfo {
 impl LightShadowAddressInfo {
   pub fn new(enabled: bool, index: u32) -> Self {
     Self {
-      enabled: if enabled { 1 } else { 0 },
+      enabled: enabled.into(),
       index,
       ..Zeroable::zeroed()
     }
@@ -147,7 +147,7 @@ where
     .lights
     .inner
     .entry(TypeId::of::<T>())
-    .or_insert_with(|| Box::new(IdentityMapper::<BasicShadowGPU, T>::default()))
+    .or_insert_with(|| Box::<IdentityMapper<BasicShadowGPU, T>>::default())
     .as_any_mut()
     .downcast_mut::<IdentityMapper<BasicShadowGPU, T>>()
     .unwrap()
@@ -209,7 +209,7 @@ where
     .shadows
     .shadow_collections
     .entry(TypeId::of::<BasicShadowMapInfoList>())
-    .or_insert_with(|| Box::new(BasicShadowMapInfoList::default()));
+    .or_insert_with(|| Box::<BasicShadowMapInfoList>::default());
   let shadows = shadows
     .as_any_mut()
     .downcast_mut::<BasicShadowMapInfoList>()

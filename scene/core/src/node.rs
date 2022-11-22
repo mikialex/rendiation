@@ -1,16 +1,18 @@
 use crate::*;
 
+use incremental::{Incremental, SimpleIncremental};
 use rendiation_algebra::*;
-use tree::TreeNodeHandle;
+use tree::{ShareTreeNode, TreeCollection, TreeNodeHandle};
 
 pub type SceneNodeData = Identity<SceneNodeDataImpl>;
 pub type SceneNodeHandle = TreeNodeHandle<SceneNodeData>;
 
+#[derive(Incremental)]
 pub struct SceneNodeDataImpl {
   pub local_matrix: Mat4<f32>,
-  pub world_matrix: Mat4<f32>,
+  world_matrix: Mat4<f32>,
   pub visible: bool,
-  pub net_visible: bool,
+  net_visible: bool,
 }
 
 impl AsRef<Self> for SceneNodeDataImpl {
@@ -31,6 +33,14 @@ impl Default for SceneNodeDataImpl {
 }
 
 impl SceneNodeDataImpl {
+  pub fn world_matrix(&self) -> Mat4<f32> {
+    self.world_matrix
+  }
+
+  pub fn net_visible(&self) -> bool {
+    self.net_visible
+  }
+
   pub fn hierarchy_update(&mut self, parent: Option<&Self>) {
     if let Some(parent) = parent {
       self.net_visible = self.visible && parent.net_visible;
@@ -45,124 +55,50 @@ impl SceneNodeDataImpl {
 }
 
 #[derive(Clone)]
-struct SceneNodeRef {
-  nodes: Arc<RwLock<SceneNodesCollection>>,
-  handle: SceneNodeHandle,
-}
-
-impl Drop for SceneNodeRef {
-  fn drop(&mut self) {
-    let mut nodes = self.nodes.write().unwrap();
-    nodes.nodes.delete_node(self.handle)
-  }
-}
-
-pub struct SceneNodeInner {
-  nodes: Arc<RwLock<SceneNodesCollection>>,
-  parent: Option<Arc<SceneNodeRef>>,
-  inner: Arc<SceneNodeRef>,
-}
-
-impl SceneNodeInner {
-  pub fn from_root(nodes: Arc<RwLock<SceneNodesCollection>>) -> Self {
-    let nodes_info = nodes.read().unwrap();
-    let root = SceneNodeRef {
-      nodes: nodes.clone(),
-      handle: nodes_info.root,
-    };
-    Self {
-      nodes: nodes.clone(),
-      parent: None,
-      inner: Arc::new(root),
-    }
-  }
-
-  #[must_use]
-  pub fn create_child(&self) -> Self {
-    let nodes_info = &mut self.nodes.write().unwrap().nodes;
-    let handle = nodes_info.create_node(Identity::new(SceneNodeDataImpl::default())); // todo use from
-    let inner = SceneNodeRef {
-      nodes: self.nodes.clone(),
-      handle,
-    };
-
-    nodes_info
-      .node_add_child_by(self.inner.handle, handle)
-      .unwrap();
-
-    Self {
-      nodes: self.nodes.clone(),
-      parent: Some(self.inner.clone()),
-      inner: Arc::new(inner),
-    }
-  }
-
-  pub fn mutate<F: FnMut(&mut SceneNodeData) -> T, T>(&self, mut f: F) -> T {
-    let nodes = &mut self.nodes.write().unwrap().nodes;
-    let node = nodes.get_node_mut(self.inner.handle).data_mut();
-    f(node)
-  }
-
-  pub fn visit<F: FnMut(&SceneNodeData) -> T, T>(&self, mut f: F) -> T {
-    let nodes = &self.nodes.read().unwrap().nodes;
-    let node = nodes.get_node(self.inner.handle).data();
-    f(node)
-  }
-}
-
-impl Drop for SceneNodeInner {
-  fn drop(&mut self) {
-    let nodes = &mut self.nodes.write().unwrap().nodes;
-    nodes.node_detach_parent(self.inner.handle).ok();
-  }
-}
-
-#[derive(Clone)]
 pub struct SceneNode {
-  inner: Arc<RwLock<SceneNodeInner>>,
+  inner: ShareTreeNode<SceneNodeData>,
+}
+
+impl SimpleIncremental for SceneNode {
+  type Delta = Self;
+
+  fn s_apply(&mut self, delta: Self::Delta) {
+    *self = delta;
+  }
+
+  fn s_expand(&self, mut cb: impl FnMut(Self::Delta)) {
+    cb(self.clone())
+  }
 }
 
 impl SceneNode {
-  pub fn from_root(nodes: Arc<RwLock<SceneNodesCollection>>) -> Self {
-    let inner = SceneNodeInner::from_root(nodes);
+  pub fn from_root(nodes: Arc<RwLock<TreeCollection<SceneNodeData>>>) -> Self {
     Self {
-      inner: Arc::new(RwLock::new(inner)),
+      inner: ShareTreeNode::create_new_root(nodes, Default::default()),
     }
+  }
+
+  pub fn raw_handle(&self) -> SceneNodeHandle {
+    self.inner.raw_handle()
   }
 
   #[must_use]
   pub fn create_child(&self) -> Self {
-    let inner = self.inner.read().unwrap();
-    let inner = inner.create_child();
-
-    SceneNode {
-      inner: Arc::new(RwLock::new(inner)),
+    Self {
+      inner: self.inner.create_child_default(),
     }
   }
 
-  pub fn mutate<F: FnMut(&mut SceneNodeData) -> T, T>(&self, mut f: F) -> T {
-    let inner = self.inner.read().unwrap();
-    let nodes = &mut inner.nodes.write().unwrap().nodes;
-    let node = nodes.get_node_mut(inner.inner.handle).data_mut();
-    f(node)
+  pub fn mutate<F: FnMut(&mut SceneNodeData) -> T, T>(&self, f: F) -> T {
+    self.inner.mutate(f)
   }
 
-  pub fn visit<F: FnMut(&SceneNodeData) -> T, T>(&self, mut f: F) -> T {
-    let inner = self.inner.read().unwrap();
-    let nodes = &inner.nodes.read().unwrap().nodes;
-    let node = nodes.get_node(inner.inner.handle).data();
-    f(node)
+  pub fn visit<F: FnMut(&SceneNodeData) -> T, T>(&self, f: F) -> T {
+    self.inner.visit(f)
   }
 
-  pub fn visit_parent<F: FnMut(&SceneNodeData) -> T, T>(&self, mut f: F) -> Option<T> {
-    let inner = self.inner.read().unwrap();
-    let nodes = &inner.nodes.read().unwrap().nodes;
-    if let Some(parent) = &inner.parent {
-      let node = nodes.get_node(parent.handle).data();
-      f(node).into()
-    } else {
-      None
-    }
+  pub fn visit_parent<F: FnMut(&SceneNodeData) -> T, T>(&self, f: F) -> Option<T> {
+    self.inner.visit_parent(f)
   }
 
   pub fn set_local_matrix(&self, mat: Mat4<f32>) {

@@ -92,6 +92,9 @@ dependencies = [
 [[package]]
 name = "arena"
 version = "0.0.1"
+dependencies = [
+ "incremental",
+]
 
 [[package]]
 name = "arena-graph"
@@ -1279,6 +1282,29 @@ dependencies = [
 ]
 
 [[package]]
+name = "incremental"
+version = "0.0.1"
+dependencies = [
+ "incremental_derives",
+]
+
+[[package]]
+name = "incremental-ui-prototype"
+version = "0.1.0"
+dependencies = [
+ "incremental",
+]
+
+[[package]]
+name = "incremental_derives"
+version = "0.1.0"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
+]
+
+[[package]]
 name = "indexmap"
 version = "1.6.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2198,6 +2224,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "reactive"
+version = "0.0.1"
+
+[[package]]
 name = "redox_syscall"
 version = "0.2.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2253,6 +2283,7 @@ version = "0.1.0"
 dependencies = [
  "bytemuck",
  "cgmath",
+ "incremental",
  "num-traits",
  "paste",
 ]
@@ -2320,7 +2351,9 @@ dependencies = [
  "anymap",
  "arena",
  "bytemuck",
+ "incremental",
  "log",
+ "reactive",
  "rendiation-algebra",
  "rendiation-geometry",
  "rendiation-renderable-mesh",
@@ -2948,6 +2981,7 @@ dependencies = [
 name = "tree"
 version = "0.0.1"
 dependencies = [
+ "incremental",
  "rendiation-abstract-tree",
  "storage",
 ]

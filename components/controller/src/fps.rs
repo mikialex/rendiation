@@ -57,8 +57,7 @@ impl FPSController {
     self.spherical.polar = self
       .spherical
       .polar
-      .max(self.min_polar_angle)
-      .min(self.max_polar_angle);
+      .clamp(self.min_polar_angle, self.max_polar_angle);
     self.spherical.azim += offset.x / self.view_width * PI * self.rotate_angle_factor;
   }
 }

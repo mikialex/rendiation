@@ -21,3 +21,7 @@ impl<Me, Ma> MeshModelImpl<Me, Ma> {
     }
   }
 }
+
+// pub enum MeshModelDelta{
+//   Material()
+// }

@@ -71,7 +71,7 @@ pub fn setup_pass_core<Me, Ma>(
   let pass_gpu = dispatcher;
   let camera_gpu = resources.cameras.check_update_gpu(camera, gpu);
 
-  let net_visible = model.node.visit(|n| n.net_visible);
+  let net_visible = model.node.visit(|n| n.net_visible());
   if !net_visible {
     return;
   }
@@ -128,7 +128,7 @@ where
   Me: WebGPUMesh,
   Ma: WebGPUMaterial,
 {
-  let net_visible = model.node.visit(|n| n.net_visible);
+  let net_visible = model.node.visit(|n| n.net_visible());
   if !net_visible {
     return OptionalNearest::none();
   }
