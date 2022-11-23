@@ -28,6 +28,25 @@ pub trait WebGPUSceneMaterial {
     gpu: &GPU,
   ) -> &'a dyn RenderComponentAny;
   fn is_keep_mesh_shape(&self) -> bool;
+  fn is_transparent(&self) -> bool;
+}
+
+impl WebGPUSceneMaterial for SceneMaterial {
+  fn check_update_gpu<'a>(
+    &self,
+    res: &'a mut GPUMaterialCache,
+    sub_res: &mut GPUResourceSubCache,
+    gpu: &GPU,
+  ) -> &'a dyn RenderComponentAny {
+    todo!()
+  }
+
+  fn is_keep_mesh_shape(&self) -> bool {
+    todo!()
+  }
+  fn is_transparent(&self) -> bool {
+    todo!()
+  }
 }
 
 impl<M: WebGPUMaterial> WebGPUSceneMaterial for Identity<M> {
@@ -86,4 +105,3 @@ impl GPUMaterialCache {
     })
   }
 }
-

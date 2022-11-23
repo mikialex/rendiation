@@ -49,31 +49,32 @@ where
 }
 
 pub fn setup_pass_core(
-  model: &MeshModelImpl,
+  model_input: &MeshModelImpl,
   pass: &mut SceneRenderPass,
   camera: &SceneCamera,
   override_node: Option<&TransformGPU>,
   dispatcher: &dyn RenderComponentAny,
 ) {
-  let gpu = pass.ctx.gpu;
-  let resources = &mut pass.resources;
-  let pass_gpu = dispatcher;
-  let camera_gpu = resources.cameras.check_update_gpu(camera, gpu);
-
-  let net_visible = model.node.visit(|n| n.net_visible());
-  if !net_visible {
-    return;
-  }
-
-  let node_gpu =
-    override_node.unwrap_or_else(|| resources.nodes.check_update_gpu(&model.node, gpu));
-
-  let model = &model.model;
-  match model {
+  match &model_input.model {
     SceneModelType::Standard(model) => {
-      let material = model.material.read();
-      let material_gpu =
-        material.check_update_gpu(&mut resources.scene.materials, &mut resources.content, gpu);
+      let gpu = pass.ctx.gpu;
+      let resources = &mut pass.resources;
+      let pass_gpu = dispatcher;
+      let camera_gpu = resources.cameras.check_update_gpu(camera, gpu);
+
+      let net_visible = model_input.node.visit(|n| n.net_visible());
+      if !net_visible {
+        return;
+      }
+
+      let node_gpu =
+        override_node.unwrap_or_else(|| resources.nodes.check_update_gpu(&model.node, gpu));
+
+      let material_gpu = model.material.check_update_gpu(
+        &mut resources.scene.materials,
+        &mut resources.content,
+        gpu,
+      );
 
       let mesh = model.mesh.read();
       let mesh_gpu = mesh.check_update_gpu(
@@ -92,13 +93,22 @@ pub fn setup_pass_core(
 
       RenderEmitter::new(components.as_slice()).render(&mut pass.ctx, &emitter);
     }
-    SceneModelType::Foreign(_) => todo!(),
+    SceneModelType::Foreign(model) => {}
   };
 }
 
 impl SceneRenderable for MeshModelImpl {
   fn is_transparent(&self) -> bool {
-    self.material.visit(|mat| mat.is_transparent())
+    match self.model {
+      SceneModelType::Standard(model) => model.material.is_transparent(),
+      SceneModelType::Foreign(model) => {
+        if let Some(model) = model.as_any().downcast_ref::<Box<dyn SceneRenderable>>() {
+          model.is_transparent()
+        } else {
+          false
+        }
+      }
+    }
   }
   fn render(
     &self,
@@ -111,36 +121,47 @@ impl SceneRenderable for MeshModelImpl {
 }
 
 pub fn ray_pick_nearest_core(
-  model: &MeshModelImpl,
+  m: &MeshModelImpl,
   ctx: &SceneRayInteractiveCtx,
   world_mat: Mat4<f32>,
 ) -> OptionalNearest<MeshBufferHitPoint> {
-  let net_visible = model.node.visit(|n| n.net_visible());
-  if !net_visible {
-    return OptionalNearest::none();
-  }
+  match m.model {
+    SceneModelType::Standard(model) => {
+      let net_visible = m.node.visit(|n| n.net_visible());
+      if !net_visible {
+        return OptionalNearest::none();
+      }
 
-  let world_inv = world_mat.inverse_or_identity();
+      let world_inv = world_mat.inverse_or_identity();
 
-  let local_ray = ctx.world_ray.clone().apply_matrix_into(world_inv);
+      let local_ray = ctx.world_ray.clone().apply_matrix_into(world_inv);
 
-  if !model.material.read().is_keep_mesh_shape() {
-    return OptionalNearest::none();
-  }
+      if !model.material.read().is_keep_mesh_shape() {
+        return OptionalNearest::none();
+      }
 
-  let mesh = &model.mesh.read();
-  let mut picked = OptionalNearest::none();
-  mesh.try_pick(&mut |mesh: &dyn IntersectAbleGroupedMesh| {
-    picked = mesh.intersect_nearest(local_ray, ctx.conf, model.group);
+      let mesh = &model.mesh.read();
+      let mut picked = OptionalNearest::none();
+      mesh.try_pick(&mut |mesh: &dyn IntersectAbleGroupedMesh| {
+        picked = mesh.intersect_nearest(local_ray, ctx.conf, model.group);
 
-    // transform back to world space
-    if let Some(result) = &mut picked.0 {
-      let hit = &mut result.hit;
-      hit.position = world_mat * hit.position;
-      hit.distance = (hit.position - ctx.world_ray.origin).length()
+        // transform back to world space
+        if let Some(result) = &mut picked.0 {
+          let hit = &mut result.hit;
+          hit.position = world_mat * hit.position;
+          hit.distance = (hit.position - ctx.world_ray.origin).length()
+        }
+      });
+      picked
     }
-  });
-  picked
+    SceneModelType::Foreign(model) => {
+      if let Some(model) = model.as_any().downcast_ref::<Box<dyn SceneRenderable>>() {
+        ray_pick_nearest_core(model, ctx, world_mat)
+      } else {
+        OptionalNearest::none()
+      }
+    }
+  }
 }
 
 impl SceneRayInteractive for MeshModelImpl {
