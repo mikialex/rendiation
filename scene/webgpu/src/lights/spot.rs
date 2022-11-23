@@ -72,19 +72,17 @@ impl PunctualShaderLight for SpotLightShaderInfo {
   }
 }
 
-impl WebGPUSceneLight for SceneLight<SpotLight> {
+impl WebGPUSceneLight for SceneItemRef<SpotLight> {
   // allocate shadow maps
-  fn pre_update(&self, ctx: &mut LightUpdateCtx) {
+  fn pre_update(&self, ctx: &mut LightUpdateCtx, node: &SceneNode) {
     let inner = self.read();
     request_basic_shadow_map(&inner, ctx.ctx.resources, ctx.shadows);
   }
 
-  fn update(&self, ctx: &mut LightUpdateCtx) {
-    let inner = self.read();
-    let light = &inner.light;
-    let node = &inner.node;
+  fn update(&self, ctx: &mut LightUpdateCtx, node: &SceneNode) {
+    let light = self.read();
 
-    let shadow = check_update_basic_shadow_map(&inner, ctx);
+    let shadow = check_update_basic_shadow_map(&light, ctx);
 
     let lights = ctx.forward.get_or_create_list();
 
@@ -108,7 +106,7 @@ impl ShadowCameraCreator for SpotLight {
     let proj = PerspectiveProjection {
       near: 0.1,
       far: 2000.,
-      fov: Deg::from_rad(self.light.half_cone_angle * 2.),
+      fov: Deg::from_rad(self.half_cone_angle * 2.),
       aspect: 1.,
     };
     SceneCamera::create_camera(proj, node.clone())

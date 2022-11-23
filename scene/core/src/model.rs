@@ -3,7 +3,7 @@ use rendiation_renderable_mesh::group::MeshDrawGroup;
 use crate::*;
 
 pub enum SceneModelType {
-  Standard(StandardModel),
+  Standard(SceneItemRef<StandardModel>),
   Foreign(Box<dyn ForeignImplemented>),
 }
 

@@ -35,11 +35,9 @@ impl PunctualShaderLight for PointLightShaderInfo {
   }
 }
 
-impl WebGPUSceneLight for SceneLight<PointLight> {
-  fn update(&self, ctx: &mut LightUpdateCtx) {
-    let inner = self.read();
-    let light = &inner.light;
-    let node = &inner.node;
+impl WebGPUSceneLight for SceneItemRef<PointLight> {
+  fn update(&self, ctx: &mut LightUpdateCtx, node: &SceneNode) {
+    let light = self.read();
 
     let lights = ctx.forward.get_or_create_list();
 

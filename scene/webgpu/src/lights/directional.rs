@@ -68,19 +68,16 @@ wgsl_fn!(
   }
 );
 
-impl WebGPUSceneLight for SceneLight<DirectionalLight> {
+impl WebGPUSceneLight for SceneItemRef<DirectionalLight> {
   // allocate shadow maps
-  fn pre_update(&self, ctx: &mut LightUpdateCtx) {
+  fn pre_update(&self, ctx: &mut LightUpdateCtx, node: &SceneNode) {
     let inner = self.read();
     request_basic_shadow_map(&inner, ctx.ctx.resources, ctx.shadows);
   }
 
-  fn update(&self, ctx: &mut LightUpdateCtx) {
-    let inner = self.read();
-    let light = &inner.light;
-    let node = &inner.node;
-
-    let shadow = check_update_basic_shadow_map(&inner, ctx);
+  fn update(&self, ctx: &mut LightUpdateCtx, node: &SceneNode) {
+    let light = self.read();
+    let shadow = check_update_basic_shadow_map(&light, ctx);
 
     let lights = ctx.forward.get_or_create_list();
     let gpu = DirectionalLightShaderInfo {

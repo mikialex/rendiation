@@ -4,9 +4,9 @@ use rendiation_algebra::*;
 
 #[non_exhaustive]
 pub enum SceneLightKind {
-  PointLight(PointLight),
-  SpotLight(SpotLight),
-  DirectionalLight(DirectionalLight),
+  PointLight(SceneItemRef<PointLight>),
+  SpotLight(SceneItemRef<SpotLight>),
+  DirectionalLight(SceneItemRef<DirectionalLight>),
   Foreign(Box<dyn ForeignImplemented>),
 }
 

@@ -2,12 +2,10 @@ use rendiation_algebra::*;
 
 use crate::*;
 
-pub type SceneMaterial = SceneItemRef<SceneMaterialType>;
-
-pub enum SceneMaterialType {
-  PhysicalSpecularGlossiness(PhysicalSpecularGlossinessMaterial),
-  PhysicalMetallicRoughness(PhysicalMetallicRoughnessMaterial),
-  Flat(FlatMaterial),
+pub enum SceneMaterial {
+  PhysicalSpecularGlossiness(SceneItemRef<PhysicalSpecularGlossinessMaterial>),
+  PhysicalMetallicRoughness(SceneItemRef<PhysicalMetallicRoughnessMaterial>),
+  Flat(SceneItemRef<FlatMaterial>),
   Foreign(Box<dyn ForeignImplemented>),
 }
 

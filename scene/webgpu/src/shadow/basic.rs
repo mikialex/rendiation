@@ -138,8 +138,8 @@ fn build_shadow_camera(light: &SceneLightInner) -> SceneCamera {
   }
 }
 
-fn get_shadow_map<T: Any>(
-  inner: &SceneItemRefGuard<SceneLightInner>,
+fn get_shadow_map<T: Any + ShadowCameraCreator>(
+  inner: &SceneItemRefGuard<T>,
   resources: &mut GPUResourceCache,
   shadows: &mut ShadowMapSystem,
 ) -> BasicShadowGPU {
@@ -156,7 +156,7 @@ fn get_shadow_map<T: Any>(
     .unwrap()
     .get_update_or_insert_with_logic(inner, |logic| match logic {
       ResourceLogic::Create(light) => {
-        let shadow_camera = build_shadow_camera(light);
+        let shadow_camera = light.build_shadow_camera();
         let map = shadows.maps.allocate(resolution);
         ResourceLogicResult::Create(BasicShadowGPU { shadow_camera, map })
       }
@@ -171,7 +171,7 @@ fn get_shadow_map<T: Any>(
 }
 
 pub fn request_basic_shadow_map<T: Any>(
-  inner: &SceneItemRefGuard<SceneLightInner>,
+  inner: &SceneItemRefGuard<T>,
   resources: &mut GPUResourceCache,
   shadows: &mut ShadowMapSystem,
 ) {
@@ -179,7 +179,7 @@ pub fn request_basic_shadow_map<T: Any>(
 }
 
 pub fn check_update_basic_shadow_map<T: Any>(
-  inner: &SceneItemRefGuard<SceneLightInner>,
+  inner: &SceneItemRefGuard<T>,
   ctx: &mut LightUpdateCtx,
 ) -> LightShadowAddressInfo {
   let BasicShadowGPU { shadow_camera, map } = get_shadow_map(inner, ctx.ctx.resources, ctx.shadows);
