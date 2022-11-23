@@ -86,13 +86,13 @@ impl Arrow {
 
     let node_cylinder = root.create_child();
     let mut cylinder =
-      MeshModelImpl::new(material.clone(), cylinder_mesh, node_cylinder).into_matrix_overridable();
+      SceneModelImpl::new(material.clone(), cylinder_mesh, node_cylinder).into_matrix_overridable();
 
     cylinder.push_override(auto_scale.clone());
 
     let node_tip = root.create_child();
     node_tip.set_local_matrix(Mat4::translate((0., 2., 0.)));
-    let mut tip = MeshModelImpl::new(material, tip_mesh, node_tip).into_matrix_overridable();
+    let mut tip = SceneModelImpl::new(material, tip_mesh, node_tip).into_matrix_overridable();
 
     tip.push_override(auto_scale.clone());
 

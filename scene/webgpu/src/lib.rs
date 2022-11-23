@@ -120,11 +120,11 @@ where
     self
   }
 }
-pub trait SceneModel: SceneRayInteractive + SceneRenderable + SceneNodeControlled {
+pub trait SceneModelLike: SceneRayInteractive + SceneRenderable + SceneNodeControlled {
   fn as_interactive(&self) -> &dyn SceneRayInteractive;
   fn as_renderable(&self) -> &dyn SceneRenderable;
 }
-impl<T> SceneModel for T
+impl<T> SceneModelLike for T
 where
   T: SceneRayInteractive + SceneRenderable + SceneNodeControlled,
 {

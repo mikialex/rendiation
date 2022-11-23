@@ -17,9 +17,9 @@ pub struct Scene {
   /// All cameras in the scene
   pub cameras: Arena<SceneCamera>,
   /// All lights in the scene
-  pub lights: Arena<SceneLightInner>,
+  pub lights: Arena<SceneLight>,
   /// All models in the scene
-  pub models: Arena<SceneModelType>,
+  pub models: Arena<SceneModel>,
 
   nodes: Arc<RwLock<TreeCollection<SceneNodeData>>>,
   root: SceneNode,

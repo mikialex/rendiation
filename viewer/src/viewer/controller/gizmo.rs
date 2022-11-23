@@ -497,7 +497,7 @@ fn build_plane(root: &SceneNode, auto_scale: &AutoScale, mat: Mat4<f32>) -> Plan
 
   let plane = root.create_child();
   plane.set_local_matrix(mat);
-  let mut plane = MeshModelImpl::new(material, mesh, plane).into_matrix_overridable();
+  let mut plane = SceneModelImpl::new(material, mesh, plane).into_matrix_overridable();
 
   plane.push_override(auto_scale.clone());
   plane
@@ -524,7 +524,7 @@ fn build_rotator(root: &SceneNode, auto_scale: &AutoScale, mat: Mat4<f32>) -> Ro
 
   let torus = root.create_child();
   torus.set_local_matrix(mat);
-  let mut torus = MeshModelImpl::new(material, mesh, torus).into_matrix_overridable();
+  let mut torus = SceneModelImpl::new(material, mesh, torus).into_matrix_overridable();
 
   torus.push_override(auto_scale.clone());
   torus

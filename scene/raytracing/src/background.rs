@@ -4,7 +4,7 @@ use rendiation_scene_core::{SceneBackGround, SolidBackground};
 
 pub trait RayTracingBackground: Send + Sync + 'static + dyn_clone::DynClone {
   fn sample(&self, ray: &Ray3) -> Vec3<f32>;
-  fn into_scene_background(&self) -> Option<SceneBackGround> {
+  fn create_scene_background(&self) -> Option<SceneBackGround> {
     None
   }
 }
@@ -15,14 +15,20 @@ impl RayTracingBackground for SceneBackGround {
   fn sample(&self, ray: &Ray3) -> Vec3<f32> {
     match self {
       SceneBackGround::Solid(s) => s.sample(ray),
-      SceneBackGround::Env(s) => {
+      SceneBackGround::Env(_) => {
         // todo
         Vec3::zero()
       }
-      SceneBackGround::Foreign(_) => todo!(),
+      SceneBackGround::Foreign(bg) => {
+        if let Some(bg) = bg.as_any().downcast_ref::<Box<dyn RayTracingBackground>>() {
+          bg.sample(ray)
+        } else {
+          Vec3::zero()
+        }
+      }
     }
   }
-  fn into_scene_background(&self) -> Option<SceneBackGround> {
+  fn create_scene_background(&self) -> Option<SceneBackGround> {
     self.clone().into()
   }
 }
@@ -31,7 +37,7 @@ impl RayTracingBackground for SolidBackground {
   fn sample(&self, _ray: &Ray3) -> Vec3<f32> {
     self.intensity
   }
-  fn into_scene_background(&self) -> Option<SceneBackGround> {
+  fn create_scene_background(&self) -> Option<SceneBackGround> {
     SceneBackGround::Solid(*self).into()
   }
 }

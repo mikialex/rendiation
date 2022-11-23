@@ -2,9 +2,9 @@ use crate::*;
 
 pub type SceneFatlineMaterial = StateControl<FatLineMaterial>;
 
-// pub type FatlineImpl = MeshModelImpl<FatlineMesh, SceneFatlineMaterial>;
+// pub type FatlineImpl = SceneModelImpl<FatlineMesh, SceneFatlineMaterial>;
 
-impl SceneRenderable for MeshModel {
+impl SceneRenderable for SceneModel {
   fn is_transparent(&self) -> bool {
     self.visit(|model| model.is_transparent())
   }
@@ -18,19 +18,19 @@ impl SceneRenderable for MeshModel {
   }
 }
 
-impl SceneRayInteractive for MeshModel {
+impl SceneRayInteractive for SceneModel {
   fn ray_pick_nearest(&self, ctx: &SceneRayInteractiveCtx) -> OptionalNearest<MeshBufferHitPoint> {
     self.visit(|model| model.ray_pick_nearest(ctx))
   }
 }
 
-impl SceneNodeControlled for MeshModel {
+impl SceneNodeControlled for SceneModel {
   fn visit_node(&self, visitor: &mut dyn FnMut(&SceneNode)) {
     self.visit(|model| visitor(&model.node))
   }
 }
 
-impl SceneRenderableShareable for MeshModel
+impl SceneRenderableShareable for SceneModel
 where
   Self: SceneRenderable + Clone + 'static,
 {
@@ -49,7 +49,7 @@ where
 }
 
 pub fn setup_pass_core(
-  model_input: &MeshModelImpl,
+  model_input: &SceneModelImpl,
   pass: &mut SceneRenderPass,
   camera: &SceneCamera,
   override_node: Option<&TransformGPU>,
@@ -97,7 +97,7 @@ pub fn setup_pass_core(
   };
 }
 
-impl SceneRenderable for MeshModelImpl {
+impl SceneRenderable for SceneModelImpl {
   fn is_transparent(&self) -> bool {
     match self.model {
       SceneModelType::Standard(model) => model.material.is_transparent(),
@@ -121,7 +121,7 @@ impl SceneRenderable for MeshModelImpl {
 }
 
 pub fn ray_pick_nearest_core(
-  m: &MeshModelImpl,
+  m: &SceneModelImpl,
   ctx: &SceneRayInteractiveCtx,
   world_mat: Mat4<f32>,
 ) -> OptionalNearest<MeshBufferHitPoint> {
@@ -164,7 +164,7 @@ pub fn ray_pick_nearest_core(
   }
 }
 
-impl SceneRayInteractive for MeshModelImpl {
+impl SceneRayInteractive for SceneModelImpl {
   fn ray_pick_nearest(&self, ctx: &SceneRayInteractiveCtx) -> OptionalNearest<MeshBufferHitPoint> {
     ray_pick_nearest_core(self, ctx, self.node.get_world_matrix())
   }

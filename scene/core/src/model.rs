@@ -7,9 +7,9 @@ pub enum SceneModelType {
   Foreign(Box<dyn ForeignImplemented>),
 }
 
-pub type MeshModel = SceneItemRef<MeshModelImpl>;
+pub type SceneModel = SceneItemRef<SceneModelImpl>;
 
-pub struct MeshModelImpl {
+pub struct SceneModelImpl {
   pub model: SceneModelType,
   pub node: SceneNode,
 }

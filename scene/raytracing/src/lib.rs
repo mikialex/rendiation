@@ -43,7 +43,6 @@ use tree::TreeNodeHandle;
 pub struct RayTracingSceneModel {
   pub shape: Box<dyn Shape>,
   pub material: Box<dyn Material>,
-  pub node: SceneNode,
 }
 
 impl ForeignImplemented for RayTracingSceneModel {
@@ -93,10 +92,10 @@ impl RayTracingSceneExt for Scene {
     let model = RayTracingSceneModel {
       shape: Box::new(shape),
       material: Box::new(material),
-      node,
     };
     let model = SceneModelType::Foreign(Box::new(model));
-    let _ = self.models.insert(model);
+    let model = SceneModelImpl { node, model };
+    let _ = self.models.insert(model.into());
     self
   }
 
@@ -111,16 +110,16 @@ impl RayTracingSceneExt for Scene {
     let model = RayTracingSceneModel {
       shape: Box::new(shape),
       material: Box::new(material),
-      node,
     };
     let model = SceneModelType::Foreign(Box::new(model));
-    let _ = self.models.insert(model);
+    let model = SceneModelImpl { node, model };
+    let _ = self.models.insert(model.into());
     self
   }
 
   fn background(&mut self, background: impl RayTracingBackground) -> &mut Self {
     let background: Box<dyn RayTracingBackground> = Box::new(background);
-    self.background = background.into_scene_background();
+    self.background = background.create_scene_background();
     self
   }
 
@@ -132,9 +131,10 @@ impl RayTracingSceneExt for Scene {
     let mut models_in_bvh_source = Vec::new();
 
     for (_, model) in self.models.iter() {
-      if let SceneModelType::Foreign(foreign) = model {
+      let model = model.read();
+      if let SceneModelType::Foreign(foreign) = &model.model {
         if let Some(retraceable) = foreign.as_any().downcast_ref::<RayTracingSceneModel>() {
-          retraceable.node.visit(|node_data| {
+          model.node.visit(|node_data| {
             let mut model = Model {
               shape: retraceable.shape.clone(),
               material: retraceable.material.clone(),

@@ -10,6 +10,8 @@ pub enum SceneLightKind {
   Foreign(Box<dyn ForeignImplemented>),
 }
 
+pub type SceneLight = SceneItemRef<SceneLightInner>;
+
 pub struct SceneLightInner {
   pub light: SceneLightKind,
   /// Note: Light properties are unaffected by node transforms by default

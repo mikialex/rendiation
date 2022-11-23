@@ -32,8 +32,28 @@ impl<'a, 'b> LightUpdateCtx<'a, 'b> {
 }
 
 pub trait WebGPUSceneLight: Any {
+  fn pre_update(&self, _ctx: &mut LightUpdateCtx, node: &SceneNode) {}
+  fn update(&self, ctx: &mut LightUpdateCtx, node: &SceneNode);
+}
+
+impl SceneLight {
   fn pre_update(&self, _ctx: &mut LightUpdateCtx) {}
-  fn update(&self, ctx: &mut LightUpdateCtx);
+  fn update(&self, ctx: &mut LightUpdateCtx) {
+    let inner = self.read();
+    let light = &inner.light;
+    let node = &inner.node;
+
+    let lights = ctx.forward.get_or_create_list();
+
+    let gpu = PointLightShaderInfo {
+      luminance_intensity: light.luminance_intensity * light.color_factor,
+      position: node.get_world_matrix().position(),
+      cutoff_distance: light.cutoff_distance,
+      ..Zeroable::zeroed()
+    };
+
+    lights.source.push(gpu)
+  }
 }
 
 #[derive(Copy, Clone, ShaderStruct)]

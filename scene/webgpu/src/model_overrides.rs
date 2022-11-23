@@ -4,7 +4,7 @@ pub trait WebGPUModelExt {
   fn into_matrix_overridable(self) -> OverridableMeshModelImpl;
 }
 
-impl WebGPUModelExt for MeshModelImpl {
+impl WebGPUModelExt for SceneModelImpl {
   fn into_matrix_overridable(self) -> OverridableMeshModelImpl {
     OverridableMeshModelImpl {
       inner: self,
@@ -15,7 +15,7 @@ impl WebGPUModelExt for MeshModelImpl {
 }
 
 pub struct OverridableMeshModelImpl {
-  inner: MeshModelImpl,
+  inner: SceneModelImpl,
   override_gpu: RefCell<Option<TransformGPU>>,
   overrides: Vec<Box<dyn WorldMatrixOverride>>,
 }
@@ -45,7 +45,7 @@ pub struct WorldMatrixOverrideCtx<'a> {
 }
 
 impl std::ops::Deref for OverridableMeshModelImpl {
-  type Target = MeshModelImpl;
+  type Target = SceneModelImpl;
 
   fn deref(&self) -> &Self::Target {
     &self.inner

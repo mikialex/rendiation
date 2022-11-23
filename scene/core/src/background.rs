@@ -9,7 +9,7 @@ pub enum SceneBackGround {
 impl Clone for SceneBackGround {
   fn clone(&self) -> Self {
     match self {
-      Self::Solid(arg0) => Self::Solid(arg0.clone()),
+      Self::Solid(arg0) => Self::Solid(*arg0),
       Self::Env(arg0) => Self::Env(arg0.clone()),
       Self::Foreign(arg0) => Self::Foreign(dyn_clone::clone_box(
         arg0.as_ref() as &dyn ForeignImplemented

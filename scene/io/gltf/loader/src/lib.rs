@@ -7,7 +7,7 @@ use __core::num::NonZeroU64;
 use gltf::{Node, Result as GltfResult};
 use rendiation_algebra::*;
 use rendiation_scene_webgpu::{
-  AttributeAccessor, AttributesMesh, GeometryBuffer, IntoStateControl, MeshModel, MeshModelImpl,
+  AttributeAccessor, AttributesMesh, GeometryBuffer, IntoStateControl, SceneModel, SceneModelImpl,
   NormalMapping, PhysicalMetallicRoughnessMaterial, Scene, SceneModelShareable, SceneNode,
   SceneTexture2D, StateControl, Texture2DWithSamplingData, TextureWithSamplingData,
   TypedBufferView, WebGPUScene,
@@ -53,8 +53,8 @@ fn build_model(
 
   let material = build_pbr_material(primitive.material(), ctx);
 
-  let model = MeshModelImpl::new(material, mesh, node.clone());
-  MeshModel::new(model)
+  let model = SceneModelImpl::new(material, mesh, node.clone());
+  SceneModel::new(model)
 }
 
 fn build_data_view(view: gltf::buffer::View, ctx: &mut Context) -> TypedBufferView {

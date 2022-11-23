@@ -89,7 +89,7 @@ pub fn load_default_scene(scene: &mut Scene) {
     let child = scene.root().create_child();
     child.set_local_matrix(Mat4::translate((2., 0., 3.)));
 
-    let model: MeshModel<_, _> = MeshModelImpl::new(material, mesh, child).into();
+    let model: SceneModel<_, _> = SceneModelImpl::new(material, mesh, child).into();
     let _ = scene.add_model(model);
     // let model_handle = scene.add_model(model);
     // scene.remove_model(model_handle);
@@ -115,7 +115,7 @@ pub fn load_default_scene(scene: &mut Scene) {
     .use_state();
     let child = scene.root().create_child();
 
-    let model: MeshModel<_, _> = MeshModelImpl::new(material, mesh, child).into();
+    let model: SceneModel<_, _> = SceneModelImpl::new(material, mesh, child).into();
     let _ = scene.add_model(model);
   }
 
@@ -145,8 +145,8 @@ pub fn load_default_scene(scene: &mut Scene) {
     }
     .use_state();
 
-    let model: MeshModel<_, _> =
-      MeshModelImpl::new(material, mesh, scene.root().create_child()).into();
+    let model: SceneModel<_, _> =
+      SceneModelImpl::new(material, mesh, scene.root().create_child()).into();
     let _ = scene.add_model(model);
   }
 
