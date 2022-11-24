@@ -40,11 +40,11 @@ pub fn rgb_to_rgba(input: ImageBuffer<Rgb<u8>, Vec<u8>>) -> ImageBuffer<Rgba<u8>
 
 impl<P, C> WebGPU2DTextureSource for Texture2DSource<image::ImageBuffer<P, C>>
 where
-  P: TextureFormatDecider + image::Pixel + 'static,
+  P: TextureFormatDecider + image::Pixel + 'static + Send + Sync,
   [P::Subpixel]: EncodableLayout,
   C: Deref<Target = [P::Subpixel]>,
   C: DerefMut<Target = [P::Subpixel]>,
-  C: AsRef<[u8]>,
+  C: AsRef<[u8]> + Send + Sync,
 {
   fn format(&self) -> TextureFormat {
     P::FORMAT
@@ -64,7 +64,7 @@ where
 
 impl<P> WebGPU2DTextureSource for Texture2DBuffer<P>
 where
-  P: TextureFormatDecider + Clone,
+  P: TextureFormatDecider + Clone + Send + Sync,
 {
   fn format(&self) -> TextureFormat {
     P::FORMAT

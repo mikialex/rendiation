@@ -20,6 +20,10 @@ pub fn load_img(path: &str) -> ImageBuffer<Rgba<u8>, Vec<u8>> {
     _ => panic!("unsupported texture type"),
   }
 }
+fn load_tex(path: &str) -> SceneTexture2DType {
+  let boxed: Box<dyn WebGPU2DTextureSource> = Box::new(load_img(path).into_source());
+  SceneTexture2DType::Foreign(Arc::new(boxed)).into()
+}
 
 pub fn load_img_cube() -> SceneTextureCube {
   let path = [
@@ -31,22 +35,19 @@ pub fn load_img_cube() -> SceneTextureCube {
     "C:/Users/mk/Desktop/rrf-resource/Park2/negz.jpg",
   ];
 
-  fn load(path: &&str) -> SceneTexture2D {
-    let boxed: Box<dyn WebGPU2DTextureSource> = Box::new(load_img(path).into_source());
-    SceneTexture2DType::Foreign(boxed).into()
-  }
-
   // https://github.com/rust-lang/rust/issues/81615
-  path
+  let faces = path
     .iter()
-    .map(load)
+    .copied()
+    .map(load_tex)
     .collect::<Vec<_>>()
     .try_into()
-    .unwrap()
+    .expect("cube source not valid");
+  SceneTextureCubeImpl { faces }.into()
 }
 
 pub fn load_default_scene(scene: &mut Scene) {
-  scene.background = Some(Box::new(SolidBackground {
+  scene.background = Some(SceneBackGround::Solid(SolidBackground {
     intensity: Vec3::new(0.1, 0.1, 0.1),
   }));
 
@@ -56,7 +57,7 @@ pub fn load_default_scene(scene: &mut Scene) {
     "/Users/mikialex/Desktop/test.png"
   };
 
-  let texture = SceneTexture2D::new(Box::new(load_img(path).into_source()));
+  let texture = SceneItemRef::new(load_tex(path));
   let texture = TextureWithSamplingData {
     texture,
     sampler: TextureSampler::default(),
@@ -81,8 +82,8 @@ pub fn load_default_scene(scene: &mut Scene) {
         true,
       )
       .build_mesh_into();
-    let mesh = MeshSource::new(mesh);
-    let mesh: Box<dyn WebGPUSceneMesh> = Box::new(mesh.into());
+    let mesh = SceneItemRef::new(MeshSource::new(mesh));
+    let mesh: Box<dyn WebGPUSceneMesh> = Box::new(mesh);
     let mesh = SceneMeshType::Foreign(Arc::new(mesh));
 
     let material = PhysicalSpecularGlossinessMaterial {
@@ -117,7 +118,7 @@ pub fn load_default_scene(scene: &mut Scene) {
     }
     let mesh = builder.build_mesh();
     let mesh = MeshSource::new(mesh);
-    let mesh: Box<dyn WebGPUSceneMesh> = Box::new(mesh.into());
+    let mesh = SceneItemRef::new(MeshSource::new(mesh));
     let mesh = SceneMeshType::Foreign(Arc::new(mesh));
 
     let material = PhysicalSpecularGlossinessMaterial {
@@ -157,7 +158,7 @@ pub fn load_default_scene(scene: &mut Scene) {
         Mat4::translate((10., 0., 6.)),
       ],
     };
-    let mesh: Box<dyn WebGPUSceneMesh> = Box::new(mesh.into());
+    let mesh = SceneItemRef::new(MeshSource::new(mesh));
     let mesh = SceneMeshType::Foreign(Arc::new(mesh));
 
     let material = PhysicalSpecularGlossinessMaterial {

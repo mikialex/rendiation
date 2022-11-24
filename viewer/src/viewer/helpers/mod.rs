@@ -46,7 +46,6 @@ impl HelperLineModel {
     }
   }
 }
-// pub type HelperLineModel = SceneModelImpl<FatlineMesh, StateControl<FatLineMaterial>>;
 
 /// just add premultiplied alpha to shader
 pub struct WidgetDispatcher {
