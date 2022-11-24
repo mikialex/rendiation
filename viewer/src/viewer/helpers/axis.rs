@@ -46,6 +46,7 @@ type ArrowBodyMesh = impl WebGPUMesh + Clone;
 pub struct Arrow {
   cylinder: OverridableMeshModelImpl,
   tip: OverridableMeshModelImpl,
+  material: SceneItemRef<ArrowMaterial>,
   pub root: SceneNode,
 }
 
@@ -139,8 +140,7 @@ impl Arrow {
   }
 
   pub fn set_color(&self, color: Vec3<f32>) {
-    self.tip.material.write().material.color = (color.x, color.y, color.z, 1.).into();
-    self.cylinder.material.write().material.color = (color.x, color.y, color.z, 1.).into();
+    self.material.write().material.color = (color.x, color.y, color.z, 1.).into();
   }
 
   pub fn with_transform(self, m: Mat4<f32>) -> Self {

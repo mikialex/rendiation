@@ -1,6 +1,7 @@
 use std::{
   cell::{Cell, RefCell},
   rc::Rc,
+  sync::Arc,
 };
 
 use interphaser::{
@@ -447,7 +448,7 @@ fn update_plane(
   move |state, plane| {
     let axis_state = active.with(state, |&s| s);
     let color = map_color(color, axis_state);
-    plane.material.write().material.color = Vec4::new(color.x, color.y, color.z, 1.);
+    // plane.material.write().material.color = Vec4::new(color.x, color.y, color.z, 1.);
     let show = !state.translate.has_active() || axis_state.active;
     plane.node.set_visible(show);
   }
@@ -460,7 +461,12 @@ fn update_torus(
   move |state, torus| {
     let axis_state = active.with(state, |&s| s);
     let color = map_color(color, axis_state);
-    torus.material.write().material.color = Vec4::new(color.x, color.y, color.z, 1.);
+
+    // if let  SceneModelType::Foreign(model) = torus {
+
+    // }
+
+    // torus.material.write().material.color = Vec4::new(color.x, color.y, color.z, 1.);
     // let show = !state.translate.has_active() || axis_state.active;
     // torus.node.set_visible(show);
   }
@@ -480,7 +486,6 @@ impl PassContentWithCamera for &mut Gizmo {
 type AutoScale = Rc<RefCell<ViewAutoScalable>>;
 
 type FlatUtilMaterial = StateControl<FlatMaterial>;
-type PlaneMesh = impl WebGPUMesh;
 type PlaneModel = OverridableMeshModelImpl;
 fn build_plane(root: &SceneNode, auto_scale: &AutoScale, mat: Mat4<f32>) -> PlaneModel {
   let mesh = IndexedMeshBuilder::<TriangleList, Vec<Vertex>>::default()
@@ -492,19 +497,31 @@ fn build_plane(root: &SceneNode, auto_scale: &AutoScale, mat: Mat4<f32>) -> Plan
     .build_mesh_into();
 
   let mesh = MeshSource::new(mesh);
+  let mesh = SceneItemRef::new(mesh);
+  let mesh: Box<dyn WebGPUSceneMesh> = Box::new(mesh);
+  let mesh = SceneMeshType::Foreign(Arc::new(mesh));
 
   let material = solid_material(RED);
+  let material = SceneItemRef::new(material);
+  let material: Box<dyn WebGPUSceneMaterial> = Box::new(material);
+  let material = SceneMaterialType::Foreign(Arc::new(material));
 
   let plane = root.create_child();
-  plane.set_local_matrix(mat);
-  let model = SceneModelType::Foreign(SceneModelImpl::new(material, mesh, plane).into_matrix_overridable())
-  // let mut plane = ;
 
-  plane.push_override(auto_scale.clone());
-  plane
+  plane.set_local_matrix(mat);
+
+  let model = StandardModel {
+    material: material.into(),
+    mesh: mesh.into(),
+    group: Default::default(),
+  };
+  let model = SceneModelType::Standard(model.into());
+  let model = SceneModelImpl { model, node: plane };
+  let model = model.into_matrix_overridable();
+  model.push_override(auto_scale.clone());
+  model
 }
 
-type RotatorMesh = impl WebGPUMesh;
 type RotatorModel = OverridableMeshModelImpl;
 fn build_rotator(root: &SceneNode, auto_scale: &AutoScale, mat: Mat4<f32>) -> RotatorModel {
   let mesh = IndexedMeshBuilder::<TriangleList, Vec<Vertex>>::default()
@@ -520,15 +537,31 @@ fn build_rotator(root: &SceneNode, auto_scale: &AutoScale, mat: Mat4<f32>) -> Ro
     .build_mesh_into();
 
   let mesh = MeshSource::new(mesh);
+  let mesh = SceneItemRef::new(mesh);
+  let mesh: Box<dyn WebGPUSceneMesh> = Box::new(mesh);
+  let mesh = SceneMeshType::Foreign(Arc::new(mesh));
 
   let material = solid_material(RED);
+  let material = SceneItemRef::new(material);
+  let material: Box<dyn WebGPUSceneMaterial> = Box::new(material);
+  let material = SceneMaterialType::Foreign(Arc::new(material));
 
   let torus = root.create_child();
-  torus.set_local_matrix(mat);
-  let mut torus = SceneModelImpl::new(material, mesh, torus).into_matrix_overridable();
 
-  torus.push_override(auto_scale.clone());
-  torus
+  let model = StandardModel {
+    material: material.into(),
+    mesh: mesh.into(),
+    group: Default::default(),
+  };
+  let model = SceneModelType::Standard(model.into());
+  let model = SceneModelImpl { model, node: torus };
+  let model = model.into_matrix_overridable();
+
+  // (SceneModelImpl{ model: todo!(), node: todo!() }::new(material, mesh).into_matrix_overridable())
+
+  torus.set_local_matrix(mat);
+  model.push_override(auto_scale.clone());
+  model
 }
 
 // fn build_box() -> Box<dyn SceneRenderable> {
