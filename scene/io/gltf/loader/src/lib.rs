@@ -1,29 +1,25 @@
 #![feature(local_key_cell_methods)]
 
 use std::collections::HashMap;
-use std::{path::Path, rc::Rc};
+use std::path::Path;
 
 use __core::num::NonZeroU64;
 use gltf::{Node, Result as GltfResult};
 use rendiation_algebra::*;
-use rendiation_scene_webgpu::{
-  AttributeAccessor, AttributesMesh, GeometryBuffer, IntoStateControl, SceneModel, SceneModelImpl,
-  NormalMapping, PhysicalMetallicRoughnessMaterial, Scene, SceneModelShareable, SceneNode,
-  SceneTexture2D, StateControl, Texture2DWithSamplingData, TextureWithSamplingData,
-  TypedBufferView, WebGPUScene,
+use rendiation_scene_core::{
+  AttributeAccessor, AttributesMesh, BufferViewRange, ForeignImplemented, GeometryBuffer,
+  GeometryBufferInner, IndexFormat, NormalMapping, PhysicalMetallicRoughnessMaterial, Scene,
+  SceneMaterialType, SceneMeshType, SceneModel, SceneModelHandle, SceneModelImpl, SceneModelType,
+  SceneNode, SceneTexture2D, SceneTexture2DType, StandardModel, Texture2DWithSamplingData,
+  TextureWithSamplingData, TypedBufferView,
 };
-use rendiation_scene_webgpu::{SceneModelHandle, WebGPUSceneExtension};
 use shadergraph::*;
-use webgpu::{GPUBufferViewRange, TextureFormat, WebGPU2DTextureSource};
+use webgpu::{TextureFormat, WebGPU2DTextureSource};
 
 mod convert_utils;
 use convert_utils::*;
 
-fn build_model(
-  node: &SceneNode,
-  primitive: gltf::Primitive,
-  ctx: &mut Context,
-) -> impl SceneModelShareable {
+fn build_model(node: &SceneNode, primitive: gltf::Primitive, ctx: &mut Context) -> SceneModel {
   let attributes = primitive
     .attributes()
     .map(|(semantic, accessor)| {
@@ -36,8 +32,8 @@ fn build_model(
 
   let indices = primitive.indices().map(|indices| {
     let format = match indices.data_type() {
-      gltf::accessor::DataType::U16 => webgpu::IndexFormat::Uint16,
-      gltf::accessor::DataType::U32 => webgpu::IndexFormat::Uint32,
+      gltf::accessor::DataType::U16 => IndexFormat::Uint16,
+      gltf::accessor::DataType::U32 => IndexFormat::Uint32,
       _ => unreachable!(),
     };
     (format, build_geom_buffer(indices, ctx))
@@ -50,10 +46,21 @@ fn build_model(
     indices,
     mode,
   };
+  let mesh = SceneMeshType::AttributesMesh(mesh.into());
 
   let material = build_pbr_material(primitive.material(), ctx);
+  let material = SceneMaterialType::PhysicalMetallicRoughness(material.into());
 
-  let model = SceneModelImpl::new(material, mesh, node.clone());
+  let model = StandardModel {
+    material: material.into(),
+    mesh: mesh.into(),
+    group: Default::default(),
+  };
+  let model = SceneModelType::Standard(model.into());
+  let model = SceneModelImpl {
+    model,
+    node: node.clone(),
+  };
   SceneModel::new(model)
 }
 
@@ -67,7 +74,7 @@ fn build_data_view(view: gltf::buffer::View, ctx: &mut Context) -> TypedBufferVi
       let buffer = buffers[view.buffer().index()].clone();
       TypedBufferView {
         buffer,
-        range: GPUBufferViewRange {
+        range: BufferViewRange {
           offset: view.offset() as u64,
           size: NonZeroU64::new(view.length() as u64),
         },
@@ -111,17 +118,14 @@ fn build_geom_buffer(accessor: gltf::Accessor, ctx: &mut Context) -> AttributeAc
   }
 }
 
-pub fn load_gltf_test(
-  path: impl AsRef<Path>,
-  scene: &mut Scene,
-) -> GltfResult<GltfLoadResult> {
+pub fn load_gltf_test(path: impl AsRef<Path>, scene: &mut Scene) -> GltfResult<GltfLoadResult> {
   let (document, mut buffers, mut images) = gltf::import(path)?;
 
   let mut ctx = Context {
     images: images.drain(..).map(build_image).collect(),
     attributes: buffers
       .drain(..)
-      .map(|buffer| Rc::new(GeometryBuffer::new(buffer.0)))
+      .map(|buffer| GeometryBufferInner { buffer: buffer.0 }.into())
       .collect(),
     result: Default::default(),
   };
@@ -136,7 +140,7 @@ pub fn load_gltf_test(
 
 struct Context {
   images: Vec<SceneTexture2D>,
-  attributes: Vec<Rc<GeometryBuffer>>,
+  attributes: Vec<GeometryBuffer>,
   result: GltfLoadResult,
 }
 
@@ -147,11 +151,21 @@ pub struct GltfLoadResult {
   pub view_map: HashMap<usize, TypedBufferView>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct GltfImage {
   data: Vec<u8>,
   format: webgpu::TextureFormat,
   size: rendiation_texture::Size,
+}
+
+impl ForeignImplemented for GltfImage {
+  fn as_any(&self) -> &dyn std::any::Any {
+    self
+  }
+
+  fn as_mut_any(&mut self) -> &mut dyn std::any::Any {
+    self
+  }
 }
 
 impl WebGPU2DTextureSource for GltfImage {
@@ -203,7 +217,8 @@ fn build_image(data_input: gltf::image::Data) -> SceneTexture2D {
   let size = rendiation_texture::Size::from_u32_pair_min_one((data_input.width, data_input.height));
 
   let image = GltfImage { data, format, size };
-  SceneTexture2D::::new(Box::new(image))
+  let image = SceneTexture2DType::Foreign(Box::new(image));
+  SceneTexture2D::new(image)
 }
 
 /// https://docs.rs/gltf/latest/gltf/struct.Node.html
@@ -228,7 +243,7 @@ fn create_node_recursive(
     for primitive in mesh.primitives() {
       let index = primitive.index();
       let model = build_model(&node, primitive, ctx);
-      let model_handle = scene.add_model(model);
+      let model_handle = scene.models.insert(model);
       ctx.result.primitive_map.insert(index, model_handle);
     }
   }
@@ -242,7 +257,7 @@ fn create_node_recursive(
 fn build_pbr_material(
   material: gltf::Material,
   ctx: &mut Context,
-) -> StateControl<PhysicalMetallicRoughnessMaterial> {
+) -> PhysicalMetallicRoughnessMaterial {
   let pbr = material.pbr_metallic_roughness();
 
   let base_color_texture = pbr
@@ -267,7 +282,7 @@ fn build_pbr_material(
 
   let color_and_alpha = Vec4::from(pbr.base_color_factor());
 
-  let mut result = PhysicalMetallicRoughnessMaterial {
+  let result = PhysicalMetallicRoughnessMaterial {
     base_color: color_and_alpha.rgb(),
     alpha: color_and_alpha.a(),
     alpha_cutoff: alpha_cut,
@@ -280,19 +295,15 @@ fn build_pbr_material(
     emissive_texture,
     normal_texture,
     reflectance: 0.5, // todo from gltf ior extension
-  }
-  .use_state();
+  };
 
   if material.double_sided() {
-    result.states.cull_mode = None;
+    // result.states.cull_mode = None;
   }
   result
 }
 
-fn build_texture(
-  texture: gltf::texture::Texture,
-  ctx: &mut Context,
-) -> Texture2DWithSamplingData {
+fn build_texture(texture: gltf::texture::Texture, ctx: &mut Context) -> Texture2DWithSamplingData {
   let sampler = map_sampler(texture.sampler());
   let image_index = texture.source().index();
   let texture = ctx.images.get(image_index).unwrap().clone();

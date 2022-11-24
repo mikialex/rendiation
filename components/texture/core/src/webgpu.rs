@@ -4,6 +4,7 @@ use std::{
 };
 
 use image::*;
+use rendiation_algebra::*;
 use rendiation_texture_types::Size;
 use rendiation_webgpu::{TextureFormat, WebGPU2DTextureSource};
 
@@ -18,6 +19,18 @@ impl TextureFormatDecider for image::Rgba<u8> {
 // todo how do we support int texture?? by adding new type?
 impl TextureFormatDecider for u8 {
   const FORMAT: TextureFormat = TextureFormat::R8Unorm;
+}
+
+/// just as default behavior, not exact reasonable
+impl TextureFormatDecider for Vec4<u8> {
+  const FORMAT: TextureFormat = TextureFormat::Rgba8UnormSrgb;
+}
+impl TextureFormatDecider for Vec4<f32> {
+  const FORMAT: TextureFormat = TextureFormat::Rgba32Float;
+}
+/// will get padding
+impl TextureFormatDecider for Vec3<u8> {
+  const FORMAT: TextureFormat = TextureFormat::Rgba8UnormSrgb;
 }
 
 // https://github.com/gpuweb/gpuweb/issues/66

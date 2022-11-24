@@ -2,7 +2,10 @@ use rendiation_algebra::*;
 
 use crate::*;
 
-pub enum SceneMaterial {
+pub type SceneMaterial = SceneItemRef<SceneMaterialType>;
+
+#[non_exhaustive]
+pub enum SceneMaterialType {
   PhysicalSpecularGlossiness(SceneItemRef<PhysicalSpecularGlossinessMaterial>),
   PhysicalMetallicRoughness(SceneItemRef<PhysicalMetallicRoughnessMaterial>),
   Flat(SceneItemRef<FlatMaterial>),

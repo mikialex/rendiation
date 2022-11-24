@@ -129,10 +129,10 @@ pub trait ShadowCameraCreator {
 }
 
 fn build_shadow_camera(light: &SceneLightInner) -> SceneCamera {
-  match light.light {
+  match &light.light {
     SceneLightKind::PointLight(_) => todo!(),
-    SceneLightKind::SpotLight(l) => l.build_shadow_camera(&light.node),
-    SceneLightKind::DirectionalLight(l) => l.build_shadow_camera(&light.node),
+    SceneLightKind::SpotLight(l) => l.read().build_shadow_camera(&light.node),
+    SceneLightKind::DirectionalLight(l) => l.read().build_shadow_camera(&light.node),
     SceneLightKind::Foreign(_) => todo!(),
     _ => todo!(),
   }
@@ -142,6 +142,7 @@ fn get_shadow_map<T: Any + ShadowCameraCreator>(
   inner: &SceneItemRefGuard<T>,
   resources: &mut GPUResourceCache,
   shadows: &mut ShadowMapSystem,
+  node: &SceneNode,
 ) -> BasicShadowGPU {
   let resolution = Size::from_usize_pair_min_one((512, 512));
 
@@ -156,12 +157,12 @@ fn get_shadow_map<T: Any + ShadowCameraCreator>(
     .unwrap()
     .get_update_or_insert_with_logic(inner, |logic| match logic {
       ResourceLogic::Create(light) => {
-        let shadow_camera = light.build_shadow_camera();
+        let shadow_camera = light.build_shadow_camera(node);
         let map = shadows.maps.allocate(resolution);
         ResourceLogicResult::Create(BasicShadowGPU { shadow_camera, map })
       }
       ResourceLogic::Update(shadow, light) => {
-        let shadow_camera = build_shadow_camera(light);
+        let shadow_camera = light.build_shadow_camera(node);
         let map = shadows.maps.allocate(resolution);
         *shadow = BasicShadowGPU { shadow_camera, map };
         ResourceLogicResult::Update(shadow)
@@ -170,19 +171,22 @@ fn get_shadow_map<T: Any + ShadowCameraCreator>(
     .clone()
 }
 
-pub fn request_basic_shadow_map<T: Any>(
+pub fn request_basic_shadow_map<T: Any + ShadowCameraCreator>(
   inner: &SceneItemRefGuard<T>,
   resources: &mut GPUResourceCache,
   shadows: &mut ShadowMapSystem,
+  node: &SceneNode,
 ) {
-  get_shadow_map(inner, resources, shadows);
+  get_shadow_map(inner, resources, shadows, node);
 }
 
-pub fn check_update_basic_shadow_map<T: Any>(
+pub fn check_update_basic_shadow_map<T: Any + ShadowCameraCreator>(
   inner: &SceneItemRefGuard<T>,
   ctx: &mut LightUpdateCtx,
+  node: &SceneNode,
 ) -> LightShadowAddressInfo {
-  let BasicShadowGPU { shadow_camera, map } = get_shadow_map(inner, ctx.ctx.resources, ctx.shadows);
+  let BasicShadowGPU { shadow_camera, map } =
+    get_shadow_map(inner, ctx.ctx.resources, ctx.shadows, node);
 
   let (view, map_info) = map.get_write_view(ctx.ctx.gpu);
   let shadow_camera_info = ctx

@@ -24,6 +24,55 @@ pub trait WebGPUSceneMesh {
   fn try_pick(&self, _f: &mut dyn FnMut(&dyn IntersectAbleGroupedMesh)) {}
 }
 
+impl WebGPUSceneMesh for SceneMeshType {
+  fn check_update_gpu<'a>(
+    &self,
+    res: &'a mut GPUMeshCache,
+    sub_res: &mut AnyMap,
+    gpu: &GPU,
+  ) -> &'a dyn RenderComponentAny {
+    match self {
+      SceneMeshType::AttributesMesh(m) => m.check_update_gpu(res, sub_res, gpu),
+      SceneMeshType::Foreign(mesh) => {
+        if let Some(mesh) = mesh.as_any().downcast_ref::<Box<dyn WebGPUSceneMesh>>() {
+          mesh.check_update_gpu(res, sub_res, gpu)
+        } else {
+          &()
+        }
+      }
+      _ => &(),
+    }
+  }
+
+  fn topology(&self) -> webgpu::PrimitiveTopology {
+    match self {
+      SceneMeshType::AttributesMesh(m) => WebGPUSceneMesh::topology(m),
+      SceneMeshType::Foreign(mesh) => {
+        if let Some(mesh) = mesh.as_any().downcast_ref::<Box<dyn WebGPUSceneMesh>>() {
+          mesh.topology()
+        } else {
+          webgpu::PrimitiveTopology::TriangleList
+        }
+      }
+      _ => webgpu::PrimitiveTopology::TriangleList,
+    }
+  }
+
+  fn draw_impl(&self, group: MeshDrawGroup) -> DrawCommand {
+    match self {
+      SceneMeshType::AttributesMesh(m) => WebGPUSceneMesh::draw_impl(m, group),
+      SceneMeshType::Foreign(mesh) => {
+        if let Some(mesh) = mesh.as_any().downcast_ref::<Box<dyn WebGPUSceneMesh>>() {
+          mesh.draw_impl(group)
+        } else {
+          DrawCommand::Skip
+        }
+      }
+      _ => DrawCommand::Skip,
+    }
+  }
+}
+
 impl<T: WebGPUSceneMesh> MeshDrawcallEmitter for T {
   fn draw(&self, ctx: &mut webgpu::GPURenderPassCtx, group: MeshDrawGroup) {
     ctx.pass.draw_by_command(self.draw_impl(group))
@@ -37,15 +86,15 @@ impl WebGPUSceneMesh for SceneMesh {
     sub_res: &mut AnyMap,
     gpu: &GPU,
   ) -> &'a dyn RenderComponentAny {
-    todo!()
+    self.read().check_update_gpu(res, sub_res, gpu)
   }
 
   fn topology(&self) -> webgpu::PrimitiveTopology {
-    todo!()
+    self.read().topology()
   }
 
   fn draw_impl(&self, group: MeshDrawGroup) -> DrawCommand {
-    todo!()
+    self.read().draw_impl(group)
   }
 }
 

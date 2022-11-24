@@ -218,10 +218,7 @@ impl Viewer3dContent {
     if let Some((MouseButton::Left, ElementState::Pressed)) = mouse(event) {
       if let Some((nearest, _)) = self.scene.interaction_picking(&interactive_ctx) {
         self.selections.clear();
-
-        self
-          .selections
-          .select(SceneModelShareable::as_renderable(nearest));
+        self.selections.select(nearest);
 
         self.gizmo.set_target(nearest.get_node().into());
       } else if !keep_target_for_gizmo {

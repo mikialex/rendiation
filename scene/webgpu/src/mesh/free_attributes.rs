@@ -1,82 +1,6 @@
+use rendiation_renderable_mesh::map_topology;
+
 use crate::*;
-
-/// Vertex attribute semantic name.
-#[derive(Clone, Debug, Eq, Hash, PartialEq)]
-pub enum AttributeSemantic {
-  /// XYZ vertex positions.
-  Positions,
-
-  /// XYZ vertex normals.
-  Normals,
-
-  /// XYZW vertex tangents where the `w` component is a sign value indicating the
-  /// handedness of the tangent basis.
-  Tangents,
-
-  /// RGB or RGBA vertex color.
-  Colors(u32),
-
-  /// UV texture co-ordinates.
-  TexCoords(u32),
-
-  /// Joint indices.
-  Joints(u32),
-
-  /// Joint weights.
-  Weights(u32),
-}
-
-static GLOBAL_BUFFER_ID: __core::sync::atomic::AtomicU64 = __core::sync::atomic::AtomicU64::new(0);
-
-pub struct GeometryBuffer {
-  guid: u64,
-  buffer: Vec<u8>,
-  // improve use scene identity system
-  on_drop: RefCell<Vec<Box<dyn Any>>>,
-}
-
-impl GeometryBuffer {
-  pub fn new(buffer: Vec<u8>) -> Self {
-    Self {
-      guid: GLOBAL_BUFFER_ID.fetch_add(1, std::sync::atomic::Ordering::Relaxed),
-      on_drop: Default::default(),
-      buffer,
-    }
-  }
-}
-
-/// like slice, but owned, ref counted cheap clone
-#[derive(Clone)]
-pub struct TypedBufferView {
-  pub buffer: Rc<GeometryBuffer>,
-  pub range: GPUBufferViewRange,
-}
-
-#[derive(Clone)]
-pub struct AttributeAccessor {
-  pub view: TypedBufferView,
-  pub start: usize,
-  pub count: usize,
-  pub stride: usize,
-}
-
-impl AttributeAccessor {
-  fn compute_gpu_buffer_range(&self) -> GPUBufferViewRange {
-    let inner_offset = self.view.range.offset;
-    GPUBufferViewRange {
-      offset: inner_offset + (self.start * self.stride) as u64,
-      size: NonZeroU64::new(inner_offset + (self.count * self.stride) as u64)
-        .unwrap() // safe
-        .into(),
-    }
-  }
-}
-
-pub struct AttributesMesh {
-  pub attributes: Vec<(AttributeSemantic, AttributeAccessor)>,
-  pub indices: Option<(webgpu::IndexFormat, AttributeAccessor)>,
-  pub mode: webgpu::PrimitiveTopology,
-}
 
 pub struct AttributesMeshGPU {
   attributes: Vec<(AttributeSemantic, GPUBufferResourceView)>,
@@ -144,44 +68,32 @@ impl ShaderGraphProvider for AttributesMeshGPU {
   }
 }
 
-#[derive(Default)]
-struct AttributesGPUCache {
-  gpus: Rc<RefCell<HashMap<u64, GPUBufferResource>>>,
-}
+fn get_update_buffer<'a>(
+  storage: &'a mut AnyMap,
+  source: &GeometryBuffer,
+  gpu: &GPU,
+) -> &'a GPUBufferResource {
+  let cache: &mut IdentityMapper<GPUBufferResource, GeometryBuffer> =
+    storage.entry().or_insert_with(Default::default);
+  let source = source.read();
 
-struct AttributesGPUCacheDrop {
-  id: u64,
-  gpus: Rc<RefCell<HashMap<u64, GPUBufferResource>>>,
-}
-
-impl Drop for AttributesGPUCacheDrop {
-  fn drop(&mut self) {
-    self.gpus.borrow_mut().remove(&self.id);
-  }
-}
-
-impl AttributesGPUCache {
-  pub fn get(&mut self, buffer: &GeometryBuffer, gpu: &webgpu::GPU) -> GPUBufferResource {
-    self
-      .gpus
-      .borrow_mut()
-      .entry(buffer.guid)
-      .or_insert_with(|| {
-        buffer
-          .on_drop
-          .borrow_mut()
-          .push(Box::new(AttributesGPUCacheDrop {
-            id: buffer.guid,
-            gpus: self.gpus.clone(),
-          }));
-        create_gpu_buffer(
-          buffer.buffer.as_slice(),
-          webgpu::BufferUsages::INDEX | webgpu::BufferUsages::VERTEX,
-          &gpu.device,
-        )
-      })
-      .clone()
-  }
+  cache.get_update_or_insert_with(
+    &source,
+    |buffer| {
+      create_gpu_buffer(
+        buffer.buffer.as_slice(),
+        webgpu::BufferUsages::INDEX | webgpu::BufferUsages::VERTEX,
+        &gpu.device,
+      )
+    },
+    |g, buffer| {
+      *g = create_gpu_buffer(
+        buffer.buffer.as_slice(),
+        webgpu::BufferUsages::INDEX | webgpu::BufferUsages::VERTEX,
+        &gpu.device,
+      )
+    },
+  )
 }
 
 impl WebGPUMesh for AttributesMesh {
@@ -192,28 +104,26 @@ impl WebGPUMesh for AttributesMesh {
   }
 
   fn create(&self, gpu: &webgpu::GPU, storage: &mut AnyMap) -> Self::GPU {
-    let cache: &mut AttributesGPUCache = storage.entry().or_insert_with(Default::default);
-
     let attributes = self
       .attributes
       .iter()
       .map(|(s, vertices)| {
-        let buffer = cache.get(&vertices.view.buffer, gpu);
-        let buffer_view = buffer.create_view(vertices.compute_gpu_buffer_range());
+        let buffer = get_update_buffer(storage, &vertices.view.buffer, gpu);
+        let buffer_view = buffer.create_view(map_view(vertices.compute_gpu_buffer_range()));
         (s.clone(), buffer_view)
       })
       .collect();
 
     let indices = self.indices.as_ref().map(|(format, i)| {
-      let buffer = cache.get(&i.view.buffer, gpu);
-      let buffer_view = buffer.create_view(i.compute_gpu_buffer_range());
-      (buffer_view, *format)
+      let buffer = get_update_buffer(storage, &i.view.buffer, gpu);
+      let buffer_view = buffer.create_view(map_view(i.compute_gpu_buffer_range()));
+      (buffer_view, map_index(*format))
     });
 
     AttributesMeshGPU {
       attributes,
       indices,
-      mode: self.mode,
+      mode: map_topology(self.mode),
     }
   }
 
@@ -235,6 +145,20 @@ impl WebGPUMesh for AttributesMesh {
   }
 
   fn topology(&self) -> webgpu::PrimitiveTopology {
-    self.mode
+    map_topology(self.mode)
+  }
+}
+
+fn map_view(view: BufferViewRange) -> GPUBufferViewRange {
+  GPUBufferViewRange {
+    offset: view.offset,
+    size: view.size,
+  }
+}
+
+fn map_index(index: IndexFormat) -> webgpu::IndexFormat {
+  match index {
+    IndexFormat::Uint16 => webgpu::IndexFormat::Uint16,
+    IndexFormat::Uint32 => webgpu::IndexFormat::Uint32,
   }
 }

@@ -32,21 +32,25 @@ impl<'a, 'b> LightUpdateCtx<'a, 'b> {
 }
 
 pub trait WebGPUSceneLight: Any {
-  fn pre_update(&self, _ctx: &mut LightUpdateCtx, node: &SceneNode) {}
+  fn pre_update(&self, _ctx: &mut LightUpdateCtx, _: &SceneNode) {}
   fn update(&self, ctx: &mut LightUpdateCtx, node: &SceneNode);
 }
 
 impl WebGPUSceneLight for SceneLight {
-  fn pre_update(&self, _ctx: &mut LightUpdateCtx, _: &SceneNode) {
+  fn pre_update(&self, ctx: &mut LightUpdateCtx, _: &SceneNode) {
     let inner = self.read();
     let light = &inner.light;
     let node = &inner.node;
 
     match light {
-      SceneLightKind::PointLight(_) => todo!(),
-      SceneLightKind::SpotLight(_) => todo!(),
-      SceneLightKind::DirectionalLight(_) => todo!(),
-      SceneLightKind::Foreign(_) => todo!(),
+      SceneLightKind::PointLight(l) => l.pre_update(ctx, node),
+      SceneLightKind::SpotLight(l) => l.pre_update(ctx, node),
+      SceneLightKind::DirectionalLight(l) => l.pre_update(ctx, node),
+      SceneLightKind::Foreign(l) => {
+        if let Some(l) = l.as_any().downcast_ref::<Box<dyn WebGPUSceneLight>>() {
+          l.pre_update(ctx, node);
+        }
+      }
       _ => {}
     }
   }
@@ -56,10 +60,14 @@ impl WebGPUSceneLight for SceneLight {
     let node = &inner.node;
 
     match light {
-      SceneLightKind::PointLight(_) => todo!(),
-      SceneLightKind::SpotLight(_) => todo!(),
-      SceneLightKind::DirectionalLight(_) => todo!(),
-      SceneLightKind::Foreign(_) => todo!(),
+      SceneLightKind::PointLight(l) => l.update(ctx, node),
+      SceneLightKind::SpotLight(l) => l.update(ctx, node),
+      SceneLightKind::DirectionalLight(l) => l.update(ctx, node),
+      SceneLightKind::Foreign(l) => {
+        if let Some(l) = l.as_any().downcast_ref::<Box<dyn WebGPUSceneLight>>() {
+          l.update(ctx, node);
+        }
+      }
       _ => {}
     }
   }

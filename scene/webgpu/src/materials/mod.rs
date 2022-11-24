@@ -31,35 +31,57 @@ pub trait WebGPUSceneMaterial {
   fn is_transparent(&self) -> bool;
 }
 
-impl WebGPUSceneMaterial for SceneMaterial {
+impl WebGPUSceneMaterial for SceneMaterialType {
   fn check_update_gpu<'a>(
     &self,
     res: &'a mut GPUMaterialCache,
     sub_res: &mut GPUResourceSubCache,
     gpu: &GPU,
   ) -> &'a dyn RenderComponentAny {
-    todo!()
+    match self {
+      SceneMaterialType::PhysicalSpecularGlossiness(m) => m.check_update_gpu(res, sub_res, gpu),
+      SceneMaterialType::PhysicalMetallicRoughness(m) => m.check_update_gpu(res, sub_res, gpu),
+      SceneMaterialType::Flat(m) => m.check_update_gpu(res, sub_res, gpu),
+      SceneMaterialType::Foreign(m) => {
+        if let Some(m) = m.as_any().downcast_ref::<Box<dyn WebGPUSceneMaterial>>() {
+          m.check_update_gpu(res, sub_res, gpu)
+        } else {
+          &()
+        }
+      }
+      _ => &(),
+    }
   }
 
   fn is_keep_mesh_shape(&self) -> bool {
-    todo!()
+    match self {
+      SceneMaterialType::PhysicalSpecularGlossiness(m) => m.is_keep_mesh_shape(),
+      SceneMaterialType::PhysicalMetallicRoughness(m) => m.is_keep_mesh_shape(),
+      SceneMaterialType::Flat(m) => m.is_keep_mesh_shape(),
+      SceneMaterialType::Foreign(m) => {
+        if let Some(m) = m.as_any().downcast_ref::<Box<dyn WebGPUSceneMaterial>>() {
+          m.is_keep_mesh_shape()
+        } else {
+          true
+        }
+      }
+      _ => true,
+    }
   }
   fn is_transparent(&self) -> bool {
-    todo!()
-  }
-}
-
-impl<M: WebGPUMaterial> WebGPUSceneMaterial for Identity<M> {
-  fn check_update_gpu<'a>(
-    &self,
-    res: &'a mut GPUMaterialCache,
-    sub_res: &mut GPUResourceSubCache,
-    gpu: &GPU,
-  ) -> &'a dyn RenderComponentAny {
-    res.update_material(self, gpu, sub_res)
-  }
-  fn is_keep_mesh_shape(&self) -> bool {
-    self.deref().is_keep_mesh_shape()
+    match self {
+      SceneMaterialType::PhysicalSpecularGlossiness(m) => m.is_transparent(),
+      SceneMaterialType::PhysicalMetallicRoughness(m) => m.is_transparent(),
+      SceneMaterialType::Flat(m) => m.is_transparent(),
+      SceneMaterialType::Foreign(m) => {
+        if let Some(m) = m.as_any().downcast_ref::<Box<dyn WebGPUSceneMaterial>>() {
+          m.is_transparent()
+        } else {
+          false
+        }
+      }
+      _ => false,
+    }
   }
 }
 
@@ -74,6 +96,10 @@ impl<M: WebGPUMaterial> WebGPUSceneMaterial for SceneItemRef<M> {
   }
   fn is_keep_mesh_shape(&self) -> bool {
     self.read().deref().is_keep_mesh_shape()
+  }
+
+  fn is_transparent(&self) -> bool {
+    self.read().deref().is_transparent()
   }
 }
 

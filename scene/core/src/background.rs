@@ -1,5 +1,6 @@
 use crate::*;
 
+#[non_exhaustive]
 pub enum SceneBackGround {
   Solid(SolidBackground),
   Env(EnvMapBackground),

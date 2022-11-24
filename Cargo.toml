@@ -33,7 +33,6 @@ members = [
   "shader/language/wgsl/derive",
   "shader/language/wgsl/codegen-graph",
   "scene/core",
-  "scene/fusion",
   "scene/webgpu",
   "scene/raytracing",
   "scene/io/gltf/loader",

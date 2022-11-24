@@ -171,7 +171,9 @@ impl RayTracingSceneExt for Scene {
 
     if let Some(bg) = &self.background {
       match bg {
-        SceneBackGround::Solid(_) => todo!(),
+        SceneBackGround::Solid(bg) => {
+          result.env = Some(Box::new(*bg));
+        }
         SceneBackGround::Env(_) => {}
         SceneBackGround::Foreign(foreign) => {
           if let Some(retraceable_bg) = foreign
@@ -181,6 +183,7 @@ impl RayTracingSceneExt for Scene {
             result.env = Some(retraceable_bg.clone());
           }
         }
+        _ => {}
       }
     }
 

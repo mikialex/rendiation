@@ -57,6 +57,7 @@ pub fn setup_pass_core(
 ) {
   match &model_input.model {
     SceneModelType::Standard(model) => {
+      let model = model.read();
       let gpu = pass.ctx.gpu;
       let resources = &mut pass.resources;
       let pass_gpu = dispatcher;
@@ -68,13 +69,11 @@ pub fn setup_pass_core(
       }
 
       let node_gpu =
-        override_node.unwrap_or_else(|| resources.nodes.check_update_gpu(&model.node, gpu));
+        override_node.unwrap_or_else(|| resources.nodes.check_update_gpu(&model_input.node, gpu));
 
-      let material_gpu = model.material.check_update_gpu(
-        &mut resources.scene.materials,
-        &mut resources.content,
-        gpu,
-      );
+      let material = model.material.read();
+      let material_gpu =
+        material.check_update_gpu(&mut resources.scene.materials, &mut resources.content, gpu);
 
       let mesh = model.mesh.read();
       let mesh_gpu = mesh.check_update_gpu(
@@ -85,7 +84,7 @@ pub fn setup_pass_core(
 
       let components = [pass_gpu, mesh_gpu, node_gpu, camera_gpu, material_gpu];
 
-      let mesh: &dyn MeshDrawcallEmitter = mesh.deref();
+      let mesh: &dyn MeshDrawcallEmitter = &model.mesh;
       let emitter = MeshDrawcallEmitterWrap {
         group: model.group,
         mesh,
@@ -93,14 +92,19 @@ pub fn setup_pass_core(
 
       RenderEmitter::new(components.as_slice()).render(&mut pass.ctx, &emitter);
     }
-    SceneModelType::Foreign(model) => {}
+    SceneModelType::Foreign(model) => {
+      if let Some(model) = model.as_any().downcast_ref::<Box<dyn SceneRenderable>>() {
+        model.render(pass, dispatcher, camera)
+      }
+    }
+    _ => {}
   };
 }
 
 impl SceneRenderable for SceneModelImpl {
   fn is_transparent(&self) -> bool {
-    match self.model {
-      SceneModelType::Standard(model) => model.material.is_transparent(),
+    match &self.model {
+      SceneModelType::Standard(model) => model.read().material.read().is_transparent(),
       SceneModelType::Foreign(model) => {
         if let Some(model) = model.as_any().downcast_ref::<Box<dyn SceneRenderable>>() {
           model.is_transparent()
@@ -108,6 +112,7 @@ impl SceneRenderable for SceneModelImpl {
           false
         }
       }
+      _ => false,
     }
   }
   fn render(
@@ -125,7 +130,7 @@ pub fn ray_pick_nearest_core(
   ctx: &SceneRayInteractiveCtx,
   world_mat: Mat4<f32>,
 ) -> OptionalNearest<MeshBufferHitPoint> {
-  match m.model {
+  match &m.model {
     SceneModelType::Standard(model) => {
       let net_visible = m.node.visit(|n| n.net_visible());
       if !net_visible {
@@ -135,6 +140,8 @@ pub fn ray_pick_nearest_core(
       let world_inv = world_mat.inverse_or_identity();
 
       let local_ray = ctx.world_ray.clone().apply_matrix_into(world_inv);
+
+      let model = model.read();
 
       if !model.material.read().is_keep_mesh_shape() {
         return OptionalNearest::none();
@@ -155,12 +162,16 @@ pub fn ray_pick_nearest_core(
       picked
     }
     SceneModelType::Foreign(model) => {
-      if let Some(model) = model.as_any().downcast_ref::<Box<dyn SceneRenderable>>() {
-        ray_pick_nearest_core(model, ctx, world_mat)
+      if let Some(model) = model
+        .as_any()
+        .downcast_ref::<Box<dyn SceneRayInteractive>>()
+      {
+        model.ray_pick_nearest(ctx)
       } else {
         OptionalNearest::none()
       }
     }
+    _ => OptionalNearest::none(),
   }
 }
 

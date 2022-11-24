@@ -147,7 +147,7 @@ where
   }
 }
 
-fn map_topology(pt: PrimitiveTopology) -> gpu::PrimitiveTopology {
+pub fn map_topology(pt: PrimitiveTopology) -> gpu::PrimitiveTopology {
   match pt {
     PrimitiveTopology::PointList => gpu::PrimitiveTopology::PointList,
     PrimitiveTopology::LineList => gpu::PrimitiveTopology::LineList,

@@ -31,7 +31,7 @@ impl RenderList {
       let model_pos = m.get_node().get_world_matrix().position();
       let depth = (model_pos - camera_pos).dot(camera_forward);
 
-      let is_transparent = (m.deref() as &dyn SceneModelShareable).is_transparent();
+      let is_transparent = m.is_transparent();
       if is_transparent {
         self.transparent.push((h, depth));
       } else {

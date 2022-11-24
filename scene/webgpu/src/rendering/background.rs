@@ -4,10 +4,13 @@ pub struct BackGroundRendering;
 
 impl PassContentWithSceneAndCamera for BackGroundRendering {
   fn render(&mut self, pass: &mut SceneRenderPass, scene: &Scene, camera: &SceneCamera) {
-    scene
-      .background
-      .as_ref()
-      .unwrap()
-      .render(pass, &pass.default_dispatcher(), camera);
+    if let Some(bg) = &scene.background {
+      match bg {
+        SceneBackGround::Solid(bg) => bg.render(pass, &pass.default_dispatcher(), camera),
+        SceneBackGround::Env(bg) => bg.render(pass, &pass.default_dispatcher(), camera),
+        SceneBackGround::Foreign(_) => todo!(),
+        _ => {}
+      }
+    }
   }
 }
