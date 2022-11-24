@@ -1,3 +1,5 @@
+use rendiation_texture::CubeTextureFace;
+
 use crate::*;
 
 pub struct GPUTextureSamplerPair {
@@ -34,6 +36,19 @@ pub fn build_texture_sampler_pair(
   GPUTextureSamplerPair { texture, sampler }
 }
 
+fn as_2d_source(tex: &SceneTexture2DType) -> Option<&dyn WebGPU2DTextureSource> {
+  match tex {
+    SceneTexture2DType::RGBAu8(tex) => Some(tex),
+    SceneTexture2DType::RGBu8(tex) => Some(tex),
+    SceneTexture2DType::RGBAf32(tex) => Some(tex),
+    SceneTexture2DType::Foreign(tex) => tex
+      .as_any()
+      .downcast_ref::<Box<dyn WebGPU2DTextureSource>>()
+      .map(|t| t.as_ref()),
+    _ => None,
+  }
+}
+
 pub fn check_update_gpu_2d<'a>(
   source: &SceneTexture2D,
   resources: &'a mut GPUResourceSubCache,
@@ -42,33 +57,27 @@ pub fn check_update_gpu_2d<'a>(
   resources.texture_2ds.get_update_or_insert_with(
     &source.read(),
     |texture| {
-      let texture: Option<&dyn WebGPU2DTextureSource> = match texture {
-        SceneTexture2DType::RGBAu8(tex) => Some(tex),
-        SceneTexture2DType::RGBu8(tex) => Some(tex),
-        SceneTexture2DType::RGBAf32(tex) => Some(tex),
-        SceneTexture2DType::Foreign(tex) => tex
-          .as_any()
-          .downcast_ref::<Box<dyn WebGPU2DTextureSource>>()
-          .map(|t| t.as_ref()),
-        _ => None,
-      };
+      let texture = as_2d_source(texture);
 
       let gpu_texture = if let Some(texture) = texture {
         let desc = texture.create_tex2d_desc(MipLevelCount::EmptyMipMap);
         let gpu_texture = GPUTexture::create(desc, &gpu.device);
         let gpu_texture: GPU2DTexture = gpu_texture.try_into().unwrap();
-        let gpu_texture = gpu_texture.upload_into(&gpu.queue, texture, 0);
-        gpu_texture
+        gpu_texture.upload_into(&gpu.queue, texture, 0)
       } else {
         GPUTexture::create(
           webgpu::TextureDescriptor {
-            label: todo!(),
-            size: todo!(),
-            mip_level_count: todo!(),
-            sample_count: todo!(),
-            dimension: todo!(),
-            format: todo!(),
-            usage: todo!(),
+            label: "unimplemented default texture".into(),
+            size: webgpu::Extent3d {
+              width: 1,
+              height: 1,
+              depth_or_array_layers: 1,
+            },
+            mip_level_count: 1,
+            sample_count: 1,
+            dimension: webgpu::TextureDimension::D2,
+            format: webgpu::TextureFormat::Rgba8Unorm,
+            usage: webgpu::TextureUsages::all(),
           },
           &gpu.device,
         )
@@ -87,30 +96,52 @@ pub fn check_update_gpu_cube<'a>(
   resources: &'a mut GPUResourceSubCache,
   gpu: &GPU,
 ) -> &'a GPUCubeTextureView {
-  todo!()
-  // let texture = source.read();
+  let texture = source.read();
 
-  // resources.texture_cubes.get_update_or_insert_with(
-  //   &texture,
-  //   |texture| {
-  //     let source = texture.as_ref();
-  //     let desc = source[0].create_cube_desc(MipLevelCount::EmptyMipMap);
-  //     let queue = &gpu.queue;
+  resources.texture_cubes.get_update_or_insert_with(
+    &texture,
+    |texture| {
+      if let Some(t) = as_2d_source(&texture.faces[0]) {
+        let source = &texture.faces;
+        let desc = t.create_cube_desc(MipLevelCount::EmptyMipMap);
+        let queue = &gpu.queue;
 
-  //     let gpu_texture = GPUTexture::create(desc, &gpu.device);
-  //     let gpu_texture: GPUCubeTexture = gpu_texture.try_into().unwrap();
+        let gpu_texture = GPUTexture::create(desc, &gpu.device);
+        let gpu_texture: GPUCubeTexture = gpu_texture.try_into().unwrap();
 
-  //     gpu_texture
-  //       .upload(queue, source[0].as_ref(), CubeTextureFace::PositiveX, 0)
-  //       .upload(queue, source[1].as_ref(), CubeTextureFace::NegativeX, 0)
-  //       .upload(queue, source[2].as_ref(), CubeTextureFace::PositiveY, 0)
-  //       .upload(queue, source[3].as_ref(), CubeTextureFace::NegativeY, 0)
-  //       .upload(queue, source[4].as_ref(), CubeTextureFace::PositiveZ, 0)
-  //       .upload(queue, source[5].as_ref(), CubeTextureFace::NegativeZ, 0)
-  //       .create_default_view()
-  //       .try_into()
-  //       .unwrap()
-  //   },
-  //   |_, _| {},
-  // )
+        #[rustfmt::skip]
+        gpu_texture
+          .upload(queue, as_2d_source(&source[0]).unwrap(), CubeTextureFace::PositiveX, 0)
+          .upload(queue, as_2d_source(&source[1]).unwrap(), CubeTextureFace::NegativeX, 0)
+          .upload(queue, as_2d_source(&source[2]).unwrap(), CubeTextureFace::PositiveY, 0)
+          .upload(queue, as_2d_source(&source[3]).unwrap(), CubeTextureFace::NegativeY, 0)
+          .upload(queue, as_2d_source(&source[4]).unwrap(), CubeTextureFace::PositiveZ, 0)
+          .upload(queue, as_2d_source(&source[5]).unwrap(), CubeTextureFace::NegativeZ, 0)
+          .create_default_view()
+          .try_into()
+          .unwrap()
+      } else {
+        let tex: GPUCubeTexture = GPUTexture::create(
+          webgpu::TextureDescriptor {
+            label: "unimplemented default texture".into(),
+            size: webgpu::Extent3d {
+              width: 1,
+              height: 1,
+              depth_or_array_layers: 6,
+            },
+            mip_level_count: 1,
+            sample_count: 1,
+            dimension: webgpu::TextureDimension::D2,
+            format: webgpu::TextureFormat::Rgba8Unorm,
+            usage: webgpu::TextureUsages::all(),
+          },
+          &gpu.device,
+        )
+        .try_into()
+        .unwrap();
+        tex.create_default_view().try_into().unwrap()
+      }
+    },
+    |_, _| {},
+  )
 }

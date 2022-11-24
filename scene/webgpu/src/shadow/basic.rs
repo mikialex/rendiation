@@ -128,16 +128,6 @@ pub trait ShadowCameraCreator {
   fn build_shadow_camera(&self, node: &SceneNode) -> SceneCamera;
 }
 
-fn build_shadow_camera(light: &SceneLightInner) -> SceneCamera {
-  match &light.light {
-    SceneLightKind::PointLight(_) => todo!(),
-    SceneLightKind::SpotLight(l) => l.read().build_shadow_camera(&light.node),
-    SceneLightKind::DirectionalLight(l) => l.read().build_shadow_camera(&light.node),
-    SceneLightKind::Foreign(_) => todo!(),
-    _ => todo!(),
-  }
-}
-
 fn get_shadow_map<T: Any + ShadowCameraCreator>(
   inner: &SceneItemRefGuard<T>,
   resources: &mut GPUResourceCache,

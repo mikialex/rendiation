@@ -1,17 +1,9 @@
 use crate::*;
 
+#[derive(Default)]
 pub struct RenderList {
   pub(crate) opaque: Vec<(SceneModelHandle, f32)>,
   pub(crate) transparent: Vec<(SceneModelHandle, f32)>,
-}
-
-impl Default for RenderList {
-  fn default() -> Self {
-    Self {
-      opaque: Vec::new(),
-      transparent: Vec::new(),
-    }
-  }
 }
 
 impl RenderList {
