@@ -17,6 +17,26 @@ impl FatlineMesh {
   }
 }
 
+impl IntersectAbleGroupedMesh for FatlineMesh {
+  fn intersect_list(
+    &self,
+    ray: Ray3,
+    conf: &MeshBufferIntersectConfig,
+    result: &mut MeshBufferHitList,
+    group: MeshDrawGroup,
+  ) {
+  }
+
+  fn intersect_nearest(
+    &self,
+    ray: Ray3,
+    conf: &MeshBufferIntersectConfig,
+    group: MeshDrawGroup,
+  ) -> OptionalNearest<MeshBufferHitPoint> {
+    OptionalNearest::none()
+  }
+}
+
 impl WebGPUMesh for FatlineMesh {
   type GPU = FatlineMeshGPU;
 

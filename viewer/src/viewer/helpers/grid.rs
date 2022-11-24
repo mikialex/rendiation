@@ -15,10 +15,10 @@ pub struct GridHelper {
 impl GridHelper {
   pub fn new(root: &SceneNode, config: GridConfig) -> Self {
     let mesh = build_grid(&config);
-    let mat = FatLineMaterial { width: 1. }.use_state_helper_like();
+    let mat = FatLineMaterial { width: 1. };
     let root = root.clone();
     let node = root.create_child();
-    let mesh = HelperLineModel::new(mat, mesh, node);
+    let mesh = HelperLineModel::new(mat, mesh, &node);
 
     Self {
       enabled: true,
@@ -35,7 +35,7 @@ impl PassContentWithCamera for &mut GridHelper {
       return;
     }
 
-    self.mesh.render(
+    self.mesh.inner.render(
       pass,
       &WidgetDispatcher::new(pass.default_dispatcher()),
       camera,

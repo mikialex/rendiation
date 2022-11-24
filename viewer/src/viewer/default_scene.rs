@@ -82,20 +82,27 @@ pub fn load_default_scene(scene: &mut Scene) {
       )
       .build_mesh_into();
     let mesh = MeshSource::new(mesh);
+    let mesh: Box<dyn WebGPUSceneMesh> = Box::new(mesh.into());
+    let mesh = SceneMeshType::Foreign(Arc::new(mesh));
+
     let material = PhysicalSpecularGlossinessMaterial {
       albedo: Vec3::splat(1.),
       albedo_texture: texture.clone().into(),
       ..Default::default()
-    }
-    .use_state();
+    };
+    let material = SceneMaterialType::PhysicalSpecularGlossiness(material.into());
 
     let child = scene.root().create_child();
     child.set_local_matrix(Mat4::translate((2., 0., 3.)));
 
-    let model: SceneModel<_, _> = SceneModelImpl::new(material, mesh, child).into();
-    let _ = scene.add_model(model);
-    // let model_handle = scene.add_model(model);
-    // scene.remove_model(model_handle);
+    let model = StandardModel {
+      material: material.into(),
+      mesh: mesh.into(),
+      group: Default::default(),
+    };
+    let model = SceneModelType::Standard(model.into());
+    let model = SceneModelImpl { model, node: child };
+    let _ = scene.models.insert(model.into());
   }
 
   {
@@ -150,16 +157,25 @@ pub fn load_default_scene(scene: &mut Scene) {
         Mat4::translate((10., 0., 6.)),
       ],
     };
+    let mesh: Box<dyn WebGPUSceneMesh> = Box::new(mesh.into());
+    let mesh = SceneMeshType::Foreign(Arc::new(mesh));
+
     let material = PhysicalSpecularGlossinessMaterial {
       albedo: Vec3::splat(1.),
       albedo_texture: texture.clone().into(),
       ..Default::default()
-    }
-    .use_state();
+    };
+    let material = SceneMaterialType::PhysicalSpecularGlossiness(material.into());
+    let child = scene.root().create_child();
 
-    let model: SceneModel<_, _> =
-      SceneModelImpl::new(material, mesh, scene.root().create_child()).into();
-    let _ = scene.add_model(model);
+    let model = StandardModel {
+      material: material.into(),
+      mesh: mesh.into(),
+      group: Default::default(),
+    };
+    let model = SceneModelType::Standard(model.into());
+    let model = SceneModelImpl { model, node: child };
+    let _ = scene.models.insert(model.into());
   }
 
   let up = Vec3::new(0., 1., 0.);
@@ -187,12 +203,12 @@ pub fn load_default_scene(scene: &mut Scene) {
     color_factor: Vec3::one(),
     ext: Default::default(),
   };
+  let directional_light = SceneLightKind::DirectionalLight(directional_light.into());
   let directional_light = SceneLightInner {
     light: directional_light,
     node: directional_light_node,
   };
-  let directional_light = SceneItemRef::new(directional_light);
-  scene.lights.insert(Box::new(directional_light));
+  scene.lights.insert(directional_light.into());
 
   let directional_light_node = scene.root().create_child();
   directional_light_node.set_local_matrix(Mat4::lookat(
@@ -205,12 +221,12 @@ pub fn load_default_scene(scene: &mut Scene) {
     color_factor: Vec3::new(5., 3., 2.) / Vec3::splat(5.),
     ext: Default::default(),
   };
+  let directional_light = SceneLightKind::DirectionalLight(directional_light.into());
   let directional_light = SceneLightInner {
     light: directional_light,
     node: directional_light_node,
   };
-  let directional_light = SceneItemRef::new(directional_light);
-  scene.lights.insert(Box::new(directional_light));
+  scene.lights.insert(directional_light.into());
 
   let point_light_node = scene.root().create_child();
   point_light_node.set_local_matrix(Mat4::translate((2., 2., 2.)));
@@ -220,12 +236,12 @@ pub fn load_default_scene(scene: &mut Scene) {
     cutoff_distance: 40.,
     ext: Default::default(),
   };
+  let point_light = SceneLightKind::PointLight(point_light.into());
   let point_light = SceneLightInner {
     light: point_light,
     node: point_light_node,
   };
-  let point_light = SceneItemRef::new(point_light);
-  scene.lights.insert(Box::new(point_light));
+  scene.lights.insert(point_light.into());
 
   let spot_light_node = scene.root().create_child();
   spot_light_node.set_local_matrix(Mat4::lookat(Vec3::new(-5., 5., 5.), Vec3::splat(0.), up));
@@ -237,10 +253,10 @@ pub fn load_default_scene(scene: &mut Scene) {
     half_penumbra_angle: Deg::by(5. / 2.).to_rad(),
     ext: Default::default(),
   };
+  let spot_light = SceneLightKind::SpotLight(spot_light.into());
   let spot_light = SceneLightInner {
     light: spot_light,
     node: spot_light_node,
   };
-  let point_light = SceneItemRef::new(spot_light);
-  scene.lights.insert(Box::new(point_light));
+  scene.lights.insert(spot_light.into());
 }

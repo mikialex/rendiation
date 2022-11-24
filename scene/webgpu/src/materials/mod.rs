@@ -20,7 +20,7 @@ pub trait WebGPUMaterial: Clone + Any {
   fn is_transparent(&self) -> bool;
 }
 
-pub trait WebGPUSceneMaterial {
+pub trait WebGPUSceneMaterial: Send + Sync {
   fn check_update_gpu<'a>(
     &self,
     res: &'a mut GPUMaterialCache,
@@ -85,7 +85,7 @@ impl WebGPUSceneMaterial for SceneMaterialType {
   }
 }
 
-impl<M: WebGPUMaterial> WebGPUSceneMaterial for SceneItemRef<M> {
+impl<M: WebGPUMaterial + Send + Sync> WebGPUSceneMaterial for SceneItemRef<M> {
   fn check_update_gpu<'a>(
     &self,
     res: &'a mut GPUMaterialCache,
