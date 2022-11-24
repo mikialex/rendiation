@@ -1,16 +1,16 @@
 #![feature(local_key_cell_methods)]
 
-use std::collections::HashMap;
 use std::path::Path;
+use std::{collections::HashMap, sync::Arc};
 
 use __core::num::NonZeroU64;
 use gltf::{Node, Result as GltfResult};
 use rendiation_algebra::*;
 use rendiation_scene_core::{
-  AttributeAccessor, AttributesMesh, BufferViewRange, ForeignImplemented, GeometryBuffer,
-  GeometryBufferInner, IndexFormat, NormalMapping, PhysicalMetallicRoughnessMaterial, Scene,
-  SceneMaterialType, SceneMeshType, SceneModel, SceneModelHandle, SceneModelImpl, SceneModelType,
-  SceneNode, SceneTexture2D, SceneTexture2DType, StandardModel, Texture2DWithSamplingData,
+  AttributeAccessor, AttributesMesh, BufferViewRange, GeometryBuffer, GeometryBufferInner,
+  IndexFormat, NormalMapping, PhysicalMetallicRoughnessMaterial, Scene, SceneMaterialType,
+  SceneMeshType, SceneModel, SceneModelHandle, SceneModelImpl, SceneModelType, SceneNode,
+  SceneTexture2D, SceneTexture2DType, StandardModel, Texture2DWithSamplingData,
   TextureWithSamplingData, TypedBufferView,
 };
 use shadergraph::*;
@@ -158,16 +158,6 @@ pub struct GltfImage {
   size: rendiation_texture::Size,
 }
 
-impl ForeignImplemented for GltfImage {
-  fn as_any(&self) -> &dyn std::any::Any {
-    self
-  }
-
-  fn as_mut_any(&mut self) -> &mut dyn std::any::Any {
-    self
-  }
-}
-
 impl WebGPU2DTextureSource for GltfImage {
   fn format(&self) -> webgpu::TextureFormat {
     self.format
@@ -217,7 +207,7 @@ fn build_image(data_input: gltf::image::Data) -> SceneTexture2D {
   let size = rendiation_texture::Size::from_u32_pair_min_one((data_input.width, data_input.height));
 
   let image = GltfImage { data, format, size };
-  let image = SceneTexture2DType::Foreign(Box::new(image));
+  let image = SceneTexture2DType::Foreign(Arc::new(image));
   SceneTexture2D::new(image)
 }
 

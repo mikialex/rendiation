@@ -1,9 +1,5 @@
 use crate::*;
 
-pub type SceneFatlineMaterial = StateControl<FatLineMaterial>;
-
-// pub type FatlineImpl = SceneModelImpl<FatlineMesh, SceneFatlineMaterial>;
-
 impl SceneRenderable for SceneModel {
   fn is_transparent(&self) -> bool {
     self.visit(|model| model.is_transparent())
@@ -93,7 +89,7 @@ pub fn setup_pass_core(
       RenderEmitter::new(components.as_slice()).render(&mut pass.ctx, &emitter);
     }
     SceneModelType::Foreign(model) => {
-      if let Some(model) = model.as_any().downcast_ref::<Box<dyn SceneRenderable>>() {
+      if let Some(model) = model.downcast_ref::<Box<dyn SceneRenderable>>() {
         model.render(pass, dispatcher, camera)
       }
     }
@@ -106,7 +102,7 @@ impl SceneRenderable for SceneModelImpl {
     match &self.model {
       SceneModelType::Standard(model) => model.read().material.read().is_transparent(),
       SceneModelType::Foreign(model) => {
-        if let Some(model) = model.as_any().downcast_ref::<Box<dyn SceneRenderable>>() {
+        if let Some(model) = model.downcast_ref::<Box<dyn SceneRenderable>>() {
           model.is_transparent()
         } else {
           false
@@ -162,10 +158,7 @@ pub fn ray_pick_nearest_core(
       picked
     }
     SceneModelType::Foreign(model) => {
-      if let Some(model) = model
-        .as_any()
-        .downcast_ref::<Box<dyn SceneRayInteractive>>()
-      {
+      if let Some(model) = model.downcast_ref::<Box<dyn SceneRayInteractive>>() {
         model.ray_pick_nearest(ctx)
       } else {
         OptionalNearest::none()

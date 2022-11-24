@@ -10,7 +10,7 @@ pub type SceneMesh = SceneItemRef<SceneMeshType>;
 #[non_exhaustive]
 pub enum SceneMeshType {
   AttributesMesh(SceneItemRef<AttributesMesh>),
-  Foreign(Box<dyn ForeignImplemented>),
+  Foreign(Arc<dyn Any + Send + Sync>),
 }
 
 /// Vertex attribute semantic name.

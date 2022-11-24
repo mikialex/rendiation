@@ -44,8 +44,8 @@ type ArrowTipMesh = impl WebGPUMesh + Clone;
 type ArrowBodyMesh = impl WebGPUMesh + Clone;
 
 pub struct Arrow {
-  cylinder: OverridableMeshModelImpl<ArrowBodyMesh, ArrowMaterial>,
-  tip: OverridableMeshModelImpl<ArrowTipMesh, ArrowMaterial>,
+  cylinder: OverridableMeshModelImpl,
+  tip: OverridableMeshModelImpl,
   pub root: SceneNode,
 }
 

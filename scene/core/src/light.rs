@@ -7,7 +7,7 @@ pub enum SceneLightKind {
   PointLight(SceneItemRef<PointLight>),
   SpotLight(SceneItemRef<SpotLight>),
   DirectionalLight(SceneItemRef<DirectionalLight>),
-  Foreign(Box<dyn ForeignImplemented>),
+  Foreign(Arc<dyn Any + Send + Sync>),
 }
 
 pub type SceneLight = SceneItemRef<SceneLightInner>;

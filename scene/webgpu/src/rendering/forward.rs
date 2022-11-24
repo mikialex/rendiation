@@ -6,7 +6,7 @@ pub fn get_main_pass_load_op(scene: &Scene) -> webgpu::Operations<webgpu::Color>
       SceneBackGround::Solid(bg) => bg.require_pass_clear(),
       SceneBackGround::Env(bg) => bg.require_pass_clear(),
       SceneBackGround::Foreign(bg) => {
-        if let Some(bg) = bg.as_any().downcast_ref::<Box<dyn WebGPUBackground>>() {
+        if let Some(bg) = bg.downcast_ref::<Box<dyn WebGPUBackground>>() {
           bg.require_pass_clear()
         } else {
           None

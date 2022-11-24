@@ -9,8 +9,6 @@ pub trait RayTracingBackground: Send + Sync + 'static + dyn_clone::DynClone {
   }
 }
 
-dyn_clone::clone_trait_object!(RayTracingBackground);
-
 impl RayTracingBackground for SceneBackGround {
   fn sample(&self, ray: &Ray3) -> Vec3<f32> {
     match self {
@@ -20,7 +18,7 @@ impl RayTracingBackground for SceneBackGround {
         Vec3::zero()
       }
       SceneBackGround::Foreign(bg) => {
-        if let Some(bg) = bg.as_any().downcast_ref::<Box<dyn RayTracingBackground>>() {
+        if let Some(bg) = bg.downcast_ref::<Box<dyn RayTracingBackground>>() {
           bg.sample(ray)
         } else {
           Vec3::zero()

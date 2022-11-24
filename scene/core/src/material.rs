@@ -9,7 +9,7 @@ pub enum SceneMaterialType {
   PhysicalSpecularGlossiness(SceneItemRef<PhysicalSpecularGlossinessMaterial>),
   PhysicalMetallicRoughness(SceneItemRef<PhysicalMetallicRoughnessMaterial>),
   Flat(SceneItemRef<FlatMaterial>),
-  Foreign(Box<dyn ForeignImplemented>),
+  Foreign(Arc<dyn Any + Send + Sync>),
 }
 
 /// The alpha rendering mode of a material.

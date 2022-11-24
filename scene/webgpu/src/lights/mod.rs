@@ -47,7 +47,7 @@ impl WebGPUSceneLight for SceneLight {
       SceneLightKind::SpotLight(l) => l.pre_update(ctx, node),
       SceneLightKind::DirectionalLight(l) => l.pre_update(ctx, node),
       SceneLightKind::Foreign(l) => {
-        if let Some(l) = l.as_any().downcast_ref::<Box<dyn WebGPUSceneLight>>() {
+        if let Some(l) = l.downcast_ref::<Box<dyn WebGPUSceneLight>>() {
           l.pre_update(ctx, node);
         }
       }
@@ -64,7 +64,7 @@ impl WebGPUSceneLight for SceneLight {
       SceneLightKind::SpotLight(l) => l.update(ctx, node),
       SceneLightKind::DirectionalLight(l) => l.update(ctx, node),
       SceneLightKind::Foreign(l) => {
-        if let Some(l) = l.as_any().downcast_ref::<Box<dyn WebGPUSceneLight>>() {
+        if let Some(l) = l.downcast_ref::<Box<dyn WebGPUSceneLight>>() {
           l.update(ctx, node);
         }
       }

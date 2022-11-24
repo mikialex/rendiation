@@ -481,7 +481,7 @@ type AutoScale = Rc<RefCell<ViewAutoScalable>>;
 
 type FlatUtilMaterial = StateControl<FlatMaterial>;
 type PlaneMesh = impl WebGPUMesh;
-type PlaneModel = OverridableMeshModelImpl<PlaneMesh, FlatUtilMaterial>;
+type PlaneModel = OverridableMeshModelImpl;
 fn build_plane(root: &SceneNode, auto_scale: &AutoScale, mat: Mat4<f32>) -> PlaneModel {
   let mesh = IndexedMeshBuilder::<TriangleList, Vec<Vertex>>::default()
     .triangulate_parametric(
@@ -497,14 +497,15 @@ fn build_plane(root: &SceneNode, auto_scale: &AutoScale, mat: Mat4<f32>) -> Plan
 
   let plane = root.create_child();
   plane.set_local_matrix(mat);
-  let mut plane = SceneModelImpl::new(material, mesh, plane).into_matrix_overridable();
+  let model = SceneModelType::Foreign(SceneModelImpl::new(material, mesh, plane).into_matrix_overridable())
+  // let mut plane = ;
 
   plane.push_override(auto_scale.clone());
   plane
 }
 
 type RotatorMesh = impl WebGPUMesh;
-type RotatorModel = OverridableMeshModelImpl<RotatorMesh, FlatUtilMaterial>;
+type RotatorModel = OverridableMeshModelImpl;
 fn build_rotator(root: &SceneNode, auto_scale: &AutoScale, mat: Mat4<f32>) -> RotatorModel {
   let mesh = IndexedMeshBuilder::<TriangleList, Vec<Vertex>>::default()
     .triangulate_parametric(

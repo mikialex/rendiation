@@ -8,6 +8,8 @@ mod frame;
 mod integrator;
 mod sampling;
 
+use std::sync::Arc;
+
 pub use sampling::*;
 
 pub use frame::*;
@@ -43,15 +45,6 @@ use tree::TreeNodeHandle;
 pub struct RayTracingSceneModel {
   pub shape: Box<dyn Shape>,
   pub material: Box<dyn Material>,
-}
-
-impl ForeignImplemented for RayTracingSceneModel {
-  fn as_any(&self) -> &dyn std::any::Any {
-    self
-  }
-  fn as_mut_any(&mut self) -> &mut dyn std::any::Any {
-    self
-  }
 }
 
 // pub struct LightNode {
@@ -93,7 +86,7 @@ impl RayTracingSceneExt for Scene {
       shape: Box::new(shape),
       material: Box::new(material),
     };
-    let model = SceneModelType::Foreign(Box::new(model));
+    let model = SceneModelType::Foreign(Arc::new(model));
     let model = SceneModelImpl { node, model };
     let _ = self.models.insert(model.into());
     self
@@ -111,7 +104,7 @@ impl RayTracingSceneExt for Scene {
       shape: Box::new(shape),
       material: Box::new(material),
     };
-    let model = SceneModelType::Foreign(Box::new(model));
+    let model = SceneModelType::Foreign(Arc::new(model));
     let model = SceneModelImpl { node, model };
     let _ = self.models.insert(model.into());
     self
@@ -133,7 +126,7 @@ impl RayTracingSceneExt for Scene {
     for (_, model) in self.models.iter() {
       let model = model.read();
       if let SceneModelType::Foreign(foreign) = &model.model {
-        if let Some(retraceable) = foreign.as_any().downcast_ref::<RayTracingSceneModel>() {
+        if let Some(retraceable) = foreign.downcast_ref::<RayTracingSceneModel>() {
           model.node.visit(|node_data| {
             let mut model = Model {
               shape: retraceable.shape.clone(),
@@ -176,11 +169,8 @@ impl RayTracingSceneExt for Scene {
         }
         SceneBackGround::Env(_) => {}
         SceneBackGround::Foreign(foreign) => {
-          if let Some(retraceable_bg) = foreign
-            .as_any()
-            .downcast_ref::<Box<dyn RayTracingBackground>>()
-          {
-            result.env = Some(retraceable_bg.clone());
+          if let Some(retraceable_bg) = foreign.downcast_ref::<Box<dyn RayTracingBackground>>() {
+            result.env = Some(dyn_clone::clone_box(&**retraceable_bg));
           }
         }
         _ => {}

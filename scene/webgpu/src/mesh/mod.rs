@@ -9,7 +9,7 @@ pub use free_attributes::*;
 
 use crate::*;
 
-pub trait WebGPUSceneMesh {
+pub trait WebGPUSceneMesh: Any + Send + Sync {
   fn check_update_gpu<'a>(
     &self,
     res: &'a mut GPUMeshCache,
@@ -34,7 +34,7 @@ impl WebGPUSceneMesh for SceneMeshType {
     match self {
       SceneMeshType::AttributesMesh(m) => m.check_update_gpu(res, sub_res, gpu),
       SceneMeshType::Foreign(mesh) => {
-        if let Some(mesh) = mesh.as_any().downcast_ref::<Box<dyn WebGPUSceneMesh>>() {
+        if let Some(mesh) = mesh.downcast_ref::<Box<dyn WebGPUSceneMesh>>() {
           mesh.check_update_gpu(res, sub_res, gpu)
         } else {
           &()
@@ -48,7 +48,7 @@ impl WebGPUSceneMesh for SceneMeshType {
     match self {
       SceneMeshType::AttributesMesh(m) => WebGPUSceneMesh::topology(m),
       SceneMeshType::Foreign(mesh) => {
-        if let Some(mesh) = mesh.as_any().downcast_ref::<Box<dyn WebGPUSceneMesh>>() {
+        if let Some(mesh) = mesh.downcast_ref::<Box<dyn WebGPUSceneMesh>>() {
           mesh.topology()
         } else {
           webgpu::PrimitiveTopology::TriangleList
@@ -62,7 +62,7 @@ impl WebGPUSceneMesh for SceneMeshType {
     match self {
       SceneMeshType::AttributesMesh(m) => WebGPUSceneMesh::draw_impl(m, group),
       SceneMeshType::Foreign(mesh) => {
-        if let Some(mesh) = mesh.as_any().downcast_ref::<Box<dyn WebGPUSceneMesh>>() {
+        if let Some(mesh) = mesh.downcast_ref::<Box<dyn WebGPUSceneMesh>>() {
           mesh.draw_impl(group)
         } else {
           DrawCommand::Skip
@@ -146,7 +146,7 @@ impl GPUMeshCache {
 }
 
 type MeshIdentityMapper<T> = IdentityMapper<<T as WebGPUMesh>::GPU, T>;
-pub trait WebGPUMesh: Any {
+pub trait WebGPUMesh: Any + Send + Sync {
   type GPU: RenderComponent;
   fn update(&self, gpu_mesh: &mut Self::GPU, gpu: &GPU, storage: &mut AnyMap);
   fn create(&self, gpu: &GPU, storage: &mut AnyMap) -> Self::GPU;
@@ -205,7 +205,7 @@ impl<T: IntersectAbleGroupedMesh> IntersectAbleGroupedMesh for MeshSource<T> {
 
 impl<T> WebGPUMesh for MeshSource<T>
 where
-  T: GPUMeshData<GPU = TypedMeshGPU<T>> + IntersectAbleGroupedMesh + Any,
+  T: GPUMeshData<GPU = TypedMeshGPU<T>> + IntersectAbleGroupedMesh + Any + Send + Sync,
 {
   type GPU = TypedMeshGPU<T>;
 

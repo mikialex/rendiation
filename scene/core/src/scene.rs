@@ -27,11 +27,6 @@ pub struct Scene {
   pub ext: DynamicExtension,
 }
 
-pub trait ForeignImplemented: std::any::Any + dyn_clone::DynClone + Send + Sync {
-  fn as_any(&self) -> &dyn std::any::Any;
-  fn as_mut_any(&mut self) -> &mut dyn std::any::Any;
-}
-
 #[derive(Default, Clone, Debug)]
 pub struct DynamicExtension {
   inner: HashMap<std::any::TypeId, std::rc::Rc<dyn std::any::Any>>,

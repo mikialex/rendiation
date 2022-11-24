@@ -29,6 +29,7 @@ pub mod identity;
 pub use identity::*;
 
 use rendiation_algebra::*;
+use std::any::Any;
 use std::{
   collections::{HashMap, HashSet},
   marker::PhantomData,

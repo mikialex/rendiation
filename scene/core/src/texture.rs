@@ -18,7 +18,7 @@ pub enum SceneTexture2DType {
   RGBAu8(Texture2DBuffer<Vec4<u8>>),
   RGBu8(Texture2DBuffer<Vec3<u8>>),
   RGBAf32(Texture2DBuffer<Vec4<f32>>),
-  Foreign(Box<dyn ForeignImplemented>),
+  Foreign(Arc<dyn Any + Send + Sync>),
 }
 
 pub type SceneTextureCube = SceneItemRef<SceneTextureCubeImpl>;

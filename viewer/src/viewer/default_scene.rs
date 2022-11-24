@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use image::*;
 use rendiation_algebra::*;
 use rendiation_mesh_generator::{
@@ -19,7 +21,7 @@ pub fn load_img(path: &str) -> ImageBuffer<Rgba<u8>, Vec<u8>> {
   }
 }
 
-pub fn load_img_cube() -> <WebGPUScene as SceneContent>::TextureCube {
+pub fn load_img_cube() -> SceneTextureCube {
   let path = [
     "C:/Users/mk/Desktop/rrf-resource/Park2/posx.jpg",
     "C:/Users/mk/Desktop/rrf-resource/Park2/negx.jpg",
@@ -29,8 +31,9 @@ pub fn load_img_cube() -> <WebGPUScene as SceneContent>::TextureCube {
     "C:/Users/mk/Desktop/rrf-resource/Park2/negz.jpg",
   ];
 
-  fn load(path: &&str) -> Box<dyn WebGPU2DTextureSource> {
-    Box::new(load_img(path).into_source())
+  fn load(path: &&str) -> SceneTexture2D {
+    let boxed: Box<dyn WebGPU2DTextureSource> = Box::new(load_img(path).into_source());
+    SceneTexture2DType::Foreign(boxed).into()
   }
 
   // https://github.com/rust-lang/rust/issues/81615
@@ -53,7 +56,7 @@ pub fn load_default_scene(scene: &mut Scene) {
     "/Users/mikialex/Desktop/test.png"
   };
 
-  let texture = SceneTexture2D::::new(Box::new(load_img(path).into_source()));
+  let texture = SceneTexture2D::new(Box::new(load_img(path).into_source()));
   let texture = TextureWithSamplingData {
     texture,
     sampler: TextureSampler::default(),
@@ -79,7 +82,7 @@ pub fn load_default_scene(scene: &mut Scene) {
       )
       .build_mesh_into();
     let mesh = MeshSource::new(mesh);
-    let material = PhysicalSpecularGlossinessMaterial:: {
+    let material = PhysicalSpecularGlossinessMaterial {
       albedo: Vec3::splat(1.),
       albedo_texture: texture.clone().into(),
       ..Default::default()
@@ -107,16 +110,25 @@ pub fn load_default_scene(scene: &mut Scene) {
     }
     let mesh = builder.build_mesh();
     let mesh = MeshSource::new(mesh);
-    let material = PhysicalSpecularGlossinessMaterial:: {
+    let mesh: Box<dyn WebGPUSceneMesh> = Box::new(mesh.into());
+    let mesh = SceneMeshType::Foreign(Arc::new(mesh));
+
+    let material = PhysicalSpecularGlossinessMaterial {
       albedo: Vec3::splat(1.),
       albedo_texture: texture.clone().into(),
       ..Default::default()
-    }
-    .use_state();
+    };
+    let material = SceneMaterialType::PhysicalSpecularGlossiness(material.into());
     let child = scene.root().create_child();
 
-    let model: SceneModel<_, _> = SceneModelImpl::new(material, mesh, child).into();
-    let _ = scene.add_model(model);
+    let model = StandardModel {
+      material: material.into(),
+      mesh: mesh.into(),
+      group: Default::default(),
+    };
+    let model = SceneModelType::Standard(model.into());
+    let model = SceneModelImpl { model, node: child };
+    let _ = scene.models.insert(model.into());
   }
 
   {
@@ -138,7 +150,7 @@ pub fn load_default_scene(scene: &mut Scene) {
         Mat4::translate((10., 0., 6.)),
       ],
     };
-    let material = PhysicalSpecularGlossinessMaterial:: {
+    let material = PhysicalSpecularGlossinessMaterial {
       albedo: Vec3::splat(1.),
       albedo_texture: texture.clone().into(),
       ..Default::default()
@@ -165,7 +177,7 @@ pub fn load_default_scene(scene: &mut Scene) {
     let camera_node = scene.root().create_child();
     camera_node.set_local_matrix(Mat4::lookat(Vec3::splat(3.), Vec3::splat(0.), up));
     let camera = SceneCamera::create_camera(camera, camera_node);
-    let _ = scene.add_camera(camera);
+    let _ = scene.cameras.insert(camera);
   }
 
   let directional_light_node = scene.root().create_child();
@@ -173,6 +185,7 @@ pub fn load_default_scene(scene: &mut Scene) {
   let directional_light = DirectionalLight {
     illuminance: 5.,
     color_factor: Vec3::one(),
+    ext: Default::default(),
   };
   let directional_light = SceneLightInner {
     light: directional_light,
@@ -190,6 +203,7 @@ pub fn load_default_scene(scene: &mut Scene) {
   let directional_light = DirectionalLight {
     illuminance: 5.,
     color_factor: Vec3::new(5., 3., 2.) / Vec3::splat(5.),
+    ext: Default::default(),
   };
   let directional_light = SceneLightInner {
     light: directional_light,
@@ -204,6 +218,7 @@ pub fn load_default_scene(scene: &mut Scene) {
     color_factor: Vec3::new(5., 3., 2.) / Vec3::splat(5.),
     luminance_intensity: 5.,
     cutoff_distance: 40.,
+    ext: Default::default(),
   };
   let point_light = SceneLightInner {
     light: point_light,
@@ -220,6 +235,7 @@ pub fn load_default_scene(scene: &mut Scene) {
     cutoff_distance: 40.,
     half_cone_angle: Deg::by(5. / 2.).to_rad(),
     half_penumbra_angle: Deg::by(5. / 2.).to_rad(),
+    ext: Default::default(),
   };
   let spot_light = SceneLightInner {
     light: spot_light,

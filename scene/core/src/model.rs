@@ -5,7 +5,7 @@ use crate::*;
 #[non_exhaustive]
 pub enum SceneModelType {
   Standard(SceneItemRef<StandardModel>),
-  Foreign(Box<dyn ForeignImplemented>),
+  Foreign(Arc<dyn Any + Send + Sync>),
 }
 
 pub type SceneModel = SceneItemRef<SceneModelImpl>;

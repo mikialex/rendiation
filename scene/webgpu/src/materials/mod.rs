@@ -43,7 +43,7 @@ impl WebGPUSceneMaterial for SceneMaterialType {
       SceneMaterialType::PhysicalMetallicRoughness(m) => m.check_update_gpu(res, sub_res, gpu),
       SceneMaterialType::Flat(m) => m.check_update_gpu(res, sub_res, gpu),
       SceneMaterialType::Foreign(m) => {
-        if let Some(m) = m.as_any().downcast_ref::<Box<dyn WebGPUSceneMaterial>>() {
+        if let Some(m) = m.downcast_ref::<Box<dyn WebGPUSceneMaterial>>() {
           m.check_update_gpu(res, sub_res, gpu)
         } else {
           &()
@@ -59,7 +59,7 @@ impl WebGPUSceneMaterial for SceneMaterialType {
       SceneMaterialType::PhysicalMetallicRoughness(m) => m.is_keep_mesh_shape(),
       SceneMaterialType::Flat(m) => m.is_keep_mesh_shape(),
       SceneMaterialType::Foreign(m) => {
-        if let Some(m) = m.as_any().downcast_ref::<Box<dyn WebGPUSceneMaterial>>() {
+        if let Some(m) = m.downcast_ref::<Box<dyn WebGPUSceneMaterial>>() {
           m.is_keep_mesh_shape()
         } else {
           true
@@ -74,7 +74,7 @@ impl WebGPUSceneMaterial for SceneMaterialType {
       SceneMaterialType::PhysicalMetallicRoughness(m) => m.is_transparent(),
       SceneMaterialType::Flat(m) => m.is_transparent(),
       SceneMaterialType::Foreign(m) => {
-        if let Some(m) = m.as_any().downcast_ref::<Box<dyn WebGPUSceneMaterial>>() {
+        if let Some(m) = m.downcast_ref::<Box<dyn WebGPUSceneMaterial>>() {
           m.is_transparent()
         } else {
           false

@@ -9,7 +9,8 @@ pub mod grid;
 pub mod ground;
 
 pub type HelperLineMesh = FatlineMesh;
-pub type HelperLineModel = FatlineImpl;
+pub type HelperLineModel = SceneModelImpl;
+// pub type HelperLineModel = SceneModelImpl<FatlineMesh, StateControl<FatLineMaterial>>;
 
 /// just add premultiplied alpha to shader
 pub struct WidgetDispatcher {
@@ -58,4 +59,8 @@ impl ShaderGraphProvider for WidgetDispatcher {
       builder.set_fragment_out(0, new)
     })
   }
+}
+
+struct HelperMesh {
+  // inner:
 }

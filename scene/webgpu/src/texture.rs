@@ -42,7 +42,6 @@ fn as_2d_source(tex: &SceneTexture2DType) -> Option<&dyn WebGPU2DTextureSource> 
     SceneTexture2DType::RGBu8(tex) => Some(tex),
     SceneTexture2DType::RGBAf32(tex) => Some(tex),
     SceneTexture2DType::Foreign(tex) => tex
-      .as_any()
       .downcast_ref::<Box<dyn WebGPU2DTextureSource>>()
       .map(|t| t.as_ref()),
     _ => None,

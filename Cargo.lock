@@ -2405,6 +2405,7 @@ dependencies = [
  "arena",
  "arena-graph",
  "bytemuck",
+ "dyn-clone",
  "linked-hash-map",
  "log",
  "once_cell",
