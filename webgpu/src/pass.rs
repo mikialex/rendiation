@@ -10,6 +10,8 @@ pub trait ShaderPassBuilder {
   }
 }
 
+impl ShaderPassBuilder for () {}
+
 #[derive(Clone)]
 pub enum RenderTargetView {
   Texture(GPU2DTextureView),
@@ -241,6 +243,7 @@ impl<'a> GPURenderPass<'a> {
         vertices,
         instances,
       } => self.draw(vertices, instances),
+      _ => {}
     }
   }
 }
@@ -255,4 +258,5 @@ pub enum DrawCommand {
     vertices: Range<u32>,
     instances: Range<u32>,
   },
+  Skip,
 }

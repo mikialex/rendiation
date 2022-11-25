@@ -117,7 +117,6 @@ impl<'a> ShaderGraphProvider for AOComputer<'a> {
     &self,
     builder: &mut ShaderGraphRenderPipelineBuilder,
   ) -> Result<(), ShaderGraphBuildError> {
-    builder.log_result = true;
     builder.fragment(|builder, binding| {
       let depth_tex = binding.uniform_by(&self.depth, SB::Pass);
       let parameter = binding

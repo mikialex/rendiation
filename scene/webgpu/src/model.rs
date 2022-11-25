@@ -1,14 +1,6 @@
 use crate::*;
 
-pub type SceneFatlineMaterial = StateControl<FatLineMaterial>;
-
-pub type FatlineImpl = MeshModelImpl<FatlineMesh, SceneFatlineMaterial>;
-
-impl<Me, Ma> SceneRenderable for MeshModel<Me, Ma>
-where
-  Me: WebGPUMesh,
-  Ma: WebGPUMaterial,
-{
+impl SceneRenderable for SceneModel {
   fn is_transparent(&self) -> bool {
     self.visit(|model| model.is_transparent())
   }
@@ -22,23 +14,19 @@ where
   }
 }
 
-impl<Me, Ma> SceneRayInteractive for MeshModel<Me, Ma>
-where
-  Me: WebGPUMesh,
-  Ma: WebGPUMaterial,
-{
+impl SceneRayInteractive for SceneModel {
   fn ray_pick_nearest(&self, ctx: &SceneRayInteractiveCtx) -> OptionalNearest<MeshBufferHitPoint> {
     self.visit(|model| model.ray_pick_nearest(ctx))
   }
 }
 
-impl<Me, Ma> SceneNodeControlled for MeshModel<Me, Ma> {
+impl SceneNodeControlled for SceneModel {
   fn visit_node(&self, visitor: &mut dyn FnMut(&SceneNode)) {
     self.visit(|model| visitor(&model.node))
   }
 }
 
-impl<Me, Ma> SceneRenderableShareable for MeshModel<Me, Ma>
+impl SceneRenderableShareable for SceneModel
 where
   Self: SceneRenderable + Clone + 'static,
 {
@@ -56,58 +44,72 @@ where
   }
 }
 
-pub fn setup_pass_core<Me, Ma>(
-  model: &MeshModelImpl<Me, Ma>,
+pub fn setup_pass_core(
+  model_input: &SceneModelImpl,
   pass: &mut SceneRenderPass,
   camera: &SceneCamera,
   override_node: Option<&TransformGPU>,
   dispatcher: &dyn RenderComponentAny,
-) where
-  Me: WebGPUMesh,
-  Ma: WebGPUMaterial,
-{
-  let gpu = pass.ctx.gpu;
-  let resources = &mut pass.resources;
-  let pass_gpu = dispatcher;
-  let camera_gpu = resources.cameras.check_update_gpu(camera, gpu);
+) {
+  match &model_input.model {
+    SceneModelType::Standard(model) => {
+      let model = model.read();
+      let gpu = pass.ctx.gpu;
+      let resources = &mut pass.resources;
+      let pass_gpu = dispatcher;
+      let camera_gpu = resources.cameras.check_update_gpu(camera, gpu);
 
-  let net_visible = model.node.visit(|n| n.net_visible());
-  if !net_visible {
-    return;
-  }
+      let net_visible = model_input.node.visit(|n| n.net_visible());
+      if !net_visible {
+        return;
+      }
 
-  let node_gpu =
-    override_node.unwrap_or_else(|| resources.nodes.check_update_gpu(&model.node, gpu));
+      let node_gpu =
+        override_node.unwrap_or_else(|| resources.nodes.check_update_gpu(&model_input.node, gpu));
 
-  let material = model.material.read();
-  let material_gpu =
-    material.check_update_gpu(&mut resources.scene.materials, &mut resources.content, gpu);
+      let material = model.material.read();
+      let material_gpu =
+        material.check_update_gpu(&mut resources.scene.materials, &mut resources.content, gpu);
 
-  let mesh = model.mesh.read();
-  let mesh_gpu = mesh.check_update_gpu(
-    &mut resources.scene.meshes,
-    &mut resources.custom_storage,
-    gpu,
-  );
+      let mesh = model.mesh.read();
+      let mesh_gpu = mesh.check_update_gpu(
+        &mut resources.scene.meshes,
+        &mut resources.custom_storage,
+        gpu,
+      );
 
-  let components = [pass_gpu, mesh_gpu, node_gpu, camera_gpu, material_gpu];
+      let components = [pass_gpu, mesh_gpu, node_gpu, camera_gpu, material_gpu];
 
-  let mesh: &dyn MeshDrawcallEmitter = mesh.deref();
-  let emitter = MeshDrawcallEmitterWrap {
-    group: model.group,
-    mesh,
+      let mesh: &dyn MeshDrawcallEmitter = &model.mesh;
+      let emitter = MeshDrawcallEmitterWrap {
+        group: model.group,
+        mesh,
+      };
+
+      RenderEmitter::new(components.as_slice()).render(&mut pass.ctx, &emitter);
+    }
+    SceneModelType::Foreign(model) => {
+      if let Some(model) = model.downcast_ref::<Box<dyn SceneRenderable>>() {
+        model.render(pass, dispatcher, camera)
+      }
+    }
+    _ => {}
   };
-
-  RenderEmitter::new(components.as_slice()).render(&mut pass.ctx, &emitter);
 }
 
-impl<Me, Ma> SceneRenderable for MeshModelImpl<Me, Ma>
-where
-  Me: WebGPUMesh,
-  Ma: WebGPUMaterial,
-{
+impl SceneRenderable for SceneModelImpl {
   fn is_transparent(&self) -> bool {
-    self.material.visit(|mat| mat.is_transparent())
+    match &self.model {
+      SceneModelType::Standard(model) => model.read().material.read().is_transparent(),
+      SceneModelType::Foreign(model) => {
+        if let Some(model) = model.downcast_ref::<Box<dyn SceneRenderable>>() {
+          model.is_transparent()
+        } else {
+          false
+        }
+      }
+      _ => false,
+    }
   }
   fn render(
     &self,
@@ -119,48 +121,55 @@ where
   }
 }
 
-pub fn ray_pick_nearest_core<Me, Ma>(
-  model: &MeshModelImpl<Me, Ma>,
+pub fn ray_pick_nearest_core(
+  m: &SceneModelImpl,
   ctx: &SceneRayInteractiveCtx,
   world_mat: Mat4<f32>,
-) -> OptionalNearest<MeshBufferHitPoint>
-where
-  Me: WebGPUMesh,
-  Ma: WebGPUMaterial,
-{
-  let net_visible = model.node.visit(|n| n.net_visible());
-  if !net_visible {
-    return OptionalNearest::none();
-  }
+) -> OptionalNearest<MeshBufferHitPoint> {
+  match &m.model {
+    SceneModelType::Standard(model) => {
+      let net_visible = m.node.visit(|n| n.net_visible());
+      if !net_visible {
+        return OptionalNearest::none();
+      }
 
-  let world_inv = world_mat.inverse_or_identity();
+      let world_inv = world_mat.inverse_or_identity();
 
-  let local_ray = ctx.world_ray.clone().apply_matrix_into(world_inv);
+      let local_ray = ctx.world_ray.clone().apply_matrix_into(world_inv);
 
-  if !model.material.read().is_keep_mesh_shape() {
-    return OptionalNearest::none();
-  }
+      let model = model.read();
 
-  let mesh = &model.mesh.read();
-  let mut picked = OptionalNearest::none();
-  mesh.try_pick(&mut |mesh: &dyn IntersectAbleGroupedMesh| {
-    picked = mesh.intersect_nearest(local_ray, ctx.conf, model.group);
+      if !model.material.read().is_keep_mesh_shape() {
+        return OptionalNearest::none();
+      }
 
-    // transform back to world space
-    if let Some(result) = &mut picked.0 {
-      let hit = &mut result.hit;
-      hit.position = world_mat * hit.position;
-      hit.distance = (hit.position - ctx.world_ray.origin).length()
+      let mesh = &model.mesh.read();
+      let mut picked = OptionalNearest::none();
+      mesh.try_pick(&mut |mesh: &dyn IntersectAbleGroupedMesh| {
+        picked = mesh.intersect_nearest(local_ray, ctx.conf, model.group);
+
+        // transform back to world space
+        if let Some(result) = &mut picked.0 {
+          let hit = &mut result.hit;
+          hit.position = world_mat * hit.position;
+          hit.distance = (hit.position - ctx.world_ray.origin).length()
+        }
+      });
+      picked
     }
-  });
-  picked
+    SceneModelType::Foreign(model) => {
+      // todo should merge vtable to render
+      if let Some(model) = model.downcast_ref::<Box<dyn SceneRayInteractive>>() {
+        model.ray_pick_nearest(ctx)
+      } else {
+        OptionalNearest::none()
+      }
+    }
+    _ => OptionalNearest::none(),
+  }
 }
 
-impl<Me, Ma> SceneRayInteractive for MeshModelImpl<Me, Ma>
-where
-  Me: WebGPUMesh,
-  Ma: WebGPUMaterial,
-{
+impl SceneRayInteractive for SceneModelImpl {
   fn ray_pick_nearest(&self, ctx: &SceneRayInteractiveCtx) -> OptionalNearest<MeshBufferHitPoint> {
     ray_pick_nearest_core(self, ctx, self.node.get_world_matrix())
   }

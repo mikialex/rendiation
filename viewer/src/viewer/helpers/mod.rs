@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use rendiation_scene_core::*;
 use rendiation_scene_webgpu::*;
 use shadergraph::*;
@@ -9,7 +11,41 @@ pub mod grid;
 pub mod ground;
 
 pub type HelperLineMesh = FatlineMesh;
-pub type HelperLineModel = FatlineImpl;
+pub struct HelperLineModel {
+  pub inner: SceneModelImpl,
+}
+
+impl HelperLineModel {
+  pub fn new(material: FatLineMaterial, mesh: HelperLineMesh, node: &SceneNode) -> Self {
+    let mat = SceneItemRef::new(material.use_state_helper_like());
+    let mat: Box<dyn WebGPUSceneMaterial> = Box::new(mat);
+    let mat = SceneMaterialType::Foreign(Arc::new(mat));
+
+    let mesh: Box<dyn WebGPUSceneMesh> = Box::new(SceneItemRef::new(mesh));
+    let mesh = SceneMeshType::Foreign(Arc::new(mesh));
+
+    let model = StandardModel {
+      material: mat.into(),
+      mesh: mesh.into(),
+      group: Default::default(),
+    };
+    let model = SceneModelType::Standard(model.into());
+    let model = SceneModelImpl {
+      model,
+      node: node.clone(),
+    };
+    Self { inner: model }
+  }
+
+  pub fn update_mesh(&self, mesh: HelperLineMesh) {
+    let mesh: Box<dyn WebGPUSceneMesh> = Box::new(SceneItemRef::new(mesh));
+    let mesh = SceneMeshType::Foreign(Arc::new(mesh));
+
+    if let SceneModelType::Standard(model) = &self.inner.model {
+      model.write().mesh = mesh.into();
+    }
+  }
+}
 
 /// just add premultiplied alpha to shader
 pub struct WidgetDispatcher {

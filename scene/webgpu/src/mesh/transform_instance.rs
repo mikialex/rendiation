@@ -89,6 +89,7 @@ impl<M: WebGPUMesh> WebGPUMesh for TransformInstance<M> {
         assert_eq!(*instances, 0..1);
         *instances = 0..self.transforms.len() as u32;
       }
+      DrawCommand::Skip => {}
     }
     inner
   }

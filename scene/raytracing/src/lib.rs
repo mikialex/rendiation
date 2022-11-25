@@ -7,6 +7,9 @@
 mod frame;
 mod integrator;
 mod sampling;
+
+use std::sync::Arc;
+
 pub use sampling::*;
 
 pub use frame::*;
@@ -38,46 +41,16 @@ use space_algorithm::{
 };
 use tree::TreeNodeHandle;
 
-pub struct ModelNode {
-  model: Model,
-  node: SceneNode,
+#[derive(Clone)]
+pub struct RayTracingSceneModel {
+  pub shape: Box<dyn Shape>,
+  pub material: Box<dyn Material>,
 }
 
 // pub struct LightNode {
 //   model: Light,
 //   node: SceneNode,
 // }
-
-#[derive(Copy, Clone)]
-pub struct RayTracingScene;
-impl SceneContent for RayTracingScene {
-  type BackGround = Box<dyn RayTracingBackground>;
-  type Model = Box<dyn RayTracingModel>;
-  type Light = ();
-  type Texture2D = ();
-  type TextureCube = ();
-  type SceneExt = ();
-}
-
-pub trait RayTracingModel {
-  fn get_shape(&self) -> Box<dyn Shape>;
-  fn get_material(&self) -> Box<dyn Material>;
-  fn get_node(&self) -> &SceneNode;
-}
-
-impl RayTracingModel for ModelNode {
-  fn get_shape(&self) -> Box<dyn Shape> {
-    self.model.shape.clone()
-  }
-
-  fn get_material(&self) -> Box<dyn Material> {
-    self.model.material.clone()
-  }
-
-  fn get_node(&self) -> &SceneNode {
-    &self.node
-  }
-}
 
 #[derive(Default)]
 pub struct SceneAcceleration {
@@ -100,7 +73,7 @@ pub trait RayTracingSceneExt {
   fn build_traceable(&mut self) -> SceneAcceleration;
 }
 
-impl RayTracingSceneExt for Scene<RayTracingScene> {
+impl RayTracingSceneExt for Scene {
   fn create_node(&mut self, builder: impl Fn(&mut SceneNodeDataImpl, &mut Self)) -> &mut Self {
     let node = self.root().create_child();
     node.mutate(|node| builder(node, self));
@@ -109,11 +82,13 @@ impl RayTracingSceneExt for Scene<RayTracingScene> {
 
   fn model_node(&mut self, shape: impl Shape, material: impl Material) -> &mut Self {
     let node = self.root().create_child();
-    let model = ModelNode {
-      model: Model::new(shape, material),
-      node,
+    let model = RayTracingSceneModel {
+      shape: Box::new(shape),
+      material: Box::new(material),
     };
-    let _ = self.models.insert(Box::new(model));
+    let model = SceneModelType::Foreign(Arc::new(model));
+    let model = SceneModelImpl { node, model };
+    let _ = self.models.insert(model.into());
     self
   }
 
@@ -125,17 +100,19 @@ impl RayTracingSceneExt for Scene<RayTracingScene> {
   ) -> &mut Self {
     let node = self.root().create_child();
     node.mutate(|node| m(node));
-    let model = ModelNode {
-      model: Model::new(shape, material),
-      node,
+    let model = RayTracingSceneModel {
+      shape: Box::new(shape),
+      material: Box::new(material),
     };
-    let _ = self.models.insert(Box::new(model));
+    let model = SceneModelType::Foreign(Arc::new(model));
+    let model = SceneModelImpl { node, model };
+    let _ = self.models.insert(model.into());
     self
   }
 
   fn background(&mut self, background: impl RayTracingBackground) -> &mut Self {
     let background: Box<dyn RayTracingBackground> = Box::new(background);
-    self.background = background.into();
+    self.background = background.create_scene_background();
     self
   }
 
@@ -147,25 +124,30 @@ impl RayTracingSceneExt for Scene<RayTracingScene> {
     let mut models_in_bvh_source = Vec::new();
 
     for (_, model) in self.models.iter() {
-      model.get_node().visit(|node_data| {
-        let mut model = Model {
-          shape: model.get_shape(),
-          material: model.get_material(),
-          world_matrix: Default::default(),
-          world_matrix_inverse: Default::default(),
-          normal_matrix: Default::default(), // object space direction to world_space
-        };
-        model.world_matrix_inverse = node_data.world_matrix().inverse_or_identity();
-        model.normal_matrix = model.world_matrix_inverse.transpose();
-        model.world_matrix = node_data.world_matrix();
+      let model = model.read();
+      if let SceneModelType::Foreign(foreign) = &model.model {
+        if let Some(retraceable) = foreign.downcast_ref::<RayTracingSceneModel>() {
+          model.node.visit(|node_data| {
+            let mut model = Model {
+              shape: retraceable.shape.clone(),
+              material: retraceable.material.clone(),
+              world_matrix: Default::default(),
+              world_matrix_inverse: Default::default(),
+              normal_matrix: Default::default(), // object space direction to world_space
+            };
+            model.world_matrix_inverse = node_data.world_matrix().inverse_or_identity();
+            model.normal_matrix = model.world_matrix_inverse.transpose();
+            model.world_matrix = node_data.world_matrix();
 
-        if let Some(mut bbox) = model.shape.get_bbox() {
-          result.models_in_bvh.push(model);
-          models_in_bvh_source.push(*bbox.apply_matrix(node_data.world_matrix()));
-        } else {
-          result.models_unbound.push(model);
+            if let Some(mut bbox) = model.shape.get_bbox() {
+              result.models_in_bvh.push(model);
+              models_in_bvh_source.push(*bbox.apply_matrix(node_data.world_matrix()));
+            } else {
+              result.models_unbound.push(model);
+            }
+          });
         }
-      });
+      }
     }
 
     // for (i, light) in self.lights.iter().enumerate() {
@@ -179,7 +161,22 @@ impl RayTracingSceneExt for Scene<RayTracingScene> {
     );
 
     result.models_bvh = models_bvh.into();
-    result.env = self.background.clone();
+
+    if let Some(bg) = &self.background {
+      match bg {
+        SceneBackGround::Solid(bg) => {
+          result.env = Some(Box::new(*bg));
+        }
+        SceneBackGround::Env(_) => {}
+        SceneBackGround::Foreign(foreign) => {
+          if let Some(retraceable_bg) = foreign.downcast_ref::<Box<dyn RayTracingBackground>>() {
+            result.env = Some(dyn_clone::clone_box(&**retraceable_bg));
+          }
+        }
+        _ => {}
+      }
+    }
+
     result
   }
 }

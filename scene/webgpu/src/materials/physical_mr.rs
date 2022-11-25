@@ -123,11 +123,7 @@ impl ShaderGraphProvider for PhysicalMetallicRoughnessMaterialGPU {
   }
 }
 
-impl<S> WebGPUMaterial for PhysicalMetallicRoughnessMaterial<S>
-where
-  S: SceneContent,
-  S::Texture2D: AsRef<dyn WebGPU2DTextureSource>,
-{
+impl WebGPUMaterial for PhysicalMetallicRoughnessMaterial {
   type GPU = PhysicalMetallicRoughnessMaterialGPU;
 
   fn create_gpu(&self, res: &mut GPUResourceSubCache, gpu: &GPU) -> Self::GPU {
@@ -146,21 +142,21 @@ where
     let base_color_texture = self
       .base_color_texture
       .as_ref()
-      .map(|t| build_texture_sampler_pair::<S>(t, gpu, res));
+      .map(|t| build_texture_sampler_pair(t, gpu, res));
 
     let metallic_roughness_texture = self
       .metallic_roughness_texture
       .as_ref()
-      .map(|t| build_texture_sampler_pair::<S>(t, gpu, res));
+      .map(|t| build_texture_sampler_pair(t, gpu, res));
 
     let emissive_texture = self
       .emissive_texture
       .as_ref()
-      .map(|t| build_texture_sampler_pair::<S>(t, gpu, res));
+      .map(|t| build_texture_sampler_pair(t, gpu, res));
 
     let normal_texture = self.normal_texture.as_ref().map(|t| {
       uniform.normal_mapping_scale = t.scale;
-      build_texture_sampler_pair::<S>(&t.content, gpu, res)
+      build_texture_sampler_pair(&t.content, gpu, res)
     });
 
     let uniform = create_uniform(uniform, gpu);

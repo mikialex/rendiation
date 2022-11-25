@@ -7,9 +7,6 @@ use crate::*;
 
 use arena::Arena;
 
-pub type SceneTexture2D<S> = SceneItemRef<<S as SceneContent>::Texture2D>;
-pub type SceneTextureCube<S> = SceneItemRef<<S as SceneContent>::TextureCube>;
-
 pub struct SceneItemRef<T> {
   inner: Arc<RwLock<Identity<T>>>,
 }

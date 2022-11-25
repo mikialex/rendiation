@@ -153,6 +153,8 @@ pub trait ShaderGraphProvider {
   }
 }
 
+impl ShaderGraphProvider for () {}
+
 pub struct ShaderGraphCompileResult<T: ShaderGraphCodeGenTarget> {
   pub target: T,
   pub shader: T::ShaderSource,

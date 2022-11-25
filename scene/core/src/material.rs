@@ -1,7 +1,16 @@
 use rendiation_algebra::*;
-use rendiation_texture::TextureSampler;
 
 use crate::*;
+
+pub type SceneMaterial = SceneItemRef<SceneMaterialType>;
+
+#[non_exhaustive]
+pub enum SceneMaterialType {
+  PhysicalSpecularGlossiness(SceneItemRef<PhysicalSpecularGlossinessMaterial>),
+  PhysicalMetallicRoughness(SceneItemRef<PhysicalMetallicRoughnessMaterial>),
+  Flat(SceneItemRef<FlatMaterial>),
+  Foreign(Arc<dyn Any + Send + Sync>),
+}
 
 /// The alpha rendering mode of a material.
 #[derive(Clone, Copy, Eq, PartialEq, Hash, Debug)]
@@ -25,15 +34,7 @@ impl Default for AlphaMode {
 }
 
 #[derive(Clone)]
-pub struct TextureWithSamplingData<T> {
-  pub texture: T,
-  pub sampler: TextureSampler,
-}
-
-pub type Texture2DWithSamplingData<S> = TextureWithSamplingData<SceneTexture2D<S>>;
-
-#[derive(Clone)]
-pub struct PhysicalSpecularGlossinessMaterial<S: SceneContent> {
+pub struct PhysicalSpecularGlossinessMaterial {
   pub albedo: Vec3<f32>,
   pub specular: Vec3<f32>,
   pub glossiness: f32,
@@ -41,20 +42,20 @@ pub struct PhysicalSpecularGlossinessMaterial<S: SceneContent> {
   pub alpha: f32,
   pub alpha_cutoff: f32,
   pub alpha_mode: AlphaMode,
-  pub albedo_texture: Option<Texture2DWithSamplingData<S>>,
-  pub specular_texture: Option<Texture2DWithSamplingData<S>>,
-  pub glossiness_texture: Option<Texture2DWithSamplingData<S>>,
-  pub emissive_texture: Option<Texture2DWithSamplingData<S>>,
-  pub normal_texture: Option<NormalMapping<S>>,
+  pub albedo_texture: Option<Texture2DWithSamplingData>,
+  pub specular_texture: Option<Texture2DWithSamplingData>,
+  pub glossiness_texture: Option<Texture2DWithSamplingData>,
+  pub emissive_texture: Option<Texture2DWithSamplingData>,
+  pub normal_texture: Option<NormalMapping>,
 }
 
 #[derive(Clone)]
-pub struct NormalMapping<S: SceneContent> {
-  pub content: Texture2DWithSamplingData<S>,
+pub struct NormalMapping {
+  pub content: Texture2DWithSamplingData,
   pub scale: f32,
 }
 
-impl<S: SceneContent> Default for PhysicalSpecularGlossinessMaterial<S> {
+impl Default for PhysicalSpecularGlossinessMaterial {
   fn default() -> Self {
     Self {
       albedo: Vec3::one(),
@@ -74,7 +75,7 @@ impl<S: SceneContent> Default for PhysicalSpecularGlossinessMaterial<S> {
 }
 
 #[derive(Clone)]
-pub struct PhysicalMetallicRoughnessMaterial<S: SceneContent> {
+pub struct PhysicalMetallicRoughnessMaterial {
   /// in conductor case will act as specular color,
   /// in dielectric case will act as diffuse color,
   pub base_color: Vec3<f32>,
@@ -85,13 +86,13 @@ pub struct PhysicalMetallicRoughnessMaterial<S: SceneContent> {
   pub alpha: f32,
   pub alpha_cutoff: f32,
   pub alpha_mode: AlphaMode,
-  pub base_color_texture: Option<Texture2DWithSamplingData<S>>,
-  pub metallic_roughness_texture: Option<Texture2DWithSamplingData<S>>,
-  pub emissive_texture: Option<Texture2DWithSamplingData<S>>,
-  pub normal_texture: Option<NormalMapping<S>>,
+  pub base_color_texture: Option<Texture2DWithSamplingData>,
+  pub metallic_roughness_texture: Option<Texture2DWithSamplingData>,
+  pub emissive_texture: Option<Texture2DWithSamplingData>,
+  pub normal_texture: Option<NormalMapping>,
 }
 
-impl<S: SceneContent> Default for PhysicalMetallicRoughnessMaterial<S> {
+impl Default for PhysicalMetallicRoughnessMaterial {
   fn default() -> Self {
     Self {
       base_color: Vec3::one(),

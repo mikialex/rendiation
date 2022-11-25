@@ -8,6 +8,7 @@ version = "0.1.0"
 anymap = "0.12.1"
 arena = {path = "../../utils/arena"}
 bytemuck = {version = "1.4.1", features = ["derive"]}
+dyn-clone = "1.0.5"
 incremental = {path = "../../utils/incremental"}
 log = "0.4"
 reactive = {path = "../../utils/reactive"}

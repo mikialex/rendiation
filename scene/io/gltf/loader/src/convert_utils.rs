@@ -1,5 +1,6 @@
 use rendiation_algebra::{Mat4, Quat};
-use rendiation_scene_webgpu::{AttributeSemantic, AlphaMode};
+use rendiation_renderable_mesh::PrimitiveTopology;
+use rendiation_scene_core::{AlphaMode, AttributeSemantic};
 
 pub fn map_sampler(sampler: gltf::texture::Sampler) -> rendiation_texture::TextureSampler {
   rendiation_texture::TextureSampler {
@@ -59,14 +60,14 @@ pub fn map_mag_filter(f: gltf::texture::MagFilter) -> rendiation_texture::Filter
   }
 }
 
-pub fn map_draw_mode(mode: gltf::mesh::Mode) -> Option<webgpu::PrimitiveTopology> {
+pub fn map_draw_mode(mode: gltf::mesh::Mode) -> Option<PrimitiveTopology> {
   match mode {
-    gltf::mesh::Mode::Points => webgpu::PrimitiveTopology::PointList,
-    gltf::mesh::Mode::Lines => webgpu::PrimitiveTopology::LineList,
+    gltf::mesh::Mode::Points => PrimitiveTopology::PointList,
+    gltf::mesh::Mode::Lines => PrimitiveTopology::LineList,
     gltf::mesh::Mode::LineLoop => return None,
-    gltf::mesh::Mode::LineStrip => webgpu::PrimitiveTopology::LineStrip,
-    gltf::mesh::Mode::Triangles => webgpu::PrimitiveTopology::TriangleList,
-    gltf::mesh::Mode::TriangleStrip => webgpu::PrimitiveTopology::TriangleStrip,
+    gltf::mesh::Mode::LineStrip => PrimitiveTopology::LineStrip,
+    gltf::mesh::Mode::Triangles => PrimitiveTopology::TriangleList,
+    gltf::mesh::Mode::TriangleStrip => PrimitiveTopology::TriangleStrip,
     gltf::mesh::Mode::TriangleFan => return None,
   }
   .into()
@@ -102,5 +103,5 @@ pub fn map_alpha(a: gltf::material::AlphaMode) -> AlphaMode {
     gltf::material::AlphaMode::Opaque => AlphaMode::Opaque,
     gltf::material::AlphaMode::Mask => AlphaMode::Mask,
     gltf::material::AlphaMode::Blend => AlphaMode::Blend,
-}
+  }
 }

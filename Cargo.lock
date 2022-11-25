@@ -2351,6 +2351,7 @@ dependencies = [
  "anymap",
  "arena",
  "bytemuck",
+ "dyn-clone",
  "incremental",
  "log",
  "reactive",
@@ -2362,32 +2363,13 @@ dependencies = [
 ]
 
 [[package]]
-name = "rendiation-scene-fusion"
-version = "0.1.0"
-dependencies = [
- "arena",
- "arena-graph",
- "bytemuck",
- "log",
- "rendiation-algebra",
- "rendiation-geometry",
- "rendiation-renderable-mesh",
- "rendiation-scene-core",
- "rendiation-scene-raytracing",
- "rendiation-scene-webgpu",
- "rendiation-texture",
- "rendiation-webgpu",
- "space-algorithm",
- "tree",
-]
-
-[[package]]
 name = "rendiation-scene-gltf-loader"
 version = "0.0.1"
 dependencies = [
  "gltf",
  "rendiation-algebra",
- "rendiation-scene-webgpu",
+ "rendiation-renderable-mesh",
+ "rendiation-scene-core",
  "rendiation-texture",
  "rendiation-webgpu",
  "shadergraph",
@@ -2423,6 +2405,7 @@ dependencies = [
  "arena",
  "arena-graph",
  "bytemuck",
+ "dyn-clone",
  "linked-hash-map",
  "log",
  "once_cell",
