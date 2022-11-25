@@ -1,3 +1,5 @@
+use std::any::TypeId;
+
 use crate::*;
 
 use arena::{Arena, Handle};
@@ -27,9 +29,23 @@ pub struct Scene {
   pub ext: DynamicExtension,
 }
 
+/// like any map, but clone able
 #[derive(Default, Clone, Debug)]
 pub struct DynamicExtension {
   inner: HashMap<std::any::TypeId, std::rc::Rc<dyn std::any::Any>>,
+}
+
+impl DynamicExtension {
+  pub fn get<T: Any>(&self) -> Option<&T> {
+    self
+      .inner
+      .get(&TypeId::of::<T>())
+      .map(|r| r.downcast_ref::<T>().unwrap())
+  }
+
+  pub fn insert<T: Any>(&mut self, item: T) {
+    self.inner.insert(TypeId::of::<T>(), std::rc::Rc::new(item));
+  }
 }
 
 impl Incremental for DynamicExtension {

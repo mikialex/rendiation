@@ -1,5 +1,5 @@
 use crate::*;
-use incremental::{DeltaOf, Incremental, SimpleIncremental};
+use incremental::Incremental;
 use rendiation_algebra::*;
 
 #[non_exhaustive]
@@ -18,28 +18,6 @@ pub struct SceneLightInner {
   /// — for example, range and intensity do not change with scale.
   pub node: SceneNode,
 }
-
-// #[derive(Clone)]
-// pub enum SceneLightInnerDelta {
-//   Light(DeltaOf<SceneLightKind>),
-//   Node(SceneNode),
-// }
-
-// impl SimpleIncremental for SceneLightInner {
-//   type Delta = SceneLightInnerDelta<T>;
-
-//   fn s_apply(&mut self, delta: Self::Delta) {
-//     match delta {
-//       SceneLightInnerDelta::Light(delta) => self.light.apply(delta).unwrap(),
-//       SceneLightInnerDelta::Node(delta) => self.node.s_apply(delta),
-//     }
-//   }
-
-//   fn s_expand(&self, mut cb: impl FnMut(Self::Delta)) {
-//     self.light.expand(|d| cb(SceneLightInnerDelta::Light(d)));
-//     cb(SceneLightInnerDelta::Node(self.node.clone()))
-//   }
-// }
 
 #[derive(Debug, Clone, Incremental)]
 pub struct PointLight {
