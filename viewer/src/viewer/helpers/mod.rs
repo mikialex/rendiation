@@ -95,7 +95,3 @@ impl ShaderGraphProvider for WidgetDispatcher {
     })
   }
 }
-
-struct HelperMesh {
-  // inner:
-}

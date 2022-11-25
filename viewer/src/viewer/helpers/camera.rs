@@ -22,7 +22,7 @@ impl CameraHelper {
   pub fn update(&mut self, project_mat: Mat4<f32>) {
     if self.projection_cache != project_mat {
       let camera_mesh = build_debug_line_in_camera_space(project_mat.inverse_or_identity());
-      self.model.update_mesh(camera_mesh.into());
+      self.model.update_mesh(camera_mesh);
     }
   }
 }

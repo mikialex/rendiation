@@ -207,6 +207,7 @@ fn build_image(data_input: gltf::image::Data) -> SceneTexture2D {
   let size = rendiation_texture::Size::from_u32_pair_min_one((data_input.width, data_input.height));
 
   let image = GltfImage { data, format, size };
+  let image: Box<dyn WebGPU2DTextureSource> = Box::new(image);
   let image = SceneTexture2DType::Foreign(Arc::new(image));
   SceneTexture2D::new(image)
 }

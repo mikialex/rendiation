@@ -22,7 +22,7 @@ pub fn load_img(path: &str) -> ImageBuffer<Rgba<u8>, Vec<u8>> {
 }
 fn load_tex(path: &str) -> SceneTexture2DType {
   let boxed: Box<dyn WebGPU2DTextureSource> = Box::new(load_img(path).into_source());
-  SceneTexture2DType::Foreign(Arc::new(boxed)).into()
+  SceneTexture2DType::Foreign(Arc::new(boxed))
 }
 
 pub fn load_img_cube() -> SceneTextureCube {
@@ -165,7 +165,7 @@ pub fn load_default_scene(scene: &mut Scene) {
 
     let material = PhysicalSpecularGlossinessMaterial {
       albedo: Vec3::splat(1.),
-      albedo_texture: texture.clone().into(),
+      albedo_texture: texture.into(),
       ..Default::default()
     };
     let material = SceneMaterialType::PhysicalSpecularGlossiness(material.into());
