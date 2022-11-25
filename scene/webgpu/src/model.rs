@@ -158,6 +158,7 @@ pub fn ray_pick_nearest_core(
       picked
     }
     SceneModelType::Foreign(model) => {
+      // todo should merge vtable to render
       if let Some(model) = model.downcast_ref::<Box<dyn SceneRayInteractive>>() {
         model.ray_pick_nearest(ctx)
       } else {

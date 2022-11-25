@@ -1,4 +1,4 @@
-use std::{cell::RefCell, rc::Rc};
+use std::{cell::RefCell, rc::Rc, sync::Arc};
 
 use rendiation_algebra::*;
 use rendiation_geometry::OptionalNearest;
@@ -40,8 +40,8 @@ impl PassContentWithCamera for &mut AxisHelper {
 }
 
 type ArrowMaterial = StateControl<FlatMaterial>;
-type ArrowTipMesh = impl WebGPUMesh + Clone;
-type ArrowBodyMesh = impl WebGPUMesh + Clone;
+type ArrowTipMesh = impl WebGPUSceneMesh;
+type ArrowBodyMesh = impl WebGPUSceneMesh;
 
 pub struct Arrow {
   cylinder: OverridableMeshModelImpl,
@@ -83,24 +83,55 @@ impl Arrow {
     let root = parent.create_child();
 
     let (cylinder_mesh, tip_mesh) = Arrow::default_shape();
+
+    let cylinder_mesh: Box<dyn WebGPUSceneMesh> = Box::new(cylinder_mesh);
+    let cylinder_mesh = SceneMeshType::Foreign(Arc::new(cylinder_mesh));
+
+    let tip_mesh: Box<dyn WebGPUSceneMesh> = Box::new(tip_mesh);
+    let tip_mesh = SceneMeshType::Foreign(Arc::new(tip_mesh));
+
     let material = solid_material((1., 1., 1.));
+    let material = SceneItemRef::new(material);
+    let modify_material = material.clone();
+    let material: Box<dyn WebGPUSceneMaterial> = Box::new(material);
+    let material = SceneMaterialType::Foreign(Arc::new(material)).into_ref();
 
     let node_cylinder = root.create_child();
-    let mut cylinder =
-      SceneModelImpl::new(material.clone(), cylinder_mesh, node_cylinder).into_matrix_overridable();
 
+    let model = StandardModel {
+      material: material.clone(),
+      mesh: cylinder_mesh.into(),
+      group: Default::default(),
+    };
+    let model = SceneModelType::Standard(model.into());
+    let model = SceneModelImpl {
+      model,
+      node: node_cylinder,
+    };
+    let mut cylinder = model.into_matrix_overridable();
     cylinder.push_override(auto_scale.clone());
 
     let node_tip = root.create_child();
     node_tip.set_local_matrix(Mat4::translate((0., 2., 0.)));
-    let mut tip = SceneModelImpl::new(material, tip_mesh, node_tip).into_matrix_overridable();
 
+    let model = StandardModel {
+      material,
+      mesh: tip_mesh.into(),
+      group: Default::default(),
+    };
+    let model = SceneModelType::Standard(model.into());
+    let model = SceneModelImpl {
+      model,
+      node: node_tip,
+    };
+    let mut tip = model.into_matrix_overridable();
     tip.push_override(auto_scale.clone());
 
     Self {
       root,
       cylinder,
       tip,
+      material: modify_material,
     }
   }
 

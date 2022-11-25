@@ -21,7 +21,7 @@ pub trait WebGPUSceneMesh: Any + Send + Sync {
   fn draw_impl(&self, group: MeshDrawGroup) -> DrawCommand;
 
   // the reason we use CPS style is for supporting refcell
-  fn try_pick(&self, _f: &mut dyn FnMut(&dyn IntersectAbleGroupedMesh)) {}
+  fn try_pick(&self, f: &mut dyn FnMut(&dyn IntersectAbleGroupedMesh));
 }
 
 impl WebGPUSceneMesh for SceneMeshType {
@@ -71,6 +71,17 @@ impl WebGPUSceneMesh for SceneMeshType {
       _ => DrawCommand::Skip,
     }
   }
+  fn try_pick(&self, f: &mut dyn FnMut(&dyn IntersectAbleGroupedMesh)) {
+    match self {
+      SceneMeshType::AttributesMesh(_) => {}
+      SceneMeshType::Foreign(mesh) => {
+        if let Some(mesh) = mesh.downcast_ref::<Box<dyn WebGPUSceneMesh>>() {
+          mesh.try_pick(f)
+        }
+      }
+      _ => {}
+    }
+  }
 }
 
 impl<T: WebGPUSceneMesh> MeshDrawcallEmitter for T {
@@ -95,6 +106,10 @@ impl WebGPUSceneMesh for SceneMesh {
 
   fn draw_impl(&self, group: MeshDrawGroup) -> DrawCommand {
     self.read().draw_impl(group)
+  }
+
+  fn try_pick(&self, f: &mut dyn FnMut(&dyn IntersectAbleGroupedMesh)) {
+    self.read().try_pick(f)
   }
 }
 
@@ -230,7 +245,7 @@ where
   }
 }
 
-impl<T: WebGPUMesh + IntersectAbleGroupedMesh + Any> WebGPUSceneMesh for SceneItemRef<T> {
+impl<T: WebGPUMesh + Any> WebGPUSceneMesh for SceneItemRef<T> {
   fn topology(&self) -> webgpu::PrimitiveTopology {
     self.read().topology()
   }

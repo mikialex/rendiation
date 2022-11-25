@@ -118,7 +118,8 @@ pub fn load_default_scene(scene: &mut Scene) {
     }
     let mesh = builder.build_mesh();
     let mesh = MeshSource::new(mesh);
-    let mesh = SceneItemRef::new(MeshSource::new(mesh));
+    let mesh = SceneItemRef::new(mesh);
+    let mesh: Box<dyn WebGPUSceneMesh> = Box::new(mesh);
     let mesh = SceneMeshType::Foreign(Arc::new(mesh));
 
     let material = PhysicalSpecularGlossinessMaterial {
@@ -158,7 +159,8 @@ pub fn load_default_scene(scene: &mut Scene) {
         Mat4::translate((10., 0., 6.)),
       ],
     };
-    let mesh = SceneItemRef::new(MeshSource::new(mesh));
+    let mesh = SceneItemRef::new(mesh);
+    let mesh: Box<dyn WebGPUSceneMesh> = Box::new(mesh);
     let mesh = SceneMeshType::Foreign(Arc::new(mesh));
 
     let material = PhysicalSpecularGlossinessMaterial {

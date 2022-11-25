@@ -441,34 +441,62 @@ fn update_arrow(
   }
 }
 
+struct HelperMesh {
+  material: SceneItemRef<StateControl<FlatMaterial>>,
+  model: OverridableMeshModelImpl,
+}
+
+impl SceneRenderable for HelperMesh {
+  fn render(
+    &self,
+    pass: &mut SceneRenderPass,
+    dispatcher: &dyn RenderComponentAny,
+    camera: &SceneCamera,
+  ) {
+    self.model.render(pass, dispatcher, camera)
+  }
+
+  fn is_transparent(&self) -> bool {
+    self.model.is_transparent()
+  }
+}
+
+impl SceneRayInteractive for HelperMesh {
+  fn ray_pick_nearest(
+    &self,
+    ctx: &SceneRayInteractiveCtx,
+  ) -> OptionalNearest<rendiation_renderable_mesh::MeshBufferHitPoint> {
+    self.model.ray_pick_nearest(ctx)
+  }
+}
+
 fn update_plane(
   active: impl Lens<GizmoState, ItemState>,
   color: Vec3<f32>,
-) -> impl FnMut(&GizmoState, &mut PlaneModel) {
+) -> impl FnMut(&GizmoState, &mut HelperMesh) {
   move |state, plane| {
     let axis_state = active.with(state, |&s| s);
     let color = map_color(color, axis_state);
-    // plane.material.write().material.color = Vec4::new(color.x, color.y, color.z, 1.);
+
+    plane.material.write().material.color = Vec4::new(color.x, color.y, color.z, 1.);
+
     let show = !state.translate.has_active() || axis_state.active;
-    plane.node.set_visible(show);
+    plane.model.node.set_visible(show);
   }
 }
 
 fn update_torus(
   active: impl Lens<GizmoState, ItemState>,
   color: Vec3<f32>,
-) -> impl FnMut(&GizmoState, &mut RotatorModel) {
+) -> impl FnMut(&GizmoState, &mut HelperMesh) {
   move |state, torus| {
     let axis_state = active.with(state, |&s| s);
     let color = map_color(color, axis_state);
 
-    // if let  SceneModelType::Foreign(model) = torus {
+    torus.material.write().material.color = Vec4::new(color.x, color.y, color.z, 1.);
 
-    // }
-
-    // torus.material.write().material.color = Vec4::new(color.x, color.y, color.z, 1.);
-    // let show = !state.translate.has_active() || axis_state.active;
-    // torus.node.set_visible(show);
+    let show = !state.translate.has_active() || axis_state.active;
+    torus.model.node.set_visible(show);
   }
 }
 
@@ -485,9 +513,7 @@ impl PassContentWithCamera for &mut Gizmo {
 
 type AutoScale = Rc<RefCell<ViewAutoScalable>>;
 
-type FlatUtilMaterial = StateControl<FlatMaterial>;
-type PlaneModel = OverridableMeshModelImpl;
-fn build_plane(root: &SceneNode, auto_scale: &AutoScale, mat: Mat4<f32>) -> PlaneModel {
+fn build_plane(root: &SceneNode, auto_scale: &AutoScale, mat: Mat4<f32>) -> HelperMesh {
   let mesh = IndexedMeshBuilder::<TriangleList, Vec<Vertex>>::default()
     .triangulate_parametric(
       &ParametricPlane.transform_by(Mat4::translate((-0.5, -0.5, 0.))),
@@ -503,6 +529,7 @@ fn build_plane(root: &SceneNode, auto_scale: &AutoScale, mat: Mat4<f32>) -> Plan
 
   let material = solid_material(RED);
   let material = SceneItemRef::new(material);
+  let m = material.clone();
   let material: Box<dyn WebGPUSceneMaterial> = Box::new(material);
   let material = SceneMaterialType::Foreign(Arc::new(material));
 
@@ -517,13 +544,12 @@ fn build_plane(root: &SceneNode, auto_scale: &AutoScale, mat: Mat4<f32>) -> Plan
   };
   let model = SceneModelType::Standard(model.into());
   let model = SceneModelImpl { model, node: plane };
-  let model = model.into_matrix_overridable();
+  let mut model = model.into_matrix_overridable();
   model.push_override(auto_scale.clone());
-  model
+  HelperMesh { model, material: m }
 }
 
-type RotatorModel = OverridableMeshModelImpl;
-fn build_rotator(root: &SceneNode, auto_scale: &AutoScale, mat: Mat4<f32>) -> RotatorModel {
+fn build_rotator(root: &SceneNode, auto_scale: &AutoScale, mat: Mat4<f32>) -> HelperMesh {
   let mesh = IndexedMeshBuilder::<TriangleList, Vec<Vertex>>::default()
     .triangulate_parametric(
       &TorusMeshParameter {
@@ -543,6 +569,7 @@ fn build_rotator(root: &SceneNode, auto_scale: &AutoScale, mat: Mat4<f32>) -> Ro
 
   let material = solid_material(RED);
   let material = SceneItemRef::new(material);
+  let m = material.clone();
   let material: Box<dyn WebGPUSceneMaterial> = Box::new(material);
   let material = SceneMaterialType::Foreign(Arc::new(material));
 
@@ -554,14 +581,15 @@ fn build_rotator(root: &SceneNode, auto_scale: &AutoScale, mat: Mat4<f32>) -> Ro
     group: Default::default(),
   };
   let model = SceneModelType::Standard(model.into());
-  let model = SceneModelImpl { model, node: torus };
-  let model = model.into_matrix_overridable();
-
-  // (SceneModelImpl{ model: todo!(), node: todo!() }::new(material, mesh).into_matrix_overridable())
+  let model = SceneModelImpl {
+    model,
+    node: torus.clone(),
+  };
+  let mut model = model.into_matrix_overridable();
 
   torus.set_local_matrix(mat);
   model.push_override(auto_scale.clone());
-  model
+  HelperMesh { model, material: m }
 }
 
 // fn build_box() -> Box<dyn SceneRenderable> {

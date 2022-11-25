@@ -20,18 +20,18 @@ impl FatlineMesh {
 impl IntersectAbleGroupedMesh for FatlineMesh {
   fn intersect_list(
     &self,
-    ray: Ray3,
-    conf: &MeshBufferIntersectConfig,
-    result: &mut MeshBufferHitList,
-    group: MeshDrawGroup,
+    _ray: Ray3,
+    _conf: &MeshBufferIntersectConfig,
+    _result: &mut MeshBufferHitList,
+    _group: MeshDrawGroup,
   ) {
   }
 
   fn intersect_nearest(
     &self,
-    ray: Ray3,
-    conf: &MeshBufferIntersectConfig,
-    group: MeshDrawGroup,
+    _ray: Ray3,
+    _conf: &MeshBufferIntersectConfig,
+    _group: MeshDrawGroup,
   ) -> OptionalNearest<MeshBufferHitPoint> {
     OptionalNearest::none()
   }

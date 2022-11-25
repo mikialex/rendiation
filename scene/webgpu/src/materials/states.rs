@@ -146,7 +146,7 @@ where
 }
 
 impl<T: WebGPUMaterial> ShaderGraphProvider for StateControlGPU<T> {
-  fn build(
+  fn post_build(
     &self,
     builder: &mut ShaderGraphRenderPipelineBuilder,
   ) -> Result<(), shadergraph::ShaderGraphBuildError> {
