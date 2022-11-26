@@ -1,9 +1,45 @@
-use interphaser::Component;
+use incremental::Incremental;
 use rendiation_algebra::*;
 use rendiation_geometry::OptionalNearest;
 use rendiation_renderable_mesh::mesh::MeshBufferHitPoint;
 
 use crate::*;
+
+pub enum ViewReaction<V, T: Incremental> {
+  /// emit self special event
+  ViewEvent(V),
+  /// do state mutation
+  StateDelta(T::Delta),
+}
+
+/// View type could generic over any state T, as long as the T could provide
+/// given logic for view type
+pub trait View<T>
+where
+  T: Incremental,
+{
+  /// View type's own event type
+  type Event;
+
+  /// In event loop handling, the view type received platform event such as mouse move keyboard events,
+  /// and decide should reactive to it or not, if so, mutate the model or emit
+  /// the self::Event for further outer side handling. see ViewDelta.
+  ///
+  /// all mutation to the model should record delta by call cb passed from caller.
+  ///
+  /// In View hierarchy, event's mutation to state will pop up to the root, wrap the mutation to
+  /// parent state's delta type. and in update logic, consumed from the root
+  fn event(
+    &mut self,
+    model: &mut T,
+    event: &mut EventCtx3D,
+    cb: &mut dyn FnMut(ViewReaction<Self::Event, T>),
+  );
+
+  /// update is responsible for map the state delta to to view property change
+  /// the model here is the unmodified.
+  fn update(&mut self, model: &T, delta: &T::Delta);
+}
 
 #[derive(Clone, Copy)]
 pub enum Event3D {
@@ -12,31 +48,31 @@ pub enum Event3D {
   MouseUp { world_position: Vec3<f32> },
 }
 
-pub struct InteractiveWatchable<T, S> {
+pub struct InteractiveWatchable<T, S: Incremental> {
   inner: T,
-  callbacks: Vec<Box<dyn FnMut(&mut S, &EventCtx3D)>>,
-  updates: Option<Box<dyn FnMut(&S, &mut T)>>,
+  callbacks: Vec<Box<dyn FnMut(&S, &EventCtx3D) -> Option<S::Delta>>>,
+  updates: Option<Box<dyn FnMut(&mut T, &S::Delta)>>,
 }
 
-impl<T, S> InteractiveWatchable<T, S> {
-  pub fn on(mut self, mut cb: impl FnMut(&mut S, &EventCtx3D) + 'static) -> Self {
+impl<T, S: Incremental> InteractiveWatchable<T, S> {
+  pub fn on(mut self, mut cb: impl FnMut(&S, &EventCtx3D) -> Option<S::Delta> + 'static) -> Self {
     self
       .callbacks
       .push(Box::new(move |state, event| cb(state, event)));
     self
   }
-  pub fn update(mut self, updater: impl FnMut(&S, &mut T) + 'static) -> Self {
+  pub fn update(mut self, updater: impl FnMut(&mut T, &S::Delta) + 'static) -> Self {
     self.updates = Some(Box::new(updater));
     self
   }
 }
 
 pub trait InteractiveWatchableInit<T> {
-  fn eventable<S>(self) -> InteractiveWatchable<T, S>;
+  fn eventable<S: Incremental>(self) -> InteractiveWatchable<T, S>;
 }
 
 impl<T: SceneRenderable> InteractiveWatchableInit<T> for T {
-  fn eventable<S>(self) -> InteractiveWatchable<T, S> {
+  fn eventable<S: Incremental>(self) -> InteractiveWatchable<T, S> {
     InteractiveWatchable {
       inner: self,
       callbacks: Default::default(),
@@ -45,21 +81,32 @@ impl<T: SceneRenderable> InteractiveWatchableInit<T> for T {
   }
 }
 
-impl<T: SceneRenderable, S> Component<S, System3D> for InteractiveWatchable<T, S> {
-  fn event(&mut self, states: &mut S, event: &mut EventCtx3D) {
-    for cb in &mut self.callbacks {
-      cb(states, event)
+impl<T: SceneRenderable, S: Incremental> View<S> for InteractiveWatchable<T, S> {
+  type Event = ();
+
+  fn event(
+    &mut self,
+    model: &mut S,
+    event: &mut EventCtx3D,
+    cb: &mut dyn FnMut(ViewReaction<Self::Event, S>),
+  ) {
+    for cb_e in &mut self.callbacks {
+      if let Some(d) = cb_e(model, event) {
+        cb(ViewReaction::StateDelta(d))
+      }
     }
   }
 
-  fn update(&mut self, states: &S, _: &mut UpdateCtx3D) {
+  /// update is responsible for map the state delta to to view property change
+  /// the model here is the unmodified.
+  fn update(&mut self, model: &S, delta: &S::Delta) {
     if let Some(update) = &mut self.updates {
-      update(states, &mut self.inner)
+      update(&mut self.inner, delta)
     }
   }
 }
 
-impl<T: SceneRenderable, S> SceneRenderable for InteractiveWatchable<T, S> {
+impl<T: SceneRenderable, S: Incremental> SceneRenderable for InteractiveWatchable<T, S> {
   fn is_transparent(&self) -> bool {
     self.inner.is_transparent()
   }
@@ -74,7 +121,7 @@ impl<T: SceneRenderable, S> SceneRenderable for InteractiveWatchable<T, S> {
   }
 }
 
-impl<T: SceneRayInteractive, S> SceneRayInteractive for InteractiveWatchable<T, S> {
+impl<T: SceneRayInteractive, S: Incremental> SceneRayInteractive for InteractiveWatchable<T, S> {
   fn ray_pick_nearest(&self, ctx: &SceneRayInteractiveCtx) -> OptionalNearest<MeshBufferHitPoint> {
     self.inner.ray_pick_nearest(ctx)
   }

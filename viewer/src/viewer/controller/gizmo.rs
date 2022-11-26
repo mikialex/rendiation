@@ -4,6 +4,7 @@ use std::{
   sync::Arc,
 };
 
+use incremental::{Incremental, SimpleIncremental};
 use interphaser::{
   lens, mouse, mouse_move,
   winit::event::{ElementState, MouseButton},
@@ -33,7 +34,7 @@ pub struct Gizmo {
   states: GizmoState,
   root: SceneNode,
   target: Option<SceneNode>,
-  view: Component3DCollection<GizmoState>,
+  view: Component3DCollection<GizmoState, GizmoViewReact>,
 }
 
 impl Gizmo {
@@ -188,196 +189,13 @@ impl Gizmo {
         .visit_parent(|p| p.world_matrix())
         .unwrap_or_else(Mat4::identity);
 
-      if let Some((MouseButton::Left, ElementState::Pressed)) = mouse(event.raw_event) {
-        self.states.test_has_any_widget_mouse_down = false;
-      }
-
-      self.view.event(&mut self.states, event);
-
-      if let Some((MouseButton::Left, ElementState::Pressed)) = mouse(event.raw_event) {
-        if !self.states.test_has_any_widget_mouse_down {
-          keep_target = false;
-          self.states.reset();
-        }
-      }
-
-      if !self.states.has_any_active() {
-        return keep_target.into();
-      }
-
-      // after active states get updated, we handling mouse moving in gizmo level
-      if mouse_move(event.raw_event).is_some() {
-        self.handle_translating(event, target)?;
-        self.handle_rotating(event, target)?;
-      }
-
-      if let Some((MouseButton::Left, ElementState::Released)) = mouse(event.raw_event) {
-        self.states.reset();
-      }
+      self.view.event(&mut self.states, event, &mut |e| {});
 
       keep_target
     } else {
       false
     }
     .into()
-  }
-
-  fn handle_rotating(&self, event: &mut EventCtx3D, target: &SceneNode) -> Option<()> {
-    // // new_hit_world = M(parent) * M(local_translate) * M(new_local_rotate) * M(local_scale) * start_hit_local_position =>
-    // //  M-1(local_translate) * M-1(parent) * new_hit_world =  M(new_local_rotate) * M(local_scale) * start_hit_local_position
-    // should we support world space point align like above? but the question is, we have to also modify scale, because
-    // it's maybe impossible to rotate one point to the other if your rotation center is origin.
-
-    // here we use simple screen space rotation match local space to see the effects.
-
-    let camera = event.interactive_ctx.camera.read();
-    let vp = camera.projection_matrix * camera.node.get_world_matrix().inverse()?;
-
-    let start_hit_screen_position = (vp * self.states.start_hit_world_position).xy();
-    let current_hit_screen_position: Vec2<f32> = event
-      .info
-      .compute_normalized_position_in_canvas_coordinate(event.window_states)
-      .into();
-    let pivot_center_screen_position = (vp * self.states.target_world_mat.position()).xy();
-
-    let origin_dir = start_hit_screen_position - pivot_center_screen_position;
-    let origin_dir = origin_dir.normalize();
-    let new_dir = current_hit_screen_position - pivot_center_screen_position;
-    let new_dir = new_dir.normalize();
-
-    let current_angle_all = self.states.current_angle_all.get().unwrap_or(0.);
-    let last_dir = self.states.last_dir.get().unwrap_or(origin_dir);
-
-    let rotate_dir = last_dir.cross(new_dir).signum();
-    // min one is preventing float precision issue which will cause nan in acos
-    let angle_delta = last_dir.dot(new_dir).min(1.).acos() * rotate_dir;
-    let mut angle = current_angle_all + angle_delta;
-
-    self.states.current_angle_all.set(Some(angle));
-    self.states.last_dir.set(Some(new_dir));
-
-    let axis = if self.states.rotation.only_x_active() {
-      Vec3::new(1., 0., 0.)
-    } else if self.states.rotation.only_y_active() {
-      Vec3::new(0., 1., 0.)
-    } else if self.states.rotation.only_z_active() {
-      Vec3::new(0., 0., 1.)
-    } else {
-      return Some(());
-    };
-
-    let camera_world_position = event
-      .interactive_ctx
-      .camera
-      .read()
-      .node
-      .get_world_matrix()
-      .position();
-
-    let view_dir = camera_world_position - self.states.target_world_mat.position();
-
-    let axis_world = axis.transform_direction(self.states.target_world_mat);
-    if axis_world.dot(view_dir) < 0. {
-      angle = -angle;
-    }
-
-    let quat = Quat::rotation(axis, angle);
-
-    let new_local = Mat4::translate(self.states.start_local_position)
-      * Mat4::from(self.states.start_local_quaternion)
-      * Mat4::from(quat)
-      * Mat4::scale(self.states.start_local_scale);
-
-    target.set_local_matrix(new_local);
-    self.root.set_local_matrix(new_local);
-
-    Some(())
-  }
-
-  fn handle_translating(&self, event: &mut EventCtx3D, target: &SceneNode) -> Option<()> {
-    let camera_world_position = event
-      .interactive_ctx
-      .camera
-      .read()
-      .node
-      .get_world_matrix()
-      .position();
-
-    let back_to_local = self.states.target_world_mat.inverse()?;
-    let view_dir = camera_world_position - self.states.target_world_mat.position();
-    let view_dir_in_local = view_dir.transform_direction(back_to_local).value;
-
-    let plane_point = self.states.start_hit_local_position;
-
-    // build world space constraint abstract interactive plane
-    let (plane, constraint) = if self.states.translate.only_x_active() {
-      Some((1., 0., 0.).into())
-    } else if self.states.translate.only_y_active() {
-      Some((0., 1., 0.).into())
-    } else if self.states.translate.only_z_active() {
-      Some((0., 0., 1.).into())
-    } else {
-      None
-    }
-    .map(|axis: Vec3<f32>| {
-      let helper_dir = axis.cross(view_dir_in_local);
-      let normal = helper_dir.cross(axis);
-      (
-        Plane::from_normal_and_plane_point(normal, plane_point),
-        axis,
-      )
-    })
-    .or_else(|| {
-      if self.states.translate.only_xy_active() {
-        Some((0., 0., 1.).into())
-      } else if self.states.translate.only_yz_active() {
-        Some((1., 0., 0.).into())
-      } else if self.states.translate.only_xz_active() {
-        Some((0., 1., 0.).into())
-      } else {
-        None
-      }
-      .map(|normal: Vec3<f32>| {
-        (
-          Plane::from_normal_and_plane_point(normal, plane_point),
-          Vec3::one() - normal,
-        )
-      })
-    })
-    .unwrap_or((
-      // should be unreachable
-      Plane::from_normal_and_origin_point((0., 1., 0.).into()),
-      (0., 1., 0.).into(),
-    ));
-
-    let local_ray = event
-      .interactive_ctx
-      .world_ray
-      .apply_matrix_into(back_to_local);
-
-    // if we don't get any hit, we skip update.  Keeping last updated result is a reasonable behavior.
-    if let OptionalNearest(Some(new_hit)) = local_ray.intersect(&plane, &()) {
-      let new_hit = (new_hit.position - plane_point) * constraint + plane_point;
-      let new_hit_world = self.states.target_world_mat * new_hit;
-
-      // new_hit_world = M(parent) * M(new_local_translate) * M(local_rotate) * M(local_scale) * start_hit_local_position =>
-      // M-1(parent) * new_hit_world = new_local_translate + M(local_rotate) * M(local_scale) * start_hit_local_position  =>
-      // new_local_translate = M-1(parent) * new_hit_world - M(local_rotate) * M(local_scale) * start_hit_local_position
-
-      let new_local_translate = self.states.start_parent_world_mat.inverse()? * new_hit_world
-        - Mat4::from(self.states.start_local_quaternion)
-          * Mat4::scale(self.states.start_local_scale)
-          * self.states.start_hit_local_position;
-
-      let new_local = Mat4::translate(new_local_translate)
-        * Mat4::from(self.states.start_local_quaternion)
-        * Mat4::scale(self.states.start_local_scale);
-
-      target.set_local_matrix(new_local);
-      self.root.set_local_matrix(new_local);
-    }
-
-    Some(())
   }
 
   pub fn update(&mut self) {
@@ -410,8 +228,9 @@ fn active(active: impl Lens<GizmoState, ItemState>) -> impl FnMut(&mut GizmoStat
     if let Some(event3d) = &event.event_3d {
       if let Event3D::MouseDown { world_position } = event3d {
         active.with_mut(state, |s| s.active = true);
-        state.test_has_any_widget_mouse_down = true;
-        state.record_start(*world_position)
+        // state.test_has_any_widget_mouse_down = true;
+        // state.record_start(*world_position)
+        GizmoViewReact::StartDrag(*world_position)
       }
     }
 
@@ -592,17 +411,175 @@ fn build_rotator(root: &SceneNode, auto_scale: &AutoScale, mat: Mat4<f32>) -> He
   HelperMesh { model, material: m }
 }
 
-// fn build_box() -> Box<dyn SceneRenderable> {
-//   let mesh = CubeMeshParameter::default().tessellate();
-//   let mesh = MeshCell::new(MeshSource::new(mesh));
-//   todo!();
-// }
+fn handle_rotating(action: DragTargetAction) -> Mat4<f32> {
+  // // new_hit_world = M(parent) * M(local_translate) * M(new_local_rotate) * M(local_scale) * start_hit_local_position =>
+  // //  M-1(local_translate) * M-1(parent) * new_hit_world =  M(new_local_rotate) * M(local_scale) * start_hit_local_position
+  // should we support world space point align like above? but the question is, we have to also modify scale, because
+  // it's maybe impossible to rotate one point to the other if your rotation center is origin.
+
+  // here we use simple screen space rotation match local space to see the effects.
+
+  let camera = event.interactive_ctx.camera.read();
+  let vp = camera.projection_matrix * camera.node.get_world_matrix().inverse()?;
+
+  let start_hit_screen_position = (vp * self.states.start_hit_world_position).xy();
+  let current_hit_screen_position: Vec2<f32> = event
+    .info
+    .compute_normalized_position_in_canvas_coordinate(event.window_states)
+    .into();
+  let pivot_center_screen_position = (vp * self.states.target_world_mat.position()).xy();
+
+  let origin_dir = start_hit_screen_position - pivot_center_screen_position;
+  let origin_dir = origin_dir.normalize();
+  let new_dir = current_hit_screen_position - pivot_center_screen_position;
+  let new_dir = new_dir.normalize();
+
+  let current_angle_all = self.states.current_angle_all.get().unwrap_or(0.);
+  let last_dir = self.states.last_dir.get().unwrap_or(origin_dir);
+
+  let rotate_dir = last_dir.cross(new_dir).signum();
+  // min one is preventing float precision issue which will cause nan in acos
+  let angle_delta = last_dir.dot(new_dir).min(1.).acos() * rotate_dir;
+  let mut angle = current_angle_all + angle_delta;
+
+  self.states.current_angle_all.set(Some(angle));
+  self.states.last_dir.set(Some(new_dir));
+
+  let axis = if self.states.rotation.only_x_active() {
+    Vec3::new(1., 0., 0.)
+  } else if self.states.rotation.only_y_active() {
+    Vec3::new(0., 1., 0.)
+  } else if self.states.rotation.only_z_active() {
+    Vec3::new(0., 0., 1.)
+  } else {
+    return Some(());
+  };
+
+  let camera_world_position = action.camera_world.position();
+
+  let view_dir = camera_world_position - self.states.target_world_mat.position();
+
+  let axis_world = axis.transform_direction(self.states.target_world_mat);
+  if axis_world.dot(view_dir) < 0. {
+    angle = -angle;
+  }
+
+  let quat = Quat::rotation(axis, angle);
+
+  let new_local = Mat4::translate(self.states.start_local_position)
+    * Mat4::from(self.states.start_local_quaternion)
+    * Mat4::from(quat)
+    * Mat4::scale(self.states.start_local_scale);
+
+  target.set_local_matrix(new_local);
+  self.root.set_local_matrix(new_local);
+
+  Some(())
+}
+
+fn handle_translating(action: DragTargetAction) -> Mat4<f32> {
+  let camera_world_position = action.camera_world.position();
+
+  let back_to_local = self.states.target_world_mat.inverse()?;
+  let view_dir = camera_world_position - self.states.target_world_mat.position();
+  let view_dir_in_local = view_dir.transform_direction(back_to_local).value;
+
+  let plane_point = self.states.start_hit_local_position;
+
+  // build world space constraint abstract interactive plane
+  let (plane, constraint) = if self.states.translate.only_x_active() {
+    Some((1., 0., 0.).into())
+  } else if self.states.translate.only_y_active() {
+    Some((0., 1., 0.).into())
+  } else if self.states.translate.only_z_active() {
+    Some((0., 0., 1.).into())
+  } else {
+    None
+  }
+  .map(|axis: Vec3<f32>| {
+    let helper_dir = axis.cross(view_dir_in_local);
+    let normal = helper_dir.cross(axis);
+    (
+      Plane::from_normal_and_plane_point(normal, plane_point),
+      axis,
+    )
+  })
+  .or_else(|| {
+    if self.states.translate.only_xy_active() {
+      Some((0., 0., 1.).into())
+    } else if self.states.translate.only_yz_active() {
+      Some((1., 0., 0.).into())
+    } else if self.states.translate.only_xz_active() {
+      Some((0., 1., 0.).into())
+    } else {
+      None
+    }
+    .map(|normal: Vec3<f32>| {
+      (
+        Plane::from_normal_and_plane_point(normal, plane_point),
+        Vec3::one() - normal,
+      )
+    })
+  })
+  .unwrap_or((
+    // should be unreachable
+    Plane::from_normal_and_origin_point((0., 1., 0.).into()),
+    (0., 1., 0.).into(),
+  ));
+
+  let local_ray = event
+    .interactive_ctx
+    .world_ray
+    .apply_matrix_into(back_to_local);
+
+  // if we don't get any hit, we skip update.  Keeping last updated result is a reasonable behavior.
+  if let OptionalNearest(Some(new_hit)) = local_ray.intersect(&plane, &()) {
+    let new_hit = (new_hit.position - plane_point) * constraint + plane_point;
+    let new_hit_world = self.states.target_world_mat * new_hit;
+
+    // new_hit_world = M(parent) * M(new_local_translate) * M(local_rotate) * M(local_scale) * start_hit_local_position =>
+    // M-1(parent) * new_hit_world = new_local_translate + M(local_rotate) * M(local_scale) * start_hit_local_position  =>
+    // new_local_translate = M-1(parent) * new_hit_world - M(local_rotate) * M(local_scale) * start_hit_local_position
+
+    let new_local_translate = self.states.start_parent_world_mat.inverse()? * new_hit_world
+      - Mat4::from(self.states.start_local_quaternion)
+        * Mat4::scale(self.states.start_local_scale)
+        * self.states.start_hit_local_position;
+
+    let new_local = Mat4::translate(new_local_translate)
+      * Mat4::from(self.states.start_local_quaternion)
+      * Mat4::scale(self.states.start_local_scale);
+
+    target.set_local_matrix(new_local);
+    self.root.set_local_matrix(new_local);
+  }
+
+  Some(())
+}
 
 #[derive(Default)]
 struct GizmoState {
   translate: AxisActiveState,
   rotation: AxisActiveState,
   scale: AxisActiveState,
+
+  start_state: Option<StartState>,
+  rotate_state: Option<RotateState>,
+  target_state: Option<TargetState>,
+}
+
+struct TargetState {
+  target_local_mat: Mat4<f32>,
+  target_parent_world_mat: Mat4<f32>,
+  target_world_mat: Mat4<f32>,
+}
+
+struct RotateState {
+  current_angle_all: f32,
+  last_dir: Vec2<f32>,
+}
+
+struct StartState {
   start_parent_world_mat: Mat4<f32>,
   start_local_position: Vec3<f32>,
   start_local_quaternion: Quat<f32>,
@@ -610,62 +587,89 @@ struct GizmoState {
   start_local_mat: Mat4<f32>,
   start_hit_local_position: Vec3<f32>,
   start_hit_world_position: Vec3<f32>,
+}
 
-  current_angle_all: Cell<Option<f32>>,
-  last_dir: Cell<Option<Vec2<f32>>>,
+#[derive(Clone)]
+struct DragTargetAction {
+  drag_point_position_world: Vec3<f32>,
+  camera_world: Mat4<f32>,
+  camera_projection: Mat4<f32>,
+}
 
-  target_local_mat: Mat4<f32>,
-  target_parent_world_mat: Mat4<f32>,
-  target_world_mat: Mat4<f32>,
-  test_has_any_widget_mouse_down: bool,
+#[derive(Clone)]
+enum GizmoStateEnum {
+  DragTarget(DragTargetAction),
+  StartDrag(Vec3<f32>),
+  ReleaseTarget,
+}
+
+impl SimpleIncremental for GizmoState {
+  type Delta = GizmoStateEnum;
+
+  fn s_apply(&mut self, delta: Self::Delta) {
+    match delta {
+      GizmoStateEnum::DragTarget(action) => {
+        handle_translating(action);
+        handle_rotating(action);
+      }
+      GizmoStateEnum::StartDrag(start_world_position) => {
+        self.start_state = todo!(); //
+      }
+      GizmoStateEnum::ReleaseTarget => self.start_state = None,
+    }
+  }
+
+  fn s_expand(&self, cb: impl FnMut(Self::Delta)) {
+    todo!()
+  }
 }
 
 impl GizmoState {
   fn has_any_active(&self) -> bool {
     self.translate.has_active() || self.rotation.has_active() || self.scale.has_active()
   }
-  fn reset(&mut self) {
-    self.translate.reset_active();
-    self.rotation.reset_active();
-    self.scale.reset_active();
+  // fn reset(&mut self) {
+  //   self.translate.reset_active();
+  //   self.rotation.reset_active();
+  //   self.scale.reset_active();
 
-    self.last_dir.set(None);
-    self.current_angle_all.set(None);
-  }
-  fn record_start(&mut self, start_hit_world_position: Vec3<f32>) {
-    self.start_local_mat = self.target_local_mat;
-    self.start_parent_world_mat = self.target_parent_world_mat;
+  //   self.last_dir.set(None);
+  //   self.current_angle_all.set(None);
+  // }
+  // fn record_start(&mut self, start_hit_world_position: Vec3<f32>) {
+  //   self.start_local_mat = self.target_local_mat;
+  //   self.start_parent_world_mat = self.target_parent_world_mat;
 
-    let (t, r, s) = self.start_local_mat.decompose();
-    self.start_local_position = t;
-    self.start_local_quaternion = r;
-    self.start_local_scale = s;
+  //   let (t, r, s) = self.start_local_mat.decompose();
+  //   self.start_local_position = t;
+  //   self.start_local_quaternion = r;
+  //   self.start_local_scale = s;
 
-    self.start_hit_world_position = start_hit_world_position;
-    self.start_hit_local_position =
-      self.target_world_mat.inverse_or_identity() * self.start_hit_world_position;
-  }
+  //   self.start_hit_world_position = start_hit_world_position;
+  //   self.start_hit_local_position =
+  //     self.target_world_mat.inverse_or_identity() * self.start_hit_world_position;
+  // }
 }
 
 #[derive(Copy, Clone, Default, Debug)]
 pub struct AxisActiveState {
-  x: ItemState,
-  y: ItemState,
-  z: ItemState,
+  pub x: ItemState,
+  pub y: ItemState,
+  pub z: ItemState,
 }
 
 #[derive(Copy, Clone, Default, Debug)]
 struct ItemState {
-  hovering: bool,
-  active: bool,
+  pub hovering: bool,
+  pub active: bool,
 }
 
 impl AxisActiveState {
-  pub fn reset_active(&mut self) {
-    self.x.active = false;
-    self.y.active = false;
-    self.z.active = false;
-  }
+  // pub fn reset_active(&mut self) {
+  //   self.x.active = false;
+  //   self.y.active = false;
+  //   self.z.active = false;
+  // }
 
   pub fn has_active(&self) -> bool {
     self.x.active || self.y.active || self.z.active

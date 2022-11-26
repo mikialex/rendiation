@@ -3037,6 +3037,7 @@ dependencies = [
  "env_logger",
  "futures",
  "image",
+ "incremental",
  "interphaser",
  "log",
  "rendiation-algebra",

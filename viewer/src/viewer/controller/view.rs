@@ -1,7 +1,10 @@
+use std::marker::PhantomData;
+
+use incremental::Incremental;
 use interphaser::{
   mouse, mouse_move,
   winit::event::{ElementState, Event, MouseButton},
-  CanvasWindowPositionInfo, Component, WindowState,
+  CanvasWindowPositionInfo, WindowState,
 };
 
 use crate::*;
@@ -46,13 +49,14 @@ impl interphaser::System for System3D {
   type UpdateCtx<'a> = UpdateCtx3D<'a>;
 }
 
-pub fn map_3d_events<'a, T, S>(
+pub fn map_3d_events<'a, T: View<S>, S>(
   event_ctx: &mut EventCtx3D,
   view: T,
-  mut on_event: impl FnMut(&mut EventCtx3D, &'a mut dyn Component3D<S>),
-) -> Option<&'a mut dyn Component3D<S>>
+  mut on_event: impl FnMut(&mut EventCtx3D, &'a mut dyn View3D<S, Event = T::Event>),
+) -> Option<&'a mut dyn View3D<S, Event = T::Event>>
 where
-  T: IntoIterator<Item = &'a mut dyn Component3D<S>>,
+  S: Incremental,
+  T: IntoIterator<Item = &'a mut dyn View3D<S, Event = T::Event>>,
 {
   let event = event_ctx.raw_event;
 
@@ -97,15 +101,16 @@ where
   None
 }
 
-pub struct Component3DCollection<T> {
-  collection: Vec<Box<dyn Component3D<T>>>,
+pub struct Component3DCollection<T, E> {
+  collection: Vec<Box<dyn View3D<T, Event = E>>>,
+  // event: PhantomData<E>,
 }
 
-pub trait Component3D<T>: Component<T, System3D> + SceneRayInteractive + SceneRenderable {
+pub trait View3D<T: Incremental>: View<T> + SceneRayInteractive + SceneRenderable {
   fn as_mut_interactive(&mut self) -> &mut dyn SceneRayInteractive;
   fn as_interactive(&self) -> &dyn SceneRayInteractive;
 }
-impl<T, X: Component<T, System3D> + SceneRayInteractive + SceneRenderable> Component3D<T> for X {
+impl<T: Incremental, X: View<T> + SceneRayInteractive + SceneRenderable> View3D<T> for X {
   fn as_mut_interactive(&mut self) -> &mut dyn SceneRayInteractive {
     self
   }
@@ -114,45 +119,71 @@ impl<T, X: Component<T, System3D> + SceneRayInteractive + SceneRenderable> Compo
   }
 }
 
-impl<T> Component3DCollection<T> {
+impl<T: Incremental, E> Component3DCollection<T, E> {
   #[must_use]
-  pub fn with(mut self, item: impl Component3D<T> + 'static) -> Self {
+  pub fn with(mut self, item: impl View3D<T, Event = E> + 'static) -> Self {
     self.collection.push(Box::new(item));
     self
   }
 }
 
-pub fn collection3d<T>() -> Component3DCollection<T> {
+pub fn collection3d<T, E>() -> Component3DCollection<T, E> {
   Component3DCollection {
     collection: Default::default(),
   }
 }
 
-impl<T> Component<T, System3D> for Component3DCollection<T> {
-  fn event(&mut self, states: &mut T, ctx: &mut EventCtx3D) {
-    if let Some(target) = map_3d_events(
-      ctx,
-      self
-        .collection
-        .iter_mut() // fixme, how can i pass the compiler here ???!
-        .map(|c| unsafe { std::mem::transmute::<_, &mut dyn Component3D<T>>(c.as_mut()) }),
-      |ctx, not_hit| {
-        not_hit.event(states, ctx);
-      },
-    ) {
-      target.event(states, ctx);
-      ctx.event_3d = None;
-    }
+impl<T: Incremental, E> View<T> for Component3DCollection<T, E> {
+  type Event = E;
+
+  fn event(
+    &mut self,
+    model: &mut T,
+    event: &mut EventCtx3D,
+    cb: &mut dyn FnMut(ViewReaction<Self::Event, T>),
+  ) {
+    // if let Some(target) = map_3d_events(
+    //   event,
+    //   self
+    //     .collection
+    //     .iter_mut() // fixme, how can i pass the compiler here ???!
+    //     .map(|c| unsafe { std::mem::transmute::<_, &mut dyn View3D<T>>(c.as_mut()) }),
+    //   |ctx, not_hit| {
+    //     not_hit.event(model, event, cb);
+    //   },
+    // ) {
+    //   target.event(model, event, cb);
+    //   event.event_3d = None;
+    // }
   }
 
-  fn update(&mut self, states: &T, ctx: &mut UpdateCtx3D) {
-    for view in &mut self.collection {
-      view.update(states, ctx);
-    }
+  fn update(&mut self, model: &T, delta: &<T as incremental::Incremental>::Delta) {
+    todo!()
   }
+  // fn event(&mut self, states: &mut T, ctx: &mut EventCtx3D) {
+  //   if let Some(target) = map_3d_events(
+  //     ctx,
+  //     self
+  //       .collection
+  //       .iter_mut() // fixme, how can i pass the compiler here ???!
+  //       .map(|c| unsafe { std::mem::transmute::<_, &mut dyn View3D<T>>(c.as_mut()) }),
+  //     |ctx, not_hit| {
+  //       not_hit.event(states, ctx);
+  //     },
+  //   ) {
+  //     target.event(states, ctx);
+  //     ctx.event_3d = None;
+  //   }
+  // }
+
+  // fn update(&mut self, states: &T, ctx: &mut UpdateCtx3D) {
+  //   for view in &mut self.collection {
+  //     view.update(states, ctx);
+  //   }
+  // }
 }
 
-impl<T> SceneRenderable for Component3DCollection<T> {
+impl<T, E> SceneRenderable for Component3DCollection<T, E> {
   fn render(
     &self,
     pass: &mut SceneRenderPass,
