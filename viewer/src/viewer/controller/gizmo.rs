@@ -647,6 +647,7 @@ enum GizmoStateDelta {
   DragTarget(DragTargetAction),
   Active(DeltaOf<GizmoActiveState>),
   StartDrag(Vec3<f32>),
+  SyncState(Mat4<f32>),
   ReleaseTarget,
 }
 
