@@ -614,6 +614,7 @@ struct GizmoActiveState {
   scale: AxisActiveState,
 }
 
+#[derive(Copy, Clone)]
 struct TargetState {
   target_local_mat: Mat4<f32>,
   target_parent_world_mat: Mat4<f32>,
@@ -647,7 +648,7 @@ enum GizmoStateDelta {
   DragTarget(DragTargetAction),
   Active(DeltaOf<GizmoActiveState>),
   StartDrag(Vec3<f32>),
-  SyncState(Mat4<f32>),
+  SyncState(TargetState),
   ReleaseTarget,
 }
 
@@ -663,12 +664,20 @@ impl SimpleIncremental for GizmoState {
       GizmoStateDelta::StartDrag(start_world_position) => {
         self.start_state = todo!(); //
       }
-      GizmoStateDelta::ReleaseTarget => self.start_state = None,
+      GizmoStateDelta::ReleaseTarget => {
+        self.start_state = None;
+        self.target_state = None;
+      }
+      GizmoStateDelta::Active(delta) => self.active.apply(delta).unwrap(),
+      GizmoStateDelta::SyncState(s) => self.target_state = Some(s),
     }
   }
 
   fn s_expand(&self, cb: impl FnMut(Self::Delta)) {
-    todo!()
+    if let Some(target_state) = &self.target_state {
+      cb(GizmoStateDelta::SyncState(*target_state));
+    }
+    self.active.expand(|d| cb(GizmoStateDelta::Active(d)));
   }
 }
 
