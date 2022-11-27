@@ -4,7 +4,7 @@ use std::{
   sync::Arc,
 };
 
-use incremental::{Incremental, SimpleIncremental};
+use incremental::{DeltaOf, Incremental, SimpleIncremental};
 use interphaser::{
   lens, mouse, mouse_move,
   winit::event::{ElementState, MouseButton},
@@ -34,7 +34,7 @@ pub struct Gizmo {
   states: GizmoState,
   root: SceneNode,
   target: Option<SceneNode>,
-  view: Component3DCollection<GizmoState, GizmoViewReact>,
+  view: Component3DCollection<GizmoState, ()>,
 }
 
 impl Gizmo {
@@ -207,7 +207,7 @@ impl Gizmo {
   }
 }
 
-fn is_3d_hovering() -> impl FnMut(&EventCtx3D) -> bool {
+fn is_3d_hovering() -> impl FnMut(&EventCtx3D) -> Option<bool> {
   let mut is_hovering = false;
   move |event| {
     if let Some(event3d) = &event.event_3d {
@@ -222,19 +222,59 @@ fn is_3d_hovering() -> impl FnMut(&EventCtx3D) -> bool {
   }
 }
 
-fn active(active: impl Lens<GizmoState, ItemState>) -> impl FnMut(&mut GizmoState, &EventCtx3D) {
+trait DeltaLens<T: Incremental, U: Incremental> {
+  fn map_delta(&self, input: DeltaOf<U>) -> DeltaOf<T>;
+  fn check_delta(&self, input: DeltaOf<T>) -> Option<DeltaOf<U>>;
+}
+
+// #[derive(Clone, Copy)]
+// pub struct FieldDelta<Get, GetMut> {
+//   get: Get,
+//   get_mut: GetMut,
+// }
+
+// impl<Get, GetMut> FieldDelta<Get, GetMut> {
+//   /// Construct a lens from a pair of getter functions
+//   pub fn new<T: ?Sized, U: ?Sized>(get: Get, get_mut: GetMut) -> Self
+//   where
+//     Get: Fn(&T) -> &U,
+//     GetMut: Fn(&mut T) -> &mut U,
+//   {
+//     Self { get, get_mut }
+//   }
+// }
+
+// impl<T, U, Get, GetMut> Lens<T, U> for FieldDelta<Get, GetMut>
+// where
+//   T: ?Sized,
+//   U: ?Sized,
+//   Get: Fn(&T) -> &U,
+//   GetMut: Fn(&mut T) -> &mut U,
+// {
+//   fn with<V, F: FnOnce(&U) -> V>(&self, data: &T, f: F) -> V {
+//     f((self.get)(data))
+//   }
+
+//   fn with_mut<V, F: FnOnce(&mut U) -> V>(&self, data: &mut T, f: F) -> V {
+//     f((self.get_mut)(data))
+//   }
+// }
+
+fn active(
+  active: impl DeltaLens<GizmoState, ItemState>,
+) -> impl FnMut(&mut GizmoState, &EventCtx3D, &mut dyn FnMut(GizmoStateDelta)) {
   let mut is_hovering = is_3d_hovering();
-  move |state, event| {
+  move |state, event, cb| {
     if let Some(event3d) = &event.event_3d {
       if let Event3D::MouseDown { world_position } = event3d {
-        active.with_mut(state, |s| s.active = true);
-        // state.test_has_any_widget_mouse_down = true;
-        // state.record_start(*world_position)
-        GizmoViewReact::StartDrag(*world_position)
+        cb(active.map_delta(DeltaOf::<ItemState>::active(true)));
+        cb(GizmoStateDelta::StartDrag(*world_position));
       }
     }
 
-    active.with_mut(state, |s| s.hovering = is_hovering(event));
+    if let Some(hovering) = is_hovering(event) {
+      cb(active.map_delta(DeltaOf::<ItemState>::hovering(hovering)));
+    }
   }
 }
 
@@ -249,14 +289,16 @@ fn map_color(color: Vec3<f32>, state: ItemState) -> Vec3<f32> {
 }
 
 fn update_arrow(
-  active: impl Lens<GizmoState, ItemState>,
+  active: impl DeltaLens<GizmoState, ItemState>,
   color: Vec3<f32>,
-) -> impl FnMut(&GizmoState, &mut Arrow) {
-  move |state, arrow| {
-    let axis_state = active.with(state, |&s| s);
-    let show = !state.translate.has_active() || axis_state.active;
-    arrow.root.set_visible(show);
-    arrow.set_color(map_color(color, axis_state));
+) -> impl FnMut(&GizmoState, &DeltaOf<GizmoState>, &mut Arrow) {
+  move |state, delta, arrow| {
+    if let Some(d) = active.check_delta(delta) {
+      let axis_state = active.with(state, |&s| s);
+      let show = !state.translate.has_active() || axis_state.active;
+      arrow.root.set_visible(show);
+      arrow.set_color(map_color(color, axis_state));
+    }
   }
 }
 
@@ -559,13 +601,17 @@ fn handle_translating(action: DragTargetAction) -> Mat4<f32> {
 
 #[derive(Default)]
 struct GizmoState {
-  translate: AxisActiveState,
-  rotation: AxisActiveState,
-  scale: AxisActiveState,
-
+  active: GizmoActiveState,
   start_state: Option<StartState>,
   rotate_state: Option<RotateState>,
   target_state: Option<TargetState>,
+}
+
+#[derive(Default, Incremental)]
+struct GizmoActiveState {
+  translate: AxisActiveState,
+  rotation: AxisActiveState,
+  scale: AxisActiveState,
 }
 
 struct TargetState {
@@ -597,25 +643,26 @@ struct DragTargetAction {
 }
 
 #[derive(Clone)]
-enum GizmoStateEnum {
+enum GizmoStateDelta {
   DragTarget(DragTargetAction),
+  Active(DeltaOf<GizmoActiveState>),
   StartDrag(Vec3<f32>),
   ReleaseTarget,
 }
 
 impl SimpleIncremental for GizmoState {
-  type Delta = GizmoStateEnum;
+  type Delta = GizmoStateDelta;
 
   fn s_apply(&mut self, delta: Self::Delta) {
     match delta {
-      GizmoStateEnum::DragTarget(action) => {
+      GizmoStateDelta::DragTarget(action) => {
         handle_translating(action);
         handle_rotating(action);
       }
-      GizmoStateEnum::StartDrag(start_world_position) => {
+      GizmoStateDelta::StartDrag(start_world_position) => {
         self.start_state = todo!(); //
       }
-      GizmoStateEnum::ReleaseTarget => self.start_state = None,
+      GizmoStateDelta::ReleaseTarget => self.start_state = None,
     }
   }
 
@@ -651,14 +698,14 @@ impl GizmoState {
   // }
 }
 
-#[derive(Copy, Clone, Default, Debug)]
+#[derive(Copy, Clone, Default, Debug, Incremental)]
 pub struct AxisActiveState {
   pub x: ItemState,
   pub y: ItemState,
   pub z: ItemState,
 }
 
-#[derive(Copy, Clone, Default, Debug)]
+#[derive(Copy, Clone, Default, Debug, Incremental)]
 struct ItemState {
   pub hovering: bool,
   pub active: bool,

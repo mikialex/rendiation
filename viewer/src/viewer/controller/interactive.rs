@@ -50,12 +50,15 @@ pub enum Event3D {
 
 pub struct InteractiveWatchable<T, S: Incremental> {
   inner: T,
-  callbacks: Vec<Box<dyn FnMut(&S, &EventCtx3D) -> Option<S::Delta>>>,
+  callbacks: Vec<Box<dyn FnMut(&S, &EventCtx3D, &mut dyn FnMut(S::Delta))>>,
   updates: Option<Box<dyn FnMut(&mut T, &S::Delta)>>,
 }
 
 impl<T, S: Incremental> InteractiveWatchable<T, S> {
-  pub fn on(mut self, mut cb: impl FnMut(&S, &EventCtx3D) -> Option<S::Delta> + 'static) -> Self {
+  pub fn on(
+    mut self,
+    mut cb: impl FnMut(&S, &EventCtx3D, &mut dyn FnMut(S::Delta)) + 'static,
+  ) -> Self {
     self
       .callbacks
       .push(Box::new(move |state, event| cb(state, event)));
@@ -91,9 +94,7 @@ impl<T: SceneRenderable, S: Incremental> View<S> for InteractiveWatchable<T, S> 
     cb: &mut dyn FnMut(ViewReaction<Self::Event, S>),
   ) {
     for cb_e in &mut self.callbacks {
-      if let Some(d) = cb_e(model, event) {
-        cb(ViewReaction::StateDelta(d))
-      }
+      cb_e(model, event, &mut |d| cb(ViewReaction::StateDelta(d)));
     }
   }
 
