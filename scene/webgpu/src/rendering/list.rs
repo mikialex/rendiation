@@ -1,31 +1,13 @@
 use crate::*;
 
-pub struct RenderList<P>
-where
-  P: SceneContent,
-{
-  pub(crate) opaque: Vec<(Handle<<P as SceneContent>::Model>, f32)>,
-  pub(crate) transparent: Vec<(Handle<<P as SceneContent>::Model>, f32)>,
+#[derive(Default)]
+pub struct RenderList {
+  pub(crate) opaque: Vec<(SceneModelHandle, f32)>,
+  pub(crate) transparent: Vec<(SceneModelHandle, f32)>,
 }
 
-impl<P> Default for RenderList<P>
-where
-  P: SceneContent,
-{
-  fn default() -> Self {
-    Self {
-      opaque: Vec::new(),
-      transparent: Vec::new(),
-    }
-  }
-}
-
-impl<P> RenderList<P>
-where
-  P: SceneContent,
-  P::Model: Deref<Target = dyn SceneModelShareable>,
-{
-  pub fn prepare(&mut self, scene: &Scene<P>, camera: &SceneCamera) {
+impl RenderList {
+  pub fn prepare(&mut self, scene: &Scene, camera: &SceneCamera) {
     if scene.active_camera.is_none() {
       return;
     }
@@ -41,7 +23,7 @@ where
       let model_pos = m.get_node().get_world_matrix().position();
       let depth = (model_pos - camera_pos).dot(camera_forward);
 
-      let is_transparent = (m.deref() as &dyn SceneModelShareable).is_transparent();
+      let is_transparent = m.is_transparent();
       if is_transparent {
         self.transparent.push((h, depth));
       } else {
@@ -58,7 +40,7 @@ where
   pub fn setup_pass(
     &self,
     gpu_pass: &mut SceneRenderPass,
-    scene: &Scene<P>,
+    scene: &Scene,
     dispatcher: &dyn RenderComponentAny,
     camera: &SceneCamera,
   ) {

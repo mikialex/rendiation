@@ -1,3 +1,4 @@
+use incremental::Incremental;
 use rendiation_algebra::*;
 use rendiation_geometry::*;
 use rendiation_texture::Size;
@@ -55,6 +56,7 @@ pub struct CameraGroup {
   pub default_camera: SceneCamera,
 }
 
+#[derive(Clone, Copy, Incremental)]
 pub struct CameraViewBounds {
   pub width: f32,
   pub height: f32,

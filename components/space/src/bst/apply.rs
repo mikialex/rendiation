@@ -12,6 +12,7 @@ pub struct Quad;
 pub struct Oc;
 
 impl BSTBounding<3, 8> for Box3 {
+  #[allow(clippy::bool_to_int_with_if)]
   fn pre_classify_primitive(&self, p: &BuildPrimitive<Self>) -> usize {
     let dir = self.center() - p.center;
     let mut i: usize = 0;

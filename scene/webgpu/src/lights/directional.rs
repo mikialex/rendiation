@@ -68,19 +68,16 @@ wgsl_fn!(
   }
 );
 
-impl WebGPUSceneLight for SceneLight<DirectionalLight> {
+impl WebGPUSceneLight for SceneItemRef<DirectionalLight> {
   // allocate shadow maps
-  fn pre_update(&self, ctx: &mut LightUpdateCtx) {
+  fn pre_update(&self, ctx: &mut LightUpdateCtx, node: &SceneNode) {
     let inner = self.read();
-    request_basic_shadow_map(&inner, ctx.ctx.resources, ctx.shadows);
+    request_basic_shadow_map(&inner, ctx.ctx.resources, ctx.shadows, node);
   }
 
-  fn update(&self, ctx: &mut LightUpdateCtx) {
-    let inner = self.read();
-    let light = &inner.light;
-    let node = &inner.node;
-
-    let shadow = check_update_basic_shadow_map(&inner, ctx);
+  fn update(&self, ctx: &mut LightUpdateCtx, node: &SceneNode) {
+    let light = self.read();
+    let shadow = check_update_basic_shadow_map(&light, ctx, node);
 
     let lights = ctx.forward.get_or_create_list();
     let gpu = DirectionalLightShaderInfo {
@@ -101,8 +98,8 @@ pub struct DirectionalShadowMapExtraInfo {
   pub enable_shadow: bool,
 }
 
-impl ShadowCameraCreator for SceneLightInner<DirectionalLight> {
-  fn build_shadow_camera(&self) -> SceneCamera {
+impl ShadowCameraCreator for DirectionalLight {
+  fn build_shadow_camera(&self, node: &SceneNode) -> SceneCamera {
     let orth = OrthographicProjection {
       left: -20.,
       right: 20.,
@@ -112,7 +109,7 @@ impl ShadowCameraCreator for SceneLightInner<DirectionalLight> {
       far: 2000.,
     };
     let orth = WorkAroundResizableOrth { orth };
-    SceneCamera::create_camera(orth, self.node.clone())
+    SceneCamera::create_camera(orth, node.clone())
   }
 }
 
@@ -122,7 +119,7 @@ struct WorkAroundResizableOrth<T> {
 
 impl<T: Scalar> Projection<T> for WorkAroundResizableOrth<T> {
   fn update_projection<S: NDCSpaceMapper>(&self, projection: &mut Mat4<T>) {
-    self.orth.update_projection::<S>(projection);
+    self.orth.update_projection::<WebGPU>(projection);
   }
 
   fn pixels_per_unit(&self, distance: T, view_height: T) -> T {

@@ -38,7 +38,6 @@ impl ShaderGraphProvider for ScreenChannelDebugger {
     &self,
     builder: &mut ShaderGraphRenderPipelineBuilder,
   ) -> Result<(), ShaderGraphBuildError> {
-    builder.log_result = true;
     builder.fragment(|builder, _| {
       let ndc_position = builder.query::<FragmentPosition>()?;
 

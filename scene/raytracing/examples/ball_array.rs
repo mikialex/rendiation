@@ -38,13 +38,7 @@ fn main() {
       bottom_intensity: Vec3::new(0.8, 0.8, 0.6),
     });
 
-  fn ball(
-    scene: &mut Scene<RayTracingScene>,
-    position: Vec3<f32>,
-    size: f32,
-    roughness: f32,
-    metallic: f32,
-  ) {
+  fn ball(scene: &mut Scene, position: Vec3<f32>, size: f32, roughness: f32, metallic: f32) {
     let roughness = if roughness == 0.0 { 0.04 } else { roughness };
     scene.model_node(
       Sphere::new(position, size),
@@ -70,7 +64,7 @@ fn main() {
   let spacing = 0.55;
   let count = 10;
 
-  let width_all = spacing as f32 * 2. * count as f32;
+  let width_all = spacing * 2. * count as f32;
 
   let start = width_all / -2.0 + spacing;
   let step = spacing * 2.;

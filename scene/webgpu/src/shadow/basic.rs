@@ -11,7 +11,7 @@ pub struct LightShadowAddressInfo {
 impl LightShadowAddressInfo {
   pub fn new(enabled: bool, index: u32) -> Self {
     Self {
-      enabled: if enabled { 1 } else { 0 },
+      enabled: enabled.into(),
       index,
       ..Zeroable::zeroed()
     }
@@ -106,13 +106,9 @@ pub fn compute_shadow_position(
 
 pub struct SceneDepth;
 
-impl<S> PassContentWithSceneAndCamera<S> for SceneDepth
-where
-  S: SceneContent,
-  S::Model: Deref<Target = dyn SceneModelShareable>,
-{
-  fn render(&mut self, pass: &mut SceneRenderPass, scene: &Scene<S>, camera: &SceneCamera) {
-    let mut render_list = RenderList::<S>::default();
+impl PassContentWithSceneAndCamera for SceneDepth {
+  fn render(&mut self, pass: &mut SceneRenderPass, scene: &Scene, camera: &SceneCamera) {
+    let mut render_list = RenderList::default();
     render_list.prepare(scene, camera);
 
     // we could just use default, because the color channel not exist at all
@@ -129,17 +125,15 @@ pub struct BasicShadowGPU {
 }
 
 pub trait ShadowCameraCreator {
-  fn build_shadow_camera(&self) -> SceneCamera;
+  fn build_shadow_camera(&self, node: &SceneNode) -> SceneCamera;
 }
 
-fn get_shadow_map<T: Any>(
-  inner: &SceneItemRefGuard<SceneLightInner<T>>,
+fn get_shadow_map<T: Any + ShadowCameraCreator>(
+  inner: &SceneItemRefGuard<T>,
   resources: &mut GPUResourceCache,
   shadows: &mut ShadowMapSystem,
-) -> BasicShadowGPU
-where
-  SceneLightInner<T>: ShadowCameraCreator,
-{
+  node: &SceneNode,
+) -> BasicShadowGPU {
   let resolution = Size::from_usize_pair_min_one((512, 512));
 
   resources
@@ -147,18 +141,18 @@ where
     .lights
     .inner
     .entry(TypeId::of::<T>())
-    .or_insert_with(|| Box::new(IdentityMapper::<BasicShadowGPU, T>::default()))
+    .or_insert_with(|| Box::<IdentityMapper<BasicShadowGPU, T>>::default())
     .as_any_mut()
     .downcast_mut::<IdentityMapper<BasicShadowGPU, T>>()
     .unwrap()
     .get_update_or_insert_with_logic(inner, |logic| match logic {
       ResourceLogic::Create(light) => {
-        let shadow_camera = light.build_shadow_camera();
+        let shadow_camera = light.build_shadow_camera(node);
         let map = shadows.maps.allocate(resolution);
         ResourceLogicResult::Create(BasicShadowGPU { shadow_camera, map })
       }
       ResourceLogic::Update(shadow, light) => {
-        let shadow_camera = light.build_shadow_camera();
+        let shadow_camera = light.build_shadow_camera(node);
         let map = shadows.maps.allocate(resolution);
         *shadow = BasicShadowGPU { shadow_camera, map };
         ResourceLogicResult::Update(shadow)
@@ -167,24 +161,22 @@ where
     .clone()
 }
 
-pub fn request_basic_shadow_map<T: Any>(
-  inner: &SceneItemRefGuard<SceneLightInner<T>>,
+pub fn request_basic_shadow_map<T: Any + ShadowCameraCreator>(
+  inner: &SceneItemRefGuard<T>,
   resources: &mut GPUResourceCache,
   shadows: &mut ShadowMapSystem,
-) where
-  SceneLightInner<T>: ShadowCameraCreator,
-{
-  get_shadow_map(inner, resources, shadows);
+  node: &SceneNode,
+) {
+  get_shadow_map(inner, resources, shadows, node);
 }
 
-pub fn check_update_basic_shadow_map<T: Any>(
-  inner: &SceneItemRefGuard<SceneLightInner<T>>,
+pub fn check_update_basic_shadow_map<T: Any + ShadowCameraCreator>(
+  inner: &SceneItemRefGuard<T>,
   ctx: &mut LightUpdateCtx,
-) -> LightShadowAddressInfo
-where
-  SceneLightInner<T>: ShadowCameraCreator,
-{
-  let BasicShadowGPU { shadow_camera, map } = get_shadow_map(inner, ctx.ctx.resources, ctx.shadows);
+  node: &SceneNode,
+) -> LightShadowAddressInfo {
+  let BasicShadowGPU { shadow_camera, map } =
+    get_shadow_map(inner, ctx.ctx.resources, ctx.shadows, node);
 
   let (view, map_info) = map.get_write_view(ctx.ctx.gpu);
   let shadow_camera_info = ctx
@@ -209,7 +201,7 @@ where
     .shadows
     .shadow_collections
     .entry(TypeId::of::<BasicShadowMapInfoList>())
-    .or_insert_with(|| Box::new(BasicShadowMapInfoList::default()));
+    .or_insert_with(|| Box::<BasicShadowMapInfoList>::default());
   let shadows = shadows
     .as_any_mut()
     .downcast_mut::<BasicShadowMapInfoList>()

@@ -34,7 +34,7 @@ impl Default for UIExamples {
     };
 
     r.examples.push(Box::new(todo));
-    r.examples.push(Box::new(Counter::default()));
+    r.examples.push(Box::<Counter>::default());
     r
   }
 }

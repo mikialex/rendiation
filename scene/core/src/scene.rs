@@ -1,20 +1,17 @@
+use std::any::TypeId;
+
 use crate::*;
 
-use arena::Arena;
+use arena::{Arena, Handle};
+use incremental::{Incremental, SimpleMutator};
 use rendiation_algebra::PerspectiveProjection;
 use tree::TreeCollection;
 
-pub trait SceneContent: Clone + Copy + 'static {
-  type BackGround;
-  type Model;
-  type Light;
-  type Texture2D;
-  type TextureCube;
-  type SceneExt: Default;
-}
+pub type SceneModelHandle = Handle<SceneModel>;
+pub type SceneCameraHandle = Handle<SceneCamera>;
 
-pub struct Scene<S: SceneContent> {
-  pub background: Option<S::BackGround>,
+pub struct Scene {
+  pub background: Option<SceneBackGround>,
 
   pub default_camera: SceneCamera,
   pub active_camera: Option<SceneCamera>,
@@ -22,36 +19,91 @@ pub struct Scene<S: SceneContent> {
   /// All cameras in the scene
   pub cameras: Arena<SceneCamera>,
   /// All lights in the scene
-  pub lights: Arena<S::Light>,
+  pub lights: Arena<SceneLight>,
   /// All models in the scene
-  pub models: Arena<S::Model>,
+  pub models: Arena<SceneModel>,
 
-  nodes: Arc<RwLock<SceneNodesCollection>>,
+  nodes: Arc<RwLock<TreeCollection<SceneNodeData>>>,
   root: SceneNode,
 
-  pub extension: S::SceneExt,
+  pub ext: DynamicExtension,
 }
 
-pub struct SceneNodesCollection {
-  pub(crate) root: SceneNodeHandle,
-  pub(crate) nodes: TreeCollection<SceneNodeData>,
+/// like any map, but clone able
+#[derive(Default, Clone, Debug)]
+pub struct DynamicExtension {
+  inner: HashMap<std::any::TypeId, std::rc::Rc<dyn std::any::Any>>,
 }
 
-impl Default for SceneNodesCollection {
-  fn default() -> Self {
-    let root = SceneNodeData::default();
-    let mut nodes = TreeCollection::default();
-    let root = nodes.create_node(root);
-    Self { root, nodes }
+impl DynamicExtension {
+  pub fn get<T: Any>(&self) -> Option<&T> {
+    self
+      .inner
+      .get(&TypeId::of::<T>())
+      .map(|r| r.downcast_ref::<T>().unwrap())
+  }
+
+  pub fn insert<T: Any>(&mut self, item: T) {
+    self.inner.insert(TypeId::of::<T>(), std::rc::Rc::new(item));
   }
 }
 
-impl<S: SceneContent> Scene<S> {
+impl Incremental for DynamicExtension {
+  type Delta = ();
+
+  type Error = ();
+
+  type Mutator<'a> = SimpleMutator<'a, Self>
+  where
+    Self: 'a;
+
+  fn create_mutator<'a>(
+    &'a mut self,
+    collector: &'a mut dyn FnMut(Self::Delta),
+  ) -> Self::Mutator<'a> {
+    todo!()
+  }
+
+  fn apply(&mut self, delta: Self::Delta) -> Result<(), Self::Error> {
+    todo!()
+  }
+
+  fn expand(&self, cb: impl FnMut(Self::Delta)) {
+    todo!()
+  }
+}
+
+// impl Incremental for Scene<S> {
+//   type Delta;
+
+//   type Error;
+
+//   type Mutator<'a>
+//   where
+//     Self: 'a;
+
+//   fn create_mutator<'a>(
+//     &'a mut self,
+//     collector: &'a mut dyn FnMut(Self::Delta),
+//   ) -> Self::Mutator<'a> {
+//     todo!()
+//   }
+
+//   fn apply(&mut self, delta: Self::Delta) -> Result<(), Self::Error> {
+//     todo!()
+//   }
+
+//   fn expand(&self, cb: impl FnMut(Self::Delta)) {
+//     todo!()
+//   }
+// }
+
+impl Scene {
   pub fn root(&self) -> &SceneNode {
     &self.root
   }
   pub fn new() -> Self {
-    let nodes: Arc<RwLock<SceneNodesCollection>> = Default::default();
+    let nodes: Arc<RwLock<TreeCollection<SceneNodeData>>> = Default::default();
 
     let root = SceneNode::from_root(nodes.clone());
 
@@ -69,7 +121,7 @@ impl<S: SceneContent> Scene<S> {
       models: Arena::new(),
 
       active_camera: None,
-      extension: Default::default(),
+      ext: Default::default(),
     }
   }
 
@@ -79,15 +131,15 @@ impl<S: SceneContent> Scene<S> {
 
   pub fn maintain(&mut self) {
     let mut nodes = self.nodes.write().unwrap();
-    let root = nodes.root;
-    nodes.nodes.traverse_mut_pair(root, |parent, this| {
+    let root = self.root.raw_handle();
+    nodes.traverse_mut_pair(root, |parent, this| {
       let node_data = this.data_mut();
       node_data.hierarchy_update(Some(parent.data()));
     });
   }
 }
 
-impl<S: SceneContent> Default for Scene<S> {
+impl Default for Scene {
   fn default() -> Self {
     Self::new()
   }

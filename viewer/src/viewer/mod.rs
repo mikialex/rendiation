@@ -99,7 +99,7 @@ impl Default for ViewerImpl {
 }
 
 pub struct Viewer3dContent {
-  pub scene: Scene<WebGPUScene>,
+  pub scene: Scene,
   pub ground: GridGround,
   pub pick_config: MeshBufferIntersectConfig,
   pub selections: SelectionSet,
@@ -218,10 +218,7 @@ impl Viewer3dContent {
     if let Some((MouseButton::Left, ElementState::Pressed)) = mouse(event) {
       if let Some((nearest, _)) = self.scene.interaction_picking(&interactive_ctx) {
         self.selections.clear();
-
-        self
-          .selections
-          .select(SceneModelShareable::as_renderable(nearest));
+        self.selections.select(nearest);
 
         self.gizmo.set_target(nearest.get_node().into());
       } else if !keep_target_for_gizmo {

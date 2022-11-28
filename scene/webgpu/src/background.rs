@@ -26,13 +26,13 @@ impl SceneRenderable for SolidBackground {
   }
 }
 
-impl<P: SceneContent> WebGPUBackground for EnvMapBackground<P> {
+impl WebGPUBackground for EnvMapBackground {
   fn require_pass_clear(&self) -> Option<webgpu::Color> {
     None
   }
 }
 
-impl<P: SceneContent> SceneRenderable for EnvMapBackground<P> {
+impl SceneRenderable for EnvMapBackground {
   fn render<'a>(
     &self,
     _pass: &mut SceneRenderPass,

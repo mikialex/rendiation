@@ -1,22 +1,32 @@
 use crate::*;
+use incremental::Incremental;
 use rendiation_algebra::*;
 
-pub type SceneLight<T> = SceneItemRef<SceneLightInner<T>>;
+#[non_exhaustive]
+pub enum SceneLightKind {
+  PointLight(SceneItemRef<PointLight>),
+  SpotLight(SceneItemRef<SpotLight>),
+  DirectionalLight(SceneItemRef<DirectionalLight>),
+  Foreign(Arc<dyn Any + Send + Sync>),
+}
 
-pub struct SceneLightInner<T> {
-  pub light: T,
-  /// Note: Light properties are unaffected by node transforms
+pub type SceneLight = SceneItemRef<SceneLightInner>;
+
+pub struct SceneLightInner {
+  pub light: SceneLightKind,
+  /// Note: Light properties are unaffected by node transforms by default
   /// — for example, range and intensity do not change with scale.
   pub node: SceneNode,
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Incremental)]
 pub struct PointLight {
   pub color_factor: Vec3<f32>,
   /// in cd
   pub luminance_intensity: f32,
   /// in meter
   pub cutoff_distance: f32,
+  pub ext: DynamicExtension,
 }
 
 impl PointLight {
@@ -34,7 +44,7 @@ impl PointLight {
   }
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Incremental)]
 pub struct SpotLight {
   pub color_factor: Vec3<f32>,
   /// in cd
@@ -44,6 +54,7 @@ pub struct SpotLight {
   pub half_cone_angle: f32,
   /// should less equal to half_cont_angle,large equal to zero
   pub half_penumbra_angle: f32,
+  pub ext: DynamicExtension,
 }
 
 impl SpotLight {
@@ -62,11 +73,12 @@ impl SpotLight {
   }
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Incremental)]
 pub struct DirectionalLight {
   /// in lux
   ///
   /// for reference, the sun is 90000 ~ 130000 lux
   pub illuminance: f32,
   pub color_factor: Vec3<f32>,
+  pub ext: DynamicExtension,
 }

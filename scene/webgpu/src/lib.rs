@@ -1,5 +1,6 @@
 #![feature(specialization)]
 #![feature(hash_raw_entry)]
+#![feature(stmt_expr_attributes)]
 #![allow(clippy::field_reassign_with_default)]
 #![allow(incomplete_features)]
 
@@ -39,13 +40,12 @@ use rendiation_geometry::*;
 use rendiation_renderable_mesh::group::MeshDrawGroup;
 use rendiation_renderable_mesh::mesh::*;
 pub use rendiation_scene_core::*;
-use rendiation_texture::{CubeTextureFace, Size, TextureSampler};
+use rendiation_texture::{Size, TextureSampler};
 use shadergraph::*;
 use webgpu::*;
 use wgsl_shader_derives::*;
 
 use __core::hash::Hasher;
-use __core::num::NonZeroU64;
 use core::ops::Deref;
 use std::{
   any::{Any, TypeId},
@@ -56,17 +56,6 @@ use std::{
   rc::Rc,
   sync::Mutex,
 };
-
-#[derive(Copy, Clone)]
-pub struct WebGPUScene;
-impl SceneContent for WebGPUScene {
-  type BackGround = Box<dyn WebGPUBackground>;
-  type Model = Box<dyn SceneModelShareable>;
-  type Light = Box<dyn WebGPUSceneLight>;
-  type Texture2D = Box<dyn WebGPU2DTextureSource>;
-  type TextureCube = [Box<dyn WebGPU2DTextureSource>; 6];
-  type SceneExt = ();
-}
 
 pub trait SceneRenderable {
   fn is_transparent(&self) -> bool {
@@ -100,39 +89,6 @@ pub trait SceneNodeControlled {
       result = node.clone().into();
     });
     result.unwrap()
-  }
-}
-
-pub trait SceneModelShareable:
-  SceneRayInteractive + SceneRenderableShareable + SceneNodeControlled
-{
-  fn as_interactive(&self) -> &dyn SceneRayInteractive;
-  fn as_renderable(&self) -> &dyn SceneRenderableShareable;
-}
-impl<T> SceneModelShareable for T
-where
-  T: SceneRayInteractive + SceneRenderableShareable + SceneNodeControlled,
-{
-  fn as_interactive(&self) -> &dyn SceneRayInteractive {
-    self
-  }
-  fn as_renderable(&self) -> &dyn SceneRenderableShareable {
-    self
-  }
-}
-pub trait SceneModel: SceneRayInteractive + SceneRenderable + SceneNodeControlled {
-  fn as_interactive(&self) -> &dyn SceneRayInteractive;
-  fn as_renderable(&self) -> &dyn SceneRenderable;
-}
-impl<T> SceneModel for T
-where
-  T: SceneRayInteractive + SceneRenderable + SceneNodeControlled,
-{
-  fn as_interactive(&self) -> &dyn SceneRayInteractive {
-    self
-  }
-  fn as_renderable(&self) -> &dyn SceneRenderable {
-    self
   }
 }
 
@@ -232,18 +188,7 @@ pub struct GPUResourceSubCache {
   pub texture_cubes: IdentityMapper<GPUCubeTextureView, [Box<dyn WebGPU2DTextureSource>; 6]>,
 }
 
-use arena::Handle;
-pub type SceneModelHandle = Handle<<WebGPUScene as SceneContent>::Model>;
-pub type SceneCameraHandle = Handle<SceneCamera>;
-
 pub trait WebGPUSceneExtension {
-  #[must_use]
-  fn add_model(&mut self, model: impl SceneModelShareable + 'static) -> SceneModelHandle;
-  fn remove_model(&mut self, handle: SceneModelHandle) -> bool;
-  #[must_use]
-  fn add_camera(&mut self, camera: SceneCamera) -> SceneCameraHandle;
-  fn remove_camera(&mut self, handle: SceneCameraHandle) -> bool;
-
   fn build_interactive_ctx<'a>(
     &'a self,
     normalized_position: Vec2<f32>,
@@ -254,25 +199,12 @@ pub trait WebGPUSceneExtension {
   fn interaction_picking(
     &self,
     ctx: &SceneRayInteractiveCtx,
-  ) -> Option<(&dyn SceneModelShareable, MeshBufferHitPoint)>;
+  ) -> Option<(&SceneModel, MeshBufferHitPoint)>;
 }
 
 use std::cmp::Ordering;
 
-impl WebGPUSceneExtension for Scene<WebGPUScene> {
-  fn add_model(&mut self, model: impl SceneModelShareable + 'static) -> SceneModelHandle {
-    self.models.insert(Box::new(model))
-  }
-  fn remove_model(&mut self, handle: SceneModelHandle) -> bool {
-    self.models.remove(handle).is_some()
-  }
-  fn add_camera(&mut self, camera: SceneCamera) -> SceneCameraHandle {
-    self.cameras.insert(camera)
-  }
-  fn remove_camera(&mut self, handle: SceneCameraHandle) -> bool {
-    self.cameras.remove(handle).is_some()
-  }
-
+impl WebGPUSceneExtension for Scene {
   fn build_interactive_ctx<'a>(
     &'a self,
     normalized_position: Vec2<f32>,
@@ -292,21 +224,15 @@ impl WebGPUSceneExtension for Scene<WebGPUScene> {
   fn interaction_picking(
     &self,
     ctx: &SceneRayInteractiveCtx,
-  ) -> Option<(&dyn SceneModelShareable, MeshBufferHitPoint)> {
-    interaction_picking(self.models.iter().map(|(_, m)| m.as_ref()), ctx)
+  ) -> Option<(&SceneModel, MeshBufferHitPoint)> {
+    interaction_picking(self.models.iter().map(|(_, m)| m), ctx)
   }
 }
 
-impl<'a> SceneRayInteractive for &'a dyn SceneModelShareable {
-  fn ray_pick_nearest(&self, ctx: &SceneRayInteractiveCtx) -> OptionalNearest<MeshBufferHitPoint> {
-    self.as_interactive().ray_pick_nearest(ctx)
-  }
-}
-
-pub fn interaction_picking<I: SceneRayInteractive, T: IntoIterator<Item = I>>(
+pub fn interaction_picking<'a, T: IntoIterator<Item = &'a SceneModel> + 'a>(
   content: T,
   ctx: &SceneRayInteractiveCtx,
-) -> Option<(I, MeshBufferHitPoint)> {
+) -> Option<(&'a SceneModel, MeshBufferHitPoint)> {
   let mut result = Vec::new();
 
   for m in content {

@@ -4,8 +4,14 @@ pub use scene::*;
 pub mod node;
 pub use node::*;
 
+pub mod mesh;
+pub use mesh::*;
+
 pub mod material;
 pub use material::*;
+
+pub mod texture;
+pub use texture::*;
 
 pub mod background;
 pub use background::*;
@@ -22,6 +28,8 @@ pub use camera::*;
 pub mod identity;
 pub use identity::*;
 
+use rendiation_algebra::*;
+use std::any::Any;
 use std::{
   collections::{HashMap, HashSet},
   marker::PhantomData,

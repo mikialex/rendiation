@@ -46,7 +46,7 @@ impl ShaderGraphProvider for DefaultPassDispatcher {
         .map(|format| DepthStencilState {
           format,
           depth_write_enabled: true,
-          depth_compare: CompareFunction::Always,
+          depth_compare: CompareFunction::Less,
           stencil: Default::default(),
           bias: Default::default(),
         });

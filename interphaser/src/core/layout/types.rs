@@ -168,8 +168,8 @@ impl UISize {
 
   #[must_use]
   pub fn clamp(self, min: Self, max: Self) -> Self {
-    let width = self.width.max(min.width).min(max.width);
-    let height = self.height.max(min.height).min(max.height);
+    let width = self.width.clamp(min.width, max.width);
+    let height = self.height.clamp(min.height, max.height);
     Self { width, height }
   }
 }

@@ -46,11 +46,11 @@ impl SelectionSet {
     self.selected.is_empty()
   }
 
-  pub fn select(&mut self, model: &dyn SceneRenderableShareable) {
+  pub fn select(&mut self, model: &SceneModel) {
     self.selected.insert(model.id(), model.clone_boxed());
   }
 
-  pub fn deselect(&mut self, model: &dyn SceneRenderableShareable) {
+  pub fn deselect(&mut self, model: &SceneModel) {
     self.selected.remove(&model.id());
   }
 

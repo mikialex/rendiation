@@ -1,7 +1,14 @@
-use rendiation_algebra::*;
+use crate::*;
 
-use crate::{SceneContent, SceneTextureCube};
+#[non_exhaustive]
+#[derive(Clone)]
+pub enum SceneBackGround {
+  Solid(SolidBackground),
+  Env(EnvMapBackground),
+  Foreign(Arc<dyn Any + Send + Sync>),
+}
 
+#[derive(Clone, Copy)]
 pub struct SolidBackground {
   pub intensity: Vec3<f32>,
 }
@@ -22,6 +29,7 @@ impl SolidBackground {
   }
 }
 
-pub struct EnvMapBackground<S: SceneContent> {
-  pub texture: SceneTextureCube<S>,
+#[derive(Clone)]
+pub struct EnvMapBackground {
+  pub texture: SceneTextureCube,
 }

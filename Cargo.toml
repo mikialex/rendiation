@@ -2,6 +2,10 @@
 members = [
   "math/algebra",
   "math/geometry",
+  "utils/incremental",
+  "utils/incremental-derive",
+  "utils/incremental-ui-prototype",
+  "utils/reactive",
   "utils/arena",
   "utils/arena-graph",
   "utils/tree",
@@ -29,7 +33,6 @@ members = [
   "shader/language/wgsl/derive",
   "shader/language/wgsl/codegen-graph",
   "scene/core",
-  "scene/fusion",
   "scene/webgpu",
   "scene/raytracing",
   "scene/io/gltf/loader",

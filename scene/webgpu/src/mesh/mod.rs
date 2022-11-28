@@ -9,7 +9,7 @@ pub use free_attributes::*;
 
 use crate::*;
 
-pub trait WebGPUSceneMesh {
+pub trait WebGPUSceneMesh: Any + Send + Sync {
   fn check_update_gpu<'a>(
     &self,
     res: &'a mut GPUMeshCache,
@@ -21,12 +21,95 @@ pub trait WebGPUSceneMesh {
   fn draw_impl(&self, group: MeshDrawGroup) -> DrawCommand;
 
   // the reason we use CPS style is for supporting refcell
-  fn try_pick(&self, _f: &mut dyn FnMut(&dyn IntersectAbleGroupedMesh)) {}
+  fn try_pick(&self, f: &mut dyn FnMut(&dyn IntersectAbleGroupedMesh));
+}
+
+impl WebGPUSceneMesh for SceneMeshType {
+  fn check_update_gpu<'a>(
+    &self,
+    res: &'a mut GPUMeshCache,
+    sub_res: &mut AnyMap,
+    gpu: &GPU,
+  ) -> &'a dyn RenderComponentAny {
+    match self {
+      SceneMeshType::AttributesMesh(m) => m.check_update_gpu(res, sub_res, gpu),
+      SceneMeshType::Foreign(mesh) => {
+        if let Some(mesh) = mesh.downcast_ref::<Box<dyn WebGPUSceneMesh>>() {
+          mesh.check_update_gpu(res, sub_res, gpu)
+        } else {
+          &()
+        }
+      }
+      _ => &(),
+    }
+  }
+
+  fn topology(&self) -> webgpu::PrimitiveTopology {
+    match self {
+      SceneMeshType::AttributesMesh(m) => WebGPUSceneMesh::topology(m),
+      SceneMeshType::Foreign(mesh) => {
+        if let Some(mesh) = mesh.downcast_ref::<Box<dyn WebGPUSceneMesh>>() {
+          mesh.topology()
+        } else {
+          webgpu::PrimitiveTopology::TriangleList
+        }
+      }
+      _ => webgpu::PrimitiveTopology::TriangleList,
+    }
+  }
+
+  fn draw_impl(&self, group: MeshDrawGroup) -> DrawCommand {
+    match self {
+      SceneMeshType::AttributesMesh(m) => WebGPUSceneMesh::draw_impl(m, group),
+      SceneMeshType::Foreign(mesh) => {
+        if let Some(mesh) = mesh.downcast_ref::<Box<dyn WebGPUSceneMesh>>() {
+          mesh.draw_impl(group)
+        } else {
+          DrawCommand::Skip
+        }
+      }
+      _ => DrawCommand::Skip,
+    }
+  }
+  fn try_pick(&self, f: &mut dyn FnMut(&dyn IntersectAbleGroupedMesh)) {
+    match self {
+      SceneMeshType::AttributesMesh(_) => {}
+      SceneMeshType::Foreign(mesh) => {
+        if let Some(mesh) = mesh.downcast_ref::<Box<dyn WebGPUSceneMesh>>() {
+          mesh.try_pick(f)
+        }
+      }
+      _ => {}
+    }
+  }
 }
 
 impl<T: WebGPUSceneMesh> MeshDrawcallEmitter for T {
   fn draw(&self, ctx: &mut webgpu::GPURenderPassCtx, group: MeshDrawGroup) {
     ctx.pass.draw_by_command(self.draw_impl(group))
+  }
+}
+
+impl WebGPUSceneMesh for SceneMesh {
+  fn check_update_gpu<'a>(
+    &self,
+    res: &'a mut GPUMeshCache,
+    sub_res: &mut AnyMap,
+    gpu: &GPU,
+  ) -> &'a dyn RenderComponentAny {
+    self.read().check_update_gpu(res, sub_res, gpu)
+  }
+
+  fn topology(&self) -> webgpu::PrimitiveTopology {
+    self.read().topology()
+  }
+
+  fn draw_impl(&self, group: MeshDrawGroup) -> DrawCommand {
+    self.read().draw_impl(group)
+  }
+
+  fn try_pick(&self, f: &mut dyn FnMut(&dyn IntersectAbleGroupedMesh)) {
+    self.read().try_pick(f)
   }
 }
 
@@ -63,7 +146,7 @@ impl GPUMeshCache {
     let mapper = self
       .inner
       .entry(type_id)
-      .or_insert_with(|| Box::new(MeshIdentityMapper::<M>::default()))
+      .or_insert_with(|| Box::<MeshIdentityMapper<M>>::default())
       .as_any_mut()
       .downcast_mut::<MeshIdentityMapper<M>>()
       .unwrap();
@@ -78,7 +161,7 @@ impl GPUMeshCache {
 }
 
 type MeshIdentityMapper<T> = IdentityMapper<<T as WebGPUMesh>::GPU, T>;
-pub trait WebGPUMesh: Any {
+pub trait WebGPUMesh: Any + Send + Sync {
   type GPU: RenderComponent;
   fn update(&self, gpu_mesh: &mut Self::GPU, gpu: &GPU, storage: &mut AnyMap);
   fn create(&self, gpu: &GPU, storage: &mut AnyMap) -> Self::GPU;
@@ -137,7 +220,7 @@ impl<T: IntersectAbleGroupedMesh> IntersectAbleGroupedMesh for MeshSource<T> {
 
 impl<T> WebGPUMesh for MeshSource<T>
 where
-  T: GPUMeshData<GPU = TypedMeshGPU<T>> + IntersectAbleGroupedMesh + Any,
+  T: GPUMeshData<GPU = TypedMeshGPU<T>> + IntersectAbleGroupedMesh + Any + Send + Sync,
 {
   type GPU = TypedMeshGPU<T>;
 
@@ -162,7 +245,7 @@ where
   }
 }
 
-impl<T: WebGPUMesh + IntersectAbleGroupedMesh + Any> WebGPUSceneMesh for SceneItemRef<T> {
+impl<T: WebGPUMesh + Any> WebGPUSceneMesh for SceneItemRef<T> {
   fn topology(&self) -> webgpu::PrimitiveTopology {
     self.read().topology()
   }

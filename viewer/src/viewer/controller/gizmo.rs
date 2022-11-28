@@ -1,6 +1,7 @@
 use std::{
   cell::{Cell, RefCell},
   rc::Rc,
+  sync::Arc,
 };
 
 use interphaser::{
@@ -184,7 +185,7 @@ impl Gizmo {
       self.states.target_world_mat = self.root.get_world_matrix();
       self.states.target_local_mat = target.get_local_matrix();
       self.states.target_parent_world_mat = target
-        .visit_parent(|p| p.world_matrix)
+        .visit_parent(|p| p.world_matrix())
         .unwrap_or_else(Mat4::identity);
 
       if let Some((MouseButton::Left, ElementState::Pressed)) = mouse(event.raw_event) {
@@ -440,29 +441,62 @@ fn update_arrow(
   }
 }
 
+struct HelperMesh {
+  material: SceneItemRef<StateControl<FlatMaterial>>,
+  model: OverridableMeshModelImpl,
+}
+
+impl SceneRenderable for HelperMesh {
+  fn render(
+    &self,
+    pass: &mut SceneRenderPass,
+    dispatcher: &dyn RenderComponentAny,
+    camera: &SceneCamera,
+  ) {
+    self.model.render(pass, dispatcher, camera)
+  }
+
+  fn is_transparent(&self) -> bool {
+    self.model.is_transparent()
+  }
+}
+
+impl SceneRayInteractive for HelperMesh {
+  fn ray_pick_nearest(
+    &self,
+    ctx: &SceneRayInteractiveCtx,
+  ) -> OptionalNearest<rendiation_renderable_mesh::MeshBufferHitPoint> {
+    self.model.ray_pick_nearest(ctx)
+  }
+}
+
 fn update_plane(
   active: impl Lens<GizmoState, ItemState>,
   color: Vec3<f32>,
-) -> impl FnMut(&GizmoState, &mut PlaneModel) {
+) -> impl FnMut(&GizmoState, &mut HelperMesh) {
   move |state, plane| {
     let axis_state = active.with(state, |&s| s);
     let color = map_color(color, axis_state);
+
     plane.material.write().material.color = Vec4::new(color.x, color.y, color.z, 1.);
+
     let show = !state.translate.has_active() || axis_state.active;
-    plane.node.set_visible(show);
+    plane.model.node.set_visible(show);
   }
 }
 
 fn update_torus(
   active: impl Lens<GizmoState, ItemState>,
   color: Vec3<f32>,
-) -> impl FnMut(&GizmoState, &mut RotatorModel) {
+) -> impl FnMut(&GizmoState, &mut HelperMesh) {
   move |state, torus| {
     let axis_state = active.with(state, |&s| s);
     let color = map_color(color, axis_state);
+
     torus.material.write().material.color = Vec4::new(color.x, color.y, color.z, 1.);
-    // let show = !state.translate.has_active() || axis_state.active;
-    // torus.node.set_visible(show);
+
+    let show = !state.translate.has_active() || axis_state.active;
+    torus.model.node.set_visible(show);
   }
 }
 
@@ -479,10 +513,7 @@ impl PassContentWithCamera for &mut Gizmo {
 
 type AutoScale = Rc<RefCell<ViewAutoScalable>>;
 
-type FlatUtilMaterial = StateControl<FlatMaterial>;
-type PlaneMesh = impl WebGPUMesh;
-type PlaneModel = OverridableMeshModelImpl<PlaneMesh, FlatUtilMaterial>;
-fn build_plane(root: &SceneNode, auto_scale: &AutoScale, mat: Mat4<f32>) -> PlaneModel {
+fn build_plane(root: &SceneNode, auto_scale: &AutoScale, mat: Mat4<f32>) -> HelperMesh {
   let mesh = IndexedMeshBuilder::<TriangleList, Vec<Vertex>>::default()
     .triangulate_parametric(
       &ParametricPlane.transform_by(Mat4::translate((-0.5, -0.5, 0.))),
@@ -492,20 +523,33 @@ fn build_plane(root: &SceneNode, auto_scale: &AutoScale, mat: Mat4<f32>) -> Plan
     .build_mesh_into();
 
   let mesh = MeshSource::new(mesh);
+  let mesh = SceneItemRef::new(mesh);
+  let mesh: Box<dyn WebGPUSceneMesh> = Box::new(mesh);
+  let mesh = SceneMeshType::Foreign(Arc::new(mesh));
 
   let material = solid_material(RED);
+  let material = SceneItemRef::new(material);
+  let m = material.clone();
+  let material: Box<dyn WebGPUSceneMaterial> = Box::new(material);
+  let material = SceneMaterialType::Foreign(Arc::new(material));
 
   let plane = root.create_child();
-  plane.set_local_matrix(mat);
-  let mut plane = MeshModelImpl::new(material, mesh, plane).into_matrix_overridable();
 
-  plane.push_override(auto_scale.clone());
-  plane
+  plane.set_local_matrix(mat);
+
+  let model = StandardModel {
+    material: material.into(),
+    mesh: mesh.into(),
+    group: Default::default(),
+  };
+  let model = SceneModelType::Standard(model.into());
+  let model = SceneModelImpl { model, node: plane };
+  let mut model = model.into_matrix_overridable();
+  model.push_override(auto_scale.clone());
+  HelperMesh { model, material: m }
 }
 
-type RotatorMesh = impl WebGPUMesh;
-type RotatorModel = OverridableMeshModelImpl<RotatorMesh, FlatUtilMaterial>;
-fn build_rotator(root: &SceneNode, auto_scale: &AutoScale, mat: Mat4<f32>) -> RotatorModel {
+fn build_rotator(root: &SceneNode, auto_scale: &AutoScale, mat: Mat4<f32>) -> HelperMesh {
   let mesh = IndexedMeshBuilder::<TriangleList, Vec<Vertex>>::default()
     .triangulate_parametric(
       &TorusMeshParameter {
@@ -519,15 +563,33 @@ fn build_rotator(root: &SceneNode, auto_scale: &AutoScale, mat: Mat4<f32>) -> Ro
     .build_mesh_into();
 
   let mesh = MeshSource::new(mesh);
+  let mesh = SceneItemRef::new(mesh);
+  let mesh: Box<dyn WebGPUSceneMesh> = Box::new(mesh);
+  let mesh = SceneMeshType::Foreign(Arc::new(mesh));
 
   let material = solid_material(RED);
+  let material = SceneItemRef::new(material);
+  let m = material.clone();
+  let material: Box<dyn WebGPUSceneMaterial> = Box::new(material);
+  let material = SceneMaterialType::Foreign(Arc::new(material));
 
   let torus = root.create_child();
-  torus.set_local_matrix(mat);
-  let mut torus = MeshModelImpl::new(material, mesh, torus).into_matrix_overridable();
 
-  torus.push_override(auto_scale.clone());
-  torus
+  let model = StandardModel {
+    material: material.into(),
+    mesh: mesh.into(),
+    group: Default::default(),
+  };
+  let model = SceneModelType::Standard(model.into());
+  let model = SceneModelImpl {
+    model,
+    node: torus.clone(),
+  };
+  let mut model = model.into_matrix_overridable();
+
+  torus.set_local_matrix(mat);
+  model.push_override(auto_scale.clone());
+  HelperMesh { model, material: m }
 }
 
 // fn build_box() -> Box<dyn SceneRenderable> {

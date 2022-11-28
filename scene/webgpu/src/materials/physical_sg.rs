@@ -130,11 +130,7 @@ impl ShaderGraphProvider for PhysicalSpecularGlossinessMaterialGPU {
   }
 }
 
-impl<S> WebGPUMaterial for PhysicalSpecularGlossinessMaterial<S>
-where
-  S: SceneContent,
-  S::Texture2D: AsRef<dyn WebGPU2DTextureSource>,
-{
+impl WebGPUMaterial for PhysicalSpecularGlossinessMaterial {
   type GPU = PhysicalSpecularGlossinessMaterialGPU;
 
   fn create_gpu(&self, res: &mut GPUResourceSubCache, gpu: &GPU) -> Self::GPU {
@@ -152,26 +148,26 @@ where
     let albedo_texture = self
       .albedo_texture
       .as_ref()
-      .map(|t| build_texture_sampler_pair::<S>(t, gpu, res));
+      .map(|t| build_texture_sampler_pair(t, gpu, res));
 
     let glossiness_texture = self
       .glossiness_texture
       .as_ref()
-      .map(|t| build_texture_sampler_pair::<S>(t, gpu, res));
+      .map(|t| build_texture_sampler_pair(t, gpu, res));
 
     let specular_texture = self
       .specular_texture
       .as_ref()
-      .map(|t| build_texture_sampler_pair::<S>(t, gpu, res));
+      .map(|t| build_texture_sampler_pair(t, gpu, res));
 
     let emissive_texture = self
       .emissive_texture
       .as_ref()
-      .map(|t| build_texture_sampler_pair::<S>(t, gpu, res));
+      .map(|t| build_texture_sampler_pair(t, gpu, res));
 
     let normal_texture = self.normal_texture.as_ref().map(|t| {
       uniform.normal_mapping_scale = t.scale;
-      build_texture_sampler_pair::<S>(&t.content, gpu, res)
+      build_texture_sampler_pair(&t.content, gpu, res)
     });
 
     let uniform = create_uniform(uniform, gpu);
