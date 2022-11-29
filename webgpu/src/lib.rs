@@ -3,7 +3,6 @@
 
 mod device;
 mod encoder;
-mod mipmap_gen;
 mod pass;
 mod resource;
 mod surface;
@@ -11,7 +10,6 @@ mod types;
 
 pub use device::*;
 pub use encoder::*;
-pub use mipmap_gen::*;
 pub use pass::*;
 pub use resource::*;
 pub use surface::*;
