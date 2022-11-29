@@ -18,13 +18,13 @@ impl Mipmap2DGenerator {
     }
   }
 
-  pub fn generate(&self, encoder: &mut GPUCommandEncoder, texture: &GPU2DTexture) {
-    for level in 0..texture.desc.mip_level_count {
+  pub fn generate(&self, encoder: &mut GPUCommandEncoder, gpu: &GPU, texture: &GPU2DTexture) {
+    for write_level in 1..texture.desc.mip_level_count {
       let mut desc = RenderPassDescriptorOwned::default();
 
-      let view = texture
+      let write_view = texture
         .create_view(webgpu::TextureViewDescriptor {
-          base_mip_level: level,
+          base_mip_level: write_level,
           mip_level_count: Some(NonZeroU32::new(1).unwrap()),
           base_array_layer: 0,
           ..Default::default()
@@ -37,10 +37,28 @@ impl Mipmap2DGenerator {
           load: webgpu::LoadOp::Load,
           store: true,
         },
-        RenderTargetView::Texture(view),
+        RenderTargetView::Texture(write_view),
       ));
 
       let pass = encoder.begin_render_pass(desc);
+      let pass = GPURenderPassCtx::new(pass, gpu);
+
+      let read_level = write_level - 1;
+      let read_view = texture
+        .create_view(webgpu::TextureViewDescriptor {
+          base_mip_level: read_level,
+          mip_level_count: Some(NonZeroU32::new(1).unwrap()),
+          base_array_layer: 0,
+          ..Default::default()
+        })
+        .try_into()
+        .unwrap();
+
+      Mipmap2DGeneratorTask {
+        view: read_view,
+        reducer: self.reducer.as_ref(),
+      }
+      .draw_quad();
     }
   }
 }
