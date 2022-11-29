@@ -38,12 +38,7 @@ impl GPUCommandEncoder {
   pub fn do_u_hear_the_people_sing(&mut self, mut des: RenderPassDescriptorOwned) {
     des.channels.iter_mut().for_each(|c| {
       c.0 = gpu::Operations {
-        load: gpu::LoadOp::Clear(gpu::Color {
-          r: 1.,
-          g: 1.,
-          b: 1.,
-          a: 1.,
-        }),
+        load: gpu::LoadOp::Clear(gpu::Color::WHITE),
         store: false,
       }
     });
