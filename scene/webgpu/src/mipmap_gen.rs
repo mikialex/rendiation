@@ -18,11 +18,9 @@ impl Mipmap2DGenerator {
     }
   }
 
-  pub fn generate(&self, encoder: &mut GPUCommandEncoder, gpu: &GPU, texture: &GPU2DTexture) {
+  pub fn generate(&self, ctx: &mut FrameCtx, texture: &GPU2DTexture) {
     for write_level in 1..texture.desc.mip_level_count {
-      let mut desc = RenderPassDescriptorOwned::default();
-
-      let write_view = texture
+      let write_view: GPU2DTextureView = texture
         .create_view(webgpu::TextureViewDescriptor {
           base_mip_level: write_level,
           mip_level_count: Some(NonZeroU32::new(1).unwrap()),
@@ -31,17 +29,6 @@ impl Mipmap2DGenerator {
         })
         .try_into()
         .unwrap();
-
-      desc.channels.push((
-        webgpu::Operations {
-          load: webgpu::LoadOp::Load,
-          store: true,
-        },
-        RenderTargetView::Texture(write_view),
-      ));
-
-      let pass = encoder.begin_render_pass(desc);
-      let pass = GPURenderPassCtx::new(pass, gpu);
 
       let read_level = write_level - 1;
       let read_view = texture
@@ -54,11 +41,16 @@ impl Mipmap2DGenerator {
         .try_into()
         .unwrap();
 
-      Mipmap2DGeneratorTask {
+      let task = Mipmap2DGeneratorTask {
         view: read_view,
         reducer: self.reducer.as_ref(),
       }
       .draw_quad();
+
+      pass("mip-gen")
+        .with_color(write_view, load())
+        .render(ctx)
+        .by(task);
     }
   }
 }
@@ -103,6 +95,14 @@ impl<'a> ShaderPassBuilder for Mipmap2DGeneratorTask<'a> {
   fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
     ctx.binding.bind(&self.view, SB::Pass);
     ctx.bind_immediate_sampler(&TextureSampler::default(), SB::Pass);
+  }
+}
+
+impl<'a> ShaderHashProvider for Mipmap2DGeneratorTask<'a> {}
+impl<'a> ShaderHashProviderAny for Mipmap2DGeneratorTask<'a> {
+  fn hash_pipeline_and_with_type_id(&self, hasher: &mut PipelineHasher) {
+    struct Mark;
+    Mark.type_id().hash(hasher)
   }
 }
 
