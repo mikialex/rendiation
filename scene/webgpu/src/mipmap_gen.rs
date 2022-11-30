@@ -115,7 +115,7 @@ impl Mipmap2dReducer for DefaultMipmapReducer {
     r        += previous_level.sample_level(sampler, current + texel_size * consts(Vec2::new(1., 0.)), consts(0.));
     r        += previous_level.sample_level(sampler, current + texel_size * consts(Vec2::new(0., 1.)), consts(0.));
     r        += previous_level.sample_level(sampler, current + texel_size * consts(Vec2::new(1., 1.)), consts(0.));
-    r
+    r / consts(4.)
   }
 }
 struct Mipmap2DGeneratorTask<'a> {
