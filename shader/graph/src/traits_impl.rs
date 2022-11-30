@@ -223,6 +223,23 @@ impl<T: SingleSampleTarget> Node<T> {
       sampler: sampler.handle(),
       position: position.handle(),
       index: None,
+      level: None,
+    }
+    .insert_graph()
+  }
+
+  pub fn sample_level(
+    &self,
+    sampler: Node<T::Sampler>,
+    position: Node<T::Input>,
+    level: Node<f32>,
+  ) -> Node<T::Output> {
+    ShaderGraphNodeExpr::TextureSampling {
+      texture: self.handle(),
+      sampler: sampler.handle(),
+      position: position.handle(),
+      index: None,
+      level: level.handle().into(),
     }
     .insert_graph()
   }
@@ -244,6 +261,24 @@ impl<T: ArraySampleTarget> Node<T> {
       sampler: sampler.handle(),
       position: position.handle(),
       index: index.handle().into(),
+      level: None,
+    }
+    .insert_graph()
+  }
+
+  pub fn sample_index_level(
+    &self,
+    sampler: Node<T::Sampler>,
+    position: Node<T::Input>,
+    index: Node<impl ShaderArrayTextureSampleIndexType>,
+    level: Node<f32>,
+  ) -> Node<T::Output> {
+    ShaderGraphNodeExpr::TextureSampling {
+      texture: self.handle(),
+      sampler: sampler.handle(),
+      position: position.handle(),
+      index: index.handle().into(),
+      level: level.handle().into(),
     }
     .insert_graph()
   }

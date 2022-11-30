@@ -60,7 +60,7 @@ pub fn load_default_scene(scene: &mut Scene) {
   let texture = SceneItemRef::new(load_tex(path));
   let texture = TextureWithSamplingData {
     texture,
-    sampler: TextureSampler::default(),
+    sampler: TextureSampler::tri_linear_repeat(),
   };
 
   // let texture_cube = scene.add_texture_cube(load_img_cube());

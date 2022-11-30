@@ -66,6 +66,12 @@ pub struct Attachment {
   key: PooledTextureKey,
 }
 
+impl AsRef<GPU2DTexture> for Attachment {
+  fn as_ref(&self) -> &GPU2DTexture {
+    &self.texture
+  }
+}
+
 impl AsRef<Attachment> for Attachment {
   fn as_ref(&self) -> &Attachment {
     self

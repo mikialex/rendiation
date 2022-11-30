@@ -9,6 +9,7 @@ pub mod camera;
 pub mod lights;
 pub mod materials;
 pub mod mesh;
+mod mipmap_gen;
 pub mod model;
 pub mod model_overrides;
 pub mod node;
@@ -23,6 +24,7 @@ pub use camera::*;
 pub use lights::*;
 pub use materials::*;
 pub use mesh::*;
+pub use mipmap_gen::*;
 pub use model::*;
 pub use model_overrides::*;
 pub use node::*;
@@ -186,6 +188,7 @@ pub struct GPUResourceSceneCache {
 pub struct GPUResourceSubCache {
   pub texture_2ds: IdentityMapper<GPU2DTextureView, dyn WebGPU2DTextureSource>,
   pub texture_cubes: IdentityMapper<GPUCubeTextureView, [Box<dyn WebGPU2DTextureSource>; 6]>,
+  pub mipmap_gen: Rc<RefCell<MipMapTaskManager>>,
 }
 
 pub trait WebGPUSceneExtension {

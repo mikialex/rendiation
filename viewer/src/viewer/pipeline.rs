@@ -42,6 +42,11 @@ impl ViewerPipeline {
   ) {
     let scene = &mut content.scene;
 
+    {
+       let mip_gen = ctx.resources.content.mipmap_gen.clone();
+       mip_gen.borrow_mut().flush_mipmap_gen_request(ctx);
+    }
+
     LightUpdateCtx {
       forward: &mut self.forward_lights,
       shadows: &mut self.shadows,

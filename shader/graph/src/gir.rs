@@ -32,6 +32,7 @@ pub enum ShaderGraphNodeExpr {
     sampler: ShaderGraphNodeRawHandle,
     position: ShaderGraphNodeRawHandle,
     index: Option<ShaderGraphNodeRawHandle>,
+    level: Option<ShaderGraphNodeRawHandle>,
   },
   Swizzle {
     ty: &'static str,

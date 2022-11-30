@@ -10,6 +10,19 @@ pub struct TextureSampler {
   pub mipmap_filter: FilterMode,
 }
 
+impl TextureSampler {
+  pub fn tri_linear_repeat() -> Self {
+    Self {
+      address_mode_u: AddressMode::Repeat,
+      address_mode_v: AddressMode::Repeat,
+      address_mode_w: AddressMode::Repeat,
+      mag_filter: FilterMode::Linear,
+      min_filter: FilterMode::Linear,
+      mipmap_filter: FilterMode::Linear,
+    }
+  }
+}
+
 impl Default for TextureSampler {
   fn default() -> Self {
     Self {
