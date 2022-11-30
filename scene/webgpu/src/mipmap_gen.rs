@@ -2,6 +2,38 @@ use __core::num::NonZeroU32;
 
 use crate::*;
 
+pub struct MipMapTaskManager {
+  pub generator: Mipmap2DGenerator,
+  tasks: Vec<GPU2DTexture>,
+}
+
+impl MipMapTaskManager {
+  pub fn request_mipmap_gen(&mut self, texture: &GPU2DTexture) {
+    self.tasks.push(texture.clone())
+  }
+
+  pub fn cancel_mipmap_gen(&mut self, texture: &GPU2DTexture) {
+    if let Some(i) = self.tasks.iter().position(|t| t.0.guid == texture.0.guid) {
+      self.tasks.remove(i);
+    }
+  }
+
+  pub fn flush_mipmap_gen_request(&mut self, ctx: &mut FrameCtx) {
+    for tex in self.tasks.drain(..) {
+      self.generator.generate(ctx, &tex)
+    }
+  }
+}
+
+impl Default for MipMapTaskManager {
+  fn default() -> Self {
+    Self {
+      generator: Mipmap2DGenerator::new(DefaultMipmapReducer),
+      tasks: Default::default(),
+    }
+  }
+}
+
 // https://github.com/BabylonJS/Babylon.js/blob/d25bc29091/packages/dev/core/src/Engines/WebGPU/webgpuTextureHelper.ts
 
 /// Mipmap generation is not supported in webgpu api for now, at least in mvp as far as i known.
@@ -58,7 +90,7 @@ impl Mipmap2DGenerator {
 /// layer reduce logic, layer by layer.
 /// input previous layer, generate next layer.
 /// target is the layer's current writing pixel coordinate.
-pub trait Mipmap2dReducer {
+pub trait Mipmap2dReducer: Send + Sync {
   fn reduce(
     &self,
     previous_level: Node<ShaderTexture2D>,
@@ -113,13 +145,14 @@ impl<'a> ShaderGraphProvider for Mipmap2DGeneratorTask<'a> {
   ) -> Result<(), ShaderGraphBuildError> {
     builder.fragment(|builder, binding| {
       let position = builder.query::<FragmentPosition>()?.xy();
+      let buffer_size = builder.query::<RenderBufferSize>()?;
       let texel_size = builder.query::<TexelSize>()?;
       let previous_level = binding.uniform_by(&self.view, SB::Pass);
       let sampler = binding.uniform::<GPUSamplerView>(SB::Pass);
 
       let result = self
         .reducer
-        .reduce(previous_level, sampler, position, texel_size);
+        .reduce(previous_level, sampler, position / buffer_size, texel_size);
 
       builder.set_fragment_out(0, result)
     })

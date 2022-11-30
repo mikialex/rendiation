@@ -188,6 +188,7 @@ pub struct GPUResourceSceneCache {
 pub struct GPUResourceSubCache {
   pub texture_2ds: IdentityMapper<GPU2DTextureView, dyn WebGPU2DTextureSource>,
   pub texture_cubes: IdentityMapper<GPUCubeTextureView, [Box<dyn WebGPU2DTextureSource>; 6]>,
+  pub mipmap_gen: Rc<RefCell<MipMapTaskManager>>,
 }
 
 pub trait WebGPUSceneExtension {
