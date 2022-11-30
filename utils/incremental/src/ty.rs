@@ -91,11 +91,8 @@ impl<T: Incremental + Default + Clone + 'static> Incremental for Vec<T> {
   }
 
   fn expand(&self, mut cb: impl FnMut(Self::Delta)) {
-    for (i, v) in self.iter().enumerate() {
-      cb(VecDelta::Push(T::default()));
-      v.expand(|d| {
-        cb(VecDelta::Mutate(i, d));
-      })
+    for v in self.iter().cloned() {
+      cb(VecDelta::Push(v));
     }
   }
 }
@@ -231,8 +228,15 @@ impl<T> Incremental for std::rc::Rc<T> {
   fn expand(&self, _: impl FnMut(Self::Delta)) {}
 }
 
+/// should used for sum type
+#[derive(Clone)]
+pub enum DeltaOrEntire<T: Incremental> {
+  Delta(T::Delta),
+  Entire(T),
+}
+
 impl<T: Incremental + Clone> Incremental for Option<T> {
-  type Delta = Option<T::Delta>;
+  type Delta = Option<DeltaOrEntire<T>>;
 
   type Error = T::Error;
 
@@ -252,7 +256,10 @@ impl<T: Incremental + Clone> Incremental for Option<T> {
 
   fn apply(&mut self, delta: Self::Delta) -> Result<(), Self::Error> {
     if let Some(d) = delta {
-      self.as_mut().unwrap().apply(d)?;
+      match d {
+        DeltaOrEntire::Delta(d) => self.as_mut().unwrap().apply(d)?,
+        DeltaOrEntire::Entire(v) => *self = Some(v),
+      };
     } else {
       *self = None;
     }
@@ -261,7 +268,7 @@ impl<T: Incremental + Clone> Incremental for Option<T> {
 
   fn expand(&self, mut cb: impl FnMut(Self::Delta)) {
     if let Some(inner) = self {
-      inner.expand(|d| cb(Some(d)))
+      cb(Some(DeltaOrEntire::Entire(inner.clone())));
     } else {
       cb(None)
     }
