@@ -1,5 +1,6 @@
 use std::{
   cell::{Cell, RefCell},
+  marker::PhantomData,
   rc::Rc,
   sync::Arc,
 };
@@ -46,106 +47,117 @@ impl Gizmo {
     };
     let auto_scale = &Rc::new(RefCell::new(auto_scale));
 
-    let x_lens = lens!(GizmoState, translate.x);
-    let y_lens = lens!(GizmoState, translate.y);
-    let z_lens = lens!(GizmoState, translate.z);
+    let x_lens = lens_d!(AxisActiveState, x);
+    let y_lens = lens_d!(AxisActiveState, y);
+    let z_lens = lens_d!(AxisActiveState, z);
+
+    let active_lens = lens_d!(GizmoState, active);
+    let translate = lens_d!(GizmoActiveState, translate);
+
+    let translate_x = DeltaChain::new(translate, x_lens);
+    let translate_y = DeltaChain::new(translate, y_lens);
+    let translate_z = DeltaChain::new(translate, z_lens);
+
+    let active_translate_x = DeltaChain::new(active_lens, translate_x);
+    let active_translate_y = DeltaChain::new(active_lens, translate_y);
+    let active_translate_z = DeltaChain::new(active_lens, translate_z);
 
     let x = Arrow::new(root, auto_scale)
       .toward_x()
       .eventable()
-      .update(update_arrow(x_lens, RED))
-      .on(active(x_lens));
+      .update(update_arrow(active_translate_x, RED))
+      .on(active(active_translate_x));
 
     let y = Arrow::new(root, auto_scale)
       .toward_y()
       .eventable()
-      .update(update_arrow(y_lens, BLUE))
-      .on(active(y_lens));
+      .update(update_arrow(active_translate_y, BLUE))
+      .on(active(active_translate_y));
 
     let z = Arrow::new(root, auto_scale)
       .toward_z()
       .eventable()
-      .update(update_arrow(z_lens, GREEN))
-      .on(active(z_lens));
+      .update(update_arrow(active_translate_z, GREEN))
+      .on(active(active_translate_z));
 
-    macro_rules! duel {
-      ($a:tt, $b:tt) => {
-        interphaser::Map::new(
-          |s: &GizmoState| ItemState {
-            hovering: s.translate.$a.hovering && s.translate.$b.hovering,
-            active: s.translate.$a.active && s.translate.$b.active,
-          },
-          |s, v| {
-            let both = ItemState {
-              hovering: !(s.translate.$a.hovering ^ s.translate.$b.hovering),
-              active: !(s.translate.$a.active ^ s.translate.$b.active),
-            };
-            if both.hovering {
-              s.translate.$a.hovering = v.hovering;
-              s.translate.$b.hovering = v.hovering;
-            }
-            if both.active {
-              s.translate.$a.active = v.active;
-              s.translate.$b.active = v.active;
-            }
-          },
-        )
-      };
-    }
+    // macro_rules! duel {
+    //   ($a:tt, $b:tt) => {
+    //     interphaser::Map::new(
+    //       |s: &GizmoState| ItemState {
+    //         hovering: s.translate.$a.hovering && s.translate.$b.hovering,
+    //         active: s.translate.$a.active && s.translate.$b.active,
+    //       },
+    //       |s, v| {
+    //         let both = ItemState {
+    //           hovering: !(s.translate.$a.hovering ^ s.translate.$b.hovering),
+    //           active: !(s.translate.$a.active ^ s.translate.$b.active),
+    //         };
+    //         if both.hovering {
+    //           s.translate.$a.hovering = v.hovering;
+    //           s.translate.$b.hovering = v.hovering;
+    //         }
+    //         if both.active {
+    //           s.translate.$a.active = v.active;
+    //           s.translate.$b.active = v.active;
+    //         }
+    //       },
+    //     )
+    //   };
+    // }
 
-    let xy_lens = duel!(x, y);
-    let yz_lens = duel!(y, z);
-    let xz_lens = duel!(x, z);
+    // let xy_lens = duel!(x, y);
+    // let yz_lens = duel!(y, z);
+    // let xz_lens = duel!(x, z);
 
-    let plane_scale = Mat4::scale(Vec3::splat(0.4));
-    let plane_move = Vec3::splat(1.3);
-    let degree_90 = f32::PI() / 2.;
+    // let plane_scale = Mat4::scale(Vec3::splat(0.4));
+    // let plane_move = Vec3::splat(1.3);
+    // let degree_90 = f32::PI() / 2.;
 
-    let xy_t = Vec3::new(1., 1., 0.);
-    let xy_t = Mat4::translate(xy_t * plane_move) * plane_scale;
-    let xy = build_plane(root, auto_scale, xy_t)
-      .eventable::<GizmoState>()
-      .update(update_plane(xy_lens, GREEN))
-      .on(active(xy_lens));
+    // let xy_t = Vec3::new(1., 1., 0.);
+    // let xy_t = Mat4::translate(xy_t * plane_move) * plane_scale;
+    // let xy = build_plane(root, auto_scale, xy_t)
+    //   .eventable::<GizmoState>()
+    //   .update(update_plane(xy_lens, GREEN))
+    //   .on(active(xy_lens));
 
-    let yz_t = Vec3::new(0., 1., 1.);
-    let yz_t = Mat4::translate(yz_t * plane_move) * Mat4::rotate_y(degree_90) * plane_scale;
-    let yz = build_plane(root, auto_scale, yz_t)
-      .eventable::<GizmoState>()
-      .update(update_plane(yz_lens, RED))
-      .on(active(yz_lens));
+    // let yz_t = Vec3::new(0., 1., 1.);
+    // let yz_t = Mat4::translate(yz_t * plane_move) * Mat4::rotate_y(degree_90) * plane_scale;
+    // let yz = build_plane(root, auto_scale, yz_t)
+    //   .eventable::<GizmoState>()
+    //   .update(update_plane(yz_lens, RED))
+    //   .on(active(yz_lens));
 
-    let xz_t = Vec3::new(1., 0., 1.);
-    let xz_t = Mat4::translate(xz_t * plane_move) * Mat4::rotate_x(-degree_90) * plane_scale;
-    let xz = build_plane(root, auto_scale, xz_t)
-      .eventable::<GizmoState>()
-      .update(update_plane(xz_lens, BLUE))
-      .on(active(xz_lens));
+    // let xz_t = Vec3::new(1., 0., 1.);
+    // let xz_t = Mat4::translate(xz_t * plane_move) * Mat4::rotate_x(-degree_90) * plane_scale;
+    // let xz = build_plane(root, auto_scale, xz_t)
+    //   .eventable::<GizmoState>()
+    //   .update(update_plane(xz_lens, BLUE))
+    //   .on(active(xz_lens));
 
-    let x_lens = lens!(GizmoState, rotation.x);
-    let y_lens = lens!(GizmoState, rotation.y);
-    let z_lens = lens!(GizmoState, rotation.z);
+    // let x_lens = lens!(GizmoState, rotation.x);
+    // let y_lens = lens!(GizmoState, rotation.y);
+    // let z_lens = lens!(GizmoState, rotation.z);
 
-    let rotator_z = build_rotator(root, auto_scale, Mat4::one())
-      .eventable::<GizmoState>()
-      .update(update_torus(z_lens, GREEN))
-      .on(active(z_lens));
-    let rotator_y = build_rotator(root, auto_scale, Mat4::rotate_x(degree_90))
-      .eventable::<GizmoState>()
-      .update(update_torus(y_lens, BLUE))
-      .on(active(y_lens));
-    let rotator_x = build_rotator(root, auto_scale, Mat4::rotate_y(degree_90))
-      .eventable::<GizmoState>()
-      .update(update_torus(x_lens, RED))
-      .on(active(x_lens));
+    // let rotator_z = build_rotator(root, auto_scale, Mat4::one())
+    //   .eventable::<GizmoState>()
+    //   .update(update_torus(z_lens, GREEN))
+    //   .on(active(z_lens));
+    // let rotator_y = build_rotator(root, auto_scale, Mat4::rotate_x(degree_90))
+    //   .eventable::<GizmoState>()
+    //   .update(update_torus(y_lens, BLUE))
+    //   .on(active(y_lens));
+    // let rotator_x = build_rotator(root, auto_scale, Mat4::rotate_y(degree_90))
+    //   .eventable::<GizmoState>()
+    //   .update(update_torus(x_lens, RED))
+    //   .on(active(x_lens));
 
     #[rustfmt::skip]
     let view = collection3d()
-      .with(x).with(y).with(z)
-      .with(xy).with(yz).with(xz)
-      .with(rotator_x)
-      .with(rotator_y)
-      .with(rotator_z);
+      .with(x).with(y).with(z);
+    // .with(xy).with(yz).with(xz)
+    // .with(rotator_x)
+    // .with(rotator_y)
+    // .with(rotator_z);
 
     Self {
       states: Default::default(),
@@ -210,40 +222,131 @@ impl Gizmo {
 fn is_3d_hovering() -> impl FnMut(&EventCtx3D) -> Option<bool> {
   let mut is_hovering = false;
   move |event| {
+    let mut delta = None; // todo abstraction
+
     if let Some(event3d) = &event.event_3d {
       if let Event3D::MouseMove { .. } = event3d {
+        if !is_hovering {
+          delta = Some(true)
+        }
         is_hovering = true;
       }
     } else if mouse_move(event.raw_event).is_some() {
+      if is_hovering {
+        delta = Some(false)
+      }
       is_hovering = false;
     }
 
-    is_hovering
+    delta
   }
 }
 
-struct DeltaView<'a, T: Incremental> {
+pub struct DeltaView<'a, T: Incremental> {
   pub data: &'a T,
   pub delta: &'a T::Delta,
 }
-struct DeltaViewMut<'a, T: Incremental> {
-  pub data: &'a mut T,
-  pub delta: &'a mut T::Delta,
-}
+// struct DeltaViewMut<'a, T: Incremental> {
+//   pub data: &'a mut T,
+//   pub delta: &'a mut T::Delta,
+// }
+
+// pub trait DeltaLens<T: Incremental, U: Incremental> {
+//   fn with<V, F: FnOnce(DeltaView<U>) -> V>(&self, data: DeltaView<T>, f: F) -> Option<V>;
+//   fn with_mut<V, F: FnOnce(DeltaViewMut<U>) -> V>(&self, data: DeltaViewMut<T>, f: F) -> Option<V>;
+// }
+
+// fn test() {
+//   let l = lens_d!(AxisActiveState, x);
+// }
+
+// #[macro_export]
+// macro_rules! lens_d {
+//   ($ty:ty, $field:tt) => {
+//     $crate::FieldDelta::new::<$ty, _>(
+//       |v| {
+//         if let DeltaOf::<$ty>::$field(inner_d) = v.delta {
+//           Some(DeltaView {
+//             data: &v.data.$field,
+//             delta: &inner_d,
+//           })
+//         } else {
+//           None
+//         }
+//       },
+//       |v| {
+//         if let DeltaOf::<$ty>::$field(inner_d) = v.delta {
+//           Some(DeltaViewMut {
+//             data: &mut v.data.$field,
+//             delta: &mut inner_d,
+//           })
+//         } else {
+//           None
+//         }
+//       },
+//     )
+//   };
+// }
+
+// #[derive(Clone, Copy)]
+// pub struct FieldDelta<Get, GetMut> {
+//   get: Get,
+//   get_mut: GetMut,
+// }
+
+// impl<Get, GetMut> FieldDelta<Get, GetMut> {
+//   /// Construct a lens from a pair of getter functions
+//   pub fn new<T, U>(get: Get, get_mut: GetMut) -> Self
+//   where
+//     T: Incremental,
+//     U: Incremental,
+//     Get: Fn(DeltaView<T>) -> Option<DeltaView<U>>,
+//     GetMut: Fn(DeltaViewMut<T>) -> Option<DeltaViewMut<U>>,
+//   {
+//     Self { get, get_mut }
+//   }
+// }
+
+// impl<T, U, Get, GetMut> DeltaLens<T, U> for FieldDelta<Get, GetMut>
+// where
+//   T: Incremental,
+//   U: Incremental,
+//   Get: Fn(DeltaView<T>) -> Option<DeltaView<U>>,
+//   GetMut: Fn(DeltaViewMut<T>) -> Option<DeltaViewMut<U>>,
+// {
+//   fn with<V, F: FnOnce(DeltaView<U>) -> V>(&self, data: DeltaView<T>, f: F) -> Option<V> {
+//     if let Some(d) = (self.get)(data) {
+//       Some(f(d))
+//     } else {
+//       None
+//     }
+//   }
+
+//   fn with_mut<V, F: FnOnce(DeltaViewMut<U>) -> V>(&self, data: DeltaViewMut<T>, f: F) -> Option<V> {
+//     if let Some(d) = (self.get_mut)(data) {
+//       Some(f(d))
+//     } else {
+//       None
+//     }
+//   }
+// }
 
 pub trait DeltaLens<T: Incremental, U: Incremental> {
-  fn with<V, F: FnOnce(DeltaView<U>) -> V>(&self, data: DeltaView<T>, f: F) -> Option<V>;
-  fn with_mut<V, F: FnOnce(DeltaViewMut<U>) -> V>(&self, data: DeltaViewMut<T>, f: F) -> Option<V>;
+  fn map_delta(&self, delta: DeltaOf<U>) -> DeltaOf<T>;
+  fn check_delta(&self, delta: DeltaView<T>) -> Option<DeltaView<U>>;
 }
 
-fn test() {
-  let l = lens_d!(AxisActiveState, x);
+#[derive(Clone, Copy)]
+pub struct FieldDelta<M, C> {
+  map_delta: M,
+  check_delta: C,
 }
 
 #[macro_export]
 macro_rules! lens_d {
   ($ty:ty, $field:tt) => {
     $crate::FieldDelta::new::<$ty, _>(
+      |inner_d| DeltaOf::<$ty>::$field(inner_d),
       |v| {
         if let DeltaOf::<$ty>::$field(inner_d) = v.delta {
           Some(DeltaView {
@@ -254,66 +357,81 @@ macro_rules! lens_d {
           None
         }
       },
-      |v| {
-        if let DeltaOf::<$ty>::$field(inner_d) = v.delta {
-          Some(DeltaViewMut {
-            data: &mut v.data.$field,
-            delta: &mut inner_d,
-          })
-        } else {
-          None
-        }
-      },
     )
   };
 }
 
-#[derive(Clone, Copy)]
-pub struct FieldDelta<Get, GetMut> {
-  get: Get,
-  get_mut: GetMut,
-}
-
-impl<Get, GetMut> FieldDelta<Get, GetMut> {
-  /// Construct a lens from a pair of getter functions
-  pub fn new<T, U>(get: Get, get_mut: GetMut) -> Self
+impl<M, C> FieldDelta<M, C> {
+  pub fn new<T, U>(map_delta: M, check_delta: C) -> Self
   where
     T: Incremental,
     U: Incremental,
-    Get: Fn(DeltaView<T>) -> Option<DeltaView<U>>,
-    GetMut: Fn(DeltaViewMut<T>) -> Option<DeltaViewMut<U>>,
+    M: Fn(DeltaOf<U>) -> DeltaOf<T>,
+    C: Fn(DeltaView<T>) -> Option<DeltaView<U>>,
   {
-    Self { get, get_mut }
+    Self {
+      map_delta,
+      check_delta,
+    }
   }
 }
 
-impl<T, U, Get, GetMut> DeltaLens<T, U> for FieldDelta<Get, GetMut>
+impl<T, U, M, C> DeltaLens<T, U> for FieldDelta<M, C>
 where
   T: Incremental,
   U: Incremental,
-  Get: Fn(DeltaView<T>) -> Option<DeltaView<U>>,
-  GetMut: Fn(DeltaViewMut<T>) -> Option<DeltaViewMut<U>>,
+  M: Fn(DeltaOf<U>) -> DeltaOf<T>,
+  C: Fn(DeltaView<T>) -> Option<DeltaView<U>>,
 {
-  fn with<V, F: FnOnce(DeltaView<U>) -> V>(&self, data: DeltaView<T>, f: F) -> Option<V> {
-    if let Some(d) = (self.get)(data) {
-      Some(f(d))
-    } else {
-      None
-    }
+  fn map_delta(&self, delta: DeltaOf<U>) -> DeltaOf<T> {
+    (self.map_delta)(delta)
   }
 
-  fn with_mut<V, F: FnOnce(DeltaViewMut<U>) -> V>(&self, data: DeltaViewMut<T>, f: F) -> Option<V> {
-    if let Some(d) = (self.get_mut)(data) {
-      Some(f(d))
-    } else {
-      None
+  fn check_delta(&self, delta: DeltaView<T>) -> Option<DeltaView<U>> {
+    (self.check_delta)(delta)
+  }
+}
+
+#[derive(Clone, Copy)]
+pub struct DeltaChain<D1, D2, M> {
+  d1: D1,
+  middle: PhantomData<M>,
+  d2: D2,
+}
+
+impl<D1, D2, M> DeltaChain<D1, D2, M> {
+  pub fn new(d1: D1, d2: D2) -> Self {
+    Self {
+      d1,
+      middle: PhantomData,
+      d2,
     }
+  }
+}
+
+impl<T, M, U, D1, D2> DeltaLens<T, U> for DeltaChain<D1, D2, M>
+where
+  T: Incremental,
+  M: Incremental,
+  U: Incremental,
+  D1: DeltaLens<T, M>,
+  D2: DeltaLens<M, U>,
+{
+  fn map_delta(&self, delta: DeltaOf<U>) -> DeltaOf<T> {
+    self.d1.map_delta(self.d2.map_delta(delta))
+  }
+
+  fn check_delta(&self, delta: DeltaView<T>) -> Option<DeltaView<U>> {
+    self
+      .d1
+      .check_delta(delta)
+      .and_then(|delta| self.d2.check_delta(delta))
   }
 }
 
 fn active(
-  active: impl DeltaLens<GizmoState, ItemState>,
-) -> impl FnMut(&mut GizmoState, &EventCtx3D, &mut dyn FnMut(GizmoStateDelta)) {
+  active: impl DeltaLens<GizmoState, ItemState> + 'static,
+) -> impl FnMut(&mut GizmoState, &EventCtx3D, &mut dyn FnMut(DeltaOf<GizmoState>)) + 'static {
   let mut is_hovering = is_3d_hovering();
   move |state, event, cb| {
     if let Some(event3d) = &event.event_3d {
@@ -340,60 +458,30 @@ fn map_color(color: Vec3<f32>, state: ItemState) -> Vec3<f32> {
 }
 
 fn update_arrow(
-  active: impl DeltaLens<GizmoState, ItemState>,
+  active: impl DeltaLens<GizmoState, ItemState> + 'static,
   color: Vec3<f32>,
-) -> impl FnMut(&GizmoState, &DeltaOf<GizmoState>, &mut Arrow) {
-  move |state, delta, arrow| {
-    if let Some(d) = active.check_delta(delta) {
-      let axis_state = active.with(state, |&s| s);
-      let show = !state.translate.has_active() || axis_state.active;
+) -> impl FnMut(DeltaView<GizmoState>, &mut Arrow) + 'static {
+  move |state, arrow| {
+    let s = state.data;
+    if let Some(axis_state) = active.check_delta(state) {
+      let show = !s.active.translate.has_active() || axis_state.data.active;
       arrow.root.set_visible(show);
-      arrow.set_color(map_color(color, axis_state));
+      arrow.set_color(map_color(color, *axis_state.data));
     }
   }
 }
 
-struct HelperMesh {
-  material: SceneItemRef<StateControl<FlatMaterial>>,
-  model: OverridableMeshModelImpl,
-}
-
-impl SceneRenderable for HelperMesh {
-  fn render(
-    &self,
-    pass: &mut SceneRenderPass,
-    dispatcher: &dyn RenderComponentAny,
-    camera: &SceneCamera,
-  ) {
-    self.model.render(pass, dispatcher, camera)
-  }
-
-  fn is_transparent(&self) -> bool {
-    self.model.is_transparent()
-  }
-}
-
-impl SceneRayInteractive for HelperMesh {
-  fn ray_pick_nearest(
-    &self,
-    ctx: &SceneRayInteractiveCtx,
-  ) -> OptionalNearest<rendiation_renderable_mesh::MeshBufferHitPoint> {
-    self.model.ray_pick_nearest(ctx)
-  }
-}
-
 fn update_plane(
-  active: impl Lens<GizmoState, ItemState>,
+  active: impl DeltaLens<GizmoState, ItemState>,
   color: Vec3<f32>,
-) -> impl FnMut(&GizmoState, &mut HelperMesh) {
+) -> impl FnMut(DeltaView<GizmoState>, &mut HelperMesh) {
   move |state, plane| {
-    let axis_state = active.with(state, |&s| s);
-    let color = map_color(color, axis_state);
-
-    plane.material.write().material.color = Vec4::new(color.x, color.y, color.z, 1.);
-
-    let show = !state.translate.has_active() || axis_state.active;
-    plane.model.node.set_visible(show);
+    let s = state.data;
+    if let Some(axis_state) = active.check_delta(state) {
+      let show = !s.active.translate.has_active() || axis_state.data.active;
+      plane.model.node.set_visible(show);
+      plane.material.write().material.color = Vec4::new(color.x, color.y, color.z, 1.);
+    }
   }
 }
 
@@ -660,9 +748,9 @@ struct GizmoState {
 
 #[derive(Default, Incremental)]
 struct GizmoActiveState {
-  translate: AxisActiveState,
-  rotation: AxisActiveState,
-  scale: AxisActiveState,
+  pub translate: AxisActiveState,
+  pub rotation: AxisActiveState,
+  pub scale: AxisActiveState,
 }
 
 #[derive(Copy, Clone)]
@@ -697,7 +785,7 @@ struct DragTargetAction {
 #[derive(Clone)]
 enum GizmoStateDelta {
   DragTarget(DragTargetAction),
-  Active(DeltaOf<GizmoActiveState>),
+  active(DeltaOf<GizmoActiveState>),
   StartDrag(Vec3<f32>),
   SyncState(TargetState),
   ReleaseTarget,
@@ -799,5 +887,34 @@ impl AxisActiveState {
   }
   pub fn only_xz_active(&self) -> bool {
     self.x.active && !self.y.active && self.z.active
+  }
+}
+
+struct HelperMesh {
+  material: SceneItemRef<StateControl<FlatMaterial>>,
+  model: OverridableMeshModelImpl,
+}
+
+impl SceneRenderable for HelperMesh {
+  fn render(
+    &self,
+    pass: &mut SceneRenderPass,
+    dispatcher: &dyn RenderComponentAny,
+    camera: &SceneCamera,
+  ) {
+    self.model.render(pass, dispatcher, camera)
+  }
+
+  fn is_transparent(&self) -> bool {
+    self.model.is_transparent()
+  }
+}
+
+impl SceneRayInteractive for HelperMesh {
+  fn ray_pick_nearest(
+    &self,
+    ctx: &SceneRayInteractiveCtx,
+  ) -> OptionalNearest<rendiation_renderable_mesh::MeshBufferHitPoint> {
+    self.model.ray_pick_nearest(ctx)
   }
 }

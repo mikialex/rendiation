@@ -50,21 +50,19 @@ pub enum Event3D {
 
 pub struct InteractiveWatchable<T, S: Incremental> {
   inner: T,
-  callbacks: Vec<Box<dyn FnMut(&S, &EventCtx3D, &mut dyn FnMut(S::Delta))>>,
-  updates: Option<Box<dyn FnMut(&mut T, &S::Delta)>>,
+  callbacks: Vec<Box<dyn FnMut(&mut S, &EventCtx3D, &mut dyn FnMut(S::Delta))>>,
+  updates: Option<Box<dyn FnMut(DeltaView<S>, &mut T)>>,
 }
 
 impl<T, S: Incremental> InteractiveWatchable<T, S> {
   pub fn on(
     mut self,
-    mut cb: impl FnMut(&S, &EventCtx3D, &mut dyn FnMut(S::Delta)) + 'static,
+    mut cb: impl FnMut(&mut S, &EventCtx3D, &mut dyn FnMut(S::Delta)) + 'static,
   ) -> Self {
-    self
-      .callbacks
-      .push(Box::new(move |state, event| cb(state, event)));
+    self.callbacks.push(Box::new(cb));
     self
   }
-  pub fn update(mut self, updater: impl FnMut(&mut T, &S::Delta) + 'static) -> Self {
+  pub fn update(mut self, updater: impl FnMut(DeltaView<S>, &mut T) + 'static) -> Self {
     self.updates = Some(Box::new(updater));
     self
   }
@@ -102,7 +100,7 @@ impl<T: SceneRenderable, S: Incremental> View<S> for InteractiveWatchable<T, S> 
   /// the model here is the unmodified.
   fn update(&mut self, model: &S, delta: &S::Delta) {
     if let Some(update) = &mut self.updates {
-      update(&mut self.inner, delta)
+      update(DeltaView { delta, data: model }, &mut self.inner)
     }
   }
 }
