@@ -82,26 +82,49 @@ impl Gizmo {
 
     // macro_rules! duel {
     //   ($a:tt, $b:tt) => {
-    //     interphaser::Map::new(
-    //       |s: &GizmoState| ItemState {
-    //         hovering: s.translate.$a.hovering && s.translate.$b.hovering,
-    //         active: s.translate.$a.active && s.translate.$b.active,
+    //     FieldDelta::new::<AxisActiveState, _>(
+    //       |inner_d| {
+
+    //         DeltaOf::<AxisActiveState>::$field(inner_d)
+
     //       },
-    //       |s, v| {
-    //         let both = ItemState {
-    //           hovering: !(s.translate.$a.hovering ^ s.translate.$b.hovering),
-    //           active: !(s.translate.$a.active ^ s.translate.$b.active),
-    //         };
-    //         if both.hovering {
-    //           s.translate.$a.hovering = v.hovering;
-    //           s.translate.$b.hovering = v.hovering;
-    //         }
-    //         if both.active {
-    //           s.translate.$a.active = v.active;
-    //           s.translate.$b.active = v.active;
+    //       |v| {
+    //         if let DeltaOf::<$ty>::$a(inner_d) |DeltaOf::<$ty>::$b(inner_d) = v.delta {
+
+    //           let both = ItemState {
+    //             hovering: !(s.translate.$a.hovering ^ s.translate.$b.hovering),
+    //             active: !(s.translate.$a.active ^ s.translate.$b.active),
+    //           };
+
+    //           Some(DeltaView {
+    //             data: &v.data.$a,
+    //             delta: &inner_d,
+    //           })
+    //         } else {
+    //           None
     //         }
     //       },
     //     )
+    //     // interphaser::Map::new(
+    //     //   |s: &GizmoState| ItemState {
+    //     //     hovering: s.translate.$a.hovering && s.translate.$b.hovering,
+    //     //     active: s.translate.$a.active && s.translate.$b.active,
+    //     //   },
+    //     //   |s, v| {
+    //     //     let both = ItemState {
+    //     //       hovering: !(s.translate.$a.hovering ^ s.translate.$b.hovering),
+    //     //       active: !(s.translate.$a.active ^ s.translate.$b.active),
+    //     //     };
+    //     //     if both.hovering {
+    //     //       s.translate.$a.hovering = v.hovering;
+    //     //       s.translate.$b.hovering = v.hovering;
+    //     //     }
+    //     //     if both.active {
+    //     //       s.translate.$a.active = v.active;
+    //     //       s.translate.$b.active = v.active;
+    //     //     }
+    //     //   },
+    //     // )
     //   };
     // }
 
@@ -333,7 +356,7 @@ pub struct DeltaView<'a, T: Incremental> {
 
 pub trait DeltaLens<T: Incremental, U: Incremental> {
   fn map_delta(&self, delta: DeltaOf<U>) -> DeltaOf<T>;
-  fn check_delta(&self, delta: DeltaView<T>) -> Option<DeltaView<U>>;
+  fn check_delta(&self, delta: DeltaView<T>, cb: &mut dyn FnMut(DeltaView<U>));
 }
 
 #[derive(Clone, Copy)]
@@ -387,8 +410,10 @@ where
     (self.map_delta)(delta)
   }
 
-  fn check_delta(&self, delta: DeltaView<T>) -> Option<DeltaView<U>> {
-    (self.check_delta)(delta)
+  fn check_delta(&self, delta: DeltaView<T>, cb: &mut dyn FnMut(DeltaView<U>)) {
+    if let Some(d) = (self.check_delta)(delta) {
+      cb(d)
+    }
   }
 }
 
@@ -421,11 +446,10 @@ where
     self.d1.map_delta(self.d2.map_delta(delta))
   }
 
-  fn check_delta(&self, delta: DeltaView<T>) -> Option<DeltaView<U>> {
+  fn check_delta(&self, delta: DeltaView<T>, cb: &mut dyn FnMut(DeltaView<U>)) {
     self
       .d1
-      .check_delta(delta)
-      .and_then(|delta| self.d2.check_delta(delta))
+      .check_delta(delta, &mut |delta| self.d2.check_delta(delta, cb))
   }
 }
 
@@ -463,11 +487,11 @@ fn update_arrow(
 ) -> impl FnMut(DeltaView<GizmoState>, &mut Arrow) + 'static {
   move |state, arrow| {
     let s = state.data;
-    if let Some(axis_state) = active.check_delta(state) {
+    active.check_delta(state, &mut |axis_state| {
       let show = !s.active.translate.has_active() || axis_state.data.active;
       arrow.root.set_visible(show);
       arrow.set_color(map_color(color, *axis_state.data));
-    }
+    });
   }
 }
 
@@ -477,11 +501,11 @@ fn update_plane(
 ) -> impl FnMut(DeltaView<GizmoState>, &mut HelperMesh) {
   move |state, plane| {
     let s = state.data;
-    if let Some(axis_state) = active.check_delta(state) {
+    active.check_delta(state, &mut |axis_state| {
       let show = !s.active.translate.has_active() || axis_state.data.active;
       plane.model.node.set_visible(show);
       plane.material.write().material.color = Vec4::new(color.x, color.y, color.z, 1.);
-    }
+    });
   }
 }
 
