@@ -147,20 +147,20 @@ pub trait WebGPU2DTextureSource: Debug + Send + Sync {
   }
 
   fn create_tex2d_desc(&self, level_count: MipLevelCount) -> gpu::TextureDescriptor<'static> {
-    // todo validation;
     gpu::TextureDescriptor {
       label: None,
       size: self.gpu_size(),
       mip_level_count: level_count.get_level_count_wgpu(self.size()),
       sample_count: 1,
       dimension: gpu::TextureDimension::D2,
-      format: self.format(), 
-      usage: gpu::TextureUsages::TEXTURE_BINDING |  gpu::TextureUsages::RENDER_ATTACHMENT | gpu::TextureUsages::COPY_DST, 
+      format: self.format(),
+      usage: gpu::TextureUsages::TEXTURE_BINDING
+        | gpu::TextureUsages::RENDER_ATTACHMENT
+        | gpu::TextureUsages::COPY_DST,
     }
   }
 
   fn create_cube_desc(&self, level_count: MipLevelCount) -> gpu::TextureDescriptor<'static> {
-    // todo validation;
     gpu::TextureDescriptor {
       label: None,
       size: self.gpu_cube_size(),
@@ -168,7 +168,9 @@ pub trait WebGPU2DTextureSource: Debug + Send + Sync {
       sample_count: 1,
       dimension: gpu::TextureDimension::D2,
       format: self.format(),
-      usage: gpu::TextureUsages::TEXTURE_BINDING |  gpu::TextureUsages::RENDER_ATTACHMENT | gpu::TextureUsages::COPY_DST,
+      usage: gpu::TextureUsages::TEXTURE_BINDING
+        | gpu::TextureUsages::RENDER_ATTACHMENT
+        | gpu::TextureUsages::COPY_DST,
     }
   }
 }

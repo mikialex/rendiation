@@ -29,7 +29,8 @@ impl Size {
   /// return value is all mipmap levels plus base level(1)
   pub fn mip_level_count(&self) -> usize {
     let len: usize = self.max_side_length().into();
-    len.next_power_of_two().ilog2() as usize + 1
+    let len = len as u64;
+    (64 - len.leading_zeros()) as usize
   }
 
   pub fn is_pot(&self) -> bool {
@@ -61,6 +62,18 @@ impl Size {
   pub fn height_usize(&self) -> usize {
     usize::from(self.height)
   }
+}
+
+#[test]
+fn level_count() {
+  let size = Size::from_usize_pair_min_one((2, 2));
+  assert_eq!(size.mip_level_count(), 2);
+
+  let size = Size::from_usize_pair_min_one((1, 1));
+  assert_eq!(size.mip_level_count(), 1);
+
+  let size = Size::from_usize_pair_min_one((1020, 1));
+  assert_eq!(size.mip_level_count(), 10);
 }
 
 #[repr(u32)]
