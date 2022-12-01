@@ -222,43 +222,94 @@ fn is_3d_hovering() -> impl FnMut(&EventCtx3D) -> Option<bool> {
   }
 }
 
-trait DeltaLens<T: Incremental, U: Incremental> {
-  fn map_delta(&self, input: DeltaOf<U>) -> DeltaOf<T>;
-  fn check_delta(&self, input: DeltaOf<T>) -> Option<DeltaOf<U>>;
+struct DeltaView<'a, T: Incremental> {
+  pub data: &'a T,
+  pub delta: &'a T::Delta,
+}
+struct DeltaViewMut<'a, T: Incremental> {
+  pub data: &'a mut T,
+  pub delta: &'a mut T::Delta,
 }
 
-// #[derive(Clone, Copy)]
-// pub struct FieldDelta<Get, GetMut> {
-//   get: Get,
-//   get_mut: GetMut,
-// }
+pub trait DeltaLens<T: Incremental, U: Incremental> {
+  fn with<V, F: FnOnce(DeltaView<U>) -> V>(&self, data: DeltaView<T>, f: F) -> Option<V>;
+  fn with_mut<V, F: FnOnce(DeltaViewMut<U>) -> V>(&self, data: DeltaViewMut<T>, f: F) -> Option<V>;
+}
 
-// impl<Get, GetMut> FieldDelta<Get, GetMut> {
-//   /// Construct a lens from a pair of getter functions
-//   pub fn new<T: ?Sized, U: ?Sized>(get: Get, get_mut: GetMut) -> Self
-//   where
-//     Get: Fn(&T) -> &U,
-//     GetMut: Fn(&mut T) -> &mut U,
-//   {
-//     Self { get, get_mut }
-//   }
-// }
+fn test() {
+  let l = lens_d!(AxisActiveState, x);
+}
 
-// impl<T, U, Get, GetMut> Lens<T, U> for FieldDelta<Get, GetMut>
-// where
-//   T: ?Sized,
-//   U: ?Sized,
-//   Get: Fn(&T) -> &U,
-//   GetMut: Fn(&mut T) -> &mut U,
-// {
-//   fn with<V, F: FnOnce(&U) -> V>(&self, data: &T, f: F) -> V {
-//     f((self.get)(data))
-//   }
+#[macro_export]
+macro_rules! lens_d {
+  ($ty:ty, $field:tt) => {
+    $crate::FieldDelta::new::<$ty, _>(
+      |v| {
+        if let DeltaOf::<$ty>::$field(inner_d) = v.delta {
+          Some(DeltaView {
+            data: &v.data.$field,
+            delta: &inner_d,
+          })
+        } else {
+          None
+        }
+      },
+      |v| {
+        if let DeltaOf::<$ty>::$field(inner_d) = v.delta {
+          Some(DeltaViewMut {
+            data: &mut v.data.$field,
+            delta: &mut inner_d,
+          })
+        } else {
+          None
+        }
+      },
+    )
+  };
+}
 
-//   fn with_mut<V, F: FnOnce(&mut U) -> V>(&self, data: &mut T, f: F) -> V {
-//     f((self.get_mut)(data))
-//   }
-// }
+#[derive(Clone, Copy)]
+pub struct FieldDelta<Get, GetMut> {
+  get: Get,
+  get_mut: GetMut,
+}
+
+impl<Get, GetMut> FieldDelta<Get, GetMut> {
+  /// Construct a lens from a pair of getter functions
+  pub fn new<T, U>(get: Get, get_mut: GetMut) -> Self
+  where
+    T: Incremental,
+    U: Incremental,
+    Get: Fn(DeltaView<T>) -> Option<DeltaView<U>>,
+    GetMut: Fn(DeltaViewMut<T>) -> Option<DeltaViewMut<U>>,
+  {
+    Self { get, get_mut }
+  }
+}
+
+impl<T, U, Get, GetMut> DeltaLens<T, U> for FieldDelta<Get, GetMut>
+where
+  T: Incremental,
+  U: Incremental,
+  Get: Fn(DeltaView<T>) -> Option<DeltaView<U>>,
+  GetMut: Fn(DeltaViewMut<T>) -> Option<DeltaViewMut<U>>,
+{
+  fn with<V, F: FnOnce(DeltaView<U>) -> V>(&self, data: DeltaView<T>, f: F) -> Option<V> {
+    if let Some(d) = (self.get)(data) {
+      Some(f(d))
+    } else {
+      None
+    }
+  }
+
+  fn with_mut<V, F: FnOnce(DeltaViewMut<U>) -> V>(&self, data: DeltaViewMut<T>, f: F) -> Option<V> {
+    if let Some(d) = (self.get_mut)(data) {
+      Some(f(d))
+    } else {
+      None
+    }
+  }
+}
 
 fn active(
   active: impl DeltaLens<GizmoState, ItemState>,
