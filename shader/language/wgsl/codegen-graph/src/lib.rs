@@ -475,14 +475,29 @@ fn gen_expr(data: &ShaderGraphNodeExpr, cx: &mut CodeGenCtx) -> String {
       sampler,
       position,
       index,
-    } => format!(
-      "textureSample({}, {}, {}{}{})",
-      cx.get_node_gen_result_var(*texture),
-      cx.get_node_gen_result_var(*sampler),
-      cx.get_node_gen_result_var(*position),
-      index.map(|_| ", ").unwrap_or(""), // naga's parser is not handling optional ","
-      index.map(|i| cx.get_node_gen_result_var(i)).unwrap_or(""),
-    ),
+      level,
+    } => {
+      if let Some(level) = level {
+        format!(
+          "textureSampleLevel({}, {}, {}, {}{}{})",
+          cx.get_node_gen_result_var(*texture),
+          cx.get_node_gen_result_var(*sampler),
+          cx.get_node_gen_result_var(*position),
+          cx.get_node_gen_result_var(*level),
+          index.map(|_| ", ").unwrap_or(""), // naga's parser is not handling optional ","
+          index.map(|i| cx.get_node_gen_result_var(i)).unwrap_or(""),
+        )
+      } else {
+        format!(
+          "textureSample({}, {}, {}{}{})",
+          cx.get_node_gen_result_var(*texture),
+          cx.get_node_gen_result_var(*sampler),
+          cx.get_node_gen_result_var(*position),
+          index.map(|_| ", ").unwrap_or(""), // naga's parser is not handling optional ","
+          index.map(|i| cx.get_node_gen_result_var(i)).unwrap_or(""),
+        )
+      }
+    }
     ShaderGraphNodeExpr::Swizzle { ty, source } => {
       format!("{}.{}", cx.get_node_gen_result_var(*source), ty)
     }

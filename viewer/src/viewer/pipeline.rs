@@ -5,7 +5,7 @@ use crate::*;
 pub struct ViewerPipeline {
   highlight: HighLighter,
   taa: TAA,
-  enable_ssao: bool, 
+  enable_ssao: bool,
   ssao: SSAO,
   blur: CrossBlurData,
   forward_lights: ForwardLightingSystem,
@@ -27,7 +27,7 @@ impl ViewerPipeline {
       enable_channel_debugger: false,
       channel_debugger: ScreenChannelDebugger::default_useful(),
       shadows: ShadowMapSystem::new(gpu),
-      tonemap: ToneMap::new(gpu)
+      tonemap: ToneMap::new(gpu),
     }
   }
 }
@@ -41,6 +41,8 @@ impl ViewerPipeline {
     final_target: RenderTargetView,
   ) {
     let scene = &mut content.scene;
+
+    ctx.resolve_resource_mipmaps();
 
     LightUpdateCtx {
       forward: &mut self.forward_lights,
@@ -94,23 +96,22 @@ impl ViewerPipeline {
       .render(ctx)
       .by(scene.by_main_camera_and_self(BackGroundRendering))
       .by(scene.by_main_camera_and_self(ForwardScene {
-        lights: &self.forward_lights, 
+        lights: &self.forward_lights,
         shadow: &self.shadows,
         tonemap: &self.tonemap,
         debugger: self.enable_channel_debugger.then_some(&self.channel_debugger)
       }))
       .by(scene.by_main_camera(&mut content.ground)) // transparent, should go after opaque
-      .by(ao); 
-      
-    ctx.resources.cameras.check_update_gpu(scene.get_active_camera(), ctx.gpu).enable_jitter = false;
+      .by(ao);
 
+    ctx.resources.cameras.check_update_gpu(scene.get_active_camera(), ctx.gpu).enable_jitter = false;
 
     // let scene_result = draw_cross_blur(&self.blur, scene_result.read_into(), ctx);
 
     let taa_result = self.taa.resolve(
-      &scene_result, 
-      &scene_depth, 
-      ctx, 
+      &scene_result,
+      &scene_depth,
+      ctx,
       scene.get_active_camera()
     );
 

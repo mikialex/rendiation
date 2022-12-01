@@ -35,6 +35,16 @@ impl GPUCommandEncoder {
     self.encoder.finish()
   }
 
+  pub fn do_u_hear_the_people_sing(&mut self, mut des: RenderPassDescriptorOwned) {
+    des.channels.iter_mut().for_each(|c| {
+      c.0 = gpu::Operations {
+        load: gpu::LoadOp::Clear(gpu::Color::WHITE),
+        store: false,
+      }
+    });
+    self.begin_render_pass(des);
+  }
+
   pub fn begin_render_pass(&mut self, des: RenderPassDescriptorOwned) -> GPURenderPass {
     self.active_pass_target_holder.replace(des);
     let des = self.active_pass_target_holder.as_ref().unwrap();

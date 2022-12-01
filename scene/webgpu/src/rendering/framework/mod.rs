@@ -36,6 +36,11 @@ impl<'a> FrameCtx<'a> {
     }
   }
 
+  pub fn resolve_resource_mipmaps(&mut self) {
+    let mip_gen = self.resources.content.mipmap_gen.clone();
+    mip_gen.borrow_mut().flush_mipmap_gen_request(self);
+  }
+
   pub fn make_submit(&mut self) {
     let mut encoder = self.gpu.create_encoder();
     std::mem::swap(&mut self.encoder, &mut encoder);

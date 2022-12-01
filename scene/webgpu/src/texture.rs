@@ -59,7 +59,7 @@ pub fn check_update_gpu_2d<'a>(
       let texture = as_2d_source(texture);
 
       let gpu_texture = if let Some(texture) = texture {
-        let desc = texture.create_tex2d_desc(MipLevelCount::EmptyMipMap);
+        let desc = texture.create_tex2d_desc(MipLevelCount::BySize);
         let gpu_texture = GPUTexture::create(desc, &gpu.device);
         let gpu_texture: GPU2DTexture = gpu_texture.try_into().unwrap();
         gpu_texture.upload_into(&gpu.queue, texture, 0)
@@ -83,6 +83,11 @@ pub fn check_update_gpu_2d<'a>(
         .try_into()
         .unwrap()
       };
+
+      resources
+        .mipmap_gen
+        .borrow_mut()
+        .request_mipmap_gen(&gpu_texture);
 
       gpu_texture.create_default_view().try_into().unwrap()
     },

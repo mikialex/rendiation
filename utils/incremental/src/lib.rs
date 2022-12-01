@@ -9,6 +9,9 @@ pub use ty::*;
 pub trait Incremental: Sized {
   /// `Delta` should be atomic modification unit of `Self`
   /// atomic means no invalid states between the modification
+  ///
+  /// Delta could contains multi grained layer of change to allow
+  /// user modify the data in different level.
   type Delta: Clone;
 
   /// mutation maybe not valid and return error back.
@@ -34,6 +37,8 @@ pub trait Incremental: Sized {
   fn apply(&mut self, delta: Self::Delta) -> Result<(), Self::Error>;
 
   /// generate sequence of delta, which could reduce into self with default value;
+  /// expand should use the coarse level delta first to rebuild data. the caller could
+  /// decide if should expand in finer level.
   fn expand(&self, cb: impl FnMut(Self::Delta));
 }
 

@@ -205,11 +205,13 @@ impl ShaderGraphNode {
           sampler,
           position,
           index,
+          level,
         } => {
           visitor(texture);
           visitor(sampler);
           visitor(position);
-          index.as_ref().map(visitor);
+          index.as_ref().map(&mut visitor);
+          level.as_ref().map(&mut visitor);
         }
         ShaderGraphNodeExpr::MatShrink { source, .. } => visitor(source),
         ShaderGraphNodeExpr::Swizzle { source, .. } => visitor(source),
@@ -296,11 +298,13 @@ impl ShaderGraphNode {
           sampler,
           position,
           index,
+          level,
         } => {
           visitor(texture);
           visitor(sampler);
           visitor(position);
-          index.as_mut().map(visitor);
+          index.as_mut().map(&mut visitor);
+          level.as_mut().map(&mut visitor);
         }
         ShaderGraphNodeExpr::MatShrink { source, .. } => visitor(source),
         ShaderGraphNodeExpr::Swizzle { source, .. } => visitor(source),
