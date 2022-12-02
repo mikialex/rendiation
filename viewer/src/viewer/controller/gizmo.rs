@@ -1,16 +1,7 @@
-use std::{
-  cell::{Cell, RefCell},
-  marker::PhantomData,
-  rc::Rc,
-  sync::Arc,
-};
+use std::{cell::RefCell, marker::PhantomData, rc::Rc, sync::Arc};
 
 use incremental::{DeltaOf, Incremental, SimpleIncremental};
-use interphaser::{
-  lens, mouse, mouse_move,
-  winit::event::{ElementState, MouseButton},
-  Component, Lens,
-};
+use interphaser::mouse_move;
 use rendiation_algebra::*;
 use rendiation_geometry::{IntersectAble, OptionalNearest, Plane, Ray3};
 use rendiation_mesh_generator::*;
@@ -222,10 +213,12 @@ impl Gizmo {
         .compute_normalized_position_in_canvas_coordinate(event.window_states)
         .into();
 
+      let camera = event.interactive_ctx.camera.read();
+
       let action = DragTargetAction {
         drag_point_position_world: todo!(),
-        camera_world: todo!(),
-        camera_projection: todo!(),
+        camera_world: camera.node.get_world_matrix(),
+        camera_projection: camera.projection_matrix,
         world_ray: event.interactive_ctx.world_ray,
         screen_position,
       };
@@ -280,90 +273,11 @@ pub struct DeltaView<'a, T: Incremental> {
   pub data: &'a T,
   pub delta: &'a T::Delta,
 }
-// struct DeltaViewMut<'a, T: Incremental> {
-//   pub data: &'a mut T,
-//   pub delta: &'a mut T::Delta,
-// }
 
-// pub trait DeltaLens<T: Incremental, U: Incremental> {
-//   fn with<V, F: FnOnce(DeltaView<U>) -> V>(&self, data: DeltaView<T>, f: F) -> Option<V>;
-//   fn with_mut<V, F: FnOnce(DeltaViewMut<U>) -> V>(&self, data: DeltaViewMut<T>, f: F) -> Option<V>;
-// }
-
-// fn test() {
-//   let l = lens_d!(AxisActiveState, x);
-// }
-
-// #[macro_export]
-// macro_rules! lens_d {
-//   ($ty:ty, $field:tt) => {
-//     $crate::FieldDelta::new::<$ty, _>(
-//       |v| {
-//         if let DeltaOf::<$ty>::$field(inner_d) = v.delta {
-//           Some(DeltaView {
-//             data: &v.data.$field,
-//             delta: &inner_d,
-//           })
-//         } else {
-//           None
-//         }
-//       },
-//       |v| {
-//         if let DeltaOf::<$ty>::$field(inner_d) = v.delta {
-//           Some(DeltaViewMut {
-//             data: &mut v.data.$field,
-//             delta: &mut inner_d,
-//           })
-//         } else {
-//           None
-//         }
-//       },
-//     )
-//   };
-// }
-
-// #[derive(Clone, Copy)]
-// pub struct FieldDelta<Get, GetMut> {
-//   get: Get,
-//   get_mut: GetMut,
-// }
-
-// impl<Get, GetMut> FieldDelta<Get, GetMut> {
-//   /// Construct a lens from a pair of getter functions
-//   pub fn new<T, U>(get: Get, get_mut: GetMut) -> Self
-//   where
-//     T: Incremental,
-//     U: Incremental,
-//     Get: Fn(DeltaView<T>) -> Option<DeltaView<U>>,
-//     GetMut: Fn(DeltaViewMut<T>) -> Option<DeltaViewMut<U>>,
-//   {
-//     Self { get, get_mut }
-//   }
-// }
-
-// impl<T, U, Get, GetMut> DeltaLens<T, U> for FieldDelta<Get, GetMut>
-// where
-//   T: Incremental,
-//   U: Incremental,
-//   Get: Fn(DeltaView<T>) -> Option<DeltaView<U>>,
-//   GetMut: Fn(DeltaViewMut<T>) -> Option<DeltaViewMut<U>>,
-// {
-//   fn with<V, F: FnOnce(DeltaView<U>) -> V>(&self, data: DeltaView<T>, f: F) -> Option<V> {
-//     if let Some(d) = (self.get)(data) {
-//       Some(f(d))
-//     } else {
-//       None
-//     }
-//   }
-
-//   fn with_mut<V, F: FnOnce(DeltaViewMut<U>) -> V>(&self, data: DeltaViewMut<T>, f: F) -> Option<V> {
-//     if let Some(d) = (self.get_mut)(data) {
-//       Some(f(d))
-//     } else {
-//       None
-//     }
-//   }
-// }
+struct DeltaViewMut<'a, T: Incremental> {
+  pub data: &'a mut T,
+  pub delta: &'a mut T::Delta,
+}
 
 pub trait DeltaLens<T: Incremental, U: Incremental> {
   fn map_delta(&self, delta: DeltaOf<U>) -> DeltaOf<T>;
@@ -891,27 +805,6 @@ impl GizmoState {
     let state = &self.active;
     state.translate.has_active() || state.rotation.has_active() || state.scale.has_active()
   }
-  // fn reset(&mut self) {
-  //   self.translate.reset_active();
-  //   self.rotation.reset_active();
-  //   self.scale.reset_active();
-
-  //   self.last_dir.set(None);
-  //   self.current_angle_all.set(None);
-  // }
-  // fn record_start(&mut self, start_hit_world_position: Vec3<f32>) {
-  //   self.start_local_mat = self.target_local_mat;
-  //   self.start_parent_world_mat = self.target_parent_world_mat;
-
-  //   let (t, r, s) = self.start_local_mat.decompose();
-  //   self.start_local_position = t;
-  //   self.start_local_quaternion = r;
-  //   self.start_local_scale = s;
-
-  //   self.start_hit_world_position = start_hit_world_position;
-  //   self.start_hit_local_position =
-  //     self.target_world_mat.inverse_or_identity() * self.start_hit_world_position;
-  // }
 }
 
 #[derive(Copy, Clone, Default, Debug, Incremental)]
@@ -928,12 +821,6 @@ struct ItemState {
 }
 
 impl AxisActiveState {
-  // pub fn reset_active(&mut self) {
-  //   self.x.active = false;
-  //   self.y.active = false;
-  //   self.z.active = false;
-  // }
-
   pub fn has_active(&self) -> bool {
     self.x.active || self.y.active || self.z.active
   }

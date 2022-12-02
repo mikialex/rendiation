@@ -254,22 +254,29 @@ pub fn interaction_picking<'a, T: IntoIterator<Item = &'a SceneModel> + 'a>(
   result.into_iter().next()
 }
 
+pub enum HitReaction {
+  // AnyHit(MeshBufferHitPoint),
+  Nearest(MeshBufferHitPoint),
+  None,
+}
+
 pub fn interaction_picking_mut<
   'a,
-  X: SceneRayInteractive + ?Sized,
+  X: SceneRayInteractive + ?Sized + 'a,
   T: IntoIterator<Item = &'a mut X>,
 >(
   content: T,
   ctx: &SceneRayInteractiveCtx,
-  mut on_not_hit: impl FnMut(&'a mut X),
-) -> Option<(&'a mut X, MeshBufferHitPoint)> {
+  mut cb: impl FnMut(&'a mut X, HitReaction),
+) {
   let mut result = Vec::new();
 
   for m in content {
     if let OptionalNearest(Some(r)) = m.ray_pick_nearest(ctx) {
+      // cb(m, HitReaction::AnyHit(r));
       result.push((m, r));
     } else {
-      on_not_hit(m)
+      cb(m, HitReaction::None);
     }
   }
 
@@ -280,5 +287,7 @@ pub fn interaction_picking_mut<
       .unwrap_or(Ordering::Less)
   });
 
-  result.into_iter().next()
+  if let Some((m, r)) = result.into_iter().next() {
+    cb(m, HitReaction::Nearest(r));
+  }
 }

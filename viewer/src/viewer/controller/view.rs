@@ -1,11 +1,10 @@
-use std::marker::PhantomData;
-
 use incremental::Incremental;
 use interphaser::{
   mouse, mouse_move,
   winit::event::{ElementState, Event, MouseButton},
   CanvasWindowPositionInfo, WindowState,
 };
+use rendiation_renderable_mesh::MeshBufferHitPoint;
 
 use crate::*;
 
@@ -49,58 +48,6 @@ impl interphaser::System for System3D {
   type UpdateCtx<'a> = UpdateCtx3D<'a>;
 }
 
-pub fn map_3d_events<'a, T: View<S>, S>(
-  event_ctx: &mut EventCtx3D,
-  view: T,
-  mut on_event: impl FnMut(&mut EventCtx3D, &'a mut dyn View3D<S, Event = T::Event>),
-) -> Option<&'a mut dyn View3D<S, Event = T::Event>>
-where
-  S: Incremental,
-  T: IntoIterator<Item = &'a mut dyn View3D<S, Event = T::Event>>,
-{
-  let event = event_ctx.raw_event;
-
-  if mouse_move(event).is_some() {
-    if let Some((target, details)) =
-      interaction_picking_mut(view, event_ctx.interactive_ctx, |not_hit| {
-        on_event(event_ctx, not_hit)
-      })
-    {
-      event_ctx.event_3d = Event3D::MouseMove {
-        world_position: details.hit.position,
-      }
-      .into();
-      return Some(target);
-    }
-  } else if let Some((button, state)) = mouse(event) {
-    if let Some((target, details)) =
-      interaction_picking_mut(view, event_ctx.interactive_ctx, |not_hit| {
-        on_event(event_ctx, not_hit)
-      })
-    {
-      if button == MouseButton::Left {
-        match state {
-          ElementState::Pressed => {
-            event_ctx.event_3d = Event3D::MouseDown {
-              world_position: details.hit.position,
-            }
-            .into();
-          }
-          ElementState::Released => {
-            event_ctx.event_3d = Event3D::MouseUp {
-              world_position: details.hit.position,
-            }
-            .into();
-          }
-        }
-      }
-      return Some(target);
-    }
-  }
-
-  None
-}
-
 pub struct Component3DCollection<T, E> {
   collection: Vec<Box<dyn View3D<T, Event = E>>>,
   // event: PhantomData<E>,
@@ -142,45 +89,50 @@ impl<T: Incremental, E> View<T> for Component3DCollection<T, E> {
     event: &mut EventCtx3D,
     cb: &mut dyn FnMut(ViewReaction<Self::Event, T>),
   ) {
-    // if let Some(target) = map_3d_events(
-    //   event,
-    //   self
-    //     .collection
-    //     .iter_mut() // fixme, how can i pass the compiler here ???!
-    //     .map(|c| unsafe { std::mem::transmute::<_, &mut dyn View3D<T>>(c.as_mut()) }),
-    //   |ctx, not_hit| {
-    //     not_hit.event(model, event, cb);
-    //   },
-    // ) {
-    //   target.event(model, event, cb);
-    //   event.event_3d = None;
-    // }
+    interaction_picking_mut(
+      self.collection.iter_mut().map(|v| v.as_mut()),
+      event.interactive_ctx,
+      |view, hit| match hit {
+        HitReaction::Nearest(hit) => {
+          event.event_3d = map_3d_event(hit, event.raw_event).into();
+          view.event(model, event, cb);
+          event.event_3d = None;
+        }
+        HitReaction::None => view.event(model, event, cb),
+      },
+    )
   }
 
   fn update(&mut self, model: &T, delta: &<T as incremental::Incremental>::Delta) {
-    todo!()
+    for view in &mut self.collection {
+      view.update(model, delta);
+    }
   }
-  // fn event(&mut self, states: &mut T, ctx: &mut EventCtx3D) {
-  //   if let Some(target) = map_3d_events(
-  //     ctx,
-  //     self
-  //       .collection
-  //       .iter_mut() // fixme, how can i pass the compiler here ???!
-  //       .map(|c| unsafe { std::mem::transmute::<_, &mut dyn View3D<T>>(c.as_mut()) }),
-  //     |ctx, not_hit| {
-  //       not_hit.event(states, ctx);
-  //     },
-  //   ) {
-  //     target.event(states, ctx);
-  //     ctx.event_3d = None;
-  //   }
-  // }
+}
 
-  // fn update(&mut self, states: &T, ctx: &mut UpdateCtx3D) {
-  //   for view in &mut self.collection {
-  //     view.update(states, ctx);
-  //   }
-  // }
+pub fn map_3d_event(hit: MeshBufferHitPoint, event: &Event<()>) -> Option<Event3D> {
+  if mouse_move(event).is_some() {
+    Event3D::MouseMove {
+      world_position: hit.hit.position,
+    }
+    .into()
+  } else if let Some((button, state)) = mouse(event) {
+    if button == MouseButton::Left {
+      let e = match state {
+        ElementState::Pressed => Event3D::MouseDown {
+          world_position: hit.hit.position,
+        },
+        ElementState::Released => Event3D::MouseUp {
+          world_position: hit.hit.position,
+        },
+      };
+      Some(e)
+    } else {
+      None
+    }
+  } else {
+    None
+  }
 }
 
 impl<T, E> SceneRenderable for Component3DCollection<T, E> {
