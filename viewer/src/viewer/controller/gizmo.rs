@@ -26,6 +26,7 @@ pub struct Gizmo {
   states: GizmoState,
   root: SceneNode,
   target: Option<SceneNode>,
+  deltas: Vec<DeltaOf<GizmoState>>,
   view: Component3DCollection<GizmoState, ()>,
 }
 
@@ -178,6 +179,7 @@ impl Gizmo {
       root: root.clone(),
       view,
       target: None,
+      deltas: Default::default(),
     }
   }
 
@@ -215,20 +217,33 @@ impl Gizmo {
 
       let camera = event.interactive_ctx.camera.read();
 
-      let action = DragTargetAction {
-        drag_point_position_world: todo!(),
-        camera_world: camera.node.get_world_matrix(),
-        camera_projection: camera.projection_matrix,
-        world_ray: event.interactive_ctx.world_ray,
-        screen_position,
-      };
       self.states.target_world_mat = self.root.get_world_matrix();
       self.states.target_local_mat = target.get_local_matrix();
       self.states.target_parent_world_mat = target
         .visit_parent(|p| p.world_matrix())
         .unwrap_or_else(Mat4::identity);
 
-      self.view.event(&mut self.states, event, &mut |e| {});
+      self.view.event(&mut self.states, event, &mut |e| {
+        if let ViewReaction::StateDelta(d) = e {
+          self.deltas.push(d.clone());
+          self.states.apply(d);
+        }
+      });
+
+      #[allow(clippy::collapsible_if)]
+      if self.states.start_state.is_some() {
+        if mouse_move(event.raw_event).is_some() {
+          let action = DragTargetAction {
+            camera_world: camera.node.get_world_matrix(),
+            camera_projection: camera.projection_matrix,
+            world_ray: event.interactive_ctx.world_ray,
+            screen_position,
+          };
+          let d = GizmoStateDelta::DragTarget(action);
+          self.deltas.push(d.clone());
+          self.states.apply(d);
+        }
+      }
 
       keep_target
     } else {
@@ -239,9 +254,9 @@ impl Gizmo {
 
   pub fn update(&mut self) {
     if self.target.is_some() {
-      let mut ctx = UpdateCtx3D { placeholder: &() };
-
-      self.view.update(&self.states, &mut ctx);
+      for d in self.deltas.drain(..) {
+        self.view.update(&self.states, &d);
+      }
     }
   }
 }
@@ -726,7 +741,6 @@ struct StartState {
 
 #[derive(Clone)]
 struct DragTargetAction {
-  drag_point_position_world: Vec3<f32>,
   camera_world: Mat4<f32>,
   camera_projection: Mat4<f32>,
   world_ray: Ray3<f32>,

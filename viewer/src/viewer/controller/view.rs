@@ -8,8 +8,6 @@ use rendiation_renderable_mesh::MeshBufferHitPoint;
 
 use crate::*;
 
-pub struct System3D;
-
 pub struct EventCtx3D<'a> {
   pub window_states: &'a WindowState,
   pub raw_event: &'a Event<'a, ()>,
@@ -39,18 +37,8 @@ impl<'a> EventCtx3D<'a> {
   }
 }
 
-pub struct UpdateCtx3D<'a> {
-  pub placeholder: &'a (),
-}
-
-impl interphaser::System for System3D {
-  type EventCtx<'a> = EventCtx3D<'a>;
-  type UpdateCtx<'a> = UpdateCtx3D<'a>;
-}
-
 pub struct Component3DCollection<T, E> {
   collection: Vec<Box<dyn View3D<T, Event = E>>>,
-  // event: PhantomData<E>,
 }
 
 pub trait View3D<T: Incremental>: View<T> + SceneRayInteractive + SceneRenderable {
