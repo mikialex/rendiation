@@ -12,7 +12,7 @@ use interphaser::{
   Component, Lens,
 };
 use rendiation_algebra::*;
-use rendiation_geometry::{IntersectAble, OptionalNearest, Plane};
+use rendiation_geometry::{IntersectAble, OptionalNearest, Plane, Ray3};
 use rendiation_mesh_generator::*;
 use rendiation_renderable_mesh::{vertex::Vertex, TriangleList};
 
@@ -217,7 +217,18 @@ impl Gizmo {
     if let Some(target) = &self.target {
       let mut keep_target = true;
 
-      // dispatch 3d events into 3d components, handling state active
+      let screen_position = event
+        .info
+        .compute_normalized_position_in_canvas_coordinate(event.window_states)
+        .into();
+
+      let action = DragTargetAction {
+        drag_point_position_world: todo!(),
+        camera_world: todo!(),
+        camera_projection: todo!(),
+        world_ray: event.interactive_ctx.world_ray,
+        screen_position,
+      };
       self.states.target_world_mat = self.root.get_world_matrix();
       self.states.target_local_mat = target.get_local_matrix();
       self.states.target_parent_world_mat = target
@@ -504,23 +515,24 @@ fn update_plane(
     active.check_delta(state, &mut |axis_state| {
       let show = !s.active.translate.has_active() || axis_state.data.active;
       plane.model.node.set_visible(show);
+      let color = map_color(color, *axis_state.data);
       plane.material.write().material.color = Vec4::new(color.x, color.y, color.z, 1.);
     });
   }
 }
 
 fn update_torus(
-  active: impl Lens<GizmoState, ItemState>,
+  active: impl DeltaLens<GizmoState, ItemState>,
   color: Vec3<f32>,
-) -> impl FnMut(&GizmoState, &mut HelperMesh) {
+) -> impl FnMut(DeltaView<GizmoState>, &mut HelperMesh) {
   move |state, torus| {
-    let axis_state = active.with(state, |&s| s);
-    let color = map_color(color, axis_state);
-
-    torus.material.write().material.color = Vec4::new(color.x, color.y, color.z, 1.);
-
-    let show = !state.translate.has_active() || axis_state.active;
-    torus.model.node.set_visible(show);
+    let s = state.data;
+    active.check_delta(state, &mut |axis_state| {
+      let show = !s.active.translate.has_active() || axis_state.data.active;
+      torus.model.node.set_visible(show);
+      let color = map_color(color, *axis_state.data);
+      torus.material.write().material.color = Vec4::new(color.x, color.y, color.z, 1.);
+    });
   }
 }
 
@@ -616,7 +628,13 @@ fn build_rotator(root: &SceneNode, auto_scale: &AutoScale, mat: Mat4<f32>) -> He
   HelperMesh { model, material: m }
 }
 
-fn handle_rotating(action: DragTargetAction) -> Mat4<f32> {
+fn handle_rotating(
+  states: &StartState,
+  target: &TargetState,
+  rotate_state: &mut Option<RotateState>,
+  rotate_view: &AxisActiveState,
+  action: DragTargetAction,
+) -> Option<Mat4<f32>> {
   // // new_hit_world = M(parent) * M(local_translate) * M(new_local_rotate) * M(local_scale) * start_hit_local_position =>
   // //  M-1(local_translate) * M-1(parent) * new_hit_world =  M(new_local_rotate) * M(local_scale) * start_hit_local_position
   // should we support world space point align like above? but the question is, we have to also modify scale, because
@@ -624,79 +642,81 @@ fn handle_rotating(action: DragTargetAction) -> Mat4<f32> {
 
   // here we use simple screen space rotation match local space to see the effects.
 
-  let camera = event.interactive_ctx.camera.read();
-  let vp = camera.projection_matrix * camera.node.get_world_matrix().inverse()?;
+  let vp = action.camera_projection * action.camera_world.inverse()?;
 
-  let start_hit_screen_position = (vp * self.states.start_hit_world_position).xy();
-  let current_hit_screen_position: Vec2<f32> = event
-    .info
-    .compute_normalized_position_in_canvas_coordinate(event.window_states)
-    .into();
-  let pivot_center_screen_position = (vp * self.states.target_world_mat.position()).xy();
+  let start_hit_screen_position = (vp * states.start_hit_world_position).xy();
+  let pivot_center_screen_position = (vp * target.target_world_mat.position()).xy();
 
   let origin_dir = start_hit_screen_position - pivot_center_screen_position;
   let origin_dir = origin_dir.normalize();
-  let new_dir = current_hit_screen_position - pivot_center_screen_position;
+  let new_dir = action.screen_position - pivot_center_screen_position;
   let new_dir = new_dir.normalize();
 
-  let current_angle_all = self.states.current_angle_all.get().unwrap_or(0.);
-  let last_dir = self.states.last_dir.get().unwrap_or(origin_dir);
+  let RotateState {
+    current_angle_all,
+    last_dir,
+  } = rotate_state.get_or_insert_with(|| RotateState {
+    current_angle_all: 0.,
+    last_dir: origin_dir,
+  });
 
   let rotate_dir = last_dir.cross(new_dir).signum();
   // min one is preventing float precision issue which will cause nan in acos
   let angle_delta = last_dir.dot(new_dir).min(1.).acos() * rotate_dir;
-  let mut angle = current_angle_all + angle_delta;
 
-  self.states.current_angle_all.set(Some(angle));
-  self.states.last_dir.set(Some(new_dir));
+  *current_angle_all += angle_delta;
+  *last_dir = new_dir;
 
-  let axis = if self.states.rotation.only_x_active() {
+  let axis = if rotate_view.only_x_active() {
     Vec3::new(1., 0., 0.)
-  } else if self.states.rotation.only_y_active() {
+  } else if rotate_view.only_y_active() {
     Vec3::new(0., 1., 0.)
-  } else if self.states.rotation.only_z_active() {
+  } else if rotate_view.only_z_active() {
     Vec3::new(0., 0., 1.)
   } else {
-    return Some(());
+    return None;
   };
 
   let camera_world_position = action.camera_world.position();
 
-  let view_dir = camera_world_position - self.states.target_world_mat.position();
+  let view_dir = camera_world_position - target.target_world_mat.position();
 
-  let axis_world = axis.transform_direction(self.states.target_world_mat);
+  let axis_world = axis.transform_direction(target.target_world_mat);
+  let mut angle = *current_angle_all;
   if axis_world.dot(view_dir) < 0. {
     angle = -angle;
   }
 
   let quat = Quat::rotation(axis, angle);
 
-  let new_local = Mat4::translate(self.states.start_local_position)
-    * Mat4::from(self.states.start_local_quaternion)
+  let new_local = Mat4::translate(states.start_local_position)
+    * Mat4::from(states.start_local_quaternion)
     * Mat4::from(quat)
-    * Mat4::scale(self.states.start_local_scale);
+    * Mat4::scale(states.start_local_scale);
 
-  target.set_local_matrix(new_local);
-  self.root.set_local_matrix(new_local);
-
-  Some(())
+  Some(new_local)
 }
 
-fn handle_translating(action: DragTargetAction) -> Mat4<f32> {
+fn handle_translating(
+  states: &StartState,
+  target: &TargetState,
+  active: &AxisActiveState,
+  action: DragTargetAction,
+) -> Option<Mat4<f32>> {
   let camera_world_position = action.camera_world.position();
 
-  let back_to_local = self.states.target_world_mat.inverse()?;
-  let view_dir = camera_world_position - self.states.target_world_mat.position();
+  let back_to_local = target.target_world_mat.inverse()?;
+  let view_dir = camera_world_position - target.target_world_mat.position();
   let view_dir_in_local = view_dir.transform_direction(back_to_local).value;
 
-  let plane_point = self.states.start_hit_local_position;
+  let plane_point = states.start_hit_local_position;
 
   // build world space constraint abstract interactive plane
-  let (plane, constraint) = if self.states.translate.only_x_active() {
+  let (plane, constraint) = if active.only_x_active() {
     Some((1., 0., 0.).into())
-  } else if self.states.translate.only_y_active() {
+  } else if active.only_y_active() {
     Some((0., 1., 0.).into())
-  } else if self.states.translate.only_z_active() {
+  } else if active.only_z_active() {
     Some((0., 0., 1.).into())
   } else {
     None
@@ -710,11 +730,11 @@ fn handle_translating(action: DragTargetAction) -> Mat4<f32> {
     )
   })
   .or_else(|| {
-    if self.states.translate.only_xy_active() {
+    if active.only_xy_active() {
       Some((0., 0., 1.).into())
-    } else if self.states.translate.only_yz_active() {
+    } else if active.only_yz_active() {
       Some((1., 0., 0.).into())
-    } else if self.states.translate.only_xz_active() {
+    } else if active.only_xz_active() {
       Some((0., 1., 0.).into())
     } else {
       None
@@ -725,41 +745,32 @@ fn handle_translating(action: DragTargetAction) -> Mat4<f32> {
         Vec3::one() - normal,
       )
     })
-  })
-  .unwrap_or((
-    // should be unreachable
-    Plane::from_normal_and_origin_point((0., 1., 0.).into()),
-    (0., 1., 0.).into(),
-  ));
+  })?;
 
-  let local_ray = event
-    .interactive_ctx
-    .world_ray
-    .apply_matrix_into(back_to_local);
+  let local_ray = action.world_ray.apply_matrix_into(back_to_local);
 
   // if we don't get any hit, we skip update.  Keeping last updated result is a reasonable behavior.
   if let OptionalNearest(Some(new_hit)) = local_ray.intersect(&plane, &()) {
     let new_hit = (new_hit.position - plane_point) * constraint + plane_point;
-    let new_hit_world = self.states.target_world_mat * new_hit;
+    let new_hit_world = target.target_world_mat * new_hit;
 
     // new_hit_world = M(parent) * M(new_local_translate) * M(local_rotate) * M(local_scale) * start_hit_local_position =>
     // M-1(parent) * new_hit_world = new_local_translate + M(local_rotate) * M(local_scale) * start_hit_local_position  =>
     // new_local_translate = M-1(parent) * new_hit_world - M(local_rotate) * M(local_scale) * start_hit_local_position
 
-    let new_local_translate = self.states.start_parent_world_mat.inverse()? * new_hit_world
-      - Mat4::from(self.states.start_local_quaternion)
-        * Mat4::scale(self.states.start_local_scale)
-        * self.states.start_hit_local_position;
+    let new_local_translate = states.start_parent_world_mat.inverse()? * new_hit_world
+      - Mat4::from(states.start_local_quaternion)
+        * Mat4::scale(states.start_local_scale)
+        * states.start_hit_local_position;
 
     let new_local = Mat4::translate(new_local_translate)
-      * Mat4::from(self.states.start_local_quaternion)
-      * Mat4::scale(self.states.start_local_scale);
+      * Mat4::from(states.start_local_quaternion)
+      * Mat4::scale(states.start_local_scale);
 
-    target.set_local_matrix(new_local);
-    self.root.set_local_matrix(new_local);
+    Some(new_local)
+  } else {
+    None
   }
-
-  Some(())
 }
 
 #[derive(Default)]
@@ -804,14 +815,17 @@ struct DragTargetAction {
   drag_point_position_world: Vec3<f32>,
   camera_world: Mat4<f32>,
   camera_projection: Mat4<f32>,
+  world_ray: Ray3<f32>,
+  screen_position: Vec2<f32>,
 }
 
 #[derive(Clone)]
+#[allow(non_camel_case_types)]
 enum GizmoStateDelta {
   DragTarget(DragTargetAction),
   active(DeltaOf<GizmoActiveState>),
   StartDrag(Vec3<f32>),
-  SyncState(TargetState),
+  SyncTarget(TargetState),
   ReleaseTarget,
 }
 
@@ -821,32 +835,61 @@ impl SimpleIncremental for GizmoState {
   fn s_apply(&mut self, delta: Self::Delta) {
     match delta {
       GizmoStateDelta::DragTarget(action) => {
-        handle_translating(action);
-        handle_rotating(action);
+        if let Some(target) = &self.target_state {
+          if let Some(start) = &self.start_state {
+            if let Some(target_local_new) =
+              handle_translating(start, target, &self.active.translate, action).or_else(|| {
+                handle_rotating(
+                  start,
+                  target,
+                  &mut self.rotate_state,
+                  &self.active.rotation,
+                  action,
+                )
+              })
+            {
+              todo!()
+            }
+          }
+        }
       }
-      GizmoStateDelta::StartDrag(start_world_position) => {
-        self.start_state = todo!(); //
+      GizmoStateDelta::StartDrag(start_hit_world_position) => {
+        if let Some(target) = self.target_state {
+          let (t, r, s) = target.target_local_mat.decompose();
+          let start_states = StartState {
+            start_parent_world_mat: target.target_parent_world_mat,
+            start_local_position: t,
+            start_local_quaternion: r,
+            start_local_scale: s,
+            start_local_mat: target.target_local_mat,
+            start_hit_local_position: target.target_world_mat.inverse_or_identity()
+              * start_hit_world_position,
+            start_hit_world_position,
+          };
+          self.start_state = Some(start_states);
+        }
       }
       GizmoStateDelta::ReleaseTarget => {
         self.start_state = None;
         self.target_state = None;
       }
-      GizmoStateDelta::Active(delta) => self.active.apply(delta).unwrap(),
-      GizmoStateDelta::SyncState(s) => self.target_state = Some(s),
+      GizmoStateDelta::active(delta) => self.active.apply(delta).unwrap(),
+      GizmoStateDelta::SyncTarget(s) => self.target_state = Some(s),
     }
   }
 
   fn s_expand(&self, cb: impl FnMut(Self::Delta)) {
     if let Some(target_state) = &self.target_state {
-      cb(GizmoStateDelta::SyncState(*target_state));
+      cb(GizmoStateDelta::SyncTarget(*target_state));
     }
-    self.active.expand(|d| cb(GizmoStateDelta::Active(d)));
+    self.active.expand(|d| cb(GizmoStateDelta::active(d)));
   }
 }
 
 impl GizmoState {
   fn has_any_active(&self) -> bool {
-    self.translate.has_active() || self.rotation.has_active() || self.scale.has_active()
+    let state = &self.active;
+    state.translate.has_active() || state.rotation.has_active() || state.scale.has_active()
   }
   // fn reset(&mut self) {
   //   self.translate.reset_active();
