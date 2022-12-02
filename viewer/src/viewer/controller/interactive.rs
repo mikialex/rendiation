@@ -57,7 +57,7 @@ pub struct InteractiveWatchable<T, S: Incremental> {
 impl<T, S: Incremental> InteractiveWatchable<T, S> {
   pub fn on(
     mut self,
-    mut cb: impl FnMut(&mut S, &EventCtx3D, &mut dyn FnMut(S::Delta)) + 'static,
+    cb: impl FnMut(&mut S, &EventCtx3D, &mut dyn FnMut(S::Delta)) + 'static,
   ) -> Self {
     self.callbacks.push(Box::new(cb));
     self

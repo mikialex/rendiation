@@ -126,7 +126,7 @@ impl Gizmo {
 
     // let plane_scale = Mat4::scale(Vec3::splat(0.4));
     // let plane_move = Vec3::splat(1.3);
-    // let degree_90 = f32::PI() / 2.;
+    let degree_90 = f32::PI() / 2.;
 
     // let xy_t = Vec3::new(1., 1., 0.);
     // let xy_t = Mat4::translate(xy_t * plane_move) * plane_scale;
@@ -149,30 +149,36 @@ impl Gizmo {
     //   .update(update_plane(xz_lens, BLUE))
     //   .on(active(xz_lens));
 
-    // let x_lens = lens!(GizmoState, rotation.x);
-    // let y_lens = lens!(GizmoState, rotation.y);
-    // let z_lens = lens!(GizmoState, rotation.z);
+    let rotation = lens_d!(GizmoActiveState, rotation);
 
-    // let rotator_z = build_rotator(root, auto_scale, Mat4::one())
-    //   .eventable::<GizmoState>()
-    //   .update(update_torus(z_lens, GREEN))
-    //   .on(active(z_lens));
-    // let rotator_y = build_rotator(root, auto_scale, Mat4::rotate_x(degree_90))
-    //   .eventable::<GizmoState>()
-    //   .update(update_torus(y_lens, BLUE))
-    //   .on(active(y_lens));
-    // let rotator_x = build_rotator(root, auto_scale, Mat4::rotate_y(degree_90))
-    //   .eventable::<GizmoState>()
-    //   .update(update_torus(x_lens, RED))
-    //   .on(active(x_lens));
+    let rotation_x = DeltaChain::new(rotation, x_lens);
+    let rotation_y = DeltaChain::new(rotation, y_lens);
+    let rotation_z = DeltaChain::new(rotation, z_lens);
+
+    let active_rotation_x = DeltaChain::new(active_lens, rotation_x);
+    let active_rotation_y = DeltaChain::new(active_lens, rotation_y);
+    let active_rotation_z = DeltaChain::new(active_lens, rotation_z);
+
+    let rotator_z = build_rotator(root, auto_scale, Mat4::one())
+      .eventable::<GizmoState>()
+      .update(update_torus(active_rotation_z, GREEN))
+      .on(active(active_rotation_z));
+    let rotator_y = build_rotator(root, auto_scale, Mat4::rotate_x(degree_90))
+      .eventable::<GizmoState>()
+      .update(update_torus(active_rotation_y, BLUE))
+      .on(active(active_rotation_y));
+    let rotator_x = build_rotator(root, auto_scale, Mat4::rotate_y(degree_90))
+      .eventable::<GizmoState>()
+      .update(update_torus(active_rotation_x, RED))
+      .on(active(active_rotation_x));
 
     #[rustfmt::skip]
     let view = collection3d()
-      .with(x).with(y).with(z);
+      .with(x).with(y).with(z)
     // .with(xy).with(yz).with(xz)
-    // .with(rotator_x)
-    // .with(rotator_y)
-    // .with(rotator_z);
+    .with(rotator_x)
+    .with(rotator_y)
+    .with(rotator_z);
 
     Self {
       states: Default::default(),
@@ -217,11 +223,12 @@ impl Gizmo {
 
       let camera = event.interactive_ctx.camera.read();
 
-      self.states.target_world_mat = self.root.get_world_matrix();
-      self.states.target_local_mat = target.get_local_matrix();
-      self.states.target_parent_world_mat = target
-        .visit_parent(|p| p.world_matrix())
-        .unwrap_or_else(Mat4::identity);
+      todo!();
+      // self.states.target_world_mat = self.root.get_world_matrix();
+      // self.states.target_local_mat = target.get_local_matrix();
+      // self.states.target_parent_world_mat = target
+      //   .visit_parent(|p| p.world_matrix())
+      //   .unwrap_or_else(Mat4::identity);
 
       self.view.event(&mut self.states, event, &mut |e| {
         if let ViewReaction::StateDelta(d) = e {
@@ -357,12 +364,22 @@ where
   }
 }
 
-#[derive(Clone, Copy)]
 pub struct DeltaChain<D1, D2, M> {
   d1: D1,
   middle: PhantomData<M>,
   d2: D2,
 }
+
+impl<D1: Clone, D2: Clone, M> Clone for DeltaChain<D1, D2, M> {
+  fn clone(&self) -> Self {
+    Self {
+      d1: self.d1.clone(),
+      middle: self.middle.clone(),
+      d2: self.d2.clone(),
+    }
+  }
+}
+impl<D1: Copy, D2: Copy, M> Copy for DeltaChain<D1, D2, M> {}
 
 impl<D1, D2, M> DeltaChain<D1, D2, M> {
   pub fn new(d1: D1, d2: D2) -> Self {
@@ -739,7 +756,7 @@ struct StartState {
   start_hit_world_position: Vec3<f32>,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Copy)]
 struct DragTargetAction {
   camera_world: Mat4<f32>,
   camera_projection: Mat4<f32>,
@@ -806,7 +823,7 @@ impl SimpleIncremental for GizmoState {
     }
   }
 
-  fn s_expand(&self, cb: impl FnMut(Self::Delta)) {
+  fn s_expand(&self, mut cb: impl FnMut(Self::Delta)) {
     if let Some(target_state) = &self.target_state {
       cb(GizmoStateDelta::SyncTarget(*target_state));
     }
@@ -829,7 +846,7 @@ pub struct AxisActiveState {
 }
 
 #[derive(Copy, Clone, Default, Debug, Incremental)]
-struct ItemState {
+pub struct ItemState {
   pub hovering: bool,
   pub active: bool,
 }
