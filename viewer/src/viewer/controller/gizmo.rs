@@ -230,13 +230,22 @@ impl Gizmo {
   // return if should keep target.
   pub fn event_impl(&mut self, event: &mut EventCtx3D) -> Option<bool> {
     if self.target.is_some() {
-      let mut keep_target = true;
+      let mut keep_target = false;
+
+      let mut should_check_need_keep_target = false;
+      if let Some((MouseButton::Left, ElementState::Pressed)) = mouse(event.raw_event) {
+        if self.target.is_some() {
+          should_check_need_keep_target = true;
+        }
+      }
 
       let mut deltas = Vec::new(); // todo optimize
       self.view.event(&mut self.states, event, &mut |e| {
         if let ViewReaction::StateDelta(d) = e {
-          if let GizmoStateDelta::ReleaseTarget = d {
-            keep_target = false;
+          if let GizmoStateDelta::StartDrag(_) = d {
+            if should_check_need_keep_target {
+              keep_target = true;
+            }
           }
           deltas.push(d);
         }
@@ -484,11 +493,16 @@ fn update_arrow(
   active: impl DeltaLens<GizmoState, ItemState> + 'static,
   color: Vec3<f32>,
 ) -> impl FnMut(DeltaView<GizmoState>, &mut Arrow) + 'static {
+  let mut self_active = false;
   move |state, arrow| {
     let s = state.data;
+    if let GizmoStateDelta::active(_) = state.delta {
+      let show = !s.active.translate.has_active() || self_active;
+      arrow.root.set_visible(show);
+    }
+
     active.check_delta(state, &mut |axis_state| {
-      let show = !s.active.translate.has_active() || axis_state.data.active;
-      // arrow.root.set_visible(show);
+      self_active = axis_state.data.active;
       arrow.set_color(map_color(color, *axis_state.data));
     });
   }
@@ -498,11 +512,15 @@ fn update_plane(
   active: impl DeltaLens<GizmoState, ItemState>,
   color: Vec3<f32>,
 ) -> impl FnMut(DeltaView<GizmoState>, &mut HelperMesh) {
+  let mut self_active = false;
   move |state, plane| {
     let s = state.data;
+    if let GizmoStateDelta::active(_) = state.delta {
+      let show = !s.active.translate.has_active() || self_active;
+      plane.model.node.set_visible(show);
+    }
     active.check_delta(state, &mut |axis_state| {
-      let show = !s.active.translate.has_active() || axis_state.data.active;
-      // plane.model.node.set_visible(show);
+      self_active = axis_state.data.active;
       let color = map_color(color, *axis_state.data);
       plane.material.write().material.color = Vec4::new(color.x, color.y, color.z, 1.);
     });
@@ -513,11 +531,15 @@ fn update_torus(
   active: impl DeltaLens<GizmoState, ItemState>,
   color: Vec3<f32>,
 ) -> impl FnMut(DeltaView<GizmoState>, &mut HelperMesh) {
+  let mut self_active = false;
   move |state, torus| {
     let s = state.data;
+    if let GizmoStateDelta::active(_) = state.delta {
+      let show = !s.active.translate.has_active() || self_active;
+      torus.model.node.set_visible(show);
+    }
     active.check_delta(state, &mut |axis_state| {
-      let show = !s.active.translate.has_active() || axis_state.data.active;
-      // torus.model.node.set_visible(show);
+      self_active = axis_state.data.active;
       let color = map_color(color, *axis_state.data);
       torus.material.write().material.color = Vec4::new(color.x, color.y, color.z, 1.);
     });
