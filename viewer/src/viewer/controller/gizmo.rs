@@ -50,13 +50,9 @@ impl Gizmo {
     let active_lens = lens_d!(GizmoState, active);
     let translate = lens_d!(GizmoActiveState, translate);
 
-    let translate_x = DeltaChain::new(translate, x_lens);
-    let translate_y = DeltaChain::new(translate, y_lens);
-    let translate_z = DeltaChain::new(translate, z_lens);
-
-    let active_translate_x = DeltaChain::new(active_lens, translate_x);
-    let active_translate_y = DeltaChain::new(active_lens, translate_y);
-    let active_translate_z = DeltaChain::new(active_lens, translate_z);
+    let active_translate_x = x_lens.chain(translate).chain(active_lens);
+    let active_translate_y = y_lens.chain(translate).chain(active_lens);
+    let active_translate_z = z_lens.chain(translate).chain(active_lens);
 
     let x = Arrow::new(root, auto_scale)
       .toward_x()
@@ -106,17 +102,9 @@ impl Gizmo {
       };
     }
 
-    let xy_lens = duel!(x, y);
-    let yz_lens = duel!(y, z);
-    let xz_lens = duel!(x, z);
-
-    let xy_lens = DeltaChain::new(translate, xy_lens);
-    let yz_lens = DeltaChain::new(translate, yz_lens);
-    let xz_lens = DeltaChain::new(translate, xz_lens);
-
-    let xy_lens = DeltaChain::new(active_lens, xy_lens);
-    let yz_lens = DeltaChain::new(active_lens, yz_lens);
-    let xz_lens = DeltaChain::new(active_lens, xz_lens);
+    let xy_lens = duel!(x, y).chain(translate).chain(active_lens);
+    let yz_lens = duel!(y, z).chain(translate).chain(active_lens);
+    let xz_lens = duel!(x, z).chain(translate).chain(active_lens);
 
     let plane_scale = Mat4::scale(Vec3::splat(0.4));
     let plane_move = Vec3::splat(1.3);
@@ -145,26 +133,22 @@ impl Gizmo {
 
     let rotation = lens_d!(GizmoActiveState, rotation);
 
-    let rotation_x = DeltaChain::new(rotation, x_lens);
-    let rotation_y = DeltaChain::new(rotation, y_lens);
-    let rotation_z = DeltaChain::new(rotation, z_lens);
-
-    let active_rotation_x = DeltaChain::new(active_lens, rotation_x);
-    let active_rotation_y = DeltaChain::new(active_lens, rotation_y);
-    let active_rotation_z = DeltaChain::new(active_lens, rotation_z);
+    let rotation_x = x_lens.chain(rotation).chain(active_lens);
+    let rotation_y = y_lens.chain(rotation).chain(active_lens);
+    let rotation_z = z_lens.chain(rotation).chain(active_lens);
 
     let rotator_z = build_rotator(root, auto_scale, Mat4::one())
       .eventable::<GizmoState>()
-      .update(update_torus(active_rotation_z, GREEN))
-      .on(active(active_rotation_z));
+      .update(update_torus(rotation_z, GREEN))
+      .on(active(rotation_z));
     let rotator_y = build_rotator(root, auto_scale, Mat4::rotate_x(degree_90))
       .eventable::<GizmoState>()
-      .update(update_torus(active_rotation_y, BLUE))
-      .on(active(active_rotation_y));
+      .update(update_torus(rotation_y, BLUE))
+      .on(active(rotation_y));
     let rotator_x = build_rotator(root, auto_scale, Mat4::rotate_y(degree_90))
       .eventable::<GizmoState>()
-      .update(update_torus(active_rotation_x, RED))
-      .on(active(active_rotation_x));
+      .update(update_torus(rotation_x, RED))
+      .on(active(rotation_x));
 
     #[rustfmt::skip]
     let view = collection3d()

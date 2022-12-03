@@ -77,6 +77,33 @@ pub struct DeltaChain<D1, D2, M> {
   d2: D2,
 }
 
+pub trait ChainDelta<T, M, U>: Sized
+where
+  T: Incremental,
+  M: Incremental,
+  U: Incremental,
+  Self: DeltaLens<M, U>,
+{
+  fn chain<N>(self, next: N) -> DeltaChain<N, Self, M>
+  where
+    N: DeltaLens<T, M>;
+}
+
+impl<T, M, U, X> ChainDelta<T, M, U> for X
+where
+  T: Incremental,
+  M: Incremental,
+  U: Incremental,
+  Self: DeltaLens<M, U>,
+{
+  fn chain<N>(self, next: N) -> DeltaChain<N, Self, M>
+  where
+    N: DeltaLens<T, M>,
+  {
+    DeltaChain::new(next, self)
+  }
+}
+
 impl<D1: Clone, D2: Clone, M> Clone for DeltaChain<D1, D2, M> {
   fn clone(&self) -> Self {
     Self {
