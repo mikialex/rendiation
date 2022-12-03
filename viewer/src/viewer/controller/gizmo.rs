@@ -179,14 +179,29 @@ impl Gizmo {
     }
   }
 
+  pub fn sync_target(&mut self) {
+    if let Some(target) = &self.target {
+      self.root.set_local_matrix(target.get_world_matrix());
+      let sync = GizmoStateDelta::SyncTarget(TargetState {
+        target_local_mat: target.get_local_matrix(),
+        target_parent_world_mat: target
+          .visit_parent(|p| p.world_matrix())
+          .unwrap_or_else(Mat4::identity),
+        target_world_mat: target.get_world_matrix(),
+      });
+
+      self.deltas.push(sync.clone());
+      self.states.apply(sync).unwrap();
+    }
+  }
+
   pub fn set_target(&mut self, target: Option<SceneNode>) {
-    if let Some(target) = &target {
-      self.root.set_local_matrix(target.get_world_matrix())
-    } else {
+    if target.is_none() {
       self.deltas.push(GizmoStateDelta::ReleaseTarget);
       self.states.apply(GizmoStateDelta::ReleaseTarget).unwrap();
     }
     self.target = target;
+    self.sync_target();
   }
 
   pub fn has_target(&self) -> bool {
@@ -206,19 +221,8 @@ impl Gizmo {
   }
   // return if should keep target.
   pub fn event_impl(&mut self, event: &mut EventCtx3D) -> Option<bool> {
-    if let Some(target) = &self.target {
+    if self.target.is_some() {
       let mut keep_target = true;
-
-      let sync = GizmoStateDelta::SyncTarget(TargetState {
-        target_local_mat: target.get_local_matrix(),
-        target_parent_world_mat: target
-          .visit_parent(|p| p.world_matrix())
-          .unwrap_or_else(Mat4::identity),
-        target_world_mat: target.get_world_matrix(),
-      });
-
-      self.deltas.push(sync.clone());
-      self.states.apply(sync).unwrap();
 
       let mut deltas = Vec::new(); // todo optimize
       self.view.event(&mut self.states, event, &mut |e| {
@@ -232,6 +236,7 @@ impl Gizmo {
       deltas
         .iter()
         .for_each(|d| self.states.apply(d.clone()).unwrap());
+
       self.deltas.extend(deltas);
 
       #[allow(clippy::collapsible_if)]
@@ -284,10 +289,10 @@ impl Gizmo {
   }
 
   pub fn update(&mut self) {
-    if self.target.is_some() {
-      for d in self.deltas.drain(..) {
-        self.view.update(&self.states, &d);
-      }
+    self.sync_target();
+    dbg!(self.deltas.len());
+    for d in self.deltas.drain(..) {
+      self.view.update(&self.states, &d);
     }
   }
 }

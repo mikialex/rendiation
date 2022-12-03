@@ -31,7 +31,6 @@ use crate::*;
 impl CanvasPrinter for ViewerImpl {
   fn draw_canvas(&mut self, gpu: &Rc<GPU>, canvas: GPU2DTextureView) {
     self.content.update_state();
-    self.content.gizmo.update();
     self
       .ctx
       .get_or_insert_with(|| Viewer3dRenderingCtx::new(gpu.clone()))
@@ -228,6 +227,7 @@ impl Viewer3dContent {
   }
 
   pub fn update_state(&mut self) {
+    self.gizmo.update();
     if let Some(camera) = &mut self.scene.active_camera {
       camera.mutate(|camera| {
         self.controller.update(&mut ControlleeWrapper {
