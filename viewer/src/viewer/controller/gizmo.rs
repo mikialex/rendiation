@@ -1,7 +1,10 @@
 use std::{cell::RefCell, marker::PhantomData, rc::Rc, sync::Arc};
 
 use incremental::{DeltaOf, Incremental, SimpleIncremental};
-use interphaser::mouse_move;
+use interphaser::{
+  mouse, mouse_move,
+  winit::event::{ElementState, MouseButton},
+};
 use rendiation_algebra::*;
 use rendiation_geometry::{IntersectAble, OptionalNearest, Plane, Ray3};
 use rendiation_mesh_generator::*;
@@ -170,13 +173,18 @@ impl Gizmo {
       .with(rotator_y)
       .with(rotator_z);
 
-    Self {
+    let mut r = Self {
       states: Default::default(),
       root: root.clone(),
       view,
       target: None,
       deltas: Default::default(),
-    }
+    };
+
+    r.states.expand(|d| r.deltas.push(d));
+    r.update();
+
+    r
   }
 
   pub fn sync_target(&mut self) {
@@ -241,6 +249,16 @@ impl Gizmo {
 
       #[allow(clippy::collapsible_if)]
       if self.states.start_state.is_some() {
+        if let Some((MouseButton::Left, ElementState::Released)) = mouse(event.raw_event) {
+          self.states.active = Default::default();
+          self
+            .states
+            .active
+            .expand(|d| self.deltas.push(GizmoStateDelta::active(d)));
+          self.deltas.push(GizmoStateDelta::ReleaseDrag);
+          self.states.apply(GizmoStateDelta::ReleaseDrag).unwrap();
+        }
+
         if mouse_move(event.raw_event).is_some() {
           let screen_position = event
             .info
@@ -290,7 +308,6 @@ impl Gizmo {
 
   pub fn update(&mut self) {
     self.sync_target();
-    dbg!(self.deltas.len());
     for d in self.deltas.drain(..) {
       self.view.update(&self.states, &d);
     }
@@ -471,7 +488,7 @@ fn update_arrow(
     let s = state.data;
     active.check_delta(state, &mut |axis_state| {
       let show = !s.active.translate.has_active() || axis_state.data.active;
-      arrow.root.set_visible(show);
+      // arrow.root.set_visible(show);
       arrow.set_color(map_color(color, *axis_state.data));
     });
   }
@@ -485,7 +502,7 @@ fn update_plane(
     let s = state.data;
     active.check_delta(state, &mut |axis_state| {
       let show = !s.active.translate.has_active() || axis_state.data.active;
-      plane.model.node.set_visible(show);
+      // plane.model.node.set_visible(show);
       let color = map_color(color, *axis_state.data);
       plane.material.write().material.color = Vec4::new(color.x, color.y, color.z, 1.);
     });
@@ -500,7 +517,7 @@ fn update_torus(
     let s = state.data;
     active.check_delta(state, &mut |axis_state| {
       let show = !s.active.translate.has_active() || axis_state.data.active;
-      torus.model.node.set_visible(show);
+      // torus.model.node.set_visible(show);
       let color = map_color(color, *axis_state.data);
       torus.material.write().material.color = Vec4::new(color.x, color.y, color.z, 1.);
     });
@@ -793,6 +810,7 @@ struct DragTargetAction {
 enum GizmoStateDelta {
   active(DeltaOf<GizmoActiveState>),
   StartDrag(Vec3<f32>),
+  ReleaseDrag,
   SyncTarget(TargetState),
   ReleaseTarget,
 }
@@ -816,6 +834,10 @@ impl SimpleIncremental for GizmoState {
           };
           self.start_state = Some(start_states);
         }
+      }
+      GizmoStateDelta::ReleaseDrag => {
+        self.start_state = None;
+        self.rotate_state = None;
       }
       GizmoStateDelta::ReleaseTarget => {
         self.start_state = None;
