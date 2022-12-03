@@ -72,82 +72,72 @@ impl Gizmo {
       .update(update_arrow(active_translate_z, GREEN))
       .on(active(active_translate_z));
 
-    // macro_rules! duel {
-    //   ($a:tt, $b:tt) => {
-    //     FieldDelta::new::<AxisActiveState, _>(
-    //       |inner_d| {
+    macro_rules! duel {
+      ($a:tt, $b:tt) => {
+        FieldDelta::new::<AxisActiveState, ItemState>(
+          |inner_d, cb| {
+            // just board cast same change, one changed to all changed.
+            cb(DeltaOf::<AxisActiveState>::$a(inner_d.clone()));
+            cb(DeltaOf::<AxisActiveState>::$b(inner_d));
+          },
+          |v, cb| {
+            // any source change, compute middle state immediately
+            // and expand middle to trigger all change
+            if let DeltaOf::<AxisActiveState>::$a(_) | DeltaOf::<AxisActiveState>::$b(_) = v.delta {
+              let s = v.data;
+              let both = ItemState {
+                hovering: s.$a.hovering && s.$b.hovering,
+                active: s.$a.active && s.$b.active,
+              };
 
-    //         DeltaOf::<AxisActiveState>::$field(inner_d)
+              both.expand(|d| {
+                cb(DeltaView {
+                  data: &both,
+                  delta: &d,
+                })
+              })
+            }
+          },
+        )
+      };
+    }
 
-    //       },
-    //       |v| {
-    //         if let DeltaOf::<$ty>::$a(inner_d) |DeltaOf::<$ty>::$b(inner_d) = v.delta {
+    let xy_lens = duel!(x, y);
+    let yz_lens = duel!(y, z);
+    let xz_lens = duel!(x, z);
 
-    //           let both = ItemState {
-    //             hovering: !(s.translate.$a.hovering ^ s.translate.$b.hovering),
-    //             active: !(s.translate.$a.active ^ s.translate.$b.active),
-    //           };
+    let xy_lens = DeltaChain::new(translate, xy_lens);
+    let yz_lens = DeltaChain::new(translate, yz_lens);
+    let xz_lens = DeltaChain::new(translate, xz_lens);
 
-    //           Some(DeltaView {
-    //             data: &v.data.$a,
-    //             delta: &inner_d,
-    //           })
-    //         } else {
-    //           None
-    //         }
-    //       },
-    //     )
-    //     // interphaser::Map::new(
-    //     //   |s: &GizmoState| ItemState {
-    //     //     hovering: s.translate.$a.hovering && s.translate.$b.hovering,
-    //     //     active: s.translate.$a.active && s.translate.$b.active,
-    //     //   },
-    //     //   |s, v| {
-    //     //     let both = ItemState {
-    //     //       hovering: !(s.translate.$a.hovering ^ s.translate.$b.hovering),
-    //     //       active: !(s.translate.$a.active ^ s.translate.$b.active),
-    //     //     };
-    //     //     if both.hovering {
-    //     //       s.translate.$a.hovering = v.hovering;
-    //     //       s.translate.$b.hovering = v.hovering;
-    //     //     }
-    //     //     if both.active {
-    //     //       s.translate.$a.active = v.active;
-    //     //       s.translate.$b.active = v.active;
-    //     //     }
-    //     //   },
-    //     // )
-    //   };
-    // }
+    let xy_lens = DeltaChain::new(active_lens, xy_lens);
+    let yz_lens = DeltaChain::new(active_lens, yz_lens);
+    let xz_lens = DeltaChain::new(active_lens, xz_lens);
 
-    // let xy_lens = duel!(x, y);
-    // let yz_lens = duel!(y, z);
-    // let xz_lens = duel!(x, z);
-
-    // let plane_scale = Mat4::scale(Vec3::splat(0.4));
-    // let plane_move = Vec3::splat(1.3);
+    let plane_scale = Mat4::scale(Vec3::splat(0.4));
+    let plane_move = Vec3::splat(1.3);
     let degree_90 = f32::PI() / 2.;
 
-    // let xy_t = Vec3::new(1., 1., 0.);
-    // let xy_t = Mat4::translate(xy_t * plane_move) * plane_scale;
-    // let xy = build_plane(root, auto_scale, xy_t)
-    //   .eventable::<GizmoState>()
-    //   .update(update_plane(xy_lens, GREEN))
-    //   .on(active(xy_lens));
+    let xy_t = Vec3::new(1., 1., 0.);
+    let xy_t = Mat4::translate(xy_t * plane_move) * plane_scale;
+    let xy = build_plane(root, auto_scale, xy_t)
+      .eventable::<GizmoState>()
+      .update(update_plane(xy_lens, GREEN))
+      .on(active(xy_lens));
 
-    // let yz_t = Vec3::new(0., 1., 1.);
-    // let yz_t = Mat4::translate(yz_t * plane_move) * Mat4::rotate_y(degree_90) * plane_scale;
-    // let yz = build_plane(root, auto_scale, yz_t)
-    //   .eventable::<GizmoState>()
-    //   .update(update_plane(yz_lens, RED))
-    //   .on(active(yz_lens));
+    let yz_t = Vec3::new(0., 1., 1.);
+    let yz_t = Mat4::translate(yz_t * plane_move) * Mat4::rotate_y(degree_90) * plane_scale;
+    let yz = build_plane(root, auto_scale, yz_t)
+      .eventable::<GizmoState>()
+      .update(update_plane(yz_lens, RED))
+      .on(active(yz_lens));
 
-    // let xz_t = Vec3::new(1., 0., 1.);
-    // let xz_t = Mat4::translate(xz_t * plane_move) * Mat4::rotate_x(-degree_90) * plane_scale;
-    // let xz = build_plane(root, auto_scale, xz_t)
-    //   .eventable::<GizmoState>()
-    //   .update(update_plane(xz_lens, BLUE))
-    //   .on(active(xz_lens));
+    let xz_t = Vec3::new(1., 0., 1.);
+    let xz_t = Mat4::translate(xz_t * plane_move) * Mat4::rotate_x(-degree_90) * plane_scale;
+    let xz = build_plane(root, auto_scale, xz_t)
+      .eventable::<GizmoState>()
+      .update(update_plane(xz_lens, BLUE))
+      .on(active(xz_lens));
 
     let rotation = lens_d!(GizmoActiveState, rotation);
 
@@ -175,10 +165,10 @@ impl Gizmo {
     #[rustfmt::skip]
     let view = collection3d()
       .with(x).with(y).with(z)
-    // .with(xy).with(yz).with(xz)
-    .with(rotator_x)
-    .with(rotator_y)
-    .with(rotator_z);
+      .with(xy).with(yz).with(xz)
+      .with(rotator_x)
+      .with(rotator_y)
+      .with(rotator_z);
 
     Self {
       states: Default::default(),
@@ -192,6 +182,9 @@ impl Gizmo {
   pub fn set_target(&mut self, target: Option<SceneNode>) {
     if let Some(target) = &target {
       self.root.set_local_matrix(target.get_world_matrix())
+    } else {
+      self.deltas.push(GizmoStateDelta::ReleaseTarget);
+      self.states.apply(GizmoStateDelta::ReleaseTarget).unwrap();
     }
     self.target = target;
   }
@@ -216,39 +209,70 @@ impl Gizmo {
     if let Some(target) = &self.target {
       let mut keep_target = true;
 
-      let screen_position = event
-        .info
-        .compute_normalized_position_in_canvas_coordinate(event.window_states)
-        .into();
+      let sync = GizmoStateDelta::SyncTarget(TargetState {
+        target_local_mat: target.get_local_matrix(),
+        target_parent_world_mat: target
+          .visit_parent(|p| p.world_matrix())
+          .unwrap_or_else(Mat4::identity),
+        target_world_mat: target.get_world_matrix(),
+      });
 
-      let camera = event.interactive_ctx.camera.read();
+      self.deltas.push(sync.clone());
+      self.states.apply(sync).unwrap();
 
-      todo!();
-      // self.states.target_world_mat = self.root.get_world_matrix();
-      // self.states.target_local_mat = target.get_local_matrix();
-      // self.states.target_parent_world_mat = target
-      //   .visit_parent(|p| p.world_matrix())
-      //   .unwrap_or_else(Mat4::identity);
-
+      let mut deltas = Vec::new(); // todo optimize
       self.view.event(&mut self.states, event, &mut |e| {
         if let ViewReaction::StateDelta(d) = e {
-          self.deltas.push(d.clone());
-          self.states.apply(d);
+          if let GizmoStateDelta::ReleaseTarget = d {
+            keep_target = false;
+          }
+          deltas.push(d);
         }
       });
+      deltas
+        .iter()
+        .for_each(|d| self.states.apply(d.clone()).unwrap());
+      self.deltas.extend(deltas);
 
       #[allow(clippy::collapsible_if)]
       if self.states.start_state.is_some() {
         if mouse_move(event.raw_event).is_some() {
+          let screen_position = event
+            .info
+            .compute_normalized_position_in_canvas_coordinate(event.window_states)
+            .into();
+
+          let camera = event.interactive_ctx.camera.read();
+
           let action = DragTargetAction {
             camera_world: camera.node.get_world_matrix(),
             camera_projection: camera.projection_matrix,
             world_ray: event.interactive_ctx.world_ray,
             screen_position,
           };
-          let d = GizmoStateDelta::DragTarget(action);
-          self.deltas.push(d.clone());
-          self.states.apply(d);
+          if let Some(target) = &self.states.target_state {
+            if let Some(start) = &self.states.start_state {
+              if let Some(target_local_new) =
+                handle_translating(start, target, &self.states.active.translate, action).or_else(
+                  || {
+                    handle_rotating(
+                      start,
+                      target,
+                      &mut self.states.rotate_state,
+                      &self.states.active.rotation,
+                      action,
+                    )
+                  },
+                )
+              {
+                self
+                  .target
+                  .as_ref()
+                  .unwrap()
+                  .set_local_matrix(target_local_new)
+              }
+            }
+          }
         }
       }
 
@@ -296,13 +320,13 @@ pub struct DeltaView<'a, T: Incremental> {
   pub delta: &'a T::Delta,
 }
 
-struct DeltaViewMut<'a, T: Incremental> {
+pub struct DeltaViewMut<'a, T: Incremental> {
   pub data: &'a mut T,
   pub delta: &'a mut T::Delta,
 }
 
 pub trait DeltaLens<T: Incremental, U: Incremental> {
-  fn map_delta(&self, delta: DeltaOf<U>) -> DeltaOf<T>;
+  fn map_delta(&self, delta: DeltaOf<U>, cb: &mut dyn FnMut(DeltaOf<T>));
   fn check_delta(&self, delta: DeltaView<T>, cb: &mut dyn FnMut(DeltaView<U>));
 }
 
@@ -316,15 +340,13 @@ pub struct FieldDelta<M, C> {
 macro_rules! lens_d {
   ($ty:ty, $field:tt) => {
     $crate::FieldDelta::new::<$ty, _>(
-      |inner_d| DeltaOf::<$ty>::$field(inner_d),
-      |v| {
+      |inner_d, cb| cb(DeltaOf::<$ty>::$field(inner_d)),
+      |v, cb| {
         if let DeltaOf::<$ty>::$field(inner_d) = v.delta {
-          Some(DeltaView {
+          cb(DeltaView {
             data: &v.data.$field,
             delta: &inner_d,
           })
-        } else {
-          None
         }
       },
     )
@@ -336,8 +358,8 @@ impl<M, C> FieldDelta<M, C> {
   where
     T: Incremental,
     U: Incremental,
-    M: Fn(DeltaOf<U>) -> DeltaOf<T>,
-    C: Fn(DeltaView<T>) -> Option<DeltaView<U>>,
+    M: Fn(DeltaOf<U>, &mut dyn FnMut(DeltaOf<T>)),
+    C: Fn(DeltaView<T>, &mut dyn FnMut(DeltaView<U>)),
   {
     Self {
       map_delta,
@@ -350,17 +372,15 @@ impl<T, U, M, C> DeltaLens<T, U> for FieldDelta<M, C>
 where
   T: Incremental,
   U: Incremental,
-  M: Fn(DeltaOf<U>) -> DeltaOf<T>,
-  C: Fn(DeltaView<T>) -> Option<DeltaView<U>>,
+  M: Fn(DeltaOf<U>, &mut dyn FnMut(DeltaOf<T>)),
+  C: Fn(DeltaView<T>, &mut dyn FnMut(DeltaView<U>)),
 {
-  fn map_delta(&self, delta: DeltaOf<U>) -> DeltaOf<T> {
-    (self.map_delta)(delta)
+  fn map_delta(&self, delta: DeltaOf<U>, cb: &mut dyn FnMut(DeltaOf<T>)) {
+    (self.map_delta)(delta, cb)
   }
 
   fn check_delta(&self, delta: DeltaView<T>, cb: &mut dyn FnMut(DeltaView<U>)) {
-    if let Some(d) = (self.check_delta)(delta) {
-      cb(d)
-    }
+    (self.check_delta)(delta, cb)
   }
 }
 
@@ -374,7 +394,7 @@ impl<D1: Clone, D2: Clone, M> Clone for DeltaChain<D1, D2, M> {
   fn clone(&self) -> Self {
     Self {
       d1: self.d1.clone(),
-      middle: self.middle.clone(),
+      middle: self.middle,
       d2: self.d2.clone(),
     }
   }
@@ -399,8 +419,8 @@ where
   D1: DeltaLens<T, M>,
   D2: DeltaLens<M, U>,
 {
-  fn map_delta(&self, delta: DeltaOf<U>) -> DeltaOf<T> {
-    self.d1.map_delta(self.d2.map_delta(delta))
+  fn map_delta(&self, delta: DeltaOf<U>, cb: &mut dyn FnMut(DeltaOf<T>)) {
+    self.d2.map_delta(delta, &mut |d| self.d1.map_delta(d, cb))
   }
 
   fn check_delta(&self, delta: DeltaView<T>, cb: &mut dyn FnMut(DeltaView<U>)) {
@@ -414,16 +434,16 @@ fn active(
   active: impl DeltaLens<GizmoState, ItemState> + 'static,
 ) -> impl FnMut(&mut GizmoState, &EventCtx3D, &mut dyn FnMut(DeltaOf<GizmoState>)) + 'static {
   let mut is_hovering = is_3d_hovering();
-  move |state, event, cb| {
+  move |_, event, cb| {
     if let Some(event3d) = &event.event_3d {
       if let Event3D::MouseDown { world_position } = event3d {
-        cb(active.map_delta(DeltaOf::<ItemState>::active(true)));
+        active.map_delta(DeltaOf::<ItemState>::active(true), cb);
         cb(GizmoStateDelta::StartDrag(*world_position));
       }
     }
 
     if let Some(hovering) = is_hovering(event) {
-      cb(active.map_delta(DeltaOf::<ItemState>::hovering(hovering)));
+      active.map_delta(DeltaOf::<ItemState>::hovering(hovering), cb);
     }
   }
 }
@@ -751,7 +771,6 @@ struct StartState {
   start_local_position: Vec3<f32>,
   start_local_quaternion: Quat<f32>,
   start_local_scale: Vec3<f32>,
-  start_local_mat: Mat4<f32>,
   start_hit_local_position: Vec3<f32>,
   start_hit_world_position: Vec3<f32>,
 }
@@ -767,7 +786,6 @@ struct DragTargetAction {
 #[derive(Clone)]
 #[allow(non_camel_case_types)]
 enum GizmoStateDelta {
-  DragTarget(DragTargetAction),
   active(DeltaOf<GizmoActiveState>),
   StartDrag(Vec3<f32>),
   SyncTarget(TargetState),
@@ -779,25 +797,6 @@ impl SimpleIncremental for GizmoState {
 
   fn s_apply(&mut self, delta: Self::Delta) {
     match delta {
-      GizmoStateDelta::DragTarget(action) => {
-        if let Some(target) = &self.target_state {
-          if let Some(start) = &self.start_state {
-            if let Some(target_local_new) =
-              handle_translating(start, target, &self.active.translate, action).or_else(|| {
-                handle_rotating(
-                  start,
-                  target,
-                  &mut self.rotate_state,
-                  &self.active.rotation,
-                  action,
-                )
-              })
-            {
-              todo!()
-            }
-          }
-        }
-      }
       GizmoStateDelta::StartDrag(start_hit_world_position) => {
         if let Some(target) = self.target_state {
           let (t, r, s) = target.target_local_mat.decompose();
@@ -806,7 +805,6 @@ impl SimpleIncremental for GizmoState {
             start_local_position: t,
             start_local_quaternion: r,
             start_local_scale: s,
-            start_local_mat: target.target_local_mat,
             start_hit_local_position: target.target_world_mat.inverse_or_identity()
               * start_hit_world_position,
             start_hit_world_position,
@@ -817,6 +815,7 @@ impl SimpleIncremental for GizmoState {
       GizmoStateDelta::ReleaseTarget => {
         self.start_state = None;
         self.target_state = None;
+        self.rotate_state = None;
       }
       GizmoStateDelta::active(delta) => self.active.apply(delta).unwrap(),
       GizmoStateDelta::SyncTarget(s) => self.target_state = Some(s),

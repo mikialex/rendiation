@@ -82,7 +82,7 @@ impl<T: Incremental, E> View<T> for Component3DCollection<T, E> {
       event.interactive_ctx,
       |view, hit| match hit {
         HitReaction::Nearest(hit) => {
-          event.event_3d = map_3d_event(hit, event.raw_event).into();
+          event.event_3d = map_3d_event(hit, event.raw_event);
           view.event(model, event, cb);
           event.event_3d = None;
         }
