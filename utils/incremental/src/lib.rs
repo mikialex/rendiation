@@ -2,8 +2,10 @@ pub use incremental_derives::*;
 use std::{any::Any, fmt::Debug};
 
 // mod rev_ty;
+mod lens;
 mod ty;
 
+pub use lens::*;
 pub use ty::*;
 
 pub trait Incremental: Sized {

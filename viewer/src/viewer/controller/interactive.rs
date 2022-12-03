@@ -1,45 +1,9 @@
-use incremental::Incremental;
+use incremental::*;
 use rendiation_algebra::*;
 use rendiation_geometry::OptionalNearest;
 use rendiation_renderable_mesh::mesh::MeshBufferHitPoint;
 
 use crate::*;
-
-pub enum ViewReaction<V, T: Incremental> {
-  /// emit self special event
-  ViewEvent(V),
-  /// do state mutation
-  StateDelta(T::Delta),
-}
-
-/// View type could generic over any state T, as long as the T could provide
-/// given logic for view type
-pub trait View<T>
-where
-  T: Incremental,
-{
-  /// View type's own event type
-  type Event;
-
-  /// In event loop handling, the view type received platform event such as mouse move keyboard events,
-  /// and decide should reactive to it or not, if so, mutate the model or emit
-  /// the self::Event for further outer side handling. see ViewDelta.
-  ///
-  /// all mutation to the model should record delta by call cb passed from caller.
-  ///
-  /// In View hierarchy, event's mutation to state will pop up to the root, wrap the mutation to
-  /// parent state's delta type. and in update logic, consumed from the root
-  fn event(
-    &mut self,
-    model: &mut T,
-    event: &mut EventCtx3D,
-    cb: &mut dyn FnMut(ViewReaction<Self::Event, T>),
-  );
-
-  /// update is responsible for map the state delta to to view property change
-  /// the model here is the unmodified.
-  fn update(&mut self, model: &T, delta: &T::Delta);
-}
 
 #[derive(Clone, Copy)]
 pub enum Event3D {

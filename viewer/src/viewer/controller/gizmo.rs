@@ -1,4 +1,5 @@
-use std::{cell::RefCell, marker::PhantomData, rc::Rc, sync::Arc};
+use incremental::*;
+use std::{cell::RefCell, rc::Rc, sync::Arc};
 
 use incremental::{DeltaOf, Incremental, SimpleIncremental};
 use interphaser::{
@@ -221,14 +222,6 @@ impl Gizmo {
 
   // return if should keep target.
   pub fn event(&mut self, event: &mut EventCtx3D) -> bool {
-    // we don't want handle degenerate case by just using identity fallback but do early return
-    self.event_impl(event).unwrap_or_else(|| {
-      log::error!("failed to apply gizmo control maybe because of degenerate transform");
-      false
-    })
-  }
-  // return if should keep target.
-  pub fn event_impl(&mut self, event: &mut EventCtx3D) -> Option<bool> {
     if self.target.is_some() {
       let mut keep_target = false;
 
@@ -312,7 +305,6 @@ impl Gizmo {
     } else {
       false
     }
-    .into()
   }
 
   pub fn update(&mut self) {
@@ -343,121 +335,6 @@ fn is_3d_hovering() -> impl FnMut(&EventCtx3D) -> Option<bool> {
     }
 
     delta
-  }
-}
-
-pub struct DeltaView<'a, T: Incremental> {
-  pub data: &'a T,
-  pub delta: &'a T::Delta,
-}
-
-pub struct DeltaViewMut<'a, T: Incremental> {
-  pub data: &'a mut T,
-  pub delta: &'a mut T::Delta,
-}
-
-pub trait DeltaLens<T: Incremental, U: Incremental> {
-  fn map_delta(&self, delta: DeltaOf<U>, cb: &mut dyn FnMut(DeltaOf<T>));
-  fn check_delta(&self, delta: DeltaView<T>, cb: &mut dyn FnMut(DeltaView<U>));
-}
-
-#[derive(Clone, Copy)]
-pub struct FieldDelta<M, C> {
-  map_delta: M,
-  check_delta: C,
-}
-
-#[macro_export]
-macro_rules! lens_d {
-  ($ty:ty, $field:tt) => {
-    $crate::FieldDelta::new::<$ty, _>(
-      |inner_d, cb| cb(DeltaOf::<$ty>::$field(inner_d)),
-      |v, cb| {
-        if let DeltaOf::<$ty>::$field(inner_d) = v.delta {
-          cb(DeltaView {
-            data: &v.data.$field,
-            delta: &inner_d,
-          })
-        }
-      },
-    )
-  };
-}
-
-impl<M, C> FieldDelta<M, C> {
-  pub fn new<T, U>(map_delta: M, check_delta: C) -> Self
-  where
-    T: Incremental,
-    U: Incremental,
-    M: Fn(DeltaOf<U>, &mut dyn FnMut(DeltaOf<T>)),
-    C: Fn(DeltaView<T>, &mut dyn FnMut(DeltaView<U>)),
-  {
-    Self {
-      map_delta,
-      check_delta,
-    }
-  }
-}
-
-impl<T, U, M, C> DeltaLens<T, U> for FieldDelta<M, C>
-where
-  T: Incremental,
-  U: Incremental,
-  M: Fn(DeltaOf<U>, &mut dyn FnMut(DeltaOf<T>)),
-  C: Fn(DeltaView<T>, &mut dyn FnMut(DeltaView<U>)),
-{
-  fn map_delta(&self, delta: DeltaOf<U>, cb: &mut dyn FnMut(DeltaOf<T>)) {
-    (self.map_delta)(delta, cb)
-  }
-
-  fn check_delta(&self, delta: DeltaView<T>, cb: &mut dyn FnMut(DeltaView<U>)) {
-    (self.check_delta)(delta, cb)
-  }
-}
-
-pub struct DeltaChain<D1, D2, M> {
-  d1: D1,
-  middle: PhantomData<M>,
-  d2: D2,
-}
-
-impl<D1: Clone, D2: Clone, M> Clone for DeltaChain<D1, D2, M> {
-  fn clone(&self) -> Self {
-    Self {
-      d1: self.d1.clone(),
-      middle: self.middle,
-      d2: self.d2.clone(),
-    }
-  }
-}
-impl<D1: Copy, D2: Copy, M> Copy for DeltaChain<D1, D2, M> {}
-
-impl<D1, D2, M> DeltaChain<D1, D2, M> {
-  pub fn new(d1: D1, d2: D2) -> Self {
-    Self {
-      d1,
-      middle: PhantomData,
-      d2,
-    }
-  }
-}
-
-impl<T, M, U, D1, D2> DeltaLens<T, U> for DeltaChain<D1, D2, M>
-where
-  T: Incremental,
-  M: Incremental,
-  U: Incremental,
-  D1: DeltaLens<T, M>,
-  D2: DeltaLens<M, U>,
-{
-  fn map_delta(&self, delta: DeltaOf<U>, cb: &mut dyn FnMut(DeltaOf<T>)) {
-    self.d2.map_delta(delta, &mut |d| self.d1.map_delta(d, cb))
-  }
-
-  fn check_delta(&self, delta: DeltaView<T>, cb: &mut dyn FnMut(DeltaView<U>)) {
-    self
-      .d1
-      .check_delta(delta, &mut |delta| self.d2.check_delta(delta, cb))
   }
 }
 
