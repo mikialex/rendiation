@@ -1,8 +1,9 @@
 use crate::*;
-use incremental::Incremental;
+use incremental::{simple, Incremental};
 use rendiation_algebra::*;
 
 #[non_exhaustive]
+#[derive(Clone)]
 pub enum SceneLightKind {
   PointLight(SceneItemRef<PointLight>),
   SpotLight(SceneItemRef<SpotLight>),
@@ -10,8 +11,11 @@ pub enum SceneLightKind {
   Foreign(Arc<dyn Any + Send + Sync>),
 }
 
+simple!(SceneLightKind);
+
 pub type SceneLight = SceneItemRef<SceneLightInner>;
 
+#[derive(Incremental)]
 pub struct SceneLightInner {
   pub light: SceneLightKind,
   /// Note: Light properties are unaffected by node transforms by default

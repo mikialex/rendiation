@@ -15,7 +15,7 @@ impl<'a, T: Incremental> MutatorApply<T> for SimpleMutator<'a, T> {
 #[macro_export]
 macro_rules! simple {
   ($Type: ty) => {
-    impl SimpleIncremental for $Type {
+    impl $crate::SimpleIncremental for $Type {
       type Delta = Self;
 
       fn s_apply(&mut self, delta: Self::Delta) {

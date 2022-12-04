@@ -1,5 +1,3 @@
-use std::any::TypeId;
-
 use crate::*;
 
 use arena::{Arena, Handle};

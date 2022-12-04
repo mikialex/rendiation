@@ -8,36 +8,32 @@ use crate::*;
 use incremental::Incremental;
 use reactive::{EventDispatcher, Signal, StreamSignal};
 
-pub type SceneTexture2D<S> = SceneItemRef<<S as SceneContent>::Texture2D>;
-pub type SceneTextureCube<S> = SceneItemRef<<S as SceneContent>::TextureCube>;
-
-pub struct SceneItemRef<T> {
+pub struct SceneItemRef<T: Incremental> {
   inner: Arc<RwLock<Identity<T>>>,
 }
 
-impl<T> Clone for SceneItemRef<T> {
+impl<T: Incremental> Clone for SceneItemRef<T> {
   fn clone(&self) -> Self {
     Self {
       inner: self.inner.clone(),
     }
   }
 }
-impl<T> From<T> for SceneItemRef<T> {
+impl<T: Incremental> From<T> for SceneItemRef<T> {
   fn from(inner: T) -> Self {
     Self::new(inner)
   }
 }
 
-impl<T> SceneItemRef<T> {
+impl<T: Incremental> SceneItemRef<T> {
   pub fn new(source: T) -> Self {
     let inner = Arc::new(RwLock::new(Identity::new(source)));
     Self { inner }
   }
 
-  pub fn mutate<R>(&self, mut mutator: impl FnMut(&mut T) -> R) -> R {
+  pub fn mutate<R>(&self, mut mutator: impl FnMut(&mut Identity<T>) -> R) -> R {
     let mut inner = self.inner.write().unwrap();
     let r = mutator(&mut inner);
-    inner.trigger_change();
     r
   }
   pub fn visit<R>(&self, mut visitor: impl FnMut(&T) -> R) -> R {
@@ -63,11 +59,11 @@ impl<T> SceneItemRef<T> {
   }
 }
 
-pub struct SceneItemRefGuard<'a, T> {
+pub struct SceneItemRefGuard<'a, T: Incremental> {
   inner: RwLockReadGuard<'a, Identity<T>>,
 }
 
-impl<'a, T> Deref for SceneItemRefGuard<'a, T> {
+impl<'a, T: Incremental> Deref for SceneItemRefGuard<'a, T> {
   type Target = Identity<T>;
 
   fn deref(&self) -> &Self::Target {
@@ -75,11 +71,11 @@ impl<'a, T> Deref for SceneItemRefGuard<'a, T> {
   }
 }
 
-pub struct SceneItemRefMutGuard<'a, T> {
+pub struct SceneItemRefMutGuard<'a, T: Incremental> {
   inner: RwLockWriteGuard<'a, Identity<T>>,
 }
 
-impl<'a, T> Deref for SceneItemRefMutGuard<'a, T> {
+impl<'a, T: Incremental> Deref for SceneItemRefMutGuard<'a, T> {
   type Target = Identity<T>;
 
   fn deref(&self) -> &Self::Target {
@@ -87,7 +83,7 @@ impl<'a, T> Deref for SceneItemRefMutGuard<'a, T> {
   }
 }
 
-impl<'a, T> DerefMut for SceneItemRefMutGuard<'a, T> {
+impl<'a, T: Incremental> DerefMut for SceneItemRefMutGuard<'a, T> {
   fn deref_mut(&mut self) -> &mut Self::Target {
     self.inner.deref_mut()
   }
@@ -102,27 +98,27 @@ pub struct Identity<T: Incremental> {
   drop_dispatcher: EventDispatcher<()>,
 }
 
-impl<T> AsRef<T> for Identity<T> {
+impl<T: Incremental> AsRef<T> for Identity<T> {
   fn as_ref(&self) -> &T {
     &self.inner
   }
 }
 
-pub trait IntoSceneItemRef: Sized {
+pub trait IntoSceneItemRef: Sized + Incremental {
   fn into_ref(self) -> SceneItemRef<Self> {
     self.into()
   }
 }
 
-impl<T> IntoSceneItemRef for T {}
+impl<T: Incremental> IntoSceneItemRef for T {}
 
-impl<T> From<T> for Identity<T> {
+impl<T: Incremental> From<T> for Identity<T> {
   fn from(inner: T) -> Self {
     Self::new(inner)
   }
 }
 
-impl<T> Identity<T> {
+impl<T: Incremental> Identity<T> {
   pub fn new(inner: T) -> Self {
     Self {
       inner,
@@ -135,25 +131,21 @@ impl<T> Identity<T> {
   pub fn id(&self) -> usize {
     self.id
   }
-
-  pub fn trigger_change(&mut self) {
-    self.change_dispatcher.emit(&self.inner)
-  }
 }
 
-impl<T: Default> Default for Identity<T> {
+impl<T: Default + Incremental> Default for Identity<T> {
   fn default() -> Self {
     Self::new(Default::default())
   }
 }
 
-impl<T> Drop for Identity<T> {
+impl<T: Incremental> Drop for Identity<T> {
   fn drop(&mut self) {
     self.drop_dispatcher.emit(&())
   }
 }
 
-impl<T> std::ops::Deref for Identity<T> {
+impl<T: Incremental> std::ops::Deref for Identity<T> {
   type Target = T;
 
   fn deref(&self) -> &Self::Target {
@@ -161,20 +153,20 @@ impl<T> std::ops::Deref for Identity<T> {
   }
 }
 
-impl<T> std::ops::DerefMut for Identity<T> {
-  fn deref_mut(&mut self) -> &mut Self::Target {
-    self.trigger_change();
-    &mut self.inner
+impl<T: Incremental> Identity<T> {
+  pub fn mutate(&mut self, delta: T::Delta) {
+    self.change_dispatcher.emit(&delta);
+    self.inner.apply(delta).unwrap();
   }
 }
 
-pub struct IdentityMapper<T, U: ?Sized> {
+pub struct IdentityMapper<T, U> {
   data: HashMap<usize, StreamSignal<T>>,
   phantom: PhantomData<U>,
 }
 
-impl<T, U: ?Sized> Default for IdentityMapper<T, U> {
-  fn default() -> Self {
+impl<T, U: Incremental> IdentityMapper<T, U> {
+  pub fn new(folder: impl Fn(U) -> T) -> Self {
     Self {
       data: Default::default(),
       phantom: Default::default(),
@@ -182,48 +174,7 @@ impl<T, U: ?Sized> Default for IdentityMapper<T, U> {
   }
 }
 
-pub enum ResourceLogic<'a, 'b, T, U> {
-  Create(&'a U),
-  Update(&'b mut T, &'a U),
-}
-pub enum ResourceLogicResult<'a, T> {
-  Create(T),
-  Update(&'a mut T),
-}
-
-impl<'a, T> ResourceLogicResult<'a, T> {
-  pub fn unwrap_new(self) -> T {
-    match self {
-      ResourceLogicResult::Create(v) => v,
-      ResourceLogicResult::Update(_) => panic!(),
-    }
-  }
-
-  pub fn unwrap_update(self) -> &'a mut T {
-    match self {
-      ResourceLogicResult::Create(_) => panic!(),
-      ResourceLogicResult::Update(v) => v,
-    }
-  }
-}
-
-pub trait RequireMaintain: std::any::Any {
-  fn maintain(&mut self);
-  fn as_any_mut(&mut self) -> &mut dyn std::any::Any;
-}
-
-impl<T: 'static, U: 'static + ?Sized> RequireMaintain for IdentityMapper<T, U> {
-  fn maintain(&mut self) {
-    self.to_remove.write().unwrap().drain(..).for_each(|id| {
-      self.data.remove(&id);
-    });
-  }
-  fn as_any_mut(&mut self) -> &mut dyn std::any::Any {
-    self
-  }
-}
-
-impl<T: 'static, U: 'static + ?Sized> IdentityMapper<T, U> {
+impl<T: 'static, U: 'static> IdentityMapper<T, U> {
   /// this to bypass the borrow limits of get_update_or_insert_with
   pub fn get_update_or_insert_with_logic<'a, 'b, X>(
     &'b mut self,

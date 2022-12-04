@@ -36,6 +36,20 @@ impl<T> Source<T> {
     self.listeners.push(Box::new(cb));
     self
   }
+
+  #[allow(unused_must_use)]
+  pub fn emit(&mut self, event: &T) {
+    let mut len = self.listeners.len();
+    let mut current = 0;
+    // avoid any possible reallocation.
+    while current < len {
+      if (self.listeners[current])(event) {
+        self.listeners.swap_remove(current);
+        len -= 1;
+      };
+      current += 1;
+    }
+  }
 }
 
 impl<T> Default for Source<T> {
@@ -65,6 +79,21 @@ impl<T> Clone for EventDispatcher<T> {
   }
 }
 
+pub struct WeakEventDispatcher<T> {
+  inner: std::sync::Weak<RwLock<Source<T>>>,
+}
+
+impl<T> WeakEventDispatcher<T> {
+  pub fn emit(&self, event: &T) -> bool {
+    if let Some(e) = self.inner.upgrade() {
+      e.write().unwrap().emit(event);
+      true
+    } else {
+      false
+    }
+  }
+}
+
 /// A stream of events.
 pub struct Stream<T> {
   inner: Arc<RwLock<Source<T>>>,
@@ -79,25 +108,21 @@ impl<T> Clone for Stream<T> {
 }
 
 impl<T> EventDispatcher<T> {
-  #[allow(unused_must_use)]
   pub fn emit(&self, event: &T) {
     let mut inner = self.inner.write().unwrap();
-    let mut len = inner.listeners.len();
-    let mut current = 0;
-    // avoid any possible reallocation.
-    while current < len {
-      if (inner.listeners[current])(event) {
-        inner.listeners.swap_remove(current);
-        len -= 1;
-      };
-      current += 1;
-    }
+    inner.emit(event);
   }
 
   /// just rename, disable the ability to dispatch event
   pub fn stream(&self) -> Stream<T> {
     Stream {
       inner: self.inner.clone(),
+    }
+  }
+
+  pub fn make_weak(&self) -> WeakEventDispatcher<T> {
+    WeakEventDispatcher {
+      inner: Arc::downgrade(&self.inner),
     }
   }
 }
@@ -109,15 +134,13 @@ impl<T: 'static> Stream<T> {
   /// map a stream to another stream
   ///
   /// when the source dropped, the mapped stream will not receive any events later
+  /// when self dropped, the cb in source will be remove automatically
   pub fn map<U: 'static>(&mut self, cb: impl Fn(&T) -> U + 'static) -> Stream<U> {
     // dispatch default to do no allocation when created
     // as long as no one add listener, no allocation happens
     let dispatcher = EventDispatcher::<U>::default();
-    let dis = dispatcher.clone(); // todo weak
-    self.inner.write().unwrap().on(move |t| {
-      dis.emit(&cb(t));
-      false
-    });
+    let dis = dispatcher.make_weak();
+    self.inner.write().unwrap().on(move |t| !dis.emit(&cb(t)));
     dispatcher.stream()
   }
   // filter
@@ -129,10 +152,14 @@ impl<T: 'static> Stream<T> {
   {
     let stream = self.clone();
     let current = Arc::new(RwLock::new(initial));
-    let c = current.clone();
+    let c = Arc::downgrade(&current);
     stream.on(move |value| {
-      *c.write().unwrap() = value.clone();
-      false
+      if let Some(c) = c.upgrade() {
+        *c.write().unwrap() = value.clone();
+        false
+      } else {
+        true
+      }
     });
     StreamSignal { stream, current }
   }
@@ -143,21 +170,19 @@ impl<T: 'static> Stream<T> {
     U: 'static,
   {
     let dispatcher = EventDispatcher::<U>::default();
-    let d = dispatcher.clone();
+    let stream = dispatcher.stream();
+    let dispatcher = dispatcher.make_weak();
     let current = Arc::new(RwLock::new(initial));
     let c = current.clone();
     self.on(move |value| {
       let mut current = c.write().unwrap();
       let changed = folder(value, &mut current);
       if changed {
-        dispatcher.emit(&current);
+        return !dispatcher.emit(&current);
       }
       false
     });
-    StreamSignal {
-      stream: d.stream(),
-      current,
-    }
+    StreamSignal { stream, current }
   }
 
   //todo merge
