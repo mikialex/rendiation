@@ -2,8 +2,10 @@ pub use incremental_derives::*;
 use std::{any::Any, fmt::Debug};
 
 // mod rev_ty;
+mod lens;
 mod ty;
 
+pub use lens::*;
 pub use ty::*;
 
 pub trait Incremental: Sized {
@@ -54,6 +56,16 @@ pub trait ReverseIncremental: Incremental {
   fn apply_rev(&mut self, delta: Self::Delta) -> Result<Self::Delta, Self::Error>;
 }
 
+pub trait AnyClone: Any + dyn_clone::DynClone {
+  fn into_any(self: Box<Self>) -> Box<dyn Any>;
+}
+dyn_clone::clone_trait_object!(AnyClone);
+impl<T: Any + dyn_clone::DynClone> AnyClone for T {
+  fn into_any(self: Box<Self>) -> Box<dyn Any> {
+    self
+  }
+}
+
 /// this trait is to support incremental boxed trait object
 ///
 /// Performance is maybe not good, each delta contains a heap allocation.
@@ -61,6 +73,22 @@ pub trait ReverseIncremental: Incremental {
 /// The expand method will create a lot of heap allocation? no,
 /// the expand is called by delta consumer side on demand and avoid most of cost.
 pub trait DynIncremental {
-  fn apply(&mut self, delta: Box<dyn Any>) -> Result<(), Box<dyn Any>>;
-  fn expand(&self, cb: impl FnMut(Box<dyn Any>));
+  fn apply_dyn(&mut self, delta: Box<dyn AnyClone>) -> Result<(), Box<dyn Any>>;
+  fn expand_dyn(&self, cb: &mut dyn FnMut(Box<dyn AnyClone>));
+}
+
+impl<T> DynIncremental for T
+where
+  T: Incremental,
+  T::Delta: AnyClone,
+{
+  fn apply_dyn(&mut self, delta: Box<dyn AnyClone>) -> Result<(), Box<dyn Any>> {
+    let delta = delta.into_any().downcast::<T::Delta>().unwrap();
+    self.apply(*delta).unwrap();
+    Ok(())
+  }
+
+  fn expand_dyn(&self, cb: &mut dyn FnMut(Box<dyn AnyClone>)) {
+    self.expand(|d| cb(Box::new(d)))
+  }
 }

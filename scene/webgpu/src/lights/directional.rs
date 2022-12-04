@@ -113,8 +113,21 @@ impl ShadowCameraCreator for DirectionalLight {
   }
 }
 
+#[derive(Clone)]
 struct WorkAroundResizableOrth<T> {
   orth: OrthographicProjection<T>,
+}
+
+impl<T: Clone> incremental::SimpleIncremental for WorkAroundResizableOrth<T> {
+  type Delta = Self;
+
+  fn s_apply(&mut self, delta: Self::Delta) {
+    *self = delta;
+  }
+
+  fn s_expand(&self, mut cb: impl FnMut(Self::Delta)) {
+    cb(self.clone())
+  }
 }
 
 impl<T: Scalar> Projection<T> for WorkAroundResizableOrth<T> {

@@ -1,4 +1,4 @@
-use incremental::Incremental;
+use incremental::*;
 use rendiation_algebra::*;
 use rendiation_geometry::*;
 use rendiation_texture::Size;
@@ -21,7 +21,7 @@ impl HyperRayCaster<f32, Vec3<f32>, Vec2<f32>> for SceneCamera {
 
 impl SceneCamera {
   pub fn create_camera(
-    p: impl ResizableProjection<f32> + RayCaster3<f32> + 'static,
+    p: impl ResizableProjection<f32> + RayCaster3<f32> + DynIncremental + 'static,
     node: SceneNode,
   ) -> Self {
     let mut inner = SceneCameraInner {
@@ -75,14 +75,14 @@ impl Default for CameraViewBounds {
   }
 }
 
-pub trait CameraProjection: Sync + Send {
+pub trait CameraProjection: Sync + Send + DynIncremental {
   fn update_projection(&self, projection: &mut Mat4<f32>);
   fn resize(&mut self, size: (f32, f32));
   fn pixels_per_unit(&self, distance: f32, view_height: f32) -> f32;
   fn cast_ray(&self, normalized_position: Vec2<f32>) -> Ray3<f32>;
 }
 
-impl<T: ResizableProjection<f32> + RayCaster3<f32>> CameraProjection for T {
+impl<T: ResizableProjection<f32> + RayCaster3<f32> + DynIncremental> CameraProjection for T {
   fn update_projection(&self, projection: &mut Mat4<f32>) {
     self.update_projection::<WebGPU>(projection);
   }
@@ -98,6 +98,19 @@ impl<T: ResizableProjection<f32> + RayCaster3<f32>> CameraProjection for T {
   }
 }
 
+impl SimpleIncremental for Box<dyn CameraProjection> {
+  type Delta = Box<dyn AnyClone>;
+
+  fn s_apply(&mut self, delta: Self::Delta) {
+    self.as_mut().apply_dyn(delta).unwrap();
+  }
+
+  fn s_expand(&self, mut cb: impl FnMut(Self::Delta)) {
+    self.as_ref().expand_dyn(&mut cb);
+  }
+}
+
+#[derive(Incremental)]
 pub struct SceneCameraInner {
   pub bounds: CameraViewBounds,
   pub projection: Box<dyn CameraProjection>,
