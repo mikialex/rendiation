@@ -1285,6 +1285,7 @@ dependencies = [
 name = "incremental"
 version = "0.0.1"
 dependencies = [
+ "dyn-clone",
  "incremental_derives",
 ]
 
@@ -2406,6 +2407,7 @@ dependencies = [
  "arena-graph",
  "bytemuck",
  "dyn-clone",
+ "incremental",
  "linked-hash-map",
  "log",
  "once_cell",

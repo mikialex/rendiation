@@ -4,4 +4,5 @@ name = "incremental"
 version = "0.0.1"
 
 [dependencies]
+dyn-clone = "1.0.5"
 incremental_derives = {path = "../incremental-derive"}

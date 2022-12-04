@@ -35,6 +35,7 @@ pub use vec::*;
 
 pub use self::quat::*;
 
+use incremental::*;
 pub use num_traits::Zero;
 use num_traits::*;
 
