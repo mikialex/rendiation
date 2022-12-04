@@ -4,6 +4,9 @@ pub use scene::*;
 pub mod node;
 pub use node::*;
 
+pub mod ext;
+pub use ext::*;
+
 pub mod mesh;
 pub use mesh::*;
 

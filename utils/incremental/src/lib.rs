@@ -58,10 +58,18 @@ pub trait ReverseIncremental: Incremental {
 
 pub trait AnyClone: Any + dyn_clone::DynClone {
   fn into_any(self: Box<Self>) -> Box<dyn Any>;
+  fn as_any(&self) -> &dyn Any;
+  fn as_any_mut(&mut self) -> &mut dyn Any;
 }
 dyn_clone::clone_trait_object!(AnyClone);
 impl<T: Any + dyn_clone::DynClone> AnyClone for T {
   fn into_any(self: Box<Self>) -> Box<dyn Any> {
+    self
+  }
+  fn as_any(&self) -> &dyn Any {
+    self
+  }
+  fn as_any_mut(&mut self) -> &mut dyn Any {
     self
   }
 }

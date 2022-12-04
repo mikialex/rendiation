@@ -29,26 +29,7 @@ pub struct Scene {
   pub ext: DynamicExtension,
 }
 
-/// like any map, but clone able
-#[derive(Default, Clone, Debug)]
-pub struct DynamicExtension {
-  inner: HashMap<std::any::TypeId, std::rc::Rc<dyn std::any::Any>>,
-}
-
-impl DynamicExtension {
-  pub fn get<T: Any>(&self) -> Option<&T> {
-    self
-      .inner
-      .get(&TypeId::of::<T>())
-      .map(|r| r.downcast_ref::<T>().unwrap())
-  }
-
-  pub fn insert<T: Any>(&mut self, item: T) {
-    self.inner.insert(TypeId::of::<T>(), std::rc::Rc::new(item));
-  }
-}
-
-impl Incremental for DynamicExtension {
+impl Incremental for Scene {
   type Delta = ();
 
   type Error = ();
@@ -72,31 +53,6 @@ impl Incremental for DynamicExtension {
     todo!()
   }
 }
-
-// impl Incremental for Scene<S> {
-//   type Delta;
-
-//   type Error;
-
-//   type Mutator<'a>
-//   where
-//     Self: 'a;
-
-//   fn create_mutator<'a>(
-//     &'a mut self,
-//     collector: &'a mut dyn FnMut(Self::Delta),
-//   ) -> Self::Mutator<'a> {
-//     todo!()
-//   }
-
-//   fn apply(&mut self, delta: Self::Delta) -> Result<(), Self::Error> {
-//     todo!()
-//   }
-
-//   fn expand(&self, cb: impl FnMut(Self::Delta)) {
-//     todo!()
-//   }
-// }
 
 impl Scene {
   pub fn root(&self) -> &SceneNode {
