@@ -6,6 +6,7 @@ use std::{
   any::Any,
   cell::RefCell,
   rc::{Rc, Weak},
+  sync::{Arc, RwLock},
 };
 
 use incremental::*;
@@ -78,7 +79,7 @@ where
 pub struct TodoItem {
   pub name: String,
   pub finished: bool,
-  test: Rc<RefCell<usize>>,
+  test: Arc<RwLock<usize>>,
 }
 
 #[derive(Default, Clone, Incremental)]
@@ -206,7 +207,7 @@ struct EventWithIndex<T> {
 
 impl<T, V> View<Vec<T>> for List<V>
 where
-  T: Incremental + Default + Clone + 'static,
+  T: Incremental + Default + Send + Sync + Clone + 'static,
   V: View<T>,
 {
   type Event = EventWithIndex<V::Event>;
@@ -401,7 +402,7 @@ fn todo_list_view() -> impl View<TodoList> {
           TodoListDelta::list(VecDelta::Push(TodoItem {
             name: text,
             finished: false,
-            test: Rc::new(RefCell::new(1)),
+            test: Arc::new(RwLock::new(1)),
           }))
           .into()
         })),

@@ -52,7 +52,10 @@ pub enum VecDelta<T: Incremental> {
   Pop,
 }
 
-impl<T: Incremental + Default + Clone + 'static> Incremental for Vec<T> {
+impl<T> Incremental for Vec<T>
+where
+  T: Incremental + Default + Clone + Send + Sync + 'static,
+{
   type Delta = VecDelta<T>;
   type Error = (); // todo
 
@@ -98,13 +101,13 @@ impl<T: Incremental + Default + Clone + 'static> Incremental for Vec<T> {
 }
 
 pub trait SimpleIncremental {
-  type Delta: Clone;
+  type Delta: Clone + Send + Sync;
 
   fn s_apply(&mut self, delta: Self::Delta);
   fn s_expand(&self, cb: impl FnMut(Self::Delta));
 }
 
-impl<T: SimpleIncremental> Incremental for T {
+impl<T: SimpleIncremental + Send + Sync> Incremental for T {
   type Delta = <T as SimpleIncremental>::Delta;
 
   type Error = ();
@@ -134,7 +137,7 @@ impl<T: SimpleIncremental> Incremental for T {
 }
 
 /// not mutable
-impl<T> Incremental for std::rc::Rc<T> {
+impl<T: Send + Sync> Incremental for std::sync::Arc<T> {
   type Delta = Self;
 
   type Error = ();
@@ -163,12 +166,12 @@ impl<T> Incremental for std::rc::Rc<T> {
 
 /// should used for sum type
 #[derive(Clone)]
-pub enum DeltaOrEntire<T: Incremental> {
+pub enum DeltaOrEntire<T: Incremental + Send + Sync> {
   Delta(T::Delta),
   Entire(T),
 }
 
-impl<T: Incremental + Clone> Incremental for Option<T> {
+impl<T: Incremental + Clone + Send + Sync> Incremental for Option<T> {
   type Delta = Option<DeltaOrEntire<T>>;
 
   type Error = T::Error;

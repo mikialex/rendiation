@@ -6,12 +6,13 @@ use std::{
 use crate::*;
 
 use arena::Arena;
+use reactive::EventDispatcher;
 
 pub struct SceneItemRef<T: Incremental> {
   inner: Arc<RwLock<Identity<T>>>,
 }
 
-impl<T: Incremental> SimpleIncremental for SceneItemRef<T> {
+impl<T: Incremental + Send + Sync> SimpleIncremental for SceneItemRef<T> {
   type Delta = Self;
 
   fn s_apply(&mut self, delta: Self::Delta) {
@@ -106,6 +107,7 @@ static GLOBAL_ID: AtomicUsize = AtomicUsize::new(0);
 pub struct Identity<T: Incremental> {
   id: usize,
   inner: T,
+  change_dispatcher: EventDispatcher<T::Delta>,
   pub watchers: RwLock<Arena<Box<dyn Watcher<T>>>>,
 }
 
@@ -135,6 +137,7 @@ impl<T: Incremental> Identity<T> {
       inner,
       id: GLOBAL_ID.fetch_add(1, Ordering::Relaxed),
       watchers: Default::default(),
+      change_dispatcher: Default::default(),
     }
   }
 

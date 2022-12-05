@@ -14,11 +14,11 @@ pub trait Incremental: Sized {
   ///
   /// Delta could contains multi grained layer of change to allow
   /// user modify the data in different level.
-  type Delta: Clone;
+  type Delta: Clone + Send + Sync;
 
   /// mutation maybe not valid and return error back.
   /// should stay valid state even if mutation failed.
-  type Error: Debug;
+  type Error: Debug + Send + Sync;
 
   /// Mutator encapsulate the inner mutable state to prevent direct mutation and generate delta automatically
   /// Mutator should also direct support apply delta which constraint by MutatorApply
@@ -56,13 +56,13 @@ pub trait ReverseIncremental: Incremental {
   fn apply_rev(&mut self, delta: Self::Delta) -> Result<Self::Delta, Self::Error>;
 }
 
-pub trait AnyClone: Any + dyn_clone::DynClone {
+pub trait AnyClone: Any + dyn_clone::DynClone + Send + Sync {
   fn into_any(self: Box<Self>) -> Box<dyn Any>;
   fn as_any(&self) -> &dyn Any;
   fn as_any_mut(&mut self) -> &mut dyn Any;
 }
 dyn_clone::clone_trait_object!(AnyClone);
-impl<T: Any + dyn_clone::DynClone> AnyClone for T {
+impl<T: Any + dyn_clone::DynClone + Send + Sync> AnyClone for T {
   fn into_any(self: Box<Self>) -> Box<dyn Any> {
     self
   }

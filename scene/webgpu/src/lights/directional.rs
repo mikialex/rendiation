@@ -118,7 +118,7 @@ struct WorkAroundResizableOrth<T> {
   orth: OrthographicProjection<T>,
 }
 
-impl<T: Clone> incremental::SimpleIncremental for WorkAroundResizableOrth<T> {
+impl<T: Clone + Send + Sync> incremental::SimpleIncremental for WorkAroundResizableOrth<T> {
   type Delta = Self;
 
   fn s_apply(&mut self, delta: Self::Delta) {

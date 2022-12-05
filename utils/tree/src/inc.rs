@@ -18,7 +18,7 @@ pub enum TreeMutation<T: Incremental> {
   },
 }
 
-impl<T: Incremental + Clone> Incremental for TreeCollection<T> {
+impl<T: Incremental + Clone + Send + Sync> Incremental for TreeCollection<T> {
   type Delta = TreeMutation<T>;
   type Error = ();
 
@@ -63,12 +63,12 @@ impl<T: Incremental + Clone> Incremental for TreeCollection<T> {
   }
 }
 
-pub struct TreeCollectionReactiveMutator<'a, T: Incremental + Clone> {
+pub struct TreeCollectionReactiveMutator<'a, T: Incremental + Clone + Send + Sync> {
   inner: &'a mut TreeCollection<T>,
   collector: &'a mut dyn FnMut(DeltaOf<TreeCollection<T>>),
 }
 
-impl<'a, T: Incremental + Clone> MutatorApply<TreeCollection<T>>
+impl<'a, T: Incremental + Clone + Send + Sync> MutatorApply<TreeCollection<T>>
   for TreeCollectionReactiveMutator<'a, T>
 {
   fn apply(&mut self, delta: DeltaOf<TreeCollection<T>>) {
@@ -76,7 +76,7 @@ impl<'a, T: Incremental + Clone> MutatorApply<TreeCollection<T>>
   }
 }
 
-impl<'a, T: Incremental + Clone> TreeCollectionReactiveMutator<'a, T> {
+impl<'a, T: Incremental + Clone + Send + Sync> TreeCollectionReactiveMutator<'a, T> {
   pub fn create(&mut self, node: T) -> TreeNodeHandle<T> {
     (self.collector)(TreeMutation::Create(node.clone()));
     self.inner.create_node(node)

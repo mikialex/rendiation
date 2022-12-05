@@ -11,7 +11,7 @@ pub struct TextureWithSamplingData<T> {
   pub sampler: TextureSampler,
 }
 
-impl<T: Clone> SimpleIncremental for TextureWithSamplingData<T> {
+impl<T: Clone + Send + Sync> SimpleIncremental for TextureWithSamplingData<T> {
   type Delta = Self;
 
   fn s_apply(&mut self, delta: Self::Delta) {

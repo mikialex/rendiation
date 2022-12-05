@@ -27,12 +27,12 @@ where
 
 pub struct Source<T> {
   // return if should remove
-  listeners: Vec<Box<dyn Fn(&T) -> bool>>,
+  listeners: Vec<Box<dyn Fn(&T) -> bool + Send + Sync>>,
 }
 
 impl<T> Source<T> {
   /// return should remove after triggered
-  pub fn on(&mut self, cb: impl Fn(&T) -> bool + 'static) -> &Self {
+  pub fn on(&mut self, cb: impl Fn(&T) -> bool + Send + Sync + 'static) -> &Self {
     self.listeners.push(Box::new(cb));
     self
   }
@@ -128,14 +128,14 @@ impl<T> EventDispatcher<T> {
 }
 
 impl<T: 'static> Stream<T> {
-  pub fn on(&self, f: impl Fn(&T) -> bool + 'static) {
+  pub fn on(&self, f: impl Fn(&T) -> bool + Send + Sync + 'static) {
     self.inner.write().unwrap().on(f);
   }
   /// map a stream to another stream
   ///
   /// when the source dropped, the mapped stream will not receive any events later
   /// when self dropped, the cb in source will be remove automatically
-  pub fn map<U: 'static>(&mut self, cb: impl Fn(&T) -> U + 'static) -> Stream<U> {
+  pub fn map<U: 'static>(&mut self, cb: impl Fn(&T) -> U + Send + Sync + 'static) -> Stream<U> {
     // dispatch default to do no allocation when created
     // as long as no one add listener, no allocation happens
     let dispatcher = EventDispatcher::<U>::default();
@@ -148,7 +148,7 @@ impl<T: 'static> Stream<T> {
 
   pub fn hold(&self, initial: T) -> StreamSignal<T>
   where
-    T: Clone,
+    T: Clone + Send + Sync,
   {
     let stream = self.clone();
     let current = Arc::new(RwLock::new(initial));
@@ -166,8 +166,8 @@ impl<T: 'static> Stream<T> {
 
   pub fn fold<U, F>(&self, initial: U, folder: F) -> StreamSignal<U>
   where
-    F: Fn(&T, &mut U) -> bool + 'static, // return if changed
-    U: 'static,
+    F: Fn(&T, &mut U) -> bool + Send + Sync + 'static, // return if changed
+    U: 'static + Send + Sync,
   {
     let dispatcher = EventDispatcher::<U>::default();
     let stream = dispatcher.stream();
