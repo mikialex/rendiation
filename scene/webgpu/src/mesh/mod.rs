@@ -113,7 +113,7 @@ impl WebGPUSceneMesh for SceneMesh {
   }
 }
 
-impl<M: WebGPUMesh> WebGPUSceneMesh for Identity<M> {
+impl<M: WebGPUMesh + Incremental> WebGPUSceneMesh for Identity<M> {
   fn check_update_gpu<'a>(
     &self,
     res: &'a mut GPUMeshCache,
@@ -135,7 +135,7 @@ impl<M: WebGPUMesh> WebGPUSceneMesh for Identity<M> {
 }
 
 impl GPUMeshCache {
-  pub fn update_mesh<M: WebGPUMesh>(
+  pub fn update_mesh<M: WebGPUMesh + Incremental>(
     &mut self,
     m: &Identity<M>,
     gpu: &GPU,
@@ -245,7 +245,7 @@ where
   }
 }
 
-impl<T: WebGPUMesh + Any> WebGPUSceneMesh for SceneItemRef<T> {
+impl<T: WebGPUMesh + Any + Incremental> WebGPUSceneMesh for SceneItemRef<T> {
   fn topology(&self) -> webgpu::PrimitiveTopology {
     self.read().topology()
   }
@@ -272,7 +272,7 @@ impl<T: WebGPUMesh + Any> WebGPUSceneMesh for SceneItemRef<T> {
 
 impl<T> WebGPUMesh for SceneItemRef<T>
 where
-  T: WebGPUMesh,
+  T: WebGPUMesh + Incremental,
 {
   type GPU = T::GPU;
 

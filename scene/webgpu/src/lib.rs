@@ -36,6 +36,7 @@ pub use util::*;
 
 use anymap::AnyMap;
 use bytemuck::*;
+use incremental::*;
 use linked_hash_map::LinkedHashMap;
 use rendiation_algebra::*;
 use rendiation_geometry::*;

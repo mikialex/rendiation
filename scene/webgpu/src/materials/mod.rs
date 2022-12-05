@@ -85,7 +85,7 @@ impl WebGPUSceneMaterial for SceneMaterialType {
   }
 }
 
-impl<M: WebGPUMaterial + Send + Sync> WebGPUSceneMaterial for SceneItemRef<M> {
+impl<M: WebGPUMaterial + Send + Sync + Incremental> WebGPUSceneMaterial for SceneItemRef<M> {
   fn check_update_gpu<'a>(
     &self,
     res: &'a mut GPUMaterialCache,
@@ -105,7 +105,7 @@ impl<M: WebGPUMaterial + Send + Sync> WebGPUSceneMaterial for SceneItemRef<M> {
 
 type MaterialIdentityMapper<T> = IdentityMapper<<T as WebGPUMaterial>::GPU, T>;
 impl GPUMaterialCache {
-  pub fn update_material<M: WebGPUMaterial>(
+  pub fn update_material<M: WebGPUMaterial + Incremental>(
     &mut self,
     m: &Identity<M>,
     gpu: &GPU,

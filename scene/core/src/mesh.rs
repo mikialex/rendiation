@@ -42,9 +42,12 @@ pub enum AttributeSemantic {
   Weights(u32),
 }
 
+#[derive(Clone)]
 pub struct GeometryBufferInner {
   pub buffer: Vec<u8>,
 }
+
+clone_self_incremental!(GeometryBufferInner);
 
 pub type GeometryBuffer = SceneItemRef<GeometryBufferInner>;
 
@@ -92,6 +95,9 @@ pub enum IndexFormat {
   Uint32 = 1,
 }
 
+clone_self_incremental!(AttributesMesh);
+
+#[derive(Clone)]
 pub struct AttributesMesh {
   pub attributes: Vec<(AttributeSemantic, AttributeAccessor)>,
   pub indices: Option<(IndexFormat, AttributeAccessor)>,

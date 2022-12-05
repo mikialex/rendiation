@@ -52,6 +52,8 @@ pub struct PhysicalSpecularGlossinessMaterial {
   pub normal_texture: Option<NormalMapping>,
 }
 
+clone_self_incremental!(PhysicalSpecularGlossinessMaterial);
+
 #[derive(Clone)]
 pub struct NormalMapping {
   pub content: Texture2DWithSamplingData,
@@ -94,6 +96,7 @@ pub struct PhysicalMetallicRoughnessMaterial {
   pub emissive_texture: Option<Texture2DWithSamplingData>,
   pub normal_texture: Option<NormalMapping>,
 }
+clone_self_incremental!(PhysicalMetallicRoughnessMaterial);
 
 impl Default for PhysicalMetallicRoughnessMaterial {
   fn default() -> Self {
@@ -114,7 +117,7 @@ impl Default for PhysicalMetallicRoughnessMaterial {
   }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Incremental)]
 pub struct FlatMaterial {
   pub color: Vec4<f32>,
 }
