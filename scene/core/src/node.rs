@@ -1,6 +1,6 @@
 use crate::*;
 
-use incremental::{simple, Incremental, SimpleIncremental};
+use incremental::{clone_self_incremental, Incremental};
 use rendiation_algebra::*;
 use tree::{ShareTreeNode, TreeCollection, TreeNodeHandle};
 
@@ -59,7 +59,7 @@ pub struct SceneNode {
   inner: ShareTreeNode<SceneNodeData>,
 }
 
-simple!(SceneNode);
+clone_self_incremental!(SceneNode);
 
 impl SceneNode {
   pub fn from_root(nodes: Arc<RwLock<TreeCollection<SceneNodeData>>>) -> Self {

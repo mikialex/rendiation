@@ -1,13 +1,14 @@
 use crate::*;
 
 use arena::{Arena, Handle};
-use incremental::{Incremental, SimpleMutator};
+use incremental::Incremental;
 use rendiation_algebra::PerspectiveProjection;
 use tree::TreeCollection;
 
 pub type SceneModelHandle = Handle<SceneModel>;
 pub type SceneCameraHandle = Handle<SceneCamera>;
 
+#[derive(Incremental)]
 pub struct Scene {
   pub background: Option<SceneBackGround>,
 
@@ -25,31 +26,6 @@ pub struct Scene {
   root: SceneNode,
 
   pub ext: DynamicExtension,
-}
-
-impl Incremental for Scene {
-  type Delta = ();
-
-  type Error = ();
-
-  type Mutator<'a> = SimpleMutator<'a, Self>
-  where
-    Self: 'a;
-
-  fn create_mutator<'a>(
-    &'a mut self,
-    collector: &'a mut dyn FnMut(Self::Delta),
-  ) -> Self::Mutator<'a> {
-    todo!()
-  }
-
-  fn apply(&mut self, delta: Self::Delta) -> Result<(), Self::Error> {
-    todo!()
-  }
-
-  fn expand(&self, cb: impl FnMut(Self::Delta)) {
-    todo!()
-  }
 }
 
 impl Scene {

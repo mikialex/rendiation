@@ -8,10 +8,13 @@ use crate::*;
 pub type SceneMesh = SceneItemRef<SceneMeshType>;
 
 #[non_exhaustive]
+#[derive(Clone)]
 pub enum SceneMeshType {
   AttributesMesh(SceneItemRef<AttributesMesh>),
   Foreign(Arc<dyn Any + Send + Sync>),
 }
+
+clone_self_incremental!(SceneMeshType);
 
 /// Vertex attribute semantic name.
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]

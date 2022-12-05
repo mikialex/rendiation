@@ -29,6 +29,7 @@ pub use webgpu::*;
 pub use rendiation_texture_types::*;
 
 use image::ImageBuffer;
+use incremental::*;
 use rendiation_algebra::{Lerp, Scalar, Vec2};
 
 pub use image::*;

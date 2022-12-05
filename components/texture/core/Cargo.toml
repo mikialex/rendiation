@@ -10,6 +10,7 @@ rendiation-algebra = {path = "../../../math/algebra"}
 rendiation-geometry = {path = "../../../math/geometry"}
 rendiation-texture-types = {path = "../types"}
 rendiation-webgpu = {path = "../../../webgpu", optional = true}
+incremental = {path = "../../../utils/incremental"}
 
 [features]
 webgpu = ["rendiation-webgpu"]

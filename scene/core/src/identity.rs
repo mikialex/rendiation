@@ -11,6 +11,18 @@ pub struct SceneItemRef<T> {
   inner: Arc<RwLock<Identity<T>>>,
 }
 
+impl<T> SimpleIncremental for SceneItemRef<T> {
+  type Delta = Self;
+
+  fn s_apply(&mut self, delta: Self::Delta) {
+    *self = delta;
+  }
+
+  fn s_expand(&self, mut cb: impl FnMut(Self::Delta)) {
+    cb(self.clone())
+  }
+}
+
 impl<T> Clone for SceneItemRef<T> {
   fn clone(&self) -> Self {
     Self {

@@ -12,6 +12,8 @@ pub enum FilterMode {
   Linear,
 }
 
+incremental::clone_self_incremental!(FilterMode);
+
 impl FilterMode {
   pub fn interpolate<T, P>(&self, t: T, one: P, other: P) -> P
   where

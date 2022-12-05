@@ -2337,6 +2337,7 @@ name = "rendiation-renderable-mesh"
 version = "0.1.0"
 dependencies = [
  "bytemuck",
+ "incremental",
  "rendiation-algebra",
  "rendiation-geometry",
  "rendiation-webgpu",
@@ -2429,6 +2430,7 @@ name = "rendiation-texture"
 version = "0.1.0"
 dependencies = [
  "image",
+ "incremental",
  "rendiation-algebra",
  "rendiation-geometry",
  "rendiation-texture-types",

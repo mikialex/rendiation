@@ -1,3 +1,4 @@
+use incremental::clone_self_incremental;
 use rendiation_algebra::Scalar;
 
 /// How edges should be handled in texture addressing.
@@ -20,6 +21,8 @@ pub enum AddressMode {
   /// 1.25 -> 0.75
   MirrorRepeat = 2,
 }
+
+clone_self_incremental!(AddressMode);
 
 impl AddressMode {
   pub fn correct<T: Scalar>(&self, uv: T) -> T {

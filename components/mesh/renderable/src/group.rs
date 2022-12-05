@@ -59,6 +59,8 @@ pub enum MeshDrawGroup {
   SubMesh(usize),
 }
 
+incremental::clone_self_incremental!(MeshDrawGroup);
+
 impl Default for MeshDrawGroup {
   fn default() -> Self {
     Self::Full

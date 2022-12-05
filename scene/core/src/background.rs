@@ -8,6 +8,8 @@ pub enum SceneBackGround {
   Foreign(Arc<dyn Any + Send + Sync>),
 }
 
+clone_self_incremental!(SceneBackGround);
+
 #[derive(Clone, Copy)]
 pub struct SolidBackground {
   pub intensity: Vec3<f32>,

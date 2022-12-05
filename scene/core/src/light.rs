@@ -1,5 +1,5 @@
 use crate::*;
-use incremental::{simple, Incremental};
+use incremental::{clone_self_incremental, Incremental};
 use rendiation_algebra::*;
 
 #[non_exhaustive]
@@ -11,7 +11,7 @@ pub enum SceneLightKind {
   Foreign(Arc<dyn Any + Send + Sync>),
 }
 
-simple!(SceneLightKind);
+clone_self_incremental!(SceneLightKind);
 
 pub type SceneLight = SceneItemRef<SceneLightInner>;
 

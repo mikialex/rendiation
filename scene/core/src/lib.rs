@@ -32,6 +32,7 @@ pub mod identity;
 pub use identity::*;
 // mod identity_next;
 
+use incremental::*;
 use rendiation_algebra::*;
 use std::any::Any;
 use std::{

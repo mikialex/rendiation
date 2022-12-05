@@ -5,12 +5,15 @@ use crate::*;
 pub type SceneMaterial = SceneItemRef<SceneMaterialType>;
 
 #[non_exhaustive]
+#[derive(Clone)]
 pub enum SceneMaterialType {
   PhysicalSpecularGlossiness(SceneItemRef<PhysicalSpecularGlossinessMaterial>),
   PhysicalMetallicRoughness(SceneItemRef<PhysicalMetallicRoughnessMaterial>),
   Flat(SceneItemRef<FlatMaterial>),
   Foreign(Arc<dyn Any + Send + Sync>),
 }
+
+clone_self_incremental!(SceneMaterialType);
 
 /// The alpha rendering mode of a material.
 #[derive(Clone, Copy, Eq, PartialEq, Hash, Debug)]
