@@ -79,8 +79,8 @@ impl SceneNode {
     }
   }
 
-  pub fn mutate<F: FnMut(&mut SceneNodeData) -> T, T>(&self, f: F) -> T {
-    self.inner.mutate(f)
+  pub fn mutate<F: FnMut(Mutating<SceneNodeDataImpl>) -> T + Copy, T>(&self, f: F) -> T {
+    self.inner.mutate(|node| node.mutate(f))
   }
 
   pub fn visit<F: FnMut(&SceneNodeData) -> T, T>(&self, f: F) -> T {
@@ -92,14 +92,14 @@ impl SceneNode {
   }
 
   pub fn set_local_matrix(&self, mat: Mat4<f32>) {
-    self.mutate(|node| node.local_matrix = mat);
+    self.mutate(|mut node| node.modify(SceneNodeDataImplDelta::local_matrix(mat)));
   }
   pub fn get_local_matrix(&self) -> Mat4<f32> {
     self.visit(|node| node.local_matrix)
   }
 
   pub fn set_visible(&self, visible: bool) {
-    self.mutate(|node| node.visible = visible);
+    self.mutate(|mut node| node.modify(SceneNodeDataImplDelta::visible(visible)));
   }
 
   pub fn get_world_matrix(&self) -> Mat4<f32> {

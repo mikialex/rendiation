@@ -5,8 +5,7 @@ use std::{
 
 use crate::*;
 
-use arena::Arena;
-use reactive::EventDispatcher;
+use reactive::{EventDispatcher, StreamSignal};
 
 pub struct SceneItemRef<T: Incremental> {
   inner: Arc<RwLock<Identity<T>>>,
@@ -55,18 +54,10 @@ impl<T: Incremental> SceneItemRef<T> {
     Self { inner }
   }
 
-  pub fn mutate<R>(&self, mut mutator: impl FnMut(Mutating<T>) -> R) -> R {
+  pub fn mutate<R>(&self, mutator: impl FnMut(Mutating<T>) -> R) -> R {
     let mut inner = self.inner.write().unwrap();
     let i: &mut Identity<T> = &mut inner;
-    let data = &mut i.inner;
-    let dispatcher = &i.change_dispatcher;
-    let r = mutator(Mutating {
-      inner: data,
-      collector: &mut |delta| {
-        dispatcher.emit(&delta);
-      },
-    });
-    r
+    i.mutate(mutator)
   }
   pub fn visit<R>(&self, mut visitor: impl FnMut(&T) -> R) -> R {
     let inner = self.inner.read().unwrap();
@@ -155,7 +146,6 @@ impl<T: Incremental> Identity<T> {
     Self {
       inner,
       id: GLOBAL_ID.fetch_add(1, Ordering::Relaxed),
-      watchers: Default::default(),
       change_dispatcher: Default::default(),
     }
   }
@@ -164,23 +154,17 @@ impl<T: Incremental> Identity<T> {
     self.id
   }
 
-  // pub fn trigger_change(&mut self) {
-  //   let mut to_drop = Vec::with_capacity(0);
-  //   self
-  //     .watchers
-  //     .write()
-  //     .unwrap()
-  //     .iter_mut()
-  //     .for_each(|(h, w)| {
-  //       if !w.will_change(&self.inner, self.id) {
-  //         to_drop.push(h)
-  //       }
-  //     });
-
-  //   for handle in to_drop.drain(..) {
-  //     self.watchers.write().unwrap().remove(handle);
-  //   }
-  // }
+  pub fn mutate<R>(&mut self, mut mutator: impl FnMut(Mutating<T>) -> R) -> R {
+    let data = &mut self.inner;
+    let dispatcher = &self.change_dispatcher;
+    let r = mutator(Mutating {
+      inner: data,
+      collector: &mut |delta| {
+        dispatcher.emit(&delta);
+      },
+    });
+    r
+  }
 }
 
 impl<T: Default + Incremental> Default for Identity<T> {
@@ -191,12 +175,12 @@ impl<T: Default + Incremental> Default for Identity<T> {
 
 impl<T: Incremental> Drop for Identity<T> {
   fn drop(&mut self) {
-    self
-      .watchers
-      .write()
-      .unwrap()
-      .iter_mut()
-      .for_each(|(_, w)| w.will_drop(&self.inner, self.id));
+    // self
+    //   .watchers
+    //   .write()
+    //   .unwrap()
+    //   .iter_mut()
+    //   .for_each(|(_, w)| w.will_drop(&self.inner, self.id));
   }
 }
 
@@ -208,145 +192,167 @@ impl<T: Incremental> std::ops::Deref for Identity<T> {
   }
 }
 
-pub trait Watcher<T>: Sync + Send {
-  // return should continue watch
-  fn will_change(&mut self, item: &T, id: usize) -> bool;
-  fn will_drop(&mut self, item: &T, id: usize);
-}
+// pub trait Watcher<T>: Sync + Send {
+//   // return should continue watch
+//   fn will_change(&mut self, item: &T, id: usize) -> bool;
+//   fn will_drop(&mut self, item: &T, id: usize);
+// }
 
-pub struct IdentityMapper<T, U: ?Sized> {
-  data: HashMap<usize, T>,
-  to_remove: Arc<RwLock<Vec<usize>>>,
-  changed: Arc<RwLock<HashSet<usize>>>,
+/// A reactive map container
+pub struct IdentityMapper<T, U: Incremental> {
+  data: HashMap<usize, StreamSignal<T>>,
   phantom: PhantomData<U>,
+  updater: Box<dyn Fn(&U, &U::Delta, &mut T)>,
+  creator: Box<dyn Fn(&U) -> T>,
 }
 
-impl<T, U: ?Sized> Default for IdentityMapper<T, U> {
-  fn default() -> Self {
-    Self {
-      data: Default::default(),
-      to_remove: Default::default(),
-      changed: Default::default(),
-      phantom: Default::default(),
-    }
+impl<T: Send + Sync, U: Incremental> IdentityMapper<T, U> {
+  pub fn insert(&mut self, source: &Identity<U>) {
+    let id = source.id;
+
+    let init = (self.creator)(source);
+
+    // self.data.insert(
+    //   id,
+    //   source.change_dispatcher.stream().fold(init, self.updater),
+    // );
+
+    todo!()
   }
+
+  pub fn remove(&mut self, source: &Identity<U>) {
+    self.data.remove(&source.id);
+  }
+
+  // pub fn get(&mut self, source: &Identity<U>) {
+  //   self.data.remove(&source.id);
+  // }
 }
 
-pub enum ResourceLogic<'a, 'b, T, U> {
-  Create(&'a U),
-  Update(&'b mut T, &'a U),
-}
-pub enum ResourceLogicResult<'a, T> {
-  Create(T),
-  Update(&'a mut T),
-}
+// impl<T, U: ?Sized> Default for IdentityMapper<T, U> {
+//   fn default() -> Self {
+//     Self {
+//       data: Default::default(),
+//       phantom: Default::default(),
+//     }
+//   }
+// }
 
-impl<'a, T> ResourceLogicResult<'a, T> {
-  pub fn unwrap_new(self) -> T {
-    match self {
-      ResourceLogicResult::Create(v) => v,
-      ResourceLogicResult::Update(_) => panic!(),
-    }
-  }
+// pub enum ResourceLogic<'a, 'b, T, U> {
+//   Create(&'a U),
+//   Update(&'b mut T, &'a U),
+// }
+// pub enum ResourceLogicResult<'a, T> {
+//   Create(T),
+//   Update(&'a mut T),
+// }
 
-  pub fn unwrap_update(self) -> &'a mut T {
-    match self {
-      ResourceLogicResult::Create(_) => panic!(),
-      ResourceLogicResult::Update(v) => v,
-    }
-  }
-}
+// impl<'a, T> ResourceLogicResult<'a, T> {
+//   pub fn unwrap_new(self) -> T {
+//     match self {
+//       ResourceLogicResult::Create(v) => v,
+//       ResourceLogicResult::Update(_) => panic!(),
+//     }
+//   }
 
-pub trait RequireMaintain: std::any::Any {
-  fn maintain(&mut self);
-  fn as_any_mut(&mut self) -> &mut dyn std::any::Any;
-}
+//   pub fn unwrap_update(self) -> &'a mut T {
+//     match self {
+//       ResourceLogicResult::Create(_) => panic!(),
+//       ResourceLogicResult::Update(v) => v,
+//     }
+//   }
+// }
 
-impl<T: 'static, U: 'static + ?Sized> RequireMaintain for IdentityMapper<T, U> {
-  fn maintain(&mut self) {
-    self.to_remove.write().unwrap().drain(..).for_each(|id| {
-      self.data.remove(&id);
-    });
-  }
-  fn as_any_mut(&mut self) -> &mut dyn std::any::Any {
-    self
-  }
-}
+// pub trait RequireMaintain: std::any::Any {
+//   fn maintain(&mut self);
+//   fn as_any_mut(&mut self) -> &mut dyn std::any::Any;
+// }
 
-impl<T: 'static, U: 'static + ?Sized> IdentityMapper<T, U> {
-  /// this to bypass the borrow limits of get_update_or_insert_with
-  pub fn get_update_or_insert_with_logic<'a, 'b, X: Incremental>(
-    &'b mut self,
-    source: &'a Identity<X>,
-    mut logic: impl FnMut(ResourceLogic<'a, 'b, T, X>) -> ResourceLogicResult<'b, T>,
-  ) -> &'b mut T {
-    let mut new_created = false;
-    let mut resource = self.data.entry(source.id).or_insert_with(|| {
-      let item = logic(ResourceLogic::Create(&source.inner)).unwrap_new();
-      new_created = true;
-      source
-        .watchers
-        .write()
-        .unwrap()
-        .insert(Box::new(ResourceWatcherWithAutoClean {
-          to_remove: self.to_remove.clone(),
-          changed: self.changed.clone(),
-        }));
-      item
-    });
+// impl<T: 'static, U: 'static + ?Sized> RequireMaintain for IdentityMapper<T, U> {
+//   fn maintain(&mut self) {
+//     self.to_remove.write().unwrap().drain(..).for_each(|id| {
+//       self.data.remove(&id);
+//     });
+//   }
+//   fn as_any_mut(&mut self) -> &mut dyn std::any::Any {
+//     self
+//   }
+// }
 
-    if new_created || self.changed.write().unwrap().remove(&source.id) {
-      resource = logic(ResourceLogic::Update(resource, source)).unwrap_update();
-    }
+// impl<T: 'static, U: 'static + ?Sized> IdentityMapper<T, U> {
+//   /// this to bypass the borrow limits of get_update_or_insert_with
+//   pub fn get_update_or_insert_with_logic<'a, 'b, X: Incremental>(
+//     &'b mut self,
+//     source: &'a Identity<X>,
+//     mut logic: impl FnMut(ResourceLogic<'a, 'b, T, X>) -> ResourceLogicResult<'b, T>,
+//   ) -> &'b mut T {
+//     let mut new_created = false;
+//     let mut resource = self.data.entry(source.id).or_insert_with(|| {
+//       let item = logic(ResourceLogic::Create(&source.inner)).unwrap_new();
+//       new_created = true;
+//       source
+//         .watchers
+//         .write()
+//         .unwrap()
+//         .insert(Box::new(ResourceWatcherWithAutoClean {
+//           to_remove: self.to_remove.clone(),
+//           changed: self.changed.clone(),
+//         }));
+//       item
+//     });
 
-    resource
-  }
+//     if new_created || self.changed.write().unwrap().remove(&source.id) {
+//       resource = logic(ResourceLogic::Update(resource, source)).unwrap_update();
+//     }
 
-  pub fn get_update_or_insert_with<X: Incremental>(
-    &mut self,
-    source: &Identity<X>,
-    creator: impl FnOnce(&X) -> T,
-    updater: impl FnOnce(&mut T, &X),
-  ) -> &mut T {
-    let mut new_created = false;
-    let resource = self.data.entry(source.id).or_insert_with(|| {
-      let item = creator(&source.inner);
-      new_created = true;
-      source
-        .watchers
-        .write()
-        .unwrap()
-        .insert(Box::new(ResourceWatcherWithAutoClean {
-          to_remove: self.to_remove.clone(),
-          changed: self.changed.clone(),
-        }));
-      item
-    });
+//     resource
+//   }
 
-    if new_created || self.changed.write().unwrap().remove(&source.id) {
-      updater(resource, &source.inner)
-    }
+//   pub fn get_update_or_insert_with<X: Incremental>(
+//     &mut self,
+//     source: &Identity<X>,
+//     creator: impl FnOnce(&X) -> T,
+//     updater: impl FnOnce(&mut T, &X),
+//   ) -> &mut T {
+//     let mut new_created = false;
+//     let resource = self.data.entry(source.id).or_insert_with(|| {
+//       let item = creator(&source.inner);
+//       new_created = true;
+//       source
+//         .watchers
+//         .write()
+//         .unwrap()
+//         .insert(Box::new(ResourceWatcherWithAutoClean {
+//           to_remove: self.to_remove.clone(),
+//           changed: self.changed.clone(),
+//         }));
+//       item
+//     });
 
-    resource
-  }
+//     if new_created || self.changed.write().unwrap().remove(&source.id) {
+//       updater(resource, &source.inner)
+//     }
 
-  pub fn get_unwrap<X: Incremental>(&self, source: &Identity<X>) -> &T {
-    self.data.get(&source.id).unwrap()
-  }
-}
+//     resource
+//   }
 
-struct ResourceWatcherWithAutoClean {
-  to_remove: Arc<RwLock<Vec<usize>>>,
-  changed: Arc<RwLock<HashSet<usize>>>,
-}
+//   pub fn get_unwrap<X: Incremental>(&self, source: &Identity<X>) -> &T {
+//     self.data.get(&source.id).unwrap()
+//   }
+// }
 
-impl<T> Watcher<T> for ResourceWatcherWithAutoClean {
-  fn will_change(&mut self, _camera: &T, id: usize) -> bool {
-    self.changed.write().unwrap().insert(id);
-    true
-  }
+// struct ResourceWatcherWithAutoClean {
+//   to_remove: Arc<RwLock<Vec<usize>>>,
+//   changed: Arc<RwLock<HashSet<usize>>>,
+// }
 
-  fn will_drop(&mut self, _camera: &T, id: usize) {
-    self.to_remove.write().unwrap().push(id);
-  }
-}
+// impl<T> Watcher<T> for ResourceWatcherWithAutoClean {
+//   fn will_change(&mut self, _camera: &T, id: usize) -> bool {
+//     self.changed.write().unwrap().insert(id);
+//     true
+//   }
+
+//   fn will_drop(&mut self, _camera: &T, id: usize) {
+//     self.to_remove.write().unwrap().push(id);
+//   }
+// }

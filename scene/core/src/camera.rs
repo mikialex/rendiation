@@ -36,10 +36,11 @@ impl SceneCamera {
   }
 
   pub fn resize(&mut self, size: (f32, f32)) {
-    self.mutate(|camera| {
-
-      // camera.projection.resize(size);
+    self.mutate(|mut camera| {
+      let resize = CameraProjectionDelta::Resize(size);
+      camera.modify(SceneCameraInnerDelta::projection(resize));
       // camera.projection_changed();
+      todo!()
     })
   }
 
@@ -99,15 +100,26 @@ impl<T: ResizableProjection<f32> + RayCaster3<f32> + DynIncremental> CameraProje
   }
 }
 
+#[derive(Clone)]
+enum CameraProjectionDelta {
+  Resize((f32, f32)),
+  Boxed(Box<dyn AnyClone>),
+}
+
 impl SimpleIncremental for Box<dyn CameraProjection> {
-  type Delta = Box<dyn AnyClone>;
+  type Delta = CameraProjectionDelta;
 
   fn s_apply(&mut self, delta: Self::Delta) {
-    self.as_mut().apply_dyn(delta).unwrap();
+    match delta {
+      CameraProjectionDelta::Resize(size) => self.resize(size),
+      CameraProjectionDelta::Boxed(delta) => self.as_mut().apply_dyn(delta).unwrap(),
+    }
   }
 
   fn s_expand(&self, mut cb: impl FnMut(Self::Delta)) {
-    self.as_ref().expand_dyn(&mut cb);
+    self
+      .as_ref()
+      .expand_dyn(&mut |d| cb(CameraProjectionDelta::Boxed(d)));
   }
 }
 

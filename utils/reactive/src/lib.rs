@@ -1,6 +1,6 @@
 // https://www.youtube.com/watch?v=ePgWU3KZvfQ
 
-use std::sync::{Arc, RwLock};
+use std::sync::{Arc, RwLock, RwLockReadGuard};
 
 /// container for values that change (discretely) over time.
 pub trait Signal {
@@ -203,5 +203,9 @@ impl<T: Clone> Signal for StreamSignal<T> {
 impl<T> StreamSignal<T> {
   pub fn as_stream(&self) -> &Stream<T> {
     &self.stream
+  }
+
+  pub fn get_guard(&self) -> RwLockReadGuard<T> {
+    self.current.read().unwrap()
   }
 }
