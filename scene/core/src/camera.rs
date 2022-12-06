@@ -37,8 +37,9 @@ impl SceneCamera {
 
   pub fn resize(&mut self, size: (f32, f32)) {
     self.mutate(|camera| {
-      camera.projection.resize(size);
-      camera.projection_changed();
+
+      // camera.projection.resize(size);
+      // camera.projection_changed();
     })
   }
 

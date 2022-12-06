@@ -37,16 +37,35 @@ impl<T: Incremental> From<T> for SceneItemRef<T> {
   }
 }
 
+pub struct Mutating<'a, T: Incremental> {
+  pub inner: &'a mut T,
+  pub collector: &'a mut dyn FnMut(&T::Delta),
+}
+
+impl<'a, T: Incremental> Mutating<'a, T> {
+  pub fn modify(&mut self, delta: T::Delta) {
+    (self.collector)(&delta);
+    self.inner.apply(delta).unwrap()
+  }
+}
+
 impl<T: Incremental> SceneItemRef<T> {
   pub fn new(source: T) -> Self {
     let inner = Arc::new(RwLock::new(Identity::new(source)));
     Self { inner }
   }
 
-  pub fn mutate<R>(&self, mut mutator: impl FnMut(&mut T) -> R) -> R {
+  pub fn mutate<R>(&self, mut mutator: impl FnMut(Mutating<T>) -> R) -> R {
     let mut inner = self.inner.write().unwrap();
-    let r = mutator(&mut inner);
-    inner.trigger_change();
+    let i: &mut Identity<T> = &mut inner;
+    let data = &mut i.inner;
+    let dispatcher = &i.change_dispatcher;
+    let r = mutator(Mutating {
+      inner: data,
+      collector: &mut |delta| {
+        dispatcher.emit(&delta);
+      },
+    });
     r
   }
   pub fn visit<R>(&self, mut visitor: impl FnMut(&T) -> R) -> R {
@@ -108,7 +127,7 @@ pub struct Identity<T: Incremental> {
   id: usize,
   inner: T,
   change_dispatcher: EventDispatcher<T::Delta>,
-  pub watchers: RwLock<Arena<Box<dyn Watcher<T>>>>,
+  // pub watchers: RwLock<Arena<Box<dyn Watcher<T>>>>,
 }
 
 impl<T: Incremental> AsRef<T> for Identity<T> {
@@ -145,23 +164,23 @@ impl<T: Incremental> Identity<T> {
     self.id
   }
 
-  pub fn trigger_change(&mut self) {
-    let mut to_drop = Vec::with_capacity(0);
-    self
-      .watchers
-      .write()
-      .unwrap()
-      .iter_mut()
-      .for_each(|(h, w)| {
-        if !w.will_change(&self.inner, self.id) {
-          to_drop.push(h)
-        }
-      });
+  // pub fn trigger_change(&mut self) {
+  //   let mut to_drop = Vec::with_capacity(0);
+  //   self
+  //     .watchers
+  //     .write()
+  //     .unwrap()
+  //     .iter_mut()
+  //     .for_each(|(h, w)| {
+  //       if !w.will_change(&self.inner, self.id) {
+  //         to_drop.push(h)
+  //       }
+  //     });
 
-    for handle in to_drop.drain(..) {
-      self.watchers.write().unwrap().remove(handle);
-    }
-  }
+  //   for handle in to_drop.drain(..) {
+  //     self.watchers.write().unwrap().remove(handle);
+  //   }
+  // }
 }
 
 impl<T: Default + Incremental> Default for Identity<T> {
@@ -186,13 +205,6 @@ impl<T: Incremental> std::ops::Deref for Identity<T> {
 
   fn deref(&self) -> &Self::Target {
     &self.inner
-  }
-}
-
-impl<T: Incremental> std::ops::DerefMut for Identity<T> {
-  fn deref_mut(&mut self) -> &mut Self::Target {
-    self.trigger_change();
-    &mut self.inner
   }
 }
 
