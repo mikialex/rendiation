@@ -215,6 +215,16 @@ pub struct IndexedMesh<T, U, IU> {
   _phantom: PhantomData<T>,
 }
 
+impl<T, U: Clone, IU: Clone> Clone for IndexedMesh<T, U, IU> {
+  fn clone(&self) -> Self {
+    Self {
+      vertex: self.vertex.clone(),
+      index: self.index.clone(),
+      _phantom: self._phantom.clone(),
+    }
+  }
+}
+
 impl<T, U, IU> From<(U, IU)> for IndexedMesh<T, U, IU> {
   fn from(item: (U, IU)) -> Self {
     IndexedMesh::new(item.0, item.1)

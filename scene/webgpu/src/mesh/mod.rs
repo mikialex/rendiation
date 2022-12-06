@@ -172,8 +172,21 @@ pub trait WebGPUMesh: Any + Send + Sync {
   fn try_pick(&self, _f: &mut dyn FnMut(&dyn IntersectAbleGroupedMesh)) {}
 }
 
+#[derive(Clone)]
 pub struct MeshSource<T> {
   inner: T,
+}
+
+impl<T: Clone + Sync + Send> SimpleIncremental for MeshSource<T> {
+  type Delta = Self;
+
+  fn s_apply(&mut self, delta: Self::Delta) {
+    todo!()
+  }
+
+  fn s_expand(&self, cb: impl FnMut(Self::Delta)) {
+    todo!()
+  }
 }
 
 impl<T> MeshSource<T> {

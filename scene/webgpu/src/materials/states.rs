@@ -101,6 +101,18 @@ pub struct StateControl<T> {
   pub states: MaterialStates,
 }
 
+impl<T: Clone + Sync + Send> SimpleIncremental for StateControl<T> {
+  type Delta = Self;
+
+  fn s_apply(&mut self, delta: Self::Delta) {
+    todo!()
+  }
+
+  fn s_expand(&self, cb: impl FnMut(Self::Delta)) {
+    todo!()
+  }
+}
+
 pub trait IntoStateControl: Sized {
   fn use_state(self) -> StateControl<Self> {
     StateControl {

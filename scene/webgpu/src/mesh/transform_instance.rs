@@ -1,8 +1,21 @@
 use crate::*;
 
+#[derive(Clone)]
 pub struct TransformInstance<M> {
   pub mesh: M,
   pub transforms: Vec<Mat4<f32>>,
+}
+
+impl<M: Clone + Send + Sync> SimpleIncremental for TransformInstance<M> {
+  type Delta = Self;
+
+  fn s_apply(&mut self, delta: Self::Delta) {
+    todo!()
+  }
+
+  fn s_expand(&self, cb: impl FnMut(Self::Delta)) {
+    todo!()
+  }
 }
 
 pub struct TransformInstanceGPU<M: WebGPUMesh> {

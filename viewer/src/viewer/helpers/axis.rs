@@ -1,5 +1,6 @@
 use std::{cell::RefCell, rc::Rc, sync::Arc};
 
+use incremental::clone_self_incremental;
 use rendiation_algebra::*;
 use rendiation_geometry::OptionalNearest;
 use rendiation_mesh_generator::*;
