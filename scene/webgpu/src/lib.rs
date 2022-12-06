@@ -14,6 +14,7 @@ pub mod model;
 pub mod model_overrides;
 pub mod node;
 pub mod rendering;
+pub mod rx;
 pub mod shading;
 pub mod shadow;
 pub mod texture;

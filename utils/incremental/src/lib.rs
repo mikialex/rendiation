@@ -46,6 +46,10 @@ pub trait Incremental: Sized {
 
 pub type DeltaOf<T> = <T as Incremental>::Delta;
 
+pub trait CompareGenDelta: Incremental {
+  fn expand_diff(&self, other: &Self, cb: impl FnMut(Self::Delta));
+}
+
 pub trait MutatorApply<T: Incremental> {
   fn apply(&mut self, delta: T::Delta);
 }

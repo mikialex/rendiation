@@ -41,6 +41,14 @@ pub struct Mutating<'a, T: Incremental> {
   pub collector: &'a mut dyn FnMut(&T::Delta),
 }
 
+impl<'a, T: Incremental> Deref for Mutating<'a, T> {
+  type Target = T;
+
+  fn deref(&self) -> &Self::Target {
+    self.inner
+  }
+}
+
 impl<'a, T: Incremental> Mutating<'a, T> {
   pub fn modify(&mut self, delta: T::Delta) {
     (self.collector)(&delta);

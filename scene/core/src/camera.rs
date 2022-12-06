@@ -101,7 +101,7 @@ impl<T: ResizableProjection<f32> + RayCaster3<f32> + DynIncremental> CameraProje
 }
 
 #[derive(Clone)]
-enum CameraProjectionDelta {
+pub enum CameraProjectionDelta {
   Resize((f32, f32)),
   Boxed(Box<dyn AnyClone>),
 }

@@ -8,8 +8,10 @@ use tree::TreeCollection;
 pub type SceneModelHandle = Handle<SceneModel>;
 pub type SceneCameraHandle = Handle<SceneCamera>;
 
+pub type Scene = SceneItemRef<SceneInner>;
+
 #[derive(Incremental)]
-pub struct Scene {
+pub struct SceneInner {
   pub background: Option<SceneBackGround>,
 
   pub default_camera: SceneCamera,
@@ -28,7 +30,7 @@ pub struct Scene {
   pub ext: DynamicExtension,
 }
 
-impl Scene {
+impl SceneInner {
   pub fn root(&self) -> &SceneNode {
     &self.root
   }
@@ -63,13 +65,25 @@ impl Scene {
     let mut nodes = self.nodes.write().unwrap();
     let root = self.root.raw_handle();
     nodes.traverse_mut_pair(root, |parent, this| {
+      let parent = parent.data();
       let node_data = this.data_mut();
-      node_data.hierarchy_update(Some(parent.data()));
+      node_data.mutate(|mut node_data| {
+        let new_net = node_data.visible && parent.net_visible;
+        if new_net != node_data.net_visible {
+          node_data.modify(SceneNodeDataImplDelta::net_visible(new_net))
+        }
+        if new_net {
+          let new_world_matrix = parent.world_matrix * node_data.local_matrix;
+          if new_world_matrix != node_data.world_matrix {
+            node_data.modify(SceneNodeDataImplDelta::world_matrix(new_world_matrix))
+          }
+        }
+      });
     });
   }
 }
 
-impl Default for Scene {
+impl Default for SceneInner {
   fn default() -> Self {
     Self::new()
   }
