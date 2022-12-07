@@ -5,7 +5,7 @@ use std::{
 
 use crate::*;
 
-use reactive::{EventDispatcher, StreamSignal};
+use reactive::{EventDispatcher, Stream, StreamSignal};
 
 pub struct SceneItemRef<T: Incremental> {
   inner: Arc<RwLock<Identity<T>>>,
@@ -156,6 +156,10 @@ impl<T: Incremental> Identity<T> {
       id: GLOBAL_ID.fetch_add(1, Ordering::Relaxed),
       change_dispatcher: Default::default(),
     }
+  }
+
+  pub fn delta_stream(&self) -> Stream<T::Delta> {
+    self.change_dispatcher.stream()
   }
 
   pub fn id(&self) -> usize {
