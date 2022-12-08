@@ -128,6 +128,7 @@ impl<T> EventDispatcher<T> {
 }
 
 impl<T: 'static> Stream<T> {
+  /// return should remove after triggered
   pub fn on(&self, f: impl Fn(&T) -> bool + Send + Sync + 'static) {
     self.inner.write().unwrap().on(f);
   }

@@ -33,7 +33,11 @@ impl WebGPUSceneSystem {
             system.camera.remove(camera);
           }
         },
-        SceneInnerDelta::lights(_) => todo!(),
+        SceneInnerDelta::lights(light_delta) => match light_delta {
+          arena::ArenaDelta::Mutate(_) => todo!(),
+          arena::ArenaDelta::Insert(_) => todo!(),
+          arena::ArenaDelta::Remove(_) => todo!(),
+        },
         SceneInnerDelta::models(model_delta) => match model_delta {
           arena::ArenaDelta::Mutate(_) => todo!(),
           arena::ArenaDelta::Insert((new_model, _)) => {

@@ -61,7 +61,7 @@ pub struct SceneAcceleration {
 }
 
 pub trait RayTracingSceneExt {
-  fn create_node(&mut self, builder: impl Fn(&mut SceneNodeDataImpl, &mut Self)) -> &mut Self;
+  fn create_node(&mut self, builder: impl Fn(Mutating<SceneNodeDataImpl>, &mut Self)) -> &mut Self;
   fn model_node(&mut self, shape: impl Shape, material: impl Material) -> &mut Self;
   fn model_node_with_modify(
     &mut self,
@@ -73,8 +73,8 @@ pub trait RayTracingSceneExt {
   fn build_traceable(&mut self) -> SceneAcceleration;
 }
 
-impl RayTracingSceneExt for Scene {
-  fn create_node(&mut self, builder: impl Fn(&mut SceneNodeDataImpl, &mut Self)) -> &mut Self {
+impl RayTracingSceneExt for SceneInner {
+  fn create_node(&mut self, builder: impl Fn(Mutating<SceneNodeDataImpl>, &mut Self)) -> &mut Self {
     let node = self.root().create_child();
     node.mutate(|node| builder(node, self));
     self

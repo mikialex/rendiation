@@ -126,9 +126,15 @@ impl BindingBuilder {
         let entries: Vec<_> = group
           .iter()
           .enumerate()
-          .map(|(i, item)| gpu::BindGroupEntry {
-            binding: i as u32,
-            resource: item.as_bindable(),
+          .map(|(i, item)| {
+            item.add_bind_record(BindGroupCacheInvalidation {
+              cache_id_to_drop: hash,
+              cache: self.cache.clone(),
+            });
+            gpu::BindGroupEntry {
+              binding: i as u32,
+              resource: item.as_bindable(),
+            }
           })
           .collect();
 

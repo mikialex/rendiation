@@ -8,17 +8,17 @@ mod ty;
 pub use lens::*;
 pub use ty::*;
 
-pub trait Incremental: Sized {
+pub trait Incremental: Sized + Send + Sync + 'static {
   /// `Delta` should be atomic modification unit of `Self`
   /// atomic means no invalid states between the modification
   ///
   /// Delta could contains multi grained layer of change to allow
   /// user modify the data in different level.
-  type Delta: Clone + Send + Sync;
+  type Delta: Clone + Send + Sync + 'static;
 
   /// mutation maybe not valid and return error back.
   /// should stay valid state even if mutation failed.
-  type Error: Debug + Send + Sync;
+  type Error: Debug + Send + Sync + 'static;
 
   /// Mutator encapsulate the inner mutable state to prevent direct mutation and generate delta automatically
   /// Mutator should also direct support apply delta which constraint by MutatorApply

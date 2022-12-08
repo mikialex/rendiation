@@ -107,7 +107,7 @@ pub trait SimpleIncremental {
   fn s_expand(&self, cb: impl FnMut(Self::Delta));
 }
 
-impl<T: SimpleIncremental + Send + Sync> Incremental for T {
+impl<T: SimpleIncremental + Send + Sync + 'static> Incremental for T {
   type Delta = <T as SimpleIncremental>::Delta;
 
   type Error = ();
@@ -137,7 +137,7 @@ impl<T: SimpleIncremental + Send + Sync> Incremental for T {
 }
 
 /// not mutable
-impl<T: Send + Sync> Incremental for std::sync::Arc<T> {
+impl<T: Send + Sync + 'static> Incremental for std::sync::Arc<T> {
   type Delta = Self;
 
   type Error = ();
