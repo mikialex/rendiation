@@ -1,14 +1,12 @@
 use crate::*;
 
-use arena::{Arena, Handle};
+use arena::{Arena, ArenaDelta, Handle};
 use incremental::Incremental;
 use rendiation_algebra::PerspectiveProjection;
 use tree::TreeCollection;
 
 pub type SceneModelHandle = Handle<SceneModel>;
 pub type SceneCameraHandle = Handle<SceneCamera>;
-
-pub type Scene = SceneItemRef<SceneInner>;
 
 #[derive(Incremental)]
 pub struct SceneInner {
@@ -61,7 +59,7 @@ impl SceneInner {
     self.active_camera.as_ref().unwrap()
   }
 
-  pub fn maintain(&mut self) {
+  pub fn maintain(&self) {
     let mut nodes = self.nodes.write().unwrap();
     let root = self.root.raw_handle();
     nodes.traverse_mut_pair(root, |parent, this| {
@@ -86,5 +84,19 @@ impl SceneInner {
 impl Default for SceneInner {
   fn default() -> Self {
     Self::new()
+  }
+}
+
+pub type Scene = SceneItemRef<SceneInner>;
+
+impl Scene {
+  pub fn insert_model(&self, model: SceneModel) -> SceneModelHandle {
+    self.mutate(|mut scene| {
+      let handle = scene.inner.models.insert(model.clone());
+      let delta = ArenaDelta::Insert((model, handle));
+      let delta = SceneInnerDelta::models(delta);
+      scene.trigger_manual(delta);
+      handle
+    })
   }
 }

@@ -8,12 +8,13 @@ fn main() {
   let mut renderer = PathTraceIntegrator::default();
 
   let mut frame = Frame::new(1000, 1000);
-  let mut scene = Scene::new();
+  let mut scene = SceneInner::new().into_ref();
 
   let perspective = make_perspective();
-  let camera = SceneCamera::create_camera(perspective, scene.root().create_child());
+  let camera = SceneCamera::create_camera(perspective, scene.read().root().create_child());
 
   scene
+    .write()
     .model_node(
       Plane::new(Vec3::new(0., 1.0, 0.).into_normalized(), 0.0), // ground
       Diffuse {
@@ -40,7 +41,7 @@ fn main() {
 
   fn ball(scene: &mut Scene, position: Vec3<f32>, size: f32, roughness: f32, metallic: f32) {
     let roughness = if roughness == 0.0 { 0.04 } else { roughness };
-    scene.model_node(
+    scene.write().model_node(
       Sphere::new(position, size),
       RtxPhysicalMaterial {
         specular: Specular {
@@ -86,7 +87,7 @@ fn main() {
     Vec3::new(0., 1., 0.),
   ));
 
-  let mut source = scene.build_traceable();
+  let mut source = scene.write().build_traceable();
 
   renderer.render(&camera, &mut source, &mut frame);
   frame.write_result("ball_array");

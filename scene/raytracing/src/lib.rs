@@ -67,7 +67,7 @@ pub trait RayTracingSceneExt {
     &mut self,
     shape: impl Shape,
     material: impl Material,
-    m: impl Fn(&mut SceneNodeDataImpl),
+    m: impl Fn(Mutating<SceneNodeDataImpl>),
   ) -> &mut Self;
   fn background(&mut self, background: impl RayTracingBackground) -> &mut Self;
   fn build_traceable(&mut self) -> SceneAcceleration;
@@ -96,7 +96,7 @@ impl RayTracingSceneExt for SceneInner {
     &mut self,
     shape: impl Shape,
     material: impl Material,
-    m: impl Fn(&mut SceneNodeDataImpl),
+    m: impl Fn(Mutating<SceneNodeDataImpl>),
   ) -> &mut Self {
     let node = self.root().create_child();
     node.mutate(|node| m(node));

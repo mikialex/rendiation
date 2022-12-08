@@ -10,7 +10,7 @@ impl<T, U: Clone> Clone for NoneIndexedMesh<T, U> {
   fn clone(&self) -> Self {
     Self {
       data: self.data.clone(),
-      _phantom: self._phantom.clone(),
+      _phantom: self._phantom,
     }
   }
 }

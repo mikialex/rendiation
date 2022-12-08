@@ -15,11 +15,11 @@ impl<T: Clone + Send + Sync> SimpleIncremental for TextureWithSamplingData<T> {
   type Delta = Self;
 
   fn s_apply(&mut self, delta: Self::Delta) {
-    todo!()
+    *self = delta
   }
 
-  fn s_expand(&self, cb: impl FnMut(Self::Delta)) {
-    todo!()
+  fn s_expand(&self, mut cb: impl FnMut(Self::Delta)) {
+    cb(self.clone())
   }
 }
 

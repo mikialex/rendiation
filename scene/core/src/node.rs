@@ -67,7 +67,7 @@ impl SceneNode {
     }
   }
 
-  pub fn mutate<F: FnMut(Mutating<SceneNodeDataImpl>) -> T + Copy, T>(&self, f: F) -> T {
+  pub fn mutate<F: FnOnce(Mutating<SceneNodeDataImpl>) -> T, T>(&self, f: F) -> T {
     self.inner.mutate(|node| node.mutate(f))
   }
 

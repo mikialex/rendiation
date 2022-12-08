@@ -111,7 +111,7 @@ impl<T> ShareTreeNode<T> {
     self.create_child(T::default())
   }
 
-  pub fn mutate<F: FnMut(&mut T) -> R, R>(&self, mut f: F) -> R {
+  pub fn mutate<F: FnOnce(&mut T) -> R, R>(&self, f: F) -> R {
     let inner = self.inner.read().unwrap();
     let nodes = &mut inner.nodes.write().unwrap();
     let node = nodes.get_node_mut(inner.inner.handle).data_mut();

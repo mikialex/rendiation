@@ -36,7 +36,7 @@ use incremental::*;
 use rendiation_algebra::*;
 use std::any::Any;
 use std::{
-  collections::{HashMap, HashSet},
+  collections::HashMap,
   marker::PhantomData,
   ops::Deref,
   sync::{

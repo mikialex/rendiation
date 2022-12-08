@@ -45,18 +45,15 @@ impl Incremental for DynamicExtension {
   where
     Self: 'a;
 
-  fn create_mutator<'a>(
-    &'a mut self,
-    collector: &'a mut dyn FnMut(Self::Delta),
-  ) -> Self::Mutator<'a> {
+  fn create_mutator<'a>(&'a mut self, _: &'a mut dyn FnMut(Self::Delta)) -> Self::Mutator<'a> {
     todo!()
   }
 
-  fn apply(&mut self, delta: Self::Delta) -> Result<(), Self::Error> {
+  fn apply(&mut self, _delta: Self::Delta) -> Result<(), Self::Error> {
     todo!()
   }
 
-  fn expand(&self, cb: impl FnMut(Self::Delta)) {
+  fn expand(&self, _cb: impl FnMut(Self::Delta)) {
     todo!()
   }
 }

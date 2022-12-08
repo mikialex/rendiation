@@ -220,7 +220,7 @@ impl<T, U: Clone, IU: Clone> Clone for IndexedMesh<T, U, IU> {
     Self {
       vertex: self.vertex.clone(),
       index: self.index.clone(),
-      _phantom: self._phantom.clone(),
+      _phantom: self._phantom,
     }
   }
 }

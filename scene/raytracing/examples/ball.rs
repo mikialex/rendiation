@@ -8,7 +8,7 @@ fn main() {
 
   let mut frame = Frame::new(500, 500);
 
-  let mut scene = Scene::new();
+  let mut scene = SceneInner::new().into_ref();
 
   let perspective = make_perspective();
   let camera = SceneCamera::create_camera(perspective, scene.root().create_child());

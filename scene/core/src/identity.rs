@@ -54,6 +54,10 @@ impl<'a, T: Incremental> Mutating<'a, T> {
     (self.collector)(self.inner, &delta);
     self.inner.apply(delta).unwrap()
   }
+
+  pub fn trigger_manual(&mut self, delta: T::Delta) {
+    (self.collector)(self.inner, &delta);
+  }
 }
 
 impl<T: Incremental> SceneItemRef<T> {
@@ -62,7 +66,7 @@ impl<T: Incremental> SceneItemRef<T> {
     Self { inner }
   }
 
-  pub fn mutate<R>(&self, mutator: impl FnMut(Mutating<T>) -> R) -> R {
+  pub fn mutate<R>(&self, mutator: impl FnOnce(Mutating<T>) -> R) -> R {
     let mut inner = self.inner.write().unwrap();
     let i: &mut Identity<T> = &mut inner;
     i.mutate(mutator)
@@ -167,18 +171,17 @@ impl<T: Incremental> Identity<T> {
     self.id
   }
 
-  pub fn mutate<R>(&mut self, mut mutator: impl FnMut(Mutating<T>) -> R) -> R {
+  pub fn mutate<R>(&mut self, mutator: impl FnOnce(Mutating<T>) -> R) -> R {
     let data = &mut self.inner;
     let dispatcher = &self.change_dispatcher;
-    let r = mutator(Mutating {
+    mutator(Mutating {
       inner: data,
       collector: &mut |data, delta| {
         let view = DeltaView { data, delta };
         let view = unsafe { std::mem::transmute(view) };
         dispatcher.emit(&view);
       },
-    });
-    r
+    })
   }
 }
 
