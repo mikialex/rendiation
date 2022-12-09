@@ -185,14 +185,14 @@ pub trait WebGPUScenePipelineHelper {
 impl WebGPUScenePipelineHelper for Scene {
   fn by_main_camera<T>(&self, inner: T) -> CameraRef<T> {
     CameraRef {
-      camera: self.active_camera.as_ref().unwrap(),
+      camera: self.read().active_camera.as_ref().unwrap(),
       inner,
     }
   }
 
   fn by_main_camera_and_self<T>(&self, inner: T) -> CameraSceneRef<T> {
     CameraSceneRef {
-      camera: self.active_camera.as_ref().unwrap(),
+      camera: self.read().active_camera.as_ref().unwrap(),
       scene: self,
       inner,
     }

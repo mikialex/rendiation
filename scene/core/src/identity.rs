@@ -214,6 +214,20 @@ pub struct IdentityMapper<T, U: Incremental> {
   creator: Box<dyn Fn(&U) -> T>,
 }
 
+impl<T, U: Incremental> IdentityMapper<T, U> {
+  pub fn new(
+    updater: impl Fn(&U, &U::Delta, &mut T) + Send + Sync + 'static,
+    creator: impl Fn(&U) -> T + 'static,
+  ) -> Self {
+    IdentityMapper {
+      data: Default::default(),
+      phantom: PhantomData,
+      updater: Arc::new(updater),
+      creator: Box::new(creator),
+    }
+  }
+}
+
 impl<T: Send + Sync + 'static, U: Incremental> IdentityMapper<T, U> {
   pub fn insert(&mut self, source: &Identity<U>) {
     let id = source.id;

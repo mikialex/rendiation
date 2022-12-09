@@ -14,7 +14,7 @@ pub mod model;
 pub mod model_overrides;
 pub mod node;
 pub mod rendering;
-pub mod rx;
+// pub mod rx;
 pub mod shading;
 pub mod shadow;
 pub mod texture;
@@ -127,55 +127,28 @@ pub struct GPUResourceCache {
 }
 
 impl GPUResourceCache {
-  pub fn maintain(&mut self) {
-    self.cameras.maintain();
-    self.nodes.maintain();
-    self.content.texture_2ds.maintain();
-    self.content.texture_cubes.maintain();
-    self
-      .scene
-      .lights
-      .inner
-      .values_mut()
-      .for_each(|v| v.maintain());
-    self
-      .scene
-      .materials
-      .inner
-      .values_mut()
-      .for_each(|v| v.maintain());
-    self
-      .scene
-      .meshes
-      .inner
-      .values_mut()
-      .for_each(|v| v.maintain());
-  }
-}
-
-impl Default for GPUResourceCache {
-  fn default() -> Self {
+  fn new(gpu: &GPU) -> Self {
     Self {
       scene: Default::default(),
       content: Default::default(),
       custom_storage: AnyMap::new(),
       cameras: Default::default(),
-      nodes: Default::default(),
+      nodes: NodeGPUStore::new(gpu),
     }
   }
 }
 
 #[derive(Default)]
 pub struct GPULightCache {
-  pub inner: HashMap<TypeId, Box<dyn RequireMaintain>>,
+  pub inner: HashMap<TypeId, Box<dyn Any>>,
 }
 #[derive(Default)]
 pub struct GPUMaterialCache {
-  pub inner: HashMap<TypeId, Box<dyn RequireMaintain>>,
+  pub inner: HashMap<TypeId, Box<dyn Any>>,
 }
 #[derive(Default)]
 pub struct GPUMeshCache {
-  pub inner: HashMap<TypeId, Box<dyn RequireMaintain>>,
+  pub inner: HashMap<TypeId, Box<dyn Any>>,
 }
 
 #[derive(Default)]
@@ -188,8 +161,8 @@ pub struct GPUResourceSceneCache {
 /// GPU cache container for given scene
 #[derive(Default)]
 pub struct GPUResourceSubCache {
-  pub texture_2ds: IdentityMapper<GPU2DTextureView, dyn WebGPU2DTextureSource>,
-  pub texture_cubes: IdentityMapper<GPUCubeTextureView, [Box<dyn WebGPU2DTextureSource>; 6]>,
+  // pub texture_2ds: IdentityMapper<GPU2DTextureView, dyn WebGPU2DTextureSource>,
+  // pub texture_cubes: IdentityMapper<GPUCubeTextureView, [Box<dyn WebGPU2DTextureSource>; 6]>,
   pub mipmap_gen: Rc<RefCell<MipMapTaskManager>>,
 }
 
@@ -216,7 +189,7 @@ impl WebGPUSceneExtension for Scene {
     camera_view_size: Size,
     conf: &'a MeshBufferIntersectConfig,
   ) -> SceneRayInteractiveCtx<'a> {
-    let camera = self.active_camera.as_ref().unwrap();
+    let camera = self.read().active_camera.as_ref().unwrap();
     let world_ray = camera.cast_world_ray(normalized_position);
     SceneRayInteractiveCtx {
       world_ray,
@@ -230,7 +203,7 @@ impl WebGPUSceneExtension for Scene {
     &self,
     ctx: &SceneRayInteractiveCtx,
   ) -> Option<(&SceneModel, MeshBufferHitPoint)> {
-    interaction_picking(self.models.iter().map(|(_, m)| m), ctx)
+    interaction_picking(self.read().models.iter().map(|(_, m)| m), ctx)
   }
 }
 

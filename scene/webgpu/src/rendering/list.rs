@@ -8,7 +8,7 @@ pub struct RenderList {
 
 impl RenderList {
   pub fn prepare(&mut self, scene: &Scene, camera: &SceneCamera) {
-    if scene.active_camera.is_none() {
+    if scene.read().active_camera.is_none() {
       return;
     }
 
@@ -19,7 +19,7 @@ impl RenderList {
     self.opaque.clear();
     self.transparent.clear();
 
-    for (h, m) in scene.models.iter() {
+    for (h, m) in scene.read().models.iter() {
       let model_pos = m.get_node().get_world_matrix().position();
       let depth = (model_pos - camera_pos).dot(camera_forward);
 
@@ -44,12 +44,13 @@ impl RenderList {
     dispatcher: &dyn RenderComponentAny,
     camera: &SceneCamera,
   ) {
+    let models = scene.read().models;
     self.opaque.iter().for_each(|(handle, _)| {
-      let model = scene.models.get(*handle).unwrap();
+      let model = models.get(*handle).unwrap();
       model.render(gpu_pass, dispatcher, camera)
     });
     self.transparent.iter().for_each(|(handle, _)| {
-      let model = scene.models.get(*handle).unwrap();
+      let model = models.get(*handle).unwrap();
       model.render(gpu_pass, dispatcher, camera)
     });
   }

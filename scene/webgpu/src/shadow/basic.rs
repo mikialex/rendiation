@@ -136,7 +136,7 @@ fn get_shadow_map<T: Any + ShadowCameraCreator + Incremental>(
 ) -> BasicShadowGPU {
   let resolution = Size::from_usize_pair_min_one((512, 512));
 
-  resources
+  let mapper = resources
     .scene
     .lights
     .inner
@@ -144,21 +144,23 @@ fn get_shadow_map<T: Any + ShadowCameraCreator + Incremental>(
     .or_insert_with(|| Box::<IdentityMapper<BasicShadowGPU, T>>::default())
     .as_any_mut()
     .downcast_mut::<IdentityMapper<BasicShadowGPU, T>>()
-    .unwrap()
-    .get_update_or_insert_with_logic(inner, |logic| match logic {
-      ResourceLogic::Create(light) => {
-        let shadow_camera = light.build_shadow_camera(node);
-        let map = shadows.maps.allocate(resolution);
-        ResourceLogicResult::Create(BasicShadowGPU { shadow_camera, map })
-      }
-      ResourceLogic::Update(shadow, light) => {
-        let shadow_camera = light.build_shadow_camera(node);
-        let map = shadows.maps.allocate(resolution);
-        *shadow = BasicShadowGPU { shadow_camera, map };
-        ResourceLogicResult::Update(shadow)
-      }
-    })
-    .clone()
+    .unwrap();
+  // .get_update_or_insert_with_logic(inner, |logic| match logic {
+  //   ResourceLogic::Create(light) => {
+  //     let shadow_camera = light.build_shadow_camera(node);
+  //     let map = shadows.maps.allocate(resolution);
+  //     ResourceLogicResult::Create(BasicShadowGPU { shadow_camera, map })
+  //   }
+  //   ResourceLogic::Update(shadow, light) => {
+  //     let shadow_camera = light.build_shadow_camera(node);
+  //     let map = shadows.maps.allocate(resolution);
+  //     *shadow = BasicShadowGPU { shadow_camera, map };
+  //     ResourceLogicResult::Update(shadow)
+  //   }
+  // })
+  // .clone()
+
+  todo!()
 }
 
 pub fn request_basic_shadow_map<T: Any + ShadowCameraCreator + Incremental>(
