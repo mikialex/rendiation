@@ -5,11 +5,22 @@ use std::{
 
 use crate::*;
 
-use incremental::Incremental;
-use reactive::{EventDispatcher, Signal, StreamSignal};
+use reactive::{EventDispatcher, Stream, StreamSignal};
 
 pub struct SceneItemRef<T: Incremental> {
   inner: Arc<RwLock<Identity<T>>>,
+}
+
+impl<T: Incremental + Send + Sync> SimpleIncremental for SceneItemRef<T> {
+  type Delta = Self;
+
+  fn s_apply(&mut self, delta: Self::Delta) {
+    *self = delta;
+  }
+
+  fn s_expand(&self, mut cb: impl FnMut(Self::Delta)) {
+    cb(self.clone())
+  }
 }
 
 impl<T: Incremental> Clone for SceneItemRef<T> {
@@ -25,16 +36,40 @@ impl<T: Incremental> From<T> for SceneItemRef<T> {
   }
 }
 
+pub struct Mutating<'a, T: Incremental> {
+  pub inner: &'a mut T,
+  pub collector: &'a mut dyn FnMut(&T, &T::Delta),
+}
+
+impl<'a, T: Incremental> Deref for Mutating<'a, T> {
+  type Target = T;
+
+  fn deref(&self) -> &Self::Target {
+    self.inner
+  }
+}
+
+impl<'a, T: Incremental> Mutating<'a, T> {
+  pub fn modify(&mut self, delta: T::Delta) {
+    (self.collector)(self.inner, &delta);
+    self.inner.apply(delta).unwrap()
+  }
+
+  pub fn trigger_manual(&mut self, delta: T::Delta) {
+    (self.collector)(self.inner, &delta);
+  }
+}
+
 impl<T: Incremental> SceneItemRef<T> {
   pub fn new(source: T) -> Self {
     let inner = Arc::new(RwLock::new(Identity::new(source)));
     Self { inner }
   }
 
-  pub fn mutate<R>(&self, mut mutator: impl FnMut(&mut Identity<T>) -> R) -> R {
+  pub fn mutate<R>(&self, mutator: impl FnOnce(Mutating<T>) -> R) -> R {
     let mut inner = self.inner.write().unwrap();
-    let r = mutator(&mut inner);
-    r
+    let i: &mut Identity<T> = &mut inner;
+    i.mutate(mutator)
   }
   pub fn visit<R>(&self, mut visitor: impl FnMut(&T) -> R) -> R {
     let inner = self.inner.read().unwrap();
@@ -94,7 +129,7 @@ static GLOBAL_ID: AtomicUsize = AtomicUsize::new(0);
 pub struct Identity<T: Incremental> {
   id: usize,
   inner: T,
-  change_dispatcher: EventDispatcher<T::Delta>,
+  change_dispatcher: EventDispatcher<DeltaView<'static, T>>,
   drop_dispatcher: EventDispatcher<()>,
 }
 
@@ -128,8 +163,25 @@ impl<T: Incremental> Identity<T> {
     }
   }
 
+  pub fn delta_stream(&self) -> Stream<DeltaView<'static, T>> {
+    self.change_dispatcher.stream()
+  }
+
   pub fn id(&self) -> usize {
     self.id
+  }
+
+  pub fn mutate<R>(&mut self, mutator: impl FnOnce(Mutating<T>) -> R) -> R {
+    let data = &mut self.inner;
+    let dispatcher = &self.change_dispatcher;
+    mutator(Mutating {
+      inner: data,
+      collector: &mut |data, delta| {
+        let view = DeltaView { data, delta };
+        let view = unsafe { std::mem::transmute(view) };
+        dispatcher.emit(&view);
+      },
+    })
   }
 }
 
@@ -141,7 +193,7 @@ impl<T: Default + Incremental> Default for Identity<T> {
 
 impl<T: Incremental> Drop for Identity<T> {
   fn drop(&mut self) {
-    self.drop_dispatcher.emit(&())
+    self.drop_dispatcher.emit(&());
   }
 }
 
@@ -153,73 +205,59 @@ impl<T: Incremental> std::ops::Deref for Identity<T> {
   }
 }
 
-impl<T: Incremental> Identity<T> {
-  pub fn mutate(&mut self, delta: T::Delta) {
-    self.change_dispatcher.emit(&delta);
-    self.inner.apply(delta).unwrap();
-  }
-}
-
-pub struct IdentityMapper<T, U> {
-  data: HashMap<usize, StreamSignal<T>>,
+/// A reactive map container
+pub struct IdentityMapper<T, U: Incremental> {
+  data: Arc<RwLock<HashMap<usize, StreamSignal<T>>>>,
   phantom: PhantomData<U>,
+  // refresher
+  updater: Arc<dyn Fn(&U, &U::Delta, &mut T) + Send + Sync>,
+  creator: Box<dyn Fn(&U) -> T>,
 }
 
 impl<T, U: Incremental> IdentityMapper<T, U> {
-  pub fn new(folder: impl Fn(U) -> T) -> Self {
-    Self {
+  pub fn new(
+    updater: impl Fn(&U, &U::Delta, &mut T) + Send + Sync + 'static,
+    creator: impl Fn(&U) -> T + 'static,
+  ) -> Self {
+    IdentityMapper {
       data: Default::default(),
-      phantom: Default::default(),
+      phantom: PhantomData,
+      updater: Arc::new(updater),
+      creator: Box::new(creator),
     }
   }
 }
 
-impl<T: 'static, U: 'static> IdentityMapper<T, U> {
-  /// this to bypass the borrow limits of get_update_or_insert_with
-  pub fn get_update_or_insert_with_logic<'a, 'b, X>(
-    &'b mut self,
-    source: &'a Identity<X>,
-    mut logic: impl FnMut(ResourceLogic<'a, 'b, T, X>) -> ResourceLogicResult<'b, T>,
-  ) -> &'b mut T {
-    let mut new_created = false;
-    let mut resource = self.data.entry(source.id).or_insert_with(|| {
-      let value = logic(ResourceLogic::Create(&source.inner)).unwrap_new();
-      new_created = true;
+impl<T: Send + Sync + 'static, U: Incremental> IdentityMapper<T, U> {
+  pub fn insert(&mut self, source: &Identity<U>) {
+    let id = source.id;
 
-      source.drop_dispatcher.stream().on(|v| self.data.remove(k));
-
-      let value_should_update = source.change_dispatcher.stream().map(|_| true).hold(true);
-
-      Mapped {
-        value,
-        value_should_update,
+    let data = Arc::downgrade(&self.data);
+    source.drop_dispatcher.stream().on(move |_| {
+      if let Some(data) = data.upgrade() {
+        let mut data = data.write().unwrap();
+        data.remove(&id);
       }
+      true
     });
 
-    if new_created || resource.value_should_update.sample() {
-      logic(ResourceLogic::Update(&mut resource.value, source)).unwrap_update();
-    }
-
-    &mut resource.value
+    let updater = self.updater.clone();
+    self.data.write().unwrap().entry(id).or_insert_with(|| {
+      source
+        .change_dispatcher
+        .stream()
+        .fold((self.creator)(source), move |view, mapped| {
+          updater(view.data, view.delta, mapped);
+          false
+        })
+    });
   }
 
-  /// direct function version
-  pub fn get_update_or_insert_with<X>(
-    &mut self,
-    source: &Identity<X>,
-    creator: impl FnOnce(&X) -> T,
-    updater: impl FnOnce(&mut T, &X),
-  ) -> &mut T {
-    self.get_update_or_insert_with_logic(source, |logic| match logic {
-      ResourceLogic::Create(x) => ResourceLogicResult::Create(creator(x)),
-      ResourceLogic::Update(t, x) => {
-        updater(t, x);
-        ResourceLogicResult::Update(t)
-      }
-    })
+  pub fn remove(&mut self, source: &Identity<U>) {
+    self.data.write().unwrap().remove(&source.id);
   }
 
-  pub fn get_unwrap<X>(&self, source: &Identity<X>) -> &T {
-    &self.data.get(&source.id).unwrap().value
-  }
+  // pub fn get(&mut self, source: &Identity<U>) {
+  //   self.data.remove(&source.id);
+  // }
 }

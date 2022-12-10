@@ -102,7 +102,7 @@ impl Scene {
 
   pub fn set_background(&self, background: Option<SceneBackGround>) {
     self.mutate(|mut scene| {
-      let background = background.map(|b| DeltaOrEntire::Entire(b));
+      let background = background.map(DeltaOrEntire::Entire);
       scene.modify(SceneInnerDelta::background(background));
     })
   }

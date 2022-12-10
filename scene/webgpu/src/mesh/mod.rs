@@ -40,7 +40,7 @@ impl WebGPUSceneMesh for SceneMeshType {
           mesh.check_update_gpu(res, sub_res, gpu, cb)
         }
       }
-      _ => &(),
+      _ => {}
     }
   }
 
