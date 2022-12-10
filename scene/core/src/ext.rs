@@ -39,7 +39,7 @@ impl DynamicExtension {
 impl SimpleIncremental for DynamicExtension {
   type Delta = ();
 
-  fn s_apply(&mut self, delta: Self::Delta) {}
+  fn s_apply(&mut self, _: Self::Delta) {}
 
-  fn s_expand(&self, cb: impl FnMut(Self::Delta)) {}
+  fn s_expand(&self, _: impl FnMut(Self::Delta)) {}
 }

@@ -383,8 +383,11 @@ fn update_plane(
     active.check_delta(state, &mut |axis_state| {
       self_active = axis_state.data.active;
       let color = map_color(color, *axis_state.data);
-      // plane.material.mutate(|m|m.modify(delta));
-      // .material.color = Vec4::new(color.x, color.y, color.z, 1.);
+      let color = Vec4::new(color.x, color.y, color.z, 1.);
+
+      plane.material.mutate(|mut m| {
+        m.modify(StateControlDelta::material(FlatMaterialDelta::color(color)));
+      });
     });
   }
 }
@@ -403,7 +406,11 @@ fn update_torus(
     active.check_delta(state, &mut |axis_state| {
       self_active = axis_state.data.active;
       let color = map_color(color, *axis_state.data);
-      // torus.material.write().material.color = Vec4::new(color.x, color.y, color.z, 1.);
+      let color = Vec4::new(color.x, color.y, color.z, 1.);
+
+      torus.material.mutate(|mut m| {
+        m.modify(StateControlDelta::material(FlatMaterialDelta::color(color)));
+      });
     });
   }
 }

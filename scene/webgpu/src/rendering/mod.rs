@@ -201,7 +201,7 @@ impl WebGPUScenePipelineHelper for SceneInner {
 
 impl<'a, T: PassContentWithCamera> PassContent for CameraRef<'a, T> {
   fn render(&mut self, pass: &mut SceneRenderPass) {
-    self.inner.render(pass, &self.camera);
+    self.inner.render(pass, self.camera);
   }
 }
 

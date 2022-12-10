@@ -1,4 +1,4 @@
-use incremental::{clone_self_incremental, SimpleIncremental};
+use incremental::{clone_self_incremental, DeltaOf, Incremental, SimpleIncremental};
 
 use crate::*;
 
@@ -105,15 +105,26 @@ pub struct StateControl<T> {
   pub states: MaterialStates,
 }
 
-impl<M: Clone + Send + Sync> SimpleIncremental for StateControl<M> {
-  type Delta = Self;
+#[derive(Clone)]
+#[allow(non_camel_case_types)]
+pub enum StateControlDelta<T: Incremental> {
+  material(DeltaOf<T>),
+  states(DeltaOf<MaterialStates>),
+}
+
+impl<M: Incremental + Clone + Send + Sync> SimpleIncremental for StateControl<M> {
+  type Delta = StateControlDelta<M>;
 
   fn s_apply(&mut self, delta: Self::Delta) {
-    *self = delta
+    match delta {
+      StateControlDelta::material(delta) => self.material.apply(delta).unwrap(),
+      StateControlDelta::states(state) => self.states = state,
+    }
   }
 
   fn s_expand(&self, mut cb: impl FnMut(Self::Delta)) {
-    cb(self.clone())
+    self.material.expand(|d| cb(StateControlDelta::material(d)));
+    cb(StateControlDelta::states(self.states.clone()))
   }
 }
 
