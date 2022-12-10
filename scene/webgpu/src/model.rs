@@ -57,25 +57,15 @@ pub fn setup_pass_core(
       let gpu = pass.ctx.gpu;
       let resources = &mut pass.resources;
       let pass_gpu = dispatcher;
-
-      let mut components = Vec::new();
-      let gpu_visitor = |gpu| unsafe {
-        //
-        components.push(gpu)
-      };
-
-      let camera_gpu = resources.cameras.check_update_gpu(camera, &mut gpu_visitor);
+      let camera_gpu = resources.cameras.check_update_gpu(camera, gpu);
 
       let net_visible = model_input.node.visit(|n| n.net_visible());
       if !net_visible {
         return;
       }
 
-      let node_gpu = override_node.unwrap_or_else(|| {
-        resources
-          .nodes
-          .check_update_gpu(&model_input.node, &mut gpu_visitor);
-      });
+      let node_gpu =
+        override_node.unwrap_or_else(|| resources.nodes.check_update_gpu(&model_input.node, gpu));
 
       let material = model.material.read();
       let material_gpu =

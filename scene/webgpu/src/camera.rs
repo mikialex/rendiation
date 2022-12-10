@@ -15,6 +15,7 @@ pub fn setup_viewport<'a>(cb: &CameraViewBounds, pass: &mut GPURenderPass<'a>, b
   )
 }
 
+#[derive(Default)]
 pub struct CameraGPUStore {
   inner: IdentityMapper<CameraGPU, SceneCameraInner>,
 }
@@ -34,19 +35,20 @@ impl std::ops::DerefMut for CameraGPUStore {
 }
 
 impl CameraGPUStore {
-  pub fn new(gpu: &GPU) -> Self {
-    todo!()
+  pub fn check_update_gpu(&mut self, camera: &SceneCamera, gpu: &GPU) -> &mut CameraGPU {
+    let camera = camera.read();
+    self.get_update_or_insert_with(
+      &camera,
+      |_| CameraGPU::new(gpu),
+      |camera_gpu, camera| {
+        camera_gpu.update(gpu, camera);
+      },
+    )
   }
 
-  pub fn check_update_gpu(&mut self, camera: &SceneCamera, cb: &mut dyn FnMut(&CameraGPU)) {
-    // let camera = camera.read();
-    // self.get_update_or_insert_with(
-    //   &camera,
-    //   |_| CameraGPU::new(gpu),
-    //   |camera_gpu, camera| {
-    //     camera_gpu.update(gpu, camera);
-    //   },
-    // )
+  pub fn expect_gpu(&self, camera: &SceneCamera) -> &CameraGPU {
+    let camera = camera.read();
+    self.get_unwrap(&camera)
   }
 }
 

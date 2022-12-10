@@ -46,8 +46,9 @@ impl<T> Source<T> {
       if (self.listeners[current])(event) {
         self.listeners.swap_remove(current);
         len -= 1;
-      };
-      current += 1;
+      } else {
+        current += 1;
+      }
     }
   }
 }

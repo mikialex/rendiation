@@ -1,3 +1,5 @@
+use incremental::Incremental;
+
 use crate::*;
 
 #[repr(C)]
@@ -107,7 +109,7 @@ pub fn compute_shadow_position(
 pub struct SceneDepth;
 
 impl PassContentWithSceneAndCamera for SceneDepth {
-  fn render(&mut self, pass: &mut SceneRenderPass, scene: &Scene, camera: &SceneCamera) {
+  fn render(&mut self, pass: &mut SceneRenderPass, scene: &SceneInner, camera: &SceneCamera) {
     let mut render_list = RenderList::default();
     render_list.prepare(scene, camera);
 
@@ -136,7 +138,7 @@ fn get_shadow_map<T: Any + ShadowCameraCreator + Incremental>(
 ) -> BasicShadowGPU {
   let resolution = Size::from_usize_pair_min_one((512, 512));
 
-  let mapper = resources
+  resources
     .scene
     .lights
     .inner
@@ -144,23 +146,21 @@ fn get_shadow_map<T: Any + ShadowCameraCreator + Incremental>(
     .or_insert_with(|| Box::<IdentityMapper<BasicShadowGPU, T>>::default())
     .as_any_mut()
     .downcast_mut::<IdentityMapper<BasicShadowGPU, T>>()
-    .unwrap();
-  // .get_update_or_insert_with_logic(inner, |logic| match logic {
-  //   ResourceLogic::Create(light) => {
-  //     let shadow_camera = light.build_shadow_camera(node);
-  //     let map = shadows.maps.allocate(resolution);
-  //     ResourceLogicResult::Create(BasicShadowGPU { shadow_camera, map })
-  //   }
-  //   ResourceLogic::Update(shadow, light) => {
-  //     let shadow_camera = light.build_shadow_camera(node);
-  //     let map = shadows.maps.allocate(resolution);
-  //     *shadow = BasicShadowGPU { shadow_camera, map };
-  //     ResourceLogicResult::Update(shadow)
-  //   }
-  // })
-  // .clone()
-
-  todo!()
+    .unwrap()
+    .get_update_or_insert_with_logic(inner, |logic| match logic {
+      ResourceLogic::Create(light) => {
+        let shadow_camera = light.build_shadow_camera(node);
+        let map = shadows.maps.allocate(resolution);
+        ResourceLogicResult::Create(BasicShadowGPU { shadow_camera, map })
+      }
+      ResourceLogic::Update(shadow, light) => {
+        let shadow_camera = light.build_shadow_camera(node);
+        let map = shadows.maps.allocate(resolution);
+        *shadow = BasicShadowGPU { shadow_camera, map };
+        ResourceLogicResult::Update(shadow)
+      }
+    })
+    .clone()
 }
 
 pub fn request_basic_shadow_map<T: Any + ShadowCameraCreator + Incremental>(

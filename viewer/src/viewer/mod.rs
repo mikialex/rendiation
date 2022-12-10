@@ -131,7 +131,7 @@ impl Viewer3dRenderingCtx {
   }
 
   pub fn render(&mut self, target: RenderTargetView, content: &mut Viewer3dContent) {
-    content.scene.maintain();
+    content.scene.read().maintain();
     self.resources.maintain();
 
     let mut ctx = FrameCtx::new(&self.gpu, target.size(), &self.pool, &mut self.resources);
@@ -144,17 +144,20 @@ impl Viewer3dRenderingCtx {
 
 impl Viewer3dContent {
   pub fn new() -> Self {
-    let mut scene = Scene::new();
+    let scene = SceneInner::new().into_ref();
 
-    load_default_scene(&mut scene);
+    load_default_scene(&scene);
+
+    let s = scene.clone();
+    let inner = s.read();
 
     let controller = OrbitController::default();
     let controller = ControllerWinitAdapter::new(controller);
 
-    let axis_helper = AxisHelper::new(scene.root());
-    let grid_helper = GridHelper::new(scene.root(), Default::default());
+    let axis_helper = AxisHelper::new(inner.root());
+    let grid_helper = GridHelper::new(inner.root(), Default::default());
 
-    let gizmo = Gizmo::new(scene.root());
+    let gizmo = Gizmo::new(inner.root());
 
     Self {
       scene,
@@ -170,7 +173,7 @@ impl Viewer3dContent {
   }
 
   pub fn resize_view(&mut self, size: (f32, f32)) {
-    if let Some(camera) = &mut self.scene.active_camera {
+    if let Some(camera) = &self.scene.read().active_camera {
       camera.resize(size)
     }
   }
@@ -200,13 +203,15 @@ impl Viewer3dContent {
       position_info.size.height as usize,
     ));
 
-    let interactive_ctx = self.scene.build_interactive_ctx(
+    let scene = &self.scene.read();
+
+    let interactive_ctx = scene.build_interactive_ctx(
       normalized_screen_position,
       camera_view_size,
       &self.pick_config,
     );
 
-    let mut ctx = EventCtx3D::new(states, event, &position_info, &self.scene, &interactive_ctx);
+    let mut ctx = EventCtx3D::new(states, event, &position_info, scene, &interactive_ctx);
 
     let keep_target_for_gizmo = self.gizmo.event(&mut ctx);
 
@@ -215,7 +220,7 @@ impl Viewer3dContent {
     }
 
     if let Some((MouseButton::Left, ElementState::Pressed)) = mouse(event) {
-      if let Some((nearest, _)) = self.scene.interaction_picking(&interactive_ctx) {
+      if let Some((nearest, _)) = scene.interaction_picking(&interactive_ctx) {
         self.selections.clear();
         self.selections.select(nearest);
 
@@ -228,7 +233,7 @@ impl Viewer3dContent {
 
   pub fn update_state(&mut self) {
     self.gizmo.update();
-    if let Some(camera) = &mut self.scene.active_camera {
+    if let Some(camera) = &self.scene.read().active_camera {
       camera.mutate(|camera| {
         self.controller.update(&mut ControlleeWrapper {
           controllee: &camera.node,

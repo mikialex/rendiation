@@ -30,17 +30,21 @@ impl SceneCamera {
       projection_matrix: Mat4::one(),
       node,
     };
-    inner.projection_changed();
+    inner
+      .projection
+      .update_projection(&mut inner.projection_matrix);
 
     inner.into()
   }
 
-  pub fn resize(&mut self, size: (f32, f32)) {
+  pub fn resize(&self, size: (f32, f32)) {
     self.mutate(|mut camera| {
       let resize = CameraProjectionDelta::Resize(size);
       camera.modify(SceneCameraInnerDelta::projection(resize));
-      // camera.projection_changed();
-      todo!()
+
+      let mut new_project = Mat4::one();
+      camera.projection.update_projection(&mut new_project);
+      camera.modify(SceneCameraInnerDelta::projection_matrix(new_project));
     })
   }
 
@@ -144,11 +148,5 @@ impl SceneCameraInner {
     let height: usize = frame_size.height.into();
     let height = height as f32 * self.bounds.height;
     (width, height).into()
-  }
-
-  pub fn projection_changed(&mut self) {
-    self
-      .projection
-      .update_projection(&mut self.projection_matrix);
   }
 }

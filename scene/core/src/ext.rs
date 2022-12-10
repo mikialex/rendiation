@@ -36,24 +36,10 @@ impl DynamicExtension {
   }
 }
 
-impl Incremental for DynamicExtension {
+impl SimpleIncremental for DynamicExtension {
   type Delta = ();
 
-  type Error = ();
+  fn s_apply(&mut self, delta: Self::Delta) {}
 
-  type Mutator<'a> = SimpleMutator<'a, Self>
-  where
-    Self: 'a;
-
-  fn create_mutator<'a>(&'a mut self, _: &'a mut dyn FnMut(Self::Delta)) -> Self::Mutator<'a> {
-    todo!()
-  }
-
-  fn apply(&mut self, _delta: Self::Delta) -> Result<(), Self::Error> {
-    todo!()
-  }
-
-  fn expand(&self, _cb: impl FnMut(Self::Delta)) {
-    todo!()
-  }
+  fn s_expand(&self, cb: impl FnMut(Self::Delta)) {}
 }

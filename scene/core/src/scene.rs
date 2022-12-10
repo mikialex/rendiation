@@ -5,6 +5,7 @@ use incremental::Incremental;
 use rendiation_algebra::PerspectiveProjection;
 use tree::TreeCollection;
 
+pub type SceneLightHandle = Handle<SceneLight>;
 pub type SceneModelHandle = Handle<SceneModel>;
 pub type SceneCameraHandle = Handle<SceneCamera>;
 
@@ -98,6 +99,31 @@ impl Scene {
       scene.trigger_manual(delta);
       handle
     })
+  }
+
+  pub fn insert_light(&self, light: SceneLight) -> SceneLightHandle {
+    self.mutate(|mut scene| {
+      let handle = scene.inner.lights.insert(light.clone());
+      let delta = ArenaDelta::Insert((light, handle));
+      let delta = SceneInnerDelta::lights(delta);
+      scene.trigger_manual(delta);
+      handle
+    })
+  }
+
+  pub fn insert_camera(&self, camera: SceneCamera) -> SceneCameraHandle {
+    self.mutate(|mut scene| {
+      let handle = scene.inner.cameras.insert(camera.clone());
+      let delta = ArenaDelta::Insert((camera, handle));
+      let delta = SceneInnerDelta::cameras(delta);
+      scene.trigger_manual(delta);
+      handle
+    })
+  }
+
+  pub fn set_active_camera(&self, camera: Option<SceneCamera>) {
+    let camera = camera.map(DeltaOrEntire::Entire);
+    self.mutate(|mut scene| scene.modify(SceneInnerDelta::active_camera(camera)))
   }
 
   pub fn set_background(&self, background: Option<SceneBackGround>) {

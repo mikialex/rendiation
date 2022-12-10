@@ -1,4 +1,5 @@
 pub mod states;
+use incremental::Incremental;
 pub use states::*;
 pub mod flat;
 pub use flat::*;
@@ -13,7 +14,7 @@ pub use normal_mapping::*;
 
 use crate::*;
 
-pub trait WebGPUMaterial: Clone + Any {
+pub trait WebGPUMaterial: Clone + Any + Incremental {
   type GPU: RenderComponentAny;
   fn create_gpu(&self, res: &mut GPUResourceSubCache, gpu: &GPU) -> Self::GPU;
   fn is_keep_mesh_shape(&self) -> bool;
@@ -26,8 +27,7 @@ pub trait WebGPUSceneMaterial: Send + Sync {
     res: &'a mut GPUMaterialCache,
     sub_res: &mut GPUResourceSubCache,
     gpu: &GPU,
-    cb: &mut dyn FnMut(&dyn RenderComponentAny),
-  );
+  ) -> &'a dyn RenderComponentAny;
   fn is_keep_mesh_shape(&self) -> bool;
   fn is_transparent(&self) -> bool;
 }
@@ -38,18 +38,19 @@ impl WebGPUSceneMaterial for SceneMaterialType {
     res: &'a mut GPUMaterialCache,
     sub_res: &mut GPUResourceSubCache,
     gpu: &GPU,
-    cb: &mut dyn FnMut(&dyn RenderComponentAny),
-  ) {
+  ) -> &'a dyn RenderComponentAny {
     match self {
-      SceneMaterialType::PhysicalSpecularGlossiness(m) => m.check_update_gpu(res, sub_res, gpu, cb),
-      SceneMaterialType::PhysicalMetallicRoughness(m) => m.check_update_gpu(res, sub_res, gpu, cb),
-      SceneMaterialType::Flat(m) => m.check_update_gpu(res, sub_res, gpu, cb),
+      SceneMaterialType::PhysicalSpecularGlossiness(m) => m.check_update_gpu(res, sub_res, gpu),
+      SceneMaterialType::PhysicalMetallicRoughness(m) => m.check_update_gpu(res, sub_res, gpu),
+      SceneMaterialType::Flat(m) => m.check_update_gpu(res, sub_res, gpu),
       SceneMaterialType::Foreign(m) => {
         if let Some(m) = m.downcast_ref::<Box<dyn WebGPUSceneMaterial>>() {
-          m.check_update_gpu(res, sub_res, gpu, cb)
+          m.check_update_gpu(res, sub_res, gpu)
+        } else {
+          &()
         }
       }
-      _ => {}
+      _ => &(),
     }
   }
 
@@ -85,15 +86,14 @@ impl WebGPUSceneMaterial for SceneMaterialType {
   }
 }
 
-impl<M: WebGPUMaterial + Send + Sync + Incremental> WebGPUSceneMaterial for SceneItemRef<M> {
+impl<M: WebGPUMaterial + Send + Sync> WebGPUSceneMaterial for SceneItemRef<M> {
   fn check_update_gpu<'a>(
     &self,
     res: &'a mut GPUMaterialCache,
     sub_res: &mut GPUResourceSubCache,
     gpu: &GPU,
-    cb: &mut dyn FnMut(&dyn RenderComponentAny),
-  ) {
-    res.update_material(&self.read(), gpu, sub_res, cb)
+  ) -> &'a dyn RenderComponentAny {
+    res.update_material(&self.read(), gpu, sub_res)
   }
   fn is_keep_mesh_shape(&self) -> bool {
     self.read().deref().is_keep_mesh_shape()
@@ -106,30 +106,29 @@ impl<M: WebGPUMaterial + Send + Sync + Incremental> WebGPUSceneMaterial for Scen
 
 type MaterialIdentityMapper<T> = IdentityMapper<<T as WebGPUMaterial>::GPU, T>;
 impl GPUMaterialCache {
-  pub fn update_material<M: WebGPUMaterial + Incremental>(
+  pub fn update_material<M: WebGPUMaterial>(
     &mut self,
     m: &Identity<M>,
     gpu: &GPU,
     res: &mut GPUResourceSubCache,
-    cb: &mut dyn FnMut(&dyn RenderComponentAny),
-  ) {
+  ) -> &M::GPU {
     let type_id = TypeId::of::<M>();
 
-    // let mapper = self
-    //   .inner
-    //   .entry(type_id)
-    //   .or_insert_with(|| Box::<MaterialIdentityMapper<M>>::default())
-    //   .as_any_mut()
-    //   .downcast_mut::<MaterialIdentityMapper<M>>()
-    //   .unwrap();
+    let mapper = self
+      .inner
+      .entry(type_id)
+      .or_insert_with(|| Box::<MaterialIdentityMapper<M>>::default())
+      .as_any_mut()
+      .downcast_mut::<MaterialIdentityMapper<M>>()
+      .unwrap();
 
-    // mapper.get_update_or_insert_with_logic(m, |x| match x {
-    //   ResourceLogic::Create(m) => ResourceLogicResult::Create(M::create_gpu(m, res, gpu)),
-    //   ResourceLogic::Update(gpu_m, m) => {
-    //     // todo check should really recreate?
-    //     *gpu_m = M::create_gpu(m, res, gpu);
-    //     ResourceLogicResult::Update(gpu_m)
-    //   }
-    // })
+    mapper.get_update_or_insert_with_logic(m, |x| match x {
+      ResourceLogic::Create(m) => ResourceLogicResult::Create(M::create_gpu(m, res, gpu)),
+      ResourceLogic::Update(gpu_m, m) => {
+        // todo check should really recreate?
+        *gpu_m = M::create_gpu(m, res, gpu);
+        ResourceLogicResult::Update(gpu_m)
+      }
+    })
   }
 }

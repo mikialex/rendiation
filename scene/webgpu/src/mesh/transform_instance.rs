@@ -1,3 +1,5 @@
+use incremental::SimpleIncremental;
+
 use crate::*;
 
 #[derive(Clone)]
@@ -10,11 +12,11 @@ impl<M: Clone + Send + Sync> SimpleIncremental for TransformInstance<M> {
   type Delta = Self;
 
   fn s_apply(&mut self, delta: Self::Delta) {
-    todo!()
+    *self = delta
   }
 
-  fn s_expand(&self, cb: impl FnMut(Self::Delta)) {
-    todo!()
+  fn s_expand(&self, mut cb: impl FnMut(Self::Delta)) {
+    cb(self.clone())
   }
 }
 
@@ -43,8 +45,6 @@ impl<M: WebGPUMesh> ShaderGraphProvider for TransformInstanceGPU<M> {
 
       let world_mat = builder.query::<TransformInstanceMat>()?;
       let world_normal_mat: Node<Mat3<f32>> = world_mat.into();
-      // let world_normal_mat = world_normal_mat.inverse().transpose();
-      //  todo, naga not fully support wgsl spec now, so we have to comment it!
 
       if let Ok(position) = builder.query::<GeometryPosition>() {
         builder.register::<GeometryPosition>((world_mat * (position, 1.).into()).xyz());
@@ -68,7 +68,7 @@ impl<M: WebGPUMesh> ShaderPassBuilder for TransformInstanceGPU<M> {
   }
 }
 
-impl<M: WebGPUMesh> WebGPUMesh for TransformInstance<M> {
+impl<M: WebGPUMesh + Clone> WebGPUMesh for TransformInstance<M> {
   type GPU = TransformInstanceGPU<M>;
 
   fn update(&self, gpu_mesh: &mut Self::GPU, gpu: &webgpu::GPU, storage: &mut anymap::AnyMap) {

@@ -1,28 +1,24 @@
 use crate::*;
 
+#[derive(Default)]
 pub struct NodeGPUStore {
   inner: IdentityMapper<TransformGPU, SceneNodeDataImpl>,
 }
 
 impl NodeGPUStore {
-  pub fn new(gpu: &GPU) -> Self {
-    //
-  }
-}
+  pub fn check_update_gpu(&mut self, n: &SceneNode, gpu: &GPU) -> &TransformGPU {
+    n.visit(|node| {
+      let r = self.get_update_or_insert_with(
+        node,
+        |_node| TransformGPU::new(gpu, n, None),
+        |node_gpu, _node| {
+          node_gpu.update(gpu, n, None);
+        },
+      );
 
-impl NodeGPUStore {
-  pub fn check_update_gpu(&mut self, n: &SceneNode, cb: &mut dyn FnMut(&TransformGPU)) {
-    // n.visit(|node| {
-    //   let r = self.get_update_or_insert_with(
-    //     node,
-    //     |_node| TransformGPU::new(gpu, n, None),
-    //     |node_gpu, _node| {
-    //       node_gpu.update(gpu, n, None);
-    //     },
-    //   );
-
-    //   cb(r);
-    // })
+      // todo can i workaround this?
+      unsafe { std::mem::transmute(r) }
+    })
   }
 }
 

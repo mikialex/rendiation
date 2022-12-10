@@ -42,7 +42,7 @@ impl HelperLineModel {
     let mesh = SceneMeshType::Foreign(Arc::new(mesh));
 
     if let SceneModelType::Standard(model) = &self.inner.model {
-      model.write().mesh = mesh.into();
+      model.mutate(|mut model| model.modify(StandardModelDelta::mesh(mesh.into())))
     }
   }
 }

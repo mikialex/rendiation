@@ -1,3 +1,4 @@
+use incremental::{Incremental, SimpleIncremental};
 use rendiation_renderable_mesh::{mesh::IntersectAbleGroupedMesh, GPUMeshData, TypedMeshGPU};
 
 pub mod fatline;
@@ -15,8 +16,7 @@ pub trait WebGPUSceneMesh: Any + Send + Sync {
     res: &'a mut GPUMeshCache,
     sub_res: &mut AnyMap,
     gpu: &GPU,
-    cb: &mut dyn FnMut(&dyn RenderComponentAny),
-  );
+  ) -> &'a dyn RenderComponentAny;
 
   fn topology(&self) -> webgpu::PrimitiveTopology;
   fn draw_impl(&self, group: MeshDrawGroup) -> DrawCommand;
@@ -31,16 +31,17 @@ impl WebGPUSceneMesh for SceneMeshType {
     res: &'a mut GPUMeshCache,
     sub_res: &mut AnyMap,
     gpu: &GPU,
-    cb: &mut dyn FnMut(&dyn RenderComponentAny),
-  ) {
+  ) -> &'a dyn RenderComponentAny {
     match self {
-      SceneMeshType::AttributesMesh(m) => m.check_update_gpu(res, sub_res, gpu, cb),
+      SceneMeshType::AttributesMesh(m) => m.check_update_gpu(res, sub_res, gpu),
       SceneMeshType::Foreign(mesh) => {
         if let Some(mesh) = mesh.downcast_ref::<Box<dyn WebGPUSceneMesh>>() {
-          mesh.check_update_gpu(res, sub_res, gpu, cb)
+          mesh.check_update_gpu(res, sub_res, gpu)
+        } else {
+          &()
         }
       }
-      _ => {}
+      _ => &(),
     }
   }
 
@@ -96,9 +97,8 @@ impl WebGPUSceneMesh for SceneMesh {
     res: &'a mut GPUMeshCache,
     sub_res: &mut AnyMap,
     gpu: &GPU,
-    cb: &mut dyn FnMut(&dyn RenderComponentAny),
-  ) {
-    self.read().check_update_gpu(res, sub_res, gpu, cb)
+  ) -> &'a dyn RenderComponentAny {
+    self.read().check_update_gpu(res, sub_res, gpu)
   }
 
   fn topology(&self) -> webgpu::PrimitiveTopology {
@@ -114,15 +114,14 @@ impl WebGPUSceneMesh for SceneMesh {
   }
 }
 
-impl<M: WebGPUMesh + Incremental> WebGPUSceneMesh for Identity<M> {
+impl<M: WebGPUMesh> WebGPUSceneMesh for Identity<M> {
   fn check_update_gpu<'a>(
     &self,
     res: &'a mut GPUMeshCache,
     sub_res: &mut AnyMap,
     gpu: &GPU,
-    cb: &mut dyn FnMut(&dyn RenderComponentAny),
-  ) {
-    res.update_mesh(self, gpu, sub_res, cb)
+  ) -> &'a dyn RenderComponentAny {
+    res.update_mesh(self, gpu, sub_res)
   }
   fn draw_impl(&self, group: MeshDrawGroup) -> DrawCommand {
     self.deref().draw_impl(group)
@@ -137,45 +136,33 @@ impl<M: WebGPUMesh + Incremental> WebGPUSceneMesh for Identity<M> {
 }
 
 impl GPUMeshCache {
-  pub fn update_mesh<M: WebGPUMesh + Incremental>(
+  pub fn update_mesh<M: WebGPUMesh>(
     &mut self,
     m: &Identity<M>,
     gpu: &GPU,
     storage: &mut AnyMap,
-    cb: &mut dyn FnMut(&dyn RenderComponentAny),
-  ) {
+  ) -> &dyn RenderComponentAny {
     let type_id = TypeId::of::<M>();
 
     let mapper = self
       .inner
       .entry(type_id)
-      .or_insert_with(|| {
-        let mapper = IdentityMapper::new(
-          |source, source_delta, gpu| {
-            todo!() //
-          },
-          |source| {
-            todo!() //
-          },
-        );
-        Box::new(mapper)
-      })
+      .or_insert_with(|| Box::<MeshIdentityMapper<M>>::default())
       .as_any_mut()
       .downcast_mut::<MeshIdentityMapper<M>>()
       .unwrap();
-
-    // mapper.get_update_or_insert_with_logic(m, |x| match x {
-    //   ResourceLogic::Create(m) => ResourceLogicResult::Create(m.create(gpu, storage)),
-    //   ResourceLogic::Update(gpu_m, m) => {
-    //     m.update(gpu_m, gpu, storage);
-    //     ResourceLogicResult::Update(gpu_m)
-    //   }
-    // })
+    mapper.get_update_or_insert_with_logic(m, |x| match x {
+      ResourceLogic::Create(m) => ResourceLogicResult::Create(m.create(gpu, storage)),
+      ResourceLogic::Update(gpu_m, m) => {
+        m.update(gpu_m, gpu, storage);
+        ResourceLogicResult::Update(gpu_m)
+      }
+    })
   }
 }
 
 type MeshIdentityMapper<T> = IdentityMapper<<T as WebGPUMesh>::GPU, T>;
-pub trait WebGPUMesh: Any + Send + Sync {
+pub trait WebGPUMesh: Any + Send + Sync + Incremental {
   type GPU: RenderComponent;
   fn update(&self, gpu_mesh: &mut Self::GPU, gpu: &GPU, storage: &mut AnyMap);
   fn create(&self, gpu: &GPU, storage: &mut AnyMap) -> Self::GPU;
@@ -190,16 +177,15 @@ pub trait WebGPUMesh: Any + Send + Sync {
 pub struct MeshSource<T> {
   inner: T,
 }
-
-impl<T: Clone + Sync + Send> SimpleIncremental for MeshSource<T> {
+impl<M: Clone + Send + Sync> SimpleIncremental for MeshSource<M> {
   type Delta = Self;
 
   fn s_apply(&mut self, delta: Self::Delta) {
-    todo!()
+    *self = delta
   }
 
-  fn s_expand(&self, cb: impl FnMut(Self::Delta)) {
-    todo!()
+  fn s_expand(&self, mut cb: impl FnMut(Self::Delta)) {
+    cb(self.clone())
   }
 }
 
@@ -247,7 +233,7 @@ impl<T: IntersectAbleGroupedMesh> IntersectAbleGroupedMesh for MeshSource<T> {
 
 impl<T> WebGPUMesh for MeshSource<T>
 where
-  T: GPUMeshData<GPU = TypedMeshGPU<T>> + IntersectAbleGroupedMesh + Any + Send + Sync,
+  T: GPUMeshData<GPU = TypedMeshGPU<T>> + IntersectAbleGroupedMesh + Any + Send + Sync + Clone,
 {
   type GPU = TypedMeshGPU<T>;
 
@@ -272,7 +258,7 @@ where
   }
 }
 
-impl<T: WebGPUMesh + Any + Incremental> WebGPUSceneMesh for SceneItemRef<T> {
+impl<T: WebGPUMesh + Any> WebGPUSceneMesh for SceneItemRef<T> {
   fn topology(&self) -> webgpu::PrimitiveTopology {
     self.read().topology()
   }
@@ -287,10 +273,9 @@ impl<T: WebGPUMesh + Any + Incremental> WebGPUSceneMesh for SceneItemRef<T> {
     res: &'a mut GPUMeshCache,
     sub_res: &mut AnyMap,
     gpu: &GPU,
-    cb: &mut dyn FnMut(&dyn RenderComponentAny),
-  ) {
+  ) -> &'a dyn RenderComponentAny {
     let inner = self.read();
-    inner.check_update_gpu(res, sub_res, gpu, cb)
+    inner.check_update_gpu(res, sub_res, gpu)
   }
 
   fn draw_impl(&self, group: MeshDrawGroup) -> DrawCommand {
@@ -300,7 +285,7 @@ impl<T: WebGPUMesh + Any + Incremental> WebGPUSceneMesh for SceneItemRef<T> {
 
 impl<T> WebGPUMesh for SceneItemRef<T>
 where
-  T: WebGPUMesh + Incremental,
+  T: WebGPUMesh,
 {
   type GPU = T::GPU;
 

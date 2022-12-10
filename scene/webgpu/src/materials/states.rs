@@ -1,3 +1,5 @@
+use incremental::{clone_self_incremental, SimpleIncremental};
+
 use crate::*;
 
 #[derive(Debug, Clone)]
@@ -11,6 +13,8 @@ pub struct MaterialStates {
   pub front_face: FrontFace,
   pub cull_mode: Option<Face>,
 }
+
+clone_self_incremental!(MaterialStates);
 
 /// manually impl because lint complains
 impl PartialEq for MaterialStates {
@@ -101,15 +105,15 @@ pub struct StateControl<T> {
   pub states: MaterialStates,
 }
 
-impl<T: Clone + Sync + Send> SimpleIncremental for StateControl<T> {
+impl<M: Clone + Send + Sync> SimpleIncremental for StateControl<M> {
   type Delta = Self;
 
   fn s_apply(&mut self, delta: Self::Delta) {
-    todo!()
+    *self = delta
   }
 
-  fn s_expand(&self, cb: impl FnMut(Self::Delta)) {
-    todo!()
+  fn s_expand(&self, mut cb: impl FnMut(Self::Delta)) {
+    cb(self.clone())
   }
 }
 

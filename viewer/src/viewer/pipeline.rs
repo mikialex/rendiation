@@ -40,7 +40,7 @@ impl ViewerPipeline {
     content: &mut Viewer3dContent,
     final_target: RenderTargetView,
   ) {
-    let scene = &mut content.scene;
+    let scene = &content.scene.read();
 
     ctx.resolve_resource_mipmaps();
 
