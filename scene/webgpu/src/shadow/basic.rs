@@ -144,7 +144,6 @@ fn get_shadow_map<T: Any + ShadowCameraCreator + Incremental>(
     .inner
     .entry(TypeId::of::<T>())
     .or_insert_with(|| Box::<IdentityMapper<BasicShadowGPU, T>>::default())
-    .as_any_mut()
     .downcast_mut::<IdentityMapper<BasicShadowGPU, T>>()
     .unwrap()
     .get_update_or_insert_with_logic(inner, |logic| match logic {

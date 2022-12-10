@@ -104,3 +104,13 @@ where
     self.expand(|d| cb(Box::new(d)))
   }
 }
+
+pub trait EnumWrap<U>: Sized {
+  fn wrap(self, wrapper: impl FnOnce(Self) -> U) -> U;
+}
+
+impl<T, U> EnumWrap<U> for T {
+  fn wrap(self, wrapper: impl FnOnce(Self) -> U) -> U {
+    wrapper(self)
+  }
+}

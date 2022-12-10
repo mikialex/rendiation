@@ -124,33 +124,6 @@ pub struct GPUResourceCache {
   pub nodes: NodeGPUStore,
 }
 
-impl GPUResourceCache {
-  pub fn maintain(&mut self) {
-    self.cameras.maintain();
-    self.nodes.maintain();
-    self.content.texture_2ds.maintain();
-    self.content.texture_cubes.maintain();
-    self
-      .scene
-      .lights
-      .inner
-      .values_mut()
-      .for_each(|v| v.maintain());
-    self
-      .scene
-      .materials
-      .inner
-      .values_mut()
-      .for_each(|v| v.maintain());
-    self
-      .scene
-      .meshes
-      .inner
-      .values_mut()
-      .for_each(|v| v.maintain());
-  }
-}
-
 impl Default for GPUResourceCache {
   fn default() -> Self {
     Self {
@@ -165,15 +138,15 @@ impl Default for GPUResourceCache {
 
 #[derive(Default)]
 pub struct GPULightCache {
-  pub inner: HashMap<TypeId, Box<dyn RequireMaintain>>,
+  pub inner: HashMap<TypeId, Box<dyn Any>>,
 }
 #[derive(Default)]
 pub struct GPUMaterialCache {
-  pub inner: HashMap<TypeId, Box<dyn RequireMaintain>>,
+  pub inner: HashMap<TypeId, Box<dyn Any>>,
 }
 #[derive(Default)]
 pub struct GPUMeshCache {
-  pub inner: HashMap<TypeId, Box<dyn RequireMaintain>>,
+  pub inner: HashMap<TypeId, Box<dyn Any>>,
 }
 
 #[derive(Default)]

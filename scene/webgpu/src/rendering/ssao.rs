@@ -28,7 +28,7 @@ impl SSAO {
             break rand_p;
           }
         };
-        let rand_p = Vec4::new(rand_p.x, rand_p.y, rand_p.z, 0.);
+        let rand_p = rand_p.expand_with_one();
         let scale = (i as f32) / (parameters.sample_count as f32);
         rand_p * scale
       })

@@ -132,7 +132,6 @@ impl Viewer3dRenderingCtx {
 
   pub fn render(&mut self, target: RenderTargetView, content: &mut Viewer3dContent) {
     content.scene.read().maintain();
-    self.resources.maintain();
 
     let mut ctx = FrameCtx::new(&self.gpu, target.size(), &self.pool, &mut self.resources);
 

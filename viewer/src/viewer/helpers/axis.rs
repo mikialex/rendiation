@@ -195,9 +195,8 @@ impl Arrow {
 }
 
 pub fn solid_material(color: impl Into<Vec3<f32>>) -> ArrowMaterial {
-  let color = color.into();
   FlatMaterial {
-    color: Vec4::new(color.x, color.y, color.z, 1.0),
+    color: color.into().expand_with_one(),
   }
   .use_state_helper_like()
 }

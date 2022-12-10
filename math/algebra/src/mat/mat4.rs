@@ -128,8 +128,7 @@ where
   type Output = Vec3<T>;
 
   fn mul(self, v: Vec3<T>) -> Vec3<T> {
-    let v = Vec4::new(v.x, v.y, v.z, T::one());
-    let v = self * v;
+    let v = self * v.expand_with_one();
     Vec3::new(v.x, v.y, v.z) / v.w
   }
 }

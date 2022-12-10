@@ -148,7 +148,6 @@ impl GPUMeshCache {
       .inner
       .entry(type_id)
       .or_insert_with(|| Box::<MeshIdentityMapper<M>>::default())
-      .as_any_mut()
       .downcast_mut::<MeshIdentityMapper<M>>()
       .unwrap();
     mapper.get_update_or_insert_with_logic(m, |x| match x {
