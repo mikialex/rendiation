@@ -48,6 +48,15 @@ impl SceneCamera {
     })
   }
 
+  // todo fix
+  pub fn notify_node_changed(&self) {
+    self.mutate(|mut camera| {
+      camera.modify(SceneCameraInnerDelta::projection_matrix(
+        camera.projection_matrix,
+      ));
+    });
+  }
+
   /// normalized_position: -1 to 1
   pub fn cast_world_ray(&self, normalized_position: Vec2<f32>) -> Ray3<f32> {
     self.cast_ray(normalized_position)

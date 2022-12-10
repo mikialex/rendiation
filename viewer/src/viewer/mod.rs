@@ -234,11 +234,11 @@ impl Viewer3dContent {
   pub fn update_state(&mut self) {
     self.gizmo.update();
     if let Some(camera) = &self.scene.read().active_camera {
-      camera.mutate(|camera| {
-        self.controller.update(&mut ControlleeWrapper {
-          controllee: &camera.node,
-        });
-      })
+      if self.controller.update(&mut ControlleeWrapper {
+        controllee: &camera.read().node,
+      }) {
+        camera.notify_node_changed();
+      }
     }
   }
 }

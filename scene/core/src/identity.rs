@@ -85,14 +85,6 @@ impl<T: Incremental> SceneItemRef<T> {
       .map(|inner| SceneItemRefGuard { inner })
       .unwrap()
   }
-  pub fn write(&self) -> SceneItemRefMutGuard<T> {
-    self
-      .inner
-      .write()
-      .ok()
-      .map(|inner| SceneItemRefMutGuard { inner })
-      .unwrap()
-  }
 }
 
 pub struct SceneItemRefGuard<'a, T: Incremental> {
@@ -281,7 +273,9 @@ impl<T: 'static, U: 'static + ?Sized> IdentityMapper<T, U> {
 
       let weak_changed = Arc::downgrade(&self.changed);
       source.change_dispatcher.stream().on(move |_| {
+        println!("update1");
         if let Some(change) = weak_changed.upgrade() {
+          println!("update");
           change.write().unwrap().insert(id);
           false
         } else {
