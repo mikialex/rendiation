@@ -9,7 +9,7 @@ use incremental::Incremental;
 use super::identity::Identity;
 
 pub struct IdentityMapper<T, U: ?Sized> {
-  data: HashMap<usize, T>,
+  data: HashMap<usize, (T, bool)>,
   to_remove: Arc<RwLock<Vec<usize>>>,
   changed: Arc<RwLock<HashSet<usize>>>,
   phantom: PhantomData<U>,
@@ -56,6 +56,9 @@ impl<T: 'static, U: 'static + ?Sized> IdentityMapper<T, U> {
     self.to_remove.write().unwrap().drain(..).for_each(|id| {
       self.data.remove(&id);
     });
+    self.changed.write().unwrap().drain().for_each(|id| {
+      self.data.get_mut(&id).unwrap().1 = true;
+    })
   }
 
   /// this to bypass the borrow limits of get_update_or_insert_with
@@ -69,7 +72,7 @@ impl<T: 'static, U: 'static + ?Sized> IdentityMapper<T, U> {
     let mut new_created = false;
     let id = source.id;
 
-    let mut resource = self.data.entry(id).or_insert_with(|| {
+    let (resource, is_dirty) = self.data.entry(id).or_insert_with(|| {
       let item = logic(ResourceLogic::Create(&source.inner)).unwrap_new();
       new_created = true;
 
@@ -93,14 +96,15 @@ impl<T: 'static, U: 'static + ?Sized> IdentityMapper<T, U> {
         }
       });
 
-      item
+      (item, false)
     });
 
-    if new_created || self.changed.write().unwrap().remove(&source.id) {
-      resource = logic(ResourceLogic::Update(resource, source)).unwrap_update();
+    if new_created || *is_dirty {
+      *is_dirty = false;
+      logic(ResourceLogic::Update(resource, source)).unwrap_update()
+    } else {
+      resource
     }
-
-    resource
   }
 
   pub fn get_update_or_insert_with<X: Incremental>(
@@ -119,6 +123,6 @@ impl<T: 'static, U: 'static + ?Sized> IdentityMapper<T, U> {
   }
 
   pub fn get_unwrap<X: Incremental>(&self, source: &Identity<X>) -> &T {
-    self.data.get(&source.id).unwrap()
+    &self.data.get(&source.id).unwrap().0
   }
 }
