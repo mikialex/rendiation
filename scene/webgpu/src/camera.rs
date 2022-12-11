@@ -15,9 +15,29 @@ pub fn setup_viewport<'a>(cb: &CameraViewBounds, pass: &mut GPURenderPass<'a>, b
   )
 }
 
-#[derive(Default)]
 pub struct CameraGPUStore {
   inner: IdentityMapper<CameraGPU, SceneCameraInner>,
+}
+
+impl Default for CameraGPUStore {
+  fn default() -> Self {
+    let inner = IdentityMapper::<CameraGPU, SceneCameraInner>::default().with_extra_source(
+      |source, changer, id| {
+        let weak_changed = std::sync::Arc::downgrade(changer);
+        let stream = source.node.visit(|node| node.change_dispatcher.stream());
+
+        stream.on(move |_| {
+          if let Some(change) = weak_changed.upgrade() {
+            change.write().unwrap().insert(id);
+            false
+          } else {
+            true
+          }
+        });
+      },
+    );
+    Self { inner }
+  }
 }
 
 impl std::ops::Deref for CameraGPUStore {

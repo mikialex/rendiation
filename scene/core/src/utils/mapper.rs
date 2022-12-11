@@ -8,16 +8,18 @@ use incremental::Incremental;
 
 use super::identity::Identity;
 
-pub struct IdentityMapper<T, U: ?Sized> {
+pub struct IdentityMapper<T, U> {
+  extra_change_source: Option<Box<dyn Fn(&U, &Arc<RwLock<HashSet<usize>>>, usize)>>,
   data: HashMap<usize, (T, bool)>,
   to_remove: Arc<RwLock<Vec<usize>>>,
   changed: Arc<RwLock<HashSet<usize>>>,
   phantom: PhantomData<U>,
 }
 
-impl<T, U: ?Sized> Default for IdentityMapper<T, U> {
+impl<T, U> Default for IdentityMapper<T, U> {
   fn default() -> Self {
     Self {
+      extra_change_source: None,
       data: Default::default(),
       to_remove: Default::default(),
       changed: Default::default(),
@@ -51,7 +53,15 @@ impl<'a, T> ResourceLogicResult<'a, T> {
   }
 }
 
-impl<T: 'static, U: 'static + ?Sized> IdentityMapper<T, U> {
+impl<T: 'static, U: Incremental> IdentityMapper<T, U> {
+  pub fn with_extra_source(
+    mut self,
+    extra: impl Fn(&U, &Arc<RwLock<HashSet<usize>>>, usize) + 'static,
+  ) -> Self {
+    self.extra_change_source = Some(Box::new(extra));
+    self
+  }
+
   pub fn check_clean_up(&mut self) {
     self.to_remove.write().unwrap().drain(..).for_each(|id| {
       self.data.remove(&id);
@@ -62,10 +72,10 @@ impl<T: 'static, U: 'static + ?Sized> IdentityMapper<T, U> {
   }
 
   /// this to bypass the borrow limits of get_update_or_insert_with
-  pub fn get_update_or_insert_with_logic<'a, 'b, X: Incremental>(
+  pub fn get_update_or_insert_with_logic<'a, 'b>(
     &'b mut self,
-    source: &'a Identity<X>,
-    mut logic: impl FnMut(ResourceLogic<'a, 'b, T, X>) -> ResourceLogicResult<'b, T>,
+    source: &'a Identity<U>,
+    mut logic: impl FnMut(ResourceLogic<'a, 'b, T, U>) -> ResourceLogicResult<'b, T>,
   ) -> &'b mut T {
     self.check_clean_up();
 
@@ -85,6 +95,10 @@ impl<T: 'static, U: 'static + ?Sized> IdentityMapper<T, U> {
           true
         }
       });
+
+      if let Some(extra) = &self.extra_change_source {
+        extra(source, &self.changed, id);
+      }
 
       let weak_to_remove = Arc::downgrade(&self.to_remove);
       source.drop_dispatcher.stream().on(move |_| {
@@ -107,11 +121,11 @@ impl<T: 'static, U: 'static + ?Sized> IdentityMapper<T, U> {
     }
   }
 
-  pub fn get_update_or_insert_with<X: Incremental>(
+  pub fn get_update_or_insert_with(
     &mut self,
-    source: &Identity<X>,
-    mut creator: impl FnMut(&X) -> T,
-    mut updater: impl FnMut(&mut T, &X),
+    source: &Identity<U>,
+    mut creator: impl FnMut(&U) -> T,
+    mut updater: impl FnMut(&mut T, &U),
   ) -> &mut T {
     self.get_update_or_insert_with_logic(source, |logic| match logic {
       ResourceLogic::Create(source) => ResourceLogicResult::Create(creator(source)),

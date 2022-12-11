@@ -73,12 +73,11 @@ fn get_update_buffer<'a>(
   source: &GeometryBuffer,
   gpu: &GPU,
 ) -> &'a GPUBufferResource {
-  let cache: &mut IdentityMapper<GPUBufferResource, GeometryBuffer> =
+  let cache: &mut IdentityMapper<GPUBufferResource, GeometryBufferInner> =
     storage.entry().or_insert_with(Default::default);
-  let source = source.read();
 
   cache.get_update_or_insert_with(
-    &source,
+    &source.read(),
     |buffer| {
       create_gpu_buffer(
         buffer.buffer.as_slice(),

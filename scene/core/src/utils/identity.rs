@@ -10,8 +10,8 @@ static GLOBAL_ID: AtomicUsize = AtomicUsize::new(0);
 pub struct Identity<T: Incremental> {
   pub(super) id: usize,
   pub(super) inner: T,
-  pub(super) change_dispatcher: EventDispatcher<DeltaView<'static, T>>,
-  pub(super) drop_dispatcher: EventDispatcher<()>,
+  pub change_dispatcher: EventDispatcher<DeltaView<'static, T>>,
+  pub drop_dispatcher: EventDispatcher<()>,
 }
 
 impl<T: Incremental> AsRef<T> for Identity<T> {
