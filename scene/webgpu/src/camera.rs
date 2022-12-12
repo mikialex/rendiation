@@ -28,7 +28,7 @@ impl Default for CameraGPUStore {
 
         stream.on(move |_| {
           if let Some(change) = weak_changed.upgrade() {
-            change.write().unwrap().insert(id);
+            change.write().unwrap().changed.insert(id);
             false
           } else {
             true

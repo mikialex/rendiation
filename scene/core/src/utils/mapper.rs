@@ -9,11 +9,16 @@ use incremental::Incremental;
 use super::identity::Identity;
 
 pub struct IdentityMapper<T, U> {
-  extra_change_source: Option<Box<dyn Fn(&U, &Arc<RwLock<HashSet<usize>>>, usize)>>,
+  extra_change_source: Option<Box<dyn Fn(&U, &Arc<RwLock<ChangeRecorder>>, usize)>>,
   data: HashMap<usize, (T, bool)>,
-  to_remove: Arc<RwLock<Vec<usize>>>,
-  changed: Arc<RwLock<HashSet<usize>>>,
+  changes: Arc<RwLock<ChangeRecorder>>,
   phantom: PhantomData<U>,
+}
+
+#[derive(Default)]
+pub struct ChangeRecorder {
+  pub to_remove: Vec<usize>,
+  pub changed: HashSet<usize>,
 }
 
 impl<T, U> Default for IdentityMapper<T, U> {
@@ -21,8 +26,7 @@ impl<T, U> Default for IdentityMapper<T, U> {
     Self {
       extra_change_source: None,
       data: Default::default(),
-      to_remove: Default::default(),
-      changed: Default::default(),
+      changes: Default::default(),
       phantom: Default::default(),
     }
   }
@@ -56,17 +60,18 @@ impl<'a, T> ResourceLogicResult<'a, T> {
 impl<T: 'static, U: Incremental> IdentityMapper<T, U> {
   pub fn with_extra_source(
     mut self,
-    extra: impl Fn(&U, &Arc<RwLock<HashSet<usize>>>, usize) + 'static,
+    extra: impl Fn(&U, &Arc<RwLock<ChangeRecorder>>, usize) + 'static,
   ) -> Self {
     self.extra_change_source = Some(Box::new(extra));
     self
   }
 
   pub fn check_clean_up(&mut self) {
-    self.to_remove.write().unwrap().drain(..).for_each(|id| {
+    let mut changes = self.changes.write().unwrap();
+    changes.to_remove.drain(..).for_each(|id| {
       self.data.remove(&id);
     });
-    self.changed.write().unwrap().drain().for_each(|id| {
+    changes.changed.drain().for_each(|id| {
       self.data.get_mut(&id).unwrap().1 = true;
     })
   }
@@ -86,10 +91,10 @@ impl<T: 'static, U: Incremental> IdentityMapper<T, U> {
       let item = logic(ResourceLogic::Create(&source.inner)).unwrap_new();
       new_created = true;
 
-      let weak_changed = Arc::downgrade(&self.changed);
+      let weak_changed = Arc::downgrade(&self.changes);
       source.change_dispatcher.stream().on(move |_| {
         if let Some(change) = weak_changed.upgrade() {
-          change.write().unwrap().insert(id);
+          change.write().unwrap().changed.insert(id);
           false
         } else {
           true
@@ -97,13 +102,13 @@ impl<T: 'static, U: Incremental> IdentityMapper<T, U> {
       });
 
       if let Some(extra) = &self.extra_change_source {
-        extra(source, &self.changed, id);
+        extra(source, &self.changes, id);
       }
 
-      let weak_to_remove = Arc::downgrade(&self.to_remove);
+      let weak_to_remove = Arc::downgrade(&self.changes);
       source.drop_dispatcher.stream().on(move |_| {
         if let Some(to_remove) = weak_to_remove.upgrade() {
-          to_remove.write().unwrap().push(id);
+          to_remove.write().unwrap().to_remove.push(id);
           false
         } else {
           true
