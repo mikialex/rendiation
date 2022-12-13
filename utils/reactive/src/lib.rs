@@ -37,7 +37,7 @@ pub struct RemoveToken<T> {
 impl<T> Clone for RemoveToken<T> {
   fn clone(&self) -> Self {
     Self {
-      handle: self.handle.clone(),
+      handle: self.handle,
     }
   }
 }
@@ -118,6 +118,9 @@ impl<T> WeakStream<T> {
       false
     }
   }
+  pub fn is_exist(&self) -> bool {
+    self.inner.upgrade().is_some()
+  }
 }
 
 impl<T: 'static> Stream<T> {
@@ -155,8 +158,16 @@ impl<T: 'static> Stream<T> {
     stream
   }
 
-  pub fn filter(&self, _cb: impl Fn(&T) -> bool + Send + Sync + 'static) -> Stream<T> {
-    todo!()
+  pub fn filter(&self, filter: impl Fn(&T) -> bool + Send + Sync + 'static) -> Stream<T> {
+    let stream = Stream::<T>::default();
+    let weak = stream.make_weak();
+    self.inner.write().unwrap().on(move |t| {
+      if filter(t) {
+        weak.emit(t);
+      };
+      !weak.is_exist()
+    });
+    stream
   }
 
   pub fn filter_map<U: 'static>(
