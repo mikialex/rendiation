@@ -172,9 +172,17 @@ impl<T: 'static> Stream<T> {
 
   pub fn filter_map<U: 'static>(
     &self,
-    _cb: impl Fn(&T) -> Option<U> + Send + Sync + 'static,
+    filter: impl Fn(&T) -> Option<U> + Send + Sync + 'static,
   ) -> Stream<U> {
-    todo!()
+    let stream = Stream::<U>::default();
+    let weak = stream.make_weak();
+    self.inner.write().unwrap().on(move |t| {
+      if let Some(r) = filter(t) {
+        weak.emit(&r);
+      };
+      !weak.is_exist()
+    });
+    stream
   }
 
   pub fn hold(&self, initial: T) -> StreamSignal<T>

@@ -45,6 +45,8 @@ impl Default for CameraGPUStore {
         });
 
         stream_stream.emit(&source.node.visit(|node| node.delta_stream.clone()));
+
+        Box::new((stream_stream, stream)) as Box<dyn Any>
       },
     );
     Self { inner }

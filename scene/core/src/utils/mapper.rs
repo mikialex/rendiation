@@ -1,4 +1,5 @@
 use std::{
+  any::Any,
   collections::{HashMap, HashSet},
   marker::PhantomData,
   sync::{Arc, RwLock},
@@ -9,8 +10,9 @@ use incremental::Incremental;
 use super::identity::Identity;
 
 pub struct IdentityMapper<T, U: Incremental> {
-  extra_change_source: Option<Box<dyn Fn(&Identity<U>, &Arc<RwLock<ChangeRecorder>>, usize)>>,
-  data: HashMap<usize, (T, bool)>,
+  extra_change_source:
+    Option<Box<dyn Fn(&Identity<U>, &Arc<RwLock<ChangeRecorder>>, usize) -> Box<dyn Any>>>,
+  data: HashMap<usize, (T, bool, Box<dyn Any>)>,
   changes: Arc<RwLock<ChangeRecorder>>,
   phantom: PhantomData<U>,
 }
@@ -60,7 +62,7 @@ impl<'a, T> ResourceLogicResult<'a, T> {
 impl<T: 'static, U: Incremental> IdentityMapper<T, U> {
   pub fn with_extra_source(
     mut self,
-    extra: impl Fn(&Identity<U>, &Arc<RwLock<ChangeRecorder>>, usize) + 'static,
+    extra: impl Fn(&Identity<U>, &Arc<RwLock<ChangeRecorder>>, usize) -> Box<dyn Any> + 'static,
   ) -> Self {
     self.extra_change_source = Some(Box::new(extra));
     self
@@ -87,7 +89,7 @@ impl<T: 'static, U: Incremental> IdentityMapper<T, U> {
     let mut new_created = false;
     let id = source.id;
 
-    let (resource, is_dirty) = self.data.entry(id).or_insert_with(|| {
+    let (resource, is_dirty, _) = self.data.entry(id).or_insert_with(|| {
       let item = logic(ResourceLogic::Create(&source.inner)).unwrap_new();
       new_created = true;
 
@@ -101,9 +103,11 @@ impl<T: 'static, U: Incremental> IdentityMapper<T, U> {
         }
       });
 
-      if let Some(extra) = &self.extra_change_source {
-        extra(source, &self.changes, id);
-      }
+      let extra_holder = if let Some(extra) = &self.extra_change_source {
+        extra(source, &self.changes, id)
+      } else {
+        Box::new(()) as Box<dyn Any>
+      };
 
       let weak_to_remove = Arc::downgrade(&self.changes);
       source.drop_stream.on(move |_| {
@@ -115,7 +119,7 @@ impl<T: 'static, U: Incremental> IdentityMapper<T, U> {
         }
       });
 
-      (item, false)
+      (item, false, extra_holder)
     });
 
     if new_created || *is_dirty {
