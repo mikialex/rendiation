@@ -4,9 +4,16 @@ pub trait BindableResourceView {
   fn as_bindable(&self) -> gpu::BindingResource;
 }
 
-#[derive(Clone, Default)]
+#[derive(Clone)]
 pub struct BindGroupCache {
   cache: Rc<RefCell<HashMap<u64, Rc<gpu::BindGroup>>>>,
+}
+impl BindGroupCache {
+  pub(crate) fn new() -> Self {
+    Self {
+      cache: Default::default(),
+    }
+  }
 }
 
 #[derive(Clone, Default)]
@@ -61,7 +68,6 @@ where
   }
 }
 
-#[derive(Default)]
 pub struct BindingBuilder {
   cache: BindGroupCache,
   items: [Vec<Box<dyn BindProvider>>; 5],

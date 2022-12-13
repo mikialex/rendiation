@@ -19,7 +19,7 @@ impl GPUDevice {
     let inner = GPUDeviceInner {
       device,
       sampler_cache: Default::default(),
-      bindgroup_cache: Default::default(),
+      bindgroup_cache: BindGroupCache::new(),
       bindgroup_layout_cache: Default::default(),
       pipeline_cache: Default::default(),
       placeholder_bg: Rc::new(placeholder_bg),
@@ -82,7 +82,7 @@ impl GPUDevice {
       .clone()
   }
 
-  pub fn create_binding_builder(&self) -> BindingBuilder {
+  pub(crate) fn create_binding_builder(&self) -> BindingBuilder {
     BindingBuilder::create(&self.inner.bindgroup_cache)
   }
 }
