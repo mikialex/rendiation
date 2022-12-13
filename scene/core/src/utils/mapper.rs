@@ -8,8 +8,8 @@ use incremental::Incremental;
 
 use super::identity::Identity;
 
-pub struct IdentityMapper<T, U> {
-  extra_change_source: Option<Box<dyn Fn(&U, &Arc<RwLock<ChangeRecorder>>, usize)>>,
+pub struct IdentityMapper<T, U: Incremental> {
+  extra_change_source: Option<Box<dyn Fn(&Identity<U>, &Arc<RwLock<ChangeRecorder>>, usize)>>,
   data: HashMap<usize, (T, bool)>,
   changes: Arc<RwLock<ChangeRecorder>>,
   phantom: PhantomData<U>,
@@ -21,7 +21,7 @@ pub struct ChangeRecorder {
   pub changed: HashSet<usize>,
 }
 
-impl<T, U> Default for IdentityMapper<T, U> {
+impl<T, U: Incremental> Default for IdentityMapper<T, U> {
   fn default() -> Self {
     Self {
       extra_change_source: None,
@@ -60,7 +60,7 @@ impl<'a, T> ResourceLogicResult<'a, T> {
 impl<T: 'static, U: Incremental> IdentityMapper<T, U> {
   pub fn with_extra_source(
     mut self,
-    extra: impl Fn(&U, &Arc<RwLock<ChangeRecorder>>, usize) + 'static,
+    extra: impl Fn(&Identity<U>, &Arc<RwLock<ChangeRecorder>>, usize) + 'static,
   ) -> Self {
     self.extra_change_source = Some(Box::new(extra));
     self
@@ -92,7 +92,7 @@ impl<T: 'static, U: Incremental> IdentityMapper<T, U> {
       new_created = true;
 
       let weak_changed = Arc::downgrade(&self.changes);
-      source.change_dispatcher.stream().on(move |_| {
+      source.delta_stream.on(move |_| {
         if let Some(change) = weak_changed.upgrade() {
           change.write().unwrap().changed.insert(id);
           false
@@ -106,7 +106,7 @@ impl<T: 'static, U: Incremental> IdentityMapper<T, U> {
       }
 
       let weak_to_remove = Arc::downgrade(&self.changes);
-      source.drop_dispatcher.stream().on(move |_| {
+      source.drop_stream.on(move |_| {
         if let Some(to_remove) = weak_to_remove.upgrade() {
           to_remove.write().unwrap().to_remove.push(id);
           false

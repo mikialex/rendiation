@@ -15,12 +15,6 @@ pub struct SceneNodeDataImpl {
   pub net_visible: bool,
 }
 
-impl AsRef<Self> for SceneNodeDataImpl {
-  fn as_ref(&self) -> &Self {
-    self
-  }
-}
-
 impl Default for SceneNodeDataImpl {
   fn default() -> Self {
     Self {

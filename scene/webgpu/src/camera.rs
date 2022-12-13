@@ -24,7 +24,16 @@ impl Default for CameraGPUStore {
     let inner = IdentityMapper::<CameraGPU, SceneCameraInner>::default().with_extra_source(
       |source, changer, id| {
         let weak_changed = std::sync::Arc::downgrade(changer);
-        let stream = source.node.visit(|node| node.change_dispatcher.stream());
+
+        let stream_stream = source.delta_stream.filter_map(|view| {
+          if let SceneCameraInnerDelta::node(new_node) = view.delta {
+            Some(new_node.visit(|node| node.delta_stream.clone()))
+          } else {
+            None
+          }
+        });
+
+        let stream = stream_stream.flatten();
 
         stream.on(move |_| {
           if let Some(change) = weak_changed.upgrade() {
@@ -34,6 +43,8 @@ impl Default for CameraGPUStore {
             true
           }
         });
+
+        stream_stream.emit(&source.node.visit(|node| node.delta_stream.clone()));
       },
     );
     Self { inner }

@@ -1,7 +1,7 @@
 use std::sync::atomic::{AtomicUsize, Ordering};
 
 use incremental::{DeltaView, Incremental};
-use reactive::{EventDispatcher, Stream};
+use reactive::Stream;
 
 use super::scene_item::Mutating;
 
@@ -10,8 +10,8 @@ static GLOBAL_ID: AtomicUsize = AtomicUsize::new(0);
 pub struct Identity<T: Incremental> {
   pub(super) id: usize,
   pub(super) inner: T,
-  pub change_dispatcher: EventDispatcher<DeltaView<'static, T>>,
-  pub drop_dispatcher: EventDispatcher<()>,
+  pub delta_stream: Stream<DeltaView<'static, T>>,
+  pub drop_stream: Stream<()>,
 }
 
 impl<T: Incremental> AsRef<T> for Identity<T> {
@@ -46,13 +46,9 @@ impl<T: Incremental> Identity<T> {
     Self {
       inner,
       id: GLOBAL_ID.fetch_add(1, Ordering::Relaxed),
-      change_dispatcher: Default::default(),
-      drop_dispatcher: Default::default(),
+      delta_stream: Default::default(),
+      drop_stream: Default::default(),
     }
-  }
-
-  pub fn delta_stream(&self) -> Stream<DeltaView<'static, T>> {
-    self.change_dispatcher.stream()
   }
 
   pub fn id(&self) -> usize {
@@ -61,7 +57,7 @@ impl<T: Incremental> Identity<T> {
 
   pub fn mutate<R>(&mut self, mutator: impl FnOnce(Mutating<T>) -> R) -> R {
     let data = &mut self.inner;
-    let dispatcher = &self.change_dispatcher;
+    let dispatcher = &self.delta_stream;
     mutator(Mutating {
       inner: data,
       collector: &mut |data, delta| {
@@ -81,7 +77,7 @@ impl<T: Default + Incremental> Default for Identity<T> {
 
 impl<T: Incremental> Drop for Identity<T> {
   fn drop(&mut self) {
-    self.drop_dispatcher.emit(&());
+    self.drop_stream.emit(&());
   }
 }
 
