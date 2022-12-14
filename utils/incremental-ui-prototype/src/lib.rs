@@ -15,7 +15,7 @@ use incremental::*;
 
 pub struct PlatformEvent;
 
-pub enum ViewReaction<V, T: Incremental> {
+pub enum ViewReaction<V, T: IncrementalBase> {
   /// emit self special event
   ViewEvent(V),
   /// do state mutation
@@ -50,7 +50,7 @@ trait ViewBase {
 /// given logic for view type
 trait View<T>
 where
-  T: Incremental,
+  T: IncrementalBase,
 {
   /// View type's own event type
   type Event;

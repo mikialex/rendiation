@@ -53,8 +53,8 @@ impl<T: ApplicableIncremental + Clone + Send + Sync> ApplicableIncremental for T
 
 impl<T> IncrementalMutatorHelper for TreeCollection<T>
 where
-  Self: Incremental,
-  T: Incremental + Clone,
+  Self: IncrementalBase,
+  T: IncrementalBase + Clone,
 {
   type Mutator<'a> = TreeCollectionReactiveMutator<'a, T>
   where
@@ -71,7 +71,7 @@ where
   }
 }
 
-pub struct MutateMapper<'a, T: Incremental, C: FnMut(T::Delta) + 'a> {
+pub struct MutateMapper<'a, T: IncrementalBase, C: FnMut(T::Delta) + 'a> {
   inner: &'a mut T,
   collector: C,
 }
@@ -86,12 +86,12 @@ where
   }
 }
 
-pub struct TreeCollectionReactiveMutator<'a, T: Incremental + Clone + Send + Sync> {
+pub struct TreeCollectionReactiveMutator<'a, T: IncrementalBase + Clone + Send + Sync> {
   inner: &'a mut TreeCollection<T>,
   collector: &'a mut dyn FnMut(DeltaOf<TreeCollection<T>>),
 }
 
-impl<'a, T: Incremental + Clone + Send + Sync> TreeCollectionReactiveMutator<'a, T> {
+impl<'a, T: IncrementalBase + Clone + Send + Sync> TreeCollectionReactiveMutator<'a, T> {
   pub fn create(&mut self, node: T) -> TreeNodeHandle<T> {
     (self.collector)(TreeMutation::Create(node.clone()));
     self.inner.create_node(node)

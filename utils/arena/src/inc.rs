@@ -13,8 +13,8 @@ impl<T: IncrementalBase + Clone + Send + Sync> IncrementalBase for Arena<T> {
 
 impl<T> IncrementalMutatorHelper for Arena<T>
 where
-  Self: Incremental,
-  T: Incremental + Clone,
+  Self: IncrementalBase,
+  T: IncrementalBase + Clone,
 {
   type Mutator<'a> = ArenaMutator<'a, T>
   where
@@ -38,12 +38,12 @@ pub enum ArenaDelta<T: IncrementalBase> {
   Remove(Handle<T>),
 }
 
-pub struct ArenaMutator<'a, T: Incremental + Clone + Send + Sync> {
+pub struct ArenaMutator<'a, T: IncrementalBase + Clone + Send + Sync> {
   inner: &'a mut Arena<T>,
   collector: &'a mut dyn FnMut(DeltaOf<Arena<T>>),
 }
 
-impl<'a, T: Incremental + Clone + Send + Sync> ArenaMutator<'a, T> {
+impl<'a, T: IncrementalBase + Clone + Send + Sync> ArenaMutator<'a, T> {
   pub fn insert(&mut self, item: T) -> Handle<T> {
     let handle = self.inner.insert(item.clone());
     (self.collector)(ArenaDelta::Insert((item, handle)));
