@@ -7,41 +7,46 @@ use crate::*;
 
 use super::identity::Identity;
 
-pub struct SceneItemRef<T: Incremental> {
+pub struct SceneItemRef<T: IncrementalBase> {
   inner: Arc<RwLock<Identity<T>>>,
 }
 
-impl<T: Incremental + Send + Sync> SimpleIncremental for SceneItemRef<T> {
+impl<T: IncrementalBase + Send + Sync> IncrementalBase for SceneItemRef<T> {
   type Delta = Self;
 
-  fn s_apply(&mut self, delta: Self::Delta) {
-    *self = delta;
-  }
-
-  fn s_expand(&self, mut cb: impl FnMut(Self::Delta)) {
+  fn expand(&self, mut cb: impl FnMut(Self::Delta)) {
     cb(self.clone())
   }
 }
 
-impl<T: Incremental> Clone for SceneItemRef<T> {
+impl<T: ApplicableIncremental + Send + Sync> ApplicableIncremental for SceneItemRef<T> {
+  type Error = T::Error;
+
+  fn apply(&mut self, delta: Self::Delta) -> Result<(), Self::Error> {
+    *self = delta;
+    Ok(())
+  }
+}
+
+impl<T: IncrementalBase> Clone for SceneItemRef<T> {
   fn clone(&self) -> Self {
     Self {
       inner: self.inner.clone(),
     }
   }
 }
-impl<T: Incremental> From<T> for SceneItemRef<T> {
+impl<T: IncrementalBase> From<T> for SceneItemRef<T> {
   fn from(inner: T) -> Self {
     Self::new(inner)
   }
 }
 
-pub struct Mutating<'a, T: Incremental> {
+pub struct Mutating<'a, T: IncrementalBase> {
   pub inner: &'a mut T,
   pub collector: &'a mut dyn FnMut(&T, &T::Delta),
 }
 
-impl<'a, T: Incremental> Deref for Mutating<'a, T> {
+impl<'a, T: IncrementalBase> Deref for Mutating<'a, T> {
   type Target = T;
 
   fn deref(&self) -> &Self::Target {
@@ -54,13 +59,16 @@ impl<'a, T: Incremental> Mutating<'a, T> {
     (self.collector)(self.inner, &delta);
     self.inner.apply(delta).unwrap()
   }
+}
 
-  pub fn trigger_manual(&mut self, delta: T::Delta) {
+impl<'a, T: IncrementalBase> Mutating<'a, T> {
+  pub fn trigger_manual(&mut self, modify: impl FnOnce(&mut T) -> T::Delta) {
+    let delta = modify(self.inner);
     (self.collector)(self.inner, &delta);
   }
 }
 
-pub trait ModifySceneItemDelta<T: Incremental> {
+pub trait ModifySceneItemDelta<T: IncrementalBase> {
   fn apply_modify(self, target: &SceneItemRef<T>);
 }
 
@@ -75,7 +83,7 @@ where
   }
 }
 
-impl<T: Incremental> SceneItemRef<T> {
+impl<T: IncrementalBase> SceneItemRef<T> {
   pub fn new(source: T) -> Self {
     let inner = Arc::new(RwLock::new(Identity::new(source)));
     Self { inner }
@@ -101,11 +109,11 @@ impl<T: Incremental> SceneItemRef<T> {
   }
 }
 
-pub struct SceneItemRefGuard<'a, T: Incremental> {
+pub struct SceneItemRefGuard<'a, T: IncrementalBase> {
   inner: RwLockReadGuard<'a, Identity<T>>,
 }
 
-impl<'a, T: Incremental> Deref for SceneItemRefGuard<'a, T> {
+impl<'a, T: IncrementalBase> Deref for SceneItemRefGuard<'a, T> {
   type Target = Identity<T>;
 
   fn deref(&self) -> &Self::Target {
@@ -113,11 +121,11 @@ impl<'a, T: Incremental> Deref for SceneItemRefGuard<'a, T> {
   }
 }
 
-pub struct SceneItemRefMutGuard<'a, T: Incremental> {
+pub struct SceneItemRefMutGuard<'a, T: IncrementalBase> {
   inner: RwLockWriteGuard<'a, Identity<T>>,
 }
 
-impl<'a, T: Incremental> Deref for SceneItemRefMutGuard<'a, T> {
+impl<'a, T: IncrementalBase> Deref for SceneItemRefMutGuard<'a, T> {
   type Target = Identity<T>;
 
   fn deref(&self) -> &Self::Target {
@@ -125,16 +133,16 @@ impl<'a, T: Incremental> Deref for SceneItemRefMutGuard<'a, T> {
   }
 }
 
-impl<'a, T: Incremental> DerefMut for SceneItemRefMutGuard<'a, T> {
+impl<'a, T: IncrementalBase> DerefMut for SceneItemRefMutGuard<'a, T> {
   fn deref_mut(&mut self) -> &mut Self::Target {
     self.inner.deref_mut()
   }
 }
 
-pub trait IntoSceneItemRef: Sized + Incremental {
+pub trait IntoSceneItemRef: Sized + IncrementalBase {
   fn into_ref(self) -> SceneItemRef<Self> {
     self.into()
   }
 }
 
-impl<T: Incremental> IntoSceneItemRef for T {}
+impl<T: IncrementalBase> IntoSceneItemRef for T {}

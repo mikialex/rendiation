@@ -1,5 +1,5 @@
 use __core::{any::Any, hash::Hash};
-use incremental::Incremental;
+use incremental::*;
 use rendiation_scene_core::{IdentityMapper, SceneItemRef};
 use rendiation_scene_webgpu::{
   generate_quad, CameraGPU, DrawcallEmitter, MaterialStates, PassContentWithCamera,

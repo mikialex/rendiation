@@ -5,6 +5,7 @@
 use std::{
   any::Any,
   cell::RefCell,
+  marker::PhantomData,
   rc::{Rc, Weak},
   sync::{Arc, RwLock},
 };
@@ -251,17 +252,17 @@ where
   }
 }
 
-struct EventHandler<T: Incremental + 'static, V: View<T>> {
+struct EventHandler<T: IncrementalMutatorHelper + 'static, V: View<T>> {
   inner: V,
   handler: Box<dyn for<'a> Fn(T::Mutator<'a>, &ViewReaction<V::Event, T>)>,
 }
-trait WrapEventHandler<T: Incremental>: View<T> + Sized {
+trait WrapEventHandler<T: IncrementalMutatorHelper>: View<T> + Sized {
   fn on(
     self,
     handler: impl for<'a> Fn(T::Mutator<'a>, &ViewReaction<Self::Event, T>) + 'static,
   ) -> EventHandler<T, Self>;
 }
-impl<T: Incremental, V: View<T>> WrapEventHandler<T> for V {
+impl<T: IncrementalMutatorHelper, V: View<T>> WrapEventHandler<T> for V {
   fn on(
     self,
     handler: impl for<'a> Fn(T::Mutator<'a>, &ViewReaction<Self::Event, T>) + 'static,
@@ -275,7 +276,7 @@ impl<T: Incremental, V: View<T>> WrapEventHandler<T> for V {
 
 impl<T, V> View<T> for EventHandler<T, V>
 where
-  T: Incremental,
+  T: IncrementalMutatorHelper,
   V: View<T>,
 {
   type Event = V::Event;
@@ -379,14 +380,14 @@ impl<T: Incremental, E> View<T> for Container<T, E> {
 }
 
 /// library util
-fn submit<T: Incremental>(
+fn submit<T: IncrementalMutatorHelper>(
   on_submit: impl Fn(String) -> Option<T::Delta>,
 ) -> impl for<'a> Fn(T::Mutator<'a>, &ViewReaction<TextBoxEvent, T>) {
   move |mut mutator, e| match e {
     ViewReaction::ViewEvent(e) => match e {
       TextBoxEvent::Submit(content) => {
         if let Some(delta) = on_submit(content.clone()) {
-          mutator.apply(delta);
+          // mutator.apply(delta);
         }
       }
     },
@@ -410,6 +411,19 @@ fn todo_list_view() -> impl View<TodoList> {
   // .with_child(
   //   List::for_by(todo_item_view), //
   // )
+}
+
+impl IncrementalMutatorHelper for TodoList {
+  type Mutator<'a> = ()
+  where
+    Self: 'a;
+
+  fn create_mutator<'a>(
+    &'a mut self,
+    collector: &'a mut dyn FnMut(Self::Delta),
+  ) -> Self::Mutator<'a> {
+    todo!()
+  }
 }
 
 // fn todo_list_view() -> impl View<TodoList, Event = ()> {

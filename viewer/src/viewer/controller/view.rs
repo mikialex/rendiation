@@ -1,4 +1,4 @@
-use incremental::Incremental;
+use incremental::{DeltaOf, Incremental};
 use interphaser::{
   mouse, mouse_move,
   winit::event::{ElementState, Event, MouseButton},
@@ -127,7 +127,7 @@ impl<T: Incremental, E> View<T> for Component3DCollection<T, E> {
     )
   }
 
-  fn update(&mut self, model: &T, delta: &<T as incremental::Incremental>::Delta) {
+  fn update(&mut self, model: &T, delta: &DeltaOf<T>) {
     for view in &mut self.collection {
       view.update(model, delta);
     }

@@ -19,12 +19,6 @@ pub struct SceneModelImpl {
   pub node: SceneNode,
 }
 
-impl SceneModel {
-  pub fn set_model(&self) {
-    //
-  }
-}
-
 #[derive(Incremental)]
 pub struct StandardModel {
   pub material: SceneMaterial,

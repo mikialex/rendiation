@@ -8,7 +8,7 @@ mod ty;
 pub use lens::*;
 pub use ty::*;
 
-pub trait Incremental: Sized + Send + Sync + 'static {
+pub trait IncrementalBase: Sized + Send + Sync + 'static {
   /// `Delta` should be atomic modification unit of `Self`
   /// atomic means no invalid states between the modification
   ///
@@ -16,15 +16,34 @@ pub trait Incremental: Sized + Send + Sync + 'static {
   /// user modify the data in different level.
   type Delta: Clone + Send + Sync + 'static;
 
+  /// generate sequence of delta, which could reduce into self with default value;
+  /// expand should use the coarse level delta first to rebuild data. the caller could
+  /// decide if should expand in finer level.
+  fn expand(&self, cb: impl FnMut(Self::Delta));
+}
+
+pub type DeltaOf<T> = <T as IncrementalBase>::Delta;
+
+pub trait ApplicableIncremental: IncrementalBase {
   /// mutation maybe not valid and return error back.
   /// should stay valid state even if mutation failed.
   type Error: Debug + Send + Sync + 'static;
 
+  /// apply the mutations into the self
+  ///
+  /// construct the delta explicitly
+  fn apply(&mut self, delta: Self::Delta) -> Result<(), Self::Error>;
+}
+
+pub trait Incremental: IncrementalBase + ApplicableIncremental {}
+impl<T: IncrementalBase + ApplicableIncremental> Incremental for T {}
+
+pub trait IncrementalMutatorHelper: Incremental {
   /// Mutator encapsulate the inner mutable state to prevent direct mutation and generate delta automatically
   /// Mutator should also direct support apply delta which constraint by MutatorApply
   ///
   /// We need this because delta could have return value.
-  type Mutator<'a>: MutatorApply<Self>
+  type Mutator<'a>
   where
     Self: 'a;
 
@@ -32,26 +51,10 @@ pub trait Incremental: Sized + Send + Sync + 'static {
     &'a mut self,
     collector: &'a mut dyn FnMut(Self::Delta),
   ) -> Self::Mutator<'a>;
-
-  /// apply the mutations into the self
-  ///
-  /// construct the delta explicitly
-  fn apply(&mut self, delta: Self::Delta) -> Result<(), Self::Error>;
-
-  /// generate sequence of delta, which could reduce into self with default value;
-  /// expand should use the coarse level delta first to rebuild data. the caller could
-  /// decide if should expand in finer level.
-  fn expand(&self, cb: impl FnMut(Self::Delta));
 }
-
-pub type DeltaOf<T> = <T as Incremental>::Delta;
 
 pub trait CompareGenDelta: Incremental {
   fn expand_diff(&self, other: &Self, cb: impl FnMut(Self::Delta));
-}
-
-pub trait MutatorApply<T: Incremental> {
-  fn apply(&mut self, delta: T::Delta);
 }
 
 /// Not all type can impl this kind of reversible delta

@@ -9,7 +9,6 @@ pub type SceneLightHandle = Handle<SceneLight>;
 pub type SceneModelHandle = Handle<SceneModel>;
 pub type SceneCameraHandle = Handle<SceneCamera>;
 
-#[derive(Incremental)]
 pub struct SceneInner {
   pub background: Option<SceneBackGround>,
 
@@ -27,6 +26,26 @@ pub struct SceneInner {
   root: SceneNode,
 
   pub ext: DynamicExtension,
+}
+
+#[allow(non_camel_case_types)]
+#[derive(Clone)]
+pub enum SceneInnerDelta {
+  background(DeltaOf<Option<SceneBackGround>>),
+  default_camera(DeltaOf<SceneCamera>),
+  active_camera(DeltaOf<Option<SceneCamera>>),
+  cameras(DeltaOf<Arena<SceneCamera>>),
+  lights(DeltaOf<Arena<SceneLight>>),
+  models(DeltaOf<Arena<SceneModel>>),
+  ext(DeltaOf<DynamicExtension>),
+}
+
+impl IncrementalBase for SceneInner {
+  type Delta = SceneInnerDelta;
+
+  fn expand(&self, cb: impl FnMut(Self::Delta)) {
+    todo!()
+  }
 }
 
 impl SceneInner {
@@ -91,45 +110,63 @@ impl Default for SceneInner {
 pub type Scene = SceneItemRef<SceneInner>;
 
 impl Scene {
+  // todo improves
   pub fn insert_model(&self, model: SceneModel) -> SceneModelHandle {
+    let mut result = None;
     self.mutate(|mut scene| {
-      let handle = scene.inner.models.insert(model.clone());
-      let delta = ArenaDelta::Insert((model, handle));
-      let delta = SceneInnerDelta::models(delta);
-      scene.trigger_manual(delta);
-      handle
-    })
+      scene.trigger_manual(|scene| {
+        let handle = scene.models.insert(model.clone());
+        result = handle.into();
+        let delta = ArenaDelta::Insert((model, handle));
+        SceneInnerDelta::models(delta)
+      });
+    });
+    result.unwrap()
   }
 
   pub fn insert_light(&self, light: SceneLight) -> SceneLightHandle {
+    let mut result = None;
     self.mutate(|mut scene| {
-      let handle = scene.inner.lights.insert(light.clone());
-      let delta = ArenaDelta::Insert((light, handle));
-      let delta = SceneInnerDelta::lights(delta);
-      scene.trigger_manual(delta);
-      handle
-    })
+      scene.trigger_manual(|scene| {
+        let handle = scene.lights.insert(light.clone());
+        result = handle.into();
+        let delta = ArenaDelta::Insert((light, handle));
+        SceneInnerDelta::lights(delta)
+      });
+    });
+    result.unwrap()
   }
 
   pub fn insert_camera(&self, camera: SceneCamera) -> SceneCameraHandle {
+    let mut result = None;
     self.mutate(|mut scene| {
-      let handle = scene.inner.cameras.insert(camera.clone());
-      let delta = ArenaDelta::Insert((camera, handle));
-      let delta = SceneInnerDelta::cameras(delta);
-      scene.trigger_manual(delta);
-      handle
-    })
+      scene.trigger_manual(|scene| {
+        let handle = scene.cameras.insert(camera.clone());
+        result = handle.into();
+        let delta = ArenaDelta::Insert((camera, handle));
+        SceneInnerDelta::cameras(delta)
+      });
+    });
+    result.unwrap()
   }
 
   pub fn set_active_camera(&self, camera: Option<SceneCamera>) {
-    let camera = camera.map(DeltaOrEntire::Entire);
-    self.mutate(|mut scene| scene.modify(SceneInnerDelta::active_camera(camera)))
+    self.mutate(|mut scene| {
+      scene.trigger_manual(|scene| {
+        scene.active_camera = camera.clone();
+        let camera = camera.map(DeltaOrEntire::Entire);
+        SceneInnerDelta::active_camera(camera)
+      })
+    })
   }
 
   pub fn set_background(&self, background: Option<SceneBackGround>) {
     self.mutate(|mut scene| {
-      let background = background.map(DeltaOrEntire::Entire);
-      scene.modify(SceneInnerDelta::background(background));
+      scene.trigger_manual(|scene| {
+        scene.background = background.clone();
+        let background = background.map(DeltaOrEntire::Entire);
+        SceneInnerDelta::background(background)
+      });
     })
   }
 }

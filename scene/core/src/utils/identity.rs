@@ -1,26 +1,26 @@
 use std::sync::atomic::{AtomicUsize, Ordering};
 
-use incremental::{DeltaView, Incremental};
+use incremental::{DeltaView, Incremental, IncrementalBase};
 use reactive::Stream;
 
 use super::scene_item::Mutating;
 
 static GLOBAL_ID: AtomicUsize = AtomicUsize::new(0);
 
-pub struct Identity<T: Incremental> {
+pub struct Identity<T: IncrementalBase> {
   pub(super) id: usize,
   pub(super) inner: T,
   pub delta_stream: Stream<DeltaView<'static, T>>,
   pub drop_stream: Stream<()>,
 }
 
-impl<T: Incremental> AsRef<T> for Identity<T> {
+impl<T: IncrementalBase> AsRef<T> for Identity<T> {
   fn as_ref(&self) -> &T {
     &self.inner
   }
 }
 
-impl<T: Incremental> From<T> for Identity<T> {
+impl<T: IncrementalBase> From<T> for Identity<T> {
   fn from(inner: T) -> Self {
     Self::new(inner)
   }
@@ -41,7 +41,7 @@ where
   }
 }
 
-impl<T: Incremental> Identity<T> {
+impl<T: IncrementalBase> Identity<T> {
   pub fn new(inner: T) -> Self {
     Self {
       inner,
@@ -69,19 +69,19 @@ impl<T: Incremental> Identity<T> {
   }
 }
 
-impl<T: Default + Incremental> Default for Identity<T> {
+impl<T: Default + IncrementalBase> Default for Identity<T> {
   fn default() -> Self {
     Self::new(Default::default())
   }
 }
 
-impl<T: Incremental> Drop for Identity<T> {
+impl<T: IncrementalBase> Drop for Identity<T> {
   fn drop(&mut self) {
     self.drop_stream.emit(&());
   }
 }
 
-impl<T: Incremental> std::ops::Deref for Identity<T> {
+impl<T: IncrementalBase> std::ops::Deref for Identity<T> {
   type Target = T;
 
   fn deref(&self) -> &Self::Target {
