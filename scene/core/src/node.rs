@@ -1,7 +1,5 @@
 use crate::*;
 
-use incremental::{clone_self_incremental, Incremental};
-use rendiation_algebra::*;
 use tree::{ShareTreeNode, TreeCollection, TreeNodeHandle};
 
 pub type SceneNodeData = Identity<SceneNodeDataImpl>;

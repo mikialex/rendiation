@@ -1,8 +1,6 @@
 use crate::*;
 
 use arena::{Arena, ArenaDelta, Handle};
-use incremental::Incremental;
-use rendiation_algebra::PerspectiveProjection;
 use tree::TreeCollection;
 
 pub type SceneLightHandle = Handle<SceneLight>;

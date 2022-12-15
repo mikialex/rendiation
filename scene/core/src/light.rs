@@ -1,6 +1,4 @@
 use crate::*;
-use incremental::{clone_self_incremental, Incremental};
-use rendiation_algebra::*;
 
 #[non_exhaustive]
 #[derive(Clone)]

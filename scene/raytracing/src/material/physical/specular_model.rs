@@ -1,5 +1,4 @@
 use crate::*;
-use rendiation_algebra::{InnerProductSpace, IntoNormalizedVector, Vec3, Vector};
 
 #[derive(Clone)]
 pub struct BlinnPhong;

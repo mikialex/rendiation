@@ -1,4 +1,3 @@
-use incremental::{Incremental, SimpleIncremental};
 use rendiation_renderable_mesh::{mesh::IntersectAbleGroupedMesh, GPUMeshData, TypedMeshGPU};
 
 pub mod fatline;

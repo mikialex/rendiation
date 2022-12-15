@@ -1,7 +1,5 @@
 use std::{any::TypeId, fmt::Debug};
 
-use incremental::*;
-
 use crate::*;
 
 /// like any map, but clone able

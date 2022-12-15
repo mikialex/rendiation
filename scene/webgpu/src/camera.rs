@@ -78,11 +78,6 @@ impl CameraGPUStore {
       },
     )
   }
-
-  pub fn expect_gpu(&self, camera: &SceneCamera) -> &CameraGPU {
-    let camera = camera.read();
-    self.get_unwrap(&camera)
-  }
 }
 
 pub struct CameraGPU {

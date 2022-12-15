@@ -1,6 +1,5 @@
 use std::fmt::Debug;
 
-use rendiation_algebra::*;
 use rendiation_texture::{Texture2DBuffer, TextureSampler};
 
 use crate::*;

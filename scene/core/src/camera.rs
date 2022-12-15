@@ -1,5 +1,3 @@
-use incremental::*;
-use rendiation_algebra::*;
 use rendiation_geometry::*;
 use rendiation_texture::Size;
 

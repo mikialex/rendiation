@@ -1,5 +1,3 @@
-use rendiation_algebra::*;
-
 use crate::*;
 
 pub type SceneMaterial = SceneItemRef<SceneMaterialType>;

@@ -5,7 +5,7 @@ use std::{
   sync::{Arc, RwLock},
 };
 
-use incremental::Incremental;
+use crate::*;
 
 use super::identity::Identity;
 
@@ -143,9 +143,5 @@ impl<T: 'static, U: Incremental> IdentityMapper<T, U> {
         ResourceLogicResult::Update(mapped)
       }
     })
-  }
-
-  pub fn get_unwrap<X: Incremental>(&self, source: &Identity<X>) -> &T {
-    &self.data.get(&source.id).unwrap().0
   }
 }

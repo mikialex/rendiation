@@ -1,6 +1,5 @@
 use crate::*;
 
-use incremental::clone_self_incremental;
 use rendiation_renderable_mesh::{
   group::{GroupedMesh, MeshDrawGroup},
   mesh::{IndexedMesh, IntersectAbleGroupedMesh, NoneIndexedMesh, TriangleList},

@@ -1,7 +1,6 @@
-use std::sync::atomic::{AtomicUsize, Ordering};
-
-use incremental::{DeltaView, Incremental, IncrementalBase};
+use crate::*;
 use reactive::Stream;
+use std::sync::atomic::{AtomicUsize, Ordering};
 
 use super::scene_item::Mutating;
 

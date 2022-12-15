@@ -1,5 +1,3 @@
-use incremental::{clone_self_incremental, DeltaOf, Incremental, SimpleIncremental};
-
 use crate::*;
 
 #[derive(Debug, Clone)]
