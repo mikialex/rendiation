@@ -50,9 +50,23 @@ impl SceneBoundingSystem {
 
         match model_delta {
           arena::ArenaDelta::Mutate(_) => todo!(),
-          arena::ArenaDelta::Insert((model, _)) => {
+          arena::ArenaDelta::Insert((model, model_handle)) => {
             let model = model.read();
-            let node = model.delta_stream().map().flatten();
+            let world_mat_stream = model
+              .delta_stream
+              .filter_map(|node| match node.delta {
+                SceneModelImplDelta::model(_) => None,
+                SceneModelImplDelta::node(node) => Some(node),
+              })
+              .map(|node| {
+                node.visit(|node| {
+                  node.delta_stream.filter_map(|d| match d.delta {
+                    SceneNodeDataImplDelta::world_matrix(mat) => Some(*mat),
+                    _ => None,
+                  })
+                })
+              })
+              .flatten();
 
             match &model.model {
               SceneModelType::Standard(model) => {
@@ -61,11 +75,19 @@ impl SceneBoundingSystem {
                     .read()
                     .delta_stream
                     .filter_map(move |view| match view.delta {
-                      StandardModelDelta::mesh(mesh_delta) => Some(mesh_delta),
+                      StandardModelDelta::mesh(mesh_delta) => Some(mesh_delta.clone()),
                       _ => None,
                     });
 
+                // todo: we not handle mesh internal change to box change, just recompute box when mesh reference changed
                 let local_box_stream = mesh_stream.map(|mesh| mesh.read().compute_local_bound());
+
+                let reactive = MeshBoxReactiveCache {
+                  local_box_stream,
+                  models: vec![(*model_handle, world_mat_stream, mesh_stream)],
+                };
+
+                reactive.insert()
               }
               SceneModelType::Foreign(_) => todo!(),
             }
