@@ -17,7 +17,12 @@ pub struct SceneBoundingSystem {
 
 struct MeshBoxReactiveCache {
   local_box_stream: Stream<Option<Box3>>,
-  models: Vec<(SceneModelHandle, Stream<Mat4<f32>>, Stream<SceneMesh>)>,
+  models: Vec<(
+    SceneModelHandle,
+    Stream<Mat4<f32>>,
+    Stream<SceneMesh>,
+    Stream<Option<Box3>>,
+  )>,
 }
 
 pub enum BoxUpdate {
@@ -82,9 +87,19 @@ impl SceneBoundingSystem {
                 // todo: we not handle mesh internal change to box change, just recompute box when mesh reference changed
                 let local_box_stream = mesh_stream.map(|mesh| mesh.read().compute_local_bound());
 
+                let world_box_stream = local_box_stream
+                  .merge_map(&world_mat_stream, |local_box, world_mat| {
+                    local_box.map(|b| b.apply_matrix_into(*world_mat))
+                  });
+
                 let reactive = MeshBoxReactiveCache {
                   local_box_stream,
-                  models: vec![(*model_handle, world_mat_stream, mesh_stream)],
+                  models: vec![(
+                    *model_handle,
+                    world_mat_stream,
+                    mesh_stream,
+                    world_box_stream,
+                  )],
                 };
 
                 reactive.insert()

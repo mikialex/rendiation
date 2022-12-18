@@ -185,6 +185,10 @@ impl<T: 'static> Stream<T> {
     stream
   }
 
+  pub fn merge_map<U, R>(&self, other: &Stream<U>, mapper: impl Fn(&T, &U) -> R) -> Stream<R> {
+    todo!()
+  }
+
   pub fn hold(&self, initial: T) -> StreamSignal<T>
   where
     T: Clone + Send + Sync,
