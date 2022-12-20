@@ -22,7 +22,11 @@ struct MeshBoxReactiveCache {
 }
 
 impl MeshBoxReactiveCache {
-  pub fn from_model(model: &SceneModel) -> Option<Self> {
+  pub fn from_model(
+    model: &SceneModel,
+    model_handle: SceneModelHandle,
+    out_stream: Stream<BoxUpdate>,
+  ) -> Option<Self> {
     let model = model.read();
     let world_mat_stream = model
       .delta_stream
@@ -58,13 +62,21 @@ impl MeshBoxReactiveCache {
             local_box.map(|b| b.apply_matrix_into(*world_mat))
           });
 
-        MeshBoxReactiveCache {
+        let r = MeshBoxReactiveCache {
           local_box_stream,
           world_mat_stream,
           mesh_stream,
           world_box_stream,
-        }
-        .into()
+        };
+
+        r.world_box_stream.on(move |b| {
+          out_stream.emit(&BoxUpdate::Update {
+            index: model_handle,
+            bbox: *b,
+          });
+          false
+        });
+        r.into()
       }
       SceneModelType::Foreign(_) => None,
     }
@@ -108,20 +120,12 @@ impl SceneBoundingSystem {
 
         match model_delta {
           arena::ArenaDelta::Mutate((new_model, handle)) => {
-            let re = MeshBoxReactiveCache::from_model(new_model);
-            if let Some(re) = &re {
-              re.world_box_stream.on(move |b| {
-                box_c.emit(&BoxUpdate::Update {
-                  index: *handle,
-                  bbox: *b,
-                });
-                false
-              });
-            }
-            reactive[handle.into_raw_parts().0] = re;
+            reactive[handle.into_raw_parts().0] =
+              MeshBoxReactiveCache::from_model(new_model, *handle, box_c);
           }
           arena::ArenaDelta::Insert((model, handle)) => {
-            reactive[handle.into_raw_parts().0] = MeshBoxReactiveCache::from_model(model);
+            reactive[handle.into_raw_parts().0] =
+              MeshBoxReactiveCache::from_model(model, *handle, box_c);
           }
           arena::ArenaDelta::Remove(handle) => {
             reactive[handle.into_raw_parts().0] = None;
