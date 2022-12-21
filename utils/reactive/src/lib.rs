@@ -185,7 +185,26 @@ impl<T: 'static> Stream<T> {
     stream
   }
 
-  pub fn merge_map<U, R>(&self, other: &Stream<U>, mapper: impl Fn(&T, &U) -> R) -> Stream<R> {
+  pub fn merge_map<U, R>(&self, other: &Stream<U>, mapper: impl Fn(&T, &U) -> R) -> Stream<R>
+  where
+    T: Send + Sync + Clone + 'static,
+    U: Send + Sync + Clone + 'static,
+    R: 'static,
+  {
+    let stream = Stream::<R>::default();
+    let weak = stream.make_weak();
+
+    let last_self = self.latest();
+    let last_other = other.latest();
+
+    // other.inner.write().unwrap().on(move |t| {
+    //   if let Some(current_other) = &mut other.write().unwrap() {
+    //     current_self = Some(t);
+    //   }
+    //   !weak.is_exist()
+    // });
+    // stream
+
     todo!()
   }
 
@@ -205,6 +224,16 @@ impl<T: 'static> Stream<T> {
       }
     });
     StreamSignal { stream, current }
+  }
+
+  pub fn latest(&self) -> StreamSignal<Option<T>>
+  where
+    T: Send + Sync + Clone,
+  {
+    self.fold(None, |v, s| {
+      *s = Some(v.clone());
+      true
+    })
   }
 
   pub fn fold<U, F>(&self, initial: U, folder: F) -> StreamSignal<U>
