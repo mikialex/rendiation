@@ -21,8 +21,20 @@ pub enum TreeMutation<T: IncrementalBase> {
 impl<T: IncrementalBase + Clone + Send + Sync> IncrementalBase for TreeCollection<T> {
   type Delta = TreeMutation<T>;
 
-  fn expand(&self, _cb: impl FnMut(Self::Delta)) {
-    todo!()
+  fn expand(&self, mut cb: impl FnMut(Self::Delta)) {
+    for (handle, node) in &self.nodes.data {
+      if node.first_child.is_none() {
+        let node = self.create_node_ref(handle);
+        // todo fix traverse_pair skip leaf/parent node
+        node.traverse_pair(&mut |self_node, parent| {
+          cb(TreeMutation::Create(self_node.node.data().clone()));
+          cb(TreeMutation::Attach {
+            parent_target: parent.node.handle(),
+            node: self_node.node.handle(),
+          });
+        })
+      }
+    }
   }
 }
 
