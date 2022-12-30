@@ -7,6 +7,7 @@ use crate::*;
 
 use super::identity::Identity;
 
+#[derive(Default)]
 pub struct SceneItemRef<T: IncrementalBase> {
   inner: Arc<RwLock<Identity<T>>>,
 }

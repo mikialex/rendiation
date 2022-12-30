@@ -13,6 +13,15 @@ pub struct Identity<T: IncrementalBase> {
   pub drop_stream: Stream<()>,
 }
 
+// just pass through
+impl<T: IncrementalBase> IncrementalBase for Identity<T> {
+  type Delta = T::Delta;
+
+  fn expand(&self, cb: impl FnMut(Self::Delta)) {
+    self.inner.expand(cb)
+  }
+}
+
 impl<T: IncrementalBase> AsRef<T> for Identity<T> {
   fn as_ref(&self) -> &T {
     &self.inner

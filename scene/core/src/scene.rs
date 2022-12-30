@@ -1,7 +1,7 @@
 use crate::*;
 
 use arena::{Arena, ArenaDelta, Handle};
-use tree::TreeCollection;
+use tree::SharedTreeCollection;
 
 pub type SceneLightHandle = Handle<SceneLight>;
 pub type SceneModelHandle = Handle<SceneModel>;
@@ -20,7 +20,7 @@ pub struct SceneInner {
   /// All models in the scene
   pub models: Arena<SceneModel>,
 
-  nodes: Arc<RwLock<TreeCollection<SceneNodeData>>>,
+  nodes: SharedTreeCollection<SceneNodeData>,
   root: SceneNode,
 
   pub ext: DynamicExtension,
@@ -36,13 +36,22 @@ pub enum SceneInnerDelta {
   lights(DeltaOf<Arena<SceneLight>>),
   models(DeltaOf<Arena<SceneModel>>),
   ext(DeltaOf<DynamicExtension>),
+  nodes(DeltaOf<SharedTreeCollection<SceneNodeData>>),
 }
 
 impl IncrementalBase for SceneInner {
   type Delta = SceneInnerDelta;
 
-  fn expand(&self, cb: impl FnMut(Self::Delta)) {
-    todo!()
+  fn expand(&self, mut cb: impl FnMut(Self::Delta)) {
+    use SceneInnerDelta::*;
+    self.background.expand(|d| cb(background(d)));
+    self.default_camera.expand(|d| cb(default_camera(d)));
+    self.active_camera.expand(|d| cb(active_camera(d)));
+    self.cameras.expand(|d| cb(cameras(d)));
+    self.lights.expand(|d| cb(lights(d)));
+    self.models.expand(|d| cb(models(d)));
+    self.ext.expand(|d| cb(ext(d)));
+    self.nodes.expand(|d| cb(nodes(d)));
   }
 }
 
@@ -51,7 +60,7 @@ impl SceneInner {
     &self.root
   }
   pub fn new() -> Self {
-    let nodes: Arc<RwLock<TreeCollection<SceneNodeData>>> = Default::default();
+    let nodes: SharedTreeCollection<SceneNodeData> = Default::default();
 
     let root = SceneNode::from_root(nodes.clone());
 
@@ -78,7 +87,7 @@ impl SceneInner {
   }
 
   pub fn maintain(&self) {
-    let mut nodes = self.nodes.write().unwrap();
+    let mut nodes = self.nodes.inner.write().unwrap();
     let root = self.root.raw_handle();
     nodes.traverse_mut_pair(root, |parent, this| {
       let parent = parent.data();

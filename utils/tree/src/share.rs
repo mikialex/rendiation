@@ -1,22 +1,30 @@
 use std::sync::{Arc, RwLock};
 
-use crate::{TreeCollection, TreeNodeHandle};
+use crate::{SharedTreeCollection, TreeNodeHandle};
 
-#[derive(Clone)]
-struct NodeRef<T> {
-  nodes: Arc<RwLock<TreeCollection<T>>>,
-  handle: TreeNodeHandle<T>,
+pub struct NodeRef<T> {
+  pub(crate) nodes: SharedTreeCollection<T>,
+  pub(crate) handle: TreeNodeHandle<T>,
+}
+
+impl<T> Clone for NodeRef<T> {
+  fn clone(&self) -> Self {
+    Self {
+      nodes: self.nodes.clone(),
+      handle: self.handle.clone(),
+    }
+  }
 }
 
 impl<T> Drop for NodeRef<T> {
   fn drop(&mut self) {
-    let mut nodes = self.nodes.write().unwrap();
+    let mut nodes = self.nodes.inner.write().unwrap();
     nodes.delete_node(self.handle)
   }
 }
 
 struct NodeInner<T> {
-  nodes: Arc<RwLock<TreeCollection<T>>>,
+  nodes: SharedTreeCollection<T>,
   parent: Option<Arc<NodeRef<T>>>,
   inner: Arc<NodeRef<T>>,
 }
@@ -32,7 +40,7 @@ impl<T> NodeInner<T> {
 
   #[must_use]
   pub fn create_child(&self, n: T) -> Self {
-    let nodes_info = &mut self.nodes.write().unwrap();
+    let nodes_info = &mut self.nodes.inner.write().unwrap();
     let handle = nodes_info.create_node(n);
     let inner = NodeRef {
       nodes: self.nodes.clone(),
@@ -53,7 +61,7 @@ impl<T> NodeInner<T> {
 
 impl<T> Drop for NodeInner<T> {
   fn drop(&mut self) {
-    let nodes = &mut self.nodes.write().unwrap();
+    let nodes = &mut self.nodes.inner.write().unwrap();
     nodes.node_detach_parent(self.inner.handle).ok();
   }
 }
@@ -76,8 +84,8 @@ impl<T> ShareTreeNode<T> {
   }
 
   #[must_use]
-  pub fn create_new_root(nodes: Arc<RwLock<TreeCollection<T>>>, n: T) -> Self {
-    let mut nodes_info = nodes.write().unwrap();
+  pub fn create_new_root(nodes: SharedTreeCollection<T>, n: T) -> Self {
+    let mut nodes_info = nodes.inner.write().unwrap();
 
     let root = nodes_info.create_node(n);
 
@@ -113,21 +121,21 @@ impl<T> ShareTreeNode<T> {
 
   pub fn mutate<F: FnOnce(&mut T) -> R, R>(&self, f: F) -> R {
     let inner = self.inner.read().unwrap();
-    let nodes = &mut inner.nodes.write().unwrap();
+    let nodes = &mut inner.nodes.inner.write().unwrap();
     let node = nodes.get_node_mut(inner.inner.handle).data_mut();
     f(node)
   }
 
   pub fn visit<F: FnMut(&T) -> R, R>(&self, mut f: F) -> R {
     let inner = self.inner.read().unwrap();
-    let nodes = &inner.nodes.read().unwrap();
+    let nodes = &inner.nodes.inner.read().unwrap();
     let node = nodes.get_node(inner.inner.handle).data();
     f(node)
   }
 
   pub fn visit_parent<F: FnMut(&T) -> R, R>(&self, mut f: F) -> Option<R> {
     let inner = self.inner.read().unwrap();
-    let nodes = &inner.nodes.read().unwrap();
+    let nodes = &inner.nodes.inner.read().unwrap();
     if let Some(parent) = &inner.parent {
       let node = nodes.get_node(parent.handle).data();
       f(node).into()

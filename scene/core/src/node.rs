@@ -1,11 +1,11 @@
 use crate::*;
 
-use tree::{ShareTreeNode, TreeCollection, TreeNodeHandle};
+use tree::{ShareTreeNode, SharedTreeCollection, TreeNodeHandle};
 
 pub type SceneNodeData = Identity<SceneNodeDataImpl>;
 pub type SceneNodeHandle = TreeNodeHandle<SceneNodeData>;
 
-#[derive(Incremental)]
+#[derive(Incremental, Clone)]
 pub struct SceneNodeDataImpl {
   pub local_matrix: Mat4<f32>,
   pub world_matrix: Mat4<f32>,
@@ -42,7 +42,7 @@ pub struct SceneNode {
 clone_self_incremental!(SceneNode);
 
 impl SceneNode {
-  pub fn from_root(nodes: Arc<RwLock<TreeCollection<SceneNodeData>>>) -> Self {
+  pub fn from_root(nodes: SharedTreeCollection<SceneNodeData>) -> Self {
     Self {
       inner: ShareTreeNode::create_new_root(nodes, Default::default()),
     }

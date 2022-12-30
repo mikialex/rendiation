@@ -1,3 +1,5 @@
+use std::sync::{Arc, RwLock};
+
 use abst::TreeNodeMutPtr;
 pub use rendiation_abstract_tree::*;
 use storage::{generational::Arena, *};
@@ -7,8 +9,20 @@ pub use share::*;
 
 mod abst;
 mod inc;
-pub use inc::TreeMutation;
+pub use inc::*;
 
+#[derive(Default)]
+pub struct SharedTreeCollection<T> {
+  pub inner: Arc<RwLock<TreeCollection<T>>>, // todo pub(crate)
+}
+
+impl<T> Clone for SharedTreeCollection<T> {
+  fn clone(&self) -> Self {
+    Self {
+      inner: self.inner.clone(),
+    }
+  }
+}
 pub struct TreeCollection<T> {
   nodes: Storage<TreeNode<T>, Arena<TreeNode<T>>>,
 }
