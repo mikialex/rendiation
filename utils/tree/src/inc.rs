@@ -21,19 +21,19 @@ impl<T: IncrementalBase> Clone for SharedTreeMutation<T> {
   fn clone(&self) -> Self {
     match self {
       SharedTreeMutation::Create(n) => SharedTreeMutation::Create(n.clone()),
-      SharedTreeMutation::Delete(n) => SharedTreeMutation::Delete(n.clone()),
+      SharedTreeMutation::Delete(n) => SharedTreeMutation::Delete(*n),
       SharedTreeMutation::Mutate { node, delta } => SharedTreeMutation::Mutate {
-        node: node.clone(),
+        node: *node,
         delta: delta.clone(),
       },
       SharedTreeMutation::Attach {
         parent_target,
         node,
       } => SharedTreeMutation::Attach {
-        parent_target: parent_target.clone(),
-        node: node.clone(),
+        parent_target: *parent_target,
+        node: *node,
       },
-      SharedTreeMutation::Detach { node } => SharedTreeMutation::Detach { node: node.clone() },
+      SharedTreeMutation::Detach { node } => SharedTreeMutation::Detach { node: *node },
     }
   }
 }

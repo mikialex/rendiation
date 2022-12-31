@@ -11,7 +11,7 @@ impl<T> Clone for NodeRef<T> {
   fn clone(&self) -> Self {
     Self {
       nodes: self.nodes.clone(),
-      handle: self.handle.clone(),
+      handle: self.handle,
     }
   }
 }

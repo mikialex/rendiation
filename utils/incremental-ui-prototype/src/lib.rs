@@ -29,7 +29,7 @@ enum PlatformRequest<'a, T: Incremental, V: View<T>> {
   },
   Layout {
     parent_constraint: usize,
-    cb: &'a dyn FnOnce(usize),
+    cb: &'a mut usize,
   },
   Rendering {
     ctx: &'a usize,
