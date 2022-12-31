@@ -18,12 +18,10 @@ pub trait Projection<T: Scalar>: Send + Sync {
   fn pixels_per_unit(&self, distance: T, view_height: T) -> T;
 
   fn project<S: NDCSpaceMapper>(&self, point: Vec3<T>) -> Vec3<T> {
-    let point = Vec4::new(point.x, point.y, point.z, T::one());
-    (self.create_projection::<S>() * point).xyz()
+    (self.create_projection::<S>() * point.expand_with_one()).xyz()
   }
   fn un_project<S: NDCSpaceMapper>(&self, point: Vec3<T>) -> Vec3<T> {
-    let point = Vec4::new(point.x, point.y, point.z, T::one());
-    (self.create_projection::<S>().inverse_or_identity() * point).xyz()
+    (self.create_projection::<S>().inverse_or_identity() * point.expand_with_one()).xyz()
   }
 }
 

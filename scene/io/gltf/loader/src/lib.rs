@@ -119,6 +119,7 @@ fn build_geom_buffer(accessor: gltf::Accessor, ctx: &mut Context) -> AttributeAc
 }
 
 pub fn load_gltf_test(path: impl AsRef<Path>, scene: &mut Scene) -> GltfResult<GltfLoadResult> {
+  let scene_inner = scene.read();
   let (document, mut buffers, mut images) = gltf::import(path)?;
 
   let mut ctx = Context {
@@ -132,7 +133,7 @@ pub fn load_gltf_test(path: impl AsRef<Path>, scene: &mut Scene) -> GltfResult<G
 
   for gltf_scene in document.scenes() {
     for node in gltf_scene.nodes() {
-      create_node_recursive(scene, scene.root().clone(), &node, &mut ctx);
+      create_node_recursive(scene, scene_inner.root().clone(), &node, &mut ctx);
     }
   }
   Ok(ctx.result)
@@ -214,7 +215,7 @@ fn build_image(data_input: gltf::image::Data) -> SceneTexture2D {
 
 /// https://docs.rs/gltf/latest/gltf/struct.Node.html
 fn create_node_recursive(
-  scene: &mut Scene,
+  scene: &Scene,
   parent_to_attach: SceneNode,
   gltf_node: &Node,
   ctx: &mut Context,
@@ -234,7 +235,7 @@ fn create_node_recursive(
     for primitive in mesh.primitives() {
       let index = primitive.index();
       let model = build_model(&node, primitive, ctx);
-      let model_handle = scene.models.insert(model);
+      let model_handle = scene.insert_model(model);
       ctx.result.primitive_map.insert(index, model_handle);
     }
   }

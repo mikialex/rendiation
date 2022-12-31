@@ -107,7 +107,7 @@ pub fn compute_shadow_position(
 pub struct SceneDepth;
 
 impl PassContentWithSceneAndCamera for SceneDepth {
-  fn render(&mut self, pass: &mut SceneRenderPass, scene: &Scene, camera: &SceneCamera) {
+  fn render(&mut self, pass: &mut SceneRenderPass, scene: &SceneInner, camera: &SceneCamera) {
     let mut render_list = RenderList::default();
     render_list.prepare(scene, camera);
 
@@ -128,7 +128,7 @@ pub trait ShadowCameraCreator {
   fn build_shadow_camera(&self, node: &SceneNode) -> SceneCamera;
 }
 
-fn get_shadow_map<T: Any + ShadowCameraCreator>(
+fn get_shadow_map<T: Any + ShadowCameraCreator + Incremental>(
   inner: &SceneItemRefGuard<T>,
   resources: &mut GPUResourceCache,
   shadows: &mut ShadowMapSystem,
@@ -142,7 +142,6 @@ fn get_shadow_map<T: Any + ShadowCameraCreator>(
     .inner
     .entry(TypeId::of::<T>())
     .or_insert_with(|| Box::<IdentityMapper<BasicShadowGPU, T>>::default())
-    .as_any_mut()
     .downcast_mut::<IdentityMapper<BasicShadowGPU, T>>()
     .unwrap()
     .get_update_or_insert_with_logic(inner, |logic| match logic {
@@ -161,7 +160,7 @@ fn get_shadow_map<T: Any + ShadowCameraCreator>(
     .clone()
 }
 
-pub fn request_basic_shadow_map<T: Any + ShadowCameraCreator>(
+pub fn request_basic_shadow_map<T: Any + ShadowCameraCreator + Incremental>(
   inner: &SceneItemRefGuard<T>,
   resources: &mut GPUResourceCache,
   shadows: &mut ShadowMapSystem,
@@ -170,7 +169,7 @@ pub fn request_basic_shadow_map<T: Any + ShadowCameraCreator>(
   get_shadow_map(inner, resources, shadows, node);
 }
 
-pub fn check_update_basic_shadow_map<T: Any + ShadowCameraCreator>(
+pub fn check_update_basic_shadow_map<T: Any + ShadowCameraCreator + Incremental>(
   inner: &SceneItemRefGuard<T>,
   ctx: &mut LightUpdateCtx,
   node: &SceneNode,

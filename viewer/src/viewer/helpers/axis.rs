@@ -1,5 +1,6 @@
 use std::{cell::RefCell, rc::Rc, sync::Arc};
 
+use incremental::EnumWrap;
 use rendiation_algebra::*;
 use rendiation_geometry::OptionalNearest;
 use rendiation_mesh_generator::*;
@@ -171,7 +172,11 @@ impl Arrow {
   }
 
   pub fn set_color(&self, color: Vec3<f32>) {
-    self.material.write().material.color = (color.x, color.y, color.z, 1.).into();
+    color
+      .expand_with_one()
+      .wrap(FlatMaterialDelta::color)
+      .wrap(StateControlDelta::material)
+      .apply_modify(&self.material);
   }
 
   pub fn with_transform(self, m: Mat4<f32>) -> Self {
@@ -191,9 +196,8 @@ impl Arrow {
 }
 
 pub fn solid_material(color: impl Into<Vec3<f32>>) -> ArrowMaterial {
-  let color = color.into();
   FlatMaterial {
-    color: Vec4::new(color.x, color.y, color.z, 1.0),
+    color: color.into().expand_with_one(),
   }
   .use_state_helper_like()
 }

@@ -25,7 +25,7 @@ fn derive_incremental_impl_inner(s: &StructInfo) -> proc_macro2::TokenStream {
   });
 
   let apply = s.map_visible_fields(|(name, _)| {
-    quote! { #incremental_type_name::#name(v) => self.#name.apply(v)?, }
+    quote! { #incremental_type_name::#name(v) => self.#name.apply(v).unwrap(), }
   });
 
   let expand = s.map_visible_fields(|(name, _)| {
@@ -42,30 +42,16 @@ fn derive_incremental_impl_inner(s: &StructInfo) -> proc_macro2::TokenStream {
       #(#incremental_variants)*
     }
 
-    impl incremental::Incremental for #struct_name {
+    impl incremental::SimpleIncremental for #struct_name {
       type Delta = #incremental_type_name;
-      type Error = ();
 
-      type Mutator<'a> = incremental::SimpleMutator<'a, Self>;
-
-      fn create_mutator<'a>(
-        &'a mut self,
-        collector: &'a mut dyn FnMut(Self::Delta),
-      ) -> Self::Mutator<'a> {
-        incremental::SimpleMutator {
-          inner: self,
-          collector,
-        }
-      }
-
-      fn apply(&mut self, delta: Self::Delta) -> Result<(), Self::Error> {
+      fn s_apply(&mut self, delta: Self::Delta) {
         match delta {
           #(#apply)*
         }
-        Ok(())
       }
 
-      fn expand(&self, mut cb: impl FnMut(Self::Delta)) {
+      fn s_expand(&self, mut cb: impl FnMut(Self::Delta)) {
         #(#expand)*
       }
     }

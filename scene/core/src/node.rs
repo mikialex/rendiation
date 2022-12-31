@@ -1,24 +1,16 @@
 use crate::*;
 
-use incremental::{clone_self_incremental, Incremental};
-use rendiation_algebra::*;
-use tree::{ShareTreeNode, TreeCollection, TreeNodeHandle};
+use tree::{ShareTreeNode, SharedTreeCollection, TreeNodeHandle};
 
 pub type SceneNodeData = Identity<SceneNodeDataImpl>;
 pub type SceneNodeHandle = TreeNodeHandle<SceneNodeData>;
 
-#[derive(Incremental)]
+#[derive(Incremental, Clone)]
 pub struct SceneNodeDataImpl {
   pub local_matrix: Mat4<f32>,
-  world_matrix: Mat4<f32>,
+  pub world_matrix: Mat4<f32>,
   pub visible: bool,
-  net_visible: bool,
-}
-
-impl AsRef<Self> for SceneNodeDataImpl {
-  fn as_ref(&self) -> &Self {
-    self
-  }
+  pub net_visible: bool,
 }
 
 impl Default for SceneNodeDataImpl {
@@ -40,18 +32,6 @@ impl SceneNodeDataImpl {
   pub fn net_visible(&self) -> bool {
     self.net_visible
   }
-
-  pub fn hierarchy_update(&mut self, parent: Option<&Self>) {
-    if let Some(parent) = parent {
-      self.net_visible = self.visible && parent.net_visible;
-      if self.net_visible {
-        self.world_matrix = parent.world_matrix * self.local_matrix;
-      }
-    } else {
-      self.world_matrix = self.local_matrix;
-      self.net_visible = self.visible
-    }
-  }
 }
 
 #[derive(Clone)]
@@ -62,7 +42,7 @@ pub struct SceneNode {
 clone_self_incremental!(SceneNode);
 
 impl SceneNode {
-  pub fn from_root(nodes: Arc<RwLock<TreeCollection<SceneNodeData>>>) -> Self {
+  pub fn from_root(nodes: SharedTreeCollection<SceneNodeData>) -> Self {
     Self {
       inner: ShareTreeNode::create_new_root(nodes, Default::default()),
     }
@@ -79,8 +59,8 @@ impl SceneNode {
     }
   }
 
-  pub fn mutate<F: FnMut(&mut SceneNodeData) -> T, T>(&self, f: F) -> T {
-    self.inner.mutate(f)
+  pub fn mutate<F: FnOnce(Mutating<SceneNodeDataImpl>) -> T, T>(&self, f: F) -> T {
+    self.inner.mutate(|node| node.mutate(f))
   }
 
   pub fn visit<F: FnMut(&SceneNodeData) -> T, T>(&self, f: F) -> T {
@@ -92,14 +72,14 @@ impl SceneNode {
   }
 
   pub fn set_local_matrix(&self, mat: Mat4<f32>) {
-    self.mutate(|node| node.local_matrix = mat);
+    self.mutate(|mut node| node.modify(SceneNodeDataImplDelta::local_matrix(mat)));
   }
   pub fn get_local_matrix(&self) -> Mat4<f32> {
     self.visit(|node| node.local_matrix)
   }
 
   pub fn set_visible(&self, visible: bool) {
-    self.mutate(|node| node.visible = visible);
+    self.mutate(|mut node| node.modify(SceneNodeDataImplDelta::visible(visible)));
   }
 
   pub fn get_world_matrix(&self) -> Mat4<f32> {

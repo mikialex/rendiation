@@ -1,4 +1,4 @@
-use incremental::Incremental;
+use incremental::{DeltaOf, Incremental};
 use interphaser::{
   mouse, mouse_move,
   winit::event::{ElementState, Event, MouseButton},
@@ -48,7 +48,7 @@ pub struct EventCtx3D<'a> {
   pub window_states: &'a WindowState,
   pub raw_event: &'a Event<'a, ()>,
   pub info: &'a CanvasWindowPositionInfo,
-  pub scene: &'a Scene,
+  pub scene: &'a SceneInner,
 
   pub event_3d: Option<Event3D>,
   pub interactive_ctx: &'a SceneRayInteractiveCtx<'a>,
@@ -59,7 +59,7 @@ impl<'a> EventCtx3D<'a> {
     window_states: &'a WindowState,
     raw_event: &'a Event<'a, ()>,
     info: &'a CanvasWindowPositionInfo,
-    scene: &'a Scene,
+    scene: &'a SceneInner,
     interactive_ctx: &'a SceneRayInteractiveCtx<'a>,
   ) -> Self {
     Self {
@@ -127,7 +127,7 @@ impl<T: Incremental, E> View<T> for Component3DCollection<T, E> {
     )
   }
 
-  fn update(&mut self, model: &T, delta: &<T as incremental::Incremental>::Delta) {
+  fn update(&mut self, model: &T, delta: &DeltaOf<T>) {
     for view in &mut self.collection {
       view.update(model, delta);
     }

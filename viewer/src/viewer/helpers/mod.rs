@@ -1,5 +1,6 @@
 use std::sync::Arc;
 
+use incremental::EnumWrap;
 use rendiation_scene_core::*;
 use rendiation_scene_webgpu::*;
 use shadergraph::*;
@@ -42,7 +43,10 @@ impl HelperLineModel {
     let mesh = SceneMeshType::Foreign(Arc::new(mesh));
 
     if let SceneModelType::Standard(model) = &self.inner.model {
-      model.write().mesh = mesh.into();
+      mesh
+        .into_ref()
+        .wrap(StandardModelDelta::mesh)
+        .apply_modify(model);
     }
   }
 }

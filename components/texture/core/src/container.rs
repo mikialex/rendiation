@@ -3,6 +3,7 @@ use rendiation_texture_types::Size;
 
 use crate::{Texture2D, Texture2dInitAble};
 
+#[derive(Clone)]
 pub struct Texture2DBuffer<P> {
   data: Vec<P>,
   size: Size,

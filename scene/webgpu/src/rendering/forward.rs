@@ -1,6 +1,6 @@
 use crate::*;
 
-pub fn get_main_pass_load_op(scene: &Scene) -> webgpu::Operations<webgpu::Color> {
+pub fn get_main_pass_load_op(scene: &SceneInner) -> webgpu::Operations<webgpu::Color> {
   let load = if let Some(bg) = &scene.background {
     if let Some(clear_color) = match bg {
       SceneBackGround::Solid(bg) => bg.require_pass_clear(),
@@ -33,7 +33,7 @@ pub struct ForwardScene<'a> {
 }
 
 impl<'a> PassContentWithSceneAndCamera for ForwardScene<'a> {
-  fn render(&mut self, pass: &mut SceneRenderPass, scene: &Scene, camera: &SceneCamera) {
+  fn render(&mut self, pass: &mut SceneRenderPass, scene: &SceneInner, camera: &SceneCamera) {
     let mut render_list = RenderList::default();
     render_list.prepare(scene, camera);
 

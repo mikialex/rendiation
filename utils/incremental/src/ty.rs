@@ -1,17 +1,5 @@
 use crate::*;
 
-pub struct SimpleMutator<'a, T: Incremental> {
-  pub inner: &'a mut T,
-  pub collector: &'a mut dyn FnMut(T::Delta),
-}
-
-impl<'a, T: Incremental> MutatorApply<T> for SimpleMutator<'a, T> {
-  fn apply(&mut self, delta: T::Delta) {
-    (self.collector)(delta.clone());
-    self.inner.apply(delta).unwrap()
-  }
-}
-
 #[macro_export]
 macro_rules! clone_self_incremental {
   ($Type: ty) => {
@@ -44,7 +32,7 @@ clone_self_incremental!(char);
 clone_self_incremental!(String);
 
 #[derive(Clone)]
-pub enum VecDelta<T: Incremental> {
+pub enum VecDelta<T: IncrementalBase> {
   Push(T),
   Remove(usize),
   Insert(usize, T),
@@ -52,21 +40,24 @@ pub enum VecDelta<T: Incremental> {
   Pop,
 }
 
-impl<T: Incremental + Default + Clone + 'static> Incremental for Vec<T> {
+impl<T> IncrementalBase for Vec<T>
+where
+  T: IncrementalBase + Default + Clone + Send + Sync + 'static,
+{
   type Delta = VecDelta<T>;
-  type Error = (); // todo
 
-  type Mutator<'a> = SimpleMutator<'a, Self>;
-
-  fn create_mutator<'a>(
-    &'a mut self,
-    collector: &'a mut dyn FnMut(Self::Delta),
-  ) -> Self::Mutator<'a> {
-    SimpleMutator {
-      inner: self,
-      collector,
+  fn expand(&self, mut cb: impl FnMut(Self::Delta)) {
+    for v in self.iter().cloned() {
+      cb(VecDelta::Push(v));
     }
   }
+}
+
+impl<T> ApplicableIncremental for Vec<T>
+where
+  T: ApplicableIncremental + Default + Clone + Send + Sync + 'static,
+{
+  type Error = (); // todo
 
   fn apply(&mut self, delta: Self::Delta) -> Result<(), Self::Error> {
     match delta {
@@ -89,103 +80,66 @@ impl<T: Incremental + Default + Clone + 'static> Incremental for Vec<T> {
     };
     Ok(())
   }
-
-  fn expand(&self, mut cb: impl FnMut(Self::Delta)) {
-    for v in self.iter().cloned() {
-      cb(VecDelta::Push(v));
-    }
-  }
 }
 
 pub trait SimpleIncremental {
-  type Delta: Clone;
+  type Delta: Clone + Send + Sync;
 
   fn s_apply(&mut self, delta: Self::Delta);
   fn s_expand(&self, cb: impl FnMut(Self::Delta));
 }
 
-impl<T: SimpleIncremental> Incremental for T {
+impl<T: SimpleIncremental + Send + Sync + 'static> IncrementalBase for T {
   type Delta = <T as SimpleIncremental>::Delta;
-
-  type Error = ();
-
-  type Mutator<'a> = SimpleMutator<'a, Self>
-  where
-    Self: 'a;
-
-  fn create_mutator<'a>(
-    &'a mut self,
-    collector: &'a mut dyn FnMut(Self::Delta),
-  ) -> Self::Mutator<'a> {
-    SimpleMutator {
-      inner: self,
-      collector,
-    }
-  }
-
-  fn apply(&mut self, delta: Self::Delta) -> Result<(), Self::Error> {
-    self.s_apply(delta);
-    Ok(())
-  }
 
   fn expand(&self, cb: impl FnMut(Self::Delta)) {
     self.s_expand(cb)
   }
 }
 
-/// not mutable
-impl<T> Incremental for std::rc::Rc<T> {
-  type Delta = Self;
-
+impl<T: SimpleIncremental + Send + Sync + 'static> ApplicableIncremental for T {
   type Error = ();
 
-  type Mutator<'a> = SimpleMutator<'a, Self>
-  where
-    Self: 'a;
-
-  fn create_mutator<'a>(
-    &'a mut self,
-    collector: &'a mut dyn FnMut(Self::Delta),
-  ) -> Self::Mutator<'a> {
-    SimpleMutator {
-      inner: self,
-      collector,
-    }
-  }
-
   fn apply(&mut self, delta: Self::Delta) -> Result<(), Self::Error> {
-    *self = delta;
+    self.s_apply(delta);
     Ok(())
   }
+}
 
-  fn expand(&self, _: impl FnMut(Self::Delta)) {}
+/// not mutable
+impl<T: Send + Sync + 'static> SimpleIncremental for std::sync::Arc<T> {
+  type Delta = Self;
+
+  fn s_apply(&mut self, delta: Self::Delta) {
+    *self = delta;
+  }
+
+  fn s_expand(&self, mut cb: impl FnMut(Self::Delta)) {
+    cb(self.clone())
+  }
 }
 
 /// should used for sum type
 #[derive(Clone)]
-pub enum DeltaOrEntire<T: Incremental> {
+pub enum DeltaOrEntire<T: IncrementalBase + Send + Sync> {
   Delta(T::Delta),
   Entire(T),
 }
 
-impl<T: Incremental + Clone> Incremental for Option<T> {
+impl<T: IncrementalBase + Clone + Send + Sync> IncrementalBase for Option<T> {
   type Delta = Option<DeltaOrEntire<T>>;
 
-  type Error = T::Error;
-
-  type Mutator<'a> = SimpleMutator<'a, Self>
-  where
-    Self: 'a;
-
-  fn create_mutator<'a>(
-    &'a mut self,
-    collector: &'a mut dyn FnMut(Self::Delta),
-  ) -> Self::Mutator<'a> {
-    SimpleMutator {
-      inner: self,
-      collector,
+  fn expand(&self, mut cb: impl FnMut(Self::Delta)) {
+    if let Some(inner) = self {
+      cb(Some(DeltaOrEntire::Entire(inner.clone())));
+    } else {
+      cb(None)
     }
   }
+}
+
+impl<T: ApplicableIncremental + Clone + Send + Sync> ApplicableIncremental for Option<T> {
+  type Error = T::Error;
 
   fn apply(&mut self, delta: Self::Delta) -> Result<(), Self::Error> {
     if let Some(d) = delta {
@@ -197,14 +151,6 @@ impl<T: Incremental + Clone> Incremental for Option<T> {
       *self = None;
     }
     Ok(())
-  }
-
-  fn expand(&self, mut cb: impl FnMut(Self::Delta)) {
-    if let Some(inner) = self {
-      cb(Some(DeltaOrEntire::Entire(inner.clone())));
-    } else {
-      cb(None)
-    }
   }
 }
 

@@ -130,3 +130,17 @@ where
     write!(f, "({:?}, {:?}, {:?})", self.x, self.y, self.z)
   }
 }
+
+impl<T> Vec3<T> {
+  #[must_use]
+  pub fn expand_with(self, channel: T) -> Vec4<T> {
+    Vec4::new(self.x, self.y, self.z, channel)
+  }
+  #[must_use]
+  pub fn expand_with_one(self) -> Vec4<T>
+  where
+    T: One,
+  {
+    Vec4::new(self.x, self.y, self.z, T::one())
+  }
+}

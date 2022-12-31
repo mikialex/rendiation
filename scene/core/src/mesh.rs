@@ -1,6 +1,6 @@
 use std::num::NonZeroU64;
 
-use rendiation_geometry::{OptionalNearest, Ray3};
+use rendiation_geometry::{Box3, OptionalNearest, Ray3};
 use rendiation_renderable_mesh::*;
 
 use crate::*;
@@ -12,6 +12,12 @@ pub type SceneMesh = SceneItemRef<SceneMeshType>;
 pub enum SceneMeshType {
   AttributesMesh(SceneItemRef<AttributesMesh>),
   Foreign(Arc<dyn Any + Send + Sync>),
+}
+
+impl SceneMeshType {
+  pub fn compute_local_bound(&self) -> Option<Box3> {
+    None
+  }
 }
 
 clone_self_incremental!(SceneMeshType);
@@ -42,9 +48,12 @@ pub enum AttributeSemantic {
   Weights(u32),
 }
 
+#[derive(Clone)]
 pub struct GeometryBufferInner {
   pub buffer: Vec<u8>,
 }
+
+clone_self_incremental!(GeometryBufferInner);
 
 pub type GeometryBuffer = SceneItemRef<GeometryBufferInner>;
 
@@ -92,6 +101,9 @@ pub enum IndexFormat {
   Uint32 = 1,
 }
 
+clone_self_incremental!(AttributesMesh);
+
+#[derive(Clone)]
 pub struct AttributesMesh {
   pub attributes: Vec<(AttributeSemantic, AttributeAccessor)>,
   pub indices: Option<(IndexFormat, AttributeAccessor)>,

@@ -2,3 +2,6 @@
 edition = "2021"
 name = "reactive"
 version = "0.0.1"
+
+[dependencies]
+arena = { path = "../arena" }

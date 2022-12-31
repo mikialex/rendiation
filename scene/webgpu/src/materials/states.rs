@@ -12,6 +12,8 @@ pub struct MaterialStates {
   pub cull_mode: Option<Face>,
 }
 
+clone_self_incremental!(MaterialStates);
+
 /// manually impl because lint complains
 impl PartialEq for MaterialStates {
   fn eq(&self, other: &Self) -> bool {
@@ -99,6 +101,29 @@ static STATE_ID: once_cell::sync::Lazy<Mutex<ValueIDGenerator<MaterialStates>>> 
 pub struct StateControl<T> {
   pub material: T,
   pub states: MaterialStates,
+}
+
+#[derive(Clone)]
+#[allow(non_camel_case_types)]
+pub enum StateControlDelta<T: Incremental> {
+  material(DeltaOf<T>),
+  states(DeltaOf<MaterialStates>),
+}
+
+impl<M: Incremental + Clone + Send + Sync> SimpleIncremental for StateControl<M> {
+  type Delta = StateControlDelta<M>;
+
+  fn s_apply(&mut self, delta: Self::Delta) {
+    match delta {
+      StateControlDelta::material(delta) => self.material.apply(delta).unwrap(),
+      StateControlDelta::states(state) => self.states = state,
+    }
+  }
+
+  fn s_expand(&self, mut cb: impl FnMut(Self::Delta)) {
+    self.material.expand(|d| cb(StateControlDelta::material(d)));
+    cb(StateControlDelta::states(self.states.clone()))
+  }
 }
 
 pub trait IntoStateControl: Sized {

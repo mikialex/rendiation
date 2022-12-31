@@ -31,6 +31,17 @@ impl<'a, T> AbstractParentAddressableTreeNode for TreeNodeRef<'a, T> {
   }
 }
 
+impl<'a, T> AbstractTreePairNode for TreeNodeRef<'a, T> {
+  fn visit_self_child_pair(&self, mut visitor: impl FnMut(&Self, &Self)) {
+    let mut next = self.node.first_child;
+    while let Some(next_to_visit) = next {
+      let child = self.tree.create_node_ref(next_to_visit);
+      visitor(self, &child);
+      next = child.node.next_sibling
+    }
+  }
+}
+
 impl<T> TreeCollection<T> {
   pub fn create_node_ref(&self, handle: TreeNodeHandle<T>) -> TreeNodeRef<T> {
     TreeNodeRef {

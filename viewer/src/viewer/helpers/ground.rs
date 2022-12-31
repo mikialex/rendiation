@@ -1,4 +1,5 @@
 use __core::{any::Any, hash::Hash};
+use incremental::*;
 use rendiation_scene_core::{IdentityMapper, SceneItemRef};
 use rendiation_scene_webgpu::{
   generate_quad, CameraGPU, DrawcallEmitter, MaterialStates, PassContentWithCamera,
@@ -80,7 +81,7 @@ impl Default for GridGround {
 
 #[repr(C)]
 #[std140_layout]
-#[derive(Copy, Clone, ShaderStruct)]
+#[derive(Copy, Clone, ShaderStruct, Incremental)]
 pub struct GridGroundConfig {
   pub scale: Vec2<f32>,
   pub color: Vec4<f32>,

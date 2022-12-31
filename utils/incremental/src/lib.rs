@@ -8,35 +8,13 @@ mod ty;
 pub use lens::*;
 pub use ty::*;
 
-pub trait Incremental: Sized {
+pub trait IncrementalBase: Sized + Send + Sync + 'static {
   /// `Delta` should be atomic modification unit of `Self`
   /// atomic means no invalid states between the modification
   ///
   /// Delta could contains multi grained layer of change to allow
   /// user modify the data in different level.
-  type Delta: Clone;
-
-  /// mutation maybe not valid and return error back.
-  /// should stay valid state even if mutation failed.
-  type Error: Debug;
-
-  /// Mutator encapsulate the inner mutable state to prevent direct mutation and generate delta automatically
-  /// Mutator should also direct support apply delta which constraint by MutatorApply
-  ///
-  /// We need this because delta could have return value.
-  type Mutator<'a>: MutatorApply<Self>
-  where
-    Self: 'a;
-
-  fn create_mutator<'a>(
-    &'a mut self,
-    collector: &'a mut dyn FnMut(Self::Delta),
-  ) -> Self::Mutator<'a>;
-
-  /// apply the mutations into the self
-  ///
-  /// construct the delta explicitly
-  fn apply(&mut self, delta: Self::Delta) -> Result<(), Self::Error>;
+  type Delta: Clone + Send + Sync + 'static;
 
   /// generate sequence of delta, which could reduce into self with default value;
   /// expand should use the coarse level delta first to rebuild data. the caller could
@@ -44,10 +22,39 @@ pub trait Incremental: Sized {
   fn expand(&self, cb: impl FnMut(Self::Delta));
 }
 
-pub type DeltaOf<T> = <T as Incremental>::Delta;
+pub type DeltaOf<T> = <T as IncrementalBase>::Delta;
 
-pub trait MutatorApply<T: Incremental> {
-  fn apply(&mut self, delta: T::Delta);
+pub trait ApplicableIncremental: IncrementalBase {
+  /// mutation maybe not valid and return error back.
+  /// should stay valid state even if mutation failed.
+  type Error: Debug + Send + Sync + 'static;
+
+  /// apply the mutations into the self
+  ///
+  /// construct the delta explicitly
+  fn apply(&mut self, delta: Self::Delta) -> Result<(), Self::Error>;
+}
+
+pub trait Incremental: IncrementalBase + ApplicableIncremental {}
+impl<T: IncrementalBase + ApplicableIncremental> Incremental for T {}
+
+pub trait IncrementalMutatorHelper: IncrementalBase {
+  /// Mutator encapsulate the inner mutable state to prevent direct mutation and generate delta automatically
+  /// Mutator should also direct support apply delta which constraint by MutatorApply
+  ///
+  /// We need this because delta could have return value.
+  type Mutator<'a>
+  where
+    Self: 'a;
+
+  fn create_mutator<'a>(
+    &'a mut self,
+    collector: &'a mut dyn FnMut(Self::Delta),
+  ) -> Self::Mutator<'a>;
+}
+
+pub trait CompareGenDelta: Incremental {
+  fn expand_diff(&self, other: &Self, cb: impl FnMut(Self::Delta));
 }
 
 /// Not all type can impl this kind of reversible delta
@@ -56,13 +63,13 @@ pub trait ReverseIncremental: Incremental {
   fn apply_rev(&mut self, delta: Self::Delta) -> Result<Self::Delta, Self::Error>;
 }
 
-pub trait AnyClone: Any + dyn_clone::DynClone {
+pub trait AnyClone: Any + dyn_clone::DynClone + Send + Sync {
   fn into_any(self: Box<Self>) -> Box<dyn Any>;
   fn as_any(&self) -> &dyn Any;
   fn as_any_mut(&mut self) -> &mut dyn Any;
 }
 dyn_clone::clone_trait_object!(AnyClone);
-impl<T: Any + dyn_clone::DynClone> AnyClone for T {
+impl<T: Any + dyn_clone::DynClone + Send + Sync> AnyClone for T {
   fn into_any(self: Box<Self>) -> Box<dyn Any> {
     self
   }
@@ -98,5 +105,15 @@ where
 
   fn expand_dyn(&self, cb: &mut dyn FnMut(Box<dyn AnyClone>)) {
     self.expand(|d| cb(Box::new(d)))
+  }
+}
+
+pub trait EnumWrap<U>: Sized {
+  fn wrap(self, wrapper: impl FnOnce(Self) -> U) -> U;
+}
+
+impl<T, U> EnumWrap<U> for T {
+  fn wrap(self, wrapper: impl FnOnce(Self) -> U) -> U {
+    wrapper(self)
   }
 }

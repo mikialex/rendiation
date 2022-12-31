@@ -6,6 +6,15 @@ pub struct NoneIndexedMesh<T, U> {
   _phantom: PhantomData<T>,
 }
 
+impl<T, U: Clone> Clone for NoneIndexedMesh<T, U> {
+  fn clone(&self) -> Self {
+    Self {
+      data: self.data.clone(),
+      _phantom: self._phantom,
+    }
+  }
+}
+
 impl<T, U> NoneIndexedMesh<T, U> {
   pub fn new(v: U) -> Self {
     Self {

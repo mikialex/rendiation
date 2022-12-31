@@ -36,6 +36,7 @@ pub use util::*;
 
 use anymap::AnyMap;
 use bytemuck::*;
+use incremental::*;
 use linked_hash_map::LinkedHashMap;
 use rendiation_algebra::*;
 use rendiation_geometry::*;
@@ -124,33 +125,6 @@ pub struct GPUResourceCache {
   pub nodes: NodeGPUStore,
 }
 
-impl GPUResourceCache {
-  pub fn maintain(&mut self) {
-    self.cameras.maintain();
-    self.nodes.maintain();
-    self.content.texture_2ds.maintain();
-    self.content.texture_cubes.maintain();
-    self
-      .scene
-      .lights
-      .inner
-      .values_mut()
-      .for_each(|v| v.maintain());
-    self
-      .scene
-      .materials
-      .inner
-      .values_mut()
-      .for_each(|v| v.maintain());
-    self
-      .scene
-      .meshes
-      .inner
-      .values_mut()
-      .for_each(|v| v.maintain());
-  }
-}
-
 impl Default for GPUResourceCache {
   fn default() -> Self {
     Self {
@@ -165,15 +139,15 @@ impl Default for GPUResourceCache {
 
 #[derive(Default)]
 pub struct GPULightCache {
-  pub inner: HashMap<TypeId, Box<dyn RequireMaintain>>,
+  pub inner: HashMap<TypeId, Box<dyn Any>>,
 }
 #[derive(Default)]
 pub struct GPUMaterialCache {
-  pub inner: HashMap<TypeId, Box<dyn RequireMaintain>>,
+  pub inner: HashMap<TypeId, Box<dyn Any>>,
 }
 #[derive(Default)]
 pub struct GPUMeshCache {
-  pub inner: HashMap<TypeId, Box<dyn RequireMaintain>>,
+  pub inner: HashMap<TypeId, Box<dyn Any>>,
 }
 
 #[derive(Default)]
@@ -186,8 +160,8 @@ pub struct GPUResourceSceneCache {
 /// GPU cache container for given scene
 #[derive(Default)]
 pub struct GPUResourceSubCache {
-  pub texture_2ds: IdentityMapper<GPU2DTextureView, dyn WebGPU2DTextureSource>,
-  pub texture_cubes: IdentityMapper<GPUCubeTextureView, [Box<dyn WebGPU2DTextureSource>; 6]>,
+  pub texture_2ds: IdentityMapper<GPU2DTextureView, SceneTexture2DType>,
+  pub texture_cubes: IdentityMapper<GPUCubeTextureView, SceneTextureCubeImpl>,
   pub mipmap_gen: Rc<RefCell<MipMapTaskManager>>,
 }
 
@@ -207,7 +181,7 @@ pub trait WebGPUSceneExtension {
 
 use std::cmp::Ordering;
 
-impl WebGPUSceneExtension for Scene {
+impl WebGPUSceneExtension for SceneInner {
   fn build_interactive_ctx<'a>(
     &'a self,
     normalized_position: Vec2<f32>,

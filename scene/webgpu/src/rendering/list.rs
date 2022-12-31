@@ -7,7 +7,7 @@ pub struct RenderList {
 }
 
 impl RenderList {
-  pub fn prepare(&mut self, scene: &Scene, camera: &SceneCamera) {
+  pub fn prepare(&mut self, scene: &SceneInner, camera: &SceneCamera) {
     if scene.active_camera.is_none() {
       return;
     }
@@ -40,16 +40,17 @@ impl RenderList {
   pub fn setup_pass(
     &self,
     gpu_pass: &mut SceneRenderPass,
-    scene: &Scene,
+    scene: &SceneInner,
     dispatcher: &dyn RenderComponentAny,
     camera: &SceneCamera,
   ) {
+    let models = &scene.models;
     self.opaque.iter().for_each(|(handle, _)| {
-      let model = scene.models.get(*handle).unwrap();
+      let model = models.get(*handle).unwrap();
       model.render(gpu_pass, dispatcher, camera)
     });
     self.transparent.iter().for_each(|(handle, _)| {
-      let model = scene.models.get(*handle).unwrap();
+      let model = models.get(*handle).unwrap();
       model.render(gpu_pass, dispatcher, camera)
     });
   }

@@ -147,7 +147,6 @@ impl GPUMeshCache {
       .inner
       .entry(type_id)
       .or_insert_with(|| Box::<MeshIdentityMapper<M>>::default())
-      .as_any_mut()
       .downcast_mut::<MeshIdentityMapper<M>>()
       .unwrap();
     mapper.get_update_or_insert_with_logic(m, |x| match x {
@@ -161,7 +160,7 @@ impl GPUMeshCache {
 }
 
 type MeshIdentityMapper<T> = IdentityMapper<<T as WebGPUMesh>::GPU, T>;
-pub trait WebGPUMesh: Any + Send + Sync {
+pub trait WebGPUMesh: Any + Send + Sync + Incremental {
   type GPU: RenderComponent;
   fn update(&self, gpu_mesh: &mut Self::GPU, gpu: &GPU, storage: &mut AnyMap);
   fn create(&self, gpu: &GPU, storage: &mut AnyMap) -> Self::GPU;
@@ -172,8 +171,20 @@ pub trait WebGPUMesh: Any + Send + Sync {
   fn try_pick(&self, _f: &mut dyn FnMut(&dyn IntersectAbleGroupedMesh)) {}
 }
 
+#[derive(Clone)]
 pub struct MeshSource<T> {
   inner: T,
+}
+impl<M: Clone + Send + Sync> SimpleIncremental for MeshSource<M> {
+  type Delta = Self;
+
+  fn s_apply(&mut self, delta: Self::Delta) {
+    *self = delta
+  }
+
+  fn s_expand(&self, mut cb: impl FnMut(Self::Delta)) {
+    cb(self.clone())
+  }
 }
 
 impl<T> MeshSource<T> {
@@ -220,7 +231,7 @@ impl<T: IntersectAbleGroupedMesh> IntersectAbleGroupedMesh for MeshSource<T> {
 
 impl<T> WebGPUMesh for MeshSource<T>
 where
-  T: GPUMeshData<GPU = TypedMeshGPU<T>> + IntersectAbleGroupedMesh + Any + Send + Sync,
+  T: GPUMeshData<GPU = TypedMeshGPU<T>> + IntersectAbleGroupedMesh + Any + Send + Sync + Clone,
 {
   type GPU = TypedMeshGPU<T>;
 

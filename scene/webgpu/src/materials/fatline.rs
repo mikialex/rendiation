@@ -1,7 +1,7 @@
 use crate::*;
 
 #[repr(C)]
-#[derive(Clone, Copy, Pod, Zeroable, ShaderStruct)]
+#[derive(Clone, Copy, Pod, Zeroable, ShaderStruct, Incremental)]
 pub struct FatLineMaterial {
   pub width: f32,
 }

@@ -61,34 +61,34 @@ pub struct SceneAcceleration {
 }
 
 pub trait RayTracingSceneExt {
-  fn create_node(&mut self, builder: impl Fn(&mut SceneNodeDataImpl, &mut Self)) -> &mut Self;
+  fn create_node(&mut self, builder: impl Fn(&SceneNode, &mut Self)) -> &mut Self;
   fn model_node(&mut self, shape: impl Shape, material: impl Material) -> &mut Self;
   fn model_node_with_modify(
     &mut self,
     shape: impl Shape,
     material: impl Material,
-    m: impl Fn(&mut SceneNodeDataImpl),
+    m: impl Fn(&SceneNode),
   ) -> &mut Self;
   fn background(&mut self, background: impl RayTracingBackground) -> &mut Self;
   fn build_traceable(&mut self) -> SceneAcceleration;
 }
 
 impl RayTracingSceneExt for Scene {
-  fn create_node(&mut self, builder: impl Fn(&mut SceneNodeDataImpl, &mut Self)) -> &mut Self {
-    let node = self.root().create_child();
-    node.mutate(|node| builder(node, self));
+  fn create_node(&mut self, builder: impl Fn(&SceneNode, &mut Self)) -> &mut Self {
+    let node = self.read().root().create_child();
+    builder(&node, self);
     self
   }
 
   fn model_node(&mut self, shape: impl Shape, material: impl Material) -> &mut Self {
-    let node = self.root().create_child();
+    let node = self.read().root().create_child();
     let model = RayTracingSceneModel {
       shape: Box::new(shape),
       material: Box::new(material),
     };
     let model = SceneModelType::Foreign(Arc::new(model));
     let model = SceneModelImpl { node, model };
-    let _ = self.models.insert(model.into());
+    let _ = self.insert_model(model.into());
     self
   }
 
@@ -96,34 +96,34 @@ impl RayTracingSceneExt for Scene {
     &mut self,
     shape: impl Shape,
     material: impl Material,
-    m: impl Fn(&mut SceneNodeDataImpl),
+    m: impl Fn(&SceneNode),
   ) -> &mut Self {
-    let node = self.root().create_child();
-    node.mutate(|node| m(node));
+    let node = self.read().root().create_child();
+    m(&node);
     let model = RayTracingSceneModel {
       shape: Box::new(shape),
       material: Box::new(material),
     };
     let model = SceneModelType::Foreign(Arc::new(model));
     let model = SceneModelImpl { node, model };
-    let _ = self.models.insert(model.into());
+    let _ = self.insert_model(model.into());
     self
   }
 
   fn background(&mut self, background: impl RayTracingBackground) -> &mut Self {
     let background: Box<dyn RayTracingBackground> = Box::new(background);
-    self.background = background.create_scene_background();
+    self.set_background(background.create_scene_background());
     self
   }
 
   fn build_traceable(&mut self) -> SceneAcceleration {
-    self.maintain();
+    self.read().maintain();
 
     let mut result = SceneAcceleration::default();
 
     let mut models_in_bvh_source = Vec::new();
 
-    for (_, model) in self.models.iter() {
+    for (_, model) in self.read().models.iter() {
       let model = model.read();
       if let SceneModelType::Foreign(foreign) = &model.model {
         if let Some(retraceable) = foreign.downcast_ref::<RayTracingSceneModel>() {
@@ -162,7 +162,7 @@ impl RayTracingSceneExt for Scene {
 
     result.models_bvh = models_bvh.into();
 
-    if let Some(bg) = &self.background {
+    if let Some(bg) = &self.read().background {
       match bg {
         SceneBackGround::Solid(bg) => {
           result.env = Some(Box::new(*bg));

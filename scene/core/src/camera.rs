@@ -1,5 +1,3 @@
-use incremental::*;
-use rendiation_algebra::*;
 use rendiation_geometry::*;
 use rendiation_texture::Size;
 
@@ -30,15 +28,21 @@ impl SceneCamera {
       projection_matrix: Mat4::one(),
       node,
     };
-    inner.projection_changed();
+    inner
+      .projection
+      .update_projection(&mut inner.projection_matrix);
 
     inner.into()
   }
 
-  pub fn resize(&mut self, size: (f32, f32)) {
-    self.mutate(|camera| {
-      camera.projection.resize(size);
-      camera.projection_changed();
+  pub fn resize(&self, size: (f32, f32)) {
+    self.mutate(|mut camera| {
+      let resize = CameraProjectionDelta::Resize(size);
+      camera.modify(SceneCameraInnerDelta::projection(resize));
+
+      let mut new_project = Mat4::one();
+      camera.projection.update_projection(&mut new_project);
+      camera.modify(SceneCameraInnerDelta::projection_matrix(new_project));
     })
   }
 
@@ -98,15 +102,26 @@ impl<T: ResizableProjection<f32> + RayCaster3<f32> + DynIncremental> CameraProje
   }
 }
 
+#[derive(Clone)]
+pub enum CameraProjectionDelta {
+  Resize((f32, f32)),
+  Boxed(Box<dyn AnyClone>),
+}
+
 impl SimpleIncremental for Box<dyn CameraProjection> {
-  type Delta = Box<dyn AnyClone>;
+  type Delta = CameraProjectionDelta;
 
   fn s_apply(&mut self, delta: Self::Delta) {
-    self.as_mut().apply_dyn(delta).unwrap();
+    match delta {
+      CameraProjectionDelta::Resize(size) => self.resize(size),
+      CameraProjectionDelta::Boxed(delta) => self.as_mut().apply_dyn(delta).unwrap(),
+    }
   }
 
   fn s_expand(&self, mut cb: impl FnMut(Self::Delta)) {
-    self.as_ref().expand_dyn(&mut cb);
+    self
+      .as_ref()
+      .expand_dyn(&mut |d| cb(CameraProjectionDelta::Boxed(d)));
   }
 }
 
@@ -131,11 +146,5 @@ impl SceneCameraInner {
     let height: usize = frame_size.height.into();
     let height = height as f32 * self.bounds.height;
     (width, height).into()
-  }
-
-  pub fn projection_changed(&mut self) {
-    self
-      .projection
-      .update_projection(&mut self.projection_matrix);
   }
 }

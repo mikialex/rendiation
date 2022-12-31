@@ -1,7 +1,5 @@
 use std::{any::TypeId, fmt::Debug};
 
-use incremental::*;
-
 use crate::*;
 
 /// like any map, but clone able
@@ -36,27 +34,10 @@ impl DynamicExtension {
   }
 }
 
-impl Incremental for DynamicExtension {
+impl SimpleIncremental for DynamicExtension {
   type Delta = ();
 
-  type Error = ();
+  fn s_apply(&mut self, _: Self::Delta) {}
 
-  type Mutator<'a> = SimpleMutator<'a, Self>
-  where
-    Self: 'a;
-
-  fn create_mutator<'a>(
-    &'a mut self,
-    collector: &'a mut dyn FnMut(Self::Delta),
-  ) -> Self::Mutator<'a> {
-    todo!()
-  }
-
-  fn apply(&mut self, delta: Self::Delta) -> Result<(), Self::Error> {
-    todo!()
-  }
-
-  fn expand(&self, cb: impl FnMut(Self::Delta)) {
-    todo!()
-  }
+  fn s_expand(&self, _: impl FnMut(Self::Delta)) {}
 }

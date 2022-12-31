@@ -153,6 +153,8 @@ pub enum PrimitiveTopology {
   TriangleStrip = 4,
 }
 
+incremental::clone_self_incremental!(PrimitiveTopology);
+
 pub struct PointList;
 impl PrimitiveTopologyMeta for PointList {
   type Primitive<T> = Point<T>;

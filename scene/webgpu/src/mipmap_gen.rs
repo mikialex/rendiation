@@ -89,13 +89,13 @@ impl Mipmap2DGenerator {
 
 /// layer reduce logic, layer by layer.
 /// input previous layer, generate next layer.
-/// target is the layer's current writing pixel coordinate.
+/// `current` is the layer's current writing pixel coordinate, range from 0. to 1.
 pub trait Mipmap2dReducer: Send + Sync {
   fn reduce(
     &self,
     previous_level: Node<ShaderTexture2D>,
     sampler: Node<ShaderSampler>,
-    current: Node<Vec2<f32>>, // 0- 1
+    current: Node<Vec2<f32>>,
     texel_size: Node<Vec2<f32>>,
   ) -> Node<Vec4<f32>>;
 }
@@ -108,7 +108,7 @@ impl Mipmap2dReducer for DefaultMipmapReducer {
     &self,
     previous_level: Node<ShaderTexture2D>,
     sampler: Node<ShaderSampler>,
-    current: Node<Vec2<f32>>, // 0- 1
+    current: Node<Vec2<f32>>,
     texel_size: Node<Vec2<f32>>,
   ) -> Node<Vec4<f32>> {
     let mut r = previous_level.sample_level(sampler, current + texel_size * consts(Vec2::new(0., 0.)), consts(0.));

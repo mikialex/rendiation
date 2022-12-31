@@ -7,9 +7,11 @@ use rendiation_renderable_mesh::{
   MeshGPU,
 };
 
+#[derive(Clone)]
 pub struct FatlineMesh {
   inner: GroupedMesh<NoneIndexedMesh<LineList, Vec<FatLineVertex>>>,
 }
+clone_self_incremental!(FatlineMesh);
 
 impl FatlineMesh {
   pub fn new(inner: GroupedMesh<NoneIndexedMesh<LineList, Vec<FatLineVertex>>>) -> Self {

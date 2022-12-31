@@ -9,13 +9,13 @@ fn main() {
 
   let mut frame = Frame::new(600, 600);
 
-  let mut scene = Scene::new();
+  let mut scene = SceneInner::new().into_ref();
 
   let perspective = PerspectiveProjection {
     fov: Deg::by(65.),
     ..Default::default()
   };
-  let camera = SceneCamera::create_camera(perspective, scene.root().create_child());
+  let camera = SceneCamera::create_camera(perspective, scene.read().root().create_child());
   camera.read().node.set_local_matrix(Mat4::lookat(
     Vec3::new(0., 8., 10.),
     Vec3::new(0., 5., 0.),
@@ -47,7 +47,7 @@ fn main() {
         },
       },
       |node| {
-        node.local_matrix = Mat4::translate((1., 0., 0.))
+        node.set_local_matrix(Mat4::translate((1., 0., 0.)))
         // node.local_matrix = Mat4::translate(0., 2., 0.) * Mat4::rotate_y(3.)
       },
     )
@@ -58,7 +58,7 @@ fn main() {
         diffuse_model: Lambertian,
       },
       |node| {
-        node.local_matrix = Mat4::translate((0., 1.0, 0.))
+        node.set_local_matrix(Mat4::translate((0., 1.0, 0.)))
         // node.local_matrix = Mat4::translate(0., 2., 0.) * Mat4::rotate_y(3.)
       },
     )

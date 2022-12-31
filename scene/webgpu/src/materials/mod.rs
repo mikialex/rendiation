@@ -13,7 +13,7 @@ pub use normal_mapping::*;
 
 use crate::*;
 
-pub trait WebGPUMaterial: Clone + Any {
+pub trait WebGPUMaterial: Clone + Any + Incremental {
   type GPU: RenderComponentAny;
   fn create_gpu(&self, res: &mut GPUResourceSubCache, gpu: &GPU) -> Self::GPU;
   fn is_keep_mesh_shape(&self) -> bool;
@@ -117,7 +117,6 @@ impl GPUMaterialCache {
       .inner
       .entry(type_id)
       .or_insert_with(|| Box::<MaterialIdentityMapper<M>>::default())
-      .as_any_mut()
       .downcast_mut::<MaterialIdentityMapper<M>>()
       .unwrap();
 

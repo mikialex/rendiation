@@ -28,19 +28,16 @@ pub use light::*;
 pub mod camera;
 pub use camera::*;
 
-pub mod identity;
-pub use identity::*;
-// mod identity_next;
+mod utils;
+pub use utils::*;
+
+mod system;
+pub use system::*;
 
 use incremental::*;
 use rendiation_algebra::*;
 use std::any::Any;
 use std::{
-  collections::{HashMap, HashSet},
-  marker::PhantomData,
-  ops::Deref,
-  sync::{
-    atomic::{AtomicUsize, Ordering},
-    Arc, RwLock,
-  },
+  collections::HashMap,
+  sync::{Arc, RwLock},
 };

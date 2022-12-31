@@ -8,7 +8,7 @@ pub struct PerspectiveProjection<T> {
   pub aspect: T,
 }
 
-impl<T: Clone> SimpleIncremental for PerspectiveProjection<T> {
+impl<T: Clone + Send + Sync> SimpleIncremental for PerspectiveProjection<T> {
   type Delta = Self;
 
   fn s_apply(&mut self, delta: Self::Delta) {

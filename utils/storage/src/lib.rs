@@ -12,7 +12,7 @@ pub mod generational;
 /// behavior is covered by trait method. The traits provide a unified
 /// semantic to handle collection relationship.
 pub struct Storage<T, S: StorageBehavior<T>> {
-  data: S,
+  pub data: S,
   phantom: PhantomData<T>,
 }
 
