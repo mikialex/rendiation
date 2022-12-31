@@ -185,7 +185,11 @@ impl<T: 'static> Stream<T> {
     stream
   }
 
-  pub fn merge_map<U, R>(&self, other: &Stream<U>, mapper: impl Fn(&T, &U) -> R) -> Stream<R>
+  pub fn merge_map<U, R>(
+    &self,
+    other: &Stream<U>,
+    mapper: impl Fn(&T, &U) -> R + Copy + Send + Sync + 'static,
+  ) -> Stream<R>
   where
     T: Send + Sync + Clone + 'static,
     U: Send + Sync + Clone + 'static,
@@ -197,15 +201,28 @@ impl<T: 'static> Stream<T> {
     let last_self = self.latest();
     let last_other = other.latest();
 
-    // other.inner.write().unwrap().on(move |t| {
-    //   if let Some(current_other) = &mut other.write().unwrap() {
-    //     current_self = Some(t);
-    //   }
-    //   !weak.is_exist()
-    // });
-    // stream
+    let weak_clone = weak.clone();
+    let last_other_clone = last_other.clone();
 
-    todo!()
+    last_self.as_stream().on(move |v| {
+      if let Some(v) = v {
+        if let Some(other) = last_other_clone.sample() {
+          weak_clone.emit(&mapper(v, &other));
+        }
+      }
+      !weak_clone.is_exist()
+    });
+
+    last_other.as_stream().on(move |v| {
+      if let Some(v) = v {
+        if let Some(other) = last_self.sample() {
+          weak.emit(&mapper(&other, v));
+        }
+      }
+      !weak.is_exist()
+    });
+
+    stream
   }
 
   pub fn hold(&self, initial: T) -> StreamSignal<T>
@@ -280,6 +297,7 @@ impl<T: 'static> Stream<Stream<T>> {
   }
 }
 
+#[derive(Clone)]
 pub struct StreamSignal<T> {
   stream: Stream<T>,
   current: Arc<RwLock<T>>,
