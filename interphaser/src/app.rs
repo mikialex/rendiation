@@ -146,7 +146,7 @@ impl<T: 'static> Application<T> {
             #[cfg(not(target_arch = "wasm32"))]
             {
               *control_flow =
-                ControlFlow::WaitUntil(Instant::now() + target_frametime - time_since_last_frame);
+                ControlFlow::WaitUntil(Instant::now() + target_frametime.checked_sub(time_since_last_frame).unwrap());
             }
             #[cfg(target_arch = "wasm32")]
             app.window.request_redraw();

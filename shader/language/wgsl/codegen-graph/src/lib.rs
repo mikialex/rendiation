@@ -219,7 +219,7 @@ fn gen_fragment_out_struct(code: &mut CodeBuilder, frag: &ShaderGraphFragmentBui
   let mut shader_struct = ShaderStructMetaInfoOwned::new("FragmentOut");
   frag.frag_output.iter().enumerate().for_each(|(i, _)| {
     shader_struct.fields.push(ShaderStructFieldMetaInfoOwned {
-      name: format!("frag_out{}", i),
+      name: format!("frag_out{i}"),
       ty: ShaderStructMemberValueType::Primitive(PrimitiveShaderValueType::Vec4Float32),
       ty_deco: ShaderFieldDecorator::Location(i).into(),
     });
@@ -507,7 +507,7 @@ fn gen_expr(data: &ShaderGraphNodeExpr, cx: &mut CodeGenCtx) -> String {
           UnaryOperator::LogicalNot => "!",
         };
         let one = cx.get_node_gen_result_var(*one);
-        format!("{}{}", op, one)
+        format!("{op}{one}")
       }
       OperatorNode::Binary {
         left,
@@ -531,7 +531,7 @@ fn gen_expr(data: &ShaderGraphNodeExpr, cx: &mut CodeGenCtx) -> String {
         };
         let left = cx.get_node_gen_result_var(*left);
         let right = cx.get_node_gen_result_var(*right);
-        format!("{} {} {}", left, op, right)
+        format!("{left} {op} {right}")
       }
       OperatorNode::Index { array, entry } => {
         let array = cx.get_node_gen_result_var(*array);
@@ -589,13 +589,13 @@ fn gen_input_name(input: &ShaderGraphInputNode) -> String {
     ShaderGraphInputNode::Uniform {
       bindgroup_index,
       entry_index,
-    } => format!("uniform_b_{}_i_{}", bindgroup_index, entry_index),
+    } => format!("uniform_b_{bindgroup_index}_i_{entry_index}"),
     ShaderGraphInputNode::VertexIn {
       location: index, ..
-    } => format!("vertex_in_{}", index),
+    } => format!("vertex_in_{index}"),
     ShaderGraphInputNode::FragmentIn {
       location: index, ..
-    } => format!("fragment_in_{}", index),
+    } => format!("fragment_in_{index}"),
   }
 }
 
@@ -740,7 +740,7 @@ fn gen_struct(builder: &mut CodeBuilder, meta: &ShaderStructMetaInfoOwned, is_un
       }
 
       let explicit_align = explicit_align
-        .map(|a| format!(" @align({})", a))
+        .map(|a| format!(" @align({a})"))
         .unwrap_or_default();
 
       builder.write_ln(format!(
@@ -906,7 +906,7 @@ fn gen_fix_type_impl(ty: ShaderStructMemberValueType, is_uniform: bool) -> Strin
       } else {
         gen_fix_type_impl(*ty, is_uniform)
       };
-      format!("array<{}, {}>", type_name, length)
+      format!("array<{type_name}, {length}>")
     }
   }
 }
@@ -950,8 +950,8 @@ pub fn gen_primitive_literal(v: PrimitiveShaderValue) -> String {
       let v: &[f32; 16] = v.as_ref();
       float_group(v.as_slice())
     }
-    PrimitiveShaderValue::Uint32(v) => format!("{}u", v),
-    PrimitiveShaderValue::Int32(v) => format!("{}i", v),
+    PrimitiveShaderValue::Uint32(v) => format!("{v}u"),
+    PrimitiveShaderValue::Int32(v) => format!("{v}i"),
     PrimitiveShaderValue::Vec2Uint32(v) => {
       let v: &[u32; 2] = v.as_ref();
       uint_group(v.as_slice())

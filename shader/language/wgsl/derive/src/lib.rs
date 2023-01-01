@@ -56,7 +56,7 @@ fn gen_wgsl_function(wgsl: &str) -> proc_macro2::TokenStream {
   let function_name = fun.name.name.as_ref();
   let prototype_name = gen_fn_meta_name(function_name);
   let function_name = format_ident!("{}", function_name);
-  let quoted_function_name = format!("{}", function_name);
+  let quoted_function_name = format!("{function_name}");
   let quoted_source = wgsl.to_string();
   let function_source = quote! {#quoted_source};
 

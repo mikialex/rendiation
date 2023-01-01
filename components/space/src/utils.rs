@@ -74,7 +74,6 @@ pub fn generate_boxes_in_space(count: usize, space_size: f32, box_size: f32) -> 
   let mut random = || rng.gen::<f32>();
 
   (0..count)
-    .into_iter()
     .map(|_| {
       let center = Vec3::new(random(), random(), random()) * space_size;
       let half_size = Vec3::new(random(), random(), random()) * box_size;

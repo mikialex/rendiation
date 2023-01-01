@@ -115,10 +115,10 @@ impl Terminal {
 
       if let Some(first) = parameters.first() {
         if let Some(exe) = self.executor.get(first) {
-          println!("execute: {}", command);
+          println!("execute: {command}");
           block_on(exe(content, &mut parameters))
         } else {
-          println!("unknown command {}", first)
+          println!("unknown command {first}")
         }
         self.command_history.push(command);
       }

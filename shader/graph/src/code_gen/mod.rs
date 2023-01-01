@@ -16,7 +16,7 @@ pub trait ShaderGraphCodeGenTarget {
 /// common & shareable impl
 
 pub fn float_to_shader(f: f32) -> String {
-  let mut result = format!("{}", f);
+  let mut result = format!("{f}");
   if result.contains('.') {
     result
   } else {
@@ -31,14 +31,14 @@ pub fn float_group(f: &[f32]) -> String {
     .map(|f| float_to_shader(*f))
     .collect::<Vec<_>>()
     .join(", ");
-  format!("({})", v)
+  format!("({v})")
 }
 
 pub fn uint_group(f: &[u32]) -> String {
   let v = f
     .iter()
-    .map(|f| format!("{}u", f))
+    .map(|f| format!("{f}u"))
     .collect::<Vec<_>>()
     .join(", ");
-  format!("({})", v)
+  format!("({v})")
 }

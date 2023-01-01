@@ -383,7 +383,7 @@ impl<T: Incremental, E> View<T> for Container<T, E> {
 fn submit<T: IncrementalMutatorHelper>(
   on_submit: impl Fn(String) -> Option<T::Delta>,
 ) -> impl for<'a> Fn(T::Mutator<'a>, &ViewReaction<TextBoxEvent, T>) {
-  move |mut mutator, e| match e {
+  move |mutator, e| match e {
     ViewReaction::ViewEvent(e) => match e {
       TextBoxEvent::Submit(content) => {
         if let Some(delta) = on_submit(content.clone()) {

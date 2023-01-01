@@ -15,7 +15,7 @@ fn print(prefix: &String, name: String, node: &BSTTreeNodeRef<Oc, 8, 3>) {
       prefix, name, node.node.primitive_range.start, node.node.primitive_range.end,
     );
   } else {
-    println!("{}+- {}, empty", prefix, name);
+    println!("{prefix}+- {name}, empty");
   }
 }
 
@@ -31,9 +31,9 @@ fn print_crossed(prefix: &String, node: &BSTTreeNodeRef<Oc, 8, 3>, end: usize) {
 fn visit(prefix: &String, name: String, is_last: bool, node: &BSTTreeNodeRef<Oc, 8, 3>) {
   print(prefix, name, node);
   let child_prefix = if !is_last {
-    format!("{}|  ", prefix)
+    format!("{prefix}|  ")
   } else {
-    format!("{}   ", prefix)
+    format!("{prefix}   ")
   };
 
   let mut index: usize = 0;
@@ -45,7 +45,7 @@ fn visit(prefix: &String, name: String, is_last: bool, node: &BSTTreeNodeRef<Oc,
     }
 
     let is_last = child_count == index + 1;
-    visit(&child_prefix, format!("child {}", index), is_last, child);
+    visit(&child_prefix, format!("child {index}"), is_last, child);
 
     index += 1;
   });

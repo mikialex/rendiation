@@ -14,11 +14,11 @@ fn derive_shader_struct(s: &StructInfo) -> proc_macro2::TokenStream {
   let struct_name = &s.struct_name;
   let shadergraph_instance_name = format_ident!("{}ShaderGraphInstance", struct_name);
 
-  let struct_name_str = format!("{}", struct_name);
+  let struct_name_str = format!("{struct_name}");
   let meta_info_name = gen_struct_meta_name(struct_name_str.as_str());
 
   let meta_info_fields = s.map_visible_fields(|(field_name, ty)| {
-    let field_str = format!("{}", field_name);
+    let field_str = format!("{field_name}");
     quote! {
      shadergraph::ShaderStructFieldMetaInfo {
        name: #field_str,
@@ -33,7 +33,7 @@ fn derive_shader_struct(s: &StructInfo) -> proc_macro2::TokenStream {
   });
 
   let instance_fields_create = s.map_visible_fields(|(field_name, ty)| {
-    let field_str = format!("{}", field_name);
+    let field_str = format!("{field_name}");
     quote! { #field_name: shadergraph::expand_single::<<#ty as shadergraph::ShaderFieldTypeMapper>::ShaderType>(node.handle(), #field_str), }
   });
 

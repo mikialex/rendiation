@@ -45,7 +45,7 @@ impl Frame {
     current_path.push(String::from(name) + ".png");
     let path = current_path.into_os_string().into_string().unwrap();
 
-    println!("writing file to path: {}", path);
+    println!("writing file to path: {path}");
     self
       .inner
       .map::<OutputBuffer>(|pix| {

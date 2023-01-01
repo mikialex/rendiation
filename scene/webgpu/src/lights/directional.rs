@@ -91,24 +91,36 @@ impl WebGPUSceneLight for SceneItemRef<DirectionalLight> {
   }
 }
 
+#[derive(Copy, Clone)]
 pub struct DirectionalShadowMapExtraInfo {
-  pub width_extend: f32,
-  pub height_extend: f32,
-  pub up: Vec3<f32>,
-  pub enable_shadow: bool,
+  pub range: OrthographicProjection<f32>,
+  // pub enable_shadow: bool,
+}
+
+impl Default for DirectionalShadowMapExtraInfo {
+  fn default() -> Self {
+    Self {
+      range: OrthographicProjection {
+        left: -20.,
+        right: 20.,
+        top: 20.,
+        bottom: -20.,
+        near: 0.1,
+        far: 2000.,
+      },
+    }
+  }
 }
 
 impl ShadowCameraCreator for DirectionalLight {
   fn build_shadow_camera(&self, node: &SceneNode) -> SceneCamera {
-    let orth = OrthographicProjection {
-      left: -20.,
-      right: 20.,
-      top: 20.,
-      bottom: -20.,
-      near: 0.1,
-      far: 2000.,
-    };
-    let orth = WorkAroundResizableOrth { orth };
+    let extra = self
+      .ext
+      .get::<DirectionalShadowMapExtraInfo>()
+      .copied()
+      .unwrap_or_default();
+
+    let orth = WorkAroundResizableOrth { orth: extra.range };
     SceneCamera::create_camera(orth, node.clone())
   }
 }

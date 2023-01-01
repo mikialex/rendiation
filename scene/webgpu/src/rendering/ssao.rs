@@ -19,7 +19,6 @@ impl SSAO {
 
     // improve, try other low discrepancy serials
     let samples: Vec<Vec4<f32>> = (0..MAX_SAMPLE)
-      .into_iter()
       .map(|i| {
         // generate point in half sphere
         let rand_p = loop {

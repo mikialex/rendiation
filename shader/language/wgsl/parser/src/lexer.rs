@@ -374,18 +374,18 @@ impl<'a> Lexer<'a> {
     let mut is_first_char = true;
     let mut right_after_exponent = false;
 
-    let mut what = |c| {
+    let mut what = |c: char| {
       if is_first_char {
         is_first_char = false;
-        c == '-' || ('0'..='9').contains(&c) || c == '.'
+        c == '-' || c.is_ascii_digit() || c == '.'
       } else if c == 'e' || c == 'E' {
         right_after_exponent = true;
         true
       } else if right_after_exponent {
         right_after_exponent = false;
-        ('0'..='9').contains(&c) || c == '-'
+        c.is_ascii_digit() || c == '-'
       } else {
-        ('0'..='9').contains(&c) || c == '.'
+        c.is_ascii_digit() || c == '.'
       }
     };
     let pos = input.find(|c| !what(c)).unwrap_or(input.len());
@@ -396,7 +396,7 @@ impl<'a> Lexer<'a> {
     match ty {
       'u' | 'i' | 'f' => {
         let width_end = rest_iter
-          .position(|c| !('0'..='9').contains(&c))
+          .position(|c| !c.is_ascii_digit())
           .unwrap_or(rest.len() - 1);
         let (width, rest) = rest[1..].split_at(width_end);
         (Token::Number { value, ty, width }, rest)

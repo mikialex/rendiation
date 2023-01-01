@@ -71,7 +71,5 @@ where
   S: SpaceLineSegmentShape<T, V>,
 {
   assert!(divisions >= 2);
-  (0..divisions)
-    .into_iter()
-    .map(move |s| curve.sample(T::by_usize_div(s, divisions - 1)))
+  (0..divisions).map(move |s| curve.sample(T::by_usize_div(s, divisions - 1)))
 }

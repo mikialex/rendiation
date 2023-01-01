@@ -1,6 +1,6 @@
 use crate::*;
 
-pub fn setup_viewport<'a>(cb: &CameraViewBounds, pass: &mut GPURenderPass<'a>, buffer_size: Size) {
+pub fn setup_viewport(cb: &CameraViewBounds, pass: &mut GPURenderPass, buffer_size: Size) {
   let width: usize = buffer_size.width.into();
   let width = width as f32;
   let height: usize = buffer_size.height.into();

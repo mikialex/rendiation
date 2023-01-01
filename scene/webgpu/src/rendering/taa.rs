@@ -17,7 +17,7 @@ impl TAA {
   pub fn new(gpu: &GPU) -> Self {
     Self {
       frame_index: 0,
-      jitters: (0..SAMPLE_COUNT).into_iter().map(halton23).collect(),
+      jitters: (0..SAMPLE_COUNT).map(halton23).collect(),
       history: None,
       current_camera: CameraGPU::new(gpu),
       previous_camera: CameraGPU::new(gpu),

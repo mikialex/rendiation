@@ -106,9 +106,9 @@ impl GPUDevice {
       println!();
       println!("=== shadergraph build result ===");
       println!("vertex shader: ");
-      println!("{}", vertex);
+      println!("{vertex}");
       println!("fragment shader: ");
-      println!("{}", fragment);
+      println!("{fragment}");
     }
 
     let vertex = self.create_shader_module(gpu::ShaderModuleDescriptor {
