@@ -2458,6 +2458,7 @@ name = "rendiation-webgpu"
 version = "0.1.0"
 dependencies = [
  "bytemuck",
+ "futures",
  "rendiation-texture-types",
  "shadergraph",
  "typed-arena",

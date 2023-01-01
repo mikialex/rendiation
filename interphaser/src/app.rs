@@ -145,8 +145,9 @@ impl<T: 'static> Application<T> {
           } else {
             #[cfg(not(target_arch = "wasm32"))]
             {
-              *control_flow =
-                ControlFlow::WaitUntil(Instant::now() + target_frametime.checked_sub(time_since_last_frame).unwrap());
+              *control_flow = ControlFlow::WaitUntil(
+                Instant::now() + target_frametime.checked_sub(time_since_last_frame).unwrap(),
+              );
             }
             #[cfg(target_arch = "wasm32")]
             app.window.request_redraw();
@@ -167,6 +168,7 @@ impl<T: 'static> Application<T> {
         },
         Event::RedrawRequested(_) => {
           if let Ok((frame, view)) = app.surface.get_current_frame_with_render_target_view() {
+            app.gpu.poll();
             app.execute(&view);
             app.frame_end();
             frame.present();

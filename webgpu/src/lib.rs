@@ -51,6 +51,10 @@ pub struct GPU {
 }
 
 impl GPU {
+  pub fn poll(&self) {
+    self._instance.poll_all(false);
+  }
+
   pub async fn new() -> Self {
     let backend = gpu::Backends::PRIMARY;
     let _instance = gpu::Instance::new(backend);
