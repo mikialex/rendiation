@@ -8,8 +8,13 @@ pub struct ReadRange {
 }
 
 pub struct ReadTextureTask {
-  buffer: Option<wgpu::Buffer>,
-  inner: futures::channel::oneshot::Receiver<Result<(), BufferAsyncError>>,
+  inner: ReadBufferTask,
+  info: BufferDimensions,
+}
+
+pub struct ReadableTextureBuffer {
+  buffer: ReadableBuffer,
+  info: BufferDimensions,
 }
 
 pub struct ReadableBuffer {
@@ -22,11 +27,30 @@ impl ReadableBuffer {
   }
 }
 
+use core::future::Future;
 use core::pin::Pin;
 use core::task::Context;
 use core::task::Poll;
 
-impl core::future::Future for ReadTextureTask {
+impl Future for ReadTextureTask {
+  type Output = Result<ReadableTextureBuffer, wgpu::BufferAsyncError>;
+
+  fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+    Pin::new(&mut self.inner).poll(cx).map(|r| {
+      r.map(|buffer| ReadableTextureBuffer {
+        info: self.info,
+        buffer,
+      })
+    })
+  }
+}
+
+pub struct ReadBufferTask {
+  buffer: Option<wgpu::Buffer>,
+  inner: futures::channel::oneshot::Receiver<Result<(), BufferAsyncError>>,
+}
+
+impl Future for ReadBufferTask {
   type Output = Result<ReadableBuffer, wgpu::BufferAsyncError>;
 
   fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
@@ -43,11 +67,7 @@ impl core::future::Future for ReadTextureTask {
   }
 }
 
-pub struct ReadBufferTask {
-  buffer: wgpu::Buffer,
-  inner: futures::channel::oneshot::Receiver<Result<(), BufferAsyncError>>,
-}
-
+#[derive(Copy, Clone)]
 struct BufferDimensions {
   width: usize,
   height: usize,
@@ -78,7 +98,31 @@ impl GPUCommandEncoder {
     buffer: &GPUBuffer,
     range: GPUBufferViewRange,
   ) -> ReadBufferTask {
-    todo!();
+    let size = if let Some(size) = range.size {
+      size
+    } else {
+      buffer.size
+    }
+    .into();
+
+    let output_buffer = device.create_buffer(&wgpu::BufferDescriptor {
+      label: None,
+      size,
+      usage: wgpu::BufferUsages::MAP_READ | wgpu::BufferUsages::COPY_DST,
+      mapped_at_creation: false,
+    });
+
+    self.copy_buffer_to_buffer(buffer.gpu.as_ref(), range.offset, &output_buffer, 0, size);
+
+    let buffer_slice = output_buffer.slice(..);
+    // Sets the buffer up for mapping, sending over the result of the mapping back to us when it is finished.
+    let (sender, receiver) = futures::channel::oneshot::channel();
+    buffer_slice.map_async(wgpu::MapMode::Read, move |v| sender.send(v).unwrap());
+
+    ReadBufferTask {
+      inner: receiver,
+      buffer: Some(output_buffer),
+    }
   }
 
   pub fn read_texture_2d(
@@ -90,7 +134,6 @@ impl GPUCommandEncoder {
     let (width, height) = range.size.into_usize();
     let buffer_dimensions = BufferDimensions::new(width, height, texture.desc.format);
 
-    // The output buffer lets us retrieve the data as an array
     let output_buffer = device.create_buffer(&wgpu::BufferDescriptor {
       label: None,
       size: (buffer_dimensions.padded_bytes_per_row * buffer_dimensions.height) as u64,
@@ -98,9 +141,7 @@ impl GPUCommandEncoder {
       mapped_at_creation: false,
     });
 
-    let slice = output_buffer.slice(..);
-
-    self.encoder.copy_texture_to_buffer(
+    self.copy_texture_to_buffer(
       texture.as_image_copy(),
       wgpu::ImageCopyBuffer {
         buffer: &output_buffer,
@@ -120,9 +161,14 @@ impl GPUCommandEncoder {
     let (sender, receiver) = futures::channel::oneshot::channel();
     buffer_slice.map_async(wgpu::MapMode::Read, move |v| sender.send(v).unwrap());
 
-    ReadTextureTask {
+    let inner = ReadBufferTask {
       inner: receiver,
       buffer: Some(output_buffer),
+    };
+
+    ReadTextureTask {
+      inner,
+      info: buffer_dimensions,
     }
   }
 }
