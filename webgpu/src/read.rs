@@ -9,12 +9,21 @@ pub struct ReadRange {
 
 pub struct ReadTextureTask {
   inner: ReadBufferTask,
-  info: BufferDimensions,
+  info: TextReadBufferInfo,
 }
 
 pub struct ReadableTextureBuffer {
   buffer: ReadableBuffer,
-  info: BufferDimensions,
+  info: TextReadBufferInfo,
+}
+
+impl ReadableTextureBuffer {
+  pub fn read_raw(&self) -> BufferView {
+    self.buffer.read_raw()
+  }
+  pub fn size_info(&self) -> TextReadBufferInfo {
+    self.info
+  }
 }
 
 pub struct ReadableBuffer {
@@ -68,14 +77,14 @@ impl Future for ReadBufferTask {
 }
 
 #[derive(Copy, Clone)]
-struct BufferDimensions {
-  width: usize,
-  height: usize,
-  unpadded_bytes_per_row: usize,
-  padded_bytes_per_row: usize,
+pub struct TextReadBufferInfo {
+  pub width: usize,
+  pub height: usize,
+  pub unpadded_bytes_per_row: usize,
+  pub padded_bytes_per_row: usize,
 }
 
-impl BufferDimensions {
+impl TextReadBufferInfo {
   fn new(width: usize, height: usize, format: gpu::TextureFormat) -> Self {
     let bytes_per_pixel = format.describe().block_size as usize;
     let unpadded_bytes_per_row = width * bytes_per_pixel;
@@ -132,7 +141,7 @@ impl GPUCommandEncoder {
     range: ReadRange,
   ) -> ReadTextureTask {
     let (width, height) = range.size.into_usize();
-    let buffer_dimensions = BufferDimensions::new(width, height, texture.desc.format);
+    let buffer_dimensions = TextReadBufferInfo::new(width, height, texture.desc.format);
 
     let output_buffer = device.create_buffer(&wgpu::BufferDescriptor {
       label: None,
