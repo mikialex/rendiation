@@ -7,10 +7,12 @@ mod pass;
 mod resource;
 mod surface;
 mod types;
+mod read;
 
 pub use device::*;
 pub use encoder::*;
 pub use pass::*;
+pub use read::*;
 pub use resource::*;
 pub use surface::*;
 pub use types::*;

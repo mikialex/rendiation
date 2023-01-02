@@ -1,9 +1,7 @@
-use futures::FutureExt;
-
 use crate::*;
 
 pub struct GPUCommandEncoder {
-  encoder: gpu::CommandEncoder,
+  pub(crate) encoder: gpu::CommandEncoder,
   holder: GPURenderPassDataHolder,
   active_pass_target_holder: Option<RenderPassDescriptorOwned>,
   placeholder_bg: Rc<gpu::BindGroup>,
@@ -138,67 +136,5 @@ impl GPUCommandEncoder {
       source.gpu_size(),
     );
     self
-  }
-}
-
-#[derive(Debug, Copy, Clone)]
-pub struct ReadRange {
-  pub size: Size,
-  pub offset_x: usize,
-  pub offset_y: usize,
-}
-
-struct ReadTextureTask {
-  inner: futures::channel::oneshot::Receiver<Result<(), BufferAsyncError>>,
-}
-
-impl core::future::Future for ReadTextureTask {
-  type Output = Result<Result<(), wgpu::BufferAsyncError>, futures::channel::oneshot::Canceled>;
-
-  fn poll(
-    self: __core::pin::Pin<&mut Self>,
-    cx: &mut __core::task::Context<'_>,
-  ) -> __core::task::Poll<Self::Output> {
-    self.inner.poll_unpin(cx)
-  }
-}
-
-impl GPUCommandEncoder {
-  pub fn read_texture_2d(
-    &mut self,
-    device: &GPUDevice,
-    texture: &GPU2DTexture,
-    range: ReadRange,
-  ) -> ReadTextureTask {
-    let buffer_dimensions = BufferDimensions::new(width, height);
-    // The output buffer lets us retrieve the data as an array
-    let output_buffer = device.create_buffer(&wgpu::BufferDescriptor {
-      label: None,
-      size: (buffer_dimensions.padded_bytes_per_row * buffer_dimensions.height) as u64,
-      usage: wgpu::BufferUsages::MAP_READ | wgpu::BufferUsages::COPY_DST,
-      mapped_at_creation: false,
-    });
-
-    self.encoder.copy_texture_to_buffer(
-      texture.as_image_copy(),
-      wgpu::ImageCopyBuffer {
-        buffer: &output_buffer,
-        layout: wgpu::ImageDataLayout {
-          offset: 0,
-          bytes_per_row: Some(
-            std::num::NonZeroU32::new(buffer_dimensions.padded_bytes_per_row as u32).unwrap(),
-          ),
-          rows_per_image: None,
-        },
-      },
-      texture_extent,
-    );
-
-    let buffer_slice = output_buffer.slice(..);
-    // Sets the buffer up for mapping, sending over the result of the mapping back to us when it is finished.
-    let (sender, receiver) = futures::channel::oneshot::channel();
-    buffer_slice.map_async(wgpu::MapMode::Read, move |v| sender.send(v).unwrap());
-
-    ReadTextureTask { inner: receiver }
   }
 }
