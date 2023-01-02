@@ -1,5 +1,4 @@
 use crate::*;
-use futures::FutureExt;
 
 #[derive(Debug, Copy, Clone)]
 pub struct ReadRange {
@@ -8,19 +7,18 @@ pub struct ReadRange {
   pub offset_y: usize,
 }
 
-struct ReadTextureTask {
-  buffer: wgpu::Buffer,
+pub struct ReadTextureTask {
+  buffer: Option<wgpu::Buffer>,
   inner: futures::channel::oneshot::Receiver<Result<(), BufferAsyncError>>,
 }
 
-struct ReadableBuffer {
-  // inner: wgpu::BufferSlice,
+pub struct ReadableBuffer {
+  buffer: wgpu::Buffer,
 }
 
 impl ReadableBuffer {
-  pub fn read_raw(&self) -> &[u8] {
-    // self.inner.
-    todo!()
+  pub fn read_raw(&self) -> BufferView {
+    self.buffer.slice(..).get_mapped_range()
   }
 }
 
@@ -34,9 +32,10 @@ impl core::future::Future for ReadTextureTask {
   fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
     match Pin::new(&mut self.inner).poll(cx) {
       Poll::Ready(r) => match r {
-        Ok(_) => {
-          Poll::Ready(ReadableBuffer {});
-        }
+        Ok(_) => match self.buffer.take() {
+          Some(buffer) => Poll::Ready(Ok(ReadableBuffer { buffer })),
+          None => panic!("already resolved"),
+        },
         Err(_) => Poll::Ready(Err(wgpu::BufferAsyncError)),
       },
       Poll::Pending => Poll::Pending,
@@ -44,7 +43,7 @@ impl core::future::Future for ReadTextureTask {
   }
 }
 
-struct ReadBufferTask {
+pub struct ReadBufferTask {
   buffer: wgpu::Buffer,
   inner: futures::channel::oneshot::Receiver<Result<(), BufferAsyncError>>,
 }
@@ -99,6 +98,8 @@ impl GPUCommandEncoder {
       mapped_at_creation: false,
     });
 
+    let slice = output_buffer.slice(..);
+
     self.encoder.copy_texture_to_buffer(
       texture.as_image_copy(),
       wgpu::ImageCopyBuffer {
@@ -121,7 +122,7 @@ impl GPUCommandEncoder {
 
     ReadTextureTask {
       inner: receiver,
-      buffer: output_buffer,
+      buffer: Some(output_buffer),
     }
   }
 }
