@@ -1,6 +1,6 @@
-use std::{collections::HashMap, sync::Arc};
+use std::collections::HashMap;
 
-use futures::{executor::block_on, Future};
+use futures::{executor::ThreadPool, Future};
 use interphaser::{winit::event::VirtualKeyCode, *};
 use rendiation_scene_core::Scene;
 
@@ -81,16 +81,30 @@ fn perf_panel<T: 'static>() -> impl UIComponent<T> {
   )
 }
 
-#[derive(Default)]
 pub struct Terminal {
   pub command_history: Vec<String>,
   pub current_command_editing: String,
   pub command_to_execute: Option<String>,
-  pub executor: HashMap<String, TerminalCommandCb>,
+  pub commands: HashMap<String, TerminalCommandCb>,
+  pub executor: ThreadPool,
+}
+
+impl Default for Terminal {
+  fn default() -> Self {
+    let executor = ThreadPool::builder().pool_size(1).create().unwrap();
+
+    Self {
+      command_history: Default::default(),
+      current_command_editing: Default::default(),
+      command_to_execute: Default::default(),
+      commands: Default::default(),
+      executor,
+    }
+  }
 }
 
 type TerminalCommandCb =
-  Arc<dyn Fn(&Scene, &Vec<String>) -> Box<dyn Future<Output = ()> + Unpin> + Send + Sync>;
+  Box<dyn Fn(&Scene, &Vec<String>) -> Box<dyn Future<Output = ()> + Send + Sync + Unpin>>;
 
 impl Terminal {
   pub fn mark_execute(&mut self) {
@@ -101,9 +115,9 @@ impl Terminal {
   pub fn register_command(
     &mut self,
     name: impl AsRef<str>,
-    f: impl Fn(&Scene, &Vec<String>) -> Box<dyn Future<Output = ()> + Unpin> + Send + Sync + 'static,
+    f: impl Fn(&Scene, &Vec<String>) -> Box<dyn Future<Output = ()> + Send + Sync + Unpin> + 'static,
   ) -> &mut Self {
-    self.executor.insert(name.as_ref().to_owned(), Arc::new(f));
+    self.commands.insert(name.as_ref().to_owned(), Box::new(f));
     self
   }
 
@@ -114,18 +128,14 @@ impl Terminal {
         .map(|s| s.to_owned())
         .collect();
 
-      if let Some(first) = parameters.first() {
-        if let Some(exe) = self.executor.get(first) {
+      if let Some(command_name) = parameters.first() {
+        if let Some(exe) = self.commands.get(command_name) {
           println!("execute: {command}");
-          let scene_c = content.scene.clone();
-          let exe = exe.clone();
-          std::thread::spawn(move || {
-            let scene_c = scene_c;
-            block_on(exe(&scene_c, &parameters))
-          });
-          // block_on(exe(&content.scene, &parameters))
+
+          let task = exe(&content.scene, &parameters);
+          self.executor.spawn_ok(task);
         } else {
-          println!("unknown command {first}")
+          println!("unknown command {command_name}")
         }
         self.command_history.push(command);
       }

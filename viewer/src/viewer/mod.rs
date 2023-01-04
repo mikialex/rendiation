@@ -3,7 +3,6 @@ use std::rc::Rc;
 pub mod default_scene;
 pub use default_scene::*;
 pub mod pipeline;
-use futures::future;
 pub use pipeline::*;
 
 pub mod controller;
@@ -80,20 +79,23 @@ impl Default for ViewerImpl {
     viewer
       .terminal
       .register_command("load-gltf", |scene, _parameters| {
-        use rfd::FileDialog;
+        let scene = scene.clone();
+        Box::new(Box::pin(async {
+          let scene = scene;
+          use rfd::FileDialog;
 
-        let file_path = FileDialog::new()
-          .add_filter("gltf", &["gltf", "glb"])
-          .pick_file();
+          let file_path = FileDialog::new()
+            .add_filter("gltf", &["gltf", "glb"])
+            .pick_file();
 
-        println!("file selected");
+          println!("file selected");
 
-        if let Some(file_path) = file_path {
-          rendiation_scene_gltf_loader::load_gltf_test(file_path, scene).unwrap();
-        }
+          if let Some(file_path) = file_path {
+            rendiation_scene_gltf_loader::load_gltf_test(file_path, &scene).unwrap();
+          }
 
-        println!("scene loaded");
-        Box::new(future::ready(()))
+          println!("scene loaded");
+        }))
       });
 
     viewer
