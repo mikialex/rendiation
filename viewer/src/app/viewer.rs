@@ -104,7 +104,7 @@ impl Default for Terminal {
 }
 
 type TerminalCommandCb =
-  Box<dyn Fn(&Scene, &Vec<String>) -> Box<dyn Future<Output = ()> + Send + Sync + Unpin>>;
+  Box<dyn Fn(&Scene, &Vec<String>) -> Box<dyn Future<Output = ()> + Send + Unpin>>;
 
 impl Terminal {
   pub fn mark_execute(&mut self) {
@@ -112,12 +112,15 @@ impl Terminal {
     self.current_command_editing = String::new();
   }
 
-  pub fn register_command(
-    &mut self,
-    name: impl AsRef<str>,
-    f: impl Fn(&Scene, &Vec<String>) -> Box<dyn Future<Output = ()> + Send + Sync + Unpin> + 'static,
-  ) -> &mut Self {
-    self.commands.insert(name.as_ref().to_owned(), Box::new(f));
+  pub fn register_command<F, FR>(&mut self, name: impl AsRef<str>, f: F) -> &mut Self
+  where
+    FR: Future<Output = ()> + Send + Unpin + 'static,
+    F: Fn(&Scene, &Vec<String>) -> FR + 'static,
+  {
+    self.commands.insert(
+      name.as_ref().to_owned(),
+      Box::new(move |c, p| Box::new(f(c, p))),
+    );
     self
   }
 

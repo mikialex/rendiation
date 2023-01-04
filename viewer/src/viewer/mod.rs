@@ -80,22 +80,18 @@ impl Default for ViewerImpl {
       .terminal
       .register_command("load-gltf", |scene, _parameters| {
         let scene = scene.clone();
-        Box::new(Box::pin(async {
-          let scene = scene;
-          use rfd::FileDialog;
+        Box::pin(async move {
+          use rfd::AsyncFileDialog;
 
-          let file_path = FileDialog::new()
+          let file_handle = AsyncFileDialog::new()
             .add_filter("gltf", &["gltf", "glb"])
-            .pick_file();
+            .pick_file()
+            .await;
 
-          println!("file selected");
-
-          if let Some(file_path) = file_path {
-            rendiation_scene_gltf_loader::load_gltf_test(file_path, &scene).unwrap();
+          if let Some(file_handle) = file_handle {
+            rendiation_scene_gltf_loader::load_gltf_test(file_handle.path(), &scene).unwrap();
           }
-
-          println!("scene loaded");
-        }))
+        })
       });
 
     viewer
