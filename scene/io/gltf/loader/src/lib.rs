@@ -118,7 +118,7 @@ fn build_geom_buffer(accessor: gltf::Accessor, ctx: &mut Context) -> AttributeAc
   }
 }
 
-pub fn load_gltf_test(path: impl AsRef<Path>, scene: &mut Scene) -> GltfResult<GltfLoadResult> {
+pub fn load_gltf_test(path: impl AsRef<Path>, scene: &Scene) -> GltfResult<GltfLoadResult> {
   let scene_inner = scene.read();
   let (document, mut buffers, mut images) = gltf::import(path)?;
 
@@ -131,9 +131,13 @@ pub fn load_gltf_test(path: impl AsRef<Path>, scene: &mut Scene) -> GltfResult<G
     result: Default::default(),
   };
 
+  let root = scene_inner.root().clone();
+
+  drop(scene_inner);
+
   for gltf_scene in document.scenes() {
     for node in gltf_scene.nodes() {
-      create_node_recursive(scene, scene_inner.root().clone(), &node, &mut ctx);
+      create_node_recursive(scene, root.clone(), &node, &mut ctx);
     }
   }
   Ok(ctx.result)
