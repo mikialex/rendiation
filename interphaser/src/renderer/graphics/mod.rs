@@ -1,7 +1,8 @@
 use rendiation_algebra::*;
 use shadergraph::*;
 
-#[derive(Debug, Copy, Clone, ShaderVertex)]
+#[repr(C)]
+#[derive(Debug, Copy, Clone, ShaderVertex, Zeroable, Pod)]
 pub struct UIVertex {
   #[semantic(GeometryPosition2D)]
   pub position: Vec2<f32>,
@@ -10,8 +11,6 @@ pub struct UIVertex {
   #[semantic(GeometryColorWithAlpha)]
   pub color: Vec4<f32>,
 }
-unsafe impl bytemuck::Zeroable for UIVertex {}
-unsafe impl bytemuck::Pod for UIVertex {}
 
 pub fn vertex(position: (f32, f32), uv: (f32, f32), color: (f32, f32, f32, f32)) -> UIVertex {
   UIVertex {
