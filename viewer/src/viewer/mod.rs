@@ -89,7 +89,7 @@ impl Default for ViewerImpl {
             .await;
 
           if let Some(file_handle) = file_handle {
-            rendiation_scene_gltf_loader::load_gltf_test(file_handle.path(), &scene).unwrap();
+            rendiation_scene_gltf_loader::load_gltf(file_handle.path(), &scene).unwrap();
           }
         })
       });
@@ -115,6 +115,11 @@ pub struct Viewer3dRenderingCtx {
   pool: ResourcePool,
   resources: GPUResourceCache,
   gpu: Rc<GPU>,
+  snapshot: Option<ViewerSnapshotTask>,
+}
+
+struct ViewerSnapshotTask {
+  //
 }
 
 impl Viewer3dRenderingCtx {
@@ -124,6 +129,7 @@ impl Viewer3dRenderingCtx {
       gpu,
       resources: Default::default(),
       pool: Default::default(),
+      snapshot: None,
     }
   }
 

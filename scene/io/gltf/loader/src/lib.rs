@@ -118,7 +118,7 @@ fn build_geom_buffer(accessor: gltf::Accessor, ctx: &mut Context) -> AttributeAc
   }
 }
 
-pub fn load_gltf_test(path: impl AsRef<Path>, scene: &Scene) -> GltfResult<GltfLoadResult> {
+pub fn load_gltf(path: impl AsRef<Path>, scene: &Scene) -> GltfResult<GltfLoadResult> {
   let scene_inner = scene.read();
   let (document, mut buffers, mut images) = gltf::import(path)?;
 
