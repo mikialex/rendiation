@@ -79,17 +79,20 @@ impl Default for ViewerImpl {
 
     viewer
       .terminal
-      .register_command("load-gltf", |viewer, _parameters| {
+      .register_command("load-gltf", |scene, _parameters| {
         use rfd::FileDialog;
 
         let file_path = FileDialog::new()
           .add_filter("gltf", &["gltf", "glb"])
           .pick_file();
 
+        println!("file selected");
+
         if let Some(file_path) = file_path {
-          rendiation_scene_gltf_loader::load_gltf_test(file_path, &mut viewer.scene).unwrap();
+          rendiation_scene_gltf_loader::load_gltf_test(file_path, scene).unwrap();
         }
 
+        println!("scene loaded");
         Box::new(future::ready(()))
       });
 

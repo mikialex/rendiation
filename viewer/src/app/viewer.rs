@@ -1,7 +1,8 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, sync::Arc};
 
 use futures::{executor::block_on, Future};
 use interphaser::{winit::event::VirtualKeyCode, *};
+use rendiation_scene_core::Scene;
 
 use crate::{menu, MenuList, MenuModel, UIExamples, Viewer3dContent, ViewerImpl};
 
@@ -89,7 +90,7 @@ pub struct Terminal {
 }
 
 type TerminalCommandCb =
-  Box<dyn Fn(&mut Viewer3dContent, &mut Vec<String>) -> Box<dyn Future<Output = ()> + Unpin>>;
+  Arc<dyn Fn(&Scene, &Vec<String>) -> Box<dyn Future<Output = ()> + Unpin> + Send + Sync>;
 
 impl Terminal {
   pub fn mark_execute(&mut self) {
@@ -100,15 +101,15 @@ impl Terminal {
   pub fn register_command(
     &mut self,
     name: impl AsRef<str>,
-    f: impl Fn(&mut Viewer3dContent, &mut Vec<String>) -> Box<dyn Future<Output = ()> + Unpin> + 'static,
+    f: impl Fn(&Scene, &Vec<String>) -> Box<dyn Future<Output = ()> + Unpin> + Send + Sync + 'static,
   ) -> &mut Self {
-    self.executor.insert(name.as_ref().to_owned(), Box::new(f));
+    self.executor.insert(name.as_ref().to_owned(), Arc::new(f));
     self
   }
 
   pub fn check_execute(&mut self, content: &mut Viewer3dContent) {
     if let Some(command) = self.command_to_execute.take() {
-      let mut parameters: Vec<String> = command
+      let parameters: Vec<String> = command
         .split_ascii_whitespace()
         .map(|s| s.to_owned())
         .collect();
@@ -116,7 +117,13 @@ impl Terminal {
       if let Some(first) = parameters.first() {
         if let Some(exe) = self.executor.get(first) {
           println!("execute: {command}");
-          block_on(exe(content, &mut parameters))
+          let scene_c = content.scene.clone();
+          let exe = exe.clone();
+          std::thread::spawn(move || {
+            let scene_c = scene_c;
+            block_on(exe(&scene_c, &parameters))
+          });
+          // block_on(exe(&content.scene, &parameters))
         } else {
           println!("unknown command {first}")
         }
