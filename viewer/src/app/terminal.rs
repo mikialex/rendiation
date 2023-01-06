@@ -4,82 +4,7 @@ use futures::{executor::ThreadPool, Future};
 use interphaser::{winit::event::VirtualKeyCode, *};
 use rendiation_scene_core::Scene;
 
-use crate::{menu, MenuList, MenuModel, UIExamples, Viewer3dContent, ViewerImpl};
-
-pub struct ViewerApplication {
-  pub ui_examples: UIExamples,
-  pub menu: MenuModel,
-  pub viewer: ViewerImpl,
-}
-
-impl Default for ViewerApplication {
-  fn default() -> Self {
-    ViewerApplication {
-      ui_examples: Default::default(),
-      viewer: Default::default(),
-      menu: create_menu(),
-    }
-  }
-}
-
-pub fn create_app() -> impl UIComponent<ViewerApplication> {
-  Flex::column().wrap(
-    flex_group()
-      .child(Child::fixed(menu().lens(lens!(ViewerApplication, menu))))
-      .child(Child::flex(
-        viewer().lens(lens!(ViewerApplication, viewer)),
-        1.,
-      )),
-  )
-}
-
-pub fn viewer() -> impl UIComponent<ViewerImpl> {
-  AbsoluteAnchor::default().wrap(
-    absolute_group()
-      .child(AbsChild::new(GPUCanvas::default()))
-      .child(AbsChild::new(terminal().lens(lens!(ViewerImpl, terminal))).with_position((0., 0.)))
-      .child(AbsChild::new(perf_panel()).with_position((0., 50.))),
-  )
-}
-
-fn create_menu() -> MenuModel {
-  MenuModel {
-    lists: vec![
-      MenuList {
-        name: "3D Examples".to_string(),
-        items: Vec::new(),
-      },
-      MenuList {
-        name: "UI Examples".to_string(),
-        items: Vec::new(),
-      },
-    ],
-  }
-}
-
-fn perf_panel<T: 'static>() -> impl UIComponent<T> {
-  Container::sized((500., 200.))
-    .padding(QuadBoundaryWidth::equal(5.))
-    .wrap(
-    Text::default()
-    .with_layout(TextLayoutConfig::SizedBox{
-        line_wrap: LineWrap::Multiple,
-        horizon_align: TextHorizontalAlignment::Left,
-        vertical_align: TextVerticalAlignment::Top,
-    })
-    .bind_with_ctx(|s, _t, ctx| {
-      let content = format!(
-        "frame_id: {}\nupdate_time: {}\nlayout_time: {}\nrendering_prepare_time: {}\nrendering_dispatch_time: {}",
-        ctx.last_frame_perf_info.frame_id,
-        ctx.last_frame_perf_info.update_time.as_micros() as f32 / 1000.,
-        ctx.last_frame_perf_info.layout_time.as_micros() as f32 / 1000.,
-        ctx.last_frame_perf_info.rendering_prepare_time.as_micros() as f32 / 1000.,
-        ctx.last_frame_perf_info.rendering_dispatch_time.as_micros() as f32 / 1000.,
-      );
-      s.content.set(content);
-    })
-  )
-}
+use crate::{Viewer3dRenderingCtx, ViewerSnapshotTaskResolver};
 
 pub struct Terminal {
   pub command_history: Vec<String>,
@@ -103,8 +28,13 @@ impl Default for Terminal {
   }
 }
 
+pub struct CommandCtx<'a> {
+  pub scene: &'a Scene,
+  pub rendering: Option<&'a mut Viewer3dRenderingCtx>,
+}
+
 type TerminalCommandCb =
-  Box<dyn Fn(&Scene, &Vec<String>) -> Box<dyn Future<Output = ()> + Send + Unpin>>;
+  Box<dyn Fn(&mut CommandCtx, &Vec<String>) -> Box<dyn Future<Output = ()> + Send + Unpin>>;
 
 impl Terminal {
   pub fn mark_execute(&mut self) {
@@ -115,7 +45,7 @@ impl Terminal {
   pub fn register_command<F, FR>(&mut self, name: impl AsRef<str>, f: F) -> &mut Self
   where
     FR: Future<Output = ()> + Send + Unpin + 'static,
-    F: Fn(&Scene, &Vec<String>) -> FR + 'static,
+    F: Fn(&mut CommandCtx, &Vec<String>) -> FR + 'static,
   {
     self.commands.insert(
       name.as_ref().to_owned(),
@@ -124,7 +54,7 @@ impl Terminal {
     self
   }
 
-  pub fn check_execute(&mut self, content: &mut Viewer3dContent) {
+  pub fn check_execute(&mut self, ctx: &mut CommandCtx) {
     if let Some(command) = self.command_to_execute.take() {
       let parameters: Vec<String> = command
         .split_ascii_whitespace()
@@ -135,7 +65,7 @@ impl Terminal {
         if let Some(exe) = self.commands.get(command_name) {
           println!("execute: {command}");
 
-          let task = exe(&content.scene, &parameters);
+          let task = exe(ctx, &parameters);
           self.executor.spawn_ok(task);
         } else {
           println!("unknown command {command_name}")
@@ -146,7 +76,7 @@ impl Terminal {
   }
 }
 
-fn terminal() -> impl UIComponent<Terminal> {
+pub fn terminal() -> impl UIComponent<Terminal> {
   Container::sized((UILength::ParentPercent(100.), UILength::Px(50.)))
     .padding(QuadBoundaryWidth::equal(5.))
     .wrap(
@@ -168,4 +98,36 @@ fn terminal() -> impl UIComponent<Terminal> {
         }
       },
     ))
+}
+
+pub fn register_default_commands(terminal: &mut Terminal) {
+  terminal.register_command("load-gltf", |ctx, _parameters| {
+    let scene = ctx.scene.clone();
+    Box::pin(async move {
+      use rfd::AsyncFileDialog;
+
+      let file_handle = AsyncFileDialog::new()
+        .add_filter("gltf", &["gltf", "glb"])
+        .pick_file()
+        .await;
+
+      if let Some(file_handle) = file_handle {
+        rendiation_scene_gltf_loader::load_gltf(file_handle.path(), &scene).unwrap();
+      }
+    })
+  });
+
+  terminal.register_command("screenshot", |ctx, _parameters| {
+    let result = ctx
+      .rendering
+      .as_mut()
+      .map(|cx| ViewerSnapshotTaskResolver::install(cx));
+
+    Box::pin(async {
+      if let Some(r) = result {
+        let r = r.await.unwrap();
+        println!("{}", r.read_raw().len());
+      }
+    })
+  });
 }

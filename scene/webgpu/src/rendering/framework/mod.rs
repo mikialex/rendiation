@@ -11,7 +11,7 @@ pub struct FrameCtx<'a> {
   pool: &'a ResourcePool,
   msaa_sample_count: u32,
   frame_size: Size,
-  encoder: GPUCommandEncoder,
+  pub encoder: GPUCommandEncoder,
   pub resources: &'a mut GPUResourceCache,
 }
 

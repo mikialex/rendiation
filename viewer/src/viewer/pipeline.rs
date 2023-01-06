@@ -38,7 +38,7 @@ impl ViewerPipeline {
     &mut self,
     ctx: &mut FrameCtx,
     content: &mut Viewer3dContent,
-    final_target: RenderTargetView,
+    final_target: &RenderTargetView,
   ) {
     let scene = &content.scene.read();
 
@@ -116,7 +116,7 @@ impl ViewerPipeline {
     );
 
     pass("compose-all")
-      .with_color(final_target, load())
+      .with_color(final_target.clone(), load())
       .render(ctx)
       .by(copy_frame(taa_result.read(), None))
       .by(highlight_compose)

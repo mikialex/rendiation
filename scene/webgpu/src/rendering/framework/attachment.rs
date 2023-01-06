@@ -214,6 +214,7 @@ impl AttachmentDescriptor {
           format: self.format,
           usage: webgpu::TextureUsages::TEXTURE_BINDING
             | webgpu::TextureUsages::COPY_DST
+            | webgpu::TextureUsages::COPY_SRC
             | webgpu::TextureUsages::RENDER_ATTACHMENT,
           mip_level_count: 1,
           sample_count: self.sample_count,

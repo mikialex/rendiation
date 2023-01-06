@@ -3,6 +3,7 @@ use std::rc::Rc;
 pub mod default_scene;
 pub use default_scene::*;
 pub mod pipeline;
+use futures::{Future, FutureExt};
 pub use pipeline::*;
 
 pub mod controller;
@@ -42,7 +43,12 @@ impl CanvasPrinter for ViewerImpl {
     states: &WindowState,
     position_info: CanvasWindowPositionInfo,
   ) {
-    self.terminal.check_execute(&mut self.content);
+    let mut ctx = CommandCtx {
+      scene: &self.content.scene,
+      rendering: self.ctx.as_mut(),
+    };
+
+    self.terminal.check_execute(&mut ctx);
     self.content.event(event, states, position_info)
   }
 
@@ -76,23 +82,7 @@ impl Default for ViewerImpl {
       ctx: None,
     };
 
-    viewer
-      .terminal
-      .register_command("load-gltf", |scene, _parameters| {
-        let scene = scene.clone();
-        Box::pin(async move {
-          use rfd::AsyncFileDialog;
-
-          let file_handle = AsyncFileDialog::new()
-            .add_filter("gltf", &["gltf", "glb"])
-            .pick_file()
-            .await;
-
-          if let Some(file_handle) = file_handle {
-            rendiation_scene_gltf_loader::load_gltf(file_handle.path(), &scene).unwrap();
-          }
-        })
-      });
+    register_default_commands(&mut viewer.terminal);
 
     viewer
   }
@@ -115,11 +105,27 @@ pub struct Viewer3dRenderingCtx {
   pool: ResourcePool,
   resources: GPUResourceCache,
   gpu: Rc<GPU>,
-  snapshot: Option<ViewerSnapshotTask>,
+  snapshot: Option<ViewerSnapshotTaskResolver>,
 }
 
-struct ViewerSnapshotTask {
-  //
+pub struct ViewerSnapshotTaskResolver {
+  inner: futures::channel::oneshot::Sender<ReadTextureTask>,
+}
+
+impl ViewerSnapshotTaskResolver {
+  pub fn install(
+    viewer: &mut Viewer3dRenderingCtx,
+  ) -> impl Future<Output = <ReadTextureTask as Future>::Output> {
+    let (sender, receiver) = futures::channel::oneshot::channel();
+    let f = receiver.map(|v| v.unwrap()).flatten();
+
+    viewer.snapshot = Some(Self { inner: sender });
+
+    f
+  }
+  pub fn submit(self, read_task: ReadTextureTask) {
+    self.inner.send(read_task);
+  }
 }
 
 impl Viewer3dRenderingCtx {
@@ -142,7 +148,27 @@ impl Viewer3dRenderingCtx {
 
     let mut ctx = FrameCtx::new(&self.gpu, target.size(), &self.pool, &mut self.resources);
 
-    self.pipeline.render(&mut ctx, content, target);
+    self.pipeline.render(&mut ctx, content, &target);
+
+    if let Some(task) = self.snapshot.take() {
+      if let RenderTargetView::Texture(tex) = &target {
+        // todo support surface
+        let read_future = ctx.encoder.read_texture_2d(
+          &ctx.gpu.device,
+          &tex.resource.clone().try_into().unwrap(),
+          ReadRange {
+            size: Size::from_u32_pair_min_one((
+              tex.resource.desc.size.width,
+              tex.resource.desc.size.height,
+            )),
+            offset_x: 0,
+            offset_y: 0,
+          },
+        ); // todo improvements
+
+        task.submit(read_future)
+      }
+    }
 
     ctx.final_submit()
   }
