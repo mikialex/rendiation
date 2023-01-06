@@ -109,13 +109,13 @@ pub struct Viewer3dRenderingCtx {
 }
 
 pub struct ViewerSnapshotTaskResolver {
-  inner: futures::channel::oneshot::Sender<ReadTextureTask>,
+  inner: futures::channel::oneshot::Sender<ReadTextureFromStagingBuffer>,
 }
 
 impl ViewerSnapshotTaskResolver {
   pub fn install(
     viewer: &mut Viewer3dRenderingCtx,
-  ) -> impl Future<Output = <ReadTextureTask as Future>::Output> {
+  ) -> impl Future<Output = <ReadTextureFromStagingBuffer as Future>::Output> {
     let (sender, receiver) = futures::channel::oneshot::channel();
     let f = receiver.map(|v| v.unwrap()).flatten();
 
@@ -123,7 +123,7 @@ impl ViewerSnapshotTaskResolver {
 
     f
   }
-  pub fn submit(self, read_task: ReadTextureTask) {
+  pub fn submit(self, read_task: ReadTextureFromStagingBuffer) {
     self.inner.send(read_task);
   }
 }

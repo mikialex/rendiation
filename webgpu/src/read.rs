@@ -1,3 +1,5 @@
+use futures::FutureExt;
+
 use crate::*;
 
 #[derive(Debug, Copy, Clone)]
@@ -106,7 +108,7 @@ impl GPUCommandEncoder {
     device: &GPUDevice,
     buffer: &GPUBuffer,
     range: GPUBufferViewRange,
-  ) -> ReadBufferTask {
+  ) -> ReadBufferFromStagingBuffer {
     let size = if let Some(size) = range.size {
       size
     } else {
@@ -123,15 +125,17 @@ impl GPUCommandEncoder {
 
     self.copy_buffer_to_buffer(buffer.gpu.as_ref(), range.offset, &output_buffer, 0, size);
 
-    let buffer_slice = output_buffer.slice(..);
-    // Sets the buffer up for mapping, sending over the result of the mapping back to us when it is finished.
-    let (sender, receiver) = futures::channel::oneshot::channel();
-    buffer_slice.map_async(gpu::MapMode::Read, move |v| sender.send(v).unwrap());
+    self.on_submit().clone().then(move |_| {
+      let buffer_slice = output_buffer.slice(..);
+      // Sets the buffer up for mapping, sending over the result of the mapping back to us when it is finished.
+      let (sender, receiver) = futures::channel::oneshot::channel();
+      buffer_slice.map_async(gpu::MapMode::Read, move |v| sender.send(v).unwrap());
 
-    ReadBufferTask {
-      inner: receiver,
-      buffer: Some(output_buffer),
-    }
+      ReadBufferTask {
+        inner: receiver,
+        buffer: Some(output_buffer),
+      }
+    })
   }
 
   pub fn read_texture_2d(
@@ -139,7 +143,7 @@ impl GPUCommandEncoder {
     device: &GPUDevice,
     texture: &GPU2DTexture,
     range: ReadRange,
-  ) -> ReadTextureTask {
+  ) -> ReadTextureFromStagingBuffer {
     let (width, height) = range.size.into_usize();
     let buffer_dimensions = TextReadBufferInfo::new(width, height, texture.desc.format);
 
@@ -174,19 +178,27 @@ impl GPUCommandEncoder {
       range.size.into_gpu_size(),
     );
 
-    let buffer_slice = output_buffer.slice(..);
-    // Sets the buffer up for mapping, sending over the result of the mapping back to us when it is finished.
-    let (sender, receiver) = futures::channel::oneshot::channel();
-    buffer_slice.map_async(gpu::MapMode::Read, move |v| sender.send(v).unwrap());
+    self.on_submit().clone().then(move |_| {
+      let buffer_slice = output_buffer.slice(..);
+      // Sets the buffer up for mapping, sending over the result of the mapping back to us when it is finished.
+      let (sender, receiver) = futures::channel::oneshot::channel();
+      buffer_slice.map_async(gpu::MapMode::Read, move |v| sender.send(v).unwrap());
 
-    let inner = ReadBufferTask {
-      inner: receiver,
-      buffer: Some(output_buffer),
-    };
+      let inner = ReadBufferTask {
+        inner: receiver,
+        buffer: Some(output_buffer),
+      };
 
-    ReadTextureTask {
-      inner,
-      info: buffer_dimensions,
-    }
+      ReadTextureTask {
+        inner,
+        info: buffer_dimensions,
+      }
+    })
   }
 }
+
+pub type ReadTextureFromStagingBuffer =
+  impl Future<Output = Result<ReadableTextureBuffer, gpu::BufferAsyncError>>;
+
+pub type ReadBufferFromStagingBuffer =
+  impl Future<Output = Result<ReadableBuffer, gpu::BufferAsyncError>>;

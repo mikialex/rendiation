@@ -1,13 +1,14 @@
 #![feature(specialization)]
+#![feature(type_alias_impl_trait)]
 #![allow(incomplete_features)]
 
 mod device;
 mod encoder;
 mod pass;
+mod read;
 mod resource;
 mod surface;
 mod types;
-mod read;
 
 pub use device::*;
 pub use encoder::*;
@@ -137,7 +138,10 @@ impl GPU {
   }
 
   pub fn submit_encoder(&self, encoder: GPUCommandEncoder) {
-    self.queue.submit(Some(encoder.finish()));
+    let cmb = encoder.finish();
+    cmb.on_submit.resolve();
+
+    self.queue.submit(Some(cmb.gpu));
   }
 }
 
