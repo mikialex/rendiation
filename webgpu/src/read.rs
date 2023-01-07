@@ -38,6 +38,12 @@ impl ReadableBuffer {
   }
 }
 
+impl Drop for ReadableBuffer {
+  fn drop(&mut self) {
+    self.buffer.unmap();
+  }
+}
+
 use core::future::Future;
 use core::pin::Pin;
 use core::task::Context;
@@ -71,7 +77,7 @@ impl Future for ReadBufferTask {
           Some(buffer) => Poll::Ready(Ok(ReadableBuffer { buffer })),
           None => panic!("already resolved"),
         },
-        Err(_) => Poll::Ready(Err(gpu::BufferAsyncError)),
+        Err(_) => unreachable!("actually not canceled"),
       },
       Poll::Pending => Poll::Pending,
     }
@@ -129,7 +135,9 @@ impl GPUCommandEncoder {
       let buffer_slice = output_buffer.slice(..);
       // Sets the buffer up for mapping, sending over the result of the mapping back to us when it is finished.
       let (sender, receiver) = futures::channel::oneshot::channel();
-      buffer_slice.map_async(gpu::MapMode::Read, move |v| sender.send(v).unwrap());
+      buffer_slice.map_async(gpu::MapMode::Read, move |v| {
+        sender.send(v).ok();
+      });
 
       ReadBufferTask {
         inner: receiver,

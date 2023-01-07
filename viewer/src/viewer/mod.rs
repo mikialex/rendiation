@@ -3,7 +3,7 @@ use std::rc::Rc;
 pub mod default_scene;
 pub use default_scene::*;
 pub mod pipeline;
-use futures::{Future, FutureExt};
+use futures::{channel::oneshot::Canceled, Future};
 pub use pipeline::*;
 
 pub mod controller;
@@ -115,16 +115,15 @@ pub struct ViewerSnapshotTaskResolver {
 impl ViewerSnapshotTaskResolver {
   pub fn install(
     viewer: &mut Viewer3dRenderingCtx,
-  ) -> impl Future<Output = <ReadTextureFromStagingBuffer as Future>::Output> {
-    let (sender, receiver) = futures::channel::oneshot::channel();
-    let f = receiver.map(|v| v.unwrap()).flatten();
+  ) -> impl Future<Output = Result<ReadTextureFromStagingBuffer, Canceled>> {
+    let (sender, receiver) = futures::channel::oneshot::channel::<ReadTextureFromStagingBuffer>();
 
     viewer.snapshot = Some(Self { inner: sender });
 
-    f
+    receiver
   }
   pub fn submit(self, read_task: ReadTextureFromStagingBuffer) {
-    self.inner.send(read_task);
+    self.inner.send(read_task).ok();
   }
 }
 

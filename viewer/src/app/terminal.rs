@@ -125,8 +125,12 @@ pub fn register_default_commands(terminal: &mut Terminal) {
 
     Box::pin(async {
       if let Some(r) = result {
-        let r = r.await.unwrap();
-        println!("{}", r.read_raw().len());
+        if let Ok(r) = r.await {
+          if let Ok(re) = r.await {
+            println!("{}", re.read_raw().len());
+          }
+        }
+
       }
     })
   });
