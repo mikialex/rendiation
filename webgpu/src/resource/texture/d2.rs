@@ -115,7 +115,7 @@ pub trait WebGPU2DTextureSource: Debug + Send + Sync {
   /// up to the next multiple of gpu::COPY_BYTES_PER_ROW_ALIGNMENT.
   /// Return width with padding
   fn create_upload_buffer(&self, device: &GPUDevice) -> (gpu::Buffer, Size) {
-    let width: usize = self.size().width.into();
+    let width = self.bytes_per_row_usize();
 
     let align = gpu::COPY_BYTES_PER_ROW_ALIGNMENT as usize;
     let padding_size = (align - width % align) % align;
@@ -130,7 +130,7 @@ pub trait WebGPU2DTextureSource: Debug + Send + Sync {
       // will this be optimized well or we should just use copy_from_slice?
       let padded_data: Vec<_> = self
         .as_bytes()
-        .chunks_exact(self.bytes_per_row_usize())
+        .chunks_exact(width)
         .flat_map(|row| row.iter().copied().chain((0..padding_size).map(|_| 0)))
         .collect();
 

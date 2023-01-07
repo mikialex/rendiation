@@ -1,10 +1,54 @@
+use std::sync::{Arc, RwLock};
+
+use __core::{
+  pin::Pin,
+  task::{Context, Poll, Waker},
+};
+use futures::Future;
+
 use crate::*;
 
+#[derive(Default, Clone)]
+pub struct CommandBufferSubmitted {
+  inner: Arc<RwLock<CommandBufferSubmittedInner>>,
+}
+
+impl CommandBufferSubmitted {
+  pub(crate) fn resolve(&self) {
+    let mut inner = self.inner.write().unwrap();
+    inner.has_submit = true;
+    if let Some(waker) = inner.waker.take() {
+      waker.wake()
+    }
+  }
+}
+
+#[derive(Default)]
+struct CommandBufferSubmittedInner {
+  has_submit: bool,
+  waker: Option<Waker>,
+}
+
+impl Future for CommandBufferSubmitted {
+  type Output = ();
+
+  fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+    let mut inner = self.inner.write().unwrap();
+    if inner.has_submit {
+      Poll::Ready(())
+    } else {
+      inner.waker = Some(cx.waker().clone());
+      Poll::Pending
+    }
+  }
+}
+
 pub struct GPUCommandEncoder {
-  encoder: gpu::CommandEncoder,
+  pub(crate) encoder: gpu::CommandEncoder,
   holder: GPURenderPassDataHolder,
   active_pass_target_holder: Option<RenderPassDescriptorOwned>,
   placeholder_bg: Rc<gpu::BindGroup>,
+  on_submit: CommandBufferSubmitted,
 }
 
 impl Deref for GPUCommandEncoder {
@@ -21,6 +65,17 @@ impl DerefMut for GPUCommandEncoder {
   }
 }
 
+pub struct GPUCommandBuffer {
+  pub(crate) gpu: gpu::CommandBuffer,
+  pub(crate) on_submit: CommandBufferSubmitted,
+}
+
+impl GPUCommandBuffer {
+  pub fn on_submit(&self) -> &CommandBufferSubmitted {
+    &self.on_submit
+  }
+}
+
 impl GPUCommandEncoder {
   pub fn new(encoder: gpu::CommandEncoder, device: &GPUDevice) -> Self {
     Self {
@@ -28,11 +83,19 @@ impl GPUCommandEncoder {
       holder: Default::default(),
       placeholder_bg: device.inner.placeholder_bg.clone(),
       active_pass_target_holder: Default::default(),
+      on_submit: Default::default(),
     }
   }
 
-  pub fn finish(self) -> gpu::CommandBuffer {
-    self.encoder.finish()
+  pub fn on_submit(&self) -> &CommandBufferSubmitted {
+    &self.on_submit
+  }
+
+  pub fn finish(self) -> GPUCommandBuffer {
+    GPUCommandBuffer {
+      gpu: self.encoder.finish(),
+      on_submit: self.on_submit,
+    }
   }
 
   pub fn do_u_hear_the_people_sing(&mut self, mut des: RenderPassDescriptorOwned) {

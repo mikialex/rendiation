@@ -1,9 +1,11 @@
 #![feature(specialization)]
+#![feature(type_alias_impl_trait)]
 #![allow(incomplete_features)]
 
 mod device;
 mod encoder;
 mod pass;
+mod read;
 mod resource;
 mod surface;
 mod types;
@@ -11,6 +13,7 @@ mod types;
 pub use device::*;
 pub use encoder::*;
 pub use pass::*;
+pub use read::*;
 pub use resource::*;
 pub use surface::*;
 pub use types::*;
@@ -51,6 +54,10 @@ pub struct GPU {
 }
 
 impl GPU {
+  pub fn poll(&self) {
+    self._instance.poll_all(false);
+  }
+
   pub async fn new() -> Self {
     let backend = gpu::Backends::PRIMARY;
     let _instance = gpu::Instance::new(backend);
@@ -131,7 +138,10 @@ impl GPU {
   }
 
   pub fn submit_encoder(&self, encoder: GPUCommandEncoder) {
-    self.queue.submit(Some(encoder.finish()));
+    let cmb = encoder.finish();
+    cmb.on_submit.resolve();
+
+    self.queue.submit(Some(cmb.gpu));
   }
 }
 

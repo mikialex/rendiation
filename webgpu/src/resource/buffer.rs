@@ -20,7 +20,8 @@ impl Resource for GPUBuffer {
 
 #[derive(Clone)]
 pub struct GPUBuffer {
-  pub gpu: Rc<gpu::Buffer>,
+  pub(crate) gpu: Rc<gpu::Buffer>,
+  pub(crate) size: std::num::NonZeroU64,
 }
 
 impl GPUBuffer {
@@ -30,7 +31,10 @@ impl GPUBuffer {
       contents: bytes,
       usage,
     });
-    Self { gpu: Rc::new(gpu) }
+    Self {
+      gpu: Rc::new(gpu),
+      size: std::num::NonZeroU64::new(bytes.len() as u64).unwrap(),
+    }
   }
 
   pub fn update(&self, queue: &gpu::Queue, bytes: &[u8]) {

@@ -6,6 +6,7 @@ version = "0.1.0"
 
 [dependencies]
 bytemuck = {version = "1.4.1", features = ["derive"]}
+futures = "0.3.25"
 rendiation-texture-types = {path = "../components/texture/types"}
 shadergraph = {path = "../shader/graph"}
 typed-arena = "2.0.1"

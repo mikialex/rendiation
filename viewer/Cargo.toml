@@ -7,8 +7,12 @@ version = "0.1.0"
 [dependencies]
 bytemuck = {version = "1.4.1", features = ["derive"]}
 env_logger = "0.8.4"
-futures = "0.3.15"
-image = "*"
+futures = {version = "0.3.25", features = ["thread-pool"]}
+
+dirs = "4.0.0" 
+image = "*" 
+png = "*" # for better control over writing
+
 incremental = {path = "../utils/incremental"}
 interphaser = {path = "../interphaser"}
 log = "0.4"
