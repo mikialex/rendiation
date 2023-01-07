@@ -1,8 +1,9 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, io::Write, path::Path};
 
 use futures::{executor::ThreadPool, Future};
 use interphaser::{winit::event::VirtualKeyCode, *};
 use rendiation_scene_core::Scene;
+use webgpu::ReadableTextureBuffer;
 
 use crate::{Viewer3dRenderingCtx, ViewerSnapshotTaskResolver};
 
@@ -123,15 +124,44 @@ pub fn register_default_commands(terminal: &mut Terminal) {
       .as_mut()
       .map(|cx| ViewerSnapshotTaskResolver::install(cx));
 
+    // todo use ?
     Box::pin(async {
       if let Some(r) = result {
         if let Ok(r) = r.await {
           if let Ok(re) = r.await {
-            println!("{}", re.read_raw().len());
+            if let Some(mut dir) = dirs::download_dir() {
+              dir.push("screenshot.png"); // will override old but ok
+              write_png(&re, dir);
+            }
           }
         }
-
       }
     })
   });
+}
+
+fn write_png(result: &ReadableTextureBuffer, png_output_path: impl AsRef<Path>) {
+  let buffer_dimensions = result.size_info();
+
+  let mut png_encoder = png::Encoder::new(
+    std::fs::File::create(png_output_path).unwrap(),
+    buffer_dimensions.width as u32,
+    buffer_dimensions.height as u32,
+  );
+  png_encoder.set_depth(png::BitDepth::Eight);
+  png_encoder.set_color(png::ColorType::Rgba);
+  let mut png_writer = png_encoder
+    .write_header()
+    .unwrap()
+    .into_stream_writer_with_size(buffer_dimensions.unpadded_bytes_per_row)
+    .unwrap();
+
+  let padded_buffer = result.read_raw();
+  // from the padded_buffer we write just the unpadded bytes into the image
+  for chunk in padded_buffer.chunks(buffer_dimensions.padded_bytes_per_row) {
+    png_writer
+      .write_all(&chunk[..buffer_dimensions.unpadded_bytes_per_row])
+      .unwrap();
+  }
+  png_writer.finish().unwrap();
 }
