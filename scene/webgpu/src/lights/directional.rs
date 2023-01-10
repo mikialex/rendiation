@@ -82,7 +82,7 @@ impl WebGPUSceneLight for SceneItemRef<DirectionalLight> {
     let lights = ctx.forward.get_or_create_list();
     let gpu = DirectionalLightShaderInfo {
       illuminance: light.illuminance * light.color_factor,
-      direction: node.get_world_matrix().forward().normalize().reverse(),
+      direction: node.get_world_matrix().forward().reverse().normalize(),
       shadow,
       ..Zeroable::zeroed()
     };

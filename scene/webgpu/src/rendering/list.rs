@@ -14,7 +14,7 @@ impl RenderList {
 
     let camera_mat = camera.visit(|camera| camera.node.get_world_matrix());
     let camera_pos = camera_mat.position();
-    let camera_forward = camera_mat.forward() * -1.;
+    let camera_forward = camera_mat.forward().reverse();
 
     self.opaque.clear();
     self.transparent.clear();

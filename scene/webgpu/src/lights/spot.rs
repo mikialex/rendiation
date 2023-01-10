@@ -88,7 +88,7 @@ impl WebGPUSceneLight for SceneItemRef<SpotLight> {
 
     let gpu = SpotLightShaderInfo {
       luminance_intensity: light.luminance_intensity * light.color_factor,
-      direction: node.get_world_matrix().forward().normalize().reverse(),
+      direction: node.get_world_matrix().forward().reverse().normalize(),
       cutoff_distance: light.cutoff_distance,
       half_cone_cos: light.half_cone_angle.cos(),
       half_penumbra_cos: light.half_penumbra_angle.cos(),

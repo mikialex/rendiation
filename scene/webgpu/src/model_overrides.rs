@@ -160,8 +160,12 @@ impl WorldMatrixOverride for ViewAutoScalable {
     let world_translation = Mat4::translate(world_position);
 
     let camera_position = camera.node.get_world_matrix().position();
-    let camera_forward = camera.node.get_world_matrix().forward().normalize();
-    let camera_forward = camera_forward * -1.; // because right hand coordinate
+    let camera_forward = camera
+      .node
+      .get_world_matrix()
+      .forward()
+      .reverse()
+      .normalize();
     let camera_to_target = world_position - camera_position;
 
     let projected_distance = camera_to_target.dot(camera_forward);
