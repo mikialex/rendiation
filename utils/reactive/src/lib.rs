@@ -30,6 +30,23 @@ pub struct Source<T> {
   listeners: Arena<Box<dyn Fn(&T) -> bool + Send + Sync>>,
 }
 
+pub struct Listener<T> {
+  current: Arc<Option<T>>,
+  waker: Option<std::task::Waker>,
+  stream: Stream<T>,
+}
+
+impl<T> futures::Stream for Listener<T> {
+  type Item = T;
+
+  fn poll_next(
+    self: std::pin::Pin<&mut Self>,
+    cx: &mut std::task::Context<'_>,
+  ) -> std::task::Poll<Option<Self::Item>> {
+    todo!()
+  }
+}
+
 pub struct RemoveToken<T> {
   handle: Handle<Box<dyn Fn(&T) -> bool + Send + Sync>>,
 }
