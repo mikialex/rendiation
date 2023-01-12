@@ -1,6 +1,6 @@
 use crate::*;
 
-#[derive(Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub struct HyperSphere<T, V> {
   pub center: V,
   pub radius: T,
