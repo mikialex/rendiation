@@ -173,10 +173,11 @@ pub trait WebGPUSceneExtension {
     conf: &'a MeshBufferIntersectConfig,
   ) -> SceneRayInteractiveCtx<'a>;
 
-  fn interaction_picking(
-    &self,
+  fn interaction_picking<'a>(
+    &'a self,
     ctx: &SceneRayInteractiveCtx,
-  ) -> Option<(&SceneModel, MeshBufferHitPoint)>;
+    bounding_system: &mut SceneBoundingSystem,
+  ) -> Option<(&'a SceneModel, MeshBufferHitPoint)>;
 }
 
 use std::cmp::Ordering;
@@ -198,15 +199,32 @@ impl WebGPUSceneExtension for SceneInner {
     }
   }
 
-  fn interaction_picking(
-    &self,
+  fn interaction_picking<'a>(
+    &'a self,
     ctx: &SceneRayInteractiveCtx,
-  ) -> Option<(&SceneModel, MeshBufferHitPoint)> {
-    interaction_picking(self.models.iter().map(|(_, m)| m), ctx)
+    bounding_system: &mut SceneBoundingSystem,
+  ) -> Option<(&'a SceneModel, MeshBufferHitPoint)> {
+    bounding_system.maintain();
+    interaction_picking(
+      self.models.iter().filter_map(|(handle, m)| {
+        if let Some(bounding) = bounding_system.get_model_bounding(handle) {
+          if ctx.world_ray.intersect(bounding, &()) {
+            Some(m)
+          } else {
+            println!("culled");
+            None
+          }
+        } else {
+          // unbound model
+          Some(m)
+        }
+      }),
+      ctx,
+    )
   }
 }
 
-pub fn interaction_picking<'a, T: IntoIterator<Item = &'a SceneModel> + 'a>(
+pub fn interaction_picking<'a, T: IntoIterator<Item = &'a SceneModel>>(
   content: T,
   ctx: &SceneRayInteractiveCtx,
 ) -> Option<(&'a SceneModel, MeshBufferHitPoint)> {

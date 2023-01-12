@@ -255,7 +255,9 @@ impl Viewer3dContent {
     }
 
     if let Some((MouseButton::Left, ElementState::Pressed)) = mouse(event) {
-      if let Some((nearest, _)) = scene.interaction_picking(&interactive_ctx) {
+      if let Some((nearest, _)) =
+        scene.interaction_picking(&interactive_ctx, &mut self.scene_bounding)
+      {
         self.selections.clear();
         self.selections.select(nearest);
 
