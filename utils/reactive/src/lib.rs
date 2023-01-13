@@ -31,9 +31,17 @@ pub struct Source<T> {
 }
 
 pub struct Listener<T> {
-  current: Arc<Option<T>>,
-  waker: Option<std::task::Waker>,
-  stream: Stream<T>,
+  current: Arc<RwLock<(Vec<T>, Option<std::task::Waker>, bool)>>,
+}
+
+struct ListenerDropper<F: Fn()> {
+  cb: F,
+}
+
+impl<F: Fn()> Drop for ListenerDropper<F> {
+  fn drop(&mut self) {
+    (self.cb)();
+  }
 }
 
 impl<T> futures::Stream for Listener<T> {
@@ -43,7 +51,49 @@ impl<T> futures::Stream for Listener<T> {
     self: std::pin::Pin<&mut Self>,
     cx: &mut std::task::Context<'_>,
   ) -> std::task::Poll<Option<Self::Item>> {
-    todo!()
+    let mut current = self.current.write().unwrap();
+    if let Some(v) = current.0.pop() {
+      std::task::Poll::Ready(Some(v))
+    } else {
+      if current.2 {
+        std::task::Poll::Ready(None)
+      } else {
+        current.1 = Some(cx.waker().clone());
+        std::task::Poll::Pending
+      }
+    }
+  }
+}
+
+impl<T: Clone + Send + Sync + 'static> Stream<T> {
+  pub fn listen(&self) -> Listener<T> {
+    let current: Arc<RwLock<(Vec<T>, Option<std::task::Waker>, bool)>> = Default::default();
+    let c = current.clone();
+    let _stream = self.make_weak();
+    let stream_c = _stream.clone();
+
+    let dropper = ListenerDropper {
+      cb: move || {
+        let mut guard = c.write().unwrap();
+        guard.2 = true;
+        if let Some(waker) = guard.1.take() {
+          waker.wake();
+        }
+      },
+    };
+
+    let c = current.clone();
+    self.on(move |v| {
+      let a = dropper;
+      let mut guard = c.write().unwrap();
+      guard.0.push(v.clone());
+      if let Some(waker) = guard.1.take() {
+        waker.wake();
+      }
+      stream_c.is_exist()
+    });
+
+    Listener { current }
   }
 }
 
