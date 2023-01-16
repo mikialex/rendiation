@@ -63,11 +63,11 @@ impl SceneNode {
     self.inner.mutate(|node| node.mutate(f))
   }
 
-  pub fn visit<F: FnMut(&SceneNodeData) -> T, T>(&self, f: F) -> T {
+  pub fn visit<F: FnOnce(&SceneNodeData) -> T, T>(&self, f: F) -> T {
     self.inner.visit(f)
   }
 
-  pub fn visit_parent<F: FnMut(&SceneNodeData) -> T, T>(&self, f: F) -> Option<T> {
+  pub fn visit_parent<F: FnOnce(&SceneNodeData) -> T, T>(&self, f: F) -> Option<T> {
     self.inner.visit_parent(f)
   }
 

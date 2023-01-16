@@ -126,14 +126,14 @@ impl<T> ShareTreeNode<T> {
     f(node)
   }
 
-  pub fn visit<F: FnMut(&T) -> R, R>(&self, mut f: F) -> R {
+  pub fn visit<F: FnOnce(&T) -> R, R>(&self, f: F) -> R {
     let inner = self.inner.read().unwrap();
     let nodes = &inner.nodes.inner.read().unwrap();
     let node = nodes.get_node(inner.inner.handle).data();
     f(node)
   }
 
-  pub fn visit_parent<F: FnMut(&T) -> R, R>(&self, mut f: F) -> Option<R> {
+  pub fn visit_parent<F: FnOnce(&T) -> R, R>(&self, f: F) -> Option<R> {
     let inner = self.inner.read().unwrap();
     let nodes = &inner.nodes.inner.read().unwrap();
     if let Some(parent) = &inner.parent {
