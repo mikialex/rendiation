@@ -4,6 +4,8 @@ use rendiation_geometry::Box3;
 
 #[allow(unused)]
 pub struct SceneBoundingSystem {
+  model_delta: Stream<arena::ArenaDelta<SceneModel>>,
+
   /// actually data
   models_bounding: Vec<Option<Box3>>,
 
@@ -85,7 +87,7 @@ impl MeshBoxReactiveCache {
   }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub enum BoxUpdate {
   Remove(SceneModelHandle),
   Active(SceneModelHandle),
@@ -102,15 +104,18 @@ impl SceneBoundingSystem {
       .write()
       .unwrap()
       .drain(..)
-      .for_each(|update| match update {
-        BoxUpdate::Remove(_) => {}
-        BoxUpdate::Active(index) => {
-          if index.into_raw_parts().0 == self.models_bounding.len() {
-            self.models_bounding.push(None);
+      .for_each(|update| {
+        println!("{update:?}");
+        match update {
+          BoxUpdate::Remove(_) => {}
+          BoxUpdate::Active(index) => {
+            if index.into_raw_parts().0 == self.models_bounding.len() {
+              self.models_bounding.push(None);
+            }
           }
-        }
-        BoxUpdate::Update { index, bbox } => {
-          self.models_bounding[index.into_raw_parts().0] = bbox;
+          BoxUpdate::Update { index, bbox } => {
+            self.models_bounding[index.into_raw_parts().0] = bbox;
+          }
         }
       })
   }
@@ -119,13 +124,14 @@ impl SceneBoundingSystem {
     let reactive: Arc<RwLock<Vec<Option<MeshBoxReactiveCache>>>> = Default::default();
     let weak_reactive = Arc::downgrade(&reactive);
 
-    let model_stream: Stream<&arena::ArenaDelta<SceneModel>> = scene
-      .read()
-      .delta_stream
-      .filter_map(move |view| match view.delta {
-        SceneInnerDelta::models(model_delta) => Some(model_delta),
-        _ => None,
-      });
+    let model_stream: Stream<arena::ArenaDelta<SceneModel>> =
+      scene
+        .read()
+        .delta_stream
+        .filter_map(move |view| match view.delta {
+          SceneInnerDelta::models(model_delta) => Some(model_delta.clone()),
+          _ => None,
+        });
 
     let bounding_change_stream: Stream<BoxUpdate> = Default::default();
     let box_c = bounding_change_stream.clone();
@@ -143,8 +149,13 @@ impl SceneBoundingSystem {
           }
           arena::ArenaDelta::Insert((model, handle)) => {
             box_c.emit(&BoxUpdate::Active(*handle));
-            reactive[handle.into_raw_parts().0] =
-              MeshBoxReactiveCache::from_model(model, *handle, box_c);
+
+            let r = MeshBoxReactiveCache::from_model(model, *handle, box_c);
+            if handle.into_raw_parts().0 == reactive.len() {
+              reactive.push(r);
+            } else {
+              reactive[handle.into_raw_parts().0] = r;
+            }
           }
           arena::ArenaDelta::Remove(handle) => {
             reactive[handle.into_raw_parts().0] = None;
@@ -170,8 +181,9 @@ impl SceneBoundingSystem {
     });
 
     Self {
+      model_delta: model_stream,
       models_bounding: Default::default(),
-      reactive: Default::default(),
+      reactive,
       update_queue,
       bounding_change_stream,
     }

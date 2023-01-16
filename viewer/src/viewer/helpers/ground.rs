@@ -1,14 +1,11 @@
 use __core::{any::Any, hash::Hash};
 use incremental::*;
 use rendiation_scene_core::{IdentityMapper, SceneItemRef};
-use rendiation_scene_webgpu::{
-  generate_quad, CameraGPU, DrawcallEmitter, MaterialStates, PassContentWithCamera,
-  RenderComponent, RenderComponentAny, RenderEmitter,
-};
+use rendiation_scene_webgpu::{generate_quad, CameraGPU, MaterialStates, PassContentWithCamera};
 use shadergraph::*;
 use webgpu::{
-  create_uniform, ShaderHashProvider, ShaderHashProviderAny, ShaderPassBuilder,
-  UniformBufferDataView, GPU,
+  create_uniform, DrawcallEmitter, RenderComponent, RenderComponentAny, RenderEmitter,
+  ShaderHashProvider, ShaderHashProviderAny, ShaderPassBuilder, UniformBufferDataView, GPU,
 };
 use wgsl_shader_derives::wgsl_fn;
 

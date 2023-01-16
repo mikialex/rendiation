@@ -8,16 +8,13 @@ pub struct NodeGPUStore {
 impl NodeGPUStore {
   pub fn check_update_gpu(&mut self, n: &SceneNode, gpu: &GPU) -> &TransformGPU {
     n.visit(|node| {
-      let r = self.get_update_or_insert_with(
+      self.get_update_or_insert_with(
         node,
         |_node| TransformGPU::new(gpu, n, None),
         |node_gpu, _node| {
           node_gpu.update(gpu, n, None);
         },
-      );
-
-      // todo can i workaround this?
-      unsafe { std::mem::transmute(r) }
+      )
     })
   }
 }

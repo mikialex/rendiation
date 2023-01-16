@@ -2,6 +2,7 @@ use incremental::*;
 use rendiation_algebra::*;
 use rendiation_geometry::OptionalNearest;
 use rendiation_renderable_mesh::mesh::MeshBufferHitPoint;
+use webgpu::RenderComponentAny;
 
 use crate::*;
 

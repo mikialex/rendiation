@@ -90,6 +90,7 @@ impl Default for ViewerImpl {
 
 pub struct Viewer3dContent {
   pub scene: Scene,
+  pub scene_bounding: SceneBoundingSystem,
   pub ground: GridGround,
   pub pick_config: MeshBufferIntersectConfig,
   pub selections: SelectionSet,
@@ -177,6 +178,8 @@ impl Viewer3dContent {
   pub fn new() -> Self {
     let scene = SceneInner::new().into_ref();
 
+    let scene_bounding = SceneBoundingSystem::new(&scene);
+
     load_default_scene(&scene);
 
     let s = scene.clone();
@@ -192,6 +195,7 @@ impl Viewer3dContent {
 
     Self {
       scene,
+      scene_bounding,
       ground: Default::default(),
       controller,
       pick_config: Default::default(),
@@ -251,7 +255,9 @@ impl Viewer3dContent {
     }
 
     if let Some((MouseButton::Left, ElementState::Pressed)) = mouse(event) {
-      if let Some((nearest, _)) = scene.interaction_picking(&interactive_ctx) {
+      if let Some((nearest, _)) =
+        scene.interaction_picking(&interactive_ctx, &mut self.scene_bounding)
+      {
         self.selections.clear();
         self.selections.select(nearest);
 
@@ -263,6 +269,7 @@ impl Viewer3dContent {
   }
 
   pub fn update_state(&mut self) {
+    self.scene_bounding.maintain();
     self.gizmo.update();
     if let Some(camera) = &self.scene.read().active_camera {
       self.controller.update(&mut ControlleeWrapper {

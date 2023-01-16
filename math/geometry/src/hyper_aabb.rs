@@ -1,6 +1,6 @@
 use crate::*;
 
-#[derive(Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub struct HyperAABB<V> {
   pub min: V,
   pub max: V,

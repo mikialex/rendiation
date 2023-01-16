@@ -137,7 +137,7 @@ impl<'a> ShaderGraphProvider for ForwardSceneLightingDispatcher<'a> {
     self.lighting.tonemap.build(builder)?;
 
     builder.fragment(|builder, _| {
-      let ldr = builder.query::<HDRLightResult>()?;
+      let ldr = builder.query::<LDRLightResult>()?;
 
       let alpha = builder
         .query::<AlphaChannel>()
