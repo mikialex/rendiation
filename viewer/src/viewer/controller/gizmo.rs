@@ -1,5 +1,6 @@
 use incremental::*;
 use std::{cell::RefCell, rc::Rc, sync::Arc};
+use webgpu::RenderComponentAny;
 
 use incremental::{DeltaOf, Incremental, SimpleIncremental};
 use interphaser::{
