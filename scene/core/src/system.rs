@@ -40,8 +40,8 @@ impl MeshBoxReactiveCache {
     let world_mat_stream = model_node_stream
       .map(|node| {
         node.visit(|node| {
-          node.delta_stream.filter_map(|d| match d.delta {
-            SceneNodeDataImplDelta::world_matrix(mat) => Some(*mat),
+          node.delta_stream.filter_map_ref(|d| match d.delta {
+            SceneNodeDataImplDelta::world_matrix(mat) => Some(mat),
             _ => None,
           })
         })
