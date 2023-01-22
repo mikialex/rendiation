@@ -30,67 +30,11 @@ pub struct Source<T> {
   listeners: Arena<Box<dyn Fn(&T) -> bool + Send + Sync>>,
 }
 
-pub struct Listener<T> {
-  current: Arc<RwLock<(Vec<T>, Option<std::task::Waker>, bool)>>,
-}
-
-struct ListenerDropper<F: Fn()> {
-  cb: F,
-}
-
-impl<F: Fn()> Drop for ListenerDropper<F> {
-  fn drop(&mut self) {
-    (self.cb)();
-  }
-}
-
-impl<T> futures::Stream for Listener<T> {
-  type Item = T;
-
-  fn poll_next(
-    self: std::pin::Pin<&mut Self>,
-    cx: &mut std::task::Context<'_>,
-  ) -> std::task::Poll<Option<Self::Item>> {
-    let mut current = self.current.write().unwrap();
-    if let Some(v) = current.0.pop() {
-      std::task::Poll::Ready(Some(v))
-    } else {
-      if current.2 {
-        std::task::Poll::Ready(None)
-      } else {
-        current.1 = Some(cx.waker().clone());
-        std::task::Poll::Pending
-      }
-    }
-  }
-}
-
 impl<T: Clone + Send + Sync + 'static> Stream<T> {
-  pub fn listen(&self) -> Listener<T> {
-    let current: Arc<RwLock<(Vec<T>, Option<std::task::Waker>, bool)>> = Default::default();
-    let weak = self.make_weak();
-
-    let c = current.clone();
-    self.on(move |v| {
-      let mut guard = c.write().unwrap();
-      guard.0.push(v.clone());
-      if let Some(waker) = guard.1.take() {
-        waker.wake();
-      }
-      let exist = weak.is_exist();
-
-      if !exist {
-        let mut guard = c.write().unwrap();
-        guard.2 = true;
-        if let Some(waker) = guard.1.take() {
-          waker.wake();
-        }
-      }
-
-      exist
-    });
-
-    Listener { current }
+  pub fn listen(&self) -> impl futures::Stream<Item = T> {
+    let (sender, receiver) = futures::channel::mpsc::unbounded();
+    self.on(move |v| sender.unbounded_send(v.clone()).is_ok());
+    receiver
   }
 }
 
