@@ -30,6 +30,14 @@ pub struct Source<T> {
   listeners: Arena<Box<dyn Fn(&T) -> bool + Send + Sync>>,
 }
 
+impl<T: Clone + Send + Sync + 'static> Stream<T> {
+  pub fn listen(&self) -> impl futures::Stream<Item = T> {
+    let (sender, receiver) = futures::channel::mpsc::unbounded();
+    self.on(move |v| sender.unbounded_send(v.clone()).is_ok());
+    receiver
+  }
+}
+
 pub struct RemoveToken<T> {
   handle: Handle<Box<dyn Fn(&T) -> bool + Send + Sync>>,
 }
