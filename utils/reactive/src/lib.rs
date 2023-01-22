@@ -68,29 +68,26 @@ impl<T> futures::Stream for Listener<T> {
 impl<T: Clone + Send + Sync + 'static> Stream<T> {
   pub fn listen(&self) -> Listener<T> {
     let current: Arc<RwLock<(Vec<T>, Option<std::task::Waker>, bool)>> = Default::default();
-    let c = current.clone();
-    let _stream = self.make_weak();
-    let stream_c = _stream.clone();
-
-    let dropper = ListenerDropper {
-      cb: move || {
-        let mut guard = c.write().unwrap();
-        guard.2 = true;
-        if let Some(waker) = guard.1.take() {
-          waker.wake();
-        }
-      },
-    };
+    let weak = self.make_weak();
 
     let c = current.clone();
     self.on(move |v| {
-      let a = dropper;
       let mut guard = c.write().unwrap();
       guard.0.push(v.clone());
       if let Some(waker) = guard.1.take() {
         waker.wake();
       }
-      stream_c.is_exist()
+      let exist = weak.is_exist();
+
+      if !exist {
+        let mut guard = c.write().unwrap();
+        guard.2 = true;
+        if let Some(waker) = guard.1.take() {
+          waker.wake();
+        }
+      }
+
+      exist
     });
 
     Listener { current }
