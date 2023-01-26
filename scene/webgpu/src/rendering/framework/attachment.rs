@@ -212,6 +212,7 @@ impl AttachmentDescriptor {
           size: map_size_gpu(size),
           dimension: webgpu::TextureDimension::D2,
           format: self.format,
+          view_formats: &[],
           usage: webgpu::TextureUsages::TEXTURE_BINDING
             | webgpu::TextureUsages::COPY_DST
             | webgpu::TextureUsages::COPY_SRC
