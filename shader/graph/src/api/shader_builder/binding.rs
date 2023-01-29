@@ -54,9 +54,9 @@ impl<N: ShaderGraphNodeType> ShaderUniformProvider for DirectProvider<N> {
 
 /// https://www.w3.org/TR/webgpu/#texture-format-caps
 /// not all format could be filtered, use this to override
-pub struct DisablePossibleFiltering<T>(pub T);
+pub struct DisableFiltering<T>(pub T);
 
-impl<T: ShaderUniformProvider> ShaderUniformProvider for DisablePossibleFiltering<T> {
+impl<T: ShaderUniformProvider> ShaderUniformProvider for DisableFiltering<T> {
   type Node = T::Node;
 
   fn modify_node_shader_value_type(ty: &mut ShaderValueType) {
@@ -66,6 +66,10 @@ impl<T: ShaderUniformProvider> ShaderUniformProvider for DisablePossibleFilterin
     } = ty
     {
       *filterable = false;
+    }
+
+    if let ShaderValueType::Sampler(ty) = ty {
+      *ty = SamplerBindingType::NonFiltering
     }
   }
 }

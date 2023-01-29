@@ -1,5 +1,3 @@
-use wgpu_types::{BlendState, ColorWrites, TextureFormat};
-
 use crate::*;
 
 pub trait SemanticFragmentShaderValue: Any {
