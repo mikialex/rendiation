@@ -77,7 +77,14 @@ impl GPU {
       .expect("No suitable GPU adapters found on the system!");
 
     let (device, queue) = _adaptor
-      .request_device(&gpu::DeviceDescriptor::default(), None)
+      .request_device(
+        &gpu::DeviceDescriptor {
+          label: None,
+          features: _adaptor.features(),
+          limits: _adaptor.limits(),
+        },
+        None,
+      )
       .await
       .expect("Unable to find a suitable GPU device!");
 
