@@ -2,38 +2,51 @@ use crate::*;
 use reactive::Stream;
 use rendiation_geometry::Box3;
 
-// type ModelWorldBox = impl futures::Stream<Item =Option<Box3>>; 
+// type ModelWorldBox = impl futures::Stream<Item =Option<Box3>>;
 
 use futures::*;
-pub fn build_world_box_stream(model: &SceneModel) -> Option<Box<dyn futures::Stream<Item =Option<Box3>>>>{
+pub fn build_world_box_stream(
+  model: &SceneModel,
+) -> Option<Box<dyn futures::Stream<Item = Option<Box3>>>> {
   let d: Stream<DeltaOf<SceneModelImpl>> = todo!();
-  
-  let world_mat_stream = d.listen().filter_map(|node| async move {match node {
-    SceneModelImplDelta::node(node) => Some(node.clone()),
-    _ => None,
-  }}).map(|node| {
-    node.visit(|node| {
-      let node_d: Stream<DeltaOf<SceneNodeDataImpl>> = todo!();
-      node_d.listen().filter_map(|d| async move {match d {
-        SceneNodeDataImplDelta::world_matrix(mat) => Some(mat),
+
+  let world_mat_stream = d
+    .listen()
+    .filter_map(|node| async move {
+      match node {
+        SceneModelImplDelta::node(node) => Some(node.clone()),
         _ => None,
-      }})
+      }
     })
-  })
-  .flatten();
+    .map(|node| {
+      node.visit(|node| {
+        let node_d: Stream<DeltaOf<SceneNodeDataImpl>> = todo!();
+        node_d.listen().filter_map(|d| async move {
+          match d {
+            SceneNodeDataImplDelta::world_matrix(mat) => Some(mat),
+            _ => None,
+          }
+        })
+      })
+    })
+    .flatten();
 
   match &model.read().model {
     SceneModelType::Standard(model) => {
       let d: Stream<DeltaOf<StandardModel>> = todo!();
-      let stream = d.listen()
-        .filter_map(move |view| async move {match view {
-          StandardModelDelta::mesh(mesh_delta) => Some(mesh_delta.clone()),
-          _ => None,
-        }}).map(|mesh| mesh.read().compute_local_bound()).zip(world_mat_stream).map(|(local_box, world_mat)|{
-          local_box.map(|b| b.apply_matrix_into(world_mat))
-        });
+      let stream = d
+        .listen()
+        .filter_map(move |view| async move {
+          match view {
+            StandardModelDelta::mesh(mesh_delta) => Some(mesh_delta.clone()),
+            _ => None,
+          }
+        })
+        .map(|mesh| mesh.read().compute_local_bound())
+        .zip(world_mat_stream)
+        .map(|(local_box, world_mat)| local_box.map(|b| b.apply_matrix_into(world_mat)));
 
-        Some(Box::new(stream))
+      Some(Box::new(stream))
     }
     SceneModelType::Foreign(_) => None,
   }
