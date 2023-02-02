@@ -35,7 +35,7 @@ impl GPUSurface {
     let swapchain_format = capabilities
       .formats
       .iter()
-      .find(|&f| *f == gpu::TextureFormat::Rgba8Unorm)
+      .find(|&f| *f == gpu::TextureFormat::Bgra8UnormSrgb) // should make sure use srgb
       .or(capabilities.formats.first())
       .expect("could not find support formats in surface");
 
