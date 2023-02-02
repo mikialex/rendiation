@@ -2373,6 +2373,7 @@ dependencies = [
  "arena",
  "bytemuck",
  "dyn-clone",
+ "futures",
  "incremental",
  "log",
  "reactive",
