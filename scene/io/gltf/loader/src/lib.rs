@@ -181,10 +181,10 @@ fn build_image(data_input: gltf::image::Data) -> SceneTexture2D {
   let format = match data_input.format {
     gltf::image::Format::R8 => TextureFormat::R8Unorm,
     gltf::image::Format::R8G8 => TextureFormat::Rg8Unorm,
-    gltf::image::Format::R8G8B8 => TextureFormat::Rgba8Unorm, // padding
-    gltf::image::Format::R8G8B8A8 => TextureFormat::Rgba8Unorm,
-    gltf::image::Format::B8G8R8 => TextureFormat::Bgra8Unorm, // padding
-    gltf::image::Format::B8G8R8A8 => TextureFormat::Bgra8Unorm,
+    gltf::image::Format::R8G8B8 => TextureFormat::Rgba8UnormSrgb, // padding
+    gltf::image::Format::R8G8B8A8 => TextureFormat::Rgba8UnormSrgb,
+    gltf::image::Format::B8G8R8 => TextureFormat::Bgra8UnormSrgb, // padding
+    gltf::image::Format::B8G8R8A8 => TextureFormat::Bgra8UnormSrgb,
     // todo check the follow format
     gltf::image::Format::R16 => TextureFormat::R16Float,
     gltf::image::Format::R16G16 => TextureFormat::Rg16Float,

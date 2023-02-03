@@ -14,7 +14,7 @@ pub trait TextureFormatDecider {
   const FORMAT: TextureFormat;
 }
 impl TextureFormatDecider for image::Rgba<u8> {
-  const FORMAT: TextureFormat = TextureFormat::Rgba8Unorm;
+  const FORMAT: TextureFormat = TextureFormat::Rgba8UnormSrgb;
 }
 // todo how do we support int texture?? by adding new type?
 impl TextureFormatDecider for u8 {
@@ -23,7 +23,7 @@ impl TextureFormatDecider for u8 {
 
 /// just as default behavior, not exact reasonable
 impl TextureFormatDecider for Vec4<u8> {
-  const FORMAT: TextureFormat = TextureFormat::Rgba8Unorm;
+  const FORMAT: TextureFormat = TextureFormat::Rgba8UnormSrgb;
 }
 impl TextureFormatDecider for Vec4<f32> {
   const FORMAT: TextureFormat = TextureFormat::Rgba32Float;

@@ -48,7 +48,7 @@ pub fn load_img_cube() -> SceneTextureCube {
 
 pub fn load_default_scene(scene: &Scene) {
   scene.set_background(Some(SceneBackGround::Solid(SolidBackground {
-    intensity: Vec3::new(0.1, 0.2, 0.3),
+    intensity: Vec3::new(0.1, 0.1, 0.1),
   })));
 
   let path = if cfg!(windows) {
