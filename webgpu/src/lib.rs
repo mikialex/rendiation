@@ -61,8 +61,10 @@ impl GPU {
   }
 
   pub async fn new() -> Self {
-    let backend = gpu::Backends::PRIMARY;
-    let _instance = gpu::Instance::new(backend);
+    let _instance = gpu::Instance::new(gpu::InstanceDescriptor {
+      backends: gpu::Backends::PRIMARY,
+      dx12_shader_compiler: Default::default(),
+    });
     let power_preference = gpu::PowerPreference::HighPerformance;
 
     let _adaptor = _instance
@@ -75,7 +77,14 @@ impl GPU {
       .expect("No suitable GPU adapters found on the system!");
 
     let (device, queue) = _adaptor
-      .request_device(&gpu::DeviceDescriptor::default(), None)
+      .request_device(
+        &gpu::DeviceDescriptor {
+          label: None,
+          features: _adaptor.features(),
+          limits: _adaptor.limits(),
+        },
+        None,
+      )
       .await
       .expect("Unable to find a suitable GPU device!");
 
@@ -89,8 +98,10 @@ impl GPU {
     }
   }
   pub async fn new_with_surface(surface_provider: &dyn SurfaceProvider) -> (Self, GPUSurface) {
-    let backend = gpu::Backends::all();
-    let _instance = gpu::Instance::new(backend);
+    let _instance = gpu::Instance::new(gpu::InstanceDescriptor {
+      backends: gpu::Backends::PRIMARY,
+      dx12_shader_compiler: Default::default(),
+    });
     let power_preference = gpu::PowerPreference::HighPerformance;
 
     let surface = surface_provider.create_surface(&_instance);

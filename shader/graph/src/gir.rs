@@ -303,7 +303,7 @@ impl Hash for ShaderFunctionMetaInfo {
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub enum ShaderValueType {
   Fixed(ShaderStructMemberValueType),
-  Sampler,
+  Sampler(SamplerBindingType),
   CompareSampler,
   Texture {
     dimension: TextureViewDimension,

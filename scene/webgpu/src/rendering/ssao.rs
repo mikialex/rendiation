@@ -117,12 +117,12 @@ impl<'a> ShaderGraphProvider for AOComputer<'a> {
     builder: &mut ShaderGraphRenderPipelineBuilder,
   ) -> Result<(), ShaderGraphBuildError> {
     builder.fragment(|builder, binding| {
-      let depth_tex = binding.uniform_by(&self.depth, SB::Pass);
+      let depth_tex = binding.uniform_by(&DisableFiltering(&self.depth), SB::Pass);
       let parameter = binding
         .uniform_by(&self.parameter.parameters, SB::Pass)
         .expand();
       let samples = binding.uniform_by(&self.parameter.samples, SB::Pass);
-      let sampler = binding.uniform::<GPUSamplerView>(SB::Pass);
+      let sampler = binding.uniform::<DisableFiltering<GPUSamplerView>>(SB::Pass);
 
       let camera = binding
         .uniform_by(self.source_camera_gpu.as_ref().unwrap(), SB::Pass)

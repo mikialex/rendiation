@@ -20,9 +20,9 @@ use crate::{
   *,
 };
 
-const RED: Vec3<f32> = Vec3::new(0.8, 0.1, 0.1);
-const GREEN: Vec3<f32> = Vec3::new(0.1, 0.8, 0.1);
-const BLUE: Vec3<f32> = Vec3::new(0.1, 0.1, 0.8);
+const RED: Vec3<f32> = Vec3::new(0.8, 0.3, 0.3);
+const GREEN: Vec3<f32> = Vec3::new(0.3, 0.8, 0.3);
+const BLUE: Vec3<f32> = Vec3::new(0.3, 0.3, 0.8);
 
 /// Gizmo is a useful widget in 3d design/editor software.
 /// User could use this to modify the scene node's transformation.

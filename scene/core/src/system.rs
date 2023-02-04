@@ -80,18 +80,18 @@ impl MeshBoxReactiveCache {
   pub fn from_model(
     model: &SceneModel,
     model_handle: SceneModelHandle,
-    out_stream: Stream<BoxUpdate>,
+    out_stream: &Stream<BoxUpdate>,
   ) -> Option<Self> {
     let model = model.read();
-    let model_node_stream = model.delta_stream.filter_map(|node| match node.delta {
-      SceneModelImplDelta::node(node) => Some(node.clone()),
+    let model_node_stream = model.delta_stream.filter_map_ref(|node| match node.delta {
+      SceneModelImplDelta::node(node) => Some(node),
       _ => None,
     });
     let world_mat_stream = model_node_stream
       .map(|node| {
         node.visit(|node| {
-          node.delta_stream.filter_map(|d| match d.delta {
-            SceneNodeDataImplDelta::world_matrix(mat) => Some(*mat),
+          node.delta_stream.filter_map_ref(|d| match d.delta {
+            SceneNodeDataImplDelta::world_matrix(mat) => Some(mat),
             _ => None,
           })
         })
@@ -102,8 +102,8 @@ impl MeshBoxReactiveCache {
         let mesh_stream = model
           .read()
           .delta_stream
-          .filter_map(move |view| match view.delta {
-            StandardModelDelta::mesh(mesh_delta) => Some(mesh_delta.clone()),
+          .filter_map_ref(move |view| match view.delta {
+            StandardModelDelta::mesh(mesh_delta) => Some(mesh_delta),
             _ => None,
           });
 
@@ -122,6 +122,8 @@ impl MeshBoxReactiveCache {
           mesh_stream,
           world_box_stream,
         };
+
+        let out_stream = out_stream.clone();
 
         r.world_box_stream.on(move |b| {
           out_stream.emit(&BoxUpdate::Update {
@@ -174,14 +176,13 @@ impl SceneBoundingSystem {
     let reactive: Arc<RwLock<Vec<Option<MeshBoxReactiveCache>>>> = Default::default();
     let weak_reactive = Arc::downgrade(&reactive);
 
-    let model_stream: Stream<arena::ArenaDelta<SceneModel>> =
-      scene
-        .read()
-        .delta_stream
-        .filter_map(move |view| match view.delta {
-          SceneInnerDelta::models(model_delta) => Some(model_delta.clone()),
-          _ => None,
-        });
+    let model_stream: Stream<arena::ArenaDelta<SceneModel>> = scene
+      .read()
+      .delta_stream
+      .filter_map_ref(move |view| match view.delta {
+        SceneInnerDelta::models(model_delta) => Some(model_delta),
+        _ => None,
+      });
 
     let bounding_change_stream: Stream<BoxUpdate> = Default::default();
     let box_c = bounding_change_stream.clone();
@@ -190,17 +191,15 @@ impl SceneBoundingSystem {
       if let Some(reactive) = weak_reactive.upgrade() {
         let mut reactive = reactive.write().unwrap();
 
-        let box_c = box_c.clone();
-
         match model_delta {
           arena::ArenaDelta::Mutate((new_model, handle)) => {
             reactive[handle.into_raw_parts().0] =
-              MeshBoxReactiveCache::from_model(new_model, *handle, box_c);
+              MeshBoxReactiveCache::from_model(new_model, *handle, &box_c);
           }
           arena::ArenaDelta::Insert((model, handle)) => {
             box_c.emit(&BoxUpdate::Active(*handle));
 
-            let r = MeshBoxReactiveCache::from_model(model, *handle, box_c);
+            let r = MeshBoxReactiveCache::from_model(model, *handle, &box_c);
             if handle.into_raw_parts().0 == reactive.len() {
               reactive.push(r);
             } else {

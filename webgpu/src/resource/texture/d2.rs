@@ -154,6 +154,7 @@ pub trait WebGPU2DTextureSource: Debug + Send + Sync {
       sample_count: 1,
       dimension: gpu::TextureDimension::D2,
       format: self.format(),
+      view_formats: &[],
       usage: gpu::TextureUsages::TEXTURE_BINDING
         | gpu::TextureUsages::RENDER_ATTACHMENT
         | gpu::TextureUsages::COPY_DST,
@@ -164,6 +165,7 @@ pub trait WebGPU2DTextureSource: Debug + Send + Sync {
     gpu::TextureDescriptor {
       label: None,
       size: self.gpu_cube_size(),
+      view_formats: &[],
       mip_level_count: level_count.get_level_count_wgpu(self.size()),
       sample_count: 1,
       dimension: gpu::TextureDimension::D2,

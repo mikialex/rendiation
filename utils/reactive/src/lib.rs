@@ -90,6 +90,8 @@ pub struct Stream<T> {
 }
 
 impl<T> Default for Stream<T> {
+  // default to do no allocation when created
+  // as long as no one add listener, no allocation happens
   fn default() -> Self {
     Self {
       inner: Default::default(),
@@ -158,11 +160,16 @@ impl<T: 'static> Stream<T> {
   ///
   /// when self dropped, the cb in source will be removed automatically
   pub fn map<U: 'static>(&self, cb: impl Fn(&T) -> U + Send + Sync + 'static) -> Stream<U> {
-    // default to do no allocation when created
-    // as long as no one add listener, no allocation happens
     let stream = Stream::<U>::default();
     let weak = stream.make_weak();
     self.inner.write().unwrap().on(move |t| !weak.emit(&cb(t)));
+    stream
+  }
+
+  pub fn map_ref<U: 'static>(&self, cb: impl Fn(&T) -> &U + Send + Sync + 'static) -> Stream<U> {
+    let stream = Stream::<U>::default();
+    let weak = stream.make_weak();
+    self.inner.write().unwrap().on(move |t| !weak.emit(cb(t)));
     stream
   }
 
@@ -187,6 +194,21 @@ impl<T: 'static> Stream<T> {
     self.inner.write().unwrap().on(move |t| {
       if let Some(r) = filter(t) {
         weak.emit(&r);
+      };
+      !weak.is_exist()
+    });
+    stream
+  }
+
+  pub fn filter_map_ref<U: 'static>(
+    &self,
+    filter: impl Fn(&T) -> Option<&U> + Send + Sync + 'static,
+  ) -> Stream<U> {
+    let stream = Stream::<U>::default();
+    let weak = stream.make_weak();
+    self.inner.write().unwrap().on(move |t| {
+      if let Some(r) = filter(t) {
+        weak.emit(r);
       };
       !weak.is_exist()
     });

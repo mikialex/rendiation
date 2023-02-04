@@ -54,7 +54,7 @@ pub fn create_bindgroup_layout_by_node_ty<'a>(
           // min_binding_size: gpu::BufferSize::new(std::mem::size_of::<T>() as u64), // todo
           min_binding_size: None,
         },
-        ShaderValueType::Sampler => gpu::BindingType::Sampler(gpu::SamplerBindingType::Filtering),
+        ShaderValueType::Sampler(ty) => gpu::BindingType::Sampler(ty),
         ShaderValueType::Texture {
           dimension,
           sample_type,
