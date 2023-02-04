@@ -60,6 +60,7 @@ impl ShadowMapAllocatorImpl {
           sample_count: 1,
           dimension: webgpu::TextureDimension::D2,
           format: webgpu::TextureFormat::Depth32Float,
+          view_formats: &[],
           usage: webgpu::TextureUsages::TEXTURE_BINDING | webgpu::TextureUsages::RENDER_ATTACHMENT,
         },
         &gpu.device,

@@ -101,10 +101,11 @@ impl<'a> ShaderGraphProvider for TAAResolver<'a> {
     builder: &mut ShaderGraphRenderPipelineBuilder,
   ) -> Result<(), ShaderGraphBuildError> {
     builder.fragment(|builder, binding| {
-      let sampler = binding.uniform::<GPUSamplerView>(SB::Material);
+      let sampler = binding.uniform::<DisableFiltering<GPUSamplerView>>(SB::Material);
+      let color_sampler = binding.uniform::<GPUSamplerView>(SB::Material);
       let history = binding.uniform_by(&self.history, SB::Material);
       let new = binding.uniform_by(&self.new_color, SB::Material);
-      let new_depth = binding.uniform_by(&self.new_depth, SB::Material);
+      let new_depth = binding.uniform_by(&DisableFiltering(&self.new_depth), SB::Material);
 
       let current_camera = binding
         .uniform_by(&self.current_camera.ubo, SB::Material)
@@ -121,12 +122,12 @@ impl<'a> ShaderGraphProvider for TAAResolver<'a> {
       let world_position = shader_uv_space_to_world_space(&current_camera, uv, depth);
       let (reproject_uv, _) = shader_world_space_to_uv_space(&previous_camera, world_position);
 
-      let previous = history.sample(sampler, reproject_uv);
+      let previous = history.sample(color_sampler, reproject_uv);
 
       let texel_size = builder.query::<TexelSize>()?;
-      let previous_clamped = clamp_color(new, sampler, texel_size, uv, previous.xyz());
+      let previous_clamped = clamp_color(new, color_sampler, texel_size, uv, previous.xyz());
 
-      let new = new.sample(sampler, uv).xyz();
+      let new = new.sample(color_sampler, uv).xyz();
 
       let ratio = 0.1;
 
@@ -161,6 +162,7 @@ wgsl_fn!(
 
 impl<'a> ShaderPassBuilder for TAAResolver<'a> {
   fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
+    ctx.bind_immediate_sampler(&TextureSampler::default(), SB::Material);
     ctx.bind_immediate_sampler(
       &TextureSampler {
         min_filter: rendiation_texture::FilterMode::Linear,

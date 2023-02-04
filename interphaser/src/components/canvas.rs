@@ -97,7 +97,8 @@ impl<T: CanvasPrinter> Component<T> for GPUCanvas {
             label: "interphase-canvas-output".into(),
             size: map_size_gpu(new_size),
             dimension: webgpu::TextureDimension::D2,
-            format: webgpu::TextureFormat::Rgba8UnormSrgb,
+            format: webgpu::TextureFormat::Rgba8Unorm,
+            view_formats: &[],
             usage: webgpu::TextureUsages::TEXTURE_BINDING
               | webgpu::TextureUsages::COPY_DST
               | webgpu::TextureUsages::COPY_SRC

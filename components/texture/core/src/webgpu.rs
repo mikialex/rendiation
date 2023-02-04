@@ -30,7 +30,7 @@ impl TextureFormatDecider for Vec4<f32> {
 }
 /// will get padding
 impl TextureFormatDecider for Vec3<u8> {
-  const FORMAT: TextureFormat = TextureFormat::Rgba8UnormSrgb;
+  const FORMAT: TextureFormat = TextureFormat::Rgba8Unorm;
 }
 
 // https://github.com/gpuweb/gpuweb/issues/66

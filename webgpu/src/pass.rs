@@ -74,7 +74,7 @@ impl RenderTargetView {
           .resource
           .desc
           .size
-          .mip_level_size(t.desc.base_mip_level, false);
+          .mip_level_size(t.desc.base_mip_level, TextureDimension::D2);
         GPUTextureSize::from_gpu_size(size)
       }
       RenderTargetView::SurfaceTexture { size, .. } => *size,

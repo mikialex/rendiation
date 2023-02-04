@@ -1,9 +1,13 @@
+pub use wgpu_types::BlendState;
 pub use wgpu_types::BufferAddress;
 pub use wgpu_types::ColorTargetState;
+pub use wgpu_types::ColorWrites;
 pub use wgpu_types::DepthStencilState;
 pub use wgpu_types::Face;
 pub use wgpu_types::MultisampleState;
 pub use wgpu_types::PrimitiveState;
+pub use wgpu_types::SamplerBindingType;
+pub use wgpu_types::TextureFormat;
 pub use wgpu_types::TextureSampleType;
 pub use wgpu_types::TextureViewDimension;
 pub use wgpu_types::VertexAttribute;

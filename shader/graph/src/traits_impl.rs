@@ -9,7 +9,10 @@ macro_rules! sg_node_impl {
 }
 
 sg_node_impl!(AnyType, ShaderValueType::Never);
-sg_node_impl!(ShaderSampler, ShaderValueType::Sampler);
+sg_node_impl!(
+  ShaderSampler,
+  ShaderValueType::Sampler(SamplerBindingType::Filtering)
+);
 sg_node_impl!(ShaderCompareSampler, ShaderValueType::CompareSampler);
 
 // Impl Notes:

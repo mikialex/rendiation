@@ -7,7 +7,7 @@ pub trait SurfaceProvider {
 
 impl SurfaceProvider for winit::window::Window {
   fn create_surface(&self, instance: &gpu::Instance) -> gpu::Surface {
-    unsafe { instance.create_surface(self) }
+    unsafe { instance.create_surface(self).unwrap() }
   }
 
   fn size(&self) -> Size {
@@ -19,9 +19,7 @@ impl SurfaceProvider for winit::window::Window {
 pub struct GPUSurface {
   pub surface: gpu::Surface,
   pub config: gpu::SurfaceConfiguration,
-  pub present_mode_supported: Vec<gpu::PresentMode>,
-  pub alpha_mode_supported: Vec<CompositeAlphaMode>,
-  pub format_supported: Vec<TextureFormat>,
+  pub capabilities: gpu::SurfaceCapabilities,
   pub size: Size,
 }
 
@@ -33,20 +31,18 @@ impl GPUSurface {
     surface: gpu::Surface,
     size: Size,
   ) -> Self {
-    let formats = surface.get_supported_formats(adapter);
-    let swapchain_format = formats
+    let capabilities = surface.get_capabilities(adapter);
+    let swapchain_format = capabilities
+      .formats
       .iter()
-      .find(|&f| *f == gpu::TextureFormat::Rgba8UnormSrgb)
-      .or(formats.first())
+      .find(|&f| *f == gpu::TextureFormat::Bgra8UnormSrgb) // should make sure use srgb
+      .or(capabilities.formats.first())
       .expect("could not find support formats in surface");
-
-    let present_mode_supported = surface.get_supported_present_modes(adapter);
-    let alpha_mode_supported = surface.get_supported_alpha_modes(adapter);
-    let format_supported = surface.get_supported_formats(adapter);
 
     let config = gpu::SurfaceConfiguration {
       usage: gpu::TextureUsages::RENDER_ATTACHMENT,
       format: *swapchain_format,
+      view_formats: vec![*swapchain_format],
       width: Into::<usize>::into(size.width) as u32,
       height: Into::<usize>::into(size.height) as u32,
       present_mode: gpu::PresentMode::AutoVsync,
@@ -56,9 +52,7 @@ impl GPUSurface {
     surface.configure(device, &config);
 
     Self {
-      present_mode_supported,
-      alpha_mode_supported,
-      format_supported,
+      capabilities,
       surface,
       config,
       size,

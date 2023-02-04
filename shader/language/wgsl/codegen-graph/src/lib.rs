@@ -870,7 +870,7 @@ fn gen_primitive_type(ty: PrimitiveShaderValueType) -> &'static str {
 
 fn gen_type_impl(ty: ShaderValueType, is_uniform: bool) -> String {
   match ty {
-    ShaderValueType::Sampler => "sampler".to_owned(),
+    ShaderValueType::Sampler(_) => "sampler".to_owned(),
     ShaderValueType::CompareSampler => "sampler_comparison".to_owned(),
     ShaderValueType::Texture {
       dimension,

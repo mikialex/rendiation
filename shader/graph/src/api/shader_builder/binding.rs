@@ -33,6 +33,45 @@ impl From<SB> for usize {
 /// should impl by user's container ty
 pub trait ShaderUniformProvider {
   type Node: ShaderGraphNodeType;
+  // provide a way to modify node shader ty
+  fn modify_node_shader_value_type(_ty: &mut ShaderValueType) {
+    // default do nothing
+  }
+}
+
+impl<'a, T: ShaderUniformProvider> ShaderUniformProvider for &'a T {
+  type Node = T::Node;
+
+  fn modify_node_shader_value_type(ty: &mut ShaderValueType) {
+    T::modify_node_shader_value_type(ty)
+  }
+}
+
+struct DirectProvider<N>(PhantomData<N>);
+impl<N: ShaderGraphNodeType> ShaderUniformProvider for DirectProvider<N> {
+  type Node = N;
+}
+
+/// https://www.w3.org/TR/webgpu/#texture-format-caps
+/// not all format could be filtered, use this to override
+pub struct DisableFiltering<T>(pub T);
+
+impl<T: ShaderUniformProvider> ShaderUniformProvider for DisableFiltering<T> {
+  type Node = T::Node;
+
+  fn modify_node_shader_value_type(ty: &mut ShaderValueType) {
+    if let ShaderValueType::Texture {
+      sample_type: TextureSampleType::Float { filterable },
+      ..
+    } = ty
+    {
+      *filterable = false;
+    }
+
+    if let ShaderValueType::Sampler(ty) = ty {
+      *ty = SamplerBindingType::NonFiltering
+    }
+  }
 }
 
 /// should impl by user's container ty
@@ -92,15 +131,16 @@ impl<T: ShaderGraphNodeType> UniformNodePreparer<T> {
 }
 
 impl ShaderGraphBindGroupBuilder {
-  pub(crate) fn uniform_ty_inner<T, N: ShaderGraphNodeType>(
+  pub(crate) fn uniform_ty_inner<T: ShaderUniformProvider>(
     &mut self,
     index: impl Into<usize>,
-  ) -> UniformNodePreparer<N> {
+  ) -> UniformNodePreparer<T::Node> {
     let bindgroup_index = index.into();
     let bindgroup = &mut self.bindings[bindgroup_index];
 
     let entry_index = bindgroup.bindings.len();
-    let ty = N::TYPE;
+    let mut ty = T::Node::TYPE;
+    T::modify_node_shader_value_type(&mut ty);
 
     let node = ShaderGraphInputNode::Uniform {
       bindgroup_index,
@@ -110,10 +150,10 @@ impl ShaderGraphBindGroupBuilder {
     let current_stage = get_current_stage();
 
     set_current_building(ShaderStages::Vertex.into());
-    let vertex_node = node.clone().insert_graph::<N>().handle();
+    let vertex_node = node.clone().insert_graph::<T::Node>().handle();
 
     set_current_building(ShaderStages::Fragment.into());
-    let fragment_node = node.insert_graph::<N>().handle();
+    let fragment_node = node.insert_graph::<T::Node>().handle();
 
     set_current_building(current_stage);
 
@@ -135,7 +175,7 @@ impl ShaderGraphBindGroupBuilder {
     &mut self,
     index: impl Into<usize>,
   ) -> UniformNodePreparer<T::Node> {
-    self.uniform_ty_inner::<T, T::Node>(index)
+    self.uniform_ty_inner::<T>(index)
   }
 
   pub fn uniform_by<T: ShaderUniformProvider>(
@@ -146,7 +186,7 @@ impl ShaderGraphBindGroupBuilder {
     self.uniform::<T>(index)
   }
 
-  /// N: the node type you want toc cast
+  /// N: the node type you want to cast
   pub fn uniform_dyn_ty_by<T, N>(
     &mut self,
     instance: &T,
@@ -159,7 +199,7 @@ impl ShaderGraphBindGroupBuilder {
     if instance.to_value() != N::TYPE {
       return Err(ShaderGraphBuildError::FailedDowncastShaderValueFromInput);
     }
-    Ok(self.uniform_ty_inner::<T, N>(index))
+    Ok(self.uniform_ty_inner::<DirectProvider<N>>(index))
   }
 
   pub(crate) fn wrap(&mut self) -> ShaderGraphBindGroupDirectBuilder {
@@ -173,7 +213,7 @@ pub struct ShaderGraphBindGroupDirectBuilder<'a> {
 
 impl<'a> ShaderGraphBindGroupDirectBuilder<'a> {
   pub fn uniform<T: ShaderUniformProvider>(&mut self, index: impl Into<usize>) -> Node<T::Node> {
-    self.builder.uniform_ty_inner::<T, T::Node>(index).using()
+    self.builder.uniform_ty_inner::<T>(index).using()
   }
 
   pub fn uniform_by<T: ShaderUniformProvider>(
@@ -184,7 +224,7 @@ impl<'a> ShaderGraphBindGroupDirectBuilder<'a> {
     self.uniform::<T>(index)
   }
 
-  /// N: the node type you want toc cast
+  /// N: the node type you want to cast
   pub fn uniform_dyn_ty_by<T, N>(
     &mut self,
     instance: &T,
@@ -197,6 +237,11 @@ impl<'a> ShaderGraphBindGroupDirectBuilder<'a> {
     if instance.to_value() != N::TYPE {
       return Err(ShaderGraphBuildError::FailedDowncastShaderValueFromInput);
     }
-    Ok(self.builder.uniform_ty_inner::<T, N>(index).using())
+    Ok(
+      self
+        .builder
+        .uniform_ty_inner::<DirectProvider<N>>(index)
+        .using(),
+    )
   }
 }
