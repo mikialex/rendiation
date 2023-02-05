@@ -1,6 +1,53 @@
+use std::{
+  pin::Pin,
+  sync::Weak,
+  task::{Context, Poll},
+};
+
 use crate::*;
 use reactive::Stream;
 use rendiation_geometry::Box3;
+
+pub trait Signal {
+  type Item;
+
+  fn poll_change(self: Pin<&mut Self>, cx: &mut Context) -> Poll<SignalState<Self::Item>>;
+}
+
+pub enum SignalState<T> {
+  Changed(T),
+  Terminated,
+}
+
+pub trait Value {
+  type Item;
+  fn get(&self) -> &Self::Item;
+}
+
+struct Reactive<T> {
+  inner: Arc<RwLock<T>>,
+}
+
+struct ReactiveSignal<T> {
+  inner: Weak<RwLock<T>>,
+  changed: bool,
+}
+
+impl<T> Signal for ReactiveSignal<T> {
+  type Item = T;
+
+  fn poll_change(self: Pin<&mut Self>, cx: &mut Context) -> Poll<SignalState<Self::Item>> {
+    if self.changed {
+      if let Some(inner) = self.inner.upgrade() {
+        Poll::Ready(inner.clone())
+      } else {
+        Poll::Ready(SignalState::Terminated)
+      }
+    } else {
+      Poll::Pending
+    }
+  }
+}
 
 // type ModelWorldBox = impl futures::Stream<Item =Option<Box3>>;
 
