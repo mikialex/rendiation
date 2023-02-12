@@ -30,9 +30,48 @@ pub struct Source<T> {
   listeners: Arena<Box<dyn Fn(&T) -> bool + Send + Sync>>,
 }
 
+impl<T: Send + Sync + 'static> Stream<T> {
+  pub fn listen_by<U: Send + Sync + 'static, I: Into<T>>(
+    &self,
+    init: I,
+    mapper: impl Fn(&T, &dyn Fn(U)) + Send + Sync + 'static,
+    // mapper: impl Fn(&T) -> Option<U> + Send + Sync + 'static,
+    // init: impl Fn(&futures::channel::mpsc::UnboundedSender<U>) + Send + Sync + 'static,
+  ) -> impl futures::Stream<Item = U> {
+    let (sender, receiver) = futures::channel::mpsc::unbounded();
+    let sender_c = sender.clone();
+    let send = move |mapped| {
+      sender_c.unbounded_send(mapped);
+    };
+    mapper(&init.into(), &send);
+
+    self.on(move |v| {
+      mapper(v, &send);
+      sender.is_closed()
+    });
+    receiver
+  }
+}
+
 impl<T: Clone + Send + Sync + 'static> Stream<T> {
   pub fn listen(&self) -> impl futures::Stream<Item = T> {
     let (sender, receiver) = futures::channel::mpsc::unbounded();
+    self.on(move |v| sender.unbounded_send(v.clone()).is_ok());
+    receiver
+  }
+
+  pub fn listen_in<U: Send + Sync + 'static>(
+    &self,
+    mapper: impl Fn(&T) -> U + Send + Sync + 'static,
+  ) -> impl futures::Stream<Item = U> {
+    let (sender, receiver) = futures::channel::mpsc::unbounded();
+    self.on(move |v| sender.unbounded_send(mapper(v)).is_ok());
+    receiver
+  }
+
+  pub fn listen_with_init(&self, item: T) -> impl futures::Stream<Item = T> {
+    let (sender, receiver) = futures::channel::mpsc::unbounded();
+    sender.unbounded_send(item);
     self.on(move |v| sender.unbounded_send(v.clone()).is_ok());
     receiver
   }

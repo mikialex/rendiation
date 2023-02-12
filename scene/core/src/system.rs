@@ -33,71 +33,128 @@ struct ReactiveSignal<T> {
   changed: bool,
 }
 
-impl<T> Signal for ReactiveSignal<T> {
-  type Item = T;
+// impl<T> Signal for ReactiveSignal<T> {
+//   type Item = T;
 
-  fn poll_change(self: Pin<&mut Self>, cx: &mut Context) -> Poll<SignalState<Self::Item>> {
-    if self.changed {
-      if let Some(inner) = self.inner.upgrade() {
-        Poll::Ready(inner.clone())
-      } else {
-        Poll::Ready(SignalState::Terminated)
-      }
-    } else {
-      Poll::Pending
-    }
+//   fn poll_change(self: Pin<&mut Self>, cx: &mut Context) -> Poll<SignalState<Self::Item>> {
+//     if self.changed {
+//       if let Some(inner) = self.inner.upgrade() {
+//         Poll::Ready(inner.clone())
+//       } else {
+//         Poll::Ready(SignalState::Terminated)
+//       }
+//     } else {
+//       Poll::Pending
+//     }
+//   }
+// }
+
+trait StreamBuilder {
+  type Stream: futures::Stream;
+  fn init(&self);
+  fn create_stream(&self) -> Self::Stream;
+  fn create_stream_with_init(&self) -> StreamWithUnconsumedInit<Self::Stream> {
+    let stream = self.create_stream();
+    self.init();
+    StreamWithUnconsumedInit { inner: stream }
   }
+}
+
+struct StreamWithUnconsumedInit<T> {
+  inner: T,
+}
+
+trait DeltaReducer<T: IncrementalBase> {
+  type Target;
+  fn create_init(&self, value: &T) -> Self::Target;
+  fn map_delta(&self, delta: &T::Delta) -> Self::Target;
 }
 
 // type ModelWorldBox = impl futures::Stream<Item =Option<Box3>>;
 
-use futures::*;
-pub fn build_world_box_stream(
-  model: &SceneModel,
-) -> Option<Box<dyn futures::Stream<Item = Option<Box3>>>> {
-  let d: Stream<DeltaOf<SceneModelImpl>> = todo!();
+struct Pair<'a, T: IncrementalBase> {
+  source: &'a T,
+  delta: &'a Stream<T::Delta>,
+}
 
-  let world_mat_stream = d
-    .listen()
-    .filter_map(|node| async move {
-      match node {
-        SceneModelImplDelta::node(node) => Some(node.clone()),
-        _ => None,
-      }
-    })
-    .map(|node| {
-      node.visit(|node| {
-        let node_d: Stream<DeltaOf<SceneNodeDataImpl>> = todo!();
-        node_d.listen().filter_map(|d| async move {
-          match d {
-            SceneNodeDataImplDelta::world_matrix(mat) => Some(mat),
-            _ => None,
-          }
-        })
-      })
-    })
-    .flatten();
+enum EntireOrDeltaRef<'a, T: IncrementalBase> {
+  Entire(&'a T),
+  Delta(&'a T::Delta),
+}
 
-  match &model.read().model {
-    SceneModelType::Standard(model) => {
-      let d: Stream<DeltaOf<StandardModel>> = todo!();
-      let stream = d
-        .listen()
-        .filter_map(move |view| async move {
-          match view {
-            StandardModelDelta::mesh(mesh_delta) => Some(mesh_delta.clone()),
-            _ => None,
-          }
-        })
-        .map(|mesh| mesh.read().compute_local_bound())
-        .zip(world_mat_stream)
-        .map(|(local_box, world_mat)| local_box.map(|b| b.apply_matrix_into(world_mat)));
+impl<'a, T: IncrementalBase> Pair<'a, T> {
+  pub fn listen_by<U: Send + Sync + 'static>(
+    &self,
+    mapper: impl Fn(EntireOrDeltaRef<T>, &dyn Fn(U)) + Send + Sync + 'static,
+  ) -> impl futures::Stream<Item = U> {
+    let (sender, receiver) = futures::channel::mpsc::unbounded();
+    let sender_c = sender.clone();
+    let send = move |mapped| {
+      sender_c.unbounded_send(mapped);
+    };
+    mapper(EntireOrDeltaRef::Entire(&self.source), &send);
 
-      Some(Box::new(stream))
-    }
-    SceneModelType::Foreign(_) => None,
+    self.delta.on(move |v| {
+      mapper(EntireOrDeltaRef::Delta(v), &send);
+      sender.is_closed()
+    });
+    receiver
   }
 }
+
+use futures::*;
+// pub fn build_world_box_stream(
+//   model: &SceneModel,
+// ) -> Option<Box<dyn futures::Stream<Item = Option<Box3>>>> {
+//   let d: Stream<DeltaOf<SceneModelImpl>> = todo!();
+
+//   let world_mat_stream = model
+//     .read()
+//     .delta_stream
+//     .listen_by(
+//       &model,
+//       |view| match node.delta {
+//         SceneModelImplDelta::node(node) => Some(node.clone()),
+//         _ => None,
+//       },
+//       |sender| {
+//         sender.unbounded_send(model.read().node.clone());
+//       },
+//     )
+//     // .listen_with_init(model.read().node.get_world_matrix())
+//     .map(|node| {
+//       node.visit(|node| {
+//         let node_d: Stream<DeltaOf<SceneNodeDataImpl>> = todo!();
+//         node_d.listen().filter_map(|d| async move {
+//           match d {
+//             SceneNodeDataImplDelta::world_matrix(mat) => Some(mat),
+//             _ => None,
+//           }
+//         })
+//       })
+//     })
+//     .flatten();
+
+//   match &model.read().model {
+//     SceneModelType::Standard(model) => {
+//       let d: Stream<DeltaOf<StandardModel>> = todo!();
+//       let stream = d
+//         .listen()
+//         .filter_map(move |view| async move {
+//           match view {
+//             StandardModelDelta::mesh(mesh_delta) => Some(mesh_delta.clone()),
+//             _ => None,
+//           }
+//         })
+//         .map(|mesh| mesh.read().compute_local_bound())
+//         .zip(world_mat_stream)
+//         .map(|(local_box, world_mat)| local_box.map(|b| b.apply_matrix_into(world_mat)));
+
+//       Some(Box::new(stream))
+//     }
+//     SceneModelType::Foreign(_) => None,
+//   }
+// }
 
 #[allow(unused)]
 pub struct SceneBoundingSystem {
