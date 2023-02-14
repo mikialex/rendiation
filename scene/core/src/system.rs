@@ -1,7 +1,6 @@
 use std::{
   ops::Deref,
   pin::Pin,
-  sync::Weak,
   task::{Context, Poll},
 };
 
@@ -9,79 +8,30 @@ use crate::*;
 use reactive::Stream;
 use rendiation_geometry::Box3;
 
-pub trait Signal {
-  type Item;
-
-  fn poll_change(self: Pin<&mut Self>, cx: &mut Context) -> Poll<SignalState<Self::Item>>;
-}
-
-pub enum SignalState<T> {
-  Changed(T),
-  Terminated,
-}
-
-pub trait Value {
-  type Item;
-  fn get(&self) -> &Self::Item;
-}
-
-struct Reactive<T> {
-  inner: Arc<RwLock<T>>,
-}
-
-struct ReactiveSignal<T> {
-  inner: Weak<RwLock<T>>,
-  changed: bool,
-}
-
-// impl<T> Signal for ReactiveSignal<T> {
-//   type Item = T;
-
-//   fn poll_change(self: Pin<&mut Self>, cx: &mut Context) -> Poll<SignalState<Self::Item>> {
-//     if self.changed {
-//       if let Some(inner) = self.inner.upgrade() {
-//         Poll::Ready(inner.clone())
-//       } else {
-//         Poll::Ready(SignalState::Terminated)
-//       }
-//     } else {
-//       Poll::Pending
-//     }
-//   }
-// }
-
-trait DeltaReducer<T: IncrementalBase> {
-  type Target;
-  fn create_init(&self, value: &T) -> Self::Target;
-  fn map_delta(&self, delta: &T::Delta) -> Self::Target;
-}
-
-// type ModelWorldBox = impl futures::Stream<Item =Option<Box3>>;
-
 pub struct Pair<'a, T: IncrementalBase> {
   source: &'a T,
   delta: &'a Stream<T::Delta>,
 }
 
-pub enum EntireOrDeltaRef<'a, T: IncrementalBase> {
-  Entire(&'a T),
+pub enum Partial<'a, T: IncrementalBase> {
+  All(&'a T),
   Delta(&'a T::Delta),
 }
 
 impl<'a, T: IncrementalBase> Pair<'a, T> {
   pub fn listen_by<U: Send + Sync + 'static>(
     &self,
-    mapper: impl Fn(EntireOrDeltaRef<T>, &dyn Fn(U)) + Send + Sync + 'static,
+    mapper: impl Fn(Partial<T>, &dyn Fn(U)) + Send + Sync + 'static,
   ) -> impl futures::Stream<Item = U> {
     let (sender, receiver) = futures::channel::mpsc::unbounded();
     let sender_c = sender.clone();
     let send = move |mapped| {
-      sender_c.unbounded_send(mapped);
+      sender_c.unbounded_send(mapped).ok();
     };
-    mapper(EntireOrDeltaRef::Entire(&self.source), &send);
+    mapper(Partial::All(&self.source), &send);
 
     self.delta.on(move |v| {
-      mapper(EntireOrDeltaRef::Delta(v), &send);
+      mapper(Partial::Delta(v), &send);
       sender.is_closed()
     });
     receiver
@@ -98,14 +48,17 @@ impl<T: IncrementalBase> SceneItemRef<T> {
   }
 }
 
-use futures::*;
+use futures::{
+  future::{Pending, Ready},
+  *,
+};
 type BoxStream = impl futures::Stream<Item = Option<Box3>>;
 pub fn build_world_box_stream(model: &SceneModel) -> BoxStream {
   let world_mat_stream = model
     .pair()
     .listen_by(|view, send| match view {
-      EntireOrDeltaRef::Entire(model) => send(model.node.clone()),
-      EntireOrDeltaRef::Delta(delta) => {
+      Partial::All(model) => send(model.node.clone()),
+      Partial::Delta(delta) => {
         if let SceneModelImplDelta::node(node) = delta {
           send(node.clone())
         }
@@ -115,8 +68,8 @@ pub fn build_world_box_stream(model: &SceneModel) -> BoxStream {
       node.visit(|node| {
         let node_d: Pair<SceneNodeDataImpl> = todo!();
         node_d.listen_by(|view, send| match view {
-          EntireOrDeltaRef::Entire(node) => send(node.world_matrix()),
-          EntireOrDeltaRef::Delta(d) => {
+          Partial::All(node) => send(node.world_matrix()),
+          Partial::Delta(d) => {
             if let SceneNodeDataImplDelta::world_matrix(mat) = d {
               send(*mat)
             }
@@ -129,8 +82,8 @@ pub fn build_world_box_stream(model: &SceneModel) -> BoxStream {
   let local_box_stream = model
     .pair()
     .listen_by(|view, send| match view {
-      EntireOrDeltaRef::Entire(model) => send(model.model.clone()),
-      EntireOrDeltaRef::Delta(delta) => {
+      Partial::All(model) => send(model.model.clone()),
+      Partial::Delta(delta) => {
         if let SceneModelImplDelta::model(model) = delta {
           send(model.clone())
         }
@@ -146,8 +99,8 @@ pub fn build_world_box_stream(model: &SceneModel) -> BoxStream {
           model
             .pair()
             .listen_by(|view, send| match view {
-              EntireOrDeltaRef::Entire(model) => send(model.mesh.clone()),
-              EntireOrDeltaRef::Delta(delta) => {
+              Partial::All(model) => send(model.mesh.clone()),
+              Partial::Delta(delta) => {
                 if let StandardModelDelta::mesh(mesh) = delta {
                   send(mesh.clone())
                 }
@@ -219,27 +172,33 @@ pub enum BoxUpdate {
   },
 }
 
+impl Unpin for SceneBoundingSystem {}
+
 impl SceneBoundingSystem {
   pub fn maintain(&mut self) {
-    // self
-    //   .update_queue
-    //   .write()
-    //   .unwrap()
-    //   .drain(..)
-    //   .for_each(|update| {
-    //     println!("{update:?}");
-    //     match update {
-    //       BoxUpdate::Remove(_) => {}
-    //       BoxUpdate::Active(index) => {
-    //         if index.into_raw_parts().0 == self.models_bounding.len() {
-    //           self.models_bounding.push(None);
-    //         }
-    //       }
-    //       BoxUpdate::Update { index, bbox } => {
-    //         self.models_bounding[index.into_raw_parts().0] = bbox;
-    //       }
-    //     }
-    //   })
+    // synchronously polling the stream, pull all box update.
+    // note, if the compute stream contains async mapping, the async part is actually
+    // polled inactively.
+    let waker = todo!(); // change_notifier;
+    let cx = Context::from_waker(waker);
+
+    while let Poll::Ready(Some(update)) = self.poll_next_unpin(&mut cx) {
+      // collect box updates
+      // send into downstream stream TODO
+      // update cache,
+      println!("{update:?}");
+      match update {
+        BoxUpdate::Remove(_) => {}
+        BoxUpdate::Active(index) => {
+          if index.into_raw_parts().0 == self.models_bounding.len() {
+            self.models_bounding.push(None);
+          }
+        }
+        BoxUpdate::Update { index, bbox } => {
+          self.models_bounding[index.into_raw_parts().0] = bbox;
+        }
+      }
+    }
   }
 
   pub fn new(scene: &Scene) -> Self {
@@ -250,8 +209,8 @@ impl SceneBoundingSystem {
       .listen_by(|view, send| match view {
         // simply trigger all model add deltas
         // but without trigger all unnecessary other scene deltas
-        EntireOrDeltaRef::Entire(scene) => scene.models.expand(send),
-        EntireOrDeltaRef::Delta(delta) => match delta {
+        Partial::All(scene) => scene.models.expand(send),
+        Partial::Delta(delta) => match delta {
           SceneInnerDelta::models(model_delta) => send(model_delta.clone()),
           _ => {}
         },
