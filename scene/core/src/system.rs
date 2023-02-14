@@ -105,20 +105,22 @@ pub fn build_world_box_stream(model: &SceneModel) -> BoxStream {
     .pair()
     .listen_by(|view, send| match view {
       EntireOrDeltaRef::Entire(model) => send(model.node.clone()),
-      EntireOrDeltaRef::Delta(delta) => match delta {
-        SceneModelImplDelta::node(node) => send(node.clone()),
-        _ => {}
-      },
+      EntireOrDeltaRef::Delta(delta) => {
+        if let SceneModelImplDelta::node(node) = delta {
+          send(node.clone())
+        }
+      }
     })
     .map(|node| {
       node.visit(|node| {
         let node_d: Pair<SceneNodeDataImpl> = todo!();
         node_d.listen_by(|view, send| match view {
           EntireOrDeltaRef::Entire(node) => send(node.world_matrix()),
-          EntireOrDeltaRef::Delta(d) => match d {
-            SceneNodeDataImplDelta::world_matrix(mat) => send(*mat),
-            _ => {}
-          },
+          EntireOrDeltaRef::Delta(d) => {
+            if let SceneNodeDataImplDelta::world_matrix(mat) = d {
+              send(*mat)
+            }
+          }
         })
       })
     })
@@ -128,10 +130,11 @@ pub fn build_world_box_stream(model: &SceneModel) -> BoxStream {
     .pair()
     .listen_by(|view, send| match view {
       EntireOrDeltaRef::Entire(model) => send(model.model.clone()),
-      EntireOrDeltaRef::Delta(delta) => match delta {
-        SceneModelImplDelta::model(model) => send(model.clone()),
-        _ => {}
-      },
+      EntireOrDeltaRef::Delta(delta) => {
+        if let SceneModelImplDelta::model(model) = delta {
+          send(model.clone())
+        }
+      }
     })
     .map(|model| match model {
       SceneModelType::Standard(model) => Some(model),
@@ -144,15 +147,17 @@ pub fn build_world_box_stream(model: &SceneModel) -> BoxStream {
             .pair()
             .listen_by(|view, send| match view {
               EntireOrDeltaRef::Entire(model) => send(model.mesh.clone()),
-              EntireOrDeltaRef::Delta(delta) => match delta {
-                StandardModelDelta::mesh(mesh) => send(mesh.clone()),
-                _ => {}
-              },
+              EntireOrDeltaRef::Delta(delta) => {
+                if let StandardModelDelta::mesh(mesh) = delta {
+                  send(mesh.clone())
+                }
+              }
             })
             .map(|mesh| mesh.read().compute_local_bound()),
         )
       } else {
-        Box::new(todo!())
+        Box::new(futures::stream::once(std::future::ready(None)).chain(futures::stream::pending()))
+          as Box<dyn Unpin + futures::Stream<Item = Option<Box3>>>
       }
     })
     .flatten();
@@ -243,6 +248,8 @@ impl SceneBoundingSystem {
     let handler = scene
       .pair()
       .listen_by(|view, send| match view {
+        // simply trigger all model add deltas
+        // but without trigger all unnecessary other scene deltas
         EntireOrDeltaRef::Entire(scene) => scene.models.expand(send),
         EntireOrDeltaRef::Delta(delta) => match delta {
           SceneInnerDelta::models(model_delta) => send(model_delta.clone()),
