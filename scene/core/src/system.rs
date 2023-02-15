@@ -5,57 +5,38 @@ use std::{
 };
 
 use crate::*;
-use reactive::Stream;
 use rendiation_geometry::Box3;
-
-pub struct Pair<'a, T: IncrementalBase> {
-  source: &'a T,
-  delta: &'a Stream<T::Delta>,
-}
 
 pub enum Partial<'a, T: IncrementalBase> {
   All(&'a T),
   Delta(&'a T::Delta),
 }
 
-impl<'a, T: IncrementalBase> Pair<'a, T> {
+impl<T: IncrementalBase> SceneItemRef<T> {
   pub fn listen_by<U: Send + Sync + 'static>(
     &self,
     mapper: impl Fn(Partial<T>, &dyn Fn(U)) + Send + Sync + 'static,
   ) -> impl futures::Stream<Item = U> {
+    let inner = self.read();
     let (sender, receiver) = futures::channel::mpsc::unbounded();
     let sender_c = sender.clone();
     let send = move |mapped| {
       sender_c.unbounded_send(mapped).ok();
     };
-    mapper(Partial::All(&self.source), &send);
+    mapper(Partial::All(inner.deref()), &send);
 
-    self.delta.on(move |v| {
-      mapper(Partial::Delta(v), &send);
+    inner.delta_stream.on(move |v| {
+      mapper(Partial::Delta(v.delta), &send);
       sender.is_closed()
     });
     receiver
   }
 }
 
-impl<T: IncrementalBase> SceneItemRef<T> {
-  pub fn pair(&self) -> Pair<T> {
-    let inner = self.read();
-    Pair {
-      source: inner.deref(),
-      delta: todo!(),
-    }
-  }
-}
-
-use futures::{
-  future::{Pending, Ready},
-  *,
-};
+use futures::*;
 type BoxStream = impl futures::Stream<Item = Option<Box3>>;
 pub fn build_world_box_stream(model: &SceneModel) -> BoxStream {
   let world_mat_stream = model
-    .pair()
     .listen_by(|view, send| match view {
       Partial::All(model) => send(model.node.clone()),
       Partial::Delta(delta) => {
@@ -66,7 +47,7 @@ pub fn build_world_box_stream(model: &SceneModel) -> BoxStream {
     })
     .map(|node| {
       node.visit(|node| {
-        let node_d: Pair<SceneNodeDataImpl> = todo!();
+        let node_d: SceneItemRef<SceneNodeDataImpl> = todo!();
         node_d.listen_by(|view, send| match view {
           Partial::All(node) => send(node.world_matrix()),
           Partial::Delta(d) => {
@@ -80,7 +61,6 @@ pub fn build_world_box_stream(model: &SceneModel) -> BoxStream {
     .flatten();
 
   let local_box_stream = model
-    .pair()
     .listen_by(|view, send| match view {
       Partial::All(model) => send(model.model.clone()),
       Partial::Delta(delta) => {
@@ -97,7 +77,6 @@ pub fn build_world_box_stream(model: &SceneModel) -> BoxStream {
       if let Some(model) = model {
         Box::new(
           model
-            .pair()
             .listen_by(|view, send| match view {
               Partial::All(model) => send(model.mesh.clone()),
               Partial::Delta(delta) => {
@@ -123,10 +102,7 @@ pub fn build_world_box_stream(model: &SceneModel) -> BoxStream {
 #[derive(Default)]
 struct SceneBoxUpdater {
   changed: Vec<usize>,
-  sub_streams: Vec<BoxStream>,
-
-  /// actually data
-  models_bounding: Vec<Option<Box3>>,
+  sub_streams: Vec<Option<BoxStream>>,
 }
 
 impl Clone for SceneBoxUpdater {
@@ -205,10 +181,9 @@ impl SceneBoundingSystem {
     let updater = SceneBoxUpdater::default();
 
     let handler = scene
-      .pair()
       .listen_by(|view, send| match view {
         // simply trigger all model add deltas
-        // but without trigger all unnecessary other scene deltas
+        // but not trigger all other unnecessary scene deltas
         Partial::All(scene) => scene.models.expand(send),
         Partial::Delta(delta) => match delta {
           SceneInnerDelta::models(model_delta) => send(model_delta.clone()),
@@ -219,70 +194,22 @@ impl SceneBoundingSystem {
         let mut scene_updater = updater.clone();
         match model_delta {
           arena::ArenaDelta::Mutate((new, handle)) => {
-            //
+            scene_updater.sub_streams[handle.into_raw_parts().0] =
+              Some(build_world_box_stream(&new));
           }
           arena::ArenaDelta::Insert((new, handle)) => {
-            // let box_stream = build_world_box_stream(new);
+            let handler = Some(build_world_box_stream(&new));
+            if handle.into_raw_parts().0 == scene_updater.sub_streams.len() {
+              scene_updater.sub_streams.push(handler);
+            } else {
+              scene_updater.sub_streams[handle.into_raw_parts().0] = handler;
+            }
           }
-          arena::ArenaDelta::Remove(handle) => {}
+          arena::ArenaDelta::Remove(handle) => {
+            scene_updater.sub_streams[handle.into_raw_parts().0] = None;
+          }
         }
       });
-
-    // let reactive: Arc<RwLock<Vec<Option<MeshBoxReactiveCache>>>> = Default::default();
-    // let weak_reactive = Arc::downgrade(&reactive);
-
-    // let model_stream: Stream<arena::ArenaDelta<SceneModel>> = scene
-    //   .read()
-    //   .delta_stream
-    //   .filter_map_ref(move |view| match view.delta {
-    //     SceneInnerDelta::models(model_delta) => Some(model_delta),
-    //     _ => None,
-    //   });
-
-    // let bounding_change_stream: Stream<BoxUpdate> = Default::default();
-    // let box_c = bounding_change_stream.clone();
-
-    // model_stream.on(move |model_delta| {
-    //   if let Some(reactive) = weak_reactive.upgrade() {
-    //     let mut reactive = reactive.write().unwrap();
-
-    //     match model_delta {
-    //       arena::ArenaDelta::Mutate((new_model, handle)) => {
-    //         reactive[handle.into_raw_parts().0] =
-    //           MeshBoxReactiveCache::from_model(new_model, *handle, &box_c);
-    //       }
-    //       arena::ArenaDelta::Insert((model, handle)) => {
-    //         box_c.emit(&BoxUpdate::Active(*handle));
-
-    //         let r = MeshBoxReactiveCache::from_model(model, *handle, &box_c);
-    //         if handle.into_raw_parts().0 == reactive.len() {
-    //           reactive.push(r);
-    //         } else {
-    //           reactive[handle.into_raw_parts().0] = r;
-    //         }
-    //       }
-    //       arena::ArenaDelta::Remove(handle) => {
-    //         reactive[handle.into_raw_parts().0] = None;
-    //         box_c.emit(&BoxUpdate::Remove(*handle));
-    //       }
-    //     }
-
-    //     false
-    //   } else {
-    //     true
-    //   }
-    // });
-
-    // let update_queue: Arc<RwLock<Vec<BoxUpdate>>> = Default::default();
-    // let update_queue_weak = Arc::downgrade(&update_queue);
-    // bounding_change_stream.on(move |delta| {
-    //   if let Some(update_queue) = update_queue_weak.upgrade() {
-    //     update_queue.write().unwrap().push(delta.clone());
-    //     false
-    //   } else {
-    //     true
-    //   }
-    // });
 
     Self {
       handler,
@@ -293,8 +220,4 @@ impl SceneBoundingSystem {
   pub fn get_model_bounding(&self, handle: SceneModelHandle) -> &Option<Box3> {
     &self.models_bounding[handle.into_raw_parts().0]
   }
-
-  // pub fn get_bounding_change_stream(&self) -> &Stream<BoxUpdate> {
-  //   &self.bounding_change_stream
-  // }
 }
