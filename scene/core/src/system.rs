@@ -18,14 +18,23 @@ impl<T: IncrementalBase> SceneItemRef<T> {
     mapper: impl Fn(Partial<T>, &dyn Fn(U)) + Send + Sync + 'static,
   ) -> impl futures::Stream<Item = U> {
     let inner = self.read();
+    inner.listen_by(mapper)
+  }
+}
+
+impl<T: IncrementalBase> Identity<T> {
+  pub fn listen_by<U: Send + Sync + 'static>(
+    &self,
+    mapper: impl Fn(Partial<T>, &dyn Fn(U)) + Send + Sync + 'static,
+  ) -> impl futures::Stream<Item = U> {
     let (sender, receiver) = futures::channel::mpsc::unbounded();
     let sender_c = sender.clone();
     let send = move |mapped| {
       sender_c.unbounded_send(mapped).ok();
     };
-    mapper(Partial::All(inner.deref()), &send);
+    mapper(Partial::All(self.deref()), &send);
 
-    inner.delta_stream.on(move |v| {
+    self.delta_stream.on(move |v| {
       mapper(Partial::Delta(v.delta), &send);
       sender.is_closed()
     });
@@ -47,8 +56,7 @@ pub fn build_world_box_stream(model: &SceneModel) -> BoxStream {
     })
     .map(|node| {
       node.visit(|node| {
-        let node_d: SceneItemRef<SceneNodeDataImpl> = todo!();
-        node_d.listen_by(|view, send| match view {
+        node.listen_by(|view, send| match view {
           Partial::All(node) => send(node.world_matrix()),
           Partial::Delta(d) => {
             if let SceneNodeDataImplDelta::world_matrix(mat) = d {
@@ -99,16 +107,15 @@ pub fn build_world_box_stream(model: &SceneModel) -> BoxStream {
     .map(|(local_box, world_mat)| local_box.map(|b| b.apply_matrix_into(world_mat)))
 }
 
-#[derive(Default)]
+#[derive(Default, Clone)]
 struct SceneBoxUpdater {
-  changed: Vec<usize>,
-  sub_streams: Vec<Option<BoxStream>>,
+  inner: Arc<RwLock<SceneBoxUpdaterInner>>,
 }
 
-impl Clone for SceneBoxUpdater {
-  fn clone(&self) -> Self {
-    todo!()
-  }
+#[derive(Default)]
+struct SceneBoxUpdaterInner {
+  changed: Vec<usize>,
+  sub_streams: Vec<Option<BoxStream>>,
 }
 
 impl futures::Stream for SceneBoxUpdater {
@@ -191,7 +198,8 @@ impl SceneBoundingSystem {
         },
       })
       .map(move |model_delta| {
-        let mut scene_updater = updater.clone();
+        let scene_updater = updater.clone();
+        let mut scene_updater = scene_updater.inner.write().unwrap();
         match model_delta {
           arena::ArenaDelta::Mutate((new, handle)) => {
             scene_updater.sub_streams[handle.into_raw_parts().0] =
