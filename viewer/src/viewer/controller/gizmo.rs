@@ -434,15 +434,13 @@ fn build_plane(root: &SceneNode, auto_scale: &AutoScale, mat: Mat4<f32>) -> Help
       TessellationConfig { u: 1, v: 1 },
       true,
     )
-    .build_mesh_into();
+    .build_mesh_into()
+    .into_ref();
 
-  let mesh = MeshSource::new(mesh);
-  let mesh = SceneItemRef::new(mesh);
   let mesh: Box<dyn WebGPUSceneMesh> = Box::new(mesh);
   let mesh = SceneMeshType::Foreign(Arc::new(mesh));
 
-  let material = solid_material(RED);
-  let material = SceneItemRef::new(material);
+  let material = solid_material(RED).into_ref();
   let m = material.clone();
   let material: Box<dyn WebGPUSceneMaterial> = Box::new(material);
   let material = SceneMaterialType::Foreign(Arc::new(material));
@@ -474,15 +472,13 @@ fn build_rotator(root: &SceneNode, auto_scale: &AutoScale, mat: Mat4<f32>) -> He
       TessellationConfig { u: 36, v: 4 },
       true,
     )
-    .build_mesh_into();
+    .build_mesh_into()
+    .into_ref();
 
-  let mesh = MeshSource::new(mesh);
-  let mesh = SceneItemRef::new(mesh);
   let mesh: Box<dyn WebGPUSceneMesh> = Box::new(mesh);
   let mesh = SceneMeshType::Foreign(Arc::new(mesh));
 
-  let material = solid_material(RED);
-  let material = SceneItemRef::new(material);
+  let material = solid_material(RED).into_ref();
   let m = material.clone();
   let material: Box<dyn WebGPUSceneMaterial> = Box::new(material);
   let material = SceneMaterialType::Foreign(Arc::new(material));

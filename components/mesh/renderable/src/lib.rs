@@ -9,8 +9,3 @@ pub mod utils;
 pub use utils::*;
 
 pub mod vertex;
-
-#[cfg(feature = "webgpu")]
-pub mod webgpu;
-#[cfg(feature = "webgpu")]
-pub use webgpu::*;

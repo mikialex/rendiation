@@ -21,7 +21,7 @@ rendiation-controller = {path = "../components/controller"}
 rendiation-generative-texture = {path = "../components/texture/generative"}
 rendiation-geometry = {path = "../math/geometry"}
 rendiation-mesh-generator = {path = "../components/mesh/generator"}
-rendiation-renderable-mesh = {path = "../components/mesh/renderable", features = ["webgpu"]}
+rendiation-renderable-mesh = {path = "../components/mesh/renderable"}
 rendiation-scene-core = {path = "../scene/core"}
 rendiation-scene-gltf-loader = {path = "../scene/io/gltf/loader"}
 rendiation-scene-webgpu = {path = "../scene/webgpu"}

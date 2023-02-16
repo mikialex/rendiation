@@ -91,22 +91,21 @@ impl<T: IncrementalBase> SceneItemRef<T> {
   }
 
   pub fn mutate<R>(&self, mutator: impl FnOnce(Mutating<T>) -> R) -> R {
-    let mut inner = self.inner.write().unwrap();
+    // ignore lock poison
+    let mut inner = self.inner.write().unwrap_or_else(|e| e.into_inner());
     let i: &mut Identity<T> = &mut inner;
     i.mutate(mutator)
   }
   pub fn visit<R>(&self, mut visitor: impl FnMut(&T) -> R) -> R {
-    let inner = self.inner.read().unwrap();
+    // ignore lock poison
+    let inner = self.inner.read().unwrap_or_else(|e| e.into_inner());
     visitor(&inner)
   }
 
   pub fn read(&self) -> SceneItemRefGuard<T> {
-    self
-      .inner
-      .read()
-      .ok()
-      .map(|inner| SceneItemRefGuard { inner })
-      .unwrap()
+    // ignore lock poison
+    let inner = self.inner.read().unwrap_or_else(|e| e.into_inner());
+    SceneItemRefGuard { inner }
   }
 }
 

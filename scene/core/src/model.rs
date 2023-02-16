@@ -21,7 +21,7 @@ pub struct SceneModelImpl {
 
 #[derive(Incremental)]
 pub struct StandardModel {
-  pub material: SceneMaterial,
-  pub mesh: SceneMesh,
+  pub material: SceneMaterialType,
+  pub mesh: SceneMeshType,
   pub group: MeshDrawGroup,
 }

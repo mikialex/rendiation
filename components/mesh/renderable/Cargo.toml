@@ -16,6 +16,3 @@ space-algorithm = {path = "../../space"}
 rendiation-webgpu = {path = "../../../webgpu", optional = true}
 shadergraph = {path = "../../../shader/graph"}
 incremental = {path = "../../../utils/incremental"}
-
-[features]
-webgpu = ["rendiation-webgpu"]

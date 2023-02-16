@@ -92,11 +92,10 @@ impl Arrow {
     let tip_mesh: Box<dyn WebGPUSceneMesh> = Box::new(tip_mesh);
     let tip_mesh = SceneMeshType::Foreign(Arc::new(tip_mesh));
 
-    let material = solid_material((1., 1., 1.));
-    let material = SceneItemRef::new(material);
+    let material = solid_material((1., 1., 1.)).into_ref();
     let modify_material = material.clone();
     let material: Box<dyn WebGPUSceneMaterial> = Box::new(material);
-    let material = SceneMaterialType::Foreign(Arc::new(material)).into_ref();
+    let material = SceneMaterialType::Foreign(Arc::new(material));
 
     let node_cylinder = root.create_child();
 
@@ -153,8 +152,6 @@ impl Arrow {
       )
       .build_mesh_into();
 
-    let cylinder = MeshSource::new(cylinder);
-
     let tip = IndexedMeshBuilder::<TriangleList, Vec<Vertex>>::default()
       .triangulate_parametric(
         &CylinderMeshParameter {
@@ -168,7 +165,6 @@ impl Arrow {
         true,
       )
       .build_mesh_into();
-    let tip = MeshSource::new(tip);
     (cylinder.into_ref(), tip.into_ref())
   }
 

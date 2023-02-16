@@ -4,7 +4,6 @@ use rendiation_renderable_mesh::{
   group::{GroupedMesh, MeshDrawGroup},
   mesh::{IndexedMesh, IntersectAbleGroupedMesh, NoneIndexedMesh, TriangleList},
   vertex::Vertex,
-  MeshGPU,
 };
 
 #[derive(Clone)]
@@ -152,6 +151,6 @@ thread_local! {
 
 fn create_fatline_quad_gpu(device: &webgpu::GPUDevice) -> FatlineQuadInstance {
   FatlineQuadInstance {
-    data: Rc::new(FATLINE_INSTANCE.with(|f| f.create_gpu(device))),
+    data: Rc::new(FATLINE_INSTANCE.with(|f| create_gpu(f, device))),
   }
 }

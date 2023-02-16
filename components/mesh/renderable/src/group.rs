@@ -54,6 +54,21 @@ pub struct GroupedMesh<T> {
   pub groups: MeshGroupsInfo,
 }
 
+impl<T> incremental::SimpleIncremental for GroupedMesh<T>
+where
+  Self: Clone + Send + Sync,
+{
+  type Delta = Self;
+
+  fn s_apply(&mut self, delta: Self::Delta) {
+    *self = delta
+  }
+
+  fn s_expand(&self, mut cb: impl FnMut(Self::Delta)) {
+    cb(self.clone())
+  }
+}
+
 #[derive(Debug, Clone, Copy)]
 pub enum MeshDrawGroup {
   Full,

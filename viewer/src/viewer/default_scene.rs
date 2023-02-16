@@ -35,15 +35,10 @@ pub fn load_img_cube() -> SceneTextureCube {
     "C:/Users/mk/Desktop/rrf-resource/Park2/negz.jpg",
   ];
 
-  // https://github.com/rust-lang/rust/issues/81615
-  let faces = path
-    .iter()
-    .copied()
-    .map(load_tex)
-    .collect::<Vec<_>>()
-    .try_into()
-    .expect("cube source not valid");
-  SceneTextureCubeImpl { faces }.into()
+  SceneTextureCubeImpl {
+    faces: path.map(load_tex),
+  }
+  .into()
 }
 
 pub fn load_default_scene(scene: &Scene) {
@@ -57,9 +52,8 @@ pub fn load_default_scene(scene: &Scene) {
     "/Users/mikialex/Desktop/test.png"
   };
 
-  let texture = SceneItemRef::new(load_tex(path));
   let texture = TextureWithSamplingData {
-    texture,
+    texture: load_tex(path).into_ref(),
     sampler: TextureSampler::tri_linear_repeat(),
   };
 
@@ -81,8 +75,8 @@ pub fn load_default_scene(scene: &Scene) {
         TessellationConfig { u: 16, v: 16 },
         true,
       )
-      .build_mesh_into();
-    let mesh = SceneItemRef::new(MeshSource::new(mesh));
+      .build_mesh_into()
+      .into_ref();
     let mesh: Box<dyn WebGPUSceneMesh> = Box::new(mesh);
     let mesh = SceneMeshType::Foreign(Arc::new(mesh));
 
@@ -97,8 +91,8 @@ pub fn load_default_scene(scene: &Scene) {
     child.set_local_matrix(Mat4::translate((2., 0., 3.)));
 
     let model = StandardModel {
-      material: material.into(),
-      mesh: mesh.into(),
+      material,
+      mesh,
       group: Default::default(),
     };
     let model = SceneModelType::Standard(model.into());
@@ -116,9 +110,7 @@ pub fn load_default_scene(scene: &Scene) {
     for face in cube.make_faces() {
       builder = builder.triangulate_parametric(&face, TessellationConfig { u: 2, v: 3 }, true);
     }
-    let mesh = builder.build_mesh();
-    let mesh = MeshSource::new(mesh);
-    let mesh = SceneItemRef::new(mesh);
+    let mesh = builder.build_mesh().into_ref();
     let mesh: Box<dyn WebGPUSceneMesh> = Box::new(mesh);
     let mesh = SceneMeshType::Foreign(Arc::new(mesh));
 
@@ -131,8 +123,8 @@ pub fn load_default_scene(scene: &Scene) {
     let child = scene.read().root().create_child();
 
     let model = StandardModel {
-      material: material.into(),
-      mesh: mesh.into(),
+      material,
+      mesh,
       group: Default::default(),
     };
     let model = SceneModelType::Standard(model.into());
@@ -148,7 +140,6 @@ pub fn load_default_scene(scene: &Scene) {
         true,
       )
       .build_mesh_into();
-    let mesh = MeshSource::new(mesh);
 
     let mesh = TransformInstance {
       mesh,
@@ -158,8 +149,8 @@ pub fn load_default_scene(scene: &Scene) {
         Mat4::translate((10., 0., 4.)),
         Mat4::translate((10., 0., 6.)),
       ],
-    };
-    let mesh = SceneItemRef::new(mesh);
+    }
+    .into_ref();
     let mesh: Box<dyn WebGPUSceneMesh> = Box::new(mesh);
     let mesh = SceneMeshType::Foreign(Arc::new(mesh));
 
@@ -172,8 +163,8 @@ pub fn load_default_scene(scene: &Scene) {
     let child = scene.read().root().create_child();
 
     let model = StandardModel {
-      material: material.into(),
-      mesh: mesh.into(),
+      material,
+      mesh,
       group: Default::default(),
     };
     let model = SceneModelType::Standard(model.into());
