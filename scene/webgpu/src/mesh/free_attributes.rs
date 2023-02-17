@@ -1,5 +1,3 @@
-use rendiation_renderable_mesh::map_topology;
-
 use crate::*;
 
 pub struct AttributesMeshGPU {

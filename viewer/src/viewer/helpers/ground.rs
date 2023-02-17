@@ -1,6 +1,6 @@
 use __core::{any::Any, hash::Hash};
 use incremental::*;
-use rendiation_scene_core::{IdentityMapper, SceneItemRef};
+use rendiation_scene_core::{IdentityMapper, IntoSceneItemRef, SceneItemRef};
 use rendiation_scene_webgpu::{generate_quad, CameraGPU, MaterialStates, PassContentWithCamera};
 use shadergraph::*;
 use webgpu::{
@@ -67,11 +67,12 @@ fn create_grid_gpu(source: GridGroundConfig, gpu: &GPU) -> InfinityShaderPlane {
 impl Default for GridGround {
   fn default() -> Self {
     Self {
-      grid_config: SceneItemRef::new(GridGroundConfig {
+      grid_config: GridGroundConfig {
         scale: Vec2::one(),
         color: Vec4::splat(1.),
         ..Zeroable::zeroed()
-      }),
+      }
+      .into_ref(),
     }
   }
 }

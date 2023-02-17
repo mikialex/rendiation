@@ -1,7 +1,9 @@
-use rendiation_renderable_mesh::{mesh::IntersectAbleGroupedMesh, GPUMeshData, TypedMeshGPU};
+use rendiation_renderable_mesh::mesh::IntersectAbleGroupedMesh;
 
 pub mod fatline;
 pub use fatline::*;
+pub mod typed;
+pub use typed::*;
 pub mod transform_instance;
 pub use transform_instance::*;
 pub mod free_attributes;
@@ -90,29 +92,6 @@ impl<T: WebGPUSceneMesh> MeshDrawcallEmitter for T {
   }
 }
 
-impl WebGPUSceneMesh for SceneMesh {
-  fn check_update_gpu<'a>(
-    &self,
-    res: &'a mut GPUMeshCache,
-    sub_res: &mut AnyMap,
-    gpu: &GPU,
-  ) -> &'a dyn RenderComponentAny {
-    self.read().check_update_gpu(res, sub_res, gpu)
-  }
-
-  fn topology(&self) -> webgpu::PrimitiveTopology {
-    self.read().topology()
-  }
-
-  fn draw_impl(&self, group: MeshDrawGroup) -> DrawCommand {
-    self.read().draw_impl(group)
-  }
-
-  fn try_pick(&self, f: &mut dyn FnMut(&dyn IntersectAbleGroupedMesh)) {
-    self.read().try_pick(f)
-  }
-}
-
 impl<M: WebGPUMesh> WebGPUSceneMesh for Identity<M> {
   fn check_update_gpu<'a>(
     &self,
@@ -169,91 +148,6 @@ pub trait WebGPUMesh: Any + Send + Sync + Incremental {
   fn topology(&self) -> webgpu::PrimitiveTopology;
 
   fn try_pick(&self, _f: &mut dyn FnMut(&dyn IntersectAbleGroupedMesh)) {}
-}
-
-#[derive(Clone)]
-pub struct MeshSource<T> {
-  inner: T,
-}
-impl<M: Clone + Send + Sync> SimpleIncremental for MeshSource<M> {
-  type Delta = Self;
-
-  fn s_apply(&mut self, delta: Self::Delta) {
-    *self = delta
-  }
-
-  fn s_expand(&self, mut cb: impl FnMut(Self::Delta)) {
-    cb(self.clone())
-  }
-}
-
-impl<T> MeshSource<T> {
-  pub fn new(inner: T) -> Self {
-    Self { inner }
-  }
-}
-
-impl<T> std::ops::Deref for MeshSource<T> {
-  type Target = T;
-
-  fn deref(&self) -> &Self::Target {
-    &self.inner
-  }
-}
-
-impl<T> std::ops::DerefMut for MeshSource<T> {
-  fn deref_mut(&mut self) -> &mut Self::Target {
-    &mut self.inner
-  }
-}
-
-impl<T: IntersectAbleGroupedMesh> IntersectAbleGroupedMesh for MeshSource<T> {
-  fn intersect_list(
-    &self,
-    ray: rendiation_geometry::Ray3,
-    conf: &rendiation_renderable_mesh::mesh::MeshBufferIntersectConfig,
-    result: &mut rendiation_renderable_mesh::mesh::MeshBufferHitList,
-    group: MeshDrawGroup,
-  ) {
-    self.deref().intersect_list(ray, conf, result, group)
-  }
-
-  fn intersect_nearest(
-    &self,
-    ray: rendiation_geometry::Ray3,
-    conf: &rendiation_renderable_mesh::mesh::MeshBufferIntersectConfig,
-    group: MeshDrawGroup,
-  ) -> rendiation_geometry::OptionalNearest<rendiation_renderable_mesh::mesh::MeshBufferHitPoint>
-  {
-    self.deref().intersect_nearest(ray, conf, group)
-  }
-}
-
-impl<T> WebGPUMesh for MeshSource<T>
-where
-  T: GPUMeshData<GPU = TypedMeshGPU<T>> + IntersectAbleGroupedMesh + Any + Send + Sync + Clone,
-{
-  type GPU = TypedMeshGPU<T>;
-
-  fn update(&self, gpu_mesh: &mut Self::GPU, gpu: &GPU, _: &mut AnyMap) {
-    self.deref().update(gpu_mesh, &gpu.device);
-  }
-
-  fn create(&self, gpu: &GPU, _: &mut AnyMap) -> Self::GPU {
-    self.deref().create(&gpu.device)
-  }
-
-  fn draw_impl(&self, group: MeshDrawGroup) -> DrawCommand {
-    self.deref().draw(group)
-  }
-
-  fn topology(&self) -> webgpu::PrimitiveTopology {
-    self.deref().topology()
-  }
-
-  fn try_pick(&self, f: &mut dyn FnMut(&dyn IntersectAbleGroupedMesh)) {
-    f(self.deref())
-  }
 }
 
 impl<T: WebGPUMesh + Any> WebGPUSceneMesh for SceneItemRef<T> {

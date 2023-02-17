@@ -22,7 +22,7 @@ struct MeshBoxReactiveCache {
   model_node_stream: Stream<SceneNode>,
   local_box_stream: Stream<Option<Box3>>,
   world_mat_stream: Stream<Mat4<f32>>,
-  mesh_stream: Stream<SceneMesh>,
+  mesh_stream: Stream<SceneMeshType>,
   world_box_stream: Stream<Option<Box3>>,
 }
 
@@ -58,7 +58,7 @@ impl MeshBoxReactiveCache {
           });
 
         // todo: we not handle mesh internal change to box change, just recompute box when mesh reference changed
-        let local_box_stream = mesh_stream.map(|mesh| mesh.read().compute_local_bound());
+        let local_box_stream = mesh_stream.map(|mesh| mesh.compute_local_bound());
 
         let world_box_stream = local_box_stream
           .merge_map(&world_mat_stream, |local_box, world_mat| {

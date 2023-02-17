@@ -18,7 +18,7 @@ rand = "0.7.3"
 rendiation-algebra = {path = "../../math/algebra"}
 rendiation-controller = {path = "../../components/controller"}
 rendiation-geometry = {path = "../../math/geometry"}
-rendiation-renderable-mesh = {path = "../../components/mesh/renderable", features = ["webgpu"]}
+rendiation-renderable-mesh = {path = "../../components/mesh/renderable"}
 rendiation-scene-core = {path = "../core"}
 rendiation-texture = {path = "../../components/texture/core", features = ["webgpu"]}
 tree = {path = "../../utils/tree"}

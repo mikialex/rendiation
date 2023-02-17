@@ -6,6 +6,21 @@ pub struct NoneIndexedMesh<T, U> {
   _phantom: PhantomData<T>,
 }
 
+impl<T, U> incremental::SimpleIncremental for NoneIndexedMesh<T, U>
+where
+  Self: Clone + Send + Sync,
+{
+  type Delta = Self;
+
+  fn s_apply(&mut self, delta: Self::Delta) {
+    *self = delta
+  }
+
+  fn s_expand(&self, mut cb: impl FnMut(Self::Delta)) {
+    cb(self.clone())
+  }
+}
+
 impl<T, U: Clone> Clone for NoneIndexedMesh<T, U> {
   fn clone(&self) -> Self {
     Self {

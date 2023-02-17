@@ -67,12 +67,13 @@ pub fn setup_pass_core(
       let node_gpu =
         override_node.unwrap_or_else(|| resources.nodes.check_update_gpu(&model_input.node, gpu));
 
-      let material = model.material.read();
-      let material_gpu =
-        material.check_update_gpu(&mut resources.scene.materials, &mut resources.content, gpu);
+      let material_gpu = model.material.check_update_gpu(
+        &mut resources.scene.materials,
+        &mut resources.content,
+        gpu,
+      );
 
-      let mesh = model.mesh.read();
-      let mesh_gpu = mesh.check_update_gpu(
+      let mesh_gpu = model.mesh.check_update_gpu(
         &mut resources.scene.meshes,
         &mut resources.custom_storage,
         gpu,
@@ -100,7 +101,7 @@ pub fn setup_pass_core(
 impl SceneRenderable for SceneModelImpl {
   fn is_transparent(&self) -> bool {
     match &self.model {
-      SceneModelType::Standard(model) => model.read().material.read().is_transparent(),
+      SceneModelType::Standard(model) => model.read().material.is_transparent(),
       SceneModelType::Foreign(model) => {
         if let Some(model) = model.downcast_ref::<Box<dyn SceneRenderable>>() {
           model.is_transparent()
@@ -139,22 +140,23 @@ pub fn ray_pick_nearest_core(
 
       let model = model.read();
 
-      if !model.material.read().is_keep_mesh_shape() {
+      if !model.material.is_keep_mesh_shape() {
         return OptionalNearest::none();
       }
 
-      let mesh = &model.mesh.read();
       let mut picked = OptionalNearest::none();
-      mesh.try_pick(&mut |mesh: &dyn IntersectAbleGroupedMesh| {
-        picked = mesh.intersect_nearest(local_ray, ctx.conf, model.group);
+      model
+        .mesh
+        .try_pick(&mut |mesh: &dyn IntersectAbleGroupedMesh| {
+          picked = mesh.intersect_nearest(local_ray, ctx.conf, model.group);
 
-        // transform back to world space
-        if let Some(result) = &mut picked.0 {
-          let hit = &mut result.hit;
-          hit.position = world_mat * hit.position;
-          hit.distance = (hit.position - ctx.world_ray.origin).length()
-        }
-      });
+          // transform back to world space
+          if let Some(result) = &mut picked.0 {
+            let hit = &mut result.hit;
+            hit.position = world_mat * hit.position;
+            hit.distance = (hit.position - ctx.world_ray.origin).length()
+          }
+        });
       picked
     }
     SceneModelType::Foreign(model) => {

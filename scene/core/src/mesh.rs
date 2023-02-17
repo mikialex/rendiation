@@ -5,8 +5,6 @@ use rendiation_renderable_mesh::*;
 
 use crate::*;
 
-pub type SceneMesh = SceneItemRef<SceneMeshType>;
-
 #[non_exhaustive]
 #[derive(Clone)]
 pub enum SceneMeshType {
