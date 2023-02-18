@@ -18,11 +18,11 @@ pub struct HelperLineModel {
 
 impl HelperLineModel {
   pub fn new(material: FatLineMaterial, mesh: HelperLineMesh, node: &SceneNode) -> Self {
-    let mat = SceneItemRef::new(material.use_state_helper_like());
+    let mat = material.use_state_helper_like().into_ref();
     let mat: Box<dyn WebGPUSceneMaterial> = Box::new(mat);
     let mat = SceneMaterialType::Foreign(Arc::new(mat));
 
-    let mesh: Box<dyn WebGPUSceneMesh> = Box::new(SceneItemRef::new(mesh));
+    let mesh: Box<dyn WebGPUSceneMesh> = Box::new(mesh.into_ref());
     let mesh = SceneMeshType::Foreign(Arc::new(mesh));
 
     let model = StandardModel {
@@ -39,14 +39,11 @@ impl HelperLineModel {
   }
 
   pub fn update_mesh(&self, mesh: HelperLineMesh) {
-    let mesh: Box<dyn WebGPUSceneMesh> = Box::new(SceneItemRef::new(mesh));
+    let mesh: Box<dyn WebGPUSceneMesh> = Box::new(mesh.into_ref());
     let mesh = SceneMeshType::Foreign(Arc::new(mesh));
 
     if let SceneModelType::Standard(model) = &self.inner.model {
-      mesh
-        .into_ref()
-        .wrap(StandardModelDelta::mesh)
-        .apply_modify(model);
+      mesh.wrap(StandardModelDelta::mesh).apply_modify(model);
     }
   }
 }
