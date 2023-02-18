@@ -83,18 +83,18 @@ struct SceneBoxUpdaterInner {
 }
 
 impl futures::Stream for SceneBoxUpdater {
-  type Item = (SceneModelHandle, Option<Box3>);
+  type Item = BoxUpdate;
 
   fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
-    let inner = self.inner.write().unwrap();
+    let mut inner = self.inner.write().unwrap();
     // let changed = unsafe { inner.get_unchecked_mut().changed };
     if let Some(index) = inner.changed.pop() {
       // todo custom waker
-      inner
-        .sub_streams
-        .get_mut(index)
-        .unwrap()
-        .poll_next_unpin(cx);
+      // inner
+      //   .sub_streams
+      //   .get_mut(index)
+      //   .unwrap()
+      //   .poll_next_unpin(cx);
       todo!()
     } else {
       Poll::Pending
@@ -102,13 +102,13 @@ impl futures::Stream for SceneBoxUpdater {
   }
 }
 
-type SceneModelStream = impl futures::Stream<Item = ()> + Unpin;
+type SceneModelStream = impl futures::Stream<Item = BoxUpdate> + Unpin;
 
 #[allow(unused)]
 pub struct SceneBoundingSystem {
   /// actually data
   models_bounding: Vec<Option<Box3>>,
-  update_receiver: futures::channel::mpsc::UnboundedReceiver<BoxUpdate>,
+  updater: SceneBoxUpdater,
   handler: SceneModelStream,
 }
 
@@ -132,7 +132,7 @@ impl SceneBoundingSystem {
     let waker = futures::task::noop_waker_ref();
     let mut cx = Context::from_waker(waker);
 
-    while let Poll::Ready(Some(update)) = self.update_receiver.poll_next_unpin(&mut cx) {
+    while let Poll::Ready(Some(update)) = self.handler.poll_next_unpin(&mut cx) {
       // collect box updates
       // send into downstream stream TODO
       // update cache,
@@ -154,11 +154,10 @@ impl SceneBoundingSystem {
   }
 
   pub fn new(scene: &Scene) -> Self {
-    let (mut update_sender, update_receiver) = futures::channel::mpsc::unbounded();
-
     let updater = SceneBoxUpdater::default();
+    let updater_c = updater.clone();
 
-    let handler = scene
+    let scene_model_handler = scene
       .listen_by(|view, send| match view {
         // simply trigger all model add deltas
         // but not trigger all other unnecessary scene deltas
@@ -169,33 +168,41 @@ impl SceneBoundingSystem {
           }
         }
       })
-      .map(move |model_delta| {
-        let scene_updater = updater.clone();
-        let mut scene_updater = scene_updater.inner.write().unwrap();
-        match model_delta {
-          arena::ArenaDelta::Mutate((new, handle)) => {
-            scene_updater.sub_streams[handle.index()] = Some(build_world_box_stream(&new));
-            scene_updater.changed.push(handle.index());
-          }
-          arena::ArenaDelta::Insert((new, handle)) => {
-            let handler = Some(build_world_box_stream(&new));
-            if handle.index() == scene_updater.sub_streams.len() {
-              scene_updater.sub_streams.push(handler);
-            } else {
-              scene_updater.sub_streams[handle.index()] = handler;
+      .filter_map(move |model_delta| {
+        let scene_updater = updater_c.clone();
+        async move {
+          let mut scene_updater = scene_updater.inner.write().unwrap();
+          match model_delta {
+            arena::ArenaDelta::Mutate((new, handle)) => {
+              scene_updater.sub_streams[handle.index()] = Some(build_world_box_stream(&new));
+              scene_updater.changed.push(handle.index());
+              None
             }
-            update_sender.send(BoxUpdate::Active(handle));
-          }
-          arena::ArenaDelta::Remove(handle) => {
-            scene_updater.sub_streams[handle.index()] = None;
-            update_sender.send(BoxUpdate::Remove(handle));
+            arena::ArenaDelta::Insert((new, handle)) => {
+              let handler = Some(build_world_box_stream(&new));
+              if handle.index() == scene_updater.sub_streams.len() {
+                scene_updater.sub_streams.push(handler);
+              } else {
+                scene_updater.sub_streams[handle.index()] = handler;
+              }
+              Some(BoxUpdate::Active(handle))
+            }
+            arena::ArenaDelta::Remove(handle) => {
+              scene_updater.sub_streams[handle.index()] = None;
+              Some(BoxUpdate::Remove(handle))
+            }
           }
         }
       });
 
+    let handler = Box::pin(futures::stream::select(
+      scene_model_handler,
+      updater.clone(),
+    ));
+
     Self {
       handler,
-      update_receiver,
+      updater,
       models_bounding: Default::default(),
     }
   }
