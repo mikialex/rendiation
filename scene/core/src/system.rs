@@ -1,46 +1,10 @@
 use std::{
-  ops::Deref,
   pin::Pin,
   task::{Context, Poll},
 };
 
 use crate::*;
 use rendiation_geometry::Box3;
-
-pub enum Partial<'a, T: IncrementalBase> {
-  All(&'a T),
-  Delta(&'a T::Delta),
-}
-
-impl<T: IncrementalBase> SceneItemRef<T> {
-  pub fn listen_by<U: Send + Sync + 'static>(
-    &self,
-    mapper: impl Fn(Partial<T>, &dyn Fn(U)) + Send + Sync + 'static,
-  ) -> impl futures::Stream<Item = U> {
-    let inner = self.read();
-    inner.listen_by(mapper)
-  }
-}
-
-impl<T: IncrementalBase> Identity<T> {
-  pub fn listen_by<U: Send + Sync + 'static>(
-    &self,
-    mapper: impl Fn(Partial<T>, &dyn Fn(U)) + Send + Sync + 'static,
-  ) -> impl futures::Stream<Item = U> {
-    let (sender, receiver) = futures::channel::mpsc::unbounded();
-    let sender_c = sender.clone();
-    let send = move |mapped| {
-      sender_c.unbounded_send(mapped).ok();
-    };
-    mapper(Partial::All(self.deref()), &send);
-
-    self.delta_stream.on(move |v| {
-      mapper(Partial::Delta(v.delta), &send);
-      sender.is_closed()
-    });
-    receiver
-  }
-}
 
 use futures::*;
 type BoxStream = impl futures::Stream<Item = Option<Box3>>;
@@ -141,7 +105,7 @@ impl futures::Stream for SceneBoundingSystem {
 
   // do updating, update could be batched
   fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
-    todo!()
+    // self.handler.p
   }
 }
 
@@ -162,8 +126,8 @@ impl SceneBoundingSystem {
     // synchronously polling the stream, pull all box update.
     // note, if the compute stream contains async mapping, the async part is actually
     // polled inactively.
-    let waker = todo!(); // change_notifier;
-    let cx = Context::from_waker(waker);
+    let waker = futures::task::noop_waker_ref();
+    let mut cx = Context::from_waker(waker);
 
     while let Poll::Ready(Some(update)) = self.poll_next_unpin(&mut cx) {
       // collect box updates
@@ -171,7 +135,9 @@ impl SceneBoundingSystem {
       // update cache,
       println!("{update:?}");
       match update {
-        BoxUpdate::Remove(_) => {}
+        BoxUpdate::Remove(index) => {
+          self.models_bounding[index.into_raw_parts().0] = None;
+        }
         BoxUpdate::Active(index) => {
           if index.into_raw_parts().0 == self.models_bounding.len() {
             self.models_bounding.push(None);
@@ -192,10 +158,11 @@ impl SceneBoundingSystem {
         // simply trigger all model add deltas
         // but not trigger all other unnecessary scene deltas
         Partial::All(scene) => scene.models.expand(send),
-        Partial::Delta(delta) => match delta {
-          SceneInnerDelta::models(model_delta) => send(model_delta.clone()),
-          _ => {}
-        },
+        Partial::Delta(delta) => {
+          if let SceneInnerDelta::models(model_delta) = delta {
+            send(model_delta.clone())
+          }
+        }
       })
       .map(move |model_delta| {
         let scene_updater = updater.clone();

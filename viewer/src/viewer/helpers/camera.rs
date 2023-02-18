@@ -91,6 +91,37 @@ fn build_debug_line_in_camera_space(project_mat: Mat4<f32>) -> HelperLineMesh {
   HelperLineMesh::new(lines)
 }
 
+// pub struct CameraHelperSystem {
+//   //
+// }
+
+// impl CameraHelperSystem {
+//   pub fn new(scene: &Scene) -> Self {
+//     scene.listen_by(|view, send| {
+//       match view {
+//         Partial::All(_) => todo!(),
+//         Partial::Delta(delta) => {
+//           match delta {
+//             SceneInnerDelta::cameras(camera) => {
+//               //
+//             }
+//             _ => {}
+//           }
+//         }
+//       }
+//     });
+//     todo!()
+//   }
+
+//   pub fn maintain(&mut self) {
+//     //
+//   }
+
+//   pub fn render(&mut self) {
+//     //
+//   }
+// }
+
 pub struct CameraHelpers {
   pub enabled: bool,
   pub helpers: IdentityMapper<CameraHelper, SceneCameraInner>,
