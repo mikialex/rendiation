@@ -6,41 +6,29 @@ use std::{
 use crate::*;
 use rendiation_geometry::Box3;
 
+macro_rules! with_field {
+  ($ty:ty =>$field:tt) => {
+    |view, send| match view {
+      Partial::All(model) => send(model.$field.clone()),
+      Partial::Delta(delta) => {
+        if let DeltaOf::<$ty>::$field(field) = delta {
+          send(field.clone())
+        }
+      }
+    }
+  };
+}
+
 use futures::*;
 type BoxStream = impl futures::Stream<Item = Option<Box3>> + Unpin;
 pub fn build_world_box_stream(model: &SceneModel) -> BoxStream {
   let world_mat_stream = model
-    .listen_by(|view, send| match view {
-      Partial::All(model) => send(model.node.clone()),
-      Partial::Delta(delta) => {
-        if let SceneModelImplDelta::node(node) = delta {
-          send(node.clone())
-        }
-      }
-    })
-    .map(|node| {
-      node.visit(|node| {
-        node.listen_by(|view, send| match view {
-          Partial::All(node) => send(node.world_matrix()),
-          Partial::Delta(d) => {
-            if let SceneNodeDataImplDelta::world_matrix(mat) = d {
-              send(*mat)
-            }
-          }
-        })
-      })
-    })
+    .listen_by(with_field!(SceneModelImpl => node))
+    .map(|node| node.visit(|node| node.listen_by(with_field!(SceneNodeDataImpl => world_matrix))))
     .flatten();
 
   let local_box_stream = model
-    .listen_by(|view, send| match view {
-      Partial::All(model) => send(model.model.clone()),
-      Partial::Delta(delta) => {
-        if let SceneModelImplDelta::model(model) = delta {
-          send(model.clone())
-        }
-      }
-    })
+    .listen_by(with_field!(SceneModelImpl => model))
     .map(|model| match model {
       SceneModelType::Standard(model) => Some(model),
       SceneModelType::Foreign(_) => None,
@@ -49,14 +37,7 @@ pub fn build_world_box_stream(model: &SceneModel) -> BoxStream {
       if let Some(model) = model {
         Box::new(
           model
-            .listen_by(|view, send| match view {
-              Partial::All(model) => send(model.mesh.clone()),
-              Partial::Delta(delta) => {
-                if let StandardModelDelta::mesh(mesh) = delta {
-                  send(mesh.clone())
-                }
-              }
-            })
+            .listen_by(with_field!(StandardModel => mesh))
             .map(|mesh| mesh.compute_local_bound()),
         )
       } else {
@@ -89,14 +70,14 @@ impl futures::Stream for SceneBoxUpdater {
     let mut inner = self.inner.write().unwrap();
     // let changed = unsafe { inner.get_unchecked_mut().changed };
     if let Some(index) = inner.changed.pop() {
-      let vtable = RawWakerVTable::new();
-      let raw_waker = RawWaker::new(todo!(), &vtable);
-      let waker = unsafe { Waker::from_raw(raw_waker) };
-      let mut cx = Context::from_waker(&waker);
+      // let vtable = RawWakerVTable::new();
+      // let raw_waker = RawWaker::new(todo!(), &vtable);
+      // let waker = unsafe { Waker::from_raw(raw_waker) };
+      // let mut cx = Context::from_waker(&waker);
 
-      if let Some(stream) = inner.sub_streams.get_mut(index).unwrap() {
-        stream.poll_next_unpin(&mut cx);
-      }
+      // if let Some(stream) = inner.sub_streams.get_mut(index).unwrap() {
+      //   stream.poll_next_unpin(&mut cx);
+      // }
 
       todo!()
     } else {
