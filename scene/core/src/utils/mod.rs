@@ -12,6 +12,20 @@ pub enum Partial<'a, T: IncrementalBase> {
   Delta(&'a T::Delta),
 }
 
+#[macro_export]
+macro_rules! with_field {
+  ($ty:ty =>$field:tt) => {
+    |view, send| match view {
+      Partial::All(model) => send(model.$field.clone()),
+      Partial::Delta(delta) => {
+        if let DeltaOf::<$ty>::$field(field) = delta {
+          send(field.clone())
+        }
+      }
+    }
+  };
+}
+
 impl<T: IncrementalBase> SceneItemRef<T> {
   pub fn listen_by<U: Send + Sync + 'static>(
     &self,

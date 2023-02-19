@@ -1,26 +1,15 @@
 use std::{
   pin::Pin,
-  task::{Context, Poll, RawWaker, RawWakerVTable, Waker},
+  task::{Context, Poll, Waker},
 };
 
 use crate::*;
 use rendiation_geometry::Box3;
 
-macro_rules! with_field {
-  ($ty:ty =>$field:tt) => {
-    |view, send| match view {
-      Partial::All(model) => send(model.$field.clone()),
-      Partial::Delta(delta) => {
-        if let DeltaOf::<$ty>::$field(field) = delta {
-          send(field.clone())
-        }
-      }
-    }
-  };
-}
-
-use futures::*;
-type BoxStream = impl futures::Stream<Item = Option<Box3>> + Unpin;
+use futures::stream::*;
+use futures::Stream;
+use std::future::ready;
+type BoxStream = impl Stream<Item = Option<Box3>> + Unpin;
 pub fn build_world_box_stream(model: &SceneModel) -> BoxStream {
   let world_mat_stream = model
     .listen_by(with_field!(SceneModelImpl => node))
@@ -41,8 +30,7 @@ pub fn build_world_box_stream(model: &SceneModel) -> BoxStream {
             .map(|mesh| mesh.compute_local_bound()),
         )
       } else {
-        Box::new(futures::stream::once(std::future::ready(None)).chain(futures::stream::pending()))
-          as Box<dyn Unpin + futures::Stream<Item = Option<Box3>>>
+        Box::new(once(ready(None)).chain(pending())) as Box<dyn Unpin + Stream<Item = Option<Box3>>>
       }
     })
     .flatten();
@@ -59,34 +47,55 @@ struct SceneBoxUpdater {
 
 #[derive(Default)]
 struct SceneBoxUpdaterInner {
-  changed: Vec<usize>,
+  changed: Arc<RwLock<Vec<SceneModelHandle>>>,
   sub_streams: Vec<Option<BoxStream>>,
+  waker: Option<Waker>,
 }
 
-impl futures::Stream for SceneBoxUpdater {
+struct ChangeWaker {
+  index: SceneModelHandle,
+  changed: Arc<RwLock<Vec<SceneModelHandle>>>,
+  waker: Waker,
+}
+
+impl futures::task::ArcWake for ChangeWaker {
+  fn wake_by_ref(arc_self: &Arc<Self>) {
+    arc_self.changed.write().unwrap().push(arc_self.index);
+    arc_self.waker.wake_by_ref();
+  }
+}
+
+impl Stream for SceneBoxUpdater {
   type Item = BoxUpdate;
 
   fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
     let mut inner = self.inner.write().unwrap();
-    // let changed = unsafe { inner.get_unchecked_mut().changed };
-    if let Some(index) = inner.changed.pop() {
-      // let vtable = RawWakerVTable::new();
-      // let raw_waker = RawWaker::new(todo!(), &vtable);
-      // let waker = unsafe { Waker::from_raw(raw_waker) };
-      // let mut cx = Context::from_waker(&waker);
+    let inner: &mut SceneBoxUpdaterInner = &mut inner;
+    let mut changed = inner.changed.write().unwrap(); // todo deadlock
+    if let Some(index) = changed.pop() {
+      let waker = inner.waker.get_or_insert_with(|| cx.waker().clone());
+      let waker = Arc::new(ChangeWaker {
+        waker: waker.clone(),
+        index,
+        changed: inner.changed.clone(),
+      });
+      let waker = futures::task::waker_ref(&waker);
+      let mut cx = Context::from_waker(&waker);
 
-      // if let Some(stream) = inner.sub_streams.get_mut(index).unwrap() {
-      //   stream.poll_next_unpin(&mut cx);
-      // }
-
-      todo!()
+      if let Some(stream) = inner.sub_streams.get_mut(index.index()).unwrap() {
+        stream
+          .poll_next_unpin(&mut cx)
+          .map(|r| r.map(|r| BoxUpdate::Update { index, bbox: r }))
+      } else {
+        Poll::Pending
+      }
     } else {
       Poll::Pending
     }
   }
 }
 
-type SceneModelStream = impl futures::Stream<Item = BoxUpdate> + Unpin;
+type SceneModelStream = impl Stream<Item = BoxUpdate> + Unpin;
 
 #[allow(unused)]
 pub struct SceneBoundingSystem {
@@ -159,7 +168,7 @@ impl SceneBoundingSystem {
           match model_delta {
             arena::ArenaDelta::Mutate((new, handle)) => {
               scene_updater.sub_streams[handle.index()] = Some(build_world_box_stream(&new));
-              scene_updater.changed.push(handle.index());
+              scene_updater.changed.write().unwrap().push(handle);
               None
             }
             arena::ArenaDelta::Insert((new, handle)) => {
