@@ -2511,6 +2511,7 @@ dependencies = [
  "arena-graph",
  "bytemuck",
  "dyn-clone",
+ "futures",
  "incremental",
  "linked-hash-map",
  "log",

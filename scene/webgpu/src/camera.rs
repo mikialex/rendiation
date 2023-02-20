@@ -1,3 +1,5 @@
+use __core::future::ready;
+
 use crate::*;
 
 pub fn setup_viewport(cb: &CameraViewBounds, pass: &mut GPURenderPass, buffer_size: Size) {
@@ -17,6 +19,20 @@ pub fn setup_viewport(cb: &CameraViewBounds, pass: &mut GPURenderPass, buffer_si
 
 pub struct CameraGPUStore {
   inner: IdentityMapper<CameraGPU, SceneCameraInner>,
+  // gpu: HashMap<usize, (CameraGPU, )>
+}
+
+trait HoldSignal {
+  type Item;
+  fn poll_changed(&self, cx: usize) -> Poll<&Self::Item>;
+}
+
+pub fn camera_gpu<'a>(camera: &'a SceneCamera) -> impl Stream<Item = Option<&mut usize>> {
+  camera
+    .listen_by(with_field!(SceneCameraInner => node))
+    .scan(0, |v, _| {
+      async { Some(Some(v)) } //
+    })
 }
 
 impl Default for CameraGPUStore {

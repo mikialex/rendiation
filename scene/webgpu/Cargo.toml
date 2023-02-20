@@ -22,6 +22,7 @@ rendiation-renderable-mesh = {path = "../../components/mesh/renderable"}
 rendiation-scene-core = {path = "../core"}
 rendiation-texture = {path = "../../components/texture/core", features = ["webgpu"]}
 tree = {path = "../../utils/tree"}
+futures = "0.3.25"
 
 shadergraph = {path = "../../shader/graph"}
 wgsl-shader-derives = {path = "../../shader/language/wgsl/derive"}
