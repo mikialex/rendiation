@@ -22,16 +22,19 @@ pub struct CameraGPUStore {
   // gpu: HashMap<usize, (CameraGPU, )>
 }
 
-trait HoldSignal {
-  type Item;
-  fn poll_changed(&self, cx: usize) -> Poll<&Self::Item>;
-}
+// trait HoldSignal {
+//   type Item;
+//   fn poll_changed(&self, cx: usize) -> Poll<&Self::Item>;
+// }
 
-pub fn camera_gpu<'a>(camera: &'a SceneCamera) -> impl Stream<Item = Option<&mut usize>> {
+pub fn camera_gpu<'a>(
+  camera: &'a SceneCamera,
+) -> impl Stream<Item = ()> + Deref<Target = Option<usize>> {
   camera
     .listen_by(with_field!(SceneCameraInner => node))
     .scan(0, |v, _| {
-      async { Some(Some(v)) } //
+      //
+      async { Some(()) }
     })
 }
 
