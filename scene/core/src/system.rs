@@ -9,6 +9,7 @@ use rendiation_geometry::Box3;
 use futures::stream::*;
 use futures::Stream;
 use std::future::ready;
+
 type BoxStream = impl Stream<Item = Option<Box3>> + Unpin;
 pub fn build_world_box_stream(model: &SceneModel) -> BoxStream {
   let world_mat_stream = model
@@ -116,17 +117,9 @@ pub enum BoxUpdate {
   },
 }
 
-impl Unpin for SceneBoundingSystem {}
-
 impl SceneBoundingSystem {
   pub fn maintain(&mut self) {
-    // synchronously polling the stream, pull all box update.
-    // note, if the compute stream contains async mapping, the async part is actually
-    // polled inactively.
-    let waker = futures::task::noop_waker_ref();
-    let mut cx = Context::from_waker(waker);
-
-    while let Poll::Ready(Some(update)) = self.handler.poll_next_unpin(&mut cx) {
+    do_updates(&mut self.handler, |update| {
       // collect box updates
       // send into downstream stream TODO
       // update cache,
@@ -144,7 +137,7 @@ impl SceneBoundingSystem {
           self.models_bounding[index.index()] = bbox;
         }
       }
-    }
+    })
   }
 
   pub fn new(scene: &Scene) -> Self {
@@ -203,6 +196,17 @@ impl SceneBoundingSystem {
 
   pub fn get_model_bounding(&self, handle: SceneModelHandle) -> &Option<Box3> {
     &self.models_bounding[handle.index()]
+  }
+}
+
+pub fn do_updates<T: Stream + Unpin>(stream: &mut T, mut on_update: impl FnMut(T::Item)) {
+  // synchronously polling the stream, pull all box update.
+  // note, if the compute stream contains async mapping, the async part is actually
+  // polled inactively.
+  let waker = futures::task::noop_waker_ref();
+  let mut cx = Context::from_waker(waker);
+  while let Poll::Ready(Some(update)) = stream.poll_next_unpin(&mut cx) {
+    on_update(update)
   }
 }
 
