@@ -1,4 +1,7 @@
 mod identity;
+use std::sync::atomic::AtomicBool;
+
+use futures::Stream;
 pub use identity::*;
 mod mapper;
 pub use mapper::*;
@@ -53,5 +56,31 @@ impl<T: IncrementalBase> Identity<T> {
       sender.is_closed()
     });
     receiver
+  }
+}
+
+struct IdentitySignal<T: Incremental, F, U> {
+  inner: std::sync::Weak<RwLock<Identity<T>>>,
+  mapped: Option<U>,
+  mapper: F,
+  changed: Arc<AtomicBool>,
+}
+
+impl<T: Incremental, F, U> Stream for IdentitySignal<T, F, U> {
+  type Item = U;
+
+  fn poll_next(
+    self: std::pin::Pin<&mut Self>,
+    cx: &mut std::task::Context<'_>,
+  ) -> std::task::Poll<Option<Self::Item>> {
+    if let Some(source) = self.inner.upgrade() {
+      if self.changed {
+        //
+      } else {
+        //
+      }
+    } else {
+      std::task::Poll::Ready(None)
+    }
   }
 }

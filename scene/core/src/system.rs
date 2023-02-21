@@ -86,6 +86,7 @@ impl Stream for SceneBoxUpdater {
         stream
           .poll_next_unpin(&mut cx)
           .map(|r| r.map(|r| BoxUpdate::Update { index, bbox: r }))
+        // todo handle poll ready none and remove the sub stream(the source has been dropped)
       } else {
         Poll::Pending
       }
