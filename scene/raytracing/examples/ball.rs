@@ -26,7 +26,7 @@ fn main() {
           roughness: 0.3,
           metallic: 0.9,
           ior: 1.6,
-          normal_distribution_model: BlinnPhong,
+          normal_distribution_model: Beckmann,
           geometric_shadow_model: CookTorrance,
           fresnel_model: Schlick,
         },

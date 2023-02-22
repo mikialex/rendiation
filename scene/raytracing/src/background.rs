@@ -4,9 +4,7 @@ use rendiation_scene_core::{SceneBackGround, SolidBackground};
 
 pub trait RayTracingBackground: Send + Sync + 'static + dyn_clone::DynClone {
   fn sample(&self, ray: &Ray3) -> Vec3<f32>;
-  fn create_scene_background(&self) -> Option<SceneBackGround> {
-    None
-  }
+  fn create_scene_background(&self) -> Option<SceneBackGround>;
 }
 
 impl RayTracingBackground for SceneBackGround {
@@ -45,6 +43,12 @@ impl RayTracingBackground for GradientBackground {
   fn sample(&self, ray: &Ray3) -> Vec3<f32> {
     let t = ray.direction.y / 2.0 + 1.;
     self.bottom_intensity.lerp(self.top_intensity, t)
+  }
+  fn create_scene_background(&self) -> Option<SceneBackGround> {
+    SceneBackGround::Foreign(std::sync::Arc::new(
+      Box::new(self.clone()) as Box<dyn RayTracingBackground>
+    ))
+    .into()
   }
 }
 
