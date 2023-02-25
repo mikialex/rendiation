@@ -1,4 +1,6 @@
-pub type Millisecond = usize;
+pub trait Animatable {
+  fn animate(&mut self, delta_time: f32);
+}
 
 pub enum Transition {
   /// The animated values are linearly interpolated between keyframes.
@@ -18,19 +20,19 @@ impl Transition {
 }
 
 pub struct TimeBasedTransition {
-  pub duration: Millisecond,
+  pub duration: f32,
   pub ty: Transition,
 }
 
-impl TimeBasedTransition {
-  pub fn into_animation<T>(self) -> TimeBasedTransitionInstance<T> {
-    TimeBasedTransitionInstance {
-      config: self,
-      used_time: 0,
-      pair: None,
-    }
-  }
-}
+// impl TimeBasedTransition {
+//   pub fn into_animation<T>(self) -> TimeBasedTransitionInstance<T> {
+//     TimeBasedTransitionInstance {
+//       config: self,
+//       used_time: 0,
+//       pair: None,
+//     }
+//   }
+// }
 
 // pub struct TimeBasedTransitionInstance<T> {
 //   config: TimeBasedTransition,
@@ -43,9 +45,9 @@ impl TimeBasedTransition {
 //   target: T,
 // }
 
-// pub trait AnimationInterpolateAble: Sized {
-//   fn interpolate(start: &Self, target: &Self, normalized: f32) -> Self;
-// }
+pub trait AnimationInterpolateAble: Sized {
+  fn interpolate(&mut self, target: &Self, normalized: f32);
+}
 
 // impl<T: Clone + PartialEq + AnimationInterpolateAble> TimeBasedTransitionInstance<T> {
 //   pub fn update(&mut self, new: T, ctx: &mut UpdateCtx) -> T {

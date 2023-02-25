@@ -3,15 +3,17 @@
 use std::path::Path;
 use std::{collections::HashMap, sync::Arc};
 
+use __core::marker::PhantomData;
 use __core::num::NonZeroU64;
 use gltf::{Node, Result as GltfResult};
 use rendiation_algebra::*;
+use rendiation_geometry::{CubicBezierSegment, SpaceLineSegment};
 use rendiation_scene_core::{
   AttributeAccessor, AttributesMesh, BufferViewRange, GeometryBuffer, GeometryBufferInner,
   IndexFormat, NormalMapping, PhysicalMetallicRoughnessMaterial, Scene, SceneMaterialType,
   SceneMeshType, SceneModel, SceneModelHandle, SceneModelImpl, SceneModelType, SceneNode,
   SceneTexture2D, SceneTexture2DType, StandardModel, Texture2DWithSamplingData,
-  TextureWithSamplingData, TypedBufferView,
+  TextureWithSamplingData, UnTypedBufferView,
 };
 use shadergraph::*;
 use webgpu::{TextureFormat, WebGPU2DTextureSource};
@@ -59,7 +61,7 @@ struct Context {
 pub struct GltfLoadResult {
   pub primitive_map: HashMap<usize, SceneModelHandle>,
   pub node_map: HashMap<usize, SceneNode>,
-  pub view_map: HashMap<usize, TypedBufferView>,
+  pub view_map: HashMap<usize, UnTypedBufferView>,
   pub animations: Vec<SceneAnimation>,
 }
 
@@ -151,6 +153,20 @@ pub struct SceneAnimationChannel {
   pub sampler: AnimationSampler,
 }
 
+impl SceneAnimationChannel {
+  pub fn update(&self, time: f32) {
+    match self.target_field {
+      SceneAnimationField::MorphTargetWeights => todo!(),
+      SceneAnimationField::Position => {
+        let current_position = self.sampler.sample(time);
+      }
+      SceneAnimationField::Rotation => todo!(),
+      SceneAnimationField::Scale => todo!(),
+    }
+  }
+}
+
+#[derive(Clone)]
 pub enum SceneAnimationField {
   MorphTargetWeights,
   Position,
@@ -158,18 +174,88 @@ pub enum SceneAnimationField {
   Scale,
 }
 
+#[derive(Clone)]
 pub enum SceneAnimationInterpolation {
   Linear,
   Step,
   Cubic,
 }
 
+/// Decide the behavior of the cubic interpolation if the start or end point has not enough data
+// pub enum CubicEndingStyle {
+//   ZeroSlop,
+//   ZeroCurvature,
+//   WrapAround,
+// }
+
+// type CubicInterpolationLine =  SpaceLineSegment<Vec2<f32>, CubicBezierSegment<Vec2<f32>>>;
+
+// impl CubicEndingStyle {
+//     pub fn build_cubic(&self, start: Vec2<f32>, end: Vec2<f32>) -> CubicInterpolationLine {
+
+//     }
+// }
+
+trait KeyframeTrack {
+  type Value;
+  fn sample_animation(&self) -> Self::Value;
+}
+
 /// An animation sampler combines timestamps with a sequence of
 /// output values and defines an interpolation algorithm.
+#[derive(Clone)]
 pub struct AnimationSampler {
   pub interpolation: SceneAnimationInterpolation,
   pub input: AttributeAccessor,
   pub output: AttributeAccessor,
+}
+
+impl AnimationSampler {
+  pub fn create_executor<I, V>(&self) -> Option<AnimationSamplerExecutor<I, V>> {
+
+    //
+  }
+
+  pub fn sample(&self, time: f32) {
+    // first, decide which frame interval we are in;
+    // do a binary search. note we can not use the std slice binary search
+    // because the AttributeAccessor can not create a slice(it's maybe contains stride)
+    let (start_time, start_index) = todo!();
+    let (end_time, end_index) = todo!();
+    let normalized_time = todo!();
+
+    let output_start = todo!();
+    let output_end = todo!();
+    // then we compute a interpolation spline based on interpolation and input output;
+    match self.interpolation {
+      SceneAnimationInterpolation::Linear => SpaceLineSegment {
+        start: output_end,
+        end: output_start,
+        shape: todo!(),
+      },
+      SceneAnimationInterpolation::Step => todo!(),
+      SceneAnimationInterpolation::Cubic => todo!(),
+    }
+  }
+}
+
+/// this is an optimization, based on the hypnosis that the interpolation spline
+/// will be reused in next sample, which avoid the underlayer sampler retrieving
+pub struct AnimationSamplerExecutor<I, V> {
+  current_time: f32,
+  start_time: f32,
+  end_time: f32,
+  interpolate: Option<I>,
+  output: PhantomData<V>,
+  sampler: AnimationSampler,
+}
+
+impl<I, V> KeyframeTrack for AnimationSamplerExecutor<I, V> {
+  type Value = V;
+
+  fn sample_animation(&self) -> Self::Value {
+    todo!()
+  }
 }
 
 fn build_animation(animation: gltf::Animation, ctx: &mut Context) {
@@ -203,7 +289,7 @@ fn build_animation(animation: gltf::Animation, ctx: &mut Context) {
   ctx.result.animations.push(SceneAnimation { channels })
 }
 
-fn build_data_view(view: gltf::buffer::View, ctx: &mut Context) -> TypedBufferView {
+fn build_data_view(view: gltf::buffer::View, ctx: &mut Context) -> UnTypedBufferView {
   let buffers = &ctx.attributes;
   ctx
     .result
@@ -211,7 +297,7 @@ fn build_data_view(view: gltf::buffer::View, ctx: &mut Context) -> TypedBufferVi
     .entry(view.index())
     .or_insert_with(|| {
       let buffer = buffers[view.buffer().index()].clone();
-      TypedBufferView {
+      UnTypedBufferView {
         buffer,
         range: BufferViewRange {
           offset: view.offset() as u64,

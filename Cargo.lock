@@ -2479,6 +2479,7 @@ version = "0.0.1"
 dependencies = [
  "gltf",
  "rendiation-algebra",
+ "rendiation-geometry",
  "rendiation-renderable-mesh",
  "rendiation-scene-core",
  "rendiation-texture",

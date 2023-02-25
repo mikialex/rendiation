@@ -1,4 +1,4 @@
-use std::num::NonZeroU64;
+use std::{marker::PhantomData, num::NonZeroU64};
 
 use rendiation_geometry::{Box3, OptionalNearest, Ray3};
 use rendiation_renderable_mesh::*;
@@ -65,18 +65,27 @@ pub struct BufferViewRange {
 
 /// like slice, but owned, ref counted cheap clone
 #[derive(Clone)]
-pub struct TypedBufferView {
+pub struct UnTypedBufferView {
   pub buffer: GeometryBuffer,
   pub range: BufferViewRange,
 }
 
 #[derive(Clone)]
 pub struct AttributeAccessor {
-  pub view: TypedBufferView,
+  pub view: UnTypedBufferView,
   pub start: usize,
   pub count: usize,
   pub stride: usize,
 }
+
+// pub struct TypedAttributeAccessor<T> {
+//   inner: AttributeAccessor,
+//   ty: PhantomData<T>,
+// }
+
+// impl<T> Index for TypedAttributeAccessor<T> {
+
+// }
 
 impl AttributeAccessor {
   pub fn compute_gpu_buffer_range(&self) -> BufferViewRange {
