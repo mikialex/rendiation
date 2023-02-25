@@ -75,6 +75,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "animation"
+version = "0.1.0"
+dependencies = [
+ "rendiation-algebra",
+]
+
+[[package]]
 name = "anymap"
 version = "0.12.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"

@@ -19,13 +19,89 @@ use webgpu::{TextureFormat, WebGPU2DTextureSource};
 mod convert_utils;
 use convert_utils::*;
 
+pub fn load_gltf(path: impl AsRef<Path>, scene: &Scene) -> GltfResult<GltfLoadResult> {
+  let scene_inner = scene.read();
+  let (document, mut buffers, mut images) = gltf::import(path)?;
+
+  let mut ctx = Context {
+    images: images.drain(..).map(build_image).collect(),
+    attributes: buffers
+      .drain(..)
+      .map(|buffer| GeometryBufferInner { buffer: buffer.0 }.into())
+      .collect(),
+    result: Default::default(),
+  };
+
+  let root = scene_inner.root().clone();
+
+  drop(scene_inner);
+
+  for gltf_scene in document.scenes() {
+    for node in gltf_scene.nodes() {
+      create_node_recursive(scene, root.clone(), &node, &mut ctx);
+    }
+  }
+
+  for animation in document.animations() {
+    build_animation(animation, &mut ctx);
+  }
+
+  Ok(ctx.result)
+}
+
+struct Context {
+  images: Vec<SceneTexture2D>,
+  attributes: Vec<GeometryBuffer>,
+  result: GltfLoadResult,
+}
+
+#[derive(Default)]
+pub struct GltfLoadResult {
+  pub primitive_map: HashMap<usize, SceneModelHandle>,
+  pub node_map: HashMap<usize, SceneNode>,
+  pub view_map: HashMap<usize, TypedBufferView>,
+  pub animations: Vec<SceneAnimation>,
+}
+
+/// https://docs.rs/gltf/latest/gltf/struct.Node.html
+fn create_node_recursive(
+  scene: &Scene,
+  parent_to_attach: SceneNode,
+  gltf_node: &Node,
+  ctx: &mut Context,
+) {
+  println!(
+    "Node #{} has {} children",
+    gltf_node.index(),
+    gltf_node.children().count(),
+  );
+
+  let node = parent_to_attach.create_child();
+  ctx.result.node_map.insert(gltf_node.index(), node.clone());
+
+  node.set_local_matrix(map_transform(gltf_node.transform()));
+
+  if let Some(mesh) = gltf_node.mesh() {
+    for primitive in mesh.primitives() {
+      let index = primitive.index();
+      let model = build_model(&node, primitive, ctx);
+      let model_handle = scene.insert_model(model);
+      ctx.result.primitive_map.insert(index, model_handle);
+    }
+  }
+
+  for gltf_node in gltf_node.children() {
+    create_node_recursive(scene, node.clone(), &gltf_node, ctx)
+  }
+}
+
 fn build_model(node: &SceneNode, primitive: gltf::Primitive, ctx: &mut Context) -> SceneModel {
   let attributes = primitive
     .attributes()
     .map(|(semantic, accessor)| {
       (
         map_attribute_semantic(semantic),
-        build_geom_buffer(accessor, ctx),
+        build_accessor(accessor, ctx),
       )
     })
     .collect();
@@ -36,7 +112,7 @@ fn build_model(node: &SceneNode, primitive: gltf::Primitive, ctx: &mut Context) 
       gltf::accessor::DataType::U32 => IndexFormat::Uint32,
       _ => unreachable!(),
     };
-    (format, build_geom_buffer(indices, ctx))
+    (format, build_accessor(indices, ctx))
   });
 
   let mode = map_draw_mode(primitive.mode()).unwrap();
@@ -52,8 +128,8 @@ fn build_model(node: &SceneNode, primitive: gltf::Primitive, ctx: &mut Context) 
   let material = SceneMaterialType::PhysicalMetallicRoughness(material.into());
 
   let model = StandardModel {
-    material: material.into(),
-    mesh: mesh.into(),
+    material,
+    mesh,
     group: Default::default(),
   };
   let model = SceneModelType::Standard(model.into());
@@ -62,6 +138,69 @@ fn build_model(node: &SceneNode, primitive: gltf::Primitive, ctx: &mut Context) 
     node: node.clone(),
   };
   SceneModel::new(model)
+}
+
+pub struct SceneAnimation {
+  pub channels: Vec<SceneAnimationChannel>,
+}
+
+/// An animation channel combines an animation sampler with a target property being animated.
+pub struct SceneAnimationChannel {
+  pub target_node: SceneNode,
+  pub target_field: SceneAnimationField,
+  pub sampler: AnimationSampler,
+}
+
+pub enum SceneAnimationField {
+  MorphTargetWeights,
+  Position,
+  Rotation,
+  Scale,
+}
+
+pub enum SceneAnimationInterpolation {
+  Linear,
+  Step,
+  Cubic,
+}
+
+/// An animation sampler combines timestamps with a sequence of
+/// output values and defines an interpolation algorithm.
+pub struct AnimationSampler {
+  pub interpolation: SceneAnimationInterpolation,
+  pub input: AttributeAccessor,
+  pub output: AttributeAccessor,
+}
+
+fn build_animation(animation: gltf::Animation, ctx: &mut Context) {
+  let channels = animation
+    .channels()
+    .map(|channel| {
+      let target = channel.target();
+      let node = ctx
+        .result
+        .node_map
+        .get(&target.node().index())
+        .unwrap()
+        .clone();
+
+      let field = map_animation_field(target.property());
+      let gltf_sampler = channel.sampler();
+      let sampler = AnimationSampler {
+        interpolation: map_animation_interpolation(gltf_sampler.interpolation()),
+        input: build_accessor(gltf_sampler.input(), ctx),
+        output: build_accessor(gltf_sampler.output(), ctx),
+      };
+
+      SceneAnimationChannel {
+        target_node: node,
+        target_field: field,
+        sampler,
+      }
+    })
+    .collect();
+
+  ctx.result.animations.push(SceneAnimation { channels })
 }
 
 fn build_data_view(view: gltf::buffer::View, ctx: &mut Context) -> TypedBufferView {
@@ -83,7 +222,7 @@ fn build_data_view(view: gltf::buffer::View, ctx: &mut Context) -> TypedBufferVi
     .clone()
 }
 
-fn build_geom_buffer(accessor: gltf::Accessor, ctx: &mut Context) -> AttributeAccessor {
+fn build_accessor(accessor: gltf::Accessor, ctx: &mut Context) -> AttributeAccessor {
   let view = accessor.view().unwrap(); // not support sparse accessor
   let view = build_data_view(view, ctx);
 
@@ -118,42 +257,54 @@ fn build_geom_buffer(accessor: gltf::Accessor, ctx: &mut Context) -> AttributeAc
   }
 }
 
-pub fn load_gltf(path: impl AsRef<Path>, scene: &Scene) -> GltfResult<GltfLoadResult> {
-  let scene_inner = scene.read();
-  let (document, mut buffers, mut images) = gltf::import(path)?;
+/// https://docs.rs/gltf/latest/gltf/struct.Material.html
+fn build_pbr_material(
+  material: gltf::Material,
+  ctx: &mut Context,
+) -> PhysicalMetallicRoughnessMaterial {
+  let pbr = material.pbr_metallic_roughness();
 
-  let mut ctx = Context {
-    images: images.drain(..).map(build_image).collect(),
-    attributes: buffers
-      .drain(..)
-      .map(|buffer| GeometryBufferInner { buffer: buffer.0 }.into())
-      .collect(),
-    result: Default::default(),
+  let base_color_texture = pbr
+    .base_color_texture()
+    .map(|tex| build_texture(tex.texture(), ctx));
+
+  let metallic_roughness_texture = pbr
+    .metallic_roughness_texture()
+    .map(|tex| build_texture(tex.texture(), ctx));
+
+  let emissive_texture = material
+    .emissive_texture()
+    .map(|tex| build_texture(tex.texture(), ctx));
+
+  let normal_texture = material.normal_texture().map(|tex| NormalMapping {
+    content: build_texture(tex.texture(), ctx),
+    scale: tex.scale(),
+  });
+
+  let alpha_mode = map_alpha(material.alpha_mode());
+  let alpha_cut = material.alpha_cutoff().unwrap_or(1.);
+
+  let color_and_alpha = Vec4::from(pbr.base_color_factor());
+
+  let result = PhysicalMetallicRoughnessMaterial {
+    base_color: color_and_alpha.rgb(),
+    alpha: color_and_alpha.a(),
+    alpha_cutoff: alpha_cut,
+    alpha_mode,
+    roughness: pbr.roughness_factor(),
+    metallic: pbr.metallic_factor(),
+    emissive: Vec3::from(material.emissive_factor()),
+    base_color_texture,
+    metallic_roughness_texture,
+    emissive_texture,
+    normal_texture,
+    reflectance: 0.5, // todo from gltf ior extension
   };
 
-  let root = scene_inner.root().clone();
-
-  drop(scene_inner);
-
-  for gltf_scene in document.scenes() {
-    for node in gltf_scene.nodes() {
-      create_node_recursive(scene, root.clone(), &node, &mut ctx);
-    }
+  if material.double_sided() {
+    // result.states.cull_mode = None;
   }
-  Ok(ctx.result)
-}
-
-struct Context {
-  images: Vec<SceneTexture2D>,
-  attributes: Vec<GeometryBuffer>,
-  result: GltfLoadResult,
-}
-
-#[derive(Default)]
-pub struct GltfLoadResult {
-  pub primitive_map: HashMap<usize, SceneModelHandle>,
-  pub node_map: HashMap<usize, SceneNode>,
-  pub view_map: HashMap<usize, TypedBufferView>,
+  result
 }
 
 #[derive(Debug, Clone)]
@@ -215,88 +366,6 @@ fn build_image(data_input: gltf::image::Data) -> SceneTexture2D {
   let image: Box<dyn WebGPU2DTextureSource> = Box::new(image);
   let image = SceneTexture2DType::Foreign(Arc::new(image));
   SceneTexture2D::new(image)
-}
-
-/// https://docs.rs/gltf/latest/gltf/struct.Node.html
-fn create_node_recursive(
-  scene: &Scene,
-  parent_to_attach: SceneNode,
-  gltf_node: &Node,
-  ctx: &mut Context,
-) {
-  println!(
-    "Node #{} has {} children",
-    gltf_node.index(),
-    gltf_node.children().count(),
-  );
-
-  let node = parent_to_attach.create_child();
-  ctx.result.node_map.insert(gltf_node.index(), node.clone());
-
-  node.set_local_matrix(map_transform(gltf_node.transform()));
-
-  if let Some(mesh) = gltf_node.mesh() {
-    for primitive in mesh.primitives() {
-      let index = primitive.index();
-      let model = build_model(&node, primitive, ctx);
-      let model_handle = scene.insert_model(model);
-      ctx.result.primitive_map.insert(index, model_handle);
-    }
-  }
-
-  for gltf_node in gltf_node.children() {
-    create_node_recursive(scene, node.clone(), &gltf_node, ctx)
-  }
-}
-
-/// https://docs.rs/gltf/latest/gltf/struct.Material.html
-fn build_pbr_material(
-  material: gltf::Material,
-  ctx: &mut Context,
-) -> PhysicalMetallicRoughnessMaterial {
-  let pbr = material.pbr_metallic_roughness();
-
-  let base_color_texture = pbr
-    .base_color_texture()
-    .map(|tex| build_texture(tex.texture(), ctx));
-
-  let metallic_roughness_texture = pbr
-    .metallic_roughness_texture()
-    .map(|tex| build_texture(tex.texture(), ctx));
-
-  let emissive_texture = material
-    .emissive_texture()
-    .map(|tex| build_texture(tex.texture(), ctx));
-
-  let normal_texture = material.normal_texture().map(|tex| NormalMapping {
-    content: build_texture(tex.texture(), ctx),
-    scale: tex.scale(),
-  });
-
-  let alpha_mode = map_alpha(material.alpha_mode());
-  let alpha_cut = material.alpha_cutoff().unwrap_or(1.);
-
-  let color_and_alpha = Vec4::from(pbr.base_color_factor());
-
-  let result = PhysicalMetallicRoughnessMaterial {
-    base_color: color_and_alpha.rgb(),
-    alpha: color_and_alpha.a(),
-    alpha_cutoff: alpha_cut,
-    alpha_mode,
-    roughness: pbr.roughness_factor(),
-    metallic: pbr.metallic_factor(),
-    emissive: Vec3::from(material.emissive_factor()),
-    base_color_texture,
-    metallic_roughness_texture,
-    emissive_texture,
-    normal_texture,
-    reflectance: 0.5, // todo from gltf ior extension
-  };
-
-  if material.double_sided() {
-    // result.states.cull_mode = None;
-  }
-  result
 }
 
 fn build_texture(texture: gltf::texture::Texture, ctx: &mut Context) -> Texture2DWithSamplingData {
