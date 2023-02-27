@@ -146,6 +146,12 @@ pub struct SceneAnimation {
   pub channels: Vec<SceneAnimationChannel>,
 }
 
+impl SceneAnimation {
+  pub fn update(&self, time: f32) {
+    self.channels.iter().for_each(|c| c.update(time))
+  }
+}
+
 /// An animation channel combines an animation sampler with a target property being animated.
 pub struct SceneAnimationChannel {
   pub target_node: SceneNode,
@@ -156,12 +162,32 @@ pub struct SceneAnimationChannel {
 impl SceneAnimationChannel {
   pub fn update(&self, time: f32) {
     match self.target_field {
-      SceneAnimationField::MorphTargetWeights => todo!(),
-      SceneAnimationField::Position => {
-        let current_position = self.sampler.sample(time);
+      SceneAnimationField::MorphTargetWeights => {
+        if let InterpolationItem::Float(item) = self.sampler.sample(time) {
+          todo!();
+        }
       }
-      SceneAnimationField::Rotation => todo!(),
-      SceneAnimationField::Scale => todo!(),
+      SceneAnimationField::Position => {
+        if let InterpolationItem::Vec3(item) = self.sampler.sample(time) {
+          let mut local_mat = self.target_node.get_local_matrix();
+          local_mat.set_position(item);
+          self.target_node.set_local_matrix(local_mat);
+        }
+      }
+      SceneAnimationField::Rotation => {
+        if let InterpolationItem::Quaternion(item) = self.sampler.sample(time) {
+          let mut local_mat = self.target_node.get_local_matrix();
+          local_mat.set_rotation(item);
+          self.target_node.set_local_matrix(local_mat);
+        }
+      }
+      SceneAnimationField::Scale => {
+        if let InterpolationItem::Vec3(item) = self.sampler.sample(time) {
+          let mut local_mat = self.target_node.get_local_matrix();
+          local_mat.set_scale(item);
+          self.target_node.set_local_matrix(local_mat);
+        }
+      }
     }
   }
 }
@@ -210,13 +236,19 @@ pub struct AnimationSampler {
   pub output: AttributeAccessor,
 }
 
+enum InterpolationItem {
+  Vec3(Vec3<f32>),
+  Quaternion(Quat<f32>),
+  Float(f32),
+}
+
 impl AnimationSampler {
-  pub fn create_executor<I, V>(&self) -> Option<AnimationSamplerExecutor<I, V>> {
+  // pub fn create_executor<I, V>(&self) -> Option<AnimationSamplerExecutor<I, V>> {
 
-    //
-  }
+  //   //
+  // }
 
-  pub fn sample(&self, time: f32) {
+  pub fn sample(&self, time: f32) -> InterpolationItem {
     // first, decide which frame interval we are in;
     // do a binary search. note we can not use the std slice binary search
     // because the AttributeAccessor can not create a slice(it's maybe contains stride)
@@ -228,11 +260,14 @@ impl AnimationSampler {
     let output_end = todo!();
     // then we compute a interpolation spline based on interpolation and input output;
     match self.interpolation {
-      SceneAnimationInterpolation::Linear => SpaceLineSegment {
-        start: output_end,
-        end: output_start,
-        shape: todo!(),
-      },
+      SceneAnimationInterpolation::Linear => {
+        let spline = SpaceLineSegment {
+          start: output_end,
+          end: output_start,
+          shape: todo!(),
+        };
+        spline.sample(normalized_time)
+      }
       SceneAnimationInterpolation::Step => todo!(),
       SceneAnimationInterpolation::Cubic => todo!(),
     }

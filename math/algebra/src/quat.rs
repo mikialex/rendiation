@@ -11,16 +11,6 @@ pub struct Quat<T> {
   pub w: T,
 }
 
-impl<T> Quat<T> {
-  pub fn set(&mut self, x: T, y: T, z: T, w: T) -> &Self {
-    self.x = x;
-    self.y = y;
-    self.z = z;
-    self.w = w;
-    self
-  }
-}
-
 impl<T> Neg for Quat<T>
 where
   T: Neg<Output = T>,
@@ -297,12 +287,58 @@ impl<T: Scalar> From<Mat3<T>> for Quat<T> {
   }
 }
 
+/// http://www.euclideanspace.com/maths/algebra/realNormedAlgebra/quaternions/slerp/
 impl<T> Slerp<T> for Quat<T>
 where
   T: Scalar,
 {
-  fn slerp(self, _other: Self, _factor: T) -> Self {
-    todo!()
+  fn slerp(self, target: Self, t: T) -> Self {
+    if t == T::zero() {
+      return self;
+    } else if t == T::one() {
+      return target;
+    }
+
+    let (x, y, z, w) = self.into();
+
+    let mut cos_half_theta = self.dot(target);
+
+    let mut result;
+    if cos_half_theta < T::zero() {
+      result = -target;
+      cos_half_theta = -cos_half_theta;
+    } else {
+      result = self;
+    }
+
+    // if qa=qb or qa=-qb then theta = 0 and we can return qa
+    if cos_half_theta >= T::one() {
+      return self;
+    }
+
+    let sqr_sin_half_theta = T::one() - cos_half_theta * cos_half_theta;
+
+    if sqr_sin_half_theta <= T::epsilon() {
+      let s = T::one() - t;
+      result.w = s * w + t * result.w;
+      result.x = s * x + t * result.x;
+      result.y = s * y + t * result.y;
+      result.z = s * z + t * result.z;
+
+      return result.normalize();
+    }
+
+    let sin_half_theta = sqr_sin_half_theta.sqrt();
+    let half_theta = sin_half_theta.atan2(cos_half_theta);
+    let ratio_a = ((T::one() - t) * half_theta).sin() / sin_half_theta;
+    let ratio_b = (t * half_theta).sin() / sin_half_theta;
+
+    result.w = w * ratio_a + result.w * ratio_b;
+    result.x = x * ratio_a + result.x * ratio_b;
+    result.y = y * ratio_a + result.y * ratio_b;
+    result.z = z * ratio_a + result.z * ratio_b;
+
+    result
   }
 }
 
