@@ -7,7 +7,7 @@ use __core::marker::PhantomData;
 use __core::num::NonZeroU64;
 use gltf::{Node, Result as GltfResult};
 use rendiation_algebra::*;
-use rendiation_geometry::{CubicBezierSegment, SpaceLineSegment};
+use rendiation_geometry::{CubicBezierSegment, SpaceLineSegment, StraitLine};
 use rendiation_scene_core::{
   AttributeAccessor, AttributesMesh, BufferViewRange, GeometryBuffer, GeometryBufferInner,
   IndexFormat, NormalMapping, PhysicalMetallicRoughnessMaterial, Scene, SceneMaterialType,
@@ -242,34 +242,47 @@ enum InterpolationItem {
   Float(f32),
 }
 
+enum InterpolationVertex {
+  LinearOrStep(InterpolationItem),
+  Cubic {
+    enter: InterpolationItem,
+    center: InterpolationItem,
+    exit: InterpolationItem,
+  },
+}
+
 impl AnimationSampler {
-  // pub fn create_executor<I, V>(&self) -> Option<AnimationSamplerExecutor<I, V>> {
-
-  //   //
-  // }
-
-  pub fn sample(&self, time: f32) -> InterpolationItem {
+  pub fn sample(&self, time: f32) -> Option<InterpolationItem> {
     // first, decide which frame interval we are in;
-    // do a binary search. note we can not use the std slice binary search
-    // because the AttributeAccessor can not create a slice(it's maybe contains stride)
+    let index = self
+      .input
+      .visit_slice::<f32, _>(|slice| {
+        // the gltf animation spec doesn't contains start time or loop behavior, we just use abs time
+        slice
+          .binary_search_by(|v| v.partial_cmp(&time).unwrap_or(core::cmp::Ordering::Equal))
+          .ok()
+      })
+      .flatten()?;
+
     let (start_time, start_index) = todo!();
     let (end_time, end_index) = todo!();
     let normalized_time = todo!();
 
-    let output_start = todo!();
-    let output_end = todo!();
+    let start = todo!();
+    let end = todo!();
     // then we compute a interpolation spline based on interpolation and input output;
     match self.interpolation {
-      SceneAnimationInterpolation::Linear => {
-        let spline = SpaceLineSegment {
-          start: output_end,
-          end: output_start,
-          shape: todo!(),
-        };
-        spline.sample(normalized_time)
+      SceneAnimationInterpolation::Linear => start.lerp(end, normalized_time),
+      SceneAnimationInterpolation::Step => {
+        if normalized_time == 1. {
+          end
+        } else {
+          start
+        }
       }
-      SceneAnimationInterpolation::Step => todo!(),
-      SceneAnimationInterpolation::Cubic => todo!(),
+      SceneAnimationInterpolation::Cubic => {
+        //
+      }
     }
   }
 }
@@ -283,6 +296,11 @@ pub struct AnimationSamplerExecutor<I, V> {
   interpolate: Option<I>,
   output: PhantomData<V>,
   sampler: AnimationSampler,
+}
+
+impl AnimationSampler {
+  // pub fn create_executor<I, V>(&self) -> Option<AnimationSamplerExecutor<I, V>> {
+  // }
 }
 
 impl<I, V> KeyframeTrack for AnimationSamplerExecutor<I, V> {
@@ -353,7 +371,7 @@ fn build_accessor(accessor: gltf::Accessor, ctx: &mut Context) -> AttributeAcces
   let start = accessor.offset();
   let count = accessor.count();
 
-  let stride = match ty {
+  let item_size = match ty {
     gltf::accessor::DataType::I8 => 1,
     gltf::accessor::DataType::U8 => 1,
     gltf::accessor::DataType::I16 => 2,
@@ -373,8 +391,8 @@ fn build_accessor(accessor: gltf::Accessor, ctx: &mut Context) -> AttributeAcces
   AttributeAccessor {
     view,
     count,
-    start: start / stride,
-    stride,
+    start: start / item_size,
+    item_size,
   }
 }
 

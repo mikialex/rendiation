@@ -342,40 +342,6 @@ where
   }
 }
 
-impl<T> num_traits::Zero for Quat<T>
-where
-  T: num_traits::Zero + PartialEq,
-{
-  #[inline(always)]
-  fn zero() -> Self {
-    Self {
-      x: T::zero(),
-      y: T::zero(),
-      z: T::zero(),
-      w: T::zero(),
-    }
-  }
-  #[inline(always)]
-  fn is_zero(&self) -> bool {
-    self.eq(&Self::zero())
-  }
-}
-
-impl<T> num_traits::One for Quat<T>
-where
-  T: Scalar,
-{
-  #[inline(always)]
-  fn one() -> Self {
-    Self {
-      x: T::one(),
-      y: T::one(),
-      z: T::one(),
-      w: T::one(),
-    }
-  }
-}
-
 impl<T> From<Vec4<T>> for Quat<T>
 where
   T: Copy,
