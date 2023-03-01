@@ -2477,6 +2477,7 @@ dependencies = [
 name = "rendiation-scene-gltf-loader"
 version = "0.0.1"
 dependencies = [
+ "bytemuck",
  "gltf",
  "rendiation-algebra",
  "rendiation-geometry",

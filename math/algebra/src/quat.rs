@@ -10,6 +10,8 @@ pub struct Quat<T> {
   pub z: T,
   pub w: T,
 }
+unsafe impl<T: bytemuck::Zeroable> bytemuck::Zeroable for Quat<T> {}
+unsafe impl<T: bytemuck::Pod> bytemuck::Pod for Quat<T> {}
 
 impl<T> Neg for Quat<T>
 where

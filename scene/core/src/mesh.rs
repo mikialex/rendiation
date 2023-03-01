@@ -90,6 +90,16 @@ impl UnTypedBufferView {
     let slice = cast_slice.get(range)?;
     Some(visitor(slice))
   }
+
+  pub fn get<T: bytemuck::Pod>(
+    &self,
+    sub_range: std::ops::Range<usize>,
+    index: usize,
+  ) -> Option<T> {
+    self
+      .visit_slice(sub_range, |slice| slice.get(index).cloned())
+      .flatten()
+  }
 }
 
 #[derive(Clone)]
@@ -103,6 +113,9 @@ pub struct AttributeAccessor {
 impl AttributeAccessor {
   pub fn visit_slice<T: bytemuck::Pod, R>(&self, visitor: impl FnOnce(&[T]) -> R) -> Option<R> {
     self.view.visit_slice(self.start..self.count, visitor)
+  }
+  pub fn get<T: bytemuck::Pod>(&self, index: usize) -> Option<T> {
+    self.view.get(self.start..self.count, index)
   }
 }
 

@@ -163,26 +163,28 @@ impl SceneAnimationChannel {
   pub fn update(&self, time: f32) {
     match self.target_field {
       SceneAnimationField::MorphTargetWeights => {
-        if let InterpolationItem::Float(item) = self.sampler.sample(time) {
+        if let Some(InterpolationItem::Float(item)) = self.sampler.sample(time, self.target_field) {
           todo!();
         }
       }
       SceneAnimationField::Position => {
-        if let InterpolationItem::Vec3(item) = self.sampler.sample(time) {
+        if let Some(InterpolationItem::Vec3(item)) = self.sampler.sample(time, self.target_field) {
           let mut local_mat = self.target_node.get_local_matrix();
           local_mat.set_position(item);
           self.target_node.set_local_matrix(local_mat);
         }
       }
       SceneAnimationField::Rotation => {
-        if let InterpolationItem::Quaternion(item) = self.sampler.sample(time) {
+        if let Some(InterpolationItem::Quaternion(item)) =
+          self.sampler.sample(time, self.target_field)
+        {
           let mut local_mat = self.target_node.get_local_matrix();
           local_mat.set_rotation(item);
           self.target_node.set_local_matrix(local_mat);
         }
       }
       SceneAnimationField::Scale => {
-        if let InterpolationItem::Vec3(item) = self.sampler.sample(time) {
+        if let Some(InterpolationItem::Vec3(item)) = self.sampler.sample(time, self.target_field) {
           let mut local_mat = self.target_node.get_local_matrix();
           local_mat.set_scale(item);
           self.target_node.set_local_matrix(local_mat);
@@ -192,7 +194,7 @@ impl SceneAnimationChannel {
   }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Copy)]
 pub enum SceneAnimationField {
   MorphTargetWeights,
   Position,
@@ -242,38 +244,99 @@ enum InterpolationItem {
   Float(f32),
 }
 
-enum InterpolationVertex {
-  LinearOrStep(InterpolationItem),
-  Cubic {
-    enter: InterpolationItem,
-    center: InterpolationItem,
-    exit: InterpolationItem,
-  },
+impl InterpolationItem {
+  fn lerp(self, other: Self, t: f32) -> Self {
+    todo!()
+  }
 }
 
+enum InterpolationCubicItem {
+  Vec3(CubicVertex<Vec3<f32>>),
+  Quaternion(CubicVertex<Quat<f32>>),
+  Float(CubicVertex<f32>),
+}
+
+#[derive(Copy, Clone)]
+struct CubicVertex<T> {
+  enter: T,
+  center: T,
+  exit: T,
+}
+unsafe impl<T: bytemuck::Zeroable> bytemuck::Zeroable for CubicVertex<T> {}
+unsafe impl<T: bytemuck::Pod> bytemuck::Pod for CubicVertex<T> {}
+
 impl AnimationSampler {
-  pub fn sample(&self, time: f32) -> Option<InterpolationItem> {
-    // first, decide which frame interval we are in;
-    let index = self
-      .input
-      .visit_slice::<f32, _>(|slice| {
-        // the gltf animation spec doesn't contains start time or loop behavior, we just use abs time
+  pub fn sample(&self, time: f32, field_ty: SceneAnimationField) -> Option<InterpolationItem> {
+    // decide which frame interval we are in;
+    let (end_index, len) = self.input.visit_slice::<f32, _>(|slice| {
+      // the gltf animation spec doesn't contains start time or loop behavior, we just use abs time
+      (
         slice
           .binary_search_by(|v| v.partial_cmp(&time).unwrap_or(core::cmp::Ordering::Equal))
-          .ok()
-      })
-      .flatten()?;
+          .unwrap_or_else(|e| e),
+        slice.len(),
+      )
+    })?;
 
-    let (start_time, start_index) = todo!();
-    let (end_time, end_index) = todo!();
-    let normalized_time = todo!();
+    // time out of sampler range
+    if end_index == 0 || end_index == len {
+      return None;
+    }
 
-    let start = todo!();
-    let end = todo!();
+    let (start_time, start_index) = (self.input.get::<f32>(end_index - 1)?, end_index - 1);
+    let (end_time, end_index) = (self.input.get::<f32>(end_index)?, end_index);
+    let normalized_time = (end_time - time) / (end_time - start_time);
+
+    fn get_output_single(
+      output: &AttributeAccessor,
+      index: usize,
+      field_ty: SceneAnimationField,
+    ) -> Option<InterpolationItem> {
+      match field_ty {
+        SceneAnimationField::MorphTargetWeights => {
+          InterpolationItem::Float(output.get::<f32>(index)?)
+        }
+        SceneAnimationField::Position => InterpolationItem::Vec3(output.get::<Vec3<f32>>(index)?),
+        SceneAnimationField::Rotation => {
+          InterpolationItem::Quaternion(output.get::<Quat<f32>>(index)?)
+        }
+        SceneAnimationField::Scale => InterpolationItem::Vec3(output.get::<Vec3<f32>>(index)?),
+      }
+      .into()
+    }
+
+    fn get_output_cubic(
+      output: &AttributeAccessor,
+      index: usize,
+      field_ty: SceneAnimationField,
+    ) -> Option<InterpolationCubicItem> {
+      match field_ty {
+        SceneAnimationField::MorphTargetWeights => {
+          InterpolationCubicItem::Float(output.get::<CubicVertex<f32>>(index)?)
+        }
+        SceneAnimationField::Position => {
+          InterpolationCubicItem::Vec3(output.get::<CubicVertex<Vec3<f32>>>(index)?)
+        }
+        SceneAnimationField::Rotation => {
+          InterpolationCubicItem::Quaternion(output.get::<CubicVertex<Quat<f32>>>(index)?)
+        }
+        SceneAnimationField::Scale => {
+          InterpolationCubicItem::Vec3(output.get::<CubicVertex<Vec3<f32>>>(index)?)
+        }
+      }
+      .into()
+    }
+
     // then we compute a interpolation spline based on interpolation and input output;
     match self.interpolation {
-      SceneAnimationInterpolation::Linear => start.lerp(end, normalized_time),
+      SceneAnimationInterpolation::Linear => {
+        let start = get_output_single(&self.output, start_index, field_ty)?;
+        let end = get_output_single(&self.output, start_index, field_ty)?;
+        start.lerp(end, normalized_time)
+      }
       SceneAnimationInterpolation::Step => {
+        let start = get_output_single(&self.output, start_index, field_ty)?;
+        let end = get_output_single(&self.output, start_index, field_ty)?;
         if normalized_time == 1. {
           end
         } else {
@@ -281,9 +344,12 @@ impl AnimationSampler {
         }
       }
       SceneAnimationInterpolation::Cubic => {
-        //
+        let cubic_vertex_a = get_output_cubic(&self.output, start_index, field_ty)?;
+        let cubic_vertex_b = get_output_cubic(&self.output, start_index, field_ty)?;
+        todo!()
       }
     }
+    .into()
   }
 }
 
