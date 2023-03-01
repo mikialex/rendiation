@@ -3,11 +3,9 @@
 use std::path::Path;
 use std::{collections::HashMap, sync::Arc};
 
-use __core::marker::PhantomData;
 use __core::num::NonZeroU64;
 use gltf::{Node, Result as GltfResult};
 use rendiation_algebra::*;
-use rendiation_geometry::{CubicBezierSegment, SpaceLineSegment, StraitLine};
 use rendiation_scene_core::{
   AttributeAccessor, AttributesMesh, BufferViewRange, GeometryBuffer, GeometryBufferInner,
   IndexFormat, NormalMapping, PhysicalMetallicRoughnessMaterial, Scene, SceneMaterialType,
@@ -163,30 +161,35 @@ impl SceneAnimationChannel {
   pub fn update(&self, time: f32) {
     match self.target_field {
       SceneAnimationField::MorphTargetWeights => {
-        if let Some(InterpolationItem::Float(item)) = self.sampler.sample(time, self.target_field) {
+        if let Some(InterpolationItem::Float(_)) = self.sampler.sample(time, self.target_field) {
           todo!();
         }
       }
       SceneAnimationField::Position => {
-        if let Some(InterpolationItem::Vec3(item)) = self.sampler.sample(time, self.target_field) {
-          let mut local_mat = self.target_node.get_local_matrix();
-          local_mat.set_position(item);
+        if let Some(InterpolationItem::Vec3(position)) =
+          self.sampler.sample(time, self.target_field)
+        {
+          let local_mat = self.target_node.get_local_matrix();
+          let (_, r, s) = local_mat.decompose();
+          let local_mat = Mat4::compose(position, r, s);
           self.target_node.set_local_matrix(local_mat);
         }
       }
       SceneAnimationField::Rotation => {
-        if let Some(InterpolationItem::Quaternion(item)) =
+        if let Some(InterpolationItem::Quaternion(quat)) =
           self.sampler.sample(time, self.target_field)
         {
-          let mut local_mat = self.target_node.get_local_matrix();
-          local_mat.set_rotation(item);
+          let local_mat = self.target_node.get_local_matrix();
+          let (t, _, s) = local_mat.decompose();
+          let local_mat = Mat4::compose(t, quat, s);
           self.target_node.set_local_matrix(local_mat);
         }
       }
       SceneAnimationField::Scale => {
-        if let Some(InterpolationItem::Vec3(item)) = self.sampler.sample(time, self.target_field) {
-          let mut local_mat = self.target_node.get_local_matrix();
-          local_mat.set_scale(item);
+        if let Some(InterpolationItem::Vec3(scale)) = self.sampler.sample(time, self.target_field) {
+          let local_mat = self.target_node.get_local_matrix();
+          let (t, r, _) = local_mat.decompose();
+          let local_mat = Mat4::compose(t, r, scale);
           self.target_node.set_local_matrix(local_mat);
         }
       }
@@ -238,6 +241,7 @@ pub struct AnimationSampler {
   pub output: AttributeAccessor,
 }
 
+#[derive(Copy, Clone)]
 enum InterpolationItem {
   Vec3(Vec3<f32>),
   Quaternion(Quat<f32>),
@@ -245,8 +249,20 @@ enum InterpolationItem {
 }
 
 impl InterpolationItem {
-  fn lerp(self, other: Self, t: f32) -> Self {
-    todo!()
+  fn interpolate(self, other: Self, t: f32) -> Option<Self> {
+    match (self, other) {
+      (InterpolationItem::Vec3(a), InterpolationItem::Vec3(b)) => {
+        InterpolationItem::Vec3(a.lerp(b, t))
+      }
+      (InterpolationItem::Quaternion(a), InterpolationItem::Quaternion(b)) => {
+        InterpolationItem::Quaternion(a.slerp(b, t))
+      }
+      (InterpolationItem::Float(a), InterpolationItem::Float(b)) => {
+        InterpolationItem::Float(a.lerp(b, t))
+      }
+      _ => return None,
+    }
+    .into()
   }
 }
 
@@ -254,6 +270,40 @@ enum InterpolationCubicItem {
   Vec3(CubicVertex<Vec3<f32>>),
   Quaternion(CubicVertex<Quat<f32>>),
   Float(CubicVertex<f32>),
+}
+
+impl InterpolationCubicItem {
+  pub fn expand(self) -> CubicVertex<InterpolationItem> {
+    match self {
+      InterpolationCubicItem::Vec3(CubicVertex {
+        enter,
+        center,
+        exit,
+      }) => CubicVertex {
+        enter: InterpolationItem::Vec3(enter),
+        center: InterpolationItem::Vec3(center),
+        exit: InterpolationItem::Vec3(exit),
+      },
+      InterpolationCubicItem::Quaternion(CubicVertex {
+        enter,
+        center,
+        exit,
+      }) => CubicVertex {
+        enter: InterpolationItem::Quaternion(enter),
+        center: InterpolationItem::Quaternion(center),
+        exit: InterpolationItem::Quaternion(exit),
+      },
+      InterpolationCubicItem::Float(CubicVertex {
+        enter,
+        center,
+        exit,
+      }) => CubicVertex {
+        enter: InterpolationItem::Float(enter),
+        center: InterpolationItem::Float(center),
+        exit: InterpolationItem::Float(exit),
+      },
+    }
+  }
 }
 
 #[derive(Copy, Clone)]
@@ -266,7 +316,7 @@ unsafe impl<T: bytemuck::Zeroable> bytemuck::Zeroable for CubicVertex<T> {}
 unsafe impl<T: bytemuck::Pod> bytemuck::Pod for CubicVertex<T> {}
 
 impl AnimationSampler {
-  pub fn sample(&self, time: f32, field_ty: SceneAnimationField) -> Option<InterpolationItem> {
+  fn sample(&self, time: f32, field_ty: SceneAnimationField) -> Option<InterpolationItem> {
     // decide which frame interval we are in;
     let (end_index, len) = self.input.visit_slice::<f32, _>(|slice| {
       // the gltf animation spec doesn't contains start time or loop behavior, we just use abs time
@@ -278,7 +328,7 @@ impl AnimationSampler {
       )
     })?;
 
-    // time out of sampler range
+    // time is out of sampler range
     if end_index == 0 || end_index == len {
       return None;
     }
@@ -331,12 +381,12 @@ impl AnimationSampler {
     match self.interpolation {
       SceneAnimationInterpolation::Linear => {
         let start = get_output_single(&self.output, start_index, field_ty)?;
-        let end = get_output_single(&self.output, start_index, field_ty)?;
-        start.lerp(end, normalized_time)
+        let end = get_output_single(&self.output, end_index, field_ty)?;
+        start.interpolate(end, normalized_time)?
       }
       SceneAnimationInterpolation::Step => {
         let start = get_output_single(&self.output, start_index, field_ty)?;
-        let end = get_output_single(&self.output, start_index, field_ty)?;
+        let end = get_output_single(&self.output, end_index, field_ty)?;
         if normalized_time == 1. {
           end
         } else {
@@ -344,38 +394,50 @@ impl AnimationSampler {
         }
       }
       SceneAnimationInterpolation::Cubic => {
-        let cubic_vertex_a = get_output_cubic(&self.output, start_index, field_ty)?;
-        let cubic_vertex_b = get_output_cubic(&self.output, start_index, field_ty)?;
-        todo!()
+        let cubic_vertex_a = get_output_cubic(&self.output, start_index, field_ty)?.expand();
+        let cubic_vertex_b = get_output_cubic(&self.output, end_index, field_ty)?.expand();
+        let a = cubic_vertex_a.center;
+        let ctrl1 = cubic_vertex_a.exit;
+        let ctrl2 = cubic_vertex_b.enter;
+        let b = cubic_vertex_b.center;
+
+        let t1 = a.interpolate(ctrl1, normalized_time)?;
+        let t2 = ctrl1.interpolate(ctrl2, normalized_time)?;
+        let t3 = ctrl2.interpolate(b, normalized_time)?;
+
+        let t4 = t1.interpolate(t2, normalized_time)?;
+        let t5 = t2.interpolate(t3, normalized_time)?;
+
+        t4.interpolate(t5, normalized_time)?
       }
     }
     .into()
   }
 }
 
-/// this is an optimization, based on the hypnosis that the interpolation spline
-/// will be reused in next sample, which avoid the underlayer sampler retrieving
-pub struct AnimationSamplerExecutor<I, V> {
-  current_time: f32,
-  start_time: f32,
-  end_time: f32,
-  interpolate: Option<I>,
-  output: PhantomData<V>,
-  sampler: AnimationSampler,
-}
+// /// this is an optimization, based on the hypnosis that the interpolation spline
+// /// will be reused in next sample, which avoid the underlayer sampler retrieving
+// pub struct AnimationSamplerExecutor<I, V> {
+//   current_time: f32,
+//   start_time: f32,
+//   end_time: f32,
+//   interpolate: Option<I>,
+//   output: PhantomData<V>,
+//   sampler: AnimationSampler,
+// }
 
-impl AnimationSampler {
-  // pub fn create_executor<I, V>(&self) -> Option<AnimationSamplerExecutor<I, V>> {
-  // }
-}
+// impl AnimationSampler {
+//   // pub fn create_executor<I, V>(&self) -> Option<AnimationSamplerExecutor<I, V>> {
+//   // }
+// }
 
-impl<I, V> KeyframeTrack for AnimationSamplerExecutor<I, V> {
-  type Value = V;
+// impl<I, V> KeyframeTrack for AnimationSamplerExecutor<I, V> {
+//   type Value = V;
 
-  fn sample_animation(&self) -> Self::Value {
-    todo!()
-  }
-}
+//   fn sample_animation(&self) -> Self::Value {
+//     todo!()
+//   }
+// }
 
 fn build_animation(animation: gltf::Animation, ctx: &mut Context) {
   let channels = animation
