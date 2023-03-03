@@ -50,14 +50,27 @@ impl SceneAnimationChannel {
   }
 }
 
+/// An animation sampler combines timestamps with a sequence of
+/// output values and defines an interpolation algorithm.
+#[derive(Clone)]
+pub struct AnimationSampler {
+  pub interpolation: InterpolationStyle,
+  pub field: SceneAnimationField,
+  pub input: AttributeAccessor,
+  pub output: AttributeAccessor,
+}
+
 impl KeyframeTrack for AnimationSampler {
   type Value = InterpolationItem;
   fn sample_animation(&mut self, time: f32) -> Option<Self::Value> {
-    let (mut spline, (start_time, end_time)) =
-      InterpolateSplineInstance::try_from_sampler(self, time)?;
+    let (mut spline, (start_time, end_time)) = InterpolateInstance::try_from_sampler(self, time)?;
     let normalized_time = (end_time - time) / (end_time - start_time);
     spline.sample_animation(normalized_time)
   }
+}
+
+trait TryFromAnimationSampler: Sized {
+  fn try_from_sampler(sampler: &AnimationSampler, time: f32) -> Option<(Self, (f32, f32))>;
 }
 
 /// this is an optimization, based on the hypnosis that the interpolation spline
@@ -67,13 +80,9 @@ struct AnimationSamplerExecutor<I> {
   sampler: AnimationSampler,
 }
 
-trait AnimationSplineRetrieve: Sized {
-  fn try_from_sampler(sampler: &AnimationSampler, time: f32) -> Option<(Self, (f32, f32))>;
-}
-
 impl<I> KeyframeTrack for AnimationSamplerExecutor<I>
 where
-  I: AnimationSplineRetrieve + KeyframeTrack,
+  I: TryFromAnimationSampler + KeyframeTrack,
 {
   type Value = I::Value;
 
@@ -108,23 +117,6 @@ enum InterpolationItem {
   Scale(Vec3<f32>),
   Quaternion(Quat<f32>),
   MorphTargetWeights(f32),
-}
-
-#[derive(Clone, Copy)]
-pub enum InterpolationStyle {
-  Linear,
-  Step,
-  Cubic,
-}
-
-/// An animation sampler combines timestamps with a sequence of
-/// output values and defines an interpolation algorithm.
-#[derive(Clone)]
-pub struct AnimationSampler {
-  pub interpolation: InterpolationStyle,
-  pub field: SceneAnimationField,
-  pub input: AttributeAccessor,
-  pub output: AttributeAccessor,
 }
 
 impl InterpolationItem {
@@ -179,31 +171,38 @@ struct CubicVertex<T> {
 unsafe impl<T: bytemuck::Zeroable> bytemuck::Zeroable for CubicVertex<T> {}
 unsafe impl<T: bytemuck::Pod> bytemuck::Pod for CubicVertex<T> {}
 
-enum InterpolateSplineInstance {
-  Step {
-    start: InterpolationItem,
-    end: InterpolationItem,
-  },
+#[derive(Clone, Copy)]
+pub enum InterpolationStyle {
+  Linear,
+  Step,
+  Cubic,
+}
+
+enum InterpolateInstance<T> {
   Linear {
-    start: InterpolationItem,
-    end: InterpolationItem,
+    start: T,
+    end: T,
+  },
+  Step {
+    start: T,
+    end: T,
   },
   Cubic {
-    start: InterpolationItem,
-    ctrl1: InterpolationItem,
-    ctrl2: InterpolationItem,
-    end: InterpolationItem,
+    start: T,
+    ctrl1: T,
+    ctrl2: T,
+    end: T,
   },
 }
 
-impl KeyframeTrack for InterpolateSplineInstance {
+impl KeyframeTrack for InterpolateInstance<InterpolationItem> {
   type Value = InterpolationItem;
 
   fn sample_animation(&mut self, t: f32) -> Option<Self::Value> {
     match self {
-      InterpolateSplineInstance::Step { start, end } => if t == 1. { *end } else { *start }.into(),
-      InterpolateSplineInstance::Linear { start, end } => start.interpolate(*end, t),
-      InterpolateSplineInstance::Cubic {
+      InterpolateInstance::Step { start, end } => if t == 1. { *end } else { *start }.into(),
+      InterpolateInstance::Linear { start, end } => start.interpolate(*end, t),
+      InterpolateInstance::Cubic {
         start,
         ctrl1,
         ctrl2,
@@ -222,7 +221,7 @@ impl KeyframeTrack for InterpolateSplineInstance {
   }
 }
 
-impl AnimationSplineRetrieve for InterpolateSplineInstance {
+impl TryFromAnimationSampler for InterpolateInstance<InterpolationItem> {
   fn try_from_sampler(sampler: &AnimationSampler, time: f32) -> Option<(Self, (f32, f32))> {
     // decide which frame interval we are in;
     let (end_index, len) = sampler.input.visit_slice::<f32, _>(|slice| {
@@ -276,18 +275,18 @@ impl AnimationSplineRetrieve for InterpolateSplineInstance {
     }
 
     let curve = match sampler.interpolation {
-      InterpolationStyle::Linear => InterpolateSplineInstance::Linear {
+      InterpolationStyle::Linear => InterpolateInstance::Linear {
         start: get_output_single(&sampler.output, start_index, field_ty)?,
         end: get_output_single(&sampler.output, end_index, field_ty)?,
       },
-      InterpolationStyle::Step => InterpolateSplineInstance::Step {
+      InterpolationStyle::Step => InterpolateInstance::Step {
         start: get_output_single(&sampler.output, start_index, field_ty)?,
         end: get_output_single(&sampler.output, end_index, field_ty)?,
       },
       InterpolationStyle::Cubic => {
         let cubic_vertex_a = get_output_cubic(&sampler.output, start_index, field_ty)?.transpose();
         let cubic_vertex_b = get_output_cubic(&sampler.output, end_index, field_ty)?.transpose();
-        InterpolateSplineInstance::Cubic {
+        InterpolateInstance::Cubic {
           start: cubic_vertex_a.center,
           ctrl1: cubic_vertex_a.exit,
           ctrl2: cubic_vertex_b.enter,
