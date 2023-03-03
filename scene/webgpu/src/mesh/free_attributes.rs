@@ -15,8 +15,8 @@ impl ShaderPassBuilder for AttributesMeshGPU {
         AttributeSemantic::Tangents => {}
         AttributeSemantic::Colors(_) => ctx.set_vertex_buffer_owned_next(b),
         AttributeSemantic::TexCoords(_) => ctx.set_vertex_buffer_owned_next(b),
-        AttributeSemantic::Joints(_) => {}
-        AttributeSemantic::Weights(_) => {}
+        AttributeSemantic::Joints(_) => ctx.set_vertex_buffer_owned_next(b),
+        AttributeSemantic::Weights(_) => ctx.set_vertex_buffer_owned_next(b),
       }
     }
     if let Some((buffer, index_format)) = &self.indices {
@@ -55,9 +55,29 @@ impl ShaderGraphProvider for AttributesMeshGPU {
           AttributeSemantic::Normals => builder.push_single_vertex_layout::<GeometryNormal>(mode),
           AttributeSemantic::Tangents => {}
           AttributeSemantic::Colors(_) => builder.push_single_vertex_layout::<GeometryColor>(mode),
-          AttributeSemantic::TexCoords(_) => builder.push_single_vertex_layout::<GeometryUV>(mode),
-          AttributeSemantic::Joints(_) => {}
-          AttributeSemantic::Weights(_) => {}
+          AttributeSemantic::TexCoords(channel) => match channel {
+            // support 3 channel should be enough
+            0 => builder.push_single_vertex_layout::<GeometryUVChannel<0>>(mode),
+            1 => builder.push_single_vertex_layout::<GeometryUVChannel<1>>(mode),
+            2 => builder.push_single_vertex_layout::<GeometryUVChannel<2>>(mode),
+            _ => return Err(ShaderGraphBuildError::SemanticNotSupported),
+          },
+          AttributeSemantic::Joints(channel) => match channel {
+            // support 4 channel should be enough
+            0 => builder.push_single_vertex_layout::<JointIndexChannel<0>>(mode),
+            1 => builder.push_single_vertex_layout::<JointIndexChannel<1>>(mode),
+            2 => builder.push_single_vertex_layout::<JointIndexChannel<2>>(mode),
+            3 => builder.push_single_vertex_layout::<JointIndexChannel<3>>(mode),
+            _ => return Err(ShaderGraphBuildError::SemanticNotSupported),
+          },
+          AttributeSemantic::Weights(channel) => match channel {
+            // support 4 channel should be enough
+            0 => builder.push_single_vertex_layout::<WeightChannel<0>>(mode),
+            1 => builder.push_single_vertex_layout::<WeightChannel<1>>(mode),
+            2 => builder.push_single_vertex_layout::<WeightChannel<2>>(mode),
+            3 => builder.push_single_vertex_layout::<WeightChannel<3>>(mode),
+            _ => return Err(ShaderGraphBuildError::SemanticNotSupported),
+          },
         }
       }
       builder.primitive_state.topology = self.mode;
