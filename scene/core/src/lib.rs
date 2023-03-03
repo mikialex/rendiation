@@ -28,6 +28,9 @@ pub use light::*;
 pub mod camera;
 pub use camera::*;
 
+pub mod animation;
+pub use animation::*;
+
 mod utils;
 pub use utils::*;
 

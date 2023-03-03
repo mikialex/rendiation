@@ -1,4 +1,4 @@
-use std::{marker::PhantomData, num::NonZeroU64};
+use std::num::NonZeroU64;
 
 use rendiation_geometry::{Box3, OptionalNearest, Ray3};
 use rendiation_renderable_mesh::*;

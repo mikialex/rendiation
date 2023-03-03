@@ -1,8 +1,8 @@
 use rendiation_algebra::{Mat4, Quat};
 use rendiation_renderable_mesh::PrimitiveTopology;
-use rendiation_scene_core::{AlphaMode, AttributeSemantic};
-
-use crate::{SceneAnimationField, SceneAnimationInterpolation};
+use rendiation_scene_core::{
+  AlphaMode, AttributeSemantic, InterpolationStyle, SceneAnimationField,
+};
 
 pub fn map_sampler(sampler: gltf::texture::Sampler) -> rendiation_texture::TextureSampler {
   rendiation_texture::TextureSampler {
@@ -117,12 +117,10 @@ pub fn map_animation_field(a: gltf::animation::Property) -> SceneAnimationField 
   }
 }
 
-pub fn map_animation_interpolation(
-  a: gltf::animation::Interpolation,
-) -> SceneAnimationInterpolation {
+pub fn map_animation_interpolation(a: gltf::animation::Interpolation) -> InterpolationStyle {
   match a {
-    gltf::animation::Interpolation::Linear => SceneAnimationInterpolation::Linear,
-    gltf::animation::Interpolation::Step => SceneAnimationInterpolation::Step,
-    gltf::animation::Interpolation::CubicSpline => SceneAnimationInterpolation::Cubic,
+    gltf::animation::Interpolation::Linear => InterpolationStyle::Linear,
+    gltf::animation::Interpolation::Step => InterpolationStyle::Step,
+    gltf::animation::Interpolation::CubicSpline => InterpolationStyle::Cubic,
   }
 }

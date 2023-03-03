@@ -1,5 +1,22 @@
 pub trait Animatable {
-  fn animate(&mut self, delta_time: f32);
+  fn animate(&mut self, time: f32);
+}
+
+trait KeyframeTrack {
+  type Value;
+  fn sample_animation(&self, time: f32) -> Self::Value;
+}
+
+pub enum KeyframeReplayStyle {
+  ClampToStartOrEnd,
+  Repeat,
+  MirrorRepeat,
+}
+
+impl KeyframeReplayStyle {
+  pub fn extrapolate(&self, time: f32) -> f32 {
+    todo!()
+  }
 }
 
 pub enum Transition {
