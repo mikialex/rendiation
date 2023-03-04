@@ -27,14 +27,16 @@ pub struct StandardModel {
 }
 
 pub struct SkinnedModel {
-  skeleton: Skeleton,
+  pub skeleton: Skeleton,
 }
 
-pub struct Skeleton {
+pub type Skeleton = SceneItemRef<SkeletonImpl>;
+pub struct SkeletonImpl {
   pub joints: Vec<Joint>,
 }
+clone_self_incremental!(SkeletonImpl);
 
-impl Skeleton {
+impl SkeletonImpl {
   /// recover the skeleton to bind-time pose
   pub fn pose(&self) {
     // todo improve, cache compute

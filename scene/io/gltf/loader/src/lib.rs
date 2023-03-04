@@ -11,7 +11,8 @@ use rendiation_scene_core::{
   GeometryBufferInner, IndexFormat, Joint, NormalMapping, PhysicalMetallicRoughnessMaterial, Scene,
   SceneAnimation, SceneAnimationChannel, SceneMaterialType, SceneMeshType, SceneModel,
   SceneModelHandle, SceneModelImpl, SceneModelType, SceneNode, SceneTexture2D, SceneTexture2DType,
-  Skeleton, StandardModel, Texture2DWithSamplingData, TextureWithSamplingData, UnTypedBufferView,
+  Skeleton, SkeletonImpl, StandardModel, Texture2DWithSamplingData, TextureWithSamplingData,
+  UnTypedBufferView,
 };
 use shadergraph::*;
 use webgpu::{TextureFormat, WebGPU2DTextureSource};
@@ -67,12 +68,13 @@ pub fn load_gltf(path: impl AsRef<Path>, scene: &Scene) -> GltfResult<GltfLoadRe
       });
     }
 
-    let skeleton = Skeleton { joints };
+    let skeleton = SkeletonImpl { joints }.into_ref();
 
-    let skeleton_root = skin
-      .skeleton()
-      .and_then(|n| ctx.result.node_map.get(&n.index()))
-      .unwrap_or(scene_inner.root());
+    // https://stackoverflow.com/questions/64734695/what-does-it-mean-when-gltf-does-not-specify-a-skeleton-value-in-a-skin
+    // let skeleton_root = skin
+    //   .skeleton()
+    //   .and_then(|n| ctx.result.node_map.get(&n.index()))
+    //   .unwrap_or(scene_inner.root());
   }
 
   for (model_handle, skin_index) in ctx.skinned_mesh_to_process.drain(..) {
