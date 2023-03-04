@@ -8,10 +8,10 @@ use gltf::{Node, Result as GltfResult};
 use rendiation_algebra::*;
 use rendiation_scene_core::{
   AnimationSampler, AttributeAccessor, AttributesMesh, BufferViewRange, GeometryBuffer,
-  GeometryBufferInner, IndexFormat, NormalMapping, PhysicalMetallicRoughnessMaterial, Scene,
+  GeometryBufferInner, IndexFormat, Joint, NormalMapping, PhysicalMetallicRoughnessMaterial, Scene,
   SceneAnimation, SceneAnimationChannel, SceneMaterialType, SceneMeshType, SceneModel,
   SceneModelHandle, SceneModelImpl, SceneModelType, SceneNode, SceneTexture2D, SceneTexture2DType,
-  StandardModel, Texture2DWithSamplingData, TextureWithSamplingData, UnTypedBufferView,
+  Skeleton, StandardModel, Texture2DWithSamplingData, TextureWithSamplingData, UnTypedBufferView,
 };
 use shadergraph::*;
 use webgpu::{TextureFormat, WebGPU2DTextureSource};
@@ -42,11 +42,33 @@ pub fn load_gltf(path: impl AsRef<Path>, scene: &Scene) -> GltfResult<GltfLoadRe
   }
 
   for skin in document.skins() {
-    let joints = skin.joints();
-    joints.map(|v| {
-      // ctx.result.node_map.get(&v.index()).un
-    });
-    let matrix_list = skin.inverse_bind_matrices();
+    let mut joints: Vec<_> = skin
+      .joints()
+      .map(|joint_node| Joint {
+        node: ctx
+          .result
+          .node_map
+          .get(&joint_node.index())
+          .unwrap()
+          .clone(),
+        bind_inverse: Mat4::one(),
+      })
+      .collect();
+
+    if let Some(matrix_list) = skin.inverse_bind_matrices() {
+      let matrix_list = build_accessor(matrix_list, &mut ctx);
+      matrix_list.visit_slice::<Mat4<f32>, _>(|slice| {
+        slice
+          .iter()
+          .zip(joints.iter_mut())
+          .for_each(|(mat, joint)| {
+            joint.bind_inverse = *mat;
+          })
+      });
+    }
+
+    let skeleton = Skeleton { joints };
+
     let skeleton_root = skin
       .skeleton()
       .and_then(|n| ctx.result.node_map.get(&n.index()))
@@ -109,7 +131,7 @@ fn create_node_recursive(
       if let Some(skin) = gltf_node.skin() {
         ctx
           .skinned_mesh_to_process
-          .push((model.clone(), skin.clone()))
+          .push((model_handle, skin.index()))
       }
     }
   }

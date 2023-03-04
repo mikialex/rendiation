@@ -31,7 +31,7 @@ pub struct SkinnedModel {
 }
 
 pub struct Skeleton {
-  joints: Vec<Joint>,
+  pub joints: Vec<Joint>,
 }
 
 impl Skeleton {
@@ -59,12 +59,16 @@ impl Skeleton {
 }
 
 pub struct Joint {
-  node: SceneNode,
-  /// the transformation from the bind-space to the local-space
-  bind_inverse: Mat4<f32>,
+  pub node: SceneNode,
+  /// the transformation from the local-space to joint-space
+  /// local -> joint is like world -> local
+  pub bind_inverse: Mat4<f32>,
 }
 
 impl Joint {
+  /// we do binding in the model's joint-space. that's why we need bind_inverse matrix;
+  /// so, we should first: from local to joint-space: apply bind_inverse
+  /// then, we apply the real skeleton matrix, to express the correct new skinned-local-space
   pub fn compute_offset_matrix(&self) -> Mat4<f32> {
     self.node.get_world_matrix() * self.bind_inverse
   }
