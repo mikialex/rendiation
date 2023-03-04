@@ -48,6 +48,10 @@ impl SceneNode {
     }
   }
 
+  pub fn id(&self) -> usize {
+    self.inner.visit(|n| n.id())
+  }
+
   pub fn raw_handle(&self) -> SceneNodeHandle {
     self.inner.raw_handle()
   }

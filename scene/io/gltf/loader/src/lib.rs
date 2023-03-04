@@ -30,17 +30,34 @@ pub fn load_gltf(path: impl AsRef<Path>, scene: &Scene) -> GltfResult<GltfLoadRe
       .map(|buffer| GeometryBufferInner { buffer: buffer.0 }.into())
       .collect(),
     result: Default::default(),
+    skinned_mesh_to_process: Default::default(),
   };
 
   let root = scene_inner.root().clone();
-
-  drop(scene_inner);
 
   for gltf_scene in document.scenes() {
     for node in gltf_scene.nodes() {
       create_node_recursive(scene, root.clone(), &node, &mut ctx);
     }
   }
+
+  for skin in document.skins() {
+    let joints = skin.joints();
+    joints.map(|v| {
+      // ctx.result.node_map.get(&v.index()).un
+    });
+    let matrix_list = skin.inverse_bind_matrices();
+    let skeleton_root = skin
+      .skeleton()
+      .and_then(|n| ctx.result.node_map.get(&n.index()))
+      .unwrap_or(scene_inner.root());
+  }
+
+  for (model_handle, skin_index) in ctx.skinned_mesh_to_process.drain(..) {
+    // todo
+  }
+
+  drop(scene_inner);
 
   for animation in document.animations() {
     build_animation(animation, &mut ctx);
@@ -53,6 +70,7 @@ struct Context {
   images: Vec<SceneTexture2D>,
   attributes: Vec<GeometryBuffer>,
   result: GltfLoadResult,
+  skinned_mesh_to_process: Vec<(SceneModelHandle, usize)>,
 }
 
 #[derive(Default)]
@@ -87,6 +105,12 @@ fn create_node_recursive(
       let model = build_model(&node, primitive, ctx);
       let model_handle = scene.insert_model(model);
       ctx.result.primitive_map.insert(index, model_handle);
+
+      if let Some(skin) = gltf_node.skin() {
+        ctx
+          .skinned_mesh_to_process
+          .push((model.clone(), skin.clone()))
+      }
     }
   }
 

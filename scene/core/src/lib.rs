@@ -1,3 +1,5 @@
+#![feature(let_chains)]
+
 pub mod scene;
 pub use scene::*;
 
