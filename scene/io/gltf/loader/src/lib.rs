@@ -8,11 +8,11 @@ use gltf::{Node, Result as GltfResult};
 use rendiation_algebra::*;
 use rendiation_scene_core::{
   AnimationSampler, AttributeAccessor, AttributesMesh, BufferViewRange, GeometryBuffer,
-  GeometryBufferInner, IndexFormat, Joint, NormalMapping, PhysicalMetallicRoughnessMaterial, Scene,
-  SceneAnimation, SceneAnimationChannel, SceneMaterialType, SceneMeshType, SceneModel,
-  SceneModelHandle, SceneModelImpl, SceneModelType, SceneNode, SceneTexture2D, SceneTexture2DType,
-  Skeleton, SkeletonImpl, StandardModel, Texture2DWithSamplingData, TextureWithSamplingData,
-  UnTypedBufferView,
+  GeometryBufferInner, IndexFormat, IntoSceneItemRef, Joint, NormalMapping,
+  PhysicalMetallicRoughnessMaterial, Scene, SceneAnimation, SceneAnimationChannel,
+  SceneMaterialType, SceneMeshType, SceneModel, SceneModelHandle, SceneModelImpl, SceneModelType,
+  SceneNode, SceneTexture2D, SceneTexture2DType, Skeleton, SkeletonImpl, StandardModel,
+  Texture2DWithSamplingData, TextureWithSamplingData, UnTypedBufferView,
 };
 use shadergraph::*;
 use webgpu::{TextureFormat, WebGPU2DTextureSource};
@@ -22,6 +22,9 @@ use convert_utils::*;
 
 pub fn load_gltf(path: impl AsRef<Path>, scene: &Scene) -> GltfResult<GltfLoadResult> {
   let scene_inner = scene.read();
+  let root = scene_inner.root().clone();
+  drop(scene_inner);
+
   let (document, mut buffers, mut images) = gltf::import(path)?;
 
   let mut ctx = Context {
@@ -31,60 +34,26 @@ pub fn load_gltf(path: impl AsRef<Path>, scene: &Scene) -> GltfResult<GltfLoadRe
       .map(|buffer| GeometryBufferInner { buffer: buffer.0 }.into())
       .collect(),
     result: Default::default(),
-    skinned_mesh_to_process: Default::default(),
   };
-
-  let root = scene_inner.root().clone();
 
   for gltf_scene in document.scenes() {
     for node in gltf_scene.nodes() {
-      create_node_recursive(scene, root.clone(), &node, &mut ctx);
+      create_node_recursive(root.clone(), &node, &mut ctx);
     }
   }
 
   for skin in document.skins() {
-    let mut joints: Vec<_> = skin
-      .joints()
-      .map(|joint_node| Joint {
-        node: ctx
-          .result
-          .node_map
-          .get(&joint_node.index())
-          .unwrap()
-          .clone(),
-        bind_inverse: Mat4::one(),
-      })
-      .collect();
-
-    if let Some(matrix_list) = skin.inverse_bind_matrices() {
-      let matrix_list = build_accessor(matrix_list, &mut ctx);
-      matrix_list.visit_slice::<Mat4<f32>, _>(|slice| {
-        slice
-          .iter()
-          .zip(joints.iter_mut())
-          .for_each(|(mat, joint)| {
-            joint.bind_inverse = *mat;
-          })
-      });
-    }
-
-    let skeleton = SkeletonImpl { joints }.into_ref();
-
-    // https://stackoverflow.com/questions/64734695/what-does-it-mean-when-gltf-does-not-specify-a-skeleton-value-in-a-skin
-    // let skeleton_root = skin
-    //   .skeleton()
-    //   .and_then(|n| ctx.result.node_map.get(&n.index()))
-    //   .unwrap_or(scene_inner.root());
+    build_skin(skin, &mut ctx);
   }
-
-  for (model_handle, skin_index) in ctx.skinned_mesh_to_process.drain(..) {
-    // todo
-  }
-
-  drop(scene_inner);
 
   for animation in document.animations() {
     build_animation(animation, &mut ctx);
+  }
+
+  for gltf_scene in document.scenes() {
+    for node in gltf_scene.nodes() {
+      create_node_content_recursive(scene, &node, &mut ctx);
+    }
   }
 
   Ok(ctx.result)
@@ -94,7 +63,6 @@ struct Context {
   images: Vec<SceneTexture2D>,
   attributes: Vec<GeometryBuffer>,
   result: GltfLoadResult,
-  skinned_mesh_to_process: Vec<(SceneModelHandle, usize)>,
 }
 
 #[derive(Default)]
@@ -102,16 +70,12 @@ pub struct GltfLoadResult {
   pub primitive_map: HashMap<usize, SceneModelHandle>,
   pub node_map: HashMap<usize, SceneNode>,
   pub view_map: HashMap<usize, UnTypedBufferView>,
+  pub skin_map: HashMap<usize, Skeleton>,
   pub animations: Vec<SceneAnimation>,
 }
 
 /// https://docs.rs/gltf/latest/gltf/struct.Node.html
-fn create_node_recursive(
-  scene: &Scene,
-  parent_to_attach: SceneNode,
-  gltf_node: &Node,
-  ctx: &mut Context,
-) {
+fn create_node_recursive(parent_to_attach: SceneNode, gltf_node: &Node, ctx: &mut Context) {
   println!(
     "Node #{} has {} children",
     gltf_node.index(),
@@ -123,27 +87,35 @@ fn create_node_recursive(
 
   node.set_local_matrix(map_transform(gltf_node.transform()));
 
+  for gltf_node in gltf_node.children() {
+    create_node_recursive(node.clone(), &gltf_node, ctx)
+  }
+}
+
+fn create_node_content_recursive(scene: &Scene, gltf_node: &Node, ctx: &mut Context) {
+  let node = ctx.result.node_map.get(&gltf_node.index()).unwrap().clone();
+
   if let Some(mesh) = gltf_node.mesh() {
     for primitive in mesh.primitives() {
       let index = primitive.index();
-      let model = build_model(&node, primitive, ctx);
+      let model = build_model(node.clone(), primitive, gltf_node, ctx);
+
       let model_handle = scene.insert_model(model);
       ctx.result.primitive_map.insert(index, model_handle);
-
-      if let Some(skin) = gltf_node.skin() {
-        ctx
-          .skinned_mesh_to_process
-          .push((model_handle, skin.index()))
-      }
     }
   }
 
   for gltf_node in gltf_node.children() {
-    create_node_recursive(scene, node.clone(), &gltf_node, ctx)
+    create_node_content_recursive(scene, &gltf_node, ctx)
   }
 }
 
-fn build_model(node: &SceneNode, primitive: gltf::Primitive, ctx: &mut Context) -> SceneModel {
+fn build_model(
+  node: SceneNode,
+  primitive: gltf::Primitive,
+  gltf_node: &gltf::Node,
+  ctx: &mut Context,
+) -> SceneModel {
   let attributes = primitive
     .attributes()
     .map(|(semantic, accessor)| {
@@ -175,16 +147,15 @@ fn build_model(node: &SceneNode, primitive: gltf::Primitive, ctx: &mut Context) 
   let material = build_pbr_material(primitive.material(), ctx);
   let material = SceneMaterialType::PhysicalMetallicRoughness(material.into());
 
-  let model = StandardModel {
-    material,
-    mesh,
-    group: Default::default(),
-  };
+  let mut model = StandardModel::new(material, mesh);
+
+  if let Some(skin) = gltf_node.skin() {
+    let sk = ctx.result.skin_map.get(&skin.index()).unwrap();
+    model.skeleton = Some(sk.clone())
+  }
+
   let model = SceneModelType::Standard(model.into());
-  let model = SceneModelImpl {
-    model,
-    node: node.clone(),
-  };
+  let model = SceneModelImpl { model, node };
   SceneModel::new(model)
 }
 
@@ -217,6 +188,42 @@ fn build_animation(animation: gltf::Animation, ctx: &mut Context) {
     .collect();
 
   ctx.result.animations.push(SceneAnimation { channels })
+}
+
+fn build_skin(skin: gltf::Skin, ctx: &mut Context) {
+  let mut joints: Vec<_> = skin
+    .joints()
+    .map(|joint_node| Joint {
+      node: ctx
+        .result
+        .node_map
+        .get(&joint_node.index())
+        .unwrap()
+        .clone(),
+      bind_inverse: Mat4::one(),
+    })
+    .collect();
+
+  if let Some(matrix_list) = skin.inverse_bind_matrices() {
+    let matrix_list = build_accessor(matrix_list, ctx);
+    matrix_list.visit_slice::<Mat4<f32>, _>(|slice| {
+      slice
+        .iter()
+        .zip(joints.iter_mut())
+        .for_each(|(mat, joint)| {
+          joint.bind_inverse = *mat;
+        })
+    });
+  }
+
+  // https://stackoverflow.com/questions/64734695/what-does-it-mean-when-gltf-does-not-specify-a-skeleton-value-in-a-skin
+  // let skeleton_root = skin
+  //   .skeleton()
+  //   .and_then(|n| ctx.result.node_map.get(&n.index()))
+  //   .unwrap_or(scene_inner.root());
+
+  let skeleton = SkeletonImpl { joints }.into_ref();
+  ctx.result.skin_map.insert(skin.index(), skeleton);
 }
 
 fn build_data_view(view: gltf::buffer::View, ctx: &mut Context) -> UnTypedBufferView {

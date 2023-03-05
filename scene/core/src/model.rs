@@ -24,13 +24,22 @@ pub struct StandardModel {
   pub material: SceneMaterialType,
   pub mesh: SceneMeshType,
   pub group: MeshDrawGroup,
+  pub skeleton: Option<Skeleton>,
 }
 
-pub struct SkinnedModel {
-  pub skeleton: Skeleton,
+impl StandardModel {
+  pub fn new(material: impl Into<SceneMaterialType>, mesh: impl Into<SceneMeshType>) -> Self {
+    Self {
+      material: material.into(),
+      mesh: mesh.into(),
+      group: Default::default(),
+      skeleton: Default::default(),
+    }
+  }
 }
 
 pub type Skeleton = SceneItemRef<SkeletonImpl>;
+#[derive(Clone)]
 pub struct SkeletonImpl {
   pub joints: Vec<Joint>,
 }
@@ -60,6 +69,7 @@ impl SkeletonImpl {
   }
 }
 
+#[derive(Clone)]
 pub struct Joint {
   pub node: SceneNode,
   /// the transformation from the local-space to joint-space
