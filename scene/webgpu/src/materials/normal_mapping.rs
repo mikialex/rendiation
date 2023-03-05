@@ -47,7 +47,7 @@ pub fn apply_normal_mapping(
   let face = builder
     .query::<FragmentFrontFacing>()
     .unwrap() // builtin type
-    .select(consts(1.), consts(0.));
+    .select(consts(0.), consts(1.));
 
   let normal = perturb_normal_2_arb(position, normal, normal_adjust, uv, face);
   builder.register::<FragmentWorldNormal>(normal);
