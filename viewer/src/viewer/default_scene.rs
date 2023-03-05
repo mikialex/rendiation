@@ -90,11 +90,7 @@ pub fn load_default_scene(scene: &Scene) {
     let child = scene.read().root().create_child();
     child.set_local_matrix(Mat4::translate((2., 0., 3.)));
 
-    let model = StandardModel {
-      material,
-      mesh,
-      group: Default::default(),
-    };
+    let model = StandardModel::new(material, mesh);
     let model = SceneModelType::Standard(model.into());
     let model = SceneModelImpl { model, node: child };
     let _ = scene.insert_model(model.into());
@@ -122,11 +118,7 @@ pub fn load_default_scene(scene: &Scene) {
     let material = SceneMaterialType::PhysicalSpecularGlossiness(material.into());
     let child = scene.read().root().create_child();
 
-    let model = StandardModel {
-      material,
-      mesh,
-      group: Default::default(),
-    };
+    let model = StandardModel::new(material, mesh);
     let model = SceneModelType::Standard(model.into());
     let model = SceneModelImpl { model, node: child };
     let _ = scene.insert_model(model.into());
@@ -162,11 +154,7 @@ pub fn load_default_scene(scene: &Scene) {
     let material = SceneMaterialType::PhysicalSpecularGlossiness(material.into());
     let child = scene.read().root().create_child();
 
-    let model = StandardModel {
-      material,
-      mesh,
-      group: Default::default(),
-    };
+    let model = StandardModel::new(material, mesh);
     let model = SceneModelType::Standard(model.into());
     let model = SceneModelImpl { model, node: child };
     let _ = scene.insert_model(model.into());

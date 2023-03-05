@@ -2392,6 +2392,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "rendiation-animation"
+version = "0.1.0"
+dependencies = [
+ "rendiation-algebra",
+]
+
+[[package]]
 name = "rendiation-color"
 version = "0.1.0"
 dependencies = [
@@ -2460,6 +2467,7 @@ dependencies = [
  "log",
  "reactive",
  "rendiation-algebra",
+ "rendiation-animation",
  "rendiation-geometry",
  "rendiation-renderable-mesh",
  "rendiation-texture",
@@ -2470,8 +2478,10 @@ dependencies = [
 name = "rendiation-scene-gltf-loader"
 version = "0.0.1"
 dependencies = [
+ "bytemuck",
  "gltf",
  "rendiation-algebra",
+ "rendiation-geometry",
  "rendiation-renderable-mesh",
  "rendiation-scene-core",
  "rendiation-texture",

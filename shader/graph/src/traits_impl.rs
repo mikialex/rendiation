@@ -83,6 +83,11 @@ vertex_input_node_impl!(Vec2<f32>, VertexFormat::Float32x2);
 vertex_input_node_impl!(Vec3<f32>, VertexFormat::Float32x3);
 vertex_input_node_impl!(Vec4<f32>, VertexFormat::Float32x4);
 
+vertex_input_node_impl!(u32, VertexFormat::Uint32);
+vertex_input_node_impl!(Vec2<u32>, VertexFormat::Uint32x2);
+vertex_input_node_impl!(Vec3<u32>, VertexFormat::Uint32x3);
+vertex_input_node_impl!(Vec4<u32>, VertexFormat::Uint32x4);
+
 // these impl not use macro because not helping
 impl ShaderGraphNodeType for ShaderTexture2D {
   const TYPE: ShaderValueType = ShaderValueType::Texture {

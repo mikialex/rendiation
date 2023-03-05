@@ -1,6 +1,8 @@
 use rendiation_algebra::{Mat4, Quat};
 use rendiation_renderable_mesh::PrimitiveTopology;
-use rendiation_scene_core::{AlphaMode, AttributeSemantic};
+use rendiation_scene_core::{
+  AlphaMode, AttributeSemantic, InterpolationStyle, SceneAnimationField,
+};
 
 pub fn map_sampler(sampler: gltf::texture::Sampler) -> rendiation_texture::TextureSampler {
   rendiation_texture::TextureSampler {
@@ -103,5 +105,22 @@ pub fn map_alpha(a: gltf::material::AlphaMode) -> AlphaMode {
     gltf::material::AlphaMode::Opaque => AlphaMode::Opaque,
     gltf::material::AlphaMode::Mask => AlphaMode::Mask,
     gltf::material::AlphaMode::Blend => AlphaMode::Blend,
+  }
+}
+
+pub fn map_animation_field(a: gltf::animation::Property) -> SceneAnimationField {
+  match a {
+    gltf::animation::Property::Translation => SceneAnimationField::Position,
+    gltf::animation::Property::Rotation => SceneAnimationField::Rotation,
+    gltf::animation::Property::Scale => SceneAnimationField::Scale,
+    gltf::animation::Property::MorphTargetWeights => SceneAnimationField::MorphTargetWeights,
+  }
+}
+
+pub fn map_animation_interpolation(a: gltf::animation::Interpolation) -> InterpolationStyle {
+  match a {
+    gltf::animation::Interpolation::Linear => InterpolationStyle::Linear,
+    gltf::animation::Interpolation::Step => InterpolationStyle::Step,
+    gltf::animation::Interpolation::CubicSpline => InterpolationStyle::Cubic,
   }
 }

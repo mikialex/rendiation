@@ -25,11 +25,7 @@ impl HelperLineModel {
     let mesh: Box<dyn WebGPUSceneMesh> = Box::new(mesh.into_ref());
     let mesh = SceneMeshType::Foreign(Arc::new(mesh));
 
-    let model = StandardModel {
-      material: mat.into(),
-      mesh: mesh.into(),
-      group: Default::default(),
-    };
+    let model = StandardModel::new(mat, mesh);
     let model = SceneModelType::Standard(model.into());
     let model = SceneModelImpl {
       model,
