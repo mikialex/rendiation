@@ -13,6 +13,7 @@ incremental = {path = "../../utils/incremental"}
 log = "0.4"
 reactive = {path = "../../utils/reactive"}
 rendiation-algebra = {path = "../../math/algebra"}
+rendiation-animation = {path = "../../components/animation"}
 rendiation-geometry = {path = "../../math/geometry"}
 rendiation-renderable-mesh = {path = "../../components/mesh/renderable"}
 rendiation-texture = {path = "../../components/texture/core"}

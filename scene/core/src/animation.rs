@@ -1,9 +1,6 @@
 use crate::*;
 
-trait KeyframeTrack {
-  type Value;
-  fn sample_animation(&mut self, time: f32) -> Option<Self::Value>;
-}
+use rendiation_animation::{InterpolateAble, KeyframeTrack};
 
 pub struct SceneAnimation {
   pub channels: Vec<SceneAnimationChannel>,
@@ -112,14 +109,14 @@ pub enum SceneAnimationField {
 }
 
 #[derive(Copy, Clone)]
-enum InterpolationItem {
+pub enum InterpolationItem {
   Position(Vec3<f32>),
   Scale(Vec3<f32>),
   Quaternion(Quat<f32>),
   MorphTargetWeights(f32),
 }
 
-impl InterpolationItem {
+impl InterpolateAble for InterpolationItem {
   fn interpolate(self, other: Self, t: f32) -> Option<Self> {
     use InterpolationItem::*;
     match (self, other) {
