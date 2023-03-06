@@ -59,7 +59,23 @@ both!(FragmentSampleMaskOutput, u32);
 only_vertex!(GeometryPosition2D, Vec2<f32>);
 only_vertex!(GeometryPosition, Vec3<f32>);
 only_vertex!(GeometryNormal, Vec3<f32>);
-only_vertex!(GeometryUV, Vec2<f32>);
+
+pub type GeometryUV = GeometryUVChannel<0>;
+pub struct GeometryUVChannel<const I: usize>;
+impl<const I: usize> SemanticVertexShaderValue for GeometryUVChannel<I> {
+  type ValueType = Vec2<f32>;
+}
+
+pub struct JointIndexChannel<const I: usize>;
+impl<const I: usize> SemanticVertexShaderValue for JointIndexChannel<I> {
+  type ValueType = u32; // todo support u8 u16
+}
+
+pub struct WeightChannel<const I: usize>;
+impl<const I: usize> SemanticVertexShaderValue for WeightChannel<I> {
+  type ValueType = f32;
+}
+
 only_vertex!(GeometryColor, Vec3<f32>);
 only_vertex!(GeometryColorWithAlpha, Vec4<f32>);
 

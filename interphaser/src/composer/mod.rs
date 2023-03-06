@@ -14,8 +14,5 @@ pub use structure::*;
 mod events;
 pub use events::*;
 
-mod animation;
-pub use animation::*;
-
 mod if_changed;
 pub use if_changed::*;

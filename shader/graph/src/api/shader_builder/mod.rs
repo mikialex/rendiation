@@ -16,6 +16,7 @@ pub enum ShaderGraphBuildError {
   MissingRequiredDependency(&'static str),
   FragmentOutputSlotNotDeclared,
   FailedDowncastShaderValueFromInput,
+  SemanticNotSupported,
 }
 
 pub struct ShaderGraphRenderPipelineBuilder {

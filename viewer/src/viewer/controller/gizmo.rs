@@ -449,11 +449,7 @@ fn build_plane(root: &SceneNode, auto_scale: &AutoScale, mat: Mat4<f32>) -> Help
 
   plane.set_local_matrix(mat);
 
-  let model = StandardModel {
-    material: material.into(),
-    mesh: mesh.into(),
-    group: Default::default(),
-  };
+  let model = StandardModel::new(material, mesh);
   let model = SceneModelType::Standard(model.into());
   let model = SceneModelImpl { model, node: plane };
   let mut model = model.into_matrix_overridable();
@@ -485,11 +481,7 @@ fn build_rotator(root: &SceneNode, auto_scale: &AutoScale, mat: Mat4<f32>) -> He
 
   let torus = root.create_child();
 
-  let model = StandardModel {
-    material: material.into(),
-    mesh: mesh.into(),
-    group: Default::default(),
-  };
+  let model = StandardModel::new(material, mesh);
   let model = SceneModelType::Standard(model.into());
   let model = SceneModelImpl {
     model,

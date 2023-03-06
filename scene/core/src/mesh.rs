@@ -65,25 +65,66 @@ pub struct BufferViewRange {
 
 /// like slice, but owned, ref counted cheap clone
 #[derive(Clone)]
-pub struct TypedBufferView {
+pub struct UnTypedBufferView {
   pub buffer: GeometryBuffer,
   pub range: BufferViewRange,
 }
 
+impl UnTypedBufferView {
+  pub fn visit_slice<T: bytemuck::Pod, R>(
+    &self,
+    range: std::ops::Range<usize>,
+    visitor: impl FnOnce(&[T]) -> R,
+  ) -> Option<R> {
+    let buffer = self.buffer.read();
+    let byte_slice = buffer.buffer.as_slice();
+    let offset = self.range.offset as usize;
+    let byte_slice = if let Some(byte_size) = self.range.size {
+      let byte_size = Into::<u64>::into(byte_size) as usize;
+      byte_slice.get(offset..offset + byte_size)
+    } else {
+      byte_slice.get(offset..)
+    }?;
+
+    let cast_slice = bytemuck::try_cast_slice(byte_slice).ok()?;
+    let slice = cast_slice.get(range)?;
+    Some(visitor(slice))
+  }
+
+  pub fn get<T: bytemuck::Pod>(
+    &self,
+    sub_range: std::ops::Range<usize>,
+    index: usize,
+  ) -> Option<T> {
+    self
+      .visit_slice(sub_range, |slice| slice.get(index).cloned())
+      .flatten()
+  }
+}
+
 #[derive(Clone)]
 pub struct AttributeAccessor {
-  pub view: TypedBufferView,
+  pub view: UnTypedBufferView,
   pub start: usize,
   pub count: usize,
-  pub stride: usize,
+  pub item_size: usize,
+}
+
+impl AttributeAccessor {
+  pub fn visit_slice<T: bytemuck::Pod, R>(&self, visitor: impl FnOnce(&[T]) -> R) -> Option<R> {
+    self.view.visit_slice(self.start..self.count, visitor)
+  }
+  pub fn get<T: bytemuck::Pod>(&self, index: usize) -> Option<T> {
+    self.view.get(self.start..self.count, index)
+  }
 }
 
 impl AttributeAccessor {
   pub fn compute_gpu_buffer_range(&self) -> BufferViewRange {
     let inner_offset = self.view.range.offset;
     BufferViewRange {
-      offset: inner_offset + (self.start * self.stride) as u64,
-      size: NonZeroU64::new(inner_offset + (self.count * self.stride) as u64)
+      offset: inner_offset + (self.start * self.item_size) as u64,
+      size: NonZeroU64::new(inner_offset + (self.count * self.item_size) as u64)
         .unwrap() // safe
         .into(),
     }

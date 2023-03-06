@@ -1,4 +1,5 @@
 #![feature(type_alias_impl_trait)]
+#![feature(let_chains)]
 
 pub mod scene;
 pub use scene::*;
@@ -29,6 +30,9 @@ pub use light::*;
 
 pub mod camera;
 pub use camera::*;
+
+pub mod animation;
+pub use animation::*;
 
 mod utils;
 pub use utils::*;

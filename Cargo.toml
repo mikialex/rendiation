@@ -12,6 +12,7 @@ members = [
   "utils/storage",
   "utils/abstract-tree",
   "utils/abstract-graph",
+  "components/animation",
   "components/color",
   "components/controller",
   "components/mesh/renderable",

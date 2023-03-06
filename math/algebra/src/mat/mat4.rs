@@ -527,6 +527,10 @@ impl<T: Scalar> Mat4<T> {
 
     (position, quaternion, scale)
   }
+
+  pub fn compose(translate: Vec3<T>, quaternion: Quat<T>, scale: Vec3<T>) -> Self {
+    Mat4::translate(translate) * Mat4::from(quaternion) * Mat4::scale(scale)
+  }
 }
 
 impl<T> AsRef<Mat4<T>> for Mat4<T> {
