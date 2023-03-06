@@ -22,14 +22,26 @@ pub struct CameraGPUStore {
   // gpu: HashMap<usize, (CameraGPU, )>
 }
 
-// trait HoldSignal {
-//   type Item;
-//   fn poll_changed(&self, cx: usize) -> Poll<&Self::Item>;
-// }
+struct UpdateCell<T, S> {
+  value: T,
+  updater: S,
+}
 
-pub fn camera_gpu<'a>(
-  camera: &'a SceneCamera,
-) -> impl Stream<Item = ()> + Deref<Target = Option<usize>> {
+pub struct SuperMap<K, V, U> {
+  key: PhantomData<K>,
+  inner: HashMap<usize, (V, U)>,
+  // waker:
+  // gpu: HashMap<usize, (CameraGPU, )>
+}
+
+struct SuperMapDelta<T> {
+  id: usize,
+  delta: T,
+}
+
+pub fn camera_gpu<'a>(camera: &'a SceneCamera) -> impl Stream<Item = ()>
+// + Deref<Target = Option<usize>>
+{
   camera
     .listen_by(with_field!(SceneCameraInner => node))
     .scan(0, |v, _| {

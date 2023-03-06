@@ -22,6 +22,9 @@ pub trait IncrementalBase: Sized + Send + Sync + 'static {
   fn expand(&self, cb: impl FnMut(Self::Delta));
 }
 
+pub trait AtomicIncremental {}
+impl<T> AtomicIncremental for T where T: IncrementalBase<Delta = T> {}
+
 pub type DeltaOf<T> = <T as IncrementalBase>::Delta;
 
 pub trait ApplicableIncremental: IncrementalBase {

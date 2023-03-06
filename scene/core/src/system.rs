@@ -210,11 +210,21 @@ pub fn do_updates<T: Stream + Unpin>(stream: &mut T, mut on_update: impl FnMut(T
   }
 }
 
-// trait EarlyTerminateStreamExt: Stream {
+// trait SignalStreamExt: Stream {
 //   fn flatten_outside(self) -> FlattenOutSide<Self>
 //   where
 //     Self::Item: Stream,
 //     Self: Sized;
+// }
+
+// impl<T: Stream> SignalStreamExt for T {
+//   fn flatten_outside(self) -> FlattenOutSide<Self>
+//   where
+//     Self::Item: Stream,
+//     Self: Sized,
+//   {
+//     todo!()
+//   }
 // }
 
 // pin_project! {
