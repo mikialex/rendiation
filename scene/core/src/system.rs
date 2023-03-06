@@ -73,7 +73,7 @@ impl Stream for SceneBoxUpdater {
     let mut inner = self.inner.write().unwrap();
     let inner: &mut SceneBoxUpdaterInner = &mut inner;
     let mut changed = inner.changed.write().unwrap(); // todo deadlock
-    if let Some(index) = changed.pop() {
+    while let Some(index) = changed.pop() {
       let waker = inner.waker.get_or_insert_with(|| cx.waker().clone());
       let waker = Arc::new(ChangeWaker {
         waker: waker.clone(),
@@ -84,16 +84,22 @@ impl Stream for SceneBoxUpdater {
       let mut cx = Context::from_waker(&waker);
 
       if let Some(stream) = inner.sub_streams.get_mut(index.index()).unwrap() {
-        stream
+        if let Poll::Ready(r) = stream
           .poll_next_unpin(&mut cx)
           .map(|r| r.map(|r| BoxUpdate::Update { index, bbox: r }))
-        // todo handle poll ready none and remove the sub stream(the source has been dropped)
+        {
+          if r.is_none() {
+            inner.sub_streams[index.index()] = None;
+            continue;
+          } else {
+            return Poll::Ready(r);
+          }
+        }
       } else {
-        Poll::Pending
+        continue;
       }
-    } else {
-      Poll::Pending
     }
+    Poll::Pending
   }
 }
 
@@ -182,6 +188,8 @@ impl SceneBoundingSystem {
         }
       });
 
+    // todo , not select, if scene dropped, scene_model_handler should return poll ready none
+    // and should directly result the merged stream poll ready none
     let handler = Box::pin(futures::stream::select(
       scene_model_handler,
       updater.clone(),
