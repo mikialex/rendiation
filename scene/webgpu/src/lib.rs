@@ -1,6 +1,7 @@
 #![feature(specialization)]
 #![feature(hash_raw_entry)]
 #![feature(stmt_expr_attributes)]
+#![feature(type_alias_impl_trait)]
 #![allow(clippy::field_reassign_with_default)]
 #![allow(incomplete_features)]
 
@@ -38,6 +39,7 @@ use anymap::AnyMap;
 use bytemuck::*;
 use incremental::*;
 use linked_hash_map::LinkedHashMap;
+use reactive::*;
 use rendiation_algebra::*;
 use rendiation_geometry::*;
 use rendiation_renderable_mesh::group::MeshDrawGroup;

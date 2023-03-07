@@ -8,6 +8,7 @@ use rendiation_geometry::Box3;
 
 use futures::stream::*;
 use futures::Stream;
+use reactive::*;
 use std::future::ready;
 
 type BoxStream = impl Stream<Item = Option<Box3>> + Unpin;
@@ -15,7 +16,7 @@ pub fn build_world_box_stream(model: &SceneModel) -> BoxStream {
   let world_mat_stream = model
     .listen_by(with_field!(SceneModelImpl => node))
     .map(|node| node.visit(|node| node.listen_by(with_field!(SceneNodeDataImpl => world_matrix))))
-    .flatten();
+    .flatten_signal();
 
   let local_box_stream = model
     .listen_by(with_field!(SceneModelImpl => model))
@@ -34,7 +35,7 @@ pub fn build_world_box_stream(model: &SceneModel) -> BoxStream {
         Box::new(once(ready(None)).chain(pending())) as Box<dyn Unpin + Stream<Item = Option<Box3>>>
       }
     })
-    .flatten();
+    .flatten_signal();
 
   local_box_stream
     .zip(world_mat_stream)
@@ -206,86 +207,3 @@ impl SceneBoundingSystem {
     &self.models_bounding[handle.index()]
   }
 }
-
-pub fn do_updates<T: Stream + Unpin>(stream: &mut T, mut on_update: impl FnMut(T::Item)) {
-  // synchronously polling the stream, pull all box update.
-  // note, if the compute stream contains async mapping, the async part is actually
-  // polled inactively.
-  let waker = futures::task::noop_waker_ref();
-  let mut cx = Context::from_waker(waker);
-  while let Poll::Ready(Some(update)) = stream.poll_next_unpin(&mut cx) {
-    on_update(update)
-  }
-}
-
-// trait SignalStreamExt: Stream {
-//   fn flatten_outside(self) -> FlattenOutSide<Self>
-//   where
-//     Self::Item: Stream,
-//     Self: Sized;
-// }
-
-// impl<T: Stream> SignalStreamExt for T {
-//   fn flatten_outside(self) -> FlattenOutSide<Self>
-//   where
-//     Self::Item: Stream,
-//     Self: Sized,
-//   {
-//     todo!()
-//   }
-// }
-
-// pin_project! {
-//     /// Stream for the [`flatten`](super::StreamExt::flatten) method.
-//     #[derive(Debug)]
-//     #[must_use = "streams do nothing unless polled"]
-//     pub struct FlattenOutSide<St, U> {
-//         #[pin]
-//         stream: St,
-//         #[pin]
-//         next: Option<U>,
-//     }
-// }
-
-// impl<St, U> FlattenOutSide<St, U> {
-//   pub(super) fn new(stream: St) -> Self {
-//     Self { stream, next: None }
-//   }
-
-//   delegate_access_inner!(stream, St, ());
-// }
-
-// impl<St> FusedStream for FlattenOutSide<St, St::Item>
-// where
-//   St: FusedStream,
-//   St::Item: Stream,
-// {
-//   fn is_terminated(&self) -> bool {
-//     self.next.is_none() && self.stream.is_terminated()
-//   }
-// }
-
-// impl<St> Stream for FlattenOutSide<St, St::Item>
-// where
-//   St: Stream,
-//   St::Item: Stream,
-// {
-//   type Item = <St::Item as Stream>::Item;
-
-//   fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
-//     let mut this = self.project();
-//     Poll::Ready(loop {
-//       if let Some(s) = this.next.as_mut().as_pin_mut() {
-//         if let Some(item) = ready!(s.poll_next(cx)) {
-//           break Some(item);
-//         } else {
-//           this.next.set(None);
-//         }
-//       } else if let Some(s) = ready!(this.stream.as_mut().poll_next(cx)) {
-//         this.next.set(Some(s));
-//       } else {
-//         break None;
-//       }
-//     })
-//   }
-// }

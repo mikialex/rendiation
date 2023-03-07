@@ -2,6 +2,9 @@ use std::sync::{Arc, RwLock};
 
 use arena::{Arena, Handle};
 
+mod signal_stream;
+pub use signal_stream::*;
+
 pub struct Source<T> {
   // return if should remove
   listeners: Arena<Box<dyn Fn(&T) -> bool + Send + Sync>>,

@@ -1,7 +1,5 @@
 mod identity;
-use std::{marker::PhantomData, sync::atomic::AtomicBool};
 
-use futures::Stream;
 pub use identity::*;
 mod mapper;
 pub use mapper::*;
@@ -19,7 +17,7 @@ pub enum Partial<'a, T: IncrementalBase> {
 macro_rules! with_field {
   ($ty:ty =>$field:tt) => {
     |view, send| match view {
-      Partial::All(model) => send(model.$field.clone()),
+      Partial::All(value) => send(value.$field.clone()),
       Partial::Delta(delta) => {
         if let DeltaOf::<$ty>::$field(field) = delta {
           send(field.clone())
@@ -27,6 +25,34 @@ macro_rules! with_field {
       }
     }
   };
+}
+
+#[macro_export]
+macro_rules! with_field_change {
+  ($ty:ty =>$field:tt) => {
+    |view, send| match view {
+      Partial::All(value) => send(()),
+      Partial::Delta(delta) => {
+        if let DeltaOf::<$ty>::$field(field) = delta {
+          send(())
+        }
+      }
+    }
+  };
+}
+
+pub fn all_delta<T: Incremental>(view: Partial<T>, send: &dyn Fn(T::Delta)) {
+  match view {
+    Partial::All(value) => value.expand(send),
+    Partial::Delta(delta) => send(delta.clone()),
+  }
+}
+
+pub fn any_change<T: Incremental>(view: Partial<T>, send: &dyn Fn(())) {
+  match view {
+    Partial::All(_) => send(()),
+    Partial::Delta(_) => send(()),
+  }
 }
 
 impl<T: IncrementalBase> SceneItemRef<T> {

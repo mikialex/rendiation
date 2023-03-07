@@ -1,5 +1,3 @@
-use __core::future::ready;
-
 use crate::*;
 
 pub fn setup_viewport(cb: &CameraViewBounds, pass: &mut GPURenderPass, buffer_size: Size) {
@@ -19,68 +17,71 @@ pub fn setup_viewport(cb: &CameraViewBounds, pass: &mut GPURenderPass, buffer_si
 
 pub struct CameraGPUStore {
   inner: IdentityMapper<CameraGPU, SceneCameraInner>,
-  // gpu: HashMap<usize, (CameraGPU, )>
+  gpu: HashMap<usize, (Option<CameraGPU>, CameraGPUChangeStream)>,
 }
 
-struct UpdateCell<T, S> {
-  value: T,
-  updater: S,
-}
+impl CameraGPUStore {
+  pub fn get_camera_gpu(&mut self, camera: &SceneCamera, gpu: &GPU) -> &CameraGPU {
+    let (camera_gpu, change) = self
+      .gpu
+      .entry(camera.read().id())
+      .or_insert_with(|| (None, camera_change(camera)));
 
-pub struct SuperMap<K, V, U> {
-  key: PhantomData<K>,
-  inner: HashMap<usize, (V, U)>,
-  // waker:
-  // gpu: HashMap<usize, (CameraGPU, )>
-}
-
-struct SuperMapDelta<T> {
-  id: usize,
-  delta: T,
-}
-
-pub fn camera_gpu<'a>(camera: &'a SceneCamera) -> impl Stream<Item = ()>
-// + Deref<Target = Option<usize>>
-{
-  camera
-    .listen_by(with_field!(SceneCameraInner => node))
-    .scan(0, |v, _| {
+    let camera_gpu = camera_gpu.get_or_insert_with(|| CameraGPU::new(gpu));
+    do_updates(change, |delta| {
       //
-      async { Some(()) }
+    });
+    camera_gpu
+  }
+}
+
+type CameraGPUChangeStream = impl Stream<Item = ()>;
+
+pub fn camera_change(camera: &SceneCamera) -> CameraGPUChangeStream {
+  let camera_world_changed = camera
+    .listen_by(with_field!(SceneCameraInner => node))
+    .map(|node| {
+      node.visit(|node| node.listen_by(with_field_change!(SceneNodeDataImpl => world_matrix)))
     })
+    .flatten_signal();
+
+  let any_other_change = camera.listen_by(any_change);
+
+  futures::stream::select(any_other_change, camera_world_changed)
 }
 
 impl Default for CameraGPUStore {
   fn default() -> Self {
-    let inner = IdentityMapper::<CameraGPU, SceneCameraInner>::default().with_extra_source(
-      |source, changer, id| {
-        let weak_changed = std::sync::Arc::downgrade(changer);
+    todo!()
+    // let inner = IdentityMapper::<CameraGPU, SceneCameraInner>::default().with_extra_source(
+    //   |source, changer, id| {
+    //     let weak_changed = std::sync::Arc::downgrade(changer);
 
-        let stream_stream = source.delta_stream.filter_map(|view| {
-          if let SceneCameraInnerDelta::node(new_node) = view.delta {
-            Some(new_node.visit(|node| node.delta_stream.clone()))
-          } else {
-            None
-          }
-        });
+    //     let stream_stream = source.delta_stream.filter_map(|view| {
+    //       if let SceneCameraInnerDelta::node(new_node) = view.delta {
+    //         Some(new_node.visit(|node| node.delta_stream.clone()))
+    //       } else {
+    //         None
+    //       }
+    //     });
 
-        let stream = stream_stream.flatten();
+    //     let stream = stream_stream.flatten();
 
-        stream.on(move |_| {
-          if let Some(change) = weak_changed.upgrade() {
-            change.write().unwrap().changed.insert(id);
-            false
-          } else {
-            true
-          }
-        });
+    //     stream.on(move |_| {
+    //       if let Some(change) = weak_changed.upgrade() {
+    //         change.write().unwrap().changed.insert(id);
+    //         false
+    //       } else {
+    //         true
+    //       }
+    //     });
 
-        stream_stream.emit(&source.node.visit(|node| node.delta_stream.clone()));
+    //     stream_stream.emit(&source.node.visit(|node| node.delta_stream.clone()));
 
-        Box::new((stream_stream, stream)) as Box<dyn Any>
-      },
-    );
-    Self { inner }
+    //     Box::new((stream_stream, stream)) as Box<dyn Any>
+    //   },
+    // );
+    // Self { inner }
   }
 }
 
