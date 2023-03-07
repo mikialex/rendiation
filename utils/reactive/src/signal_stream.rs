@@ -73,7 +73,7 @@ where
     let mut this = self.project();
     Poll::Ready(loop {
       // compare to the flatten, we poll the outside stream first
-      if let Some(s) = ready!(this.stream.as_mut().poll_next(cx)) {
+      if let Poll::Ready(Some(s)) = this.stream.as_mut().poll_next(cx) {
         this.next.set(Some(s));
       } else if let Some(s) = this.next.as_mut().as_pin_mut() {
         if let Some(item) = ready!(s.poll_next(cx)) {

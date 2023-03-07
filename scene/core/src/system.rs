@@ -73,7 +73,8 @@ impl Stream for SceneBoxUpdater {
   fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
     let mut inner = self.inner.write().unwrap();
     let inner: &mut SceneBoxUpdaterInner = &mut inner;
-    let mut changed = inner.changed.write().unwrap(); // todo deadlock
+    let mut changed = inner.changed.write().unwrap();
+
     while let Some(index) = changed.pop() {
       let waker = inner.waker.get_or_insert_with(|| cx.waker().clone());
       let waker = Arc::new(ChangeWaker {
