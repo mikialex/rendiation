@@ -15,7 +15,7 @@ type BoxStream = impl Stream<Item = Option<Box3>> + Unpin;
 pub fn build_world_box_stream(model: &SceneModel) -> BoxStream {
   let world_mat_stream = model
     .listen_by(with_field!(SceneModelImpl => node))
-    .map(|node| node.visit(|node| node.listen_by(with_field!(SceneNodeDataImpl => world_matrix))))
+    .map(|node| node.listen_by(with_field!(SceneNodeDataImpl => world_matrix)))
     .flatten_signal();
 
   let local_box_stream = model
@@ -52,6 +52,26 @@ struct SceneBoxUpdaterInner {
   changed: Arc<RwLock<Vec<SceneModelHandle>>>,
   sub_streams: Vec<Option<BoxStream>>,
   waker: Option<Waker>,
+}
+
+#[derive(Default)]
+pub struct StreamVec<T> {
+  streams: Vec<Option<T>>,
+  waked: Arc<RwLock<Vec<usize>>>,
+  waker: Option<Waker>,
+}
+
+pub struct IndexedItem<T> {
+  index: usize,
+  item: T,
+}
+
+impl<T: Stream> Stream for StreamVec<T> {
+  type Item = IndexedItem<T::Item>;
+
+  fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+    todo!()
+  }
 }
 
 struct ChangeWaker {
