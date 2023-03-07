@@ -286,3 +286,44 @@ pub fn interaction_picking_mut<
     cb(m, HitReaction::Nearest(r));
   }
 }
+
+pub struct GPUResourceMap<T: GPUResourceMaintainer> {
+  phantom: PhantomData<T>,
+  gpu: HashMap<usize, (Option<T::GPU>, T::ChangeStream)>,
+}
+
+impl<T: GPUResourceMaintainer> Default for GPUResourceMap<T> {
+  fn default() -> Self {
+    Self {
+      phantom: Default::default(),
+      gpu: Default::default(),
+    }
+  }
+}
+
+impl<T: GPUResourceMaintainer> GPUResourceMap<T> {
+  pub fn check_update_gpu(&mut self, source: &T, gpu: &GPU) -> &mut T::GPU {
+    let (gpu_resource, changes) = self
+      .gpu
+      .entry(source.id())
+      .or_insert_with(|| (None, T::build_change_stream(source)));
+
+    source.update(gpu_resource, changes, gpu)
+  }
+}
+
+pub trait GPUResourceMaintainer {
+  type GPU;
+  type ChangeStream;
+
+  fn id(&self) -> usize;
+
+  fn build_change_stream(&self) -> Self::ChangeStream;
+
+  fn update<'a>(
+    &self,
+    resource: &'a mut Option<Self::GPU>,
+    changes: &mut Self::ChangeStream,
+    gpu: &GPU,
+  ) -> &'a mut Self::GPU;
+}

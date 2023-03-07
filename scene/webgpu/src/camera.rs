@@ -15,103 +15,38 @@ pub fn setup_viewport(cb: &CameraViewBounds, pass: &mut GPURenderPass, buffer_si
   )
 }
 
-pub struct CameraGPUStore {
-  inner: IdentityMapper<CameraGPU, SceneCameraInner>,
-}
+pub type CameraGPUStore = GPUResourceMap<SceneCamera>;
 
-pub struct CameraGPUStoreNext {
-  gpu: HashMap<usize, (Option<CameraGPU>, CameraGPUChangeStream)>,
-}
+impl GPUResourceMaintainer for SceneCamera {
+  type GPU = CameraGPU;
+  type ChangeStream = impl Stream<Item = ()> + Unpin;
 
-impl CameraGPUStoreNext {
-  pub fn get_camera_gpu(&mut self, camera: &SceneCamera, gpu: &GPU) -> &CameraGPU {
-    let (camera_gpu, change) = self
-      .gpu
-      .entry(camera.read().id())
-      .or_insert_with(|| (None, camera_change(camera)));
+  fn id(&self) -> usize {
+    self.read().id()
+  }
 
-    let camera_gpu = camera_gpu.get_or_insert_with(|| CameraGPU::new(gpu));
-    do_updates(change, |_| {
-      camera_gpu.update(gpu, &camera.read());
+  fn update<'a>(
+    &self,
+    resource: &'a mut Option<Self::GPU>,
+    changes: &mut Self::ChangeStream,
+    gpu: &GPU,
+  ) -> &'a mut Self::GPU {
+    let camera_gpu = resource.get_or_insert_with(|| CameraGPU::new(gpu));
+    do_updates(changes, |_| {
+      camera_gpu.update(gpu, &self.read());
     });
     camera_gpu
   }
-}
 
-type CameraGPUChangeStream = impl Stream<Item = ()> + Unpin;
+  fn build_change_stream(&self) -> Self::ChangeStream {
+    let camera_world_changed = self
+      .listen_by(with_field!(SceneCameraInner => node))
+      .map(|node| node.listen_by(with_field_change!(SceneNodeDataImpl => world_matrix)))
+      .flatten_signal();
 
-pub fn camera_change(camera: &SceneCamera) -> CameraGPUChangeStream {
-  let camera_world_changed = camera
-    .listen_by(with_field!(SceneCameraInner => node))
-    .map(|node| {
-      node.visit(|node| node.listen_by(with_field_change!(SceneNodeDataImpl => world_matrix)))
-    })
-    .flatten_signal();
+    let any_other_change = self.listen_by(any_change);
 
-  let any_other_change = camera.listen_by(any_change);
-
-  futures::stream::select(any_other_change, camera_world_changed)
-}
-
-impl Default for CameraGPUStore {
-  fn default() -> Self {
-    todo!()
-    // let inner = IdentityMapper::<CameraGPU, SceneCameraInner>::default().with_extra_source(
-    //   |source, changer, id| {
-    //     let weak_changed = std::sync::Arc::downgrade(changer);
-
-    //     let stream_stream = source.delta_stream.filter_map(|view| {
-    //       if let SceneCameraInnerDelta::node(new_node) = view.delta {
-    //         Some(new_node.visit(|node| node.delta_stream.clone()))
-    //       } else {
-    //         None
-    //       }
-    //     });
-
-    //     let stream = stream_stream.flatten();
-
-    //     stream.on(move |_| {
-    //       if let Some(change) = weak_changed.upgrade() {
-    //         change.write().unwrap().changed.insert(id);
-    //         false
-    //       } else {
-    //         true
-    //       }
-    //     });
-
-    //     stream_stream.emit(&source.node.visit(|node| node.delta_stream.clone()));
-
-    //     Box::new((stream_stream, stream)) as Box<dyn Any>
-    //   },
-    // );
-    // Self { inner }
-  }
-}
-
-impl std::ops::Deref for CameraGPUStore {
-  type Target = IdentityMapper<CameraGPU, SceneCameraInner>;
-
-  fn deref(&self) -> &Self::Target {
-    &self.inner
-  }
-}
-
-impl std::ops::DerefMut for CameraGPUStore {
-  fn deref_mut(&mut self) -> &mut Self::Target {
-    &mut self.inner
-  }
-}
-
-impl CameraGPUStore {
-  pub fn check_update_gpu(&mut self, camera: &SceneCamera, gpu: &GPU) -> &mut CameraGPU {
-    let camera = camera.read();
-    self.get_update_or_insert_with(
-      &camera,
-      |_| CameraGPU::new(gpu),
-      |camera_gpu, camera| {
-        camera_gpu.update(gpu, camera);
-      },
-    )
+    futures::stream::select(any_other_change, camera_world_changed)
   }
 }
 

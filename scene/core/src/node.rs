@@ -42,6 +42,13 @@ pub struct SceneNode {
 clone_self_incremental!(SceneNode);
 
 impl SceneNode {
+  pub fn listen_by<U: Send + Sync + 'static>(
+    &self,
+    mapper: impl Fn(Partial<SceneNodeDataImpl>, &dyn Fn(U)) + Send + Sync + 'static,
+  ) -> impl futures::Stream<Item = U> {
+    self.visit(|node| node.listen_by(mapper))
+  }
+
   pub fn from_root(nodes: SharedTreeCollection<SceneNodeData>) -> Self {
     Self {
       inner: ShareTreeNode::create_new_root(nodes, Default::default()),
