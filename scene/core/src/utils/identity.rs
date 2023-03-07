@@ -9,8 +9,8 @@ static GLOBAL_ID: AtomicUsize = AtomicUsize::new(0);
 pub struct Identity<T: IncrementalBase> {
   pub(super) id: usize,
   pub(super) inner: T,
-  pub delta_stream: EventSource<DeltaView<'static, T>>,
-  pub drop_stream: EventSource<()>,
+  pub delta_source: EventSource<DeltaView<'static, T>>,
+  pub drop_source: EventSource<()>,
 }
 
 // just pass through
@@ -54,8 +54,8 @@ impl<T: IncrementalBase> Identity<T> {
     Self {
       inner,
       id: GLOBAL_ID.fetch_add(1, Ordering::Relaxed),
-      delta_stream: Default::default(),
-      drop_stream: Default::default(),
+      delta_source: Default::default(),
+      drop_source: Default::default(),
     }
   }
 
@@ -65,7 +65,7 @@ impl<T: IncrementalBase> Identity<T> {
 
   pub fn mutate<R>(&mut self, mutator: impl FnOnce(Mutating<T>) -> R) -> R {
     let data = &mut self.inner;
-    let dispatcher = &self.delta_stream;
+    let dispatcher = &self.delta_source;
     mutator(Mutating {
       inner: data,
       collector: &mut |data, delta| {
@@ -85,7 +85,7 @@ impl<T: Default + IncrementalBase> Default for Identity<T> {
 
 impl<T: IncrementalBase> Drop for Identity<T> {
   fn drop(&mut self) {
-    self.drop_stream.emit(&());
+    self.drop_source.emit(&());
   }
 }
 

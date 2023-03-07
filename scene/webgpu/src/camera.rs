@@ -10,7 +10,7 @@ impl GPUResourceMaintainer for SceneCamera {
     self.read().id()
   }
   fn drop_source(&self) -> EventSource<()> {
-    self.read().drop_stream.clone()
+    self.read().drop_source.clone()
   }
 
   fn update<'a>(

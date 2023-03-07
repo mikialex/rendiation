@@ -7,7 +7,7 @@ use futures::{ready, stream::FusedStream, Stream, StreamExt};
 use pin_project::pin_project;
 
 pub fn do_updates<T: Stream + Unpin>(stream: &mut T, mut on_update: impl FnMut(T::Item)) {
-  // synchronously polling the stream, pull all updates out.
+  // synchronously polling the stream, pull out all updates.
   // note, if the compute stream contains async mapping, the async part is actually
   // polled inactively.
   let waker = futures::task::noop_waker_ref();
