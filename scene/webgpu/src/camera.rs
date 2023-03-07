@@ -1,20 +1,5 @@
 use crate::*;
 
-pub fn setup_viewport(cb: &CameraViewBounds, pass: &mut GPURenderPass, buffer_size: Size) {
-  let width: usize = buffer_size.width.into();
-  let width = width as f32;
-  let height: usize = buffer_size.height.into();
-  let height = height as f32;
-  pass.set_viewport(
-    width * cb.to_left,
-    height * cb.to_top,
-    width * cb.width,
-    height * cb.height,
-    0.,
-    1.,
-  )
-}
-
 pub type CameraGPUStore = GPUResourceMap<SceneCamera>;
 
 impl GPUResourceMaintainer for SceneCamera {
@@ -23,6 +8,9 @@ impl GPUResourceMaintainer for SceneCamera {
 
   fn id(&self) -> usize {
     self.read().id()
+  }
+  fn drop_source(&self) -> EventSource<()> {
+    self.read().drop_stream.clone()
   }
 
   fn update<'a>(
@@ -53,6 +41,42 @@ impl GPUResourceMaintainer for SceneCamera {
 pub struct CameraGPU {
   pub enable_jitter: bool,
   pub ubo: UniformBufferDataView<CameraGPUTransform>,
+}
+
+impl CameraGPU {
+  pub fn inject_uniforms(
+    &self,
+    builder: &mut ShaderGraphRenderPipelineBuilder,
+  ) -> UniformNodePreparer<CameraGPUTransform> {
+    builder
+      .uniform_by(&self.ubo, SB::Camera)
+      .using_both(builder, |r, camera| {
+        let camera = camera.expand();
+        r.reg::<CameraViewMatrix>(camera.view);
+        r.reg::<CameraProjectionMatrix>(camera.projection);
+        r.reg::<CameraProjectionInverseMatrix>(camera.projection_inv);
+        r.reg::<CameraWorldMatrix>(camera.world);
+        r.reg::<CameraViewProjectionMatrix>(camera.view_projection);
+        r.reg::<CameraViewProjectionInverseMatrix>(camera.view_projection_inv);
+      })
+  }
+
+  pub fn update(&mut self, gpu: &GPU, camera: &SceneCameraInner) -> &mut Self {
+    self
+      .ubo
+      .resource
+      .mutate(|uniform| uniform.update_by_scene_camera(camera));
+
+    self.ubo.resource.upload(&gpu.queue);
+    self
+  }
+
+  pub fn new(gpu: &GPU) -> Self {
+    Self {
+      enable_jitter: false,
+      ubo: create_uniform(CameraGPUTransform::default(), gpu),
+    }
+  }
 }
 
 impl ShaderHashProvider for CameraGPU {
@@ -162,38 +186,17 @@ impl CameraGPUTransform {
   }
 }
 
-impl CameraGPU {
-  pub fn inject_uniforms(
-    &self,
-    builder: &mut ShaderGraphRenderPipelineBuilder,
-  ) -> UniformNodePreparer<CameraGPUTransform> {
-    builder
-      .uniform_by(&self.ubo, SB::Camera)
-      .using_both(builder, |r, camera| {
-        let camera = camera.expand();
-        r.reg::<CameraViewMatrix>(camera.view);
-        r.reg::<CameraProjectionMatrix>(camera.projection);
-        r.reg::<CameraProjectionInverseMatrix>(camera.projection_inv);
-        r.reg::<CameraWorldMatrix>(camera.world);
-        r.reg::<CameraViewProjectionMatrix>(camera.view_projection);
-        r.reg::<CameraViewProjectionInverseMatrix>(camera.view_projection_inv);
-      })
-  }
-
-  pub fn update(&mut self, gpu: &GPU, camera: &SceneCameraInner) -> &mut Self {
-    self
-      .ubo
-      .resource
-      .mutate(|uniform| uniform.update_by_scene_camera(camera));
-
-    self.ubo.resource.upload(&gpu.queue);
-    self
-  }
-
-  pub fn new(gpu: &GPU) -> Self {
-    Self {
-      enable_jitter: false,
-      ubo: create_uniform(CameraGPUTransform::default(), gpu),
-    }
-  }
+pub fn setup_viewport(cb: &CameraViewBounds, pass: &mut GPURenderPass, buffer_size: Size) {
+  let width: usize = buffer_size.width.into();
+  let width = width as f32;
+  let height: usize = buffer_size.height.into();
+  let height = height as f32;
+  pass.set_viewport(
+    width * cb.to_left,
+    height * cb.to_top,
+    width * cb.width,
+    height * cb.height,
+    0.,
+    1.,
+  )
 }
