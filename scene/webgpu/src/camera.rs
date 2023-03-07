@@ -17,10 +17,13 @@ pub fn setup_viewport(cb: &CameraViewBounds, pass: &mut GPURenderPass, buffer_si
 
 pub struct CameraGPUStore {
   inner: IdentityMapper<CameraGPU, SceneCameraInner>,
+}
+
+pub struct CameraGPUStoreNext {
   gpu: HashMap<usize, (Option<CameraGPU>, CameraGPUChangeStream)>,
 }
 
-impl CameraGPUStore {
+impl CameraGPUStoreNext {
   pub fn get_camera_gpu(&mut self, camera: &SceneCamera, gpu: &GPU) -> &CameraGPU {
     let (camera_gpu, change) = self
       .gpu
@@ -28,14 +31,14 @@ impl CameraGPUStore {
       .or_insert_with(|| (None, camera_change(camera)));
 
     let camera_gpu = camera_gpu.get_or_insert_with(|| CameraGPU::new(gpu));
-    do_updates(change, |delta| {
-      //
+    do_updates(change, |_| {
+      camera_gpu.update(gpu, &camera.read());
     });
     camera_gpu
   }
 }
 
-type CameraGPUChangeStream = impl Stream<Item = ()>;
+type CameraGPUChangeStream = impl Stream<Item = ()> + Unpin;
 
 pub fn camera_change(camera: &SceneCamera) -> CameraGPUChangeStream {
   let camera_world_changed = camera
