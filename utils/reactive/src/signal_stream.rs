@@ -3,7 +3,11 @@ use std::{
   task::{Context, Poll},
 };
 
-use futures::{ready, stream::FusedStream, Stream, StreamExt};
+use futures::{
+  ready,
+  stream::{once, FusedStream},
+  Stream, StreamExt,
+};
 use pin_project::pin_project;
 
 use crate::MergeIntoStreamVec;
@@ -17,6 +21,10 @@ pub fn do_updates<T: Stream + Unpin>(stream: &mut T, mut on_update: impl FnMut(T
   while let Poll::Ready(Some(update)) = stream.poll_next_unpin(&mut cx) {
     on_update(update)
   }
+}
+
+pub fn once_forever_pending<T>(value: T) -> impl Stream<Item = T> + Unpin {
+  once(core::future::ready(value)).chain(futures::stream::pending())
 }
 
 pub trait SignalStreamExt: Stream {

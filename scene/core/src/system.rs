@@ -4,7 +4,6 @@ use rendiation_geometry::Box3;
 use futures::stream::*;
 use futures::Stream;
 use reactive::*;
-use std::future::ready;
 
 #[allow(unused)]
 pub struct SceneBoundingSystem {
@@ -29,19 +28,13 @@ impl SceneBoundingSystem {
       let local_box_stream = model
         .listen_by(with_field!(SceneModelImpl => model))
         .map(|model| match model {
-          SceneModelType::Standard(model) => Some(model),
-          SceneModelType::Foreign(_) => None,
-        })
-        .map(|model| {
-          if let Some(model) = model {
-            Box::new(
-              model
-                .listen_by(with_field!(StandardModel => mesh))
-                .map(|mesh| mesh.compute_local_bound()),
-            )
-          } else {
-            Box::new(once(ready(None)).chain(pending()))
-              as Box<dyn Unpin + Stream<Item = Option<Box3>>>
+          SceneModelType::Standard(model) => Box::new(
+            model
+              .listen_by(with_field!(StandardModel => mesh))
+              .map(|mesh| mesh.compute_local_bound()),
+          ),
+          SceneModelType::Foreign(_) => {
+            Box::new(once_forever_pending(None)) as Box<dyn Unpin + Stream<Item = Option<Box3>>>
           }
         })
         .flatten_signal();
@@ -51,6 +44,7 @@ impl SceneBoundingSystem {
         .map(|(local_box, world_mat)| local_box.map(|b| b.apply_matrix_into(world_mat)))
     }
 
+    use arena::ArenaDelta::*;
     let handler = scene
       .listen_by(|view, send| match view {
         // simply trigger all model add deltas
@@ -63,13 +57,9 @@ impl SceneBoundingSystem {
         }
       })
       .map(|model_delta| match model_delta {
-        arena::ArenaDelta::Mutate((new, handle)) => {
-          (handle.index(), Some(build_world_box_stream(&new)))
-        }
-        arena::ArenaDelta::Insert((new, handle)) => {
-          (handle.index(), Some(build_world_box_stream(&new)))
-        }
-        arena::ArenaDelta::Remove(handle) => (handle.index(), None),
+        Mutate((new, handle)) => (handle.index(), Some(build_world_box_stream(&new))),
+        Insert((new, handle)) => (handle.index(), Some(build_world_box_stream(&new))),
+        Remove(handle) => (handle.index(), None),
       })
       .flatten_into_vec_stream_signal();
 
