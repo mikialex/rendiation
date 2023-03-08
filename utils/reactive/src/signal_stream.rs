@@ -6,6 +6,8 @@ use std::{
 use futures::{ready, stream::FusedStream, Stream, StreamExt};
 use pin_project::pin_project;
 
+use crate::MergeIntoStreamVec;
+
 pub fn do_updates<T: Stream + Unpin>(stream: &mut T, mut on_update: impl FnMut(T::Item)) {
   // synchronously polling the stream, pull out all updates.
   // note, if the compute stream contains async mapping, the async part is actually
@@ -22,6 +24,11 @@ pub trait SignalStreamExt: Stream {
   where
     Self::Item: Stream,
     Self: Sized;
+
+  fn flatten_into_vec_stream_signal<T>(self) -> MergeIntoStreamVec<Self, T>
+  where
+    Self: Stream<Item = (usize, Option<T>)>,
+    Self: Sized;
 }
 
 impl<T: Stream> SignalStreamExt for T {
@@ -31,6 +38,14 @@ impl<T: Stream> SignalStreamExt for T {
     Self: Sized,
   {
     FlattenSignalStream::new(self)
+  }
+
+  fn flatten_into_vec_stream_signal<X>(self) -> MergeIntoStreamVec<Self, X>
+  where
+    Self: Stream<Item = (usize, Option<X>)>,
+    Self: Sized,
+  {
+    MergeIntoStreamVec::new(self)
   }
 }
 

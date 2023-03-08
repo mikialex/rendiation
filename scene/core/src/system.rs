@@ -54,26 +54,6 @@ struct SceneBoxUpdaterInner {
   waker: Option<Waker>,
 }
 
-#[derive(Default)]
-pub struct StreamVec<T> {
-  streams: Vec<Option<T>>,
-  waked: Arc<RwLock<Vec<usize>>>,
-  waker: Option<Waker>,
-}
-
-pub struct IndexedItem<T> {
-  index: usize,
-  item: T,
-}
-
-impl<T: Stream> Stream for StreamVec<T> {
-  type Item = IndexedItem<T::Item>;
-
-  fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
-    todo!()
-  }
-}
-
 struct ChangeWaker {
   index: SceneModelHandle,
   changed: Arc<RwLock<Vec<SceneModelHandle>>>,
