@@ -94,7 +94,7 @@ impl<T: 'static, U: Incremental> IdentityMapper<T, U> {
       new_created = true;
 
       let weak_changed = Arc::downgrade(&self.changes);
-      source.delta_stream.on(move |_| {
+      source.delta_source.on(move |_| {
         if let Some(change) = weak_changed.upgrade() {
           change.write().unwrap().changed.insert(id);
           false
@@ -110,7 +110,7 @@ impl<T: 'static, U: Incremental> IdentityMapper<T, U> {
       };
 
       let weak_to_remove = Arc::downgrade(&self.changes);
-      source.drop_stream.on(move |_| {
+      source.drop_source.on(move |_| {
         if let Some(to_remove) = weak_to_remove.upgrade() {
           to_remove.write().unwrap().to_remove.push(id);
           false

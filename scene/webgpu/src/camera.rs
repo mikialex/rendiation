@@ -1,88 +1,82 @@
 use crate::*;
 
-pub fn setup_viewport(cb: &CameraViewBounds, pass: &mut GPURenderPass, buffer_size: Size) {
-  let width: usize = buffer_size.width.into();
-  let width = width as f32;
-  let height: usize = buffer_size.height.into();
-  let height = height as f32;
-  pass.set_viewport(
-    width * cb.to_left,
-    height * cb.to_top,
-    width * cb.width,
-    height * cb.height,
-    0.,
-    1.,
-  )
-}
+pub type CameraGPUStore = GPUResourceMap<SceneCamera>;
 
-pub struct CameraGPUStore {
-  inner: IdentityMapper<CameraGPU, SceneCameraInner>,
-}
+impl GPUResourceMaintainer for SceneCamera {
+  type GPU = CameraGPU;
+  type ChangeStream = impl Stream<Item = ()> + Unpin;
 
-impl Default for CameraGPUStore {
-  fn default() -> Self {
-    let inner = IdentityMapper::<CameraGPU, SceneCameraInner>::default().with_extra_source(
-      |source, changer, id| {
-        let weak_changed = std::sync::Arc::downgrade(changer);
-
-        let stream_stream = source.delta_stream.filter_map(|view| {
-          if let SceneCameraInnerDelta::node(new_node) = view.delta {
-            Some(new_node.visit(|node| node.delta_stream.clone()))
-          } else {
-            None
-          }
-        });
-
-        let stream = stream_stream.flatten();
-
-        stream.on(move |_| {
-          if let Some(change) = weak_changed.upgrade() {
-            change.write().unwrap().changed.insert(id);
-            false
-          } else {
-            true
-          }
-        });
-
-        stream_stream.emit(&source.node.visit(|node| node.delta_stream.clone()));
-
-        Box::new((stream_stream, stream)) as Box<dyn Any>
-      },
-    );
-    Self { inner }
+  fn id(&self) -> usize {
+    self.read().id()
   }
-}
-
-impl std::ops::Deref for CameraGPUStore {
-  type Target = IdentityMapper<CameraGPU, SceneCameraInner>;
-
-  fn deref(&self) -> &Self::Target {
-    &self.inner
+  fn drop_source(&self) -> EventSource<()> {
+    self.read().drop_source.clone()
   }
-}
 
-impl std::ops::DerefMut for CameraGPUStore {
-  fn deref_mut(&mut self) -> &mut Self::Target {
-    &mut self.inner
+  fn update<'a>(
+    &self,
+    resource: &'a mut Option<Self::GPU>,
+    changes: &mut Self::ChangeStream,
+    gpu: &GPU,
+  ) -> &'a mut Self::GPU {
+    let camera_gpu = resource.get_or_insert_with(|| CameraGPU::new(gpu));
+    do_updates(changes, |_| {
+      camera_gpu.update(gpu, &self.read());
+    });
+    camera_gpu
   }
-}
 
-impl CameraGPUStore {
-  pub fn check_update_gpu(&mut self, camera: &SceneCamera, gpu: &GPU) -> &mut CameraGPU {
-    let camera = camera.read();
-    self.get_update_or_insert_with(
-      &camera,
-      |_| CameraGPU::new(gpu),
-      |camera_gpu, camera| {
-        camera_gpu.update(gpu, camera);
-      },
-    )
+  fn build_change_stream(&self) -> Self::ChangeStream {
+    let camera_world_changed = self
+      .listen_by(with_field!(SceneCameraInner => node))
+      .map(|node| node.listen_by(with_field_change!(SceneNodeDataImpl => world_matrix)))
+      .flatten_signal();
+
+    let any_other_change = self.listen_by(any_change);
+
+    futures::stream::select(any_other_change, camera_world_changed)
   }
 }
 
 pub struct CameraGPU {
   pub enable_jitter: bool,
   pub ubo: UniformBufferDataView<CameraGPUTransform>,
+}
+
+impl CameraGPU {
+  pub fn inject_uniforms(
+    &self,
+    builder: &mut ShaderGraphRenderPipelineBuilder,
+  ) -> UniformNodePreparer<CameraGPUTransform> {
+    builder
+      .uniform_by(&self.ubo, SB::Camera)
+      .using_both(builder, |r, camera| {
+        let camera = camera.expand();
+        r.reg::<CameraViewMatrix>(camera.view);
+        r.reg::<CameraProjectionMatrix>(camera.projection);
+        r.reg::<CameraProjectionInverseMatrix>(camera.projection_inv);
+        r.reg::<CameraWorldMatrix>(camera.world);
+        r.reg::<CameraViewProjectionMatrix>(camera.view_projection);
+        r.reg::<CameraViewProjectionInverseMatrix>(camera.view_projection_inv);
+      })
+  }
+
+  pub fn update(&mut self, gpu: &GPU, camera: &SceneCameraInner) -> &mut Self {
+    self
+      .ubo
+      .resource
+      .mutate(|uniform| uniform.update_by_scene_camera(camera));
+
+    self.ubo.resource.upload(&gpu.queue);
+    self
+  }
+
+  pub fn new(gpu: &GPU) -> Self {
+    Self {
+      enable_jitter: false,
+      ubo: create_uniform(CameraGPUTransform::default(), gpu),
+    }
+  }
 }
 
 impl ShaderHashProvider for CameraGPU {
@@ -192,38 +186,17 @@ impl CameraGPUTransform {
   }
 }
 
-impl CameraGPU {
-  pub fn inject_uniforms(
-    &self,
-    builder: &mut ShaderGraphRenderPipelineBuilder,
-  ) -> UniformNodePreparer<CameraGPUTransform> {
-    builder
-      .uniform_by(&self.ubo, SB::Camera)
-      .using_both(builder, |r, camera| {
-        let camera = camera.expand();
-        r.reg::<CameraViewMatrix>(camera.view);
-        r.reg::<CameraProjectionMatrix>(camera.projection);
-        r.reg::<CameraProjectionInverseMatrix>(camera.projection_inv);
-        r.reg::<CameraWorldMatrix>(camera.world);
-        r.reg::<CameraViewProjectionMatrix>(camera.view_projection);
-        r.reg::<CameraViewProjectionInverseMatrix>(camera.view_projection_inv);
-      })
-  }
-
-  pub fn update(&mut self, gpu: &GPU, camera: &SceneCameraInner) -> &mut Self {
-    self
-      .ubo
-      .resource
-      .mutate(|uniform| uniform.update_by_scene_camera(camera));
-
-    self.ubo.resource.upload(&gpu.queue);
-    self
-  }
-
-  pub fn new(gpu: &GPU) -> Self {
-    Self {
-      enable_jitter: false,
-      ubo: create_uniform(CameraGPUTransform::default(), gpu),
-    }
-  }
+pub fn setup_viewport(cb: &CameraViewBounds, pass: &mut GPURenderPass, buffer_size: Size) {
+  let width: usize = buffer_size.width.into();
+  let width = width as f32;
+  let height: usize = buffer_size.height.into();
+  let height = height as f32;
+  pass.set_viewport(
+    width * cb.to_left,
+    height * cb.to_top,
+    width * cb.width,
+    height * cb.height,
+    0.,
+    1.,
+  )
 }

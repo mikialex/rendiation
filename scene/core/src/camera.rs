@@ -5,18 +5,6 @@ use crate::*;
 
 pub type SceneCamera = SceneItemRef<SceneCameraInner>;
 
-impl HyperRayCaster<f32, Vec3<f32>, Vec2<f32>> for SceneCamera {
-  fn cast_ray(&self, normalized_position: Vec2<f32>) -> HyperRay<f32, Vec3<f32>> {
-    self.visit(|camera| {
-      let camera_world_mat = camera.node.get_world_matrix();
-      camera
-        .projection
-        .cast_ray(normalized_position)
-        .apply_matrix_into(camera_world_mat)
-    })
-  }
-}
-
 impl SceneCamera {
   pub fn create_camera(
     p: impl ResizableProjection<f32> + RayCaster3<f32> + DynIncremental + 'static,
@@ -49,6 +37,18 @@ impl SceneCamera {
   /// normalized_position: -1 to 1
   pub fn cast_world_ray(&self, normalized_position: Vec2<f32>) -> Ray3<f32> {
     self.cast_ray(normalized_position)
+  }
+}
+
+impl HyperRayCaster<f32, Vec3<f32>, Vec2<f32>> for SceneCamera {
+  fn cast_ray(&self, normalized_position: Vec2<f32>) -> HyperRay<f32, Vec3<f32>> {
+    self.visit(|camera| {
+      let camera_world_mat = camera.node.get_world_matrix();
+      camera
+        .projection
+        .cast_ray(normalized_position)
+        .apply_matrix_into(camera_world_mat)
+    })
   }
 }
 

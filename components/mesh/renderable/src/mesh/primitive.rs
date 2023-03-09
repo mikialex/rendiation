@@ -153,6 +153,28 @@ pub enum PrimitiveTopology {
   TriangleStrip = 4,
 }
 
+impl PrimitiveTopology {
+  pub fn stride(&self) -> usize {
+    match self {
+      PrimitiveTopology::PointList => 1,
+      PrimitiveTopology::LineList => 2,
+      PrimitiveTopology::LineStrip => 2,
+      PrimitiveTopology::TriangleList => 3,
+      PrimitiveTopology::TriangleStrip => 3,
+    }
+  }
+
+  pub fn step(&self) -> usize {
+    match self {
+      PrimitiveTopology::PointList => 1,
+      PrimitiveTopology::LineList => 2,
+      PrimitiveTopology::LineStrip => 1,
+      PrimitiveTopology::TriangleList => 3,
+      PrimitiveTopology::TriangleStrip => 1,
+    }
+  }
+}
+
 incremental::clone_self_incremental!(PrimitiveTopology);
 
 pub struct PointList;

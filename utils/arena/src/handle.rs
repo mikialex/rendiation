@@ -64,6 +64,10 @@ impl<T> Handle<T> {
   pub fn into_raw_parts(self) -> (usize, u64) {
     (self.handle, self.generation)
   }
+
+  pub fn index(self) -> usize {
+    self.handle
+  }
 }
 
 // https://stackoverflow.com/questions/31371027/copy-trait-and-phantomdata-should-this-really-move

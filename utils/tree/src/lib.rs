@@ -7,13 +7,16 @@ use storage::{generational::Arena, *};
 mod share;
 pub use share::*;
 
+mod update;
+pub use update::*;
+
 mod abst;
 mod inc;
 pub use inc::*;
 
 #[derive(Default)]
 pub struct SharedTreeCollection<T> {
-  pub inner: Arc<RwLock<TreeCollection<T>>>, // todo pub(crate)
+  pub(crate) inner: Arc<RwLock<TreeCollection<T>>>,
 }
 
 impl<T> Clone for SharedTreeCollection<T> {
