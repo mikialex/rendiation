@@ -1,3 +1,5 @@
+use incremental::IncrementalBase;
+
 use crate::*;
 
 // todo impl fine-grained update
@@ -15,4 +17,8 @@ impl<T: HierarchyDepend> SharedTreeCollection<T> {
       node_data.update_by_parent(parent)
     });
   }
+}
+
+pub trait IncrementalHierarchyDepend: HierarchyDepend + IncrementalBase {
+  fn check_delta_affects_hierarchy(delta: &Self::Delta) -> bool;
 }

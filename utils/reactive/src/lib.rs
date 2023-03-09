@@ -4,8 +4,12 @@ use arena::{Arena, Handle};
 
 mod signal_stream;
 pub use signal_stream::*;
+
 mod vec;
 pub use vec::*;
+
+mod channel;
+pub use channel::*;
 
 pub struct Source<T> {
   // return if should remove
