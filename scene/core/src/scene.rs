@@ -1,7 +1,7 @@
 use crate::*;
 
 use arena::{Arena, ArenaDelta, Handle};
-use tree::SharedTreeCollection;
+use tree::{HierarchyDepend, SharedTreeCollection};
 
 pub type SceneLightHandle = Handle<SceneLight>;
 pub type SceneModelHandle = Handle<SceneModel>;
@@ -87,23 +87,23 @@ impl SceneInner {
   }
 
   pub fn maintain(&self) {
-    let mut nodes = self.nodes.inner.write().unwrap();
-    let root = self.root.raw_handle();
-    nodes.traverse_mut_pair(root, |parent, this| {
-      let parent = parent.data();
-      let node_data = this.data_mut();
-      node_data.mutate(|mut node_data| {
-        let new_net = node_data.visible && parent.net_visible;
-        if new_net != node_data.net_visible {
-          node_data.modify(SceneNodeDataImplDelta::net_visible(new_net))
+    self.nodes.update(self.root.raw_handle());
+  }
+}
+
+impl HierarchyDepend for SceneNodeData {
+  fn update_by_parent(&mut self, parent: &Self) {
+    self.mutate(|mut node_data| {
+      let new_net = node_data.visible && parent.net_visible;
+      if new_net != node_data.net_visible {
+        node_data.modify(SceneNodeDataImplDelta::net_visible(new_net))
+      }
+      if new_net {
+        let new_world_matrix = parent.world_matrix * node_data.local_matrix;
+        if new_world_matrix != node_data.world_matrix {
+          node_data.modify(SceneNodeDataImplDelta::world_matrix(new_world_matrix))
         }
-        if new_net {
-          let new_world_matrix = parent.world_matrix * node_data.local_matrix;
-          if new_world_matrix != node_data.world_matrix {
-            node_data.modify(SceneNodeDataImplDelta::world_matrix(new_world_matrix))
-          }
-        }
-      });
+      }
     });
   }
 }

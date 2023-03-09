@@ -32,6 +32,14 @@ impl<T: Copy> IndexGet for Vec<T> {
   }
 }
 
+impl<'a, T: Copy> IndexGet for &'a [T] {
+  type Output = T;
+
+  fn index_get(&self, key: usize) -> Option<Self::Output> {
+    self.get(key).copied()
+  }
+}
+
 /// Abstract over containers that could get size.
 pub trait CollectionSize {
   fn len(&self) -> usize;

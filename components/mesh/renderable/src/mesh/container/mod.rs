@@ -27,7 +27,9 @@ pub trait AbstractMesh {
   /// ## Safety
   ///
   /// bound checking is skipped
-  unsafe fn primitive_at_unchecked(&self, primitive_index: usize) -> Self::Primitive;
+  unsafe fn primitive_at_unchecked(&self, primitive_index: usize) -> Self::Primitive {
+    self.primitive_at(primitive_index).unwrap_unchecked() // the default impl relies on compiler optimization!
+  }
 
   fn primitive_iter(&self) -> AbstractMeshIter<'_, Self>
   where

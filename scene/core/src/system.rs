@@ -19,7 +19,7 @@ impl SceneBoundingSystem {
   pub fn new(scene: &Scene) -> Self {
     type BoxStream = impl Stream<Item = Option<Box3>> + Unpin;
 
-    pub fn build_world_box_stream(model: &SceneModel) -> BoxStream {
+    fn build_world_box_stream(model: &SceneModel) -> BoxStream {
       let world_mat_stream = model
         .listen_by(with_field!(SceneModelImpl => node))
         .map(|node| node.listen_by(with_field!(SceneNodeDataImpl => world_matrix)))
@@ -31,7 +31,8 @@ impl SceneBoundingSystem {
           SceneModelType::Standard(model) => Box::new(
             model
               .listen_by(with_field!(StandardModel => mesh))
-              .map(|mesh| mesh.compute_local_bound()),
+              .map(|mesh| mesh.build_local_bound_stream())
+              .flatten_signal(),
           ),
           SceneModelType::Foreign(_) => {
             Box::new(once_forever_pending(None)) as Box<dyn Unpin + Stream<Item = Option<Box3>>>
@@ -40,7 +41,7 @@ impl SceneBoundingSystem {
         .flatten_signal();
 
       local_box_stream
-        .zip(world_mat_stream)
+        .zip_signal(world_mat_stream)
         .map(|(local_box, world_mat)| local_box.map(|b| b.apply_matrix_into(world_mat)))
     }
 
