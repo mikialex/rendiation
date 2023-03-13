@@ -22,7 +22,7 @@ impl<T> Stream for Receiver<T> {
     if let Ok(mut inner) = self.inner.lock() {
       inner.1 = cx.waker().clone().into();
       if inner.0.is_some() {
-        // maybe check some first will avoid unnecessary move
+        // maybe check is_some first will avoid unnecessary move
         let value = inner.0.take().unwrap();
         Poll::Ready(Some(value))
         // check if sender has dropped
@@ -75,8 +75,6 @@ impl<T> std::error::Error for NoReceiverError<T> {}
 
 impl<T> Updater<T> {
   /// Updates the latest value in this channel, to be accessed the next time
-  /// [`Receiver::latest`](struct.Receiver.html#method.latest) or
-  /// [`Receiver::latest_mut`](struct.Receiver.html#method.latest_mut) is called.
   ///
   /// This call will fail with [`NoReceiverError`](struct.NoReceiverError.html) if the receiver
   /// has been dropped.

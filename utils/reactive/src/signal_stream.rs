@@ -181,14 +181,12 @@ where
       Poll::Ready(None) | Poll::Pending => {}
     }
 
-    if this.queued2.is_none() {
-      match this.stream2.as_mut().poll_next(cx) {
-        Poll::Ready(Some(item2)) => {
-          *this.queued2 = Some(item2);
-          *this.queued2_dirty = true;
-        }
-        Poll::Ready(None) | Poll::Pending => {}
+    match this.stream2.as_mut().poll_next(cx) {
+      Poll::Ready(Some(item2)) => {
+        *this.queued2 = Some(item2);
+        *this.queued2_dirty = true;
       }
+      Poll::Ready(None) | Poll::Pending => {}
     }
 
     if let (Some(queued1), Some(queued2)) = (this.queued1, this.queued2) {
