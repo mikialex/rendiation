@@ -1,40 +1,43 @@
 use crate::*;
 
-pub type CameraGPUStore = GPUResourceMap<SceneCamera>;
+pub type CameraGPUStore = ReactiveMap<SceneCamera>;
 
-impl GPUResourceMaintainer for SceneCamera {
-  type GPU = CameraGPU;
+impl ReactiveMapping for SceneCamera {
+  type Mapped = CameraGPU;
   type ChangeStream = impl Stream<Item = ()> + Unpin;
+  type DropFuture = impl Future<Output = ()> + Unpin;
+  type Ctx = GPU;
 
   fn id(&self) -> usize {
     self.read().id()
   }
-  fn drop_source(&self) -> EventSource<()> {
-    self.read().drop_source.clone()
+
+  fn build(&self, gpu: &Self::Ctx) -> (Self::Mapped, Self::ChangeStream, Self::DropFuture) {
+    let mapped = CameraGPU::new(gpu);
+    let changes = {
+      let camera_world_changed = self
+        .listen_by(with_field!(SceneCameraInner => node))
+        .map(|node| node.listen_by(with_field_change!(SceneNodeDataImpl => world_matrix)))
+        .flatten_signal();
+
+      let any_other_change = self.listen_by(any_change);
+
+      futures::stream::select(any_other_change, camera_world_changed)
+    };
+    let drop = self.create_drop();
+
+    (mapped, changes, drop)
   }
 
   fn update<'a>(
     &self,
-    resource: &'a mut Option<Self::GPU>,
+    camera_gpu: &'a mut Self::Mapped,
     changes: &mut Self::ChangeStream,
     gpu: &GPU,
-  ) -> &'a mut Self::GPU {
-    let camera_gpu = resource.get_or_insert_with(|| CameraGPU::new(gpu));
+  ) {
     do_updates(changes, |_| {
       camera_gpu.update(gpu, &self.read());
     });
-    camera_gpu
-  }
-
-  fn build_change_stream(&self) -> Self::ChangeStream {
-    let camera_world_changed = self
-      .listen_by(with_field!(SceneCameraInner => node))
-      .map(|node| node.listen_by(with_field_change!(SceneNodeDataImpl => world_matrix)))
-      .flatten_signal();
-
-    let any_other_change = self.listen_by(any_change);
-
-    futures::stream::select(any_other_change, camera_world_changed)
   }
 }
 

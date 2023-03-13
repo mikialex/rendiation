@@ -5,6 +5,8 @@ pub use mapper::*;
 mod scene_item;
 pub use scene_item::*;
 
+use futures::Future;
+
 use crate::*;
 
 pub enum Partial<'a, T: IncrementalBase> {
@@ -62,6 +64,11 @@ impl<T: IncrementalBase> SceneItemRef<T> {
     let inner = self.read();
     inner.listen_by(mapper)
   }
+
+  pub fn create_drop(&self) -> impl Future<Output = ()> {
+    let inner = self.read();
+    inner.create_drop()
+  }
 }
 
 impl<T: IncrementalBase> Identity<T> {
@@ -86,5 +93,17 @@ impl<T: IncrementalBase> Identity<T> {
 
     // todo impl single value channel, and history compactor (synchronous version)
     receiver
+  }
+
+  // todo, how to handle too many drop? in fact we never cleanup them
+  pub fn create_drop(&self) -> impl Future<Output = ()> {
+    let (sender, receiver) = futures::channel::oneshot::channel::<()>();
+    self.drop_source.on(move |_| {
+      todo!();
+      // sender.send(()).ok();
+      true
+    });
+    use futures::FutureExt;
+    receiver.map(|r| ())
   }
 }

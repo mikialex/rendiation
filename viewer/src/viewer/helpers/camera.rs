@@ -92,8 +92,32 @@ fn build_debug_line_in_camera_space(project_mat: Mat4<f32>) -> HelperLineMesh {
 }
 
 // pub struct CameraHelperSystem {
-//   //
+//   helpers: HashMap<usize, (CameraHelper, ChangeStream)>,
 // }
+
+// impl CameraHelperSystem {
+//   pub fn get_with_update(&mut self, source: &SceneCamera) -> &CameraHelper {
+//     let id = source.id();
+//     let (mapped, changes) = self.gpu.entry(id).or_insert_with(|| {
+//       let weak_to_remove = std::sync::Arc::downgrade(&self.to_remove);
+//       source.drop_source().on(move |_| {
+//         if let Some(to_remove) = weak_to_remove.upgrade() {
+//           to_remove.write().unwrap().push(id);
+//           false
+//         } else {
+//           true
+//         }
+//       });
+
+//       (None, T::build_change_stream(source))
+//     });
+
+//     source.update(gpu_resource, changes, gpu)
+//   }
+// }
+
+// struct CameraProjectionChange;
+// type ChangeStream = impl Stream<Item = CameraProjectionChange>;
 
 // impl CameraHelperSystem {
 //   pub fn new(scene: &Scene) -> Self {

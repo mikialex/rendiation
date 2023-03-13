@@ -287,57 +287,58 @@ pub fn interaction_picking_mut<
   }
 }
 
-pub struct GPUResourceMap<T: GPUResourceMaintainer> {
+pub struct ReactiveMap<T: ReactiveMapping> {
   phantom: PhantomData<T>,
-  gpu: HashMap<usize, (Option<T::GPU>, T::ChangeStream)>,
-  /// I believe actually we need async drop here??
-  to_remove: std::sync::Arc<std::sync::RwLock<Vec<usize>>>,
+  mapping: HashMap<usize, (T::Mapped, T::ChangeStream, T::DropFuture)>,
+  // drop_futures:
 }
 
-impl<T: GPUResourceMaintainer> Default for GPUResourceMap<T> {
+impl<T: ReactiveMapping> Default for ReactiveMap<T> {
   fn default() -> Self {
     Self {
       phantom: Default::default(),
-      gpu: Default::default(),
-      to_remove: Default::default(),
+      mapping: Default::default(),
     }
   }
 }
 
-impl<T: GPUResourceMaintainer> GPUResourceMap<T> {
-  pub fn check_update_gpu(&mut self, source: &T, gpu: &GPU) -> &mut T::GPU {
+fn check_sync(mut drop: impl Future<Output = ()> + Unpin) -> bool {
+  let waker = futures::task::noop_waker_ref();
+  let mut cx = task::Context::from_waker(waker);
+  drop.poll_unpin(&mut cx).is_ready()
+}
+
+impl<T: ReactiveMapping> ReactiveMap<T> {
+  pub fn get_with_update(&mut self, source: &T, ctx: &T::Ctx) -> &mut T::Mapped {
     let id = source.id();
-    let (gpu_resource, changes) = self.gpu.entry(id).or_insert_with(|| {
-      let weak_to_remove = std::sync::Arc::downgrade(&self.to_remove);
-      source.drop_source().on(move |_| {
-        if let Some(to_remove) = weak_to_remove.upgrade() {
-          to_remove.write().unwrap().push(id);
-          false
-        } else {
-          true
-        }
-      });
 
-      (None, T::build_change_stream(source))
-    });
+    let (gpu_resource, changes, drop) = self
+      .mapping
+      .entry(id)
+      .or_insert_with(|| T::build(source, ctx));
 
-    source.update(gpu_resource, changes, gpu)
+    // if check_sync(&mut drop) {
+    //   self.mapping.remove(&id);
+    // }
+
+    source.update(gpu_resource, changes, ctx);
+    &mut gpu_resource
+  }
+
+  pub fn cleanup(&mut self) {
+    todo!()
   }
 }
 
-pub trait GPUResourceMaintainer: Sync + Send {
-  type GPU;
-  type ChangeStream;
+pub trait ReactiveMapping: Sync + Send {
+  type Mapped;
+  type ChangeStream: Stream<Item = ()> + Unpin;
+  type DropFuture: Future<Output = ()> + Unpin;
+  type Ctx;
 
   fn id(&self) -> usize;
-  fn drop_source(&self) -> EventSource<()>;
 
-  fn build_change_stream(&self) -> Self::ChangeStream;
+  fn build(&self, ctx: &Self::Ctx) -> (Self::Mapped, Self::ChangeStream, Self::DropFuture);
 
-  fn update<'a>(
-    &self,
-    resource: &'a mut Option<Self::GPU>,
-    changes: &mut Self::ChangeStream,
-    gpu: &GPU,
-  ) -> &'a mut Self::GPU;
+  fn update(&self, mapped: &mut Self::Mapped, change: &mut Self::ChangeStream, ctx: &Self::Ctx);
 }
