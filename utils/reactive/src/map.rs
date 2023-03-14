@@ -4,27 +4,21 @@ use futures::{stream::FuturesUnordered, *};
 
 use crate::do_updates;
 
-// pub trait ReactiveSource {
-//   type ChangeStream: Stream<Item = ()> + Unpin;
-//   type DropFuture: Future<Output = ()> + Unpin;
-//   type Ctx;
-// }
-
-pub trait ReactiveMapping: Sync + Send {
-  type Mapped;
+pub trait ReactiveDerived: Sized {
+  type Source;
   type ChangeStream: Stream<Item = ()> + Unpin;
   type DropFuture: Future<Output = ()> + Unpin;
   type Ctx;
 
-  fn id(&self) -> usize;
+  fn id(source: &Self::Source) -> usize;
 
-  fn build(&self, ctx: &Self::Ctx) -> (Self::Mapped, Self::ChangeStream, Self::DropFuture);
+  fn build(source: &Self::Source, ctx: &Self::Ctx) -> (Self, Self::ChangeStream, Self::DropFuture);
 
-  fn update(&self, mapped: &mut Self::Mapped, change: &mut Self::ChangeStream, ctx: &Self::Ctx);
+  fn update(&mut self, source: &Self::Source, change: &mut Self::ChangeStream, ctx: &Self::Ctx);
 }
 
-pub struct ReactiveMap<T: ReactiveMapping> {
-  mapping: HashMap<usize, (T::Mapped, T::ChangeStream)>,
+pub struct ReactiveMap<T: ReactiveDerived> {
+  mapping: HashMap<usize, (T, T::ChangeStream)>,
   /// when drop consumed, we remove the mapped from mapping, we could make this sync to drop.
   /// but if we do so, the mapping have to wrapped in interior mutable container, and it's
   /// impossible to get mut reference directly in safe rust.
@@ -33,7 +27,7 @@ pub struct ReactiveMap<T: ReactiveMapping> {
   drop_futures: FuturesUnordered<KeyedDropFuture<T::DropFuture, usize>>,
 }
 
-impl<T: ReactiveMapping> Default for ReactiveMap<T> {
+impl<T: ReactiveDerived> Default for ReactiveMap<T> {
   fn default() -> Self {
     Self {
       mapping: Default::default(),
@@ -47,18 +41,18 @@ fn map_drop_future<T, F: Future<Output = ()>>(f: F, key: T) -> KeyedDropFuture<F
   f.map(|_| key)
 }
 
-impl<T: ReactiveMapping> ReactiveMap<T> {
-  pub fn get_with_update(&mut self, source: &T, ctx: &T::Ctx) -> &mut T::Mapped {
-    let id = source.id();
+impl<T: ReactiveDerived> ReactiveMap<T> {
+  pub fn get_with_update(&mut self, source: &T::Source, ctx: &T::Ctx) -> &mut T {
+    let id = T::id(source);
 
-    let (gpu_resource, changes) = self.mapping.entry(id).or_insert_with(|| {
+    let (mapped, changes) = self.mapping.entry(id).or_insert_with(|| {
       let (mapped, stream, future) = T::build(source, ctx);
       self.drop_futures.push(map_drop_future(future, id));
       (mapped, stream)
     });
 
-    source.update(gpu_resource, changes, ctx);
-    gpu_resource
+    mapped.update(source, changes, ctx);
+    mapped
   }
 
   pub fn cleanup(&mut self) {
