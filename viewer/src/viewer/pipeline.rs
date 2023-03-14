@@ -74,7 +74,7 @@ impl ViewerPipeline {
     let mut scene_result = attachment().request(ctx);
 
     let jitter = self.taa.next_jitter();
-    let gpu = ctx.resources.cameras.check_update_gpu(scene.get_active_camera(), ctx.gpu);
+    let gpu = ctx.resources.cameras.get_with_update(scene.get_active_camera(), ctx.gpu);
     gpu.ubo.resource.mutate(|uniform| uniform.set_jitter(jitter)).upload(&ctx.gpu.queue);
     gpu.enable_jitter = true;
 
@@ -104,7 +104,7 @@ impl ViewerPipeline {
       .by(scene.by_main_camera(&mut content.ground)) // transparent, should go after opaque
       .by(ao);
 
-    ctx.resources.cameras.check_update_gpu(scene.get_active_camera(), ctx.gpu).enable_jitter = false;
+    ctx.resources.cameras.get_with_update(scene.get_active_camera(), ctx.gpu).enable_jitter = false;
 
     // let scene_result = draw_cross_blur(&self.blur, scene_result.read_into(), ctx);
 

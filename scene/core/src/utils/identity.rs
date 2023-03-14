@@ -1,5 +1,5 @@
 use crate::*;
-use reactive::EventSource;
+use reactive::{EventOnceSource, EventSource};
 use std::sync::atomic::{AtomicUsize, Ordering};
 
 use super::scene_item::Mutating;
@@ -10,7 +10,7 @@ pub struct Identity<T: IncrementalBase> {
   pub(super) id: usize,
   pub(super) inner: T,
   pub delta_source: EventSource<DeltaView<'static, T>>,
-  pub drop_source: EventSource<()>,
+  pub drop_source: EventOnceSource<()>,
 }
 
 // just pass through

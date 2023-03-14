@@ -182,7 +182,7 @@ pub fn check_update_basic_shadow_map<T: Any + ShadowCameraCreator + Incremental>
     .ctx
     .resources
     .cameras
-    .check_update_gpu(&shadow_camera, ctx.ctx.gpu)
+    .get_with_update(&shadow_camera, ctx.ctx.gpu)
     .ubo
     .resource
     .get();

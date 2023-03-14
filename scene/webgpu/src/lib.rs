@@ -124,7 +124,7 @@ pub struct GPUResourceCache {
   pub scene: GPUResourceSceneCache,
   pub content: GPUResourceSubCache,
   pub custom_storage: AnyMap,
-  pub cameras: CameraGPUStore,
+  pub cameras: CameraGPUMap,
   pub nodes: NodeGPUStore,
 }
 
@@ -285,59 +285,4 @@ pub fn interaction_picking_mut<
   if let Some((m, r)) = result.into_iter().next() {
     cb(m, HitReaction::Nearest(r));
   }
-}
-
-pub struct GPUResourceMap<T: GPUResourceMaintainer> {
-  phantom: PhantomData<T>,
-  gpu: HashMap<usize, (Option<T::GPU>, T::ChangeStream)>,
-  /// I believe actually we need async drop here??
-  to_remove: std::sync::Arc<std::sync::RwLock<Vec<usize>>>,
-}
-
-impl<T: GPUResourceMaintainer> Default for GPUResourceMap<T> {
-  fn default() -> Self {
-    Self {
-      phantom: Default::default(),
-      gpu: Default::default(),
-      to_remove: Default::default(),
-    }
-  }
-}
-
-impl<T: GPUResourceMaintainer> GPUResourceMap<T> {
-  pub fn check_update_gpu(&mut self, source: &T, gpu: &GPU) -> &mut T::GPU {
-    let id = source.id();
-    let (gpu_resource, changes) = self.gpu.entry(id).or_insert_with(|| {
-      let weak_to_remove = std::sync::Arc::downgrade(&self.to_remove);
-      source.drop_source().on(move |_| {
-        if let Some(to_remove) = weak_to_remove.upgrade() {
-          to_remove.write().unwrap().push(id);
-          false
-        } else {
-          true
-        }
-      });
-
-      (None, T::build_change_stream(source))
-    });
-
-    source.update(gpu_resource, changes, gpu)
-  }
-}
-
-pub trait GPUResourceMaintainer: Sync + Send {
-  type GPU;
-  type ChangeStream;
-
-  fn id(&self) -> usize;
-  fn drop_source(&self) -> EventSource<()>;
-
-  fn build_change_stream(&self) -> Self::ChangeStream;
-
-  fn update<'a>(
-    &self,
-    resource: &'a mut Option<Self::GPU>,
-    changes: &mut Self::ChangeStream,
-    gpu: &GPU,
-  ) -> &'a mut Self::GPU;
 }

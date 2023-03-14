@@ -183,7 +183,7 @@ impl<'a> PassContent for QuadDraw<AOComputer<'a>> {
     let source_camera_gpu = &pass
       .resources
       .cameras
-      .check_update_gpu(self.content.source_camera, pass.ctx.gpu)
+      .get_with_update(self.content.source_camera, pass.ctx.gpu)
       .ubo;
 
     self.content.source_camera_gpu = source_camera_gpu.clone().into();

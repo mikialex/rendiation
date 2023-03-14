@@ -107,6 +107,12 @@ impl<T: IncrementalBase> SceneItemRef<T> {
     let inner = self.inner.read().unwrap_or_else(|e| e.into_inner());
     SceneItemRefGuard { inner }
   }
+
+  pub fn write_unchecked(&self) -> SceneItemRefMutGuard<T> {
+    // ignore lock poison
+    let inner = self.inner.write().unwrap_or_else(|e| e.into_inner());
+    SceneItemRefMutGuard { inner }
+  }
 }
 
 pub struct SceneItemRefGuard<'a, T: IncrementalBase> {

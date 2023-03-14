@@ -57,7 +57,7 @@ pub fn setup_pass_core(
       let gpu = pass.ctx.gpu;
       let resources = &mut pass.resources;
       let pass_gpu = dispatcher;
-      let camera_gpu = resources.cameras.check_update_gpu(camera, gpu);
+      let camera_gpu = resources.cameras.get_with_update(camera, gpu);
 
       let net_visible = model_input.node.visit(|n| n.net_visible());
       if !net_visible {

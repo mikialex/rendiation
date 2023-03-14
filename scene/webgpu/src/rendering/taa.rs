@@ -38,7 +38,7 @@ impl TAA {
     camera: &SceneCamera,
   ) -> &Attachment {
     // refresh cameras:
-    let new_camera = ctx.resources.cameras.check_update_gpu(camera, ctx.gpu);
+    let new_camera = ctx.resources.cameras.get_with_update(camera, ctx.gpu);
 
     // improve? i think we could try copy buffer to buffer here.
     self
