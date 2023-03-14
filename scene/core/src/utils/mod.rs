@@ -95,15 +95,13 @@ impl<T: IncrementalBase> Identity<T> {
     receiver
   }
 
-  // todo, how to handle too many drop? in fact we never cleanup them
+  // todo, how to handle too many drop listener? in fact we never cleanup them
   pub fn create_drop(&self) -> impl Future<Output = ()> {
     let (sender, receiver) = futures::channel::oneshot::channel::<()>();
     self.drop_source.on(move |_| {
-      todo!();
-      // sender.send(()).ok();
-      true
+      sender.send(()).ok();
     });
     use futures::FutureExt;
-    receiver.map(|r| ())
+    receiver.map(|_| ())
   }
 }

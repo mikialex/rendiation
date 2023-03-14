@@ -1,6 +1,6 @@
 use crate::*;
 
-pub type CameraGPUStore = ReactiveMap<CameraGPU>;
+pub type CameraGPUMap = ReactiveMap<CameraGPU>;
 
 impl ReactiveDerived for CameraGPU {
   type Source = SceneCamera;

@@ -113,9 +113,6 @@ impl<T: 'static, U: Incremental> IdentityMapper<T, U> {
       source.drop_source.on(move |_| {
         if let Some(to_remove) = weak_to_remove.upgrade() {
           to_remove.write().unwrap().to_remove.push(id);
-          false
-        } else {
-          true
         }
       });
 
