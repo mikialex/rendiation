@@ -8,7 +8,7 @@ impl ReactiveDerived for CameraGPU {
   type DropFuture = impl Future<Output = ()> + Unpin;
   type Ctx = GPU;
 
-  fn id(source: &Self::Source) -> usize {
+  fn key(source: &Self::Source) -> usize {
     source.read().id()
   }
 

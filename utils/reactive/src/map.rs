@@ -6,11 +6,11 @@ use crate::do_updates;
 
 pub trait ReactiveDerived: Sized {
   type Source;
-  type ChangeStream: Stream<Item = ()> + Unpin;
+  type ChangeStream: Stream + Unpin;
   type DropFuture: Future<Output = ()> + Unpin;
   type Ctx;
 
-  fn id(source: &Self::Source) -> usize;
+  fn key(source: &Self::Source) -> usize;
 
   fn build(source: &Self::Source, ctx: &Self::Ctx) -> (Self, Self::ChangeStream, Self::DropFuture);
 
@@ -43,7 +43,7 @@ fn map_drop_future<T, F: Future<Output = ()>>(f: F, key: T) -> KeyedDropFuture<F
 
 impl<T: ReactiveDerived> ReactiveMap<T> {
   pub fn get_with_update(&mut self, source: &T::Source, ctx: &T::Ctx) -> &mut T {
-    let id = T::id(source);
+    let id = T::key(source);
 
     let (mapped, changes) = self.mapping.entry(id).or_insert_with(|| {
       let (mapped, stream, future) = T::build(source, ctx);

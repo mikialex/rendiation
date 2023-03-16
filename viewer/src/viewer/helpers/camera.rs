@@ -1,3 +1,5 @@
+use futures::{Future, Stream};
+use reactive::{do_updates, ReactiveDerived, ReactiveMap};
 use rendiation_algebra::*;
 use rendiation_renderable_mesh::{group::GroupedMesh, mesh::NoneIndexedMesh};
 
@@ -91,64 +93,36 @@ fn build_debug_line_in_camera_space(project_mat: Mat4<f32>) -> HelperLineMesh {
   HelperLineMesh::new(lines)
 }
 
-// pub struct CameraHelperSystem {
-//   helpers: HashMap<usize, (CameraHelper, ChangeStream)>,
-// }
+impl ReactiveDerived for CameraHelper {
+  type Source = SceneCamera;
+  type ChangeStream = impl Stream<Item = Mat4<f32>> + Unpin;
+  type DropFuture = impl Future<Output = ()> + Unpin;
+  type Ctx = ();
 
-// impl CameraHelperSystem {
-//   pub fn get_with_update(&mut self, source: &SceneCamera) -> &CameraHelper {
-//     let id = source.id();
-//     let (mapped, changes) = self.gpu.entry(id).or_insert_with(|| {
-//       let weak_to_remove = std::sync::Arc::downgrade(&self.to_remove);
-//       source.drop_source().on(move |_| {
-//         if let Some(to_remove) = weak_to_remove.upgrade() {
-//           to_remove.write().unwrap().push(id);
-//           false
-//         } else {
-//           true
-//         }
-//       });
+  fn key(source: &Self::Source) -> usize {
+    source.read().id()
+  }
 
-//       (None, T::build_change_stream(source))
-//     });
+  fn build(source: &Self::Source, _: &Self::Ctx) -> (Self, Self::ChangeStream, Self::DropFuture) {
+    let source = source.read();
+    let helper = Self::from_node_and_project_matrix(source.node.clone(), source.projection_matrix);
 
-//     source.update(gpu_resource, changes, gpu)
-//   }
-// }
+    // todo, node change
+    let change = source.listen_by(with_field!(SceneCameraInner => projection_matrix));
+    let drop = source.create_drop();
+    (helper, change, drop)
+  }
 
-// struct CameraProjectionChange;
-// type ChangeStream = impl Stream<Item = CameraProjectionChange>;
-
-// impl CameraHelperSystem {
-//   pub fn new(scene: &Scene) -> Self {
-//     scene.listen_by(|view, send| {
-//       match view {
-//         Partial::All(_) => todo!(),
-//         Partial::Delta(delta) => {
-//           match delta {
-//             SceneInnerDelta::cameras(camera) => {
-//               //
-//             }
-//             _ => {}
-//           }
-//         }
-//       }
-//     });
-//     todo!()
-//   }
-
-//   pub fn maintain(&mut self) {
-//     //
-//   }
-
-//   pub fn render(&mut self) {
-//     //
-//   }
-// }
+  fn update(&mut self, _: &Self::Source, change: &mut Self::ChangeStream, _: &Self::Ctx) {
+    do_updates(change, |delta| {
+      self.update(delta);
+    });
+  }
+}
 
 pub struct CameraHelpers {
   pub enabled: bool,
-  pub helpers: IdentityMapper<CameraHelper, SceneCameraInner>,
+  pub helpers: ReactiveMap<CameraHelper>,
 }
 
 impl Default for CameraHelpers {
@@ -167,18 +141,7 @@ impl PassContentWithSceneAndCamera for &mut CameraHelpers {
     }
 
     for (_, draw_camera) in &scene.cameras {
-      let helper = self.helpers.get_update_or_insert_with(
-        &draw_camera.read(),
-        |draw_camera| {
-          CameraHelper::from_node_and_project_matrix(
-            draw_camera.node.clone(),
-            draw_camera.projection_matrix,
-          )
-        },
-        |helper, camera| {
-          helper.update(camera.projection_matrix);
-        },
-      );
+      let helper = self.helpers.get_with_update(draw_camera, &());
 
       helper.model.inner.render(
         pass,

@@ -20,7 +20,7 @@ macro_rules! with_field {
     |view, send| match view {
       Partial::All(value) => send(value.$field.clone()),
       Partial::Delta(delta) => {
-        if let DeltaOf::<$ty>::$field(field) = delta {
+        if let incremental::DeltaOf::<$ty>::$field(field) = delta {
           send(field.clone())
         }
       }
@@ -34,7 +34,7 @@ macro_rules! with_field_change {
     |view, send| match view {
       Partial::All(value) => send(()),
       Partial::Delta(delta) => {
-        if let DeltaOf::<$ty>::$field(field) = delta {
+        if let incremental::DeltaOf::<$ty>::$field(field) = delta {
           send(())
         }
       }

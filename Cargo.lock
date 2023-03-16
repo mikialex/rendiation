@@ -3170,6 +3170,7 @@ dependencies = [
  "interphaser",
  "log",
  "png 0.17.6",
+ "reactive",
  "rendiation-algebra",
  "rendiation-controller",
  "rendiation-generative-texture",

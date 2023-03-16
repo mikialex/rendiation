@@ -16,6 +16,7 @@ png = "*" # for better control over writing
 incremental = {path = "../utils/incremental"}
 interphaser = {path = "../interphaser"}
 log = "0.4"
+reactive = {path = "../utils/reactive"}
 rendiation-algebra = {path = "../math/algebra"}
 rendiation-controller = {path = "../components/controller"}
 rendiation-generative-texture = {path = "../components/texture/generative"}
