@@ -3,6 +3,9 @@ use std::{
   sync::{RwLockReadGuard, RwLockWriteGuard},
 };
 
+use futures::{Future, Stream};
+use reactive::{do_updates, ReactiveMapping};
+
 use crate::*;
 
 use super::identity::Identity;
@@ -152,3 +155,67 @@ pub trait IntoSceneItemRef: Sized + IncrementalBase {
 }
 
 impl<T: IncrementalBase> IntoSceneItemRef for T {}
+
+pub trait SceneItemReactiveMapping<M> {
+  type ChangeStream: Stream + Unpin;
+  type Ctx;
+
+  fn build(&self, ctx: &Self::Ctx) -> (M, Self::ChangeStream);
+
+  fn update(&self, mapped: &mut M, change: &mut Self::ChangeStream, ctx: &Self::Ctx);
+}
+
+impl<M, T> ReactiveMapping<M> for SceneItemRef<T>
+where
+  T: SimpleIncremental + Send + Sync + 'static,
+  Self: SceneItemReactiveMapping<M>,
+{
+  type ChangeStream = <Self as SceneItemReactiveMapping<M>>::ChangeStream;
+  type DropFuture = impl Future<Output = ()> + Unpin;
+  type Ctx = <Self as SceneItemReactiveMapping<M>>::Ctx;
+
+  fn key(&self) -> usize {
+    self.read().id()
+  }
+
+  fn build(&self, ctx: &Self::Ctx) -> (M, Self::ChangeStream, Self::DropFuture) {
+    let drop = self.create_drop();
+    let (mapped, change) = SceneItemReactiveMapping::build(self, ctx);
+    (mapped, change, drop)
+  }
+
+  fn update(&self, mapped: &mut M, change: &mut Self::ChangeStream, ctx: &Self::Ctx) {
+    SceneItemReactiveMapping::update(self, mapped, change, ctx)
+  }
+}
+
+pub trait SceneItemReactiveSimpleMapping<M> {
+  type ChangeStream: Stream + Unpin;
+  type Ctx;
+
+  fn build(&self, ctx: &Self::Ctx) -> (M, Self::ChangeStream);
+}
+
+impl<M, T> SceneItemReactiveMapping<M> for SceneItemRef<T>
+where
+  T: SimpleIncremental + Send + Sync + 'static,
+  Self: SceneItemReactiveSimpleMapping<M>,
+{
+  type ChangeStream = <Self as SceneItemReactiveSimpleMapping<M>>::ChangeStream;
+  type Ctx = <Self as SceneItemReactiveSimpleMapping<M>>::Ctx;
+
+  fn build(&self, ctx: &Self::Ctx) -> (M, Self::ChangeStream) {
+    SceneItemReactiveSimpleMapping::build(self, ctx)
+  }
+
+  fn update(&self, mapped: &mut M, change: &mut Self::ChangeStream, ctx: &Self::Ctx) {
+    let mut pair = None;
+    do_updates(change, |_| {
+      pair = SceneItemReactiveMapping::build(self, ctx).into();
+    });
+    if let Some((new_mapped, new_change)) = pair {
+      *mapped = new_mapped;
+      *change = new_change;
+    }
+  }
+}

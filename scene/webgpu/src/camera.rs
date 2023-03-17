@@ -1,37 +1,30 @@
 use crate::*;
 
-pub type CameraGPUMap = ReactiveMap<CameraGPU>;
+pub type CameraGPUMap = ReactiveMap<SceneCamera, CameraGPU>;
 
-impl ReactiveDerived for CameraGPU {
-  type Source = SceneCamera;
+impl SceneItemReactiveMapping<CameraGPU> for SceneCamera {
   type ChangeStream = impl Stream<Item = ()> + Unpin;
-  type DropFuture = impl Future<Output = ()> + Unpin;
   type Ctx = GPU;
 
-  fn key(source: &Self::Source) -> usize {
-    source.read().id()
-  }
-
-  fn build(source: &Self::Source, gpu: &Self::Ctx) -> (Self, Self::ChangeStream, Self::DropFuture) {
+  fn build(&self, gpu: &Self::Ctx) -> (CameraGPU, Self::ChangeStream) {
     let mapped = CameraGPU::new(gpu);
     let changes = {
-      let camera_world_changed = source
+      let camera_world_changed = self
         .listen_by(with_field!(SceneCameraInner => node))
         .map(|node| node.listen_by(with_field_change!(SceneNodeDataImpl => world_matrix)))
         .flatten_signal();
 
-      let any_other_change = source.listen_by(any_change);
+      let any_other_change = self.listen_by(any_change);
 
       futures::stream::select(any_other_change, camera_world_changed)
     };
-    let drop = source.create_drop();
 
-    (mapped, changes, drop)
+    (mapped, changes)
   }
 
-  fn update(&mut self, source: &Self::Source, changes: &mut Self::ChangeStream, gpu: &Self::Ctx) {
-    do_updates(changes, |_| {
-      self.update(gpu, &source.read());
+  fn update(&self, mapped: &mut CameraGPU, change: &mut Self::ChangeStream, gpu: &Self::Ctx) {
+    do_updates(change, |_| {
+      mapped.update(gpu, &self.read());
     });
   }
 }

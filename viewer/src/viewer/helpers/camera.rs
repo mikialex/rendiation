@@ -1,5 +1,5 @@
-use futures::{Future, Stream};
-use reactive::{do_updates, ReactiveDerived, ReactiveMap};
+use futures::Stream;
+use reactive::{do_updates, ReactiveMap};
 use rendiation_algebra::*;
 use rendiation_renderable_mesh::{group::GroupedMesh, mesh::NoneIndexedMesh};
 
@@ -93,36 +93,30 @@ fn build_debug_line_in_camera_space(project_mat: Mat4<f32>) -> HelperLineMesh {
   HelperLineMesh::new(lines)
 }
 
-impl ReactiveDerived for CameraHelper {
-  type Source = SceneCamera;
+impl SceneItemReactiveMapping<CameraHelper> for SceneCamera {
   type ChangeStream = impl Stream<Item = Mat4<f32>> + Unpin;
-  type DropFuture = impl Future<Output = ()> + Unpin;
   type Ctx = ();
 
-  fn key(source: &Self::Source) -> usize {
-    source.read().id()
-  }
-
-  fn build(source: &Self::Source, _: &Self::Ctx) -> (Self, Self::ChangeStream, Self::DropFuture) {
-    let source = source.read();
-    let helper = Self::from_node_and_project_matrix(source.node.clone(), source.projection_matrix);
+  fn build(&self, _: &Self::Ctx) -> (CameraHelper, Self::ChangeStream) {
+    let source = self.read();
+    let helper =
+      CameraHelper::from_node_and_project_matrix(source.node.clone(), source.projection_matrix);
 
     // todo, node change
     let change = source.listen_by(with_field!(SceneCameraInner => projection_matrix));
-    let drop = source.create_drop();
-    (helper, change, drop)
+    (helper, change)
   }
 
-  fn update(&mut self, _: &Self::Source, change: &mut Self::ChangeStream, _: &Self::Ctx) {
+  fn update(&self, mapped: &mut CameraHelper, change: &mut Self::ChangeStream, _: &Self::Ctx) {
     do_updates(change, |delta| {
-      self.update(delta);
+      mapped.update(delta);
     });
   }
 }
 
 pub struct CameraHelpers {
   pub enabled: bool,
-  pub helpers: ReactiveMap<CameraHelper>,
+  pub helpers: ReactiveMap<SceneCamera, CameraHelper>,
 }
 
 impl Default for CameraHelpers {

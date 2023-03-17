@@ -1,8 +1,10 @@
 use __core::{any::Any, hash::Hash};
-use futures::{Future, Stream};
+use futures::Stream;
 use incremental::*;
-use reactive::{do_updates, ReactiveDerived, ReactiveMap};
-use rendiation_scene_core::{any_change, IntoSceneItemRef, SceneItemRef};
+use reactive::ReactiveMap;
+use rendiation_scene_core::{
+  any_change, IntoSceneItemRef, SceneItemReactiveSimpleMapping, SceneItemRef,
+};
 use rendiation_scene_webgpu::{generate_quad, CameraGPU, MaterialStates, PassContentWithCamera};
 use shadergraph::*;
 use webgpu::{
@@ -23,7 +25,7 @@ impl PassContentWithCamera for &mut GridGround {
   ) {
     let base = pass.default_dispatcher();
 
-    let gpus: &mut ReactiveMap<InfinityShaderPlane> = pass
+    let gpus: &mut ReactiveMap<SceneItemRef<GridGroundConfig>, InfinityShaderPlane> = pass
       .resources
       .custom_storage
       .entry()
@@ -42,29 +44,16 @@ impl PassContentWithCamera for &mut GridGround {
   }
 }
 
-impl ReactiveDerived for InfinityShaderPlane {
-  type Source = SceneItemRef<GridGroundConfig>;
+impl SceneItemReactiveSimpleMapping<InfinityShaderPlane> for SceneItemRef<GridGroundConfig> {
   type ChangeStream = impl Stream<Item = ()> + Unpin;
-  type DropFuture = impl Future<Output = ()> + Unpin;
   type Ctx = GPU;
 
-  fn key(source: &Self::Source) -> usize {
-    source.read().id()
-  }
-
-  fn build(source: &Self::Source, gpu: &Self::Ctx) -> (Self, Self::ChangeStream, Self::DropFuture) {
-    let source = source.read();
-    let grid_gpu = create_grid_gpu(**source, gpu);
+  fn build(&self, ctx: &Self::Ctx) -> (InfinityShaderPlane, Self::ChangeStream) {
+    let source = self.read();
+    let grid_gpu = create_grid_gpu(**source, ctx);
 
     let change = source.listen_by(any_change);
-    let drop = source.create_drop();
-    (grid_gpu, change, drop)
-  }
-
-  fn update(&mut self, source: &Self::Source, change: &mut Self::ChangeStream, gpu: &Self::Ctx) {
-    do_updates(change, |_| {
-      *self = create_grid_gpu(**source.read(), gpu);
-    });
+    (grid_gpu, change)
   }
 }
 
