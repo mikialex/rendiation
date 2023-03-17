@@ -42,6 +42,8 @@ fn map_drop_future<T, F: Future<Output = ()>>(f: F, key: T) -> KeyedDropFuture<F
 
 impl<M, T: ReactiveMapping<M>> ReactiveMap<T, M> {
   pub fn get_with_update(&mut self, source: &T, ctx: &T::Ctx) -> &mut M {
+    self.cleanup();
+
     let id = T::key(source);
 
     let (mapped, changes) = self.mapping.entry(id).or_insert_with(|| {
