@@ -1,6 +1,8 @@
 use __core::{any::Any, hash::Hash};
+use futures::{Future, Stream};
 use incremental::*;
-use rendiation_scene_core::{IdentityMapper, IntoSceneItemRef, SceneItemRef};
+use reactive::{do_updates, ReactiveDerived, ReactiveMap};
+use rendiation_scene_core::{any_change, IntoSceneItemRef, SceneItemRef};
 use rendiation_scene_webgpu::{generate_quad, CameraGPU, MaterialStates, PassContentWithCamera};
 use shadergraph::*;
 use webgpu::{
@@ -21,27 +23,48 @@ impl PassContentWithCamera for &mut GridGround {
   ) {
     let base = pass.default_dispatcher();
 
-    let gpus: &mut IdentityMapper<InfinityShaderPlane, GridGroundConfig> = pass
+    let gpus: &mut ReactiveMap<InfinityShaderPlane> = pass
       .resources
       .custom_storage
       .entry()
       .or_insert_with(Default::default);
 
-    let gpu = gpus.get_update_or_insert_with(
-      &self.grid_config.read(),
-      |grid_config| create_grid_gpu(*grid_config, pass.ctx.gpu),
-      |gpu, grid_config| *gpu = create_grid_gpu(*grid_config, pass.ctx.gpu),
-    );
-
+    let grid_gpu = gpus.get_with_update(&self.grid_config, pass.ctx.gpu);
     let camera_gpu = pass.resources.cameras.get_with_update(camera, pass.ctx.gpu);
 
     let effect = InfinityShaderPlaneEffect {
-      plane: &gpu.plane,
+      plane: &grid_gpu.plane,
       camera: camera_gpu,
     };
 
-    let components: [&dyn RenderComponentAny; 3] = [&base, &effect, gpu.shading.as_ref()];
+    let components: [&dyn RenderComponentAny; 3] = [&base, &effect, grid_gpu.shading.as_ref()];
     RenderEmitter::new(components.as_slice()).render(&mut pass.ctx, &effect);
+  }
+}
+
+impl ReactiveDerived for InfinityShaderPlane {
+  type Source = SceneItemRef<GridGroundConfig>;
+  type ChangeStream = impl Stream<Item = ()> + Unpin;
+  type DropFuture = impl Future<Output = ()> + Unpin;
+  type Ctx = GPU;
+
+  fn key(source: &Self::Source) -> usize {
+    source.read().id()
+  }
+
+  fn build(source: &Self::Source, gpu: &Self::Ctx) -> (Self, Self::ChangeStream, Self::DropFuture) {
+    let source = source.read();
+    let grid_gpu = create_grid_gpu(**source, gpu);
+
+    let change = source.listen_by(any_change);
+    let drop = source.create_drop();
+    (grid_gpu, change, drop)
+  }
+
+  fn update(&mut self, source: &Self::Source, change: &mut Self::ChangeStream, gpu: &Self::Ctx) {
+    do_updates(change, |_| {
+      *self = create_grid_gpu(**source.read(), gpu);
+    });
   }
 }
 
