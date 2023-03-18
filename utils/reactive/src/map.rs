@@ -7,13 +7,13 @@ use crate::do_updates;
 pub trait ReactiveMapping<M> {
   type ChangeStream: Stream + Unpin;
   type DropFuture: Future<Output = ()> + Unpin;
-  type Ctx;
+  type Ctx<'a>;
 
   fn key(&self) -> usize;
 
-  fn build(&self, ctx: &Self::Ctx) -> (M, Self::ChangeStream, Self::DropFuture);
+  fn build(&self, ctx: &Self::Ctx<'_>) -> (M, Self::ChangeStream, Self::DropFuture);
 
-  fn update(&self, mapped: &mut M, change: &mut Self::ChangeStream, ctx: &Self::Ctx);
+  fn update(&self, mapped: &mut M, change: &mut Self::ChangeStream, ctx: &Self::Ctx<'_>);
 }
 
 pub struct ReactiveMap<T: ReactiveMapping<M>, M> {
@@ -41,7 +41,7 @@ fn map_drop_future<T, F: Future<Output = ()>>(f: F, key: T) -> KeyedDropFuture<F
 }
 
 impl<M, T: ReactiveMapping<M>> ReactiveMap<T, M> {
-  pub fn get_with_update(&mut self, source: &T, ctx: &T::Ctx) -> &mut M {
+  pub fn get_with_update(&mut self, source: &T, ctx: &T::Ctx<'_>) -> &mut M {
     self.cleanup();
 
     let id = T::key(source);

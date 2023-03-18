@@ -32,8 +32,34 @@ pub fn build_texture_sampler_pair(
 ) -> GPUTextureSamplerPair {
   let sampler = GPUSampler::create(t.sampler.into(), &gpu.device);
   let sampler = sampler.create_default_view();
-  let texture = check_update_gpu_2d(&t.texture, res, gpu).clone();
+
+  let ctx = TextureBuildCtx {
+    gpu,
+    mipmap_gen: &res.mipmap_gen,
+  };
+
+  let texture = res.texture_2ds.get_with_update(&t.texture, &ctx).0.clone();
   GPUTextureSamplerPair { texture, sampler }
+}
+
+pub struct TextureBuildCtx<'a> {
+  gpu: &'a GPU,
+  mipmap_gen: &'a Rc<RefCell<MipMapTaskManager>>,
+}
+
+pub struct Wrapped<T>(pub T);
+
+impl SceneItemReactiveSimpleMapping<Wrapped<GPU2DTextureView>> for SceneTexture2D {
+  type ChangeStream = impl Stream<Item = ()> + Unpin;
+  type Ctx<'a> = TextureBuildCtx<'a>;
+
+  fn build(&self, ctx: &Self::Ctx<'_>) -> (Wrapped<GPU2DTextureView>, Self::ChangeStream) {
+    let source = self.read();
+    let texture = create_texture2d(self, ctx);
+
+    let change = source.listen_by(any_change);
+    (Wrapped(texture), change)
+  }
 }
 
 fn as_2d_source(tex: &SceneTexture2DType) -> Option<&dyn WebGPU2DTextureSource> {
@@ -48,106 +74,105 @@ fn as_2d_source(tex: &SceneTexture2DType) -> Option<&dyn WebGPU2DTextureSource> 
   }
 }
 
-pub fn check_update_gpu_2d<'a>(
-  source: &SceneTexture2D,
-  resources: &'a mut GPUResourceSubCache,
-  gpu: &GPU,
-) -> &'a GPU2DTextureView {
-  resources.texture_2ds.get_update_or_insert_with(
-    &source.read(),
-    |texture| {
-      let texture = as_2d_source(texture);
+fn create_texture2d(tex: &SceneTexture2D, ctx: &TextureBuildCtx) -> GPU2DTextureView {
+  let texture = &tex.read();
+  let texture = as_2d_source(texture);
+  let gpu = ctx.gpu;
 
-      let gpu_texture = if let Some(texture) = texture {
-        let desc = texture.create_tex2d_desc(MipLevelCount::BySize);
-        let gpu_texture = GPUTexture::create(desc, &gpu.device);
-        let gpu_texture: GPU2DTexture = gpu_texture.try_into().unwrap();
-        gpu_texture.upload_into(&gpu.queue, texture, 0)
-      } else {
-        GPUTexture::create(
-          webgpu::TextureDescriptor {
-            label: "unimplemented default texture".into(),
-            size: webgpu::Extent3d {
-              width: 1,
-              height: 1,
-              depth_or_array_layers: 1,
-            },
-            mip_level_count: 1,
-            sample_count: 1,
-            dimension: webgpu::TextureDimension::D2,
-            format: webgpu::TextureFormat::Rgba8UnormSrgb,
-            view_formats: &[],
-            usage: webgpu::TextureUsages::all(),
-          },
-          &gpu.device,
-        )
-        .try_into()
-        .unwrap()
-      };
+  let gpu_texture = if let Some(texture) = texture {
+    let desc = texture.create_tex2d_desc(MipLevelCount::BySize);
+    let gpu_texture = GPUTexture::create(desc, &gpu.device);
+    let gpu_texture: GPU2DTexture = gpu_texture.try_into().unwrap();
+    gpu_texture.upload_into(&gpu.queue, texture, 0)
+  } else {
+    create_fallback_empty_texture(gpu)
+  };
 
-      resources
-        .mipmap_gen
-        .borrow_mut()
-        .request_mipmap_gen(&gpu_texture);
-
-      gpu_texture.create_default_view().try_into().unwrap()
-    },
-    |_, _| {},
-  )
+  ctx.mipmap_gen.borrow_mut().request_mipmap_gen(&gpu_texture);
+  gpu_texture.create_default_view().try_into().unwrap()
 }
 
-pub fn check_update_gpu_cube<'a>(
-  source: &SceneTextureCube,
-  resources: &'a mut GPUResourceSubCache,
-  gpu: &GPU,
-) -> &'a GPUCubeTextureView {
-  let texture = source.read();
+impl SceneItemReactiveSimpleMapping<Wrapped<GPUCubeTextureView>> for SceneTextureCube {
+  type ChangeStream = impl Stream<Item = ()> + Unpin;
+  type Ctx<'a> = TextureBuildCtx<'a>;
 
-  resources.texture_cubes.get_update_or_insert_with(
-    &texture,
-    |texture| {
-      if let Some(t) = as_2d_source(&texture.faces[0]) {
-        let source = &texture.faces;
-        let desc = t.create_cube_desc(MipLevelCount::EmptyMipMap);
-        let queue = &gpu.queue;
+  fn build(&self, ctx: &Self::Ctx<'_>) -> (Wrapped<GPUCubeTextureView>, Self::ChangeStream) {
+    let source = self.read();
+    let texture = create_texture_cube(self, ctx);
 
-        let gpu_texture = GPUTexture::create(desc, &gpu.device);
-        let gpu_texture: GPUCubeTexture = gpu_texture.try_into().unwrap();
+    let change = source.listen_by(any_change);
+    (Wrapped(texture), change)
+  }
+}
 
-        #[rustfmt::skip]
-        gpu_texture
-          .upload(queue, as_2d_source(&source[0]).unwrap(), CubeTextureFace::PositiveX, 0)
-          .upload(queue, as_2d_source(&source[1]).unwrap(), CubeTextureFace::NegativeX, 0)
-          .upload(queue, as_2d_source(&source[2]).unwrap(), CubeTextureFace::PositiveY, 0)
-          .upload(queue, as_2d_source(&source[3]).unwrap(), CubeTextureFace::NegativeY, 0)
-          .upload(queue, as_2d_source(&source[4]).unwrap(), CubeTextureFace::PositiveZ, 0)
-          .upload(queue, as_2d_source(&source[5]).unwrap(), CubeTextureFace::NegativeZ, 0)
-          .create_default_view()
-          .try_into()
-          .unwrap()
-      } else {
-        let tex: GPUCubeTexture = GPUTexture::create(
-          webgpu::TextureDescriptor {
-            label: "unimplemented default texture".into(),
-            size: webgpu::Extent3d {
-              width: 1,
-              height: 1,
-              depth_or_array_layers: 6,
-            },
-            mip_level_count: 1,
-            sample_count: 1,
-            dimension: webgpu::TextureDimension::D2,
-            format: webgpu::TextureFormat::Rgba8UnormSrgb,
-            view_formats: &[],
-            usage: webgpu::TextureUsages::all(),
-          },
-          &gpu.device,
-        )
-        .try_into()
-        .unwrap();
-        tex.create_default_view().try_into().unwrap()
-      }
+fn create_texture_cube(tex: &SceneTextureCube, ctx: &TextureBuildCtx) -> GPUCubeTextureView {
+  let gpu = ctx.gpu;
+  let texture = &tex.read();
+  if let Some(t) = as_2d_source(&texture.faces[0]) {
+    let source = &texture.faces;
+    let desc = t.create_cube_desc(MipLevelCount::EmptyMipMap);
+    let queue = &gpu.queue;
+
+    let gpu_texture = GPUTexture::create(desc, &gpu.device);
+    let gpu_texture: GPUCubeTexture = gpu_texture.try_into().unwrap();
+
+    #[rustfmt::skip]
+    gpu_texture
+      .upload(queue, as_2d_source(&source[0]).unwrap(), CubeTextureFace::PositiveX, 0)
+      .upload(queue, as_2d_source(&source[1]).unwrap(), CubeTextureFace::NegativeX, 0)
+      .upload(queue, as_2d_source(&source[2]).unwrap(), CubeTextureFace::PositiveY, 0)
+      .upload(queue, as_2d_source(&source[3]).unwrap(), CubeTextureFace::NegativeY, 0)
+      .upload(queue, as_2d_source(&source[4]).unwrap(), CubeTextureFace::PositiveZ, 0)
+      .upload(queue, as_2d_source(&source[5]).unwrap(), CubeTextureFace::NegativeZ, 0)
+      .create_default_view()
+      .try_into()
+      .unwrap()
+  } else {
+    let tex: GPUCubeTexture = create_fallback_empty_cube_texture(gpu);
+    tex.create_default_view().try_into().unwrap()
+  }
+}
+
+fn create_fallback_empty_texture(gpu: &GPU) -> GPU2DTexture {
+  GPUTexture::create(
+    webgpu::TextureDescriptor {
+      label: "unimplemented default texture".into(),
+      size: webgpu::Extent3d {
+        width: 1,
+        height: 1,
+        depth_or_array_layers: 1,
+      },
+      mip_level_count: 1,
+      sample_count: 1,
+      dimension: webgpu::TextureDimension::D2,
+      format: webgpu::TextureFormat::Rgba8UnormSrgb,
+      view_formats: &[],
+      usage: webgpu::TextureUsages::all(),
     },
-    |_, _| {},
+    &gpu.device,
   )
+  .try_into()
+  .unwrap()
+}
+
+fn create_fallback_empty_cube_texture(gpu: &GPU) -> GPUCubeTexture {
+  GPUTexture::create(
+    webgpu::TextureDescriptor {
+      label: "unimplemented default texture".into(),
+      size: webgpu::Extent3d {
+        width: 1,
+        height: 1,
+        depth_or_array_layers: 6,
+      },
+      mip_level_count: 1,
+      sample_count: 1,
+      dimension: webgpu::TextureDimension::D2,
+      format: webgpu::TextureFormat::Rgba8UnormSrgb,
+      view_formats: &[],
+      usage: webgpu::TextureUsages::all(),
+    },
+    &gpu.device,
+  )
+  .try_into()
+  .unwrap()
 }

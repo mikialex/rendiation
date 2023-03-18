@@ -163,8 +163,8 @@ pub struct GPUResourceSceneCache {
 /// GPU cache container for given scene
 #[derive(Default)]
 pub struct GPUResourceSubCache {
-  pub texture_2ds: IdentityMapper<GPU2DTextureView, SceneTexture2DType>,
-  pub texture_cubes: IdentityMapper<GPUCubeTextureView, SceneTextureCubeImpl>,
+  pub texture_2ds: ReactiveMap<SceneTexture2D, Wrapped<GPU2DTextureView>>,
+  pub texture_cubes: ReactiveMap<SceneTextureCube, Wrapped<GPUCubeTextureView>>,
   pub mipmap_gen: Rc<RefCell<MipMapTaskManager>>,
 }
 

@@ -4,9 +4,9 @@ pub type CameraGPUMap = ReactiveMap<SceneCamera, CameraGPU>;
 
 impl SceneItemReactiveMapping<CameraGPU> for SceneCamera {
   type ChangeStream = impl Stream<Item = ()> + Unpin;
-  type Ctx = GPU;
+  type Ctx<'a> = GPU;
 
-  fn build(&self, gpu: &Self::Ctx) -> (CameraGPU, Self::ChangeStream) {
+  fn build(&self, gpu: &Self::Ctx<'_>) -> (CameraGPU, Self::ChangeStream) {
     let mapped = CameraGPU::new(gpu);
     let changes = {
       let camera_world_changed = self
@@ -22,7 +22,7 @@ impl SceneItemReactiveMapping<CameraGPU> for SceneCamera {
     (mapped, changes)
   }
 
-  fn update(&self, mapped: &mut CameraGPU, change: &mut Self::ChangeStream, gpu: &Self::Ctx) {
+  fn update(&self, mapped: &mut CameraGPU, change: &mut Self::ChangeStream, gpu: &Self::Ctx<'_>) {
     do_updates(change, |_| {
       mapped.update(gpu, &self.read());
     });

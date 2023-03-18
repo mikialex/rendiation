@@ -5,20 +5,20 @@ pub type NodeGPUMap = ReactiveMap<SceneNode, NodeGPU>;
 impl ReactiveMapping<NodeGPU> for SceneNode {
   type ChangeStream = impl Stream + Unpin;
   type DropFuture = impl Future<Output = ()> + Unpin;
-  type Ctx = GPU;
+  type Ctx<'a> = GPU;
 
   fn key(&self) -> usize {
     self.id()
   }
 
-  fn build(&self, gpu: &Self::Ctx) -> (NodeGPU, Self::ChangeStream, Self::DropFuture) {
+  fn build(&self, gpu: &Self::Ctx<'_>) -> (NodeGPU, Self::ChangeStream, Self::DropFuture) {
     let drop = self.visit(|node| node.create_drop());
     let gpu_node = NodeGPU::new(gpu, self, None);
     let change = self.listen_by(with_field!(SceneNodeDataImpl => world_matrix));
     (gpu_node, change, drop)
   }
 
-  fn update(&self, gpu_node: &mut NodeGPU, change: &mut Self::ChangeStream, gpu: &Self::Ctx) {
+  fn update(&self, gpu_node: &mut NodeGPU, change: &mut Self::ChangeStream, gpu: &Self::Ctx<'_>) {
     do_updates(change, |_| {
       gpu_node.update(gpu, self, None);
     });

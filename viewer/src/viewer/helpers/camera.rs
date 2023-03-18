@@ -95,9 +95,9 @@ fn build_debug_line_in_camera_space(project_mat: Mat4<f32>) -> HelperLineMesh {
 
 impl SceneItemReactiveMapping<CameraHelper> for SceneCamera {
   type ChangeStream = impl Stream<Item = Mat4<f32>> + Unpin;
-  type Ctx = ();
+  type Ctx<'a> = ();
 
-  fn build(&self, _: &Self::Ctx) -> (CameraHelper, Self::ChangeStream) {
+  fn build(&self, _: &Self::Ctx<'_>) -> (CameraHelper, Self::ChangeStream) {
     let source = self.read();
     let helper =
       CameraHelper::from_node_and_project_matrix(source.node.clone(), source.projection_matrix);
@@ -107,7 +107,7 @@ impl SceneItemReactiveMapping<CameraHelper> for SceneCamera {
     (helper, change)
   }
 
-  fn update(&self, mapped: &mut CameraHelper, change: &mut Self::ChangeStream, _: &Self::Ctx) {
+  fn update(&self, mapped: &mut CameraHelper, change: &mut Self::ChangeStream, _: &Self::Ctx<'_>) {
     do_updates(change, |delta| {
       mapped.update(delta);
     });

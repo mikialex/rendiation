@@ -158,11 +158,11 @@ impl<T: IncrementalBase> IntoSceneItemRef for T {}
 
 pub trait SceneItemReactiveMapping<M> {
   type ChangeStream: Stream + Unpin;
-  type Ctx;
+  type Ctx<'a>;
 
-  fn build(&self, ctx: &Self::Ctx) -> (M, Self::ChangeStream);
+  fn build(&self, ctx: &Self::Ctx<'_>) -> (M, Self::ChangeStream);
 
-  fn update(&self, mapped: &mut M, change: &mut Self::ChangeStream, ctx: &Self::Ctx);
+  fn update(&self, mapped: &mut M, change: &mut Self::ChangeStream, ctx: &Self::Ctx<'_>);
 }
 
 impl<M, T> ReactiveMapping<M> for SceneItemRef<T>
@@ -172,28 +172,28 @@ where
 {
   type ChangeStream = <Self as SceneItemReactiveMapping<M>>::ChangeStream;
   type DropFuture = impl Future<Output = ()> + Unpin;
-  type Ctx = <Self as SceneItemReactiveMapping<M>>::Ctx;
+  type Ctx<'a> = <Self as SceneItemReactiveMapping<M>>::Ctx<'a>;
 
   fn key(&self) -> usize {
     self.read().id()
   }
 
-  fn build(&self, ctx: &Self::Ctx) -> (M, Self::ChangeStream, Self::DropFuture) {
+  fn build(&self, ctx: &Self::Ctx<'_>) -> (M, Self::ChangeStream, Self::DropFuture) {
     let drop = self.create_drop();
     let (mapped, change) = SceneItemReactiveMapping::build(self, ctx);
     (mapped, change, drop)
   }
 
-  fn update(&self, mapped: &mut M, change: &mut Self::ChangeStream, ctx: &Self::Ctx) {
+  fn update(&self, mapped: &mut M, change: &mut Self::ChangeStream, ctx: &Self::Ctx<'_>) {
     SceneItemReactiveMapping::update(self, mapped, change, ctx)
   }
 }
 
 pub trait SceneItemReactiveSimpleMapping<M> {
   type ChangeStream: Stream + Unpin;
-  type Ctx;
+  type Ctx<'a>;
 
-  fn build(&self, ctx: &Self::Ctx) -> (M, Self::ChangeStream);
+  fn build(&self, ctx: &Self::Ctx<'_>) -> (M, Self::ChangeStream);
 }
 
 impl<M, T> SceneItemReactiveMapping<M> for SceneItemRef<T>
@@ -202,13 +202,13 @@ where
   Self: SceneItemReactiveSimpleMapping<M>,
 {
   type ChangeStream = <Self as SceneItemReactiveSimpleMapping<M>>::ChangeStream;
-  type Ctx = <Self as SceneItemReactiveSimpleMapping<M>>::Ctx;
+  type Ctx<'a> = <Self as SceneItemReactiveSimpleMapping<M>>::Ctx<'a>;
 
-  fn build(&self, ctx: &Self::Ctx) -> (M, Self::ChangeStream) {
+  fn build(&self, ctx: &Self::Ctx<'_>) -> (M, Self::ChangeStream) {
     SceneItemReactiveSimpleMapping::build(self, ctx)
   }
 
-  fn update(&self, mapped: &mut M, change: &mut Self::ChangeStream, ctx: &Self::Ctx) {
+  fn update(&self, mapped: &mut M, change: &mut Self::ChangeStream, ctx: &Self::Ctx<'_>) {
     let mut pair = None;
     do_updates(change, |_| {
       pair = SceneItemReactiveMapping::build(self, ctx).into();

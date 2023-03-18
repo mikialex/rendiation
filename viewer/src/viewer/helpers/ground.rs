@@ -46,9 +46,9 @@ impl PassContentWithCamera for &mut GridGround {
 
 impl SceneItemReactiveSimpleMapping<InfinityShaderPlane> for SceneItemRef<GridGroundConfig> {
   type ChangeStream = impl Stream<Item = ()> + Unpin;
-  type Ctx = GPU;
+  type Ctx<'a> = GPU;
 
-  fn build(&self, ctx: &Self::Ctx) -> (InfinityShaderPlane, Self::ChangeStream) {
+  fn build(&self, ctx: &Self::Ctx<'_>) -> (InfinityShaderPlane, Self::ChangeStream) {
     let source = self.read();
     let grid_gpu = create_grid_gpu(**source, ctx);
 
