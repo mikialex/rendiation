@@ -16,7 +16,7 @@ impl WebGPUModelExt for SceneModelImpl {
 
 pub struct OverridableMeshModelImpl {
   inner: SceneModelImpl,
-  override_gpu: RefCell<Option<TransformGPU>>,
+  override_gpu: RefCell<Option<NodeGPU>>,
   overrides: Vec<Box<dyn WorldMatrixOverride>>,
 }
 
@@ -87,7 +87,7 @@ impl SceneRenderable for OverridableMeshModelImpl {
 
     let mut override_gpu = self.override_gpu.borrow_mut();
     let node_gpu = override_gpu
-      .get_or_insert_with(|| TransformGPU::new(gpu, &self.node, world_matrix))
+      .get_or_insert_with(|| NodeGPU::new(gpu, &self.node, world_matrix))
       .update(gpu, &self.node, world_matrix);
 
     setup_pass_core(self, pass, camera, Some(node_gpu), dispatcher);

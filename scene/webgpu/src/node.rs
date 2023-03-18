@@ -1,39 +1,31 @@
 use crate::*;
 
-#[derive(Default)]
-pub struct NodeGPUStore {
-  inner: IdentityMapper<TransformGPU, SceneNodeDataImpl>,
-}
+pub type NodeGPUMap = ReactiveMap<SceneNode, NodeGPU>;
 
-impl NodeGPUStore {
-  pub fn check_update_gpu(&mut self, n: &SceneNode, gpu: &GPU) -> &TransformGPU {
-    n.visit(|node| {
-      self.get_update_or_insert_with(
-        node,
-        |_node| TransformGPU::new(gpu, n, None),
-        |node_gpu, _node| {
-          node_gpu.update(gpu, n, None);
-        },
-      )
-    })
+impl ReactiveMapping<NodeGPU> for SceneNode {
+  type ChangeStream = impl Stream + Unpin;
+  type DropFuture = impl Future<Output = ()> + Unpin;
+  type Ctx = GPU;
+
+  fn key(&self) -> usize {
+    self.id()
+  }
+
+  fn build(&self, gpu: &Self::Ctx) -> (NodeGPU, Self::ChangeStream, Self::DropFuture) {
+    let drop = self.visit(|node| node.create_drop());
+    let gpu_node = NodeGPU::new(gpu, self, None);
+    let change = self.listen_by(with_field!(SceneNodeDataImpl => world_matrix));
+    (gpu_node, change, drop)
+  }
+
+  fn update(&self, gpu_node: &mut NodeGPU, change: &mut Self::ChangeStream, gpu: &Self::Ctx) {
+    do_updates(change, |_| {
+      gpu_node.update(gpu, self, None);
+    });
   }
 }
 
-impl std::ops::Deref for NodeGPUStore {
-  type Target = IdentityMapper<TransformGPU, SceneNodeDataImpl>;
-
-  fn deref(&self) -> &Self::Target {
-    &self.inner
-  }
-}
-
-impl std::ops::DerefMut for NodeGPUStore {
-  fn deref_mut(&mut self) -> &mut Self::Target {
-    &mut self.inner
-  }
-}
-
-pub struct TransformGPU {
+pub struct NodeGPU {
   pub ubo: UniformBufferDataView<TransformGPUData>,
 }
 
@@ -56,9 +48,9 @@ impl TransformGPUData {
   }
 }
 
-impl ShaderHashProvider for TransformGPU {}
+impl ShaderHashProvider for NodeGPU {}
 
-impl ShaderGraphProvider for TransformGPU {
+impl ShaderGraphProvider for NodeGPU {
   fn build(
     &self,
     builder: &mut ShaderGraphRenderPipelineBuilder,
@@ -78,13 +70,13 @@ impl ShaderGraphProvider for TransformGPU {
   }
 }
 
-impl ShaderPassBuilder for TransformGPU {
+impl ShaderPassBuilder for NodeGPU {
   fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
     ctx.binding.bind(&self.ubo, SB::Object)
   }
 }
 
-impl TransformGPU {
+impl NodeGPU {
   pub fn update(
     &mut self,
     gpu: &GPU,

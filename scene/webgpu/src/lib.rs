@@ -125,7 +125,7 @@ pub struct GPUResourceCache {
   pub content: GPUResourceSubCache,
   pub custom_storage: AnyMap,
   pub cameras: CameraGPUMap,
-  pub nodes: NodeGPUStore,
+  pub nodes: NodeGPUMap,
 }
 
 impl Default for GPUResourceCache {

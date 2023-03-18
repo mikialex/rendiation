@@ -48,7 +48,7 @@ pub fn setup_pass_core(
   model_input: &SceneModelImpl,
   pass: &mut SceneRenderPass,
   camera: &SceneCamera,
-  override_node: Option<&TransformGPU>,
+  override_node: Option<&NodeGPU>,
   dispatcher: &dyn RenderComponentAny,
 ) {
   match &model_input.model {
@@ -65,7 +65,7 @@ pub fn setup_pass_core(
       }
 
       let node_gpu =
-        override_node.unwrap_or_else(|| resources.nodes.check_update_gpu(&model_input.node, gpu));
+        override_node.unwrap_or_else(|| resources.nodes.get_with_update(&model_input.node, gpu));
 
       let material_gpu = model.material.check_update_gpu(
         &mut resources.scene.materials,
