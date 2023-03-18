@@ -86,31 +86,37 @@ impl ShaderGraphProvider for AttributesMeshGPU {
   }
 }
 
+struct GPUAttributesBuffer {
+  inner: GPUBufferResource,
+}
+
+impl SceneItemReactiveSimpleMapping<GPUAttributesBuffer> for GeometryBuffer {
+  type ChangeStream = impl Stream<Item = ()> + Unpin;
+  type Ctx<'a> = GPU;
+
+  fn build(&self, gpu: &Self::Ctx<'_>) -> (GPUAttributesBuffer, Self::ChangeStream) {
+    let source = self.read();
+    let gpu_buffer = create_gpu_buffer(
+      self.read().buffer.as_slice(),
+      webgpu::BufferUsages::INDEX | webgpu::BufferUsages::VERTEX,
+      &gpu.device,
+    );
+
+    let gpu_buffer = GPUAttributesBuffer { inner: gpu_buffer };
+
+    let change = source.listen_by(any_change);
+    (gpu_buffer, change)
+  }
+}
+
 fn get_update_buffer<'a>(
   storage: &'a mut AnyMap,
   source: &GeometryBuffer,
   gpu: &GPU,
 ) -> &'a GPUBufferResource {
-  let cache: &mut IdentityMapper<GPUBufferResource, GeometryBufferInner> =
+  let cache: &mut ReactiveMap<GeometryBuffer, GPUAttributesBuffer> =
     storage.entry().or_insert_with(Default::default);
-
-  cache.get_update_or_insert_with(
-    &source.read(),
-    |buffer| {
-      create_gpu_buffer(
-        buffer.buffer.as_slice(),
-        webgpu::BufferUsages::INDEX | webgpu::BufferUsages::VERTEX,
-        &gpu.device,
-      )
-    },
-    |g, buffer| {
-      *g = create_gpu_buffer(
-        buffer.buffer.as_slice(),
-        webgpu::BufferUsages::INDEX | webgpu::BufferUsages::VERTEX,
-        &gpu.device,
-      )
-    },
-  )
+  &cache.get_with_update(source, gpu).inner
 }
 
 impl WebGPUMesh for AttributesMesh {
