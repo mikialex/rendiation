@@ -79,10 +79,50 @@ impl Mipmap2DGenerator {
       }
       .draw_quad();
 
-      pass("mip-gen")
+      pass("mip-gen-2d")
         .with_color(write_view, load())
         .render(ctx)
         .by(task);
+    }
+  }
+
+  /// It's useful to generate cube faces use same method like 2d.
+  /// even it's not correct from perspective of spherical filtering.
+  pub fn generate_cube_faces(&self, ctx: &mut FrameCtx, texture: &GPUCubeTexture) {
+    for write_level in 1..texture.desc.mip_level_count {
+      for face in 0..texture.desc.size.depth_or_array_layers {
+        let write_view: GPU2DTextureView = texture
+          .create_view(webgpu::TextureViewDescriptor {
+            base_mip_level: write_level,
+            mip_level_count: Some(NonZeroU32::new(1).unwrap()),
+            base_array_layer: face,
+            ..Default::default()
+          })
+          .try_into()
+          .unwrap();
+
+        let read_level = write_level - 1;
+        let read_view = texture
+          .create_view(webgpu::TextureViewDescriptor {
+            base_mip_level: read_level,
+            mip_level_count: Some(NonZeroU32::new(1).unwrap()),
+            base_array_layer: face,
+            ..Default::default()
+          })
+          .try_into()
+          .unwrap();
+
+        let task = Mipmap2DGeneratorTask {
+          view: read_view,
+          reducer: self.reducer.as_ref(),
+        }
+        .draw_quad();
+
+        pass("mip-gen-cube-face")
+          .with_color(write_view, load())
+          .render(ctx)
+          .by(task);
+      }
     }
   }
 }
