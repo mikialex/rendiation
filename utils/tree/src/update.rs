@@ -22,14 +22,24 @@ pub trait IncrementalHierarchyDepend: HierarchyDepend + IncrementalBase {
   fn check_delta_affects_hierarchy(delta: &Self::Delta) -> bool;
 }
 
+/// The default value is the none parent case
 pub trait HierarchyDerived: Default {
   type Source: IncrementalBase;
-  type HierarchyDirtyMark;
+  type HierarchyDirtyMark: HierarchyDirtyMark;
 
   /// for any delta of source, check if it will have hierarchy effect
   fn filter_hierarchy_change(
     change: &<Self::Source as IncrementalBase>::Delta,
   ) -> Option<Self::HierarchyDirtyMark>;
+
+  fn hierarchy_update(&self, parent: &Self);
+}
+
+/// The default case is no dirty
+pub trait HierarchyDirtyMark: Default {
+  fn contains(&self, mark: &Self) -> bool;
+  fn intersects(&self, mark: &Self) -> bool;
+  fn insert(&mut self, mark: &Self);
 }
 
 struct DerivedData<T: HierarchyDerived> {
@@ -80,10 +90,10 @@ where
             parent_target,
             node,
           } => {
-            //
+            // like update, and we will emit full dirty change
           }
           SharedTreeMutation::Detach { node } => {
-            //
+            // like update, and we will emit full dirty change
           }
         };
         // do dirty marking, return if should trigger hierarchy change, and the update root
@@ -91,7 +101,8 @@ where
       .buffered(500) // todo custom buffer? find common update root?
       .map(|_| {
         // do full tree traverse check, emit all real update as stream
-      });
+      })
+      .flatten();
 
     Self {
       storage: Default::default(),
