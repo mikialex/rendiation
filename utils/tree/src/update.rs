@@ -114,7 +114,10 @@ where
         };
         // do dirty marking, return if should trigger hierarchy change, and the update root
       })
+      .buffered_all()
       .map(|_| {
+        // this allocation can not removed, but could we calculate correct capacity?
+        let derived_updates = Vec::new();
         // do full tree traverse check, emit all real update as stream
       })
       .flatten();
