@@ -23,7 +23,7 @@ pub trait IncrementalHierarchyDepend: HierarchyDepend + IncrementalBase {
 }
 
 /// The default value is the none parent case
-pub trait HierarchyDerived: Default {
+pub trait HierarchyDerived: Default + IncrementalBase {
   type Source: IncrementalBase;
   type HierarchyDirtyMark: HierarchyDirtyMark;
 
@@ -35,8 +35,9 @@ pub trait HierarchyDerived: Default {
   fn hierarchy_update(&self, parent: &Self);
 }
 
-/// The default case is no dirty
-pub trait HierarchyDirtyMark: Default {
+pub trait HierarchyDirtyMark: PartialEq {
+  const ALL: Self;
+  const NONE: Self;
   fn contains(&self, mark: &Self) -> bool;
   fn intersects(&self, mark: &Self) -> bool;
   fn insert(&mut self, mark: &Self);
@@ -45,9 +46,11 @@ pub trait HierarchyDirtyMark: Default {
 struct DerivedData<T: HierarchyDerived> {
   data: T,
   /// all sub tree change or together includes self
+  /// this tag is for skip tree branch updating
   sub_tree_dirty_mark_any: T::HierarchyDirtyMark,
 
-  /// all sub tree change and together includes self
+  /// all sub tree change and together includes self.
+  /// this tag is for skipping tree dirty marking
   sub_tree_dirty_mark_all: T::HierarchyDirtyMark,
 }
 
@@ -71,34 +74,46 @@ where
     tree_delta
       // mark stage
       .map(|delta: SharedTreeMutation<T::Source>| {
-        let tree = tree.write().unwrap();
+        let derived_tree = tree.write().unwrap();
         match delta {
           SharedTreeMutation::Create(new) => {
             // simply create the default derived. insert derived tree
             // let derived = Default::default();
-            // tree.apply(Tree)
+            tree.derived_tree(SharedTreeMutation::Create(()))
           }
           SharedTreeMutation::Delete(handle) => {
             // do pair remove in derived tree
           }
           SharedTreeMutation::Mutate { node, delta } => {
-            // check if have hierarchy effect
+            // check if have any hierarchy effect
             // for children, do traverse mark dirty all-mark, skip if all-mark contains new dirty
             // for parent chain, do parent chain traverse mark dirty any-mark,
+            if let Some(dirty_mark) = T::filter_hierarchy_change(&delta) {
+              mark_sub_tree_full_change(&mut derived_tree, node, dirty_mark)
+            }
           }
           SharedTreeMutation::Attach {
             parent_target,
             node,
           } => {
             // like update, and we will emit full dirty change
+            mark_sub_tree_full_change(
+              &mut derived_tree,
+              node,
+              <T as HierarchyDerived>::HierarchyDirtyMark::ALL,
+            )
           }
           SharedTreeMutation::Detach { node } => {
             // like update, and we will emit full dirty change
+            mark_sub_tree_full_change(
+              &mut derived_tree,
+              node,
+              <T as HierarchyDerived>::HierarchyDirtyMark::ALL,
+            )
           }
         };
         // do dirty marking, return if should trigger hierarchy change, and the update root
       })
-      .buffered(500) // todo custom buffer? find common update root?
       .map(|_| {
         // do full tree traverse check, emit all real update as stream
       })
@@ -108,4 +123,14 @@ where
       storage: Default::default(),
     }
   }
+}
+
+fn mark_sub_tree_full_change<T: HierarchyDerived>(
+  tree: &mut TreeCollection<DerivedData<T>>,
+  change_node: TreeNodeHandle<DerivedData<T>>,
+  dirty_mark: T::HierarchyDirtyMark,
+) {
+  tree.traverse_mut_pair(node, |node, _| {
+    //
+  });
 }
