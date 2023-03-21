@@ -1,5 +1,7 @@
 use std::{cmp, fmt::Debug, hash::Hash, marker::PhantomData};
 
+use crate::{Arena, Entry};
+
 /// An handle (and generation) into an `Arena`.
 ///
 /// To get an `Handle`, insert an element into an `Arena`, and the `Handle` for
@@ -109,41 +111,18 @@ impl<T> Hash for Handle<T> {
   }
 }
 
-// // impl for Handle<Handle<T>>
-// impl<T> Clone for Handle<Handle<T>> {
-//   fn clone(&self) -> Handle<Handle<T>> {
-//     Handle {
-//       handle: self.handle,
-//       generation: self.generation,
-//       phantom: PhantomData,
-//     }
-//   }
-// }
-
-// impl<T> Copy for Handle<Handle<T>> {}
-
-// impl<T> PartialEq for Handle<Handle<T>> {
-//   fn eq(&self, other: &Self) -> bool {
-//     self.handle == other.handle && self.generation == other.generation
-//   }
-// }
-
-// impl<T> PartialOrd for Handle<Handle<T>> {
-//   fn partial_cmp(&self, other: &Self) -> Option<cmp::Ordering> {
-//     Some(self.handle.cmp(&other.handle))
-//   }
-// }
-
-// impl<T> Ord for Handle<Handle<T>> {
-//   fn cmp(&self, other: &Self) -> cmp::Ordering {
-//     self.handle.cmp(&other.handle)
-//   }
-// }
-
-// impl<T> Eq for Handle<Handle<T>> {}
-
-// impl<T> Hash for Handle<Handle<T>> {
-//     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-//       self.handle.hash(state);
-//     }
-// }
+impl<T> Arena<T> {
+  /// Get the given position's alive handle, if the given position out of bounds or do not
+  /// have alive value, the None will be returned
+  pub fn get_handle(&self, index: usize) -> Option<Handle<T>> {
+    match self.items.get(index) {
+      Some(Entry::Occupied { generation, .. }) => Handle {
+        handle: index,
+        generation: *generation,
+        phantom: PhantomData,
+      }
+      .into(),
+      _ => None,
+    }
+  }
+}

@@ -1,8 +1,13 @@
 use crate::*;
 use ::incremental::*;
 
+/// note: the tree collection can not impl delta apply
+/// because we can not fully rebuild the inner allocation state of tree collection
 pub enum SharedTreeMutation<T: IncrementalBase> {
-  Create(NodeRef<T>),
+  Create {
+    address: TreeNodeHandle<T>,
+    data: T,
+  },
   Delete(TreeNodeHandle<T>),
   Mutate {
     node: TreeNodeHandle<T>,
@@ -17,10 +22,13 @@ pub enum SharedTreeMutation<T: IncrementalBase> {
   },
 }
 
-impl<T: IncrementalBase> Clone for SharedTreeMutation<T> {
+impl<T: IncrementalBase + Clone> Clone for SharedTreeMutation<T> {
   fn clone(&self) -> Self {
     match self {
-      SharedTreeMutation::Create(n) => SharedTreeMutation::Create(n.clone()),
+      SharedTreeMutation::Create { data, address } => SharedTreeMutation::Create {
+        address: *address,
+        data: data.clone(),
+      },
       SharedTreeMutation::Delete(n) => SharedTreeMutation::Delete(*n),
       SharedTreeMutation::Mutate { node, delta } => SharedTreeMutation::Mutate {
         node: *node,
@@ -38,7 +46,7 @@ impl<T: IncrementalBase> Clone for SharedTreeMutation<T> {
   }
 }
 
-impl<T: IncrementalBase + Send + Sync> IncrementalBase for SharedTreeCollection<T> {
+impl<T: IncrementalBase + Clone + Send + Sync> IncrementalBase for SharedTreeCollection<T> {
   type Delta = SharedTreeMutation<T>;
 
   fn expand(&self, mut cb: impl FnMut(Self::Delta)) {
@@ -48,10 +56,10 @@ impl<T: IncrementalBase + Send + Sync> IncrementalBase for SharedTreeCollection<
         let node = tree.create_node_ref(handle);
         // todo fix traverse_pair skip leaf/parent node
         node.traverse_pair(&mut |self_node, parent| {
-          cb(SharedTreeMutation::Create(NodeRef {
-            nodes: self.clone(),
-            handle: self_node.node.handle(),
-          }));
+          cb(SharedTreeMutation::Create {
+            address: self_node.node.handle(),
+            data: self_node.node.data().clone(),
+          });
           cb(SharedTreeMutation::Attach {
             parent_target: parent.node.handle(),
             node: self_node.node.handle(),

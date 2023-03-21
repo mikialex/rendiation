@@ -18,7 +18,7 @@ pub use iter::*;
 /// [See the module-level documentation for example usage and motivation.](./handle.html)
 #[derive(Clone, Debug)]
 pub struct Arena<T> {
-  items: Vec<Entry<T>>,
+  pub(crate) items: Vec<Entry<T>>,
   generation: u64,
   free_list_head: Option<usize>,
   len: usize,

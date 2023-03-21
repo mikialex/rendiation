@@ -1,5 +1,5 @@
 use futures::{Stream, StreamExt};
-use incremental::IncrementalBase;
+use incremental::{ApplicableIncremental, IncrementalBase};
 
 use crate::*;
 
@@ -68,7 +68,10 @@ where
   T::Source: IncrementalBase,
 {
   #[allow(unused_must_use)]
-  pub fn new(tree_delta: impl Stream<Item = SharedTreeMutation<T::Source>>) -> Self {
+  pub fn new(
+    tree: &SharedTreeCollection<T::Source>,
+    tree_delta: impl Stream<Item = SharedTreeMutation<T::Source>>,
+  ) -> Self {
     let tree = Arc::new(RwLock::new(TreeCollection::<T>::default()));
 
     tree_delta
@@ -79,7 +82,7 @@ where
           SharedTreeMutation::Create(new) => {
             // simply create the default derived. insert derived tree
             // let derived = Default::default();
-            tree.derived_tree(SharedTreeMutation::Create(()))
+            derived_tree.create_node(Default::default())
           }
           SharedTreeMutation::Delete(handle) => {
             // do pair remove in derived tree
