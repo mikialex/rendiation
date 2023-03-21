@@ -34,16 +34,21 @@ pub trait HierarchyDerived: Default + IncrementalBase {
   ) -> Option<Self::HierarchyDirtyMark>;
 
   fn hierarchy_update(&self, parent: &Self);
+  // just shortcut
+  fn full_dirty_mark() -> Self::HierarchyDirtyMark {
+    Self::HierarchyDirtyMark::ALL
+  }
 }
 
-pub trait HierarchyDirtyMark: PartialEq {
+/// Default should use None state
+pub trait HierarchyDirtyMark: PartialEq + Default {
   const ALL: Self;
-  const NONE: Self;
   fn contains(&self, mark: &Self) -> bool;
   fn intersects(&self, mark: &Self) -> bool;
   fn insert(&mut self, mark: &Self);
 }
 
+#[derive(Default)]
 struct DerivedData<T: HierarchyDerived> {
   data: T,
   /// all sub tree change or together includes self
@@ -56,11 +61,9 @@ struct DerivedData<T: HierarchyDerived> {
 }
 
 pub struct TreeHierarchyDerivedSystem<T: HierarchyDerived> {
-  storage: TreeCollection<DerivedData<T>>,
-}
-
-enum DirtyMarkingTask {
-  SubTree,
+  derived_tree: Arc<RwLock<TreeCollection<DerivedData<T>>>>,
+  // we use boxed here to avoid another generic for tree delta input stream
+  derived_stream: Box<dyn Stream<Item = T::Delta>>,
 }
 
 impl<T> TreeHierarchyDerivedSystem<T>
@@ -69,18 +72,19 @@ where
   T::Source: IncrementalBase,
 {
   #[allow(unused_must_use)]
-  pub fn new(
-    tree: &SharedTreeCollection<T::Source>,
-    tree_delta: impl Stream<Item = SharedTreeMutation<T::Source>>,
-  ) -> Self {
-    let tree = Arc::new(RwLock::new(TreeCollection::<T>::default()));
+  pub fn new(tree_delta: impl Stream<Item = SharedTreeMutation<T::Source>> + 'static) -> Self {
+    let derived_tree = Arc::new(RwLock::new(TreeCollection::<DerivedData<T>>::default()));
 
-    tree_delta
+    let derived_tree_c = derived_tree.clone();
+    let derived_tree_cc = derived_tree_c.clone();
+
+    let derived_stream = tree_delta
       // mark stage
       // do dirty marking, return if should trigger hierarchy change, and the update root
-      .filter_map(|delta: SharedTreeMutation<T::Source>| {
-        let derived_tree = tree.write().unwrap();
-        async {
+      .filter_map(move |delta| {
+        let derived_tree_ccc = derived_tree_c.clone(); // have to move step by step
+        async move {
+          let mut derived_tree = derived_tree_ccc.write().unwrap();
           match delta {
             // simply create the default derived. insert into derived tree.
             // we don't care the returned handle, as we assume they are allocated in the same position
@@ -91,7 +95,8 @@ where
             }
             // do pair remove in derived tree
             SharedTreeMutation::Delete(handle) => {
-              derived_tree.delete_node(derived_tree.recreate_handle(handle.index()));
+              let handle = derived_tree.recreate_handle(handle.index());
+              derived_tree.delete_node(handle);
               None
             }
             // check if have any hierarchy effect
@@ -99,10 +104,9 @@ where
             // for parent chain, do parent chain traverse mark dirty any-mark,
             SharedTreeMutation::Mutate { node, delta } => {
               let handle = derived_tree.recreate_handle(node.index());
-              if let Some(dirty_mark) = T::filter_hierarchy_change(&delta) {
-                mark_sub_tree_full_change(&mut derived_tree, node, dirty_mark)
-              }
-              None
+              T::filter_hierarchy_change(&delta).and_then(|dirty_mark| {
+                mark_sub_tree_full_change(&mut derived_tree, handle, dirty_mark)
+              })
             }
             // like update, and we will emit full dirty change
             SharedTreeMutation::Attach {
@@ -112,46 +116,54 @@ where
               let parent_target = derived_tree.recreate_handle(parent_target.index());
               let node = derived_tree.recreate_handle(node.index());
               derived_tree.node_add_child_by(parent_target, node);
-              mark_sub_tree_full_change(
-                &mut derived_tree,
-                node,
-                <T as HierarchyDerived>::HierarchyDirtyMark::ALL,
-              );
-              None
+              mark_sub_tree_full_change(&mut derived_tree, node, T::full_dirty_mark())
             }
             // ditto
             SharedTreeMutation::Detach { node } => {
-              derived_tree.node_detach_parent(derived_tree.recreate_handle(node.index()));
-              mark_sub_tree_full_change(
-                &mut derived_tree,
-                node,
-                <T as HierarchyDerived>::HierarchyDirtyMark::ALL,
-              );
-              None
+              let node = derived_tree.recreate_handle(node.index());
+              derived_tree.node_detach_parent(node);
+              mark_sub_tree_full_change(&mut derived_tree, node, T::full_dirty_mark())
             }
           }
         }
       })
-      .buffered_unbound()
-      .map(|_| {
-        // this allocation can not removed, but could we calculate correct capacity?
-        let derived_updates = Vec::new();
+      .buffered_unbound() // to make sure all markup finished
+      .map(move |update_root| {
+        let mut derived_tree = derived_tree_cc.write().unwrap();
+        // this allocation can not removed, but could we calculate correct capacity or reuse the allocation?
+        let mut derived_deltas = Vec::new();
         // do full tree traverse check, emit all real update as stream
+        do_sub_tree_updates(&mut derived_tree, update_root, |delta| {
+          derived_deltas.push(delta);
+        });
+        futures::stream::iter(derived_deltas)
       })
       .flatten();
 
     Self {
-      storage: Default::default(),
+      derived_tree,
+      derived_stream: Box::new(derived_stream),
     }
   }
 }
 
+// return the root node handle as the update root
+// if the parent chain has been any dirty marked, we return None to skip the update process
 fn mark_sub_tree_full_change<T: HierarchyDerived>(
   tree: &mut TreeCollection<DerivedData<T>>,
   change_node: TreeNodeHandle<DerivedData<T>>,
   dirty_mark: T::HierarchyDirtyMark,
-) {
-  tree.traverse_mut_pair(node, |node, _| {
+) -> Option<TreeNodeHandle<DerivedData<T>>> {
+  tree.traverse_mut_pair(change_node, |node, _| {
     //
   });
+  todo!()
+}
+
+fn do_sub_tree_updates<T: HierarchyDerived>(
+  tree: &mut TreeCollection<DerivedData<T>>,
+  update_root: TreeNodeHandle<DerivedData<T>>,
+  derived_delta_sender: impl FnMut(T::Delta),
+) {
+  todo!()
 }

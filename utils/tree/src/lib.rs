@@ -1,3 +1,5 @@
+#![feature(type_alias_impl_trait)]
+
 use std::sync::{Arc, RwLock};
 
 use abst::TreeNodeMutPtr;
