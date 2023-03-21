@@ -32,6 +32,7 @@
         "combinators",
         "consts",
         "Controllee",
+        "Deque",
         "dpdx",
         "dpdy",
         "drawables",

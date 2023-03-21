@@ -1,4 +1,5 @@
 use std::{
+  collections::VecDeque,
   pin::Pin,
   task::{Context, Poll},
 };
@@ -42,6 +43,10 @@ pub trait SignalStreamExt: Stream {
   where
     St: Stream,
     Self: Sized;
+
+  fn buffered_unbound(self) -> BufferedUnbound<Self>
+  where
+    Self: Sized;
 }
 
 impl<T: Stream> SignalStreamExt for T {
@@ -67,6 +72,46 @@ impl<T: Stream> SignalStreamExt for T {
     Self: Sized,
   {
     ZipSignal::new(self, other)
+  }
+
+  fn buffered_unbound(self) -> BufferedUnbound<Self> {
+    BufferedUnbound {
+      inner: self,
+      buffered: VecDeque::new(),
+    }
+  }
+}
+
+#[pin_project]
+pub struct BufferedUnbound<S: Stream> {
+  #[pin]
+  inner: S,
+  buffered: VecDeque<S::Item>,
+}
+
+impl<S> Stream for BufferedUnbound<S>
+where
+  S: Stream,
+{
+  type Item = S::Item;
+
+  fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+    let mut this = self.project();
+
+    while let Poll::Ready(result) = this.inner.as_mut().poll_next(cx) {
+      if let Some(item) = result {
+        this.buffered.push_back(item);
+        continue;
+      } else {
+        return Poll::Ready(None); // the source has been dropped, do early terminate
+      }
+    }
+
+    if let Some(item) = this.buffered.pop_front() {
+      Poll::Ready(Some(item))
+    } else {
+      Poll::Pending
+    }
   }
 }
 
