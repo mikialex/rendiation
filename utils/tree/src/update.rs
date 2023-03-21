@@ -1,5 +1,6 @@
 use futures::{Stream, StreamExt};
-use incremental::{ApplicableIncremental, IncrementalBase};
+use incremental::IncrementalBase;
+use reactive::SignalStreamExt;
 
 use crate::*;
 
@@ -76,46 +77,60 @@ where
 
     tree_delta
       // mark stage
-      .map(|delta: SharedTreeMutation<T::Source>| {
+      // do dirty marking, return if should trigger hierarchy change, and the update root
+      .filter_map(|delta: SharedTreeMutation<T::Source>| {
         let derived_tree = tree.write().unwrap();
-        match delta {
-          SharedTreeMutation::Create(new) => {
-            // simply create the default derived. insert derived tree
-            // let derived = Default::default();
-            derived_tree.create_node(Default::default())
-          }
-          SharedTreeMutation::Delete(handle) => {
+        async {
+          match delta {
+            // simply create the default derived. insert into derived tree.
+            // we don't care the returned handle, as we assume they are allocated in the same position
+            // in the original tree.
+            SharedTreeMutation::Create { .. } => {
+              derived_tree.create_node(Default::default());
+              None
+            }
             // do pair remove in derived tree
-          }
-          SharedTreeMutation::Mutate { node, delta } => {
+            SharedTreeMutation::Delete(handle) => {
+              derived_tree.delete_node(derived_tree.recreate_handle(handle.index()));
+              None
+            }
             // check if have any hierarchy effect
             // for children, do traverse mark dirty all-mark, skip if all-mark contains new dirty
             // for parent chain, do parent chain traverse mark dirty any-mark,
-            if let Some(dirty_mark) = T::filter_hierarchy_change(&delta) {
-              mark_sub_tree_full_change(&mut derived_tree, node, dirty_mark)
+            SharedTreeMutation::Mutate { node, delta } => {
+              let handle = derived_tree.recreate_handle(node.index());
+              if let Some(dirty_mark) = T::filter_hierarchy_change(&delta) {
+                mark_sub_tree_full_change(&mut derived_tree, node, dirty_mark)
+              }
+              None
+            }
+            // like update, and we will emit full dirty change
+            SharedTreeMutation::Attach {
+              parent_target,
+              node,
+            } => {
+              let parent_target = derived_tree.recreate_handle(parent_target.index());
+              let node = derived_tree.recreate_handle(node.index());
+              derived_tree.node_add_child_by(parent_target, node);
+              mark_sub_tree_full_change(
+                &mut derived_tree,
+                node,
+                <T as HierarchyDerived>::HierarchyDirtyMark::ALL,
+              );
+              None
+            }
+            // ditto
+            SharedTreeMutation::Detach { node } => {
+              derived_tree.node_detach_parent(derived_tree.recreate_handle(node.index()));
+              mark_sub_tree_full_change(
+                &mut derived_tree,
+                node,
+                <T as HierarchyDerived>::HierarchyDirtyMark::ALL,
+              );
+              None
             }
           }
-          SharedTreeMutation::Attach {
-            parent_target,
-            node,
-          } => {
-            // like update, and we will emit full dirty change
-            mark_sub_tree_full_change(
-              &mut derived_tree,
-              node,
-              <T as HierarchyDerived>::HierarchyDirtyMark::ALL,
-            )
-          }
-          SharedTreeMutation::Detach { node } => {
-            // like update, and we will emit full dirty change
-            mark_sub_tree_full_change(
-              &mut derived_tree,
-              node,
-              <T as HierarchyDerived>::HierarchyDirtyMark::ALL,
-            )
-          }
-        };
-        // do dirty marking, return if should trigger hierarchy change, and the update root
+        }
       })
       .buffered_unbound()
       .map(|_| {

@@ -73,6 +73,14 @@ impl<T> TreeCollection<T> {
     &self.nodes
   }
 
+  pub(crate) fn recreate_handle(&self, index: usize) -> TreeNodeHandle<T> {
+    self
+      .nodes
+      .data
+      .get_handle(index)
+      .expect("tree handle can not rebuild, maybe pair tree is corrupted")
+  }
+
   pub fn create_node(&mut self, data: T) -> TreeNodeHandle<T> {
     self.nodes.insert_with(|handle| TreeNode {
       handle,
