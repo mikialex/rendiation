@@ -19,14 +19,14 @@ impl DynamicExtension {
     self
       .inner
       .get(&TypeId::of::<T>())
-      .map(|r| r.as_any().downcast_ref::<T>().unwrap())
+      .map(|r| r.as_ref().as_any().downcast_ref::<T>().unwrap())
   }
 
   pub fn get_mut<T: Any>(&mut self) -> Option<&mut T> {
     self
       .inner
       .get_mut(&TypeId::of::<T>())
-      .map(|r| r.as_any_mut().downcast_mut::<T>().unwrap())
+      .map(|r| r.as_mut().as_any_mut().downcast_mut::<T>().unwrap())
   }
 
   pub fn insert<T: AnyClone>(&mut self, item: T) {
