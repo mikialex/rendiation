@@ -72,7 +72,10 @@ where
   T::Source: IncrementalBase,
 {
   #[allow(unused_must_use)]
-  pub fn new(tree_delta: impl Stream<Item = SharedTreeMutation<T::Source>> + 'static) -> Self {
+  pub fn new(
+    tree_delta: impl Stream<Item = SharedTreeMutation<T::Source>> + 'static,
+    source_tree: &SharedTreeCollection<T::Source>,
+  ) -> Self {
     let derived_tree = Arc::new(RwLock::new(TreeCollection::<DerivedData<T>>::default()));
 
     let derived_tree_c = derived_tree.clone();
@@ -129,6 +132,7 @@ where
       })
       .buffered_unbound() // to make sure all markup finished
       .map(move |update_root| {
+        let source_tree = source_tree;
         let mut derived_tree = derived_tree_cc.write().unwrap();
         // this allocation can not removed, but could we calculate correct capacity or reuse the allocation?
         let mut derived_deltas = Vec::new();
@@ -154,16 +158,25 @@ fn mark_sub_tree_full_change<T: HierarchyDerived>(
   change_node: TreeNodeHandle<DerivedData<T>>,
   dirty_mark: T::HierarchyDirtyMark,
 ) -> Option<TreeNodeHandle<DerivedData<T>>> {
-  tree.traverse_mut_pair(change_node, |node, _| {
+  tree.traverse_mut_iter(change_node).for_each(|| {
     //
   });
+
+  tree.traverse_mut_parent_chain_iter(change_node);
+
   todo!()
 }
 
 fn do_sub_tree_updates<T: HierarchyDerived>(
-  tree: &mut TreeCollection<DerivedData<T>>,
+  source_tree: &mut TreeCollection<T::Source>,
+  derived_tree: &mut TreeCollection<DerivedData<T>>,
   update_root: TreeNodeHandle<DerivedData<T>>,
   derived_delta_sender: impl FnMut(T::Delta),
 ) {
-  todo!()
+  derived_tree
+    .traverse_mut_iter(update_root)
+    .zip(source_tree.traverse_peek_parent_iter())
+    .for_each(|(derived, parent_source)| {
+      //
+    });
 }
