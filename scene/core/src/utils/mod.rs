@@ -85,7 +85,6 @@ impl<T: IncrementalBase> Identity<T> {
 
     self.delta_source.on(move |v| {
       mapper(Partial::Delta(v.delta), &send);
-      // todo, check if receiver drop logic?
       sender.is_closed()
     });
     // todo impl custom unbound channel: if sender drop, the receiver will still hold the history message
@@ -103,5 +102,27 @@ impl<T: IncrementalBase> Identity<T> {
     });
     use futures::FutureExt;
     receiver.map(|_| ())
+  }
+}
+
+#[test]
+fn channel_behavior() {
+  // we rely on this behavior to cleanup the sender callback
+  {
+    let (sender, receiver) = futures::channel::mpsc::unbounded::<usize>();
+    drop(receiver);
+    assert!(sender.is_closed())
+  }
+
+  // this is why we should impl custom channel
+  {
+    let (sender, receiver) = futures::channel::mpsc::unbounded::<usize>();
+    sender.unbounded_send(999).ok();
+    sender.unbounded_send(9999).ok();
+    drop(sender);
+
+    let all = futures::executor::block_on_stream(receiver).count();
+
+    assert_eq!(all, 2)
   }
 }
