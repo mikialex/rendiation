@@ -5,14 +5,14 @@ use reactive::SignalStreamExt;
 use crate::*;
 
 pub trait HierarchyDepend: Sized {
-  fn update_by_parent(&mut self, parent: &Self);
+  fn update_by_parent(&mut self, parent: Option<&Self>);
 }
 
 impl<T: HierarchyDepend> SharedTreeCollection<T> {
   pub fn update(&self, root: TreeNodeHandle<T>) {
     let mut nodes = self.inner.write().unwrap();
-    nodes.traverse_mut_pair(root, |parent, this| {
-      let parent = parent.data();
+    nodes.traverse_mut_pair(root, |this, parent| {
+      let parent = parent.map(|parent| parent.data());
       let node_data = this.data_mut();
       node_data.update_by_parent(parent)
     });
@@ -132,12 +132,11 @@ where
       })
       .buffered_unbound() // to make sure all markup finished
       .map(move |update_root| {
-        let source_tree = source_tree;
         let mut derived_tree = derived_tree_cc.write().unwrap();
         // this allocation can not removed, but could we calculate correct capacity or reuse the allocation?
         let mut derived_deltas = Vec::new();
         // do full tree traverse check, emit all real update as stream
-        do_sub_tree_updates(&mut derived_tree, update_root, |delta| {
+        do_sub_tree_updates(todo!(), &mut derived_tree, update_root, |delta| {
           derived_deltas.push(delta);
         });
         futures::stream::iter(derived_deltas)
@@ -158,25 +157,25 @@ fn mark_sub_tree_full_change<T: HierarchyDerived>(
   change_node: TreeNodeHandle<DerivedData<T>>,
   dirty_mark: T::HierarchyDirtyMark,
 ) -> Option<TreeNodeHandle<DerivedData<T>>> {
-  tree.traverse_mut_iter(change_node).for_each(|| {
-    //
-  });
+  // tree.traverse_mut_iter(change_node).for_each(|| {
+  //   //
+  // });
 
-  tree.traverse_mut_parent_chain_iter(change_node);
+  // tree.traverse_mut_parent_chain_iter(change_node);
 
   todo!()
 }
 
 fn do_sub_tree_updates<T: HierarchyDerived>(
-  source_tree: &mut TreeCollection<T::Source>,
+  source_tree: &TreeCollection<T::Source>,
   derived_tree: &mut TreeCollection<DerivedData<T>>,
   update_root: TreeNodeHandle<DerivedData<T>>,
   derived_delta_sender: impl FnMut(T::Delta),
 ) {
-  derived_tree
-    .traverse_mut_iter(update_root)
-    .zip(source_tree.traverse_peek_parent_iter())
-    .for_each(|(derived, parent_source)| {
-      //
-    });
+  // derived_tree
+  //   .traverse_mut_iter(update_root)
+  //   .zip(source_tree.traverse_peek_parent_iter())
+  //   .for_each(|(derived, parent_source)| {
+  //     //
+  //   });
 }

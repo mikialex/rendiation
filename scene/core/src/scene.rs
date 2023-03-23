@@ -92,14 +92,23 @@ impl SceneInner {
 }
 
 impl HierarchyDepend for SceneNodeData {
-  fn update_by_parent(&mut self, parent: &Self) {
+  fn update_by_parent(&mut self, parent: Option<&Self>) {
     self.mutate(|mut node_data| {
-      let new_net = node_data.visible && parent.net_visible;
-      if new_net != node_data.net_visible {
-        node_data.modify(SceneNodeDataImplDelta::net_visible(new_net))
-      }
-      if new_net {
+      if let Some(parent) = parent {
+        let new_net = node_data.visible && parent.net_visible;
+        if new_net != node_data.net_visible {
+          node_data.modify(SceneNodeDataImplDelta::net_visible(new_net))
+        }
         let new_world_matrix = parent.world_matrix * node_data.local_matrix;
+        if new_world_matrix != node_data.world_matrix {
+          node_data.modify(SceneNodeDataImplDelta::world_matrix(new_world_matrix))
+        }
+      } else {
+        let new_net = node_data.visible;
+        if new_net != node_data.net_visible {
+          node_data.modify(SceneNodeDataImplDelta::net_visible(new_net))
+        }
+        let new_world_matrix = node_data.local_matrix;
         if new_world_matrix != node_data.world_matrix {
           node_data.modify(SceneNodeDataImplDelta::world_matrix(new_world_matrix))
         }

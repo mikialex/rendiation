@@ -122,32 +122,15 @@ pub trait AbstractTreeMutNode {
     visitor(self);
     self.visit_children_mut(|child| child.traverse_mut(visitor))
   }
-}
 
-pub trait AbstractTreePairNode {
-  /// (self child)
-  fn visit_self_child_pair(&self, visitor: impl FnMut(&Self, &Self));
-  /// self child
-  /// todo avoid stack overflow
-  fn traverse_pair(&self, visitor: &mut impl FnMut(&Self, &Self)) {
-    self.visit_self_child_pair(|self_node, child| {
-      visitor(self_node, child);
-      child.traverse_pair(visitor)
-    })
-  }
-}
-
-/// note: this requires parent and child able to get mutable at same time,
-/// and impose restrictions on memory assumptions
-pub trait AbstractTreePairMutNode {
-  /// self child
-  fn visit_self_child_pair_mut(&mut self, visitor: impl FnMut(&mut Self, &mut Self));
-  /// self child
-  /// todo avoid stack overflow
-  fn traverse_pair_mut(&mut self, visitor: &mut impl FnMut(&mut Self, &mut Self)) {
-    self.visit_self_child_pair_mut(|self_node, child| {
-      visitor(self_node, child);
-      child.traverse_pair_mut(visitor)
+  fn traverse_pair_subtree_mut(&mut self, visitor: &mut impl FnMut(&mut Self, Option<&mut Self>))
+  where
+    Self: AbstractParentAddressableMutTreeNode,
+  {
+    // todo, should we provide recursive or none recursive version?
+    self.traverse_mut(&mut |node| {
+      let mut parent = node.get_parent_mut();
+      visitor(node, parent.as_mut())
     })
   }
 }
@@ -173,6 +156,27 @@ pub trait AbstractParentAddressableTreeNode: Sized {
     if let Some(parent) = self.get_parent() {
       visitor(self, Some(&parent));
       parent.traverse_pair_parent_chain(visitor)
+    } else {
+      visitor(self, None);
+    }
+  }
+}
+
+pub trait AbstractParentAddressableMutTreeNode: Sized {
+  /// this actually requires self is cheap to create/clone
+  fn get_parent_mut(&mut self) -> Option<Self>;
+
+  fn traverse_parent_mut(&mut self, visitor: &mut impl FnMut(&mut Self)) {
+    visitor(self);
+    if let Some(mut parent) = self.get_parent_mut() {
+      parent.traverse_parent_mut(visitor)
+    }
+  }
+
+  fn traverse_pair_parent_chain_mut(&mut self, visitor: &mut impl FnMut(&Self, Option<&Self>)) {
+    if let Some(mut parent) = self.get_parent_mut() {
+      visitor(self, Some(&parent));
+      parent.traverse_pair_parent_chain_mut(visitor)
     } else {
       visitor(self, None);
     }

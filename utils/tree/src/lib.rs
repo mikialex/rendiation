@@ -182,14 +182,14 @@ impl<T> TreeCollection<T> {
   pub fn traverse_mut_pair(
     &mut self,
     start: TreeNodeHandle<T>,
-    mut visitor: impl FnMut(&mut TreeNode<T>, &mut TreeNode<T>),
+    mut visitor: impl FnMut(&mut TreeNode<T>, Option<&mut TreeNode<T>>),
   ) {
     let tree = self as *mut _;
     let node = self.get_node_mut(start);
-    TreeNodeMutPtr { tree, node }.traverse_pair_mut(&mut |parent, child| {
-      let parent = unsafe { &mut (*parent.node) };
+    TreeNodeMutPtr { tree, node }.traverse_pair_subtree_mut(&mut |child, parent| {
+      let parent = parent.map(|parent| unsafe { &mut (*parent.node) });
       let child = unsafe { &mut (*child.node) };
-      visitor(parent, child)
+      visitor(child, parent)
     });
   }
 }

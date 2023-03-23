@@ -47,16 +47,18 @@ impl<T: IncrementalBase + Send + Sync> IncrementalBase for SharedTreeCollection<
     for (handle, node) in &tree.nodes.data {
       if node.first_child.is_none() {
         let node = tree.create_node_ref(handle);
-        // todo fix traverse_pair skip leaf/parent node
-        node.traverse_pair(&mut |self_node, parent| {
+        node.traverse_pair_subtree(&mut |self_node, parent| {
           cb(SharedTreeMutation::Create(NodeRef {
             nodes: self.clone(),
             handle: self_node.node.handle(),
           }));
-          cb(SharedTreeMutation::Attach {
-            parent_target: parent.node.handle(),
-            node: self_node.node.handle(),
-          });
+          if let Some(parent) = parent {
+            cb(SharedTreeMutation::Attach {
+              parent_target: parent.node.handle(),
+              node: self_node.node.handle(),
+            });
+          }
+          NextTraverseVisit::VisitChildren
         })
       }
     }

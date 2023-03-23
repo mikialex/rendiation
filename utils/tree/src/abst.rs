@@ -31,17 +31,6 @@ impl<'a, T> AbstractParentAddressableTreeNode for TreeNodeRef<'a, T> {
   }
 }
 
-impl<'a, T> AbstractTreePairNode for TreeNodeRef<'a, T> {
-  fn visit_self_child_pair(&self, mut visitor: impl FnMut(&Self, &Self)) {
-    let mut next = self.node.first_child;
-    while let Some(next_to_visit) = next {
-      let child = self.tree.create_node_ref(next_to_visit);
-      visitor(self, &child);
-      next = child.node.next_sibling
-    }
-  }
-}
-
 impl<T> TreeCollection<T> {
   pub fn create_node_ref(&self, handle: TreeNodeHandle<T>) -> TreeNodeRef<T> {
     TreeNodeRef {
@@ -56,10 +45,8 @@ pub struct TreeNodeMutPtr<T> {
   pub(crate) node: *mut TreeNode<T>,
 }
 
-/// todo test it with miri
-impl<T> AbstractTreePairMutNode for TreeNodeMutPtr<T> {
-  /// parent child
-  fn visit_self_child_pair_mut(&mut self, mut visitor: impl FnMut(&mut Self, &mut Self)) {
+impl<T> AbstractTreeMutNode for TreeNodeMutPtr<T> {
+  fn visit_children_mut(&mut self, mut visitor: impl FnMut(&mut Self)) {
     unsafe {
       let mut next = (*self.node).first_child;
       while let Some(next_to_visit) = next {
@@ -68,9 +55,23 @@ impl<T> AbstractTreePairMutNode for TreeNodeMutPtr<T> {
           tree: self.tree,
           node: child,
         };
-        visitor(self, &mut child);
+        visitor(&mut child);
         next = (*child.node).next_sibling
       }
+    }
+  }
+}
+
+impl<T> AbstractParentAddressableMutTreeNode for TreeNodeMutPtr<T> {
+  fn get_parent_mut(&mut self) -> Option<Self> {
+    unsafe {
+      (*self.node).parent.map(|parent| {
+        let parent = (*self.tree).get_node_mut(parent) as *mut TreeNode<T>;
+        TreeNodeMutPtr {
+          tree: self.tree,
+          node: parent,
+        }
+      })
     }
   }
 }
