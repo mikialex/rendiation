@@ -126,7 +126,7 @@ impl AttributeAccessor {
     let inner_offset = self.view.range.offset;
     BufferViewRange {
       offset: inner_offset + (self.start * self.item_size) as u64,
-      size: NonZeroU64::new(inner_offset + (self.count * self.item_size) as u64)
+      size: NonZeroU64::new((self.count * self.item_size) as u64)
         .unwrap() // safe
         .into(),
     }
