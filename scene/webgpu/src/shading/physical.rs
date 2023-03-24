@@ -147,9 +147,9 @@ wgsl_fn!(
   // Moving Frostbite to Physically Based Rendering 3.0 - page 12, listing 2
   // https://seblagarde.files.wordpress.com/2015/07/course_notes_moving_frostbite_to_pbr_v32.pdf
   fn V_GGX_SmithCorrelated(nDotL: f32, nDotV: f32, roughness4: f32) -> f32 {
-    let Vis_SmithV = nDotV + sqrt(nDotV * (nDotV - nDotV * roughness4) + roughness4);
-    let Vis_SmithL = nDotL + sqrt(nDotL * (nDotL - nDotL * roughness4) + roughness4);
-    return 0.5 / (Vis_SmithV * Vis_SmithL);
+    let Vis_SmithV = nDotV * sqrt(nDotV * (nDotV - nDotV * roughness4) + roughness4);
+    let Vis_SmithL = nDotL * sqrt(nDotL * (nDotL - nDotL * roughness4) + roughness4);
+    return 0.5 / (Vis_SmithV + Vis_SmithL);
   }
 );
 
