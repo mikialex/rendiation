@@ -691,9 +691,14 @@ pub fn parse_singular_expression<'a>(lexer: &mut Lexer<'a>) -> Result<Expression
 pub fn parse_primary_expression<'a>(lexer: &mut Lexer<'a>) -> Result<Expression, ParseError<'a>> {
   let mut backup = lexer.clone();
   let r = match lexer.next().token {
-    Token::Number { .. } => Expression::PrimitiveConst(PrimitiveConstValue::Numeric(
-      NumericTypeConstValue::Float(1.), // todo
-    )),
+    Token::Number { value, ty, .. } => {
+      Expression::PrimitiveConst(PrimitiveConstValue::Numeric(match ty {
+        'u' => NumericTypeConstValue::UnsignedInt(value.parse::<u32>().unwrap()),
+        'i' => NumericTypeConstValue::Int(value.parse::<i32>().unwrap()),
+        'f' => NumericTypeConstValue::Float(value.parse::<f32>().unwrap()),
+        _ => return Err(ParseError::Any("unknown number ty")),
+      }))
+    }
     Token::Bool(v) => Expression::PrimitiveConst(PrimitiveConstValue::Bool(v)),
     Token::Operation('-') => {
       let inner = Expression::parse(lexer)?;
