@@ -151,10 +151,10 @@ impl Mipmap2dReducer for DefaultMipmapReducer {
     current: Node<Vec2<f32>>,
     texel_size: Node<Vec2<f32>>,
   ) -> Node<Vec4<f32>> {
-    let mut r = previous_level.sample_level(sampler, current + texel_size * consts(Vec2::new(0., 0.)), consts(0.));
-    r        += previous_level.sample_level(sampler, current + texel_size * consts(Vec2::new(1., 0.)), consts(0.));
-    r        += previous_level.sample_level(sampler, current + texel_size * consts(Vec2::new(0., 1.)), consts(0.));
-    r        += previous_level.sample_level(sampler, current + texel_size * consts(Vec2::new(1., 1.)), consts(0.));
+    let mut r = previous_level.sample_level(sampler, current + texel_size * consts(Vec2::new( 0.5,  0.5)), consts(0.));
+    r        += previous_level.sample_level(sampler, current + texel_size * consts(Vec2::new(-0.5, -0.5)), consts(0.));
+    r        += previous_level.sample_level(sampler, current + texel_size * consts(Vec2::new(-0.5,  0.5)), consts(0.));
+    r        += previous_level.sample_level(sampler, current + texel_size * consts(Vec2::new( 0.5, -0.5)), consts(0.));
     r / consts(4.)
   }
 }
@@ -186,7 +186,7 @@ impl<'a> ShaderGraphProvider for Mipmap2DGeneratorTask<'a> {
     builder.fragment(|builder, binding| {
       let position = builder.query::<FragmentPosition>()?.xy();
       let buffer_size = builder.query::<RenderBufferSize>()?;
-      let texel_size = builder.query::<TexelSize>()?;
+      let texel_size = builder.query::<TexelSize>()? * consts(0.5);
       let previous_level = binding.uniform_by(&self.view, SB::Pass);
       let sampler = binding.uniform::<GPUSamplerView>(SB::Pass);
 
