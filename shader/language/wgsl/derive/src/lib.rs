@@ -150,12 +150,12 @@ fn convert_type(ty: &TypeExpression) -> proc_macro2::TokenStream {
       }) => {
         let _ = convert_scalar(value_ty); // todo
         match container_ty {
-          TextureContainerType::D1 => todo!(),
+          TextureContainerType::D1 => quote! { shadergraph::ShaderTexture1D },
           TextureContainerType::D2 => quote! { shadergraph::ShaderTexture2D },
-          TextureContainerType::D2Array => todo!(),
-          TextureContainerType::D3 => todo!(),
-          TextureContainerType::Cube => todo!(),
-          TextureContainerType::CubeArray => todo!(),
+          TextureContainerType::D2Array => quote! { shadergraph::ShaderTexture2DArray },
+          TextureContainerType::D3 => quote! { shadergraph::ShaderTexture3D },
+          TextureContainerType::Cube => quote! { shadergraph::ShaderTextureCube },
+          TextureContainerType::CubeArray => quote! { shadergraph::ShaderTextureCubeArray },
         }
       }
       PrimitiveType::Sampler => quote! { shadergraph::ShaderSampler },
