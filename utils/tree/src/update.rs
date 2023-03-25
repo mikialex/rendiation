@@ -14,7 +14,8 @@ impl<T: HierarchyDepend> SharedTreeCollection<T> {
     nodes.traverse_mut_pair(root, |this, parent| {
       let parent = parent.map(|parent| parent.data());
       let node_data = this.data_mut();
-      node_data.update_by_parent(parent)
+      node_data.update_by_parent(parent);
+      NextTraverseVisit::VisitChildren
     });
   }
 }
@@ -33,7 +34,7 @@ pub trait HierarchyDerived: Default + IncrementalBase {
     change: &<Self::Source as IncrementalBase>::Delta,
   ) -> Option<Self::HierarchyDirtyMark>;
 
-  fn hierarchy_update(&self, parent: &Self);
+  fn hierarchy_update(&self, parent: Option<&Self::Source>, collect: &mut impl FnMut(Self::Delta));
   // just shortcut
   fn full_dirty_mark() -> Self::HierarchyDirtyMark {
     Self::HierarchyDirtyMark::ALL
@@ -63,7 +64,7 @@ struct DerivedData<T: HierarchyDerived> {
 pub struct TreeHierarchyDerivedSystem<T: HierarchyDerived> {
   derived_tree: Arc<RwLock<TreeCollection<DerivedData<T>>>>,
   // we use boxed here to avoid another generic for tree delta input stream
-  derived_stream: Box<dyn Stream<Item = T::Delta>>,
+  derived_stream: Box<dyn Stream<Item = T::Delta> + Unpin>,
 }
 
 impl<T> TreeHierarchyDerivedSystem<T>
@@ -80,6 +81,8 @@ where
 
     let derived_tree_c = derived_tree.clone();
     let derived_tree_cc = derived_tree_c.clone();
+
+    let source_tree = source_tree.clone();
 
     let derived_stream = tree_delta
       // mark stage
@@ -136,16 +139,21 @@ where
         // this allocation can not removed, but could we calculate correct capacity or reuse the allocation?
         let mut derived_deltas = Vec::new();
         // do full tree traverse check, emit all real update as stream
-        do_sub_tree_updates(todo!(), &mut derived_tree, update_root, |delta| {
-          derived_deltas.push(delta);
-        });
+        do_sub_tree_updates(
+          &source_tree.inner.read().unwrap(),
+          &mut derived_tree,
+          update_root,
+          &mut |delta| {
+            derived_deltas.push(delta);
+          },
+        );
         futures::stream::iter(derived_deltas)
       })
       .flatten();
 
     Self {
       derived_tree,
-      derived_stream: Box::new(derived_stream),
+      derived_stream: Box::new(Box::pin(derived_stream)),
     }
   }
 }
@@ -157,9 +165,21 @@ fn mark_sub_tree_full_change<T: HierarchyDerived>(
   change_node: TreeNodeHandle<DerivedData<T>>,
   dirty_mark: T::HierarchyDirtyMark,
 ) -> Option<TreeNodeHandle<DerivedData<T>>> {
-  // tree.traverse_mut_iter(change_node).for_each(|| {
-  //   //
-  // });
+  tree
+    .create_node_mut_ptr(change_node)
+    .traverse_iter_mut(|node| {
+      let child = unsafe { &(*node.node) };
+      if child.data.sub_tree_dirty_mark_all.contains(&dirty_mark) {
+        NextTraverseVisit::SkipChildren
+      } else {
+        NextTraverseVisit::VisitChildren
+      }
+    })
+    .for_each(|node| {
+      let child = unsafe { &mut (*node.node) };
+      child.data.sub_tree_dirty_mark_all.insert(&dirty_mark);
+      child.data.sub_tree_dirty_mark_any.insert(&dirty_mark);
+    });
 
   // tree.traverse_mut_parent_chain_iter(change_node);
 
@@ -170,12 +190,25 @@ fn do_sub_tree_updates<T: HierarchyDerived>(
   source_tree: &TreeCollection<T::Source>,
   derived_tree: &mut TreeCollection<DerivedData<T>>,
   update_root: TreeNodeHandle<DerivedData<T>>,
-  derived_delta_sender: impl FnMut(T::Delta),
+  derived_delta_sender: &mut impl FnMut(T::Delta),
 ) {
-  // derived_tree
-  //   .traverse_mut_iter(update_root)
-  //   .zip(source_tree.traverse_peek_parent_iter())
-  //   .for_each(|(derived, parent_source)| {
-  //     //
-  //   });
+  derived_tree.traverse_mut(update_root, |node| {
+    let parent = node.parent;
+    let derived = node.data_mut();
+
+    if derived.sub_tree_dirty_mark_any == T::HierarchyDirtyMark::default() {
+      NextTraverseVisit::SkipChildren
+    } else {
+      derived.sub_tree_dirty_mark_any = T::HierarchyDirtyMark::default();
+      derived.sub_tree_dirty_mark_all = T::HierarchyDirtyMark::default();
+
+      let parent = parent
+        .map(|parent| source_tree.recreate_handle(parent.index()))
+        .map(|handle| source_tree.get_node(handle).data());
+
+      derived.data.hierarchy_update(parent, derived_delta_sender);
+
+      NextTraverseVisit::VisitChildren
+    }
+  })
 }

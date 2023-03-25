@@ -45,6 +45,15 @@ pub struct TreeNodeMutPtr<T> {
   pub(crate) node: *mut TreeNode<T>,
 }
 
+impl<T> Clone for TreeNodeMutPtr<T> {
+  fn clone(&self) -> Self {
+    Self {
+      tree: self.tree,
+      node: self.node,
+    }
+  }
+}
+
 impl<T> AbstractTreeMutNode for TreeNodeMutPtr<T> {
   fn visit_children_mut(&mut self, mut visitor: impl FnMut(&mut Self)) {
     unsafe {

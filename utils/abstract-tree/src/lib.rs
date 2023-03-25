@@ -1,3 +1,6 @@
+mod iter;
+pub use iter::*;
+
 pub enum NextTraverseVisit {
   /// exit tree traverse
   Exit,
@@ -91,47 +94,62 @@ pub trait AbstractTreeNode {
     max_depth + 1
   }
 
-  fn traverse_iter(&self) -> TraverseIter<Self>
+  /// for every node in subtree, the visit_decider
+  fn traverse_iter<F>(&self, visit_decider: F) -> TraverseIter<Self, F>
   where
     Self: Sized + Clone,
+    F: FnMut(&Self) -> NextTraverseVisit,
   {
     TraverseIter {
       visit_stack: vec![self.clone()],
+      visit_decider,
     }
-  }
-}
-
-pub struct TraverseIter<T> {
-  visit_stack: Vec<T>,
-}
-
-impl<T: AbstractTreeNode + Clone> Iterator for TraverseIter<T> {
-  type Item = T;
-
-  fn next(&mut self) -> Option<Self::Item> {
-    self.visit_stack.pop().map(|item| {
-      item.visit_children(|child| self.visit_stack.push(child.clone()));
-      item
-    })
   }
 }
 
 pub trait AbstractTreeMutNode {
   fn visit_children_mut(&mut self, visitor: impl FnMut(&mut Self));
+
   fn traverse_mut(&mut self, visitor: &mut impl FnMut(&mut Self)) {
     visitor(self);
     self.visit_children_mut(|child| child.traverse_mut(visitor))
   }
 
-  fn traverse_pair_subtree_mut(&mut self, visitor: &mut impl FnMut(&mut Self, Option<&mut Self>))
-  where
-    Self: AbstractParentAddressableMutTreeNode,
+  fn traverse_pair_subtree_mut(
+    &mut self,
+    visitor: &mut impl FnMut(&mut Self, Option<&mut Self>) -> NextTraverseVisit,
+  ) where
+    Self: AbstractParentAddressableMutTreeNode + Clone,
   {
-    // todo, should we provide recursive or none recursive version?
-    self.traverse_mut(&mut |node| {
-      let mut parent = node.get_parent_mut();
-      visitor(node, parent.as_mut())
-    })
+    use NextTraverseVisit::*;
+    let mut stack = Vec::new();
+    stack.push(self.clone());
+
+    while let Some(mut node) = stack.pop() {
+      let next = if let Some(mut parent) = node.get_parent_mut() {
+        visitor(&mut node, Some(&mut parent))
+      } else {
+        visitor(&mut node, None)
+      };
+
+      match next {
+        Exit => return,
+        VisitChildren => node.visit_children_mut(|child| stack.push(child.clone())),
+        SkipChildren => continue,
+      };
+    }
+  }
+
+  /// for every node in subtree, the visit_decider
+  fn traverse_iter_mut<F>(&self, visit_decider: F) -> TraverseMutIter<Self, F>
+  where
+    Self: Sized + Clone,
+    F: FnMut(&Self) -> NextTraverseVisit,
+  {
+    TraverseMutIter {
+      visit_stack: vec![self.clone()],
+      visit_decider,
+    }
   }
 }
 

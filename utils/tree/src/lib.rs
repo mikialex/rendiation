@@ -179,17 +179,36 @@ impl<T> TreeCollection<T> {
     Ok(())
   }
 
+  pub(crate) fn create_node_mut_ptr(&mut self, handle: TreeNodeHandle<T>) -> TreeNodeMutPtr<T> {
+    let tree = self as *mut _;
+    let node = self.get_node_mut(handle);
+    TreeNodeMutPtr { tree, node }
+  }
+
   pub fn traverse_mut_pair(
     &mut self,
     start: TreeNodeHandle<T>,
-    mut visitor: impl FnMut(&mut TreeNode<T>, Option<&mut TreeNode<T>>),
+    mut visitor: impl FnMut(&mut TreeNode<T>, Option<&mut TreeNode<T>>) -> NextTraverseVisit,
   ) {
-    let tree = self as *mut _;
-    let node = self.get_node_mut(start);
-    TreeNodeMutPtr { tree, node }.traverse_pair_subtree_mut(&mut |child, parent| {
-      let parent = parent.map(|parent| unsafe { &mut (*parent.node) });
-      let child = unsafe { &mut (*child.node) };
-      visitor(child, parent)
-    });
+    self
+      .create_node_mut_ptr(start)
+      .traverse_pair_subtree_mut(&mut |child, parent| {
+        let parent = parent.map(|parent| unsafe { &mut (*parent.node) });
+        let child = unsafe { &mut (*child.node) };
+        visitor(child, parent)
+      });
+  }
+
+  pub fn traverse_mut(
+    &mut self,
+    start: TreeNodeHandle<T>,
+    mut visitor: impl FnMut(&mut TreeNode<T>) -> NextTraverseVisit,
+  ) {
+    self
+      .create_node_mut_ptr(start)
+      .traverse_pair_subtree_mut(&mut |child, _| {
+        let child = unsafe { &mut (*child.node) };
+        visitor(child)
+      });
   }
 }
