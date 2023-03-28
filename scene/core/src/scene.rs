@@ -3,7 +3,7 @@ use std::ops::Deref;
 use crate::*;
 
 use arena::{Arena, ArenaDelta, Handle};
-use tree::{HierarchyDepend, SharedTreeCollection, TreeCollection, TreeMutation};
+use tree::{HierarchyDepend, ReactiveTreeCollection, SharedTreeCollection, TreeMutation};
 
 pub type SceneLightHandle = Handle<SceneLight>;
 pub type SceneModelHandle = Handle<SceneModel>;
@@ -30,16 +30,18 @@ pub struct SceneInner {
 
 #[derive(Default)]
 pub struct SceneNodeCollection {
-  pub inner: SharedTreeCollection<TreeCollection<SceneNodeData>>,
+  pub inner: SharedTreeCollection<ReactiveTreeCollection<SceneNodeData, SceneNodeDataImpl>>,
 }
 
 impl IncrementalBase for SceneNodeCollection {
   type Delta = TreeMutation<SceneNodeDataImpl>;
 
   fn expand(&self, cb: impl FnMut(Self::Delta)) {
-    self
-      .inner
-      .visit_inner(|tree| tree.expand_with_mapping(|node| node.deref().clone(), cb));
+    self.inner.visit_inner(|tree| {
+      tree
+        .inner
+        .expand_with_mapping(|node| node.deref().clone(), cb)
+    });
   }
 }
 

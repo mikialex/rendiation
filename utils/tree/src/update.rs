@@ -8,10 +8,10 @@ pub trait HierarchyDepend: Sized {
   fn update_by_parent(&mut self, parent: Option<&Self>);
 }
 
-impl<T: HierarchyDepend> SharedTreeCollection<TreeCollection<T>> {
+impl<T: HierarchyDepend, X: IncrementalBase> SharedTreeCollection<ReactiveTreeCollection<T, X>> {
   pub fn update(&self, root: TreeNodeHandle<T>) {
     let mut nodes = self.inner.write().unwrap();
-    nodes.traverse_mut_pair(root, |this, parent| {
+    nodes.inner.traverse_mut_pair(root, |this, parent| {
       let parent = parent.map(|parent| parent.data());
       let node_data = this.data_mut();
       node_data.update_by_parent(parent);

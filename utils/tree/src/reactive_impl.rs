@@ -2,12 +2,25 @@ use ::reactive::EventSource;
 
 use crate::*;
 
-pub struct ReactiveTreeCollection<T: IncrementalBase> {
-  inner: TreeCollection<T>,
-  source: EventSource<TreeMutation<T>>,
+pub struct ReactiveTreeCollection<T, X: IncrementalBase> {
+  pub inner: TreeCollection<T>,
+  pub source: EventSource<TreeMutation<X>>,
 }
 
-impl<T: IncrementalBase + Clone> CoreTree for ReactiveTreeCollection<T> {
+impl<T, X: IncrementalBase> Default for ReactiveTreeCollection<T, X> {
+  fn default() -> Self {
+    Self {
+      inner: Default::default(),
+      source: Default::default(),
+    }
+  }
+}
+
+impl<T, X> CoreTree for ReactiveTreeCollection<T, X>
+where
+  T: std::ops::Deref<Target = X>,
+  X: IncrementalBase + Clone,
+{
   type Node = T;
   type Handle = TreeNodeHandle<T>;
 
@@ -21,7 +34,7 @@ impl<T: IncrementalBase + Clone> CoreTree for ReactiveTreeCollection<T> {
   }
 
   fn create_node(&mut self, data: Self::Node) -> Self::Handle {
-    self.source.emit(&TreeMutation::Create(data.clone()));
+    // self.source.emit(&TreeMutation::Create(data.clone()));
     self.inner.create_node(data)
   }
 

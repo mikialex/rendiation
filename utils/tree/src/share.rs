@@ -4,7 +4,7 @@ use crate::CoreTree;
 
 #[derive(Default)]
 pub struct SharedTreeCollection<T> {
-  pub(crate) inner: Arc<RwLock<T>>,
+  pub inner: Arc<RwLock<T>>,
 }
 
 impl<T: CoreTree> SharedTreeCollection<T> {
