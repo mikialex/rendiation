@@ -55,6 +55,14 @@ impl<T: IncrementalBase> Identity<T> {
   }
 
   pub fn mutate<R>(&mut self, mutator: impl FnOnce(Mutating<T>) -> R) -> R {
+    self.mutate_with(mutator, |_| {})
+  }
+
+  pub fn mutate_with<R>(
+    &mut self,
+    mutator: impl FnOnce(Mutating<T>) -> R,
+    mut extra_collector: impl FnMut(T::Delta),
+  ) -> R {
     let data = &mut self.inner;
     let dispatcher = &self.delta_source;
     mutator(Mutating {
@@ -63,6 +71,7 @@ impl<T: IncrementalBase> Identity<T> {
         let view = DeltaView { data, delta };
         let view = unsafe { std::mem::transmute(view) };
         dispatcher.emit(&view);
+        extra_collector(delta.clone())
       },
     })
   }

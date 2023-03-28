@@ -73,7 +73,13 @@ impl SceneNode {
   }
 
   pub fn mutate<F: FnOnce(Mutating<SceneNodeDataImpl>) -> T, T>(&self, f: F) -> T {
-    self.inner.mutate(|node| node.mutate(f))
+    let source = self.inner.visit_raw_storage(|tree| tree.source.clone());
+    let index = self.inner.raw_handle().index();
+    self.inner.mutate(|node| {
+      node.mutate_with(f, |delta| {
+        source.emit(&tree::TreeMutation::Mutate { node: index, delta })
+      })
+    })
   }
 
   pub fn visit<F: FnOnce(&SceneNodeData) -> T, T>(&self, f: F) -> T {

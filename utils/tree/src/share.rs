@@ -121,6 +121,12 @@ impl<T: CoreTree> ShareTreeNode<T> {
     self.inner.read().unwrap().inner.handle
   }
 
+  pub fn visit_raw_storage<F: FnOnce(&T) -> R, R>(&self, v: F) -> R {
+    let inner = self.inner.read().unwrap();
+    let tree = inner.nodes.inner.read().unwrap();
+    v(&tree)
+  }
+
   #[must_use]
   pub fn create_child(&self, n: T::Node) -> Self {
     let inner = self.inner.read().unwrap();

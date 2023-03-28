@@ -29,12 +29,14 @@ where
   }
 
   fn get_node_data_mut(&mut self, handle: Self::Handle) -> &mut Self::Node {
-    // mutation is emit by hand
+    // mutation should emit by hand
     self.inner.get_node_data_mut(handle)
   }
 
   fn create_node(&mut self, data: Self::Node) -> Self::Handle {
-    // self.source.emit(&TreeMutation::Create(data.clone()));
+    self
+      .source
+      .emit(&TreeMutation::Create(data.deref().clone()));
     self.inner.create_node(data)
   }
 
