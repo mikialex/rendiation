@@ -10,6 +10,9 @@ use storage::{generational::Arena, *};
 mod share;
 pub use share::*;
 
+mod reactive_impl;
+pub use reactive_impl::*;
+
 mod update;
 pub use update::*;
 
@@ -17,12 +20,22 @@ mod abst;
 mod inc;
 pub use inc::*;
 
-// pub trait CoreTree {
-//   type Node;
-//   type Handle;
-//   fn delete_node(&mut self, handle: Self::Handle);
-//   fn node_detach_parent(&mut self, child_to_detach: Self::Handle);
-// }
+pub trait CoreTree {
+  type Node;
+  type Handle: Copy;
+
+  fn get_node_data(&self, handle: Self::Handle) -> &Self::Node;
+  fn get_node_data_mut(&mut self, handle: Self::Handle) -> &mut Self::Node;
+
+  fn create_node(&mut self, data: Self::Node) -> Self::Handle;
+  fn delete_node(&mut self, handle: Self::Handle);
+  fn node_add_child_by(
+    &mut self,
+    parent: Self::Handle,
+    child_to_attach: Self::Handle,
+  ) -> Result<(), TreeMutationError>;
+  fn node_detach_parent(&mut self, child_to_detach: Self::Handle) -> Result<(), TreeMutationError>;
+}
 
 pub struct TreeCollection<T> {
   nodes: Storage<TreeNode<T>, Arena<TreeNode<T>>>,
@@ -98,20 +111,11 @@ pub enum TreeMutationError {
   AttachNodeButHasParent,
 }
 
-impl<T> TreeCollection<T> {
-  pub fn nodes(&self) -> &Storage<TreeNode<T>, Arena<TreeNode<T>>> {
-    &self.nodes
-  }
+impl<T> CoreTree for TreeCollection<T> {
+  type Node = T;
+  type Handle = TreeNodeHandle<T>;
 
-  pub(crate) fn recreate_handle(&self, index: usize) -> TreeNodeHandle<T> {
-    self
-      .nodes
-      .data
-      .get_handle(index)
-      .expect("tree handle can not rebuild, maybe pair tree is corrupted")
-  }
-
-  pub fn create_node(&mut self, data: T) -> TreeNodeHandle<T> {
+  fn create_node(&mut self, data: T) -> TreeNodeHandle<T> {
     self.nodes.insert_with(|handle| TreeNode {
       handle,
       parent: None,
@@ -122,27 +126,19 @@ impl<T> TreeCollection<T> {
     })
   }
 
-  pub fn delete_node(&mut self, handle: TreeNodeHandle<T>) {
+  fn delete_node(&mut self, handle: TreeNodeHandle<T>) {
     self.nodes.remove(handle);
   }
 
-  pub fn get_node(&self, handle: TreeNodeHandle<T>) -> &TreeNode<T> {
-    self.nodes.get(handle).unwrap()
+  fn get_node_data(&self, handle: TreeNodeHandle<T>) -> &T {
+    self.get_node(handle).data()
   }
 
-  pub fn get_node_mut(&mut self, handle: TreeNodeHandle<T>) -> &mut TreeNode<T> {
-    self.nodes.get_mut(handle).unwrap()
+  fn get_node_data_mut(&mut self, handle: TreeNodeHandle<T>) -> &mut T {
+    self.get_node_mut(handle).data_mut()
   }
 
-  pub fn get_parent_child_pair(
-    &mut self,
-    parent: TreeNodeHandle<T>,
-    child: TreeNodeHandle<T>,
-  ) -> (&mut TreeNode<T>, &mut TreeNode<T>) {
-    self.nodes.get_mut_pair((parent, child)).unwrap()
-  }
-
-  pub fn node_add_child_by(
+  fn node_add_child_by(
     &mut self,
     parent: TreeNodeHandle<T>,
     child_to_attach: TreeNodeHandle<T>,
@@ -172,7 +168,7 @@ impl<T> TreeCollection<T> {
     Ok(())
   }
 
-  pub fn node_detach_parent(
+  fn node_detach_parent(
     &mut self,
     child_to_detach: TreeNodeHandle<T>,
   ) -> Result<(), TreeMutationError> {
@@ -205,6 +201,36 @@ impl<T> TreeCollection<T> {
     }
 
     Ok(())
+  }
+}
+
+impl<T> TreeCollection<T> {
+  pub fn nodes(&self) -> &Storage<TreeNode<T>, Arena<TreeNode<T>>> {
+    &self.nodes
+  }
+
+  pub fn get_node(&self, handle: TreeNodeHandle<T>) -> &TreeNode<T> {
+    self.nodes.get(handle).unwrap()
+  }
+
+  pub fn get_node_mut(&mut self, handle: TreeNodeHandle<T>) -> &mut TreeNode<T> {
+    self.nodes.get_mut(handle).unwrap()
+  }
+
+  pub(crate) fn recreate_handle(&self, index: usize) -> TreeNodeHandle<T> {
+    self
+      .nodes
+      .data
+      .get_handle(index)
+      .expect("tree handle can not rebuild, maybe pair tree is corrupted")
+  }
+
+  fn get_parent_child_pair(
+    &mut self,
+    parent: TreeNodeHandle<T>,
+    child: TreeNodeHandle<T>,
+  ) -> (&mut TreeNode<T>, &mut TreeNode<T>) {
+    self.nodes.get_mut_pair((parent, child)).unwrap()
   }
 
   pub(crate) fn create_node_mut_ptr(&mut self, handle: TreeNodeHandle<T>) -> TreeNodeMutPtr<T> {

@@ -1,20 +1,20 @@
 use std::sync::{Arc, RwLock};
 
-use crate::{TreeCollection, TreeNodeHandle};
+use crate::CoreTree;
 
 #[derive(Default)]
 pub struct SharedTreeCollection<T> {
-  pub(crate) inner: Arc<RwLock<TreeCollection<T>>>,
+  pub(crate) inner: Arc<RwLock<T>>,
 }
 
-impl<T> SharedTreeCollection<T> {
-  pub fn visit_inner(&self, v: impl FnOnce(&TreeCollection<T>)) {
+impl<T: CoreTree> SharedTreeCollection<T> {
+  pub fn visit_inner(&self, v: impl FnOnce(&T)) {
     let tree = self.inner.read().unwrap();
     v(&tree);
   }
 
   #[must_use]
-  pub fn create_new_root(&self, n: T) -> ShareTreeNode<T> {
+  pub fn create_new_root(&self, n: T::Node) -> ShareTreeNode<T> {
     let mut nodes_info = self.inner.write().unwrap();
 
     let root = nodes_info.create_node(n);
@@ -31,6 +31,7 @@ impl<T> SharedTreeCollection<T> {
     }
   }
 }
+
 impl<T> Clone for SharedTreeCollection<T> {
   fn clone(&self) -> Self {
     Self {
@@ -39,12 +40,12 @@ impl<T> Clone for SharedTreeCollection<T> {
   }
 }
 
-pub struct NodeRef<T> {
+pub struct NodeRef<T: CoreTree> {
   pub(crate) nodes: SharedTreeCollection<T>,
-  pub(crate) handle: TreeNodeHandle<T>,
+  pub(crate) handle: T::Handle,
 }
 
-impl<T> Clone for NodeRef<T> {
+impl<T: CoreTree> Clone for NodeRef<T> {
   fn clone(&self) -> Self {
     Self {
       nodes: self.nodes.clone(),
@@ -53,20 +54,20 @@ impl<T> Clone for NodeRef<T> {
   }
 }
 
-impl<T> Drop for NodeRef<T> {
+impl<T: CoreTree> Drop for NodeRef<T> {
   fn drop(&mut self) {
     let mut nodes = self.nodes.inner.write().unwrap();
     nodes.delete_node(self.handle)
   }
 }
 
-struct NodeInner<T> {
+struct NodeInner<T: CoreTree> {
   nodes: SharedTreeCollection<T>,
   parent: Option<Arc<NodeRef<T>>>,
   inner: Arc<NodeRef<T>>,
 }
 
-impl<T> NodeInner<T> {
+impl<T: CoreTree> NodeInner<T> {
   pub fn create_new(inner: NodeRef<T>) -> Self {
     Self {
       nodes: inner.nodes.clone(),
@@ -76,7 +77,7 @@ impl<T> NodeInner<T> {
   }
 
   #[must_use]
-  pub fn create_child(&self, n: T) -> Self {
+  pub fn create_child(&self, n: T::Node) -> Self {
     let nodes_info = &mut self.nodes.inner.write().unwrap();
     let handle = nodes_info.create_node(n);
     let inner = NodeRef {
@@ -96,18 +97,18 @@ impl<T> NodeInner<T> {
   }
 }
 
-impl<T> Drop for NodeInner<T> {
+impl<T: CoreTree> Drop for NodeInner<T> {
   fn drop(&mut self) {
     let nodes = &mut self.nodes.inner.write().unwrap();
     nodes.node_detach_parent(self.inner.handle).ok();
   }
 }
 
-pub struct ShareTreeNode<T> {
+pub struct ShareTreeNode<T: CoreTree> {
   inner: Arc<RwLock<NodeInner<T>>>,
 }
 
-impl<T> Clone for ShareTreeNode<T> {
+impl<T: CoreTree> Clone for ShareTreeNode<T> {
   fn clone(&self) -> Self {
     Self {
       inner: self.inner.clone(),
@@ -115,13 +116,13 @@ impl<T> Clone for ShareTreeNode<T> {
   }
 }
 
-impl<T> ShareTreeNode<T> {
-  pub fn raw_handle(&self) -> TreeNodeHandle<T> {
+impl<T: CoreTree> ShareTreeNode<T> {
+  pub fn raw_handle(&self) -> T::Handle {
     self.inner.read().unwrap().inner.handle
   }
 
   #[must_use]
-  pub fn create_child(&self, n: T) -> Self {
+  pub fn create_child(&self, n: T::Node) -> Self {
     let inner = self.inner.read().unwrap();
     let inner = inner.create_child(n);
 
@@ -133,30 +134,30 @@ impl<T> ShareTreeNode<T> {
   #[must_use]
   pub fn create_child_default(&self) -> Self
   where
-    T: Default,
+    T::Node: Default,
   {
-    self.create_child(T::default())
+    self.create_child(T::Node::default())
   }
 
-  pub fn mutate<F: FnOnce(&mut T) -> R, R>(&self, f: F) -> R {
+  pub fn mutate<F: FnOnce(&mut T::Node) -> R, R>(&self, f: F) -> R {
     let inner = self.inner.read().unwrap();
     let nodes = &mut inner.nodes.inner.write().unwrap();
-    let node = nodes.get_node_mut(inner.inner.handle).data_mut();
+    let node = nodes.get_node_data_mut(inner.inner.handle);
     f(node)
   }
 
-  pub fn visit<F: FnOnce(&T) -> R, R>(&self, f: F) -> R {
+  pub fn visit<F: FnOnce(&T::Node) -> R, R>(&self, f: F) -> R {
     let inner = self.inner.read().unwrap();
     let nodes = &inner.nodes.inner.read().unwrap();
-    let node = nodes.get_node(inner.inner.handle).data();
+    let node = nodes.get_node_data(inner.inner.handle);
     f(node)
   }
 
-  pub fn visit_parent<F: FnOnce(&T) -> R, R>(&self, f: F) -> Option<R> {
+  pub fn visit_parent<F: FnOnce(&T::Node) -> R, R>(&self, f: F) -> Option<R> {
     let inner = self.inner.read().unwrap();
     let nodes = &inner.nodes.inner.read().unwrap();
     if let Some(parent) = &inner.parent {
-      let node = nodes.get_node(parent.handle).data();
+      let node = nodes.get_node_data(parent.handle);
       f(node).into()
     } else {
       None

@@ -8,7 +8,7 @@ pub trait HierarchyDepend: Sized {
   fn update_by_parent(&mut self, parent: Option<&Self>);
 }
 
-impl<T: HierarchyDepend> SharedTreeCollection<T> {
+impl<T: HierarchyDepend> SharedTreeCollection<TreeCollection<T>> {
   pub fn update(&self, root: TreeNodeHandle<T>) {
     let mut nodes = self.inner.write().unwrap();
     nodes.traverse_mut_pair(root, |this, parent| {
@@ -75,7 +75,7 @@ where
   #[allow(unused_must_use)]
   pub fn new(
     tree_delta: impl Stream<Item = TreeMutation<T::Source>> + 'static,
-    source_tree: &SharedTreeCollection<T::Source>,
+    source_tree: &SharedTreeCollection<TreeCollection<T::Source>>,
   ) -> Self {
     let derived_tree = Arc::new(RwLock::new(TreeCollection::<DerivedData<T>>::default()));
 

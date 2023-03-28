@@ -1,6 +1,6 @@
 use crate::*;
 
-use tree::{ShareTreeNode, SharedTreeCollection, TreeNodeHandle};
+use tree::{ShareTreeNode, SharedTreeCollection, TreeCollection, TreeNodeHandle};
 
 pub type SceneNodeData = Identity<SceneNodeDataImpl>;
 pub type SceneNodeHandle = TreeNodeHandle<SceneNodeData>;
@@ -36,7 +36,7 @@ impl SceneNodeDataImpl {
 
 #[derive(Clone)]
 pub struct SceneNode {
-  inner: ShareTreeNode<SceneNodeData>,
+  inner: ShareTreeNode<TreeCollection<SceneNodeData>>,
 }
 
 clone_self_incremental!(SceneNode);
@@ -49,7 +49,7 @@ impl SceneNode {
     self.visit(|node| node.listen_by(mapper))
   }
 
-  pub fn from_root(nodes: SharedTreeCollection<SceneNodeData>) -> Self {
+  pub fn from_root(nodes: SharedTreeCollection<TreeCollection<SceneNodeData>>) -> Self {
     Self {
       inner: nodes.create_new_root(Default::default()),
     }

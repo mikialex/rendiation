@@ -31,9 +31,9 @@ impl<T: IncrementalBase + Clone> Clone for TreeMutation<T> {
 
 impl<T> IncrementalBase for SharedTreeCollection<T>
 where
-  T: IncrementalBase + Send + Sync + Clone,
+  T: IncrementalBase,
 {
-  type Delta = TreeMutation<T>;
+  type Delta = T::Delta;
 
   fn expand(&self, cb: impl FnMut(Self::Delta)) {
     let tree = self.inner.write().unwrap();
