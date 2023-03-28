@@ -74,7 +74,7 @@ where
 {
   #[allow(unused_must_use)]
   pub fn new(
-    tree_delta: impl Stream<Item = SharedTreeMutation<T::Source>> + 'static,
+    tree_delta: impl Stream<Item = TreeMutation<T::Source>> + 'static,
     source_tree: &SharedTreeCollection<T::Source>,
   ) -> Self {
     let derived_tree = Arc::new(RwLock::new(TreeCollection::<DerivedData<T>>::default()));
@@ -95,38 +95,38 @@ where
             // simply create the default derived. insert into derived tree.
             // we don't care the returned handle, as we assume they are allocated in the same position
             // in the original tree.
-            SharedTreeMutation::Create { .. } => {
+            TreeMutation::Create { .. } => {
               derived_tree.create_node(Default::default());
               None
             }
             // do pair remove in derived tree
-            SharedTreeMutation::Delete(handle) => {
-              let handle = derived_tree.recreate_handle(handle.index());
+            TreeMutation::Delete(handle) => {
+              let handle = derived_tree.recreate_handle(handle);
               derived_tree.delete_node(handle);
               None
             }
             // check if have any hierarchy effect
             // for children, do traverse mark dirty all-mark, skip if all-mark contains new dirty
             // for parent chain, do parent chain traverse mark dirty any-mark,
-            SharedTreeMutation::Mutate { node, delta } => {
-              let handle = derived_tree.recreate_handle(node.index());
+            TreeMutation::Mutate { node, delta } => {
+              let handle = derived_tree.recreate_handle(node);
               T::filter_hierarchy_change(&delta).and_then(|dirty_mark| {
                 mark_sub_tree_full_change(&mut derived_tree, handle, dirty_mark)
               })
             }
             // like update, and we will emit full dirty change
-            SharedTreeMutation::Attach {
+            TreeMutation::Attach {
               parent_target,
               node,
             } => {
-              let parent_target = derived_tree.recreate_handle(parent_target.index());
-              let node = derived_tree.recreate_handle(node.index());
+              let parent_target = derived_tree.recreate_handle(parent_target);
+              let node = derived_tree.recreate_handle(node);
               derived_tree.node_add_child_by(parent_target, node);
               mark_sub_tree_full_change(&mut derived_tree, node, T::full_dirty_mark())
             }
             // ditto
-            SharedTreeMutation::Detach { node } => {
-              let node = derived_tree.recreate_handle(node.index());
+            TreeMutation::Detach { node } => {
+              let node = derived_tree.recreate_handle(node);
               derived_tree.node_detach_parent(node);
               mark_sub_tree_full_change(&mut derived_tree, node, T::full_dirty_mark())
             }

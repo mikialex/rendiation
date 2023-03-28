@@ -3,6 +3,7 @@
 use std::sync::{Arc, RwLock};
 
 use abst::TreeNodeMutPtr;
+use incremental::IncrementalBase;
 pub use rendiation_abstract_tree::*;
 use storage::{generational::Arena, *};
 
@@ -16,22 +17,49 @@ mod abst;
 mod inc;
 pub use inc::*;
 
-#[derive(Default)]
-pub struct SharedTreeCollection<T> {
-  pub(crate) inner: Arc<RwLock<TreeCollection<T>>>,
-}
+// pub trait CoreTree {
+//   type Node;
+//   type Handle;
+//   fn delete_node(&mut self, handle: Self::Handle);
+//   fn node_detach_parent(&mut self, child_to_detach: Self::Handle);
+// }
 
-impl<T> Clone for SharedTreeCollection<T> {
-  fn clone(&self) -> Self {
-    Self {
-      inner: self.inner.clone(),
-    }
-  }
-}
 pub struct TreeCollection<T> {
   nodes: Storage<TreeNode<T>, Arena<TreeNode<T>>>,
 }
+
+impl<T> TreeCollection<T> {
+  pub fn expand_with_mapping<U: IncrementalBase>(
+    &self,
+    mapper: impl Fn(&T) -> U,
+    mut cb: impl FnMut(TreeMutation<U>),
+  ) {
+    for (handle, node) in &self.nodes.data {
+      if node.first_child.is_none() {
+        let node = self.create_node_ref(handle);
+        node.traverse_pair_subtree(&mut |self_node, parent| {
+          cb(TreeMutation::Create(mapper(&self_node.node.data)));
+          if let Some(parent) = parent {
+            cb(TreeMutation::Attach {
+              parent_target: parent.node.handle().index(),
+              node: self_node.node.handle().index(),
+            });
+          }
+          NextTraverseVisit::VisitChildren
+        })
+      }
+    }
+  }
+}
 pub type TreeNodeHandle<T> = Handle<TreeNode<T>, Arena<TreeNode<T>>>;
+
+impl<T: IncrementalBase + Clone> IncrementalBase for TreeCollection<T> {
+  type Delta = TreeMutation<T>;
+
+  fn expand(&self, cb: impl FnMut(Self::Delta)) {
+    self.expand_with_mapping(|n| n.clone(), cb)
+  }
+}
 
 pub struct TreeNode<T> {
   handle: TreeNodeHandle<T>,

@@ -1,6 +1,43 @@
 use std::sync::{Arc, RwLock};
 
-use crate::{SharedTreeCollection, TreeNodeHandle};
+use crate::{TreeCollection, TreeNodeHandle};
+
+#[derive(Default)]
+pub struct SharedTreeCollection<T> {
+  pub(crate) inner: Arc<RwLock<TreeCollection<T>>>,
+}
+
+impl<T> SharedTreeCollection<T> {
+  pub fn visit_inner(&self, v: impl FnOnce(&TreeCollection<T>)) {
+    let tree = self.inner.read().unwrap();
+    v(&tree);
+  }
+
+  #[must_use]
+  pub fn create_new_root(&self, n: T) -> ShareTreeNode<T> {
+    let mut nodes_info = self.inner.write().unwrap();
+
+    let root = nodes_info.create_node(n);
+
+    let root = NodeRef {
+      nodes: self.clone(),
+      handle: root,
+    };
+
+    let root = NodeInner::create_new(root);
+
+    ShareTreeNode {
+      inner: Arc::new(RwLock::new(root)),
+    }
+  }
+}
+impl<T> Clone for SharedTreeCollection<T> {
+  fn clone(&self) -> Self {
+    Self {
+      inner: self.inner.clone(),
+    }
+  }
+}
 
 pub struct NodeRef<T> {
   pub(crate) nodes: SharedTreeCollection<T>,
@@ -81,24 +118,6 @@ impl<T> Clone for ShareTreeNode<T> {
 impl<T> ShareTreeNode<T> {
   pub fn raw_handle(&self) -> TreeNodeHandle<T> {
     self.inner.read().unwrap().inner.handle
-  }
-
-  #[must_use]
-  pub fn create_new_root(nodes: SharedTreeCollection<T>, n: T) -> Self {
-    let mut nodes_info = nodes.inner.write().unwrap();
-
-    let root = nodes_info.create_node(n);
-
-    let root = NodeRef {
-      nodes: nodes.clone(),
-      handle: root,
-    };
-
-    let root = NodeInner::create_new(root);
-
-    Self {
-      inner: Arc::new(RwLock::new(root)),
-    }
   }
 
   #[must_use]

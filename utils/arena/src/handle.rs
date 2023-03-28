@@ -22,6 +22,9 @@ pub struct Handle<T> {
   pub(crate) phantom: PhantomData<T>,
 }
 
+unsafe impl<T> Send for Handle<T> {}
+unsafe impl<T> Sync for Handle<T> {}
+
 impl<T> Debug for Handle<T> {
   fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
     f.debug_struct("Handle")

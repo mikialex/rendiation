@@ -51,7 +51,7 @@ impl SceneNode {
 
   pub fn from_root(nodes: SharedTreeCollection<SceneNodeData>) -> Self {
     Self {
-      inner: ShareTreeNode::create_new_root(nodes, Default::default()),
+      inner: nodes.create_new_root(Default::default()),
     }
   }
 

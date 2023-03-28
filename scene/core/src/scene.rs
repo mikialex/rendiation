@@ -1,7 +1,9 @@
+use std::ops::Deref;
+
 use crate::*;
 
 use arena::{Arena, ArenaDelta, Handle};
-use tree::{HierarchyDepend, SharedTreeCollection};
+use tree::{HierarchyDepend, SharedTreeCollection, TreeMutation};
 
 pub type SceneLightHandle = Handle<SceneLight>;
 pub type SceneModelHandle = Handle<SceneModel>;
@@ -20,10 +22,25 @@ pub struct SceneInner {
   /// All models in the scene
   pub models: Arena<SceneModel>,
 
-  nodes: SharedTreeCollection<SceneNodeData>,
+  nodes: SceneNodeCollection,
   root: SceneNode,
 
   pub ext: DynamicExtension,
+}
+
+#[derive(Default)]
+pub struct SceneNodeCollection {
+  pub inner: SharedTreeCollection<SceneNodeData>,
+}
+
+impl IncrementalBase for SceneNodeCollection {
+  type Delta = TreeMutation<SceneNodeDataImpl>;
+
+  fn expand(&self, cb: impl FnMut(Self::Delta)) {
+    self
+      .inner
+      .visit_inner(|tree| tree.expand_with_mapping(|node| node.deref().clone(), cb));
+  }
 }
 
 #[allow(non_camel_case_types)]
@@ -36,7 +53,7 @@ pub enum SceneInnerDelta {
   lights(DeltaOf<Arena<SceneLight>>),
   models(DeltaOf<Arena<SceneModel>>),
   ext(DeltaOf<DynamicExtension>),
-  nodes(DeltaOf<SharedTreeCollection<SceneNodeData>>),
+  nodes(DeltaOf<SceneNodeCollection>),
 }
 
 impl IncrementalBase for SceneInner {
@@ -60,9 +77,9 @@ impl SceneInner {
     &self.root
   }
   pub fn new() -> Self {
-    let nodes: SharedTreeCollection<SceneNodeData> = Default::default();
+    let nodes: SceneNodeCollection = Default::default();
 
-    let root = SceneNode::from_root(nodes.clone());
+    let root = SceneNode::from_root(nodes.inner.clone());
 
     let default_camera = PerspectiveProjection::default();
     let camera_node = root.create_child();
@@ -87,7 +104,7 @@ impl SceneInner {
   }
 
   pub fn maintain(&self) {
-    self.nodes.update(self.root.raw_handle());
+    self.nodes.inner.update(self.root.raw_handle());
   }
 }
 

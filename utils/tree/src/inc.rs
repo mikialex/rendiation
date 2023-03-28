@@ -1,66 +1,42 @@
 use crate::*;
-use ::incremental::*;
 
-pub enum SharedTreeMutation<T: IncrementalBase> {
-  // we use ref here to not impose unnecessary clone requirements over T
-  Create(NodeRef<T>),
-  Delete(TreeNodeHandle<T>),
-  Mutate {
-    node: TreeNodeHandle<T>,
-    delta: T::Delta,
-  },
-  Attach {
-    parent_target: TreeNodeHandle<T>,
-    node: TreeNodeHandle<T>,
-  },
-  Detach {
-    node: TreeNodeHandle<T>,
-  },
+pub enum TreeMutation<T: IncrementalBase> {
+  Create(T),
+  Delete(usize),
+  Mutate { node: usize, delta: T::Delta },
+  Attach { parent_target: usize, node: usize },
+  Detach { node: usize },
 }
 
-impl<T: IncrementalBase> Clone for SharedTreeMutation<T> {
+impl<T: IncrementalBase + Clone> Clone for TreeMutation<T> {
   fn clone(&self) -> Self {
     match self {
-      SharedTreeMutation::Create(n) => SharedTreeMutation::Create(n.clone()),
-      SharedTreeMutation::Delete(n) => SharedTreeMutation::Delete(*n),
-      SharedTreeMutation::Mutate { node, delta } => SharedTreeMutation::Mutate {
+      TreeMutation::Create(n) => TreeMutation::Create(n.clone()),
+      TreeMutation::Delete(n) => TreeMutation::Delete(*n),
+      TreeMutation::Mutate { node, delta } => TreeMutation::Mutate {
         node: *node,
         delta: delta.clone(),
       },
-      SharedTreeMutation::Attach {
+      TreeMutation::Attach {
         parent_target,
         node,
-      } => SharedTreeMutation::Attach {
+      } => TreeMutation::Attach {
         parent_target: *parent_target,
         node: *node,
       },
-      SharedTreeMutation::Detach { node } => SharedTreeMutation::Detach { node: *node },
+      TreeMutation::Detach { node } => TreeMutation::Detach { node: *node },
     }
   }
 }
 
-impl<T: IncrementalBase + Send + Sync> IncrementalBase for SharedTreeCollection<T> {
-  type Delta = SharedTreeMutation<T>;
+impl<T> IncrementalBase for SharedTreeCollection<T>
+where
+  T: IncrementalBase + Send + Sync + Clone,
+{
+  type Delta = TreeMutation<T>;
 
-  fn expand(&self, mut cb: impl FnMut(Self::Delta)) {
+  fn expand(&self, cb: impl FnMut(Self::Delta)) {
     let tree = self.inner.write().unwrap();
-    for (handle, node) in &tree.nodes.data {
-      if node.first_child.is_none() {
-        let node = tree.create_node_ref(handle);
-        node.traverse_pair_subtree(&mut |self_node, parent| {
-          cb(SharedTreeMutation::Create(NodeRef {
-            nodes: self.clone(),
-            handle: self_node.node.handle(),
-          }));
-          if let Some(parent) = parent {
-            cb(SharedTreeMutation::Attach {
-              parent_target: parent.node.handle(),
-              node: self_node.node.handle(),
-            });
-          }
-          NextTraverseVisit::VisitChildren
-        })
-      }
-    }
+    tree.expand(cb);
   }
 }
