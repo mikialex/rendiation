@@ -23,6 +23,9 @@ where
 {
   type Node = T;
   type Handle = TreeNodeHandle<T>;
+  fn recreate_handle(&self, index: usize) -> TreeNodeHandle<T> {
+    self.inner.recreate_handle(index)
+  }
 
   fn get_node_data(&self, handle: Self::Handle) -> &Self::Node {
     self.inner.get_node_data(handle)

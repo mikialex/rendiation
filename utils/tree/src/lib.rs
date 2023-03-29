@@ -24,6 +24,8 @@ pub trait CoreTree {
   type Node;
   type Handle: Copy;
 
+  fn recreate_handle(&self, index: usize) -> Self::Handle;
+
   fn get_node_data(&self, handle: Self::Handle) -> &Self::Node;
   fn get_node_data_mut(&mut self, handle: Self::Handle) -> &mut Self::Node;
 
@@ -114,6 +116,14 @@ pub enum TreeMutationError {
 impl<T> CoreTree for TreeCollection<T> {
   type Node = T;
   type Handle = TreeNodeHandle<T>;
+
+  fn recreate_handle(&self, index: usize) -> TreeNodeHandle<T> {
+    self
+      .nodes
+      .data
+      .get_handle(index)
+      .expect("tree handle can not rebuild, maybe pair tree is corrupted")
+  }
 
   fn create_node(&mut self, data: T) -> TreeNodeHandle<T> {
     self.nodes.insert_with(|handle| TreeNode {
@@ -215,14 +225,6 @@ impl<T> TreeCollection<T> {
 
   pub fn get_node_mut(&mut self, handle: TreeNodeHandle<T>) -> &mut TreeNode<T> {
     self.nodes.get_mut(handle).unwrap()
-  }
-
-  pub(crate) fn recreate_handle(&self, index: usize) -> TreeNodeHandle<T> {
-    self
-      .nodes
-      .data
-      .get_handle(index)
-      .expect("tree handle can not rebuild, maybe pair tree is corrupted")
   }
 
   fn get_parent_child_pair(

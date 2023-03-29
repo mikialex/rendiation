@@ -1,3 +1,5 @@
+use std::ops::Deref;
+
 use futures::{Stream, StreamExt};
 use incremental::IncrementalBase;
 use reactive::SignalStreamExt;
@@ -73,10 +75,14 @@ where
   T::Source: IncrementalBase,
 {
   #[allow(unused_must_use)]
-  pub fn new(
+  pub fn new<TREE, X>(
     tree_delta: impl Stream<Item = TreeMutation<T::Source>> + 'static,
-    source_tree: &SharedTreeCollection<TreeCollection<T::Source>>,
-  ) -> Self {
+    source_tree: &SharedTreeCollection<TREE>,
+  ) -> Self
+  where
+    TREE: CoreTree<Node = X> + 'static,
+    X: Deref<Target = T::Source>,
+  {
     let derived_tree = Arc::new(RwLock::new(TreeCollection::<DerivedData<T>>::default()));
 
     let derived_tree_c = derived_tree.clone();
@@ -139,14 +145,10 @@ where
         // this allocation can not removed, but could we calculate correct capacity or reuse the allocation?
         let mut derived_deltas = Vec::new();
         // do full tree traverse check, emit all real update as stream
-        do_sub_tree_updates(
-          &source_tree.inner.read().unwrap(),
-          &mut derived_tree,
-          update_root,
-          &mut |delta| {
-            derived_deltas.push(delta);
-          },
-        );
+        let tree: &TREE = &source_tree.inner.read().unwrap();
+        do_sub_tree_updates(tree, &mut derived_tree, update_root, &mut |delta| {
+          derived_deltas.push(delta);
+        });
         futures::stream::iter(derived_deltas)
       })
       .flatten();
@@ -197,12 +199,16 @@ fn mark_sub_tree_full_change<T: HierarchyDerived>(
   update_parent
 }
 
-fn do_sub_tree_updates<T: HierarchyDerived>(
-  source_tree: &TreeCollection<T::Source>,
+fn do_sub_tree_updates<T, TREE, X>(
+  source_tree: &TREE,
   derived_tree: &mut TreeCollection<DerivedData<T>>,
   update_root: TreeNodeHandle<DerivedData<T>>,
   derived_delta_sender: &mut impl FnMut(T::Delta),
-) {
+) where
+  T: HierarchyDerived,
+  TREE: CoreTree<Node = X>,
+  X: Deref<Target = T::Source>,
+{
   derived_tree.traverse_mut(update_root, |node| {
     let parent = node.parent;
     let derived = node.data_mut();
@@ -215,7 +221,7 @@ fn do_sub_tree_updates<T: HierarchyDerived>(
 
       let parent = parent
         .map(|parent| source_tree.recreate_handle(parent.index()))
-        .map(|handle| source_tree.get_node(handle).data());
+        .map(|handle| source_tree.get_node_data(handle).deref());
 
       derived.data.hierarchy_update(parent, derived_delta_sender);
 
