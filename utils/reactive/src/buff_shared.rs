@@ -10,7 +10,7 @@ use futures::Stream;
 use pin_project::pin_project;
 
 #[pin_project]
-struct SharedBufferedStreamInner<S: Stream> {
+struct BufferedSharedStreamInner<S: Stream> {
   #[pin]
   inner: S,
   buffered: VecDeque<S::Item>,
@@ -18,13 +18,32 @@ struct SharedBufferedStreamInner<S: Stream> {
   consumers_generation: Arena<Arc<AtomicU64>>,
 }
 
-struct SharedBufferedStream<S: Stream> {
-  inner: Arc<RwLock<SharedBufferedStreamInner<S>>>,
+pub struct BufferedSharedStream<S: Stream> {
+  inner: Arc<RwLock<BufferedSharedStreamInner<S>>>,
   cursor: Arc<AtomicU64>,
   index: Handle<Arc<AtomicU64>>,
 }
 
-impl<S> Stream for SharedBufferedStream<S>
+impl<S: Stream> BufferedSharedStream<S> {
+  pub fn new(s: S) -> Self {
+    let mut inner = BufferedSharedStreamInner {
+      inner: s,
+      buffered: Default::default(),
+      latest_buffered_generation: 0,
+      consumers_generation: Default::default(),
+    };
+    let cursor = Arc::new(AtomicU64::new(0));
+    let index = inner.consumers_generation.insert(cursor.clone());
+    let inner = Arc::new(RwLock::new(inner));
+    Self {
+      inner,
+      cursor,
+      index,
+    }
+  }
+}
+
+impl<S> Stream for BufferedSharedStream<S>
 where
   S: Stream + Unpin,
   S::Item: Clone,
@@ -36,7 +55,7 @@ where
     cx: &mut std::task::Context<'_>,
   ) -> Poll<Option<Self::Item>> {
     let mut inner = self.inner.write().unwrap();
-    let inner: &mut SharedBufferedStreamInner<_> = &mut inner;
+    let inner: &mut BufferedSharedStreamInner<_> = &mut inner;
     let inner = Pin::new(inner);
     let this = inner.project();
     if let Poll::Ready(v) = this.inner.poll_next(cx) {
@@ -81,7 +100,7 @@ where
   }
 }
 
-impl<S: Stream> Drop for SharedBufferedStream<S> {
+impl<S: Stream> Drop for BufferedSharedStream<S> {
   fn drop(&mut self) {
     self
       .inner
@@ -92,7 +111,7 @@ impl<S: Stream> Drop for SharedBufferedStream<S> {
   }
 }
 
-impl<S: Stream> Clone for SharedBufferedStream<S> {
+impl<S: Stream> Clone for BufferedSharedStream<S> {
   fn clone(&self) -> Self {
     let cursor = Arc::new(AtomicU64::new(
       self

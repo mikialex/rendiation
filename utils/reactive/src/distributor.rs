@@ -11,6 +11,17 @@ pub struct StreamVecDistributer<S, D> {
   inner: Arc<RwLock<StreamVecDistributerInner<S, D>>>,
 }
 
+impl<S, D> StreamVecDistributer<S, D> {
+  pub fn new(source: S) -> Self {
+    let inner = StreamVecDistributerInner {
+      source,
+      distributer: Default::default(),
+    };
+    let inner = Arc::new(RwLock::new(inner));
+    Self { inner }
+  }
+}
+
 #[pin_project]
 struct StreamVecDistributerInner<S, D> {
   #[pin]
@@ -22,6 +33,7 @@ struct StreamVecDistributerInner<S, D> {
 struct DistributedStream<S, D> {
   #[pin]
   rev: futures::channel::mpsc::UnboundedReceiver<D>,
+  index: usize,
   source: Arc<RwLock<StreamVecDistributerInner<S, D>>>,
 }
 
@@ -56,14 +68,19 @@ impl<S: Stream<Item = (usize, D)> + Unpin, D> Stream for DistributedStream<S, D>
   }
 }
 
-impl<S, D> StreamVecDistributer<S, D> {
+impl<S: Stream<Item = (usize, D)> + Unpin, D> StreamVecDistributer<S, D> {
   pub fn create_sub_stream(&mut self, index: usize) -> impl Stream<Item = D> {
     let mut inner = self.inner.write().unwrap();
+    // todo shrink logic
     while inner.distributer.len() > index {
       inner.distributer.push(None);
     }
     let (sender, rev) = futures::channel::mpsc::unbounded();
     inner.distributer[index] = sender.into();
-    rev
+    DistributedStream {
+      rev,
+      index,
+      source: self.inner.clone(),
+    }
   }
 }

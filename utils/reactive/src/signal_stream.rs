@@ -11,7 +11,7 @@ use futures::{
 };
 use pin_project::pin_project;
 
-use crate::MergeIntoStreamVec;
+use crate::*;
 
 pub fn do_updates<T: Stream + Unpin>(stream: &mut T, mut on_update: impl FnMut(T::Item)) {
   // synchronously polling the stream, pull out all updates.
@@ -47,6 +47,14 @@ pub trait SignalStreamExt: Stream {
   fn buffered_unbound(self) -> BufferedUnbound<Self>
   where
     Self: Sized;
+
+  fn buffered_shared_unbound(self) -> BufferedSharedStream<Self>
+  where
+    Self: Sized;
+
+  fn create_distributor<D>(self) -> StreamVecDistributer<Self, D>
+  where
+    Self: Sized;
 }
 
 impl<T: Stream> SignalStreamExt for T {
@@ -79,6 +87,20 @@ impl<T: Stream> SignalStreamExt for T {
       inner: self,
       buffered: VecDeque::new(),
     }
+  }
+
+  fn buffered_shared_unbound(self) -> BufferedSharedStream<Self>
+  where
+    Self: Sized,
+  {
+    BufferedSharedStream::new(self)
+  }
+
+  fn create_distributor<D>(self) -> StreamVecDistributer<Self, D>
+  where
+    Self: Sized,
+  {
+    StreamVecDistributer::new(self)
   }
 }
 
