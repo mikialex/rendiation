@@ -50,7 +50,7 @@ impl<T> TreeCollection<T> {
     for (handle, node) in &self.nodes.data {
       if node.first_child.is_none() {
         let node = self.create_node_ref(handle);
-        node.traverse_pair_subtree(&mut |self_node, parent| {
+        node.traverse_pair_subtree(|self_node, parent| {
           cb(TreeMutation::Create(mapper(&self_node.node.data)));
           if let Some(parent) = parent {
             cb(TreeMutation::Attach {

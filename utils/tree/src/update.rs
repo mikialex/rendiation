@@ -181,9 +181,20 @@ fn mark_sub_tree_full_change<T: HierarchyDerived>(
       child.data.sub_tree_dirty_mark_any.insert(&dirty_mark);
     });
 
-  // tree.traverse_mut_parent_chain_iter(change_node);
+  let mut update_parent = None;
+  tree
+    .create_node_mut_ptr(change_node)
+    .traverse_parent_mut(|parent| {
+      let parent = unsafe { &mut (*parent.node) };
+      if parent.parent.is_none() {
+        update_parent = parent.handle().into();
+      }
+      let should_pop = parent.data.sub_tree_dirty_mark_any.contains(&dirty_mark);
+      parent.data.sub_tree_dirty_mark_any.insert(&dirty_mark);
+      should_pop
+    });
 
-  todo!()
+  update_parent
 }
 
 fn do_sub_tree_updates<T: HierarchyDerived>(
