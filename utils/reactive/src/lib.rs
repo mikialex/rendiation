@@ -12,5 +12,11 @@ pub use channel::*;
 mod source;
 pub use source::*;
 
+mod buff_shared;
+pub use buff_shared::*;
+
+mod distributor;
+pub use distributor::*;
+
 mod map;
 pub use map::*;
