@@ -36,7 +36,13 @@ pub trait HierarchyDerived: Default + IncrementalBase {
     change: &<Self::Source as IncrementalBase>::Delta,
   ) -> Option<Self::HierarchyDirtyMark>;
 
-  fn hierarchy_update(&self, parent: Option<&Self::Source>, collect: &mut impl FnMut(Self::Delta));
+  fn hierarchy_update(
+    &self,
+    self_source: &Self::Source,
+    parent_derived: Option<&Self>,
+    dirty: &Self::HierarchyDirtyMark,
+    collect: &mut impl FnMut(Self::Delta),
+  );
   // just shortcut
   fn full_dirty_mark() -> Self::HierarchyDirtyMark {
     Self::HierarchyDirtyMark::ALL
@@ -52,8 +58,8 @@ pub trait HierarchyDirtyMark: PartialEq + Default {
 }
 
 #[derive(Default)]
-struct DerivedData<T: HierarchyDerived> {
-  data: T,
+pub struct DerivedData<T: HierarchyDerived> {
+  pub data: T,
   /// all sub tree change or together includes self
   /// this tag is for skip tree branch updating
   sub_tree_dirty_mark_any: T::HierarchyDirtyMark,
@@ -66,7 +72,7 @@ struct DerivedData<T: HierarchyDerived> {
 pub struct TreeHierarchyDerivedSystem<T: HierarchyDerived> {
   derived_tree: Arc<RwLock<TreeCollection<DerivedData<T>>>>,
   // we use boxed here to avoid another generic for tree delta input stream
-  derived_stream: Box<dyn Stream<Item = T::Delta> + Unpin>,
+  pub derived_stream: Box<dyn Stream<Item = T::Delta> + Unpin>,
 }
 
 impl<T> TreeHierarchyDerivedSystem<T>
@@ -74,7 +80,13 @@ where
   T: HierarchyDerived,
   T::Source: IncrementalBase,
 {
-  #[allow(unused_must_use)]
+  pub fn visit_derived_tree<R>(
+    &self,
+    mut v: impl FnMut(&TreeCollection<DerivedData<T>>) -> R,
+  ) -> R {
+    v(&self.derived_tree.read().unwrap())
+  }
+
   pub fn new<TREE, X>(
     tree_delta: impl Stream<Item = TreeMutation<T::Source>> + 'static,
     source_tree: &SharedTreeCollection<TREE>,
@@ -127,13 +139,13 @@ where
             } => {
               let parent_target = derived_tree.recreate_handle(parent_target);
               let node = derived_tree.recreate_handle(node);
-              derived_tree.node_add_child_by(parent_target, node);
+              derived_tree.node_add_child_by(parent_target, node).ok();
               mark_sub_tree_full_change(&mut derived_tree, node, T::full_dirty_mark())
             }
             // ditto
             TreeMutation::Detach { node } => {
               let node = derived_tree.recreate_handle(node);
-              derived_tree.node_detach_parent(node);
+              derived_tree.node_detach_parent(node).ok();
               mark_sub_tree_full_change(&mut derived_tree, node, T::full_dirty_mark())
             }
           }
@@ -209,21 +221,27 @@ fn do_sub_tree_updates<T, TREE, X>(
   TREE: CoreTree<Node = X>,
   X: Deref<Target = T::Source>,
 {
-  derived_tree.traverse_mut(update_root, |node| {
-    let parent = node.parent;
+  derived_tree.traverse_mut_pair(update_root, |node, parent| {
+    let node_index = node.handle().index();
     let derived = node.data_mut();
 
     if derived.sub_tree_dirty_mark_any == T::HierarchyDirtyMark::default() {
       NextTraverseVisit::SkipChildren
     } else {
+      let parent = parent.map(|parent| &parent.data().data);
+
+      let source_node = source_tree.recreate_handle(node_index);
+      let source_node = source_tree.get_node_data(source_node).deref();
+
+      derived.data.hierarchy_update(
+        source_node,
+        parent,
+        &derived.sub_tree_dirty_mark_any,
+        derived_delta_sender,
+      );
+
       derived.sub_tree_dirty_mark_any = T::HierarchyDirtyMark::default();
       derived.sub_tree_dirty_mark_all = T::HierarchyDirtyMark::default();
-
-      let parent = parent
-        .map(|parent| source_tree.recreate_handle(parent.index()))
-        .map(|handle| source_tree.get_node_data(handle).deref());
-
-      derived.data.hierarchy_update(parent, derived_delta_sender);
 
       NextTraverseVisit::VisitChildren
     }

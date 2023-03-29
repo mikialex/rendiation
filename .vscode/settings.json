@@ -19,6 +19,7 @@
         "bindgroups",
         "bindpoint",
         "binormal",
+        "bitflags",
         "Blinn",
         "Bowtie",
         "BRDF",
