@@ -21,6 +21,8 @@
         "binormal",
         "bitflags",
         "Blinn",
+        "boardcast",
+        "boardcaster",
         "Bowtie",
         "BRDF",
         "BSDF",

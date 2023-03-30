@@ -11,6 +11,22 @@ pub struct StreamBoardCaster<S, D, F> {
   inner: Arc<RwLock<StreamBoardCasterInner<S, D, F>>>,
 }
 
+impl<S, F> Stream for StreamBoardCaster<S, S::Item, F>
+where
+  S: Stream + Unpin,
+  S::Item: Clone,
+  F: BoardCastBehavior<S::Item, S::Item>,
+{
+  type Item = S::Item;
+
+  fn poll_next(self: Pin<&mut Self>, cx: &mut std::task::Context<'_>) -> Poll<Option<Self::Item>> {
+    let mut inner = self.inner.write().unwrap();
+    let inner: &mut StreamBoardCasterInner<_, _, _> = &mut inner;
+    let inner = Pin::new(inner);
+    inner.poll_next(cx)
+  }
+}
+
 impl<S, D, F> Clone for StreamBoardCaster<S, D, F> {
   fn clone(&self) -> Self {
     Self {
@@ -37,6 +53,30 @@ struct StreamBoardCasterInner<S, D, F> {
   source: S,
   distributer: Vec<Option<futures::channel::mpsc::UnboundedSender<D>>>,
   board_cast: F,
+}
+
+impl<S, F> Stream for StreamBoardCasterInner<S, S::Item, F>
+where
+  S: Stream + Unpin,
+  S::Item: Clone,
+  F: BoardCastBehavior<S::Item, S::Item>,
+{
+  type Item = S::Item;
+
+  fn poll_next(self: Pin<&mut Self>, cx: &mut std::task::Context<'_>) -> Poll<Option<Self::Item>> {
+    let this = self.project();
+    if let Poll::Ready(v) = this.source.poll_next(cx) {
+      if let Some(input) = v {
+        F::board_cast(input.clone(), this.distributer);
+        Poll::Ready(input.into())
+      } else {
+        // forward early termination
+        Poll::Ready(None)
+      }
+    } else {
+      Poll::Pending
+    }
+  }
 }
 
 #[pin_project]
