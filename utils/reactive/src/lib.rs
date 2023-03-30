@@ -15,8 +15,8 @@ pub use source::*;
 mod buff_shared;
 pub use buff_shared::*;
 
-mod distributor;
-pub use distributor::*;
+mod boardcast;
+pub use boardcast::*;
 
 mod map;
 pub use map::*;

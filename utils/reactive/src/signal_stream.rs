@@ -44,6 +44,10 @@ pub trait SignalStreamExt: Stream {
     St: Stream,
     Self: Sized;
 
+  fn filter_map_sync<F>(self, f: F) -> FilterMapSync<Self, F>
+  where
+    Self: Sized;
+
   fn buffered_unbound(self) -> BufferedUnbound<Self>
   where
     Self: Sized;
@@ -52,9 +56,13 @@ pub trait SignalStreamExt: Stream {
   where
     Self: Sized;
 
-  fn create_distributor<D>(self) -> StreamVecDistributer<Self, D>
+  fn create_board_caster(self) -> StreamBoardCaster<Self, Self::Item, FanOut>
   where
-    Self: Sized;
+    Self: Sized + Stream;
+
+  fn create_index_mapping_boardcaster<D>(self) -> StreamBoardCaster<Self, D, IndexMapping>
+  where
+    Self: Sized + Stream;
 }
 
 impl<T: Stream> SignalStreamExt for T {
@@ -82,6 +90,13 @@ impl<T: Stream> SignalStreamExt for T {
     ZipSignal::new(self, other)
   }
 
+  fn filter_map_sync<F>(self, f: F) -> FilterMapSync<Self, F>
+  where
+    Self: Sized,
+  {
+    FilterMapSync { inner: self, f }
+  }
+
   fn buffered_unbound(self) -> BufferedUnbound<Self> {
     BufferedUnbound {
       inner: self,
@@ -96,11 +111,52 @@ impl<T: Stream> SignalStreamExt for T {
     BufferedSharedStream::new(self)
   }
 
-  fn create_distributor<D>(self) -> StreamVecDistributer<Self, D>
+  fn create_board_caster(self) -> StreamBoardCaster<Self, Self::Item, FanOut>
   where
     Self: Sized,
   {
-    StreamVecDistributer::new(self)
+    StreamBoardCaster::new(self, FanOut)
+  }
+
+  fn create_index_mapping_boardcaster<D>(self) -> StreamBoardCaster<Self, D, IndexMapping>
+  where
+    Self: Sized,
+  {
+    StreamBoardCaster::new(self, IndexMapping)
+  }
+}
+
+pub type StreamForker<S> = StreamBoardCaster<S, <S as Stream>::Item, FanOut>;
+
+#[pin_project]
+pub struct FilterMapSync<S, F> {
+  #[pin]
+  inner: S,
+  f: F,
+}
+
+impl<S, F, X> Stream for FilterMapSync<S, F>
+where
+  S: Stream,
+  F: Fn(S::Item) -> Option<X>,
+{
+  type Item = X;
+
+  fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+    let this = self.project();
+    if let Poll::Ready(v) = this.inner.poll_next(cx) {
+      if let Some(v) = v {
+        if let Some(mapped) = (this.f)(v) {
+          Poll::Ready(mapped.into())
+        } else {
+          Poll::Pending
+        }
+      } else {
+        Poll::Ready(None)
+      }
+    } else {
+      Poll::Pending
+    }
   }
 }
 

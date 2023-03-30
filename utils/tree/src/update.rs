@@ -2,7 +2,7 @@ use std::ops::Deref;
 
 use futures::{Stream, StreamExt};
 use incremental::IncrementalBase;
-use reactive::SignalStreamExt;
+use reactive::{SignalStreamExt, StreamForker};
 
 use crate::*;
 
@@ -37,24 +37,24 @@ pub trait HierarchyDerived: Default + IncrementalBase {
   ) -> Option<Self::HierarchyDirtyMark>;
 
   fn hierarchy_update(
-    &self,
+    &mut self,
     self_source: &Self::Source,
     parent_derived: Option<&Self>,
     dirty: &Self::HierarchyDirtyMark,
-    collect: &mut impl FnMut(Self::Delta),
+    collect: impl FnMut(Self::Delta),
   );
   // just shortcut
   fn full_dirty_mark() -> Self::HierarchyDirtyMark {
-    Self::HierarchyDirtyMark::ALL
+    Self::HierarchyDirtyMark::all_dirty()
   }
 }
 
 /// Default should use None state
 pub trait HierarchyDirtyMark: PartialEq + Default {
-  const ALL: Self;
   fn contains(&self, mark: &Self) -> bool;
   fn intersects(&self, mark: &Self) -> bool;
   fn insert(&mut self, mark: &Self);
+  fn all_dirty() -> Self;
 }
 
 #[derive(Default)]
@@ -72,7 +72,7 @@ pub struct DerivedData<T: HierarchyDerived> {
 pub struct TreeHierarchyDerivedSystem<T: HierarchyDerived> {
   derived_tree: Arc<RwLock<TreeCollection<DerivedData<T>>>>,
   // we use boxed here to avoid another generic for tree delta input stream
-  pub derived_stream: Box<dyn Stream<Item = T::Delta> + Unpin>,
+  pub derived_stream: StreamForker<Box<dyn Stream<Item = (usize, T::Delta)> + Unpin>>,
 }
 
 impl<T> TreeHierarchyDerivedSystem<T>
@@ -163,11 +163,14 @@ where
         });
         futures::stream::iter(derived_deltas)
       })
-      .flatten();
+      .flatten(); // we want all change here, not signal
+
+    let boxed: Box<dyn Stream<Item = (usize, T::Delta)> + Unpin> =
+      Box::new(Box::pin(derived_stream));
 
     Self {
       derived_tree,
-      derived_stream: Box::new(Box::pin(derived_stream)),
+      derived_stream: boxed.create_board_caster(),
     }
   }
 }
@@ -215,7 +218,7 @@ fn do_sub_tree_updates<T, TREE, X>(
   source_tree: &TREE,
   derived_tree: &mut TreeCollection<DerivedData<T>>,
   update_root: TreeNodeHandle<DerivedData<T>>,
-  derived_delta_sender: &mut impl FnMut(T::Delta),
+  derived_delta_sender: &mut impl FnMut((usize, T::Delta)),
 ) where
   T: HierarchyDerived,
   TREE: CoreTree<Node = X>,
@@ -237,7 +240,7 @@ fn do_sub_tree_updates<T, TREE, X>(
         source_node,
         parent,
         &derived.sub_tree_dirty_mark_any,
-        derived_delta_sender,
+        |delta| derived_delta_sender((node_index, delta)),
       );
 
       derived.sub_tree_dirty_mark_any = T::HierarchyDirtyMark::default();
