@@ -4,14 +4,15 @@ pub type CameraGPUMap = ReactiveMap<SceneCamera, CameraGPU>;
 
 impl SceneItemReactiveMapping<CameraGPU> for SceneCamera {
   type ChangeStream = impl Stream<Item = ()> + Unpin;
-  type Ctx<'a> = GPU;
+  type Ctx<'a> = (&'a GPU, &'a SceneNodeDeriveSystem);
 
-  fn build(&self, gpu: &Self::Ctx<'_>) -> (CameraGPU, Self::ChangeStream) {
+  fn build(&self, (gpu, derives): &Self::Ctx<'_>) -> (CameraGPU, Self::ChangeStream) {
     let mapped = CameraGPU::new(gpu);
+    let derives = (*derives).clone();
     let changes = {
       let camera_world_changed = self
         .listen_by(with_field!(SceneCameraInner => node))
-        .map(|node| node.listen_by(with_field_change!(SceneNodeDataImpl => world_matrix)))
+        .map(move |node| derives.create_world_matrix_stream(&node).map(|_| {}))
         .flatten_signal();
 
       let any_other_change = self.listen_by(any_change);
@@ -22,9 +23,14 @@ impl SceneItemReactiveMapping<CameraGPU> for SceneCamera {
     (mapped, changes)
   }
 
-  fn update(&self, mapped: &mut CameraGPU, change: &mut Self::ChangeStream, gpu: &Self::Ctx<'_>) {
+  fn update(
+    &self,
+    mapped: &mut CameraGPU,
+    change: &mut Self::ChangeStream,
+    (gpu, derive): &Self::Ctx<'_>,
+  ) {
     do_updates(change, |_| {
-      mapped.update(gpu, &self.read());
+      mapped.update(gpu, &self.read(), derive);
     });
   }
 }
@@ -52,11 +58,16 @@ impl CameraGPU {
       })
   }
 
-  pub fn update(&mut self, gpu: &GPU, camera: &SceneCameraInner) -> &mut Self {
+  pub fn update(
+    &mut self,
+    gpu: &GPU,
+    camera: &SceneCameraInner,
+    de: &SceneNodeDeriveSystem,
+  ) -> &mut Self {
     self
       .ubo
       .resource
-      .mutate(|uniform| uniform.update_by_scene_camera(camera));
+      .mutate(|uniform| uniform.update_by_scene_camera(camera, de));
 
     self.ubo.resource.upload(&gpu.queue);
     self
@@ -171,8 +182,8 @@ impl CameraGPUTransform {
     self.view_projection_inv = self.view_projection.inverse_or_identity();
   }
 
-  pub fn update_by_scene_camera(&mut self, camera: &SceneCameraInner) {
-    let world_matrix = camera.node.visit(|node| node.world_matrix());
+  pub fn update_by_scene_camera(&mut self, camera: &SceneCameraInner, de: &SceneNodeDeriveSystem) {
+    let world_matrix = de.get_world_matrix(&camera.node);
     self.update_by_proj_and_world(camera.projection_matrix, world_matrix);
   }
 }

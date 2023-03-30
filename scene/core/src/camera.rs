@@ -35,15 +35,13 @@ impl SceneCamera {
   }
 
   /// normalized_position: -1 to 1
-  pub fn cast_world_ray(&self, normalized_position: Vec2<f32>) -> Ray3<f32> {
-    self.cast_ray(normalized_position)
-  }
-}
-
-impl HyperRayCaster<f32, Vec3<f32>, Vec2<f32>> for SceneCamera {
-  fn cast_ray(&self, normalized_position: Vec2<f32>) -> HyperRay<f32, Vec3<f32>> {
+  pub fn cast_world_ray(
+    &self,
+    normalized_position: Vec2<f32>,
+    d_sys: &SceneNodeDeriveSystem,
+  ) -> Ray3<f32> {
     self.visit(|camera| {
-      let camera_world_mat = camera.node.get_world_matrix();
+      let camera_world_mat = d_sys.get_world_matrix(&camera.node);
       camera
         .projection
         .cast_ray(normalized_position)

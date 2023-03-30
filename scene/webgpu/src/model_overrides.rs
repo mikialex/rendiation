@@ -26,7 +26,7 @@ impl OverridableMeshModelImpl {
   }
 
   pub fn compute_override_world_mat(&self, ctx: &WorldMatrixOverrideCtx) -> Mat4<f32> {
-    let mut world_matrix = self.inner.node.get_world_matrix();
+    let mut world_matrix = ctx.node_derives.get_world_matrix(&self.inner.node);
     self
       .overrides
       .iter()
@@ -41,6 +41,7 @@ pub trait WorldMatrixOverride {
 
 pub struct WorldMatrixOverrideCtx<'a> {
   pub camera: &'a SceneCameraInner,
+  pub node_derives: &'a SceneNodeDeriveSystem,
   pub buffer_size: Size,
 }
 
@@ -81,14 +82,15 @@ impl SceneRenderable for OverridableMeshModelImpl {
     let ctx = WorldMatrixOverrideCtx {
       camera: &camera_ref,
       buffer_size: pass.size(),
+      node_derives: pass.node_derives,
     };
 
     let world_matrix = self.compute_override_world_mat(&ctx).into();
 
     let mut override_gpu = self.override_gpu.borrow_mut();
     let node_gpu = override_gpu
-      .get_or_insert_with(|| NodeGPU::new(gpu, &self.node, world_matrix))
-      .update(gpu, &self.node, world_matrix);
+      .get_or_insert_with(|| NodeGPU::new(gpu, &self.node, world_matrix, pass.node_derives))
+      .update(gpu, &self.node, world_matrix, pass.node_derives);
 
     setup_pass_core(self, pass, camera, Some(node_gpu), dispatcher);
   }
@@ -100,6 +102,7 @@ impl SceneRayInteractive for OverridableMeshModelImpl {
     let o_ctx = WorldMatrixOverrideCtx {
       camera: &camera_ref,
       buffer_size: ctx.camera_view_size,
+      node_derives: ctx.node_derives,
     };
 
     let world_matrix = self.compute_override_world_mat(&o_ctx);
@@ -127,11 +130,11 @@ pub enum ViewAutoScalablePositionOverride {
 }
 
 impl ViewAutoScalablePositionOverride {
-  pub fn get_optional_position(&self) -> Option<Vec3<f32>> {
+  pub fn get_optional_position(&self, derives: &SceneNodeDeriveSystem) -> Option<Vec3<f32>> {
     match self {
       ViewAutoScalablePositionOverride::None => None,
       ViewAutoScalablePositionOverride::Fixed(f) => Some(*f),
-      ViewAutoScalablePositionOverride::SyncNode(n) => Some(n.get_world_matrix().position()),
+      ViewAutoScalablePositionOverride::SyncNode(n) => Some(derives.get_world_matrix(n).position()),
     }
   }
 }
@@ -155,17 +158,13 @@ impl WorldMatrixOverride for ViewAutoScalable {
 
     let world_position = self
       .override_position
-      .get_optional_position()
+      .get_optional_position(ctx.node_derives)
       .unwrap_or_else(|| world_matrix.position());
     let world_translation = Mat4::translate(world_position);
 
-    let camera_position = camera.node.get_world_matrix().position();
-    let camera_forward = camera
-      .node
-      .get_world_matrix()
-      .forward()
-      .reverse()
-      .normalize();
+    let camera_world = ctx.node_derives.get_world_matrix(&camera.node);
+    let camera_position = camera_world.position();
+    let camera_forward = camera_world.forward().reverse().normalize();
     let camera_to_target = world_position - camera_position;
 
     let projected_distance = camera_to_target.dot(camera_forward);
@@ -202,7 +201,7 @@ impl Default for BillBoard {
 impl WorldMatrixOverride for BillBoard {
   fn override_mat(&self, world_matrix: Mat4<f32>, ctx: &WorldMatrixOverrideCtx) -> Mat4<f32> {
     let camera = &ctx.camera;
-    let camera_position = camera.node.visit(|n| n.world_matrix().position());
+    let camera_position = ctx.node_derives.get_world_matrix(&camera.node).position();
 
     let scale = world_matrix.get_scale();
     let scale = Mat4::scale(scale);

@@ -79,6 +79,7 @@ pub trait SceneRenderable {
 pub struct SceneRayInteractiveCtx<'a> {
   pub world_ray: Ray3,
   pub conf: &'a MeshBufferIntersectConfig,
+  pub node_derives: &'a SceneNodeDeriveSystem,
   pub camera: &'a SceneCamera,
   pub camera_view_size: Size,
 }
@@ -174,6 +175,7 @@ pub trait WebGPUSceneExtension {
     normalized_position: Vec2<f32>,
     camera_view_size: Size,
     conf: &'a MeshBufferIntersectConfig,
+    node_derives: &'a SceneNodeDeriveSystem,
   ) -> SceneRayInteractiveCtx<'a>;
 
   fn interaction_picking<'a>(
@@ -191,14 +193,16 @@ impl WebGPUSceneExtension for SceneInner {
     normalized_position: Vec2<f32>,
     camera_view_size: Size,
     conf: &'a MeshBufferIntersectConfig,
+    node_derives: &'a SceneNodeDeriveSystem,
   ) -> SceneRayInteractiveCtx<'a> {
     let camera = self.active_camera.as_ref().unwrap();
-    let world_ray = camera.cast_world_ray(normalized_position);
+    let world_ray = camera.cast_world_ray(normalized_position, node_derives);
     SceneRayInteractiveCtx {
       world_ray,
       conf,
       camera,
       camera_view_size,
+      node_derives,
     }
   }
 

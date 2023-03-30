@@ -109,7 +109,7 @@ pub struct SceneDepth;
 impl PassContentWithSceneAndCamera for SceneDepth {
   fn render(&mut self, pass: &mut SceneRenderPass, scene: &SceneInner, camera: &SceneCamera) {
     let mut render_list = RenderList::default();
-    render_list.prepare(scene, camera);
+    render_list.prepare(scene, camera, pass.node_derives);
 
     // we could just use default, because the color channel not exist at all
     let base = pass.default_dispatcher();
@@ -182,7 +182,7 @@ pub fn check_update_basic_shadow_map<T: Any + ShadowCameraCreator + Incremental>
     .ctx
     .resources
     .cameras
-    .get_with_update(&shadow_camera, ctx.ctx.gpu)
+    .get_with_update(&shadow_camera, &(ctx.ctx.gpu, ctx.node_derives))
     .ubo
     .resource
     .get();

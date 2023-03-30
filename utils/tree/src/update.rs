@@ -6,26 +6,6 @@ use reactive::{SignalStreamExt, StreamForker};
 
 use crate::*;
 
-pub trait HierarchyDepend: Sized {
-  fn update_by_parent(&mut self, parent: Option<&Self>);
-}
-
-impl<T: HierarchyDepend, X: IncrementalBase> SharedTreeCollection<ReactiveTreeCollection<T, X>> {
-  pub fn update(&self, root: TreeNodeHandle<T>) {
-    let mut nodes = self.inner.write().unwrap();
-    nodes.inner.traverse_mut_pair(root, |this, parent| {
-      let parent = parent.map(|parent| parent.data());
-      let node_data = this.data_mut();
-      node_data.update_by_parent(parent);
-      NextTraverseVisit::VisitChildren
-    });
-  }
-}
-
-pub trait IncrementalHierarchyDepend: HierarchyDepend + IncrementalBase {
-  fn check_delta_affects_hierarchy(delta: &Self::Delta) -> bool;
-}
-
 /// The default value is the none parent case
 pub trait HierarchyDerived: Default + IncrementalBase {
   type Source: IncrementalBase;
@@ -73,6 +53,15 @@ pub struct TreeHierarchyDerivedSystem<T: HierarchyDerived> {
   derived_tree: Arc<RwLock<TreeCollection<DerivedData<T>>>>,
   // we use boxed here to avoid another generic for tree delta input stream
   pub derived_stream: StreamForker<Box<dyn Stream<Item = (usize, T::Delta)> + Unpin>>,
+}
+
+impl<T: HierarchyDerived> Clone for TreeHierarchyDerivedSystem<T> {
+  fn clone(&self) -> Self {
+    Self {
+      derived_tree: self.derived_tree.clone(),
+      derived_stream: self.derived_stream.clone(),
+    }
+  }
 }
 
 impl<T> TreeHierarchyDerivedSystem<T>

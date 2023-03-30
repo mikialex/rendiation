@@ -3,7 +3,7 @@ use std::ops::Deref;
 use crate::*;
 
 use arena::{Arena, ArenaDelta, Handle};
-use tree::{HierarchyDepend, ReactiveTreeCollection, SharedTreeCollection, TreeMutation};
+use tree::*;
 
 pub type SceneLightHandle = Handle<SceneLight>;
 pub type SceneModelHandle = Handle<SceneModel>;
@@ -78,8 +78,9 @@ impl SceneInner {
   pub fn root(&self) -> &SceneNode {
     &self.root
   }
-  pub fn new() -> Self {
+  pub fn new() -> (Self, SceneNodeDeriveSystem) {
     let nodes: SceneNodeCollection = Default::default();
+    let system = SceneNodeDeriveSystem::new(&nodes);
 
     let root = SceneNode::from_root(nodes.inner.clone());
 
@@ -87,58 +88,25 @@ impl SceneInner {
     let camera_node = root.create_child();
     let default_camera = SceneCamera::create_camera(default_camera, camera_node);
 
-    Self {
-      nodes,
-      root,
-      background: None,
-      default_camera,
-      cameras: Arena::new(),
-      lights: Arena::new(),
-      models: Arena::new(),
+    (
+      Self {
+        nodes,
+        root,
+        background: None,
+        default_camera,
+        cameras: Arena::new(),
+        lights: Arena::new(),
+        models: Arena::new(),
 
-      active_camera: None,
-      ext: Default::default(),
-    }
+        active_camera: None,
+        ext: Default::default(),
+      },
+      system,
+    )
   }
 
   pub fn get_active_camera(&self) -> &SceneCamera {
     self.active_camera.as_ref().unwrap()
-  }
-
-  pub fn maintain(&self) {
-    self.nodes.inner.update(self.root.raw_handle());
-  }
-}
-
-impl HierarchyDepend for SceneNodeData {
-  fn update_by_parent(&mut self, parent: Option<&Self>) {
-    self.mutate(|mut node_data| {
-      if let Some(parent) = parent {
-        let new_net = node_data.visible && parent.net_visible;
-        if new_net != node_data.net_visible {
-          node_data.modify(SceneNodeDataImplDelta::net_visible(new_net))
-        }
-        let new_world_matrix = parent.world_matrix * node_data.local_matrix;
-        if new_world_matrix != node_data.world_matrix {
-          node_data.modify(SceneNodeDataImplDelta::world_matrix(new_world_matrix))
-        }
-      } else {
-        let new_net = node_data.visible;
-        if new_net != node_data.net_visible {
-          node_data.modify(SceneNodeDataImplDelta::net_visible(new_net))
-        }
-        let new_world_matrix = node_data.local_matrix;
-        if new_world_matrix != node_data.world_matrix {
-          node_data.modify(SceneNodeDataImplDelta::world_matrix(new_world_matrix))
-        }
-      }
-    });
-  }
-}
-
-impl Default for SceneInner {
-  fn default() -> Self {
-    Self::new()
   }
 }
 

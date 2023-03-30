@@ -19,3 +19,4 @@ rendiation-renderable-mesh = {path = "../../components/mesh/renderable"}
 rendiation-texture = {path = "../../components/texture/core"}
 tree = {path = "../../utils/tree"}
 futures = "0.3.25"
+bitflags = "*"

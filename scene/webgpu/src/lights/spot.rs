@@ -85,14 +85,15 @@ impl WebGPUSceneLight for SceneItemRef<SpotLight> {
     let shadow = check_update_basic_shadow_map(&light, ctx, node);
 
     let lights = ctx.forward.get_or_create_list();
+    let world = ctx.node_derives.get_world_matrix(node);
 
     let gpu = SpotLightShaderInfo {
       luminance_intensity: light.luminance_intensity * light.color_factor,
-      direction: node.get_world_matrix().forward().reverse().normalize(),
+      direction: world.forward().reverse().normalize(),
       cutoff_distance: light.cutoff_distance,
       half_cone_cos: light.half_cone_angle.cos(),
       half_penumbra_cos: light.half_penumbra_angle.cos(),
-      position: node.get_world_matrix().position(),
+      position: world.position(),
       shadow,
       ..Zeroable::zeroed()
     };

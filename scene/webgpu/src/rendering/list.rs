@@ -7,12 +7,17 @@ pub struct RenderList {
 }
 
 impl RenderList {
-  pub fn prepare(&mut self, scene: &SceneInner, camera: &SceneCamera) {
+  pub fn prepare(
+    &mut self,
+    scene: &SceneInner,
+    camera: &SceneCamera,
+    node_derives: &SceneNodeDeriveSystem,
+  ) {
     if scene.active_camera.is_none() {
       return;
     }
 
-    let camera_mat = camera.visit(|camera| camera.node.get_world_matrix());
+    let camera_mat = camera.visit(|camera| node_derives.get_world_matrix(&camera.node));
     let camera_pos = camera_mat.position();
     let camera_forward = camera_mat.forward().reverse();
 
@@ -20,7 +25,7 @@ impl RenderList {
     self.transparent.clear();
 
     for (h, m) in scene.models.iter() {
-      let model_pos = m.get_node().get_world_matrix().position();
+      let model_pos = node_derives.get_world_matrix(&m.get_node()).position();
       let depth = (model_pos - camera_pos).dot(camera_forward);
 
       let is_transparent = m.is_transparent();

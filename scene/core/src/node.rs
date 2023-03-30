@@ -1,6 +1,7 @@
 use crate::*;
 
-use tree::{ReactiveTreeCollection, ShareTreeNode, SharedTreeCollection, TreeNodeHandle};
+use bitflags::bitflags;
+use tree::*;
 
 pub type SceneNodeData = Identity<SceneNodeDataImpl>;
 pub type SceneNodeHandle = TreeNodeHandle<SceneNodeData>;
@@ -8,9 +9,79 @@ pub type SceneNodeHandle = TreeNodeHandle<SceneNodeData>;
 #[derive(Incremental, Clone)]
 pub struct SceneNodeDataImpl {
   pub local_matrix: Mat4<f32>,
-  pub world_matrix: Mat4<f32>,
   pub visible: bool,
+}
+
+#[derive(Default, Incremental)]
+pub struct SceneNodeDerivedData {
+  pub world_matrix: Mat4<f32>,
   pub net_visible: bool,
+}
+
+bitflags! {
+  #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Default)]
+  pub struct SceneNodeDeriveDataDirtyFlag: u32 {
+    const WorldMatrix = 0b00000001;
+    const NetVisible = 0b00000010;
+  }
+}
+
+impl HierarchyDirtyMark for SceneNodeDeriveDataDirtyFlag {
+  fn contains(&self, mark: &Self) -> bool {
+    self.contains(*mark)
+  }
+  fn intersects(&self, mark: &Self) -> bool {
+    self.intersects(*mark)
+  }
+  fn insert(&mut self, mark: &Self) {
+    self.insert(*mark)
+  }
+  fn all_dirty() -> Self {
+    Self::all()
+  }
+}
+
+impl HierarchyDerived for SceneNodeDerivedData {
+  type Source = SceneNodeDataImpl;
+
+  type HierarchyDirtyMark = SceneNodeDeriveDataDirtyFlag;
+
+  fn filter_hierarchy_change(
+    change: &<Self::Source as IncrementalBase>::Delta,
+  ) -> Option<Self::HierarchyDirtyMark> {
+    match change {
+      SceneNodeDataImplDelta::local_matrix(_) => SceneNodeDeriveDataDirtyFlag::WorldMatrix,
+      SceneNodeDataImplDelta::visible(_) => SceneNodeDeriveDataDirtyFlag::WorldMatrix,
+    }
+    .into()
+  }
+
+  fn hierarchy_update(
+    &mut self,
+    self_source: &Self::Source,
+    parent_derived: Option<&Self>,
+    dirty: &Self::HierarchyDirtyMark,
+    mut collect: impl FnMut(Self::Delta),
+  ) {
+    if let Some(parent) = parent_derived {
+      if dirty.intersects(SceneNodeDeriveDataDirtyFlag::WorldMatrix) {
+        let new_world = parent.world_matrix * self_source.local_matrix;
+        if new_world != self.world_matrix {
+          self.world_matrix = new_world;
+          collect(SceneNodeDerivedDataDelta::world_matrix(new_world))
+        }
+      }
+      // too cheap, don't check flag
+      let net_visible = parent.net_visible || self_source.visible;
+      if net_visible != self.net_visible {
+        self.net_visible = net_visible;
+        collect(SceneNodeDerivedDataDelta::net_visible(net_visible))
+      }
+    } else {
+      self.world_matrix = self_source.local_matrix;
+      self.net_visible = self_source.visible;
+    }
+  }
 }
 
 impl Default for SceneNodeDataImpl {
@@ -18,19 +89,7 @@ impl Default for SceneNodeDataImpl {
     Self {
       visible: true,
       local_matrix: Mat4::one(),
-      net_visible: true,
-      world_matrix: Mat4::one(),
     }
-  }
-}
-
-impl SceneNodeDataImpl {
-  pub fn world_matrix(&self) -> Mat4<f32> {
-    self.world_matrix
-  }
-
-  pub fn net_visible(&self) -> bool {
-    self.net_visible
   }
 }
 
@@ -99,9 +158,5 @@ impl SceneNode {
 
   pub fn set_visible(&self, visible: bool) {
     self.mutate(|mut node| node.modify(SceneNodeDataImplDelta::visible(visible)));
-  }
-
-  pub fn get_world_matrix(&self) -> Mat4<f32> {
-    self.visit(|n| n.world_matrix)
   }
 }
