@@ -35,9 +35,13 @@ impl DynamicExtension {
 }
 
 impl SimpleIncremental for DynamicExtension {
-  type Delta = ();
+  type Delta = (std::any::TypeId, Box<dyn AnyClone>);
 
-  fn s_apply(&mut self, _: Self::Delta) {}
+  fn s_apply(&mut self, (k, v): Self::Delta) {
+    self.inner.insert(k, v);
+  }
 
-  fn s_expand(&self, _: impl FnMut(Self::Delta)) {}
+  fn s_expand(&self, mut c: impl FnMut(Self::Delta)) {
+    self.inner.iter().for_each(|(k, v)| c((*k, v.clone())))
+  }
 }

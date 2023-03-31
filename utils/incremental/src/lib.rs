@@ -27,6 +27,17 @@ impl<T> AtomicIncremental for T where T: IncrementalBase<Delta = T> {}
 
 pub type DeltaOf<T> = <T as IncrementalBase>::Delta;
 
+pub enum MaybeDeltaRef<'a, T: IncrementalBase> {
+  Delta(&'a T::Delta),
+  All(&'a T),
+}
+
+#[derive(Clone)]
+pub enum MaybeDelta<T: IncrementalBase + Send + Sync> {
+  Delta(T::Delta),
+  All(T),
+}
+
 pub trait ApplicableIncremental: IncrementalBase {
   /// mutation maybe not valid and return error back.
   /// should stay valid state even if mutation failed.

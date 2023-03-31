@@ -118,7 +118,7 @@ clone_self_incremental!(SceneNode);
 impl SceneNode {
   pub fn listen_by<U: Send + Sync + 'static>(
     &self,
-    mapper: impl Fn(Partial<SceneNodeDataImpl>, &dyn Fn(U)) + Send + Sync + 'static,
+    mapper: impl Fn(MaybeDeltaRef<SceneNodeDataImpl>, &dyn Fn(U)) + Send + Sync + 'static,
   ) -> impl futures::Stream<Item = U> {
     self.visit(|node| node.listen_by(mapper))
   }

@@ -165,7 +165,7 @@ impl Scene {
     self.mutate(|mut scene| {
       scene.trigger_manual(|scene| {
         scene.active_camera = camera.clone();
-        let camera = camera.map(DeltaOrEntire::Entire);
+        let camera = camera.map(MaybeDelta::All);
         SceneInnerDelta::active_camera(camera)
       })
     })
@@ -175,7 +175,7 @@ impl Scene {
     self.mutate(|mut scene| {
       scene.trigger_manual(|scene| {
         scene.background = background.clone();
-        let background = background.map(DeltaOrEntire::Entire);
+        let background = background.map(MaybeDelta::All);
         SceneInnerDelta::background(background)
       });
     })

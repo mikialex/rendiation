@@ -9,17 +9,12 @@ use futures::Future;
 
 use crate::*;
 
-pub enum Partial<'a, T: IncrementalBase> {
-  All(&'a T),
-  Delta(&'a T::Delta),
-}
-
 #[macro_export]
 macro_rules! with_field {
   ($ty:ty =>$field:tt) => {
     |view, send| match view {
-      Partial::All(value) => send(value.$field.clone()),
-      Partial::Delta(delta) => {
+      incremental::MaybeDeltaRef::All(value) => send(value.$field.clone()),
+      incremental::MaybeDeltaRef::Delta(delta) => {
         if let incremental::DeltaOf::<$ty>::$field(field) = delta {
           send(field.clone())
         }
@@ -32,8 +27,8 @@ macro_rules! with_field {
 macro_rules! with_field_change {
   ($ty:ty =>$field:tt) => {
     |view, send| match view {
-      Partial::All(value) => send(()),
-      Partial::Delta(delta) => {
+      incremental::MaybeDeltaRef::All(value) => send(()),
+      incremental::MaybeDeltaRef::Delta(delta) => {
         if let incremental::DeltaOf::<$ty>::$field(field) = delta {
           send(())
         }
@@ -42,24 +37,24 @@ macro_rules! with_field_change {
   };
 }
 
-pub fn all_delta<T: Incremental>(view: Partial<T>, send: &dyn Fn(T::Delta)) {
+pub fn all_delta<T: Incremental>(view: MaybeDeltaRef<T>, send: &dyn Fn(T::Delta)) {
   match view {
-    Partial::All(value) => value.expand(send),
-    Partial::Delta(delta) => send(delta.clone()),
+    MaybeDeltaRef::All(value) => value.expand(send),
+    MaybeDeltaRef::Delta(delta) => send(delta.clone()),
   }
 }
 
-pub fn any_change<T: Incremental>(view: Partial<T>, send: &dyn Fn(())) {
+pub fn any_change<T: Incremental>(view: MaybeDeltaRef<T>, send: &dyn Fn(())) {
   match view {
-    Partial::All(_) => send(()),
-    Partial::Delta(_) => send(()),
+    MaybeDeltaRef::All(_) => send(()),
+    MaybeDeltaRef::Delta(_) => send(()),
   }
 }
 
 impl<T: IncrementalBase> SceneItemRef<T> {
   pub fn listen_by<U: Send + Sync + 'static>(
     &self,
-    mapper: impl Fn(Partial<T>, &dyn Fn(U)) + Send + Sync + 'static,
+    mapper: impl Fn(MaybeDeltaRef<T>, &dyn Fn(U)) + Send + Sync + 'static,
   ) -> impl futures::Stream<Item = U> {
     let inner = self.read();
     inner.listen_by(mapper)
@@ -74,17 +69,17 @@ impl<T: IncrementalBase> SceneItemRef<T> {
 impl<T: IncrementalBase> Identity<T> {
   pub fn listen_by<U: Send + Sync + 'static>(
     &self,
-    mapper: impl Fn(Partial<T>, &dyn Fn(U)) + Send + Sync + 'static,
+    mapper: impl Fn(MaybeDeltaRef<T>, &dyn Fn(U)) + Send + Sync + 'static,
   ) -> impl futures::Stream<Item = U> {
     let (sender, receiver) = futures::channel::mpsc::unbounded();
     let sender_c = sender.clone();
     let send = move |mapped| {
       sender_c.unbounded_send(mapped).ok();
     };
-    mapper(Partial::All(self), &send);
+    mapper(MaybeDeltaRef::All(self), &send);
 
     self.delta_source.on(move |v| {
-      mapper(Partial::Delta(v.delta), &send);
+      mapper(MaybeDeltaRef::Delta(v.delta), &send);
       sender.is_closed()
     });
     // todo impl custom unbound channel: if sender drop, the receiver will still hold the history message

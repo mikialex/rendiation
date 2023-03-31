@@ -125,8 +125,8 @@ impl SceneBoundingSystem {
       .listen_by(|view, send| match view {
         // simply trigger all model add deltas
         // but not trigger all other unnecessary scene deltas
-        Partial::All(scene) => scene.models.expand(send),
-        Partial::Delta(delta) => {
+        MaybeDeltaRef::All(scene) => scene.models.expand(send),
+        MaybeDeltaRef::Delta(delta) => {
           if let SceneInnerDelta::models(model_delta) = delta {
             send(model_delta.clone())
           }

@@ -123,19 +123,12 @@ impl<T: Send + Sync + 'static> SimpleIncremental for std::sync::Arc<T> {
   }
 }
 
-/// should used for sum type
-#[derive(Clone)]
-pub enum DeltaOrEntire<T: IncrementalBase + Send + Sync> {
-  Delta(T::Delta),
-  Entire(T),
-}
-
 impl<T: IncrementalBase + Clone + Send + Sync> IncrementalBase for Option<T> {
-  type Delta = Option<DeltaOrEntire<T>>;
+  type Delta = Option<MaybeDelta<T>>;
 
   fn expand(&self, mut cb: impl FnMut(Self::Delta)) {
     if let Some(inner) = self {
-      cb(Some(DeltaOrEntire::Entire(inner.clone())));
+      cb(Some(MaybeDelta::All(inner.clone())));
     } else {
       cb(None)
     }
@@ -148,8 +141,8 @@ impl<T: ApplicableIncremental + Clone + Send + Sync> ApplicableIncremental for O
   fn apply(&mut self, delta: Self::Delta) -> Result<(), Self::Error> {
     if let Some(d) = delta {
       match d {
-        DeltaOrEntire::Delta(d) => self.as_mut().unwrap().apply(d)?,
-        DeltaOrEntire::Entire(v) => *self = Some(v),
+        MaybeDelta::Delta(d) => self.as_mut().unwrap().apply(d)?,
+        MaybeDelta::All(v) => *self = Some(v),
       };
     } else {
       *self = None;
