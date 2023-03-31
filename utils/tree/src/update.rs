@@ -101,48 +101,45 @@ where
     let derived_stream = tree_delta
       // mark stage
       // do dirty marking, return if should trigger hierarchy change, and the update root
-      .filter_map(move |delta| {
-        let derived_tree_ccc = derived_tree_c.clone(); // have to move step by step
-        async move {
-          let mut derived_tree = derived_tree_ccc.write().unwrap();
-          match delta {
-            // simply create the default derived. insert into derived tree.
-            // we don't care the returned handle, as we assume they are allocated in the same position
-            // in the original tree.
-            TreeMutation::Create { .. } => {
-              let node = derived_tree.create_node(Default::default());
-              mark_sub_tree(&mut derived_tree, node, T::full_dirty_mark())
-            }
-            // do pair remove in derived tree
-            TreeMutation::Delete(handle) => {
-              let handle = derived_tree.recreate_handle(handle);
-              derived_tree.delete_node(handle);
-              None
-            }
-            // check if have any hierarchy effect
-            // for children, do traverse mark dirty all-mark, skip if all-mark contains new dirty
-            // for parent chain, do parent chain traverse mark dirty any-mark,
-            TreeMutation::Mutate { node, delta } => {
-              let handle = derived_tree.recreate_handle(node);
-              T::filter_hierarchy_change(&delta)
-                .and_then(|dirty_mark| mark_sub_tree(&mut derived_tree, handle, dirty_mark))
-            }
-            // like update, and we will emit full dirty change
-            TreeMutation::Attach {
-              parent_target,
-              node,
-            } => {
-              let parent_target = derived_tree.recreate_handle(parent_target);
-              let node = derived_tree.recreate_handle(node);
-              derived_tree.node_add_child_by(parent_target, node).ok();
-              mark_sub_tree(&mut derived_tree, node, T::full_dirty_mark())
-            }
-            // ditto
-            TreeMutation::Detach { node } => {
-              let node = derived_tree.recreate_handle(node);
-              derived_tree.node_detach_parent(node).ok();
-              mark_sub_tree(&mut derived_tree, node, T::full_dirty_mark())
-            }
+      .filter_map_sync(move |delta| {
+        let mut derived_tree = derived_tree_c.write().unwrap();
+        match delta {
+          // simply create the default derived. insert into derived tree.
+          // we don't care the returned handle, as we assume they are allocated in the same position
+          // in the original tree.
+          TreeMutation::Create { .. } => {
+            let node = derived_tree.create_node(Default::default());
+            mark_sub_tree(&mut derived_tree, node, T::full_dirty_mark())
+          }
+          // do pair remove in derived tree
+          TreeMutation::Delete(handle) => {
+            let handle = derived_tree.recreate_handle(handle);
+            derived_tree.delete_node(handle);
+            None
+          }
+          // check if have any hierarchy effect
+          // for children, do traverse mark dirty all-mark, skip if all-mark contains new dirty
+          // for parent chain, do parent chain traverse mark dirty any-mark,
+          TreeMutation::Mutate { node, delta } => {
+            let handle = derived_tree.recreate_handle(node);
+            T::filter_hierarchy_change(&delta)
+              .and_then(|dirty_mark| mark_sub_tree(&mut derived_tree, handle, dirty_mark))
+          }
+          // like update, and we will emit full dirty change
+          TreeMutation::Attach {
+            parent_target,
+            node,
+          } => {
+            let parent_target = derived_tree.recreate_handle(parent_target);
+            let node = derived_tree.recreate_handle(node);
+            derived_tree.node_add_child_by(parent_target, node).ok();
+            mark_sub_tree(&mut derived_tree, node, T::full_dirty_mark())
+          }
+          // ditto
+          TreeMutation::Detach { node } => {
+            let node = derived_tree.recreate_handle(node);
+            derived_tree.node_detach_parent(node).ok();
+            mark_sub_tree(&mut derived_tree, node, T::full_dirty_mark())
           }
         }
       })

@@ -25,6 +25,7 @@ impl<T> Default for StreamVec<T> {
 }
 
 impl<T> StreamVec<T> {
+  /// T should be polled before inserted.
   pub fn insert(&mut self, index: usize, st: Option<T>) {
     // assure allocated
     while self.streams.len() <= index {

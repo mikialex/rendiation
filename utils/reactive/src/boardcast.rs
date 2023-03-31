@@ -11,13 +11,13 @@ pub struct StreamBoardCaster<S, D, F> {
   inner: Arc<RwLock<StreamBoardCasterInner<S, D, F>>>,
 }
 
-impl<S, F> Stream for StreamBoardCaster<S, S::Item, F>
+impl<S, D, F, I> Stream for StreamBoardCaster<S, D, F>
 where
-  S: Stream + Unpin,
+  S: Stream<Item = I> + Unpin,
   S::Item: Clone,
-  F: BoardCastBehavior<S::Item, S::Item>,
+  F: BoardCastBehavior<I, D>,
 {
-  type Item = S::Item;
+  type Item = I;
 
   fn poll_next(self: Pin<&mut Self>, cx: &mut std::task::Context<'_>) -> Poll<Option<Self::Item>> {
     let mut inner = self.inner.write().unwrap();
@@ -55,13 +55,13 @@ struct StreamBoardCasterInner<S, D, F> {
   board_cast: F,
 }
 
-impl<S, F> Stream for StreamBoardCasterInner<S, S::Item, F>
+impl<S, D, F, I> Stream for StreamBoardCasterInner<S, D, F>
 where
-  S: Stream + Unpin,
+  S: Stream<Item = I> + Unpin,
   S::Item: Clone,
-  F: BoardCastBehavior<S::Item, S::Item>,
+  F: BoardCastBehavior<I, D>,
 {
-  type Item = S::Item;
+  type Item = I;
 
   fn poll_next(self: Pin<&mut Self>, cx: &mut std::task::Context<'_>) -> Poll<Option<Self::Item>> {
     let this = self.project();
@@ -106,8 +106,9 @@ where
     let mut inner = outer_this.source.write().unwrap();
     let inner: &mut StreamBoardCasterInner<_, _, _> = &mut inner;
     let inner = Pin::new(inner);
-    let this = inner.project();
-    if let Poll::Ready(v) = this.source.poll_next(cx) {
+    let mut this = inner.project();
+    // must use while let here, because we rely on this to update all depend system
+    while let Poll::Ready(v) = this.source.as_mut().poll_next(cx) {
       if let Some(input) = v {
         F::board_cast(input, this.distributer);
       } else {
@@ -152,7 +153,7 @@ where
   pub fn create_sub_stream_by_index(&self, index: usize) -> BoardCastedStream<S, D, IndexMapping> {
     let mut inner = self.inner.write().unwrap();
     // todo shrink logic?
-    while inner.distributer.len() > index {
+    while inner.distributer.len() <= index {
       inner.distributer.push(None);
     }
     let (sender, rev) = futures::channel::mpsc::unbounded();

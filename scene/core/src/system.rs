@@ -12,7 +12,6 @@ pub struct SceneNodeDeriveSystem {
   pub(crate) inner: TreeHierarchyDerivedSystem<SceneNodeDerivedData>,
   indexed_stream_mapper: SceneNodeChangeStreamIndexMapper,
 }
-
 type SceneNodeChangeStream = impl Stream<Item = (usize, SceneNodeDerivedDataDelta)> + Unpin;
 
 type SceneNodeChangeStreamIndexMapper =
@@ -34,6 +33,10 @@ impl SceneNodeDeriveSystem {
       inner: inner_sys,
       indexed_stream_mapper,
     }
+  }
+
+  pub fn maintain(&mut self) {
+    do_updates(&mut self.indexed_stream_mapper, |_| {});
   }
 }
 
@@ -80,12 +83,10 @@ type SceneModelStream = impl Stream<Item = BoxUpdate> + Unpin;
 
 impl SceneBoundingSystem {
   pub fn new(scene: &Scene, d_sys: &SceneNodeDeriveSystem) -> Self {
-    type BoxStream = impl Stream<Item = Option<Box3>> + Unpin;
-
     fn build_world_box_stream(
       model: &SceneModel,
       filter: SceneNodeChangeStreamIndexMapper,
-    ) -> BoxStream {
+    ) -> impl Stream<Item = Option<Box3>> + Unpin {
       let world_mat_stream = model
         .listen_by(with_field!(SceneModelImpl => node))
         .map(move |node| {

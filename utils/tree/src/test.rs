@@ -127,20 +127,41 @@ fn test_inc_update() {
 
   tree_sys.maintain();
 
-  let getter =
-    |node: ShareTreeNode<ReactiveTreeCollection<TestNode, TestNode>>| -> TestNodeDerived {
-      tree_sys.visit_derived_tree(|tree| {
-        let handle = tree.recreate_handle(node.raw_handle().index());
-        tree.get_node(handle).data().data
-      })
-    };
+  fn getter(
+    tree_sys: &TreeHierarchyDerivedSystem<TestNodeDerived>,
+    node: &ShareTreeNode<ReactiveTreeCollection<TestNode, TestNode>>,
+  ) -> TestNodeDerived {
+    tree_sys.visit_derived_tree(|tree| {
+      let handle = tree.recreate_handle(node.raw_handle().index());
+      tree.get_node(handle).data().data
+    })
+  }
 
-  let root_derived = getter(root);
+  let root_derived = getter(&tree_sys, &root);
   assert_eq!(root_derived.value_sum, 0);
-  let b_derived = getter(b);
+  let b_derived = getter(&tree_sys, &b);
   assert_eq!(b_derived.value_sum, 5);
-  let c_derived = getter(c);
+  let c_derived = getter(&tree_sys, &c);
   assert_eq!(c_derived.value_sum, 4);
-  let d_derived = getter(d);
+  let d_derived = getter(&tree_sys, &d);
+  assert_eq!(d_derived.value_sum, 10);
+
+  root.mutate(|r| r.value = 1);
+  tree.visit_inner(|t| {
+    t.source.emit(&TreeMutation::Mutate {
+      node: root.raw_handle().index(),
+      delta: TestNodeDelta::value(1),
+    })
+  });
+
+  tree_sys.maintain();
+
+  let root_derived = getter(&tree_sys, &root);
+  assert_eq!(root_derived.value_sum, 1);
+  let b_derived = getter(&tree_sys, &b);
+  assert_eq!(b_derived.value_sum, 6);
+  let c_derived = getter(&tree_sys, &c);
+  assert_eq!(c_derived.value_sum, 5);
+  let d_derived = getter(&tree_sys, &d);
   assert_eq!(d_derived.value_sum, 10);
 }

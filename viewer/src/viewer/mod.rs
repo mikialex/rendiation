@@ -227,6 +227,8 @@ impl Viewer3dContent {
   }
 
   pub fn maintain(&mut self) {
+    //  this is not necessary, because the bounding depend on derive
+    // self.scene_derived.maintain();
     self.scene_bounding.maintain();
   }
 
@@ -242,6 +244,7 @@ impl Viewer3dContent {
     states: &WindowState,
     position_info: CanvasWindowPositionInfo,
   ) {
+    self.maintain();
     let bound = InputBound {
       origin: (
         position_info.absolute_position.x,
