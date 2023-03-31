@@ -110,8 +110,8 @@ where
             // we don't care the returned handle, as we assume they are allocated in the same position
             // in the original tree.
             TreeMutation::Create { .. } => {
-              derived_tree.create_node(Default::default());
-              None
+              let node = derived_tree.create_node(Default::default());
+              mark_sub_tree(&mut derived_tree, node, T::full_dirty_mark())
             }
             // do pair remove in derived tree
             TreeMutation::Delete(handle) => {
@@ -124,9 +124,8 @@ where
             // for parent chain, do parent chain traverse mark dirty any-mark,
             TreeMutation::Mutate { node, delta } => {
               let handle = derived_tree.recreate_handle(node);
-              T::filter_hierarchy_change(&delta).and_then(|dirty_mark| {
-                mark_sub_tree_full_change(&mut derived_tree, handle, dirty_mark)
-              })
+              T::filter_hierarchy_change(&delta)
+                .and_then(|dirty_mark| mark_sub_tree(&mut derived_tree, handle, dirty_mark))
             }
             // like update, and we will emit full dirty change
             TreeMutation::Attach {
@@ -136,13 +135,13 @@ where
               let parent_target = derived_tree.recreate_handle(parent_target);
               let node = derived_tree.recreate_handle(node);
               derived_tree.node_add_child_by(parent_target, node).ok();
-              mark_sub_tree_full_change(&mut derived_tree, node, T::full_dirty_mark())
+              mark_sub_tree(&mut derived_tree, node, T::full_dirty_mark())
             }
             // ditto
             TreeMutation::Detach { node } => {
               let node = derived_tree.recreate_handle(node);
               derived_tree.node_detach_parent(node).ok();
-              mark_sub_tree_full_change(&mut derived_tree, node, T::full_dirty_mark())
+              mark_sub_tree(&mut derived_tree, node, T::full_dirty_mark())
             }
           }
         }
@@ -173,7 +172,7 @@ where
 
 // return the root node handle as the update root
 // if the parent chain has been any dirty marked, we return None to skip the update process
-fn mark_sub_tree_full_change<T: IncrementalHierarchyDerived>(
+fn mark_sub_tree<T: IncrementalHierarchyDerived>(
   tree: &mut TreeCollection<DerivedData<T>>,
   change_node: TreeNodeHandle<DerivedData<T>>,
   dirty_mark: T::DirtyMark,
@@ -197,14 +196,18 @@ fn mark_sub_tree_full_change<T: IncrementalHierarchyDerived>(
   let mut update_parent = None;
   tree
     .create_node_mut_ptr(change_node)
-    .traverse_parent_mut(|parent| {
-      let parent = unsafe { &mut (*parent.node) };
-      if parent.parent.is_none() {
-        update_parent = parent.handle().into();
+    .traverse_parent_mut(|n| {
+      let n = unsafe { &mut (*n.node) };
+      if n.parent.is_none() {
+        update_parent = n.handle().into();
       }
-      let should_pop = parent.data.sub_tree_dirty_mark_any.contains(&dirty_mark);
-      parent.data.sub_tree_dirty_mark_any.insert(&dirty_mark);
-      should_pop
+      // don't check self, or we will failed to mark sub tree change
+      if n.handle() == change_node {
+        return true;
+      }
+      let contains = n.data.sub_tree_dirty_mark_any.contains(&dirty_mark);
+      n.data.sub_tree_dirty_mark_any.insert(&dirty_mark);
+      !contains
     });
 
   update_parent

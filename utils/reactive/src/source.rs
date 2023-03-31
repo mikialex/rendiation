@@ -9,7 +9,7 @@ pub struct Source<T> {
 impl<T: Clone + Send + Sync + 'static> EventSource<T> {
   pub fn listen(&self) -> impl futures::Stream<Item = T> {
     let (sender, receiver) = futures::channel::mpsc::unbounded();
-    self.on(move |v| sender.unbounded_send(v.clone()).is_ok());
+    self.on(move |v| sender.unbounded_send(v.clone()).is_err());
     receiver
   }
 }
