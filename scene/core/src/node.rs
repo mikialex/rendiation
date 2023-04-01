@@ -41,14 +41,14 @@ impl HierarchyDirtyMark for SceneNodeDeriveDataDirtyFlag {
   }
 }
 
-impl HierarchyDerived for SceneNodeDerivedData {
+impl IncrementalHierarchyDerived for SceneNodeDerivedData {
   type Source = SceneNodeDataImpl;
 
-  type HierarchyDirtyMark = SceneNodeDeriveDataDirtyFlag;
+  type DirtyMark = SceneNodeDeriveDataDirtyFlag;
 
   fn filter_hierarchy_change(
     change: &<Self::Source as IncrementalBase>::Delta,
-  ) -> Option<Self::HierarchyDirtyMark> {
+  ) -> Option<Self::DirtyMark> {
     match change {
       SceneNodeDataImplDelta::local_matrix(_) => SceneNodeDeriveDataDirtyFlag::WorldMatrix,
       SceneNodeDataImplDelta::visible(_) => SceneNodeDeriveDataDirtyFlag::WorldMatrix,
@@ -60,7 +60,7 @@ impl HierarchyDerived for SceneNodeDerivedData {
     &mut self,
     self_source: &Self::Source,
     parent_derived: Option<&Self>,
-    dirty: &Self::HierarchyDirtyMark,
+    dirty: &Self::DirtyMark,
     mut collect: impl FnMut(Self::Delta),
   ) {
     if let Some(parent) = parent_derived {

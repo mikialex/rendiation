@@ -7,25 +7,28 @@ use reactive::{SignalStreamExt, StreamForker};
 use crate::*;
 
 /// The default value is the none parent case
-pub trait HierarchyDerived: Default + IncrementalBase {
+///
+/// We not impose IncrementalHierarchyDerived extends HierarchyDerived
+/// because of simplicity.
+pub trait IncrementalHierarchyDerived: Default + IncrementalBase {
   type Source: IncrementalBase;
-  type HierarchyDirtyMark: HierarchyDirtyMark;
+  type DirtyMark: HierarchyDirtyMark;
 
   /// for any delta of source, check if it will have hierarchy effect
   fn filter_hierarchy_change(
     change: &<Self::Source as IncrementalBase>::Delta,
-  ) -> Option<Self::HierarchyDirtyMark>;
+  ) -> Option<Self::DirtyMark>;
 
   fn hierarchy_update(
     &mut self,
     self_source: &Self::Source,
     parent_derived: Option<&Self>,
-    dirty: &Self::HierarchyDirtyMark,
+    dirty: &Self::DirtyMark,
     collect: impl FnMut(Self::Delta),
   );
   // just shortcut
-  fn full_dirty_mark() -> Self::HierarchyDirtyMark {
-    Self::HierarchyDirtyMark::all_dirty()
+  fn full_dirty_mark() -> Self::DirtyMark {
+    Self::DirtyMark::all_dirty()
   }
 }
 
@@ -38,24 +41,24 @@ pub trait HierarchyDirtyMark: PartialEq + Default {
 }
 
 #[derive(Default)]
-pub struct DerivedData<T: HierarchyDerived> {
+pub struct DerivedData<T: IncrementalHierarchyDerived> {
   pub data: T,
   /// all sub tree change or together includes self
   /// this tag is for skip tree branch updating
-  sub_tree_dirty_mark_any: T::HierarchyDirtyMark,
+  sub_tree_dirty_mark_any: T::DirtyMark,
 
   /// all sub tree change and together includes self.
   /// this tag is for skipping tree dirty marking
-  sub_tree_dirty_mark_all: T::HierarchyDirtyMark,
+  sub_tree_dirty_mark_all: T::DirtyMark,
 }
 
-pub struct TreeHierarchyDerivedSystem<T: HierarchyDerived> {
+pub struct TreeHierarchyDerivedSystem<T: IncrementalHierarchyDerived> {
   derived_tree: Arc<RwLock<TreeCollection<DerivedData<T>>>>,
   // we use boxed here to avoid another generic for tree delta input stream
   pub derived_stream: StreamForker<Box<dyn Stream<Item = (usize, T::Delta)> + Unpin>>,
 }
 
-impl<T: HierarchyDerived> Clone for TreeHierarchyDerivedSystem<T> {
+impl<T: IncrementalHierarchyDerived> Clone for TreeHierarchyDerivedSystem<T> {
   fn clone(&self) -> Self {
     Self {
       derived_tree: self.derived_tree.clone(),
@@ -66,7 +69,7 @@ impl<T: HierarchyDerived> Clone for TreeHierarchyDerivedSystem<T> {
 
 impl<T> TreeHierarchyDerivedSystem<T>
 where
-  T: HierarchyDerived,
+  T: IncrementalHierarchyDerived,
   T::Source: IncrementalBase,
 {
   pub fn visit_derived_tree<R>(
@@ -166,10 +169,10 @@ where
 
 // return the root node handle as the update root
 // if the parent chain has been any dirty marked, we return None to skip the update process
-fn mark_sub_tree_full_change<T: HierarchyDerived>(
+fn mark_sub_tree_full_change<T: IncrementalHierarchyDerived>(
   tree: &mut TreeCollection<DerivedData<T>>,
   change_node: TreeNodeHandle<DerivedData<T>>,
-  dirty_mark: T::HierarchyDirtyMark,
+  dirty_mark: T::DirtyMark,
 ) -> Option<TreeNodeHandle<DerivedData<T>>> {
   tree
     .create_node_mut_ptr(change_node)
@@ -209,7 +212,7 @@ fn do_sub_tree_updates<T, TREE, X>(
   update_root: TreeNodeHandle<DerivedData<T>>,
   derived_delta_sender: &mut impl FnMut((usize, T::Delta)),
 ) where
-  T: HierarchyDerived,
+  T: IncrementalHierarchyDerived,
   TREE: CoreTree<Node = X>,
   X: Deref<Target = T::Source>,
 {
@@ -217,7 +220,7 @@ fn do_sub_tree_updates<T, TREE, X>(
     let node_index = node.handle().index();
     let derived = node.data_mut();
 
-    if derived.sub_tree_dirty_mark_any == T::HierarchyDirtyMark::default() {
+    if derived.sub_tree_dirty_mark_any == T::DirtyMark::default() {
       NextTraverseVisit::SkipChildren
     } else {
       let parent = parent.map(|parent| &parent.data().data);
@@ -232,8 +235,8 @@ fn do_sub_tree_updates<T, TREE, X>(
         |delta| derived_delta_sender((node_index, delta)),
       );
 
-      derived.sub_tree_dirty_mark_any = T::HierarchyDirtyMark::default();
-      derived.sub_tree_dirty_mark_all = T::HierarchyDirtyMark::default();
+      derived.sub_tree_dirty_mark_any = T::DirtyMark::default();
+      derived.sub_tree_dirty_mark_all = T::DirtyMark::default();
 
       NextTraverseVisit::VisitChildren
     }
