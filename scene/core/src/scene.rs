@@ -113,6 +113,14 @@ impl SceneInner {
 pub type Scene = SceneItemRef<SceneInner>;
 
 impl Scene {
+  pub fn compute_full_derived(&self) -> ComputedDerivedTree<SceneNodeDerivedData> {
+    self.visit(|t| {
+      t.nodes
+        .inner
+        .visit_inner(|t| ComputedDerivedTree::compute_from(&t.inner))
+    })
+  }
+
   // todo improves
   pub fn insert_model(&self, model: SceneModel) -> SceneModelHandle {
     let mut result = None;

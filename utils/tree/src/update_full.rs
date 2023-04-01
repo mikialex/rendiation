@@ -1,3 +1,5 @@
+use std::ops::Deref;
+
 use crate::*;
 
 pub trait HierarchyDerived {
@@ -6,13 +8,14 @@ pub trait HierarchyDerived {
   fn compute_hierarchy(self_source: &Self::Source, parent_derived: Option<&Self>) -> Self;
 }
 
-pub struct ComputedDerivedTree<'a, T: HierarchyDerived> {
-  pub source: &'a TreeCollection<T::Source>,
+/// we could use lifetime to make sure the source tree not changed when we hold the struct
+/// but actually too much trouble for me to do this
+pub struct ComputedDerivedTree<T: HierarchyDerived> {
   pub computed: Vec<Option<T>>,
 }
 
-impl<'a, T: HierarchyDerived> ComputedDerivedTree<'a, T> {
-  pub fn compute_from(source: &'a TreeCollection<T::Source>) -> Self {
+impl<T: HierarchyDerived> ComputedDerivedTree<T> {
+  pub fn compute_from<X: Deref<Target = T::Source>>(source: &TreeCollection<X>) -> Self {
     let mut computed = Vec::with_capacity(source.capacity());
     for (handle, node) in &source.nodes.data {
       if node.first_child.is_none() {
@@ -33,10 +36,10 @@ impl<'a, T: HierarchyDerived> ComputedDerivedTree<'a, T> {
       }
     }
 
-    Self { source, computed }
+    Self { computed }
   }
 
-  pub fn get_computed(&self, node: TreeNodeHandle<T::Source>) -> &T {
-    self.computed[node.index()].as_ref().unwrap()
+  pub fn get_computed(&self, index: usize) -> &T {
+    self.computed[index].as_ref().unwrap()
   }
 }

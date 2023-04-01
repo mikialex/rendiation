@@ -39,7 +39,7 @@ use space_algorithm::{
   bvh::{FlattenBVH, SAH},
   utils::TreeBuildOption,
 };
-use tree::TreeNodeHandle;
+use tree::{ComputedDerivedTree, TreeNodeHandle};
 
 #[derive(Clone)]
 pub struct RayTracingSceneModel {
@@ -52,12 +52,12 @@ pub struct RayTracingSceneModel {
 //   node: SceneNode,
 // }
 
-#[derive(Default)]
 pub struct SceneAcceleration {
   models_in_bvh: Vec<Model>,
   models_unbound: Vec<Model>,
   models_bvh: Option<FlattenBVH<Box3>>,
   env: Option<Box<dyn RayTracingBackground>>,
+  worlds: ComputedDerivedTree<SceneNodeDerivedData>,
 }
 
 pub trait RayTracingSceneExt {
@@ -117,9 +117,13 @@ impl RayTracingSceneExt for Scene {
   }
 
   fn build_traceable(&mut self) -> SceneAcceleration {
-    self.read().maintain();
-
-    let mut result = SceneAcceleration::default();
+    let mut result = SceneAcceleration {
+      models_in_bvh: Default::default(),
+      models_unbound: Default::default(),
+      models_bvh: Default::default(),
+      env: Default::default(),
+      worlds: self.compute_full_derived(),
+    };
 
     let mut models_in_bvh_source = Vec::new();
 
@@ -127,25 +131,25 @@ impl RayTracingSceneExt for Scene {
       let model = model.read();
       if let SceneModelType::Foreign(foreign) = &model.model {
         if let Some(retraceable) = foreign.downcast_ref::<RayTracingSceneModel>() {
-          model.node.visit(|node_data| {
-            let mut model = Model {
-              shape: retraceable.shape.clone(),
-              material: retraceable.material.clone(),
-              world_matrix: Default::default(),
-              world_matrix_inverse: Default::default(),
-              normal_matrix: Default::default(), // object space direction to world_space
-            };
-            model.world_matrix_inverse = node_data.world_matrix().inverse_or_identity();
-            model.normal_matrix = model.world_matrix_inverse.transpose();
-            model.world_matrix = node_data.world_matrix();
+          let world_info = result.worlds.get_computed(model.node.raw_handle().index());
 
-            if let Some(mut bbox) = model.shape.get_bbox() {
-              result.models_in_bvh.push(model);
-              models_in_bvh_source.push(*bbox.apply_matrix(node_data.world_matrix()));
-            } else {
-              result.models_unbound.push(model);
-            }
-          });
+          let mut model = Model {
+            shape: retraceable.shape.clone(),
+            material: retraceable.material.clone(),
+            world_matrix: Default::default(),
+            world_matrix_inverse: Default::default(),
+            normal_matrix: Default::default(), // object space direction to world_space
+          };
+          model.world_matrix_inverse = world_info.world_matrix.inverse_or_identity();
+          model.normal_matrix = model.world_matrix_inverse.transpose();
+          model.world_matrix = world_info.world_matrix;
+
+          if let Some(mut bbox) = model.shape.get_bbox() {
+            result.models_in_bvh.push(model);
+            models_in_bvh_source.push(*bbox.apply_matrix(world_info.world_matrix));
+          } else {
+            result.models_unbound.push(model);
+          }
         }
       }
     }

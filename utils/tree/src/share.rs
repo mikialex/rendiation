@@ -8,9 +8,9 @@ pub struct SharedTreeCollection<T> {
 }
 
 impl<T: CoreTree> SharedTreeCollection<T> {
-  pub fn visit_inner(&self, v: impl FnOnce(&T)) {
+  pub fn visit_inner<R>(&self, v: impl FnOnce(&T) -> R) -> R {
     let tree = self.inner.read().unwrap();
-    v(&tree);
+    v(&tree)
   }
 
   #[must_use]

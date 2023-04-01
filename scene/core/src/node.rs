@@ -18,6 +18,21 @@ pub struct SceneNodeDerivedData {
   pub net_visible: bool,
 }
 
+impl HierarchyDerived for SceneNodeDerivedData {
+  type Source = SceneNodeDataImpl;
+
+  fn compute_hierarchy(self_source: &Self::Source, parent_derived: Option<&Self>) -> Self {
+    if let Some(parent) = parent_derived {
+      Self {
+        world_matrix: parent.world_matrix * self_source.local_matrix,
+        net_visible: parent.net_visible || self_source.visible,
+      }
+    } else {
+      Default::default()
+    }
+  }
+}
+
 bitflags! {
   #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Default)]
   pub struct SceneNodeDeriveDataDirtyFlag: u32 {

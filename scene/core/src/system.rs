@@ -20,12 +20,10 @@ type SceneNodeChangeStreamIndexMapper =
 
 impl SceneNodeDeriveSystem {
   pub fn new(nodes: &SceneNodeCollection) -> Self {
-    let mut expect = None;
-    nodes.inner.visit_inner(|tree| {
+    let inner_sys = nodes.inner.visit_inner(|tree| {
       let stream = tree.source.listen();
-      expect = TreeHierarchyDerivedSystem::<SceneNodeDerivedData>::new(stream, &nodes.inner).into();
+      TreeHierarchyDerivedSystem::<SceneNodeDerivedData>::new(stream, &nodes.inner)
     });
-    let inner_sys = expect.unwrap();
 
     let indexed_stream_mapper: SceneNodeChangeStreamIndexMapper = inner_sys
       .derived_stream
