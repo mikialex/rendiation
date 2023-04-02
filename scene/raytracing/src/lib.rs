@@ -60,6 +60,33 @@ pub struct SceneAcceleration {
   worlds: ComputedDerivedTree<SceneNodeDerivedData>,
 }
 
+pub struct RayTracingCamera {
+  pub proj: Box<dyn CameraProjection>,
+  pub world: Mat4<f32>,
+}
+
+impl HyperRayCaster<f32, Vec3<f32>, Vec2<f32>> for RayTracingCamera {
+  fn cast_ray(&self, normalized_position: Vec2<f32>) -> HyperRay<f32, Vec3<f32>> {
+    self
+      .proj
+      .cast_ray(normalized_position)
+      .apply_matrix_into(self.world)
+  }
+}
+
+impl SceneAcceleration {
+  pub fn build_camera(&self, camera: &SceneCamera) -> RayTracingCamera {
+    let camera = camera.read();
+    RayTracingCamera {
+      proj: camera.projection.clone_self(),
+      world: self
+        .worlds
+        .get_computed(camera.node.raw_handle().index())
+        .world_matrix,
+    }
+  }
+}
+
 pub trait RayTracingSceneExt {
   fn create_node(&mut self, builder: impl Fn(&SceneNode, &mut Self)) -> &mut Self;
   fn model_node(&mut self, shape: impl Shape, material: impl Material) -> &mut Self;

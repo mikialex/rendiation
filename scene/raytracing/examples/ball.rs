@@ -75,6 +75,7 @@ fn main() {
     });
 
   let mut source = scene.build_traceable();
+  let camera = source.build_camera(&camera);
   renderer.render(&camera, &mut source, &mut frame);
 
   frame.write_result("ball");
