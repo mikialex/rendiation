@@ -37,10 +37,11 @@ impl ViewerPipeline {
   pub fn render(
     &mut self,
     ctx: &mut FrameCtx,
-    content: &mut Viewer3dContent,
+    content: &Viewer3dContent,
     final_target: &RenderTargetView,
   ) {
     let scene = &content.scene.read();
+    let mut widgets = content.widgets.borrow_mut();
 
     ctx.resolve_resource_mipmaps();
 
@@ -49,6 +50,7 @@ impl ViewerPipeline {
       shadows: &mut self.shadows,
       ctx,
       scene,
+      node_derives:&content.scene_derived,
     }.update();
 
     let mut scene_depth = depth_attachment().request(ctx);
@@ -63,10 +65,10 @@ impl ViewerPipeline {
       .with_depth(msaa_depth.write(), clear(1.))
       .resolve_to(widgets_result.write())
       .render(ctx)
-      .by(scene.by_main_camera(&mut content.axis_helper))
-      .by(scene.by_main_camera(&mut content.grid_helper))
-      .by(scene.by_main_camera(&mut content.gizmo))
-      .by(scene.by_main_camera_and_self(&mut content.camera_helpers));
+      .by(scene.by_main_camera(&mut widgets.axis_helper))
+      .by(scene.by_main_camera(&mut widgets.grid_helper))
+      .by(scene.by_main_camera(&mut widgets.gizmo))
+      .by(scene.by_main_camera_and_self(&mut widgets.camera_helpers));
 
     let highlight_compose = (!content.selections.is_empty())
     .then(|| self.highlight.draw(&content.selections, ctx, scene.get_active_camera()));
@@ -74,7 +76,7 @@ impl ViewerPipeline {
     let mut scene_result = attachment().request(ctx);
 
     let jitter = self.taa.next_jitter();
-    let gpu = ctx.resources.cameras.get_with_update(scene.get_active_camera(), ctx.gpu);
+    let gpu = ctx.resources.cameras.get_with_update(scene.get_active_camera(), &(ctx.gpu, &content.scene_derived));
     gpu.ubo.resource.mutate(|uniform| uniform.set_jitter(jitter)).upload(&ctx.gpu.queue);
     gpu.enable_jitter = true;
 
@@ -101,10 +103,10 @@ impl ViewerPipeline {
         tonemap: &self.tonemap,
         debugger: self.enable_channel_debugger.then_some(&self.channel_debugger)
       }))
-      .by(scene.by_main_camera(&mut content.ground)) // transparent, should go after opaque
+      .by(scene.by_main_camera(&mut widgets.ground)) // transparent, should go after opaque
       .by(ao);
 
-    ctx.resources.cameras.get_with_update(scene.get_active_camera(), ctx.gpu).enable_jitter = false;
+    ctx.resources.cameras.get_with_update(scene.get_active_camera(), &(ctx.gpu, &content.scene_derived)).enable_jitter = false;
 
     // let scene_result = draw_cross_blur(&self.blur, scene_result.read_into(), ctx);
 

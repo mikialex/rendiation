@@ -139,6 +139,10 @@ impl SceneNode {
     self.inner.raw_handle()
   }
 
+  pub fn raw_handle_parent(&self) -> Option<SceneNodeHandle> {
+    self.inner.raw_handle_parent()
+  }
+
   #[must_use]
   pub fn create_child(&self) -> Self {
     Self {

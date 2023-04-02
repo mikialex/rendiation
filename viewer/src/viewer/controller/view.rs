@@ -52,6 +52,7 @@ pub struct EventCtx3D<'a> {
   pub scene: &'a SceneInner,
 
   pub event_3d: Option<Event3D>,
+  pub node_sys: &'a SceneNodeDeriveSystem,
   pub interactive_ctx: &'a SceneRayInteractiveCtx<'a>,
 }
 
@@ -62,6 +63,7 @@ impl<'a> EventCtx3D<'a> {
     info: &'a CanvasWindowPositionInfo,
     scene: &'a SceneInner,
     interactive_ctx: &'a SceneRayInteractiveCtx<'a>,
+    node_sys: &'a SceneNodeDeriveSystem,
   ) -> Self {
     Self {
       window_states,
@@ -70,6 +72,7 @@ impl<'a> EventCtx3D<'a> {
       scene,
       event_3d: None,
       interactive_ctx,
+      node_sys,
     }
   }
 }

@@ -32,7 +32,10 @@ impl PassContentWithCamera for &mut GridGround {
       .or_insert_with(Default::default);
 
     let grid_gpu = gpus.get_with_update(&self.grid_config, pass.ctx.gpu);
-    let camera_gpu = pass.resources.cameras.get_with_update(camera, pass.ctx.gpu);
+    let camera_gpu = pass
+      .resources
+      .cameras
+      .get_with_update(camera, &(pass.ctx.gpu, pass.node_derives));
 
     let effect = InfinityShaderPlaneEffect {
       plane: &grid_gpu.plane,

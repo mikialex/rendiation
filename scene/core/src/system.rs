@@ -39,8 +39,12 @@ impl SceneNodeDeriveSystem {
 
 impl SceneNodeDeriveSystem {
   pub fn get_world_matrix(&self, node: &SceneNode) -> Mat4<f32> {
+    self.get_world_matrix_by_raw_handle(node.raw_handle().index())
+  }
+
+  pub fn get_world_matrix_by_raw_handle(&self, index: usize) -> Mat4<f32> {
     self.inner.visit_derived_tree(|tree| {
-      let handle = tree.recreate_handle(node.raw_handle().index());
+      let handle = tree.recreate_handle(index);
       tree.get_node(handle).data().data.world_matrix
     })
   }
