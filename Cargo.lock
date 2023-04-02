@@ -2424,6 +2424,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "rendiation-editable-mesh"
+version = "0.1.0"
+dependencies = [
+ "arena",
+ "rendiation-algebra",
+ "rendiation-geometry",
+ "tobj 0.1.12",
+]
+
+[[package]]
 name = "rendiation-generative-texture"
 version = "0.0.1"
 dependencies = [
@@ -2610,16 +2620,6 @@ dependencies = [
  "wasm-bindgen-futures",
  "web-sys",
  "windows 0.37.0",
-]
-
-[[package]]
-name = "rivermesh"
-version = "0.1.0"
-dependencies = [
- "arena",
- "rendiation-algebra",
- "rendiation-geometry",
- "tobj 0.1.12",
 ]
 
 [[package]]

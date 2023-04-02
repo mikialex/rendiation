@@ -23,6 +23,9 @@ mod abst;
 mod inc;
 pub use inc::*;
 
+#[cfg(test)]
+mod test;
+
 pub trait CoreTree {
   type Node;
   type Handle: Copy;

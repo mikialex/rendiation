@@ -21,6 +21,10 @@ clone_self_incremental!(());
 
 clone_self_incremental!(bool);
 clone_self_incremental!(usize);
+clone_self_incremental!(u8);
+clone_self_incremental!(i8);
+clone_self_incremental!(u16);
+clone_self_incremental!(i16);
 clone_self_incremental!(u32);
 clone_self_incremental!(u64);
 clone_self_incremental!(i32);
@@ -152,8 +156,4 @@ impl<T: ApplicableIncremental + Clone + Send + Sync> ApplicableIncremental for O
     }
     Ok(())
   }
-}
-
-trait InteriorMutable<T> {
-  fn mutate(&self, f: impl FnMut(&mut T));
 }

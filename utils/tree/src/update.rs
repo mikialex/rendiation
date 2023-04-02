@@ -2,7 +2,7 @@ use std::ops::Deref;
 
 use futures::{Stream, StreamExt};
 use incremental::IncrementalBase;
-use reactive::{SignalStreamExt, StreamForker};
+use reactive::{do_updates, SignalStreamExt, StreamForker};
 
 use crate::*;
 
@@ -72,6 +72,10 @@ where
   T: IncrementalHierarchyDerived,
   T::Source: IncrementalBase,
 {
+  pub fn maintain(&mut self) {
+    do_updates(&mut self.derived_stream, |_| {});
+  }
+
   pub fn visit_derived_tree<R>(
     &self,
     mut v: impl FnMut(&TreeCollection<DerivedData<T>>) -> R,

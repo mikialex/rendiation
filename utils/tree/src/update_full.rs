@@ -18,11 +18,11 @@ impl<T: HierarchyDerived> ComputedDerivedTree<T> {
   pub fn compute_from<X: Deref<Target = T::Source>>(source: &TreeCollection<X>) -> Self {
     let mut computed = Vec::with_capacity(source.capacity());
     for (handle, node) in &source.nodes.data {
-      if node.first_child.is_none() {
+      if node.parent.is_none() {
         let node = source.create_node_ref(handle);
         node.traverse(&mut |node| {
           let index = node.node.handle().index();
-          while computed.len() < index {
+          while computed.len() <= index {
             computed.push(None);
           }
 
