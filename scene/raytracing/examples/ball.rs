@@ -8,7 +8,7 @@ fn main() {
 
   let mut frame = Frame::new(500, 500);
 
-  let mut scene = SceneInner::new().into_ref();
+  let mut scene = SceneInner::new().0.into_ref();
 
   let perspective = make_perspective();
   let camera = SceneCamera::create_camera(perspective, scene.read().root().create_child());
@@ -75,6 +75,7 @@ fn main() {
     });
 
   let mut source = scene.build_traceable();
+  let camera = source.build_camera(&camera);
   renderer.render(&camera, &mut source, &mut frame);
 
   frame.write_result("ball");

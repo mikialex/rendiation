@@ -1,3 +1,6 @@
+mod iter;
+pub use iter::*;
+
 pub enum NextTraverseVisit {
   /// exit tree traverse
   Exit,
@@ -57,7 +60,7 @@ pub trait AbstractTreeNode {
 
   fn traverse_pair_subtree(
     &self,
-    visitor: &mut impl FnMut(&Self, Option<&Self>) -> NextTraverseVisit,
+    mut visitor: impl FnMut(&Self, Option<&Self>) -> NextTraverseVisit,
   ) where
     Self: AbstractParentAddressableTreeNode + Clone,
   {
@@ -91,64 +94,62 @@ pub trait AbstractTreeNode {
     max_depth + 1
   }
 
-  fn traverse_iter(&self) -> TraverseIter<Self>
+  /// for every node in subtree, the visit_decider
+  fn traverse_iter<F>(&self, visit_decider: F) -> TraverseIter<Self, F>
   where
     Self: Sized + Clone,
+    F: FnMut(&Self) -> NextTraverseVisit,
   {
     TraverseIter {
       visit_stack: vec![self.clone()],
+      visit_decider,
     }
-  }
-}
-
-pub struct TraverseIter<T> {
-  visit_stack: Vec<T>,
-}
-
-impl<T: AbstractTreeNode + Clone> Iterator for TraverseIter<T> {
-  type Item = T;
-
-  fn next(&mut self) -> Option<Self::Item> {
-    self.visit_stack.pop().map(|item| {
-      item.visit_children(|child| self.visit_stack.push(child.clone()));
-      item
-    })
   }
 }
 
 pub trait AbstractTreeMutNode {
   fn visit_children_mut(&mut self, visitor: impl FnMut(&mut Self));
+
   fn traverse_mut(&mut self, visitor: &mut impl FnMut(&mut Self)) {
     visitor(self);
     self.visit_children_mut(|child| child.traverse_mut(visitor))
   }
-}
 
-pub trait AbstractTreePairNode {
-  /// (self child)
-  fn visit_self_child_pair(&self, visitor: impl FnMut(&Self, &Self));
-  /// self child
-  /// todo avoid stack overflow
-  fn traverse_pair(&self, visitor: &mut impl FnMut(&Self, &Self)) {
-    self.visit_self_child_pair(|self_node, child| {
-      visitor(self_node, child);
-      child.traverse_pair(visitor)
-    })
+  fn traverse_pair_subtree_mut(
+    &mut self,
+    visitor: &mut impl FnMut(&mut Self, Option<&mut Self>) -> NextTraverseVisit,
+  ) where
+    Self: AbstractParentAddressableMutTreeNode + Clone,
+  {
+    use NextTraverseVisit::*;
+    let mut stack = Vec::new();
+    stack.push(self.clone());
+
+    while let Some(mut node) = stack.pop() {
+      let next = if let Some(mut parent) = node.get_parent_mut() {
+        visitor(&mut node, Some(&mut parent))
+      } else {
+        visitor(&mut node, None)
+      };
+
+      match next {
+        Exit => return,
+        VisitChildren => node.visit_children_mut(|child| stack.push(child.clone())),
+        SkipChildren => continue,
+      };
+    }
   }
-}
 
-/// note: this requires parent and child able to get mutable at same time,
-/// and impose restrictions on memory assumptions
-pub trait AbstractTreePairMutNode {
-  /// self child
-  fn visit_self_child_pair_mut(&mut self, visitor: impl FnMut(&mut Self, &mut Self));
-  /// self child
-  /// todo avoid stack overflow
-  fn traverse_pair_mut(&mut self, visitor: &mut impl FnMut(&mut Self, &mut Self)) {
-    self.visit_self_child_pair_mut(|self_node, child| {
-      visitor(self_node, child);
-      child.traverse_pair_mut(visitor)
-    })
+  /// for every node in subtree, the visit_decider
+  fn traverse_iter_mut<F>(&self, visit_decider: F) -> TraverseMutIter<Self, F>
+  where
+    Self: Sized + Clone,
+    F: FnMut(&Self) -> NextTraverseVisit,
+  {
+    TraverseMutIter {
+      visit_stack: vec![self.clone()],
+      visit_decider,
+    }
   }
 }
 
@@ -158,21 +159,66 @@ pub trait AbstractParentAddressableTreeNode: Sized {
 
   fn get_tree_depth(&self) -> usize {
     let mut count = 0;
-    self.traverse_parent(&mut |_| count += 1);
+    self.traverse_parent(|_| {
+      count += 1;
+      true
+    });
     count - 1
   }
 
-  fn traverse_parent(&self, visitor: &mut impl FnMut(&Self)) {
-    visitor(self);
-    if let Some(parent) = self.get_parent() {
-      parent.traverse_parent(visitor)
+  /// contains self node
+  ///
+  /// return if should visit parent
+  fn traverse_parent(&self, mut visitor: impl FnMut(&Self) -> bool) {
+    let should_visit_parent = visitor(self);
+    if should_visit_parent {
+      if let Some(parent) = self.get_parent() {
+        parent.traverse_parent(visitor)
+      }
     }
   }
 
-  fn traverse_pair_parent_chain(&self, visitor: &mut impl FnMut(&Self, Option<&Self>)) {
+  /// contains self node
+  ///
+  /// return if should visit parent
+  fn traverse_pair_parent_chain(&self, mut visitor: impl FnMut(&Self, Option<&Self>) -> bool) {
     if let Some(parent) = self.get_parent() {
-      visitor(self, Some(&parent));
-      parent.traverse_pair_parent_chain(visitor)
+      if visitor(self, Some(&parent)) {
+        parent.traverse_pair_parent_chain(visitor)
+      }
+    } else {
+      visitor(self, None);
+    }
+  }
+}
+
+pub trait AbstractParentAddressableMutTreeNode: Sized {
+  /// this actually requires self is cheap to create/clone
+  fn get_parent_mut(&mut self) -> Option<Self>;
+
+  /// contains self node
+  ///
+  /// return if should visit parent
+  fn traverse_parent_mut(&mut self, mut visitor: impl FnMut(&mut Self) -> bool) {
+    let should_visit_parent = visitor(self);
+    if should_visit_parent {
+      if let Some(mut parent) = self.get_parent_mut() {
+        parent.traverse_parent_mut(visitor)
+      }
+    }
+  }
+
+  /// contains self node
+  ///
+  /// return if should visit parent
+  fn traverse_pair_parent_chain_mut(
+    &mut self,
+    visitor: &mut impl FnMut(&Self, Option<&Self>) -> bool,
+  ) {
+    if let Some(mut parent) = self.get_parent_mut() {
+      if visitor(self, Some(&parent)) {
+        parent.traverse_pair_parent_chain_mut(visitor)
+      }
     } else {
       visitor(self, None);
     }

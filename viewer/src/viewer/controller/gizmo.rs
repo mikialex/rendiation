@@ -36,7 +36,7 @@ pub struct Gizmo {
 }
 
 impl Gizmo {
-  pub fn new(parent: &SceneNode) -> Self {
+  pub fn new(parent: &SceneNode, node_sys: &SceneNodeDeriveSystem) -> Self {
     let root = &parent.create_child();
     let auto_scale = ViewAutoScalable {
       override_position: ViewAutoScalablePositionOverride::SyncNode(root.clone()),
@@ -168,20 +168,23 @@ impl Gizmo {
     };
 
     r.states.expand(|d| r.deltas.push(d));
-    r.update();
+    r.update(node_sys);
 
     r
   }
 
-  pub fn sync_target(&mut self) {
+  pub fn sync_target(&mut self, node_sys: &SceneNodeDeriveSystem) {
     if let Some(target) = &self.target {
-      self.root.set_local_matrix(target.get_world_matrix());
+      self
+        .root
+        .set_local_matrix(node_sys.get_world_matrix(target));
       let sync = GizmoStateDelta::SyncTarget(TargetState {
         target_local_mat: target.get_local_matrix(),
         target_parent_world_mat: target
-          .visit_parent(|p| p.world_matrix())
+          .raw_handle_parent()
+          .map(|h| node_sys.get_world_matrix_by_raw_handle(h.index()))
           .unwrap_or_else(Mat4::identity),
-        target_world_mat: target.get_world_matrix(),
+        target_world_mat: node_sys.get_world_matrix(target),
       });
 
       self.deltas.push(sync.clone());
@@ -189,13 +192,13 @@ impl Gizmo {
     }
   }
 
-  pub fn set_target(&mut self, target: Option<SceneNode>) {
+  pub fn set_target(&mut self, target: Option<SceneNode>, node_sys: &SceneNodeDeriveSystem) {
     if target.is_none() {
       self.deltas.push(GizmoStateDelta::ReleaseTarget);
       self.states.apply(GizmoStateDelta::ReleaseTarget).unwrap();
     }
     self.target = target;
-    self.sync_target();
+    self.sync_target(node_sys);
   }
 
   pub fn has_target(&self) -> bool {
@@ -255,7 +258,7 @@ impl Gizmo {
           let camera = event.interactive_ctx.camera.read();
 
           let action = DragTargetAction {
-            camera_world: camera.node.get_world_matrix(),
+            camera_world: event.node_sys.get_world_matrix(&camera.node),
             camera_projection: camera.projection_matrix,
             world_ray: event.interactive_ctx.world_ray,
             screen_position,
@@ -292,8 +295,8 @@ impl Gizmo {
     }
   }
 
-  pub fn update(&mut self) {
-    self.sync_target();
+  pub fn update(&mut self, node_sys: &SceneNodeDeriveSystem) {
+    self.sync_target(node_sys);
     for d in self.deltas.drain(..) {
       self.view.update(&self.states, &d);
     }

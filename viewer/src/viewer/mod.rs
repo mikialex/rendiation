@@ -1,4 +1,4 @@
-use std::rc::Rc;
+use std::{cell::RefCell, rc::Rc};
 
 pub mod default_scene;
 pub use default_scene::*;
@@ -90,11 +90,17 @@ impl Default for ViewerImpl {
 
 pub struct Viewer3dContent {
   pub scene: Scene,
+  pub scene_derived: SceneNodeDeriveSystem,
   pub scene_bounding: SceneBoundingSystem,
-  pub ground: GridGround,
   pub pick_config: MeshBufferIntersectConfig,
   pub selections: SelectionSet,
   pub controller: ControllerWinitAdapter<OrbitController>,
+  //refcell is to support updating when rendering, have to do this, will be remove in future
+  pub widgets: RefCell<WidgetContent>,
+}
+
+pub struct WidgetContent {
+  pub ground: GridGround,
   pub axis_helper: AxisHelper,
   pub grid_helper: GridHelper,
   pub camera_helpers: CameraHelpers,
@@ -144,9 +150,15 @@ impl Viewer3dRenderingCtx {
   }
 
   pub fn render(&mut self, target: RenderTargetView, content: &mut Viewer3dContent) {
-    content.scene.read().maintain();
+    content.maintain();
 
-    let mut ctx = FrameCtx::new(&self.gpu, target.size(), &self.pool, &mut self.resources);
+    let mut ctx = FrameCtx::new(
+      &self.gpu,
+      target.size(),
+      &self.pool,
+      &mut self.resources,
+      &content.scene_derived,
+    );
 
     self.pipeline.render(&mut ctx, content, &target);
 
@@ -176,9 +188,11 @@ impl Viewer3dRenderingCtx {
 
 impl Viewer3dContent {
   pub fn new() -> Self {
-    let scene = SceneInner::new().into_ref();
+    let (scene, scene_derived) = SceneInner::new();
 
-    let scene_bounding = SceneBoundingSystem::new(&scene);
+    let scene = scene.into_ref();
+
+    let scene_bounding = SceneBoundingSystem::new(&scene, &scene_derived);
 
     load_default_scene(&scene);
 
@@ -191,20 +205,31 @@ impl Viewer3dContent {
     let axis_helper = AxisHelper::new(inner.root());
     let grid_helper = GridHelper::new(inner.root(), Default::default());
 
-    let gizmo = Gizmo::new(inner.root());
+    let gizmo = Gizmo::new(inner.root(), &scene_derived);
 
-    Self {
-      scene,
-      scene_bounding,
+    let widgets = WidgetContent {
       ground: Default::default(),
-      controller,
-      pick_config: Default::default(),
-      selections: Default::default(),
       axis_helper,
       grid_helper,
       camera_helpers: Default::default(),
       gizmo,
+    };
+
+    Self {
+      scene,
+      scene_derived,
+      scene_bounding,
+      controller,
+      pick_config: Default::default(),
+      selections: Default::default(),
+      widgets: RefCell::new(widgets),
     }
+  }
+
+  pub fn maintain(&mut self) {
+    //  this is not necessary, because the bounding depend on derive
+    // self.scene_derived.maintain();
+    self.scene_bounding.maintain();
   }
 
   pub fn resize_view(&mut self, size: (f32, f32)) {
@@ -219,6 +244,7 @@ impl Viewer3dContent {
     states: &WindowState,
     position_info: CanvasWindowPositionInfo,
   ) {
+    self.maintain();
     let bound = InputBound {
       origin: (
         position_info.absolute_position.x,
@@ -244,13 +270,24 @@ impl Viewer3dContent {
       normalized_screen_position,
       camera_view_size,
       &self.pick_config,
+      &self.scene_derived,
     );
 
-    let mut ctx = EventCtx3D::new(states, event, &position_info, scene, &interactive_ctx);
+    let mut ctx = EventCtx3D::new(
+      states,
+      event,
+      &position_info,
+      scene,
+      &interactive_ctx,
+      &self.scene_derived,
+    );
 
-    let keep_target_for_gizmo = self.gizmo.event(&mut ctx);
+    let widgets = self.widgets.get_mut();
+    let gizmo = &mut widgets.gizmo;
 
-    if !self.gizmo.has_active() {
+    let keep_target_for_gizmo = gizmo.event(&mut ctx);
+
+    if !gizmo.has_active() {
       self.controller.event(event, bound);
     }
 
@@ -261,16 +298,19 @@ impl Viewer3dContent {
         self.selections.clear();
         self.selections.select(nearest);
 
-        self.gizmo.set_target(nearest.get_node().into());
+        gizmo.set_target(nearest.get_node().into(), &self.scene_derived);
       } else if !keep_target_for_gizmo {
-        self.gizmo.set_target(None);
+        gizmo.set_target(None, &self.scene_derived);
       }
     }
   }
 
   pub fn update_state(&mut self) {
-    self.scene_bounding.maintain();
-    self.gizmo.update();
+    self.maintain();
+
+    let widgets = self.widgets.get_mut();
+    let gizmo = &mut widgets.gizmo;
+    gizmo.update(&self.scene_derived);
     if let Some(camera) = &self.scene.read().active_camera {
       self.controller.update(&mut ControlleeWrapper {
         controllee: &camera.read().node,

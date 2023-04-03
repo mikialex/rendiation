@@ -35,7 +35,7 @@ pub struct ForwardScene<'a> {
 impl<'a> PassContentWithSceneAndCamera for ForwardScene<'a> {
   fn render(&mut self, pass: &mut SceneRenderPass, scene: &SceneInner, camera: &SceneCamera) {
     let mut render_list = RenderList::default();
-    render_list.prepare(scene, camera);
+    render_list.prepare(scene, camera, pass.node_derives);
 
     let base = pass.default_dispatcher();
     let dispatcher = ForwardSceneLightingDispatcher {

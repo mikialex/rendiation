@@ -9,7 +9,7 @@ fn main() {
 
   let mut frame = Frame::new(600, 600);
 
-  let mut scene = SceneInner::new().into_ref();
+  let mut scene = SceneInner::new().0.into_ref();
 
   let perspective = PerspectiveProjection {
     fov: Deg::by(65.),
@@ -80,6 +80,7 @@ fn main() {
     });
 
   let mut source = scene.build_traceable();
+  let camera = source.build_camera(&camera);
   renderer.render(&camera, &mut source, &mut frame);
 
   frame.write_result("bunny");

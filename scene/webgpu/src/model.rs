@@ -57,15 +57,20 @@ pub fn setup_pass_core(
       let gpu = pass.ctx.gpu;
       let resources = &mut pass.resources;
       let pass_gpu = dispatcher;
-      let camera_gpu = resources.cameras.get_with_update(camera, gpu);
+      let camera_gpu = resources
+        .cameras
+        .get_with_update(camera, &(pass.ctx.gpu, pass.node_derives));
 
-      let net_visible = model_input.node.visit(|n| n.net_visible());
+      let net_visible = pass.node_derives.get_net_visible(&model_input.node);
       if !net_visible {
         return;
       }
 
-      let node_gpu =
-        override_node.unwrap_or_else(|| resources.nodes.get_with_update(&model_input.node, gpu));
+      let node_gpu = override_node.unwrap_or_else(|| {
+        resources
+          .nodes
+          .get_with_update(&model_input.node, &(pass.ctx.gpu, pass.node_derives))
+      });
 
       let material_gpu = model.material.check_update_gpu(
         &mut resources.scene.materials,
@@ -129,7 +134,7 @@ pub fn ray_pick_nearest_core(
 ) -> OptionalNearest<MeshBufferHitPoint> {
   match &m.model {
     SceneModelType::Standard(model) => {
-      let net_visible = m.node.visit(|n| n.net_visible());
+      let net_visible = ctx.node_derives.get_net_visible(&m.node);
       if !net_visible {
         return OptionalNearest::none();
       }
@@ -173,6 +178,6 @@ pub fn ray_pick_nearest_core(
 
 impl SceneRayInteractive for SceneModelImpl {
   fn ray_pick_nearest(&self, ctx: &SceneRayInteractiveCtx) -> OptionalNearest<MeshBufferHitPoint> {
-    ray_pick_nearest_core(self, ctx, self.node.get_world_matrix())
+    ray_pick_nearest_core(self, ctx, ctx.node_derives.get_world_matrix(&self.node))
   }
 }

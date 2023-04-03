@@ -13,15 +13,6 @@ pub struct Identity<T: IncrementalBase> {
   pub drop_source: EventOnceSource<()>,
 }
 
-// just pass through
-impl<T: IncrementalBase> IncrementalBase for Identity<T> {
-  type Delta = T::Delta;
-
-  fn expand(&self, cb: impl FnMut(Self::Delta)) {
-    self.inner.expand(cb)
-  }
-}
-
 impl<T: IncrementalBase> AsRef<T> for Identity<T> {
   fn as_ref(&self) -> &T {
     &self.inner
@@ -64,6 +55,14 @@ impl<T: IncrementalBase> Identity<T> {
   }
 
   pub fn mutate<R>(&mut self, mutator: impl FnOnce(Mutating<T>) -> R) -> R {
+    self.mutate_with(mutator, |_| {})
+  }
+
+  pub fn mutate_with<R>(
+    &mut self,
+    mutator: impl FnOnce(Mutating<T>) -> R,
+    mut extra_collector: impl FnMut(T::Delta),
+  ) -> R {
     let data = &mut self.inner;
     let dispatcher = &self.delta_source;
     mutator(Mutating {
@@ -72,6 +71,7 @@ impl<T: IncrementalBase> Identity<T> {
         let view = DeltaView { data, delta };
         let view = unsafe { std::mem::transmute(view) };
         dispatcher.emit(&view);
+        extra_collector(delta.clone())
       },
     })
   }

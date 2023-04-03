@@ -1,4 +1,5 @@
 use std::{
+  collections::VecDeque,
   pin::Pin,
   task::{Context, Poll},
 };
@@ -10,7 +11,7 @@ use futures::{
 };
 use pin_project::pin_project;
 
-use crate::MergeIntoStreamVec;
+use crate::*;
 
 pub fn do_updates<T: Stream + Unpin>(stream: &mut T, mut on_update: impl FnMut(T::Item)) {
   // synchronously polling the stream, pull out all updates.
@@ -42,6 +43,26 @@ pub trait SignalStreamExt: Stream {
   where
     St: Stream,
     Self: Sized;
+
+  fn filter_map_sync<F>(self, f: F) -> FilterMapSync<Self, F>
+  where
+    Self: Sized;
+
+  fn buffered_unbound(self) -> BufferedUnbound<Self>
+  where
+    Self: Sized;
+
+  fn buffered_shared_unbound(self) -> BufferedSharedStream<Self>
+  where
+    Self: Sized;
+
+  fn create_board_caster(self) -> StreamBoardCaster<Self, Self::Item, FanOut>
+  where
+    Self: Sized + Stream;
+
+  fn create_index_mapping_boardcaster<D>(self) -> StreamBoardCaster<Self, D, IndexMapping>
+  where
+    Self: Sized + Stream;
 }
 
 impl<T: Stream> SignalStreamExt for T {
@@ -67,6 +88,108 @@ impl<T: Stream> SignalStreamExt for T {
     Self: Sized,
   {
     ZipSignal::new(self, other)
+  }
+
+  fn filter_map_sync<F>(self, f: F) -> FilterMapSync<Self, F>
+  where
+    Self: Sized,
+  {
+    FilterMapSync { inner: self, f }
+  }
+
+  fn buffered_unbound(self) -> BufferedUnbound<Self> {
+    BufferedUnbound {
+      inner: self,
+      buffered: VecDeque::new(),
+    }
+  }
+
+  fn buffered_shared_unbound(self) -> BufferedSharedStream<Self>
+  where
+    Self: Sized,
+  {
+    BufferedSharedStream::new(self)
+  }
+
+  fn create_board_caster(self) -> StreamBoardCaster<Self, Self::Item, FanOut>
+  where
+    Self: Sized,
+  {
+    StreamBoardCaster::new(self, FanOut)
+  }
+
+  fn create_index_mapping_boardcaster<D>(self) -> StreamBoardCaster<Self, D, IndexMapping>
+  where
+    Self: Sized,
+  {
+    StreamBoardCaster::new(self, IndexMapping)
+  }
+}
+
+pub type StreamForker<S> = StreamBoardCaster<S, <S as Stream>::Item, FanOut>;
+
+#[pin_project]
+pub struct FilterMapSync<S, F> {
+  #[pin]
+  inner: S,
+  f: F,
+}
+
+impl<S, F, X> Stream for FilterMapSync<S, F>
+where
+  S: Stream,
+  F: Fn(S::Item) -> Option<X>,
+{
+  type Item = X;
+
+  fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+    let this = self.project();
+    if let Poll::Ready(v) = this.inner.poll_next(cx) {
+      if let Some(v) = v {
+        if let Some(mapped) = (this.f)(v) {
+          Poll::Ready(mapped.into())
+        } else {
+          Poll::Pending
+        }
+      } else {
+        Poll::Ready(None)
+      }
+    } else {
+      Poll::Pending
+    }
+  }
+}
+
+#[pin_project]
+pub struct BufferedUnbound<S: Stream> {
+  #[pin]
+  inner: S,
+  buffered: VecDeque<S::Item>,
+}
+
+impl<S> Stream for BufferedUnbound<S>
+where
+  S: Stream,
+{
+  type Item = S::Item;
+
+  fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+    let mut this = self.project();
+
+    while let Poll::Ready(result) = this.inner.as_mut().poll_next(cx) {
+      if let Some(item) = result {
+        this.buffered.push_back(item);
+        continue;
+      } else {
+        return Poll::Ready(None); // the source has been dropped, do early terminate
+      }
+    }
+
+    if let Some(item) = this.buffered.pop_front() {
+      Poll::Ready(Some(item))
+    } else {
+      Poll::Pending
+    }
   }
 }
 

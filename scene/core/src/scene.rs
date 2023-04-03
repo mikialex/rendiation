@@ -1,7 +1,9 @@
+use std::ops::Deref;
+
 use crate::*;
 
 use arena::{Arena, ArenaDelta, Handle};
-use tree::{HierarchyDepend, SharedTreeCollection};
+use tree::*;
 
 pub type SceneLightHandle = Handle<SceneLight>;
 pub type SceneModelHandle = Handle<SceneModel>;
@@ -20,10 +22,27 @@ pub struct SceneInner {
   /// All models in the scene
   pub models: Arena<SceneModel>,
 
-  nodes: SharedTreeCollection<SceneNodeData>,
+  nodes: SceneNodeCollection,
   root: SceneNode,
 
   pub ext: DynamicExtension,
+}
+
+#[derive(Default)]
+pub struct SceneNodeCollection {
+  pub inner: SharedTreeCollection<ReactiveTreeCollection<SceneNodeData, SceneNodeDataImpl>>,
+}
+
+impl IncrementalBase for SceneNodeCollection {
+  type Delta = TreeMutation<SceneNodeDataImpl>;
+
+  fn expand(&self, cb: impl FnMut(Self::Delta)) {
+    self.inner.visit_inner(|tree| {
+      tree
+        .inner
+        .expand_with_mapping(|node| node.deref().clone(), cb)
+    });
+  }
 }
 
 #[allow(non_camel_case_types)]
@@ -36,7 +55,7 @@ pub enum SceneInnerDelta {
   lights(DeltaOf<Arena<SceneLight>>),
   models(DeltaOf<Arena<SceneModel>>),
   ext(DeltaOf<DynamicExtension>),
-  nodes(DeltaOf<SharedTreeCollection<SceneNodeData>>),
+  nodes(DeltaOf<SceneNodeCollection>),
 }
 
 impl IncrementalBase for SceneInner {
@@ -59,64 +78,49 @@ impl SceneInner {
   pub fn root(&self) -> &SceneNode {
     &self.root
   }
-  pub fn new() -> Self {
-    let nodes: SharedTreeCollection<SceneNodeData> = Default::default();
+  pub fn new() -> (Self, SceneNodeDeriveSystem) {
+    let nodes: SceneNodeCollection = Default::default();
+    let system = SceneNodeDeriveSystem::new(&nodes);
 
-    let root = SceneNode::from_root(nodes.clone());
+    let root = SceneNode::from_root(nodes.inner.clone());
 
     let default_camera = PerspectiveProjection::default();
     let camera_node = root.create_child();
     let default_camera = SceneCamera::create_camera(default_camera, camera_node);
 
-    Self {
-      nodes,
-      root,
-      background: None,
-      default_camera,
-      cameras: Arena::new(),
-      lights: Arena::new(),
-      models: Arena::new(),
+    (
+      Self {
+        nodes,
+        root,
+        background: None,
+        default_camera,
+        cameras: Arena::new(),
+        lights: Arena::new(),
+        models: Arena::new(),
 
-      active_camera: None,
-      ext: Default::default(),
-    }
+        active_camera: None,
+        ext: Default::default(),
+      },
+      system,
+    )
   }
 
   pub fn get_active_camera(&self) -> &SceneCamera {
     self.active_camera.as_ref().unwrap()
-  }
-
-  pub fn maintain(&self) {
-    self.nodes.update(self.root.raw_handle());
-  }
-}
-
-impl HierarchyDepend for SceneNodeData {
-  fn update_by_parent(&mut self, parent: &Self) {
-    self.mutate(|mut node_data| {
-      let new_net = node_data.visible && parent.net_visible;
-      if new_net != node_data.net_visible {
-        node_data.modify(SceneNodeDataImplDelta::net_visible(new_net))
-      }
-      if new_net {
-        let new_world_matrix = parent.world_matrix * node_data.local_matrix;
-        if new_world_matrix != node_data.world_matrix {
-          node_data.modify(SceneNodeDataImplDelta::world_matrix(new_world_matrix))
-        }
-      }
-    });
-  }
-}
-
-impl Default for SceneInner {
-  fn default() -> Self {
-    Self::new()
   }
 }
 
 pub type Scene = SceneItemRef<SceneInner>;
 
 impl Scene {
+  pub fn compute_full_derived(&self) -> ComputedDerivedTree<SceneNodeDerivedData> {
+    self.visit(|t| {
+      t.nodes
+        .inner
+        .visit_inner(|t| ComputedDerivedTree::compute_from(&t.inner))
+    })
+  }
+
   // todo improves
   pub fn insert_model(&self, model: SceneModel) -> SceneModelHandle {
     let mut result = None;

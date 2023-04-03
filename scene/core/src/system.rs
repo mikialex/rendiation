@@ -4,25 +4,99 @@ use rendiation_geometry::Box3;
 use futures::stream::*;
 use futures::Stream;
 use reactive::*;
+use tree::CoreTree;
+use tree::TreeHierarchyDerivedSystem;
 
-#[allow(unused)]
+#[derive(Clone)]
+pub struct SceneNodeDeriveSystem {
+  pub(crate) inner: TreeHierarchyDerivedSystem<SceneNodeDerivedData>,
+  indexed_stream_mapper: SceneNodeChangeStreamIndexMapper,
+}
+type SceneNodeChangeStream = impl Stream<Item = (usize, SceneNodeDerivedDataDelta)> + Unpin;
+
+type SceneNodeChangeStreamIndexMapper =
+  StreamBoardCaster<SceneNodeChangeStream, SceneNodeDerivedDataDelta, IndexMapping>;
+
+impl SceneNodeDeriveSystem {
+  pub fn new(nodes: &SceneNodeCollection) -> Self {
+    let inner_sys = nodes.inner.visit_inner(|tree| {
+      let stream = tree.source.listen();
+      TreeHierarchyDerivedSystem::<SceneNodeDerivedData>::new(stream, &nodes.inner)
+    });
+
+    let indexed_stream_mapper: SceneNodeChangeStreamIndexMapper = inner_sys
+      .derived_stream
+      .fork_stream()
+      .create_index_mapping_boardcaster();
+
+    Self {
+      inner: inner_sys,
+      indexed_stream_mapper,
+    }
+  }
+
+  pub fn maintain(&mut self) {
+    do_updates(&mut self.indexed_stream_mapper, |_| {});
+  }
+}
+
+impl SceneNodeDeriveSystem {
+  pub fn get_world_matrix(&self, node: &SceneNode) -> Mat4<f32> {
+    self.get_world_matrix_by_raw_handle(node.raw_handle().index())
+  }
+
+  pub fn get_world_matrix_by_raw_handle(&self, index: usize) -> Mat4<f32> {
+    self.inner.visit_derived_tree(|tree| {
+      let handle = tree.recreate_handle(index);
+      tree.get_node(handle).data().data.world_matrix
+    })
+  }
+  pub fn create_world_matrix_stream(
+    &self,
+    node: &SceneNode,
+  ) -> impl Stream<Item = Mat4<f32>> + 'static {
+    self
+      .indexed_stream_mapper
+      .create_sub_stream_by_index(node.raw_handle().index())
+      .filter_map_sync(|d| match d {
+        SceneNodeDerivedDataDelta::world_matrix(m) => Some(m),
+        SceneNodeDerivedDataDelta::net_visible(_) => None,
+      })
+  }
+  pub fn get_net_visible(&self, node: &SceneNode) -> bool {
+    self.inner.visit_derived_tree(|tree| {
+      let handle = tree.recreate_handle(node.raw_handle().index());
+      tree.get_node(handle).data().data.net_visible
+    })
+  }
+}
+
 pub struct SceneBoundingSystem {
   /// actually data
   models_bounding: Vec<Option<Box3>>,
-  handler: SceneModelStream,
+  handler: StreamForker<SceneModelStream>,
 }
 
 pub type BoxUpdate = VecUpdateUnit<Option<Box3>>;
+
 type SceneModelStream = impl Stream<Item = BoxUpdate> + Unpin;
 
 impl SceneBoundingSystem {
-  pub fn new(scene: &Scene) -> Self {
-    type BoxStream = impl Stream<Item = Option<Box3>> + Unpin;
-
-    fn build_world_box_stream(model: &SceneModel) -> BoxStream {
+  pub fn new(scene: &Scene, d_sys: &SceneNodeDeriveSystem) -> Self {
+    fn build_world_box_stream(
+      model: &SceneModel,
+      filter: SceneNodeChangeStreamIndexMapper,
+    ) -> impl Stream<Item = Option<Box3>> + Unpin {
       let world_mat_stream = model
         .listen_by(with_field!(SceneModelImpl => node))
-        .map(|node| node.listen_by(with_field!(SceneNodeDataImpl => world_matrix)))
+        .map(move |node| {
+          filter
+            .create_sub_stream_by_index(node.raw_handle().index())
+            .filter_map_sync(|d| match d {
+              SceneNodeDerivedDataDelta::world_matrix(m) => Some(m),
+              SceneNodeDerivedDataDelta::net_visible(_) => None,
+            })
+        })
         .flatten_signal();
 
       let local_box_stream = model
@@ -46,6 +120,7 @@ impl SceneBoundingSystem {
     }
 
     use arena::ArenaDelta::*;
+    let mapper = d_sys.indexed_stream_mapper.clone();
     let handler = scene
       .listen_by(|view, send| match view {
         // simply trigger all model add deltas
@@ -57,12 +132,19 @@ impl SceneBoundingSystem {
           }
         }
       })
-      .map(|model_delta| match model_delta {
-        Mutate((new, handle)) => (handle.index(), Some(build_world_box_stream(&new))),
-        Insert((new, handle)) => (handle.index(), Some(build_world_box_stream(&new))),
+      .map(move |model_delta| match model_delta {
+        Mutate((new, handle)) => (
+          handle.index(),
+          Some(build_world_box_stream(&new, mapper.clone())),
+        ),
+        Insert((new, handle)) => (
+          handle.index(),
+          Some(build_world_box_stream(&new, mapper.clone())),
+        ),
         Remove(handle) => (handle.index(), None),
       })
-      .flatten_into_vec_stream_signal();
+      .flatten_into_vec_stream_signal()
+      .create_board_caster();
 
     Self {
       handler,

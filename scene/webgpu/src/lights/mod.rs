@@ -10,6 +10,7 @@ use crate::*;
 pub struct LightUpdateCtx<'a, 'b> {
   pub forward: &'a mut ForwardLightingSystem,
   pub shadows: &'a mut ShadowMapSystem,
+  pub node_derives: &'a SceneNodeDeriveSystem,
   pub ctx: &'a mut FrameCtx<'b>,
   pub scene: &'a SceneInner,
 }

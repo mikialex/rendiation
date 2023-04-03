@@ -81,7 +81,7 @@ impl Joint {
   /// we do binding in the model's joint-space. that's why we need bind_inverse matrix;
   /// so, we should first: from local to joint-space: apply bind_inverse
   /// then, we apply the real skeleton matrix, to express the correct new skinned-local-space
-  pub fn compute_offset_matrix(&self) -> Mat4<f32> {
-    self.node.get_world_matrix() * self.bind_inverse
+  pub fn compute_offset_matrix(&self, d_sys: &SceneNodeDeriveSystem) -> Mat4<f32> {
+    d_sys.get_world_matrix(&self.node) * self.bind_inverse
   }
 }

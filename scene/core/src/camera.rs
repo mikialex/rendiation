@@ -7,7 +7,7 @@ pub type SceneCamera = SceneItemRef<SceneCameraInner>;
 
 impl SceneCamera {
   pub fn create_camera(
-    p: impl ResizableProjection<f32> + RayCaster3<f32> + DynIncremental + 'static,
+    p: impl ResizableProjection<f32> + RayCaster3<f32> + DynIncremental + Clone + 'static,
     node: SceneNode,
   ) -> Self {
     let mut inner = SceneCameraInner {
@@ -35,15 +35,13 @@ impl SceneCamera {
   }
 
   /// normalized_position: -1 to 1
-  pub fn cast_world_ray(&self, normalized_position: Vec2<f32>) -> Ray3<f32> {
-    self.cast_ray(normalized_position)
-  }
-}
-
-impl HyperRayCaster<f32, Vec3<f32>, Vec2<f32>> for SceneCamera {
-  fn cast_ray(&self, normalized_position: Vec2<f32>) -> HyperRay<f32, Vec3<f32>> {
+  pub fn cast_world_ray(
+    &self,
+    normalized_position: Vec2<f32>,
+    d_sys: &SceneNodeDeriveSystem,
+  ) -> Ray3<f32> {
     self.visit(|camera| {
-      let camera_world_mat = camera.node.get_world_matrix();
+      let camera_world_mat = d_sys.get_world_matrix(&camera.node);
       camera
         .projection
         .cast_ray(normalized_position)
@@ -84,9 +82,13 @@ pub trait CameraProjection: Sync + Send + DynIncremental {
   fn resize(&mut self, size: (f32, f32));
   fn pixels_per_unit(&self, distance: f32, view_height: f32) -> f32;
   fn cast_ray(&self, normalized_position: Vec2<f32>) -> Ray3<f32>;
+  fn clone_self(&self) -> Box<dyn CameraProjection>;
 }
 
-impl<T: ResizableProjection<f32> + RayCaster3<f32> + DynIncremental> CameraProjection for T {
+impl<T> CameraProjection for T
+where
+  T: ResizableProjection<f32> + RayCaster3<f32> + DynIncremental + Clone + 'static,
+{
   fn update_projection(&self, projection: &mut Mat4<f32>) {
     self.update_projection::<WebGPU>(projection);
   }
@@ -99,6 +101,9 @@ impl<T: ResizableProjection<f32> + RayCaster3<f32> + DynIncremental> CameraProje
 
   fn cast_ray(&self, normalized_position: Vec2<f32>) -> Ray3<f32> {
     self.cast_ray(normalized_position)
+  }
+  fn clone_self(&self) -> Box<dyn CameraProjection> {
+    Box::new(self.clone())
   }
 }
 

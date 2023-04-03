@@ -1,34 +1,54 @@
+#![feature(type_alias_impl_trait)]
+
 use std::sync::{Arc, RwLock};
 
 use abst::TreeNodeMutPtr;
+use incremental::IncrementalBase;
 pub use rendiation_abstract_tree::*;
 use storage::{generational::Arena, *};
 
 mod share;
 pub use share::*;
 
+mod reactive_impl;
+pub use reactive_impl::*;
+
 mod update;
 pub use update::*;
+
+mod update_full;
+pub use update_full::*;
 
 mod abst;
 mod inc;
 pub use inc::*;
 
-#[derive(Default)]
-pub struct SharedTreeCollection<T> {
-  pub(crate) inner: Arc<RwLock<TreeCollection<T>>>,
+#[cfg(test)]
+mod test;
+
+pub trait CoreTree {
+  type Node;
+  type Handle: Copy;
+
+  fn recreate_handle(&self, index: usize) -> Self::Handle;
+
+  fn get_node_data(&self, handle: Self::Handle) -> &Self::Node;
+  fn get_node_data_mut(&mut self, handle: Self::Handle) -> &mut Self::Node;
+
+  fn create_node(&mut self, data: Self::Node) -> Self::Handle;
+  fn delete_node(&mut self, handle: Self::Handle);
+  fn node_add_child_by(
+    &mut self,
+    parent: Self::Handle,
+    child_to_attach: Self::Handle,
+  ) -> Result<(), TreeMutationError>;
+  fn node_detach_parent(&mut self, child_to_detach: Self::Handle) -> Result<(), TreeMutationError>;
 }
 
-impl<T> Clone for SharedTreeCollection<T> {
-  fn clone(&self) -> Self {
-    Self {
-      inner: self.inner.clone(),
-    }
-  }
-}
 pub struct TreeCollection<T> {
   nodes: Storage<TreeNode<T>, Arena<TreeNode<T>>>,
 }
+
 pub type TreeNodeHandle<T> = Handle<TreeNode<T>, Arena<TreeNode<T>>>;
 
 pub struct TreeNode<T> {
@@ -68,12 +88,19 @@ pub enum TreeMutationError {
   AttachNodeButHasParent,
 }
 
-impl<T> TreeCollection<T> {
-  pub fn nodes(&self) -> &Storage<TreeNode<T>, Arena<TreeNode<T>>> {
-    &self.nodes
+impl<T> CoreTree for TreeCollection<T> {
+  type Node = T;
+  type Handle = TreeNodeHandle<T>;
+
+  fn recreate_handle(&self, index: usize) -> TreeNodeHandle<T> {
+    self
+      .nodes
+      .data
+      .get_handle(index)
+      .expect("tree handle can not rebuild, maybe pair tree is corrupted")
   }
 
-  pub fn create_node(&mut self, data: T) -> TreeNodeHandle<T> {
+  fn create_node(&mut self, data: T) -> TreeNodeHandle<T> {
     self.nodes.insert_with(|handle| TreeNode {
       handle,
       parent: None,
@@ -84,27 +111,19 @@ impl<T> TreeCollection<T> {
     })
   }
 
-  pub fn delete_node(&mut self, handle: TreeNodeHandle<T>) {
+  fn delete_node(&mut self, handle: TreeNodeHandle<T>) {
     self.nodes.remove(handle);
   }
 
-  pub fn get_node(&self, handle: TreeNodeHandle<T>) -> &TreeNode<T> {
-    self.nodes.get(handle).unwrap()
+  fn get_node_data(&self, handle: TreeNodeHandle<T>) -> &T {
+    self.get_node(handle).data()
   }
 
-  pub fn get_node_mut(&mut self, handle: TreeNodeHandle<T>) -> &mut TreeNode<T> {
-    self.nodes.get_mut(handle).unwrap()
+  fn get_node_data_mut(&mut self, handle: TreeNodeHandle<T>) -> &mut T {
+    self.get_node_mut(handle).data_mut()
   }
 
-  pub fn get_parent_child_pair(
-    &mut self,
-    parent: TreeNodeHandle<T>,
-    child: TreeNodeHandle<T>,
-  ) -> (&mut TreeNode<T>, &mut TreeNode<T>) {
-    self.nodes.get_mut_pair((parent, child)).unwrap()
-  }
-
-  pub fn node_add_child_by(
+  fn node_add_child_by(
     &mut self,
     parent: TreeNodeHandle<T>,
     child_to_attach: TreeNodeHandle<T>,
@@ -134,7 +153,7 @@ impl<T> TreeCollection<T> {
     Ok(())
   }
 
-  pub fn node_detach_parent(
+  fn node_detach_parent(
     &mut self,
     child_to_detach: TreeNodeHandle<T>,
   ) -> Result<(), TreeMutationError> {
@@ -168,18 +187,63 @@ impl<T> TreeCollection<T> {
 
     Ok(())
   }
+}
+
+impl<T> TreeCollection<T> {
+  pub fn nodes(&self) -> &Storage<TreeNode<T>, Arena<TreeNode<T>>> {
+    &self.nodes
+  }
+
+  pub fn capacity(&self) -> usize {
+    self.nodes.data.capacity()
+  }
+
+  pub fn get_node(&self, handle: TreeNodeHandle<T>) -> &TreeNode<T> {
+    self.nodes.get(handle).unwrap()
+  }
+
+  pub fn get_node_mut(&mut self, handle: TreeNodeHandle<T>) -> &mut TreeNode<T> {
+    self.nodes.get_mut(handle).unwrap()
+  }
+
+  fn get_parent_child_pair(
+    &mut self,
+    parent: TreeNodeHandle<T>,
+    child: TreeNodeHandle<T>,
+  ) -> (&mut TreeNode<T>, &mut TreeNode<T>) {
+    self.nodes.get_mut_pair((parent, child)).unwrap()
+  }
+
+  pub(crate) fn create_node_mut_ptr(&mut self, handle: TreeNodeHandle<T>) -> TreeNodeMutPtr<T> {
+    let tree = self as *mut _;
+    let node = self.get_node_mut(handle);
+    TreeNodeMutPtr { tree, node }
+  }
 
   pub fn traverse_mut_pair(
     &mut self,
     start: TreeNodeHandle<T>,
-    mut visitor: impl FnMut(&mut TreeNode<T>, &mut TreeNode<T>),
+    mut visitor: impl FnMut(&mut TreeNode<T>, Option<&mut TreeNode<T>>) -> NextTraverseVisit,
   ) {
-    let tree = self as *mut _;
-    let node = self.get_node_mut(start);
-    TreeNodeMutPtr { tree, node }.traverse_pair_mut(&mut |parent, child| {
-      let parent = unsafe { &mut (*parent.node) };
-      let child = unsafe { &mut (*child.node) };
-      visitor(parent, child)
-    });
+    self
+      .create_node_mut_ptr(start)
+      .traverse_pair_subtree_mut(&mut |child, parent| {
+        let parent = parent.map(|parent| unsafe { &mut (*parent.node) });
+        let child = unsafe { &mut (*child.node) };
+        visitor(child, parent)
+      });
+  }
+
+  pub fn traverse_mut(
+    &mut self,
+    start: TreeNodeHandle<T>,
+    mut visitor: impl FnMut(&mut TreeNode<T>) -> NextTraverseVisit,
+  ) {
+    self
+      .create_node_mut_ptr(start)
+      .traverse_pair_subtree_mut(&mut |child, _| {
+        let child = unsafe { &mut (*child.node) };
+        visitor(child)
+      });
   }
 }
