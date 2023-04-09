@@ -358,6 +358,8 @@ where
       return;
     }
 
+    node_data.dirty = T::DirtyMark::default();
+
     let source_node = source_tree.recreate_handle(node_index);
     let source_node = source_tree.get_node_data(source_node).deref();
 
