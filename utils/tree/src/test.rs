@@ -117,7 +117,13 @@ fn test_full_update() {
 fn test_inc_update() {
   let tree = SharedTreeCollection::<ReactiveTreeCollection<TestNode, TestNode>>::default();
   let stream = tree.visit_inner(|t| t.source.listen());
-  let mut tree_sys = TreeHierarchyDerivedSystem::<TestNodeDerived>::new(stream, &tree);
+  let mut tree_sys =
+    TreeHierarchyDerivedSystem::<TestNodeDerived, ParentTreeDirty<ValueSumIsDirty>>::new::<
+      ParentTree,
+      _,
+      _,
+      _,
+    >(stream, &tree);
 
   let root = tree.create_new_root(TestNode { value: 0 });
   let a = root.create_child(TestNode { value: 3 });
@@ -128,7 +134,7 @@ fn test_inc_update() {
   tree_sys.maintain();
 
   fn getter(
-    tree_sys: &TreeHierarchyDerivedSystem<TestNodeDerived>,
+    tree_sys: &TreeHierarchyDerivedSystem<TestNodeDerived, ParentTreeDirty<ValueSumIsDirty>>,
     node: &ShareTreeNode<ReactiveTreeCollection<TestNode, TestNode>>,
   ) -> TestNodeDerived {
     tree_sys.visit_derived_tree(|tree| {

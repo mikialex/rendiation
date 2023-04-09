@@ -5,11 +5,14 @@ use futures::stream::*;
 use futures::Stream;
 use reactive::*;
 use tree::CoreTree;
+use tree::ParentTree;
+use tree::ParentTreeDirty;
 use tree::TreeHierarchyDerivedSystem;
 
 #[derive(Clone)]
 pub struct SceneNodeDeriveSystem {
-  pub(crate) inner: TreeHierarchyDerivedSystem<SceneNodeDerivedData>,
+  pub(crate) inner:
+    TreeHierarchyDerivedSystem<SceneNodeDerivedData, ParentTreeDirty<SceneNodeDeriveDataDirtyFlag>>,
   indexed_stream_mapper: SceneNodeChangeStreamIndexMapper,
 }
 type SceneNodeChangeStream = impl Stream<Item = (usize, SceneNodeDerivedDataDelta)> + Unpin;
@@ -21,7 +24,10 @@ impl SceneNodeDeriveSystem {
   pub fn new(nodes: &SceneNodeCollection) -> Self {
     let inner_sys = nodes.inner.visit_inner(|tree| {
       let stream = tree.source.listen();
-      TreeHierarchyDerivedSystem::<SceneNodeDerivedData>::new(stream, &nodes.inner)
+      TreeHierarchyDerivedSystem::<
+        SceneNodeDerivedData,
+        ParentTreeDirty<SceneNodeDeriveDataDirtyFlag>,
+      >::new::<ParentTree, _, _, _>(stream, &nodes.inner)
     });
 
     let indexed_stream_mapper: SceneNodeChangeStreamIndexMapper = inner_sys

@@ -162,5 +162,6 @@
         "ycocg",
         "Zeroable",
         "zerocopy"
-    ]
+    ],
+    "rust-analyzer.showUnlinkedFileNotification": false
 }
