@@ -49,12 +49,12 @@ pub trait IncrementalChildrenHierarchyDerived: Default + IncrementalBase {
     change: &<Self::Source as IncrementalBase>::Delta,
   ) -> Option<Self::DirtyMark>;
 
-  fn hierarchy_children_update<C: FnMut(Self::Delta)>(
+  fn hierarchy_children_update(
     &mut self,
     self_source: &Self::Source,
-    children_visitor: impl FnMut(C, &dyn Fn(&Self)),
+    children_visitor: impl FnMut(&dyn Fn(&Self)),
     dirty: &Self::DirtyMark,
-    collect: C,
+    collect: impl FnMut(Self::Delta),
   );
 }
 
@@ -351,29 +351,36 @@ where
     update_root: TreeNodeHandle<DerivedData<T, M>>,
     derived_delta_sender: &mut impl FnMut((usize, <T as IncrementalBase>::Delta)),
   ) {
-    // let node_index = update_root.index();
-    // let mut node = derived_tree.create_node_mut_ptr(update_root);
-    // let node_data = &mut unsafe { &mut (*node.node) }.data;
-    // if node_data.dirty == T::DirtyMark::default() {
-    //   return;
-    // }
+    let node_index = update_root.index();
+    let mut node = derived_tree.create_node_mut_ptr(update_root);
+    let node_data = &mut unsafe { &mut (*node.node) }.data;
+    if node_data.dirty == T::DirtyMark::default() {
+      return;
+    }
 
-    // let source_node = source_tree.recreate_handle(node_index);
-    // let source_node = source_tree.get_node_data(source_node).deref();
+    let source_node = source_tree.recreate_handle(node_index);
+    let source_node = source_tree.get_node_data(source_node).deref();
 
-    // node_data.data.hierarchy_children_update(
-    //   source_node,
-    //   |c, child_visitor| {
-    //     node.visit_children_mut(|child| {
-    //       let child = unsafe { &mut (*child.node) };
-    //       Self::update_derived(source_tree, derived_tree, child.handle(), &mut |delta| {
-    //         c((node_index, delta))
-    //       });
-    //       child_visitor(&child.data().data)
-    //     });
-    //   },
-    //   &node_data.dirty,
-    //   &mut |delta| derived_delta_sender((node_index, delta)),
-    // );
+    node.visit_children_mut(|child| {
+      let child = unsafe { &mut (*child.node) };
+      Self::update_derived(
+        source_tree,
+        derived_tree,
+        child.handle(),
+        derived_delta_sender,
+      );
+    });
+
+    node_data.data.hierarchy_children_update(
+      source_node,
+      |child_visitor| {
+        node.visit_children_mut(|node| {
+          let node_data = &unsafe { &mut (*node.node) }.data.data;
+          child_visitor(node_data)
+        })
+      },
+      &node_data.dirty,
+      &mut |delta| derived_delta_sender((node_index, delta)),
+    );
   }
 }
