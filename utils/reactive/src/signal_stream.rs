@@ -160,6 +160,17 @@ where
   }
 }
 
+#[test]
+fn test_filter_map_sync() {
+  let (send, rev) = futures::channel::mpsc::unbounded::<u32>();
+  send.unbounded_send(10).unwrap();
+  send.unbounded_send(3).unwrap(); // will be filtered
+
+  let mut c = rev.filter_map_sync(|v: u32| if v > 5 { Some(2 * v) } else { None });
+
+  do_updates(&mut c, |v| assert_eq!(v, 20))
+}
+
 #[pin_project]
 pub struct BufferedUnbound<S: Stream> {
   #[pin]
@@ -191,6 +202,37 @@ where
       Poll::Pending
     }
   }
+}
+
+#[test]
+fn test_buffer_unbound() {
+  let (send, rev) = futures::channel::mpsc::unbounded::<u32>();
+
+  let mut front = 0;
+  let mut back = 0;
+
+  let mut c = rev
+    .map(|v| {
+      front += 1;
+      v
+    })
+    .buffered_unbound()
+    .map(|v| {
+      back += 1;
+      v
+    });
+
+  send.unbounded_send(10).unwrap();
+  send.unbounded_send(3).unwrap();
+  send.unbounded_send(31).unwrap();
+
+  let waker = futures::task::noop_waker_ref();
+  let mut cx = Context::from_waker(waker);
+  let r = c.poll_next_unpin(&mut cx);
+
+  assert_eq!(r, Poll::Ready(Some(10)));
+  assert_eq!(front, 3);
+  assert_eq!(back, 1);
 }
 
 #[pin_project]
