@@ -37,14 +37,14 @@ macro_rules! with_field_change {
   };
 }
 
-pub fn all_delta<T: Incremental>(view: MaybeDeltaRef<T>, send: &dyn Fn(T::Delta)) {
+pub fn all_delta<T: IncrementalBase>(view: MaybeDeltaRef<T>, send: &dyn Fn(T::Delta)) {
   match view {
     MaybeDeltaRef::All(value) => value.expand(send),
     MaybeDeltaRef::Delta(delta) => send(delta.clone()),
   }
 }
 
-pub fn any_change<T: Incremental>(view: MaybeDeltaRef<T>, send: &dyn Fn(())) {
+pub fn any_change<T: IncrementalBase>(view: MaybeDeltaRef<T>, send: &dyn Fn(())) {
   match view {
     MaybeDeltaRef::All(_) => send(()),
     MaybeDeltaRef::Delta(_) => send(()),

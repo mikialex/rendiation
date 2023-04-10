@@ -140,9 +140,7 @@ impl<T: IncrementalBase, Dirty> TreeHierarchyDerivedSystem<T, Dirty> {
             derived_tree.delete_node(handle);
             None
           }
-          // check if have any hierarchy effect
-          // for children, do traverse mark dirty all-mark, skip if all-mark contains new dirty
-          // for parent chain, do parent chain traverse mark dirty any-mark,
+          // check if have any hierarchy effect, and do marking
           TreeMutation::Mutate { node, delta } => {
             let handle = derived_tree.recreate_handle(node);
             B::filter_hierarchy_change(&delta)
@@ -219,6 +217,9 @@ where
   X: Deref<Target = T::Source>,
 {
   type Dirty = ParentTreeDirty<M>;
+
+  // for children, do traverse mark dirty all-mark, skip if all-mark contains new dirty
+  // for parent chain, do parent chain traverse mark dirty any-mark,
   // return the root node handle as the update root
   // if the parent chain has been any dirty marked, we return None to skip the update process
   fn marking_dirty(
@@ -288,7 +289,7 @@ where
         derived.data.hierarchy_update(
           source_node,
           parent,
-          &derived.dirty.sub_tree_dirty_mark_any,
+          &derived.dirty.sub_tree_dirty_mark_all,
           |delta| derived_delta_sender((node_index, delta)),
         );
 
