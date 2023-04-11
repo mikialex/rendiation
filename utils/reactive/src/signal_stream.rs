@@ -56,11 +56,11 @@ pub trait SignalStreamExt: Stream {
   where
     Self: Sized;
 
-  fn create_board_caster(self) -> StreamBoardCaster<Self, Self::Item, FanOut>
+  fn create_board_caster(self) -> StreamBroadcaster<Self, Self::Item, FanOut>
   where
     Self: Sized + Stream;
 
-  fn create_index_mapping_boardcaster<D>(self) -> StreamBoardCaster<Self, D, IndexMapping>
+  fn create_index_mapping_broadcaster<D>(self) -> StreamBroadcaster<Self, D, IndexMapping>
   where
     Self: Sized + Stream;
 }
@@ -111,22 +111,22 @@ impl<T: Stream> SignalStreamExt for T {
     BufferedSharedStream::new(self)
   }
 
-  fn create_board_caster(self) -> StreamBoardCaster<Self, Self::Item, FanOut>
+  fn create_board_caster(self) -> StreamBroadcaster<Self, Self::Item, FanOut>
   where
     Self: Sized,
   {
-    StreamBoardCaster::new(self, FanOut)
+    StreamBroadcaster::new(self, FanOut)
   }
 
-  fn create_index_mapping_boardcaster<D>(self) -> StreamBoardCaster<Self, D, IndexMapping>
+  fn create_index_mapping_broadcaster<D>(self) -> StreamBroadcaster<Self, D, IndexMapping>
   where
     Self: Sized,
   {
-    StreamBoardCaster::new(self, IndexMapping)
+    StreamBroadcaster::new(self, IndexMapping)
   }
 }
 
-pub type StreamForker<S> = StreamBoardCaster<S, <S as Stream>::Item, FanOut>;
+pub type StreamForker<S> = StreamBroadcaster<S, <S as Stream>::Item, FanOut>;
 
 #[pin_project]
 pub struct FilterMapSync<S, F> {

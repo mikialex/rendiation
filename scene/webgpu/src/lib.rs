@@ -20,6 +20,8 @@ pub mod shadow;
 pub mod texture;
 pub mod util;
 
+pub mod inc;
+
 pub use background::*;
 pub use camera::*;
 pub use lights::*;

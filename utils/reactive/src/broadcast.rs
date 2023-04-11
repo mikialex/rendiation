@@ -7,27 +7,27 @@ use std::{
 use futures::Stream;
 use pin_project::pin_project;
 
-pub struct StreamBoardCaster<S, D, F> {
-  inner: Arc<RwLock<StreamBoardCasterInner<S, D, F>>>,
+pub struct StreamBroadcaster<S, D, F> {
+  inner: Arc<RwLock<StreamBroadcasterInner<S, D, F>>>,
 }
 
-impl<S, D, F, I> Stream for StreamBoardCaster<S, D, F>
+impl<S, D, F, I> Stream for StreamBroadcaster<S, D, F>
 where
   S: Stream<Item = I> + Unpin,
   S::Item: Clone,
-  F: BoardCastBehavior<I, D>,
+  F: BroadcastBehavior<I, D>,
 {
   type Item = I;
 
   fn poll_next(self: Pin<&mut Self>, cx: &mut std::task::Context<'_>) -> Poll<Option<Self::Item>> {
     let mut inner = self.inner.write().unwrap();
-    let inner: &mut StreamBoardCasterInner<_, _, _> = &mut inner;
+    let inner: &mut StreamBroadcasterInner<_, _, _> = &mut inner;
     let inner = Pin::new(inner);
     inner.poll_next(cx)
   }
 }
 
-impl<S, D, F> Clone for StreamBoardCaster<S, D, F> {
+impl<S, D, F> Clone for StreamBroadcaster<S, D, F> {
   fn clone(&self) -> Self {
     Self {
       inner: self.inner.clone(),
@@ -35,9 +35,9 @@ impl<S, D, F> Clone for StreamBoardCaster<S, D, F> {
   }
 }
 
-impl<S, D, F> StreamBoardCaster<S, D, F> {
+impl<S, D, F> StreamBroadcaster<S, D, F> {
   pub fn new(source: S, board_cast: F) -> Self {
-    let inner = StreamBoardCasterInner {
+    let inner = StreamBroadcasterInner {
       source,
       distributer: Default::default(),
       board_cast,
@@ -48,18 +48,18 @@ impl<S, D, F> StreamBoardCaster<S, D, F> {
 }
 
 #[pin_project]
-struct StreamBoardCasterInner<S, D, F> {
+struct StreamBroadcasterInner<S, D, F> {
   #[pin]
   source: S,
   distributer: Vec<Option<futures::channel::mpsc::UnboundedSender<D>>>,
   board_cast: F,
 }
 
-impl<S, D, F, I> Stream for StreamBoardCasterInner<S, D, F>
+impl<S, D, F, I> Stream for StreamBroadcasterInner<S, D, F>
 where
   S: Stream<Item = I> + Unpin,
   S::Item: Clone,
-  F: BoardCastBehavior<I, D>,
+  F: BroadcastBehavior<I, D>,
 {
   type Item = I;
 
@@ -80,21 +80,21 @@ where
 }
 
 #[pin_project]
-pub struct BoardCastedStream<S, D, F> {
+pub struct BroadcastedStream<S, D, F> {
   #[pin]
   rev: futures::channel::mpsc::UnboundedReceiver<D>,
   index: usize,
-  source: Arc<RwLock<StreamBoardCasterInner<S, D, F>>>,
+  source: Arc<RwLock<StreamBroadcasterInner<S, D, F>>>,
 }
 
-pub trait BoardCastBehavior<I, O> {
+pub trait BroadcastBehavior<I, O> {
   fn board_cast(input: I, output: &mut Vec<Option<futures::channel::mpsc::UnboundedSender<O>>>);
 }
 
-impl<S, D, F> Stream for BoardCastedStream<S, D, F>
+impl<S, D, F> Stream for BroadcastedStream<S, D, F>
 where
   S: Stream + Unpin,
-  F: BoardCastBehavior<S::Item, D>,
+  F: BroadcastBehavior<S::Item, D>,
 {
   type Item = D;
 
@@ -104,7 +104,7 @@ where
   ) -> Poll<Option<Self::Item>> {
     let outer_this = self.project();
     let mut inner = outer_this.source.write().unwrap();
-    let inner: &mut StreamBoardCasterInner<_, _, _> = &mut inner;
+    let inner: &mut StreamBroadcasterInner<_, _, _> = &mut inner;
     let inner = Pin::new(inner);
     let mut this = inner.project();
     // must use while let here, because we rely on this to update all depend system
@@ -121,11 +121,11 @@ where
   }
 }
 
-impl<S, D> StreamBoardCaster<S, D, FanOut>
+impl<S, D> StreamBroadcaster<S, D, FanOut>
 where
   S: Stream<Item = D> + Unpin,
 {
-  pub fn fork_stream(&self) -> BoardCastedStream<S, D, FanOut> {
+  pub fn fork_stream(&self) -> BroadcastedStream<S, D, FanOut> {
     let mut inner = self.inner.write().unwrap();
     let index = inner
       .distributer
@@ -138,7 +138,7 @@ where
     // todo shrink logic?
     let (sender, rev) = futures::channel::mpsc::unbounded();
     inner.distributer[index] = sender.into();
-    BoardCastedStream {
+    BroadcastedStream {
       rev,
       index,
       source: self.inner.clone(),
@@ -146,11 +146,11 @@ where
   }
 }
 
-impl<S, D> StreamBoardCaster<S, D, IndexMapping>
+impl<S, D> StreamBroadcaster<S, D, IndexMapping>
 where
   S: Stream<Item = (usize, D)> + Unpin,
 {
-  pub fn create_sub_stream_by_index(&self, index: usize) -> BoardCastedStream<S, D, IndexMapping> {
+  pub fn create_sub_stream_by_index(&self, index: usize) -> BroadcastedStream<S, D, IndexMapping> {
     let mut inner = self.inner.write().unwrap();
     // todo shrink logic?
     while inner.distributer.len() <= index {
@@ -158,7 +158,7 @@ where
     }
     let (sender, rev) = futures::channel::mpsc::unbounded();
     inner.distributer[index] = sender.into();
-    BoardCastedStream {
+    BroadcastedStream {
       rev,
       index,
       source: self.inner.clone(),
@@ -167,7 +167,7 @@ where
 }
 
 pub struct IndexMapping;
-impl<O> BoardCastBehavior<(usize, O), O> for IndexMapping {
+impl<O> BroadcastBehavior<(usize, O), O> for IndexMapping {
   fn board_cast(
     (index, v): (usize, O),
     output: &mut Vec<Option<futures::channel::mpsc::UnboundedSender<O>>>,
@@ -183,7 +183,7 @@ impl<O> BoardCastBehavior<(usize, O), O> for IndexMapping {
 }
 
 pub struct FanOut;
-impl<I: Clone> BoardCastBehavior<I, I> for FanOut {
+impl<I: Clone> BroadcastBehavior<I, I> for FanOut {
   fn board_cast(input: I, output: &mut Vec<Option<futures::channel::mpsc::UnboundedSender<I>>>) {
     output.iter_mut().for_each(|sender| {
       if let Some(sender_real) = sender {

@@ -18,7 +18,7 @@ pub struct SceneNodeDeriveSystem {
 type SceneNodeChangeStream = impl Stream<Item = (usize, SceneNodeDerivedDataDelta)> + Unpin;
 
 type SceneNodeChangeStreamIndexMapper =
-  StreamBoardCaster<SceneNodeChangeStream, SceneNodeDerivedDataDelta, IndexMapping>;
+  StreamBroadcaster<SceneNodeChangeStream, SceneNodeDerivedDataDelta, IndexMapping>;
 
 impl SceneNodeDeriveSystem {
   pub fn new(nodes: &SceneNodeCollection) -> Self {
@@ -33,7 +33,7 @@ impl SceneNodeDeriveSystem {
     let indexed_stream_mapper: SceneNodeChangeStreamIndexMapper = inner_sys
       .derived_stream
       .fork_stream()
-      .create_index_mapping_boardcaster();
+      .create_index_mapping_broadcaster();
 
     Self {
       inner: inner_sys,
