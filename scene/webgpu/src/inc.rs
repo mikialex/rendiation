@@ -16,7 +16,7 @@ struct GlobalGPUSystem {
   uniforms: HashMap<TypeId, Box<dyn Any>>,
   materials: HashMap<usize, GPUBindingSequence>,
   meshes: HashMap<usize, GPUBindingSequence>,
-  models: HashMap<usize, (usize, usize)>,
+  models: HashMap<usize, (ModelGPUBinding, usize)>,
 }
 
 pub enum Binding {
@@ -37,10 +37,11 @@ enum GPUBindingSequenceDelta {
   ShaderHash(u64),
 }
 
+#[derive(Incremental)]
 struct ModelGPUBinding {
-  material: usize,
-  mesh: usize,
-  shader_hash: u64,
+  pub material: usize,
+  pub mesh: usize,
+  pub shader_hash: u64,
 }
 
 struct StreamMap<T> {
@@ -72,7 +73,15 @@ impl GlobalGPUSystem {
   }
 
   fn material_gpu(&self, material: &SceneMaterialType) -> usize {
-    //
+    match material {
+      SceneMaterialType::PhysicalSpecularGlossiness(material) => {
+        //
+      }
+      SceneMaterialType::PhysicalMetallicRoughness(_) => todo!(),
+      SceneMaterialType::Flat(_) => todo!(),
+      SceneMaterialType::Foreign(_) => todo!(),
+      _ => todo!(),
+    }
   }
 
   fn mesh_gpu(&self, material: &SceneMeshType) -> usize {
@@ -83,21 +92,26 @@ impl GlobalGPUSystem {
     match model {
       SceneModelType::Standard(model) => {
         let idx = model.id();
-        let model = ModelGPUBinding {
-          material: todo!(),
-          mesh: todo!(),
+        if todo!() {
+          return idx;
+        }
+        let m = model.read();
+        let gpu_model = ModelGPUBinding {
+          material: self.material_gpu(&m.material),
+          mesh: self.mesh_gpu(&m.mesh),
           shader_hash: todo!(),
         };
-        model.listen_by(all_delta).map(|delta| match delta {
-          StandardModelDelta::material(material) => {
-            let idx = self.material_gpu(&material);
-          }
-          StandardModelDelta::mesh(mesh) => self.material_gpu(&material),
-          StandardModelDelta::group(_) => todo!(),
+        let stream = model.listen_by(all_delta).map(|delta| match delta {
+          StandardModelDelta::material(material) => self
+            .material_gpu(&material)
+            .wrap(ModelGPUBindingDelta::material),
+          StandardModelDelta::mesh(mesh) => self.mesh_gpu(&mesh).wrap(ModelGPUBindingDelta::mesh),
+          StandardModelDelta::group(group) => todo!(),
           StandardModelDelta::skeleton(_) => todo!(),
         });
-        todo!()
-        //
+
+        self.models.insert(idx, (gpu_model, stream));
+        idx
       }
       SceneModelType::Foreign(_) => todo!(),
       _ => todo!(),
