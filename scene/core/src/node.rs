@@ -93,8 +93,16 @@ impl IncrementalHierarchyDerived for SceneNodeDerivedData {
         collect(SceneNodeDerivedDataDelta::net_visible(net_visible))
       }
     } else {
-      self.world_matrix = self_source.local_matrix;
-      self.net_visible = self_source.visible;
+      let new_world = self_source.local_matrix;
+      if new_world != self.world_matrix {
+        self.world_matrix = new_world;
+        collect(SceneNodeDerivedDataDelta::world_matrix(new_world))
+      }
+      let net_visible = self_source.visible;
+      if net_visible != self.net_visible {
+        self.net_visible = net_visible;
+        collect(SceneNodeDerivedDataDelta::net_visible(net_visible))
+      }
     }
   }
 }
