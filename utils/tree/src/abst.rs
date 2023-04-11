@@ -38,6 +38,13 @@ impl<T> TreeCollection<T> {
       node: self.get_node(handle),
     }
   }
+
+  pub fn create_node_ref_mut(&mut self, handle: TreeNodeHandle<T>) -> TreeNodeMutPtr<T> {
+    TreeNodeMutPtr {
+      tree: self,
+      node: self.get_node_mut(handle),
+    }
+  }
 }
 
 pub struct TreeNodeMutPtr<T> {
@@ -59,11 +66,7 @@ impl<T> AbstractTreeMutNode for TreeNodeMutPtr<T> {
     unsafe {
       let mut next = (*self.node).first_child;
       while let Some(next_to_visit) = next {
-        let child = (*self.tree).get_node_mut(next_to_visit) as *mut TreeNode<T>;
-        let mut child = TreeNodeMutPtr {
-          tree: self.tree,
-          node: child,
-        };
+        let mut child = (*self.tree).create_node_mut_ptr(next_to_visit);
         visitor(&mut child);
         next = (*child.node).next_sibling
       }
@@ -74,13 +77,9 @@ impl<T> AbstractTreeMutNode for TreeNodeMutPtr<T> {
 impl<T> AbstractParentAddressableMutTreeNode for TreeNodeMutPtr<T> {
   fn get_parent_mut(&mut self) -> Option<Self> {
     unsafe {
-      (*self.node).parent.map(|parent| {
-        let parent = (*self.tree).get_node_mut(parent) as *mut TreeNode<T>;
-        TreeNodeMutPtr {
-          tree: self.tree,
-          node: parent,
-        }
-      })
+      (*self.node)
+        .parent
+        .map(|p| (*self.tree).create_node_mut_ptr(p))
     }
   }
 }

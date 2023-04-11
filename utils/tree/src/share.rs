@@ -85,22 +85,28 @@ impl<T: CoreTree> NodeInner<T> {
       handle,
     };
 
-    nodes_info
-      .node_add_child_by(self.inner.handle, handle)
-      .unwrap();
+    let mut node = Self::create_new(inner);
+    node.attach_to(self);
+    node
+  }
 
-    Self {
-      nodes: self.nodes.clone(),
-      parent: Some(self.inner.clone()),
-      inner: Arc::new(inner),
-    }
+  pub fn attach_to(&mut self, parent: &Self) {
+    let nodes = &mut self.nodes.inner.write().unwrap();
+    nodes
+      .node_add_child_by(parent.inner.handle, self.inner.handle)
+      .unwrap();
+    self.parent = Some(parent.inner.clone())
+  }
+
+  pub fn detach_from_parent(&mut self) {
+    let nodes = &mut self.nodes.inner.write().unwrap();
+    nodes.node_detach_parent(self.inner.handle).unwrap()
   }
 }
 
 impl<T: CoreTree> Drop for NodeInner<T> {
   fn drop(&mut self) {
-    let nodes = &mut self.nodes.inner.write().unwrap();
-    nodes.node_detach_parent(self.inner.handle).ok();
+    self.detach_from_parent()
   }
 }
 
