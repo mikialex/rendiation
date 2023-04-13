@@ -21,6 +21,7 @@ pub mod texture;
 pub mod util;
 
 mod inc;
+use inc::*;
 
 pub use background::*;
 pub use camera::*;

@@ -63,6 +63,10 @@ pub trait SignalStreamExt: Stream {
   fn create_index_mapping_broadcaster<D>(self) -> StreamBroadcaster<Self, D, IndexMapping>
   where
     Self: Sized + Stream;
+
+  fn fold_signal<State, F>(self, state: State, f: F) -> SignalFold<State, Self, F>
+  where
+    Self: Sized;
 }
 
 impl<T: Stream> SignalStreamExt for T {
@@ -123,6 +127,17 @@ impl<T: Stream> SignalStreamExt for T {
     Self: Sized,
   {
     StreamBroadcaster::new(self, IndexMapping)
+  }
+
+  fn fold_signal<State, F>(self, state: State, f: F) -> SignalFold<State, Self, F>
+  where
+    Self: Sized,
+  {
+    SignalFold {
+      state,
+      stream: self,
+      f,
+    }
   }
 }
 
@@ -363,5 +378,29 @@ where
     }
 
     Poll::Pending
+  }
+}
+
+pub struct SignalFold<T, S, F> {
+  state: T,
+  stream: S,
+  f: F,
+}
+
+impl<T, S, F> AsRef<T> for SignalFold<T, S, F> {
+  fn as_ref(&self) -> &T {
+    &self.state
+  }
+}
+
+impl<T, S, F, X> Stream for SignalFold<T, S, F>
+where
+  S: Stream,
+  F: Fn(S::Item, &mut T) -> X,
+{
+  type Item = X;
+
+  fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+    todo!()
   }
 }

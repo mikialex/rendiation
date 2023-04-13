@@ -26,10 +26,12 @@ pub enum Binding {
   // draw command
 }
 
+/// could just the product of shader hash and shader pass builder
 struct GPUBindingSequence {
   bindings: Vec<Binding>,
   shader_hash: u64,
 }
+// clone_self_incremental!(GPUBindingSequence);
 
 enum GPUBindingSequenceDelta {
   Binding,
@@ -67,15 +69,19 @@ impl GlobalGPUSystem {
     todo!()
   }
 }
+
 impl GlobalGPUSystem {
   fn texture2d_gpu(&self, texture2d: &SceneTexture2D) -> usize {
-    //
+    todo!()
   }
 
   fn material_gpu(&self, material: &SceneMaterialType) -> usize {
     match material {
       SceneMaterialType::PhysicalSpecularGlossiness(material) => {
-        //
+        let binding = GPUBindingSequence {
+          bindings: todo!(),
+          shader_hash: todo!(),
+        };
       }
       SceneMaterialType::PhysicalMetallicRoughness(_) => todo!(),
       SceneMaterialType::Flat(_) => todo!(),
@@ -85,37 +91,39 @@ impl GlobalGPUSystem {
   }
 
   fn mesh_gpu(&self, material: &SceneMeshType) -> usize {
-    //
+    todo!()
   }
 
   fn model_gpu(&self, model: &SceneModelType) -> usize {
-    match model {
-      SceneModelType::Standard(model) => {
-        let idx = model.id();
-        if todo!() {
-          return idx;
-        }
-        let m = model.read();
-        let gpu_model = ModelGPUBinding {
-          material: self.material_gpu(&m.material),
-          mesh: self.mesh_gpu(&m.mesh),
-          shader_hash: todo!(),
-        };
-        let stream = model.listen_by(all_delta).map(|delta| match delta {
-          StandardModelDelta::material(material) => self
-            .material_gpu(&material)
-            .wrap(ModelGPUBindingDelta::material),
-          StandardModelDelta::mesh(mesh) => self.mesh_gpu(&mesh).wrap(ModelGPUBindingDelta::mesh),
-          StandardModelDelta::group(group) => todo!(),
-          StandardModelDelta::skeleton(_) => todo!(),
-        });
+    todo!()
 
-        self.models.insert(idx, (gpu_model, stream));
-        idx
-      }
-      SceneModelType::Foreign(_) => todo!(),
-      _ => todo!(),
-    }
+    // match model {
+    //   SceneModelType::Standard(model) => {
+    //     let idx = model.id();
+    //     if todo!() {
+    //       return idx;
+    //     }
+    //     let m = model.read();
+    //     let gpu_model = ModelGPUBinding {
+    //       material: self.material_gpu(&m.material),
+    //       mesh: self.mesh_gpu(&m.mesh),
+    //       shader_hash: todo!(),
+    //     };
+    //     let stream = model.listen_by(all_delta).map(|delta| match delta {
+    //       StandardModelDelta::material(material) => self
+    //         .material_gpu(&material)
+    //         .wrap(ModelGPUBindingDelta::material),
+    //       StandardModelDelta::mesh(mesh) => self.mesh_gpu(&mesh).wrap(ModelGPUBindingDelta::mesh),
+    //       StandardModelDelta::group(group) => todo!(),
+    //       StandardModelDelta::skeleton(_) => todo!(),
+    //     });
+
+    //     self.models.insert(idx, (gpu_model, stream));
+    //     idx
+    //   }
+    //   SceneModelType::Foreign(_) => todo!(),
+    //   _ => todo!(),
+    // }
   }
 }
 

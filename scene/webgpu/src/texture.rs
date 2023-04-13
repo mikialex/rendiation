@@ -42,6 +42,33 @@ pub fn build_texture_sampler_pair(
   GPUTextureSamplerPair { texture, sampler }
 }
 
+pub struct TextureBuildCtxOwned {
+  gpu: GPU,
+  mipmap_gen: Rc<RefCell<MipMapTaskManager>>,
+}
+
+pub enum GPUResourceChange {
+  Reference,
+  Content,
+}
+
+pub type ReactiveGPU2DTextureView =
+  impl Stream<Item = GPUResourceChange> + Unpin + AsRef<GPU2DTextureView>;
+
+pub fn create_texture2d_gpu_reactive(
+  source: &SceneTexture2D,
+  ctx: &TextureBuildCtx,
+) -> ReactiveGPU2DTextureView {
+  let texture = create_texture2d(source, ctx);
+  source.listen_by(any_change).fold_signal(
+    texture,
+    move |change, texture: &mut GPU2DTextureView| {
+      // *texture = create_texture2d(source, todo!());
+      GPUResourceChange::Reference
+    },
+  )
+}
+
 pub struct TextureBuildCtx<'a> {
   gpu: &'a GPU,
   mipmap_gen: &'a Rc<RefCell<MipMapTaskManager>>,

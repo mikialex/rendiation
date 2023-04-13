@@ -123,6 +123,38 @@ impl ShaderGraphProvider for PhysicalMetallicRoughnessMaterialGPU {
   }
 }
 
+pub type ReactivePhysicalMetallicRoughnessMaterialGPU =
+  impl Stream<Item = GPUResourceChange> + Unpin + AsRef<PhysicalMetallicRoughnessMaterialGPU>;
+
+pub fn create_physical_metallic_material_gpu(
+  material: SceneItemRef<PhysicalMetallicRoughnessMaterial>,
+  res: &mut GPUResourceSubCache,
+  gpu: &GPU,
+) -> ReactivePhysicalMetallicRoughnessMaterialGPU {
+  let gpu_material = material.read().create_gpu(res, gpu);
+  material.listen_by(all_delta).fold_signal(
+    gpu_material,
+    |_, _: &mut PhysicalMetallicRoughnessMaterialGPU| {
+      //
+      GPUResourceChange::Reference
+    },
+  )
+}
+
+pub enum MaterialGPUReactive {
+  PhysicalMetallicRoughnessMaterialGPU(ReactivePhysicalMetallicRoughnessMaterialGPU),
+}
+
+impl MaterialGPUReactive {
+  pub fn as_render_component(&self) -> &dyn RenderComponent {
+    match self {
+      MaterialGPUReactive::PhysicalMetallicRoughnessMaterialGPU(gpu) => {
+        gpu.as_ref() as &dyn RenderComponent
+      }
+    }
+  }
+}
+
 impl WebGPUMaterial for PhysicalMetallicRoughnessMaterial {
   type GPU = PhysicalMetallicRoughnessMaterialGPU;
 
