@@ -3,20 +3,46 @@ use std::sync::{Arc, RwLock};
 
 use crate::*;
 
+struct SceneNodeGPUSystem;
+struct SceneCameraGPUSystem;
+// struct SceneBundleGPUSystem;
+
 struct SceneGPUSystem {
-  contents: Arc<GlobalGPUSystem>,
-  // nodes: Vec<>
-  //
+  // we share it between different scene system(it's global)
+  contents: Arc<RwLock<GlobalGPUSystem>>,
+  nodes: SceneNodeGPUSystem,
+  // the camera gpu data are mostly related to scene node it used, so keep it at scene level;
+  cameras: SceneCameraGPUSystem,
+  // bundle: SceneBundleGPUSystem,
+}
+
+impl SceneGPUSystem {
+  pub fn render(pass_dispatcher: &dyn RenderComponent) {
+    // do submit
+  }
 }
 
 /// The actual gpu data
 struct GlobalGPUSystem {
-  gpu: GPU,
-  texture_2d: HashMap<usize, GPU2DTexture>,
-  uniforms: HashMap<TypeId, Box<dyn Any>>,
-  materials: HashMap<usize, GPUBindingSequence>,
-  meshes: HashMap<usize, GPUBindingSequence>,
-  models: HashMap<usize, (ModelGPUBinding, usize)>,
+  texture_2d: StreamMap<ReactiveGPU2DTextureView>,
+  // uniforms: HashMap<TypeId, Box<dyn Any>>,
+  materials: StreamMap<GPUBindingSequenceReactive>,
+  meshes: StreamMap<GPUBindingSequenceReactive>,
+  models: StreamMap<ModelGPUBindingReactive>,
+}
+
+pub struct WhichModelRenderContentChange;
+
+impl Stream for GlobalGPUSystem {
+  type Item = WhichModelRenderContentChange;
+
+  fn poll_next(
+    self: __core::pin::Pin<&mut Self>,
+    cx: &mut task::Context<'_>,
+  ) -> task::Poll<Option<Self::Item>> {
+    // models are root, only poll model
+    todo!()
+  }
 }
 
 pub enum Binding {
@@ -26,9 +52,12 @@ pub enum Binding {
   // draw command
 }
 
+pub type GPUBindingSequenceReactive =
+  impl Stream<Item = GPUBindingSequenceDelta> + AsRef<GPUBindingSequence>;
+
 /// could just the product of shader hash and shader pass builder
 struct GPUBindingSequence {
-  bindings: Vec<Binding>,
+  bindings: Vec<Binding>, // use small vec
   shader_hash: u64,
 }
 // clone_self_incremental!(GPUBindingSequence);
@@ -39,6 +68,8 @@ enum GPUBindingSequenceDelta {
   ShaderHash(u64),
 }
 
+pub type ModelGPUBindingReactive =
+  impl Stream<Item = ModelGPUBindingReactiveDelta> + AsRef<ModelGPUBindingReactive>;
 #[derive(Incremental)]
 struct ModelGPUBinding {
   pub material: usize,
@@ -70,6 +101,23 @@ impl GlobalGPUSystem {
   }
 }
 
+pub type StandardModelGPUReactive = impl Stream + Unpin + AsRef<ModelGPUBinding>;
+
+fn standard_model(model: &SceneItemRef<StandardModel>) -> StandardModelGPUReactive {
+  let m = todo!();
+  model
+    .listen_by(all_delta)
+    .fold_signal(m, |delta, m: &mut ModelGPUBinding| {
+      //
+      ()
+    })
+}
+
+pub enum ModelGPUReactive {
+  Standard(),
+  Foreign,
+}
+
 impl GlobalGPUSystem {
   fn texture2d_gpu(&self, texture2d: &SceneTexture2D) -> usize {
     todo!()
@@ -94,7 +142,7 @@ impl GlobalGPUSystem {
     todo!()
   }
 
-  fn model_gpu(&self, model: &SceneModelType) -> usize {
+  fn model_gpu(&self, model: &SceneModelType) -> ModelGPUReactive {
     todo!()
 
     // match model {
