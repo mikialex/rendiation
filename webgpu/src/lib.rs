@@ -5,6 +5,7 @@
 mod device;
 mod encoder;
 mod pass;
+mod queue;
 mod read;
 mod rendering;
 mod resource;
@@ -14,6 +15,7 @@ mod types;
 pub use device::*;
 pub use encoder::*;
 pub use pass::*;
+pub use queue::*;
 pub use read::*;
 pub use rendering::*;
 pub use resource::*;
@@ -52,7 +54,7 @@ pub struct GPU {
   _instance: gpu::Instance,
   _adaptor: gpu::Adapter,
   pub device: GPUDevice,
-  pub queue: gpu::Queue,
+  pub queue: GPUQueue,
 }
 
 impl GPU {
@@ -89,6 +91,7 @@ impl GPU {
       .expect("Unable to find a suitable GPU device!");
 
     let device = GPUDevice::new(device);
+    let queue = GPUQueue::new(queue);
 
     Self {
       _instance,
@@ -129,6 +132,7 @@ impl GPU {
       .expect("Unable to find a suitable GPU device!");
 
     let device = GPUDevice::new(device);
+    let queue = GPUQueue::new(queue);
 
     let surface = GPUSurface::new(&_adaptor, &device, surface, size);
 

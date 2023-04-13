@@ -109,6 +109,11 @@ impl<T: IncrementalBase> SceneItemRef<T> {
     }
   }
 
+  // todo, we could keep this id on the self, to avoid unnecessary read lock.
+  pub fn id(&self) -> usize {
+    self.read().id()
+  }
+
   pub fn mutate<R>(&self, mutator: impl FnOnce(Mutating<T>) -> R) -> R {
     // ignore lock poison
     let mut inner = self.inner.write().unwrap_or_else(|e| e.into_inner());

@@ -85,11 +85,56 @@ fn create_texture2d(tex: &SceneTexture2D, ctx: &TextureBuildCtx) -> GPU2DTexture
     let gpu_texture: GPU2DTexture = gpu_texture.try_into().unwrap();
     gpu_texture.upload_into(&gpu.queue, texture, 0)
   } else {
-    create_fallback_empty_texture(gpu)
+    create_fallback_empty_texture(&gpu.device)
   };
 
   ctx.mipmap_gen.borrow_mut().request_mipmap_gen(&gpu_texture);
   gpu_texture.create_default_view().try_into().unwrap()
+}
+
+pub type ReactiveGPU2DTextureView =
+  impl Stream<Item = GPUResourceChange<GPU2DTextureView>> + Unpin + AsRef<GPU2DTextureView>;
+
+impl ShareBindableResource {
+  pub fn get_or_create_reactive_gpu_texture2d(
+    &mut self,
+    tex: &SceneTexture2D,
+  ) -> &mut ReactiveGPU2DTextureView {
+    self.texture_2d.get_or_insert_with(tex.id(), || {
+      let gpu_tex = self.gpu.create_gpu_texture2d(tex);
+      let gpu_clone = self.gpu.clone();
+      tex
+        .listen_by(any_change)
+        .fold_signal(gpu_tex, |delta, gpu_tex: &mut GPU2DTextureView| {
+          let gpu_clone = gpu_clone;
+          let recreated = gpu_clone.create_gpu_texture2d(tex);
+          *gpu_tex = recreated.clone();
+          GPUResourceChange::Reference(recreated)
+        })
+    })
+  }
+}
+
+impl ResourceGPUCtx {
+  pub fn create_gpu_texture2d(&self, tex: &SceneTexture2D) -> GPU2DTextureView {
+    let texture = &tex.read();
+    let texture = as_2d_source(texture);
+
+    let gpu_texture = if let Some(texture) = texture {
+      let desc = texture.create_tex2d_desc(MipLevelCount::BySize);
+      let gpu_texture = GPUTexture::create(desc, &self.device);
+      let gpu_texture: GPU2DTexture = gpu_texture.try_into().unwrap();
+      gpu_texture.upload_into(&self.queue, texture, 0)
+    } else {
+      create_fallback_empty_texture(&self.device)
+    };
+
+    self
+      .mipmap_gen
+      .borrow_mut()
+      .request_mipmap_gen(&gpu_texture);
+    gpu_texture.create_default_view().try_into().unwrap()
+  }
 }
 
 impl SceneItemReactiveSimpleMapping<Wrapped<GPUCubeTextureView>> for SceneTextureCube {
@@ -133,7 +178,7 @@ fn create_texture_cube(tex: &SceneTextureCube, ctx: &TextureBuildCtx) -> GPUCube
   }
 }
 
-fn create_fallback_empty_texture(gpu: &GPU) -> GPU2DTexture {
+fn create_fallback_empty_texture(device: &GPUDevice) -> GPU2DTexture {
   GPUTexture::create(
     webgpu::TextureDescriptor {
       label: "unimplemented default texture".into(),
@@ -149,13 +194,13 @@ fn create_fallback_empty_texture(gpu: &GPU) -> GPU2DTexture {
       view_formats: &[],
       usage: webgpu::TextureUsages::all(),
     },
-    &gpu.device,
+    &device,
   )
   .try_into()
   .unwrap()
 }
 
-fn create_fallback_empty_cube_texture(gpu: &GPU) -> GPUCubeTexture {
+fn create_fallback_empty_cube_texture(device: &GPUDevice) -> GPUCubeTexture {
   GPUTexture::create(
     webgpu::TextureDescriptor {
       label: "unimplemented default texture".into(),
@@ -171,7 +216,7 @@ fn create_fallback_empty_cube_texture(gpu: &GPU) -> GPUCubeTexture {
       view_formats: &[],
       usage: webgpu::TextureUsages::all(),
     },
-    &gpu.device,
+    &device,
   )
   .try_into()
   .unwrap()

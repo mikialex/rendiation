@@ -396,7 +396,7 @@ impl<T, S, F> AsRef<T> for SignalFold<T, S, F> {
 impl<T, S, F, X> Stream for SignalFold<T, S, F>
 where
   S: Stream,
-  F: Fn(S::Item, &mut T) -> X,
+  F: FnMut(S::Item, &mut T) -> X,
 {
   type Item = X;
 

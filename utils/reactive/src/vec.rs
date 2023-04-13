@@ -25,7 +25,6 @@ impl<T> Default for StreamVec<T> {
 }
 
 impl<T> StreamVec<T> {
-  /// T should be polled before inserted.
   pub fn insert(&mut self, index: usize, st: Option<T>) {
     // assure allocated
     while self.streams.len() <= index {
@@ -33,6 +32,15 @@ impl<T> StreamVec<T> {
     }
     self.streams[index] = st;
     self.waked.write().unwrap().push(index);
+    self.try_wake()
+  }
+
+  pub fn try_wake(&self) {
+    let waker = self.waker.read().unwrap();
+    let waker: &Option<_> = &waker;
+    if let Some(waker) = waker {
+      waker.wake_by_ref();
+    }
   }
 }
 

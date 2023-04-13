@@ -23,11 +23,15 @@ impl SceneGPUSystem {
 }
 
 #[derive(Clone)]
-struct GPUCtx;
+pub struct ResourceGPUCtx {
+  pub device: GPUDevice,
+  pub queue: GPUQueue,
+  pub mipmap_gen: Rc<RefCell<MipMapTaskManager>>,
+}
 
 /// The actual gpu data
 struct GlobalGPUSystem {
-  gpu: GPUCtx,
+  gpu: ResourceGPUCtx,
   shared: ShareBindableResource,
   // uniforms: HashMap<TypeId, Box<dyn Any>>,
   materials: StreamMap<GPUBindingSequenceReactive>,
@@ -36,7 +40,8 @@ struct GlobalGPUSystem {
 }
 
 pub struct ShareBindableResource {
-  texture_2d: StreamMap<ReactiveGPU2DTextureView>,
+  pub gpu: ResourceGPUCtx,
+  pub texture_2d: StreamMap<ReactiveGPU2DTextureView>,
   // texture_cube
   // any shared uniforms
 }
@@ -89,8 +94,26 @@ struct ModelGPUBinding {
 
 struct StreamMap<T> {
   contents: HashMap<usize, T>,
-  // waked: Arc<RwLock<Vec<usize>>>,
-  // waker: Arc<RwLock<Option<Waker>>>,
+  waked: Arc<RwLock<Vec<usize>>>,
+  waker: Arc<RwLock<Option<Waker>>>,
+}
+
+impl<T> StreamMap<T> {
+  pub fn get_or_insert_with(&mut self, key: usize, f: impl FnOnce() -> T) -> &mut T {
+    self.contents.entry(key).or_insert_with(|| {
+      self.waked.write().unwrap().push(key);
+      self.try_wake();
+      f()
+    })
+  }
+
+  pub fn try_wake(&self) {
+    let waker = self.waker.read().unwrap();
+    let waker: &Option<_> = &waker;
+    if let Some(waker) = waker {
+      waker.wake_by_ref();
+    }
+  }
 }
 
 impl<T: Stream + Unpin> Stream for StreamMap<T> {
@@ -335,7 +358,7 @@ impl<T: Copy> Stream for KeyedRenderComponentDelta<T> {
 
 use __core::{
   pin::Pin,
-  task::{Context, Poll},
+  task::{Context, Poll, Waker},
 };
 use pin_project::pin_project;
 #[pin_project]
@@ -400,20 +423,3 @@ pub struct TextureBuildCtxOwned {
 //   type Stream;
 //   fn build_forked(&self) -> Self::Stream;
 // }
-
-pub type ReactiveGPU2DTextureView =
-  impl Stream<Item = GPUResourceChange<GPU2DTextureView>> + Unpin + AsRef<GPU2DTextureView>;
-
-pub fn create_texture2d_gpu_reactive(
-  source: &SceneTexture2D,
-  ctx: &TextureBuildCtx,
-) -> ReactiveGPU2DTextureView {
-  let texture = create_texture2d(source, ctx);
-  source.listen_by(any_change).fold_signal(
-    texture,
-    move |change, texture: &mut GPU2DTextureView| {
-      // *texture = create_texture2d(source, todo!());
-      GPUResourceChange::Reference
-    },
-  )
-}
