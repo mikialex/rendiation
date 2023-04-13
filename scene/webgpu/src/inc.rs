@@ -22,11 +22,6 @@ impl SceneGPUSystem {
   }
 }
 
-pub enum GPUResourceChange {
-  Reference,
-  Content,
-}
-
 #[derive(Clone)]
 struct GPUCtx;
 
@@ -277,26 +272,37 @@ impl MaterialGPUReactive {
   }
 }
 
-pub type ReactivePhysicalMetallicRoughnessMaterialGPU =
-  impl Stream<Item = GPUResourceChange> + Unpin + AsRef<PhysicalMetallicRoughnessMaterialGPU>;
+pub enum GPUResourceChange<T> {
+  Reference(T),
+  Content,
+}
 
 #[pin_project(project = MaterialGPUChangeProj)]
-pub enum MaterialGPUChange<T> {
+pub enum KeyedRenderComponentDelta<T> {
   Texture(T, #[pin] ReactiveGPU2DTextureView),
-  // Uniform(T,),  we don't have shared uniforms now
+  // Uniform(T,),  we don't have shared this now
+  // Vertex(T,),  we don't have shared this now
   OwnedBindingContent,
-  OwnedBindingRef(T),
   ShaderHash,
 }
 
-pub enum MaterialGPUChangeFlattened<T> {
-  ContentRef(T),
+pub enum FlattenedKeyedRenderComponentDelta<T> {
+  TextureRef(T, GPU2DTextureView),
+  // Uniform(T,),  we don't have shared this now
+  // Vertex(T,),  we don't have shared this now
   Content,
   ShaderHash,
 }
 
-impl<T: Copy> Stream for MaterialGPUChange<T> {
-  type Item = MaterialGPUChangeFlattened<T>;
+pub enum RenderComponentDelta {
+  ShaderHash,
+  ContentRef,
+  Content,
+  Draw,
+}
+
+impl<T: Copy> Stream for KeyedRenderComponentDelta<T> {
+  type Item = FlattenedKeyedRenderComponentDelta<T>;
 
   fn poll_next(
     self: __core::pin::Pin<&mut Self>,
@@ -307,10 +313,12 @@ impl<T: Copy> Stream for MaterialGPUChange<T> {
         return if let Poll::Ready(r) = stream.poll_next(cx) {
           if let Some(r) = r {
             match r {
-              GPUResourceChange::Content => Poll::Ready(Some(MaterialGPUChangeFlattened::Content)),
-              GPUResourceChange::Reference => {
-                Poll::Ready(Some(MaterialGPUChangeFlattened::ContentRef(*key)))
+              GPUResourceChange::Content => {
+                Poll::Ready(Some(FlattenedKeyedRenderComponentDelta::Content))
               }
+              GPUResourceChange::Reference(tex) => Poll::Ready(Some(
+                FlattenedKeyedRenderComponentDelta::TextureRef(*key, tex),
+              )),
             }
           } else {
             Poll::Ready(None)
@@ -319,9 +327,8 @@ impl<T: Copy> Stream for MaterialGPUChange<T> {
           Poll::Pending
         }
       }
-      MaterialGPUChangeProj::OwnedBindingContent => MaterialGPUChangeFlattened::Content,
-      MaterialGPUChangeProj::OwnedBindingRef(key) => MaterialGPUChangeFlattened::ContentRef(*key),
-      MaterialGPUChangeProj::ShaderHash => MaterialGPUChangeFlattened::ShaderHash,
+      MaterialGPUChangeProj::OwnedBindingContent => FlattenedKeyedRenderComponentDelta::Content,
+      MaterialGPUChangeProj::ShaderHash => FlattenedKeyedRenderComponentDelta::ShaderHash,
     }))
   }
 }
@@ -339,13 +346,8 @@ struct MaterialGPUReactiveCell<T: WebGPUMaterialIncremental> {
   stream: T::Stream,
 }
 
-pub enum MaterialGPUChangeOutside {
-  ShaderHash(u64),
-  Binding,
-}
-
 impl<T: WebGPUMaterialIncremental> Stream for MaterialGPUReactiveCell<T> {
-  type Item = MaterialGPUChangeOutside;
+  type Item = RenderComponentDelta;
 
   fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
     let this = self.project();
@@ -372,7 +374,7 @@ pub trait WebGPUMaterialIncremental: Incremental {
     source: &SceneItemRef<Self>,
     ctx: &ShareBindableResource,
   ) -> (Self::GPU, Self::Stream);
-  fn apply_change(delta: <Self::Stream as Stream>::Item) -> Option<MaterialGPUChangeOutside>;
+  fn apply_change(delta: <Self::Stream as Stream>::Item) -> Option<RenderComponentDelta>;
 
   fn build_gpu_cell(
     source: &SceneItemRef<Self>,
@@ -400,7 +402,7 @@ pub struct TextureBuildCtxOwned {
 // }
 
 pub type ReactiveGPU2DTextureView =
-  impl Stream<Item = GPUResourceChange> + Unpin + AsRef<GPU2DTextureView>;
+  impl Stream<Item = GPUResourceChange<GPU2DTextureView>> + Unpin + AsRef<GPU2DTextureView>;
 
 pub fn create_texture2d_gpu_reactive(
   source: &SceneTexture2D,
