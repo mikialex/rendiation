@@ -262,9 +262,9 @@ impl SceneGPUSystem {
 }
 
 fn create_material_gpu(
+  sys: &GlobalGPUSystem,
   material: &SceneMaterialType,
   res: &mut ShareBindableResource,
-  gpu: &GPUCtx,
 ) -> MaterialGPUReactive {
   match material {
     SceneMaterialType::PhysicalSpecularGlossiness(_) => todo!(),
