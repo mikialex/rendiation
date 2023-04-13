@@ -1,6 +1,6 @@
 use std::{
   ops::{Deref, DerefMut},
-  sync::{RwLockReadGuard, RwLockWriteGuard},
+  sync::{RwLockReadGuard, RwLockWriteGuard, Weak},
 };
 
 use futures::{Future, Stream};
@@ -13,6 +13,16 @@ use super::identity::Identity;
 #[derive(Default)]
 pub struct SceneItemRef<T: IncrementalBase> {
   inner: Arc<RwLock<Identity<T>>>,
+}
+
+pub struct SceneItemWeakRef<T: IncrementalBase> {
+  inner: Weak<RwLock<Identity<T>>>,
+}
+
+impl<T: IncrementalBase> SceneItemWeakRef<T> {
+  pub fn upgrade(&self) -> Option<SceneItemRef<T>> {
+    self.inner.upgrade().map(|inner| SceneItemRef { inner })
+  }
 }
 
 impl<T: IncrementalBase + Send + Sync> IncrementalBase for SceneItemRef<T> {
@@ -91,6 +101,12 @@ impl<T: IncrementalBase> SceneItemRef<T> {
   pub fn new(source: T) -> Self {
     let inner = Arc::new(RwLock::new(Identity::new(source)));
     Self { inner }
+  }
+
+  pub fn downgrade(&self) -> SceneItemWeakRef<T> {
+    SceneItemWeakRef {
+      inner: Arc::downgrade(&self.inner),
+    }
   }
 
   pub fn mutate<R>(&self, mutator: impl FnOnce(Mutating<T>) -> R) -> R {

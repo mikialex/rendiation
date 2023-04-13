@@ -25,6 +25,7 @@ pub enum AlphaMode {
   /// The alpha cutoff value is ignored.
   Blend,
 }
+clone_self_incremental!(AlphaMode);
 
 impl Default for AlphaMode {
   fn default() -> Self {
@@ -50,7 +51,7 @@ pub struct PhysicalSpecularGlossinessMaterial {
 
 clone_self_incremental!(PhysicalSpecularGlossinessMaterial);
 
-#[derive(Clone)]
+#[derive(Clone, Incremental)]
 pub struct NormalMapping {
   pub content: Texture2DWithSamplingData,
   pub scale: f32,
@@ -75,7 +76,7 @@ impl Default for PhysicalSpecularGlossinessMaterial {
   }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Incremental)]
 pub struct PhysicalMetallicRoughnessMaterial {
   /// in conductor case will act as specular color,
   /// in dielectric case will act as diffuse color,
@@ -92,7 +93,7 @@ pub struct PhysicalMetallicRoughnessMaterial {
   pub emissive_texture: Option<Texture2DWithSamplingData>,
   pub normal_texture: Option<NormalMapping>,
 }
-clone_self_incremental!(PhysicalMetallicRoughnessMaterial);
+// clone_self_incremental!(PhysicalMetallicRoughnessMaterial);
 
 impl Default for PhysicalMetallicRoughnessMaterial {
   fn default() -> Self {

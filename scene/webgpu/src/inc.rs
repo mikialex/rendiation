@@ -22,13 +22,28 @@ impl SceneGPUSystem {
   }
 }
 
+pub enum GPUResourceChange {
+  Reference,
+  Content,
+}
+
+#[derive(Clone)]
+struct GPUCtx;
+
 /// The actual gpu data
 struct GlobalGPUSystem {
-  texture_2d: StreamMap<ReactiveGPU2DTextureView>,
+  gpu: GPUCtx,
+  shared: ShareBindableResource,
   // uniforms: HashMap<TypeId, Box<dyn Any>>,
   materials: StreamMap<GPUBindingSequenceReactive>,
   meshes: StreamMap<GPUBindingSequenceReactive>,
-  models: StreamMap<ModelGPUBindingReactive>,
+  // models: StreamMap<ModelGPUBindingReactive>,
+}
+
+pub struct ShareBindableResource {
+  texture_2d: StreamMap<ReactiveGPU2DTextureView>,
+  // texture_cube
+  // any shared uniforms
 }
 
 pub struct WhichModelRenderContentChange;
@@ -68,8 +83,8 @@ enum GPUBindingSequenceDelta {
   ShaderHash(u64),
 }
 
-pub type ModelGPUBindingReactive =
-  impl Stream<Item = ModelGPUBindingReactiveDelta> + AsRef<ModelGPUBindingReactive>;
+// pub type ModelGPUBindingReactive =
+//   impl Stream<Item = ModelGPUBindingReactiveDelta> + AsRef<ModelGPUBindingReactive>;
 #[derive(Incremental)]
 struct ModelGPUBinding {
   pub material: usize,
@@ -226,4 +241,177 @@ impl SceneGPUSystem {
   pub fn render_with_dispatcher(&self, dispatcher: &dyn RenderComponent) -> webgpu::CommandBuffer {
     todo!()
   }
+}
+
+fn create_material_gpu(
+  material: &SceneMaterialType,
+  res: &mut ShareBindableResource,
+  gpu: &GPUCtx,
+) -> MaterialGPUReactive {
+  match material {
+    SceneMaterialType::PhysicalSpecularGlossiness(_) => todo!(),
+    SceneMaterialType::PhysicalMetallicRoughness(m) => {
+      MaterialGPUReactive::PhysicalMetallicRoughnessMaterialGPU(
+        create_physical_metallic_material_gpu(m, res, gpu),
+      )
+    }
+    SceneMaterialType::Flat(_) => todo!(),
+    SceneMaterialType::Foreign(_) => todo!(),
+    _ => todo!(),
+  }
+}
+
+pub enum MaterialGPUReactive {
+  PhysicalMetallicRoughnessMaterialGPU(ReactivePhysicalMetallicRoughnessMaterialGPU),
+  Foreign,
+}
+
+impl MaterialGPUReactive {
+  pub fn as_render_component(&self) -> &dyn RenderComponent {
+    match self {
+      MaterialGPUReactive::PhysicalMetallicRoughnessMaterialGPU(gpu) => {
+        gpu.as_ref() as &dyn RenderComponent
+      }
+      MaterialGPUReactive::Foreign => &(),
+    }
+  }
+}
+
+pub type ReactivePhysicalMetallicRoughnessMaterialGPU =
+  impl Stream<Item = GPUResourceChange> + Unpin + AsRef<PhysicalMetallicRoughnessMaterialGPU>;
+
+#[pin_project(project = MaterialGPUChangeProj)]
+pub enum MaterialGPUChange<T> {
+  Texture(T, #[pin] ReactiveGPU2DTextureView),
+  // Uniform(T,),  we don't have shared uniforms now
+  OwnedBindingContent,
+  OwnedBindingRef(T),
+  ShaderHash,
+}
+
+pub enum MaterialGPUChangeFlattened<T> {
+  ContentRef(T),
+  Content,
+  ShaderHash,
+}
+
+impl<T: Copy> Stream for MaterialGPUChange<T> {
+  type Item = MaterialGPUChangeFlattened<T>;
+
+  fn poll_next(
+    self: __core::pin::Pin<&mut Self>,
+    cx: &mut task::Context<'_>,
+  ) -> task::Poll<Option<Self::Item>> {
+    Poll::Ready(Some(match self.project() {
+      MaterialGPUChangeProj::Texture(key, stream) => {
+        return if let Poll::Ready(r) = stream.poll_next(cx) {
+          if let Some(r) = r {
+            match r {
+              GPUResourceChange::Content => Poll::Ready(Some(MaterialGPUChangeFlattened::Content)),
+              GPUResourceChange::Reference => {
+                Poll::Ready(Some(MaterialGPUChangeFlattened::ContentRef(*key)))
+              }
+            }
+          } else {
+            Poll::Ready(None)
+          }
+        } else {
+          Poll::Pending
+        }
+      }
+      MaterialGPUChangeProj::OwnedBindingContent => MaterialGPUChangeFlattened::Content,
+      MaterialGPUChangeProj::OwnedBindingRef(key) => MaterialGPUChangeFlattened::ContentRef(*key),
+      MaterialGPUChangeProj::ShaderHash => MaterialGPUChangeFlattened::ShaderHash,
+    }))
+  }
+}
+
+use __core::{
+  pin::Pin,
+  task::{Context, Poll},
+};
+use pin_project::pin_project;
+#[pin_project]
+struct MaterialGPUReactiveCell<T: WebGPUMaterialIncremental> {
+  weak_source: SceneItemWeakRef<T>,
+  gpu: T::GPU,
+  #[pin]
+  stream: T::Stream,
+}
+
+pub enum MaterialGPUChangeOutside {
+  ShaderHash(u64),
+  Binding,
+}
+
+impl<T: WebGPUMaterialIncremental> Stream for MaterialGPUReactiveCell<T> {
+  type Item = MaterialGPUChangeOutside;
+
+  fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+    let this = self.project();
+    if let Poll::Ready(r) = this.stream.poll_next(cx) {
+      if let Some(delta) = r {
+        if let Some(source) = self.weak_source.upgrade() {
+          Poll::Ready(T::apply_change(delta))
+        } else {
+          Poll::Ready(None)
+        }
+      } else {
+        Poll::Ready(None)
+      }
+    } else {
+      Poll::Pending
+    }
+  }
+}
+
+pub trait WebGPUMaterialIncremental: Incremental {
+  type GPU;
+  type Stream: Stream;
+  fn build_gpu(
+    source: &SceneItemRef<Self>,
+    ctx: &ShareBindableResource,
+  ) -> (Self::GPU, Self::Stream);
+  fn apply_change(delta: <Self::Stream as Stream>::Item) -> Option<MaterialGPUChangeOutside>;
+
+  fn build_gpu_cell(
+    source: &SceneItemRef<Self>,
+    ctx: &ShareBindableResource,
+  ) -> MaterialGPUReactiveCell<Self> {
+    let (gpu, stream) = Self::build_gpu(source, ctx);
+
+    MaterialGPUReactiveCell {
+      weak_source: source.downgrade(),
+      gpu,
+      stream,
+    }
+  }
+}
+
+#[derive(Clone)]
+pub struct TextureBuildCtxOwned {
+  gpu: GPUDevice,
+  mipmap_gen: Rc<RefCell<MipMapTaskManager>>,
+}
+
+// pub trait StreamBuilder {
+//   type Stream;
+//   fn build_forked(&self) -> Self::Stream;
+// }
+
+pub type ReactiveGPU2DTextureView =
+  impl Stream<Item = GPUResourceChange> + Unpin + AsRef<GPU2DTextureView>;
+
+pub fn create_texture2d_gpu_reactive(
+  source: &SceneTexture2D,
+  ctx: &TextureBuildCtx,
+) -> ReactiveGPU2DTextureView {
+  let texture = create_texture2d(source, ctx);
+  source.listen_by(any_change).fold_signal(
+    texture,
+    move |change, texture: &mut GPU2DTextureView| {
+      // *texture = create_texture2d(source, todo!());
+      GPUResourceChange::Reference
+    },
+  )
 }
