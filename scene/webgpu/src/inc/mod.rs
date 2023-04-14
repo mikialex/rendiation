@@ -3,9 +3,12 @@ use std::sync::{Arc, RwLock};
 
 use crate::*;
 
+mod deltas;
+pub use deltas::*;
+
 struct SceneNodeGPUSystem;
 struct SceneCameraGPUSystem;
-// struct SceneBundleGPUSystem;
+struct SceneBundleGPUSystem;
 
 struct SceneGPUSystem {
   // we share it between different scene system(it's global)
@@ -13,7 +16,7 @@ struct SceneGPUSystem {
   nodes: SceneNodeGPUSystem,
   // the camera gpu data are mostly related to scene node it used, so keep it at scene level;
   cameras: SceneCameraGPUSystem,
-  // bundle: SceneBundleGPUSystem,
+  bundle: SceneBundleGPUSystem,
 }
 
 impl SceneGPUSystem {
@@ -34,14 +37,20 @@ struct GlobalGPUSystem {
   gpu: ResourceGPUCtx,
   shared: ShareBindableResource,
   // uniforms: HashMap<TypeId, Box<dyn Any>>,
-  materials: StreamMap<GPUBindingSequenceReactive>,
-  meshes: StreamMap<GPUBindingSequenceReactive>,
-  // models: StreamMap<ModelGPUBindingReactive>,
+  materials: StreamMap<ReactiveRenderComponent>,
+  meshes: StreamMap<ReactiveRenderComponent>,
+  models: StreamMap<ReactiveRenderComponent>,
+}
+
+impl GlobalGPUSystem {
+  pub fn new() -> Self {
+    todo!()
+  }
 }
 
 pub struct ShareBindableResource {
   pub gpu: ResourceGPUCtx,
-  pub texture_2d: StreamMap<ReactiveGPU2DTextureView>,
+  pub texture_2d: StreamMap<ReactiveGPU2DTextureViewBuilder>,
   // texture_cube
   // any shared uniforms
 }
@@ -60,81 +69,8 @@ impl Stream for GlobalGPUSystem {
   }
 }
 
-pub enum Binding {
-  Texture2D(usize),
-  Uniform(TypeId, usize),
-  VertexBuffer(usize),
-  // draw command
-}
-
-pub type GPUBindingSequenceReactive =
-  impl Stream<Item = GPUBindingSequenceDelta> + AsRef<GPUBindingSequence>;
-
-/// could just the product of shader hash and shader pass builder
-struct GPUBindingSequence {
-  bindings: Vec<Binding>, // use small vec
-  shader_hash: u64,
-}
-// clone_self_incremental!(GPUBindingSequence);
-
-enum GPUBindingSequenceDelta {
-  Binding,
-  BindingContent,
-  ShaderHash(u64),
-}
-
-// pub type ModelGPUBindingReactive =
-//   impl Stream<Item = ModelGPUBindingReactiveDelta> + AsRef<ModelGPUBindingReactive>;
-#[derive(Incremental)]
-struct ModelGPUBinding {
-  pub material: usize,
-  pub mesh: usize,
-  pub shader_hash: u64,
-}
-
-struct StreamMap<T> {
-  contents: HashMap<usize, T>,
-  waked: Arc<RwLock<Vec<usize>>>,
-  waker: Arc<RwLock<Option<Waker>>>,
-}
-
-impl<T> StreamMap<T> {
-  pub fn get_or_insert_with(&mut self, key: usize, f: impl FnOnce() -> T) -> &mut T {
-    self.contents.entry(key).or_insert_with(|| {
-      self.waked.write().unwrap().push(key);
-      self.try_wake();
-      f()
-    })
-  }
-
-  pub fn try_wake(&self) {
-    let waker = self.waker.read().unwrap();
-    let waker: &Option<_> = &waker;
-    if let Some(waker) = waker {
-      waker.wake_by_ref();
-    }
-  }
-}
-
-impl<T: Stream + Unpin> Stream for StreamMap<T> {
-  type Item = T::Item;
-
-  fn poll_next(
-    self: __core::pin::Pin<&mut Self>,
-    cx: &mut task::Context<'_>,
-  ) -> task::Poll<Option<Self::Item>> {
-    todo!()
-  }
-  //
-}
-
-impl GlobalGPUSystem {
-  pub fn new() -> Self {
-    todo!()
-  }
-}
-
-pub type StandardModelGPUReactive = impl Stream + Unpin + AsRef<ModelGPUBinding>;
+pub type ReactiveRenderComponent =
+  impl Stream<Item = RenderComponentDelta> + AsRef<dyn RenderComponent>;
 
 fn standard_model(model: &SceneItemRef<StandardModel>) -> StandardModelGPUReactive {
   let m = todo!();
@@ -294,132 +230,3 @@ impl MaterialGPUReactive {
     }
   }
 }
-
-pub enum GPUResourceChange<T> {
-  Reference(T),
-  Content,
-}
-
-#[pin_project(project = MaterialGPUChangeProj)]
-pub enum KeyedRenderComponentDelta<T> {
-  Texture(T, #[pin] ReactiveGPU2DTextureView),
-  // Uniform(T,),  we don't have shared this now
-  // Vertex(T,),  we don't have shared this now
-  OwnedBindingContent,
-  ShaderHash,
-}
-
-pub enum FlattenedKeyedRenderComponentDelta<T> {
-  TextureRef(T, GPU2DTextureView),
-  // Uniform(T,),  we don't have shared this now
-  // Vertex(T,),  we don't have shared this now
-  Content,
-  ShaderHash,
-}
-
-pub enum RenderComponentDelta {
-  ShaderHash,
-  ContentRef,
-  Content,
-  Draw,
-}
-
-impl<T: Copy> Stream for KeyedRenderComponentDelta<T> {
-  type Item = FlattenedKeyedRenderComponentDelta<T>;
-
-  fn poll_next(
-    self: __core::pin::Pin<&mut Self>,
-    cx: &mut task::Context<'_>,
-  ) -> task::Poll<Option<Self::Item>> {
-    Poll::Ready(Some(match self.project() {
-      MaterialGPUChangeProj::Texture(key, stream) => {
-        return if let Poll::Ready(r) = stream.poll_next(cx) {
-          if let Some(r) = r {
-            match r {
-              GPUResourceChange::Content => {
-                Poll::Ready(Some(FlattenedKeyedRenderComponentDelta::Content))
-              }
-              GPUResourceChange::Reference(tex) => Poll::Ready(Some(
-                FlattenedKeyedRenderComponentDelta::TextureRef(*key, tex),
-              )),
-            }
-          } else {
-            Poll::Ready(None)
-          }
-        } else {
-          Poll::Pending
-        }
-      }
-      MaterialGPUChangeProj::OwnedBindingContent => FlattenedKeyedRenderComponentDelta::Content,
-      MaterialGPUChangeProj::ShaderHash => FlattenedKeyedRenderComponentDelta::ShaderHash,
-    }))
-  }
-}
-
-use __core::{
-  pin::Pin,
-  task::{Context, Poll, Waker},
-};
-use pin_project::pin_project;
-#[pin_project]
-struct MaterialGPUReactiveCell<T: WebGPUMaterialIncremental> {
-  weak_source: SceneItemWeakRef<T>,
-  gpu: T::GPU,
-  #[pin]
-  stream: T::Stream,
-}
-
-impl<T: WebGPUMaterialIncremental> Stream for MaterialGPUReactiveCell<T> {
-  type Item = RenderComponentDelta;
-
-  fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
-    let this = self.project();
-    if let Poll::Ready(r) = this.stream.poll_next(cx) {
-      if let Some(delta) = r {
-        if let Some(source) = self.weak_source.upgrade() {
-          Poll::Ready(T::apply_change(delta))
-        } else {
-          Poll::Ready(None)
-        }
-      } else {
-        Poll::Ready(None)
-      }
-    } else {
-      Poll::Pending
-    }
-  }
-}
-
-pub trait WebGPUMaterialIncremental: Incremental {
-  type GPU;
-  type Stream: Stream;
-  fn build_gpu(
-    source: &SceneItemRef<Self>,
-    ctx: &ShareBindableResource,
-  ) -> (Self::GPU, Self::Stream);
-  fn apply_change(delta: <Self::Stream as Stream>::Item) -> Option<RenderComponentDelta>;
-
-  fn build_gpu_cell(
-    source: &SceneItemRef<Self>,
-    ctx: &ShareBindableResource,
-  ) -> MaterialGPUReactiveCell<Self> {
-    let (gpu, stream) = Self::build_gpu(source, ctx);
-
-    MaterialGPUReactiveCell {
-      weak_source: source.downgrade(),
-      gpu,
-      stream,
-    }
-  }
-}
-
-#[derive(Clone)]
-pub struct TextureBuildCtxOwned {
-  gpu: GPUDevice,
-  mipmap_gen: Rc<RefCell<MipMapTaskManager>>,
-}
-
-// pub trait StreamBuilder {
-//   type Stream;
-//   fn build_forked(&self) -> Self::Stream;
-// }

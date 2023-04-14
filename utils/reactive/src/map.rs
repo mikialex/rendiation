@@ -1,4 +1,8 @@
-use std::collections::HashMap;
+use std::{
+  collections::HashMap,
+  sync::{Arc, RwLock},
+  task::Waker,
+};
 
 use futures::{stream::FuturesUnordered, *};
 
@@ -61,4 +65,44 @@ impl<M, T: ReactiveMapping<M>> ReactiveMap<T, M> {
       self.mapping.remove(&id);
     })
   }
+}
+
+pub struct StreamMap<T> {
+  contents: HashMap<usize, T>,
+  waked: Arc<RwLock<Vec<usize>>>,
+  waker: Arc<RwLock<Option<Waker>>>,
+}
+
+fn try_wake(w: &Arc<RwLock<Option<Waker>>>) {
+  let waker = w.read().unwrap();
+  let waker: &Option<_> = &waker;
+  if let Some(waker) = waker {
+    waker.wake_by_ref();
+  }
+}
+
+impl<T> StreamMap<T> {
+  pub fn get_or_insert_with(&mut self, key: usize, f: impl FnOnce() -> T) -> &mut T {
+    self.contents.entry(key).or_insert_with(|| {
+      self.waked.write().unwrap().push(key);
+      try_wake(&self.waker);
+      f()
+    })
+  }
+
+  pub fn try_wake(&self) {
+    try_wake(&self.waker)
+  }
+}
+
+impl<T: Stream + Unpin> Stream for StreamMap<T> {
+  type Item = T::Item;
+
+  fn poll_next(
+    self: core::pin::Pin<&mut Self>,
+    cx: &mut task::Context<'_>,
+  ) -> task::Poll<Option<Self::Item>> {
+    todo!()
+  }
+  //
 }

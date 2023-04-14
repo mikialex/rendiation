@@ -179,11 +179,18 @@ impl WebGPUMaterial for PhysicalMetallicRoughnessMaterial {
 }
 
 #[derive(Copy, Clone)]
-enum PhysicalMetallicTextures {
+enum PhysicalMetallicTextureKinds {
   BaseColor,
   MetallicRoughness,
   Emissive,
   Normal,
+}
+
+pub struct PhysicalMetallicRoughnessMaterialReactive {
+  base_color: ReactiveGPU2DTextureView,
+  metallic_roughness: ReactiveGPU2DTextureView,
+  emissive: ReactiveGPU2DTextureView,
+  normal: ReactiveGPU2DTextureView,
 }
 
 impl WebGPUMaterialIncremental for PhysicalMetallicRoughnessMaterial {
@@ -195,12 +202,31 @@ impl WebGPUMaterialIncremental for PhysicalMetallicRoughnessMaterial {
     source: &SceneItemRef<Self>,
     ctx: &ShareBindableResource,
   ) -> (Self::GPU, Self::Stream) {
-    let gpu = todo!();
-
-    // source.listen_by()
+    let gpu = source.read().create_gpu(todo!(), todo!());
+    (gpu, source.listen_by(all_delta).map(map_delta))
   }
 
-  fn apply_change(delta: <Self::Stream as Stream>::Item) -> Option<MaterialGPUChangeOutside> {
-    todo!()
+  fn apply_change(delta: <Self::Stream as Stream>::Item) -> RenderComponentDelta {
+    match delta {
+      KeyedRenderComponentDelta::Texture(key, _) => todo!(),
+      KeyedRenderComponentDelta::OwnedBindingContent => RenderComponentDelta::Content,
+      KeyedRenderComponentDelta::ShaderHash => RenderComponentDelta::ShaderHash,
+    }
+  }
+}
+
+fn map_delta(
+  d: DeltaOf<PhysicalMetallicRoughnessMaterial>,
+) -> KeyedRenderComponentDelta<PhysicalMetallicTextureKinds> {
+  use KeyedRenderComponentDelta::*;
+  use PhysicalMetallicRoughnessMaterialDelta::*;
+  use PhysicalMetallicTextureKinds as Tk;
+  match d {
+    alpha_mode(_) => KeyedRenderComponentDelta::ShaderHash,
+    base_color_texture(t) => Texture(Tk::BaseColor, todo!()),
+    metallic_roughness_texture(t) => Texture(Tk::MetallicRoughness, todo!()),
+    emissive_texture(t) => Texture(Tk::Emissive, todo!()),
+    normal_texture(t) => Texture(Tk::Normal, todo!()),
+    _ => KeyedRenderComponentDelta::OwnedBindingContent,
   }
 }
