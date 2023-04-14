@@ -186,11 +186,66 @@ enum PhysicalMetallicTextureKinds {
   Normal,
 }
 
+#[derive(Default)]
 pub struct PhysicalMetallicRoughnessMaterialReactive {
-  base_color: ReactiveGPU2DTextureView,
-  metallic_roughness: ReactiveGPU2DTextureView,
-  emissive: ReactiveGPU2DTextureView,
-  normal: ReactiveGPU2DTextureView,
+  base_color: Option<ReactiveGPU2DTextureView>,
+  metallic_roughness: Option<ReactiveGPU2DTextureView>,
+  emissive: Option<ReactiveGPU2DTextureView>,
+  normal: Option<ReactiveGPU2DTextureView>,
+}
+
+impl Stream for PhysicalMetallicRoughnessMaterialReactive {
+  type Item = RenderComponentDelta;
+
+  fn poll_next(
+    self: __core::pin::Pin<&mut Self>,
+    cx: &mut task::Context<'_>,
+  ) -> task::Poll<Option<Self::Item>> {
+    // poll one by one
+    todo!()
+  }
+}
+
+use pin_project::pin_project;
+#[pin_project]
+pub struct MergeIntoAnyReactive<S, T> {
+  #[pin]
+  inner: S,
+  #[pin]
+  reactive: T,
+}
+
+impl<S, T> Stream for MergeIntoAnyReactive<S, T>
+where
+  S: Stream<Item = (usize, Option<T>)>,
+  T: Stream + Unpin,
+{
+  type Item = RenderComponentDelta;
+
+  fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+    let mut this = self.project();
+
+    if let Poll::Ready(next) = this.inner.poll_next(cx) {
+      if let Some((index, result)) = next {
+        let r = if result.is_some() {
+          VecUpdateUnit::Active(index)
+        } else {
+          VecUpdateUnit::Remove(index)
+        };
+        this.vec.insert(index, result);
+        return Poll::Ready(Some(r));
+      } else {
+        return Poll::Ready(None);
+      }
+    } else {
+      // the vec will never terminated
+      if let Poll::Ready(Some(IndexedItem { index, item })) = this.vec.poll_next(cx) {
+        return Poll::Ready(Some(VecUpdateUnit::Update { index, item }));
+      }
+    }
+
+    Poll::Pending
+  }
 }
 
 impl WebGPUMaterialIncremental for PhysicalMetallicRoughnessMaterial {
@@ -203,7 +258,15 @@ impl WebGPUMaterialIncremental for PhysicalMetallicRoughnessMaterial {
     ctx: &ShareBindableResource,
   ) -> (Self::GPU, Self::Stream) {
     let gpu = source.read().create_gpu(todo!(), todo!());
-    (gpu, source.listen_by(all_delta).map(map_delta))
+    let stream = source.listen_by(all_delta).map(map_delta).fold_signal(
+      PhysicalMetallicRoughnessMaterialReactive::default(),
+      |delta, reactive| {
+
+        //
+      },
+    );
+
+    (gpu, stream)
   }
 
   fn apply_change(delta: <Self::Stream as Stream>::Item) -> RenderComponentDelta {
