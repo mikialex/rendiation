@@ -7,8 +7,6 @@ use std::{
 use futures::{Stream, StreamExt};
 use pin_project::pin_project;
 
-use crate::do_updates;
-
 #[pin_project]
 pub struct StreamVec<T> {
   streams: Vec<Option<T>>,
@@ -112,7 +110,7 @@ fn should_drain() {
   stream.insert(0, Some(r));
 
   let mut c = 0;
-  do_updates(&mut stream, |_| c += 1);
+  crate::do_updates(&mut stream, |_| c += 1);
   assert_eq!(c, 2);
 }
 
