@@ -50,7 +50,7 @@ impl GlobalGPUSystem {
 
 pub struct ShareBindableResource {
   pub gpu: ResourceGPUCtx,
-  pub texture_2d: StreamMap<ReactiveGPU2DTextureViewBuilder>,
+  pub texture_2d: StreamMap<ReactiveGPU2DTextureView>,
   // texture_cube
   // any shared uniforms
 }

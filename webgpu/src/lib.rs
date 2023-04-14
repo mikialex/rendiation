@@ -44,6 +44,7 @@ use std::{
   ops::{Deref, DerefMut, Range},
   rc::Rc,
   sync::atomic::{AtomicUsize, Ordering},
+  sync::{Arc, RwLock},
 };
 
 use gpu::util::DeviceExt;

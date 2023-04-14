@@ -92,31 +92,45 @@ fn create_texture2d(tex: &SceneTexture2D, ctx: &TextureBuildCtx) -> GPU2DTexture
   gpu_texture.create_default_view().try_into().unwrap()
 }
 
-pub type ReactiveGPU2DTextureViewBuilder =
-  impl StreamForkable<Item = GPUResourceChange<GPU2DTextureView>>;
-pub type ReactiveGPU2DTextureView = <ReactiveGPU2DTextureViewBuilder as StreamForkable>::Stream;
+#[derive(Clone)]
+struct GPU2DTextureViewContent(GPU2DTextureView);
+
+clone_self_incremental!(GPU2DTextureViewContent);
+
+// todo
+unsafe impl Send for GPU2DTextureViewContent {}
+unsafe impl Sync for GPU2DTextureViewContent {}
+
+pub struct ReactiveGPU2DTextureSignal {
+  inner: Identity<GPU2DTextureViewContent>,
+}
+
+// pub type ReactiveGPU2DTextureViewBuilder =
+//   impl StreamForkable<Item = GPUResourceChange<GPU2DTextureView>>;
+// pub type ReactiveGPU2DTextureView = <ReactiveGPU2DTextureViewBuilder as StreamForkable>::Stream;
+pub type ReactiveGPU2DTextureView = impl AsRef<ReactiveGPU2DTextureSignal>;
 
 impl ShareBindableResource {
   pub fn get_or_create_reactive_gpu_texture2d(
     &mut self,
     tex: &SceneTexture2D,
-  ) -> &mut ReactiveGPU2DTextureViewBuilder {
+  ) -> &mut ReactiveGPU2DTextureSignal {
     self.texture_2d.get_or_insert_with(tex.id(), || {
       let gpu_tex = self.gpu.create_gpu_texture2d(tex);
+
+      let gpu_tex = GPU2DTextureViewContent(gpu_tex);
+      let gpu_tex = Identity::new(gpu_tex);
 
       let gpu_clone: ResourceGPUCtx = self.gpu.clone();
       let tex_clone = tex.clone();
 
-      let updater = move |delta, gpu_tex: &mut GPU2DTextureView| {
+      let updater = move |delta, gpu_tex: &mut ReactiveGPU2DTextureSignal| {
         let recreated = gpu_clone.create_gpu_texture2d(&tex_clone);
         *gpu_tex = recreated.clone();
-        GPUResourceChange::Reference(recreated)
+        // GPUResourceChange::Reference(recreated)
       };
 
-      tex
-        .listen_by(any_change)
-        .fold_signal(gpu_tex, updater)
-        .create_board_caster()
+      tex.listen_by(any_change).fold_signal(gpu_tex, updater)
     })
   }
 }
