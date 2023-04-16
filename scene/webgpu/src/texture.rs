@@ -106,10 +106,20 @@ pub struct ReactiveGPU2DTextureSignal {
   gpu: GPU2DTextureView,
 }
 
+pub type Texture2dRenderComponentDeltaStream = impl Stream<Item = RenderComponentDelta>;
+
 impl ReactiveGPU2DTextureSignal {
-  // pub fn create_gpu_texture_stream(&self) -> impl Stream<Item = TextureGPUChange> {
-  //   // create channel here, and send the init value
-  // }
+  pub fn create_gpu_texture_stream(&self) -> impl Stream<Item = TextureGPUChange> {
+    // create channel here, and send the init value
+    let (s, r) = futures::channel::mpsc::unbounded();
+    r
+  }
+  pub fn create_gpu_texture_com_delta_stream(&self) -> Texture2dRenderComponentDeltaStream {
+    self.create_gpu_texture_stream().map(|d| match d {
+      TextureGPUChange::Reference(_) => RenderComponentDelta::ContentRef,
+      TextureGPUChange::Content => RenderComponentDelta::Content,
+    })
+  }
 }
 
 pub type ReactiveGPU2DTextureView =
