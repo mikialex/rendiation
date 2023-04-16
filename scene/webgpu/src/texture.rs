@@ -98,8 +98,8 @@ pub enum TextureGPUChange {
 }
 
 // todo
-unsafe impl Send for TextureGPUChange {}
-unsafe impl Sync for TextureGPUChange {}
+// unsafe impl Send for TextureGPUChange {}
+// unsafe impl Sync for TextureGPUChange {}
 
 pub struct ReactiveGPU2DTextureSignal {
   inner: EventSource<TextureGPUChange>,

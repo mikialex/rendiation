@@ -396,8 +396,10 @@ where
   }
 }
 
+#[pin_project]
 pub struct SignalFold<T, S, F> {
   state: T,
+  #[pin]
   stream: S,
   f: F,
 }
@@ -416,13 +418,24 @@ where
   type Item = X;
 
   fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
-    todo!()
+    let this = self.project();
+    if let Poll::Ready(v) = this.stream.poll_next(cx) {
+      if let Some(v) = v {
+        Poll::Ready(Some((this.f)(v, this.state)))
+      } else {
+        Poll::Ready(None)
+      }
+    } else {
+      Poll::Pending
+    }
   }
 }
 
+#[pin_project]
 /// we could use Arc state and stream select to achieve same effect
 pub struct SignalFoldFlatten<T, S, F> {
   state: T,
+  #[pin]
   stream: S,
   f: F,
 }
@@ -436,12 +449,21 @@ impl<T, S, F> AsRef<T> for SignalFoldFlatten<T, S, F> {
 impl<T, S, F, X> Stream for SignalFoldFlatten<T, S, F>
 where
   S: Stream,
-  T: Stream,
+  T: Stream<Item = X> + Unpin,
   F: FnMut(S::Item, &mut T) -> X,
 {
   type Item = X;
 
   fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
-    todo!()
+    let this = self.project();
+    if let Poll::Ready(v) = this.stream.poll_next(cx) {
+      if let Some(v) = v {
+        Poll::Ready(Some((this.f)(v, this.state)))
+      } else {
+        Poll::Ready(None)
+      }
+    } else {
+      this.state.poll_next_unpin(cx)
+    }
   }
 }

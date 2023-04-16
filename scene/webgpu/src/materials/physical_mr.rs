@@ -183,26 +183,6 @@ impl WebGPUMaterial for PhysicalMetallicRoughnessMaterial {
   }
 }
 
-pub struct RenderComponentReactive<T, U> {
-  gpu: T,
-  reactive: U,
-}
-
-impl<T, U> Stream for RenderComponentReactive<T, U> {
-  type Item = RenderComponentDelta;
-
-  fn poll_next(
-    self: __core::pin::Pin<&mut Self>,
-    cx: &mut task::Context<'_>,
-  ) -> task::Poll<Option<Self::Item>> {
-    todo!()
-  }
-}
-
-// impl<T, U> RenderComponent for RenderComponentReactive<T, U> {
-
-// }
-
 pub type PhysicalMetallicRoughnessMaterialGPUReactive = RenderComponentReactive<
   PhysicalMetallicRoughnessMaterialGPU,
   PhysicalMetallicRoughnessMaterialReactive,
@@ -212,53 +192,30 @@ fn build_gpu(
   source: &SceneItemRef<PhysicalMetallicRoughnessMaterial>,
   ctx: &ShareBindableResource,
 ) -> impl AsRef<RenderComponentCell<PhysicalMetallicRoughnessMaterialGPUReactive>>
-//  + Stream<Item = RenderComponentDelta>
-{
+     + Stream<Item = RenderComponentDelta> {
   let gpu = source.read().create_gpu(todo!(), todo!());
 
-  let state = RenderComponentReactive {
-    gpu,
-    reactive: Default::default(),
-  };
+  let state = RenderComponentReactive::from_gpu_with_default_reactive(gpu);
   let state = RenderComponentCell::new(state);
 
   use PhysicalMetallicRoughnessMaterialDelta::*;
-  source.listen_by(all_delta).fold_signal_flatten(
-    state,
-    |delta, state: RenderComponentCell<PhysicalMetallicRoughnessMaterialGPUReactive>| match delta {
-      alpha_mode(_) => RenderComponentDelta::ShaderHash,
-      base_color_texture(t) => {
-        let r = ctx.get_or_create_reactive_gpu_texture2d(todo!()).as_ref();
-        // reactive.base_color = r.create_stream();
-        // gpu.base_color = reactive.gpu.clone();
-        RenderComponentDelta::ContentRef
+  source
+    .listen_by(all_delta)
+    .fold_signal_flatten(state, |delta, state| {
+      match delta {
+        alpha_mode(_) => RenderComponentDelta::ShaderHash,
+        base_color_texture(t) => {
+          let r = ctx.get_or_create_reactive_gpu_texture2d(todo!()).as_ref();
+          // reactive.base_color = r.create_stream();
+          // gpu.base_color = reactive.gpu.clone();
+          RenderComponentDelta::ContentRef
+        }
+        metallic_roughness_texture(_) => todo!(),
+        emissive_texture(_) => todo!(),
+        normal_texture(_) => todo!(),
+        _ => RenderComponentDelta::Content,
       }
-      metallic_roughness_texture(_) => todo!(),
-      emissive_texture(_) => todo!(),
-      normal_texture(_) => todo!(),
-      _ => RenderComponentDelta::Content,
-    },
-  )
-}
-
-pub struct RenderComponentCell<T> {
-  inner: EventSource<RenderComponentDelta>,
-  gpu: T,
-}
-
-impl<T> RenderComponentCell<T> {
-  pub fn new(gpu: T) -> Self {
-    RenderComponentCell {
-      inner: Default::default(),
-      gpu,
-    }
-  }
-
-  pub fn create_render_component_delta_stream(&self) -> impl Stream<Item = RenderComponentDelta> {
-    todo!();
-    let (s, r) = futures::channel::mpsc::unbounded();
-    r
-  }
+    })
 }
 
 #[pin_project::pin_project]
@@ -281,23 +238,4 @@ impl Stream for PhysicalMetallicRoughnessMaterialReactive {
     early_return_option_ready!(this.normal, cx);
     Poll::Pending
   }
-}
-
-#[macro_export]
-macro_rules! early_return_ready {
-  ($e:expr) => {
-    match $e {
-      $crate::task::Poll::Ready(t) => return $crate::task::Poll::Ready(t),
-      $crate::task::Poll::Pending => {}
-    }
-  };
-}
-
-#[macro_export]
-macro_rules! early_return_option_ready {
-  ($e:expr, $cx:expr ) => {
-    if let Some(t) = &mut $e {
-      early_return_ready!(t.poll_next_unpin($cx));
-    }
-  };
 }

@@ -6,6 +6,9 @@ use crate::*;
 mod deltas;
 pub use deltas::*;
 
+mod wrapper;
+pub use wrapper::*;
+
 struct SceneNodeGPUSystem;
 struct SceneCameraGPUSystem;
 struct SceneBundleGPUSystem;
