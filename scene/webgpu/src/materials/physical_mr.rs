@@ -183,7 +183,7 @@ impl WebGPUMaterial for PhysicalMetallicRoughnessMaterial {
   }
 }
 
-pub type PhysicalMetallicRoughnessMaterialGPUReactive = RenderComponentReactive<
+type PhysicalMetallicRoughnessMaterialGPUReactive = RenderComponentReactive<
   PhysicalMetallicRoughnessMaterialGPU,
   PhysicalMetallicRoughnessMaterialReactive,
 >;

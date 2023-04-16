@@ -125,7 +125,7 @@ impl ReactiveGPU2DTextureSignal {
 pub type ReactiveGPU2DTextureView =
   impl AsRef<ReactiveGPU2DTextureSignal> + Stream<Item = TextureGPUChange>;
 
-impl ShareBindableResource {
+impl ShareBindableResource<'_> {
   pub fn get_or_create_reactive_gpu_texture2d(
     &mut self,
     tex: &SceneTexture2D,

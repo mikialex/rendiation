@@ -26,6 +26,13 @@ impl<T, U> RenderComponentReactive<T, U> {
   }
 }
 
+pub enum RenderComponentDelta {
+  ShaderHash,
+  ContentRef,
+  Content,
+  Draw,
+}
+
 impl<T, U> Stream for RenderComponentReactive<T, U>
 where
   U: Stream<Item = RenderComponentDelta>,

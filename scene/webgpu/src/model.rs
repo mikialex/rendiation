@@ -181,3 +181,52 @@ impl SceneRayInteractive for SceneModelImpl {
     ray_pick_nearest_core(self, ctx, ctx.node_derives.get_world_matrix(&self.node))
   }
 }
+
+type MaterialGPU = usize;
+type MeshGPU = usize;
+
+pub struct StandardModelGPU {
+  material: MaterialGPU,
+  mesh: MeshGPU,
+}
+
+// impl RenderComponent for StandardModelGPU{
+//   //
+// }
+
+type ModelGPUReactive = RenderComponentReactive<StandardModelGPU, StandardModelReactive>;
+
+fn build_gpu(
+  source: &SceneItemRef<StandardModel>,
+  ctx: &GlobalGPUSystemModelContentView,
+) -> impl AsRef<RenderComponentCell<ModelGPUReactive>> + Stream<Item = RenderComponentDelta> {
+  let gpu = todo!();
+
+  let state = RenderComponentReactive::from_gpu_with_default_reactive(gpu);
+  let state = RenderComponentCell::new(state);
+
+  source
+    .listen_by(all_delta)
+    .fold_signal_flatten(state, |delta, state| match delta {
+      StandardModelDelta::material(_) => todo!(),
+      StandardModelDelta::mesh(_) => todo!(),
+      StandardModelDelta::group(_) => todo!(),
+      StandardModelDelta::skeleton(_) => todo!(),
+    })
+}
+
+#[derive(Default)]
+pub struct StandardModelReactive {
+  //
+}
+
+impl Stream for StandardModelReactive {
+  type Item = RenderComponentDelta;
+
+  fn poll_next(
+    self: __core::pin::Pin<&mut Self>,
+    cx: &mut task::Context<'_>,
+  ) -> task::Poll<Option<Self::Item>> {
+    todo!()
+  }
+}

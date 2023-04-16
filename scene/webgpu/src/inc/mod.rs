@@ -3,9 +3,6 @@ use std::sync::{Arc, RwLock};
 
 use crate::*;
 
-mod deltas;
-pub use deltas::*;
-
 mod wrapper;
 pub use wrapper::*;
 
@@ -38,8 +35,10 @@ pub struct ResourceGPUCtx {
 /// The actual gpu data
 struct GlobalGPUSystem {
   gpu: ResourceGPUCtx,
-  shared: ShareBindableResource,
+  pub texture_2d: StreamMap<ReactiveGPU2DTextureView>,
+  // texture_cube: StreamMap<ReactiveGPUCubeTextureView>,
   // uniforms: HashMap<TypeId, Box<dyn Any>>,
+
   // materials: StreamMap<ReactiveRenderComponent>,
   // meshes: StreamMap<ReactiveRenderComponent>,
   // models: StreamMap<ReactiveRenderComponent>,
@@ -51,11 +50,19 @@ impl GlobalGPUSystem {
   }
 }
 
-pub struct ShareBindableResource {
-  pub gpu: ResourceGPUCtx,
-  pub texture_2d: StreamMap<ReactiveGPU2DTextureView>,
-  // texture_cube: StreamMap<ReactiveGPUCubeTextureView>,
-  // any shared uniforms
+// using different views to control the resource access
+
+pub struct GlobalGPUSystemModelContentView<'a> {
+  shared: ShareBindableResource<'a>,
+  // materials: StreamMap<ReactiveRenderComponent>,
+  // meshes: StreamMap<ReactiveRenderComponent>,
+}
+
+pub struct ShareBindableResource<'a> {
+  pub gpu: &'a ResourceGPUCtx,
+  pub texture_2d: &'a mut StreamMap<ReactiveGPU2DTextureView>,
+  // texture_cube: &'a mut StreamMap<ReactiveGPUCubeTextureView>,
+  // uniforms: &'a mut HashMap<TypeId, Box<dyn Any>>,
 }
 
 pub struct WhichModelRenderContentChange;
