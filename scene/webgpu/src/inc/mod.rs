@@ -37,9 +37,9 @@ struct GlobalGPUSystem {
   gpu: ResourceGPUCtx,
   shared: ShareBindableResource,
   // uniforms: HashMap<TypeId, Box<dyn Any>>,
-  materials: StreamMap<ReactiveRenderComponent>,
-  meshes: StreamMap<ReactiveRenderComponent>,
-  models: StreamMap<ReactiveRenderComponent>,
+  // materials: StreamMap<ReactiveRenderComponent>,
+  // meshes: StreamMap<ReactiveRenderComponent>,
+  // models: StreamMap<ReactiveRenderComponent>,
 }
 
 impl GlobalGPUSystem {
@@ -51,7 +51,7 @@ impl GlobalGPUSystem {
 pub struct ShareBindableResource {
   pub gpu: ResourceGPUCtx,
   pub texture_2d: StreamMap<ReactiveGPU2DTextureView>,
-  // texture_cube
+  // texture_cube: StreamMap<ReactiveGPUCubeTextureView>,
   // any shared uniforms
 }
 
@@ -69,18 +69,18 @@ impl Stream for GlobalGPUSystem {
   }
 }
 
-pub type ReactiveRenderComponent =
-  impl Stream<Item = RenderComponentDelta> + AsRef<dyn RenderComponent>;
+// pub type ReactiveRenderComponent =
+//   impl Stream<Item = RenderComponentDelta> + AsRef<dyn RenderComponent>;
 
-fn standard_model(model: &SceneItemRef<StandardModel>) -> StandardModelGPUReactive {
-  let m = todo!();
-  model
-    .listen_by(all_delta)
-    .fold_signal(m, |delta, m: &mut ModelGPUBinding| {
-      //
-      ()
-    })
-}
+// fn standard_model(model: &SceneItemRef<StandardModel>) -> StandardModelGPUReactive {
+//   let m = todo!();
+//   model
+//     .listen_by(all_delta)
+//     .fold_signal(m, |delta, m: &mut ModelGPUBinding| {
+//       //
+//       ()
+//     })
+// }
 
 pub enum ModelGPUReactive {
   Standard(),
@@ -92,20 +92,20 @@ impl GlobalGPUSystem {
     todo!()
   }
 
-  fn material_gpu(&self, material: &SceneMaterialType) -> usize {
-    match material {
-      SceneMaterialType::PhysicalSpecularGlossiness(material) => {
-        let binding = GPUBindingSequence {
-          bindings: todo!(),
-          shader_hash: todo!(),
-        };
-      }
-      SceneMaterialType::PhysicalMetallicRoughness(_) => todo!(),
-      SceneMaterialType::Flat(_) => todo!(),
-      SceneMaterialType::Foreign(_) => todo!(),
-      _ => todo!(),
-    }
-  }
+  // fn material_gpu(&self, material: &SceneMaterialType) -> usize {
+  //   match material {
+  //     SceneMaterialType::PhysicalSpecularGlossiness(material) => {
+  //       let binding = GPUBindingSequence {
+  //         bindings: todo!(),
+  //         shader_hash: todo!(),
+  //       };
+  //     }
+  //     SceneMaterialType::PhysicalMetallicRoughness(_) => todo!(),
+  //     SceneMaterialType::Flat(_) => todo!(),
+  //     SceneMaterialType::Foreign(_) => todo!(),
+  //     _ => todo!(),
+  //   }
+  // }
 
   fn mesh_gpu(&self, material: &SceneMeshType) -> usize {
     todo!()
@@ -197,36 +197,36 @@ impl SceneGPUSystem {
   }
 }
 
-fn create_material_gpu(
-  sys: &GlobalGPUSystem,
-  material: &SceneMaterialType,
-  res: &mut ShareBindableResource,
-) -> MaterialGPUReactive {
-  match material {
-    SceneMaterialType::PhysicalSpecularGlossiness(_) => todo!(),
-    SceneMaterialType::PhysicalMetallicRoughness(m) => {
-      MaterialGPUReactive::PhysicalMetallicRoughnessMaterialGPU(
-        create_physical_metallic_material_gpu(m, res, gpu),
-      )
-    }
-    SceneMaterialType::Flat(_) => todo!(),
-    SceneMaterialType::Foreign(_) => todo!(),
-    _ => todo!(),
-  }
-}
+// fn create_material_gpu(
+//   sys: &GlobalGPUSystem,
+//   material: &SceneMaterialType,
+//   res: &mut ShareBindableResource,
+// ) -> MaterialGPUReactive {
+//   match material {
+//     SceneMaterialType::PhysicalSpecularGlossiness(_) => todo!(),
+//     SceneMaterialType::PhysicalMetallicRoughness(m) => {
+//       MaterialGPUReactive::PhysicalMetallicRoughnessMaterialGPU(
+//         create_physical_metallic_material_gpu(m, res, gpu),
+//       )
+//     }
+//     SceneMaterialType::Flat(_) => todo!(),
+//     SceneMaterialType::Foreign(_) => todo!(),
+//     _ => todo!(),
+//   }
+// }
 
-pub enum MaterialGPUReactive {
-  PhysicalMetallicRoughnessMaterialGPU(ReactivePhysicalMetallicRoughnessMaterialGPU),
-  Foreign,
-}
+// pub enum MaterialGPUReactive {
+//   PhysicalMetallicRoughnessMaterialGPU(ReactivePhysicalMetallicRoughnessMaterialGPU),
+//   Foreign,
+// }
 
-impl MaterialGPUReactive {
-  pub fn as_render_component(&self) -> &dyn RenderComponent {
-    match self {
-      MaterialGPUReactive::PhysicalMetallicRoughnessMaterialGPU(gpu) => {
-        gpu.as_ref() as &dyn RenderComponent
-      }
-      MaterialGPUReactive::Foreign => &(),
-    }
-  }
-}
+// impl MaterialGPUReactive {
+//   pub fn as_render_component(&self) -> &dyn RenderComponent {
+//     match self {
+//       MaterialGPUReactive::PhysicalMetallicRoughnessMaterialGPU(gpu) => {
+//         gpu.as_ref() as &dyn RenderComponent
+//       }
+//       MaterialGPUReactive::Foreign => &(),
+//     }
+//   }
+// }

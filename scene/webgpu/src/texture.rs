@@ -92,42 +92,52 @@ fn create_texture2d(tex: &SceneTexture2D, ctx: &TextureBuildCtx) -> GPU2DTexture
   gpu_texture.create_default_view().try_into().unwrap()
 }
 
-#[derive(Clone)]
-struct GPU2DTextureViewContent(GPU2DTextureView);
-
-clone_self_incremental!(GPU2DTextureViewContent);
-
-// todo
-unsafe impl Send for GPU2DTextureViewContent {}
-unsafe impl Sync for GPU2DTextureViewContent {}
-
-pub struct ReactiveGPU2DTextureSignal {
-  inner: Identity<GPU2DTextureViewContent>,
+pub enum TextureGPUChange {
+  Reference(GPU2DTextureView),
+  Content,
 }
 
-// pub type ReactiveGPU2DTextureViewBuilder =
-//   impl StreamForkable<Item = GPUResourceChange<GPU2DTextureView>>;
-// pub type ReactiveGPU2DTextureView = <ReactiveGPU2DTextureViewBuilder as StreamForkable>::Stream;
-pub type ReactiveGPU2DTextureView = impl AsRef<ReactiveGPU2DTextureSignal>;
+// todo
+unsafe impl Send for TextureGPUChange {}
+unsafe impl Sync for TextureGPUChange {}
+
+pub struct ReactiveGPU2DTextureSignal {
+  inner: EventSource<TextureGPUChange>,
+  gpu: GPU2DTextureView,
+}
+
+impl ReactiveGPU2DTextureSignal {
+  // pub fn create_gpu_texture_stream(&self) -> impl Stream<Item = TextureGPUChange> {
+  //   // create channel here, and send the init value
+  // }
+}
+
+pub type ReactiveGPU2DTextureView =
+  impl AsRef<ReactiveGPU2DTextureSignal> + Stream<Item = TextureGPUChange>;
 
 impl ShareBindableResource {
   pub fn get_or_create_reactive_gpu_texture2d(
     &mut self,
     tex: &SceneTexture2D,
-  ) -> &mut ReactiveGPU2DTextureSignal {
+  ) -> &mut ReactiveGPU2DTextureView {
     self.texture_2d.get_or_insert_with(tex.id(), || {
       let gpu_tex = self.gpu.create_gpu_texture2d(tex);
 
-      let gpu_tex = GPU2DTextureViewContent(gpu_tex);
-      let gpu_tex = Identity::new(gpu_tex);
+      let gpu_tex = ReactiveGPU2DTextureSignal {
+        inner: Default::default(),
+        gpu: gpu_tex,
+      };
 
       let gpu_clone: ResourceGPUCtx = self.gpu.clone();
       let tex_clone = tex.clone();
 
-      let updater = move |delta, gpu_tex: &mut ReactiveGPU2DTextureSignal| {
+      let updater = move |_delta, gpu_tex: &mut ReactiveGPU2DTextureSignal| {
         let recreated = gpu_clone.create_gpu_texture2d(&tex_clone);
-        *gpu_tex = recreated.clone();
-        // GPUResourceChange::Reference(recreated)
+        gpu_tex.gpu = recreated.clone();
+        gpu_tex
+          .inner
+          .emit(&TextureGPUChange::Reference(gpu_tex.gpu.clone()));
+        TextureGPUChange::Reference(recreated)
       };
 
       tex.listen_by(any_change).fold_signal(gpu_tex, updater)
@@ -136,7 +146,7 @@ impl ShareBindableResource {
 }
 
 impl ResourceGPUCtx {
-  pub fn create_gpu_texture2d(&self, tex: &SceneTexture2D) -> GPU2DTextureView {
+  fn create_gpu_texture2d(&self, tex: &SceneTexture2D) -> GPU2DTextureView {
     let texture = &tex.read();
     let texture = as_2d_source(texture);
 
@@ -214,7 +224,7 @@ fn create_fallback_empty_texture(device: &GPUDevice) -> GPU2DTexture {
       view_formats: &[],
       usage: webgpu::TextureUsages::all(),
     },
-    &device,
+    device,
   )
   .try_into()
   .unwrap()
@@ -236,7 +246,7 @@ fn create_fallback_empty_cube_texture(device: &GPUDevice) -> GPUCubeTexture {
       view_formats: &[],
       usage: webgpu::TextureUsages::all(),
     },
-    &device,
+    device,
   )
   .try_into()
   .unwrap()

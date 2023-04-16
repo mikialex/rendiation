@@ -67,6 +67,10 @@ pub trait SignalStreamExt: Stream {
   fn fold_signal<State, F>(self, state: State, f: F) -> SignalFold<State, Self, F>
   where
     Self: Sized;
+
+  fn fold_signal_flatten<State, F>(self, state: State, f: F) -> SignalFoldFlatten<State, Self, F>
+  where
+    Self: Sized;
 }
 
 impl<T: Stream> SignalStreamExt for T {
@@ -134,6 +138,17 @@ impl<T: Stream> SignalStreamExt for T {
     Self: Sized,
   {
     SignalFold {
+      state,
+      stream: self,
+      f,
+    }
+  }
+
+  fn fold_signal_flatten<State, F>(self, state: State, f: F) -> SignalFoldFlatten<State, Self, F>
+  where
+    Self: Sized,
+  {
+    SignalFoldFlatten {
       state,
       stream: self,
       f,
@@ -396,6 +411,32 @@ impl<T, S, F> AsRef<T> for SignalFold<T, S, F> {
 impl<T, S, F, X> Stream for SignalFold<T, S, F>
 where
   S: Stream,
+  F: FnMut(S::Item, &mut T) -> X,
+{
+  type Item = X;
+
+  fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+    todo!()
+  }
+}
+
+/// we could use Arc state and stream select to achieve same effect
+pub struct SignalFoldFlatten<T, S, F> {
+  state: T,
+  stream: S,
+  f: F,
+}
+
+impl<T, S, F> AsRef<T> for SignalFoldFlatten<T, S, F> {
+  fn as_ref(&self) -> &T {
+    &self.state
+  }
+}
+
+impl<T, S, F, X> Stream for SignalFoldFlatten<T, S, F>
+where
+  S: Stream,
+  T: Stream,
   F: FnMut(S::Item, &mut T) -> X,
 {
   type Item = X;

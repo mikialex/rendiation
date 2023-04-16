@@ -178,12 +178,79 @@ impl WebGPUMaterial for PhysicalMetallicRoughnessMaterial {
   }
 }
 
-#[derive(Copy, Clone)]
-enum PhysicalMetallicTextureKinds {
-  BaseColor,
-  MetallicRoughness,
-  Emissive,
-  Normal,
+struct RenderComponentReactive<T, U> {
+  gpu: T,
+  reactive: U,
+}
+
+impl<T, U> Stream for RenderComponentReactive<T, U> {
+  type Item = RenderComponentDelta;
+
+  fn poll_next(
+    self: __core::pin::Pin<&mut Self>,
+    cx: &mut task::Context<'_>,
+  ) -> task::Poll<Option<Self::Item>> {
+    todo!()
+  }
+}
+
+// impl<T, U> RenderComponent for RenderComponentReactive<T, U> {
+
+// }
+
+pub type PhysicalMetallicRoughnessMaterialGPUReactive = RenderComponentReactive<
+  PhysicalMetallicRoughnessMaterialGPU,
+  PhysicalMetallicRoughnessMaterialReactive,
+>;
+
+fn build_gpu(
+  source: &SceneItemRef<PhysicalMetallicRoughnessMaterial>,
+  ctx: &ShareBindableResource,
+) -> impl AsRef<RenderComponentCell<PhysicalMetallicRoughnessMaterialGPUReactive>>
+//  + Stream<Item = RenderComponentDelta>
+{
+  let gpu = source.read().create_gpu(todo!(), todo!());
+  let gpu = RenderComponentCell::new(gpu);
+
+  let state = RenderComponentReactive {
+    gpu,
+    reactive: PhysicalMetallicRoughnessMaterialReactive::default(),
+  };
+
+  source.listen_by(all_delta).fold_signal_flatten(
+    state,
+    |delta, RenderComponentReactive { reactive, gpu }| {
+      match delta {
+        PhysicalMetallicRoughnessMaterialDelta::alpha_mode(mode) => {
+          RenderComponentDelta::ShaderHash
+        }
+        PhysicalMetallicRoughnessMaterialDelta::base_color_texture(t) => {
+          let r = ctx.get_or_create_reactive_gpu_texture2d(tex).as_ref();
+          // reactive.base_color = r.create_stream();
+          // gpu.base_color = reactive.gpu.clone();
+          RenderComponentDelta::ContentRef
+        }
+        PhysicalMetallicRoughnessMaterialDelta::metallic_roughness_texture(_) => todo!(),
+        PhysicalMetallicRoughnessMaterialDelta::emissive_texture(_) => todo!(),
+        PhysicalMetallicRoughnessMaterialDelta::normal_texture(_) => todo!(),
+        _ => RenderComponentDelta::Content,
+      }
+    },
+  )
+}
+
+struct RenderComponentCell<T> {
+  inner: EventSource<RenderComponentDelta>,
+  gpu: T,
+}
+
+impl<T> RenderComponentCell<T> {
+  pub fn new(gpu: T) -> Self {
+    RenderComponentCell {
+      inner: Default::default(),
+      gpu,
+    }
+  }
 }
 
 #[derive(Default)]
@@ -206,90 +273,90 @@ impl Stream for PhysicalMetallicRoughnessMaterialReactive {
   }
 }
 
-use pin_project::pin_project;
-#[pin_project]
-pub struct MergeIntoAnyReactive<S, T> {
-  #[pin]
-  inner: S,
-  #[pin]
-  reactive: T,
-}
+// use pin_project::pin_project;
+// #[pin_project]
+// pub struct MergeIntoAnyReactive<S, T> {
+//   #[pin]
+//   inner: S,
+//   #[pin]
+//   reactive: T,
+// }
 
-impl<S, T> Stream for MergeIntoAnyReactive<S, T>
-where
-  S: Stream<Item = (usize, Option<T>)>,
-  T: Stream + Unpin,
-{
-  type Item = RenderComponentDelta;
+// impl<S, T> Stream for MergeIntoAnyReactive<S, T>
+// where
+//   S: Stream<Item = (usize, Option<T>)>,
+//   T: Stream + Unpin,
+// {
+//   type Item = RenderComponentDelta;
 
-  fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
-    let mut this = self.project();
+//   fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+//     let mut this = self.project();
 
-    if let Poll::Ready(next) = this.inner.poll_next(cx) {
-      if let Some((index, result)) = next {
-        let r = if result.is_some() {
-          VecUpdateUnit::Active(index)
-        } else {
-          VecUpdateUnit::Remove(index)
-        };
-        this.vec.insert(index, result);
-        return Poll::Ready(Some(r));
-      } else {
-        return Poll::Ready(None);
-      }
-    } else {
-      // the vec will never terminated
-      if let Poll::Ready(Some(IndexedItem { index, item })) = this.vec.poll_next(cx) {
-        return Poll::Ready(Some(VecUpdateUnit::Update { index, item }));
-      }
-    }
+//     if let Poll::Ready(next) = this.inner.poll_next(cx) {
+//       if let Some((index, result)) = next {
+//         let r = if result.is_some() {
+//           VecUpdateUnit::Active(index)
+//         } else {
+//           VecUpdateUnit::Remove(index)
+//         };
+//         this.vec.insert(index, result);
+//         return Poll::Ready(Some(r));
+//       } else {
+//         return Poll::Ready(None);
+//       }
+//     } else {
+//       // the vec will never terminated
+//       if let Poll::Ready(Some(IndexedItem { index, item })) = this.vec.poll_next(cx) {
+//         return Poll::Ready(Some(VecUpdateUnit::Update { index, item }));
+//       }
+//     }
 
-    Poll::Pending
-  }
-}
+//     Poll::Pending
+//   }
+// }
 
-impl WebGPUMaterialIncremental for PhysicalMetallicRoughnessMaterial {
-  type GPU = PhysicalMetallicRoughnessMaterialGPU;
+// impl WebGPUMaterialIncremental for PhysicalMetallicRoughnessMaterial {
+//   type GPU = PhysicalMetallicRoughnessMaterialGPU;
 
-  type Stream = impl Stream;
+//   type Stream = impl Stream;
 
-  fn build_gpu(
-    source: &SceneItemRef<Self>,
-    ctx: &ShareBindableResource,
-  ) -> (Self::GPU, Self::Stream) {
-    let gpu = source.read().create_gpu(todo!(), todo!());
-    let stream = source.listen_by(all_delta).map(map_delta).fold_signal(
-      PhysicalMetallicRoughnessMaterialReactive::default(),
-      |delta, reactive| {
+//   fn build_gpu(
+//     source: &SceneItemRef<Self>,
+//     ctx: &ShareBindableResource,
+//   ) -> (Self::GPU, Self::Stream) {
+//     let gpu = source.read().create_gpu(todo!(), todo!());
+//     let stream = source.listen_by(all_delta).map(map_delta).fold_signal(
+//       PhysicalMetallicRoughnessMaterialReactive::default(),
+//       |delta, reactive| {
 
-        //
-      },
-    );
+//         //
+//       },
+//     );
 
-    (gpu, stream)
-  }
+//     (gpu, stream)
+//   }
 
-  fn apply_change(delta: <Self::Stream as Stream>::Item) -> RenderComponentDelta {
-    match delta {
-      KeyedRenderComponentDelta::Texture(key, _) => todo!(),
-      KeyedRenderComponentDelta::OwnedBindingContent => RenderComponentDelta::Content,
-      KeyedRenderComponentDelta::ShaderHash => RenderComponentDelta::ShaderHash,
-    }
-  }
-}
+//   fn apply_change(delta: <Self::Stream as Stream>::Item) -> RenderComponentDelta {
+//     match delta {
+//       KeyedRenderComponentDelta::Texture(key, _) => todo!(),
+//       KeyedRenderComponentDelta::OwnedBindingContent => RenderComponentDelta::Content,
+//       KeyedRenderComponentDelta::ShaderHash => RenderComponentDelta::ShaderHash,
+//     }
+//   }
+// }
 
-fn map_delta(
-  d: DeltaOf<PhysicalMetallicRoughnessMaterial>,
-) -> KeyedRenderComponentDelta<PhysicalMetallicTextureKinds> {
-  use KeyedRenderComponentDelta::*;
-  use PhysicalMetallicRoughnessMaterialDelta::*;
-  use PhysicalMetallicTextureKinds as Tk;
-  match d {
-    alpha_mode(_) => KeyedRenderComponentDelta::ShaderHash,
-    base_color_texture(t) => Texture(Tk::BaseColor, todo!()),
-    metallic_roughness_texture(t) => Texture(Tk::MetallicRoughness, todo!()),
-    emissive_texture(t) => Texture(Tk::Emissive, todo!()),
-    normal_texture(t) => Texture(Tk::Normal, todo!()),
-    _ => KeyedRenderComponentDelta::OwnedBindingContent,
-  }
-}
+// fn map_delta(
+//   d: DeltaOf<PhysicalMetallicRoughnessMaterial>,
+// ) -> KeyedRenderComponentDelta<PhysicalMetallicTextureKinds> {
+//   use KeyedRenderComponentDelta::*;
+//   use PhysicalMetallicRoughnessMaterialDelta::*;
+//   use PhysicalMetallicTextureKinds as Tk;
+//   match d {
+//     alpha_mode(_) => KeyedRenderComponentDelta::ShaderHash,
+//     base_color_texture(t) => Texture(Tk::BaseColor, todo!()),
+//     metallic_roughness_texture(t) => Texture(Tk::MetallicRoughness, todo!()),
+//     emissive_texture(t) => Texture(Tk::Emissive, todo!()),
+//     normal_texture(t) => Texture(Tk::Normal, todo!()),
+//     _ => KeyedRenderComponentDelta::OwnedBindingContent,
+//   }
+// }
