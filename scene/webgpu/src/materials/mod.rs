@@ -1,4 +1,6 @@
 pub mod states;
+use std::sync::Arc;
+
 pub use states::*;
 pub mod flat;
 pub use flat::*;
@@ -130,3 +132,58 @@ impl GPUMaterialCache {
     })
   }
 }
+
+pub enum MaterialGPUInstance {
+  PhysicalMetallicRoughness(PhysicalMetallicRoughnessMaterialGPUReactive),
+  // PhysicalMetallicRoughness(SceneItemRef<PhysicalMetallicRoughnessMaterial>),
+  // Flat(SceneItemRef<FlatMaterial>),
+  Foreign(Arc<dyn Any + Send + Sync>),
+}
+
+impl MaterialGPUInstance {
+  pub fn create_render_component_delta_stream(&self) -> impl Stream<Item = RenderComponentDelta> {
+    match self {
+      MaterialGPUInstance::PhysicalMetallicRoughness(m) => {
+        m.as_ref().create_render_component_delta_stream()
+      }
+      MaterialGPUInstance::Foreign(_) => todo!(),
+    }
+  }
+}
+
+impl Stream for MaterialGPUInstance {
+  type Item = RenderComponentDelta;
+
+  fn poll_next(
+    self: __core::pin::Pin<&mut Self>,
+    cx: &mut task::Context<'_>,
+  ) -> task::Poll<Option<Self::Item>> {
+    todo!()
+  }
+}
+
+impl GlobalGPUSystemModelContentView {
+  pub fn get_or_create_reactive_material_gpu(
+    &self,
+    material: &SceneMaterialType,
+  ) -> impl Stream<Item = RenderComponentDelta> {
+    self
+      .materials
+      .write()
+      .unwrap()
+      .get_or_insert_with(0, || match material {
+        SceneMaterialType::PhysicalMetallicRoughness(material) => {
+          let instance = physical_metallic_roughness_material_build_gpu(material, &self.shared);
+          MaterialGPUInstance::PhysicalMetallicRoughness(instance)
+        }
+        SceneMaterialType::PhysicalSpecularGlossiness(_) => todo!(),
+        SceneMaterialType::Flat(_) => todo!(),
+        SceneMaterialType::Foreign(_) => todo!(),
+        _ => todo!(),
+      })
+      .create_render_component_delta_stream()
+  }
+}
+
+// impl RenderComponent for MaterialGPU {
+// }

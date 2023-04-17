@@ -8,9 +8,9 @@ use futures::Stream;
 
 #[pin_project::pin_project]
 pub struct RenderComponentReactive<T, U> {
-  gpu: T,
+  pub gpu: T,
   #[pin]
-  reactive: U,
+  pub reactive: U,
   // we could cache shader hash here
 }
 
@@ -81,7 +81,7 @@ impl<T: ShaderGraphProvider, U> ShaderGraphProvider for RenderComponentReactive<
 pub struct RenderComponentCell<T> {
   inner: EventSource<RenderComponentDelta>,
   #[pin]
-  gpu: T,
+  pub gpu: T,
 }
 
 impl<T: Stream> Stream for RenderComponentCell<T> {

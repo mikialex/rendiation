@@ -183,39 +183,87 @@ impl WebGPUMaterial for PhysicalMetallicRoughnessMaterial {
   }
 }
 
-type PhysicalMetallicRoughnessMaterialGPUReactive = RenderComponentReactive<
+type PhysicalMetallicRoughnessMaterialGPUReactiveInner = RenderComponentReactive<
   PhysicalMetallicRoughnessMaterialGPU,
   PhysicalMetallicRoughnessMaterialReactive,
 >;
 
-fn build_gpu(
+pub type PhysicalMetallicRoughnessMaterialGPUReactive = impl AsRef<RenderComponentCell<PhysicalMetallicRoughnessMaterialGPUReactiveInner>>
+  + Stream<Item = RenderComponentDelta>;
+
+pub fn physical_metallic_roughness_material_build_gpu(
   source: &SceneItemRef<PhysicalMetallicRoughnessMaterial>,
   ctx: &ShareBindableResource,
-) -> impl AsRef<RenderComponentCell<PhysicalMetallicRoughnessMaterialGPUReactive>>
-     + Stream<Item = RenderComponentDelta> {
-  let gpu = source.read().create_gpu(todo!(), todo!());
+) -> PhysicalMetallicRoughnessMaterialGPUReactive {
+  let m = source.read();
+
+  let mut uniform = PhysicalMetallicRoughnessMaterialUniform {
+    base_color: m.base_color,
+    roughness: m.roughness,
+    emissive: m.emissive,
+    metallic: m.metallic,
+    reflectance: m.reflectance,
+    normal_mapping_scale: 1.,
+    alpha_cutoff: m.alpha_cutoff,
+    alpha: m.alpha,
+    ..Zeroable::zeroed()
+  };
+
+  let base_color_texture = m
+    .base_color_texture
+    .as_ref()
+    .map(|t| ctx.build_texture_sampler_pair(t));
+
+  let metallic_roughness_texture = m
+    .metallic_roughness_texture
+    .as_ref()
+    .map(|t| ctx.build_texture_sampler_pair(t));
+
+  let emissive_texture = m
+    .emissive_texture
+    .as_ref()
+    .map(|t| ctx.build_texture_sampler_pair(t));
+
+  let normal_texture = m.normal_texture.as_ref().map(|t| {
+    uniform.normal_mapping_scale = t.scale;
+    ctx.build_texture_sampler_pair(&t.content)
+  });
+
+  let uniform = create_uniform2(uniform, &ctx.gpu.device);
+
+  let gpu = PhysicalMetallicRoughnessMaterialGPU {
+    uniform,
+    base_color_texture: base_color_texture.map(|t| t.0),
+    metallic_roughness_texture: metallic_roughness_texture.map(|t| t.0),
+    emissive_texture: emissive_texture.map(|t| t.0),
+    normal_texture: normal_texture.map(|t| t.0),
+    alpha_mode: m.alpha_mode,
+  };
 
   let state = RenderComponentReactive::from_gpu_with_default_reactive(gpu);
   let state = RenderComponentCell::new(state);
 
-  use PhysicalMetallicRoughnessMaterialDelta::*;
-  source
-    .listen_by(all_delta)
-    .fold_signal_flatten(state, |delta, state| {
+  use PhysicalMetallicRoughnessMaterialDelta as PD;
+  let ctx = ctx.clone();
+  source.listen_by(all_delta).fold_signal_flatten(
+    state,
+    move |delta,
+          state: &mut RenderComponentCell<PhysicalMetallicRoughnessMaterialGPUReactiveInner>| {
       match delta {
-        alpha_mode(_) => RenderComponentDelta::ShaderHash,
-        base_color_texture(t) => {
-          let r = ctx.get_or_create_reactive_gpu_texture2d(todo!()).as_ref();
+        PD::alpha_mode(_) => RenderComponentDelta::ShaderHash,
+        PD::base_color_texture(t) => {
+          let (t, tx) = ctx.build_texture_sampler_pair(todo!());
           // reactive.base_color = r.create_stream();
           // gpu.base_color = reactive.gpu.clone();
           RenderComponentDelta::ContentRef
         }
-        metallic_roughness_texture(_) => todo!(),
-        emissive_texture(_) => todo!(),
-        normal_texture(_) => todo!(),
+        PD::metallic_roughness_texture(_) => todo!(),
+        PD::emissive_texture(_) => todo!(),
+        PD::normal_texture(_) => todo!(),
         _ => RenderComponentDelta::Content,
       }
-    })
+    },
+  )
 }
 
 #[pin_project::pin_project]

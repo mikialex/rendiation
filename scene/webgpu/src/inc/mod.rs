@@ -33,9 +33,11 @@ pub struct ResourceGPUCtx {
 }
 
 /// The actual gpu data
+///
+/// we could customize the stream trait to avoid too much arc clone in update logic
 struct GlobalGPUSystem {
   gpu: ResourceGPUCtx,
-  pub texture_2d: StreamMap<ReactiveGPU2DTextureView>,
+  pub texture_2d: Arc<RwLock<StreamMap<ReactiveGPU2DTextureView>>>,
   // texture_cube: StreamMap<ReactiveGPUCubeTextureView>,
   // uniforms: HashMap<TypeId, Box<dyn Any>>,
 
@@ -52,17 +54,19 @@ impl GlobalGPUSystem {
 
 // using different views to control the resource access
 
-pub struct GlobalGPUSystemModelContentView<'a> {
-  shared: ShareBindableResource<'a>,
-  // materials: StreamMap<ReactiveRenderComponent>,
+#[derive(Clone)]
+pub struct GlobalGPUSystemModelContentView {
+  pub shared: ShareBindableResource,
+  pub materials: Arc<RwLock<StreamMap<MaterialGPUInstance>>>,
   // meshes: StreamMap<ReactiveRenderComponent>,
 }
 
-pub struct ShareBindableResource<'a> {
-  pub gpu: &'a ResourceGPUCtx,
-  pub texture_2d: &'a mut StreamMap<ReactiveGPU2DTextureView>,
-  // texture_cube: &'a mut StreamMap<ReactiveGPUCubeTextureView>,
-  // uniforms: &'a mut HashMap<TypeId, Box<dyn Any>>,
+#[derive(Clone)]
+pub struct ShareBindableResource {
+  pub gpu: ResourceGPUCtx,
+  pub texture_2d: Arc<RwLock<StreamMap<ReactiveGPU2DTextureView>>>,
+  // texture_cube:  mut StreamMap<ReactiveGPUCubeTextureView>,
+  // uniforms:  mut HashMap<TypeId, Box<dyn Any>>,
 }
 
 pub struct WhichModelRenderContentChange;
@@ -78,19 +82,6 @@ impl Stream for GlobalGPUSystem {
     todo!()
   }
 }
-
-// pub type ReactiveRenderComponent =
-//   impl Stream<Item = RenderComponentDelta> + AsRef<dyn RenderComponent>;
-
-// fn standard_model(model: &SceneItemRef<StandardModel>) -> StandardModelGPUReactive {
-//   let m = todo!();
-//   model
-//     .listen_by(all_delta)
-//     .fold_signal(m, |delta, m: &mut ModelGPUBinding| {
-//       //
-//       ()
-//     })
-// }
 
 pub enum ModelGPUReactive {
   Standard(),

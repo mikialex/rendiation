@@ -125,12 +125,13 @@ impl ReactiveGPU2DTextureSignal {
 pub type ReactiveGPU2DTextureView =
   impl AsRef<ReactiveGPU2DTextureSignal> + Stream<Item = TextureGPUChange>;
 
-impl ShareBindableResource<'_> {
+impl ShareBindableResource {
   pub fn get_or_create_reactive_gpu_texture2d(
-    &mut self,
+    &self,
     tex: &SceneTexture2D,
-  ) -> &mut ReactiveGPU2DTextureView {
-    self.texture_2d.get_or_insert_with(tex.id(), || {
+  ) -> (GPU2DTextureView, Texture2dRenderComponentDeltaStream) {
+    let mut texture_2d = self.texture_2d.write().unwrap();
+    let cache = texture_2d.get_or_insert_with(tex.id(), || {
       let gpu_tex = self.gpu.create_gpu_texture2d(tex);
 
       let gpu_tex = ReactiveGPU2DTextureSignal {
@@ -151,7 +152,23 @@ impl ShareBindableResource<'_> {
       };
 
       tex.listen_by(any_change).fold_signal(gpu_tex, updater)
-    })
+    });
+
+    let tex = cache.as_ref().gpu.clone();
+    let tex_s = cache.as_ref().create_gpu_texture_com_delta_stream();
+    (tex, tex_s)
+  }
+
+  pub fn build_texture_sampler_pair(
+    &self,
+    t: &Texture2DWithSamplingData,
+  ) -> (GPUTextureSamplerPair, Texture2dRenderComponentDeltaStream) {
+    let sampler = GPUSampler::create(t.sampler.into(), &self.gpu.device);
+    let sampler = sampler.create_default_view();
+
+    let (texture, tex_s) = self.get_or_create_reactive_gpu_texture2d(&t.texture);
+
+    (GPUTextureSamplerPair { texture, sampler }, tex_s)
   }
 }
 

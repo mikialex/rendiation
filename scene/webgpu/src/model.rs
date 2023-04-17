@@ -182,12 +182,9 @@ impl SceneRayInteractive for SceneModelImpl {
   }
 }
 
-type MaterialGPU = usize;
-type MeshGPU = usize;
-
 pub struct StandardModelGPU {
-  material: MaterialGPU,
-  mesh: MeshGPU,
+  material_id: usize,
+  mesh_id: usize,
 }
 
 // impl RenderComponent for StandardModelGPU{
@@ -200,19 +197,31 @@ fn build_gpu(
   source: &SceneItemRef<StandardModel>,
   ctx: &GlobalGPUSystemModelContentView,
 ) -> impl AsRef<RenderComponentCell<ModelGPUReactive>> + Stream<Item = RenderComponentDelta> {
-  let gpu = todo!();
+  let gpu = StandardModelGPU {
+    material_id: 0,
+    mesh_id: 0,
+  };
 
   let state = RenderComponentReactive::from_gpu_with_default_reactive(gpu);
   let state = RenderComponentCell::new(state);
 
-  source
-    .listen_by(all_delta)
-    .fold_signal_flatten(state, |delta, state| match delta {
-      StandardModelDelta::material(_) => todo!(),
+  let ctx = ctx.clone();
+
+  source.listen_by(all_delta).fold_signal_flatten(
+    state,
+    move |delta, state: &mut RenderComponentCell<ModelGPUReactive>| match delta {
+      StandardModelDelta::material(material) => {
+        let id: usize = 0;
+        let instance = ctx.get_or_create_reactive_material_gpu(&material);
+        state.gpu.gpu.material_id = id;
+        // state.gpu.reactive = instance.create_render_component_delta_stream();
+        RenderComponentDelta::ContentRef
+      }
       StandardModelDelta::mesh(_) => todo!(),
       StandardModelDelta::group(_) => todo!(),
       StandardModelDelta::skeleton(_) => todo!(),
-    })
+    },
+  )
 }
 
 #[derive(Default)]
