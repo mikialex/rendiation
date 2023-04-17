@@ -15,6 +15,9 @@ pub struct RenderComponentReactive<T, U> {
 }
 
 impl<T, U> RenderComponentReactive<T, U> {
+  pub fn new(gpu: T, reactive: U) -> Self {
+    Self { gpu, reactive }
+  }
   pub fn from_gpu_with_default_reactive(gpu: T) -> Self
   where
     U: Default,
@@ -79,9 +82,9 @@ impl<T: ShaderGraphProvider, U> ShaderGraphProvider for RenderComponentReactive<
 
 #[pin_project::pin_project]
 pub struct RenderComponentCell<T> {
-  inner: EventSource<RenderComponentDelta>,
+  source: EventSource<RenderComponentDelta>,
   #[pin]
-  pub gpu: T,
+  pub inner: T,
 }
 
 impl<T: Stream> Stream for RenderComponentCell<T> {
@@ -89,15 +92,15 @@ impl<T: Stream> Stream for RenderComponentCell<T> {
 
   fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
     let this = self.project();
-    this.gpu.poll_next(cx)
+    this.inner.poll_next(cx)
   }
 }
 
 impl<T> RenderComponentCell<T> {
   pub fn new(gpu: T) -> Self {
     RenderComponentCell {
-      inner: Default::default(),
-      gpu,
+      source: Default::default(),
+      inner: gpu,
     }
   }
 

@@ -253,8 +253,8 @@ pub fn physical_metallic_roughness_material_build_gpu(
         PD::alpha_mode(_) => RenderComponentDelta::ShaderHash,
         PD::base_color_texture(t) => {
           let (t, tx) = ctx.build_texture_sampler_pair(todo!());
-          // reactive.base_color = r.create_stream();
-          // gpu.base_color = reactive.gpu.clone();
+          // state.gpu.reactive.base_color = tx;
+          // state.gpu.gpu.base_color_texture = t;
           RenderComponentDelta::ContentRef
         }
         PD::metallic_roughness_texture(_) => todo!(),

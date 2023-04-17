@@ -73,6 +73,16 @@ pub struct StreamMap<T> {
   waker: Arc<RwLock<Option<Waker>>>,
 }
 
+impl<T> Default for StreamMap<T> {
+  fn default() -> Self {
+    Self {
+      contents: Default::default(),
+      waked: Default::default(),
+      waker: Default::default(),
+    }
+  }
+}
+
 fn try_wake(w: &Arc<RwLock<Option<Waker>>>) {
   let waker = w.read().unwrap();
   let waker: &Option<_> = &waker;

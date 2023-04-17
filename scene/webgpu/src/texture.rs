@@ -111,7 +111,8 @@ pub type Texture2dRenderComponentDeltaStream = impl Stream<Item = RenderComponen
 impl ReactiveGPU2DTextureSignal {
   pub fn create_gpu_texture_stream(&self) -> impl Stream<Item = TextureGPUChange> {
     // create channel here, and send the init value
-    let (s, r) = futures::channel::mpsc::unbounded();
+    let (s, r) = futures::channel::mpsc::unbounded::<TextureGPUChange>();
+    // s.unbounded_send(todo!());
     r
   }
   pub fn create_gpu_texture_com_delta_stream(&self) -> Texture2dRenderComponentDeltaStream {

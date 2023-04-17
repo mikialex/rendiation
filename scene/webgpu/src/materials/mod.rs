@@ -162,11 +162,13 @@ impl Stream for MaterialGPUInstance {
   }
 }
 
+pub type MaterialReactive = impl Stream<Item = RenderComponentDelta>;
+
 impl GlobalGPUSystemModelContentView {
   pub fn get_or_create_reactive_material_gpu(
     &self,
     material: &SceneMaterialType,
-  ) -> impl Stream<Item = RenderComponentDelta> {
+  ) -> MaterialReactive {
     self
       .materials
       .write()
