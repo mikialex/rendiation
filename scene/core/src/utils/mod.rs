@@ -1,4 +1,5 @@
 mod identity;
+
 pub use identity::*;
 mod mapper;
 pub use mapper::*;
@@ -119,5 +120,42 @@ fn channel_behavior() {
     let all = futures::executor::block_on_stream(receiver).count();
 
     assert_eq!(all, 2)
+  }
+
+  // should wake when drop sender
+  {
+    use std::sync::atomic::AtomicBool;
+
+    struct TestWaker {
+      waked: Arc<AtomicBool>,
+    }
+
+    impl futures::task::ArcWake for TestWaker {
+      fn wake_by_ref(arc_self: &Arc<Self>) {
+        arc_self
+          .waked
+          .store(true, std::sync::atomic::Ordering::SeqCst);
+      }
+    }
+
+    {
+      let (sender, mut receiver) = futures::channel::mpsc::unbounded::<usize>();
+
+      let test_waked = Arc::new(AtomicBool::new(false));
+      let waker = Arc::new(TestWaker {
+        waked: test_waked.clone(),
+      });
+      let waker = futures::task::waker_ref(&waker);
+      let mut cx = std::task::Context::from_waker(&waker);
+
+      // install waker
+      use futures::StreamExt;
+      let _ = receiver.poll_next_unpin(&mut cx);
+
+      drop(sender);
+
+      let waked = test_waked.load(std::sync::atomic::Ordering::SeqCst);
+      assert!(waked);
+    }
   }
 }

@@ -75,7 +75,7 @@ impl<T: Stream + Unpin> Stream for StreamVec<T> {
 
     this.waker.write().unwrap().replace(cx.waker().clone());
 
-    while let Some(index) = changed.pop() {
+    while let Some(&index) = changed.last() {
       let waker = Arc::new(ChangeWaker {
         waker: this.waker.clone(),
         index,
@@ -96,6 +96,7 @@ impl<T: Stream + Unpin> Stream for StreamVec<T> {
             return Poll::Ready(r);
           }
         } else {
+          changed.pop().unwrap();
           continue;
         }
       } else {
@@ -104,6 +105,21 @@ impl<T: Stream + Unpin> Stream for StreamVec<T> {
     }
     Poll::Pending
   }
+}
+
+#[test]
+fn should_drain() {
+  let (s, r) = futures::channel::mpsc::unbounded::<u32>();
+
+  s.unbounded_send(1).ok();
+  s.unbounded_send(2).ok();
+
+  let mut stream = StreamVec::default();
+  stream.insert(0, Some(r));
+
+  let mut c = 0;
+  crate::do_updates(&mut stream, |_| c += 1);
+  assert_eq!(c, 2);
 }
 
 #[pin_project]
