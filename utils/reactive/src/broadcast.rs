@@ -121,12 +121,6 @@ where
   }
 }
 
-pub trait StreamForkable {
-  type Item;
-  type Stream: Stream<Item = Self::Item> + Unpin;
-  fn fork(&self) -> Self::Stream;
-}
-
 impl<S, D> StreamBroadcaster<S, D, FanOut>
 where
   S: Stream<Item = D> + Unpin,
@@ -149,18 +143,6 @@ where
       index,
       source: self.inner.clone(),
     }
-  }
-}
-impl<S, D> StreamForkable for StreamBroadcaster<S, D, FanOut>
-where
-  S: Stream<Item = D> + Unpin,
-  D: Clone,
-{
-  type Item = D;
-  type Stream = BroadcastedStream<S, D, FanOut>;
-
-  fn fork(&self) -> Self::Stream {
-    self.fork_stream()
   }
 }
 
