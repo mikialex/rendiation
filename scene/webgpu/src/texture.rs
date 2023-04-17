@@ -119,7 +119,7 @@ impl ReactiveGPU2DTextureSignal {
     self.create_gpu_texture_stream().map(|d| match d {
       TextureGPUChange::Reference(_) => RenderComponentDelta::ContentRef,
       TextureGPUChange::Content => RenderComponentDelta::Content,
-    })
+    })  
   }
 }
 

@@ -1,3 +1,8 @@
+use __core::{
+  pin::Pin,
+  task::{Context, Poll},
+};
+
 use crate::*;
 use std::sync::{Arc, RwLock};
 
@@ -11,7 +16,7 @@ pub struct GlobalGPUSystem {
   // uniforms: HashMap<TypeId, Box<dyn Any>>,
   materials: Arc<RwLock<StreamMap<MaterialGPUInstance>>>,
   // meshes: StreamMap<ReactiveRenderComponent>,
-  models: StreamMap<ReactiveRenderComponent>,
+  models: StreamMap<ModelGPUReactive>,
 }
 
 impl GlobalGPUSystem {
@@ -21,6 +26,7 @@ impl GlobalGPUSystem {
       gpu,
       texture_2d: Default::default(),
       materials: Default::default(),
+      models: Default::default(),
     }
   }
 }
@@ -28,11 +34,17 @@ impl GlobalGPUSystem {
 impl Stream for GlobalGPUSystem {
   type Item = ();
 
-  fn poll_next(
-    self: __core::pin::Pin<&mut Self>,
-    cx: &mut task::Context<'_>,
-  ) -> task::Poll<Option<Self::Item>> {
-    todo!()
+  fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+    let mut texture_2d = self.texture_2d.write().unwrap();
+    let texture_2d: &mut StreamMap<ReactiveGPU2DTextureView> = &mut texture_2d;
+    do_updates_by(texture_2d, cx, |_| {});
+
+    let mut materials = self.materials.write().unwrap();
+    let materials: &mut StreamMap<MaterialGPUInstance> = &mut materials;
+    do_updates_by(materials, cx, |_| {});
+
+    // do_updates(&mut self.models, |_| {});
+    Poll::Pending
   }
 }
 

@@ -191,12 +191,14 @@ pub struct StandardModelGPU {
 //   //
 // }
 
-type ModelGPUReactive = RenderComponentReactive<StandardModelGPU, StandardModelReactive>;
+type ModelGPUReactiveInner = RenderComponentReactive<StandardModelGPU, StandardModelReactive>;
+pub type ModelGPUReactive =
+  impl AsRef<RenderComponentCell<ModelGPUReactiveInner>> + Stream<Item = RenderComponentDelta>;
 
 pub fn build_standard_model_gpu(
   source: &SceneItemRef<StandardModel>,
   ctx: &GlobalGPUSystemModelContentView,
-) -> impl AsRef<RenderComponentCell<ModelGPUReactive>> + Stream<Item = RenderComponentDelta> {
+) -> ModelGPUReactive {
   let s = source.read();
   let gpu = StandardModelGPU {
     material_id: 0,
@@ -214,7 +216,7 @@ pub fn build_standard_model_gpu(
 
   source.listen_by(all_delta).fold_signal_flatten(
     state,
-    move |delta, state: &mut RenderComponentCell<ModelGPUReactive>| match delta {
+    move |delta, state: &mut RenderComponentCell<ModelGPUReactiveInner>| match delta {
       StandardModelDelta::material(material) => {
         let id: usize = 0;
         let delta = ctx.get_or_create_reactive_material_gpu(&material);
