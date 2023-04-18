@@ -5,7 +5,7 @@ use std::sync::{Arc, RwLock};
 // struct SceneCameraGPUSystem;
 // struct SceneBundleGPUSystem;
 
-struct SceneGPUSystem {
+pub struct SceneGPUSystem {
   // we share it between different scene system(it's global)
   contents: Arc<RwLock<GlobalGPUSystem>>,
   // nodes: SceneNodeGPUSystem,
@@ -40,20 +40,7 @@ impl SceneGPUSystem {
         arena::ArenaDelta::Insert((model, _)) => {
           model.listen_by(all_delta).map(|delta| match delta {
             SceneModelImplDelta::model(model) => match model {
-              SceneModelType::Standard(model) => {
-                model.listen_by(all_delta).map(|delta| match delta {
-                  StandardModelDelta::material(material) => match material {
-                    SceneMaterialType::PhysicalSpecularGlossiness(_) => todo!(),
-                    SceneMaterialType::PhysicalMetallicRoughness(_) => todo!(),
-                    SceneMaterialType::Flat(_) => todo!(),
-                    SceneMaterialType::Foreign(_) => todo!(),
-                    _ => todo!(),
-                  },
-                  StandardModelDelta::mesh(_) => todo!(),
-                  StandardModelDelta::group(_) => todo!(),
-                  StandardModelDelta::skeleton(_) => todo!(),
-                });
-              }
+              SceneModelType::Standard(model) => {}
               SceneModelType::Foreign(_) => todo!(),
               _ => todo!(),
             },
