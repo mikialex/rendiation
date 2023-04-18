@@ -49,10 +49,10 @@ pub struct IndexedItem<T> {
   pub item: T,
 }
 
-struct ChangeWaker {
-  index: usize,
-  changed: Arc<RwLock<Vec<usize>>>,
-  waker: Arc<RwLock<Option<Waker>>>,
+pub(crate) struct ChangeWaker {
+  pub(crate) index: usize,
+  pub(crate) changed: Arc<RwLock<Vec<usize>>>,
+  pub(crate) waker: Arc<RwLock<Option<Waker>>>,
 }
 
 impl futures::task::ArcWake for ChangeWaker {

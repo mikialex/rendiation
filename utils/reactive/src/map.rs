@@ -1,12 +1,12 @@
 use std::{
   collections::HashMap,
   sync::{Arc, RwLock},
-  task::Waker,
+  task::{Context, Poll, Waker},
 };
 
 use futures::{stream::FuturesUnordered, *};
 
-use crate::do_updates;
+use crate::{do_updates, ChangeWaker, IndexedItem};
 
 pub trait ReactiveMapping<M> {
   type ChangeStream: Stream + Unpin;
@@ -67,8 +67,9 @@ impl<M, T: ReactiveMapping<M>> ReactiveMap<T, M> {
   }
 }
 
+#[pin_project::pin_project]
 pub struct StreamMap<T> {
-  contents: HashMap<usize, T>,
+  streams: HashMap<usize, T>,
   waked: Arc<RwLock<Vec<usize>>>,
   waker: Arc<RwLock<Option<Waker>>>,
 }
@@ -76,7 +77,7 @@ pub struct StreamMap<T> {
 impl<T> Default for StreamMap<T> {
   fn default() -> Self {
     Self {
-      contents: Default::default(),
+      streams: Default::default(),
       waked: Default::default(),
       waker: Default::default(),
     }
@@ -93,7 +94,7 @@ fn try_wake(w: &Arc<RwLock<Option<Waker>>>) {
 
 impl<T> StreamMap<T> {
   pub fn get_or_insert_with(&mut self, key: usize, f: impl FnOnce() -> T) -> &mut T {
-    self.contents.entry(key).or_insert_with(|| {
+    self.streams.entry(key).or_insert_with(|| {
       self.waked.write().unwrap().push(key);
       try_wake(&self.waker);
       f()
@@ -106,13 +107,41 @@ impl<T> StreamMap<T> {
 }
 
 impl<T: Stream + Unpin> Stream for StreamMap<T> {
-  type Item = T::Item;
+  type Item = IndexedItem<T::Item>;
 
   fn poll_next(
     self: core::pin::Pin<&mut Self>,
     cx: &mut task::Context<'_>,
   ) -> task::Poll<Option<Self::Item>> {
-    todo!()
+    let this = self.project();
+    let mut changed = this.waked.write().unwrap();
+
+    this.waker.write().unwrap().replace(cx.waker().clone());
+
+    while let Some(&index) = changed.last() {
+      let waker = Arc::new(ChangeWaker {
+        waker: this.waker.clone(),
+        index,
+        changed: this.waked.clone(),
+      });
+      let waker = futures::task::waker_ref(&waker);
+      let mut cx = Context::from_waker(&waker);
+
+      if let Some(stream) = this.streams.get_mut(&index) {
+        if let Poll::Ready(r) = stream
+          .poll_next_unpin(&mut cx)
+          .map(|r| r.map(|item| IndexedItem { index, item }))
+        {
+          if r.is_none() {
+            this.streams.remove(&index);
+          } else {
+            return Poll::Ready(r);
+          }
+        }
+      }
+
+      changed.pop().unwrap();
+    }
+    Poll::Pending
   }
-  //
 }
