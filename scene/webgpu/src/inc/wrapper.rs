@@ -29,6 +29,7 @@ impl<T, U> RenderComponentReactive<T, U> {
   }
 }
 
+#[derive(Copy, Clone)]
 pub enum RenderComponentDelta {
   ShaderHash,
   ContentRef,
@@ -105,9 +106,9 @@ impl<T> RenderComponentCell<T> {
   }
 
   pub fn create_render_component_delta_stream(&self) -> impl Stream<Item = RenderComponentDelta> {
-    todo!();
-    let (s, r) = futures::channel::mpsc::unbounded();
-    r
+    self
+      .source
+      .listen_by(|v| *v, RenderComponentDelta::ContentRef)
   }
 }
 

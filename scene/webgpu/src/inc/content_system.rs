@@ -11,6 +11,8 @@ use std::sync::{Arc, RwLock};
 /// we could customize the stream trait's context to avoid too much arc clone in update logic
 pub struct GlobalGPUSystem {
   gpu: ResourceGPUCtx,
+  model_ctx: GPUModelResourceCtx,
+  bindable_ctx: ShareBindableResourceCtx,
   texture_2d: Arc<RwLock<StreamMap<ReactiveGPU2DTextureView>>>,
   // texture_cube: StreamMap<ReactiveGPUCubeTextureView>,
   // uniforms: HashMap<TypeId, Box<dyn Any>>,
@@ -22,10 +24,26 @@ pub struct GlobalGPUSystem {
 impl GlobalGPUSystem {
   pub fn new(gpu: &GPU, mipmap_gen: Rc<RefCell<MipMapTaskManager>>) -> Self {
     let gpu = ResourceGPUCtx::new(gpu, mipmap_gen);
+
+    let bindable_ctx = ShareBindableResourceCtx {
+      gpu: gpu.clone(),
+      texture_2d: Default::default(),
+    };
+
+    let model_ctx = GPUModelResourceCtx {
+      shared: bindable_ctx.clone(),
+      materials: Default::default(),
+    };
+
+    let texture_2d = bindable_ctx.texture_2d.clone();
+    let materials = model_ctx.materials.clone();
+
     Self {
       gpu,
-      texture_2d: Default::default(),
-      materials: Default::default(),
+      bindable_ctx,
+      model_ctx,
+      texture_2d,
+      materials,
       models: Default::default(),
     }
   }
@@ -49,14 +67,14 @@ impl Stream for GlobalGPUSystem {
 }
 
 #[derive(Clone)]
-pub struct GlobalGPUSystemModelContentView {
-  pub shared: ShareBindableResource,
+pub struct GPUModelResourceCtx {
+  pub shared: ShareBindableResourceCtx,
   pub materials: Arc<RwLock<StreamMap<MaterialGPUInstance>>>,
   // meshes: StreamMap<ReactiveRenderComponent>,
 }
 
 #[derive(Clone)]
-pub struct ShareBindableResource {
+pub struct ShareBindableResourceCtx {
   pub gpu: ResourceGPUCtx,
   pub texture_2d: Arc<RwLock<StreamMap<ReactiveGPU2DTextureView>>>,
   // texture_cube:  mut StreamMap<ReactiveGPUCubeTextureView>,

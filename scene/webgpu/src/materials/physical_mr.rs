@@ -193,7 +193,7 @@ pub type PhysicalMetallicRoughnessMaterialGPUReactive = impl AsRef<RenderCompone
 
 pub fn physical_metallic_roughness_material_build_gpu(
   source: &SceneItemRef<PhysicalMetallicRoughnessMaterial>,
-  ctx: &ShareBindableResource,
+  ctx: &ShareBindableResourceCtx,
 ) -> PhysicalMetallicRoughnessMaterialGPUReactive {
   let m = source.read();
 

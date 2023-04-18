@@ -133,6 +133,7 @@ impl GPUMaterialCache {
   }
 }
 
+#[pin_project::pin_project(project = MaterialGPUInstanceProj)]
 pub enum MaterialGPUInstance {
   PhysicalMetallicRoughness(PhysicalMetallicRoughnessMaterialGPUReactive),
   // PhysicalMetallicRoughness(SceneItemRef<PhysicalMetallicRoughnessMaterial>),
@@ -158,13 +159,16 @@ impl Stream for MaterialGPUInstance {
     self: __core::pin::Pin<&mut Self>,
     cx: &mut task::Context<'_>,
   ) -> task::Poll<Option<Self::Item>> {
-    todo!()
+    match self.project() {
+      MaterialGPUInstanceProj::PhysicalMetallicRoughness(m) => m.poll_next_unpin(cx),
+      MaterialGPUInstanceProj::Foreign(_) => todo!(),
+    }
   }
 }
 
 pub type MaterialReactive = impl Stream<Item = RenderComponentDelta>;
 
-impl GlobalGPUSystemModelContentView {
+impl GPUModelResourceCtx {
   pub fn get_or_create_reactive_material_gpu(
     &self,
     material: &SceneMaterialType,

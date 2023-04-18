@@ -97,9 +97,14 @@ pub enum TextureGPUChange {
   Content,
 }
 
-// todo
-// unsafe impl Send for TextureGPUChange {}
-// unsafe impl Sync for TextureGPUChange {}
+impl TextureGPUChange {
+  fn to_render_component_delta(&self) -> RenderComponentDelta {
+    match self {
+      TextureGPUChange::Reference(_) => RenderComponentDelta::ContentRef,
+      TextureGPUChange::Content => RenderComponentDelta::ContentRef,
+    }
+  }
+}
 
 pub struct ReactiveGPU2DTextureSignal {
   inner: EventSource<TextureGPUChange>,
@@ -109,24 +114,27 @@ pub struct ReactiveGPU2DTextureSignal {
 pub type Texture2dRenderComponentDeltaStream = impl Stream<Item = RenderComponentDelta>;
 
 impl ReactiveGPU2DTextureSignal {
-  pub fn create_gpu_texture_stream(&self) -> impl Stream<Item = TextureGPUChange> {
-    // create channel here, and send the init value
-    let (s, r) = futures::channel::mpsc::unbounded::<TextureGPUChange>();
-    // s.unbounded_send(todo!());
-    r
-  }
+  // todo , fix send sync in webgpu resource first
+  // pub fn create_gpu_texture_stream(&self) -> impl Stream<Item = TextureGPUChange> {
+  //   // create channel here, and send the init value
+  //   let s = self
+  //     .inner
+  //     .listen_by(TextureGPUChange::to_render_component_delta);
+
+  //   s
+  // }
   pub fn create_gpu_texture_com_delta_stream(&self) -> Texture2dRenderComponentDeltaStream {
-    self.create_gpu_texture_stream().map(|d| match d {
-      TextureGPUChange::Reference(_) => RenderComponentDelta::ContentRef,
-      TextureGPUChange::Content => RenderComponentDelta::Content,
-    })  
+    self.inner.listen_by(
+      TextureGPUChange::to_render_component_delta,
+      RenderComponentDelta::ContentRef,
+    )
   }
 }
 
 pub type ReactiveGPU2DTextureView =
   impl AsRef<ReactiveGPU2DTextureSignal> + Stream<Item = TextureGPUChange>;
 
-impl ShareBindableResource {
+impl ShareBindableResourceCtx {
   pub fn get_or_create_reactive_gpu_texture2d(
     &self,
     tex: &SceneTexture2D,

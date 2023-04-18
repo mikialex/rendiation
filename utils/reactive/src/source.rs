@@ -105,6 +105,20 @@ impl<T: 'static> EventSource<T> {
     self.inner.write().unwrap().off(token)
   }
 
+  pub fn listen_by<U: Send + Sync + 'static>(
+    &self,
+    mapper: impl Fn(&T) -> U + Send + Sync + 'static,
+    init: U,
+  ) -> impl futures::Stream<Item = U> {
+    let (sender, receiver) = futures::channel::mpsc::unbounded();
+    sender.unbounded_send(init).ok();
+    self.on(move |v| {
+      sender.unbounded_send(mapper(v)).ok();
+      sender.is_closed()
+    });
+    receiver
+  }
+
   pub fn once_future(&mut self) -> impl Future<Output = Option<T>>
   where
     T: Clone + Send + Sync,

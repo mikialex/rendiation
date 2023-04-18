@@ -1,3 +1,5 @@
+use __core::task::Poll;
+
 use crate::*;
 
 impl SceneRenderable for SceneModel {
@@ -197,7 +199,7 @@ pub type ModelGPUReactive =
 
 pub fn build_standard_model_gpu(
   source: &SceneItemRef<StandardModel>,
-  ctx: &GlobalGPUSystemModelContentView,
+  ctx: &GPUModelResourceCtx,
 ) -> ModelGPUReactive {
   let s = source.read();
   let gpu = StandardModelGPU {
@@ -231,6 +233,7 @@ pub fn build_standard_model_gpu(
   )
 }
 
+#[pin_project::pin_project]
 pub struct StandardModelReactive {
   material: MaterialReactive,
   // mesh:
@@ -243,6 +246,8 @@ impl Stream for StandardModelReactive {
     self: __core::pin::Pin<&mut Self>,
     cx: &mut task::Context<'_>,
   ) -> task::Poll<Option<Self::Item>> {
-    todo!()
+    let this = self.project();
+    early_return_ready!(this.material.poll_next_unpin(cx));
+    Poll::Pending
   }
 }
