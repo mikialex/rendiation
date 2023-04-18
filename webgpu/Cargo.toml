@@ -13,6 +13,7 @@ typed-arena = "2.0.1"
 wgpu = "0.15"
 wgsl-codegen-graph = {path = "../shader/language/wgsl/codegen-graph"}
 winit = {version = "0.27.1"}
+reactive = {path = "../utils/reactive"}
 
 [features]
 webgl = ["wgpu/webgl"]
