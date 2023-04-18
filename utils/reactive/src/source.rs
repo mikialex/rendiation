@@ -1,9 +1,10 @@
 use arena::{Arena, Handle};
+use futures::Future;
 use std::sync::{Arc, RwLock};
 
 pub struct Source<T> {
   // return if should remove
-  listeners: Arena<Box<dyn Fn(&T) -> bool + Send + Sync>>,
+  listeners: Arena<Box<dyn FnMut(&T) -> bool + Send + Sync>>,
 }
 
 impl<T: Clone + Send + Sync + 'static> EventSource<T> {
@@ -15,7 +16,7 @@ impl<T: Clone + Send + Sync + 'static> EventSource<T> {
 }
 
 pub struct RemoveToken<T> {
-  handle: Handle<Box<dyn Fn(&T) -> bool + Send + Sync>>,
+  handle: Handle<Box<dyn FnMut(&T) -> bool + Send + Sync>>,
 }
 
 impl<T> Clone for RemoveToken<T> {
@@ -29,7 +30,7 @@ impl<T> Copy for RemoveToken<T> {}
 
 impl<T> Source<T> {
   /// return should remove after triggered
-  pub fn on(&mut self, cb: impl Fn(&T) -> bool + Send + Sync + 'static) -> RemoveToken<T> {
+  pub fn on(&mut self, cb: impl FnMut(&T) -> bool + Send + Sync + 'static) -> RemoveToken<T> {
     let handle = self.listeners.insert(Box::new(cb));
     RemoveToken { handle }
   }
@@ -96,12 +97,26 @@ impl<T: 'static> EventSource<T> {
   }
 
   /// return should remove after triggered
-  pub fn on(&self, f: impl Fn(&T) -> bool + Send + Sync + 'static) -> RemoveToken<T> {
+  pub fn on(&self, f: impl FnMut(&T) -> bool + Send + Sync + 'static) -> RemoveToken<T> {
     self.inner.write().unwrap().on(f)
   }
 
   pub fn off(&mut self, token: RemoveToken<T>) {
     self.inner.write().unwrap().off(token)
+  }
+
+  pub fn once_future(&mut self) -> impl Future<Output = Option<T>>
+  where
+    T: Clone + Send + Sync,
+  {
+    use futures::FutureExt;
+    let (s, r) = futures::channel::oneshot::channel::<T>();
+    let mut s = Some(s);
+    self.on(move |re| {
+      s.take().map(|s| s.send(re.clone()).ok());
+      true
+    });
+    r.map(|v| v.ok())
   }
 }
 

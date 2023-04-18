@@ -91,17 +91,13 @@ impl<T: Stream + Unpin> Stream for StreamVec<T> {
         {
           if r.is_none() {
             this.streams[index] = None;
-            continue;
           } else {
             return Poll::Ready(r);
           }
-        } else {
-          changed.pop().unwrap();
-          continue;
         }
-      } else {
-        continue;
       }
+
+      changed.pop();
     }
     Poll::Pending
   }

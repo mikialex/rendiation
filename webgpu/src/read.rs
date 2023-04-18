@@ -1,3 +1,4 @@
+use __core::ops::RangeBounds;
 use futures::FutureExt;
 
 use crate::*;
@@ -7,11 +8,6 @@ pub struct ReadRange {
   pub size: Size,
   pub offset_x: usize,
   pub offset_y: usize,
-}
-
-pub struct ReadTextureTask {
-  inner: ReadBufferTask,
-  info: TextReadBufferInfo,
 }
 
 pub struct ReadableTextureBuffer {
@@ -49,22 +45,22 @@ use core::pin::Pin;
 use core::task::Context;
 use core::task::Poll;
 
-impl Future for ReadTextureTask {
-  type Output = Result<ReadableTextureBuffer, gpu::BufferAsyncError>;
-
-  fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
-    Pin::new(&mut self.inner).poll(cx).map(|r| {
-      r.map(|buffer| ReadableTextureBuffer {
-        info: self.info,
-        buffer,
-      })
-    })
-  }
-}
-
 pub struct ReadBufferTask {
   buffer: Option<gpu::Buffer>,
   inner: futures::channel::oneshot::Receiver<Result<(), BufferAsyncError>>,
+}
+
+impl ReadBufferTask {
+  pub fn new<S: RangeBounds<BufferAddress>>(buffer: gpu::Buffer, range: S) -> Self {
+    let buffer_slice = buffer.slice(range);
+    let (sender, receiver) = futures::channel::oneshot::channel();
+    buffer_slice.map_async(gpu::MapMode::Read, move |v| sender.send(v).unwrap());
+
+    Self {
+      inner: receiver,
+      buffer: Some(buffer),
+    }
+  }
 }
 
 impl Future for ReadBufferTask {
@@ -131,19 +127,10 @@ impl GPUCommandEncoder {
 
     self.copy_buffer_to_buffer(buffer.gpu.as_ref(), range.offset, &output_buffer, 0, size);
 
-    self.on_submit().clone().then(move |_| {
-      let buffer_slice = output_buffer.slice(..);
-      // Sets the buffer up for mapping, sending over the result of the mapping back to us when it is finished.
-      let (sender, receiver) = futures::channel::oneshot::channel();
-      buffer_slice.map_async(gpu::MapMode::Read, move |v| {
-        sender.send(v).ok();
-      });
-
-      ReadBufferTask {
-        inner: receiver,
-        buffer: Some(output_buffer),
-      }
-    })
+    self
+      .on_submit
+      .once_future()
+      .then(|_| ReadBufferTask::new(output_buffer, ..))
   }
 
   pub fn read_texture_2d(
@@ -186,21 +173,13 @@ impl GPUCommandEncoder {
       range.size.into_gpu_size(),
     );
 
-    self.on_submit().clone().then(move |_| {
-      let buffer_slice = output_buffer.slice(..);
-      // Sets the buffer up for mapping, sending over the result of the mapping back to us when it is finished.
-      let (sender, receiver) = futures::channel::oneshot::channel();
-      buffer_slice.map_async(gpu::MapMode::Read, move |v| sender.send(v).unwrap());
-
-      let inner = ReadBufferTask {
-        inner: receiver,
-        buffer: Some(output_buffer),
-      };
-
-      ReadTextureTask {
-        inner,
-        info: buffer_dimensions,
-      }
+    self.on_submit.once_future().then(move |_| {
+      ReadBufferTask::new(output_buffer, ..).map(move |r| {
+        r.map(move |buffer| ReadableTextureBuffer {
+          info: buffer_dimensions,
+          buffer,
+        })
+      })
     })
   }
 }
