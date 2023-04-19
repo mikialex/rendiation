@@ -206,6 +206,10 @@ impl<T> TreeCollection<T> {
     self.nodes.get_mut(handle).unwrap()
   }
 
+  pub fn is_handle_valid(&self, handle: TreeNodeHandle<T>) -> bool {
+    self.nodes.get(handle).is_some()
+  }
+
   fn get_parent_child_pair(
     &mut self,
     parent: TreeNodeHandle<T>,

@@ -19,7 +19,7 @@ impl ReadableTextureBuffer {
   pub fn read_raw(&self) -> BufferView {
     self.buffer.read_raw()
   }
-  pub fn size_info(&self) -> TextReadBufferInfo {
+  pub fn info(&self) -> TextReadBufferInfo {
     self.info
   }
 }
@@ -86,6 +86,7 @@ pub struct TextReadBufferInfo {
   pub height: usize,
   pub unpadded_bytes_per_row: usize,
   pub padded_bytes_per_row: usize,
+  pub format: gpu::TextureFormat,
 }
 
 impl TextReadBufferInfo {
@@ -100,6 +101,7 @@ impl TextReadBufferInfo {
       height,
       unpadded_bytes_per_row,
       padded_bytes_per_row,
+      format,
     }
   }
 }

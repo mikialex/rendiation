@@ -141,26 +141,26 @@ pub fn register_default_commands(terminal: &mut Terminal) {
 }
 
 fn write_png(result: &ReadableTextureBuffer, png_output_path: impl AsRef<Path>) {
-  let buffer_dimensions = result.size_info();
+  let info = result.info();
 
   let mut png_encoder = png::Encoder::new(
     std::fs::File::create(png_output_path).unwrap(),
-    buffer_dimensions.width as u32,
-    buffer_dimensions.height as u32,
+    info.width as u32,
+    info.height as u32,
   );
   png_encoder.set_depth(png::BitDepth::Eight);
   png_encoder.set_color(png::ColorType::Rgba);
   let mut png_writer = png_encoder
     .write_header()
     .unwrap()
-    .into_stream_writer_with_size(buffer_dimensions.unpadded_bytes_per_row)
+    .into_stream_writer_with_size(info.unpadded_bytes_per_row)
     .unwrap();
 
   let padded_buffer = result.read_raw();
   // from the padded_buffer we write just the unpadded bytes into the image
-  for chunk in padded_buffer.chunks(buffer_dimensions.padded_bytes_per_row) {
+  for chunk in padded_buffer.chunks(info.padded_bytes_per_row) {
     png_writer
-      .write_all(&chunk[..buffer_dimensions.unpadded_bytes_per_row])
+      .write_all(&chunk[..info.unpadded_bytes_per_row])
       .unwrap();
   }
   png_writer.finish().unwrap();

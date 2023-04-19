@@ -143,19 +143,19 @@ where
   type Item = X;
 
   fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
-    let this = self.project();
-    if let Poll::Ready(v) = this.inner.poll_next(cx) {
-      if let Some(v) = v {
-        if let Some(mapped) = (this.f)(v) {
-          Poll::Ready(mapped.into())
+    let mut this = self.project();
+    loop {
+      if let Poll::Ready(v) = this.inner.as_mut().poll_next(cx) {
+        if let Some(v) = v {
+          if let Some(mapped) = (this.f)(v) {
+            break Poll::Ready(mapped.into());
+          }
         } else {
-          Poll::Pending
+          break Poll::Ready(None);
         }
       } else {
-        Poll::Ready(None)
+        break Poll::Pending;
       }
-    } else {
-      Poll::Pending
     }
   }
 }

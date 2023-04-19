@@ -171,9 +171,12 @@ impl<T: IncrementalBase, Dirty> TreeHierarchyDerivedSystem<T, Dirty> {
         let mut derived_deltas = Vec::new();
         // do full tree traverse check, emit all real update as stream
         let tree: &TREE = &source_tree.inner.read().unwrap();
-        B::update_derived(tree, &mut derived_tree, update_root, &mut |delta| {
-          derived_deltas.push(delta);
-        });
+        // node maybe deleted
+        if derived_tree.is_handle_valid(update_root) {
+          B::update_derived(tree, &mut derived_tree, update_root, &mut |delta| {
+            derived_deltas.push(delta);
+          });
+        }
         futures::stream::iter(derived_deltas)
       })
       .flatten(); // we want all change here, not signal
