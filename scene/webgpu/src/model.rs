@@ -197,6 +197,8 @@ type ModelGPUReactiveInner = RenderComponentReactive<StandardModelGPU, StandardM
 pub type ModelGPUReactive =
   impl AsRef<RenderComponentCell<ModelGPUReactiveInner>> + Stream<Item = RenderComponentDelta>;
 
+pub type ModelRenderComponentReactive = ReactiveRenderComponent<ModelGPUReactiveInner>;
+
 pub fn build_standard_model_gpu(
   source: &SceneItemRef<StandardModel>,
   ctx: &GPUModelResourceCtx,
@@ -251,3 +253,50 @@ impl Stream for StandardModelReactive {
     Poll::Pending
   }
 }
+
+pub struct SceneModelGPUInstance {
+  node_id: usize,
+  model_id: usize,
+}
+
+#[pin_project::pin_project]
+struct SceneModelGPUReactiveInstance {
+  model: ModelRenderComponentReactive,
+  // node: impl Stream<Item = RenderComponentDelta>,
+}
+
+impl Stream for SceneModelGPUReactiveInstance {
+  type Item = RenderComponentDelta;
+
+  fn poll_next(
+    self: __core::pin::Pin<&mut Self>,
+    cx: &mut task::Context<'_>,
+  ) -> task::Poll<Option<Self::Item>> {
+    let this = self.project();
+    early_return_ready!(this.model.poll_next_unpin(cx));
+    Poll::Pending
+  }
+}
+
+type SceneModelGPUReactiveInner =
+  RenderComponentReactive<SceneModelGPUInstance, SceneModelGPUReactive>;
+pub type SceneModelGPUReactive =
+  impl AsRef<RenderComponentCell<SceneModelGPUReactiveInner>> + Stream<Item = RenderComponentDelta>;
+
+pub fn build_model_gpu(
+  source: &SceneModelType,
+  ctx: &GPUModelResourceCtx,
+) -> Option<SceneModelGPUReactive> {
+  match source {
+    SceneModelType::Standard(s) => {
+      todo!()
+      // build_standard_model_gpu(s, ctx).into()
+    }
+    SceneModelType::Foreign(_) => todo!(),
+    _ => None,
+  }
+}
+
+// pub fn build_scene_model_gpu(source: &SceneModel, ctx: &GPUModelResourceCtx) {
+//   //
+// }

@@ -101,6 +101,10 @@ impl<T> StreamMap<T> {
     })
   }
 
+  pub fn remove(&mut self, key: usize) {
+    self.streams.remove(&key);
+  }
+
   pub fn try_wake(&self) {
     try_wake(&self.waker)
   }

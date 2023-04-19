@@ -8,6 +8,7 @@ use std::sync::{Arc, RwLock};
 pub struct SceneGPUSystem {
   // we share it between different scene system(it's global)
   contents: Arc<RwLock<GlobalGPUSystem>>,
+  models: Arc<RwLock<StreamMap<ModelGPUReactive>>>,
   // nodes: SceneNodeGPUSystem,
   // // the camera gpu data are mostly related to scene node it used, so keep it at scene level;
   // cameras: SceneCameraGPUSystem,
@@ -34,25 +35,36 @@ impl Stream for SceneGPUSystem {
 
 impl SceneGPUSystem {
   pub fn new(scene: &Scene, contents: Arc<RwLock<GlobalGPUSystem>>) -> Self {
-    scene.listen_by(all_delta).map(|delta| match delta {
-      SceneInnerDelta::models(delta) => match delta {
-        arena::ArenaDelta::Mutate(_) => todo!(),
-        arena::ArenaDelta::Insert((model, _)) => {
-          model.listen_by(all_delta).map(|delta| match delta {
-            SceneModelImplDelta::model(model) => match model {
-              SceneModelType::Standard(model) => {}
-              SceneModelType::Foreign(_) => todo!(),
-              _ => todo!(),
-            },
-            SceneModelImplDelta::node(_) => todo!(),
-          });
-        }
-        arena::ArenaDelta::Remove(_) => todo!(),
-      },
-      _ => {}
+    let models: Arc<RwLock<StreamMap<ModelGPUReactive>>> = Default::default();
+    let models_c = models.clone();
+    scene.listen_by(all_delta).map(|delta| {
+      let contents = contents.write().unwrap();
+      let models = models_c.write().unwrap();
+      match delta {
+        SceneInnerDelta::models(delta) => match delta {
+          arena::ArenaDelta::Mutate((model, _)) => {
+            models.remove(model.id());
+            models.get_or_insert_with(model.id(), || {
+              //
+              todo!()
+            });
+          }
+          arena::ArenaDelta::Insert((model, _)) => {
+            models.get_or_insert_with(model.id(), || {
+              //
+              todo!()
+            });
+          }
+          arena::ArenaDelta::Remove(index) => {
+            // models.remove(model.id());
+          }
+        },
+        _ => {}
+      }
     });
     Self {
       contents,
+      models,
       // nodes: (),
       // cameras: (),
       // bundle: (),

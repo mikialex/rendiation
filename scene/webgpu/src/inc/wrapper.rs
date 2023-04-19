@@ -81,6 +81,8 @@ impl<T: ShaderGraphProvider, U> ShaderGraphProvider for RenderComponentReactive<
   }
 }
 
+pub type ReactiveRenderComponent<T> = impl Stream<Item = RenderComponentDelta>;
+
 #[pin_project::pin_project]
 pub struct RenderComponentCell<T> {
   source: EventSource<RenderComponentDelta>,
@@ -105,7 +107,7 @@ impl<T> RenderComponentCell<T> {
     }
   }
 
-  pub fn create_render_component_delta_stream(&self) -> impl Stream<Item = RenderComponentDelta> {
+  pub fn create_render_component_delta_stream(&self) -> ReactiveRenderComponent<T> {
     self
       .source
       .listen_by(|v| *v, RenderComponentDelta::ContentRef)
