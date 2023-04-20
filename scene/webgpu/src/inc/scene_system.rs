@@ -12,6 +12,7 @@ pub struct SceneGPUSystem {
   // // the camera gpu data are mostly related to scene node it used, so keep it at scene level;
   // cameras: SceneCameraGPUSystem,
   // bundle: SceneBundleGPUSystem,
+  models: StreamMap<SceneModelGPUReactive>,
   source: SceneGPUUpdateSource,
 }
 
@@ -35,11 +36,12 @@ type SceneGPUUpdateSource = impl Stream;
 
 impl SceneGPUSystem {
   pub fn new(scene: &Scene, contents: Arc<RwLock<GlobalGPUSystem>>) -> Self {
+    let models = Default::default();
     let contents_c = contents.clone();
 
     let source = scene.listen_by(all_delta).map(move |delta| {
       let contents = contents_c.write().unwrap();
-      let mut models = contents_c.models.write().unwrap();
+      let mut models = contents.models.write().unwrap();
       match delta {
         SceneInnerDelta::models(delta) => match delta {
           arena::ArenaDelta::Mutate((model, _)) => {

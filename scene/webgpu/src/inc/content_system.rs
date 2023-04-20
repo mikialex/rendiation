@@ -20,7 +20,7 @@ pub struct GlobalGPUSystem {
   materials: Arc<RwLock<StreamMap<MaterialGPUInstance>>>,
   // meshes: StreamMap<ReactiveRenderComponent>,
   #[pin]
-  pub models: StreamMap<ModelGPUReactive>,
+  pub models: Arc<RwLock<StreamMap<ModelGPUReactive>>>,
 }
 
 impl GlobalGPUSystem {
@@ -55,7 +55,7 @@ impl Stream for GlobalGPUSystem {
   type Item = ();
 
   fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
-    let mut this = self.project();
+    let this = self.project();
     let mut texture_2d = this.texture_2d.write().unwrap();
     let texture_2d: &mut StreamMap<ReactiveGPU2DTextureView> = &mut texture_2d;
     do_updates_by(texture_2d, cx, |_| {});
@@ -64,7 +64,9 @@ impl Stream for GlobalGPUSystem {
     let materials: &mut StreamMap<MaterialGPUInstance> = &mut materials;
     do_updates_by(materials, cx, |_| {});
 
-    do_updates_by(&mut this.models, cx, |_| {});
+    let mut models = this.models.write().unwrap();
+    let models: &mut StreamMap<ModelGPUReactive> = &mut models;
+    do_updates_by(models, cx, |_| {});
     Poll::Pending
   }
 }
