@@ -39,7 +39,7 @@ impl SceneGPUSystem {
     let models_c = models.clone();
     scene.listen_by(all_delta).map(|delta| {
       let contents = contents.write().unwrap();
-      let models = models_c.write().unwrap();
+      let mut models = models_c.write().unwrap();
       match delta {
         SceneInnerDelta::models(delta) => match delta {
           arena::ArenaDelta::Mutate((model, _)) => {

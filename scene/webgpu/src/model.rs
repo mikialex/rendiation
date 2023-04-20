@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use __core::task::Poll;
 
 use crate::*;
@@ -256,14 +258,19 @@ impl Stream for StandardModelReactive {
 
 pub struct SceneModelGPUInstance {
   node_id: usize,
-  model_id: usize,
+  model_id: Option<usize>,
 }
 
 #[pin_project::pin_project]
 struct SceneModelGPUReactiveInstance {
-  model: ModelRenderComponentReactive,
+  model: Option<ModelRenderComponentReactive>,
   // node: impl Stream<Item = RenderComponentDelta>,
 }
+
+// pub enum SceneModelGPUReactive {
+//   Standard(ModelGPUReactive),
+//   Foreign(Arc<dyn Any + Send + Sync>),
+// }
 
 impl Stream for SceneModelGPUReactiveInstance {
   type Item = RenderComponentDelta;
@@ -283,20 +290,49 @@ type SceneModelGPUReactiveInner =
 pub type SceneModelGPUReactive =
   impl AsRef<RenderComponentCell<SceneModelGPUReactiveInner>> + Stream<Item = RenderComponentDelta>;
 
-pub fn build_model_gpu(
-  source: &SceneModelType,
-  ctx: &GPUModelResourceCtx,
-) -> Option<SceneModelGPUReactive> {
-  match source {
-    SceneModelType::Standard(s) => {
-      todo!()
-      // build_standard_model_gpu(s, ctx).into()
-    }
-    SceneModelType::Foreign(_) => todo!(),
-    _ => None,
-  }
-}
+pub type SceneModelReactive = impl Stream<Item = RenderComponentDelta>;
 
-// pub fn build_scene_model_gpu(source: &SceneModel, ctx: &GPUModelResourceCtx) {
-//   //
-// }
+pub fn build_scene_model_gpu(
+  source: &SceneModel,
+  ctx: &GPUModelResourceCtx,
+  models: &mut StreamMap<ModelGPUReactive>,
+) -> SceneModelGPUReactive {
+  let source = source.read();
+  let model_component_delta_s = match &source.model {
+    SceneModelType::Standard(model) => models
+      .get_or_insert_with(model.id(), || build_standard_model_gpu(model, ctx))
+      .create_render_component_delta_stream()
+      .into(),
+    _ => None,
+  };
+
+  let model_id = match &source.model {
+    SceneModelType::Standard(model) => model.id().into(),
+    SceneModelType::Foreign(_) => None,
+    _ => None,
+  };
+
+  let reactive = SceneModelGPUReactiveInstance {
+    model: model_component_delta_s,
+  };
+
+  let instance = SceneModelGPUInstance {
+    node_id: source.node.id(),
+    model_id,
+  };
+
+  let state = RenderComponentReactive::new(instance, reactive);
+  let state = RenderComponentCell::new(state);
+
+  source
+    .listen_by(all_delta)
+    .fold_signal_flatten(state, |v, state| match v {
+      SceneModelImplDelta::model(model) => match model {
+        SceneModelType::Standard(_) => todo!(),
+        _ => todo!(),
+      },
+      SceneModelImplDelta::node(node) => {
+        //
+      }
+    })
+}
