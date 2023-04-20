@@ -1,5 +1,3 @@
-use std::sync::Arc;
-
 use __core::task::Poll;
 
 use crate::*;
@@ -279,8 +277,8 @@ impl Stream for SceneModelGPUReactiveInstance {
     self: __core::pin::Pin<&mut Self>,
     cx: &mut task::Context<'_>,
   ) -> task::Poll<Option<Self::Item>> {
-    let this = self.project();
-    early_return_ready!(this.model.poll_next_unpin(cx));
+    let mut this = self.project();
+    early_return_option_ready!(this.model, cx);
     Poll::Pending
   }
 }
