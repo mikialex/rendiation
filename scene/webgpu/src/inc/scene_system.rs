@@ -1,10 +1,15 @@
 use crate::*;
+use __core::{
+  pin::Pin,
+  task::{Context, Poll},
+};
 use std::sync::{Arc, RwLock};
 
 // struct SceneNodeGPUSystem;
 // struct SceneCameraGPUSystem;
 // struct SceneBundleGPUSystem;
 
+#[pin_project::pin_project]
 pub struct SceneGPUSystem {
   // we share it between different scene system(it's global)
   contents: Arc<RwLock<GlobalGPUSystem>>,
@@ -12,7 +17,10 @@ pub struct SceneGPUSystem {
   // // the camera gpu data are mostly related to scene node it used, so keep it at scene level;
   // cameras: SceneCameraGPUSystem,
   // bundle: SceneBundleGPUSystem,
+  #[pin]
   models: StreamMap<SceneModelGPUReactive>,
+
+  #[pin]
   source: SceneGPUUpdateSource,
 }
 
@@ -25,14 +33,13 @@ impl SceneGPUSystem {
 impl Stream for SceneGPUSystem {
   type Item = ();
 
-  fn poll_next(
-    self: __core::pin::Pin<&mut Self>,
-    cx: &mut task::Context<'_>,
-  ) -> task::Poll<Option<Self::Item>> {
-    todo!()
+  fn poll_next(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Option<Self::Item>> {
+    let this = self.project();
+    early_return_ready!(this.source.poll_next(cx));
+    this.models.poll_next(cx).map(|v| v.map(|_| {}))
   }
 }
-type SceneGPUUpdateSource = impl Stream;
+type SceneGPUUpdateSource = impl Stream<Item = ()> + Unpin;
 
 impl SceneGPUSystem {
   pub fn new(scene: &Scene, contents: Arc<RwLock<GlobalGPUSystem>>) -> Self {
@@ -42,8 +49,8 @@ impl SceneGPUSystem {
     let source = scene.listen_by(all_delta).map(move |delta| {
       let contents = contents_c.write().unwrap();
       let mut models = contents.models.write().unwrap();
-      match delta {
-        SceneInnerDelta::models(delta) => match delta {
+      if let SceneInnerDelta::models(delta) = delta {
+        match delta {
           arena::ArenaDelta::Mutate((model, _)) => {
             models.remove(model.id());
             models.get_or_insert_with(model.id(), || {
@@ -57,11 +64,10 @@ impl SceneGPUSystem {
               todo!()
             });
           }
-          arena::ArenaDelta::Remove(index) => {
-            // models.remove(model.id());
+          arena::ArenaDelta::Remove(handle) => {
+            models.remove(handle.index());
           }
-        },
-        _ => {}
+        }
       }
     });
 
@@ -76,10 +82,6 @@ impl SceneGPUSystem {
   }
 
   pub fn maintain(&mut self) {
-    //
-  }
-
-  pub fn render_with_dispatcher(&self, dispatcher: &dyn RenderComponent) -> webgpu::CommandBuffer {
-    todo!()
+    do_updates(self, |_| {});
   }
 }
