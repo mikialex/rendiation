@@ -260,7 +260,7 @@ pub struct SceneModelGPUInstance {
 }
 
 #[pin_project::pin_project]
-struct SceneModelGPUReactiveInstance {
+pub struct SceneModelGPUReactiveInstance {
   model: Option<ModelRenderComponentReactive>,
   // node: impl Stream<Item = RenderComponentDelta>,
 }
@@ -284,11 +284,11 @@ impl Stream for SceneModelGPUReactiveInstance {
 }
 
 type SceneModelGPUReactiveInner =
-  RenderComponentReactive<SceneModelGPUInstance, SceneModelGPUReactive>;
+  RenderComponentReactive<SceneModelGPUInstance, SceneModelGPUReactiveInstance>;
 pub type SceneModelGPUReactive =
   impl AsRef<RenderComponentCell<SceneModelGPUReactiveInner>> + Stream<Item = RenderComponentDelta>;
 
-pub type SceneModelReactive = impl Stream<Item = RenderComponentDelta>;
+// pub type SceneModelReactive = impl Stream<Item = RenderComponentDelta>;
 
 pub fn build_scene_model_gpu(
   source: &SceneModel,
@@ -299,6 +299,7 @@ pub fn build_scene_model_gpu(
   let model_component_delta_s = match &source.model {
     SceneModelType::Standard(model) => models
       .get_or_insert_with(model.id(), || build_standard_model_gpu(model, ctx))
+      .as_ref()
       .create_render_component_delta_stream()
       .into(),
     _ => None,
@@ -319,18 +320,23 @@ pub fn build_scene_model_gpu(
     model_id,
   };
 
-  let state = RenderComponentReactive::new(instance, reactive);
+  let state: SceneModelGPUReactiveInner = RenderComponentReactive::new(instance, reactive);
   let state = RenderComponentCell::new(state);
 
-  source
-    .listen_by(all_delta)
-    .fold_signal_flatten(state, |v, state| match v {
+  source.listen_by(all_delta).fold_signal_flatten(
+    state,
+    |v, state: &mut RenderComponentCell<SceneModelGPUReactiveInner>| match v {
       SceneModelImplDelta::model(model) => match model {
-        SceneModelType::Standard(_) => todo!(),
+        SceneModelType::Standard(_) => {
+          //
+          RenderComponentDelta::ContentRef
+        }
         _ => todo!(),
       },
       SceneModelImplDelta::node(node) => {
         //
+        RenderComponentDelta::ContentRef
       }
-    })
+    },
+  )
 }

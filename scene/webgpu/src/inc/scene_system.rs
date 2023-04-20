@@ -8,16 +8,16 @@ use std::sync::{Arc, RwLock};
 pub struct SceneGPUSystem {
   // we share it between different scene system(it's global)
   contents: Arc<RwLock<GlobalGPUSystem>>,
-  models: Arc<RwLock<StreamMap<ModelGPUReactive>>>,
   // nodes: SceneNodeGPUSystem,
   // // the camera gpu data are mostly related to scene node it used, so keep it at scene level;
   // cameras: SceneCameraGPUSystem,
   // bundle: SceneBundleGPUSystem,
+  source: SceneGPUUpdateSource,
 }
 
 impl SceneGPUSystem {
-  pub fn render(pass_dispatcher: &dyn RenderComponent) {
-    // do submit
+  pub fn render(&self, encoder: &mut GPUCommandEncoder, pass_dispatcher: &dyn RenderComponent) {
+    // do encoding
   }
 }
 
@@ -28,18 +28,18 @@ impl Stream for SceneGPUSystem {
     self: __core::pin::Pin<&mut Self>,
     cx: &mut task::Context<'_>,
   ) -> task::Poll<Option<Self::Item>> {
-    // models are root, only poll model
     todo!()
   }
 }
+type SceneGPUUpdateSource = impl Stream;
 
 impl SceneGPUSystem {
   pub fn new(scene: &Scene, contents: Arc<RwLock<GlobalGPUSystem>>) -> Self {
-    let models: Arc<RwLock<StreamMap<ModelGPUReactive>>> = Default::default();
-    let models_c = models.clone();
-    scene.listen_by(all_delta).map(|delta| {
-      let contents = contents.write().unwrap();
-      let mut models = models_c.write().unwrap();
+    let contents_c = contents.clone();
+
+    let source = scene.listen_by(all_delta).map(move |delta| {
+      let contents = contents_c.write().unwrap();
+      let mut models = contents_c.models.write().unwrap();
       match delta {
         SceneInnerDelta::models(delta) => match delta {
           arena::ArenaDelta::Mutate((model, _)) => {
@@ -62,14 +62,17 @@ impl SceneGPUSystem {
         _ => {}
       }
     });
+
     Self {
       contents,
       models,
       // nodes: (),
       // cameras: (),
       // bundle: (),
+      source,
     }
   }
+
   pub fn maintain(&mut self) {
     //
   }
