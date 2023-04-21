@@ -78,8 +78,9 @@ impl<T: CoreTree> NodeInner<T> {
 
   #[must_use]
   pub fn create_child(&self, n: T::Node) -> Self {
-    let nodes_info = &mut self.nodes.inner.write().unwrap();
+    let mut nodes_info = self.nodes.inner.write().unwrap();
     let handle = nodes_info.create_node(n);
+    drop(nodes_info);
     let inner = NodeRef {
       nodes: self.nodes.clone(),
       handle,
