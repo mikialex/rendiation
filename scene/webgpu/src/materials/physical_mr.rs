@@ -131,7 +131,7 @@ impl ShaderGraphProvider for PhysicalMetallicRoughnessMaterialGPU {
 impl WebGPUMaterial for PhysicalMetallicRoughnessMaterial {
   type GPU = PhysicalMetallicRoughnessMaterialGPU;
 
-  fn create_gpu(&self, res: &mut GPUResourceSubCache, gpu: &GPU) -> Self::GPU {
+  fn create_gpu(&self, res: &mut ShareBindableResourceCtx, gpu: &GPU) -> Self::GPU {
     let mut uniform = PhysicalMetallicRoughnessMaterialUniform {
       base_color: self.base_color,
       roughness: self.roughness,
@@ -147,21 +147,21 @@ impl WebGPUMaterial for PhysicalMetallicRoughnessMaterial {
     let base_color_texture = self
       .base_color_texture
       .as_ref()
-      .map(|t| build_texture_sampler_pair(t, gpu, res));
+      .map(|t| res.build_texture_sampler_pair(t));
 
     let metallic_roughness_texture = self
       .metallic_roughness_texture
       .as_ref()
-      .map(|t| build_texture_sampler_pair(t, gpu, res));
+      .map(|t| res.build_texture_sampler_pair(t));
 
     let emissive_texture = self
       .emissive_texture
       .as_ref()
-      .map(|t| build_texture_sampler_pair(t, gpu, res));
+      .map(|t| res.build_texture_sampler_pair(t));
 
     let normal_texture = self.normal_texture.as_ref().map(|t| {
       uniform.normal_mapping_scale = t.scale;
-      build_texture_sampler_pair(&t.content, gpu, res)
+      res.build_texture_sampler_pair(&t.content)
     });
 
     let uniform = create_uniform(uniform, gpu);
@@ -233,10 +233,10 @@ pub fn physical_metallic_roughness_material_build_gpu(
 
   let gpu = PhysicalMetallicRoughnessMaterialGPU {
     uniform,
-    base_color_texture: base_color_texture.map(|t| t.0),
-    metallic_roughness_texture: metallic_roughness_texture.map(|t| t.0),
-    emissive_texture: emissive_texture.map(|t| t.0),
-    normal_texture: normal_texture.map(|t| t.0),
+    base_color_texture,
+    metallic_roughness_texture,
+    emissive_texture,
+    normal_texture,
     alpha_mode: m.alpha_mode,
   };
 
@@ -252,7 +252,7 @@ pub fn physical_metallic_roughness_material_build_gpu(
       match delta {
         PD::alpha_mode(_) => RenderComponentDelta::ShaderHash,
         PD::base_color_texture(t) => {
-          let (t, tx) = ctx.build_texture_sampler_pair(todo!());
+          // let (t, tx) = ctx.build_texture_sampler_pair(todo!());
           // state.gpu.reactive.base_color = tx;
           // state.gpu.gpu.base_color_texture = t;
           RenderComponentDelta::ContentRef

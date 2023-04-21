@@ -2,96 +2,6 @@ use rendiation_texture::CubeTextureFace;
 
 use crate::*;
 
-pub struct GPUTextureSamplerPair {
-  pub texture: GPU2DTextureView,
-  pub sampler: GPUSamplerView,
-}
-
-impl GPUTextureSamplerPair {
-  pub fn setup_pass(&self, ctx: &mut GPURenderPassCtx, group: impl Into<usize> + Copy) {
-    ctx.binding.bind(&self.texture, group);
-    ctx.binding.bind(&self.sampler, group);
-  }
-
-  pub fn uniform_and_sample(
-    &self,
-    binding: &mut ShaderGraphBindGroupDirectBuilder,
-    group: impl Into<usize> + Copy,
-    position: Node<Vec2<f32>>,
-  ) -> Node<Vec4<f32>> {
-    let texture = binding.uniform_by(&self.texture, group);
-    let sampler = binding.uniform_by(&self.sampler, group);
-    texture.sample(sampler, position)
-  }
-}
-
-pub fn build_texture_sampler_pair(
-  t: &Texture2DWithSamplingData,
-  gpu: &GPU,
-  res: &mut GPUResourceSubCache,
-) -> GPUTextureSamplerPair {
-  let sampler = GPUSampler::create(t.sampler.into(), &gpu.device);
-  let sampler = sampler.create_default_view();
-
-  let ctx = TextureBuildCtx {
-    gpu,
-    mipmap_gen: &res.mipmap_gen,
-  };
-
-  let texture = res.texture_2ds.get_with_update(&t.texture, &ctx).0.clone();
-  GPUTextureSamplerPair { texture, sampler }
-}
-
-pub struct TextureBuildCtx<'a> {
-  gpu: &'a GPU,
-  mipmap_gen: &'a Rc<RefCell<MipMapTaskManager>>,
-}
-
-pub struct Wrapped<T>(pub T);
-
-impl SceneItemReactiveSimpleMapping<Wrapped<GPU2DTextureView>> for SceneTexture2D {
-  type ChangeStream = impl Stream<Item = ()> + Unpin;
-  type Ctx<'a> = TextureBuildCtx<'a>;
-
-  fn build(&self, ctx: &Self::Ctx<'_>) -> (Wrapped<GPU2DTextureView>, Self::ChangeStream) {
-    let source = self.read();
-    let texture = create_texture2d(self, ctx);
-
-    let change = source.listen_by(any_change);
-    (Wrapped(texture), change)
-  }
-}
-
-fn as_2d_source(tex: &SceneTexture2DType) -> Option<&dyn WebGPU2DTextureSource> {
-  match tex {
-    SceneTexture2DType::RGBAu8(tex) => Some(tex),
-    SceneTexture2DType::RGBu8(tex) => Some(tex),
-    SceneTexture2DType::RGBAf32(tex) => Some(tex),
-    SceneTexture2DType::Foreign(tex) => tex
-      .downcast_ref::<Box<dyn WebGPU2DTextureSource>>()
-      .map(|t| t.as_ref()),
-    _ => None,
-  }
-}
-
-fn create_texture2d(tex: &SceneTexture2D, ctx: &TextureBuildCtx) -> GPU2DTextureView {
-  let texture = &tex.read();
-  let texture = as_2d_source(texture);
-  let gpu = ctx.gpu;
-
-  let gpu_texture = if let Some(texture) = texture {
-    let desc = texture.create_tex2d_desc(MipLevelCount::BySize);
-    let gpu_texture = GPUTexture::create(desc, &gpu.device);
-    let gpu_texture: GPU2DTexture = gpu_texture.try_into().unwrap();
-    gpu_texture.upload_into(&gpu.queue, texture, 0)
-  } else {
-    create_fallback_empty_texture(&gpu.device)
-  };
-
-  ctx.mipmap_gen.borrow_mut().request_mipmap_gen(&gpu_texture);
-  gpu_texture.create_default_view().try_into().unwrap()
-}
-
 pub enum TextureGPUChange {
   Reference(GPU2DTextureView),
   Content,
@@ -168,16 +78,27 @@ impl ShareBindableResourceCtx {
     (tex, tex_s)
   }
 
-  pub fn build_texture_sampler_pair(
-    &self,
-    t: &Texture2DWithSamplingData,
-  ) -> (GPUTextureSamplerPair, Texture2dRenderComponentDeltaStream) {
+  pub fn build_texture_sampler_pair(&self, t: &Texture2DWithSamplingData) -> GPUTextureSamplerPair {
     let sampler = GPUSampler::create(t.sampler.into(), &self.gpu.device);
     let sampler = sampler.create_default_view();
 
     let (texture, tex_s) = self.get_or_create_reactive_gpu_texture2d(&t.texture);
 
-    (GPUTextureSamplerPair { texture, sampler }, tex_s)
+    GPUTextureSamplerPair { texture, sampler }
+  }
+}
+
+// resource creation ==>
+
+fn as_2d_source(tex: &SceneTexture2DType) -> Option<&dyn WebGPU2DTextureSource> {
+  match tex {
+    SceneTexture2DType::RGBAu8(tex) => Some(tex),
+    SceneTexture2DType::RGBu8(tex) => Some(tex),
+    SceneTexture2DType::RGBAf32(tex) => Some(tex),
+    SceneTexture2DType::Foreign(tex) => tex
+      .downcast_ref::<Box<dyn WebGPU2DTextureSource>>()
+      .map(|t| t.as_ref()),
+    _ => None,
   }
 }
 
@@ -201,33 +122,18 @@ impl ResourceGPUCtx {
       .request_mipmap_gen(&gpu_texture);
     gpu_texture.create_default_view().try_into().unwrap()
   }
-}
 
-impl SceneItemReactiveSimpleMapping<Wrapped<GPUCubeTextureView>> for SceneTextureCube {
-  type ChangeStream = impl Stream<Item = ()> + Unpin;
-  type Ctx<'a> = TextureBuildCtx<'a>;
+  fn create_gpu_texture_cube(&self, tex: &SceneTextureCube) -> GPUCubeTextureView {
+    let texture = &tex.read();
+    if let Some(t) = as_2d_source(&texture.faces[0]) {
+      let source = &texture.faces;
+      let desc = t.create_cube_desc(MipLevelCount::EmptyMipMap);
+      let queue = &self.queue;
 
-  fn build(&self, ctx: &Self::Ctx<'_>) -> (Wrapped<GPUCubeTextureView>, Self::ChangeStream) {
-    let source = self.read();
-    let texture = create_texture_cube(self, ctx);
+      let gpu_texture = GPUTexture::create(desc, &self.device);
+      let gpu_texture: GPUCubeTexture = gpu_texture.try_into().unwrap();
 
-    let change = source.listen_by(any_change);
-    (Wrapped(texture), change)
-  }
-}
-
-fn create_texture_cube(tex: &SceneTextureCube, ctx: &TextureBuildCtx) -> GPUCubeTextureView {
-  let gpu = ctx.gpu;
-  let texture = &tex.read();
-  if let Some(t) = as_2d_source(&texture.faces[0]) {
-    let source = &texture.faces;
-    let desc = t.create_cube_desc(MipLevelCount::EmptyMipMap);
-    let queue = &gpu.queue;
-
-    let gpu_texture = GPUTexture::create(desc, &gpu.device);
-    let gpu_texture: GPUCubeTexture = gpu_texture.try_into().unwrap();
-
-    #[rustfmt::skip]
+      #[rustfmt::skip]
     gpu_texture
       .upload(queue, as_2d_source(&source[0]).unwrap(), CubeTextureFace::PositiveX, 0)
       .upload(queue, as_2d_source(&source[1]).unwrap(), CubeTextureFace::NegativeX, 0)
@@ -238,9 +144,10 @@ fn create_texture_cube(tex: &SceneTextureCube, ctx: &TextureBuildCtx) -> GPUCube
       .create_default_view()
       .try_into()
       .unwrap()
-  } else {
-    let tex: GPUCubeTexture = create_fallback_empty_cube_texture(&gpu.device);
-    tex.create_default_view().try_into().unwrap()
+    } else {
+      let tex: GPUCubeTexture = create_fallback_empty_cube_texture(&self.device);
+      tex.create_default_view().try_into().unwrap()
+    }
   }
 }
 
@@ -286,4 +193,29 @@ fn create_fallback_empty_cube_texture(device: &GPUDevice) -> GPUCubeTexture {
   )
   .try_into()
   .unwrap()
+}
+
+// texture sampler pair utils ==>
+
+pub struct GPUTextureSamplerPair {
+  pub texture: GPU2DTextureView,
+  pub sampler: GPUSamplerView,
+}
+
+impl GPUTextureSamplerPair {
+  pub fn setup_pass(&self, ctx: &mut GPURenderPassCtx, group: impl Into<usize> + Copy) {
+    ctx.binding.bind(&self.texture, group);
+    ctx.binding.bind(&self.sampler, group);
+  }
+
+  pub fn uniform_and_sample(
+    &self,
+    binding: &mut ShaderGraphBindGroupDirectBuilder,
+    group: impl Into<usize> + Copy,
+    position: Node<Vec2<f32>>,
+  ) -> Node<Vec4<f32>> {
+    let texture = binding.uniform_by(&self.texture, group);
+    let sampler = binding.uniform_by(&self.sampler, group);
+    texture.sample(sampler, position)
+  }
 }

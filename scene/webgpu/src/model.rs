@@ -76,7 +76,7 @@ pub fn setup_pass_core(
 
       let material_gpu = model.material.check_update_gpu(
         &mut resources.scene.materials,
-        &mut resources.content,
+        &mut resources.bindables,
         gpu,
       );
 

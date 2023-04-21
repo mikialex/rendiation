@@ -40,7 +40,7 @@ impl<'a> FrameCtx<'a> {
   }
 
   pub fn resolve_resource_mipmaps(&mut self) {
-    let mip_gen = self.resources.content.mipmap_gen.clone();
+    let mip_gen = self.resources.bindables.gpu.mipmap_gen.clone();
     mip_gen.borrow_mut().flush_mipmap_gen_request(self);
   }
 

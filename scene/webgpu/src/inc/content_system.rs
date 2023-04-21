@@ -78,10 +78,74 @@ pub struct GPUModelResourceCtx {
   // meshes: StreamMap<ReactiveRenderComponent>,
 }
 
+// #[derive(Clone)]
+// pub struct ShareBindableResourceCtx {
+//   pub gpu: ResourceGPUCtx,
+//   pub texture_2d: Arc<RwLock<StreamMap<ReactiveGPU2DTextureView>>>,
+//   // texture_cube:  mut StreamMap<ReactiveGPUCubeTextureView>,
+//   // uniforms:  mut HashMap<TypeId, Box<dyn Any>>,
+// }
+
+pub struct GPUResourceCache {
+  pub scene: GPUResourceSceneCache,
+  pub bindables: ShareBindableResourceCtx,
+  pub custom_storage: AnyMap,
+  pub cameras: CameraGPUMap,
+  pub nodes: NodeGPUMap,
+}
+
+impl GPUResourceCache {
+  pub fn new(gpu: &GPU) -> Self {
+    Self {
+      scene: Default::default(),
+      bindables: ShareBindableResourceCtx::new(gpu),
+      custom_storage: AnyMap::new(),
+      cameras: Default::default(),
+      nodes: Default::default(),
+    }
+  }
+
+  pub fn maintain(&mut self) {
+    let mut texture_2d = self.bindables.texture_2d.write().unwrap();
+    let texture_2d: &mut StreamMap<ReactiveGPU2DTextureView> = &mut texture_2d;
+    do_updates(texture_2d, |_| {});
+  }
+}
+
+#[derive(Default)]
+pub struct GPULightCache {
+  pub inner: HashMap<TypeId, Box<dyn Any>>,
+}
+#[derive(Default)]
+pub struct GPUMaterialCache {
+  pub inner: HashMap<TypeId, Box<dyn Any>>,
+}
+#[derive(Default)]
+pub struct GPUMeshCache {
+  pub inner: HashMap<TypeId, Box<dyn Any>>,
+}
+
+#[derive(Default)]
+pub struct GPUResourceSceneCache {
+  pub materials: GPUMaterialCache,
+  pub lights: GPULightCache,
+  pub meshes: GPUMeshCache,
+}
+
 #[derive(Clone)]
 pub struct ShareBindableResourceCtx {
   pub gpu: ResourceGPUCtx,
   pub texture_2d: Arc<RwLock<StreamMap<ReactiveGPU2DTextureView>>>,
   // texture_cube:  mut StreamMap<ReactiveGPUCubeTextureView>,
   // uniforms:  mut HashMap<TypeId, Box<dyn Any>>,
+  // pub texture_cubes: ReactiveMap<SceneTextureCube, Wrapped<GPUCubeTextureView>>,
+}
+
+impl ShareBindableResourceCtx {
+  pub fn new(gpu: &GPU) -> Self {
+    Self {
+      gpu: ResourceGPUCtx::new(gpu, Default::default()),
+      texture_2d: Default::default(),
+    }
+  }
 }

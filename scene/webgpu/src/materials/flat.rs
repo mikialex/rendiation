@@ -36,7 +36,7 @@ impl ShaderPassBuilder for FlatMaterialGPU {
 impl WebGPUMaterial for FlatMaterial {
   type GPU = FlatMaterialGPU;
 
-  fn create_gpu(&self, _: &mut GPUResourceSubCache, gpu: &GPU) -> Self::GPU {
+  fn create_gpu(&self, _: &mut ShareBindableResourceCtx, gpu: &GPU) -> Self::GPU {
     let uniform = FlatMaterialUniform {
       color: self.color,
       ..Zeroable::zeroed()

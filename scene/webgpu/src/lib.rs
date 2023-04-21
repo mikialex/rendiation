@@ -63,7 +63,7 @@ use std::{
   hash::Hash,
   marker::PhantomData,
   rc::Rc,
-  sync::Mutex,
+  sync::{Arc, Mutex, RwLock},
 };
 
 pub trait SceneRenderable {
@@ -122,54 +122,6 @@ impl SceneRenderable for Box<dyn SceneRenderableShareable> {
   ) {
     self.as_ref().render(pass, dispatcher, camera)
   }
-}
-
-pub struct GPUResourceCache {
-  pub scene: GPUResourceSceneCache,
-  pub content: GPUResourceSubCache,
-  pub custom_storage: AnyMap,
-  pub cameras: CameraGPUMap,
-  pub nodes: NodeGPUMap,
-}
-
-impl Default for GPUResourceCache {
-  fn default() -> Self {
-    Self {
-      scene: Default::default(),
-      content: Default::default(),
-      custom_storage: AnyMap::new(),
-      cameras: Default::default(),
-      nodes: Default::default(),
-    }
-  }
-}
-
-#[derive(Default)]
-pub struct GPULightCache {
-  pub inner: HashMap<TypeId, Box<dyn Any>>,
-}
-#[derive(Default)]
-pub struct GPUMaterialCache {
-  pub inner: HashMap<TypeId, Box<dyn Any>>,
-}
-#[derive(Default)]
-pub struct GPUMeshCache {
-  pub inner: HashMap<TypeId, Box<dyn Any>>,
-}
-
-#[derive(Default)]
-pub struct GPUResourceSceneCache {
-  pub materials: GPUMaterialCache,
-  pub lights: GPULightCache,
-  pub meshes: GPUMeshCache,
-}
-
-/// GPU cache container for given scene
-#[derive(Default)]
-pub struct GPUResourceSubCache {
-  pub texture_2ds: ReactiveMap<SceneTexture2D, Wrapped<GPU2DTextureView>>,
-  pub texture_cubes: ReactiveMap<SceneTextureCube, Wrapped<GPUCubeTextureView>>,
-  pub mipmap_gen: Rc<RefCell<MipMapTaskManager>>,
 }
 
 pub trait WebGPUSceneExtension {

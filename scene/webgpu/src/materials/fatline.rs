@@ -167,7 +167,7 @@ wgsl_fn!(
 impl WebGPUMaterial for FatLineMaterial {
   type GPU = FatlineMaterialGPU;
 
-  fn create_gpu(&self, _: &mut GPUResourceSubCache, gpu: &GPU) -> Self::GPU {
+  fn create_gpu(&self, _: &mut ShareBindableResourceCtx, gpu: &GPU) -> Self::GPU {
     let uniform = FatlineMaterialUniform {
       width: self.width,
       ..Zeroable::zeroed()

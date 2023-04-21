@@ -200,7 +200,7 @@ where
 {
   type GPU = StateControlGPU<T>;
 
-  fn create_gpu(&self, ctx: &mut GPUResourceSubCache, gpu: &GPU) -> Self::GPU {
+  fn create_gpu(&self, ctx: &mut ShareBindableResourceCtx, gpu: &GPU) -> Self::GPU {
     let gpu = self.material.create_gpu(ctx, gpu);
 
     let state_id = STATE_ID.lock().unwrap().get_uuid(&self.states);

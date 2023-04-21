@@ -17,7 +17,7 @@ use crate::*;
 
 pub trait WebGPUMaterial: Clone + Any + Incremental {
   type GPU: RenderComponentAny;
-  fn create_gpu(&self, res: &mut GPUResourceSubCache, gpu: &GPU) -> Self::GPU;
+  fn create_gpu(&self, res: &mut ShareBindableResourceCtx, gpu: &GPU) -> Self::GPU;
   fn is_keep_mesh_shape(&self) -> bool;
   fn is_transparent(&self) -> bool;
 }
@@ -26,7 +26,7 @@ pub trait WebGPUSceneMaterial: Send + Sync {
   fn check_update_gpu<'a>(
     &self,
     res: &'a mut GPUMaterialCache,
-    sub_res: &mut GPUResourceSubCache,
+    sub_res: &mut ShareBindableResourceCtx,
     gpu: &GPU,
   ) -> &'a dyn RenderComponentAny;
   fn is_keep_mesh_shape(&self) -> bool;
@@ -37,7 +37,7 @@ impl WebGPUSceneMaterial for SceneMaterialType {
   fn check_update_gpu<'a>(
     &self,
     res: &'a mut GPUMaterialCache,
-    sub_res: &mut GPUResourceSubCache,
+    sub_res: &mut ShareBindableResourceCtx,
     gpu: &GPU,
   ) -> &'a dyn RenderComponentAny {
     match self {
@@ -91,7 +91,7 @@ impl<M: WebGPUMaterial + Send + Sync> WebGPUSceneMaterial for SceneItemRef<M> {
   fn check_update_gpu<'a>(
     &self,
     res: &'a mut GPUMaterialCache,
-    sub_res: &mut GPUResourceSubCache,
+    sub_res: &mut ShareBindableResourceCtx,
     gpu: &GPU,
   ) -> &'a dyn RenderComponentAny {
     res.update_material(&self.read(), gpu, sub_res)
@@ -111,7 +111,7 @@ impl GPUMaterialCache {
     &mut self,
     m: &Identity<M>,
     gpu: &GPU,
-    res: &mut GPUResourceSubCache,
+    res: &mut ShareBindableResourceCtx,
   ) -> &M::GPU {
     let type_id = TypeId::of::<M>();
 
