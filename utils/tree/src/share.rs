@@ -101,7 +101,7 @@ impl<T: CoreTree> NodeInner<T> {
 
   pub fn detach_from_parent(&mut self) {
     let nodes = &mut self.nodes.inner.write().unwrap();
-    nodes.node_detach_parent(self.inner.handle).unwrap()
+    nodes.node_detach_parent(self.inner.handle).ok();
   }
 }
 

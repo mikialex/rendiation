@@ -15,11 +15,11 @@ pub type SB = SemanticBinding;
 impl SemanticBinding {
   pub fn binding_index(&self) -> usize {
     match self {
-      SemanticBinding::Global => 0,
-      SemanticBinding::Camera => 0, // 4 bindgroup is minimal support, we just merge this
-      SemanticBinding::Pass => 1,
-      SemanticBinding::Material => 2,
-      SemanticBinding::Object => 3,
+      SemanticBinding::Global => 4,
+      SemanticBinding::Camera => 3,
+      SemanticBinding::Pass => 2,
+      SemanticBinding::Material => 1,
+      SemanticBinding::Object => 0,
     }
   }
 }
