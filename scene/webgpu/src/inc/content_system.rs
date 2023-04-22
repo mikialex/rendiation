@@ -1,10 +1,4 @@
-use __core::{
-  pin::Pin,
-  task::{Context, Poll},
-};
-
 use crate::*;
-use std::sync::{Arc, RwLock};
 
 /// The actual gpu data
 ///

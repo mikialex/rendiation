@@ -56,7 +56,7 @@ impl<T: IncrementalBase> SceneItemRef<T> {
   pub fn listen_by<U: Send + Sync + 'static>(
     &self,
     mapper: impl Fn(MaybeDeltaRef<T>, &dyn Fn(U)) + Send + Sync + 'static,
-  ) -> impl futures::Stream<Item = U> {
+  ) -> impl Stream<Item = U> {
     let inner = self.read();
     inner.listen_by(mapper)
   }
@@ -71,7 +71,7 @@ impl<T: IncrementalBase> Identity<T> {
   pub fn listen_by<U: Send + Sync + 'static>(
     &self,
     mapper: impl Fn(MaybeDeltaRef<T>, &dyn Fn(U)) + Send + Sync + 'static,
-  ) -> impl futures::Stream<Item = U> {
+  ) -> impl Stream<Item = U> {
     let (sender, receiver) = futures::channel::mpsc::unbounded();
     let sender_c = sender.clone();
     let send = move |mapped| {

@@ -127,7 +127,7 @@ impl SceneNode {
   pub fn listen_by<U: Send + Sync + 'static>(
     &self,
     mapper: impl Fn(MaybeDeltaRef<SceneNodeDataImpl>, &dyn Fn(U)) + Send + Sync + 'static,
-  ) -> impl futures::Stream<Item = U> {
+  ) -> impl Stream<Item = U> {
     self.visit(|node| node.listen_by(mapper))
   }
 

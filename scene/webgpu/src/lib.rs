@@ -54,6 +54,10 @@ use webgpu::*;
 use wgsl_shader_derives::*;
 
 use __core::hash::Hasher;
+use __core::{
+  pin::Pin,
+  task::{Context, Poll},
+};
 use core::ops::Deref;
 use futures::*;
 use std::{

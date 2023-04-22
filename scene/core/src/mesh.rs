@@ -1,6 +1,5 @@
 use std::num::NonZeroU64;
 
-use futures::Stream;
 use reactive::once_forever_pending;
 use rendiation_geometry::{Box3, LineSegment, OptionalNearest, Point, Ray3, Triangle};
 use rendiation_renderable_mesh::*;

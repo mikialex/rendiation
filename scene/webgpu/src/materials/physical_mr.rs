@@ -1,8 +1,3 @@
-use __core::{
-  pin::Pin,
-  task::{Context, Poll},
-};
-
 use crate::*;
 
 #[repr(C)]
