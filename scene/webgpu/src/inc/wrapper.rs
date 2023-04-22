@@ -1,3 +1,5 @@
+use __core::ops::DerefMut;
+
 use crate::*;
 
 #[derive(Copy, Clone)]
@@ -15,6 +17,20 @@ pub struct RenderComponentCell<T> {
   source: EventSource<RenderComponentDelta>,
   #[pin]
   pub inner: T,
+}
+
+impl<T> Deref for RenderComponentCell<T> {
+  type Target = T;
+
+  fn deref(&self) -> &Self::Target {
+    &self.inner
+  }
+}
+
+impl<T> DerefMut for RenderComponentCell<T> {
+  fn deref_mut(&mut self) -> &mut Self::Target {
+    &mut self.inner
+  }
 }
 
 impl<T: Stream> Stream for RenderComponentCell<T> {
