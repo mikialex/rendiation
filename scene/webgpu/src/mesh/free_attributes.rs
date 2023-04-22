@@ -104,7 +104,7 @@ impl SceneItemReactiveSimpleMapping<GPUAttributesBuffer> for GeometryBuffer {
 
     let gpu_buffer = GPUAttributesBuffer { inner: gpu_buffer };
 
-    let change = source.listen_by(any_change);
+    let change = source.listen_by_unbound(any_change);
     (gpu_buffer, change)
   }
 }

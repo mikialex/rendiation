@@ -103,7 +103,7 @@ impl SceneItemReactiveMapping<CameraHelper> for SceneCamera {
       CameraHelper::from_node_and_project_matrix(source.node.clone(), source.projection_matrix);
 
     // todo, node change
-    let change = source.listen_by(with_field!(SceneCameraInner => projection_matrix));
+    let change = source.listen_by_unbound(with_field!(SceneCameraInner => projection_matrix));
     (helper, change)
   }
 

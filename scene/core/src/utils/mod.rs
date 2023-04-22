@@ -59,12 +59,27 @@ pub fn send_if<T>(send: impl Fn(T), should_send: impl Fn(&T) -> bool, d: T) {
 }
 
 impl<T: IncrementalBase> SceneItemRef<T> {
-  pub fn listen_by<U: Send + Sync + 'static>(
+  pub fn listen_by_unbound<U>(
     &self,
     mapper: impl FnMut(MaybeDeltaRef<T>, &dyn Fn(U)) + Send + Sync + 'static,
-  ) -> impl Stream<Item = U> {
+  ) -> impl Stream<Item = U>
+  where
+    U: Send + Sync + 'static,
+  {
     let inner = self.read();
-    inner.listen_by(mapper)
+    inner.listen_by::<DefaultUnboundChannel, _>(mapper)
+  }
+
+  pub fn listen_by<C, U>(
+    &self,
+    mapper: impl FnMut(MaybeDeltaRef<T>, &dyn Fn(U)) + Send + Sync + 'static,
+  ) -> impl Stream<Item = U>
+  where
+    C: ChannelLike<U>,
+    U: Send + Sync + 'static,
+  {
+    let inner = self.read();
+    inner.listen_by::<C, _>(mapper)
   }
 
   pub fn create_drop(&self) -> impl Future<Output = ()> {
@@ -73,21 +88,65 @@ impl<T: IncrementalBase> SceneItemRef<T> {
   }
 }
 
+pub trait ChannelLike<T> {
+  type Sender: Clone + Send + Sync + 'static;
+  type Receiver: Stream<Item = T> + Send + Sync + 'static;
+
+  fn build() -> (Self::Sender, Self::Receiver);
+  /// return if had sent successfully
+  fn send(sender: &Self::Sender, message: T) -> bool;
+  fn is_closed(sender: &Self::Sender) -> bool;
+}
+
+pub struct DefaultUnboundChannel;
+
+impl<T: Send + Sync + 'static> ChannelLike<T> for DefaultUnboundChannel {
+  type Sender = futures::channel::mpsc::UnboundedSender<T>;
+
+  type Receiver = futures::channel::mpsc::UnboundedReceiver<T>;
+
+  fn build() -> (Self::Sender, Self::Receiver) {
+    futures::channel::mpsc::unbounded()
+  }
+
+  fn send(sender: &Self::Sender, message: T) -> bool {
+    sender.unbounded_send(message).is_ok()
+  }
+
+  fn is_closed(sender: &Self::Sender) -> bool {
+    sender.is_closed()
+  }
+}
+
 impl<T: IncrementalBase> Identity<T> {
-  pub fn listen_by<U: Send + Sync + 'static>(
+  pub fn listen_by_unbound<U>(
+    &self,
+    mapper: impl FnMut(MaybeDeltaRef<T>, &dyn Fn(U)) + Send + Sync + 'static,
+  ) -> impl Stream<Item = U>
+  where
+    U: Send + Sync + 'static,
+  {
+    self.listen_by::<DefaultUnboundChannel, _>(mapper)
+  }
+
+  pub fn listen_by<C, U>(
     &self,
     mut mapper: impl FnMut(MaybeDeltaRef<T>, &dyn Fn(U)) + Send + Sync + 'static,
-  ) -> impl Stream<Item = U> {
-    let (sender, receiver) = futures::channel::mpsc::unbounded();
+  ) -> impl Stream<Item = U>
+  where
+    U: Send + Sync + 'static,
+    C: ChannelLike<U>,
+  {
+    let (sender, receiver) = C::build();
     let sender_c = sender.clone();
     let send = move |mapped| {
-      sender_c.unbounded_send(mapped).ok();
+      C::send(&sender_c, mapped);
     };
     mapper(MaybeDeltaRef::All(self), &send);
 
     self.delta_source.on(move |v| {
       mapper(MaybeDeltaRef::Delta(v.delta), &send);
-      sender.is_closed()
+      C::is_closed(&sender)
     });
     // todo impl custom unbound channel: if sender drop, the receiver will still hold the history message
     // which is unnecessary. The better behavior will just drop the history and emit Poll::Ready::None

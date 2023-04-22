@@ -70,7 +70,7 @@ impl ShareBindableResourceCtx {
       let weak_tex = tex.downgrade();
 
       tex
-        .listen_by(any_change)
+        .listen_by_unbound(any_change)
         .fold_signal(gpu_tex, move |_delta, gpu_tex| {
           if let Some(tex) = weak_tex.upgrade() {
             let recreated = gpu_clone.create_gpu_texture_cube(&tex);
