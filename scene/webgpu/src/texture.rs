@@ -89,15 +89,19 @@ impl ShareBindableResourceCtx {
       };
 
       let gpu_clone: ResourceGPUCtx = self.gpu.clone();
-      let tex_clone = tex.clone();
+      let weak_tex = tex.downgrade();
 
       let updater = move |_delta, gpu_tex: &mut ReactiveGPU2DTextureSignal| {
-        let recreated = gpu_clone.create_gpu_texture2d(&tex_clone);
-        gpu_tex.gpu = recreated.clone();
-        gpu_tex
-          .inner
-          .emit(&TextureGPUChange::Reference2D(gpu_tex.gpu.clone()));
-        TextureGPUChange::Reference2D(recreated)
+        if let Some(tex) = weak_tex.upgrade() {
+          let recreated = gpu_clone.create_gpu_texture2d(&tex);
+          gpu_tex.gpu = recreated.clone();
+          gpu_tex
+            .inner
+            .emit(&TextureGPUChange::Reference2D(gpu_tex.gpu.clone()));
+          TextureGPUChange::Reference2D(recreated).into()
+        } else {
+          None
+        }
       };
 
       tex.listen_by(any_change).fold_signal(gpu_tex, updater)
@@ -131,15 +135,19 @@ impl ShareBindableResourceCtx {
       };
 
       let gpu_clone: ResourceGPUCtx = self.gpu.clone();
-      let tex_clone = tex.clone();
+      let weak_tex = tex.downgrade();
 
       let updater = move |_delta, gpu_tex: &mut ReactiveGPUCubeTextureSignal| {
-        let recreated = gpu_clone.create_gpu_texture_cube(&tex_clone);
-        gpu_tex.gpu = recreated.clone();
-        gpu_tex
-          .inner
-          .emit(&TextureGPUChange::ReferenceCube(gpu_tex.gpu.clone()));
-        TextureGPUChange::ReferenceCube(recreated)
+        if let Some(tex) = weak_tex.upgrade() {
+          let recreated = gpu_clone.create_gpu_texture_cube(&tex);
+          gpu_tex.gpu = recreated.clone();
+          gpu_tex
+            .inner
+            .emit(&TextureGPUChange::ReferenceCube(gpu_tex.gpu.clone()));
+          TextureGPUChange::ReferenceCube(recreated).into()
+        } else {
+          None
+        }
       };
 
       tex.listen_by(any_change).fold_signal(gpu_tex, updater)

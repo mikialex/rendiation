@@ -186,13 +186,10 @@ type PhysicalMetallicRoughnessMaterialGPUReactiveInner = RenderComponentReactive
 pub type PhysicalMetallicRoughnessMaterialGPUReactive = impl AsRef<RenderComponentCell<PhysicalMetallicRoughnessMaterialGPUReactiveInner>>
   + Stream<Item = RenderComponentDelta>;
 
-pub fn physical_metallic_roughness_material_build_gpu(
-  source: &SceneItemRef<PhysicalMetallicRoughnessMaterial>,
-  ctx: &ShareBindableResourceCtx,
-) -> PhysicalMetallicRoughnessMaterialGPUReactive {
-  let m = source.read();
-
-  let mut uniform = PhysicalMetallicRoughnessMaterialUniform {
+fn build_shader_uniform(
+  m: &PhysicalMetallicRoughnessMaterial,
+) -> PhysicalMetallicRoughnessMaterialUniform {
+  PhysicalMetallicRoughnessMaterialUniform {
     base_color: m.base_color,
     roughness: m.roughness,
     emissive: m.emissive,
@@ -202,7 +199,16 @@ pub fn physical_metallic_roughness_material_build_gpu(
     alpha_cutoff: m.alpha_cutoff,
     alpha: m.alpha,
     ..Zeroable::zeroed()
-  };
+  }
+}
+
+pub fn physical_metallic_roughness_material_build_gpu(
+  source: &SceneItemRef<PhysicalMetallicRoughnessMaterial>,
+  ctx: &ShareBindableResourceCtx,
+) -> PhysicalMetallicRoughnessMaterialGPUReactive {
+  let m = source.read();
+
+  let mut uniform = build_shader_uniform(&m);
 
   let base_color_texture = m
     .base_color_texture

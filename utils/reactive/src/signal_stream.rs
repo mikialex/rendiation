@@ -421,20 +421,24 @@ impl<T, S, F> AsRef<T> for SignalFold<T, S, F> {
 impl<T, S, F, X> Stream for SignalFold<T, S, F>
 where
   S: Stream,
-  F: FnMut(S::Item, &mut T) -> X,
+  F: FnMut(S::Item, &mut T) -> Option<X>,
 {
   type Item = X;
 
   fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
-    let this = self.project();
-    if let Poll::Ready(v) = this.stream.poll_next(cx) {
-      if let Some(v) = v {
-        Poll::Ready(Some((this.f)(v, this.state)))
+    let mut this = self.project();
+    loop {
+      if let Poll::Ready(v) = this.stream.as_mut().poll_next(cx) {
+        if let Some(v) = v {
+          if let Some(c) = (this.f)(v, this.state) {
+            break Poll::Ready(Some(c));
+          }
+        } else {
+          break Poll::Ready(None);
+        }
       } else {
-        Poll::Ready(None)
+        break Poll::Pending;
       }
-    } else {
-      Poll::Pending
     }
   }
 }
