@@ -68,13 +68,22 @@ pub trait SignalStreamExt: Stream {
   where
     Self: Sized + Stream;
 
-  fn fold_signal<State, F>(self, state: State, f: F) -> SignalFold<State, Self, F>
+  fn fold_signal<State, F, X>(self, state: State, f: F) -> SignalFold<State, Self, F>
   where
-    Self: Sized;
+    Self: Sized,
+    Self: Stream,
+    F: FnMut(Self::Item, &mut State) -> Option<X>;
 
-  fn fold_signal_flatten<State, F>(self, state: State, f: F) -> SignalFoldFlatten<State, Self, F>
+  // we elaborate the bound here to here compiler deduce the type
+  fn fold_signal_flatten<State, F, X>(
+    self,
+    state: State,
+    f: F,
+  ) -> SignalFoldFlatten<State, Self, F>
   where
-    Self: Sized;
+    Self: Sized,
+    Self: Stream,
+    F: FnMut(Self::Item, &mut State) -> X;
 }
 
 impl<T: Stream> SignalStreamExt for T {
@@ -137,9 +146,11 @@ impl<T: Stream> SignalStreamExt for T {
     StreamBroadcaster::new(self, IndexMapping)
   }
 
-  fn fold_signal<State, F>(self, state: State, f: F) -> SignalFold<State, Self, F>
+  fn fold_signal<State, F, X>(self, state: State, f: F) -> SignalFold<State, Self, F>
   where
     Self: Sized,
+    Self: Stream,
+    F: FnMut(Self::Item, &mut State) -> Option<X>,
   {
     SignalFold {
       state,
@@ -148,9 +159,11 @@ impl<T: Stream> SignalStreamExt for T {
     }
   }
 
-  fn fold_signal_flatten<State, F>(self, state: State, f: F) -> SignalFoldFlatten<State, Self, F>
+  fn fold_signal_flatten<State, F, X>(self, state: State, f: F) -> SignalFoldFlatten<State, Self, F>
   where
     Self: Sized,
+    Self: Stream,
+    F: FnMut(Self::Item, &mut State) -> X,
   {
     SignalFoldFlatten {
       state,

@@ -219,9 +219,9 @@ pub fn build_standard_model_gpu(
 
   let ctx = ctx.clone();
 
-  source.listen_by(all_delta).fold_signal_flatten(
-    state,
-    move |delta, state: &mut RenderComponentCell<StandardModelGPU>| match delta {
+  source
+    .listen_by(all_delta)
+    .fold_signal_flatten(state, move |delta, state| match delta {
       StandardModelDelta::material(material) => {
         let id: usize = 0;
         let delta = ctx.get_or_create_reactive_material_gpu(&material);
@@ -232,8 +232,7 @@ pub fn build_standard_model_gpu(
       StandardModelDelta::mesh(_) => todo!(),
       StandardModelDelta::group(_) => todo!(),
       StandardModelDelta::skeleton(_) => todo!(),
-    },
-  )
+    })
 }
 
 #[pin_project::pin_project]
@@ -290,9 +289,9 @@ pub fn build_scene_model_gpu(
 
   let state = RenderComponentCell::new(instance);
 
-  source.listen_by(all_delta).fold_signal_flatten(
-    state,
-    |v, state: &mut RenderComponentCell<SceneModelGPUInstance>| match v {
+  source
+    .listen_by(all_delta)
+    .fold_signal_flatten(state, |v, state| match v {
       SceneModelImplDelta::model(model) => match model {
         SceneModelType::Standard(_) => {
           //
@@ -304,6 +303,5 @@ pub fn build_scene_model_gpu(
         //
         RenderComponentDelta::ContentRef
       }
-    },
-  )
+    })
 }

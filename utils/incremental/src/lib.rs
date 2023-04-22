@@ -38,6 +38,16 @@ pub enum MaybeDelta<T: IncrementalBase + Send + Sync> {
   All(T),
 }
 
+pub fn merge_maybe<T>(v: MaybeDelta<T>) -> T
+where
+  T: IncrementalBase<Delta = T>,
+{
+  match v {
+    MaybeDelta::Delta(d) => d,
+    MaybeDelta::All(d) => d,
+  }
+}
+
 pub trait ApplicableIncremental: IncrementalBase {
   /// mutation maybe not valid and return error back.
   /// should stay valid state even if mutation failed.

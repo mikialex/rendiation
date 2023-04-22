@@ -69,20 +69,20 @@ impl ShareBindableResourceCtx {
       let gpu_clone: ResourceGPUCtx = self.gpu.clone();
       let weak_tex = tex.downgrade();
 
-      let updater = move |_delta, gpu_tex: &mut ReactiveGPUCubeTextureSignal| {
-        if let Some(tex) = weak_tex.upgrade() {
-          let recreated = gpu_clone.create_gpu_texture_cube(&tex);
-          gpu_tex.gpu = recreated.clone();
-          gpu_tex
-            .inner
-            .emit(&TextureGPUChange::ReferenceCube(gpu_tex.gpu.clone()));
-          TextureGPUChange::ReferenceCube(recreated).into()
-        } else {
-          None
-        }
-      };
-
-      tex.listen_by(any_change).fold_signal(gpu_tex, updater)
+      tex
+        .listen_by(any_change)
+        .fold_signal(gpu_tex, move |_delta, gpu_tex| {
+          if let Some(tex) = weak_tex.upgrade() {
+            let recreated = gpu_clone.create_gpu_texture_cube(&tex);
+            gpu_tex.gpu = recreated.clone();
+            gpu_tex
+              .inner
+              .emit(&TextureGPUChange::ReferenceCube(gpu_tex.gpu.clone()));
+            TextureGPUChange::ReferenceCube(recreated).into()
+          } else {
+            None
+          }
+        })
     });
 
     let gpu = cache.as_ref().gpu.clone();
