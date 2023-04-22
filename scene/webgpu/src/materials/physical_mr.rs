@@ -242,14 +242,14 @@ pub fn physical_metallic_roughness_material_build_gpu(
 
   // todo, use single value channel
   let uniform_any_change = source
-    .listen_by_unbound(|d, send| match d {
+    .unbound_listen_by(|d, send| match d {
       MaybeDeltaRef::Delta(d) => send_if(send, is_uniform_changed, d.clone()),
       MaybeDeltaRef::All(value) => value.expand(|d| send_if(send, is_uniform_changed, d)),
     })
     .map(|_| UniformChangePicked::UniformChange);
 
   let all = source
-    .listen_by_unbound(all_delta)
+    .unbound_listen_by(all_delta)
     .map(UniformChangePicked::Origin);
 
   futures::stream::select(uniform_any_change, all).fold_signal_flatten(

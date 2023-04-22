@@ -11,11 +11,11 @@ impl SceneItemReactiveMapping<CameraGPU> for SceneCamera {
     let derives = (*derives).clone();
     let changes = {
       let camera_world_changed = self
-        .listen_by_unbound(with_field!(SceneCameraInner => node))
+        .unbound_listen_by(with_field!(SceneCameraInner => node))
         .map(move |node| derives.create_world_matrix_stream(&node).map(|_| {}))
         .flatten_signal();
 
-      let any_other_change = self.listen_by_unbound(any_change);
+      let any_other_change = self.unbound_listen_by(any_change);
 
       futures::stream::select(any_other_change, camera_world_changed)
     };

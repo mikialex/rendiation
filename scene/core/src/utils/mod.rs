@@ -59,7 +59,7 @@ pub fn send_if<T>(send: impl Fn(T), should_send: impl Fn(&T) -> bool, d: T) {
 }
 
 impl<T: IncrementalBase> SceneItemRef<T> {
-  pub fn listen_by_unbound<U>(
+  pub fn unbound_listen_by<U>(
     &self,
     mapper: impl FnMut(MaybeDeltaRef<T>, &dyn Fn(U)) + Send + Sync + 'static,
   ) -> impl Stream<Item = U>
@@ -119,7 +119,7 @@ impl<T: Send + Sync + 'static> ChannelLike<T> for DefaultUnboundChannel {
 }
 
 impl<T: IncrementalBase> Identity<T> {
-  pub fn listen_by_unbound<U>(
+  pub fn unbound_listen_by<U>(
     &self,
     mapper: impl FnMut(MaybeDeltaRef<T>, &dyn Fn(U)) + Send + Sync + 'static,
   ) -> impl Stream<Item = U>

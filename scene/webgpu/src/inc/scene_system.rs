@@ -41,7 +41,7 @@ impl SceneGPUSystem {
     let models = Default::default();
     let contents_c = contents.clone();
 
-    let source = scene.listen_by_unbound(all_delta).map(move |delta| {
+    let source = scene.unbound_listen_by(all_delta).map(move |delta| {
       let contents = contents_c.write().unwrap();
       let mut models = contents.models.write().unwrap();
       if let SceneInnerDelta::models(delta) = delta {
