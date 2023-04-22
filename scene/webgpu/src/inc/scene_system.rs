@@ -25,7 +25,7 @@ pub struct SceneGPUSystem {
 }
 
 impl SceneGPUSystem {
-  pub fn render(&self, encoder: &mut GPUCommandEncoder, pass_dispatcher: &dyn RenderComponent) {
+  pub fn render(&self, _encoder: &mut GPUCommandEncoder, _pass_dispatcher: &dyn RenderComponent) {
     // do encoding
   }
 }

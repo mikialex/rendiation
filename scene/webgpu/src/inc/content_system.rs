@@ -15,7 +15,7 @@ pub struct GlobalGPUSystem {
   model_ctx: GPUModelResourceCtx,
   bindable_ctx: ShareBindableResourceCtx,
   texture_2d: Arc<RwLock<StreamMap<ReactiveGPU2DTextureView>>>,
-  // texture_cube: StreamMap<ReactiveGPUCubeTextureView>,
+  texture_cube: Arc<RwLock<StreamMap<ReactiveGPUCubeTextureView>>>,
   // uniforms: HashMap<TypeId, Box<dyn Any>>,
   materials: Arc<RwLock<StreamMap<MaterialGPUInstance>>>,
   // meshes: StreamMap<ReactiveRenderComponent>,
@@ -30,6 +30,7 @@ impl GlobalGPUSystem {
     let bindable_ctx = ShareBindableResourceCtx {
       gpu: gpu.clone(),
       texture_2d: Default::default(),
+      texture_cube: Default::default(),
     };
 
     let model_ctx = GPUModelResourceCtx {
@@ -38,6 +39,7 @@ impl GlobalGPUSystem {
     };
 
     let texture_2d = bindable_ctx.texture_2d.clone();
+    let texture_cube = bindable_ctx.texture_cube.clone();
     let materials = model_ctx.materials.clone();
 
     Self {
@@ -45,6 +47,7 @@ impl GlobalGPUSystem {
       bindable_ctx,
       model_ctx,
       texture_2d,
+      texture_cube,
       materials,
       models: Default::default(),
     }
@@ -136,9 +139,8 @@ pub struct GPUResourceSceneCache {
 pub struct ShareBindableResourceCtx {
   pub gpu: ResourceGPUCtx,
   pub texture_2d: Arc<RwLock<StreamMap<ReactiveGPU2DTextureView>>>,
-  // texture_cube:  mut StreamMap<ReactiveGPUCubeTextureView>,
-  // uniforms:  mut HashMap<TypeId, Box<dyn Any>>,
-  // pub texture_cubes: ReactiveMap<SceneTextureCube, Wrapped<GPUCubeTextureView>>,
+  pub texture_cube: Arc<RwLock<StreamMap<ReactiveGPUCubeTextureView>>>,
+  // uniforms
 }
 
 impl ShareBindableResourceCtx {
@@ -146,6 +148,7 @@ impl ShareBindableResourceCtx {
     Self {
       gpu: ResourceGPUCtx::new(gpu, Default::default()),
       texture_2d: Default::default(),
+      texture_cube: Default::default(),
     }
   }
 }

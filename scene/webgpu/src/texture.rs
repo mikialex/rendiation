@@ -3,14 +3,16 @@ use rendiation_texture::CubeTextureFace;
 use crate::*;
 
 pub enum TextureGPUChange {
-  Reference(GPU2DTextureView),
+  Reference2D(GPU2DTextureView),
+  ReferenceCube(GPUCubeTextureView),
   Content,
 }
 
 impl TextureGPUChange {
   fn to_render_component_delta(&self) -> RenderComponentDelta {
     match self {
-      TextureGPUChange::Reference(_) => RenderComponentDelta::ContentRef,
+      TextureGPUChange::Reference2D(_) => RenderComponentDelta::ContentRef,
+      TextureGPUChange::ReferenceCube(_) => RenderComponentDelta::ContentRef,
       TextureGPUChange::Content => RenderComponentDelta::ContentRef,
     }
   }
@@ -22,6 +24,9 @@ pub struct ReactiveGPU2DTextureSignal {
 }
 
 pub type Texture2dRenderComponentDeltaStream = impl Stream<Item = RenderComponentDelta>;
+
+pub type ReactiveGPU2DTextureView =
+  impl AsRef<ReactiveGPU2DTextureSignal> + Stream<Item = TextureGPUChange>;
 
 impl ReactiveGPU2DTextureSignal {
   // todo , fix send sync in webgpu resource first
@@ -41,8 +46,33 @@ impl ReactiveGPU2DTextureSignal {
   }
 }
 
-pub type ReactiveGPU2DTextureView =
-  impl AsRef<ReactiveGPU2DTextureSignal> + Stream<Item = TextureGPUChange>;
+pub struct ReactiveGPUCubeTextureSignal {
+  inner: EventSource<TextureGPUChange>,
+  gpu: GPUCubeTextureView,
+}
+
+pub type TextureCubeRenderComponentDeltaStream = impl Stream<Item = RenderComponentDelta>;
+
+pub type ReactiveGPUCubeTextureView =
+  impl AsRef<ReactiveGPUCubeTextureSignal> + Stream<Item = TextureGPUChange>;
+
+impl ReactiveGPUCubeTextureSignal {
+  // todo , fix send sync in webgpu resource first
+  // pub fn create_gpu_texture_stream(&self) -> impl Stream<Item = TextureGPUChange> {
+  //   // create channel here, and send the init value
+  //   let s = self
+  //     .inner
+  //     .listen_by(TextureGPUChange::to_render_component_delta);
+
+  //   s
+  // }
+  pub fn create_gpu_texture_com_delta_stream(&self) -> TextureCubeRenderComponentDeltaStream {
+    self.inner.listen_by(
+      TextureGPUChange::to_render_component_delta,
+      RenderComponentDelta::ContentRef,
+    )
+  }
+}
 
 impl ShareBindableResourceCtx {
   pub fn get_or_create_reactive_gpu_texture2d(
@@ -66,8 +96,8 @@ impl ShareBindableResourceCtx {
         gpu_tex.gpu = recreated.clone();
         gpu_tex
           .inner
-          .emit(&TextureGPUChange::Reference(gpu_tex.gpu.clone()));
-        TextureGPUChange::Reference(recreated)
+          .emit(&TextureGPUChange::Reference2D(gpu_tex.gpu.clone()));
+        TextureGPUChange::Reference2D(recreated)
       };
 
       tex.listen_by(any_change).fold_signal(gpu_tex, updater)
@@ -82,9 +112,42 @@ impl ShareBindableResourceCtx {
     let sampler = GPUSampler::create(t.sampler.into(), &self.gpu.device);
     let sampler = sampler.create_default_view();
 
-    let (texture, tex_s) = self.get_or_create_reactive_gpu_texture2d(&t.texture);
+    let (texture, _) = self.get_or_create_reactive_gpu_texture2d(&t.texture);
 
     GPUTextureSamplerPair { texture, sampler }
+  }
+
+  pub fn get_or_create_reactive_gpu_texture_cube(
+    &self,
+    tex: &SceneTextureCube,
+  ) -> (GPUCubeTextureView, TextureCubeRenderComponentDeltaStream) {
+    let mut texture_cube = self.texture_cube.write().unwrap();
+    let cache = texture_cube.get_or_insert_with(tex.id(), || {
+      let gpu_tex = self.gpu.create_gpu_texture_cube(tex);
+
+      let gpu_tex = ReactiveGPUCubeTextureSignal {
+        inner: Default::default(),
+        gpu: gpu_tex,
+      };
+
+      let gpu_clone: ResourceGPUCtx = self.gpu.clone();
+      let tex_clone = tex.clone();
+
+      let updater = move |_delta, gpu_tex: &mut ReactiveGPUCubeTextureSignal| {
+        let recreated = gpu_clone.create_gpu_texture_cube(&tex_clone);
+        gpu_tex.gpu = recreated.clone();
+        gpu_tex
+          .inner
+          .emit(&TextureGPUChange::ReferenceCube(gpu_tex.gpu.clone()));
+        TextureGPUChange::ReferenceCube(recreated)
+      };
+
+      tex.listen_by(any_change).fold_signal(gpu_tex, updater)
+    });
+
+    let tex = cache.as_ref().gpu.clone();
+    let tex_s = cache.as_ref().create_gpu_texture_com_delta_stream();
+    (tex, tex_s)
   }
 }
 
