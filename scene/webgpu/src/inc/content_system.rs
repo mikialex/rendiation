@@ -8,8 +8,8 @@ pub struct GlobalGPUSystem {
   gpu: ResourceGPUCtx,
   model_ctx: GPUModelResourceCtx,
   bindable_ctx: ShareBindableResourceCtx,
-  texture_2d: Arc<RwLock<StreamMap<ReactiveGPU2DTextureView>>>,
-  texture_cube: Arc<RwLock<StreamMap<ReactiveGPUCubeTextureView>>>,
+  texture_2d: Arc<RwLock<StreamMap<ReactiveGPU2DTextureViewSource>>>,
+  texture_cube: Arc<RwLock<StreamMap<ReactiveGPUCubeTextureViewSource>>>,
   // uniforms: HashMap<TypeId, Box<dyn Any>>,
   materials: Arc<RwLock<StreamMap<MaterialGPUInstance>>>,
   // meshes: StreamMap<ReactiveRenderComponent>,
@@ -54,7 +54,7 @@ impl Stream for GlobalGPUSystem {
   fn poll_next(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Option<Self::Item>> {
     let this = self.project();
     let mut texture_2d = this.texture_2d.write().unwrap();
-    let texture_2d: &mut StreamMap<ReactiveGPU2DTextureView> = &mut texture_2d;
+    let texture_2d: &mut StreamMap<ReactiveGPU2DTextureViewSource> = &mut texture_2d;
     do_updates_by(texture_2d, cx, |_| {});
 
     let mut materials = this.materials.write().unwrap();
@@ -74,14 +74,6 @@ pub struct GPUModelResourceCtx {
   pub materials: Arc<RwLock<StreamMap<MaterialGPUInstance>>>,
   // meshes: StreamMap<ReactiveRenderComponent>,
 }
-
-// #[derive(Clone)]
-// pub struct ShareBindableResourceCtx {
-//   pub gpu: ResourceGPUCtx,
-//   pub texture_2d: Arc<RwLock<StreamMap<ReactiveGPU2DTextureView>>>,
-//   // texture_cube:  mut StreamMap<ReactiveGPUCubeTextureView>,
-//   // uniforms:  mut HashMap<TypeId, Box<dyn Any>>,
-// }
 
 pub struct GPUResourceCache {
   pub scene: GPUResourceSceneCache,
@@ -104,7 +96,7 @@ impl GPUResourceCache {
 
   pub fn maintain(&mut self) {
     let mut texture_2d = self.bindables.texture_2d.write().unwrap();
-    let texture_2d: &mut StreamMap<ReactiveGPU2DTextureView> = &mut texture_2d;
+    let texture_2d: &mut StreamMap<ReactiveGPU2DTextureViewSource> = &mut texture_2d;
     do_updates(texture_2d, |_| {});
   }
 }
@@ -132,8 +124,8 @@ pub struct GPUResourceSceneCache {
 #[derive(Clone)]
 pub struct ShareBindableResourceCtx {
   pub gpu: ResourceGPUCtx,
-  pub texture_2d: Arc<RwLock<StreamMap<ReactiveGPU2DTextureView>>>,
-  pub texture_cube: Arc<RwLock<StreamMap<ReactiveGPUCubeTextureView>>>,
+  pub texture_2d: Arc<RwLock<StreamMap<ReactiveGPU2DTextureViewSource>>>,
+  pub texture_cube: Arc<RwLock<StreamMap<ReactiveGPUCubeTextureViewSource>>>,
   // uniforms
 }
 

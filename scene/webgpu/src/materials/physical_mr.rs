@@ -245,6 +245,8 @@ pub fn physical_metallic_roughness_material_build_gpu(
   let state = RenderComponentCell::new(state);
 
   use PhysicalMetallicRoughnessMaterialDelta as PD;
+
+  let weak_material = source.downgrade();
   let ctx = ctx.clone();
   source.listen_by(all_delta).fold_signal_flatten(
     state,

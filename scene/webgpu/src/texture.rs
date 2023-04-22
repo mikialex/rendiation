@@ -23,9 +23,31 @@ pub struct ReactiveGPU2DTextureSignal {
   gpu: GPU2DTextureView,
 }
 
+#[pin_project::pin_project]
+pub struct ReactiveGPU2DTextureView {
+  #[pin]
+  pub changes: Texture2dRenderComponentDeltaStream,
+  pub gpu: GPU2DTextureView,
+}
+
+impl Stream for ReactiveGPU2DTextureView {
+  type Item = RenderComponentDelta;
+
+  fn poll_next(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Option<Self::Item>> {
+    let this = self.project();
+    this.changes.poll_next(cx)
+  }
+}
+impl Deref for ReactiveGPU2DTextureView {
+  type Target = GPU2DTextureView;
+  fn deref(&self) -> &Self::Target {
+    &self.gpu
+  }
+}
+
 pub type Texture2dRenderComponentDeltaStream = impl Stream<Item = RenderComponentDelta>;
 
-pub type ReactiveGPU2DTextureView =
+pub type ReactiveGPU2DTextureViewSource =
   impl AsRef<ReactiveGPU2DTextureSignal> + Stream<Item = TextureGPUChange>;
 
 impl ReactiveGPU2DTextureSignal {
@@ -51,9 +73,31 @@ pub struct ReactiveGPUCubeTextureSignal {
   gpu: GPUCubeTextureView,
 }
 
+#[pin_project::pin_project]
+pub struct ReactiveGPUCubeTextureView {
+  #[pin]
+  pub changes: TextureCubeRenderComponentDeltaStream,
+  pub gpu: GPUCubeTextureView,
+}
+
+impl Stream for ReactiveGPUCubeTextureView {
+  type Item = RenderComponentDelta;
+
+  fn poll_next(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Option<Self::Item>> {
+    let this = self.project();
+    this.changes.poll_next(cx)
+  }
+}
+impl Deref for ReactiveGPUCubeTextureView {
+  type Target = GPUCubeTextureView;
+  fn deref(&self) -> &Self::Target {
+    &self.gpu
+  }
+}
+
 pub type TextureCubeRenderComponentDeltaStream = impl Stream<Item = RenderComponentDelta>;
 
-pub type ReactiveGPUCubeTextureView =
+pub type ReactiveGPUCubeTextureViewSource =
   impl AsRef<ReactiveGPUCubeTextureSignal> + Stream<Item = TextureGPUChange>;
 
 impl ReactiveGPUCubeTextureSignal {
@@ -78,7 +122,7 @@ impl ShareBindableResourceCtx {
   pub fn get_or_create_reactive_gpu_texture2d(
     &self,
     tex: &SceneTexture2D,
-  ) -> (GPU2DTextureView, Texture2dRenderComponentDeltaStream) {
+  ) -> ReactiveGPU2DTextureView {
     let mut texture_2d = self.texture_2d.write().unwrap();
     let cache = texture_2d.get_or_insert_with(tex.id(), || {
       let gpu_tex = self.gpu.create_gpu_texture2d(tex);
@@ -107,16 +151,17 @@ impl ShareBindableResourceCtx {
       tex.listen_by(any_change).fold_signal(gpu_tex, updater)
     });
 
-    let tex = cache.as_ref().gpu.clone();
-    let tex_s = cache.as_ref().create_gpu_texture_com_delta_stream();
-    (tex, tex_s)
+    let gpu = cache.as_ref().gpu.clone();
+    let changes = cache.as_ref().create_gpu_texture_com_delta_stream();
+    ReactiveGPU2DTextureView { changes, gpu }
   }
 
   pub fn build_texture_sampler_pair(&self, t: &Texture2DWithSamplingData) -> GPUTextureSamplerPair {
     let sampler = GPUSampler::create(t.sampler.into(), &self.gpu.device);
     let sampler = sampler.create_default_view();
 
-    let (texture, _) = self.get_or_create_reactive_gpu_texture2d(&t.texture);
+    let ReactiveGPU2DTextureView { gpu: texture, .. } =
+      self.get_or_create_reactive_gpu_texture2d(&t.texture);
 
     GPUTextureSamplerPair { texture, sampler }
   }
@@ -124,7 +169,7 @@ impl ShareBindableResourceCtx {
   pub fn get_or_create_reactive_gpu_texture_cube(
     &self,
     tex: &SceneTextureCube,
-  ) -> (GPUCubeTextureView, TextureCubeRenderComponentDeltaStream) {
+  ) -> ReactiveGPUCubeTextureView {
     let mut texture_cube = self.texture_cube.write().unwrap();
     let cache = texture_cube.get_or_insert_with(tex.id(), || {
       let gpu_tex = self.gpu.create_gpu_texture_cube(tex);
@@ -153,9 +198,9 @@ impl ShareBindableResourceCtx {
       tex.listen_by(any_change).fold_signal(gpu_tex, updater)
     });
 
-    let tex = cache.as_ref().gpu.clone();
-    let tex_s = cache.as_ref().create_gpu_texture_com_delta_stream();
-    (tex, tex_s)
+    let gpu = cache.as_ref().gpu.clone();
+    let changes = cache.as_ref().create_gpu_texture_com_delta_stream();
+    ReactiveGPUCubeTextureView { changes, gpu }
   }
 }
 
