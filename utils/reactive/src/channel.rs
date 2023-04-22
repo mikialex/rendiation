@@ -1,11 +1,6 @@
-use std::{
-  fmt,
-  result::Result,
-  sync::{Arc, Mutex, Weak},
-  task::{Poll, Waker},
-};
+use std::{fmt, result::Result};
 
-use futures::Stream;
+use crate::*;
 
 #[derive(Debug)]
 pub struct Receiver<T> {
@@ -15,10 +10,7 @@ pub struct Receiver<T> {
 impl<T> Stream for Receiver<T> {
   type Item = T;
 
-  fn poll_next(
-    self: std::pin::Pin<&mut Self>,
-    cx: &mut std::task::Context<'_>,
-  ) -> Poll<Option<Self::Item>> {
+  fn poll_next(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Option<Self::Item>> {
     if let Ok(mut inner) = self.inner.lock() {
       inner.1 = cx.waker().clone().into();
       if inner.0.is_some() {

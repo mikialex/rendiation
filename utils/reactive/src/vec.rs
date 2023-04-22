@@ -1,11 +1,6 @@
-use std::{
-  pin::Pin,
-  sync::{Arc, RwLock},
-  task::{Context, Poll, Waker},
-};
+use crate::*;
 
-use futures::{Stream, StreamExt};
-use pin_project::pin_project;
+use futures::StreamExt;
 
 #[pin_project]
 pub struct StreamVec<T> {
@@ -69,7 +64,7 @@ impl futures::task::ArcWake for ChangeWaker {
 impl<T: Stream + Unpin> Stream for StreamVec<T> {
   type Item = IndexedItem<T::Item>;
 
-  fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+  fn poll_next(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Option<Self::Item>> {
     let this = self.project();
     let mut changed = this.waked.write().unwrap();
 
@@ -149,7 +144,7 @@ where
 {
   type Item = VecUpdateUnit<T::Item>;
 
-  fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+  fn poll_next(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Option<Self::Item>> {
     let mut this = self.project();
 
     if let Poll::Ready(next) = this.inner.poll_next(cx) {

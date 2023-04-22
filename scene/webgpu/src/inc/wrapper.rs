@@ -37,7 +37,7 @@ where
 {
   type Item = RenderComponentDelta;
 
-  fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+  fn poll_next(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Option<Self::Item>> {
     let this = self.project();
     this.reactive.poll_next(cx)
   }
@@ -87,7 +87,7 @@ pub struct RenderComponentCell<T> {
 impl<T: Stream> Stream for RenderComponentCell<T> {
   type Item = T::Item;
 
-  fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+  fn poll_next(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Option<Self::Item>> {
     let this = self.project();
     this.inner.poll_next(cx)
   }

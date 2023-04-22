@@ -1,13 +1,9 @@
-use std::{
-  collections::VecDeque,
-  pin::Pin,
-  task::{Context, Poll},
-};
+use std::collections::VecDeque;
 
 use futures::{
   ready,
   stream::{once, Fuse, FusedStream},
-  Stream, StreamExt,
+  StreamExt,
 };
 use pin_project::pin_project;
 
@@ -180,7 +176,7 @@ where
 {
   type Item = X;
 
-  fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+  fn poll_next(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Option<Self::Item>> {
     let mut this = self.project();
     loop {
       if let Poll::Ready(v) = this.inner.as_mut().poll_next(cx) {
@@ -222,7 +218,7 @@ where
 {
   type Item = S::Item;
 
-  fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+  fn poll_next(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Option<Self::Item>> {
     let mut this = self.project();
 
     while let Poll::Ready(result) = this.inner.as_mut().poll_next(cx) {
@@ -306,7 +302,7 @@ where
 {
   type Item = <St::Item as Stream>::Item;
 
-  fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+  fn poll_next(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Option<Self::Item>> {
     let mut this = self.project();
     Poll::Ready(loop {
       // compare to the flatten, we poll the outside stream first
@@ -373,7 +369,7 @@ where
 {
   type Item = (St1::Item, St2::Item);
 
-  fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+  fn poll_next(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Option<Self::Item>> {
     let mut this = self.project();
 
     match this.stream1.as_mut().poll_next(cx) {
@@ -425,7 +421,7 @@ where
 {
   type Item = X;
 
-  fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+  fn poll_next(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Option<Self::Item>> {
     let mut this = self.project();
     loop {
       if let Poll::Ready(v) = this.stream.as_mut().poll_next(cx) {
@@ -466,7 +462,7 @@ where
 {
   type Item = X;
 
-  fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+  fn poll_next(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Option<Self::Item>> {
     let this = self.project();
     if let Poll::Ready(v) = this.stream.poll_next(cx) {
       if let Some(v) = v {

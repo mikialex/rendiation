@@ -1,12 +1,8 @@
-use std::{
-  collections::HashMap,
-  sync::{Arc, RwLock},
-  task::{Context, Poll, Waker},
-};
+use std::collections::HashMap;
 
 use futures::{stream::FuturesUnordered, *};
 
-use crate::{do_updates, ChangeWaker, IndexedItem};
+use crate::*;
 
 pub trait ReactiveMapping<M> {
   type ChangeStream: Stream + Unpin;
@@ -113,10 +109,7 @@ impl<T> StreamMap<T> {
 impl<T: Stream + Unpin> Stream for StreamMap<T> {
   type Item = IndexedItem<T::Item>;
 
-  fn poll_next(
-    self: core::pin::Pin<&mut Self>,
-    cx: &mut task::Context<'_>,
-  ) -> task::Poll<Option<Self::Item>> {
+  fn poll_next(self: Pin<&mut Self>, cx: &mut task::Context) -> task::Poll<Option<Self::Item>> {
     let this = self.project();
     let mut changed = this.waked.write().unwrap();
 

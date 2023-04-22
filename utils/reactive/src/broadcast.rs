@@ -1,11 +1,4 @@
-use std::{
-  pin::Pin,
-  sync::{Arc, RwLock},
-  task::Poll,
-};
-
-use futures::Stream;
-use pin_project::pin_project;
+use crate::*;
 
 pub struct StreamBroadcaster<S, D, F> {
   inner: Arc<RwLock<StreamBroadcasterInner<S, D, F>>>,
@@ -19,7 +12,7 @@ where
 {
   type Item = I;
 
-  fn poll_next(self: Pin<&mut Self>, cx: &mut std::task::Context<'_>) -> Poll<Option<Self::Item>> {
+  fn poll_next(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Option<Self::Item>> {
     let mut inner = self.inner.write().unwrap();
     let inner: &mut StreamBroadcasterInner<_, _, _> = &mut inner;
     let inner = Pin::new(inner);
@@ -63,7 +56,7 @@ where
 {
   type Item = I;
 
-  fn poll_next(self: Pin<&mut Self>, cx: &mut std::task::Context<'_>) -> Poll<Option<Self::Item>> {
+  fn poll_next(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Option<Self::Item>> {
     let this = self.project();
     if let Poll::Ready(v) = this.source.poll_next(cx) {
       if let Some(input) = v {
@@ -98,10 +91,7 @@ where
 {
   type Item = D;
 
-  fn poll_next(
-    self: std::pin::Pin<&mut Self>,
-    cx: &mut std::task::Context<'_>,
-  ) -> Poll<Option<Self::Item>> {
+  fn poll_next(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Option<Self::Item>> {
     let outer_this = self.project();
     let mut inner = outer_this.source.write().unwrap();
     let inner: &mut StreamBroadcasterInner<_, _, _> = &mut inner;

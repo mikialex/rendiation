@@ -53,7 +53,7 @@ impl Default for UserSelectFile {
 impl Future for UserSelectFile {
   type Output = Option<String>;
 
-  fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+  fn poll(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
     let mut shared_state = self.shared_state.lock().unwrap();
     if let Some(result) = &shared_state.selected {
       Poll::Ready(result.clone())

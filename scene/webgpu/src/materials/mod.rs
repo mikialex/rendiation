@@ -155,7 +155,7 @@ impl MaterialGPUInstance {
 impl Stream for MaterialGPUInstance {
   type Item = RenderComponentDelta;
 
-  fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+  fn poll_next(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Option<Self::Item>> {
     match self.project() {
       MaterialGPUInstanceProj::PhysicalMetallicRoughness(m) => m.poll_next_unpin(cx),
       MaterialGPUInstanceProj::Foreign(_) => todo!(),

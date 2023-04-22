@@ -51,7 +51,7 @@ impl GlobalGPUSystem {
 impl Stream for GlobalGPUSystem {
   type Item = ();
 
-  fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+  fn poll_next(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Option<Self::Item>> {
     let this = self.project();
     let mut texture_2d = this.texture_2d.write().unwrap();
     let texture_2d: &mut StreamMap<ReactiveGPU2DTextureView> = &mut texture_2d;

@@ -242,7 +242,7 @@ pub struct StandardModelReactive {
 impl Stream for StandardModelReactive {
   type Item = RenderComponentDelta;
 
-  fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+  fn poll_next(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Option<Self::Item>> {
     let this = self.project();
     early_return_ready!(this.material.poll_next_unpin(cx));
     Poll::Pending
@@ -268,7 +268,7 @@ pub struct SceneModelGPUReactiveInstance {
 impl Stream for SceneModelGPUReactiveInstance {
   type Item = RenderComponentDelta;
 
-  fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+  fn poll_next(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Option<Self::Item>> {
     let mut this = self.project();
     early_return_option_ready!(this.model, cx);
     Poll::Pending

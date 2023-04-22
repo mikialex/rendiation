@@ -205,16 +205,16 @@ impl ResourceGPUCtx {
       let gpu_texture: GPUCubeTexture = gpu_texture.try_into().unwrap();
 
       #[rustfmt::skip]
-    gpu_texture
-      .upload(queue, as_2d_source(&source[0]).unwrap(), CubeTextureFace::PositiveX, 0)
-      .upload(queue, as_2d_source(&source[1]).unwrap(), CubeTextureFace::NegativeX, 0)
-      .upload(queue, as_2d_source(&source[2]).unwrap(), CubeTextureFace::PositiveY, 0)
-      .upload(queue, as_2d_source(&source[3]).unwrap(), CubeTextureFace::NegativeY, 0)
-      .upload(queue, as_2d_source(&source[4]).unwrap(), CubeTextureFace::PositiveZ, 0)
-      .upload(queue, as_2d_source(&source[5]).unwrap(), CubeTextureFace::NegativeZ, 0)
-      .create_default_view()
-      .try_into()
-      .unwrap()
+      gpu_texture
+        .upload(queue, as_2d_source(&source[0]).unwrap(), CubeTextureFace::PositiveX, 0)
+        .upload(queue, as_2d_source(&source[1]).unwrap(), CubeTextureFace::NegativeX, 0)
+        .upload(queue, as_2d_source(&source[2]).unwrap(), CubeTextureFace::PositiveY, 0)
+        .upload(queue, as_2d_source(&source[3]).unwrap(), CubeTextureFace::NegativeY, 0)
+        .upload(queue, as_2d_source(&source[4]).unwrap(), CubeTextureFace::PositiveZ, 0)
+        .upload(queue, as_2d_source(&source[5]).unwrap(), CubeTextureFace::NegativeZ, 0)
+        .create_default_view()
+        .try_into()
+        .unwrap()
     } else {
       let tex: GPUCubeTexture = create_fallback_empty_cube_texture(&self.device);
       tex.create_default_view().try_into().unwrap()

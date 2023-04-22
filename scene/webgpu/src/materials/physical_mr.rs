@@ -279,7 +279,7 @@ pub struct PhysicalMetallicRoughnessMaterialReactive {
 impl Stream for PhysicalMetallicRoughnessMaterialReactive {
   type Item = RenderComponentDelta;
 
-  fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+  fn poll_next(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Option<Self::Item>> {
     let mut this = self.project();
     early_return_option_ready!(this.base_color, cx);
     early_return_option_ready!(this.metallic_roughness, cx);
