@@ -1,11 +1,11 @@
 use crate::*;
 
-mod d2;
 mod cube;
+mod d2;
 mod pair;
 
-pub use d2::*;
 pub use cube::*;
+pub use d2::*;
 pub use pair::*;
 
 pub enum TextureGPUChange {

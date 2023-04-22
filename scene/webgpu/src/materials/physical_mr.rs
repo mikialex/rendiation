@@ -24,13 +24,27 @@ impl ShaderHashProvider for PhysicalMetallicRoughnessMaterialGPU {
   }
 }
 
+#[pin_project::pin_project]
 pub struct PhysicalMetallicRoughnessMaterialGPU {
   uniform: UniformBufferDataView<PhysicalMetallicRoughnessMaterialUniform>,
-  base_color_texture: Option<GPUTextureSamplerPair>,
-  metallic_roughness_texture: Option<GPUTextureSamplerPair>,
-  emissive_texture: Option<GPUTextureSamplerPair>,
-  normal_texture: Option<GPUTextureSamplerPair>,
+  base_color_texture: Option<ReactiveGPUTextureSamplerPair>,
+  metallic_roughness_texture: Option<ReactiveGPUTextureSamplerPair>,
+  emissive_texture: Option<ReactiveGPUTextureSamplerPair>,
+  normal_texture: Option<ReactiveGPUTextureSamplerPair>,
   alpha_mode: AlphaMode,
+}
+
+impl Stream for PhysicalMetallicRoughnessMaterialGPU {
+  type Item = RenderComponentDelta;
+
+  fn poll_next(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Option<Self::Item>> {
+    let mut this = self.project();
+    early_return_option_ready!(this.base_color_texture, cx);
+    early_return_option_ready!(this.metallic_roughness_texture, cx);
+    early_return_option_ready!(this.emissive_texture, cx);
+    early_return_option_ready!(this.normal_texture, cx);
+    Poll::Pending
+  }
 }
 
 impl ShaderPassBuilder for PhysicalMetallicRoughnessMaterialGPU {
@@ -142,21 +156,21 @@ impl WebGPUMaterial for PhysicalMetallicRoughnessMaterial {
     let base_color_texture = self
       .base_color_texture
       .as_ref()
-      .map(|t| res.build_texture_sampler_pair(t));
+      .map(|t| res.build_reactive_texture_sampler_pair(t));
 
     let metallic_roughness_texture = self
       .metallic_roughness_texture
       .as_ref()
-      .map(|t| res.build_texture_sampler_pair(t));
+      .map(|t| res.build_reactive_texture_sampler_pair(t));
 
     let emissive_texture = self
       .emissive_texture
       .as_ref()
-      .map(|t| res.build_texture_sampler_pair(t));
+      .map(|t| res.build_reactive_texture_sampler_pair(t));
 
     let normal_texture = self.normal_texture.as_ref().map(|t| {
       uniform.normal_mapping_scale = t.scale;
-      res.build_texture_sampler_pair(&t.content)
+      res.build_reactive_texture_sampler_pair(&t.content)
     });
 
     let uniform = create_uniform(uniform, gpu);
@@ -178,12 +192,7 @@ impl WebGPUMaterial for PhysicalMetallicRoughnessMaterial {
   }
 }
 
-type PhysicalMetallicRoughnessMaterialGPUReactiveInner = RenderComponentReactive<
-  PhysicalMetallicRoughnessMaterialGPU,
-  PhysicalMetallicRoughnessMaterialReactive,
->;
-
-pub type PhysicalMetallicRoughnessMaterialGPUReactive = impl AsRef<RenderComponentCell<PhysicalMetallicRoughnessMaterialGPUReactiveInner>>
+pub type PhysicalMetallicRoughnessMaterialGPUReactive = impl AsRef<RenderComponentCell<PhysicalMetallicRoughnessMaterialGPU>>
   + Stream<Item = RenderComponentDelta>;
 
 fn build_shader_uniform(
@@ -213,21 +222,21 @@ pub fn physical_metallic_roughness_material_build_gpu(
   let base_color_texture = m
     .base_color_texture
     .as_ref()
-    .map(|t| ctx.build_texture_sampler_pair(t));
+    .map(|t| ctx.build_reactive_texture_sampler_pair(t));
 
   let metallic_roughness_texture = m
     .metallic_roughness_texture
     .as_ref()
-    .map(|t| ctx.build_texture_sampler_pair(t));
+    .map(|t| ctx.build_reactive_texture_sampler_pair(t));
 
   let emissive_texture = m
     .emissive_texture
     .as_ref()
-    .map(|t| ctx.build_texture_sampler_pair(t));
+    .map(|t| ctx.build_reactive_texture_sampler_pair(t));
 
   let normal_texture = m.normal_texture.as_ref().map(|t| {
     uniform.normal_mapping_scale = t.scale;
-    ctx.build_texture_sampler_pair(&t.content)
+    ctx.build_reactive_texture_sampler_pair(&t.content)
   });
 
   let uniform = create_uniform2(uniform, &ctx.gpu.device);
@@ -241,8 +250,7 @@ pub fn physical_metallic_roughness_material_build_gpu(
     alpha_mode: m.alpha_mode,
   };
 
-  let state = RenderComponentReactive::from_gpu_with_default_reactive(gpu);
-  let state = RenderComponentCell::new(state);
+  let state = RenderComponentCell::new(gpu);
 
   use PhysicalMetallicRoughnessMaterialDelta as PD;
 
@@ -250,8 +258,7 @@ pub fn physical_metallic_roughness_material_build_gpu(
   let ctx = ctx.clone();
   source.listen_by(all_delta).fold_signal_flatten(
     state,
-    move |delta,
-          state: &mut RenderComponentCell<PhysicalMetallicRoughnessMaterialGPUReactiveInner>| {
+    move |delta, state: &mut RenderComponentCell<PhysicalMetallicRoughnessMaterialGPU>| {
       match delta {
         PD::alpha_mode(_) => RenderComponentDelta::ShaderHash,
         PD::base_color_texture(t) => {
@@ -267,26 +274,4 @@ pub fn physical_metallic_roughness_material_build_gpu(
       }
     },
   )
-}
-
-#[pin_project::pin_project]
-#[derive(Default)]
-pub struct PhysicalMetallicRoughnessMaterialReactive {
-  base_color: Option<Texture2dRenderComponentDeltaStream>,
-  metallic_roughness: Option<Texture2dRenderComponentDeltaStream>,
-  emissive: Option<Texture2dRenderComponentDeltaStream>,
-  normal: Option<Texture2dRenderComponentDeltaStream>,
-}
-
-impl Stream for PhysicalMetallicRoughnessMaterialReactive {
-  type Item = RenderComponentDelta;
-
-  fn poll_next(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Option<Self::Item>> {
-    let mut this = self.project();
-    early_return_option_ready!(this.base_color, cx);
-    early_return_option_ready!(this.metallic_roughness, cx);
-    early_return_option_ready!(this.emissive, cx);
-    early_return_option_ready!(this.normal, cx);
-    Poll::Pending
-  }
 }

@@ -33,4 +33,44 @@ impl ShareBindableResourceCtx {
 
     GPUTextureSamplerPair { texture, sampler }
   }
+
+  pub fn build_reactive_texture_sampler_pair(
+    &self,
+    t: &Texture2DWithSamplingData,
+  ) -> ReactiveGPUTextureSamplerPair {
+    let sampler = GPUSampler::create(t.sampler.into(), &self.gpu.device);
+    let sampler = sampler.create_default_view();
+
+    let ReactiveGPU2DTextureView {
+      gpu: texture,
+      changes,
+    } = self.get_or_create_reactive_gpu_texture2d(&t.texture);
+
+    let pair = GPUTextureSamplerPair { texture, sampler };
+
+    ReactiveGPUTextureSamplerPair { pair, changes }
+  }
+}
+
+#[pin_project::pin_project]
+pub struct ReactiveGPUTextureSamplerPair {
+  pair: GPUTextureSamplerPair,
+  #[pin]
+  changes: Texture2dRenderComponentDeltaStream, // todo sampler gpu change streams
+}
+
+impl Stream for ReactiveGPUTextureSamplerPair {
+  type Item = RenderComponentDelta;
+
+  fn poll_next(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Option<Self::Item>> {
+    let this = self.project();
+    this.changes.poll_next(cx)
+  }
+}
+
+impl Deref for ReactiveGPUTextureSamplerPair {
+  type Target = GPUTextureSamplerPair;
+  fn deref(&self) -> &Self::Target {
+    &self.pair
+  }
 }
