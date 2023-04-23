@@ -1,6 +1,4 @@
 pub mod states;
-use std::sync::Arc;
-
 pub use states::*;
 pub mod flat;
 pub use flat::*;
@@ -20,6 +18,10 @@ use crate::*;
 pub trait WebGPUMaterial: Clone + Any + Incremental {
   type GPU: RenderComponentAny;
   fn create_gpu(&self, res: &mut ShareBindableResourceCtx, gpu: &GPU) -> Self::GPU;
+
+  type ReactiveGPU: MaterialGPUInstanceLike;
+  fn create_reactive_gpu_material_instance() -> Self::ReactiveGPU;
+
   fn is_keep_mesh_shape(&self) -> bool;
   fn is_transparent(&self) -> bool;
 }
@@ -135,12 +137,20 @@ impl GPUMaterialCache {
   }
 }
 
+pub trait MaterialGPUInstanceLike:
+  Stream<Item = RenderComponentDeltaFlag> + RenderComponent + Unpin
+{
+  fn create_render_component_delta_stream(
+    &self,
+  ) -> Pin<Box<dyn Stream<Item = RenderComponentDeltaFlag>>>;
+}
+
 #[pin_project::pin_project(project = MaterialGPUInstanceProj)]
 pub enum MaterialGPUInstance {
   PhysicalMetallicRoughness(PhysicalMetallicRoughnessMaterialGPUReactive),
   PhysicalSpecularGlossiness(PhysicalSpecularGlossinessMaterialGPUReactive),
   Flat(FlatMaterialGPUReactive),
-  Foreign(Arc<dyn Any + Send + Sync>),
+  Foreign(Box<dyn MaterialGPUInstanceLike>),
 }
 
 impl MaterialGPUInstance {
@@ -158,7 +168,7 @@ impl MaterialGPUInstance {
       }
       MaterialGPUInstance::Flat(m) => Box::pin(m.as_ref().create_render_component_delta_stream())
         as Pin<Box<dyn Stream<Item = RenderComponentDeltaFlag>>>,
-      MaterialGPUInstance::Foreign(_) => todo!(),
+      MaterialGPUInstance::Foreign(m) => m.create_render_component_delta_stream(),
     }
   }
 }
@@ -171,7 +181,7 @@ impl Stream for MaterialGPUInstance {
       MaterialGPUInstanceProj::PhysicalMetallicRoughness(m) => m.poll_next_unpin(cx),
       MaterialGPUInstanceProj::PhysicalSpecularGlossiness(m) => m.poll_next_unpin(cx),
       MaterialGPUInstanceProj::Flat(m) => m.poll_next_unpin(cx),
-      MaterialGPUInstanceProj::Foreign(_) => todo!(),
+      MaterialGPUInstanceProj::Foreign(m) => m.poll_next_unpin(cx),
     }
   }
 }
@@ -200,7 +210,14 @@ impl GPUModelResourceCtx {
           let instance = flat_material_build_gpu(m, &self.shared);
           MaterialGPUInstance::Flat(instance)
         }
-        SceneMaterialType::Foreign(_) => todo!(),
+        SceneMaterialType::Foreign(m) => {
+          // if let Some(m) = m.downcast_ref::<Box<dyn WebGPUSceneMaterial>>() {
+          //   m.check_update_gpu(res, sub_res, gpu)
+          // } else {
+          //   &()
+          // }
+          todo!()
+        }
         _ => todo!(),
       })
       .create_render_component_delta_stream()
