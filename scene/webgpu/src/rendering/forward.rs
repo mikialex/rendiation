@@ -91,10 +91,13 @@ impl<'a> ShaderPassBuilder for ForwardSceneLightingDispatcher<'a> {
 impl<'a> ShaderHashProvider for ForwardSceneLightingDispatcher<'a> {
   fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
     self.lighting.lights.light_hash_cache.hash(hasher);
-    self.lighting.shadow.hash_pipeline(hasher); // not sure we need cache here, maybe add it later
+    self.lighting.shadow.hash_pipeline(hasher);
+
+    self.debugger.is_some().hash(hasher);
     if let Some(debugger) = &self.debugger {
-      debugger.hash_pipeline(hasher); // not sure we need cache here, maybe add it later
+      debugger.hash_pipeline(hasher);
     }
+
     self.override_shading.type_id().hash(hasher);
   }
 }
