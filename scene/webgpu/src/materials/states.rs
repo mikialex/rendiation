@@ -97,137 +97,137 @@ impl Default for MaterialStates {
 static STATE_ID: once_cell::sync::Lazy<Mutex<ValueIDGenerator<MaterialStates>>> =
   once_cell::sync::Lazy::new(|| Mutex::new(ValueIDGenerator::default()));
 
-#[derive(Clone)]
-pub struct StateControl<T> {
-  pub material: T,
-  pub states: MaterialStates,
-}
+// #[derive(Clone)]
+// pub struct StateControl<T> {
+//   pub material: T,
+//   pub states: MaterialStates,
+// }
 
-#[derive(Clone)]
-#[allow(non_camel_case_types)]
-pub enum StateControlDelta<T: Incremental> {
-  material(DeltaOf<T>),
-  states(DeltaOf<MaterialStates>),
-}
+// #[derive(Clone)]
+// #[allow(non_camel_case_types)]
+// pub enum StateControlDelta<T: Incremental> {
+//   material(DeltaOf<T>),
+//   states(DeltaOf<MaterialStates>),
+// }
 
-impl<M: Incremental + Clone + Send + Sync> SimpleIncremental for StateControl<M> {
-  type Delta = StateControlDelta<M>;
+// impl<M: Incremental + Clone + Send + Sync> SimpleIncremental for StateControl<M> {
+//   type Delta = StateControlDelta<M>;
 
-  fn s_apply(&mut self, delta: Self::Delta) {
-    match delta {
-      StateControlDelta::material(delta) => self.material.apply(delta).unwrap(),
-      StateControlDelta::states(state) => self.states = state,
-    }
-  }
+//   fn s_apply(&mut self, delta: Self::Delta) {
+//     match delta {
+//       StateControlDelta::material(delta) => self.material.apply(delta).unwrap(),
+//       StateControlDelta::states(state) => self.states = state,
+//     }
+//   }
 
-  fn s_expand(&self, mut cb: impl FnMut(Self::Delta)) {
-    self.material.expand(|d| cb(StateControlDelta::material(d)));
-    cb(StateControlDelta::states(self.states.clone()))
-  }
-}
+//   fn s_expand(&self, mut cb: impl FnMut(Self::Delta)) {
+//     self.material.expand(|d| cb(StateControlDelta::material(d)));
+//     cb(StateControlDelta::states(self.states.clone()))
+//   }
+// }
 
-pub trait IntoStateControl: Sized {
-  fn use_state(self) -> StateControl<Self> {
-    StateControl {
-      material: self,
-      states: Default::default(),
-    }
-  }
+// pub trait IntoStateControl: Sized {
+//   fn use_state(self) -> StateControl<Self> {
+//     StateControl {
+//       material: self,
+//       states: Default::default(),
+//     }
+//   }
 
-  /// disable depth rw, double face
-  fn use_state_helper_like(self) -> StateControl<Self> {
-    let mut states = MaterialStates::default();
-    states.depth_write_enabled = false;
-    states.depth_compare = webgpu::CompareFunction::Always;
-    states.cull_mode = None;
-    StateControl {
-      material: self,
-      states,
-    }
-  }
-}
+//   /// disable depth rw, double face
+//   fn use_state_helper_like(self) -> StateControl<Self> {
+//     let mut states = MaterialStates::default();
+//     states.depth_write_enabled = false;
+//     states.depth_compare = webgpu::CompareFunction::Always;
+//     states.cull_mode = None;
+//     StateControl {
+//       material: self,
+//       states,
+//     }
+//   }
+// }
 
-impl<T> IntoStateControl for T {}
+// impl<T> IntoStateControl for T {}
 
-pub struct StateControlGPU<T: WebGPUMaterial> {
-  state_id: Cell<ValueID<MaterialStates>>,
-  gpu: T::GPU,
-}
+// pub struct StateControlGPU<T: WebGPUMaterial> {
+//   state_id: Cell<ValueID<MaterialStates>>,
+//   gpu: T::GPU,
+// }
 
-impl<T: WebGPUMaterial> ShaderHashProvider for StateControlGPU<T> {
-  fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
-    self.state_id.get().hash(hasher);
-    self.gpu.hash_pipeline(hasher);
-  }
-}
+// impl<T: WebGPUMaterial> ShaderHashProvider for StateControlGPU<T> {
+//   fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
+//     self.state_id.get().hash(hasher);
+//     self.gpu.hash_pipeline(hasher);
+//   }
+// }
 
-impl<T> ShaderPassBuilder for StateControlGPU<T>
-where
-  T: WebGPUMaterial,
-{
-  fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
-    self.gpu.setup_pass(ctx)
-  }
-}
+// impl<T> ShaderPassBuilder for StateControlGPU<T>
+// where
+//   T: WebGPUMaterial,
+// {
+//   fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
+//     self.gpu.setup_pass(ctx)
+//   }
+// }
 
-impl<T: WebGPUMaterial> ShaderGraphProvider for StateControlGPU<T> {
-  fn post_build(
-    &self,
-    builder: &mut ShaderGraphRenderPipelineBuilder,
-  ) -> Result<(), shadergraph::ShaderGraphBuildError> {
-    let id = STATE_ID.lock().unwrap();
+// impl<T: WebGPUMaterial> ShaderGraphProvider for StateControlGPU<T> {
+//   fn post_build(
+//     &self,
+//     builder: &mut ShaderGraphRenderPipelineBuilder,
+//   ) -> Result<(), shadergraph::ShaderGraphBuildError> {
+//     let id = STATE_ID.lock().unwrap();
 
-    let value = id.get_value(self.state_id.get()).unwrap();
+//     let value = id.get_value(self.state_id.get()).unwrap();
 
-    builder.vertex(|builder, _| {
-      builder.primitive_state.front_face = value.front_face;
-      builder.primitive_state.cull_mode = value.cull_mode;
-      Ok(())
-    })?;
+//     builder.vertex(|builder, _| {
+//       builder.primitive_state.front_face = value.front_face;
+//       builder.primitive_state.cull_mode = value.cull_mode;
+//       Ok(())
+//     })?;
 
-    builder.fragment(|builder, _| {
-      value.apply_pipeline_builder(builder);
-      Ok(())
-    })?;
-    self.gpu.build(builder)
-  }
-}
+//     builder.fragment(|builder, _| {
+//       value.apply_pipeline_builder(builder);
+//       Ok(())
+//     })?;
+//     self.gpu.build(builder)
+//   }
+// }
 
-impl<T> WebGPUMaterial for StateControl<T>
-where
-  T: Clone,
-  T: WebGPUMaterial,
-{
-  type GPU = StateControlGPU<T>;
+// impl<T> WebGPUMaterial for StateControl<T>
+// where
+//   T: Clone,
+//   T: WebGPUMaterial,
+// {
+//   type GPU = StateControlGPU<T>;
 
-  fn create_gpu(&self, ctx: &mut ShareBindableResourceCtx, gpu: &GPU) -> Self::GPU {
-    let gpu = self.material.create_gpu(ctx, gpu);
+//   fn create_gpu(&self, ctx: &mut ShareBindableResourceCtx, gpu: &GPU) -> Self::GPU {
+//     let gpu = self.material.create_gpu(ctx, gpu);
 
-    let state_id = STATE_ID.lock().unwrap().get_uuid(&self.states);
+//     let state_id = STATE_ID.lock().unwrap().get_uuid(&self.states);
 
-    StateControlGPU {
-      state_id: Cell::new(state_id),
-      gpu,
-    }
-  }
+//     StateControlGPU {
+//       state_id: Cell::new(state_id),
+//       gpu,
+//     }
+//   }
 
-  fn is_keep_mesh_shape(&self) -> bool {
-    self.material.is_keep_mesh_shape()
-  }
-  fn is_transparent(&self) -> bool {
-    self.states.blend.is_some()
-  }
+//   fn is_keep_mesh_shape(&self) -> bool {
+//     self.material.is_keep_mesh_shape()
+//   }
+//   fn is_transparent(&self) -> bool {
+//     self.states.blend.is_some()
+//   }
 
-  type ReactiveGPU;
+//   type ReactiveGPU;
 
-  fn create_reactive_gpu(
-    source: &SceneItemRef<Self>,
-    ctx: &ShareBindableResourceCtx,
-  ) -> Self::ReactiveGPU {
-    todo!()
-  }
+//   fn create_reactive_gpu(
+//     source: &SceneItemRef<Self>,
+//     ctx: &ShareBindableResourceCtx,
+//   ) -> Self::ReactiveGPU {
+//     todo!()
+//   }
 
-  fn as_material_gpu_instance(gpu: &Self::ReactiveGPU) -> &dyn MaterialGPUInstanceLike {
-    todo!()
-  }
-}
+//   fn as_material_gpu_instance(gpu: &Self::ReactiveGPU) -> &dyn MaterialGPUInstanceLike {
+//     todo!()
+//   }
+// }

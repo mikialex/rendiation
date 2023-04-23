@@ -27,7 +27,7 @@ pub struct RenderComponentCell<T> {
 
 impl<T> MaterialGPUInstanceLike for RenderComponentCell<T>
 where
-  T: RenderComponent + Stream<Item = RenderComponentDeltaFlag> + Unpin,
+  T: RenderComponent + Stream<Item = RenderComponentDeltaFlag> + Unpin + 'static,
 {
   fn create_render_component_delta_stream(
     &self,
