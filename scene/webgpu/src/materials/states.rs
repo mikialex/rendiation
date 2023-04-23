@@ -217,4 +217,17 @@ where
   fn is_transparent(&self) -> bool {
     self.states.blend.is_some()
   }
+
+  type ReactiveGPU;
+
+  fn create_reactive_gpu(
+    source: &SceneItemRef<Self>,
+    ctx: &ShareBindableResourceCtx,
+  ) -> Self::ReactiveGPU {
+    todo!()
+  }
+
+  fn as_material_gpu_instance(gpu: &Self::ReactiveGPU) -> &dyn MaterialGPUInstanceLike {
+    todo!()
+  }
 }

@@ -25,6 +25,47 @@ pub struct RenderComponentCell<T> {
   pub inner: T,
 }
 
+impl<T> MaterialGPUInstanceLike for RenderComponentCell<T>
+where
+  T: RenderComponent + Stream<Item = RenderComponentDeltaFlag> + Unpin,
+{
+  fn create_render_component_delta_stream(
+    &self,
+  ) -> Pin<Box<dyn Stream<Item = RenderComponentDeltaFlag>>> {
+    Box::pin(self.create_render_component_delta_stream())
+  }
+}
+
+impl<T: ShaderHashProvider> ShaderHashProvider for RenderComponentCell<T> {
+  fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
+    self.inner.hash_pipeline(hasher)
+  }
+}
+impl<T: ShaderPassBuilder> ShaderPassBuilder for RenderComponentCell<T> {
+  fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
+    self.inner.setup_pass(ctx)
+  }
+
+  fn post_setup_pass(&self, ctx: &mut GPURenderPassCtx) {
+    self.inner.post_setup_pass(ctx)
+  }
+}
+impl<T: ShaderGraphProvider> ShaderGraphProvider for RenderComponentCell<T> {
+  fn build(
+    &self,
+    builder: &mut ShaderGraphRenderPipelineBuilder,
+  ) -> Result<(), ShaderGraphBuildError> {
+    self.inner.build(builder)
+  }
+
+  fn post_build(
+    &self,
+    builder: &mut ShaderGraphRenderPipelineBuilder,
+  ) -> Result<(), ShaderGraphBuildError> {
+    self.inner.post_build(builder)
+  }
+}
+
 impl<T> Deref for RenderComponentCell<T> {
   type Target = T;
 

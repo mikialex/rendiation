@@ -144,7 +144,97 @@ impl ShaderGraphProvider for PhysicalSpecularGlossinessMaterialGPU {
   }
 }
 
+use PhysicalSpecularGlossinessMaterialDelta as PD;
+pub type PhysicalSpecularGlossinessMaterialGPUReactive = impl AsRef<RenderComponentCell<PhysicalSpecularGlossinessMaterialGPU>>
+  + Stream<Item = RenderComponentDeltaFlag>;
+
 impl WebGPUMaterial for PhysicalSpecularGlossinessMaterial {
+  type ReactiveGPU = PhysicalSpecularGlossinessMaterialGPUReactive;
+
+  fn create_reactive_gpu(
+    source: &SceneItemRef<Self>,
+    ctx: &ShareBindableResourceCtx,
+  ) -> Self::ReactiveGPU {
+    let m = source.read();
+
+    let uniform = build_shader_uniform(&m);
+    let uniform = create_uniform2(uniform, &ctx.gpu.device);
+
+    let albedo_texture = m
+      .albedo_texture
+      .as_ref()
+      .map(|t| ctx.build_reactive_texture_sampler_pair(t));
+
+    let glossiness_texture = m
+      .glossiness_texture
+      .as_ref()
+      .map(|t| ctx.build_reactive_texture_sampler_pair(t));
+
+    let specular_texture = m
+      .specular_texture
+      .as_ref()
+      .map(|t| ctx.build_reactive_texture_sampler_pair(t));
+
+    let emissive_texture = m
+      .emissive_texture
+      .as_ref()
+      .map(|t| ctx.build_reactive_texture_sampler_pair(t));
+
+    let normal_texture = m
+      .normal_texture
+      .as_ref()
+      .map(|t| ctx.build_reactive_texture_sampler_pair(&t.content));
+
+    let gpu = PhysicalSpecularGlossinessMaterialGPU {
+      uniform,
+      albedo_texture,
+      specular_texture,
+      glossiness_texture,
+      emissive_texture,
+      normal_texture,
+      alpha_mode: m.alpha_mode,
+    };
+
+    let state = RenderComponentCell::new(gpu);
+
+    let weak_material = source.downgrade();
+    let ctx = ctx.clone();
+
+    let uniform_any_change = source
+      .single_listen_by::<()>(all_delta_with(false, then_some(is_uniform_changed)))
+      .map(|_| UniformChangePicked::UniformChange);
+
+    let all = source
+      .unbound_listen_by(all_delta_no_init)
+      .map(UniformChangePicked::Origin);
+
+    futures::stream::select(uniform_any_change, all).fold_signal_flatten(
+      state,
+      move |delta, state| match delta {
+        UniformChangePicked::UniformChange => {
+          if let Some(m) = weak_material.upgrade() {
+            state.uniform.resource.set(build_shader_uniform(&m.read()));
+            state.uniform.resource.upload(&ctx.gpu.queue)
+          }
+          RenderComponentDeltaFlag::ContentRef
+        }
+        UniformChangePicked::Origin(delta) => match delta {
+          PD::alpha_mode(_) => RenderComponentDeltaFlag::ShaderHash,
+          PD::albedo_texture(t) => apply_tex_pair_delta(t, &mut state.albedo_texture, &ctx),
+          PD::glossiness_texture(t) => apply_tex_pair_delta(t, &mut state.glossiness_texture, &ctx),
+          PD::specular_texture(t) => apply_tex_pair_delta(t, &mut state.specular_texture, &ctx),
+          PD::emissive_texture(t) => apply_tex_pair_delta(t, &mut state.emissive_texture, &ctx),
+          PD::normal_texture(t) => apply_normal_map_delta(t, &mut state.normal_texture, &ctx),
+          _ => RenderComponentDeltaFlag::Content, // handled in uniform
+        },
+      },
+    )
+  }
+
+  fn as_material_gpu_instance(gpu: &Self::ReactiveGPU) -> &dyn MaterialGPUInstanceLike {
+    gpu.as_ref() as &dyn MaterialGPUInstanceLike
+  }
+
   type GPU = PhysicalSpecularGlossinessMaterialGPU;
 
   fn create_gpu(&self, res: &mut ShareBindableResourceCtx, gpu: &GPU) -> Self::GPU {
@@ -202,90 +292,6 @@ impl WebGPUMaterial for PhysicalSpecularGlossinessMaterial {
   fn is_transparent(&self) -> bool {
     matches!(self.alpha_mode, AlphaMode::Blend)
   }
-}
-
-use PhysicalSpecularGlossinessMaterialDelta as PD;
-pub type PhysicalSpecularGlossinessMaterialGPUReactive = impl AsRef<RenderComponentCell<PhysicalSpecularGlossinessMaterialGPU>>
-  + Stream<Item = RenderComponentDeltaFlag>;
-
-pub fn physical_specular_glossiness_material_build_gpu(
-  source: &SceneItemRef<PhysicalSpecularGlossinessMaterial>,
-  ctx: &ShareBindableResourceCtx,
-) -> PhysicalSpecularGlossinessMaterialGPUReactive {
-  let m = source.read();
-
-  let uniform = build_shader_uniform(&m);
-  let uniform = create_uniform2(uniform, &ctx.gpu.device);
-
-  let albedo_texture = m
-    .albedo_texture
-    .as_ref()
-    .map(|t| ctx.build_reactive_texture_sampler_pair(t));
-
-  let glossiness_texture = m
-    .glossiness_texture
-    .as_ref()
-    .map(|t| ctx.build_reactive_texture_sampler_pair(t));
-
-  let specular_texture = m
-    .specular_texture
-    .as_ref()
-    .map(|t| ctx.build_reactive_texture_sampler_pair(t));
-
-  let emissive_texture = m
-    .emissive_texture
-    .as_ref()
-    .map(|t| ctx.build_reactive_texture_sampler_pair(t));
-
-  let normal_texture = m
-    .normal_texture
-    .as_ref()
-    .map(|t| ctx.build_reactive_texture_sampler_pair(&t.content));
-
-  let gpu = PhysicalSpecularGlossinessMaterialGPU {
-    uniform,
-    albedo_texture,
-    specular_texture,
-    glossiness_texture,
-    emissive_texture,
-    normal_texture,
-    alpha_mode: m.alpha_mode,
-  };
-
-  let state = RenderComponentCell::new(gpu);
-
-  let weak_material = source.downgrade();
-  let ctx = ctx.clone();
-
-  let uniform_any_change = source
-    .single_listen_by::<()>(all_delta_with(false, then_some(is_uniform_changed)))
-    .map(|_| UniformChangePicked::UniformChange);
-
-  let all = source
-    .unbound_listen_by(all_delta_no_init)
-    .map(UniformChangePicked::Origin);
-
-  futures::stream::select(uniform_any_change, all).fold_signal_flatten(
-    state,
-    move |delta, state| match delta {
-      UniformChangePicked::UniformChange => {
-        if let Some(m) = weak_material.upgrade() {
-          state.uniform.resource.set(build_shader_uniform(&m.read()));
-          state.uniform.resource.upload(&ctx.gpu.queue)
-        }
-        RenderComponentDeltaFlag::ContentRef
-      }
-      UniformChangePicked::Origin(delta) => match delta {
-        PD::alpha_mode(_) => RenderComponentDeltaFlag::ShaderHash,
-        PD::albedo_texture(t) => apply_tex_pair_delta(t, &mut state.albedo_texture, &ctx),
-        PD::glossiness_texture(t) => apply_tex_pair_delta(t, &mut state.glossiness_texture, &ctx),
-        PD::specular_texture(t) => apply_tex_pair_delta(t, &mut state.specular_texture, &ctx),
-        PD::emissive_texture(t) => apply_tex_pair_delta(t, &mut state.emissive_texture, &ctx),
-        PD::normal_texture(t) => apply_normal_map_delta(t, &mut state.normal_texture, &ctx),
-        _ => RenderComponentDeltaFlag::Content, // handled in uniform
-      },
-    },
-  )
 }
 
 fn build_shader_uniform(

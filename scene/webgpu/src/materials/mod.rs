@@ -19,8 +19,12 @@ pub trait WebGPUMaterial: Clone + Any + Incremental {
   type GPU: RenderComponentAny;
   fn create_gpu(&self, res: &mut ShareBindableResourceCtx, gpu: &GPU) -> Self::GPU;
 
-  type ReactiveGPU: MaterialGPUInstanceLike;
-  fn create_reactive_gpu_material_instance() -> Self::ReactiveGPU;
+  type ReactiveGPU;
+  fn create_reactive_gpu(
+    source: &SceneItemRef<Self>,
+    ctx: &ShareBindableResourceCtx,
+  ) -> Self::ReactiveGPU;
+  fn as_material_gpu_instance(gpu: &Self::ReactiveGPU) -> &dyn MaterialGPUInstanceLike;
 
   fn is_keep_mesh_shape(&self) -> bool;
   fn is_transparent(&self) -> bool;
@@ -199,15 +203,15 @@ impl GPUModelResourceCtx {
       .unwrap()
       .get_or_insert_with(0, || match material {
         SceneMaterialType::PhysicalMetallicRoughness(m) => {
-          let instance = physical_metallic_roughness_material_build_gpu(m, &self.shared);
+          let instance = PhysicalMetallicRoughnessMaterial::create_reactive_gpu(m, &self.shared);
           MaterialGPUInstance::PhysicalMetallicRoughness(instance)
         }
         SceneMaterialType::PhysicalSpecularGlossiness(m) => {
-          let instance = physical_specular_glossiness_material_build_gpu(m, &self.shared);
+          let instance = PhysicalSpecularGlossinessMaterial::create_reactive_gpu(m, &self.shared);
           MaterialGPUInstance::PhysicalSpecularGlossiness(instance)
         }
         SceneMaterialType::Flat(m) => {
-          let instance = flat_material_build_gpu(m, &self.shared);
+          let instance = FlatMaterial::create_reactive_gpu(m, &self.shared);
           MaterialGPUInstance::Flat(instance)
         }
         SceneMaterialType::Foreign(m) => {

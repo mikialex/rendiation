@@ -11,6 +11,14 @@ pub struct FlatMaterialGPU {
   uniform: UniformBufferDataView<FlatMaterialUniform>,
 }
 
+impl Stream for FlatMaterialGPU {
+  type Item = RenderComponentDeltaFlag;
+
+  fn poll_next(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Option<Self::Item>> {
+    Poll::Pending
+  }
+}
+
 impl ShaderHashProvider for FlatMaterialGPU {}
 
 impl ShaderGraphProvider for FlatMaterialGPU {
@@ -33,7 +41,47 @@ impl ShaderPassBuilder for FlatMaterialGPU {
   }
 }
 
+pub type FlatMaterialGPUReactive =
+  impl AsRef<RenderComponentCell<FlatMaterialGPU>> + Stream<Item = RenderComponentDeltaFlag>;
+
 impl WebGPUMaterial for FlatMaterial {
+  type ReactiveGPU = FlatMaterialGPUReactive;
+
+  fn create_reactive_gpu(
+    source: &SceneItemRef<Self>,
+    ctx: &ShareBindableResourceCtx,
+  ) -> Self::ReactiveGPU {
+    let uniform = FlatMaterialUniform {
+      color: source.read().color,
+      ..Zeroable::zeroed()
+    };
+    let uniform = create_uniform2(uniform, &ctx.gpu.device);
+
+    let gpu = FlatMaterialGPU { uniform };
+    let state = RenderComponentCell::new(gpu);
+
+    let weak_material = source.downgrade();
+    let ctx = ctx.clone();
+
+    source
+      .single_listen_by::<()>(any_change_no_init)
+      .fold_signal(state, move |_, state| {
+        if let Some(m) = weak_material.upgrade() {
+          let uniform = FlatMaterialUniform {
+            color: m.read().color,
+            ..Zeroable::zeroed()
+          };
+          state.inner.uniform.resource.set(uniform);
+          state.inner.uniform.resource.upload(&ctx.gpu.queue);
+        }
+        RenderComponentDeltaFlag::Content.into()
+      })
+  }
+
+  fn as_material_gpu_instance(gpu: &Self::ReactiveGPU) -> &dyn MaterialGPUInstanceLike {
+    gpu.as_ref() as &dyn MaterialGPUInstanceLike
+  }
+
   type GPU = FlatMaterialGPU;
 
   fn create_gpu(&self, _: &mut ShareBindableResourceCtx, gpu: &GPU) -> Self::GPU {
@@ -53,38 +101,4 @@ impl WebGPUMaterial for FlatMaterial {
   fn is_transparent(&self) -> bool {
     false
   }
-}
-
-pub type FlatMaterialGPUReactive =
-  impl AsRef<RenderComponentCell<FlatMaterialGPU>> + Stream<Item = RenderComponentDeltaFlag>;
-
-pub fn flat_material_build_gpu(
-  source: &SceneItemRef<FlatMaterial>,
-  ctx: &ShareBindableResourceCtx,
-) -> FlatMaterialGPUReactive {
-  let uniform = FlatMaterialUniform {
-    color: source.read().color,
-    ..Zeroable::zeroed()
-  };
-  let uniform = create_uniform2(uniform, &ctx.gpu.device);
-
-  let gpu = FlatMaterialGPU { uniform };
-  let state = RenderComponentCell::new(gpu);
-
-  let weak_material = source.downgrade();
-  let ctx = ctx.clone();
-
-  source
-    .single_listen_by::<()>(any_change_no_init)
-    .fold_signal(state, move |_, state| {
-      if let Some(m) = weak_material.upgrade() {
-        let uniform = FlatMaterialUniform {
-          color: m.read().color,
-          ..Zeroable::zeroed()
-        };
-        state.inner.uniform.resource.set(uniform);
-        state.inner.uniform.resource.upload(&ctx.gpu.queue);
-      }
-      RenderComponentDeltaFlag::Content.into()
-    })
 }

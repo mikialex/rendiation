@@ -23,6 +23,14 @@ pub struct FatlineMaterialGPU {
   uniform: UniformBufferDataView<FatlineMaterialUniform>,
 }
 
+impl Stream for FatlineMaterialGPU {
+  type Item = RenderComponentDeltaFlag;
+
+  fn poll_next(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Option<Self::Item>> {
+    Poll::Pending
+  }
+}
+
 impl ShaderHashProvider for FatlineMaterialGPU {}
 
 impl ShaderPassBuilder for FatlineMaterialGPU {
@@ -164,7 +172,47 @@ wgsl_fn!(
   }
 );
 
+pub type FatLineMaterialGPUReactive =
+  impl AsRef<RenderComponentCell<FatlineMaterialGPU>> + Stream<Item = RenderComponentDeltaFlag>;
+
 impl WebGPUMaterial for FatLineMaterial {
+  type ReactiveGPU = FatLineMaterialGPUReactive;
+
+  fn create_reactive_gpu(
+    source: &SceneItemRef<Self>,
+    ctx: &ShareBindableResourceCtx,
+  ) -> Self::ReactiveGPU {
+    let uniform = FatlineMaterialUniform {
+      width: source.read().width,
+      ..Zeroable::zeroed()
+    };
+    let uniform = create_uniform2(uniform, &ctx.gpu.device);
+
+    let gpu = FatlineMaterialGPU { uniform };
+    let state = RenderComponentCell::new(gpu);
+
+    let weak_material = source.downgrade();
+    let ctx = ctx.clone();
+
+    source
+      .single_listen_by::<()>(any_change_no_init)
+      .fold_signal(state, move |_, state| {
+        if let Some(m) = weak_material.upgrade() {
+          let uniform = FatlineMaterialUniform {
+            width: m.read().width,
+            ..Zeroable::zeroed()
+          };
+          state.inner.uniform.resource.set(uniform);
+          state.inner.uniform.resource.upload(&ctx.gpu.queue);
+        }
+        RenderComponentDeltaFlag::Content.into()
+      })
+  }
+
+  fn as_material_gpu_instance(gpu: &Self::ReactiveGPU) -> &dyn MaterialGPUInstanceLike {
+    gpu.as_ref() as &dyn MaterialGPUInstanceLike
+  }
+
   type GPU = FatlineMaterialGPU;
 
   fn create_gpu(&self, _: &mut ShareBindableResourceCtx, gpu: &GPU) -> Self::GPU {
