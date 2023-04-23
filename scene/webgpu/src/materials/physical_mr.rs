@@ -239,9 +239,8 @@ pub fn physical_metallic_roughness_material_build_gpu(
   let weak_material = source.downgrade();
   let ctx = ctx.clone();
 
-  // todo, use single value channel
   let uniform_any_change = source
-    .unbound_listen_by::<()>(all_delta_with(false, then_some(is_uniform_changed)))
+    .single_listen_by::<()>(all_delta_with(false, then_some(is_uniform_changed)))
     .map(|_| UniformChangePicked::UniformChange);
 
   let all = source

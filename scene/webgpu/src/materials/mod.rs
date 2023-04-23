@@ -138,19 +138,26 @@ impl GPUMaterialCache {
 #[pin_project::pin_project(project = MaterialGPUInstanceProj)]
 pub enum MaterialGPUInstance {
   PhysicalMetallicRoughness(PhysicalMetallicRoughnessMaterialGPUReactive),
-  // PhysicalMetallicRoughness(SceneItemRef<PhysicalMetallicRoughnessMaterial>),
-  // Flat(SceneItemRef<FlatMaterial>),
+  PhysicalSpecularGlossiness(PhysicalSpecularGlossinessMaterialGPUReactive),
+  Flat(FlatMaterialGPUReactive),
   Foreign(Arc<dyn Any + Send + Sync>),
 }
 
 impl MaterialGPUInstance {
   pub fn create_render_component_delta_stream(
     &self,
-  ) -> impl Stream<Item = RenderComponentDeltaFlag> {
+  ) -> impl Stream<Item = RenderComponentDeltaFlag> + Unpin {
     match self {
       MaterialGPUInstance::PhysicalMetallicRoughness(m) => {
-        m.as_ref().create_render_component_delta_stream()
+        Box::pin(m.as_ref().create_render_component_delta_stream())
+          as Pin<Box<dyn Stream<Item = RenderComponentDeltaFlag>>>
       }
+      MaterialGPUInstance::PhysicalSpecularGlossiness(m) => {
+        Box::pin(m.as_ref().create_render_component_delta_stream())
+          as Pin<Box<dyn Stream<Item = RenderComponentDeltaFlag>>>
+      }
+      MaterialGPUInstance::Flat(m) => Box::pin(m.as_ref().create_render_component_delta_stream())
+        as Pin<Box<dyn Stream<Item = RenderComponentDeltaFlag>>>,
       MaterialGPUInstance::Foreign(_) => todo!(),
     }
   }
@@ -162,6 +169,8 @@ impl Stream for MaterialGPUInstance {
   fn poll_next(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Option<Self::Item>> {
     match self.project() {
       MaterialGPUInstanceProj::PhysicalMetallicRoughness(m) => m.poll_next_unpin(cx),
+      MaterialGPUInstanceProj::PhysicalSpecularGlossiness(m) => m.poll_next_unpin(cx),
+      MaterialGPUInstanceProj::Flat(m) => m.poll_next_unpin(cx),
       MaterialGPUInstanceProj::Foreign(_) => todo!(),
     }
   }
@@ -179,12 +188,18 @@ impl GPUModelResourceCtx {
       .write()
       .unwrap()
       .get_or_insert_with(0, || match material {
-        SceneMaterialType::PhysicalMetallicRoughness(material) => {
-          let instance = physical_metallic_roughness_material_build_gpu(material, &self.shared);
+        SceneMaterialType::PhysicalMetallicRoughness(m) => {
+          let instance = physical_metallic_roughness_material_build_gpu(m, &self.shared);
           MaterialGPUInstance::PhysicalMetallicRoughness(instance)
         }
-        SceneMaterialType::PhysicalSpecularGlossiness(_) => todo!(),
-        SceneMaterialType::Flat(_) => todo!(),
+        SceneMaterialType::PhysicalSpecularGlossiness(m) => {
+          let instance = physical_specular_glossiness_material_build_gpu(m, &self.shared);
+          MaterialGPUInstance::PhysicalSpecularGlossiness(instance)
+        }
+        SceneMaterialType::Flat(m) => {
+          let instance = flat_material_build_gpu(m, &self.shared);
+          MaterialGPUInstance::Flat(instance)
+        }
         SceneMaterialType::Foreign(_) => todo!(),
         _ => todo!(),
       })
@@ -192,5 +207,5 @@ impl GPUModelResourceCtx {
   }
 }
 
-// impl RenderComponent for MaterialGPU {
+// impl RenderComponent for MaterialGPUInstance {
 // }

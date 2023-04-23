@@ -54,3 +54,37 @@ impl WebGPUMaterial for FlatMaterial {
     false
   }
 }
+
+pub type FlatMaterialGPUReactive =
+  impl AsRef<RenderComponentCell<FlatMaterialGPU>> + Stream<Item = RenderComponentDeltaFlag>;
+
+pub fn flat_material_build_gpu(
+  source: &SceneItemRef<FlatMaterial>,
+  ctx: &ShareBindableResourceCtx,
+) -> FlatMaterialGPUReactive {
+  let uniform = FlatMaterialUniform {
+    color: source.read().color,
+    ..Zeroable::zeroed()
+  };
+  let uniform = create_uniform2(uniform, &ctx.gpu.device);
+
+  let gpu = FlatMaterialGPU { uniform };
+  let state = RenderComponentCell::new(gpu);
+
+  let weak_material = source.downgrade();
+  let ctx = ctx.clone();
+
+  source
+    .single_listen_by::<()>(any_change_no_init)
+    .fold_signal(state, move |_, state| {
+      if let Some(m) = weak_material.upgrade() {
+        let uniform = FlatMaterialUniform {
+          color: m.read().color,
+          ..Zeroable::zeroed()
+        };
+        state.inner.uniform.resource.set(uniform);
+        state.inner.uniform.resource.upload(&ctx.gpu.queue);
+      }
+      RenderComponentDeltaFlag::Content.into()
+    })
+}

@@ -74,7 +74,7 @@ pub trait SignalStreamExt: Stream {
     Self: Stream,
     F: FnMut(Self::Item, &mut State) -> Option<X>;
 
-  // we elaborate the bound here to here compiler deduce the type
+  // we elaborate the bound here to help compiler deduce the type
   fn fold_signal_flatten<State, F, X>(
     self,
     state: State,

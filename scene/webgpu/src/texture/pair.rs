@@ -24,16 +24,6 @@ impl GPUTextureSamplerPair {
 }
 
 impl ShareBindableResourceCtx {
-  pub fn build_texture_sampler_pair(&self, t: &Texture2DWithSamplingData) -> GPUTextureSamplerPair {
-    let sampler = GPUSampler::create(t.sampler.into(), &self.gpu.device);
-    let sampler = sampler.create_default_view();
-
-    let ReactiveGPU2DTextureView { gpu: texture, .. } =
-      self.get_or_create_reactive_gpu_texture2d(&t.texture);
-
-    GPUTextureSamplerPair { texture, sampler }
-  }
-
   pub fn build_reactive_texture_sampler_pair(
     &self,
     t: &Texture2DWithSamplingData,

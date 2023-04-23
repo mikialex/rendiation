@@ -33,7 +33,7 @@ impl Default for AlphaMode {
   }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Incremental)]
 pub struct PhysicalSpecularGlossinessMaterial {
   pub albedo: Vec3<f32>,
   pub specular: Vec3<f32>,
@@ -48,8 +48,6 @@ pub struct PhysicalSpecularGlossinessMaterial {
   pub emissive_texture: Option<Texture2DWithSamplingData>,
   pub normal_texture: Option<NormalMapping>,
 }
-
-clone_self_incremental!(PhysicalSpecularGlossinessMaterial);
 
 #[derive(Clone, Incremental)]
 pub struct NormalMapping {

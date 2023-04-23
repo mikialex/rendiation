@@ -4,7 +4,7 @@ pub use identity::*;
 mod mapper;
 pub use mapper::*;
 mod scene_item;
-use reactive::{ChannelLike, DefaultUnboundChannel};
+use reactive::{ChannelLike, DefaultSingleValueChannel, DefaultUnboundChannel};
 pub use scene_item::*;
 
 use futures::Future;
@@ -101,6 +101,17 @@ impl<T: IncrementalBase> SceneItemRef<T> {
   {
     let inner = self.read();
     inner.listen_by::<DefaultUnboundChannel, _>(mapper)
+  }
+
+  pub fn single_listen_by<U>(
+    &self,
+    mapper: impl FnMut(MaybeDeltaRef<T>, &dyn Fn(U)) + Send + Sync + 'static,
+  ) -> impl Stream<Item = U>
+  where
+    U: Send + Sync + 'static,
+  {
+    let inner = self.read();
+    inner.listen_by::<DefaultSingleValueChannel, _>(mapper)
   }
 
   pub fn listen_by<C, U>(
