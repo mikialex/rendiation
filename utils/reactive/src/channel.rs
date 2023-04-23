@@ -35,6 +35,17 @@ pub struct Updater<T> {
   inner: Weak<Mutex<(Option<T>, Option<Waker>)>>,
 }
 
+impl<T> Drop for Updater<T> {
+  fn drop(&mut self) {
+    if let Some(inner) = self.inner.upgrade() {
+      let inner = inner.lock().unwrap();
+      if let Some(waker) = &inner.1 {
+        waker.wake_by_ref()
+      }
+    }
+  }
+}
+
 impl<T> Clone for Updater<T> {
   fn clone(&self) -> Self {
     Updater {
@@ -91,12 +102,12 @@ impl<T> Updater<T> {
   }
 }
 
-pub fn single_value_channel<T>() -> (Receiver<Option<T>>, Updater<Option<T>>) {
+pub fn single_value_channel<T>() -> (Updater<T>, Receiver<T>) {
   let receiver = Receiver {
     inner: Arc::new(Mutex::new((None, None))),
   };
   let updater = Updater {
     inner: Arc::downgrade(&receiver.inner),
   };
-  (receiver, updater)
+  (updater, receiver)
 }

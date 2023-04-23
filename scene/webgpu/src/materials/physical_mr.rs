@@ -241,9 +241,9 @@ pub fn physical_metallic_roughness_material_build_gpu(
 
   // todo, use single value channel
   let uniform_any_change = source
-    .unbound_listen_by(|d, send| match d {
-      MaybeDeltaRef::Delta(d) => send_if(send, is_uniform_changed, d.clone()),
-      MaybeDeltaRef::All(value) => value.expand(|d| send_if(send, is_uniform_changed, d)),
+    .unbound_listen_by::<()>(|d, send| match d {
+      MaybeDeltaRef::Delta(d) => send_if_with(send, is_uniform_changed, d.clone(), ()),
+      MaybeDeltaRef::All(_) => send(()),
     })
     .map(|_| UniformChangePicked::UniformChange);
 
@@ -256,7 +256,6 @@ pub fn physical_metallic_roughness_material_build_gpu(
     move |delta, state| match delta {
       UniformChangePicked::UniformChange => {
         // todo, reuse buffer;
-        // update the entire uniform buffer
         if let Some(m) = weak_material.upgrade() {
 
           // state.inner.uniform =
@@ -270,7 +269,26 @@ pub fn physical_metallic_roughness_material_build_gpu(
           update_tex(t, &mut state.metallic_roughness_texture, &ctx)
         }
         PD::emissive_texture(t) => update_tex(t, &mut state.emissive_texture, &ctx),
-        PD::normal_texture(_) => todo!(),
+        PD::normal_texture(t) => {
+          if let Some(t) = t {
+            match t {
+              MaybeDelta::Delta(v) => match v {
+                NormalMappingDelta::content(t) => {
+                  state.normal_texture = ctx.build_reactive_texture_sampler_pair(&t).into();
+                  RenderComponentDelta::ContentRef
+                }
+                NormalMappingDelta::scale(_) => RenderComponentDelta::Content,
+              },
+              MaybeDelta::All(t) => {
+                state.normal_texture = ctx.build_reactive_texture_sampler_pair(&t.content).into();
+                RenderComponentDelta::ContentRef
+              }
+            }
+          } else {
+            state.normal_texture = None;
+            RenderComponentDelta::ContentRef
+          }
+        }
         _ => RenderComponentDelta::Content,
       },
     },

@@ -19,13 +19,8 @@ pub struct GlobalGPUSystem {
 
 impl GlobalGPUSystem {
   pub fn new(gpu: &GPU, mipmap_gen: Rc<RefCell<MipMapTaskManager>>) -> Self {
+    let bindable_ctx = ShareBindableResourceCtx::new(gpu);
     let gpu = ResourceGPUCtx::new(gpu, mipmap_gen);
-
-    let bindable_ctx = ShareBindableResourceCtx {
-      gpu: gpu.clone(),
-      texture_2d: Default::default(),
-      texture_cube: Default::default(),
-    };
 
     let model_ctx = GPUModelResourceCtx {
       shared: bindable_ctx.clone(),
@@ -124,6 +119,7 @@ pub struct GPUResourceSceneCache {
 #[derive(Clone)]
 pub struct ShareBindableResourceCtx {
   pub gpu: ResourceGPUCtx,
+  pub sampler: Arc<RwLock<StreamMap<ReactiveGPUSamplerViewSource>>>,
   pub texture_2d: Arc<RwLock<StreamMap<ReactiveGPU2DTextureViewSource>>>,
   pub texture_cube: Arc<RwLock<StreamMap<ReactiveGPUCubeTextureViewSource>>>,
   // uniforms
@@ -133,6 +129,7 @@ impl ShareBindableResourceCtx {
   pub fn new(gpu: &GPU) -> Self {
     Self {
       gpu: ResourceGPUCtx::new(gpu, Default::default()),
+      sampler: Default::default(),
       texture_2d: Default::default(),
       texture_cube: Default::default(),
     }

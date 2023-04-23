@@ -9,6 +9,9 @@ pub use vec::*;
 mod channel;
 pub use channel::*;
 
+mod channel_like;
+pub use channel_like::*;
+
 mod source;
 pub use source::*;
 

@@ -4,6 +4,7 @@ pub use identity::*;
 mod mapper;
 pub use mapper::*;
 mod scene_item;
+use reactive::{ChannelLike, DefaultUnboundChannel};
 pub use scene_item::*;
 
 use futures::Future;
@@ -52,9 +53,9 @@ pub fn any_change<T: IncrementalBase>(view: MaybeDeltaRef<T>, send: &dyn Fn(()))
   }
 }
 
-pub fn send_if<T>(send: impl Fn(T), should_send: impl Fn(&T) -> bool, d: T) {
+pub fn send_if_with<T, X>(send: impl Fn(X), should_send: impl Fn(&T) -> bool, d: T, s: X) {
   if should_send(&d) {
-    send(d)
+    send(s)
   }
 }
 
@@ -85,36 +86,6 @@ impl<T: IncrementalBase> SceneItemRef<T> {
   pub fn create_drop(&self) -> impl Future<Output = ()> {
     let inner = self.read();
     inner.create_drop()
-  }
-}
-
-pub trait ChannelLike<T> {
-  type Sender: Clone + Send + Sync + 'static;
-  type Receiver: Stream<Item = T> + Send + Sync + 'static;
-
-  fn build() -> (Self::Sender, Self::Receiver);
-  /// return if had sent successfully
-  fn send(sender: &Self::Sender, message: T) -> bool;
-  fn is_closed(sender: &Self::Sender) -> bool;
-}
-
-pub struct DefaultUnboundChannel;
-
-impl<T: Send + Sync + 'static> ChannelLike<T> for DefaultUnboundChannel {
-  type Sender = futures::channel::mpsc::UnboundedSender<T>;
-
-  type Receiver = futures::channel::mpsc::UnboundedReceiver<T>;
-
-  fn build() -> (Self::Sender, Self::Receiver) {
-    futures::channel::mpsc::unbounded()
-  }
-
-  fn send(sender: &Self::Sender, message: T) -> bool {
-    sender.unbounded_send(message).is_ok()
-  }
-
-  fn is_closed(sender: &Self::Sender) -> bool {
-    sender.is_closed()
   }
 }
 
