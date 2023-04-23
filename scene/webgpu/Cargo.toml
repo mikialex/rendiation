@@ -24,6 +24,7 @@ rendiation-texture = {path = "../../components/texture/core", features = ["webgp
 tree = {path = "../../utils/tree"}
 futures = "0.3.25"
 pin-project = "1.0.12"
+bitflags = "*"
 
 shadergraph = {path = "../../shader/graph"}
 wgsl-shader-derives = {path = "../../shader/language/wgsl/derive"}

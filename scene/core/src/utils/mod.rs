@@ -40,22 +40,54 @@ macro_rules! with_field_change {
 }
 
 pub fn all_delta<T: IncrementalBase>(view: MaybeDeltaRef<T>, send: &dyn Fn(T::Delta)) {
-  match view {
-    MaybeDeltaRef::All(value) => value.expand(send),
-    MaybeDeltaRef::Delta(delta) => send(delta.clone()),
-  }
+  all_delta_with(true, Some)(view, send)
+}
+
+pub fn all_delta_no_init<T: IncrementalBase>(view: MaybeDeltaRef<T>, send: &dyn Fn(T::Delta)) {
+  all_delta_with(false, Some)(view, send)
 }
 
 pub fn any_change<T: IncrementalBase>(view: MaybeDeltaRef<T>, send: &dyn Fn(())) {
-  match view {
-    MaybeDeltaRef::All(_) => send(()),
+  any_change_with(true)(view, send)
+}
+
+pub fn any_change_no_init<T: IncrementalBase>(view: MaybeDeltaRef<T>, send: &dyn Fn(())) {
+  any_change_with(false)(view, send)
+}
+
+#[inline(always)]
+pub fn any_change_with<T: IncrementalBase>(
+  should_send_when_init: bool,
+) -> impl Fn(MaybeDeltaRef<T>, &dyn Fn(())) {
+  move |view, send| match view {
+    MaybeDeltaRef::All(_) => {
+      if should_send_when_init {
+        send(())
+      }
+    }
     MaybeDeltaRef::Delta(_) => send(()),
   }
 }
 
-pub fn send_if_with<T, X>(send: impl Fn(X), should_send: impl Fn(&T) -> bool, d: T, s: X) {
-  if should_send(&d) {
-    send(s)
+#[inline(always)]
+pub fn all_delta_with<T: IncrementalBase, X>(
+  should_send_when_init: bool,
+  filter_map: impl Fn(T::Delta) -> Option<X>,
+) -> impl Fn(MaybeDeltaRef<T>, &dyn Fn(X)) {
+  move |view, send| {
+    let my_send = |d| {
+      if let Some(d) = filter_map(d) {
+        send(d)
+      }
+    };
+    match view {
+      MaybeDeltaRef::All(value) => {
+        if should_send_when_init {
+          value.expand(my_send)
+        }
+      }
+      MaybeDeltaRef::Delta(delta) => my_send(delta.clone()),
+    }
   }
 }
 

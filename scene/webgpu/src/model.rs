@@ -189,7 +189,7 @@ pub struct StandardModelGPU {
 }
 
 impl Stream for StandardModelGPU {
-  type Item = RenderComponentDelta;
+  type Item = RenderComponentDeltaFlag;
 
   fn poll_next(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Option<Self::Item>> {
     let this = self.project();
@@ -203,7 +203,7 @@ impl Stream for StandardModelGPU {
 // }
 
 pub type ModelGPUReactive =
-  impl AsRef<RenderComponentCell<StandardModelGPU>> + Stream<Item = RenderComponentDelta>;
+  impl AsRef<RenderComponentCell<StandardModelGPU>> + Stream<Item = RenderComponentDeltaFlag>;
 
 pub fn build_standard_model_gpu(
   source: &SceneItemRef<StandardModel>,
@@ -227,7 +227,7 @@ pub fn build_standard_model_gpu(
         let delta = ctx.get_or_create_reactive_material_gpu(&material);
         // state.inner.gpu.material_id = id;
         // state.inner.reactive.material = delta;
-        RenderComponentDelta::ContentRef
+        RenderComponentDeltaFlag::ContentRef
       }
       StandardModelDelta::mesh(_) => todo!(),
       StandardModelDelta::group(_) => todo!(),
@@ -247,7 +247,7 @@ pub struct SceneModelGPUInstance {
 // }
 
 impl Stream for SceneModelGPUInstance {
-  type Item = RenderComponentDelta;
+  type Item = RenderComponentDeltaFlag;
 
   fn poll_next(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Option<Self::Item>> {
     let mut this = self.project();
@@ -257,7 +257,7 @@ impl Stream for SceneModelGPUInstance {
 }
 
 pub type SceneModelGPUReactive =
-  impl AsRef<RenderComponentCell<SceneModelGPUInstance>> + Stream<Item = RenderComponentDelta>;
+  impl AsRef<RenderComponentCell<SceneModelGPUInstance>> + Stream<Item = RenderComponentDeltaFlag>;
 
 // pub type SceneModelReactive = impl Stream<Item = RenderComponentDelta>;
 
@@ -295,13 +295,13 @@ pub fn build_scene_model_gpu(
       SceneModelImplDelta::model(model) => match model {
         SceneModelType::Standard(_) => {
           //
-          RenderComponentDelta::ContentRef
+          RenderComponentDeltaFlag::ContentRef
         }
         _ => todo!(),
       },
       SceneModelImplDelta::node(node) => {
         //
-        RenderComponentDelta::ContentRef
+        RenderComponentDeltaFlag::ContentRef
       }
     })
 }

@@ -13,7 +13,7 @@ pub struct ReactiveGPU2DTextureView {
 }
 
 impl Stream for ReactiveGPU2DTextureView {
-  type Item = RenderComponentDelta;
+  type Item = RenderComponentDeltaFlag;
 
   fn poll_next(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Option<Self::Item>> {
     let this = self.project();
@@ -27,7 +27,7 @@ impl Deref for ReactiveGPU2DTextureView {
   }
 }
 
-pub type Texture2dRenderComponentDeltaStream = impl Stream<Item = RenderComponentDelta>;
+pub type Texture2dRenderComponentDeltaStream = impl Stream<Item = RenderComponentDeltaFlag>;
 
 pub type ReactiveGPU2DTextureViewSource =
   impl AsRef<ReactiveGPU2DTextureSignal> + Stream<Item = TextureGPUChange>;
@@ -45,7 +45,7 @@ impl ReactiveGPU2DTextureSignal {
   pub fn create_gpu_texture_com_delta_stream(&self) -> Texture2dRenderComponentDeltaStream {
     self.inner.listen_by(
       TextureGPUChange::to_render_component_delta,
-      RenderComponentDelta::ContentRef,
+      RenderComponentDeltaFlag::ContentRef,
     )
   }
 }
@@ -68,7 +68,7 @@ impl ShareBindableResourceCtx {
       let weak_tex = tex.downgrade();
 
       tex
-        .unbound_listen_by(any_change)
+        .unbound_listen_by(any_change_no_init)
         .fold_signal(gpu_tex, move |_delta, gpu_tex| {
           if let Some(tex) = weak_tex.upgrade() {
             let recreated = gpu_clone.create_gpu_texture2d(&tex);

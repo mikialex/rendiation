@@ -2532,6 +2532,7 @@ dependencies = [
  "anymap",
  "arena",
  "arena-graph",
+ "bitflags 1.2.1",
  "bytemuck",
  "dyn-clone",
  "futures",

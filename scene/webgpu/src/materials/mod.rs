@@ -12,6 +12,8 @@ pub mod fatline;
 pub use fatline::*;
 pub mod normal_mapping;
 pub use normal_mapping::*;
+pub mod utils;
+pub use utils::*;
 
 use crate::*;
 
@@ -142,7 +144,9 @@ pub enum MaterialGPUInstance {
 }
 
 impl MaterialGPUInstance {
-  pub fn create_render_component_delta_stream(&self) -> impl Stream<Item = RenderComponentDelta> {
+  pub fn create_render_component_delta_stream(
+    &self,
+  ) -> impl Stream<Item = RenderComponentDeltaFlag> {
     match self {
       MaterialGPUInstance::PhysicalMetallicRoughness(m) => {
         m.as_ref().create_render_component_delta_stream()
@@ -153,7 +157,7 @@ impl MaterialGPUInstance {
 }
 
 impl Stream for MaterialGPUInstance {
-  type Item = RenderComponentDelta;
+  type Item = RenderComponentDeltaFlag;
 
   fn poll_next(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Option<Self::Item>> {
     match self.project() {
@@ -163,7 +167,7 @@ impl Stream for MaterialGPUInstance {
   }
 }
 
-pub type MaterialReactive = impl Stream<Item = RenderComponentDelta>;
+pub type MaterialReactive = impl Stream<Item = RenderComponentDeltaFlag>;
 
 impl GPUModelResourceCtx {
   pub fn get_or_create_reactive_material_gpu(

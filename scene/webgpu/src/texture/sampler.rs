@@ -13,7 +13,7 @@ pub struct ReactiveGPUSamplerView {
 }
 
 impl Stream for ReactiveGPUSamplerView {
-  type Item = RenderComponentDelta;
+  type Item = RenderComponentDeltaFlag;
 
   fn poll_next(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Option<Self::Item>> {
     let this = self.project();
@@ -27,7 +27,7 @@ impl Deref for ReactiveGPUSamplerView {
   }
 }
 
-pub type SamplerRenderComponentDeltaStream = impl Stream<Item = RenderComponentDelta>;
+pub type SamplerRenderComponentDeltaStream = impl Stream<Item = RenderComponentDeltaFlag>;
 
 pub type ReactiveGPUSamplerViewSource =
   impl AsRef<ReactiveGPUSamplerSignal> + Stream<Item = TextureGPUChange>;
@@ -45,7 +45,7 @@ impl ReactiveGPUSamplerSignal {
   pub fn create_gpu_sampler_com_delta_stream(&self) -> SamplerRenderComponentDeltaStream {
     self.inner.listen_by(
       TextureGPUChange::to_render_component_delta,
-      RenderComponentDelta::ContentRef,
+      RenderComponentDeltaFlag::ContentRef,
     )
   }
 }
@@ -73,7 +73,7 @@ impl ShareBindableResourceCtx {
       let weak = sampler.downgrade();
 
       sampler
-        .unbound_listen_by(any_change)
+        .unbound_listen_by(any_change_no_init)
         .fold_signal(gpu_sampler, move |_, gpu_tex| {
           if let Some(sampler) = weak.upgrade() {
             let source = sampler.read();

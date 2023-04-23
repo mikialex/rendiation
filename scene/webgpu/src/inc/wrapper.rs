@@ -1,20 +1,26 @@
+#![allow(non_upper_case_globals)]
+
 use __core::ops::DerefMut;
 
 use crate::*;
 
-#[derive(Copy, Clone)]
-pub enum RenderComponentDelta {
-  ShaderHash,
-  ContentRef,
-  Content,
-  Draw,
+bitflags::bitflags! {
+  #[derive(Default)]
+  pub struct RenderComponentDeltaFlag: u32 {
+    const ShaderHash = 0b00000001;
+    const ContentRef = 0b00000010;
+    const Content =    0b00000100;
+    const Draw =       0b00001000;
+
+    const RefAndHash = Self::ContentRef.bits() | Self::ShaderHash.bits();
+  }
 }
 
-pub type ReactiveRenderComponent<T> = impl Stream<Item = RenderComponentDelta>;
+pub type ReactiveRenderComponent<T> = impl Stream<Item = RenderComponentDeltaFlag>;
 
 #[pin_project::pin_project]
 pub struct RenderComponentCell<T> {
-  source: EventSource<RenderComponentDelta>,
+  source: EventSource<RenderComponentDeltaFlag>,
   #[pin]
   pub inner: T,
 }
@@ -53,7 +59,7 @@ impl<T> RenderComponentCell<T> {
   pub fn create_render_component_delta_stream(&self) -> ReactiveRenderComponent<T> {
     self
       .source
-      .listen_by(|v| *v, RenderComponentDelta::ContentRef)
+      .listen_by(|v| *v, RenderComponentDeltaFlag::all())
   }
 }
 

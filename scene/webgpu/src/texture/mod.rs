@@ -18,12 +18,12 @@ pub enum TextureGPUChange {
 }
 
 impl TextureGPUChange {
-  fn to_render_component_delta(&self) -> RenderComponentDelta {
+  fn to_render_component_delta(&self) -> RenderComponentDeltaFlag {
     match self {
-      TextureGPUChange::Reference2D(_) => RenderComponentDelta::ContentRef,
-      TextureGPUChange::ReferenceCube(_) => RenderComponentDelta::ContentRef,
-      TextureGPUChange::ReferenceSampler(_) => RenderComponentDelta::ContentRef,
-      TextureGPUChange::Content => RenderComponentDelta::ContentRef,
+      TextureGPUChange::Reference2D(_) => RenderComponentDeltaFlag::ContentRef,
+      TextureGPUChange::ReferenceCube(_) => RenderComponentDeltaFlag::ContentRef,
+      TextureGPUChange::ReferenceSampler(_) => RenderComponentDeltaFlag::ContentRef,
+      TextureGPUChange::Content => RenderComponentDeltaFlag::ContentRef,
     }
   }
 }

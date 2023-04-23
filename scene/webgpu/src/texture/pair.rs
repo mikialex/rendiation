@@ -60,7 +60,7 @@ pub struct ReactiveGPUTextureSamplerPair {
 }
 
 impl Stream for ReactiveGPUTextureSamplerPair {
-  type Item = RenderComponentDelta;
+  type Item = RenderComponentDeltaFlag;
 
   fn poll_next(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Option<Self::Item>> {
     let this = self.project();
