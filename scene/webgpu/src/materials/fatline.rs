@@ -176,17 +176,15 @@ wgsl_fn!(
   }
 );
 
-pub type FatLineMaterialGPUReactive =
-  impl AsRef<RenderComponentCell<FatlineMaterialGPU>> + Stream<Item = RenderComponentDeltaFlag>;
-
-impl AsMaterialGPUInstance for FatLineMaterialGPUReactive {
-  fn as_material_gpu_instance(&self) -> &dyn MaterialGPUInstanceLike {
-    self.as_ref() as &dyn MaterialGPUInstanceLike
+impl ReactiveRenderComponentSource for ReactiveMaterialGPUOf<FatLineMaterial> {
+  fn as_material_gpu_instance(&self) -> &dyn ReactiveRenderComponent {
+    self.as_ref() as &dyn ReactiveRenderComponent
   }
 }
 
 impl WebGPUMaterial for FatLineMaterial {
-  type ReactiveGPU = FatLineMaterialGPUReactive;
+  type ReactiveGPU =
+    impl AsRef<RenderComponentCell<FatlineMaterialGPU>> + Stream<Item = RenderComponentDeltaFlag>;
 
   fn create_reactive_gpu(
     source: &SceneItemRef<Self>,

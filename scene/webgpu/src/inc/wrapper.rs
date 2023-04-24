@@ -4,6 +4,17 @@ use __core::ops::DerefMut;
 
 use crate::*;
 
+pub trait ReactiveRenderComponent: RenderComponent {
+  // we could remove this box in future
+  fn create_render_component_delta_stream(
+    &self,
+  ) -> Pin<Box<dyn Stream<Item = RenderComponentDeltaFlag>>>;
+}
+
+pub trait ReactiveRenderComponentSource: Stream<Item = RenderComponentDeltaFlag> + Unpin {
+  fn as_material_gpu_instance(&self) -> &dyn ReactiveRenderComponent;
+}
+
 bitflags::bitflags! {
   #[derive(Default)]
   pub struct RenderComponentDeltaFlag: u32 {
@@ -16,7 +27,7 @@ bitflags::bitflags! {
   }
 }
 
-pub type ReactiveRenderComponent<T> = impl Stream<Item = RenderComponentDeltaFlag>;
+pub type RenderComponentDeltaStream<T> = impl Stream<Item = RenderComponentDeltaFlag>;
 
 #[pin_project::pin_project]
 pub struct RenderComponentCell<T> {
@@ -25,7 +36,7 @@ pub struct RenderComponentCell<T> {
   pub inner: T,
 }
 
-impl<T> MaterialGPUInstanceLike for RenderComponentCell<T>
+impl<T> ReactiveRenderComponent for RenderComponentCell<T>
 where
   T: RenderComponent + Stream<Item = RenderComponentDeltaFlag> + Unpin + 'static,
 {
@@ -97,7 +108,7 @@ impl<T> RenderComponentCell<T> {
     }
   }
 
-  pub fn create_render_component_delta_stream(&self) -> ReactiveRenderComponent<T> {
+  pub fn create_render_component_delta_stream(&self) -> RenderComponentDeltaStream<T> {
     self
       .source
       .listen_by(|v| *v, RenderComponentDeltaFlag::all())

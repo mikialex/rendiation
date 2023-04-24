@@ -201,3 +201,71 @@ where
     self.read().try_pick(f)
   }
 }
+
+#[pin_project::pin_project(project = MaterialGPUInstanceProj)]
+pub enum MeshGPUInstance {
+  Attributes(ReactiveMaterialGPUOf<PhysicalMetallicRoughnessMaterial>),
+  Foreign(Box<dyn ReactiveRenderComponentSource>),
+}
+
+impl ReactiveRenderComponent for MeshGPUInstance {
+  fn create_render_component_delta_stream(
+    &self,
+  ) -> Pin<Box<dyn Stream<Item = RenderComponentDeltaFlag>>> {
+    match self {
+      Self::Attributes(m) => Box::pin(m.as_ref().create_render_component_delta_stream())
+        as Pin<Box<dyn Stream<Item = RenderComponentDeltaFlag>>>,
+      Self::Foreign(m) => m
+        .as_material_gpu_instance()
+        .create_render_component_delta_stream(),
+    }
+  }
+}
+
+impl ShaderHashProvider for MeshGPUInstance {
+  #[rustfmt::skip]
+  fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
+    match self {
+      Self::Attributes(m) => m.as_material_gpu_instance().hash_pipeline(hasher),
+      Self::Foreign(m) => m.as_material_gpu_instance().hash_pipeline(hasher),
+    }
+  }
+}
+
+impl ShaderPassBuilder for MeshGPUInstance {
+  fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
+    match self {
+      Self::Attributes(m) => m.as_material_gpu_instance().setup_pass(ctx),
+      Self::Foreign(m) => m.as_material_gpu_instance().setup_pass(ctx),
+    }
+  }
+
+  fn post_setup_pass(&self, ctx: &mut GPURenderPassCtx) {
+    match self {
+      Self::Attributes(m) => m.as_material_gpu_instance().post_setup_pass(ctx),
+      Self::Foreign(m) => m.as_material_gpu_instance().post_setup_pass(ctx),
+    }
+  }
+}
+
+impl ShaderGraphProvider for MeshGPUInstance {
+  fn build(
+    &self,
+    builder: &mut ShaderGraphRenderPipelineBuilder,
+  ) -> Result<(), ShaderGraphBuildError> {
+    match self {
+      Self::Attributes(m) => m.as_material_gpu_instance().build(builder),
+      Self::Foreign(m) => m.as_material_gpu_instance().build(builder),
+    }
+  }
+
+  fn post_build(
+    &self,
+    builder: &mut ShaderGraphRenderPipelineBuilder,
+  ) -> Result<(), ShaderGraphBuildError> {
+    match self {
+      Self::Attributes(m) => m.as_material_gpu_instance().post_build(builder),
+      Self::Foreign(m) => m.as_material_gpu_instance().post_build(builder),
+    }
+  }
+}

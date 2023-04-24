@@ -15,8 +15,10 @@ pub use utils::*;
 
 use crate::*;
 
+pub type ReactiveMaterialGPUOf<T> = <T as WebGPUMaterial>::ReactiveGPU;
+
 pub trait WebGPUMaterial: Clone + Any + Incremental {
-  type ReactiveGPU: AsMaterialGPUInstance;
+  type ReactiveGPU: ReactiveRenderComponentSource;
   fn create_reactive_gpu(
     source: &SceneItemRef<Self>,
     ctx: &ShareBindableResourceCtx,
@@ -24,16 +26,6 @@ pub trait WebGPUMaterial: Clone + Any + Incremental {
 
   fn is_keep_mesh_shape(&self) -> bool;
   fn is_transparent(&self) -> bool;
-}
-
-pub trait AsMaterialGPUInstance: Stream<Item = RenderComponentDeltaFlag> + Unpin {
-  fn as_material_gpu_instance(&self) -> &dyn MaterialGPUInstanceLike;
-}
-
-pub trait MaterialGPUInstanceLike: RenderComponent {
-  fn create_render_component_delta_stream(
-    &self,
-  ) -> Pin<Box<dyn Stream<Item = RenderComponentDeltaFlag>>>;
 }
 
 pub trait WebGPUSceneMaterial: Send + Sync {
@@ -49,10 +41,10 @@ pub trait WebGPUSceneMaterial: Send + Sync {
 impl WebGPUSceneMaterial for SceneMaterialType {
   fn id(&self) -> Option<usize> {
     match self {
-      SceneMaterialType::PhysicalSpecularGlossiness(m) => m.id(),
-      SceneMaterialType::PhysicalMetallicRoughness(m) => m.id(),
-      SceneMaterialType::Flat(m) => m.id(),
-      SceneMaterialType::Foreign(m) => {
+      Self::PhysicalSpecularGlossiness(m) => m.id(),
+      Self::PhysicalMetallicRoughness(m) => m.id(),
+      Self::Flat(m) => m.id(),
+      Self::Foreign(m) => {
         return if let Some(m) = m.downcast_ref::<Box<dyn WebGPUSceneMaterial>>() {
           m.id()
         } else {
@@ -68,19 +60,19 @@ impl WebGPUSceneMaterial for SceneMaterialType {
     ctx: &ShareBindableResourceCtx,
   ) -> Option<MaterialGPUInstance> {
     match self {
-      SceneMaterialType::PhysicalSpecularGlossiness(m) => {
+      Self::PhysicalSpecularGlossiness(m) => {
         let instance = PhysicalSpecularGlossinessMaterial::create_reactive_gpu(m, ctx);
         MaterialGPUInstance::PhysicalSpecularGlossiness(instance)
       }
-      SceneMaterialType::PhysicalMetallicRoughness(m) => {
+      Self::PhysicalMetallicRoughness(m) => {
         let instance = PhysicalMetallicRoughnessMaterial::create_reactive_gpu(m, ctx);
         MaterialGPUInstance::PhysicalMetallicRoughness(instance)
       }
-      SceneMaterialType::Flat(m) => {
+      Self::Flat(m) => {
         let instance = FlatMaterial::create_reactive_gpu(m, ctx);
         MaterialGPUInstance::Flat(instance)
       }
-      SceneMaterialType::Foreign(m) => {
+      Self::Foreign(m) => {
         return if let Some(m) = m.downcast_ref::<Box<dyn WebGPUSceneMaterial>>() {
           m.create_scene_reactive_gpu(ctx)
         } else {
@@ -94,10 +86,10 @@ impl WebGPUSceneMaterial for SceneMaterialType {
 
   fn is_keep_mesh_shape(&self) -> bool {
     match self {
-      SceneMaterialType::PhysicalSpecularGlossiness(m) => m.read().deref().is_keep_mesh_shape(),
-      SceneMaterialType::PhysicalMetallicRoughness(m) => m.read().deref().is_keep_mesh_shape(),
-      SceneMaterialType::Flat(m) => m.read().deref().is_keep_mesh_shape(),
-      SceneMaterialType::Foreign(m) => {
+      Self::PhysicalSpecularGlossiness(m) => m.read().deref().is_keep_mesh_shape(),
+      Self::PhysicalMetallicRoughness(m) => m.read().deref().is_keep_mesh_shape(),
+      Self::Flat(m) => m.read().deref().is_keep_mesh_shape(),
+      Self::Foreign(m) => {
         if let Some(m) = m.downcast_ref::<Box<dyn WebGPUSceneMaterial>>() {
           m.is_keep_mesh_shape()
         } else {
@@ -109,10 +101,10 @@ impl WebGPUSceneMaterial for SceneMaterialType {
   }
   fn is_transparent(&self) -> bool {
     match self {
-      SceneMaterialType::PhysicalSpecularGlossiness(m) => m.read().deref().is_transparent(),
-      SceneMaterialType::PhysicalMetallicRoughness(m) => m.read().deref().is_transparent(),
-      SceneMaterialType::Flat(m) => m.read().deref().is_transparent(),
-      SceneMaterialType::Foreign(m) => {
+      Self::PhysicalSpecularGlossiness(m) => m.read().deref().is_transparent(),
+      Self::PhysicalMetallicRoughness(m) => m.read().deref().is_transparent(),
+      Self::Flat(m) => m.read().deref().is_transparent(),
+      Self::Foreign(m) => {
         if let Some(m) = m.downcast_ref::<Box<dyn WebGPUSceneMaterial>>() {
           m.is_transparent()
         } else {
@@ -133,7 +125,8 @@ impl<M: WebGPUMaterial + Send + Sync> WebGPUSceneMaterial for SceneItemRef<M> {
     ctx: &ShareBindableResourceCtx,
   ) -> Option<MaterialGPUInstance> {
     let instance = M::create_reactive_gpu(self, ctx);
-    MaterialGPUInstance::Foreign(Box::new(instance) as Box<dyn AsMaterialGPUInstance>).into()
+    MaterialGPUInstance::Foreign(Box::new(instance) as Box<dyn ReactiveRenderComponentSource>)
+      .into()
   }
 
   fn is_keep_mesh_shape(&self) -> bool {
@@ -146,28 +139,28 @@ impl<M: WebGPUMaterial + Send + Sync> WebGPUSceneMaterial for SceneItemRef<M> {
 }
 #[pin_project::pin_project(project = MaterialGPUInstanceProj)]
 pub enum MaterialGPUInstance {
-  PhysicalMetallicRoughness(PhysicalMetallicRoughnessMaterialGPUReactive),
-  PhysicalSpecularGlossiness(PhysicalSpecularGlossinessMaterialGPUReactive),
-  Flat(FlatMaterialGPUReactive),
-  Foreign(Box<dyn AsMaterialGPUInstance>),
+  PhysicalMetallicRoughness(ReactiveMaterialGPUOf<PhysicalMetallicRoughnessMaterial>),
+  PhysicalSpecularGlossiness(ReactiveMaterialGPUOf<PhysicalSpecularGlossinessMaterial>),
+  Flat(ReactiveMaterialGPUOf<FlatMaterial>),
+  Foreign(Box<dyn ReactiveRenderComponentSource>),
 }
 
-impl MaterialGPUInstance {
-  pub fn create_render_component_delta_stream(
+impl ReactiveRenderComponent for MaterialGPUInstance {
+  fn create_render_component_delta_stream(
     &self,
-  ) -> impl Stream<Item = RenderComponentDeltaFlag> + Unpin {
+  ) -> Pin<Box<dyn Stream<Item = RenderComponentDeltaFlag>>> {
     match self {
-      MaterialGPUInstance::PhysicalMetallicRoughness(m) => {
+      Self::PhysicalMetallicRoughness(m) => {
         Box::pin(m.as_ref().create_render_component_delta_stream())
           as Pin<Box<dyn Stream<Item = RenderComponentDeltaFlag>>>
       }
-      MaterialGPUInstance::PhysicalSpecularGlossiness(m) => {
+      Self::PhysicalSpecularGlossiness(m) => {
         Box::pin(m.as_ref().create_render_component_delta_stream())
           as Pin<Box<dyn Stream<Item = RenderComponentDeltaFlag>>>
       }
-      MaterialGPUInstance::Flat(m) => Box::pin(m.as_ref().create_render_component_delta_stream())
+      Self::Flat(m) => Box::pin(m.as_ref().create_render_component_delta_stream())
         as Pin<Box<dyn Stream<Item = RenderComponentDeltaFlag>>>,
-      MaterialGPUInstance::Foreign(m) => m
+      Self::Foreign(m) => m
         .as_material_gpu_instance()
         .create_render_component_delta_stream(),
     }
@@ -210,60 +203,56 @@ impl ShaderHashProvider for MaterialGPUInstance {
   #[rustfmt::skip]
   fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
     match self {
-      MaterialGPUInstance::PhysicalMetallicRoughness(m) => m.as_material_gpu_instance().hash_pipeline(hasher),
-      MaterialGPUInstance::PhysicalSpecularGlossiness(m) => m.as_material_gpu_instance().hash_pipeline(hasher),
-      MaterialGPUInstance::Flat(m) => m.as_material_gpu_instance().hash_pipeline(hasher),
-      MaterialGPUInstance::Foreign(m) => m.as_material_gpu_instance().hash_pipeline(hasher),
+      Self::PhysicalMetallicRoughness(m) => m.as_material_gpu_instance().hash_pipeline(hasher),
+      Self::PhysicalSpecularGlossiness(m) => m.as_material_gpu_instance().hash_pipeline(hasher),
+      Self::Flat(m) => m.as_material_gpu_instance().hash_pipeline(hasher),
+      Self::Foreign(m) => m.as_material_gpu_instance().hash_pipeline(hasher),
     }
   }
 }
 
 impl ShaderPassBuilder for MaterialGPUInstance {
-  #[rustfmt::skip]
   fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
     match self {
-      MaterialGPUInstance::PhysicalMetallicRoughness(m) => m.as_material_gpu_instance().setup_pass(ctx),
-      MaterialGPUInstance::PhysicalSpecularGlossiness(m) => m.as_material_gpu_instance().setup_pass(ctx),
-      MaterialGPUInstance::Flat(m) => m.as_material_gpu_instance().setup_pass(ctx),
-      MaterialGPUInstance::Foreign(m) => m.as_material_gpu_instance().setup_pass(ctx),
+      Self::PhysicalMetallicRoughness(m) => m.as_material_gpu_instance().setup_pass(ctx),
+      Self::PhysicalSpecularGlossiness(m) => m.as_material_gpu_instance().setup_pass(ctx),
+      Self::Flat(m) => m.as_material_gpu_instance().setup_pass(ctx),
+      Self::Foreign(m) => m.as_material_gpu_instance().setup_pass(ctx),
     }
   }
 
   fn post_setup_pass(&self, ctx: &mut GPURenderPassCtx) {
-    #[rustfmt::skip]
     match self {
-      MaterialGPUInstance::PhysicalMetallicRoughness(m) => m.as_material_gpu_instance().post_setup_pass(ctx),
-      MaterialGPUInstance::PhysicalSpecularGlossiness(m) => m.as_material_gpu_instance().post_setup_pass(ctx),
-      MaterialGPUInstance::Flat(m) => m.as_material_gpu_instance().post_setup_pass(ctx),
-      MaterialGPUInstance::Foreign(m) => m.as_material_gpu_instance().post_setup_pass(ctx),
+      Self::PhysicalMetallicRoughness(m) => m.as_material_gpu_instance().post_setup_pass(ctx),
+      Self::PhysicalSpecularGlossiness(m) => m.as_material_gpu_instance().post_setup_pass(ctx),
+      Self::Flat(m) => m.as_material_gpu_instance().post_setup_pass(ctx),
+      Self::Foreign(m) => m.as_material_gpu_instance().post_setup_pass(ctx),
     }
   }
 }
 
 impl ShaderGraphProvider for MaterialGPUInstance {
-  #[rustfmt::skip]
   fn build(
     &self,
     builder: &mut ShaderGraphRenderPipelineBuilder,
   ) -> Result<(), ShaderGraphBuildError> {
     match self {
-      MaterialGPUInstance::PhysicalMetallicRoughness(m) => m.as_material_gpu_instance().build(builder),
-      MaterialGPUInstance::PhysicalSpecularGlossiness(m) => m.as_material_gpu_instance().build(builder),
-      MaterialGPUInstance::Flat(m) => m.as_material_gpu_instance().build(builder),
-      MaterialGPUInstance::Foreign(m) => m.as_material_gpu_instance().build(builder),
+      Self::PhysicalMetallicRoughness(m) => m.as_material_gpu_instance().build(builder),
+      Self::PhysicalSpecularGlossiness(m) => m.as_material_gpu_instance().build(builder),
+      Self::Flat(m) => m.as_material_gpu_instance().build(builder),
+      Self::Foreign(m) => m.as_material_gpu_instance().build(builder),
     }
   }
 
-  #[rustfmt::skip]
   fn post_build(
     &self,
     builder: &mut ShaderGraphRenderPipelineBuilder,
   ) -> Result<(), ShaderGraphBuildError> {
     match self {
-      MaterialGPUInstance::PhysicalMetallicRoughness(m) => m.as_material_gpu_instance().post_build(builder),
-      MaterialGPUInstance::PhysicalSpecularGlossiness(m) => m.as_material_gpu_instance().post_build(builder),
-      MaterialGPUInstance::Flat(m) => m.as_material_gpu_instance().post_build(builder),
-      MaterialGPUInstance::Foreign(m) => m.as_material_gpu_instance().post_build(builder),
+      Self::PhysicalMetallicRoughness(m) => m.as_material_gpu_instance().post_build(builder),
+      Self::PhysicalSpecularGlossiness(m) => m.as_material_gpu_instance().post_build(builder),
+      Self::Flat(m) => m.as_material_gpu_instance().post_build(builder),
+      Self::Foreign(m) => m.as_material_gpu_instance().post_build(builder),
     }
   }
 }

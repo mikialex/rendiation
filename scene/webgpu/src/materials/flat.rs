@@ -41,17 +41,15 @@ impl ShaderPassBuilder for FlatMaterialGPU {
   }
 }
 
-pub type FlatMaterialGPUReactive =
-  impl AsRef<RenderComponentCell<FlatMaterialGPU>> + Stream<Item = RenderComponentDeltaFlag>;
-
-impl AsMaterialGPUInstance for FlatMaterialGPUReactive {
-  fn as_material_gpu_instance(&self) -> &dyn MaterialGPUInstanceLike {
-    self.as_ref() as &dyn MaterialGPUInstanceLike
+impl ReactiveRenderComponentSource for ReactiveMaterialGPUOf<FlatMaterial> {
+  fn as_material_gpu_instance(&self) -> &dyn ReactiveRenderComponent {
+    self.as_ref() as &dyn ReactiveRenderComponent
   }
 }
 
 impl WebGPUMaterial for FlatMaterial {
-  type ReactiveGPU = FlatMaterialGPUReactive;
+  type ReactiveGPU =
+    impl AsRef<RenderComponentCell<FlatMaterialGPU>> + Stream<Item = RenderComponentDeltaFlag>;
 
   fn create_reactive_gpu(
     source: &SceneItemRef<Self>,
