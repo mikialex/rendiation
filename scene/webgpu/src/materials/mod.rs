@@ -205,6 +205,7 @@ impl GPUModelResourceCtx {
 impl ShaderHashProvider for MaterialGPUInstance {
   #[rustfmt::skip]
   fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
+    std::mem::discriminant(self).hash(hasher);
     match self {
       Self::PhysicalMetallicRoughness(m) => m.as_reactive_component().hash_pipeline(hasher),
       Self::PhysicalSpecularGlossiness(m) => m.as_reactive_component().hash_pipeline(hasher),

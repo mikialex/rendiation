@@ -10,8 +10,16 @@ use crate::*;
 #[derive(Clone)]
 pub enum SceneMeshType {
   AttributesMesh(SceneItemRef<AttributesMesh>),
+  TransformInstanced(SceneItemRef<TransformInstancedSceneMesh>),
   Foreign(Arc<dyn Any + Send + Sync>),
 }
+
+#[derive(Clone)]
+pub struct TransformInstancedSceneMesh {
+  pub mesh: SceneMeshType,
+  pub transforms: Vec<Mat4<f32>>,
+}
+clone_self_incremental!(TransformInstancedSceneMesh);
 
 impl SceneMeshType {
   pub fn build_local_bound_stream(&self) -> impl Stream<Item = Option<Box3>> {

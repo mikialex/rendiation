@@ -124,41 +124,43 @@ pub fn load_default_scene(scene: &Scene) {
     let _ = scene.insert_model(model.into());
   }
 
-  // {
-  //   let mesh = IndexedMeshBuilder::<TriangleList, Vec<Vertex>>::default()
-  //     .triangulate_parametric(
-  //       &SphereMeshParameter::default().make_surface(),
-  //       TessellationConfig { u: 16, v: 16 },
-  //       true,
-  //     )
-  //     .build_mesh_into();
+  {
+    let mesh = IndexedMeshBuilder::<TriangleList, Vec<Vertex>>::default()
+      .triangulate_parametric(
+        &SphereMeshParameter::default().make_surface(),
+        TessellationConfig { u: 16, v: 16 },
+        true,
+      )
+      .build_mesh_into()
+      .into_ref();
+    let mesh: Box<dyn WebGPUSceneMesh> = Box::new(mesh);
+    let mesh = SceneMeshType::Foreign(Arc::new(mesh));
 
-  //   let mesh = TransformInstance {
-  //     mesh,
-  //     transforms: vec![
-  //       Mat4::translate((10., 0., 0.)),
-  //       Mat4::translate((10., 0., 2.)),
-  //       Mat4::translate((10., 0., 4.)),
-  //       Mat4::translate((10., 0., 6.)),
-  //     ],
-  //   }
-  //   .into_ref();
-  //   let mesh: Box<dyn WebGPUSceneMesh> = Box::new(mesh);
-  //   let mesh = SceneMeshType::Foreign(Arc::new(mesh));
+    let mesh = TransformInstancedSceneMesh {
+      mesh,
+      transforms: vec![
+        Mat4::translate((10., 0., 0.)),
+        Mat4::translate((10., 0., 2.)),
+        Mat4::translate((10., 0., 4.)),
+        Mat4::translate((10., 0., 6.)),
+      ],
+    }
+    .into_ref();
+    let mesh = SceneMeshType::TransformInstanced(mesh);
 
-  //   let material = PhysicalSpecularGlossinessMaterial {
-  //     albedo: Vec3::splat(1.),
-  //     albedo_texture: texture.into(),
-  //     ..Default::default()
-  //   };
-  //   let material = SceneMaterialType::PhysicalSpecularGlossiness(material.into());
-  //   let child = scene.read().root().create_child();
+    let material = PhysicalSpecularGlossinessMaterial {
+      albedo: Vec3::splat(1.),
+      albedo_texture: texture.into(),
+      ..Default::default()
+    };
+    let material = SceneMaterialType::PhysicalSpecularGlossiness(material.into());
+    let child = scene.read().root().create_child();
 
-  //   let model = StandardModel::new(material, mesh);
-  //   let model = SceneModelType::Standard(model.into());
-  //   let model = SceneModelImpl { model, node: child };
-  //   let _ = scene.insert_model(model.into());
-  // }
+    let model = StandardModel::new(material, mesh);
+    let model = SceneModelType::Standard(model.into());
+    let model = SceneModelImpl { model, node: child };
+    let _ = scene.insert_model(model.into());
+  }
 
   let up = Vec3::new(0., 1., 0.);
 
