@@ -17,7 +17,7 @@ use crate::*;
 
 pub type ReactiveMaterialGPUOf<T> = <T as WebGPUMaterial>::ReactiveGPU;
 
-pub trait WebGPUMaterial: Clone + Any + Incremental {
+pub trait WebGPUMaterial: IncrementalBase {
   type ReactiveGPU: ReactiveRenderComponentSource;
   fn create_reactive_gpu(
     source: &SceneItemRef<Self>,

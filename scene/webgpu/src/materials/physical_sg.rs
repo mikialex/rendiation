@@ -43,6 +43,7 @@ impl Stream for PhysicalSpecularGlossinessMaterialGPU {
     early_return_option_ready!(this.albedo_texture, cx);
     early_return_option_ready!(this.specular_texture, cx);
     early_return_option_ready!(this.glossiness_texture, cx);
+    early_return_option_ready!(this.emissive_texture, cx);
     early_return_option_ready!(this.normal_texture, cx);
     Poll::Pending
   }
