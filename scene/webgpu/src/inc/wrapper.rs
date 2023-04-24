@@ -12,7 +12,7 @@ pub trait ReactiveRenderComponent: RenderComponent {
 }
 
 pub trait ReactiveRenderComponentSource: Stream<Item = RenderComponentDeltaFlag> + Unpin {
-  fn as_material_gpu_instance(&self) -> &dyn ReactiveRenderComponent;
+  fn as_reactive_component(&self) -> &dyn ReactiveRenderComponent;
 }
 
 bitflags::bitflags! {

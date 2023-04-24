@@ -138,7 +138,7 @@ impl ShaderGraphProvider for PhysicalMetallicRoughnessMaterialGPU {
 }
 
 impl ReactiveRenderComponentSource for ReactiveMaterialGPUOf<PhysicalMetallicRoughnessMaterial> {
-  fn as_material_gpu_instance(&self) -> &dyn ReactiveRenderComponent {
+  fn as_reactive_component(&self) -> &dyn ReactiveRenderComponent {
     self.as_ref() as &dyn ReactiveRenderComponent
   }
 }

@@ -177,7 +177,7 @@ wgsl_fn!(
 );
 
 impl ReactiveRenderComponentSource for ReactiveMaterialGPUOf<FatLineMaterial> {
-  fn as_material_gpu_instance(&self) -> &dyn ReactiveRenderComponent {
+  fn as_reactive_component(&self) -> &dyn ReactiveRenderComponent {
     self.as_ref() as &dyn ReactiveRenderComponent
   }
 }

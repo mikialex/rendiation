@@ -116,7 +116,10 @@ impl WebGPUSceneMaterial for SceneMaterialType {
   }
 }
 
-impl<M: WebGPUMaterial + Send + Sync> WebGPUSceneMaterial for SceneItemRef<M> {
+impl<M> WebGPUSceneMaterial for SceneItemRef<M>
+where
+  M: WebGPUMaterial,
+{
   fn id(&self) -> Option<usize> {
     self.id().into()
   }
@@ -161,7 +164,7 @@ impl ReactiveRenderComponent for MaterialGPUInstance {
       Self::Flat(m) => Box::pin(m.as_ref().create_render_component_delta_stream())
         as Pin<Box<dyn Stream<Item = RenderComponentDeltaFlag>>>,
       Self::Foreign(m) => m
-        .as_material_gpu_instance()
+        .as_reactive_component()
         .create_render_component_delta_stream(),
     }
   }
@@ -203,10 +206,10 @@ impl ShaderHashProvider for MaterialGPUInstance {
   #[rustfmt::skip]
   fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
     match self {
-      Self::PhysicalMetallicRoughness(m) => m.as_material_gpu_instance().hash_pipeline(hasher),
-      Self::PhysicalSpecularGlossiness(m) => m.as_material_gpu_instance().hash_pipeline(hasher),
-      Self::Flat(m) => m.as_material_gpu_instance().hash_pipeline(hasher),
-      Self::Foreign(m) => m.as_material_gpu_instance().hash_pipeline(hasher),
+      Self::PhysicalMetallicRoughness(m) => m.as_reactive_component().hash_pipeline(hasher),
+      Self::PhysicalSpecularGlossiness(m) => m.as_reactive_component().hash_pipeline(hasher),
+      Self::Flat(m) => m.as_reactive_component().hash_pipeline(hasher),
+      Self::Foreign(m) => m.as_reactive_component().hash_pipeline(hasher),
     }
   }
 }
@@ -214,19 +217,19 @@ impl ShaderHashProvider for MaterialGPUInstance {
 impl ShaderPassBuilder for MaterialGPUInstance {
   fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
     match self {
-      Self::PhysicalMetallicRoughness(m) => m.as_material_gpu_instance().setup_pass(ctx),
-      Self::PhysicalSpecularGlossiness(m) => m.as_material_gpu_instance().setup_pass(ctx),
-      Self::Flat(m) => m.as_material_gpu_instance().setup_pass(ctx),
-      Self::Foreign(m) => m.as_material_gpu_instance().setup_pass(ctx),
+      Self::PhysicalMetallicRoughness(m) => m.as_reactive_component().setup_pass(ctx),
+      Self::PhysicalSpecularGlossiness(m) => m.as_reactive_component().setup_pass(ctx),
+      Self::Flat(m) => m.as_reactive_component().setup_pass(ctx),
+      Self::Foreign(m) => m.as_reactive_component().setup_pass(ctx),
     }
   }
 
   fn post_setup_pass(&self, ctx: &mut GPURenderPassCtx) {
     match self {
-      Self::PhysicalMetallicRoughness(m) => m.as_material_gpu_instance().post_setup_pass(ctx),
-      Self::PhysicalSpecularGlossiness(m) => m.as_material_gpu_instance().post_setup_pass(ctx),
-      Self::Flat(m) => m.as_material_gpu_instance().post_setup_pass(ctx),
-      Self::Foreign(m) => m.as_material_gpu_instance().post_setup_pass(ctx),
+      Self::PhysicalMetallicRoughness(m) => m.as_reactive_component().post_setup_pass(ctx),
+      Self::PhysicalSpecularGlossiness(m) => m.as_reactive_component().post_setup_pass(ctx),
+      Self::Flat(m) => m.as_reactive_component().post_setup_pass(ctx),
+      Self::Foreign(m) => m.as_reactive_component().post_setup_pass(ctx),
     }
   }
 }
@@ -237,10 +240,10 @@ impl ShaderGraphProvider for MaterialGPUInstance {
     builder: &mut ShaderGraphRenderPipelineBuilder,
   ) -> Result<(), ShaderGraphBuildError> {
     match self {
-      Self::PhysicalMetallicRoughness(m) => m.as_material_gpu_instance().build(builder),
-      Self::PhysicalSpecularGlossiness(m) => m.as_material_gpu_instance().build(builder),
-      Self::Flat(m) => m.as_material_gpu_instance().build(builder),
-      Self::Foreign(m) => m.as_material_gpu_instance().build(builder),
+      Self::PhysicalMetallicRoughness(m) => m.as_reactive_component().build(builder),
+      Self::PhysicalSpecularGlossiness(m) => m.as_reactive_component().build(builder),
+      Self::Flat(m) => m.as_reactive_component().build(builder),
+      Self::Foreign(m) => m.as_reactive_component().build(builder),
     }
   }
 
@@ -249,10 +252,10 @@ impl ShaderGraphProvider for MaterialGPUInstance {
     builder: &mut ShaderGraphRenderPipelineBuilder,
   ) -> Result<(), ShaderGraphBuildError> {
     match self {
-      Self::PhysicalMetallicRoughness(m) => m.as_material_gpu_instance().post_build(builder),
-      Self::PhysicalSpecularGlossiness(m) => m.as_material_gpu_instance().post_build(builder),
-      Self::Flat(m) => m.as_material_gpu_instance().post_build(builder),
-      Self::Foreign(m) => m.as_material_gpu_instance().post_build(builder),
+      Self::PhysicalMetallicRoughness(m) => m.as_reactive_component().post_build(builder),
+      Self::PhysicalSpecularGlossiness(m) => m.as_reactive_component().post_build(builder),
+      Self::Flat(m) => m.as_reactive_component().post_build(builder),
+      Self::Foreign(m) => m.as_reactive_component().post_build(builder),
     }
   }
 }

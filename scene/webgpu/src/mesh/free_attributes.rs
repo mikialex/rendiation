@@ -6,6 +6,13 @@ pub struct AttributesMeshGPU {
   mode: webgpu::PrimitiveTopology,
 }
 
+impl Stream for AttributesMeshGPU {
+  type Item = RenderComponentDeltaFlag;
+  fn poll_next(self: Pin<&mut Self>, _: &mut Context) -> Poll<Option<Self::Item>> {
+    Poll::Pending
+  }
+}
+
 impl ShaderPassBuilder for AttributesMeshGPU {
   fn setup_pass(&self, ctx: &mut webgpu::GPURenderPassCtx) {
     for (s, b) in &self.attributes {
@@ -92,7 +99,7 @@ struct GPUAttributesBuffer {
 
 impl SceneItemReactiveSimpleMapping<GPUAttributesBuffer> for GeometryBuffer {
   type ChangeStream = impl Stream<Item = ()> + Unpin;
-  type Ctx<'a> = GPU;
+  type Ctx<'a> = ResourceGPUCtx;
 
   fn build(&self, gpu: &Self::Ctx<'_>) -> (GPUAttributesBuffer, Self::ChangeStream) {
     let source = self.read();
@@ -112,42 +119,75 @@ impl SceneItemReactiveSimpleMapping<GPUAttributesBuffer> for GeometryBuffer {
 fn get_update_buffer<'a>(
   storage: &'a mut AnyMap,
   source: &GeometryBuffer,
-  gpu: &GPU,
+  gpu: &ResourceGPUCtx,
 ) -> &'a GPUBufferResource {
   let cache: &mut ReactiveMap<GeometryBuffer, GPUAttributesBuffer> =
     storage.entry().or_insert_with(Default::default);
   &cache.get_with_update(source, gpu).inner
 }
 
-impl WebGPUMesh for AttributesMesh {
-  type GPU = AttributesMeshGPU;
-
-  fn update(&self, gpu_mesh: &mut Self::GPU, gpu: &webgpu::GPU, storage: &mut AnyMap) {
-    *gpu_mesh = self.create(gpu, storage)
+impl ReactiveRenderComponentSource for ReactiveMeshGPUOf<AttributesMesh> {
+  fn as_reactive_component(&self) -> &dyn ReactiveRenderComponent {
+    self.as_ref() as &dyn ReactiveRenderComponent
   }
+}
 
-  fn create(&self, gpu: &webgpu::GPU, storage: &mut AnyMap) -> Self::GPU {
-    let attributes = self
-      .attributes
-      .iter()
-      .map(|(s, vertices)| {
-        let buffer = get_update_buffer(storage, &vertices.view.buffer, gpu);
-        let buffer_view = buffer.create_view(map_view(vertices.compute_gpu_buffer_range()));
-        (s.clone(), buffer_view)
+impl WebGPUMesh for AttributesMesh {
+  type ReactiveGPU =
+    impl AsRef<RenderComponentCell<AttributesMeshGPU>> + Stream<Item = RenderComponentDeltaFlag>;
+
+  fn create_reactive_gpu(
+    source: &SceneItemRef<Self>,
+    ctx: &ShareBindableResourceCtx,
+  ) -> Self::ReactiveGPU {
+    let weak = source.downgrade();
+    let ctx = ctx.clone();
+
+    let create = move || {
+      if let Some(m) = weak.upgrade() {
+        let mut custom_storage = ctx.custom_storage.write().unwrap();
+        let mesh = m.read();
+        let attributes = mesh
+          .attributes
+          .iter()
+          .map(|(s, vertices)| {
+            let buffer = get_update_buffer(&mut custom_storage, &vertices.view.buffer, &ctx.gpu);
+            let buffer_view = buffer.create_view(map_view(vertices.compute_gpu_buffer_range()));
+            (s.clone(), buffer_view)
+          })
+          .collect();
+
+        let indices = mesh.indices.as_ref().map(|(format, i)| {
+          let buffer = get_update_buffer(&mut custom_storage, &i.view.buffer, &ctx.gpu);
+          let buffer_view = buffer.create_view(map_view(i.compute_gpu_buffer_range()));
+          (buffer_view, map_index(*format))
+        });
+
+        let r = AttributesMeshGPU {
+          attributes,
+          indices,
+          mode: map_topology(mesh.mode),
+        };
+
+        Some(r)
+      } else {
+        None
+      }
+    };
+
+    let gpu = create().unwrap();
+    let state = RenderComponentCell::new(gpu);
+
+    source
+      .single_listen_by::<()>(any_change_no_init)
+      .fold_signal(state, move |_, state| {
+        if let Some(gpu) = create() {
+          state.inner = gpu;
+          RenderComponentDeltaFlag::all().into()
+        } else {
+          None
+        }
       })
-      .collect();
-
-    let indices = self.indices.as_ref().map(|(format, i)| {
-      let buffer = get_update_buffer(storage, &i.view.buffer, gpu);
-      let buffer_view = buffer.create_view(map_view(i.compute_gpu_buffer_range()));
-      (buffer_view, map_index(*format))
-    });
-
-    AttributesMeshGPU {
-      attributes,
-      indices,
-      mode: map_topology(self.mode),
-    }
   }
 
   /// the current represent do not have meaningful mesh draw group concept

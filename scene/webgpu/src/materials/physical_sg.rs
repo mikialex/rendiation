@@ -147,7 +147,7 @@ impl ShaderGraphProvider for PhysicalSpecularGlossinessMaterialGPU {
 use PhysicalSpecularGlossinessMaterialDelta as PD;
 
 impl ReactiveRenderComponentSource for ReactiveMaterialGPUOf<PhysicalSpecularGlossinessMaterial> {
-  fn as_material_gpu_instance(&self) -> &dyn ReactiveRenderComponent {
+  fn as_reactive_component(&self) -> &dyn ReactiveRenderComponent {
     self.as_ref() as &dyn ReactiveRenderComponent
   }
 }

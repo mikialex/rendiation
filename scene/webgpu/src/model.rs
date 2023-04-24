@@ -80,11 +80,13 @@ pub fn setup_pass_core(
           .unwrap()
       });
 
-      let mesh_gpu = model.mesh.check_update_gpu(
-        &mut resources.scene.meshes,
-        &mut resources.custom_storage,
-        gpu,
-      );
+      let mesh_gpu = todo!();
+
+      // model.mesh.check_update_gpu(
+      //   &mut resources.scene.meshes,
+      //   &mut resources.custom_storage,
+      //   gpu,
+      // );
 
       let components = [pass_gpu, mesh_gpu, node_gpu, camera_gpu, material_gpu];
 

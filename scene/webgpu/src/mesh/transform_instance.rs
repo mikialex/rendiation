@@ -1,159 +1,192 @@
-use crate::*;
+// use crate::*;
 
-#[derive(Clone)]
-pub struct TransformInstance<M> {
-  pub mesh: M,
-  pub transforms: Vec<Mat4<f32>>,
-}
+// #[derive(Clone)]
+// pub struct TransformInstance<M> {
+//   pub mesh: M,
+//   pub transforms: Vec<Mat4<f32>>,
+// }
 
-impl<M: Clone + Send + Sync> SimpleIncremental for TransformInstance<M> {
-  type Delta = Self;
+// impl<M: Clone + Send + Sync> SimpleIncremental for TransformInstance<M> {
+//   type Delta = Self;
 
-  fn s_apply(&mut self, delta: Self::Delta) {
-    *self = delta
-  }
+//   fn s_apply(&mut self, delta: Self::Delta) {
+//     *self = delta
+//   }
 
-  fn s_expand(&self, mut cb: impl FnMut(Self::Delta)) {
-    cb(self.clone())
-  }
-}
+//   fn s_expand(&self, mut cb: impl FnMut(Self::Delta)) {
+//     cb(self.clone())
+//   }
+// }
 
-pub struct TransformInstanceGPU<M: WebGPUMesh> {
-  mesh_gpu: M::GPU,
-  instance_gpu: GPUBufferResourceView,
-}
+// pub struct TransformInstanceGPU<M: WebGPUMesh> {
+//   mesh_gpu: M::ReactiveGPU,
+//   instance_gpu: GPUBufferResourceView,
+// }
 
-only_vertex!(TransformInstanceMat, Mat4<f32>);
+// only_vertex!(TransformInstanceMat, Mat4<f32>);
 
-#[repr(C)]
-#[derive(Clone, Copy, shadergraph::ShaderVertex)]
-pub struct ShaderMat4VertexInput {
-  #[semantic(TransformInstanceMat)]
-  mat: Mat4<f32>,
-}
+// #[repr(C)]
+// #[derive(Clone, Copy, shadergraph::ShaderVertex)]
+// pub struct ShaderMat4VertexInput {
+//   #[semantic(TransformInstanceMat)]
+//   mat: Mat4<f32>,
+// }
 
-impl<M: WebGPUMesh> ShaderGraphProvider for TransformInstanceGPU<M> {
-  fn build(
-    &self,
-    builder: &mut ShaderGraphRenderPipelineBuilder,
-  ) -> Result<(), ShaderGraphBuildError> {
-    self.mesh_gpu.build(builder)?;
-    builder.vertex(|builder, _| {
-      builder.register_vertex::<ShaderMat4VertexInput>(VertexStepMode::Instance);
+// impl<M: WebGPUMesh> ShaderGraphProvider for TransformInstanceGPU<M> {
+//   fn build(
+//     &self,
+//     builder: &mut ShaderGraphRenderPipelineBuilder,
+//   ) -> Result<(), ShaderGraphBuildError> {
+//     self.mesh_gpu.as_material_gpu_instance().build(builder)?;
+//     builder.vertex(|builder, _| {
+//       builder.register_vertex::<ShaderMat4VertexInput>(VertexStepMode::Instance);
 
-      let world_mat = builder.query::<TransformInstanceMat>()?;
-      let world_normal_mat: Node<Mat3<f32>> = world_mat.into();
+//       let world_mat = builder.query::<TransformInstanceMat>()?;
+//       let world_normal_mat: Node<Mat3<f32>> = world_mat.into();
 
-      if let Ok(position) = builder.query::<GeometryPosition>() {
-        builder.register::<GeometryPosition>((world_mat * (position, 1.).into()).xyz());
-      }
+//       if let Ok(position) = builder.query::<GeometryPosition>() {
+//         builder.register::<GeometryPosition>((world_mat * (position, 1.).into()).xyz());
+//       }
 
-      if let Ok(normal) = builder.query::<GeometryNormal>() {
-        builder.register::<GeometryNormal>(world_normal_mat * normal);
-      }
+//       if let Ok(normal) = builder.query::<GeometryNormal>() {
+//         builder.register::<GeometryNormal>(world_normal_mat * normal);
+//       }
 
-      Ok(())
-    })
-  }
-}
+//       Ok(())
+//     })
+//   }
+// }
 
-impl<M: WebGPUMesh> ShaderHashProvider for TransformInstanceGPU<M> {}
+// impl<M: WebGPUMesh> ShaderHashProvider for TransformInstanceGPU<M> {}
 
-impl<M: WebGPUMesh> ShaderPassBuilder for TransformInstanceGPU<M> {
-  fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
-    self.mesh_gpu.setup_pass(ctx);
-    ctx.set_vertex_buffer_owned_next(&self.instance_gpu);
-  }
-}
+// impl<M: WebGPUMesh> ShaderPassBuilder for TransformInstanceGPU<M> {
+//   fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
+//     self.mesh_gpu.as_material_gpu_instance().setup_pass(ctx);
+//     ctx.set_vertex_buffer_owned_next(&self.instance_gpu);
+//   }
+// }
 
-impl<M: WebGPUMesh + Clone> WebGPUMesh for TransformInstance<M> {
-  type GPU = TransformInstanceGPU<M>;
+// impl<M: WebGPUMesh + Clone> ReactiveRenderComponentSource for ReactiveGPUOfTransformInstance<M> {
+//   fn as_material_gpu_instance(&self) -> &dyn ReactiveRenderComponent {
+//     self.as_ref() as &dyn ReactiveRenderComponent
+//   }
+// }
 
-  fn update(&self, gpu_mesh: &mut Self::GPU, gpu: &webgpu::GPU, storage: &mut anymap::AnyMap) {
-    *gpu_mesh = self.create(gpu, storage)
-  }
+// pub type ReactiveGPUOfTransformInstance<M> = impl AsRef<RenderComponentCell<TransformInstanceGPU<M>>>
+//   + Stream<Item = RenderComponentDeltaFlag>;
 
-  fn create(&self, gpu: &webgpu::GPU, storage: &mut anymap::AnyMap) -> Self::GPU {
-    let mesh_gpu = self.mesh.create(gpu, storage);
+// impl<M: WebGPUMesh + Clone> WebGPUMesh for TransformInstance<M> {
+//   type ReactiveGPU = ReactiveGPUOfTransformInstance<M>;
 
-    let instance_gpu = create_gpu_buffer(
-      bytemuck::cast_slice(self.transforms.as_slice()),
-      webgpu::BufferUsages::VERTEX,
-      &gpu.device,
-    )
-    .create_default_view();
+//   fn create_reactive_gpu(
+//     source: &SceneItemRef<Self>,
+//     ctx: &ShareBindableResourceCtx,
+//   ) -> Self::ReactiveGPU {
+//     let weak = source.downgrade();
+//     let ctx = ctx.clone();
 
-    TransformInstanceGPU {
-      mesh_gpu,
-      instance_gpu,
-    }
-  }
+//     let create = move || {
+//       if let Some(m) = weak.upgrade() {
+//         let mesh = m.read();
+//         let mesh_gpu = M::create_reactive_gpu(&mesh.mesh, &ctx);
 
-  fn draw_impl(&self, group: MeshDrawGroup) -> DrawCommand {
-    let mut inner = self.mesh.draw_impl(group);
-    match &mut inner {
-      DrawCommand::Indexed { instances, .. } => {
-        assert_eq!(*instances, 0..1);
-        *instances = 0..self.transforms.len() as u32;
-      }
-      DrawCommand::Array { instances, .. } => {
-        assert_eq!(*instances, 0..1);
-        *instances = 0..self.transforms.len() as u32;
-      }
-      DrawCommand::Skip => {}
-    }
-    inner
-  }
+//         let instance_gpu = create_gpu_buffer(
+//           bytemuck::cast_slice(mesh.transforms.as_slice()),
+//           webgpu::BufferUsages::VERTEX,
+//           &gpu.device,
+//         )
+//         .create_default_view();
 
-  fn topology(&self) -> webgpu::PrimitiveTopology {
-    self.mesh.topology()
-  }
+//         let r = TransformInstanceGPU {
+//           mesh_gpu,
+//           instance_gpu,
+//         };
+//         Some(r)
+//       } else {
+//         None
+//       }
+//     };
 
-  fn try_pick(&self, f: &mut dyn FnMut(&dyn IntersectAbleGroupedMesh)) {
-    self.mesh.try_pick(&mut |target| {
-      let wrapped = InstanceTransformedPickImpl {
-        mat: &self.transforms,
-        mesh: target,
-      };
-      f(&wrapped as &dyn IntersectAbleGroupedMesh)
-    });
-  }
-}
+//     let gpu = create().unwrap();
+//     let state = RenderComponentCell::new(gpu);
 
-struct InstanceTransformedPickImpl<'a> {
-  pub mat: &'a [Mat4<f32>],
-  pub mesh: &'a dyn IntersectAbleGroupedMesh,
-}
+//     source
+//       .single_listen_by::<()>(any_change_no_init)
+//       .fold_signal(state, move |_, state| {
+//         if let Some(gpu) = create() {
+//           state.inner = gpu;
+//           RenderComponentDeltaFlag::all().into()
+//         } else {
+//           None
+//         }
+//       })
+//   }
 
-impl<'a> IntersectAbleGroupedMesh for InstanceTransformedPickImpl<'a> {
-  fn intersect_list(
-    &self,
-    ray: Ray3,
-    conf: &MeshBufferIntersectConfig,
-    result: &mut MeshBufferHitList,
-    group: MeshDrawGroup,
-  ) {
-    self.mat.iter().for_each(|mat| {
-      let world_inv = mat.inverse_or_identity();
-      let local_ray = ray.clone().apply_matrix_into(world_inv);
-      self.mesh.intersect_list(local_ray, conf, result, group)
-    })
-  }
+//   fn draw_impl(&self, group: MeshDrawGroup) -> DrawCommand {
+//     let mut inner = self.mesh.draw_impl(group);
+//     match &mut inner {
+//       DrawCommand::Indexed { instances, .. } => {
+//         assert_eq!(*instances, 0..1);
+//         *instances = 0..self.transforms.len() as u32;
+//       }
+//       DrawCommand::Array { instances, .. } => {
+//         assert_eq!(*instances, 0..1);
+//         *instances = 0..self.transforms.len() as u32;
+//       }
+//       DrawCommand::Skip => {}
+//     }
+//     inner
+//   }
 
-  fn intersect_nearest(
-    &self,
-    ray: Ray3,
-    conf: &MeshBufferIntersectConfig,
-    group: MeshDrawGroup,
-  ) -> OptionalNearest<MeshBufferHitPoint> {
-    self
-      .mat
-      .iter()
-      .fold(OptionalNearest::none(), |mut pre, mat| {
-        let world_inv = mat.inverse_or_identity();
-        let local_ray = ray.clone().apply_matrix_into(world_inv);
-        let r = self.mesh.intersect_nearest(local_ray, conf, group);
-        *pre.refresh_nearest(r)
-      })
-  }
-}
+//   fn topology(&self) -> webgpu::PrimitiveTopology {
+//     self.mesh.topology()
+//   }
+
+//   fn try_pick(&self, f: &mut dyn FnMut(&dyn IntersectAbleGroupedMesh)) {
+//     self.mesh.try_pick(&mut |target| {
+//       let wrapped = InstanceTransformedPickImpl {
+//         mat: &self.transforms,
+//         mesh: target,
+//       };
+//       f(&wrapped as &dyn IntersectAbleGroupedMesh)
+//     });
+//   }
+// }
+
+// struct InstanceTransformedPickImpl<'a> {
+//   pub mat: &'a [Mat4<f32>],
+//   pub mesh: &'a dyn IntersectAbleGroupedMesh,
+// }
+
+// impl<'a> IntersectAbleGroupedMesh for InstanceTransformedPickImpl<'a> {
+//   fn intersect_list(
+//     &self,
+//     ray: Ray3,
+//     conf: &MeshBufferIntersectConfig,
+//     result: &mut MeshBufferHitList,
+//     group: MeshDrawGroup,
+//   ) {
+//     self.mat.iter().for_each(|mat| {
+//       let world_inv = mat.inverse_or_identity();
+//       let local_ray = ray.clone().apply_matrix_into(world_inv);
+//       self.mesh.intersect_list(local_ray, conf, result, group)
+//     })
+//   }
+
+//   fn intersect_nearest(
+//     &self,
+//     ray: Ray3,
+//     conf: &MeshBufferIntersectConfig,
+//     group: MeshDrawGroup,
+//   ) -> OptionalNearest<MeshBufferHitPoint> {
+//     self
+//       .mat
+//       .iter()
+//       .fold(OptionalNearest::none(), |mut pre, mat| {
+//         let world_inv = mat.inverse_or_identity();
+//         let local_ray = ray.clone().apply_matrix_into(world_inv);
+//         let r = self.mesh.intersect_nearest(local_ray, conf, group);
+//         *pre.refresh_nearest(r)
+//       })
+//   }
+// }

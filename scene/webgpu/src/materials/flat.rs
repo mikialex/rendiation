@@ -42,7 +42,7 @@ impl ShaderPassBuilder for FlatMaterialGPU {
 }
 
 impl ReactiveRenderComponentSource for ReactiveMaterialGPUOf<FlatMaterial> {
-  fn as_material_gpu_instance(&self) -> &dyn ReactiveRenderComponent {
+  fn as_reactive_component(&self) -> &dyn ReactiveRenderComponent {
     self.as_ref() as &dyn ReactiveRenderComponent
   }
 }
