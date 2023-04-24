@@ -30,6 +30,14 @@ pub trait WebGPUMaterial: Clone + Any + Incremental {
   fn is_transparent(&self) -> bool;
 }
 
+pub trait MaterialGPUInstanceLike:
+  Stream<Item = RenderComponentDeltaFlag> + RenderComponent + Unpin
+{
+  fn create_render_component_delta_stream(
+    &self,
+  ) -> Pin<Box<dyn Stream<Item = RenderComponentDeltaFlag>>>;
+}
+
 pub trait WebGPUSceneMaterial: Send + Sync {
   fn check_update_gpu<'a>(
     &self,
@@ -139,14 +147,6 @@ impl GPUMaterialCache {
       }
     })
   }
-}
-
-pub trait MaterialGPUInstanceLike:
-  Stream<Item = RenderComponentDeltaFlag> + RenderComponent + Unpin
-{
-  fn create_render_component_delta_stream(
-    &self,
-  ) -> Pin<Box<dyn Stream<Item = RenderComponentDeltaFlag>>>;
 }
 
 #[pin_project::pin_project(project = MaterialGPUInstanceProj)]

@@ -26,7 +26,7 @@ pub struct FatlineMaterialGPU {
 impl Stream for FatlineMaterialGPU {
   type Item = RenderComponentDeltaFlag;
 
-  fn poll_next(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Option<Self::Item>> {
+  fn poll_next(self: Pin<&mut Self>, _: &mut Context) -> Poll<Option<Self::Item>> {
     Poll::Pending
   }
 }

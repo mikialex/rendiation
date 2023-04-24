@@ -12,6 +12,31 @@ pub struct MaterialStates {
   pub cull_mode: Option<Face>,
 }
 
+impl Default for MaterialStates {
+  fn default() -> Self {
+    Self {
+      depth_write_enabled: true,
+      depth_compare: webgpu::CompareFunction::Less,
+      blend: None,
+      write_mask: webgpu::ColorWrites::all(),
+      bias: Default::default(),
+      stencil: Default::default(),
+      front_face: FrontFace::Ccw,
+      cull_mode: Some(Face::Back),
+    }
+  }
+}
+
+impl MaterialStates {
+  pub fn helper_like() -> Self {
+    let mut states = Self::default();
+    states.depth_write_enabled = false;
+    states.depth_compare = webgpu::CompareFunction::Always;
+    states.cull_mode = None;
+    states
+  }
+}
+
 clone_self_incremental!(MaterialStates);
 
 /// manually impl because lint complains
@@ -79,155 +104,46 @@ impl MaterialStates {
   }
 }
 
-impl Default for MaterialStates {
-  fn default() -> Self {
-    Self {
-      depth_write_enabled: true,
-      depth_compare: webgpu::CompareFunction::Less,
-      blend: None,
-      write_mask: webgpu::ColorWrites::all(),
-      bias: Default::default(),
-      stencil: Default::default(),
-      front_face: FrontFace::Ccw,
-      cull_mode: Some(Face::Back),
-    }
-  }
+pub struct StateGPUInner {
+  state_id: Cell<ValueID<MaterialStates>>,
 }
 
 static STATE_ID: once_cell::sync::Lazy<Mutex<ValueIDGenerator<MaterialStates>>> =
   once_cell::sync::Lazy::new(|| Mutex::new(ValueIDGenerator::default()));
 
-// #[derive(Clone)]
-// pub struct StateControl<T> {
-//   pub material: T,
-//   pub states: MaterialStates,
-// }
+impl StateGPUInner {
+  pub fn new(states: &MaterialStates) -> Self {
+    let state_id = STATE_ID.lock().unwrap().get_uuid(states);
+    Self {
+      state_id: Cell::new(state_id),
+    }
+  }
+}
 
-// #[derive(Clone)]
-// #[allow(non_camel_case_types)]
-// pub enum StateControlDelta<T: Incremental> {
-//   material(DeltaOf<T>),
-//   states(DeltaOf<MaterialStates>),
-// }
+impl ShaderHashProvider for StateGPUInner {
+  fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
+    self.state_id.get().hash(hasher)
+  }
+}
 
-// impl<M: Incremental + Clone + Send + Sync> SimpleIncremental for StateControl<M> {
-//   type Delta = StateControlDelta<M>;
+impl ShaderGraphProvider for StateGPUInner {
+  fn build(
+    &self,
+    builder: &mut ShaderGraphRenderPipelineBuilder,
+  ) -> Result<(), ShaderGraphBuildError> {
+    let id = STATE_ID.lock().unwrap();
 
-//   fn s_apply(&mut self, delta: Self::Delta) {
-//     match delta {
-//       StateControlDelta::material(delta) => self.material.apply(delta).unwrap(),
-//       StateControlDelta::states(state) => self.states = state,
-//     }
-//   }
+    let value = id.get_value(self.state_id.get()).unwrap();
 
-//   fn s_expand(&self, mut cb: impl FnMut(Self::Delta)) {
-//     self.material.expand(|d| cb(StateControlDelta::material(d)));
-//     cb(StateControlDelta::states(self.states.clone()))
-//   }
-// }
+    builder.vertex(|builder, _| {
+      builder.primitive_state.front_face = value.front_face;
+      builder.primitive_state.cull_mode = value.cull_mode;
+      Ok(())
+    })?;
 
-// pub trait IntoStateControl: Sized {
-//   fn use_state(self) -> StateControl<Self> {
-//     StateControl {
-//       material: self,
-//       states: Default::default(),
-//     }
-//   }
-
-//   /// disable depth rw, double face
-//   fn use_state_helper_like(self) -> StateControl<Self> {
-//     let mut states = MaterialStates::default();
-//     states.depth_write_enabled = false;
-//     states.depth_compare = webgpu::CompareFunction::Always;
-//     states.cull_mode = None;
-//     StateControl {
-//       material: self,
-//       states,
-//     }
-//   }
-// }
-
-// impl<T> IntoStateControl for T {}
-
-// pub struct StateControlGPU<T: WebGPUMaterial> {
-//   state_id: Cell<ValueID<MaterialStates>>,
-//   gpu: T::GPU,
-// }
-
-// impl<T: WebGPUMaterial> ShaderHashProvider for StateControlGPU<T> {
-//   fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
-//     self.state_id.get().hash(hasher);
-//     self.gpu.hash_pipeline(hasher);
-//   }
-// }
-
-// impl<T> ShaderPassBuilder for StateControlGPU<T>
-// where
-//   T: WebGPUMaterial,
-// {
-//   fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
-//     self.gpu.setup_pass(ctx)
-//   }
-// }
-
-// impl<T: WebGPUMaterial> ShaderGraphProvider for StateControlGPU<T> {
-//   fn post_build(
-//     &self,
-//     builder: &mut ShaderGraphRenderPipelineBuilder,
-//   ) -> Result<(), shadergraph::ShaderGraphBuildError> {
-//     let id = STATE_ID.lock().unwrap();
-
-//     let value = id.get_value(self.state_id.get()).unwrap();
-
-//     builder.vertex(|builder, _| {
-//       builder.primitive_state.front_face = value.front_face;
-//       builder.primitive_state.cull_mode = value.cull_mode;
-//       Ok(())
-//     })?;
-
-//     builder.fragment(|builder, _| {
-//       value.apply_pipeline_builder(builder);
-//       Ok(())
-//     })?;
-//     self.gpu.build(builder)
-//   }
-// }
-
-// impl<T> WebGPUMaterial for StateControl<T>
-// where
-//   T: Clone,
-//   T: WebGPUMaterial,
-// {
-//   type GPU = StateControlGPU<T>;
-
-//   fn create_gpu(&self, ctx: &mut ShareBindableResourceCtx, gpu: &GPU) -> Self::GPU {
-//     let gpu = self.material.create_gpu(ctx, gpu);
-
-//     let state_id = STATE_ID.lock().unwrap().get_uuid(&self.states);
-
-//     StateControlGPU {
-//       state_id: Cell::new(state_id),
-//       gpu,
-//     }
-//   }
-
-//   fn is_keep_mesh_shape(&self) -> bool {
-//     self.material.is_keep_mesh_shape()
-//   }
-//   fn is_transparent(&self) -> bool {
-//     self.states.blend.is_some()
-//   }
-
-//   type ReactiveGPU;
-
-//   fn create_reactive_gpu(
-//     source: &SceneItemRef<Self>,
-//     ctx: &ShareBindableResourceCtx,
-//   ) -> Self::ReactiveGPU {
-//     todo!()
-//   }
-
-//   fn as_material_gpu_instance(gpu: &Self::ReactiveGPU) -> &dyn MaterialGPUInstanceLike {
-//     todo!()
-//   }
-// }
+    builder.fragment(|builder, _| {
+      value.apply_pipeline_builder(builder);
+      Ok(())
+    })
+  }
+}
