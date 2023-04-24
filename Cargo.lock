@@ -2485,6 +2485,7 @@ dependencies = [
  "rendiation-geometry",
  "rendiation-renderable-mesh",
  "rendiation-texture",
+ "smallvec",
  "tree",
 ]
 

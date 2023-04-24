@@ -1,14 +1,18 @@
 use crate::*;
 
 #[repr(C)]
-#[derive(Clone, Copy, Pod, Zeroable, ShaderStruct, Incremental)]
+#[derive(Clone, Incremental)]
 pub struct FatLineMaterial {
   pub width: f32,
+  pub state: MaterialStates,
 }
 
-impl Default for FatLineMaterial {
-  fn default() -> Self {
-    Self { width: 10. }
+impl FatLineMaterial {
+  pub fn new(width: f32) -> Self {
+    Self {
+      width,
+      state: MaterialStates::helper_like(),
+    }
   }
 }
 

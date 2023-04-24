@@ -18,7 +18,7 @@ pub struct HelperLineModel {
 
 impl HelperLineModel {
   pub fn new(material: FatLineMaterial, mesh: HelperLineMesh, node: &SceneNode) -> Self {
-    let mat = material.use_state_helper_like().into_ref();
+    let mat = material.into_ref();
     let mat: Box<dyn WebGPUSceneMaterial> = Box::new(mat);
     let mat = SceneMaterialType::Foreign(Arc::new(mat));
 

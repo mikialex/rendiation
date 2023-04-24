@@ -47,6 +47,7 @@ pub struct PhysicalSpecularGlossinessMaterial {
   pub glossiness_texture: Option<Texture2DWithSamplingData>,
   pub emissive_texture: Option<Texture2DWithSamplingData>,
   pub normal_texture: Option<NormalMapping>,
+  pub ext: DynamicExtension,
 }
 
 #[derive(Clone, Incremental)]
@@ -70,6 +71,7 @@ impl Default for PhysicalSpecularGlossinessMaterial {
       glossiness_texture: None,
       emissive_texture: None,
       normal_texture: None,
+      ext: Default::default(),
     }
   }
 }
@@ -90,6 +92,7 @@ pub struct PhysicalMetallicRoughnessMaterial {
   pub metallic_roughness_texture: Option<Texture2DWithSamplingData>,
   pub emissive_texture: Option<Texture2DWithSamplingData>,
   pub normal_texture: Option<NormalMapping>,
+  pub ext: DynamicExtension,
 }
 // clone_self_incremental!(PhysicalMetallicRoughnessMaterial);
 
@@ -108,6 +111,7 @@ impl Default for PhysicalMetallicRoughnessMaterial {
       emissive_texture: None,
       reflectance: 0.5,
       normal_texture: None,
+      ext: Default::default(),
     }
   }
 }
@@ -115,4 +119,5 @@ impl Default for PhysicalMetallicRoughnessMaterial {
 #[derive(Clone, Incremental)]
 pub struct FlatMaterial {
   pub color: Vec4<f32>,
+  pub ext: DynamicExtension,
 }

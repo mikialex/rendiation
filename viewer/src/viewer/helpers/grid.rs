@@ -15,7 +15,7 @@ pub struct GridHelper {
 impl GridHelper {
   pub fn new(root: &SceneNode, config: GridConfig) -> Self {
     let mesh = build_grid(&config);
-    let mat = FatLineMaterial { width: 1. };
+    let mat = FatLineMaterial::new(1.);
     let root = root.clone();
     let node = root.create_child();
     let mesh = HelperLineModel::new(mat, mesh, &node);

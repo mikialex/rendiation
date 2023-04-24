@@ -389,7 +389,6 @@ fn update_plane(
       map_color(color, *axis_state.data)
         .expand_with(1.)
         .wrap(FlatMaterialDelta::color)
-        .wrap(StateControlDelta::material)
         .apply_modify(&plane.material);
     });
   }
@@ -411,7 +410,6 @@ fn update_torus(
       map_color(color, *axis_state.data)
         .expand_with(1.)
         .wrap(FlatMaterialDelta::color)
-        .wrap(StateControlDelta::material)
         .apply_modify(&torus.material);
     });
   }
@@ -783,7 +781,7 @@ impl AxisActiveState {
 }
 
 struct HelperMesh {
-  material: SceneItemRef<StateControl<FlatMaterial>>,
+  material: SceneItemRef<FlatMaterial>,
   model: OverridableMeshModelImpl,
 }
 

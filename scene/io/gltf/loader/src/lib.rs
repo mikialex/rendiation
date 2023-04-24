@@ -322,6 +322,7 @@ fn build_pbr_material(
     emissive_texture,
     normal_texture,
     reflectance: 0.5, // todo from gltf ior extension
+    ext: Default::default(),
   };
 
   if material.double_sided() {

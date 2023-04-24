@@ -20,3 +20,4 @@ rendiation-texture = {path = "../../components/texture/core"}
 tree = {path = "../../utils/tree"}
 futures = "0.3.25"
 bitflags = "*"
+smallvec = "1.9.0"
