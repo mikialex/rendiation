@@ -89,6 +89,10 @@ fn try_wake(w: &Arc<RwLock<Option<Waker>>>) {
 }
 
 impl<T> StreamMap<T> {
+  pub fn get(&self, key: usize) -> Option<&T> {
+    self.streams.get(&key)
+  }
+
   pub fn get_or_insert_with(&mut self, key: usize, f: impl FnOnce() -> T) -> &mut T {
     self.streams.entry(key).or_insert_with(|| {
       self.waked.write().unwrap().push(key);

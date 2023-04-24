@@ -443,8 +443,7 @@ fn build_plane(root: &SceneNode, auto_scale: &AutoScale, mat: Mat4<f32>) -> Help
 
   let material = solid_material(RED).into_ref();
   let m = material.clone();
-  let material: Box<dyn WebGPUSceneMaterial> = Box::new(material);
-  let material = SceneMaterialType::Foreign(Arc::new(material));
+  let material = SceneMaterialType::Flat(material);
 
   let plane = root.create_child();
 
@@ -477,8 +476,7 @@ fn build_rotator(root: &SceneNode, auto_scale: &AutoScale, mat: Mat4<f32>) -> He
 
   let material = solid_material(RED).into_ref();
   let m = material.clone();
-  let material: Box<dyn WebGPUSceneMaterial> = Box::new(material);
-  let material = SceneMaterialType::Foreign(Arc::new(material));
+  let material = SceneMaterialType::Flat(material);
 
   let torus = root.create_child();
 

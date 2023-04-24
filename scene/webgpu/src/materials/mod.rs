@@ -16,66 +16,87 @@ pub use utils::*;
 use crate::*;
 
 pub trait WebGPUMaterial: Clone + Any + Incremental {
-  type GPU: RenderComponentAny;
-  fn create_gpu(&self, res: &mut ShareBindableResourceCtx, gpu: &GPU) -> Self::GPU;
-
-  type ReactiveGPU;
+  type ReactiveGPU: AsMaterialGPUInstance;
   fn create_reactive_gpu(
     source: &SceneItemRef<Self>,
     ctx: &ShareBindableResourceCtx,
   ) -> Self::ReactiveGPU;
-  fn as_material_gpu_instance(gpu: &Self::ReactiveGPU) -> &dyn MaterialGPUInstanceLike;
 
   fn is_keep_mesh_shape(&self) -> bool;
   fn is_transparent(&self) -> bool;
 }
 
-pub trait MaterialGPUInstanceLike:
-  Stream<Item = RenderComponentDeltaFlag> + RenderComponent + Unpin
-{
+pub trait AsMaterialGPUInstance: Stream<Item = RenderComponentDeltaFlag> + Unpin {
+  fn as_material_gpu_instance(&self) -> &dyn MaterialGPUInstanceLike;
+}
+
+pub trait MaterialGPUInstanceLike: RenderComponent {
   fn create_render_component_delta_stream(
     &self,
   ) -> Pin<Box<dyn Stream<Item = RenderComponentDeltaFlag>>>;
 }
 
 pub trait WebGPUSceneMaterial: Send + Sync {
-  fn check_update_gpu<'a>(
+  fn id(&self) -> Option<usize>;
+  fn create_scene_reactive_gpu(
     &self,
-    res: &'a mut GPUMaterialCache,
-    sub_res: &mut ShareBindableResourceCtx,
-    gpu: &GPU,
-  ) -> &'a dyn RenderComponentAny;
+    ctx: &ShareBindableResourceCtx,
+  ) -> Option<MaterialGPUInstance>;
   fn is_keep_mesh_shape(&self) -> bool;
   fn is_transparent(&self) -> bool;
 }
 
 impl WebGPUSceneMaterial for SceneMaterialType {
-  fn check_update_gpu<'a>(
-    &self,
-    res: &'a mut GPUMaterialCache,
-    sub_res: &mut ShareBindableResourceCtx,
-    gpu: &GPU,
-  ) -> &'a dyn RenderComponentAny {
+  fn id(&self) -> Option<usize> {
     match self {
-      SceneMaterialType::PhysicalSpecularGlossiness(m) => m.check_update_gpu(res, sub_res, gpu),
-      SceneMaterialType::PhysicalMetallicRoughness(m) => m.check_update_gpu(res, sub_res, gpu),
-      SceneMaterialType::Flat(m) => m.check_update_gpu(res, sub_res, gpu),
+      SceneMaterialType::PhysicalSpecularGlossiness(m) => m.id(),
+      SceneMaterialType::PhysicalMetallicRoughness(m) => m.id(),
+      SceneMaterialType::Flat(m) => m.id(),
       SceneMaterialType::Foreign(m) => {
-        if let Some(m) = m.downcast_ref::<Box<dyn WebGPUSceneMaterial>>() {
-          m.check_update_gpu(res, sub_res, gpu)
+        return if let Some(m) = m.downcast_ref::<Box<dyn WebGPUSceneMaterial>>() {
+          m.id()
         } else {
-          &()
+          None
         }
       }
-      _ => &(),
+      _ => return None,
     }
+    .into()
+  }
+  fn create_scene_reactive_gpu(
+    &self,
+    ctx: &ShareBindableResourceCtx,
+  ) -> Option<MaterialGPUInstance> {
+    match self {
+      SceneMaterialType::PhysicalSpecularGlossiness(m) => {
+        let instance = PhysicalSpecularGlossinessMaterial::create_reactive_gpu(m, ctx);
+        MaterialGPUInstance::PhysicalSpecularGlossiness(instance)
+      }
+      SceneMaterialType::PhysicalMetallicRoughness(m) => {
+        let instance = PhysicalMetallicRoughnessMaterial::create_reactive_gpu(m, ctx);
+        MaterialGPUInstance::PhysicalMetallicRoughness(instance)
+      }
+      SceneMaterialType::Flat(m) => {
+        let instance = FlatMaterial::create_reactive_gpu(m, ctx);
+        MaterialGPUInstance::Flat(instance)
+      }
+      SceneMaterialType::Foreign(m) => {
+        return if let Some(m) = m.downcast_ref::<Box<dyn WebGPUSceneMaterial>>() {
+          m.create_scene_reactive_gpu(ctx)
+        } else {
+          None
+        }
+      }
+      _ => return None,
+    }
+    .into()
   }
 
   fn is_keep_mesh_shape(&self) -> bool {
     match self {
-      SceneMaterialType::PhysicalSpecularGlossiness(m) => m.is_keep_mesh_shape(),
-      SceneMaterialType::PhysicalMetallicRoughness(m) => m.is_keep_mesh_shape(),
-      SceneMaterialType::Flat(m) => m.is_keep_mesh_shape(),
+      SceneMaterialType::PhysicalSpecularGlossiness(m) => m.read().deref().is_keep_mesh_shape(),
+      SceneMaterialType::PhysicalMetallicRoughness(m) => m.read().deref().is_keep_mesh_shape(),
+      SceneMaterialType::Flat(m) => m.read().deref().is_keep_mesh_shape(),
       SceneMaterialType::Foreign(m) => {
         if let Some(m) = m.downcast_ref::<Box<dyn WebGPUSceneMaterial>>() {
           m.is_keep_mesh_shape()
@@ -88,9 +109,9 @@ impl WebGPUSceneMaterial for SceneMaterialType {
   }
   fn is_transparent(&self) -> bool {
     match self {
-      SceneMaterialType::PhysicalSpecularGlossiness(m) => m.is_transparent(),
-      SceneMaterialType::PhysicalMetallicRoughness(m) => m.is_transparent(),
-      SceneMaterialType::Flat(m) => m.is_transparent(),
+      SceneMaterialType::PhysicalSpecularGlossiness(m) => m.read().deref().is_transparent(),
+      SceneMaterialType::PhysicalMetallicRoughness(m) => m.read().deref().is_transparent(),
+      SceneMaterialType::Flat(m) => m.read().deref().is_transparent(),
       SceneMaterialType::Foreign(m) => {
         if let Some(m) = m.downcast_ref::<Box<dyn WebGPUSceneMaterial>>() {
           m.is_transparent()
@@ -104,14 +125,17 @@ impl WebGPUSceneMaterial for SceneMaterialType {
 }
 
 impl<M: WebGPUMaterial + Send + Sync> WebGPUSceneMaterial for SceneItemRef<M> {
-  fn check_update_gpu<'a>(
-    &self,
-    res: &'a mut GPUMaterialCache,
-    sub_res: &mut ShareBindableResourceCtx,
-    gpu: &GPU,
-  ) -> &'a dyn RenderComponentAny {
-    res.update_material(&self.read(), gpu, sub_res)
+  fn id(&self) -> Option<usize> {
+    self.id().into()
   }
+  fn create_scene_reactive_gpu(
+    &self,
+    ctx: &ShareBindableResourceCtx,
+  ) -> Option<MaterialGPUInstance> {
+    let instance = M::create_reactive_gpu(self, ctx);
+    MaterialGPUInstance::Foreign(Box::new(instance) as Box<dyn AsMaterialGPUInstance>).into()
+  }
+
   fn is_keep_mesh_shape(&self) -> bool {
     self.read().deref().is_keep_mesh_shape()
   }
@@ -120,41 +144,12 @@ impl<M: WebGPUMaterial + Send + Sync> WebGPUSceneMaterial for SceneItemRef<M> {
     self.read().deref().is_transparent()
   }
 }
-
-type MaterialIdentityMapper<T> = IdentityMapper<<T as WebGPUMaterial>::GPU, T>;
-impl GPUMaterialCache {
-  pub fn update_material<M: WebGPUMaterial>(
-    &mut self,
-    m: &Identity<M>,
-    gpu: &GPU,
-    res: &mut ShareBindableResourceCtx,
-  ) -> &M::GPU {
-    let type_id = TypeId::of::<M>();
-
-    let mapper = self
-      .inner
-      .entry(type_id)
-      .or_insert_with(|| Box::<MaterialIdentityMapper<M>>::default())
-      .downcast_mut::<MaterialIdentityMapper<M>>()
-      .unwrap();
-
-    mapper.get_update_or_insert_with_logic(m, |x| match x {
-      ResourceLogic::Create(m) => ResourceLogicResult::Create(M::create_gpu(m, res, gpu)),
-      ResourceLogic::Update(gpu_m, m) => {
-        // todo check should really recreate?
-        *gpu_m = M::create_gpu(m, res, gpu);
-        ResourceLogicResult::Update(gpu_m)
-      }
-    })
-  }
-}
-
 #[pin_project::pin_project(project = MaterialGPUInstanceProj)]
 pub enum MaterialGPUInstance {
   PhysicalMetallicRoughness(PhysicalMetallicRoughnessMaterialGPUReactive),
   PhysicalSpecularGlossiness(PhysicalSpecularGlossinessMaterialGPUReactive),
   Flat(FlatMaterialGPUReactive),
-  Foreign(Box<dyn MaterialGPUInstanceLike>),
+  Foreign(Box<dyn AsMaterialGPUInstance>),
 }
 
 impl MaterialGPUInstance {
@@ -172,7 +167,9 @@ impl MaterialGPUInstance {
       }
       MaterialGPUInstance::Flat(m) => Box::pin(m.as_ref().create_render_component_delta_stream())
         as Pin<Box<dyn Stream<Item = RenderComponentDeltaFlag>>>,
-      MaterialGPUInstance::Foreign(m) => m.create_render_component_delta_stream(),
+      MaterialGPUInstance::Foreign(m) => m
+        .as_material_gpu_instance()
+        .create_render_component_delta_stream(),
     }
   }
 }
@@ -196,37 +193,66 @@ impl GPUModelResourceCtx {
   pub fn get_or_create_reactive_material_gpu(
     &self,
     material: &SceneMaterialType,
-  ) -> MaterialReactive {
+  ) -> Option<MaterialReactive> {
     self
       .materials
       .write()
       .unwrap()
-      .get_or_insert_with(0, || match material {
-        SceneMaterialType::PhysicalMetallicRoughness(m) => {
-          let instance = PhysicalMetallicRoughnessMaterial::create_reactive_gpu(m, &self.shared);
-          MaterialGPUInstance::PhysicalMetallicRoughness(instance)
-        }
-        SceneMaterialType::PhysicalSpecularGlossiness(m) => {
-          let instance = PhysicalSpecularGlossinessMaterial::create_reactive_gpu(m, &self.shared);
-          MaterialGPUInstance::PhysicalSpecularGlossiness(instance)
-        }
-        SceneMaterialType::Flat(m) => {
-          let instance = FlatMaterial::create_reactive_gpu(m, &self.shared);
-          MaterialGPUInstance::Flat(instance)
-        }
-        SceneMaterialType::Foreign(m) => {
-          // if let Some(m) = m.downcast_ref::<Box<dyn WebGPUSceneMaterial>>() {
-          //   m.check_update_gpu(res, sub_res, gpu)
-          // } else {
-          //   &()
-          // }
-          todo!()
-        }
-        _ => todo!(),
+      .get_or_insert_with(material.id()?, || {
+        material.create_scene_reactive_gpu(&self.shared).unwrap()
       })
       .create_render_component_delta_stream()
+      .into()
+  }
+
+  pub fn get_or_create_material_render_component(
+    &self,
+    material: &SceneMaterialType,
+  ) -> Option<&dyn RenderComponent> {
+    todo!()
+    // self
+    //   .materials
+    //   .read()
+    //   .unwrap()
+    //   .get(material.id()?)
+    //   .map(|m| m as &dyn RenderComponent)
   }
 }
 
 // impl RenderComponent for MaterialGPUInstance {
 // }
+
+impl ShaderHashProvider for MaterialGPUInstance {
+  fn hash_pipeline(&self, _hasher: &mut PipelineHasher) {}
+}
+
+impl ShaderPassBuilder for MaterialGPUInstance {
+  fn setup_pass(&self, _ctx: &mut GPURenderPassCtx) {}
+
+  fn post_setup_pass(&self, _ctx: &mut GPURenderPassCtx) {}
+}
+
+impl ShaderGraphProvider for MaterialGPUInstance {
+  fn build(
+    &self,
+    _builder: &mut ShaderGraphRenderPipelineBuilder,
+  ) -> Result<(), ShaderGraphBuildError> {
+    // default do nothing
+    Ok(())
+  }
+
+  fn post_build(
+    &self,
+    _builder: &mut ShaderGraphRenderPipelineBuilder,
+  ) -> Result<(), ShaderGraphBuildError> {
+    // default do nothing
+    Ok(())
+  }
+
+  fn build_self(&self) -> Result<ShaderGraphRenderPipelineBuilder, ShaderGraphBuildError> {
+    let mut builder = Default::default();
+    self.build(&mut builder)?;
+    self.post_build(&mut builder)?;
+    Ok(builder)
+  }
+}

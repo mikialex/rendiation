@@ -44,6 +44,12 @@ impl ShaderPassBuilder for FlatMaterialGPU {
 pub type FlatMaterialGPUReactive =
   impl AsRef<RenderComponentCell<FlatMaterialGPU>> + Stream<Item = RenderComponentDeltaFlag>;
 
+impl AsMaterialGPUInstance for FlatMaterialGPUReactive {
+  fn as_material_gpu_instance(&self) -> &dyn MaterialGPUInstanceLike {
+    self.as_ref() as &dyn MaterialGPUInstanceLike
+  }
+}
+
 impl WebGPUMaterial for FlatMaterial {
   type ReactiveGPU = FlatMaterialGPUReactive;
 
@@ -76,22 +82,6 @@ impl WebGPUMaterial for FlatMaterial {
         }
         RenderComponentDeltaFlag::Content.into()
       })
-  }
-
-  fn as_material_gpu_instance(gpu: &Self::ReactiveGPU) -> &dyn MaterialGPUInstanceLike {
-    gpu.as_ref() as &dyn MaterialGPUInstanceLike
-  }
-
-  type GPU = FlatMaterialGPU;
-
-  fn create_gpu(&self, _: &mut ShareBindableResourceCtx, gpu: &GPU) -> Self::GPU {
-    let uniform = FlatMaterialUniform {
-      color: self.color,
-      ..Zeroable::zeroed()
-    };
-    let uniform = create_uniform(uniform, gpu);
-
-    FlatMaterialGPU { uniform }
   }
 
   fn is_keep_mesh_shape(&self) -> bool {

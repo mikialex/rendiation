@@ -179,6 +179,12 @@ wgsl_fn!(
 pub type FatLineMaterialGPUReactive =
   impl AsRef<RenderComponentCell<FatlineMaterialGPU>> + Stream<Item = RenderComponentDeltaFlag>;
 
+impl AsMaterialGPUInstance for FatLineMaterialGPUReactive {
+  fn as_material_gpu_instance(&self) -> &dyn MaterialGPUInstanceLike {
+    self.as_ref() as &dyn MaterialGPUInstanceLike
+  }
+}
+
 impl WebGPUMaterial for FatLineMaterial {
   type ReactiveGPU = FatLineMaterialGPUReactive;
 
@@ -213,21 +219,6 @@ impl WebGPUMaterial for FatLineMaterial {
       })
   }
 
-  fn as_material_gpu_instance(gpu: &Self::ReactiveGPU) -> &dyn MaterialGPUInstanceLike {
-    gpu.as_ref() as &dyn MaterialGPUInstanceLike
-  }
-
-  type GPU = FatlineMaterialGPU;
-
-  fn create_gpu(&self, _: &mut ShareBindableResourceCtx, gpu: &GPU) -> Self::GPU {
-    let uniform = FatlineMaterialUniform {
-      width: self.width,
-      ..Zeroable::zeroed()
-    };
-    let uniform = create_uniform(uniform, gpu);
-
-    FatlineMaterialGPU { uniform }
-  }
   fn is_keep_mesh_shape(&self) -> bool {
     false
   }

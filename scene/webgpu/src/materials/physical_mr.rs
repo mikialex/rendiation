@@ -140,14 +140,16 @@ impl ShaderGraphProvider for PhysicalMetallicRoughnessMaterialGPU {
 pub type PhysicalMetallicRoughnessMaterialGPUReactive = impl AsRef<RenderComponentCell<PhysicalMetallicRoughnessMaterialGPU>>
   + Stream<Item = RenderComponentDeltaFlag>;
 
+impl AsMaterialGPUInstance for PhysicalMetallicRoughnessMaterialGPUReactive {
+  fn as_material_gpu_instance(&self) -> &dyn MaterialGPUInstanceLike {
+    self.as_ref() as &dyn MaterialGPUInstanceLike
+  }
+}
+
 use PhysicalMetallicRoughnessMaterialDelta as PD;
 
 impl WebGPUMaterial for PhysicalMetallicRoughnessMaterial {
   type ReactiveGPU = PhysicalMetallicRoughnessMaterialGPUReactive;
-
-  fn as_material_gpu_instance(gpu: &Self::ReactiveGPU) -> &dyn MaterialGPUInstanceLike {
-    gpu.as_ref() as &dyn MaterialGPUInstanceLike
-  }
 
   fn create_reactive_gpu(
     source: &SceneItemRef<Self>,
@@ -224,52 +226,6 @@ impl WebGPUMaterial for PhysicalMetallicRoughnessMaterial {
     )
   }
 
-  type GPU = PhysicalMetallicRoughnessMaterialGPU;
-
-  fn create_gpu(&self, res: &mut ShareBindableResourceCtx, gpu: &GPU) -> Self::GPU {
-    let mut uniform = PhysicalMetallicRoughnessMaterialUniform {
-      base_color: self.base_color,
-      roughness: self.roughness,
-      emissive: self.emissive,
-      metallic: self.metallic,
-      reflectance: self.reflectance,
-      normal_mapping_scale: 1.,
-      alpha_cutoff: self.alpha_cutoff,
-      alpha: self.alpha,
-      ..Zeroable::zeroed()
-    };
-
-    let base_color_texture = self
-      .base_color_texture
-      .as_ref()
-      .map(|t| res.build_reactive_texture_sampler_pair(t));
-
-    let metallic_roughness_texture = self
-      .metallic_roughness_texture
-      .as_ref()
-      .map(|t| res.build_reactive_texture_sampler_pair(t));
-
-    let emissive_texture = self
-      .emissive_texture
-      .as_ref()
-      .map(|t| res.build_reactive_texture_sampler_pair(t));
-
-    let normal_texture = self.normal_texture.as_ref().map(|t| {
-      uniform.normal_mapping_scale = t.scale;
-      res.build_reactive_texture_sampler_pair(&t.content)
-    });
-
-    let uniform = create_uniform(uniform, gpu);
-
-    PhysicalMetallicRoughnessMaterialGPU {
-      uniform,
-      base_color_texture,
-      metallic_roughness_texture,
-      emissive_texture,
-      normal_texture,
-      alpha_mode: self.alpha_mode,
-    }
-  }
   fn is_keep_mesh_shape(&self) -> bool {
     true
   }

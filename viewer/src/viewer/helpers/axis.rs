@@ -97,8 +97,7 @@ impl Arrow {
 
     let material = solid_material((1., 1., 1.)).into_ref();
     let modify_material = material.clone();
-    let material: Box<dyn WebGPUSceneMaterial> = Box::new(material);
-    let material = SceneMaterialType::Foreign(Arc::new(material));
+    let material = SceneMaterialType::Flat(material);
 
     let node_cylinder = root.create_child();
 

@@ -73,6 +73,7 @@ pub struct GPUModelResourceCtx {
 pub struct GPUResourceCache {
   pub scene: GPUResourceSceneCache,
   pub bindables: ShareBindableResourceCtx,
+  pub materials: Arc<RwLock<StreamMap<MaterialGPUInstance>>>,
   pub custom_storage: AnyMap,
   pub cameras: CameraGPUMap,
   pub nodes: NodeGPUMap,
@@ -83,6 +84,7 @@ impl GPUResourceCache {
     Self {
       scene: Default::default(),
       bindables: ShareBindableResourceCtx::new(gpu),
+      materials: Default::default(),
       custom_storage: AnyMap::new(),
       cameras: Default::default(),
       nodes: Default::default(),
@@ -93,15 +95,15 @@ impl GPUResourceCache {
     let mut texture_2d = self.bindables.texture_2d.write().unwrap();
     let texture_2d: &mut StreamMap<ReactiveGPU2DTextureViewSource> = &mut texture_2d;
     do_updates(texture_2d, |_| {});
+
+    let mut materials = self.materials.write().unwrap();
+    let materials: &mut StreamMap<MaterialGPUInstance> = &mut materials;
+    do_updates(materials, |_| {});
   }
 }
 
 #[derive(Default)]
 pub struct GPULightCache {
-  pub inner: HashMap<TypeId, Box<dyn Any>>,
-}
-#[derive(Default)]
-pub struct GPUMaterialCache {
   pub inner: HashMap<TypeId, Box<dyn Any>>,
 }
 #[derive(Default)]
@@ -111,7 +113,6 @@ pub struct GPUMeshCache {
 
 #[derive(Default)]
 pub struct GPUResourceSceneCache {
-  pub materials: GPUMaterialCache,
   pub lights: GPULightCache,
   pub meshes: GPUMeshCache,
 }

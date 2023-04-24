@@ -72,11 +72,13 @@ pub fn setup_pass_core(
           .get_with_update(&model_input.node, &(pass.ctx.gpu, pass.node_derives))
       });
 
-      let material_gpu = model.material.check_update_gpu(
-        &mut resources.scene.materials,
-        &mut resources.bindables,
-        gpu,
-      );
+      let mut materials = resources.materials.write().unwrap();
+      let material_gpu = materials.get_or_insert_with(model.material.id().unwrap(), || {
+        model
+          .material
+          .create_scene_reactive_gpu(&resources.bindables)
+          .unwrap()
+      });
 
       let mesh_gpu = model.mesh.check_update_gpu(
         &mut resources.scene.meshes,
@@ -211,7 +213,12 @@ pub fn build_standard_model_gpu(
 ) -> ModelGPUReactive {
   let s = source.read();
   let gpu = StandardModelGPU {
-    material_id: (0, ctx.get_or_create_reactive_material_gpu(&s.material)),
+    material_id: (
+      0,
+      ctx
+        .get_or_create_reactive_material_gpu(&s.material)
+        .unwrap(),
+    ),
     // mesh_id: 0,
   };
 

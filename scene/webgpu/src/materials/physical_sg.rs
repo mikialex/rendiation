@@ -148,6 +148,12 @@ use PhysicalSpecularGlossinessMaterialDelta as PD;
 pub type PhysicalSpecularGlossinessMaterialGPUReactive = impl AsRef<RenderComponentCell<PhysicalSpecularGlossinessMaterialGPU>>
   + Stream<Item = RenderComponentDeltaFlag>;
 
+impl AsMaterialGPUInstance for PhysicalSpecularGlossinessMaterialGPUReactive {
+  fn as_material_gpu_instance(&self) -> &dyn MaterialGPUInstanceLike {
+    self.as_ref() as &dyn MaterialGPUInstanceLike
+  }
+}
+
 impl WebGPUMaterial for PhysicalSpecularGlossinessMaterial {
   type ReactiveGPU = PhysicalSpecularGlossinessMaterialGPUReactive;
 
@@ -231,61 +237,6 @@ impl WebGPUMaterial for PhysicalSpecularGlossinessMaterial {
     )
   }
 
-  fn as_material_gpu_instance(gpu: &Self::ReactiveGPU) -> &dyn MaterialGPUInstanceLike {
-    gpu.as_ref() as &dyn MaterialGPUInstanceLike
-  }
-
-  type GPU = PhysicalSpecularGlossinessMaterialGPU;
-
-  fn create_gpu(&self, res: &mut ShareBindableResourceCtx, gpu: &GPU) -> Self::GPU {
-    let mut uniform = PhysicalSpecularGlossinessMaterialUniform {
-      albedo: self.albedo,
-      specular: self.specular,
-      emissive: self.emissive,
-      glossiness: self.glossiness,
-      normal_mapping_scale: 1.,
-      alpha_cutoff: self.alpha_cutoff,
-      alpha: self.alpha,
-      ..Zeroable::zeroed()
-    };
-
-    let albedo_texture = self
-      .albedo_texture
-      .as_ref()
-      .map(|t| res.build_reactive_texture_sampler_pair(t));
-
-    let glossiness_texture = self
-      .glossiness_texture
-      .as_ref()
-      .map(|t| res.build_reactive_texture_sampler_pair(t));
-
-    let specular_texture = self
-      .specular_texture
-      .as_ref()
-      .map(|t| res.build_reactive_texture_sampler_pair(t));
-
-    let emissive_texture = self
-      .emissive_texture
-      .as_ref()
-      .map(|t| res.build_reactive_texture_sampler_pair(t));
-
-    let normal_texture = self.normal_texture.as_ref().map(|t| {
-      uniform.normal_mapping_scale = t.scale;
-      res.build_reactive_texture_sampler_pair(&t.content)
-    });
-
-    let uniform = create_uniform(uniform, gpu);
-
-    PhysicalSpecularGlossinessMaterialGPU {
-      uniform,
-      albedo_texture,
-      specular_texture,
-      glossiness_texture,
-      emissive_texture,
-      normal_texture,
-      alpha_mode: self.alpha_mode,
-    }
-  }
   fn is_keep_mesh_shape(&self) -> bool {
     true
   }
