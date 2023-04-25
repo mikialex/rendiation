@@ -9,6 +9,9 @@ pub use vec::*;
 mod channel;
 pub use channel::*;
 
+mod channel_like;
+pub use channel_like::*;
+
 mod source;
 pub use source::*;
 
@@ -20,3 +23,12 @@ pub use broadcast::*;
 
 mod map;
 pub use map::*;
+
+use core::{
+  pin::Pin,
+  task::{Context, Poll, Waker},
+};
+use std::sync::{Arc, Mutex, RwLock, Weak};
+
+use futures::Stream;
+use pin_project::pin_project;

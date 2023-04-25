@@ -94,7 +94,7 @@ impl SceneBoundingSystem {
       filter: SceneNodeChangeStreamIndexMapper,
     ) -> impl Stream<Item = Option<Box3>> + Unpin {
       let world_mat_stream = model
-        .listen_by(with_field!(SceneModelImpl => node))
+        .unbound_listen_by(with_field!(SceneModelImpl => node))
         .map(move |node| {
           filter
             .create_sub_stream_by_index(node.raw_handle().index())
@@ -106,15 +106,15 @@ impl SceneBoundingSystem {
         .flatten_signal();
 
       let local_box_stream = model
-        .listen_by(with_field!(SceneModelImpl => model))
+        .unbound_listen_by(with_field!(SceneModelImpl => model))
         .map(|model| match model {
-          SceneModelType::Standard(model) => Box::new(
+          ModelType::Standard(model) => Box::new(
             model
-              .listen_by(with_field!(StandardModel => mesh))
+              .unbound_listen_by(with_field!(StandardModel => mesh))
               .map(|mesh| mesh.build_local_bound_stream())
               .flatten_signal(),
           ),
-          SceneModelType::Foreign(_) => {
+          ModelType::Foreign(_) => {
             Box::new(once_forever_pending(None)) as Box<dyn Unpin + Stream<Item = Option<Box3>>>
           }
         })
@@ -128,7 +128,7 @@ impl SceneBoundingSystem {
     use arena::ArenaDelta::*;
     let mapper = d_sys.indexed_stream_mapper.clone();
     let handler = scene
-      .listen_by(|view, send| match view {
+      .unbound_listen_by(|view, send| match view {
         // simply trigger all model add deltas
         // but not trigger all other unnecessary scene deltas
         MaybeDeltaRef::All(scene) => scene.models.expand(send),

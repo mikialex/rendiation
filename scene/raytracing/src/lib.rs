@@ -113,7 +113,7 @@ impl RayTracingSceneExt for Scene {
       shape: Box::new(shape),
       material: Box::new(material),
     };
-    let model = SceneModelType::Foreign(Arc::new(model));
+    let model = ModelType::Foreign(Arc::new(model));
     let model = SceneModelImpl { node, model };
     let _ = self.insert_model(model.into());
     self
@@ -131,7 +131,7 @@ impl RayTracingSceneExt for Scene {
       shape: Box::new(shape),
       material: Box::new(material),
     };
-    let model = SceneModelType::Foreign(Arc::new(model));
+    let model = ModelType::Foreign(Arc::new(model));
     let model = SceneModelImpl { node, model };
     let _ = self.insert_model(model.into());
     self
@@ -156,7 +156,7 @@ impl RayTracingSceneExt for Scene {
 
     for (_, model) in self.read().models.iter() {
       let model = model.read();
-      if let SceneModelType::Foreign(foreign) = &model.model {
+      if let ModelType::Foreign(foreign) = &model.model {
         if let Some(retraceable) = foreign.downcast_ref::<RayTracingSceneModel>() {
           let world_info = result.worlds.get_computed(model.node.raw_handle().index());
 

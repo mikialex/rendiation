@@ -35,7 +35,7 @@ pub struct ResourceContainer<T: Resource> {
   pub resource: T,
   pub desc: T::Descriptor,
   /// when resource dropped, all referenced bindgroup should drop
-  invalidation_tokens: RefCell<Vec<BindGroupCacheInvalidation>>,
+  invalidation_tokens: RwLock<Vec<BindGroupCacheInvalidation>>,
 }
 
 impl<T: Resource> std::ops::Deref for ResourceContainer<T> {
@@ -96,7 +96,7 @@ pub trait InitResourceBySource: Resource {
 }
 
 pub struct ResourceRc<T: Resource> {
-  inner: Rc<ResourceContainer<T>>,
+  inner: Arc<ResourceContainer<T>>,
 }
 
 impl<T: Resource> std::ops::Deref for ResourceRc<T> {
@@ -116,7 +116,7 @@ impl<T: Resource> Clone for ResourceRc<T> {
 }
 
 pub struct ResourceViewRc<T: Resource> {
-  inner: Rc<ResourceViewContainer<T>>,
+  inner: Arc<ResourceViewContainer<T>>,
 }
 
 impl<T: Resource> std::ops::Deref for ResourceViewRc<T> {
@@ -157,13 +157,13 @@ impl<T: Resource> ResourceRc<T> {
     T: InitResourceByAllocation,
   {
     Self {
-      inner: Rc::new(ResourceContainer::create(desc, device)),
+      inner: Arc::new(ResourceContainer::create(desc, device)),
     }
   }
 
   pub fn create_with_raw(resource: T, desc: T::Descriptor) -> Self {
     Self {
-      inner: Rc::new(ResourceContainer::create_with_raw(resource, desc)),
+      inner: Arc::new(ResourceContainer::create_with_raw(resource, desc)),
     }
   }
 
@@ -172,7 +172,7 @@ impl<T: Resource> ResourceRc<T> {
     T: InitResourceBySource,
   {
     Self {
-      inner: Rc::new(ResourceContainer::create_with_source(source, device)),
+      inner: Arc::new(ResourceContainer::create_with_source(source, device)),
     }
   }
 
@@ -185,7 +185,7 @@ impl<T: Resource> ResourceRc<T> {
       desc,
     };
     ResourceViewRc {
-      inner: Rc::new(inner),
+      inner: Arc::new(inner),
     }
   }
 
@@ -212,7 +212,8 @@ where
       .resource
       .inner
       .invalidation_tokens
-      .borrow_mut()
+      .write()
+      .unwrap()
       .push(record);
   }
 }

@@ -1,6 +1,6 @@
 use std::{
   ops::{Deref, DerefMut},
-  sync::{RwLockReadGuard, RwLockWriteGuard},
+  sync::{RwLockReadGuard, RwLockWriteGuard, Weak},
 };
 
 use futures::{Future, Stream};
@@ -13,6 +13,23 @@ use super::identity::Identity;
 #[derive(Default)]
 pub struct SceneItemRef<T: IncrementalBase> {
   inner: Arc<RwLock<Identity<T>>>,
+
+  // we keep this id on the self, to avoid unnecessary read lock.
+  id: usize,
+}
+
+pub struct SceneItemWeakRef<T: IncrementalBase> {
+  inner: Weak<RwLock<Identity<T>>>,
+  id: usize,
+}
+
+impl<T: IncrementalBase> SceneItemWeakRef<T> {
+  pub fn upgrade(&self) -> Option<SceneItemRef<T>> {
+    self
+      .inner
+      .upgrade()
+      .map(|inner| SceneItemRef { inner, id: self.id })
+  }
 }
 
 impl<T: IncrementalBase + Send + Sync> IncrementalBase for SceneItemRef<T> {
@@ -36,6 +53,7 @@ impl<T: IncrementalBase> Clone for SceneItemRef<T> {
   fn clone(&self) -> Self {
     Self {
       inner: self.inner.clone(),
+      id: self.id,
     }
   }
 }
@@ -89,8 +107,21 @@ where
 
 impl<T: IncrementalBase> SceneItemRef<T> {
   pub fn new(source: T) -> Self {
-    let inner = Arc::new(RwLock::new(Identity::new(source)));
-    Self { inner }
+    let inner = Identity::new(source);
+    let id = inner.id;
+    let inner = Arc::new(RwLock::new(inner));
+    Self { inner, id }
+  }
+
+  pub fn downgrade(&self) -> SceneItemWeakRef<T> {
+    SceneItemWeakRef {
+      inner: Arc::downgrade(&self.inner),
+      id: self.id,
+    }
+  }
+
+  pub fn id(&self) -> usize {
+    self.id
   }
 
   pub fn mutate<R>(&self, mutator: impl FnOnce(Mutating<T>) -> R) -> R {

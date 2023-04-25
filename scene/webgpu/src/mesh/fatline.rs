@@ -38,25 +38,58 @@ impl IntersectAbleGroupedMesh for FatlineMesh {
   }
 }
 
-impl WebGPUMesh for FatlineMesh {
-  type GPU = FatlineMeshGPU;
-
-  fn update(&self, gpu_mesh: &mut Self::GPU, gpu: &GPU, storage: &mut AnyMap) {
-    *gpu_mesh = self.create(gpu, storage)
+impl ReactiveRenderComponentSource for ReactiveMeshGPUOf<FatlineMesh> {
+  fn as_reactive_component(&self) -> &dyn ReactiveRenderComponent {
+    self.as_ref() as &dyn ReactiveRenderComponent
   }
+}
 
-  fn create(&self, gpu: &GPU, storage: &mut AnyMap) -> Self::GPU {
-    let vertex = bytemuck::cast_slice(self.inner.mesh.data.as_slice());
-    let vertex =
-      create_gpu_buffer(vertex, webgpu::BufferUsages::VERTEX, &gpu.device).create_default_view();
+impl WebGPUMesh for FatlineMesh {
+  type ReactiveGPU =
+    impl AsRef<RenderComponentCell<FatlineMeshGPU>> + Stream<Item = RenderComponentDeltaFlag>;
 
-    let instance = storage
-      .entry()
-      .or_insert_with(|| create_fatline_quad_gpu(&gpu.device))
-      .data
-      .clone();
+  fn create_reactive_gpu(
+    source: &SceneItemRef<Self>,
+    ctx: &ShareBindableResourceCtx,
+  ) -> Self::ReactiveGPU {
+    let weak = source.downgrade();
+    let ctx = ctx.clone();
 
-    FatlineMeshGPU { vertex, instance }
+    let create = move || {
+      if let Some(m) = weak.upgrade() {
+        let mesh = m.read();
+        let vertex = bytemuck::cast_slice(mesh.inner.mesh.data.as_slice());
+        let vertex = create_gpu_buffer(vertex, webgpu::BufferUsages::VERTEX, &ctx.gpu.device)
+          .create_default_view();
+
+        let instance = ctx
+          .custom_storage
+          .write()
+          .unwrap()
+          .entry()
+          .or_insert_with(|| create_fatline_quad_gpu(&ctx.gpu.device))
+          .data
+          .clone();
+
+        Some(FatlineMeshGPU { vertex, instance })
+      } else {
+        None
+      }
+    };
+
+    let gpu = create().unwrap();
+    let state = RenderComponentCell::new(gpu);
+
+    source
+      .single_listen_by::<()>(any_change_no_init)
+      .fold_signal(state, move |_, state| {
+        if let Some(gpu) = create() {
+          state.inner = gpu;
+          RenderComponentDeltaFlag::all().into()
+        } else {
+          None
+        }
+      })
   }
 
   fn draw_impl<'a>(&self, group: MeshDrawGroup) -> DrawCommand {
@@ -102,6 +135,13 @@ pub struct FatlineMeshGPU {
   vertex: GPUBufferResourceView,
   /// All fatline gpu instance shall share one instance buffer
   instance: Rc<MeshGPU>,
+}
+
+impl Stream for FatlineMeshGPU {
+  type Item = RenderComponentDeltaFlag;
+  fn poll_next(self: Pin<&mut Self>, _: &mut Context) -> Poll<Option<Self::Item>> {
+    Poll::Pending
+  }
 }
 
 use bytemuck::{Pod, Zeroable};

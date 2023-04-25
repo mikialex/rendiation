@@ -93,6 +93,9 @@ pub type UniformBufferDataView<T> = ResourceViewRc<UniformBufferData<T>>;
 pub fn create_uniform<T: Std140>(data: T, gpu: &GPU) -> UniformBufferDataView<T> {
   UniformBufferDataResource::create_with_source(data, &gpu.device).create_default_view()
 }
+pub fn create_uniform2<T: Std140>(data: T, device: &GPUDevice) -> UniformBufferDataView<T> {
+  UniformBufferDataResource::create_with_source(data, device).create_default_view()
+}
 
 impl<T: Std140> Resource for UniformBufferData<T> {
   type Descriptor = ();

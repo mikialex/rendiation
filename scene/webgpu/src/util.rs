@@ -51,3 +51,41 @@ where
     self.values.get(id.value)
   }
 }
+
+pub struct OptionalRenderComponent<T>(Option<T>);
+
+impl<T> From<Option<T>> for OptionalRenderComponent<T> {
+  fn from(value: Option<T>) -> Self {
+    Self(value)
+  }
+}
+
+impl<T: ShaderHashProvider> ShaderHashProvider for OptionalRenderComponent<T> {
+  fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
+    if let Some(v) = &self.0 {
+      v.hash_pipeline(hasher)
+    }
+  }
+}
+
+impl<T: ShaderGraphProvider> ShaderGraphProvider for OptionalRenderComponent<T> {
+  fn build(
+    &self,
+    builder: &mut ShaderGraphRenderPipelineBuilder,
+  ) -> Result<(), ShaderGraphBuildError> {
+    if let Some(v) = &self.0 {
+      v.build(builder)?
+    }
+    Ok(())
+  }
+
+  fn post_build(
+    &self,
+    builder: &mut ShaderGraphRenderPipelineBuilder,
+  ) -> Result<(), ShaderGraphBuildError> {
+    if let Some(v) = &self.0 {
+      v.post_build(builder)?
+    }
+    Ok(())
+  }
+}

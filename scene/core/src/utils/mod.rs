@@ -4,6 +4,7 @@ pub use identity::*;
 mod mapper;
 pub use mapper::*;
 mod scene_item;
+use reactive::{ChannelLike, DefaultSingleValueChannel, DefaultUnboundChannel};
 pub use scene_item::*;
 
 use futures::Future;
@@ -39,26 +40,90 @@ macro_rules! with_field_change {
 }
 
 pub fn all_delta<T: IncrementalBase>(view: MaybeDeltaRef<T>, send: &dyn Fn(T::Delta)) {
-  match view {
-    MaybeDeltaRef::All(value) => value.expand(send),
-    MaybeDeltaRef::Delta(delta) => send(delta.clone()),
-  }
+  all_delta_with(true, Some)(view, send)
+}
+
+pub fn all_delta_no_init<T: IncrementalBase>(view: MaybeDeltaRef<T>, send: &dyn Fn(T::Delta)) {
+  all_delta_with(false, Some)(view, send)
 }
 
 pub fn any_change<T: IncrementalBase>(view: MaybeDeltaRef<T>, send: &dyn Fn(())) {
-  match view {
-    MaybeDeltaRef::All(_) => send(()),
+  any_change_with(true)(view, send)
+}
+
+pub fn any_change_no_init<T: IncrementalBase>(view: MaybeDeltaRef<T>, send: &dyn Fn(())) {
+  any_change_with(false)(view, send)
+}
+
+#[inline(always)]
+pub fn any_change_with<T: IncrementalBase>(
+  should_send_when_init: bool,
+) -> impl Fn(MaybeDeltaRef<T>, &dyn Fn(())) {
+  move |view, send| match view {
+    MaybeDeltaRef::All(_) => {
+      if should_send_when_init {
+        send(())
+      }
+    }
     MaybeDeltaRef::Delta(_) => send(()),
   }
 }
 
+#[inline(always)]
+pub fn all_delta_with<T: IncrementalBase, X>(
+  should_send_when_init: bool,
+  filter_map: impl Fn(T::Delta) -> Option<X>,
+) -> impl Fn(MaybeDeltaRef<T>, &dyn Fn(X)) {
+  move |view, send| {
+    let my_send = |d| {
+      if let Some(d) = filter_map(d) {
+        send(d)
+      }
+    };
+    match view {
+      MaybeDeltaRef::All(value) => {
+        if should_send_when_init {
+          value.expand(my_send)
+        }
+      }
+      MaybeDeltaRef::Delta(delta) => my_send(delta.clone()),
+    }
+  }
+}
+
 impl<T: IncrementalBase> SceneItemRef<T> {
-  pub fn listen_by<U: Send + Sync + 'static>(
+  pub fn unbound_listen_by<U>(
     &self,
-    mapper: impl Fn(MaybeDeltaRef<T>, &dyn Fn(U)) + Send + Sync + 'static,
-  ) -> impl futures::Stream<Item = U> {
+    mapper: impl FnMut(MaybeDeltaRef<T>, &dyn Fn(U)) + Send + Sync + 'static,
+  ) -> impl Stream<Item = U>
+  where
+    U: Send + Sync + 'static,
+  {
     let inner = self.read();
-    inner.listen_by(mapper)
+    inner.listen_by::<DefaultUnboundChannel, _>(mapper)
+  }
+
+  pub fn single_listen_by<U>(
+    &self,
+    mapper: impl FnMut(MaybeDeltaRef<T>, &dyn Fn(U)) + Send + Sync + 'static,
+  ) -> impl Stream<Item = U>
+  where
+    U: Send + Sync + 'static,
+  {
+    let inner = self.read();
+    inner.listen_by::<DefaultSingleValueChannel, _>(mapper)
+  }
+
+  pub fn listen_by<C, U>(
+    &self,
+    mapper: impl FnMut(MaybeDeltaRef<T>, &dyn Fn(U)) + Send + Sync + 'static,
+  ) -> impl Stream<Item = U>
+  where
+    C: ChannelLike<U>,
+    U: Send + Sync + 'static,
+  {
+    let inner = self.read();
+    inner.listen_by::<C, _>(mapper)
   }
 
   pub fn create_drop(&self) -> impl Future<Output = ()> {
@@ -68,20 +133,34 @@ impl<T: IncrementalBase> SceneItemRef<T> {
 }
 
 impl<T: IncrementalBase> Identity<T> {
-  pub fn listen_by<U: Send + Sync + 'static>(
+  pub fn unbound_listen_by<U>(
     &self,
-    mapper: impl Fn(MaybeDeltaRef<T>, &dyn Fn(U)) + Send + Sync + 'static,
-  ) -> impl futures::Stream<Item = U> {
-    let (sender, receiver) = futures::channel::mpsc::unbounded();
+    mapper: impl FnMut(MaybeDeltaRef<T>, &dyn Fn(U)) + Send + Sync + 'static,
+  ) -> impl Stream<Item = U>
+  where
+    U: Send + Sync + 'static,
+  {
+    self.listen_by::<DefaultUnboundChannel, _>(mapper)
+  }
+
+  pub fn listen_by<C, U>(
+    &self,
+    mut mapper: impl FnMut(MaybeDeltaRef<T>, &dyn Fn(U)) + Send + Sync + 'static,
+  ) -> impl Stream<Item = U>
+  where
+    U: Send + Sync + 'static,
+    C: ChannelLike<U>,
+  {
+    let (sender, receiver) = C::build();
     let sender_c = sender.clone();
     let send = move |mapped| {
-      sender_c.unbounded_send(mapped).ok();
+      C::send(&sender_c, mapped);
     };
     mapper(MaybeDeltaRef::All(self), &send);
 
     self.delta_source.on(move |v| {
       mapper(MaybeDeltaRef::Delta(v.delta), &send);
-      sender.is_closed()
+      C::is_closed(&sender)
     });
     // todo impl custom unbound channel: if sender drop, the receiver will still hold the history message
     // which is unnecessary. The better behavior will just drop the history and emit Poll::Ready::None

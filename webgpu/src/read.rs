@@ -66,7 +66,7 @@ impl ReadBufferTask {
 impl Future for ReadBufferTask {
   type Output = Result<ReadableBuffer, gpu::BufferAsyncError>;
 
-  fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+  fn poll(mut self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
     match Pin::new(&mut self.inner).poll(cx) {
       Poll::Ready(r) => match r {
         Ok(_) => match self.buffer.take() {

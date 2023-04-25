@@ -17,6 +17,13 @@ pub struct TypedMeshGPU<T> {
   inner: MeshGPU,
 }
 
+impl<T> Stream for TypedMeshGPU<T> {
+  type Item = RenderComponentDeltaFlag;
+  fn poll_next(self: Pin<&mut Self>, _: &mut Context) -> Poll<Option<Self::Item>> {
+    Poll::Pending
+  }
+}
+
 impl<V, T, IU> ShaderGraphProvider for TypedMeshGPU<GroupedMesh<IndexedMesh<T, Vec<V>, IU>>>
 where
   V: ShaderGraphVertexInProvider,
@@ -91,6 +98,41 @@ impl IndexBufferSourceTypeProvider for DynIndexContainer {
   }
 }
 
+impl<V, T, IU> ReactiveRenderComponentSource for ReactiveMeshGPUOfTypedMesh<V, T, IU>
+where
+  V: Pod,
+  IU: IndexGet + AsGPUBytes + IndexBufferSourceTypeProvider + 'static,
+  V: ShaderGraphVertexInProvider,
+  IndexedMesh<T, Vec<V>, IU>: GPUConsumableMeshBuffer,
+  T: PrimitiveTopologyMeta,
+  GroupedMesh<IndexedMesh<T, Vec<V>, IU>>: IntersectAbleGroupedMesh,
+  GroupedMesh<IndexedMesh<T, Vec<V>, IU>>: SimpleIncremental,
+  GroupedMesh<IndexedMesh<T, Vec<V>, IU>>: Send + Sync,
+  IU: Unpin,
+  T: Unpin,
+  V: Unpin,
+{
+  fn as_reactive_component(&self) -> &dyn ReactiveRenderComponent {
+    self.as_ref() as &dyn ReactiveRenderComponent
+  }
+}
+
+pub type ReactiveMeshGPUOfTypedMesh<V, T, IU>
+where
+  V: Pod,
+  IU: IndexGet + AsGPUBytes + IndexBufferSourceTypeProvider + 'static,
+  V: ShaderGraphVertexInProvider,
+  IndexedMesh<T, Vec<V>, IU>: GPUConsumableMeshBuffer,
+  T: PrimitiveTopologyMeta,
+  GroupedMesh<IndexedMesh<T, Vec<V>, IU>>: IntersectAbleGroupedMesh,
+  GroupedMesh<IndexedMesh<T, Vec<V>, IU>>: SimpleIncremental,
+  GroupedMesh<IndexedMesh<T, Vec<V>, IU>>: Send + Sync,
+  IU: Unpin,
+  T: Unpin,
+  V: Unpin,
+= impl AsRef<RenderComponentCell<TypedMeshGPU<GroupedMesh<IndexedMesh<T, Vec<V>, IU>>>>>
+  + Stream<Item = RenderComponentDeltaFlag>;
+
 impl<V, T, IU> WebGPUMesh for GroupedMesh<IndexedMesh<T, Vec<V>, IU>>
 where
   V: Pod,
@@ -101,16 +143,44 @@ where
   Self: IntersectAbleGroupedMesh,
   Self: SimpleIncremental,
   Self: Send + Sync,
+  IU: Unpin,
+  T: Unpin,
+  V: Unpin,
 {
-  type GPU = TypedMeshGPU<Self>;
-  fn create(&self, gpu: &GPU, _storage: &mut AnyMap) -> Self::GPU {
-    TypedMeshGPU {
-      marker: Default::default(),
-      inner: create_gpu(&self.mesh, &gpu.device),
-    }
-  }
-  fn update(&self, g: &mut Self::GPU, gpu: &GPU, storage: &mut AnyMap) {
-    *g = self.create(gpu, storage)
+  type ReactiveGPU = ReactiveMeshGPUOfTypedMesh<V, T, IU>;
+
+  fn create_reactive_gpu(
+    source: &SceneItemRef<Self>,
+    ctx: &ShareBindableResourceCtx,
+  ) -> Self::ReactiveGPU {
+    let weak = source.downgrade();
+    let ctx = ctx.clone();
+
+    let create = move || {
+      if let Some(m) = weak.upgrade() {
+        let mesh = m.read();
+        Some(TypedMeshGPU {
+          marker: Default::default(),
+          inner: create_gpu(&mesh.mesh, &ctx.gpu.device),
+        })
+      } else {
+        None
+      }
+    };
+
+    let gpu = create().unwrap();
+    let state = RenderComponentCell::new(gpu);
+
+    source
+      .single_listen_by::<()>(any_change_no_init)
+      .fold_signal(state, move |_, state| {
+        if let Some(gpu) = create() {
+          state.inner = gpu;
+          RenderComponentDeltaFlag::all().into()
+        } else {
+          None
+        }
+      })
   }
 
   fn draw_impl(&self, group: MeshDrawGroup) -> DrawCommand {

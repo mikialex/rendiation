@@ -2485,6 +2485,7 @@ dependencies = [
  "rendiation-geometry",
  "rendiation-renderable-mesh",
  "rendiation-texture",
+ "smallvec",
  "tree",
 ]
 
@@ -2532,6 +2533,7 @@ dependencies = [
  "anymap",
  "arena",
  "arena-graph",
+ "bitflags 1.2.1",
  "bytemuck",
  "dyn-clone",
  "futures",
@@ -2539,6 +2541,7 @@ dependencies = [
  "linked-hash-map",
  "log",
  "once_cell",
+ "pin-project",
  "rand 0.7.3",
  "reactive",
  "rendiation-algebra",

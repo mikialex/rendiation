@@ -41,6 +41,7 @@ pub use utils::*;
 mod system;
 pub use system::*;
 
+use futures::Stream;
 use incremental::*;
 use rendiation_algebra::*;
 use std::any::Any;

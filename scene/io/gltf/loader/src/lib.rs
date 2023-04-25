@@ -8,10 +8,10 @@ use gltf::{Node, Result as GltfResult};
 use rendiation_algebra::*;
 use rendiation_scene_core::{
   AnimationSampler, AttributeAccessor, AttributesMesh, BufferViewRange, GeometryBuffer,
-  GeometryBufferInner, IndexFormat, IntoSceneItemRef, Joint, NormalMapping,
+  GeometryBufferInner, IndexFormat, IntoSceneItemRef, Joint, ModelType, NormalMapping,
   PhysicalMetallicRoughnessMaterial, Scene, SceneAnimation, SceneAnimationChannel,
-  SceneMaterialType, SceneMeshType, SceneModel, SceneModelHandle, SceneModelImpl, SceneModelType,
-  SceneNode, SceneTexture2D, SceneTexture2DType, Skeleton, SkeletonImpl, StandardModel,
+  SceneMaterialType, SceneMeshType, SceneModel, SceneModelHandle, SceneModelImpl, SceneNode,
+  SceneTexture2D, SceneTexture2DType, Skeleton, SkeletonImpl, StandardModel,
   Texture2DWithSamplingData, TextureWithSamplingData, UnTypedBufferView,
 };
 use shadergraph::*;
@@ -154,7 +154,7 @@ fn build_model(
     model.skeleton = Some(sk.clone())
   }
 
-  let model = SceneModelType::Standard(model.into());
+  let model = ModelType::Standard(model.into());
   let model = SceneModelImpl { model, node };
   SceneModel::new(model)
 }
@@ -322,6 +322,7 @@ fn build_pbr_material(
     emissive_texture,
     normal_texture,
     reflectance: 0.5, // todo from gltf ior extension
+    ext: Default::default(),
   };
 
   if material.double_sided() {

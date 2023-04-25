@@ -25,6 +25,7 @@ pub enum AlphaMode {
   /// The alpha cutoff value is ignored.
   Blend,
 }
+clone_self_incremental!(AlphaMode);
 
 impl Default for AlphaMode {
   fn default() -> Self {
@@ -32,7 +33,7 @@ impl Default for AlphaMode {
   }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Incremental)]
 pub struct PhysicalSpecularGlossinessMaterial {
   pub albedo: Vec3<f32>,
   pub specular: Vec3<f32>,
@@ -46,11 +47,10 @@ pub struct PhysicalSpecularGlossinessMaterial {
   pub glossiness_texture: Option<Texture2DWithSamplingData>,
   pub emissive_texture: Option<Texture2DWithSamplingData>,
   pub normal_texture: Option<NormalMapping>,
+  pub ext: DynamicExtension,
 }
 
-clone_self_incremental!(PhysicalSpecularGlossinessMaterial);
-
-#[derive(Clone)]
+#[derive(Clone, Incremental)]
 pub struct NormalMapping {
   pub content: Texture2DWithSamplingData,
   pub scale: f32,
@@ -71,11 +71,12 @@ impl Default for PhysicalSpecularGlossinessMaterial {
       glossiness_texture: None,
       emissive_texture: None,
       normal_texture: None,
+      ext: Default::default(),
     }
   }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Incremental)]
 pub struct PhysicalMetallicRoughnessMaterial {
   /// in conductor case will act as specular color,
   /// in dielectric case will act as diffuse color,
@@ -91,8 +92,9 @@ pub struct PhysicalMetallicRoughnessMaterial {
   pub metallic_roughness_texture: Option<Texture2DWithSamplingData>,
   pub emissive_texture: Option<Texture2DWithSamplingData>,
   pub normal_texture: Option<NormalMapping>,
+  pub ext: DynamicExtension,
 }
-clone_self_incremental!(PhysicalMetallicRoughnessMaterial);
+// clone_self_incremental!(PhysicalMetallicRoughnessMaterial);
 
 impl Default for PhysicalMetallicRoughnessMaterial {
   fn default() -> Self {
@@ -109,6 +111,7 @@ impl Default for PhysicalMetallicRoughnessMaterial {
       emissive_texture: None,
       reflectance: 0.5,
       normal_texture: None,
+      ext: Default::default(),
     }
   }
 }
@@ -116,4 +119,5 @@ impl Default for PhysicalMetallicRoughnessMaterial {
 #[derive(Clone, Incremental)]
 pub struct FlatMaterial {
   pub color: Vec4<f32>,
+  pub ext: DynamicExtension,
 }

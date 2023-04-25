@@ -1,11 +1,6 @@
-use std::{
-  fmt,
-  result::Result,
-  sync::{Arc, Mutex, Weak},
-  task::{Poll, Waker},
-};
+use std::{fmt, result::Result};
 
-use futures::Stream;
+use crate::*;
 
 #[derive(Debug)]
 pub struct Receiver<T> {
@@ -15,10 +10,7 @@ pub struct Receiver<T> {
 impl<T> Stream for Receiver<T> {
   type Item = T;
 
-  fn poll_next(
-    self: std::pin::Pin<&mut Self>,
-    cx: &mut std::task::Context<'_>,
-  ) -> Poll<Option<Self::Item>> {
+  fn poll_next(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Option<Self::Item>> {
     if let Ok(mut inner) = self.inner.lock() {
       inner.1 = cx.waker().clone().into();
       if inner.0.is_some() {
@@ -41,6 +33,17 @@ impl<T> Stream for Receiver<T> {
 #[derive(Debug)]
 pub struct Updater<T> {
   inner: Weak<Mutex<(Option<T>, Option<Waker>)>>,
+}
+
+impl<T> Drop for Updater<T> {
+  fn drop(&mut self) {
+    if let Some(inner) = self.inner.upgrade() {
+      let inner = inner.lock().unwrap();
+      if let Some(waker) = &inner.1 {
+        waker.wake_by_ref()
+      }
+    }
+  }
 }
 
 impl<T> Clone for Updater<T> {
@@ -99,12 +102,12 @@ impl<T> Updater<T> {
   }
 }
 
-pub fn single_value_channel<T>() -> (Receiver<Option<T>>, Updater<Option<T>>) {
+pub fn single_value_channel<T>() -> (Updater<T>, Receiver<T>) {
   let receiver = Receiver {
     inner: Arc::new(Mutex::new((None, None))),
   };
   let updater = Updater {
     inner: Arc::downgrade(&receiver.inner),
   };
-  (receiver, updater)
+  (updater, receiver)
 }

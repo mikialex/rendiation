@@ -1,26 +1,15 @@
 use crate::*;
 
-#[derive(Clone)]
-pub struct TransformInstance<M> {
-  pub mesh: M,
-  pub transforms: Vec<Mat4<f32>>,
-}
-
-impl<M: Clone + Send + Sync> SimpleIncremental for TransformInstance<M> {
-  type Delta = Self;
-
-  fn s_apply(&mut self, delta: Self::Delta) {
-    *self = delta
-  }
-
-  fn s_expand(&self, mut cb: impl FnMut(Self::Delta)) {
-    cb(self.clone())
-  }
-}
-
-pub struct TransformInstanceGPU<M: WebGPUMesh> {
-  mesh_gpu: M::GPU,
+pub struct TransformInstanceGPU {
+  mesh_gpu: Box<MeshGPUInstance>,
   instance_gpu: GPUBufferResourceView,
+}
+
+impl Stream for TransformInstanceGPU {
+  type Item = RenderComponentDeltaFlag;
+  fn poll_next(self: Pin<&mut Self>, _: &mut Context) -> Poll<Option<Self::Item>> {
+    Poll::Pending
+  }
 }
 
 only_vertex!(TransformInstanceMat, Mat4<f32>);
@@ -32,7 +21,7 @@ pub struct ShaderMat4VertexInput {
   mat: Mat4<f32>,
 }
 
-impl<M: WebGPUMesh> ShaderGraphProvider for TransformInstanceGPU<M> {
+impl ShaderGraphProvider for TransformInstanceGPU {
   fn build(
     &self,
     builder: &mut ShaderGraphRenderPipelineBuilder,
@@ -57,36 +46,73 @@ impl<M: WebGPUMesh> ShaderGraphProvider for TransformInstanceGPU<M> {
   }
 }
 
-impl<M: WebGPUMesh> ShaderHashProvider for TransformInstanceGPU<M> {}
+impl ShaderHashProvider for TransformInstanceGPU {
+  fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
+    self.mesh_gpu.hash_pipeline(hasher)
+  }
+}
 
-impl<M: WebGPUMesh> ShaderPassBuilder for TransformInstanceGPU<M> {
+impl ShaderPassBuilder for TransformInstanceGPU {
   fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
     self.mesh_gpu.setup_pass(ctx);
     ctx.set_vertex_buffer_owned_next(&self.instance_gpu);
   }
 }
 
-impl<M: WebGPUMesh + Clone> WebGPUMesh for TransformInstance<M> {
-  type GPU = TransformInstanceGPU<M>;
-
-  fn update(&self, gpu_mesh: &mut Self::GPU, gpu: &webgpu::GPU, storage: &mut anymap::AnyMap) {
-    *gpu_mesh = self.create(gpu, storage)
+impl ReactiveRenderComponentSource for ReactiveMeshGPUOf<TransformInstancedSceneMesh> {
+  fn as_reactive_component(&self) -> &dyn ReactiveRenderComponent {
+    self.as_ref() as &dyn ReactiveRenderComponent
   }
+}
 
-  fn create(&self, gpu: &webgpu::GPU, storage: &mut anymap::AnyMap) -> Self::GPU {
-    let mesh_gpu = self.mesh.create(gpu, storage);
+impl WebGPUMesh for TransformInstancedSceneMesh {
+  type ReactiveGPU =
+    impl AsRef<RenderComponentCell<TransformInstanceGPU>> + Stream<Item = RenderComponentDeltaFlag>;
 
-    let instance_gpu = create_gpu_buffer(
-      bytemuck::cast_slice(self.transforms.as_slice()),
-      webgpu::BufferUsages::VERTEX,
-      &gpu.device,
-    )
-    .create_default_view();
+  fn create_reactive_gpu(
+    source: &SceneItemRef<Self>,
+    ctx: &ShareBindableResourceCtx,
+  ) -> Self::ReactiveGPU {
+    let weak = source.downgrade();
+    let ctx = ctx.clone();
 
-    TransformInstanceGPU {
-      mesh_gpu,
-      instance_gpu,
-    }
+    let create = move || {
+      if let Some(m) = weak.upgrade() {
+        let mesh = m.read();
+        // todo, current we do not support reuse this inner mesh!
+        let mesh_gpu = mesh.mesh.create_scene_reactive_gpu(&ctx).unwrap();
+        let mesh_gpu = Box::new(mesh_gpu);
+
+        let instance_gpu = create_gpu_buffer(
+          bytemuck::cast_slice(mesh.transforms.as_slice()),
+          webgpu::BufferUsages::VERTEX,
+          &ctx.gpu.device,
+        )
+        .create_default_view();
+
+        let r = TransformInstanceGPU {
+          mesh_gpu,
+          instance_gpu,
+        };
+        Some(r)
+      } else {
+        None
+      }
+    };
+
+    let gpu = create().unwrap();
+    let state = RenderComponentCell::new(gpu);
+
+    source
+      .single_listen_by::<()>(any_change_no_init)
+      .fold_signal(state, move |_, state| {
+        if let Some(gpu) = create() {
+          state.inner = gpu;
+          RenderComponentDeltaFlag::all().into()
+        } else {
+          None
+        }
+      })
   }
 
   fn draw_impl(&self, group: MeshDrawGroup) -> DrawCommand {

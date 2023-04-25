@@ -1,13 +1,7 @@
-use std::{
-  collections::VecDeque,
-  pin::Pin,
-  sync::{atomic::AtomicU64, Arc, RwLock},
-  task::Poll,
-};
+use crate::*;
 
 use arena::{Arena, Handle};
-use futures::Stream;
-use pin_project::pin_project;
+use std::{collections::VecDeque, sync::atomic::AtomicU64};
 
 #[pin_project]
 struct BufferedSharedStreamInner<S: Stream> {
@@ -50,10 +44,7 @@ where
 {
   type Item = S::Item;
 
-  fn poll_next(
-    self: std::pin::Pin<&mut Self>,
-    cx: &mut std::task::Context<'_>,
-  ) -> Poll<Option<Self::Item>> {
+  fn poll_next(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Option<Self::Item>> {
     let mut inner = self.inner.write().unwrap();
     let inner: &mut BufferedSharedStreamInner<_> = &mut inner;
     let inner = Pin::new(inner);

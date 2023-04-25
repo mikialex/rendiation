@@ -1,25 +1,29 @@
-use std::{
-  collections::VecDeque,
-  pin::Pin,
-  task::{Context, Poll},
-};
+use std::collections::VecDeque;
 
 use futures::{
   ready,
   stream::{once, Fuse, FusedStream},
-  Stream, StreamExt,
+  StreamExt,
 };
 use pin_project::pin_project;
 
 use crate::*;
 
-pub fn do_updates<T: Stream + Unpin>(stream: &mut T, mut on_update: impl FnMut(T::Item)) {
+pub fn do_updates<T: Stream + Unpin>(stream: &mut T, on_update: impl FnMut(T::Item)) {
   // synchronously polling the stream, pull out all updates.
   // note, if the compute stream contains async mapping, the async part is actually
   // polled inactively.
   let waker = futures::task::noop_waker_ref();
   let mut cx = Context::from_waker(waker);
-  while let Poll::Ready(Some(update)) = stream.poll_next_unpin(&mut cx) {
+  do_updates_by(stream, &mut cx, on_update)
+}
+
+pub fn do_updates_by<T: Stream + Unpin>(
+  stream: &mut T,
+  cx: &mut Context,
+  mut on_update: impl FnMut(T::Item),
+) {
+  while let Poll::Ready(Some(update)) = stream.poll_next_unpin(cx) {
     on_update(update)
   }
 }
@@ -63,6 +67,23 @@ pub trait SignalStreamExt: Stream {
   fn create_index_mapping_broadcaster<D>(self) -> StreamBroadcaster<Self, D, IndexMapping>
   where
     Self: Sized + Stream;
+
+  fn fold_signal<State, F, X>(self, state: State, f: F) -> SignalFold<State, Self, F>
+  where
+    Self: Sized,
+    Self: Stream,
+    F: FnMut(Self::Item, &mut State) -> Option<X>;
+
+  // we elaborate the bound here to help compiler deduce the type
+  fn fold_signal_flatten<State, F, X>(
+    self,
+    state: State,
+    f: F,
+  ) -> SignalFoldFlatten<State, Self, F>
+  where
+    Self: Sized,
+    Self: Stream,
+    F: FnMut(Self::Item, &mut State) -> X;
 }
 
 impl<T: Stream> SignalStreamExt for T {
@@ -124,6 +145,32 @@ impl<T: Stream> SignalStreamExt for T {
   {
     StreamBroadcaster::new(self, IndexMapping)
   }
+
+  fn fold_signal<State, F, X>(self, state: State, f: F) -> SignalFold<State, Self, F>
+  where
+    Self: Sized,
+    Self: Stream,
+    F: FnMut(Self::Item, &mut State) -> Option<X>,
+  {
+    SignalFold {
+      state,
+      stream: self,
+      f,
+    }
+  }
+
+  fn fold_signal_flatten<State, F, X>(self, state: State, f: F) -> SignalFoldFlatten<State, Self, F>
+  where
+    Self: Sized,
+    Self: Stream,
+    F: FnMut(Self::Item, &mut State) -> X,
+  {
+    SignalFoldFlatten {
+      state,
+      stream: self,
+      f,
+    }
+  }
 }
 
 pub type StreamForker<S> = StreamBroadcaster<S, <S as Stream>::Item, FanOut>;
@@ -142,7 +189,7 @@ where
 {
   type Item = X;
 
-  fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+  fn poll_next(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Option<Self::Item>> {
     let mut this = self.project();
     loop {
       if let Poll::Ready(v) = this.inner.as_mut().poll_next(cx) {
@@ -184,7 +231,7 @@ where
 {
   type Item = S::Item;
 
-  fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+  fn poll_next(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Option<Self::Item>> {
     let mut this = self.project();
 
     while let Poll::Ready(result) = this.inner.as_mut().poll_next(cx) {
@@ -268,7 +315,7 @@ where
 {
   type Item = <St::Item as Stream>::Item;
 
-  fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+  fn poll_next(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Option<Self::Item>> {
     let mut this = self.project();
     Poll::Ready(loop {
       // compare to the flatten, we poll the outside stream first
@@ -335,7 +382,7 @@ where
 {
   type Item = (St1::Item, St2::Item);
 
-  fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+  fn poll_next(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Option<Self::Item>> {
     let mut this = self.project();
 
     match this.stream1.as_mut().poll_next(cx) {
@@ -363,5 +410,81 @@ where
     }
 
     Poll::Pending
+  }
+}
+
+#[pin_project]
+pub struct SignalFold<T, S, F> {
+  state: T,
+  #[pin]
+  stream: S,
+  f: F,
+}
+
+impl<T, S, F> AsRef<T> for SignalFold<T, S, F> {
+  fn as_ref(&self) -> &T {
+    &self.state
+  }
+}
+
+impl<T, S, F, X> Stream for SignalFold<T, S, F>
+where
+  S: Stream,
+  F: FnMut(S::Item, &mut T) -> Option<X>,
+{
+  type Item = X;
+
+  fn poll_next(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Option<Self::Item>> {
+    let mut this = self.project();
+    loop {
+      if let Poll::Ready(v) = this.stream.as_mut().poll_next(cx) {
+        if let Some(v) = v {
+          if let Some(c) = (this.f)(v, this.state) {
+            break Poll::Ready(Some(c));
+          }
+        } else {
+          break Poll::Ready(None);
+        }
+      } else {
+        break Poll::Pending;
+      }
+    }
+  }
+}
+
+#[pin_project]
+/// we could use Arc state and stream select to achieve same effect
+pub struct SignalFoldFlatten<T, S, F> {
+  state: T,
+  #[pin]
+  stream: S,
+  f: F,
+}
+
+impl<T, S, F> AsRef<T> for SignalFoldFlatten<T, S, F> {
+  fn as_ref(&self) -> &T {
+    &self.state
+  }
+}
+
+impl<T, S, F, X> Stream for SignalFoldFlatten<T, S, F>
+where
+  S: Stream,
+  T: Stream<Item = X> + Unpin,
+  F: FnMut(S::Item, &mut T) -> X,
+{
+  type Item = X;
+
+  fn poll_next(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Option<Self::Item>> {
+    let this = self.project();
+    if let Poll::Ready(v) = this.stream.poll_next(cx) {
+      if let Some(v) = v {
+        Poll::Ready(Some((this.f)(v, this.state)))
+      } else {
+        Poll::Ready(None)
+      }
+    } else {
+      this.state.poll_next_unpin(cx)
+    }
   }
 }

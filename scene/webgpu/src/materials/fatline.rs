@@ -1,14 +1,18 @@
 use crate::*;
 
 #[repr(C)]
-#[derive(Clone, Copy, Pod, Zeroable, ShaderStruct, Incremental)]
+#[derive(Clone, Incremental)]
 pub struct FatLineMaterial {
   pub width: f32,
+  pub state: MaterialStates,
 }
 
-impl Default for FatLineMaterial {
-  fn default() -> Self {
-    Self { width: 10. }
+impl FatLineMaterial {
+  pub fn new(width: f32) -> Self {
+    Self {
+      width,
+      state: MaterialStates::helper_like(),
+    }
   }
 }
 
@@ -21,6 +25,14 @@ pub struct FatlineMaterialUniform {
 
 pub struct FatlineMaterialGPU {
   uniform: UniformBufferDataView<FatlineMaterialUniform>,
+}
+
+impl Stream for FatlineMaterialGPU {
+  type Item = RenderComponentDeltaFlag;
+
+  fn poll_next(self: Pin<&mut Self>, _: &mut Context) -> Poll<Option<Self::Item>> {
+    Poll::Pending
+  }
 }
 
 impl ShaderHashProvider for FatlineMaterialGPU {}
@@ -164,18 +176,47 @@ wgsl_fn!(
   }
 );
 
-impl WebGPUMaterial for FatLineMaterial {
-  type GPU = FatlineMaterialGPU;
+impl ReactiveRenderComponentSource for ReactiveMaterialGPUOf<FatLineMaterial> {
+  fn as_reactive_component(&self) -> &dyn ReactiveRenderComponent {
+    self.as_ref() as &dyn ReactiveRenderComponent
+  }
+}
 
-  fn create_gpu(&self, _: &mut GPUResourceSubCache, gpu: &GPU) -> Self::GPU {
+impl WebGPUMaterial for FatLineMaterial {
+  type ReactiveGPU =
+    impl AsRef<RenderComponentCell<FatlineMaterialGPU>> + Stream<Item = RenderComponentDeltaFlag>;
+
+  fn create_reactive_gpu(
+    source: &SceneItemRef<Self>,
+    ctx: &ShareBindableResourceCtx,
+  ) -> Self::ReactiveGPU {
     let uniform = FatlineMaterialUniform {
-      width: self.width,
+      width: source.read().width,
       ..Zeroable::zeroed()
     };
-    let uniform = create_uniform(uniform, gpu);
+    let uniform = create_uniform2(uniform, &ctx.gpu.device);
 
-    FatlineMaterialGPU { uniform }
+    let gpu = FatlineMaterialGPU { uniform };
+    let state = RenderComponentCell::new(gpu);
+
+    let weak_material = source.downgrade();
+    let ctx = ctx.clone();
+
+    source
+      .single_listen_by::<()>(any_change_no_init)
+      .fold_signal(state, move |_, state| {
+        if let Some(m) = weak_material.upgrade() {
+          let uniform = FatlineMaterialUniform {
+            width: m.read().width,
+            ..Zeroable::zeroed()
+          };
+          state.inner.uniform.resource.set(uniform);
+          state.inner.uniform.resource.upload(&ctx.gpu.queue);
+        }
+        RenderComponentDeltaFlag::Content.into()
+      })
   }
+
   fn is_keep_mesh_shape(&self) -> bool {
     false
   }

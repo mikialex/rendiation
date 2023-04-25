@@ -44,7 +44,7 @@ impl PassContentWithCamera for &mut AxisHelper {
   }
 }
 
-type ArrowMaterial = StateControl<FlatMaterial>;
+type ArrowMaterial = FlatMaterial;
 type ArrowTipMesh = impl WebGPUSceneMesh;
 type ArrowBodyMesh = impl WebGPUSceneMesh;
 
@@ -97,13 +97,12 @@ impl Arrow {
 
     let material = solid_material((1., 1., 1.)).into_ref();
     let modify_material = material.clone();
-    let material: Box<dyn WebGPUSceneMaterial> = Box::new(material);
-    let material = SceneMaterialType::Foreign(Arc::new(material));
+    let material = SceneMaterialType::Flat(material);
 
     let node_cylinder = root.create_child();
 
     let model = StandardModel::new(material.clone(), cylinder_mesh);
-    let model = SceneModelType::Standard(model.into());
+    let model = ModelType::Standard(model.into());
     let model = SceneModelImpl {
       model,
       node: node_cylinder,
@@ -115,7 +114,7 @@ impl Arrow {
     node_tip.set_local_matrix(Mat4::translate((0., 2., 0.)));
 
     let model = StandardModel::new(material, tip_mesh);
-    let model = SceneModelType::Standard(model.into());
+    let model = ModelType::Standard(model.into());
     let model = SceneModelImpl {
       model,
       node: node_tip,
@@ -167,7 +166,6 @@ impl Arrow {
     color
       .expand_with_one()
       .wrap(FlatMaterialDelta::color)
-      .wrap(StateControlDelta::material)
       .apply_modify(&self.material);
   }
 
@@ -190,8 +188,8 @@ impl Arrow {
 pub fn solid_material(color: impl Into<Vec3<f32>>) -> ArrowMaterial {
   FlatMaterial {
     color: color.into().expand_with_one(),
+    ext: DynamicExtension::default().with_insert(MaterialStates::helper_like()),
   }
-  .use_state_helper_like()
 }
 
 impl AxisHelper {

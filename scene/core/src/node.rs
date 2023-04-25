@@ -1,6 +1,7 @@
 use crate::*;
 
 use bitflags::bitflags;
+use reactive::DefaultUnboundChannel;
 use tree::*;
 
 pub type SceneNodeData = Identity<SceneNodeDataImpl>;
@@ -127,8 +128,8 @@ impl SceneNode {
   pub fn listen_by<U: Send + Sync + 'static>(
     &self,
     mapper: impl Fn(MaybeDeltaRef<SceneNodeDataImpl>, &dyn Fn(U)) + Send + Sync + 'static,
-  ) -> impl futures::Stream<Item = U> {
-    self.visit(|node| node.listen_by(mapper))
+  ) -> impl Stream<Item = U> {
+    self.visit(|node| node.listen_by::<DefaultUnboundChannel, _>(mapper))
   }
 
   pub fn from_root(

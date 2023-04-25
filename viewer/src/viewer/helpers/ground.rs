@@ -55,7 +55,7 @@ impl SceneItemReactiveSimpleMapping<InfinityShaderPlane> for SceneItemRef<GridGr
     let source = self.read();
     let grid_gpu = create_grid_gpu(**source, ctx);
 
-    let change = source.listen_by(any_change);
+    let change = source.unbound_listen_by(any_change);
     (grid_gpu, change)
   }
 }

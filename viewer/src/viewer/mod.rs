@@ -136,10 +136,11 @@ impl ViewerSnapshotTaskResolver {
 
 impl Viewer3dRenderingCtx {
   pub fn new(gpu: Rc<GPU>) -> Self {
+    let resources = GPUResourceCache::new(&gpu);
     Self {
       pipeline: ViewerPipeline::new(gpu.as_ref()),
       gpu,
-      resources: Default::default(),
+      resources,
       pool: Default::default(),
       snapshot: None,
     }
@@ -151,6 +152,7 @@ impl Viewer3dRenderingCtx {
 
   pub fn render(&mut self, target: RenderTargetView, content: &mut Viewer3dContent) {
     content.maintain();
+    self.resources.maintain();
 
     let mut ctx = FrameCtx::new(
       &self.gpu,
