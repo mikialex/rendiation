@@ -28,6 +28,7 @@ impl WebGPUSceneMesh for SceneMeshType {
   fn id(&self) -> Option<usize> {
     match self {
       Self::AttributesMesh(m) => m.id(),
+      Self::TransformInstanced(m) => m.id(),
       Self::Foreign(m) => {
         return if let Some(m) = m.downcast_ref::<Box<dyn WebGPUSceneMesh>>() {
           m.id()
@@ -45,6 +46,10 @@ impl WebGPUSceneMesh for SceneMeshType {
         let instance = AttributesMesh::create_reactive_gpu(m, ctx);
         MeshGPUInstance::Attributes(instance)
       }
+      Self::TransformInstanced(m) => {
+        let instance = TransformInstancedSceneMesh::create_reactive_gpu(m, ctx);
+        MeshGPUInstance::TransformInstanced(instance)
+      }
       Self::Foreign(m) => {
         return if let Some(m) = m.downcast_ref::<Box<dyn WebGPUSceneMesh>>() {
           m.create_scene_reactive_gpu(ctx)
@@ -59,7 +64,8 @@ impl WebGPUSceneMesh for SceneMeshType {
 
   fn topology(&self) -> webgpu::PrimitiveTopology {
     match self {
-      SceneMeshType::AttributesMesh(m) => WebGPUSceneMesh::topology(m),
+      SceneMeshType::AttributesMesh(m) => m.topology(),
+      SceneMeshType::TransformInstanced(m) => m.topology(),
       SceneMeshType::Foreign(mesh) => {
         if let Some(mesh) = mesh.downcast_ref::<Box<dyn WebGPUSceneMesh>>() {
           mesh.topology()
@@ -73,7 +79,8 @@ impl WebGPUSceneMesh for SceneMeshType {
 
   fn draw_impl(&self, group: MeshDrawGroup) -> DrawCommand {
     match self {
-      SceneMeshType::AttributesMesh(m) => WebGPUSceneMesh::draw_impl(m, group),
+      SceneMeshType::AttributesMesh(m) => m.draw_impl(group),
+      SceneMeshType::TransformInstanced(m) => m.draw_impl(group),
       SceneMeshType::Foreign(mesh) => {
         if let Some(mesh) = mesh.downcast_ref::<Box<dyn WebGPUSceneMesh>>() {
           mesh.draw_impl(group)
@@ -87,6 +94,7 @@ impl WebGPUSceneMesh for SceneMeshType {
   fn try_pick(&self, f: &mut dyn FnMut(&dyn IntersectAbleGroupedMesh)) {
     match self {
       SceneMeshType::AttributesMesh(_) => {}
+      SceneMeshType::TransformInstanced(m) => m.try_pick(f),
       SceneMeshType::Foreign(mesh) => {
         if let Some(mesh) = mesh.downcast_ref::<Box<dyn WebGPUSceneMesh>>() {
           mesh.try_pick(f)
