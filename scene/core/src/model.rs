@@ -2,22 +2,22 @@ use rendiation_renderable_mesh::group::MeshDrawGroup;
 
 use crate::*;
 
-#[non_exhaustive]
-#[derive(Clone)]
-pub enum SceneModelType {
-  Standard(SceneItemRef<StandardModel>),
-  Foreign(Arc<dyn Any + Send + Sync>),
-}
-
-clone_self_incremental!(SceneModelType);
-
 pub type SceneModel = SceneItemRef<SceneModelImpl>;
 
 #[derive(Incremental)]
 pub struct SceneModelImpl {
-  pub model: SceneModelType,
+  pub model: ModelType,
   pub node: SceneNode,
 }
+
+#[non_exhaustive]
+#[derive(Clone)]
+pub enum ModelType {
+  Standard(SceneItemRef<StandardModel>),
+  Foreign(Arc<dyn Any + Send + Sync>),
+}
+
+clone_self_incremental!(ModelType);
 
 #[derive(Incremental)]
 pub struct StandardModel {

@@ -52,7 +52,7 @@ pub fn setup_pass_core(
   dispatcher: &dyn RenderComponentAny,
 ) {
   match &model_input.model {
-    SceneModelType::Standard(model) => {
+    ModelType::Standard(model) => {
       let model = model.read();
       let resources = &mut pass.resources;
       let pass_gpu = dispatcher;
@@ -97,7 +97,7 @@ pub fn setup_pass_core(
 
       RenderEmitter::new(components.as_slice()).render(&mut pass.ctx, &emitter);
     }
-    SceneModelType::Foreign(model) => {
+    ModelType::Foreign(model) => {
       if let Some(model) = model.downcast_ref::<Box<dyn SceneRenderable>>() {
         model.render(pass, dispatcher, camera)
       }
@@ -109,8 +109,8 @@ pub fn setup_pass_core(
 impl SceneRenderable for SceneModelImpl {
   fn is_transparent(&self) -> bool {
     match &self.model {
-      SceneModelType::Standard(model) => model.read().material.is_transparent(),
-      SceneModelType::Foreign(model) => {
+      ModelType::Standard(model) => model.read().material.is_transparent(),
+      ModelType::Foreign(model) => {
         if let Some(model) = model.downcast_ref::<Box<dyn SceneRenderable>>() {
           model.is_transparent()
         } else {
@@ -136,7 +136,7 @@ pub fn ray_pick_nearest_core(
   world_mat: Mat4<f32>,
 ) -> OptionalNearest<MeshBufferHitPoint> {
   match &m.model {
-    SceneModelType::Standard(model) => {
+    ModelType::Standard(model) => {
       let net_visible = ctx.node_derives.get_net_visible(&m.node);
       if !net_visible {
         return OptionalNearest::none();
@@ -167,7 +167,7 @@ pub fn ray_pick_nearest_core(
         });
       picked
     }
-    SceneModelType::Foreign(model) => {
+    ModelType::Foreign(model) => {
       // todo should merge vtable to render
       if let Some(model) = model.downcast_ref::<Box<dyn SceneRayInteractive>>() {
         model.ray_pick_nearest(ctx)
@@ -187,112 +187,144 @@ impl SceneRayInteractive for SceneModelImpl {
 
 #[pin_project::pin_project]
 pub struct StandardModelGPU {
-  material_id: (usize, MaterialReactive),
-  // mesh_id: usize,
+  material_id: Option<usize>,
+  material_delta: Option<ReactiveMaterialRenderComponentDeltaSource>,
+  mesh_id: Option<usize>,
+  mesh_delta: Option<ReactiveMeshRenderComponentDeltaSource>,
 }
 
 impl Stream for StandardModelGPU {
   type Item = RenderComponentDeltaFlag;
 
   fn poll_next(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Option<Self::Item>> {
-    let this = self.project();
-    // early_return_ready!(this.material.poll_next_unpin(cx));
+    let mut this = self.project();
+    early_return_option_ready!(this.material_delta, cx);
+    early_return_option_ready!(this.mesh_delta, cx);
     Poll::Pending
   }
 }
 
-// impl RenderComponent for StandardModelGPU{
-//   //
-// }
-
-pub type ModelGPUReactive =
-  impl AsRef<RenderComponentCell<StandardModelGPU>> + Stream<Item = RenderComponentDeltaFlag>;
+pub type ReactiveStandardModelGPU = impl AsRef<RenderComponentCell<StandardModelGPU>>
+  + Stream<Item = RenderComponentDeltaFlag>
+  + Unpin;
 
 pub fn build_standard_model_gpu(
   source: &SceneItemRef<StandardModel>,
   ctx: &GPUModelResourceCtx,
-) -> ModelGPUReactive {
+) -> ReactiveStandardModelGPU {
   let s = source.read();
   let gpu = StandardModelGPU {
-    material_id: (
-      0,
-      ctx
-        .get_or_create_reactive_material_gpu(&s.material)
-        .unwrap(),
-    ),
-    // mesh_id: 0,
+    material_id: s.material.id(),
+    material_delta: ctx.get_or_create_reactive_material_render_component_delta_source(&s.material),
+    mesh_id: s.mesh.id(),
+    mesh_delta: ctx.get_or_create_reactive_mesh_render_component_delta_source(&s.mesh),
   };
 
   let state = RenderComponentCell::new(gpu);
-
   let ctx = ctx.clone();
 
   source
     .unbound_listen_by(all_delta)
     .fold_signal_flatten(state, move |delta, state| match delta {
       StandardModelDelta::material(material) => {
-        let id: usize = 0;
-        let delta = ctx.get_or_create_reactive_material_gpu(&material);
-        // state.inner.gpu.material_id = id;
-        // state.inner.reactive.material = delta;
+        state.inner.material_id = material.id();
+        state.inner.material_delta =
+          ctx.get_or_create_reactive_material_render_component_delta_source(&material);
         RenderComponentDeltaFlag::ContentRef
       }
-      StandardModelDelta::mesh(_) => todo!(),
-      StandardModelDelta::group(_) => todo!(),
+      StandardModelDelta::mesh(mesh) => {
+        state.inner.mesh_id = mesh.id();
+        state.inner.mesh_delta =
+          ctx.get_or_create_reactive_mesh_render_component_delta_source(&mesh);
+        RenderComponentDeltaFlag::ContentRef
+      }
+      StandardModelDelta::group(_) => RenderComponentDeltaFlag::Draw,
       StandardModelDelta::skeleton(_) => todo!(),
     })
 }
 
-#[pin_project::pin_project]
-pub struct SceneModelGPUInstance {
-  node_id: usize,
-  model_id: Option<usize>,
+#[pin_project::pin_project(project = ReactiveSceneModelGPUTypeProj)]
+pub enum ReactiveSceneModelGPUType {
+  Standard(ReactiveStandardModelGPU),
+  Foreign,
 }
 
-// pub enum SceneModelGPUReactive {
-//   Standard(ModelGPUReactive),
-//   Foreign(Arc<dyn Any + Send + Sync>),
-// }
+impl ReactiveSceneModelGPUType {
+  fn create_render_component_delta_stream(
+    &self,
+  ) -> Pin<Box<dyn Stream<Item = RenderComponentDeltaFlag>>> {
+    todo!()
+  }
+}
 
-impl Stream for SceneModelGPUInstance {
+impl Stream for ReactiveSceneModelGPUType {
+  type Item = RenderComponentDeltaFlag;
+
+  fn poll_next(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Option<Self::Item>> {
+    match self.project() {
+      ReactiveSceneModelGPUTypeProj::Standard(m) => m.poll_next_unpin(cx),
+      // ReactiveSceneModelGPUTypeProj::Foreign(m) => m.poll_next_unpin(cx),
+      _ => todo!(),
+    }
+  }
+}
+
+#[pin_project::pin_project]
+pub struct ReactiveSceneModelGPU {
+  node_id: usize, // todo add stream here
+  model_id: Option<usize>,
+  model_delta: Option<Pin<Box<dyn Stream<Item = RenderComponentDeltaFlag>>>>,
+}
+
+impl Stream for ReactiveSceneModelGPU {
   type Item = RenderComponentDeltaFlag;
 
   fn poll_next(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Option<Self::Item>> {
     let mut this = self.project();
-    // early_return_option_ready!(this.model, cx);
+    early_return_option_ready!(this.model_delta, cx);
     Poll::Pending
   }
 }
 
-pub type SceneModelGPUReactive =
-  impl AsRef<RenderComponentCell<SceneModelGPUInstance>> + Stream<Item = RenderComponentDeltaFlag>;
+fn build_model_gpu(
+  model: &ModelType,
+  ctx: &GPUModelResourceCtx,
+) -> Option<ReactiveSceneModelGPUType> {
+  match model {
+    ModelType::Standard(model) => {
+      ReactiveSceneModelGPUType::Standard(build_standard_model_gpu(model, ctx)).into()
+    }
+    ModelType::Foreign(_) => None,
+    _ => None,
+  }
+}
 
-// pub type SceneModelReactive = impl Stream<Item = RenderComponentDelta>;
+pub type ReactiveSceneModelGPUInstance =
+  impl AsRef<RenderComponentCell<ReactiveSceneModelGPU>> + Stream<Item = RenderComponentDeltaFlag>;
 
 pub fn build_scene_model_gpu(
   source: &SceneModel,
   ctx: &GPUModelResourceCtx,
-  models: &mut StreamMap<ModelGPUReactive>,
-) -> SceneModelGPUReactive {
+  models: &mut StreamMap<ReactiveSceneModelGPUType>,
+) -> ReactiveSceneModelGPUInstance {
   let source = source.read();
-  let model_component_delta_s = match &source.model {
-    SceneModelType::Standard(model) => models
-      .get_or_insert_with(model.id(), || build_standard_model_gpu(model, ctx))
-      .as_ref()
-      .create_render_component_delta_stream()
-      .into(),
-    _ => None,
-  };
 
   let model_id = match &source.model {
-    SceneModelType::Standard(model) => model.id().into(),
-    SceneModelType::Foreign(_) => None,
+    ModelType::Standard(model) => model.id().into(),
+    ModelType::Foreign(_) => None,
     _ => None,
   };
+  let model_delta = models
+    .get_or_insert_with(model_id.unwrap(), || {
+      build_model_gpu(&source.model, ctx).unwrap()
+    })
+    .create_render_component_delta_stream()
+    .into();
 
-  let instance = SceneModelGPUInstance {
+  let instance = ReactiveSceneModelGPU {
     node_id: source.node.id(),
     model_id,
+    model_delta,
   };
 
   let state = RenderComponentCell::new(instance);
@@ -301,7 +333,7 @@ pub fn build_scene_model_gpu(
     .unbound_listen_by(all_delta)
     .fold_signal_flatten(state, |v, state| match v {
       SceneModelImplDelta::model(model) => match model {
-        SceneModelType::Standard(_) => {
+        ModelType::Standard(_) => {
           //
           RenderComponentDeltaFlag::ContentRef
         }

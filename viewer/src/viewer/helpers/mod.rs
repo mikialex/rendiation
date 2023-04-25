@@ -26,7 +26,7 @@ impl HelperLineModel {
     let mesh = SceneMeshType::Foreign(Arc::new(mesh));
 
     let model = StandardModel::new(mat, mesh);
-    let model = SceneModelType::Standard(model.into());
+    let model = ModelType::Standard(model.into());
     let model = SceneModelImpl {
       model,
       node: node.clone(),
@@ -38,7 +38,7 @@ impl HelperLineModel {
     let mesh: Box<dyn WebGPUSceneMesh> = Box::new(mesh.into_ref());
     let mesh = SceneMeshType::Foreign(Arc::new(mesh));
 
-    if let SceneModelType::Standard(model) = &self.inner.model {
+    if let ModelType::Standard(model) = &self.inner.model {
       mesh.wrap(StandardModelDelta::mesh).apply_modify(model);
     }
   }

@@ -102,7 +102,7 @@ impl Arrow {
     let node_cylinder = root.create_child();
 
     let model = StandardModel::new(material.clone(), cylinder_mesh);
-    let model = SceneModelType::Standard(model.into());
+    let model = ModelType::Standard(model.into());
     let model = SceneModelImpl {
       model,
       node: node_cylinder,
@@ -114,7 +114,7 @@ impl Arrow {
     node_tip.set_local_matrix(Mat4::translate((0., 2., 0.)));
 
     let model = StandardModel::new(material, tip_mesh);
-    let model = SceneModelType::Standard(model.into());
+    let model = ModelType::Standard(model.into());
     let model = SceneModelImpl {
       model,
       node: node_tip,

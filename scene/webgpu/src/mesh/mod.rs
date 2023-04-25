@@ -235,3 +235,22 @@ impl ShaderGraphProvider for MeshGPUInstance {
     }
   }
 }
+
+pub type ReactiveMeshRenderComponentDeltaSource = impl Stream<Item = RenderComponentDeltaFlag>;
+
+impl GPUModelResourceCtx {
+  pub fn get_or_create_reactive_mesh_render_component_delta_source(
+    &self,
+    mesh: &SceneMeshType,
+  ) -> Option<ReactiveMeshRenderComponentDeltaSource> {
+    self
+      .meshes
+      .write()
+      .unwrap()
+      .get_or_insert_with(mesh.id()?, || {
+        mesh.create_scene_reactive_gpu(&self.shared).unwrap()
+      })
+      .create_render_component_delta_stream()
+      .into()
+  }
+}

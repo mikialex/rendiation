@@ -108,13 +108,13 @@ impl SceneBoundingSystem {
       let local_box_stream = model
         .unbound_listen_by(with_field!(SceneModelImpl => model))
         .map(|model| match model {
-          SceneModelType::Standard(model) => Box::new(
+          ModelType::Standard(model) => Box::new(
             model
               .unbound_listen_by(with_field!(StandardModel => mesh))
               .map(|mesh| mesh.build_local_bound_stream())
               .flatten_signal(),
           ),
-          SceneModelType::Foreign(_) => {
+          ModelType::Foreign(_) => {
             Box::new(once_forever_pending(None)) as Box<dyn Unpin + Stream<Item = Option<Box3>>>
           }
         })

@@ -183,25 +183,6 @@ impl Stream for MaterialGPUInstance {
   }
 }
 
-pub type MaterialReactive = impl Stream<Item = RenderComponentDeltaFlag>;
-
-impl GPUModelResourceCtx {
-  pub fn get_or_create_reactive_material_gpu(
-    &self,
-    material: &SceneMaterialType,
-  ) -> Option<MaterialReactive> {
-    self
-      .materials
-      .write()
-      .unwrap()
-      .get_or_insert_with(material.id()?, || {
-        material.create_scene_reactive_gpu(&self.shared).unwrap()
-      })
-      .create_render_component_delta_stream()
-      .into()
-  }
-}
-
 impl ShaderHashProvider for MaterialGPUInstance {
   #[rustfmt::skip]
   fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
@@ -258,5 +239,24 @@ impl ShaderGraphProvider for MaterialGPUInstance {
       Self::Flat(m) => m.as_reactive_component().post_build(builder),
       Self::Foreign(m) => m.as_reactive_component().post_build(builder),
     }
+  }
+}
+
+pub type ReactiveMaterialRenderComponentDeltaSource = impl Stream<Item = RenderComponentDeltaFlag>;
+
+impl GPUModelResourceCtx {
+  pub fn get_or_create_reactive_material_render_component_delta_source(
+    &self,
+    material: &SceneMaterialType,
+  ) -> Option<ReactiveMaterialRenderComponentDeltaSource> {
+    self
+      .materials
+      .write()
+      .unwrap()
+      .get_or_insert_with(material.id()?, || {
+        material.create_scene_reactive_gpu(&self.shared).unwrap()
+      })
+      .create_render_component_delta_stream()
+      .into()
   }
 }

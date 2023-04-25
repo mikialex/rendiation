@@ -8,7 +8,7 @@ pub struct GlobalGPUSystem {
   gpu: ResourceGPUCtx,
   model_ctx: GPUModelResourceCtx,
   bindable_ctx: ShareBindableResourceCtx,
-  pub models: Arc<RwLock<StreamMap<ModelGPUReactive>>>,
+  pub models: Arc<RwLock<StreamMap<ReactiveSceneModelGPUType>>>,
 }
 
 impl GlobalGPUSystem {
@@ -40,7 +40,7 @@ impl Stream for GlobalGPUSystem {
     do_updates_by(&mut this.model_ctx, cx, |_| {});
 
     let mut models = this.models.write().unwrap();
-    let models: &mut StreamMap<ModelGPUReactive> = &mut models;
+    let models: &mut StreamMap<ReactiveSceneModelGPUType> = &mut models;
     do_updates_by(models, cx, |_| {});
     Poll::Pending
   }

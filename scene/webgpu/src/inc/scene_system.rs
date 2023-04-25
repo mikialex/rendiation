@@ -13,7 +13,7 @@ pub struct SceneGPUSystem {
   // cameras: SceneCameraGPUSystem,
   // bundle: SceneBundleGPUSystem,
   #[pin]
-  models: StreamMap<SceneModelGPUReactive>,
+  models: StreamMap<ReactiveSceneModelGPUType>,
 
   #[pin]
   source: SceneGPUUpdateSource,
