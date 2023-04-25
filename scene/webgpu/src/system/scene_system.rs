@@ -6,8 +6,6 @@ use crate::*;
 
 #[pin_project::pin_project]
 pub struct SceneGPUSystem {
-  // we share it between different scene system(it's global)
-  contents: Arc<RwLock<GlobalGPUSystem>>,
   // nodes: SceneNodeGPUSystem,
   // // the camera gpu data are mostly related to scene node it used, so keep it at scene level;
   // cameras: SceneCameraGPUSystem,
@@ -17,10 +15,14 @@ pub struct SceneGPUSystem {
 
   #[pin]
   source: SceneGPUUpdateSource,
+
+  pub cameras: RefCell<CameraGPUMap>,
+  pub nodes: RefCell<NodeGPUMap>,
+  pub lights: RefCell<GPULightCache>,
 }
 
 impl SceneGPUSystem {
-  pub fn render(&self, _encoder: &mut GPUCommandEncoder, _pass_dispatcher: &dyn RenderComponent) {
+  pub fn encode(&self, _encoder: &mut GPUCommandEncoder, _pass_dispatcher: &dyn RenderComponent) {
     // do encoding
   }
 }
@@ -37,7 +39,7 @@ impl Stream for SceneGPUSystem {
 type SceneGPUUpdateSource = impl Stream<Item = ()> + Unpin;
 
 impl SceneGPUSystem {
-  pub fn new(scene: &Scene, contents: Arc<RwLock<GlobalGPUSystem>>) -> Self {
+  pub fn new(scene: &Scene, contents: Arc<RwLock<ContentGPUSystem>>) -> Self {
     let models = Default::default();
     let contents_c = contents.clone();
 
@@ -67,12 +69,14 @@ impl SceneGPUSystem {
     });
 
     Self {
-      contents,
       models,
       // nodes: (),
       // cameras: (),
       // bundle: (),
       source,
+      cameras: Default::default(),
+      nodes: Default::default(),
+      lights: Default::default(),
     }
   }
 

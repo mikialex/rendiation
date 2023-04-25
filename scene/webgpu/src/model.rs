@@ -54,36 +54,34 @@ pub fn setup_pass_core(
   match &model_input.model {
     ModelType::Standard(model) => {
       let model = model.read();
-      let resources = &mut pass.resources;
       let pass_gpu = dispatcher;
-      let camera_gpu = resources
-        .cameras
-        .get_with_update(camera, &(pass.ctx.gpu, pass.node_derives));
+
+      let mut cameras = pass.scene_resources.cameras.borrow_mut();
+      let camera_gpu = cameras.get_with_update(camera, &(pass.ctx.gpu, pass.node_derives));
 
       let net_visible = pass.node_derives.get_net_visible(&model_input.node);
       if !net_visible {
         return;
       }
 
+      let mut nodes = pass.scene_resources.nodes.borrow_mut();
       let node_gpu = override_node.unwrap_or_else(|| {
-        resources
-          .nodes
-          .get_with_update(&model_input.node, &(pass.ctx.gpu, pass.node_derives))
+        nodes.get_with_update(&model_input.node, &(pass.ctx.gpu, pass.node_derives))
       });
 
-      let mut materials = resources.materials.write().unwrap();
+      let mut materials = pass.resources.model_ctx.materials.write().unwrap();
       let material_gpu = materials.get_or_insert_with(model.material.id().unwrap(), || {
         model
           .material
-          .create_scene_reactive_gpu(&resources.bindables)
+          .create_scene_reactive_gpu(&pass.resources.bindable_ctx)
           .unwrap()
       });
 
-      let mut meshes = resources.meshes.write().unwrap();
+      let mut meshes = pass.resources.model_ctx.meshes.write().unwrap();
       let mesh_gpu = meshes.get_or_insert_with(model.mesh.id().unwrap(), || {
         model
           .mesh
-          .create_scene_reactive_gpu(&resources.bindables)
+          .create_scene_reactive_gpu(&pass.resources.bindable_ctx)
           .unwrap()
       });
 
