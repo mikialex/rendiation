@@ -54,7 +54,6 @@ pub fn setup_pass_core(
   match &model_input.model {
     SceneModelType::Standard(model) => {
       let model = model.read();
-      let gpu = pass.ctx.gpu;
       let resources = &mut pass.resources;
       let pass_gpu = dispatcher;
       let camera_gpu = resources
@@ -80,13 +79,13 @@ pub fn setup_pass_core(
           .unwrap()
       });
 
-      let mesh_gpu = todo!();
-
-      // model.mesh.check_update_gpu(
-      //   &mut resources.scene.meshes,
-      //   &mut resources.custom_storage,
-      //   gpu,
-      // );
+      let mut meshes = resources.meshes.write().unwrap();
+      let mesh_gpu = meshes.get_or_insert_with(model.mesh.id().unwrap(), || {
+        model
+          .mesh
+          .create_scene_reactive_gpu(&resources.bindables)
+          .unwrap()
+      });
 
       let components = [pass_gpu, mesh_gpu, node_gpu, camera_gpu, material_gpu];
 

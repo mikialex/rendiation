@@ -78,6 +78,7 @@ pub struct GPUResourceCache {
   pub scene: GPUResourceSceneCache,
   pub bindables: ShareBindableResourceCtx,
   pub materials: Arc<RwLock<StreamMap<MaterialGPUInstance>>>,
+  pub meshes: Arc<RwLock<StreamMap<MeshGPUInstance>>>,
   pub custom_storage: AnyMap,
   pub cameras: CameraGPUMap,
   pub nodes: NodeGPUMap,
@@ -89,6 +90,7 @@ impl GPUResourceCache {
       scene: Default::default(),
       bindables: ShareBindableResourceCtx::new(gpu),
       materials: Default::default(),
+      meshes: Default::default(),
       custom_storage: AnyMap::new(),
       cameras: Default::default(),
       nodes: Default::default(),
@@ -103,6 +105,10 @@ impl GPUResourceCache {
     let mut materials = self.materials.write().unwrap();
     let materials: &mut StreamMap<MaterialGPUInstance> = &mut materials;
     do_updates(materials, |_| {});
+
+    let mut meshes = self.meshes.write().unwrap();
+    let meshes: &mut StreamMap<MeshGPUInstance> = &mut meshes;
+    do_updates(meshes, |_| {});
   }
 }
 

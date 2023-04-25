@@ -140,36 +140,10 @@ impl<T: WebGPUMesh> WebGPUSceneMesh for SceneItemRef<T> {
   }
 }
 
-// impl<T> WebGPUMesh for SceneItemRef<T>
-// where
-//   T: WebGPUMesh,
-// {
-//   type GPU = T::GPU;
-
-//   fn update(&self, gpu_mesh: &mut Self::GPU, gpu: &GPU, res: &mut AnyMap) {
-//     self.read().update(gpu_mesh, gpu, res);
-//   }
-
-//   fn create(&self, gpu: &GPU, res: &mut AnyMap) -> Self::GPU {
-//     self.read().create(gpu, res)
-//   }
-
-//   fn draw_impl(&self, group: MeshDrawGroup) -> DrawCommand {
-//     self.read().draw_impl(group)
-//   }
-
-//   fn topology(&self) -> webgpu::PrimitiveTopology {
-//     self.read().topology()
-//   }
-
-//   fn try_pick(&self, f: &mut dyn FnMut(&dyn IntersectAbleGroupedMesh)) {
-//     self.read().try_pick(f)
-//   }
-// }
-
 #[pin_project::pin_project(project = MeshGPUInstanceProj)]
 pub enum MeshGPUInstance {
   Attributes(ReactiveMeshGPUOf<AttributesMesh>),
+  TransformInstanced(ReactiveMeshGPUOf<TransformInstancedSceneMesh>),
   Foreign(Box<dyn ReactiveRenderComponentSource>),
 }
 
@@ -179,6 +153,7 @@ impl Stream for MeshGPUInstance {
   fn poll_next(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Option<Self::Item>> {
     match self.project() {
       MeshGPUInstanceProj::Attributes(m) => m.poll_next_unpin(cx),
+      MeshGPUInstanceProj::TransformInstanced(m) => m.poll_next_unpin(cx),
       MeshGPUInstanceProj::Foreign(m) => m.poll_next_unpin(cx),
     }
   }
@@ -191,6 +166,8 @@ impl ReactiveRenderComponent for MeshGPUInstance {
     match self {
       Self::Attributes(m) => Box::pin(m.as_ref().create_render_component_delta_stream())
         as Pin<Box<dyn Stream<Item = RenderComponentDeltaFlag>>>,
+      Self::TransformInstanced(m) => Box::pin(m.as_ref().create_render_component_delta_stream())
+        as Pin<Box<dyn Stream<Item = RenderComponentDeltaFlag>>>,
       Self::Foreign(m) => m
         .as_reactive_component()
         .create_render_component_delta_stream(),
@@ -200,8 +177,10 @@ impl ReactiveRenderComponent for MeshGPUInstance {
 
 impl ShaderHashProvider for MeshGPUInstance {
   fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
+    std::mem::discriminant(self).hash(hasher);
     match self {
       Self::Attributes(m) => m.as_reactive_component().hash_pipeline(hasher),
+      Self::TransformInstanced(m) => m.as_reactive_component().hash_pipeline(hasher),
       Self::Foreign(m) => m.as_reactive_component().hash_pipeline(hasher),
     }
   }
@@ -211,6 +190,7 @@ impl ShaderPassBuilder for MeshGPUInstance {
   fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
     match self {
       Self::Attributes(m) => m.as_reactive_component().setup_pass(ctx),
+      Self::TransformInstanced(m) => m.as_reactive_component().setup_pass(ctx),
       Self::Foreign(m) => m.as_reactive_component().setup_pass(ctx),
     }
   }
@@ -218,6 +198,7 @@ impl ShaderPassBuilder for MeshGPUInstance {
   fn post_setup_pass(&self, ctx: &mut GPURenderPassCtx) {
     match self {
       Self::Attributes(m) => m.as_reactive_component().post_setup_pass(ctx),
+      Self::TransformInstanced(m) => m.as_reactive_component().post_setup_pass(ctx),
       Self::Foreign(m) => m.as_reactive_component().post_setup_pass(ctx),
     }
   }
@@ -230,6 +211,7 @@ impl ShaderGraphProvider for MeshGPUInstance {
   ) -> Result<(), ShaderGraphBuildError> {
     match self {
       Self::Attributes(m) => m.as_reactive_component().build(builder),
+      Self::TransformInstanced(m) => m.as_reactive_component().build(builder),
       Self::Foreign(m) => m.as_reactive_component().build(builder),
     }
   }
@@ -240,6 +222,7 @@ impl ShaderGraphProvider for MeshGPUInstance {
   ) -> Result<(), ShaderGraphBuildError> {
     match self {
       Self::Attributes(m) => m.as_reactive_component().post_build(builder),
+      Self::TransformInstanced(m) => m.as_reactive_component().post_build(builder),
       Self::Foreign(m) => m.as_reactive_component().post_build(builder),
     }
   }
