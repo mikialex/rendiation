@@ -11,7 +11,7 @@ pub struct SceneGPUSystem {
   // cameras: SceneCameraGPUSystem,
   // bundle: SceneBundleGPUSystem,
   #[pin]
-  models: StreamMap<ReactiveSceneModelGPUType>,
+  models: Arc<RwLock<StreamMap<ReactiveSceneModelGPUInstance>>>,
 
   #[pin]
   source: SceneGPUUpdateSource,
@@ -33,33 +33,32 @@ impl Stream for SceneGPUSystem {
   fn poll_next(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Option<Self::Item>> {
     let this = self.project();
     early_return_ready!(this.source.poll_next(cx));
-    this.models.poll_next(cx).map(|v| v.map(|_| {}))
+
+    let mut models = this.models.write().unwrap();
+    let models: &mut StreamMap<ReactiveSceneModelGPUInstance> = &mut models;
+    do_updates_by(models, cx, |_| {});
+    Poll::Pending
   }
 }
 type SceneGPUUpdateSource = impl Stream<Item = ()> + Unpin;
 
 impl SceneGPUSystem {
   pub fn new(scene: &Scene, contents: Arc<RwLock<ContentGPUSystem>>) -> Self {
-    let models = Default::default();
-    let contents_c = contents.clone();
+    let models: Arc<RwLock<StreamMap<ReactiveSceneModelGPUInstance>>> = Default::default();
+    let models_c = models.clone();
 
     let source = scene.unbound_listen_by(all_delta).map(move |delta| {
-      let contents = contents_c.write().unwrap();
-      let mut models = contents.models.write().unwrap();
+      let contents = contents.write().unwrap();
+      let mut models = models_c.write().unwrap();
+      let models: &mut StreamMap<ReactiveSceneModelGPUInstance> = &mut models;
       if let SceneInnerDelta::models(delta) = delta {
         match delta {
           arena::ArenaDelta::Mutate((model, _)) => {
             models.remove(model.id());
-            models.get_or_insert_with(model.id(), || {
-              //
-              todo!()
-            });
+            models.get_or_insert_with(model.id(), || build_scene_model_gpu(&model, &contents));
           }
           arena::ArenaDelta::Insert((model, _)) => {
-            models.get_or_insert_with(model.id(), || {
-              //
-              todo!()
-            });
+            models.get_or_insert_with(model.id(), || build_scene_model_gpu(&model, &contents));
           }
           arena::ArenaDelta::Remove(handle) => {
             models.remove(handle.index());
