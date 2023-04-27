@@ -4,13 +4,16 @@ use crate::*;
 ///
 /// we could customize the stream trait's context to avoid too much arc clone in update logic
 #[pin_project::pin_project]
+#[derive(Clone)]
 pub struct ContentGPUSystem {
   gpu: ResourceGPUCtx,
   pub model_ctx: GPUModelResourceCtx,
   pub bindable_ctx: ShareBindableResourceCtx,
   pub models: Arc<RwLock<StreamMap<ReactiveSceneModelGPUType>>>,
-  pub custom_storage: RefCell<AnyMap>,
+  pub custom_storage: Arc<RefCell<AnyMap>>,
 }
+
+pub type ReactiveModelRenderComponentDeltaSource = impl Stream<Item = RenderComponentDeltaFlag>;
 
 impl ContentGPUSystem {
   pub fn new(gpu: &GPU) -> Self {
@@ -28,8 +31,23 @@ impl ContentGPUSystem {
       bindable_ctx,
       model_ctx,
       models: Default::default(),
-      custom_storage: RefCell::new(AnyMap::new()),
+      custom_storage: Arc::new(RefCell::new(AnyMap::new())),
     }
+  }
+
+  pub fn get_or_create_reactive_model_render_component_delta_source(
+    &self,
+    model: &ModelType,
+  ) -> Option<ReactiveModelRenderComponentDeltaSource> {
+    self
+      .models
+      .write()
+      .unwrap()
+      .get_or_insert_with(model.id()?, || {
+        model.create_scene_reactive_gpu(&self.model_ctx).unwrap()
+      })
+      .create_render_component_delta_stream()
+      .into()
   }
 }
 

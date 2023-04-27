@@ -244,14 +244,22 @@ pub fn build_standard_model_gpu(
 #[pin_project::pin_project(project = ReactiveSceneModelGPUTypeProj)]
 pub enum ReactiveSceneModelGPUType {
   Standard(ReactiveStandardModelGPU),
-  Foreign,
+  Foreign(Box<dyn ReactiveRenderComponentSource>),
 }
 
 impl ReactiveSceneModelGPUType {
-  fn create_render_component_delta_stream(
+  pub fn create_render_component_delta_stream(
     &self,
   ) -> Pin<Box<dyn Stream<Item = RenderComponentDeltaFlag>>> {
-    todo!()
+    match self {
+      ReactiveSceneModelGPUType::Standard(m) => {
+        Box::pin(m.as_ref().create_render_component_delta_stream())
+          as Pin<Box<dyn Stream<Item = RenderComponentDeltaFlag>>>
+      }
+      ReactiveSceneModelGPUType::Foreign(m) => m
+        .as_reactive_component()
+        .create_render_component_delta_stream(),
+    }
   }
 }
 
@@ -261,8 +269,7 @@ impl Stream for ReactiveSceneModelGPUType {
   fn poll_next(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Option<Self::Item>> {
     match self.project() {
       ReactiveSceneModelGPUTypeProj::Standard(m) => m.poll_next_unpin(cx),
-      // ReactiveSceneModelGPUTypeProj::Foreign(m) => m.poll_next_unpin(cx),
-      _ => todo!(),
+      ReactiveSceneModelGPUTypeProj::Foreign(m) => m.poll_next_unpin(cx),
     }
   }
 }
@@ -271,7 +278,7 @@ impl Stream for ReactiveSceneModelGPUType {
 pub struct ReactiveSceneModelGPU {
   node_id: usize, // todo add stream here
   model_id: Option<usize>,
-  model_delta: Option<Pin<Box<dyn Stream<Item = RenderComponentDeltaFlag>>>>,
+  model_delta: Option<ReactiveModelRenderComponentDeltaSource>,
 }
 
 impl Stream for ReactiveSceneModelGPU {
@@ -284,16 +291,47 @@ impl Stream for ReactiveSceneModelGPU {
   }
 }
 
-fn build_model_gpu(
-  model: &ModelType,
-  ctx: &GPUModelResourceCtx,
-) -> Option<ReactiveSceneModelGPUType> {
-  match model {
-    ModelType::Standard(model) => {
-      ReactiveSceneModelGPUType::Standard(build_standard_model_gpu(model, ctx)).into()
+pub trait WebGPUModel: Send + Sync {
+  fn id(&self) -> Option<usize>;
+  fn create_scene_reactive_gpu(
+    &self,
+    ctx: &GPUModelResourceCtx,
+  ) -> Option<ReactiveSceneModelGPUType>;
+}
+
+impl WebGPUModel for ModelType {
+  fn id(&self) -> Option<usize> {
+    match self {
+      Self::Standard(m) => m.id(),
+      Self::Foreign(m) => {
+        return if let Some(m) = m.downcast_ref::<Box<dyn WebGPUModel>>() {
+          m.id()
+        } else {
+          None
+        }
+      }
+      _ => return None,
     }
-    ModelType::Foreign(_) => None,
-    _ => None,
+    .into()
+  }
+  fn create_scene_reactive_gpu(
+    &self,
+    ctx: &GPUModelResourceCtx,
+  ) -> Option<ReactiveSceneModelGPUType> {
+    match self {
+      Self::Standard(model) => {
+        ReactiveSceneModelGPUType::Standard(build_standard_model_gpu(model, ctx))
+      }
+      Self::Foreign(m) => {
+        return if let Some(m) = m.downcast_ref::<Box<dyn WebGPUModel>>() {
+          m.create_scene_reactive_gpu(ctx)
+        } else {
+          None
+        }
+      }
+      _ => return None,
+    }
+    .into()
   }
 }
 
@@ -302,22 +340,12 @@ pub type ReactiveSceneModelGPUInstance =
 
 pub fn build_scene_model_gpu(
   source: &SceneModel,
-  ctx: &GPUModelResourceCtx,
-  models: &mut StreamMap<ReactiveSceneModelGPUType>,
+  ctx: &ContentGPUSystem,
 ) -> ReactiveSceneModelGPUInstance {
   let source = source.read();
 
-  let model_id = match &source.model {
-    ModelType::Standard(model) => model.id().into(),
-    ModelType::Foreign(_) => None,
-    _ => None,
-  };
-  let model_delta = models
-    .get_or_insert_with(model_id.unwrap(), || {
-      build_model_gpu(&source.model, ctx).unwrap()
-    })
-    .create_render_component_delta_stream()
-    .into();
+  let model_id = source.model.id();
+  let model_delta = ctx.get_or_create_reactive_model_render_component_delta_source(&source.model);
 
   let instance = ReactiveSceneModelGPU {
     node_id: source.node.id(),
@@ -326,19 +354,20 @@ pub fn build_scene_model_gpu(
   };
 
   let state = RenderComponentCell::new(instance);
+  let ctx = ctx.clone();
 
   source
     .unbound_listen_by(all_delta)
-    .fold_signal_flatten(state, |v, state| match v {
-      SceneModelImplDelta::model(model) => match model {
-        ModelType::Standard(_) => {
-          //
-          RenderComponentDeltaFlag::ContentRef
-        }
-        _ => todo!(),
-      },
-      SceneModelImplDelta::node(node) => {
-        //
+    .fold_signal_flatten(state, move |v, state| match v {
+      SceneModelImplDelta::model(model) => {
+        let model_id = model.id();
+        let model_delta = ctx.get_or_create_reactive_model_render_component_delta_source(&model);
+        state.inner.model_id = model_id;
+        state.inner.model_delta = model_delta;
+        RenderComponentDeltaFlag::ContentRef
+      }
+      SceneModelImplDelta::node(_) => {
+        // todo, handle node change
         RenderComponentDeltaFlag::ContentRef
       }
     })
