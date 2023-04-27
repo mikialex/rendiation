@@ -38,10 +38,8 @@ impl TAA {
     camera: &SceneCamera,
   ) -> &Attachment {
     // refresh cameras:
-    let new_camera = ctx
-      .resources
-      .cameras
-      .get_with_update(camera, &(ctx.gpu, ctx.node_derives));
+    let mut cameras = ctx.scene_resources.cameras.borrow_mut();
+    let new_camera = cameras.get_with_update(camera, &(ctx.gpu, ctx.node_derives));
 
     // improve? i think we could try copy buffer to buffer here.
     self
@@ -57,6 +55,8 @@ impl TAA {
       .resource
       .copy_cpu(&new_camera.ubo.resource)
       .upload(&ctx.gpu.queue);
+
+    drop(cameras);
 
     let mut resolve_target = attachment()
       .format(webgpu::TextureFormat::Rgba8Unorm)

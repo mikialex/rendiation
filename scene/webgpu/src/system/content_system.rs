@@ -4,17 +4,18 @@ use crate::*;
 ///
 /// we could customize the stream trait's context to avoid too much arc clone in update logic
 #[pin_project::pin_project]
-pub struct GlobalGPUSystem {
+pub struct ContentGPUSystem {
   gpu: ResourceGPUCtx,
-  model_ctx: GPUModelResourceCtx,
-  bindable_ctx: ShareBindableResourceCtx,
+  pub model_ctx: GPUModelResourceCtx,
+  pub bindable_ctx: ShareBindableResourceCtx,
   pub models: Arc<RwLock<StreamMap<ReactiveSceneModelGPUType>>>,
+  pub custom_storage: RefCell<AnyMap>,
 }
 
-impl GlobalGPUSystem {
-  pub fn new(gpu: &GPU, mipmap_gen: Rc<RefCell<MipMapTaskManager>>) -> Self {
+impl ContentGPUSystem {
+  pub fn new(gpu: &GPU) -> Self {
     let bindable_ctx = ShareBindableResourceCtx::new(gpu);
-    let gpu = ResourceGPUCtx::new(gpu, mipmap_gen);
+    let gpu = ResourceGPUCtx::new(gpu, Default::default());
 
     let model_ctx = GPUModelResourceCtx {
       shared: bindable_ctx.clone(),
@@ -27,11 +28,12 @@ impl GlobalGPUSystem {
       bindable_ctx,
       model_ctx,
       models: Default::default(),
+      custom_storage: RefCell::new(AnyMap::new()),
     }
   }
 }
 
-impl Stream for GlobalGPUSystem {
+impl Stream for ContentGPUSystem {
   type Item = ();
 
   fn poll_next(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Option<Self::Item>> {
@@ -71,44 +73,6 @@ impl Stream for GPUModelResourceCtx {
     do_updates_by(meshes, cx, |_| {});
 
     Poll::Pending
-  }
-}
-
-pub struct GPUResourceCache {
-  pub scene: GPUResourceSceneCache,
-  pub bindables: ShareBindableResourceCtx,
-  pub materials: Arc<RwLock<StreamMap<MaterialGPUInstance>>>,
-  pub meshes: Arc<RwLock<StreamMap<MeshGPUInstance>>>,
-  pub custom_storage: AnyMap,
-  pub cameras: CameraGPUMap,
-  pub nodes: NodeGPUMap,
-}
-
-impl GPUResourceCache {
-  pub fn new(gpu: &GPU) -> Self {
-    Self {
-      scene: Default::default(),
-      bindables: ShareBindableResourceCtx::new(gpu),
-      materials: Default::default(),
-      meshes: Default::default(),
-      custom_storage: AnyMap::new(),
-      cameras: Default::default(),
-      nodes: Default::default(),
-    }
-  }
-
-  pub fn maintain(&mut self) {
-    let mut texture_2d = self.bindables.texture_2d.write().unwrap();
-    let texture_2d: &mut StreamMap<ReactiveGPU2DTextureViewSource> = &mut texture_2d;
-    do_updates(texture_2d, |_| {});
-
-    let mut materials = self.materials.write().unwrap();
-    let materials: &mut StreamMap<MaterialGPUInstance> = &mut materials;
-    do_updates(materials, |_| {});
-
-    let mut meshes = self.meshes.write().unwrap();
-    let meshes: &mut StreamMap<MeshGPUInstance> = &mut meshes;
-    do_updates(meshes, |_| {});
   }
 }
 

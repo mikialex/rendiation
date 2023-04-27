@@ -9,6 +9,9 @@ pub use content_system::*;
 mod scene_system;
 pub use scene_system::*;
 
+mod global_system;
+pub use global_system::*;
+
 #[derive(Clone)]
 pub struct ResourceGPUCtx {
   pub device: GPUDevice,

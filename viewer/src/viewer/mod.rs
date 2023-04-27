@@ -110,7 +110,7 @@ pub struct WidgetContent {
 pub struct Viewer3dRenderingCtx {
   pipeline: ViewerPipeline,
   pool: ResourcePool,
-  resources: GPUResourceCache,
+  resources: GlobalGPUSystem,
   gpu: Rc<GPU>,
   snapshot: Option<ViewerSnapshotTaskResolver>,
 }
@@ -136,11 +136,11 @@ impl ViewerSnapshotTaskResolver {
 
 impl Viewer3dRenderingCtx {
   pub fn new(gpu: Rc<GPU>) -> Self {
-    let resources = GPUResourceCache::new(&gpu);
+    let gpu_resources = GlobalGPUSystem::new(&gpu);
     Self {
       pipeline: ViewerPipeline::new(gpu.as_ref()),
       gpu,
-      resources,
+      resources: gpu_resources,
       pool: Default::default(),
       snapshot: None,
     }
@@ -154,11 +154,17 @@ impl Viewer3dRenderingCtx {
     content.maintain();
     self.resources.maintain();
 
+    let (scene_resource, content_res) = self
+      .resources
+      .get_or_create_scene_sys_with_content(&content.scene);
+    let resource = content_res.read().unwrap();
+
     let mut ctx = FrameCtx::new(
       &self.gpu,
       target.size(),
       &self.pool,
-      &mut self.resources,
+      &resource,
+      scene_resource,
       &content.scene_derived,
     );
 

@@ -12,7 +12,8 @@ pub struct FrameCtx<'a> {
   msaa_sample_count: u32,
   frame_size: Size,
   pub encoder: GPUCommandEncoder,
-  pub resources: &'a mut GPUResourceCache,
+  pub resources: &'a ContentGPUSystem,
+  pub scene_resources: &'a SceneGPUSystem,
   pub node_derives: &'a SceneNodeDeriveSystem,
 }
 
@@ -21,7 +22,8 @@ impl<'a> FrameCtx<'a> {
     gpu: &'a GPU,
     frame_size: Size,
     pool: &'a ResourcePool,
-    resources: &'a mut GPUResourceCache,
+    resources: &'a ContentGPUSystem,
+    scene_resources: &'a SceneGPUSystem,
     node_derives: &'a SceneNodeDeriveSystem,
   ) -> Self {
     let msaa_sample_count = 4;
@@ -36,11 +38,12 @@ impl<'a> FrameCtx<'a> {
       encoder,
       gpu,
       node_derives,
+      scene_resources,
     }
   }
 
   pub fn resolve_resource_mipmaps(&mut self) {
-    let mip_gen = self.resources.bindables.gpu.mipmap_gen.clone();
+    let mip_gen = self.resources.bindable_ctx.gpu.mipmap_gen.clone();
     mip_gen.borrow_mut().flush_mipmap_gen_request(self);
   }
 

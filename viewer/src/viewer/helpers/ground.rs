@@ -25,17 +25,14 @@ impl PassContentWithCamera for &mut GridGround {
   ) {
     let base = pass.default_dispatcher();
 
-    let gpus: &mut ReactiveMap<SceneItemRef<GridGroundConfig>, InfinityShaderPlane> = pass
-      .resources
-      .custom_storage
-      .entry()
-      .or_insert_with(Default::default);
+    let mut custom_storage = pass.resources.custom_storage.borrow_mut();
+    let gpus: &mut ReactiveMap<SceneItemRef<GridGroundConfig>, InfinityShaderPlane> =
+      custom_storage.entry().or_insert_with(Default::default);
 
     let grid_gpu = gpus.get_with_update(&self.grid_config, pass.ctx.gpu);
-    let camera_gpu = pass
-      .resources
-      .cameras
-      .get_with_update(camera, &(pass.ctx.gpu, pass.node_derives));
+
+    let mut cameras = pass.scene_resources.cameras.borrow_mut();
+    let camera_gpu = cameras.get_with_update(camera, &(pass.ctx.gpu, pass.node_derives));
 
     let effect = InfinityShaderPlaneEffect {
       plane: &grid_gpu.plane,
