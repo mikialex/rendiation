@@ -2,7 +2,7 @@ use crate::*;
 
 #[derive(Clone)]
 pub enum TreeMutation<T: IncrementalBase> {
-  Create(T),
+  Create { data: T, node: usize },
   Delete(usize),
   Mutate { node: usize, delta: T::Delta },
   Attach { parent_target: usize, node: usize },
@@ -19,7 +19,10 @@ impl<T> TreeCollection<T> {
       if node.parent.is_none() {
         let node = self.create_node_ref(handle);
         node.traverse_pair_subtree(|self_node, parent| {
-          cb(TreeMutation::Create(mapper(&self_node.node.data)));
+          cb(TreeMutation::Create {
+            data: mapper(&self_node.node.data),
+            node: self_node.node.handle().index(),
+          });
           if let Some(parent) = parent {
             cb(TreeMutation::Attach {
               parent_target: parent.node.handle().index(),
