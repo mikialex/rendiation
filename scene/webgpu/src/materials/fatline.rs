@@ -23,6 +23,55 @@ pub struct FatlineMaterialUniform {
   pub width: f32,
 }
 
+impl ReactiveRenderComponentSource for ReactiveMaterialGPUOf<FatLineMaterial> {
+  fn as_reactive_component(&self) -> &dyn ReactiveRenderComponent {
+    self.as_ref() as &dyn ReactiveRenderComponent
+  }
+}
+
+impl WebGPUMaterial for FatLineMaterial {
+  type ReactiveGPU =
+    impl AsRef<RenderComponentCell<FatlineMaterialGPU>> + Stream<Item = RenderComponentDeltaFlag>;
+
+  fn create_reactive_gpu(
+    source: &SceneItemRef<Self>,
+    ctx: &ShareBindableResourceCtx,
+  ) -> Self::ReactiveGPU {
+    let uniform = FatlineMaterialUniform {
+      width: source.read().width,
+      ..Zeroable::zeroed()
+    };
+    let uniform = create_uniform2(uniform, &ctx.gpu.device);
+
+    let gpu = FatlineMaterialGPU { uniform };
+    let state = RenderComponentCell::new(gpu);
+
+    let weak_material = source.downgrade();
+    let ctx = ctx.clone();
+
+    source
+      .single_listen_by::<()>(any_change_no_init)
+      .fold_signal(state, move |_, state| {
+        if let Some(m) = weak_material.upgrade() {
+          let uniform = FatlineMaterialUniform {
+            width: m.read().width,
+            ..Zeroable::zeroed()
+          };
+          state.inner.uniform.resource.set(uniform);
+          state.inner.uniform.resource.upload(&ctx.gpu.queue);
+        }
+        RenderComponentDeltaFlag::Content.into()
+      })
+  }
+
+  fn is_keep_mesh_shape(&self) -> bool {
+    false
+  }
+  fn is_transparent(&self) -> bool {
+    false
+  }
+}
+
 pub struct FatlineMaterialGPU {
   uniform: UniformBufferDataView<FatlineMaterialUniform>,
 }
@@ -175,52 +224,3 @@ wgsl_fn!(
     return false;
   }
 );
-
-impl ReactiveRenderComponentSource for ReactiveMaterialGPUOf<FatLineMaterial> {
-  fn as_reactive_component(&self) -> &dyn ReactiveRenderComponent {
-    self.as_ref() as &dyn ReactiveRenderComponent
-  }
-}
-
-impl WebGPUMaterial for FatLineMaterial {
-  type ReactiveGPU =
-    impl AsRef<RenderComponentCell<FatlineMaterialGPU>> + Stream<Item = RenderComponentDeltaFlag>;
-
-  fn create_reactive_gpu(
-    source: &SceneItemRef<Self>,
-    ctx: &ShareBindableResourceCtx,
-  ) -> Self::ReactiveGPU {
-    let uniform = FatlineMaterialUniform {
-      width: source.read().width,
-      ..Zeroable::zeroed()
-    };
-    let uniform = create_uniform2(uniform, &ctx.gpu.device);
-
-    let gpu = FatlineMaterialGPU { uniform };
-    let state = RenderComponentCell::new(gpu);
-
-    let weak_material = source.downgrade();
-    let ctx = ctx.clone();
-
-    source
-      .single_listen_by::<()>(any_change_no_init)
-      .fold_signal(state, move |_, state| {
-        if let Some(m) = weak_material.upgrade() {
-          let uniform = FatlineMaterialUniform {
-            width: m.read().width,
-            ..Zeroable::zeroed()
-          };
-          state.inner.uniform.resource.set(uniform);
-          state.inner.uniform.resource.upload(&ctx.gpu.queue);
-        }
-        RenderComponentDeltaFlag::Content.into()
-      })
-  }
-
-  fn is_keep_mesh_shape(&self) -> bool {
-    false
-  }
-  fn is_transparent(&self) -> bool {
-    false
-  }
-}

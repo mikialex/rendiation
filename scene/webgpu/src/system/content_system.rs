@@ -6,7 +6,7 @@ use crate::*;
 #[pin_project::pin_project]
 #[derive(Clone)]
 pub struct ContentGPUSystem {
-  gpu: ResourceGPUCtx,
+  pub(crate) gpu: ResourceGPUCtx,
   pub model_ctx: GPUModelResourceCtx,
   pub bindable_ctx: ShareBindableResourceCtx,
   pub models: Arc<RwLock<StreamMap<ReactiveSceneModelGPUType>>>,

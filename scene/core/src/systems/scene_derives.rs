@@ -43,6 +43,8 @@ impl SceneNodeDeriveSystem {
   }
 }
 
+pub type WorldMatrixStream = impl Stream<Item = Mat4<f32>>;
+
 impl SceneNodeDeriveSystem {
   pub fn get_world_matrix(&self, node: &SceneNode) -> Mat4<f32> {
     self.get_world_matrix_by_raw_handle(node.raw_handle().index())
@@ -54,13 +56,13 @@ impl SceneNodeDeriveSystem {
       tree.get_node(handle).data().data.world_matrix
     })
   }
-  pub fn create_world_matrix_stream(
-    &self,
-    node: &SceneNode,
-  ) -> impl Stream<Item = Mat4<f32>> + 'static {
+  pub fn create_world_matrix_stream(&self, node: &SceneNode) -> WorldMatrixStream {
+    self.create_world_matrix_stream_by_raw_handle(node.raw_handle().index())
+  }
+  pub fn create_world_matrix_stream_by_raw_handle(&self, index: usize) -> WorldMatrixStream {
     self
       .indexed_stream_mapper
-      .create_sub_stream_by_index(node.raw_handle().index())
+      .create_sub_stream_by_index(index)
       .filter_map_sync(|d| match d {
         SceneNodeDerivedDataDelta::world_matrix(m) => Some(m),
         SceneNodeDerivedDataDelta::net_visible(_) => None,

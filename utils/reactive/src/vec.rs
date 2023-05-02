@@ -121,6 +121,12 @@ pub struct MergeIntoStreamVec<S, T> {
   vec: StreamVec<T>,
 }
 
+impl<S, T> AsRef<StreamVec<T>> for MergeIntoStreamVec<S, T> {
+  fn as_ref(&self) -> &StreamVec<T> {
+    &self.vec
+  }
+}
+
 impl<S, T> MergeIntoStreamVec<S, T> {
   pub fn new(inner: S) -> Self {
     Self {

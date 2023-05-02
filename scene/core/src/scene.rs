@@ -22,7 +22,7 @@ pub struct SceneInner {
   /// All models in the scene
   pub models: Arena<SceneModel>,
 
-  pub(crate) nodes: SceneNodeCollection,
+  pub nodes: SceneNodeCollection,
   root: SceneNode,
 
   pub ext: DynamicExtension,
