@@ -64,10 +64,13 @@ pub fn setup_pass_core(
         return;
       }
 
-      let mut nodes = pass.scene_resources.nodes.borrow_mut();
-      let node_gpu = override_node.unwrap_or_else(|| {
-        nodes.get_with_update(&model_input.node, &(pass.ctx.gpu, pass.node_derives))
-      });
+      let node_gpu = override_node.unwrap_or(
+        pass
+          .scene_resources
+          .nodes
+          .get_node_gpu(&model_input.node)
+          .unwrap(),
+      );
 
       let mut materials = pass.resources.model_ctx.materials.write().unwrap();
       let material_gpu = materials.get_or_insert_with(model.material.id().unwrap(), || {

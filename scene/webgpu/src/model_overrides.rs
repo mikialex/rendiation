@@ -85,12 +85,12 @@ impl SceneRenderable for OverridableMeshModelImpl {
       node_derives: pass.node_derives,
     };
 
-    let world_matrix = self.compute_override_world_mat(&ctx).into();
+    let world_matrix = self.compute_override_world_mat(&ctx);
 
     let mut override_gpu = self.override_gpu.borrow_mut();
     let node_gpu = override_gpu
-      .get_or_insert_with(|| NodeGPU::new(gpu, &self.node, world_matrix, pass.node_derives))
-      .update(gpu, &self.node, world_matrix, pass.node_derives);
+      .get_or_insert_with(|| NodeGPU::new(&gpu.device))
+      .update(&gpu.queue, world_matrix);
 
     setup_pass_core(self, pass, camera, Some(node_gpu), dispatcher);
   }

@@ -20,6 +20,14 @@ impl<T> Default for StreamVec<T> {
 }
 
 impl<T> StreamVec<T> {
+  pub fn get(&self, index: usize) -> Option<&T> {
+    if let Some(inner) = self.streams.get(index) {
+      inner.as_ref()
+    } else {
+      None
+    }
+  }
+
   pub fn insert(&mut self, index: usize, st: Option<T>) {
     // assure allocated
     while self.streams.len() <= index {

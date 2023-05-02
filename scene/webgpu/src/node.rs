@@ -1,37 +1,75 @@
 use crate::*;
 
-// pub type NodeGPUMap = ReactiveMap<SceneNode, NodeGPU>;
+#[pin_project::pin_project]
+pub struct SceneNodeGPUSystem {
+  #[pin]
+  nodes: SceneNodeGPUStorage,
+}
 
-// impl ReactiveMapping<NodeGPU> for SceneNode {
-//   type ChangeStream = impl Stream + Unpin;
-//   type DropFuture = impl Future<Output = ()> + Unpin;
-//   type Ctx<'a> = (&'a GPU, &'a SceneNodeDeriveSystem);
+impl Stream for SceneNodeGPUSystem {
+  type Item = ();
 
-//   fn key(&self) -> usize {
-//     self.id()
-//   }
+  fn poll_next(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Option<Self::Item>> {
+    let this = self.project();
+    this.nodes.poll_next(cx).map(|v| v.map(|_| {}))
+  }
+}
 
-//   fn build(
-//     &self,
-//     (gpu, derives): &Self::Ctx<'_>,
-//   ) -> (NodeGPU, Self::ChangeStream, Self::DropFuture) {
-//     let drop = self.visit(|node| node.create_drop());
-//     let gpu_node = NodeGPU::new(gpu, self, None, derives);
-//     let change = derives.create_world_matrix_stream(self);
-//     (gpu_node, change, drop)
-//   }
+pub type ReactiveNodeGPU =
+  impl Stream<Item = RenderComponentDeltaFlag> + AsRef<RenderComponentCell<NodeGPU>> + Unpin;
 
-//   fn update(
-//     &self,
-//     gpu_node: &mut NodeGPU,
-//     change: &mut Self::ChangeStream,
-//     (gpu, derives): &Self::Ctx<'_>,
-//   ) {
-//     do_updates(change, |_| {
-//       gpu_node.update(gpu, self, None, derives);
-//     });
-//   }
-// }
+pub type SceneNodeGPUStorage = impl AsRef<StreamVec<ReactiveNodeGPU>>
+  + Stream<Item = VecUpdateUnit<RenderComponentDeltaFlag>>
+  + Unpin;
+
+impl SceneNodeGPUSystem {
+  pub fn get_node_gpu(&self, node: &SceneNode) -> Option<&NodeGPU> {
+    self
+      .nodes
+      .as_ref()
+      .get(node.raw_handle().index())
+      .map(|v| &v.as_ref().inner)
+  }
+
+  pub fn new(scene: &Scene, derives: &SceneNodeDeriveSystem, cx: &ResourceGPUCtx) -> Self {
+    fn build_reactive_node(mat: WorldMatrixStream, cx: &ResourceGPUCtx) -> ReactiveNodeGPU {
+      let node = NodeGPU::new(&cx.device);
+      let state = RenderComponentCell::new(node);
+
+      let cx = cx.clone();
+
+      mat.fold_signal(state, move |delta, state| {
+        state.inner.update(&cx.queue, delta);
+        RenderComponentDeltaFlag::Content.into()
+      })
+    }
+
+    let derives = derives.clone();
+    let cx = cx.clone();
+
+    let nodes = scene
+      .unbound_listen_by(|view, send| match view {
+        MaybeDeltaRef::All(scene) => scene.nodes.expand(send),
+        MaybeDeltaRef::Delta(delta) => {
+          if let SceneInnerDelta::nodes(node_d) = delta {
+            send(node_d.clone())
+          }
+        }
+      })
+      .filter_map_sync(move |v| match v {
+        tree::TreeMutation::Create { node: idx, .. } => {
+          let world_st = derives.create_world_matrix_stream_by_raw_handle(idx);
+          let node = build_reactive_node(world_st, &cx);
+          (idx, node.into()).into()
+        }
+        tree::TreeMutation::Delete(idx) => (idx, None).into(),
+        _ => None,
+      })
+      .flatten_into_vec_stream_signal();
+
+    Self { nodes }
+  }
+}
 
 pub struct NodeGPU {
   pub ubo: UniformBufferDataView<TransformGPUData>,
