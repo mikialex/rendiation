@@ -178,13 +178,15 @@ pub fn check_update_basic_shadow_map<T: Any + ShadowCameraCreator + Incremental>
 
   let (view, map_info) = map.get_write_view(ctx.ctx.gpu);
 
-  let mut cameras = ctx.ctx.scene_resources.cameras.borrow_mut();
-  let shadow_camera_info = cameras
-    .get_with_update(&shadow_camera, &(ctx.ctx.gpu, ctx.node_derives))
+  let shadow_camera_info = ctx
+    .ctx
+    .scene_resources
+    .cameras
+    .get_camera_gpu(&shadow_camera)
+    .unwrap()
     .ubo
     .resource
     .get();
-  drop(cameras);
 
   pass("shadow-depth")
     .with_depth(view, clear(1.))

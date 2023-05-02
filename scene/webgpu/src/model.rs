@@ -56,8 +56,11 @@ pub fn setup_pass_core(
       let model = model.read();
       let pass_gpu = dispatcher;
 
-      let mut cameras = pass.scene_resources.cameras.borrow_mut();
-      let camera_gpu = cameras.get_with_update(camera, &(pass.ctx.gpu, pass.node_derives));
+      let camera_gpu = pass
+        .scene_resources
+        .cameras
+        .get_camera_gpu(&camera)
+        .unwrap();
 
       let net_visible = pass.node_derives.get_net_visible(&model_input.node);
       if !net_visible {

@@ -1,8 +1,5 @@
 use crate::*;
 
-// struct SceneCameraGPUSystem;
-// struct SceneBundleGPUSystem;
-
 #[pin_project::pin_project]
 pub struct SceneGPUSystem {
   gpu: ResourceGPUCtx,
@@ -10,17 +7,15 @@ pub struct SceneGPUSystem {
   #[pin]
   pub nodes: SceneNodeGPUSystem,
 
-  // // the camera gpu data are mostly related to scene node it used, so keep it at scene level;
-  // cameras: SceneCameraGPUSystem,
+  #[pin]
+  pub cameras: SceneCameraGPUSystem,
 
-  // bundle: SceneBundleGPUSystem,
   #[pin]
   models: Arc<RwLock<StreamMap<ReactiveSceneModelGPUInstance>>>,
 
   #[pin]
   source: SceneGPUUpdateSource,
 
-  pub cameras: RefCell<CameraGPUMap>,
   pub lights: RefCell<GPULightCache>,
 }
 
@@ -57,6 +52,7 @@ impl SceneGPUSystem {
     let gpu = contents.read().unwrap().gpu.clone();
 
     let nodes = SceneNodeGPUSystem::new(scene, derives, &gpu);
+    let cameras = SceneCameraGPUSystem::new(scene, derives, &gpu);
 
     let source = scene.unbound_listen_by(all_delta).map(move |delta| {
       let contents = contents.write().unwrap();
@@ -81,11 +77,8 @@ impl SceneGPUSystem {
     Self {
       gpu,
       models,
-      // nodes: (),
-      // cameras: (),
-      // bundle: (),
       source,
-      cameras: Default::default(),
+      cameras,
       nodes,
       lights: Default::default(),
     }

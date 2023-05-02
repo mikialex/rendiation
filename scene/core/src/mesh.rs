@@ -23,11 +23,12 @@ clone_self_incremental!(TransformInstancedSceneMesh);
 
 impl SceneMeshType {
   pub fn build_local_bound_stream(&self) -> impl Stream<Item = Option<Box3>> {
-    match self {
-      SceneMeshType::AttributesMesh(_) => todo!(),
-      SceneMeshType::TransformInstanced(_) => todo!(),
-      SceneMeshType::Foreign(_) => once_forever_pending(None),
-    }
+    once_forever_pending(None)
+    // match self {
+    //   SceneMeshType::AttributesMesh(_) => todo!(),
+    //   SceneMeshType::TransformInstanced(_) => todo!(),
+    //   SceneMeshType::Foreign(_) => once_forever_pending(None),
+    // }
   }
 }
 

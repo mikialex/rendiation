@@ -180,12 +180,11 @@ impl<'a> ShaderGraphProvider for AOComputer<'a> {
 impl<'a> PassContent for QuadDraw<AOComputer<'a>> {
   fn render(&mut self, pass: &mut SceneRenderPass) {
     let mut base = pass.default_dispatcher();
-    let mut cameras = pass.scene_resources.cameras.borrow_mut();
-    let source_camera_gpu = &cameras
-      .get_with_update(
-        self.content.source_camera,
-        &(pass.ctx.gpu, pass.node_derives),
-      )
+    let source_camera_gpu = pass
+      .scene_resources
+      .cameras
+      .get_camera_gpu(&self.content.source_camera)
+      .unwrap()
       .ubo;
 
     self.content.source_camera_gpu = source_camera_gpu.clone().into();
