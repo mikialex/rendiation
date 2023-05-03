@@ -180,10 +180,10 @@ impl<'a> ShaderGraphProvider for AOComputer<'a> {
 impl<'a> PassContent for QuadDraw<AOComputer<'a>> {
   fn render(&mut self, pass: &mut SceneRenderPass) {
     let mut base = pass.default_dispatcher();
-    let source_camera_gpu = pass
+    let source_camera_gpu = &pass
       .scene_resources
       .cameras
-      .get_camera_gpu(&self.content.source_camera)
+      .get_camera_gpu(self.content.source_camera)
       .unwrap()
       .ubo;
 

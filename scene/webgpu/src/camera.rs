@@ -87,11 +87,11 @@ impl SceneCameraGPUSystem {
         }
       })
       .filter_map_sync(move |v| match v {
-        arena::ArenaDelta::Mutate((camera, idx)) => todo!(),
-        arena::ArenaDelta::Insert((camera, idx)) => todo!(),
+        arena::ArenaDelta::Mutate((camera, _)) => todo!(),
+        arena::ArenaDelta::Insert((camera, _)) => todo!(),
         arena::ArenaDelta::Remove(idx) => todo!(),
       })
-      .flatten_into_vec_stream_signal();
+      .flatten_into_map_stream_signal();
 
     Self { cameras }
   }

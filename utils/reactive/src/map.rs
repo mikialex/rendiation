@@ -93,6 +93,10 @@ impl<T> StreamMap<T> {
     self.streams.get(&key)
   }
 
+  pub fn insert(&mut self, key: usize, value: T) {
+    self.streams.insert(key, value);
+  }
+
   pub fn get_or_insert_with(&mut self, key: usize, f: impl FnOnce() -> T) -> &mut T {
     self.streams.entry(key).or_insert_with(|| {
       self.waked.write().unwrap().push(key);
@@ -143,6 +147,63 @@ impl<T: Stream + Unpin> Stream for StreamMap<T> {
 
       changed.pop().unwrap();
     }
+    Poll::Pending
+  }
+}
+
+#[pin_project]
+pub struct MergeIntoStreamMap<S, T> {
+  #[pin]
+  inner: S,
+  #[pin]
+  map: StreamMap<T>,
+}
+
+impl<S, T> AsRef<StreamMap<T>> for MergeIntoStreamMap<S, T> {
+  fn as_ref(&self) -> &StreamMap<T> {
+    &self.map
+  }
+}
+
+impl<S, T> MergeIntoStreamMap<S, T> {
+  pub fn new(inner: S) -> Self {
+    Self {
+      inner,
+      map: Default::default(),
+    }
+  }
+}
+
+impl<S, T> Stream for MergeIntoStreamMap<S, T>
+where
+  S: Stream<Item = (usize, Option<T>)>,
+  T: Stream + Unpin,
+{
+  type Item = VecUpdateUnit<T::Item>;
+
+  fn poll_next(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Option<Self::Item>> {
+    let mut this = self.project();
+
+    if let Poll::Ready(next) = this.inner.poll_next(cx) {
+      if let Some((index, result)) = next {
+        let r = if let Some(result) = result {
+          this.map.insert(index, result);
+          VecUpdateUnit::Active(index)
+        } else {
+          this.map.remove(index);
+          VecUpdateUnit::Remove(index)
+        };
+        return Poll::Ready(Some(r));
+      } else {
+        return Poll::Ready(None);
+      }
+    } else {
+      // the vec will never terminated
+      if let Poll::Ready(Some(IndexedItem { index, item })) = this.map.poll_next(cx) {
+        return Poll::Ready(Some(VecUpdateUnit::Update { index, item }));
+      }
+    }
+
     Poll::Pending
   }
 }

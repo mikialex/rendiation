@@ -43,6 +43,11 @@ pub trait SignalStreamExt: Stream {
     Self: Stream<Item = (usize, Option<T>)>,
     Self: Sized;
 
+  fn flatten_into_map_stream_signal<T>(self) -> MergeIntoStreamMap<Self, T>
+  where
+    Self: Stream<Item = (usize, Option<T>)>,
+    Self: Sized;
+
   fn zip_signal<St>(self, other: St) -> ZipSignal<Self, St>
   where
     St: Stream,
@@ -101,6 +106,14 @@ impl<T: Stream> SignalStreamExt for T {
     Self: Sized,
   {
     MergeIntoStreamVec::new(self)
+  }
+
+  fn flatten_into_map_stream_signal<X>(self) -> MergeIntoStreamMap<Self, X>
+  where
+    Self: Stream<Item = (usize, Option<X>)>,
+    Self: Sized,
+  {
+    MergeIntoStreamMap::new(self)
   }
 
   fn zip_signal<St>(self, other: St) -> ZipSignal<Self, St>
