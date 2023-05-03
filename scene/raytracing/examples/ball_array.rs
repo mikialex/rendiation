@@ -8,7 +8,7 @@ fn main() {
   let mut renderer = PathTraceIntegrator::default();
 
   let mut frame = Frame::new(1000, 1000);
-  let mut scene = SceneInner::new().0.into_ref();
+  let mut scene = SceneInner::new().0;
 
   let perspective = make_perspective();
   let camera = SceneCamera::create_camera(perspective, scene.read().root().create_child());

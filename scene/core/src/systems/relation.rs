@@ -136,14 +136,18 @@ impl NodeReferenceModelBookKeeping {
       },
       MaybeDeltaRef::All(scene) => {
         scene.nodes.expand(|delta| on_tree_mutate(send, &delta));
-        scene.models.expand(|delta| on_model_mutate(send, &delta));
+        scene
+          .content
+          .read()
+          .models
+          .expand(|delta| on_model_mutate(send, &delta));
       }
     });
 
     use arena::ArenaDelta::*;
     let source2 = scene
       .unbound_listen_by(|view, send| match view {
-        MaybeDeltaRef::All(scene) => scene.models.expand(send),
+        MaybeDeltaRef::All(scene) => scene.content.read().models.expand(send),
         MaybeDeltaRef::Delta(delta) => {
           if let SceneInnerDelta::models(model_delta) = delta {
             send(model_delta.clone())
