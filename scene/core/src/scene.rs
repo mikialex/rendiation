@@ -15,8 +15,10 @@ pub struct SceneInner {
   pub default_camera: SceneCamera,
   pub active_camera: Option<SceneCamera>,
 
+  pub content: SceneItemRef<SceneContentCollection>,
+
   /// All cameras in the scene
-  pub cameras: Arena<SceneCamera>,
+  // pub cameras: Arena<SceneCamera>,
   /// All lights in the scene
   pub lights: Arena<SceneLight>,
   /// All models in the scene
@@ -26,6 +28,35 @@ pub struct SceneInner {
   root: SceneNode,
 
   pub ext: DynamicExtension,
+}
+
+#[derive(Default)]
+pub struct SceneContentCollection {
+  /// All cameras in the scene
+  pub cameras: Arena<SceneCamera>,
+  // /// All lights in the scene
+  // pub lights: Arena<SceneLight>,
+  // /// All models in the scene
+  // pub models: Arena<SceneModel>,
+}
+
+#[allow(non_camel_case_types)]
+#[derive(Clone)]
+pub enum SceneContentCollectionDelta {
+  cameras(DeltaOf<Arena<SceneCamera>>),
+  // lights(DeltaOf<Arena<SceneLight>>),
+  // models(DeltaOf<Arena<SceneModel>>),
+}
+
+impl IncrementalBase for SceneContentCollection {
+  type Delta = SceneContentCollectionDelta;
+
+  fn expand(&self, mut cb: impl FnMut(Self::Delta)) {
+    use SceneContentCollectionDelta::*;
+    self.cameras.expand(|d| cb(cameras(d)));
+    // self.lights.expand(|d| cb(lights(d)));
+    // self.models.expand(|d| cb(models(d)));
+  }
 }
 
 #[derive(Default)]
@@ -51,7 +82,7 @@ pub enum SceneInnerDelta {
   background(DeltaOf<Option<SceneBackGround>>),
   default_camera(DeltaOf<SceneCamera>),
   active_camera(DeltaOf<Option<SceneCamera>>),
-  cameras(DeltaOf<Arena<SceneCamera>>),
+  // cameras(DeltaOf<Arena<SceneCamera>>),
   lights(DeltaOf<Arena<SceneLight>>),
   models(DeltaOf<Arena<SceneModel>>),
   ext(DeltaOf<DynamicExtension>),
@@ -66,7 +97,7 @@ impl IncrementalBase for SceneInner {
     self.background.expand(|d| cb(background(d)));
     self.default_camera.expand(|d| cb(default_camera(d)));
     self.active_camera.expand(|d| cb(active_camera(d)));
-    self.cameras.expand(|d| cb(cameras(d)));
+    // self.cameras.expand(|d| cb(cameras(d)));
     self.lights.expand(|d| cb(lights(d)));
     self.models.expand(|d| cb(models(d)));
     self.ext.expand(|d| cb(ext(d)));
@@ -82,7 +113,9 @@ impl SceneInner {
     let nodes: SceneNodeCollection = Default::default();
     let system = SceneNodeDeriveSystem::new(&nodes);
 
-    let root = SceneNode::from_root(nodes.inner.clone());
+    let content = SceneContentCollection::default().into_ref();
+
+    let root = SceneNode::from_new_root(nodes.inner.clone(), content.clone());
 
     let default_camera = PerspectiveProjection::default();
     let camera_node = root.create_child();
@@ -94,10 +127,9 @@ impl SceneInner {
         root,
         background: None,
         default_camera,
-        cameras: Arena::new(),
         lights: Arena::new(),
         models: Arena::new(),
-
+        content,
         active_camera: None,
         ext: Default::default(),
       },
@@ -148,18 +180,18 @@ impl Scene {
     result.unwrap()
   }
 
-  pub fn insert_camera(&self, camera: SceneCamera) -> SceneCameraHandle {
-    let mut result = None;
-    self.mutate(|mut scene| {
-      scene.trigger_manual(|scene| {
-        let handle = scene.cameras.insert(camera.clone());
-        result = handle.into();
-        let delta = ArenaDelta::Insert((camera, handle));
-        SceneInnerDelta::cameras(delta)
-      });
-    });
-    result.unwrap()
-  }
+  // pub fn insert_camera(&self, camera: SceneCamera) -> SceneCameraHandle {
+  //   let mut result = None;
+  //   self.mutate(|mut scene| {
+  //     scene.trigger_manual(|scene| {
+  //       let handle = scene.cameras.insert(camera.clone());
+  //       result = handle.into();
+  //       let delta = ArenaDelta::Insert((camera, handle));
+  //       SceneInnerDelta::cameras(delta)
+  //     });
+  //   });
+  //   result.unwrap()
+  // }
 
   pub fn set_active_camera(&self, camera: Option<SceneCamera>) {
     self.mutate(|mut scene| {

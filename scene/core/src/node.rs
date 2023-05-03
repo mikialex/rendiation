@@ -120,6 +120,7 @@ impl Default for SceneNodeDataImpl {
 #[derive(Clone)]
 pub struct SceneNode {
   inner: ShareTreeNode<ReactiveTreeCollection<SceneNodeData, SceneNodeDataImpl>>,
+  pub(crate) scene: SceneItemRef<SceneContentCollection>,
 }
 
 clone_self_incremental!(SceneNode);
@@ -132,11 +133,13 @@ impl SceneNode {
     self.visit(|node| node.listen_by::<DefaultUnboundChannel, _>(mapper))
   }
 
-  pub fn from_root(
+  pub(crate) fn from_new_root(
     nodes: SharedTreeCollection<ReactiveTreeCollection<SceneNodeData, SceneNodeDataImpl>>,
+    content: SceneItemRef<SceneContentCollection>,
   ) -> Self {
     Self {
       inner: nodes.create_new_root(Default::default()),
+      scene: content,
     }
   }
 
@@ -156,6 +159,7 @@ impl SceneNode {
   pub fn create_child(&self) -> Self {
     Self {
       inner: self.inner.create_child_default(),
+      scene: self.scene.clone(),
     }
   }
 
