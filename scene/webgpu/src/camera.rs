@@ -6,11 +6,18 @@ pub struct SceneCameraGPUSystem {
   cameras: SceneCameraGPUStorage,
 }
 
+pub type ReactiveCameraGPU =
+  impl Stream<Item = RenderComponentDeltaFlag> + AsRef<RenderComponentCell<CameraGPU>> + Unpin;
+
+pub type SceneCameraGPUStorage = impl AsRef<StreamMap<ReactiveCameraGPU>>
+  + Stream<Item = VecUpdateUnit<RenderComponentDeltaFlag>>
+  + Unpin;
+
 enum CameraGPUDelta {
   Proj(Mat4<f32>),
   WorldMat(Mat4<f32>),
-  Jitter(Vec2<f32>),
-  JitterEnable(bool),
+  // Jitter(Vec2<f32>),
+  // JitterEnable(bool),
 }
 
 impl SceneCameraGPUSystem {
@@ -18,7 +25,7 @@ impl SceneCameraGPUSystem {
     self
       .cameras
       .as_ref()
-      .get(camera.raw_handle().index())
+      .get(camera.id())
       .map(|v| &v.as_ref().inner)
   }
 
@@ -28,6 +35,9 @@ impl SceneCameraGPUSystem {
       derives: &SceneNodeDeriveSystem,
       cx: &ResourceGPUCtx,
     ) -> ReactiveCameraGPU {
+      let cx = cx.clone();
+      let derives = derives.clone();
+
       let camera_world = camera
         .single_listen_by(with_field!(SceneCameraInner => node))
         .map(move |node| derives.create_world_matrix_stream(&node))
@@ -41,40 +51,25 @@ impl SceneCameraGPUSystem {
       let camera = CameraGPU::new(&cx.device);
       let state = RenderComponentCell::new(camera);
 
-      let cx = cx.clone();
-
       futures::stream::select(camera_world, camera_proj).fold_signal(state, move |delta, state| {
-        //       pub fn clear_jitter(&mut self) {
-        //   self.jitter_normalized = Vec2::zero();
-        // }
-        // pub fn update_jitter(&mut self, jitter_normalized: Vec2<f32>) {
-        //   self.jitter_normalized = jitter_normalized;
-        // }
-
-        // pub fn update_by_proj_and_world(&mut self, proj: Mat4<f32>, world: Mat4<f32>) {
-        //   self.world = world;
-        //   self.view = world.inverse_or_identity();
-        //   self.rotation = world.extract_rotation_mat();
-        //   self.projection = proj;
-        //   self.projection_inv = proj.inverse_or_identity();
-        //   self.view_projection = proj * self.view;
-        //   self.view_projection_inv = self.view_projection.inverse_or_identity();
-        // }
-
-        // pub fn update_by_scene_camera(&mut self, camera: &SceneCameraInner, de: &SceneNodeDeriveSystem) {
-        //   let world_matrix = de.get_world_matrix(&camera.node);
-        //   self.update_by_proj_and_world(camera.projection_matrix, world_matrix);
-        // }
         let uniform = &mut state.inner.ubo;
-        match delta {
+        uniform.resource.mutate(|uniform| match delta {
           CameraGPUDelta::Proj(proj) => {
-            // uniform.jitter_normalized =
+            uniform.projection = proj;
+            uniform.projection_inv = proj.inverse_or_identity();
+            uniform.view_projection = proj * uniform.view;
+            uniform.view_projection_inv = uniform.view_projection.inverse_or_identity();
           }
-          CameraGPUDelta::WorldMat(mat) => {
-            //
-          } // CameraGPUDelta::Jitter(_) => todo!(),
-        }
-        uniform.resource.upload(&gpu.queue);
+          CameraGPUDelta::WorldMat(world) => {
+            uniform.world = world;
+            uniform.view = world.inverse_or_identity();
+            uniform.rotation = world.extract_rotation_mat();
+            uniform.view_projection = uniform.projection * uniform.view;
+            uniform.view_projection_inv = uniform.view_projection.inverse_or_identity();
+          }
+        });
+
+        uniform.resource.upload(&cx.queue);
         RenderComponentDeltaFlag::Content.into()
       })
     }
@@ -92,22 +87,15 @@ impl SceneCameraGPUSystem {
         }
       })
       .filter_map_sync(move |v| match v {
-        arena::ArenaDelta::Mutate(_) => todo!(),
-        arena::ArenaDelta::Insert(_) => todo!(),
-        arena::ArenaDelta::Remove(_) => todo!(),
+        arena::ArenaDelta::Mutate((camera, idx)) => todo!(),
+        arena::ArenaDelta::Insert((camera, idx)) => todo!(),
+        arena::ArenaDelta::Remove(idx) => todo!(),
       })
       .flatten_into_vec_stream_signal();
 
     Self { cameras }
   }
 }
-
-pub type ReactiveCameraGPU =
-  impl Stream<Item = RenderComponentDeltaFlag> + AsRef<RenderComponentCell<CameraGPU>> + Unpin;
-
-pub type SceneCameraGPUStorage = impl AsRef<StreamMap<ReactiveNodeGPU>>
-  + Stream<Item = VecUpdateUnit<RenderComponentDeltaFlag>>
-  + Unpin;
 
 pub struct CameraGPU {
   pub enable_jitter: bool,
