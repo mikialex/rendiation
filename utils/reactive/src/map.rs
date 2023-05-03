@@ -92,6 +92,9 @@ impl<T> StreamMap<T> {
   pub fn get(&self, key: usize) -> Option<&T> {
     self.streams.get(&key)
   }
+  pub fn get_mut(&mut self, key: usize) -> Option<&mut T> {
+    self.streams.get_mut(&key)
+  }
 
   pub fn insert(&mut self, key: usize, value: T) {
     self.streams.insert(key, value);
@@ -162,6 +165,12 @@ pub struct MergeIntoStreamMap<S, T> {
 impl<S, T> AsRef<StreamMap<T>> for MergeIntoStreamMap<S, T> {
   fn as_ref(&self) -> &StreamMap<T> {
     &self.map
+  }
+}
+
+impl<S, T> AsMut<StreamMap<T>> for MergeIntoStreamMap<S, T> {
+  fn as_mut(&mut self) -> &mut StreamMap<T> {
+    &mut self.map
   }
 }
 

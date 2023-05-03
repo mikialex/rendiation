@@ -76,11 +76,9 @@ impl ViewerPipeline {
     let mut scene_result = attachment().request(ctx);
 
     let jitter = self.taa.next_jitter();
-    let mut cameras = ctx.scene_resources.cameras.borrow_mut();
-    let gpu = cameras.get_with_update(scene.get_active_camera(), &(ctx.gpu, &content.scene_derived));
-    gpu.ubo.resource.mutate(|uniform| uniform.update_jitter(jitter)).upload(&ctx.gpu.queue);
+    let gpu = ctx.scene_resources.cameras.get_camera_gpu_mut(scene.get_active_camera()).unwrap();
+    gpu.ubo.resource.mutate(|uniform| uniform.jitter_normalized = jitter).upload(&ctx.gpu.queue);
     gpu.enable_jitter = true;
-    drop(cameras);
 
     let ao = self.enable_ssao.then(||{
       let ao = self.ssao.draw(ctx, &scene_depth,  scene.get_active_camera());
@@ -108,9 +106,8 @@ impl ViewerPipeline {
       .by(scene.by_main_camera(&mut widgets.ground)) // transparent, should go after opaque
       .by(ao);
 
-    let mut cameras = ctx.scene_resources.cameras.borrow_mut();
-    cameras.get_with_update(scene.get_active_camera(), &(ctx.gpu, &content.scene_derived)).enable_jitter = false;
-    drop(cameras);
+    let gpu = ctx.scene_resources.cameras.get_camera_gpu_mut(scene.get_active_camera()).unwrap();
+    gpu.enable_jitter = false;
     // let scene_result = draw_cross_blur(&self.blur, scene_result.read_into(), ctx);
 
     let taa_result = self.taa.resolve(

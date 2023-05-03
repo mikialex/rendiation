@@ -32,6 +32,7 @@ impl Stream for SceneGPUSystem {
     let this = self.project();
     early_return_ready!(this.source.poll_next(cx));
     early_return_ready!(this.nodes.poll_next(cx));
+    early_return_ready!(this.cameras.poll_next(cx));
 
     let mut models = this.models.write().unwrap();
     let models: &mut StreamMap<ReactiveSceneModelGPUInstance> = &mut models;

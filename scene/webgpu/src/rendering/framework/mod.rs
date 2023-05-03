@@ -13,7 +13,7 @@ pub struct FrameCtx<'a> {
   frame_size: Size,
   pub encoder: GPUCommandEncoder,
   pub resources: &'a ContentGPUSystem,
-  pub scene_resources: &'a SceneGPUSystem,
+  pub scene_resources: &'a mut SceneGPUSystem,
   pub node_derives: &'a SceneNodeDeriveSystem,
 }
 
@@ -23,7 +23,7 @@ impl<'a> FrameCtx<'a> {
     frame_size: Size,
     pool: &'a ResourcePool,
     resources: &'a ContentGPUSystem,
-    scene_resources: &'a SceneGPUSystem,
+    scene_resources: &'a mut SceneGPUSystem,
     node_derives: &'a SceneNodeDeriveSystem,
   ) -> Self {
     let msaa_sample_count = 4;

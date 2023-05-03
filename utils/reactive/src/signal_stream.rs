@@ -440,6 +440,12 @@ impl<T, S, F> AsRef<T> for SignalFold<T, S, F> {
   }
 }
 
+impl<T, S, F> AsMut<T> for SignalFold<T, S, F> {
+  fn as_mut(&mut self) -> &mut T {
+    &mut self.state
+  }
+}
+
 impl<T, S, F, X> Stream for SignalFold<T, S, F>
 where
   S: Stream,

@@ -6,10 +6,22 @@ pub struct SceneCameraGPUSystem {
   cameras: SceneCameraGPUStorage,
 }
 
-pub type ReactiveCameraGPU =
-  impl Stream<Item = RenderComponentDeltaFlag> + AsRef<RenderComponentCell<CameraGPU>> + Unpin;
+impl Stream for SceneCameraGPUSystem {
+  type Item = ();
+
+  fn poll_next(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Option<Self::Item>> {
+    let this = self.project();
+    this.cameras.poll_next(cx).map(|v| v.map(|_| {}))
+  }
+}
+
+pub type ReactiveCameraGPU = impl Stream<Item = RenderComponentDeltaFlag>
+  + AsRef<RenderComponentCell<CameraGPU>>
+  + AsMut<RenderComponentCell<CameraGPU>>
+  + Unpin;
 
 pub type SceneCameraGPUStorage = impl AsRef<StreamMap<ReactiveCameraGPU>>
+  + AsMut<StreamMap<ReactiveCameraGPU>>
   + Stream<Item = VecUpdateUnit<RenderComponentDeltaFlag>>
   + Unpin;
 
@@ -27,6 +39,14 @@ impl SceneCameraGPUSystem {
       .as_ref()
       .get(camera.id())
       .map(|v| &v.as_ref().inner)
+  }
+
+  pub fn get_camera_gpu_mut(&mut self, camera: &SceneCamera) -> Option<&mut CameraGPU> {
+    self
+      .cameras
+      .as_mut()
+      .get_mut(camera.id())
+      .map(|v| &mut v.as_mut().inner)
   }
 
   pub fn new(scene: &Scene, derives: &SceneNodeDeriveSystem, cx: &ResourceGPUCtx) -> Self {
@@ -77,6 +97,8 @@ impl SceneCameraGPUSystem {
     let derives = derives.clone();
     let cx = cx.clone();
 
+    let mut index_mapper = HashMap::<SceneCameraHandle, usize>::default();
+
     let cameras = scene
       .unbound_listen_by(|view, send| match view {
         MaybeDeltaRef::All(scene) => scene.cameras.expand(send),
@@ -86,10 +108,26 @@ impl SceneCameraGPUSystem {
           }
         }
       })
-      .filter_map_sync(move |v| match v {
-        arena::ArenaDelta::Mutate((camera, _)) => todo!(),
-        arena::ArenaDelta::Insert((camera, _)) => todo!(),
-        arena::ArenaDelta::Remove(idx) => todo!(),
+      .map(move |v: arena::ArenaDelta<SceneCamera>| match v {
+        arena::ArenaDelta::Mutate((camera, idx)) => {
+          index_mapper.remove(&idx).unwrap();
+          index_mapper.insert(idx, camera.id());
+          (
+            camera.id(),
+            build_reactive_camera(camera, &derives, &cx).into(),
+          )
+        }
+        arena::ArenaDelta::Insert((camera, idx)) => {
+          index_mapper.insert(idx, camera.id());
+          (
+            camera.id(),
+            build_reactive_camera(camera, &derives, &cx).into(),
+          )
+        }
+        arena::ArenaDelta::Remove(idx) => {
+          let id = index_mapper.remove(&idx).unwrap();
+          (id, None)
+        }
       })
       .flatten_into_map_stream_signal();
 
