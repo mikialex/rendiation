@@ -11,7 +11,7 @@ fn main() {
   let mut scene = SceneInner::new().0;
 
   let perspective = make_perspective();
-  let camera = SceneCamera::new(perspective, scene.read().root().create_child());
+  let camera = SceneCamera::create_camera(perspective, scene.read().root().create_child());
 
   scene
     .model_node(

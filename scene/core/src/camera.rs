@@ -1,4 +1,3 @@
-use arena::ArenaDelta;
 use rendiation_geometry::*;
 use rendiation_texture::Size;
 
@@ -7,37 +6,21 @@ use crate::*;
 pub type SceneCamera = SceneItemRef<SceneCameraInner>;
 
 impl SceneCamera {
-  pub fn create(
+  pub fn create_camera(
     p: impl ResizableProjection<f32> + RayCaster3<f32> + DynIncremental + Clone + 'static,
     node: SceneNode,
   ) -> Self {
-    let mut result = None;
-    let node_c = node.clone();
-    node.scene.mutate(|mut scene| {
-      scene.trigger_manual(|scene| {
-        let handle = scene.cameras.insert_with(|handle| {
-          let mut inner = SceneCameraInner {
-            bounds: Default::default(),
-            projection: Box::new(p),
-            projection_matrix: Mat4::one(),
-            node: node_c,
-            handle,
-          };
-          inner
-            .projection
-            .update_projection(&mut inner.projection_matrix);
-          let r = inner.into_ref();
-          result = Some(r.clone());
-          r
-        });
+    let mut inner = SceneCameraInner {
+      bounds: Default::default(),
+      projection: Box::new(p),
+      projection_matrix: Mat4::one(),
+      node,
+    };
+    inner
+      .projection
+      .update_projection(&mut inner.projection_matrix);
 
-        let camera = scene.cameras.get(handle).unwrap().clone();
-
-        let delta = ArenaDelta::Insert((camera, handle));
-        SceneContentCollectionDelta::cameras(delta)
-      });
-    });
-    result.unwrap()
+    inner.into()
   }
 
   pub fn resize(&self, size: (f32, f32)) {
@@ -153,11 +136,6 @@ pub struct SceneCameraInner {
   pub projection: Box<dyn CameraProjection>,
   pub projection_matrix: Mat4<f32>,
   pub node: SceneNode,
-  handle: SceneCameraHandle,
-}
-
-impl Drop for SceneCameraInner {
-  //
 }
 
 impl AsRef<Self> for SceneCameraInner {
@@ -173,9 +151,5 @@ impl SceneCameraInner {
     let height: usize = frame_size.height.into();
     let height = height as f32 * self.bounds.height;
     (width, height).into()
-  }
-
-  pub fn handle(&self) -> SceneCameraHandle {
-    self.handle
   }
 }

@@ -198,8 +198,6 @@ impl Viewer3dContent {
   pub fn new() -> Self {
     let (scene, scene_derived) = SceneInner::new();
 
-    let scene = scene.into_ref();
-
     let scene_bounding = SceneBoundingSystem::new(&scene, &scene_derived);
 
     load_default_scene(&scene);

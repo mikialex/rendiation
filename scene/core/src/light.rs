@@ -19,34 +19,7 @@ pub struct SceneLightInner {
   /// Note: Light properties are unaffected by node transforms by default
   /// — for example, range and intensity do not change with scale.
   pub node: SceneNode,
-  handle: SceneLightHandle,
 }
-
-// impl SceneLight {
-//   pub fn create(light: SceneLightKind, node: SceneNode) -> Self {
-//     let mut result = None;
-//     let node_c = node.clone();
-//     node.scene.mutate(|mut scene| {
-//       scene.trigger_manual(|scene| {
-//         let handle = scene.lights.insert_with(|handle| {
-//           let mut inner = SceneLightInner {
-//             light,
-//             node: node_c,
-//             handle,
-//           }.into_ref();
-//           result = Some(r.clone());
-//           r
-//         });
-
-//         let camera = scene.cameras.get(handle).unwrap().clone();
-
-//         let delta = ArenaDelta::Insert((camera, handle));
-//         SceneContentCollectionDelta::cameras(delta)
-//       });
-//     });
-//     result.unwrap()
-//   }
-// }
 
 #[derive(Debug, Clone, Incremental)]
 pub struct PointLight {

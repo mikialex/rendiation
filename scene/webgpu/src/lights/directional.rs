@@ -126,7 +126,7 @@ impl ShadowCameraCreator for DirectionalLight {
       .unwrap_or_default();
 
     let orth = WorkAroundResizableOrth { orth: extra.range };
-    SceneCamera::new(orth, node.clone())
+    SceneCamera::create_camera(orth, node.clone())
   }
 }
 
