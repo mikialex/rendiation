@@ -7,7 +7,7 @@ use crate::*;
 pub type SceneCamera = SceneItemRef<SceneCameraInner>;
 
 impl SceneCamera {
-  pub fn create_camera(
+  pub fn create(
     p: impl ResizableProjection<f32> + RayCaster3<f32> + DynIncremental + Clone + 'static,
     node: SceneNode,
   ) -> Self {
@@ -154,6 +154,10 @@ pub struct SceneCameraInner {
   pub projection_matrix: Mat4<f32>,
   pub node: SceneNode,
   handle: SceneCameraHandle,
+}
+
+impl Drop for SceneCameraInner {
+  //
 }
 
 impl AsRef<Self> for SceneCameraInner {

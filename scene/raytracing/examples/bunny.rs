@@ -15,7 +15,7 @@ fn main() {
     fov: Deg::by(65.),
     ..Default::default()
   };
-  let camera = SceneCamera::create_camera(perspective, scene.read().root().create_child());
+  let camera = SceneCamera::new(perspective, scene.read().root().create_child());
   camera.read().node.set_local_matrix(Mat4::lookat(
     Vec3::new(0., 8., 10.),
     Vec3::new(0., 5., 0.),
