@@ -3,7 +3,7 @@ use futures::stream::*;
 use reactive::*;
 use rendiation_geometry::Box3;
 
-pub struct SceneBoundingSystem {
+pub struct SceneModelWorldBoundingSystem {
   /// actually data
   models_bounding: Vec<Option<Box3>>,
   handler: StreamForker<SceneModelStream>,
@@ -13,7 +13,7 @@ pub type BoxUpdate = VecUpdateUnit<Option<Box3>>;
 
 type SceneModelStream = impl Stream<Item = BoxUpdate> + Unpin;
 
-impl SceneBoundingSystem {
+impl SceneModelWorldBoundingSystem {
   pub fn new(scene: &Scene, d_sys: &SceneNodeDeriveSystem) -> Self {
     fn build_world_box_stream(
       model: &SceneModel,

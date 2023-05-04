@@ -6,7 +6,6 @@ impl<T: IncrementalBase + Clone + Send + Sync> IncrementalBase for Arena<T> {
   fn expand(&self, mut cb: impl FnMut(Self::Delta)) {
     for (handle, item) in self {
       cb(ArenaDelta::Insert((item.clone(), handle)));
-      item.expand(|d| cb(ArenaDelta::Mutate((d, handle))))
     }
   }
 }

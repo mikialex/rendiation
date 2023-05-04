@@ -24,7 +24,7 @@ pub trait WebGPUScenePickingExt {
   fn interaction_picking<'a>(
     &'a self,
     ctx: &SceneRayInteractiveCtx,
-    bounding_system: &mut SceneBoundingSystem,
+    bounding_system: &mut SceneModelWorldBoundingSystem,
   ) -> Option<(&'a SceneModel, MeshBufferHitPoint)>;
 }
 
@@ -52,7 +52,7 @@ impl WebGPUScenePickingExt for SceneInner {
   fn interaction_picking<'a>(
     &'a self,
     ctx: &SceneRayInteractiveCtx,
-    bounding_system: &mut SceneBoundingSystem,
+    bounding_system: &mut SceneModelWorldBoundingSystem,
   ) -> Option<(&'a SceneModel, MeshBufferHitPoint)> {
     bounding_system.maintain();
     interaction_picking(

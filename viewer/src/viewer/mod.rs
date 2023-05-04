@@ -91,7 +91,7 @@ impl Default for ViewerImpl {
 pub struct Viewer3dContent {
   pub scene: Scene,
   pub scene_derived: SceneNodeDeriveSystem,
-  pub scene_bounding: SceneBoundingSystem,
+  pub scene_bounding: SceneModelWorldBoundingSystem,
   pub pick_config: MeshBufferIntersectConfig,
   pub selections: SelectionSet,
   pub controller: ControllerWinitAdapter<OrbitController>,
@@ -198,7 +198,7 @@ impl Viewer3dContent {
   pub fn new() -> Self {
     let (scene, scene_derived) = SceneInner::new();
 
-    let scene_bounding = SceneBoundingSystem::new(&scene, &scene_derived);
+    let scene_bounding = SceneModelWorldBoundingSystem::new(&scene, &scene_derived);
 
     load_default_scene(&scene);
 
