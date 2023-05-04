@@ -1,5 +1,6 @@
 #![feature(type_alias_impl_trait)]
 #![feature(stmt_expr_attributes)]
+#![feature(downcast_unchecked)]
 #![feature(let_chains)]
 
 pub mod scene;
