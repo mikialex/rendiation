@@ -102,13 +102,13 @@ pub trait RayTracingSceneExt {
 
 impl RayTracingSceneExt for Scene {
   fn create_node(&mut self, builder: impl Fn(&SceneNode, &mut Self)) -> &mut Self {
-    let node = self.read().root().create_child();
+    let node = self.create_root_child();
     builder(&node, self);
     self
   }
 
   fn model_node(&mut self, shape: impl Shape, material: impl Material) -> &mut Self {
-    let node = self.read().root().create_child();
+    let node = self.create_root_child();
     let model = RayTracingSceneModel {
       shape: Box::new(shape),
       material: Box::new(material),
@@ -125,7 +125,7 @@ impl RayTracingSceneExt for Scene {
     material: impl Material,
     m: impl Fn(&SceneNode),
   ) -> &mut Self {
-    let node = self.read().root().create_child();
+    let node = self.create_root_child();
     m(&node);
     let model = RayTracingSceneModel {
       shape: Box::new(shape),

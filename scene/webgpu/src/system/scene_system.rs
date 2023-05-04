@@ -2,7 +2,7 @@ use crate::*;
 
 #[pin_project::pin_project]
 pub struct SceneGPUSystem {
-  gpu: ResourceGPUCtx,
+  pub gpu: ResourceGPUCtx,
 
   #[pin]
   pub nodes: SceneNodeGPUSystem,

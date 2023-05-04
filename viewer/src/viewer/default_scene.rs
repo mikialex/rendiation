@@ -87,7 +87,7 @@ pub fn load_default_scene(scene: &Scene) {
     };
     let material = SceneMaterialType::PhysicalSpecularGlossiness(material.into());
 
-    let child = scene.read().root().create_child();
+    let child = scene.create_root_child();
     child.set_local_matrix(Mat4::translate((2., 0., 3.)));
 
     let model = StandardModel::new(material, mesh);
@@ -116,7 +116,7 @@ pub fn load_default_scene(scene: &Scene) {
       ..Default::default()
     };
     let material = SceneMaterialType::PhysicalSpecularGlossiness(material.into());
-    let child = scene.read().root().create_child();
+    let child = scene.create_root_child();
 
     let model = StandardModel::new(material, mesh);
     let model = ModelType::Standard(model.into());
@@ -154,7 +154,7 @@ pub fn load_default_scene(scene: &Scene) {
       ..Default::default()
     };
     let material = SceneMaterialType::PhysicalSpecularGlossiness(material.into());
-    let child = scene.read().root().create_child();
+    let child = scene.create_root_child();
 
     let model = StandardModel::new(material, mesh);
     let model = ModelType::Standard(model.into());
@@ -166,7 +166,7 @@ pub fn load_default_scene(scene: &Scene) {
 
   {
     let camera = PerspectiveProjection::default();
-    let camera_node = scene.read().root().create_child();
+    let camera_node = scene.create_root_child();
     camera_node.set_local_matrix(Mat4::lookat(Vec3::splat(3.), Vec3::splat(0.), up));
     let camera = SceneCamera::create_camera(camera, camera_node);
     scene.set_active_camera(camera.into());
@@ -174,13 +174,13 @@ pub fn load_default_scene(scene: &Scene) {
 
   {
     let camera = PerspectiveProjection::default();
-    let camera_node = scene.read().root().create_child();
+    let camera_node = scene.create_root_child();
     camera_node.set_local_matrix(Mat4::lookat(Vec3::splat(3.), Vec3::splat(0.), up));
     let camera = SceneCamera::create_camera(camera, camera_node);
     let _ = scene.insert_camera(camera);
   }
 
-  let directional_light_node = scene.read().root().create_child();
+  let directional_light_node = scene.create_root_child();
   directional_light_node.set_local_matrix(Mat4::lookat(Vec3::splat(300.), Vec3::splat(0.), up));
   let directional_light = DirectionalLight {
     illuminance: 5.,
@@ -194,7 +194,7 @@ pub fn load_default_scene(scene: &Scene) {
   };
   scene.insert_light(directional_light.into());
 
-  let directional_light_node = scene.read().root().create_child();
+  let directional_light_node = scene.create_root_child();
   directional_light_node.set_local_matrix(Mat4::lookat(
     Vec3::new(30., 300., -30.),
     Vec3::splat(0.),
@@ -212,7 +212,7 @@ pub fn load_default_scene(scene: &Scene) {
   };
   scene.insert_light(directional_light.into());
 
-  let point_light_node = scene.read().root().create_child();
+  let point_light_node = scene.create_root_child();
   point_light_node.set_local_matrix(Mat4::translate((2., 2., 2.)));
   let point_light = PointLight {
     color_factor: Vec3::new(5., 3., 2.) / Vec3::splat(5.),
@@ -227,7 +227,7 @@ pub fn load_default_scene(scene: &Scene) {
   };
   scene.insert_light(point_light.into());
 
-  let spot_light_node = scene.read().root().create_child();
+  let spot_light_node = scene.create_root_child();
   spot_light_node.set_local_matrix(Mat4::lookat(Vec3::new(-5., 5., 5.), Vec3::splat(0.), up));
   let spot_light = SpotLight {
     luminance_intensity: 180.,

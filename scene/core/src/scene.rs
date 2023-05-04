@@ -125,6 +125,11 @@ impl SceneInner {
 pub type Scene = SceneItemRef<SceneInner>;
 
 impl Scene {
+  pub fn create_root_child(&self) -> SceneNode {
+    let root = self.read().root().clone(); // avoid dead lock
+    root.create_child()
+  }
+
   pub fn compute_full_derived(&self) -> ComputedDerivedTree<SceneNodeDerivedData> {
     self.visit(|t| {
       t.nodes
