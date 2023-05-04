@@ -72,13 +72,7 @@ impl WebGPUSceneLight for SceneItemRef<DirectionalLight> {
   // allocate shadow maps
   fn pre_update(&self, ctx: &mut LightUpdateCtx, node: &SceneNode) {
     let inner = self.read();
-    request_basic_shadow_map(
-      &inner,
-      ctx.ctx.scene_resources,
-      ctx.shadows,
-      ctx.node_derives,
-      node,
-    );
+    request_basic_shadow_map(&inner, ctx.ctx.scene_resources, ctx.shadows, node);
   }
 
   fn update(&self, ctx: &mut LightUpdateCtx, node: &SceneNode) {

@@ -121,7 +121,6 @@ impl PassContentWithSceneAndCamera for SceneDepth {
 #[derive(Clone)]
 pub struct BasicShadowGPU {
   pub shadow_camera: SceneCamera,
-  pub shadow_camera_gpu: Arc<CameraGPU>,
   pub map: ShadowMap,
 }
 
@@ -134,7 +133,6 @@ fn get_shadow_map<T: Any + ShadowCameraCreator + Incremental>(
   resources: &SceneGPUSystem,
   shadows: &mut ShadowMapSystem,
   node: &SceneNode,
-  derives: &SceneNodeDeriveSystem,
 ) -> BasicShadowGPU {
   let resolution = Size::from_usize_pair_min_one((512, 512));
 
@@ -149,30 +147,12 @@ fn get_shadow_map<T: Any + ShadowCameraCreator + Incremental>(
       ResourceLogic::Create(light) => {
         let shadow_camera = light.build_shadow_camera(node);
         let map = shadows.maps.allocate(resolution);
-        let shadow_camera_gpu = Arc::new(CameraGPU::new_from_camera(
-          &resources.gpu.device,
-          derives,
-          &shadow_camera,
-        ));
-        ResourceLogicResult::Create(BasicShadowGPU {
-          shadow_camera,
-          map,
-          shadow_camera_gpu,
-        })
+        ResourceLogicResult::Create(BasicShadowGPU { shadow_camera, map })
       }
       ResourceLogic::Update(shadow, light) => {
         let shadow_camera = light.build_shadow_camera(node);
         let map = shadows.maps.allocate(resolution);
-        let shadow_camera_gpu = Arc::new(CameraGPU::new_from_camera(
-          &resources.gpu.device,
-          derives,
-          &shadow_camera,
-        ));
-        *shadow = BasicShadowGPU {
-          shadow_camera,
-          map,
-          shadow_camera_gpu,
-        };
+        *shadow = BasicShadowGPU { shadow_camera, map };
         ResourceLogicResult::Update(shadow)
       }
     })
@@ -183,10 +163,9 @@ pub fn request_basic_shadow_map<T: Any + ShadowCameraCreator + Incremental>(
   inner: &SceneItemRefGuard<T>,
   resources: &SceneGPUSystem,
   shadows: &mut ShadowMapSystem,
-  derives: &SceneNodeDeriveSystem,
   node: &SceneNode,
 ) {
-  get_shadow_map(inner, resources, shadows, node, derives);
+  get_shadow_map(inner, resources, shadows, node);
 }
 
 pub fn check_update_basic_shadow_map<T: Any + ShadowCameraCreator + Incremental>(
@@ -194,19 +173,21 @@ pub fn check_update_basic_shadow_map<T: Any + ShadowCameraCreator + Incremental>
   ctx: &mut LightUpdateCtx,
   node: &SceneNode,
 ) -> LightShadowAddressInfo {
-  let BasicShadowGPU {
-    shadow_camera,
-    map,
-    shadow_camera_gpu,
-  } = get_shadow_map(
-    inner,
-    ctx.ctx.scene_resources,
-    ctx.shadows,
-    node,
-    ctx.node_derives,
-  );
+  let BasicShadowGPU { shadow_camera, map } =
+    get_shadow_map(inner, ctx.ctx.scene_resources, ctx.shadows, node);
 
   let (view, map_info) = map.get_write_view(ctx.ctx.gpu);
+
+  let shadow_camera_info = ctx
+    .ctx
+    .scene_resources
+    .cameras
+    .get_or_insert(&shadow_camera, ctx.node_derives, &ctx.ctx.resources.gpu)
+    .as_ref()
+    .inner
+    .ubo
+    .resource
+    .get();
 
   pass("shadow-depth")
     .with_depth(view, clear(1.))
@@ -230,7 +211,7 @@ pub fn check_update_basic_shadow_map<T: Any + ShadowCameraCreator + Incremental>
   let index = shadows.list.source.len();
 
   let mut info = BasicShadowMapInfo::default();
-  info.shadow_camera = shadow_camera_gpu.ubo.resource.get();
+  info.shadow_camera = shadow_camera_info;
   info.bias = ShadowBias::new(-0.0001, 0.0);
   info.map_info = map_info;
 

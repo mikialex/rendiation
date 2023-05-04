@@ -32,6 +32,50 @@ enum CameraGPUDelta {
   // JitterEnable(bool),
 }
 
+pub fn build_reactive_camera(
+  camera: SceneCamera,
+  derives: &SceneNodeDeriveSystem,
+  cx: &ResourceGPUCtx,
+) -> ReactiveCameraGPU {
+  let cx = cx.clone();
+  let derives = derives.clone();
+
+  let camera_world = camera
+    .single_listen_by(with_field!(SceneCameraInner => node))
+    .map(move |node| derives.create_world_matrix_stream(&node))
+    .flatten_signal()
+    .map(CameraGPUDelta::WorldMat);
+
+  let camera_proj = camera
+    .single_listen_by(with_field!(SceneCameraInner => projection_matrix))
+    .map(CameraGPUDelta::Proj);
+
+  let camera = CameraGPU::new(&cx.device);
+  let state = RenderComponentCell::new(camera);
+
+  futures::stream::select(camera_world, camera_proj).fold_signal(state, move |delta, state| {
+    let uniform = &mut state.inner.ubo;
+    uniform.resource.mutate(|uniform| match delta {
+      CameraGPUDelta::Proj(proj) => {
+        uniform.projection = proj;
+        uniform.projection_inv = proj.inverse_or_identity();
+        uniform.view_projection = proj * uniform.view;
+        uniform.view_projection_inv = uniform.view_projection.inverse_or_identity();
+      }
+      CameraGPUDelta::WorldMat(world) => {
+        uniform.world = world;
+        uniform.view = world.inverse_or_identity();
+        uniform.rotation = world.extract_rotation_mat();
+        uniform.view_projection = uniform.projection * uniform.view;
+        uniform.view_projection_inv = uniform.view_projection.inverse_or_identity();
+      }
+    });
+
+    uniform.resource.upload(&cx.queue);
+    RenderComponentDeltaFlag::Content.into()
+  })
+}
+
 impl SceneCameraGPUSystem {
   pub fn get_camera_gpu(&self, camera: &SceneCamera) -> Option<&CameraGPU> {
     self
@@ -49,51 +93,18 @@ impl SceneCameraGPUSystem {
       .map(|v| &mut v.as_mut().inner)
   }
 
+  pub fn get_or_insert(
+    &mut self,
+    camera: &SceneCamera,
+    derives: &SceneNodeDeriveSystem,
+    cx: &ResourceGPUCtx,
+  ) -> &mut ReactiveCameraGPU {
+    self.cameras.as_mut().get_or_insert_with(camera.id(), || {
+      build_reactive_camera(camera.clone(), derives, cx)
+    })
+  }
+
   pub fn new(scene: &Scene, derives: &SceneNodeDeriveSystem, cx: &ResourceGPUCtx) -> Self {
-    fn build_reactive_camera(
-      camera: SceneCamera,
-      derives: &SceneNodeDeriveSystem,
-      cx: &ResourceGPUCtx,
-    ) -> ReactiveCameraGPU {
-      let cx = cx.clone();
-      let derives = derives.clone();
-
-      let camera_world = camera
-        .single_listen_by(with_field!(SceneCameraInner => node))
-        .map(move |node| derives.create_world_matrix_stream(&node))
-        .flatten_signal()
-        .map(CameraGPUDelta::WorldMat);
-
-      let camera_proj = camera
-        .single_listen_by(with_field!(SceneCameraInner => projection_matrix))
-        .map(CameraGPUDelta::Proj);
-
-      let camera = CameraGPU::new(&cx.device);
-      let state = RenderComponentCell::new(camera);
-
-      futures::stream::select(camera_world, camera_proj).fold_signal(state, move |delta, state| {
-        let uniform = &mut state.inner.ubo;
-        uniform.resource.mutate(|uniform| match delta {
-          CameraGPUDelta::Proj(proj) => {
-            uniform.projection = proj;
-            uniform.projection_inv = proj.inverse_or_identity();
-            uniform.view_projection = proj * uniform.view;
-            uniform.view_projection_inv = uniform.view_projection.inverse_or_identity();
-          }
-          CameraGPUDelta::WorldMat(world) => {
-            uniform.world = world;
-            uniform.view = world.inverse_or_identity();
-            uniform.rotation = world.extract_rotation_mat();
-            uniform.view_projection = uniform.projection * uniform.view;
-            uniform.view_projection_inv = uniform.view_projection.inverse_or_identity();
-          }
-        });
-
-        uniform.resource.upload(&cx.queue);
-        RenderComponentDeltaFlag::Content.into()
-      })
-    }
-
     let derives = derives.clone();
     let cx = cx.clone();
 
