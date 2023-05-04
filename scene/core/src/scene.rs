@@ -107,7 +107,7 @@ impl SceneInner {
 
     s.nodes.inner.visit_inner(move |tree| {
       tree.source.on(move |d| {
-        scene_clone.mutate(|mut scene| scene.trigger_manual(|_| SceneInnerDelta::nodes(d.clone())));
+        scene_clone.trigger_change(&SceneInnerDelta::nodes(d.clone()));
         false
       })
     });

@@ -190,7 +190,7 @@ impl CameraGPU {
       jitter_normalized: Vec2::zero(),
       ..Zeroable::zeroed()
     };
-    uniform.projection * uniform.view;
+    uniform.view_projection = uniform.projection * uniform.view;
     uniform.view_projection_inv = uniform.view_projection.inverse_or_identity();
 
     Self {
