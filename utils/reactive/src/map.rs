@@ -98,6 +98,8 @@ impl<T> StreamMap<T> {
 
   pub fn insert(&mut self, key: usize, value: T) {
     self.streams.insert(key, value);
+    self.waked.write().unwrap().push(key);
+    self.try_wake()
   }
 
   pub fn get_or_insert_with(&mut self, key: usize, f: impl FnOnce() -> T) -> &mut T {
@@ -122,34 +124,39 @@ impl<T: Stream + Unpin> Stream for StreamMap<T> {
 
   fn poll_next(self: Pin<&mut Self>, cx: &mut task::Context) -> task::Poll<Option<Self::Item>> {
     let this = self.project();
-    let mut changed = this.waked.write().unwrap();
 
     this.waker.write().unwrap().replace(cx.waker().clone());
 
-    while let Some(&index) = changed.last() {
-      let waker = Arc::new(ChangeWaker {
-        waker: this.waker.clone(),
-        index,
-        changed: this.waked.clone(),
-      });
-      let waker = futures::task::waker_ref(&waker);
-      let mut cx = Context::from_waker(&waker);
+    loop {
+      let last = this.waked.read().unwrap().last().copied();
+      if let Some(index) = last {
+        let waker = Arc::new(ChangeWaker {
+          waker: this.waker.clone(),
+          index,
+          changed: this.waked.clone(),
+        });
+        let waker = futures::task::waker_ref(&waker);
+        let mut cx = Context::from_waker(&waker);
 
-      if let Some(stream) = this.streams.get_mut(&index) {
-        if let Poll::Ready(r) = stream
-          .poll_next_unpin(&mut cx)
-          .map(|r| r.map(|item| IndexedItem { index, item }))
-        {
-          if r.is_none() {
-            this.streams.remove(&index);
-          } else {
-            return Poll::Ready(r);
+        if let Some(stream) = this.streams.get_mut(&index) {
+          if let Poll::Ready(r) = stream
+            .poll_next_unpin(&mut cx)
+            .map(|r| r.map(|item| IndexedItem { index, item }))
+          {
+            if r.is_none() {
+              this.streams.remove(&index);
+            } else {
+              return Poll::Ready(r);
+            }
           }
         }
-      }
 
-      changed.pop().unwrap();
+        this.waked.write().unwrap().pop().unwrap();
+      } else {
+        break;
+      }
     }
+
     Poll::Pending
   }
 }

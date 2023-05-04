@@ -22,6 +22,9 @@ impl GlobalGPUSystem {
     let scene = self.scenes.get_or_insert_with(scene.id(), || {
       SceneGPUSystem::new(scene, derives, self.content.clone())
     });
+
+    // the new created scene sys requires maintain
+    do_updates(scene, |_| {});
     (scene, &self.content)
   }
 

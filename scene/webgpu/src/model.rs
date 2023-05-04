@@ -239,7 +239,7 @@ pub fn build_standard_model_gpu(
         RenderComponentDeltaFlag::ContentRef
       }
       StandardModelDelta::group(_) => RenderComponentDeltaFlag::Draw,
-      StandardModelDelta::skeleton(_) => todo!(),
+      StandardModelDelta::skeleton(_) => RenderComponentDeltaFlag::all(),
     })
 }
 

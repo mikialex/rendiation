@@ -67,8 +67,8 @@ impl ViewerPipeline {
       .render(ctx)
       .by(scene.by_main_camera(&mut widgets.axis_helper))
       .by(scene.by_main_camera(&mut widgets.grid_helper))
-      .by(scene.by_main_camera(&mut widgets.gizmo))
-      .by(scene.by_main_camera_and_self(&mut widgets.camera_helpers));
+      .by(scene.by_main_camera(&mut widgets.gizmo));
+      // .by(scene.by_main_camera_and_self(&mut widgets.camera_helpers));
 
     let highlight_compose = (!content.selections.is_empty())
     .then(|| self.highlight.draw(&content.selections, ctx, scene.get_active_camera()));

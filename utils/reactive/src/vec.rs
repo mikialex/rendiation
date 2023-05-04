@@ -74,34 +74,63 @@ impl<T: Stream + Unpin> Stream for StreamVec<T> {
 
   fn poll_next(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Option<Self::Item>> {
     let this = self.project();
-    let mut changed = this.waked.write().unwrap();
 
     this.waker.write().unwrap().replace(cx.waker().clone());
 
-    while let Some(&index) = changed.last() {
-      let waker = Arc::new(ChangeWaker {
-        waker: this.waker.clone(),
-        index,
-        changed: this.waked.clone(),
-      });
-      let waker = futures::task::waker_ref(&waker);
-      let mut cx = Context::from_waker(&waker);
+    loop {
+      let last = this.waked.read().unwrap().last().copied();
+      if let Some(index) = last {
+        let waker = Arc::new(ChangeWaker {
+          waker: this.waker.clone(),
+          index,
+          changed: this.waked.clone(),
+        });
+        let waker = futures::task::waker_ref(&waker);
+        let mut cx = Context::from_waker(&waker);
 
-      if let Some(stream) = this.streams.get_mut(index).unwrap() {
-        if let Poll::Ready(r) = stream
-          .poll_next_unpin(&mut cx)
-          .map(|r| r.map(|item| IndexedItem { index, item }))
-        {
-          if r.is_none() {
-            this.streams[index] = None;
-          } else {
-            return Poll::Ready(r);
+        if let Some(stream) = this.streams.get_mut(index).unwrap() {
+          if let Poll::Ready(r) = stream
+            .poll_next_unpin(&mut cx)
+            .map(|r| r.map(|item| IndexedItem { index, item }))
+          {
+            if r.is_none() {
+              this.streams[index] = None;
+            } else {
+              return Poll::Ready(r);
+            }
           }
         }
-      }
 
-      changed.pop();
+        this.waked.write().unwrap().pop().unwrap();
+      } else {
+        break;
+      }
     }
+
+    // while let Some(index) = this.waked.read().unwrap().last().copied() {
+    //   // let waker = Arc::new(ChangeWaker {
+    //   //   waker: this.waker.clone(),
+    //   //   index,
+    //   //   changed: this.waked.clone(),
+    //   // });
+    //   // let waker = futures::task::waker_ref(&waker);
+    //   // let mut cx = Context::from_waker(&waker);
+
+    //   // if let Some(stream) = this.streams.get_mut(index).unwrap() {
+    //   //   if let Poll::Ready(r) = stream
+    //   //     .poll_next_unpin(&mut cx)
+    //   //     .map(|r| r.map(|item| IndexedItem { index, item }))
+    //   //   {
+    //   //     if r.is_none() {
+    //   //       this.streams[index] = None;
+    //   //     } else {
+    //   //       return Poll::Ready(r);
+    //   //     }
+    //   //   }
+    //   // }
+
+    //   this.waked.write().unwrap().pop();
+    // }
     Poll::Pending
   }
 }
