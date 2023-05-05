@@ -233,8 +233,7 @@ impl Viewer3dContent {
   }
 
   pub fn maintain(&mut self) {
-    //  this is not necessary, because the bounding depend on derive
-    // self.scene_derived.maintain();
+    self.scene_derived.maintain();
     self.scene_bounding.maintain();
   }
 
