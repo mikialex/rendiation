@@ -100,17 +100,12 @@ impl IndexBufferSourceTypeProvider for DynIndexContainer {
 
 impl<V, T, IU> ReactiveRenderComponentSource for ReactiveMeshGPUOfTypedMesh<V, T, IU>
 where
-  V: Pod,
-  IU: IndexGet + AsGPUBytes + IndexBufferSourceTypeProvider + 'static,
-  V: ShaderGraphVertexInProvider,
+  V: Pod + ShaderGraphVertexInProvider + Unpin,
+  T: PrimitiveTopologyMeta + Unpin,
+  IU: IndexGet + AsGPUBytes + IndexBufferSourceTypeProvider + Unpin + 'static,
   IndexedMesh<T, Vec<V>, IU>: GPUConsumableMeshBuffer,
-  T: PrimitiveTopologyMeta,
-  GroupedMesh<IndexedMesh<T, Vec<V>, IU>>: IntersectAbleGroupedMesh,
-  GroupedMesh<IndexedMesh<T, Vec<V>, IU>>: SimpleIncremental,
-  GroupedMesh<IndexedMesh<T, Vec<V>, IU>>: Send + Sync,
-  IU: Unpin,
-  T: Unpin,
-  V: Unpin,
+  GroupedMesh<IndexedMesh<T, Vec<V>, IU>>:
+    IntersectAbleGroupedMesh + SimpleIncremental + Send + Sync,
 {
   fn as_reactive_component(&self) -> &dyn ReactiveRenderComponent {
     self.as_ref() as &dyn ReactiveRenderComponent
@@ -119,33 +114,22 @@ where
 
 pub type ReactiveMeshGPUOfTypedMesh<V, T, IU>
 where
-  V: Pod,
-  IU: IndexGet + AsGPUBytes + IndexBufferSourceTypeProvider + 'static,
-  V: ShaderGraphVertexInProvider,
+  V: Pod + ShaderGraphVertexInProvider + Unpin,
+  T: PrimitiveTopologyMeta + Unpin,
+  IU: IndexGet + AsGPUBytes + IndexBufferSourceTypeProvider + Unpin + 'static,
   IndexedMesh<T, Vec<V>, IU>: GPUConsumableMeshBuffer,
-  T: PrimitiveTopologyMeta,
-  GroupedMesh<IndexedMesh<T, Vec<V>, IU>>: IntersectAbleGroupedMesh,
-  GroupedMesh<IndexedMesh<T, Vec<V>, IU>>: SimpleIncremental,
-  GroupedMesh<IndexedMesh<T, Vec<V>, IU>>: Send + Sync,
-  IU: Unpin,
-  T: Unpin,
-  V: Unpin,
+  GroupedMesh<IndexedMesh<T, Vec<V>, IU>>:
+    IntersectAbleGroupedMesh + SimpleIncremental + Send + Sync,
 = impl AsRef<RenderComponentCell<TypedMeshGPU<GroupedMesh<IndexedMesh<T, Vec<V>, IU>>>>>
   + Stream<Item = RenderComponentDeltaFlag>;
 
 impl<V, T, IU> WebGPUMesh for GroupedMesh<IndexedMesh<T, Vec<V>, IU>>
 where
-  V: Pod,
-  IU: IndexGet + AsGPUBytes + IndexBufferSourceTypeProvider + 'static,
-  V: ShaderGraphVertexInProvider,
+  V: Pod + ShaderGraphVertexInProvider + Unpin,
+  T: PrimitiveTopologyMeta + Unpin,
+  IU: IndexGet + AsGPUBytes + IndexBufferSourceTypeProvider + Unpin + 'static,
   IndexedMesh<T, Vec<V>, IU>: GPUConsumableMeshBuffer,
-  T: PrimitiveTopologyMeta,
-  Self: IntersectAbleGroupedMesh,
-  Self: SimpleIncremental,
-  Self: Send + Sync,
-  IU: Unpin,
-  T: Unpin,
-  V: Unpin,
+  Self: IntersectAbleGroupedMesh + SimpleIncremental + Send + Sync,
 {
   type ReactiveGPU = ReactiveMeshGPUOfTypedMesh<V, T, IU>;
 

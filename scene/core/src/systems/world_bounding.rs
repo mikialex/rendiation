@@ -17,18 +17,12 @@ impl SceneModelWorldBoundingSystem {
   pub fn new(scene: &Scene, d_sys: &SceneNodeDeriveSystem) -> Self {
     fn build_world_box_stream(
       model: &SceneModel,
-      filter: SceneNodeChangeStreamIndexMapper,
+      d_sys: &SceneNodeDeriveSystem,
     ) -> impl Stream<Item = Option<Box3>> + Unpin {
+      let d_sys = d_sys.clone();
       let world_mat_stream = model
         .unbound_listen_by(with_field!(SceneModelImpl => node))
-        .map(move |node| {
-          filter
-            .create_sub_stream_by_index(node.raw_handle().index())
-            .filter_map_sync(|d| match d {
-              SceneNodeDerivedDataDelta::world_matrix(m) => Some(m),
-              SceneNodeDerivedDataDelta::net_visible(_) => None,
-            })
-        })
+        .map(move |node| d_sys.create_world_matrix_stream(&node))
         .flatten_signal();
 
       let local_box_stream = model
@@ -52,7 +46,7 @@ impl SceneModelWorldBoundingSystem {
     }
 
     use arena::ArenaDelta::*;
-    let mapper = d_sys.indexed_stream_mapper.clone();
+    let d_sys = d_sys.clone();
     let handler = scene
       .unbound_listen_by(|view, send| match view {
         MaybeDeltaRef::All(scene) => scene.models.expand(send),
@@ -63,14 +57,8 @@ impl SceneModelWorldBoundingSystem {
         }
       })
       .map(move |model_delta| match model_delta {
-        Mutate((new, handle)) => (
-          handle.index(),
-          Some(build_world_box_stream(&new, mapper.clone())),
-        ),
-        Insert((new, handle)) => (
-          handle.index(),
-          Some(build_world_box_stream(&new, mapper.clone())),
-        ),
+        Mutate((new, handle)) => (handle.index(), Some(build_world_box_stream(&new, &d_sys))),
+        Insert((new, handle)) => (handle.index(), Some(build_world_box_stream(&new, &d_sys))),
         Remove(handle) => (handle.index(), None),
       })
       .flatten_into_vec_stream_signal()

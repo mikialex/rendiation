@@ -23,7 +23,7 @@ impl TextureGPUChange {
       TextureGPUChange::Reference2D(_) => RenderComponentDeltaFlag::ContentRef,
       TextureGPUChange::ReferenceCube(_) => RenderComponentDeltaFlag::ContentRef,
       TextureGPUChange::ReferenceSampler(_) => RenderComponentDeltaFlag::ContentRef,
-      TextureGPUChange::Content => RenderComponentDeltaFlag::ContentRef,
+      TextureGPUChange::Content => RenderComponentDeltaFlag::Content,
     }
   }
 }

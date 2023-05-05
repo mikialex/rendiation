@@ -76,7 +76,7 @@ pub struct DerivedData<T, M> {
 pub struct TreeHierarchyDerivedSystem<T: IncrementalBase, Dirty> {
   derived_tree: Arc<RwLock<TreeCollection<DerivedData<T, Dirty>>>>,
   // we use boxed here to avoid another generic for tree delta input stream
-  pub derived_stream: StreamForker<Box<dyn Stream<Item = (usize, T::Delta)> + Unpin>>,
+  pub derived_stream: StreamForker<Box<dyn Stream<Item = (usize, Option<T::Delta>)> + Unpin>>,
 }
 
 impl<T: IncrementalBase, M> Clone for TreeHierarchyDerivedSystem<T, M> {
@@ -121,12 +121,17 @@ impl<T: IncrementalBase, Dirty> TreeHierarchyDerivedSystem<T, Dirty> {
 
     let source_tree = source_tree.clone();
 
+    enum MarkingResult<T, Dirty> {
+      UpdateRoot(Option<TreeNodeHandle<DerivedData<T, Dirty>>>),
+      Remove(usize),
+    }
+
     let derived_stream = tree_delta
       // mark stage
       // do dirty marking, return if should trigger hierarchy change, and the update root
-      .filter_map_sync(move |delta| {
+      .map(move |delta| {
         let mut derived_tree = derived_tree_c.write().unwrap();
-        match delta {
+        let marking = match delta {
           // simply create the default derived. insert into derived tree.
           // we don't care the returned handle, as we assume they are allocated in the same position
           // in the original tree.
@@ -138,7 +143,7 @@ impl<T: IncrementalBase, Dirty> TreeHierarchyDerivedSystem<T, Dirty> {
           TreeMutation::Delete(handle) => {
             let handle = derived_tree.recreate_handle(handle);
             derived_tree.delete_node(handle);
-            None
+            return MarkingResult::Remove(handle.index());
           }
           // check if have any hierarchy effect, and do marking
           TreeMutation::Mutate { node, delta } => {
@@ -162,26 +167,34 @@ impl<T: IncrementalBase, Dirty> TreeHierarchyDerivedSystem<T, Dirty> {
             derived_tree.node_detach_parent(node).ok();
             B::marking_dirty(&mut derived_tree, node, M::all_dirty())
           }
-        }
+        };
+        MarkingResult::UpdateRoot(marking)
       })
       .buffered_unbound() // to make sure all markup finished
-      .map(move |update_root| {
-        let mut derived_tree = derived_tree_cc.write().unwrap();
+      .map(move |marking_result| {
         // this allocation can not removed, but could we calculate correct capacity or reuse the allocation?
         let mut derived_deltas = Vec::new();
-        // do full tree traverse check, emit all real update as stream
-        let tree: &TREE = &source_tree.inner.read().unwrap();
-        // node maybe deleted
-        if derived_tree.is_handle_valid(update_root) {
-          B::update_derived(tree, &mut derived_tree, update_root, &mut |delta| {
-            derived_deltas.push(delta);
-          });
+        match marking_result {
+          MarkingResult::UpdateRoot(Some(update_root)) => {
+            let mut derived_tree = derived_tree_cc.write().unwrap();
+            // do full tree traverse check, emit all real update as stream
+            let tree: &TREE = &source_tree.inner.read().unwrap();
+            // node maybe deleted
+            if derived_tree.is_handle_valid(update_root) {
+              B::update_derived(tree, &mut derived_tree, update_root, &mut |delta| {
+                derived_deltas.push((delta.0, Some(delta.1)));
+              });
+            }
+          }
+          MarkingResult::Remove(idx) => derived_deltas.push((idx, None)),
+          _ => {}
         }
+
         futures::stream::iter(derived_deltas)
       })
       .flatten(); // we want all change here, not signal
 
-    let boxed: Box<dyn Stream<Item = (usize, T::Delta)> + Unpin> =
+    let boxed: Box<dyn Stream<Item = (usize, Option<T::Delta>)> + Unpin> =
       Box::new(Box::pin(derived_stream));
 
     Self {
