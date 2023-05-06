@@ -2481,6 +2481,7 @@ dependencies = [
  "log",
  "once_cell",
  "paste",
+ "pin-project",
  "reactive",
  "rendiation-algebra",
  "rendiation-animation",

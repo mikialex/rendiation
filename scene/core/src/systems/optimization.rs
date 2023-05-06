@@ -8,6 +8,7 @@ use core::{
 use futures::*;
 use reactive::{do_updates_by, once_forever_pending, SignalStreamExt, StreamMap, StreamMapDelta};
 use rendiation_renderable_mesh::MeshDrawGroup;
+use std::intrinsics::unreachable;
 
 // data flow:
 
@@ -373,11 +374,47 @@ impl Stream for Transformer {
   }
 }
 
-/// if the source is single model, then the transformed model is the same source model
-fn create_instance(source: &HashMap<usize, SceneModel>) -> SceneModel {
+fn create_instance(
+  source: &HashMap<usize, SceneModel>,
+  d_sys: &SceneNodeDeriveSystem,
+) -> SceneModel {
+  // if the source is single model, then the transformed model is the same source model
   if source.len() == 1 {
     source.values().next().unwrap().clone()
   } else {
-    todo!()
+    let first = source.values().next().unwrap();
+    let model = match first.read().model {
+      ModelType::Standard(model) => model,
+      ModelType::Foreign(_) => unreachable!(),
+    };
+
+    let model = model.read();
+    let mesh = model.mesh.clone();
+    let material = model.material.clone();
+
+    let transforms = source
+      .values()
+      .map(|m| d_sys.get_world_matrix(&m.read().node))
+      .collect();
+
+    let instance_mesh = TransformInstancedSceneMesh {
+      mesh: model.mesh.clone(),
+      transforms,
+    }
+    .into_ref();
+
+    let instance_model = StandardModel {
+      material,
+      mesh: SceneMeshType::TransformInstanced(instance_mesh),
+      group: model.group,
+      skeleton: None,
+    }
+    .into_ref();
+
+    SceneModelImpl {
+      model: ModelType::Standard(instance_model),
+      node: todo!(),
+    }
+    .into_ref()
   }
 }

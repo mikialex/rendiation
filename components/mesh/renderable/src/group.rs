@@ -2,7 +2,7 @@ use std::ops::Range;
 
 use crate::GPUConsumableMeshBuffer;
 
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, Hash, PartialEq, Eq)]
 pub struct MeshGroup {
   pub start: usize,
   pub count: usize,
@@ -14,7 +14,7 @@ impl From<MeshGroup> for Range<u32> {
   }
 }
 
-#[derive(Default, Clone, Debug)]
+#[derive(Default, Clone, Debug, Hash, PartialEq, Eq)]
 pub struct MeshGroupsInfo {
   pub groups: Vec<MeshGroup>,
 }
@@ -69,7 +69,7 @@ where
   }
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq)]
 pub enum MeshDrawGroup {
   Full,
   SubMesh(usize),

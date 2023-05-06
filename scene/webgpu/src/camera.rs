@@ -22,7 +22,7 @@ pub type ReactiveCameraGPU = impl Stream<Item = RenderComponentDeltaFlag>
 
 pub type SceneCameraGPUStorage = impl AsRef<StreamMap<ReactiveCameraGPU>>
   + AsMut<StreamMap<ReactiveCameraGPU>>
-  + Stream<Item = VecUpdateUnit<RenderComponentDeltaFlag>>
+  + Stream<Item = StreamMapDelta<RenderComponentDeltaFlag>>
   + Unpin;
 
 enum CameraGPUDelta {
