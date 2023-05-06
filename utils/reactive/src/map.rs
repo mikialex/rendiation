@@ -66,6 +66,7 @@ impl<M, T: ReactiveMapping<M>> ReactiveMap<T, M> {
 #[pin_project::pin_project]
 pub struct StreamMap<T> {
   streams: HashMap<usize, T>,
+  ref_changes: Vec<RefChange>,
   waked: Arc<RwLock<Vec<usize>>>,
   waker: Arc<RwLock<Option<Waker>>>,
 }
@@ -74,6 +75,7 @@ impl<T> Default for StreamMap<T> {
   fn default() -> Self {
     Self {
       streams: Default::default(),
+      ref_changes: Default::default(),
       waked: Default::default(),
       waker: Default::default(),
     }
@@ -97,21 +99,30 @@ impl<T> StreamMap<T> {
   }
 
   pub fn insert(&mut self, key: usize, value: T) {
+    // handle replace semantic
+    if self.streams.contains_key(&key) {
+      self.ref_changes.push(RefChange::Remove(key));
+    }
     self.streams.insert(key, value);
     self.waked.write().unwrap().push(key);
+    self.ref_changes.push(RefChange::Insert(key));
     self.try_wake()
   }
 
   pub fn get_or_insert_with(&mut self, key: usize, f: impl FnOnce() -> T) -> &mut T {
     self.streams.entry(key).or_insert_with(|| {
       self.waked.write().unwrap().push(key);
+      self.ref_changes.push(RefChange::Insert(key));
       try_wake(&self.waker);
       f()
     })
   }
 
   pub fn remove(&mut self, key: usize) -> Option<T> {
-    self.streams.remove(&key)
+    self.streams.remove(&key).map(|d| {
+      self.ref_changes.push(RefChange::Remove(key));
+      d
+    })
   }
 
   pub fn try_wake(&self) {
@@ -119,11 +130,30 @@ impl<T> StreamMap<T> {
   }
 }
 
+enum RefChange {
+  Insert(usize),
+  Remove(usize),
+}
+
+pub enum StreamMapDelta<T> {
+  Insert(usize),
+  Remove(usize),
+  Delta(usize, T),
+}
+
 impl<T: Stream + Unpin> Stream for StreamMap<T> {
-  type Item = IndexedItem<T::Item>;
+  type Item = StreamMapDelta<T::Item>;
 
   fn poll_next(self: Pin<&mut Self>, cx: &mut task::Context) -> task::Poll<Option<Self::Item>> {
     let this = self.project();
+
+    if let Some(change) = this.ref_changes.pop() {
+      let d = match change {
+        RefChange::Insert(d) => StreamMapDelta::Insert(d),
+        RefChange::Remove(d) => StreamMapDelta::Remove(d),
+      };
+      return Poll::Ready(d.into());
+    }
 
     this.waker.write().unwrap().replace(cx.waker().clone());
 
@@ -139,14 +169,12 @@ impl<T: Stream + Unpin> Stream for StreamMap<T> {
         let mut cx = Context::from_waker(&waker);
 
         if let Some(stream) = this.streams.get_mut(&index) {
-          if let Poll::Ready(r) = stream
-            .poll_next_unpin(&mut cx)
-            .map(|r| r.map(|item| IndexedItem { index, item }))
-          {
-            if r.is_none() {
-              this.streams.remove(&index);
+          if let Poll::Ready(r) = stream.poll_next_unpin(&mut cx) {
+            if let Some(r) = r {
+              return Poll::Ready(StreamMapDelta::Delta(index, r).into());
             } else {
-              return Poll::Ready(r);
+              this.streams.remove(&index);
+              return Poll::Ready(StreamMapDelta::Remove(index).into());
             }
           }
         }
@@ -195,29 +223,26 @@ where
   S: Stream<Item = (usize, Option<T>)>,
   T: Stream + Unpin,
 {
-  type Item = VecUpdateUnit<T::Item>;
+  type Item = StreamMapDelta<T::Item>;
 
   fn poll_next(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Option<Self::Item>> {
     let mut this = self.project();
 
     if let Poll::Ready(next) = this.inner.poll_next(cx) {
       if let Some((index, result)) = next {
-        let r = if let Some(result) = result {
+        if let Some(result) = result {
           this.map.insert(index, result);
-          VecUpdateUnit::Active(index)
         } else {
           this.map.remove(index);
-          VecUpdateUnit::Remove(index)
-        };
-        return Poll::Ready(Some(r));
+        }
       } else {
         return Poll::Ready(None);
       }
-    } else {
-      // the vec will never terminated
-      if let Poll::Ready(Some(IndexedItem { index, item })) = this.map.poll_next(cx) {
-        return Poll::Ready(Some(VecUpdateUnit::Update { index, item }));
-      }
+    }
+
+    // the vec will never terminated
+    if let Poll::Ready(Some(d)) = this.map.poll_next(cx) {
+      return Poll::Ready(Some(d));
     }
 
     Poll::Pending

@@ -45,21 +45,21 @@ impl SceneNodeDeriveSystem {
       .filter_map_sync(|d: (usize, Option<SceneNodeDerivedDataDelta>)| d.1.map(|d1| (d.0, d1)))
       .create_index_mapping_broadcaster();
 
-    let sub_board_caster = StreamVec::<SingleSceneNodeChangeStreamFanOut>::default();
+    let sub_broad_caster = StreamVec::<SingleSceneNodeChangeStreamFanOut>::default();
 
     let stream_cache_updating = inner_sys.derived_stream.fork_stream().fold_signal(
-      sub_board_caster,
-      move |(idx, delta), sub_board_caster| {
+      sub_broad_caster,
+      move |(idx, delta), sub_broad_caster| {
         if delta.is_none() {
-          sub_board_caster.insert(idx, None)
+          sub_broad_caster.insert(idx, None)
           // we check if is none first to avoid too much sub stream recreate
-        } else if sub_board_caster.get(idx).is_none() {
-          sub_board_caster.insert(
+        } else if sub_broad_caster.get(idx).is_none() {
+          sub_broad_caster.insert(
             idx,
             Some(
               indexed_stream_mapper
                 .create_sub_stream_by_index(idx)
-                .create_board_caster(),
+                .create_broad_caster(),
             ),
           )
         }

@@ -29,11 +29,11 @@ impl<S, D, F> Clone for StreamBroadcaster<S, D, F> {
 }
 
 impl<S, D, F> StreamBroadcaster<S, D, F> {
-  pub fn new(source: S, board_cast: F) -> Self {
+  pub fn new(source: S, broad_cast: F) -> Self {
     let inner = StreamBroadcasterInner {
       source,
       distributer: Default::default(),
-      board_cast,
+      broad_cast,
     };
     let inner = Arc::new(RwLock::new(inner));
     Self { inner }
@@ -45,7 +45,7 @@ struct StreamBroadcasterInner<S, D, F> {
   #[pin]
   source: S,
   distributer: Vec<Option<futures::channel::mpsc::UnboundedSender<D>>>,
-  board_cast: F,
+  broad_cast: F,
 }
 
 impl<S, D, F, I> Stream for StreamBroadcasterInner<S, D, F>
@@ -60,7 +60,7 @@ where
     let this = self.project();
     if let Poll::Ready(v) = this.source.poll_next(cx) {
       if let Some(input) = v {
-        F::board_cast(input.clone(), this.distributer);
+        F::broad_cast(input.clone(), this.distributer);
         Poll::Ready(input.into())
       } else {
         // forward early termination
@@ -81,7 +81,7 @@ pub struct BroadcastedStream<S, D, F> {
 }
 
 pub trait BroadcastBehavior<I, O> {
-  fn board_cast(input: I, output: &mut Vec<Option<futures::channel::mpsc::UnboundedSender<O>>>);
+  fn broad_cast(input: I, output: &mut Vec<Option<futures::channel::mpsc::UnboundedSender<O>>>);
 }
 
 impl<S, D, F> Stream for BroadcastedStream<S, D, F>
@@ -100,7 +100,7 @@ where
     // must use while let here, because we rely on this to update all depend system
     while let Poll::Ready(v) = this.source.as_mut().poll_next(cx) {
       if let Some(input) = v {
-        F::board_cast(input, this.distributer);
+        F::broad_cast(input, this.distributer);
       } else {
         // forward early termination
         return Poll::Ready(None);
@@ -158,7 +158,7 @@ where
 
 pub struct IndexMapping;
 impl<O> BroadcastBehavior<(usize, O), O> for IndexMapping {
-  fn board_cast(
+  fn broad_cast(
     (index, v): (usize, O),
     output: &mut Vec<Option<futures::channel::mpsc::UnboundedSender<O>>>,
   ) {
@@ -174,7 +174,7 @@ impl<O> BroadcastBehavior<(usize, O), O> for IndexMapping {
 
 pub struct FanOut;
 impl<I: Clone> BroadcastBehavior<I, I> for FanOut {
-  fn board_cast(input: I, output: &mut Vec<Option<futures::channel::mpsc::UnboundedSender<I>>>) {
+  fn broad_cast(input: I, output: &mut Vec<Option<futures::channel::mpsc::UnboundedSender<I>>>) {
     output.iter_mut().for_each(|sender| {
       if let Some(sender_real) = sender {
         if sender_real.unbounded_send(input.clone()).is_err() {

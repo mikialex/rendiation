@@ -65,7 +65,7 @@ pub trait SignalStreamExt: Stream {
   where
     Self: Sized;
 
-  fn create_board_caster(self) -> StreamBroadcaster<Self, Self::Item, FanOut>
+  fn create_broad_caster(self) -> StreamBroadcaster<Self, Self::Item, FanOut>
   where
     Self: Sized + Stream;
 
@@ -89,6 +89,10 @@ pub trait SignalStreamExt: Stream {
     Self: Sized,
     Self: Stream,
     F: FnMut(Self::Item, &mut State) -> X;
+
+  fn depend_pending_stream<S>(self, pending: S) -> StreamDependency<S, Self>
+  where
+    Self: Sized + Stream;
 }
 
 impl<T: Stream> SignalStreamExt for T {
@@ -145,7 +149,7 @@ impl<T: Stream> SignalStreamExt for T {
     BufferedSharedStream::new(self)
   }
 
-  fn create_board_caster(self) -> StreamBroadcaster<Self, Self::Item, FanOut>
+  fn create_broad_caster(self) -> StreamBroadcaster<Self, Self::Item, FanOut>
   where
     Self: Sized,
   {
@@ -182,6 +186,16 @@ impl<T: Stream> SignalStreamExt for T {
       state,
       stream: self,
       f,
+    }
+  }
+
+  fn depend_pending_stream<S>(self, pending: S) -> StreamDependency<S, Self>
+  where
+    Self: Sized + Stream,
+  {
+    StreamDependency {
+      dependency: pending,
+      source: self,
     }
   }
 }
@@ -505,5 +519,34 @@ where
     } else {
       this.state.poll_next_unpin(cx)
     }
+  }
+}
+
+/// make sure when poll source, the dependency will in pending state
+#[pin_project::pin_project]
+pub struct StreamDependency<D, T> {
+  #[pin]
+  dependency: D,
+  #[pin]
+  source: T,
+}
+
+impl<D, T> Stream for StreamDependency<D, T>
+where
+  D: Stream<Item = ()>,
+  T: Stream,
+{
+  type Item = T::Item;
+
+  fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+    let mut this = self.project();
+
+    while let Poll::Ready(v) = this.dependency.as_mut().poll_next(cx) {
+      if v.is_none() {
+        return Poll::Ready(None);
+      }
+    }
+
+    this.source.poll_next(cx)
   }
 }

@@ -62,7 +62,7 @@ impl SceneModelWorldBoundingSystem {
         Remove(handle) => (handle.index(), None),
       })
       .flatten_into_vec_stream_signal()
-      .create_board_caster();
+      .create_broad_caster();
 
     Self {
       handler,

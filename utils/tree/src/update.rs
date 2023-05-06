@@ -199,7 +199,7 @@ impl<T: IncrementalBase, Dirty> TreeHierarchyDerivedSystem<T, Dirty> {
 
     Self {
       derived_tree,
-      derived_stream: boxed.create_board_caster(),
+      derived_stream: boxed.create_broad_caster(),
     }
   }
 }
