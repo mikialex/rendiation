@@ -287,7 +287,11 @@ impl IntersectAbleGroupedMesh for SceneMeshType {
     _result: &mut MeshBufferHitList,
     _group: MeshDrawGroup,
   ) {
-    todo!()
+    match self {
+      SceneMeshType::AttributesMesh(_) => todo!(),
+      SceneMeshType::TransformInstanced(_) => todo!(),
+      SceneMeshType::Foreign(_) => todo!(),
+    }
   }
 
   fn intersect_nearest(
@@ -296,6 +300,10 @@ impl IntersectAbleGroupedMesh for SceneMeshType {
     _conf: &MeshBufferIntersectConfig,
     _group: MeshDrawGroup,
   ) -> OptionalNearest<MeshBufferHitPoint> {
-    todo!()
+    match self {
+      SceneMeshType::AttributesMesh(_) => todo!(),
+      SceneMeshType::TransformInstanced(_) => todo!(),
+      SceneMeshType::Foreign(_) => todo!(),
+    }
   }
 }
