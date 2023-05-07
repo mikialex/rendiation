@@ -1,3 +1,5 @@
+use incremental::ApplicableIncremental;
+
 use crate::*;
 
 #[derive(Clone)]
@@ -35,11 +37,56 @@ impl<T> TreeCollection<T> {
     }
   }
 }
+
 impl<T: IncrementalBase + Clone> IncrementalBase for TreeCollection<T> {
   type Delta = TreeMutation<T>;
 
   fn expand(&self, cb: impl FnMut(Self::Delta)) {
     self.expand_with_mapping(|n| n.clone(), cb)
+  }
+}
+
+#[derive(Debug)]
+pub enum TreeDeltaMutationError<T> {
+  Inner(T),
+  Mutation(TreeMutationError),
+  InputHandleNotMatchInsertResult,
+}
+
+impl<T: ApplicableIncremental + Clone> ApplicableIncremental for TreeCollection<T> {
+  type Error = TreeDeltaMutationError<T::Error>;
+
+  fn apply(&mut self, delta: Self::Delta) -> Result<(), Self::Error> {
+    match delta {
+      TreeMutation::Create { data, node } => {
+        let handle = self.create_node(data);
+        (handle.index() == node)
+          .then_some(())
+          .ok_or(TreeDeltaMutationError::InputHandleNotMatchInsertResult)
+      }
+      TreeMutation::Delete(idx) => {
+        let handle = self.recreate_handle(idx);
+        self.delete_node(handle); // todo
+        Ok(())
+      }
+      TreeMutation::Mutate { node, delta } => {
+        let handle = self.recreate_handle(node);
+        let node = self.get_node_data_mut(handle);
+        node.apply(delta).map_err(TreeDeltaMutationError::Inner)
+      }
+      TreeMutation::Attach {
+        parent_target,
+        node,
+      } => self
+        .node_add_child_by(
+          self.recreate_handle(parent_target),
+          self.recreate_handle(node),
+        )
+        .map_err(TreeDeltaMutationError::Mutation),
+      TreeMutation::Detach { node } => self
+        .node_detach_parent(self.recreate_handle(node))
+        .map_err(TreeDeltaMutationError::Mutation),
+    }
   }
 }
 

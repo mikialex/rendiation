@@ -8,7 +8,6 @@ use core::{
 use futures::*;
 use reactive::{do_updates_by, once_forever_pending, SignalStreamExt, StreamMap, StreamMapDelta};
 use rendiation_renderable_mesh::MeshDrawGroup;
-use std::intrinsics::unreachable;
 
 // data flow:
 
@@ -261,6 +260,7 @@ fn build_instance_source_stream(
 /// we call it transformer here because maybe this struct will be reused in other optimizer
 #[pin_project::pin_project]
 struct Transformer {
+  d_sys: SceneNodeDeriveSystem,
   key: PossibleInstanceKey,
   #[pin]
   source: StreamMap<InstanceSourceStream>,
@@ -279,9 +279,10 @@ enum CurrentTransformedState {
 }
 
 impl Transformer {
-  pub fn new(key: PossibleInstanceKey) -> Self {
+  pub fn new(key: PossibleInstanceKey, d_sys: SceneNodeDeriveSystem) -> Self {
     Self {
       key,
+      d_sys,
       source: Default::default(),
       source_model: Default::default(),
       state: Default::default(),
@@ -350,7 +351,7 @@ impl Stream for Transformer {
     if *this.require_rebuild {
       *this.require_rebuild = false;
 
-      let new_transformed = create_instance(this.source_model);
+      let new_transformed = create_instance(this.source_model, &this.d_sys);
       let re = match this.state.clone() {
         CurrentTransformedState::Present(old) => {
           *this.state = CurrentTransformedState::Staging(new_transformed);
