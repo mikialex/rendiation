@@ -110,6 +110,16 @@ impl<T: IncrementalBase> GlobalIdentified for SceneItemRef<T> {
     self.id
   }
 }
+impl<T: IncrementalBase> AsRef<dyn GlobalIdentified> for SceneItemRef<T> {
+  fn as_ref(&self) -> &(dyn GlobalIdentified + 'static) {
+    self
+  }
+}
+impl<T: IncrementalBase> AsMut<dyn GlobalIdentified> for SceneItemRef<T> {
+  fn as_mut(&mut self) -> &mut (dyn GlobalIdentified + 'static) {
+    self
+  }
+}
 
 impl<T: IncrementalBase> SceneItemRef<T> {
   pub fn new(source: T) -> Self {

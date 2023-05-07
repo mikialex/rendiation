@@ -54,6 +54,16 @@ impl<T: IncrementalBase> GlobalIdentified for Identity<T> {
     self.id
   }
 }
+impl<T: IncrementalBase> AsRef<dyn GlobalIdentified> for Identity<T> {
+  fn as_ref(&self) -> &(dyn GlobalIdentified + 'static) {
+    self
+  }
+}
+impl<T: IncrementalBase> AsMut<dyn GlobalIdentified> for Identity<T> {
+  fn as_mut(&mut self) -> &mut (dyn GlobalIdentified + 'static) {
+    self
+  }
+}
 
 impl<T: IncrementalBase> Identity<T> {
   pub fn new(inner: T) -> Self {

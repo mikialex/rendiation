@@ -25,6 +25,13 @@ impl SceneMaterialType {
 
 clone_self_incremental!(SceneMaterialType);
 
+pub fn register_core_material_features<T>()
+where
+  T: AsRef<dyn GlobalIdentified> + AsMut<dyn GlobalIdentified> + 'static,
+{
+  get_dyn_trait_downcaster_static!(GlobalIdentified).register::<T>()
+}
+
 /// The alpha rendering mode of a material.
 #[derive(Clone, Copy, Eq, PartialEq, Hash, Debug)]
 pub enum AlphaMode {

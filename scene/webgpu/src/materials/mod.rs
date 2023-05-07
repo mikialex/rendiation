@@ -37,6 +37,14 @@ pub trait WebGPUSceneMaterial: Send + Sync {
   fn is_transparent(&self) -> bool;
 }
 
+define_dyn_trait_downcaster_static!(WebGPUSceneMaterial);
+pub fn register_webgpu_material_features<T>()
+where
+  T: AsRef<dyn WebGPUSceneMaterial> + AsMut<dyn WebGPUSceneMaterial> + 'static,
+{
+  get_dyn_trait_downcaster_static!(WebGPUSceneMaterial).register::<T>()
+}
+
 impl WebGPUSceneMaterial for SceneMaterialType {
   fn create_scene_reactive_gpu(
     &self,
@@ -120,6 +128,17 @@ where
     self.read().deref().is_transparent()
   }
 }
+impl<T: WebGPUMaterial> AsRef<dyn WebGPUSceneMaterial> for SceneItemRef<T> {
+  fn as_ref(&self) -> &(dyn WebGPUSceneMaterial + 'static) {
+    self
+  }
+}
+impl<T: WebGPUMaterial> AsMut<dyn WebGPUSceneMaterial> for SceneItemRef<T> {
+  fn as_mut(&mut self) -> &mut (dyn WebGPUSceneMaterial + 'static) {
+    self
+  }
+}
+
 #[pin_project::pin_project(project = MaterialGPUInstanceProj)]
 pub enum MaterialGPUInstance {
   PhysicalMetallicRoughness(ReactiveMaterialGPUOf<PhysicalMetallicRoughnessMaterial>),

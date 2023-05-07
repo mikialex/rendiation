@@ -72,6 +72,13 @@ use std::{
   sync::{Arc, Mutex, RwLock},
 };
 
+pub fn register_webgpu_extra_features() {
+  register_core_material_features::<SceneItemRef<FatLineMaterial>>();
+  register_webgpu_material_features::<SceneItemRef<FatLineMaterial>>();
+  register_core_mesh_features::<SceneItemRef<FatlineMesh>>();
+  register_webgpu_mesh_features::<SceneItemRef<FatlineMesh>>();
+}
+
 pub trait SceneRenderable {
   fn is_transparent(&self) -> bool {
     false

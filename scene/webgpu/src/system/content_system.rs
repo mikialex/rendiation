@@ -43,7 +43,7 @@ impl ContentGPUSystem {
       .models
       .write()
       .unwrap()
-      .get_or_insert_with(model.id()?, || {
+      .get_or_insert_with(model.guid()?, || {
         model.create_scene_reactive_gpu(&self.model_ctx).unwrap()
       })
       .create_render_component_delta_stream()

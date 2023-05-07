@@ -42,6 +42,9 @@ pub use utils::*;
 mod systems;
 pub use systems::*;
 
+// for downstream crates use utils macro in downcaster.rs
+pub use paste;
+
 use futures::Stream;
 use incremental::*;
 use rendiation_algebra::*;

@@ -293,29 +293,21 @@ impl Stream for ReactiveSceneModelGPU {
   }
 }
 
-pub trait WebGPUModel: Send + Sync {
-  fn id(&self) -> Option<usize>;
+pub trait WebGPUSceneModel: Send + Sync {
   fn create_scene_reactive_gpu(
     &self,
     ctx: &GPUModelResourceCtx,
   ) -> Option<ReactiveSceneModelGPUType>;
 }
+define_dyn_trait_downcaster_static!(WebGPUSceneModel);
+pub fn register_webgpu_model_features<T>()
+where
+  T: AsRef<dyn WebGPUSceneModel> + AsMut<dyn WebGPUSceneModel> + 'static,
+{
+  get_dyn_trait_downcaster_static!(WebGPUSceneModel).register::<T>()
+}
 
-impl WebGPUModel for ModelType {
-  fn id(&self) -> Option<usize> {
-    match self {
-      Self::Standard(m) => m.guid(),
-      Self::Foreign(m) => {
-        return if let Some(m) = m.downcast_ref::<Box<dyn WebGPUModel>>() {
-          m.id()
-        } else {
-          None
-        }
-      }
-      _ => return None,
-    }
-    .into()
-  }
+impl WebGPUSceneModel for ModelType {
   fn create_scene_reactive_gpu(
     &self,
     ctx: &GPUModelResourceCtx,
@@ -325,7 +317,7 @@ impl WebGPUModel for ModelType {
         ReactiveSceneModelGPUType::Standard(build_standard_model_gpu(model, ctx))
       }
       Self::Foreign(m) => {
-        return if let Some(m) = m.downcast_ref::<Box<dyn WebGPUModel>>() {
+        return if let Some(m) = m.downcast_ref::<Box<dyn WebGPUSceneModel>>() {
           m.create_scene_reactive_gpu(ctx)
         } else {
           None
@@ -346,7 +338,7 @@ pub fn build_scene_model_gpu(
 ) -> ReactiveSceneModelGPUInstance {
   let source = source.read();
 
-  let model_id = source.model.id();
+  let model_id = source.model.guid();
   let model_delta = ctx.get_or_create_reactive_model_render_component_delta_source(&source.model);
 
   let instance = ReactiveSceneModelGPU {
@@ -362,7 +354,7 @@ pub fn build_scene_model_gpu(
     .unbound_listen_by(all_delta)
     .fold_signal_flatten(state, move |v, state| match v {
       SceneModelImplDelta::model(model) => {
-        let model_id = model.id();
+        let model_id = model.guid();
         let model_delta = ctx.get_or_create_reactive_model_render_component_delta_source(&model);
         state.inner.model_id = model_id;
         state.inner.model_delta = model_delta;

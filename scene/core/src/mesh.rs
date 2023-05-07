@@ -14,6 +14,15 @@ pub enum SceneMeshType {
   Foreign(Arc<dyn Any + Send + Sync>),
 }
 
+clone_self_incremental!(SceneMeshType);
+
+pub fn register_core_mesh_features<T>()
+where
+  T: AsRef<dyn GlobalIdentified> + AsMut<dyn GlobalIdentified> + 'static,
+{
+  get_dyn_trait_downcaster_static!(GlobalIdentified).register::<T>()
+}
+
 impl SceneMeshType {
   pub fn guid(&self) -> Option<usize> {
     match self {
@@ -44,8 +53,6 @@ impl SceneMeshType {
     // }
   }
 }
-
-clone_self_incremental!(SceneMeshType);
 
 /// Vertex attribute semantic name.
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]

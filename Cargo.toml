@@ -36,6 +36,7 @@ members = [
   "scene/core",
   "scene/webgpu",
   "scene/raytracing",
+  "scene/interaction",
   "scene/io/gltf/loader",
   "viewer",
   "webgpu",

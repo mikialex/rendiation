@@ -19,6 +19,18 @@ pub enum ModelType {
 
 clone_self_incremental!(ModelType);
 
+impl ModelType {
+  pub fn guid(&self) -> Option<usize> {
+    match self {
+      Self::Standard(m) => m.guid(),
+      Self::Foreign(m) => get_dyn_trait_downcaster_static!(GlobalIdentified)
+        .downcast_ref(m.as_ref())?
+        .guid(),
+    }
+    .into()
+  }
+}
+
 #[derive(Incremental)]
 pub struct StandardModel {
   pub material: SceneMaterialType,
