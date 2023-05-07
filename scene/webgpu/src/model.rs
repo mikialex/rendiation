@@ -14,12 +14,6 @@ impl SceneRenderable for SceneModel {
   }
 }
 
-impl SceneRayInteractive for SceneModel {
-  fn ray_pick_nearest(&self, ctx: &SceneRayInteractiveCtx) -> OptionalNearest<MeshBufferHitPoint> {
-    self.visit(|model| model.ray_pick_nearest(ctx))
-  }
-}
-
 impl SceneNodeControlled for SceneModel {
   fn visit_node(&self, visitor: &mut dyn FnMut(&SceneNode)) {
     self.visit(|model| visitor(&model.node))
@@ -127,61 +121,6 @@ impl SceneRenderable for SceneModelImpl {
     camera: &SceneCamera,
   ) {
     setup_pass_core(self, pass, camera, None, dispatcher);
-  }
-}
-
-pub fn ray_pick_nearest_core(
-  m: &SceneModelImpl,
-  ctx: &SceneRayInteractiveCtx,
-  world_mat: Mat4<f32>,
-) -> OptionalNearest<MeshBufferHitPoint> {
-  match &m.model {
-    ModelType::Standard(model) => {
-      let net_visible = ctx.node_derives.get_net_visible(&m.node);
-      if !net_visible {
-        return OptionalNearest::none();
-      }
-
-      let world_inv = world_mat.inverse_or_identity();
-
-      let local_ray = ctx.world_ray.clone().apply_matrix_into(world_inv);
-
-      let model = model.read();
-
-      if !model.material.is_keep_mesh_shape() {
-        return OptionalNearest::none();
-      }
-
-      let mut picked = OptionalNearest::none();
-      model
-        .mesh
-        .try_pick(&mut |mesh: &dyn IntersectAbleGroupedMesh| {
-          picked = mesh.intersect_nearest(local_ray, ctx.conf, model.group);
-
-          // transform back to world space
-          if let Some(result) = &mut picked.0 {
-            let hit = &mut result.hit;
-            hit.position = world_mat * hit.position;
-            hit.distance = (hit.position - ctx.world_ray.origin).length()
-          }
-        });
-      picked
-    }
-    ModelType::Foreign(model) => {
-      // todo should merge vtable to render
-      if let Some(model) = model.downcast_ref::<Box<dyn SceneRayInteractive>>() {
-        model.ray_pick_nearest(ctx)
-      } else {
-        OptionalNearest::none()
-      }
-    }
-    _ => OptionalNearest::none(),
-  }
-}
-
-impl SceneRayInteractive for SceneModelImpl {
-  fn ray_pick_nearest(&self, ctx: &SceneRayInteractiveCtx) -> OptionalNearest<MeshBufferHitPoint> {
-    ray_pick_nearest_core(self, ctx, ctx.node_derives.get_world_matrix(&self.node))
   }
 }
 
@@ -316,13 +255,9 @@ impl WebGPUSceneModel for ModelType {
       Self::Standard(model) => {
         ReactiveSceneModelGPUType::Standard(build_standard_model_gpu(model, ctx))
       }
-      Self::Foreign(m) => {
-        return if let Some(m) = m.downcast_ref::<Box<dyn WebGPUSceneModel>>() {
-          m.create_scene_reactive_gpu(ctx)
-        } else {
-          None
-        }
-      }
+      Self::Foreign(m) => get_dyn_trait_downcaster_static!(WebGPUSceneModel)
+        .downcast_ref(m.as_ref())?
+        .create_scene_reactive_gpu(ctx)?,
       _ => return None,
     }
     .into()

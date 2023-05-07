@@ -1,7 +1,5 @@
 use rendiation_renderable_mesh::mesh::IntersectAbleGroupedMesh;
 
-pub mod fatline;
-pub use fatline::*;
 pub mod typed;
 pub use typed::*;
 pub mod transform_instance;
@@ -41,13 +39,9 @@ impl WebGPUSceneMesh for SceneMeshType {
         let instance = TransformInstancedSceneMesh::create_reactive_gpu(m, ctx);
         MeshGPUInstance::TransformInstanced(instance)
       }
-      Self::Foreign(m) => {
-        return if let Some(m) = m.downcast_ref::<Box<dyn WebGPUSceneMesh>>() {
-          m.create_scene_reactive_gpu(ctx)
-        } else {
-          None
-        }
-      }
+      Self::Foreign(m) => get_dyn_trait_downcaster_static!(WebGPUSceneMesh)
+        .downcast_ref(m.as_ref())?
+        .create_scene_reactive_gpu(ctx)?,
       _ => return None,
     }
     .into()
@@ -57,9 +51,10 @@ impl WebGPUSceneMesh for SceneMeshType {
     match self {
       SceneMeshType::AttributesMesh(m) => m.topology(),
       SceneMeshType::TransformInstanced(m) => m.topology(),
-      SceneMeshType::Foreign(mesh) => {
-        if let Some(mesh) = mesh.downcast_ref::<Box<dyn WebGPUSceneMesh>>() {
-          mesh.topology()
+      SceneMeshType::Foreign(m) => {
+        if let Some(m) = get_dyn_trait_downcaster_static!(WebGPUSceneMesh).downcast_ref(m.as_ref())
+        {
+          m.topology()
         } else {
           webgpu::PrimitiveTopology::TriangleList
         }
@@ -72,8 +67,10 @@ impl WebGPUSceneMesh for SceneMeshType {
     match self {
       SceneMeshType::AttributesMesh(m) => m.draw_impl(group),
       SceneMeshType::TransformInstanced(m) => m.draw_impl(group),
-      SceneMeshType::Foreign(mesh) => {
-        if let Some(mesh) = mesh.downcast_ref::<Box<dyn WebGPUSceneMesh>>() {
+      SceneMeshType::Foreign(m) => {
+        if let Some(mesh) =
+          get_dyn_trait_downcaster_static!(WebGPUSceneMesh).downcast_ref(m.as_ref())
+        {
           mesh.draw_impl(group)
         } else {
           DrawCommand::Skip
@@ -86,8 +83,10 @@ impl WebGPUSceneMesh for SceneMeshType {
     match self {
       SceneMeshType::AttributesMesh(_) => {}
       SceneMeshType::TransformInstanced(m) => m.try_pick(f),
-      SceneMeshType::Foreign(mesh) => {
-        if let Some(mesh) = mesh.downcast_ref::<Box<dyn WebGPUSceneMesh>>() {
+      SceneMeshType::Foreign(m) => {
+        if let Some(mesh) =
+          get_dyn_trait_downcaster_static!(WebGPUSceneMesh).downcast_ref(m.as_ref())
+        {
           mesh.try_pick(f)
         }
       }

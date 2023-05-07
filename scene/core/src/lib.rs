@@ -43,6 +43,7 @@ mod systems;
 pub use systems::*;
 
 // for downstream crates use utils macro in downcaster.rs
+pub use once_cell;
 pub use paste;
 
 use futures::Stream;

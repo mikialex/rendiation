@@ -20,7 +20,7 @@ pub use app::*;
 use interphaser::{Application, WindowConfig};
 
 fn main() {
-  register_webgpu_extra_features();
+  register_viewer_extra_scene_features();
 
   let window_init_config = WindowConfig {
     size: (1200., 800.).into(),

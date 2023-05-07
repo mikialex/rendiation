@@ -2511,6 +2511,10 @@ dependencies = [
 name = "rendiation-scene-interaction"
 version = "0.1.0"
 dependencies = [
+ "incremental",
+ "rendiation-algebra",
+ "rendiation-geometry",
+ "rendiation-renderable-mesh",
  "rendiation-scene-core",
 ]
 

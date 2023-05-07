@@ -1,5 +1,9 @@
 use std::{cell::RefCell, rc::Rc};
 
+
+pub mod contents;
+pub use contents::*;
+
 pub mod default_scene;
 pub use default_scene::*;
 pub mod pipeline;

@@ -6,8 +6,6 @@ pub mod physical_sg;
 pub use physical_sg::*;
 pub mod physical_mr;
 pub use physical_mr::*;
-pub mod fatline;
-pub use fatline::*;
 pub mod normal_mapping;
 pub use normal_mapping::*;
 pub mod utils;
@@ -24,7 +22,6 @@ pub trait WebGPUMaterial: IncrementalBase {
     ctx: &ShareBindableResourceCtx,
   ) -> Self::ReactiveGPU;
 
-  fn is_keep_mesh_shape(&self) -> bool;
   fn is_transparent(&self) -> bool;
 }
 
@@ -33,7 +30,6 @@ pub trait WebGPUSceneMaterial: Send + Sync {
     &self,
     ctx: &ShareBindableResourceCtx,
   ) -> Option<MaterialGPUInstance>;
-  fn is_keep_mesh_shape(&self) -> bool;
   fn is_transparent(&self) -> bool;
 }
 
@@ -63,40 +59,23 @@ impl WebGPUSceneMaterial for SceneMaterialType {
         let instance = FlatMaterial::create_reactive_gpu(m, ctx);
         MaterialGPUInstance::Flat(instance)
       }
-      Self::Foreign(m) => {
-        return if let Some(m) = m.downcast_ref::<Box<dyn WebGPUSceneMaterial>>() {
-          m.create_scene_reactive_gpu(ctx)
-        } else {
-          None
-        }
-      }
+      Self::Foreign(m) => get_dyn_trait_downcaster_static!(WebGPUSceneMaterial)
+        .downcast_ref(m.as_ref())?
+        .create_scene_reactive_gpu(ctx)?,
       _ => return None,
     }
     .into()
   }
 
-  fn is_keep_mesh_shape(&self) -> bool {
-    match self {
-      Self::PhysicalSpecularGlossiness(m) => m.read().deref().is_keep_mesh_shape(),
-      Self::PhysicalMetallicRoughness(m) => m.read().deref().is_keep_mesh_shape(),
-      Self::Flat(m) => m.read().deref().is_keep_mesh_shape(),
-      Self::Foreign(m) => {
-        if let Some(m) = m.downcast_ref::<Box<dyn WebGPUSceneMaterial>>() {
-          m.is_keep_mesh_shape()
-        } else {
-          true
-        }
-      }
-      _ => true,
-    }
-  }
   fn is_transparent(&self) -> bool {
     match self {
       Self::PhysicalSpecularGlossiness(m) => m.read().deref().is_transparent(),
       Self::PhysicalMetallicRoughness(m) => m.read().deref().is_transparent(),
       Self::Flat(m) => m.read().deref().is_transparent(),
       Self::Foreign(m) => {
-        if let Some(m) = m.downcast_ref::<Box<dyn WebGPUSceneMaterial>>() {
+        if let Some(m) =
+          get_dyn_trait_downcaster_static!(WebGPUSceneMaterial).downcast_ref(m.as_ref())
+        {
           m.is_transparent()
         } else {
           false
@@ -118,10 +97,6 @@ where
     let instance = M::create_reactive_gpu(self, ctx);
     MaterialGPUInstance::Foreign(Box::new(instance) as Box<dyn ReactiveRenderComponentSource>)
       .into()
-  }
-
-  fn is_keep_mesh_shape(&self) -> bool {
-    self.read().deref().is_keep_mesh_shape()
   }
 
   fn is_transparent(&self) -> bool {

@@ -224,9 +224,6 @@ impl WebGPUMaterial for PhysicalMetallicRoughnessMaterial {
     )
   }
 
-  fn is_keep_mesh_shape(&self) -> bool {
-    true
-  }
   fn is_transparent(&self) -> bool {
     matches!(self.alpha_mode, AlphaMode::Blend)
   }

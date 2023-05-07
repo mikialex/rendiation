@@ -12,9 +12,7 @@ pub mod materials;
 pub mod mesh;
 mod mipmap_gen;
 pub mod model;
-pub mod model_overrides;
 pub mod node;
-pub mod picking;
 pub mod rendering;
 pub mod shading;
 pub mod shadow;
@@ -31,9 +29,7 @@ pub use materials::*;
 pub use mesh::*;
 pub use mipmap_gen::*;
 pub use model::*;
-pub use model_overrides::*;
 pub use node::*;
-pub use picking::*;
 pub use rendering::*;
 pub use shading::*;
 pub use shadow::*;
@@ -71,13 +67,6 @@ use std::{
   rc::Rc,
   sync::{Arc, Mutex, RwLock},
 };
-
-pub fn register_webgpu_extra_features() {
-  register_core_material_features::<SceneItemRef<FatLineMaterial>>();
-  register_webgpu_material_features::<SceneItemRef<FatLineMaterial>>();
-  register_core_mesh_features::<SceneItemRef<FatlineMesh>>();
-  register_webgpu_mesh_features::<SceneItemRef<FatlineMesh>>();
-}
 
 pub trait SceneRenderable {
   fn is_transparent(&self) -> bool {

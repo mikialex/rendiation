@@ -1,5 +1,5 @@
 use rendiation_geometry::*;
-use rendiation_texture::Size;
+pub use rendiation_texture::Size;
 
 use crate::*;
 

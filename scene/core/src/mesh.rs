@@ -278,3 +278,24 @@ impl IntersectAbleGroupedMesh for AttributesMesh {
     OptionalNearest::none()
   }
 }
+
+impl IntersectAbleGroupedMesh for SceneMeshType {
+  fn intersect_list(
+    &self,
+    _ray: Ray3,
+    _conf: &MeshBufferIntersectConfig,
+    _result: &mut MeshBufferHitList,
+    _group: MeshDrawGroup,
+  ) {
+    todo!()
+  }
+
+  fn intersect_nearest(
+    &self,
+    _ray: Ray3,
+    _conf: &MeshBufferIntersectConfig,
+    _group: MeshDrawGroup,
+  ) -> OptionalNearest<MeshBufferHitPoint> {
+    todo!()
+  }
+}
