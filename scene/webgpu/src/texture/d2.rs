@@ -56,7 +56,7 @@ impl ShareBindableResourceCtx {
     tex: &SceneTexture2D,
   ) -> ReactiveGPU2DTextureView {
     let mut texture_2d = self.texture_2d.write().unwrap();
-    let cache = texture_2d.get_or_insert_with(tex.id(), || {
+    let cache = texture_2d.get_or_insert_with(tex.guid(), || {
       let gpu_tex = self.gpu.create_gpu_texture2d(tex);
 
       let gpu_tex = ReactiveGPU2DTextureSignal {

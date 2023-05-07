@@ -58,7 +58,7 @@ impl ShareBindableResourceCtx {
     tex: &SceneTextureCube,
   ) -> ReactiveGPUCubeTextureView {
     let mut texture_cube = self.texture_cube.write().unwrap();
-    let cache = texture_cube.get_or_insert_with(tex.id(), || {
+    let cache = texture_cube.get_or_insert_with(tex.guid(), || {
       let gpu_tex = self.gpu.create_gpu_texture_cube(tex);
 
       let gpu_tex = ReactiveGPUCubeTextureSignal {

@@ -81,7 +81,7 @@ impl SceneCameraGPUSystem {
     self
       .cameras
       .as_ref()
-      .get(camera.id())
+      .get(camera.guid())
       .map(|v| &v.as_ref().inner)
   }
 
@@ -89,7 +89,7 @@ impl SceneCameraGPUSystem {
     self
       .cameras
       .as_mut()
-      .get_mut(camera.id())
+      .get_mut(camera.guid())
       .map(|v| &mut v.as_mut().inner)
   }
 
@@ -99,7 +99,7 @@ impl SceneCameraGPUSystem {
     derives: &SceneNodeDeriveSystem,
     cx: &ResourceGPUCtx,
   ) -> &mut ReactiveCameraGPU {
-    self.cameras.as_mut().get_or_insert_with(camera.id(), || {
+    self.cameras.as_mut().get_or_insert_with(camera.guid(), || {
       build_reactive_camera(camera.clone(), derives, cx)
     })
   }
@@ -122,16 +122,16 @@ impl SceneCameraGPUSystem {
       .map(move |v: arena::ArenaDelta<SceneCamera>| match v {
         arena::ArenaDelta::Mutate((camera, idx)) => {
           index_mapper.remove(&idx).unwrap();
-          index_mapper.insert(idx, camera.id());
+          index_mapper.insert(idx, camera.guid());
           (
-            camera.id(),
+            camera.guid(),
             build_reactive_camera(camera, &derives, &cx).into(),
           )
         }
         arena::ArenaDelta::Insert((camera, idx)) => {
-          index_mapper.insert(idx, camera.id());
+          index_mapper.insert(idx, camera.guid());
           (
-            camera.id(),
+            camera.guid(),
             build_reactive_camera(camera, &derives, &cx).into(),
           )
         }

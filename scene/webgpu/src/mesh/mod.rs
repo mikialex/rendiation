@@ -14,7 +14,6 @@ use crate::*;
 pub type ReactiveMeshGPUOf<T> = <T as WebGPUMesh>::ReactiveGPU;
 
 pub trait WebGPUSceneMesh: Any + Send + Sync {
-  fn id(&self) -> Option<usize>;
   fn create_scene_reactive_gpu(&self, ctx: &ShareBindableResourceCtx) -> Option<MeshGPUInstance>;
 
   fn topology(&self) -> webgpu::PrimitiveTopology;
@@ -25,21 +24,6 @@ pub trait WebGPUSceneMesh: Any + Send + Sync {
 }
 
 impl WebGPUSceneMesh for SceneMeshType {
-  fn id(&self) -> Option<usize> {
-    match self {
-      Self::AttributesMesh(m) => m.id(),
-      Self::TransformInstanced(m) => m.id(),
-      Self::Foreign(m) => {
-        return if let Some(m) = m.downcast_ref::<Box<dyn WebGPUSceneMesh>>() {
-          m.id()
-        } else {
-          None
-        }
-      }
-      _ => return None,
-    }
-    .into()
-  }
   fn create_scene_reactive_gpu(&self, ctx: &ShareBindableResourceCtx) -> Option<MeshGPUInstance> {
     match self {
       Self::AttributesMesh(m) => {
@@ -126,9 +110,6 @@ pub trait WebGPUMesh: Any + Send + Sync + Incremental {
 }
 
 impl<T: WebGPUMesh> WebGPUSceneMesh for SceneItemRef<T> {
-  fn id(&self) -> Option<usize> {
-    self.id().into()
-  }
   fn create_scene_reactive_gpu(&self, ctx: &ShareBindableResourceCtx) -> Option<MeshGPUInstance> {
     let instance = T::create_reactive_gpu(self, ctx);
     MeshGPUInstance::Foreign(Box::new(instance) as Box<dyn ReactiveRenderComponentSource>).into()
@@ -247,7 +228,7 @@ impl GPUModelResourceCtx {
       .meshes
       .write()
       .unwrap()
-      .get_or_insert_with(mesh.id()?, || {
+      .get_or_insert_with(mesh.guid()?, || {
         mesh.create_scene_reactive_gpu(&self.shared).unwrap()
       })
       .create_render_component_delta_stream()

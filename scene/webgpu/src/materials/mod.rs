@@ -29,7 +29,6 @@ pub trait WebGPUMaterial: IncrementalBase {
 }
 
 pub trait WebGPUSceneMaterial: Send + Sync {
-  fn id(&self) -> Option<usize>;
   fn create_scene_reactive_gpu(
     &self,
     ctx: &ShareBindableResourceCtx,
@@ -39,22 +38,6 @@ pub trait WebGPUSceneMaterial: Send + Sync {
 }
 
 impl WebGPUSceneMaterial for SceneMaterialType {
-  fn id(&self) -> Option<usize> {
-    match self {
-      Self::PhysicalSpecularGlossiness(m) => m.id(),
-      Self::PhysicalMetallicRoughness(m) => m.id(),
-      Self::Flat(m) => m.id(),
-      Self::Foreign(m) => {
-        return if let Some(m) = m.downcast_ref::<Box<dyn WebGPUSceneMaterial>>() {
-          m.id()
-        } else {
-          None
-        }
-      }
-      _ => return None,
-    }
-    .into()
-  }
   fn create_scene_reactive_gpu(
     &self,
     ctx: &ShareBindableResourceCtx,
@@ -120,9 +103,6 @@ impl<M> WebGPUSceneMaterial for SceneItemRef<M>
 where
   M: WebGPUMaterial,
 {
-  fn id(&self) -> Option<usize> {
-    self.id().into()
-  }
   fn create_scene_reactive_gpu(
     &self,
     ctx: &ShareBindableResourceCtx,
@@ -253,7 +233,7 @@ impl GPUModelResourceCtx {
       .materials
       .write()
       .unwrap()
-      .get_or_insert_with(material.id()?, || {
+      .get_or_insert_with(material.guid()?, || {
         material.create_scene_reactive_gpu(&self.shared).unwrap()
       })
       .create_render_component_delta_stream()

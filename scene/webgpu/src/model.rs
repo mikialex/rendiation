@@ -31,7 +31,7 @@ where
   Self: SceneRenderable + Clone + 'static,
 {
   fn id(&self) -> usize {
-    self.read().id()
+    self.read().guid()
   }
   fn clone_boxed(&self) -> Box<dyn SceneRenderableShareable> {
     Box::new(self.clone())
@@ -72,7 +72,7 @@ pub fn setup_pass_core(
       );
 
       let mut materials = pass.resources.model_ctx.materials.write().unwrap();
-      let material_gpu = materials.get_or_insert_with(model.material.id().unwrap(), || {
+      let material_gpu = materials.get_or_insert_with(model.material.guid().unwrap(), || {
         model
           .material
           .create_scene_reactive_gpu(&pass.resources.bindable_ctx)
@@ -80,7 +80,7 @@ pub fn setup_pass_core(
       });
 
       let mut meshes = pass.resources.model_ctx.meshes.write().unwrap();
-      let mesh_gpu = meshes.get_or_insert_with(model.mesh.id().unwrap(), || {
+      let mesh_gpu = meshes.get_or_insert_with(model.mesh.guid().unwrap(), || {
         model
           .mesh
           .create_scene_reactive_gpu(&pass.resources.bindable_ctx)
@@ -214,9 +214,9 @@ pub fn build_standard_model_gpu(
 ) -> ReactiveStandardModelGPU {
   let s = source.read();
   let gpu = StandardModelGPU {
-    material_id: s.material.id(),
+    material_id: s.material.guid(),
     material_delta: ctx.get_or_create_reactive_material_render_component_delta_source(&s.material),
-    mesh_id: s.mesh.id(),
+    mesh_id: s.mesh.guid(),
     mesh_delta: ctx.get_or_create_reactive_mesh_render_component_delta_source(&s.mesh),
   };
 
@@ -227,13 +227,13 @@ pub fn build_standard_model_gpu(
     .unbound_listen_by(all_delta)
     .fold_signal_flatten(state, move |delta, state| match delta {
       StandardModelDelta::material(material) => {
-        state.inner.material_id = material.id();
+        state.inner.material_id = material.guid();
         state.inner.material_delta =
           ctx.get_or_create_reactive_material_render_component_delta_source(&material);
         RenderComponentDeltaFlag::ContentRef
       }
       StandardModelDelta::mesh(mesh) => {
-        state.inner.mesh_id = mesh.id();
+        state.inner.mesh_id = mesh.guid();
         state.inner.mesh_delta =
           ctx.get_or_create_reactive_mesh_render_component_delta_source(&mesh);
         RenderComponentDeltaFlag::ContentRef
@@ -304,7 +304,7 @@ pub trait WebGPUModel: Send + Sync {
 impl WebGPUModel for ModelType {
   fn id(&self) -> Option<usize> {
     match self {
-      Self::Standard(m) => m.id(),
+      Self::Standard(m) => m.guid(),
       Self::Foreign(m) => {
         return if let Some(m) = m.downcast_ref::<Box<dyn WebGPUModel>>() {
           m.id()
@@ -350,7 +350,7 @@ pub fn build_scene_model_gpu(
   let model_delta = ctx.get_or_create_reactive_model_render_component_delta_source(&source.model);
 
   let instance = ReactiveSceneModelGPU {
-    node_id: source.node.id(),
+    node_id: source.node.guid(),
     model_id,
     model_delta,
   };

@@ -124,6 +124,13 @@ pub struct SceneNode {
 
 clone_self_incremental!(SceneNode);
 
+impl GlobalIdentified for SceneNode {
+  // todo, put it on the node to avoid lock
+  fn guid(&self) -> usize {
+    self.inner.visit(|n| n.guid())
+  }
+}
+
 impl SceneNode {
   pub fn listen_by<U: Send + Sync + 'static>(
     &self,
@@ -138,10 +145,6 @@ impl SceneNode {
     Self {
       inner: nodes.create_new_root(Default::default()),
     }
-  }
-
-  pub fn id(&self) -> usize {
-    self.inner.visit(|n| n.id())
   }
 
   pub fn raw_handle(&self) -> SceneNodeHandle {

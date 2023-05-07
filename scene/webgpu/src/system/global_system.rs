@@ -19,7 +19,7 @@ impl GlobalGPUSystem {
     scene: &Scene,
     derives: &SceneNodeDeriveSystem,
   ) -> (&mut SceneGPUSystem, &RwLock<ContentGPUSystem>) {
-    let scene = self.scenes.get_or_insert_with(scene.id(), || {
+    let scene = self.scenes.get_or_insert_with(scene.guid(), || {
       SceneGPUSystem::new(scene, derives, self.content.clone())
     });
 

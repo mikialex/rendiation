@@ -14,6 +14,19 @@ pub enum SceneMeshType {
   Foreign(Arc<dyn Any + Send + Sync>),
 }
 
+impl SceneMeshType {
+  pub fn guid(&self) -> Option<usize> {
+    match self {
+      Self::AttributesMesh(m) => m.guid(),
+      Self::TransformInstanced(m) => m.guid(),
+      Self::Foreign(m) => get_dyn_trait_downcaster_static!(GlobalIdentified)
+        .downcast_ref(m.as_ref())?
+        .guid(),
+    }
+    .into()
+  }
+}
+
 #[derive(Clone)]
 pub struct TransformInstancedSceneMesh {
   pub mesh: SceneMeshType,

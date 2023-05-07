@@ -105,6 +105,12 @@ where
   }
 }
 
+impl<T: IncrementalBase> GlobalIdentified for SceneItemRef<T> {
+  fn guid(&self) -> usize {
+    self.id
+  }
+}
+
 impl<T: IncrementalBase> SceneItemRef<T> {
   pub fn new(source: T) -> Self {
     let inner = Identity::new(source);
@@ -118,10 +124,6 @@ impl<T: IncrementalBase> SceneItemRef<T> {
       inner: Arc::downgrade(&self.inner),
       id: self.id,
     }
-  }
-
-  pub fn id(&self) -> usize {
-    self.id
   }
 
   pub fn trigger_change(&self, delta: &T::Delta) {
@@ -215,7 +217,7 @@ where
   type Ctx<'a> = <Self as SceneItemReactiveMapping<M>>::Ctx<'a>;
 
   fn key(&self) -> usize {
-    self.read().id()
+    self.read().guid()
   }
 
   fn build(&self, ctx: &Self::Ctx<'_>) -> (M, Self::ChangeStream, Self::DropFuture) {
