@@ -1,6 +1,5 @@
 use std::{cell::RefCell, rc::Rc};
 
-
 pub mod contents;
 pub use contents::*;
 
@@ -14,6 +13,7 @@ pub mod controller;
 pub use controller::*;
 use rendiation_algebra::Mat4;
 use rendiation_renderable_mesh::mesh::MeshBufferIntersectConfig;
+use rendiation_scene_interaction::WebGPUScenePickingExt;
 pub mod selection;
 
 pub mod helpers;

@@ -4,6 +4,7 @@ use __core::{pin::Pin, task::Context};
 use bytemuck::Zeroable;
 use futures::Stream;
 use incremental::*;
+use reactive::*;
 use shadergraph::*;
 use webgpu::*;
 use wgsl_shader_derives::wgsl_fn;
@@ -34,10 +35,21 @@ pub struct FatlineMaterialUniform {
 }
 
 type ReactiveFatlineMaterialGPUInner =
-  impl AsRef<RenderComponentCell<FatlineMeshGPU>> + Stream<Item = RenderComponentDeltaFlag>;
+  impl AsRef<RenderComponentCell<FatlineMaterialGPU>> + Stream<Item = RenderComponentDeltaFlag>;
 
+#[pin_project::pin_project]
 pub struct ReactiveFatlineMaterialGPU {
+  #[pin]
   inner: ReactiveFatlineMaterialGPUInner,
+}
+
+impl Stream for ReactiveFatlineMaterialGPU {
+  type Item = RenderComponentDeltaFlag;
+
+  fn poll_next(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Option<Self::Item>> {
+    let this = self.project();
+    this.inner.poll_next(cx)
+  }
 }
 
 impl ReactiveRenderComponentSource for ReactiveFatlineMaterialGPU {

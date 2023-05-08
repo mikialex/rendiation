@@ -137,18 +137,19 @@ impl ShaderGraphProvider for PhysicalMetallicRoughnessMaterialGPU {
   }
 }
 
-impl ReactiveRenderComponentSource for ReactiveMaterialGPUOf<PhysicalMetallicRoughnessMaterial> {
+impl ReactiveRenderComponentSource for PhysicalMetallicRoughnessMaterialReactiveGPU {
   fn as_reactive_component(&self) -> &dyn ReactiveRenderComponent {
     self.as_ref() as &dyn ReactiveRenderComponent
   }
 }
 
+type PhysicalMetallicRoughnessMaterialReactiveGPU = impl AsRef<RenderComponentCell<PhysicalMetallicRoughnessMaterialGPU>>
+  + Stream<Item = RenderComponentDeltaFlag>;
+
 use PhysicalMetallicRoughnessMaterialDelta as PD;
 
 impl WebGPUMaterial for PhysicalMetallicRoughnessMaterial {
-  type ReactiveGPU = impl AsRef<RenderComponentCell<PhysicalMetallicRoughnessMaterialGPU>>
-    + Stream<Item = RenderComponentDeltaFlag>;
-
+  type ReactiveGPU = PhysicalMetallicRoughnessMaterialReactiveGPU;
   fn create_reactive_gpu(
     source: &SceneItemRef<Self>,
     ctx: &ShareBindableResourceCtx,

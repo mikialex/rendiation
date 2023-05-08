@@ -59,15 +59,17 @@ impl ShaderPassBuilder for TransformInstanceGPU {
   }
 }
 
-impl ReactiveRenderComponentSource for ReactiveMeshGPUOf<TransformInstancedSceneMesh> {
+impl ReactiveRenderComponentSource for TransformInstanceGPUReactive {
   fn as_reactive_component(&self) -> &dyn ReactiveRenderComponent {
     self.as_ref() as &dyn ReactiveRenderComponent
   }
 }
 
+type TransformInstanceGPUReactive =
+  impl AsRef<RenderComponentCell<TransformInstanceGPU>> + Stream<Item = RenderComponentDeltaFlag>;
+
 impl WebGPUMesh for TransformInstancedSceneMesh {
-  type ReactiveGPU =
-    impl AsRef<RenderComponentCell<TransformInstanceGPU>> + Stream<Item = RenderComponentDeltaFlag>;
+  type ReactiveGPU = TransformInstanceGPUReactive;
 
   fn create_reactive_gpu(
     source: &SceneItemRef<Self>,

@@ -126,15 +126,17 @@ fn get_update_buffer<'a>(
   &cache.get_with_update(source, gpu).inner
 }
 
-impl ReactiveRenderComponentSource for ReactiveMeshGPUOf<AttributesMesh> {
+impl ReactiveRenderComponentSource for AttributesMeshGPUReactive {
   fn as_reactive_component(&self) -> &dyn ReactiveRenderComponent {
     self.as_ref() as &dyn ReactiveRenderComponent
   }
 }
 
+type AttributesMeshGPUReactive =
+  impl AsRef<RenderComponentCell<AttributesMeshGPU>> + Stream<Item = RenderComponentDeltaFlag>;
+
 impl WebGPUMesh for AttributesMesh {
-  type ReactiveGPU =
-    impl AsRef<RenderComponentCell<AttributesMeshGPU>> + Stream<Item = RenderComponentDeltaFlag>;
+  type ReactiveGPU = AttributesMeshGPUReactive;
 
   fn create_reactive_gpu(
     source: &SceneItemRef<Self>,

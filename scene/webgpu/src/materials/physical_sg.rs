@@ -147,15 +147,17 @@ impl ShaderGraphProvider for PhysicalSpecularGlossinessMaterialGPU {
 
 use PhysicalSpecularGlossinessMaterialDelta as PD;
 
-impl ReactiveRenderComponentSource for ReactiveMaterialGPUOf<PhysicalSpecularGlossinessMaterial> {
+impl ReactiveRenderComponentSource for PhysicalSpecularGlossinessMaterialReactiveGPU {
   fn as_reactive_component(&self) -> &dyn ReactiveRenderComponent {
     self.as_ref() as &dyn ReactiveRenderComponent
   }
 }
 
+type PhysicalSpecularGlossinessMaterialReactiveGPU = impl AsRef<RenderComponentCell<PhysicalSpecularGlossinessMaterialGPU>>
+  + Stream<Item = RenderComponentDeltaFlag>;
+
 impl WebGPUMaterial for PhysicalSpecularGlossinessMaterial {
-  type ReactiveGPU = impl AsRef<RenderComponentCell<PhysicalSpecularGlossinessMaterialGPU>>
-    + Stream<Item = RenderComponentDeltaFlag>;
+  type ReactiveGPU = PhysicalSpecularGlossinessMaterialReactiveGPU;
 
   fn create_reactive_gpu(
     source: &SceneItemRef<Self>,

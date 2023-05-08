@@ -8,6 +8,7 @@ use __core::{
 };
 use futures::Stream;
 use incremental::*;
+use reactive::*;
 use rendiation_geometry::*;
 use shadergraph::*;
 use webgpu::*;
@@ -49,8 +50,19 @@ impl IntersectAbleGroupedMesh for FatlineMesh {
 type ReactiveFatlineGPUInner =
   impl AsRef<RenderComponentCell<FatlineMeshGPU>> + Stream<Item = RenderComponentDeltaFlag>;
 
+#[pin_project::pin_project]
 pub struct ReactiveFatlineGPU {
+  #[pin]
   inner: ReactiveFatlineGPUInner,
+}
+
+impl Stream for ReactiveFatlineGPU {
+  type Item = RenderComponentDeltaFlag;
+
+  fn poll_next(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Option<Self::Item>> {
+    let this = self.project();
+    this.inner.poll_next(cx)
+  }
 }
 
 impl ReactiveRenderComponentSource for ReactiveFatlineGPU {
