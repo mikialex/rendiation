@@ -1,3 +1,13 @@
+use std::task::Poll;
+
+use __core::{pin::Pin, task::Context};
+use bytemuck::Zeroable;
+use futures::Stream;
+use incremental::*;
+use shadergraph::*;
+use webgpu::*;
+use wgsl_shader_derives::wgsl_fn;
+
 use crate::*;
 
 #[repr(C)]
@@ -23,15 +33,21 @@ pub struct FatlineMaterialUniform {
   pub width: f32,
 }
 
-impl ReactiveRenderComponentSource for ReactiveMaterialGPUOf<FatLineMaterial> {
+type ReactiveFatlineMaterialGPUInner =
+  impl AsRef<RenderComponentCell<FatlineMeshGPU>> + Stream<Item = RenderComponentDeltaFlag>;
+
+pub struct ReactiveFatlineMaterialGPU {
+  inner: ReactiveFatlineMaterialGPUInner,
+}
+
+impl ReactiveRenderComponentSource for ReactiveFatlineMaterialGPU {
   fn as_reactive_component(&self) -> &dyn ReactiveRenderComponent {
-    self.as_ref() as &dyn ReactiveRenderComponent
+    self.inner.as_ref() as &dyn ReactiveRenderComponent
   }
 }
 
 impl WebGPUMaterial for FatLineMaterial {
-  type ReactiveGPU =
-    impl AsRef<RenderComponentCell<FatlineMaterialGPU>> + Stream<Item = RenderComponentDeltaFlag>;
+  type ReactiveGPU = ReactiveFatlineMaterialGPU;
 
   fn create_reactive_gpu(
     source: &SceneItemRef<Self>,
@@ -49,7 +65,7 @@ impl WebGPUMaterial for FatLineMaterial {
     let weak_material = source.downgrade();
     let ctx = ctx.clone();
 
-    source
+    let inner = source
       .single_listen_by::<()>(any_change_no_init)
       .fold_signal(state, move |_, state| {
         if let Some(m) = weak_material.upgrade() {
@@ -61,7 +77,9 @@ impl WebGPUMaterial for FatLineMaterial {
           state.inner.uniform.resource.upload(&ctx.gpu.queue);
         }
         RenderComponentDeltaFlag::Content.into()
-      })
+      });
+
+    ReactiveFatlineMaterialGPU { inner }
   }
 
   fn is_transparent(&self) -> bool {

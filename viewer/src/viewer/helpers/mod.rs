@@ -6,6 +6,8 @@ use rendiation_scene_webgpu::*;
 use shadergraph::*;
 use webgpu::*;
 
+use crate::{FatLineMaterial, FatlineMesh};
+
 pub mod axis;
 pub mod camera;
 pub mod grid;

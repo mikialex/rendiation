@@ -1,4 +1,5 @@
 use incremental::*;
+use rendiation_scene_interaction::*;
 use std::{cell::RefCell, rc::Rc, sync::Arc};
 use webgpu::RenderComponentAny;
 

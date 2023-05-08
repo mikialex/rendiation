@@ -3,6 +3,8 @@ use reactive::{do_updates, ReactiveMap};
 use rendiation_algebra::*;
 use rendiation_renderable_mesh::{group::GroupedMesh, mesh::NoneIndexedMesh};
 
+use crate::FatLineVertex;
+
 use super::*;
 
 pub struct CameraHelper {

@@ -5,6 +5,7 @@ use interphaser::{
   CanvasWindowPositionInfo, WindowState,
 };
 use rendiation_renderable_mesh::MeshBufferHitPoint;
+use rendiation_scene_interaction::*;
 use webgpu::RenderComponentAny;
 
 use crate::*;

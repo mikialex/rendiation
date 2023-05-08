@@ -1,10 +1,18 @@
+use std::rc::Rc;
+
 use crate::*;
 
-use rendiation_renderable_mesh::{
-  group::{GroupedMesh, MeshDrawGroup},
-  mesh::{IndexedMesh, IntersectAbleGroupedMesh, NoneIndexedMesh, TriangleList},
-  vertex::Vertex,
+use __core::{
+  pin::Pin,
+  task::{Context, Poll},
 };
+use futures::Stream;
+use incremental::*;
+use rendiation_geometry::*;
+use shadergraph::*;
+use webgpu::*;
+
+use rendiation_renderable_mesh::{vertex::Vertex, *};
 
 #[derive(Clone)]
 pub struct FatlineMesh {
@@ -38,15 +46,21 @@ impl IntersectAbleGroupedMesh for FatlineMesh {
   }
 }
 
-impl ReactiveRenderComponentSource for ReactiveMeshGPUOf<FatlineMesh> {
+type ReactiveFatlineGPUInner =
+  impl AsRef<RenderComponentCell<FatlineMeshGPU>> + Stream<Item = RenderComponentDeltaFlag>;
+
+pub struct ReactiveFatlineGPU {
+  inner: ReactiveFatlineGPUInner,
+}
+
+impl ReactiveRenderComponentSource for ReactiveFatlineGPU {
   fn as_reactive_component(&self) -> &dyn ReactiveRenderComponent {
-    self.as_ref() as &dyn ReactiveRenderComponent
+    self.inner.as_ref() as &dyn ReactiveRenderComponent
   }
 }
 
 impl WebGPUMesh for FatlineMesh {
-  type ReactiveGPU =
-    impl AsRef<RenderComponentCell<FatlineMeshGPU>> + Stream<Item = RenderComponentDeltaFlag>;
+  type ReactiveGPU = ReactiveFatlineGPU;
 
   fn create_reactive_gpu(
     source: &SceneItemRef<Self>,
@@ -80,7 +94,7 @@ impl WebGPUMesh for FatlineMesh {
     let gpu = create().unwrap();
     let state = RenderComponentCell::new(gpu);
 
-    source
+    let inner = source
       .single_listen_by::<()>(any_change_no_init)
       .fold_signal(state, move |_, state| {
         if let Some(gpu) = create() {
@@ -89,7 +103,9 @@ impl WebGPUMesh for FatlineMesh {
         } else {
           None
         }
-      })
+      });
+
+    ReactiveFatlineGPU { inner }
   }
 
   fn draw_impl<'a>(&self, group: MeshDrawGroup) -> DrawCommand {

@@ -1,4 +1,10 @@
+use std::rc::Rc;
+
 use crate::*;
+
+use __core::cell::RefCell;
+use shadergraph::*;
+use webgpu::*;
 
 pub trait WebGPUModelExt {
   fn into_matrix_overridable(self) -> OverridableMeshModelImpl;

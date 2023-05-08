@@ -5,6 +5,7 @@ use rendiation_algebra::*;
 use rendiation_geometry::OptionalNearest;
 use rendiation_mesh_generator::*;
 use rendiation_renderable_mesh::{mesh::MeshBufferHitPoint, vertex::Vertex, TriangleList};
+use rendiation_scene_interaction::{SceneRayInteractive, SceneRayInteractiveCtx};
 use webgpu::RenderComponentAny;
 
 use crate::*;

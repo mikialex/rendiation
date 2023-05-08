@@ -3157,6 +3157,7 @@ dependencies = [
  "rendiation-renderable-mesh",
  "rendiation-scene-core",
  "rendiation-scene-gltf-loader",
+ "rendiation-scene-interaction",
  "rendiation-scene-webgpu",
  "rendiation-texture",
  "rendiation-webgpu",
