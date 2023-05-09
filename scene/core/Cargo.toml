@@ -10,6 +10,7 @@ arena = {path = "../../utils/arena"}
 bitflags = "*"
 bytemuck = {version = "1.4.1", features = ["derive"]}
 dyn-clone = "1.0.5"
+dyn-downcast = {path = "../../utils/dyn-downcast"}
 futures = "0.3.25"
 incremental = {path = "../../utils/incremental"}
 log = "0.4"

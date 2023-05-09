@@ -4,8 +4,6 @@ mod mapper;
 pub use mapper::*;
 mod scene_item;
 pub use scene_item::*;
-mod downcaster;
-pub use downcaster::*;
 
 use futures::Future;
 use reactive::{ChannelLike, DefaultSingleValueChannel, DefaultUnboundChannel};

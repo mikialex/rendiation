@@ -1,8 +1,15 @@
+
+#![feature(downcast_unchecked)]
+
 use std::{
   any::{Any, TypeId},
   collections::HashMap,
   sync::RwLock,
 };
+
+// for downstream crates use utils macro
+pub use once_cell;
+pub use paste;
 
 #[allow(clippy::type_complexity)]
 pub struct DowncasterRegistry<T: ?Sized> {

@@ -6,6 +6,7 @@ use crate::{
 };
 
 use super::AbstractMesh;
+use dyn_downcast::*;
 use rendiation_algebra::Vec3;
 use rendiation_geometry::*;
 
@@ -98,17 +99,19 @@ pub trait IntersectAbleGroupedMesh {
   fn intersect_list(
     &self,
     ray: Ray3,
-    conf: &Config,
+    conf: &MeshBufferIntersectConfig,
     result: &mut MeshBufferHitList,
     group: MeshDrawGroup,
   );
   fn intersect_nearest(
     &self,
     ray: Ray3,
-    conf: &Config,
+    conf: &MeshBufferIntersectConfig,
     group: MeshDrawGroup,
   ) -> OptionalNearest<MeshBufferHitPoint>;
 }
+
+define_dyn_trait_downcaster_static!(IntersectAbleGroupedMesh);
 
 impl<T> IntersectAbleGroupedMesh for GroupedMesh<T>
 where

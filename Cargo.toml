@@ -7,6 +7,7 @@ members = [
   "utils/incremental-ui-prototype",
   "utils/reactive",
   "utils/arena",
+  "utils/dyn-downcast",
   "utils/arena-graph",
   "utils/tree",
   "utils/storage",

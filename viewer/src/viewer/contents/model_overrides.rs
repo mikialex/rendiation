@@ -3,6 +3,9 @@ use std::rc::Rc;
 use crate::*;
 
 use __core::cell::RefCell;
+use rendiation_geometry::OptionalNearest;
+use rendiation_renderable_mesh::MeshBufferHitPoint;
+use rendiation_scene_interaction::*;
 use shadergraph::*;
 use webgpu::*;
 
@@ -102,19 +105,19 @@ impl SceneRenderable for OverridableMeshModelImpl {
   }
 }
 
-// impl SceneRayInteractive for OverridableMeshModelImpl {
-//   fn ray_pick_nearest(&self, ctx: &SceneRayInteractiveCtx) -> OptionalNearest<MeshBufferHitPoint> {
-//     let camera_ref = ctx.camera.read();
-//     let o_ctx = WorldMatrixOverrideCtx {
-//       camera: &camera_ref,
-//       buffer_size: ctx.camera_view_size,
-//       node_derives: ctx.node_derives,
-//     };
+impl SceneRayInteractive for OverridableMeshModelImpl {
+  fn ray_pick_nearest(&self, ctx: &SceneRayInteractiveCtx) -> OptionalNearest<MeshBufferHitPoint> {
+    let camera_ref = ctx.camera.read();
+    let o_ctx = WorldMatrixOverrideCtx {
+      camera: &camera_ref,
+      buffer_size: ctx.camera_view_size,
+      node_derives: ctx.node_derives,
+    };
 
-//     let world_matrix = self.compute_override_world_mat(&o_ctx);
-//     ray_pick_nearest_core(self, ctx, world_matrix)
-//   }
-// }
+    let world_matrix = self.compute_override_world_mat(&o_ctx);
+    ray_pick_nearest_core(self, ctx, world_matrix)
+  }
+}
 
 pub struct InverseWorld;
 

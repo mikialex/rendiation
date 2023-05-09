@@ -19,12 +19,6 @@ pub trait SceneRayInteractive {
   fn ray_pick_nearest(&self, _ctx: &SceneRayInteractiveCtx) -> OptionalNearest<MeshBufferHitPoint>;
 }
 define_dyn_trait_downcaster_static!(SceneRayInteractive);
-pub fn register_interactive_model_features<T>()
-where
-  T: AsRef<dyn SceneRayInteractive> + AsMut<dyn SceneRayInteractive> + 'static,
-{
-  get_dyn_trait_downcaster_static!(SceneRayInteractive).register::<T>()
-}
 
 impl SceneRayInteractive for SceneModel {
   fn ray_pick_nearest(&self, ctx: &SceneRayInteractiveCtx) -> OptionalNearest<MeshBufferHitPoint> {

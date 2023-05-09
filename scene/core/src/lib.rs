@@ -1,6 +1,5 @@
 #![feature(type_alias_impl_trait)]
 #![feature(stmt_expr_attributes)]
-#![feature(downcast_unchecked)]
 #![feature(let_chains)]
 
 pub mod scene;
@@ -14,6 +13,8 @@ pub use ext::*;
 
 pub mod mesh;
 pub use mesh::*;
+pub mod mesh_picking;
+pub use mesh_picking::*;
 
 pub mod material;
 pub use material::*;
@@ -42,9 +43,7 @@ pub use utils::*;
 mod systems;
 pub use systems::*;
 
-// for downstream crates use utils macro in downcaster.rs
-pub use once_cell;
-pub use paste;
+pub use dyn_downcast::*;
 
 use futures::Stream;
 use incremental::*;
