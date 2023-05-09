@@ -186,7 +186,9 @@ impl ShaderHashProvider for MeshGPUInstance {
     match self {
       Self::Attributes(m) => m.as_reactive_component().hash_pipeline(hasher),
       Self::TransformInstanced(m) => m.as_reactive_component().hash_pipeline(hasher),
-      Self::Foreign(m) => m.as_reactive_component().hash_pipeline(hasher),
+      Self::Foreign(m) => m
+        .as_reactive_component()
+        .hash_pipeline_and_with_type_id(hasher),
     }
   }
 }

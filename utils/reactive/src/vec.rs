@@ -52,15 +52,19 @@ pub struct IndexedItem<T> {
   pub item: T,
 }
 
-pub(crate) struct ChangeWaker {
-  pub(crate) index: usize,
-  pub(crate) changed: Arc<RwLock<Vec<usize>>>,
+pub(crate) struct ChangeWaker<T> {
+  pub(crate) index: T,
+  pub(crate) changed: Arc<RwLock<Vec<T>>>,
   pub(crate) waker: Arc<RwLock<Option<Waker>>>,
 }
 
-impl futures::task::ArcWake for ChangeWaker {
+impl<T: Send + Sync + Clone> futures::task::ArcWake for ChangeWaker<T> {
   fn wake_by_ref(arc_self: &Arc<Self>) {
-    arc_self.changed.write().unwrap().push(arc_self.index);
+    arc_self
+      .changed
+      .write()
+      .unwrap()
+      .push(arc_self.index.clone());
     let waker = arc_self.waker.read().unwrap();
     let waker: &Option<_> = &waker;
     if let Some(waker) = waker {

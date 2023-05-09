@@ -11,7 +11,7 @@ pub struct SceneGPUSystem {
   pub cameras: SceneCameraGPUSystem,
 
   #[pin]
-  models: Arc<RwLock<StreamMap<ReactiveSceneModelGPUInstance>>>,
+  models: Arc<RwLock<StreamMap<usize, ReactiveSceneModelGPUInstance>>>,
 
   #[pin]
   source: SceneGPUUpdateSource,
@@ -35,7 +35,7 @@ impl Stream for SceneGPUSystem {
     early_return_ready!(this.cameras.poll_next(cx));
 
     let mut models = this.models.write().unwrap();
-    let models: &mut StreamMap<ReactiveSceneModelGPUInstance> = &mut models;
+    let models: &mut StreamMap<usize, ReactiveSceneModelGPUInstance> = &mut models;
     do_updates_by(models, cx, |_| {});
     Poll::Pending
   }
@@ -48,7 +48,7 @@ impl SceneGPUSystem {
     derives: &SceneNodeDeriveSystem,
     contents: Arc<RwLock<ContentGPUSystem>>,
   ) -> Self {
-    let models: Arc<RwLock<StreamMap<ReactiveSceneModelGPUInstance>>> = Default::default();
+    let models: Arc<RwLock<StreamMap<usize, ReactiveSceneModelGPUInstance>>> = Default::default();
     let models_c = models.clone();
     let gpu = contents.read().unwrap().gpu.clone();
 
@@ -58,7 +58,7 @@ impl SceneGPUSystem {
     let source = scene.unbound_listen_by(all_delta).map(move |delta| {
       let contents = contents.write().unwrap();
       let mut models = models_c.write().unwrap();
-      let models: &mut StreamMap<ReactiveSceneModelGPUInstance> = &mut models;
+      let models: &mut StreamMap<usize, ReactiveSceneModelGPUInstance> = &mut models;
       if let SceneInnerDelta::models(delta) = delta {
         match delta {
           arena::ArenaDelta::Mutate((model, _)) => {

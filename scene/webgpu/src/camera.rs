@@ -20,9 +20,9 @@ pub type ReactiveCameraGPU = impl Stream<Item = RenderComponentDeltaFlag>
   + AsMut<RenderComponentCell<CameraGPU>>
   + Unpin;
 
-pub type SceneCameraGPUStorage = impl AsRef<StreamMap<ReactiveCameraGPU>>
-  + AsMut<StreamMap<ReactiveCameraGPU>>
-  + Stream<Item = StreamMapDelta<RenderComponentDeltaFlag>>
+pub type SceneCameraGPUStorage = impl AsRef<StreamMap<usize, ReactiveCameraGPU>>
+  + AsMut<StreamMap<usize, ReactiveCameraGPU>>
+  + Stream<Item = StreamMapDelta<usize, RenderComponentDeltaFlag>>
   + Unpin;
 
 enum CameraGPUDelta {
@@ -81,7 +81,7 @@ impl SceneCameraGPUSystem {
     self
       .cameras
       .as_ref()
-      .get(camera.guid())
+      .get(&camera.guid())
       .map(|v| &v.as_ref().inner)
   }
 
@@ -89,7 +89,7 @@ impl SceneCameraGPUSystem {
     self
       .cameras
       .as_mut()
-      .get_mut(camera.guid())
+      .get_mut(&camera.guid())
       .map(|v| &mut v.as_mut().inner)
   }
 

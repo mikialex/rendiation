@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, hash::Hash};
 
 use futures::{stream::FuturesUnordered, *};
 
@@ -64,14 +64,14 @@ impl<M, T: ReactiveMapping<M>> ReactiveMap<T, M> {
 }
 
 #[pin_project::pin_project]
-pub struct StreamMap<T> {
-  streams: HashMap<usize, T>,
-  ref_changes: Vec<RefChange>,
-  waked: Arc<RwLock<Vec<usize>>>,
+pub struct StreamMap<K, T> {
+  streams: HashMap<K, T>,
+  ref_changes: Vec<RefChange<K>>,
+  waked: Arc<RwLock<Vec<K>>>,
   waker: Arc<RwLock<Option<Waker>>>,
 }
 
-impl<T> Default for StreamMap<T> {
+impl<K, T> Default for StreamMap<K, T> {
   fn default() -> Self {
     Self {
       streams: Default::default(),
@@ -90,35 +90,35 @@ fn try_wake(w: &Arc<RwLock<Option<Waker>>>) {
   }
 }
 
-impl<T> StreamMap<T> {
-  pub fn get(&self, key: usize) -> Option<&T> {
-    self.streams.get(&key)
+impl<K: Hash + Eq + Clone, T> StreamMap<K, T> {
+  pub fn get(&self, key: &K) -> Option<&T> {
+    self.streams.get(key)
   }
-  pub fn get_mut(&mut self, key: usize) -> Option<&mut T> {
-    self.streams.get_mut(&key)
+  pub fn get_mut(&mut self, key: &K) -> Option<&mut T> {
+    self.streams.get_mut(key)
   }
 
-  pub fn insert(&mut self, key: usize, value: T) {
+  pub fn insert(&mut self, key: K, value: T) {
     // handle replace semantic
     if self.streams.contains_key(&key) {
-      self.ref_changes.push(RefChange::Remove(key));
+      self.ref_changes.push(RefChange::Remove(key.clone()));
     }
-    self.streams.insert(key, value);
-    self.waked.write().unwrap().push(key);
+    self.streams.insert(key.clone(), value);
+    self.waked.write().unwrap().push(key.clone());
     self.ref_changes.push(RefChange::Insert(key));
     self.try_wake()
   }
 
-  pub fn get_or_insert_with(&mut self, key: usize, f: impl FnOnce() -> T) -> &mut T {
-    self.streams.entry(key).or_insert_with(|| {
-      self.waked.write().unwrap().push(key);
+  pub fn get_or_insert_with(&mut self, key: K, f: impl FnOnce() -> T) -> &mut T {
+    self.streams.entry(key.clone()).or_insert_with(|| {
+      self.waked.write().unwrap().push(key.clone());
       self.ref_changes.push(RefChange::Insert(key));
       try_wake(&self.waker);
       f()
     })
   }
 
-  pub fn remove(&mut self, key: usize) -> Option<T> {
+  pub fn remove(&mut self, key: K) -> Option<T> {
     self.streams.remove(&key).map(|d| {
       self.ref_changes.push(RefChange::Remove(key));
       d
@@ -130,21 +130,25 @@ impl<T> StreamMap<T> {
   }
 }
 
-enum RefChange {
-  Insert(usize),
-  Remove(usize),
+enum RefChange<K> {
+  Insert(K),
+  Remove(K),
 }
 
-pub enum StreamMapDelta<T> {
-  Insert(usize),
-  Remove(usize),
-  Delta(usize, T),
+pub enum StreamMapDelta<K, T> {
+  Insert(K),
+  Remove(K),
+  Delta(K, T),
 }
 
-impl<T: Stream + Unpin> Stream for StreamMap<T> {
-  type Item = StreamMapDelta<T::Item>;
+impl<K, T> Stream for StreamMap<K, T>
+where
+  K: Clone + Send + Sync + Hash + Eq,
+  T: Stream + Unpin,
+{
+  type Item = StreamMapDelta<K, T::Item>;
 
-  fn poll_next(self: Pin<&mut Self>, cx: &mut task::Context) -> task::Poll<Option<Self::Item>> {
+  fn poll_next(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Option<Self::Item>> {
     let this = self.project();
 
     if let Some(change) = this.ref_changes.pop() {
@@ -158,11 +162,11 @@ impl<T: Stream + Unpin> Stream for StreamMap<T> {
     this.waker.write().unwrap().replace(cx.waker().clone());
 
     loop {
-      let last = this.waked.read().unwrap().last().copied();
+      let last = this.waked.read().unwrap().last().cloned();
       if let Some(index) = last {
         let waker = Arc::new(ChangeWaker {
           waker: this.waker.clone(),
-          index,
+          index: index.clone(),
           changed: this.waked.clone(),
         });
         let waker = futures::task::waker_ref(&waker);
@@ -190,26 +194,26 @@ impl<T: Stream + Unpin> Stream for StreamMap<T> {
 }
 
 #[pin_project]
-pub struct MergeIntoStreamMap<S, T> {
+pub struct MergeIntoStreamMap<S, K, T> {
   #[pin]
   inner: S,
   #[pin]
-  map: StreamMap<T>,
+  map: StreamMap<K, T>,
 }
 
-impl<S, T> AsRef<StreamMap<T>> for MergeIntoStreamMap<S, T> {
-  fn as_ref(&self) -> &StreamMap<T> {
+impl<S, K, T> AsRef<StreamMap<K, T>> for MergeIntoStreamMap<S, K, T> {
+  fn as_ref(&self) -> &StreamMap<K, T> {
     &self.map
   }
 }
 
-impl<S, T> AsMut<StreamMap<T>> for MergeIntoStreamMap<S, T> {
-  fn as_mut(&mut self) -> &mut StreamMap<T> {
+impl<S, K, T> AsMut<StreamMap<K, T>> for MergeIntoStreamMap<S, K, T> {
+  fn as_mut(&mut self) -> &mut StreamMap<K, T> {
     &mut self.map
   }
 }
 
-impl<S, T> MergeIntoStreamMap<S, T> {
+impl<S, K, T> MergeIntoStreamMap<S, K, T> {
   pub fn new(inner: S) -> Self {
     Self {
       inner,
@@ -218,12 +222,13 @@ impl<S, T> MergeIntoStreamMap<S, T> {
   }
 }
 
-impl<S, T> Stream for MergeIntoStreamMap<S, T>
+impl<S, K, T> Stream for MergeIntoStreamMap<S, K, T>
 where
-  S: Stream<Item = (usize, Option<T>)>,
+  S: Stream<Item = (K, Option<T>)>,
   T: Stream + Unpin,
+  K: Clone + Send + Sync + Hash + Eq,
 {
-  type Item = StreamMapDelta<T::Item>;
+  type Item = StreamMapDelta<K, T::Item>;
 
   fn poll_next(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Option<Self::Item>> {
     let mut this = self.project();

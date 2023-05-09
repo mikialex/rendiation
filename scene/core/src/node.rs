@@ -26,7 +26,7 @@ impl HierarchyDerived for SceneNodeDerivedData {
     if let Some(parent) = parent_derived {
       Self {
         world_matrix: parent.world_matrix * self_source.local_matrix,
-        net_visible: parent.net_visible || self_source.visible,
+        net_visible: parent.net_visible && self_source.visible,
       }
     } else {
       Default::default()

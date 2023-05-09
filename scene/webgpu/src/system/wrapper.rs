@@ -4,7 +4,7 @@ use __core::ops::DerefMut;
 
 use crate::*;
 
-pub trait ReactiveRenderComponent: RenderComponent {
+pub trait ReactiveRenderComponent: RenderComponentAny {
   // we could remove this box in future
   fn create_render_component_delta_stream(
     &self,

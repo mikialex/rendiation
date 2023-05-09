@@ -43,9 +43,9 @@ pub trait SignalStreamExt: Stream {
     Self: Stream<Item = (usize, Option<T>)>,
     Self: Sized;
 
-  fn flatten_into_map_stream_signal<T>(self) -> MergeIntoStreamMap<Self, T>
+  fn flatten_into_map_stream_signal<T, K>(self) -> MergeIntoStreamMap<Self, K, T>
   where
-    Self: Stream<Item = (usize, Option<T>)>,
+    Self: Stream<Item = (K, Option<T>)>,
     Self: Sized;
 
   fn zip_signal<St>(self, other: St) -> ZipSignal<Self, St>
@@ -58,6 +58,10 @@ pub trait SignalStreamExt: Stream {
     Self: Sized;
 
   fn buffered_unbound(self) -> BufferedUnbound<Self>
+  where
+    Self: Sized;
+
+  fn batch_processing(self) -> BatchProcessing<Self>
   where
     Self: Sized;
 
@@ -90,7 +94,17 @@ pub trait SignalStreamExt: Stream {
     Self: Stream,
     F: FnMut(Self::Item, &mut State) -> X;
 
-  fn depend_pending_stream<S>(self, pending: S) -> StreamDependency<S, Self>
+  fn fold_signal_state_stream<State, F>(
+    self,
+    state: State,
+    f: F,
+  ) -> SignalFoldStateStream<State, Self, F>
+  where
+    Self: Sized,
+    Self: Stream,
+    F: FnMut(Self::Item, &mut State);
+
+  fn after_pended_then<S>(self, pending: S) -> StreamDependency<Self, S>
   where
     Self: Sized + Stream;
 }
@@ -112,9 +126,9 @@ impl<T: Stream> SignalStreamExt for T {
     MergeIntoStreamVec::new(self)
   }
 
-  fn flatten_into_map_stream_signal<X>(self) -> MergeIntoStreamMap<Self, X>
+  fn flatten_into_map_stream_signal<X, K>(self) -> MergeIntoStreamMap<Self, K, X>
   where
-    Self: Stream<Item = (usize, Option<X>)>,
+    Self: Stream<Item = (K, Option<X>)>,
     Self: Sized,
   {
     MergeIntoStreamMap::new(self)
@@ -139,6 +153,13 @@ impl<T: Stream> SignalStreamExt for T {
     BufferedUnbound {
       inner: self,
       buffered: VecDeque::new(),
+    }
+  }
+
+  fn batch_processing(self) -> BatchProcessing<Self> {
+    BatchProcessing {
+      inner: self,
+      buffered: Vec::new(),
     }
   }
 
@@ -189,13 +210,30 @@ impl<T: Stream> SignalStreamExt for T {
     }
   }
 
-  fn depend_pending_stream<S>(self, pending: S) -> StreamDependency<S, Self>
+  fn fold_signal_state_stream<State, F>(
+    self,
+    state: State,
+    f: F,
+  ) -> SignalFoldStateStream<State, Self, F>
+  where
+    Self: Sized,
+    Self: Stream,
+    F: FnMut(Self::Item, &mut State),
+  {
+    SignalFoldStateStream {
+      state,
+      stream: self,
+      f,
+    }
+  }
+
+  fn after_pended_then<S>(self, pending: S) -> StreamDependency<Self, S>
   where
     Self: Sized + Stream,
   {
     StreamDependency {
-      dependency: pending,
-      source: self,
+      dependency: self,
+      source: pending,
     }
   }
 }
@@ -212,7 +250,7 @@ pub struct FilterMapSync<S, F> {
 impl<S, F, X> Stream for FilterMapSync<S, F>
 where
   S: Stream,
-  F: Fn(S::Item) -> Option<X>,
+  F: FnMut(S::Item) -> Option<X>,
 {
   type Item = X;
 
@@ -243,6 +281,39 @@ fn test_filter_map_sync() {
   let mut c = rev.filter_map_sync(|v: u32| if v > 5 { Some(2 * v) } else { None });
 
   do_updates(&mut c, |v| assert_eq!(v, 20))
+}
+
+#[pin_project]
+pub struct BatchProcessing<S: Stream> {
+  #[pin]
+  inner: S,
+  buffered: Vec<S::Item>,
+}
+
+impl<S> Stream for BatchProcessing<S>
+where
+  S: Stream,
+{
+  type Item = Vec<S::Item>;
+
+  fn poll_next(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Option<Self::Item>> {
+    let mut this = self.project();
+
+    while let Poll::Ready(result) = this.inner.as_mut().poll_next(cx) {
+      if let Some(item) = result {
+        this.buffered.push(item);
+        continue;
+      } else {
+        return Poll::Ready(None); // the source has been dropped, do early terminate
+      }
+    }
+
+    if this.buffered.is_empty() {
+      Poll::Pending
+    } else {
+      Poll::Ready(Some(std::mem::take(this.buffered)))
+    }
+  }
 }
 
 #[pin_project]
@@ -518,6 +589,38 @@ where
       }
     } else {
       this.state.poll_next_unpin(cx)
+    }
+  }
+}
+
+#[pin_project]
+pub struct SignalFoldStateStream<T, S, F> {
+  #[pin]
+  state: T,
+  #[pin]
+  stream: S,
+  f: F,
+}
+
+impl<T, S, X, F> Stream for SignalFoldStateStream<T, S, F>
+where
+  S: Stream,
+  T: Stream<Item = X> + Unpin,
+  F: FnMut(S::Item, &mut T),
+{
+  type Item = X;
+
+  fn poll_next(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Option<Self::Item>> {
+    let mut this = self.project();
+    if let Poll::Ready(v) = this.stream.poll_next(cx) {
+      if let Some(v) = v {
+        (this.f)(v, &mut this.state);
+        this.state.poll_next(cx)
+      } else {
+        Poll::Ready(None)
+      }
+    } else {
+      this.state.poll_next(cx)
     }
   }
 }
