@@ -439,7 +439,6 @@ fn build_plane(root: &SceneNode, auto_scale: &AutoScale, mat: Mat4<f32>) -> Help
     .build_mesh_into()
     .into_ref();
 
-  let mesh: Box<dyn WebGPUSceneMesh> = Box::new(mesh);
   let mesh = SceneMeshType::Foreign(Arc::new(mesh));
 
   let material = solid_material(RED).into_ref();
@@ -472,7 +471,6 @@ fn build_rotator(root: &SceneNode, auto_scale: &AutoScale, mat: Mat4<f32>) -> He
     .build_mesh_into()
     .into_ref();
 
-  let mesh: Box<dyn WebGPUSceneMesh> = Box::new(mesh);
   let mesh = SceneMeshType::Foreign(Arc::new(mesh));
 
   let material = solid_material(RED).into_ref();

@@ -46,8 +46,6 @@ impl PassContentWithCamera for &mut AxisHelper {
 }
 
 type ArrowMaterial = FlatMaterial;
-type ArrowTipMesh = impl WebGPUSceneMesh;
-type ArrowBodyMesh = impl WebGPUSceneMesh;
 
 pub struct Arrow {
   cylinder: OverridableMeshModelImpl,
@@ -90,12 +88,6 @@ impl Arrow {
 
     let (cylinder_mesh, tip_mesh) = Arrow::default_shape();
 
-    let cylinder_mesh: Box<dyn WebGPUSceneMesh> = Box::new(cylinder_mesh);
-    let cylinder_mesh = SceneMeshType::Foreign(Arc::new(cylinder_mesh));
-
-    let tip_mesh: Box<dyn WebGPUSceneMesh> = Box::new(tip_mesh);
-    let tip_mesh = SceneMeshType::Foreign(Arc::new(tip_mesh));
-
     let material = solid_material((1., 1., 1.)).into_ref();
     let modify_material = material.clone();
     let material = SceneMaterialType::Flat(material);
@@ -131,7 +123,7 @@ impl Arrow {
     }
   }
 
-  pub fn default_shape() -> (ArrowBodyMesh, ArrowTipMesh) {
+  pub fn default_shape() -> (SceneMeshType, SceneMeshType) {
     let config = TessellationConfig { u: 1, v: 10 };
     let cylinder = IndexedMeshBuilder::<TriangleList, Vec<Vertex>>::default()
       .triangulate_parametric(
@@ -160,7 +152,11 @@ impl Arrow {
         true,
       )
       .build_mesh_into();
-    (cylinder.into_ref(), tip.into_ref())
+
+    let cylinder_mesh = SceneMeshType::Foreign(Arc::new(cylinder.into_ref()));
+    let tip_mesh = SceneMeshType::Foreign(Arc::new(tip.into_ref()));
+
+    (cylinder_mesh, tip_mesh)
   }
 
   pub fn set_color(&self, color: Vec3<f32>) {

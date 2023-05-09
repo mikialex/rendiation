@@ -74,6 +74,9 @@ pub fn setup_pass_core(
       });
 
       let mut meshes = pass.resources.model_ctx.meshes.write().unwrap();
+      if model.mesh.guid().is_none() {
+        model.mesh.guid().unwrap();
+      }
       let mesh_gpu = meshes.get_or_insert_with(model.mesh.guid().unwrap(), || {
         model
           .mesh

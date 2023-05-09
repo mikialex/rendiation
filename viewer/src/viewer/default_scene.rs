@@ -77,7 +77,6 @@ pub fn load_default_scene(scene: &Scene) {
       )
       .build_mesh_into()
       .into_ref();
-    let mesh: Box<dyn WebGPUSceneMesh> = Box::new(mesh);
     let mesh = SceneMeshType::Foreign(Arc::new(mesh));
 
     let material = PhysicalSpecularGlossinessMaterial {
@@ -107,7 +106,6 @@ pub fn load_default_scene(scene: &Scene) {
       builder = builder.triangulate_parametric(&face, TessellationConfig { u: 2, v: 3 }, true);
     }
     let mesh = builder.build_mesh().into_ref();
-    let mesh: Box<dyn WebGPUSceneMesh> = Box::new(mesh);
     let mesh = SceneMeshType::Foreign(Arc::new(mesh));
 
     let material = PhysicalSpecularGlossinessMaterial {
@@ -133,7 +131,6 @@ pub fn load_default_scene(scene: &Scene) {
       )
       .build_mesh_into()
       .into_ref();
-    let mesh: Box<dyn WebGPUSceneMesh> = Box::new(mesh);
     let mesh = SceneMeshType::Foreign(Arc::new(mesh));
 
     let mesh = TransformInstancedSceneMesh {
