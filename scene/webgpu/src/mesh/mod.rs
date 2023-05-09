@@ -1,5 +1,3 @@
-use rendiation_renderable_mesh::mesh::IntersectAbleGroupedMesh;
-
 pub mod typed;
 pub use typed::*;
 pub mod transform_instance;
@@ -14,11 +12,7 @@ pub type ReactiveMeshGPUOf<T> = <T as WebGPUMesh>::ReactiveGPU;
 pub trait WebGPUSceneMesh: Any + Send + Sync {
   fn create_scene_reactive_gpu(&self, ctx: &ShareBindableResourceCtx) -> Option<MeshGPUInstance>;
 
-  fn topology(&self) -> webgpu::PrimitiveTopology;
   fn draw_impl(&self, group: MeshDrawGroup) -> DrawCommand;
-
-  // the reason we use CPS style is for supporting refcell
-  fn try_pick(&self, f: &mut dyn FnMut(&dyn IntersectAbleGroupedMesh));
 }
 define_dyn_trait_downcaster_static!(WebGPUSceneMesh);
 pub fn register_webgpu_mesh_features<T>()
@@ -47,22 +41,6 @@ impl WebGPUSceneMesh for SceneMeshType {
     .into()
   }
 
-  fn topology(&self) -> webgpu::PrimitiveTopology {
-    match self {
-      SceneMeshType::AttributesMesh(m) => m.topology(),
-      SceneMeshType::TransformInstanced(m) => m.topology(),
-      SceneMeshType::Foreign(m) => {
-        if let Some(m) = get_dyn_trait_downcaster_static!(WebGPUSceneMesh).downcast_ref(m.as_ref())
-        {
-          m.topology()
-        } else {
-          webgpu::PrimitiveTopology::TriangleList
-        }
-      }
-      _ => webgpu::PrimitiveTopology::TriangleList,
-    }
-  }
-
   fn draw_impl(&self, group: MeshDrawGroup) -> DrawCommand {
     match self {
       SceneMeshType::AttributesMesh(m) => m.draw_impl(group),
@@ -79,35 +57,12 @@ impl WebGPUSceneMesh for SceneMeshType {
       _ => DrawCommand::Skip,
     }
   }
-  fn try_pick(&self, f: &mut dyn FnMut(&dyn IntersectAbleGroupedMesh)) {
-    match self {
-      SceneMeshType::AttributesMesh(_) => {}
-      SceneMeshType::TransformInstanced(m) => m.try_pick(f),
-      SceneMeshType::Foreign(m) => {
-        if let Some(mesh) =
-          get_dyn_trait_downcaster_static!(WebGPUSceneMesh).downcast_ref(m.as_ref())
-        {
-          mesh.try_pick(f)
-        }
-      }
-      _ => {}
-    }
-  }
 }
 
 impl<T: WebGPUMesh> WebGPUSceneMesh for SceneItemRef<T> {
   fn create_scene_reactive_gpu(&self, ctx: &ShareBindableResourceCtx) -> Option<MeshGPUInstance> {
     let instance = T::create_reactive_gpu(self, ctx);
     MeshGPUInstance::Foreign(Box::new(instance) as Box<dyn ReactiveRenderComponentSource>).into()
-  }
-
-  fn topology(&self) -> webgpu::PrimitiveTopology {
-    self.read().topology()
-  }
-
-  fn try_pick(&self, f: &mut dyn FnMut(&dyn IntersectAbleGroupedMesh)) {
-    let inner = self.read();
-    inner.try_pick(f);
   }
 
   fn draw_impl(&self, group: MeshDrawGroup) -> DrawCommand {
@@ -139,10 +94,6 @@ pub trait WebGPUMesh: Any + Send + Sync + Incremental {
   ) -> Self::ReactiveGPU;
 
   fn draw_impl(&self, group: MeshDrawGroup) -> DrawCommand;
-
-  fn topology(&self) -> webgpu::PrimitiveTopology;
-
-  fn try_pick(&self, _f: &mut dyn FnMut(&dyn IntersectAbleGroupedMesh)) {}
 }
 
 #[pin_project::pin_project(project = MeshGPUInstanceProj)]

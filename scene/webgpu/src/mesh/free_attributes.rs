@@ -208,10 +208,6 @@ impl WebGPUMesh for AttributesMesh {
       }
     }
   }
-
-  fn topology(&self) -> webgpu::PrimitiveTopology {
-    map_topology(self.mode)
-  }
 }
 
 fn map_view(view: BufferViewRange) -> GPUBufferViewRange {

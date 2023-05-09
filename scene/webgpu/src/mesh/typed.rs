@@ -104,8 +104,7 @@ where
   T: PrimitiveTopologyMeta + Unpin,
   IU: IndexGet + AsGPUBytes + IndexBufferSourceTypeProvider + Unpin + 'static,
   IndexedMesh<T, Vec<V>, IU>: GPUConsumableMeshBuffer,
-  GroupedMesh<IndexedMesh<T, Vec<V>, IU>>:
-    IntersectAbleGroupedMesh + SimpleIncremental + Send + Sync,
+  GroupedMesh<IndexedMesh<T, Vec<V>, IU>>: SimpleIncremental + Send + Sync,
 {
   fn as_reactive_component(&self) -> &dyn ReactiveRenderComponent {
     self.as_ref() as &dyn ReactiveRenderComponent
@@ -118,8 +117,7 @@ where
   T: PrimitiveTopologyMeta + Unpin,
   IU: IndexGet + AsGPUBytes + IndexBufferSourceTypeProvider + Unpin + 'static,
   IndexedMesh<T, Vec<V>, IU>: GPUConsumableMeshBuffer,
-  GroupedMesh<IndexedMesh<T, Vec<V>, IU>>:
-    IntersectAbleGroupedMesh + SimpleIncremental + Send + Sync,
+  GroupedMesh<IndexedMesh<T, Vec<V>, IU>>: SimpleIncremental + Send + Sync,
 = impl AsRef<RenderComponentCell<TypedMeshGPU<GroupedMesh<IndexedMesh<T, Vec<V>, IU>>>>>
   + Stream<Item = RenderComponentDeltaFlag>;
 
@@ -129,7 +127,7 @@ where
   T: PrimitiveTopologyMeta + Unpin,
   IU: IndexGet + AsGPUBytes + IndexBufferSourceTypeProvider + Unpin + 'static,
   IndexedMesh<T, Vec<V>, IU>: GPUConsumableMeshBuffer,
-  Self: IntersectAbleGroupedMesh + SimpleIncremental + Send + Sync,
+  Self: SimpleIncremental + Send + Sync,
 {
   type ReactiveGPU = ReactiveMeshGPUOfTypedMesh<V, T, IU>;
 
@@ -174,14 +172,6 @@ where
       indices: range.into(),
       instances: 0..1,
     }
-  }
-
-  fn topology(&self) -> webgpu::PrimitiveTopology {
-    map_topology(T::ENUM)
-  }
-
-  fn try_pick(&self, f: &mut dyn FnMut(&dyn IntersectAbleGroupedMesh)) {
-    f(self)
   }
 }
 

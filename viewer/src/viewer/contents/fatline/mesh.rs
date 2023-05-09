@@ -127,12 +127,6 @@ impl WebGPUMesh for FatlineMesh {
       instances: self.inner.get_group(group).into(),
     })
   }
-
-  fn topology(&self) -> webgpu::PrimitiveTopology {
-    webgpu::PrimitiveTopology::TriangleList
-  }
-
-  fn try_pick(&self, _f: &mut dyn FnMut(&dyn IntersectAbleGroupedMesh)) {}
 }
 
 impl ShaderGraphProvider for FatlineMeshGPU {
