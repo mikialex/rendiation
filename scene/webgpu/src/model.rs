@@ -167,21 +167,24 @@ pub fn build_standard_model_gpu(
 
   source
     .unbound_listen_by(all_delta)
-    .fold_signal_flatten(state, move |delta, state| match delta {
-      StandardModelDelta::material(material) => {
-        state.inner.material_id = material.guid();
-        state.inner.material_delta =
-          ctx.get_or_create_reactive_material_render_component_delta_source(&material);
-        RenderComponentDeltaFlag::ContentRef
+    .fold_signal_flatten(state, move |delta, state| {
+      match delta {
+        StandardModelDelta::material(material) => {
+          state.inner.material_id = material.guid();
+          state.inner.material_delta =
+            ctx.get_or_create_reactive_material_render_component_delta_source(&material);
+          RenderComponentDeltaFlag::ContentRef
+        }
+        StandardModelDelta::mesh(mesh) => {
+          state.inner.mesh_id = mesh.guid();
+          state.inner.mesh_delta =
+            ctx.get_or_create_reactive_mesh_render_component_delta_source(&mesh);
+          RenderComponentDeltaFlag::ContentRef
+        }
+        StandardModelDelta::group(_) => RenderComponentDeltaFlag::Draw,
+        StandardModelDelta::skeleton(_) => RenderComponentDeltaFlag::all(),
       }
-      StandardModelDelta::mesh(mesh) => {
-        state.inner.mesh_id = mesh.guid();
-        state.inner.mesh_delta =
-          ctx.get_or_create_reactive_mesh_render_component_delta_source(&mesh);
-        RenderComponentDeltaFlag::ContentRef
-      }
-      StandardModelDelta::group(_) => RenderComponentDeltaFlag::Draw,
-      StandardModelDelta::skeleton(_) => RenderComponentDeltaFlag::all(),
+      .into()
     })
 }
 
@@ -282,17 +285,20 @@ pub fn build_scene_model_gpu(
 
   source
     .unbound_listen_by(all_delta)
-    .fold_signal_flatten(state, move |v, state| match v {
-      SceneModelImplDelta::model(model) => {
-        let model_id = model.guid();
-        let model_delta = ctx.get_or_create_reactive_model_render_component_delta_source(&model);
-        state.inner.model_id = model_id;
-        state.inner.model_delta = model_delta;
-        RenderComponentDeltaFlag::ContentRef
+    .fold_signal_flatten(state, move |v, state| {
+      match v {
+        SceneModelImplDelta::model(model) => {
+          let model_id = model.guid();
+          let model_delta = ctx.get_or_create_reactive_model_render_component_delta_source(&model);
+          state.inner.model_id = model_id;
+          state.inner.model_delta = model_delta;
+          RenderComponentDeltaFlag::ContentRef
+        }
+        SceneModelImplDelta::node(_) => {
+          // todo, handle node change
+          RenderComponentDeltaFlag::ContentRef
+        }
       }
-      SceneModelImplDelta::node(_) => {
-        // todo, handle node change
-        RenderComponentDeltaFlag::ContentRef
-      }
+      .into()
     })
 }

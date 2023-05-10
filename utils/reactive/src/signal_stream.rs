@@ -92,7 +92,7 @@ pub trait SignalStreamExt: Stream {
   where
     Self: Sized,
     Self: Stream,
-    F: FnMut(Self::Item, &mut State) -> X;
+    F: FnMut(Self::Item, &mut State) -> Option<X>;
 
   fn fold_signal_state_stream<State, F>(
     self,
@@ -201,7 +201,7 @@ impl<T: Stream> SignalStreamExt for T {
   where
     Self: Sized,
     Self: Stream,
-    F: FnMut(Self::Item, &mut State) -> X,
+    F: FnMut(Self::Item, &mut State) -> Option<X>,
   {
     SignalFoldFlatten {
       state,
@@ -575,20 +575,24 @@ impl<T, S, F, X> Stream for SignalFoldFlatten<T, S, F>
 where
   S: Stream,
   T: Stream<Item = X> + Unpin,
-  F: FnMut(S::Item, &mut T) -> X,
+  F: FnMut(S::Item, &mut T) -> Option<X>,
 {
   type Item = X;
 
   fn poll_next(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Option<Self::Item>> {
-    let this = self.project();
-    if let Poll::Ready(v) = this.stream.poll_next(cx) {
-      if let Some(v) = v {
-        Poll::Ready(Some((this.f)(v, this.state)))
+    let mut this = self.project();
+    loop {
+      if let Poll::Ready(v) = this.stream.as_mut().poll_next(cx) {
+        if let Some(v) = v {
+          if let Some(v) = (this.f)(v, this.state) {
+            break Poll::Ready(Some(v));
+          }
+        } else {
+          break Poll::Ready(None);
+        }
       } else {
-        Poll::Ready(None)
+        break this.state.poll_next_unpin(cx);
       }
-    } else {
-      this.state.poll_next_unpin(cx)
     }
   }
 }

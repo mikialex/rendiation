@@ -111,30 +111,6 @@ impl<T: Stream + Unpin> Stream for StreamVec<T> {
       }
     }
 
-    // while let Some(index) = this.waked.read().unwrap().last().copied() {
-    //   // let waker = Arc::new(ChangeWaker {
-    //   //   waker: this.waker.clone(),
-    //   //   index,
-    //   //   changed: this.waked.clone(),
-    //   // });
-    //   // let waker = futures::task::waker_ref(&waker);
-    //   // let mut cx = Context::from_waker(&waker);
-
-    //   // if let Some(stream) = this.streams.get_mut(index).unwrap() {
-    //   //   if let Poll::Ready(r) = stream
-    //   //     .poll_next_unpin(&mut cx)
-    //   //     .map(|r| r.map(|item| IndexedItem { index, item }))
-    //   //   {
-    //   //     if r.is_none() {
-    //   //       this.streams[index] = None;
-    //   //     } else {
-    //   //       return Poll::Ready(r);
-    //   //     }
-    //   //   }
-    //   // }
-
-    //   this.waked.write().unwrap().pop();
-    // }
     Poll::Pending
   }
 }

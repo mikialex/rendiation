@@ -25,8 +25,7 @@ pub type SceneNodeChangeStreamIndexMapper =
 pub type SingleSceneNodeChangeStreamFanOut =
   StreamBroadcaster<SingleSceneNodeChangeStream, SceneNodeDerivedDataDelta, FanOut>;
 
-type StreamCacheUpdate =
-  impl Stream<Item = ()> + Unpin + AsRef<StreamVec<SingleSceneNodeChangeStreamFanOut>>;
+type StreamCacheUpdate = impl Stream + Unpin + AsRef<StreamVec<SingleSceneNodeChangeStreamFanOut>>;
 
 impl SceneNodeDeriveSystem {
   pub fn new(nodes: &SceneNodeCollection) -> Self {
@@ -47,7 +46,7 @@ impl SceneNodeDeriveSystem {
 
     let sub_broad_caster = StreamVec::<SingleSceneNodeChangeStreamFanOut>::default();
 
-    let stream_cache_updating = inner_sys.derived_stream.fork_stream().fold_signal(
+    let stream_cache_updating = inner_sys.derived_stream.fork_stream().fold_signal_flatten(
       sub_broad_caster,
       move |(idx, delta), sub_broad_caster| {
         if delta.is_none() {
@@ -63,7 +62,7 @@ impl SceneNodeDeriveSystem {
             ),
           )
         }
-        Some(())
+        None
       },
     );
 

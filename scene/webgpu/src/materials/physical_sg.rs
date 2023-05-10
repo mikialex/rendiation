@@ -224,7 +224,7 @@ impl WebGPUMaterial for PhysicalSpecularGlossinessMaterial {
             state.uniform.resource.set(build_shader_uniform(&m.read()));
             state.uniform.resource.upload(&ctx.gpu.queue)
           }
-          RenderComponentDeltaFlag::ContentRef
+          RenderComponentDeltaFlag::ContentRef.into()
         }
         UniformChangePicked::Origin(delta) => match delta {
           PD::alpha_mode(_) => RenderComponentDeltaFlag::ShaderHash,
@@ -234,7 +234,8 @@ impl WebGPUMaterial for PhysicalSpecularGlossinessMaterial {
           PD::emissive_texture(t) => apply_tex_pair_delta(t, &mut state.emissive_texture, &ctx),
           PD::normal_texture(t) => apply_normal_map_delta(t, &mut state.normal_texture, &ctx),
           _ => RenderComponentDeltaFlag::Content, // handled in uniform
-        },
+        }
+        .into(),
       },
     )
   }
