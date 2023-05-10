@@ -54,9 +54,15 @@ pub fn ray_pick_nearest_core(
         return OptionalNearest::none();
       }
 
-      model
+      let mut r = model
         .mesh
-        .intersect_nearest(local_ray, ctx.conf, model.group)
+        .intersect_nearest(local_ray, ctx.conf, model.group);
+
+      if let Some(r) = &mut r.0 {
+        todo!();
+        r.hit.position = world_mat * r.hit.position;
+      };
+      r
     }
     ModelType::Foreign(model) => {
       if let Some(model) =

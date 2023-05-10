@@ -75,7 +75,6 @@ impl SceneModelWorldBoundingSystem {
       // collect box updates
       // send into downstream stream TODO
       // update cache,
-      println!("{update:?}");
       match update {
         BoxUpdate::Remove(index) => {
           self.models_bounding[index] = None;
