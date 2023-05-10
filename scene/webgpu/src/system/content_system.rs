@@ -9,7 +9,7 @@ pub struct ContentGPUSystem {
   pub(crate) gpu: ResourceGPUCtx,
   pub model_ctx: GPUModelResourceCtx,
   pub bindable_ctx: ShareBindableResourceCtx,
-  pub models: Arc<RwLock<StreamMap<usize, ReactiveSceneModelGPUType>>>,
+  pub models: Arc<RwLock<StreamMap<usize, ReactiveModelGPUType>>>,
   pub custom_storage: Arc<RefCell<AnyMap>>,
 }
 
@@ -60,7 +60,7 @@ impl Stream for ContentGPUSystem {
     do_updates_by(&mut this.model_ctx, cx, |_| {});
 
     let mut models = this.models.write().unwrap();
-    let models: &mut StreamMap<usize, ReactiveSceneModelGPUType> = &mut models;
+    let models: &mut StreamMap<usize, ReactiveModelGPUType> = &mut models;
     do_updates_by(models, cx, |_| {});
     Poll::Pending
   }

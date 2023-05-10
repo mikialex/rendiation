@@ -33,6 +33,12 @@ pub struct SceneNodeCollection {
   pub inner: SharedTreeCollection<ReactiveTreeCollection<SceneNodeData, SceneNodeDataImpl>>,
 }
 
+impl SceneNodeCollection {
+  pub fn create_new_root(&self) -> SceneNode {
+    SceneNode::from_new_root(self.inner.clone())
+  }
+}
+
 impl IncrementalBase for SceneNodeCollection {
   type Delta = TreeMutation<SceneNodeDataImpl>;
 
@@ -82,7 +88,7 @@ impl SceneInner {
     let nodes: SceneNodeCollection = Default::default();
     let system = SceneNodeDeriveSystem::new(&nodes);
 
-    let root = SceneNode::from_new_root(nodes.inner.clone());
+    let root = nodes.create_new_root();
 
     let default_camera = PerspectiveProjection::default();
     let camera_node = root.create_child();

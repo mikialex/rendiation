@@ -194,15 +194,15 @@ fn on_model_mutate(
   delta: &ArenaDelta<SceneItemRef<SceneModelImpl>>,
 ) {
   match delta {
-    arena::ArenaDelta::Mutate((m, model)) => {
-      on_model_mutate(send, &arena::ArenaDelta::Remove(*model));
-      on_model_mutate(send, &arena::ArenaDelta::Insert((m.clone(), *model)));
+    arena::ArenaDelta::Mutate((model, h)) => {
+      on_model_mutate(send, &arena::ArenaDelta::Remove(*h));
+      on_model_mutate(send, &arena::ArenaDelta::Insert((model.clone(), *h)));
     }
-    arena::ArenaDelta::Insert((m, model)) => {
-      let node = m.read().node.raw_handle().index();
-      send(Change::OneRefedByMany(node, model.index()));
+    arena::ArenaDelta::Insert((model, h)) => {
+      let node = model.read().node.raw_handle().index();
+      send(Change::OneRefedByMany(node, h.index()));
     }
-    arena::ArenaDelta::Remove(model) => send(Change::RemoveMany(model.index())),
+    arena::ArenaDelta::Remove(h) => send(Change::RemoveMany(h.index())),
   }
 }
 

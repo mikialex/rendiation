@@ -1,8 +1,11 @@
 #![feature(type_alias_impl_trait)]
 #![feature(stmt_expr_attributes)]
+#![allow(incomplete_features)]
+#![feature(return_position_impl_trait_in_trait)]
 #![feature(let_chains)]
 
 pub mod scene;
+use arena::ArenaDelta;
 pub use scene::*;
 
 pub mod node;
@@ -49,6 +52,7 @@ use futures::Stream;
 use incremental::*;
 use rendiation_algebra::*;
 use std::any::Any;
+use std::hash::Hash;
 use std::{
   collections::HashMap,
   sync::{Arc, RwLock},

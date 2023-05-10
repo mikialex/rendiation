@@ -186,28 +186,28 @@ pub fn build_standard_model_gpu(
 }
 
 #[pin_project::pin_project(project = ReactiveSceneModelGPUTypeProj)]
-pub enum ReactiveSceneModelGPUType {
+pub enum ReactiveModelGPUType {
   Standard(ReactiveStandardModelGPU),
   Foreign(Box<dyn ReactiveRenderComponentSource>),
 }
 
-impl ReactiveSceneModelGPUType {
+impl ReactiveModelGPUType {
   pub fn create_render_component_delta_stream(
     &self,
   ) -> Pin<Box<dyn Stream<Item = RenderComponentDeltaFlag>>> {
     match self {
-      ReactiveSceneModelGPUType::Standard(m) => {
+      ReactiveModelGPUType::Standard(m) => {
         Box::pin(m.as_ref().create_render_component_delta_stream())
           as Pin<Box<dyn Stream<Item = RenderComponentDeltaFlag>>>
       }
-      ReactiveSceneModelGPUType::Foreign(m) => m
+      ReactiveModelGPUType::Foreign(m) => m
         .as_reactive_component()
         .create_render_component_delta_stream(),
     }
   }
 }
 
-impl Stream for ReactiveSceneModelGPUType {
+impl Stream for ReactiveModelGPUType {
   type Item = RenderComponentDeltaFlag;
 
   fn poll_next(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Option<Self::Item>> {
@@ -236,10 +236,7 @@ impl Stream for ReactiveSceneModelGPU {
 }
 
 pub trait WebGPUSceneModel: Send + Sync {
-  fn create_scene_reactive_gpu(
-    &self,
-    ctx: &GPUModelResourceCtx,
-  ) -> Option<ReactiveSceneModelGPUType>;
+  fn create_scene_reactive_gpu(&self, ctx: &GPUModelResourceCtx) -> Option<ReactiveModelGPUType>;
 }
 define_dyn_trait_downcaster_static!(WebGPUSceneModel);
 pub fn register_webgpu_model_features<T>()
@@ -250,14 +247,9 @@ where
 }
 
 impl WebGPUSceneModel for ModelType {
-  fn create_scene_reactive_gpu(
-    &self,
-    ctx: &GPUModelResourceCtx,
-  ) -> Option<ReactiveSceneModelGPUType> {
+  fn create_scene_reactive_gpu(&self, ctx: &GPUModelResourceCtx) -> Option<ReactiveModelGPUType> {
     match self {
-      Self::Standard(model) => {
-        ReactiveSceneModelGPUType::Standard(build_standard_model_gpu(model, ctx))
-      }
+      Self::Standard(model) => ReactiveModelGPUType::Standard(build_standard_model_gpu(model, ctx)),
       Self::Foreign(m) => get_dyn_trait_downcaster_static!(WebGPUSceneModel)
         .downcast_ref(m.as_ref())?
         .create_scene_reactive_gpu(ctx)?,
