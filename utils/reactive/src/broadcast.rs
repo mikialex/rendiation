@@ -115,7 +115,10 @@ impl<S, D> StreamBroadcaster<S, D, FanOut>
 where
   S: Stream<Item = D> + Unpin,
 {
-  pub fn fork_stream(&self) -> BroadcastedStream<S, D, FanOut> {
+  pub fn fork_stream_with_init(
+    &self,
+    init: impl IntoIterator<Item = D>,
+  ) -> BroadcastedStream<S, D, FanOut> {
     let mut inner = self.inner.write().unwrap();
     let index = inner
       .distributer
@@ -127,12 +130,18 @@ where
       });
     // todo shrink logic?
     let (sender, rev) = futures::channel::mpsc::unbounded();
+    init.into_iter().for_each(|init_delta| {
+      sender.unbounded_send(init_delta).ok();
+    });
     inner.distributer[index] = sender.into();
     BroadcastedStream {
       rev,
       index,
       source: self.inner.clone(),
     }
+  }
+  pub fn fork_stream(&self) -> BroadcastedStream<S, D, FanOut> {
+    self.fork_stream_with_init([])
   }
 }
 

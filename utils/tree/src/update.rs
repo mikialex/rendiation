@@ -95,7 +95,7 @@ impl<T: IncrementalBase, Dirty> TreeHierarchyDerivedSystem<T, Dirty> {
 
   pub fn visit_derived_tree<R>(
     &self,
-    mut v: impl FnMut(&TreeCollection<DerivedData<T, Dirty>>) -> R,
+    v: impl FnOnce(&TreeCollection<DerivedData<T, Dirty>>) -> R,
   ) -> R {
     v(&self.derived_tree.read().unwrap())
   }

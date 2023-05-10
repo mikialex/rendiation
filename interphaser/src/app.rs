@@ -55,11 +55,6 @@ impl<T: 'static> Application<T> {
       height: config.size.height as f64,
     };
     window.set_inner_size(size);
-    let position = winit::dpi::LogicalPosition {
-      x: config.position.x as f64,
-      y: config.position.y as f64,
-    };
-    window.set_outer_position(position);
 
     #[cfg(target_arch = "wasm32")]
     {

@@ -186,14 +186,22 @@ impl<T: Std140> UniformBufferData<T> {
     T: PartialEq,
   {
     if self.changed.get() {
+      let data = self.data.borrow();
+      let should_update;
+
+      // if last is none, means we use init value, not need update
       if let Some(last) = self.last.get() {
-        let data = self.data.borrow();
         let data: &T = &data;
-        if last != *data {
-          queue.write_buffer(&self.gpu.gpu, 0, bytemuck::cast_slice(&[*data]))
-        }
+        should_update = last != *data;
         self.last.set(Some(*data));
-      } // if last is none, means we use init value, not need update
+      } else {
+        should_update = true;
+      }
+
+      if should_update {
+        queue.write_buffer(&self.gpu.gpu, 0, bytemuck::cast_slice(&[*data]))
+      }
+
       self.changed.set(false);
     }
   }

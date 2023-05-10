@@ -95,10 +95,19 @@ impl SceneNodeDeriveSystem {
       tree.get_node(handle).data().data.world_matrix
     })
   }
+  pub fn visit_derived<R>(&self, index: usize, v: impl FnOnce(&SceneNodeDerivedData) -> R) -> R {
+    self.inner.read().unwrap().inner.visit_derived_tree(|tree| {
+      let handle = tree.recreate_handle(index);
+      v(&tree.get_node(handle).data().data)
+    })
+  }
+
   pub fn create_derived_stream_by_raw_handle(
     &self,
     index: usize,
   ) -> impl Stream<Item = SceneNodeDerivedDataDelta> {
+    let derived = self.visit_derived(index, |d| d.clone());
+    let init_deltas = expand_out(&derived);
     self
       .inner
       .read()
@@ -107,7 +116,7 @@ impl SceneNodeDeriveSystem {
       .as_ref()
       .get(index)
       .unwrap()
-      .fork_stream()
+      .fork_stream_with_init(init_deltas)
   }
 
   pub fn create_world_matrix_stream(&self, node: &SceneNode) -> WorldMatrixStream {

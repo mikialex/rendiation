@@ -101,6 +101,12 @@ impl<T: SimpleIncremental + Send + Sync + 'static> IncrementalBase for T {
   }
 }
 
+pub fn expand_out<T: IncrementalBase>(item: &T) -> Vec<T::Delta> {
+  let mut r = Vec::new();
+  item.expand(|d| r.push(d));
+  r
+}
+
 impl<T: SimpleIncremental + Send + Sync + 'static> ApplicableIncremental for T {
   type Error = ();
 

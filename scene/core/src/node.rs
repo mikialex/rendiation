@@ -13,7 +13,7 @@ pub struct SceneNodeDataImpl {
   pub visible: bool,
 }
 
-#[derive(Default, Incremental)]
+#[derive(Default, Incremental, Clone)]
 pub struct SceneNodeDerivedData {
   pub world_matrix: Mat4<f32>,
   pub net_visible: bool,
