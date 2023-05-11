@@ -75,10 +75,6 @@ impl SceneNodeControlled for OverridableMeshModelImpl {
 }
 
 impl SceneRenderable for OverridableMeshModelImpl {
-  fn is_transparent(&self) -> bool {
-    self.inner.is_transparent()
-  }
-
   fn render(
     &self,
     pass: &mut SceneRenderPass,

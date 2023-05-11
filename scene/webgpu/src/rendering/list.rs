@@ -6,6 +6,14 @@ pub struct RenderList {
   pub(crate) transparent: Vec<(SceneModelHandle, f32)>,
 }
 
+pub fn is_model_enable_blend(model: &ModelType) -> bool {
+  match model {
+    ModelType::Standard(model) => model.read().material.is_transparent(),
+    ModelType::Foreign(_) => false, // todo
+    _ => false,
+  }
+}
+
 impl RenderList {
   pub fn prepare(
     &mut self,
@@ -28,7 +36,7 @@ impl RenderList {
       let model_pos = node_derives.get_world_matrix(&m.get_node()).position();
       let depth = (model_pos - camera_pos).dot(camera_forward);
 
-      let is_transparent = m.is_transparent();
+      let is_transparent = is_model_enable_blend(&m.read().model);
       if is_transparent {
         self.transparent.push((h, depth));
       } else {

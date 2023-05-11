@@ -1,6 +1,6 @@
 #![allow(non_upper_case_globals)]
 
-use __core::ops::DerefMut;
+use core::ops::DerefMut;
 
 use crate::*;
 

@@ -791,10 +791,6 @@ impl SceneRenderable for HelperMesh {
   ) {
     self.model.render(pass, dispatcher, camera)
   }
-
-  fn is_transparent(&self) -> bool {
-    self.model.is_transparent()
-  }
 }
 
 impl SceneRayInteractive for HelperMesh {

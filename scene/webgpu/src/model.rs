@@ -1,9 +1,6 @@
 use crate::*;
 
 impl SceneRenderable for SceneModel {
-  fn is_transparent(&self) -> bool {
-    self.visit(|model| model.is_transparent())
-  }
   fn render(
     &self,
     pass: &mut SceneRenderPass,
@@ -17,24 +14,6 @@ impl SceneRenderable for SceneModel {
 impl SceneNodeControlled for SceneModel {
   fn visit_node(&self, visitor: &mut dyn FnMut(&SceneNode)) {
     self.visit(|model| visitor(&model.node))
-  }
-}
-
-impl SceneRenderableShareable for SceneModel
-where
-  Self: SceneRenderable + Clone + 'static,
-{
-  fn id(&self) -> usize {
-    self.read().guid()
-  }
-  fn clone_boxed(&self) -> Box<dyn SceneRenderableShareable> {
-    Box::new(self.clone())
-  }
-  fn as_renderable(&self) -> &dyn SceneRenderable {
-    self
-  }
-  fn as_renderable_mut(&mut self) -> &mut dyn SceneRenderable {
-    self
   }
 }
 
@@ -104,19 +83,6 @@ pub fn setup_pass_core(
 }
 
 impl SceneRenderable for SceneModelImpl {
-  fn is_transparent(&self) -> bool {
-    match &self.model {
-      ModelType::Standard(model) => model.read().material.is_transparent(),
-      ModelType::Foreign(model) => {
-        if let Some(model) = model.downcast_ref::<Box<dyn SceneRenderable>>() {
-          model.is_transparent()
-        } else {
-          false
-        }
-      }
-      _ => false,
-    }
-  }
   fn render(
     &self,
     pass: &mut SceneRenderPass,

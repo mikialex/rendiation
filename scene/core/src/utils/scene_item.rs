@@ -57,6 +57,20 @@ impl<T: IncrementalBase> Clone for SceneItemRef<T> {
     }
   }
 }
+
+impl<T: IncrementalBase> Hash for SceneItemRef<T> {
+  fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+    self.id.hash(state);
+  }
+}
+
+impl<T: IncrementalBase> PartialEq for SceneItemRef<T> {
+  fn eq(&self, other: &Self) -> bool {
+    self.id == other.id
+  }
+}
+impl<T: IncrementalBase> Eq for SceneItemRef<T> {}
+
 impl<T: IncrementalBase> From<T> for SceneItemRef<T> {
   fn from(inner: T) -> Self {
     Self::new(inner)

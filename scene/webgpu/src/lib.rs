@@ -52,6 +52,7 @@ use webgpu::*;
 use wgsl_shader_derives::*;
 
 use __core::hash::Hasher;
+use __core::num::NonZeroU32;
 use __core::{
   pin::Pin,
   task::{Context, Poll},
@@ -69,10 +70,6 @@ use std::{
 };
 
 pub trait SceneRenderable {
-  fn is_transparent(&self) -> bool {
-    false
-  }
-
   fn render(
     &self,
     pass: &mut SceneRenderPass,
@@ -89,27 +86,5 @@ pub trait SceneNodeControlled {
       result = node.clone().into();
     });
     result.unwrap()
-  }
-}
-
-/// renderable but allow cheap clone and shared ownership
-pub trait SceneRenderableShareable: SceneRenderable {
-  fn id(&self) -> usize;
-  fn clone_boxed(&self) -> Box<dyn SceneRenderableShareable>;
-  fn as_renderable(&self) -> &dyn SceneRenderable;
-  fn as_renderable_mut(&mut self) -> &mut dyn SceneRenderable;
-}
-
-impl SceneRenderable for Box<dyn SceneRenderableShareable> {
-  fn is_transparent(&self) -> bool {
-    self.as_ref().is_transparent()
-  }
-  fn render(
-    &self,
-    pass: &mut SceneRenderPass,
-    dispatcher: &dyn RenderComponentAny,
-    camera: &SceneCamera,
-  ) {
-    self.as_ref().render(pass, dispatcher, camera)
   }
 }

@@ -62,11 +62,11 @@ impl SceneGPUSystem {
       if let SceneInnerDelta::models(delta) = delta {
         match delta {
           arena::ArenaDelta::Mutate((model, _)) => {
-            models.remove(model.id());
-            models.get_or_insert_with(model.id(), || build_scene_model_gpu(&model, &contents));
+            models.remove(model.guid());
+            models.get_or_insert_with(model.guid(), || build_scene_model_gpu(&model, &contents));
           }
           arena::ArenaDelta::Insert((model, _)) => {
-            models.get_or_insert_with(model.id(), || build_scene_model_gpu(&model, &contents));
+            models.get_or_insert_with(model.guid(), || build_scene_model_gpu(&model, &contents));
           }
           arena::ArenaDelta::Remove(handle) => {
             models.remove(handle.index());

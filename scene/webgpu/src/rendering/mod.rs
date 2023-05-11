@@ -48,8 +48,8 @@ pub struct SceneRenderPass<'a, 'b, 'c> {
   pub ctx: GPURenderPassCtx<'a, 'b>,
   pub resources: &'c ContentGPUSystem,
   pub scene_resources: &'c SceneGPUSystem,
-  pub pass_info: UniformBufferDataView<RenderPassGPUInfoData>,
   pub node_derives: &'a SceneNodeDeriveSystem,
+  pub pass_info: UniformBufferDataView<RenderPassGPUInfoData>,
 }
 
 impl<'a, 'b, 'c> SceneRenderPass<'a, 'b, 'c> {
