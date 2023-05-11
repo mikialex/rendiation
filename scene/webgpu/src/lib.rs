@@ -2,6 +2,7 @@
 #![feature(hash_raw_entry)]
 #![feature(stmt_expr_attributes)]
 #![feature(type_alias_impl_trait)]
+#![feature(return_position_impl_trait_in_trait)]
 #![allow(clippy::field_reassign_with_default)]
 #![allow(incomplete_features)]
 

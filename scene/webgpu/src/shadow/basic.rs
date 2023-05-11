@@ -22,16 +22,6 @@ only_fragment!(BasicShadowMapInfoGroup, Shader140Array<BasicShadowMapInfo, SHADO
 only_fragment!(BasicShadowMap, ShaderDepthTexture2DArray);
 only_fragment!(BasicShadowMapSampler, ShaderCompareSampler);
 
-pub fn sample_shadow(
-  shadow_position: Node<Vec3<f32>>,
-  map: Node<ShaderDepthTexture2DArray>,
-  sampler: Node<ShaderCompareSampler>,
-  info: Node<ShadowMapAddressInfo>,
-) -> Node<f32> {
-  // sample_shadow_pcf_x4(shadow_position, map, sampler, info)
-  sample_shadow_pcf_x36_by_offset(shadow_position, map, sampler, info)
-}
-
 pub fn compute_shadow_position(
   builder: &ShaderGraphFragmentBuilderView,
   shadow_info: ENode<BasicShadowMapInfo>,
@@ -78,7 +68,39 @@ pub struct BasicShadowGPU {
 }
 
 pub trait ShadowCameraCreator {
-  fn build_shadow_camera(&self, node: &SceneNode) -> SceneCamera;
+  fn build_shadow_projection(&self) -> Option<Box<dyn CameraProjection>>;
+}
+
+pub trait ShadowCameraCreator2 {
+  fn build_shadow_projection(&self) -> Option<Box<dyn CameraProjection>>;
+}
+
+impl ShadowCameraCreator2 for SceneLightKind {
+  fn build_shadow_projection(&self) -> Option<Box<dyn CameraProjection>> {
+    todo!()
+  }
+}
+
+type ReactiveBasicShadowSceneCamera = impl Stream<Item = ()> + AsRef<SceneCamera>;
+
+fn basic_shadow_gpu(light: SceneLight) -> Option<ReactiveBasicShadowSceneCamera> {
+  let l = light.read();
+  let proj = l.light.build_shadow_projection()?;
+  let camera = SceneCamera::create_camera_inner(proj, l.node.clone());
+
+  light
+    .unbound_listen_by(all_delta)
+    .fold_signal(camera, |delta, camera| {
+      match delta {
+        SceneLightInnerDelta::light(l) => {
+          let proj = l.build_shadow_projection().unwrap(); // todo
+          SceneCameraInnerDelta::projection(proj).apply_modify(camera)
+        }
+        SceneLightInnerDelta::node(n) => SceneCameraInnerDelta::node(n).apply_modify(camera),
+      }
+      Some(())
+    })
+    .into()
 }
 
 fn get_shadow_map<T: Any + ShadowCameraCreator + Incremental>(

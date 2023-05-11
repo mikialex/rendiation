@@ -5,7 +5,7 @@ pub use mapper::*;
 mod scene_item;
 pub use scene_item::*;
 mod transformation;
-use futures::Future;
+use futures::{Future, StreamExt};
 use reactive::{ChannelLike, DefaultSingleValueChannel, DefaultUnboundChannel};
 pub use transformation::*;
 
@@ -53,6 +53,10 @@ pub fn any_change<T: IncrementalBase>(view: MaybeDeltaRef<T>, send: &dyn Fn(()))
 
 pub fn any_change_no_init<T: IncrementalBase>(view: MaybeDeltaRef<T>, send: &dyn Fn(())) {
   any_change_with(false)(view, send)
+}
+
+pub fn no_change<T: IncrementalBase>(_view: MaybeDeltaRef<T>, _send: &dyn Fn(())) {
+  // do nothing at all
 }
 
 #[inline(always)]
@@ -170,14 +174,12 @@ impl<T: IncrementalBase> Identity<T> {
     receiver
   }
 
-  // todo, how to handle too many drop listener? in fact we never cleanup them
   pub fn create_drop(&self) -> impl Future<Output = ()> {
-    let (sender, receiver) = futures::channel::oneshot::channel::<()>();
-    self.drop_source.on(move |_| {
-      sender.send(()).ok();
-    });
     use futures::FutureExt;
-    receiver.map(|_| ())
+    self
+      .listen_by::<DefaultSingleValueChannel, _>(no_change)
+      .count()
+      .map(|_| {})
   }
 }
 

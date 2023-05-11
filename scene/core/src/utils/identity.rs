@@ -1,6 +1,6 @@
 use std::sync::atomic::{AtomicUsize, Ordering};
 
-use reactive::{EventOnceSource, EventSource};
+use reactive::EventSource;
 
 use super::scene_item::Mutating;
 use crate::*;
@@ -20,7 +20,6 @@ pub struct Identity<T: IncrementalBase> {
   pub(super) id: usize,
   pub(super) inner: T,
   pub delta_source: EventSource<DeltaView<'static, T>>,
-  pub drop_source: EventOnceSource<()>,
 }
 
 impl<T: IncrementalBase> AsRef<T> for Identity<T> {
@@ -72,7 +71,6 @@ impl<T: IncrementalBase> Identity<T> {
       inner,
       id: alloc_global_res_id(),
       delta_source: Default::default(),
-      drop_source: Default::default(),
     }
   }
 
@@ -102,12 +100,6 @@ impl<T: IncrementalBase> Identity<T> {
 impl<T: Default + IncrementalBase> Default for Identity<T> {
   fn default() -> Self {
     Self::new(Default::default())
-  }
-}
-
-impl<T: IncrementalBase> Drop for Identity<T> {
-  fn drop(&mut self) {
-    self.drop_source.emit(&());
   }
 }
 

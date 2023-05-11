@@ -6,13 +6,10 @@ use crate::*;
 pub type SceneCamera = SceneItemRef<SceneCameraInner>;
 
 impl SceneCamera {
-  pub fn create_camera(
-    p: impl ResizableProjection<f32> + RayCaster3<f32> + DynIncremental + Clone + 'static,
-    node: SceneNode,
-  ) -> Self {
+  pub fn create_camera_inner(projection: Box<dyn CameraProjection>, node: SceneNode) -> Self {
     let mut inner = SceneCameraInner {
       bounds: Default::default(),
-      projection: Box::new(p),
+      projection,
       projection_matrix: Mat4::one(),
       node,
     };
@@ -21,6 +18,13 @@ impl SceneCamera {
       .update_projection(&mut inner.projection_matrix);
 
     inner.into()
+  }
+
+  pub fn create_camera(
+    p: impl ResizableProjection<f32> + RayCaster3<f32> + DynIncremental + Clone + 'static,
+    node: SceneNode,
+  ) -> Self {
+    Self::create_camera_inner(Box::new(p), node)
   }
 
   pub fn resize(&self, size: (f32, f32)) {
