@@ -6,6 +6,9 @@ pub use allocator::*;
 pub mod basic;
 pub use basic::*;
 
+pub mod sampling;
+pub use sampling::*;
+
 pub struct ShadowMapSystem {
   pub shadow_collections: LinkedHashMap<TypeId, Box<dyn ShadowCollection>>,
   pub maps: ShadowMapAllocator,

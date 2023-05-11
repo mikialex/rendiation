@@ -94,16 +94,6 @@ impl Stream for GPUModelResourceCtx {
   }
 }
 
-#[derive(Default)]
-pub struct GPULightCache {
-  pub inner: HashMap<TypeId, Box<dyn Any>>,
-}
-
-#[derive(Default)]
-pub struct GPUResourceSceneCache {
-  pub lights: GPULightCache,
-}
-
 #[derive(Clone)]
 #[pin_project::pin_project]
 pub struct ShareBindableResourceCtx {

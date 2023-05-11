@@ -19,6 +19,11 @@ pub struct SceneGPUSystem {
   pub lights: RefCell<GPULightCache>,
 }
 
+#[derive(Default)]
+pub struct GPULightCache {
+  pub inner: HashMap<TypeId, Box<dyn Any>>,
+}
+
 impl SceneGPUSystem {
   pub fn encode(&self, _encoder: &mut GPUCommandEncoder, _pass_dispatcher: &dyn RenderComponent) {
     // do encoding

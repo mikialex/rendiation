@@ -11,6 +11,7 @@ pub struct LightUpdateCtx<'a, 'b> {
   pub forward: &'a mut ForwardLightingSystem,
   pub shadows: &'a mut ShadowMapSystem,
   pub node_derives: &'a SceneNodeDeriveSystem,
+  /// we need this ctx to encoding the depth map pass
   pub ctx: &'a mut FrameCtx<'b>,
   pub scene: &'a SceneInner,
 }
@@ -38,6 +39,13 @@ pub trait WebGPUSceneLight: Any {
   fn pre_update(&self, _ctx: &mut LightUpdateCtx, _: &SceneNode) {}
   fn update(&self, ctx: &mut LightUpdateCtx, node: &SceneNode);
 }
+define_dyn_trait_downcaster_static!(WebGPUSceneLight);
+pub fn register_webgpu_light_features<T>()
+where
+  T: AsRef<dyn WebGPUSceneLight> + AsMut<dyn WebGPUSceneLight> + 'static,
+{
+  get_dyn_trait_downcaster_static!(WebGPUSceneLight).register::<T>()
+}
 
 impl WebGPUSceneLight for SceneLight {
   fn pre_update(&self, ctx: &mut LightUpdateCtx, _: &SceneNode) {
@@ -50,7 +58,8 @@ impl WebGPUSceneLight for SceneLight {
       SceneLightKind::SpotLight(l) => l.pre_update(ctx, node),
       SceneLightKind::DirectionalLight(l) => l.pre_update(ctx, node),
       SceneLightKind::Foreign(l) => {
-        if let Some(l) = l.downcast_ref::<Box<dyn WebGPUSceneLight>>() {
+        if let Some(l) = get_dyn_trait_downcaster_static!(WebGPUSceneLight).downcast_ref(l.as_ref())
+        {
           l.pre_update(ctx, node);
         }
       }
