@@ -702,8 +702,8 @@ fn check_should_wrap(ty: &ShaderStructMemberValueType) -> Option<ReWrappedPrimit
 /// but the wgsl requires explicit alignment and size mark, so we have to generate these annotation.
 /// or even replace/wrapping the type to satisfy the layout requirements of uniform/storage.
 ///
-/// When some struct requires 140 layout, we can assure all the type the struct's fields used are also
-/// std140, this is statically constraint by traits. That means if we generate all uniform
+/// When some struct requires 140 layout, we can assure all the type the struct's fields used are
+/// also std140, this is statically constraint by traits. That means if we generate all uniform
 /// structs and it's dependency struct first, the following struct and it's dependency struct
 /// we meet in function dependency collecting can regard them as pure shader class. This also
 /// applied to future 430 layout support in future.
@@ -734,7 +734,8 @@ fn gen_struct(builder: &mut CodeBuilder, meta: &ShaderStructMetaInfoOwned, is_un
       }
 
       // If a structure member itself has a structure type S, then the number of bytes between
-      // the start of that member and the start of any following member must be at least roundUp(16, SizeOf(S)).
+      // the start of that member and the start of any following member must be at least roundUp(16,
+      // SizeOf(S)).
       if let ShaderStructMemberValueType::Struct(_) = ty {
         explicit_align = 16.into();
       }

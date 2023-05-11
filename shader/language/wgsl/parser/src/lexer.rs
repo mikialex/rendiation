@@ -370,7 +370,7 @@ impl<'a> Lexer<'a> {
 
   fn consume_number(&mut self) -> (Token<'a>, &'a str) {
     let input = self.input;
-    //Note: I wish this function was simpler and faster...
+    // Note: I wish this function was simpler and faster...
     let mut is_first_char = true;
     let mut right_after_exponent = false;
 

@@ -172,7 +172,8 @@ impl<T: IncrementalBase, Dirty> TreeHierarchyDerivedSystem<T, Dirty> {
       })
       .buffered_unbound() // to make sure all markup finished
       .map(move |marking_result| {
-        // this allocation can not removed, but could we calculate correct capacity or reuse the allocation?
+        // this allocation can not removed, but could we calculate correct capacity or reuse the
+        // allocation?
         let mut derived_deltas = Vec::new();
         match marking_result {
           MarkingResult::UpdateRoot(Some(update_root)) => {

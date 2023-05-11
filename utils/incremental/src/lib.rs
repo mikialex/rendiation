@@ -64,8 +64,9 @@ pub trait Incremental: IncrementalBase + ApplicableIncremental {}
 impl<T: IncrementalBase + ApplicableIncremental> Incremental for T {}
 
 pub trait IncrementalMutatorHelper: IncrementalBase {
-  /// Mutator encapsulate the inner mutable state to prevent direct mutation and generate delta automatically
-  /// Mutator should also direct support apply delta which constraint by MutatorApply
+  /// Mutator encapsulate the inner mutable state to prevent direct mutation and generate delta
+  /// automatically Mutator should also direct support apply delta which constraint by
+  /// MutatorApply
   ///
   /// We need this because delta could have return value.
   type Mutator<'a>

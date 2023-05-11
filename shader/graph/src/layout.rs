@@ -75,7 +75,8 @@ impl ShaderStructMemberValueType {
       ShaderStructMemberValueType::Struct(t) => {
         let size = (*t).to_owned().size_of_self(target);
         // If a structure member itself has a structure type S, then the number of bytes between
-        // the start of that member and the start of any following member must be at least roundUp(16, SizeOf(S)).
+        // the start of that member and the start of any following member must be at least
+        // roundUp(16, SizeOf(S)).
         match target {
           StructLayoutTarget::Std140 => round_up(16, size),
           StructLayoutTarget::Std430 => size,

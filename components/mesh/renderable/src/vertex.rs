@@ -7,7 +7,8 @@ use crate::*;
 
 #[repr(C)]
 #[derive(Clone, Copy, soa_derive::StructOfArray, Debug, shadergraph::ShaderVertex)]
-// #[cfg_attr(feature = "shader", derive(shadergraph::ShaderVertex))] // todo, figure out how to use with feature gate
+// #[cfg_attr(feature = "shader", derive(shadergraph::ShaderVertex))] // todo, figure out how to use
+// with feature gate
 pub struct Vertex {
   // #[cfg_attr(feature = "shader", semantic(GeometryPosition))]
   #[semantic(GeometryPosition)]

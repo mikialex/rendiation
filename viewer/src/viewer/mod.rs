@@ -98,7 +98,7 @@ pub struct Viewer3dContent {
   pub pick_config: MeshBufferIntersectConfig,
   pub selections: SelectionSet,
   pub controller: ControllerWinitAdapter<OrbitController>,
-  //refcell is to support updating when rendering, have to do this, will be remove in future
+  // refcell is to support updating when rendering, have to do this, will be remove in future
   pub widgets: RefCell<WidgetContent>,
 }
 

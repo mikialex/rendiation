@@ -296,7 +296,8 @@ impl<'a, T> FusedIterator for IterMut<'a, T> {}
 ///
 /// Order of iteration is not defined.
 ///
-/// Note: All elements are removed even if the iterator is only partially consumed or not consumed at all.
+/// Note: All elements are removed even if the iterator is only partially consumed or not consumed
+/// at all.
 ///
 /// # Examples
 ///

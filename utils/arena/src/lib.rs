@@ -158,7 +158,8 @@ impl<T> Arena<T> {
   }
 
   /// Attempts to insert the value returned by `create` into the arena using existing capacity.
-  /// `create` is called with the new value's associated handle, allowing values that know their own handle.
+  /// `create` is called with the new value's associated handle, allowing values that know their own
+  /// handle.
   ///
   /// This method will never allocate new capacity in the arena.
   ///
@@ -240,7 +241,8 @@ impl<T> Arena<T> {
   }
 
   /// Insert the value returned by `create` into the arena, allocating more capacity if necessary.
-  /// `create` is called with the new value's associated handle, allowing values that know their own handle.
+  /// `create` is called with the new value's associated handle, allowing values that know their own
+  /// handle.
   ///
   /// The new value's associated handle in the arena is returned.
   ///
@@ -680,7 +682,8 @@ impl<T> Arena<T> {
   ///
   /// Order of iteration is not defined.
   ///
-  /// Note: All elements are removed even if the iterator is only partially consumed or not consumed at all.
+  /// Note: All elements are removed even if the iterator is only partially consumed or not consumed
+  /// at all.
   ///
   /// # Examples
   ///

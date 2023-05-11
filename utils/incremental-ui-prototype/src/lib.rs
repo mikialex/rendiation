@@ -55,8 +55,8 @@ where
   /// View type's own event type
   type Event;
 
-  /// In event loop handling, the view type received platform event such as mouse move keyboard events,
-  /// and decide should reactive to it or not, if so, mutate the model or emit
+  /// In event loop handling, the view type received platform event such as mouse move keyboard
+  /// events, and decide should reactive to it or not, if so, mutate the model or emit
   /// the self::Event for further outer side handling. see ViewDelta.
   ///
   /// all mutation to the model should record delta by call cb passed from caller.

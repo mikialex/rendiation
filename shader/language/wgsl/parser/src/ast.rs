@@ -318,9 +318,9 @@ impl FunctionCall {
   #[allow(clippy::match_like_matches_macro)]
   pub fn is_builtin(&self) -> bool {
     match self.name.name.as_str() {
-      //https://www.w3.org/TR/WGSL/#logical-builtin-functions
+      // https://www.w3.org/TR/WGSL/#logical-builtin-functions
       "all" | "any" | "select" => true,
-      //https://www.w3.org/TR/WGSL/#array-builtin-functions
+      // https://www.w3.org/TR/WGSL/#array-builtin-functions
       "arrayLength" => true,
       // https://www.w3.org/TR/WGSL/#numeric-builtin-functions
       "abs" | "acos" | "acosh" | "asin" | "asinh" | "atan" | "atan2" | "atanh" | "ceil"

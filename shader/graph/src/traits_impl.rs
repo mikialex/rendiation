@@ -26,7 +26,8 @@ sg_node_impl!(ShaderCompareSampler, ShaderValueType::CompareSampler);
 //     ShaderStructMemberValueType::Primitive(T::PRIMITIVE_TYPE);
 // }
 //
-// We can not use above auto impl but the macro because rust not support trait associate const specialization
+// We can not use above auto impl but the macro because rust not support trait associate const
+// specialization
 
 /// Impl note: why we not use the follow code instead of macro?
 macro_rules! primitive_ty {

@@ -498,8 +498,9 @@ fn handle_rotating(
   rotate_view: &AxisActiveState,
   action: DragTargetAction,
 ) -> Option<Mat4<f32>> {
-  // // new_hit_world = M(parent) * M(local_translate) * M(new_local_rotate) * M(local_scale) * start_hit_local_position =>
-  // //  M-1(local_translate) * M-1(parent) * new_hit_world =  M(new_local_rotate) * M(local_scale) * start_hit_local_position
+  #[rustfmt::skip]
+  // new_hit_world = M(parent) * M(local_translate) * M(new_local_rotate) * M(local_scale) * start_hit_local_position =>
+  //  M-1(local_translate) * M-1(parent) * new_hit_world =  M(new_local_rotate) * M(local_scale) * start_hit_local_position
   // should we support world space point align like above? but the question is, we have to also modify scale, because
   // it's maybe impossible to rotate one point to the other if your rotation center is origin.
 
@@ -617,6 +618,7 @@ fn handle_translating(
     let new_hit = (new_hit.position - plane_point) * constraint + plane_point;
     let new_hit_world = target.target_world_mat * new_hit;
 
+    #[rustfmt::skip]
     // new_hit_world = M(parent) * M(new_local_translate) * M(local_rotate) * M(local_scale) * start_hit_local_position =>
     // M-1(parent) * new_hit_world = new_local_translate + M(local_rotate) * M(local_scale) * start_hit_local_position  =>
     // new_local_translate = M-1(parent) * new_hit_world - M(local_rotate) * M(local_scale) * start_hit_local_position

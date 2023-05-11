@@ -25,8 +25,8 @@ pub struct AutoInstanceSystem {
 
 // input
 impl AutoInstanceSystem {
-  // note, we have a subtle requirement that the other change in stream have no dependency over model change in stream
-  // or we will have to handle it manually.
+  // note, we have a subtle requirement that the other change in stream have no dependency over
+  // model change in stream or we will have to handle it manually.
   pub fn new(
     scene_delta: impl Stream<Item = SceneInnerDelta> + Unpin,
     d_system: &SceneNodeDeriveSystem,
@@ -111,7 +111,8 @@ fn instance_transform(
       match d {
         ModelChange::Insert(model) => {
           let idx = model.guid();
-          // for any new coming model , calculate instance key, find which exist instance could be merged with
+          // for any new coming model , calculate instance key, find which exist instance could be
+          // merged with
           let key = compute_instance_key(&model, &d_sys);
           source_id_transformer_map.insert(idx, key.clone());
 

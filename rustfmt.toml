@@ -1,3 +1,11 @@
 tab_spaces = 2
 group_imports = "StdExternalCrate"
 format_code_in_doc_comments = true
+use_field_init_shorthand = true
+normalize_comments = true
+
+wrap_comments = true
+comment_width = 100 # the max with default is 100
+
+# enum_discrim_align_threshold = 24
+# struct_field_align_threshold = 24

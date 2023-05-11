@@ -59,7 +59,8 @@ where
   }
 }
 
-/// the delta type not contains the old state before the mutation, so we have to keep the state by ourself
+/// the delta type not contains the old state before the mutation, so we have to keep the state by
+/// ourself
 pub enum OneToManyRelationChangeFull<O, M> {
   CreateOne(O),
   RemoveOne(O),
