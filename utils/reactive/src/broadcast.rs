@@ -81,6 +81,7 @@ pub struct BroadcastedStream<S, D, F> {
 }
 
 pub trait BroadcastBehavior<I, O> {
+  fn should_poll_source() -> bool;
   fn broad_cast(input: I, output: &mut Vec<Option<futures::channel::mpsc::UnboundedSender<O>>>);
 }
 
@@ -93,17 +94,19 @@ where
 
   fn poll_next(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Option<Self::Item>> {
     let outer_this = self.project();
-    let mut inner = outer_this.source.write().unwrap();
-    let inner: &mut StreamBroadcasterInner<_, _, _> = &mut inner;
-    let inner = Pin::new(inner);
-    let mut this = inner.project();
-    // must use while let here, because we rely on this to update all depend system
-    while let Poll::Ready(v) = this.source.as_mut().poll_next(cx) {
-      if let Some(input) = v {
-        F::broad_cast(input, this.distributer);
-      } else {
-        // forward early termination
-        return Poll::Ready(None);
+    if F::should_poll_source() {
+      let mut inner = outer_this.source.write().unwrap();
+      let inner: &mut StreamBroadcasterInner<_, _, _> = &mut inner;
+      let inner = Pin::new(inner);
+      let mut this = inner.project();
+      // must use while let here, because we rely on this to update all depend system
+      while let Poll::Ready(v) = this.source.as_mut().poll_next(cx) {
+        if let Some(input) = v {
+          F::broad_cast(input, this.distributer);
+        } else {
+          // forward early termination
+          return Poll::Ready(None);
+        }
       }
     }
 
@@ -179,6 +182,10 @@ impl<O> BroadcastBehavior<(usize, O), O> for IndexMapping {
       }
     }
   }
+
+  fn should_poll_source() -> bool {
+    false
+  }
 }
 
 pub struct FanOut;
@@ -192,4 +199,84 @@ impl<I: Clone> BroadcastBehavior<I, I> for FanOut {
       }
     })
   }
+  fn should_poll_source() -> bool {
+    true
+  }
+}
+
+#[test]
+fn test_fan_out() {
+  let (send, rev) = futures::channel::mpsc::unbounded::<u32>();
+  send.unbounded_send(10).unwrap();
+  send.unbounded_send(3).unwrap();
+
+  let caster = rev.create_broad_caster();
+  let mut a = caster.fork_stream();
+  let mut b = caster.fork_stream();
+
+  let mut a_c = 0;
+  let mut b_c = 0;
+  do_updates(&mut a, |_| a_c += 1);
+  assert_eq!(a_c, 2);
+  do_updates(&mut b, |_| b_c += 1);
+  assert_eq!(b_c, 2);
+
+  send.unbounded_send(3).unwrap();
+
+  do_updates(&mut a, |_| a_c += 1);
+  assert_eq!(a_c, 3);
+  do_updates(&mut b, |_| b_c += 1);
+  assert_eq!(b_c, 3);
+
+  let mut c = caster.fork_stream();
+  let mut c_c = 0;
+
+  do_updates(&mut c, |_| c_c += 1);
+  assert_eq!(c_c, 0);
+  send.unbounded_send(3).unwrap();
+
+  do_updates(&mut c, |_| c_c += 1);
+  assert_eq!(c_c, 1);
+}
+
+#[test]
+fn test_indexed() {
+  let (send, rev) = futures::channel::mpsc::unbounded::<(usize, u32)>();
+  send.unbounded_send((0, 10)).unwrap();
+  send.unbounded_send((0, 3)).unwrap();
+
+  let mut caster = rev.create_index_mapping_broadcaster();
+
+  let mut a = caster.create_sub_stream_by_index(0);
+  let mut b = caster.create_sub_stream_by_index(1);
+
+  let mut a_c = 0;
+  let mut b_c = 0;
+  do_updates(&mut caster, |_| {});
+  do_updates(&mut a, |_| a_c += 1);
+  assert_eq!(a_c, 2);
+  do_updates(&mut caster, |_| {});
+  do_updates(&mut b, |_| b_c += 1);
+  assert_eq!(b_c, 0);
+
+  send.unbounded_send((1, 3)).unwrap();
+
+  do_updates(&mut caster, |_| {});
+  do_updates(&mut a, |_| a_c += 1);
+  assert_eq!(a_c, 2);
+  do_updates(&mut caster, |_| {});
+  do_updates(&mut b, |_| b_c += 1);
+  assert_eq!(b_c, 1);
+
+  let mut c = caster.create_sub_stream_by_index(0);
+  let mut c_c = 0;
+
+  do_updates(&mut caster, |_| {});
+  do_updates(&mut c, |_| c_c += 1);
+  assert_eq!(c_c, 0);
+  send.unbounded_send((0, 3)).unwrap();
+
+  do_updates(&mut caster, |_| {});
+  do_updates(&mut c, |_| c_c += 1);
+  assert_eq!(c_c, 1);
 }

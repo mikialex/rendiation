@@ -15,6 +15,7 @@ struct SceneNodeDeriveSystemInner {
   inner:
     TreeHierarchyDerivedSystem<SceneNodeDerivedData, ParentTreeDirty<SceneNodeDeriveDataDirtyFlag>>,
   updater: StreamCacheUpdate,
+  indexed_stream_mapper: Arc<RwLock<SceneNodeChangeStreamIndexMapper>>,
 }
 type SingleSceneNodeChangeStream = impl Stream<Item = SceneNodeDerivedDataDelta> + Unpin;
 type SceneNodeChangeStream = impl Stream<Item = (usize, SceneNodeDerivedDataDelta)> + Unpin;
@@ -44,6 +45,9 @@ impl SceneNodeDeriveSystem {
       .filter_map_sync(|d: (usize, Option<SceneNodeDerivedDataDelta>)| d.1.map(|d1| (d.0, d1)))
       .create_index_mapping_broadcaster();
 
+    let indexed_stream_mapper = Arc::new(RwLock::new(indexed_stream_mapper));
+    let indexed_stream_mapper_c = indexed_stream_mapper.clone();
+
     let sub_broad_caster = StreamVec::<SingleSceneNodeChangeStreamFanOut>::default();
 
     let stream_cache_updating = inner_sys.derived_stream.fork_stream().fold_signal_flatten(
@@ -56,7 +60,9 @@ impl SceneNodeDeriveSystem {
           sub_broad_caster.insert(
             idx,
             Some(
-              indexed_stream_mapper
+              indexed_stream_mapper_c
+                .read()
+                .unwrap()
                 .create_sub_stream_by_index(idx)
                 .create_broad_caster(),
             ),
@@ -69,6 +75,7 @@ impl SceneNodeDeriveSystem {
     let inner = SceneNodeDeriveSystemInner {
       inner: inner_sys,
       updater: stream_cache_updating,
+      indexed_stream_mapper,
     };
     Self {
       inner: Arc::new(RwLock::new(inner)),
@@ -78,6 +85,9 @@ impl SceneNodeDeriveSystem {
   pub fn maintain(&mut self) {
     let mut inner = self.inner.write().unwrap();
     do_updates(&mut inner.updater, |_| {});
+    let mut indexed_stream_mapper: &mut SceneNodeChangeStreamIndexMapper =
+      &mut inner.indexed_stream_mapper.write().unwrap();
+    do_updates(&mut indexed_stream_mapper, |_| {});
   }
 }
 

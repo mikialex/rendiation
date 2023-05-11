@@ -50,11 +50,11 @@ impl<T: 'static> Application<T> {
     let window = builder.build(&event_loop).unwrap();
 
     window.set_title(&config.title);
-    let size = winit::dpi::LogicalSize {
-      width: config.size.width as f64,
-      height: config.size.height as f64,
-    };
-    window.set_inner_size(size);
+    // let size = winit::dpi::LogicalSize {
+    //   width: config.size.width as f64,
+    //   height: config.size.height as f64,
+    // };
+    // window.set_inner_size(size);
 
     #[cfg(target_arch = "wasm32")]
     {

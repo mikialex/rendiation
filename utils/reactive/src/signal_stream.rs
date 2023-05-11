@@ -107,6 +107,10 @@ pub trait SignalStreamExt: Stream {
   fn after_pended_then<S>(self, pending: S) -> StreamDependency<Self, S>
   where
     Self: Sized + Stream;
+
+  fn debug(self, label: impl AsRef<str>) -> DebugStream<Self>
+  where
+    Self: Sized + Stream;
 }
 
 impl<T: Stream> SignalStreamExt for T {
@@ -234,6 +238,17 @@ impl<T: Stream> SignalStreamExt for T {
     StreamDependency {
       dependency: self,
       source: pending,
+    }
+  }
+
+  fn debug(self, label: impl AsRef<str>) -> DebugStream<Self>
+  where
+    Self: Sized + Stream,
+  {
+    let str = label.as_ref();
+    DebugStream {
+      inner: self,
+      label: str.into(),
     }
   }
 }
@@ -655,5 +670,34 @@ where
     }
 
     this.source.poll_next(cx)
+  }
+}
+
+#[pin_project::pin_project]
+pub struct DebugStream<S> {
+  #[pin]
+  inner: S,
+  label: String,
+}
+
+impl<S> Stream for DebugStream<S>
+where
+  S: Stream,
+  S::Item: std::fmt::Debug,
+{
+  type Item = S::Item;
+
+  fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+    let this = self.project();
+    let r = this.inner.poll_next(cx);
+    if let Poll::Ready(r) = &r {
+      if let Some(r) = r {
+        println!("stream <{}> receive message: {:?}", this.label, r)
+      } else {
+        println!("stream <{}> terminate", this.label)
+      }
+    }
+
+    r
   }
 }
