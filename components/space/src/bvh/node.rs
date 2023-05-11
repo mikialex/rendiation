@@ -1,5 +1,6 @@
-use super::{BVHBounding, FlattenBVH};
 use std::ops::Range;
+
+use super::{BVHBounding, FlattenBVH};
 
 pub struct FlattenBVHNode<B: BVHBounding> {
   pub bounding: B,

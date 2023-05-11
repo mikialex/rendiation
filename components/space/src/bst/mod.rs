@@ -1,8 +1,9 @@
+use std::{iter::FromIterator, marker::PhantomData, ops::Range};
+
 use crate::{
   utils::{bounding_from_build_source, BuildPrimitive, CenterAblePrimitive, TreeBuildOption},
   AbstractTreeNode,
 };
-use std::{iter::FromIterator, marker::PhantomData, ops::Range};
 
 pub mod apply;
 pub mod test;
@@ -10,7 +11,6 @@ pub use apply::*;
 use rendiation_geometry::ContainAble;
 
 /// The BST tree build source trait
-///
 pub trait BSTBounding<const D: usize, const N: usize>:
   CenterAblePrimitive + Default + Copy + ContainAble<f32, Self, D> + FromIterator<Self>
 {

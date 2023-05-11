@@ -6,17 +6,17 @@
 #![allow(clippy::collapsible_match)]
 #![allow(clippy::single_match)]
 
-#[cfg(target_arch = "wasm32")]
-use instant::Instant;
-
 use std::time::Duration;
 #[cfg(not(target_arch = "wasm32"))]
 use std::time::Instant;
 
-mod core;
-pub use crate::core::*;
+#[cfg(target_arch = "wasm32")]
+use instant::Instant;
 
+mod core;
 pub use winit;
+
+pub use crate::core::*;
 
 #[macro_use]
 mod composer;
@@ -35,6 +35,5 @@ mod app;
 pub use app::*;
 
 mod perf;
-pub use perf::*;
-
 pub use fontext::*;
+pub use perf::*;

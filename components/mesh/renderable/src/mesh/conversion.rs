@@ -9,15 +9,17 @@
 // indexed -> noneIndexed expand?
 // noneIndexed -> indexed indexed?
 
-use crate::*;
-use rendiation_algebra::{InnerProductSpace, Vec3};
-use rendiation_geometry::{LineSegment, Triangle};
 use std::{
   cmp::Ordering,
   collections::{HashMap, HashSet},
   iter::FromIterator,
   ops::Deref,
 };
+
+use rendiation_algebra::{InnerProductSpace, Vec3};
+use rendiation_geometry::{LineSegment, Triangle};
+
+use crate::*;
 
 impl<T, U, IU> IndexedMesh<T, U, IU>
 where

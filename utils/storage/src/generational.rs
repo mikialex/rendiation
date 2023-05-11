@@ -1,6 +1,6 @@
-use crate::*;
-
 pub use arena::{Arena, Handle as ArenaHandle};
+
+use crate::*;
 
 impl<T> StorageBehavior<T> for Arena<T> {
   type Handle = ArenaHandle<T>;

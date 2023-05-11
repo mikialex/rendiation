@@ -59,15 +59,17 @@ impl ShaderPassBuilder for TransformInstanceGPU {
   }
 }
 
-impl ReactiveRenderComponentSource for ReactiveMeshGPUOf<TransformInstancedSceneMesh> {
+impl ReactiveRenderComponentSource for TransformInstanceGPUReactive {
   fn as_reactive_component(&self) -> &dyn ReactiveRenderComponent {
     self.as_ref() as &dyn ReactiveRenderComponent
   }
 }
 
+type TransformInstanceGPUReactive =
+  impl AsRef<RenderComponentCell<TransformInstanceGPU>> + Stream<Item = RenderComponentDeltaFlag>;
+
 impl WebGPUMesh for TransformInstancedSceneMesh {
-  type ReactiveGPU =
-    impl AsRef<RenderComponentCell<TransformInstanceGPU>> + Stream<Item = RenderComponentDeltaFlag>;
+  type ReactiveGPU = TransformInstanceGPUReactive;
 
   fn create_reactive_gpu(
     source: &SceneItemRef<Self>,
@@ -129,57 +131,5 @@ impl WebGPUMesh for TransformInstancedSceneMesh {
       DrawCommand::Skip => {}
     }
     inner
-  }
-
-  fn topology(&self) -> webgpu::PrimitiveTopology {
-    self.mesh.topology()
-  }
-
-  fn try_pick(&self, f: &mut dyn FnMut(&dyn IntersectAbleGroupedMesh)) {
-    self.mesh.try_pick(&mut |target| {
-      let wrapped = InstanceTransformedPickImpl {
-        mat: &self.transforms,
-        mesh: target,
-      };
-      f(&wrapped as &dyn IntersectAbleGroupedMesh)
-    });
-  }
-}
-
-struct InstanceTransformedPickImpl<'a> {
-  pub mat: &'a [Mat4<f32>],
-  pub mesh: &'a dyn IntersectAbleGroupedMesh,
-}
-
-impl<'a> IntersectAbleGroupedMesh for InstanceTransformedPickImpl<'a> {
-  fn intersect_list(
-    &self,
-    ray: Ray3,
-    conf: &MeshBufferIntersectConfig,
-    result: &mut MeshBufferHitList,
-    group: MeshDrawGroup,
-  ) {
-    self.mat.iter().for_each(|mat| {
-      let world_inv = mat.inverse_or_identity();
-      let local_ray = ray.clone().apply_matrix_into(world_inv);
-      self.mesh.intersect_list(local_ray, conf, result, group)
-    })
-  }
-
-  fn intersect_nearest(
-    &self,
-    ray: Ray3,
-    conf: &MeshBufferIntersectConfig,
-    group: MeshDrawGroup,
-  ) -> OptionalNearest<MeshBufferHitPoint> {
-    self
-      .mat
-      .iter()
-      .fold(OptionalNearest::none(), |mut pre, mat| {
-        let world_inv = mat.inverse_or_identity();
-        let local_ray = ray.clone().apply_matrix_into(world_inv);
-        let r = self.mesh.intersect_nearest(local_ray, conf, group);
-        *pre.refresh_nearest(r)
-      })
   }
 }

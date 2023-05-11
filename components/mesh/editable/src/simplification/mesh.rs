@@ -1,12 +1,13 @@
 use std::cell::Cell;
 
+use rendiation_algebra::*;
+use rendiation_geometry::{Plane, Triangle};
+
 use super::qem::QEM;
 use crate::{
   half_edge_mesh::{HalfEdge, HalfEdgeFace, HalfEdgeMesh, HalfEdgeVertex},
   HalfEdgeMeshData,
 };
-use rendiation_algebra::*;
-use rendiation_geometry::{Plane, Triangle};
 
 pub struct SimplificationMeshData;
 

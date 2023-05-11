@@ -1,5 +1,3 @@
-use __core::num::NonZeroU32;
-
 use crate::*;
 
 pub struct MipMapTaskManager {
@@ -38,7 +36,6 @@ impl Default for MipMapTaskManager {
 
 /// Mipmap generation is not supported in webgpu api for now, at least in mvp as far as i known.
 /// It's also useful to provide customizable reducer / gen method for proper usage.
-///
 pub struct Mipmap2DGenerator {
   pub reducer: Box<dyn Mipmap2dReducer>,
 }

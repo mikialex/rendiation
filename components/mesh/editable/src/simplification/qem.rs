@@ -1,6 +1,7 @@
+use std::ops::{Add, AddAssign};
+
 use rendiation_algebra::*;
 use rendiation_geometry::Plane;
-use std::ops::{Add, AddAssign};
 
 // Quadric Error Metrics
 

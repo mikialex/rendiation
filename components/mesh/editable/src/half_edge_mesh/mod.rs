@@ -6,12 +6,11 @@ pub mod vertex;
 
 use std::ops::Index;
 
+use arena::*;
 pub use builder::*;
 pub use edge::*;
 pub use face::*;
 pub use vertex::*;
-
-use arena::*;
 
 pub trait HalfEdgeMeshData {
   type Face: Default;

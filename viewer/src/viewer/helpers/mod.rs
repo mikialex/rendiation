@@ -6,6 +6,8 @@ use rendiation_scene_webgpu::*;
 use shadergraph::*;
 use webgpu::*;
 
+use crate::{FatLineMaterial, FatlineMesh};
+
 pub mod axis;
 pub mod camera;
 pub mod grid;
@@ -19,11 +21,9 @@ pub struct HelperLineModel {
 impl HelperLineModel {
   pub fn new(material: FatLineMaterial, mesh: HelperLineMesh, node: &SceneNode) -> Self {
     let mat = material.into_ref();
-    let mat: Box<dyn WebGPUSceneMaterial> = Box::new(mat);
     let mat = SceneMaterialType::Foreign(Arc::new(mat));
 
-    let mesh: Box<dyn WebGPUSceneMesh> = Box::new(mesh.into_ref());
-    let mesh = SceneMeshType::Foreign(Arc::new(mesh));
+    let mesh = SceneMeshType::Foreign(Arc::new(mesh.into_ref()));
 
     let model = StandardModel::new(mat, mesh);
     let model = ModelType::Standard(model.into());
@@ -35,8 +35,7 @@ impl HelperLineModel {
   }
 
   pub fn update_mesh(&self, mesh: HelperLineMesh) {
-    let mesh: Box<dyn WebGPUSceneMesh> = Box::new(mesh.into_ref());
-    let mesh = SceneMeshType::Foreign(Arc::new(mesh));
+    let mesh = SceneMeshType::Foreign(Arc::new(mesh.into_ref()));
 
     if let ModelType::Standard(model) = &self.inner.model {
       mesh.wrap(StandardModelDelta::mesh).apply_modify(model);

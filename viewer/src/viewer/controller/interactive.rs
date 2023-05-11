@@ -2,6 +2,7 @@ use incremental::*;
 use rendiation_algebra::*;
 use rendiation_geometry::OptionalNearest;
 use rendiation_renderable_mesh::mesh::MeshBufferHitPoint;
+use rendiation_scene_interaction::*;
 use webgpu::RenderComponentAny;
 
 use crate::*;
@@ -71,10 +72,6 @@ impl<T: SceneRenderable, S: Incremental> View<S> for InteractiveWatchable<T, S> 
 }
 
 impl<T: SceneRenderable, S: Incremental> SceneRenderable for InteractiveWatchable<T, S> {
-  fn is_transparent(&self) -> bool {
-    self.inner.is_transparent()
-  }
-
   fn render(
     &self,
     pass: &mut SceneRenderPass,

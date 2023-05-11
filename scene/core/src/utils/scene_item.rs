@@ -6,9 +6,8 @@ use std::{
 use futures::{Future, Stream};
 use reactive::{do_updates, ReactiveMapping};
 
-use crate::*;
-
 use super::identity::Identity;
+use crate::*;
 
 #[derive(Default)]
 pub struct SceneItemRef<T: IncrementalBase> {
@@ -57,6 +56,20 @@ impl<T: IncrementalBase> Clone for SceneItemRef<T> {
     }
   }
 }
+
+impl<T: IncrementalBase> Hash for SceneItemRef<T> {
+  fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+    self.id.hash(state);
+  }
+}
+
+impl<T: IncrementalBase> PartialEq for SceneItemRef<T> {
+  fn eq(&self, other: &Self) -> bool {
+    self.id == other.id
+  }
+}
+impl<T: IncrementalBase> Eq for SceneItemRef<T> {}
+
 impl<T: IncrementalBase> From<T> for SceneItemRef<T> {
   fn from(inner: T) -> Self {
     Self::new(inner)
@@ -105,6 +118,22 @@ where
   }
 }
 
+impl<T: IncrementalBase> GlobalIdentified for SceneItemRef<T> {
+  fn guid(&self) -> usize {
+    self.id
+  }
+}
+impl<T: IncrementalBase> AsRef<dyn GlobalIdentified> for SceneItemRef<T> {
+  fn as_ref(&self) -> &(dyn GlobalIdentified + 'static) {
+    self
+  }
+}
+impl<T: IncrementalBase> AsMut<dyn GlobalIdentified> for SceneItemRef<T> {
+  fn as_mut(&mut self) -> &mut (dyn GlobalIdentified + 'static) {
+    self
+  }
+}
+
 impl<T: IncrementalBase> SceneItemRef<T> {
   pub fn new(source: T) -> Self {
     let inner = Identity::new(source);
@@ -120,8 +149,13 @@ impl<T: IncrementalBase> SceneItemRef<T> {
     }
   }
 
-  pub fn id(&self) -> usize {
-    self.id
+  pub fn trigger_change(&self, delta: &T::Delta) {
+    // ignore lock poison
+    let inner = self.inner.read().unwrap_or_else(|e| e.into_inner());
+    let data: &T = &inner;
+    let view = &DeltaView { data, delta };
+    let view = unsafe { std::mem::transmute(view) };
+    inner.delta_source.emit(view);
   }
 
   pub fn mutate<R>(&self, mutator: impl FnOnce(Mutating<T>) -> R) -> R {
@@ -206,7 +240,7 @@ where
   type Ctx<'a> = <Self as SceneItemReactiveMapping<M>>::Ctx<'a>;
 
   fn key(&self) -> usize {
-    self.read().id()
+    self.read().guid()
   }
 
   fn build(&self, ctx: &Self::Ctx<'_>) -> (M, Self::ChangeStream, Self::DropFuture) {

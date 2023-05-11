@@ -4,17 +4,21 @@ use crate::*;
 ///
 /// we could customize the stream trait's context to avoid too much arc clone in update logic
 #[pin_project::pin_project]
-pub struct GlobalGPUSystem {
-  gpu: ResourceGPUCtx,
-  model_ctx: GPUModelResourceCtx,
-  bindable_ctx: ShareBindableResourceCtx,
-  pub models: Arc<RwLock<StreamMap<ReactiveSceneModelGPUType>>>,
+#[derive(Clone)]
+pub struct ContentGPUSystem {
+  pub(crate) gpu: ResourceGPUCtx,
+  pub model_ctx: GPUModelResourceCtx,
+  pub bindable_ctx: ShareBindableResourceCtx,
+  pub models: Arc<RwLock<StreamMap<usize, ReactiveModelGPUType>>>,
+  pub custom_storage: Arc<RefCell<AnyMap>>,
 }
 
-impl GlobalGPUSystem {
-  pub fn new(gpu: &GPU, mipmap_gen: Rc<RefCell<MipMapTaskManager>>) -> Self {
+pub type ReactiveModelRenderComponentDeltaSource = impl Stream<Item = RenderComponentDeltaFlag>;
+
+impl ContentGPUSystem {
+  pub fn new(gpu: &GPU) -> Self {
     let bindable_ctx = ShareBindableResourceCtx::new(gpu);
-    let gpu = ResourceGPUCtx::new(gpu, mipmap_gen);
+    let gpu = ResourceGPUCtx::new(gpu, Default::default());
 
     let model_ctx = GPUModelResourceCtx {
       shared: bindable_ctx.clone(),
@@ -27,11 +31,27 @@ impl GlobalGPUSystem {
       bindable_ctx,
       model_ctx,
       models: Default::default(),
+      custom_storage: Arc::new(RefCell::new(AnyMap::new())),
     }
+  }
+
+  pub fn get_or_create_reactive_model_render_component_delta_source(
+    &self,
+    model: &ModelType,
+  ) -> Option<ReactiveModelRenderComponentDeltaSource> {
+    self
+      .models
+      .write()
+      .unwrap()
+      .get_or_insert_with(model.guid()?, || {
+        model.create_scene_reactive_gpu(&self.model_ctx).unwrap()
+      })
+      .create_render_component_delta_stream()
+      .into()
   }
 }
 
-impl Stream for GlobalGPUSystem {
+impl Stream for ContentGPUSystem {
   type Item = ();
 
   fn poll_next(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Option<Self::Item>> {
@@ -40,7 +60,7 @@ impl Stream for GlobalGPUSystem {
     do_updates_by(&mut this.model_ctx, cx, |_| {});
 
     let mut models = this.models.write().unwrap();
-    let models: &mut StreamMap<ReactiveSceneModelGPUType> = &mut models;
+    let models: &mut StreamMap<usize, ReactiveModelGPUType> = &mut models;
     do_updates_by(models, cx, |_| {});
     Poll::Pending
   }
@@ -50,8 +70,8 @@ impl Stream for GlobalGPUSystem {
 #[pin_project::pin_project]
 pub struct GPUModelResourceCtx {
   pub shared: ShareBindableResourceCtx,
-  pub materials: Arc<RwLock<StreamMap<MaterialGPUInstance>>>,
-  pub meshes: Arc<RwLock<StreamMap<MeshGPUInstance>>>,
+  pub materials: Arc<RwLock<StreamMap<usize, MaterialGPUInstance>>>,
+  pub meshes: Arc<RwLock<StreamMap<usize, MeshGPUInstance>>>,
 }
 
 impl Stream for GPUModelResourceCtx {
@@ -63,52 +83,14 @@ impl Stream for GPUModelResourceCtx {
     do_updates_by(&mut this.shared, cx, |_| {});
 
     let mut materials = this.materials.write().unwrap();
-    let materials: &mut StreamMap<MaterialGPUInstance> = &mut materials;
+    let materials: &mut StreamMap<usize, MaterialGPUInstance> = &mut materials;
     do_updates_by(materials, cx, |_| {});
 
     let mut meshes = this.meshes.write().unwrap();
-    let meshes: &mut StreamMap<MeshGPUInstance> = &mut meshes;
+    let meshes: &mut StreamMap<usize, MeshGPUInstance> = &mut meshes;
     do_updates_by(meshes, cx, |_| {});
 
     Poll::Pending
-  }
-}
-
-pub struct GPUResourceCache {
-  pub scene: GPUResourceSceneCache,
-  pub bindables: ShareBindableResourceCtx,
-  pub materials: Arc<RwLock<StreamMap<MaterialGPUInstance>>>,
-  pub meshes: Arc<RwLock<StreamMap<MeshGPUInstance>>>,
-  pub custom_storage: AnyMap,
-  pub cameras: CameraGPUMap,
-  pub nodes: NodeGPUMap,
-}
-
-impl GPUResourceCache {
-  pub fn new(gpu: &GPU) -> Self {
-    Self {
-      scene: Default::default(),
-      bindables: ShareBindableResourceCtx::new(gpu),
-      materials: Default::default(),
-      meshes: Default::default(),
-      custom_storage: AnyMap::new(),
-      cameras: Default::default(),
-      nodes: Default::default(),
-    }
-  }
-
-  pub fn maintain(&mut self) {
-    let mut texture_2d = self.bindables.texture_2d.write().unwrap();
-    let texture_2d: &mut StreamMap<ReactiveGPU2DTextureViewSource> = &mut texture_2d;
-    do_updates(texture_2d, |_| {});
-
-    let mut materials = self.materials.write().unwrap();
-    let materials: &mut StreamMap<MaterialGPUInstance> = &mut materials;
-    do_updates(materials, |_| {});
-
-    let mut meshes = self.meshes.write().unwrap();
-    let meshes: &mut StreamMap<MeshGPUInstance> = &mut meshes;
-    do_updates(meshes, |_| {});
   }
 }
 
@@ -128,9 +110,9 @@ pub struct ShareBindableResourceCtx {
   pub gpu: ResourceGPUCtx,
   pub custom_storage: Arc<RwLock<AnyMap>>,
 
-  pub sampler: Arc<RwLock<StreamMap<ReactiveGPUSamplerViewSource>>>,
-  pub texture_2d: Arc<RwLock<StreamMap<ReactiveGPU2DTextureViewSource>>>,
-  pub texture_cube: Arc<RwLock<StreamMap<ReactiveGPUCubeTextureViewSource>>>,
+  pub sampler: Arc<RwLock<StreamMap<usize, ReactiveGPUSamplerViewSource>>>,
+  pub texture_2d: Arc<RwLock<StreamMap<usize, ReactiveGPU2DTextureViewSource>>>,
+  pub texture_cube: Arc<RwLock<StreamMap<usize, ReactiveGPUCubeTextureViewSource>>>,
   // share uniform buffers
   // share vertex buffers
 }
@@ -141,15 +123,15 @@ impl Stream for ShareBindableResourceCtx {
   fn poll_next(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Option<Self::Item>> {
     let this = self.project();
     let mut sampler = this.sampler.write().unwrap();
-    let sampler: &mut StreamMap<ReactiveGPUSamplerViewSource> = &mut sampler;
+    let sampler: &mut StreamMap<usize, ReactiveGPUSamplerViewSource> = &mut sampler;
     do_updates_by(sampler, cx, |_| {});
 
     let mut texture_2d = this.texture_2d.write().unwrap();
-    let texture_2d: &mut StreamMap<ReactiveGPU2DTextureViewSource> = &mut texture_2d;
+    let texture_2d: &mut StreamMap<usize, ReactiveGPU2DTextureViewSource> = &mut texture_2d;
     do_updates_by(texture_2d, cx, |_| {});
 
     let mut texture_cube = this.texture_cube.write().unwrap();
-    let texture_cube: &mut StreamMap<ReactiveGPUCubeTextureViewSource> = &mut texture_cube;
+    let texture_cube: &mut StreamMap<usize, ReactiveGPUCubeTextureViewSource> = &mut texture_cube;
     do_updates_by(texture_cube, cx, |_| {});
 
     Poll::Pending

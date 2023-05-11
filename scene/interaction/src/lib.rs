@@ -1,4 +1,11 @@
-use crate::*;
+use incremental::*;
+use rendiation_algebra::*;
+use rendiation_geometry::*;
+use rendiation_renderable_mesh::*;
+use rendiation_scene_core::*;
+
+mod agreement;
+pub use agreement::*;
 
 pub struct SceneRayInteractiveCtx<'a> {
   pub world_ray: Ray3,
@@ -10,6 +17,66 @@ pub struct SceneRayInteractiveCtx<'a> {
 
 pub trait SceneRayInteractive {
   fn ray_pick_nearest(&self, _ctx: &SceneRayInteractiveCtx) -> OptionalNearest<MeshBufferHitPoint>;
+}
+define_dyn_trait_downcaster_static!(SceneRayInteractive);
+
+impl SceneRayInteractive for SceneModel {
+  fn ray_pick_nearest(&self, ctx: &SceneRayInteractiveCtx) -> OptionalNearest<MeshBufferHitPoint> {
+    self.visit(|model| model.ray_pick_nearest(ctx))
+  }
+}
+
+impl SceneRayInteractive for SceneModelImpl {
+  fn ray_pick_nearest(&self, ctx: &SceneRayInteractiveCtx) -> OptionalNearest<MeshBufferHitPoint> {
+    ray_pick_nearest_core(self, ctx, ctx.node_derives.get_world_matrix(&self.node))
+  }
+}
+
+pub fn ray_pick_nearest_core(
+  m: &SceneModelImpl,
+  ctx: &SceneRayInteractiveCtx,
+  world_mat: Mat4<f32>,
+) -> OptionalNearest<MeshBufferHitPoint> {
+  match &m.model {
+    ModelType::Standard(model) => {
+      let net_visible = ctx.node_derives.get_net_visible(&m.node);
+      if !net_visible {
+        return OptionalNearest::none();
+      }
+
+      let world_inv = world_mat.inverse_or_identity();
+
+      let local_ray = ctx.world_ray.clone().apply_matrix_into(world_inv);
+
+      let model = model.read();
+
+      if !model.material.is_keep_mesh_shape() {
+        return OptionalNearest::none();
+      }
+
+      let mut result = model
+        .mesh
+        .intersect_nearest(local_ray, ctx.conf, model.group);
+
+      // transform back to world space
+      if let Some(result) = &mut result.0 {
+        let hit = &mut result.hit;
+        hit.position = world_mat * hit.position;
+        hit.distance = (hit.position - ctx.world_ray.origin).length();
+      };
+      result
+    }
+    ModelType::Foreign(model) => {
+      if let Some(model) =
+        get_dyn_trait_downcaster_static!(SceneRayInteractive).downcast_ref(model.as_ref())
+      {
+        model.ray_pick_nearest(ctx)
+      } else {
+        OptionalNearest::none()
+      }
+    }
+    _ => OptionalNearest::none(),
+  }
 }
 
 pub trait WebGPUScenePickingExt {
@@ -24,7 +91,7 @@ pub trait WebGPUScenePickingExt {
   fn interaction_picking<'a>(
     &'a self,
     ctx: &SceneRayInteractiveCtx,
-    bounding_system: &mut SceneBoundingSystem,
+    bounding_system: &mut SceneModelWorldBoundingSystem,
   ) -> Option<(&'a SceneModel, MeshBufferHitPoint)>;
 }
 
@@ -52,7 +119,7 @@ impl WebGPUScenePickingExt for SceneInner {
   fn interaction_picking<'a>(
     &'a self,
     ctx: &SceneRayInteractiveCtx,
-    bounding_system: &mut SceneBoundingSystem,
+    bounding_system: &mut SceneModelWorldBoundingSystem,
   ) -> Option<(&'a SceneModel, MeshBufferHitPoint)> {
     bounding_system.maintain();
     interaction_picking(

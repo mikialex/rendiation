@@ -1,9 +1,10 @@
-use crate::utils::BuildPrimitive;
+use std::{cmp::Ordering, ops::Range};
 
-use super::{BVHBounding, BalanceTreeBounding, SAHBounding};
 use rendiation_algebra::Vec3;
 use rendiation_geometry::{Axis3, Box3};
-use std::{cmp::Ordering, ops::Range};
+
+use super::{BVHBounding, BalanceTreeBounding, SAHBounding};
+use crate::utils::BuildPrimitive;
 
 impl BVHBounding for Box3 {
   type AxisType = Axis3;

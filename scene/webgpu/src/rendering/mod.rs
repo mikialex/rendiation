@@ -46,9 +46,10 @@ impl<'a> DrawcallEmitter for MeshDrawcallEmitterWrap<'a> {
 
 pub struct SceneRenderPass<'a, 'b, 'c> {
   pub ctx: GPURenderPassCtx<'a, 'b>,
-  pub resources: &'c mut GPUResourceCache,
-  pub pass_info: UniformBufferDataView<RenderPassGPUInfoData>,
+  pub resources: &'c ContentGPUSystem,
+  pub scene_resources: &'c SceneGPUSystem,
   pub node_derives: &'a SceneNodeDeriveSystem,
+  pub pass_info: UniformBufferDataView<RenderPassGPUInfoData>,
 }
 
 impl<'a, 'b, 'c> SceneRenderPass<'a, 'b, 'c> {

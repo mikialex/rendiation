@@ -1,9 +1,9 @@
 #![feature(local_key_cell_methods)]
 
+use core::num::NonZeroU64;
 use std::path::Path;
 use std::{collections::HashMap, sync::Arc};
 
-use __core::num::NonZeroU64;
 use gltf::{Node, Result as GltfResult};
 use rendiation_algebra::*;
 use rendiation_scene_core::{
@@ -14,7 +14,6 @@ use rendiation_scene_core::{
   SceneTexture2D, SceneTexture2DType, Skeleton, SkeletonImpl, StandardModel,
   Texture2DWithSamplingData, TextureWithSamplingData, UnTypedBufferView,
 };
-use shadergraph::*;
 use webgpu::{TextureFormat, WebGPU2DTextureSource};
 
 mod convert_utils;

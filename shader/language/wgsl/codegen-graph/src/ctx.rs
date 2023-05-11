@@ -1,7 +1,8 @@
 use std::collections::*;
 
-use crate::*;
 use linked_hash_set::*;
+
+use crate::*;
 
 pub struct CodeGenCtx {
   var_guid: usize,

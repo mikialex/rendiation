@@ -41,15 +41,17 @@ impl ShaderPassBuilder for FlatMaterialGPU {
   }
 }
 
-impl ReactiveRenderComponentSource for ReactiveMaterialGPUOf<FlatMaterial> {
+impl ReactiveRenderComponentSource for FlatMaterialReactiveGPU {
   fn as_reactive_component(&self) -> &dyn ReactiveRenderComponent {
     self.as_ref() as &dyn ReactiveRenderComponent
   }
 }
 
+type FlatMaterialReactiveGPU =
+  impl AsRef<RenderComponentCell<FlatMaterialGPU>> + Stream<Item = RenderComponentDeltaFlag>;
+
 impl WebGPUMaterial for FlatMaterial {
-  type ReactiveGPU =
-    impl AsRef<RenderComponentCell<FlatMaterialGPU>> + Stream<Item = RenderComponentDeltaFlag>;
+  type ReactiveGPU = FlatMaterialReactiveGPU;
 
   fn create_reactive_gpu(
     source: &SceneItemRef<Self>,
@@ -80,10 +82,6 @@ impl WebGPUMaterial for FlatMaterial {
         }
         RenderComponentDeltaFlag::Content.into()
       })
-  }
-
-  fn is_keep_mesh_shape(&self) -> bool {
-    true
   }
 
   fn is_transparent(&self) -> bool {

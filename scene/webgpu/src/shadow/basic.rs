@@ -130,15 +130,14 @@ pub trait ShadowCameraCreator {
 
 fn get_shadow_map<T: Any + ShadowCameraCreator + Incremental>(
   inner: &SceneItemRefGuard<T>,
-  resources: &mut GPUResourceCache,
+  resources: &SceneGPUSystem,
   shadows: &mut ShadowMapSystem,
   node: &SceneNode,
 ) -> BasicShadowGPU {
   let resolution = Size::from_usize_pair_min_one((512, 512));
 
-  resources
-    .scene
-    .lights
+  let mut lights = resources.lights.borrow_mut();
+  lights
     .inner
     .entry(TypeId::of::<T>())
     .or_insert_with(|| Box::<IdentityMapper<BasicShadowGPU, T>>::default())
@@ -162,7 +161,7 @@ fn get_shadow_map<T: Any + ShadowCameraCreator + Incremental>(
 
 pub fn request_basic_shadow_map<T: Any + ShadowCameraCreator + Incremental>(
   inner: &SceneItemRefGuard<T>,
-  resources: &mut GPUResourceCache,
+  resources: &SceneGPUSystem,
   shadows: &mut ShadowMapSystem,
   node: &SceneNode,
 ) {
@@ -175,14 +174,17 @@ pub fn check_update_basic_shadow_map<T: Any + ShadowCameraCreator + Incremental>
   node: &SceneNode,
 ) -> LightShadowAddressInfo {
   let BasicShadowGPU { shadow_camera, map } =
-    get_shadow_map(inner, ctx.ctx.resources, ctx.shadows, node);
+    get_shadow_map(inner, ctx.ctx.scene_resources, ctx.shadows, node);
 
   let (view, map_info) = map.get_write_view(ctx.ctx.gpu);
+
   let shadow_camera_info = ctx
     .ctx
-    .resources
+    .scene_resources
     .cameras
-    .get_with_update(&shadow_camera, &(ctx.ctx.gpu, ctx.node_derives))
+    .get_or_insert(&shadow_camera, ctx.node_derives, &ctx.ctx.resources.gpu)
+    .as_ref()
+    .inner
     .ubo
     .resource
     .get();

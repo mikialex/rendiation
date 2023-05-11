@@ -1,7 +1,5 @@
 use crate::*;
 
-use __core::num::NonZeroU32;
-
 /// In shader, we want a single texture binding for all shadowmap with same format.
 /// All shadowmap are allocated in one texture with multi layers.
 #[derive(Default)]

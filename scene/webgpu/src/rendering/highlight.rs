@@ -47,7 +47,7 @@ impl HighLighter {
     camera: &SceneCamera,
   ) -> impl PassContent + '_
   where
-    T: IntoIterator<Item = &'i dyn SceneRenderable> + Copy,
+    T: Iterator<Item = &'i dyn SceneRenderable>,
   {
     let mut selected_mask = attachment()
       .format(HIGH_LIGHT_MASK_TARGET_FORMAT)
@@ -134,11 +134,13 @@ wgsl_fn!(
 );
 
 pub struct HighLightDrawMaskTask<T> {
-  objects: T,
+  objects: Option<T>,
 }
 
 pub fn highlight<T>(objects: T) -> HighLightDrawMaskTask<T> {
-  HighLightDrawMaskTask { objects }
+  HighLightDrawMaskTask {
+    objects: Some(objects),
+  }
 }
 
 struct HighLightMaskDispatcher;
@@ -169,11 +171,13 @@ impl ShaderGraphProvider for HighLightMaskDispatcher {
 
 impl<'i, T> PassContentWithCamera for HighLightDrawMaskTask<T>
 where
-  T: IntoIterator<Item = &'i dyn SceneRenderable> + Copy,
+  T: Iterator<Item = &'i dyn SceneRenderable>,
 {
   fn render(&mut self, pass: &mut SceneRenderPass, camera: &SceneCamera) {
-    for model in self.objects {
-      model.render(pass, &HighLightMaskDispatcher, camera)
+    if let Some(objects) = self.objects.take() {
+      for model in objects {
+        model.render(pass, &HighLightMaskDispatcher, camera)
+      }
     }
   }
 }

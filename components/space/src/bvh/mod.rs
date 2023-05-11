@@ -4,10 +4,11 @@ mod strategy;
 
 pub mod test;
 
+use std::iter::FromIterator;
+
 pub use node::*;
 use rendiation_abstract_tree::NextTraverseVisit;
 use rendiation_geometry::SolidEntity;
-use std::iter::FromIterator;
 pub use strategy::*;
 
 use crate::{

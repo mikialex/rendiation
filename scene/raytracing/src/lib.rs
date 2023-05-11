@@ -10,10 +10,9 @@ mod sampling;
 
 use std::sync::Arc;
 
-pub use sampling::*;
-
 pub use frame::*;
 pub use integrator::*;
+pub use sampling::*;
 
 pub mod background;
 pub mod light;
@@ -22,19 +21,16 @@ pub mod math;
 pub mod model;
 pub mod shape;
 
+use arena::Handle;
 pub use background::*;
 pub use light::*;
 pub use material::*;
 pub use math::*;
 pub use model::*;
-pub use shape::*;
-
 use rendiation_algebra::*;
-
 pub use rendiation_scene_core::*;
-
-use arena::Handle;
 pub use rendiation_scene_core::*;
+pub use shape::*;
 use space_algorithm::{
   bvh::{FlattenBVH, SAH},
   utils::TreeBuildOption,
@@ -102,13 +98,13 @@ pub trait RayTracingSceneExt {
 
 impl RayTracingSceneExt for Scene {
   fn create_node(&mut self, builder: impl Fn(&SceneNode, &mut Self)) -> &mut Self {
-    let node = self.read().root().create_child();
+    let node = self.create_root_child();
     builder(&node, self);
     self
   }
 
   fn model_node(&mut self, shape: impl Shape, material: impl Material) -> &mut Self {
-    let node = self.read().root().create_child();
+    let node = self.create_root_child();
     let model = RayTracingSceneModel {
       shape: Box::new(shape),
       material: Box::new(material),
@@ -125,7 +121,7 @@ impl RayTracingSceneExt for Scene {
     material: impl Material,
     m: impl Fn(&SceneNode),
   ) -> &mut Self {
-    let node = self.read().root().create_child();
+    let node = self.create_root_child();
     m(&node);
     let model = RayTracingSceneModel {
       shape: Box::new(shape),

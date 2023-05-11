@@ -1,9 +1,9 @@
 use std::ops::Deref;
 
-use crate::*;
-
 use arena::{Arena, ArenaDelta, Handle};
 use tree::*;
+
+use crate::*;
 
 pub type SceneLightHandle = Handle<SceneLight>;
 pub type SceneModelHandle = Handle<SceneModel>;
@@ -22,7 +22,7 @@ pub struct SceneInner {
   /// All models in the scene
   pub models: Arena<SceneModel>,
 
-  nodes: SceneNodeCollection,
+  pub nodes: SceneNodeCollection,
   root: SceneNode,
 
   pub ext: DynamicExtension,
@@ -31,6 +31,12 @@ pub struct SceneInner {
 #[derive(Default)]
 pub struct SceneNodeCollection {
   pub inner: SharedTreeCollection<ReactiveTreeCollection<SceneNodeData, SceneNodeDataImpl>>,
+}
+
+impl SceneNodeCollection {
+  pub fn create_new_root(&self) -> SceneNode {
+    SceneNode::from_new_root(self.inner.clone())
+  }
 }
 
 impl IncrementalBase for SceneNodeCollection {
@@ -78,31 +84,43 @@ impl SceneInner {
   pub fn root(&self) -> &SceneNode {
     &self.root
   }
-  pub fn new() -> (Self, SceneNodeDeriveSystem) {
+  pub fn new() -> (Scene, SceneNodeDeriveSystem) {
     let nodes: SceneNodeCollection = Default::default();
     let system = SceneNodeDeriveSystem::new(&nodes);
 
-    let root = SceneNode::from_root(nodes.inner.clone());
+    let root = nodes.create_new_root();
 
     let default_camera = PerspectiveProjection::default();
     let camera_node = root.create_child();
     let default_camera = SceneCamera::create_camera(default_camera, camera_node);
 
-    (
-      Self {
-        nodes,
-        root,
-        background: None,
-        default_camera,
-        cameras: Arena::new(),
-        lights: Arena::new(),
-        models: Arena::new(),
+    let scene = Self {
+      nodes,
+      root,
+      background: None,
+      default_camera,
+      cameras: Arena::new(),
+      lights: Arena::new(),
+      models: Arena::new(),
+      active_camera: None,
+      ext: Default::default(),
+    }
+    .into_ref();
 
-        active_camera: None,
-        ext: Default::default(),
-      },
-      system,
-    )
+    // forward the inner change to outer
+    let scene_clone = scene.clone();
+    let s = scene.read();
+
+    s.nodes.inner.visit_inner(move |tree| {
+      tree.source.on(move |d| {
+        scene_clone.trigger_change(&SceneInnerDelta::nodes(d.clone()));
+        false
+      })
+    });
+
+    drop(s);
+
+    (scene, system)
   }
 
   pub fn get_active_camera(&self) -> &SceneCamera {
@@ -113,6 +131,11 @@ impl SceneInner {
 pub type Scene = SceneItemRef<SceneInner>;
 
 impl Scene {
+  pub fn create_root_child(&self) -> SceneNode {
+    let root = self.read().root().clone(); // avoid dead lock
+    root.create_child()
+  }
+
   pub fn compute_full_derived(&self) -> ComputedDerivedTree<SceneNodeDerivedData> {
     self.visit(|t| {
       t.nodes

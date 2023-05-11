@@ -57,7 +57,7 @@ impl ShareBindableResourceCtx {
   ) -> ReactiveGPUSamplerView {
     let mut samplers = self.sampler.write().unwrap();
 
-    let cache = samplers.get_or_insert_with(sampler.id(), || {
+    let cache = samplers.get_or_insert_with(sampler.guid(), || {
       let source = sampler.read();
       let source: TextureSampler = **source;
 

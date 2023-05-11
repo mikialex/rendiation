@@ -2,9 +2,8 @@ use rendiation_algebra::IntoNormalizedVector;
 use rendiation_algebra::{InnerProductSpace, NormalizedVector, Vec2, Vec3};
 
 pub type NormalizedVec3<T> = NormalizedVector<T, Vec3<T>>;
-pub use rendiation_geometry::*;
-
 pub use rand as randx;
+pub use rendiation_geometry::*;
 
 use crate::Sampler;
 

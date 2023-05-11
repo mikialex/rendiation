@@ -1,10 +1,20 @@
-use crate::*;
-use reactive::{EventOnceSource, EventSource};
 use std::sync::atomic::{AtomicUsize, Ordering};
 
+use reactive::{EventOnceSource, EventSource};
+
 use super::scene_item::Mutating;
+use crate::*;
 
 static GLOBAL_ID: AtomicUsize = AtomicUsize::new(0);
+
+pub fn alloc_global_res_id() -> usize {
+  GLOBAL_ID.fetch_add(1, Ordering::Relaxed)
+}
+
+pub trait GlobalIdentified {
+  fn guid(&self) -> usize;
+}
+define_dyn_trait_downcaster_static!(GlobalIdentified);
 
 pub struct Identity<T: IncrementalBase> {
   pub(super) id: usize,
@@ -40,18 +50,30 @@ where
   }
 }
 
+impl<T: IncrementalBase> GlobalIdentified for Identity<T> {
+  fn guid(&self) -> usize {
+    self.id
+  }
+}
+impl<T: IncrementalBase> AsRef<dyn GlobalIdentified> for Identity<T> {
+  fn as_ref(&self) -> &(dyn GlobalIdentified + 'static) {
+    self
+  }
+}
+impl<T: IncrementalBase> AsMut<dyn GlobalIdentified> for Identity<T> {
+  fn as_mut(&mut self) -> &mut (dyn GlobalIdentified + 'static) {
+    self
+  }
+}
+
 impl<T: IncrementalBase> Identity<T> {
   pub fn new(inner: T) -> Self {
     Self {
       inner,
-      id: GLOBAL_ID.fetch_add(1, Ordering::Relaxed),
+      id: alloc_global_res_id(),
       delta_source: Default::default(),
       drop_source: Default::default(),
     }
-  }
-
-  pub fn id(&self) -> usize {
-    self.id
   }
 
   pub fn mutate<R>(&mut self, mutator: impl FnOnce(Mutating<T>) -> R) -> R {

@@ -1,0 +1,12 @@
+[package]
+authors = ["MikiAlex <18516340862@163.com>"]
+edition = "2021"
+name = "rendiation-scene-interaction"
+version = "0.1.0"
+
+[dependencies]
+incremental = {path = "../../utils/incremental"}
+rendiation-algebra = {path = "../../math/algebra"}
+rendiation-geometry = {path = "../../math/geometry"}
+rendiation-renderable-mesh = {path = "../../components/mesh/renderable"}
+rendiation-scene-core = {path = "../core"}

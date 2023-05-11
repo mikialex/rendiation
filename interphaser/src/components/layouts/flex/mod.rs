@@ -33,7 +33,6 @@ impl Flex {
   /// Create a new horizontal stack.
   ///
   /// The child widgets are laid out horizontally, from left to right.
-  ///
   pub fn row() -> Self {
     Self::for_axis(Axis::Horizontal)
   }

@@ -1,5 +1,6 @@
-use crate::*;
 use core::iter::{self, Extend, FromIterator, FusedIterator};
+
+use crate::*;
 
 /// An iterator over the elements in an arena.
 ///
@@ -14,11 +15,11 @@ use core::iter::{self, Extend, FromIterator, FusedIterator};
 ///
 /// let mut arena = Arena::new();
 /// for i in 0..10 {
-///     arena.insert(i * i);
+///   arena.insert(i * i);
 /// }
 ///
 /// for value in arena {
-///     assert!(value < 100);
+///   assert!(value < 100);
 /// }
 /// ```
 #[derive(Clone, Debug)]
@@ -98,11 +99,11 @@ impl<'a, T> IntoIterator for &'a Arena<T> {
 ///
 /// let mut arena = Arena::new();
 /// for i in 0..10 {
-///     arena.insert(i * i);
+///   arena.insert(i * i);
 /// }
 ///
 /// for (idx, value) in &arena {
-///     println!("{} is at handle {:?}", value, idx);
+///   println!("{} is at handle {:?}", value, idx);
 /// }
 /// ```
 #[derive(Clone, Debug)]
@@ -204,11 +205,11 @@ impl<'a, T> IntoIterator for &'a mut Arena<T> {
 ///
 /// let mut arena = Arena::new();
 /// for i in 0..10 {
-///     arena.insert(i * i);
+///   arena.insert(i * i);
 /// }
 ///
 /// for (_idx, value) in &mut arena {
-///     *value += 5;
+///   *value += 5;
 /// }
 /// ```
 #[derive(Debug)]
@@ -295,7 +296,8 @@ impl<'a, T> FusedIterator for IterMut<'a, T> {}
 ///
 /// Order of iteration is not defined.
 ///
-/// Note: All elements are removed even if the iterator is only partially consumed or not consumed at all.
+/// Note: All elements are removed even if the iterator is only partially consumed or not consumed
+/// at all.
 ///
 /// # Examples
 ///
@@ -309,7 +311,7 @@ impl<'a, T> FusedIterator for IterMut<'a, T> {}
 /// assert!(arena.get(idx_1).is_some());
 /// assert!(arena.get(idx_2).is_some());
 /// for (idx, value) in arena.drain() {
-///     assert!((idx == idx_1 && value == "hello") || (idx == idx_2 && value == "world"));
+///   assert!((idx == idx_1 && value == "hello") || (idx == idx_2 && value == "world"));
 /// }
 /// assert!(arena.get(idx_1).is_none());
 /// assert!(arena.get(idx_2).is_none());

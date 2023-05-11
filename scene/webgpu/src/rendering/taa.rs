@@ -19,8 +19,8 @@ impl TAA {
       frame_index: 0,
       jitters: (0..SAMPLE_COUNT).map(halton23).collect(),
       history: None,
-      current_camera: CameraGPU::new(gpu),
-      previous_camera: CameraGPU::new(gpu),
+      current_camera: CameraGPU::new(&gpu.device),
+      previous_camera: CameraGPU::new(&gpu.device),
     }
   }
 
@@ -38,10 +38,7 @@ impl TAA {
     camera: &SceneCamera,
   ) -> &Attachment {
     // refresh cameras:
-    let new_camera = ctx
-      .resources
-      .cameras
-      .get_with_update(camera, &(ctx.gpu, ctx.node_derives));
+    let new_camera = ctx.scene_resources.cameras.get_camera_gpu(camera).unwrap();
 
     // improve? i think we could try copy buffer to buffer here.
     self

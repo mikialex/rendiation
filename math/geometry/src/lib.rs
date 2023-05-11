@@ -1,12 +1,12 @@
 #![allow(clippy::suspicious_operation_groupings)]
 #![feature(trait_alias)]
 
-use rendiation_algebra::*;
-
 use std::iter::once;
 use std::iter::FromIterator;
 use std::marker::PhantomData;
 use std::ops::{Deref, DerefMut};
+
+use rendiation_algebra::*;
 
 pub mod dimension3;
 pub use dimension3::*;
@@ -66,7 +66,8 @@ pub trait LebesgueMeasurable<T: Scalar, const D: usize> {
   fn measure(&self) -> T;
 }
 
-/// We don't add dimension bound here, because when we say length doesn't care about if it's 2d or 3d
+/// We don't add dimension bound here, because when we say length doesn't care about if it's 2d or
+/// 3d
 pub trait LengthMeasurable<T: Scalar>: LebesgueMeasurable<T, 1> {
   #[inline(always)]
   fn length(&self) -> T {

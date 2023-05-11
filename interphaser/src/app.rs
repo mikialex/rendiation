@@ -50,16 +50,11 @@ impl<T: 'static> Application<T> {
     let window = builder.build(&event_loop).unwrap();
 
     window.set_title(&config.title);
-    let size = winit::dpi::LogicalSize {
-      width: config.size.width as f64,
-      height: config.size.height as f64,
-    };
-    window.set_inner_size(size);
-    let position = winit::dpi::LogicalPosition {
-      x: config.position.x as f64,
-      y: config.position.y as f64,
-    };
-    window.set_outer_position(position);
+    // let size = winit::dpi::LogicalSize {
+    //   width: config.size.width as f64,
+    //   height: config.size.height as f64,
+    // };
+    // window.set_inner_size(size);
 
     #[cfg(target_arch = "wasm32")]
     {
@@ -132,9 +127,10 @@ impl<T: 'static> Application<T> {
           // Clamp to some max framerate to avoid busy-looping too much
           // (we might be in webgpu::PresentMode::Mailbox, thus discarding superfluous frames)
           //
-          // winit has window.current_monitor().video_modes() but that is a list of all full screen video modes.
-          // So without extra dependencies it's a bit tricky to get the max refresh rate we can run the window on.
-          // Therefore we just go with 60fps - sorry 120hz+ folks!
+          // winit has window.current_monitor().video_modes() but that is a list of all full screen
+          // video modes. So without extra dependencies it's a bit tricky to get the max
+          // refresh rate we can run the window on. Therefore we just go with 60fps -
+          // sorry 120hz+ folks!
           let target_frametime = Duration::from_secs_f64(1.0 / 60.0);
 
           let time_since_last_frame = app.last_update_inst.elapsed();

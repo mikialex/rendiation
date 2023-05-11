@@ -2,8 +2,9 @@ use core::cmp;
 use core::mem;
 use core::ops;
 use core::slice;
-use incremental::*;
 use std::{marker::PhantomData, vec};
+
+use incremental::*;
 
 pub mod handle;
 mod inc;
@@ -66,7 +67,7 @@ impl<T> Arena<T> {
   ///
   /// // These insertions will not require further allocation.
   /// for i in 0..10 {
-  ///     assert!(arena.try_insert(i).is_ok());
+  ///   assert!(arena.try_insert(i).is_ok());
   /// }
   ///
   /// // But now we are at capacity, and there is no more room.
@@ -132,14 +133,14 @@ impl<T> Arena<T> {
   /// let mut arena = Arena::new();
   ///
   /// match arena.try_insert(42) {
-  ///     Ok(idx) => {
-  ///         // Insertion succeeded.
-  ///         assert_eq!(arena[idx], 42);
-  ///     }
-  ///     Err(x) => {
-  ///         // Insertion failed.
-  ///         assert_eq!(x, 42);
-  ///     }
+  ///   Ok(idx) => {
+  ///     // Insertion succeeded.
+  ///     assert_eq!(arena[idx], 42);
+  ///   }
+  ///   Err(x) => {
+  ///     // Insertion failed.
+  ///     assert_eq!(x, 42);
+  ///   }
   /// };
   /// ```
   #[inline]
@@ -157,7 +158,8 @@ impl<T> Arena<T> {
   }
 
   /// Attempts to insert the value returned by `create` into the arena using existing capacity.
-  /// `create` is called with the new value's associated handle, allowing values that know their own handle.
+  /// `create` is called with the new value's associated handle, allowing values that know their own
+  /// handle.
   ///
   /// This method will never allocate new capacity in the arena.
   ///
@@ -173,14 +175,14 @@ impl<T> Arena<T> {
   /// let mut arena = Arena::new();
   ///
   /// match arena.try_insert_with(|idx| (42, idx.into_raw_parts().0)) {
-  ///     Ok(idx) => {
-  ///         // Insertion succeeded.
-  ///         assert_eq!(arena[idx].0, 42);
-  ///         assert_eq!(arena[idx].1, idx.into_raw_parts().0);
-  ///     }
-  ///     Err(x) => {
-  ///         // Insertion failed.
-  ///     }
+  ///   Ok(idx) => {
+  ///     // Insertion succeeded.
+  ///     assert_eq!(arena[idx].0, 42);
+  ///     assert_eq!(arena[idx].1, idx.into_raw_parts().0);
+  ///   }
+  ///   Err(x) => {
+  ///     // Insertion failed.
+  ///   }
   /// };
   /// ```
   #[inline]
@@ -239,7 +241,8 @@ impl<T> Arena<T> {
   }
 
   /// Insert the value returned by `create` into the arena, allocating more capacity if necessary.
-  /// `create` is called with the new value's associated handle, allowing values that know their own handle.
+  /// `create` is called with the new value's associated handle, allowing values that know their own
+  /// handle.
   ///
   /// The new value's associated handle in the arena is returned.
   ///
@@ -337,7 +340,12 @@ impl<T> Arena<T> {
   /// use arena::Arena;
   ///
   /// let mut crew = Arena::new();
-  /// crew.extend(&["Jim Hawkins", "John Silver", "Alexander Smollett", "Israel Hands"]);
+  /// crew.extend(&[
+  ///   "Jim Hawkins",
+  ///   "John Silver",
+  ///   "Alexander Smollett",
+  ///   "Israel Hands",
+  /// ]);
   /// let pirates = ["John Silver", "Israel Hands"]; // too dangerous to keep them around
   /// crew.retain(|_index, member| !pirates.contains(member));
   /// let mut crew_members = crew.iter().map(|(_, member)| **member);
@@ -457,10 +465,10 @@ impl<T> Arena<T> {
   /// let idx2 = arena.insert(1);
   ///
   /// {
-  ///     let (item1, item2) = arena.get2_mut(idx1, idx2);
+  ///   let (item1, item2) = arena.get2_mut(idx1, idx2);
   ///
-  ///     *item1.unwrap() = 3;
-  ///     *item2.unwrap() = 4;
+  ///   *item1.unwrap() = 3;
+  ///   *item2.unwrap() = 4;
   /// }
   ///
   /// assert_eq!(arena[idx1], 3);
@@ -567,8 +575,8 @@ impl<T> Arena<T> {
   ///
   /// // `try_insert` does not allocate new capacity.
   /// for i in 0..10 {
-  ///     assert!(arena.try_insert(1).is_ok());
-  ///     assert_eq!(arena.capacity(), 10);
+  ///   assert!(arena.try_insert(1).is_ok());
+  ///   assert_eq!(arena.capacity(), 10);
   /// }
   ///
   /// // But `insert` will if the arena is already at capacity.
@@ -627,11 +635,11 @@ impl<T> Arena<T> {
   ///
   /// let mut arena = Arena::new();
   /// for i in 0..10 {
-  ///     arena.insert(i * i);
+  ///   arena.insert(i * i);
   /// }
   ///
   /// for (idx, value) in arena.iter() {
-  ///     println!("{} is at handle {:?}", value, idx);
+  ///   println!("{} is at handle {:?}", value, idx);
   /// }
   /// ```
   pub fn iter(&self) -> Iter<T> {
@@ -654,11 +662,11 @@ impl<T> Arena<T> {
   ///
   /// let mut arena = Arena::new();
   /// for i in 0..10 {
-  ///     arena.insert(i * i);
+  ///   arena.insert(i * i);
   /// }
   ///
   /// for (_idx, value) in arena.iter_mut() {
-  ///     *value += 5;
+  ///   *value += 5;
   /// }
   /// ```
   pub fn iter_mut(&mut self) -> IterMut<T> {
@@ -674,7 +682,8 @@ impl<T> Arena<T> {
   ///
   /// Order of iteration is not defined.
   ///
-  /// Note: All elements are removed even if the iterator is only partially consumed or not consumed at all.
+  /// Note: All elements are removed even if the iterator is only partially consumed or not consumed
+  /// at all.
   ///
   /// # Examples
   ///
@@ -688,7 +697,7 @@ impl<T> Arena<T> {
   /// assert!(arena.get(idx_1).is_some());
   /// assert!(arena.get(idx_2).is_some());
   /// for (idx, value) in arena.drain() {
-  ///     assert!((idx == idx_1 && value == "hello") || (idx == idx_2 && value == "world"));
+  ///   assert!((idx == idx_1 && value == "hello") || (idx == idx_2 && value == "world"));
   /// }
   /// assert!(arena.get(idx_1).is_none());
   /// assert!(arena.get(idx_2).is_none());

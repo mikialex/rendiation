@@ -22,8 +22,6 @@ mod broadcast;
 pub use broadcast::*;
 
 mod map;
-pub use map::*;
-
 use core::{
   pin::Pin,
   task::{Context, Poll, Waker},
@@ -31,4 +29,5 @@ use core::{
 use std::sync::{Arc, Mutex, RwLock, Weak};
 
 use futures::Stream;
+pub use map::*;
 use pin_project::pin_project;

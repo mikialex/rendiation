@@ -81,8 +81,12 @@ where
 /// This is a convenience macro for constructing `Field` lenses for fields or indexable elements.
 ///
 /// ```
-/// struct Foo { x: Bar }
-/// struct Bar { y: [i32; 10] }
+/// struct Foo {
+///   x: Bar,
+/// }
+/// struct Bar {
+///   y: [i32; 10],
+/// }
 /// let lens = interphaser::lens!(Foo, x);
 /// let lens = interphaser::lens!((u32, bool), 1);
 /// let lens = interphaser::lens!([u8], [4]);

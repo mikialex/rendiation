@@ -1,8 +1,8 @@
-use crate::*;
-
 use bitflags::bitflags;
 use reactive::DefaultUnboundChannel;
 use tree::*;
+
+use crate::*;
 
 pub type SceneNodeData = Identity<SceneNodeDataImpl>;
 pub type SceneNodeHandle = TreeNodeHandle<SceneNodeData>;
@@ -13,7 +13,7 @@ pub struct SceneNodeDataImpl {
   pub visible: bool,
 }
 
-#[derive(Default, Incremental)]
+#[derive(Default, Incremental, Clone)]
 pub struct SceneNodeDerivedData {
   pub world_matrix: Mat4<f32>,
   pub net_visible: bool,
@@ -26,7 +26,7 @@ impl HierarchyDerived for SceneNodeDerivedData {
     if let Some(parent) = parent_derived {
       Self {
         world_matrix: parent.world_matrix * self_source.local_matrix,
-        net_visible: parent.net_visible || self_source.visible,
+        net_visible: parent.net_visible && self_source.visible,
       }
     } else {
       Default::default()
@@ -124,6 +124,13 @@ pub struct SceneNode {
 
 clone_self_incremental!(SceneNode);
 
+impl GlobalIdentified for SceneNode {
+  // todo, put it on the node to avoid lock
+  fn guid(&self) -> usize {
+    self.inner.visit(|n| n.guid())
+  }
+}
+
 impl SceneNode {
   pub fn listen_by<U: Send + Sync + 'static>(
     &self,
@@ -132,16 +139,12 @@ impl SceneNode {
     self.visit(|node| node.listen_by::<DefaultUnboundChannel, _>(mapper))
   }
 
-  pub fn from_root(
+  pub(crate) fn from_new_root(
     nodes: SharedTreeCollection<ReactiveTreeCollection<SceneNodeData, SceneNodeDataImpl>>,
   ) -> Self {
     Self {
       inner: nodes.create_new_root(Default::default()),
     }
-  }
-
-  pub fn id(&self) -> usize {
-    self.inner.visit(|n| n.id())
   }
 
   pub fn raw_handle(&self) -> SceneNodeHandle {

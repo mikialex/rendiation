@@ -12,9 +12,7 @@ pub mod materials;
 pub mod mesh;
 mod mipmap_gen;
 pub mod model;
-pub mod model_overrides;
 pub mod node;
-pub mod picking;
 pub mod rendering;
 pub mod shading;
 pub mod shadow;
@@ -22,46 +20,7 @@ pub mod texture;
 pub mod util;
 
 mod system;
-pub use system::*;
-
-pub use background::*;
-pub use camera::*;
-pub use lights::*;
-pub use materials::*;
-pub use mesh::*;
-pub use mipmap_gen::*;
-pub use model::*;
-pub use model_overrides::*;
-pub use node::*;
-pub use picking::*;
-pub use rendering::*;
-pub use shading::*;
-pub use shadow::*;
-pub use texture::*;
-pub use util::*;
-
-use anymap::AnyMap;
-use bytemuck::*;
-use incremental::*;
-use linked_hash_map::LinkedHashMap;
-use reactive::*;
-use rendiation_algebra::*;
-use rendiation_geometry::*;
-use rendiation_renderable_mesh::group::MeshDrawGroup;
-use rendiation_renderable_mesh::mesh::*;
-pub use rendiation_scene_core::*;
-use rendiation_texture::{Size, TextureSampler};
-use shadergraph::*;
-use webgpu::*;
-use wgsl_shader_derives::*;
-
-use __core::hash::Hasher;
-use __core::{
-  pin::Pin,
-  task::{Context, Poll},
-};
 use core::ops::Deref;
-use futures::*;
 use std::{
   any::{Any, TypeId},
   cell::{Cell, RefCell},
@@ -72,11 +31,43 @@ use std::{
   sync::{Arc, Mutex, RwLock},
 };
 
-pub trait SceneRenderable {
-  fn is_transparent(&self) -> bool {
-    false
-  }
+use __core::hash::Hasher;
+use __core::num::NonZeroU32;
+use __core::{
+  pin::Pin,
+  task::{Context, Poll},
+};
+use anymap::AnyMap;
+pub use background::*;
+use bytemuck::*;
+pub use camera::*;
+use futures::*;
+use incremental::*;
+pub use lights::*;
+use linked_hash_map::LinkedHashMap;
+pub use materials::*;
+pub use mesh::*;
+pub use mipmap_gen::*;
+pub use model::*;
+pub use node::*;
+use reactive::*;
+pub use rendering::*;
+use rendiation_algebra::*;
+use rendiation_geometry::*;
+use rendiation_renderable_mesh::group::MeshDrawGroup;
+use rendiation_renderable_mesh::mesh::*;
+pub use rendiation_scene_core::*;
+use rendiation_texture::{Size, TextureSampler};
+use shadergraph::*;
+pub use shading::*;
+pub use shadow::*;
+pub use system::*;
+pub use texture::*;
+pub use util::*;
+use webgpu::*;
+use wgsl_shader_derives::*;
 
+pub trait SceneRenderable {
   fn render(
     &self,
     pass: &mut SceneRenderPass,
@@ -93,27 +84,5 @@ pub trait SceneNodeControlled {
       result = node.clone().into();
     });
     result.unwrap()
-  }
-}
-
-/// renderable but allow cheap clone and shared ownership
-pub trait SceneRenderableShareable: SceneRenderable {
-  fn id(&self) -> usize;
-  fn clone_boxed(&self) -> Box<dyn SceneRenderableShareable>;
-  fn as_renderable(&self) -> &dyn SceneRenderable;
-  fn as_renderable_mut(&mut self) -> &mut dyn SceneRenderable;
-}
-
-impl SceneRenderable for Box<dyn SceneRenderableShareable> {
-  fn is_transparent(&self) -> bool {
-    self.as_ref().is_transparent()
-  }
-  fn render(
-    &self,
-    pass: &mut SceneRenderPass,
-    dispatcher: &dyn RenderComponentAny,
-    camera: &SceneCamera,
-  ) {
-    self.as_ref().render(pass, dispatcher, camera)
   }
 }

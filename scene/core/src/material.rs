@@ -9,7 +9,28 @@ pub enum SceneMaterialType {
   Foreign(Arc<dyn Any + Send + Sync>),
 }
 
+impl SceneMaterialType {
+  pub fn guid(&self) -> Option<usize> {
+    match self {
+      Self::PhysicalSpecularGlossiness(m) => m.guid(),
+      Self::PhysicalMetallicRoughness(m) => m.guid(),
+      Self::Flat(m) => m.guid(),
+      Self::Foreign(m) => get_dyn_trait_downcaster_static!(GlobalIdentified)
+        .downcast_ref(m.as_ref())?
+        .guid(),
+    }
+    .into()
+  }
+}
+
 clone_self_incremental!(SceneMaterialType);
+
+pub fn register_core_material_features<T>()
+where
+  T: AsRef<dyn GlobalIdentified> + AsMut<dyn GlobalIdentified> + 'static,
+{
+  get_dyn_trait_downcaster_static!(GlobalIdentified).register::<T>()
+}
 
 /// The alpha rendering mode of a material.
 #[derive(Clone, Copy, Eq, PartialEq, Hash, Debug)]

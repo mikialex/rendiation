@@ -1,6 +1,7 @@
+use std::sync::{Arc, RwLock};
+
 use arena::{Arena, Handle};
 use futures::Future;
-use std::sync::{Arc, RwLock};
 
 pub struct Source<T> {
   // return if should remove

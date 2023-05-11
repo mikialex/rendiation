@@ -1,9 +1,8 @@
 use rendiation_algebra::*;
 use rendiation_renderable_mesh::{group::GroupedMesh, mesh::NoneIndexedMesh};
 
-use crate::*;
-
 use super::*;
+use crate::*;
 
 pub struct GridHelper {
   pub enabled: bool,

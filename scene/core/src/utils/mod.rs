@@ -1,13 +1,13 @@
 mod identity;
-
 pub use identity::*;
 mod mapper;
 pub use mapper::*;
 mod scene_item;
-use reactive::{ChannelLike, DefaultSingleValueChannel, DefaultUnboundChannel};
 pub use scene_item::*;
-
+mod transformation;
 use futures::Future;
+use reactive::{ChannelLike, DefaultSingleValueChannel, DefaultUnboundChannel};
+pub use transformation::*;
 
 use crate::*;
 
@@ -162,8 +162,9 @@ impl<T: IncrementalBase> Identity<T> {
       mapper(MaybeDeltaRef::Delta(v.delta), &send);
       C::is_closed(&sender)
     });
-    // todo impl custom unbound channel: if sender drop, the receiver will still hold the history message
-    // which is unnecessary. The better behavior will just drop the history and emit Poll::Ready::None
+    // todo impl custom unbound channel: if sender drop, the receiver will still hold the history
+    // message which is unnecessary. The better behavior will just drop the history and emit
+    // Poll::Ready::None
 
     // todo impl single value channel, and history compactor (synchronous version)
     receiver

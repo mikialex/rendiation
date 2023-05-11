@@ -4,6 +4,7 @@ use rendiation_algebra::*;
 use rendiation_renderable_mesh::{group::GroupedMesh, mesh::NoneIndexedMesh};
 
 use super::*;
+use crate::FatLineVertex;
 
 pub struct CameraHelper {
   projection_cache: Mat4<f32>,

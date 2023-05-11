@@ -13,6 +13,6 @@ rendiation-geometry = {path = "../../../math/geometry"}
 
 space-algorithm = {path = "../../space"}
 
-rendiation-webgpu = {path = "../../../webgpu", optional = true}
-shadergraph = {path = "../../../shader/graph"}
+dyn-downcast = {path = "../../../utils/dyn-downcast"}
 incremental = {path = "../../../utils/incremental"}
+shadergraph = {path = "../../../shader/graph"}

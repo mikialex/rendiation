@@ -1,5 +1,6 @@
-use crate::*;
 use std::ops::{Add, Div, Mul};
+
+use crate::*;
 
 #[repr(C)]
 #[derive(Debug, Copy, Clone, Default, Hash, Eq, PartialEq)]

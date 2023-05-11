@@ -759,6 +759,14 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "21e50f3adc76d6a43f5ed73b698a87d0760ca74617f60f7c3b879003536fdd28"
 
 [[package]]
+name = "dyn-downcast"
+version = "0.0.1"
+dependencies = [
+ "once_cell",
+ "paste",
+]
+
+[[package]]
 name = "either"
 version = "1.6.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2458,10 +2466,10 @@ name = "rendiation-renderable-mesh"
 version = "0.1.0"
 dependencies = [
  "bytemuck",
+ "dyn-downcast",
  "incremental",
  "rendiation-algebra",
  "rendiation-geometry",
- "rendiation-webgpu",
  "shadergraph",
  "soa_derive",
  "space-algorithm",
@@ -2476,9 +2484,13 @@ dependencies = [
  "bitflags 2.0.2",
  "bytemuck",
  "dyn-clone",
+ "dyn-downcast",
  "futures",
  "incremental",
  "log",
+ "once_cell",
+ "paste",
+ "pin-project",
  "reactive",
  "rendiation-algebra",
  "rendiation-animation",
@@ -2502,6 +2514,17 @@ dependencies = [
  "rendiation-texture",
  "rendiation-webgpu",
  "shadergraph",
+]
+
+[[package]]
+name = "rendiation-scene-interaction"
+version = "0.1.0"
+dependencies = [
+ "incremental",
+ "rendiation-algebra",
+ "rendiation-geometry",
+ "rendiation-renderable-mesh",
+ "rendiation-scene-core",
 ]
 
 [[package]]
@@ -3133,6 +3156,7 @@ dependencies = [
  "incremental",
  "interphaser",
  "log",
+ "pin-project",
  "png 0.17.6",
  "reactive",
  "rendiation-algebra",
@@ -3143,6 +3167,7 @@ dependencies = [
  "rendiation-renderable-mesh",
  "rendiation-scene-core",
  "rendiation-scene-gltf-loader",
+ "rendiation-scene-interaction",
  "rendiation-scene-webgpu",
  "rendiation-texture",
  "rendiation-webgpu",

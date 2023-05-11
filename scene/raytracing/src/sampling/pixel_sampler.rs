@@ -60,8 +60,8 @@ impl PixelSampler for FixedSamplesPerPixel {
 /// ## Summarize
 ///
 /// For most of pixels, their samples are assumed to be normal distributed. So we could estimate the
-/// expectation(the final result) within a given tolerance range with in a  given confidence interval
-/// by using the Student-T distribution.
+/// expectation(the final result) within a given tolerance range with in a  given confidence
+/// interval by using the Student-T distribution.
 pub struct AdaptivePixelSampler {
   config: AdaptivePixelSamplerConfig,
 

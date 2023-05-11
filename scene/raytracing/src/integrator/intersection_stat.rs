@@ -1,6 +1,7 @@
-use crate::{FixedSamplesPerPixel, Integrator, RayTraceable, RngSampler, Sampler};
 use rendiation_color::LinearRGBColor;
 use rendiation_geometry::Ray3;
+
+use crate::{FixedSamplesPerPixel, Integrator, RayTraceable, RngSampler, Sampler};
 
 pub struct IntersectionVisualize {
   pub box_weight: f32,

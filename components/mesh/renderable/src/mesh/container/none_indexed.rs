@@ -1,5 +1,6 @@
-use crate::*;
 use core::marker::PhantomData;
+
+use crate::*;
 
 pub struct NoneIndexedMesh<T, U> {
   pub data: U,

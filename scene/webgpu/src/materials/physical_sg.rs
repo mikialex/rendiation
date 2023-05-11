@@ -147,15 +147,17 @@ impl ShaderGraphProvider for PhysicalSpecularGlossinessMaterialGPU {
 
 use PhysicalSpecularGlossinessMaterialDelta as PD;
 
-impl ReactiveRenderComponentSource for ReactiveMaterialGPUOf<PhysicalSpecularGlossinessMaterial> {
+impl ReactiveRenderComponentSource for PhysicalSpecularGlossinessMaterialReactiveGPU {
   fn as_reactive_component(&self) -> &dyn ReactiveRenderComponent {
     self.as_ref() as &dyn ReactiveRenderComponent
   }
 }
 
+type PhysicalSpecularGlossinessMaterialReactiveGPU = impl AsRef<RenderComponentCell<PhysicalSpecularGlossinessMaterialGPU>>
+  + Stream<Item = RenderComponentDeltaFlag>;
+
 impl WebGPUMaterial for PhysicalSpecularGlossinessMaterial {
-  type ReactiveGPU = impl AsRef<RenderComponentCell<PhysicalSpecularGlossinessMaterialGPU>>
-    + Stream<Item = RenderComponentDeltaFlag>;
+  type ReactiveGPU = PhysicalSpecularGlossinessMaterialReactiveGPU;
 
   fn create_reactive_gpu(
     source: &SceneItemRef<Self>,
@@ -222,7 +224,7 @@ impl WebGPUMaterial for PhysicalSpecularGlossinessMaterial {
             state.uniform.resource.set(build_shader_uniform(&m.read()));
             state.uniform.resource.upload(&ctx.gpu.queue)
           }
-          RenderComponentDeltaFlag::ContentRef
+          RenderComponentDeltaFlag::ContentRef.into()
         }
         UniformChangePicked::Origin(delta) => match delta {
           PD::alpha_mode(_) => RenderComponentDeltaFlag::ShaderHash,
@@ -232,14 +234,12 @@ impl WebGPUMaterial for PhysicalSpecularGlossinessMaterial {
           PD::emissive_texture(t) => apply_tex_pair_delta(t, &mut state.emissive_texture, &ctx),
           PD::normal_texture(t) => apply_normal_map_delta(t, &mut state.normal_texture, &ctx),
           _ => RenderComponentDeltaFlag::Content, // handled in uniform
-        },
+        }
+        .into(),
       },
     )
   }
 
-  fn is_keep_mesh_shape(&self) -> bool {
-    true
-  }
   fn is_transparent(&self) -> bool {
     matches!(self.alpha_mode, AlphaMode::Blend)
   }

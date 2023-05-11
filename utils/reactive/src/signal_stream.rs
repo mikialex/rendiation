@@ -43,6 +43,11 @@ pub trait SignalStreamExt: Stream {
     Self: Stream<Item = (usize, Option<T>)>,
     Self: Sized;
 
+  fn flatten_into_map_stream_signal<T, K>(self) -> MergeIntoStreamMap<Self, K, T>
+  where
+    Self: Stream<Item = (K, Option<T>)>,
+    Self: Sized;
+
   fn zip_signal<St>(self, other: St) -> ZipSignal<Self, St>
   where
     St: Stream,
@@ -56,11 +61,15 @@ pub trait SignalStreamExt: Stream {
   where
     Self: Sized;
 
+  fn batch_processing(self) -> BatchProcessing<Self>
+  where
+    Self: Sized;
+
   fn buffered_shared_unbound(self) -> BufferedSharedStream<Self>
   where
     Self: Sized;
 
-  fn create_board_caster(self) -> StreamBroadcaster<Self, Self::Item, FanOut>
+  fn create_broad_caster(self) -> StreamBroadcaster<Self, Self::Item, FanOut>
   where
     Self: Sized + Stream;
 
@@ -83,7 +92,25 @@ pub trait SignalStreamExt: Stream {
   where
     Self: Sized,
     Self: Stream,
-    F: FnMut(Self::Item, &mut State) -> X;
+    F: FnMut(Self::Item, &mut State) -> Option<X>;
+
+  fn fold_signal_state_stream<State, F>(
+    self,
+    state: State,
+    f: F,
+  ) -> SignalFoldStateStream<State, Self, F>
+  where
+    Self: Sized,
+    Self: Stream,
+    F: FnMut(Self::Item, &mut State);
+
+  fn after_pended_then<S>(self, pending: S) -> StreamDependency<Self, S>
+  where
+    Self: Sized + Stream;
+
+  fn debug(self, label: impl AsRef<str>) -> DebugStream<Self>
+  where
+    Self: Sized + Stream;
 }
 
 impl<T: Stream> SignalStreamExt for T {
@@ -101,6 +128,14 @@ impl<T: Stream> SignalStreamExt for T {
     Self: Sized,
   {
     MergeIntoStreamVec::new(self)
+  }
+
+  fn flatten_into_map_stream_signal<X, K>(self) -> MergeIntoStreamMap<Self, K, X>
+  where
+    Self: Stream<Item = (K, Option<X>)>,
+    Self: Sized,
+  {
+    MergeIntoStreamMap::new(self)
   }
 
   fn zip_signal<St>(self, other: St) -> ZipSignal<Self, St>
@@ -125,6 +160,13 @@ impl<T: Stream> SignalStreamExt for T {
     }
   }
 
+  fn batch_processing(self) -> BatchProcessing<Self> {
+    BatchProcessing {
+      inner: self,
+      buffered: Vec::new(),
+    }
+  }
+
   fn buffered_shared_unbound(self) -> BufferedSharedStream<Self>
   where
     Self: Sized,
@@ -132,7 +174,7 @@ impl<T: Stream> SignalStreamExt for T {
     BufferedSharedStream::new(self)
   }
 
-  fn create_board_caster(self) -> StreamBroadcaster<Self, Self::Item, FanOut>
+  fn create_broad_caster(self) -> StreamBroadcaster<Self, Self::Item, FanOut>
   where
     Self: Sized,
   {
@@ -163,12 +205,50 @@ impl<T: Stream> SignalStreamExt for T {
   where
     Self: Sized,
     Self: Stream,
-    F: FnMut(Self::Item, &mut State) -> X,
+    F: FnMut(Self::Item, &mut State) -> Option<X>,
   {
     SignalFoldFlatten {
       state,
       stream: self,
       f,
+    }
+  }
+
+  fn fold_signal_state_stream<State, F>(
+    self,
+    state: State,
+    f: F,
+  ) -> SignalFoldStateStream<State, Self, F>
+  where
+    Self: Sized,
+    Self: Stream,
+    F: FnMut(Self::Item, &mut State),
+  {
+    SignalFoldStateStream {
+      state,
+      stream: self,
+      f,
+    }
+  }
+
+  fn after_pended_then<S>(self, pending: S) -> StreamDependency<Self, S>
+  where
+    Self: Sized + Stream,
+  {
+    StreamDependency {
+      dependency: self,
+      source: pending,
+    }
+  }
+
+  fn debug(self, label: impl AsRef<str>) -> DebugStream<Self>
+  where
+    Self: Sized + Stream,
+  {
+    let str = label.as_ref();
+    DebugStream {
+      inner: self,
+      label: str.into(),
     }
   }
 }
@@ -185,7 +265,7 @@ pub struct FilterMapSync<S, F> {
 impl<S, F, X> Stream for FilterMapSync<S, F>
 where
   S: Stream,
-  F: Fn(S::Item) -> Option<X>,
+  F: FnMut(S::Item) -> Option<X>,
 {
   type Item = X;
 
@@ -216,6 +296,39 @@ fn test_filter_map_sync() {
   let mut c = rev.filter_map_sync(|v: u32| if v > 5 { Some(2 * v) } else { None });
 
   do_updates(&mut c, |v| assert_eq!(v, 20))
+}
+
+#[pin_project]
+pub struct BatchProcessing<S: Stream> {
+  #[pin]
+  inner: S,
+  buffered: Vec<S::Item>,
+}
+
+impl<S> Stream for BatchProcessing<S>
+where
+  S: Stream,
+{
+  type Item = Vec<S::Item>;
+
+  fn poll_next(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Option<Self::Item>> {
+    let mut this = self.project();
+
+    while let Poll::Ready(result) = this.inner.as_mut().poll_next(cx) {
+      if let Some(item) = result {
+        this.buffered.push(item);
+        continue;
+      } else {
+        return Poll::Ready(None); // the source has been dropped, do early terminate
+      }
+    }
+
+    if this.buffered.is_empty() {
+      Poll::Pending
+    } else {
+      Poll::Ready(Some(std::mem::take(this.buffered)))
+    }
+  }
 }
 
 #[pin_project]
@@ -427,6 +540,12 @@ impl<T, S, F> AsRef<T> for SignalFold<T, S, F> {
   }
 }
 
+impl<T, S, F> AsMut<T> for SignalFold<T, S, F> {
+  fn as_mut(&mut self) -> &mut T {
+    &mut self.state
+  }
+}
+
 impl<T, S, F, X> Stream for SignalFold<T, S, F>
 where
   S: Stream,
@@ -471,20 +590,114 @@ impl<T, S, F, X> Stream for SignalFoldFlatten<T, S, F>
 where
   S: Stream,
   T: Stream<Item = X> + Unpin,
-  F: FnMut(S::Item, &mut T) -> X,
+  F: FnMut(S::Item, &mut T) -> Option<X>,
 {
   type Item = X;
 
   fn poll_next(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Option<Self::Item>> {
-    let this = self.project();
+    let mut this = self.project();
+    loop {
+      if let Poll::Ready(v) = this.stream.as_mut().poll_next(cx) {
+        if let Some(v) = v {
+          if let Some(v) = (this.f)(v, this.state) {
+            break Poll::Ready(Some(v));
+          }
+        } else {
+          break Poll::Ready(None);
+        }
+      } else {
+        break this.state.poll_next_unpin(cx);
+      }
+    }
+  }
+}
+
+#[pin_project]
+pub struct SignalFoldStateStream<T, S, F> {
+  #[pin]
+  state: T,
+  #[pin]
+  stream: S,
+  f: F,
+}
+
+impl<T, S, X, F> Stream for SignalFoldStateStream<T, S, F>
+where
+  S: Stream,
+  T: Stream<Item = X> + Unpin,
+  F: FnMut(S::Item, &mut T),
+{
+  type Item = X;
+
+  fn poll_next(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Option<Self::Item>> {
+    let mut this = self.project();
     if let Poll::Ready(v) = this.stream.poll_next(cx) {
       if let Some(v) = v {
-        Poll::Ready(Some((this.f)(v, this.state)))
+        (this.f)(v, &mut this.state);
+        this.state.poll_next(cx)
       } else {
         Poll::Ready(None)
       }
     } else {
-      this.state.poll_next_unpin(cx)
+      this.state.poll_next(cx)
     }
+  }
+}
+
+/// make sure when poll source, the dependency will in pending state
+#[pin_project::pin_project]
+pub struct StreamDependency<D, T> {
+  #[pin]
+  dependency: D,
+  #[pin]
+  source: T,
+}
+
+impl<D, T> Stream for StreamDependency<D, T>
+where
+  D: Stream<Item = ()>,
+  T: Stream,
+{
+  type Item = T::Item;
+
+  fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+    let mut this = self.project();
+
+    while let Poll::Ready(v) = this.dependency.as_mut().poll_next(cx) {
+      if v.is_none() {
+        return Poll::Ready(None);
+      }
+    }
+
+    this.source.poll_next(cx)
+  }
+}
+
+#[pin_project::pin_project]
+pub struct DebugStream<S> {
+  #[pin]
+  inner: S,
+  label: String,
+}
+
+impl<S> Stream for DebugStream<S>
+where
+  S: Stream,
+  S::Item: std::fmt::Debug,
+{
+  type Item = S::Item;
+
+  fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+    let this = self.project();
+    let r = this.inner.poll_next(cx);
+    if let Poll::Ready(r) = &r {
+      if let Some(r) = r {
+        println!("stream <{}> receive message: {:?}", this.label, r)
+      } else {
+        println!("stream <{}> terminate", this.label)
+      }
+    }
+
+    r
   }
 }

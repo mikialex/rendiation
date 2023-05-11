@@ -1,5 +1,6 @@
-use crate::utils::StructInfo;
 use quote::quote;
+
+use crate::utils::StructInfo;
 
 pub fn derive_vertex_impl(input: syn::DeriveInput) -> proc_macro2::TokenStream {
   let s = StructInfo::new(&input);

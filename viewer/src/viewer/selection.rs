@@ -1,32 +1,14 @@
-use std::collections::HashMap;
+use std::collections::HashSet;
 
 use crate::*;
 
-type Selected = Box<dyn SceneRenderableShareable>;
-
 #[derive(Default)]
 pub struct SelectionSet {
-  pub selected: HashMap<usize, Selected>,
-}
-
-impl<'a> IntoIterator for &'a mut SelectionSet {
-  type Item = &'a mut dyn SceneRenderable;
-
-  type IntoIter = SelectionSetIterMutType<'a>;
-
-  fn into_iter(self) -> Self::IntoIter {
-    mut_iter(&mut self.selected)
-  }
-}
-
-type SelectionSetIterMutType<'a> = impl Iterator<Item = &'a mut dyn SceneRenderable>;
-
-fn mut_iter(map: &mut HashMap<usize, Selected>) -> SelectionSetIterMutType {
-  map.iter_mut().map(|(_, m)| m.as_mut().as_renderable_mut())
+  pub selected: HashSet<SceneModel>,
 }
 
 impl<'a> IntoIterator for &'a SelectionSet {
-  type Item = &'a dyn SceneRenderable;
+  type Item = &'a SceneModel;
 
   type IntoIter = SelectionSetIterType<'a>;
 
@@ -35,10 +17,10 @@ impl<'a> IntoIterator for &'a SelectionSet {
   }
 }
 
-type SelectionSetIterType<'a> = impl Iterator<Item = &'a dyn SceneRenderable>;
+type SelectionSetIterType<'a> = impl Iterator<Item = &'a SceneModel>;
 
-fn iter(map: &HashMap<usize, Selected>) -> SelectionSetIterType {
-  map.iter().map(|(_, m)| m.as_ref().as_renderable())
+fn iter(map: &HashSet<SceneModel>) -> SelectionSetIterType {
+  map.iter()
 }
 
 impl SelectionSet {
@@ -47,14 +29,18 @@ impl SelectionSet {
   }
 
   pub fn select(&mut self, model: &SceneModel) {
-    self.selected.insert(model.id(), model.clone_boxed());
+    self.selected.insert(model.clone());
   }
 
   pub fn deselect(&mut self, model: &SceneModel) {
-    self.selected.remove(&model.id());
+    self.selected.remove(model);
   }
 
   pub fn clear(&mut self) {
     self.selected.clear();
+  }
+
+  pub fn as_renderables(&self) -> impl Iterator<Item = &dyn SceneRenderable> {
+    self.selected.iter().map(|m| m as &dyn SceneRenderable)
   }
 }

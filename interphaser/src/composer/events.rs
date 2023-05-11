@@ -1,7 +1,8 @@
 use std::{any::Any, marker::PhantomData};
 
-use crate::*;
 use winit::event::*;
+
+use crate::*;
 
 pub struct EventHandleCtx {
   custom_event_emitter: CustomEventEmitter,
@@ -321,9 +322,9 @@ impl<C: HotAreaProvider> EventHandlerImpl<C> for MouseOut {
   }
 }
 
-// these downcast utils below is useful for downstream crates because they shouldn't care about impl details
-// so they are public and export, we should consider warp them in a namespace in the future to prevent potential
-// name collisions
+// these downcast utils below is useful for downstream crates because they shouldn't care about impl
+// details so they are public and export, we should consider warp them in a namespace in the future
+// to prevent potential name collisions
 
 pub fn window_event<'a>(event: &'a Event<()>) -> Option<&'a WindowEvent<'a>> {
   match event {

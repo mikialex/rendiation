@@ -1,5 +1,8 @@
 use std::{cell::RefCell, rc::Rc};
 
+pub mod contents;
+pub use contents::*;
+
 pub mod default_scene;
 pub use default_scene::*;
 pub mod pipeline;
@@ -10,14 +13,10 @@ pub mod controller;
 pub use controller::*;
 use rendiation_algebra::Mat4;
 use rendiation_renderable_mesh::mesh::MeshBufferIntersectConfig;
+use rendiation_scene_interaction::WebGPUScenePickingExt;
 pub mod selection;
 
 pub mod helpers;
-use self::{
-  helpers::{axis::AxisHelper, camera::CameraHelpers, grid::GridHelper, ground::GridGround},
-  selection::SelectionSet,
-};
-
 use interphaser::winit::event::{ElementState, Event, MouseButton};
 use interphaser::*;
 use rendiation_controller::{
@@ -26,6 +25,10 @@ use rendiation_controller::{
 use rendiation_texture::Size;
 use webgpu::*;
 
+use self::{
+  helpers::{axis::AxisHelper, camera::CameraHelpers, grid::GridHelper, ground::GridGround},
+  selection::SelectionSet,
+};
 use crate::*;
 
 impl CanvasPrinter for ViewerImpl {
@@ -91,11 +94,11 @@ impl Default for ViewerImpl {
 pub struct Viewer3dContent {
   pub scene: Scene,
   pub scene_derived: SceneNodeDeriveSystem,
-  pub scene_bounding: SceneBoundingSystem,
+  pub scene_bounding: SceneModelWorldBoundingSystem,
   pub pick_config: MeshBufferIntersectConfig,
   pub selections: SelectionSet,
   pub controller: ControllerWinitAdapter<OrbitController>,
-  //refcell is to support updating when rendering, have to do this, will be remove in future
+  // refcell is to support updating when rendering, have to do this, will be remove in future
   pub widgets: RefCell<WidgetContent>,
 }
 
@@ -110,7 +113,7 @@ pub struct WidgetContent {
 pub struct Viewer3dRenderingCtx {
   pipeline: ViewerPipeline,
   pool: ResourcePool,
-  resources: GPUResourceCache,
+  resources: GlobalGPUSystem,
   gpu: Rc<GPU>,
   snapshot: Option<ViewerSnapshotTaskResolver>,
 }
@@ -136,11 +139,11 @@ impl ViewerSnapshotTaskResolver {
 
 impl Viewer3dRenderingCtx {
   pub fn new(gpu: Rc<GPU>) -> Self {
-    let resources = GPUResourceCache::new(&gpu);
+    let gpu_resources = GlobalGPUSystem::new(&gpu);
     Self {
       pipeline: ViewerPipeline::new(gpu.as_ref()),
       gpu,
-      resources,
+      resources: gpu_resources,
       pool: Default::default(),
       snapshot: None,
     }
@@ -154,11 +157,17 @@ impl Viewer3dRenderingCtx {
     content.maintain();
     self.resources.maintain();
 
+    let (scene_resource, content_res) = self
+      .resources
+      .get_or_create_scene_sys_with_content(&content.scene, &content.scene_derived);
+    let resource = content_res.read().unwrap();
+
     let mut ctx = FrameCtx::new(
       &self.gpu,
       target.size(),
       &self.pool,
-      &mut self.resources,
+      &resource,
+      scene_resource,
       &content.scene_derived,
     );
 
@@ -192,9 +201,7 @@ impl Viewer3dContent {
   pub fn new() -> Self {
     let (scene, scene_derived) = SceneInner::new();
 
-    let scene = scene.into_ref();
-
-    let scene_bounding = SceneBoundingSystem::new(&scene, &scene_derived);
+    let scene_bounding = SceneModelWorldBoundingSystem::new(&scene, &scene_derived);
 
     load_default_scene(&scene);
 
@@ -229,8 +236,7 @@ impl Viewer3dContent {
   }
 
   pub fn maintain(&mut self) {
-    //  this is not necessary, because the bounding depend on derive
-    // self.scene_derived.maintain();
+    self.scene_derived.maintain();
     self.scene_bounding.maintain();
   }
 

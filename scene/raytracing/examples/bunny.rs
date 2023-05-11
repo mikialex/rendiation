@@ -9,13 +9,13 @@ fn main() {
 
   let mut frame = Frame::new(600, 600);
 
-  let mut scene = SceneInner::new().0.into_ref();
+  let mut scene = SceneInner::new().0;
 
   let perspective = PerspectiveProjection {
     fov: Deg::by(65.),
     ..Default::default()
   };
-  let camera = SceneCamera::create_camera(perspective, scene.read().root().create_child());
+  let camera = SceneCamera::create_camera(perspective, scene.create_root_child());
   camera.read().node.set_local_matrix(Mat4::lookat(
     Vec3::new(0., 8., 10.),
     Vec3::new(0., 5., 0.),

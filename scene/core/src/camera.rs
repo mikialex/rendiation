@@ -1,5 +1,5 @@
 use rendiation_geometry::*;
-use rendiation_texture::Size;
+pub use rendiation_texture::Size;
 
 use crate::*;
 
@@ -50,13 +50,13 @@ impl SceneCamera {
   }
 }
 
-/// Manage multi camera view in scene
-pub struct CameraGroup {
-  pub cameras: Vec<SceneCamera>,
-  pub current_rendering_camera: usize,
-  /// if no camera provides, we will use default-camera for handling this case easily.
-  pub default_camera: SceneCamera,
-}
+// /// Manage multi camera view in scene
+// pub struct CameraGroup {
+//   pub cameras: Vec<SceneCamera>,
+//   pub current_rendering_camera: usize,
+//   /// if no camera provides, we will use default-camera for handling this case easily.
+//   pub default_camera: SceneCamera,
+// }
 
 #[derive(Clone, Copy, Incremental)]
 pub struct CameraViewBounds {

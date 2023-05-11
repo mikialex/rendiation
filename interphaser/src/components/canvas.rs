@@ -1,8 +1,10 @@
-use crate::*;
-use rendiation_texture::Size;
 use std::rc::Rc;
+
+use rendiation_texture::Size;
 use webgpu::{map_size_gpu, GPU2DTextureView, GPUTexture, GPU};
 use winit::event::Event;
+
+use crate::*;
 
 pub struct GPUCanvas {
   current_render_buffer_size: Size,

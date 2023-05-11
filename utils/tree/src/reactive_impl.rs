@@ -37,10 +37,13 @@ where
   }
 
   fn create_node(&mut self, data: Self::Node) -> Self::Handle {
-    self
-      .source
-      .emit(&TreeMutation::Create(data.deref().clone()));
-    self.inner.create_node(data)
+    let d = data.deref().clone();
+    let handle = self.inner.create_node(data);
+    self.source.emit(&TreeMutation::Create {
+      data: d,
+      node: handle.index(),
+    });
+    handle
   }
 
   fn delete_node(&mut self, handle: Self::Handle) {

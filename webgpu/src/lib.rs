@@ -12,6 +12,7 @@ mod resource;
 mod surface;
 mod types;
 
+pub use binding::*;
 pub use device::*;
 pub use encoder::*;
 pub use pass::*;
@@ -21,19 +22,11 @@ pub use rendering::*;
 pub use resource::*;
 pub use surface::*;
 pub use types::*;
-
-pub use binding::*;
 mod binding;
 
 pub use pipeline::*;
 mod pipeline;
 
-use bytemuck::*;
-pub use gpu::*;
-use wgpu as gpu;
-
-use __core::fmt::Debug;
-use __core::num::NonZeroUsize;
 use std::{
   any::*,
   borrow::Cow,
@@ -47,9 +40,14 @@ use std::{
   sync::{Arc, RwLock},
 };
 
+use __core::fmt::Debug;
+use __core::num::NonZeroUsize;
+use bytemuck::*;
 use gpu::util::DeviceExt;
+pub use gpu::*;
 use rendiation_texture_types::*;
 use typed_arena::Arena;
+use wgpu as gpu;
 
 pub struct GPU {
   _instance: gpu::Instance,

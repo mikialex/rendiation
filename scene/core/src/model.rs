@@ -19,6 +19,18 @@ pub enum ModelType {
 
 clone_self_incremental!(ModelType);
 
+impl ModelType {
+  pub fn guid(&self) -> Option<usize> {
+    match self {
+      Self::Standard(m) => m.guid(),
+      Self::Foreign(m) => get_dyn_trait_downcaster_static!(GlobalIdentified)
+        .downcast_ref(m.as_ref())?
+        .guid(),
+    }
+    .into()
+  }
+}
+
 #[derive(Incremental)]
 pub struct StandardModel {
   pub material: SceneMaterialType,
@@ -53,11 +65,11 @@ impl SkeletonImpl {
       .joints
       .iter()
       .enumerate()
-      .map(|(index, joint)| (joint.node.id(), index))
+      .map(|(index, joint)| (joint.node.guid(), index))
       .collect::<HashMap<_, _>>();
 
     self.joints.iter().for_each(|joint| {
-      let bone_local = if let Some(parent_id) = joint.node.visit_parent(|p| p.id())
+      let bone_local = if let Some(parent_id) = joint.node.visit_parent(|p| p.guid())
         && let Some(parent_index) = id_map.get(&parent_id) {
         let parent_bind_inverse = &self.joints[*parent_index].bind_inverse;
         *parent_bind_inverse * joint.bind_inverse.inverse_or_identity()

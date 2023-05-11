@@ -1,6 +1,7 @@
-use crate::*;
 use core::marker::PhantomData;
 use std::hash::Hash;
+
+use crate::*;
 
 /// We don't use TryInto<usize, Error: Debug> to express
 /// the conversion between the usize and self, because we assume the range of IndexType not

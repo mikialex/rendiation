@@ -12,7 +12,8 @@ use crate::*;
 // because I don't know why such bound should also be bounded explicitly in impls usages
 
 // note2: adding semantic associate type Vertex instead of super trait's Output is not useful
-// because type system don't understand these two types are same. So the impls still requires Output's bounds.
+// because type system don't understand these two types are same. So the impls still requires
+// Output's bounds.
 pub trait VertexContainer: IndexGet<Output: Copy> + CollectionSize {}
 impl<T: IndexGet<Output: Copy> + CollectionSize> VertexContainer for T {}
 
@@ -28,7 +29,8 @@ pub trait AbstractMesh {
   ///
   /// bound checking is skipped
   unsafe fn primitive_at_unchecked(&self, primitive_index: usize) -> Self::Primitive {
-    self.primitive_at(primitive_index).unwrap_unchecked() // the default impl relies on compiler optimization!
+    // the default impl relies on compiler optimization!
+    self.primitive_at(primitive_index).unwrap_unchecked()
   }
 
   fn primitive_iter(&self) -> AbstractMeshIter<'_, Self>

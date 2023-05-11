@@ -1,6 +1,7 @@
-use crate::*;
 use std::fmt::Debug;
 use std::ops::{Add, Div, Mul, Neg, Sub};
+
+use crate::*;
 
 #[repr(C)]
 #[derive(Debug, Copy, Clone, Default, Hash, Eq, PartialEq)]

@@ -173,7 +173,7 @@ impl IntersectAble<Box3, OptionalNearest<HitPoint3D>> for Ray3 {
       t_max = tz_max;
     }
 
-    //return point closest to the ray (positive side)
+    // return point closest to the ray (positive side)
 
     if t_max < 0. {
       return OptionalNearest::none();

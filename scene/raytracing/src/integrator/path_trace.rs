@@ -1,9 +1,9 @@
+use rendiation_algebra::RealVector;
 use rendiation_algebra::{InnerProductSpace, Vec3, Vector};
 use rendiation_color::LinearRGBColor;
 use rendiation_geometry::Ray3;
 
 use crate::*;
-use rendiation_algebra::RealVector;
 
 pub struct PathTraceIntegrator {
   pub sampling_config: AdaptivePixelSamplerConfig,

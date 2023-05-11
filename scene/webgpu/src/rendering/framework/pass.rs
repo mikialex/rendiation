@@ -91,6 +91,7 @@ impl<'a> PassDescriptor<'a> {
       resources: ctx.resources,
       pass_info,
       node_derives: ctx.node_derives,
+      scene_resources: ctx.scene_resources,
     };
 
     ActiveRenderPass {

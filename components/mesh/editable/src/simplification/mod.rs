@@ -1,12 +1,12 @@
+use std::collections::BinaryHeap;
+
 use arena::Handle;
 use mesh::Mesh;
 use rendiation_algebra::Vec3;
 use rendiation_geometry::{Plane, Triangle};
-use std::collections::BinaryHeap;
-
-use crate::HalfEdge;
 
 use self::{mesh::SimplificationMeshData, qem::QEM};
+use crate::HalfEdge;
 
 pub mod mesh;
 pub mod qem;

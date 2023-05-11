@@ -8,10 +8,10 @@ fn main() {
 
   let mut frame = Frame::new(500, 500);
 
-  let mut scene = SceneInner::new().0.into_ref();
+  let mut scene = SceneInner::new().0;
 
   let perspective = make_perspective();
-  let camera = SceneCamera::create_camera(perspective, scene.read().root().create_child());
+  let camera = SceneCamera::create_camera(perspective, scene.create_root_child());
   camera.read().node.set_local_matrix(Mat4::lookat(
     Vec3::new(0., 8., 10.),
     Vec3::new(0., 5., 0.),

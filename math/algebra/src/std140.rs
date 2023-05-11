@@ -1,5 +1,6 @@
-use crate::*;
 use bytemuck::*;
+
+use crate::*;
 
 /// GLSL's `bool` type.
 ///

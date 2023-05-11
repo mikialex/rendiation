@@ -1,26 +1,26 @@
 use crate::*;
 
-// struct SceneNodeGPUSystem;
-// struct SceneCameraGPUSystem;
-// struct SceneBundleGPUSystem;
-
 #[pin_project::pin_project]
 pub struct SceneGPUSystem {
-  // we share it between different scene system(it's global)
-  contents: Arc<RwLock<GlobalGPUSystem>>,
-  // nodes: SceneNodeGPUSystem,
-  // // the camera gpu data are mostly related to scene node it used, so keep it at scene level;
-  // cameras: SceneCameraGPUSystem,
-  // bundle: SceneBundleGPUSystem,
+  pub gpu: ResourceGPUCtx,
+
   #[pin]
-  models: StreamMap<ReactiveSceneModelGPUType>,
+  pub nodes: SceneNodeGPUSystem,
+
+  #[pin]
+  pub cameras: SceneCameraGPUSystem,
+
+  #[pin]
+  models: Arc<RwLock<StreamMap<usize, ReactiveSceneModelGPUInstance>>>,
 
   #[pin]
   source: SceneGPUUpdateSource,
+
+  pub lights: RefCell<GPULightCache>,
 }
 
 impl SceneGPUSystem {
-  pub fn render(&self, _encoder: &mut GPUCommandEncoder, _pass_dispatcher: &dyn RenderComponent) {
+  pub fn encode(&self, _encoder: &mut GPUCommandEncoder, _pass_dispatcher: &dyn RenderComponent) {
     // do encoding
   }
 }
@@ -31,33 +31,42 @@ impl Stream for SceneGPUSystem {
   fn poll_next(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Option<Self::Item>> {
     let this = self.project();
     early_return_ready!(this.source.poll_next(cx));
-    this.models.poll_next(cx).map(|v| v.map(|_| {}))
+    early_return_ready!(this.nodes.poll_next(cx));
+    early_return_ready!(this.cameras.poll_next(cx));
+
+    let mut models = this.models.write().unwrap();
+    let models: &mut StreamMap<usize, ReactiveSceneModelGPUInstance> = &mut models;
+    do_updates_by(models, cx, |_| {});
+    Poll::Pending
   }
 }
 type SceneGPUUpdateSource = impl Stream<Item = ()> + Unpin;
 
 impl SceneGPUSystem {
-  pub fn new(scene: &Scene, contents: Arc<RwLock<GlobalGPUSystem>>) -> Self {
-    let models = Default::default();
-    let contents_c = contents.clone();
+  pub fn new(
+    scene: &Scene,
+    derives: &SceneNodeDeriveSystem,
+    contents: Arc<RwLock<ContentGPUSystem>>,
+  ) -> Self {
+    let models: Arc<RwLock<StreamMap<usize, ReactiveSceneModelGPUInstance>>> = Default::default();
+    let models_c = models.clone();
+    let gpu = contents.read().unwrap().gpu.clone();
+
+    let nodes = SceneNodeGPUSystem::new(scene, derives, &gpu);
+    let cameras = SceneCameraGPUSystem::new(scene, derives, &gpu);
 
     let source = scene.unbound_listen_by(all_delta).map(move |delta| {
-      let contents = contents_c.write().unwrap();
-      let mut models = contents.models.write().unwrap();
+      let contents = contents.write().unwrap();
+      let mut models = models_c.write().unwrap();
+      let models: &mut StreamMap<usize, ReactiveSceneModelGPUInstance> = &mut models;
       if let SceneInnerDelta::models(delta) = delta {
         match delta {
           arena::ArenaDelta::Mutate((model, _)) => {
-            models.remove(model.id());
-            models.get_or_insert_with(model.id(), || {
-              //
-              todo!()
-            });
+            models.remove(model.guid());
+            models.get_or_insert_with(model.guid(), || build_scene_model_gpu(&model, &contents));
           }
           arena::ArenaDelta::Insert((model, _)) => {
-            models.get_or_insert_with(model.id(), || {
-              //
-              todo!()
-            });
+            models.get_or_insert_with(model.guid(), || build_scene_model_gpu(&model, &contents));
           }
           arena::ArenaDelta::Remove(handle) => {
             models.remove(handle.index());
@@ -67,12 +76,12 @@ impl SceneGPUSystem {
     });
 
     Self {
-      contents,
+      gpu,
       models,
-      // nodes: (),
-      // cameras: (),
-      // bundle: (),
       source,
+      cameras,
+      nodes,
+      lights: Default::default(),
     }
   }
 
