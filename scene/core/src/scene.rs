@@ -1,9 +1,9 @@
 use std::ops::Deref;
 
-use crate::*;
-
 use arena::{Arena, ArenaDelta, Handle};
 use tree::*;
+
+use crate::*;
 
 pub type SceneLightHandle = Handle<SceneLight>;
 pub type SceneModelHandle = Handle<SceneModel>;

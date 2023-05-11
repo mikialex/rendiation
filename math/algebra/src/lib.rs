@@ -27,17 +27,16 @@ use std::ops::{AddAssign, DivAssign, MulAssign, SubAssign};
 
 pub use angle::*;
 pub use euler::*;
+use incremental::*;
 pub use interpolation::*;
 pub use mat::*;
+pub use num_traits::Zero;
+use num_traits::*;
 pub use projection::*;
 pub use std140::*;
 pub use vec::*;
 
 pub use self::quat::*;
-
-use incremental::*;
-pub use num_traits::Zero;
-use num_traits::*;
 
 #[macro_use]
 pub mod macros;

@@ -1,6 +1,6 @@
-use crate::*;
-
 use rendiation_animation::{InterpolateAble, KeyframeTrack};
+
+use crate::*;
 
 pub struct SceneAnimation {
   pub channels: Vec<SceneAnimationChannel>,

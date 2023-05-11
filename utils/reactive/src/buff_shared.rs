@@ -1,7 +1,8 @@
-use crate::*;
+use std::{collections::VecDeque, sync::atomic::AtomicU64};
 
 use arena::{Arena, Handle};
-use std::{collections::VecDeque, sync::atomic::AtomicU64};
+
+use crate::*;
 
 #[pin_project]
 struct BufferedSharedStreamInner<S: Stream> {

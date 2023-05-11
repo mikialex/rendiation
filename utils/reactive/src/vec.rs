@@ -1,6 +1,6 @@
-use crate::*;
-
 use futures::StreamExt;
+
+use crate::*;
 
 #[pin_project]
 pub struct StreamVec<T> {

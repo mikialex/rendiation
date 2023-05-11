@@ -1,5 +1,6 @@
-use crate::*;
 use incremental::*;
+
+use crate::*;
 
 // todo support generics latter
 clone_self_incremental!(Vec2<f32>);

@@ -1,1 +1,3 @@
 tab_spaces = 2
+group_imports = "StdExternalCrate"
+format_code_in_doc_comments = true

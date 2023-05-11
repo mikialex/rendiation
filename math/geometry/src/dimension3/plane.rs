@@ -1,5 +1,6 @@
-use crate::{DistanceTo, HyperPlane, Triangle};
 use rendiation_algebra::*;
+
+use crate::{DistanceTo, HyperPlane, Triangle};
 
 pub type Plane<T = f32> = HyperPlane<T, Vec3<T>>;
 

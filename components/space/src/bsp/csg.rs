@@ -1,9 +1,8 @@
 use rendiation_algebra::*;
 use rendiation_geometry::{Plane, Triangle};
 
-use crate::*;
-
 use super::BspNode;
+use crate::*;
 
 type CSGNode = BspNode<Polygon>;
 

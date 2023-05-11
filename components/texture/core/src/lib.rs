@@ -23,16 +23,13 @@ pub use io::*;
 pub mod container;
 #[cfg(feature = "webgpu")]
 mod webgpu;
-#[cfg(feature = "webgpu")]
-pub use webgpu::*;
-
-pub use rendiation_texture_types::*;
-
 use image::ImageBuffer;
+pub use image::*;
 use incremental::*;
 use rendiation_algebra::{Lerp, Scalar, Vec2};
-
-pub use image::*;
+pub use rendiation_texture_types::*;
+#[cfg(feature = "webgpu")]
+pub use webgpu::*;
 
 pub trait Texture2D: Sized {
   type Pixel: Copy;

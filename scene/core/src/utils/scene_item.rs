@@ -6,9 +6,8 @@ use std::{
 use futures::{Future, Stream};
 use reactive::{do_updates, ReactiveMapping};
 
-use crate::*;
-
 use super::identity::Identity;
+use crate::*;
 
 #[derive(Default)]
 pub struct SceneItemRef<T: IncrementalBase> {

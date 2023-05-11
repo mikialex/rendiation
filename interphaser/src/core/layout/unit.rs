@@ -4,7 +4,6 @@ use crate::*;
 ///
 /// The component tree actually not a layout tree. The real
 /// layout tree is composed by the LayoutUnit.
-///
 pub struct LayoutUnit {
   previous_constrains: LayoutConstraint,
   /// relative to parent top left

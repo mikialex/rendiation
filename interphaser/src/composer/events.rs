@@ -1,7 +1,8 @@
 use std::{any::Any, marker::PhantomData};
 
-use crate::*;
 use winit::event::*;
+
+use crate::*;
 
 pub struct EventHandleCtx {
   custom_event_emitter: CustomEventEmitter,

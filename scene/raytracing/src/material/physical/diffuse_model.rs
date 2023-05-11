@@ -1,6 +1,6 @@
-use crate::*;
-
 use rendiation_algebra::{InnerProductSpace, IntoNormalizedVector, Vec3, Vector};
+
+use crate::*;
 
 #[derive(Clone)]
 pub struct Lambertian;

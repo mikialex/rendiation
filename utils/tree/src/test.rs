@@ -1,7 +1,8 @@
+use std::ops::Deref;
+
 use incremental::*;
 
 use crate::*;
-use std::ops::Deref;
 
 #[derive(Incremental, Clone)]
 struct TestNode {

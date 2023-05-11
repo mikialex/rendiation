@@ -1,7 +1,8 @@
-use crate::NormalizedVec3;
 use dyn_clone::DynClone;
 use rendiation_algebra::*;
 use rendiation_geometry::SurfaceAreaMeasurable;
+
+use crate::NormalizedVec3;
 
 pub trait SurfaceAreaMeasureAble {
   fn surface_area(&self) -> f32;

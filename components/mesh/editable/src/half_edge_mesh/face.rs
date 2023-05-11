@@ -1,8 +1,7 @@
 use arena::Handle;
 
-use crate::{EdgeIterItem, HalfEdgeMesh, HalfEdgeMeshData};
-
 use super::HalfEdge;
+use crate::{EdgeIterItem, HalfEdgeMesh, HalfEdgeMeshData};
 
 #[derive(Clone, Copy)]
 pub struct HalfEdgeFace<M: HalfEdgeMeshData> {

@@ -1,14 +1,14 @@
 use std::cell::Cell;
 
+use dyn_downcast::*;
+use rendiation_algebra::Vec3;
+use rendiation_geometry::*;
+
+use super::AbstractMesh;
 use crate::{
   group::{GroupedMesh, MeshDrawGroup, MeshGroup},
   GPUConsumableMeshBuffer,
 };
-
-use super::AbstractMesh;
-use dyn_downcast::*;
-use rendiation_algebra::Vec3;
-use rendiation_geometry::*;
 
 pub trait IntersectAbleAbstractMesh {
   fn intersect_list(

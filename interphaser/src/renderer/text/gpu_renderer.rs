@@ -5,9 +5,8 @@ use rendiation_algebra::*;
 use rendiation_texture::Size;
 use webgpu::*;
 
-use crate::TextQuadInstance;
-
 use super::WebGPUxTextPrimitive;
+use crate::TextQuadInstance;
 
 pub struct TextWebGPURenderer {
   transform: UniformBufferData<Mat4<f32>>,

@@ -1,8 +1,6 @@
-use incremental::*;
-use rendiation_scene_interaction::*;
 use std::{cell::RefCell, rc::Rc, sync::Arc};
-use webgpu::RenderComponentAny;
 
+use incremental::*;
 use incremental::{DeltaOf, Incremental, SimpleIncremental};
 use interphaser::{
   mouse, mouse_move,
@@ -12,6 +10,8 @@ use rendiation_algebra::*;
 use rendiation_geometry::{IntersectAble, OptionalNearest, Plane, Ray3};
 use rendiation_mesh_generator::*;
 use rendiation_renderable_mesh::{vertex::Vertex, TriangleList};
+use rendiation_scene_interaction::*;
+use webgpu::RenderComponentAny;
 
 use crate::{
   helpers::{
@@ -27,7 +27,6 @@ const BLUE: Vec3<f32> = Vec3::new(0.3, 0.3, 0.8);
 
 /// Gizmo is a useful widget in 3d design/editor software.
 /// User could use this to modify the scene node's transformation.
-///
 pub struct Gizmo {
   states: GizmoState,
   root: SceneNode,

@@ -1,6 +1,7 @@
-use crate::*;
 use rendiation_geometry::{LineSegment, OptionalNearest, Point, Ray3, Triangle};
 use rendiation_renderable_mesh::*;
+
+use crate::*;
 
 impl<T: IntersectAbleGroupedMesh + IncrementalBase> IntersectAbleGroupedMesh for SceneItemRef<T> {
   fn intersect_list(

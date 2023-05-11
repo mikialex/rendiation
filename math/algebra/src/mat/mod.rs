@@ -4,6 +4,9 @@ mod mat3;
 mod mat4;
 mod transform;
 
+use std::ops::{Add, Div, Mul, Neg, Rem, Sub};
+use std::ops::{AddAssign, DivAssign, MulAssign, RemAssign, SubAssign};
+
 pub use dimension::*;
 pub use mat2::*;
 pub use mat3::*;
@@ -11,8 +14,6 @@ pub use mat4::*;
 pub use transform::*;
 
 use crate::*;
-use std::ops::{Add, Div, Mul, Neg, Rem, Sub};
-use std::ops::{AddAssign, DivAssign, MulAssign, RemAssign, SubAssign};
 
 #[rustfmt::skip]
 #[macro_export] 

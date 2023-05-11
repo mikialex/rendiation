@@ -1,8 +1,9 @@
-use crate::*;
-use reactive::{EventOnceSource, EventSource};
 use std::sync::atomic::{AtomicUsize, Ordering};
 
+use reactive::{EventOnceSource, EventSource};
+
 use super::scene_item::Mutating;
+use crate::*;
 
 static GLOBAL_ID: AtomicUsize = AtomicUsize::new(0);
 

@@ -1,9 +1,8 @@
 use rendiation_geometry::Triangle;
-
-use crate::*;
-
 use HalfEdgeBuildError::*;
 use NoneManifoldError::*;
+
+use crate::*;
 
 struct TestMeshSchema;
 

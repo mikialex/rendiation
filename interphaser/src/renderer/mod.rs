@@ -14,9 +14,8 @@ pub use text::*;
 pub mod graphics;
 pub use graphics::*;
 
-use crate::{FontManager, TextCache, TextHash};
-
 use super::{Primitive, UIPresentation};
+use crate::{FontManager, TextCache, TextHash};
 
 pub struct WebGPUxUIRenderTask<'a> {
   pub renderer: &'a mut WebGPUxUIRenderer,

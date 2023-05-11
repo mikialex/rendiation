@@ -1,8 +1,8 @@
-use crate::*;
-
 use bitflags::bitflags;
 use reactive::DefaultUnboundChannel;
 use tree::*;
+
+use crate::*;
 
 pub type SceneNodeData = Identity<SceneNodeDataImpl>;
 pub type SceneNodeHandle = TreeNodeHandle<SceneNodeData>;

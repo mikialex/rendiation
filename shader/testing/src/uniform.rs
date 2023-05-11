@@ -1,6 +1,7 @@
+use wgpu_types::TextureFormat;
+
 use crate as shadergraph;
 use crate::*;
-use wgpu_types::TextureFormat;
 
 #[derive(ShaderStruct, Clone, Copy, Default)]
 pub struct TestUniform {

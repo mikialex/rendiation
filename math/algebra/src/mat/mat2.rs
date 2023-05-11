@@ -1,5 +1,6 @@
-use crate::*;
 use std::ops::{Add, Mul};
+
+use crate::*;
 
 #[repr(C)]
 #[rustfmt::skip]

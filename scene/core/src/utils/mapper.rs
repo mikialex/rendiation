@@ -5,9 +5,8 @@ use std::{
   sync::{Arc, RwLock},
 };
 
-use crate::*;
-
 use super::identity::Identity;
+use crate::*;
 
 pub struct IdentityMapper<T, U: Incremental> {
   extra_change_source:

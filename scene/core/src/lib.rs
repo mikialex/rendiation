@@ -44,16 +44,15 @@ mod utils;
 pub use utils::*;
 
 mod systems;
-pub use systems::*;
-
-pub use dyn_downcast::*;
-
-use futures::Stream;
-use incremental::*;
-use rendiation_algebra::*;
 use std::any::Any;
 use std::hash::Hash;
 use std::{
   collections::HashMap,
   sync::{Arc, RwLock},
 };
+
+pub use dyn_downcast::*;
+use futures::Stream;
+use incremental::*;
+use rendiation_algebra::*;
+pub use systems::*;

@@ -1,6 +1,6 @@
-use crate::*;
-
 use Keyword as Kw;
+
+use crate::*;
 
 impl SyntaxElement for FunctionDefine {
   fn parse<'a>(lexer: &mut Lexer<'a>) -> Result<Self, ParseError<'a>> {

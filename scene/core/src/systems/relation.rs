@@ -1,10 +1,12 @@
-use crate::*;
-use arena::ArenaDelta;
 use core::hash::Hash;
+use std::collections::{HashMap, HashSet};
+
+use arena::ArenaDelta;
 use futures::StreamExt;
 use reactive::{do_updates, SignalStreamExt, VecUpdateUnit};
-use std::collections::{HashMap, HashSet};
 use tree::TreeMutation;
+
+use crate::*;
 
 pub struct OneToManyRefBookKeeping<O, M> {
   // we could use more efficient data structure

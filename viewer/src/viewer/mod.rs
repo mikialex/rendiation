@@ -17,11 +17,6 @@ use rendiation_scene_interaction::WebGPUScenePickingExt;
 pub mod selection;
 
 pub mod helpers;
-use self::{
-  helpers::{axis::AxisHelper, camera::CameraHelpers, grid::GridHelper, ground::GridGround},
-  selection::SelectionSet,
-};
-
 use interphaser::winit::event::{ElementState, Event, MouseButton};
 use interphaser::*;
 use rendiation_controller::{
@@ -30,6 +25,10 @@ use rendiation_controller::{
 use rendiation_texture::Size;
 use webgpu::*;
 
+use self::{
+  helpers::{axis::AxisHelper, camera::CameraHelpers, grid::GridHelper, ground::GridGround},
+  selection::SelectionSet,
+};
 use crate::*;
 
 impl CanvasPrinter for ViewerImpl {

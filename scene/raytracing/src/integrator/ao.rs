@@ -2,11 +2,10 @@ use rendiation_algebra::{Vec3, Vector};
 use rendiation_color::LinearRGBColor;
 use rendiation_geometry::Ray3;
 
+use super::Integrator;
 use crate::{
   math::uniform_sample_sphere_dir, FixedSamplesPerPixel, RayTraceable, RngSampler, Sampler,
 };
-
-use super::Integrator;
 
 pub struct AOIntegrator {
   sample_count: usize,

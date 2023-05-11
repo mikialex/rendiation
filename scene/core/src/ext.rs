@@ -1,9 +1,10 @@
-use incremental::{AnyClone, DynIncremental, SimpleIncremental};
-use smallvec::SmallVec;
 use std::{
   any::{Any, TypeId},
   fmt::Debug,
 };
+
+use incremental::{AnyClone, DynIncremental, SimpleIncremental};
+use smallvec::SmallVec;
 
 /// like any map, but clone able
 #[derive(Default, Clone)]

@@ -1,5 +1,6 @@
-use crate::*;
 use std::collections::HashSet;
+
+use crate::*;
 
 #[derive(Default)]
 pub struct ForeignImplCollector {

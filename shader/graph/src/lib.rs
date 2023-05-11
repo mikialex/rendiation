@@ -22,13 +22,6 @@ pub mod layout;
 pub use layout::*;
 
 pub mod std140;
-pub use std140::*;
-
-pub use bytemuck::*;
-pub use rendiation_algebra::*;
-pub use shader_derives::*;
-
-use arena_graph::*;
 use std::{
   any::{Any, TypeId},
   cell::{Cell, RefCell},
@@ -40,3 +33,9 @@ use std::{
   rc::Rc,
   sync::atomic::{AtomicUsize, Ordering},
 };
+
+use arena_graph::*;
+pub use bytemuck::*;
+pub use rendiation_algebra::*;
+pub use shader_derives::*;
+pub use std140::*;

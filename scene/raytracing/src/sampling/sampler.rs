@@ -1,6 +1,7 @@
+use std::sync::Arc;
+
 use rand::{prelude::SliceRandom, rngs::ThreadRng, Rng};
 use rendiation_algebra::Vec2;
-use std::sync::Arc;
 
 /// https://www.pbr-book.org/3ed-2018/Sampling_and_Reconstruction/Sampling_Interface#fragment-SamplerInterface-2
 

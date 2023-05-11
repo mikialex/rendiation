@@ -1,13 +1,13 @@
 use std::rc::Rc;
 
-use crate::*;
-
 use __core::cell::RefCell;
 use rendiation_geometry::OptionalNearest;
 use rendiation_renderable_mesh::MeshBufferHitPoint;
 use rendiation_scene_interaction::*;
 use shadergraph::*;
 use webgpu::*;
+
+use crate::*;
 
 pub trait WebGPUModelExt {
   fn into_matrix_overridable(self) -> OverridableMeshModelImpl;

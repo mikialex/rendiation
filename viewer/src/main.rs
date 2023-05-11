@@ -16,7 +16,6 @@ pub use viewer::*;
 
 pub mod app;
 pub use app::*;
-
 use interphaser::{Application, WindowConfig};
 
 fn main() {

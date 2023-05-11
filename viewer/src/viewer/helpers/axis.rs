@@ -8,9 +8,8 @@ use rendiation_renderable_mesh::{mesh::MeshBufferHitPoint, vertex::Vertex, Trian
 use rendiation_scene_interaction::{SceneRayInteractive, SceneRayInteractiveCtx};
 use webgpu::RenderComponentAny;
 
-use crate::*;
-
 use super::WidgetDispatcher;
+use crate::*;
 
 pub struct AxisHelper {
   pub enabled: bool,

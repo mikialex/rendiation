@@ -1,5 +1,6 @@
-use crate::TextureGenerator;
 use rendiation_algebra::*;
+
+use crate::TextureGenerator;
 
 /// https://flafla2.github.io/2014/08/09/perlinnoise.html
 pub struct PerlinNoise {

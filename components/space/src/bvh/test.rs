@@ -1,8 +1,7 @@
 use rendiation_geometry::Box3;
 
-use crate::utils::TreeBuildOption;
-
 use super::{BVHBuildStrategy, FlattenBVH};
+use crate::utils::TreeBuildOption;
 
 pub fn bvh_build<S: BVHBuildStrategy<Box3>>(
   boxes: &[Box3],

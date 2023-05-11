@@ -1,7 +1,5 @@
 use std::rc::Rc;
 
-use crate::*;
-
 use __core::{
   pin::Pin,
   task::{Context, Poll},
@@ -10,10 +8,11 @@ use futures::Stream;
 use incremental::*;
 use reactive::*;
 use rendiation_geometry::*;
+use rendiation_renderable_mesh::{vertex::Vertex, *};
 use shadergraph::*;
 use webgpu::*;
 
-use rendiation_renderable_mesh::{vertex::Vertex, *};
+use crate::*;
 
 #[derive(Clone)]
 pub struct FatlineMesh {

@@ -1,8 +1,9 @@
-use crate::{HalfEdgeMesh, HalfEdgeMeshData};
-use arena::Handle;
 use std::fmt::Debug;
 
+use arena::Handle;
+
 use super::{HalfEdgeFace, HalfEdgeVertex};
+use crate::{HalfEdgeMesh, HalfEdgeMeshData};
 
 #[derive(Clone, Copy)]
 // http://www.flipcode.com/archives/The_Half-Edge_Data_Structure.shtml

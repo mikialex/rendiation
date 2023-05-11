@@ -1,11 +1,13 @@
 #[cfg(test)]
-use crate::bst::{BSTTreeNodeRef, Oc};
-#[cfg(test)]
-use rendiation_abstract_tree::AbstractTreeNode;
-#[cfg(test)]
 use std::collections::HashSet;
 #[cfg(test)]
 use std::ops::Range;
+
+#[cfg(test)]
+use rendiation_abstract_tree::AbstractTreeNode;
+
+#[cfg(test)]
+use crate::bst::{BSTTreeNodeRef, Oc};
 
 #[cfg(test)]
 fn print(prefix: &String, name: String, node: &BSTTreeNodeRef<Oc, 8, 3>) {

@@ -1,5 +1,6 @@
-use crate::*;
 use wgpu_types::TextureFormat;
+
+use crate::*;
 struct Test;
 
 struct TestSemantic;

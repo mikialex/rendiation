@@ -66,7 +66,7 @@ wgsl_fn!(
 
     // should I use pow2 pow4 for optimization?
     let cutoff = pow(
-      clamp(1.0 - pow(light_distance / cutoff_distance, 4.), 0., 1.), // todo use saturate (naga issue)
+      clamp(1.0 - pow(light_distance / cutoff_distance, 4.), 0., 1.), /* todo use saturate (naga issue) */
       2.,
     );
 

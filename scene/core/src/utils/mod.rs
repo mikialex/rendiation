@@ -5,10 +5,9 @@ pub use mapper::*;
 mod scene_item;
 pub use scene_item::*;
 mod transformation;
-pub use transformation::*;
-
 use futures::Future;
 use reactive::{ChannelLike, DefaultSingleValueChannel, DefaultUnboundChannel};
+pub use transformation::*;
 
 use crate::*;
 

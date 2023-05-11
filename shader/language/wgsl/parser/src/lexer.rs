@@ -1,8 +1,8 @@
 use std::ops::Range;
 
-use crate::*;
-
 use CompoundAssignmentOperator as AssignOp;
+
+use crate::*;
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum Keyword {

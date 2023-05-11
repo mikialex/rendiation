@@ -1,12 +1,12 @@
 #![allow(clippy::suspicious_operation_groupings)]
 #![feature(trait_alias)]
 
-use rendiation_algebra::*;
-
 use std::iter::once;
 use std::iter::FromIterator;
 use std::marker::PhantomData;
 use std::ops::{Deref, DerefMut};
+
+use rendiation_algebra::*;
 
 pub mod dimension3;
 pub use dimension3::*;

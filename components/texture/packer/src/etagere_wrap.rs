@@ -1,5 +1,6 @@
-use crate::*;
 use etagere::{size2, AllocId, AtlasAllocator};
+
+use crate::*;
 
 pub struct EtagerePacker {
   config: PackerConfig,

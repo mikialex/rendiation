@@ -1,9 +1,9 @@
 #![feature(local_key_cell_methods)]
 
+use core::num::NonZeroU64;
 use std::path::Path;
 use std::{collections::HashMap, sync::Arc};
 
-use core::num::NonZeroU64;
 use gltf::{Node, Result as GltfResult};
 use rendiation_algebra::*;
 use rendiation_scene_core::{

@@ -5,7 +5,6 @@ pub mod orbit;
 pub use orbit::*;
 pub mod fps;
 pub use fps::*;
-
 use rendiation_algebra::{Mat4, Vec2};
 
 pub trait Controller {
