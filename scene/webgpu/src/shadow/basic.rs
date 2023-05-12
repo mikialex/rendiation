@@ -72,136 +72,159 @@ pub struct BasicShadowGPU {
   pub map: ShadowMap,
 }
 
-pub trait ShadowCameraCreator {
+pub trait ShadowSingleProjectCreator {
   fn build_shadow_projection(&self) -> Option<Box<dyn CameraProjection>>;
 }
 
-pub trait ShadowCameraCreator2 {
-  fn build_shadow_projection(&self) -> Option<Box<dyn CameraProjection>>;
-}
-
-impl ShadowCameraCreator2 for SceneLightKind {
+impl ShadowSingleProjectCreator for SceneLightKind {
   fn build_shadow_projection(&self) -> Option<Box<dyn CameraProjection>> {
-    todo!()
+    match self {
+      SceneLightKind::PointLight(_) => None,
+      SceneLightKind::SpotLight(light) => light.build_shadow_projection(),
+      SceneLightKind::DirectionalLight(light) => light.build_shadow_projection(),
+      SceneLightKind::Foreign(_) => None,
+      _ => None,
+    }
   }
 }
 
-type ReactiveBasicShadowSceneCamera = impl Stream<Item = ()> + AsRef<SceneCamera>;
+// struct ProjectShadowMapSystem {
+//   cameras: StreamMap<usize, ReactiveBasicShadowSceneCamera>,
+// }
 
-fn basic_shadow_gpu(light: SceneLight) -> Option<ReactiveBasicShadowSceneCamera> {
-  let l = light.read();
-  let proj = l.light.build_shadow_projection()?;
-  let camera = SceneCamera::create_camera_inner(proj, l.node.clone());
+// type ReactiveBasicShadowSceneCamera = impl Stream<Item = ()> + AsRef<SceneCamera>;
 
-  light
-    .unbound_listen_by(all_delta)
-    .fold_signal(camera, |delta, camera| {
-      match delta {
-        SceneLightInnerDelta::light(l) => {
-          let proj = l.build_shadow_projection().unwrap(); // todo
-          SceneCameraInnerDelta::projection(proj).apply_modify(camera)
-        }
-        SceneLightInnerDelta::node(n) => SceneCameraInnerDelta::node(n).apply_modify(camera),
-      }
-      Some(())
-    })
-    .into()
-}
+// fn basic_shadow_gpu(light: SceneLight) -> Option<ReactiveBasicShadowSceneCamera> {
+//   let l = light.read();
+//   let proj = l.light.build_shadow_projection()?;
+//   let camera = SceneCamera::create_camera_inner(proj, l.node.clone());
 
-fn get_shadow_map<T: Any + ShadowCameraCreator + Incremental>(
-  inner: &SceneItemRefGuard<T>,
-  resources: &SceneGPUSystem,
-  shadows: &mut ShadowMapSystem,
-  node: &SceneNode,
-) -> BasicShadowGPU {
-  let resolution = Size::from_usize_pair_min_one((512, 512));
+//   light.single_listen_by(with_field!(SceneLightInner => node));
 
-  let mut lights = resources.lights.borrow_mut();
-  lights
-    .inner
-    .entry(TypeId::of::<T>())
-    .or_insert_with(|| Box::<IdentityMapper<BasicShadowGPU, T>>::default())
-    .downcast_mut::<IdentityMapper<BasicShadowGPU, T>>()
-    .unwrap()
-    .get_update_or_insert_with_logic(inner, |logic| match logic {
-      ResourceLogic::Create(light) => {
-        let shadow_camera = light.build_shadow_camera(node);
-        let map = shadows.maps.allocate(resolution);
-        ResourceLogicResult::Create(BasicShadowGPU { shadow_camera, map })
-      }
-      ResourceLogic::Update(shadow, light) => {
-        let shadow_camera = light.build_shadow_camera(node);
-        let map = shadows.maps.allocate(resolution);
-        *shadow = BasicShadowGPU { shadow_camera, map };
-        ResourceLogicResult::Update(shadow)
-      }
-    })
-    .clone()
-}
+//   light
+//     .single_listen_by(with_field!(SceneLightInner => light))
+//     .filter_map_sync(|light: SceneLightKind| light.build_shadow_projection());
 
-pub fn request_basic_shadow_map<T: Any + ShadowCameraCreator + Incremental>(
-  inner: &SceneItemRefGuard<T>,
-  resources: &SceneGPUSystem,
-  shadows: &mut ShadowMapSystem,
-  node: &SceneNode,
-) {
-  get_shadow_map(inner, resources, shadows, node);
-}
+//   light
+//     .unbound_listen_by(all_delta)
+//     .fold_signal(camera, |delta, camera| {
+//       match delta {
+//         SceneLightInnerDelta::light(l) => {
+//           let proj = l.build_shadow_projection().unwrap(); // todo
+//           SceneCameraInnerDelta::projection(proj).apply_modify(camera)
+//         }
+//         SceneLightInnerDelta::node(n) => SceneCameraInnerDelta::node(n).apply_modify(camera),
+//       }
+//       Some(())
+//     })
+//     .into()
+// }
 
-pub fn check_update_basic_shadow_map<T: Any + ShadowCameraCreator + Incremental>(
-  inner: &SceneItemRefGuard<T>,
-  ctx: &mut LightUpdateCtx,
-  node: &SceneNode,
-) -> LightShadowAddressInfo {
-  let BasicShadowGPU { shadow_camera, map } =
-    get_shadow_map(inner, ctx.scene.scene_resources, ctx.shadows, node);
+// fn get_shadow_map<T>(
+//   inner: &SceneItemRef<T>,
+//   resources: &SceneGPUSystem,
+//   shadows: &mut ShadowMapSystem,
+//   node: &SceneNode,
+// ) -> BasicShadowGPU
+// where
+//   T: Any + Incremental,
+//   SceneItemRef<T>: ShadowSingleProjectCreator,
+// {
+//   let resolution = Size::from_usize_pair_min_one((512, 512));
 
-  let (view, map_info) = map.get_write_view(ctx.ctx.gpu);
+//   let mut lights = resources.lights.borrow_mut();
+//   lights
+//     .inner
+//     .entry(TypeId::of::<T>())
+//     .or_insert_with(|| Box::<IdentityMapper<BasicShadowGPU, T>>::default())
+//     .downcast_mut::<IdentityMapper<BasicShadowGPU, T>>()
+//     .unwrap()
+//     .get_update_or_insert_with_logic(inner, |logic| match logic {
+//       ResourceLogic::Create(light) => {
+//         let shadow_camera = light.build_shadow_camera(node);
+//         let map = shadows.maps.allocate(resolution);
+//         ResourceLogicResult::Create(BasicShadowGPU { shadow_camera, map })
+//       }
+//       ResourceLogic::Update(shadow, light) => {
+//         let shadow_camera = light.build_shadow_camera(node);
+//         let map = shadows.maps.allocate(resolution);
+//         *shadow = BasicShadowGPU { shadow_camera, map };
+//         ResourceLogicResult::Update(shadow)
+//       }
+//     })
+//     .clone()
+// }
 
-  let shadow_camera_info = ctx
-    .scene
-    .scene_resources
-    .cameras
-    .write()
-    .unwrap()
-    .get_or_insert(
-      &shadow_camera,
-      ctx.scene.node_derives,
-      &ctx.scene.resources.gpu,
-    )
-    .as_ref()
-    .inner
-    .ubo
-    .resource
-    .get();
+// pub fn request_basic_shadow_map<T>(
+//   inner: &SceneItemRef<T>,
+//   resources: &SceneGPUSystem,
+//   shadows: &mut ShadowMapSystem,
+//   node: &SceneNode,
+// ) where
+//   T: Any + Incremental,
+//   SceneItemRef<T>: ShadowSingleProjectCreator,
+// {
+//   get_shadow_map(inner, resources, shadows, node);
+// }
 
-  pass("shadow-depth")
-    .with_depth(view, clear(1.))
-    .render(ctx.ctx)
-    .by(CameraSceneRef {
-      camera: &shadow_camera,
-      scene: ctx.scene,
-      inner: SceneDepth,
-    });
+// pub fn check_update_basic_shadow_map<T>(
+//   inner: &SceneItemRef<T>,
+//   ctx: &mut LightingCtx,
+//   node: &SceneNode,
+// ) -> LightShadowAddressInfo
+// where
+//   T: Any + Incremental,
+//   SceneItemRef<T>: ShadowSingleProjectCreator,
+// {
+//   let BasicShadowGPU { shadow_camera, map } =
+//     get_shadow_map(inner, ctx.scene.scene_resources, ctx.shadows, node);
 
-  let shadows = ctx
-    .shadows
-    .shadow_collections
-    .entry(TypeId::of::<BasicShadowMapInfoList>())
-    .or_insert_with(|| Box::<BasicShadowMapInfoList>::default());
-  let shadows = shadows
-    .as_any_mut()
-    .downcast_mut::<BasicShadowMapInfoList>()
-    .unwrap();
+//   let (view, map_info) = map.get_write_view(ctx.ctx.gpu);
 
-  let index = shadows.list.source.len();
+//   let shadow_camera_info = ctx
+//     .scene
+//     .scene_resources
+//     .cameras
+//     .write()
+//     .unwrap()
+//     .get_or_insert(
+//       &shadow_camera,
+//       ctx.scene.node_derives,
+//       &ctx.scene.resources.gpu,
+//     )
+//     .as_ref()
+//     .inner
+//     .ubo
+//     .resource
+//     .get();
 
-  let mut info = BasicShadowMapInfo::default();
-  info.shadow_camera = shadow_camera_info;
-  info.bias = ShadowBias::new(-0.0001, 0.0);
-  info.map_info = map_info;
+//   pass("shadow-depth")
+//     .with_depth(view, clear(1.))
+//     .render(ctx.ctx)
+//     .by(CameraSceneRef {
+//       camera: &shadow_camera,
+//       scene: ctx.scene,
+//       inner: SceneDepth,
+//     });
 
-  shadows.list.source.push(info);
+//   let shadows = ctx
+//     .shadows
+//     .shadow_collections
+//     .entry(TypeId::of::<BasicShadowMapInfoList>())
+//     .or_insert_with(|| Box::<BasicShadowMapInfoList>::default());
+//   let shadows = shadows
+//     .as_any_mut()
+//     .downcast_mut::<BasicShadowMapInfoList>()
+//     .unwrap();
 
-  LightShadowAddressInfo::new(true, index as u32)
-}
+//   let index = shadows.list.source.len();
+
+//   let mut info = BasicShadowMapInfo::default();
+//   info.shadow_camera = shadow_camera_info;
+//   info.bias = ShadowBias::new(-0.0001, 0.0);
+//   info.map_info = map_info;
+
+//   shadows.list.source.push(info);
+
+//   LightShadowAddressInfo::new(true, index as u32)
+// }

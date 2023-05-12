@@ -72,44 +72,43 @@ impl PunctualShaderLight for SpotLightShaderInfo {
   }
 }
 
-impl WebGPUSceneLight for SceneItemRef<SpotLight> {
-  // allocate shadow maps
-  fn pre_update(&self, ctx: &mut LightUpdateCtx, node: &SceneNode) {
-    let inner = self.read();
-    request_basic_shadow_map(&inner, ctx.scene.scene_resources, ctx.shadows, node);
-  }
+// impl WebGPUSceneLight for SceneItemRef<SpotLight> {
+//   // allocate shadow maps
+//   fn pre_update(&self, ctx: &mut LightingCtx, node: &SceneNode) {
+//     request_basic_shadow_map(self, ctx.scene.scene_resources, ctx.shadows, node);
+//   }
 
-  fn update(&self, ctx: &mut LightUpdateCtx, node: &SceneNode) {
-    let light = self.read();
+//   fn update(&self, ctx: &mut LightingCtx, node: &SceneNode) {
+//     let shadow = check_update_basic_shadow_map(self, ctx, node);
 
-    let shadow = check_update_basic_shadow_map(&light, ctx, node);
+//     let light = self.read();
+//     let lights = ctx.forward.get_or_create_list();
+//     let world = ctx.scene.node_derives.get_world_matrix(node);
 
-    let lights = ctx.forward.get_or_create_list();
-    let world = ctx.scene.node_derives.get_world_matrix(node);
+//     let gpu = SpotLightShaderInfo {
+//       luminance_intensity: light.luminance_intensity * light.color_factor,
+//       direction: world.forward().reverse().normalize(),
+//       cutoff_distance: light.cutoff_distance,
+//       half_cone_cos: light.half_cone_angle.cos(),
+//       half_penumbra_cos: light.half_penumbra_angle.cos(),
+//       position: world.position(),
+//       shadow,
+//       ..Zeroable::zeroed()
+//     };
 
-    let gpu = SpotLightShaderInfo {
-      luminance_intensity: light.luminance_intensity * light.color_factor,
-      direction: world.forward().reverse().normalize(),
-      cutoff_distance: light.cutoff_distance,
-      half_cone_cos: light.half_cone_angle.cos(),
-      half_penumbra_cos: light.half_penumbra_angle.cos(),
-      position: world.position(),
-      shadow,
-      ..Zeroable::zeroed()
-    };
+//     lights.source.push(gpu)
+//   }
+// }
 
-    lights.source.push(gpu)
-  }
-}
-
-impl ShadowCameraCreator for SpotLight {
-  fn build_shadow_camera(&self, node: &SceneNode) -> SceneCamera {
+impl ShadowSingleProjectCreator for SceneItemRef<SpotLight> {
+  fn build_shadow_projection(&self) -> Option<Box<dyn CameraProjection>> {
     let proj = PerspectiveProjection {
       near: 0.1,
       far: 2000.,
-      fov: Deg::from_rad(self.half_cone_angle * 2.),
+      fov: Deg::from_rad(self.read().half_cone_angle * 2.),
       aspect: 1.,
     };
-    SceneCamera::create_camera(proj, node.clone())
+    let orth = Box::new(proj) as Box<dyn CameraProjection>;
+    orth.into()
   }
 }

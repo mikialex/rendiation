@@ -68,34 +68,59 @@ wgsl_fn!(
   }
 );
 
-impl WebGPUSceneLight for SceneItemRef<DirectionalLight> {
-  // allocate shadow maps
-  fn pre_update(&self, ctx: &mut LightUpdateCtx, node: &SceneNode) {
-    let inner = self.read();
-    request_basic_shadow_map(&inner, ctx.scene.scene_resources, ctx.shadows, node);
-  }
+// impl WebGPULight for SceneItemRef<DirectionalLight> {
+//   type Uniform = DirectionalLightShaderInfo;
 
-  fn update(&self, ctx: &mut LightUpdateCtx, node: &SceneNode) {
-    let light = self.read();
-    let shadow = check_update_basic_shadow_map(&light, ctx, node);
+//   fn create_uniform_stream(
+//     &self,
+//     ctx: &mut LightResourceCtx,
+//     node: Box<dyn Stream<Item = SceneNode>>,
+//   ) -> impl Stream<Item = Self::Uniform> {
+//     let weak = self.downgrade();
+//     self.single_listen_by(any_change).filter_map_sync(|| {
+//       weak.upgrade().map(|light| DirectionalLightShaderInfo {
+//         illuminance: light.illuminance * light.color_factor,
+//         direction: ctx
+//           .scene
+//           .node_derives
+//           .get_world_matrix(node)
+//           .forward()
+//           .reverse()
+//           .normalize(),
+//         shadow,
+//         ..Zeroable::zeroed()
+//       })
+//     })
+//   }
+// }
 
-    let lights = ctx.forward.get_or_create_list();
-    let gpu = DirectionalLightShaderInfo {
-      illuminance: light.illuminance * light.color_factor,
-      direction: ctx
-        .scene
-        .node_derives
-        .get_world_matrix(node)
-        .forward()
-        .reverse()
-        .normalize(),
-      shadow,
-      ..Zeroable::zeroed()
-    };
+// impl WebGPUSceneLight for SceneItemRef<DirectionalLight> {
+//   // allocate shadow maps
+//   fn pre_update(&self, ctx: &mut LightingCtx, node: &SceneNode) {
+//     request_basic_shadow_map(self, ctx.scene.scene_resources, ctx.shadows, node);
+//   }
 
-    lights.source.push(gpu)
-  }
-}
+//   fn update(&self, ctx: &mut LightingCtx, node: &SceneNode) {
+//     let shadow = check_update_basic_shadow_map(self, ctx, node);
+
+//     let light = self.read();
+//     let lights = ctx.forward.get_or_create_list();
+//     let gpu = DirectionalLightShaderInfo {
+//       illuminance: light.illuminance * light.color_factor,
+//       direction: ctx
+//         .scene
+//         .node_derives
+//         .get_world_matrix(node)
+//         .forward()
+//         .reverse()
+//         .normalize(),
+//       shadow,
+//       ..Zeroable::zeroed()
+//     };
+
+//     lights.source.push(gpu)
+//   }
+// }
 
 #[derive(Copy, Clone)]
 pub struct DirectionalShadowMapExtraInfo {
@@ -118,16 +143,16 @@ impl Default for DirectionalShadowMapExtraInfo {
   }
 }
 
-impl ShadowCameraCreator for DirectionalLight {
-  fn build_shadow_camera(&self, node: &SceneNode) -> SceneCamera {
-    let extra = self
-      .ext
-      .get::<DirectionalShadowMapExtraInfo>()
-      .copied()
-      .unwrap_or_default();
+impl ShadowSingleProjectCreator for SceneItemRef<DirectionalLight> {
+  fn build_shadow_projection(&self) -> Option<Box<dyn CameraProjection>> {
+    let light = self.read();
+    let shadow_info = light.ext.get::<DirectionalShadowMapExtraInfo>()?;
 
-    let orth = WorkAroundResizableOrth { orth: extra.range };
-    SceneCamera::create_camera(orth, node.clone())
+    let orth = WorkAroundResizableOrth {
+      orth: shadow_info.range,
+    };
+    let orth = Box::new(orth) as Box<dyn CameraProjection>;
+    orth.into()
   }
 }
 

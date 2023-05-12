@@ -1,30 +1,5 @@
 use crate::*;
 
-pub fn get_main_pass_load_op(scene: &SceneInner) -> webgpu::Operations<webgpu::Color> {
-  let load = if let Some(bg) = &scene.background {
-    if let Some(clear_color) = match bg {
-      SceneBackGround::Solid(bg) => bg.require_pass_clear(),
-      SceneBackGround::Env(bg) => bg.require_pass_clear(),
-      SceneBackGround::Foreign(bg) => {
-        if let Some(bg) = bg.downcast_ref::<Box<dyn WebGPUBackground>>() {
-          bg.require_pass_clear()
-        } else {
-          None
-        }
-      }
-      _ => None,
-    } {
-      webgpu::LoadOp::Clear(clear_color)
-    } else {
-      webgpu::LoadOp::Load
-    }
-  } else {
-    webgpu::LoadOp::Load
-  };
-
-  webgpu::Operations { load, store: true }
-}
-
 pub struct ForwardScene<'a> {
   pub lights: &'a ForwardLightingSystem,
   pub shadow: &'a ShadowMapSystem,

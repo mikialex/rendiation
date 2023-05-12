@@ -35,22 +35,22 @@ impl PunctualShaderLight for PointLightShaderInfo {
   }
 }
 
-impl WebGPUSceneLight for SceneItemRef<PointLight> {
-  fn update(&self, ctx: &mut LightUpdateCtx, node: &SceneNode) {
-    let light = self.read();
+// impl WebGPUSceneLight for SceneItemRef<PointLight> {
+//   fn update(&self, ctx: &mut LightingCtx, node: &SceneNode) {
+//     let light = self.read();
 
-    let lights = ctx.forward.get_or_create_list();
+//     let lights = ctx.forward.get_or_create_list();
 
-    let gpu = PointLightShaderInfo {
-      luminance_intensity: light.luminance_intensity * light.color_factor,
-      position: ctx.scene.node_derives.get_world_matrix(node).position(),
-      cutoff_distance: light.cutoff_distance,
-      ..Zeroable::zeroed()
-    };
+//     let gpu = PointLightShaderInfo {
+//       luminance_intensity: light.luminance_intensity * light.color_factor,
+//       position: ctx.scene.node_derives.get_world_matrix(node).position(),
+//       cutoff_distance: light.cutoff_distance,
+//       ..Zeroable::zeroed()
+//     };
 
-    lights.source.push(gpu)
-  }
-}
+//     lights.source.push(gpu)
+//   }
+// }
 
 wgsl_fn!(
   // based upon Frostbite 3 Moving to Physically-based Rendering
