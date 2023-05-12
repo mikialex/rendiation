@@ -71,11 +71,8 @@ impl ReactiveRenderComponentSource for ReactiveFatlineGPU {
 }
 
 impl MeshDrawcallEmitter for ReactiveFatlineGPU {
-  fn draw_command(&self, group: MeshDrawGroup) -> DrawCommand {
-    let range = match group {
-      MeshDrawGroup::Full => self.inner.as_ref().inner.range_full,
-      MeshDrawGroup::SubMesh(i) => self.inner.as_ref().inner.groups.groups[i],
-    };
+  fn draw_command(&self, _group: MeshDrawGroup) -> DrawCommand {
+    let range = self.inner.as_ref().inner.range_full;
 
     FATLINE_INSTANCE.with(|instance| DrawCommand::Indexed {
       base_vertex: 0,
@@ -111,7 +108,6 @@ impl WebGPUMesh for FatlineMesh {
           .data
           .clone();
 
-        let groups = mesh.inner.groups.clone();
         let range_full = MeshGroup {
           start: 0,
           count: mesh.inner.mesh.draw_count(),
@@ -121,7 +117,6 @@ impl WebGPUMesh for FatlineMesh {
           vertex,
           instance,
           range_full,
-          groups,
         })
       } else {
         None
@@ -175,7 +170,6 @@ pub struct FatlineMeshGPU {
   /// All fatline gpu instance shall share one instance buffer
   instance: Rc<MeshGPU>,
   range_full: MeshGroup,
-  groups: MeshGroupsInfo,
 }
 
 impl Stream for FatlineMeshGPU {
