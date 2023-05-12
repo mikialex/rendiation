@@ -1,9 +1,11 @@
 [package]
 authors = ["mikialex <18516340862@163.com>"]
 edition = "2021"
-name = "canvase"
+name = "rendiation-canvas"
 version = "0.1.0"
 
 [dependencies]
 rendiation-algebra = {path = "../../math/algebra"}
+rendiation-geometry = {path = "../../math/geometry"}
+rendiation-color = {path = "../color"}
 bytemuck = "1.4.1"

@@ -1,4 +1,24 @@
 use rendiation_algebra::*;
+use rendiation_color::*;
+use rendiation_geometry::*;
+
+mod path;
+mod shape;
+mod style;
+
+pub use path::*;
+pub use shape::*;
+pub use style::*;
+
+pub trait PainterAPI {
+  type Image;
+
+  // fn register_image(&mut self, image: &Self::Image) -> TextureHandle;
+  // fn release_image(&mut self, image: &TextureHandle);
+
+  fn stock_shape(&mut self, shape: &impl Shape, fill: &StrokeStyle);
+  fn fill_shape(&mut self, shape: &impl Shape, fill: &FillStyle);
+}
 
 pub trait Canvas2DPathBuilder {
   fn move_to(&mut self, point: Vec2<f32>);

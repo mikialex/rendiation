@@ -10,14 +10,10 @@ trait View {
   type Event;
   type React;
 
-  fn event(
-    &mut self,
-    request: ViewRequest<Self::Event>,
-    cb: &mut dyn FnMut(ViewReaction<Self::React>),
-  );
+  fn event(&mut self, request: ViewRequest<Self::Event>, cb: impl FnMut(ViewReact<Self::React>));
 }
 
-pub enum ViewReaction<V> {
+pub enum ViewReact<V> {
   ViewEvent(V),
   LayoutChanged,
   RenderChanged,
@@ -66,19 +62,25 @@ impl View for TextBox {
   fn event(
     &mut self,
     request: ViewRequest<Self::Event>,
-    cb: &mut dyn FnMut(ViewReaction<Self::React>),
+    mut cb: impl FnMut(ViewReact<Self::React>),
   ) {
     match request {
-      ViewRequest::Platform(_event) => {
-        let react = false;
-        // omit
-        // processing platform events
-        // modify self editing text, and dispatch events
+      ViewRequest::Platform(event) => {
+        match event {
+          PlatformRequest::Event { event: _ } => {
+            let react = false;
+            // omit
+            // processing platform events
+            // modify self editing text, and dispatch events
 
-        if react {
-          cb(ViewReaction::ViewEvent(TextBoxEvent::Submit(
-            self.texting.clone(),
-          )))
+            if react {
+              cb(ViewReact::ViewEvent(TextBoxEvent::Submit(
+                self.texting.clone(),
+              )))
+            }
+          }
+          PlatformRequest::Layout { .. } => cb(ViewReact::RenderChanged),
+          PlatformRequest::Rendering { .. } => todo!(),
         }
       }
       ViewRequest::State(delta, _) => {
@@ -86,37 +88,37 @@ impl View for TextBox {
           TextBoxDelta::Text(t) => self.texting = t.clone(),
           TextBoxDelta::Placeholder(t) => self.placeholder = t.clone(),
         }
-        cb(ViewReaction::LayoutChanged)
+        cb(ViewReact::LayoutChanged)
       }
     }
   }
 }
 
-// struct ViewDeltaTransform<T: Incremental, V: View> {
+// struct ViewDeltaTransform<T, V: View, F> {
 //   view: V,
-//   binding: Box<dyn Fn(&DeltaOf<T>, &mut V, &mut dyn FnMut(ViewReaction<V::Event>))>,
+//   transform: F,
+//   phantom: std::marker::PhantomData<T>,
 // }
 
-// impl<T: Incremental, V: View> View for ViewDeltaTransform<T, V> {
-//   type Input = T::Delta;
-//   type Event = V::Event;
+// impl<T, V: View, F> View for ViewDeltaTransform<T, V, F>
+// where
+//   F: Fn(&T) -> V::Event,
+//   V::Event: 'static,
+// {
+//   type Event = T;
+//   type React = V::React;
 
-//   fn event(
-//     &mut self,
-//     request: ViewRequest<Self::Input>,
-//     cb: &mut dyn FnMut(ViewReaction<Self::Event>),
-//   ) {
-//     match request {
+//   fn event(&mut self, request: ViewRequest<Self::Event>, cb: impl FnMut(ViewReact<Self::React>))
+// {     match request {
 //       ViewRequest::Platform(event) => {
-//         self.view.event(request, cb)
+//         let mapped = ViewRequest::Platform(event);
+//         self.view.event(mapped, cb)
 //       }
-//       ViewRequest::State(delta, _) => {
-//         match delta {
-//           TextBoxDelta::Text(t) => self.texting = t.clone(),
-//           TextBoxDelta::Placeholder(t) => self.placeholder = t.clone(),
-//         }
-//         cb(ViewReaction::LayoutChanged)
+//       ViewRequest::State(delta, cx) => {
+//         let delta = (self.transform)(&delta);
+//         let mapped = ViewRequest::State(&delta, cx);
+//         self.view.event(mapped, cb)
 //       }
-//     }
+//     };
 //   }
 // }

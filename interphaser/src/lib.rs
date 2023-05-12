@@ -37,3 +37,4 @@ pub use app::*;
 mod perf;
 pub use fontext::*;
 pub use perf::*;
+pub use rendiation_canvas::*;

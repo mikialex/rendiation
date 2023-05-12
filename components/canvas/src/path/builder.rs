@@ -1,7 +1,4 @@
-use rendiation_algebra::Vec2;
-use rendiation_geometry::LineSegment;
-
-use crate::{Path2D, Path2dSegment};
+use crate::*;
 
 pub struct Path2dBuilder {
   path: Vec<Path2dSegment<f32>>,
