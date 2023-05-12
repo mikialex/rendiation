@@ -13,6 +13,3 @@ pub use structure::*;
 
 mod events;
 pub use events::*;
-
-mod if_changed;
-pub use if_changed::*;

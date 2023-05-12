@@ -19,6 +19,7 @@ rendiation-texture = {path = "../components/texture/core"}
 shadergraph = {path = "../shader/graph"}
 webgpu = {package = "rendiation-webgpu", path = "../webgpu"}
 winit = {version = "0.27.1"}
+incremental = {path = "../utils/incremental"}
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 console_error_panic_hook = "0.1.6"

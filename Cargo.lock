@@ -1448,6 +1448,7 @@ dependencies = [
  "console_error_panic_hook",
  "fontext",
  "image",
+ "incremental",
  "instant",
  "log",
  "rendiation-algebra",
