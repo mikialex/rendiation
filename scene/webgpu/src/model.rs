@@ -65,13 +65,9 @@ pub fn setup_pass_core(
 
       let components = [pass_gpu, mesh_gpu, node_gpu, camera_gpu, material_gpu];
 
-      let mesh: &dyn MeshDrawcallEmitter = &model.mesh;
-      let emitter = MeshDrawcallEmitterWrap {
-        group: model.group,
-        mesh,
-      };
+      let draw_command = mesh_gpu.draw_command(model.group);
 
-      RenderEmitter::new(components.as_slice()).render(&mut pass.ctx, &emitter);
+      RenderEmitter::new(components.as_slice()).render(&mut pass.ctx, draw_command);
     }
     ModelType::Foreign(model) => {
       if let Some(model) = model.downcast_ref::<Box<dyn SceneRenderable>>() {
@@ -95,10 +91,11 @@ impl SceneRenderable for SceneModelImpl {
 
 #[pin_project::pin_project]
 pub struct StandardModelGPU {
-  material_id: Option<usize>,
+  pub(crate) material_id: Option<usize>,
   material_delta: Option<ReactiveMaterialRenderComponentDeltaSource>,
-  mesh_id: Option<usize>,
+  pub(crate) mesh_id: Option<usize>,
   mesh_delta: Option<ReactiveMeshRenderComponentDeltaSource>,
+  pub(crate) group: MeshDrawGroup,
 }
 
 impl Stream for StandardModelGPU {
@@ -126,13 +123,14 @@ pub fn build_standard_model_gpu(
     material_delta: ctx.get_or_create_reactive_material_render_component_delta_source(&s.material),
     mesh_id: s.mesh.guid(),
     mesh_delta: ctx.get_or_create_reactive_mesh_render_component_delta_source(&s.mesh),
+    group: s.group,
   };
 
   let state = RenderComponentCell::new(gpu);
   let ctx = ctx.clone();
 
   source
-    .unbound_listen_by(all_delta)
+    .unbound_listen_by(all_delta_no_init)
     .fold_signal_flatten(state, move |delta, state| {
       match delta {
         StandardModelDelta::material(material) => {
@@ -147,7 +145,10 @@ pub fn build_standard_model_gpu(
             ctx.get_or_create_reactive_mesh_render_component_delta_source(&mesh);
           RenderComponentDeltaFlag::ContentRef
         }
-        StandardModelDelta::group(_) => RenderComponentDeltaFlag::Draw,
+        StandardModelDelta::group(g) => {
+          state.group = g;
+          RenderComponentDeltaFlag::Draw
+        }
         StandardModelDelta::skeleton(_) => RenderComponentDeltaFlag::all(),
       }
       .into()
@@ -189,8 +190,8 @@ impl Stream for ReactiveModelGPUType {
 
 #[pin_project::pin_project]
 pub struct ReactiveSceneModelGPU {
-  node_id: usize, // todo add stream here
-  model_id: Option<usize>,
+  pub(crate) node_id: usize, // todo add stream here
+  pub(crate) model_id: Option<usize>,
   model_delta: Option<ReactiveModelRenderComponentDeltaSource>,
 }
 
@@ -241,7 +242,7 @@ pub fn build_scene_model_gpu(
   let model_delta = ctx.get_or_create_reactive_model_render_component_delta_source(&source.model);
 
   let instance = ReactiveSceneModelGPU {
-    node_id: source.node.guid(),
+    node_id: source.node.raw_handle().index(),
     model_id,
     model_delta,
   };
@@ -260,7 +261,8 @@ pub fn build_scene_model_gpu(
           state.inner.model_delta = model_delta;
           RenderComponentDeltaFlag::ContentRef
         }
-        SceneModelImplDelta::node(_) => {
+        SceneModelImplDelta::node(node) => {
+          state.inner.node_id = node.raw_handle().index();
           // todo, handle node change
           RenderComponentDeltaFlag::ContentRef
         }

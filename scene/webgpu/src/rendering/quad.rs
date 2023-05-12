@@ -53,12 +53,6 @@ impl Default for FullScreenQuad {
   }
 }
 
-impl DrawcallEmitter for FullScreenQuad {
-  fn draw(&self, ctx: &mut webgpu::GPURenderPassCtx) {
-    ctx.pass.draw(0..4, 0..1)
-  }
-}
-
 impl ShaderPassBuilder for FullScreenQuad {}
 impl ShaderHashProvider for FullScreenQuad {
   fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
@@ -116,6 +110,11 @@ pub trait UseQuadDraw: Sized {
   }
 }
 
+pub const QUAD_DRAW_CMD: DrawCommand = DrawCommand::Array {
+  vertices: 0..4,
+  instances: 0..1,
+};
+
 impl<T> UseQuadDraw for T {}
 
 impl<T> PassContent for QuadDraw<T>
@@ -126,6 +125,7 @@ where
     let mut base = pass.default_dispatcher();
     base.auto_write = false;
     let components: [&dyn RenderComponentAny; 3] = [&base, &self.quad, &self.content];
-    RenderEmitter::new(components.as_slice()).render(&mut pass.ctx, &self.quad);
+
+    RenderEmitter::new(components.as_slice()).render(&mut pass.ctx, QUAD_DRAW_CMD);
   }
 }

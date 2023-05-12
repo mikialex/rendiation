@@ -1,3 +1,5 @@
+use std::sync::RwLockReadGuard;
+
 use crate::*;
 
 #[derive(Default)]
@@ -57,14 +59,97 @@ impl RenderList {
     dispatcher: &dyn RenderComponentAny,
     camera: &SceneCamera,
   ) {
+    let resource_view = ModelGPURenderResourceView::new(gpu_pass);
+    let camera_gpu = resource_view.cameras.get_camera_gpu(camera).unwrap();
+
     let models = &scene.models;
+
     self.opaque.iter().for_each(|(handle, _)| {
       let model = models.get(*handle).unwrap();
-      model.render(gpu_pass, dispatcher, camera)
+      scene_model_setup_pass_core(
+        gpu_pass,
+        model.guid(),
+        camera_gpu,
+        &resource_view,
+        dispatcher,
+      );
     });
     self.transparent.iter().for_each(|(handle, _)| {
       let model = models.get(*handle).unwrap();
-      model.render(gpu_pass, dispatcher, camera)
+      scene_model_setup_pass_core(
+        gpu_pass,
+        model.guid(),
+        camera_gpu,
+        &resource_view,
+        dispatcher,
+      );
     });
   }
+}
+
+struct ModelGPURenderResourceView<'a> {
+  nodes: &'a SceneNodeGPUSystem,
+  cameras: &'a SceneCameraGPUSystem,
+  scene_models: RwLockReadGuard<'a, StreamMap<usize, ReactiveSceneModelGPUInstance>>,
+  models: RwLockReadGuard<'a, StreamMap<usize, ReactiveModelGPUType>>,
+  materials: RwLockReadGuard<'a, StreamMap<usize, MaterialGPUInstance>>,
+  meshes: RwLockReadGuard<'a, StreamMap<usize, MeshGPUInstance>>,
+}
+
+impl<'a> ModelGPURenderResourceView<'a> {
+  pub fn new(pass: &SceneRenderPass<'_, '_, 'a>) -> Self {
+    Self {
+      nodes: &pass.scene_resources.nodes,
+      cameras: &pass.scene_resources.cameras,
+      scene_models: pass.scene_resources.models.read().unwrap(),
+      models: pass.resources.models.read().unwrap(),
+      materials: pass.resources.model_ctx.materials.read().unwrap(),
+      meshes: pass.resources.model_ctx.meshes.read().unwrap(),
+    }
+  }
+}
+
+fn scene_model_setup_pass_core(
+  gpu_pass: &mut SceneRenderPass,
+  model_guid: usize,
+  camera_gpu: &CameraGPU,
+  resource_view: &ModelGPURenderResourceView,
+  dispatcher: &dyn RenderComponentAny,
+) {
+  let scene_model = resource_view.scene_models.get(&model_guid).unwrap();
+  let scene_model = scene_model.as_ref();
+
+  let model_id = scene_model.model_id.unwrap();
+  let model_gpu = resource_view.models.get(&model_id).unwrap();
+  let node_gpu = resource_view.nodes.get_by_raw(scene_model.node_id).unwrap();
+
+  if let ReactiveModelGPUType::Standard(m_gpu) = model_gpu {
+    model_setup_pass_core(
+      gpu_pass,
+      m_gpu.as_ref(),
+      camera_gpu,
+      node_gpu,
+      resource_view,
+      dispatcher,
+    );
+  }
+}
+
+fn model_setup_pass_core(
+  pass: &mut SceneRenderPass,
+  model_gpu: &StandardModelGPU,
+  camera_gpu: &CameraGPU,
+  node_gpu: &NodeGPU,
+  ctx: &ModelGPURenderResourceView,
+  dispatcher: &dyn RenderComponentAny,
+) {
+  let material_gpu = ctx.materials.get(&model_gpu.material_id.unwrap()).unwrap();
+  let mesh_gpu = ctx.meshes.get(&model_gpu.mesh_id.unwrap()).unwrap();
+  let pass_gpu = dispatcher;
+
+  let components = [pass_gpu, mesh_gpu, node_gpu, camera_gpu, material_gpu];
+
+  let draw_command = mesh_gpu.draw_command(model_gpu.group);
+
+  RenderEmitter::new(components.as_slice()).render(&mut pass.ctx, draw_command);
 }

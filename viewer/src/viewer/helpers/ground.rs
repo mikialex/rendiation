@@ -5,11 +5,13 @@ use reactive::ReactiveMap;
 use rendiation_scene_core::{
   any_change, IntoSceneItemRef, SceneItemReactiveSimpleMapping, SceneItemRef,
 };
-use rendiation_scene_webgpu::{generate_quad, CameraGPU, MaterialStates, PassContentWithCamera};
+use rendiation_scene_webgpu::{
+  generate_quad, CameraGPU, MaterialStates, PassContentWithCamera, QUAD_DRAW_CMD,
+};
 use shadergraph::*;
 use webgpu::{
-  create_uniform, DrawcallEmitter, RenderComponent, RenderComponentAny, RenderEmitter,
-  ShaderHashProvider, ShaderHashProviderAny, ShaderPassBuilder, UniformBufferDataView, GPU,
+  create_uniform, RenderComponent, RenderComponentAny, RenderEmitter, ShaderHashProvider,
+  ShaderHashProviderAny, ShaderPassBuilder, UniformBufferDataView, GPU,
 };
 use wgsl_shader_derives::wgsl_fn;
 
@@ -39,7 +41,7 @@ impl PassContentWithCamera for &mut GridGround {
     };
 
     let components: [&dyn RenderComponentAny; 3] = [&base, &effect, grid_gpu.shading.as_ref()];
-    RenderEmitter::new(components.as_slice()).render(&mut pass.ctx, &effect);
+    RenderEmitter::new(components.as_slice()).render(&mut pass.ctx, QUAD_DRAW_CMD);
   }
 }
 
@@ -146,11 +148,6 @@ pub struct InfinityShaderPlaneEffect<'a> {
   camera: &'a CameraGPU,
 }
 
-impl<'a> DrawcallEmitter for InfinityShaderPlaneEffect<'a> {
-  fn draw(&self, ctx: &mut webgpu::GPURenderPassCtx) {
-    ctx.pass.draw(0..4, 0..1)
-  }
-}
 impl<'a> ShaderHashProvider for InfinityShaderPlaneEffect<'a> {}
 impl<'a> ShaderHashProviderAny for InfinityShaderPlaneEffect<'a> {
   fn hash_pipeline_and_with_type_id(&self, hasher: &mut webgpu::PipelineHasher) {

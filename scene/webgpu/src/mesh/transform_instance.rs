@@ -3,6 +3,7 @@ use crate::*;
 pub struct TransformInstanceGPU {
   mesh_gpu: Box<MeshGPUInstance>,
   instance_gpu: GPUBufferResourceView,
+  transforms_count: u32,
 }
 
 impl Stream for TransformInstanceGPU {
@@ -65,6 +66,26 @@ impl ReactiveRenderComponentSource for TransformInstanceGPUReactive {
   }
 }
 
+impl MeshDrawcallEmitter for TransformInstanceGPUReactive {
+  fn draw_command(&self, group: MeshDrawGroup) -> DrawCommand {
+    let inner: &TransformInstanceGPU = self.as_ref();
+    let mut c = inner.mesh_gpu.draw_command(group);
+
+    match &mut c {
+      DrawCommand::Indexed { instances, .. } => {
+        assert_eq!(*instances, 0..1);
+        *instances = 0..inner.transforms_count
+      }
+      DrawCommand::Array { instances, .. } => {
+        assert_eq!(*instances, 0..1);
+        *instances = 0..inner.transforms_count
+      }
+      DrawCommand::Skip => {}
+    }
+    c
+  }
+}
+
 type TransformInstanceGPUReactive =
   impl AsRef<RenderComponentCell<TransformInstanceGPU>> + Stream<Item = RenderComponentDeltaFlag>;
 
@@ -92,9 +113,12 @@ impl WebGPUMesh for TransformInstancedSceneMesh {
         )
         .create_default_view();
 
+        let transforms_count = mesh.transforms.len() as u32;
+
         let r = TransformInstanceGPU {
           mesh_gpu,
           instance_gpu,
+          transforms_count,
         };
         Some(r)
       } else {
@@ -115,21 +139,5 @@ impl WebGPUMesh for TransformInstancedSceneMesh {
           None
         }
       })
-  }
-
-  fn draw_impl(&self, group: MeshDrawGroup) -> DrawCommand {
-    let mut inner = self.mesh.draw_impl(group);
-    match &mut inner {
-      DrawCommand::Indexed { instances, .. } => {
-        assert_eq!(*instances, 0..1);
-        *instances = 0..self.transforms.len() as u32;
-      }
-      DrawCommand::Array { instances, .. } => {
-        assert_eq!(*instances, 0..1);
-        *instances = 0..self.transforms.len() as u32;
-      }
-      DrawCommand::Skip => {}
-    }
-    inner
   }
 }

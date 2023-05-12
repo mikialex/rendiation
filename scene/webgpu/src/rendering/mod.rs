@@ -29,26 +29,11 @@ pub use pass_base::*;
 
 use crate::*;
 
-pub trait MeshDrawcallEmitter {
-  fn draw(&self, ctx: &mut GPURenderPassCtx, group: MeshDrawGroup);
-}
-
-pub struct MeshDrawcallEmitterWrap<'a> {
-  pub group: MeshDrawGroup,
-  pub mesh: &'a dyn MeshDrawcallEmitter,
-}
-
-impl<'a> DrawcallEmitter for MeshDrawcallEmitterWrap<'a> {
-  fn draw(&self, ctx: &mut GPURenderPassCtx) {
-    self.mesh.draw(ctx, self.group)
-  }
-}
-
-pub struct SceneRenderPass<'a, 'b, 'c> {
-  pub ctx: GPURenderPassCtx<'a, 'b>,
+pub struct SceneRenderPass<'encoder, 'b, 'c> {
+  pub ctx: GPURenderPassCtx<'encoder, 'b>,
   pub resources: &'c ContentGPUSystem,
   pub scene_resources: &'c SceneGPUSystem,
-  pub node_derives: &'a SceneNodeDeriveSystem,
+  pub node_derives: &'c SceneNodeDeriveSystem,
   pub pass_info: UniformBufferDataView<RenderPassGPUInfoData>,
 }
 

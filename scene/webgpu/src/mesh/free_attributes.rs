@@ -4,6 +4,7 @@ pub struct AttributesMeshGPU {
   attributes: Vec<(AttributeSemantic, GPUBufferResourceView)>,
   indices: Option<(GPUBufferResourceView, webgpu::IndexFormat)>,
   mode: webgpu::PrimitiveTopology,
+  draw: DrawCommand,
 }
 
 impl Stream for AttributesMeshGPU {
@@ -132,6 +133,29 @@ impl ReactiveRenderComponentSource for AttributesMeshGPUReactive {
   }
 }
 
+impl MeshDrawcallEmitter for AttributesMeshGPUReactive {
+  fn draw_command(&self, _group: MeshDrawGroup) -> DrawCommand {
+    let inner: &AttributesMeshGPU = self.as_ref();
+    inner.draw.clone()
+  }
+}
+/// the current represent do not have meaningful mesh draw group concept
+fn draw_command(mesh: &AttributesMesh) -> webgpu::DrawCommand {
+  if let Some((_, indices)) = &mesh.indices {
+    webgpu::DrawCommand::Indexed {
+      base_vertex: 0,
+      indices: 0..indices.count as u32,
+      instances: 0..1,
+    }
+  } else {
+    let attribute = &mesh.attributes.last().unwrap().1;
+    webgpu::DrawCommand::Array {
+      vertices: 0..attribute.count as u32,
+      instances: 0..1,
+    }
+  }
+}
+
 type AttributesMeshGPUReactive =
   impl AsRef<RenderComponentCell<AttributesMeshGPU>> + Stream<Item = RenderComponentDeltaFlag>;
 
@@ -169,6 +193,7 @@ impl WebGPUMesh for AttributesMesh {
           attributes,
           indices,
           mode: map_topology(mesh.mode),
+          draw: draw_command(&mesh),
         };
 
         Some(r)
@@ -190,23 +215,6 @@ impl WebGPUMesh for AttributesMesh {
           None
         }
       })
-  }
-
-  /// the current represent do not have meaningful mesh draw group concept
-  fn draw_impl(&self, _group: MeshDrawGroup) -> webgpu::DrawCommand {
-    if let Some((_, indices)) = &self.indices {
-      webgpu::DrawCommand::Indexed {
-        base_vertex: 0,
-        indices: 0..indices.count as u32,
-        instances: 0..1,
-      }
-    } else {
-      let attribute = &self.attributes.last().unwrap().1;
-      webgpu::DrawCommand::Array {
-        vertices: 0..attribute.count as u32,
-        instances: 0..1,
-      }
-    }
   }
 }
 

@@ -11,7 +11,7 @@ pub struct SceneGPUSystem {
   pub cameras: SceneCameraGPUSystem,
 
   #[pin]
-  models: Arc<RwLock<StreamMap<usize, ReactiveSceneModelGPUInstance>>>,
+  pub models: Arc<RwLock<StreamMap<usize, ReactiveSceneModelGPUInstance>>>,
 
   #[pin]
   source: SceneGPUUpdateSource,

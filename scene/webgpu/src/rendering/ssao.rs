@@ -191,7 +191,7 @@ impl<'a> PassContent for QuadDraw<AOComputer<'a>> {
 
     base.auto_write = false;
     let components: [&dyn RenderComponentAny; 3] = [&base, &self.quad, &self.content];
-    RenderEmitter::new(components.as_slice()).render(&mut pass.ctx, &self.quad);
+    RenderEmitter::new(components.as_slice()).render(&mut pass.ctx, QUAD_DRAW_CMD);
   }
 }
 

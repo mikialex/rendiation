@@ -24,11 +24,11 @@ pub type SceneNodeGPUStorage = impl AsRef<StreamVec<ReactiveNodeGPU>>
 
 impl SceneNodeGPUSystem {
   pub fn get_node_gpu(&self, node: &SceneNode) -> Option<&NodeGPU> {
-    self
-      .nodes
-      .as_ref()
-      .get(node.raw_handle().index())
-      .map(|v| &v.as_ref().inner)
+    self.get_by_raw(node.raw_handle().index())
+  }
+
+  pub fn get_by_raw(&self, index: usize) -> Option<&NodeGPU> {
+    self.nodes.as_ref().get(index).map(|v| &v.as_ref().inner)
   }
 
   pub fn new(scene: &Scene, derives: &SceneNodeDeriveSystem, cx: &ResourceGPUCtx) -> Self {
