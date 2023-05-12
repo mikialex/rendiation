@@ -8,10 +8,10 @@ pub struct SceneGPUSystem {
   pub nodes: SceneNodeGPUSystem,
 
   #[pin]
-  pub cameras: SceneCameraGPUSystem,
+  pub cameras: RwLock<SceneCameraGPUSystem>, // todo remove lock?
 
   #[pin]
-  models: Arc<RwLock<StreamMap<usize, ReactiveSceneModelGPUInstance>>>,
+  pub models: Arc<RwLock<StreamMap<usize, ReactiveSceneModelGPUInstance>>>,
 
   #[pin]
   source: SceneGPUUpdateSource,
@@ -37,7 +37,10 @@ impl Stream for SceneGPUSystem {
     let this = self.project();
     early_return_ready!(this.source.poll_next(cx));
     early_return_ready!(this.nodes.poll_next(cx));
-    early_return_ready!(this.cameras.poll_next(cx));
+
+    let mut cameras = this.cameras.write().unwrap();
+    let cameras: &mut SceneCameraGPUSystem = &mut cameras;
+    early_return_ready!(cameras.poll_next_unpin(cx));
 
     let mut models = this.models.write().unwrap();
     let models: &mut StreamMap<usize, ReactiveSceneModelGPUInstance> = &mut models;
@@ -58,7 +61,7 @@ impl SceneGPUSystem {
     let gpu = contents.read().unwrap().gpu.clone();
 
     let nodes = SceneNodeGPUSystem::new(scene, derives, &gpu);
-    let cameras = SceneCameraGPUSystem::new(scene, derives, &gpu);
+    let cameras = RwLock::new(SceneCameraGPUSystem::new(scene, derives, &gpu));
 
     let source = scene.unbound_listen_by(all_delta).map(move |delta| {
       let contents = contents.write().unwrap();

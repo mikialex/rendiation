@@ -162,16 +162,17 @@ impl Viewer3dRenderingCtx {
       .get_or_create_scene_sys_with_content(&content.scene, &content.scene_derived);
     let resource = content_res.read().unwrap();
 
-    let mut ctx = FrameCtx::new(
-      &self.gpu,
-      target.size(),
-      &self.pool,
-      &resource,
-      scene_resource,
-      &content.scene_derived,
-    );
+    let scene = content.scene.read();
 
-    self.pipeline.render(&mut ctx, content, &target);
+    let mut ctx = FrameCtx::new(&self.gpu, target.size(), &self.pool);
+    let scene_res = SceneRenderResourceGroup {
+      scene: &scene,
+      resources: &resource,
+      scene_resources: scene_resource,
+      node_derives: &content.scene_derived,
+    };
+
+    self.pipeline.render(&mut ctx, content, &target, &scene_res);
 
     if let Some(task) = self.snapshot.take() {
       if let RenderTargetView::Texture(tex) = &target {

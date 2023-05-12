@@ -70,6 +70,18 @@ impl ReactiveRenderComponentSource for ReactiveFatlineGPU {
   }
 }
 
+impl MeshDrawcallEmitter for ReactiveFatlineGPU {
+  fn draw_command(&self, _group: MeshDrawGroup) -> DrawCommand {
+    let range = self.inner.as_ref().inner.range_full;
+
+    FATLINE_INSTANCE.with(|instance| DrawCommand::Indexed {
+      base_vertex: 0,
+      indices: 0..instance.draw_count() as u32,
+      instances: range.into(),
+    })
+  }
+}
+
 impl WebGPUMesh for FatlineMesh {
   type ReactiveGPU = ReactiveFatlineGPU;
 
@@ -96,7 +108,16 @@ impl WebGPUMesh for FatlineMesh {
           .data
           .clone();
 
-        Some(FatlineMeshGPU { vertex, instance })
+        let range_full = MeshGroup {
+          start: 0,
+          count: mesh.inner.mesh.draw_count(),
+        };
+
+        Some(FatlineMeshGPU {
+          vertex,
+          instance,
+          range_full,
+        })
       } else {
         None
       }
@@ -117,14 +138,6 @@ impl WebGPUMesh for FatlineMesh {
       });
 
     ReactiveFatlineGPU { inner }
-  }
-
-  fn draw_impl<'a>(&self, group: MeshDrawGroup) -> DrawCommand {
-    FATLINE_INSTANCE.with(|instance| DrawCommand::Indexed {
-      base_vertex: 0,
-      indices: 0..instance.draw_count() as u32,
-      instances: self.inner.get_group(group).into(),
-    })
   }
 }
 
@@ -156,6 +169,7 @@ pub struct FatlineMeshGPU {
   vertex: GPUBufferResourceView,
   /// All fatline gpu instance shall share one instance buffer
   instance: Rc<MeshGPU>,
+  range_full: MeshGroup,
 }
 
 impl Stream for FatlineMeshGPU {
@@ -212,6 +226,6 @@ thread_local! {
 
 fn create_fatline_quad_gpu(device: &webgpu::GPUDevice) -> FatlineQuadInstance {
   FatlineQuadInstance {
-    data: Rc::new(FATLINE_INSTANCE.with(|f| create_gpu(f, device))),
+    data: Rc::new(FATLINE_INSTANCE.with(|f| create_gpu(f, device, Default::default()))),
   }
 }

@@ -1,16 +1,7 @@
 use crate::*;
 
-mod path;
-pub use path::*;
-
-mod style;
-pub use style::*;
-
 mod shape;
 pub use shape::*;
-
-mod api;
-pub use api::*;
 use webgpu::GPU2DTextureView;
 
 pub trait Presentable {

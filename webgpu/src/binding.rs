@@ -73,7 +73,7 @@ pub struct BindingBuilder {
   items: [Vec<Box<dyn BindProvider>>; 5],
 }
 
-impl<'a, 'b> GPURenderPassCtx<'a, 'b> {
+impl<'encoder, 'gpu> GPURenderPassCtx<'encoder, 'gpu> {
   pub fn bind_immediate_sampler(
     &mut self,
     sampler: &(impl Into<SamplerDescriptor<'static>> + Clone),

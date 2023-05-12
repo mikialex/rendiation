@@ -10,10 +10,9 @@ use crate::*;
 pub struct LightUpdateCtx<'a, 'b> {
   pub forward: &'a mut ForwardLightingSystem,
   pub shadows: &'a mut ShadowMapSystem,
-  pub node_derives: &'a SceneNodeDeriveSystem,
+  pub scene: &'a SceneRenderResourceGroup<'a>,
   /// we need this ctx to encoding the depth map pass
   pub ctx: &'a mut FrameCtx<'b>,
-  pub scene: &'a SceneInner,
 }
 
 impl<'a, 'b> LightUpdateCtx<'a, 'b> {
@@ -21,7 +20,7 @@ impl<'a, 'b> LightUpdateCtx<'a, 'b> {
     self.forward.before_update_scene(self.ctx.gpu);
     self.shadows.before_update_scene(self.ctx.gpu);
 
-    let lights = &self.scene.lights;
+    let lights = &self.scene.scene.lights;
 
     for (_, light) in lights {
       light.pre_update(self, &light.read().node)

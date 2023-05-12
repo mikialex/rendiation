@@ -3,7 +3,7 @@ use shadergraph::*;
 use crate::*;
 
 pub trait RenderComponent: ShaderHashProvider + ShaderGraphProvider + ShaderPassBuilder {
-  fn render(&self, ctx: &mut GPURenderPassCtx, emitter: &dyn DrawcallEmitter) {
+  fn render(&self, ctx: &mut GPURenderPassCtx, com: DrawCommand) {
     let mut hasher = PipelineHasher::default();
     self.hash_pipeline(&mut hasher);
 
@@ -27,7 +27,7 @@ pub trait RenderComponent: ShaderHashProvider + ShaderGraphProvider + ShaderPass
       .binding
       .setup_pass(&mut ctx.pass, &ctx.gpu.device, &pipeline);
 
-    emitter.draw(ctx);
+    ctx.pass.draw_by_command(com)
   }
 }
 
@@ -35,10 +35,6 @@ impl<T> RenderComponent for T where T: ShaderHashProvider + ShaderGraphProvider 
 
 pub trait RenderComponentAny: RenderComponent + ShaderHashProviderAny {}
 impl<T> RenderComponentAny for T where T: RenderComponent + ShaderHashProviderAny {}
-
-pub trait DrawcallEmitter {
-  fn draw(&self, ctx: &mut GPURenderPassCtx);
-}
 
 pub struct RenderEmitter<'a, 'b> {
   contents: &'a [&'b dyn RenderComponentAny],

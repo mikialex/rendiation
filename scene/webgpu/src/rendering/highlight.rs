@@ -44,7 +44,7 @@ impl HighLighter {
     &self,
     objects: T,
     ctx: &mut FrameCtx,
-    camera: &SceneCamera,
+    scene: &SceneRenderResourceGroup,
   ) -> impl PassContent + '_
   where
     T: Iterator<Item = &'i dyn SceneRenderable>,
@@ -56,7 +56,7 @@ impl HighLighter {
     pass("highlight-selected-mask")
       .with_color(selected_mask.write(), clear(color_same(0.)))
       .render(ctx)
-      .by(CameraRef::with(camera, highlight(objects)));
+      .by(scene.by_main_camera_and_self(highlight(objects)));
 
     self.draw_result(selected_mask.read_into())
   }
@@ -169,14 +169,19 @@ impl ShaderGraphProvider for HighLightMaskDispatcher {
   }
 }
 
-impl<'i, T> PassContentWithCamera for HighLightDrawMaskTask<T>
+impl<'i, T> PassContentWithSceneAndCamera for HighLightDrawMaskTask<T>
 where
   T: Iterator<Item = &'i dyn SceneRenderable>,
 {
-  fn render(&mut self, pass: &mut SceneRenderPass, camera: &SceneCamera) {
+  fn render(
+    &mut self,
+    pass: &mut FrameRenderPass,
+    scene: &SceneRenderResourceGroup,
+    camera: &SceneCamera,
+  ) {
     if let Some(objects) = self.objects.take() {
       for model in objects {
-        model.render(pass, &HighLightMaskDispatcher, camera)
+        model.render(pass, &HighLightMaskDispatcher, camera, scene)
       }
     }
   }

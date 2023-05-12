@@ -76,7 +76,7 @@ impl WebGPUSceneLight for SceneItemRef<SpotLight> {
   // allocate shadow maps
   fn pre_update(&self, ctx: &mut LightUpdateCtx, node: &SceneNode) {
     let inner = self.read();
-    request_basic_shadow_map(&inner, ctx.ctx.scene_resources, ctx.shadows, node);
+    request_basic_shadow_map(&inner, ctx.scene.scene_resources, ctx.shadows, node);
   }
 
   fn update(&self, ctx: &mut LightUpdateCtx, node: &SceneNode) {
@@ -85,7 +85,7 @@ impl WebGPUSceneLight for SceneItemRef<SpotLight> {
     let shadow = check_update_basic_shadow_map(&light, ctx, node);
 
     let lights = ctx.forward.get_or_create_list();
-    let world = ctx.node_derives.get_world_matrix(node);
+    let world = ctx.scene.node_derives.get_world_matrix(node);
 
     let gpu = SpotLightShaderInfo {
       luminance_intensity: light.luminance_intensity * light.color_factor,

@@ -1,6 +1,7 @@
 use core::marker::PhantomData;
 
 use bytemuck::Pod;
+use rendiation_renderable_mesh::MeshGroupsInfo;
 use rendiation_renderable_mesh::{GroupedMesh, IndexGet, MeshGroup};
 use shadergraph::*;
 use webgpu::DrawCommand;
@@ -11,6 +12,7 @@ pub struct MeshGPU {
   range_full: MeshGroup,
   vertex: Vec<GPUBufferResourceView>,
   index: Option<(GPUBufferResourceView, webgpu::IndexFormat)>,
+  groups: MeshGroupsInfo,
 }
 
 pub struct TypedMeshGPU<T> {
@@ -112,6 +114,29 @@ where
   }
 }
 
+impl<V, T, IU> MeshDrawcallEmitter for ReactiveMeshGPUOfTypedMesh<V, T, IU>
+where
+  V: Pod + ShaderGraphVertexInProvider + Unpin,
+  T: PrimitiveTopologyMeta + Unpin,
+  IU: IndexGet + AsGPUBytes + IndexBufferSourceTypeProvider + Unpin + 'static,
+  IndexedMesh<T, Vec<V>, IU>: GPUConsumableMeshBuffer,
+  GroupedMesh<IndexedMesh<T, Vec<V>, IU>>: SimpleIncremental + Send + Sync,
+{
+  fn draw_command(&self, group: MeshDrawGroup) -> DrawCommand {
+    let inner: &TypedMeshGPU<GroupedMesh<IndexedMesh<T, Vec<V>, IU>>> = self.as_ref();
+
+    let range = match group {
+      MeshDrawGroup::Full => inner.inner.range_full,
+      MeshDrawGroup::SubMesh(i) => inner.inner.groups.groups[i],
+    };
+    DrawCommand::Indexed {
+      base_vertex: 0,
+      indices: range.into(),
+      instances: 0..1,
+    }
+  }
+}
+
 pub type ReactiveMeshGPUOfTypedMesh<V, T, IU>
 where
   V: Pod + ShaderGraphVertexInProvider + Unpin,
@@ -144,7 +169,7 @@ where
         let mesh = m.read();
         Some(TypedMeshGPU {
           marker: Default::default(),
-          inner: create_gpu(&mesh.mesh, &ctx.gpu.device),
+          inner: create_gpu(&mesh.mesh, &ctx.gpu.device, mesh.groups.clone()),
         })
       } else {
         None
@@ -164,15 +189,6 @@ where
           None
         }
       })
-  }
-
-  fn draw_impl(&self, group: MeshDrawGroup) -> DrawCommand {
-    let range = self.get_group(group);
-    DrawCommand::Indexed {
-      base_vertex: 0,
-      indices: range.into(),
-      instances: 0..1,
-    }
   }
 }
 
@@ -208,6 +224,7 @@ impl AsGPUBytes for DynIndexContainer {
 pub fn create_gpu<V, T, IU>(
   mesh: &IndexedMesh<T, Vec<V>, IU>,
   device: &webgpu::GPUDevice,
+  groups: MeshGroupsInfo,
 ) -> MeshGPU
 where
   V: Pod,
@@ -238,5 +255,6 @@ where
     vertex,
     index,
     range_full,
+    groups,
   }
 }

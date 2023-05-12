@@ -14,7 +14,7 @@ impl ResourcePoolImpl {
 #[derive(Copy, Clone, Eq, PartialEq, Hash)]
 struct PooledTextureKey {
   size: Size,
-  format: ::webgpu::TextureFormat,
+  format: gpu::TextureFormat,
   sample_count: u32,
 }
 
@@ -36,7 +36,7 @@ impl ResourcePool {
 
 pub fn attachment() -> AttachmentDescriptor {
   AttachmentDescriptor {
-    format: webgpu::TextureFormat::Rgba8Unorm,
+    format: gpu::TextureFormat::Rgba8Unorm,
     sample_count: 1,
     sizer: default_sizer(),
   }
@@ -44,7 +44,7 @@ pub fn attachment() -> AttachmentDescriptor {
 
 pub fn depth_attachment() -> AttachmentDescriptor {
   AttachmentDescriptor {
-    format: webgpu::TextureFormat::Depth32Float,
+    format: gpu::TextureFormat::Depth32Float,
     sample_count: 1,
     sizer: default_sizer(),
   }
@@ -52,7 +52,7 @@ pub fn depth_attachment() -> AttachmentDescriptor {
 
 pub fn depth_stencil_attachment() -> AttachmentDescriptor {
   AttachmentDescriptor {
-    format: webgpu::TextureFormat::Depth24PlusStencil8,
+    format: gpu::TextureFormat::Depth24PlusStencil8,
     sample_count: 1,
     sizer: default_sizer(),
   }
@@ -150,13 +150,13 @@ impl<T> BindingSource for AttachmentView<T> {
   }
 }
 
-impl<T> ShaderUniformProvider for AttachmentView<T> {
-  type Node = ShaderTexture2D;
+impl<T> shadergraph::ShaderUniformProvider for AttachmentView<T> {
+  type Node = shadergraph::ShaderTexture2D;
 }
 
 #[derive(Clone)]
 pub struct AttachmentDescriptor {
-  pub(super) format: webgpu::TextureFormat,
+  pub(super) format: gpu::TextureFormat,
   pub(super) sample_count: u32,
   pub(super) sizer: Rc<dyn Fn(Size) -> Size>,
 }
@@ -176,7 +176,7 @@ pub fn ratio_sizer(ratio: f32) -> impl Fn(Size) -> Size + 'static {
 
 impl AttachmentDescriptor {
   #[must_use]
-  pub fn format(mut self, format: webgpu::TextureFormat) -> Self {
+  pub fn format(mut self, format: gpu::TextureFormat) -> Self {
     self.format = format;
     self
   }
@@ -207,16 +207,16 @@ impl AttachmentDescriptor {
 
     let texture = cached.cached.pop().unwrap_or_else(|| {
       GPUTexture::create(
-        webgpu::TextureDescriptor {
+        gpu::TextureDescriptor {
           label: None,
           size: map_size_gpu(size),
-          dimension: webgpu::TextureDimension::D2,
+          dimension: gpu::TextureDimension::D2,
           format: self.format,
           view_formats: &[],
-          usage: webgpu::TextureUsages::TEXTURE_BINDING
-            | webgpu::TextureUsages::COPY_DST
-            | webgpu::TextureUsages::COPY_SRC
-            | webgpu::TextureUsages::RENDER_ATTACHMENT,
+          usage: gpu::TextureUsages::TEXTURE_BINDING
+            | gpu::TextureUsages::COPY_DST
+            | gpu::TextureUsages::COPY_SRC
+            | gpu::TextureUsages::RENDER_ATTACHMENT,
           mip_level_count: 1,
           sample_count: self.sample_count,
         },

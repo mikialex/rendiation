@@ -284,14 +284,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "canvase"
-version = "0.1.0"
-dependencies = [
- "bytemuck",
- "rendiation-algebra",
-]
-
-[[package]]
 name = "cast"
 version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1448,9 +1440,11 @@ dependencies = [
  "console_error_panic_hook",
  "fontext",
  "image",
+ "incremental",
  "instant",
  "log",
  "rendiation-algebra",
+ "rendiation-canvas",
  "rendiation-color",
  "rendiation-geometry",
  "rendiation-renderable-mesh",
@@ -2409,6 +2403,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "rendiation-canvas"
+version = "0.1.0"
+dependencies = [
+ "bytemuck",
+ "rendiation-algebra",
+ "rendiation-color",
+ "rendiation-geometry",
+]
+
+[[package]]
 name = "rendiation-color"
 version = "0.1.0"
 dependencies = [
@@ -2611,6 +2615,7 @@ dependencies = [
  "bytemuck",
  "futures",
  "reactive",
+ "rendiation-algebra",
  "rendiation-texture-types",
  "shadergraph",
  "typed-arena",

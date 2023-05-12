@@ -75,13 +75,18 @@ pub struct GBufferEncodeTask<T> {
   objects: T,
 }
 
-impl<'i, T> PassContentWithCamera for GBufferEncodeTask<T>
+impl<'i, T> PassContentWithSceneAndCamera for GBufferEncodeTask<T>
 where
   T: IntoIterator<Item = &'i dyn SceneRenderable> + Copy,
 {
-  fn render(&mut self, pass: &mut SceneRenderPass, camera: &SceneCamera) {
+  fn render(
+    &mut self,
+    pass: &mut FrameRenderPass,
+    scene: &SceneRenderResourceGroup,
+    camera: &SceneCamera,
+  ) {
     for model in self.objects {
-      model.render(pass, &GBufferEncodeTaskDispatcher, camera)
+      model.render(pass, &GBufferEncodeTaskDispatcher, camera, scene)
     }
   }
 }
@@ -127,12 +132,13 @@ pub struct DeferLightingSystem {
   pub lights: Vec<Box<dyn VisitLightCollectionCompute>>,
 }
 
+// objects should belong to scene
 pub fn defer<'i, T>(
   tonemap: &ToneMap,
   objects: T,
   ctx: &mut FrameCtx,
   lights: &DeferLightingSystem,
-  camera: &SceneCamera,
+  scene: &SceneRenderResourceGroup,
 ) -> Attachment
 where
   T: IntoIterator<Item = &'i dyn SceneRenderable> + Copy,
@@ -151,7 +157,7 @@ where
     .with_color(encode_target.normal.write(), clear(all_zero()))
     .with_color(encode_target.material1.write(), clear(all_zero()))
     .render(ctx)
-    .by(CameraRef::with(camera, GBufferEncodeTask { objects }));
+    .by(scene.by_main_camera_and_self(GBufferEncodeTask { objects }));
 
   let mut hdr_result = attachment().format(TextureFormat::Rgba32Float).request(ctx);
 

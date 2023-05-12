@@ -97,15 +97,15 @@ impl RenderTargetView {
 }
 
 /// Stored extra binding states info for up level usage
-pub struct GPURenderPassCtx<'a, 'b> {
-  pub pass: GPURenderPass<'a>,
-  pub gpu: &'b GPU,
+pub struct GPURenderPassCtx<'encoder, 'gpu> {
+  pub pass: GPURenderPass<'encoder>,
+  pub gpu: &'gpu GPU,
   pub binding: BindingBuilder,
   incremental_vertex_binding_index: u32,
 }
 
-impl<'a, 'b> GPURenderPassCtx<'a, 'b> {
-  pub fn new(pass: GPURenderPass<'a>, gpu: &'b GPU) -> Self {
+impl<'encoder, 'gpu> GPURenderPassCtx<'encoder, 'gpu> {
+  pub fn new(pass: GPURenderPass<'encoder>, gpu: &'gpu GPU) -> Self {
     Self {
       pass,
       gpu,
@@ -255,6 +255,7 @@ impl<'a> GPURenderPass<'a> {
   }
 }
 
+#[derive(Debug, Clone)]
 pub enum DrawCommand {
   Indexed {
     base_vertex: i32,

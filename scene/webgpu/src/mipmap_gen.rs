@@ -93,6 +93,8 @@ impl Mipmap2DGenerator {
             base_mip_level: write_level,
             mip_level_count: Some(NonZeroU32::new(1).unwrap()),
             base_array_layer: face,
+            // it defaults to None which defaults to cube type
+            dimension: Some(webgpu::TextureViewDimension::D2),
             ..Default::default()
           })
           .try_into()

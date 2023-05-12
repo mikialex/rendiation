@@ -77,9 +77,10 @@ impl SceneNodeControlled for OverridableMeshModelImpl {
 impl SceneRenderable for OverridableMeshModelImpl {
   fn render(
     &self,
-    pass: &mut SceneRenderPass,
+    pass: &mut FrameRenderPass,
     dispatcher: &dyn RenderComponentAny,
     camera: &SceneCamera,
+    scene: &SceneRenderResourceGroup,
   ) {
     let gpu = pass.ctx.gpu;
 
@@ -87,7 +88,7 @@ impl SceneRenderable for OverridableMeshModelImpl {
     let ctx = WorldMatrixOverrideCtx {
       camera: &camera_ref,
       buffer_size: pass.size(),
-      node_derives: pass.node_derives,
+      node_derives: scene.node_derives,
     };
 
     let world_matrix = self.compute_override_world_mat(&ctx);
@@ -97,7 +98,7 @@ impl SceneRenderable for OverridableMeshModelImpl {
       .get_or_insert_with(|| NodeGPU::new(&gpu.device))
       .update(&gpu.queue, world_matrix);
 
-    setup_pass_core(self, pass, camera, Some(node_gpu), dispatcher);
+    setup_pass_core(self, pass, camera, Some(node_gpu), dispatcher, scene);
   }
 }
 

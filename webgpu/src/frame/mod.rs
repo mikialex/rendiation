@@ -12,20 +12,10 @@ pub struct FrameCtx<'a> {
   msaa_sample_count: u32,
   frame_size: Size,
   pub encoder: GPUCommandEncoder,
-  pub resources: &'a ContentGPUSystem,
-  pub scene_resources: &'a mut SceneGPUSystem,
-  pub node_derives: &'a SceneNodeDeriveSystem,
 }
 
 impl<'a> FrameCtx<'a> {
-  pub fn new(
-    gpu: &'a GPU,
-    frame_size: Size,
-    pool: &'a ResourcePool,
-    resources: &'a ContentGPUSystem,
-    scene_resources: &'a mut SceneGPUSystem,
-    node_derives: &'a SceneNodeDeriveSystem,
-  ) -> Self {
+  pub fn new(gpu: &'a GPU, frame_size: Size, pool: &'a ResourcePool) -> Self {
     let msaa_sample_count = 4;
 
     let encoder = gpu.create_encoder();
@@ -33,18 +23,10 @@ impl<'a> FrameCtx<'a> {
     Self {
       pool,
       frame_size,
-      resources,
       msaa_sample_count,
       encoder,
       gpu,
-      node_derives,
-      scene_resources,
     }
-  }
-
-  pub fn resolve_resource_mipmaps(&mut self) {
-    let mip_gen = self.resources.bindable_ctx.gpu.mipmap_gen.clone();
-    mip_gen.borrow_mut().flush_mipmap_gen_request(self);
   }
 
   pub fn make_submit(&mut self) {
@@ -63,7 +45,7 @@ impl<'a> FrameCtx<'a> {
 
   pub fn multisampled_attachment(&self) -> AttachmentDescriptor {
     AttachmentDescriptor {
-      format: webgpu::TextureFormat::Rgba8Unorm,
+      format: gpu::TextureFormat::Rgba8Unorm,
       sample_count: self.msaa_sample_count,
       sizer: default_sizer(),
     }
@@ -71,7 +53,7 @@ impl<'a> FrameCtx<'a> {
 
   pub fn multisampled_depth_attachment(&self) -> AttachmentDescriptor {
     AttachmentDescriptor {
-      format: webgpu::TextureFormat::Depth24PlusStencil8,
+      format: gpu::TextureFormat::Depth24PlusStencil8,
       sample_count: self.msaa_sample_count,
       sizer: default_sizer(),
     }

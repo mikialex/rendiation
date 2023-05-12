@@ -11,8 +11,6 @@ pub type ReactiveMeshGPUOf<T> = <T as WebGPUMesh>::ReactiveGPU;
 
 pub trait WebGPUSceneMesh: Any + Send + Sync {
   fn create_scene_reactive_gpu(&self, ctx: &ShareBindableResourceCtx) -> Option<MeshGPUInstance>;
-
-  fn draw_impl(&self, group: MeshDrawGroup) -> DrawCommand;
 }
 define_dyn_trait_downcaster_static!(WebGPUSceneMesh);
 pub fn register_webgpu_mesh_features<T>()
@@ -40,33 +38,12 @@ impl WebGPUSceneMesh for SceneMeshType {
     }
     .into()
   }
-
-  fn draw_impl(&self, group: MeshDrawGroup) -> DrawCommand {
-    match self {
-      SceneMeshType::AttributesMesh(m) => m.draw_impl(group),
-      SceneMeshType::TransformInstanced(m) => m.draw_impl(group),
-      SceneMeshType::Foreign(m) => {
-        if let Some(mesh) =
-          get_dyn_trait_downcaster_static!(WebGPUSceneMesh).downcast_ref(m.as_ref())
-        {
-          mesh.draw_impl(group)
-        } else {
-          DrawCommand::Skip
-        }
-      }
-      _ => DrawCommand::Skip,
-    }
-  }
 }
 
 impl<T: WebGPUMesh> WebGPUSceneMesh for SceneItemRef<T> {
   fn create_scene_reactive_gpu(&self, ctx: &ShareBindableResourceCtx) -> Option<MeshGPUInstance> {
     let instance = T::create_reactive_gpu(self, ctx);
-    MeshGPUInstance::Foreign(Box::new(instance) as Box<dyn ReactiveRenderComponentSource>).into()
-  }
-
-  fn draw_impl(&self, group: MeshDrawGroup) -> DrawCommand {
-    self.read().draw_impl(group)
+    MeshGPUInstance::Foreign(Box::new(instance) as Box<dyn ReactiveMeshGPUSource>).into()
   }
 }
 impl<T: WebGPUMesh> AsRef<dyn WebGPUSceneMesh> for SceneItemRef<T> {
@@ -80,27 +57,36 @@ impl<T: WebGPUMesh> AsMut<dyn WebGPUSceneMesh> for SceneItemRef<T> {
   }
 }
 
-impl<T: WebGPUSceneMesh> MeshDrawcallEmitter for T {
-  fn draw(&self, ctx: &mut webgpu::GPURenderPassCtx, group: MeshDrawGroup) {
-    ctx.pass.draw_by_command(self.draw_impl(group))
-  }
-}
-
 pub trait WebGPUMesh: Any + Send + Sync + Incremental {
-  type ReactiveGPU: ReactiveRenderComponentSource;
+  type ReactiveGPU: ReactiveMeshGPUSource;
   fn create_reactive_gpu(
     source: &SceneItemRef<Self>,
     ctx: &ShareBindableResourceCtx,
   ) -> Self::ReactiveGPU;
-
-  fn draw_impl(&self, group: MeshDrawGroup) -> DrawCommand;
 }
 
 #[pin_project::pin_project(project = MeshGPUInstanceProj)]
 pub enum MeshGPUInstance {
   Attributes(ReactiveMeshGPUOf<AttributesMesh>),
   TransformInstanced(ReactiveMeshGPUOf<TransformInstancedSceneMesh>),
-  Foreign(Box<dyn ReactiveRenderComponentSource>),
+  Foreign(Box<dyn ReactiveMeshGPUSource>),
+}
+
+pub trait ReactiveMeshGPUSource: ReactiveRenderComponentSource + MeshDrawcallEmitter {}
+impl<T: ReactiveRenderComponentSource + MeshDrawcallEmitter> ReactiveMeshGPUSource for T {}
+
+pub trait MeshDrawcallEmitter {
+  fn draw_command(&self, group: MeshDrawGroup) -> DrawCommand;
+}
+
+impl MeshDrawcallEmitter for MeshGPUInstance {
+  fn draw_command(&self, group: MeshDrawGroup) -> DrawCommand {
+    match self {
+      Self::Attributes(m) => m.draw_command(group),
+      Self::TransformInstanced(m) => m.draw_command(group),
+      Self::Foreign(m) => m.draw_command(group),
+    }
+  }
 }
 
 impl Stream for MeshGPUInstance {

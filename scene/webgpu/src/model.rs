@@ -3,11 +3,12 @@ use crate::*;
 impl SceneRenderable for SceneModel {
   fn render(
     &self,
-    pass: &mut SceneRenderPass,
+    pass: &mut FrameRenderPass,
     dispatcher: &dyn RenderComponentAny,
     camera: &SceneCamera,
+    scene: &SceneRenderResourceGroup,
   ) {
-    self.visit(|model| model.render(pass, dispatcher, camera))
+    self.visit(|model| model.render(pass, dispatcher, camera, scene))
   }
 }
 
@@ -19,63 +20,61 @@ impl SceneNodeControlled for SceneModel {
 
 pub fn setup_pass_core(
   model_input: &SceneModelImpl,
-  pass: &mut SceneRenderPass,
+  pass: &mut FrameRenderPass,
   camera: &SceneCamera,
   override_node: Option<&NodeGPU>,
   dispatcher: &dyn RenderComponentAny,
+  resources: &SceneRenderResourceGroup,
 ) {
   match &model_input.model {
     ModelType::Standard(model) => {
       let model = model.read();
       let pass_gpu = dispatcher;
 
-      let camera_gpu = pass.scene_resources.cameras.get_camera_gpu(camera).unwrap();
+      let cameras = resources.scene_resources.cameras.read().unwrap();
+      let camera_gpu = cameras.get_camera_gpu(camera).unwrap();
 
-      let net_visible = pass.node_derives.get_net_visible(&model_input.node);
+      let net_visible = resources.node_derives.get_net_visible(&model_input.node);
       if !net_visible {
         return;
       }
 
       let node_gpu = override_node.unwrap_or(
-        pass
+        resources
           .scene_resources
           .nodes
           .get_node_gpu(&model_input.node)
           .unwrap(),
       );
 
-      let mut materials = pass.resources.model_ctx.materials.write().unwrap();
+      let mut materials = resources.resources.model_ctx.materials.write().unwrap();
       let material_gpu = materials.get_or_insert_with(model.material.guid().unwrap(), || {
         model
           .material
-          .create_scene_reactive_gpu(&pass.resources.bindable_ctx)
+          .create_scene_reactive_gpu(&resources.resources.bindable_ctx)
           .unwrap()
       });
 
-      let mut meshes = pass.resources.model_ctx.meshes.write().unwrap();
+      let mut meshes = resources.resources.model_ctx.meshes.write().unwrap();
       if model.mesh.guid().is_none() {
         model.mesh.guid().unwrap();
       }
       let mesh_gpu = meshes.get_or_insert_with(model.mesh.guid().unwrap(), || {
         model
           .mesh
-          .create_scene_reactive_gpu(&pass.resources.bindable_ctx)
+          .create_scene_reactive_gpu(&resources.resources.bindable_ctx)
           .unwrap()
       });
 
       let components = [pass_gpu, mesh_gpu, node_gpu, camera_gpu, material_gpu];
 
-      let mesh: &dyn MeshDrawcallEmitter = &model.mesh;
-      let emitter = MeshDrawcallEmitterWrap {
-        group: model.group,
-        mesh,
-      };
+      let draw_command = mesh_gpu.draw_command(model.group);
 
-      RenderEmitter::new(components.as_slice()).render(&mut pass.ctx, &emitter);
+      RenderEmitter::new(components.as_slice()).render(&mut pass.ctx, draw_command);
     }
     ModelType::Foreign(model) => {
       if let Some(model) = model.downcast_ref::<Box<dyn SceneRenderable>>() {
-        model.render(pass, dispatcher, camera)
+        model.render(pass, dispatcher, camera, resources)
       }
     }
     _ => {}
@@ -85,20 +84,22 @@ pub fn setup_pass_core(
 impl SceneRenderable for SceneModelImpl {
   fn render(
     &self,
-    pass: &mut SceneRenderPass,
+    pass: &mut FrameRenderPass,
     dispatcher: &dyn RenderComponentAny,
     camera: &SceneCamera,
+    scene: &SceneRenderResourceGroup,
   ) {
-    setup_pass_core(self, pass, camera, None, dispatcher);
+    setup_pass_core(self, pass, camera, None, dispatcher, scene);
   }
 }
 
 #[pin_project::pin_project]
 pub struct StandardModelGPU {
-  material_id: Option<usize>,
+  pub(crate) material_id: Option<usize>,
   material_delta: Option<ReactiveMaterialRenderComponentDeltaSource>,
-  mesh_id: Option<usize>,
+  pub(crate) mesh_id: Option<usize>,
   mesh_delta: Option<ReactiveMeshRenderComponentDeltaSource>,
+  pub(crate) group: MeshDrawGroup,
 }
 
 impl Stream for StandardModelGPU {
@@ -126,13 +127,14 @@ pub fn build_standard_model_gpu(
     material_delta: ctx.get_or_create_reactive_material_render_component_delta_source(&s.material),
     mesh_id: s.mesh.guid(),
     mesh_delta: ctx.get_or_create_reactive_mesh_render_component_delta_source(&s.mesh),
+    group: s.group,
   };
 
   let state = RenderComponentCell::new(gpu);
   let ctx = ctx.clone();
 
   source
-    .unbound_listen_by(all_delta)
+    .unbound_listen_by(all_delta_no_init)
     .fold_signal_flatten(state, move |delta, state| {
       match delta {
         StandardModelDelta::material(material) => {
@@ -147,7 +149,10 @@ pub fn build_standard_model_gpu(
             ctx.get_or_create_reactive_mesh_render_component_delta_source(&mesh);
           RenderComponentDeltaFlag::ContentRef
         }
-        StandardModelDelta::group(_) => RenderComponentDeltaFlag::Draw,
+        StandardModelDelta::group(g) => {
+          state.group = g;
+          RenderComponentDeltaFlag::Draw
+        }
         StandardModelDelta::skeleton(_) => RenderComponentDeltaFlag::all(),
       }
       .into()
@@ -189,8 +194,8 @@ impl Stream for ReactiveModelGPUType {
 
 #[pin_project::pin_project]
 pub struct ReactiveSceneModelGPU {
-  node_id: usize, // todo add stream here
-  model_id: Option<usize>,
+  pub(crate) node_id: usize, // todo add stream here
+  pub(crate) model_id: Option<usize>,
   model_delta: Option<ReactiveModelRenderComponentDeltaSource>,
 }
 
@@ -241,7 +246,7 @@ pub fn build_scene_model_gpu(
   let model_delta = ctx.get_or_create_reactive_model_render_component_delta_source(&source.model);
 
   let instance = ReactiveSceneModelGPU {
-    node_id: source.node.guid(),
+    node_id: source.node.raw_handle().index(),
     model_id,
     model_delta,
   };
@@ -260,7 +265,8 @@ pub fn build_scene_model_gpu(
           state.inner.model_delta = model_delta;
           RenderComponentDeltaFlag::ContentRef
         }
-        SceneModelImplDelta::node(_) => {
+        SceneModelImplDelta::node(node) => {
+          state.inner.node_id = node.raw_handle().index();
           // todo, handle node change
           RenderComponentDeltaFlag::ContentRef
         }

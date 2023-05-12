@@ -50,14 +50,19 @@ pub fn compute_shadow_position(
 pub struct SceneDepth;
 
 impl PassContentWithSceneAndCamera for SceneDepth {
-  fn render(&mut self, pass: &mut SceneRenderPass, scene: &SceneInner, camera: &SceneCamera) {
+  fn render(
+    &mut self,
+    pass: &mut FrameRenderPass,
+    scene: &SceneRenderResourceGroup,
+    camera: &SceneCamera,
+  ) {
     let mut render_list = RenderList::default();
-    render_list.prepare(scene, camera, pass.node_derives);
+    render_list.prepare(scene, camera);
 
     // we could just use default, because the color channel not exist at all
-    let base = pass.default_dispatcher();
+    let base = default_dispatcher(pass);
 
-    render_list.setup_pass(pass, scene, &base, camera);
+    render_list.setup_pass(pass, &base, camera, scene);
   }
 }
 
@@ -149,15 +154,21 @@ pub fn check_update_basic_shadow_map<T: Any + ShadowCameraCreator + Incremental>
   node: &SceneNode,
 ) -> LightShadowAddressInfo {
   let BasicShadowGPU { shadow_camera, map } =
-    get_shadow_map(inner, ctx.ctx.scene_resources, ctx.shadows, node);
+    get_shadow_map(inner, ctx.scene.scene_resources, ctx.shadows, node);
 
   let (view, map_info) = map.get_write_view(ctx.ctx.gpu);
 
   let shadow_camera_info = ctx
-    .ctx
+    .scene
     .scene_resources
     .cameras
-    .get_or_insert(&shadow_camera, ctx.node_derives, &ctx.ctx.resources.gpu)
+    .write()
+    .unwrap()
+    .get_or_insert(
+      &shadow_camera,
+      ctx.scene.node_derives,
+      &ctx.scene.resources.gpu,
+    )
     .as_ref()
     .inner
     .ubo

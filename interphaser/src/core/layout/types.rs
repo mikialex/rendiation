@@ -1,3 +1,4 @@
+use rendiation_algebra::Vec2;
 use rendiation_geometry::Rectangle;
 
 use crate::LayoutResult;
@@ -198,6 +199,18 @@ pub struct UIPosition {
 impl From<(f32, f32)> for UIPosition {
   fn from(v: (f32, f32)) -> Self {
     Self { x: v.0, y: v.1 }
+  }
+}
+
+impl From<Vec2<f32>> for UIPosition {
+  fn from(v: Vec2<f32>) -> Self {
+    Self { x: v.x, y: v.y }
+  }
+}
+
+impl From<UIPosition> for Vec2<f32> {
+  fn from(val: UIPosition) -> Self {
+    Vec2 { x: val.x, y: val.y }
   }
 }
 

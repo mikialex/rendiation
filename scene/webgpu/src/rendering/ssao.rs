@@ -75,9 +75,7 @@ impl Default for SSAOParameter {
 pub struct AOComputer<'a> {
   depth: AttachmentView<&'a Attachment>,
   parameter: &'a SSAO,
-  source_camera: &'a SceneCamera,
-  /// this has to be cloned, because it's simple and easy
-  source_camera_gpu: Option<UniformBufferDataView<CameraGPUTransform>>,
+  source_camera_gpu: &'a UniformBufferDataView<CameraGPUTransform>,
 }
 
 // improve use better way
@@ -106,9 +104,7 @@ impl<'a> ShaderPassBuilder for AOComputer<'a> {
     ctx.binding.bind(&self.parameter.parameters, SB::Pass);
     ctx.binding.bind(&self.parameter.samples, SB::Pass);
     ctx.bind_immediate_sampler(&TextureSampler::default(), SB::Pass);
-    ctx
-      .binding
-      .bind(self.source_camera_gpu.as_ref().unwrap(), SB::Pass);
+    ctx.binding.bind(self.source_camera_gpu, SB::Pass);
   }
 }
 impl<'a> ShaderGraphProvider for AOComputer<'a> {
@@ -125,7 +121,7 @@ impl<'a> ShaderGraphProvider for AOComputer<'a> {
       let sampler = binding.uniform::<DisableFiltering<GPUSamplerView>>(SB::Pass);
 
       let camera = binding
-        .uniform_by(self.source_camera_gpu.as_ref().unwrap(), SB::Pass)
+        .uniform_by(self.source_camera_gpu, SB::Pass)
         .expand();
 
       let uv = builder.query::<FragmentUv>()?;
@@ -178,20 +174,12 @@ impl<'a> ShaderGraphProvider for AOComputer<'a> {
 
 // a little hack to get camera gpu without copy
 impl<'a> PassContent for QuadDraw<AOComputer<'a>> {
-  fn render(&mut self, pass: &mut SceneRenderPass) {
-    let mut base = pass.default_dispatcher();
-    let source_camera_gpu = &pass
-      .scene_resources
-      .cameras
-      .get_camera_gpu(self.content.source_camera)
-      .unwrap()
-      .ubo;
-
-    self.content.source_camera_gpu = source_camera_gpu.clone().into();
+  fn render(&mut self, pass: &mut FrameRenderPass) {
+    let mut base = default_dispatcher(pass);
 
     base.auto_write = false;
     let components: [&dyn RenderComponentAny; 3] = [&base, &self.quad, &self.content];
-    RenderEmitter::new(components.as_slice()).render(&mut pass.ctx, &self.quad);
+    RenderEmitter::new(components.as_slice()).render(&mut pass.ctx, QUAD_DRAW_CMD);
   }
 }
 
@@ -200,7 +188,7 @@ impl SSAO {
     &self,
     ctx: &mut FrameCtx,
     depth: &Attachment,
-    source_camera: &SceneCamera,
+    source_camera_gpu: &CameraGPU,
   ) -> Attachment {
     self.parameters.resource.mutate(|p| p.noise_jit = rand());
     self.parameters.resource.upload(&ctx.gpu.queue);
@@ -215,8 +203,7 @@ impl SSAO {
       .render(ctx)
       .by(
         AOComputer {
-          source_camera,
-          source_camera_gpu: None,
+          source_camera_gpu: &source_camera_gpu.ubo,
           depth: depth.read(),
           parameter: self,
         }

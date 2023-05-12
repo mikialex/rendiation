@@ -35,11 +35,8 @@ impl TAA {
     new_color: &Attachment,
     new_depth: &Attachment,
     ctx: &mut FrameCtx,
-    camera: &SceneCamera,
+    new_camera: &CameraGPU,
   ) -> &Attachment {
-    // refresh cameras:
-    let new_camera = ctx.scene_resources.cameras.get_camera_gpu(camera).unwrap();
-
     // improve? i think we could try copy buffer to buffer here.
     self
       .previous_camera

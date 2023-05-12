@@ -3,7 +3,7 @@ use rendiation_algebra::*;
 use rendiation_geometry::OptionalNearest;
 use rendiation_renderable_mesh::mesh::MeshBufferHitPoint;
 use rendiation_scene_interaction::*;
-use webgpu::RenderComponentAny;
+use webgpu::{FrameRenderPass, RenderComponentAny};
 
 use crate::*;
 
@@ -74,11 +74,12 @@ impl<T: SceneRenderable, S: Incremental> View<S> for InteractiveWatchable<T, S> 
 impl<T: SceneRenderable, S: Incremental> SceneRenderable for InteractiveWatchable<T, S> {
   fn render(
     &self,
-    pass: &mut SceneRenderPass,
+    pass: &mut FrameRenderPass,
     dispatcher: &dyn RenderComponentAny,
     camera: &SceneCamera,
+    scene: &SceneRenderResourceGroup,
   ) {
-    self.inner.render(pass, dispatcher, camera)
+    self.inner.render(pass, dispatcher, camera, scene)
   }
 }
 
