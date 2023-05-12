@@ -1,4 +1,27 @@
+use __core::marker::PhantomData;
+use rendiation_algebra::*;
+use shadergraph::{std140_layout, ShaderStruct};
+
 use crate::*;
+
+pub struct FrameRenderPass<'encoder, 'b> {
+  pub ctx: GPURenderPassCtx<'encoder, 'b>,
+  pub pass_info: UniformBufferDataView<RenderPassGPUInfoData>,
+}
+
+impl<'a, 'b> std::ops::Deref for FrameRenderPass<'a, 'b> {
+  type Target = GPURenderPass<'a>;
+
+  fn deref(&self) -> &Self::Target {
+    &self.ctx.pass
+  }
+}
+
+impl<'a, 'b> std::ops::DerefMut for FrameRenderPass<'a, 'b> {
+  fn deref_mut(&mut self) -> &mut Self::Target {
+    &mut self.ctx.pass
+  }
+}
 
 #[repr(C)]
 #[std140_layout]
@@ -33,7 +56,7 @@ impl<'a> PassDescriptor<'a> {
   pub fn with_color(
     mut self,
     attachment: impl Into<RenderTargetView> + 'a,
-    op: impl Into<webgpu::Operations<webgpu::Color>>,
+    op: impl Into<gpu::Operations<gpu::Color>>,
   ) -> Self {
     self.desc.channels.push((op.into(), attachment.into()));
     self
@@ -43,7 +66,7 @@ impl<'a> PassDescriptor<'a> {
   pub fn with_depth(
     mut self,
     attachment: impl Into<RenderTargetView> + 'a,
-    op: impl Into<webgpu::Operations<f32>>,
+    op: impl Into<gpu::Operations<f32>>,
   ) -> Self {
     self
       .desc
@@ -86,13 +109,7 @@ impl<'a> PassDescriptor<'a> {
 
     let c = GPURenderPassCtx::new(pass, ctx.gpu);
 
-    let pass = SceneRenderPass {
-      ctx: c,
-      resources: ctx.resources,
-      pass_info,
-      node_derives: ctx.node_derives,
-      scene_resources: ctx.scene_resources,
-    };
+    let pass = FrameRenderPass { ctx: c, pass_info };
 
     ActiveRenderPass {
       desc: self.desc,
@@ -102,11 +119,11 @@ impl<'a> PassDescriptor<'a> {
 }
 
 pub trait PassContent {
-  fn render(&mut self, pass: &mut SceneRenderPass);
+  fn render(&mut self, pass: &mut FrameRenderPass);
 }
 
 impl<T: PassContent> PassContent for Option<T> {
-  fn render(&mut self, pass: &mut SceneRenderPass) {
+  fn render(&mut self, pass: &mut FrameRenderPass) {
     if let Some(content) = self {
       content.render(pass);
     }
@@ -114,7 +131,7 @@ impl<T: PassContent> PassContent for Option<T> {
 }
 
 pub struct ActiveRenderPass<'p> {
-  pass: SceneRenderPass<'p, 'p, 'p>,
+  pass: FrameRenderPass<'p, 'p>,
   pub desc: RenderPassDescriptorOwned,
 }
 
@@ -126,12 +143,12 @@ impl<'p> ActiveRenderPass<'p> {
   }
 }
 
-pub fn color(r: f64, g: f64, b: f64) -> webgpu::Color {
-  webgpu::Color { r, g, b, a: 1. }
+pub fn color(r: f64, g: f64, b: f64) -> gpu::Color {
+  gpu::Color { r, g, b, a: 1. }
 }
 
-pub fn all_zero() -> webgpu::Color {
-  webgpu::Color {
+pub fn all_zero() -> gpu::Color {
+  gpu::Color {
     r: 0.,
     g: 0.,
     b: 0.,
@@ -139,8 +156,8 @@ pub fn all_zero() -> webgpu::Color {
   }
 }
 
-pub fn color_same(r: f64) -> webgpu::Color {
-  webgpu::Color {
+pub fn color_same(r: f64) -> gpu::Color {
+  gpu::Color {
     r,
     g: r,
     b: r,
@@ -149,15 +166,15 @@ pub fn color_same(r: f64) -> webgpu::Color {
 }
 
 pub fn clear<V>(v: V) -> Operations<V> {
-  webgpu::Operations {
-    load: webgpu::LoadOp::Clear(v),
+  gpu::Operations {
+    load: gpu::LoadOp::Clear(v),
     store: true,
   }
 }
 
 pub fn load<V>() -> Operations<V> {
-  webgpu::Operations {
-    load: webgpu::LoadOp::Load,
+  gpu::Operations {
+    load: gpu::LoadOp::Load,
     store: true,
   }
 }

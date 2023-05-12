@@ -1,31 +1,20 @@
 #![feature(specialization)]
 #![feature(type_alias_impl_trait)]
 #![allow(incomplete_features)]
+#![allow(clippy::field_reassign_with_default)]
 
+mod binding;
 mod device;
 mod encoder;
+mod frame;
 mod pass;
+mod pipeline;
 mod queue;
 mod read;
 mod rendering;
 mod resource;
 mod surface;
 mod types;
-
-pub use binding::*;
-pub use device::*;
-pub use encoder::*;
-pub use pass::*;
-pub use queue::*;
-pub use read::*;
-pub use rendering::*;
-pub use resource::*;
-pub use surface::*;
-pub use types::*;
-mod binding;
-
-pub use pipeline::*;
-mod pipeline;
 
 use std::{
   any::*,
@@ -42,11 +31,23 @@ use std::{
 
 use __core::fmt::Debug;
 use __core::num::NonZeroUsize;
+pub use binding::*;
 use bytemuck::*;
+pub use device::*;
+pub use encoder::*;
+pub use frame::*;
 use gpu::util::DeviceExt;
 pub use gpu::*;
+pub use pass::*;
+pub use pipeline::*;
+pub use queue::*;
+pub use read::*;
+pub use rendering::*;
 use rendiation_texture_types::*;
+pub use resource::*;
+pub use surface::*;
 use typed_arena::Arena;
+pub use types::*;
 use wgpu as gpu;
 
 pub struct GPU {

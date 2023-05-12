@@ -29,15 +29,21 @@ pub struct ForwardScene<'a> {
   pub lights: &'a ForwardLightingSystem,
   pub shadow: &'a ShadowMapSystem,
   pub tonemap: &'a ToneMap,
+  pub derives: &'a SceneNodeDeriveSystem,
   pub debugger: Option<&'a ScreenChannelDebugger>,
 }
 
 impl<'a> PassContentWithSceneAndCamera for ForwardScene<'a> {
-  fn render(&mut self, pass: &mut SceneRenderPass, scene: &SceneInner, camera: &SceneCamera) {
+  fn render(
+    &mut self,
+    pass: &mut FrameRenderPass,
+    scene: &SceneRenderResourceGroup,
+    camera: &SceneCamera,
+  ) {
     let mut render_list = RenderList::default();
-    render_list.prepare(scene, camera, pass.node_derives);
+    render_list.prepare(scene, camera);
 
-    let base = pass.default_dispatcher();
+    let base = default_dispatcher(pass);
     let dispatcher = ForwardSceneLightingDispatcher {
       base,
       lighting: self,
@@ -46,7 +52,7 @@ impl<'a> PassContentWithSceneAndCamera for ForwardScene<'a> {
       // override_shading: Some(&PhysicalShading),
     };
 
-    render_list.setup_pass(pass, scene, &dispatcher, camera);
+    render_list.setup_pass(pass, &dispatcher, camera, scene);
   }
 }
 

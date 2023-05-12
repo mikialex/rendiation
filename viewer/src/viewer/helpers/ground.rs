@@ -6,7 +6,8 @@ use rendiation_scene_core::{
   any_change, IntoSceneItemRef, SceneItemReactiveSimpleMapping, SceneItemRef,
 };
 use rendiation_scene_webgpu::{
-  generate_quad, CameraGPU, MaterialStates, PassContentWithCamera, QUAD_DRAW_CMD,
+  default_dispatcher, generate_quad, CameraGPU, MaterialStates, PassContentWithSceneAndCamera,
+  SceneRenderResourceGroup, QUAD_DRAW_CMD,
 };
 use shadergraph::*;
 use webgpu::{
@@ -19,21 +20,23 @@ pub struct GridGround {
   grid_config: SceneItemRef<GridGroundConfig>,
 }
 
-impl PassContentWithCamera for &mut GridGround {
+impl PassContentWithSceneAndCamera for &mut GridGround {
   fn render(
     &mut self,
-    pass: &mut rendiation_scene_webgpu::SceneRenderPass,
+    pass: &mut webgpu::FrameRenderPass,
+    scene: &SceneRenderResourceGroup,
     camera: &rendiation_scene_core::SceneCamera,
   ) {
-    let base = pass.default_dispatcher();
+    let base = default_dispatcher(pass);
 
-    let mut custom_storage = pass.resources.custom_storage.borrow_mut();
+    let mut custom_storage = scene.resources.custom_storage.borrow_mut();
     let gpus: &mut ReactiveMap<SceneItemRef<GridGroundConfig>, InfinityShaderPlane> =
       custom_storage.entry().or_insert_with(Default::default);
 
     let grid_gpu = gpus.get_with_update(&self.grid_config, pass.ctx.gpu);
 
-    let camera_gpu = pass.scene_resources.cameras.get_camera_gpu(camera).unwrap();
+    let cameras = scene.scene_resources.cameras.read().unwrap();
+    let camera_gpu = cameras.get_camera_gpu(camera).unwrap();
 
     let effect = InfinityShaderPlaneEffect {
       plane: &grid_gpu.plane,

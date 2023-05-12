@@ -11,7 +11,7 @@ use rendiation_geometry::{IntersectAble, OptionalNearest, Plane, Ray3};
 use rendiation_mesh_generator::*;
 use rendiation_renderable_mesh::{vertex::Vertex, TriangleList};
 use rendiation_scene_interaction::*;
-use webgpu::RenderComponentAny;
+use webgpu::{FrameRenderPass, RenderComponentAny};
 
 use crate::{
   helpers::{
@@ -415,14 +415,19 @@ fn update_torus(
   }
 }
 
-impl PassContentWithCamera for &mut Gizmo {
-  fn render(&mut self, pass: &mut SceneRenderPass, camera: &SceneCamera) {
+impl PassContentWithSceneAndCamera for &mut Gizmo {
+  fn render(
+    &mut self,
+    pass: &mut FrameRenderPass,
+    scene: &SceneRenderResourceGroup,
+    camera: &SceneCamera,
+  ) {
     if self.target.is_none() {
       return;
     }
 
-    let dispatcher = &WidgetDispatcher::new(pass.default_dispatcher());
-    self.view.render(pass, dispatcher, camera)
+    let dispatcher = &WidgetDispatcher::new(default_dispatcher(pass));
+    self.view.render(pass, dispatcher, camera, scene)
   }
 }
 
@@ -786,11 +791,12 @@ struct HelperMesh {
 impl SceneRenderable for HelperMesh {
   fn render(
     &self,
-    pass: &mut SceneRenderPass,
+    pass: &mut FrameRenderPass,
     dispatcher: &dyn RenderComponentAny,
     camera: &SceneCamera,
+    scene: &SceneRenderResourceGroup,
   ) {
-    self.model.render(pass, dispatcher, camera)
+    self.model.render(pass, dispatcher, camera, scene)
   }
 }
 

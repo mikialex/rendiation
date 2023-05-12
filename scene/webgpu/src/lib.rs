@@ -70,9 +70,10 @@ use wgsl_shader_derives::*;
 pub trait SceneRenderable {
   fn render(
     &self,
-    pass: &mut SceneRenderPass,
+    pass: &mut FrameRenderPass,
     dispatcher: &dyn RenderComponentAny,
     camera: &SceneCamera,
+    scene: &SceneRenderResourceGroup,
   );
 }
 

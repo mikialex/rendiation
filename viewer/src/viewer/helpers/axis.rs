@@ -6,7 +6,7 @@ use rendiation_geometry::OptionalNearest;
 use rendiation_mesh_generator::*;
 use rendiation_renderable_mesh::{mesh::MeshBufferHitPoint, vertex::Vertex, TriangleList};
 use rendiation_scene_interaction::{SceneRayInteractive, SceneRayInteractiveCtx};
-use webgpu::RenderComponentAny;
+use webgpu::{FrameRenderPass, RenderComponentAny};
 
 use super::WidgetDispatcher;
 use crate::*;
@@ -19,15 +19,20 @@ pub struct AxisHelper {
   z: Arrow,
 }
 
-impl PassContentWithCamera for &mut AxisHelper {
-  fn render(&mut self, pass: &mut SceneRenderPass, camera: &SceneCamera) {
+impl PassContentWithSceneAndCamera for &mut AxisHelper {
+  fn render(
+    &mut self,
+    pass: &mut FrameRenderPass,
+    scene: &SceneRenderResourceGroup,
+    camera: &SceneCamera,
+  ) {
     if !self.enabled {
       return;
     }
 
     // sort by the camera
-    let center = pass.node_derives.get_world_matrix(&self.root).position();
-    let camera_position = pass
+    let center = scene.node_derives.get_world_matrix(&self.root).position();
+    let camera_position = scene
       .node_derives
       .get_world_matrix(&camera.read().node)
       .position();
@@ -40,7 +45,9 @@ impl PassContentWithCamera for &mut AxisHelper {
     let mut arr = [(x, &mut self.x), (y, &mut self.y), (z, &mut self.z)];
     arr.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap_or(std::cmp::Ordering::Less));
 
-    arr.iter_mut().for_each(|(_, a)| a.render(pass, camera));
+    arr
+      .iter_mut()
+      .for_each(|(_, a)| a.render(pass, scene, camera));
   }
 }
 
@@ -65,19 +72,25 @@ impl SceneRayInteractive for Arrow {
 impl SceneRenderable for Arrow {
   fn render(
     &self,
-    pass: &mut SceneRenderPass,
+    pass: &mut FrameRenderPass,
     dispatcher: &dyn RenderComponentAny,
     camera: &SceneCamera,
+    scene: &SceneRenderResourceGroup,
   ) {
-    self.cylinder.render(pass, dispatcher, camera);
-    self.tip.render(pass, dispatcher, camera);
+    self.cylinder.render(pass, dispatcher, camera, scene);
+    self.tip.render(pass, dispatcher, camera, scene);
   }
 }
 
-impl PassContentWithCamera for Arrow {
-  fn render(&mut self, pass: &mut SceneRenderPass, camera: &SceneCamera) {
-    let dispatcher = &WidgetDispatcher::new(pass.default_dispatcher());
-    SceneRenderable::render(self, pass, dispatcher, camera);
+impl PassContentWithSceneAndCamera for Arrow {
+  fn render(
+    &mut self,
+    pass: &mut FrameRenderPass,
+    scene: &SceneRenderResourceGroup,
+    camera: &SceneCamera,
+  ) {
+    let dispatcher = &WidgetDispatcher::new(default_dispatcher(pass));
+    SceneRenderable::render(self, pass, dispatcher, camera, scene);
   }
 }
 

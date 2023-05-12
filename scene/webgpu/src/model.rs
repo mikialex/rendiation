@@ -3,11 +3,12 @@ use crate::*;
 impl SceneRenderable for SceneModel {
   fn render(
     &self,
-    pass: &mut SceneRenderPass,
+    pass: &mut FrameRenderPass,
     dispatcher: &dyn RenderComponentAny,
     camera: &SceneCamera,
+    scene: &SceneRenderResourceGroup,
   ) {
-    self.visit(|model| model.render(pass, dispatcher, camera))
+    self.visit(|model| model.render(pass, dispatcher, camera, scene))
   }
 }
 
@@ -19,47 +20,49 @@ impl SceneNodeControlled for SceneModel {
 
 pub fn setup_pass_core(
   model_input: &SceneModelImpl,
-  pass: &mut SceneRenderPass,
+  pass: &mut FrameRenderPass,
   camera: &SceneCamera,
   override_node: Option<&NodeGPU>,
   dispatcher: &dyn RenderComponentAny,
+  resources: &SceneRenderResourceGroup,
 ) {
   match &model_input.model {
     ModelType::Standard(model) => {
       let model = model.read();
       let pass_gpu = dispatcher;
 
-      let camera_gpu = pass.scene_resources.cameras.get_camera_gpu(camera).unwrap();
+      let cameras = resources.scene_resources.cameras.read().unwrap();
+      let camera_gpu = cameras.get_camera_gpu(camera).unwrap();
 
-      let net_visible = pass.node_derives.get_net_visible(&model_input.node);
+      let net_visible = resources.node_derives.get_net_visible(&model_input.node);
       if !net_visible {
         return;
       }
 
       let node_gpu = override_node.unwrap_or(
-        pass
+        resources
           .scene_resources
           .nodes
           .get_node_gpu(&model_input.node)
           .unwrap(),
       );
 
-      let mut materials = pass.resources.model_ctx.materials.write().unwrap();
+      let mut materials = resources.resources.model_ctx.materials.write().unwrap();
       let material_gpu = materials.get_or_insert_with(model.material.guid().unwrap(), || {
         model
           .material
-          .create_scene_reactive_gpu(&pass.resources.bindable_ctx)
+          .create_scene_reactive_gpu(&resources.resources.bindable_ctx)
           .unwrap()
       });
 
-      let mut meshes = pass.resources.model_ctx.meshes.write().unwrap();
+      let mut meshes = resources.resources.model_ctx.meshes.write().unwrap();
       if model.mesh.guid().is_none() {
         model.mesh.guid().unwrap();
       }
       let mesh_gpu = meshes.get_or_insert_with(model.mesh.guid().unwrap(), || {
         model
           .mesh
-          .create_scene_reactive_gpu(&pass.resources.bindable_ctx)
+          .create_scene_reactive_gpu(&resources.resources.bindable_ctx)
           .unwrap()
       });
 
@@ -71,7 +74,7 @@ pub fn setup_pass_core(
     }
     ModelType::Foreign(model) => {
       if let Some(model) = model.downcast_ref::<Box<dyn SceneRenderable>>() {
-        model.render(pass, dispatcher, camera)
+        model.render(pass, dispatcher, camera, resources)
       }
     }
     _ => {}
@@ -81,11 +84,12 @@ pub fn setup_pass_core(
 impl SceneRenderable for SceneModelImpl {
   fn render(
     &self,
-    pass: &mut SceneRenderPass,
+    pass: &mut FrameRenderPass,
     dispatcher: &dyn RenderComponentAny,
     camera: &SceneCamera,
+    scene: &SceneRenderResourceGroup,
   ) {
-    setup_pass_core(self, pass, camera, None, dispatcher);
+    setup_pass_core(self, pass, camera, None, dispatcher, scene);
   }
 }
 

@@ -10,8 +10,6 @@ pub mod background;
 pub use background::*;
 pub mod quad;
 pub use quad::*;
-pub mod framework;
-pub use framework::*;
 pub mod blur;
 pub use blur::*;
 pub mod defer;
@@ -29,35 +27,18 @@ pub use pass_base::*;
 
 use crate::*;
 
-pub struct SceneRenderPass<'encoder, 'b, 'c> {
-  pub ctx: GPURenderPassCtx<'encoder, 'b>,
-  pub resources: &'c ContentGPUSystem,
-  pub scene_resources: &'c SceneGPUSystem,
-  pub node_derives: &'c SceneNodeDeriveSystem,
-  pub pass_info: UniformBufferDataView<RenderPassGPUInfoData>,
+pub struct SceneRenderResourceGroup<'a> {
+  pub scene: &'a SceneInner,
+  pub resources: &'a ContentGPUSystem,
+  pub scene_resources: &'a SceneGPUSystem,
+  pub node_derives: &'a SceneNodeDeriveSystem,
 }
 
-impl<'a, 'b, 'c> SceneRenderPass<'a, 'b, 'c> {
-  pub fn default_dispatcher(&self) -> DefaultPassDispatcher {
-    DefaultPassDispatcher {
-      formats: self.ctx.pass.formats().clone(),
-      pass_info: self.pass_info.clone(),
-      auto_write: true,
-    }
-  }
-}
-
-impl<'a, 'b, 'c> std::ops::Deref for SceneRenderPass<'a, 'b, 'c> {
-  type Target = GPURenderPass<'a>;
-
-  fn deref(&self) -> &Self::Target {
-    &self.ctx.pass
-  }
-}
-
-impl<'a, 'b, 'c> std::ops::DerefMut for SceneRenderPass<'a, 'b, 'c> {
-  fn deref_mut(&mut self) -> &mut Self::Target {
-    &mut self.ctx.pass
+pub fn default_dispatcher(pass: &FrameRenderPass) -> DefaultPassDispatcher {
+  DefaultPassDispatcher {
+    formats: pass.ctx.pass.formats().clone(),
+    pass_info: pass.pass_info.clone(),
+    auto_write: true,
   }
 }
 
@@ -77,17 +58,17 @@ pub trait WebGPUScenePipelineHelper {
   fn by_main_camera_and_self<T>(&self, inner: T) -> CameraSceneRef<T>;
 }
 
-impl WebGPUScenePipelineHelper for SceneInner {
+impl<'a> WebGPUScenePipelineHelper for SceneRenderResourceGroup<'a> {
   fn by_main_camera<T>(&self, inner: T) -> CameraRef<T> {
     CameraRef {
-      camera: self.active_camera.as_ref().unwrap(),
+      camera: self.scene.active_camera.as_ref().unwrap(),
       inner,
     }
   }
 
   fn by_main_camera_and_self<T>(&self, inner: T) -> CameraSceneRef<T> {
     CameraSceneRef {
-      camera: self.active_camera.as_ref().unwrap(),
+      camera: self.scene.active_camera.as_ref().unwrap(),
       scene: self,
       inner,
     }
@@ -95,22 +76,27 @@ impl WebGPUScenePipelineHelper for SceneInner {
 }
 
 impl<'a, T: PassContentWithCamera> PassContent for CameraRef<'a, T> {
-  fn render(&mut self, pass: &mut SceneRenderPass) {
+  fn render(&mut self, pass: &mut FrameRenderPass) {
     self.inner.render(pass, self.camera);
   }
 }
 
 pub trait PassContentWithCamera {
-  fn render(&mut self, pass: &mut SceneRenderPass, camera: &SceneCamera);
+  fn render(&mut self, pass: &mut FrameRenderPass, camera: &SceneCamera);
 }
 
 pub trait PassContentWithSceneAndCamera {
-  fn render(&mut self, pass: &mut SceneRenderPass, scene: &SceneInner, camera: &SceneCamera);
+  fn render(
+    &mut self,
+    pass: &mut FrameRenderPass,
+    scene: &SceneRenderResourceGroup,
+    camera: &SceneCamera,
+  );
 }
 
 pub struct CameraSceneRef<'a, T> {
   pub camera: &'a SceneCamera,
-  pub scene: &'a SceneInner,
+  pub scene: &'a SceneRenderResourceGroup<'a>,
   pub inner: T,
 }
 
@@ -118,7 +104,7 @@ impl<'a, T> PassContent for CameraSceneRef<'a, T>
 where
   T: PassContentWithSceneAndCamera,
 {
-  fn render(&mut self, pass: &mut SceneRenderPass) {
+  fn render(&mut self, pass: &mut FrameRenderPass) {
     self.inner.render(pass, self.scene, self.camera);
   }
 }

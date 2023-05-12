@@ -121,8 +121,8 @@ impl<T> PassContent for QuadDraw<T>
 where
   T: RenderComponentAny,
 {
-  default fn render(&mut self, pass: &mut SceneRenderPass) {
-    let mut base = pass.default_dispatcher();
+  default fn render(&mut self, pass: &mut FrameRenderPass) {
+    let mut base = default_dispatcher(pass);
     base.auto_write = false;
     let components: [&dyn RenderComponentAny; 3] = [&base, &self.quad, &self.content];
 

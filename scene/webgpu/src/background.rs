@@ -19,9 +19,10 @@ impl WebGPUBackground for SolidBackground {
 impl SceneRenderable for SolidBackground {
   fn render<'a>(
     &self,
-    _pass: &mut SceneRenderPass,
+    _pass: &mut FrameRenderPass,
     _dispatcher: &dyn RenderComponentAny,
     _camera: &SceneCamera,
+    _scene: &SceneRenderResourceGroup,
   ) {
   }
 }
@@ -35,9 +36,10 @@ impl WebGPUBackground for EnvMapBackground {
 impl SceneRenderable for EnvMapBackground {
   fn render<'a>(
     &self,
-    _pass: &mut SceneRenderPass,
+    _pass: &mut FrameRenderPass,
     _dispatcher: &dyn RenderComponentAny,
     _camera: &SceneCamera,
+    _scene: &SceneRenderResourceGroup,
   ) {
     todo!()
   }

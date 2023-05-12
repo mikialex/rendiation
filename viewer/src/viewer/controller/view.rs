@@ -6,7 +6,7 @@ use interphaser::{
 };
 use rendiation_renderable_mesh::MeshBufferHitPoint;
 use rendiation_scene_interaction::*;
-use webgpu::RenderComponentAny;
+use webgpu::{FrameRenderPass, RenderComponentAny};
 
 use crate::*;
 
@@ -167,12 +167,13 @@ pub fn map_3d_event(hit: MeshBufferHitPoint, event: &Event<()>) -> Option<Event3
 impl<T, E> SceneRenderable for Component3DCollection<T, E> {
   fn render(
     &self,
-    pass: &mut SceneRenderPass,
+    pass: &mut FrameRenderPass,
     dispatcher: &dyn RenderComponentAny,
     camera: &SceneCamera,
+    scene: &SceneRenderResourceGroup,
   ) {
     for c in &self.collection {
-      c.render(pass, dispatcher, camera)
+      c.render(pass, dispatcher, camera, scene)
     }
   }
 }

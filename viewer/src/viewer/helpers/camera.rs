@@ -130,18 +130,24 @@ impl Default for CameraHelpers {
 }
 
 impl PassContentWithSceneAndCamera for &mut CameraHelpers {
-  fn render(&mut self, pass: &mut SceneRenderPass, scene: &SceneInner, camera: &SceneCamera) {
+  fn render(
+    &mut self,
+    pass: &mut FrameRenderPass,
+    scene: &SceneRenderResourceGroup,
+    camera: &SceneCamera,
+  ) {
     if !self.enabled {
       return;
     }
 
-    for (_, draw_camera) in &scene.cameras {
+    for (_, draw_camera) in &scene.scene.cameras {
       let helper = self.helpers.get_with_update(draw_camera, &());
 
       helper.model.inner.render(
         pass,
-        &WidgetDispatcher::new(pass.default_dispatcher()),
+        &WidgetDispatcher::new(default_dispatcher(pass)),
         camera,
+        scene,
       )
     }
   }

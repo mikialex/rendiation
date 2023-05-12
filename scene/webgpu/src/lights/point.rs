@@ -43,7 +43,7 @@ impl WebGPUSceneLight for SceneItemRef<PointLight> {
 
     let gpu = PointLightShaderInfo {
       luminance_intensity: light.luminance_intensity * light.color_factor,
-      position: ctx.node_derives.get_world_matrix(node).position(),
+      position: ctx.scene.node_derives.get_world_matrix(node).position(),
       cutoff_distance: light.cutoff_distance,
       ..Zeroable::zeroed()
     };

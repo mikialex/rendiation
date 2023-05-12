@@ -28,16 +28,22 @@ impl GridHelper {
   }
 }
 
-impl PassContentWithCamera for &mut GridHelper {
-  fn render(&mut self, pass: &mut SceneRenderPass, camera: &SceneCamera) {
+impl PassContentWithSceneAndCamera for &mut GridHelper {
+  fn render(
+    &mut self,
+    pass: &mut FrameRenderPass,
+    scene: &SceneRenderResourceGroup,
+    camera: &SceneCamera,
+  ) {
     if !self.enabled {
       return;
     }
 
     self.mesh.inner.render(
       pass,
-      &WidgetDispatcher::new(pass.default_dispatcher()),
+      &WidgetDispatcher::new(default_dispatcher(pass)),
       camera,
+      scene,
     )
   }
 }
