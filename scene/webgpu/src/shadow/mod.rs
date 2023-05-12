@@ -10,7 +10,7 @@ pub mod sampling;
 pub use sampling::*;
 
 pub struct ShadowMapSystem {
-  pub shadow_collections: LinkedHashMap<TypeId, Box<dyn ShadowCollection>>,
+  pub shadow_collections: HashMap<TypeId, Box<dyn ShadowCollection>>,
   pub maps: ShadowMapAllocator,
   pub sampler: RawComparisonSampler,
 }

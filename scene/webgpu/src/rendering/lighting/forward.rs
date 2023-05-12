@@ -42,14 +42,30 @@ const MAX_SUPPORT_LIGHT_KIND_COUNT: usize = 8;
 /// contains gpu data that support forward rendering
 ///
 /// all uniform is update once in a frame. for convenience.
-#[derive(Default)]
 pub struct ForwardLightingSystem {
-  pub lights_collections: LinkedHashMap<TypeId, Box<dyn ForwardLightCollection>>,
+  pub lights_collections: HashMap<TypeId, Box<dyn ForwardLightCollection>>,
   /// note todo!, we don't support correct codegen for primitive wrapper array type
   /// so we use vec4<u32> instead of u32
   pub lengths:
     Option<UniformBufferDataView<Shader140Array<Vec4<u32>, MAX_SUPPORT_LIGHT_KIND_COUNT>>>,
   light_hash_cache: u64,
+}
+
+impl ForwardLightingSystem {
+  pub fn new(scene: &Scene, shadow: &ShadowMapSystem) -> Self {
+    scene
+      .unbound_listen_by(|view, send| match view {
+        MaybeDeltaRef::All(scene) => scene.lights.expand(send),
+        MaybeDeltaRef::Delta(delta) => {
+          if let SceneInnerDelta::lights(d) = delta {
+            send(d.clone())
+          }
+        }
+      })
+      .map(|d| {
+        //
+      })
+  }
 }
 
 impl<'a> ShaderPassBuilder for ForwardSceneLightingDispatcher<'a> {
