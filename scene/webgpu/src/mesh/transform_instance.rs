@@ -96,48 +96,38 @@ impl WebGPUMesh for TransformInstancedSceneMesh {
     source: &SceneItemRef<Self>,
     ctx: &ShareBindableResourceCtx,
   ) -> Self::ReactiveGPU {
-    let weak = source.downgrade();
     let ctx = ctx.clone();
 
-    let create = move || {
-      if let Some(m) = weak.upgrade() {
-        let mesh = m.read();
-        // todo, current we do not support reuse this inner mesh!
-        let mesh_gpu = mesh.mesh.create_scene_reactive_gpu(&ctx).unwrap();
-        let mesh_gpu = Box::new(mesh_gpu);
+    let create = move |m: &SceneItemRef<Self>| {
+      let mesh = m.read();
+      // todo, current we do not support reuse this inner mesh!
+      let mesh_gpu = mesh.mesh.create_scene_reactive_gpu(&ctx).unwrap();
+      let mesh_gpu = Box::new(mesh_gpu);
 
-        let instance_gpu = create_gpu_buffer(
-          bytemuck::cast_slice(mesh.transforms.as_slice()),
-          webgpu::BufferUsages::VERTEX,
-          &ctx.gpu.device,
-        )
-        .create_default_view();
+      let instance_gpu = create_gpu_buffer(
+        bytemuck::cast_slice(mesh.transforms.as_slice()),
+        webgpu::BufferUsages::VERTEX,
+        &ctx.gpu.device,
+      )
+      .create_default_view();
 
-        let transforms_count = mesh.transforms.len() as u32;
+      let transforms_count = mesh.transforms.len() as u32;
 
-        let r = TransformInstanceGPU {
-          mesh_gpu,
-          instance_gpu,
-          transforms_count,
-        };
-        Some(r)
-      } else {
-        None
+      TransformInstanceGPU {
+        mesh_gpu,
+        instance_gpu,
+        transforms_count,
       }
     };
 
-    let gpu = create().unwrap();
-    let state = RenderComponentCell::new(gpu);
+    let state = RenderComponentCell::new(create(source));
 
     source
       .single_listen_by::<()>(any_change_no_init)
-      .fold_signal(state, move |_, state| {
-        if let Some(gpu) = create() {
-          state.inner = gpu;
-          RenderComponentDeltaFlag::all().into()
-        } else {
-          None
-        }
+      .filter_map_sync(source.defer_weak())
+      .fold_signal(state, move |mesh, state| {
+        state.inner = create(&mesh);
+        RenderComponentDeltaFlag::all().into()
       })
   }
 }

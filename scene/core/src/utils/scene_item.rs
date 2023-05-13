@@ -149,6 +149,11 @@ impl<T: IncrementalBase> SceneItemRef<T> {
     }
   }
 
+  pub fn defer_weak(&self) -> impl Fn(()) -> Option<Self> {
+    let weak = self.downgrade();
+    move |_| weak.upgrade()
+  }
+
   pub fn trigger_change(&self, delta: &T::Delta) {
     // ignore lock poison
     let inner = self.inner.read().unwrap_or_else(|e| e.into_inner());
