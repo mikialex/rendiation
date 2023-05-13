@@ -39,6 +39,12 @@ pub struct LightResourceCtx<'a> {
   pub derives: &'a SceneNodeDeriveSystem,
 }
 
+impl<'a> LightResourceCtx<'a> {
+  pub fn shadow_system(&self) {
+    //
+  }
+}
+
 pub trait WebGPULight {
   type Uniform: Std140 + Any;
   fn create_uniform_stream(

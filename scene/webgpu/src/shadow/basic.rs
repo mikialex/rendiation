@@ -47,25 +47,6 @@ pub fn compute_shadow_position(
   )
 }
 
-pub struct SceneDepth;
-
-impl PassContentWithSceneAndCamera for SceneDepth {
-  fn render(
-    &mut self,
-    pass: &mut FrameRenderPass,
-    scene: &SceneRenderResourceGroup,
-    camera: &SceneCamera,
-  ) {
-    let mut render_list = RenderList::default();
-    render_list.prepare(scene, camera);
-
-    // we could just use default, because the color channel not exist at all
-    let base = default_dispatcher(pass);
-
-    render_list.setup_pass(pass, &base, camera, scene);
-  }
-}
-
 pub struct BasicShadowGPU {
   pub shadow_camera: ReactiveBasicShadowSceneCamera,
   pub map: ShadowMap,
@@ -166,6 +147,25 @@ type ReactiveBasicShadowSceneCamera = impl Stream<Item = ()> + AsRef<SceneCamera
 //   get_shadow_map(inner, resources, shadows, node);
 // }
 
+struct SceneDepth;
+
+impl PassContentWithSceneAndCamera for SceneDepth {
+  fn render(
+    &mut self,
+    pass: &mut FrameRenderPass,
+    scene: &SceneRenderResourceGroup,
+    camera: &SceneCamera,
+  ) {
+    let mut render_list = RenderList::default();
+    render_list.prepare(scene, camera);
+
+    // we could just use default, because the color channel not exist at all
+    let base = default_dispatcher(pass);
+
+    render_list.setup_pass(pass, &base, camera, scene);
+  }
+}
+
 pub fn check_update_basic_shadow_map<T>(
   inner: &SceneItemRef<T>,
   ctx: &mut LightingCtx,
@@ -211,6 +211,7 @@ where
     .shadow_collections
     .entry(TypeId::of::<BasicShadowMapInfoList>())
     .or_insert_with(|| Box::<BasicShadowMapInfoList>::default());
+
   let shadows = shadows
     .as_any_mut()
     .downcast_mut::<BasicShadowMapInfoList>()

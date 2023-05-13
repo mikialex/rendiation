@@ -76,56 +76,41 @@ impl WebGPULight for SceneItemRef<DirectionalLight> {
     ctx: &mut LightResourceCtx,
     node: Box<dyn Stream<Item = SceneNode>>,
   ) -> impl Stream<Item = Self::Uniform> {
-    let weak = self.downgrade();
-    self
+    enum ShaderInfoDelta {
+      Dir(Vec3<f32>),
+      Shadow(LightShadowAddressInfo),
+      Ill(Vec3<f32>),
+    }
+
+    let direction = node
+      .map(|node| ctx.derives.create_world_matrix_stream(&node))
+      .flatten_signal()
+      .map(|mat| mat.forward().reverse().normalize())
+      .map(ShaderInfoDelta::Dir);
+
+    let shadow = ctx
+      .shadow_system()
+      .create_basic_shadow_stream(&self)
+      .map(ShaderInfoDelta::Shadow);
+
+    let ill = self
       .single_listen_by(any_change)
-      .filter_map_sync(|| weak.upgrade())
-      .map(|| {
-        //
-        DirectionalLightShaderInfo {
-          illuminance: light.illuminance * light.color_factor,
-          direction: ctx
-            .scene
-            .node_derives
-            .get_world_matrix(node)
-            .forward()
-            .reverse()
-            .normalize(),
-          shadow,
-          ..Zeroable::zeroed()
-        }
-        //
-      })
+      .filter_map_sync(self.defer_weak())
+      .map(|light| light.illuminance * light.color_factor)
+      .map(ShaderInfoDelta::Ill);
+
+    let delta = futures::stream_select!(direction, shadow, ill);
+
+    delta.fold_signal(DirectionalLightShaderInfo::default(), |delta, info| {
+      match delta {
+        ShaderInfoDelta::Dir(dir) => info.direction = dir,
+        ShaderInfoDelta::Shadow(shadow) => info.shadow = shadow,
+        ShaderInfoDelta::Ill(i) => info.illuminance = i,
+      };
+      Some(())
+    })
   }
 }
-
-// impl WebGPUSceneLight for SceneItemRef<DirectionalLight> {
-//   // allocate shadow maps
-//   fn pre_update(&self, ctx: &mut LightingCtx, node: &SceneNode) {
-//     request_basic_shadow_map(self, ctx.scene.scene_resources, ctx.shadows, node);
-//   }
-
-//   fn update(&self, ctx: &mut LightingCtx, node: &SceneNode) {
-//     let shadow = check_update_basic_shadow_map(self, ctx, node);
-
-//     let light = self.read();
-//     let lights = ctx.forward.get_or_create_list();
-//     let gpu = DirectionalLightShaderInfo {
-//       illuminance: light.illuminance * light.color_factor,
-//       direction: ctx
-//         .scene
-//         .node_derives
-//         .get_world_matrix(node)
-//         .forward()
-//         .reverse()
-//         .normalize(),
-//       shadow,
-//       ..Zeroable::zeroed()
-//     };
-
-//     lights.source.push(gpu)
-//   }
-// }
 
 #[derive(Copy, Clone)]
 pub struct DirectionalShadowMapExtraInfo {

@@ -72,33 +72,69 @@ impl PunctualShaderLight for SpotLightShaderInfo {
   }
 }
 
-// impl WebGPUSceneLight for SceneItemRef<SpotLight> {
-//   // allocate shadow maps
-//   fn pre_update(&self, ctx: &mut LightingCtx, node: &SceneNode) {
-//     request_basic_shadow_map(self, ctx.scene.scene_resources, ctx.shadows, node);
-//   }
+impl WebGPULight for SceneItemRef<SpotLight> {
+  type Uniform = SpotLightShaderInfo;
 
-//   fn update(&self, ctx: &mut LightingCtx, node: &SceneNode) {
-//     let shadow = check_update_basic_shadow_map(self, ctx, node);
+  fn create_uniform_stream(
+    &self,
+    ctx: &mut LightResourceCtx,
+    node: Box<dyn Stream<Item = SceneNode>>,
+  ) -> impl Stream<Item = Self::Uniform> {
+    enum ShaderInfoDelta {
+      DirPosition(Vec3<f32>, Vec3<f32>),
+      Shadow(LightShadowAddressInfo),
+      Light(SpotLightShaderInfoPart),
+    }
 
-//     let light = self.read();
-//     let lights = ctx.forward.get_or_create_list();
-//     let world = ctx.scene.node_derives.get_world_matrix(node);
+    struct SpotLightShaderInfoPart {
+      pub luminance_intensity: Vec3<f32>,
+      pub cutoff_distance: f32,
+      pub half_cone_cos: f32,
+      pub half_penumbra_cos: f32,
+    }
 
-//     let gpu = SpotLightShaderInfo {
-//       luminance_intensity: light.luminance_intensity * light.color_factor,
-//       direction: world.forward().reverse().normalize(),
-//       cutoff_distance: light.cutoff_distance,
-//       half_cone_cos: light.half_cone_angle.cos(),
-//       half_penumbra_cos: light.half_penumbra_angle.cos(),
-//       position: world.position(),
-//       shadow,
-//       ..Zeroable::zeroed()
-//     };
+    let direction = node
+      .map(|node| ctx.derives.create_world_matrix_stream(&node))
+      .flatten_signal()
+      .map(|mat| (mat.forward().reverse().normalize(), mat.position()))
+      .map(ShaderInfoDelta::DirPosition);
 
-//     lights.source.push(gpu)
-//   }
-// }
+    let shadow = ctx
+      .shadow_system()
+      .create_basic_shadow_stream(&self)
+      .map(ShaderInfoDelta::Shadow);
+
+    let light = self
+      .single_listen_by(any_change)
+      .filter_map_sync(self.defer_weak())
+      .map(|light| SpotLightShaderInfoPart {
+        luminance_intensity: light.luminance_intensity * light.color_factor,
+        cutoff_distance: light.cutoff_distance,
+        half_cone_cos: light.half_cone_angle.cos(),
+        half_penumbra_cos: light.half_penumbra_angle.cos(),
+      })
+      .map(ShaderInfoDelta::Light);
+
+    let delta = futures::stream_select!(direction, shadow, light);
+
+    delta.fold_signal(SpotLightShaderInfo::default(), |delta, info| {
+      match delta {
+        ShaderInfoDelta::DirPosition((dir, pos)) => {
+          info.direction = dir;
+          info.position = pos;
+        }
+        ShaderInfoDelta::Shadow(shadow) => info.shadow = shadow,
+        ShaderInfoDelta::Light(l) => {
+          info.luminance_intensity = l.luminance_intensity;
+          info.cutoff_distance = l.cutoff_distance;
+          info.half_penumbra_cos = l.half_penumbra_cos;
+          info.half_cone_cos = l.half_cone_cos;
+        }
+      };
+      Some(())
+    })
+  }
+}
 
 impl ShadowSingleProjectCreator for SceneItemRef<SpotLight> {
   fn build_shadow_projection(&self) -> Option<impl Stream<Item = Box<dyn CameraProjection>>> {

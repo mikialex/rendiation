@@ -35,22 +35,51 @@ impl PunctualShaderLight for PointLightShaderInfo {
   }
 }
 
-// impl WebGPUSceneLight for SceneItemRef<PointLight> {
-//   fn update(&self, ctx: &mut LightingCtx, node: &SceneNode) {
-//     let light = self.read();
+impl WebGPULight for SceneItemRef<PointLight> {
+  type Uniform = PointLightShaderInfo;
 
-//     let lights = ctx.forward.get_or_create_list();
+  fn create_uniform_stream(
+    &self,
+    ctx: &mut LightResourceCtx,
+    node: Box<dyn Stream<Item = SceneNode>>,
+  ) -> impl Stream<Item = Self::Uniform> {
+    enum ShaderInfoDelta {
+      Position(Vec3<f32>),
+      // Shadow(LightShadowAddressInfo),
+      Light(Vec3<f32>, f32),
+    }
 
-//     let gpu = PointLightShaderInfo {
-//       luminance_intensity: light.luminance_intensity * light.color_factor,
-//       position: ctx.scene.node_derives.get_world_matrix(node).position(),
-//       cutoff_distance: light.cutoff_distance,
-//       ..Zeroable::zeroed()
-//     };
+    let direction = node
+      .map(|node| ctx.derives.create_world_matrix_stream(&node))
+      .flatten_signal()
+      .map(|mat| mat.position())
+      .map(ShaderInfoDelta::Position);
 
-//     lights.source.push(gpu)
-//   }
-// }
+    let ill = self
+      .single_listen_by(any_change)
+      .filter_map_sync(self.defer_weak())
+      .map(|light| {
+        (
+          light.illuminance * light.color_factor,
+          light.cutoff_distance,
+        )
+      })
+      .map(ShaderInfoDelta::Light);
+
+    let delta = futures::stream_select!(direction, ill);
+
+    delta.fold_signal(DirectionalLightShaderInfo::default(), |delta, info| {
+      match delta {
+        ShaderInfoDelta::Position(position) => info.position = position,
+        ShaderInfoDelta::Light(i, cutoff_distance) => {
+          info.illuminance = i;
+          info.cutoff_distance = cutoff_distance;
+        }
+      };
+      Some(())
+    })
+  }
+}
 
 wgsl_fn!(
   // based upon Frostbite 3 Moving to Physically-based Rendering
