@@ -166,54 +166,43 @@ impl WebGPUMesh for AttributesMesh {
     source: &SceneItemRef<Self>,
     ctx: &ShareBindableResourceCtx,
   ) -> Self::ReactiveGPU {
-    let weak = source.downgrade();
     let ctx = ctx.clone();
 
-    let create = move || {
-      if let Some(m) = weak.upgrade() {
-        let mut custom_storage = ctx.custom_storage.write().unwrap();
-        let mesh = m.read();
-        let attributes = mesh
-          .attributes
-          .iter()
-          .map(|(s, vertices)| {
-            let buffer = get_update_buffer(&mut custom_storage, &vertices.view.buffer, &ctx.gpu);
-            let buffer_view = buffer.create_view(map_view(vertices.compute_gpu_buffer_range()));
-            (s.clone(), buffer_view)
-          })
-          .collect();
+    let create = move |mesh: &SceneItemRef<AttributesMesh>| {
+      let mut custom_storage = ctx.custom_storage.write().unwrap();
+      let mesh = mesh.read();
+      let attributes = mesh
+        .attributes
+        .iter()
+        .map(|(s, vertices)| {
+          let buffer = get_update_buffer(&mut custom_storage, &vertices.view.buffer, &ctx.gpu);
+          let buffer_view = buffer.create_view(map_view(vertices.compute_gpu_buffer_range()));
+          (s.clone(), buffer_view)
+        })
+        .collect();
 
-        let indices = mesh.indices.as_ref().map(|(format, i)| {
-          let buffer = get_update_buffer(&mut custom_storage, &i.view.buffer, &ctx.gpu);
-          let buffer_view = buffer.create_view(map_view(i.compute_gpu_buffer_range()));
-          (buffer_view, map_index(*format))
-        });
+      let indices = mesh.indices.as_ref().map(|(format, i)| {
+        let buffer = get_update_buffer(&mut custom_storage, &i.view.buffer, &ctx.gpu);
+        let buffer_view = buffer.create_view(map_view(i.compute_gpu_buffer_range()));
+        (buffer_view, map_index(*format))
+      });
 
-        let r = AttributesMeshGPU {
-          attributes,
-          indices,
-          mode: map_topology(mesh.mode),
-          draw: draw_command(&mesh),
-        };
-
-        Some(r)
-      } else {
-        None
+      AttributesMeshGPU {
+        attributes,
+        indices,
+        mode: map_topology(mesh.mode),
+        draw: draw_command(&mesh),
       }
     };
 
-    let gpu = create().unwrap();
-    let state = RenderComponentCell::new(gpu);
+    let state = RenderComponentCell::new(create(source));
 
     source
       .single_listen_by::<()>(any_change_no_init)
-      .fold_signal(state, move |_, state| {
-        if let Some(gpu) = create() {
-          state.inner = gpu;
-          RenderComponentDeltaFlag::all().into()
-        } else {
-          None
-        }
+      .filter_map_sync(source.defer_weak())
+      .fold_signal(state, move |mesh, state| {
+        state.inner = create(&mesh);
+        RenderComponentDeltaFlag::all().into()
       })
   }
 }

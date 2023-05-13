@@ -161,33 +161,24 @@ where
     source: &SceneItemRef<Self>,
     ctx: &ShareBindableResourceCtx,
   ) -> Self::ReactiveGPU {
-    let weak = source.downgrade();
     let ctx = ctx.clone();
 
-    let create = move || {
-      if let Some(m) = weak.upgrade() {
-        let mesh = m.read();
-        Some(TypedMeshGPU {
-          marker: Default::default(),
-          inner: create_gpu(&mesh.mesh, &ctx.gpu.device, mesh.groups.clone()),
-        })
-      } else {
-        None
+    let create = move |m: &SceneItemRef<Self>| {
+      let mesh = m.read();
+      TypedMeshGPU {
+        marker: Default::default(),
+        inner: create_gpu(&mesh.mesh, &ctx.gpu.device, mesh.groups.clone()),
       }
     };
 
-    let gpu = create().unwrap();
-    let state = RenderComponentCell::new(gpu);
+    let state = RenderComponentCell::new(create(source));
 
     source
       .single_listen_by::<()>(any_change_no_init)
-      .fold_signal(state, move |_, state| {
-        if let Some(gpu) = create() {
-          state.inner = gpu;
-          RenderComponentDeltaFlag::all().into()
-        } else {
-          None
-        }
+      .filter_map_sync(source.defer_weak())
+      .fold_signal(state, move |mesh, state| {
+        state.inner = create(&mesh);
+        RenderComponentDeltaFlag::all().into()
       })
   }
 }

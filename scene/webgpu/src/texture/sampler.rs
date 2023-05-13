@@ -70,26 +70,22 @@ impl ShareBindableResourceCtx {
       };
 
       let gpu_clone: ResourceGPUCtx = self.gpu.clone();
-      let weak = sampler.downgrade();
 
       sampler
         .unbound_listen_by(any_change_no_init)
-        .fold_signal(gpu_sampler, move |_, gpu_tex| {
-          if let Some(sampler) = weak.upgrade() {
-            let source = sampler.read();
-            let source: TextureSampler = **source;
-            // creation will cached in device side now
-            let gpu_sampler = GPUSampler::create(source.into(), &gpu_clone.device);
-            let recreated = gpu_sampler.create_default_view();
+        .filter_map_sync(sampler.defer_weak())
+        .fold_signal(gpu_sampler, move |sampler, gpu_tex| {
+          let source = sampler.read();
+          let source: TextureSampler = **source;
+          // creation will cached in device side now
+          let gpu_sampler = GPUSampler::create(source.into(), &gpu_clone.device);
+          let recreated = gpu_sampler.create_default_view();
 
-            gpu_tex.gpu = recreated.clone();
-            gpu_tex
-              .inner
-              .emit(&TextureGPUChange::ReferenceSampler(gpu_tex.gpu.clone()));
-            TextureGPUChange::ReferenceSampler(recreated).into()
-          } else {
-            None
-          }
+          gpu_tex.gpu = recreated.clone();
+          gpu_tex
+            .inner
+            .emit(&TextureGPUChange::ReferenceSampler(gpu_tex.gpu.clone()));
+          TextureGPUChange::ReferenceSampler(recreated).into()
         })
     });
 

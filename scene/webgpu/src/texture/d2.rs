@@ -65,21 +65,17 @@ impl ShareBindableResourceCtx {
       };
 
       let gpu_clone: ResourceGPUCtx = self.gpu.clone();
-      let weak_tex = tex.downgrade();
 
       tex
         .unbound_listen_by(any_change_no_init)
-        .fold_signal(gpu_tex, move |_delta, gpu_tex| {
-          if let Some(tex) = weak_tex.upgrade() {
-            let recreated = gpu_clone.create_gpu_texture2d(&tex);
-            gpu_tex.gpu = recreated.clone();
-            gpu_tex
-              .inner
-              .emit(&TextureGPUChange::Reference2D(gpu_tex.gpu.clone()));
-            TextureGPUChange::Reference2D(recreated).into()
-          } else {
-            None
-          }
+        .filter_map_sync(tex.defer_weak())
+        .fold_signal(gpu_tex, move |tex, gpu_tex| {
+          let recreated = gpu_clone.create_gpu_texture2d(&tex);
+          gpu_tex.gpu = recreated.clone();
+          gpu_tex
+            .inner
+            .emit(&TextureGPUChange::Reference2D(gpu_tex.gpu.clone()));
+          TextureGPUChange::Reference2D(recreated).into()
         })
     });
 

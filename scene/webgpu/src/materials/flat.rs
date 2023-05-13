@@ -66,20 +66,18 @@ impl WebGPUMaterial for FlatMaterial {
     let gpu = FlatMaterialGPU { uniform };
     let state = RenderComponentCell::new(gpu);
 
-    let weak_material = source.downgrade();
     let ctx = ctx.clone();
 
     source
       .single_listen_by::<()>(any_change_no_init)
-      .fold_signal(state, move |_, state| {
-        if let Some(m) = weak_material.upgrade() {
-          let uniform = FlatMaterialUniform {
-            color: m.read().color,
-            ..Zeroable::zeroed()
-          };
-          state.inner.uniform.resource.set(uniform);
-          state.inner.uniform.resource.upload(&ctx.gpu.queue);
-        }
+      .filter_map_sync(source.defer_weak())
+      .fold_signal(state, move |m, state| {
+        let uniform = FlatMaterialUniform {
+          color: m.read().color,
+          ..Zeroable::zeroed()
+        };
+        state.inner.uniform.resource.set(uniform);
+        state.inner.uniform.resource.upload(&ctx.gpu.queue);
         RenderComponentDeltaFlag::Content.into()
       })
   }
