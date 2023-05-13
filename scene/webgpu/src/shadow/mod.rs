@@ -80,10 +80,9 @@ impl ShaderGraphProvider for ShadowMapSystem {
 }
 
 pub const SHADOW_MAX: usize = 8;
-pub type ShadowList<T> = ClampedUniformList<T, SHADOW_MAX>;
 
 pub struct BasicShadowMapInfoList {
-  pub list: ShadowList<BasicShadowMapInfo>,
+  pub list: ClampedUniformList<BasicShadowMapInfo, SHADOW_MAX>,
 }
 
 impl RebuildAbleGPUCollectionBase for BasicShadowMapInfoList {
@@ -99,7 +98,7 @@ impl RebuildAbleGPUCollectionBase for BasicShadowMapInfoList {
 impl Default for BasicShadowMapInfoList {
   fn default() -> Self {
     Self {
-      list: ShadowList::default_with(SB::Pass),
+      list: ClampedUniformList::default_with(SB::Pass),
     }
   }
 }

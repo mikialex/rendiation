@@ -33,80 +33,82 @@ impl ShaderGraphProvider for ShadowMapAllocator {
   }
 }
 
-#[derive(Default)]
 pub struct ShadowMapAllocatorImpl {
   id: usize,
-  result: Option<ShadowMapAllocationInfo>,
-  requirements: LinkedHashMap<usize, Size>,
+  allocations: ShadowMapAllocationInfo,
+  requirements: StreamMap<usize, Box<dyn Stream<Item = Size>>>,
 }
 
 impl ShadowMapAllocatorImpl {
-  fn check_rebuild(&mut self, gpu: &GPU) -> &ShadowMapAllocationInfo {
-    self.result.get_or_insert_with(|| {
-      // we only impl naive strategy now, just ignore the size requirement
+  pub fn new(gpu: &GPU) -> Self {
+    let init_size = webgpu::Extent3d {
+      width: 512,
+      height: 512,
+      depth_or_array_layers: 5 as u32,
+    };
 
-      let size = self.requirements.len();
-      let map = GPUTexture::create(
-        webgpu::TextureDescriptor {
-          label: "shadow-maps".into(),
-          size: webgpu::Extent3d {
-            width: 512,
-            height: 512,
-            depth_or_array_layers: size as u32,
+    let map = GPUTexture::create(
+      webgpu::TextureDescriptor {
+        label: "shadow-maps".into(),
+        size: init_size,
+        mip_level_count: 1,
+        sample_count: 1,
+        dimension: webgpu::TextureDimension::D2,
+        format: webgpu::TextureFormat::Depth32Float,
+        view_formats: &[],
+        usage: webgpu::TextureUsages::TEXTURE_BINDING | webgpu::TextureUsages::RENDER_ATTACHMENT,
+      },
+      &gpu.device,
+    );
+    let map = map.create_view(Default::default()).try_into().unwrap();
+
+    let mapping = self
+      .requirements
+      .iter()
+      .enumerate()
+      .map(|(i, (v, _))| {
+        (
+          *v,
+          ShadowMapAddressInfo {
+            layer_index: i as i32,
+            size: Vec2::zero(),
+            offset: Vec2::zero(),
+            ..Zeroable::zeroed()
           },
-          mip_level_count: 1,
-          sample_count: 1,
-          dimension: webgpu::TextureDimension::D2,
-          format: webgpu::TextureFormat::Depth32Float,
-          view_formats: &[],
-          usage: webgpu::TextureUsages::TEXTURE_BINDING | webgpu::TextureUsages::RENDER_ATTACHMENT,
-        },
-        &gpu.device,
-      );
-      let map = map.create_view(Default::default()).try_into().unwrap();
+        )
+      })
+      .collect();
 
-      let mapping = self
-        .requirements
-        .iter()
-        .enumerate()
-        .map(|(i, (v, _))| {
-          (
-            *v,
-            ShadowMapAddressInfo {
-              layer_index: i as i32,
-              size: Vec2::zero(),
-              offset: Vec2::zero(),
-              ..Zeroable::zeroed()
-            },
-          )
-        })
-        .collect();
+    let sampler = GPUComparisonSampler::create(
+      webgpu::SamplerDescriptor {
+        mag_filter: webgpu::FilterMode::Linear,
+        min_filter: webgpu::FilterMode::Linear,
+        mipmap_filter: webgpu::FilterMode::Nearest,
+        compare: webgpu::CompareFunction::Greater.into(),
+        ..Default::default()
+      },
+      &gpu.device,
+    )
+    .create_view(());
 
-      let sampler = GPUComparisonSampler::create(
-        webgpu::SamplerDescriptor {
-          mag_filter: webgpu::FilterMode::Linear,
-          min_filter: webgpu::FilterMode::Linear,
-          mipmap_filter: webgpu::FilterMode::Nearest,
-          compare: webgpu::CompareFunction::Greater.into(),
-          ..Default::default()
-        },
-        &gpu.device,
-      )
-      .create_view(());
+    let allocations = ShadowMapAllocationInfo {
+      map,
+      mapping,
+      sampler,
+    };
 
-      ShadowMapAllocationInfo {
-        map,
-        mapping,
-        sampler,
-      }
-    })
+    Self {
+      id: 0,
+      allocations,
+      requirements: todo!(),
+    }
   }
 }
 
 struct ShadowMapAllocationInfo {
   map: GPU2DArrayDepthTextureView,
   sampler: GPUComparisonSamplerView,
-  mapping: LinkedHashMap<usize, ShadowMapAddressInfo>,
+  mapping: HashMap<usize, ShadowMapAddressInfo>,
 }
 
 #[derive(Clone)]

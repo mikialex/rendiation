@@ -48,7 +48,7 @@ pub fn compute_shadow_position(
 }
 
 pub struct BasicShadowGPU {
-  pub shadow_camera: ReactiveBasicShadowSceneCamera,
+  pub shadow_camera: SceneCamera,
   pub map: ShadowMap,
 }
 
@@ -72,33 +72,31 @@ impl SingleProjectShadowMapSystem {
   }
 }
 
-type ReactiveBasicShadowSceneCamera = impl Stream<Item = ()> + AsRef<SceneCamera>;
+fn basic_shadow_gpu(light: SceneLight) -> impl Stream<Item = Option<SceneCamera>> {
+  let l = light.read();
+  let proj = l.light.build_shadow_projection()?;
+  let camera = SceneCamera::create_camera_inner(proj, l.node.clone());
 
-// fn basic_shadow_gpu(light: SceneLight) -> Option<ReactiveBasicShadowSceneCamera> {
-//   let l = light.read();
-//   let proj = l.light.build_shadow_projection()?;
-//   let camera = SceneCamera::create_camera_inner(proj, l.node.clone());
+  light.single_listen_by(with_field!(SceneLightInner => node));
 
-//   light.single_listen_by(with_field!(SceneLightInner => node));
+  light
+    .single_listen_by(with_field!(SceneLightInner => light))
+    .filter_map_sync(|light: SceneLightKind| light.build_shadow_projection());
 
-//   light
-//     .single_listen_by(with_field!(SceneLightInner => light))
-//     .filter_map_sync(|light: SceneLightKind| light.build_shadow_projection());
-
-//   light
-//     .unbound_listen_by(all_delta)
-//     .fold_signal(camera, |delta, camera| {
-//       match delta {
-//         SceneLightInnerDelta::light(l) => {
-//           let proj = l.build_shadow_projection().unwrap(); // todo
-//           SceneCameraInnerDelta::projection(proj).apply_modify(camera)
-//         }
-//         SceneLightInnerDelta::node(n) => SceneCameraInnerDelta::node(n).apply_modify(camera),
-//       }
-//       Some(())
-//     })
-//     .into()
-// }
+  light
+    .unbound_listen_by(all_delta)
+    .fold_signal(camera, |delta, camera| {
+      match delta {
+        SceneLightInnerDelta::light(l) => {
+          let proj = l.build_shadow_projection().unwrap(); // todo
+          SceneCameraInnerDelta::projection(proj).apply_modify(camera)
+        }
+        SceneLightInnerDelta::node(n) => SceneCameraInnerDelta::node(n).apply_modify(camera),
+      }
+      Some(())
+    })
+    .into()
+}
 
 // fn get_shadow_map<T>(
 //   inner: &SceneItemRef<T>,

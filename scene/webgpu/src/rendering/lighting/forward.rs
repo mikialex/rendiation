@@ -64,7 +64,20 @@ impl ForwardLightingSystem {
       })
       .map(|d| match d {
         arena::ArenaDelta::Mutate(_) => todo!(),
-        arena::ArenaDelta::Insert(_) => todo!(),
+        arena::ArenaDelta::Insert((light, _)) => {
+          let node = light.single_listen_by(with_field!(SceneLightInner => node));
+          let light = light.read();
+          match &light.light {
+            SceneLightKind::PointLight(_) => todo!(),
+            SceneLightKind::SpotLight(light) => {
+              let uniform = light.create_uniform_stream(ctx, node);
+              //
+            }
+            SceneLightKind::DirectionalLight(_) => todo!(),
+            SceneLightKind::Foreign(_) => todo!(),
+            _ => todo!(),
+          }
+        }
         arena::ArenaDelta::Remove(_) => todo!(),
       })
   }

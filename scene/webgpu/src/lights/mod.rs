@@ -34,12 +34,12 @@ pub struct LightingCtx<'a, 'b> {
 //   }
 // }
 
-pub struct LightResourceCtx<'a> {
+pub struct LightResourceCtx {
   pub providers: AnyMap,
-  pub derives: &'a SceneNodeDeriveSystem,
+  pub derives: SceneNodeDeriveSystem,
 }
 
-impl<'a> LightResourceCtx<'a> {
+impl LightResourceCtx {
   pub fn shadow_system(&self) {
     //
   }
