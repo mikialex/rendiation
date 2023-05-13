@@ -101,14 +101,14 @@ impl PunctualShaderLight for SpotLightShaderInfo {
 // }
 
 impl ShadowSingleProjectCreator for SceneItemRef<SpotLight> {
-  fn build_shadow_projection(&self) -> Option<Box<dyn CameraProjection>> {
+  fn build_shadow_projection(&self) -> Option<impl Stream<Item = Box<dyn CameraProjection>>> {
     let proj = PerspectiveProjection {
       near: 0.1,
       far: 2000.,
       fov: Deg::from_rad(self.read().half_cone_angle * 2.),
       aspect: 1.,
     };
-    let orth = Box::new(proj) as Box<dyn CameraProjection>;
-    orth.into()
+    let proj = Box::new(proj) as Box<dyn CameraProjection>;
+    once_forever_pending(proj).into()
   }
 }

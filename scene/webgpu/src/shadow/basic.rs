@@ -72,12 +72,24 @@ pub struct BasicShadowGPU {
 }
 
 pub trait ShadowSingleProjectCreator {
-  fn build_shadow_projection(&self) -> impl Stream<Item = Box<dyn CameraProjection>>;
+  fn build_shadow_projection(&self) -> Option<impl Stream<Item = Box<dyn CameraProjection>>>;
 }
 
-// struct ProjectShadowMapSystem {
-//   cameras: StreamMap<usize, ReactiveBasicShadowSceneCamera>,
-// }
+struct SingleProjectShadowMapSystem {
+  cameras: StreamMap<usize, ReactiveBasicShadowSceneCamera>,
+}
+
+impl SingleProjectShadowMapSystem {
+  pub fn create_shadow_info_stream(&self) -> impl Stream<Item = LightShadowAddressInfo> {
+    //
+  }
+}
+
+impl SingleProjectShadowMapSystem {
+  pub fn new(scene: &Scene) -> Self {
+    //
+  }
+}
 
 type ReactiveBasicShadowSceneCamera = impl Stream<Item = ()> + AsRef<SceneCamera>;
 

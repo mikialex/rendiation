@@ -43,7 +43,7 @@ const MAX_SUPPORT_LIGHT_KIND_COUNT: usize = 8;
 ///
 /// all uniform is update once in a frame. for convenience.
 pub struct ForwardLightingSystem {
-  pub lights_collections: HashMap<TypeId, Box<dyn ForwardLightCollection>>,
+  pub lights_collections: StreamMap<TypeId, Box<dyn ForwardLightCollection>>,
   /// note todo!, we don't support correct codegen for primitive wrapper array type
   /// so we use vec4<u32> instead of u32
   pub lengths:
@@ -62,8 +62,10 @@ impl ForwardLightingSystem {
           }
         }
       })
-      .map(|d| {
-        //
+      .map(|d| match d {
+        arena::ArenaDelta::Mutate(_) => todo!(),
+        arena::ArenaDelta::Insert(_) => todo!(),
+        arena::ArenaDelta::Remove(_) => todo!(),
       })
   }
 }
@@ -162,11 +164,13 @@ impl<'a> ShaderGraphProvider for ForwardSceneLightingDispatcher<'a> {
 }
 
 pub trait ForwardLightCollection:
-  LightCollectionCompute + RebuildAbleGPUCollectionBase + Any
+  LightCollectionCompute + RebuildAbleGPUCollectionBase + Any + Stream<Item = ()>
 {
   fn as_any_mut(&mut self) -> &mut dyn Any;
 }
-impl<T: LightCollectionCompute + RebuildAbleGPUCollectionBase + Any> ForwardLightCollection for T {
+impl<T: LightCollectionCompute + RebuildAbleGPUCollectionBase + Any + Stream<Item = ()>>
+  ForwardLightCollection for T
+{
   fn as_any_mut(&mut self) -> &mut dyn Any {
     self
   }
@@ -197,8 +201,9 @@ impl ForwardLightingSystem {
   pub fn get_or_create_list<T: ShaderLight>(&mut self) -> &mut LightList<T> {
     let lights = self
       .lights_collections
-      .entry(TypeId::of::<T>())
-      .or_insert_with(|| Box::new(LightList::<T>::default_with(SB::Pass)));
+      .get_or_insert_with(TypeId::of::<T>(), || {
+        Box::new(LightList::<T>::default_with(SB::Pass))
+      });
     lights.as_any_mut().downcast_mut::<LightList<T>>().unwrap()
   }
 
@@ -268,7 +273,11 @@ impl ForwardLightingSystem {
 }
 
 const LIGHT_MAX: usize = 8;
-pub type LightList<T> = ClampedUniformList<T, LIGHT_MAX>;
+
+struct LightList<T: ShaderLight> {
+  uniform: ClampedUniformList<T, LIGHT_MAX>,
+  source: StreamVec<Box<dyn Stream<Item = T>>>,
+}
 
 impl<T: ShaderLight> RebuildAbleGPUCollectionBase for LightList<T> {
   fn reset(&mut self) {

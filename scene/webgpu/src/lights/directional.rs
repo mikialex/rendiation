@@ -68,31 +68,36 @@ wgsl_fn!(
   }
 );
 
-// impl WebGPULight for SceneItemRef<DirectionalLight> {
-//   type Uniform = DirectionalLightShaderInfo;
+impl WebGPULight for SceneItemRef<DirectionalLight> {
+  type Uniform = DirectionalLightShaderInfo;
 
-//   fn create_uniform_stream(
-//     &self,
-//     ctx: &mut LightResourceCtx,
-//     node: Box<dyn Stream<Item = SceneNode>>,
-//   ) -> impl Stream<Item = Self::Uniform> {
-//     let weak = self.downgrade();
-//     self.single_listen_by(any_change).filter_map_sync(|| {
-//       weak.upgrade().map(|light| DirectionalLightShaderInfo {
-//         illuminance: light.illuminance * light.color_factor,
-//         direction: ctx
-//           .scene
-//           .node_derives
-//           .get_world_matrix(node)
-//           .forward()
-//           .reverse()
-//           .normalize(),
-//         shadow,
-//         ..Zeroable::zeroed()
-//       })
-//     })
-//   }
-// }
+  fn create_uniform_stream(
+    &self,
+    ctx: &mut LightResourceCtx,
+    node: Box<dyn Stream<Item = SceneNode>>,
+  ) -> impl Stream<Item = Self::Uniform> {
+    let weak = self.downgrade();
+    self
+      .single_listen_by(any_change)
+      .filter_map_sync(|| weak.upgrade())
+      .map(|| {
+        //
+        DirectionalLightShaderInfo {
+          illuminance: light.illuminance * light.color_factor,
+          direction: ctx
+            .scene
+            .node_derives
+            .get_world_matrix(node)
+            .forward()
+            .reverse()
+            .normalize(),
+          shadow,
+          ..Zeroable::zeroed()
+        }
+        //
+      })
+  }
+}
 
 // impl WebGPUSceneLight for SceneItemRef<DirectionalLight> {
 //   // allocate shadow maps
@@ -144,7 +149,7 @@ impl Default for DirectionalShadowMapExtraInfo {
 }
 
 impl ShadowSingleProjectCreator for SceneItemRef<DirectionalLight> {
-  fn build_shadow_projection(&self) -> Option<Box<dyn CameraProjection>> {
+  fn build_shadow_projection(&self) -> Option<impl Stream<Item = Box<dyn CameraProjection>>> {
     let light = self.read();
     let shadow_info = light.ext.get::<DirectionalShadowMapExtraInfo>()?;
 
@@ -152,7 +157,8 @@ impl ShadowSingleProjectCreator for SceneItemRef<DirectionalLight> {
       orth: shadow_info.range,
     };
     let orth = Box::new(orth) as Box<dyn CameraProjection>;
-    orth.into()
+
+    once_forever_pending(orth).into()
   }
 }
 
