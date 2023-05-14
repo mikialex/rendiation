@@ -1,63 +1,70 @@
 use crate::*;
 
-#[repr(C)]
-#[std140_layout]
-#[derive(Copy, Clone, ShaderStruct, Default)]
-pub struct LightShadowAddressInfo {
-  pub index: u32,
-  pub enabled: u32,
+pub const SHADOW_MAX: usize = 8;
+
+pub struct BasicShadowMapInfoList {
+  pub source: StreamVec<BasicShadowMapInfo>,
+  pub list: ClampedUniformList<BasicShadowMapInfo, SHADOW_MAX>,
 }
 
-impl LightShadowAddressInfo {
-  pub fn new(enabled: bool, index: u32) -> Self {
+only_fragment!(BasicShadowMapInfoGroup, Shader140Array<BasicShadowMapInfo, SHADOW_MAX>);
+
+impl RebuildAbleGPUCollectionBase for BasicShadowMapInfoList {
+  fn reset(&mut self) {
+    self.list.reset();
+  }
+
+  fn update_gpu(&mut self, gpu: &GPU) -> usize {
+    self.list.update_gpu(gpu)
+  }
+}
+
+impl Default for BasicShadowMapInfoList {
+  fn default() -> Self {
     Self {
-      enabled: enabled.into(),
-      index,
-      ..Zeroable::zeroed()
+      list: ClampedUniformList::default_with(SB::Pass),
     }
   }
 }
 
-only_fragment!(BasicShadowMapInfoGroup, Shader140Array<BasicShadowMapInfo, SHADOW_MAX>);
-only_fragment!(BasicShadowMap, ShaderDepthTexture2DArray);
-only_fragment!(BasicShadowMapSampler, ShaderCompareSampler);
-
-pub fn compute_shadow_position(
-  builder: &ShaderGraphFragmentBuilderView,
-  shadow_info: ENode<BasicShadowMapInfo>,
-) -> Result<Node<Vec3<f32>>, ShaderGraphBuildError> {
-  // another way to compute this is in vertex shader, maybe we will try it later.
-  let bias = shadow_info.bias.expand();
-  let world_position = builder.query::<FragmentWorldPosition>()?;
-  let world_normal = builder.query::<FragmentWorldNormal>()?;
-
-  // apply normal bias
-  let world_position = world_position + bias.normal_bias * world_normal;
-
-  let shadow_position =
-    shadow_info.shadow_camera.expand().view_projection * (world_position, 1.).into();
-
-  let shadow_position = shadow_position.xyz() / shadow_position.w();
-
-  // convert to uv space and apply offset bias
-  Ok(
-    shadow_position * consts(Vec3::new(0.5, -0.5, 1.))
-      + consts(Vec3::new(0.5, 0.5, 0.))
-      + (0., 0., bias.bias).into(),
-  )
+impl ShaderGraphProvider for BasicShadowMapInfoList {
+  fn build(
+    &self,
+    builder: &mut ShaderGraphRenderPipelineBuilder,
+  ) -> Result<(), ShaderGraphBuildError> {
+    builder.fragment(|builder, binding| {
+      let list = binding.uniform_by(self.list.gpu.as_ref().unwrap(), SB::Pass);
+      builder.register::<BasicShadowMapInfoGroup>(list);
+      Ok(())
+    })
+  }
+}
+impl ShaderHashProvider for BasicShadowMapInfoList {
+  fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
+    self.list.hash_pipeline(hasher)
+  }
+}
+impl ShaderPassBuilder for BasicShadowMapInfoList {
+  fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
+    self.list.setup_pass(ctx)
+  }
 }
 
 pub struct BasicShadowGPU {
   pub shadow_camera: SceneCamera,
   pub map: ShadowMap,
+  pub uniform: BasicShadowMapInfo,
 }
 
 pub trait ShadowSingleProjectCreator {
   fn build_shadow_projection(&self) -> Option<impl Stream<Item = Box<dyn CameraProjection>>>;
 }
 
+#[derive(Default)]
 struct SingleProjectShadowMapSystem {
+  /// light guid to light shadow camera
   cameras: StreamMap<usize, ReactiveBasicShadowSceneCamera>,
+  maps: ShadowMapAllocator,
 }
 
 impl SingleProjectShadowMapSystem {
@@ -66,13 +73,9 @@ impl SingleProjectShadowMapSystem {
   }
 }
 
-impl SingleProjectShadowMapSystem {
-  pub fn new(scene: &Scene) -> Self {
-    //
-  }
-}
-
-fn basic_shadow_gpu(light: SceneLight) -> impl Stream<Item = Option<SceneCamera>> {
+type ReactiveBasicShadowSceneCamera =
+  impl Stream<Item = Option<SceneCamera>> + AsRef<Option<SceneCamera>>;
+fn basic_shadow_gpu(light: SceneLight) -> ReactiveBasicShadowSceneCamera {
   let l = light.read();
   let proj = l.light.build_shadow_projection()?;
   let camera = SceneCamera::create_camera_inner(proj, l.node.clone());
@@ -164,65 +167,58 @@ impl PassContentWithSceneAndCamera for SceneDepth {
   }
 }
 
-pub fn check_update_basic_shadow_map<T>(
-  inner: &SceneItemRef<T>,
-  ctx: &mut LightingCtx,
-  node: &SceneNode,
-) -> LightShadowAddressInfo
-where
-  T: Any + Incremental,
-  SceneItemRef<T>: ShadowSingleProjectCreator,
-{
-  let BasicShadowGPU { shadow_camera, map } =
-    get_shadow_map(inner, ctx.scene.scene_resources, ctx.shadows, node);
+impl BasicShadowGPU {
+  pub fn update_basic_shadow_map(&self, ctx: &mut LightingCtx) -> LightShadowAddressInfo {
+    let BasicShadowGPU { shadow_camera, map } = self;
 
-  let (view, map_info) = map.get_write_view(ctx.ctx.gpu);
+    let (view, map_info) = map.get_write_view(ctx.ctx.gpu);
 
-  let shadow_camera_info = ctx
-    .scene
-    .scene_resources
-    .cameras
-    .write()
-    .unwrap()
-    .get_or_insert(
-      &shadow_camera,
-      ctx.scene.node_derives,
-      &ctx.scene.resources.gpu,
-    )
-    .as_ref()
-    .inner
-    .ubo
-    .resource
-    .get();
+    // let shadow_camera_info = ctx
+    //   .scene
+    //   .scene_resources
+    //   .cameras
+    //   .write()
+    //   .unwrap()
+    //   .get_or_insert(
+    //     &shadow_camera,
+    //     ctx.scene.node_derives,
+    //     &ctx.scene.resources.gpu,
+    //   )
+    //   .as_ref()
+    //   .inner
+    //   .ubo
+    //   .resource
+    //   .get();
 
-  pass("shadow-depth")
-    .with_depth(view, clear(1.))
-    .render(ctx.ctx)
-    .by(CameraSceneRef {
-      camera: &shadow_camera,
-      scene: ctx.scene,
-      inner: SceneDepth,
-    });
+    pass("shadow-depth")
+      .with_depth(view, clear(1.))
+      .render(ctx.ctx)
+      .by(CameraSceneRef {
+        camera: &shadow_camera,
+        scene: ctx.scene,
+        inner: SceneDepth,
+      });
 
-  let shadows = ctx
-    .shadows
-    .shadow_collections
-    .entry(TypeId::of::<BasicShadowMapInfoList>())
-    .or_insert_with(|| Box::<BasicShadowMapInfoList>::default());
+    // let shadows = ctx
+    //   .shadows
+    //   .shadow_collections
+    //   .entry(TypeId::of::<BasicShadowMapInfoList>())
+    //   .or_insert_with(|| Box::<BasicShadowMapInfoList>::default());
 
-  let shadows = shadows
-    .as_any_mut()
-    .downcast_mut::<BasicShadowMapInfoList>()
-    .unwrap();
+    // let shadows = shadows
+    //   .as_any_mut()
+    //   .downcast_mut::<BasicShadowMapInfoList>()
+    //   .unwrap();
 
-  let index = shadows.list.source.len();
+    // let index = shadows.list.source.len();
 
-  let mut info = BasicShadowMapInfo::default();
-  info.shadow_camera = shadow_camera_info;
-  info.bias = ShadowBias::new(-0.0001, 0.0);
-  info.map_info = map_info;
+    // let mut info = BasicShadowMapInfo::default();
+    // info.shadow_camera = shadow_camera_info;
+    // info.bias = ShadowBias::new(-0.0001, 0.0);
+    // info.map_info = map_info;
 
-  shadows.list.source.push(info);
+    // shadows.list.source.push(info);
 
-  LightShadowAddressInfo::new(true, index as u32)
+    // LightShadowAddressInfo::new(true, index as u32)
+  }
 }

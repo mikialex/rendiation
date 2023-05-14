@@ -7,6 +7,25 @@ pub struct ShadowMapAllocator {
   inner: Rc<RefCell<ShadowMapAllocatorImpl>>,
 }
 
+impl ShadowMapAllocator {
+  pub fn allocate(&self, resolution: Size) -> ShadowMap {
+    let mut inner = self.inner.borrow_mut();
+    inner.id += 1;
+
+    let id = inner.id;
+    inner.requirements.insert(id, resolution);
+
+    ShadowMap {
+      id,
+      size: resolution,
+      inner: self.inner.clone(),
+    }
+  }
+}
+
+only_fragment!(BasicShadowMap, ShaderDepthTexture2DArray);
+only_fragment!(BasicShadowMapSampler, ShaderCompareSampler);
+
 impl ShaderPassBuilder for ShadowMapAllocator {
   fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
     let inner = self.inner.borrow();
@@ -111,23 +130,27 @@ struct ShadowMapAllocationInfo {
   mapping: HashMap<usize, ShadowMapAddressInfo>,
 }
 
-#[derive(Clone)]
 pub struct ShadowMap {
-  inner: Rc<ShadowMapInner>,
-}
-
-struct ShadowMapInner {
   id: usize,
+  size: Size,
   inner: Rc<RefCell<ShadowMapAllocatorImpl>>,
 }
 
-impl Drop for ShadowMapInner {
+impl Drop for ShadowMap {
   fn drop(&mut self) {
     let mut inner = self.inner.borrow_mut();
     inner.requirements.remove(&self.id);
     if let Some(result) = &mut inner.result {
       result.mapping.remove(&self.id);
     }
+  }
+}
+
+impl Stream for ShadowMap {
+  type Item = ShadowMapAddressInfo;
+
+  fn poll_next(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Option<Self::Item>> {
+    todo!()
   }
 }
 
@@ -153,23 +176,5 @@ impl ShadowMap {
         .unwrap(),
       *result.mapping.get(&id).unwrap(),
     )
-  }
-}
-
-impl ShadowMapAllocator {
-  pub fn allocate(&self, resolution: Size) -> ShadowMap {
-    let mut inner = self.inner.borrow_mut();
-    inner.id += 1;
-
-    let id = inner.id;
-    inner.requirements.insert(id, resolution);
-
-    let s_inner = ShadowMapInner {
-      id,
-      inner: self.inner.clone(),
-    };
-    ShadowMap {
-      inner: Rc::new(s_inner),
-    }
   }
 }

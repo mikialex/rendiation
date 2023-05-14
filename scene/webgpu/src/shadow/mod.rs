@@ -79,53 +79,6 @@ impl ShaderGraphProvider for ShadowMapSystem {
   }
 }
 
-pub const SHADOW_MAX: usize = 8;
-
-pub struct BasicShadowMapInfoList {
-  pub list: ClampedUniformList<BasicShadowMapInfo, SHADOW_MAX>,
-}
-
-impl RebuildAbleGPUCollectionBase for BasicShadowMapInfoList {
-  fn reset(&mut self) {
-    self.list.reset();
-  }
-
-  fn update_gpu(&mut self, gpu: &GPU) -> usize {
-    self.list.update_gpu(gpu)
-  }
-}
-
-impl Default for BasicShadowMapInfoList {
-  fn default() -> Self {
-    Self {
-      list: ClampedUniformList::default_with(SB::Pass),
-    }
-  }
-}
-
-impl ShaderGraphProvider for BasicShadowMapInfoList {
-  fn build(
-    &self,
-    builder: &mut ShaderGraphRenderPipelineBuilder,
-  ) -> Result<(), ShaderGraphBuildError> {
-    builder.fragment(|builder, binding| {
-      let list = binding.uniform_by(self.list.gpu.as_ref().unwrap(), SB::Pass);
-      builder.register::<BasicShadowMapInfoGroup>(list);
-      Ok(())
-    })
-  }
-}
-impl ShaderHashProvider for BasicShadowMapInfoList {
-  fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
-    self.list.hash_pipeline(hasher)
-  }
-}
-impl ShaderPassBuilder for BasicShadowMapInfoList {
-  fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
-    self.list.setup_pass(ctx)
-  }
-}
-
 #[repr(C)]
 #[std140_layout]
 #[derive(Clone, Copy, Default, ShaderStruct)]
@@ -160,4 +113,47 @@ pub struct ShadowMapAddressInfo {
   pub layer_index: i32,
   pub size: Vec2<f32>,
   pub offset: Vec2<f32>,
+}
+
+#[repr(C)]
+#[std140_layout]
+#[derive(Copy, Clone, ShaderStruct, Default)]
+pub struct LightShadowAddressInfo {
+  pub index: u32,
+  pub enabled: u32,
+}
+
+impl LightShadowAddressInfo {
+  pub fn new(enabled: bool, index: u32) -> Self {
+    Self {
+      enabled: enabled.into(),
+      index,
+      ..Zeroable::zeroed()
+    }
+  }
+}
+
+pub fn compute_shadow_position(
+  builder: &ShaderGraphFragmentBuilderView,
+  shadow_info: ENode<BasicShadowMapInfo>,
+) -> Result<Node<Vec3<f32>>, ShaderGraphBuildError> {
+  // another way to compute this is in vertex shader, maybe we will try it later.
+  let bias = shadow_info.bias.expand();
+  let world_position = builder.query::<FragmentWorldPosition>()?;
+  let world_normal = builder.query::<FragmentWorldNormal>()?;
+
+  // apply normal bias
+  let world_position = world_position + bias.normal_bias * world_normal;
+
+  let shadow_position =
+    shadow_info.shadow_camera.expand().view_projection * (world_position, 1.).into();
+
+  let shadow_position = shadow_position.xyz() / shadow_position.w();
+
+  // convert to uv space and apply offset bias
+  Ok(
+    shadow_position * consts(Vec3::new(0.5, -0.5, 1.))
+      + consts(Vec3::new(0.5, 0.5, 0.))
+      + (0., 0., bias.bias).into(),
+  )
 }
