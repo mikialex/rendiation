@@ -3,7 +3,6 @@ use crate::*;
 pub const SHADOW_MAX: usize = 8;
 
 pub struct BasicShadowMapInfoList {
-  pub source: StreamVec<BasicShadowMapInfo>,
   pub list: ClampedUniformList<BasicShadowMapInfo, SHADOW_MAX>,
 }
 
@@ -65,17 +64,29 @@ struct SingleProjectShadowMapSystem {
   /// light guid to light shadow camera
   cameras: StreamMap<usize, ReactiveBasicShadowSceneCamera>,
   maps: ShadowMapAllocator,
+  shadow_maps: StreamMap<usize, ShadowMap>,
+  list: BasicShadowMapInfoList,
 }
 
 impl SingleProjectShadowMapSystem {
-  pub fn create_shadow_info_stream(&self) -> impl Stream<Item = LightShadowAddressInfo> {
+  pub fn create_shadow_info_stream(
+    &self,
+    light: &SceneLight,
+  ) -> impl Stream<Item = LightShadowAddressInfo> {
+    let camera_stream = basic_shadow_camera(light);
+    self.cameras.insert(light.guid, camera_stream);
+    let shadow_map = self.maps.allocate(resolution);
+  }
+
+  pub fn update_depth(&mut self, ctx: &FrameCtx) {
     //
   }
 }
 
 type ReactiveBasicShadowSceneCamera =
-  impl Stream<Item = Option<SceneCamera>> + AsRef<Option<SceneCamera>>;
-fn basic_shadow_gpu(light: SceneLight) -> ReactiveBasicShadowSceneCamera {
+  impl Stream<Item = Option<(SceneCamera, Size)>> + AsRef<Option<(SceneCamera, Size)>>;
+
+fn basic_shadow_camera(light: SceneLight) -> ReactiveBasicShadowSceneCamera {
   let l = light.read();
   let proj = l.light.build_shadow_projection()?;
   let camera = SceneCamera::create_camera_inner(proj, l.node.clone());
@@ -100,53 +111,6 @@ fn basic_shadow_gpu(light: SceneLight) -> ReactiveBasicShadowSceneCamera {
     })
     .into()
 }
-
-// fn get_shadow_map<T>(
-//   inner: &SceneItemRef<T>,
-//   resources: &SceneGPUSystem,
-//   shadows: &mut ShadowMapSystem,
-//   node: &SceneNode,
-// ) -> BasicShadowGPU
-// where
-//   T: Any + Incremental,
-//   SceneItemRef<T>: ShadowSingleProjectCreator,
-// {
-//   let resolution = Size::from_usize_pair_min_one((512, 512));
-
-//   let mut lights = resources.lights.borrow_mut();
-//   lights
-//     .inner
-//     .entry(TypeId::of::<T>())
-//     .or_insert_with(|| Box::<IdentityMapper<BasicShadowGPU, T>>::default())
-//     .downcast_mut::<IdentityMapper<BasicShadowGPU, T>>()
-//     .unwrap()
-//     .get_update_or_insert_with_logic(inner, |logic| match logic {
-//       ResourceLogic::Create(light) => {
-//         let shadow_camera = light.build_shadow_camera(node);
-//         let map = shadows.maps.allocate(resolution);
-//         ResourceLogicResult::Create(BasicShadowGPU { shadow_camera, map })
-//       }
-//       ResourceLogic::Update(shadow, light) => {
-//         let shadow_camera = light.build_shadow_camera(node);
-//         let map = shadows.maps.allocate(resolution);
-//         *shadow = BasicShadowGPU { shadow_camera, map };
-//         ResourceLogicResult::Update(shadow)
-//       }
-//     })
-//     .clone()
-// }
-
-// pub fn request_basic_shadow_map<T>(
-//   inner: &SceneItemRef<T>,
-//   resources: &SceneGPUSystem,
-//   shadows: &mut ShadowMapSystem,
-//   node: &SceneNode,
-// ) where
-//   T: Any + Incremental,
-//   SceneItemRef<T>: ShadowSingleProjectCreator,
-// {
-//   get_shadow_map(inner, resources, shadows, node);
-// }
 
 struct SceneDepth;
 

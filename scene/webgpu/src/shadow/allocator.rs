@@ -55,7 +55,7 @@ impl ShaderGraphProvider for ShadowMapAllocator {
 pub struct ShadowMapAllocatorImpl {
   id: usize,
   allocations: ShadowMapAllocationInfo,
-  requirements: StreamMap<usize, Box<dyn Stream<Item = Size>>>,
+  requirements: HashMap<usize, Size>,
 }
 
 impl ShadowMapAllocatorImpl {
@@ -66,6 +66,24 @@ impl ShadowMapAllocatorImpl {
       depth_or_array_layers: 5 as u32,
     };
 
+    let allocations = ShadowMapAllocationInfo::new(init_size, &gpu.device);
+
+    Self {
+      id: 0,
+      allocations,
+      requirements: todo!(),
+    }
+  }
+}
+
+struct ShadowMapAllocationInfo {
+  map: GPU2DArrayDepthTextureView,
+  sampler: GPUComparisonSamplerView,
+  mapping: HashMap<usize, ShadowMapAddressInfo>,
+}
+
+impl ShadowMapAllocationInfo {
+  fn new(init_size: webgpu::Extent3d, device: &GPUDevice) -> Self {
     let map = GPUTexture::create(
       webgpu::TextureDescriptor {
         label: "shadow-maps".into(),
@@ -77,7 +95,7 @@ impl ShadowMapAllocatorImpl {
         view_formats: &[],
         usage: webgpu::TextureUsages::TEXTURE_BINDING | webgpu::TextureUsages::RENDER_ATTACHMENT,
       },
-      &gpu.device,
+      device,
     );
     let map = map.create_view(Default::default()).try_into().unwrap();
 
@@ -106,28 +124,16 @@ impl ShadowMapAllocatorImpl {
         compare: webgpu::CompareFunction::Greater.into(),
         ..Default::default()
       },
-      &gpu.device,
+      device,
     )
     .create_view(());
 
-    let allocations = ShadowMapAllocationInfo {
+    Self {
       map,
       mapping,
       sampler,
-    };
-
-    Self {
-      id: 0,
-      allocations,
-      requirements: todo!(),
     }
   }
-}
-
-struct ShadowMapAllocationInfo {
-  map: GPU2DArrayDepthTextureView,
-  sampler: GPUComparisonSamplerView,
-  mapping: HashMap<usize, ShadowMapAddressInfo>,
 }
 
 pub struct ShadowMap {
