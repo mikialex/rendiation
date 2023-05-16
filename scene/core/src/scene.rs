@@ -80,6 +80,25 @@ impl IncrementalBase for SceneInner {
   }
 }
 
+impl ApplicableIncremental for SceneInner {
+  type Error = ();
+
+  fn apply(&mut self, delta: Self::Delta) -> Result<(), Self::Error> {
+    match delta {
+      SceneInnerDelta::background(delta) => self.background.apply(delta).unwrap(),
+      SceneInnerDelta::default_camera(delta) => self.default_camera.apply(delta).unwrap(),
+      SceneInnerDelta::active_camera(delta) => self.active_camera.apply(delta).unwrap(),
+      SceneInnerDelta::cameras(delta) => self.cameras.apply(delta).unwrap(),
+      SceneInnerDelta::lights(delta) => self.lights.apply(delta).unwrap(),
+      SceneInnerDelta::models(model) => self.models.apply(model).unwrap(),
+      SceneInnerDelta::ext(ext) => self.ext.apply(ext).unwrap(),
+      // SceneInnerDelta::nodes(node) => self.nodes.apply(node).unwrap(),
+      _ => {}
+    }
+    Ok(())
+  }
+}
+
 impl SceneInner {
   pub fn root(&self) -> &SceneNode {
     &self.root

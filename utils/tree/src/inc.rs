@@ -46,6 +46,19 @@ impl<T: IncrementalBase + Clone> IncrementalBase for TreeCollection<T> {
   }
 }
 
+impl<T, X> IncrementalBase for ReactiveTreeCollection<T, X>
+where
+  T: Send + Sync + 'static,
+  X: IncrementalBase + Clone,
+  T: std::ops::Deref<Target = X>,
+{
+  type Delta = TreeMutation<X>;
+
+  fn expand(&self, cb: impl FnMut(Self::Delta)) {
+    self.inner.expand_with_mapping(|n| n.deref().clone(), cb)
+  }
+}
+
 #[derive(Debug)]
 pub enum TreeDeltaMutationError<T> {
   Inner(T),
@@ -99,5 +112,16 @@ where
   fn expand(&self, cb: impl FnMut(Self::Delta)) {
     let tree = self.inner.write().unwrap();
     tree.expand(cb);
+  }
+}
+
+impl<T> ApplicableIncremental for SharedTreeCollection<T>
+where
+  T: ApplicableIncremental,
+{
+  type Error = T::Error;
+
+  fn apply(&mut self, delta: Self::Delta) -> Result<(), Self::Error> {
+    self.inner.write().unwrap().apply(delta)
   }
 }
