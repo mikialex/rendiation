@@ -139,8 +139,10 @@ impl SceneNode {
     self.visit(|node| node.listen_by::<DefaultUnboundChannel, _>(mapper))
   }
 
-  pub fn replace_base(&self, base: &SceneNodeCollection) {
-    self.inner.replace_base(&base.inner)
+  pub fn new_by_base(&self, base: &SceneNodeCollection) -> Self {
+    Self {
+      inner: self.inner.new_by_base(&base.inner),
+    }
   }
 
   pub(crate) fn from_new_root(

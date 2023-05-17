@@ -51,82 +51,6 @@ impl IncrementalBase for SceneNodeCollection {
   }
 }
 
-#[allow(non_camel_case_types)]
-#[derive(Clone)]
-pub enum SceneInnerDelta {
-  background(DeltaOf<Option<SceneBackGround>>),
-  default_camera(DeltaOf<SceneCamera>),
-  active_camera(DeltaOf<Option<SceneCamera>>),
-  cameras(DeltaOf<Arena<SceneCamera>>),
-  lights(DeltaOf<Arena<SceneLight>>),
-  models(DeltaOf<Arena<SceneModel>>),
-  ext(DeltaOf<DynamicExtension>),
-  nodes(DeltaOf<SceneNodeCollection>),
-}
-
-impl IncrementalBase for SceneInner {
-  type Delta = SceneInnerDelta;
-
-  fn expand(&self, mut cb: impl FnMut(Self::Delta)) {
-    use SceneInnerDelta::*;
-    self.background.expand(|d| cb(background(d)));
-    self.default_camera.expand(|d| cb(default_camera(d)));
-    self.active_camera.expand(|d| cb(active_camera(d)));
-    self.cameras.expand(|d| cb(cameras(d)));
-    self.lights.expand(|d| cb(lights(d)));
-    self.models.expand(|d| cb(models(d)));
-    self.ext.expand(|d| cb(ext(d)));
-    self.nodes.expand(|d| cb(nodes(d)));
-  }
-}
-
-fn visit_arena_delta<T: IncrementalBase<Delta = T>>(d: &ArenaDelta<T>, visit: impl FnOnce(&T)) {
-  match d {
-    ArenaDelta::Mutate((m, _)) => visit(m),
-    ArenaDelta::Insert((m, _)) => visit(m),
-    ArenaDelta::Remove(_) => {}
-  }
-}
-
-impl ApplicableIncremental for SceneInner {
-  type Error = ();
-
-  // todo, should we request the downstream to correctly impl the base replace logic?
-  fn apply(&mut self, delta: Self::Delta) -> Result<(), Self::Error> {
-    match delta {
-      SceneInnerDelta::background(delta) => self.background.apply(delta).unwrap(),
-      SceneInnerDelta::default_camera(delta) => {
-        delta.read().node.replace_base(&self.nodes);
-        self.default_camera.apply(delta).unwrap()
-      }
-      SceneInnerDelta::active_camera(delta) => {
-        if let Some(delta) = delta.clone() {
-          merge_maybe(delta).read().node.replace_base(&self.nodes);
-        }
-        self.active_camera.apply(delta).unwrap()
-      }
-      SceneInnerDelta::cameras(delta) => {
-        visit_arena_delta(&delta, |camera| {
-          camera.read().node.replace_base(&self.nodes)
-        });
-        self.cameras.apply(delta).unwrap()
-      }
-      SceneInnerDelta::lights(delta) => {
-        visit_arena_delta(&delta, |light| light.read().node.replace_base(&self.nodes));
-        self.lights.apply(delta).unwrap()
-      }
-      SceneInnerDelta::models(model) => {
-        visit_arena_delta(&model, |model| model.read().node.replace_base(&self.nodes));
-        self.models.apply(model).unwrap()
-      }
-      SceneInnerDelta::ext(ext) => self.ext.apply(ext).unwrap(),
-      // SceneInnerDelta::nodes(node) => self.nodes.apply(node).unwrap(),
-      _ => {}
-    }
-    Ok(())
-  }
-}
-
 impl SceneInner {
   pub fn root(&self) -> &SceneNode {
     &self.root
@@ -249,5 +173,137 @@ impl Scene {
         SceneInnerDelta::background(background)
       });
     })
+  }
+}
+
+#[allow(non_camel_case_types)]
+#[derive(Clone)]
+pub enum SceneInnerDelta {
+  background(DeltaOf<Option<SceneBackGround>>),
+  default_camera(DeltaOf<SceneCamera>),
+  active_camera(DeltaOf<Option<SceneCamera>>),
+  cameras(DeltaOf<Arena<SceneCamera>>),
+  lights(DeltaOf<Arena<SceneLight>>),
+  models(DeltaOf<Arena<SceneModel>>),
+  ext(DeltaOf<DynamicExtension>),
+  nodes(DeltaOf<SceneNodeCollection>),
+}
+
+impl IncrementalBase for SceneInner {
+  type Delta = SceneInnerDelta;
+
+  fn expand(&self, mut cb: impl FnMut(Self::Delta)) {
+    use SceneInnerDelta::*;
+    self.background.expand(|d| cb(background(d)));
+    self.default_camera.expand(|d| cb(default_camera(d)));
+    self.active_camera.expand(|d| cb(active_camera(d)));
+    self.cameras.expand(|d| cb(cameras(d)));
+    self.lights.expand(|d| cb(lights(d)));
+    self.models.expand(|d| cb(models(d)));
+    self.ext.expand(|d| cb(ext(d)));
+    self.nodes.expand(|d| cb(nodes(d)));
+  }
+}
+
+fn mutate_arena_delta<T: IncrementalBase<Delta = T>>(
+  d: &mut ArenaDelta<T>,
+  visit: impl FnOnce(&mut T),
+) {
+  match d {
+    ArenaDelta::Mutate((m, _)) => visit(m),
+    ArenaDelta::Insert((m, _)) => visit(m),
+    ArenaDelta::Remove(_) => {}
+  }
+}
+
+fn transform_camera_node(
+  camera: &SceneCamera,
+  mapper: impl FnOnce(&SceneNode) -> SceneNode,
+) -> SceneCamera {
+  let camera = camera.read();
+  SceneCameraInner {
+    node: mapper(&camera.node),
+    bounds: camera.bounds,
+    projection: camera.projection.clone_self(),
+    projection_matrix: camera.projection_matrix,
+  }
+  .into_ref()
+}
+
+fn transform_light_node(
+  light: &SceneLight,
+  mapper: impl FnOnce(&SceneNode) -> SceneNode,
+) -> SceneLight {
+  let light = light.read();
+  SceneLightInner {
+    node: mapper(&light.node),
+    light: light.light.clone(),
+  }
+  .into_ref()
+}
+
+fn transform_model_node(
+  model: &SceneModel,
+  mapper: impl FnOnce(&SceneNode) -> SceneNode,
+) -> SceneModel {
+  let model = model.read();
+  SceneModelImpl {
+    node: mapper(&model.node),
+    model: model.model.clone(),
+  }
+  .into_ref()
+}
+
+#[allow(clippy::collapsible_match)]
+pub fn transform_scene_delta_node(
+  delta: &mut SceneInnerDelta,
+  mapper: impl FnOnce(&SceneNode) -> SceneNode,
+) {
+  match delta {
+    SceneInnerDelta::default_camera(delta) => {
+      *delta = transform_camera_node(delta, mapper);
+    }
+    SceneInnerDelta::active_camera(delta) => {
+      if let Some(delta) = delta {
+        let delta = merge_maybe_mut_ref(delta);
+        *delta = transform_camera_node(delta, mapper);
+      }
+    }
+    SceneInnerDelta::cameras(delta) => {
+      mutate_arena_delta(delta, |camera| {
+        *camera = transform_camera_node(camera, mapper);
+      });
+    }
+    SceneInnerDelta::lights(delta) => {
+      mutate_arena_delta(delta, |light| {
+        *light = transform_light_node(light, mapper);
+      });
+    }
+    SceneInnerDelta::models(delta) => {
+      mutate_arena_delta(delta, |model| {
+        *model = transform_model_node(model, mapper);
+      });
+    }
+    _ => {}
+  }
+}
+
+impl ApplicableIncremental for SceneInner {
+  type Error = ();
+
+  fn apply(&mut self, mut delta: Self::Delta) -> Result<(), Self::Error> {
+    transform_scene_delta_node(&mut delta, |node| node.new_by_base(&self.nodes));
+    match delta {
+      SceneInnerDelta::background(delta) => self.background.apply(delta).unwrap(),
+      SceneInnerDelta::default_camera(delta) => self.default_camera.apply(delta).unwrap(),
+      SceneInnerDelta::active_camera(delta) => self.active_camera.apply(delta).unwrap(),
+      SceneInnerDelta::cameras(delta) => self.cameras.apply(delta).unwrap(),
+      SceneInnerDelta::lights(delta) => self.lights.apply(delta).unwrap(),
+      SceneInnerDelta::models(delta) => self.models.apply(delta).unwrap(),
+      SceneInnerDelta::ext(ext) => self.ext.apply(ext).unwrap(),
+      // SceneInnerDelta::nodes(node) => self.nodes.apply(node).unwrap(),
+      _ => {}
+    }
+    Ok(())
   }
 }

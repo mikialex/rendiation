@@ -45,6 +45,15 @@ pub struct NodeRef<T: CoreTree> {
   pub(crate) handle: T::Handle,
 }
 
+impl<T: CoreTree> NodeRef<T> {
+  pub fn new_by_base(&self, nodes: &SharedTreeCollection<T>) -> Self {
+    Self {
+      nodes: nodes.clone(),
+      handle: self.handle,
+    }
+  }
+}
+
 impl<T: CoreTree> Clone for NodeRef<T> {
   fn clone(&self) -> Self {
     Self {
@@ -76,18 +85,15 @@ impl<T: CoreTree> NodeInner<T> {
     }
   }
 
-  pub fn replace_base(&mut self, base: &SharedTreeCollection<T>) {
-    self.nodes = base.clone();
-    if let Some(parent) = &mut self.parent {
-      *parent = Arc::new(NodeRef {
-        nodes: base.clone(),
-        handle: parent.handle,
-      })
-    }
-    self.inner = Arc::new(NodeRef {
+  pub fn new_by_base(&self, base: &SharedTreeCollection<T>) -> Self {
+    Self {
       nodes: base.clone(),
-      handle: self.inner.handle,
-    });
+      parent: self
+        .parent
+        .as_ref()
+        .map(|parent| Arc::new(parent.new_by_base(base))),
+      inner: Arc::new(self.inner.new_by_base(base)),
+    }
   }
 
   #[must_use]
@@ -146,8 +152,11 @@ impl<T: CoreTree> ShareTreeNode<T> {
     self.inner.read().unwrap().parent.as_ref().map(|p| p.handle)
   }
 
-  pub fn replace_base(&self, base: &SharedTreeCollection<T>) {
-    self.inner.write().unwrap().replace_base(base)
+  pub fn new_by_base(&self, base: &SharedTreeCollection<T>) -> Self {
+    let inner = self.inner.read().unwrap().new_by_base(base);
+    Self {
+      inner: Arc::new(RwLock::new(inner)),
+    }
   }
 
   pub fn visit_raw_storage<F: FnOnce(&T) -> R, R>(&self, v: F) -> R {
