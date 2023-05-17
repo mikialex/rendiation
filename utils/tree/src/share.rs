@@ -96,6 +96,22 @@ impl<T: CoreTree> NodeInner<T> {
     }
   }
 
+  pub fn map_handle(&mut self, mapper: impl Fn(T::Handle) -> T::Handle) {
+    let new_inner_handle = mapper(self.inner.handle);
+    self.inner = Arc::new(NodeRef {
+      nodes: self.nodes.clone(),
+      handle: new_inner_handle,
+    });
+
+    if let Some(parent) = &mut self.parent {
+      let new_handle = mapper(parent.handle);
+      *parent = Arc::new(NodeRef {
+        nodes: self.nodes.clone(),
+        handle: new_handle,
+      });
+    }
+  }
+
   #[must_use]
   pub fn create_child(&self, n: T::Node) -> Self {
     let mut nodes_info = self.nodes.inner.write().unwrap();
@@ -157,6 +173,11 @@ impl<T: CoreTree> ShareTreeNode<T> {
     Self {
       inner: Arc::new(RwLock::new(inner)),
     }
+  }
+
+  pub fn map_handle(&self, mapper: impl Fn(T::Handle) -> T::Handle) {
+    let mut inner = self.inner.write().unwrap();
+    inner.map_handle(mapper)
   }
 
   pub fn visit_raw_storage<F: FnOnce(&T) -> R, R>(&self, v: F) -> R {

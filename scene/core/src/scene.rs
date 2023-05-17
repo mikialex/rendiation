@@ -28,7 +28,7 @@ pub struct SceneInner {
   pub ext: DynamicExtension,
 }
 
-#[derive(Default)]
+#[derive(Default, Clone)]
 pub struct SceneNodeCollection {
   pub inner: SharedTreeCollection<ReactiveTreeCollection<SceneNodeData, SceneNodeDataImpl>>,
 }
@@ -205,7 +205,7 @@ impl IncrementalBase for SceneInner {
   }
 }
 
-fn mutate_arena_delta<T: IncrementalBase<Delta = T>>(
+pub fn mutate_arena_delta<T: IncrementalBase<Delta = T>>(
   d: &mut ArenaDelta<T>,
   visit: impl FnOnce(&mut T),
 ) {
@@ -216,7 +216,7 @@ fn mutate_arena_delta<T: IncrementalBase<Delta = T>>(
   }
 }
 
-fn transform_camera_node(
+pub fn transform_camera_node(
   camera: &SceneCamera,
   mapper: impl FnOnce(&SceneNode) -> SceneNode,
 ) -> SceneCamera {
@@ -230,7 +230,7 @@ fn transform_camera_node(
   .into_ref()
 }
 
-fn transform_light_node(
+pub fn transform_light_node(
   light: &SceneLight,
   mapper: impl FnOnce(&SceneNode) -> SceneNode,
 ) -> SceneLight {
@@ -242,7 +242,7 @@ fn transform_light_node(
   .into_ref()
 }
 
-fn transform_model_node(
+pub fn transform_model_node(
   model: &SceneModel,
   mapper: impl FnOnce(&SceneNode) -> SceneNode,
 ) -> SceneModel {

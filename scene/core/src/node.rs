@@ -145,6 +145,10 @@ impl SceneNode {
     }
   }
 
+  pub fn map_handle(&self, mapper: impl Fn(SceneNodeHandle) -> SceneNodeHandle) {
+    self.inner.map_handle(mapper)
+  }
+
   pub(crate) fn from_new_root(
     nodes: SharedTreeCollection<ReactiveTreeCollection<SceneNodeData, SceneNodeDataImpl>>,
   ) -> Self {

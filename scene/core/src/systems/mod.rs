@@ -9,3 +9,6 @@ pub use relation::*;
 
 mod optimization;
 pub use optimization::*;
+
+mod test;
+pub use test::*;
