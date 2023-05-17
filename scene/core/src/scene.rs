@@ -189,6 +189,21 @@ pub enum SceneInnerDelta {
   nodes(DeltaOf<SceneNodeCollection>),
 }
 
+impl std::fmt::Debug for SceneInnerDelta {
+  fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    match self {
+      Self::background(_) => f.debug_tuple("background").finish(),
+      Self::default_camera(_) => f.debug_tuple("default_camera").finish(),
+      Self::active_camera(_) => f.debug_tuple("active_camera").finish(),
+      Self::cameras(_) => f.debug_tuple("cameras").finish(),
+      Self::lights(_) => f.debug_tuple("lights").finish(),
+      Self::models(_) => f.debug_tuple("models").finish(),
+      Self::ext(_) => f.debug_tuple("ext").finish(),
+      Self::nodes(_) => f.debug_tuple("nodes").finish(),
+    }
+  }
+}
+
 impl IncrementalBase for SceneInner {
   type Delta = SceneInnerDelta;
 

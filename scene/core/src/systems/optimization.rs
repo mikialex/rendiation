@@ -81,9 +81,9 @@ impl AutoInstanceSystem {
     // drain new node change first to keep order valid
     let output = futures::stream::select_with_strategy(merged_tree_changes, output, prior_left) // fix the node delta
       .map(move |mut delta| {
-        let raw_map = raw_map.clone();
-        let new_map = new_map.clone();
-        transform_scene_delta_node_x(&mut delta, raw_map, new_map, &transformed_model_ids);
+        // let raw_map = raw_map.clone();
+        // let new_map = new_map.clone();
+        // transform_scene_delta_node_x(&mut delta, raw_map, new_map, &transformed_model_ids);
         delta
       });
 
@@ -227,20 +227,20 @@ fn instance_transform(
     .flatten()
 }
 
-#[derive(Hash, PartialEq, Eq, Clone)]
+#[derive(Hash, PartialEq, Eq, Clone, Debug)]
 struct InstanceKey {
   pub is_front_side: bool,
   pub content: InstanceContentKey,
 }
 
-#[derive(Hash, PartialEq, Eq, Clone)]
+#[derive(Hash, PartialEq, Eq, Clone, Debug)]
 struct InstanceContentKey {
   pub material_id: usize,
   pub mesh_id: usize,
   pub group: MeshDrawGroup,
 }
 
-#[derive(Hash, PartialEq, Eq, Clone)]
+#[derive(Hash, PartialEq, Eq, Clone, Debug)]
 enum PossibleInstanceKey {
   UnableToInstance(usize), // just the origin model uuid
   Instanced(InstanceKey),
@@ -303,6 +303,7 @@ impl Transformer {
     d_sys: SceneNodeDeriveSystem,
     new_nodes: Arc<SceneNodeCollection>,
   ) -> Self {
+    println!("create new transformer with key: {key:?}");
     Self {
       key,
       d_sys,
@@ -396,12 +397,22 @@ impl Stream for Transformer {
     if require_rebuild {
       let (new_transformed, is_instance) =
         create_instance(this.source_model, this.d_sys, this.new_nodes);
+      println!(
+        "created new transformed model guid: {}, is original: {}",
+        new_transformed.guid(),
+        !is_instance
+      );
       results.push(TransformerDelta::NewTransformed(
         new_transformed.clone(),
         is_instance,
       ));
       if let Some((old, old_is_instance)) = this.transformed.replace((new_transformed, is_instance))
       {
+        println!(
+          "remove old transformed model guid: {}, is original: {}",
+          old.guid(),
+          !old_is_instance
+        );
         results.push(TransformerDelta::RemoveTransformed(old, old_is_instance));
       }
     }

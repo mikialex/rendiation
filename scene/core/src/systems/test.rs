@@ -42,6 +42,7 @@ fn test_instance() {
 
   d_sys.maintain();
   do_updates(&mut output, |delta| {
+    println!("final output delta: {delta:?}");
     let a = 1;
     let d = delta;
   })
