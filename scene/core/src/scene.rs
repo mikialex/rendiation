@@ -80,17 +80,45 @@ impl IncrementalBase for SceneInner {
   }
 }
 
+fn visit_arena_delta<T: IncrementalBase<Delta = T>>(d: &ArenaDelta<T>, visit: impl FnOnce(&T)) {
+  match d {
+    ArenaDelta::Mutate((m, _)) => visit(m),
+    ArenaDelta::Insert((m, _)) => visit(m),
+    ArenaDelta::Remove(_) => {}
+  }
+}
+
 impl ApplicableIncremental for SceneInner {
   type Error = ();
 
+  // todo, should we request the downstream to correctly impl the base replace logic?
   fn apply(&mut self, delta: Self::Delta) -> Result<(), Self::Error> {
     match delta {
       SceneInnerDelta::background(delta) => self.background.apply(delta).unwrap(),
-      SceneInnerDelta::default_camera(delta) => self.default_camera.apply(delta).unwrap(),
-      SceneInnerDelta::active_camera(delta) => self.active_camera.apply(delta).unwrap(),
-      SceneInnerDelta::cameras(delta) => self.cameras.apply(delta).unwrap(),
-      SceneInnerDelta::lights(delta) => self.lights.apply(delta).unwrap(),
-      SceneInnerDelta::models(model) => self.models.apply(model).unwrap(),
+      SceneInnerDelta::default_camera(delta) => {
+        delta.read().node.replace_base(&self.nodes);
+        self.default_camera.apply(delta).unwrap()
+      }
+      SceneInnerDelta::active_camera(delta) => {
+        if let Some(delta) = delta.clone() {
+          merge_maybe(delta).read().node.replace_base(&self.nodes);
+        }
+        self.active_camera.apply(delta).unwrap()
+      }
+      SceneInnerDelta::cameras(delta) => {
+        visit_arena_delta(&delta, |camera| {
+          camera.read().node.replace_base(&self.nodes)
+        });
+        self.cameras.apply(delta).unwrap()
+      }
+      SceneInnerDelta::lights(delta) => {
+        visit_arena_delta(&delta, |light| light.read().node.replace_base(&self.nodes));
+        self.lights.apply(delta).unwrap()
+      }
+      SceneInnerDelta::models(model) => {
+        visit_arena_delta(&model, |model| model.read().node.replace_base(&self.nodes));
+        self.models.apply(model).unwrap()
+      }
       SceneInnerDelta::ext(ext) => self.ext.apply(ext).unwrap(),
       // SceneInnerDelta::nodes(node) => self.nodes.apply(node).unwrap(),
       _ => {}

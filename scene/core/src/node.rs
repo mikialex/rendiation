@@ -139,6 +139,10 @@ impl SceneNode {
     self.visit(|node| node.listen_by::<DefaultUnboundChannel, _>(mapper))
   }
 
+  pub fn replace_base(&self, base: &SceneNodeCollection) {
+    self.inner.replace_base(&base.inner)
+  }
+
   pub(crate) fn from_new_root(
     nodes: SharedTreeCollection<ReactiveTreeCollection<SceneNodeData, SceneNodeDataImpl>>,
   ) -> Self {

@@ -76,6 +76,20 @@ impl<T: CoreTree> NodeInner<T> {
     }
   }
 
+  pub fn replace_base(&mut self, base: &SharedTreeCollection<T>) {
+    self.nodes = base.clone();
+    if let Some(parent) = &mut self.parent {
+      *parent = Arc::new(NodeRef {
+        nodes: base.clone(),
+        handle: parent.handle,
+      })
+    }
+    self.inner = Arc::new(NodeRef {
+      nodes: base.clone(),
+      handle: self.inner.handle,
+    });
+  }
+
   #[must_use]
   pub fn create_child(&self, n: T::Node) -> Self {
     let mut nodes_info = self.nodes.inner.write().unwrap();
@@ -130,6 +144,10 @@ impl<T: CoreTree> ShareTreeNode<T> {
 
   pub fn raw_handle_parent(&self) -> Option<T::Handle> {
     self.inner.read().unwrap().parent.as_ref().map(|p| p.handle)
+  }
+
+  pub fn replace_base(&self, base: &SharedTreeCollection<T>) {
+    self.inner.write().unwrap().replace_base(base)
   }
 
   pub fn visit_raw_storage<F: FnOnce(&T) -> R, R>(&self, v: F) -> R {
