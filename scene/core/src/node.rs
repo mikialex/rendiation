@@ -119,7 +119,7 @@ impl Default for SceneNodeDataImpl {
 
 #[derive(Clone)]
 pub struct SceneNode {
-  inner: ShareTreeNode<ReactiveTreeCollection<SceneNodeData, SceneNodeDataImpl>>,
+  pub(crate) inner: ShareTreeNode<ReactiveTreeCollection<SceneNodeData, SceneNodeDataImpl>>,
 }
 
 clone_self_incremental!(SceneNode);
@@ -137,10 +137,6 @@ impl SceneNode {
     mapper: impl Fn(MaybeDeltaRef<SceneNodeDataImpl>, &dyn Fn(U)) + Send + Sync + 'static,
   ) -> impl Stream<Item = U> {
     self.visit(|node| node.listen_by::<DefaultUnboundChannel, _>(mapper))
-  }
-
-  pub fn replace_base(&self, base: &SceneNodeCollection) {
-    self.inner.replace_base(&base.inner)
   }
 
   pub(crate) fn from_new_root(
