@@ -9,6 +9,18 @@ use rendiation_renderable_mesh::MeshDrawGroup;
 
 use crate::*;
 
+const ENABLE_INSTANCE_DEBUG_LOGGING: bool = true;
+
+macro_rules! debug_log {
+  ($($e:expr),+) => {
+    {
+      if ENABLE_INSTANCE_DEBUG_LOGGING {
+        println!($($e),+)
+      }
+    }
+  };
+}
+
 // data flow:
 
 // standard + standard => instance
@@ -25,16 +37,25 @@ pub struct AutoInstanceSystem {
 
 // input
 impl AutoInstanceSystem {
-  // note, we have a subtle requirement that the other change in stream have no dependency over
-  // model change in stream or we will have to handle it manually.
+  // note, we have a subtle requirement that the other change in the stream has no dependency on
+  // model change in the same stream or we will have to handle it manually.
   pub fn new(
     scene_delta: impl Stream<Item = SceneInnerDelta> + Unpin,
     d_system: &SceneNodeDeriveSystem,
   ) -> (Self, impl Stream<Item = SceneInnerDelta>) {
     let middle_scene_nodes = SceneNodeCollection::default();
+    // note: we have a potential missing point here: the original node change in the delta stream
+    // doesn't correctly reflect on the node we created here, so any downstream listen of this node,
+    // will have no effects
     let mut origin_nodes_mapping = HashMap::<usize, SceneNode>::new();
     let middle_scene_nodes_c = middle_scene_nodes.clone();
 
+    // instance optimization requires us to create new instance models in the transformed scene.
+    // which means we will create new scene nodes in the transformed scene. To do this, it's not as
+    // easy as the arena.  we have to create a new node collection to store the old nodes and the
+    // ones we created once we recreated the new node deltas, we have to remap all other scene
+    // deltas, to replace their node reference with the new one. but where are the new nodes? so we
+    // must maintain the scene nodes cache from the old node deltas!
     let scene_delta = scene_delta.map(move |mut delta| {
       if let SceneInnerDelta::nodes(delta) = &delta {
         recreate_tree_nodes(
@@ -118,12 +139,12 @@ fn instance_transform(
       match d {
         ModelChange::Insert(model) => {
           let idx = model.guid();
-          // for any new coming model , calculate instance key, find which exist instance could be
-          // merged with
+          // for any new coming model, calculate the instance key, and find which existing instance
+          // could be merged with
           let key = compute_instance_key(&model, &d_sys);
           source_id_transformer_map.insert(idx, key.clone());
 
-          // merge into the transformer or create the transformer
+          // merge into the transformer or create a new transformer
           transformers
             .get_or_insert_with(key.clone(), || {
               Transformer::new(key.clone(), d_sys.clone(), new_nodes.clone())
@@ -135,7 +156,7 @@ fn instance_transform(
           let key = source_id_transformer_map.remove(&idx).unwrap();
 
           let transformer = transformers.get_mut(&key).unwrap();
-          // remove the source model from the inside of transformer,
+          // remove the source model from the inside of the transformer,
           // drop the source and eventually drop the transformer if no more source in it
           transformer.notify_source_dropped(idx);
         }
@@ -144,7 +165,7 @@ fn instance_transform(
     .filter_map_sync(|delta| {
       match delta {
         StreamMapDelta::Delta(key, deltas) => (key, deltas).into(),
-        _ => None, // we do not care the transformer add or delete here
+        _ => None, // we do not care the transformer insertion or removal here
       }
     })
     .map(move |(_, deltas)| {
@@ -162,7 +183,7 @@ fn instance_transform(
           }
           .into()
         })
-        .collect::<Vec<_>>(); // we have to do a collect because this iter borrows the recycling_sender
+        .collect::<Vec<_>>(); // we have to do a collecting because this iter borrows the recycling_sender
 
       futures::stream::iter(transform_change)
     })
@@ -227,7 +248,7 @@ fn compute_instance_key_inner(model: &SceneItemRef<StandardModel>) -> Option<Ins
   .into()
 }
 
-/// we call it transformer here because maybe this struct will likely be reused in other optimizer
+/// we call it transformer here because maybe this struct will likely be reused in another optimizer
 #[pin_project::pin_project]
 struct Transformer {
   d_sys: SceneNodeDeriveSystem,
@@ -246,7 +267,7 @@ impl Transformer {
     d_sys: SceneNodeDeriveSystem,
     new_nodes: SceneNodeCollection,
   ) -> Self {
-    println!("create new transformer with key: {key:?}");
+    debug_log!("create new transformer with key: {key:?}");
     Self {
       key,
       d_sys,
@@ -267,7 +288,8 @@ impl Transformer {
   fn notify_source_dropped(&mut self, source_id: usize) {
     let _ = self.source.remove(source_id).unwrap();
     self.removals.push(source_id);
-    // note, we not remove the source_model map here, the stream polling will do this automatically
+    // note, we do not remove the source_model map here, the stream polling will do this
+    // automatically
   }
 }
 
@@ -283,12 +305,12 @@ pub enum TransformerDelta {
 impl Stream for Transformer {
   type Item = Vec<TransformerDelta>;
 
-  fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+  fn poll_next(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Option<Self::Item>> {
     let mut this = self.project();
 
-    // we simple recreate new instance if any incremental source change (could optimize later)
-    // so, here we do some batch process to avoid unnecessary instance rebuild
-    let mut batched = Vec::<StreamMapDelta<usize, InstanceSourceIncrementalUpdate>>::new();
+    // we simply recreate new instances if any incremental source changed (could optimize later)
+    // so, here we do some batch processing to avoid unnecessary instance rebuild
+    let mut batched = Vec::<_>::new();
     do_updates_by(&mut this.source, cx, |d| batched.push(d));
 
     if batched.is_empty() && this.source_model.is_empty() {
@@ -308,6 +330,8 @@ impl Stream for Transformer {
     batched.drain(..).for_each(|d| {
       //
       match d {
+        // handled insert here because we do not have any extra state to record insertion on the
+        // transformer
         reactive::StreamMapDelta::Insert(_) => require_rebuild = true,
         reactive::StreamMapDelta::Remove(_) => {}
         reactive::StreamMapDelta::Delta(idx, d) => match d {
@@ -331,7 +355,7 @@ impl Stream for Transformer {
         this.source_model.remove(&idx).unwrap();
       });
 
-    // source model could removed to empty, but we should not return poll ready none here
+    // source model could be removed to empty, but we should not return Poll::Ready None here
     // because to_recycle list maybe contains stuff
 
     // recycle minus drop
@@ -353,7 +377,7 @@ impl Stream for Transformer {
 
     if require_rebuild {
       if let Some((old, old_is_instance)) = this.transformed.take() {
-        println!(
+        debug_log!(
           "remove old transformed model guid: {}, is original: {}",
           old.guid(),
           !old_is_instance
@@ -364,7 +388,7 @@ impl Stream for Transformer {
       if let Some((new_transformed, is_instance)) =
         create_instance(this.source_model, this.d_sys, this.new_nodes)
       {
-        println!(
+        debug_log!(
           "created new transformed model guid: {}, is original: {}",
           new_transformed.guid(),
           !is_instance
@@ -388,16 +412,18 @@ impl Stream for Transformer {
 type InstanceSourceStream = impl Stream<Item = InstanceSourceIncrementalUpdate> + Unpin;
 type BoxedWatcher = Box<dyn Stream<Item = InstanceSourceIncrementalUpdate> + Unpin>;
 
-// watch a model to check if the model's instance key matches the key passed in
+// watch a model, check if the model's instance key matches the key passed in
 // and return the stream of InstanceSourceIncrementalUpdate
 fn build_instance_source_stream(
   model: &SceneModel,
   d: &SceneNodeDeriveSystem,
   key: PossibleInstanceKey,
 ) -> InstanceSourceStream {
+  use InstanceSourceIncrementalUpdate as InsUpdate;
+  use PossibleInstanceKey as PIK;
   let d = d.clone();
 
-  let is_font_side = if let PossibleInstanceKey::Instanced(key) = &key {
+  let is_font_side = if let PIK::Instanced(key) = &key {
     key.is_front_side.into()
   } else {
     None
@@ -410,9 +436,9 @@ fn build_instance_source_stream(
     .filter_map_sync(move |mat| {
       is_font_side.map(|is_font_side| {
         if is_front_side(mat) == is_font_side {
-          InstanceSourceIncrementalUpdate::WorldMat(mat)
+          InsUpdate::WorldMat(mat)
         } else {
-          InstanceSourceIncrementalUpdate::InstanceKeyChanged
+          InsUpdate::InstanceKeyChanged
         }
       })
     });
@@ -428,15 +454,15 @@ fn build_instance_source_stream(
             // just recompute everything
             let new_key = compute_instance_key_inner(&model_ref);
             match (new_key, &key) {
-              (None, PossibleInstanceKey::UnableToInstance(_)) => None,
-              (Some(new_key), PossibleInstanceKey::Instanced(key)) => {
+              (None, PIK::UnableToInstance(_)) => None,
+              (Some(new_key), PIK::Instanced(key)) => {
                 if new_key != key.content {
-                  InstanceSourceIncrementalUpdate::InstanceKeyChanged.into()
+                  InsUpdate::InstanceKeyChanged.into()
                 } else {
                   None
                 }
               }
-              _ => InstanceSourceIncrementalUpdate::InstanceKeyChanged.into(),
+              _ => InsUpdate::InstanceKeyChanged.into(),
             }
           } else {
             None
@@ -446,12 +472,8 @@ fn build_instance_source_stream(
         Box::new(watch) as BoxedWatcher
       }
       ModelType::Foreign(_) => match key {
-        PossibleInstanceKey::UnableToInstance(_) => {
-          Box::new(futures::stream::pending()) as BoxedWatcher
-        }
-        PossibleInstanceKey::Instanced(_) => Box::new(once_forever_pending(
-          InstanceSourceIncrementalUpdate::InstanceKeyChanged,
-        )),
+        PIK::UnableToInstance(_) => Box::new(futures::stream::pending()) as BoxedWatcher,
+        PIK::Instanced(_) => Box::new(once_forever_pending(InsUpdate::InstanceKeyChanged)),
       },
     })
     .flatten_signal();
@@ -465,11 +487,11 @@ fn create_instance(
   d_sys: &SceneNodeDeriveSystem,
   new_nodes: &SceneNodeCollection,
 ) -> Option<(SceneModel, bool)> {
-  // if the source is single model, then the transformed model is the same source model
+  let first = source.values().next()?;
+  // if the source is a single model, then the transformed model is the same source model
   if source.len() == 1 {
-    (source.values().next().unwrap().clone(), false).into()
+    (first.clone(), false).into()
   } else {
-    let first = source.values().next()?;
     let first = first.read();
     let model = match &first.model {
       ModelType::Standard(model) => model,
@@ -495,14 +517,12 @@ fn create_instance(
     }
     .into_ref();
 
-    (
-      SceneModelImpl {
-        model: ModelType::Standard(instance_model),
-        node: new_nodes.create_new_root(),
-      }
-      .into_ref(),
-      true,
-    )
-      .into()
+    let instance_model = SceneModelImpl {
+      model: ModelType::Standard(instance_model),
+      node: new_nodes.create_new_root(),
+    }
+    .into_ref();
+
+    (instance_model, true).into()
   }
 }
