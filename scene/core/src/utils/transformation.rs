@@ -31,7 +31,7 @@ impl<T: IncrementalBase> From<ArenaDelta<T>>
 }
 
 use futures::*;
-use tree::{CoreTree, TreeMutation, TreeNodeHandle};
+use tree::{CoreTree, TreeMutation};
 pub trait IncrementalStreamTransform {
   fn transform_ref_retained_to_ref_retained_content_by_hashing<K, T>(
     self,
@@ -153,21 +153,6 @@ impl<X> ArenaDeltaStreamTransform for X {
   }
 }
 
-pub fn merge_two_tree_deltas(
-  tree_a: impl Stream<Item = TreeMutation<SceneNodeDataImpl>>,
-  tree_b: impl Stream<Item = TreeMutation<SceneNodeDataImpl>>,
-) -> (
-  impl Stream<Item = TreeMutation<SceneNodeDataImpl>>,
-  impl Fn(&SceneNode) -> SceneNode + Clone,
-  impl Fn(&SceneNode) -> SceneNode + Clone,
-) {
-  let merged_tree = Default::default();
-
-  let (s_a, m_a) = remapping_tree_stream(tree_a, &merged_tree);
-  let (s_b, m_b) = remapping_tree_stream(tree_b, &merged_tree);
-  (futures::stream::select(s_a, s_b), m_a, m_b)
-}
-
 pub fn recreate_tree_nodes(
   delta: TreeMutation<SceneNodeDataImpl>,
   target: &SceneNodeCollection,
@@ -238,69 +223,4 @@ pub fn scene_folding(
   });
 
   (folder, (scene_c, d_sys))
-}
-
-pub fn remapping_tree_stream(
-  s: impl Stream<Item = TreeMutation<SceneNodeDataImpl>>,
-  target: &SceneNodeCollection,
-) -> (
-  impl Stream<Item = TreeMutation<SceneNodeDataImpl>>,
-  impl Fn(&SceneNode) -> SceneNode + Clone,
-) {
-  let target = target.clone();
-  let target_c = target.clone();
-  let remapping: HashMap<usize, (TreeNodeHandle<SceneNodeData>, SceneNode)> = Default::default();
-  let remapping = Arc::new(RwLock::new(remapping));
-  let remapping_c = remapping.clone();
-  let stream = s.map(move |delta| {
-    let mut remapping = remapping.write().unwrap();
-    match delta {
-      TreeMutation::Create { data, node } => {
-        let handle = target
-          .inner
-          .inner
-          .write()
-          .unwrap()
-          .create_node(Identity::new(data.clone()));
-        let r_node = target.create_node_at(handle);
-        remapping.insert(node, (handle, r_node));
-        TreeMutation::Create {
-          data,
-          node: handle.index(),
-        }
-      }
-      TreeMutation::Delete(idx) => {
-        let (handle, r_node) = remapping.remove(&idx).unwrap();
-        std::mem::ManuallyDrop::new(r_node);
-        target.inner.inner.write().unwrap().delete_node(handle);
-        TreeMutation::Delete(handle.index())
-      }
-      TreeMutation::Mutate { node, delta } => TreeMutation::Mutate {
-        node: remapping.get(&node).unwrap().0.index(),
-        delta,
-      },
-      TreeMutation::Attach {
-        parent_target,
-        node,
-      } => TreeMutation::Attach {
-        parent_target: remapping.get(&parent_target).unwrap().0.index(),
-        node: remapping.get(&node).unwrap().0.index(),
-      },
-      TreeMutation::Detach { node } => TreeMutation::Detach {
-        node: remapping.get(&node).unwrap().0.index(),
-      },
-    }
-  });
-
-  let mapper = move |node: &SceneNode| {
-    remapping_c
-      .read()
-      .unwrap()
-      .get(&node.raw_handle().index())
-      .unwrap()
-      .1
-      .clone()
-  };
-
-  (stream, mapper)
 }

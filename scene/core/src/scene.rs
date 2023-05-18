@@ -323,7 +323,7 @@ pub fn transform_scene_delta_node(
 impl ApplicableIncremental for SceneInner {
   type Error = ();
 
-  fn apply(&mut self, mut delta: Self::Delta) -> Result<(), Self::Error> {
+  fn apply(&mut self, delta: Self::Delta) -> Result<(), Self::Error> {
     match delta {
       SceneInnerDelta::background(delta) => self.background.apply(delta).unwrap(),
       SceneInnerDelta::default_camera(delta) => self.default_camera.apply(delta).unwrap(),
