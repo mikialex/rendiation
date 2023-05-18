@@ -168,6 +168,78 @@ pub fn merge_two_tree_deltas(
   (futures::stream::select(s_a, s_b), m_a, m_b)
 }
 
+pub fn recreate_tree_nodes(
+  delta: TreeMutation<SceneNodeDataImpl>,
+  target: &SceneNodeCollection,
+  holder: &mut HashMap<usize, SceneNode>,
+) {
+  match delta {
+    TreeMutation::Create { data, node } => {
+      let handle = target
+        .inner
+        .inner
+        .write()
+        .unwrap()
+        .create_node(Identity::new(data));
+      let r_node = target.create_node_at(handle);
+      holder.insert(node, r_node);
+    }
+    TreeMutation::Delete(idx) => {
+      holder.remove(&idx);
+      // node dropper will do the cleanup, will it?
+    }
+    TreeMutation::Mutate { node, delta } => holder
+      .get(&node)
+      .unwrap()
+      .mutate(|mut node| node.modify(delta)),
+    TreeMutation::Attach {
+      parent_target,
+      node,
+    } => {
+      let parent = holder.get(&parent_target).unwrap();
+      let node = holder.get(&node).unwrap();
+      node
+        .inner // todo, for god's sake we add pub to upstream crate structs for supporting this!
+        .inner
+        .write()
+        .unwrap()
+        .attach_to(&parent.inner.inner.read().unwrap());
+    }
+    TreeMutation::Detach { node } => {
+      let node = holder.get(&node).unwrap();
+      node.inner.inner.write().unwrap().detach_from_parent();
+    }
+  }
+}
+
+pub fn scene_folding(
+  s: impl Stream<Item = SceneInnerDelta>,
+) -> (impl Stream<Item = ()>, (Scene, SceneNodeDeriveSystem)) {
+  let (scene, d_sys) = SceneInner::new();
+  let scene_c = scene.clone();
+
+  let mut scene_node_holder = HashMap::<usize, SceneNode>::new();
+
+  let folder = s.map(move |mut delta| {
+    scene.mutate(|mut scene| {
+      transform_scene_delta_node(&mut delta, |node: &SceneNode| {
+        scene_node_holder
+          .get(&node.raw_handle().index())
+          .unwrap()
+          .clone()
+      });
+
+      if let SceneInnerDelta::nodes(delta) = &delta {
+        recreate_tree_nodes(delta.clone(), &scene.nodes, &mut scene_node_holder);
+      }
+
+      scene.modify(delta);
+    });
+  });
+
+  (folder, (scene_c, d_sys))
+}
+
 pub fn remapping_tree_stream(
   s: impl Stream<Item = TreeMutation<SceneNodeDataImpl>>,
   target: &SceneNodeCollection,
@@ -177,7 +249,7 @@ pub fn remapping_tree_stream(
 ) {
   let target = target.clone();
   let target_c = target.clone();
-  let remapping: HashMap<usize, TreeNodeHandle<SceneNodeData>> = Default::default();
+  let remapping: HashMap<usize, (TreeNodeHandle<SceneNodeData>, SceneNode)> = Default::default();
   let remapping = Arc::new(RwLock::new(remapping));
   let remapping_c = remapping.clone();
   let stream = s.map(move |delta| {
@@ -190,38 +262,44 @@ pub fn remapping_tree_stream(
           .write()
           .unwrap()
           .create_node(Identity::new(data.clone()));
-        remapping.insert(node, handle);
+        let r_node = target.create_node_at(handle);
+        remapping.insert(node, (handle, r_node));
         TreeMutation::Create {
           data,
           node: handle.index(),
         }
       }
       TreeMutation::Delete(idx) => {
-        let handle = remapping.remove(&idx).unwrap();
+        let (handle, r_node) = remapping.remove(&idx).unwrap();
+        std::mem::ManuallyDrop::new(r_node);
         target.inner.inner.write().unwrap().delete_node(handle);
         TreeMutation::Delete(handle.index())
       }
       TreeMutation::Mutate { node, delta } => TreeMutation::Mutate {
-        node: remapping.get(&node).unwrap().index(),
+        node: remapping.get(&node).unwrap().0.index(),
         delta,
       },
       TreeMutation::Attach {
         parent_target,
         node,
       } => TreeMutation::Attach {
-        parent_target: remapping.get(&parent_target).unwrap().index(),
-        node: remapping.get(&node).unwrap().index(),
+        parent_target: remapping.get(&parent_target).unwrap().0.index(),
+        node: remapping.get(&node).unwrap().0.index(),
       },
       TreeMutation::Detach { node } => TreeMutation::Detach {
-        node: remapping.get(&node).unwrap().index(),
+        node: remapping.get(&node).unwrap().0.index(),
       },
     }
   });
 
   let mapper = move |node: &SceneNode| {
-    let new_node = node.new_by_base(&target_c);
-    new_node.map_handle(|handle| *remapping_c.read().unwrap().get(&handle.index()).unwrap());
-    new_node
+    remapping_c
+      .read()
+      .unwrap()
+      .get(&node.raw_handle().index())
+      .unwrap()
+      .1
+      .clone()
   };
 
   (stream, mapper)

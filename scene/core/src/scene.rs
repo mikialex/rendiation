@@ -37,6 +37,12 @@ impl SceneNodeCollection {
   pub fn create_new_root(&self) -> SceneNode {
     SceneNode::from_new_root(self.inner.clone())
   }
+
+  pub fn create_node_at(&self, handle: SceneNodeHandle) -> SceneNode {
+    SceneNode {
+      inner: ShareTreeNode::create_raw(&self.inner, handle),
+    }
+  }
 }
 
 impl IncrementalBase for SceneNodeCollection {
@@ -220,6 +226,17 @@ impl IncrementalBase for SceneInner {
   }
 }
 
+pub fn map_arena_delta<T: IncrementalBase<Delta = T>>(
+  d: ArenaDelta<T>,
+  visit: impl FnOnce(T) -> T,
+) -> ArenaDelta<T> {
+  match d {
+    ArenaDelta::Mutate((m, h)) => ArenaDelta::Mutate((visit(m), h)),
+    ArenaDelta::Insert((m, h)) => ArenaDelta::Insert((visit(m), h)),
+    ArenaDelta::Remove(h) => ArenaDelta::Remove(h),
+  }
+}
+
 pub fn mutate_arena_delta<T: IncrementalBase<Delta = T>>(
   d: &mut ArenaDelta<T>,
   visit: impl FnOnce(&mut T),
@@ -307,7 +324,6 @@ impl ApplicableIncremental for SceneInner {
   type Error = ();
 
   fn apply(&mut self, mut delta: Self::Delta) -> Result<(), Self::Error> {
-    transform_scene_delta_node(&mut delta, |node| node.new_by_base(&self.nodes));
     match delta {
       SceneInnerDelta::background(delta) => self.background.apply(delta).unwrap(),
       SceneInnerDelta::default_camera(delta) => self.default_camera.apply(delta).unwrap(),
@@ -316,8 +332,7 @@ impl ApplicableIncremental for SceneInner {
       SceneInnerDelta::lights(delta) => self.lights.apply(delta).unwrap(),
       SceneInnerDelta::models(delta) => self.models.apply(delta).unwrap(),
       SceneInnerDelta::ext(ext) => self.ext.apply(ext).unwrap(),
-      // SceneInnerDelta::nodes(node) => self.nodes.apply(node).unwrap(),
-      _ => {}
+      SceneInnerDelta::nodes(_) => {} // should handle other place
     }
     Ok(())
   }
