@@ -222,7 +222,7 @@ pub fn scene_folding(
 
   let folder = s.map(move |mut delta| {
     scene.mutate(|mut scene| {
-      transform_scene_delta_node(&mut delta, |node: &SceneNode| {
+      transform_scene_delta_node(&mut delta, |node| {
         scene_node_holder
           .get(&node.raw_handle().index())
           .unwrap()

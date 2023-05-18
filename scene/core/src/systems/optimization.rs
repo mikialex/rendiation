@@ -32,6 +32,28 @@ impl AutoInstanceSystem {
     scene_delta: impl Stream<Item = SceneInnerDelta> + Unpin,
     d_system: &SceneNodeDeriveSystem,
   ) -> (Self, impl Stream<Item = SceneInnerDelta>) {
+    let middle_scene_nodes = SceneNodeCollection::default();
+    let mut origin_nodes_mapping = HashMap::<usize, SceneNode>::new();
+    let middle_scene_nodes_c = middle_scene_nodes.clone();
+
+    let scene_delta = scene_delta.map(move |mut delta| {
+      if let SceneInnerDelta::nodes(delta) = &delta {
+        recreate_tree_nodes(
+          delta.clone(),
+          &middle_scene_nodes,
+          &mut origin_nodes_mapping,
+        );
+      }
+
+      transform_scene_delta_node(&mut delta, |node| {
+        origin_nodes_mapping
+          .get(&node.raw_handle().index())
+          .unwrap()
+          .clone()
+      });
+      delta
+    });
+
     let broad_cast = scene_delta.create_broad_caster();
 
     // split the model stream, maintain the old arena relationship
@@ -64,10 +86,14 @@ impl AutoInstanceSystem {
     let merged_tree_changes = merged_tree_changes.map(SceneInnerDelta::nodes);
 
     // heavy logic in here!
-    let transformed_models =
-      instance_transform(model_input, d_system, &new_nodes, &transformed_model_ids)
-        .transform_ref_retained_content_to_arena_by_hashing()
-        .map(SceneInnerDelta::models);
+    let transformed_models = instance_transform(
+      model_input,
+      d_system,
+      &middle_scene_nodes_c,
+      &transformed_model_ids,
+    )
+    .transform_ref_retained_content_to_arena_by_hashing()
+    .map(SceneInnerDelta::models);
 
     // the other change stream
     let other_stuff = broad_cast
@@ -141,7 +167,7 @@ fn prior_left(_: &mut ()) -> stream::PollNext {
 fn instance_transform(
   input: impl Stream<Item = ModelChange>,
   d_sys: &SceneNodeDeriveSystem,
-  new_nodes: &Arc<SceneNodeCollection>,
+  new_nodes: &SceneNodeCollection,
   new_model_ids: &Arc<RwLock<HashSet<usize>>>,
 ) -> impl Stream<Item = ModelChange> {
   // origin model id => transformed id
@@ -289,7 +315,7 @@ fn compute_instance_key_inner(model: &SceneItemRef<StandardModel>) -> Option<Ins
 #[pin_project::pin_project]
 struct Transformer {
   d_sys: SceneNodeDeriveSystem,
-  new_nodes: Arc<SceneNodeCollection>,
+  new_nodes: SceneNodeCollection,
   key: PossibleInstanceKey,
   #[pin]
   source: StreamMap<usize, InstanceSourceStream>,
@@ -302,7 +328,7 @@ impl Transformer {
   pub fn new(
     key: PossibleInstanceKey,
     d_sys: SceneNodeDeriveSystem,
-    new_nodes: Arc<SceneNodeCollection>,
+    new_nodes: SceneNodeCollection,
   ) -> Self {
     println!("create new transformer with key: {key:?}");
     Self {
