@@ -215,6 +215,7 @@ impl IncrementalBase for SceneInner {
 
   fn expand(&self, mut cb: impl FnMut(Self::Delta)) {
     use SceneInnerDelta::*;
+    self.nodes.expand(|d| cb(nodes(d)));
     self.background.expand(|d| cb(background(d)));
     self.default_camera.expand(|d| cb(default_camera(d)));
     self.active_camera.expand(|d| cb(active_camera(d)));
@@ -222,7 +223,6 @@ impl IncrementalBase for SceneInner {
     self.lights.expand(|d| cb(lights(d)));
     self.models.expand(|d| cb(models(d)));
     self.ext.expand(|d| cb(ext(d)));
-    self.nodes.expand(|d| cb(nodes(d)));
   }
 }
 
