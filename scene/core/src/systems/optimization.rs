@@ -294,6 +294,7 @@ struct Transformer {
   #[pin]
   source: StreamMap<usize, InstanceSourceStream>,
   source_model: HashMap<usize, SceneModel>,
+  removals: Vec<usize>,
   transformed: Option<(SceneModel, bool)>,
 }
 
@@ -310,6 +311,7 @@ impl Transformer {
       new_nodes,
       source: Default::default(),
       source_model: Default::default(),
+      removals: Default::default(),
       transformed: Default::default(),
     }
   }
@@ -322,6 +324,7 @@ impl Transformer {
 
   fn notify_source_dropped(&mut self, source_id: usize) {
     let _ = self.source.remove(source_id).unwrap();
+    self.removals.push(source_id);
     // note, we not remove the source_model map here, the stream polling will do this automatically
   }
 }
@@ -355,22 +358,27 @@ impl Stream for Transformer {
     let mut to_recycle = Vec::new();
     let mut to_remove = Vec::new();
 
-    batched.drain(..).for_each(|d| match d {
-      reactive::StreamMapDelta::Insert(_) => require_rebuild = true,
-      reactive::StreamMapDelta::Remove(idx) => {
-        to_remove.push(this.source_model.get(&idx).unwrap().clone());
-        require_rebuild = true;
+    this.removals.drain(..).for_each(|idx| {
+      to_remove.push(this.source_model.get(&idx).unwrap().clone());
+      require_rebuild = true
+    });
+
+    batched.drain(..).for_each(|d| {
+      //
+      match d {
+        reactive::StreamMapDelta::Insert(_) => require_rebuild = true,
+        reactive::StreamMapDelta::Remove(_) => {}
+        reactive::StreamMapDelta::Delta(idx, d) => match d {
+          InstanceSourceIncrementalUpdate::WorldMat(_) => {
+            // should optimize later
+            require_rebuild = true;
+          }
+          InstanceSourceIncrementalUpdate::InstanceKeyChanged => {
+            to_recycle.push(this.source_model.get(&idx).unwrap().clone());
+            require_rebuild = true;
+          }
+        },
       }
-      reactive::StreamMapDelta::Delta(idx, d) => match d {
-        InstanceSourceIncrementalUpdate::WorldMat(_) => {
-          // should optimize later
-          require_rebuild = true;
-        }
-        InstanceSourceIncrementalUpdate::InstanceKeyChanged => {
-          to_recycle.push(this.source_model.get(&idx).unwrap().clone());
-          require_rebuild = true;
-        }
-      },
     });
 
     to_remove
@@ -381,6 +389,9 @@ impl Stream for Transformer {
         this.source_model.remove(&idx).unwrap();
       });
 
+    // source model could removed to empty, but we should not return poll ready none here
+    // because to_recycle list maybe contains stuff
+
     // recycle minus drop
     to_remove.iter().for_each(|m| {
       if let Some(to_recycle_but_dropped) =
@@ -390,30 +401,37 @@ impl Stream for Transformer {
       }
     });
 
+    to_recycle.iter().for_each(|model| {
+      this.source.remove(model.guid());
+    });
+
     use TransformerDelta::*;
     results.extend(to_remove.into_iter().map(DropSource));
     results.extend(to_recycle.into_iter().map(ReleaseUnsuitable));
 
     if require_rebuild {
-      let (new_transformed, is_instance) =
-        create_instance(this.source_model, this.d_sys, this.new_nodes);
-      println!(
-        "created new transformed model guid: {}, is original: {}",
-        new_transformed.guid(),
-        !is_instance
-      );
-      results.push(TransformerDelta::NewTransformed(
-        new_transformed.clone(),
-        is_instance,
-      ));
-      if let Some((old, old_is_instance)) = this.transformed.replace((new_transformed, is_instance))
-      {
+      if let Some((old, old_is_instance)) = this.transformed.take() {
         println!(
           "remove old transformed model guid: {}, is original: {}",
           old.guid(),
           !old_is_instance
         );
         results.push(TransformerDelta::RemoveTransformed(old, old_is_instance));
+      }
+
+      if let Some((new_transformed, is_instance)) =
+        create_instance(this.source_model, this.d_sys, this.new_nodes)
+      {
+        println!(
+          "created new transformed model guid: {}, is original: {}",
+          new_transformed.guid(),
+          !is_instance
+        );
+        results.push(TransformerDelta::NewTransformed(
+          new_transformed.clone(),
+          is_instance,
+        ));
+        *this.transformed = (new_transformed, is_instance).into();
       }
     }
 
@@ -499,16 +517,17 @@ fn build_instance_source_stream(
   futures::stream::select(world_matrix, model)
 }
 
+/// maybe failed, if the source is empty
 fn create_instance(
   source: &HashMap<usize, SceneModel>,
   d_sys: &SceneNodeDeriveSystem,
   new_nodes: &SceneNodeCollection,
-) -> (SceneModel, bool) {
+) -> Option<(SceneModel, bool)> {
   // if the source is single model, then the transformed model is the same source model
   if source.len() == 1 {
-    (source.values().next().unwrap().clone(), false)
+    (source.values().next().unwrap().clone(), false).into()
   } else {
-    let first = source.values().next().unwrap();
+    let first = source.values().next()?;
     let first = first.read();
     let model = match &first.model {
       ModelType::Standard(model) => model,
@@ -542,5 +561,6 @@ fn create_instance(
       .into_ref(),
       true,
     )
+      .into()
   }
 }

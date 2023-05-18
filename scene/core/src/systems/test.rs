@@ -23,8 +23,23 @@ fn test_instance() {
   }
   .into_ref();
   let material = SceneMaterialType::Flat(material);
+  let material_c = material.clone();
 
   let model1 = SceneModelImpl {
+    model: ModelType::Standard(
+      StandardModel {
+        material: material.clone(),
+        mesh: mesh.clone(),
+        group: MeshDrawGroup::Full,
+        skeleton: None,
+      }
+      .into_ref(),
+    ),
+    node: scene.create_root_child(),
+  }
+  .into_ref();
+
+  let model2 = SceneModelImpl {
     model: ModelType::Standard(
       StandardModel {
         material,
@@ -37,20 +52,46 @@ fn test_instance() {
     node: scene.create_root_child(),
   }
   .into_ref();
+  let model2_c = model2.clone();
 
   scene.insert_model(model1);
+  scene.insert_model(model2);
 
   d_sys.maintain();
   do_updates(&mut output, |delta| {
-    println!("final output delta: {delta:?}");
-    let a = 1;
-    let d = delta;
-  })
+    println!("first output delta: {delta:?}");
+  });
+  println!("=============");
 
-  // scene.listen_by(all_delta).map(|d|{
-  //   // d
-  // })
+  let material2 = FlatMaterial {
+    color: Vec4::one(),
+    ext: Default::default(),
+  }
+  .into_ref();
+  let material2 = SceneMaterialType::Flat(material2);
+  {
+    let model2_c = model2_c.read();
+    if let ModelType::Standard(model) = &model2_c.model {
+      model.mutate(|mut model| model.modify(StandardModelDelta::material(material2)))
+    }
+  }
 
-  // let (target_scene, target_d_sys) = SceneInner::new();
-  // target_scene
+  d_sys.maintain();
+  do_updates(&mut output, |delta| {
+    println!("second output delta: {delta:?}");
+  });
+  println!("=============");
+
+  {
+    let model2_c = model2_c.read();
+    if let ModelType::Standard(model) = &model2_c.model {
+      model.mutate(|mut model| model.modify(StandardModelDelta::material(material_c)))
+    }
+  }
+
+  d_sys.maintain();
+  do_updates(&mut output, |delta| {
+    println!("third output delta: {delta:?}");
+  });
+  println!("=============");
 }
