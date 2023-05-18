@@ -154,7 +154,7 @@ impl<X> ArenaDeltaStreamTransform for X {
 }
 
 pub fn recreate_tree_nodes(
-  delta: TreeMutation<SceneNodeDataImpl>,
+  delta: &mut TreeMutation<SceneNodeDataImpl>,
   target: &SceneNodeCollection,
   holder: &mut HashMap<usize, SceneNode>,
 ) {
@@ -165,34 +165,39 @@ pub fn recreate_tree_nodes(
         .inner
         .write()
         .unwrap()
-        .create_node(Identity::new(data));
+        .create_node(Identity::new(data.clone()));
       let r_node = target.create_node_at(handle);
-      holder.insert(node, r_node);
+      holder.insert(*node, r_node);
+      *node = handle.index();
     }
     TreeMutation::Delete(idx) => {
-      holder.remove(&idx);
+      let node = holder.remove(idx).unwrap();
+      *idx = node.raw_handle().index();
       // node dropper will do the cleanup, will it?
     }
-    TreeMutation::Mutate { node, delta } => holder
-      .get(&node)
-      .unwrap()
-      .mutate(|mut node| node.modify(delta)),
+    TreeMutation::Mutate { node, delta } => {
+      let n = holder.get(node).unwrap();
+      n.mutate(|mut node| node.modify(delta.clone()));
+      *node = n.raw_handle().index();
+    }
     TreeMutation::Attach {
       parent_target,
       node,
     } => {
-      let parent = holder.get(&parent_target).unwrap();
-      let node = holder.get(&node).unwrap();
-      node
-        .inner // todo, for god's sake we add pub to upstream crate structs for supporting this!
+      let parent = holder.get(parent_target).unwrap();
+      let n = holder.get(node).unwrap();
+      n.inner // todo, for god's sake we add pub to upstream crate structs for supporting this!
         .inner
         .write()
         .unwrap()
         .attach_to(&parent.inner.inner.read().unwrap());
+      *node = n.raw_handle().index();
+      *parent_target = parent.raw_handle().index();
     }
     TreeMutation::Detach { node } => {
-      let node = holder.get(&node).unwrap();
-      node.inner.inner.write().unwrap().detach_from_parent();
+      let n = holder.get(node).unwrap();
+      n.inner.inner.write().unwrap().detach_from_parent();
+      *node = n.raw_handle().index();
     }
   }
 }
@@ -214,8 +219,8 @@ pub fn scene_folding(
           .clone()
       });
 
-      if let SceneInnerDelta::nodes(delta) = &delta {
-        recreate_tree_nodes(delta.clone(), &scene.nodes, &mut scene_node_holder);
+      if let SceneInnerDelta::nodes(delta) = &mut delta {
+        recreate_tree_nodes(delta, &scene.nodes, &mut scene_node_holder);
       }
 
       scene.modify(delta);
@@ -248,41 +253,47 @@ pub fn mutate_arena_delta<T: IncrementalBase<Delta = T>>(
 }
 
 pub fn transform_camera_node(
-  camera: &SceneCamera,
+  c: &SceneCamera,
   mapper: impl FnOnce(&SceneNode) -> SceneNode,
 ) -> SceneCamera {
-  let camera = camera.read();
-  SceneCameraInner {
+  let camera = c.read();
+  let r = SceneCameraInner {
     node: mapper(&camera.node),
     bounds: camera.bounds,
     projection: camera.projection.clone_self(),
     projection_matrix: camera.projection_matrix,
   }
-  .into_ref()
+  .into_ref();
+  c.pass_changes_to(&r);
+  r
 }
 
 pub fn transform_light_node(
-  light: &SceneLight,
+  l: &SceneLight,
   mapper: impl FnOnce(&SceneNode) -> SceneNode,
 ) -> SceneLight {
-  let light = light.read();
-  SceneLightInner {
+  let light = l.read();
+  let r = SceneLightInner {
     node: mapper(&light.node),
     light: light.light.clone(),
   }
-  .into_ref()
+  .into_ref();
+  l.pass_changes_to(&r);
+  r
 }
 
 pub fn transform_model_node(
-  model: &SceneModel,
+  m: &SceneModel,
   mapper: impl FnOnce(&SceneNode) -> SceneNode,
 ) -> SceneModel {
-  let model = model.read();
-  SceneModelImpl {
+  let model = m.read();
+  let r = SceneModelImpl {
     node: mapper(&model.node),
     model: model.model.clone(),
   }
-  .into_ref()
+  .into_ref();
+  m.pass_changes_to(&r);
+  r
 }
 
 #[allow(clippy::collapsible_match)]

@@ -2,10 +2,12 @@ use core::{
   pin::Pin,
   task::{Context, Poll},
 };
+use std::ops::Deref;
 
 use futures::*;
 use reactive::{do_updates_by, once_forever_pending, SignalStreamExt, StreamMap, StreamMapDelta};
 use rendiation_renderable_mesh::MeshDrawGroup;
+use tree::TreeMutation;
 
 use crate::*;
 
@@ -44,9 +46,6 @@ impl AutoInstanceSystem {
     d_system: &SceneNodeDeriveSystem,
   ) -> (Self, impl Stream<Item = SceneInnerDelta>) {
     let middle_scene_nodes = SceneNodeCollection::default();
-    // note: we have a potential missing point here: the original node change in the delta stream
-    // doesn't correctly reflect on the node we created here, so any downstream listen of this node,
-    // will have no effects
     let mut origin_nodes_mapping = HashMap::<usize, SceneNode>::new();
     let middle_scene_nodes_c = middle_scene_nodes.clone();
 
@@ -57,12 +56,8 @@ impl AutoInstanceSystem {
     // deltas, to replace their node reference with the new one. but where are the new nodes? so we
     // must maintain the scene nodes cache from the old node deltas!
     let scene_delta = scene_delta.map(move |mut delta| {
-      if let SceneInnerDelta::nodes(delta) = &delta {
-        recreate_tree_nodes(
-          delta.clone(),
-          &middle_scene_nodes,
-          &mut origin_nodes_mapping,
-        );
+      if let SceneInnerDelta::nodes(delta) = &mut delta {
+        recreate_tree_nodes(delta, &middle_scene_nodes, &mut origin_nodes_mapping);
       }
 
       transform_scene_delta_node(&mut delta, |node| {
@@ -87,16 +82,59 @@ impl AutoInstanceSystem {
       .transform_delta_to_ref_retained_by_hashing() // we could use single transformer
       .transform_ref_retained_to_ref_retained_content_by_hashing();
 
-    // heavy logic in here!
+    let mut output_arena = arena::Arena::<()>::new();
+    let mut output_remapping: HashMap<usize, arena::Handle<()>> = Default::default();
+
     let transformed_models = instance_transform(model_input, d_system, &middle_scene_nodes_c)
-      .transform_ref_retained_content_to_arena_by_hashing()
-      .map(SceneInnerDelta::models);
+      // we want use transform_ref_retained_content_to_arena_by_hashing but we have to do something
+      // nasty here
+      .map(move |item| {
+        let mut deltas = Vec::new();
+        match item {
+          ContainerRefRetainContentDelta::Insert((item, is_ins)) => {
+            if is_ins {
+              let node = &item.read().node;
+              let data = node.visit(|d| d.deref().clone());
+              deltas.push(SceneInnerDelta::nodes(TreeMutation::Create {
+                data,
+                node: node.raw_handle().index(),
+              }));
+            }
+
+            let handle = output_arena.insert(());
+            output_remapping.insert(item.guid(), handle);
+            deltas.push(
+              ArenaDelta::Insert((item, unsafe { handle.cast_type() }))
+                .wrap(SceneInnerDelta::models),
+            )
+          }
+          ContainerRefRetainContentDelta::Remove((item, is_ins)) => {
+            let node = &item.read().node;
+            let id = node.raw_handle().index();
+
+            let handle = output_remapping.remove(&item.guid()).unwrap();
+            output_arena.remove(handle).unwrap();
+            let handle = unsafe { handle.cast_type() };
+            deltas.push(ArenaDelta::Remove(handle).wrap(SceneInnerDelta::models));
+
+            // todo! we have to assure the down stream not clone the instance model's node
+            // or we will have to do more complicate stuff to correctly emit tree node deletion
+            // message for example, add a drop callback queue to the nodes collection
+            // ...
+            if is_ins {
+              deltas.push(SceneInnerDelta::nodes(TreeMutation::Delete(id)));
+            }
+          }
+        }
+        futures::stream::iter(deltas)
+      })
+      .flatten();
 
     // the other change stream
     let other_stuff = broad_cast
       .fork_stream()
       .filter_map_sync(|delta| match &delta {
-        SceneInnerDelta::models(_) | SceneInnerDelta::nodes(_) => None,
+        SceneInnerDelta::models(_) => None,
         _ => Some(delta),
       });
 
@@ -108,6 +146,7 @@ impl AutoInstanceSystem {
 
 type OriginModelId = usize;
 type ModelChange = ContainerRefRetainContentDelta<SceneModel>;
+type ModelOutChange = ContainerRefRetainContentDelta<(SceneModel, bool)>;
 
 fn prior_left(_: &mut ()) -> stream::PollNext {
   stream::PollNext::Left
@@ -117,7 +156,7 @@ fn instance_transform(
   input: impl Stream<Item = ModelChange>,
   d_sys: &SceneNodeDeriveSystem,
   new_nodes: &SceneNodeCollection,
-) -> impl Stream<Item = ModelChange> {
+) -> impl Stream<Item = ModelOutChange> {
   // origin model id => transformed id
   let mut source_id_transformer_map: HashMap<OriginModelId, PossibleInstanceKey> = HashMap::new();
 
@@ -178,8 +217,12 @@ fn instance_transform(
               return None;
             }
             TransformerDelta::DropSource(_) => return None,
-            TransformerDelta::NewTransformed(transformed, _) => ModelChange::Insert(transformed),
-            TransformerDelta::RemoveTransformed(transformed, _) => ModelChange::Remove(transformed),
+            TransformerDelta::NewTransformed(transformed, is_ins) => {
+              ModelOutChange::Insert((transformed, is_ins))
+            }
+            TransformerDelta::RemoveTransformed(transformed, is_ins) => {
+              ModelOutChange::Remove((transformed, is_ins))
+            }
           }
           .into()
         })
