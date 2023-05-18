@@ -224,3 +224,97 @@ pub fn scene_folding(
 
   (folder, (scene_c, d_sys))
 }
+
+pub fn map_arena_delta<T: IncrementalBase<Delta = T>>(
+  d: ArenaDelta<T>,
+  visit: impl FnOnce(T) -> T,
+) -> ArenaDelta<T> {
+  match d {
+    ArenaDelta::Mutate((m, h)) => ArenaDelta::Mutate((visit(m), h)),
+    ArenaDelta::Insert((m, h)) => ArenaDelta::Insert((visit(m), h)),
+    ArenaDelta::Remove(h) => ArenaDelta::Remove(h),
+  }
+}
+
+pub fn mutate_arena_delta<T: IncrementalBase<Delta = T>>(
+  d: &mut ArenaDelta<T>,
+  visit: impl FnOnce(&mut T),
+) {
+  match d {
+    ArenaDelta::Mutate((m, _)) => visit(m),
+    ArenaDelta::Insert((m, _)) => visit(m),
+    ArenaDelta::Remove(_) => {}
+  }
+}
+
+pub fn transform_camera_node(
+  camera: &SceneCamera,
+  mapper: impl FnOnce(&SceneNode) -> SceneNode,
+) -> SceneCamera {
+  let camera = camera.read();
+  SceneCameraInner {
+    node: mapper(&camera.node),
+    bounds: camera.bounds,
+    projection: camera.projection.clone_self(),
+    projection_matrix: camera.projection_matrix,
+  }
+  .into_ref()
+}
+
+pub fn transform_light_node(
+  light: &SceneLight,
+  mapper: impl FnOnce(&SceneNode) -> SceneNode,
+) -> SceneLight {
+  let light = light.read();
+  SceneLightInner {
+    node: mapper(&light.node),
+    light: light.light.clone(),
+  }
+  .into_ref()
+}
+
+pub fn transform_model_node(
+  model: &SceneModel,
+  mapper: impl FnOnce(&SceneNode) -> SceneNode,
+) -> SceneModel {
+  let model = model.read();
+  SceneModelImpl {
+    node: mapper(&model.node),
+    model: model.model.clone(),
+  }
+  .into_ref()
+}
+
+#[allow(clippy::collapsible_match)]
+pub fn transform_scene_delta_node(
+  delta: &mut SceneInnerDelta,
+  mapper: impl FnOnce(&SceneNode) -> SceneNode,
+) {
+  match delta {
+    SceneInnerDelta::default_camera(delta) => {
+      *delta = transform_camera_node(delta, mapper);
+    }
+    SceneInnerDelta::active_camera(delta) => {
+      if let Some(delta) = delta {
+        let delta = merge_maybe_mut_ref(delta);
+        *delta = transform_camera_node(delta, mapper);
+      }
+    }
+    SceneInnerDelta::cameras(delta) => {
+      mutate_arena_delta(delta, |camera| {
+        *camera = transform_camera_node(camera, mapper);
+      });
+    }
+    SceneInnerDelta::lights(delta) => {
+      mutate_arena_delta(delta, |light| {
+        *light = transform_light_node(light, mapper);
+      });
+    }
+    SceneInnerDelta::models(delta) => {
+      mutate_arena_delta(delta, |model| {
+        *model = transform_model_node(model, mapper);
+      });
+    }
+    _ => {}
+  }
+}

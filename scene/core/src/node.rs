@@ -139,16 +139,6 @@ impl SceneNode {
     self.visit(|node| node.listen_by::<DefaultUnboundChannel, _>(mapper))
   }
 
-  pub fn new_by_base(&self, base: &SceneNodeCollection) -> Self {
-    Self {
-      inner: self.inner.new_by_base(&base.inner),
-    }
-  }
-
-  pub fn map_handle(&self, mapper: impl Fn(SceneNodeHandle) -> SceneNodeHandle) {
-    self.inner.map_handle(mapper)
-  }
-
   pub(crate) fn from_new_root(
     nodes: SharedTreeCollection<ReactiveTreeCollection<SceneNodeData, SceneNodeDataImpl>>,
   ) -> Self {

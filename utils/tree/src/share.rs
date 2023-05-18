@@ -52,13 +52,6 @@ impl<T: CoreTree> NodeRef<T> {
       handle,
     }
   }
-
-  pub fn new_by_base(&self, nodes: &SharedTreeCollection<T>) -> Self {
-    Self {
-      nodes: nodes.clone(),
-      handle: self.handle,
-    }
-  }
 }
 
 impl<T: CoreTree> Clone for NodeRef<T> {
@@ -95,35 +88,9 @@ impl<T: CoreTree> NodeInner<T> {
   pub fn create_raw(base: &SharedTreeCollection<T>, handle: T::Handle) -> Self {
     Self {
       nodes: base.clone(),
+      // create_raw is logically guaranteed to created based on a none parent node
       parent: None,
       inner: Arc::new(NodeRef::create_raw(base, handle)),
-    }
-  }
-
-  pub fn new_by_base(&self, base: &SharedTreeCollection<T>) -> Self {
-    Self {
-      nodes: base.clone(),
-      parent: self
-        .parent
-        .as_ref()
-        .map(|parent| Arc::new(parent.new_by_base(base))),
-      inner: Arc::new(self.inner.new_by_base(base)),
-    }
-  }
-
-  pub fn map_handle(&mut self, mapper: impl Fn(T::Handle) -> T::Handle) {
-    let new_inner_handle = mapper(self.inner.handle);
-    self.inner = Arc::new(NodeRef {
-      nodes: self.nodes.clone(),
-      handle: new_inner_handle,
-    });
-
-    if let Some(parent) = &mut self.parent {
-      let new_handle = mapper(parent.handle);
-      *parent = Arc::new(NodeRef {
-        nodes: self.nodes.clone(),
-        handle: new_handle,
-      });
     }
   }
 
@@ -188,18 +155,6 @@ impl<T: CoreTree> ShareTreeNode<T> {
     Self {
       inner: Arc::new(RwLock::new(inner)),
     }
-  }
-
-  pub fn new_by_base(&self, base: &SharedTreeCollection<T>) -> Self {
-    let inner = self.inner.read().unwrap().new_by_base(base);
-    Self {
-      inner: Arc::new(RwLock::new(inner)),
-    }
-  }
-
-  pub fn map_handle(&self, mapper: impl Fn(T::Handle) -> T::Handle) {
-    let mut inner = self.inner.write().unwrap();
-    inner.map_handle(mapper)
   }
 
   pub fn visit_raw_storage<F: FnOnce(&T) -> R, R>(&self, v: F) -> R {
