@@ -1,4 +1,4 @@
-use rendiation_geometry::{LineSegment, OptionalNearest, Point, Ray3, Triangle};
+use rendiation_geometry::*;
 use rendiation_renderable_mesh::*;
 
 use crate::*;
@@ -43,6 +43,22 @@ pub enum AttributeDynPrimitive {
   LineSegment(LineSegment<Vec3<f32>>),
   Triangle(Triangle<Vec3<f32>>),
 }
+
+// impl IntersectAble<Ray3, OptionalNearest<HitPoint3D>, MeshBufferIntersectConfig>
+//   for AttributeDynPrimitive
+// {
+//   fn intersect(
+//     &self,
+//     other: &Ray3,
+//     param: &MeshBufferIntersectConfig,
+//   ) -> OptionalNearest<HitPoint3D> {
+//     match self {
+//       AttributeDynPrimitive::Points(_) => todo!(),
+//       AttributeDynPrimitive::LineSegment(_) => todo!(),
+//       AttributeDynPrimitive::Triangle(_) => todo!(),
+//     }
+//   }
+// }
 
 /// this is slow, but not bloat the binary size.
 impl AbstractMesh for AttributesMesh {
@@ -99,6 +115,17 @@ impl AbstractMesh for AttributesMesh {
           PrimitiveTopology::TriangleStrip => AttributeDynPrimitive::Triangle(Triangle::from_data(&position, read_index)?),
         }.into()
       }).flatten()
+    }
+  }
+}
+
+impl GPUConsumableMeshBuffer for AttributesMesh {
+  fn draw_count(&self) -> usize {
+    if let Some((_, index)) = &self.indices {
+      index.count
+    } else {
+      let position = self.get_position();
+      position.count
     }
   }
 }
