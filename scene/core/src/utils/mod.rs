@@ -161,14 +161,13 @@ impl<T: IncrementalBase> Identity<T> {
     mapper(MaybeDeltaRef::All(self), &send);
 
     self.delta_source.on(move |v| {
-      mapper(MaybeDeltaRef::Delta(v.delta), &send);
+      mapper(MaybeDeltaRef::Delta(v), &send);
       C::is_closed(&sender)
     });
     // todo impl custom unbound channel: if sender drop, the receiver will still hold the history
     // message which is unnecessary. The better behavior will just drop the history and emit
     // Poll::Ready::None
 
-    // todo impl single value channel, and history compactor (synchronous version)
     receiver
   }
 

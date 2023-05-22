@@ -2,12 +2,26 @@ use core::{
   pin::Pin,
   task::{Context, Poll},
 };
+use std::ops::Deref;
 
 use futures::*;
 use reactive::{do_updates_by, once_forever_pending, SignalStreamExt, StreamMap, StreamMapDelta};
 use rendiation_renderable_mesh::MeshDrawGroup;
+use tree::TreeMutation;
 
 use crate::*;
+
+const ENABLE_INSTANCE_DEBUG_LOGGING: bool = true;
+
+macro_rules! debug_log {
+  ($($e:expr),+) => {
+    {
+      if ENABLE_INSTANCE_DEBUG_LOGGING {
+        println!($($e),+)
+      }
+    }
+  };
+}
 
 // data flow:
 
@@ -25,12 +39,43 @@ pub struct AutoInstanceSystem {
 
 // input
 impl AutoInstanceSystem {
-  // note, we have a subtle requirement that the other change in stream have no dependency over
-  // model change in stream or we will have to handle it manually.
+  // note, we have a subtle requirement that the other change in the stream has no dependency on
+  // model change in the same stream or we will have to handle it manually.
   pub fn new(
     scene_delta: impl Stream<Item = SceneInnerDelta> + Unpin,
     d_system: &SceneNodeDeriveSystem,
   ) -> (Self, impl Stream<Item = SceneInnerDelta>) {
+    let middle_scene_nodes = SceneNodeCollection::default();
+    let origin_nodes_mapping = HashMap::<usize, SceneNode>::new();
+    let origin_nodes_mapping = Arc::new(RwLock::new(origin_nodes_mapping));
+    let middle_scene_nodes_c = middle_scene_nodes.clone();
+
+    // instance optimization requires us to create new instance models in the transformed scene.
+    // which means we will create new scene nodes in the transformed scene. To do this, it's not as
+    // easy as the arena.  we have to create a new node collection to store the old nodes and the
+    // ones we created once we recreated the new node deltas, we have to remap all other scene
+    // deltas, to replace their node reference with the new one. but where are the new nodes? so we
+    // must maintain the scene nodes cache from the old node deltas!
+    let scene_delta = scene_delta.map(move |mut delta| {
+      let origin_nodes_mapping_c = origin_nodes_mapping.clone();
+      if let SceneInnerDelta::nodes(delta) = &mut delta {
+        recreate_tree_nodes(
+          delta,
+          &middle_scene_nodes,
+          &mut origin_nodes_mapping.write().unwrap(),
+        );
+      }
+      transform_scene_delta_node(&mut delta, move |node| {
+        origin_nodes_mapping_c
+          .read()
+          .unwrap()
+          .get(&node.raw_handle().index())
+          .unwrap()
+          .clone()
+      });
+      delta
+    });
+
     let broad_cast = scene_delta.create_broad_caster();
 
     // split the model stream, maintain the old arena relationship
@@ -44,35 +89,63 @@ impl AutoInstanceSystem {
       .transform_delta_to_ref_retained_by_hashing() // we could use single transformer
       .transform_ref_retained_to_ref_retained_content_by_hashing();
 
-    let new_nodes = SceneNodeCollection::default();
-    let new_nodes = Arc::new(new_nodes);
+    let mut output_arena = arena::Arena::<()>::new();
+    let mut output_remapping: HashMap<usize, arena::Handle<()>> = Default::default();
 
-    let raw_tree_delta = broad_cast
-      .fork_stream()
-      .filter_map_sync(|delta| match delta {
-        SceneInnerDelta::nodes(d) => Some(d),
-        _ => None,
-      });
-    let new_node_changes = new_nodes.inner.visit_inner(|tree| tree.source.listen());
-    let merged_tree_changes = merge_two_tree_deltas(raw_tree_delta, new_node_changes) //
-      .map(SceneInnerDelta::nodes);
+    let transformed_models = instance_transform(model_input, d_system, &middle_scene_nodes_c)
+      // we want use transform_ref_retained_content_to_arena_by_hashing but we have to do something
+      // nasty here
+      .map(move |item| {
+        let mut deltas = Vec::new();
+        match item {
+          ContainerRefRetainContentDelta::Insert((item, is_ins)) => {
+            if is_ins {
+              let node = &item.read().node;
+              let data = node.visit(|d| d.deref().clone());
+              deltas.push(SceneInnerDelta::nodes(TreeMutation::Create {
+                data,
+                node: node.raw_handle().index(),
+              }));
+            }
 
-    // heavy logic in here!
-    let transformed_models = instance_transform(model_input, d_system, &new_nodes)
-      .transform_ref_retained_content_to_arena_by_hashing()
-      .map(SceneInnerDelta::models);
+            let handle = output_arena.insert(());
+            output_remapping.insert(item.guid(), handle);
+            deltas.push(
+              ArenaDelta::Insert((item, unsafe { handle.cast_type() }))
+                .wrap(SceneInnerDelta::models),
+            )
+          }
+          ContainerRefRetainContentDelta::Remove((item, is_ins)) => {
+            let node = &item.read().node;
+            let id = node.raw_handle().index();
+
+            let handle = output_remapping.remove(&item.guid()).unwrap();
+            output_arena.remove(handle).unwrap();
+            let handle = unsafe { handle.cast_type() };
+            deltas.push(ArenaDelta::Remove(handle).wrap(SceneInnerDelta::models));
+
+            // todo! we have to assure the down stream not clone the instance model's node
+            // or we will have to do more complicate stuff to correctly emit tree node deletion
+            // message for example, add a drop callback queue to the nodes collection
+            // ...
+            if is_ins {
+              deltas.push(SceneInnerDelta::nodes(TreeMutation::Delete(id)));
+            }
+          }
+        }
+        futures::stream::iter(deltas)
+      })
+      .flatten();
 
     // the other change stream
     let other_stuff = broad_cast
       .fork_stream()
       .filter_map_sync(|delta| match &delta {
-        SceneInnerDelta::models(_) | SceneInnerDelta::nodes(_) => None,
+        SceneInnerDelta::models(_) => None,
         _ => Some(delta),
       });
 
-    let output = futures::stream::select(transformed_models, other_stuff);
-    // drain new node change first to keep order valid
-    let output = futures::stream::select_with_strategy(merged_tree_changes, output, prior_left);
+    let output = futures::stream::select_with_strategy(other_stuff, transformed_models, prior_left);
 
     (Self {}, output)
   }
@@ -80,6 +153,7 @@ impl AutoInstanceSystem {
 
 type OriginModelId = usize;
 type ModelChange = ContainerRefRetainContentDelta<SceneModel>;
+type ModelOutChange = ContainerRefRetainContentDelta<(SceneModel, bool)>;
 
 fn prior_left(_: &mut ()) -> stream::PollNext {
   stream::PollNext::Left
@@ -88,8 +162,8 @@ fn prior_left(_: &mut ()) -> stream::PollNext {
 fn instance_transform(
   input: impl Stream<Item = ModelChange>,
   d_sys: &SceneNodeDeriveSystem,
-  new_nodes: &Arc<SceneNodeCollection>,
-) -> impl Stream<Item = ModelChange> {
+  new_nodes: &SceneNodeCollection,
+) -> impl Stream<Item = ModelOutChange> {
   // origin model id => transformed id
   let mut source_id_transformer_map: HashMap<OriginModelId, PossibleInstanceKey> = HashMap::new();
 
@@ -111,12 +185,12 @@ fn instance_transform(
       match d {
         ModelChange::Insert(model) => {
           let idx = model.guid();
-          // for any new coming model , calculate instance key, find which exist instance could be
-          // merged with
+          // for any new coming model, calculate the instance key, and find which existing instance
+          // could be merged with
           let key = compute_instance_key(&model, &d_sys);
           source_id_transformer_map.insert(idx, key.clone());
 
-          // merge into the transformer or create the transformer
+          // merge into the transformer or create a new transformer
           transformers
             .get_or_insert_with(key.clone(), || {
               Transformer::new(key.clone(), d_sys.clone(), new_nodes.clone())
@@ -128,7 +202,7 @@ fn instance_transform(
           let key = source_id_transformer_map.remove(&idx).unwrap();
 
           let transformer = transformers.get_mut(&key).unwrap();
-          // remove the source model from the inside of transformer,
+          // remove the source model from the inside of the transformer,
           // drop the source and eventually drop the transformer if no more source in it
           transformer.notify_source_dropped(idx);
         }
@@ -137,7 +211,7 @@ fn instance_transform(
     .filter_map_sync(|delta| {
       match delta {
         StreamMapDelta::Delta(key, deltas) => (key, deltas).into(),
-        _ => None, // we do not care the transformer add or delete here
+        _ => None, // we do not care the transformer insertion or removal here
       }
     })
     .map(move |(_, deltas)| {
@@ -150,32 +224,36 @@ fn instance_transform(
               return None;
             }
             TransformerDelta::DropSource(_) => return None,
-            TransformerDelta::NewTransformed(transformed) => ModelChange::Insert(transformed),
-            TransformerDelta::RemoveTransformed(transformed) => ModelChange::Remove(transformed),
+            TransformerDelta::NewTransformed(transformed, is_ins) => {
+              ModelOutChange::Insert((transformed, is_ins))
+            }
+            TransformerDelta::RemoveTransformed(transformed, is_ins) => {
+              ModelOutChange::Remove((transformed, is_ins))
+            }
           }
           .into()
         })
-        .collect::<Vec<_>>(); // we have to do a collect because this iter borrows the recycling_sender
+        .collect::<Vec<_>>(); // we have to do a collecting because this iter borrows the recycling_sender
 
       futures::stream::iter(transform_change)
     })
     .flatten()
 }
 
-#[derive(Hash, PartialEq, Eq, Clone)]
+#[derive(Hash, PartialEq, Eq, Clone, Debug)]
 struct InstanceKey {
   pub is_front_side: bool,
   pub content: InstanceContentKey,
 }
 
-#[derive(Hash, PartialEq, Eq, Clone)]
+#[derive(Hash, PartialEq, Eq, Clone, Debug)]
 struct InstanceContentKey {
   pub material_id: usize,
   pub mesh_id: usize,
   pub group: MeshDrawGroup,
 }
 
-#[derive(Hash, PartialEq, Eq, Clone)]
+#[derive(Hash, PartialEq, Eq, Clone, Debug)]
 enum PossibleInstanceKey {
   UnableToInstance(usize), // just the origin model uuid
   Instanced(InstanceKey),
@@ -220,30 +298,33 @@ fn compute_instance_key_inner(model: &SceneItemRef<StandardModel>) -> Option<Ins
   .into()
 }
 
-/// we call it transformer here because maybe this struct will likely be reused in other optimizer
+/// we call it transformer here because maybe this struct will likely be reused in another optimizer
 #[pin_project::pin_project]
 struct Transformer {
   d_sys: SceneNodeDeriveSystem,
-  new_nodes: Arc<SceneNodeCollection>,
+  new_nodes: SceneNodeCollection,
   key: PossibleInstanceKey,
   #[pin]
   source: StreamMap<usize, InstanceSourceStream>,
   source_model: HashMap<usize, SceneModel>,
-  transformed: Option<SceneModel>,
+  removals: Vec<usize>,
+  transformed: Option<(SceneModel, bool)>,
 }
 
 impl Transformer {
   pub fn new(
     key: PossibleInstanceKey,
     d_sys: SceneNodeDeriveSystem,
-    new_nodes: Arc<SceneNodeCollection>,
+    new_nodes: SceneNodeCollection,
   ) -> Self {
+    debug_log!("create new transformer with key: {key:?}");
     Self {
       key,
       d_sys,
       new_nodes,
       source: Default::default(),
       source_model: Default::default(),
+      removals: Default::default(),
       transformed: Default::default(),
     }
   }
@@ -256,7 +337,9 @@ impl Transformer {
 
   fn notify_source_dropped(&mut self, source_id: usize) {
     let _ = self.source.remove(source_id).unwrap();
-    // note, we not remove the source_model map here, the stream polling will do this automatically
+    self.removals.push(source_id);
+    // note, we do not remove the source_model map here, the stream polling will do this
+    // automatically
   }
 }
 
@@ -265,19 +348,19 @@ impl Transformer {
 pub enum TransformerDelta {
   ReleaseUnsuitable(SceneModel), // original model
   DropSource(SceneModel),        // original model
-  NewTransformed(SceneModel),
-  RemoveTransformed(SceneModel),
+  NewTransformed(SceneModel, bool),
+  RemoveTransformed(SceneModel, bool),
 }
 
 impl Stream for Transformer {
   type Item = Vec<TransformerDelta>;
 
-  fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+  fn poll_next(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Option<Self::Item>> {
     let mut this = self.project();
 
-    // we simple recreate new instance if any incremental source change (could optimize later)
-    // so, here we do some batch process to avoid unnecessary instance rebuild
-    let mut batched = Vec::<StreamMapDelta<usize, InstanceSourceIncrementalUpdate>>::new();
+    // we simply recreate new instances if any incremental source changed (could optimize later)
+    // so, here we do some batch processing to avoid unnecessary instance rebuild
+    let mut batched = Vec::<_>::new();
     do_updates_by(&mut this.source, cx, |d| batched.push(d));
 
     if batched.is_empty() && this.source_model.is_empty() {
@@ -289,22 +372,29 @@ impl Stream for Transformer {
     let mut to_recycle = Vec::new();
     let mut to_remove = Vec::new();
 
-    batched.drain(..).for_each(|d| match d {
-      reactive::StreamMapDelta::Insert(_) => require_rebuild = true,
-      reactive::StreamMapDelta::Remove(idx) => {
-        to_remove.push(this.source_model.get(&idx).unwrap().clone());
-        require_rebuild = true;
+    this.removals.drain(..).for_each(|idx| {
+      to_remove.push(this.source_model.get(&idx).unwrap().clone());
+      require_rebuild = true
+    });
+
+    batched.drain(..).for_each(|d| {
+      //
+      match d {
+        // handled insert here because we do not have any extra state to record insertion on the
+        // transformer
+        reactive::StreamMapDelta::Insert(_) => require_rebuild = true,
+        reactive::StreamMapDelta::Remove(_) => {}
+        reactive::StreamMapDelta::Delta(idx, d) => match d {
+          InstanceSourceIncrementalUpdate::WorldMat(_) => {
+            // should optimize later
+            require_rebuild = true;
+          }
+          InstanceSourceIncrementalUpdate::InstanceKeyChanged => {
+            to_recycle.push(this.source_model.get(&idx).unwrap().clone());
+            require_rebuild = true;
+          }
+        },
       }
-      reactive::StreamMapDelta::Delta(idx, d) => match d {
-        InstanceSourceIncrementalUpdate::WorldMat(_) => {
-          // should optimize later
-          require_rebuild = true;
-        }
-        InstanceSourceIncrementalUpdate::InstanceKeyChanged => {
-          to_recycle.push(this.source_model.get(&idx).unwrap().clone());
-          require_rebuild = true;
-        }
-      },
     });
 
     to_remove
@@ -315,6 +405,9 @@ impl Stream for Transformer {
         this.source_model.remove(&idx).unwrap();
       });
 
+    // source model could be removed to empty, but we should not return Poll::Ready None here
+    // because to_recycle list maybe contains stuff
+
     // recycle minus drop
     to_remove.iter().for_each(|m| {
       if let Some(to_recycle_but_dropped) =
@@ -324,15 +417,37 @@ impl Stream for Transformer {
       }
     });
 
+    to_recycle.iter().for_each(|model| {
+      this.source.remove(model.guid());
+    });
+
     use TransformerDelta::*;
     results.extend(to_remove.into_iter().map(DropSource));
     results.extend(to_recycle.into_iter().map(ReleaseUnsuitable));
 
     if require_rebuild {
-      let new_transformed = create_instance(this.source_model, this.d_sys, this.new_nodes);
-      results.push(TransformerDelta::NewTransformed(new_transformed.clone()));
-      if let Some(old) = this.transformed.replace(new_transformed) {
-        results.push(TransformerDelta::RemoveTransformed(old));
+      if let Some((old, old_is_instance)) = this.transformed.take() {
+        debug_log!(
+          "remove old transformed model guid: {}, is original: {}",
+          old.guid(),
+          !old_is_instance
+        );
+        results.push(TransformerDelta::RemoveTransformed(old, old_is_instance));
+      }
+
+      if let Some((new_transformed, is_instance)) =
+        create_instance(this.source_model, this.d_sys, this.new_nodes)
+      {
+        debug_log!(
+          "created new transformed model guid: {}, is original: {}",
+          new_transformed.guid(),
+          !is_instance
+        );
+        results.push(TransformerDelta::NewTransformed(
+          new_transformed.clone(),
+          is_instance,
+        ));
+        *this.transformed = (new_transformed, is_instance).into();
       }
     }
 
@@ -347,16 +462,18 @@ impl Stream for Transformer {
 type InstanceSourceStream = impl Stream<Item = InstanceSourceIncrementalUpdate> + Unpin;
 type BoxedWatcher = Box<dyn Stream<Item = InstanceSourceIncrementalUpdate> + Unpin>;
 
-// watch a model to check if the model's instance key matches the key passed in
+// watch a model, check if the model's instance key matches the key passed in
 // and return the stream of InstanceSourceIncrementalUpdate
 fn build_instance_source_stream(
   model: &SceneModel,
   d: &SceneNodeDeriveSystem,
   key: PossibleInstanceKey,
 ) -> InstanceSourceStream {
+  use InstanceSourceIncrementalUpdate as InsUpdate;
+  use PossibleInstanceKey as PIK;
   let d = d.clone();
 
-  let is_font_side = if let PossibleInstanceKey::Instanced(key) = &key {
+  let is_font_side = if let PIK::Instanced(key) = &key {
     key.is_front_side.into()
   } else {
     None
@@ -369,9 +486,9 @@ fn build_instance_source_stream(
     .filter_map_sync(move |mat| {
       is_font_side.map(|is_font_side| {
         if is_front_side(mat) == is_font_side {
-          InstanceSourceIncrementalUpdate::WorldMat(mat)
+          InsUpdate::WorldMat(mat)
         } else {
-          InstanceSourceIncrementalUpdate::InstanceKeyChanged
+          InsUpdate::InstanceKeyChanged
         }
       })
     });
@@ -387,15 +504,15 @@ fn build_instance_source_stream(
             // just recompute everything
             let new_key = compute_instance_key_inner(&model_ref);
             match (new_key, &key) {
-              (None, PossibleInstanceKey::UnableToInstance(_)) => None,
-              (Some(new_key), PossibleInstanceKey::Instanced(key)) => {
+              (None, PIK::UnableToInstance(_)) => None,
+              (Some(new_key), PIK::Instanced(key)) => {
                 if new_key != key.content {
-                  InstanceSourceIncrementalUpdate::InstanceKeyChanged.into()
+                  InsUpdate::InstanceKeyChanged.into()
                 } else {
                   None
                 }
               }
-              _ => InstanceSourceIncrementalUpdate::InstanceKeyChanged.into(),
+              _ => InsUpdate::InstanceKeyChanged.into(),
             }
           } else {
             None
@@ -405,12 +522,8 @@ fn build_instance_source_stream(
         Box::new(watch) as BoxedWatcher
       }
       ModelType::Foreign(_) => match key {
-        PossibleInstanceKey::UnableToInstance(_) => {
-          Box::new(futures::stream::pending()) as BoxedWatcher
-        }
-        PossibleInstanceKey::Instanced(_) => Box::new(once_forever_pending(
-          InstanceSourceIncrementalUpdate::InstanceKeyChanged,
-        )),
+        PIK::UnableToInstance(_) => Box::new(futures::stream::pending()) as BoxedWatcher,
+        PIK::Instanced(_) => Box::new(once_forever_pending(InsUpdate::InstanceKeyChanged)),
       },
     })
     .flatten_signal();
@@ -418,16 +531,17 @@ fn build_instance_source_stream(
   futures::stream::select(world_matrix, model)
 }
 
+/// maybe failed, if the source is empty
 fn create_instance(
   source: &HashMap<usize, SceneModel>,
   d_sys: &SceneNodeDeriveSystem,
   new_nodes: &SceneNodeCollection,
-) -> SceneModel {
-  // if the source is single model, then the transformed model is the same source model
+) -> Option<(SceneModel, bool)> {
+  let first = source.values().next()?;
+  // if the source is a single model, then the transformed model is the same source model
   if source.len() == 1 {
-    source.values().next().unwrap().clone()
+    (first.clone(), false).into()
   } else {
-    let first = source.values().next().unwrap();
     let first = first.read();
     let model = match &first.model {
       ModelType::Standard(model) => model,
@@ -453,10 +567,12 @@ fn create_instance(
     }
     .into_ref();
 
-    SceneModelImpl {
+    let instance_model = SceneModelImpl {
       model: ModelType::Standard(instance_model),
       node: new_nodes.create_new_root(),
     }
-    .into_ref()
+    .into_ref();
+
+    (instance_model, true).into()
   }
 }

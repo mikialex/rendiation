@@ -154,6 +154,24 @@ impl<T: IncrementalBase> SceneItemRef<T> {
     move |_| weak.upgrade()
   }
 
+  pub fn pass_changes_to(
+    &self,
+    other: &Self,
+    extra_mapper: impl Fn(T::Delta) -> T::Delta + Send + Sync + 'static,
+  ) where
+    T: Incremental,
+  {
+    let other = other.downgrade();
+    self.read().delta_source.on(move |delta| {
+      if let Some(other) = other.upgrade() {
+        other.mutate(|mut m| m.modify(extra_mapper(delta.clone())));
+        false
+      } else {
+        true
+      }
+    });
+  }
+
   pub fn trigger_change(&self, delta: &T::Delta) {
     // ignore lock poison
     let inner = self.inner.read().unwrap_or_else(|e| e.into_inner());

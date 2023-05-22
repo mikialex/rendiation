@@ -119,7 +119,7 @@ impl Default for SceneNodeDataImpl {
 
 #[derive(Clone)]
 pub struct SceneNode {
-  inner: ShareTreeNode<ReactiveTreeCollection<SceneNodeData, SceneNodeDataImpl>>,
+  pub(crate) inner: ShareTreeNode<ReactiveTreeCollection<SceneNodeData, SceneNodeDataImpl>>,
 }
 
 clone_self_incremental!(SceneNode);

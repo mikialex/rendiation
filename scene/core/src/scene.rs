@@ -28,7 +28,7 @@ pub struct SceneInner {
   pub ext: DynamicExtension,
 }
 
-#[derive(Default)]
+#[derive(Default, Clone)]
 pub struct SceneNodeCollection {
   pub inner: SharedTreeCollection<ReactiveTreeCollection<SceneNodeData, SceneNodeDataImpl>>,
 }
@@ -36,6 +36,12 @@ pub struct SceneNodeCollection {
 impl SceneNodeCollection {
   pub fn create_new_root(&self) -> SceneNode {
     SceneNode::from_new_root(self.inner.clone())
+  }
+
+  pub fn create_node_at(&self, handle: SceneNodeHandle) -> SceneNode {
+    SceneNode {
+      inner: ShareTreeNode::create_raw(&self.inner, handle),
+    }
   }
 }
 
@@ -48,35 +54,6 @@ impl IncrementalBase for SceneNodeCollection {
         .inner
         .expand_with_mapping(|node| node.deref().clone(), cb)
     });
-  }
-}
-
-#[allow(non_camel_case_types)]
-#[derive(Clone)]
-pub enum SceneInnerDelta {
-  background(DeltaOf<Option<SceneBackGround>>),
-  default_camera(DeltaOf<SceneCamera>),
-  active_camera(DeltaOf<Option<SceneCamera>>),
-  cameras(DeltaOf<Arena<SceneCamera>>),
-  lights(DeltaOf<Arena<SceneLight>>),
-  models(DeltaOf<Arena<SceneModel>>),
-  ext(DeltaOf<DynamicExtension>),
-  nodes(DeltaOf<SceneNodeCollection>),
-}
-
-impl IncrementalBase for SceneInner {
-  type Delta = SceneInnerDelta;
-
-  fn expand(&self, mut cb: impl FnMut(Self::Delta)) {
-    use SceneInnerDelta::*;
-    self.background.expand(|d| cb(background(d)));
-    self.default_camera.expand(|d| cb(default_camera(d)));
-    self.active_camera.expand(|d| cb(active_camera(d)));
-    self.cameras.expand(|d| cb(cameras(d)));
-    self.lights.expand(|d| cb(lights(d)));
-    self.models.expand(|d| cb(models(d)));
-    self.ext.expand(|d| cb(ext(d)));
-    self.nodes.expand(|d| cb(nodes(d)));
   }
 }
 
@@ -108,12 +85,12 @@ impl SceneInner {
     .into_ref();
 
     // forward the inner change to outer
-    let scene_clone = scene.clone();
+    let scene_source_clone = scene.read().delta_source.clone();
     let s = scene.read();
 
     s.nodes.inner.visit_inner(move |tree| {
       tree.source.on(move |d| {
-        scene_clone.trigger_change(&SceneInnerDelta::nodes(d.clone()));
+        scene_source_clone.emit(&SceneInnerDelta::nodes(d.clone()));
         false
       })
     });
@@ -202,5 +179,67 @@ impl Scene {
         SceneInnerDelta::background(background)
       });
     })
+  }
+}
+
+#[allow(non_camel_case_types)]
+#[derive(Clone)]
+pub enum SceneInnerDelta {
+  background(DeltaOf<Option<SceneBackGround>>),
+  default_camera(DeltaOf<SceneCamera>),
+  active_camera(DeltaOf<Option<SceneCamera>>),
+  cameras(DeltaOf<Arena<SceneCamera>>),
+  lights(DeltaOf<Arena<SceneLight>>),
+  models(DeltaOf<Arena<SceneModel>>),
+  ext(DeltaOf<DynamicExtension>),
+  nodes(DeltaOf<SceneNodeCollection>),
+}
+
+impl std::fmt::Debug for SceneInnerDelta {
+  fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    match self {
+      Self::background(_) => f.debug_tuple("background").finish(),
+      Self::default_camera(_) => f.debug_tuple("default_camera").finish(),
+      Self::active_camera(_) => f.debug_tuple("active_camera").finish(),
+      Self::cameras(_) => f.debug_tuple("cameras").finish(),
+      Self::lights(_) => f.debug_tuple("lights").finish(),
+      Self::models(_) => f.debug_tuple("models").finish(),
+      Self::ext(_) => f.debug_tuple("ext").finish(),
+      Self::nodes(_) => f.debug_tuple("nodes").finish(),
+    }
+  }
+}
+
+impl IncrementalBase for SceneInner {
+  type Delta = SceneInnerDelta;
+
+  fn expand(&self, mut cb: impl FnMut(Self::Delta)) {
+    use SceneInnerDelta::*;
+    self.nodes.expand(|d| cb(nodes(d)));
+    self.background.expand(|d| cb(background(d)));
+    self.default_camera.expand(|d| cb(default_camera(d)));
+    self.active_camera.expand(|d| cb(active_camera(d)));
+    self.cameras.expand(|d| cb(cameras(d)));
+    self.lights.expand(|d| cb(lights(d)));
+    self.models.expand(|d| cb(models(d)));
+    self.ext.expand(|d| cb(ext(d)));
+  }
+}
+
+impl ApplicableIncremental for SceneInner {
+  type Error = ();
+
+  fn apply(&mut self, delta: Self::Delta) -> Result<(), Self::Error> {
+    match delta {
+      SceneInnerDelta::background(delta) => self.background.apply(delta).unwrap(),
+      SceneInnerDelta::default_camera(delta) => self.default_camera.apply(delta).unwrap(),
+      SceneInnerDelta::active_camera(delta) => self.active_camera.apply(delta).unwrap(),
+      SceneInnerDelta::cameras(delta) => self.cameras.apply(delta).unwrap(),
+      SceneInnerDelta::lights(delta) => self.lights.apply(delta).unwrap(),
+      SceneInnerDelta::models(delta) => self.models.apply(delta).unwrap(),
+      SceneInnerDelta::ext(ext) => self.ext.apply(ext).unwrap(),
+      SceneInnerDelta::nodes(_) => {} // should handle other place
+    }
+    Ok(())
   }
 }

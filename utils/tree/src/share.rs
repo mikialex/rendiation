@@ -45,6 +45,15 @@ pub struct NodeRef<T: CoreTree> {
   pub(crate) handle: T::Handle,
 }
 
+impl<T: CoreTree> NodeRef<T> {
+  pub fn create_raw(nodes: &SharedTreeCollection<T>, handle: T::Handle) -> Self {
+    Self {
+      nodes: nodes.clone(),
+      handle,
+    }
+  }
+}
+
 impl<T: CoreTree> Clone for NodeRef<T> {
   fn clone(&self) -> Self {
     Self {
@@ -61,7 +70,7 @@ impl<T: CoreTree> Drop for NodeRef<T> {
   }
 }
 
-struct NodeInner<T: CoreTree> {
+pub struct NodeInner<T: CoreTree> {
   nodes: SharedTreeCollection<T>,
   parent: Option<Arc<NodeRef<T>>>,
   inner: Arc<NodeRef<T>>,
@@ -73,6 +82,15 @@ impl<T: CoreTree> NodeInner<T> {
       nodes: inner.nodes.clone(),
       parent: None,
       inner: Arc::new(inner),
+    }
+  }
+
+  pub fn create_raw(base: &SharedTreeCollection<T>, handle: T::Handle) -> Self {
+    Self {
+      nodes: base.clone(),
+      // create_raw is logically guaranteed to created based on a none parent node
+      parent: None,
+      inner: Arc::new(NodeRef::create_raw(base, handle)),
     }
   }
 
@@ -112,7 +130,7 @@ impl<T: CoreTree> Drop for NodeInner<T> {
 }
 
 pub struct ShareTreeNode<T: CoreTree> {
-  inner: Arc<RwLock<NodeInner<T>>>,
+  pub inner: Arc<RwLock<NodeInner<T>>>,
 }
 
 impl<T: CoreTree> Clone for ShareTreeNode<T> {
@@ -130,6 +148,13 @@ impl<T: CoreTree> ShareTreeNode<T> {
 
   pub fn raw_handle_parent(&self) -> Option<T::Handle> {
     self.inner.read().unwrap().parent.as_ref().map(|p| p.handle)
+  }
+
+  pub fn create_raw(base: &SharedTreeCollection<T>, handle: T::Handle) -> Self {
+    let inner = NodeInner::create_raw(base, handle);
+    Self {
+      inner: Arc::new(RwLock::new(inner)),
+    }
   }
 
   pub fn visit_raw_storage<F: FnOnce(&T) -> R, R>(&self, v: F) -> R {
