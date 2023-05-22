@@ -14,6 +14,7 @@ struct SingleProjectShadowMapSystem {
   shadow_maps: StreamMap<usize, ShadowMap>,
   maps: ShadowMapAllocator,
   list: BasicShadowMapInfoList,
+  emitter: HashMap<usize, futures::channel::mpsc::UnboundedSender<LightShadowAddressInfo>>,
 }
 
 impl SingleProjectShadowMapSystem {
@@ -48,19 +49,21 @@ impl SingleProjectShadowMapSystem {
   }
 
   pub fn update_depth(&mut self, ctx: &FrameCtx) {
-    self.cameras.
+    assert_eq!(self.cameras.streams.len(), self.shadow_maps.streams.len());
+    for shadow_camera in self.cameras.streams.values() {
+      for map in self.shadow_maps.streams.values() {
+        let (view, map_info) = map.get_write_view(ctx.ctx.gpu);
 
-    // for cameras todo
-    let (view, map_info) = map.get_write_view(ctx.ctx.gpu);
-
-    pass("shadow-depth")
-      .with_depth(view, clear(1.))
-      .render(ctx.ctx)
-      .by(CameraSceneRef {
-        camera: &shadow_camera,
-        scene: ctx.scene,
-        inner: SceneDepth,
-      });
+        pass("shadow-depth")
+          .with_depth(view, clear(1.))
+          .render(ctx.ctx)
+          .by(CameraSceneRef {
+            camera: &shadow_camera,
+            scene: ctx.scene,
+            inner: SceneDepth,
+          });
+      }
+    }
   }
 }
 

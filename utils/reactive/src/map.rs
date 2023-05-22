@@ -65,7 +65,7 @@ impl<M, T: ReactiveMapping<M>> ReactiveMap<T, M> {
 
 #[pin_project::pin_project]
 pub struct StreamMap<K, T> {
-  streams: HashMap<K, T>,
+  pub streams: HashMap<K, T>,
   ref_changes: Vec<RefChange<K>>,
   waked: Arc<RwLock<Vec<K>>>,
   waker: Arc<RwLock<Option<Waker>>>,
