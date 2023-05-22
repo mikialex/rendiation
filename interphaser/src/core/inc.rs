@@ -6,7 +6,7 @@ use std::task::Context;
 
 /// View type could generic over any state T, as long as the T could provide
 /// given logic for view type
-trait View {
+pub trait UIView {
   type Event;
   type React;
 
@@ -55,7 +55,7 @@ pub enum TextBoxDelta {
   Placeholder(String),
 }
 
-impl View for TextBox {
+impl UIView for TextBox {
   type Event = TextBoxDelta;
   type React = TextBoxEvent;
 
