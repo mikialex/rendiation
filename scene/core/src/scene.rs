@@ -85,12 +85,12 @@ impl SceneInner {
     .into_ref();
 
     // forward the inner change to outer
-    let scene_clone = scene.clone();
+    let scene_source_clone = scene.read().delta_source.clone();
     let s = scene.read();
 
     s.nodes.inner.visit_inner(move |tree| {
       tree.source.on(move |d| {
-        scene_clone.trigger_change(&SceneInnerDelta::nodes(d.clone()));
+        scene_source_clone.emit(&SceneInnerDelta::nodes(d.clone()));
         false
       })
     });

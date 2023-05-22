@@ -154,14 +154,17 @@ impl<T: IncrementalBase> SceneItemRef<T> {
     move |_| weak.upgrade()
   }
 
-  pub fn pass_changes_to(&self, other: &Self)
-  where
+  pub fn pass_changes_to(
+    &self,
+    other: &Self,
+    extra_mapper: impl Fn(T::Delta) -> T::Delta + Send + Sync + 'static,
+  ) where
     T: Incremental,
   {
     let other = other.downgrade();
-    self.read().delta_source.on(move |view| {
+    self.read().delta_source.on(move |delta| {
       if let Some(other) = other.upgrade() {
-        other.mutate(|mut m| m.modify(view.delta.clone()));
+        other.mutate(|mut m| m.modify(extra_mapper(delta.clone())));
         false
       } else {
         true

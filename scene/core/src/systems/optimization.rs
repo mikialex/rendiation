@@ -46,7 +46,8 @@ impl AutoInstanceSystem {
     d_system: &SceneNodeDeriveSystem,
   ) -> (Self, impl Stream<Item = SceneInnerDelta>) {
     let middle_scene_nodes = SceneNodeCollection::default();
-    let mut origin_nodes_mapping = HashMap::<usize, SceneNode>::new();
+    let origin_nodes_mapping = HashMap::<usize, SceneNode>::new();
+    let origin_nodes_mapping = Arc::new(RwLock::new(origin_nodes_mapping));
     let middle_scene_nodes_c = middle_scene_nodes.clone();
 
     // instance optimization requires us to create new instance models in the transformed scene.
@@ -56,12 +57,18 @@ impl AutoInstanceSystem {
     // deltas, to replace their node reference with the new one. but where are the new nodes? so we
     // must maintain the scene nodes cache from the old node deltas!
     let scene_delta = scene_delta.map(move |mut delta| {
+      let origin_nodes_mapping_c = origin_nodes_mapping.clone();
       if let SceneInnerDelta::nodes(delta) = &mut delta {
-        recreate_tree_nodes(delta, &middle_scene_nodes, &mut origin_nodes_mapping);
+        recreate_tree_nodes(
+          delta,
+          &middle_scene_nodes,
+          &mut origin_nodes_mapping.write().unwrap(),
+        );
       }
-
-      transform_scene_delta_node(&mut delta, |node| {
-        origin_nodes_mapping
+      transform_scene_delta_node(&mut delta, move |node| {
+        origin_nodes_mapping_c
+          .read()
+          .unwrap()
           .get(&node.raw_handle().index())
           .unwrap()
           .clone()
@@ -138,7 +145,7 @@ impl AutoInstanceSystem {
         _ => Some(delta),
       });
 
-    let output = futures::stream::select(transformed_models, other_stuff);
+    let output = futures::stream::select_with_strategy(other_stuff, transformed_models, prior_left);
 
     (Self {}, output)
   }

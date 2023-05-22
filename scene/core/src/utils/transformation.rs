@@ -208,21 +208,29 @@ pub fn scene_folding(
   let (scene, d_sys) = SceneInner::new();
   let scene_c = scene.clone();
 
-  let mut scene_node_holder = HashMap::<usize, SceneNode>::new();
+  let scene_node_holder = HashMap::<usize, SceneNode>::new();
+  let scene_node_holder = Arc::new(RwLock::new(scene_node_holder));
 
   let folder = s.map(move |mut delta| {
+    let scene_node_holder_c = scene_node_holder.clone();
+    transform_scene_delta_node(&mut delta, move |node| {
+      scene_node_holder_c
+        .read()
+        .unwrap()
+        .get(&node.raw_handle().index())
+        .unwrap()
+        .clone()
+    });
+
+    if let SceneInnerDelta::nodes(delta) = &mut delta {
+      recreate_tree_nodes(
+        delta,
+        &scene.read().nodes,
+        &mut scene_node_holder.write().unwrap(),
+      );
+    }
+
     scene.mutate(|mut scene| {
-      transform_scene_delta_node(&mut delta, |node| {
-        scene_node_holder
-          .get(&node.raw_handle().index())
-          .unwrap()
-          .clone()
-      });
-
-      if let SceneInnerDelta::nodes(delta) = &mut delta {
-        recreate_tree_nodes(delta, &scene.nodes, &mut scene_node_holder);
-      }
-
       scene.modify(delta);
     });
   });
@@ -254,7 +262,7 @@ pub fn mutate_arena_delta<T: IncrementalBase<Delta = T>>(
 
 pub fn transform_camera_node(
   c: &SceneCamera,
-  mapper: impl FnOnce(&SceneNode) -> SceneNode,
+  mapper: impl Fn(&SceneNode) -> SceneNode + Send + Sync + 'static,
 ) -> SceneCamera {
   let camera = c.read();
   let r = SceneCameraInner {
@@ -264,13 +272,16 @@ pub fn transform_camera_node(
     projection_matrix: camera.projection_matrix,
   }
   .into_ref();
-  c.pass_changes_to(&r);
+  c.pass_changes_to(&r, move |delta| match delta {
+    SceneCameraInnerDelta::node(node) => SceneCameraInnerDelta::node(mapper(&node)),
+    _ => delta,
+  });
   r
 }
 
 pub fn transform_light_node(
   l: &SceneLight,
-  mapper: impl FnOnce(&SceneNode) -> SceneNode,
+  mapper: impl Fn(&SceneNode) -> SceneNode + Send + Sync + 'static,
 ) -> SceneLight {
   let light = l.read();
   let r = SceneLightInner {
@@ -278,13 +289,16 @@ pub fn transform_light_node(
     light: light.light.clone(),
   }
   .into_ref();
-  l.pass_changes_to(&r);
+  l.pass_changes_to(&r, move |delta| match delta {
+    SceneLightInnerDelta::node(node) => SceneLightInnerDelta::node(mapper(&node)),
+    _ => delta,
+  });
   r
 }
 
 pub fn transform_model_node(
   m: &SceneModel,
-  mapper: impl FnOnce(&SceneNode) -> SceneNode,
+  mapper: impl Fn(&SceneNode) -> SceneNode + Send + Sync + 'static,
 ) -> SceneModel {
   let model = m.read();
   let r = SceneModelImpl {
@@ -292,14 +306,17 @@ pub fn transform_model_node(
     model: model.model.clone(),
   }
   .into_ref();
-  m.pass_changes_to(&r);
+  m.pass_changes_to(&r, move |delta| match delta {
+    SceneModelImplDelta::node(node) => SceneModelImplDelta::node(mapper(&node)),
+    _ => delta,
+  });
   r
 }
 
 #[allow(clippy::collapsible_match)]
 pub fn transform_scene_delta_node(
   delta: &mut SceneInnerDelta,
-  mapper: impl FnOnce(&SceneNode) -> SceneNode,
+  mapper: impl Fn(&SceneNode) -> SceneNode + Send + Sync + 'static,
 ) {
   match delta {
     SceneInnerDelta::default_camera(delta) => {
