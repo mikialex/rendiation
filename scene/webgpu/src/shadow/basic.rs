@@ -59,12 +59,15 @@ pub trait ShadowSingleProjectCreator {
   fn build_shadow_projection(&self) -> Option<impl Stream<Item = Box<dyn CameraProjection>>>;
 }
 
+#[pin_project::pin_project]
 #[derive(Default)]
 struct SingleProjectShadowMapSystem {
   /// light guid to light shadow camera
+  #[pin]
   cameras: StreamMap<usize, ReactiveBasicShadowSceneCamera>,
-  maps: ShadowMapAllocator,
+  #[pin]
   shadow_maps: StreamMap<usize, ShadowMap>,
+  maps: ShadowMapAllocator,
   list: BasicShadowMapInfoList,
 }
 
@@ -72,10 +75,26 @@ impl SingleProjectShadowMapSystem {
   pub fn create_shadow_info_stream(
     &self,
     light: &SceneLight,
-  ) -> impl Stream<Item = LightShadowAddressInfo> {
+  ) -> impl Stream<Item = Option<LightShadowAddressInfo>> {
     let camera_stream = basic_shadow_camera(light);
     self.cameras.insert(light.guid, camera_stream);
     let shadow_map = self.maps.allocate(resolution);
+  }
+
+  pub fn maintain(&mut self) {
+    do_updates(&mut self.cameras, |updates| {
+      match updates {
+        StreamMapDelta::Insert(_) => todo!(),
+        StreamMapDelta::Remove(_) => todo!(),
+        StreamMapDelta::Delta(idx, delta) => {
+          if let Some(delta) = delta {
+            // remove from shadowmap
+          } else {
+            //
+          }
+        }
+      }
+    })
   }
 
   pub fn update_depth(&mut self, ctx: &FrameCtx) {

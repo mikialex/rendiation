@@ -8,17 +8,65 @@ pub struct ShadowMapAllocator {
 }
 
 impl ShadowMapAllocator {
-  pub fn allocate(&self, resolution: Size) -> ShadowMap {
+  pub fn allocate(&self, size_requirement: Size) -> ShadowMap {
     let mut inner = self.inner.borrow_mut();
     inner.id += 1;
 
     let id = inner.id;
-    inner.requirements.insert(id, resolution);
+
+    let (sender, receiver) = futures::channel::mpsc::unbounded();
+
+    if inner.size_all.depth_or_array_layers == self.allocation.len() {
+      // resize and emit changes
+      let map = GPUTexture::create(
+        webgpu::TextureDescriptor {
+          label: "shadow-maps".into(),
+          size: inner.size * 2,
+          mip_level_count: 1,
+          sample_count: 1,
+          dimension: webgpu::TextureDimension::D2,
+          format: webgpu::TextureFormat::Depth32Float,
+          view_formats: &[],
+          usage: webgpu::TextureUsages::TEXTURE_BINDING | webgpu::TextureUsages::RENDER_ATTACHMENT,
+        },
+        &inner.device,
+      );
+      inner.map = map.create_view(Default::default()).try_into().unwrap();
+      inner
+        .allocations
+        .values_mut()
+        .enumerate()
+        .for_each(|(layer, alloc)| {
+          alloc.info = ShadowMapAddressInfo {
+            layer_index: layer,
+            size: todo!(),
+            offset: Vec2::Zero(),
+            ..Zeroable::zeroed()
+          };
+          alloc.sender.unbounded_send(alloc.info);
+        })
+    }
+    let current = ShadowMapAddressInfo {
+      layer_index: self.allocation.len(),
+      size: todo!(),
+      offset: Vec2::Zero(),
+      ..Zeroable::zeroed()
+    };
+
+    let allocation = LiveAllocation {
+      size_requirement,
+      info: current,
+      sender,
+    };
+
+    inner.allocations.insert(id, allocation);
 
     ShadowMap {
       id,
-      size: resolution,
+      size: size_requirement,
       inner: self.inner.clone(),
+      current,
+      deltas: Box::new(receiver),
     }
   }
 }
@@ -54,36 +102,27 @@ impl ShaderGraphProvider for ShadowMapAllocator {
 
 pub struct ShadowMapAllocatorImpl {
   id: usize,
-  allocations: ShadowMapAllocationInfo,
-  requirements: HashMap<usize, Size>,
+  device: GPUDevice,
+  map: GPU2DArrayDepthTextureView,
+  sampler: GPUComparisonSamplerView,
+  size_all: webgpu::Extent3d,
+  allocations: HashMap<usize, LiveAllocation>,
+}
+
+struct LiveAllocation {
+  size_requirement: Size,
+  info: ShadowMapAddressInfo,
+  sender: futures::channel::mpsc::UnboundedSender<ShadowMapAddressInfo>,
 }
 
 impl ShadowMapAllocatorImpl {
-  pub fn new(gpu: &GPU) -> Self {
+  fn new(device: &GPUDevice) -> Self {
     let init_size = webgpu::Extent3d {
       width: 512,
       height: 512,
       depth_or_array_layers: 5 as u32,
     };
 
-    let allocations = ShadowMapAllocationInfo::new(init_size, &gpu.device);
-
-    Self {
-      id: 0,
-      allocations,
-      requirements: todo!(),
-    }
-  }
-}
-
-struct ShadowMapAllocationInfo {
-  map: GPU2DArrayDepthTextureView,
-  sampler: GPUComparisonSamplerView,
-  mapping: HashMap<usize, ShadowMapAddressInfo>,
-}
-
-impl ShadowMapAllocationInfo {
-  fn new(init_size: webgpu::Extent3d, device: &GPUDevice) -> Self {
     let map = GPUTexture::create(
       webgpu::TextureDescriptor {
         label: "shadow-maps".into(),
@@ -99,22 +138,7 @@ impl ShadowMapAllocationInfo {
     );
     let map = map.create_view(Default::default()).try_into().unwrap();
 
-    let mapping = self
-      .requirements
-      .iter()
-      .enumerate()
-      .map(|(i, (v, _))| {
-        (
-          *v,
-          ShadowMapAddressInfo {
-            layer_index: i as i32,
-            size: Vec2::zero(),
-            offset: Vec2::zero(),
-            ..Zeroable::zeroed()
-          },
-        )
-      })
-      .collect();
+    let mapping = Default::default();
 
     let sampler = GPUComparisonSampler::create(
       webgpu::SamplerDescriptor {
@@ -129,26 +153,30 @@ impl ShadowMapAllocationInfo {
     .create_view(());
 
     Self {
+      id: 0,
       map,
-      mapping,
+      device: device.clone(),
+      size_all: init_size,
+      allocations: mapping,
       sampler,
     }
   }
 }
 
+#[pin_project::pin_project]
 pub struct ShadowMap {
   id: usize,
   size: Size,
+  current: ShadowMapAddressInfo,
+  #[pin]
+  deltas: Box<dyn Stream<Item = ShadowMapAddressInfo>>,
   inner: Rc<RefCell<ShadowMapAllocatorImpl>>,
 }
 
 impl Drop for ShadowMap {
   fn drop(&mut self) {
     let mut inner = self.inner.borrow_mut();
-    inner.requirements.remove(&self.id);
-    if let Some(result) = &mut inner.result {
-      result.mapping.remove(&self.id);
-    }
+    inner.allocations.remove(&self.id);
   }
 }
 
@@ -156,7 +184,15 @@ impl Stream for ShadowMap {
   type Item = ShadowMapAddressInfo;
 
   fn poll_next(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Option<Self::Item>> {
-    todo!()
+    let this = self.project();
+    if let Poll::Ready(r) = this.deltas.poll_next(cx) {
+      if let Some(r) = r {
+        self.current = r;
+      }
+      return Poll::Ready(r);
+    } else {
+      return Poll::Pending;
+    }
   }
 }
 
