@@ -197,6 +197,7 @@ impl Stream for ShadowMap {
 }
 
 impl ShadowMap {
+  // todo , we should return viewport here!
   pub fn get_write_view(&self, gpu: &GPU) -> (GPU2DTextureView, ShadowMapAddressInfo) {
     let mut inner = self.inner.inner.borrow_mut();
     let id = self.inner.id;

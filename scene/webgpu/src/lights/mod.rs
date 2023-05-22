@@ -40,8 +40,11 @@ pub struct LightResourceCtx {
 }
 
 impl LightResourceCtx {
-  pub fn shadow_system(&self) {
-    //
+  pub fn shadow_system(&self) -> &SingleProjectShadowMapSystem {
+    self
+      .providers
+      .get::<SingleProjectShadowMapSystem>()
+      .unwrap()
   }
 }
 

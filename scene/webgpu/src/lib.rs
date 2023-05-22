@@ -45,7 +45,6 @@ pub use camera::*;
 use futures::*;
 use incremental::*;
 pub use lights::*;
-use linked_hash_map::LinkedHashMap;
 pub use materials::*;
 pub use mesh::*;
 pub use mipmap_gen::*;
