@@ -18,6 +18,11 @@ pub trait PainterAPI {
 
   fn stock_shape(&mut self, shape: &impl Shape, fill: &StrokeStyle);
   fn fill_shape(&mut self, shape: &impl Shape, fill: &FillStyle);
+
+  /// https://developer.mozilla.org/en-US/docs/Web/API/CanvasRenderingContext2D/setTransform
+  fn set_transform(&mut self, transform: Mat3<f32>);
+  /// https://developer.mozilla.org/en-US/docs/Web/API/CanvasRenderingContext2D/getTransform
+  fn get_transform(&self) -> Mat3<f32>;
 }
 
 pub trait Canvas2DPathBuilder {
