@@ -43,10 +43,11 @@ impl ReactiveGPUSamplerSignal {
   //   s
   // }
   pub fn create_gpu_sampler_com_delta_stream(&self) -> SamplerRenderComponentDeltaStream {
-    self.inner.listen_by(
-      TextureGPUChange::to_render_component_delta,
-      RenderComponentDeltaFlag::ContentRef,
-    )
+    self
+      .inner
+      .unbound_listen_by(TextureGPUChange::to_render_component_delta, |v| {
+        v(RenderComponentDeltaFlag::ContentRef)
+      })
   }
 }
 

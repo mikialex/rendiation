@@ -180,7 +180,8 @@ impl WorldMatrixOverride for ViewAutoScalable {
     let scale = self.independent_scale_factor
       / camera
         .projection
-        .pixels_per_unit(projected_distance, camera_view_height);
+        .pixels_per_unit(projected_distance, camera_view_height)
+        .unwrap_or(1.);
 
     world_translation // move back to position
       * Mat4::scale(Vec3::splat(scale)) // apply new scale

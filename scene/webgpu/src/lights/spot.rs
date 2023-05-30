@@ -110,6 +110,7 @@ impl ShadowCameraCreator for SpotLight {
       fov: Deg::from_rad(self.half_cone_angle * 2.),
       aspect: 1.,
     };
-    SceneCamera::create_camera(proj, node.clone())
+    let proj = CameraProjector::Perspective(proj);
+    SceneCamera::create(proj, node.clone())
   }
 }

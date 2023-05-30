@@ -163,18 +163,20 @@ pub fn load_default_scene(scene: &Scene) {
 
   {
     let camera = PerspectiveProjection::default();
+    let camera = CameraProjector::Perspective(camera);
     let camera_node = scene.create_root_child();
     camera_node.set_local_matrix(Mat4::lookat(Vec3::splat(3.), Vec3::splat(0.), up));
-    let camera = SceneCamera::create_camera(camera, camera_node);
+    let camera = SceneCamera::create(camera, camera_node);
     let _ = scene.insert_camera(camera.clone());
     scene.set_active_camera(camera.into());
   }
 
   {
     let camera = PerspectiveProjection::default();
+    let camera = CameraProjector::Perspective(camera);
     let camera_node = scene.create_root_child();
     camera_node.set_local_matrix(Mat4::lookat(Vec3::splat(3.), Vec3::splat(0.), up));
-    let camera = SceneCamera::create_camera(camera, camera_node);
+    let camera = SceneCamera::create(camera, camera_node);
     let _ = scene.insert_camera(camera);
   }
 

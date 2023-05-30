@@ -126,45 +126,7 @@ impl ShadowCameraCreator for DirectionalLight {
       .copied()
       .unwrap_or_default();
 
-    let orth = WorkAroundResizableOrth { orth: extra.range };
-    SceneCamera::create_camera(orth, node.clone())
-  }
-}
-
-#[derive(Clone)]
-struct WorkAroundResizableOrth<T> {
-  orth: OrthographicProjection<T>,
-}
-
-impl<T: Clone + Send + Sync> incremental::SimpleIncremental for WorkAroundResizableOrth<T> {
-  type Delta = Self;
-
-  fn s_apply(&mut self, delta: Self::Delta) {
-    *self = delta;
-  }
-
-  fn s_expand(&self, mut cb: impl FnMut(Self::Delta)) {
-    cb(self.clone())
-  }
-}
-
-impl<T: Scalar> Projection<T> for WorkAroundResizableOrth<T> {
-  fn update_projection<S: NDCSpaceMapper>(&self, projection: &mut Mat4<T>) {
-    self.orth.update_projection::<WebGPU>(projection);
-  }
-
-  fn pixels_per_unit(&self, distance: T, view_height: T) -> T {
-    self.orth.pixels_per_unit(distance, view_height)
-  }
-}
-
-impl<T: Scalar> ResizableProjection<T> for WorkAroundResizableOrth<T> {
-  fn resize(&mut self, _size: (T, T)) {
-    // nothing!
-  }
-}
-impl HyperRayCaster<f32, Vec3<f32>, Vec2<f32>> for WorkAroundResizableOrth<f32> {
-  fn cast_ray(&self, normalized_position: Vec2<f32>) -> HyperRay<f32, Vec3<f32>> {
-    self.orth.cast_ray(normalized_position)
+    let proj = CameraProjector::Orthographic(extra.range);
+    SceneCamera::create(proj, node.clone())
   }
 }

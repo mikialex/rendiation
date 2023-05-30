@@ -1,4 +1,5 @@
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
+use std::hash::Hash;
 
 use crate::*;
 
@@ -30,6 +31,7 @@ impl<T: IncrementalBase> From<ArenaDelta<T>>
   }
 }
 
+use arena::ArenaDelta;
 use futures::*;
 use tree::{CoreTree, TreeMutation};
 pub trait IncrementalStreamTransform {
@@ -204,12 +206,16 @@ pub fn recreate_tree_nodes(
 
 pub fn scene_folding(
   s: impl Stream<Item = SceneInnerDelta>,
-) -> (impl Stream<Item = ()>, (Scene, SceneNodeDeriveSystem)) {
+) -> (
+  impl Stream<Item = SceneInnerDelta>,
+  (Scene, SceneNodeDeriveSystem),
+) {
   let (scene, d_sys) = SceneInner::new();
   let scene_c = scene.clone();
 
   let scene_node_holder = HashMap::<usize, SceneNode>::new();
   let scene_node_holder = Arc::new(RwLock::new(scene_node_holder));
+  let mut d_sys_c = d_sys.clone();
 
   let folder = s.map(move |mut delta| {
     let scene_node_holder_c = scene_node_holder.clone();
@@ -231,8 +237,12 @@ pub fn scene_folding(
     }
 
     scene.mutate(|mut scene| {
-      scene.modify(delta);
+      scene.modify(delta.clone());
     });
+
+    d_sys_c.maintain();
+
+    delta
   });
 
   (folder, (scene_c, d_sys))
@@ -251,7 +261,7 @@ pub fn map_arena_delta<T: IncrementalBase<Delta = T>>(
 
 pub fn mutate_arena_delta<T: IncrementalBase<Delta = T>>(
   d: &mut ArenaDelta<T>,
-  visit: impl FnOnce(&mut T),
+  visit: impl Fn(&mut T),
 ) {
   match d {
     ArenaDelta::Mutate((m, _)) => visit(m),
@@ -268,8 +278,7 @@ pub fn transform_camera_node(
   let r = SceneCameraInner {
     node: mapper(&camera.node),
     bounds: camera.bounds,
-    projection: camera.projection.clone_self(),
-    projection_matrix: camera.projection_matrix,
+    projection: camera.projection.clone(),
   }
   .into_ref();
   c.pass_changes_to(&r, move |delta| match delta {
@@ -316,7 +325,7 @@ pub fn transform_model_node(
 #[allow(clippy::collapsible_match)]
 pub fn transform_scene_delta_node(
   delta: &mut SceneInnerDelta,
-  mapper: impl Fn(&SceneNode) -> SceneNode + Send + Sync + 'static,
+  mapper: impl Fn(&SceneNode) -> SceneNode + Send + Sync + Clone + 'static,
 ) {
   match delta {
     SceneInnerDelta::default_camera(delta) => {
@@ -330,17 +339,17 @@ pub fn transform_scene_delta_node(
     }
     SceneInnerDelta::cameras(delta) => {
       mutate_arena_delta(delta, |camera| {
-        *camera = transform_camera_node(camera, mapper);
+        *camera = transform_camera_node(camera, mapper.clone());
       });
     }
     SceneInnerDelta::lights(delta) => {
       mutate_arena_delta(delta, |light| {
-        *light = transform_light_node(light, mapper);
+        *light = transform_light_node(light, mapper.clone());
       });
     }
     SceneInnerDelta::models(delta) => {
       mutate_arena_delta(delta, |model| {
-        *model = transform_model_node(model, mapper);
+        *model = transform_model_node(model, mapper.clone());
       });
     }
     _ => {}

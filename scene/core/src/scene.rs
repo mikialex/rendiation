@@ -68,8 +68,9 @@ impl SceneInner {
     let root = nodes.create_new_root();
 
     let default_camera = PerspectiveProjection::default();
+    let default_camera = CameraProjector::Perspective(default_camera);
     let camera_node = root.create_child();
-    let default_camera = SceneCamera::create_camera(default_camera, camera_node);
+    let default_camera = SceneCamera::create(default_camera, camera_node);
 
     let scene = Self {
       nodes,

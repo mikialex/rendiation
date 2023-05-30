@@ -111,7 +111,7 @@ impl<T> RenderComponentCell<T> {
   pub fn create_render_component_delta_stream(&self) -> RenderComponentDeltaStream<T> {
     self
       .source
-      .listen_by(|v| *v, RenderComponentDeltaFlag::all())
+      .unbound_listen_by(|v| *v, |v| v(RenderComponentDeltaFlag::all()))
   }
 }
 

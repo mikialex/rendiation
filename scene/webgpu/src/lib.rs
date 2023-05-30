@@ -53,7 +53,6 @@ pub use node::*;
 use reactive::*;
 pub use rendering::*;
 use rendiation_algebra::*;
-use rendiation_geometry::*;
 use rendiation_renderable_mesh::group::MeshDrawGroup;
 use rendiation_renderable_mesh::mesh::*;
 pub use rendiation_scene_core::*;

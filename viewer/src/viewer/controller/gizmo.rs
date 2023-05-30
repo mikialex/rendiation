@@ -259,7 +259,7 @@ impl Gizmo {
 
           let action = DragTargetAction {
             camera_world: event.node_sys.get_world_matrix(&camera.node),
-            camera_projection: camera.projection_matrix,
+            camera_projection: camera.compute_project_mat(),
             world_ray: event.interactive_ctx.world_ray,
             screen_position,
           };

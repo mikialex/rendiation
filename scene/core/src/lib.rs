@@ -5,7 +5,6 @@
 #![feature(let_chains)]
 
 pub mod scene;
-use arena::ArenaDelta;
 pub use scene::*;
 
 pub mod node;

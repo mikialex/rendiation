@@ -621,6 +621,12 @@ pub struct SignalFoldStateStream<T, S, F> {
   f: F,
 }
 
+impl<T, S, F> AsRef<T> for SignalFoldStateStream<T, S, F> {
+  fn as_ref(&self) -> &T {
+    &self.state
+  }
+}
+
 impl<T, S, X, F> Stream for SignalFoldStateStream<T, S, F>
 where
   S: Stream,

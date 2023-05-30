@@ -161,15 +161,22 @@ impl<T: IncrementalBase> SceneItemRef<T> {
   ) where
     T: Incremental,
   {
-    let other = other.downgrade();
-    self.read().delta_source.on(move |delta| {
-      if let Some(other) = other.upgrade() {
+    let other_weak = other.downgrade();
+    let remove_token = self.read().delta_source.on(move |delta| {
+      if let Some(other) = other_weak.upgrade() {
         other.mutate(|mut m| m.modify(extra_mapper(delta.clone())));
         false
       } else {
         true
       }
     });
+
+    let self_weak = self.downgrade();
+    other.read().drop_source.on(move |_| {
+      if let Some(origin) = self_weak.upgrade() {
+        origin.read().delta_source.off(remove_token)
+      }
+    })
   }
 
   pub fn trigger_change(&self, delta: &T::Delta) {

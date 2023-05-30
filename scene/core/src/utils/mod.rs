@@ -6,7 +6,10 @@ mod scene_item;
 pub use scene_item::*;
 mod transformation;
 use futures::Future;
-use reactive::{ChannelLike, DefaultSingleValueChannel, DefaultUnboundChannel};
+use reactive::{
+  ChannelLike, DefaultSingleValueChannel, DefaultUnboundChannel, EventSourceDropper,
+  EventSourceStream,
+};
 pub use transformation::*;
 
 use crate::*;
@@ -158,7 +161,7 @@ impl<T: IncrementalBase> Identity<T> {
     };
     mapper(MaybeDeltaRef::All(self), &send);
 
-    self.delta_source.on(move |v| {
+    let remove_token = self.delta_source.on(move |v| {
       mapper(MaybeDeltaRef::Delta(v), &send);
       C::is_closed(&sender)
     });
@@ -166,7 +169,8 @@ impl<T: IncrementalBase> Identity<T> {
     // message which is unnecessary. The better behavior will just drop the history and emit
     // Poll::Ready::None
 
-    receiver
+    let dropper = EventSourceDropper::new(remove_token, self.delta_source.make_weak());
+    EventSourceStream::new(dropper, receiver)
   }
 
   // todo, how to handle too many drop listener? in fact we never cleanup them

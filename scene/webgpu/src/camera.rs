@@ -47,7 +47,7 @@ pub fn build_reactive_camera(
     .map(CameraGPUDelta::WorldMat);
 
   let camera_proj = camera
-    .single_listen_by(with_field!(SceneCameraInner => projection_matrix))
+    .create_projection_mat_stream()
     .map(CameraGPUDelta::Proj);
 
   let camera = CameraGPU::new(&cx.device);
@@ -173,40 +173,6 @@ impl CameraGPU {
     Self {
       enable_jitter: false,
       ubo: create_uniform2(CameraGPUTransform::default(), device),
-    }
-  }
-
-  pub fn new_from_camera(
-    device: &GPUDevice,
-    derives: &SceneNodeDeriveSystem,
-    camera: &SceneCamera,
-  ) -> Self {
-    let camera = camera.read();
-
-    let world = derives.get_world_matrix(&camera.node);
-
-    let mut uniform = CameraGPUTransform {
-      projection: camera.projection_matrix,
-      projection_inv: camera.projection_matrix.inverse_or_identity(),
-
-      rotation: world.extract_rotation_mat(),
-
-      view: world.inverse_or_identity(),
-      world,
-
-      view_projection: Mat4::one(),
-      view_projection_inv: Mat4::one(),
-
-      /// -0.5 to 0.5
-      jitter_normalized: Vec2::zero(),
-      ..Zeroable::zeroed()
-    };
-    uniform.view_projection = uniform.projection * uniform.view;
-    uniform.view_projection_inv = uniform.view_projection.inverse_or_identity();
-
-    Self {
-      enable_jitter: false,
-      ubo: create_uniform2(uniform, device),
     }
   }
 }

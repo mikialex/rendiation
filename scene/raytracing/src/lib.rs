@@ -57,7 +57,7 @@ pub struct SceneAcceleration {
 }
 
 pub struct RayTracingCamera {
-  pub proj: Box<dyn CameraProjection>,
+  pub proj: CameraProjector,
   pub world: Mat4<f32>,
 }
 
@@ -66,6 +66,7 @@ impl HyperRayCaster<f32, Vec3<f32>, Vec2<f32>> for RayTracingCamera {
     self
       .proj
       .cast_ray(normalized_position)
+      .unwrap()
       .apply_matrix_into(self.world)
   }
 }
@@ -74,7 +75,7 @@ impl SceneAcceleration {
   pub fn build_camera(&self, camera: &SceneCamera) -> RayTracingCamera {
     let camera = camera.read();
     RayTracingCamera {
-      proj: camera.projection.clone_self(),
+      proj: camera.projection.clone(),
       world: self
         .worlds
         .get_computed(camera.node.raw_handle().index())
