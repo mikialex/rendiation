@@ -190,6 +190,6 @@ impl<T: Scalar> Box3<T> {
       near.z = self.min.z;
     }
 
-    (far, near)
+    (near, far)
   }
 }

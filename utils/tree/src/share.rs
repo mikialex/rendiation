@@ -163,6 +163,18 @@ impl<T: CoreTree> ShareTreeNode<T> {
     v(&tree)
   }
 
+  pub fn detach_from_parent(&self) {
+    self.inner.write().unwrap().detach_from_parent()
+  }
+
+  pub fn attach_to(&self, parent: &Self) {
+    self
+      .inner
+      .write()
+      .unwrap()
+      .attach_to(&parent.inner.read().unwrap());
+  }
+
   #[must_use]
   pub fn create_child(&self, n: T::Node) -> Self {
     let inner = self.inner.read().unwrap();

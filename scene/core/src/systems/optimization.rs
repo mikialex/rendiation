@@ -584,7 +584,7 @@ fn create_instance(
 
     let instance_model = SceneModelImpl {
       model: ModelType::Standard(instance_model),
-      node: new_nodes.create_new_root(),
+      node: new_nodes.create_node(Default::default()),
     }
     .into_ref();
 

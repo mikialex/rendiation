@@ -141,9 +141,10 @@ impl SceneNode {
 
   pub(crate) fn from_new_root(
     nodes: SharedTreeCollection<ReactiveTreeCollection<SceneNodeData, SceneNodeDataImpl>>,
+    data: SceneNodeDataImpl,
   ) -> Self {
     Self {
-      inner: nodes.create_new_root(Default::default()),
+      inner: nodes.create_new_root(Identity::new(data)),
     }
   }
 
@@ -153,6 +154,14 @@ impl SceneNode {
 
   pub fn raw_handle_parent(&self) -> Option<SceneNodeHandle> {
     self.inner.raw_handle_parent()
+  }
+
+  pub fn detach_from_parent(&self) {
+    self.inner.detach_from_parent()
+  }
+
+  pub fn attach_to(&self, parent: &Self) {
+    self.inner.attach_to(&parent.inner)
   }
 
   #[must_use]

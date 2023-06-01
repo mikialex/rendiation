@@ -34,8 +34,8 @@ pub struct SceneNodeCollection {
 }
 
 impl SceneNodeCollection {
-  pub fn create_new_root(&self) -> SceneNode {
-    SceneNode::from_new_root(self.inner.clone())
+  pub fn create_node(&self, data: SceneNodeDataImpl) -> SceneNode {
+    SceneNode::from_new_root(self.inner.clone(), data)
   }
 
   pub fn create_node_at(&self, handle: SceneNodeHandle) -> SceneNode {
@@ -65,7 +65,7 @@ impl SceneInner {
     let nodes: SceneNodeCollection = Default::default();
     let system = SceneNodeDeriveSystem::new(&nodes);
 
-    let root = nodes.create_new_root();
+    let root = nodes.create_node(Default::default());
 
     let default_camera = PerspectiveProjection::default();
     let default_camera = CameraProjector::Perspective(default_camera);
@@ -218,7 +218,7 @@ impl IncrementalBase for SceneInner {
     use SceneInnerDelta::*;
     self.nodes.expand(|d| cb(nodes(d)));
     self.background.expand(|d| cb(background(d)));
-    self.default_camera.expand(|d| cb(default_camera(d)));
+    // self.default_camera.expand(|d| cb(default_camera(d)));
     self.active_camera.expand(|d| cb(active_camera(d)));
     self.cameras.expand(|d| cb(cameras(d)));
     self.lights.expand(|d| cb(lights(d)));
@@ -233,13 +233,14 @@ impl ApplicableIncremental for SceneInner {
   fn apply(&mut self, delta: Self::Delta) -> Result<(), Self::Error> {
     match delta {
       SceneInnerDelta::background(delta) => self.background.apply(delta).unwrap(),
-      SceneInnerDelta::default_camera(delta) => self.default_camera.apply(delta).unwrap(),
+      // SceneInnerDelta::default_camera(delta) => self.default_camera.apply(delta).unwrap(),
       SceneInnerDelta::active_camera(delta) => self.active_camera.apply(delta).unwrap(),
       SceneInnerDelta::cameras(delta) => self.cameras.apply(delta).unwrap(),
       SceneInnerDelta::lights(delta) => self.lights.apply(delta).unwrap(),
       SceneInnerDelta::models(delta) => self.models.apply(delta).unwrap(),
       SceneInnerDelta::ext(ext) => self.ext.apply(ext).unwrap(),
       SceneInnerDelta::nodes(_) => {} // should handle other place
+      _ => {}
     }
     Ok(())
   }
