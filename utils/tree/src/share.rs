@@ -142,6 +142,10 @@ impl<T: CoreTree> Clone for ShareTreeNode<T> {
 }
 
 impl<T: CoreTree> ShareTreeNode<T> {
+  pub fn get_node_collection(&self) -> SharedTreeCollection<T> {
+    self.inner.read().unwrap().inner.nodes.clone()
+  }
+
   pub fn raw_handle(&self) -> T::Handle {
     self.inner.read().unwrap().inner.handle
   }

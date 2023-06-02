@@ -32,7 +32,7 @@ pub fn mix_scene_folding(
 
   let s = scene.clone();
   let nodes = scene.read().nodes.clone();
-  let nodes_holder: Arc<RwLock<HashMap<usize, SceneNode>>> = Default::default();
+  let nodes_holder: Arc<RwLock<SceneRebuilder>> = Default::default();
   let mut model_handle_map: HashMap<usize, SceneModelHandle> = HashMap::new();
 
   let output = input.map(move |delta| {
@@ -45,11 +45,7 @@ pub fn mix_scene_folding(
       MixSceneDelta::lights(_) => todo!(),
       MixSceneDelta::models(model) => match model {
         ContainerRefRetainContentDelta::Remove(model) => {
-          remove_entity_used_node(
-            &mut nodes_holder.write().unwrap(),
-            &nodes,
-            &model.read().node,
-          );
+          remove_entity_used_node(&mut nodes_holder.write().unwrap(), &model.read().node);
           model_handle_map.remove(&model.guid()).unwrap();
         }
         ContainerRefRetainContentDelta::Insert(model) => {
@@ -59,8 +55,8 @@ pub fn mix_scene_folding(
           let nodes2 = nodes.clone();
           let new_model = transform_model_node2(
             model,
-            move |node| add_entity_used_node(&mut holder.write().unwrap(), &nodes, node),
-            move |node| remove_entity_used_node(&mut holder2.write().unwrap(), &nodes2, node),
+            move |node| add_entity_used_node(&mut holder.write().unwrap(), node),
+            move |node| remove_entity_used_node(&mut holder2.write().unwrap(), node),
           );
           let new_model_handle = s.insert_model(new_model);
           model_handle_map.insert(model.guid(), new_model_handle);
@@ -114,22 +110,42 @@ struct SceneWatcher {
   nodes: SceneNodeCollection, // todo weak?
 }
 
+#[derive(Default)]
 struct SceneRebuilder {
-  nodes: HashMap<usize, (SceneNode, usize)>,
+  nodes: HashMap<usize, NodeMapping>,
   scenes: HashMap<usize, SceneWatcher>,
-  collection: SceneNodeCollection,
+  target_collection: SceneNodeCollection,
 }
 
-fn visit_self_parent_chain(node: &SceneNode, f: impl FnMut(usize, &mut SceneNodeDataImpl)) {
-  node.inner.visit_raw_storage(|tree| {
-    //
-  })
+fn visit_self_parent_chain(
+  nodes: &SceneNodeCollection,
+  node_handle: usize,
+  f: impl FnMut(usize, &mut SceneNodeDataImpl),
+) {
+  let tree = nodes.inner.inner.read().unwrap();
+  // tree.inner.create_node_ref(handle)
 }
 
 impl SceneRebuilder {
   fn add_watch_scene_structure_change(&mut self, node: &SceneNode) {
     node.inner.visit_raw_storage(|tree| {
       tree.source.on(|delta| {
+        match delta {
+          tree::TreeMutation::Attach {
+            parent_target,
+            node,
+          } => {
+            let parent_guid = todo!();
+            let node_guid = todo!();
+          }
+          tree::TreeMutation::Detach { node } => {
+            let node_to_detach = todo!();
+          }
+          tree::TreeMutation::Mutate { node, delta } => {
+            let node_to_detach = todo!();
+          }
+          _ => {}
+        }
         //
         false
       });
@@ -139,23 +155,54 @@ impl SceneRebuilder {
     //
   }
 
-  fn handle_attach(node_with_new_parent: usize) {
-    //
+  fn handle_attach(
+    &mut self,
+    child_node_guid: usize,
+    parent_guid: usize,
+    source_nodes: &SceneNodeCollection,
+  ) {
+    let child = self.nodes.get(&child_node_guid).unwrap();
+    self.check_insert_and_update_parents_entity_ref_count(
+      source_nodes,
+      parent_guid,
+      child.sub_tree_entity_ref_count,
+    );
+    let parent = self.nodes.get(&parent_guid).unwrap();
+    child.mapped.attach_to(&parent.mapped);
+    // todo visit parent chain, add ref count
   }
 
-  fn handle_detach() {
-    //
+  fn handle_detach(&mut self, node_guid: usize) {
+    let child = self.nodes.get(&node_guid).unwrap();
+    child.mapped.detach_from_parent();
+    // todo, visit parent chain, decrease ref count, remove node.
   }
 
-  pub fn insert(&mut self, node: &SceneNode) {
+  fn check_insert_and_update_parents_entity_ref_count(
+    &mut self,
+    source_nodes: &SceneNodeCollection,
+    node_handle: usize,
+    ref_add_count: usize,
+  ) {
     let mut child_to_attach = None;
-    visit_self_parent_chain(node, |node_guid, node_data| {
-      let (_, ref_count) = self.nodes.entry(node_guid).or_insert_with(|| {
-        let node = self.collection.create_node(node_data.clone());
+    visit_self_parent_chain(source_nodes, node_handle, |node_guid, node_data| {
+      let NodeMapping {
+        sub_tree_entity_ref_count,
+        ..
+      } = self.nodes.entry(node_guid).or_insert_with(|| {
+        let mapped = self.target_collection.create_node(node_data.clone());
         child_to_attach = Some(node_guid);
-        (node, 0) // will be add later
+        NodeMapping {
+          mapped,
+          sub_tree_entity_ref_count: 0, // will be add later
+          origin_guid: node_guid,
+          origin_scene_id: todo!(),
+          origin_scene_handle_index: todo!(),
+        }
       });
-      *ref_count += 1;
+
+      *sub_tree_entity_ref_count += ref_add_count;
+
       if let Some(child) = child_to_attach.take() {
         let (child, child_ref_count) = self.nodes.get(&child).unwrap();
         let child = child.clone();
@@ -168,29 +215,38 @@ impl SceneRebuilder {
     })
   }
 
-  pub fn remove(&mut self, node: &SceneNode) {
-    visit_self_parent_chain(node, |node_guid, _node_data| {
+  fn decrease_parent_chain_entity_ref_count_and_check_delete(
+    &mut self,
+    nodes: &SceneNodeCollection,
+    node_handle: usize,
+    ref_decrease_count: usize,
+  ) {
+    visit_self_parent_chain(nodes, node_handle, |node_guid, _node_data| {
       let (mapped_node, ref_count) = self.nodes.get_mut(&node_guid).unwrap();
-      *ref_count -= 1;
+      *ref_count -= ref_decrease_count;
+      assert!(*ref_count >= 0);
       if *ref_count == 0 {
         self.nodes.remove(&node_guid);
       }
     })
   }
-}
 
-fn add_entity_used_node(
-  nodes_holder: &mut HashMap<usize, SceneNode>,
-  target: &SceneNodeCollection,
-  to_add_node: &SceneNode,
-) -> SceneNode {
-  todo!()
-}
+  fn add_entity_used_node(&mut self, to_add_node: &SceneNode) -> SceneNode {
+    let source_nodes = to_add_node.get_node_collection();
+    self.check_insert_and_update_parents_entity_ref_count(
+      &source_nodes,
+      to_add_node.raw_handle().index(),
+      1,
+    );
+    self.nodes.get(&to_add_node.guid()).unwrap().mapped.clone()
+  }
 
-fn remove_entity_used_node(
-  nodes_holder: &mut HashMap<usize, SceneNode>,
-  target: &SceneNodeCollection,
-  to_remove_node: &SceneNode,
-) {
-  //
+  fn remove_entity_used_node(&mut self, to_remove_node: &SceneNode) {
+    let source_nodes = to_remove_node.get_node_collection();
+    self.decrease_parent_chain_entity_ref_count_and_check_delete(
+      &source_nodes,
+      to_remove_node.raw_handle().index(),
+      1,
+    )
+  }
 }

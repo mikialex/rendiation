@@ -30,18 +30,20 @@ pub struct SceneInner {
 
 #[derive(Default, Clone)]
 pub struct SceneNodeCollection {
-  pub inner: SharedTreeCollection<ReactiveTreeCollection<SceneNodeData, SceneNodeDataImpl>>,
+  pub inner: SceneNodeCollectionInner,
 }
+pub type SceneNodeCollectionInner =
+  SharedTreeCollection<ReactiveTreeCollection<SceneNodeData, SceneNodeDataImpl>>;
 
 impl SceneNodeCollection {
   pub fn create_node(&self, data: SceneNodeDataImpl) -> SceneNode {
-    SceneNode::from_new_root(self.inner.clone(), data)
+    SceneNode::create_new(self.inner.clone(), data)
   }
 
   pub fn create_node_at(&self, handle: SceneNodeHandle) -> SceneNode {
-    SceneNode {
-      inner: ShareTreeNode::create_raw(&self.inner, handle),
-    }
+    let inner = ShareTreeNode::create_raw(&self.inner, handle);
+    let guid = inner.visit(|v| v.guid());
+    SceneNode { inner, guid }
   }
 }
 
