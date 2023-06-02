@@ -3,6 +3,7 @@ use std::ops::Deref;
 use futures::{Stream, StreamExt};
 use incremental::IncrementalBase;
 use reactive::{do_updates, SignalStreamExt, StreamForker};
+use smallvec::SmallVec;
 
 use crate::*;
 
@@ -124,12 +125,14 @@ impl<T: IncrementalBase, Dirty> TreeHierarchyDerivedSystem<T, Dirty> {
     enum MarkingResult<T, Dirty> {
       UpdateRoot(Option<TreeNodeHandle<DerivedData<T, Dirty>>>),
       Remove(usize),
+      Create(usize),
     }
 
     let derived_stream = tree_delta
       // mark stage
       // do dirty marking, return if should trigger hierarchy change, and the update root
       .map(move |delta| {
+        let mut deltas = SmallVec::<[_; 2]>::new();
         let mut derived_tree = derived_tree_c.write().unwrap();
         let marking = match delta {
           // simply create the default derived. insert into derived tree.
@@ -137,13 +140,15 @@ impl<T: IncrementalBase, Dirty> TreeHierarchyDerivedSystem<T, Dirty> {
           // in the original tree.
           TreeMutation::Create { .. } => {
             let node = derived_tree.create_node(Default::default());
+            deltas.push(MarkingResult::Create(node.index()));
             B::marking_dirty(&mut derived_tree, node, M::all_dirty())
           }
           // do pair remove in derived tree
           TreeMutation::Delete(handle) => {
             let handle = derived_tree.recreate_handle(handle);
             derived_tree.delete_node(handle);
-            return MarkingResult::Remove(handle.index());
+            deltas.push(MarkingResult::Remove(handle.index()));
+            return futures::stream::iter(deltas);
           }
           // check if have any hierarchy effect, and do marking
           TreeMutation::Mutate { node, delta } => {
@@ -168,8 +173,10 @@ impl<T: IncrementalBase, Dirty> TreeHierarchyDerivedSystem<T, Dirty> {
             B::marking_dirty(&mut derived_tree, node, M::all_dirty())
           }
         };
-        MarkingResult::UpdateRoot(marking)
+        deltas.push(MarkingResult::UpdateRoot(marking));
+        futures::stream::iter(deltas)
       })
+      .flatten()
       .buffered_unbound() // to make sure all markup finished
       .map(move |marking_result| {
         // this allocation can not removed, but could we calculate correct capacity or reuse the
@@ -188,6 +195,9 @@ impl<T: IncrementalBase, Dirty> TreeHierarchyDerivedSystem<T, Dirty> {
             }
           }
           MarkingResult::Remove(idx) => derived_deltas.push((idx, None)),
+          MarkingResult::Create(idx) => {
+            T::default().expand(|d| derived_deltas.push((idx, Some(d))))
+          }
           _ => {}
         }
 

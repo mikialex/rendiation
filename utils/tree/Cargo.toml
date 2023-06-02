@@ -9,3 +9,4 @@ incremental = {path = "../incremental"}
 reactive = {path = "../reactive"}
 rendiation-abstract-tree = {path = "../abstract-tree"}
 storage = {path = "../storage"}
+smallvec = "1.9.0"
