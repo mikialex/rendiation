@@ -42,7 +42,7 @@ pub fn build_reactive_camera(
 
   let camera_world = camera
     .single_listen_by(with_field!(SceneCameraInner => node))
-    .map(move |node| derives.create_world_matrix_stream(&node))
+    .filter_map_sync(move |node| derives.create_world_matrix_stream(&node))
     .flatten_signal()
     .map(CameraGPUDelta::WorldMat);
 

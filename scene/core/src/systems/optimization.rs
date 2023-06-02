@@ -486,7 +486,7 @@ fn build_instance_source_stream(
 
   let world_matrix = model
     .single_listen_by(with_field!(SceneModelImpl => node))
-    .map(move |n| d.create_derive_stream(&n))
+    .filter_map_sync(move |n| d.create_derive_stream(&n))
     .flatten_signal()
     .filter_map_sync(move |delta| match delta {
       SceneNodeDerivedDataDelta::world_matrix(mat) => is_font_side.map(|is_font_side| {
