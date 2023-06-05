@@ -70,8 +70,6 @@ pub fn map_scene_delta_to_mixed(
   futures::stream::select(output, others)
 }
 
-type ShareableRebuilder = Arc<RwLock<SceneRebuilder>>;
-
 pub fn mix_scene_folding(
   input: impl Stream<Item = MixSceneDelta>,
 ) -> (
@@ -260,6 +258,8 @@ impl Drop for SceneWatcher {
   }
 }
 
+type ShareableRebuilder = Arc<RwLock<SceneRebuilder>>;
+
 struct SceneRebuilder {
   nodes: HashMap<NodeGuid, NodeMapping>,
   id_mapping: HashMap<(SceneGuid, NodeArenaIndex), NodeGuid>,
@@ -281,6 +281,7 @@ impl SceneRebuilder {
 fn add_watch_origin_scene_change(rebuilder: &ShareableRebuilder, source_node: &SceneNode) {
   let mut rebuilder_mut = rebuilder.write().unwrap();
   let scene_guid = source_node.scene_id;
+
   let scene_watcher = rebuilder_mut.scenes.entry(scene_guid).or_insert_with(|| {
     let source_collection = SceneNodeCollection {
       inner: source_node.inner.inner.read().unwrap().nodes.clone(),
@@ -288,9 +289,11 @@ fn add_watch_origin_scene_change(rebuilder: &ShareableRebuilder, source_node: &S
     };
     let source_collection_c = source_collection.clone();
     let rebuilder = rebuilder.clone();
+
     let remove_token = source_node.inner.visit_raw_storage(move |tree| {
       tree.source.on(move |delta| {
         let mut rebuilder = rebuilder.write().unwrap();
+
         match delta {
           tree::TreeMutation::Attach {
             parent_target,
@@ -330,8 +333,10 @@ fn add_watch_origin_scene_change(rebuilder: &ShareableRebuilder, source_node: &S
 fn remove_watch_origin_scene_change(rebuilder: &ShareableRebuilder, node: &SceneNode) {
   let mut rebuilder_mut = rebuilder.write().unwrap();
   let scene_watcher = rebuilder_mut.scenes.get_mut(&node.scene_id).unwrap();
+
   assert!(scene_watcher.ref_count >= 1);
   scene_watcher.ref_count -= 1;
+
   if scene_watcher.ref_count == 0 {
     rebuilder_mut.scenes.remove(&node.scene_id);
   }
@@ -406,6 +411,7 @@ impl SceneRebuilder {
   ) {
     let mut child_to_attach = None;
     let source_scene_guid = source_nodes.scene_guid;
+
     visit_self_parent_chain(
       source_nodes,
       node_handle,
@@ -415,10 +421,12 @@ impl SceneRebuilder {
           ..
         } = self.nodes.entry(node_guid).or_insert_with(|| {
           let mapped = self.target_collection.create_node(node_data.clone());
+
           self
             .id_mapping
             .insert((source_scene_guid, node_id), mapped.guid());
           child_to_attach = Some(node_guid);
+
           NodeMapping {
             mapped,
             // will be increased later
@@ -448,8 +456,10 @@ impl SceneRebuilder {
     ref_decrease_count: usize,
   ) {
     let source_scene_guid = nodes.scene_guid;
+
     visit_self_parent_chain(nodes, node_handle, |node_guid, node_id, _node_data| {
       let mapping = self.nodes.get_mut(&node_guid).unwrap();
+
       assert!(mapping.sub_tree_entity_ref_count >= ref_decrease_count);
       mapping.sub_tree_entity_ref_count -= ref_decrease_count;
 
@@ -491,6 +501,7 @@ fn visit_self_parent_chain(
 ) {
   let tree = nodes.inner.inner.read().unwrap();
   let node_handle = tree.inner.recreate_handle(node_handle);
+
   tree
     .inner
     .create_node_ref(node_handle)
