@@ -71,7 +71,7 @@ impl<T: CoreTree> Drop for NodeRef<T> {
 }
 
 pub struct NodeInner<T: CoreTree> {
-  nodes: SharedTreeCollection<T>,
+  pub nodes: SharedTreeCollection<T>,
   parent: Option<Arc<NodeRef<T>>>,
   inner: Arc<NodeRef<T>>,
 }
@@ -142,6 +142,10 @@ impl<T: CoreTree> Clone for ShareTreeNode<T> {
 }
 
 impl<T: CoreTree> ShareTreeNode<T> {
+  pub fn get_node_collection(&self) -> SharedTreeCollection<T> {
+    self.inner.read().unwrap().inner.nodes.clone()
+  }
+
   pub fn raw_handle(&self) -> T::Handle {
     self.inner.read().unwrap().inner.handle
   }
@@ -161,6 +165,18 @@ impl<T: CoreTree> ShareTreeNode<T> {
     let inner = self.inner.read().unwrap();
     let tree = inner.nodes.inner.read().unwrap();
     v(&tree)
+  }
+
+  pub fn detach_from_parent(&self) {
+    self.inner.write().unwrap().detach_from_parent()
+  }
+
+  pub fn attach_to(&self, parent: &Self) {
+    self
+      .inner
+      .write()
+      .unwrap()
+      .attach_to(&parent.inner.read().unwrap());
   }
 
   #[must_use]

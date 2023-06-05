@@ -48,6 +48,15 @@ where
     MaybeDelta::All(d) => d,
   }
 }
+pub fn merge_maybe_ref<T>(v: &MaybeDelta<T>) -> &T
+where
+  T: IncrementalBase<Delta = T>,
+{
+  match v {
+    MaybeDelta::Delta(d) => d,
+    MaybeDelta::All(d) => d,
+  }
+}
 pub fn merge_maybe_mut_ref<T>(v: &mut MaybeDelta<T>) -> &mut T
 where
   T: IncrementalBase<Delta = T>,

@@ -118,25 +118,29 @@ impl SceneNodeDeriveSystem {
       tree.get_node(handle).data().data.world_matrix
     })
   }
-  pub fn visit_derived<R>(&self, index: usize, v: impl FnOnce(&SceneNodeDerivedData) -> R) -> R {
+  pub fn visit_derived<R>(
+    &self,
+    index: usize,
+    v: impl FnOnce(&SceneNodeDerivedData) -> R,
+  ) -> Option<R> {
     self.inner.visit_derived_tree(|tree| {
-      let handle = tree.recreate_handle(index);
-      v(&tree.get_node(handle).data().data)
+      let handle = tree.try_recreate_handle(index)?;
+      tree.try_get_node(handle).map(|n| &n.data().data).map(v)
     })
   }
 
   pub fn create_derive_stream(
     &self,
     node: &SceneNode,
-  ) -> impl Stream<Item = SceneNodeDerivedDataDelta> {
+  ) -> Option<impl Stream<Item = SceneNodeDerivedDataDelta>> {
     self.create_derived_stream_by_raw_handle(node.raw_handle().index())
   }
 
   pub fn create_derived_stream_by_raw_handle(
     &self,
     index: usize,
-  ) -> impl Stream<Item = SceneNodeDerivedDataDelta> {
-    let derived = self.visit_derived(index, |d| d.clone());
+  ) -> Option<impl Stream<Item = SceneNodeDerivedDataDelta>> {
+    let derived = self.visit_derived(index, |d| d.clone())?;
     let init_deltas = expand_out(&derived);
     self
       .updater
@@ -144,21 +148,25 @@ impl SceneNodeDeriveSystem {
       .unwrap()
       .inner
       .as_ref()
-      .get(index)
-      .unwrap()
+      .get(index)?
       .fork_stream_with_init(init_deltas)
+      .into()
   }
 
-  pub fn create_world_matrix_stream(&self, node: &SceneNode) -> WorldMatrixStream {
+  pub fn create_world_matrix_stream(&self, node: &SceneNode) -> Option<WorldMatrixStream> {
     self.create_world_matrix_stream_by_raw_handle(node.raw_handle().index())
   }
-  pub fn create_world_matrix_stream_by_raw_handle(&self, index: usize) -> WorldMatrixStream {
+  pub fn create_world_matrix_stream_by_raw_handle(
+    &self,
+    index: usize,
+  ) -> Option<WorldMatrixStream> {
     self
-      .create_derived_stream_by_raw_handle(index)
+      .create_derived_stream_by_raw_handle(index)?
       .filter_map_sync(|d| match d {
         SceneNodeDerivedDataDelta::world_matrix(m) => Some(m),
         SceneNodeDerivedDataDelta::net_visible(_) => None,
       })
+      .into()
   }
   pub fn get_net_visible(&self, node: &SceneNode) -> bool {
     self.inner.visit_derived_tree(|tree| {

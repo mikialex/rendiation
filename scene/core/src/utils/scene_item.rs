@@ -157,7 +157,7 @@ impl<T: IncrementalBase> SceneItemRef<T> {
   pub fn pass_changes_to(
     &self,
     other: &Self,
-    extra_mapper: impl Fn(T::Delta) -> T::Delta + Send + Sync + 'static,
+    mut extra_mapper: impl FnMut(T::Delta) -> T::Delta + Send + Sync + 'static,
   ) where
     T: Incremental,
   {

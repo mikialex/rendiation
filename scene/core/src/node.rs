@@ -119,15 +119,16 @@ impl Default for SceneNodeDataImpl {
 
 #[derive(Clone)]
 pub struct SceneNode {
+  pub(crate) guid: usize,
+  pub(crate) scene_id: usize,
   pub(crate) inner: ShareTreeNode<ReactiveTreeCollection<SceneNodeData, SceneNodeDataImpl>>,
 }
 
 clone_self_incremental!(SceneNode);
 
 impl GlobalIdentified for SceneNode {
-  // todo, put it on the node to avoid lock
   fn guid(&self) -> usize {
-    self.inner.visit(|n| n.guid())
+    self.guid
   }
 }
 
@@ -139,11 +140,23 @@ impl SceneNode {
     self.visit(|node| node.listen_by::<DefaultUnboundChannel, _>(mapper))
   }
 
-  pub(crate) fn from_new_root(
-    nodes: SharedTreeCollection<ReactiveTreeCollection<SceneNodeData, SceneNodeDataImpl>>,
+  pub(crate) fn create_new(
+    nodes: SceneNodeCollectionInner,
+    data: SceneNodeDataImpl,
+    scene_id: usize,
   ) -> Self {
+    let identity = Identity::new(data);
     Self {
-      inner: nodes.create_new_root(Default::default()),
+      guid: identity.guid(),
+      scene_id,
+      inner: nodes.create_new_root(identity),
+    }
+  }
+
+  pub fn get_node_collection(&self) -> SceneNodeCollection {
+    SceneNodeCollection {
+      inner: self.inner.get_node_collection(),
+      scene_guid: self.scene_id,
     }
   }
 
@@ -155,10 +168,23 @@ impl SceneNode {
     self.inner.raw_handle_parent()
   }
 
+  pub fn detach_from_parent(&self) {
+    self.inner.detach_from_parent()
+  }
+
+  pub fn attach_to(&self, parent: &Self) {
+    self.inner.attach_to(&parent.inner)
+  }
+
   #[must_use]
   pub fn create_child(&self) -> Self {
+    let inner = self.inner.create_child_default();
+    let guid = inner.visit(|n| n.guid());
+    let scene_id = self.scene_id;
     Self {
-      inner: self.inner.create_child_default(),
+      inner,
+      guid,
+      scene_id,
     }
   }
 

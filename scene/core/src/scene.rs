@@ -28,19 +28,26 @@ pub struct SceneInner {
   pub ext: DynamicExtension,
 }
 
-#[derive(Default, Clone)]
+#[derive(Clone)]
 pub struct SceneNodeCollection {
-  pub inner: SharedTreeCollection<ReactiveTreeCollection<SceneNodeData, SceneNodeDataImpl>>,
+  pub inner: SceneNodeCollectionInner,
+  pub scene_guid: usize,
 }
+pub type SceneNodeCollectionInner =
+  SharedTreeCollection<ReactiveTreeCollection<SceneNodeData, SceneNodeDataImpl>>;
 
 impl SceneNodeCollection {
-  pub fn create_new_root(&self) -> SceneNode {
-    SceneNode::from_new_root(self.inner.clone())
+  pub fn create_node(&self, data: SceneNodeDataImpl) -> SceneNode {
+    SceneNode::create_new(self.inner.clone(), data, self.scene_guid)
   }
 
   pub fn create_node_at(&self, handle: SceneNodeHandle) -> SceneNode {
+    let inner = ShareTreeNode::create_raw(&self.inner, handle);
+    let guid = inner.visit(|v| v.guid());
     SceneNode {
-      inner: ShareTreeNode::create_raw(&self.inner, handle),
+      inner,
+      guid,
+      scene_id: self.scene_guid,
     }
   }
 }
@@ -62,10 +69,13 @@ impl SceneInner {
     &self.root
   }
   pub fn new() -> (Scene, SceneNodeDeriveSystem) {
-    let nodes: SceneNodeCollection = Default::default();
+    let nodes = SceneNodeCollection {
+      inner: Default::default(),
+      scene_guid: 0, // set later
+    };
     let system = SceneNodeDeriveSystem::new(&nodes);
 
-    let root = nodes.create_new_root();
+    let root = nodes.create_node(Default::default());
 
     let default_camera = PerspectiveProjection::default();
     let default_camera = CameraProjector::Perspective(default_camera);
@@ -87,6 +97,7 @@ impl SceneInner {
 
     // forward the inner change to outer
     let scene_source_clone = scene.read().delta_source.clone();
+    let scene_id = scene.guid();
     let s = scene.read();
 
     s.nodes.inner.visit_inner(move |tree| {
@@ -95,7 +106,10 @@ impl SceneInner {
         false
       })
     });
+    drop(s);
 
+    let mut s = scene.write_unchecked();
+    s.mutate_unchecked(|s| s.nodes.scene_guid = scene_id);
     drop(s);
 
     (scene, system)
@@ -218,7 +232,7 @@ impl IncrementalBase for SceneInner {
     use SceneInnerDelta::*;
     self.nodes.expand(|d| cb(nodes(d)));
     self.background.expand(|d| cb(background(d)));
-    self.default_camera.expand(|d| cb(default_camera(d)));
+    // self.default_camera.expand(|d| cb(default_camera(d)));
     self.active_camera.expand(|d| cb(active_camera(d)));
     self.cameras.expand(|d| cb(cameras(d)));
     self.lights.expand(|d| cb(lights(d)));
@@ -233,13 +247,14 @@ impl ApplicableIncremental for SceneInner {
   fn apply(&mut self, delta: Self::Delta) -> Result<(), Self::Error> {
     match delta {
       SceneInnerDelta::background(delta) => self.background.apply(delta).unwrap(),
-      SceneInnerDelta::default_camera(delta) => self.default_camera.apply(delta).unwrap(),
+      // SceneInnerDelta::default_camera(delta) => self.default_camera.apply(delta).unwrap(),
       SceneInnerDelta::active_camera(delta) => self.active_camera.apply(delta).unwrap(),
       SceneInnerDelta::cameras(delta) => self.cameras.apply(delta).unwrap(),
       SceneInnerDelta::lights(delta) => self.lights.apply(delta).unwrap(),
       SceneInnerDelta::models(delta) => self.models.apply(delta).unwrap(),
       SceneInnerDelta::ext(ext) => self.ext.apply(ext).unwrap(),
       SceneInnerDelta::nodes(_) => {} // should handle other place
+      _ => {}
     }
     Ok(())
   }

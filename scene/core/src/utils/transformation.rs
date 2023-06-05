@@ -3,17 +3,20 @@ use std::hash::Hash;
 
 use crate::*;
 
+#[derive(Clone)]
 pub enum IndependentItemContainerDelta<K, T: IncrementalBase> {
   Remove(K),
   Insert(K, T),
   Mutate(K, DeltaOf<T>),
 }
 
+#[derive(Clone)]
 pub enum ContainerRefRetainDelta<K, T> {
   Remove(K),
   Insert(K, T),
 }
 
+#[derive(Clone)]
 pub enum ContainerRefRetainContentDelta<T> {
   Remove(T),
   Insert(T),
