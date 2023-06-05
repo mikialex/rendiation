@@ -28,22 +28,27 @@ pub struct SceneInner {
   pub ext: DynamicExtension,
 }
 
-#[derive(Default, Clone)]
+#[derive(Clone)]
 pub struct SceneNodeCollection {
   pub inner: SceneNodeCollectionInner,
+  pub scene_guid: usize,
 }
 pub type SceneNodeCollectionInner =
   SharedTreeCollection<ReactiveTreeCollection<SceneNodeData, SceneNodeDataImpl>>;
 
 impl SceneNodeCollection {
   pub fn create_node(&self, data: SceneNodeDataImpl) -> SceneNode {
-    SceneNode::create_new(self.inner.clone(), data)
+    SceneNode::create_new(self.inner.clone(), data, self.scene_guid)
   }
 
   pub fn create_node_at(&self, handle: SceneNodeHandle) -> SceneNode {
     let inner = ShareTreeNode::create_raw(&self.inner, handle);
     let guid = inner.visit(|v| v.guid());
-    SceneNode { inner, guid }
+    SceneNode {
+      inner,
+      guid,
+      scene_id: self.scene_guid,
+    }
   }
 }
 
@@ -64,7 +69,10 @@ impl SceneInner {
     &self.root
   }
   pub fn new() -> (Scene, SceneNodeDeriveSystem) {
-    let nodes: SceneNodeCollection = Default::default();
+    let nodes = SceneNodeCollection {
+      inner: Default::default(),
+      scene_guid: 0, // set later
+    };
     let system = SceneNodeDeriveSystem::new(&nodes);
 
     let root = nodes.create_node(Default::default());
@@ -89,6 +97,7 @@ impl SceneInner {
 
     // forward the inner change to outer
     let scene_source_clone = scene.read().delta_source.clone();
+    let scene_id = scene.guid();
     let s = scene.read();
 
     s.nodes.inner.visit_inner(move |tree| {
@@ -97,7 +106,10 @@ impl SceneInner {
         false
       })
     });
+    drop(s);
 
+    let mut s = scene.write_unchecked();
+    s.mutate_unchecked(|s| s.nodes.scene_guid = scene_id);
     drop(s);
 
     (scene, system)

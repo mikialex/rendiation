@@ -123,7 +123,7 @@ impl<T: IncrementalBase, Dirty> TreeHierarchyDerivedSystem<T, Dirty> {
     let source_tree = source_tree.clone();
 
     enum MarkingResult<T, Dirty> {
-      UpdateRoot(Option<TreeNodeHandle<DerivedData<T, Dirty>>>),
+      UpdateRoot(TreeNodeHandle<DerivedData<T, Dirty>>),
       Remove(usize),
       Create(usize),
     }
@@ -173,7 +173,9 @@ impl<T: IncrementalBase, Dirty> TreeHierarchyDerivedSystem<T, Dirty> {
             B::marking_dirty(&mut derived_tree, node, M::all_dirty())
           }
         };
-        deltas.push(MarkingResult::UpdateRoot(marking));
+        if let Some(marking) = marking {
+          deltas.push(MarkingResult::UpdateRoot(marking));
+        }
         futures::stream::iter(deltas)
       })
       .flatten()
@@ -183,7 +185,7 @@ impl<T: IncrementalBase, Dirty> TreeHierarchyDerivedSystem<T, Dirty> {
         // allocation?
         let mut derived_deltas = Vec::new();
         match marking_result {
-          MarkingResult::UpdateRoot(Some(update_root)) => {
+          MarkingResult::UpdateRoot(update_root) => {
             let mut derived_tree = derived_tree_cc.write().unwrap();
             // do full tree traverse check, emit all real update as stream
             let tree: &TREE = &source_tree.inner.read().unwrap();
@@ -204,7 +206,6 @@ impl<T: IncrementalBase, Dirty> TreeHierarchyDerivedSystem<T, Dirty> {
           MarkingResult::Create(idx) => {
             T::default().expand(|d| derived_deltas.push((idx, Some(d))))
           }
-          _ => {}
         }
 
         futures::stream::iter(derived_deltas)

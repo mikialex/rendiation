@@ -71,7 +71,7 @@ impl<T: CoreTree> Drop for NodeRef<T> {
 }
 
 pub struct NodeInner<T: CoreTree> {
-  nodes: SharedTreeCollection<T>,
+  pub nodes: SharedTreeCollection<T>,
   parent: Option<Arc<NodeRef<T>>>,
   inner: Arc<NodeRef<T>>,
 }

@@ -120,6 +120,7 @@ impl Default for SceneNodeDataImpl {
 #[derive(Clone)]
 pub struct SceneNode {
   pub(crate) guid: usize,
+  pub(crate) scene_id: usize,
   pub(crate) inner: ShareTreeNode<ReactiveTreeCollection<SceneNodeData, SceneNodeDataImpl>>,
 }
 
@@ -139,10 +140,15 @@ impl SceneNode {
     self.visit(|node| node.listen_by::<DefaultUnboundChannel, _>(mapper))
   }
 
-  pub(crate) fn create_new(nodes: SceneNodeCollectionInner, data: SceneNodeDataImpl) -> Self {
+  pub(crate) fn create_new(
+    nodes: SceneNodeCollectionInner,
+    data: SceneNodeDataImpl,
+    scene_id: usize,
+  ) -> Self {
     let identity = Identity::new(data);
     Self {
       guid: identity.guid(),
+      scene_id,
       inner: nodes.create_new_root(identity),
     }
   }
@@ -150,6 +156,7 @@ impl SceneNode {
   pub fn get_node_collection(&self) -> SceneNodeCollection {
     SceneNodeCollection {
       inner: self.inner.get_node_collection(),
+      scene_guid: self.scene_id,
     }
   }
 
@@ -173,7 +180,12 @@ impl SceneNode {
   pub fn create_child(&self) -> Self {
     let inner = self.inner.create_child_default();
     let guid = inner.visit(|n| n.guid());
-    Self { inner, guid }
+    let scene_id = self.scene_id;
+    Self {
+      inner,
+      guid,
+      scene_id,
+    }
   }
 
   pub fn mutate<F: FnOnce(Mutating<SceneNodeDataImpl>) -> T, T>(&self, f: F) -> T {
