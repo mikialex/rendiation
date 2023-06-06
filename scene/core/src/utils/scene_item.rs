@@ -77,8 +77,8 @@ impl<T: IncrementalBase> From<T> for SceneItemRef<T> {
 }
 
 pub struct Mutating<'a, T: IncrementalBase> {
-  pub inner: &'a mut T,
-  pub collector: &'a mut dyn FnMut(&T, &T::Delta),
+  pub(crate) inner: &'a mut T,
+  pub(crate) collector: &'a mut dyn FnMut(&T::Delta),
 }
 
 impl<'a, T: IncrementalBase> Deref for Mutating<'a, T> {
@@ -91,15 +91,22 @@ impl<'a, T: IncrementalBase> Deref for Mutating<'a, T> {
 
 impl<'a, T: Incremental> Mutating<'a, T> {
   pub fn modify(&mut self, delta: T::Delta) {
-    (self.collector)(self.inner, &delta);
+    (self.collector)(&delta);
     self.inner.apply(delta).unwrap()
   }
 }
 
 impl<'a, T: IncrementalBase> Mutating<'a, T> {
-  pub fn trigger_manual(&mut self, modify: impl FnOnce(&mut T) -> T::Delta) {
-    let delta = modify(self.inner);
-    (self.collector)(self.inner, &delta);
+  /// # Safety
+  /// the mutation should be record manually
+  pub unsafe fn get_mut_ref(&mut self) -> &mut T {
+    self.inner
+  }
+
+  /// # Safety
+  /// the mutation will be not apply on original data
+  pub unsafe fn trigger_change_but_not_apply(&mut self, delta: T::Delta) {
+    (self.collector)(&delta);
   }
 }
 

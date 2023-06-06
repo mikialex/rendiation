@@ -93,7 +93,7 @@ impl<T: IncrementalBase> Identity<T> {
     let dispatcher = &self.delta_source;
     mutator(Mutating {
       inner: data,
-      collector: &mut |_, delta| {
+      collector: &mut |delta| {
         dispatcher.emit(delta);
         extra_collector(delta.clone())
       },

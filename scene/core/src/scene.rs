@@ -122,6 +122,23 @@ impl SceneInner {
 
 pub type Scene = SceneItemRef<SceneInner>;
 
+fn arena_insert<T: IncrementalBase>(
+  arena: &mut Arena<SceneItemRef<T>>,
+  item: SceneItemRef<T>,
+) -> (ArenaDelta<SceneItemRef<T>>, Handle<SceneItemRef<T>>) {
+  let handle = arena.insert(item.clone());
+  let delta = ArenaDelta::Insert((item, handle));
+  (delta, handle)
+}
+
+fn arena_remove<T: IncrementalBase>(
+  arena: &mut Arena<SceneItemRef<T>>,
+  handle: Handle<SceneItemRef<T>>,
+) -> ArenaDelta<SceneItemRef<T>> {
+  arena.remove(handle);
+  ArenaDelta::Remove(handle)
+}
+
 impl Scene {
   pub fn create_root_child(&self) -> SceneNode {
     let root = self.read().root().clone(); // avoid dead lock
@@ -136,63 +153,73 @@ impl Scene {
     })
   }
 
-  // todo improves
   pub fn insert_model(&self, model: SceneModel) -> SceneModelHandle {
-    let mut result = None;
-    self.mutate(|mut scene| {
-      scene.trigger_manual(|scene| {
-        let handle = scene.models.insert(model.clone());
-        result = handle.into();
-        let delta = ArenaDelta::Insert((model, handle));
-        SceneInnerDelta::models(delta)
-      });
-    });
-    result.unwrap()
+    self.mutate(|mut scene| unsafe {
+      let s = scene.get_mut_ref();
+      let (delta, handle) = arena_insert(&mut s.models, model);
+      scene.trigger_change_but_not_apply(delta.wrap(SceneInnerDelta::models));
+      handle
+    })
+  }
+  pub fn remove_model(&self, model: SceneModelHandle) {
+    self.mutate(|mut scene| unsafe {
+      let s = scene.get_mut_ref();
+      let delta = arena_remove(&mut s.models, model);
+      scene.trigger_change_but_not_apply(delta.wrap(SceneInnerDelta::models));
+    })
   }
 
   pub fn insert_light(&self, light: SceneLight) -> SceneLightHandle {
-    let mut result = None;
-    self.mutate(|mut scene| {
-      scene.trigger_manual(|scene| {
-        let handle = scene.lights.insert(light.clone());
-        result = handle.into();
-        let delta = ArenaDelta::Insert((light, handle));
-        SceneInnerDelta::lights(delta)
-      });
-    });
-    result.unwrap()
+    self.mutate(|mut scene| unsafe {
+      let s = scene.get_mut_ref();
+      let (delta, handle) = arena_insert(&mut s.lights, light);
+      scene.trigger_change_but_not_apply(delta.wrap(SceneInnerDelta::lights));
+      handle
+    })
+  }
+  pub fn remove_light(&self, light: SceneLightHandle) {
+    self.mutate(|mut scene| unsafe {
+      let s = scene.get_mut_ref();
+      let delta = arena_remove(&mut s.lights, light);
+      scene.trigger_change_but_not_apply(delta.wrap(SceneInnerDelta::lights));
+    })
   }
 
   pub fn insert_camera(&self, camera: SceneCamera) -> SceneCameraHandle {
-    let mut result = None;
-    self.mutate(|mut scene| {
-      scene.trigger_manual(|scene| {
-        let handle = scene.cameras.insert(camera.clone());
-        result = handle.into();
-        let delta = ArenaDelta::Insert((camera, handle));
-        SceneInnerDelta::cameras(delta)
-      });
-    });
-    result.unwrap()
+    self.mutate(|mut scene| unsafe {
+      let s = scene.get_mut_ref();
+      let (delta, handle) = arena_insert(&mut s.cameras, camera);
+      scene.trigger_change_but_not_apply(delta.wrap(SceneInnerDelta::cameras));
+      handle
+    })
+  }
+  pub fn remove_camera(&self, camera: SceneCameraHandle) {
+    self.mutate(|mut scene| unsafe {
+      let s = scene.get_mut_ref();
+      let delta = arena_remove(&mut s.cameras, camera);
+      scene.trigger_change_but_not_apply(delta.wrap(SceneInnerDelta::cameras));
+    })
   }
 
   pub fn set_active_camera(&self, camera: Option<SceneCamera>) {
-    self.mutate(|mut scene| {
-      scene.trigger_manual(|scene| {
-        scene.active_camera = camera.clone();
-        let camera = camera.map(MaybeDelta::All);
-        SceneInnerDelta::active_camera(camera)
-      })
+    self.mutate(|mut scene| unsafe {
+      let s = scene.get_mut_ref();
+      s.active_camera = camera.clone();
+      let delta = camera
+        .map(MaybeDelta::All)
+        .wrap(SceneInnerDelta::active_camera);
+      scene.trigger_change_but_not_apply(delta);
     })
   }
 
   pub fn set_background(&self, background: Option<SceneBackGround>) {
-    self.mutate(|mut scene| {
-      scene.trigger_manual(|scene| {
-        scene.background = background.clone();
-        let background = background.map(MaybeDelta::All);
-        SceneInnerDelta::background(background)
-      });
+    self.mutate(|mut scene| unsafe {
+      let s = scene.get_mut_ref();
+      s.background = background.clone();
+      let delta = background
+        .map(MaybeDelta::All)
+        .wrap(SceneInnerDelta::background);
+      scene.trigger_change_but_not_apply(delta);
     })
   }
 }
