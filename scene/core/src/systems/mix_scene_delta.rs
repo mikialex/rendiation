@@ -109,10 +109,11 @@ pub fn mix_scene_folding(
         ContainerRefRetainContentDelta::Remove(camera) => {
           let (_, remover) = make_add_remover(&rebuilder);
           remover(camera.read().node.clone());
-          camera_handle_map.remove(&camera.guid()).unwrap();
+          let handle = camera_handle_map.remove(&camera.guid()).unwrap();
+          s.remove_camera(handle);
         }
         ContainerRefRetainContentDelta::Insert(camera) => {
-          let new = transform_camera_node2(camera, &rebuilder);
+          let new = transform_camera_node(camera, &rebuilder);
           let new_handle = s.insert_camera(new);
           camera_handle_map.insert(camera.guid(), new_handle);
         }
@@ -121,10 +122,11 @@ pub fn mix_scene_folding(
         ContainerRefRetainContentDelta::Remove(light) => {
           let (_, remover) = make_add_remover(&rebuilder);
           remover(light.read().node.clone());
-          light_handle_map.remove(&light.guid()).unwrap();
+          let handle = light_handle_map.remove(&light.guid()).unwrap();
+          s.remove_light(handle);
         }
         ContainerRefRetainContentDelta::Insert(light) => {
-          let new = transform_light_node2(light, &rebuilder);
+          let new = transform_light_node(light, &rebuilder);
           let new_handle = s.insert_light(new);
           light_handle_map.insert(light.guid(), new_handle);
         }
@@ -133,11 +135,12 @@ pub fn mix_scene_folding(
         ContainerRefRetainContentDelta::Remove(model) => {
           let (_, remover) = make_add_remover(&rebuilder);
           remover(model.read().node.clone());
-          model_handle_map.remove(&model.guid()).unwrap();
+          let handle = model_handle_map.remove(&model.guid()).unwrap();
+          s.remove_model(handle)
         }
         ContainerRefRetainContentDelta::Insert(model) => {
           // todo, should we check the inserted model has been mapped?
-          let new = transform_model_node2(model, &rebuilder);
+          let new = transform_model_node(model, &rebuilder);
           let new_handle = s.insert_model(new);
           model_handle_map.insert(model.guid(), new_handle);
         }
@@ -166,7 +169,7 @@ fn make_add_remover(
   (adder, remover)
 }
 
-fn transform_camera_node2(m: &SceneCamera, rebuilder: &ShareableRebuilder) -> SceneCamera {
+fn transform_camera_node(m: &SceneCamera, rebuilder: &ShareableRebuilder) -> SceneCamera {
   let (adder, remover) = make_add_remover(rebuilder);
 
   let camera = m.read();
@@ -190,7 +193,7 @@ fn transform_camera_node2(m: &SceneCamera, rebuilder: &ShareableRebuilder) -> Sc
   r
 }
 
-fn transform_light_node2(m: &SceneLight, rebuilder: &ShareableRebuilder) -> SceneLight {
+fn transform_light_node(m: &SceneLight, rebuilder: &ShareableRebuilder) -> SceneLight {
   let (adder, remover) = make_add_remover(rebuilder);
 
   let light = m.read();
@@ -213,7 +216,7 @@ fn transform_light_node2(m: &SceneLight, rebuilder: &ShareableRebuilder) -> Scen
   r
 }
 
-fn transform_model_node2(m: &SceneModel, rebuilder: &ShareableRebuilder) -> SceneModel {
+fn transform_model_node(m: &SceneModel, rebuilder: &ShareableRebuilder) -> SceneModel {
   let (adder, remover) = make_add_remover(rebuilder);
 
   let model = m.read();

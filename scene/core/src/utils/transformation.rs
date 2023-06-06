@@ -124,40 +124,6 @@ impl<X> IncrementalStreamTransform for X {
 //   }
 // }
 
-pub trait ArenaDeltaStreamTransform {
-  fn transform_ref_retained_content_to_arena_by_hashing<T>(
-    self,
-  ) -> impl Stream<Item = ArenaDelta<T>>
-  where
-    Self: Stream<Item = ContainerRefRetainContentDelta<T>>,
-    T: IncrementalBase + GlobalIdentified;
-}
-impl<X> ArenaDeltaStreamTransform for X {
-  fn transform_ref_retained_content_to_arena_by_hashing<T>(
-    self,
-  ) -> impl Stream<Item = ArenaDelta<T>>
-  where
-    Self: Stream<Item = ContainerRefRetainContentDelta<T>>,
-    T: IncrementalBase + GlobalIdentified,
-  {
-    let mut output_arena = arena::Arena::<()>::new();
-    let mut output_remapping: HashMap<usize, arena::Handle<()>> = Default::default();
-    self.map(move |item| match item {
-      ContainerRefRetainContentDelta::Insert(item) => {
-        let handle = output_arena.insert(());
-        output_remapping.insert(item.guid(), handle);
-        ArenaDelta::Insert((item, unsafe { handle.cast_type() }))
-      }
-      ContainerRefRetainContentDelta::Remove(item) => {
-        let handle = output_remapping.remove(&item.guid()).unwrap();
-        output_arena.remove(handle).unwrap();
-        let handle = unsafe { handle.cast_type() };
-        ArenaDelta::Remove(handle)
-      }
-    })
-  }
-}
-
 pub fn recreate_tree_nodes(
   delta: &mut TreeMutation<SceneNodeDataImpl>,
   target: &SceneNodeCollection,
@@ -251,17 +217,6 @@ pub fn scene_folding(
   (folder, (scene_c, d_sys))
 }
 
-pub fn map_arena_delta<T: IncrementalBase<Delta = T>>(
-  d: ArenaDelta<T>,
-  visit: impl FnOnce(T) -> T,
-) -> ArenaDelta<T> {
-  match d {
-    ArenaDelta::Mutate((m, h)) => ArenaDelta::Mutate((visit(m), h)),
-    ArenaDelta::Insert((m, h)) => ArenaDelta::Insert((visit(m), h)),
-    ArenaDelta::Remove(h) => ArenaDelta::Remove(h),
-  }
-}
-
 pub fn mutate_arena_delta<T: IncrementalBase<Delta = T>>(
   d: &mut ArenaDelta<T>,
   visit: impl Fn(&mut T),
@@ -273,7 +228,7 @@ pub fn mutate_arena_delta<T: IncrementalBase<Delta = T>>(
   }
 }
 
-pub fn transform_camera_node(
+fn transform_camera_node(
   c: &SceneCamera,
   mapper: impl Fn(&SceneNode) -> SceneNode + Send + Sync + 'static,
 ) -> SceneCamera {
@@ -291,7 +246,7 @@ pub fn transform_camera_node(
   r
 }
 
-pub fn transform_light_node(
+fn transform_light_node(
   l: &SceneLight,
   mapper: impl Fn(&SceneNode) -> SceneNode + Send + Sync + 'static,
 ) -> SceneLight {
@@ -308,7 +263,7 @@ pub fn transform_light_node(
   r
 }
 
-pub fn transform_model_node(
+fn transform_model_node(
   m: &SceneModel,
   mapper: impl Fn(&SceneNode) -> SceneNode + Send + Sync + 'static,
 ) -> SceneModel {

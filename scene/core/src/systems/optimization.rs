@@ -66,8 +66,6 @@ impl AutoInstanceSystem {
     let mut output_remapping: HashMap<usize, arena::Handle<()>> = Default::default();
 
     let transformed_models = instance_transform(model_input, &d_system, &middle_scene_nodes)
-      // we want use transform_ref_retained_content_to_arena_by_hashing but we have to do something
-      // nasty here
       .map(move |item| {
         let mut deltas = Vec::new();
         match item {
