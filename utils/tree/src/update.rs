@@ -192,14 +192,17 @@ impl<T: IncrementalBase, Dirty> TreeHierarchyDerivedSystem<T, Dirty> {
 
             // node maybe deleted
             let node_has_deleted = !derived_tree.is_handle_valid(update_root);
-            // if the previous emitted update root is attached to another tree, the new attached
-            // tree contains new root that should override the current update root.
 
-            let update_root_is_not_valid = derived_tree.get_node(update_root).parent.is_some();
-            if !node_has_deleted && !update_root_is_not_valid {
-              B::update_derived(tree, &mut derived_tree, update_root, &mut |delta| {
-                derived_deltas.push((delta.0, Some(delta.1)));
-              });
+            if !node_has_deleted {
+              // if the previous emitted update root is attached to another tree, the new attached
+              // tree contains new root that should override the current update root.
+              let update_root_is_not_valid = derived_tree.get_node(update_root).parent.is_some();
+
+              if !update_root_is_not_valid {
+                B::update_derived(tree, &mut derived_tree, update_root, &mut |delta| {
+                  derived_deltas.push((delta.0, Some(delta.1)));
+                });
+              }
             }
           }
           MarkingResult::Remove(idx) => derived_deltas.push((idx, None)),
