@@ -1,4 +1,9 @@
-use std::task::Context;
+use std::{
+  pin::Pin,
+  task::{Context, Poll},
+};
+
+use futures::Stream;
 
 // use incremental::*;
 
@@ -48,6 +53,31 @@ pub enum TextBoxEvent {
 pub struct TextBox {
   texting: String,
   placeholder: String,
+}
+
+pub trait UIViewStream {
+  type React;
+
+  fn poll_view_update(
+    self: Pin<&mut Self>,
+    cx: &mut Context,
+  ) -> Poll<Option<ViewReact<Self::React>>>;
+}
+
+pub struct ReactiveTextureBox {
+  texting: Box<dyn Stream<Item = String>>,
+  placeholder: Box<dyn Stream<Item = String>>,
+}
+
+impl UIViewStream for ReactiveTextureBox {
+  type React = TextBoxEvent;
+
+  fn poll_view_update(
+    self: std::pin::Pin<&mut Self>,
+    cx: &mut Context<'_>,
+  ) -> std::task::Poll<Option<ViewReact<Self::Item>>> {
+    todo!()
+  }
 }
 
 pub enum TextBoxDelta {
