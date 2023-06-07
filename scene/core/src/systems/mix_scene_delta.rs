@@ -19,6 +19,20 @@ pub enum MixSceneDelta {
   ext(DeltaOf<DynamicExtension>),
 }
 
+impl std::fmt::Debug for MixSceneDelta {
+  fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    match self {
+      Self::background(_) => f.debug_tuple("background").finish(),
+      Self::default_camera(_) => f.debug_tuple("default_camera").finish(),
+      Self::active_camera(_) => f.debug_tuple("active_camera").finish(),
+      Self::cameras(_) => f.debug_tuple("cameras").finish(),
+      Self::lights(_) => f.debug_tuple("lights").finish(),
+      Self::models(_) => f.debug_tuple("models").finish(),
+      Self::ext(_) => f.debug_tuple("ext").finish(),
+    }
+  }
+}
+
 pub fn map_scene_delta_to_mixed(
   input: impl Stream<Item = SceneInnerDelta> + Unpin,
 ) -> impl Stream<Item = MixSceneDelta> {

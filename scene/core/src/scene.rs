@@ -109,7 +109,10 @@ impl SceneInner {
     drop(s);
 
     let mut s = scene.write_unchecked();
-    s.mutate_unchecked(|s| s.nodes.scene_guid = scene_id);
+    s.mutate_unchecked(|s| {
+      s.nodes.scene_guid = scene_id;
+      s.root.scene_id = scene_id;
+    });
     drop(s);
 
     (scene, system)

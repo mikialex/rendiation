@@ -10,13 +10,13 @@ pub enum IndependentItemContainerDelta<K, T: IncrementalBase> {
   Mutate(K, DeltaOf<T>),
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub enum ContainerRefRetainDelta<K, T> {
   Remove(K),
   Insert(K, T),
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub enum ContainerRefRetainContentDelta<T> {
   Remove(T),
   Insert(T),
@@ -36,7 +36,6 @@ impl<T: IncrementalBase> From<ArenaDelta<T>>
 
 use arena::ArenaDelta;
 use futures::*;
-use tree::{CoreTree, TreeMutation};
 pub trait IncrementalStreamTransform {
   fn transform_ref_retained_to_ref_retained_content_by_hashing<K, T>(
     self,
@@ -123,193 +122,3 @@ impl<X> IncrementalStreamTransform for X {
 //     self.index()
 //   }
 // }
-
-pub fn recreate_tree_nodes(
-  delta: &mut TreeMutation<SceneNodeDataImpl>,
-  target: &SceneNodeCollection,
-  holder: &mut HashMap<usize, SceneNode>,
-) {
-  match delta {
-    TreeMutation::Create { data, node } => {
-      let handle = target
-        .inner
-        .inner
-        .write()
-        .unwrap()
-        .create_node(Identity::new(data.clone()));
-      let r_node = target.create_node_at(handle);
-      holder.insert(*node, r_node);
-      *node = handle.index();
-    }
-    TreeMutation::Delete(idx) => {
-      let node = holder.remove(idx).unwrap();
-      *idx = node.raw_handle().index();
-      // node dropper will do the cleanup, will it?
-    }
-    TreeMutation::Mutate { node, delta } => {
-      let n = holder.get(node).unwrap();
-      n.mutate(|mut node| node.modify(delta.clone()));
-      *node = n.raw_handle().index();
-    }
-    TreeMutation::Attach {
-      parent_target,
-      node,
-    } => {
-      let parent = holder.get(parent_target).unwrap();
-      let n = holder.get(node).unwrap();
-      n.inner // todo, for god's sake we add pub to upstream crate structs for supporting this!
-        .inner
-        .write()
-        .unwrap()
-        .attach_to(&parent.inner.inner.read().unwrap());
-      *node = n.raw_handle().index();
-      *parent_target = parent.raw_handle().index();
-    }
-    TreeMutation::Detach { node } => {
-      let n = holder.get(node).unwrap();
-      n.inner.inner.write().unwrap().detach_from_parent();
-      *node = n.raw_handle().index();
-    }
-  }
-}
-
-pub fn scene_folding(
-  s: impl Stream<Item = SceneInnerDelta>,
-) -> (
-  impl Stream<Item = SceneInnerDelta>,
-  (Scene, SceneNodeDeriveSystem),
-) {
-  let (scene, d_sys) = SceneInner::new();
-  let scene_c = scene.clone();
-
-  let scene_node_holder = HashMap::<usize, SceneNode>::new();
-  let scene_node_holder = Arc::new(RwLock::new(scene_node_holder));
-  let mut d_sys_c = d_sys.clone();
-
-  let folder = s.map(move |mut delta| {
-    let scene_node_holder_c = scene_node_holder.clone();
-    transform_scene_delta_node(&mut delta, move |node| {
-      scene_node_holder_c
-        .read()
-        .unwrap()
-        .get(&node.raw_handle().index())
-        .unwrap()
-        .clone()
-    });
-
-    if let SceneInnerDelta::nodes(delta) = &mut delta {
-      recreate_tree_nodes(
-        delta,
-        &scene.read().nodes,
-        &mut scene_node_holder.write().unwrap(),
-      );
-    }
-
-    scene.mutate(|mut scene| {
-      scene.modify(delta.clone());
-    });
-
-    d_sys_c.maintain();
-
-    delta
-  });
-
-  (folder, (scene_c, d_sys))
-}
-
-pub fn mutate_arena_delta<T: IncrementalBase<Delta = T>>(
-  d: &mut ArenaDelta<T>,
-  visit: impl Fn(&mut T),
-) {
-  match d {
-    ArenaDelta::Mutate((m, _)) => visit(m),
-    ArenaDelta::Insert((m, _)) => visit(m),
-    ArenaDelta::Remove(_) => {}
-  }
-}
-
-fn transform_camera_node(
-  c: &SceneCamera,
-  mapper: impl Fn(&SceneNode) -> SceneNode + Send + Sync + 'static,
-) -> SceneCamera {
-  let camera = c.read();
-  let r = SceneCameraInner {
-    node: mapper(&camera.node),
-    bounds: camera.bounds,
-    projection: camera.projection.clone(),
-  }
-  .into_ref();
-  c.pass_changes_to(&r, move |delta| match delta {
-    SceneCameraInnerDelta::node(node) => SceneCameraInnerDelta::node(mapper(&node)),
-    _ => delta,
-  });
-  r
-}
-
-fn transform_light_node(
-  l: &SceneLight,
-  mapper: impl Fn(&SceneNode) -> SceneNode + Send + Sync + 'static,
-) -> SceneLight {
-  let light = l.read();
-  let r = SceneLightInner {
-    node: mapper(&light.node),
-    light: light.light.clone(),
-  }
-  .into_ref();
-  l.pass_changes_to(&r, move |delta| match delta {
-    SceneLightInnerDelta::node(node) => SceneLightInnerDelta::node(mapper(&node)),
-    _ => delta,
-  });
-  r
-}
-
-fn transform_model_node(
-  m: &SceneModel,
-  mapper: impl Fn(&SceneNode) -> SceneNode + Send + Sync + 'static,
-) -> SceneModel {
-  let model = m.read();
-  let r = SceneModelImpl {
-    node: mapper(&model.node),
-    model: model.model.clone(),
-  }
-  .into_ref();
-  m.pass_changes_to(&r, move |delta| match delta {
-    SceneModelImplDelta::node(node) => SceneModelImplDelta::node(mapper(&node)),
-    _ => delta,
-  });
-  r
-}
-
-#[allow(clippy::collapsible_match)]
-pub fn transform_scene_delta_node(
-  delta: &mut SceneInnerDelta,
-  mapper: impl Fn(&SceneNode) -> SceneNode + Send + Sync + Clone + 'static,
-) {
-  match delta {
-    SceneInnerDelta::default_camera(delta) => {
-      *delta = transform_camera_node(delta, mapper);
-    }
-    SceneInnerDelta::active_camera(delta) => {
-      if let Some(delta) = delta {
-        let delta = merge_maybe_mut_ref(delta);
-        *delta = transform_camera_node(delta, mapper);
-      }
-    }
-    SceneInnerDelta::cameras(delta) => {
-      mutate_arena_delta(delta, |camera| {
-        *camera = transform_camera_node(camera, mapper.clone());
-      });
-    }
-    SceneInnerDelta::lights(delta) => {
-      mutate_arena_delta(delta, |light| {
-        *light = transform_light_node(light, mapper.clone());
-      });
-    }
-    SceneInnerDelta::models(delta) => {
-      mutate_arena_delta(delta, |model| {
-        *model = transform_model_node(model, mapper.clone());
-      });
-    }
-    _ => {}
-  }
-}
