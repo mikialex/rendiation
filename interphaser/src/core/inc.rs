@@ -58,6 +58,8 @@ pub struct TextBox {
 pub trait UIViewStream {
   type React;
 
+  fn create_react(&self) -> Box<dyn Stream<Item = Self::React>>;
+
   fn poll_view_update(
     self: Pin<&mut Self>,
     cx: &mut Context,
@@ -69,16 +71,16 @@ pub struct ReactiveTextureBox {
   placeholder: Box<dyn Stream<Item = String>>,
 }
 
-impl UIViewStream for ReactiveTextureBox {
-  type React = TextBoxEvent;
+// impl UIViewStream for ReactiveTextureBox {
+//   type React = TextBoxEvent;
 
-  fn poll_view_update(
-    self: std::pin::Pin<&mut Self>,
-    cx: &mut Context<'_>,
-  ) -> std::task::Poll<Option<ViewReact<Self::Item>>> {
-    todo!()
-  }
-}
+//   fn poll_view_update(
+//     self: std::pin::Pin<&mut Self>,
+//     cx: &mut Context<'_>,
+//   ) -> std::task::Poll<Option<ViewReact<Self::React>>> {
+//     todo!()
+//   }
+// }
 
 pub enum TextBoxDelta {
   Text(String),
