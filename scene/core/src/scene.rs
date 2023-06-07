@@ -40,16 +40,6 @@ impl SceneNodeCollection {
   pub fn create_node(&self, data: SceneNodeDataImpl) -> SceneNode {
     SceneNode::create_new(self.inner.clone(), data, self.scene_guid)
   }
-
-  pub fn create_node_at(&self, handle: SceneNodeHandle) -> SceneNode {
-    let inner = ShareTreeNode::create_raw(&self.inner, handle);
-    let guid = inner.visit(|v| v.guid());
-    SceneNode {
-      inner,
-      guid,
-      scene_id: self.scene_guid,
-    }
-  }
 }
 
 impl IncrementalBase for SceneNodeCollection {

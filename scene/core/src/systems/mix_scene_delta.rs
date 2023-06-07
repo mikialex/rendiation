@@ -112,7 +112,10 @@ pub fn mix_scene_folding(
           .as_ref()
           .map(merge_maybe_ref)
           .map(|camera| {
-            let mapped_camera = camera_handle_map.get(&camera.guid()).unwrap();
+            let mapped_camera = camera_handle_map.entry(camera.guid()).or_insert_with(|| {
+              let new = transform_camera_node(camera, &rebuilder);
+              s.insert_camera(new)
+            });
             s.read().cameras.get(*mapped_camera).unwrap().clone()
           })
           .map(MaybeDelta::All);
@@ -326,10 +329,11 @@ fn add_watch_origin_scene_change(rebuilder: &ShareableRebuilder, source_node: &S
           }
           tree::TreeMutation::Mutate { node, delta } => {
             // get the mapped node
-            let node = rebuilder.get_mapped_node_guid(scene_guid, *node);
-            let node = &rebuilder.nodes.get(&node).unwrap().mapped;
-            // pass the delta
-            node.mutate(|mut n| n.modify(delta.clone()))
+            if let Some(node_guid) = rebuilder.try_get_mapped_node_guid(scene_guid, *node) {
+              let node = &rebuilder.nodes.get(&node_guid).unwrap().mapped;
+              // pass the delta
+              node.mutate(|mut n| n.modify(delta.clone()))
+            }
           }
           _ => {}
         }
@@ -433,6 +437,7 @@ impl SceneRebuilder {
       source_nodes,
       node_handle,
       |node_guid, node_id, node_data| {
+        let mut new_created_node = None;
         let NodeMapping {
           sub_tree_entity_ref_count,
           ..
@@ -442,7 +447,7 @@ impl SceneRebuilder {
           self
             .id_mapping
             .insert((source_scene_guid, node_id), mapped.guid());
-          child_to_attach = Some(node_guid);
+          new_created_node = Some(node_guid);
 
           NodeMapping {
             mapped,
@@ -453,8 +458,8 @@ impl SceneRebuilder {
 
         *sub_tree_entity_ref_count += ref_add_count;
 
-        if let Some(child) = child_to_attach.take() {
-          let mapping = self.nodes.get(&child).unwrap();
+        if let Some(child_id) = child_to_attach.take() {
+          let mapping = self.nodes.get(&child_id).unwrap();
           let child = mapping.mapped.clone();
           let child_ref_count = mapping.sub_tree_entity_ref_count;
 
@@ -462,6 +467,8 @@ impl SceneRebuilder {
           child.attach_to(&mapping.mapped);
           mapping.sub_tree_entity_ref_count += child_ref_count;
         }
+
+        child_to_attach = new_created_node;
       },
     )
   }
@@ -488,7 +495,15 @@ impl SceneRebuilder {
   }
 
   fn get_mapped_node_guid(&self, scene_id: SceneGuid, index: NodeArenaIndex) -> NodeGuid {
-    *self.id_mapping.get(&(scene_id, index)).unwrap()
+    self.try_get_mapped_node_guid(scene_id, index).unwrap()
+  }
+
+  fn try_get_mapped_node_guid(
+    &self,
+    scene_id: SceneGuid,
+    index: NodeArenaIndex,
+  ) -> Option<NodeGuid> {
+    self.id_mapping.get(&(scene_id, index)).copied()
   }
 
   fn add_entity_used_node_impl(&mut self, to_add_node: &SceneNode) -> SceneNode {
