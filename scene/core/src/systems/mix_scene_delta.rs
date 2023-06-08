@@ -329,7 +329,7 @@ fn add_watch_origin_scene_change(rebuilder: &ShareableRebuilder, source_node: &S
               assert!(rebuilder
                 .try_get_original_node_guid(scene_guid, *parent_target)
                 .is_none());
-              rebuilder.handle_attach(node_guid, *parent_target, &source_collection);
+              rebuilder.handle_attach(node_guid, *node, *parent_target, &source_collection);
             }
           }
           tree::TreeMutation::Detach { node } => {
@@ -396,6 +396,7 @@ impl SceneRebuilder {
   fn handle_attach(
     &mut self,
     child_guid: NodeGuid,
+    self_id: NodeArenaIndex,
     parent_id: NodeArenaIndex,
     source_nodes: &SceneNodeCollection,
   ) {
@@ -407,8 +408,9 @@ impl SceneRebuilder {
 
     self.check_insert_and_update_parents_entity_ref_count(
       source_nodes,
-      parent_id,
+      self_id,
       child_sub_tree_entity_ref_count,
+      false,
     );
 
     let parent_guid = self
@@ -434,6 +436,7 @@ impl SceneRebuilder {
       source_nodes,
       node_id,
       child.sub_tree_entity_ref_count,
+      false,
     );
   }
 
@@ -442,15 +445,18 @@ impl SceneRebuilder {
     source_nodes: &SceneNodeCollection,
     node_handle: NodeArenaIndex,
     ref_add_count: usize,
+    update_self_ref: bool,
   ) {
-    let mut child_to_attach = None;
+    let mut last_child = None;
     let source_scene_guid = source_nodes.scene_guid;
+
+    let mut is_self = true;
 
     visit_self_parent_chain(
       source_nodes,
       node_handle,
       |node_guid, node_id, node_data| {
-        let mut new_created_node = None;
+        let mut new_created_parent = false;
         let NodeMapping {
           sub_tree_entity_ref_count,
           ..
@@ -460,7 +466,8 @@ impl SceneRebuilder {
           self
             .id_mapping
             .insert((source_scene_guid, node_id), (mapped.guid(), node_guid));
-          new_created_node = Some(node_guid);
+
+          new_created_parent = true;
 
           NodeMapping {
             mapped,
@@ -469,19 +476,20 @@ impl SceneRebuilder {
           }
         });
 
-        *sub_tree_entity_ref_count += ref_add_count;
-
-        if let Some(child_id) = child_to_attach.take() {
-          let mapping = self.nodes.get(&child_id).unwrap();
-          let child = mapping.mapped.clone();
-          let child_ref_count = mapping.sub_tree_entity_ref_count;
-
-          let mapping = self.nodes.get_mut(&node_guid).unwrap();
-          child.attach_to(&mapping.mapped);
-          mapping.sub_tree_entity_ref_count += child_ref_count;
+        if update_self_ref || !is_self {
+          *sub_tree_entity_ref_count += ref_add_count;
         }
 
-        child_to_attach = new_created_node;
+        if let Some(last_child) = last_child {
+          let last_child = self.nodes.get(&last_child).unwrap();
+          if new_created_parent || last_child.mapped.visit_parent(|_| {}).is_none() {
+            let current = self.nodes.get(&node_guid).unwrap();
+            last_child.mapped.attach_to(&current.mapped);
+          }
+        }
+
+        last_child = node_guid.into();
+        is_self = false;
       },
     )
   }
@@ -491,19 +499,24 @@ impl SceneRebuilder {
     nodes: &SceneNodeCollection,
     node_handle: NodeArenaIndex,
     ref_decrease_count: usize,
+    update_self_ref: bool,
   ) {
     let source_scene_guid = nodes.scene_guid;
+    let mut is_self = true;
 
     visit_self_parent_chain(nodes, node_handle, |node_guid, node_id, _node_data| {
       let mapping = self.nodes.get_mut(&node_guid).unwrap();
 
-      assert!(mapping.sub_tree_entity_ref_count >= ref_decrease_count);
-      mapping.sub_tree_entity_ref_count -= ref_decrease_count;
+      if update_self_ref || !is_self {
+        assert!(mapping.sub_tree_entity_ref_count >= ref_decrease_count);
+        mapping.sub_tree_entity_ref_count -= ref_decrease_count;
+      }
 
       if mapping.sub_tree_entity_ref_count == 0 {
         self.nodes.remove(&node_guid);
         self.id_mapping.remove(&(source_scene_guid, node_id));
       }
+      is_self = false;
     })
   }
 
@@ -521,6 +534,7 @@ impl SceneRebuilder {
       &source_nodes,
       to_add_node.raw_handle().index(),
       1,
+      true,
     );
     self.nodes.get(&to_add_node.guid()).unwrap().mapped.clone()
   }
@@ -531,6 +545,7 @@ impl SceneRebuilder {
       &source_nodes,
       to_remove_node.raw_handle().index(),
       1,
+      true,
     )
   }
 }

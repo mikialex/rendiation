@@ -161,7 +161,10 @@ impl<T: ShareCoreTree> NodeInner<T> {
 
 impl<T: ShareCoreTree> Drop for NodeInner<T> {
   fn drop(&mut self) {
-    self.detach_from_parent()
+    // the inner should check, but we add here for guard
+    if self.parent.is_some() {
+      self.detach_from_parent()
+    }
   }
 }
 

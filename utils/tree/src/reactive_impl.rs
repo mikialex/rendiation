@@ -57,6 +57,7 @@ where
     parent: Self::Handle,
     child_to_attach: Self::Handle,
   ) -> Result<(), TreeMutationError> {
+    // todo check valid before emit
     self.source.emit(&TreeMutation::Attach {
       parent_target: parent.index(),
       node: child_to_attach.index(),
@@ -65,6 +66,7 @@ where
   }
 
   fn node_detach_parent(&mut self, child_to_detach: Self::Handle) -> Result<(), TreeMutationError> {
+    // todo check valid before emit
     self.source.emit(&TreeMutation::Detach {
       node: child_to_detach.index(),
     });
