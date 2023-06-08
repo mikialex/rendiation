@@ -273,16 +273,22 @@ struct SceneWatcher {
 
 impl Drop for SceneWatcher {
   fn drop(&mut self) {
-    let inner = self.nodes.inner.inner.read().unwrap();
-    inner.source.off(self.change_remove_token);
+    self
+      .nodes
+      .inner
+      .inner()
+      .source
+      .off(self.change_remove_token);
   }
 }
 
 type ShareableRebuilder = Arc<RwLock<SceneRebuilder>>;
 
 struct SceneRebuilder {
+  // key original
   nodes: HashMap<NodeGuid, NodeMapping>,
-  id_mapping: HashMap<(SceneGuid, NodeArenaIndex), NodeGuid>,
+  // (mapped, original)
+  id_mapping: HashMap<(SceneGuid, NodeArenaIndex), (NodeGuid, NodeGuid)>,
   scenes: HashMap<SceneGuid, SceneWatcher>,
   target_collection: SceneNodeCollection,
 }
@@ -319,17 +325,21 @@ fn add_watch_origin_scene_change(rebuilder: &ShareableRebuilder, source_node: &S
             parent_target,
             node,
           } => {
-            let parent_guid = rebuilder.get_mapped_node_guid(scene_guid, *parent_target);
-            let node_guid = rebuilder.get_mapped_node_guid(scene_guid, *node);
-            rebuilder.handle_attach(node_guid, parent_guid, *parent_target, &source_collection);
+            if let Some(node_guid) = rebuilder.try_get_original_node_guid(scene_guid, *node) {
+              assert!(rebuilder
+                .try_get_original_node_guid(scene_guid, *parent_target)
+                .is_none());
+              rebuilder.handle_attach(node_guid, *parent_target, &source_collection);
+            }
           }
           tree::TreeMutation::Detach { node } => {
-            let node_guid = rebuilder.get_mapped_node_guid(scene_guid, *node);
-            rebuilder.handle_detach(node_guid, *node, &source_collection);
+            if let Some(node_guid) = rebuilder.try_get_original_node_guid(scene_guid, *node) {
+              rebuilder.handle_detach(node_guid, *node, &source_collection);
+            }
           }
           tree::TreeMutation::Mutate { node, delta } => {
             // get the mapped node
-            if let Some(node_guid) = rebuilder.try_get_mapped_node_guid(scene_guid, *node) {
+            if let Some(node_guid) = rebuilder.try_get_original_node_guid(scene_guid, *node) {
               let node = &rebuilder.nodes.get(&node_guid).unwrap().mapped;
               // pass the delta
               node.mutate(|mut n| n.modify(delta.clone()))
@@ -385,14 +395,13 @@ fn remove_entity_used_node(rebuilder: &ShareableRebuilder, to_remove_node: &Scen
 impl SceneRebuilder {
   fn handle_attach(
     &mut self,
-    child_node_guid: NodeGuid,
-    parent_guid: NodeGuid,
+    child_guid: NodeGuid,
     parent_id: NodeArenaIndex,
     source_nodes: &SceneNodeCollection,
   ) {
     let child_sub_tree_entity_ref_count = self
       .nodes
-      .get(&child_node_guid)
+      .get(&child_guid)
       .unwrap()
       .sub_tree_entity_ref_count;
 
@@ -402,7 +411,11 @@ impl SceneRebuilder {
       child_sub_tree_entity_ref_count,
     );
 
-    let child = self.nodes.get(&child_node_guid).unwrap();
+    let parent_guid = self
+      .try_get_original_node_guid(source_nodes.scene_guid, parent_id)
+      .unwrap();
+
+    let child = self.nodes.get(&child_guid).unwrap();
 
     let parent = self.nodes.get(&parent_guid).unwrap();
     child.mapped.attach_to(&parent.mapped);
@@ -446,7 +459,7 @@ impl SceneRebuilder {
 
           self
             .id_mapping
-            .insert((source_scene_guid, node_id), mapped.guid());
+            .insert((source_scene_guid, node_id), (mapped.guid(), node_guid));
           new_created_node = Some(node_guid);
 
           NodeMapping {
@@ -494,16 +507,12 @@ impl SceneRebuilder {
     })
   }
 
-  fn get_mapped_node_guid(&self, scene_id: SceneGuid, index: NodeArenaIndex) -> NodeGuid {
-    self.try_get_mapped_node_guid(scene_id, index).unwrap()
-  }
-
-  fn try_get_mapped_node_guid(
+  fn try_get_original_node_guid(
     &self,
     scene_id: SceneGuid,
     index: NodeArenaIndex,
   ) -> Option<NodeGuid> {
-    self.id_mapping.get(&(scene_id, index)).copied()
+    self.id_mapping.get(&(scene_id, index)).map(|v| v.1)
   }
 
   fn add_entity_used_node_impl(&mut self, to_add_node: &SceneNode) -> SceneNode {
@@ -531,16 +540,13 @@ fn visit_self_parent_chain(
   node_handle: NodeArenaIndex,
   mut f: impl FnMut(NodeGuid, NodeArenaIndex, &SceneNodeDataImpl),
 ) {
-  let tree = nodes.inner.inner.read().unwrap();
-  let node_handle = tree.inner.recreate_handle(node_handle);
+  let tree = nodes.inner.inner().inner.read().unwrap();
+  let node_handle = tree.recreate_handle(node_handle);
 
-  tree
-    .inner
-    .create_node_ref(node_handle)
-    .traverse_parent(|node| {
-      let data = node.node.data();
-      let index = node.node.handle().index();
-      f(data.guid(), index, data.deref());
-      true
-    })
+  tree.create_node_ref(node_handle).traverse_parent(|node| {
+    let data = node.node.data();
+    let index = node.node.handle().index();
+    f(data.guid(), index, data.deref());
+    true
+  })
 }

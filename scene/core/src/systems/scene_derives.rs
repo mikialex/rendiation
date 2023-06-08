@@ -46,13 +46,11 @@ impl Stream for StreamCacheUpdateWrapper {
 
 impl SceneNodeDeriveSystem {
   pub fn new(nodes: &SceneNodeCollection) -> Self {
-    let inner_sys = nodes.inner.visit_inner(|tree| {
-      let stream = tree.source.unbound_listen();
-      TreeHierarchyDerivedSystem::<
-        SceneNodeDerivedData,
-        ParentTreeDirty<SceneNodeDeriveDataDirtyFlag>,
-      >::new::<ParentTree, _, _, _>(stream, &nodes.inner)
-    });
+    let stream = nodes.inner.inner().source.unbound_listen();
+    let inner_sys = TreeHierarchyDerivedSystem::<
+      SceneNodeDerivedData,
+      ParentTreeDirty<SceneNodeDeriveDataDirtyFlag>,
+    >::new::<ParentTree, _, _, _>(stream, &nodes.inner);
 
     let indexed_stream_mapper: SceneNodeChangeStreamIndexMapper = inner_sys
       .derived_stream
