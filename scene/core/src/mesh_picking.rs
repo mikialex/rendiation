@@ -4,23 +4,25 @@ use rendiation_renderable_mesh::*;
 use crate::*;
 
 impl<T: IntersectAbleGroupedMesh + IncrementalBase> IntersectAbleGroupedMesh for SceneItemRef<T> {
-  fn intersect_list(
+  fn intersect_list_by_group(
     &self,
     ray: Ray3,
     conf: &MeshBufferIntersectConfig,
     result: &mut MeshBufferHitList,
     group: MeshDrawGroup,
   ) {
-    self.read().intersect_list(ray, conf, result, group)
+    self
+      .read()
+      .intersect_list_by_group(ray, conf, result, group)
   }
 
-  fn intersect_nearest(
+  fn intersect_nearest_by_group(
     &self,
     ray: Ray3,
     conf: &MeshBufferIntersectConfig,
     group: MeshDrawGroup,
   ) -> OptionalNearest<MeshBufferHitPoint> {
-    self.read().intersect_nearest(ray, conf, group)
+    self.read().intersect_nearest_by_group(ray, conf, group)
   }
 }
 impl<T: IntersectAbleGroupedMesh + IncrementalBase> AsRef<dyn IntersectAbleGroupedMesh>
@@ -44,21 +46,21 @@ pub enum AttributeDynPrimitive {
   Triangle(Triangle<Vec3<f32>>),
 }
 
-// impl IntersectAble<Ray3, OptionalNearest<HitPoint3D>, MeshBufferIntersectConfig>
-//   for AttributeDynPrimitive
-// {
-//   fn intersect(
-//     &self,
-//     other: &Ray3,
-//     param: &MeshBufferIntersectConfig,
-//   ) -> OptionalNearest<HitPoint3D> {
-//     match self {
-//       AttributeDynPrimitive::Points(_) => todo!(),
-//       AttributeDynPrimitive::LineSegment(_) => todo!(),
-//       AttributeDynPrimitive::Triangle(_) => todo!(),
-//     }
-//   }
-// }
+impl IntersectAble<Ray3, OptionalNearest<HitPoint3D>, MeshBufferIntersectConfig>
+  for AttributeDynPrimitive
+{
+  fn intersect(
+    &self,
+    other: &Ray3,
+    param: &MeshBufferIntersectConfig,
+  ) -> OptionalNearest<HitPoint3D> {
+    match self {
+      AttributeDynPrimitive::Points(v) => v.intersect(other, param),
+      AttributeDynPrimitive::LineSegment(v) => v.intersect(other, param),
+      AttributeDynPrimitive::Triangle(v) => v.intersect(other, param),
+    }
+  }
+}
 
 /// this is slow, but not bloat the binary size.
 impl AbstractMesh for AttributesMesh {
@@ -131,7 +133,7 @@ impl GPUConsumableMeshBuffer for AttributesMesh {
 }
 
 impl IntersectAbleGroupedMesh for AttributesMesh {
-  fn intersect_list(
+  fn intersect_list_by_group(
     &self,
     _ray: Ray3,
     _conf: &MeshBufferIntersectConfig,
@@ -140,7 +142,7 @@ impl IntersectAbleGroupedMesh for AttributesMesh {
   ) {
   }
 
-  fn intersect_nearest(
+  fn intersect_nearest_by_group(
     &self,
     _ray: Ray3,
     _conf: &MeshBufferIntersectConfig,
@@ -151,7 +153,7 @@ impl IntersectAbleGroupedMesh for AttributesMesh {
 }
 
 impl IntersectAbleGroupedMesh for TransformInstancedSceneMesh {
-  fn intersect_list(
+  fn intersect_list_by_group(
     &self,
     ray: Ray3,
     conf: &MeshBufferIntersectConfig,
@@ -161,11 +163,13 @@ impl IntersectAbleGroupedMesh for TransformInstancedSceneMesh {
     self.transforms.iter().for_each(|mat| {
       let world_inv = mat.inverse_or_identity();
       let local_ray = ray.clone().apply_matrix_into(world_inv);
-      self.mesh.intersect_list(local_ray, conf, result, group)
+      self
+        .mesh
+        .intersect_list_by_group(local_ray, conf, result, group)
     })
   }
 
-  fn intersect_nearest(
+  fn intersect_nearest_by_group(
     &self,
     ray: Ray3,
     conf: &MeshBufferIntersectConfig,
@@ -177,14 +181,14 @@ impl IntersectAbleGroupedMesh for TransformInstancedSceneMesh {
       .fold(OptionalNearest::none(), |mut pre, mat| {
         let world_inv = mat.inverse_or_identity();
         let local_ray = ray.clone().apply_matrix_into(world_inv);
-        let r = self.mesh.intersect_nearest(local_ray, conf, group);
+        let r = self.mesh.intersect_nearest_by_group(local_ray, conf, group);
         *pre.refresh_nearest(r)
       })
   }
 }
 
 impl IntersectAbleGroupedMesh for SceneMeshType {
-  fn intersect_list(
+  fn intersect_list_by_group(
     &self,
     ray: Ray3,
     conf: &MeshBufferIntersectConfig,
@@ -192,34 +196,40 @@ impl IntersectAbleGroupedMesh for SceneMeshType {
     group: MeshDrawGroup,
   ) {
     match self {
-      SceneMeshType::AttributesMesh(mesh) => mesh.read().intersect_list(ray, conf, result, group),
-      SceneMeshType::TransformInstanced(mesh) => {
-        mesh.read().intersect_list(ray, conf, result, group)
-      }
+      SceneMeshType::AttributesMesh(mesh) => mesh
+        .read()
+        .intersect_list_by_group(ray, conf, result, group),
+      SceneMeshType::TransformInstanced(mesh) => mesh
+        .read()
+        .intersect_list_by_group(ray, conf, result, group),
       SceneMeshType::Foreign(mesh) => {
         if let Some(pickable) =
           get_dyn_trait_downcaster_static!(IntersectAbleGroupedMesh).downcast_ref(mesh.as_ref())
         {
-          pickable.intersect_list(ray, conf, result, group)
+          pickable.intersect_list_by_group(ray, conf, result, group)
         }
       }
     }
   }
 
-  fn intersect_nearest(
+  fn intersect_nearest_by_group(
     &self,
     ray: Ray3,
     conf: &MeshBufferIntersectConfig,
     group: MeshDrawGroup,
   ) -> OptionalNearest<MeshBufferHitPoint> {
     match self {
-      SceneMeshType::AttributesMesh(mesh) => mesh.read().intersect_nearest(ray, conf, group),
-      SceneMeshType::TransformInstanced(mesh) => mesh.read().intersect_nearest(ray, conf, group),
+      SceneMeshType::AttributesMesh(mesh) => {
+        mesh.read().intersect_nearest_by_group(ray, conf, group)
+      }
+      SceneMeshType::TransformInstanced(mesh) => {
+        mesh.read().intersect_nearest_by_group(ray, conf, group)
+      }
       SceneMeshType::Foreign(mesh) => {
         if let Some(pickable) =
           get_dyn_trait_downcaster_static!(IntersectAbleGroupedMesh).downcast_ref(mesh.as_ref())
         {
-          pickable.intersect_nearest(ray, conf, group)
+          pickable.intersect_nearest_by_group(ray, conf, group)
         } else {
           OptionalNearest::none()
         }
