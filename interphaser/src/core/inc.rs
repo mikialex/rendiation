@@ -66,10 +66,10 @@ pub trait UIViewStream {
   ) -> Poll<Option<ViewReact<Self::React>>>;
 }
 
-pub struct ReactiveTextureBox {
-  texting: Box<dyn Stream<Item = String>>,
-  placeholder: Box<dyn Stream<Item = String>>,
-}
+// pub struct ReactiveTextureBox {
+//   texting: Box<dyn Stream<Item = String>>,
+//   placeholder: Box<dyn Stream<Item = String>>,
+// }
 
 // impl UIViewStream for ReactiveTextureBox {
 //   type React = TextBoxEvent;

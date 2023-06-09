@@ -351,6 +351,9 @@ impl WebGPU2DTextureSource for GltfImage {
   }
 }
 
+// i assume all gpu use little endian?
+const f16_bytes: [u8; 2] = half::f16::from_f32_const(1.0).to_le_bytes();
+
 fn build_image(data_input: gltf::image::Data) -> SceneTexture2D {
   let format = match data_input.format {
     gltf::image::Format::R8 => TextureFormat::R8Unorm,
@@ -359,7 +362,6 @@ fn build_image(data_input: gltf::image::Data) -> SceneTexture2D {
     gltf::image::Format::R8G8B8A8 => TextureFormat::Rgba8UnormSrgb,
     gltf::image::Format::B8G8R8 => TextureFormat::Bgra8UnormSrgb, // padding
     gltf::image::Format::B8G8R8A8 => TextureFormat::Bgra8UnormSrgb,
-    // todo check the follow format
     gltf::image::Format::R16 => TextureFormat::R16Float,
     gltf::image::Format::R16G16 => TextureFormat::Rg16Float,
     gltf::image::Format::R16G16B16 => TextureFormat::Rgba16Float, // padding
@@ -367,9 +369,9 @@ fn build_image(data_input: gltf::image::Data) -> SceneTexture2D {
   };
 
   let data = if let Some((read_bytes, pad_bytes)) = match data_input.format {
-    gltf::image::Format::R8G8B8 => (3, &[255]).into(),
-    gltf::image::Format::B8G8R8 => (3, &[255]).into(),
-    gltf::image::Format::R16G16B16 => todo!(), // todo what's the u8 repr for f16_1.0??
+    gltf::image::Format::R8G8B8 => (3, [255].as_slice()).into(),
+    gltf::image::Format::B8G8R8 => (3, [255].as_slice()).into(),
+    gltf::image::Format::R16G16B16 => (3 * 2, f16_bytes.as_slice()).into(),
     _ => None,
   } {
     data_input

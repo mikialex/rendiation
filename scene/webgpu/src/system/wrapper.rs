@@ -16,7 +16,7 @@ pub trait ReactiveRenderComponentSource: Stream<Item = RenderComponentDeltaFlag>
 }
 
 bitflags::bitflags! {
-  #[derive(Default)]
+  #[derive(Default, Copy, Clone)]
   pub struct RenderComponentDeltaFlag: u32 {
     const ShaderHash = 0b00000001;
     const ContentRef = 0b00000010;
