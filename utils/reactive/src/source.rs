@@ -118,6 +118,17 @@ impl<T: 'static> EventSource<T> {
     self.listen_by::<DefaultUnboundChannel, _>(mapper, init)
   }
 
+  pub fn single_listen_by<U>(
+    &self,
+    mapper: impl Fn(&T) -> U + Send + Sync + 'static,
+    init: impl Fn(&dyn Fn(U)),
+  ) -> impl futures::Stream<Item = U>
+  where
+    U: Send + Sync + 'static,
+  {
+    self.listen_by::<DefaultSingleValueChannel, _>(mapper, init)
+  }
+
   pub fn listen_by<C, U>(
     &self,
     mapper: impl Fn(&T) -> U + Send + Sync + 'static,
@@ -140,19 +151,16 @@ impl<T: 'static> EventSource<T> {
     EventSourceStream::new(dropper, receiver)
   }
 
-  pub fn once_future(&mut self) -> impl Future<Output = Option<T>>
+  pub fn once_future(&mut self) -> impl Future<Output = Option<()>>
   where
     T: Clone + Send + Sync,
   {
-    // todo should impl custom future to auto drop source
-    use futures::FutureExt;
-    let (s, r) = futures::channel::oneshot::channel::<T>();
-    let mut s = Some(s);
-    self.on(move |re| {
-      s.take().map(|s| s.send(re.clone()).ok());
-      true
-    });
-    r.map(|v| v.ok())
+    let mut any = self.single_listen_by(|_| (), |_| {});
+    async move {
+      loop {
+        any.next().await;
+      }
+    }
   }
 }
 

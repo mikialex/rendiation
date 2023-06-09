@@ -352,7 +352,7 @@ impl WebGPU2DTextureSource for GltfImage {
 }
 
 // i assume all gpu use little endian?
-const f16_bytes: [u8; 2] = half::f16::from_f32_const(1.0).to_le_bytes();
+const F16_BYTES: [u8; 2] = half::f16::from_f32_const(1.0).to_le_bytes();
 
 fn build_image(data_input: gltf::image::Data) -> SceneTexture2D {
   let format = match data_input.format {
@@ -371,7 +371,7 @@ fn build_image(data_input: gltf::image::Data) -> SceneTexture2D {
   let data = if let Some((read_bytes, pad_bytes)) = match data_input.format {
     gltf::image::Format::R8G8B8 => (3, [255].as_slice()).into(),
     gltf::image::Format::B8G8R8 => (3, [255].as_slice()).into(),
-    gltf::image::Format::R16G16B16 => (3 * 2, f16_bytes.as_slice()).into(),
+    gltf::image::Format::R16G16B16 => (3 * 2, F16_BYTES.as_slice()).into(),
     _ => None,
   } {
     data_input
