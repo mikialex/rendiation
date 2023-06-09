@@ -188,7 +188,7 @@ impl<T: IncrementalBase, Dirty> TreeHierarchyDerivedSystem<T, Dirty> {
           MarkingResult::UpdateRoot(update_root) => {
             let mut derived_tree = derived_tree_cc.write().unwrap();
             // do full tree traverse check, emit all real update as stream
-            let tree: &TREE = &source_tree.inner.read().unwrap();
+            let tree: &TREE = &source_tree.inner;
 
             // node maybe deleted
             let node_has_deleted = !derived_tree.is_handle_valid(update_root);
@@ -250,7 +250,8 @@ impl<T: IncrementalBase, M, TREE, X> TreeIncrementalDeriveBehavior<T, T::Source,
 where
   T: IncrementalHierarchyDerived<DirtyMark = M>,
   M: HierarchyDirtyMark,
-  TREE: CoreTree<Node = X>,
+  // todo add a trait extract the common part of core tree and share core tree
+  TREE: ShareCoreTree<Node = X>,
   X: Deref<Target = T::Source>,
 {
   type Dirty = ParentTreeDirty<M>;
@@ -321,14 +322,15 @@ where
         let parent = parent.map(|parent| &parent.data().data);
 
         let source_node = source_tree.recreate_handle(node_index);
-        let source_node = source_tree.get_node_data(source_node).deref();
 
-        derived.data.hierarchy_update(
-          source_node,
-          parent,
-          &derived.dirty.sub_tree_dirty_mark_all,
-          |delta| derived_delta_sender((node_index, delta)),
-        );
+        source_tree.visit_node_data(source_node, |source_node| {
+          derived.data.hierarchy_update(
+            source_node.deref(),
+            parent,
+            &derived.dirty.sub_tree_dirty_mark_all,
+            |delta| derived_delta_sender((node_index, delta)),
+          );
+        });
 
         derived.dirty.sub_tree_dirty_mark_any = T::DirtyMark::default();
         derived.dirty.sub_tree_dirty_mark_all = T::DirtyMark::default();
@@ -350,7 +352,7 @@ impl<T: IncrementalBase, M, TREE, X> TreeIncrementalDeriveBehavior<T, T::Source,
 where
   T: IncrementalChildrenHierarchyDerived<DirtyMark = M>,
   M: HierarchyDirtyMark,
-  TREE: CoreTree<Node = X>,
+  TREE: ShareCoreTree<Node = X>,
   X: Deref<Target = T::Source>,
 {
   type Dirty = M;
@@ -398,9 +400,6 @@ where
 
     node_data.dirty = T::DirtyMark::default();
 
-    let source_node = source_tree.recreate_handle(node_index);
-    let source_node = source_tree.get_node_data(source_node).deref();
-
     node.visit_children_mut(|child| {
       let child = unsafe { &mut (*child.node) };
       Self::update_derived(
@@ -411,16 +410,19 @@ where
       );
     });
 
-    node_data.data.hierarchy_children_update(
-      source_node,
-      |child_visitor| {
-        node.visit_children_mut(|node| {
-          let node_data = &unsafe { &mut (*node.node) }.data.data;
-          child_visitor(node_data)
-        })
-      },
-      &node_data.dirty,
-      &mut |delta| derived_delta_sender((node_index, delta)),
-    );
+    let source_node = source_tree.recreate_handle(node_index);
+    source_tree.visit_node_data(source_node, |source_node| {
+      node_data.data.hierarchy_children_update(
+        source_node.deref(),
+        |child_visitor| {
+          node.visit_children_mut(|node| {
+            let node_data = &unsafe { &mut (*node.node) }.data.data;
+            child_visitor(node_data)
+          })
+        },
+        &node_data.dirty,
+        &mut |delta| derived_delta_sender((node_index, delta)),
+      );
+    });
   }
 }

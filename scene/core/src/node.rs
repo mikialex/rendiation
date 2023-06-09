@@ -121,7 +121,8 @@ impl Default for SceneNodeDataImpl {
 pub struct SceneNode {
   pub(crate) guid: usize,
   pub(crate) scene_id: usize,
-  pub(crate) inner: ShareTreeNode<ReactiveTreeCollection<SceneNodeData, SceneNodeDataImpl>>,
+  pub(crate) inner:
+    ShareTreeNode<ReactiveTreeCollection<RwLock<TreeCollection<SceneNodeData>>, SceneNodeDataImpl>>,
 }
 
 clone_self_incremental!(SceneNode);

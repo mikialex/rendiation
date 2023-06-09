@@ -33,22 +33,13 @@ pub struct SceneNodeCollection {
   pub inner: SceneNodeCollectionInner,
   pub scene_guid: usize,
 }
-pub type SceneNodeCollectionInner =
-  SharedTreeCollection<ReactiveTreeCollection<SceneNodeData, SceneNodeDataImpl>>;
+pub type SceneNodeCollectionInner = SharedTreeCollection<
+  ReactiveTreeCollection<RwLock<TreeCollection<SceneNodeData>>, SceneNodeDataImpl>,
+>;
 
 impl SceneNodeCollection {
   pub fn create_node(&self, data: SceneNodeDataImpl) -> SceneNode {
     SceneNode::create_new(self.inner.clone(), data, self.scene_guid)
-  }
-
-  pub fn create_node_at(&self, handle: SceneNodeHandle) -> SceneNode {
-    let inner = ShareTreeNode::create_raw(&self.inner, handle);
-    let guid = inner.visit(|v| v.guid());
-    SceneNode {
-      inner,
-      guid,
-      scene_id: self.scene_guid,
-    }
   }
 }
 
@@ -56,11 +47,8 @@ impl IncrementalBase for SceneNodeCollection {
   type Delta = TreeMutation<SceneNodeDataImpl>;
 
   fn expand(&self, cb: impl FnMut(Self::Delta)) {
-    self.inner.visit_inner(|tree| {
-      tree
-        .inner
-        .expand_with_mapping(|node| node.deref().clone(), cb)
-    });
+    let tree = self.inner.inner().inner.read().unwrap();
+    tree.expand_with_mapping(|node| node.deref().clone(), cb);
   }
 }
 
@@ -98,18 +86,19 @@ impl SceneInner {
     // forward the inner change to outer
     let scene_source_clone = scene.read().delta_source.clone();
     let scene_id = scene.guid();
-    let s = scene.read();
 
-    s.nodes.inner.visit_inner(move |tree| {
-      tree.source.on(move |d| {
-        scene_source_clone.emit(&SceneInnerDelta::nodes(d.clone()));
-        false
-      })
+    let s = scene.read();
+    s.nodes.inner.inner().source.on(move |d| {
+      scene_source_clone.emit(&SceneInnerDelta::nodes(d.clone()));
+      false
     });
     drop(s);
 
     let mut s = scene.write_unchecked();
-    s.mutate_unchecked(|s| s.nodes.scene_guid = scene_id);
+    s.mutate_unchecked(|s| {
+      s.nodes.scene_guid = scene_id;
+      s.root.scene_id = scene_id;
+    });
     drop(s);
 
     (scene, system)
@@ -147,9 +136,8 @@ impl Scene {
 
   pub fn compute_full_derived(&self) -> ComputedDerivedTree<SceneNodeDerivedData> {
     self.visit(|t| {
-      t.nodes
-        .inner
-        .visit_inner(|t| ComputedDerivedTree::compute_from(&t.inner))
+      let tree = t.nodes.inner.inner().inner.read().unwrap();
+      ComputedDerivedTree::compute_from(&tree)
     })
   }
 

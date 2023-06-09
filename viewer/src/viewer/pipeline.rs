@@ -117,7 +117,7 @@ impl ViewerPipeline {
       let mut cameras = scene.scene_resources.cameras.write().unwrap();
       let camera_gpu = cameras.get_camera_gpu_mut(scene.scene.get_active_camera()).unwrap();
       camera_gpu.enable_jitter = false;
-      
+
     // let scene_result = draw_cross_blur(&self.blur, scene_result.read_into(), ctx);
 
     let taa_result = self.taa.resolve(

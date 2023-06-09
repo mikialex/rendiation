@@ -2,13 +2,10 @@ use core::{
   pin::Pin,
   task::{Context, Poll},
 };
-use std::ops::Deref;
 
-use arena::ArenaDelta;
 use futures::*;
 use reactive::{do_updates_by, once_forever_pending, SignalStreamExt, StreamMap, StreamMapDelta};
 use rendiation_renderable_mesh::MeshDrawGroup;
-use tree::TreeMutation;
 
 use crate::*;
 
@@ -43,76 +40,34 @@ impl AutoInstanceSystem {
   // note, we have a subtle requirement that the other change in the stream has no dependency on
   // model change in the same stream or we will have to handle it manually.
   pub fn new(
-    scene_delta: impl Stream<Item = SceneInnerDelta> + Unpin,
-    _: &SceneNodeDeriveSystem,
-  ) -> (Self, impl Stream<Item = SceneInnerDelta>) {
-    let (scene_delta, (render_scene, d_system)) = scene_folding(scene_delta);
-    let middle_scene_nodes = render_scene.read().nodes.clone();
-
+    scene_delta: impl Stream<Item = MixSceneDelta> + Unpin,
+    d_system: &SceneNodeDeriveSystem,
+  ) -> (Self, impl Stream<Item = MixSceneDelta>) {
     let broad_cast = scene_delta.create_broad_caster();
 
     // split the model stream, maintain the old arena relationship
     let model_input = broad_cast
       .fork_stream()
       .filter_map_sync(|delta| match delta {
-        SceneInnerDelta::models(d) => Some(d),
+        MixSceneDelta::models(d) => Some(d),
         _ => None,
+      });
+
+    let (new_scene, _new_derives) = SceneInner::new();
+    let middle_scene_nodes = new_scene.read().nodes.clone();
+
+    let transformed_models = instance_transform(model_input, d_system, &middle_scene_nodes)
+      .map(|v| match v {
+        ContainerRefRetainContentDelta::Remove((v, _)) => ContainerRefRetainContentDelta::Remove(v),
+        ContainerRefRetainContentDelta::Insert((v, _)) => ContainerRefRetainContentDelta::Insert(v),
       })
-      .map(IndependentItemContainerDelta::from)
-      .transform_delta_to_ref_retained_by_hashing() // we could use single transformer
-      .transform_ref_retained_to_ref_retained_content_by_hashing();
-
-    let mut output_arena = arena::Arena::<()>::new();
-    let mut output_remapping: HashMap<usize, arena::Handle<()>> = Default::default();
-
-    let transformed_models = instance_transform(model_input, &d_system, &middle_scene_nodes)
-      .map(move |item| {
-        let mut deltas = Vec::new();
-        match item {
-          ContainerRefRetainContentDelta::Insert((item, is_ins)) => {
-            if is_ins {
-              let node = &item.read().node;
-              let data = node.visit(|d| d.deref().clone());
-              deltas.push(SceneInnerDelta::nodes(TreeMutation::Create {
-                data,
-                node: node.raw_handle().index(),
-              }));
-            }
-
-            let handle = output_arena.insert(());
-            output_remapping.insert(item.guid(), handle);
-            deltas.push(
-              ArenaDelta::Insert((item, unsafe { handle.cast_type() }))
-                .wrap(SceneInnerDelta::models),
-            )
-          }
-          ContainerRefRetainContentDelta::Remove((item, is_ins)) => {
-            let node = &item.read().node;
-            let id = node.raw_handle().index();
-
-            let handle = output_remapping.remove(&item.guid()).unwrap();
-            output_arena.remove(handle).unwrap();
-            let handle = unsafe { handle.cast_type() };
-            deltas.push(ArenaDelta::Remove(handle).wrap(SceneInnerDelta::models));
-
-            // todo! we have to assure the down stream not clone the instance model's node
-            // or we will have to do more complicate stuff to correctly emit tree node deletion
-            // message for example, add a drop callback queue to the nodes collection
-            // ...
-            if is_ins {
-              deltas.push(SceneInnerDelta::nodes(TreeMutation::Delete(id)));
-            }
-          }
-        }
-        futures::stream::iter(deltas)
-      })
-      .flatten();
+      .map(MixSceneDelta::models);
 
     // the other change stream
     let other_stuff = broad_cast
       .fork_stream()
       .filter_map_sync(|delta| match &delta {
-        SceneInnerDelta::models(_) => None,
+        MixSceneDelta::models(_) => None,
         _ => Some(delta),
       });
 
