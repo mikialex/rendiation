@@ -104,23 +104,19 @@ pub fn mix_scene_folding(
     //
     match &delta {
       MixSceneDelta::background(bg) => {
-        SceneInnerDelta::background(bg.clone()).apply_modify(&s);
+        s.set_background(bg.clone().map(merge_maybe));
       }
       MixSceneDelta::default_camera(_) => {}
       MixSceneDelta::active_camera(camera) => {
-        let mapped_camera = camera
-          .as_ref()
-          .map(merge_maybe_ref)
-          .map(|camera| {
-            let mapped_camera = camera_handle_map.entry(camera.guid()).or_insert_with(|| {
-              let new = transform_camera_node(camera, &rebuilder);
-              s.insert_camera(new)
-            });
-            s.read().cameras.get(*mapped_camera).unwrap().clone()
-          })
-          .map(MaybeDelta::All);
+        let mapped_camera = camera.as_ref().map(merge_maybe_ref).map(|camera| {
+          let mapped_camera = camera_handle_map.entry(camera.guid()).or_insert_with(|| {
+            let new = transform_camera_node(camera, &rebuilder);
+            s.insert_camera(new)
+          });
+          s.read().cameras.get(*mapped_camera).unwrap().clone()
+        });
 
-        SceneInnerDelta::active_camera(mapped_camera).apply_modify(&s);
+        s.set_active_camera(mapped_camera);
       }
       MixSceneDelta::cameras(camera) => match camera {
         ContainerRefRetainContentDelta::Remove(camera) => {
@@ -163,7 +159,7 @@ pub fn mix_scene_folding(
         }
       },
       MixSceneDelta::ext(ext) => {
-        SceneInnerDelta::ext(ext.clone()).apply_modify(&s);
+        s.update_ext(ext.clone());
       }
     }
 
@@ -329,7 +325,7 @@ fn add_watch_origin_scene_change(rebuilder: &ShareableRebuilder, source_node: &S
               assert!(rebuilder
                 .try_get_original_node_guid(scene_guid, *parent_target)
                 .is_none());
-              rebuilder.handle_attach(node_guid, *node, *parent_target, &source_collection);
+              rebuilder.handle_attach(node_guid, *parent_target, &source_collection);
             }
           }
           tree::TreeMutation::Detach { node } => {
@@ -396,7 +392,6 @@ impl SceneRebuilder {
   fn handle_attach(
     &mut self,
     child_guid: NodeGuid,
-    self_id: NodeArenaIndex,
     parent_id: NodeArenaIndex,
     source_nodes: &SceneNodeCollection,
   ) {
@@ -408,7 +403,7 @@ impl SceneRebuilder {
 
     self.check_insert_and_update_parents_entity_ref_count(
       source_nodes,
-      self_id,
+      parent_id,
       child_sub_tree_entity_ref_count,
       false,
     );

@@ -22,4 +22,19 @@ pub trait PollUtils: Stream + Unpin {
     self.loop_poll_until_pending(cx, |_| counter += 1);
     counter
   }
+
+  fn consume_self_get_next(mut self) -> Option<Self::Item>
+  where
+    Self: Sized,
+  {
+    let waker = futures::task::noop_waker_ref();
+    let mut cx = Context::from_waker(waker);
+    if let Poll::Ready(r) = self.poll_next_unpin(&mut cx) {
+      r
+    } else {
+      None
+    }
+  }
 }
+
+impl<T> PollUtils for T where T: Stream + Unpin {}

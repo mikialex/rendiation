@@ -12,7 +12,7 @@ pub type SceneCameraHandle = Handle<SceneCamera>;
 pub struct SceneInner {
   pub background: Option<SceneBackGround>,
 
-  pub default_camera: SceneCamera,
+  pub _default_camera: SceneCamera,
   pub active_camera: Option<SceneCamera>,
 
   /// All cameras in the scene
@@ -68,13 +68,13 @@ impl SceneInner {
     let default_camera = PerspectiveProjection::default();
     let default_camera = CameraProjector::Perspective(default_camera);
     let camera_node = root.create_child();
-    let default_camera = SceneCamera::create(default_camera, camera_node);
+    let _default_camera = SceneCamera::create(default_camera, camera_node);
 
     let scene = Self {
       nodes,
       root,
       background: None,
-      default_camera,
+      _default_camera,
       cameras: Arena::new(),
       lights: Arena::new(),
       models: Arena::new(),
@@ -210,6 +210,14 @@ impl Scene {
       scene.trigger_change_but_not_apply(delta);
     })
   }
+
+  pub fn update_ext(&self, delta: DeltaOf<DynamicExtension>) {
+    self.mutate(|mut scene| unsafe {
+      let s = scene.get_mut_ref();
+      s.ext.apply(delta.clone()).unwrap();
+      scene.trigger_change_but_not_apply(delta.wrap(SceneInnerDelta::ext));
+    })
+  }
 }
 
 #[allow(non_camel_case_types)]
@@ -247,30 +255,10 @@ impl IncrementalBase for SceneInner {
     use SceneInnerDelta::*;
     self.nodes.expand(|d| cb(nodes(d)));
     self.background.expand(|d| cb(background(d)));
-    // self.default_camera.expand(|d| cb(default_camera(d)));
     self.active_camera.expand(|d| cb(active_camera(d)));
     self.cameras.expand(|d| cb(cameras(d)));
     self.lights.expand(|d| cb(lights(d)));
     self.models.expand(|d| cb(models(d)));
     self.ext.expand(|d| cb(ext(d)));
-  }
-}
-
-impl ApplicableIncremental for SceneInner {
-  type Error = ();
-
-  fn apply(&mut self, delta: Self::Delta) -> Result<(), Self::Error> {
-    match delta {
-      SceneInnerDelta::background(delta) => self.background.apply(delta).unwrap(),
-      // SceneInnerDelta::default_camera(delta) => self.default_camera.apply(delta).unwrap(),
-      SceneInnerDelta::active_camera(delta) => self.active_camera.apply(delta).unwrap(),
-      SceneInnerDelta::cameras(delta) => self.cameras.apply(delta).unwrap(),
-      SceneInnerDelta::lights(delta) => self.lights.apply(delta).unwrap(),
-      SceneInnerDelta::models(delta) => self.models.apply(delta).unwrap(),
-      SceneInnerDelta::ext(ext) => self.ext.apply(ext).unwrap(),
-      SceneInnerDelta::nodes(_) => {} // should handle other place
-      _ => {}
-    }
-    Ok(())
   }
 }

@@ -46,6 +46,25 @@ pub enum AttributeDynPrimitive {
   Triangle(Triangle<Vec3<f32>>),
 }
 
+impl SpaceEntity<f32, 3> for AttributeDynPrimitive {
+  type Matrix = Mat4<f32>;
+
+  fn apply_matrix(&mut self, mat: Self::Matrix) -> &mut Self {
+    match self {
+      AttributeDynPrimitive::Points(v) => {
+        v.apply_matrix(mat);
+      }
+      AttributeDynPrimitive::LineSegment(v) => {
+        v.apply_matrix(mat);
+      }
+      AttributeDynPrimitive::Triangle(v) => {
+        v.apply_matrix(mat);
+      }
+    }
+    self
+  }
+}
+
 impl IntersectAble<Ray3, OptionalNearest<HitPoint3D>, MeshBufferIntersectConfig>
   for AttributeDynPrimitive
 {
@@ -58,6 +77,16 @@ impl IntersectAble<Ray3, OptionalNearest<HitPoint3D>, MeshBufferIntersectConfig>
       AttributeDynPrimitive::Points(v) => v.intersect(other, param),
       AttributeDynPrimitive::LineSegment(v) => v.intersect(other, param),
       AttributeDynPrimitive::Triangle(v) => v.intersect(other, param),
+    }
+  }
+}
+
+impl SpaceBounding<f32, Box3, 3> for AttributeDynPrimitive {
+  fn to_bounding(&self) -> Box3 {
+    match self {
+      AttributeDynPrimitive::Points(v) => v.to_bounding(),
+      AttributeDynPrimitive::LineSegment(v) => v.to_bounding(),
+      AttributeDynPrimitive::Triangle(v) => v.to_bounding(),
     }
   }
 }
