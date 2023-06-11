@@ -84,7 +84,7 @@ pub struct GPUSamplerDescriptor {
   /// If this is enabled, this is a comparison sampler using the given comparison function.
   pub compare: Option<CompareFunction>,
   /// Valid values: 1, 2, 4, 8, and 16.
-  pub anisotropy_clamp: Option<NonZeroU8>,
+  pub anisotropy_clamp: u16,
   /// Border color to use when address_mode is [`AddressMode::ClampToBorder`]
   pub border_color: Option<SamplerBorderColor>,
 }

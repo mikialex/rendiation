@@ -32,7 +32,6 @@ use std::{
 };
 
 use __core::hash::Hasher;
-use __core::num::NonZeroU32;
 use __core::{
   pin::Pin,
   task::{Context, Poll},

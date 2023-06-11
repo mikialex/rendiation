@@ -76,7 +76,7 @@ pub trait WebGPU2DTextureSource: Send + Sync {
   fn as_bytes(&self) -> &[u8];
   fn size(&self) -> Size;
   fn bytes_per_pixel(&self) -> usize {
-    self.format().describe().block_size as usize
+    self.format().block_size(None).unwrap() as usize
   }
 
   fn bytes_per_row_usize(&self) -> usize {
@@ -84,11 +84,8 @@ pub trait WebGPU2DTextureSource: Send + Sync {
     width * self.bytes_per_pixel()
   }
 
-  fn bytes_per_row(&self) -> std::num::NonZeroU32 {
-    std::num::NonZeroU32::new(
-      Into::<usize>::into(self.size().width) as u32 * self.bytes_per_pixel() as u32,
-    )
-    .unwrap()
+  fn bytes_per_row(&self) -> u32 {
+    Into::<usize>::into(self.size().width) as u32 * self.bytes_per_pixel() as u32
   }
 
   fn gpu_size(&self) -> gpu::Extent3d {

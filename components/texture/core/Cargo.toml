@@ -10,4 +10,4 @@ incremental = {path = "../../../utils/incremental"}
 rendiation-algebra = {path = "../../../math/algebra"}
 rendiation-geometry = {path = "../../../math/geometry"}
 rendiation-texture-types = {path = "../types"}
-wgpu-types = "0.15.0"
+wgpu-types = "0.16.0"
