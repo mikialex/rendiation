@@ -1,0 +1,16 @@
+[package]
+authors = ["MikiAlex <18516340862@163.com>"]
+edition = "2021"
+name = "rendiation-vulkan"
+version = "0.1.0"
+
+[dependencies]
+ash = {version = "0.37", features = ["linked"]}
+ash-window = "0.12"
+raw-window-handle = "0.5"
+winit = {version = "0.27.1"}
+
+anyhow = "1.0"
+log = "0.4"
+simple_logger = "4.0"
+thiserror = "1.0"

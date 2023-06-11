@@ -41,6 +41,7 @@ members = [
   "scene/io/gltf/loader",
   "viewer",
   "platform/graphics/webgpu",
+  "platform/graphics/vulkan",
 ]
 
 # https://doc.rust-lang.org/nightly/cargo/reference/features.html#feature-resolver-version-2
