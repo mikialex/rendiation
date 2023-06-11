@@ -3,8 +3,8 @@ use ash::Entry;
 use rendiation_vulkan::*;
 
 fn main() -> Result<()> {
-  // Vulkan instance
   let entry = Entry::linked();
+
   let vk_version = Version {
     major: 1,
     minor: 3,
