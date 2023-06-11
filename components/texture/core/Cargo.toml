@@ -6,11 +6,8 @@ version = "0.1.0"
 
 [dependencies]
 image = "*"
+incremental = {path = "../../../utils/incremental"}
 rendiation-algebra = {path = "../../../math/algebra"}
 rendiation-geometry = {path = "../../../math/geometry"}
 rendiation-texture-types = {path = "../types"}
-rendiation-webgpu = {path = "../../../webgpu", optional = true}
-incremental = {path = "../../../utils/incremental"}
-
-[features]
-webgpu = ["rendiation-webgpu"]
+wgpu-types = "0.15.0"

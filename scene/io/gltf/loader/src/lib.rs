@@ -1,8 +1,8 @@
 #![feature(local_key_cell_methods)]
 
 use core::num::NonZeroU64;
+use std::collections::HashMap;
 use std::path::Path;
-use std::{collections::HashMap, sync::Arc};
 
 use gltf::{Node, Result as GltfResult};
 use rendiation_algebra::*;
@@ -14,10 +14,10 @@ use rendiation_scene_core::{
   SceneTexture2D, SceneTexture2DType, Skeleton, SkeletonImpl, StandardModel,
   Texture2DWithSamplingData, TextureWithSamplingData, UnTypedBufferView,
 };
-use webgpu::{TextureFormat, WebGPU2DTextureSource};
 
 mod convert_utils;
 use convert_utils::*;
+use rendiation_texture::{create_padding_buffer, GPUBufferImage, TextureFormat};
 
 pub fn load_gltf(path: impl AsRef<Path>, scene: &Scene) -> GltfResult<GltfLoadResult> {
   let scene_inner = scene.read();
@@ -330,27 +330,6 @@ fn build_pbr_material(
   result
 }
 
-#[derive(Debug, Clone)]
-pub struct GltfImage {
-  data: Vec<u8>,
-  format: webgpu::TextureFormat,
-  size: rendiation_texture::Size,
-}
-
-impl WebGPU2DTextureSource for GltfImage {
-  fn format(&self) -> webgpu::TextureFormat {
-    self.format
-  }
-
-  fn as_bytes(&self) -> &[u8] {
-    self.data.as_slice()
-  }
-
-  fn size(&self) -> rendiation_texture::Size {
-    self.size
-  }
-}
-
 // i assume all gpu use little endian?
 const F16_BYTES: [u8; 2] = half::f16::from_f32_const(1.0).to_le_bytes();
 
@@ -374,22 +353,15 @@ fn build_image(data_input: gltf::image::Data) -> SceneTexture2D {
     gltf::image::Format::R16G16B16 => (3 * 2, F16_BYTES.as_slice()).into(),
     _ => None,
   } {
-    data_input
-      .pixels
-      .chunks(read_bytes)
-      .flat_map(|c| [c, pad_bytes])
-      .flatten()
-      .copied()
-      .collect()
+    create_padding_buffer(&data_input.pixels, read_bytes, pad_bytes)
   } else {
     data_input.pixels
   };
 
   let size = rendiation_texture::Size::from_u32_pair_min_one((data_input.width, data_input.height));
 
-  let image = GltfImage { data, format, size };
-  let image: Box<dyn WebGPU2DTextureSource> = Box::new(image);
-  let image = SceneTexture2DType::Foreign(Arc::new(image));
+  let image = GPUBufferImage { data, format, size };
+  let image = SceneTexture2DType::GPUBufferImage(image);
   SceneTexture2D::new(image)
 }
 

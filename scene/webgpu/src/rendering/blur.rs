@@ -96,7 +96,7 @@ impl<'a, T> ShaderPassBuilder for LinearBlurTask<'a, T> {
     ctx.binding.bind(&self.weights.weights, SB::Material);
     ctx.binding.bind(&self.weights.weight_count, SB::Material);
     ctx.binding.bind(&self.input, SB::Material);
-    ctx.bind_immediate_sampler(&TextureSampler::default(), SB::Material);
+    ctx.bind_immediate_sampler(&TextureSampler::default().into_gpu(), SB::Material);
   }
 }
 

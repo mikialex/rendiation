@@ -13,4 +13,3 @@ rendiation-renderable-mesh = {path = "../../../../components/mesh/renderable"}
 rendiation-scene-core = {path = "../../../core"}
 rendiation-texture = {path = "../../../../components/texture/core"}
 shadergraph = {path = "../../../../shader/graph"}
-webgpu = {package = "rendiation-webgpu", path = "../../../../webgpu"}

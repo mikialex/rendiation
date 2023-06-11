@@ -7,14 +7,14 @@ version = "0.1.0"
 [dependencies]
 bytemuck = {version = "1.4.1", features = ["derive"]}
 futures = "0.3.25"
-rendiation-texture-types = {path = "../components/texture/types"}
-shadergraph = {path = "../shader/graph"}
+reactive = {path = "../../../utils/reactive"}
+rendiation-algebra = {path = "../../../math/algebra"}
+rendiation-texture-types = {path = "../../../components/texture/types"}
+shadergraph = {path = "../../../shader/graph"}
 typed-arena = "2.0.1"
 wgpu = "0.15"
-wgsl-codegen-graph = {path = "../shader/language/wgsl/codegen-graph"}
+wgsl-codegen-graph = {path = "../../../shader/language/wgsl/codegen-graph"}
 winit = {version = "0.27.1"}
-reactive = {path = "../utils/reactive"}
-rendiation-algebra = {path = "../math/algebra"}
 
 [features]
 webgl = ["wgpu/webgl"]

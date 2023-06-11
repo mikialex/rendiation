@@ -159,13 +159,14 @@ wgsl_fn!(
 
 impl<'a> ShaderPassBuilder for TAAResolver<'a> {
   fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
-    ctx.bind_immediate_sampler(&TextureSampler::default(), SB::Material);
+    ctx.bind_immediate_sampler(&TextureSampler::default().into_gpu(), SB::Material);
     ctx.bind_immediate_sampler(
       &TextureSampler {
         min_filter: rendiation_texture::FilterMode::Linear,
         mag_filter: rendiation_texture::FilterMode::Linear,
         ..Default::default()
-      },
+      }
+      .into_gpu(),
       SB::Material,
     );
     ctx.binding.bind(&self.history, SB::Material);

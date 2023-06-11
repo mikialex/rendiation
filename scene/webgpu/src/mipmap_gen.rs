@@ -165,7 +165,7 @@ struct Mipmap2DGeneratorTask<'a> {
 impl<'a> ShaderPassBuilder for Mipmap2DGeneratorTask<'a> {
   fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
     ctx.binding.bind(&self.view, SB::Pass);
-    ctx.bind_immediate_sampler(&TextureSampler::default(), SB::Pass);
+    ctx.bind_immediate_sampler(&TextureSampler::default().into_gpu(), SB::Pass);
   }
 }
 

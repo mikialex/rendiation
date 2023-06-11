@@ -20,7 +20,7 @@ rendiation-geometry = {path = "../math/geometry"}
 rendiation-renderable-mesh = {path = "../components/mesh/renderable"}
 rendiation-texture = {path = "../components/texture/core"}
 shadergraph = {path = "../shader/graph"}
-webgpu = {package = "rendiation-webgpu", path = "../webgpu"}
+webgpu = {package = "rendiation-webgpu", path = "../platform/graphics/webgpu"}
 winit = {version = "0.27.1"}
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]

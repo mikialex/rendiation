@@ -71,7 +71,7 @@ impl GPU2DTexture {
   }
 }
 
-pub trait WebGPU2DTextureSource: Debug + Send + Sync {
+pub trait WebGPU2DTextureSource: Send + Sync {
   fn format(&self) -> gpu::TextureFormat;
   fn as_bytes(&self) -> &[u8];
   fn size(&self) -> Size;

@@ -1,5 +1,6 @@
 use rendiation_algebra::Vec2;
 use rendiation_texture_types::Size;
+use wgpu_types::TextureFormat;
 
 use crate::{Texture2D, Texture2dInitAble};
 
@@ -72,4 +73,25 @@ impl<P: Copy + Default> Texture2dInitAble for Texture2DBuffer<P> {
     unsafe { buffer.set_len(width * height * 4) };
     Self { data: buffer, size }
   }
+}
+
+#[derive(Debug, Clone)]
+pub struct GPUBufferImage {
+  pub data: Vec<u8>,
+  pub format: TextureFormat,
+  pub size: Size,
+}
+
+pub fn create_padding_buffer(
+  input: &[u8],
+  step_read_byte_count: usize,
+  step_pad_bytes: &[u8],
+) -> Vec<u8> {
+  // not checked the performance, maybe this could implemented in traditional way
+  input
+    .chunks(step_read_byte_count)
+    .flat_map(|c| [c, step_pad_bytes])
+    .flatten()
+    .copied()
+    .collect()
 }

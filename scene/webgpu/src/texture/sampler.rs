@@ -62,7 +62,7 @@ impl ShareBindableResourceCtx {
       let source = sampler.read();
       let source: TextureSampler = **source;
 
-      let gpu_sampler = GPUSampler::create(source.into(), &self.gpu.device);
+      let gpu_sampler = GPUSampler::create(source.into_gpu(), &self.gpu.device);
       let gpu_sampler = gpu_sampler.create_default_view();
 
       let gpu_sampler = ReactiveGPUSamplerSignal {
@@ -79,7 +79,7 @@ impl ShareBindableResourceCtx {
           let source = sampler.read();
           let source: TextureSampler = **source;
           // creation will cached in device side now
-          let gpu_sampler = GPUSampler::create(source.into(), &gpu_clone.device);
+          let gpu_sampler = GPUSampler::create(source.into_gpu(), &gpu_clone.device);
           let recreated = gpu_sampler.create_default_view();
 
           gpu_tex.gpu = recreated.clone();

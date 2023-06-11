@@ -2533,7 +2533,6 @@ dependencies = [
  "rendiation-renderable-mesh",
  "rendiation-scene-core",
  "rendiation-texture",
- "rendiation-webgpu",
  "shadergraph",
 ]
 
@@ -2609,7 +2608,7 @@ dependencies = [
  "rendiation-algebra",
  "rendiation-geometry",
  "rendiation-texture-types",
- "rendiation-webgpu",
+ "wgpu-types",
 ]
 
 [[package]]

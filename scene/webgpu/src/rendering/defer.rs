@@ -67,7 +67,7 @@ impl ShaderPassBuilder for MaterialDeferPassResult {
     ctx.binding.bind(&self.normal.read(), SB::Pass);
     ctx.binding.bind(&self.material1.read(), SB::Pass);
     ctx.binding.bind(&self.material2.read(), SB::Pass);
-    ctx.bind_immediate_sampler(&TextureSampler::default(), SB::Material);
+    ctx.bind_immediate_sampler(&TextureSampler::default().into_gpu(), SB::Material);
   }
 }
 

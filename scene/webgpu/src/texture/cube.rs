@@ -90,8 +90,9 @@ impl ShareBindableResourceCtx {
 
 impl ResourceGPUCtx {
   fn create_gpu_texture_cube(&self, tex: &SceneTextureCube) -> GPUCubeTextureView {
-    let texture = &tex.read();
-    if let Some(t) = as_2d_source(&texture.faces[0]) {
+    let texture = tex.read();
+    let first = as_2d_source(&texture.faces[0]);
+    if let Some(t) = &first {
       let source = &texture.faces;
       let desc = t.create_cube_desc(MipLevelCount::EmptyMipMap);
       let queue = &self.queue;
@@ -101,12 +102,12 @@ impl ResourceGPUCtx {
 
       #[rustfmt::skip]
       gpu_texture
-        .upload(queue, as_2d_source(&source[0]).unwrap(), CubeTextureFace::PositiveX, 0)
-        .upload(queue, as_2d_source(&source[1]).unwrap(), CubeTextureFace::NegativeX, 0)
-        .upload(queue, as_2d_source(&source[2]).unwrap(), CubeTextureFace::PositiveY, 0)
-        .upload(queue, as_2d_source(&source[3]).unwrap(), CubeTextureFace::NegativeY, 0)
-        .upload(queue, as_2d_source(&source[4]).unwrap(), CubeTextureFace::PositiveZ, 0)
-        .upload(queue, as_2d_source(&source[5]).unwrap(), CubeTextureFace::NegativeZ, 0)
+        .upload(queue, &as_2d_source(&source[0]).unwrap(), CubeTextureFace::PositiveX, 0)
+        .upload(queue, &as_2d_source(&source[1]).unwrap(), CubeTextureFace::NegativeX, 0)
+        .upload(queue, &as_2d_source(&source[2]).unwrap(), CubeTextureFace::PositiveY, 0)
+        .upload(queue, &as_2d_source(&source[3]).unwrap(), CubeTextureFace::NegativeY, 0)
+        .upload(queue, &as_2d_source(&source[4]).unwrap(), CubeTextureFace::PositiveZ, 0)
+        .upload(queue, &as_2d_source(&source[5]).unwrap(), CubeTextureFace::NegativeZ, 0)
         .create_default_view()
         .try_into()
         .unwrap()

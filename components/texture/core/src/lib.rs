@@ -21,15 +21,12 @@ pub mod io;
 pub use container::*;
 pub use io::*;
 pub mod container;
-#[cfg(feature = "webgpu")]
-mod webgpu;
 use image::ImageBuffer;
 pub use image::*;
 use incremental::*;
 use rendiation_algebra::{Lerp, Scalar, Vec2};
 pub use rendiation_texture_types::*;
-#[cfg(feature = "webgpu")]
-pub use webgpu::*;
+pub use wgpu_types::TextureFormat;
 
 pub trait Texture2D: Sized {
   type Pixel: Copy;
@@ -215,37 +212,3 @@ impl Texture2dInitAble for ImageBuffer<Rgba<u8>, Vec<u8>> {
     ImageBuffer::from_raw(width as u32, height as u32, buffer).unwrap()
   }
 }
-
-/// This mainly used for wrapper for foreign type trait impl
-pub struct Texture2DSource<T> {
-  pub inner: T,
-}
-
-impl<T> core::fmt::Debug for Texture2DSource<T> {
-  fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-    f.debug_struct("Texture2DSource")
-      .field("inner", &"raw data skipped")
-      .finish()
-  }
-}
-
-impl<T> Deref for Texture2DSource<T> {
-  type Target = T;
-
-  fn deref(&self) -> &Self::Target {
-    &self.inner
-  }
-}
-impl<T> DerefMut for Texture2DSource<T> {
-  fn deref_mut(&mut self) -> &mut Self::Target {
-    &mut self.inner
-  }
-}
-
-pub trait WrapAsTexture2DSource: Sized {
-  fn into_source(self) -> Texture2DSource<Self> {
-    Texture2DSource { inner: self }
-  }
-}
-
-impl<T: Texture2D> WrapAsTexture2DSource for T {}

@@ -1,6 +1,6 @@
 use std::fmt::Debug;
 
-use rendiation_texture::{Texture2DBuffer, TextureSampler};
+use rendiation_texture::{GPUBufferImage, TextureSampler};
 
 use crate::*;
 
@@ -29,9 +29,7 @@ pub type SceneTexture2D = SceneItemRef<SceneTexture2DType>;
 #[non_exhaustive]
 #[derive(Clone)]
 pub enum SceneTexture2DType {
-  RGBAu8(Texture2DBuffer<Vec4<u8>>),
-  RGBu8(Texture2DBuffer<Vec3<u8>>),
-  RGBAf32(Texture2DBuffer<Vec4<f32>>),
+  GPUBufferImage(GPUBufferImage),
   Foreign(Arc<dyn Any + Send + Sync>),
 }
 
