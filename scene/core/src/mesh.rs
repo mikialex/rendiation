@@ -55,7 +55,7 @@ pub struct TransformInstancedSceneMesh {
 clone_self_incremental!(TransformInstancedSceneMesh);
 
 /// Vertex attribute semantic name.
-#[derive(Copy, Clone, Debug, Eq, Hash, PartialEq)]
+#[derive(Copy, Clone, Debug, Eq, Hash, PartialEq, PartialOrd, Ord)]
 pub enum AttributeSemantic {
   /// XYZ vertex positions.
   Positions,

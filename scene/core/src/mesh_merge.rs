@@ -1,6 +1,5 @@
-use std::collections::HashSet;
-
 use rendiation_renderable_mesh::{MeshGroup, MeshGroupsInfo, PrimitiveTopology};
+use smallvec::SmallVec;
 
 use crate::*;
 
@@ -26,7 +25,7 @@ pub fn merge(
     .try_collect()
 }
 
-// todo  we should allow u16 merge to u32
+// we are not considering the u16 merge into u32, because the u16 is big enough to achieve our goal
 fn make_splitter() -> impl FnMut(Option<&&AttributesMesh>) -> bool {
   let mut current_vertex_count: u32 = 0;
   move |next_mesh| {
@@ -86,14 +85,18 @@ impl<'a, T, F: FnMut(Option<&T>) -> bool> Iterator for LookAheadSplit<'a, T, F> 
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct AttributeMeshMergeKey {
-  pub attributes: HashSet<AttributeSemantic>, // todo use on stack hash set?,
+  pub attributes: SmallVec<[AttributeSemantic; 3]>,
   pub indices: Option<IndexFormat>,
   pub mode: PrimitiveTopology,
 }
 
 pub fn compute_merge_key(att: &&AttributesMesh) -> AttributeMeshMergeKey {
+  let mut attributes: SmallVec<[AttributeSemantic; 3]> =
+    att.attributes.iter().map(|(k, _)| *k).collect();
+  attributes.sort();
+
   AttributeMeshMergeKey {
-    attributes: att.attributes.iter().map(|(k, _)| *k).collect(),
+    attributes,
     indices: att.indices.as_ref().map(|(f, _)| *f),
     mode: att.mode,
   }
@@ -174,7 +177,8 @@ fn merge_assume_all_suitable_and_fit(
     })
     .try_collect::<Vec<_>>()?;
 
-  let vertex_prefix_sum = prefix_scan(inputs.iter().map(|att| att.get_position().count));
+  let vertex_counts = inputs.iter().map(|att| att.get_position().count);
+  let vertex_prefix_sum: Vec<_> = prefix_scan::<UsizeSum>(vertex_counts).collect();
 
   let merged_indices = first
     .indices
@@ -221,32 +225,30 @@ fn merge_assume_all_suitable_and_fit(
 }
 
 /// https://en.wikipedia.org/wiki/Monoid
-/// todo move to math lib
-trait Monoid {
+trait MonoidBehavior {
+  type Value;
   /// Combines two monoids. This operation must be associative.
-  fn combine(&self, other: &Self) -> Self;
-  fn identity() -> Self;
+  fn combine(a: &Self::Value, b: &Self::Value) -> Self::Value;
+  fn identity() -> Self::Value;
 }
 
-impl Monoid for usize {
-  fn combine(&self, other: &Self) -> Self {
-    self + other
+struct UsizeSum;
+
+impl MonoidBehavior for UsizeSum {
+  type Value = usize;
+  fn combine(a: &Self::Value, b: &Self::Value) -> Self::Value {
+    a + b
   }
 
-  fn identity() -> Self {
+  fn identity() -> Self::Value {
     0
   }
 }
 
-// todo return iter
-fn prefix_scan<T: Monoid>(input: impl Iterator<Item = T>) -> Vec<T> {
-  let result = Vec::new();
-  let id = T::identity();
-
-  // todo improve
-  input.fold(result, |mut result, current| {
-    let last = result.last().unwrap_or(&id);
-    result.push(last.combine(&current));
-    result
+fn prefix_scan<T: MonoidBehavior>(
+  input: impl Iterator<Item = T::Value>,
+) -> impl Iterator<Item = T::Value> {
+  input.scan(T::identity(), |summed, next| {
+    T::combine(summed, &next).into()
   })
 }
