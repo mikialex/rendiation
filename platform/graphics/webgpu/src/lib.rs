@@ -7,6 +7,7 @@ mod binding;
 mod device;
 mod encoder;
 mod frame;
+#[allow(hidden_glob_reexports)] // why method name shadows mod name??
 mod pass;
 mod pipeline;
 mod queue;

@@ -33,8 +33,8 @@ fn make_splitter() -> impl FnMut(Option<&&AttributesMesh>) -> bool {
       let next_vertex_count = next_mesh.get_position().count;
       if let Some((fmt, _)) = &next_mesh.indices {
         let max = match fmt {
-          IndexFormat::Uint16 => u16::MAX as u32,
-          IndexFormat::Uint32 => u32::MAX,
+          AttributeIndexFormat::Uint16 => u16::MAX as u32,
+          AttributeIndexFormat::Uint32 => u32::MAX,
         };
 
         if max - current_vertex_count <= next_vertex_count as u32 {
@@ -86,7 +86,7 @@ impl<'a, T, F: FnMut(Option<&T>) -> bool> Iterator for LookAheadSplit<'a, T, F> 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct AttributeMeshMergeKey {
   pub attributes: SmallVec<[AttributeSemantic; 3]>,
-  pub indices: Option<IndexFormat>,
+  pub indices: Option<AttributeIndexFormat>,
   pub mode: PrimitiveTopology,
 }
 
@@ -194,8 +194,12 @@ fn merge_assume_all_suitable_and_fit(
       let index_reducer_32 = |group_id, i: &u32| vertex_prefix_sum[group_id] as u32 + *i;
 
       let merged = match format {
-        IndexFormat::Uint16 => merge_attribute_accessor::<u16>(&to_merge, index_reducer_16),
-        IndexFormat::Uint32 => merge_attribute_accessor::<u32>(&to_merge, index_reducer_32),
+        AttributeIndexFormat::Uint16 => {
+          merge_attribute_accessor::<u16>(&to_merge, index_reducer_16)
+        }
+        AttributeIndexFormat::Uint32 => {
+          merge_attribute_accessor::<u32>(&to_merge, index_reducer_32)
+        }
       }
       .ok_or(MergeError::AttributeDataAccessFailed)?;
       Ok((*format, merged))

@@ -120,7 +120,7 @@ macro_rules! impl_index_operators {
       type Output = $Output;
 
       #[inline]
-      fn index<'a>(&'a self, i: $I) -> &'a $Output {
+      fn index(&self, i: $I) -> &$Output {
         let v: &[$S; $n] = self.as_ref();
         &v[i]
       }
@@ -128,7 +128,7 @@ macro_rules! impl_index_operators {
 
     impl<$S> std::ops::IndexMut<$I> for $VectorN<$S> {
       #[inline]
-      fn index_mut<'a>(&'a mut self, i: $I) -> &'a mut $Output {
+      fn index_mut(&mut self, i: $I) -> &mut $Output {
         let v: &mut [$S; $n] = self.as_mut();
         &mut v[i]
       }

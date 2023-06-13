@@ -112,7 +112,7 @@ impl Default for SceneNodeDataImpl {
   fn default() -> Self {
     Self {
       visible: true,
-      local_matrix: Mat4::one(),
+      local_matrix: Mat4::identity(),
     }
   }
 }

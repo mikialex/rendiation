@@ -7,8 +7,8 @@ use std::path::Path;
 use gltf::{Node, Result as GltfResult};
 use rendiation_algebra::*;
 use rendiation_scene_core::{
-  AnimationSampler, AttributeAccessor, AttributesMesh, BufferViewRange, GeometryBuffer,
-  GeometryBufferInner, IndexFormat, IntoSceneItemRef, Joint, ModelType, NormalMapping,
+  AnimationSampler, AttributeAccessor, AttributeIndexFormat, AttributesMesh, BufferViewRange,
+  GeometryBuffer, GeometryBufferInner, IntoSceneItemRef, Joint, ModelType, NormalMapping,
   PhysicalMetallicRoughnessMaterial, Scene, SceneAnimation, SceneAnimationChannel,
   SceneMaterialType, SceneMeshType, SceneModel, SceneModelHandle, SceneModelImpl, SceneNode,
   SceneTexture2D, SceneTexture2DType, Skeleton, SkeletonImpl, StandardModel,
@@ -127,8 +127,8 @@ fn build_model(
 
   let indices = primitive.indices().map(|indices| {
     let format = match indices.data_type() {
-      gltf::accessor::DataType::U16 => IndexFormat::Uint16,
-      gltf::accessor::DataType::U32 => IndexFormat::Uint32,
+      gltf::accessor::DataType::U16 => AttributeIndexFormat::Uint16,
+      gltf::accessor::DataType::U32 => AttributeIndexFormat::Uint32,
       _ => unreachable!(),
     };
     (format, build_accessor(indices, ctx))
@@ -200,7 +200,7 @@ fn build_skin(skin: gltf::Skin, ctx: &mut Context) {
         .get(&joint_node.index())
         .unwrap()
         .clone(),
-      bind_inverse: Mat4::one(),
+      bind_inverse: Mat4::identity(),
     })
     .collect();
 

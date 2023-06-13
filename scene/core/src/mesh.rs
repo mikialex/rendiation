@@ -191,7 +191,7 @@ impl AttributeAccessor {
 
 #[repr(C)]
 #[derive(Copy, Clone, Debug, Hash, Eq, PartialEq)]
-pub enum IndexFormat {
+pub enum AttributeIndexFormat {
   /// Indices are 16 bit unsigned integers.
   Uint16 = 0,
   /// Indices are 32 bit unsigned integers.
@@ -203,7 +203,7 @@ clone_self_incremental!(AttributesMesh);
 #[derive(Clone)]
 pub struct AttributesMesh {
   pub attributes: Vec<(AttributeSemantic, AttributeAccessor)>,
-  pub indices: Option<(IndexFormat, AttributeAccessor)>,
+  pub indices: Option<(AttributeIndexFormat, AttributeAccessor)>,
   pub mode: PrimitiveTopology,
   pub groups: MeshGroupsInfo,
 }

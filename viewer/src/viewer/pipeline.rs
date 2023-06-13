@@ -124,7 +124,7 @@ impl ViewerPipeline {
       &scene_result,
       &scene_depth,
       ctx,
-      &camera_gpu
+      camera_gpu
     );
     drop(cameras);
 

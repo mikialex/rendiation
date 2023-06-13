@@ -176,7 +176,7 @@ impl AsRef<Self> for SceneCameraInner {
 
 impl SceneCameraInner {
   pub fn compute_project_mat(&self) -> Mat4<f32> {
-    let mut mat = Mat4::one();
+    let mut mat = Mat4::identity();
     self.projection.update_projection(&mut mat);
     mat
   }

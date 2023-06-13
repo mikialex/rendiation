@@ -21,7 +21,6 @@ pub mod io;
 pub use container::*;
 pub use io::*;
 pub mod container;
-use image::ImageBuffer;
 pub use image::*;
 use incremental::*;
 use rendiation_algebra::{Lerp, Scalar, Vec2};

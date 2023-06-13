@@ -59,7 +59,7 @@ pub struct NormalizedGlyphRasterInfo {
   offset_over_tolerance: (u16, u16),
 }
 
-#[allow(clippy::derive_hash_xor_eq)]
+#[allow(clippy::derived_hash_with_manual_eq)]
 impl core::hash::Hash for GlyphRasterInfo {
   fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
     unsafe {
