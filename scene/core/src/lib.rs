@@ -1,6 +1,7 @@
 #![feature(type_alias_impl_trait)]
 #![feature(stmt_expr_attributes)]
 #![allow(incomplete_features)]
+#![feature(iterator_try_collect)]
 #![feature(return_position_impl_trait_in_trait)]
 #![feature(let_chains)]
 
@@ -17,6 +18,8 @@ pub mod mesh;
 pub use mesh::*;
 pub mod mesh_picking;
 pub use mesh_picking::*;
+pub mod mesh_merge;
+pub use mesh_merge::*;
 
 pub mod material;
 pub use material::*;
