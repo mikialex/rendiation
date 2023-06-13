@@ -101,7 +101,7 @@ pub struct BufferViewRange {
 pub struct UnTypedBufferView {
   pub buffer: GeometryBuffer,
   pub range: BufferViewRange,
-  // todo byteStride support https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#buffers-and-buffer-views
+  // pub byte_stride: Option<usize>, todo
 }
 
 impl UnTypedBufferView {
@@ -187,6 +187,7 @@ pub struct AttributesMesh {
   pub attributes: Vec<(AttributeSemantic, AttributeAccessor)>,
   pub indices: Option<(IndexFormat, AttributeAccessor)>,
   pub mode: PrimitiveTopology,
+  pub groups: MeshGroupsInfo,
 }
 
 impl AttributesMesh {

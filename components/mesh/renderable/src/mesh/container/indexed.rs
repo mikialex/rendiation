@@ -312,7 +312,7 @@ where
 
   #[inline(always)]
   fn primitive_count(&self) -> usize {
-    (self.index.len() - T::STRIDE) / T::STEP + 1
+    (self.index.len() + T::STEP - T::STRIDE) / T::STEP
   }
 
   #[inline(always)]

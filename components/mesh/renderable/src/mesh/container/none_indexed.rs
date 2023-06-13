@@ -50,7 +50,7 @@ where
 
   #[inline(always)]
   fn primitive_count(&self) -> usize {
-    (self.data.len() - T::STRIDE) / T::STEP + 1
+    (self.data.len() + T::STEP - T::STRIDE) / T::STEP
   }
 
   #[inline(always)]

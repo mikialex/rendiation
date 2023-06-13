@@ -8,6 +8,8 @@ pub trait ShareCoreTree {
 
   fn recreate_handle(&self, index: usize) -> Self::Handle;
 
+  fn node_has_parent(&self, handle: Self::Handle) -> bool;
+
   fn visit_node_data<R>(&self, handle: Self::Handle, v: impl FnOnce(&Self::Node) -> R) -> R;
   fn mutate_node_data<R>(&self, handle: Self::Handle, v: impl FnOnce(&mut Self::Node) -> R) -> R;
 
@@ -28,6 +30,10 @@ impl<T: CoreTree> ShareCoreTree for RwLock<T> {
 
   fn recreate_handle(&self, index: usize) -> Self::Handle {
     self.read().unwrap().recreate_handle(index)
+  }
+
+  fn node_has_parent(&self, handle: Self::Handle) -> bool {
+    self.read().unwrap().node_has_parent(handle)
   }
 
   fn visit_node_data<R>(&self, handle: Self::Handle, v: impl FnOnce(&Self::Node) -> R) -> R {

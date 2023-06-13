@@ -15,6 +15,7 @@ fn test_instance() {
     attributes: Default::default(),
     indices: Default::default(),
     mode: rendiation_renderable_mesh::PrimitiveTopology::LineList,
+    groups: Default::default(),
   }
   .into_ref();
   let mesh = SceneMeshType::AttributesMesh(mesh);

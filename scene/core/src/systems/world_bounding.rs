@@ -23,7 +23,7 @@ impl SceneModelWorldBoundingSystem {
       let d_sys = d_sys.clone();
       let world_mat_stream = model
         .unbound_listen_by(with_field!(SceneModelImpl => node))
-        .filter_map_sync(move |node| d_sys.create_world_matrix_stream(&node)) // todo check should use once forever pending
+        .filter_map_sync(move |node| d_sys.create_world_matrix_stream(&node))
         .flatten_signal();
 
       let local_box_stream = model

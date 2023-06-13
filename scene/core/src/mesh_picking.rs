@@ -102,7 +102,7 @@ impl AbstractMesh for AttributesMesh {
       self.get_position().count
     };
 
-    (count - self.mode.stride()) / self.mode.step() + 1
+    (count + self.mode.step() - self.mode.stride()) / self.mode.step()
   }
 
   fn primitive_at(&self, primitive_index: usize) -> Option<Self::Primitive> {
@@ -164,20 +164,23 @@ impl GPUConsumableMeshBuffer for AttributesMesh {
 impl IntersectAbleGroupedMesh for AttributesMesh {
   fn intersect_list_by_group(
     &self,
-    _ray: Ray3,
-    _conf: &MeshBufferIntersectConfig,
-    _result: &mut MeshBufferHitList,
-    _group: MeshDrawGroup,
+    ray: Ray3,
+    conf: &MeshBufferIntersectConfig,
+    result: &mut MeshBufferHitList,
+    group: MeshDrawGroup,
   ) {
+    let group = self.groups.get_group(group, self);
+    self.intersect_list(ray, conf, group, result);
   }
 
   fn intersect_nearest_by_group(
     &self,
-    _ray: Ray3,
-    _conf: &MeshBufferIntersectConfig,
-    _group: MeshDrawGroup,
+    ray: Ray3,
+    conf: &MeshBufferIntersectConfig,
+    group: MeshDrawGroup,
   ) -> OptionalNearest<MeshBufferHitPoint> {
-    OptionalNearest::none()
+    let group = self.groups.get_group(group, self);
+    self.intersect_nearest(ray, conf, group)
   }
 }
 

@@ -140,6 +140,7 @@ fn build_model(
     attributes,
     indices,
     mode,
+    groups: Default::default(),
   };
   let mesh = SceneMeshType::AttributesMesh(mesh.into());
 
@@ -239,6 +240,7 @@ fn build_data_view(view: gltf::buffer::View, ctx: &mut Context) -> UnTypedBuffer
           offset: view.offset() as u64,
           size: NonZeroU64::new(view.length() as u64),
         },
+        // byte_stride: view.stride(),
       }
     })
     .clone()
