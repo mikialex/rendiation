@@ -21,16 +21,6 @@ macro_rules! debug_log {
   };
 }
 
-// data flow:
-
-// standard + standard => instance
-// standard + instance => instance
-// instance + instance => instance (not supported yet)
-
-// instance => standard
-// instance => instance + standard
-// instance => instance + instance (supported indirectly)
-
 pub struct AutoInstanceSystem {
   // maybe add some metrics collecting logic here?
 }
@@ -324,31 +314,28 @@ impl Stream for Transformer {
       require_rebuild = true
     });
 
-    batched.drain(..).for_each(|d| {
-      //
-      match d {
-        // handled insert here because we do not have any extra state to record insertion on the
-        // transformer
-        reactive::StreamMapDelta::Insert(_) => require_rebuild = true,
-        reactive::StreamMapDelta::Remove(_) => {}
-        reactive::StreamMapDelta::Delta(idx, d) => match d {
-          InstanceSourceIncrementalUpdate::WorldMat(_) => {
-            // should optimize later
-            require_rebuild = true;
+    batched.drain(..).for_each(|d| match d {
+      // handled insert here because we do not have any extra state to record insertion on the
+      // transformer
+      reactive::StreamMapDelta::Insert(_) => require_rebuild = true,
+      reactive::StreamMapDelta::Remove(_) => {}
+      reactive::StreamMapDelta::Delta(idx, d) => match d {
+        InstanceSourceIncrementalUpdate::WorldMat(_) => {
+          // should optimize later
+          require_rebuild = true;
+        }
+        InstanceSourceIncrementalUpdate::InstanceKeyChanged => {
+          let m = this.source_model.get(&idx).unwrap().clone();
+          if !to_recycle.iter().any(|model| model.guid() == m.guid()) {
+            to_recycle.push(m);
           }
-          InstanceSourceIncrementalUpdate::InstanceKeyChanged => {
-            let m = this.source_model.get(&idx).unwrap().clone();
-            if !to_recycle.iter().any(|model| model.guid() == m.guid()) {
-              to_recycle.push(m);
-            }
-            require_rebuild = true;
-          }
-          InstanceSourceIncrementalUpdate::Visibility => {
-            // should optimize later
-            require_rebuild = true;
-          }
-        },
-      }
+          require_rebuild = true;
+        }
+        InstanceSourceIncrementalUpdate::Visibility => {
+          // should optimize later
+          require_rebuild = true;
+        }
+      },
     });
 
     to_remove

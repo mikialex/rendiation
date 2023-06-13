@@ -2,6 +2,7 @@
 #![feature(hash_raw_entry)]
 #![feature(stmt_expr_attributes)]
 #![feature(type_alias_impl_trait)]
+#![feature(impl_trait_in_assoc_type)]
 #![allow(clippy::field_reassign_with_default)]
 #![allow(incomplete_features)]
 
@@ -55,7 +56,7 @@ use rendiation_algebra::*;
 use rendiation_renderable_mesh::group::MeshDrawGroup;
 use rendiation_renderable_mesh::mesh::*;
 pub use rendiation_scene_core::*;
-use rendiation_texture::{Size, TextureSampler};
+use rendiation_texture::TextureSampler;
 use shadergraph::*;
 pub use shading::*;
 pub use shadow::*;

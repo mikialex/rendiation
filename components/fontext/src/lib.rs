@@ -15,10 +15,10 @@ use rendiation_texture::{Size, Texture2D, Texture2DBuffer, TextureRange};
 use rendiation_texture_packer::etagere_wrap::EtagerePacker;
 use rendiation_texture_packer::{PackError, PackId, PackerConfig, RePackablePacker};
 
-pub mod text;
+mod text;
 pub use text::*;
 
-pub mod fonts;
+mod fonts;
 pub use fonts::*;
 
 #[cfg(feature = "glyph_brush_impl")]

@@ -19,6 +19,7 @@ pub enum SceneMeshType {
 
 clone_self_incremental!(SceneMeshType);
 
+// todo should use macro
 pub fn register_core_mesh_features<T>()
 where
   T: AsRef<dyn IntersectAbleGroupedMesh>
@@ -54,7 +55,7 @@ pub struct TransformInstancedSceneMesh {
 clone_self_incremental!(TransformInstancedSceneMesh);
 
 /// Vertex attribute semantic name.
-#[derive(Clone, Debug, Eq, Hash, PartialEq)]
+#[derive(Copy, Clone, Debug, Eq, Hash, PartialEq, PartialOrd, Ord)]
 pub enum AttributeSemantic {
   /// XYZ vertex positions.
   Positions,
@@ -105,15 +106,15 @@ pub struct UnTypedBufferView {
 }
 
 impl UnTypedBufferView {
-  pub fn visit_slice<T: bytemuck::Pod, R>(
+  pub fn visit_bytes<R>(
     &self,
     view_byte_offset: usize,
-    typed_count: usize,
-    visitor: impl FnOnce(&[T]) -> R,
+    visitor: impl FnOnce(&[u8]) -> R,
   ) -> Option<R> {
     let buffer = self.buffer.read();
     let byte_slice = buffer.buffer.as_slice();
     let offset = self.range.offset as usize + view_byte_offset;
+
     let byte_slice = if let Some(byte_size) = self.range.size {
       let byte_size = Into::<u64>::into(byte_size) as usize;
       byte_slice.get(offset..offset + byte_size)
@@ -121,9 +122,22 @@ impl UnTypedBufferView {
       byte_slice.get(offset..)
     }?;
 
-    let cast_slice = bytemuck::try_cast_slice(byte_slice).ok()?;
-    let slice = cast_slice.get(0..typed_count)?;
-    Some(visitor(slice))
+    Some(visitor(byte_slice))
+  }
+
+  pub fn visit_slice<T: bytemuck::Pod, R>(
+    &self,
+    view_byte_offset: usize,
+    typed_count: usize,
+    visitor: impl FnOnce(&[T]) -> R,
+  ) -> Option<R> {
+    self
+      .visit_bytes(view_byte_offset, |byte_slice| {
+        let cast_slice = bytemuck::try_cast_slice(byte_slice).ok()?;
+        let slice = cast_slice.get(0..typed_count)?;
+        Some(visitor(slice))
+      })
+      .flatten()
   }
 
   pub fn get<T: bytemuck::Pod>(
@@ -151,6 +165,10 @@ pub struct AttributeAccessor {
 }
 
 impl AttributeAccessor {
+  pub fn visit_bytes<R>(&self, visitor: impl FnOnce(&[u8]) -> R) -> Option<R> {
+    self.view.visit_bytes(self.byte_offset, visitor)
+  }
+
   pub fn visit_slice<T: bytemuck::Pod, R>(&self, visitor: impl FnOnce(&[T]) -> R) -> Option<R> {
     self.view.visit_slice(self.byte_offset, self.count, visitor)
   }
@@ -173,7 +191,7 @@ impl AttributeAccessor {
 
 #[repr(C)]
 #[derive(Copy, Clone, Debug, Hash, Eq, PartialEq)]
-pub enum IndexFormat {
+pub enum AttributeIndexFormat {
   /// Indices are 16 bit unsigned integers.
   Uint16 = 0,
   /// Indices are 32 bit unsigned integers.
@@ -185,19 +203,19 @@ clone_self_incremental!(AttributesMesh);
 #[derive(Clone)]
 pub struct AttributesMesh {
   pub attributes: Vec<(AttributeSemantic, AttributeAccessor)>,
-  pub indices: Option<(IndexFormat, AttributeAccessor)>,
+  pub indices: Option<(AttributeIndexFormat, AttributeAccessor)>,
   pub mode: PrimitiveTopology,
   pub groups: MeshGroupsInfo,
 }
 
 impl AttributesMesh {
+  pub fn get_attribute(&self, s: AttributeSemantic) -> Option<&AttributeAccessor> {
+    self.attributes.iter().find(|(k, _)| *k == s).map(|r| &r.1)
+  }
   pub fn get_position(&self) -> &AttributeAccessor {
-    let (_, position) = self
-      .attributes
-      .iter()
-      .find(|(k, _)| *k == AttributeSemantic::Positions)
-      .expect("position attribute should always exist");
-    position
+    self
+      .get_attribute(AttributeSemantic::Positions)
+      .expect("position attribute should always exist")
   }
 }
 

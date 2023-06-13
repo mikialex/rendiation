@@ -138,7 +138,7 @@ impl Gizmo {
     let rotation_y = y_lens.chain(rotation).chain(active_lens);
     let rotation_z = z_lens.chain(rotation).chain(active_lens);
 
-    let rotator_z = build_rotator(root, auto_scale, Mat4::one())
+    let rotator_z = build_rotator(root, auto_scale, Mat4::identity())
       .eventable::<GizmoState>()
       .update(update_torus(rotation_z, GREEN))
       .on(active(rotation_z));

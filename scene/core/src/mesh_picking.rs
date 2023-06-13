@@ -112,7 +112,7 @@ impl AbstractMesh for AttributesMesh {
      if let Some((fmt, index)) = &self.indices {
       self.get_position().visit_slice::<Vec3<f32>, Option<Self::Primitive>>(|position|{
         match fmt {
-          IndexFormat::Uint16 => {
+          AttributeIndexFormat::Uint16 => {
             index.visit_slice::<u16, Option<Self::Primitive>>(|index|{
               match self.mode{
                 PrimitiveTopology::PointList => AttributeDynPrimitive::Points(Point::from_data(&index, read_index)?.f_filter_map(|id|position.get(id as usize).copied())?),
@@ -123,7 +123,7 @@ impl AbstractMesh for AttributesMesh {
               }.into()
             }).flatten()
           },
-          IndexFormat::Uint32 => {
+          AttributeIndexFormat::Uint32 => {
             index.visit_slice::<u32, Option<Self::Primitive>>(|index|{
               match self.mode{
                 PrimitiveTopology::PointList => AttributeDynPrimitive::Points(Point::from_data(&index, read_index)?.f_filter_map(|id|position.get(id as usize).copied())?),

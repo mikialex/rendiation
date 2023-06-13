@@ -266,6 +266,8 @@ where
   for<'a> IndexView<'a, Self>: AbstractMesh<Primitive = T::Primitive<IU::Output>>,
   U: VertexContainer,
   IU: IndexContainer,
+  IU::Output: IndexType,
+  U::Output: Copy,
   T: PrimitiveTopologyMeta,
   T::Primitive<IU::Output>: Functor<Unwrapped: IndexType>,
 {
@@ -305,6 +307,7 @@ impl<'a, T> std::ops::Deref for IndexView<'a, T> {
 impl<'a, T, U, IU> AbstractMesh for IndexView<'a, IndexedMesh<T, U, IU>>
 where
   IU: IndexContainer,
+  IU::Output: IndexType,
   T: PrimitiveTopologyMeta,
   T::Primitive<IU::Output>: PrimitiveData<IU>,
 {

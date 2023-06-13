@@ -44,6 +44,7 @@ impl<T, U> AbstractMesh for NoneIndexedMesh<T, U>
 where
   T: PrimitiveTopologyMeta,
   U: VertexContainer,
+  U::Output: Copy,
   T::Primitive<U::Output>: PrimitiveData<U>,
 {
   type Primitive = T::Primitive<U::Output>;

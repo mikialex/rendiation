@@ -79,6 +79,8 @@
         "mipmap",
         "mipmaps",
         "miri",
+        "Monoid",
+        "monoids",
         "msaa",
         "multisample",
         "multisampled",

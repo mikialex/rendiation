@@ -29,7 +29,6 @@ pub use math::*;
 pub use model::*;
 use rendiation_algebra::*;
 pub use rendiation_scene_core::*;
-pub use rendiation_scene_core::*;
 pub use shape::*;
 use space_algorithm::{
   bvh::{FlattenBVH, SAH},

@@ -26,6 +26,7 @@ where
   for<'a> IndexView<'a, Self>: AbstractMesh<Primitive = Triangle<IU::Output>>,
   Self: AbstractMesh,
   IU: IndexContainer,
+  IU::Output: IndexType,
   U: Clone,
 {
   pub fn create_wireframe<RIU>(&self) -> IndexedMesh<LineList, U, RIU>
@@ -55,6 +56,8 @@ where
   Self: AbstractMesh<Primitive = Triangle<U::Output>>,
   U: VertexContainer + FromIterator<U::Output>,
   IU: IndexContainer,
+  IU::Output: IndexType,
+  U::Output: Copy,
   U::Output: Deref<Target = Vec3<f32>>,
 {
   /// maybe you should merge vertex before create edge
@@ -96,6 +99,8 @@ where
   for<'a> &'a IU: IntoIterator<Item = IU::Output>,
   for<'a> &'a U: IntoIterator<Item = &'a U::Output>,
   U: VertexContainer,
+  IU::Output: IndexType,
+  U::Output: Copy,
 {
   pub fn merge_vertex_by_sorting(
     &self,
@@ -136,6 +141,7 @@ where
 impl<T, U, IU> IndexedMesh<T, U, IU>
 where
   IU: IndexContainer,
+  IU::Output: IndexType,
   U: IndexGet + FromIterator<U::Output>,
   for<'a> &'a IU: IntoIterator<Item = IU::Output>,
 {
@@ -153,7 +159,7 @@ where
 impl<T, U> NoneIndexedMesh<T, U>
 where
   U: VertexContainer,
-  U::Output: HashAbleByConversion,
+  U::Output: HashAbleByConversion + Copy,
   for<'a> &'a U: IntoIterator<Item = &'a U::Output>,
   Self: AbstractMesh,
 {
