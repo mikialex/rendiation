@@ -106,6 +106,20 @@ pub struct UnTypedBufferView {
 }
 
 impl UnTypedBufferView {
+  pub fn read(&self) -> UnTypedBufferViewReadView {
+    UnTypedBufferViewReadView {
+      buffer: self.buffer.read(),
+      view: self,
+    }
+  }
+}
+
+pub struct UnTypedBufferViewReadView<'a> {
+  buffer: SceneItemRefGuard<'a, GeometryBufferInner>,
+  view: &'a UnTypedBufferView,
+}
+
+impl UnTypedBufferView {
   pub fn visit_bytes<R>(
     &self,
     view_byte_offset: usize,
@@ -164,7 +178,16 @@ pub struct AttributeAccessor {
   pub item_size: usize,
 }
 
+pub struct AttributeAccessorReadView<'a> {
+  view: UnTypedBufferViewReadView<'a>,
+  acc: &'a AttributeAccessor,
+}
+
 impl AttributeAccessor {
+  pub fn read(&self) -> AttributeAccessorReadView {
+    todo!()
+  }
+
   pub fn visit_bytes<R>(&self, visitor: impl FnOnce(&[u8]) -> R) -> Option<R> {
     self.view.visit_bytes(self.byte_offset, visitor)
   }
@@ -208,7 +231,18 @@ pub struct AttributesMesh {
   pub groups: MeshGroupsInfo,
 }
 
+pub struct AttributeMeshReadView<'a> {
+  pub attributes: Vec<(AttributeSemantic, AttributeAccessorReadView<'a>)>,
+  pub indices: Option<(AttributeIndexFormat, AttributeAccessorReadView<'a>)>,
+  pub mode: PrimitiveTopology,
+  pub groups: MeshGroupsInfo,
+}
+
 impl AttributesMesh {
+  pub fn read(&self) -> AttributeMeshReadView {
+    todo!()
+  }
+
   pub fn get_attribute(&self, s: AttributeSemantic) -> Option<&AttributeAccessor> {
     self.attributes.iter().find(|(k, _)| *k == s).map(|r| &r.1)
   }
