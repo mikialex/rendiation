@@ -91,8 +91,16 @@ impl SpaceBounding<f32, Box3, 3> for AttributeDynPrimitive {
   }
 }
 
+impl<'a> GPUConsumableMeshBuffer for AttributeMeshReadView<'a> {
+  fn draw_count(&self) -> usize {
+    self.mesh.draw_count()
+  }
+}
+
+/// we can not impl AbstractMesh for AttributeMesh because it contains interior mutability
+///
 /// this is slow, but not bloat the binary size.
-impl AbstractMesh for AttributesMesh {
+impl<'a> AbstractMesh for AttributeMeshReadView<'a> {
   type Primitive = AttributeDynPrimitive;
 
   fn primitive_count(&self) -> usize {
@@ -161,7 +169,7 @@ impl GPUConsumableMeshBuffer for AttributesMesh {
   }
 }
 
-impl IntersectAbleGroupedMesh for AttributesMesh {
+impl<'a> IntersectAbleGroupedMesh for AttributeMeshReadView<'a> {
   fn intersect_list_by_group(
     &self,
     ray: Ray3,
@@ -230,6 +238,7 @@ impl IntersectAbleGroupedMesh for SceneMeshType {
     match self {
       SceneMeshType::AttributesMesh(mesh) => mesh
         .read()
+        .read()
         .intersect_list_by_group(ray, conf, result, group),
       SceneMeshType::TransformInstanced(mesh) => mesh
         .read()
@@ -251,9 +260,10 @@ impl IntersectAbleGroupedMesh for SceneMeshType {
     group: MeshDrawGroup,
   ) -> OptionalNearest<MeshBufferHitPoint> {
     match self {
-      SceneMeshType::AttributesMesh(mesh) => {
-        mesh.read().intersect_nearest_by_group(ray, conf, group)
-      }
+      SceneMeshType::AttributesMesh(mesh) => mesh
+        .read()
+        .read()
+        .intersect_nearest_by_group(ray, conf, group),
       SceneMeshType::TransformInstanced(mesh) => {
         mesh.read().intersect_nearest_by_group(ray, conf, group)
       }

@@ -121,7 +121,7 @@ pub fn merge_attribute_accessor<T: bytemuck::Pod>(
 
   let mut buffer = Vec::with_capacity(byte_count);
   for (idx, acc) in inputs.iter().enumerate() {
-    acc.visit_slice::<T, _>(|s| {
+    acc.read().visit_slice::<T, _>(|s| {
       s.iter().for_each(|v| {
         buffer.extend(bytemuck::bytes_of(&mapper(idx, v)));
       })

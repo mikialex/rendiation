@@ -206,7 +206,7 @@ fn build_skin(skin: gltf::Skin, ctx: &mut Context) {
 
   if let Some(matrix_list) = skin.inverse_bind_matrices() {
     let matrix_list = build_accessor(matrix_list, ctx);
-    matrix_list.visit_slice::<Mat4<f32>, _>(|slice| {
+    matrix_list.read().visit_slice::<Mat4<f32>, _>(|slice| {
       slice
         .iter()
         .zip(joints.iter_mut())

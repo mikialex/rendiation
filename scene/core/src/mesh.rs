@@ -1,4 +1,5 @@
 use std::num::NonZeroU64;
+use std::ops::Deref;
 
 use futures::StreamExt;
 use reactive::once_forever_pending;
@@ -119,14 +120,21 @@ pub struct UnTypedBufferViewReadView<'a> {
   view: &'a UnTypedBufferView,
 }
 
-impl UnTypedBufferView {
+impl<'a> Deref for UnTypedBufferViewReadView<'a> {
+  type Target = UnTypedBufferView;
+
+  fn deref(&self) -> &Self::Target {
+    self.view
+  }
+}
+
+impl<'a> UnTypedBufferViewReadView<'a> {
   pub fn visit_bytes<R>(
     &self,
     view_byte_offset: usize,
     visitor: impl FnOnce(&[u8]) -> R,
   ) -> Option<R> {
-    let buffer = self.buffer.read();
-    let byte_slice = buffer.buffer.as_slice();
+    let byte_slice = self.buffer.buffer.as_slice();
     let offset = self.range.offset as usize + view_byte_offset;
 
     let byte_slice = if let Some(byte_size) = self.range.size {
@@ -183,11 +191,15 @@ pub struct AttributeAccessorReadView<'a> {
   acc: &'a AttributeAccessor,
 }
 
-impl AttributeAccessor {
-  pub fn read(&self) -> AttributeAccessorReadView {
-    todo!()
-  }
+impl<'a> Deref for AttributeAccessorReadView<'a> {
+  type Target = AttributeAccessor;
 
+  fn deref(&self) -> &Self::Target {
+    self.acc
+  }
+}
+
+impl<'a> AttributeAccessorReadView<'a> {
   pub fn visit_bytes<R>(&self, visitor: impl FnOnce(&[u8]) -> R) -> Option<R> {
     self.view.visit_bytes(self.byte_offset, visitor)
   }
@@ -197,6 +209,15 @@ impl AttributeAccessor {
   }
   pub fn get<T: bytemuck::Pod>(&self, index: usize) -> Option<T> {
     self.view.get(self.byte_offset, self.count, index)
+  }
+}
+
+impl AttributeAccessor {
+  pub fn read(&self) -> AttributeAccessorReadView {
+    AttributeAccessorReadView {
+      view: self.view.read(),
+      acc: self,
+    }
   }
 }
 
@@ -234,13 +255,42 @@ pub struct AttributesMesh {
 pub struct AttributeMeshReadView<'a> {
   pub attributes: Vec<(AttributeSemantic, AttributeAccessorReadView<'a>)>,
   pub indices: Option<(AttributeIndexFormat, AttributeAccessorReadView<'a>)>,
-  pub mode: PrimitiveTopology,
-  pub groups: MeshGroupsInfo,
+  pub mesh: &'a AttributesMesh,
+}
+
+impl<'a> Deref for AttributeMeshReadView<'a> {
+  type Target = AttributesMesh;
+
+  fn deref(&self) -> &Self::Target {
+    self.mesh
+  }
+}
+
+impl<'a> AttributeMeshReadView<'a> {
+  pub fn get_attribute(&self, s: AttributeSemantic) -> Option<&AttributeAccessorReadView> {
+    self.attributes.iter().find(|(k, _)| *k == s).map(|r| &r.1)
+  }
+  pub fn get_position(&self) -> &AttributeAccessorReadView {
+    self
+      .get_attribute(AttributeSemantic::Positions)
+      .expect("position attribute should always exist")
+  }
 }
 
 impl AttributesMesh {
   pub fn read(&self) -> AttributeMeshReadView {
-    todo!()
+    let attributes = self
+      .attributes
+      .iter()
+      .map(|(k, a)| (*k, a.read()))
+      .collect();
+    let indices = self.indices.as_ref().map(|(f, a)| (*f, a.read()));
+
+    AttributeMeshReadView {
+      attributes,
+      indices,
+      mesh: self,
+    }
   }
 
   pub fn get_attribute(&self, s: AttributeSemantic) -> Option<&AttributeAccessor> {
@@ -267,7 +317,11 @@ impl WatchableSceneMeshLocalBounding for SceneMeshType {
           .filter_map_sync(mesh.defer_weak())
           .map(|mesh| {
             let mesh = mesh.read();
-            let local: Box3 = mesh.primitive_iter().map(|p| p.to_bounding()).collect();
+            let local: Box3 = mesh
+              .read()
+              .primitive_iter()
+              .map(|p| p.to_bounding())
+              .collect();
             local.into()
           });
         Box::new(st) as Box<dyn Stream<Item = Option<Box3>> + Unpin>
