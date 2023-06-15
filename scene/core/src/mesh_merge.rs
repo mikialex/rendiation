@@ -173,7 +173,11 @@ fn merge_assume_all_suitable_and_fit(
     .try_collect::<Vec<_>>()?;
 
   let vertex_counts = inputs.iter().map(|att| att.get_position().count);
-  let vertex_prefix_sum: Vec<_> = prefix_scan::<UsizeSum>(vertex_counts).collect();
+  let mut vertex_prefix_offset: Vec<_> = prefix_scan::<UsizeSum>(vertex_counts).collect();
+  let first_size = *vertex_prefix_offset.first().unwrap();
+  vertex_prefix_offset
+    .iter_mut()
+    .for_each(|s| *s -= first_size);
 
   let merged_indices = first
     .indices
@@ -185,8 +189,8 @@ fn merge_assume_all_suitable_and_fit(
         .try_collect::<Vec<_>>()
         .ok_or(MergeError::CannotMergeDifferentTypes)?;
 
-      let index_reducer_16 = |group_id, i: &u16| vertex_prefix_sum[group_id] as u16 + *i;
-      let index_reducer_32 = |group_id, i: &u32| vertex_prefix_sum[group_id] as u32 + *i;
+      let index_reducer_16 = |group_id, i: &u16| vertex_prefix_offset[group_id] as u16 + *i;
+      let index_reducer_32 = |group_id, i: &u32| vertex_prefix_offset[group_id] as u32 + *i;
 
       use AttributeIndexFormat::*;
       let merged = match format {
@@ -198,7 +202,7 @@ fn merge_assume_all_suitable_and_fit(
     })
     .transpose()?;
 
-  let new_groups = vertex_prefix_sum
+  let new_groups = vertex_prefix_offset
     .iter()
     .zip(inputs.iter().map(|g| &g.groups))
     .flat_map(|(&previous_summed, group)| {
