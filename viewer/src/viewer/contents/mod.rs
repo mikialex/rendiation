@@ -36,6 +36,8 @@ where
     + AsMut<dyn WebGPUSceneMesh>
     + AsRef<dyn IntersectAbleGroupedMesh>
     + AsMut<dyn IntersectAbleGroupedMesh>
+    // + AsRef<dyn WatchableSceneMeshLocalBounding>
+    // + AsMut<dyn WatchableSceneMeshLocalBounding>
     + 'static,
 {
   register_core_mesh_features::<T>();

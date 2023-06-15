@@ -71,7 +71,7 @@ impl<'a, T> ShaderPassBuilder for HighLightComposeTask<'a, T> {
   fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
     ctx.binding.bind(&self.lighter.data, SB::Material);
     ctx.binding.bind(&self.mask, SB::Material);
-    ctx.bind_immediate_sampler(&TextureSampler::default(), SB::Material);
+    ctx.bind_immediate_sampler(&TextureSampler::default().into_gpu(), SB::Material);
   }
 }
 

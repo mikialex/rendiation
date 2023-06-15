@@ -14,7 +14,7 @@ impl TextCache {
 
     let glyph_cache = GlyphCache::new(init_size, tolerance, packer);
 
-    Self::new(glyph_cache, GlyphBrushLayouter::default())
+    Self::new(glyph_cache, GlyphBrushLayouter)
   }
 }
 

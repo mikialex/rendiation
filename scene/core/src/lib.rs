@@ -1,43 +1,46 @@
 #![feature(type_alias_impl_trait)]
 #![feature(stmt_expr_attributes)]
 #![allow(incomplete_features)]
+#![feature(iterator_try_collect)]
+#![feature(impl_trait_in_assoc_type)]
 #![feature(return_position_impl_trait_in_trait)]
 #![feature(let_chains)]
 
-pub mod scene;
-use arena::ArenaDelta;
+ mod scene;
 pub use scene::*;
 
-pub mod node;
+ mod node;
 pub use node::*;
 
-pub mod ext;
+ mod ext;
 pub use ext::*;
 
-pub mod mesh;
+ mod mesh;
 pub use mesh::*;
-pub mod mesh_picking;
+ mod mesh_picking;
 pub use mesh_picking::*;
+mod mesh_merge;
+pub use mesh_merge::*;
 
-pub mod material;
+mod material;
 pub use material::*;
 
-pub mod texture;
+mod texture;
 pub use texture::*;
 
-pub mod background;
+mod background;
 pub use background::*;
 
-pub mod model;
+mod model;
 pub use model::*;
 
-pub mod light;
+mod light;
 pub use light::*;
 
-pub mod camera;
+mod camera;
 pub use camera::*;
 
-pub mod animation;
+mod animation;
 pub use animation::*;
 
 mod utils;

@@ -148,7 +148,7 @@ impl<'a, T> ShaderHashProvider for ToneMapTask<'a, T> {
 impl<'a, T> ShaderPassBuilder for ToneMapTask<'a, T> {
   fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
     ctx.binding.bind(&self.hdr, SB::Material);
-    ctx.bind_immediate_sampler(&TextureSampler::default(), SB::Material);
+    ctx.bind_immediate_sampler(&TextureSampler::default().into_gpu(), SB::Material);
     self.config.setup_pass(ctx)
   }
 }

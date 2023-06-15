@@ -32,6 +32,7 @@ pub trait CoreTree {
 
   fn recreate_handle(&self, index: usize) -> Self::Handle;
 
+  fn node_has_parent(&self, handle: Self::Handle) -> bool;
   fn get_node_data(&self, handle: Self::Handle) -> &Self::Node;
   fn get_node_data_mut(&mut self, handle: Self::Handle) -> &mut Self::Node;
 
@@ -94,10 +95,12 @@ impl<T> CoreTree for TreeCollection<T> {
 
   fn recreate_handle(&self, index: usize) -> TreeNodeHandle<T> {
     self
-      .nodes
-      .data
-      .get_handle(index)
+      .try_recreate_handle(index)
       .expect("tree handle can not rebuild, maybe pair tree is corrupted")
+  }
+
+  fn node_has_parent(&self, handle: Self::Handle) -> bool {
+    self.nodes.get(handle).unwrap().parent.is_some()
   }
 
   fn create_node(&mut self, data: T) -> TreeNodeHandle<T> {
@@ -204,6 +207,18 @@ impl<T> TreeCollection<T> {
 
   pub fn get_node_mut(&mut self, handle: TreeNodeHandle<T>) -> &mut TreeNode<T> {
     self.nodes.get_mut(handle).unwrap()
+  }
+
+  pub fn try_get_node(&self, handle: TreeNodeHandle<T>) -> Option<&TreeNode<T>> {
+    self.nodes.get(handle)
+  }
+
+  pub fn try_get_node_mut(&mut self, handle: TreeNodeHandle<T>) -> Option<&mut TreeNode<T>> {
+    self.nodes.get_mut(handle)
+  }
+
+  pub fn try_recreate_handle(&self, index: usize) -> Option<TreeNodeHandle<T>> {
+    self.nodes.data.get_handle(index)
   }
 
   pub fn is_handle_valid(&self, handle: TreeNodeHandle<T>) -> bool {

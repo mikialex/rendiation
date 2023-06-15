@@ -621,6 +621,12 @@ pub struct SignalFoldStateStream<T, S, F> {
   f: F,
 }
 
+impl<T, S, F> AsRef<T> for SignalFoldStateStream<T, S, F> {
+  fn as_ref(&self) -> &T {
+    &self.state
+  }
+}
+
 impl<T, S, X, F> Stream for SignalFoldStateStream<T, S, F>
 where
   S: Stream,
@@ -631,16 +637,15 @@ where
 
   fn poll_next(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Option<Self::Item>> {
     let mut this = self.project();
-    if let Poll::Ready(v) = this.stream.poll_next(cx) {
+    while let Poll::Ready(v) = this.stream.as_mut().poll_next(cx) {
       if let Some(v) = v {
         (this.f)(v, &mut this.state);
-        this.state.poll_next(cx)
+        continue;
       } else {
-        Poll::Ready(None)
+        return Poll::Ready(None);
       }
-    } else {
-      this.state.poll_next(cx)
     }
+    this.state.poll_next(cx)
   }
 }
 

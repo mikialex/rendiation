@@ -138,7 +138,7 @@ impl Gizmo {
     let rotation_y = y_lens.chain(rotation).chain(active_lens);
     let rotation_z = z_lens.chain(rotation).chain(active_lens);
 
-    let rotator_z = build_rotator(root, auto_scale, Mat4::one())
+    let rotator_z = build_rotator(root, auto_scale, Mat4::identity())
       .eventable::<GizmoState>()
       .update(update_torus(rotation_z, GREEN))
       .on(active(rotation_z));
@@ -259,7 +259,7 @@ impl Gizmo {
 
           let action = DragTargetAction {
             camera_world: event.node_sys.get_world_matrix(&camera.node),
-            camera_projection: camera.projection_matrix,
+            camera_projection: camera.compute_project_mat(),
             world_ray: event.interactive_ctx.world_ray,
             screen_position,
           };

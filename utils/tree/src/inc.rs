@@ -1,3 +1,5 @@
+use std::ops::Deref;
+
 use incremental::ApplicableIncremental;
 
 use crate::*;
@@ -45,6 +47,19 @@ impl<T: IncrementalBase + Clone> IncrementalBase for TreeCollection<T> {
     self.expand_with_mapping(|n| n.clone(), cb)
   }
 }
+
+// impl<T, X> IncrementalBase for ReactiveTreeCollection<T, X>
+// where
+//   T: Send + Sync + 'static,
+//   X: IncrementalBase + Clone,
+//   T: std::ops::Deref<Target = X>,
+// {
+//   type Delta = TreeMutation<X>;
+
+//   fn expand(&self, cb: impl FnMut(Self::Delta)) {
+//     self.inner.expand_with_mapping(|n| n.deref().clone(), cb)
+//   }
+// }
 
 #[derive(Debug)]
 pub enum TreeDeltaMutationError<T> {
@@ -97,7 +112,6 @@ where
   type Delta = T::Delta;
 
   fn expand(&self, cb: impl FnMut(Self::Delta)) {
-    let tree = self.inner.write().unwrap();
-    tree.expand(cb);
+    self.inner.deref().expand(cb);
   }
 }

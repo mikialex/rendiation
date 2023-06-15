@@ -44,13 +44,14 @@ impl<T, U> AbstractMesh for NoneIndexedMesh<T, U>
 where
   T: PrimitiveTopologyMeta,
   U: VertexContainer,
+  U::Output: Copy,
   T::Primitive<U::Output>: PrimitiveData<U>,
 {
   type Primitive = T::Primitive<U::Output>;
 
   #[inline(always)]
   fn primitive_count(&self) -> usize {
-    (self.data.len() - T::STRIDE) / T::STEP + 1
+    (self.data.len() + T::STEP - T::STRIDE) / T::STEP
   }
 
   #[inline(always)]

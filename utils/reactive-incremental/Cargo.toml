@@ -1,0 +1,9 @@
+[package]
+edition = "2021"
+name = "reactive-incremental"
+version = "0.0.1"
+
+[dependencies]
+incremental = { path = "../incremental" }
+reactive = { path = "../reactive" }
+

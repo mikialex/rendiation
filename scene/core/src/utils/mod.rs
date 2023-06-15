@@ -3,8 +3,11 @@ pub use identity::*;
 mod scene_item;
 pub use scene_item::*;
 mod transformation;
-use futures::{Future, StreamExt};
-use reactive::{ChannelLike, DefaultSingleValueChannel, DefaultUnboundChannel};
+use futures::Future;
+use reactive::{
+  ChannelLike, DefaultSingleValueChannel, DefaultUnboundChannel, EventSourceDropper,
+  EventSourceStream,
+};
 pub use transformation::*;
 
 use crate::*;
@@ -160,16 +163,16 @@ impl<T: IncrementalBase> Identity<T> {
     };
     mapper(MaybeDeltaRef::All(self), &send);
 
-    self.delta_source.on(move |v| {
-      mapper(MaybeDeltaRef::Delta(v.delta), &send);
+    let remove_token = self.delta_source.on(move |v| {
+      mapper(MaybeDeltaRef::Delta(v), &send);
       C::is_closed(&sender)
     });
     // todo impl custom unbound channel: if sender drop, the receiver will still hold the history
     // message which is unnecessary. The better behavior will just drop the history and emit
     // Poll::Ready::None
 
-    // todo impl single value channel, and history compactor (synchronous version)
-    receiver
+    let dropper = EventSourceDropper::new(remove_token, self.delta_source.make_weak());
+    EventSourceStream::new(dropper, receiver)
   }
 
   pub fn create_drop(&self) -> impl Future<Output = ()> {

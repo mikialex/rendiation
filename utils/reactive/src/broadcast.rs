@@ -81,7 +81,6 @@ pub struct BroadcastedStream<S, D, F> {
 }
 
 pub trait BroadcastBehavior<I, O> {
-  fn should_poll_source() -> bool;
   fn broad_cast(input: I, output: &mut Vec<Option<futures::channel::mpsc::UnboundedSender<O>>>);
 }
 
@@ -94,19 +93,17 @@ where
 
   fn poll_next(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Option<Self::Item>> {
     let outer_this = self.project();
-    if F::should_poll_source() {
-      let mut inner = outer_this.source.write().unwrap();
-      let inner: &mut StreamBroadcasterInner<_, _, _> = &mut inner;
-      let inner = Pin::new(inner);
-      let mut this = inner.project();
-      // must use while let here, because we rely on this to update all depend system
-      while let Poll::Ready(v) = this.source.as_mut().poll_next(cx) {
-        if let Some(input) = v {
-          F::broad_cast(input, this.distributer);
-        } else {
-          // forward early termination
-          return Poll::Ready(None);
-        }
+    let mut inner = outer_this.source.write().unwrap();
+    let inner: &mut StreamBroadcasterInner<_, _, _> = &mut inner;
+    let inner = Pin::new(inner);
+    let mut this = inner.project();
+    // must use while let here, because we rely on this to update all depend system
+    while let Poll::Ready(v) = this.source.as_mut().poll_next(cx) {
+      if let Some(input) = v {
+        F::broad_cast(input, this.distributer);
+      } else {
+        // forward early termination
+        return Poll::Ready(None);
       }
     }
 
@@ -182,10 +179,6 @@ impl<O> BroadcastBehavior<(usize, O), O> for IndexMapping {
       }
     }
   }
-
-  fn should_poll_source() -> bool {
-    false
-  }
 }
 
 pub struct FanOut;
@@ -198,9 +191,6 @@ impl<I: Clone> BroadcastBehavior<I, I> for FanOut {
         }
       }
     })
-  }
-  fn should_poll_source() -> bool {
-    true
   }
 }
 

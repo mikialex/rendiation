@@ -11,6 +11,46 @@ impl Default for ButtonState {
   }
 }
 
+// pub enum ButtonEvent {
+//   Label(String),
+// }
+
+// pub enum ButtonViewReact {
+//   Pressed,
+//   Hovering,
+// }
+
+// struct MyButton {
+//   boundary: Container,
+//   label: Text,
+// }
+
+// impl UIView for MyButton {
+//   type Event = ButtonEvent;
+
+//   type React = ButtonViewReact;
+
+//   fn event(&mut self, request: ViewRequest<Self::Event>, cb: impl FnMut(ViewReact<Self::React>))
+// {     match request {
+//       ViewRequest::Platform(event) => match event {
+//         PlatformRequest::Event { event } => todo!(),
+//         PlatformRequest::Layout { parent_constraint, cb } => todo!(),
+//         PlatformRequest::Rendering { ctx } => todo!(),
+//     },
+//       ViewRequest::State(delta, _) => match delta {
+//         ButtonEvent::Label(text) => self.label.content.set(text),
+//       },
+//     }
+//   }
+// }
+
+// pub fn button2() -> impl UIView {
+//   Container::sized((200., 80.))
+//     .color((1., 1., 1., 0.).into())
+//     .wrap(Text::default().bind(move |s, t| s.content.set(label.eval(t))))
+//     .extend(events)
+// }
+
 impl ButtonState {
   pub fn color(&self) -> Color {
     match self {

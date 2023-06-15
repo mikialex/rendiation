@@ -52,40 +52,36 @@ where
   }
 }
 
-pub struct OptionalRenderComponent<T>(Option<T>);
-
-impl<T> From<Option<T>> for OptionalRenderComponent<T> {
-  fn from(value: Option<T>) -> Self {
-    Self(value)
+fn convert_wrap(mode: rendiation_texture::AddressMode) -> webgpu::AddressMode {
+  match mode {
+    rendiation_texture::AddressMode::ClampToEdge => webgpu::AddressMode::ClampToEdge,
+    rendiation_texture::AddressMode::Repeat => webgpu::AddressMode::Repeat,
+    rendiation_texture::AddressMode::MirrorRepeat => webgpu::AddressMode::MirrorRepeat,
   }
 }
 
-impl<T: ShaderHashProvider> ShaderHashProvider for OptionalRenderComponent<T> {
-  fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
-    if let Some(v) = &self.0 {
-      v.hash_pipeline(hasher)
-    }
+fn convert_filter(mode: rendiation_texture::FilterMode) -> webgpu::FilterMode {
+  match mode {
+    rendiation_texture::FilterMode::Nearest => webgpu::FilterMode::Nearest,
+    rendiation_texture::FilterMode::Linear => webgpu::FilterMode::Linear,
   }
 }
 
-impl<T: ShaderGraphProvider> ShaderGraphProvider for OptionalRenderComponent<T> {
-  fn build(
-    &self,
-    builder: &mut ShaderGraphRenderPipelineBuilder,
-  ) -> Result<(), ShaderGraphBuildError> {
-    if let Some(v) = &self.0 {
-      v.build(builder)?
-    }
-    Ok(())
-  }
+pub trait SamplerConvertExt<'a> {
+  fn into_gpu(self) -> webgpu::SamplerDescriptor<'a>;
+}
 
-  fn post_build(
-    &self,
-    builder: &mut ShaderGraphRenderPipelineBuilder,
-  ) -> Result<(), ShaderGraphBuildError> {
-    if let Some(v) = &self.0 {
-      v.post_build(builder)?
+impl<'a> SamplerConvertExt<'a> for rendiation_texture::TextureSampler {
+  fn into_gpu(self) -> webgpu::SamplerDescriptor<'a> {
+    webgpu::SamplerDescriptor {
+      label: None,
+      address_mode_u: convert_wrap(self.address_mode_u),
+      address_mode_v: convert_wrap(self.address_mode_v),
+      address_mode_w: convert_wrap(self.address_mode_w),
+      mag_filter: convert_filter(self.mag_filter),
+      min_filter: convert_filter(self.min_filter),
+      mipmap_filter: convert_filter(self.mipmap_filter),
+      ..Default::default()
     }
-    Ok(())
   }
 }

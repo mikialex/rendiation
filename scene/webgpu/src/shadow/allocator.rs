@@ -175,7 +175,7 @@ impl ShadowMap {
           label: Some("shadow-write-view"),
           dimension: Some(webgpu::TextureViewDimension::D2),
           base_array_layer,
-          array_layer_count: NonZeroU32::new(1).unwrap().into(),
+          array_layer_count: Some(1),
           ..Default::default()
         })
         .try_into()

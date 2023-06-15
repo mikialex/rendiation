@@ -34,7 +34,7 @@ impl ShaderUniformProvider for ImmediateSampler {
 
 impl From<ImmediateSampler> for SamplerDescriptor<'static> {
   fn from(val: ImmediateSampler) -> Self {
-    val.inner.into()
+    val.inner.into_gpu()
   }
 }
 

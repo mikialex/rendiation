@@ -91,7 +91,7 @@ pub struct TextReadBufferInfo {
 
 impl TextReadBufferInfo {
   fn new(width: usize, height: usize, format: gpu::TextureFormat) -> Self {
-    let bytes_per_pixel = format.describe().block_size as usize;
+    let bytes_per_pixel = format.block_size(None).unwrap() as usize;
     let unpadded_bytes_per_row = width * bytes_per_pixel;
     let align = gpu::COPY_BYTES_PER_ROW_ALIGNMENT as usize;
     let padded_bytes_per_row_padding = (align - unpadded_bytes_per_row % align) % align;
@@ -166,9 +166,7 @@ impl GPUCommandEncoder {
         buffer: &output_buffer,
         layout: gpu::ImageDataLayout {
           offset: 0,
-          bytes_per_row: Some(
-            std::num::NonZeroU32::new(buffer_dimensions.padded_bytes_per_row as u32).unwrap(),
-          ),
+          bytes_per_row: Some(buffer_dimensions.padded_bytes_per_row as u32),
           rows_per_image: None,
         },
       },

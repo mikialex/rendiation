@@ -103,7 +103,7 @@ impl<'a> ShaderPassBuilder for AOComputer<'a> {
     ctx.binding.bind(&self.depth, SB::Pass);
     ctx.binding.bind(&self.parameter.parameters, SB::Pass);
     ctx.binding.bind(&self.parameter.samples, SB::Pass);
-    ctx.bind_immediate_sampler(&TextureSampler::default(), SB::Pass);
+    ctx.bind_immediate_sampler(&TextureSampler::default().into_gpu(), SB::Pass);
     ctx.binding.bind(self.source_camera_gpu, SB::Pass);
   }
 }

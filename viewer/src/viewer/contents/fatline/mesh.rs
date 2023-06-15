@@ -27,7 +27,7 @@ impl FatlineMesh {
 }
 
 impl IntersectAbleGroupedMesh for FatlineMesh {
-  fn intersect_list(
+  fn intersect_list_by_group(
     &self,
     _ray: Ray3,
     _conf: &MeshBufferIntersectConfig,
@@ -36,7 +36,7 @@ impl IntersectAbleGroupedMesh for FatlineMesh {
   ) {
   }
 
-  fn intersect_nearest(
+  fn intersect_nearest_by_group(
     &self,
     _ray: Ray3,
     _conf: &MeshBufferIntersectConfig,

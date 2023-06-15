@@ -19,7 +19,8 @@ define_dyn_trait_downcaster_static!(GlobalIdentified);
 pub struct Identity<T: IncrementalBase> {
   pub(super) id: usize,
   pub(super) inner: T,
-  pub delta_source: EventSource<DeltaView<'static, T>>,
+  pub delta_source: EventSource<T::Delta>,
+  pub drop_source: EventOnceSource<()>,
 }
 
 impl<T: IncrementalBase> AsRef<T> for Identity<T> {
@@ -74,6 +75,10 @@ impl<T: IncrementalBase> Identity<T> {
     }
   }
 
+  pub fn mutate_unchecked<R>(&mut self, mutator: impl FnOnce(&mut T) -> R) -> R {
+    mutator(&mut self.inner)
+  }
+
   pub fn mutate<R>(&mut self, mutator: impl FnOnce(Mutating<T>) -> R) -> R {
     self.mutate_with(mutator, |_| {})
   }
@@ -87,10 +92,8 @@ impl<T: IncrementalBase> Identity<T> {
     let dispatcher = &self.delta_source;
     mutator(Mutating {
       inner: data,
-      collector: &mut |data, delta| {
-        let view = DeltaView { data, delta };
-        let view = unsafe { std::mem::transmute(view) };
-        dispatcher.emit(&view);
+      collector: &mut |delta| {
+        dispatcher.emit(delta);
         extra_collector(delta.clone())
       },
     })

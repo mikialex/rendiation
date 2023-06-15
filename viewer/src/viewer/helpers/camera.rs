@@ -101,10 +101,10 @@ impl SceneItemReactiveMapping<CameraHelper> for SceneCamera {
   fn build(&self, _: &Self::Ctx<'_>) -> (CameraHelper, Self::ChangeStream) {
     let source = self.read();
     let helper =
-      CameraHelper::from_node_and_project_matrix(source.node.clone(), source.projection_matrix);
+      CameraHelper::from_node_and_project_matrix(source.node.clone(), source.compute_project_mat());
 
     // todo, node change
-    let change = source.unbound_listen_by(with_field!(SceneCameraInner => projection_matrix));
+    let change = self.create_projection_mat_stream();
     (helper, change)
   }
 

@@ -7,6 +7,7 @@ mod binding;
 mod device;
 mod encoder;
 mod frame;
+#[allow(hidden_glob_reexports)] // why method name shadows mod name??
 mod pass;
 mod pipeline;
 mod queue;
@@ -22,7 +23,6 @@ use std::{
   cell::{Cell, RefCell},
   collections::{hash_map::DefaultHasher, HashMap},
   hash::{Hash, Hasher},
-  num::{NonZeroU32, NonZeroU8},
   ops::{Deref, DerefMut, Range},
   rc::Rc,
   sync::atomic::{AtomicUsize, Ordering},

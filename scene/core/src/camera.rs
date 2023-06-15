@@ -1,3 +1,5 @@
+use futures::StreamExt;
+use reactive::*;
 use rendiation_geometry::*;
 pub use rendiation_texture::Size;
 
@@ -6,18 +8,27 @@ use crate::*;
 pub type SceneCamera = SceneItemRef<SceneCameraInner>;
 
 impl SceneCamera {
-  pub fn create_camera_inner(projection: Box<dyn CameraProjection>, node: SceneNode) -> Self {
-    let mut inner = SceneCameraInner {
+  pub fn create(projection: CameraProjector, node: SceneNode) -> Self {
+    SceneCameraInner {
       bounds: Default::default(),
       projection,
-      projection_matrix: Mat4::one(),
       node,
-    };
-    inner
-      .projection
-      .update_projection(&mut inner.projection_matrix);
+    }
+    .into_ref()
+  }
 
-    inner.into()
+  pub fn create_projection_mat_stream(&self) -> impl Stream<Item = Mat4<f32>> {
+    self
+      .single_listen_by(|view, send| match view {
+        MaybeDeltaRef::Delta(delta) => match delta {
+          SceneCameraInnerDelta::projection(_) => send(()),
+          SceneCameraInnerDelta::node(_) => send(()),
+          _ => {}
+        },
+        MaybeDeltaRef::All(_) => send(()),
+      })
+      .filter_map_sync(self.defer_weak())
+      .map(|camera| camera.read().compute_project_mat())
   }
 
   pub fn create_camera(
@@ -29,12 +40,8 @@ impl SceneCamera {
 
   pub fn resize(&self, size: (f32, f32)) {
     self.mutate(|mut camera| {
-      let resize = CameraProjectionDelta::Resize(size);
+      let resize = CameraProjectorDelta::Resize(size);
       camera.modify(SceneCameraInnerDelta::projection(resize));
-
-      let mut new_project = Mat4::one();
-      camera.projection.update_projection(&mut new_project);
-      camera.modify(SceneCameraInnerDelta::projection_matrix(new_project));
     })
   }
 
@@ -49,6 +56,10 @@ impl SceneCamera {
       camera
         .projection
         .cast_ray(normalized_position)
+        .unwrap_or(Ray3::new(
+          Vec3::zero(),
+          Vec3::new(1., 0., 0.).into_normalized(),
+        ))
         .apply_matrix_into(camera_world_mat)
     })
   }
@@ -81,64 +92,86 @@ impl Default for CameraViewBounds {
   }
 }
 
+#[derive(Clone)]
+pub enum CameraProjector {
+  Perspective(PerspectiveProjection<f32>),
+  ViewOrthographic(ViewFrustumOrthographicProjection<f32>),
+  Orthographic(OrthographicProjection<f32>),
+  Foreign(Arc<dyn Any + Send + Sync>),
+}
+
 pub trait CameraProjection: Sync + Send + DynIncremental {
   fn update_projection(&self, projection: &mut Mat4<f32>);
   fn resize(&mut self, size: (f32, f32));
   fn pixels_per_unit(&self, distance: f32, view_height: f32) -> f32;
   fn cast_ray(&self, normalized_position: Vec2<f32>) -> Ray3<f32>;
-  fn clone_self(&self) -> Box<dyn CameraProjection>;
 }
 
-impl<T> CameraProjection for T
-where
-  T: ResizableProjection<f32> + RayCaster3<f32> + DynIncremental + Clone + 'static,
-{
-  fn update_projection(&self, projection: &mut Mat4<f32>) {
-    self.update_projection::<WebGPU>(projection);
-  }
-  fn resize(&mut self, size: (f32, f32)) {
-    self.resize(size);
-  }
-  fn pixels_per_unit(&self, distance: f32, view_height: f32) -> f32 {
-    self.pixels_per_unit(distance, view_height)
+impl CameraProjector {
+  pub fn update_projection(&self, projection: &mut Mat4<f32>) {
+    match self {
+      CameraProjector::Perspective(p) => p.update_projection::<WebGPU>(projection),
+      CameraProjector::ViewOrthographic(p) => p.update_projection::<WebGPU>(projection),
+      CameraProjector::Orthographic(p) => p.update_projection::<WebGPU>(projection),
+      CameraProjector::Foreign(_) => {}
+    }
   }
 
-  fn cast_ray(&self, normalized_position: Vec2<f32>) -> Ray3<f32> {
-    self.cast_ray(normalized_position)
+  pub fn resize(&mut self, size: (f32, f32)) {
+    match self {
+      CameraProjector::Perspective(p) => p.resize(size),
+      CameraProjector::ViewOrthographic(p) => p.resize(size),
+      CameraProjector::Orthographic(_) => {}
+      CameraProjector::Foreign(_) => {}
+    }
   }
-  fn clone_self(&self) -> Box<dyn CameraProjection> {
-    Box::new(self.clone())
+
+  pub fn pixels_per_unit(&self, distance: f32, view_height: f32) -> Option<f32> {
+    match self {
+      CameraProjector::Perspective(p) => p.pixels_per_unit(distance, view_height),
+      CameraProjector::ViewOrthographic(p) => p.pixels_per_unit(distance, view_height),
+      CameraProjector::Orthographic(p) => p.pixels_per_unit(distance, view_height),
+      CameraProjector::Foreign(_) => return None,
+    }
+    .into()
+  }
+
+  pub fn cast_ray(&self, normalized_position: Vec2<f32>) -> Option<Ray3<f32>> {
+    match self {
+      CameraProjector::Perspective(p) => p.cast_ray(normalized_position),
+      CameraProjector::ViewOrthographic(p) => p.cast_ray(normalized_position),
+      CameraProjector::Orthographic(p) => p.cast_ray(normalized_position),
+      CameraProjector::Foreign(_) => return None,
+    }
+    .into()
   }
 }
 
 #[derive(Clone)]
-pub enum CameraProjectionDelta {
+pub enum CameraProjectorDelta {
   Resize((f32, f32)),
-  Boxed(Box<dyn AnyClone>),
+  Type(CameraProjector),
 }
 
-impl SimpleIncremental for Box<dyn CameraProjection> {
-  type Delta = CameraProjectionDelta;
+impl SimpleIncremental for CameraProjector {
+  type Delta = CameraProjectorDelta;
 
   fn s_apply(&mut self, delta: Self::Delta) {
     match delta {
-      CameraProjectionDelta::Resize(size) => self.resize(size),
-      CameraProjectionDelta::Boxed(delta) => self.as_mut().apply_dyn(delta).unwrap(),
+      CameraProjectorDelta::Resize(size) => self.resize(size),
+      CameraProjectorDelta::Type(all) => *self = all,
     }
   }
 
   fn s_expand(&self, mut cb: impl FnMut(Self::Delta)) {
-    self
-      .as_ref()
-      .expand_dyn(&mut |d| cb(CameraProjectionDelta::Boxed(d)));
+    cb(CameraProjectorDelta::Type(self.clone()));
   }
 }
 
 #[derive(Incremental)]
 pub struct SceneCameraInner {
   pub bounds: CameraViewBounds,
-  pub projection: Box<dyn CameraProjection>,
-  pub projection_matrix: Mat4<f32>,
+  pub projection: CameraProjector,
   pub node: SceneNode,
 }
 
@@ -149,6 +182,12 @@ impl AsRef<Self> for SceneCameraInner {
 }
 
 impl SceneCameraInner {
+  pub fn compute_project_mat(&self) -> Mat4<f32> {
+    let mut mat = Mat4::identity();
+    self.projection.update_projection(&mut mat);
+    mat
+  }
+
   pub fn view_size_in_pixel(&self, frame_size: Size) -> Vec2<f32> {
     let width: usize = frame_size.width.into();
     let width = width as f32 * self.bounds.width;

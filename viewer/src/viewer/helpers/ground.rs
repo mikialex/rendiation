@@ -187,9 +187,9 @@ impl<'a> ShaderGraphProvider for InfinityShaderPlaneEffect<'a> {
 
     builder.fragment(|builder, binding| {
       let proj = builder.query::<CameraProjectionMatrix>()?;
-      let proj_inv = builder.query::<CameraProjectionInverseMatrix>()?;
+      let world = builder.query::<CameraWorldMatrix>()?;
       let view = builder.query::<CameraViewMatrix>()?;
-      let view_inv = builder.query::<CameraWorldMatrix>()?;
+      let view_proj_inv = builder.query::<CameraViewProjectionInverseMatrix>()?;
 
       let uv = builder.query::<FragmentUv>()?;
       let plane = binding.uniform_by(self.plane, SB::Object);
@@ -197,11 +197,14 @@ impl<'a> ShaderGraphProvider for InfinityShaderPlaneEffect<'a> {
       let ndc_xy = uv * consts(2.) - consts(Vec2::one());
       let ndc_xy = ndc_xy * consts(Vec2::new(1., -1.));
 
-      let unprojected = view_inv * proj_inv * (ndc_xy, 0., 1.).into();
-      let unprojected = unprojected.xyz() / unprojected.w();
+      let far = view_proj_inv * (ndc_xy, 1., 1.).into();
+      let near = view_proj_inv * (ndc_xy, 0., 1.).into();
 
-      let origin = view_inv.position();
-      let direction = (unprojected - origin).normalize();
+      let far = far.xyz() / far.w();
+      let near = near.xyz() / near.w();
+
+      let direction = (far - near).normalize();
+      let origin = near - (near - world.position()).dot(direction) * direction;
 
       let hit = ray_plane_intersect(origin, direction, plane);
 

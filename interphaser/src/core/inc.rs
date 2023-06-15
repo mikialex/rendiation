@@ -1,4 +1,9 @@
-use std::task::Context;
+use std::{
+  pin::Pin,
+  task::{Context, Poll},
+};
+
+use futures::Stream;
 
 // use incremental::*;
 
@@ -6,7 +11,7 @@ use std::task::Context;
 
 /// View type could generic over any state T, as long as the T could provide
 /// given logic for view type
-trait View {
+pub trait UIView {
   type Event;
   type React;
 
@@ -50,12 +55,39 @@ pub struct TextBox {
   placeholder: String,
 }
 
+pub trait UIViewStream {
+  type React;
+
+  fn create_react(&self) -> Box<dyn Stream<Item = Self::React>>;
+
+  fn poll_view_update(
+    self: Pin<&mut Self>,
+    cx: &mut Context,
+  ) -> Poll<Option<ViewReact<Self::React>>>;
+}
+
+// pub struct ReactiveTextureBox {
+//   texting: Box<dyn Stream<Item = String>>,
+//   placeholder: Box<dyn Stream<Item = String>>,
+// }
+
+// impl UIViewStream for ReactiveTextureBox {
+//   type React = TextBoxEvent;
+
+//   fn poll_view_update(
+//     self: std::pin::Pin<&mut Self>,
+//     cx: &mut Context<'_>,
+//   ) -> std::task::Poll<Option<ViewReact<Self::React>>> {
+//     todo!()
+//   }
+// }
+
 pub enum TextBoxDelta {
   Text(String),
   Placeholder(String),
 }
 
-impl View for TextBox {
+impl UIView for TextBox {
   type Event = TextBoxDelta;
   type React = TextBoxEvent;
 

@@ -58,7 +58,7 @@ impl SceneNodeGPUSystem {
       })
       .filter_map_sync(move |v| match v {
         tree::TreeMutation::Create { node: idx, .. } => {
-          let world_st = derives.create_world_matrix_stream_by_raw_handle(idx);
+          let world_st = derives.create_world_matrix_stream_by_raw_handle(idx)?;
           let node = build_reactive_node(world_st, &cx);
           (idx, node.into()).into()
         }

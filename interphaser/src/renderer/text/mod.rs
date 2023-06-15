@@ -3,8 +3,8 @@ use gpu_renderer::*;
 pub mod gpu_cache;
 pub use gpu_cache::*;
 use rendiation_algebra::Vec2;
-use rendiation_texture::Size;
-use webgpu::{GPURenderPass, GPU};
+use rendiation_texture::{Size, Texture2DBuffer, TextureFormat};
+use webgpu::{GPURenderPass, WebGPU2DTextureSource, GPU};
 
 use crate::{FontManager, TextCache, TextHash, TextureCacheAction, VertexCacheAction};
 
@@ -64,7 +64,7 @@ impl TextRenderer {
         TextureCacheAction::UpdateAt { data, range } => {
           self
             .gpu_texture_cache
-            .update_texture(data, range, &gpu.queue);
+            .update_texture(&TextureBufferSource { data }, range, &gpu.queue);
           true
         }
       },
@@ -77,5 +77,23 @@ impl TextRenderer {
         VertexCacheAction::Remove(hash) => self.gpu_vertex_cache.drop_cache(hash),
       },
     );
+  }
+}
+
+struct TextureBufferSource<'a> {
+  data: &'a Texture2DBuffer<u8>,
+}
+
+impl<'a> WebGPU2DTextureSource for TextureBufferSource<'a> {
+  fn format(&self) -> TextureFormat {
+    TextureFormat::R8Unorm
+  }
+
+  fn as_bytes(&self) -> &[u8] {
+    self.data.as_byte_buffer()
+  }
+
+  fn size(&self) -> Size {
+    self.data.size()
   }
 }

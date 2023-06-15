@@ -1,28 +1,35 @@
 use std::sync::Arc;
 
-use image::*;
 use rendiation_algebra::*;
 use rendiation_mesh_generator::{
   CubeMeshParameter, IndexedMeshBuilder, SphereMeshParameter, TessellationConfig,
 };
 use rendiation_renderable_mesh::{vertex::Vertex, TriangleList};
-use rendiation_texture::{rgb_to_rgba, TextureSampler, WrapAsTexture2DSource};
-use webgpu::WebGPU2DTextureSource;
+use rendiation_texture::{
+  create_padding_buffer, GPUBufferImage, Texture2D, TextureFormat, TextureSampler,
+};
 
 use crate::*;
 
-pub fn load_img(path: &str) -> ImageBuffer<Rgba<u8>, Vec<u8>> {
+pub fn load_tex(path: &str) -> SceneTexture2DType {
   use image::io::Reader as ImageReader;
   let img = ImageReader::open(path).unwrap().decode().unwrap();
-  match img {
-    image::DynamicImage::ImageRgba8(img) => img,
-    image::DynamicImage::ImageRgb8(img) => rgb_to_rgba(img),
+  let tex = match img {
+    image::DynamicImage::ImageRgba8(img) => {
+      let size = img.size();
+      let format = TextureFormat::Rgba8UnormSrgb;
+      let data = img.into_raw();
+      GPUBufferImage { data, format, size }
+    }
+    image::DynamicImage::ImageRgb8(img) => {
+      let size = img.size();
+      let format = TextureFormat::Rgba8UnormSrgb;
+      let data = create_padding_buffer(img.as_raw(), 3, &[255]);
+      GPUBufferImage { data, format, size }
+    }
     _ => panic!("unsupported texture type"),
-  }
-}
-fn load_tex(path: &str) -> SceneTexture2DType {
-  let boxed: Box<dyn WebGPU2DTextureSource> = Box::new(load_img(path).into_source());
-  SceneTexture2DType::Foreign(Arc::new(boxed))
+  };
+  SceneTexture2DType::GPUBufferImage(tex)
 }
 
 pub fn load_img_cube() -> SceneTextureCube {
@@ -163,18 +170,20 @@ pub fn load_default_scene(scene: &Scene) {
 
   {
     let camera = PerspectiveProjection::default();
+    let camera = CameraProjector::Perspective(camera);
     let camera_node = scene.create_root_child();
     camera_node.set_local_matrix(Mat4::lookat(Vec3::splat(3.), Vec3::splat(0.), up));
-    let camera = SceneCamera::create_camera(camera, camera_node);
+    let camera = SceneCamera::create(camera, camera_node);
     let _ = scene.insert_camera(camera.clone());
     scene.set_active_camera(camera.into());
   }
 
   {
     let camera = PerspectiveProjection::default();
+    let camera = CameraProjector::Perspective(camera);
     let camera_node = scene.create_root_child();
     camera_node.set_local_matrix(Mat4::lookat(Vec3::splat(3.), Vec3::splat(0.), up));
-    let camera = SceneCamera::create_camera(camera, camera_node);
+    let camera = SceneCamera::create(camera, camera_node);
     let _ = scene.insert_camera(camera);
   }
 

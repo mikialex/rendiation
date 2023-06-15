@@ -169,3 +169,27 @@ impl<T: Scalar> ContainAble<T, Box3<T>, 3> for Box3<T> {
       && self.max.z >= box3.max.z
   }
 }
+
+impl<T: Scalar> Box3<T> {
+  /// return (near, far)
+  pub fn get_near_far_by_direction(&self, dir: NormalizedVector<T, Vec3<T>>) -> (Vec3<T>, Vec3<T>) {
+    let (mut far, mut near) = (self.min, self.max);
+
+    if dir.x >= T::zero() {
+      far.x = self.max.x;
+      near.x = self.min.x;
+    }
+
+    if dir.y >= T::zero() {
+      far.y = self.max.y;
+      near.y = self.min.y;
+    }
+
+    if dir.z >= T::zero() {
+      far.z = self.max.z;
+      near.z = self.min.z;
+    }
+
+    (near, far)
+  }
+}

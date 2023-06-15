@@ -144,7 +144,7 @@ impl ShadowSingleProjectCreator for SceneItemRef<SpotLight> {
       fov: Deg::from_rad(self.read().half_cone_angle * 2.),
       aspect: 1.,
     };
-    let proj = Box::new(proj) as Box<dyn CameraProjection>;
-    once_forever_pending(proj).into()
+    let proj = CameraProjector::Perspective(proj);
+    SceneCamera::create(proj, node.clone())
   }
 }

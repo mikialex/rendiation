@@ -1,8 +1,6 @@
 #![feature(stmt_expr_attributes)]
-#![feature(capture_disjoint_fields)]
 #![feature(associated_type_bounds)]
 #![feature(type_alias_impl_trait)]
-#![allow(incomplete_features)]
 #![allow(clippy::collapsible_match)]
 #![allow(clippy::single_match)]
 

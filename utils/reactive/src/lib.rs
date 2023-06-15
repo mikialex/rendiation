@@ -9,6 +9,9 @@ pub use vec::*;
 mod channel;
 pub use channel::*;
 
+mod poll_utils;
+pub use poll_utils::*;
+
 mod channel_like;
 pub use channel_like::*;
 
@@ -29,5 +32,6 @@ use core::{
 use std::sync::{Arc, Mutex, RwLock, Weak};
 
 use futures::Stream;
+use futures::StreamExt;
 pub use map::*;
 use pin_project::pin_project;

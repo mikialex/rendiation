@@ -8,26 +8,26 @@ version = "0.1.0"
 anymap = "0.12.1"
 arena = {path = "../../utils/arena"}
 arena-graph = {path = "../../utils/arena-graph"}
+bitflags = "*"
 bytemuck = {version = "1.4.1", features = ["derive"]}
 dyn-clone = "1.0.5"
+futures = "0.3.25"
 incremental = {path = "../../utils/incremental"}
 linked-hash-map = "0.5.4"
 log = "0.4"
 once_cell = "1.4.0"
+pin-project = "1.0.12"
 rand = "0.7.3"
 rendiation-algebra = {path = "../../math/algebra"}
 rendiation-controller = {path = "../../components/controller"}
 rendiation-geometry = {path = "../../math/geometry"}
 rendiation-renderable-mesh = {path = "../../components/mesh/renderable"}
 rendiation-scene-core = {path = "../core"}
-rendiation-texture = {path = "../../components/texture/core", features = ["webgpu"]}
+rendiation-texture = {path = "../../components/texture/core"}
 tree = {path = "../../utils/tree"}
-futures = "0.3.25"
-pin-project = "1.0.12"
-bitflags = "*"
 
 shadergraph = {path = "../../shader/graph"}
 wgsl-shader-derives = {path = "../../shader/language/wgsl/derive"}
 
-webgpu = {package = "rendiation-webgpu", path = "../../webgpu"}
 reactive = {path = "../../utils/reactive"}
+webgpu = {package = "rendiation-webgpu", path = "../../platform/graphics/webgpu"}

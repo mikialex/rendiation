@@ -63,7 +63,7 @@ impl CubeMeshParameter {
       ParametricPlane.transform_by(mat((-1., 0., 0.), Mat4::rotate_y(-f32::PI() / 2.))),
       ParametricPlane.transform_by(mat((0., 1., 0.), Mat4::rotate_x(-f32::PI() / 2.))),
       ParametricPlane.transform_by(mat((0., -1., 0.), Mat4::rotate_x(f32::PI() / 2.))),
-      ParametricPlane.transform_by(mat((0., 0., 1.), Mat4::one())),
+      ParametricPlane.transform_by(mat((0., 0., 1.), Mat4::identity())),
       ParametricPlane.transform_by(mat((0., 0., -1.), Mat4::rotate_y(f32::PI()))),
     ]
   }

@@ -28,7 +28,7 @@ impl ShareBindableResourceCtx {
     &self,
     t: &Texture2DWithSamplingData,
   ) -> ReactiveGPUTextureSamplerPair {
-    let sampler = GPUSampler::create(t.sampler.into(), &self.gpu.device);
+    let sampler = GPUSampler::create(t.sampler.into_gpu(), &self.gpu.device);
     let sampler = sampler.create_default_view();
 
     let ReactiveGPU2DTextureView {
