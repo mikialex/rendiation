@@ -20,7 +20,6 @@ pub struct Identity<T: IncrementalBase> {
   pub(super) id: usize,
   pub(super) inner: T,
   pub delta_source: EventSource<T::Delta>,
-  pub drop_source: EventOnceSource<()>,
 }
 
 impl<T: IncrementalBase> AsRef<T> for Identity<T> {
