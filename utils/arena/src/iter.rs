@@ -318,6 +318,7 @@ impl<'a, T> FusedIterator for IterMut<'a, T> {}
 /// ```
 #[derive(Debug)]
 pub struct Drain<'a, T: 'a> {
+  pub(crate) len: usize,
   pub(crate) inner: iter::Enumerate<vec::Drain<'a, Entry<T>>>,
 }
 
@@ -334,11 +335,19 @@ impl<'a, T> Iterator for Drain<'a, T> {
             generation,
             phantom: PhantomData,
           };
+          self.len -= 1;
           return Some((idx, value));
         }
-        None => return None,
+        None => {
+          debug_assert_eq!(self.len, 0);
+          return None;
+        }
       }
     }
+  }
+
+  fn size_hint(&self) -> (usize, Option<usize>) {
+    (self.len, Some(self.len))
   }
 }
 

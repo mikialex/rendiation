@@ -9,7 +9,7 @@ pub struct SolidFillStyle {
 
 pub enum FillStyle {
   Solid(SolidFillStyle),
-  // Texture(TextureHandle),
+  Texture(TextureHandle),
 }
 
 pub struct StrokeStyle {

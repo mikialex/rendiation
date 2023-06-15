@@ -21,6 +21,14 @@ pub trait IncrementalBase: Sized + Send + Sync + 'static {
   /// expand should use the coarse level delta first to rebuild data. the caller could
   /// decide if should expand in finer level.
   fn expand(&self, cb: impl FnMut(Self::Delta));
+
+  /// return the estimation of how many times the callback passed in expand will be called
+  ///
+  /// this method is used in optimization for preallocation
+  fn expand_size(&self) -> Option<usize> {
+    // todo impl for all types
+    None
+  }
 }
 
 pub trait AtomicIncremental {}

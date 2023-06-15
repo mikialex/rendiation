@@ -221,7 +221,8 @@ impl KeyframeTrack for InterpolateInstance<InterpolationItem> {
 impl TryFromAnimationSampler for InterpolateInstance<InterpolationItem> {
   fn try_from_sampler(sampler: &AnimationSampler, time: f32) -> Option<(Self, (f32, f32))> {
     // decide which frame interval we are in;
-    let (end_index, len) = sampler.input.visit_slice::<f32, _>(|slice| {
+    let sampler_input = sampler.input.read();
+    let (end_index, len) = sampler_input.visit_slice::<f32, _>(|slice| {
       // the gltf animation spec doesn't contains start time or loop behavior, we just use abs time
       (
         slice
@@ -236,8 +237,8 @@ impl TryFromAnimationSampler for InterpolateInstance<InterpolationItem> {
       return None;
     }
 
-    let (start_time, start_index) = (sampler.input.get::<f32>(end_index - 1)?, end_index - 1);
-    let (end_time, end_index) = (sampler.input.get::<f32>(end_index)?, end_index);
+    let (start_time, start_index) = (sampler_input.get::<f32>(end_index - 1)?, end_index - 1);
+    let (end_time, end_index) = (sampler_input.get::<f32>(end_index)?, end_index);
     let field_ty = sampler.field;
 
     fn get_output_single(
@@ -246,6 +247,7 @@ impl TryFromAnimationSampler for InterpolateInstance<InterpolationItem> {
       field_ty: SceneAnimationField,
     ) -> Option<InterpolationItem> {
       use SceneAnimationField::*;
+      let output = output.read();
       match field_ty {
         MorphTargetWeights => InterpolationItem::MorphTargetWeights(output.get::<f32>(index)?),
         Position => InterpolationItem::Position(output.get::<Vec3<f32>>(index)?),
@@ -262,6 +264,7 @@ impl TryFromAnimationSampler for InterpolateInstance<InterpolationItem> {
     ) -> Option<InterpolationCubicItem> {
       use InterpolationCubicItem::*;
       use SceneAnimationField as SF;
+      let output = output.read();
       match field_ty {
         SF::MorphTargetWeights => MorphTargetWeights(output.get::<CubicVertex<f32>>(index)?),
         SF::Position => Position(output.get::<CubicVertex<Vec3<f32>>>(index)?),

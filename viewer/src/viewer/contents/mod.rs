@@ -10,8 +10,6 @@ use rendiation_renderable_mesh::{
 };
 
 pub fn register_viewer_extra_scene_features() {
-  // register_model::<SceneItemRef<OverridableMeshModelImpl>>();
-
   register_material::<SceneItemRef<FatLineMaterial>>();
 
   register_mesh::<SceneItemRef<FatlineMesh>>();
@@ -19,14 +17,6 @@ pub fn register_viewer_extra_scene_features() {
     SceneItemRef<GroupedMesh<IndexedMesh<TriangleList, Vec<Vertex>, DynIndexContainer>>>,
   >();
 }
-
-// use rendiation_scene_interaction::*;
-// fn register_model<T>()
-// where
-//   T: AsRef<dyn SceneRayInteractive> + AsMut<dyn SceneRayInteractive> + 'static,
-// {
-//   get_dyn_trait_downcaster_static!(SceneRayInteractive).register::<T>()
-// }
 
 fn register_mesh<T>()
 where

@@ -16,7 +16,7 @@ pub fn merge(
   normal_mapper: impl Fn(usize, &Vec3<f32>) -> Vec3<f32> + Copy,
 ) -> Result<Vec<AttributesMesh>, MergeError> {
   // check if inputs could merge together
-  if could_merge_together(inputs) {
+  if !could_merge_together(inputs) {
     return Err(MergeError::CannotMergeDifferentTypes);
   }
 
@@ -26,35 +26,32 @@ pub fn merge(
 }
 
 // we are not considering the u16 merge into u32, because the u16 is big enough to achieve our goal
-fn make_splitter() -> impl FnMut(Option<&&AttributesMesh>) -> bool {
+fn make_splitter() -> impl FnMut(&&AttributesMesh) -> bool {
   let mut current_vertex_count: u32 = 0;
   move |next_mesh| {
-    if let Some(next_mesh) = next_mesh {
-      let next_vertex_count = next_mesh.get_position().count;
-      if let Some((fmt, _)) = &next_mesh.indices {
-        let max = match fmt {
-          AttributeIndexFormat::Uint16 => u16::MAX as u32,
-          AttributeIndexFormat::Uint32 => u32::MAX,
-        };
+    let next_vertex_count = next_mesh.get_position().count;
+    if let Some((fmt, _)) = &next_mesh.indices {
+      let max = match fmt {
+        AttributeIndexFormat::Uint16 => u16::MAX as u32,
+        AttributeIndexFormat::Uint32 => u32::MAX,
+      };
 
-        if max - current_vertex_count <= next_vertex_count as u32 {
-          true
-        } else {
-          current_vertex_count += next_vertex_count as u32;
-          false
-        }
+      if max - current_vertex_count <= next_vertex_count as u32 {
+        current_vertex_count = 0;
+        true
       } else {
+        current_vertex_count += next_vertex_count as u32;
         false
       }
     } else {
-      true
+      false
     }
   }
 }
 
 fn look_ahead_split<T>(
   input: &[T],
-  splitter: impl FnMut(Option<&T>) -> bool,
+  splitter: impl FnMut(&T) -> bool,
 ) -> impl Iterator<Item = &[T]> {
   LookAheadSplit { input, splitter }
 }
@@ -64,22 +61,20 @@ struct LookAheadSplit<'a, T, F> {
   splitter: F,
 }
 
-impl<'a, T, F: FnMut(Option<&T>) -> bool> Iterator for LookAheadSplit<'a, T, F> {
+impl<'a, T, F: FnMut(&T) -> bool> Iterator for LookAheadSplit<'a, T, F> {
   type Item = &'a [T];
 
   fn next(&mut self) -> Option<Self::Item> {
-    let mut id = 0;
-    for idx in 0..self.input.len() {
-      if !(self.splitter)(self.input.get(idx + 1)) {
-        id += 1;
-      } else {
-        break;
-      }
-    }
+    let idx = if let Some(id) = self.input.iter().position(|v| (self.splitter)(v)) {
+      assert!(id >= 1);
+      id - 1
+    } else {
+      0
+    };
 
-    let ret = Some(&self.input[..id]);
-    self.input = &self.input[id..];
-    ret
+    let ret = &self.input[..idx];
+    self.input = &self.input[idx..];
+    ret.is_empty().then_some(ret)
   }
 }
 
@@ -126,7 +121,7 @@ pub fn merge_attribute_accessor<T: bytemuck::Pod>(
 
   let mut buffer = Vec::with_capacity(byte_count);
   for (idx, acc) in inputs.iter().enumerate() {
-    acc.visit_slice::<T, _>(|s| {
+    acc.read().visit_slice::<T, _>(|s| {
       s.iter().for_each(|v| {
         buffer.extend(bytemuck::bytes_of(&mapper(idx, v)));
       })
@@ -178,7 +173,11 @@ fn merge_assume_all_suitable_and_fit(
     .try_collect::<Vec<_>>()?;
 
   let vertex_counts = inputs.iter().map(|att| att.get_position().count);
-  let vertex_prefix_sum: Vec<_> = prefix_scan::<UsizeSum>(vertex_counts).collect();
+  let mut vertex_prefix_offset: Vec<_> = prefix_scan::<UsizeSum>(vertex_counts).collect();
+  let first_size = *vertex_prefix_offset.first().unwrap();
+  vertex_prefix_offset
+    .iter_mut()
+    .for_each(|s| *s -= first_size);
 
   let merged_indices = first
     .indices
@@ -190,23 +189,20 @@ fn merge_assume_all_suitable_and_fit(
         .try_collect::<Vec<_>>()
         .ok_or(MergeError::CannotMergeDifferentTypes)?;
 
-      let index_reducer_16 = |group_id, i: &u16| vertex_prefix_sum[group_id] as u16 + *i;
-      let index_reducer_32 = |group_id, i: &u32| vertex_prefix_sum[group_id] as u32 + *i;
+      let index_reducer_16 = |group_id, i: &u16| vertex_prefix_offset[group_id] as u16 + *i;
+      let index_reducer_32 = |group_id, i: &u32| vertex_prefix_offset[group_id] as u32 + *i;
 
+      use AttributeIndexFormat::*;
       let merged = match format {
-        AttributeIndexFormat::Uint16 => {
-          merge_attribute_accessor::<u16>(&to_merge, index_reducer_16)
-        }
-        AttributeIndexFormat::Uint32 => {
-          merge_attribute_accessor::<u32>(&to_merge, index_reducer_32)
-        }
+        Uint16 => merge_attribute_accessor::<u16>(&to_merge, index_reducer_16),
+        Uint32 => merge_attribute_accessor::<u32>(&to_merge, index_reducer_32),
       }
       .ok_or(MergeError::AttributeDataAccessFailed)?;
       Ok((*format, merged))
     })
     .transpose()?;
 
-  let new_groups = vertex_prefix_sum
+  let new_groups = vertex_prefix_offset
     .iter()
     .zip(inputs.iter().map(|g| &g.groups))
     .flat_map(|(&previous_summed, group)| {
@@ -249,10 +245,13 @@ impl MonoidBehavior for UsizeSum {
   }
 }
 
-fn prefix_scan<T: MonoidBehavior>(
-  input: impl Iterator<Item = T::Value>,
-) -> impl Iterator<Item = T::Value> {
+fn prefix_scan<T>(input: impl Iterator<Item = T::Value>) -> impl Iterator<Item = T::Value>
+where
+  T: MonoidBehavior,
+  T::Value: Copy,
+{
   input.scan(T::identity(), |summed, next| {
-    T::combine(summed, &next).into()
+    *summed = T::combine(summed, &next);
+    (*summed).into()
   })
 }
