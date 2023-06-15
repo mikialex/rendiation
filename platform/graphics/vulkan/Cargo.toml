@@ -4,6 +4,15 @@ edition = "2021"
 name = "rendiation-vulkan"
 version = "0.1.0"
 
+# have to disable the test, or we will get link error on non-vulkan platform
+# when run `cargo test` in workspace root
+# https://github.com/rust-lang/cargo/issues/7233
+autoexamples = false
+
+[lib]
+test = false
+
+
 [dependencies]
 ash = {version = "0.37", features = ["linked"]}
 ash-window = "0.12"
