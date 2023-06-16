@@ -20,6 +20,17 @@ impl BindGroupCache {
   }
 }
 
+pub struct BindGroupCacheInvalidation {
+  cache_id_to_drop: u64,
+  cache: BindGroupCache,
+}
+
+impl Drop for BindGroupCacheInvalidation {
+  fn drop(&mut self) {
+    self.cache.cache.borrow_mut().remove(&self.cache_id_to_drop);
+  }
+}
+
 #[derive(Clone, Default)]
 pub struct BindGroupLayoutCache {
   pub cache: Rc<RefCell<HashMap<u64, GPUBindGroupLayout>>>,
@@ -36,17 +47,6 @@ impl Deref for GPUBindGroupLayout {
 
   fn deref(&self) -> &Self::Target {
     &self.inner
-  }
-}
-
-pub struct BindGroupCacheInvalidation {
-  cache_id_to_drop: u64,
-  cache: BindGroupCache,
-}
-
-impl Drop for BindGroupCacheInvalidation {
-  fn drop(&mut self) {
-    self.cache.cache.borrow_mut().remove(&self.cache_id_to_drop);
   }
 }
 
