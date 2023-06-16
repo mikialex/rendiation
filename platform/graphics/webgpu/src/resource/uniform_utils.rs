@@ -1,17 +1,15 @@
-use shadergraph::{SemanticBinding, Shader140Array, ShaderStructMemberValueNodeType, Std140};
+use shadergraph::{Shader140Array, ShaderStructMemberValueNodeType, Std140};
 
 use crate::*;
 
 pub struct ClampedUniformList<T: Std140, const N: usize> {
-  pub semantic: SemanticBinding,
   pub source: Vec<T>,
   pub gpu: Option<UniformBufferDataView<Shader140Array<T, N>>>,
 }
 
-impl<T: Std140, const N: usize> ClampedUniformList<T, N> {
-  pub fn default_with(semantic: SemanticBinding) -> Self {
+impl<T: Std140, const N: usize> Default for ClampedUniformList<T, N> {
+  fn default() -> Self {
     Self {
-      semantic,
       source: Default::default(),
       gpu: Default::default(),
     }
@@ -44,12 +42,10 @@ where
   T: Std140 + ShaderStructMemberValueNodeType,
 {
   fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
-    ctx.binding.bind(self.gpu.as_ref().unwrap(), self.semantic);
+    ctx.binding.bind(self.gpu.as_ref().unwrap());
   }
 }
 
 impl<T: Std140, const N: usize> ShaderHashProvider for ClampedUniformList<T, N> {
-  fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
-    self.semantic.hash(hasher)
-  }
+  fn hash_pipeline(&self, _hasher: &mut PipelineHasher) {}
 }

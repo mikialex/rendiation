@@ -27,7 +27,7 @@ impl ShaderGraphProvider for FlatMaterialGPU {
     builder: &mut ShaderGraphRenderPipelineBuilder,
   ) -> Result<(), ShaderGraphBuildError> {
     builder.fragment(|builder, binding| {
-      let uniform = binding.uniform_by(&self.uniform, SB::Material).expand();
+      let uniform = binding.uniform_by(&self.uniform).expand();
 
       builder.register::<DefaultDisplay>(uniform.color);
       Ok(())
@@ -37,7 +37,7 @@ impl ShaderGraphProvider for FlatMaterialGPU {
 
 impl ShaderPassBuilder for FlatMaterialGPU {
   fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
-    ctx.binding.bind(&self.uniform, SB::Material);
+    ctx.binding.bind(&self.uniform);
   }
 }
 

@@ -69,9 +69,9 @@ pub struct HighLightComposeTask<'a, T> {
 
 impl<'a, T> ShaderPassBuilder for HighLightComposeTask<'a, T> {
   fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
-    ctx.binding.bind(&self.lighter.data, SB::Material);
-    ctx.binding.bind(&self.mask, SB::Material);
-    ctx.bind_immediate_sampler(&TextureSampler::default().into_gpu(), SB::Material);
+    ctx.binding.bind(&self.lighter.data);
+    ctx.binding.bind(&self.mask);
+    ctx.bind_immediate_sampler(&TextureSampler::default().into_gpu());
   }
 }
 
@@ -91,12 +91,10 @@ impl<'a, T> ShaderGraphProvider for HighLightComposeTask<'a, T> {
     builder: &mut ShaderGraphRenderPipelineBuilder,
   ) -> Result<(), ShaderGraphBuildError> {
     builder.fragment(|builder, binding| {
-      let highlighter = binding
-        .uniform_by(&self.lighter.data, SB::Material)
-        .expand();
+      let highlighter = binding.uniform_by(&self.lighter.data).expand();
 
-      let mask = binding.uniform_by(&self.mask, SB::Material);
-      let sampler = binding.uniform::<GPUSamplerView>(SB::Material);
+      let mask = binding.uniform_by(&self.mask);
+      let sampler = binding.uniform::<GPUSamplerView>();
 
       let uv = builder.query::<FragmentUv>()?;
       let size = builder.query::<RenderBufferSize>()?;

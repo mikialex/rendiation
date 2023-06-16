@@ -104,7 +104,7 @@ pub struct GridGroundShading {
 impl ShaderHashProvider for GridGroundShading {}
 impl ShaderPassBuilder for GridGroundShading {
   fn setup_pass(&self, ctx: &mut webgpu::GPURenderPassCtx) {
-    ctx.binding.bind(&self.shading, SB::Object);
+    ctx.binding.bind(&self.shading);
   }
 }
 impl ShaderGraphProvider for GridGroundShading {
@@ -113,7 +113,7 @@ impl ShaderGraphProvider for GridGroundShading {
     builder: &mut ShaderGraphRenderPipelineBuilder,
   ) -> Result<(), ShaderGraphBuildError> {
     builder.fragment(|builder, binding| {
-      let shading = binding.uniform_by(&self.shading, SB::Object);
+      let shading = binding.uniform_by(&self.shading);
       let world_position = builder.query::<FragmentWorldPosition>()?;
 
       let grid = grid(world_position, shading);
@@ -160,7 +160,7 @@ impl<'a> ShaderHashProviderAny for InfinityShaderPlaneEffect<'a> {
 impl<'a> ShaderPassBuilder for InfinityShaderPlaneEffect<'a> {
   fn setup_pass(&self, ctx: &mut webgpu::GPURenderPassCtx) {
     self.camera.setup_pass(ctx);
-    ctx.binding.bind(self.plane, SB::Object);
+    ctx.binding.bind(self.plane);
   }
 }
 
@@ -192,7 +192,7 @@ impl<'a> ShaderGraphProvider for InfinityShaderPlaneEffect<'a> {
       let view_proj_inv = builder.query::<CameraViewProjectionInverseMatrix>()?;
 
       let uv = builder.query::<FragmentUv>()?;
-      let plane = binding.uniform_by(self.plane, SB::Object);
+      let plane = binding.uniform_by(self.plane);
 
       let ndc_xy = uv * consts(2.) - consts(Vec2::one());
       let ndc_xy = ndc_xy * consts(Vec2::new(1., -1.));

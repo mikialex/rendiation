@@ -82,6 +82,7 @@ impl ShaderGraphProvider for ShadowMapSystem {
 pub const SHADOW_MAX: usize = 8;
 pub type ShadowList<T> = ClampedUniformList<T, SHADOW_MAX>;
 
+#[derive(Default)]
 pub struct BasicShadowMapInfoList {
   pub list: ShadowList<BasicShadowMapInfo>,
 }
@@ -96,21 +97,13 @@ impl RebuildAbleGPUCollectionBase for BasicShadowMapInfoList {
   }
 }
 
-impl Default for BasicShadowMapInfoList {
-  fn default() -> Self {
-    Self {
-      list: ShadowList::default_with(SB::Pass),
-    }
-  }
-}
-
 impl ShaderGraphProvider for BasicShadowMapInfoList {
   fn build(
     &self,
     builder: &mut ShaderGraphRenderPipelineBuilder,
   ) -> Result<(), ShaderGraphBuildError> {
     builder.fragment(|builder, binding| {
-      let list = binding.uniform_by(self.list.gpu.as_ref().unwrap(), SB::Pass);
+      let list = binding.uniform_by(self.list.gpu.as_ref().unwrap());
       builder.register::<BasicShadowMapInfoGroup>(list);
       Ok(())
     })

@@ -26,12 +26,12 @@ impl DeferGBufferSchema<PhysicalShading> for MaterialDeferPassResult {
     ),
     ShaderGraphBuildError,
   > {
-    let world_position = binding.uniform_by(&self.world_position.read(), SB::Pass);
-    let normal = binding.uniform_by(&self.normal.read(), SB::Pass);
-    let material1 = binding.uniform_by(&self.material1.read(), SB::Pass);
-    let material2 = binding.uniform_by(&self.material2.read(), SB::Pass);
+    let world_position = binding.uniform_by(&self.world_position.read());
+    let normal = binding.uniform_by(&self.normal.read());
+    let material1 = binding.uniform_by(&self.material1.read());
+    let material2 = binding.uniform_by(&self.material2.read());
 
-    let sampler = binding.uniform::<GPUSamplerView>(SB::Material);
+    let sampler = binding.uniform::<GPUSamplerView>();
 
     let uv = builder.query::<FragmentUv>()?;
 
@@ -62,12 +62,12 @@ impl DeferGBufferSchema<PhysicalShading> for MaterialDeferPassResult {
 
 impl ShaderPassBuilder for MaterialDeferPassResult {
   fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
-    ctx.binding.bind(&self.world_position.read(), SB::Pass);
-    ctx.binding.bind(&self.depth.read(), SB::Pass);
-    ctx.binding.bind(&self.normal.read(), SB::Pass);
-    ctx.binding.bind(&self.material1.read(), SB::Pass);
-    ctx.binding.bind(&self.material2.read(), SB::Pass);
-    ctx.bind_immediate_sampler(&TextureSampler::default().into_gpu(), SB::Material);
+    ctx.binding.bind(&self.world_position.read());
+    ctx.binding.bind(&self.depth.read());
+    ctx.binding.bind(&self.normal.read());
+    ctx.binding.bind(&self.material1.read());
+    ctx.binding.bind(&self.material2.read());
+    ctx.bind_immediate_sampler(&TextureSampler::default().into_gpu());
   }
 }
 
@@ -212,7 +212,7 @@ struct SingleLight<'a, T: Std140> {
 
 impl<'a, T: Std140 + ShaderGraphNodeType> ShaderPassBuilder for SingleLight<'a, T> {
   fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
-    ctx.binding.bind(self.light, SB::Pass)
+    ctx.binding.bind(self.light)
   }
 }
 impl<'a, T: Std140> ShaderHashProvider for SingleLight<'a, T> {
@@ -229,7 +229,7 @@ impl<'a, T: ShaderLight> LightCollectionCompute for SingleLight<'a, T> {
     shading: &dyn Any,
     geom_ctx: &ENode<ShaderLightingGeometricCtx>,
   ) -> Result<(Node<Vec3<f32>>, Node<Vec3<f32>>), ShaderGraphBuildError> {
-    let light = binding.uniform_by(self.light, SB::Pass);
+    let light = binding.uniform_by(self.light);
 
     let dep = T::create_dep(builder)?;
 

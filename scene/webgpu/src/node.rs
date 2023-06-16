@@ -115,7 +115,7 @@ impl ShaderGraphProvider for NodeGPU {
     builder: &mut ShaderGraphRenderPipelineBuilder,
   ) -> Result<(), ShaderGraphBuildError> {
     builder.vertex(|builder, binding| {
-      let model = binding.uniform_by(&self.ubo, SB::Object).expand();
+      let model = binding.uniform_by(&self.ubo).expand();
       let position = builder.query::<GeometryPosition>()?;
       let position = model.world_matrix * (position, 1.).into();
 
@@ -131,6 +131,6 @@ impl ShaderGraphProvider for NodeGPU {
 
 impl ShaderPassBuilder for NodeGPU {
   fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
-    ctx.binding.bind(&self.ubo, SB::Object)
+    ctx.binding.bind(&self.ubo)
   }
 }

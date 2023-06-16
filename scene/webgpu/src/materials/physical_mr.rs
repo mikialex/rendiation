@@ -49,18 +49,18 @@ impl Stream for PhysicalMetallicRoughnessMaterialGPU {
 
 impl ShaderPassBuilder for PhysicalMetallicRoughnessMaterialGPU {
   fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
-    ctx.binding.bind(&self.uniform, SB::Material);
+    ctx.binding.bind(&self.uniform);
     if let Some(t) = self.base_color_texture.as_ref() {
-      t.setup_pass(ctx, SB::Material)
+      t.setup_pass(ctx)
     }
     if let Some(t) = self.metallic_roughness_texture.as_ref() {
-      t.setup_pass(ctx, SB::Material)
+      t.setup_pass(ctx)
     }
     if let Some(t) = self.emissive_texture.as_ref() {
-      t.setup_pass(ctx, SB::Material)
+      t.setup_pass(ctx)
     }
     if let Some(t) = self.normal_texture.as_ref() {
-      t.setup_pass(ctx, SB::Material)
+      t.setup_pass(ctx)
     }
   }
 }
@@ -76,13 +76,13 @@ impl ShaderGraphProvider for PhysicalMetallicRoughnessMaterialGPU {
     );
 
     builder.fragment(|builder, binding| {
-      let uniform = binding.uniform_by(&self.uniform, SB::Material).expand();
+      let uniform = binding.uniform_by(&self.uniform).expand();
       let uv = builder.query_or_interpolate_by::<FragmentUv, GeometryUV>();
 
       let mut alpha = uniform.alpha;
 
       let base_color = if let Some(tex) = &self.base_color_texture {
-        let sample = tex.uniform_and_sample(binding, SB::Material, uv);
+        let sample = tex.uniform_and_sample(binding, uv);
         alpha *= sample.w();
         sample.xyz() * uniform.base_color
       } else {
@@ -93,19 +93,19 @@ impl ShaderGraphProvider for PhysicalMetallicRoughnessMaterialGPU {
       let mut roughness = uniform.roughness;
 
       if let Some(tex) = &self.metallic_roughness_texture {
-        let metallic_roughness = tex.uniform_and_sample(binding, SB::Material, uv);
+        let metallic_roughness = tex.uniform_and_sample(binding, uv);
         metallic *= metallic_roughness.x();
         roughness *= metallic_roughness.y();
       }
 
       let emissive = if let Some(tex) = &self.emissive_texture {
-        tex.uniform_and_sample(binding, SB::Material, uv).x() * uniform.emissive
+        tex.uniform_and_sample(binding, uv).x() * uniform.emissive
       } else {
         uniform.emissive
       };
 
       if let Some(tex) = &self.normal_texture {
-        let normal_sample = tex.uniform_and_sample(binding, SB::Material, uv).xyz();
+        let normal_sample = tex.uniform_and_sample(binding, uv).xyz();
         apply_normal_mapping(builder, normal_sample, uv, uniform.normal_mapping_scale);
       }
 

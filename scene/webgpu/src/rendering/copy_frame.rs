@@ -40,8 +40,8 @@ impl From<ImmediateSampler> for SamplerDescriptor<'static> {
 
 impl<T> ShaderPassBuilder for CopyFrame<T> {
   fn setup_pass(&self, ctx: &mut webgpu::GPURenderPassCtx) {
-    ctx.bind_immediate_sampler(&self.sampler, SB::Material);
-    ctx.binding.bind(&self.source, SB::Material);
+    ctx.bind_immediate_sampler(&self.sampler);
+    ctx.binding.bind(&self.source);
   }
 }
 
@@ -51,8 +51,8 @@ impl<T> ShaderGraphProvider for CopyFrame<T> {
     builder: &mut shadergraph::ShaderGraphRenderPipelineBuilder,
   ) -> Result<(), shadergraph::ShaderGraphBuildError> {
     builder.fragment(|builder, binding| {
-      let sampler = binding.uniform_by(&self.sampler, SB::Material);
-      let source = binding.uniform_by(&self.source, SB::Material);
+      let sampler = binding.uniform_by(&self.sampler);
+      let source = binding.uniform_by(&self.source);
 
       let uv = builder.query::<FragmentUv>()?;
       let value = source.sample(sampler, uv);

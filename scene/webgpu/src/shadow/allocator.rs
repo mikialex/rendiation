@@ -11,8 +11,8 @@ impl ShaderPassBuilder for ShadowMapAllocator {
   fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
     let inner = self.inner.borrow();
     let inner = inner.result.as_ref().unwrap();
-    ctx.binding.bind(&inner.map, SB::Pass);
-    ctx.binding.bind(&inner.sampler, SB::Pass);
+    ctx.binding.bind(&inner.map);
+    ctx.binding.bind(&inner.sampler);
   }
 }
 
@@ -24,8 +24,8 @@ impl ShaderGraphProvider for ShadowMapAllocator {
     let inner = self.inner.borrow();
     let inner = &inner.result.as_ref().unwrap();
     builder.fragment(|builder, binding| {
-      let map = binding.uniform_by(&inner.map, SB::Pass);
-      let sampler = binding.uniform_by(&inner.sampler, SB::Pass);
+      let map = binding.uniform_by(&inner.map);
+      let sampler = binding.uniform_by(&inner.sampler);
       builder.register::<BasicShadowMap>(map);
       builder.register::<BasicShadowMapSampler>(sampler);
       Ok(())

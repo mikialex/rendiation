@@ -115,7 +115,7 @@ impl ShaderHashProvider for FatlineMaterialGPU {}
 
 impl ShaderPassBuilder for FatlineMaterialGPU {
   fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
-    ctx.binding.bind(&self.uniform, SB::Material);
+    ctx.binding.bind(&self.uniform);
   }
 }
 
@@ -127,7 +127,7 @@ impl ShaderGraphProvider for FatlineMaterialGPU {
     builder.vertex(|builder, binding| {
       let uv = builder.query::<GeometryUV>()?;
       let color_with_alpha = builder.query::<GeometryColorWithAlpha>()?;
-      let material = binding.uniform_by(&self.uniform, SB::Material).expand();
+      let material = binding.uniform_by(&self.uniform).expand();
 
       let vertex_position = fatline_vertex(
         builder.query::<CameraProjectionMatrix>()?,

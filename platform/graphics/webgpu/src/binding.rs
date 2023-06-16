@@ -145,18 +145,23 @@ impl BindGroupBuilder {
 #[derive(Default)]
 pub struct BindingBuilder {
   groups: [BindGroupBuilder; 5],
+  current_index: usize,
 }
 
 impl BindingBuilder {
+  pub fn set_binding_slot(&mut self, new: usize) -> usize {
+    std::mem::replace(&mut self.current_index, new)
+  }
+
   pub fn reset(&mut self) {
     self.groups.iter_mut().for_each(|item| item.reset());
   }
 
-  pub fn bind<T>(&mut self, item: &T, group: impl Into<usize>)
+  pub fn bind<T>(&mut self, item: &T)
   where
     T: BindingSource + ShaderUniformProvider,
   {
-    self.groups[group.into()].bind(item)
+    self.groups[self.current_index].bind(item)
   }
 
   pub fn setup_pass(
@@ -165,10 +170,16 @@ impl BindingBuilder {
     device: &GPUDevice,
     pipeline: &GPURenderPipeline,
   ) {
-    for (group_index, group) in self.groups.iter_mut().enumerate() {
+    let mut is_visiting_empty_tail = true;
+    for (group_index, group) in self.groups.iter_mut().enumerate().rev() {
       if group.is_empty() {
-        pass.set_bind_group_placeholder(group_index as u32);
+        if is_visiting_empty_tail {
+          continue;
+        } else {
+          pass.set_bind_group_placeholder(group_index as u32);
+        }
       }
+      is_visiting_empty_tail = false;
 
       let layout = &pipeline.bg_layouts[group_index];
 
@@ -202,10 +213,9 @@ impl<'encoder, 'gpu> GPURenderPassCtx<'encoder, 'gpu> {
   pub fn bind_immediate_sampler(
     &mut self,
     sampler: &(impl Into<SamplerDescriptor<'static>> + Clone),
-    group: impl Into<usize>,
   ) {
     let sampler = GPUSampler::create(sampler.clone().into(), &self.gpu.device);
     let sampler = sampler.create_default_view();
-    self.binding.bind(&sampler, group.into());
+    self.binding.bind(&sampler);
   }
 }

@@ -1,35 +1,5 @@
 use crate::*;
 
-#[derive(Clone, Copy, Hash)]
-pub enum SemanticBinding {
-  Global,
-  Camera,
-  Pass,
-  Material,
-  Object,
-}
-
-/// simple and wonderful
-pub type SB = SemanticBinding;
-
-impl SemanticBinding {
-  pub fn binding_index(&self) -> usize {
-    match self {
-      SemanticBinding::Global => 4,
-      SemanticBinding::Camera => 3,
-      SemanticBinding::Pass => 2,
-      SemanticBinding::Material => 1,
-      SemanticBinding::Object => 0,
-    }
-  }
-}
-
-impl From<SB> for usize {
-  fn from(v: SB) -> Self {
-    v.binding_index()
-  }
-}
-
 /// should impl by user's container ty
 pub trait ShaderUniformProvider {
   type Node: ShaderGraphNodeType;
@@ -81,12 +51,14 @@ pub trait DynamicShaderUniformProvider {
 
 pub struct ShaderGraphBindGroupBuilder {
   pub bindings: Vec<ShaderGraphBindGroup>,
+  pub current_index: usize,
 }
 
 impl Default for ShaderGraphBindGroupBuilder {
   fn default() -> Self {
     Self {
       bindings: vec![Default::default(); 5],
+      current_index: 0,
     }
   }
 }
@@ -131,11 +103,14 @@ impl<T: ShaderGraphNodeType> UniformNodePreparer<T> {
 }
 
 impl ShaderGraphBindGroupBuilder {
+  pub fn set_binding_slot(&mut self, new: usize) -> usize {
+    std::mem::replace(&mut self.current_index, new)
+  }
+
   pub(crate) fn uniform_ty_inner<T: ShaderUniformProvider>(
     &mut self,
-    index: impl Into<usize>,
   ) -> UniformNodePreparer<T::Node> {
-    let bindgroup_index = index.into();
+    let bindgroup_index = self.current_index;
     let bindgroup = &mut self.bindings[bindgroup_index];
 
     let entry_index = bindgroup.bindings.len();
@@ -171,26 +146,21 @@ impl ShaderGraphBindGroupBuilder {
     }
   }
 
-  pub fn uniform<T: ShaderUniformProvider>(
-    &mut self,
-    index: impl Into<usize>,
-  ) -> UniformNodePreparer<T::Node> {
-    self.uniform_ty_inner::<T>(index)
+  pub fn uniform<T: ShaderUniformProvider>(&mut self) -> UniformNodePreparer<T::Node> {
+    self.uniform_ty_inner::<T>()
   }
 
   pub fn uniform_by<T: ShaderUniformProvider>(
     &mut self,
     _instance: &T,
-    index: impl Into<usize>,
   ) -> UniformNodePreparer<T::Node> {
-    self.uniform::<T>(index)
+    self.uniform::<T>()
   }
 
   /// N: the node type you want to cast
   pub fn uniform_dyn_ty_by<T, N>(
     &mut self,
     instance: &T,
-    index: impl Into<usize>,
   ) -> Result<UniformNodePreparer<N>, ShaderGraphBuildError>
   where
     T: DynamicShaderUniformProvider,
@@ -199,7 +169,7 @@ impl ShaderGraphBindGroupBuilder {
     if instance.to_value() != N::TYPE {
       return Err(ShaderGraphBuildError::FailedDowncastShaderValueFromInput);
     }
-    Ok(self.uniform_ty_inner::<DirectProvider<N>>(index))
+    Ok(self.uniform_ty_inner::<DirectProvider<N>>())
   }
 
   pub(crate) fn wrap(&mut self) -> ShaderGraphBindGroupDirectBuilder {
@@ -212,24 +182,16 @@ pub struct ShaderGraphBindGroupDirectBuilder<'a> {
 }
 
 impl<'a> ShaderGraphBindGroupDirectBuilder<'a> {
-  pub fn uniform<T: ShaderUniformProvider>(&mut self, index: impl Into<usize>) -> Node<T::Node> {
-    self.builder.uniform_ty_inner::<T>(index).using()
+  pub fn uniform<T: ShaderUniformProvider>(&mut self) -> Node<T::Node> {
+    self.builder.uniform_ty_inner::<T>().using()
   }
 
-  pub fn uniform_by<T: ShaderUniformProvider>(
-    &mut self,
-    _instance: &T,
-    index: impl Into<usize>,
-  ) -> Node<T::Node> {
-    self.uniform::<T>(index)
+  pub fn uniform_by<T: ShaderUniformProvider>(&mut self, _instance: &T) -> Node<T::Node> {
+    self.uniform::<T>()
   }
 
   /// N: the node type you want to cast
-  pub fn uniform_dyn_ty_by<T, N>(
-    &mut self,
-    instance: &T,
-    index: impl Into<usize>,
-  ) -> Result<Node<N>, ShaderGraphBuildError>
+  pub fn uniform_dyn_ty_by<T, N>(&mut self, instance: &T) -> Result<Node<N>, ShaderGraphBuildError>
   where
     T: DynamicShaderUniformProvider,
     N: ShaderGraphNodeType,
@@ -237,11 +199,6 @@ impl<'a> ShaderGraphBindGroupDirectBuilder<'a> {
     if instance.to_value() != N::TYPE {
       return Err(ShaderGraphBuildError::FailedDowncastShaderValueFromInput);
     }
-    Ok(
-      self
-        .builder
-        .uniform_ty_inner::<DirectProvider<N>>(index)
-        .using(),
-    )
+    Ok(self.builder.uniform_ty_inner::<DirectProvider<N>>().using())
   }
 }

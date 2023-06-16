@@ -157,7 +157,7 @@ impl CameraGPU {
     builder: &mut ShaderGraphRenderPipelineBuilder,
   ) -> UniformNodePreparer<CameraGPUTransform> {
     builder
-      .uniform_by(&self.ubo, SB::Camera)
+      .uniform_by(&self.ubo)
       .using_both(builder, |r, camera| {
         let camera = camera.expand();
         r.reg::<CameraViewMatrix>(camera.view);
@@ -185,7 +185,7 @@ impl ShaderHashProvider for CameraGPU {
 
 impl ShaderPassBuilder for CameraGPU {
   fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
-    ctx.binding.bind(&self.ubo, SB::Camera)
+    ctx.binding.bind(&self.ubo)
   }
 }
 

@@ -21,8 +21,7 @@ impl GPURenderPipeline {
     }
   }
 
-  pub fn get_layout(&self, sb: SemanticBinding) -> &GPUBindGroupLayout {
-    let index = sb.binding_index();
+  pub fn get_layout(&self, index: usize) -> &GPUBindGroupLayout {
     self.bg_layouts.get(index).unwrap()
   }
 }
@@ -120,12 +119,18 @@ impl GPUDevice {
       source: gpu::ShaderSource::Wgsl(Cow::Borrowed(fragment.as_str())),
     });
 
-    let layouts: Vec<_> = bindings
-      .bindings
+    let binding = &bindings.bindings;
+    let last_empty_count = binding
       .iter()
-      .map(|binding| {
-        create_bindgroup_layout_by_node_ty(self, binding.bindings.iter().map(|e| &e.ty))
-      })
+      .rev()
+      .take_while(|l| l.bindings.is_empty())
+      .count();
+
+    let layouts: Vec<_> = binding
+      .get(0..binding.len() - last_empty_count)
+      .unwrap()
+      .iter()
+      .map(|b| create_bindgroup_layout_by_node_ty(self, b.bindings.iter().map(|e| &e.ty)))
       .collect();
 
     let layouts_ref: Vec<_> = layouts.iter().map(|l| l.inner.as_ref()).collect();

@@ -31,11 +31,11 @@ impl ShaderGraphProvider for TestUniform {
     &self,
     builder: &mut ShaderGraphRenderPipelineBuilder,
   ) -> Result<(), ShaderGraphBuildError> {
-    let uniform = builder.uniform::<Self>(SB::Object);
+    let uniform = builder.uniform::<Self>();
 
     builder.vertex(|builder, binding| {
-      let tex = binding.uniform::<FakeTexture2d>(SB::Object);
-      let sampler = binding.uniform::<FakeSampler>(SB::Object);
+      let tex = binding.uniform::<FakeTexture2d>();
+      let sampler = binding.uniform::<FakeSampler>();
 
       let uniform = uniform.using().expand();
       let color = tex.sample(sampler, uniform.data2);
