@@ -1,3 +1,7 @@
+use core::mem::ManuallyDrop;
+
+use shadergraph::{ShaderGraphNodeType, ShaderUniformProvider, ShaderValueType};
+
 use crate::*;
 
 pub trait BindableResourceView {
@@ -68,9 +72,130 @@ where
   }
 }
 
+#[derive(Default)]
+pub struct BindGroupBuilder {
+  items: Vec<(Box<dyn BindProvider>, ShaderValueType)>,
+}
+
+impl BindGroupBuilder {
+  pub fn reset(&mut self) {
+    self.items.clear();
+  }
+
+  pub fn bind<T>(&mut self, item: &T)
+  where
+    T: BindingSource + ShaderUniformProvider,
+  {
+    self.items.push((
+      Box::new(item.get_uniform()),
+      <<T as ShaderUniformProvider>::Node as ShaderGraphNodeType>::TYPE,
+    ))
+  }
+
+  pub fn create_bind_group_layout(&mut self, device: &GPUDevice) -> GPUBindGroupLayout {
+    create_bindgroup_layout_by_node_ty(device, self.items.iter().map(|v| &v.1))
+  }
+
+  pub fn create_bind_group(
+    &mut self,
+    device: &GPUDevice,
+    layout: &wgpu::BindGroupLayout,
+  ) -> wgpu::BindGroup {
+    let entries: Vec<_> = self
+      .items
+      .iter()
+      .enumerate()
+      .map(|(i, item)| unsafe {
+        gpu::BindGroupEntry {
+          binding: i as u32,
+          resource: std::mem::transmute(item.0.as_bindable()),
+        }
+      })
+      .collect();
+
+    device.create_bind_group(&gpu::BindGroupDescriptor {
+      label: None,
+      layout,
+      entries: &entries,
+    })
+  }
+
+  pub fn is_empty(&self) -> bool {
+    self.items.is_empty()
+  }
+
+  fn hash_binding_ids(&self, hasher: &mut impl Hasher) {
+    self.items.iter().for_each(|b| {
+      b.0.view_id().hash(hasher);
+    });
+  }
+
+  fn attach_bindgroup_invalidation_token(&self, token: BindGroupCacheInvalidation) {
+    self.items.iter().for_each(|b| {
+      // note to be careful, we do not impl clone
+      b.0.add_bind_record(BindGroupCacheInvalidation {
+        cache_id_to_drop: token.cache_id_to_drop,
+        cache: token.cache.clone(),
+      });
+    });
+    let _ = ManuallyDrop::new(token);
+  }
+}
+
+#[derive(Default)]
 pub struct BindingBuilder {
-  cache: BindGroupCache,
-  items: [Vec<Box<dyn BindProvider>>; 5],
+  groups: [BindGroupBuilder; 5],
+}
+
+impl BindingBuilder {
+  pub fn reset(&mut self) {
+    self.groups.iter_mut().for_each(|item| item.reset());
+  }
+
+  pub fn bind<T>(&mut self, item: &T, group: impl Into<usize>)
+  where
+    T: BindingSource + ShaderUniformProvider,
+  {
+    self.groups[group.into()].bind(item)
+  }
+
+  pub fn setup_pass(
+    &mut self,
+    pass: &mut GPURenderPass,
+    device: &GPUDevice,
+    pipeline: &GPURenderPipeline,
+  ) {
+    for (group_index, group) in self.groups.iter_mut().enumerate() {
+      if group.is_empty() {
+        pass.set_bind_group_placeholder(group_index as u32);
+      }
+
+      let layout = &pipeline.bg_layouts[group_index];
+
+      // hash
+      let mut hasher = DefaultHasher::default();
+      group.hash_binding_ids(&mut hasher);
+      layout.cache_id.hash(&mut hasher);
+      let hash = hasher.finish();
+
+      let cache = device.get_binding_cache();
+      let mut binding_cache = cache.cache.borrow_mut();
+
+      let bindgroup = binding_cache.entry(hash).or_insert_with(|| {
+        // build bindgroup and cache and return
+
+        group.attach_bindgroup_invalidation_token(BindGroupCacheInvalidation {
+          cache_id_to_drop: hash,
+          cache: cache.clone(),
+        });
+
+        let bindgroup = group.create_bind_group(device, layout);
+        Rc::new(bindgroup)
+      });
+
+      pass.set_bind_group_owned(group_index as u32, bindgroup, &[]);
+    }
+  }
 }
 
 impl<'encoder, 'gpu> GPURenderPassCtx<'encoder, 'gpu> {
@@ -82,77 +207,5 @@ impl<'encoder, 'gpu> GPURenderPassCtx<'encoder, 'gpu> {
     let sampler = GPUSampler::create(sampler.clone().into(), &self.gpu.device);
     let sampler = sampler.create_default_view();
     self.binding.bind(&sampler, group.into());
-  }
-}
-
-impl BindingBuilder {
-  pub fn create(cache: &BindGroupCache) -> Self {
-    Self {
-      cache: cache.clone(),
-      items: Default::default(),
-    }
-  }
-
-  pub fn reset(&mut self) {
-    self.items.iter_mut().for_each(|item| item.clear());
-  }
-
-  pub fn bind<T>(&mut self, item: &T, group: impl Into<usize>)
-  where
-    T: BindingSource,
-  {
-    self.items[group.into()].push(Box::new(item.get_uniform()))
-  }
-
-  pub fn setup_pass(
-    &self,
-    pass: &mut GPURenderPass,
-    device: &GPUDevice,
-    pipeline: &GPURenderPipeline,
-  ) {
-    for (group_index, group) in self.items.iter().enumerate() {
-      if group.is_empty() {
-        pass.set_bind_group_placeholder(group_index as u32);
-      }
-
-      let layout = &pipeline.bg_layouts[group_index];
-
-      // hash
-      let mut hasher = DefaultHasher::default();
-      group.iter().for_each(|b| {
-        b.view_id().hash(&mut hasher);
-      });
-      layout.cache_id.hash(&mut hasher);
-      let hash = hasher.finish();
-
-      let mut cache = self.cache.cache.borrow_mut();
-
-      let bindgroup = cache.entry(hash).or_insert_with(|| {
-        // build bindgroup and cache and return
-        let entries: Vec<_> = group
-          .iter()
-          .enumerate()
-          .map(|(i, item)| {
-            item.add_bind_record(BindGroupCacheInvalidation {
-              cache_id_to_drop: hash,
-              cache: self.cache.clone(),
-            });
-            gpu::BindGroupEntry {
-              binding: i as u32,
-              resource: item.as_bindable(),
-            }
-          })
-          .collect();
-
-        let bindgroup = device.create_bind_group(&gpu::BindGroupDescriptor {
-          label: None,
-          layout: layout.inner.as_ref(),
-          entries: &entries,
-        });
-        Rc::new(bindgroup)
-      });
-
-      pass.set_bind_group_owned(group_index as u32, bindgroup, &[]);
-    }
   }
 }

@@ -42,12 +42,12 @@ impl Deref for GPURenderPipeline {
 
 pub fn create_bindgroup_layout_by_node_ty<'a>(
   device: &GPUDevice,
-  iter: impl Iterator<Item = &'a ShaderGraphBindEntry>,
+  iter: impl Iterator<Item = &'a ShaderValueType>,
 ) -> GPUBindGroupLayout {
   let entries: Vec<_> = iter
     .enumerate()
-    .map(|(i, entry)| {
-      let ty = match entry.ty {
+    .map(|(i, entry_ty)| {
+      let ty = match *entry_ty {
         ShaderValueType::Fixed(_) => gpu::BindingType::Buffer {
           ty: gpu::BufferBindingType::Uniform,
           has_dynamic_offset: false,
@@ -123,7 +123,9 @@ impl GPUDevice {
     let layouts: Vec<_> = bindings
       .bindings
       .iter()
-      .map(|binding| create_bindgroup_layout_by_node_ty(self, binding.bindings.iter()))
+      .map(|binding| {
+        create_bindgroup_layout_by_node_ty(self, binding.bindings.iter().map(|e| &e.ty))
+      })
       .collect();
 
     let layouts_ref: Vec<_> = layouts.iter().map(|l| l.inner.as_ref()).collect();

@@ -109,7 +109,7 @@ impl<'encoder, 'gpu> GPURenderPassCtx<'encoder, 'gpu> {
     Self {
       pass,
       gpu,
-      binding: gpu.device.create_binding_builder(),
+      binding: Default::default(),
       incremental_vertex_binding_index: 0,
     }
   }

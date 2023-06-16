@@ -1,4 +1,4 @@
-use shadergraph::{SemanticBinding, Shader140Array, Std140};
+use shadergraph::{SemanticBinding, Shader140Array, ShaderStructMemberValueNodeType, Std140};
 
 use crate::*;
 
@@ -39,7 +39,10 @@ impl<T: Std140 + Default, const N: usize> ClampedUniformList<T, N> {
   }
 }
 
-impl<T: Std140, const N: usize> ShaderPassBuilder for ClampedUniformList<T, N> {
+impl<T, const N: usize> ShaderPassBuilder for ClampedUniformList<T, N>
+where
+  T: Std140 + ShaderStructMemberValueNodeType,
+{
   fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
     ctx.binding.bind(self.gpu.as_ref().unwrap(), self.semantic);
   }

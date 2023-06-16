@@ -82,8 +82,8 @@ impl GPUDevice {
       .clone()
   }
 
-  pub(crate) fn create_binding_builder(&self) -> BindingBuilder {
-    BindingBuilder::create(&self.inner.bindgroup_cache)
+  pub(crate) fn get_binding_cache(&self) -> &BindGroupCache {
+    &self.inner.bindgroup_cache
   }
 }
 
