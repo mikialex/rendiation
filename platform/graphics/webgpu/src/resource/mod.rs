@@ -34,8 +34,7 @@ pub struct ResourceContainer<T: Resource> {
   pub guid: usize,
   pub resource: T,
   pub desc: T::Descriptor,
-  /// when resource dropped, all referenced bindgroup should drop
-  invalidation_tokens: RwLock<Vec<BindGroupCacheInvalidation>>,
+  pub(crate) bindgroup_holder: BindGroupResourceHolder,
 }
 
 impl<T: Resource> std::ops::Deref for ResourceContainer<T> {
@@ -70,7 +69,7 @@ impl<T: Resource> ResourceContainer<T> {
       guid: RESOURCE_GUID.fetch_add(1, Ordering::Relaxed),
       resource,
       desc,
-      invalidation_tokens: Default::default(),
+      bindgroup_holder: Default::default(),
     }
   }
 }
@@ -194,26 +193,5 @@ impl<T: Resource> ResourceRc<T> {
     T::ViewDescriptor: Default,
   {
     self.create_view(Default::default())
-  }
-}
-
-impl<T> BindProvider for ResourceViewRc<T>
-where
-  T: Resource,
-  T::View: BindableResourceView,
-{
-  fn view_id(&self) -> usize {
-    self.inner.guid
-  }
-
-  fn add_bind_record(&self, record: BindGroupCacheInvalidation) {
-    self
-      .inner
-      .resource
-      .inner
-      .invalidation_tokens
-      .write()
-      .unwrap()
-      .push(record);
   }
 }

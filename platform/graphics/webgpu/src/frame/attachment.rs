@@ -142,11 +142,9 @@ impl<T> AttachmentView<T> {
   }
 }
 
-impl<T> BindingSource for AttachmentView<T> {
-  type Uniform = RenderTargetView;
-
-  fn get_uniform(&self) -> Self::Uniform {
-    self.view.clone()
+impl<T> CacheAbleBindingSource for AttachmentView<T> {
+  fn get_uniform(&self) -> CacheAbleBindingBuildSource {
+    self.view.get_uniform()
   }
 }
 

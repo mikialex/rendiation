@@ -26,6 +26,11 @@ impl InitResourceByAllocation for gpu::Texture {
   }
 }
 
+impl BindableResourceProvider for GPUTextureView {
+  fn get_bindable(&self) -> BindingResourceOwned {
+    BindingResourceOwned::TextureView(self.clone())
+  }
+}
 impl BindableResourceView for gpu::TextureView {
   fn as_bindable(&self) -> gpu::BindingResource {
     gpu::BindingResource::TextureView(self)
@@ -126,10 +131,8 @@ pub struct GPUCubeArrayDepthTextureView(pub GPUTextureView);
 
 macro_rules! texture_view_inner {
   ($ty: ty) => {
-    impl BindingSource for $ty {
-      type Uniform = GPUTextureView;
-
-      fn get_uniform(&self) -> Self::Uniform {
+    impl CacheAbleBindingSource for $ty {
+      fn get_uniform(&self) -> CacheAbleBindingBuildSource {
         self.0.get_uniform()
       }
     }

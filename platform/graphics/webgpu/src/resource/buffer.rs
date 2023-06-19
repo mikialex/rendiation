@@ -18,6 +18,12 @@ impl Resource for GPUBuffer {
   }
 }
 
+impl BindableResourceProvider for GPUBufferResourceView {
+  fn get_bindable(&self) -> BindingResourceOwned {
+    self.view.get_bindable()
+  }
+}
+
 #[derive(Clone)]
 pub struct GPUBuffer {
   pub(crate) gpu: Rc<gpu::Buffer>,
@@ -46,13 +52,15 @@ impl GPUBuffer {
   }
 }
 
+impl BindableResourceProvider for GPUBufferView {
+  fn get_bindable(&self) -> BindingResourceOwned {
+    BindingResourceOwned::Buffer(self.clone())
+  }
+}
+
 impl BindableResourceView for GPUBufferView {
   fn as_bindable(&self) -> gpu::BindingResource {
-    gpu::BindingResource::Buffer(BufferBinding {
-      buffer: &self.buffer.gpu,
-      offset: self.range.offset,
-      size: self.range.size,
-    })
+    gpu::BindingResource::Buffer(self.as_buffer_binding())
   }
 }
 
@@ -64,9 +72,20 @@ pub struct GPUBufferViewRange {
   pub size: Option<std::num::NonZeroU64>,
 }
 
+#[derive(Clone)]
 pub struct GPUBufferView {
   buffer: GPUBuffer,
   range: GPUBufferViewRange,
+}
+
+impl GPUBufferView {
+  pub fn as_buffer_binding(&self) -> BufferBinding {
+    BufferBinding {
+      buffer: &self.buffer.gpu,
+      offset: self.range.offset,
+      size: self.range.size,
+    }
+  }
 }
 
 /// just short convenient method
@@ -110,6 +129,12 @@ impl<T: Std140> Resource for UniformBufferData<T> {
         size: None,
       },
     }
+  }
+}
+
+impl<T: Std140> BindableResourceProvider for ResourceViewRc<UniformBufferData<T>> {
+  fn get_bindable(&self) -> BindingResourceOwned {
+    self.view.get_bindable()
   }
 }
 

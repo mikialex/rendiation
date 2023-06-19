@@ -20,35 +20,35 @@ pub enum RenderTargetView {
     format: gpu::TextureFormat,
     view: Rc<gpu::TextureView>,
     view_id: usize,
-    /// when resource dropped, all referenced bindgroup should drop
-    invalidation_tokens: Rc<RefCell<Vec<BindGroupCacheInvalidation>>>,
+    bindgroup_holder: BindGroupResourceHolder,
   },
 }
 
-impl BindableResourceView for RenderTargetView {
-  fn as_bindable(&self) -> gpu::BindingResource {
+impl CacheAbleBindingSource for RenderTargetView {
+  fn get_uniform(&self) -> CacheAbleBindingBuildSource {
     match self {
-      RenderTargetView::Texture(t) => t.as_bindable(),
-      RenderTargetView::SurfaceTexture { view, .. } => gpu::BindingResource::TextureView(view),
+      RenderTargetView::Texture(t) => t.get_uniform(),
+      RenderTargetView::SurfaceTexture {
+        view,
+        view_id,
+        bindgroup_holder,
+        ..
+      } => CacheAbleBindingBuildSource {
+        source: BindingResourceOwned::RawTextureView(view.clone()),
+        ref_increase_target: bindgroup_holder.create_pending_increase(),
+        view_id: *view_id,
+      },
     }
   }
 }
 
-impl BindProvider for RenderTargetView {
-  fn view_id(&self) -> usize {
+impl BindableResourceProvider for RenderTargetView {
+  fn get_bindable(&self) -> BindingResourceOwned {
     match self {
-      RenderTargetView::Texture(t) => t.view_id(),
-      RenderTargetView::SurfaceTexture { view_id, .. } => *view_id,
-    }
-  }
-
-  fn add_bind_record(&self, record: BindGroupCacheInvalidation) {
-    match self {
-      RenderTargetView::Texture(t) => t.add_bind_record(record),
-      RenderTargetView::SurfaceTexture {
-        invalidation_tokens,
-        ..
-      } => invalidation_tokens.borrow_mut().push(record),
+      RenderTargetView::Texture(t) => t.get_bindable(),
+      RenderTargetView::SurfaceTexture { view, .. } => {
+        BindingResourceOwned::RawTextureView(view.clone())
+      }
     }
   }
 }
