@@ -39,42 +39,46 @@ impl Deref for GPURenderPipeline {
   }
 }
 
+pub fn map_shader_value_ty_to_binding_layout_type(
+  v: ShaderValueType,
+  id: usize,
+) -> gpu::BindGroupLayoutEntry {
+  let ty = match v {
+    ShaderValueType::Fixed(_) => gpu::BindingType::Buffer {
+      ty: gpu::BufferBindingType::Uniform,
+      has_dynamic_offset: false,
+      // min_binding_size: gpu::BufferSize::new(std::mem::size_of::<T>() as u64), // todo
+      min_binding_size: None,
+    },
+    ShaderValueType::Sampler(ty) => gpu::BindingType::Sampler(ty),
+    ShaderValueType::Texture {
+      dimension,
+      sample_type,
+    } => gpu::BindingType::Texture {
+      multisampled: false,
+      sample_type,
+      view_dimension: dimension,
+    },
+    ShaderValueType::Never => unreachable!(),
+    ShaderValueType::CompareSampler => {
+      gpu::BindingType::Sampler(gpu::SamplerBindingType::Comparison)
+    }
+  };
+  gpu::BindGroupLayoutEntry {
+    binding: id as u32,
+    visibility: gpu::ShaderStages::VERTEX_FRAGMENT,
+    ty,
+    count: None,
+  }
+}
+
 pub fn create_bindgroup_layout_by_node_ty<'a>(
   device: &GPUDevice,
   iter: impl Iterator<Item = &'a ShaderValueType>,
 ) -> GPUBindGroupLayout {
   let entries: Vec<_> = iter
     .enumerate()
-    .map(|(i, entry_ty)| {
-      let ty = match *entry_ty {
-        ShaderValueType::Fixed(_) => gpu::BindingType::Buffer {
-          ty: gpu::BufferBindingType::Uniform,
-          has_dynamic_offset: false,
-          // min_binding_size: gpu::BufferSize::new(std::mem::size_of::<T>() as u64), // todo
-          min_binding_size: None,
-        },
-        ShaderValueType::Sampler(ty) => gpu::BindingType::Sampler(ty),
-        ShaderValueType::Texture {
-          dimension,
-          sample_type,
-        } => gpu::BindingType::Texture {
-          multisampled: false,
-          sample_type,
-          view_dimension: dimension,
-        },
-        ShaderValueType::Never => unreachable!(),
-        ShaderValueType::CompareSampler => {
-          gpu::BindingType::Sampler(gpu::SamplerBindingType::Comparison)
-        }
-      };
-
-      gpu::BindGroupLayoutEntry {
-        binding: i as u32,
-        visibility: gpu::ShaderStages::VERTEX_FRAGMENT,
-        ty,
-        count: None,
-      }
-    })
+    .map(|(i, entry_ty)| map_shader_value_ty_to_binding_layout_type(*entry_ty, i))
     .collect();
 
   device.create_and_cache_bindgroup_layout(entries.as_ref())

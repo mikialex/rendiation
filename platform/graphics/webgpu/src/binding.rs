@@ -1,6 +1,6 @@
 use core::mem::ManuallyDrop;
 
-use shadergraph::{ShaderGraphNodeType, ShaderUniformProvider, ShaderValueType};
+use shadergraph::{ShaderGraphNodeType, ShaderUniformProvider};
 
 use crate::*;
 
@@ -74,7 +74,7 @@ where
 
 #[derive(Default)]
 pub struct BindGroupBuilder {
-  items: Vec<(Box<dyn BindProvider>, ShaderValueType)>,
+  items: Vec<(Box<dyn BindProvider>, gpu::BindGroupLayoutEntry)>,
 }
 
 impl BindGroupBuilder {
@@ -88,12 +88,17 @@ impl BindGroupBuilder {
   {
     self.items.push((
       Box::new(item.get_uniform()),
-      <<T as ShaderUniformProvider>::Node as ShaderGraphNodeType>::TYPE,
+      map_shader_value_ty_to_binding_layout_type(
+        <<T as ShaderUniformProvider>::Node as ShaderGraphNodeType>::TYPE,
+        self.items.len(),
+      ),
     ))
   }
 
   pub fn create_bind_group_layout(&mut self, device: &GPUDevice) -> GPUBindGroupLayout {
-    create_bindgroup_layout_by_node_ty(device, self.items.iter().map(|v| &v.1))
+    let entries: Vec<_> = self.items.iter().map(|(_, entry_ty)| *entry_ty).collect();
+
+    device.create_and_cache_bindgroup_layout(entries.as_ref())
   }
 
   pub fn create_bind_group(
