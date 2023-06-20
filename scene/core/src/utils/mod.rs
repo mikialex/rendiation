@@ -29,6 +29,20 @@ macro_rules! with_field {
 }
 
 #[macro_export]
+macro_rules! with_field_expand {
+  ($ty:ty =>$field:tt) => {
+    |view, send| match view {
+      incremental::MaybeDeltaRef::All(value) => value.$field.expand(send),
+      incremental::MaybeDeltaRef::Delta(delta) => {
+        if let incremental::DeltaOf::<$ty>::$field(field) = delta {
+          send(field.clone())
+        }
+      }
+    }
+  };
+}
+
+#[macro_export]
 macro_rules! with_field_change {
   ($ty:ty =>$field:tt) => {
     |view, send| match view {

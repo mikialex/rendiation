@@ -111,14 +111,7 @@ impl SceneCameraGPUSystem {
     let mut index_mapper = HashMap::<SceneCameraHandle, usize>::default();
 
     let cameras = scene
-      .unbound_listen_by(|view, send| match view {
-        MaybeDeltaRef::All(scene) => scene.cameras.expand(send),
-        MaybeDeltaRef::Delta(delta) => {
-          if let SceneInnerDelta::cameras(d) = delta {
-            send(d.clone())
-          }
-        }
-      })
+      .unbound_listen_by(with_field_expand!(SceneInner => cameras))
       .map(move |v: arena::ArenaDelta<SceneCamera>| match v {
         arena::ArenaDelta::Mutate((camera, idx)) => {
           index_mapper.remove(&idx).unwrap();
