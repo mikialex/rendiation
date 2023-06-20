@@ -187,7 +187,7 @@ pub struct WebGPUxUIRenderer {
 pub struct UIxGPUxResource {
   solid_color_pipeline: webgpu::GPURenderPipeline,
   texture_pipeline: webgpu::GPURenderPipeline,
-  global_ui_state: UniformBufferData<UIGlobalParameter>,
+  global_ui_state: UniformBufferDataView<UIGlobalParameter>,
   texture_bg_layout: webgpu::GPUBindGroupLayout,
   sampler: webgpu::Sampler,
   global_bindgroup: webgpu::BindGroup,
@@ -204,14 +204,14 @@ impl WebGPUxUIRenderer {
       ..Zeroable::zeroed()
     };
 
-    let global_ui_state = UniformBufferData::create(device, global_ui_state);
+    let global_ui_state = UniformBufferDataView::create(device, global_ui_state);
     let global_uniform_bind_group_layout = UIGlobalParameter::create_bind_group_layout(device);
 
     let global_bindgroup = device.create_bind_group(&webgpu::BindGroupDescriptor {
       layout: &global_uniform_bind_group_layout,
       entries: &[webgpu::BindGroupEntry {
         binding: 0,
-        resource: global_ui_state.create_view(&()).as_bindable(),
+        resource: global_ui_state.as_bindable(),
       }],
       label: None,
     });
@@ -219,8 +219,6 @@ impl WebGPUxUIRenderer {
     let solid_color_pipeline = device
       .build_pipeline_by_shadergraph(SolidUIPipeline { target_format }.build_self().unwrap())
       .unwrap();
-
-    dbg!(solid_color_pipeline.inner.bg_layouts.len());
 
     let texture_pipeline = device
       .build_pipeline_by_shadergraph(TextureUIPipeline { target_format }.build_self().unwrap())

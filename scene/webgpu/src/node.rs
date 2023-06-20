@@ -77,9 +77,8 @@ pub struct NodeGPU {
 
 impl NodeGPU {
   pub fn update(&mut self, queue: &GPUQueue, world_mat: Mat4<f32>) -> &mut Self {
-    let ubo = &self.ubo.resource;
-    ubo.set(TransformGPUData::from_world_mat(world_mat));
-    ubo.upload_with_diff(queue);
+    self.ubo.set(TransformGPUData::from_world_mat(world_mat));
+    self.ubo.upload_with_diff(queue);
     self
   }
 

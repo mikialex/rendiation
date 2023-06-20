@@ -41,15 +41,13 @@ impl TAA {
     self
       .previous_camera
       .ubo
-      .resource
-      .copy_cpu(&self.current_camera.ubo.resource)
+      .copy_cpu(&self.current_camera.ubo)
       .upload(&ctx.gpu.queue);
 
     self
       .current_camera
       .ubo
-      .resource
-      .copy_cpu(&new_camera.ubo.resource)
+      .copy_cpu(&new_camera.ubo)
       .upload(&ctx.gpu.queue);
 
     let mut resolve_target = attachment()

@@ -12,7 +12,7 @@ pub use sampling::*;
 pub struct ShadowMapSystem {
   pub shadow_collections: LinkedHashMap<TypeId, Box<dyn ShadowCollection>>,
   pub maps: ShadowMapAllocator,
-  pub sampler: RawComparisonSampler,
+  pub sampler: RawSampler,
 }
 
 pub trait ShadowCollection: RenderComponentAny + RebuildAbleGPUCollectionBase {
@@ -31,7 +31,7 @@ impl ShadowMapSystem {
     Self {
       shadow_collections: Default::default(),
       maps: Default::default(),
-      sampler: gpu.device.create_and_cache_com_sampler(sampler),
+      sampler: gpu.device.create_and_cache_sampler(sampler),
     }
   }
 

@@ -2,17 +2,40 @@ use crate::*;
 
 #[derive(Clone)]
 pub enum BindingResourceOwned {
-  Buffer(GPUBufferView),
-  BufferArray(Vec<GPUBufferView>),
-  RawSampler(Rc<Sampler>),
-  Sampler(GPUSampler),
-  SamplerArray(Vec<GPUSampler>),
-  RawTextureView(Rc<TextureView>),
+  Buffer(GPUBufferResourceView),
+  BufferArray(Vec<GPUBufferResourceView>),
+  Sampler(GPUSamplerView),
+  SamplerArray(Vec<GPUSamplerView>),
+  RawTextureView(Rc<TextureView>, BindGroupResourceHolder), // to support surface texture
   TextureView(GPUTextureView),
   TextureViewArray(Vec<GPUTextureView>),
 }
 
 impl BindingResourceOwned {
+  pub fn increase(&self, record: &BindGroupCacheInvalidation) {
+    match self {
+      BindingResourceOwned::Buffer(v) => {
+        v.resource.bindgroup_holder.increase(record.clone_another())
+      }
+      BindingResourceOwned::BufferArray(v) => v
+        .iter()
+        .for_each(|v| v.resource.bindgroup_holder.increase(record.clone_another())),
+      BindingResourceOwned::Sampler(v) => {
+        v.resource.bindgroup_holder.increase(record.clone_another())
+      }
+      BindingResourceOwned::SamplerArray(v) => v
+        .iter()
+        .for_each(|v| v.resource.bindgroup_holder.increase(record.clone_another())),
+      BindingResourceOwned::RawTextureView(_, v) => v.increase(record.clone_another()),
+      BindingResourceOwned::TextureView(v) => {
+        v.resource.bindgroup_holder.increase(record.clone_another())
+      }
+      BindingResourceOwned::TextureViewArray(v) => v
+        .iter()
+        .for_each(|v| v.resource.bindgroup_holder.increase(record.clone_another())),
+    }
+  }
+
   pub fn prepare_ref(&self) -> BindingResourceOwnedRef {
     match self {
       BindingResourceOwned::Buffer(buffer) => {
@@ -24,14 +47,13 @@ impl BindingResourceOwned {
           .map(|buffer| buffer.as_buffer_binding())
           .collect(),
       ),
-      BindingResourceOwned::RawSampler(sampler) => BindingResourceOwnedRef::Sampler(sampler),
       BindingResourceOwned::Sampler(sampler) => {
         BindingResourceOwnedRef::Sampler(&sampler.resource.0)
       }
       BindingResourceOwned::SamplerArray(samplers) => BindingResourceOwnedRef::SamplerArray(
         samplers.iter().map(|s| s.resource.0.as_ref()).collect(),
       ),
-      BindingResourceOwned::RawTextureView(view) => {
+      BindingResourceOwned::RawTextureView(view, _) => {
         BindingResourceOwnedRef::TextureView(view.as_ref())
       }
       BindingResourceOwned::TextureView(view) => BindingResourceOwnedRef::TextureView(&view.view),

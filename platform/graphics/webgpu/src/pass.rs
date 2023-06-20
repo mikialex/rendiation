@@ -28,14 +28,8 @@ impl CacheAbleBindingSource for RenderTargetView {
   fn get_uniform(&self) -> CacheAbleBindingBuildSource {
     match self {
       RenderTargetView::Texture(t) => t.get_uniform(),
-      RenderTargetView::SurfaceTexture {
-        view,
-        view_id,
-        bindgroup_holder,
-        ..
-      } => CacheAbleBindingBuildSource {
-        source: BindingResourceOwned::RawTextureView(view.clone()),
-        ref_increase_target: bindgroup_holder.create_pending_increase(),
+      RenderTargetView::SurfaceTexture { view_id, .. } => CacheAbleBindingBuildSource {
+        source: self.get_bindable(),
         view_id: *view_id,
       },
     }
@@ -46,9 +40,11 @@ impl BindableResourceProvider for RenderTargetView {
   fn get_bindable(&self) -> BindingResourceOwned {
     match self {
       RenderTargetView::Texture(t) => t.get_bindable(),
-      RenderTargetView::SurfaceTexture { view, .. } => {
-        BindingResourceOwned::RawTextureView(view.clone())
-      }
+      RenderTargetView::SurfaceTexture {
+        view,
+        bindgroup_holder,
+        ..
+      } => BindingResourceOwned::RawTextureView(view.clone(), bindgroup_holder.clone()),
     }
   }
 }

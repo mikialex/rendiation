@@ -55,7 +55,7 @@ pub fn build_reactive_camera(
 
   futures::stream::select(camera_world, camera_proj).fold_signal(state, move |delta, state| {
     let uniform = &mut state.inner.ubo;
-    uniform.resource.mutate(|uniform| match delta {
+    uniform.mutate(|uniform| match delta {
       CameraGPUDelta::Proj(proj) => {
         uniform.projection = proj;
         uniform.projection_inv = proj.inverse_or_identity();
@@ -71,7 +71,7 @@ pub fn build_reactive_camera(
       }
     });
 
-    uniform.resource.upload(&cx.queue);
+    uniform.upload(&cx.queue);
     RenderComponentDeltaFlag::Content.into()
   })
 }

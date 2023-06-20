@@ -150,7 +150,6 @@ pub fn check_update_basic_shadow_map<T: Any + ShadowCameraCreator + Incremental>
     .as_ref()
     .inner
     .ubo
-    .resource
     .get();
 
   pass("shadow-depth")

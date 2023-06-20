@@ -85,8 +85,8 @@ impl WebGPUMaterial for FatLineMaterial {
             width: m.read().width,
             ..Zeroable::zeroed()
           };
-          state.inner.uniform.resource.set(uniform);
-          state.inner.uniform.resource.upload(&ctx.gpu.queue);
+          state.inner.uniform.set(uniform);
+          state.inner.uniform.upload(&ctx.gpu.queue);
         }
         RenderComponentDeltaFlag::Content.into()
       });

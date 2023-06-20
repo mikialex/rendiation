@@ -20,7 +20,7 @@ impl Resource for GPUBuffer {
 
 impl BindableResourceProvider for GPUBufferResourceView {
   fn get_bindable(&self) -> BindingResourceOwned {
-    self.view.get_bindable()
+    BindingResourceOwned::Buffer(self.clone())
   }
 }
 
@@ -49,12 +49,6 @@ impl GPUBuffer {
 
   pub fn gpu(&self) -> &gpu::Buffer {
     &self.gpu
-  }
-}
-
-impl BindableResourceProvider for GPUBufferView {
-  fn get_bindable(&self) -> BindingResourceOwned {
-    BindingResourceOwned::Buffer(self.clone())
   }
 }
 
@@ -98,58 +92,37 @@ pub fn create_gpu_buffer(
 }
 
 /// Typed uniform buffer with cpu data cache, which could being diffed when updating
-pub struct UniformBufferData<T: Std140> {
-  gpu: GPUBuffer,
-  data: RefCell<T>,
-  last: Cell<Option<T>>,
-  changed: Cell<bool>,
+#[derive(Clone)]
+pub struct UniformBufferDataView<T: Std140> {
+  gpu: GPUBufferResourceView,
+  diff: Rc<RefCell<DiffState<T>>>,
 }
-
-pub type UniformBufferDataResource<T> = ResourceRc<UniformBufferData<T>>;
-pub type UniformBufferDataView<T> = ResourceViewRc<UniformBufferData<T>>;
 
 /// just short convenient method
 pub fn create_uniform<T: Std140>(data: T, gpu: &GPU) -> UniformBufferDataView<T> {
-  UniformBufferDataResource::create_with_source(data, &gpu.device).create_default_view()
+  UniformBufferDataView::create(&gpu.device, data)
 }
 pub fn create_uniform2<T: Std140>(data: T, device: &GPUDevice) -> UniformBufferDataView<T> {
-  UniformBufferDataResource::create_with_source(data, device).create_default_view()
+  UniformBufferDataView::create(device, data)
 }
 
-impl<T: Std140> Resource for UniformBufferData<T> {
-  type Descriptor = ();
-  type View = GPUBufferView;
-  type ViewDescriptor = ();
-
-  fn create_view(&self, _des: &Self::ViewDescriptor) -> Self::View {
-    GPUBufferView {
-      buffer: self.gpu.clone(),
-      range: GPUBufferViewRange {
-        offset: 0,
-        size: None,
-      },
-    }
-  }
-}
-
-impl<T: Std140> BindableResourceProvider for ResourceViewRc<UniformBufferData<T>> {
+impl<T: Std140> BindableResourceProvider for UniformBufferDataView<T> {
   fn get_bindable(&self) -> BindingResourceOwned {
-    self.view.get_bindable()
+    self.gpu.get_bindable()
+  }
+}
+impl<T: Std140> CacheAbleBindingSource for UniformBufferDataView<T> {
+  fn get_uniform(&self) -> CacheAbleBindingBuildSource {
+    self.gpu.get_uniform()
+  }
+}
+impl<T: Std140> BindableResourceView for UniformBufferDataView<T> {
+  fn as_bindable(&self) -> gpu::BindingResource {
+    self.gpu.as_bindable()
   }
 }
 
-impl<T: Std140> InitResourceBySource for UniformBufferData<T> {
-  type Source = T;
-
-  fn create_resource_with_source(
-    source: &Self::Source,
-    device: &GPUDevice,
-  ) -> (Self, Self::Descriptor) {
-    (Self::create(device, *source), ())
-  }
-}
-
-impl<T: Std140> UniformBufferData<T> {
+impl<T: Std140> UniformBufferDataView<T> {
   pub fn create_default(device: &GPUDevice) -> Self
   where
     T: Default,
@@ -158,51 +131,47 @@ impl<T: Std140> UniformBufferData<T> {
   }
 
   pub fn create(device: &GPUDevice, data: T) -> Self {
-    let gpu = GPUBuffer::create(
-      device,
-      bytemuck::cast_slice(&[data]),
-      gpu::BufferUsages::UNIFORM | gpu::BufferUsages::COPY_DST,
-    );
+    let usage = gpu::BufferUsages::UNIFORM | gpu::BufferUsages::COPY_DST;
+    let gpu = GPUBuffer::create(device, bytemuck::cast_slice(&[data]), usage);
+    let gpu = GPUBufferResource::create_with_raw(gpu, usage).create_default_view();
 
     Self {
       gpu,
-      data: RefCell::new(data),
-      changed: Cell::new(false),
-      last: Default::default(),
+      diff: Rc::new(RefCell::new(DiffState::new(data))),
     }
   }
 
   pub fn mutate(&self, f: impl Fn(&mut T)) -> &Self {
-    let mut data = self.data.borrow_mut();
-    f(&mut data);
-    self.changed.set(true);
+    let mut state = self.diff.borrow_mut();
+    f(&mut state.data);
+    state.changed = true;
     self
   }
 
   pub fn copy_cpu(&self, other: &Self) -> &Self {
-    let mut data = self.data.borrow_mut();
-    *data = *other.data.borrow();
-    self.changed.set(true);
+    let mut state = self.diff.borrow_mut();
+    state.data = other.get();
+    state.changed = true;
     self
   }
 
   pub fn get(&self) -> T {
-    *self.data.borrow()
+    self.diff.borrow().data
   }
 
   pub fn set(&self, v: T) {
-    let mut data = self.data.borrow_mut();
-    *data = v;
-    self.changed.set(true);
+    let mut state = self.diff.borrow_mut();
+    state.data = v;
+    state.changed = true;
   }
 
   pub fn upload(&self, queue: &gpu::Queue) {
-    if self.changed.get() {
-      let data = self.data.borrow();
-      let data: &T = &data;
-      queue.write_buffer(&self.gpu.gpu, 0, bytemuck::cast_slice(&[*data]));
-      self.changed.set(false);
-      self.last.set(Some(*data));
+    let mut state = self.diff.borrow_mut();
+    if state.changed {
+      let data = state.data;
+      queue.write_buffer(&self.gpu.resource.gpu, 0, bytemuck::cast_slice(&[data]));
+      state.changed = false;
+      state.last = Some(data);
     }
   }
 
@@ -210,24 +179,40 @@ impl<T: Std140> UniformBufferData<T> {
   where
     T: PartialEq,
   {
-    if self.changed.get() {
-      let data = self.data.borrow();
+    let mut state = self.diff.borrow_mut();
+    if state.changed {
+      let data = state.data;
       let should_update;
 
       // if last is none, means we use init value, not need update
-      if let Some(last) = self.last.get() {
-        let data: &T = &data;
-        should_update = last != *data;
-        self.last.set(Some(*data));
+      if let Some(last) = state.last {
+        should_update = last != data;
+        state.last = Some(data);
       } else {
         should_update = true;
       }
 
       if should_update {
-        queue.write_buffer(&self.gpu.gpu, 0, bytemuck::cast_slice(&[*data]))
+        queue.write_buffer(&self.gpu.resource.gpu, 0, bytemuck::cast_slice(&[data]))
       }
 
-      self.changed.set(false);
+      state.changed = false;
+    }
+  }
+}
+
+struct DiffState<T> {
+  data: T,
+  last: Option<T>,
+  changed: bool,
+}
+
+impl<T> DiffState<T> {
+  pub fn new(data: T) -> Self {
+    Self {
+      data,
+      last: None,
+      changed: false,
     }
   }
 }

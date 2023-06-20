@@ -206,8 +206,8 @@ impl WebGPUMaterial for PhysicalMetallicRoughnessMaterial {
       move |delta, state| match delta {
         UniformChangePicked::UniformChange => {
           if let Some(m) = weak_material.upgrade() {
-            state.uniform.resource.set(build_shader_uniform(&m.read()));
-            state.uniform.resource.upload(&ctx.gpu.queue)
+            state.uniform.set(build_shader_uniform(&m.read()));
+            state.uniform.upload(&ctx.gpu.queue)
           }
           RenderComponentDeltaFlag::ContentRef.into()
         }

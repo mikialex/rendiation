@@ -20,7 +20,7 @@ mod types;
 use std::{
   any::*,
   borrow::Cow,
-  cell::{Cell, RefCell},
+  cell::RefCell,
   collections::{hash_map::DefaultHasher, HashMap},
   hash::{Hash, Hasher},
   ops::{Deref, DerefMut, Range},

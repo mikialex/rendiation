@@ -80,7 +80,7 @@ impl ViewerPipeline {
       let jitter = self.taa.next_jitter();
       let mut cameras = scene.scene_resources.cameras.write().unwrap();
       let gpu = cameras.get_camera_gpu_mut(scene.scene.get_active_camera()).unwrap();
-      gpu.ubo.resource.mutate(|uniform| uniform.jitter_normalized = jitter).upload(&ctx.gpu.queue);
+      gpu.ubo.mutate(|uniform| uniform.jitter_normalized = jitter).upload(&ctx.gpu.queue);
       gpu.enable_jitter = true;
     }
 

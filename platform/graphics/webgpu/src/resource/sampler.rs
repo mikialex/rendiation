@@ -6,15 +6,10 @@ impl BindableResourceView for gpu::Sampler {
   }
 }
 
-// we make two kinds of type to make sure the sampler type is static safe.
-// RawSampler is sampler in shader, RawComparisonSampler is sampler_compare in shader.
+#[derive(Clone)]
+pub struct RawSampler(pub Rc<gpu::Sampler>);
 
 impl BindableResourceView for RawSampler {
-  fn as_bindable(&self) -> gpu::BindingResource {
-    gpu::BindingResource::Sampler(self.0.as_ref())
-  }
-}
-impl BindableResourceView for RawComparisonSampler {
   fn as_bindable(&self) -> gpu::BindingResource {
     gpu::BindingResource::Sampler(self.0.as_ref())
   }
@@ -41,24 +36,55 @@ impl InitResourceByAllocation for RawSampler {
   }
 }
 
-pub type GPUComparisonSampler = ResourceRc<RawComparisonSampler>;
-pub type GPUComparisonSamplerView = ResourceViewRc<RawComparisonSampler>;
-
-impl Resource for RawComparisonSampler {
-  type Descriptor = gpu::SamplerDescriptor<'static>;
-
-  type View = RawComparisonSampler;
-
-  type ViewDescriptor = ();
-
-  fn create_view(&self, _: &Self::ViewDescriptor) -> Self::View {
-    self.clone()
+impl<'encoder, 'gpu> GPURenderPassCtx<'encoder, 'gpu> {
+  pub fn bind_immediate_sampler(
+    &mut self,
+    sampler: &(impl Into<SamplerDescriptor<'static>> + Clone),
+  ) {
+    let sampler = GPUSampler::create(sampler.clone().into(), &self.gpu.device);
+    let sampler = sampler.create_default_view();
+    self.binding.bind(&sampler);
   }
 }
 
-impl InitResourceByAllocation for RawComparisonSampler {
-  fn create_resource(desc: &Self::Descriptor, device: &GPUDevice) -> Self {
-    device.create_and_cache_com_sampler(desc.clone())
+impl BindableResourceProvider for GPUSamplerView {
+  fn get_bindable(&self) -> BindingResourceOwned {
+    BindingResourceOwned::Sampler(self.clone())
+  }
+}
+
+pub struct GPUComparisonSampler(pub GPUSampler);
+pub struct GPUComparisonSamplerView(pub GPUSamplerView);
+
+impl BindableResourceProvider for GPUComparisonSamplerView {
+  fn get_bindable(&self) -> BindingResourceOwned {
+    BindingResourceOwned::Sampler(self.0.clone())
+  }
+}
+
+impl CacheAbleBindingSource for GPUComparisonSamplerView {
+  fn get_uniform(&self) -> CacheAbleBindingBuildSource {
+    self.0.get_uniform()
+  }
+}
+
+impl Deref for GPUComparisonSamplerView {
+  type Target = GPUSamplerView;
+
+  fn deref(&self) -> &Self::Target {
+    &self.0
+  }
+}
+
+impl TryFrom<GPUSamplerView> for GPUComparisonSamplerView {
+  type Error = &'static str;
+
+  fn try_from(view: GPUSamplerView) -> Result<Self, Self::Error> {
+    if view.resource.desc.compare.is_some() {
+      Ok(Self(view))
+    } else {
+      Err("not comparison sampler")
+    }
   }
 }
 

@@ -186,8 +186,8 @@ impl SSAO {
     depth: &Attachment,
     source_camera_gpu: &CameraGPU,
   ) -> Attachment {
-    self.parameters.resource.mutate(|p| p.noise_jit = rand());
-    self.parameters.resource.upload(&ctx.gpu.queue);
+    self.parameters.mutate(|p| p.noise_jit = rand());
+    self.parameters.upload(&ctx.gpu.queue);
 
     let mut ao_result = attachment()
       .sizer(ratio_sizer(0.5)) // half resolution!

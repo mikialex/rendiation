@@ -40,20 +40,8 @@ pub struct BindGroupResourceHolder {
 }
 
 impl BindGroupResourceHolder {
-  pub fn create_pending_increase(&self) -> BindGroupResourcePendingIncrease {
-    BindGroupResourcePendingIncrease {
-      target: self.invalidation_tokens.clone(),
-    }
-  }
-}
-
-pub struct BindGroupResourcePendingIncrease {
-  target: Arc<RwLock<Vec<BindGroupCacheInvalidation>>>,
-}
-
-impl BindGroupResourcePendingIncrease {
   pub fn increase(&self, record: BindGroupCacheInvalidation) {
-    self.target.write().unwrap().push(record);
+    self.invalidation_tokens.write().unwrap().push(record);
   }
 }
 

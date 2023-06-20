@@ -82,7 +82,7 @@ impl ShadowMapAllocatorImpl {
         })
         .collect();
 
-      let sampler = GPUComparisonSampler::create(
+      let sampler = GPUSampler::create(
         webgpu::SamplerDescriptor {
           mag_filter: webgpu::FilterMode::Linear,
           min_filter: webgpu::FilterMode::Linear,
@@ -93,6 +93,7 @@ impl ShadowMapAllocatorImpl {
         &gpu.device,
       )
       .create_view(());
+      let sampler = sampler.try_into().unwrap();
 
       ShadowMapAllocationInfo {
         map,

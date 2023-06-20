@@ -44,7 +44,6 @@ where
   fn get_uniform(&self) -> CacheAbleBindingBuildSource {
     CacheAbleBindingBuildSource {
       source: self.get_bindable(),
-      ref_increase_target: self.resource.bindgroup_holder.create_pending_increase(),
       view_id: self.guid,
     }
   }
@@ -52,7 +51,6 @@ where
 
 pub struct CacheAbleBindingBuildSource {
   pub(crate) source: BindingResourceOwned,
-  pub(crate) ref_increase_target: BindGroupResourcePendingIncrease,
   pub(crate) view_id: usize,
 }
 
@@ -97,6 +95,7 @@ impl BindingGroupBuildImpl for CacheAbleBindingBuildSource {
 impl<T> BindGroupBuilder<T> {
   pub fn reset(&mut self) {
     self.items.clear();
+    self.layouts.clear();
   }
 
   pub fn bind_raw(&mut self, item: T, entry_ty: gpu::BindGroupLayoutEntry) {
@@ -144,7 +143,7 @@ impl BindGroupBuilder<CacheAbleBindingBuildSource> {
   }
   fn attach_bindgroup_invalidation_token(&self, token: BindGroupCacheInvalidation) {
     self.items.iter().for_each(|b| {
-      b.ref_increase_target.increase(token.clone_another());
+      b.source.increase(&token);
     });
     let _ = ManuallyDrop::new(token);
   }
@@ -214,27 +213,5 @@ impl BindingBuilder {
 
       pass.set_bind_group_owned(group_index as u32, bindgroup, &[]);
     }
-  }
-}
-
-impl<'encoder, 'gpu> GPURenderPassCtx<'encoder, 'gpu> {
-  pub fn bind_immediate_sampler(
-    &mut self,
-    sampler: &(impl Into<SamplerDescriptor<'static>> + Clone),
-  ) {
-    let sampler = GPUSampler::create(sampler.clone().into(), &self.gpu.device);
-    let sampler = sampler.create_default_view();
-    self.binding.bind(&sampler);
-  }
-}
-
-impl BindableResourceProvider for ResourceViewRc<RawSampler> {
-  fn get_bindable(&self) -> BindingResourceOwned {
-    BindingResourceOwned::RawSampler(self.view.0.clone())
-  }
-}
-impl BindableResourceProvider for ResourceViewRc<RawComparisonSampler> {
-  fn get_bindable(&self) -> BindingResourceOwned {
-    BindingResourceOwned::RawSampler(self.view.0.clone())
   }
 }

@@ -76,8 +76,8 @@ impl WebGPUMaterial for FlatMaterial {
           color: m.read().color,
           ..Zeroable::zeroed()
         };
-        state.inner.uniform.resource.set(uniform);
-        state.inner.uniform.resource.upload(&ctx.gpu.queue);
+        state.inner.uniform.set(uniform);
+        state.inner.uniform.upload(&ctx.gpu.queue);
         RenderComponentDeltaFlag::Content.into()
       })
   }
