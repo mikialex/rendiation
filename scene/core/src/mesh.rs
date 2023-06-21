@@ -129,37 +129,26 @@ impl<'a> Deref for UnTypedBufferViewReadView<'a> {
 }
 
 impl<'a> UnTypedBufferViewReadView<'a> {
-  pub fn visit_bytes<R>(
-    &self,
-    view_byte_offset: usize,
-    visitor: impl FnOnce(&[u8]) -> R,
-  ) -> Option<R> {
+  pub fn visit_bytes(&self, view_byte_offset: usize) -> Option<&[u8]> {
     let byte_slice = self.buffer.buffer.as_slice();
     let offset = self.range.offset as usize + view_byte_offset;
 
-    let byte_slice = if let Some(byte_size) = self.range.size {
+    if let Some(byte_size) = self.range.size {
       let byte_size = Into::<u64>::into(byte_size) as usize;
       byte_slice.get(offset..offset + byte_size)
     } else {
       byte_slice.get(offset..)
-    }?;
-
-    Some(visitor(byte_slice))
+    }
   }
 
-  pub fn visit_slice<T: bytemuck::Pod, R>(
+  pub fn visit_slice<T: bytemuck::Pod>(
     &self,
     view_byte_offset: usize,
     typed_count: usize,
-    visitor: impl FnOnce(&[T]) -> R,
-  ) -> Option<R> {
-    self
-      .visit_bytes(view_byte_offset, |byte_slice| {
-        let cast_slice = bytemuck::try_cast_slice(byte_slice).ok()?;
-        let slice = cast_slice.get(0..typed_count)?;
-        Some(visitor(slice))
-      })
-      .flatten()
+  ) -> Option<&[T]> {
+    let byte_slice = self.visit_bytes(view_byte_offset)?;
+    let cast_slice = bytemuck::try_cast_slice(byte_slice).ok()?;
+    cast_slice.get(0..typed_count)
   }
 
   pub fn get<T: bytemuck::Pod>(
@@ -169,10 +158,9 @@ impl<'a> UnTypedBufferViewReadView<'a> {
     index: usize,
   ) -> Option<T> {
     self
-      .visit_slice(view_byte_offset, typed_count, |slice| {
-        slice.get(index).cloned()
-      })
-      .flatten()
+      .visit_slice(view_byte_offset, typed_count)?
+      .get(index)
+      .cloned()
   }
 }
 
@@ -200,12 +188,12 @@ impl<'a> Deref for AttributeAccessorReadView<'a> {
 }
 
 impl<'a> AttributeAccessorReadView<'a> {
-  pub fn visit_bytes<R>(&self, visitor: impl FnOnce(&[u8]) -> R) -> Option<R> {
-    self.view.visit_bytes(self.byte_offset, visitor)
+  pub fn visit_bytes(&self) -> Option<&[u8]> {
+    self.view.visit_bytes(self.byte_offset)
   }
 
-  pub fn visit_slice<T: bytemuck::Pod, R>(&self, visitor: impl FnOnce(&[T]) -> R) -> Option<R> {
-    self.view.visit_slice(self.byte_offset, self.count, visitor)
+  pub fn visit_slice<T: bytemuck::Pod>(&self) -> Option<&[T]> {
+    self.view.visit_slice(self.byte_offset, self.count)
   }
   pub fn get<T: bytemuck::Pod>(&self, index: usize) -> Option<T> {
     self.view.get(self.byte_offset, self.count, index)

@@ -222,15 +222,13 @@ impl TryFromAnimationSampler for InterpolateInstance<InterpolationItem> {
   fn try_from_sampler(sampler: &AnimationSampler, time: f32) -> Option<(Self, (f32, f32))> {
     // decide which frame interval we are in;
     let sampler_input = sampler.input.read();
-    let (end_index, len) = sampler_input.visit_slice::<f32, _>(|slice| {
-      // the gltf animation spec doesn't contains start time or loop behavior, we just use abs time
-      (
-        slice
-          .binary_search_by(|v| v.partial_cmp(&time).unwrap_or(core::cmp::Ordering::Equal))
-          .unwrap_or_else(|e| e),
-        slice.len(),
-      )
-    })?;
+    let slice = sampler_input.visit_slice::<f32>()?;
+
+    // the gltf animation spec doesn't contains start time or loop behavior, we just use abs time
+    let end_index = slice
+      .binary_search_by(|v| v.partial_cmp(&time).unwrap_or(core::cmp::Ordering::Equal))
+      .unwrap_or_else(|e| e);
+    let len = slice.len();
 
     // time is out of sampler range
     if end_index == 0 || end_index == len {

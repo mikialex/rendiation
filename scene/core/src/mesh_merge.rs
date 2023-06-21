@@ -121,11 +121,9 @@ pub fn merge_attribute_accessor<T: bytemuck::Pod>(
 
   let mut buffer = Vec::with_capacity(byte_count);
   for (idx, acc) in inputs.iter().enumerate() {
-    acc.read().visit_slice::<T, _>(|s| {
-      s.iter().for_each(|v| {
-        buffer.extend(bytemuck::bytes_of(&mapper(idx, v)));
-      })
-    })?;
+    acc.read().visit_slice::<T>()?.iter().for_each(|v| {
+      buffer.extend(bytemuck::bytes_of(&mapper(idx, v)));
+    })
   }
 
   let buffer = GeometryBufferInner { buffer };

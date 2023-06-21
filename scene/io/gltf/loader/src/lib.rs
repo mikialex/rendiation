@@ -206,14 +206,11 @@ fn build_skin(skin: gltf::Skin, ctx: &mut Context) {
 
   if let Some(matrix_list) = skin.inverse_bind_matrices() {
     let matrix_list = build_accessor(matrix_list, ctx);
-    matrix_list.read().visit_slice::<Mat4<f32>, _>(|slice| {
-      slice
-        .iter()
-        .zip(joints.iter_mut())
-        .for_each(|(mat, joint)| {
-          joint.bind_inverse = *mat;
-        })
-    });
+    let matrix_list = matrix_list.read();
+    let list = matrix_list.visit_slice::<Mat4<f32>>().unwrap();
+    list.iter().zip(joints.iter_mut()).for_each(|(mat, joint)| {
+      joint.bind_inverse = *mat;
+    })
   }
 
   // https://stackoverflow.com/questions/64734695/what-does-it-mean-when-gltf-does-not-specify-a-skeleton-value-in-a-skin
