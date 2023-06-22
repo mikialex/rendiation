@@ -208,9 +208,9 @@ dependencies = [
 
 [[package]]
 name = "base64"
-version = "0.12.3"
+version = "0.13.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3441f0f7b02788e948e47f457ca01f1d7e6d92c693bc132c22b087d3141c03ff"
+checksum = "9e1b586273c5702936fe7b7d6896644d8be71e6314cfe09d3167c95f712589e8"
 
 [[package]]
 name = "bit-set"
@@ -253,22 +253,22 @@ checksum = "099e596ef14349721d9016f6b80dd3419ea1bf289ab9b44df8e4dfd3a005d5d9"
 
 [[package]]
 name = "bytemuck"
-version = "1.5.0"
+version = "1.13.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5a4bad0c5981acc24bc09e532f35160f952e35422603f0563cd7a73c2c2e65a0"
+checksum = "17febce684fd15d89027105661fec94afb475cb995fbc59d2865198446ba2eea"
 dependencies = [
  "bytemuck_derive",
 ]
 
 [[package]]
 name = "bytemuck_derive"
-version = "1.0.1"
+version = "1.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8e215f8c2f9f79cb53c8335e687ffd07d5bfcb6fe5fc80723762d0be46e7cc54"
+checksum = "fdde5c9cd29ebd706ce1b35600920a33550e402fc998a2e53ad3b42c3c47a192"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 1.0.72",
+ "syn 2.0.18",
 ]
 
 [[package]]
@@ -1149,34 +1149,35 @@ dependencies = [
 
 [[package]]
 name = "gltf"
-version = "1.0.0"
+version = "1.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "00e0a0eace786193fc83644907097285396360e9e82e30f81a21e9b1ba836a3e"
+checksum = "f4fe8d5192923fbd783c15e74627de8e27c97e1e3dec22bf54515a407249febf"
 dependencies = [
  "base64",
  "byteorder",
  "gltf-json",
- "image",
+ "image 0.24.6",
  "lazy_static",
+ "urlencoding",
 ]
 
 [[package]]
 name = "gltf-derive"
-version = "1.0.0"
+version = "1.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bdd53d6e284bb2bf02a6926e4cc4984978c1990914d6cd9deae4e31cf37cd113"
+checksum = "ec223c88f017861193ae128239aff8fbc4478f38a036d9d7b2ce10a52b46b1f2"
 dependencies = [
  "inflections",
  "proc-macro2",
  "quote",
- "syn 1.0.72",
+ "syn 2.0.18",
 ]
 
 [[package]]
 name = "gltf-json"
-version = "1.0.0"
+version = "1.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9949836a9ec5e7f83f76fb9bbcbc77f254a577ebbdb0820867bc11979ef97cad"
+checksum = "3b1ba7523fcf32541f4aec96e13024c255d928eab3223f99ab945045f2a6de18"
 dependencies = [
  "gltf-derive",
  "serde",
@@ -1392,13 +1393,28 @@ dependencies = [
  "byteorder",
  "color_quant",
  "gif",
- "jpeg-decoder",
+ "jpeg-decoder 0.1.22",
  "num-iter",
  "num-rational 0.3.2",
  "num-traits",
  "png 0.16.8",
  "scoped_threadpool",
  "tiff",
+]
+
+[[package]]
+name = "image"
+version = "0.24.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "527909aa81e20ac3a44803521443a765550f09b5130c2c2fa1ea59c2f8f50a3a"
+dependencies = [
+ "bytemuck",
+ "byteorder",
+ "color_quant",
+ "jpeg-decoder 0.3.0",
+ "num-rational 0.4.0",
+ "num-traits",
+ "png 0.17.6",
 ]
 
 [[package]]
@@ -1474,7 +1490,7 @@ dependencies = [
  "console_error_panic_hook",
  "fontext",
  "futures",
- "image",
+ "image 0.23.13",
  "incremental",
  "instant",
  "log",
@@ -1526,6 +1542,12 @@ checksum = "229d53d58899083193af11e15917b5640cd40b29ff475a1fe4ef725deb02d0f2"
 dependencies = [
  "rayon",
 ]
+
+[[package]]
+name = "jpeg-decoder"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bc0000e42512c92e31c2252315bda326620a4e034105e900c98ec492fa077b3e"
 
 [[package]]
 name = "js-sys"
@@ -2520,7 +2542,7 @@ dependencies = [
 name = "rendiation-generative-texture"
 version = "0.0.1"
 dependencies = [
- "image",
+ "image 0.23.13",
  "rendiation-algebra",
  "rendiation-texture",
 ]
@@ -2583,6 +2605,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "rendiation-scene-gltf-exporter"
+version = "0.0.1"
+dependencies = [
+ "gltf-json",
+ "rendiation-scene-core",
+]
+
+[[package]]
 name = "rendiation-scene-gltf-loader"
 version = "0.0.1"
 dependencies = [
@@ -2614,7 +2644,7 @@ version = "0.1.0"
 dependencies = [
  "arena",
  "dyn-clone",
- "image",
+ "image 0.23.13",
  "indicatif",
  "rand 0.7.3",
  "rayon",
@@ -2664,7 +2694,7 @@ dependencies = [
 name = "rendiation-texture"
 version = "0.1.0"
 dependencies = [
- "image",
+ "image 0.23.13",
  "incremental",
  "rendiation-algebra",
  "rendiation-geometry",
@@ -3142,7 +3172,7 @@ version = "0.6.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9a53f4706d65497df0c4349241deddf35f84cee19c87ed86ea8ca590f4464437"
 dependencies = [
- "jpeg-decoder",
+ "jpeg-decoder 0.1.22",
  "miniz_oxide 0.4.3",
  "weezl",
 ]
@@ -3292,6 +3322,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "957e51f3646910546462e67d5f7599b9e4fb8acdd304b087a6494730f9eebf04"
 
 [[package]]
+name = "urlencoding"
+version = "2.1.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e8db7427f936968176eaa7cdf81b7f98b980b18495ec28f1b5791ac3bfe3eea9"
+
+[[package]]
 name = "vec_map"
 version = "0.8.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3318,7 +3354,7 @@ dependencies = [
  "dirs",
  "env_logger",
  "futures",
- "image",
+ "image 0.23.13",
  "incremental",
  "interphaser",
  "log",
