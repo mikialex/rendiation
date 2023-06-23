@@ -34,9 +34,7 @@ pub fn export_scene_to_gltf(
   let mut materials = Vec::default();
   let mut material_mapping = HashMap::<usize, gltf_json::Index<gltf_json::Material>>::new();
 
-  let mut tex = TextureCtx::default();
-
-  let mut contains_sg_material = false;
+  let mut ctx = Ctx::default();
 
   for (_, model) in &scene.models {
     let model = model.read();
@@ -60,50 +58,52 @@ pub fn export_scene_to_gltf(
           }
 
           match &model.material {
-            SceneMaterialType::PhysicalSpecularGlossiness(material) => {
-              contains_sg_material = true;
-              material_mapping.entry(material.guid()).or_insert_with(|| {
-                let idx = materials.len();
-
-                let material = material.read();
-                materials.push(gltf_json::Material {
-                  alpha_cutoff: todo!(),
-                  alpha_mode: todo!(),
-                  double_sided: todo!(),
-                  name: todo!(),
-                  pbr_metallic_roughness: todo!(),
-                  normal_texture: todo!(),
-                  occlusion_texture: todo!(),
-                  emissive_texture: todo!(),
-                  emissive_factor: todo!(),
-                  extensions: Default::default(),
-                  extras: Default::default(),
-                });
-                gltf_json::Index::new(idx as u32)
-              });
-              //
-            }
+            SceneMaterialType::PhysicalSpecularGlossiness(material) => {}
             SceneMaterialType::PhysicalMetallicRoughness(material) => {
               material_mapping.entry(material.guid()).or_insert_with(|| {
                 let idx = materials.len();
 
                 let material = material.read();
                 materials.push(gltf_json::Material {
-                  alpha_cutoff: todo!(),
-                  alpha_mode: todo!(),
+                  alpha_cutoff: gltf_json::material::AlphaCutoff(material.alpha_cutoff).into(),
+                  alpha_mode: gltf_json::validation::Checked::Valid(map_alpha_mode(
+                    material.alpha_mode,
+                  )),
                   double_sided: todo!(),
                   pbr_metallic_roughness: gltf_json::material::PbrMetallicRoughness {
-                    base_color_factor: todo!(),
-                    base_color_texture: todo!(),
-                    metallic_factor: todo!(),
-                    roughness_factor: todo!(),
-                    metallic_roughness_texture: todo!(),
+                    base_color_factor: gltf_json::material::PbrBaseColorFactor([
+                      material.base_color.x,
+                      material.base_color.y,
+                      material.base_color.z,
+                      1.,
+                    ]),
+                    base_color_texture: material
+                      .base_color_texture
+                      .as_ref()
+                      .map(|t| ctx.export_texture2d_info(t, 0)),
+                    metallic_factor: gltf_json::material::StrengthFactor(material.metallic),
+                    roughness_factor: gltf_json::material::StrengthFactor(material.roughness),
+                    metallic_roughness_texture: material
+                      .metallic_roughness_texture
+                      .as_ref()
+                      .map(|t| ctx.export_texture2d_info(t, 0)),
                     ..Default::default()
                   },
-                  normal_texture: todo!(),
-                  occlusion_texture: todo!(),
-                  emissive_texture: todo!(),
-                  emissive_factor: todo!(),
+                  normal_texture: material.normal_texture.as_ref().map(|t| {
+                    gltf_json::material::NormalTexture {
+                      index: ctx.export_texture2d(&t.content),
+                      scale: t.scale,
+                      tex_coord: 0,
+                      extensions: Default::default(),
+                      extras: Default::default(),
+                    }
+                  }),
+                  occlusion_texture: None,
+                  emissive_texture: material
+                    .emissive_texture
+                    .as_ref()
+                    .map(|t| ctx.export_texture2d_info(t, 0)),
+                  emissive_factor: gltf_json::material::EmissiveFactor(material.emissive.into()),
                   ..Default::default()
                 });
                 gltf_json::Index::new(idx as u32)
@@ -177,14 +177,14 @@ pub fn export_scene_to_gltf(
     extensions_used: Default::default(),
     extensions_required: Default::default(),
     cameras: todo!(),
-    images: todo!(),
+    images: ctx.images.collected,
     materials,
     meshes: models,
     nodes,
-    samplers: todo!(),
+    samplers: ctx.samplers.collected,
     scenes: vec![scene],
     skins: Default::default(),
-    textures: todo!(),
+    textures: ctx.textures.collected,
   };
 
   let gltf_root_file_path = folder_path.join(file_name);
@@ -196,61 +196,92 @@ pub fn export_scene_to_gltf(
 }
 
 #[derive(Default)]
-struct TextureCtx {
-  images: Vec<gltf_json::Image>,
-  image_mapping: HashMap<usize, gltf_json::Index<gltf_json::Image>>,
-  samplers: Vec<gltf_json::texture::Sampler>,
-  sampler_mapping: HashMap<TextureSampler, gltf_json::Index<gltf_json::texture::Sampler>>,
-  textures: Vec<gltf_json::Texture>,
-  texture_mapping: HashMap<usize, gltf_json::Index<gltf_json::Texture>>,
+struct Ctx {
+  images: Resource<usize, gltf_json::Image>,
+  samplers: Resource<TextureSampler, gltf_json::texture::Sampler>,
+  textures: Resource<(usize, TextureSampler), gltf_json::Texture>,
+  buffers: Resource<usize, gltf_json::Buffer>,
 }
 
-impl TextureCtx {
-  pub fn export(&mut self, ts: &Texture2DWithSamplingData) -> gltf_json::Index<gltf_json::Texture> {
-    let image = self
-      .image_mapping
-      .entry(ts.texture.guid())
-      .or_insert_with(|| {
-        let texture = ts.texture.read();
-        match texture {
-          SceneTexture2DType::GPUBufferImage(image) => {
-            let idx = self.images.len();
-            self.images.push(gltf_json::Image {
-              buffer_view: todo!(),
-              mime_type: Default::default(),
-              name: Default::default(),
-              uri: Default::default(),
-              extensions: Default::default(),
-              extras: Default::default(),
-            });
-            gltf_json::Index::new(idx as u32)
-          }
-          SceneTexture2DType::Foreign(_) => todo!(),
-          _ => todo!(),
-        }
-      });
-
-    let sampler = self.sampler_mapping.entry(ts.sampler).or_insert_with(|| {
-      let idx = self.samplers.len();
-      self.samplers.push(gltf_json::texture::Sampler {
-        //  mag_filter: Option<Checked<MagFilter>>,
-        //  min_filter: Option<Checked<MinFilter>>,
-        wrap_s: gltf_json::validation::Checked::Valid(todo!()),
-        wrap_t: gltf_json::validation::Checked::Valid(todo!()),
-        ..Default::default()
-      });
-      gltf_json::Index::new(idx as u32)
-    });
-
-    let idx = self.textures.len();
-    self.textures.push(gltf_json::Texture {
-      name: Default::default(),
-      sampler: Some(*sampler),
-      source: todo!(),
+impl Ctx {
+  pub fn export_texture2d_info(
+    &mut self,
+    ts: &Texture2DWithSamplingData,
+    tex_coord: usize,
+  ) -> gltf_json::texture::Info {
+    gltf_json::texture::Info {
+      index: self.export_texture2d(ts),
+      tex_coord: tex_coord as u32,
       extensions: Default::default(),
       extras: Default::default(),
+    }
+  }
+  pub fn export_texture2d(
+    &mut self,
+    ts: &Texture2DWithSamplingData,
+  ) -> gltf_json::Index<gltf_json::Texture> {
+    let image = self.images.get_or_insert_with(ts.texture.guid(), || {
+      let texture = ts.texture.read();
+      let texture: &SceneTexture2DType = &texture;
+      match texture {
+        SceneTexture2DType::GPUBufferImage(image) => gltf_json::Image {
+          buffer_view: todo!(),
+          mime_type: Default::default(),
+          name: Default::default(),
+          uri: Default::default(),
+          extensions: Default::default(),
+          extras: Default::default(),
+        },
+        SceneTexture2DType::Foreign(_) => todo!(),
+        _ => todo!(),
+      }
     });
 
-    gltf_json::Index::new(idx as u32)
+    let sampler = self.samplers.get_or_insert_with(ts.sampler, || {
+      gltf_json::texture::Sampler {
+        //  mag_filter: Option<Checked<MagFilter>>,
+        //  min_filter: Option<Checked<MinFilter>>,
+        wrap_s: gltf_json::validation::Checked::Valid(map_wrapping(ts.sampler.address_mode_u)),
+        wrap_t: gltf_json::validation::Checked::Valid(map_wrapping(ts.sampler.address_mode_v)),
+        ..Default::default()
+      }
+    });
+
+    self
+      .textures
+      .get_or_insert_with((ts.texture.guid(), ts.sampler), || gltf_json::Texture {
+        name: Default::default(),
+        sampler: Some(sampler),
+        source: todo!(),
+        extensions: Default::default(),
+        extras: Default::default(),
+      })
+  }
+}
+
+struct Resource<K, T> {
+  collected: Vec<T>,
+  mapping: HashMap<K, gltf_json::Index<T>>,
+}
+
+impl<K, T> Resource<K, T> {
+  pub fn get_or_insert_with(&mut self, key: K, create: impl FnOnce() -> T) -> gltf_json::Index<T>
+  where
+    K: std::hash::Hash + Eq,
+  {
+    *self.mapping.entry(key).or_insert_with(|| {
+      let idx = self.collected.len();
+      self.collected.push(create());
+      gltf_json::Index::new(idx as u32)
+    })
+  }
+}
+
+impl<K, T> Default for Resource<K, T> {
+  fn default() -> Self {
+    Self {
+      collected: Default::default(),
+      mapping: Default::default(),
+    }
   }
 }
