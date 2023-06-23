@@ -6,3 +6,4 @@ version = "0.0.1"
 [dependencies]
 gltf-json = "1.2.0"
 rendiation-scene-core = {path = "../../../core"}
+rendiation-texture = {path = "../../../../components/texture/core"}

@@ -4,14 +4,10 @@ use std::{collections::HashMap, path::Path};
 
 use gltf_json::Root;
 use rendiation_scene_core::*;
+use rendiation_texture::TextureSampler;
 
-// pub fn write_texture(texture: &SceneTexture2D, textures: &Vec<gltf_json::Texture>, map:
-// &HashMap<usize, usize>, path: &Path) {   //
-// }
-
-// pub fn write_model(model: models: &Vec<gltf_json::Mesh>, map: &HashMap<usize, usize>, path:
-// &Path) {   //
-// }
+mod convert_utils;
+use convert_utils::*;
 
 pub enum GltfExportErr {
   IO(std::io::Error),
@@ -38,6 +34,10 @@ pub fn export_scene_to_gltf(
   let mut materials = Vec::default();
   let mut material_mapping = HashMap::<usize, gltf_json::Index<gltf_json::Material>>::new();
 
+  let mut tex = TextureCtx::default();
+
+  let mut contains_sg_material = false;
+
   for (_, model) in &scene.models {
     let model = model.read();
     let node_idx = *node_mapping.get(&model.node.guid()).unwrap();
@@ -61,6 +61,7 @@ pub fn export_scene_to_gltf(
 
           match &model.material {
             SceneMaterialType::PhysicalSpecularGlossiness(material) => {
+              contains_sg_material = true;
               material_mapping.entry(material.guid()).or_insert_with(|| {
                 let idx = materials.len();
 
@@ -82,7 +83,32 @@ pub fn export_scene_to_gltf(
               });
               //
             }
-            SceneMaterialType::PhysicalMetallicRoughness(_) => todo!(),
+            SceneMaterialType::PhysicalMetallicRoughness(material) => {
+              material_mapping.entry(material.guid()).or_insert_with(|| {
+                let idx = materials.len();
+
+                let material = material.read();
+                materials.push(gltf_json::Material {
+                  alpha_cutoff: todo!(),
+                  alpha_mode: todo!(),
+                  double_sided: todo!(),
+                  pbr_metallic_roughness: gltf_json::material::PbrMetallicRoughness {
+                    base_color_factor: todo!(),
+                    base_color_texture: todo!(),
+                    metallic_factor: todo!(),
+                    roughness_factor: todo!(),
+                    metallic_roughness_texture: todo!(),
+                    ..Default::default()
+                  },
+                  normal_texture: todo!(),
+                  occlusion_texture: todo!(),
+                  emissive_texture: todo!(),
+                  emissive_factor: todo!(),
+                  ..Default::default()
+                });
+                gltf_json::Index::new(idx as u32)
+              });
+            }
             SceneMaterialType::Flat(_) => todo!(),
             SceneMaterialType::Foreign(_) => todo!(),
             _ => todo!(),
@@ -167,4 +193,64 @@ pub fn export_scene_to_gltf(
   json.to_writer(BufWriter::new(file));
 
   Ok(())
+}
+
+#[derive(Default)]
+struct TextureCtx {
+  images: Vec<gltf_json::Image>,
+  image_mapping: HashMap<usize, gltf_json::Index<gltf_json::Image>>,
+  samplers: Vec<gltf_json::texture::Sampler>,
+  sampler_mapping: HashMap<TextureSampler, gltf_json::Index<gltf_json::texture::Sampler>>,
+  textures: Vec<gltf_json::Texture>,
+  texture_mapping: HashMap<usize, gltf_json::Index<gltf_json::Texture>>,
+}
+
+impl TextureCtx {
+  pub fn export(&mut self, ts: &Texture2DWithSamplingData) -> gltf_json::Index<gltf_json::Texture> {
+    let image = self
+      .image_mapping
+      .entry(ts.texture.guid())
+      .or_insert_with(|| {
+        let texture = ts.texture.read();
+        match texture {
+          SceneTexture2DType::GPUBufferImage(image) => {
+            let idx = self.images.len();
+            self.images.push(gltf_json::Image {
+              buffer_view: todo!(),
+              mime_type: Default::default(),
+              name: Default::default(),
+              uri: Default::default(),
+              extensions: Default::default(),
+              extras: Default::default(),
+            });
+            gltf_json::Index::new(idx as u32)
+          }
+          SceneTexture2DType::Foreign(_) => todo!(),
+          _ => todo!(),
+        }
+      });
+
+    let sampler = self.sampler_mapping.entry(ts.sampler).or_insert_with(|| {
+      let idx = self.samplers.len();
+      self.samplers.push(gltf_json::texture::Sampler {
+        //  mag_filter: Option<Checked<MagFilter>>,
+        //  min_filter: Option<Checked<MinFilter>>,
+        wrap_s: gltf_json::validation::Checked::Valid(todo!()),
+        wrap_t: gltf_json::validation::Checked::Valid(todo!()),
+        ..Default::default()
+      });
+      gltf_json::Index::new(idx as u32)
+    });
+
+    let idx = self.textures.len();
+    self.textures.push(gltf_json::Texture {
+      name: Default::default(),
+      sampler: Some(*sampler),
+      source: todo!(),
+      extensions: Default::default(),
+      extras: Default::default(),
+    });
+
+    gltf_json::Index::new(idx as u32)
+  }
 }

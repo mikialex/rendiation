@@ -2610,6 +2610,7 @@ version = "0.0.1"
 dependencies = [
  "gltf-json",
  "rendiation-scene-core",
+ "rendiation-texture",
 ]
 
 [[package]]
