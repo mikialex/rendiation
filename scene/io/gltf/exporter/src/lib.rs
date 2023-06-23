@@ -115,8 +115,22 @@ struct Ctx {
 
   binary_data: std::cell::RefCell<Option<InlineBinary>>,
   buffers: Resource<usize, gltf_json::Buffer>,
-  buffer_views: Resource<usize, gltf_json::buffer::View>,
-  accessors: Resource<usize, gltf_json::Accessor>,
+  buffer_views: Resource<ViewKey, gltf_json::buffer::View>,
+  accessors: Resource<AttributeAccessorKey, gltf_json::Accessor>,
+}
+
+#[derive(PartialEq, Eq, Hash)]
+struct ViewKey {
+  pub buffer_id: usize,
+  pub view_range: BufferViewRange,
+}
+
+#[derive(PartialEq, Eq, Hash)]
+struct AttributeAccessorKey {
+  pub view: usize,
+  pub byte_offset: usize,
+  pub count: usize,
+  pub item_size: usize,
 }
 
 struct InlineBinary {
@@ -177,26 +191,81 @@ impl Ctx {
         extras: Default::default(),
       })
   }
+  pub fn build_inline_accessor(
+    &self,
+    acc: &AttributeAccessor,
+  ) -> Option<gltf_json::Index<gltf_json::Accessor>> {
+    let view = self.buffer_views.get_or_insert_with(
+      ViewKey {
+        buffer_id: acc.view.buffer.guid(),
+        view_range: acc.view.range,
+      },
+      || {
+        let (buffer, byte_length, byte_offset) =
+          self.collect_inline_buffer(&acc.view.buffer.read().buffer);
+        gltf_json::buffer::View {
+          buffer,
+          byte_length,
+          byte_offset: byte_offset.into(),
+          byte_stride: Default::default(),
+          name: Default::default(),
+          target: Default::default(),
+          extensions: Default::default(),
+          extras: Default::default(),
+        }
+        .into()
+      },
+    )?;
+
+    let key = AttributeAccessorKey {
+      view: view.value(),
+      byte_offset: acc.byte_offset,
+      count: acc.count,
+      item_size: acc.item_size,
+    };
+
+    self.accessors.get_or_insert_with(key, || {
+      gltf_json::Accessor {
+        buffer_view: view.into(),
+        byte_offset: todo!(),
+        count: todo!(),
+        component_type: todo!(),
+        extensions: Default::default(),
+        extras: Default::default(),
+        type_: todo!(),
+        min: Default::default(),
+        max: Default::default(),
+        name: Default::default(),
+        normalized: todo!(),
+        sparse: Default::default(),
+      }
+      .into()
+    })
+  }
 
   pub fn build_node(&self, node: &SceneNode) -> gltf_json::Index<gltf_json::Node> {
     node.visit(|node| {
-      self.nodes.get_or_insert_with(node.guid(), || {
-        //
-        gltf_json::Node {
-          camera: Default::default(),
-          children: todo!(),
-          extensions: Default::default(),
-          extras: Default::default(),
-          matrix: todo!(),
-          mesh: Default::default(),
-          name: Default::default(),
-          rotation: todo!(),
-          scale: todo!(),
-          translation: todo!(),
-          skin: Default::default(),
-          weights: Default::default(),
-        }
-      })
+      self
+        .nodes
+        .get_or_insert_with(node.guid(), || {
+          //
+          gltf_json::Node {
+            camera: Default::default(),
+            children: todo!(),
+            extensions: Default::default(),
+            extras: Default::default(),
+            matrix: todo!(),
+            mesh: Default::default(),
+            name: Default::default(),
+            rotation: todo!(),
+            scale: todo!(),
+            translation: todo!(),
+            skin: Default::default(),
+            weights: Default::default(),
+          }
+          .into()
+        })
+        .unwrap()
     })
   }
 
@@ -207,28 +276,29 @@ impl Ctx {
         match &model.mesh {
           SceneMeshType::AttributesMesh(mesh) => {
             let mesh = mesh.read();
-            self
-              .models
-              .get_or_insert_with(model.guid(), || {
-                let primitive = gltf_json::mesh::Primitive {
-                  attributes: todo!(),
-                  indices: todo!(),
-                  material: self.build_material(&model.material),
-                  mode: gltf_json::validation::Checked::Valid(map_draw_mode(mesh.mode)),
-                  targets: Default::default(),
-                  extensions: Default::default(),
-                  extras: Default::default(),
-                };
+            self.models.get_or_insert_with(model.guid(), || {
+              let primitive = gltf_json::mesh::Primitive {
+                attributes: todo!(),
+                indices: match &mesh.indices {
+                  Some((_, acc)) => self.build_inline_accessor(acc)?.into(),
+                  None => None,
+                },
+                material: self.build_material(&model.material),
+                mode: gltf_json::validation::Checked::Valid(map_draw_mode(mesh.mode)),
+                targets: Default::default(),
+                extensions: Default::default(),
+                extras: Default::default(),
+              };
 
-                gltf_json::Mesh {
-                  extensions: Default::default(),
-                  extras: Default::default(),
-                  name: Default::default(),
-                  primitives: vec![primitive],
-                  weights: Default::default(),
-                }
-              })
+              gltf_json::Mesh {
+                extensions: Default::default(),
+                extras: Default::default(),
+                name: Default::default(),
+                primitives: vec![primitive],
+                weights: Default::default(),
+              }
               .into()
+            })
           }
           SceneMeshType::TransformInstanced(_) => None,
           SceneMeshType::Foreign(_) => None,
@@ -244,10 +314,9 @@ impl Ctx {
     material: &SceneMaterialType,
   ) -> Option<gltf_json::Index<gltf_json::Material>> {
     match material {
-      SceneMaterialType::PhysicalSpecularGlossiness(material) => None,
-      SceneMaterialType::PhysicalMetallicRoughness(material) => self
-        .materials
-        .get_or_insert_with(material.guid(), || {
+      SceneMaterialType::PhysicalSpecularGlossiness(_) => None,
+      SceneMaterialType::PhysicalMetallicRoughness(material) => {
+        self.materials.get_or_insert_with(material.guid(), || {
           let material = material.read();
           gltf_json::Material {
             alpha_cutoff: gltf_json::material::AlphaCutoff(material.alpha_cutoff).into(),
@@ -263,34 +332,36 @@ impl Ctx {
               base_color_texture: material
                 .base_color_texture
                 .as_ref()
-                .map(|t| self.build_texture2d_info(t, 0)),
+                .and_then(|t| self.build_texture2d_info(t, 0)),
               metallic_factor: gltf_json::material::StrengthFactor(material.metallic),
               roughness_factor: gltf_json::material::StrengthFactor(material.roughness),
               metallic_roughness_texture: material
                 .metallic_roughness_texture
                 .as_ref()
-                .map(|t| self.build_texture2d_info(t, 0)),
+                .and_then(|t| self.build_texture2d_info(t, 0)),
               ..Default::default()
             },
-            normal_texture: material.normal_texture.as_ref().map(|t| {
+            normal_texture: material.normal_texture.as_ref().and_then(|t| {
               gltf_json::material::NormalTexture {
-                index: self.build_texture2d(&t.content),
+                index: self.build_texture2d(&t.content)?,
                 scale: t.scale,
                 tex_coord: 0,
                 extensions: Default::default(),
                 extras: Default::default(),
               }
+              .into()
             }),
             occlusion_texture: None,
             emissive_texture: material
               .emissive_texture
               .as_ref()
-              .map(|t| self.build_texture2d_info(t, 0)),
+              .and_then(|t| self.build_texture2d_info(t, 0)),
             emissive_factor: gltf_json::material::EmissiveFactor(material.emissive.into()),
             ..Default::default()
           }
+          .into()
         })
-        .into(),
+      }
       SceneMaterialType::Flat(_) => None,
       SceneMaterialType::Foreign(_) => None,
       _ => None,
@@ -301,18 +372,19 @@ impl Ctx {
     &self,
     ts: &Texture2DWithSamplingData,
     tex_coord: usize,
-  ) -> gltf_json::texture::Info {
+  ) -> Option<gltf_json::texture::Info> {
     gltf_json::texture::Info {
-      index: self.build_texture2d(ts),
+      index: self.build_texture2d(ts)?,
       tex_coord: tex_coord as u32,
       extensions: Default::default(),
       extras: Default::default(),
     }
+    .into()
   }
   pub fn build_texture2d(
     &self,
     ts: &Texture2DWithSamplingData,
-  ) -> gltf_json::Index<gltf_json::Texture> {
+  ) -> Option<gltf_json::Index<gltf_json::Texture>> {
     let source = self.images.get_or_insert_with(ts.texture.guid(), || {
       let texture = ts.texture.read();
       let texture: &SceneTexture2DType = &texture;
@@ -324,30 +396,27 @@ impl Ctx {
           uri: Default::default(),
           extensions: Default::default(),
           extras: Default::default(),
-        },
-        SceneTexture2DType::Foreign(_) => todo!(),
-        _ => todo!(),
+        }.into(),
+        SceneTexture2DType::Foreign(_) => None,
+        _ =>  None,
       }
-    });
+    })?;
 
-    let sampler = self.samplers.get_or_insert_with(ts.sampler, || {
-      gltf_json::texture::Sampler {
-        //  mag_filter: Option<Checked<MagFilter>>,
-        //  min_filter: Option<Checked<MinFilter>>,
-        wrap_s: gltf_json::validation::Checked::Valid(map_wrapping(ts.sampler.address_mode_u)),
-        wrap_t: gltf_json::validation::Checked::Valid(map_wrapping(ts.sampler.address_mode_v)),
-        ..Default::default()
-      }
-    });
+    let sampler = self
+      .samplers
+      .get_or_insert_with(ts.sampler, || map_sampler(ts.sampler, true).into())?;
 
     self
       .textures
-      .get_or_insert_with((ts.texture.guid(), ts.sampler), || gltf_json::Texture {
-        name: Default::default(),
-        sampler: Some(sampler),
-        source,
-        extensions: Default::default(),
-        extras: Default::default(),
+      .get_or_insert_with((ts.texture.guid(), ts.sampler), || {
+        gltf_json::Texture {
+          name: Default::default(),
+          sampler: Some(sampler),
+          source,
+          extensions: Default::default(),
+          extras: Default::default(),
+        }
+        .into()
       })
   }
 }
@@ -364,15 +433,23 @@ impl<K, T> Resource<K, T> {
     gltf_json::Index::new(idx as u32)
   }
 
-  pub fn get_or_insert_with(&self, key: K, create: impl FnOnce() -> T) -> gltf_json::Index<T>
+  pub fn get_or_insert_with(
+    &self,
+    key: K,
+    create: impl FnOnce() -> Option<T>,
+  ) -> Option<gltf_json::Index<T>>
   where
     K: std::hash::Hash + Eq,
   {
-    *self
-      .mapping
-      .borrow_mut()
-      .entry(key)
-      .or_insert_with(|| self.append_and_skip_mapping(create()))
+    let mut mapping = self.mapping.borrow_mut();
+    if let Some(v) = mapping.get(&key) {
+      return (*v).into();
+    } else if let Some(v) = create() {
+      let v = self.append_and_skip_mapping(v);
+      mapping.insert(key, v);
+      return v.into();
+    }
+    None
   }
 }
 
