@@ -1,5 +1,5 @@
 use rendiation_renderable_mesh::PrimitiveTopology;
-use rendiation_scene_core::AlphaMode;
+use rendiation_scene_core::{AlphaMode, AttributeSemantic};
 use rendiation_texture::{AddressMode, FilterMode, TextureSampler};
 
 pub fn map_draw_mode(mode: PrimitiveTopology) -> gltf_json::mesh::Mode {
@@ -56,5 +56,18 @@ pub fn map_alpha_mode(alpha_mode: AlphaMode) -> gltf_json::material::AlphaMode {
     AlphaMode::Opaque => gltf_json::material::AlphaMode::Opaque,
     AlphaMode::Mask => gltf_json::material::AlphaMode::Mask,
     AlphaMode::Blend => gltf_json::material::AlphaMode::Blend,
+  }
+}
+
+#[rustfmt::skip]
+pub fn map_semantic_att(att: AttributeSemantic) -> (gltf_json::mesh::Semantic, gltf_json::accessor::ComponentType, gltf_json::accessor::Type) {
+  match att {
+    AttributeSemantic::Positions => (gltf_json::mesh::Semantic::Positions, gltf_json::accessor::ComponentType::F32, gltf_json::accessor::Type::Vec3),
+    AttributeSemantic::Normals => (gltf_json::mesh::Semantic::Normals, gltf_json::accessor::ComponentType::F32, gltf_json::accessor::Type::Vec3),
+    AttributeSemantic::Tangents => (gltf_json::mesh::Semantic::Tangents, gltf_json::accessor::ComponentType::F32, gltf_json::accessor::Type::Vec3),
+    AttributeSemantic::Colors(v) => (gltf_json::mesh::Semantic::Colors(v), gltf_json::accessor::ComponentType::F32, gltf_json::accessor::Type::Vec3), // todo check att data
+    AttributeSemantic::TexCoords(v) => (gltf_json::mesh::Semantic::TexCoords(v), gltf_json::accessor::ComponentType::F32, gltf_json::accessor::Type::Vec2),
+    AttributeSemantic::Joints(v) => (gltf_json::mesh::Semantic::Joints(v), gltf_json::accessor::ComponentType::F32, gltf_json::accessor::Type::Scalar), // todo check spec
+    AttributeSemantic::Weights(v) => (gltf_json::mesh::Semantic::Weights(v), gltf_json::accessor::ComponentType::F32, gltf_json::accessor::Type::Vec4), // todo check spec
   }
 }

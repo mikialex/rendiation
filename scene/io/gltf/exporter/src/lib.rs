@@ -1,16 +1,20 @@
+use std::collections::BTreeMap;
 use std::fs::{self, File};
 use std::io::BufWriter;
 use std::{collections::HashMap, path::Path};
 
 use gltf_json::Root;
+use incremental::*;
 use rendiation_scene_core::*;
 use rendiation_texture::TextureSampler;
 
 mod convert_utils;
 use convert_utils::*;
 
+#[derive(Debug)]
 pub enum GltfExportErr {
   IO(std::io::Error),
+  Serialize(Box<dyn std::error::Error>),
 }
 
 pub fn build_scene_to_gltf(
@@ -20,39 +24,44 @@ pub fn build_scene_to_gltf(
 ) -> Result<(), GltfExportErr> {
   fs::create_dir_all(folder_path).map_err(GltfExportErr::IO)?;
 
+  let ctx = Ctx::default();
+
   let scene = scene.read();
+  let root = scene.root();
 
   let mut scene_node_ids = Vec::default();
 
   // todo load scene.nodes.
 
-  let ctx = Ctx::default();
-
   for (_, model) in &scene.models {
     let model = model.read();
-    // let node_idx = *node_mapping.get(&model.node.guid()).unwrap();
-    // let node = nodes.get_mut(node_idx).unwrap();
+
+    let mapping = ctx.nodes.mapping.borrow();
+    let mut collected = ctx.nodes.collected.borrow_mut();
+    let idx = mapping.get(&model.node.guid()).unwrap();
+    let node = collected.get_mut(idx.value()).unwrap();
+    node.mesh = ctx.build_model(&model.model)
   }
 
-  for (_, light) in &scene.lights {
-    let light = light.read();
-    match light.light {
-      SceneLightKind::PointLight(_) => todo!(),
-      SceneLightKind::SpotLight(_) => todo!(),
-      SceneLightKind::DirectionalLight(_) => todo!(),
-      _ => todo!(),
-    }
-  }
+  // for (_, light) in &scene.lights {
+  //   let light = light.read();
+  //   match light.light {
+  //     SceneLightKind::PointLight(_) => todo!(),
+  //     SceneLightKind::SpotLight(_) => todo!(),
+  //     SceneLightKind::DirectionalLight(_) => todo!(),
+  //     _ => todo!(),
+  //   }
+  // }
 
-  for (_, camera) in &scene.cameras {
-    let camera = camera.read();
-    match camera.projection {
-      CameraProjector::Perspective(_) => todo!(),
-      CameraProjector::ViewOrthographic(_) => todo!(),
-      CameraProjector::Orthographic(_) => todo!(),
-      _ => todo!(),
-    }
-  }
+  // for (_, camera) in &scene.cameras {
+  //   let camera = camera.read();
+  //   match camera.projection {
+  //     CameraProjector::Perspective(_) => todo!(),
+  //     CameraProjector::ViewOrthographic(_) => todo!(),
+  //     CameraProjector::Orthographic(_) => todo!(),
+  //     _ => todo!(),
+  //   }
+  // }
 
   let scene = gltf_json::Scene {
     nodes: scene_node_ids,
@@ -97,9 +106,9 @@ pub fn build_scene_to_gltf(
   let gltf_root_file_path = folder_path.join(file_name);
   let file = File::create(gltf_root_file_path).map_err(GltfExportErr::IO)?;
 
-  json.to_writer(BufWriter::new(file));
-
-  Ok(())
+  json
+    .to_writer(BufWriter::new(file))
+    .map_err(|e| GltfExportErr::Serialize(Box::new(e)))
 }
 
 #[derive(Default)]
@@ -194,6 +203,9 @@ impl Ctx {
   pub fn build_inline_accessor(
     &self,
     acc: &AttributeAccessor,
+    c_ty: gltf_json::accessor::ComponentType,
+    ty: gltf_json::accessor::Type,
+    normalized: bool,
   ) -> Option<gltf_json::Index<gltf_json::Accessor>> {
     let view = self.buffer_views.get_or_insert_with(
       ViewKey {
@@ -227,20 +239,32 @@ impl Ctx {
     self.accessors.get_or_insert_with(key, || {
       gltf_json::Accessor {
         buffer_view: view.into(),
-        byte_offset: todo!(),
-        count: todo!(),
-        component_type: todo!(),
+        byte_offset: acc.byte_offset as u32,
+        count: acc.count as u32,
+        component_type: gltf_json::validation::Checked::Valid(
+          gltf_json::accessor::GenericComponentType(c_ty),
+        ),
         extensions: Default::default(),
         extras: Default::default(),
-        type_: todo!(),
+        type_: gltf_json::validation::Checked::Valid(ty),
         min: Default::default(),
         max: Default::default(),
         name: Default::default(),
-        normalized: todo!(),
+        normalized,
         sparse: Default::default(),
       }
       .into()
     })
+  }
+
+  pub fn build_nodes_recursive(&self, scene: &Scene) {
+    // let scene = scene.read();
+
+    // scene.nodes.inner
+
+    // let tree = scene.nodes.inner.inner().inner.read().unwrap();
+    // tree.expand_with_mapping(|node| node.deref().clone(), cb);
+    todo!()
   }
 
   pub fn build_node(&self, node: &SceneNode) -> gltf_json::Index<gltf_json::Node> {
@@ -251,15 +275,15 @@ impl Ctx {
           //
           gltf_json::Node {
             camera: Default::default(),
-            children: todo!(),
+            children: Default::default(),
             extensions: Default::default(),
             extras: Default::default(),
-            matrix: todo!(),
+            matrix: Some(node.local_matrix.into()),
             mesh: Default::default(),
             name: Default::default(),
-            rotation: todo!(),
-            scale: todo!(),
-            translation: todo!(),
+            rotation: Default::default(),
+            scale: Default::default(),
+            translation: Default::default(),
             skin: Default::default(),
             weights: Default::default(),
           }
@@ -277,10 +301,31 @@ impl Ctx {
           SceneMeshType::AttributesMesh(mesh) => {
             let mesh = mesh.read();
             self.models.get_or_insert_with(model.guid(), || {
+              let mut attributes = BTreeMap::default();
+              for (key, att) in &mesh.attributes {
+                let (key, cty, ty) = map_semantic_att(*key);
+                let key = gltf_json::validation::Checked::Valid(key);
+                attributes.insert(key, self.build_inline_accessor(att, cty, ty, false)?);
+              }
+
               let primitive = gltf_json::mesh::Primitive {
-                attributes: todo!(),
+                attributes,
                 indices: match &mesh.indices {
-                  Some((_, acc)) => self.build_inline_accessor(acc)?.into(),
+                  Some((fmt, acc)) => match fmt {
+                    AttributeIndexFormat::Uint16 => self.build_inline_accessor(
+                      acc,
+                      gltf_json::accessor::ComponentType::U16,
+                      gltf_json::accessor::Type::Scalar,
+                      false,
+                    )?,
+                    AttributeIndexFormat::Uint32 => self.build_inline_accessor(
+                      acc,
+                      gltf_json::accessor::ComponentType::U32,
+                      gltf_json::accessor::Type::Scalar,
+                      false,
+                    )?,
+                  }
+                  .into(),
                   None => None,
                 },
                 material: self.build_material(&model.material),

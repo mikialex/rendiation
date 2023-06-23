@@ -2609,9 +2609,11 @@ name = "rendiation-scene-gltf-exporter"
 version = "0.0.1"
 dependencies = [
  "gltf-json",
+ "incremental",
  "rendiation-renderable-mesh",
  "rendiation-scene-core",
  "rendiation-texture",
+ "tree",
 ]
 
 [[package]]

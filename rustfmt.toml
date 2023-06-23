@@ -1,13 +1,13 @@
 # https://rust-lang.github.io/rustfmt
 
-tab_spaces = 2
-group_imports = "StdExternalCrate"
 format_code_in_doc_comments = true
-use_field_init_shorthand = true
+group_imports = "StdExternalCrate"
 normalize_comments = true
+tab_spaces = 2
+use_field_init_shorthand = true
 
-wrap_comments = true
-comment_width = 100 # the max with default is 100
+comment_width = 100 # the max width default is 100
+wrap_comments = true 
 
 # enum_discrim_align_threshold = 24
 # struct_field_align_threshold = 24
