@@ -53,7 +53,7 @@ pub fn setup_pass_core(
           .material
           .create_scene_reactive_gpu(&resources.resources.bindable_ctx)
           .unwrap()
-      });
+      }) as &dyn RenderComponentAny;
 
       let mut meshes = resources.resources.model_ctx.meshes.write().unwrap();
       if model.mesh.guid().is_none() {
@@ -66,9 +66,16 @@ pub fn setup_pass_core(
           .unwrap()
       });
 
-      let components = [pass_gpu, mesh_gpu, node_gpu, camera_gpu, material_gpu];
-
       let draw_command = mesh_gpu.draw_command(model.group);
+      let mesh_gpu: &dyn RenderComponentAny = mesh_gpu;
+
+      let components: [&dyn RenderComponentAny; 5] = [
+        &pass_gpu.assign_binding_index(0),
+        &mesh_gpu.assign_binding_index(2),
+        &node_gpu.assign_binding_index(2),
+        &camera_gpu.assign_binding_index(1),
+        &material_gpu.assign_binding_index(2),
+      ];
 
       RenderEmitter::new(components.as_slice()).render(&mut pass.ctx, draw_command);
     }

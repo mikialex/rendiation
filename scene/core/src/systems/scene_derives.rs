@@ -9,13 +9,9 @@ use crate::*;
 
 #[derive(Clone)]
 pub struct SceneNodeDeriveSystem {
-  inner: Arc<RwLock<SceneNodeDeriveSystemInner>>,
-}
-
-struct SceneNodeDeriveSystemInner {
   inner:
     TreeHierarchyDerivedSystem<SceneNodeDerivedData, ParentTreeDirty<SceneNodeDeriveDataDirtyFlag>>,
-  updater: StreamCacheUpdate,
+  updater: Arc<RwLock<StreamCacheUpdateWrapper>>,
   indexed_stream_mapper: Arc<RwLock<SceneNodeChangeStreamIndexMapper>>,
 }
 type SingleSceneNodeChangeStream = impl Stream<Item = SceneNodeDerivedDataDelta> + Unpin;
@@ -27,17 +23,34 @@ pub type SceneNodeChangeStreamIndexMapper =
 pub type SingleSceneNodeChangeStreamFanOut =
   StreamBroadcaster<SingleSceneNodeChangeStream, SceneNodeDerivedDataDelta, FanOut>;
 
-type StreamCacheUpdate = impl Stream + Unpin + AsRef<StreamVec<SingleSceneNodeChangeStreamFanOut>>;
+type StreamCacheUpdate = impl Stream<Item = IndexedItem<node::SceneNodeDerivedDataDelta>>
+  + Unpin
+  + AsRef<StreamVec<SingleSceneNodeChangeStreamFanOut>>;
+
+#[pin_project::pin_project]
+struct StreamCacheUpdateWrapper {
+  #[pin]
+  inner: StreamCacheUpdate,
+}
+
+impl Stream for StreamCacheUpdateWrapper {
+  type Item = ();
+
+  fn poll_next(
+    self: std::pin::Pin<&mut Self>,
+    cx: &mut std::task::Context<'_>,
+  ) -> std::task::Poll<Option<Self::Item>> {
+    self.project().inner.poll_next(cx).map(|v| v.map(|_| {}))
+  }
+}
 
 impl SceneNodeDeriveSystem {
   pub fn new(nodes: &SceneNodeCollection) -> Self {
-    let inner_sys = nodes.inner.visit_inner(|tree| {
-      let stream = tree.source.listen();
-      TreeHierarchyDerivedSystem::<
-        SceneNodeDerivedData,
-        ParentTreeDirty<SceneNodeDeriveDataDirtyFlag>,
-      >::new::<ParentTree, _, _, _>(stream, &nodes.inner)
-    });
+    let stream = nodes.inner.inner().source.unbound_listen();
+    let inner_sys = TreeHierarchyDerivedSystem::<
+      SceneNodeDerivedData,
+      ParentTreeDirty<SceneNodeDeriveDataDirtyFlag>,
+    >::new::<ParentTree, _, _, _>(stream, &nodes.inner);
 
     let indexed_stream_mapper: SceneNodeChangeStreamIndexMapper = inner_sys
       .derived_stream
@@ -51,9 +64,10 @@ impl SceneNodeDeriveSystem {
 
     let sub_broad_caster = StreamVec::<SingleSceneNodeChangeStreamFanOut>::default();
 
-    let stream_cache_updating = inner_sys.derived_stream.fork_stream().fold_signal_flatten(
-      sub_broad_caster,
-      move |(idx, delta), sub_broad_caster| {
+    let stream_cache_updating: StreamCacheUpdate = inner_sys
+      .derived_stream
+      .fork_stream()
+      .fold_signal_state_stream(sub_broad_caster, move |(idx, delta), sub_broad_caster| {
         if delta.is_none() {
           sub_broad_caster.insert(idx, None)
           // we check if is none first to avoid too much sub stream recreate
@@ -69,25 +83,22 @@ impl SceneNodeDeriveSystem {
             ),
           )
         }
-        None
-      },
-    );
+      });
 
-    let inner = SceneNodeDeriveSystemInner {
+    SceneNodeDeriveSystem {
       inner: inner_sys,
-      updater: stream_cache_updating,
+      updater: Arc::new(RwLock::new(StreamCacheUpdateWrapper {
+        inner: stream_cache_updating,
+      })),
       indexed_stream_mapper,
-    };
-    Self {
-      inner: Arc::new(RwLock::new(inner)),
     }
   }
 
   pub fn maintain(&mut self) {
-    let mut inner = self.inner.write().unwrap();
-    do_updates(&mut inner.updater, |_| {});
+    let updater: &mut StreamCacheUpdateWrapper = &mut self.updater.write().unwrap();
+    do_updates(updater, |_| {});
     let mut indexed_stream_mapper: &mut SceneNodeChangeStreamIndexMapper =
-      &mut inner.indexed_stream_mapper.write().unwrap();
+      &mut self.indexed_stream_mapper.write().unwrap();
     do_updates(&mut indexed_stream_mapper, |_| {});
   }
 }
@@ -100,48 +111,63 @@ impl SceneNodeDeriveSystem {
   }
 
   pub fn get_world_matrix_by_raw_handle(&self, index: usize) -> Mat4<f32> {
-    self.inner.read().unwrap().inner.visit_derived_tree(|tree| {
+    self.inner.visit_derived_tree(|tree| {
       let handle = tree.recreate_handle(index);
       tree.get_node(handle).data().data.world_matrix
     })
   }
-  pub fn visit_derived<R>(&self, index: usize, v: impl FnOnce(&SceneNodeDerivedData) -> R) -> R {
-    self.inner.read().unwrap().inner.visit_derived_tree(|tree| {
-      let handle = tree.recreate_handle(index);
-      v(&tree.get_node(handle).data().data)
+  pub fn visit_derived<R>(
+    &self,
+    index: usize,
+    v: impl FnOnce(&SceneNodeDerivedData) -> R,
+  ) -> Option<R> {
+    self.inner.visit_derived_tree(|tree| {
+      let handle = tree.try_recreate_handle(index)?;
+      tree.try_get_node(handle).map(|n| &n.data().data).map(v)
     })
+  }
+
+  pub fn create_derive_stream(
+    &self,
+    node: &SceneNode,
+  ) -> Option<impl Stream<Item = SceneNodeDerivedDataDelta>> {
+    self.create_derived_stream_by_raw_handle(node.raw_handle().index())
   }
 
   pub fn create_derived_stream_by_raw_handle(
     &self,
     index: usize,
-  ) -> impl Stream<Item = SceneNodeDerivedDataDelta> {
-    let derived = self.visit_derived(index, |d| d.clone());
+  ) -> Option<impl Stream<Item = SceneNodeDerivedDataDelta>> {
+    let derived = self.visit_derived(index, |d| d.clone())?;
     let init_deltas = expand_out(&derived);
     self
-      .inner
+      .updater
       .read()
       .unwrap()
-      .updater
+      .inner
       .as_ref()
-      .get(index)
-      .unwrap()
+      .get(index)?
       .fork_stream_with_init(init_deltas)
+      .into()
   }
 
-  pub fn create_world_matrix_stream(&self, node: &SceneNode) -> WorldMatrixStream {
+  pub fn create_world_matrix_stream(&self, node: &SceneNode) -> Option<WorldMatrixStream> {
     self.create_world_matrix_stream_by_raw_handle(node.raw_handle().index())
   }
-  pub fn create_world_matrix_stream_by_raw_handle(&self, index: usize) -> WorldMatrixStream {
+  pub fn create_world_matrix_stream_by_raw_handle(
+    &self,
+    index: usize,
+  ) -> Option<WorldMatrixStream> {
     self
-      .create_derived_stream_by_raw_handle(index)
+      .create_derived_stream_by_raw_handle(index)?
       .filter_map_sync(|d| match d {
         SceneNodeDerivedDataDelta::world_matrix(m) => Some(m),
         SceneNodeDerivedDataDelta::net_visible(_) => None,
       })
+      .into()
   }
   pub fn get_net_visible(&self, node: &SceneNode) -> bool {
-    self.inner.read().unwrap().inner.visit_derived_tree(|tree| {
+    self.inner.visit_derived_tree(|tree| {
       let handle = tree.recreate_handle(node.raw_handle().index());
       tree.get_node(handle).data().data.net_visible
     })

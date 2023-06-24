@@ -12,7 +12,7 @@ pub use sampling::*;
 pub struct ShadowMapSystem {
   pub shadow_collections: HashMap<TypeId, Box<dyn ShadowCollection>>,
   pub maps: ShadowMapAllocator,
-  pub sampler: RawComparisonSampler,
+  pub sampler: RawSampler,
 }
 
 pub trait ShadowCollection: RenderComponentAny + RebuildAbleGPUCollectionBase {
@@ -31,7 +31,7 @@ impl ShadowMapSystem {
     Self {
       shadow_collections: Default::default(),
       maps: Default::default(),
-      sampler: gpu.device.create_and_cache_com_sampler(sampler),
+      sampler: gpu.device.create_and_cache_sampler(sampler),
     }
   }
 
@@ -76,6 +76,47 @@ impl ShaderGraphProvider for ShadowMapSystem {
       impls.build(builder)?;
     }
     self.maps.build(builder)
+  }
+}
+
+pub const SHADOW_MAX: usize = 8;
+pub type ShadowList<T> = ClampedUniformList<T, SHADOW_MAX>;
+
+#[derive(Default)]
+pub struct BasicShadowMapInfoList {
+  pub list: ShadowList<BasicShadowMapInfo>,
+}
+
+impl RebuildAbleGPUCollectionBase for BasicShadowMapInfoList {
+  fn reset(&mut self) {
+    self.list.reset();
+  }
+
+  fn update_gpu(&mut self, gpu: &GPU) -> usize {
+    self.list.update_gpu(gpu)
+  }
+}
+
+impl ShaderGraphProvider for BasicShadowMapInfoList {
+  fn build(
+    &self,
+    builder: &mut ShaderGraphRenderPipelineBuilder,
+  ) -> Result<(), ShaderGraphBuildError> {
+    builder.fragment(|builder, binding| {
+      let list = binding.uniform_by(self.list.gpu.as_ref().unwrap());
+      builder.register::<BasicShadowMapInfoGroup>(list);
+      Ok(())
+    })
+  }
+}
+impl ShaderHashProvider for BasicShadowMapInfoList {
+  fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
+    self.list.hash_pipeline(hasher)
+  }
+}
+impl ShaderPassBuilder for BasicShadowMapInfoList {
+  fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
+    self.list.setup_pass(ctx)
   }
 }
 

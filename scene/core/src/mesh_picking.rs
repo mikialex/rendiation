@@ -4,23 +4,25 @@ use rendiation_renderable_mesh::*;
 use crate::*;
 
 impl<T: IntersectAbleGroupedMesh + IncrementalBase> IntersectAbleGroupedMesh for SceneItemRef<T> {
-  fn intersect_list(
+  fn intersect_list_by_group(
     &self,
     ray: Ray3,
     conf: &MeshBufferIntersectConfig,
     result: &mut MeshBufferHitList,
     group: MeshDrawGroup,
   ) {
-    self.read().intersect_list(ray, conf, result, group)
+    self
+      .read()
+      .intersect_list_by_group(ray, conf, result, group)
   }
 
-  fn intersect_nearest(
+  fn intersect_nearest_by_group(
     &self,
     ray: Ray3,
     conf: &MeshBufferIntersectConfig,
     group: MeshDrawGroup,
   ) -> OptionalNearest<MeshBufferHitPoint> {
-    self.read().intersect_nearest(ray, conf, group)
+    self.read().intersect_nearest_by_group(ray, conf, group)
   }
 }
 impl<T: IntersectAbleGroupedMesh + IncrementalBase> AsRef<dyn IntersectAbleGroupedMesh>
@@ -44,24 +46,61 @@ pub enum AttributeDynPrimitive {
   Triangle(Triangle<Vec3<f32>>),
 }
 
-// impl IntersectAble<Ray3, OptionalNearest<HitPoint3D>, MeshBufferIntersectConfig>
-//   for AttributeDynPrimitive
-// {
-//   fn intersect(
-//     &self,
-//     other: &Ray3,
-//     param: &MeshBufferIntersectConfig,
-//   ) -> OptionalNearest<HitPoint3D> {
-//     match self {
-//       AttributeDynPrimitive::Points(_) => todo!(),
-//       AttributeDynPrimitive::LineSegment(_) => todo!(),
-//       AttributeDynPrimitive::Triangle(_) => todo!(),
-//     }
-//   }
-// }
+impl SpaceEntity<f32, 3> for AttributeDynPrimitive {
+  type Matrix = Mat4<f32>;
 
+  fn apply_matrix(&mut self, mat: Self::Matrix) -> &mut Self {
+    match self {
+      AttributeDynPrimitive::Points(v) => {
+        v.apply_matrix(mat);
+      }
+      AttributeDynPrimitive::LineSegment(v) => {
+        v.apply_matrix(mat);
+      }
+      AttributeDynPrimitive::Triangle(v) => {
+        v.apply_matrix(mat);
+      }
+    }
+    self
+  }
+}
+
+impl IntersectAble<Ray3, OptionalNearest<HitPoint3D>, MeshBufferIntersectConfig>
+  for AttributeDynPrimitive
+{
+  fn intersect(
+    &self,
+    other: &Ray3,
+    param: &MeshBufferIntersectConfig,
+  ) -> OptionalNearest<HitPoint3D> {
+    match self {
+      AttributeDynPrimitive::Points(v) => v.intersect(other, param),
+      AttributeDynPrimitive::LineSegment(v) => v.intersect(other, param),
+      AttributeDynPrimitive::Triangle(v) => v.intersect(other, param),
+    }
+  }
+}
+
+impl SpaceBounding<f32, Box3, 3> for AttributeDynPrimitive {
+  fn to_bounding(&self) -> Box3 {
+    match self {
+      AttributeDynPrimitive::Points(v) => v.to_bounding(),
+      AttributeDynPrimitive::LineSegment(v) => v.to_bounding(),
+      AttributeDynPrimitive::Triangle(v) => v.to_bounding(),
+    }
+  }
+}
+
+impl<'a> GPUConsumableMeshBuffer for AttributeMeshReadView<'a> {
+  fn draw_count(&self) -> usize {
+    self.mesh.draw_count()
+  }
+}
+
+/// we can not impl AbstractMesh for AttributeMesh because it contains interior mutability
+///
 /// this is slow, but not bloat the binary size.
-impl AbstractMesh for AttributesMesh {
+impl<'a> AbstractMesh for AttributeMeshReadView<'a> {
   type Primitive = AttributeDynPrimitive;
 
   fn primitive_count(&self) -> usize {
@@ -71,50 +110,45 @@ impl AbstractMesh for AttributesMesh {
       self.get_position().count
     };
 
-    (count - self.mode.stride()) / self.mode.step() + 1
+    (count + self.mode.step() - self.mode.stride()) / self.mode.step()
   }
 
   fn primitive_at(&self, primitive_index: usize) -> Option<Self::Primitive> {
     let read_index = self.mode.step() * primitive_index;
+    let position = self.get_position().visit_slice::<Vec3<f32>>()?;
 
     #[rustfmt::skip]
      if let Some((fmt, index)) = &self.indices {
-      self.get_position().visit_slice::<Vec3<f32>, Option<Self::Primitive>>(|position|{
-        match fmt {
-          IndexFormat::Uint16 => {
-            index.visit_slice::<u16, Option<Self::Primitive>>(|index|{
-              match self.mode{
-                PrimitiveTopology::PointList => AttributeDynPrimitive::Points(Point::from_data(&index, read_index)?.f_filter_map(|id|position.get(id as usize).copied())?),
-                PrimitiveTopology::LineList => AttributeDynPrimitive::LineSegment(LineSegment::from_data(&index, read_index)?.f_filter_map(|id|position.get(id as usize).copied())?),
-                PrimitiveTopology::LineStrip => AttributeDynPrimitive::LineSegment(LineSegment::from_data(&index, read_index)?.f_filter_map(|id|position.get(id as usize).copied())?),
-                PrimitiveTopology::TriangleList => AttributeDynPrimitive::Triangle(Triangle::from_data(&index, read_index)?.f_filter_map(|id|position.get(id as usize).copied())?),
-                PrimitiveTopology::TriangleStrip => AttributeDynPrimitive::Triangle(Triangle::from_data(&index, read_index)?.f_filter_map(|id|position.get(id as usize).copied())?),
-              }.into()
-            }).flatten()
-          },
-          IndexFormat::Uint32 => {
-            index.visit_slice::<u32, Option<Self::Primitive>>(|index|{
-              match self.mode{
-                PrimitiveTopology::PointList => AttributeDynPrimitive::Points(Point::from_data(&index, read_index)?.f_filter_map(|id|position.get(id as usize).copied())?),
-                PrimitiveTopology::LineList => AttributeDynPrimitive::LineSegment(LineSegment::from_data(&index, read_index)?.f_filter_map(|id|position.get(id as usize).copied())?),
-                PrimitiveTopology::LineStrip => AttributeDynPrimitive::LineSegment(LineSegment::from_data(&index, read_index)?.f_filter_map(|id|position.get(id as usize).copied())?),
-                PrimitiveTopology::TriangleList => AttributeDynPrimitive::Triangle(Triangle::from_data(&index, read_index)?.f_filter_map(|id|position.get(id as usize).copied())?),
-                PrimitiveTopology::TriangleStrip => AttributeDynPrimitive::Triangle(Triangle::from_data(&index, read_index)?.f_filter_map(|id|position.get(id as usize).copied())?),
-              }.into()
-            }).flatten()
-          },
-        }
-      }).flatten()
+      match fmt {
+        AttributeIndexFormat::Uint16 => {
+          let index = index.visit_slice::<u16>()?;
+          match self.mode{
+            PrimitiveTopology::PointList => AttributeDynPrimitive::Points(Point::from_data(&index, read_index)?.f_filter_map(|id|position.get(id as usize).copied())?),
+            PrimitiveTopology::LineList => AttributeDynPrimitive::LineSegment(LineSegment::from_data(&index, read_index)?.f_filter_map(|id|position.get(id as usize).copied())?),
+            PrimitiveTopology::LineStrip => AttributeDynPrimitive::LineSegment(LineSegment::from_data(&index, read_index)?.f_filter_map(|id|position.get(id as usize).copied())?),
+            PrimitiveTopology::TriangleList => AttributeDynPrimitive::Triangle(Triangle::from_data(&index, read_index)?.f_filter_map(|id|position.get(id as usize).copied())?),
+            PrimitiveTopology::TriangleStrip => AttributeDynPrimitive::Triangle(Triangle::from_data(&index, read_index)?.f_filter_map(|id|position.get(id as usize).copied())?),
+          }.into()
+        },
+        AttributeIndexFormat::Uint32 => {
+          let index = index.visit_slice::<u32>()?;
+          match self.mode{
+            PrimitiveTopology::PointList => AttributeDynPrimitive::Points(Point::from_data(&index, read_index)?.f_filter_map(|id|position.get(id as usize).copied())?),
+            PrimitiveTopology::LineList => AttributeDynPrimitive::LineSegment(LineSegment::from_data(&index, read_index)?.f_filter_map(|id|position.get(id as usize).copied())?),
+            PrimitiveTopology::LineStrip => AttributeDynPrimitive::LineSegment(LineSegment::from_data(&index, read_index)?.f_filter_map(|id|position.get(id as usize).copied())?),
+            PrimitiveTopology::TriangleList => AttributeDynPrimitive::Triangle(Triangle::from_data(&index, read_index)?.f_filter_map(|id|position.get(id as usize).copied())?),
+            PrimitiveTopology::TriangleStrip => AttributeDynPrimitive::Triangle(Triangle::from_data(&index, read_index)?.f_filter_map(|id|position.get(id as usize).copied())?),
+          }.into()
+        },
+      }
     } else {
-      self.get_position().visit_slice::<Vec3<f32>, Option<Self::Primitive>>(|position|{
-        match self.mode{
-          PrimitiveTopology::PointList => AttributeDynPrimitive::Points(Point::from_data(&position, read_index)?),
-          PrimitiveTopology::LineList => AttributeDynPrimitive::LineSegment(LineSegment::from_data(&position, read_index)?),
-          PrimitiveTopology::LineStrip => AttributeDynPrimitive::LineSegment(LineSegment::from_data(&position, read_index)?),
-          PrimitiveTopology::TriangleList => AttributeDynPrimitive::Triangle(Triangle::from_data(&position, read_index)?),
-          PrimitiveTopology::TriangleStrip => AttributeDynPrimitive::Triangle(Triangle::from_data(&position, read_index)?),
-        }.into()
-      }).flatten()
+      match self.mode{
+        PrimitiveTopology::PointList => AttributeDynPrimitive::Points(Point::from_data(&position, read_index)?),
+        PrimitiveTopology::LineList => AttributeDynPrimitive::LineSegment(LineSegment::from_data(&position, read_index)?),
+        PrimitiveTopology::LineStrip => AttributeDynPrimitive::LineSegment(LineSegment::from_data(&position, read_index)?),
+        PrimitiveTopology::TriangleList => AttributeDynPrimitive::Triangle(Triangle::from_data(&position, read_index)?),
+        PrimitiveTopology::TriangleStrip => AttributeDynPrimitive::Triangle(Triangle::from_data(&position, read_index)?),
+      }.into()
     }
   }
 }
@@ -130,28 +164,31 @@ impl GPUConsumableMeshBuffer for AttributesMesh {
   }
 }
 
-impl IntersectAbleGroupedMesh for AttributesMesh {
-  fn intersect_list(
+impl<'a> IntersectAbleGroupedMesh for AttributeMeshReadView<'a> {
+  fn intersect_list_by_group(
     &self,
-    _ray: Ray3,
-    _conf: &MeshBufferIntersectConfig,
-    _result: &mut MeshBufferHitList,
-    _group: MeshDrawGroup,
+    ray: Ray3,
+    conf: &MeshBufferIntersectConfig,
+    result: &mut MeshBufferHitList,
+    group: MeshDrawGroup,
   ) {
+    let group = self.groups.get_group(group, self);
+    self.intersect_list(ray, conf, group, result);
   }
 
-  fn intersect_nearest(
+  fn intersect_nearest_by_group(
     &self,
-    _ray: Ray3,
-    _conf: &MeshBufferIntersectConfig,
-    _group: MeshDrawGroup,
+    ray: Ray3,
+    conf: &MeshBufferIntersectConfig,
+    group: MeshDrawGroup,
   ) -> OptionalNearest<MeshBufferHitPoint> {
-    OptionalNearest::none()
+    let group = self.groups.get_group(group, self);
+    self.intersect_nearest(ray, conf, group)
   }
 }
 
 impl IntersectAbleGroupedMesh for TransformInstancedSceneMesh {
-  fn intersect_list(
+  fn intersect_list_by_group(
     &self,
     ray: Ray3,
     conf: &MeshBufferIntersectConfig,
@@ -161,11 +198,13 @@ impl IntersectAbleGroupedMesh for TransformInstancedSceneMesh {
     self.transforms.iter().for_each(|mat| {
       let world_inv = mat.inverse_or_identity();
       let local_ray = ray.clone().apply_matrix_into(world_inv);
-      self.mesh.intersect_list(local_ray, conf, result, group)
+      self
+        .mesh
+        .intersect_list_by_group(local_ray, conf, result, group)
     })
   }
 
-  fn intersect_nearest(
+  fn intersect_nearest_by_group(
     &self,
     ray: Ray3,
     conf: &MeshBufferIntersectConfig,
@@ -177,14 +216,14 @@ impl IntersectAbleGroupedMesh for TransformInstancedSceneMesh {
       .fold(OptionalNearest::none(), |mut pre, mat| {
         let world_inv = mat.inverse_or_identity();
         let local_ray = ray.clone().apply_matrix_into(world_inv);
-        let r = self.mesh.intersect_nearest(local_ray, conf, group);
+        let r = self.mesh.intersect_nearest_by_group(local_ray, conf, group);
         *pre.refresh_nearest(r)
       })
   }
 }
 
 impl IntersectAbleGroupedMesh for SceneMeshType {
-  fn intersect_list(
+  fn intersect_list_by_group(
     &self,
     ray: Ray3,
     conf: &MeshBufferIntersectConfig,
@@ -192,34 +231,42 @@ impl IntersectAbleGroupedMesh for SceneMeshType {
     group: MeshDrawGroup,
   ) {
     match self {
-      SceneMeshType::AttributesMesh(mesh) => mesh.read().intersect_list(ray, conf, result, group),
-      SceneMeshType::TransformInstanced(mesh) => {
-        mesh.read().intersect_list(ray, conf, result, group)
-      }
+      SceneMeshType::AttributesMesh(mesh) => mesh
+        .read()
+        .read()
+        .intersect_list_by_group(ray, conf, result, group),
+      SceneMeshType::TransformInstanced(mesh) => mesh
+        .read()
+        .intersect_list_by_group(ray, conf, result, group),
       SceneMeshType::Foreign(mesh) => {
         if let Some(pickable) =
           get_dyn_trait_downcaster_static!(IntersectAbleGroupedMesh).downcast_ref(mesh.as_ref())
         {
-          pickable.intersect_list(ray, conf, result, group)
+          pickable.intersect_list_by_group(ray, conf, result, group)
         }
       }
     }
   }
 
-  fn intersect_nearest(
+  fn intersect_nearest_by_group(
     &self,
     ray: Ray3,
     conf: &MeshBufferIntersectConfig,
     group: MeshDrawGroup,
   ) -> OptionalNearest<MeshBufferHitPoint> {
     match self {
-      SceneMeshType::AttributesMesh(mesh) => mesh.read().intersect_nearest(ray, conf, group),
-      SceneMeshType::TransformInstanced(mesh) => mesh.read().intersect_nearest(ray, conf, group),
+      SceneMeshType::AttributesMesh(mesh) => mesh
+        .read()
+        .read()
+        .intersect_nearest_by_group(ray, conf, group),
+      SceneMeshType::TransformInstanced(mesh) => {
+        mesh.read().intersect_nearest_by_group(ray, conf, group)
+      }
       SceneMeshType::Foreign(mesh) => {
         if let Some(pickable) =
           get_dyn_trait_downcaster_static!(IntersectAbleGroupedMesh).downcast_ref(mesh.as_ref())
         {
-          pickable.intersect_nearest(ray, conf, group)
+          pickable.intersect_nearest_by_group(ray, conf, group)
         } else {
           OptionalNearest::none()
         }

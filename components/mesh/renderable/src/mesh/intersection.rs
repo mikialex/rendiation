@@ -96,14 +96,14 @@ where
 }
 
 pub trait IntersectAbleGroupedMesh {
-  fn intersect_list(
+  fn intersect_list_by_group(
     &self,
     ray: Ray3,
     conf: &MeshBufferIntersectConfig,
     result: &mut MeshBufferHitList,
     group: MeshDrawGroup,
   );
-  fn intersect_nearest(
+  fn intersect_nearest_by_group(
     &self,
     ray: Ray3,
     conf: &MeshBufferIntersectConfig,
@@ -117,7 +117,7 @@ impl<T> IntersectAbleGroupedMesh for GroupedMesh<T>
 where
   T: IntersectAbleAbstractMesh + AbstractMesh + GPUConsumableMeshBuffer,
 {
-  fn intersect_list(
+  fn intersect_list_by_group(
     &self,
     ray: Ray3,
     conf: &Config,
@@ -128,7 +128,7 @@ where
     self.mesh.intersect_list(ray, conf, group, result)
   }
 
-  fn intersect_nearest(
+  fn intersect_nearest_by_group(
     &self,
     ray: Ray3,
     conf: &Config,

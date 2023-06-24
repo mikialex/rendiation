@@ -52,7 +52,7 @@ impl Mipmap2DGenerator {
       let write_view: GPU2DTextureView = texture
         .create_view(webgpu::TextureViewDescriptor {
           base_mip_level: write_level,
-          mip_level_count: Some(NonZeroU32::new(1).unwrap()),
+          mip_level_count: Some(1),
           base_array_layer: 0,
           ..Default::default()
         })
@@ -63,7 +63,7 @@ impl Mipmap2DGenerator {
       let read_view = texture
         .create_view(webgpu::TextureViewDescriptor {
           base_mip_level: read_level,
-          mip_level_count: Some(NonZeroU32::new(1).unwrap()),
+          mip_level_count: Some(1),
           base_array_layer: 0,
           ..Default::default()
         })
@@ -91,7 +91,7 @@ impl Mipmap2DGenerator {
         let write_view: GPU2DTextureView = texture
           .create_view(webgpu::TextureViewDescriptor {
             base_mip_level: write_level,
-            mip_level_count: Some(NonZeroU32::new(1).unwrap()),
+            mip_level_count: Some(1),
             base_array_layer: face,
             // it defaults to None which defaults to cube type
             dimension: Some(webgpu::TextureViewDimension::D2),
@@ -104,7 +104,7 @@ impl Mipmap2DGenerator {
         let read_view = texture
           .create_view(webgpu::TextureViewDescriptor {
             base_mip_level: read_level,
-            mip_level_count: Some(NonZeroU32::new(1).unwrap()),
+            mip_level_count: Some(1),
             base_array_layer: face,
             ..Default::default()
           })
@@ -164,8 +164,8 @@ struct Mipmap2DGeneratorTask<'a> {
 
 impl<'a> ShaderPassBuilder for Mipmap2DGeneratorTask<'a> {
   fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
-    ctx.binding.bind(&self.view, SB::Pass);
-    ctx.bind_immediate_sampler(&TextureSampler::default(), SB::Pass);
+    ctx.binding.bind(&self.view);
+    ctx.bind_immediate_sampler(&TextureSampler::default().into_gpu());
   }
 }
 
@@ -186,8 +186,8 @@ impl<'a> ShaderGraphProvider for Mipmap2DGeneratorTask<'a> {
       let position = builder.query::<FragmentPosition>()?.xy();
       let buffer_size = builder.query::<RenderBufferSize>()?;
       let texel_size = builder.query::<TexelSize>()? * consts(0.5);
-      let previous_level = binding.uniform_by(&self.view, SB::Pass);
-      let sampler = binding.uniform::<GPUSamplerView>(SB::Pass);
+      let previous_level = binding.uniform_by(&self.view);
+      let sampler = binding.uniform::<GPUSamplerView>();
 
       let result = self
         .reducer

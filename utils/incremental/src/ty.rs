@@ -55,6 +55,10 @@ where
       cb(VecDelta::Push(v));
     }
   }
+
+  fn expand_size(&self) -> Option<usize> {
+    self.len().into()
+  }
 }
 
 impl<T> ApplicableIncremental for Vec<T>
@@ -102,7 +106,7 @@ impl<T: SimpleIncremental + Send + Sync + 'static> IncrementalBase for T {
 }
 
 pub fn expand_out<T: IncrementalBase>(item: &T) -> Vec<T::Delta> {
-  let mut r = Vec::new();
+  let mut r = Vec::with_capacity(item.expand_size().unwrap_or(1));
   item.expand(|d| r.push(d));
   r
 }
@@ -116,7 +120,7 @@ impl<T: SimpleIncremental + Send + Sync + 'static> ApplicableIncremental for T {
   }
 }
 
-/// not mutable
+/// Arc is immutable
 impl<T: Send + Sync + 'static> SimpleIncremental for std::sync::Arc<T> {
   type Delta = Self;
 

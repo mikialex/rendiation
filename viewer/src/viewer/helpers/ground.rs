@@ -104,7 +104,7 @@ pub struct GridGroundShading {
 impl ShaderHashProvider for GridGroundShading {}
 impl ShaderPassBuilder for GridGroundShading {
   fn setup_pass(&self, ctx: &mut webgpu::GPURenderPassCtx) {
-    ctx.binding.bind(&self.shading, SB::Object);
+    ctx.binding.bind(&self.shading);
   }
 }
 impl ShaderGraphProvider for GridGroundShading {
@@ -113,7 +113,7 @@ impl ShaderGraphProvider for GridGroundShading {
     builder: &mut ShaderGraphRenderPipelineBuilder,
   ) -> Result<(), ShaderGraphBuildError> {
     builder.fragment(|builder, binding| {
-      let shading = binding.uniform_by(&self.shading, SB::Object);
+      let shading = binding.uniform_by(&self.shading);
       let world_position = builder.query::<FragmentWorldPosition>()?;
 
       let grid = grid(world_position, shading);
@@ -160,7 +160,7 @@ impl<'a> ShaderHashProviderAny for InfinityShaderPlaneEffect<'a> {
 impl<'a> ShaderPassBuilder for InfinityShaderPlaneEffect<'a> {
   fn setup_pass(&self, ctx: &mut webgpu::GPURenderPassCtx) {
     self.camera.setup_pass(ctx);
-    ctx.binding.bind(self.plane, SB::Object);
+    ctx.binding.bind(self.plane);
   }
 }
 
@@ -187,21 +187,24 @@ impl<'a> ShaderGraphProvider for InfinityShaderPlaneEffect<'a> {
 
     builder.fragment(|builder, binding| {
       let proj = builder.query::<CameraProjectionMatrix>()?;
-      let proj_inv = builder.query::<CameraProjectionInverseMatrix>()?;
+      let world = builder.query::<CameraWorldMatrix>()?;
       let view = builder.query::<CameraViewMatrix>()?;
-      let view_inv = builder.query::<CameraWorldMatrix>()?;
+      let view_proj_inv = builder.query::<CameraViewProjectionInverseMatrix>()?;
 
       let uv = builder.query::<FragmentUv>()?;
-      let plane = binding.uniform_by(self.plane, SB::Object);
+      let plane = binding.uniform_by(self.plane);
 
       let ndc_xy = uv * consts(2.) - consts(Vec2::one());
       let ndc_xy = ndc_xy * consts(Vec2::new(1., -1.));
 
-      let unprojected = view_inv * proj_inv * (ndc_xy, 0., 1.).into();
-      let unprojected = unprojected.xyz() / unprojected.w();
+      let far = view_proj_inv * (ndc_xy, 1., 1.).into();
+      let near = view_proj_inv * (ndc_xy, 0., 1.).into();
 
-      let origin = view_inv.position();
-      let direction = (unprojected - origin).normalize();
+      let far = far.xyz() / far.w();
+      let near = near.xyz() / near.w();
+
+      let direction = (far - near).normalize();
+      let origin = near - (near - world.position()).dot(direction) * direction;
 
       let hit = ray_plane_intersect(origin, direction, plane);
 

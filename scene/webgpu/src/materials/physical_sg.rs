@@ -51,21 +51,21 @@ impl Stream for PhysicalSpecularGlossinessMaterialGPU {
 
 impl ShaderPassBuilder for PhysicalSpecularGlossinessMaterialGPU {
   fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
-    ctx.binding.bind(&self.uniform, SB::Material);
+    ctx.binding.bind(&self.uniform);
     if let Some(t) = self.albedo_texture.as_ref() {
-      t.setup_pass(ctx, SB::Material)
+      t.setup_pass(ctx)
     }
     if let Some(t) = self.specular_texture.as_ref() {
-      t.setup_pass(ctx, SB::Material)
+      t.setup_pass(ctx)
     }
     if let Some(t) = self.glossiness_texture.as_ref() {
-      t.setup_pass(ctx, SB::Material)
+      t.setup_pass(ctx)
     }
     if let Some(t) = self.emissive_texture.as_ref() {
-      t.setup_pass(ctx, SB::Material)
+      t.setup_pass(ctx)
     }
     if let Some(t) = self.normal_texture.as_ref() {
-      t.setup_pass(ctx, SB::Material)
+      t.setup_pass(ctx)
     }
   }
 }
@@ -81,13 +81,13 @@ impl ShaderGraphProvider for PhysicalSpecularGlossinessMaterialGPU {
     );
 
     builder.fragment(|builder, binding| {
-      let uniform = binding.uniform_by(&self.uniform, SB::Material).expand();
+      let uniform = binding.uniform_by(&self.uniform).expand();
       let uv = builder.query_or_interpolate_by::<FragmentUv, GeometryUV>();
 
       let mut alpha = uniform.alpha;
 
       let albedo = if let Some(tex) = &self.albedo_texture {
-        let sample = tex.uniform_and_sample(binding, SB::Material, uv);
+        let sample = tex.uniform_and_sample(binding, uv);
         alpha *= sample.w();
         sample.xyz() * uniform.albedo
       } else {
@@ -95,25 +95,25 @@ impl ShaderGraphProvider for PhysicalSpecularGlossinessMaterialGPU {
       };
 
       let specular = if let Some(tex) = &self.specular_texture {
-        tex.uniform_and_sample(binding, SB::Material, uv).xyz() * uniform.specular
+        tex.uniform_and_sample(binding, uv).xyz() * uniform.specular
       } else {
         uniform.specular
       };
 
       let glossiness = if let Some(tex) = &self.glossiness_texture {
-        tex.uniform_and_sample(binding, SB::Material, uv).x() * uniform.glossiness
+        tex.uniform_and_sample(binding, uv).x() * uniform.glossiness
       } else {
         uniform.glossiness
       };
 
       let emissive = if let Some(tex) = &self.emissive_texture {
-        tex.uniform_and_sample(binding, SB::Material, uv).x() * uniform.emissive
+        tex.uniform_and_sample(binding, uv).x() * uniform.emissive
       } else {
         uniform.emissive
       };
 
       if let Some(tex) = &self.normal_texture {
-        let normal_sample = tex.uniform_and_sample(binding, SB::Material, uv).xyz();
+        let normal_sample = tex.uniform_and_sample(binding, uv).xyz();
         apply_normal_mapping(builder, normal_sample, uv, uniform.normal_mapping_scale);
       }
 
@@ -221,8 +221,8 @@ impl WebGPUMaterial for PhysicalSpecularGlossinessMaterial {
       move |delta, state| match delta {
         UniformChangePicked::UniformChange => {
           if let Some(m) = weak_material.upgrade() {
-            state.uniform.resource.set(build_shader_uniform(&m.read()));
-            state.uniform.resource.upload(&ctx.gpu.queue)
+            state.uniform.set(build_shader_uniform(&m.read()));
+            state.uniform.upload(&ctx.gpu.queue)
           }
           RenderComponentDeltaFlag::ContentRef.into()
         }

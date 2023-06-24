@@ -78,8 +78,8 @@ impl ShaderPassBuilder for ShadowMapAllocator {
   fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
     let inner = self.inner.borrow();
     let inner = inner.result.as_ref().unwrap();
-    ctx.binding.bind(&inner.map, SB::Pass);
-    ctx.binding.bind(&inner.sampler, SB::Pass);
+    ctx.binding.bind(&inner.map);
+    ctx.binding.bind(&inner.sampler);
   }
 }
 
@@ -91,8 +91,8 @@ impl ShaderGraphProvider for ShadowMapAllocator {
     let inner = self.inner.borrow();
     let inner = &inner.result.as_ref().unwrap();
     builder.fragment(|builder, binding| {
-      let map = binding.uniform_by(&inner.map, SB::Pass);
-      let sampler = binding.uniform_by(&inner.sampler, SB::Pass);
+      let map = binding.uniform_by(&inner.map);
+      let sampler = binding.uniform_by(&inner.sampler);
       builder.register::<BasicShadowMap>(map);
       builder.register::<BasicShadowMapSampler>(sampler);
       Ok(())
@@ -123,43 +123,42 @@ impl ShadowMapAllocatorImpl {
       depth_or_array_layers: 5 as u32,
     };
 
-    let map = GPUTexture::create(
-      webgpu::TextureDescriptor {
-        label: "shadow-maps".into(),
-        size: init_size,
-        mip_level_count: 1,
-        sample_count: 1,
-        dimension: webgpu::TextureDimension::D2,
-        format: webgpu::TextureFormat::Depth32Float,
-        view_formats: &[],
-        usage: webgpu::TextureUsages::TEXTURE_BINDING | webgpu::TextureUsages::RENDER_ATTACHMENT,
-      },
-      device,
-    );
-    let map = map.create_view(Default::default()).try_into().unwrap();
+      let mapping = self
+        .requirements
+        .iter()
+        .enumerate()
+        .map(|(i, (v, _))| {
+          (
+            *v,
+            ShadowMapAddressInfo {
+              layer_index: i as i32,
+              size: Vec2::zero(),
+              offset: Vec2::zero(),
+              ..Zeroable::zeroed()
+            },
+          )
+        })
+        .collect();
 
-    let mapping = Default::default();
+      let sampler = GPUSampler::create(
+        webgpu::SamplerDescriptor {
+          mag_filter: webgpu::FilterMode::Linear,
+          min_filter: webgpu::FilterMode::Linear,
+          mipmap_filter: webgpu::FilterMode::Nearest,
+          compare: webgpu::CompareFunction::Greater.into(),
+          ..Default::default()
+        },
+        &gpu.device,
+      )
+      .create_view(());
+      let sampler = sampler.try_into().unwrap();
 
-    let sampler = GPUComparisonSampler::create(
-      webgpu::SamplerDescriptor {
-        mag_filter: webgpu::FilterMode::Linear,
-        min_filter: webgpu::FilterMode::Linear,
-        mipmap_filter: webgpu::FilterMode::Nearest,
-        compare: webgpu::CompareFunction::Greater.into(),
-        ..Default::default()
-      },
-      device,
-    )
-    .create_view(());
-
-    Self {
-      id: 0,
-      map,
-      device: device.clone(),
-      size_all: init_size,
-      allocations: mapping,
-      sampler,
-    }
+      ShadowMapAllocationInfo {
+        map,
+        mapping,
+        sampler,
+      }
+    })
   }
 }
 
@@ -212,7 +211,7 @@ impl ShadowMap {
           label: Some("shadow-write-view"),
           dimension: Some(webgpu::TextureViewDimension::D2),
           base_array_layer,
-          array_layer_count: NonZeroU32::new(1).unwrap().into(),
+          array_layer_count: Some(1),
           ..Default::default()
         })
         .try_into()

@@ -80,7 +80,7 @@ impl ViewerPipeline {
       let jitter = self.taa.next_jitter();
       let mut cameras = scene.scene_resources.cameras.write().unwrap();
       let gpu = cameras.get_camera_gpu_mut(scene.scene.get_active_camera()).unwrap();
-      gpu.ubo.resource.mutate(|uniform| uniform.jitter_normalized = jitter).upload(&ctx.gpu.queue);
+      gpu.ubo.mutate(|uniform| uniform.jitter_normalized = jitter).upload(&ctx.gpu.queue);
       gpu.enable_jitter = true;
     }
 
@@ -117,14 +117,14 @@ impl ViewerPipeline {
       let mut cameras = scene.scene_resources.cameras.write().unwrap();
       let camera_gpu = cameras.get_camera_gpu_mut(scene.scene.get_active_camera()).unwrap();
       camera_gpu.enable_jitter = false;
-      
+
     // let scene_result = draw_cross_blur(&self.blur, scene_result.read_into(), ctx);
 
     let taa_result = self.taa.resolve(
       &scene_result,
       &scene_depth,
       ctx,
-      &camera_gpu
+      camera_gpu
     );
     drop(cameras);
 

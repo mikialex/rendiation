@@ -1,19 +1,19 @@
-pub mod shader_builder;
+mod shader_builder;
 pub use shader_builder::*;
 
-pub mod operator;
+mod operator;
 pub use operator::*;
 
-pub mod structor;
+mod structor;
 pub use structor::*;
 
-pub mod swizzle;
+mod swizzle;
 pub use swizzle::*;
 
-pub mod math;
+mod math;
 pub use math::*;
 
-pub mod control;
+mod control;
 pub use control::*;
 
 use crate::*;

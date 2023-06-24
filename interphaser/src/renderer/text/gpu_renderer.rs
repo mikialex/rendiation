@@ -9,7 +9,7 @@ use super::WebGPUxTextPrimitive;
 use crate::TextQuadInstance;
 
 pub struct TextWebGPURenderer {
-  transform: UniformBufferData<Mat4<f32>>,
+  transform: UniformBufferDataView<Mat4<f32>>,
   sampler: webgpu::Sampler,
   bindgroup_layout: webgpu::BindGroupLayout,
   bindgroup: webgpu::BindGroup,
@@ -45,7 +45,7 @@ impl TextWebGPURenderer {
     cache_view: &webgpu::TextureView,
   ) -> Self {
     let transform =
-      UniformBufferData::create(device, orthographic_projection(view_size.x, view_size.y));
+      UniformBufferDataView::create(device, orthographic_projection(view_size.x, view_size.y));
 
     let sampler = device.create_sampler(&webgpu::SamplerDescriptor {
       address_mode_u: webgpu::AddressMode::ClampToEdge,
@@ -188,7 +188,7 @@ pub fn orthographic_projection(width: f32, height: f32) -> Mat4<f32> {
 fn create_bindgroup(
   device: &webgpu::Device,
   layout: &webgpu::BindGroupLayout,
-  transform: &UniformBufferData<Mat4<f32>>,
+  transform: &UniformBufferDataView<Mat4<f32>>,
   sampler: &webgpu::Sampler,
   cache: &webgpu::TextureView,
 ) -> webgpu::BindGroup {
@@ -198,7 +198,7 @@ fn create_bindgroup(
     entries: &[
       webgpu::BindGroupEntry {
         binding: 0,
-        resource: transform.create_view(&()).as_bindable(),
+        resource: transform.as_bindable(),
       },
       webgpu::BindGroupEntry {
         binding: 1,

@@ -6,6 +6,7 @@ members = [
   "utils/incremental-derive",
   "utils/incremental-ui-prototype",
   "utils/reactive",
+  "utils/reactive-incremental",
   "utils/arena",
   "utils/dyn-downcast",
   "utils/arena-graph",
@@ -39,8 +40,10 @@ members = [
   "scene/raytracing",
   "scene/interaction",
   "scene/io/gltf/loader",
+  "scene/io/gltf/exporter",
   "viewer",
-  "webgpu",
+  "platform/graphics/webgpu",
+  "platform/graphics/vulkan",
 ]
 
 # https://doc.rust-lang.org/nightly/cargo/reference/features.html#feature-resolver-version-2

@@ -11,7 +11,7 @@ pub use ty::*;
 
 pub trait IncrementalBase: Sized + Send + Sync + 'static {
   /// `Delta` should be atomic modification unit of `Self`
-  /// atomic means no invalid states between the modification
+  /// atomic means no invalid state observed between the modification
   ///
   /// Delta could contains multi grained layer of change to allow
   /// user modify the data in different level.
@@ -21,6 +21,14 @@ pub trait IncrementalBase: Sized + Send + Sync + 'static {
   /// expand should use the coarse level delta first to rebuild data. the caller could
   /// decide if should expand in finer level.
   fn expand(&self, cb: impl FnMut(Self::Delta));
+
+  /// return the estimation of how many times the callback passed in expand will be called
+  ///
+  /// this method is used in optimization for preallocation
+  fn expand_size(&self) -> Option<usize> {
+    // todo impl for all types
+    None
+  }
 }
 
 pub trait AtomicIncremental {}
@@ -48,6 +56,15 @@ where
     MaybeDelta::All(d) => d,
   }
 }
+pub fn merge_maybe_ref<T>(v: &MaybeDelta<T>) -> &T
+where
+  T: IncrementalBase<Delta = T>,
+{
+  match v {
+    MaybeDelta::Delta(d) => d,
+    MaybeDelta::All(d) => d,
+  }
+}
 pub fn merge_maybe_mut_ref<T>(v: &mut MaybeDelta<T>) -> &mut T
 where
   T: IncrementalBase<Delta = T>,
@@ -58,6 +75,8 @@ where
   }
 }
 
+/// Not all data types could impl this because this requires us to construct the delta
+/// before the mutation occurs.
 pub trait ApplicableIncremental: IncrementalBase {
   /// mutation maybe not valid and return error back.
   /// should stay valid state even if mutation failed.
@@ -67,6 +86,16 @@ pub trait ApplicableIncremental: IncrementalBase {
   ///
   /// construct the delta explicitly
   fn apply(&mut self, delta: Self::Delta) -> Result<(), Self::Error>;
+
+  /// like apply, but should return the hint that the mutation is effective
+  ///
+  /// The impls should check this by diffing the delta with the current data.
+  ///
+  /// This method has a default impl the always return true. The false positive is allowed but the
+  /// false negative should never exist for logic correctness
+  fn apply_and_get_if_mutated(&mut self, delta: Self::Delta) -> Result<bool, Self::Error> {
+    self.apply(delta).map(|_| true)
+  }
 }
 
 pub trait Incremental: IncrementalBase + ApplicableIncremental {}

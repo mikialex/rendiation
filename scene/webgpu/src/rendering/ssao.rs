@@ -100,11 +100,11 @@ impl<'a> ShaderHashProviderAny for AOComputer<'a> {
 }
 impl<'a> ShaderPassBuilder for AOComputer<'a> {
   fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
-    ctx.binding.bind(&self.depth, SB::Pass);
-    ctx.binding.bind(&self.parameter.parameters, SB::Pass);
-    ctx.binding.bind(&self.parameter.samples, SB::Pass);
-    ctx.bind_immediate_sampler(&TextureSampler::default(), SB::Pass);
-    ctx.binding.bind(self.source_camera_gpu, SB::Pass);
+    ctx.binding.bind(&self.depth);
+    ctx.binding.bind(&self.parameter.parameters);
+    ctx.binding.bind(&self.parameter.samples);
+    ctx.bind_immediate_sampler(&TextureSampler::default().into_gpu());
+    ctx.binding.bind(self.source_camera_gpu);
   }
 }
 impl<'a> ShaderGraphProvider for AOComputer<'a> {
@@ -113,16 +113,12 @@ impl<'a> ShaderGraphProvider for AOComputer<'a> {
     builder: &mut ShaderGraphRenderPipelineBuilder,
   ) -> Result<(), ShaderGraphBuildError> {
     builder.fragment(|builder, binding| {
-      let depth_tex = binding.uniform_by(&DisableFiltering(&self.depth), SB::Pass);
-      let parameter = binding
-        .uniform_by(&self.parameter.parameters, SB::Pass)
-        .expand();
-      let samples = binding.uniform_by(&self.parameter.samples, SB::Pass);
-      let sampler = binding.uniform::<DisableFiltering<GPUSamplerView>>(SB::Pass);
+      let depth_tex = binding.uniform_by(&DisableFiltering(&self.depth));
+      let parameter = binding.uniform_by(&self.parameter.parameters).expand();
+      let samples = binding.uniform_by(&self.parameter.samples);
+      let sampler = binding.uniform::<DisableFiltering<GPUSamplerView>>();
 
-      let camera = binding
-        .uniform_by(self.source_camera_gpu, SB::Pass)
-        .expand();
+      let camera = binding.uniform_by(self.source_camera_gpu).expand();
 
       let uv = builder.query::<FragmentUv>()?;
 
@@ -190,8 +186,8 @@ impl SSAO {
     depth: &Attachment,
     source_camera_gpu: &CameraGPU,
   ) -> Attachment {
-    self.parameters.resource.mutate(|p| p.noise_jit = rand());
-    self.parameters.resource.upload(&ctx.gpu.queue);
+    self.parameters.mutate(|p| p.noise_jit = rand());
+    self.parameters.upload(&ctx.gpu.queue);
 
     let mut ao_result = attachment()
       .sizer(ratio_sizer(0.5)) // half resolution!

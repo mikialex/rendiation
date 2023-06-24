@@ -42,12 +42,12 @@ pub fn build_reactive_camera(
 
   let camera_world = camera
     .single_listen_by(with_field!(SceneCameraInner => node))
-    .map(move |node| derives.create_world_matrix_stream(&node))
+    .filter_map_sync(move |node| derives.create_world_matrix_stream(&node))
     .flatten_signal()
     .map(CameraGPUDelta::WorldMat);
 
   let camera_proj = camera
-    .single_listen_by(with_field!(SceneCameraInner => projection_matrix))
+    .create_projection_mat_stream()
     .map(CameraGPUDelta::Proj);
 
   let camera = CameraGPU::new(&cx.device);
@@ -55,7 +55,7 @@ pub fn build_reactive_camera(
 
   futures::stream::select(camera_world, camera_proj).fold_signal(state, move |delta, state| {
     let uniform = &mut state.inner.ubo;
-    uniform.resource.mutate(|uniform| match delta {
+    uniform.mutate(|uniform| match delta {
       CameraGPUDelta::Proj(proj) => {
         uniform.projection = proj;
         uniform.projection_inv = proj.inverse_or_identity();
@@ -71,7 +71,7 @@ pub fn build_reactive_camera(
       }
     });
 
-    uniform.resource.upload(&cx.queue);
+    uniform.upload(&cx.queue);
     RenderComponentDeltaFlag::Content.into()
   })
 }
@@ -111,14 +111,7 @@ impl SceneCameraGPUSystem {
     let mut index_mapper = HashMap::<SceneCameraHandle, usize>::default();
 
     let cameras = scene
-      .unbound_listen_by(|view, send| match view {
-        MaybeDeltaRef::All(scene) => scene.cameras.expand(send),
-        MaybeDeltaRef::Delta(delta) => {
-          if let SceneInnerDelta::cameras(d) = delta {
-            send(d.clone())
-          }
-        }
-      })
+      .unbound_listen_by(with_field_expand!(SceneInner => cameras))
       .map(move |v: arena::ArenaDelta<SceneCamera>| match v {
         arena::ArenaDelta::Mutate((camera, idx)) => {
           index_mapper.remove(&idx).unwrap();
@@ -157,7 +150,7 @@ impl CameraGPU {
     builder: &mut ShaderGraphRenderPipelineBuilder,
   ) -> UniformNodePreparer<CameraGPUTransform> {
     builder
-      .uniform_by(&self.ubo, SB::Camera)
+      .uniform_by(&self.ubo)
       .using_both(builder, |r, camera| {
         let camera = camera.expand();
         r.reg::<CameraViewMatrix>(camera.view);
@@ -175,40 +168,6 @@ impl CameraGPU {
       ubo: create_uniform2(CameraGPUTransform::default(), device),
     }
   }
-
-  pub fn new_from_camera(
-    device: &GPUDevice,
-    derives: &SceneNodeDeriveSystem,
-    camera: &SceneCamera,
-  ) -> Self {
-    let camera = camera.read();
-
-    let world = derives.get_world_matrix(&camera.node);
-
-    let mut uniform = CameraGPUTransform {
-      projection: camera.projection_matrix,
-      projection_inv: camera.projection_matrix.inverse_or_identity(),
-
-      rotation: world.extract_rotation_mat(),
-
-      view: world.inverse_or_identity(),
-      world,
-
-      view_projection: Mat4::one(),
-      view_projection_inv: Mat4::one(),
-
-      /// -0.5 to 0.5
-      jitter_normalized: Vec2::zero(),
-      ..Zeroable::zeroed()
-    };
-    uniform.view_projection = uniform.projection * uniform.view;
-    uniform.view_projection_inv = uniform.view_projection.inverse_or_identity();
-
-    Self {
-      enable_jitter: false,
-      ubo: create_uniform2(uniform, device),
-    }
-  }
 }
 
 impl ShaderHashProvider for CameraGPU {
@@ -219,7 +178,7 @@ impl ShaderHashProvider for CameraGPU {
 
 impl ShaderPassBuilder for CameraGPU {
   fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
-    ctx.binding.bind(&self.ubo, SB::Camera)
+    ctx.binding.bind(&self.ubo)
   }
 }
 

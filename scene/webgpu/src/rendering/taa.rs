@@ -41,15 +41,13 @@ impl TAA {
     self
       .previous_camera
       .ubo
-      .resource
-      .copy_cpu(&self.current_camera.ubo.resource)
+      .copy_cpu(&self.current_camera.ubo)
       .upload(&ctx.gpu.queue);
 
     self
       .current_camera
       .ubo
-      .resource
-      .copy_cpu(&new_camera.ubo.resource)
+      .copy_cpu(&new_camera.ubo)
       .upload(&ctx.gpu.queue);
 
     let mut resolve_target = attachment()
@@ -98,19 +96,15 @@ impl<'a> ShaderGraphProvider for TAAResolver<'a> {
     builder: &mut ShaderGraphRenderPipelineBuilder,
   ) -> Result<(), ShaderGraphBuildError> {
     builder.fragment(|builder, binding| {
-      let sampler = binding.uniform::<DisableFiltering<GPUSamplerView>>(SB::Material);
-      let color_sampler = binding.uniform::<GPUSamplerView>(SB::Material);
-      let history = binding.uniform_by(&self.history, SB::Material);
-      let new = binding.uniform_by(&self.new_color, SB::Material);
-      let new_depth = binding.uniform_by(&DisableFiltering(&self.new_depth), SB::Material);
+      let sampler = binding.uniform::<DisableFiltering<GPUSamplerView>>();
+      let color_sampler = binding.uniform::<GPUSamplerView>();
+      let history = binding.uniform_by(&self.history);
+      let new = binding.uniform_by(&self.new_color);
+      let new_depth = binding.uniform_by(&DisableFiltering(&self.new_depth));
 
-      let current_camera = binding
-        .uniform_by(&self.current_camera.ubo, SB::Material)
-        .expand();
+      let current_camera = binding.uniform_by(&self.current_camera.ubo).expand();
 
-      let previous_camera = binding
-        .uniform_by(&self.previous_camera.ubo, SB::Material)
-        .expand();
+      let previous_camera = binding.uniform_by(&self.previous_camera.ubo).expand();
 
       let uv = builder.query::<FragmentUv>()?;
 
@@ -159,20 +153,20 @@ wgsl_fn!(
 
 impl<'a> ShaderPassBuilder for TAAResolver<'a> {
   fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
-    ctx.bind_immediate_sampler(&TextureSampler::default(), SB::Material);
+    ctx.bind_immediate_sampler(&TextureSampler::default().into_gpu());
     ctx.bind_immediate_sampler(
       &TextureSampler {
         min_filter: rendiation_texture::FilterMode::Linear,
         mag_filter: rendiation_texture::FilterMode::Linear,
         ..Default::default()
-      },
-      SB::Material,
+      }
+      .into_gpu(),
     );
-    ctx.binding.bind(&self.history, SB::Material);
-    ctx.binding.bind(&self.new_color, SB::Material);
-    ctx.binding.bind(&self.new_depth, SB::Material);
-    ctx.binding.bind(&self.current_camera.ubo, SB::Material);
-    ctx.binding.bind(&self.previous_camera.ubo, SB::Material);
+    ctx.binding.bind(&self.history);
+    ctx.binding.bind(&self.new_color);
+    ctx.binding.bind(&self.new_depth);
+    ctx.binding.bind(&self.current_camera.ubo);
+    ctx.binding.bind(&self.previous_camera.ubo);
   }
 }
 impl<'a> ShaderHashProvider for TAAResolver<'a> {}

@@ -12,7 +12,7 @@ pub type SceneCameraHandle = Handle<SceneCamera>;
 pub struct SceneInner {
   pub background: Option<SceneBackGround>,
 
-  pub default_camera: SceneCamera,
+  pub _default_camera: SceneCamera,
   pub active_camera: Option<SceneCamera>,
 
   /// All cameras in the scene
@@ -28,32 +28,27 @@ pub struct SceneInner {
   pub ext: DynamicExtension,
 }
 
-#[derive(Default, Clone)]
+#[derive(Clone)]
 pub struct SceneNodeCollection {
-  pub inner: SharedTreeCollection<ReactiveTreeCollection<SceneNodeData, SceneNodeDataImpl>>,
+  pub inner: SceneNodeCollectionInner,
+  pub scene_guid: usize,
 }
+pub type SceneNodeCollectionInner = SharedTreeCollection<
+  ReactiveTreeCollection<RwLock<TreeCollection<SceneNodeData>>, SceneNodeDataImpl>,
+>;
 
 impl SceneNodeCollection {
-  pub fn create_new_root(&self) -> SceneNode {
-    SceneNode::from_new_root(self.inner.clone())
-  }
-
-  pub fn create_node_at(&self, handle: SceneNodeHandle) -> SceneNode {
-    SceneNode {
-      inner: ShareTreeNode::create_raw(&self.inner, handle),
-    }
+  pub fn create_node(&self, data: SceneNodeDataImpl) -> SceneNode {
+    SceneNode::create_new(self.inner.clone(), data, self.scene_guid)
   }
 }
 
 impl IncrementalBase for SceneNodeCollection {
   type Delta = TreeMutation<SceneNodeDataImpl>;
 
-  fn expand(&self, cb: impl FnMut(Self::Delta)) {
-    self.inner.visit_inner(|tree| {
-      tree
-        .inner
-        .expand_with_mapping(|node| node.deref().clone(), cb)
-    });
+  fn expand(&self, mut cb: impl FnMut(Self::Delta)) {
+    let tree = self.inner.inner().inner.read().unwrap();
+    tree.expand_with_mapping(|node| node.deref().clone(), |d| cb(d.into()));
   }
 }
 
@@ -62,20 +57,24 @@ impl SceneInner {
     &self.root
   }
   pub fn new() -> (Scene, SceneNodeDeriveSystem) {
-    let nodes: SceneNodeCollection = Default::default();
+    let nodes = SceneNodeCollection {
+      inner: Default::default(),
+      scene_guid: 0, // set later
+    };
     let system = SceneNodeDeriveSystem::new(&nodes);
 
-    let root = nodes.create_new_root();
+    let root = nodes.create_node(Default::default());
 
     let default_camera = PerspectiveProjection::default();
+    let default_camera = CameraProjector::Perspective(default_camera);
     let camera_node = root.create_child();
-    let default_camera = SceneCamera::create_camera(default_camera, camera_node);
+    let _default_camera = SceneCamera::create(default_camera, camera_node);
 
     let scene = Self {
       nodes,
       root,
       background: None,
-      default_camera,
+      _default_camera,
       cameras: Arena::new(),
       lights: Arena::new(),
       models: Arena::new(),
@@ -86,15 +85,20 @@ impl SceneInner {
 
     // forward the inner change to outer
     let scene_source_clone = scene.read().delta_source.clone();
+    let scene_id = scene.guid();
+
     let s = scene.read();
-
-    s.nodes.inner.visit_inner(move |tree| {
-      tree.source.on(move |d| {
-        scene_source_clone.emit(&SceneInnerDelta::nodes(d.clone()));
-        false
-      })
+    s.nodes.inner.inner().source.on(move |d| {
+      scene_source_clone.emit(&SceneInnerDelta::nodes(d.clone()));
+      false
     });
+    drop(s);
 
+    let mut s = scene.write_unchecked();
+    s.mutate_unchecked(|s| {
+      s.nodes.scene_guid = scene_id;
+      s.root.scene_id = scene_id;
+    });
     drop(s);
 
     (scene, system)
@@ -107,6 +111,23 @@ impl SceneInner {
 
 pub type Scene = SceneItemRef<SceneInner>;
 
+fn arena_insert<T: IncrementalBase>(
+  arena: &mut Arena<SceneItemRef<T>>,
+  item: SceneItemRef<T>,
+) -> (ArenaDelta<SceneItemRef<T>>, Handle<SceneItemRef<T>>) {
+  let handle = arena.insert(item.clone());
+  let delta = ArenaDelta::Insert((item, handle));
+  (delta, handle)
+}
+
+fn arena_remove<T: IncrementalBase>(
+  arena: &mut Arena<SceneItemRef<T>>,
+  handle: Handle<SceneItemRef<T>>,
+) -> ArenaDelta<SceneItemRef<T>> {
+  arena.remove(handle);
+  ArenaDelta::Remove(handle)
+}
+
 impl Scene {
   pub fn create_root_child(&self) -> SceneNode {
     let root = self.read().root().clone(); // avoid dead lock
@@ -115,69 +136,86 @@ impl Scene {
 
   pub fn compute_full_derived(&self) -> ComputedDerivedTree<SceneNodeDerivedData> {
     self.visit(|t| {
-      t.nodes
-        .inner
-        .visit_inner(|t| ComputedDerivedTree::compute_from(&t.inner))
+      let tree = t.nodes.inner.inner().inner.read().unwrap();
+      ComputedDerivedTree::compute_from(&tree)
     })
   }
 
-  // todo improves
   pub fn insert_model(&self, model: SceneModel) -> SceneModelHandle {
-    let mut result = None;
-    self.mutate(|mut scene| {
-      scene.trigger_manual(|scene| {
-        let handle = scene.models.insert(model.clone());
-        result = handle.into();
-        let delta = ArenaDelta::Insert((model, handle));
-        SceneInnerDelta::models(delta)
-      });
-    });
-    result.unwrap()
+    self.mutate(|mut scene| unsafe {
+      let s = scene.get_mut_ref();
+      let (delta, handle) = arena_insert(&mut s.models, model);
+      scene.trigger_change_but_not_apply(delta.wrap(SceneInnerDelta::models));
+      handle
+    })
+  }
+  pub fn remove_model(&self, model: SceneModelHandle) {
+    self.mutate(|mut scene| unsafe {
+      let s = scene.get_mut_ref();
+      let delta = arena_remove(&mut s.models, model);
+      scene.trigger_change_but_not_apply(delta.wrap(SceneInnerDelta::models));
+    })
   }
 
   pub fn insert_light(&self, light: SceneLight) -> SceneLightHandle {
-    let mut result = None;
-    self.mutate(|mut scene| {
-      scene.trigger_manual(|scene| {
-        let handle = scene.lights.insert(light.clone());
-        result = handle.into();
-        let delta = ArenaDelta::Insert((light, handle));
-        SceneInnerDelta::lights(delta)
-      });
-    });
-    result.unwrap()
+    self.mutate(|mut scene| unsafe {
+      let s = scene.get_mut_ref();
+      let (delta, handle) = arena_insert(&mut s.lights, light);
+      scene.trigger_change_but_not_apply(delta.wrap(SceneInnerDelta::lights));
+      handle
+    })
+  }
+  pub fn remove_light(&self, light: SceneLightHandle) {
+    self.mutate(|mut scene| unsafe {
+      let s = scene.get_mut_ref();
+      let delta = arena_remove(&mut s.lights, light);
+      scene.trigger_change_but_not_apply(delta.wrap(SceneInnerDelta::lights));
+    })
   }
 
   pub fn insert_camera(&self, camera: SceneCamera) -> SceneCameraHandle {
-    let mut result = None;
-    self.mutate(|mut scene| {
-      scene.trigger_manual(|scene| {
-        let handle = scene.cameras.insert(camera.clone());
-        result = handle.into();
-        let delta = ArenaDelta::Insert((camera, handle));
-        SceneInnerDelta::cameras(delta)
-      });
-    });
-    result.unwrap()
+    self.mutate(|mut scene| unsafe {
+      let s = scene.get_mut_ref();
+      let (delta, handle) = arena_insert(&mut s.cameras, camera);
+      scene.trigger_change_but_not_apply(delta.wrap(SceneInnerDelta::cameras));
+      handle
+    })
+  }
+  pub fn remove_camera(&self, camera: SceneCameraHandle) {
+    self.mutate(|mut scene| unsafe {
+      let s = scene.get_mut_ref();
+      let delta = arena_remove(&mut s.cameras, camera);
+      scene.trigger_change_but_not_apply(delta.wrap(SceneInnerDelta::cameras));
+    })
   }
 
   pub fn set_active_camera(&self, camera: Option<SceneCamera>) {
-    self.mutate(|mut scene| {
-      scene.trigger_manual(|scene| {
-        scene.active_camera = camera.clone();
-        let camera = camera.map(MaybeDelta::All);
-        SceneInnerDelta::active_camera(camera)
-      })
+    self.mutate(|mut scene| unsafe {
+      let s = scene.get_mut_ref();
+      s.active_camera = camera.clone();
+      let delta = camera
+        .map(MaybeDelta::All)
+        .wrap(SceneInnerDelta::active_camera);
+      scene.trigger_change_but_not_apply(delta);
     })
   }
 
   pub fn set_background(&self, background: Option<SceneBackGround>) {
-    self.mutate(|mut scene| {
-      scene.trigger_manual(|scene| {
-        scene.background = background.clone();
-        let background = background.map(MaybeDelta::All);
-        SceneInnerDelta::background(background)
-      });
+    self.mutate(|mut scene| unsafe {
+      let s = scene.get_mut_ref();
+      s.background = background.clone();
+      let delta = background
+        .map(MaybeDelta::All)
+        .wrap(SceneInnerDelta::background);
+      scene.trigger_change_but_not_apply(delta);
+    })
+  }
+
+  pub fn update_ext(&self, delta: DeltaOf<DynamicExtension>) {
+    self.mutate(|mut scene| unsafe {
+      let s = scene.get_mut_ref();
+      s.ext.apply(delta.clone()).unwrap();
+      scene.trigger_change_but_not_apply(delta.wrap(SceneInnerDelta::ext));
     })
   }
 }
@@ -217,29 +255,10 @@ impl IncrementalBase for SceneInner {
     use SceneInnerDelta::*;
     self.nodes.expand(|d| cb(nodes(d)));
     self.background.expand(|d| cb(background(d)));
-    self.default_camera.expand(|d| cb(default_camera(d)));
     self.active_camera.expand(|d| cb(active_camera(d)));
     self.cameras.expand(|d| cb(cameras(d)));
     self.lights.expand(|d| cb(lights(d)));
     self.models.expand(|d| cb(models(d)));
     self.ext.expand(|d| cb(ext(d)));
-  }
-}
-
-impl ApplicableIncremental for SceneInner {
-  type Error = ();
-
-  fn apply(&mut self, delta: Self::Delta) -> Result<(), Self::Error> {
-    match delta {
-      SceneInnerDelta::background(delta) => self.background.apply(delta).unwrap(),
-      SceneInnerDelta::default_camera(delta) => self.default_camera.apply(delta).unwrap(),
-      SceneInnerDelta::active_camera(delta) => self.active_camera.apply(delta).unwrap(),
-      SceneInnerDelta::cameras(delta) => self.cameras.apply(delta).unwrap(),
-      SceneInnerDelta::lights(delta) => self.lights.apply(delta).unwrap(),
-      SceneInnerDelta::models(delta) => self.models.apply(delta).unwrap(),
-      SceneInnerDelta::ext(ext) => self.ext.apply(ext).unwrap(),
-      SceneInnerDelta::nodes(_) => {} // should handle other place
-    }
-    Ok(())
   }
 }

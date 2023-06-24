@@ -92,7 +92,7 @@ impl<'a> ShaderPassBuilder for ForwardSceneLightingDispatcher<'a> {
 
     ctx
       .binding
-      .bind(self.lighting.lights.lengths.as_ref().unwrap(), SB::Pass);
+      .bind(self.lighting.lights.lengths.as_ref().unwrap());
     for lights in self.lighting.lights.lights_collections.values() {
       lights.setup_pass(ctx)
     }
@@ -214,9 +214,8 @@ impl ForwardLightingSystem {
   pub fn get_or_create_list<T: ShaderLight>(&mut self) -> &mut LightList<T> {
     let lights = self
       .lights_collections
-      .get_or_insert_with(TypeId::of::<T>(), || {
-        Box::new(LightList::<T>::default_with(SB::Pass))
-      });
+      .entry(TypeId::of::<T>())
+      .or_insert_with(|| Box::<ClampedUniformList<T, 8>>::default());
     lights.as_any_mut().downcast_mut::<LightList<T>>().unwrap()
   }
 
@@ -252,7 +251,7 @@ impl ForwardLightingSystem {
     shading_impl: &dyn LightableSurfaceShadingDyn,
   ) -> Result<(), ShaderGraphBuildError> {
     builder.fragment(|builder, binding| {
-      let lengths_info = binding.uniform_by(self.lengths.as_ref().unwrap(), SB::Pass);
+      let lengths_info = binding.uniform_by(self.lengths.as_ref().unwrap());
       let camera_position = builder.query::<CameraWorldMatrix>()?.position();
       let position =
         builder.query_or_interpolate_by::<FragmentWorldPosition, WorldVertexPosition>();
@@ -335,7 +334,7 @@ impl<T: ShaderLight> LightCollectionCompute for LightList<T> {
     shading: &dyn Any,
     geom_ctx: &ENode<ShaderLightingGeometricCtx>,
   ) -> Result<(Node<Vec3<f32>>, Node<Vec3<f32>>), ShaderGraphBuildError> {
-    let lights = binding.uniform_by(self.gpu.as_ref().unwrap(), SB::Pass);
+    let lights = binding.uniform_by(self.gpu.as_ref().unwrap());
 
     let dep = T::create_dep(builder)?;
 

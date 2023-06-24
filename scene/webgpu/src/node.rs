@@ -58,7 +58,7 @@ impl SceneNodeGPUSystem {
       })
       .filter_map_sync(move |v| match v {
         tree::TreeMutation::Create { node: idx, .. } => {
-          let world_st = derives.create_world_matrix_stream_by_raw_handle(idx);
+          let world_st = derives.create_world_matrix_stream_by_raw_handle(idx)?;
           let node = build_reactive_node(world_st, &cx);
           (idx, node.into()).into()
         }
@@ -77,9 +77,8 @@ pub struct NodeGPU {
 
 impl NodeGPU {
   pub fn update(&mut self, queue: &GPUQueue, world_mat: Mat4<f32>) -> &mut Self {
-    let ubo = &self.ubo.resource;
-    ubo.set(TransformGPUData::from_world_mat(world_mat));
-    ubo.upload_with_diff(queue);
+    self.ubo.set(TransformGPUData::from_world_mat(world_mat));
+    self.ubo.upload_with_diff(queue);
     self
   }
 
@@ -115,7 +114,7 @@ impl ShaderGraphProvider for NodeGPU {
     builder: &mut ShaderGraphRenderPipelineBuilder,
   ) -> Result<(), ShaderGraphBuildError> {
     builder.vertex(|builder, binding| {
-      let model = binding.uniform_by(&self.ubo, SB::Object).expand();
+      let model = binding.uniform_by(&self.ubo).expand();
       let position = builder.query::<GeometryPosition>()?;
       let position = model.world_matrix * (position, 1.).into();
 
@@ -131,6 +130,6 @@ impl ShaderGraphProvider for NodeGPU {
 
 impl ShaderPassBuilder for NodeGPU {
   fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
-    ctx.binding.bind(&self.ubo, SB::Object)
+    ctx.binding.bind(&self.ubo)
   }
 }

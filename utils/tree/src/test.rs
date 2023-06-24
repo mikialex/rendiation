@@ -116,8 +116,10 @@ fn test_full_update() {
 
 #[test]
 fn test_inc_update() {
-  let tree = SharedTreeCollection::<ReactiveTreeCollection<TestNode, TestNode>>::default();
-  let stream = tree.visit_inner(|t| t.source.listen());
+  let tree = SharedTreeCollection::<
+    ReactiveTreeCollection<RwLock<TreeCollection<TestNode>>, TestNode>,
+  >::default();
+  let stream = tree.inner().source.unbound_listen();
   let mut tree_sys =
     TreeHierarchyDerivedSystem::<TestNodeDerived, ParentTreeDirty<ValueSumIsDirty>>::new::<
       ParentTree,
@@ -136,7 +138,7 @@ fn test_inc_update() {
 
   fn getter(
     tree_sys: &TreeHierarchyDerivedSystem<TestNodeDerived, ParentTreeDirty<ValueSumIsDirty>>,
-    node: &ShareTreeNode<ReactiveTreeCollection<TestNode, TestNode>>,
+    node: &ShareTreeNode<ReactiveTreeCollection<RwLock<TreeCollection<TestNode>>, TestNode>>,
   ) -> TestNodeDerived {
     tree_sys.visit_derived_tree(|tree| {
       let handle = tree.recreate_handle(node.raw_handle().index());
@@ -154,11 +156,9 @@ fn test_inc_update() {
   assert_eq!(d_derived.value_sum, 10);
 
   root.mutate(|r| r.value = 1);
-  tree.visit_inner(|t| {
-    t.source.emit(&TreeMutation::Mutate {
-      node: root.raw_handle().index(),
-      delta: TestNodeDelta::value(1),
-    })
+  tree.inner().source.emit(&TreeMutation::Mutate {
+    node: root.raw_handle().index(),
+    delta: TestNodeDelta::value(1),
   });
 
   tree_sys.maintain();

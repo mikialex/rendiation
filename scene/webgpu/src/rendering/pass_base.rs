@@ -14,7 +14,7 @@ impl ShaderHashProvider for DefaultPassDispatcher {
 }
 impl ShaderPassBuilder for DefaultPassDispatcher {
   fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
-    ctx.binding.bind(&self.pass_info, SB::Pass);
+    ctx.binding.bind(&self.pass_info);
   }
 }
 
@@ -23,7 +23,7 @@ impl ShaderGraphProvider for DefaultPassDispatcher {
     &self,
     builder: &mut ShaderGraphRenderPipelineBuilder,
   ) -> Result<(), ShaderGraphBuildError> {
-    let pass = builder.bindgroups.uniform_by(&self.pass_info, SB::Pass);
+    let pass = builder.bindgroups.uniform_by(&self.pass_info);
 
     builder.vertex(|builder, _| {
       let pass = pass.using().expand();

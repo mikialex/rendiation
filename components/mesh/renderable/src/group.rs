@@ -46,6 +46,13 @@ impl MeshGroupsInfo {
     ranges.push(0, mesh.draw_count());
     ranges
   }
+
+  pub fn get_group(&self, group: MeshDrawGroup, mesh: &impl GPUConsumableMeshBuffer) -> MeshGroup {
+    match group {
+      MeshDrawGroup::Full => mesh.get_full_group(),
+      MeshDrawGroup::SubMesh(i) => *self.groups.get(i).unwrap(),
+    }
+  }
 }
 
 #[derive(Clone)]
@@ -96,9 +103,6 @@ impl<T: GPUConsumableMeshBuffer> GroupedMesh<T> {
   }
 
   pub fn get_group(&self, group: MeshDrawGroup) -> MeshGroup {
-    match group {
-      MeshDrawGroup::Full => self.mesh.get_full_group(),
-      MeshDrawGroup::SubMesh(i) => *self.groups.groups.get(i).unwrap(),
-    }
+    self.groups.get_group(group, &self.mesh)
   }
 }

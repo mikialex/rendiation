@@ -62,12 +62,12 @@ impl<'a, T> ShaderGraphProvider for LinearBlurTask<'a, T> {
     builder: &mut ShaderGraphRenderPipelineBuilder,
   ) -> Result<(), ShaderGraphBuildError> {
     builder.fragment(|builder, binding| {
-      let config = binding.uniform_by(self.config, SB::Material).expand();
-      let weights = binding.uniform_by(&self.weights.weights, SB::Material);
-      let weight_count = binding.uniform_by(&self.weights.weight_count, SB::Material);
+      let config = binding.uniform_by(self.config).expand();
+      let weights = binding.uniform_by(&self.weights.weights);
+      let weight_count = binding.uniform_by(&self.weights.weight_count);
 
-      let input = binding.uniform_by(&self.input, SB::Material);
-      let sampler = binding.uniform::<GPUSamplerView>(SB::Material);
+      let input = binding.uniform_by(&self.input);
+      let sampler = binding.uniform::<GPUSamplerView>();
 
       let uv = builder.query::<FragmentUv>()?;
       let size = builder.query::<TexelSize>()?;
@@ -92,11 +92,11 @@ impl<'a, T> ShaderGraphProvider for LinearBlurTask<'a, T> {
 }
 impl<'a, T> ShaderPassBuilder for LinearBlurTask<'a, T> {
   fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
-    ctx.binding.bind(self.config, SB::Material);
-    ctx.binding.bind(&self.weights.weights, SB::Material);
-    ctx.binding.bind(&self.weights.weight_count, SB::Material);
-    ctx.binding.bind(&self.input, SB::Material);
-    ctx.bind_immediate_sampler(&TextureSampler::default(), SB::Material);
+    ctx.binding.bind(self.config);
+    ctx.binding.bind(&self.weights.weights);
+    ctx.binding.bind(&self.weights.weight_count);
+    ctx.binding.bind(&self.input);
+    ctx.bind_immediate_sampler(&TextureSampler::default().into_gpu());
   }
 }
 

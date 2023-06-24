@@ -123,7 +123,7 @@ impl NodeReferenceModelBookKeeping {
     do_updates(&mut self.source, |_| {});
   }
 
-  pub fn query_node_refed_nodes(&self, node: &SceneNode, model_index: impl Fn(usize)) {
+  pub fn query_node_referenced_model_indices(&self, node: &SceneNode, model_index: impl Fn(usize)) {
     let inner = self.inner.read().unwrap();
     if let Some(models) = inner.mapping.get(&node.raw_handle().index()) {
       models.iter().copied().for_each(model_index)
@@ -172,7 +172,13 @@ impl NodeReferenceModelBookKeeping {
 
     let inner_c = inner.clone();
 
-    let source = futures::stream::select(source1, source2).map(move |delta| {
+    // should always consume watched delta changes first, or we will have message order issue
+    // todo investigate better ways to solve order issue, because early drop inner change is better
+    // for performance
+    let source = futures::stream::select_with_strategy(source1, source2, |_: &mut ()| {
+      futures::stream::PollNext::Right
+    })
+    .map(move |delta| {
       let mut states = current_relation.write().unwrap();
       let mut inner = inner_c.write().unwrap();
       delta.normalize(&mut states, |normalized| {

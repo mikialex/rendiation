@@ -74,6 +74,10 @@ impl<T: IncrementalBase> Identity<T> {
     }
   }
 
+  pub fn mutate_unchecked<R>(&mut self, mutator: impl FnOnce(&mut T) -> R) -> R {
+    mutator(&mut self.inner)
+  }
+
   pub fn mutate<R>(&mut self, mutator: impl FnOnce(Mutating<T>) -> R) -> R {
     self.mutate_with(mutator, |_| {})
   }
@@ -87,7 +91,7 @@ impl<T: IncrementalBase> Identity<T> {
     let dispatcher = &self.delta_source;
     mutator(Mutating {
       inner: data,
-      collector: &mut |_, delta| {
+      collector: &mut |delta| {
         dispatcher.emit(delta);
         extra_collector(delta.clone())
       },

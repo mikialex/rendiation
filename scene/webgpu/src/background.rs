@@ -82,8 +82,8 @@ impl ShadingBackground for EnvMapBackgroundGPU {
     direction: Node<Vec3<f32>>,
   ) -> Result<(), ShaderGraphBuildError> {
     builder.fragment(|builder, binding| {
-      let cube = binding.uniform_by(&self.texture, SB::Material);
-      let sampler = binding.uniform_by(&self.sampler, SB::Material);
+      let cube = binding.uniform_by(&self.texture);
+      let sampler = binding.uniform_by(&self.sampler);
       cube.sample(sampler, direction);
       builder.register::<DefaultDisplay>(cube.sample(sampler, direction));
       Ok(())

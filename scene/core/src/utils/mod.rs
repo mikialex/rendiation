@@ -4,7 +4,10 @@ mod scene_item;
 pub use scene_item::*;
 mod transformation;
 use futures::{Future, StreamExt};
-use reactive::{ChannelLike, DefaultSingleValueChannel, DefaultUnboundChannel};
+use reactive::{
+  ChannelLike, DefaultSingleValueChannel, DefaultUnboundChannel, EventSourceDropper,
+  EventSourceStream,
+};
 pub use transformation::*;
 
 use crate::*;
@@ -14,6 +17,20 @@ macro_rules! with_field {
   ($ty:ty =>$field:tt) => {
     |view, send| match view {
       incremental::MaybeDeltaRef::All(value) => send(value.$field.clone()),
+      incremental::MaybeDeltaRef::Delta(delta) => {
+        if let incremental::DeltaOf::<$ty>::$field(field) = delta {
+          send(field.clone())
+        }
+      }
+    }
+  };
+}
+
+#[macro_export]
+macro_rules! with_field_expand {
+  ($ty:ty =>$field:tt) => {
+    |view, send| match view {
+      incremental::MaybeDeltaRef::All(value) => value.$field.expand(send),
       incremental::MaybeDeltaRef::Delta(delta) => {
         if let incremental::DeltaOf::<$ty>::$field(field) = delta {
           send(field.clone())
@@ -160,7 +177,7 @@ impl<T: IncrementalBase> Identity<T> {
     };
     mapper(MaybeDeltaRef::All(self), &send);
 
-    self.delta_source.on(move |v| {
+    let remove_token = self.delta_source.on(move |v| {
       mapper(MaybeDeltaRef::Delta(v), &send);
       C::is_closed(&sender)
     });
@@ -168,7 +185,8 @@ impl<T: IncrementalBase> Identity<T> {
     // message which is unnecessary. The better behavior will just drop the history and emit
     // Poll::Ready::None
 
-    receiver
+    let dropper = EventSourceDropper::new(remove_token, self.delta_source.make_weak());
+    EventSourceStream::new(dropper, receiver)
   }
 
   pub fn create_drop(&self) -> impl Future<Output = ()> {

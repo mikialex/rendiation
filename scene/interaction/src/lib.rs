@@ -56,7 +56,7 @@ pub fn ray_pick_nearest_core(
 
       let mut result = model
         .mesh
-        .intersect_nearest(local_ray, ctx.conf, model.group);
+        .intersect_nearest_by_group(local_ray, ctx.conf, model.group);
 
       // transform back to world space
       if let Some(result) = &mut result.0 {

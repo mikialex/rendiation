@@ -1,9 +1,8 @@
 use interphaser::*;
 
-use crate::{menu, terminal, MenuList, MenuModel, UIExamples, ViewerImpl};
+use crate::{menu, terminal, MenuList, MenuModel, ViewerImpl};
 
 pub struct ViewerApplication {
-  pub ui_examples: UIExamples,
   pub menu: MenuModel,
   pub viewer: ViewerImpl,
 }
@@ -11,7 +10,6 @@ pub struct ViewerApplication {
 impl Default for ViewerApplication {
   fn default() -> Self {
     ViewerApplication {
-      ui_examples: Default::default(),
       viewer: Default::default(),
       menu: create_menu(),
     }

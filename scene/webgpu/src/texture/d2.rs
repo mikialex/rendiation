@@ -1,3 +1,5 @@
+use rendiation_texture::GPUBufferImage;
+
 use crate::*;
 
 pub struct ReactiveGPU2DTextureSignal {
@@ -43,10 +45,11 @@ impl ReactiveGPU2DTextureSignal {
   //   s
   // }
   pub fn create_gpu_texture_com_delta_stream(&self) -> Texture2dRenderComponentDeltaStream {
-    self.inner.listen_by(
-      TextureGPUChange::to_render_component_delta,
-      RenderComponentDeltaFlag::ContentRef,
-    )
+    self
+      .inner
+      .unbound_listen_by(TextureGPUChange::to_render_component_delta, |v| {
+        v(RenderComponentDeltaFlag::ContentRef)
+      })
   }
 }
 
@@ -94,7 +97,7 @@ impl ResourceGPUCtx {
       let desc = texture.create_tex2d_desc(MipLevelCount::BySize);
       let gpu_texture = GPUTexture::create(desc, &self.device);
       let gpu_texture: GPU2DTexture = gpu_texture.try_into().unwrap();
-      gpu_texture.upload_into(&self.queue, texture, 0)
+      gpu_texture.upload_into(&self.queue, &texture, 0)
     } else {
       create_fallback_empty_texture(&self.device)
     };
@@ -107,15 +110,62 @@ impl ResourceGPUCtx {
   }
 }
 
-pub fn as_2d_source(tex: &SceneTexture2DType) -> Option<&dyn WebGPU2DTextureSource> {
+enum SceneTexture2DSourceImpl<'a> {
+  GPUBufferImage(GPUBufferImageForeignImpl<'a>),
+  Foreign(&'a dyn WebGPU2DTextureSource),
+}
+
+impl<'a> WebGPU2DTextureSource for SceneTexture2DSourceImpl<'a> {
+  fn format(&self) -> TextureFormat {
+    match self {
+      SceneTexture2DSourceImpl::GPUBufferImage(t) => t.format(),
+      SceneTexture2DSourceImpl::Foreign(t) => t.format(),
+    }
+  }
+
+  fn as_bytes(&self) -> &[u8] {
+    match self {
+      SceneTexture2DSourceImpl::GPUBufferImage(t) => t.as_bytes(),
+      SceneTexture2DSourceImpl::Foreign(t) => t.as_bytes(),
+    }
+  }
+
+  fn size(&self) -> Size {
+    match self {
+      SceneTexture2DSourceImpl::GPUBufferImage(t) => t.size(),
+      SceneTexture2DSourceImpl::Foreign(t) => t.size(),
+    }
+  }
+}
+
+pub fn as_2d_source(tex: &SceneTexture2DType) -> Option<impl WebGPU2DTextureSource + '_> {
   match tex {
-    SceneTexture2DType::RGBAu8(tex) => Some(tex),
-    SceneTexture2DType::RGBu8(tex) => Some(tex),
-    SceneTexture2DType::RGBAf32(tex) => Some(tex),
+    SceneTexture2DType::GPUBufferImage(tex) => Some(SceneTexture2DSourceImpl::GPUBufferImage(
+      GPUBufferImageForeignImpl { inner: tex },
+    )),
     SceneTexture2DType::Foreign(tex) => tex
       .downcast_ref::<Box<dyn WebGPU2DTextureSource>>()
-      .map(|t| t.as_ref()),
+      .map(|t| SceneTexture2DSourceImpl::Foreign(t.as_ref())),
+
     _ => None,
+  }
+}
+
+struct GPUBufferImageForeignImpl<'a> {
+  inner: &'a GPUBufferImage,
+}
+
+impl<'a> WebGPU2DTextureSource for GPUBufferImageForeignImpl<'a> {
+  fn format(&self) -> TextureFormat {
+    self.inner.format
+  }
+
+  fn as_bytes(&self) -> &[u8] {
+    &self.inner.data
+  }
+
+  fn size(&self) -> Size {
+    self.inner.size
   }
 }
 

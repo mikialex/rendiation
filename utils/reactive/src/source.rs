@@ -1,19 +1,13 @@
 use std::sync::{Arc, RwLock};
 
 use arena::{Arena, Handle};
-use futures::Future;
+use futures::{Future, Stream};
+
+use crate::*;
 
 pub struct Source<T> {
   // return if should remove
   listeners: Arena<Box<dyn FnMut(&T) -> bool + Send + Sync>>,
-}
-
-impl<T: Clone + Send + Sync + 'static> EventSource<T> {
-  pub fn listen(&self) -> impl futures::Stream<Item = T> {
-    let (sender, receiver) = futures::channel::mpsc::unbounded();
-    self.on(move |v| sender.unbounded_send(v.clone()).is_err());
-    receiver
-  }
 }
 
 pub struct RemoveToken<T> {
@@ -30,7 +24,7 @@ impl<T> Clone for RemoveToken<T> {
 impl<T> Copy for RemoveToken<T> {}
 
 impl<T> Source<T> {
-  /// return should remove after triggered
+  /// return should be removed from source after emitted
   pub fn on(&mut self, cb: impl FnMut(&T) -> bool + Send + Sync + 'static) -> RemoveToken<T> {
     let handle = self.listeners.insert(Box::new(cb));
     RemoveToken { handle }
@@ -62,13 +56,13 @@ impl<T> Default for Source<T> {
   }
 }
 
-/// A stream of events.
+/// a simple event dispatcher.
 pub struct EventSource<T> {
   inner: Arc<RwLock<Source<T>>>,
 }
 
 impl<T> Default for EventSource<T> {
-  // default to do no allocation when created
+  // default not to do any allocation when created
   // as long as no one add listener, no allocation happens
   fn default() -> Self {
     Self {
@@ -97,41 +91,120 @@ impl<T: 'static> EventSource<T> {
     inner.emit(event);
   }
 
-  /// return should remove after triggered
+  /// return should be removed from source after emitted
   pub fn on(&self, f: impl FnMut(&T) -> bool + Send + Sync + 'static) -> RemoveToken<T> {
     self.inner.write().unwrap().on(f)
   }
 
-  pub fn off(&mut self, token: RemoveToken<T>) {
+  pub fn off(&self, token: RemoveToken<T>) {
     self.inner.write().unwrap().off(token)
   }
 
-  pub fn listen_by<U: Send + Sync + 'static>(
-    &self,
-    mapper: impl Fn(&T) -> U + Send + Sync + 'static,
-    init: U,
-  ) -> impl futures::Stream<Item = U> {
-    let (sender, receiver) = futures::channel::mpsc::unbounded();
-    sender.unbounded_send(init).ok();
-    self.on(move |v| {
-      sender.unbounded_send(mapper(v)).ok();
-      sender.is_closed()
-    });
-    receiver
-  }
-
-  pub fn once_future(&mut self) -> impl Future<Output = Option<T>>
+  pub fn unbound_listen(&self) -> impl futures::Stream<Item = T>
   where
     T: Clone + Send + Sync,
   {
-    use futures::FutureExt;
-    let (s, r) = futures::channel::oneshot::channel::<T>();
-    let mut s = Some(s);
-    self.on(move |re| {
-      s.take().map(|s| s.send(re.clone()).ok());
-      true
+    self.unbound_listen_by(|v| v.clone(), |_| {})
+  }
+
+  pub fn unbound_listen_by<U>(
+    &self,
+    mapper: impl Fn(&T) -> U + Send + Sync + 'static,
+    init: impl Fn(&dyn Fn(U)),
+  ) -> impl futures::Stream<Item = U>
+  where
+    U: Send + Sync + 'static,
+  {
+    self.listen_by::<DefaultUnboundChannel, _>(mapper, init)
+  }
+
+  pub fn single_listen_by<U>(
+    &self,
+    mapper: impl Fn(&T) -> U + Send + Sync + 'static,
+    init: impl Fn(&dyn Fn(U)),
+  ) -> impl futures::Stream<Item = U>
+  where
+    U: Send + Sync + 'static,
+  {
+    self.listen_by::<DefaultSingleValueChannel, _>(mapper, init)
+  }
+
+  pub fn listen_by<C, U>(
+    &self,
+    mapper: impl Fn(&T) -> U + Send + Sync + 'static,
+    init: impl Fn(&dyn Fn(U)),
+  ) -> impl futures::Stream<Item = U>
+  where
+    U: Send + Sync + 'static,
+    C: ChannelLike<U>,
+  {
+    let (sender, receiver) = C::build();
+    let init_sends = |to_send| {
+      C::send(&sender, to_send);
+    };
+    init(&init_sends);
+    let remove_token = self.on(move |v| {
+      C::send(&sender, mapper(v));
+      C::is_closed(&sender)
     });
-    r.map(|v| v.ok())
+    let dropper = EventSourceDropper::new(remove_token, self.make_weak());
+    EventSourceStream::new(dropper, receiver)
+  }
+
+  pub fn once_future(&mut self) -> impl Future<Output = Option<()>>
+  where
+    T: Clone + Send + Sync,
+  {
+    let mut any = self.single_listen_by(|_| (), |_| {});
+    async move {
+      loop {
+        any.next().await;
+      }
+    }
+  }
+}
+
+#[pin_project::pin_project]
+pub struct EventSourceStream<T, S> {
+  dropper: EventSourceDropper<T>,
+  #[pin]
+  stream: S,
+}
+
+impl<T, S> EventSourceStream<T, S> {
+  pub fn new(dropper: EventSourceDropper<T>, stream: S) -> Self {
+    Self { dropper, stream }
+  }
+}
+
+impl<T, S> Stream for EventSourceStream<T, S>
+where
+  S: Stream,
+{
+  type Item = S::Item;
+
+  fn poll_next(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Option<Self::Item>> {
+    self.project().stream.poll_next(cx)
+  }
+}
+
+pub struct EventSourceDropper<T> {
+  remove_token: RemoveToken<T>,
+  weak: WeakSource<T>,
+}
+
+impl<T> EventSourceDropper<T> {
+  pub fn new(remove_token: RemoveToken<T>, weak: WeakSource<T>) -> Self {
+    Self { remove_token, weak }
+  }
+}
+
+impl<T> Drop for EventSourceDropper<T> {
+  fn drop(&mut self) {
+    if let Some(source) = self.weak.inner.upgrade() {
+      // it's safe to remove again here (has no effect)
+      source.write().unwrap().off(self.remove_token)
+    }
   }
 }
 

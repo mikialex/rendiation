@@ -11,7 +11,8 @@ fn main() {
   let mut scene = SceneInner::new().0;
 
   let perspective = make_perspective();
-  let camera = SceneCamera::create_camera(perspective, scene.create_root_child());
+  let perspective = CameraProjector::Perspective(perspective);
+  let camera = SceneCamera::create(perspective, scene.create_root_child());
 
   scene
     .model_node(

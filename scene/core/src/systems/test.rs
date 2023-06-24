@@ -7,12 +7,15 @@ fn test_instance() {
 
   let (scene, mut d_sys) = SceneInner::new();
 
-  let (_, mut output) = AutoInstanceSystem::new(scene.unbound_listen_by(all_delta), &d_sys);
+  let input = map_scene_delta_to_mixed(scene.unbound_listen_by(all_delta));
+
+  let (_, mut output) = AutoInstanceSystem::new(input, &d_sys);
 
   let mesh = AttributesMesh {
     attributes: Default::default(),
     indices: Default::default(),
     mode: rendiation_renderable_mesh::PrimitiveTopology::LineList,
+    groups: Default::default(),
   }
   .into_ref();
   let mesh = SceneMeshType::AttributesMesh(mesh);

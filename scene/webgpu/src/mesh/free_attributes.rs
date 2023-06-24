@@ -177,7 +177,7 @@ impl WebGPUMesh for AttributesMesh {
         .map(|(s, vertices)| {
           let buffer = get_update_buffer(&mut custom_storage, &vertices.view.buffer, &ctx.gpu);
           let buffer_view = buffer.create_view(map_view(vertices.compute_gpu_buffer_range()));
-          (s.clone(), buffer_view)
+          (*s, buffer_view)
         })
         .collect();
 
@@ -214,9 +214,9 @@ fn map_view(view: BufferViewRange) -> GPUBufferViewRange {
   }
 }
 
-fn map_index(index: IndexFormat) -> webgpu::IndexFormat {
+fn map_index(index: AttributeIndexFormat) -> webgpu::IndexFormat {
   match index {
-    IndexFormat::Uint16 => webgpu::IndexFormat::Uint16,
-    IndexFormat::Uint32 => webgpu::IndexFormat::Uint32,
+    AttributeIndexFormat::Uint16 => webgpu::IndexFormat::Uint16,
+    AttributeIndexFormat::Uint32 => webgpu::IndexFormat::Uint32,
   }
 }

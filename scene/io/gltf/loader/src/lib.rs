@@ -1,23 +1,24 @@
 #![feature(local_key_cell_methods)]
+#![feature(const_float_bits_conv)]
 
 use core::num::NonZeroU64;
+use std::collections::HashMap;
 use std::path::Path;
-use std::{collections::HashMap, sync::Arc};
 
 use gltf::{Node, Result as GltfResult};
 use rendiation_algebra::*;
 use rendiation_scene_core::{
-  AnimationSampler, AttributeAccessor, AttributesMesh, BufferViewRange, GeometryBuffer,
-  GeometryBufferInner, IndexFormat, IntoSceneItemRef, Joint, ModelType, NormalMapping,
+  AnimationSampler, AttributeAccessor, AttributeIndexFormat, AttributesMesh, BufferViewRange,
+  GeometryBuffer, GeometryBufferInner, IntoSceneItemRef, Joint, ModelType, NormalMapping,
   PhysicalMetallicRoughnessMaterial, Scene, SceneAnimation, SceneAnimationChannel,
   SceneMaterialType, SceneMeshType, SceneModel, SceneModelHandle, SceneModelImpl, SceneNode,
   SceneTexture2D, SceneTexture2DType, Skeleton, SkeletonImpl, StandardModel,
   Texture2DWithSamplingData, TextureWithSamplingData, UnTypedBufferView,
 };
-use webgpu::{TextureFormat, WebGPU2DTextureSource};
 
 mod convert_utils;
 use convert_utils::*;
+use rendiation_texture::{create_padding_buffer, GPUBufferImage, TextureFormat};
 
 pub fn load_gltf(path: impl AsRef<Path>, scene: &Scene) -> GltfResult<GltfLoadResult> {
   let scene_inner = scene.read();
@@ -127,8 +128,8 @@ fn build_model(
 
   let indices = primitive.indices().map(|indices| {
     let format = match indices.data_type() {
-      gltf::accessor::DataType::U16 => IndexFormat::Uint16,
-      gltf::accessor::DataType::U32 => IndexFormat::Uint32,
+      gltf::accessor::DataType::U16 => AttributeIndexFormat::Uint16,
+      gltf::accessor::DataType::U32 => AttributeIndexFormat::Uint32,
       _ => unreachable!(),
     };
     (format, build_accessor(indices, ctx))
@@ -140,6 +141,7 @@ fn build_model(
     attributes,
     indices,
     mode,
+    groups: Default::default(),
   };
   let mesh = SceneMeshType::AttributesMesh(mesh.into());
 
@@ -199,20 +201,17 @@ fn build_skin(skin: gltf::Skin, ctx: &mut Context) {
         .get(&joint_node.index())
         .unwrap()
         .clone(),
-      bind_inverse: Mat4::one(),
+      bind_inverse: Mat4::identity(),
     })
     .collect();
 
   if let Some(matrix_list) = skin.inverse_bind_matrices() {
     let matrix_list = build_accessor(matrix_list, ctx);
-    matrix_list.visit_slice::<Mat4<f32>, _>(|slice| {
-      slice
-        .iter()
-        .zip(joints.iter_mut())
-        .for_each(|(mat, joint)| {
-          joint.bind_inverse = *mat;
-        })
-    });
+    let matrix_list = matrix_list.read();
+    let list = matrix_list.visit_slice::<Mat4<f32>>().unwrap();
+    list.iter().zip(joints.iter_mut()).for_each(|(mat, joint)| {
+      joint.bind_inverse = *mat;
+    })
   }
 
   // https://stackoverflow.com/questions/64734695/what-does-it-mean-when-gltf-does-not-specify-a-skeleton-value-in-a-skin
@@ -239,6 +238,7 @@ fn build_data_view(view: gltf::buffer::View, ctx: &mut Context) -> UnTypedBuffer
           offset: view.offset() as u64,
           size: NonZeroU64::new(view.length() as u64),
         },
+        // byte_stride: view.stride(),
       }
     })
     .clone()
@@ -251,7 +251,7 @@ fn build_accessor(accessor: gltf::Accessor, ctx: &mut Context) -> AttributeAcces
   let ty = accessor.data_type();
   let dimension = accessor.dimensions();
 
-  let start = accessor.offset();
+  let byte_offset = accessor.offset();
   let count = accessor.count();
 
   let item_size = match ty {
@@ -274,7 +274,7 @@ fn build_accessor(accessor: gltf::Accessor, ctx: &mut Context) -> AttributeAcces
   AttributeAccessor {
     view,
     count,
-    start: start / item_size,
+    byte_offset,
     item_size,
   }
 }
@@ -330,26 +330,9 @@ fn build_pbr_material(
   result
 }
 
-#[derive(Debug, Clone)]
-pub struct GltfImage {
-  data: Vec<u8>,
-  format: webgpu::TextureFormat,
-  size: rendiation_texture::Size,
-}
-
-impl WebGPU2DTextureSource for GltfImage {
-  fn format(&self) -> webgpu::TextureFormat {
-    self.format
-  }
-
-  fn as_bytes(&self) -> &[u8] {
-    self.data.as_slice()
-  }
-
-  fn size(&self) -> rendiation_texture::Size {
-    self.size
-  }
-}
+// i assume all gpu use little endian?
+const F16_BYTES: [u8; 2] = half::f16::from_f32_const(1.0).to_le_bytes();
+const F32_BYTES: [u8; 4] = 1.0_f32.to_le_bytes();
 
 fn build_image(data_input: gltf::image::Data) -> SceneTexture2D {
   let format = match data_input.format {
@@ -357,37 +340,29 @@ fn build_image(data_input: gltf::image::Data) -> SceneTexture2D {
     gltf::image::Format::R8G8 => TextureFormat::Rg8Unorm,
     gltf::image::Format::R8G8B8 => TextureFormat::Rgba8UnormSrgb, // padding
     gltf::image::Format::R8G8B8A8 => TextureFormat::Rgba8UnormSrgb,
-    gltf::image::Format::B8G8R8 => TextureFormat::Bgra8UnormSrgb, // padding
-    gltf::image::Format::B8G8R8A8 => TextureFormat::Bgra8UnormSrgb,
-    // todo check the follow format
     gltf::image::Format::R16 => TextureFormat::R16Float,
     gltf::image::Format::R16G16 => TextureFormat::Rg16Float,
     gltf::image::Format::R16G16B16 => TextureFormat::Rgba16Float, // padding
     gltf::image::Format::R16G16B16A16 => TextureFormat::Rgba16Float,
+    gltf::image::Format::R32G32B32FLOAT => TextureFormat::Rgba32Float, // padding
+    gltf::image::Format::R32G32B32A32FLOAT => TextureFormat::Rgba32Float,
   };
 
   let data = if let Some((read_bytes, pad_bytes)) = match data_input.format {
-    gltf::image::Format::R8G8B8 => (3, &[255]).into(),
-    gltf::image::Format::B8G8R8 => (3, &[255]).into(),
-    gltf::image::Format::R16G16B16 => todo!(), // todo what's the u8 repr for f16_1.0??
+    gltf::image::Format::R8G8B8 => (3, [255].as_slice()).into(),
+    gltf::image::Format::R16G16B16 => (3 * 2, F16_BYTES.as_slice()).into(),
+    gltf::image::Format::R32G32B32FLOAT => (3 * 2, F32_BYTES.as_slice()).into(),
     _ => None,
   } {
-    data_input
-      .pixels
-      .chunks(read_bytes)
-      .flat_map(|c| [c, pad_bytes])
-      .flatten()
-      .copied()
-      .collect()
+    create_padding_buffer(&data_input.pixels, read_bytes, pad_bytes)
   } else {
     data_input.pixels
   };
 
   let size = rendiation_texture::Size::from_u32_pair_min_one((data_input.width, data_input.height));
 
-  let image = GltfImage { data, format, size };
-  let image: Box<dyn WebGPU2DTextureSource> = Box::new(image);
-  let image = SceneTexture2DType::Foreign(Arc::new(image));
+  let image = GPUBufferImage { data, format, size };
+  let image = SceneTexture2DType::GPUBufferImage(image);
   SceneTexture2D::new(image)
 }
 

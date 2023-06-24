@@ -3,6 +3,7 @@ use std::ops::Deref;
 use futures::{Stream, StreamExt};
 use incremental::IncrementalBase;
 use reactive::{do_updates, SignalStreamExt, StreamForker};
+use smallvec::SmallVec;
 
 use crate::*;
 
@@ -122,14 +123,16 @@ impl<T: IncrementalBase, Dirty> TreeHierarchyDerivedSystem<T, Dirty> {
     let source_tree = source_tree.clone();
 
     enum MarkingResult<T, Dirty> {
-      UpdateRoot(Option<TreeNodeHandle<DerivedData<T, Dirty>>>),
+      UpdateRoot(TreeNodeHandle<DerivedData<T, Dirty>>),
       Remove(usize),
+      Create(usize),
     }
 
     let derived_stream = tree_delta
       // mark stage
       // do dirty marking, return if should trigger hierarchy change, and the update root
       .map(move |delta| {
+        let mut deltas = SmallVec::<[_; 2]>::new();
         let mut derived_tree = derived_tree_c.write().unwrap();
         let marking = match delta {
           // simply create the default derived. insert into derived tree.
@@ -137,13 +140,15 @@ impl<T: IncrementalBase, Dirty> TreeHierarchyDerivedSystem<T, Dirty> {
           // in the original tree.
           TreeMutation::Create { .. } => {
             let node = derived_tree.create_node(Default::default());
+            deltas.push(MarkingResult::Create(node.index()));
             B::marking_dirty(&mut derived_tree, node, M::all_dirty())
           }
           // do pair remove in derived tree
           TreeMutation::Delete(handle) => {
             let handle = derived_tree.recreate_handle(handle);
             derived_tree.delete_node(handle);
-            return MarkingResult::Remove(handle.index());
+            deltas.push(MarkingResult::Remove(handle.index()));
+            return futures::stream::iter(deltas);
           }
           // check if have any hierarchy effect, and do marking
           TreeMutation::Mutate { node, delta } => {
@@ -168,27 +173,42 @@ impl<T: IncrementalBase, Dirty> TreeHierarchyDerivedSystem<T, Dirty> {
             B::marking_dirty(&mut derived_tree, node, M::all_dirty())
           }
         };
-        MarkingResult::UpdateRoot(marking)
+        if let Some(marking) = marking {
+          deltas.push(MarkingResult::UpdateRoot(marking));
+        }
+        futures::stream::iter(deltas)
       })
+      .flatten()
       .buffered_unbound() // to make sure all markup finished
       .map(move |marking_result| {
         // this allocation can not removed, but could we calculate correct capacity or reuse the
         // allocation?
         let mut derived_deltas = Vec::new();
         match marking_result {
-          MarkingResult::UpdateRoot(Some(update_root)) => {
+          MarkingResult::UpdateRoot(update_root) => {
             let mut derived_tree = derived_tree_cc.write().unwrap();
             // do full tree traverse check, emit all real update as stream
-            let tree: &TREE = &source_tree.inner.read().unwrap();
+            let tree: &TREE = &source_tree.inner;
+
             // node maybe deleted
-            if derived_tree.is_handle_valid(update_root) {
-              B::update_derived(tree, &mut derived_tree, update_root, &mut |delta| {
-                derived_deltas.push((delta.0, Some(delta.1)));
-              });
+            let node_has_deleted = !derived_tree.is_handle_valid(update_root);
+
+            if !node_has_deleted {
+              // if the previous emitted update root is attached to another tree, the new attached
+              // tree contains new root that should override the current update root.
+              let update_root_is_not_valid = derived_tree.get_node(update_root).parent.is_some();
+
+              if !update_root_is_not_valid {
+                B::update_derived(tree, &mut derived_tree, update_root, &mut |delta| {
+                  derived_deltas.push((delta.0, Some(delta.1)));
+                });
+              }
             }
           }
           MarkingResult::Remove(idx) => derived_deltas.push((idx, None)),
-          _ => {}
+          MarkingResult::Create(idx) => {
+            T::default().expand(|d| derived_deltas.push((idx, Some(d))))
+          }
         }
 
         futures::stream::iter(derived_deltas)
@@ -230,7 +250,8 @@ impl<T: IncrementalBase, M, TREE, X> TreeIncrementalDeriveBehavior<T, T::Source,
 where
   T: IncrementalHierarchyDerived<DirtyMark = M>,
   M: HierarchyDirtyMark,
-  TREE: CoreTree<Node = X>,
+  // todo add a trait extract the common part of core tree and share core tree
+  TREE: ShareCoreTree<Node = X>,
   X: Deref<Target = T::Source>,
 {
   type Dirty = ParentTreeDirty<M>;
@@ -301,14 +322,15 @@ where
         let parent = parent.map(|parent| &parent.data().data);
 
         let source_node = source_tree.recreate_handle(node_index);
-        let source_node = source_tree.get_node_data(source_node).deref();
 
-        derived.data.hierarchy_update(
-          source_node,
-          parent,
-          &derived.dirty.sub_tree_dirty_mark_all,
-          |delta| derived_delta_sender((node_index, delta)),
-        );
+        source_tree.visit_node_data(source_node, |source_node| {
+          derived.data.hierarchy_update(
+            source_node.deref(),
+            parent,
+            &derived.dirty.sub_tree_dirty_mark_all,
+            |delta| derived_delta_sender((node_index, delta)),
+          );
+        });
 
         derived.dirty.sub_tree_dirty_mark_any = T::DirtyMark::default();
         derived.dirty.sub_tree_dirty_mark_all = T::DirtyMark::default();
@@ -330,7 +352,7 @@ impl<T: IncrementalBase, M, TREE, X> TreeIncrementalDeriveBehavior<T, T::Source,
 where
   T: IncrementalChildrenHierarchyDerived<DirtyMark = M>,
   M: HierarchyDirtyMark,
-  TREE: CoreTree<Node = X>,
+  TREE: ShareCoreTree<Node = X>,
   X: Deref<Target = T::Source>,
 {
   type Dirty = M;
@@ -378,9 +400,6 @@ where
 
     node_data.dirty = T::DirtyMark::default();
 
-    let source_node = source_tree.recreate_handle(node_index);
-    let source_node = source_tree.get_node_data(source_node).deref();
-
     node.visit_children_mut(|child| {
       let child = unsafe { &mut (*child.node) };
       Self::update_derived(
@@ -391,16 +410,19 @@ where
       );
     });
 
-    node_data.data.hierarchy_children_update(
-      source_node,
-      |child_visitor| {
-        node.visit_children_mut(|node| {
-          let node_data = &unsafe { &mut (*node.node) }.data.data;
-          child_visitor(node_data)
-        })
-      },
-      &node_data.dirty,
-      &mut |delta| derived_delta_sender((node_index, delta)),
-    );
+    let source_node = source_tree.recreate_handle(node_index);
+    source_tree.visit_node_data(source_node, |source_node| {
+      node_data.data.hierarchy_children_update(
+        source_node.deref(),
+        |child_visitor| {
+          node.visit_children_mut(|node| {
+            let node_data = &unsafe { &mut (*node.node) }.data.data;
+            child_visitor(node_data)
+          })
+        },
+        &node_data.dirty,
+        &mut |delta| derived_delta_sender((node_index, delta)),
+      );
+    });
   }
 }

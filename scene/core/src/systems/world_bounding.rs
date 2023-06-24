@@ -23,7 +23,7 @@ impl SceneModelWorldBoundingSystem {
       let d_sys = d_sys.clone();
       let world_mat_stream = model
         .unbound_listen_by(with_field!(SceneModelImpl => node))
-        .map(move |node| d_sys.create_world_matrix_stream(&node))
+        .filter_map_sync(move |node| d_sys.create_world_matrix_stream(&node))
         .flatten_signal();
 
       let local_box_stream = model
@@ -49,14 +49,7 @@ impl SceneModelWorldBoundingSystem {
     use arena::ArenaDelta::*;
     let d_sys = d_sys.clone();
     let handler = scene
-      .unbound_listen_by(|view, send| match view {
-        MaybeDeltaRef::All(scene) => scene.models.expand(send),
-        MaybeDeltaRef::Delta(delta) => {
-          if let SceneInnerDelta::models(model_delta) = delta {
-            send(model_delta.clone())
-          }
-        }
-      })
+      .unbound_listen_by(with_field_expand!(SceneInner => models))
       .map(move |model_delta| match model_delta {
         Mutate((new, handle)) => (handle.index(), Some(build_world_box_stream(&new, &d_sys))),
         Insert((new, handle)) => (handle.index(), Some(build_world_box_stream(&new, &d_sys))),

@@ -6,19 +6,18 @@ pub struct GPUTextureSamplerPair {
 }
 
 impl GPUTextureSamplerPair {
-  pub fn setup_pass(&self, ctx: &mut GPURenderPassCtx, group: impl Into<usize> + Copy) {
-    ctx.binding.bind(&self.texture, group);
-    ctx.binding.bind(&self.sampler, group);
+  pub fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
+    ctx.binding.bind(&self.texture);
+    ctx.binding.bind(&self.sampler);
   }
 
   pub fn uniform_and_sample(
     &self,
     binding: &mut ShaderGraphBindGroupDirectBuilder,
-    group: impl Into<usize> + Copy,
     position: Node<Vec2<f32>>,
   ) -> Node<Vec4<f32>> {
-    let texture = binding.uniform_by(&self.texture, group);
-    let sampler = binding.uniform_by(&self.sampler, group);
+    let texture = binding.uniform_by(&self.texture);
+    let sampler = binding.uniform_by(&self.sampler);
     texture.sample(sampler, position)
   }
 }
@@ -28,7 +27,7 @@ impl ShareBindableResourceCtx {
     &self,
     t: &Texture2DWithSamplingData,
   ) -> ReactiveGPUTextureSamplerPair {
-    let sampler = GPUSampler::create(t.sampler.into(), &self.gpu.device);
+    let sampler = GPUSampler::create(t.sampler.into_gpu(), &self.gpu.device);
     let sampler = sampler.create_default_view();
 
     let ReactiveGPU2DTextureView {

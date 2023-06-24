@@ -28,10 +28,10 @@ rendiation-scene-core = {path = "../scene/core"}
 rendiation-scene-gltf-loader = {path = "../scene/io/gltf/loader"}
 rendiation-scene-interaction = {path = "../scene/interaction"}
 rendiation-scene-webgpu = {path = "../scene/webgpu"}
-rendiation-texture = {path = "../components/texture/core", features = ["webgpu"]}
+rendiation-texture = {path = "../components/texture/core"}
 rfd = "0.10.0"
 shadergraph = {path = "../shader/graph"}
-webgpu = {package = "rendiation-webgpu", path = "../webgpu"}
+webgpu = {package = "rendiation-webgpu", path = "../platform/graphics/webgpu"}
 wgsl-shader-derives = {path = "../shader/language/wgsl/derive"}
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
