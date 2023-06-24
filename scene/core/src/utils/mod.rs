@@ -3,7 +3,7 @@ pub use identity::*;
 mod scene_item;
 pub use scene_item::*;
 mod transformation;
-use futures::{Future, StreamExt};
+use futures::Future;
 use reactive::{
   ChannelLike, DefaultSingleValueChannel, DefaultUnboundChannel, EventSourceDropper,
   EventSourceStream,

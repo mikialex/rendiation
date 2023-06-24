@@ -8,8 +8,8 @@ use crate::*;
 pub type SceneCamera = SceneItemRef<SceneCameraInner>;
 
 impl SceneCamera {
-  pub fn create_camera_inner(projection: Box<dyn CameraProjection>, node: SceneNode) -> Self {
-    let mut inner = SceneCameraInner {
+  pub fn create(projection: CameraProjector, node: SceneNode) -> Self {
+    SceneCameraInner {
       bounds: Default::default(),
       projection,
       node,
