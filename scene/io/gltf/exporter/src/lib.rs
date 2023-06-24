@@ -1,11 +1,13 @@
+#![feature(option_get_or_insert_default)]
+
 use std::borrow::Cow;
 use std::collections::BTreeMap;
 use std::fs::{self, File};
 use std::io::BufWriter;
+use std::ops::Deref;
 use std::{collections::HashMap, path::Path};
 
 use gltf_json::Root;
-use incremental::*;
 use rendiation_scene_core::*;
 use rendiation_texture::TextureSampler;
 
@@ -27,12 +29,32 @@ pub fn build_scene_to_gltf(
 
   let ctx = Ctx::default();
 
-  let scene = scene.read();
-  let root = scene.root();
-
   let mut scene_node_ids = Vec::default();
+  let mut scene_index_map = HashMap::new();
 
-  // todo load scene.nodes.
+  let scene = scene.read();
+  let tree = scene.nodes.inner.inner().inner.read().unwrap();
+  tree.expand_with_mapping(
+    |node| (node.deref().clone(), node.guid()),
+    |d| match d {
+      tree::TreeExpandMutation::Create { data, node } => {
+        let idx = ctx.build_node(&data.0, data.1);
+        scene_node_ids.push(idx);
+        scene_index_map.insert(node, idx);
+      }
+      tree::TreeExpandMutation::Attach {
+        parent_target,
+        node,
+      } => {
+        let node_idx = scene_index_map.get(&node).unwrap();
+        let parent_idx = scene_index_map.get(&parent_target).unwrap();
+        ctx.nodes.collected.borrow_mut()[parent_idx.value()]
+          .children
+          .get_or_insert_default()
+          .push(*node_idx);
+      }
+    },
+  );
 
   for (_, model) in &scene.models {
     let model = model.read();
@@ -76,7 +98,7 @@ pub fn build_scene_to_gltf(
     extensions: Default::default(),
     extras: Default::default(),
     generator: String::from("rendiation_scene_gltf_exporter").into(),
-    min_version: String::from("2").into(),
+    min_version: String::from("2").into(), // is this mean the gltf version or exporter version??
     version: String::from("2"),
   };
 
@@ -275,40 +297,31 @@ impl Ctx {
     })
   }
 
-  pub fn build_nodes_recursive(&self, scene: &Scene) {
-    // let scene = scene.read();
-
-    // scene.nodes.inner
-
-    // let tree = scene.nodes.inner.inner().inner.read().unwrap();
-    // tree.expand_with_mapping(|node| node.deref().clone(), cb);
-    todo!()
-  }
-
-  pub fn build_node(&self, node: &SceneNode) -> gltf_json::Index<gltf_json::Node> {
-    node.visit(|node| {
-      self
-        .nodes
-        .get_or_insert_with(node.guid(), || {
-          //
-          gltf_json::Node {
-            camera: Default::default(),
-            children: Default::default(),
-            extensions: Default::default(),
-            extras: Default::default(),
-            matrix: Some(node.local_matrix.into()),
-            mesh: Default::default(),
-            name: Default::default(),
-            rotation: Default::default(),
-            scale: Default::default(),
-            translation: Default::default(),
-            skin: Default::default(),
-            weights: Default::default(),
-          }
-          .into()
-        })
-        .unwrap()
-    })
+  pub fn build_node(
+    &self,
+    node: &SceneNodeDataImpl,
+    id: usize,
+  ) -> gltf_json::Index<gltf_json::Node> {
+    self
+      .nodes
+      .get_or_insert_with(id, || {
+        gltf_json::Node {
+          camera: Default::default(),
+          children: Default::default(),
+          extensions: Default::default(),
+          extras: Default::default(),
+          matrix: Some(node.local_matrix.into()),
+          mesh: Default::default(),
+          name: Default::default(),
+          rotation: Default::default(),
+          scale: Default::default(),
+          translation: Default::default(),
+          skin: Default::default(),
+          weights: Default::default(),
+        }
+        .into()
+      })
+      .unwrap()
   }
 
   pub fn build_model(&self, model: &ModelType) -> Option<gltf_json::Index<gltf_json::Mesh>> {

@@ -6,7 +6,6 @@ version = "0.0.1"
 [dependencies]
 gltf = "1.2.0"
 gltf-json = "1.2.0"
-incremental = {path = "../../../../utils/incremental"}
 rendiation-renderable-mesh = {path = "../../../../components/mesh/renderable"}
 rendiation-scene-core = {path = "../../../core"}
 rendiation-texture = {path = "../../../../components/texture/core"}
