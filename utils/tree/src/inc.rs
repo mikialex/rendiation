@@ -13,22 +13,42 @@ pub enum TreeMutation<T: IncrementalBase> {
   Detach { node: usize },
 }
 
+pub enum TreeExpandMutation<T> {
+  Create { data: T, node: usize },
+  Attach { parent_target: usize, node: usize },
+}
+
+impl<T: IncrementalBase> From<TreeExpandMutation<T>> for TreeMutation<T> {
+  fn from(value: TreeExpandMutation<T>) -> Self {
+    match value {
+      TreeExpandMutation::Create { data, node } => TreeMutation::Create { data, node },
+      TreeExpandMutation::Attach {
+        parent_target,
+        node,
+      } => TreeMutation::Attach {
+        parent_target,
+        node,
+      },
+    }
+  }
+}
+
 impl<T> TreeCollection<T> {
-  pub fn expand_with_mapping<U: IncrementalBase>(
+  pub fn expand_with_mapping<U>(
     &self,
     mapper: impl Fn(&T) -> U,
-    mut cb: impl FnMut(TreeMutation<U>),
+    mut cb: impl FnMut(TreeExpandMutation<U>),
   ) {
     for (handle, node) in &self.nodes.data {
       if node.parent.is_none() {
         let node = self.create_node_ref(handle);
         node.traverse_pair_subtree(|self_node, parent| {
-          cb(TreeMutation::Create {
+          cb(TreeExpandMutation::Create {
             data: mapper(&self_node.node.data),
             node: self_node.node.handle().index(),
           });
           if let Some(parent) = parent {
-            cb(TreeMutation::Attach {
+            cb(TreeExpandMutation::Attach {
               parent_target: parent.node.handle().index(),
               node: self_node.node.handle().index(),
             });
@@ -43,8 +63,8 @@ impl<T> TreeCollection<T> {
 impl<T: IncrementalBase + Clone> IncrementalBase for TreeCollection<T> {
   type Delta = TreeMutation<T>;
 
-  fn expand(&self, cb: impl FnMut(Self::Delta)) {
-    self.expand_with_mapping(|n| n.clone(), cb)
+  fn expand(&self, mut cb: impl FnMut(Self::Delta)) {
+    self.expand_with_mapping(|n| n.clone(), |d| cb(d.into()))
   }
 }
 

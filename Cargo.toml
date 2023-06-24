@@ -40,6 +40,7 @@ members = [
   "scene/raytracing",
   "scene/interaction",
   "scene/io/gltf/loader",
+  "scene/io/gltf/exporter",
   "viewer",
   "platform/graphics/webgpu",
   "platform/graphics/vulkan",

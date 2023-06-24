@@ -46,9 +46,9 @@ impl SceneNodeCollection {
 impl IncrementalBase for SceneNodeCollection {
   type Delta = TreeMutation<SceneNodeDataImpl>;
 
-  fn expand(&self, cb: impl FnMut(Self::Delta)) {
+  fn expand(&self, mut cb: impl FnMut(Self::Delta)) {
     let tree = self.inner.inner().inner.read().unwrap();
-    tree.expand_with_mapping(|node| node.deref().clone(), cb);
+    tree.expand_with_mapping(|node| node.deref().clone(), |d| cb(d.into()));
   }
 }
 

@@ -90,7 +90,7 @@ clone_self_incremental!(GeometryBufferInner);
 
 pub type GeometryBuffer = SceneItemRef<GeometryBufferInner>;
 
-#[derive(Debug, Copy, Clone, Default)]
+#[derive(Debug, Copy, Clone, Default, PartialEq, Eq, Hash)]
 pub struct BufferViewRange {
   /// in bytes
   pub offset: u64,
