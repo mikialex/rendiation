@@ -120,7 +120,7 @@ impl<T: SimpleIncremental + Send + Sync + 'static> ApplicableIncremental for T {
   }
 }
 
-/// not mutable
+/// Arc is immutable
 impl<T: Send + Sync + 'static> SimpleIncremental for std::sync::Arc<T> {
   type Delta = Self;
 
