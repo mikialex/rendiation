@@ -1,9 +1,5 @@
 use crate::*;
 
-pub trait ShadowSingleProjectCreator {
-  fn build_shadow_projection(&self) -> Box<dyn Stream<Item = (Box<dyn CameraProjection>, Size)>>;
-}
-
 #[pin_project::pin_project]
 #[derive(Default)]
 pub struct SingleProjectShadowMapSystem {
@@ -21,10 +17,10 @@ impl SingleProjectShadowMapSystem {
   pub fn create_shadow_info_stream(
     &self,
     light_id: usize,
-    light: &dyn ShadowSingleProjectCreator,
+    proj: impl Stream<Item = (Box<dyn CameraProjection>, Size)>,
     node_delta: impl Stream<Item = SceneNode>,
   ) -> impl Stream<Item = LightShadowAddressInfo> {
-    let camera_stream = basic_shadow_camera(light, node_delta);
+    let camera_stream = basic_shadow_camera(proj, node_delta);
     let resolution = camera_stream.as_ref().1;
     self.cameras.insert(light_id, camera_stream);
     let shadow_map = self.maps.allocate(resolution);
@@ -33,18 +29,16 @@ impl SingleProjectShadowMapSystem {
   }
 
   pub fn maintain(&mut self) {
-    do_updates(&mut self.cameras, |updates| {
-      match updates {
-        StreamMapDelta::Insert(_) => todo!(),
-        StreamMapDelta::Remove(_) => todo!(),
-        StreamMapDelta::Delta(idx, delta) => {
-          if let Some((_, size)) = delta {
-            // remove from shadowmap
-          } else {
-            //
-          }
+    do_updates(&mut self.cameras, |updates| match updates {
+      StreamMapDelta::Delta(idx, delta) => {
+        if let Some((_, size)) = delta {
+          self.shadow_maps.remove(idx);
+          self.shadow_maps.insert(idx, self.maps.allocate(size));
+        } else {
+          self.shadow_maps.remove(idx)
         }
       }
+      _ => {}
     })
   }
 
@@ -90,31 +84,12 @@ type ReactiveBasicShadowSceneCamera =
   impl Stream<Item = (SceneCamera, Size)> + AsRef<(SceneCamera, Size)>;
 
 fn basic_shadow_camera(
-  light: &dyn ShadowSingleProjectCreator,
+  proj: impl Stream<Item = (Box<dyn CameraProjection>, Size)>,
   node_delta: impl Stream<Item = SceneNode>,
 ) -> ReactiveBasicShadowSceneCamera {
-  let proj = light.build_shadow_projection();
-  let camera = SceneCamera::create_camera_inner(proj, todo!());
-
-  light.single_listen_by(with_field!(SceneLightInner => node));
-
-  light
-    .single_listen_by(with_field!(SceneLightInner => light))
-    .filter_map_sync(|light: SceneLightKind| light.build_shadow_projection());
-
-  light
-    .unbound_listen_by(all_delta)
-    .fold_signal(camera, |delta, camera| {
-      match delta {
-        SceneLightInnerDelta::light(l) => {
-          let proj = l.build_shadow_projection().unwrap(); // todo
-          SceneCameraInnerDelta::projection(proj).apply_modify(camera)
-        }
-        SceneLightInnerDelta::node(n) => SceneCameraInnerDelta::node(n).apply_modify(camera),
-      }
-      Some(())
-    })
-    .into()
+  proj
+    .zip_signal(node_delta)
+    .map(|((p, size), node)| (SceneCamera::create(proj, node), size))
 }
 
 pub const SHADOW_MAX: usize = 8;

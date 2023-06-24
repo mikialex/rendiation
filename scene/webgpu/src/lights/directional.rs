@@ -1,4 +1,4 @@
-use rendiation_geometry::{HyperRayCaster, HyperRay};
+use rendiation_geometry::{HyperRay, HyperRayCaster};
 
 use crate::*;
 
@@ -84,7 +84,10 @@ impl WebGPULight for SceneItemRef<DirectionalLight> {
       Ill(Vec3<f32>),
     }
 
+    let node = node.create_broad_caster();
+
     let direction = node
+      .fork_stream()
       .map(|node| ctx.derives.create_world_matrix_stream(&node))
       .flatten_signal()
       .map(|mat| mat.forward().reverse().normalize())
@@ -92,7 +95,11 @@ impl WebGPULight for SceneItemRef<DirectionalLight> {
 
     let shadow = ctx
       .shadow_system()
-      .create_basic_shadow_stream(&self)
+      .create_shadow_info_stream(
+        self.guid(),
+        build_shadow_projection(self),
+        node.fork_stream(),
+      )
       .map(ShaderInfoDelta::Shadow);
 
     let ill = self
@@ -135,18 +142,19 @@ impl Default for DirectionalShadowMapExtraInfo {
   }
 }
 
-impl ShadowSingleProjectCreator for SceneItemRef<DirectionalLight> {
-  fn build_shadow_projection(&self) -> Option<impl Stream<Item = Box<dyn CameraProjection>>> {
-    let light = self.read();
-    let shadow_info = light.ext.get::<DirectionalShadowMapExtraInfo>()?;
+fn build_shadow_projection(
+  light: &SceneItemRef<DirectionalLight>,
+) -> impl Stream<Item = Box<dyn CameraProjection>> {
+  let light = light.read();
+  let shadow_info = light.ext.get::<DirectionalShadowMapExtraInfo>()?;
 
-    let orth = WorkAroundResizableOrth {
-      orth: shadow_info.range,
-    };
-    let orth = Box::new(orth) as Box<dyn CameraProjection>;
+  let orth = WorkAroundResizableOrth {
+    orth: shadow_info.range,
+  };
+  let orth = Box::new(orth) as Box<dyn CameraProjection>;
 
-    once_forever_pending(orth).into()
-  }
+  // todo watch aspect change
+  once_forever_pending(orth)
 }
 
 #[derive(Clone)]

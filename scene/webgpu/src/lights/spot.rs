@@ -78,7 +78,7 @@ impl WebGPULight for SceneItemRef<SpotLight> {
   fn create_uniform_stream(
     &self,
     ctx: &mut LightResourceCtx,
-    node: Box<dyn Stream<Item = SceneNode>>,
+    node: Box<dyn Stream<Item = SceneNode> + Unpin>,
   ) -> impl Stream<Item = Self::Uniform> {
     enum ShaderInfoDelta {
       DirPosition(Vec3<f32>, Vec3<f32>),
@@ -93,7 +93,10 @@ impl WebGPULight for SceneItemRef<SpotLight> {
       pub half_penumbra_cos: f32,
     }
 
+    let node = node.create_broad_caster();
+
     let direction = node
+      .fork_stream()
       .map(|node| ctx.derives.create_world_matrix_stream(&node))
       .flatten_signal()
       .map(|mat| (mat.forward().reverse().normalize(), mat.position()))
@@ -101,7 +104,11 @@ impl WebGPULight for SceneItemRef<SpotLight> {
 
     let shadow = ctx
       .shadow_system()
-      .create_basic_shadow_stream(&self)
+      .create_shadow_info_stream(
+        self.guid(),
+        build_shadow_projection(self),
+        node.fork_stream(),
+      )
       .map(ShaderInfoDelta::Shadow);
 
     let light = self
@@ -136,15 +143,15 @@ impl WebGPULight for SceneItemRef<SpotLight> {
   }
 }
 
-impl ShadowSingleProjectCreator for SceneItemRef<SpotLight> {
-  fn build_shadow_projection(&self) -> Option<impl Stream<Item = Box<dyn CameraProjection>>> {
-    let proj = PerspectiveProjection {
-      near: 0.1,
-      far: 2000.,
-      fov: Deg::from_rad(self.read().half_cone_angle * 2.),
-      aspect: 1.,
-    };
-    let proj = Box::new(proj) as Box<dyn CameraProjection>;
-    once_forever_pending(proj).into()
-  }
+fn build_shadow_projection(
+  light: &SceneItemRef<SpotLight>,
+) -> impl Stream<Item = Box<dyn CameraProjection>> {
+  let proj = PerspectiveProjection {
+    near: 0.1,
+    far: 2000.,
+    fov: Deg::from_rad(light.read().half_cone_angle * 2.),
+    aspect: 1.,
+  };
+  let proj = Box::new(proj) as Box<dyn CameraProjection>;
+  once_forever_pending(proj)
 }
