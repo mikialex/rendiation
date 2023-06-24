@@ -3,7 +3,7 @@ use std::{
   sync::{RwLockReadGuard, RwLockWriteGuard, Weak},
 };
 
-use futures::{Future, Stream};
+use futures::{Future, FutureExt, Stream};
 use reactive::{do_updates, ReactiveMapping};
 
 use super::identity::Identity;
@@ -183,7 +183,7 @@ impl<T: IncrementalBase> SceneItemRef<T> {
       if let Some(origin) = self_weak.upgrade() {
         origin.read().delta_source.off(remove_token)
       }
-    })
+    });
   }
 
   pub fn trigger_change(&self, delta: &T::Delta) {

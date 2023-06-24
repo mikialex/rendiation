@@ -123,42 +123,43 @@ impl ShadowMapAllocatorImpl {
       depth_or_array_layers: 5 as u32,
     };
 
-      let mapping = self
-        .requirements
-        .iter()
-        .enumerate()
-        .map(|(i, (v, _))| {
-          (
-            *v,
-            ShadowMapAddressInfo {
-              layer_index: i as i32,
-              size: Vec2::zero(),
-              offset: Vec2::zero(),
-              ..Zeroable::zeroed()
-            },
-          )
-        })
-        .collect();
+    let map = GPUTexture::create(
+      webgpu::TextureDescriptor {
+        label: "shadow-maps".into(),
+        size: init_size,
+        mip_level_count: 1,
+        sample_count: 1,
+        dimension: webgpu::TextureDimension::D2,
+        format: webgpu::TextureFormat::Depth32Float,
+        view_formats: &[],
+        usage: webgpu::TextureUsages::TEXTURE_BINDING | webgpu::TextureUsages::RENDER_ATTACHMENT,
+      },
+      device,
+    );
+    let map = map.create_view(Default::default()).try_into().unwrap();
 
-      let sampler = GPUSampler::create(
-        webgpu::SamplerDescriptor {
-          mag_filter: webgpu::FilterMode::Linear,
-          min_filter: webgpu::FilterMode::Linear,
-          mipmap_filter: webgpu::FilterMode::Nearest,
-          compare: webgpu::CompareFunction::Greater.into(),
-          ..Default::default()
-        },
-        &gpu.device,
-      )
-      .create_view(());
-      let sampler = sampler.try_into().unwrap();
+    let mapping = Default::default();
 
-      ShadowMapAllocationInfo {
-        map,
-        mapping,
-        sampler,
-      }
-    })
+    let sampler = GPUComparisonSampler::create(
+      webgpu::SamplerDescriptor {
+        mag_filter: webgpu::FilterMode::Linear,
+        min_filter: webgpu::FilterMode::Linear,
+        mipmap_filter: webgpu::FilterMode::Nearest,
+        compare: webgpu::CompareFunction::Greater.into(),
+        ..Default::default()
+      },
+      device,
+    )
+    .create_view(());
+
+    Self {
+      id: 0,
+      map,
+      device: device.clone(),
+      size_all: init_size,
+      allocations: mapping,
+      sampler,
+    }
   }
 }
 
@@ -196,7 +197,6 @@ impl Stream for ShadowMap {
 }
 
 impl ShadowMap {
-  // todo , we should return viewport here!
   pub fn get_write_view(&self, gpu: &GPU) -> (GPU2DTextureView, ShadowMapAddressInfo) {
     let mut inner = self.inner.inner.borrow_mut();
     let id = self.inner.id;

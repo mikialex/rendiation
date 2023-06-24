@@ -189,12 +189,14 @@ impl<T: IncrementalBase> Identity<T> {
     EventSourceStream::new(dropper, receiver)
   }
 
+  // todo, how to handle too many drop listener? in fact we never cleanup them
   pub fn create_drop(&self) -> impl Future<Output = ()> {
+    let (sender, receiver) = futures::channel::oneshot::channel::<()>();
+    self.drop_source.on(move |_| {
+      sender.send(()).ok();
+    });
     use futures::FutureExt;
-    self
-      .listen_by::<DefaultSingleValueChannel, _>(no_change)
-      .count()
-      .map(|_| {})
+    receiver.map(|_| ())
   }
 }
 

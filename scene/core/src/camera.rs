@@ -31,13 +31,6 @@ impl SceneCamera {
       .map(|camera| camera.read().compute_project_mat())
   }
 
-  pub fn create_camera(
-    p: impl ResizableProjection<f32> + RayCaster3<f32> + DynIncremental + Clone + 'static,
-    node: SceneNode,
-  ) -> Self {
-    Self::create_camera_inner(Box::new(p), node)
-  }
-
   pub fn resize(&self, size: (f32, f32)) {
     self.mutate(|mut camera| {
       let resize = CameraProjectorDelta::Resize(size);
