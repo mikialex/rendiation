@@ -3,7 +3,7 @@ use std::{
   sync::{RwLockReadGuard, RwLockWriteGuard, Weak},
 };
 
-use futures::{Future, FutureExt, Stream};
+use futures::{Future, Stream};
 use reactive::{do_updates, ReactiveMapping};
 
 use super::identity::Identity;

@@ -21,11 +21,10 @@ impl SingleProjectShadowMapSystem {
     node_delta: impl Stream<Item = SceneNode>,
   ) -> impl Stream<Item = LightShadowAddressInfo> {
     let camera_stream = basic_shadow_camera(proj, node_delta);
-    let resolution = camera_stream.as_ref().1;
     self.cameras.insert(light_id, camera_stream);
-    let shadow_map = self.maps.allocate(resolution);
-    self.shadow_maps.insert(light_id, shadow_map);
-    self.list.allocate(shadow_map)
+    let (sender, rec) = futures::channel::mpsc::unbounded();
+    self.emitter.insert(light_id, sender);
+    rec
   }
 
   pub fn maintain(&mut self) {
@@ -37,6 +36,9 @@ impl SingleProjectShadowMapSystem {
         } else {
           self.shadow_maps.remove(idx)
         }
+      }
+      StreamMapDelta::Remove(idx) => {
+        self.emitter.remove(&idx);
       }
       _ => {}
     })
@@ -80,8 +82,7 @@ impl SingleProjectShadowMapSystem {
   }
 }
 
-type ReactiveBasicShadowSceneCamera =
-  impl Stream<Item = (SceneCamera, Size)> + AsRef<(SceneCamera, Size)>;
+type ReactiveBasicShadowSceneCamera = impl Stream<Item = (SceneCamera, Size)>;
 
 fn basic_shadow_camera(
   proj: impl Stream<Item = (Box<dyn CameraProjection>, Size)>,
