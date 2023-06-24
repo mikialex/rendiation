@@ -1,3 +1,4 @@
+use std::borrow::Cow;
 use std::collections::BTreeMap;
 use std::fs::{self, File};
 use std::io::BufWriter;
@@ -104,9 +105,26 @@ pub fn build_scene_to_gltf(
   };
 
   let gltf_root_file_path = folder_path.join(file_name);
-  let file = File::create(gltf_root_file_path).map_err(GltfExportErr::IO)?;
+  let binary_data = ctx.binary_data.borrow();
+  let json_buf = json
+    .to_vec()
+    .map_err(|e| GltfExportErr::Serialize(Box::new(e)))?;
 
-  json
+  // todo not optimal, improve upstream
+  let glb = gltf::Glb {
+    header: gltf::binary::Header {
+      magic: *b"glTF",
+      version: 2,
+      length: 0, // this actually computed by writer when writing
+    },
+    json: Cow::Borrowed(&json_buf),
+    bin: binary_data
+      .as_ref()
+      .map(|b| Cow::Borrowed(b.binary_data.as_slice())),
+  };
+
+  let file = File::create(gltf_root_file_path).map_err(GltfExportErr::IO)?;
+  glb
     .to_writer(BufWriter::new(file))
     .map_err(|e| GltfExportErr::Serialize(Box::new(e)))
 }
