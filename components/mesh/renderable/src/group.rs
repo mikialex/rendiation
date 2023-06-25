@@ -1,5 +1,7 @@
 use std::ops::Range;
 
+use incremental::*;
+
 use crate::GPUConsumableMeshBuffer;
 
 #[derive(Copy, Clone, Debug, Hash, PartialEq, Eq)]
@@ -82,7 +84,7 @@ pub enum MeshDrawGroup {
   SubMesh(usize),
 }
 
-incremental::clone_self_incremental!(MeshDrawGroup);
+clone_self_incremental!(MeshDrawGroup);
 
 impl Default for MeshDrawGroup {
   fn default() -> Self {

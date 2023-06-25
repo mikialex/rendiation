@@ -14,13 +14,13 @@ pub enum Event3D {
   MouseUp { world_position: Vec3<f32> },
 }
 
-pub struct InteractiveWatchable<T, S: Incremental> {
+pub struct InteractiveWatchable<T, S: ApplicableIncremental> {
   inner: T,
   callbacks: Vec<Box<dyn FnMut(&mut S, &EventCtx3D, &mut dyn FnMut(S::Delta))>>,
   updates: Option<Box<dyn FnMut(DeltaView<S>, &mut T)>>,
 }
 
-impl<T, S: Incremental> InteractiveWatchable<T, S> {
+impl<T, S: ApplicableIncremental> InteractiveWatchable<T, S> {
   pub fn on(
     mut self,
     cb: impl FnMut(&mut S, &EventCtx3D, &mut dyn FnMut(S::Delta)) + 'static,
@@ -35,11 +35,11 @@ impl<T, S: Incremental> InteractiveWatchable<T, S> {
 }
 
 pub trait InteractiveWatchableInit<T> {
-  fn eventable<S: Incremental>(self) -> InteractiveWatchable<T, S>;
+  fn eventable<S: ApplicableIncremental>(self) -> InteractiveWatchable<T, S>;
 }
 
 impl<T: SceneRenderable> InteractiveWatchableInit<T> for T {
-  fn eventable<S: Incremental>(self) -> InteractiveWatchable<T, S> {
+  fn eventable<S: ApplicableIncremental>(self) -> InteractiveWatchable<T, S> {
     InteractiveWatchable {
       inner: self,
       callbacks: Default::default(),
@@ -48,7 +48,7 @@ impl<T: SceneRenderable> InteractiveWatchableInit<T> for T {
   }
 }
 
-impl<T: SceneRenderable, S: Incremental> View<S> for InteractiveWatchable<T, S> {
+impl<T: SceneRenderable, S: ApplicableIncremental> View<S> for InteractiveWatchable<T, S> {
   type Event = ();
 
   fn event(
@@ -71,7 +71,7 @@ impl<T: SceneRenderable, S: Incremental> View<S> for InteractiveWatchable<T, S> 
   }
 }
 
-impl<T: SceneRenderable, S: Incremental> SceneRenderable for InteractiveWatchable<T, S> {
+impl<T: SceneRenderable, S: ApplicableIncremental> SceneRenderable for InteractiveWatchable<T, S> {
   fn render(
     &self,
     pass: &mut FrameRenderPass,
@@ -83,7 +83,9 @@ impl<T: SceneRenderable, S: Incremental> SceneRenderable for InteractiveWatchabl
   }
 }
 
-impl<T: SceneRayInteractive, S: Incremental> SceneRayInteractive for InteractiveWatchable<T, S> {
+impl<T: SceneRayInteractive, S: ApplicableIncremental> SceneRayInteractive
+  for InteractiveWatchable<T, S>
+{
   fn ray_pick_nearest(&self, ctx: &SceneRayInteractiveCtx) -> OptionalNearest<MeshBufferHitPoint> {
     self.inner.ray_pick_nearest(ctx)
   }

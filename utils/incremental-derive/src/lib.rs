@@ -25,7 +25,19 @@ fn derive_incremental_impl_inner(s: &StructInfo) -> proc_macro2::TokenStream {
   });
 
   let apply = s.map_visible_fields(|(name, _)| {
-    quote! { #incremental_type_name::#name(v) => self.#name.apply(v).unwrap(), }
+    quote! {
+      #incremental_type_name::#name(v) => {
+        return self.#name.apply(v).map_err(|_|{});
+      },
+    }
+  });
+
+  let should_apply_hints = s.map_visible_fields(|(name, _)| {
+    quote! {
+      #incremental_type_name::#name(v) => {
+        return self.#name.should_apply_hint(v);
+      }
+    }
   });
 
   let expand = s.map_visible_fields(|(name, _)| {
@@ -33,6 +45,9 @@ fn derive_incremental_impl_inner(s: &StructInfo) -> proc_macro2::TokenStream {
       cb(#incremental_type_name::#name(delta));
     }); }
   });
+
+  let expand_size = expand.len();
+  let expand_size = quote! { #expand_size };
 
   quote! {
 
@@ -42,17 +57,27 @@ fn derive_incremental_impl_inner(s: &StructInfo) -> proc_macro2::TokenStream {
       #(#incremental_variants)*
     }
 
-    impl incremental::SimpleIncremental for #struct_name {
+    impl incremental::IncrementalBase for #struct_name {
       type Delta = #incremental_type_name;
+      fn expand(&self, mut cb: impl FnMut(Self::Delta)) {
+        #(#expand)*
+      }
+      fn expand_size(&self) -> Option<usize> {
+        Some(#expand_size)
+      }
+    }
 
-      fn s_apply(&mut self, delta: Self::Delta) {
+    impl incremental::ApplicableIncremental for  #struct_name {
+      type Error = ();
+      fn apply(&mut self, delta: Self::Delta) -> Result<(), Self::Error> {
         match delta {
           #(#apply)*
         }
       }
-
-      fn s_expand(&self, mut cb: impl FnMut(Self::Delta)) {
-        #(#expand)*
+      fn should_apply_hint(&self, delta: &Self::Delta) -> bool {
+        match delta {
+          #(#should_apply_hints)*
+        }
       }
     }
 
@@ -114,13 +139,6 @@ impl StructInfo {
       .map(f)
       .collect()
   }
-
-  // pub fn map_fields_with_index(
-  //   &self,
-  //   f: impl FnMut((usize, &(Ident, Type))) -> proc_macro2::TokenStream,
-  // ) -> Vec<proc_macro2::TokenStream> {
-  //   self.fields_info.iter().enumerate().map(f).collect()
-  // }
 }
 
 fn only_accept_struct(input: &syn::DeriveInput) -> Result<&syn::DeriveInput, syn::Error> {

@@ -35,13 +35,13 @@ impl<T: IncrementalBase> From<T> for Identity<T> {
   }
 }
 
-trait ModifyIdentityDelta<T: Incremental> {
+trait ModifyIdentityDelta<T: ApplicableIncremental> {
   fn apply(self, target: &mut Identity<T>);
 }
 
 impl<T, X> ModifyIdentityDelta<T> for X
 where
-  T: Incremental<Delta = X>,
+  T: ApplicableIncremental<Delta = X>,
 {
   fn apply(self, target: &mut Identity<T>) {
     target.mutate(|mut m| {

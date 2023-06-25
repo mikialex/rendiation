@@ -1,7 +1,6 @@
 use std::{cell::RefCell, rc::Rc, sync::Arc};
 
 use incremental::*;
-use incremental::{DeltaOf, Incremental, SimpleIncremental};
 use interphaser::{
   mouse, mouse_move,
   winit::event::{ElementState, MouseButton},

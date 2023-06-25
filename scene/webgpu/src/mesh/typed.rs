@@ -107,7 +107,7 @@ where
   T: PrimitiveTopologyMeta + Unpin,
   IU: IndexGet + AsGPUBytes + IndexBufferSourceTypeProvider + Unpin + 'static,
   IndexedMesh<T, Vec<V>, IU>: GPUConsumableMeshBuffer,
-  GroupedMesh<IndexedMesh<T, Vec<V>, IU>>: SimpleIncremental + Send + Sync,
+  GroupedMesh<IndexedMesh<T, Vec<V>, IU>>: IncrementalBase + Send + Sync,
 {
   fn as_reactive_component(&self) -> &dyn ReactiveRenderComponent {
     self.as_ref() as &dyn ReactiveRenderComponent
@@ -120,7 +120,7 @@ where
   T: PrimitiveTopologyMeta + Unpin,
   IU: IndexGet + AsGPUBytes + IndexBufferSourceTypeProvider + Unpin + 'static,
   IndexedMesh<T, Vec<V>, IU>: GPUConsumableMeshBuffer,
-  GroupedMesh<IndexedMesh<T, Vec<V>, IU>>: SimpleIncremental + Send + Sync,
+  GroupedMesh<IndexedMesh<T, Vec<V>, IU>>: IncrementalBase + Send + Sync,
 {
   fn draw_command(&self, group: MeshDrawGroup) -> DrawCommand {
     let inner: &TypedMeshGPU<GroupedMesh<IndexedMesh<T, Vec<V>, IU>>> = self.as_ref();
@@ -143,7 +143,7 @@ where
   T: PrimitiveTopologyMeta + Unpin,
   IU: IndexGet + AsGPUBytes + IndexBufferSourceTypeProvider + Unpin + 'static,
   IndexedMesh<T, Vec<V>, IU>: GPUConsumableMeshBuffer,
-  GroupedMesh<IndexedMesh<T, Vec<V>, IU>>: SimpleIncremental + Send + Sync,
+  GroupedMesh<IndexedMesh<T, Vec<V>, IU>>: IncrementalBase + Send + Sync,
 = impl AsRef<RenderComponentCell<TypedMeshGPU<GroupedMesh<IndexedMesh<T, Vec<V>, IU>>>>>
   + Stream<Item = RenderComponentDeltaFlag>;
 
@@ -153,7 +153,7 @@ where
   T: PrimitiveTopologyMeta + Unpin,
   IU: IndexGet + AsGPUBytes + IndexBufferSourceTypeProvider + Unpin + 'static,
   IndexedMesh<T, Vec<V>, IU>: GPUConsumableMeshBuffer,
-  Self: SimpleIncremental + Send + Sync,
+  Self: IncrementalBase + Send + Sync,
 {
   type ReactiveGPU = ReactiveMeshGPUOfTypedMesh<V, T, IU>;
 

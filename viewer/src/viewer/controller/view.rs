@@ -1,4 +1,4 @@
-use incremental::{DeltaOf, Incremental};
+use incremental::{ApplicableIncremental, DeltaOf};
 use interphaser::{
   mouse, mouse_move,
   winit::event::{ElementState, Event, MouseButton},
@@ -10,7 +10,7 @@ use webgpu::{FrameRenderPass, RenderComponentAny};
 
 use crate::*;
 
-pub enum ViewReaction<V, T: Incremental> {
+pub enum ViewReaction<V, T: ApplicableIncremental> {
   /// emit self special event
   ViewEvent(V),
   /// do state mutation
@@ -21,7 +21,7 @@ pub enum ViewReaction<V, T: Incremental> {
 /// given logic for view type
 pub trait View<T>
 where
-  T: Incremental,
+  T: ApplicableIncremental,
 {
   /// View type's own event type
   type Event;
@@ -82,11 +82,13 @@ pub struct Component3DCollection<T, E> {
   collection: Vec<Box<dyn View3D<T, Event = E>>>,
 }
 
-pub trait View3D<T: Incremental>: View<T> + SceneRayInteractive + SceneRenderable {
+pub trait View3D<T: ApplicableIncremental>:
+  View<T> + SceneRayInteractive + SceneRenderable
+{
   fn as_mut_interactive(&mut self) -> &mut dyn SceneRayInteractive;
   fn as_interactive(&self) -> &dyn SceneRayInteractive;
 }
-impl<T: Incremental, X: View<T> + SceneRayInteractive + SceneRenderable> View3D<T> for X {
+impl<T: ApplicableIncremental, X: View<T> + SceneRayInteractive + SceneRenderable> View3D<T> for X {
   fn as_mut_interactive(&mut self) -> &mut dyn SceneRayInteractive {
     self
   }
@@ -95,7 +97,7 @@ impl<T: Incremental, X: View<T> + SceneRayInteractive + SceneRenderable> View3D<
   }
 }
 
-impl<T: Incremental, E> Component3DCollection<T, E> {
+impl<T: ApplicableIncremental, E> Component3DCollection<T, E> {
   #[must_use]
   pub fn with(mut self, item: impl View3D<T, Event = E> + 'static) -> Self {
     self.collection.push(Box::new(item));
@@ -109,7 +111,7 @@ pub fn collection3d<T, E>() -> Component3DCollection<T, E> {
   }
 }
 
-impl<T: Incremental, E> View<T> for Component3DCollection<T, E> {
+impl<T: ApplicableIncremental, E> View<T> for Component3DCollection<T, E> {
   type Event = E;
 
   fn event(

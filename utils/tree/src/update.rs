@@ -11,7 +11,7 @@ use crate::*;
 ///
 /// We not impose IncrementalHierarchyDerived extends HierarchyDerived
 /// because of simplicity.
-pub trait IncrementalHierarchyDerived: Default + IncrementalBase {
+pub trait IncrementalHierarchyDerived: IncrementalBase {
   type Source: IncrementalBase;
   type DirtyMark: HierarchyDirtyMark;
 
@@ -20,6 +20,8 @@ pub trait IncrementalHierarchyDerived: Default + IncrementalBase {
   fn filter_hierarchy_change(
     change: &<Self::Source as IncrementalBase>::Delta,
   ) -> Option<Self::DirtyMark>;
+
+  fn build_default(self_source: &Self::Source) -> Self;
 
   fn hierarchy_update(
     &mut self,
@@ -108,7 +110,7 @@ impl<T: IncrementalBase, Dirty> TreeHierarchyDerivedSystem<T, Dirty> {
   where
     B: TreeIncrementalDeriveBehavior<T, S, M, TREE, Dirty = Dirty>,
     S: IncrementalBase,
-    T: Default,
+    T: IncrementalHierarchyDerived<DirtyMark = M, Source = S>,
     Dirty: Default + 'static,
     M: HierarchyDirtyMark,
     TREE: 'static,
@@ -138,8 +140,11 @@ impl<T: IncrementalBase, Dirty> TreeHierarchyDerivedSystem<T, Dirty> {
           // simply create the default derived. insert into derived tree.
           // we don't care the returned handle, as we assume they are allocated in the same position
           // in the original tree.
-          TreeMutation::Create { .. } => {
-            let node = derived_tree.create_node(Default::default());
+          TreeMutation::Create { data, .. } => {
+            let node = derived_tree.create_node(DerivedData {
+              data: T::build_default(&data),
+              dirty: Default::default(),
+            });
             deltas.push(MarkingResult::Create(node.index()));
             B::marking_dirty(&mut derived_tree, node, M::all_dirty())
           }
@@ -207,7 +212,10 @@ impl<T: IncrementalBase, Dirty> TreeHierarchyDerivedSystem<T, Dirty> {
           }
           MarkingResult::Remove(idx) => derived_deltas.push((idx, None)),
           MarkingResult::Create(idx) => {
-            T::default().expand(|d| derived_deltas.push((idx, Some(d))))
+            let derived_tree = derived_tree_cc.read().unwrap();
+            let handle = derived_tree.recreate_handle(idx);
+            let derived = derived_tree.get_node(handle).data();
+            derived.data.expand(|d| derived_deltas.push((idx, Some(d))))
           }
         }
 

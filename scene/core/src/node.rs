@@ -13,7 +13,7 @@ pub struct SceneNodeDataImpl {
   pub visible: bool,
 }
 
-#[derive(Default, Incremental, Clone)]
+#[derive(Incremental, Clone)]
 pub struct SceneNodeDerivedData {
   pub world_matrix: Mat4<f32>,
   pub net_visible: bool,
@@ -29,7 +29,7 @@ impl HierarchyDerived for SceneNodeDerivedData {
         net_visible: parent.net_visible && self_source.visible,
       }
     } else {
-      Default::default()
+      SceneNodeDerivedData::build_default(self_source)
     }
   }
 }
@@ -70,6 +70,13 @@ impl IncrementalHierarchyDerived for SceneNodeDerivedData {
       SceneNodeDataImplDelta::visible(_) => SceneNodeDeriveDataDirtyFlag::WorldMatrix,
     }
     .into()
+  }
+
+  fn build_default(self_source: &Self::Source) -> Self {
+    SceneNodeDerivedData {
+      world_matrix: self_source.local_matrix,
+      net_visible: self_source.visible,
+    }
   }
 
   fn hierarchy_update(
