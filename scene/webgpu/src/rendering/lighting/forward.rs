@@ -187,24 +187,6 @@ impl<T: LightCollectionCompute + RebuildAbleGPUCollectionBase + Any + Stream<Ite
 // a little bit hack
 only_fragment!(LightCount, u32);
 
-pub trait BuilderUsefulExt {
-  fn get_or_compute_fragment_normal(&mut self) -> Node<Vec3<f32>>;
-}
-
-impl<'a> BuilderUsefulExt for ShaderGraphFragmentBuilderView<'a> {
-  fn get_or_compute_fragment_normal(&mut self) -> Node<Vec3<f32>> {
-    // check first and avoid unnecessary renormalize
-    if let Ok(normal) = self.query::<FragmentWorldNormal>() {
-      normal
-    } else {
-      let normal = self.query_or_interpolate_by::<FragmentWorldNormal, WorldVertexNormal>();
-      let normal = normal.normalize(); // renormalize
-      self.register::<FragmentWorldNormal>(normal);
-      normal
-    }
-  }
-}
-
 impl ForwardLightingSystem {
   pub fn get_or_create_list<T: ShaderLight>(&mut self) -> &mut LightList<T> {
     let lights = self

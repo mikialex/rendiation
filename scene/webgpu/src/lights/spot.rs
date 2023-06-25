@@ -94,13 +94,13 @@ impl WebGPULight for SceneItemRef<SpotLight> {
     }
 
     let node = node.create_broad_caster();
-
+    let derives = ctx.derives.clone();
     let direction = node
       .fork_stream()
-      .map(|node| ctx.derives.create_world_matrix_stream(&node))
+      .filter_map_sync(move |node| derives.create_world_matrix_stream(&node))
       .flatten_signal()
       .map(|mat| (mat.forward().reverse().normalize(), mat.position()))
-      .map(ShaderInfoDelta::DirPosition);
+      .map(|(a, b)| ShaderInfoDelta::DirPosition(a, b));
 
     let shadow = ctx
       .shadow_system()
@@ -114,11 +114,14 @@ impl WebGPULight for SceneItemRef<SpotLight> {
     let light = self
       .single_listen_by(any_change)
       .filter_map_sync(self.defer_weak())
-      .map(|light| SpotLightShaderInfoPart {
-        luminance_intensity: light.luminance_intensity * light.color_factor,
-        cutoff_distance: light.cutoff_distance,
-        half_cone_cos: light.half_cone_angle.cos(),
-        half_penumbra_cos: light.half_penumbra_angle.cos(),
+      .map(|light| {
+        let light = light.read();
+        SpotLightShaderInfoPart {
+          luminance_intensity: light.luminance_intensity * light.color_factor,
+          cutoff_distance: light.cutoff_distance,
+          half_cone_cos: light.half_cone_angle.cos(),
+          half_penumbra_cos: light.half_penumbra_angle.cos(),
+        }
       })
       .map(ShaderInfoDelta::Light);
 
@@ -126,7 +129,7 @@ impl WebGPULight for SceneItemRef<SpotLight> {
 
     delta.fold_signal(SpotLightShaderInfo::default(), |delta, info| {
       match delta {
-        ShaderInfoDelta::DirPosition((dir, pos)) => {
+        ShaderInfoDelta::DirPosition(dir, pos) => {
           info.direction = dir;
           info.position = pos;
         }
@@ -138,20 +141,22 @@ impl WebGPULight for SceneItemRef<SpotLight> {
           info.half_cone_cos = l.half_cone_cos;
         }
       };
-      Some(())
+      Some(*info)
     })
   }
 }
 
 fn build_shadow_projection(
   light: &SceneItemRef<SpotLight>,
-) -> impl Stream<Item = Box<dyn CameraProjection>> {
+) -> impl Stream<Item = (Box<dyn CameraProjection>, Size)> {
   let proj = PerspectiveProjection {
     near: 0.1,
     far: 2000.,
     fov: Deg::from_rad(light.read().half_cone_angle * 2.),
     aspect: 1.,
   };
-  let proj = Box::new(proj) as Box<dyn CameraProjection>;
-  once_forever_pending(proj)
+  let proj = todo!() as Box<dyn CameraProjection>;
+  let size = Size::from_u32_pair_min_one((512, 512)); // todo
+                                                      // todo watch  change
+  once_forever_pending((proj, size))
 }

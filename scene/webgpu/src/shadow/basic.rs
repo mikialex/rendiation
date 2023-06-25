@@ -1,7 +1,6 @@
 use crate::*;
 
 #[pin_project::pin_project]
-#[derive(Default)]
 pub struct SingleProjectShadowMapSystem {
   /// light guid to light shadow camera
   #[pin]
@@ -9,13 +8,25 @@ pub struct SingleProjectShadowMapSystem {
   #[pin]
   shadow_maps: StreamMap<usize, ShadowMap>,
   maps: ShadowMapAllocator,
-  list: BasicShadowMapInfoList,
+  pub list: BasicShadowMapInfoList,
+  gpu: ResourceGPUCtx,
   emitter: HashMap<usize, futures::channel::mpsc::UnboundedSender<LightShadowAddressInfo>>,
 }
 
 impl SingleProjectShadowMapSystem {
+  pub fn new(gpu: ResourceGPUCtx, maps: ShadowMapAllocator) -> Self {
+    Self {
+      cameras: Default::default(),
+      shadow_maps: Default::default(),
+      maps,
+      list: Default::default(),
+      gpu,
+      emitter: Default::default(),
+    }
+  }
+
   pub fn create_shadow_info_stream(
-    &self,
+    &mut self,
     light_id: usize,
     proj: impl Stream<Item = (Box<dyn CameraProjection>, Size)>,
     node_delta: impl Stream<Item = SceneNode>,
@@ -29,22 +40,27 @@ impl SingleProjectShadowMapSystem {
 
   pub fn maintain(&mut self) {
     do_updates(&mut self.cameras, |updates| match updates {
-      StreamMapDelta::Delta(idx, delta) => {
-        if let Some((_, size)) = delta {
-          self.shadow_maps.remove(idx);
-          self.shadow_maps.insert(idx, self.maps.allocate(size));
-        } else {
-          self.shadow_maps.remove(idx)
-        }
+      StreamMapDelta::Delta(idx, (_camera, size)) => {
+        self.shadow_maps.remove(idx);
+        self.shadow_maps.insert(idx, self.maps.allocate(size));
       }
       StreamMapDelta::Remove(idx) => {
         self.emitter.remove(&idx);
       }
       _ => {}
-    })
+    });
+
+    do_updates(&mut self.shadow_maps, |updates| match updates {
+      StreamMapDelta::Delta(idx, delta) => {
+        self.emitter.get(&idx).unwrap().unbounded_send(delta);
+      }
+      _ => {}
+    });
+
+    self.list.list.update_gpu(&self.gpu.device);
   }
 
-  pub fn update_depth_maps(&mut self, ctx: &FrameCtx) {
+  pub fn update_depth_maps(&mut self, ctx: &mut FrameCtx, scene: &SceneRenderResourceGroup) {
     assert_eq!(self.cameras.streams.len(), self.shadow_maps.streams.len());
 
     struct SceneDepth;
@@ -68,49 +84,41 @@ impl SingleProjectShadowMapSystem {
 
     for (light_id, shadow_camera) in &self.cameras.streams {
       let map = self.shadow_maps.streams.get(light_id).unwrap();
-      let (view, map_info) = map.get_write_view(ctx.ctx.gpu);
+      let (view, map_info) = map.get_write_view(ctx.gpu);
 
       pass("shadow-depth")
         .with_depth(view, clear(1.))
-        .render(ctx.ctx)
+        .render(ctx)
         .by(CameraSceneRef {
-          camera: &shadow_camera,
-          scene: ctx.scene,
+          camera: shadow_camera,
+          scene,
           inner: SceneDepth,
         });
     }
   }
 }
 
-type ReactiveBasicShadowSceneCamera = impl Stream<Item = (SceneCamera, Size)>;
+type ReactiveBasicShadowSceneCamera = impl Stream<Item = (SceneCamera, Size)> + Unpin;
 
 fn basic_shadow_camera(
   proj: impl Stream<Item = (Box<dyn CameraProjection>, Size)>,
   node_delta: impl Stream<Item = SceneNode>,
 ) -> ReactiveBasicShadowSceneCamera {
   proj
-    .zip_signal(node_delta)
-    .map(|((p, size), node)| (SceneCamera::create(proj, node), size))
+    .zip(node_delta)
+    .map(|((p, size), node)| (SceneCamera::create(p, node), size))
 }
 
-pub const SHADOW_MAX: usize = 8;
+const SHADOW_MAX: usize = 8;
 
 #[derive(Default)]
-pub struct BasicShadowMapInfoList {
+struct BasicShadowMapInfoList {
   pub list: ClampedUniformList<BasicShadowMapInfo, SHADOW_MAX>,
+  /// map light id to index;
+  pub mapping: HashMap<usize, usize>,
 }
 
 only_fragment!(BasicShadowMapInfoGroup, Shader140Array<BasicShadowMapInfo, SHADOW_MAX>);
-
-impl RebuildAbleGPUCollectionBase for BasicShadowMapInfoList {
-  fn reset(&mut self) {
-    self.list.reset();
-  }
-
-  fn update_gpu(&mut self, gpu: &GPU) -> usize {
-    self.list.update_gpu(gpu)
-  }
-}
 
 impl ShaderGraphProvider for BasicShadowMapInfoList {
   fn build(

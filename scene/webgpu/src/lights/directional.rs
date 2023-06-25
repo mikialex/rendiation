@@ -76,7 +76,7 @@ impl WebGPULight for SceneItemRef<DirectionalLight> {
   fn create_uniform_stream(
     &self,
     ctx: &mut LightResourceCtx,
-    node: Box<dyn Stream<Item = SceneNode>>,
+    node: Box<dyn Stream<Item = SceneNode> + Unpin>,
   ) -> impl Stream<Item = Self::Uniform> {
     enum ShaderInfoDelta {
       Dir(Vec3<f32>),
@@ -85,10 +85,10 @@ impl WebGPULight for SceneItemRef<DirectionalLight> {
     }
 
     let node = node.create_broad_caster();
-
+    let derives = ctx.derives.clone();
     let direction = node
       .fork_stream()
-      .map(|node| ctx.derives.create_world_matrix_stream(&node))
+      .filter_map_sync(move |node| derives.create_world_matrix_stream(&node))
       .flatten_signal()
       .map(|mat| mat.forward().reverse().normalize())
       .map(ShaderInfoDelta::Dir);
@@ -105,7 +105,7 @@ impl WebGPULight for SceneItemRef<DirectionalLight> {
     let ill = self
       .single_listen_by(any_change)
       .filter_map_sync(self.defer_weak())
-      .map(|light| light.illuminance * light.color_factor)
+      .map(|light| light.read().illuminance * light.read().color_factor)
       .map(ShaderInfoDelta::Ill);
 
     let delta = futures::stream_select!(direction, shadow, ill);
@@ -116,7 +116,7 @@ impl WebGPULight for SceneItemRef<DirectionalLight> {
         ShaderInfoDelta::Shadow(shadow) => info.shadow = shadow,
         ShaderInfoDelta::Ill(i) => info.illuminance = i,
       };
-      Some(())
+      Some(*info)
     })
   }
 }
@@ -144,17 +144,18 @@ impl Default for DirectionalShadowMapExtraInfo {
 
 fn build_shadow_projection(
   light: &SceneItemRef<DirectionalLight>,
-) -> impl Stream<Item = Box<dyn CameraProjection>> {
+) -> impl Stream<Item = (Box<dyn CameraProjection>, Size)> {
   let light = light.read();
-  let shadow_info = light.ext.get::<DirectionalShadowMapExtraInfo>()?;
+  let shadow_info = light.ext.get::<DirectionalShadowMapExtraInfo>().unwrap(); // todo
+  let size = Size::from_u32_pair_min_one((512, 512)); // todo
 
   let orth = WorkAroundResizableOrth {
     orth: shadow_info.range,
   };
   let orth = Box::new(orth) as Box<dyn CameraProjection>;
 
-  // todo watch aspect change
-  once_forever_pending(orth)
+  // todo watch  change
+  once_forever_pending((orth, size))
 }
 
 #[derive(Clone)]
@@ -192,5 +193,23 @@ impl<T: Scalar> ResizableProjection<T> for WorkAroundResizableOrth<T> {
 impl HyperRayCaster<f32, Vec3<f32>, Vec2<f32>> for WorkAroundResizableOrth<f32> {
   fn cast_ray(&self, normalized_position: Vec2<f32>) -> HyperRay<f32, Vec3<f32>> {
     self.orth.cast_ray(normalized_position)
+  }
+}
+
+impl<T: Scalar> CameraProjection for WorkAroundResizableOrth<T> {
+  fn update_projection(&self, projection: &mut Mat4<f32>) {
+    todo!()
+  }
+
+  fn resize(&mut self, size: (f32, f32)) {
+    todo!()
+  }
+
+  fn pixels_per_unit(&self, distance: f32, view_height: f32) -> f32 {
+    todo!()
+  }
+
+  fn cast_ray(&self, normalized_position: Vec2<f32>) -> rendiation_geometry::Ray3<f32> {
+    todo!()
   }
 }

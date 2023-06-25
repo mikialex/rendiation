@@ -41,7 +41,7 @@ impl WebGPULight for SceneItemRef<PointLight> {
   fn create_uniform_stream(
     &self,
     ctx: &mut LightResourceCtx,
-    node: Box<dyn Stream<Item = SceneNode>>,
+    node: Box<dyn Stream<Item = SceneNode> + Unpin>,
   ) -> impl Stream<Item = Self::Uniform> {
     enum ShaderInfoDelta {
       Position(Vec3<f32>),
@@ -49,8 +49,9 @@ impl WebGPULight for SceneItemRef<PointLight> {
       Light(Vec3<f32>, f32),
     }
 
+    let derives = ctx.derives.clone();
     let direction = node
-      .map(|node| ctx.derives.create_world_matrix_stream(&node))
+      .filter_map_sync(move |node| derives.create_world_matrix_stream(&node))
       .flatten_signal()
       .map(|mat| mat.position())
       .map(ShaderInfoDelta::Position);
@@ -59,24 +60,25 @@ impl WebGPULight for SceneItemRef<PointLight> {
       .single_listen_by(any_change)
       .filter_map_sync(self.defer_weak())
       .map(|light| {
+        let light = light.read();
         (
-          light.illuminance * light.color_factor,
+          light.luminance_intensity * light.color_factor,
           light.cutoff_distance,
         )
       })
-      .map(ShaderInfoDelta::Light);
+      .map(|(a, b)| ShaderInfoDelta::Light(a, b));
 
     let delta = futures::stream_select!(direction, ill);
 
-    delta.fold_signal(DirectionalLightShaderInfo::default(), |delta, info| {
+    delta.fold_signal(PointLightShaderInfo::default(), |delta, info| {
       match delta {
         ShaderInfoDelta::Position(position) => info.position = position,
         ShaderInfoDelta::Light(i, cutoff_distance) => {
-          info.illuminance = i;
+          info.luminance_intensity = i;
           info.cutoff_distance = cutoff_distance;
         }
       };
-      Some(())
+      Some(*info)
     })
   }
 }
