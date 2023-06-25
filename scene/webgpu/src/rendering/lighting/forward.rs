@@ -43,7 +43,7 @@ const MAX_SUPPORT_LIGHT_KIND_COUNT: usize = 8;
 ///
 /// all uniform is update once in a frame. for convenience.
 pub struct ForwardLightingSystem {
-  pub lights_collections: StreamMap<TypeId, Box<dyn ForwardLightCollection>>,
+  pub lights_collections: StreamMap<TypeId, Box<dyn LightCollectionCompute>>,
 
   /// note todo!, we don't support correct codegen for primitive wrapper array type
   /// so we use vec4<u32> instead of u32
@@ -65,7 +65,7 @@ impl ForwardLightingSystem {
           match &light.light {
             SceneLightKind::PointLight(_) => todo!(),
             SceneLightKind::SpotLight(light) => {
-              let uniform = light.create_uniform_stream(ctx, node);
+              let uniform = light.create_uniform_stream(todo!(), node);
               //
             }
             SceneLightKind::DirectionalLight(_) => todo!(),
@@ -171,56 +171,29 @@ impl<'a> ShaderGraphProvider for ForwardSceneLightingDispatcher<'a> {
   }
 }
 
-pub trait ForwardLightCollection:
-  LightCollectionCompute + RebuildAbleGPUCollectionBase + Any + Stream<Item = ()>
-{
-  fn as_any_mut(&mut self) -> &mut dyn Any;
-}
-impl<T: LightCollectionCompute + RebuildAbleGPUCollectionBase + Any + Stream<Item = ()>>
-  ForwardLightCollection for T
-{
-  fn as_any_mut(&mut self) -> &mut dyn Any {
-    self
-  }
-}
-
 // a little bit hack
 only_fragment!(LightCount, u32);
 
 impl ForwardLightingSystem {
-  pub fn get_or_create_list<T: ShaderLight>(&mut self) -> &mut LightList<T> {
-    let lights = self
-      .lights_collections
-      .entry(TypeId::of::<T>())
-      .or_insert_with(|| Box::<ClampedUniformList<T, 8>>::default());
-    lights.as_any_mut().downcast_mut::<LightList<T>>().unwrap()
-  }
+  // pub fn after_update_scene(&mut self, gpu: &GPU) {
+  //   let mut lengths: Shader140Array<Vec4<u32>, MAX_SUPPORT_LIGHT_KIND_COUNT> =
+  // Default::default();
 
-  pub fn before_update_scene(&mut self, _gpu: &GPU) {
-    self
-      .lights_collections
-      .iter_mut()
-      .for_each(|(_, c)| c.reset());
-  }
+  //   self
+  //     .lights_collections
+  //     .iter_mut()
+  //     .map(|(_, c)| c.update_gpu(gpu))
+  //     .enumerate()
+  //     .for_each(|(i, l)| lengths.inner[i] = Vec4::new(l as u32, 0, 0, 0).into());
 
-  pub fn after_update_scene(&mut self, gpu: &GPU) {
-    let mut lengths: Shader140Array<Vec4<u32>, MAX_SUPPORT_LIGHT_KIND_COUNT> = Default::default();
+  //   self.lengths = create_uniform(lengths, gpu).into();
 
-    self
-      .lights_collections
-      .iter_mut()
-      .map(|(_, c)| c.update_gpu(gpu))
-      .enumerate()
-      .for_each(|(i, l)| lengths.inner[i] = Vec4::new(l as u32, 0, 0, 0).into());
-
-    self.lengths = create_uniform(lengths, gpu).into();
-
-    let mut hasher = PipelineHasher::default();
-    for lights in self.lights_collections.values() {
-      lights.hash_pipeline(&mut hasher)
-    }
-    self.light_hash_cache = hasher.finish();
-  }
+  //   let mut hasher = PipelineHasher::default();
+  //   for lights in self.lights_collections.values() {
+  //     lights.hash_pipeline(&mut hasher)
+  //   }
+  //   self.light_hash_cache = hasher.finish();
+  // }
 
   pub fn compute_lights(
     &self,
@@ -268,37 +241,28 @@ struct LightList<T: ShaderLight> {
   source: StreamVec<Box<dyn Stream<Item = T>>>,
 }
 
-impl<T: ShaderLight> RebuildAbleGPUCollectionBase for LightList<T> {
-  fn reset(&mut self) {
-    self.reset()
-  }
+// impl<T: ShaderLight> RebuildAbleGPUCollectionBase for LightList<T> {
+//   fn reset(&mut self) {
+//     self.reset()
+//   }
 
-  fn update_gpu(&mut self, gpu: &GPU) -> usize {
-    self.update_gpu(gpu)
+//   fn update_gpu(&mut self, gpu: &GPU) -> usize {
+//     self.update_gpu(gpu)
+//   }
+// }
+
+impl<T: ShaderLight> ShaderHashProvider for LightList<T> {
+  fn hash_pipeline(&self, _hasher: &mut PipelineHasher) {
+    todo!()
   }
 }
+impl<T: ShaderLight> ShaderPassBuilder for LightList<T> {
+  fn setup_pass(&self, _ctx: &mut GPURenderPassCtx) {
+    todo!()
+  }
 
-pub trait LightCollectionCompute: ShaderPassBuilder + ShaderHashProvider {
-  fn compute_lights(
-    &self,
-    builder: &mut ShaderGraphFragmentBuilderView,
-    binding: &mut ShaderGraphBindGroupDirectBuilder,
-    shading_impl: &dyn LightableSurfaceShadingDyn,
-    shading: &dyn Any,
-    geom_ctx: &ENode<ShaderLightingGeometricCtx>,
-  ) -> Result<(Node<Vec3<f32>>, Node<Vec3<f32>>), ShaderGraphBuildError>;
-
-  fn compute_lights_grouped(
-    &self,
-    builder: &mut ShaderGraphFragmentBuilderView,
-    binding: &mut ShaderGraphBindGroupDirectBuilder,
-    shading_impl: &dyn LightableSurfaceShadingDyn,
-    shading: &dyn Any,
-    geom_ctx: &ENode<ShaderLightingGeometricCtx>,
-  ) -> Result<ENode<ShaderLightingResult>, ShaderGraphBuildError> {
-    let (diffuse, specular) =
-      self.compute_lights(builder, binding, shading_impl, shading, geom_ctx)?;
-    Ok(ENode::<ShaderLightingResult> { diffuse, specular })
+  fn post_setup_pass(&self, _ctx: &mut GPURenderPassCtx) {
+    todo!()
   }
 }
 
