@@ -1,38 +1,73 @@
 use crate::*;
 
 #[macro_export]
-macro_rules! clone_self_incremental {
+macro_rules! clone_self_incremental_base {
   ($Type: ty) => {
-    impl $crate::SimpleIncremental for $Type {
+    impl $crate::IncrementalBase for $Type {
       type Delta = Self;
 
-      fn s_apply(&mut self, delta: Self::Delta) {
-        *self = delta;
-      }
-
-      fn s_expand(&self, mut cb: impl FnMut(Self::Delta)) {
+      fn expand(&self, mut cb: impl FnMut(Self::Delta)) {
         cb(self.clone())
+      }
+      fn expand_size(&self) -> Option<usize> {
+        Some(1)
       }
     }
   };
 }
 
-clone_self_incremental!(());
+#[macro_export]
+macro_rules! clone_self_diffable_incremental {
+  ($Type: ty) => {
+    clone_self_incremental_base!($Type);
 
-clone_self_incremental!(bool);
-clone_self_incremental!(usize);
-clone_self_incremental!(u8);
-clone_self_incremental!(i8);
-clone_self_incremental!(u16);
-clone_self_incremental!(i16);
-clone_self_incremental!(u32);
-clone_self_incremental!(u64);
-clone_self_incremental!(i32);
-clone_self_incremental!(i64);
-clone_self_incremental!(f32);
-clone_self_incremental!(f64);
+    impl $crate::ApplicableIncremental for $Type {
+      type Error = ();
 
-clone_self_incremental!(char);
+      fn apply(&mut self, delta: Self::Delta) -> Result<(), Self::Error> {
+        *self = delta;
+        Ok(())
+      }
+
+      fn should_apply_hint(&self, delta: &Self::Delta) -> bool {
+        self != delta
+      }
+    }
+  };
+}
+
+#[macro_export]
+macro_rules! clone_self_incremental {
+  ($Type: ty) => {
+    clone_self_incremental_base!($Type);
+
+    impl $crate::ApplicableIncremental for $Type {
+      type Error = ();
+
+      fn apply(&mut self, delta: Self::Delta) -> Result<(), Self::Error> {
+        *self = delta;
+        Ok(())
+      }
+    }
+  };
+}
+
+clone_self_diffable_incremental!(());
+
+clone_self_diffable_incremental!(bool);
+clone_self_diffable_incremental!(usize);
+clone_self_diffable_incremental!(u8);
+clone_self_diffable_incremental!(i8);
+clone_self_diffable_incremental!(u16);
+clone_self_diffable_incremental!(i16);
+clone_self_diffable_incremental!(u32);
+clone_self_diffable_incremental!(u64);
+clone_self_diffable_incremental!(i32);
+clone_self_diffable_incremental!(i64);
+clone_self_diffable_incremental!(f32);
+clone_self_diffable_incremental!(f64);
+
+clone_self_diffable_incremental!(char);
 clone_self_incremental!(String);
 
 #[derive(Clone)]
@@ -61,11 +96,24 @@ where
   }
 }
 
+pub enum VecMutateError<T: ApplicableIncremental> {
+  OutOfBound,
+  Mutation(T::Error),
+}
+impl<T: ApplicableIncremental> Debug for VecMutateError<T> {
+  fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    match self {
+      Self::OutOfBound => write!(f, "OutOfBound"),
+      Self::Mutation(arg0) => f.debug_tuple("Mutation").field(arg0).finish(),
+    }
+  }
+}
+
 impl<T> ApplicableIncremental for Vec<T>
 where
   T: ApplicableIncremental + Default + Clone + Send + Sync + 'static,
 {
-  type Error = (); // todo
+  type Error = VecMutateError<T>;
 
   fn apply(&mut self, delta: Self::Delta) -> Result<(), Self::Error> {
     match delta {
@@ -73,17 +121,21 @@ where
         self.push(value);
       }
       VecDelta::Remove(index) => {
+        if self.get(index).is_none() {
+          return Err(VecMutateError::OutOfBound);
+        }
         self.remove(index);
       }
       VecDelta::Insert(index, item) => {
+        if index > self.len() {
+          return Err(VecMutateError::OutOfBound);
+        }
         self.insert(index, item);
       }
-      VecDelta::Pop => {
-        self.pop().unwrap();
-      }
+      VecDelta::Pop => return self.pop().map(|_| {}).ok_or(VecMutateError::OutOfBound),
       VecDelta::Mutate(index, delta) => {
-        let inner = self.get_mut(index).unwrap();
-        inner.apply(delta).unwrap();
+        let inner = self.get_mut(index).ok_or(VecMutateError::OutOfBound)?;
+        return inner.apply(delta).map_err(VecMutateError::<T>::Mutation);
       }
     };
     Ok(())
@@ -105,12 +157,6 @@ impl<T: SimpleIncremental + Send + Sync + 'static> IncrementalBase for T {
   }
 }
 
-pub fn expand_out<T: IncrementalBase>(item: &T) -> Vec<T::Delta> {
-  let mut r = Vec::with_capacity(item.expand_size().unwrap_or(1));
-  item.expand(|d| r.push(d));
-  r
-}
-
 impl<T: SimpleIncremental + Send + Sync + 'static> ApplicableIncremental for T {
   type Error = ();
 
@@ -130,6 +176,45 @@ impl<T: Send + Sync + 'static> SimpleIncremental for std::sync::Arc<T> {
 
   fn s_expand(&self, mut cb: impl FnMut(Self::Delta)) {
     cb(self.clone())
+  }
+}
+
+pub enum MaybeDeltaRef<'a, T: IncrementalBase> {
+  Delta(&'a T::Delta),
+  All(&'a T),
+}
+
+#[derive(Clone)]
+pub enum MaybeDelta<T: IncrementalBase + Send + Sync> {
+  Delta(T::Delta),
+  All(T),
+}
+
+pub fn merge_maybe<T>(v: MaybeDelta<T>) -> T
+where
+  T: IncrementalBase<Delta = T>,
+{
+  match v {
+    MaybeDelta::Delta(d) => d,
+    MaybeDelta::All(d) => d,
+  }
+}
+pub fn merge_maybe_ref<T>(v: &MaybeDelta<T>) -> &T
+where
+  T: IncrementalBase<Delta = T>,
+{
+  match v {
+    MaybeDelta::Delta(d) => d,
+    MaybeDelta::All(d) => d,
+  }
+}
+pub fn merge_maybe_mut_ref<T>(v: &mut MaybeDelta<T>) -> &mut T
+where
+  T: IncrementalBase<Delta = T>,
+{
+  match v {
+    MaybeDelta::Delta(d) => d,
+    MaybeDelta::All(d) => d,
   }
 }
 

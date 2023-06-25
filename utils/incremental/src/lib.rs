@@ -2,7 +2,6 @@ use std::{any::Any, fmt::Debug};
 
 pub use incremental_derives::*;
 
-// mod rev_ty;
 mod lens;
 mod ty;
 
@@ -26,54 +25,20 @@ pub trait IncrementalBase: Sized + Send + Sync + 'static {
   ///
   /// this method is used in optimization for preallocation
   fn expand_size(&self) -> Option<usize> {
-    // todo impl for all types
     None
   }
+}
+
+pub fn expand_out<T: IncrementalBase>(item: &T) -> Vec<T::Delta> {
+  let mut r = Vec::with_capacity(item.expand_size().unwrap_or(1));
+  item.expand(|d| r.push(d));
+  r
 }
 
 pub trait AtomicIncremental {}
 impl<T> AtomicIncremental for T where T: IncrementalBase<Delta = T> {}
 
 pub type DeltaOf<T> = <T as IncrementalBase>::Delta;
-
-pub enum MaybeDeltaRef<'a, T: IncrementalBase> {
-  Delta(&'a T::Delta),
-  All(&'a T),
-}
-
-#[derive(Clone)]
-pub enum MaybeDelta<T: IncrementalBase + Send + Sync> {
-  Delta(T::Delta),
-  All(T),
-}
-
-pub fn merge_maybe<T>(v: MaybeDelta<T>) -> T
-where
-  T: IncrementalBase<Delta = T>,
-{
-  match v {
-    MaybeDelta::Delta(d) => d,
-    MaybeDelta::All(d) => d,
-  }
-}
-pub fn merge_maybe_ref<T>(v: &MaybeDelta<T>) -> &T
-where
-  T: IncrementalBase<Delta = T>,
-{
-  match v {
-    MaybeDelta::Delta(d) => d,
-    MaybeDelta::All(d) => d,
-  }
-}
-pub fn merge_maybe_mut_ref<T>(v: &mut MaybeDelta<T>) -> &mut T
-where
-  T: IncrementalBase<Delta = T>,
-{
-  match v {
-    MaybeDelta::Delta(d) => d,
-    MaybeDelta::All(d) => d,
-  }
-}
 
 /// Not all data types could impl this because this requires us to construct the delta
 /// before the mutation occurs.
@@ -87,45 +52,19 @@ pub trait ApplicableIncremental: IncrementalBase {
   /// construct the delta explicitly
   fn apply(&mut self, delta: Self::Delta) -> Result<(), Self::Error>;
 
-  /// like apply, but should return the hint that the mutation is effective
+  /// Return the hint that the mutation is effective
   ///
   /// The impls should check this by diffing the delta with the current data.
   ///
   /// This method has a default impl the always return true. The false positive is allowed but the
   /// false negative should never exist for logic correctness
-  fn apply_and_get_if_mutated(&mut self, delta: Self::Delta) -> Result<bool, Self::Error> {
-    self.apply(delta).map(|_| true)
+  fn should_apply_hint(&self, _delta: &Self::Delta) -> bool {
+    true
   }
 }
 
 pub trait Incremental: IncrementalBase + ApplicableIncremental {}
 impl<T: IncrementalBase + ApplicableIncremental> Incremental for T {}
-
-pub trait IncrementalMutatorHelper: IncrementalBase {
-  /// Mutator encapsulate the inner mutable state to prevent direct mutation and generate delta
-  /// automatically Mutator should also direct support apply delta which constraint by
-  /// MutatorApply
-  ///
-  /// We need this because delta could have return value.
-  type Mutator<'a>
-  where
-    Self: 'a;
-
-  fn create_mutator<'a>(
-    &'a mut self,
-    collector: &'a mut dyn FnMut(Self::Delta),
-  ) -> Self::Mutator<'a>;
-}
-
-pub trait CompareGenDelta: Incremental {
-  fn expand_diff(&self, other: &Self, cb: impl FnMut(Self::Delta));
-}
-
-/// Not all type can impl this kind of reversible delta
-pub trait ReverseIncremental: Incremental {
-  /// return reversed delta
-  fn apply_rev(&mut self, delta: Self::Delta) -> Result<Self::Delta, Self::Error>;
-}
 
 pub trait AnyClone: Any + dyn_clone::DynClone + Send + Sync {
   fn into_any(self: Box<Self>) -> Box<dyn Any>;
@@ -149,7 +88,7 @@ impl<T: Any + dyn_clone::DynClone + Send + Sync> AnyClone for T {
 ///
 /// Performance is maybe not good, each delta contains a heap allocation.
 ///
-/// The expand method will create a lot of heap allocation? no,
+/// Will the expand method will create a lot of heap allocation?  No.
 /// the expand is called by delta consumer side on demand and avoid most of cost.
 pub trait DynIncremental {
   fn apply_dyn(&mut self, delta: Box<dyn AnyClone>) -> Result<(), Box<dyn Any>>;
@@ -158,7 +97,7 @@ pub trait DynIncremental {
 
 impl<T> DynIncremental for T
 where
-  T: Incremental,
+  T: ApplicableIncremental,
   T::Delta: AnyClone,
 {
   fn apply_dyn(&mut self, delta: Box<dyn AnyClone>) -> Result<(), Box<dyn Any>> {
@@ -172,6 +111,7 @@ where
   }
 }
 
+/// Helper trait for write better enum nesting code
 pub trait EnumWrap<U>: Sized {
   fn wrap(self, wrapper: impl FnOnce(Self) -> U) -> U;
 }
@@ -180,4 +120,13 @@ impl<T, U> EnumWrap<U> for T {
   fn wrap(self, wrapper: impl FnOnce(Self) -> U) -> U {
     wrapper(self)
   }
+}
+
+pub trait IncrementalEditing: ApplicableIncremental {
+  fn expand_edit_path(&self, other: &Self, cb: impl FnMut(Self::Delta));
+}
+
+pub trait ReverseIncremental: ApplicableIncremental {
+  /// return reversed delta
+  fn apply_rev(&mut self, delta: Self::Delta) -> Result<Self::Delta, Self::Error>;
 }

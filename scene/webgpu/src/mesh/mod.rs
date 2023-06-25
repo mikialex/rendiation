@@ -57,7 +57,7 @@ impl<T: WebGPUMesh> AsMut<dyn WebGPUSceneMesh> for SceneItemRef<T> {
   }
 }
 
-pub trait WebGPUMesh: Any + Send + Sync + Incremental {
+pub trait WebGPUMesh: Any + Send + Sync + IncrementalBase {
   type ReactiveGPU: ReactiveMeshGPUSource;
   fn create_reactive_gpu(
     source: &SceneItemRef<Self>,

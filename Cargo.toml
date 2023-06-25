@@ -4,7 +4,6 @@ members = [
   "math/geometry",
   "utils/incremental",
   "utils/incremental-derive",
-  "utils/incremental-ui-prototype",
   "utils/reactive",
   "utils/reactive-incremental",
   "utils/arena",

@@ -1,3 +1,4 @@
+use incremental::*;
 use rendiation_geometry::LineSegment;
 use rendiation_geometry::Point;
 use rendiation_geometry::Triangle;
@@ -175,7 +176,7 @@ impl PrimitiveTopology {
   }
 }
 
-incremental::clone_self_incremental!(PrimitiveTopology);
+clone_self_incremental!(PrimitiveTopology);
 
 pub struct PointList;
 impl PrimitiveTopologyMeta for PointList {

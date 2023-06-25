@@ -89,10 +89,12 @@ impl<'a, T: IncrementalBase> Deref for Mutating<'a, T> {
   }
 }
 
-impl<'a, T: Incremental> Mutating<'a, T> {
+impl<'a, T: ApplicableIncremental> Mutating<'a, T> {
   pub fn modify(&mut self, delta: T::Delta) {
-    (self.collector)(&delta);
-    self.inner.apply(delta).unwrap()
+    if self.inner.should_apply_hint(&delta) {
+      (self.collector)(&delta);
+      self.inner.apply(delta).unwrap()
+    }
   }
 }
 
@@ -116,7 +118,7 @@ pub trait ModifySceneItemDelta<T: IncrementalBase> {
 
 impl<T, X> ModifySceneItemDelta<T> for X
 where
-  T: Incremental<Delta = X>,
+  T: ApplicableIncremental<Delta = X>,
 {
   fn apply_modify(self, target: &SceneItemRef<T>) {
     target.mutate(|mut m| {
@@ -166,7 +168,7 @@ impl<T: IncrementalBase> SceneItemRef<T> {
     other: &Self,
     mut extra_mapper: impl FnMut(T::Delta) -> T::Delta + Send + Sync + 'static,
   ) where
-    T: Incremental,
+    T: ApplicableIncremental,
   {
     let other_weak = other.downgrade();
     let remove_token = self.read().delta_source.on(move |delta| {
@@ -269,7 +271,7 @@ pub trait SceneItemReactiveMapping<M> {
 
 impl<M, T> ReactiveMapping<M> for SceneItemRef<T>
 where
-  T: SimpleIncremental + Send + Sync + 'static,
+  T: IncrementalBase + Send + Sync + 'static,
   Self: SceneItemReactiveMapping<M>,
 {
   type ChangeStream = <Self as SceneItemReactiveMapping<M>>::ChangeStream;
@@ -300,7 +302,7 @@ pub trait SceneItemReactiveSimpleMapping<M> {
 
 impl<M, T> SceneItemReactiveMapping<M> for SceneItemRef<T>
 where
-  T: SimpleIncremental + Send + Sync + 'static,
+  T: IncrementalBase + Send + Sync + 'static,
   Self: SceneItemReactiveSimpleMapping<M>,
 {
   type ChangeStream = <Self as SceneItemReactiveSimpleMapping<M>>::ChangeStream;

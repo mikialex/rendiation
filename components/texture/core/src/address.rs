@@ -1,4 +1,4 @@
-use incremental::clone_self_incremental;
+use incremental::*;
 use rendiation_algebra::Scalar;
 
 /// How edges should be handled in texture addressing.

@@ -8,7 +8,7 @@ use std::{
 use super::identity::Identity;
 use crate::*;
 
-pub struct IdentityMapper<T, U: Incremental> {
+pub struct IdentityMapper<T, U: ApplicableIncremental> {
   extra_change_source:
     Option<Box<dyn Fn(&Identity<U>, &Arc<RwLock<ChangeRecorder>>, usize) -> Box<dyn Any>>>,
   data: HashMap<usize, (T, bool, Box<dyn Any>)>,
@@ -22,7 +22,7 @@ pub struct ChangeRecorder {
   pub changed: HashSet<usize>,
 }
 
-impl<T, U: Incremental> Default for IdentityMapper<T, U> {
+impl<T, U: ApplicableIncremental> Default for IdentityMapper<T, U> {
   fn default() -> Self {
     Self {
       extra_change_source: None,
@@ -58,7 +58,7 @@ impl<'a, T> ResourceLogicResult<'a, T> {
   }
 }
 
-impl<T: 'static, U: Incremental> IdentityMapper<T, U> {
+impl<T: 'static, U: ApplicableIncremental> IdentityMapper<T, U> {
   pub fn with_extra_source(
     mut self,
     extra: impl Fn(&Identity<U>, &Arc<RwLock<ChangeRecorder>>, usize) -> Box<dyn Any> + 'static,

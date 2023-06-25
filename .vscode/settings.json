@@ -34,6 +34,7 @@
         "consts",
         "Controllee",
         "Deque",
+        "diffable",
         "downcasted",
         "downcaster",
         "dpdx",
