@@ -71,6 +71,12 @@ impl IncrementalHierarchyDerived for TestNodeDerived {
     }
   }
 
+  fn build_default(self_source: &Self::Source) -> Self {
+    Self {
+      value_sum: self_source.value,
+    }
+  }
+
   fn hierarchy_update(
     &mut self,
     self_source: &Self::Source,
