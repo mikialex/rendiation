@@ -1,8 +1,7 @@
 use crate::*;
 
-pub type QuadraticBezierSegment2D<T> = QuadraticBezierShape<Vec2<T>>;
-
 pub type QuadraticBezierSegment<V> = SpaceLineSegment<V, QuadraticBezierShape<V>>;
+pub type QuadraticBezierSegment2D<T> = QuadraticBezierSegment<Vec2<T>>;
 
 pub struct QuadraticBezierShape<V> {
   pub ctrl: V,
@@ -35,14 +34,15 @@ where
   }
 }
 
+pub type CubicBezierSegment<U> = SpaceLineSegment<U, CubicBezierShape<U>>;
 pub type CubicBezierSegment2D<T> = CubicBezierSegment<Vec2<T>>;
 
-pub struct CubicBezierSegment<V> {
+pub struct CubicBezierShape<V> {
   pub ctrl1: V,
   pub ctrl2: V,
 }
 
-impl<T, M, V, const D: usize> SpaceEntity<T, D> for CubicBezierSegment<V>
+impl<T, M, V, const D: usize> SpaceEntity<T, D> for CubicBezierShape<V>
 where
   M: SquareMatrixDimension<D> + SquareMatrix<T>,
   V: SpaceEntity<T, D, Matrix = M> + Copy,
@@ -56,7 +56,7 @@ where
   }
 }
 
-impl<T, V> SpaceLineSegmentShape<T, V> for CubicBezierSegment<V>
+impl<T, V> SpaceLineSegmentShape<T, V> for CubicBezierShape<V>
 where
   T: Scalar,
   V: VectorSpace<T>,

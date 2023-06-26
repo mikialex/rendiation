@@ -5,9 +5,9 @@ pub mod builder;
 pub use builder::*;
 
 pub enum Path2dSegment<T> {
-  Line(LineSegment<Vec2<T>>),
-  QuadBezier,
-  CubicBezier,
+  Line(LineSegment2D<T>),
+  QuadraticBezier(QuadraticBezierSegment2D<T>),
+  CubicBezier(CubicBezierSegment2D<T>),
 }
 
 pub struct Path2D<T> {
@@ -18,24 +18,24 @@ impl<T: Scalar> Path2dSegment<T> {
   pub fn sample(&self, t: T) -> Vec2<T> {
     match self {
       Path2dSegment::Line(l) => l.sample(t),
-      Path2dSegment::QuadBezier => todo!(),
-      Path2dSegment::CubicBezier => todo!(),
+      Path2dSegment::QuadraticBezier(l) => l.sample(t),
+      Path2dSegment::CubicBezier(l) => l.sample(t),
     }
   }
 
   pub fn start(&self) -> Vec2<T> {
     match self {
       Path2dSegment::Line(l) => l.start,
-      Path2dSegment::QuadBezier => todo!(),
-      Path2dSegment::CubicBezier => todo!(),
+      Path2dSegment::QuadraticBezier(l) => l.start,
+      Path2dSegment::CubicBezier(l) => l.start,
     }
   }
 
   pub fn end(&self) -> Vec2<T> {
     match self {
       Path2dSegment::Line(l) => l.end,
-      Path2dSegment::QuadBezier => todo!(),
-      Path2dSegment::CubicBezier => todo!(),
+      Path2dSegment::QuadraticBezier(l) => l.end,
+      Path2dSegment::CubicBezier(l) => l.end,
     }
   }
 }

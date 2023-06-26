@@ -79,7 +79,7 @@ impl Terminal {
 
 pub fn terminal() -> impl UIComponent<Terminal> {
   Container::sized((UILength::ParentPercent(100.), UILength::Px(50.)))
-    .padding(QuadBoundaryWidth::equal(5.))
+    .padding(RectBoundaryWidth::equal(5.))
     .wrap(
       Text::default()
         .with_layout(TextLayoutConfig::SizedBox {

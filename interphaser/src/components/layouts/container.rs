@@ -8,9 +8,9 @@ pub struct Container {
   pub child_offset: ContainerItemOffset,
   pub size: LayoutSource<ContainerSize>,
   /// for simplicity, we only support outer border now
-  pub border: QuadBorder,
-  pub margin: QuadBoundaryWidth,
-  pub padding: QuadBoundaryWidth,
+  pub border: RectBorder,
+  pub margin: RectBoundaryWidth,
+  pub padding: RectBoundaryWidth,
   layout: LayoutUnit,
 }
 
@@ -19,12 +19,12 @@ impl Container {
     Self::size(ContainerSize::ConstraintChild { size: size.into() })
   }
 
-  pub fn padding(mut self, padding: impl Into<QuadBoundaryWidth>) -> Self {
+  pub fn padding(mut self, padding: impl Into<RectBoundaryWidth>) -> Self {
     self.padding = padding.into();
     self
   }
 
-  pub fn margin(mut self, margin: impl Into<QuadBoundaryWidth>) -> Self {
+  pub fn margin(mut self, margin: impl Into<RectBoundaryWidth>) -> Self {
     self.margin = margin.into();
     self
   }

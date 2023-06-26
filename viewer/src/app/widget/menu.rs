@@ -59,7 +59,7 @@ pub fn menu() -> impl UIComponent<MenuModel> {
 fn menu_title() -> impl UIComponent<MenuList> {
   Container::adapt(AdaptChildSelfBehavior::Child)
     .bind(|s, _| {
-      s.padding = QuadBoundaryWidth::equal(3.);
+      s.padding = RectBoundaryWidth::equal(3.);
     })
     .wrap(
       Text::default()

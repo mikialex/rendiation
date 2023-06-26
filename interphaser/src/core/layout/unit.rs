@@ -72,8 +72,8 @@ impl LayoutUnit {
     self.absolute_position.y = self.relative_position.y + world_offset.y;
   }
 
-  pub fn into_quad(&self) -> Quad {
-    Quad {
+  pub fn into_quad(&self) -> RectangleShape {
+    RectangleShape {
       x: self.absolute_position.x,
       y: self.absolute_position.y,
       width: self.size.width,

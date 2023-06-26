@@ -53,7 +53,7 @@ pub enum Style {
 
 #[derive(Clone)]
 pub enum Primitive {
-  Quad((Quad, Style)),
+  Quad((RectangleShape, Style)),
   Text(TextLayoutRef),
 }
 

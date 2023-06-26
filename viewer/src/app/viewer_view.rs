@@ -53,7 +53,7 @@ fn create_menu() -> MenuModel {
 
 fn perf_panel<T: 'static>() -> impl UIComponent<T> {
   Container::sized((500., 200.))
-    .padding(QuadBoundaryWidth::equal(5.))
+    .padding(RectBoundaryWidth::equal(5.))
     .wrap(
     Text::default()
     .with_layout(TextLayoutConfig::SizedBox{

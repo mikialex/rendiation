@@ -85,7 +85,7 @@ pub enum GPUxUIPrimitive {
 #[allow(clippy::vec_init_then_push)]
 fn build_quad(
   device: &webgpu::Device,
-  quad: &crate::Quad,
+  quad: &crate::RectangleShape,
   color: crate::Color,
 ) -> (webgpu::Buffer, webgpu::Buffer) {
   let mut vertices = Vec::new();
