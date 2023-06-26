@@ -2499,6 +2499,7 @@ name = "rendiation-canvas"
 version = "0.1.0"
 dependencies = [
  "bytemuck",
+ "fontext",
  "rendiation-algebra",
  "rendiation-color",
  "rendiation-geometry",
