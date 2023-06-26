@@ -16,7 +16,7 @@ pub use viewer::*;
 
 pub mod app;
 pub use app::*;
-use interphaser::{Application, WindowConfig};
+use interphaser::{run_gui, WindowConfig};
 
 fn main() {
   register_viewer_extra_scene_features();
@@ -27,28 +27,22 @@ fn main() {
     position: (50., 50.).into(),
   };
 
-  #[cfg(target_arch = "wasm32")]
-  {
-    console_error_panic_hook::set_once();
-    // console_log::init_with_level(Level::Debug).ok();
-
-    let viewer = ViewerApplication::default();
-    let ui = create_app();
-
-    wasm_bindgen_futures::spawn_local(async move {
-      let viewer = Application::new(viewer, ui, window_init_config).await;
-      viewer.run();
-    });
-  }
+  let viewer = ViewerApplication::default();
+  let ui = create_app();
+  let running_gui = run_gui(viewer, ui, window_init_config);
 
   #[cfg(not(target_arch = "wasm32"))]
   {
     env_logger::builder().init();
 
-    let viewer = ViewerApplication::default();
-    let ui = create_app();
+    futures::executor::block_on(running_gui)
+  }
 
-    let viewer = futures::executor::block_on(Application::new(viewer, ui, window_init_config));
-    viewer.run();
+  #[cfg(target_arch = "wasm32")]
+  {
+    console_error_panic_hook::set_once();
+    console_log::init_with_level(Level::Debug).ok();
+
+    wasm_bindgen_futures::spawn_local(running_gui);
   }
 }

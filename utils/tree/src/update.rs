@@ -110,7 +110,7 @@ impl<T: IncrementalBase, Dirty> TreeHierarchyDerivedSystem<T, Dirty> {
   where
     B: TreeIncrementalDeriveBehavior<T, S, M, TREE, Dirty = Dirty>,
     S: IncrementalBase,
-    T: IncrementalHierarchyDerived<DirtyMark = M, Source = S>,
+    T: IncrementalHierarchyDerived<DirtyMark = M, Source = S> + Clone,
     Dirty: Default + 'static,
     M: HierarchyDirtyMark,
     TREE: 'static,
@@ -127,7 +127,7 @@ impl<T: IncrementalBase, Dirty> TreeHierarchyDerivedSystem<T, Dirty> {
     enum MarkingResult<T, Dirty> {
       UpdateRoot(TreeNodeHandle<DerivedData<T, Dirty>>),
       Remove(usize),
-      Create(usize),
+      Create(usize, T),
     }
 
     let derived_stream = tree_delta
@@ -141,11 +141,12 @@ impl<T: IncrementalBase, Dirty> TreeHierarchyDerivedSystem<T, Dirty> {
           // we don't care the returned handle, as we assume they are allocated in the same position
           // in the original tree.
           TreeMutation::Create { data, .. } => {
+            let data = T::build_default(&data);
             let node = derived_tree.create_node(DerivedData {
-              data: T::build_default(&data),
+              data: data.clone(),
               dirty: Default::default(),
             });
-            deltas.push(MarkingResult::Create(node.index()));
+            deltas.push(MarkingResult::Create(node.index(), data));
             B::marking_dirty(&mut derived_tree, node, M::all_dirty())
           }
           // do pair remove in derived tree
@@ -211,11 +212,10 @@ impl<T: IncrementalBase, Dirty> TreeHierarchyDerivedSystem<T, Dirty> {
             }
           }
           MarkingResult::Remove(idx) => derived_deltas.push((idx, None)),
-          MarkingResult::Create(idx) => {
-            let derived_tree = derived_tree_cc.read().unwrap();
-            let handle = derived_tree.recreate_handle(idx);
-            let derived = derived_tree.get_node(handle).data();
-            derived.data.expand(|d| derived_deltas.push((idx, Some(d))))
+          MarkingResult::Create(idx, created) => {
+            // we can not use the derived tree data because the previous delta is buffered, and the
+            // node at given index maybe removed by later message
+            created.expand(|d| derived_deltas.push((idx, Some(d))))
           }
         }
 

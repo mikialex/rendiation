@@ -20,8 +20,17 @@ pub fn merge(
     return Err(MergeError::CannotMergeDifferentTypes);
   }
 
+  let mut mesh_index_offset = 0;
   look_ahead_split(inputs, make_splitter())
-    .map(|groups| merge_assume_all_suitable_and_fit(groups, position_mapper, normal_mapper))
+    .map(|groups| {
+      let merged = merge_assume_all_suitable_and_fit(
+        groups,
+        |i, position| position_mapper(i + mesh_index_offset, position),
+        |i, normal| normal_mapper(i + mesh_index_offset, normal),
+      );
+      mesh_index_offset += groups.len();
+      merged
+    })
     .try_collect()
 }
 
@@ -171,11 +180,10 @@ fn merge_assume_all_suitable_and_fit(
     .try_collect::<Vec<_>>()?;
 
   let vertex_counts = inputs.iter().map(|att| att.get_position().count);
-  let mut vertex_prefix_offset: Vec<_> = prefix_scan::<UsizeSum>(vertex_counts).collect();
-  let first_size = *vertex_prefix_offset.first().unwrap();
-  vertex_prefix_offset
-    .iter_mut()
-    .for_each(|s| *s -= first_size);
+  let vertex_prefix_offset: Vec<_> = prefix_scan::<UsizeSum>(vertex_counts.clone())
+    .zip(vertex_counts)
+    .map(|(sum, this)| sum - this)
+    .collect();
 
   let merged_indices = first
     .indices

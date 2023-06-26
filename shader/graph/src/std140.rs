@@ -202,7 +202,7 @@ unsafe impl<T: Zeroable, const U: usize> Zeroable for Shader140Array<T, U> {}
 unsafe impl<T: Pod, const U: usize> Pod for Shader140Array<T, U> {}
 
 unsafe impl<T: Std140, const U: usize> Std140 for Shader140Array<T, U> {
-  const ALIGNMENT: usize = max(4, T::ALIGNMENT);
+  const ALIGNMENT: usize = max(16, T::ALIGNMENT);
 
   const PAD_AT_END: bool = true;
 }
