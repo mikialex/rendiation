@@ -1,4 +1,5 @@
 #![allow(dead_code)]
+#![allow(unused)]
 
 use crate::*;
 
@@ -72,7 +73,9 @@ impl PainterAPI for PainterCtx {
     self.recording.masking_stack.pop()
   }
 
-  fn push_filter(&mut self) {}
+  fn push_filter(&mut self, effect: CanvasEffect) {}
 
-  fn pop_filter(&mut self) {}
+  fn pop_filter(&mut self) -> CanvasEffect {
+    todo!()
+  }
 }

@@ -2,17 +2,17 @@ use rendiation_algebra::*;
 use rendiation_color::*;
 use rendiation_geometry::*;
 
+mod effect;
 mod impls;
 mod path;
 mod shape;
 mod style;
-mod effect;
 
+pub use effect::*;
 pub use impls::*;
 pub use path::*;
 pub use shape::*;
 pub use style::*;
-pub use effect::*;
 
 pub trait PainterAPI {
   fn reset(&mut self);
@@ -22,12 +22,12 @@ pub trait PainterAPI {
   fn render(&self) -> Self::Image;
 
   /// baked data is the lossless snapshot of a painter API's drawing result. lossless means it's
-  /// preserves vector representation, not rasterized image, and keep better(not necessary perfect)
-  /// quality when apply transformation by parent ctx.
+  /// preserves vector representation, but not rasterized image, and keep better (but not necessary
+  /// perfect) quality when apply transformation by parent ctx.
   ///
-  /// Another design purpose of this type is to do group the painter representation in order to
+  /// Another design purpose of this type is to group the painter representation in order to
   /// cache the compute. The drawing cost of the baked object should be cheaper than the
-  /// collection of discrete drawing command. This provides a transparent way to express the
+  /// collection of discrete drawing commands. This provides a transparent way to express the
   /// system's caching capability
   type Baked;
   fn draw_bake(&mut self, p: &Self::Baked);
@@ -43,8 +43,8 @@ pub trait PainterAPI {
   fn push_mask(&mut self, mask: Self::Baked);
   fn pop_mask(&mut self) -> Option<Self::Baked>;
 
-  fn push_filter(&mut self);
-  fn pop_filter(&mut self);
+  fn push_filter(&mut self, effect: CanvasEffect);
+  fn pop_filter(&mut self) -> CanvasEffect;
 }
 
 pub type TextureHandle = usize;
