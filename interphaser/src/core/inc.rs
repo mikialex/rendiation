@@ -3,8 +3,6 @@ use std::{
   task::{Context, Poll},
 };
 
-use futures::Stream;
-
 // use incremental::*;
 
 // use crate::*;
@@ -58,13 +56,34 @@ pub struct TextBox {
 pub trait UIViewStream {
   type React;
 
-  fn create_react(&self) -> Box<dyn Stream<Item = Self::React>>;
+  // fn create_react(&self) -> Box<dyn Stream<Item = Self::React>>;
 
   fn poll_view_update(
     self: Pin<&mut Self>,
     cx: &mut Context,
   ) -> Poll<Option<ViewReact<Self::React>>>;
 }
+
+// struct UISystem;
+
+// async fn ui(cx: &UISystem) {
+//   let layout_frame = main_frame(cx);
+//   let tool_bar = toolbar_view(cx);
+
+//   let view_3d = load_main_3d_view(cx);
+
+//   loop {
+//     match tool_bar.next().await {
+//       LoadFile => {
+//         let file = file_select_view(cx).await;
+//         view_3d.load_file(file).await;
+//       }
+//       Exit => {
+//         return;
+//       }
+//     }
+//   }
+// }
 
 // pub struct ReactiveTextureBox {
 //   texting: Box<dyn Stream<Item = String>>,

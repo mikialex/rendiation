@@ -10,42 +10,6 @@ pub struct StateCell<T> {
   state: Rc<RefCell<T>>,
 }
 
-pub struct VersionedCell<T> {
-  inner: T,
-  version: u32,
-}
-
-impl<T> Deref for VersionedCell<T> {
-  type Target = T;
-
-  fn deref(&self) -> &Self::Target {
-    &self.inner
-  }
-}
-
-impl<T> DerefMut for VersionedCell<T> {
-  fn deref_mut(&mut self) -> &mut Self::Target {
-    self.version += 1;
-    &mut self.inner
-  }
-}
-
-impl<T> VersionedValue for StateCell<VersionedCell<T>> {
-  fn get_version(&self) -> u32 {
-    self.state.borrow().version
-  }
-}
-
-impl<T: 'static> StateCell<VersionedCell<T>> {
-  pub fn boxed(&self) -> Box<dyn VersionedValue> {
-    Box::new(self.clone())
-  }
-}
-
-pub trait VersionedValue {
-  fn get_version(&self) -> u32;
-}
-
 pub trait StateCreator: Default {
   fn use_state() -> StateCell<Self> {
     StateCell::new(Default::default())
