@@ -34,17 +34,17 @@ pub trait PainterAPI {
   fn bake(self) -> Self::Baked;
 
   fn draw_baked(&mut self, baked: Self::Baked);
-  fn stroke_shape(&mut self, shape: &Shape, fill: &StrokeStyle);
-  fn fill_shape(&mut self, shape: &Shape, fill: &FillStyle);
+  fn stroke_shape(&mut self, shape: &Shape, style: &StrokeStyle);
+  fn fill_shape(&mut self, shape: &Shape, style: &FillStyle);
 
   fn push_transform(&mut self, transform: Mat3<f32>);
-  fn pop_transform(&self) -> Mat3<f32>;
+  fn pop_transform(&mut self) -> Option<Mat3<f32>>;
 
   fn push_mask(&mut self, mask: Self::Baked);
   fn pop_mask(&mut self) -> Option<Self::Baked>;
 
   fn push_filter(&mut self, effect: CanvasEffect);
-  fn pop_filter(&mut self) -> CanvasEffect;
+  fn pop_filter(&mut self) -> Option<CanvasEffect>;
 }
 
 pub type TextureHandle = usize;

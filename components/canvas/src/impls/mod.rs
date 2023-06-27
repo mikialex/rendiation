@@ -5,6 +5,9 @@ use crate::*;
 
 struct PainterCtx {
   recording: GraphicsRepresentation,
+  transform_stack: Vec<TransformState>,
+  masking_stack: Vec<GraphicsRepresentation>,
+  filter_stack: Vec<CanvasEffect>,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -30,12 +33,10 @@ struct GraphicsRepresentation {
   object_meta: Vec<ObjectMetaData>,
   triangulated: Vec<GraphicsVertex>,
 
-  transform_stack: Vec<TransformState>,
-  masking_stack: Vec<GraphicsRepresentation>,
   images: Vec<GraphicsImageData>,
 }
 
-impl GraphicsRepresentation {
+impl PainterCtx {
   fn get_current_world_transform(&self) -> Mat3<f32> {
     self
       .transform_stack
@@ -80,38 +81,64 @@ impl PainterAPI for PainterCtx {
     todo!()
   }
 
-  fn stroke_shape(&mut self, shape: &Shape, fill: &StrokeStyle) {
-    let world_transform = self.recording.get_current_world_transform();
+  fn stroke_shape(&mut self, shape: &Shape, style: &StrokeStyle) {
+    let world_transform = self.get_current_world_transform();
     let meta = ObjectMetaData { world_transform };
 
-    todo!()
+    triangulate_stroke(shape, style, |v| {
+      self.recording.triangulated.push(v);
+    });
   }
 
-  fn fill_shape(&mut self, shape: &Shape, fill: &FillStyle) {
-    let world_transform = self.recording.get_current_world_transform();
+  fn fill_shape(&mut self, shape: &Shape, style: &FillStyle) {
+    let world_transform = self.get_current_world_transform();
     let meta = ObjectMetaData { world_transform };
-    todo!()
+    triangulate_fill(shape, style, |v| {
+      self.recording.triangulated.push(v);
+    });
   }
 
   fn push_transform(&mut self, transform: Mat3<f32>) {
-    todo!()
+    let world_computed = transform * self.get_current_world_transform();
+    self.transform_stack.push(TransformState {
+      local: transform,
+      world_computed,
+    })
   }
 
-  fn pop_transform(&self) -> Mat3<f32> {
-    todo!()
+  fn pop_transform(&mut self) -> Option<Mat3<f32>> {
+    self.transform_stack.pop().map(|v| v.local)
   }
 
   fn push_mask(&mut self, mask: Self::Baked) {
-    self.recording.masking_stack.push(mask)
+    self.masking_stack.push(mask)
   }
 
   fn pop_mask(&mut self) -> Option<Self::Baked> {
-    self.recording.masking_stack.pop()
+    self.masking_stack.pop()
   }
 
-  fn push_filter(&mut self, effect: CanvasEffect) {}
-
-  fn pop_filter(&mut self) -> CanvasEffect {
-    todo!()
+  fn push_filter(&mut self, effect: CanvasEffect) {
+    self.filter_stack.push(effect)
   }
+
+  fn pop_filter(&mut self) -> Option<CanvasEffect> {
+    self.filter_stack.pop()
+  }
+}
+
+fn triangulate_stroke(
+  shape: &Shape,
+  style: &StrokeStyle,
+  vertex_visitor: impl FnMut(GraphicsVertex),
+) {
+  todo!()
+}
+
+fn triangulate_fill(shape: &Shape, style: &FillStyle, vertex_visitor: impl FnMut(GraphicsVertex)) {
+  todo!()
+}
+
+fn visit_normalized_path(shape: &Shape, path_visitor: impl FnMut(Path2dSegment<f32>)) {
+  todo!();
 }
