@@ -7,11 +7,42 @@ struct PainterCtx {
   recording: GraphicsRepresentation,
 }
 
+#[derive(Debug, Clone, Copy)]
+struct GraphicsVertex {
+  position: Vec2<f32>,
+  color: Vec3<f32>,
+  uv: Vec2<f32>,
+  object_id: u32, // point to ObjectMetaData[]
+}
+
+#[derive(Debug, Clone, Copy)]
+struct ObjectMetaData {
+  world_transform: Mat3<f32>,
+}
+
+struct TransformState {
+  local: Mat3<f32>,
+  world_computed: Mat3<f32>,
+}
+
 #[derive(Default)]
 struct GraphicsRepresentation {
-  transform_stack: Vec<Mat3<f32>>,
+  object_meta: Vec<ObjectMetaData>,
+  triangulated: Vec<GraphicsVertex>,
+
+  transform_stack: Vec<TransformState>,
   masking_stack: Vec<GraphicsRepresentation>,
   images: Vec<GraphicsImageData>,
+}
+
+impl GraphicsRepresentation {
+  fn get_current_world_transform(&self) -> Mat3<f32> {
+    self
+      .transform_stack
+      .last()
+      .map(|v| v.world_computed)
+      .unwrap_or(Mat3::identity())
+  }
 }
 
 enum GraphicsImageData {
@@ -50,10 +81,15 @@ impl PainterAPI for PainterCtx {
   }
 
   fn stroke_shape(&mut self, shape: &Shape, fill: &StrokeStyle) {
+    let world_transform = self.recording.get_current_world_transform();
+    let meta = ObjectMetaData { world_transform };
+
     todo!()
   }
 
   fn fill_shape(&mut self, shape: &Shape, fill: &FillStyle) {
+    let world_transform = self.recording.get_current_world_transform();
+    let meta = ObjectMetaData { world_transform };
     todo!()
   }
 
