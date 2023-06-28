@@ -17,6 +17,7 @@ incremental = {path = "../utils/incremental"}
 interphaser = {path = "../interphaser"}
 log = "0.4"
 pin-project = "1.0.12"
+rayon = "1.7.0"
 reactive = {path = "../utils/reactive"}
 rendiation-algebra = {path = "../math/algebra"}
 rendiation-controller = {path = "../components/controller"}

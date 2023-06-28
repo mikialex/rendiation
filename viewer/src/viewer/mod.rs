@@ -74,15 +74,30 @@ pub struct ViewerImpl {
   ctx: Option<Viewer3dRenderingCtx>,
   pub(crate) terminal: Terminal,
   size: Size,
+  pub io_executor: futures::executor::ThreadPool,
+  pub compute_executor: rayon::ThreadPool,
 }
 
 impl Default for ViewerImpl {
   fn default() -> Self {
+    let io_executor = futures::executor::ThreadPool::builder()
+      .name_prefix("rendiation_io_threads")
+      .pool_size(2)
+      .create()
+      .unwrap();
+
+    let compute_executor = rayon::ThreadPoolBuilder::new()
+      .thread_name(|i| format!("rendiation_compute_threads-{i}"))
+      .build()
+      .unwrap();
+
     let mut viewer = Self {
       content: Viewer3dContent::new(),
       size: Size::from_u32_pair_min_one((100, 100)),
       terminal: Default::default(),
       ctx: None,
+      io_executor,
+      compute_executor,
     };
 
     register_default_commands(&mut viewer.terminal);
