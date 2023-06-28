@@ -12,7 +12,7 @@ pub struct Terminal {
   pub current_command_editing: String,
   pub command_to_execute: Option<String>,
   pub commands: HashMap<String, TerminalCommandCb>,
-  pub executor: ThreadPool,
+  pub executor: ThreadPool, // todo should passed in
 }
 
 impl Default for Terminal {

@@ -7,7 +7,7 @@ pub struct ViewerPipeline {
   taa: TAA,
   enable_ssao: bool,
   ssao: SSAO,
-  blur: CrossBlurData,
+  _blur: CrossBlurData,
   forward_lights: ForwardLightingSystem,
   enable_channel_debugger: bool,
   channel_debugger: ScreenChannelDebugger,
@@ -19,7 +19,7 @@ impl ViewerPipeline {
   pub fn new(gpu: &GPU) -> Self {
     Self {
       highlight: HighLighter::new(gpu),
-      blur: CrossBlurData::new(gpu),
+      _blur: CrossBlurData::new(gpu),
       taa: TAA::new(gpu),
       enable_ssao: true,
       ssao: SSAO::new(gpu),
@@ -33,7 +33,6 @@ impl ViewerPipeline {
 }
 
 impl ViewerPipeline {
-  #[rustfmt::skip]
   pub fn render(
     &mut self,
     ctx: &mut FrameCtx,
@@ -41,7 +40,6 @@ impl ViewerPipeline {
     final_target: &RenderTargetView,
     scene: &SceneRenderResourceGroup,
   ) {
-
     let mut widgets = content.widgets.borrow_mut();
 
     let mut mip_gen = scene.resources.bindable_ctx.gpu.mipmap_gen.borrow_mut();
@@ -52,7 +50,8 @@ impl ViewerPipeline {
       shadows: &mut self.shadows,
       ctx,
       scene,
-    }.update();
+    }
+    .update();
 
     let mut scene_depth = depth_attachment().request(ctx);
 
@@ -71,32 +70,46 @@ impl ViewerPipeline {
       .by(scene.by_main_camera_and_self(&mut widgets.gizmo))
       .by(scene.by_main_camera_and_self(&mut widgets.camera_helpers));
 
-    let highlight_compose = (!content.selections.is_empty())
-    .then(|| self.highlight.draw(content.selections.as_renderables(), ctx, scene));
+    let highlight_compose = (!content.selections.is_empty()).then(|| {
+      self
+        .highlight
+        .draw(content.selections.as_renderables(), ctx, scene)
+    });
 
     let mut scene_result = attachment().request(ctx);
 
     {
       let jitter = self.taa.next_jitter();
       let mut cameras = scene.scene_resources.cameras.write().unwrap();
-      let gpu = cameras.get_camera_gpu_mut(scene.scene.get_active_camera()).unwrap();
-      gpu.ubo.mutate(|uniform| uniform.jitter_normalized = jitter).upload(&ctx.gpu.queue);
+      let gpu = cameras
+        .get_camera_gpu_mut(scene.scene.get_active_camera())
+        .unwrap();
+      gpu
+        .ubo
+        .mutate(|uniform| uniform.jitter_normalized = jitter)
+        .upload(&ctx.gpu.queue);
       gpu.enable_jitter = true;
     }
 
-    let ao = self.enable_ssao.then(||{
+    let ao = self.enable_ssao.then(|| {
       let cameras = scene.scene_resources.cameras.read().unwrap();
-      let camera_gpu = cameras.get_camera_gpu(scene.scene.get_active_camera()).unwrap();
+      let camera_gpu = cameras
+        .get_camera_gpu(scene.scene.get_active_camera())
+        .unwrap();
 
       let ao = self.ssao.draw(ctx, &scene_depth, camera_gpu);
-      copy_frame(ao.read_into(), BlendState {
-        color: BlendComponent {
+      copy_frame(
+        ao.read_into(),
+        BlendState {
+          color: BlendComponent {
             src_factor: BlendFactor::Dst,
             dst_factor: BlendFactor::One,
             operation: BlendOperation::Add,
-        },
-        alpha: BlendComponent::REPLACE,
-     }.into())
+          },
+          alpha: BlendComponent::REPLACE,
+        }
+        .into(),
+      )
     });
 
     pass("scene")
@@ -104,28 +117,31 @@ impl ViewerPipeline {
       .with_depth(scene_depth.write(), clear(1.))
       .render(ctx)
       .by(scene.by_main_camera_and_self(BackGroundRendering))
-      .by(scene.by_main_camera_and_self(ForwardScene {
-        lights: &self.forward_lights,
-        shadow: &self.shadows,
-        tonemap: &self.tonemap,
-        debugger: self.enable_channel_debugger.then_some(&self.channel_debugger),
-        derives: scene.node_derives
-      }))
+      .by(
+        scene.by_main_camera_and_self(ForwardScene {
+          lights: &self.forward_lights,
+          shadow: &self.shadows,
+          tonemap: &self.tonemap,
+          debugger: self
+            .enable_channel_debugger
+            .then_some(&self.channel_debugger),
+          derives: scene.node_derives,
+        }),
+      )
       .by(scene.by_main_camera_and_self(&mut widgets.ground)) // transparent, should go after opaque
       .by(ao);
 
-      let mut cameras = scene.scene_resources.cameras.write().unwrap();
-      let camera_gpu = cameras.get_camera_gpu_mut(scene.scene.get_active_camera()).unwrap();
-      camera_gpu.enable_jitter = false;
+    let mut cameras = scene.scene_resources.cameras.write().unwrap();
+    let camera_gpu = cameras
+      .get_camera_gpu_mut(scene.scene.get_active_camera())
+      .unwrap();
+    camera_gpu.enable_jitter = false;
 
     // let scene_result = draw_cross_blur(&self.blur, scene_result.read_into(), ctx);
 
-    let taa_result = self.taa.resolve(
-      &scene_result,
-      &scene_depth,
-      ctx,
-      camera_gpu
-    );
+    let taa_result = self
+      .taa
+      .resolve(&scene_result, &scene_depth, ctx, camera_gpu);
     drop(cameras);
 
     pass("compose-all")
@@ -133,6 +149,9 @@ impl ViewerPipeline {
       .render(ctx)
       .by(copy_frame(taa_result.read(), None))
       .by(highlight_compose)
-      .by(copy_frame(widgets_result.read_into(), BlendState::PREMULTIPLIED_ALPHA_BLENDING.into()));
+      .by(copy_frame(
+        widgets_result.read_into(),
+        BlendState::PREMULTIPLIED_ALPHA_BLENDING.into(),
+      ));
   }
 }
