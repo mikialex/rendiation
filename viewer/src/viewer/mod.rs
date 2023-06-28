@@ -1,4 +1,5 @@
-use std::{cell::RefCell, rc::Rc};
+use std::cell::RefCell;
+use std::sync::Arc;
 
 pub mod contents;
 pub use contents::*;
@@ -6,11 +7,12 @@ pub use contents::*;
 pub mod default_scene;
 pub use default_scene::*;
 pub mod pipeline;
-use futures::{channel::oneshot::Canceled, Future};
+use futures::Future;
 pub use pipeline::*;
 
 pub mod controller;
 pub use controller::*;
+use reactive::EventSource;
 use rendiation_algebra::Mat4;
 use rendiation_renderable_mesh::mesh::MeshBufferIntersectConfig;
 use rendiation_scene_interaction::WebGPUScenePickingExt;
@@ -32,7 +34,7 @@ use self::{
 use crate::*;
 
 impl CanvasPrinter for ViewerImpl {
-  fn draw_canvas(&mut self, gpu: &Rc<GPU>, canvas: GPU2DTextureView) {
+  fn draw_canvas(&mut self, gpu: &Arc<GPU>, canvas: GPU2DTextureView) {
     self.content.update_state();
     self
       .ctx
@@ -129,39 +131,81 @@ pub struct Viewer3dRenderingCtx {
   pipeline: ViewerPipeline,
   pool: ResourcePool,
   resources: GlobalGPUSystem,
-  gpu: Rc<GPU>,
-  snapshot: Option<ViewerSnapshotTaskResolver>,
+  gpu: Arc<GPU>,
+  on_encoding_finished: EventSource<ViewRenderedState>,
 }
 
-pub struct ViewerSnapshotTaskResolver {
-  inner: futures::channel::oneshot::Sender<ReadTextureFromStagingBuffer>,
+#[derive(Clone)]
+struct ViewRenderedState {
+  target: RenderTargetView,
+  device: GPUDevice,
+  queue: GPUQueue,
 }
 
-impl ViewerSnapshotTaskResolver {
-  pub fn install(
-    viewer: &mut Viewer3dRenderingCtx,
-  ) -> impl Future<Output = Result<ReadTextureFromStagingBuffer, Canceled>> {
-    let (sender, receiver) = futures::channel::oneshot::channel::<ReadTextureFromStagingBuffer>();
+#[derive(Debug)]
+pub enum ViewerRenderResultReadBackErr {
+  GPU(webgpu::BufferAsyncError),
+  UnableToReadSurfaceTexture,
+}
 
-    viewer.snapshot = Some(Self { inner: sender });
+impl ViewRenderedState {
+  async fn read(self) -> Result<ReadableTextureBuffer, ViewerRenderResultReadBackErr> {
+    match self.target {
+      RenderTargetView::Texture(tex) => {
+        // I have to write this, because I don't know why compiler can't known the encoder is
+        // dropped and will not across the await point
+        let buffer = {
+          let mut encoder = self.device.create_encoder();
 
-    receiver
-  }
-  pub fn submit(self, read_task: ReadTextureFromStagingBuffer) {
-    self.inner.send(read_task).ok();
+          let buffer = encoder.read_texture_2d(
+            &self.device,
+            &tex.resource.clone().try_into().unwrap(),
+            ReadRange {
+              size: Size::from_u32_pair_min_one((
+                tex.resource.desc.size.width,
+                tex.resource.desc.size.height,
+              )),
+              offset_x: 0,
+              offset_y: 0,
+            },
+          );
+          self.queue.submit(Some(encoder.finish()));
+          buffer
+        };
+
+        buffer.await.map_err(ViewerRenderResultReadBackErr::GPU)
+      }
+      RenderTargetView::SurfaceTexture { .. } => {
+        // note: maybe surface could supported by extra copy, but I'm not sure the surface texture's
+        // usage flag.
+        Err(ViewerRenderResultReadBackErr::UnableToReadSurfaceTexture)
+      }
+    }
   }
 }
 
 impl Viewer3dRenderingCtx {
-  pub fn new(gpu: Rc<GPU>) -> Self {
+  pub fn new(gpu: Arc<GPU>) -> Self {
     let gpu_resources = GlobalGPUSystem::new(&gpu);
     Self {
       pipeline: ViewerPipeline::new(gpu.as_ref()),
       gpu,
       resources: gpu_resources,
       pool: Default::default(),
-      snapshot: None,
+      on_encoding_finished: Default::default(),
     }
+  }
+
+  /// only texture could be read. caller must sure the target passed in render call not using
+  /// surface.
+  pub fn read_next_render_result(
+    &mut self,
+  ) -> impl Future<Output = Result<ReadableTextureBuffer, ViewerRenderResultReadBackErr>> {
+    use futures::FutureExt;
+    self
+      .on_encoding_finished
+      .once_future(|result| result.clone().read())
+      .flatten()
   }
 
   pub fn resize_view(&mut self) {
@@ -188,28 +232,13 @@ impl Viewer3dRenderingCtx {
     };
 
     self.pipeline.render(&mut ctx, content, &target, &scene_res);
+    ctx.final_submit();
 
-    if let Some(task) = self.snapshot.take() {
-      if let RenderTargetView::Texture(tex) = &target {
-        // todo support surface
-        let read_future = ctx.encoder.read_texture_2d(
-          &ctx.gpu.device,
-          &tex.resource.clone().try_into().unwrap(),
-          ReadRange {
-            size: Size::from_u32_pair_min_one((
-              tex.resource.desc.size.width,
-              tex.resource.desc.size.height,
-            )),
-            offset_x: 0,
-            offset_y: 0,
-          },
-        ); // todo improvements
-
-        task.submit(read_future)
-      }
-    }
-
-    ctx.final_submit()
+    self.on_encoding_finished.emit(&ViewRenderedState {
+      target,
+      device: self.gpu.device.clone(),
+      queue: self.gpu.queue.clone(),
+    })
   }
 }
 

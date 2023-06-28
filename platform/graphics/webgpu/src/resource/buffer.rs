@@ -26,7 +26,7 @@ impl BindableResourceProvider for GPUBufferResourceView {
 
 #[derive(Clone)]
 pub struct GPUBuffer {
-  pub(crate) gpu: Rc<gpu::Buffer>,
+  pub(crate) gpu: Arc<gpu::Buffer>,
   pub(crate) size: std::num::NonZeroU64,
 }
 
@@ -38,7 +38,7 @@ impl GPUBuffer {
       usage,
     });
     Self {
-      gpu: Rc::new(gpu),
+      gpu: Arc::new(gpu),
       size: std::num::NonZeroU64::new(bytes.len() as u64).unwrap(),
     }
   }
@@ -95,7 +95,7 @@ pub fn create_gpu_buffer(
 #[derive(Clone)]
 pub struct UniformBufferDataView<T: Std140> {
   gpu: GPUBufferResourceView,
-  diff: Rc<RefCell<DiffState<T>>>,
+  diff: Arc<RwLock<DiffState<T>>>,
 }
 
 /// just short convenient method
@@ -137,36 +137,36 @@ impl<T: Std140> UniformBufferDataView<T> {
 
     Self {
       gpu,
-      diff: Rc::new(RefCell::new(DiffState::new(data))),
+      diff: Arc::new(RwLock::new(DiffState::new(data))),
     }
   }
 
   pub fn mutate(&self, f: impl Fn(&mut T)) -> &Self {
-    let mut state = self.diff.borrow_mut();
+    let mut state = self.diff.write().unwrap();
     f(&mut state.data);
     state.changed = true;
     self
   }
 
   pub fn copy_cpu(&self, other: &Self) -> &Self {
-    let mut state = self.diff.borrow_mut();
+    let mut state = self.diff.write().unwrap();
     state.data = other.get();
     state.changed = true;
     self
   }
 
   pub fn get(&self) -> T {
-    self.diff.borrow().data
+    self.diff.read().unwrap().data
   }
 
   pub fn set(&self, v: T) {
-    let mut state = self.diff.borrow_mut();
+    let mut state = self.diff.write().unwrap();
     state.data = v;
     state.changed = true;
   }
 
   pub fn upload(&self, queue: &gpu::Queue) {
-    let mut state = self.diff.borrow_mut();
+    let mut state = self.diff.write().unwrap();
     if state.changed {
       let data = state.data;
       queue.write_buffer(&self.gpu.resource.gpu, 0, bytemuck::cast_slice(&[data]));
@@ -179,7 +179,7 @@ impl<T: Std140> UniformBufferDataView<T> {
   where
     T: PartialEq,
   {
-    let mut state = self.diff.borrow_mut();
+    let mut state = self.diff.write().unwrap();
     if state.changed {
       let data = state.data;
       let should_update;

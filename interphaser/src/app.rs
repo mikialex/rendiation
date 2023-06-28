@@ -1,4 +1,4 @@
-use std::rc::Rc;
+use std::sync::Arc;
 
 use rendiation_algebra::*;
 use rendiation_texture::Size;
@@ -41,7 +41,7 @@ pub async fn run_gui<T: 'static>(state: T, ui: impl UIComponent<T>, config: Wind
   let device_pixel_ratio = window.scale_factor();
 
   let (gpu, surface) = GPU::new_with_surface(&window).await;
-  let gpu = Rc::new(gpu);
+  let gpu = Arc::new(gpu);
 
   let fonts = FontManager::new_with_default_font();
 
@@ -161,7 +161,7 @@ pub struct Application<T> {
   init_inst: Instant,
   last_update_inst: Instant,
   surface: GPUSurface,
-  gpu: Rc<GPU>,
+  gpu: Arc<GPU>,
 }
 
 impl<T> Application<T> {

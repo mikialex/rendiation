@@ -20,7 +20,7 @@ pub trait BindableResourceView {
 
 #[derive(Clone)]
 pub struct GPUBindGroupLayout {
-  pub(crate) inner: Rc<gpu::BindGroupLayout>,
+  pub(crate) inner: Arc<gpu::BindGroupLayout>,
   pub(crate) cache_id: u64,
 }
 
@@ -197,7 +197,7 @@ impl BindingBuilder {
       let hash = hasher.finish();
 
       let cache = device.get_binding_cache();
-      let mut binding_cache = cache.cache.borrow_mut();
+      let mut binding_cache = cache.cache.write().unwrap();
 
       let bindgroup = binding_cache.entry(hash).or_insert_with(|| {
         // build bindgroup and cache and return
@@ -208,7 +208,7 @@ impl BindingBuilder {
         });
 
         let bindgroup = group.create_bind_group(device, layout);
-        Rc::new(bindgroup)
+        Arc::new(bindgroup)
       });
 
       pass.set_bind_group_owned(group_index as u32, bindgroup, &[]);

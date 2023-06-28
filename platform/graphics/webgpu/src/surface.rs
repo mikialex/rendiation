@@ -78,7 +78,7 @@ impl GPUSurface {
     let view = frame
       .texture
       .create_view(&gpu::TextureViewDescriptor::default());
-    let view = Rc::new(view);
+    let view = Arc::new(view);
 
     Ok((
       frame,

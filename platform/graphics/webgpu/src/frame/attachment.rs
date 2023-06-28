@@ -25,12 +25,12 @@ struct SingleResourcePool {
 
 #[derive(Clone, Default)]
 pub struct ResourcePool {
-  pub inner: Rc<RefCell<ResourcePoolImpl>>,
+  pub inner: Arc<RwLock<ResourcePoolImpl>>,
 }
 
 impl ResourcePool {
   pub fn clear(&mut self) {
-    self.inner.borrow_mut().clear()
+    self.inner.write().unwrap().clear()
   }
 }
 
@@ -81,7 +81,7 @@ impl AsRef<Attachment> for Attachment {
 /// When it drops, return the texture to the reusing pool;
 impl Drop for Attachment {
   fn drop(&mut self) {
-    let mut pool = self.pool.inner.borrow_mut();
+    let mut pool = self.pool.inner.write().unwrap();
     let pool = pool
       .attachments
       .entry(self.key) // maybe not exist when entire pool cleared when resize
@@ -156,11 +156,11 @@ impl<T> shadergraph::ShaderUniformProvider for AttachmentView<T> {
 pub struct AttachmentDescriptor {
   pub(super) format: gpu::TextureFormat,
   pub(super) sample_count: u32,
-  pub(super) sizer: Rc<dyn Fn(Size) -> Size>,
+  pub(super) sizer: Arc<dyn Fn(Size) -> Size>,
 }
 
-pub fn default_sizer() -> Rc<dyn Fn(Size) -> Size> {
-  Rc::new(|size| size)
+pub fn default_sizer() -> Arc<dyn Fn(Size) -> Size> {
+  Arc::new(|size| size)
 }
 
 pub fn ratio_sizer(ratio: f32) -> impl Fn(Size) -> Size + 'static {
@@ -181,7 +181,7 @@ impl AttachmentDescriptor {
 
   #[must_use]
   pub fn sizer(mut self, sizer: impl Fn(Size) -> Size + 'static) -> Self {
-    self.sizer = Rc::new(sizer);
+    self.sizer = Arc::new(sizer);
     self
   }
 }
@@ -197,7 +197,7 @@ impl AttachmentDescriptor {
       sample_count: self.sample_count,
     };
 
-    let mut resource = ctx.pool.inner.borrow_mut();
+    let mut resource = ctx.pool.inner.write().unwrap();
     let cached = resource
       .attachments
       .entry(key)

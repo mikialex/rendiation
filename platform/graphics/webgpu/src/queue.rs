@@ -1,14 +1,14 @@
-use std::{ops::Deref, rc::Rc};
+use crate::*;
 
 #[derive(Clone)]
 pub struct GPUQueue {
-  inner: Rc<wgpu::Queue>,
+  inner: Arc<wgpu::Queue>,
 }
 
 impl GPUQueue {
   pub fn new(queue: wgpu::Queue) -> Self {
     Self {
-      inner: Rc::new(queue),
+      inner: Arc::new(queue),
     }
   }
 }

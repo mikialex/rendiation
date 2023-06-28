@@ -40,7 +40,7 @@ impl<'a> FrameCtx<'a> {
   }
 
   pub fn notify_output_resized(&self) {
-    self.pool.inner.borrow_mut().clear();
+    self.pool.inner.write().unwrap().clear();
   }
 
   pub fn multisampled_attachment(&self) -> AttachmentDescriptor {

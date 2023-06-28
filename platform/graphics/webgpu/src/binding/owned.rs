@@ -6,7 +6,7 @@ pub enum BindingResourceOwned {
   BufferArray(Vec<GPUBufferResourceView>),
   Sampler(GPUSamplerView),
   SamplerArray(Vec<GPUSamplerView>),
-  RawTextureView(Rc<TextureView>, BindGroupResourceHolder), // to support surface texture
+  RawTextureView(Arc<TextureView>, BindGroupResourceHolder), // to support surface texture
   TextureView(GPUTextureView),
   TextureViewArray(Vec<GPUTextureView>),
 }
