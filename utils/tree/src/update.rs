@@ -7,12 +7,16 @@ use smallvec::SmallVec;
 
 use crate::*;
 
+pub trait HierarchyDerivedBase: Clone {
+  type Source: IncrementalBase;
+  fn build_default(self_source: &Self::Source) -> Self;
+}
+
 /// The default value is the none parent case
 ///
 /// We not impose IncrementalHierarchyDerived extends HierarchyDerived
 /// because of simplicity.
-pub trait IncrementalHierarchyDerived: IncrementalBase {
-  type Source: IncrementalBase;
+pub trait IncrementalHierarchyDerived: IncrementalBase + HierarchyDerivedBase {
   type DirtyMark: HierarchyDirtyMark;
 
   /// for any delta of source, check if it will have hierarchy effect.
@@ -20,8 +24,6 @@ pub trait IncrementalHierarchyDerived: IncrementalBase {
   fn filter_hierarchy_change(
     change: &<Self::Source as IncrementalBase>::Delta,
   ) -> Option<Self::DirtyMark>;
-
-  fn build_default(self_source: &Self::Source) -> Self;
 
   fn hierarchy_update(
     &mut self,
@@ -43,8 +45,7 @@ pub struct ParentTreeDirty<M> {
   sub_tree_dirty_mark_all: M,
 }
 
-pub trait IncrementalChildrenHierarchyDerived: Default + IncrementalBase {
-  type Source: IncrementalBase;
+pub trait IncrementalChildrenHierarchyDerived: IncrementalBase + HierarchyDerivedBase {
   type DirtyMark: HierarchyDirtyMark;
 
   /// for any delta of source, check if it will have hierarchy effect
@@ -110,7 +111,7 @@ impl<T: IncrementalBase, Dirty> TreeHierarchyDerivedSystem<T, Dirty> {
   where
     B: TreeIncrementalDeriveBehavior<T, S, M, TREE, Dirty = Dirty>,
     S: IncrementalBase,
-    T: IncrementalHierarchyDerived<DirtyMark = M, Source = S> + Clone,
+    T: HierarchyDerivedBase<Source = S>,
     Dirty: Default + 'static,
     M: HierarchyDirtyMark,
     TREE: 'static,

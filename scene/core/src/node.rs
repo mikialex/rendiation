@@ -57,9 +57,17 @@ impl HierarchyDirtyMark for SceneNodeDeriveDataDirtyFlag {
   }
 }
 
-impl IncrementalHierarchyDerived for SceneNodeDerivedData {
+impl HierarchyDerivedBase for SceneNodeDerivedData {
   type Source = SceneNodeDataImpl;
+  fn build_default(self_source: &Self::Source) -> Self {
+    SceneNodeDerivedData {
+      world_matrix: self_source.local_matrix,
+      net_visible: self_source.visible,
+    }
+  }
+}
 
+impl IncrementalHierarchyDerived for SceneNodeDerivedData {
   type DirtyMark = SceneNodeDeriveDataDirtyFlag;
 
   fn filter_hierarchy_change(
@@ -70,13 +78,6 @@ impl IncrementalHierarchyDerived for SceneNodeDerivedData {
       SceneNodeDataImplDelta::visible(_) => SceneNodeDeriveDataDirtyFlag::WorldMatrix,
     }
     .into()
-  }
-
-  fn build_default(self_source: &Self::Source) -> Self {
-    SceneNodeDerivedData {
-      world_matrix: self_source.local_matrix,
-      net_visible: self_source.visible,
-    }
   }
 
   fn hierarchy_update(
