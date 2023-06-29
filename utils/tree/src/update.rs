@@ -382,10 +382,6 @@ where
         if n.parent.is_none() {
           update_parent = n.handle().into();
         }
-        // don't check self, or we will failed to mark change
-        if n.handle() == change_node {
-          return true;
-        }
         let contains = n.data.dirty.contains(&dirty_mark);
         n.data.dirty.insert(&dirty_mark);
         !contains
