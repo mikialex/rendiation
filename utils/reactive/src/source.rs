@@ -122,7 +122,7 @@ impl<T: 'static> EventSource<T> {
     &self,
     mapper: impl Fn(&T) -> U + Send + Sync + 'static,
     init: impl Fn(&dyn Fn(U)),
-  ) -> impl futures::Stream<Item = U>
+  ) -> impl futures::Stream<Item = U> + 'static
   where
     U: Send + Sync + 'static,
   {
@@ -133,7 +133,7 @@ impl<T: 'static> EventSource<T> {
     &self,
     mapper: impl Fn(&T) -> U + Send + Sync + 'static,
     init: impl Fn(&dyn Fn(U)),
-  ) -> impl futures::Stream<Item = U>
+  ) -> impl futures::Stream<Item = U> + 'static
   where
     U: Send + Sync + 'static,
     C: ChannelLike<U>,
@@ -151,16 +151,19 @@ impl<T: 'static> EventSource<T> {
     EventSourceStream::new(dropper, receiver)
   }
 
-  pub fn once_future(&mut self) -> impl Future<Output = Option<()>>
+  pub fn once_future<R>(
+    &mut self,
+    f: impl FnOnce(&T) -> R + Send + Sync + 'static,
+  ) -> impl Future<Output = R>
   where
-    T: Clone + Send + Sync,
+    T: Send + Sync,
+    R: Send + Sync + 'static,
   {
-    let mut any = self.single_listen_by(|_| (), |_| {});
-    async move {
-      loop {
-        any.next().await;
-      }
-    }
+    use futures::FutureExt;
+    let f = Mutex::new(Some(f));
+    let f = move |p: &_| f.lock().unwrap().take().map(|f| f(p));
+    let any = self.single_listen_by(f, |_| {});
+    any.into_future().map(|(r, _)| r.unwrap().unwrap())
   }
 }
 

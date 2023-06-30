@@ -18,7 +18,7 @@ pub enum RenderTargetView {
   SurfaceTexture {
     size: Size,
     format: gpu::TextureFormat,
-    view: Rc<gpu::TextureView>,
+    view: Arc<gpu::TextureView>,
     view_id: usize,
     bindgroup_holder: BindGroupResourceHolder,
   },
@@ -140,7 +140,7 @@ pub struct RenderTargetFormatsInfo {
 pub struct GPURenderPass<'a> {
   pub(crate) pass: gpu::RenderPass<'a>,
   pub(crate) holder: &'a GPURenderPassDataHolder,
-  pub(crate) placeholder_bg: Rc<gpu::BindGroup>,
+  pub(crate) placeholder_bg: Arc<gpu::BindGroup>,
   pub(crate) size: Size,
   pub(crate) formats: RenderTargetFormatsInfo,
 }
@@ -161,8 +161,8 @@ impl<'a> DerefMut for GPURenderPass<'a> {
 
 #[derive(Default)]
 pub struct GPURenderPassDataHolder {
-  buffers: Arena<Rc<gpu::Buffer>>,
-  bindgroups: Arena<Rc<gpu::BindGroup>>,
+  buffers: Arena<Arc<gpu::Buffer>>,
+  bindgroups: Arena<Arc<gpu::BindGroup>>,
   pipelines: Arena<GPURenderPipeline>,
 }
 
@@ -187,7 +187,7 @@ impl<'a> GPURenderPass<'a> {
   pub fn set_bind_group_owned(
     &mut self,
     index: u32,
-    bind_group: &Rc<gpu::BindGroup>,
+    bind_group: &Arc<gpu::BindGroup>,
     offsets: &[gpu::DynamicOffset],
   ) {
     let bind_group = self.holder.bindgroups.alloc(bind_group.clone());

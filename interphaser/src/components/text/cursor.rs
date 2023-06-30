@@ -99,9 +99,9 @@ impl Cursor {
     })
   }
 
-  pub fn create_quad(&mut self, layout: &TextLayoutRef) -> Quad {
+  pub fn create_quad(&mut self, layout: &TextLayoutRef) -> RectangleShape {
     let position = self.get_position(layout);
-    Quad {
+    RectangleShape {
       x: position.position.x,
       y: position.position.y,
       width: 1.,

@@ -9,7 +9,7 @@ dyn-clone = "1.0.5"
 image = "*"
 indicatif = "0.15"
 rand = "0.7.3"
-rayon = "1.5.0"
+rayon = "1.7.0"
 statrs = "0.16.0"
 tobj = "2.0.3"
 

@@ -6,7 +6,7 @@ pub struct GPUCommandEncoder {
   pub(crate) encoder: gpu::CommandEncoder,
   holder: GPURenderPassDataHolder,
   active_pass_target_holder: Option<RenderPassDescriptorOwned>,
-  placeholder_bg: Rc<gpu::BindGroup>,
+  placeholder_bg: Arc<gpu::BindGroup>,
   pub(crate) on_submit: EventSource<()>,
 }
 
@@ -24,12 +24,8 @@ impl DerefMut for GPUCommandEncoder {
   }
 }
 
-pub struct GPUCommandBuffer {
-  pub(crate) gpu: gpu::CommandBuffer,
-}
-
 impl GPUCommandEncoder {
-  pub fn new(encoder: gpu::CommandEncoder, device: &GPUDevice) -> Self {
+  pub(crate) fn new(encoder: gpu::CommandEncoder, device: &GPUDevice) -> Self {
     Self {
       encoder,
       holder: Default::default(),
@@ -39,10 +35,10 @@ impl GPUCommandEncoder {
     }
   }
 
-  pub fn finish(self) -> GPUCommandBuffer {
+  pub fn finish(self) -> gpu::CommandBuffer {
     let gpu = self.encoder.finish();
     self.on_submit.emit(&());
-    GPUCommandBuffer { gpu }
+    gpu
   }
 
   pub fn do_u_hear_the_people_sing(&mut self, mut des: RenderPassDescriptorOwned) {

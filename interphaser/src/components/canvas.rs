@@ -1,4 +1,4 @@
-use std::rc::Rc;
+use std::sync::Arc;
 
 use rendiation_texture::Size;
 use webgpu::{map_size_gpu, GPU2DTextureView, GPUTexture, GPU};
@@ -74,7 +74,7 @@ pub trait CanvasPrinter {
     position_info: CanvasWindowPositionInfo,
   );
   fn update_render_size(&mut self, layout_size: (f32, f32)) -> Size;
-  fn draw_canvas(&mut self, gpu: &Rc<GPU>, canvas: GPU2DTextureView);
+  fn draw_canvas(&mut self, gpu: &Arc<GPU>, canvas: GPU2DTextureView);
 }
 
 impl<T: CanvasPrinter> Component<T> for GPUCanvas {

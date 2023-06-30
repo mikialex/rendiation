@@ -1,4 +1,5 @@
-use std::{any::Any, rc::Rc};
+use std::any::Any;
+use std::sync::Arc;
 
 use webgpu::GPU;
 
@@ -11,7 +12,7 @@ pub struct EventCtx<'a> {
   pub states: &'a WindowState,
   pub fonts: &'a FontManager,
   pub texts: &'a mut TextCache,
-  pub gpu: Rc<GPU>,
+  pub gpu: Arc<GPU>,
 }
 
 pub struct CustomEventCtx {

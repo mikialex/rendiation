@@ -7,7 +7,7 @@ pub use container as c;
 
 #[derive(Clone)]
 pub struct GPURenderPipeline {
-  pub inner: Rc<GPURenderPipelineInner>,
+  pub inner: Arc<GPURenderPipelineInner>,
 }
 
 impl GPURenderPipeline {
@@ -17,7 +17,7 @@ impl GPURenderPipeline {
       bg_layouts,
     };
     Self {
-      inner: Rc::new(inner),
+      inner: Arc::new(inner),
     }
   }
 

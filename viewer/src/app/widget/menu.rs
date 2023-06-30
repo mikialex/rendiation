@@ -59,7 +59,7 @@ pub fn menu() -> impl UIComponent<MenuModel> {
 fn menu_title() -> impl UIComponent<MenuList> {
   Container::adapt(AdaptChildSelfBehavior::Child)
     .bind(|s, _| {
-      s.padding = QuadBoundaryWidth::equal(3.);
+      s.padding = RectBoundaryWidth::equal(3.);
     })
     .wrap(
       Text::default()
@@ -69,15 +69,15 @@ fn menu_title() -> impl UIComponent<MenuList> {
     )
 }
 
-fn menu_expand() -> impl UIComponent<MenuList> {
+fn _menu_expand() -> impl UIComponent<MenuList> {
   Container::adapt(AdaptChildSelfBehavior::Child).wrap(
-    For::by(|_| Child::flex(menu_item(), 1.)) //
+    For::by(|_| Child::flex(_menu_item(), 1.)) //
       .extend(Flex::column())
       .lens(lens!(MenuList, items)),
   )
 }
 
-fn menu_item() -> impl UIComponent<MenuItem> {
+fn _menu_item() -> impl UIComponent<MenuItem> {
   EnumMatcher::by(|item| match item {
     MenuItem::SubList { .. } => {
       todo!()

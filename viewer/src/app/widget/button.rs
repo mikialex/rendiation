@@ -63,10 +63,9 @@ impl ButtonState {
 }
 
 pub fn button<T: 'static>(
-  label: impl Into<Value<String, T>>,
+  label: impl Fn(&T) -> String + 'static,
   on_click: impl Fn(&mut T, &mut EventHandleCtx, &()) + 'static,
 ) -> impl UIComponent<T> {
-  let mut label = label.into();
   let state = ButtonState::use_state();
 
   let on_mouse_down = state.on_event_trigger(|s| *s = ButtonState::Pressed);
@@ -89,6 +88,6 @@ pub fn button<T: 'static>(
 
   Container::sized((200., 80.))
     .bind(move |s, _| s.color = state.visit(|s| s.color()))
-    .wrap(Text::default().bind(move |s, t| s.content.set(label.eval(t))))
+    .wrap(Text::default().bind(move |s, t| s.content.set(label(t))))
     .extend(events)
 }

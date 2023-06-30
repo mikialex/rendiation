@@ -10,10 +10,10 @@ pub trait TextureIO<T> {
 
 pub struct PNG;
 
-use image::{EncodableLayout, ImageBuffer, Pixel};
+use image::{EncodableLayout, ImageBuffer, Pixel, PixelWithColorType};
 impl<P, C> TextureIO<PNG> for ImageBuffer<P, C>
 where
-  P: Pixel + 'static,
+  P: Pixel + PixelWithColorType + 'static,
   [P::Subpixel]: EncodableLayout,
   C: Deref<Target = [P::Subpixel]>,
   C: DerefMut<Target = [P::Subpixel]>,

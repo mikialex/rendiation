@@ -12,13 +12,7 @@ use rendiation_renderable_mesh::{vertex::Vertex, TriangleList};
 use rendiation_scene_interaction::*;
 use webgpu::{FrameRenderPass, RenderComponentAny};
 
-use crate::{
-  helpers::{
-    axis::{solid_material, Arrow},
-    WidgetDispatcher,
-  },
-  *,
-};
+use crate::*;
 
 const RED: Vec3<f32> = Vec3::new(0.8, 0.3, 0.3);
 const GREEN: Vec3<f32> = Vec3::new(0.3, 0.8, 0.3);

@@ -58,9 +58,16 @@ impl HierarchyDirtyMark for ValueSumIsDirty {
   }
 }
 
-impl IncrementalHierarchyDerived for TestNodeDerived {
+impl HierarchyDerivedBase for TestNodeDerived {
   type Source = TestNode;
+  fn build_default(self_source: &Self::Source) -> Self {
+    Self {
+      value_sum: self_source.value,
+    }
+  }
+}
 
+impl IncrementalHierarchyDerived for TestNodeDerived {
   type DirtyMark = ValueSumIsDirty;
 
   fn filter_hierarchy_change(
@@ -68,12 +75,6 @@ impl IncrementalHierarchyDerived for TestNodeDerived {
   ) -> Option<Self::DirtyMark> {
     match change {
       TestNodeDelta::value(_) => Some(ValueSumIsDirty(true)),
-    }
-  }
-
-  fn build_default(self_source: &Self::Source) -> Self {
-    Self {
-      value_sum: self_source.value,
     }
   }
 

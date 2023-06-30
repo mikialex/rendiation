@@ -2,7 +2,7 @@ use crate::*;
 
 #[derive(Clone)]
 pub struct GPUDevice {
-  pub(crate) inner: Rc<GPUDeviceInner>,
+  pub(crate) inner: Arc<GPUDeviceInner>,
 }
 
 impl GPUDevice {
@@ -22,12 +22,17 @@ impl GPUDevice {
       bindgroup_cache: BindGroupCache::new(),
       bindgroup_layout_cache: Default::default(),
       pipeline_cache: Default::default(),
-      placeholder_bg: Rc::new(placeholder_bg),
+      placeholder_bg: Arc::new(placeholder_bg),
     };
 
     Self {
-      inner: Rc::new(inner),
+      inner: Arc::new(inner),
     }
+  }
+
+  pub fn create_encoder(&self) -> GPUCommandEncoder {
+    let encoder = self.create_command_encoder(&gpu::CommandEncoderDescriptor { label: None });
+    GPUCommandEncoder::new(encoder, self)
   }
 
   pub fn create_and_cache_sampler(&self, desc: impl Into<GPUSamplerDescriptor>) -> RawSampler {
@@ -57,7 +62,8 @@ impl GPUDevice {
       .inner
       .bindgroup_layout_cache
       .cache
-      .borrow_mut()
+      .write()
+      .unwrap()
       .entry(key)
       .or_insert_with(|| {
         let inner = self.create_bind_group_layout(&gpu::BindGroupLayoutDescriptor {
@@ -65,7 +71,7 @@ impl GPUDevice {
           entries: layouts,
         });
         GPUBindGroupLayout {
-          inner: Rc::new(inner),
+          inner: Arc::new(inner),
           cache_id: key,
         }
       })
@@ -83,7 +89,7 @@ pub(crate) struct GPUDeviceInner {
   bindgroup_cache: BindGroupCache,
   bindgroup_layout_cache: BindGroupLayoutCache,
   pipeline_cache: RenderPipelineCache,
-  pub(crate) placeholder_bg: Rc<gpu::BindGroup>,
+  pub(crate) placeholder_bg: Arc<gpu::BindGroup>,
 }
 
 impl Deref for GPUDevice {
@@ -96,7 +102,7 @@ impl Deref for GPUDevice {
 
 #[derive(Default)]
 pub struct SamplerCache {
-  cache: RefCell<HashMap<GPUSamplerDescriptor, RawSampler>>,
+  cache: RwLock<HashMap<GPUSamplerDescriptor, RawSampler>>,
 }
 
 impl SamplerCache {
@@ -105,18 +111,18 @@ impl SamplerCache {
     device: &gpu::Device,
     desc: impl Into<GPUSamplerDescriptor>,
   ) -> RawSampler {
-    let mut map = self.cache.borrow_mut();
+    let mut map = self.cache.write().unwrap();
     let desc = desc.into();
     map
       .entry(desc.clone()) // todo optimize move
-      .or_insert_with(|| RawSampler(Rc::new(device.create_sampler(&desc.clone().into()))))
+      .or_insert_with(|| RawSampler(Arc::new(device.create_sampler(&desc.clone().into()))))
       .clone()
   }
 }
 
 #[derive(Default)]
 pub struct RenderPipelineCache {
-  pub cache: RefCell<HashMap<u64, GPURenderPipeline>>,
+  pub cache: RwLock<HashMap<u64, GPURenderPipeline>>,
 }
 
 pub trait ShaderHashProvider {
@@ -166,7 +172,8 @@ impl RenderPipelineCache {
     let key = hasher.finish();
     self
       .cache
-      .borrow_mut()
+      .write()
+      .unwrap()
       .entry(key)
       .or_insert_with(creator)
       .clone()

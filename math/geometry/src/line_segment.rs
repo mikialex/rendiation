@@ -44,6 +44,7 @@ where
 }
 
 pub type LineSegment<U> = SpaceLineSegment<U, StraitLine<U>>;
+pub type LineSegment2D<T> = LineSegment<Vec2<T>>;
 
 impl<V> LineSegment<V> {
   pub fn line_segment(start: V, end: V) -> Self {

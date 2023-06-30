@@ -4,7 +4,6 @@
 pub mod bsp;
 pub mod bst;
 pub mod bvh;
-pub mod incremental_bvh;
 pub mod utils;
 
 use rendiation_abstract_tree::*;

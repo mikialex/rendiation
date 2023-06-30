@@ -5,14 +5,14 @@ use interphaser::{winit::event::VirtualKeyCode, *};
 use rendiation_scene_core::Scene;
 use webgpu::ReadableTextureBuffer;
 
-use crate::{Viewer3dRenderingCtx, ViewerSnapshotTaskResolver};
+use crate::Viewer3dRenderingCtx;
 
 pub struct Terminal {
   pub command_history: Vec<String>,
   pub current_command_editing: String,
   pub command_to_execute: Option<String>,
   pub commands: HashMap<String, TerminalCommandCb>,
-  pub executor: ThreadPool,
+  pub executor: ThreadPool, // todo should passed in
 }
 
 impl Default for Terminal {
@@ -79,7 +79,7 @@ impl Terminal {
 
 pub fn terminal() -> impl UIComponent<Terminal> {
   Container::sized((UILength::ParentPercent(100.), UILength::Px(50.)))
-    .padding(QuadBoundaryWidth::equal(5.))
+    .padding(RectBoundaryWidth::equal(5.))
     .wrap(
       Text::default()
         .with_layout(TextLayoutConfig::SizedBox {
@@ -122,20 +122,24 @@ pub fn register_default_commands(terminal: &mut Terminal) {
     let result = ctx
       .rendering
       .as_mut()
-      .map(|cx| ViewerSnapshotTaskResolver::install(cx));
+      .map(|cx| cx.read_next_render_result());
 
     // todo use ?
     Box::pin(async {
-      if let Some(r) = result {
-        if let Ok(r) = r.await {
-          if let Ok(re) = r.await {
-            if let Some(mut dir) = dirs::download_dir() {
+      if let Some(result) = result{
+        match result.await {
+            Ok(r) =>{
+              if let Some(mut dir) = dirs::download_dir() {
               dir.push("screenshot.png"); // will override old but ok
-              write_png(&re, dir);
+              write_png(&r, dir);
+            }else {
+              log::error!("failed to locate the system's default download directory to write viewer screenshot image")
             }
-          }
+            },
+            Err(e) => log::error!("{e:?}"),
         }
       }
+
     })
   });
 }

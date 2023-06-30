@@ -131,7 +131,7 @@ impl GPUCommandEncoder {
 
     self
       .on_submit
-      .once_future()
+      .once_future(|_| {})
       .then(|_| ReadBufferTask::new(output_buffer, ..))
   }
 
@@ -173,7 +173,7 @@ impl GPUCommandEncoder {
       range.size.into_gpu_size(),
     );
 
-    self.on_submit.once_future().then(move |_| {
+    self.on_submit.once_future(|_| {}).then(move |_| {
       ReadBufferTask::new(output_buffer, ..).map(move |r| {
         r.map(move |buffer| ReadableTextureBuffer {
           info: buffer_dimensions,
@@ -185,7 +185,7 @@ impl GPUCommandEncoder {
 }
 
 pub type ReadTextureFromStagingBuffer =
-  impl Future<Output = Result<ReadableTextureBuffer, gpu::BufferAsyncError>>;
+  impl Future<Output = Result<ReadableTextureBuffer, gpu::BufferAsyncError>> + 'static;
 
 pub type ReadBufferFromStagingBuffer =
-  impl Future<Output = Result<ReadableBuffer, gpu::BufferAsyncError>>;
+  impl Future<Output = Result<ReadableBuffer, gpu::BufferAsyncError>> + 'static;

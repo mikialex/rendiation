@@ -224,3 +224,8 @@ pub trait AbstractParentAddressableMutTreeNode: Sized {
     }
   }
 }
+
+pub trait WorkStealableTreeNode {
+  fn visit_left_partial_children(&self, visitor: impl FnMut(&Self));
+  fn visit_right_partial_children(&self, visitor: impl FnMut(&Self));
+}

@@ -20,11 +20,9 @@ mod types;
 use std::{
   any::*,
   borrow::Cow,
-  cell::RefCell,
   collections::{hash_map::DefaultHasher, HashMap},
   hash::{Hash, Hasher},
   ops::{Deref, DerefMut, Range},
-  rc::Rc,
   sync::atomic::{AtomicUsize, Ordering},
   sync::{Arc, RwLock},
 };
@@ -148,15 +146,12 @@ impl GPU {
   }
 
   pub fn create_encoder(&self) -> GPUCommandEncoder {
-    let encoder = self
-      .device
-      .create_command_encoder(&gpu::CommandEncoderDescriptor { label: None });
-    GPUCommandEncoder::new(encoder, &self.device)
+    self.device.create_encoder()
   }
 
   pub fn submit_encoder(&self, encoder: GPUCommandEncoder) {
     let cmb = encoder.finish();
-    self.queue.submit(Some(cmb.gpu));
+    self.queue.submit(Some(cmb));
   }
 }
 

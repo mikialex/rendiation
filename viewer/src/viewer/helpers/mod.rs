@@ -8,10 +8,14 @@ use webgpu::*;
 
 use crate::{FatLineMaterial, FatlineMesh};
 
-pub mod axis;
-pub mod camera;
-pub mod grid;
-pub mod ground;
+mod axis;
+mod camera;
+mod grid;
+mod ground;
+pub use axis::*;
+pub use camera::*;
+pub use grid::*;
+pub use ground::*;
 
 pub type HelperLineMesh = FatlineMesh;
 pub struct HelperLineModel {
