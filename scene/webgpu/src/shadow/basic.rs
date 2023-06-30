@@ -28,12 +28,17 @@ impl SingleProjectShadowMapSystem {
   pub fn create_shadow_info_stream(
     &mut self,
     light_id: usize,
-    proj: impl Stream<Item = (Box<dyn CameraProjection>, Size)>,
-    node_delta: impl Stream<Item = SceneNode>,
+    proj: impl Stream<Item = (CameraProjector, Size)> + Unpin,
+    node_delta: impl Stream<Item = SceneNode> + Unpin,
   ) -> impl Stream<Item = LightShadowAddressInfo> {
     let camera_stream = basic_shadow_camera(proj, node_delta);
     self.cameras.insert(light_id, camera_stream);
     let (sender, rec) = futures::channel::mpsc::unbounded();
+    // list is not support reordering yet, should emit initial value now
+    sender.unbounded_send(LightShadowAddressInfo::new(
+      true,
+      self.list.allocate() as u32,
+    ));
     self.emitter.insert(light_id, sender);
     rec
   }
@@ -43,6 +48,9 @@ impl SingleProjectShadowMapSystem {
       StreamMapDelta::Delta(idx, (_camera, size)) => {
         self.shadow_maps.remove(idx);
         self.shadow_maps.insert(idx, self.maps.allocate(size));
+
+        let index = self.list.mapping.get(&idx).unwrap();
+        self.list.list.source[*index].shadow_camera = todo!();
       }
       StreamMapDelta::Remove(idx) => {
         self.emitter.remove(&idx);
@@ -52,7 +60,8 @@ impl SingleProjectShadowMapSystem {
 
     do_updates(&mut self.shadow_maps, |updates| match updates {
       StreamMapDelta::Delta(idx, delta) => {
-        self.emitter.get(&idx).unwrap().unbounded_send(delta);
+        let index = self.list.mapping.get(&idx).unwrap();
+        self.list.list.source[*index].map_info = delta;
       }
       _ => {}
     });
@@ -101,8 +110,8 @@ impl SingleProjectShadowMapSystem {
 type ReactiveBasicShadowSceneCamera = impl Stream<Item = (SceneCamera, Size)> + Unpin;
 
 fn basic_shadow_camera(
-  proj: impl Stream<Item = (Box<dyn CameraProjection>, Size)>,
-  node_delta: impl Stream<Item = SceneNode>,
+  proj: impl Stream<Item = (CameraProjector, Size)> + Unpin,
+  node_delta: impl Stream<Item = SceneNode> + Unpin,
 ) -> ReactiveBasicShadowSceneCamera {
   proj
     .zip(node_delta)
@@ -111,11 +120,28 @@ fn basic_shadow_camera(
 
 const SHADOW_MAX: usize = 8;
 
-#[derive(Default)]
 struct BasicShadowMapInfoList {
-  pub list: ClampedUniformList<BasicShadowMapInfo, SHADOW_MAX>,
+  list: ClampedUniformList<BasicShadowMapInfo, SHADOW_MAX>,
   /// map light id to index;
-  pub mapping: HashMap<usize, usize>,
+  empty_list: Vec<usize>,
+  mapping: HashMap<usize, usize>,
+}
+
+impl BasicShadowMapInfoList {
+  // todo, return stream
+  pub fn allocate(&mut self) -> usize {
+    todo!()
+  }
+}
+
+impl Default for BasicShadowMapInfoList {
+  fn default() -> Self {
+    Self {
+      list: Default::default(),
+      mapping: Default::default(),
+      empty_list: (0..SHADOW_MAX).into_iter().collect(),
+    }
+  }
 }
 
 only_fragment!(BasicShadowMapInfoGroup, Shader140Array<BasicShadowMapInfo, SHADOW_MAX>);
