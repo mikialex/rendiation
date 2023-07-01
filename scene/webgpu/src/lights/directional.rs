@@ -144,7 +144,7 @@ impl Default for DirectionalShadowMapExtraInfo {
 
 fn build_shadow_projection(
   light: &SceneItemRef<DirectionalLight>,
-) -> impl Stream<Item = (Box<dyn CameraProjection>, Size)> {
+) -> impl Stream<Item = (CameraProjector, Size)> {
   let light = light.read();
   let shadow_info = light.ext.get::<DirectionalShadowMapExtraInfo>().unwrap(); // todo
   let size = Size::from_u32_pair_min_one((512, 512)); // todo
@@ -152,7 +152,7 @@ fn build_shadow_projection(
   let orth = WorkAroundResizableOrth {
     orth: shadow_info.range,
   };
-  let orth = Box::new(orth) as Box<dyn CameraProjection>;
+  let orth = todo!();
 
   // todo watch  change
   once_forever_pending((orth, size))

@@ -142,6 +142,19 @@ pub enum StreamMapDelta<K, T> {
   Delta(K, T),
 }
 
+impl<K, T> StreamMapDelta<K, T> {
+  pub fn map<U>(self, f: impl FnOnce(&K, T) -> U) -> StreamMapDelta<K, U> {
+    match self {
+      StreamMapDelta::Insert(k) => StreamMapDelta::Insert(k),
+      StreamMapDelta::Remove(k) => StreamMapDelta::Remove(k),
+      StreamMapDelta::Delta(k, v) => {
+        let v = f(&k, v);
+        StreamMapDelta::Delta(k, v)
+      }
+    }
+  }
+}
+
 impl<K, T> Stream for StreamMap<K, T>
 where
   K: Clone + Send + Sync + Hash + Eq,

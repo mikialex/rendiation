@@ -21,7 +21,7 @@ impl ShadowMapSystem {
     let mut sampler = SamplerDescriptor::default();
     sampler.compare = CompareFunction::Less.into();
     Self {
-      single_proj_sys: SingleProjectShadowMapSystem::new(gpu, maps.clone(), derives),
+      single_proj_sys: SingleProjectShadowMapSystem::new(gpu.clone(), maps.clone(), derives),
       sampler: gpu.device.create_and_cache_sampler(sampler),
       maps,
     }

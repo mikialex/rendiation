@@ -42,7 +42,8 @@ impl Stream for SceneGPUSystem {
 
     let mut cameras = this.cameras.write().unwrap();
     let cameras: &mut SceneCameraGPUSystem = &mut cameras;
-    early_return_ready!(cameras.poll_next_unpin(cx));
+    let cameras_poll = cameras.poll_next_unpin(cx).map(|v| v.map(|_| ()));
+    early_return_ready!(cameras_poll);
 
     let mut models = this.models.write().unwrap();
     let models: &mut StreamMap<usize, ReactiveSceneModelGPUInstance> = &mut models;
