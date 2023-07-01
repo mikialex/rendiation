@@ -28,17 +28,15 @@ impl SingleProjectShadowMapSystem {
   pub fn create_shadow_info_stream(
     &mut self,
     light_id: usize,
-    proj: impl Stream<Item = (CameraProjector, Size)> + Unpin,
-    node_delta: impl Stream<Item = SceneNode> + Unpin,
+    proj: impl Stream<Item = (CameraProjector, Size)> + Unpin + 'static,
+    node_delta: impl Stream<Item = SceneNode> + Unpin + 'static,
   ) -> impl Stream<Item = LightShadowAddressInfo> {
-    let camera_stream = basic_shadow_camera(proj, node_delta);
+    let camera_stream = basic_shadow_camera(Box::new(proj), Box::new(node_delta));
     self.cameras.insert(light_id, camera_stream);
     let (sender, rec) = futures::channel::mpsc::unbounded();
     // list is not support reordering yet, should emit initial value now
-    sender.unbounded_send(LightShadowAddressInfo::new(
-      true,
-      self.list.allocate() as u32,
-    ));
+    let idx = self.list.allocate(light_id) as u32;
+    sender.unbounded_send(LightShadowAddressInfo::new(true, idx));
     self.emitter.insert(light_id, sender);
     rec
   }
@@ -53,6 +51,7 @@ impl SingleProjectShadowMapSystem {
         self.list.list.source[*index].shadow_camera = todo!();
       }
       StreamMapDelta::Remove(idx) => {
+        self.list.deallocate(idx);
         self.emitter.remove(&idx);
       }
       _ => {}
@@ -60,8 +59,7 @@ impl SingleProjectShadowMapSystem {
 
     do_updates(&mut self.shadow_maps, |updates| match updates {
       StreamMapDelta::Delta(idx, delta) => {
-        let index = self.list.mapping.get(&idx).unwrap();
-        self.list.list.source[*index].map_info = delta;
+        self.list.get_mut_data(idx).map_info = delta;
       }
       _ => {}
     });
@@ -109,9 +107,10 @@ impl SingleProjectShadowMapSystem {
 
 type ReactiveBasicShadowSceneCamera = impl Stream<Item = (SceneCamera, Size)> + Unpin;
 
+// todo remove box
 fn basic_shadow_camera(
-  proj: impl Stream<Item = (CameraProjector, Size)> + Unpin,
-  node_delta: impl Stream<Item = SceneNode> + Unpin,
+  proj: Box<dyn Stream<Item = (CameraProjector, Size)> + Unpin>,
+  node_delta: Box<dyn Stream<Item = SceneNode> + Unpin>,
 ) -> ReactiveBasicShadowSceneCamera {
   proj
     .zip(node_delta)
@@ -129,8 +128,19 @@ struct BasicShadowMapInfoList {
 
 impl BasicShadowMapInfoList {
   // todo, return stream
-  pub fn allocate(&mut self) -> usize {
-    todo!()
+  fn allocate(&mut self, light_id: usize) -> usize {
+    let idx = self.empty_list.pop().unwrap();
+    self.mapping.insert(light_id, idx);
+    idx
+  }
+  // todo raii
+  fn deallocate(&mut self, light_id: usize) {
+    let index = self.mapping.get(&light_id).unwrap();
+    self.empty_list.push(*index)
+  }
+  fn get_mut_data(&mut self, light_id: usize) -> &mut BasicShadowMapInfo {
+    let index = self.mapping.get(&light_id).unwrap();
+    &mut self.list.source[*index]
   }
 }
 

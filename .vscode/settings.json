@@ -97,6 +97,7 @@
         "pickable",
         "powf",
         "powi",
+        "raii",
         "rainray",
         "rasterization",
         "Rasterized",
