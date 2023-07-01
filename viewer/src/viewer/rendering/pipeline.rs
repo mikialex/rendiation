@@ -11,7 +11,6 @@ pub struct ViewerPipeline {
   forward_lights: ForwardLightingSystem,
   enable_channel_debugger: bool,
   channel_debugger: ScreenChannelDebugger,
-  shadows: ShadowMapSystem,
   tonemap: ToneMap,
 }
 
@@ -26,7 +25,6 @@ impl ViewerPipeline {
       forward_lights: Default::default(),
       enable_channel_debugger: false,
       channel_debugger: ScreenChannelDebugger::default_useful(),
-      shadows: ShadowMapSystem::new(gpu),
       tonemap: ToneMap::new(gpu),
     }
   }

@@ -16,6 +16,8 @@ pub struct SceneGPUSystem {
   #[pin]
   source: SceneGPUUpdateSource,
 
+  shadows: ShadowMapSystem,
+
   pub lights: RefCell<GPULightCache>,
 }
 
@@ -59,6 +61,7 @@ impl SceneGPUSystem {
     let models: Arc<RwLock<StreamMap<usize, ReactiveSceneModelGPUInstance>>> = Default::default();
     let models_c = models.clone();
     let gpu = contents.read().unwrap().gpu.clone();
+    let shadows = ShadowMapSystem::new(gpu.clone(), derives.clone());
 
     let nodes = SceneNodeGPUSystem::new(scene, derives, &gpu);
     let cameras = RwLock::new(SceneCameraGPUSystem::new(scene, derives, &gpu));
@@ -90,6 +93,7 @@ impl SceneGPUSystem {
       cameras,
       nodes,
       lights: Default::default(),
+      shadows,
     }
   }
 

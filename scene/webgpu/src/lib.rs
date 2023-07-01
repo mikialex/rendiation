@@ -33,7 +33,6 @@ use std::{
   sync::{Arc, Mutex, RwLock},
 };
 
-use __core::hash::Hasher;
 use __core::{
   pin::Pin,
   task::{Context, Poll},
