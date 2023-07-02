@@ -149,14 +149,18 @@ impl WebGPULight for SceneItemRef<SpotLight> {
 fn build_shadow_projection(
   light: &SceneItemRef<SpotLight>,
 ) -> impl Stream<Item = (CameraProjector, Size)> {
-  let proj = PerspectiveProjection {
-    near: 0.1,
-    far: 2000.,
-    fov: Deg::from_rad(light.read().half_cone_angle * 2.),
-    aspect: 1.,
-  };
-  let proj = todo!();
-  let size = Size::from_u32_pair_min_one((512, 512)); // todo
-                                                      // todo watch  change
-  once_forever_pending((proj, size))
+  light
+    .single_listen_by(any_change)
+    .filter_map_sync(light.defer_weak())
+    .map(|light| {
+      let proj = PerspectiveProjection {
+        near: 0.1,
+        far: 2000.,
+        fov: Deg::from_rad(light.read().half_cone_angle * 2.),
+        aspect: 1.,
+      };
+      let proj = CameraProjector::Perspective(proj);
+      let size = Size::from_u32_pair_min_one((512, 512));
+      (proj, size)
+    })
 }

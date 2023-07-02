@@ -11,7 +11,6 @@ pub struct SingleProjectShadowMapSystem {
   pub list: BasicShadowMapInfoList,
   gpu: ResourceGPUCtx,
   derives: SceneNodeDeriveSystem,
-  emitter: HashMap<usize, futures::channel::mpsc::UnboundedSender<LightShadowAddressInfo>>,
 }
 
 impl SingleProjectShadowMapSystem {
@@ -28,7 +27,6 @@ impl SingleProjectShadowMapSystem {
       list: Default::default(),
       gpu,
       derives,
-      emitter: Default::default(),
     }
   }
 
@@ -40,30 +38,20 @@ impl SingleProjectShadowMapSystem {
   ) -> impl Stream<Item = LightShadowAddressInfo> {
     let camera_stream = basic_shadow_camera(Box::new(proj), Box::new(node_delta));
     self.cameras_source.insert(light_id, camera_stream);
-    let (sender, rec) = futures::channel::mpsc::unbounded();
-    // list is not support reordering yet, should emit initial value now
-    let idx = self.list.allocate(light_id) as u32;
-    sender
-      .unbounded_send(LightShadowAddressInfo::new(true, idx))
-      .ok();
-    self.emitter.insert(light_id, sender);
-    rec
+    self.list.allocate(light_id)
   }
 
   pub fn maintain(&mut self, gpu_cameras: &mut SceneCameraGPUSystem) {
     do_updates(&mut self.cameras_source, |updates| match updates {
       StreamMapDelta::Delta(idx, (camera, size)) => {
-        self.shadow_maps.remove(idx);
+        self.shadow_maps.remove(idx); // deallocate map
         self.shadow_maps.insert(idx, self.maps.allocate(size));
         // create the gpu camera
         gpu_cameras.get_or_insert(&camera, &self.derives, &self.gpu);
         self.cameras.insert(idx, camera);
-
-        let index = self.list.mapping.get(&idx).unwrap();
       }
       StreamMapDelta::Remove(idx) => {
         self.list.deallocate(idx);
-        self.emitter.remove(&idx);
         self.cameras.remove(&idx);
       }
       _ => {}
@@ -111,7 +99,7 @@ impl SingleProjectShadowMapSystem {
 
     for (light_id, camera) in &self.cameras {
       let map = self.shadow_maps.streams.get(light_id).unwrap();
-      let (view, map_info) = map.get_write_view(ctx.gpu);
+      let (view, _map_info) = map.get_write_view();
 
       pass("shadow-depth")
         .with_depth(view, clear(1.))
@@ -144,19 +132,25 @@ pub struct BasicShadowMapInfoList {
   /// map light id to index;
   empty_list: Vec<usize>,
   mapping: HashMap<usize, usize>,
+  // todo support reordering?
+  emitter: HashMap<usize, futures::channel::mpsc::UnboundedSender<LightShadowAddressInfo>>,
 }
 
 impl BasicShadowMapInfoList {
-  // todo, return stream
-  fn allocate(&mut self, light_id: usize) -> usize {
+  fn allocate(&mut self, light_id: usize) -> impl Stream<Item = LightShadowAddressInfo> {
     let idx = self.empty_list.pop().unwrap();
+    let (sender, rec) = futures::channel::mpsc::unbounded();
+    sender
+      .unbounded_send(LightShadowAddressInfo::new(true, idx as u32))
+      .ok();
+    self.emitter.insert(light_id, sender);
     self.mapping.insert(light_id, idx);
-    idx
+    rec
   }
-  // todo raii
   fn deallocate(&mut self, light_id: usize) {
-    let index = self.mapping.get(&light_id).unwrap();
-    self.empty_list.push(*index)
+    let index = self.mapping.remove(&light_id).unwrap();
+    self.empty_list.push(index);
+    self.emitter.remove(&light_id);
   }
   fn get_mut_data(&mut self, light_id: usize) -> &mut BasicShadowMapInfo {
     let index = self.mapping.get(&light_id).unwrap();
@@ -170,6 +164,7 @@ impl Default for BasicShadowMapInfoList {
       list: Default::default(),
       mapping: Default::default(),
       empty_list: (0..SHADOW_MAX).collect(),
+      emitter: Default::default(),
     }
   }
 }

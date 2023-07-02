@@ -47,7 +47,7 @@ impl ShaderGraphProvider for ShadowMapSystem {
     &self,
     builder: &mut ShaderGraphRenderPipelineBuilder,
   ) -> Result<(), ShaderGraphBuildError> {
-    self.single_proj_sys.list.build(builder);
+    self.single_proj_sys.list.build(builder)?;
     self.maps.build(builder)
   }
 }

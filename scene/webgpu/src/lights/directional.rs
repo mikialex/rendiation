@@ -1,4 +1,4 @@
-use rendiation_geometry::{HyperRay, HyperRayCaster};
+use rendiation_geometry::{HyperRay, HyperRayCaster, Ray3};
 
 use crate::*;
 
@@ -145,71 +145,41 @@ impl Default for DirectionalShadowMapExtraInfo {
 fn build_shadow_projection(
   light: &SceneItemRef<DirectionalLight>,
 ) -> impl Stream<Item = (CameraProjector, Size)> {
-  let light = light.read();
-  let shadow_info = light.ext.get::<DirectionalShadowMapExtraInfo>().unwrap(); // todo
-  let size = Size::from_u32_pair_min_one((512, 512)); // todo
-
-  let orth = WorkAroundResizableOrth {
-    orth: shadow_info.range,
-  };
-  let orth = todo!();
-
-  // todo watch  change
-  once_forever_pending((orth, size))
+  light
+    .single_listen_by(any_change)
+    .filter_map_sync(light.defer_weak())
+    .map(|light| {
+      let light = light.read();
+      let shadow_info = light.ext.get::<DirectionalShadowMapExtraInfo>().unwrap(); // todo
+      let size = Size::from_u32_pair_min_one((512, 512)); // todo
+      let orth = WorkAroundResizableOrth {
+        orth: shadow_info.range,
+      };
+      let proj = CameraProjector::Foreign(Arc::new(orth));
+      (proj, size)
+    })
 }
 
 #[derive(Clone)]
-struct WorkAroundResizableOrth<T> {
-  orth: OrthographicProjection<T>,
+struct WorkAroundResizableOrth {
+  orth: OrthographicProjection<f32>,
 }
+clone_self_diffable_incremental!(WorkAroundResizableOrth);
 
-impl<T: Clone + Send + Sync> incremental::SimpleIncremental for WorkAroundResizableOrth<T> {
-  type Delta = Self;
-
-  fn s_apply(&mut self, delta: Self::Delta) {
-    *self = delta;
-  }
-
-  fn s_expand(&self, mut cb: impl FnMut(Self::Delta)) {
-    cb(self.clone())
-  }
-}
-
-impl<T: Scalar> Projection<T> for WorkAroundResizableOrth<T> {
-  fn update_projection<S: NDCSpaceMapper>(&self, projection: &mut Mat4<T>) {
+impl CameraProjection for WorkAroundResizableOrth {
+  fn update_projection(&self, projection: &mut Mat4<f32>) {
     self.orth.update_projection::<WebGPU>(projection);
   }
 
-  fn pixels_per_unit(&self, distance: T, view_height: T) -> T {
-    self.orth.pixels_per_unit(distance, view_height)
-  }
-}
-
-impl<T: Scalar> ResizableProjection<T> for WorkAroundResizableOrth<T> {
-  fn resize(&mut self, _size: (T, T)) {
-    // nothing!
-  }
-}
-impl HyperRayCaster<f32, Vec3<f32>, Vec2<f32>> for WorkAroundResizableOrth<f32> {
-  fn cast_ray(&self, normalized_position: Vec2<f32>) -> HyperRay<f32, Vec3<f32>> {
-    self.orth.cast_ray(normalized_position)
-  }
-}
-
-impl<T: Scalar> CameraProjection for WorkAroundResizableOrth<T> {
-  fn update_projection(&self, projection: &mut Mat4<f32>) {
-    todo!()
-  }
-
   fn resize(&mut self, size: (f32, f32)) {
-    todo!()
+    // nothing!
   }
 
   fn pixels_per_unit(&self, distance: f32, view_height: f32) -> f32 {
-    todo!()
+    self.orth.pixels_per_unit(distance, view_height)
   }
 
-  fn cast_ray(&self, normalized_position: Vec2<f32>) -> rendiation_geometry::Ray3<f32> {
-    todo!()
+  fn cast_ray(&self, normalized_position: Vec2<f32>) -> Ray3<f32> {
+    self.orth.cast_ray(normalized_position)
   }
 }

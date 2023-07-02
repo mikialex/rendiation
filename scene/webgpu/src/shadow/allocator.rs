@@ -15,6 +15,7 @@ impl ShadowMapAllocator {
   }
 
   pub fn allocate(&self, size_requirement: Size) -> ShadowMap {
+    let (width, height) = size_requirement.into_usize();
     let mut inner = self.inner.borrow_mut();
     inner.id += 1;
 
@@ -27,8 +28,11 @@ impl ShadowMapAllocator {
       let map = GPUTexture::create(
         webgpu::TextureDescriptor {
           label: "shadow-maps".into(),
-          // size: inner.size_all * 2,
-          size: todo!(),
+          size: Extent3d {
+            width: inner.size_all.width,
+            height: inner.size_all.height,
+            depth_or_array_layers: inner.size_all.depth_or_array_layers * 2,
+          },
           mip_level_count: 1,
           sample_count: 1,
           dimension: webgpu::TextureDimension::D2,
@@ -46,16 +50,16 @@ impl ShadowMapAllocator {
         .for_each(|(layer, alloc)| {
           alloc.info = ShadowMapAddressInfo {
             layer_index: layer as i32,
-            size: todo!(),
+            size: Vec2::new(width as f32, height as f32),
             offset: Vec2::zero(),
             ..Zeroable::zeroed()
           };
-          alloc.sender.unbounded_send(alloc.info);
+          alloc.sender.unbounded_send(alloc.info).ok();
         })
     }
     let current = ShadowMapAddressInfo {
       layer_index: inner.allocations.len() as i32,
-      size: todo!(),
+      size: Vec2::new(width as f32, height as f32),
       offset: Vec2::zero(),
       ..Zeroable::zeroed()
     };
@@ -115,6 +119,7 @@ pub struct ShadowMapAllocatorImpl {
 }
 
 struct LiveAllocation {
+  #[allow(dead_code)]
   size_requirement: Size,
   info: ShadowMapAddressInfo,
   sender: futures::channel::mpsc::UnboundedSender<ShadowMapAddressInfo>,
@@ -125,7 +130,7 @@ impl ShadowMapAllocatorImpl {
     let init_size = webgpu::Extent3d {
       width: 512,
       height: 512,
-      depth_or_array_layers: 5 as u32,
+      depth_or_array_layers: 5_u32,
     };
 
     // todo should we create when init?
@@ -197,16 +202,16 @@ impl Stream for ShadowMap {
       if let Some(r) = r {
         *this.current = r;
       }
-      return Poll::Ready(r);
+      Poll::Ready(r)
     } else {
-      return Poll::Pending;
+      Poll::Pending
     }
   }
 }
 
 impl ShadowMap {
-  pub fn get_write_view(&self, gpu: &GPU) -> (GPU2DTextureView, ShadowMapAddressInfo) {
-    let mut inner = self.inner.borrow_mut();
+  pub fn get_write_view(&self) -> (GPU2DTextureView, ShadowMapAddressInfo) {
+    let inner = self.inner.borrow();
     let id = inner.id;
     let allocation = inner.allocations.get(&id).unwrap();
 
