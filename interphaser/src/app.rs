@@ -1,5 +1,6 @@
 use std::sync::Arc;
 
+use futures::Stream;
 use rendiation_algebra::*;
 use rendiation_texture::Size;
 use webgpu::*;
@@ -10,7 +11,10 @@ use winit::{
 
 use crate::*;
 
-pub async fn run_gui<T: 'static>(state: T, ui: impl UIComponent<T>, config: WindowConfig) {
+pub async fn run_gui(
+  ui: impl FnOnce(Box<dyn Stream<Item = Event<()>>>) -> Box<dyn UI>,
+  config: WindowConfig,
+) {
   let event_loop = EventLoop::new();
   let builder = winit::window::WindowBuilder::new();
   let window = builder.build(&event_loop).unwrap();
@@ -52,10 +56,9 @@ pub async fn run_gui<T: 'static>(state: T, ui: impl UIComponent<T>, config: Wind
   let ui_renderer = WebGPUxUIRenderer::new(&gpu.device, prefer_target_fmt, text_cache_init_size);
 
   let mut app = Application {
-    state,
     fonts,
     texts,
-    root: Box::new(ui),
+    root: todo!(),
     root_size_changed: true,
     window_states: WindowState::new(
       UISize {
@@ -143,9 +146,10 @@ pub struct WindowConfig {
   pub position: UIPosition,
 }
 
-pub struct Application<T> {
-  state: T,
-  root: Box<dyn UIComponent<T>>,
+pub trait UI: LayoutAble + Presentable + Stream<Item = ()> {}
+
+pub struct Application {
+  root: Box<dyn UI>,
   window_states: WindowState,
   root_size_changed: bool,
   ui_renderer: WebGPUxUIRenderer,
@@ -164,7 +168,7 @@ pub struct Application<T> {
   gpu: Arc<GPU>,
 }
 
-impl<T> Application<T> {
+impl Application {
   fn frame_end(&mut self) {
     self.current_frame_id += 1;
     self.perf_info_last_frame = self.current_perf;
