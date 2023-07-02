@@ -16,14 +16,8 @@ pub struct SceneGPUSystem {
   #[pin]
   source: SceneGPUUpdateSource,
 
-  shadows: ShadowMapSystem,
-
-  pub lights: RefCell<GPULightCache>,
-}
-
-#[derive(Default)]
-pub struct GPULightCache {
-  pub inner: HashMap<TypeId, Box<dyn Any>>,
+  pub shadows: ShadowMapSystem,
+  pub lights: ForwardLightingSystem,
 }
 
 impl SceneGPUSystem {
@@ -48,6 +42,11 @@ impl Stream for SceneGPUSystem {
     let mut models = this.models.write().unwrap();
     let models: &mut StreamMap<usize, ReactiveSceneModelGPUInstance> = &mut models;
     do_updates_by(models, cx, |_| {});
+
+    let mut cameras = this.cameras.write().unwrap();
+    let cameras: &mut SceneCameraGPUSystem = &mut cameras;
+    this.shadows.maintain(cameras, cx);
+    do_updates_by(this.lights, cx, |_| {});
     Poll::Pending
   }
 }
@@ -63,6 +62,7 @@ impl SceneGPUSystem {
     let models_c = models.clone();
     let gpu = contents.read().unwrap().gpu.clone();
     let shadows = ShadowMapSystem::new(gpu.clone(), derives.clone());
+    let lights = ForwardLightingSystem::new(scene, gpu.clone());
 
     let nodes = SceneNodeGPUSystem::new(scene, derives, &gpu);
     let cameras = RwLock::new(SceneCameraGPUSystem::new(scene, derives, &gpu));
@@ -93,7 +93,7 @@ impl SceneGPUSystem {
       source,
       cameras,
       nodes,
-      lights: Default::default(),
+      lights,
       shadows,
     }
   }

@@ -26,6 +26,9 @@ impl ShadowMapSystem {
       maps,
     }
   }
+  pub fn maintain(&mut self, gpu_cameras: &mut SceneCameraGPUSystem, cx: &mut Context) {
+    self.single_proj_sys.maintain(gpu_cameras, cx)
+  }
 }
 
 impl ShaderPassBuilder for ShadowMapSystem {

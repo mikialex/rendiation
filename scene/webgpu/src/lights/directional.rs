@@ -1,4 +1,4 @@
-use rendiation_geometry::{HyperRay, HyperRayCaster, Ray3};
+use rendiation_geometry::{HyperRayCaster, Ray3};
 
 use crate::*;
 
@@ -160,7 +160,7 @@ fn build_shadow_projection(
     })
 }
 
-#[derive(Clone)]
+#[derive(Clone, PartialEq)]
 struct WorkAroundResizableOrth {
   orth: OrthographicProjection<f32>,
 }

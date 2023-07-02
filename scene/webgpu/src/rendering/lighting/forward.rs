@@ -1,305 +1,352 @@
-// use crate::*;
+use crate::*;
 
-// pub struct ForwardScene<'a> {
-//   pub lights: &'a ForwardLightingSystem,
-//   pub shadow: &'a ShadowMapSystem,
-//   pub tonemap: &'a ToneMap,
-//   pub derives: &'a SceneNodeDeriveSystem,
-//   pub debugger: Option<&'a ScreenChannelDebugger>,
-// }
+pub struct ForwardScene<'a> {
+  pub tonemap: &'a ToneMap,
+  pub debugger: Option<&'a ScreenChannelDebugger>,
+}
 
-// impl<'a> PassContentWithSceneAndCamera for ForwardScene<'a> {
-//   fn render(
-//     &mut self,
-//     pass: &mut FrameRenderPass,
-//     scene: &SceneRenderResourceGroup,
-//     camera: &SceneCamera,
-//   ) {
-//     let mut render_list = RenderList::default();
-//     render_list.prepare(scene, camera);
+impl<'a> PassContentWithSceneAndCamera for ForwardScene<'a> {
+  fn render(
+    &mut self,
+    pass: &mut FrameRenderPass,
+    scene: &SceneRenderResourceGroup,
+    camera: &SceneCamera,
+  ) {
+    let mut render_list = RenderList::default();
+    render_list.prepare(scene, camera);
 
-//     let base = default_dispatcher(pass);
-//     let dispatcher = ForwardSceneLightingDispatcher {
-//       base,
-//       lighting: self,
-//       debugger: self.debugger,
-//       override_shading: None,
-//       // override_shading: Some(&PhysicalShading),
-//     };
+    let base = default_dispatcher(pass);
+    let dispatcher = ForwardSceneLightingDispatcher {
+      base,
+      lighting: self,
+      debugger: self.debugger,
+      override_shading: None,
+      lights: &scene.scene_resources.lights,
+      shadows: &scene.scene_resources.shadows,
+    };
 
-//     render_list.setup_pass(pass, &dispatcher, camera, scene);
-//   }
-// }
+    render_list.setup_pass(pass, &dispatcher, camera, scene);
+  }
+}
 
-// pub struct ForwardSceneLightingDispatcher<'a> {
-//   base: DefaultPassDispatcher,
-//   lighting: &'a ForwardScene<'a>,
-//   override_shading: Option<&'static dyn LightableSurfaceShadingDyn>,
-//   debugger: Option<&'a ScreenChannelDebugger>,
-// }
+pub struct ForwardSceneLightingDispatcher<'a> {
+  base: DefaultPassDispatcher,
+  lighting: &'a ForwardScene<'a>,
+  lights: &'a ForwardLightingSystem,
+  shadows: &'a ShadowMapSystem,
+  override_shading: Option<&'static dyn LightableSurfaceShadingDyn>,
+  debugger: Option<&'a ScreenChannelDebugger>,
+}
 
-// const MAX_SUPPORT_LIGHT_KIND_COUNT: usize = 8;
-// /// contains gpu data that support forward rendering
-// ///
-// /// all uniform is update once in a frame. for convenience.
-// pub struct ForwardLightingSystem {
-//   pub lights_collections: StreamMap<TypeId, Box<dyn LightCollectionCompute>>,
+pub trait ReactiveLightCollectionCompute: LightCollectionCompute + Stream<Item = ()> {}
 
-//   /// note todo!, we don't support correct codegen for primitive wrapper array type
-//   /// so we use vec4<u32> instead of u32
-//   pub lengths:
-//     Option<UniformBufferDataView<Shader140Array<Vec4<u32>, MAX_SUPPORT_LIGHT_KIND_COUNT>>>,
+const MAX_SUPPORT_LIGHT_KIND_COUNT: usize = 8;
+/// contains gpu data that support forward rendering
+///
+/// all uniform is update once in a frame. for convenience.
+#[pin_project::pin_project]
+pub struct ForwardLightingSystem {
+  gpu: ResourceGPUCtx,
+  pub lights_collections: StreamMap<TypeId, Box<dyn ReactiveLightCollectionCompute>>,
+  // we could use linked hashmap to keep visit order
+  pub mapping_length_idx: HashMap<TypeId, usize>,
 
-//   light_hash_cache: u64,
-// }
+  /// note todo!, we don't support correct codegen for primitive wrapper array type
+  /// so we use vec4<u32> instead of u32
+  pub lengths:
+    Option<UniformBufferDataView<Shader140Array<Vec4<u32>, MAX_SUPPORT_LIGHT_KIND_COUNT>>>,
 
-// impl ForwardLightingSystem {
-//   pub fn new(scene: &Scene, shadow: &ShadowMapSystem) -> Self {
-//     scene
-//       .unbound_listen_by(with_field_expand!(SceneInner => lights))
-//       .map(|d| match d {
-//         arena::ArenaDelta::Mutate(_) => todo!(),
-//         arena::ArenaDelta::Insert((light, _)) => {
-//           let node = light.single_listen_by(with_field!(SceneLightInner => node));
-//           let light = light.read();
-//           match &light.light {
-//             SceneLightKind::PointLight(_) => todo!(),
-//             SceneLightKind::SpotLight(light) => {
-//               let uniform = light.create_uniform_stream(todo!(), node);
-//               //
-//             }
-//             SceneLightKind::DirectionalLight(_) => todo!(),
-//             SceneLightKind::Foreign(_) => todo!(),
-//             _ => todo!(),
-//           }
-//         }
-//         arena::ArenaDelta::Remove(_) => todo!(),
-//       })
-//   }
-// }
+  light_hash_cache: u64,
+}
 
-// impl<'a> ShaderPassBuilder for ForwardSceneLightingDispatcher<'a> {
-//   fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
-//     self.base.setup_pass(ctx);
-//   }
-//   fn post_setup_pass(&self, ctx: &mut GPURenderPassCtx) {
-//     self.lighting.shadow.setup_pass(ctx);
+impl Stream for ForwardLightingSystem {
+  type Item = ();
 
-//     ctx
-//       .binding
-//       .bind(self.lighting.lights.lengths.as_ref().unwrap());
-//     for lights in self.lighting.lights.lights_collections.values() {
-//       lights.setup_pass(ctx)
-//     }
-//     self.lighting.tonemap.setup_pass(ctx);
-//   }
-// }
+  fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+    let this = self.project();
+    // this.lights_collections.
 
-// impl<'a> ShaderHashProvider for ForwardSceneLightingDispatcher<'a> {
-//   fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
-//     self.lighting.lights.light_hash_cache.hash(hasher);
-//     self.lighting.shadow.hash_pipeline(hasher);
+    //   let mut lengths: Shader140Array<Vec4<u32>, MAX_SUPPORT_LIGHT_KIND_COUNT> =
+    // Default::default();
 
-//     self.debugger.is_some().hash(hasher);
-//     if let Some(debugger) = &self.debugger {
-//       debugger.hash_pipeline(hasher);
-//     }
+    //   self
+    //     .lights_collections
+    //     .iter_mut()
+    //     .map(|(_, c)| c.update_gpu(gpu))
+    //     .enumerate()
+    //     .for_each(|(i, l)| lengths.inner[i] = Vec4::new(l as u32, 0, 0, 0).into());
 
-//     self.override_shading.type_id().hash(hasher);
-//   }
-// }
+    //   self.lengths = create_uniform(lengths, gpu).into();
 
-// impl<'a> ShaderHashProviderAny for ForwardSceneLightingDispatcher<'a> {
-//   fn hash_pipeline_and_with_type_id(&self, hasher: &mut PipelineHasher) {
-//     self.hash_pipeline(hasher);
-//     // this is so special(I think) that id could skip
-//   }
-// }
+    //   let mut hasher = PipelineHasher::default();
+    //   for lights in self.lights_collections.values() {
+    //     lights.hash_pipeline(&mut hasher)
+    //   }
+    //   self.light_hash_cache = hasher.finish();
 
-// pub struct ShadingSelection;
+    Poll::Pending
+  }
+}
 
-// impl<'a> ShaderGraphProvider for ForwardSceneLightingDispatcher<'a> {
-//   fn build(
-//     &self,
-//     builder: &mut ShaderGraphRenderPipelineBuilder,
-//   ) -> Result<(), ShaderGraphBuildError> {
-//     self.base.build(builder)
-//   }
-//   fn post_build(
-//     &self,
-//     builder: &mut ShaderGraphRenderPipelineBuilder,
-//   ) -> Result<(), ShaderGraphBuildError> {
-//     self.lighting.shadow.build(builder)?;
+impl ForwardLightingSystem {
+  pub fn new(scene: &Scene, gpu: ResourceGPUCtx) -> Self {
+    // scene
+    //   .unbound_listen_by(with_field_expand!(SceneInner => lights))
+    //   .map(|d| match d {
+    //     arena::ArenaDelta::Mutate(_) => todo!(),
+    //     arena::ArenaDelta::Insert((light, _)) => {
+    //       let node = light.single_listen_by(with_field!(SceneLightInner => node));
+    //       let light = light.read();
+    //       match &light.light {
+    //         SceneLightKind::PointLight(_) => todo!(),
+    //         SceneLightKind::SpotLight(light) => {
+    //           let uniform = light.create_uniform_stream(todo!(), node);
+    //           //
+    //         }
+    //         SceneLightKind::DirectionalLight(_) => todo!(),
+    //         SceneLightKind::Foreign(_) => todo!(),
+    //         _ => todo!(),
+    //       }
+    //     }
+    //     arena::ArenaDelta::Remove(_) => todo!(),
+    //   })
 
-//     let shading_impl = if let Some(override_shading) = self.override_shading {
-//       override_shading
-//     } else {
-//       *builder
-//         .context
-//         .entry(ShadingSelection.type_id())
-//         .or_insert_with(|| Box::new(&PhysicalShading as &dyn LightableSurfaceShadingDyn))
-//         .downcast_ref::<&dyn LightableSurfaceShadingDyn>()
-//         .unwrap()
-//     };
+    todo!()
+  }
+}
 
-//     self.lighting.lights.compute_lights(builder, shading_impl)?;
+impl<'a> ShaderPassBuilder for ForwardSceneLightingDispatcher<'a> {
+  fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
+    self.base.setup_pass(ctx);
+  }
+  fn post_setup_pass(&self, ctx: &mut GPURenderPassCtx) {
+    self.shadows.setup_pass(ctx);
 
-//     self.lighting.tonemap.build(builder)?;
+    ctx.binding.bind(self.lights.lengths.as_ref().unwrap());
+    for lights in self.lights.lights_collections.streams.values() {
+      lights.setup_pass(ctx)
+    }
+    self.lighting.tonemap.setup_pass(ctx);
+  }
+}
 
-//     builder.fragment(|builder, _| {
-//       let ldr = builder.query::<LDRLightResult>()?;
+impl<'a> ShaderHashProvider for ForwardSceneLightingDispatcher<'a> {
+  fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
+    self.lights.light_hash_cache.hash(hasher);
+    self.shadows.hash_pipeline(hasher);
 
-//       let alpha = builder
-//         .query::<AlphaChannel>()
-//         .unwrap_or_else(|_| consts(1.0));
+    self.debugger.is_some().hash(hasher);
+    if let Some(debugger) = &self.debugger {
+      debugger.hash_pipeline(hasher);
+    }
 
-//       // should we use other way to get mask mode?
-//       let alpha = if builder.query::<AlphaCutChannel>().is_ok() {
-//         if_by(alpha.equals(consts(0.)), || builder.discard());
-//         consts(1.)
-//       } else {
-//         alpha
-//       };
+    self.override_shading.type_id().hash(hasher);
+  }
+}
 
-//       builder.set_fragment_out(0, (ldr, alpha))
-//     })?;
+impl<'a> ShaderHashProviderAny for ForwardSceneLightingDispatcher<'a> {
+  fn hash_pipeline_and_with_type_id(&self, hasher: &mut PipelineHasher) {
+    self.hash_pipeline(hasher);
+    // this is so special(I think) that id could skip
+  }
+}
 
-//     if let Some(debugger) = &self.debugger {
-//       debugger.build(builder)?;
-//     }
-//     Ok(())
-//   }
-// }
+impl<'a> ShaderGraphProvider for ForwardSceneLightingDispatcher<'a> {
+  fn build(
+    &self,
+    builder: &mut ShaderGraphRenderPipelineBuilder,
+  ) -> Result<(), ShaderGraphBuildError> {
+    self.base.build(builder)
+  }
+  fn post_build(
+    &self,
+    builder: &mut ShaderGraphRenderPipelineBuilder,
+  ) -> Result<(), ShaderGraphBuildError> {
+    self.shadows.build(builder)?;
 
-// // a little bit hack
-// only_fragment!(LightCount, u32);
+    let shading_impl = if let Some(override_shading) = self.override_shading {
+      override_shading
+    } else {
+      *builder
+        .context
+        .entry(ShadingSelection.type_id())
+        .or_insert_with(|| Box::new(&PhysicalShading as &dyn LightableSurfaceShadingDyn))
+        .downcast_ref::<&dyn LightableSurfaceShadingDyn>()
+        .unwrap()
+    };
 
-// impl ForwardLightingSystem {
-//   // pub fn after_update_scene(&mut self, gpu: &GPU) {
-//   //   let mut lengths: Shader140Array<Vec4<u32>, MAX_SUPPORT_LIGHT_KIND_COUNT> =
-//   // Default::default();
+    self.lights.compute_lights(builder, shading_impl)?;
 
-//   //   self
-//   //     .lights_collections
-//   //     .iter_mut()
-//   //     .map(|(_, c)| c.update_gpu(gpu))
-//   //     .enumerate()
-//   //     .for_each(|(i, l)| lengths.inner[i] = Vec4::new(l as u32, 0, 0, 0).into());
+    self.lighting.tonemap.build(builder)?;
 
-//   //   self.lengths = create_uniform(lengths, gpu).into();
+    builder.fragment(|builder, _| {
+      let ldr = builder.query::<LDRLightResult>()?;
 
-//   //   let mut hasher = PipelineHasher::default();
-//   //   for lights in self.lights_collections.values() {
-//   //     lights.hash_pipeline(&mut hasher)
-//   //   }
-//   //   self.light_hash_cache = hasher.finish();
-//   // }
+      let alpha = builder
+        .query::<AlphaChannel>()
+        .unwrap_or_else(|_| consts(1.0));
 
-//   pub fn compute_lights(
-//     &self,
-//     builder: &mut ShaderGraphRenderPipelineBuilder,
-//     shading_impl: &dyn LightableSurfaceShadingDyn,
-//   ) -> Result<(), ShaderGraphBuildError> {
-//     builder.fragment(|builder, binding| {
-//       let lengths_info = binding.uniform_by(self.lengths.as_ref().unwrap());
-//       let camera_position = builder.query::<CameraWorldMatrix>()?.position();
-//       let position =
-//         builder.query_or_interpolate_by::<FragmentWorldPosition, WorldVertexPosition>();
-//       let normal = builder.get_or_compute_fragment_normal();
+      // should we use other way to get mask mode?
+      let alpha = if builder.query::<AlphaCutChannel>().is_ok() {
+        if_by(alpha.equals(consts(0.)), || builder.discard());
+        consts(1.)
+      } else {
+        alpha
+      };
 
-//       let geom_ctx = ENode::<ShaderLightingGeometricCtx> {
-//         position,
-//         normal,
-//         view_dir: (camera_position - position).normalize(),
-//       };
-//       let shading = shading_impl.construct_shading_dyn(builder);
+      builder.set_fragment_out(0, (ldr, alpha))
+    })?;
 
-//       let mut light_specular_result = consts(Vec3::zero());
-//       let mut light_diffuse_result = consts(Vec3::zero());
+    if let Some(debugger) = &self.debugger {
+      debugger.build(builder)?;
+    }
+    Ok(())
+  }
+}
 
-//       for (i, lights) in self.lights_collections.values().enumerate() {
-//         let length = lengths_info.index(consts(i as u32)).x();
-//         builder.register::<LightCount>(length);
+// a little bit hack
+only_fragment!(LightCount, u32);
 
-//         let (diffuse, specular) =
-//           lights.compute_lights(builder, binding, shading_impl, shading.as_ref(), &geom_ctx)?;
-//         light_specular_result = specular + light_specular_result;
-//         light_diffuse_result = diffuse + light_diffuse_result;
-//       }
+impl ForwardLightingSystem {
+  pub fn compute_lights(
+    &self,
+    builder: &mut ShaderGraphRenderPipelineBuilder,
+    shading_impl: &dyn LightableSurfaceShadingDyn,
+  ) -> Result<(), ShaderGraphBuildError> {
+    builder.fragment(|builder, binding| {
+      let lengths_info = binding.uniform_by(self.lengths.as_ref().unwrap());
+      let camera_position = builder.query::<CameraWorldMatrix>()?.position();
+      let position =
+        builder.query_or_interpolate_by::<FragmentWorldPosition, WorldVertexPosition>();
+      let normal = builder.get_or_compute_fragment_normal();
 
-//       builder.register::<HDRLightResult>(light_diffuse_result + light_specular_result);
+      let geom_ctx = ENode::<ShaderLightingGeometricCtx> {
+        position,
+        normal,
+        view_dir: (camera_position - position).normalize(),
+      };
+      let shading = shading_impl.construct_shading_dyn(builder);
 
-//       Ok(())
-//     })
-//   }
-// }
+      let mut light_specular_result = consts(Vec3::zero());
+      let mut light_diffuse_result = consts(Vec3::zero());
 
-// const LIGHT_MAX: usize = 8;
+      for (i, lights) in self.lights_collections.streams.values().enumerate() {
+        let length = lengths_info.index(consts(i as u32)).x();
+        builder.register::<LightCount>(length);
 
-// struct LightList<T: ShaderLight> {
-//   uniform: ClampedUniformList<T, LIGHT_MAX>,
-//   source: StreamVec<Box<dyn Stream<Item = T>>>,
-// }
+        let (diffuse, specular) =
+          lights.compute_lights(builder, binding, shading_impl, shading.as_ref(), &geom_ctx)?;
+        light_specular_result = specular + light_specular_result;
+        light_diffuse_result = diffuse + light_diffuse_result;
+      }
 
-// // impl<T: ShaderLight> RebuildAbleGPUCollectionBase for LightList<T> {
-// //   fn reset(&mut self) {
-// //     self.reset()
-// //   }
+      builder.register::<HDRLightResult>(light_diffuse_result + light_specular_result);
 
-// //   fn update_gpu(&mut self, gpu: &GPU) -> usize {
-// //     self.update_gpu(gpu)
-// //   }
-// // }
+      Ok(())
+    })
+  }
+}
 
-// impl<T: ShaderLight> ShaderHashProvider for LightList<T> {
-//   fn hash_pipeline(&self, _hasher: &mut PipelineHasher) {
-//     todo!()
-//   }
-// }
-// impl<T: ShaderLight> ShaderPassBuilder for LightList<T> {
-//   fn setup_pass(&self, _ctx: &mut GPURenderPassCtx) {
-//     todo!()
-//   }
+const LIGHT_MAX: usize = 8;
 
-//   fn post_setup_pass(&self, _ctx: &mut GPURenderPassCtx) {
-//     todo!()
-//   }
-// }
+#[pin_project::pin_project]
+pub struct LightList<T: ShaderLight> {
+  uniform: ClampedUniformList<T, LIGHT_MAX>,
+  empty_list: Vec<usize>,
+  mapping: HashMap<usize, usize>,
+  source: StreamMap<usize, Box<dyn Stream<Item = T> + Unpin>>,
+  gpu: ResourceGPUCtx,
+}
 
-// impl<T: ShaderLight> LightCollectionCompute for LightList<T> {
-//   fn compute_lights(
-//     &self,
-//     builder: &mut ShaderGraphFragmentBuilderView,
-//     binding: &mut ShaderGraphBindGroupDirectBuilder,
-//     shading_impl: &dyn LightableSurfaceShadingDyn,
-//     shading: &dyn Any,
-//     geom_ctx: &ENode<ShaderLightingGeometricCtx>,
-//   ) -> Result<(Node<Vec3<f32>>, Node<Vec3<f32>>), ShaderGraphBuildError> {
-//     let lights = binding.uniform_by(self.gpu.as_ref().unwrap());
+impl<T: ShaderLight> LightList<T> {
+  pub fn new(gpu: ResourceGPUCtx) -> Self {
+    Self {
+      uniform: Default::default(),
+      empty_list: (0..LIGHT_MAX).collect(),
+      mapping: Default::default(),
+      source: Default::default(),
+      gpu,
+    }
+  }
 
-//     let dep = T::create_dep(builder)?;
+  pub fn insert_light(&mut self, light_id: usize, light: impl Stream<Item = T> + Unpin + 'static) {
+    let idx = self.empty_list.pop().unwrap();
+    self.mapping.insert(light_id, idx);
+    self.source.insert(light_id, Box::new(light));
+  }
+}
 
-//     let light_specular_result = consts(Vec3::zero()).mutable();
-//     let light_diffuse_result = consts(Vec3::zero()).mutable();
+impl<T: ShaderLight> Stream for LightList<T> {
+  type Item = ();
 
-//     let light_count = builder.query::<LightCount>()?;
+  fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+    let this = self.project();
+    this.source.loop_poll_until_pending(cx, |d| match d {
+      StreamMapDelta::Remove(id) => {
+        let idx = this.mapping.remove(&id).unwrap();
+        this.empty_list.push(idx);
+      }
+      StreamMapDelta::Delta(id, value) => {
+        let idx = this.mapping.get(&id).unwrap();
+        this.uniform.source[*idx] = value;
+      }
+      _ => {}
+    });
 
-//     let light_iter = ClampedShaderIter {
-//       source: lights,
-//       count: light_count,
-//     };
+    this.uniform.update_gpu(&this.gpu.device);
+    Poll::Pending
+  }
+}
 
-//     for_by_ok(light_iter, |_, light, _| {
-//       let light = light.expand();
-//       let light_result =
-//         T::compute_direct_light(builder, &light, geom_ctx, shading_impl, shading, &dep)?;
+impl<T: ShaderLight> ShaderHashProvider for LightList<T> {
+  fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
+    self.uniform.hash_pipeline(hasher)
+  }
+}
+impl<T: ShaderLight> ShaderPassBuilder for LightList<T> {
+  fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
+    self.uniform.setup_pass(ctx)
+  }
 
-//       // improve impl by add assign
-//       light_specular_result.set(light_specular_result.get() + light_result.specular);
-//       light_diffuse_result.set(light_diffuse_result.get() + light_result.diffuse);
-//       Ok(())
-//     })?;
+  fn post_setup_pass(&self, ctx: &mut GPURenderPassCtx) {
+    self.uniform.post_setup_pass(ctx)
+  }
+}
 
-//     Ok((light_diffuse_result.get(), light_specular_result.get()))
-//   }
-// }
+impl<T: ShaderLight> LightCollectionCompute for LightList<T> {
+  fn compute_lights(
+    &self,
+    builder: &mut ShaderGraphFragmentBuilderView,
+    binding: &mut ShaderGraphBindGroupDirectBuilder,
+    shading_impl: &dyn LightableSurfaceShadingDyn,
+    shading: &dyn Any,
+    geom_ctx: &ENode<ShaderLightingGeometricCtx>,
+  ) -> Result<(Node<Vec3<f32>>, Node<Vec3<f32>>), ShaderGraphBuildError> {
+    let lights = binding.uniform_by(self.uniform.gpu.as_ref().unwrap());
+
+    let dep = T::create_dep(builder)?;
+
+    let light_specular_result = consts(Vec3::zero()).mutable();
+    let light_diffuse_result = consts(Vec3::zero()).mutable();
+
+    let light_count = builder.query::<LightCount>()?;
+
+    let light_iter = ClampedShaderIter {
+      source: lights,
+      count: light_count,
+    };
+
+    for_by_ok(light_iter, |_, light, _| {
+      let light = light.expand();
+      let light_result =
+        T::compute_direct_light(builder, &light, geom_ctx, shading_impl, shading, &dep)?;
+
+      // improve impl by add assign
+      light_specular_result.set(light_specular_result.get() + light_result.specular);
+      light_diffuse_result.set(light_diffuse_result.get() + light_result.diffuse);
+      Ok(())
+    })?;
+
+    Ok((light_diffuse_result.get(), light_specular_result.get()))
+  }
+}

@@ -7,33 +7,6 @@ pub use spot::*;
 
 use crate::*;
 
-// pub struct LightingCtx<'a, 'b> {
-//   pub forward: &'a mut ForwardLightingSystem,
-//   pub shadows: &'a mut ShadowMapSystem,
-//   pub scene: &'a SceneRenderResourceGroup<'a>,
-//   /// we need this to do the depth map pass encoding
-//   pub ctx: &'a mut FrameCtx<'b>,
-// }
-
-// impl<'a, 'b> LightingCtx<'a, 'b> {
-//   pub fn update(&mut self) {
-//     self.forward.before_update_scene(self.ctx.gpu);
-//     self.shadows.before_update_scene(self.ctx.gpu);
-
-//     let lights = &self.scene.scene.lights;
-
-//     for (_, light) in lights {
-//       light.pre_update(self, &light.read().node)
-//     }
-
-//     for (_, light) in lights {
-//       light.update(self, &light.read().node)
-//     }
-//     self.forward.after_update_scene(self.ctx.gpu);
-//     self.shadows.after_update_scene(self.ctx.gpu);
-//   }
-// }
-
 pub struct LightResourceCtx {
   pub providers: AnyMap,
   pub derives: SceneNodeDeriveSystem,

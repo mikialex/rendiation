@@ -8,7 +8,6 @@ pub struct ViewerPipeline {
   enable_ssao: bool,
   ssao: SSAO,
   _blur: CrossBlurData,
-  forward_lights: ForwardLightingSystem,
   enable_channel_debugger: bool,
   channel_debugger: ScreenChannelDebugger,
   tonemap: ToneMap,
@@ -22,7 +21,6 @@ impl ViewerPipeline {
       taa: TAA::new(gpu),
       enable_ssao: true,
       ssao: SSAO::new(gpu),
-      forward_lights: Default::default(),
       enable_channel_debugger: false,
       channel_debugger: ScreenChannelDebugger::default_useful(),
       tonemap: ToneMap::new(gpu),
@@ -42,14 +40,6 @@ impl ViewerPipeline {
 
     let mut mip_gen = scene.resources.bindable_ctx.gpu.mipmap_gen.borrow_mut();
     mip_gen.flush_mipmap_gen_request(ctx);
-
-    LightingCtx {
-      forward: &mut self.forward_lights,
-      shadows: &mut self.shadows,
-      ctx,
-      scene,
-    }
-    .update();
 
     let mut scene_depth = depth_attachment().request(ctx);
 
@@ -117,13 +107,10 @@ impl ViewerPipeline {
       .by(scene.by_main_camera_and_self(BackGroundRendering))
       .by(
         scene.by_main_camera_and_self(ForwardScene {
-          lights: &self.forward_lights,
-          shadow: &self.shadows,
           tonemap: &self.tonemap,
           debugger: self
             .enable_channel_debugger
             .then_some(&self.channel_debugger),
-          derives: scene.node_derives,
         }),
       )
       .by(scene.by_main_camera_and_self(&mut widgets.ground)) // transparent, should go after opaque

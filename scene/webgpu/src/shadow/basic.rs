@@ -41,8 +41,8 @@ impl SingleProjectShadowMapSystem {
     self.list.allocate(light_id)
   }
 
-  pub fn maintain(&mut self, gpu_cameras: &mut SceneCameraGPUSystem) {
-    do_updates(&mut self.cameras_source, |updates| match updates {
+  pub fn maintain(&mut self, gpu_cameras: &mut SceneCameraGPUSystem, cx: &mut Context) {
+    do_updates_by(&mut self.cameras_source, cx, |updates| match updates {
       StreamMapDelta::Delta(idx, (camera, size)) => {
         self.shadow_maps.remove(idx); // deallocate map
         self.shadow_maps.insert(idx, self.maps.allocate(size));
