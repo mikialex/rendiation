@@ -1,3 +1,4 @@
+// use futures::Stream;
 use interphaser::*;
 
 pub enum ButtonState {
@@ -18,6 +19,14 @@ impl Default for ButtonState {
 // pub enum ButtonViewReact {
 //   Pressed,
 //   Hovering,
+// }
+
+// pub fn button_x(inputs: impl Stream<Item = ButtonEvent>) -> impl Stream<Item = ButtonViewReact> {
+//   // cx.view(Container::sized((200., 80.)))
+// }
+
+// pub fn button_list(inputs: impl Stream<Item = VecDelta<ButtonEvent>)>) -> impl Stream<Item = (id,
+// ButtonViewReact)> {   // cx.view(Container::sized((200., 80.)))
 // }
 
 // struct MyButton {

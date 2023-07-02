@@ -21,6 +21,7 @@ struct GraphicsVertex {
 #[derive(Debug, Clone, Copy)]
 struct ObjectMetaData {
   world_transform: Mat3<f32>,
+  uv_base: Vec3<f32>,
 }
 
 struct TransformState {
@@ -67,7 +68,7 @@ impl PainterAPI for PainterCtx {
   type Baked = GraphicsRepresentation;
 
   fn draw_bake(&mut self, p: &Self::Baked) {
-    todo!()
+    //
   }
 
   fn bake(self) -> Self::Baked {
@@ -77,13 +78,12 @@ impl PainterAPI for PainterCtx {
     todo!()
   }
 
-  fn draw_baked(&mut self, baked: Self::Baked) {
-    todo!()
-  }
-
   fn stroke_shape(&mut self, shape: &Shape, style: &StrokeStyle) {
     let world_transform = self.get_current_world_transform();
-    let meta = ObjectMetaData { world_transform };
+    let meta = ObjectMetaData {
+      world_transform,
+      uv_base: Default::default(),
+    };
 
     triangulate_stroke(shape, style, |v| {
       self.recording.triangulated.push(v);
@@ -92,7 +92,10 @@ impl PainterAPI for PainterCtx {
 
   fn fill_shape(&mut self, shape: &Shape, style: &FillStyle) {
     let world_transform = self.get_current_world_transform();
-    let meta = ObjectMetaData { world_transform };
+    let meta = ObjectMetaData {
+      world_transform,
+      uv_base: Default::default(),
+    };
     triangulate_fill(shape, style, |v| {
       self.recording.triangulated.push(v);
     });
