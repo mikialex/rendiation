@@ -104,14 +104,14 @@ impl SceneCameraGPUSystem {
     })
   }
 
-  pub fn new(scene: &Scene, derives: &SceneNodeDeriveSystem, cx: &ResourceGPUCtx) -> Self {
+  pub fn new(scene: &SceneCore, derives: &SceneNodeDeriveSystem, cx: &ResourceGPUCtx) -> Self {
     let derives = derives.clone();
     let cx = cx.clone();
 
     let mut index_mapper = HashMap::<SceneCameraHandle, usize>::default();
 
     let cameras = scene
-      .unbound_listen_by(with_field_expand!(SceneInner => cameras))
+      .unbound_listen_by(with_field_expand!(SceneCoreImpl => cameras))
       .map(move |v: arena::ArenaDelta<SceneCamera>| match v {
         arena::ArenaDelta::Mutate((camera, idx)) => {
           index_mapper.remove(&idx).unwrap();

@@ -27,22 +27,21 @@ pub struct Viewer3dContent {
 
 impl Viewer3dContent {
   pub fn new() -> Self {
-    let (scene, scene_derived) = SceneInner::new();
+    let (scene, scene_derived) = SceneImpl::new();
 
-    let scene_bounding = SceneModelWorldBoundingSystem::new(&scene, &scene_derived);
+    let scene_core = scene.get_scene_core();
+
+    let scene_bounding = SceneModelWorldBoundingSystem::new(&scene_core, &scene_derived);
 
     load_default_scene(&scene);
-
-    let s = scene.clone();
-    let inner = s.read();
 
     let controller = OrbitController::default();
     let controller = ControllerWinitAdapter::new(controller);
 
-    let axis_helper = AxisHelper::new(inner.root());
-    let grid_helper = GridHelper::new(inner.root(), Default::default());
+    let axis_helper = AxisHelper::new(&scene.root());
+    let grid_helper = GridHelper::new(&scene.root(), Default::default());
 
-    let gizmo = Gizmo::new(inner.root(), &scene_derived);
+    let gizmo = Gizmo::new(&scene.root(), &scene_derived);
 
     let widgets = WidgetContent {
       ground: Default::default(),
@@ -69,7 +68,7 @@ impl Viewer3dContent {
   }
 
   pub fn resize_view(&mut self, size: (f32, f32)) {
-    if let Some(camera) = &self.scene.read().active_camera {
+    if let Some(camera) = &self.scene.read().core.read().active_camera {
       camera.resize(size)
     }
   }
@@ -100,7 +99,8 @@ impl Viewer3dContent {
       position_info.size.height as usize,
     ));
 
-    let scene = &self.scene.read();
+    let s = self.scene.read();
+    let scene = &s.core.read();
 
     let interactive_ctx = scene.build_interactive_ctx(
       normalized_screen_position,
@@ -147,7 +147,7 @@ impl Viewer3dContent {
     let widgets = self.widgets.get_mut();
     let gizmo = &mut widgets.gizmo;
     gizmo.update(&self.scene_derived);
-    if let Some(camera) = &self.scene.read().active_camera {
+    if let Some(camera) = &self.scene.read().core.read().active_camera {
       struct ControlleeWrapper<'a> {
         controllee: &'a SceneNode,
       }

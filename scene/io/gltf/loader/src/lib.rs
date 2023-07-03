@@ -21,9 +21,7 @@ use convert_utils::*;
 use rendiation_texture::{create_padding_buffer, GPUBufferImage, TextureFormat};
 
 pub fn load_gltf(path: impl AsRef<Path>, scene: &Scene) -> GltfResult<GltfLoadResult> {
-  let scene_inner = scene.read();
-  let root = scene_inner.root().clone();
-  drop(scene_inner);
+  let root = scene.root();
 
   let (document, mut buffers, mut images) = gltf::import(path)?;
 

@@ -43,8 +43,8 @@ impl AutoInstanceSystem {
         _ => None,
       });
 
-    let (new_scene, _new_derives) = SceneInner::new();
-    let middle_scene_nodes = new_scene.read().nodes.clone();
+    let (new_scene, _new_derives) = SceneImpl::new();
+    let middle_scene_nodes = new_scene.read().core.read().nodes.clone();
 
     let transformed_models = instance_transform(model_input, d_system, &middle_scene_nodes)
       .map(|v| match v {

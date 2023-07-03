@@ -1,6 +1,6 @@
 use crate::*;
 
-pub fn get_main_pass_load_op(scene: &SceneInner) -> webgpu::Operations<webgpu::Color> {
+pub fn get_main_pass_load_op(scene: &SceneCoreImpl) -> webgpu::Operations<webgpu::Color> {
   let load = if let Some(bg) = &scene.background {
     if let Some(clear_color) = match bg {
       SceneBackGround::Solid(bg) => bg.require_pass_clear(),

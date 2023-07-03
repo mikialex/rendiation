@@ -53,14 +53,14 @@ impl Viewer3dRenderingCtx {
 
     let (scene_resource, content_res) = self
       .resources
-      .get_or_create_scene_sys_with_content(&content.scene, &content.scene_derived);
+      .get_or_create_scene_sys_with_content(&content.scene.read().core, &content.scene_derived);
     let resource = content_res.read().unwrap();
 
     let scene = content.scene.read();
 
     let mut ctx = FrameCtx::new(&self.gpu, target.size(), &self.pool);
     let scene_res = SceneRenderResourceGroup {
-      scene: &scene,
+      scene: &scene.core.read(),
       resources: &resource,
       scene_resources: scene_resource,
       node_derives: &content.scene_derived,

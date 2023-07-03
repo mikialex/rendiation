@@ -32,7 +32,8 @@ pub fn build_scene_to_gltf(
   let mut scene_node_ids = Vec::default();
   let mut scene_index_map = HashMap::new();
 
-  let scene = scene.read();
+  let scene_core = scene.get_scene_core();
+  let scene = scene_core.read();
   let tree = scene.nodes.inner.inner().inner.read().unwrap();
   tree.expand_with_mapping(
     |node| (node.deref().clone(), node.guid()),

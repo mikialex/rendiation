@@ -11,7 +11,6 @@ use crate::*;
 #[allow(non_camel_case_types)]
 pub enum MixSceneDelta {
   background(DeltaOf<Option<SceneBackGround>>),
-  default_camera(DeltaOf<SceneCamera>),
   active_camera(DeltaOf<Option<SceneCamera>>),
   cameras(ContainerRefRetainContentDelta<SceneCamera>),
   lights(ContainerRefRetainContentDelta<SceneLight>),
@@ -23,7 +22,6 @@ impl std::fmt::Debug for MixSceneDelta {
   fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
     match self {
       Self::background(_) => f.debug_tuple("background").finish(),
-      Self::default_camera(_) => f.debug_tuple("default_camera").finish(),
       Self::active_camera(_) => f.debug_tuple("active_camera").finish(),
       Self::cameras(_) => f.debug_tuple("cameras").finish(),
       Self::lights(_) => f.debug_tuple("lights").finish(),
@@ -73,7 +71,6 @@ pub fn map_scene_delta_to_mixed(
 
   let others = input.fork_stream().filter_map_sync(|delta| match delta {
     SceneInnerDelta::background(b) => MixSceneDelta::background(b).into(),
-    SceneInnerDelta::default_camera(c) => MixSceneDelta::default_camera(c).into(),
     SceneInnerDelta::active_camera(c) => MixSceneDelta::active_camera(c).into(),
     SceneInnerDelta::ext(ext) => MixSceneDelta::ext(ext).into(),
     _ => None,
@@ -90,10 +87,12 @@ pub fn mix_scene_folding(
   impl Stream<Item = MixSceneDelta>,
   (Scene, SceneNodeDeriveSystem),
 ) {
-  let (scene, derives) = SceneInner::new();
+  let (scene, derives) = SceneImpl::new();
 
   let s = scene.clone();
-  let nodes = scene.read().nodes.clone();
+
+  let sc = scene.get_scene_core();
+  let nodes = sc.read().nodes.clone();
   let rebuilder = SceneRebuilder::new(nodes);
   let rebuilder = Arc::new(RwLock::new(rebuilder));
   let mut model_handle_map: HashMap<usize, SceneModelHandle> = HashMap::new();
@@ -106,14 +105,19 @@ pub fn mix_scene_folding(
       MixSceneDelta::background(bg) => {
         s.set_background(bg.clone().map(merge_maybe));
       }
-      MixSceneDelta::default_camera(_) => {}
       MixSceneDelta::active_camera(camera) => {
         let mapped_camera = camera.as_ref().map(merge_maybe_ref).map(|camera| {
           let mapped_camera = camera_handle_map.entry(camera.guid()).or_insert_with(|| {
             let new = transform_camera_node(camera, &rebuilder);
             s.insert_camera(new)
           });
-          s.read().cameras.get(*mapped_camera).unwrap().clone()
+          s.read()
+            .core
+            .read()
+            .cameras
+            .get(*mapped_camera)
+            .unwrap()
+            .clone()
         });
 
         s.set_active_camera(mapped_camera);

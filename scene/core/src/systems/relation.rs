@@ -130,7 +130,7 @@ impl NodeReferenceModelBookKeeping {
     }
   }
 
-  pub fn new(scene: &Scene) -> Self {
+  pub fn new(scene: &SceneCore) -> Self {
     let source1 = scene.unbound_listen_by(move |v, send| match v {
       MaybeDeltaRef::Delta(d) => match d {
         SceneInnerDelta::models(delta) => on_model_mutate(send, delta),

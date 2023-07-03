@@ -15,7 +15,7 @@ pub type BoxUpdate = VecUpdateUnit<Option<Box3>>;
 type SceneModelStream = impl Stream<Item = BoxUpdate> + Unpin;
 
 impl SceneModelWorldBoundingSystem {
-  pub fn new(scene: &Scene, d_sys: &SceneNodeDeriveSystem) -> Self {
+  pub fn new(scene: &SceneCore, d_sys: &SceneNodeDeriveSystem) -> Self {
     fn build_world_box_stream(
       model: &SceneModel,
       d_sys: &SceneNodeDeriveSystem,
@@ -49,7 +49,7 @@ impl SceneModelWorldBoundingSystem {
     use arena::ArenaDelta::*;
     let d_sys = d_sys.clone();
     let handler = scene
-      .unbound_listen_by(with_field_expand!(SceneInner => models))
+      .unbound_listen_by(with_field_expand!(SceneCoreImpl => models))
       .map(move |model_delta| match model_delta {
         Mutate((new, handle)) => (handle.index(), Some(build_world_box_stream(&new, &d_sys))),
         Insert((new, handle)) => (handle.index(), Some(build_world_box_stream(&new, &d_sys))),
