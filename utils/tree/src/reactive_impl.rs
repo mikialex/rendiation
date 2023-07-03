@@ -124,17 +124,23 @@ where
     parent: Self::Handle,
     child_to_attach: Self::Handle,
   ) -> Result<(), TreeMutationError> {
-    self.source.emit(&TreeMutation::Attach {
-      parent_target: parent.index(),
-      node: child_to_attach.index(),
-    });
+    // to prevent emit invalid event
+    if !self.node_has_parent(child_to_attach) {
+      self.source.emit(&TreeMutation::Attach {
+        parent_target: parent.index(),
+        node: child_to_attach.index(),
+      });
+    }
     self.inner.node_add_child_by(parent, child_to_attach)
   }
 
   fn node_detach_parent(&self, child_to_detach: Self::Handle) -> Result<(), TreeMutationError> {
-    self.source.emit(&TreeMutation::Detach {
-      node: child_to_detach.index(),
-    });
+    // to prevent emit invalid event
+    if self.node_has_parent(child_to_detach) {
+      self.source.emit(&TreeMutation::Detach {
+        node: child_to_detach.index(),
+      });
+    }
     self.inner.node_detach_parent(child_to_detach)
   }
 }
