@@ -59,7 +59,7 @@ impl<'a> DerefMut for ShaderGraphFragmentBuilderView<'a> {
 
 pub struct ShaderGraphFragmentBuilder {
   // user fragment in
-  pub fragment_in: HashMap<
+  pub fragment_in: FastHashMap<
     TypeId,
     (
       NodeUntyped,

@@ -1,5 +1,16 @@
 #![feature(type_alias_impl_trait)]
 
+use core::{
+  pin::Pin,
+  task::{Context, Poll, Waker},
+};
+use std::sync::{Arc, Mutex, RwLock, Weak};
+
+use fast_hash_collection::*;
+use futures::Stream;
+use futures::StreamExt;
+use pin_project::pin_project;
+
 mod signal_stream;
 pub use signal_stream::*;
 
@@ -25,13 +36,4 @@ mod broadcast;
 pub use broadcast::*;
 
 mod map;
-use core::{
-  pin::Pin,
-  task::{Context, Poll, Waker},
-};
-use std::sync::{Arc, Mutex, RwLock, Weak};
-
-use futures::Stream;
-use futures::StreamExt;
 pub use map::*;
-use pin_project::pin_project;

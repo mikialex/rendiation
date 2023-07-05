@@ -1,4 +1,4 @@
-use std::{collections::HashMap, hash::Hash};
+use std::hash::Hash;
 
 use futures::{stream::FuturesUnordered, *};
 
@@ -17,7 +17,7 @@ pub trait ReactiveMapping<M> {
 }
 
 pub struct ReactiveMap<T: ReactiveMapping<M>, M> {
-  mapping: HashMap<usize, (M, T::ChangeStream)>,
+  mapping: FastHashMap<usize, (M, T::ChangeStream)>,
   /// when drop consumed, we remove the mapped from mapping, we could make this sync to drop.
   /// but if we do so, the mapping have to wrapped in interior mutable container, and it's
   /// impossible to get mut reference directly in safe rust.
@@ -65,7 +65,7 @@ impl<M, T: ReactiveMapping<M>> ReactiveMap<T, M> {
 
 #[pin_project::pin_project]
 pub struct StreamMap<K, T> {
-  streams: HashMap<K, T>,
+  streams: FastHashMap<K, T>,
   ref_changes: Vec<RefChange<K>>,
   waked: Arc<RwLock<Vec<K>>>,
   waker: Arc<RwLock<Option<Waker>>>,

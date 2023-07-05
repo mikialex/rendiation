@@ -108,7 +108,7 @@ impl SceneCameraGPUSystem {
     let derives = derives.clone();
     let cx = cx.clone();
 
-    let mut index_mapper = HashMap::<SceneCameraHandle, usize>::default();
+    let mut index_mapper = FastHashMap::<SceneCameraHandle, usize>::default();
 
     let cameras = scene
       .unbound_listen_by(with_field_expand!(SceneCoreImpl => cameras))

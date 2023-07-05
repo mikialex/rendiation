@@ -54,7 +54,7 @@ impl GPUDevice {
     &self,
     layouts: &[BindGroupLayoutEntry],
   ) -> GPUBindGroupLayout {
-    let mut hasher = DefaultHasher::default();
+    let mut hasher = FastHasher::default();
     layouts.hash(&mut hasher);
     let key = hasher.finish();
 
@@ -102,7 +102,7 @@ impl Deref for GPUDevice {
 
 #[derive(Default)]
 pub struct SamplerCache {
-  cache: RwLock<HashMap<GPUSamplerDescriptor, RawSampler>>,
+  cache: RwLock<FastHashMap<GPUSamplerDescriptor, RawSampler>>,
 }
 
 impl SamplerCache {
@@ -122,7 +122,7 @@ impl SamplerCache {
 
 #[derive(Default)]
 pub struct RenderPipelineCache {
-  pub cache: RwLock<HashMap<u64, GPURenderPipeline>>,
+  pub cache: RwLock<FastHashMap<u64, GPURenderPipeline>>,
 }
 
 pub trait ShaderHashProvider {
@@ -150,7 +150,7 @@ where
 
 #[derive(Default)]
 pub struct PipelineHasher {
-  hasher: DefaultHasher,
+  hasher: FastHasher,
 }
 
 impl std::hash::Hasher for PipelineHasher {

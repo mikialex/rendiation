@@ -2,17 +2,17 @@
 
 use std::{
   any::{Any, TypeId},
-  collections::HashMap,
   sync::RwLock,
 };
 
+use fast_hash_collection::*;
 // for downstream crates use utils macro
 pub use once_cell;
 pub use paste;
 
 #[allow(clippy::type_complexity)]
 pub struct DowncasterRegistry<T: ?Sized> {
-  downcaster: RwLock<HashMap<TypeId, (fn(&dyn Any) -> &T, fn(&mut dyn Any) -> &mut T)>>,
+  downcaster: RwLock<FastHashMap<TypeId, (fn(&dyn Any) -> &T, fn(&mut dyn Any) -> &mut T)>>,
 }
 
 impl<T: ?Sized> Default for DowncasterRegistry<T> {

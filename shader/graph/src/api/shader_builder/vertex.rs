@@ -18,7 +18,7 @@ pub struct ShaderGraphVertexBufferLayout {
 
 pub struct ShaderGraphVertexBuilder {
   // user vertex in
-  pub vertex_in: HashMap<TypeId, VertexIOInfo>,
+  pub vertex_in: FastHashMap<TypeId, VertexIOInfo>,
   pub vertex_layouts: Vec<ShaderGraphVertexBufferLayout>,
   pub primitive_state: PrimitiveState,
 
@@ -26,8 +26,8 @@ pub struct ShaderGraphVertexBuilder {
   pub(crate) registry: SemanticRegistry,
 
   // user vertex out
-  pub vertex_out: HashMap<TypeId, VertexIOInfo>,
-  pub(crate) vertex_out_not_synced_to_fragment: HashSet<TypeId>,
+  pub vertex_out: FastHashMap<TypeId, VertexIOInfo>,
+  pub(crate) vertex_out_not_synced_to_fragment: FastHashSet<TypeId>,
 }
 
 #[derive(Copy, Clone)]

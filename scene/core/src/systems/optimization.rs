@@ -81,7 +81,8 @@ fn instance_transform(
   new_nodes: &SceneNodeCollection,
 ) -> impl Stream<Item = ModelOutChange> {
   // origin model id => transformed id
-  let mut source_id_transformer_map: HashMap<OriginModelId, PossibleInstanceKey> = HashMap::new();
+  let mut source_id_transformer_map: FastHashMap<OriginModelId, PossibleInstanceKey> =
+    Default::default();
 
   // transformed id => transformed
   let transformers: StreamMap<PossibleInstanceKey, Transformer> = StreamMap::default();
@@ -241,7 +242,7 @@ struct Transformer {
   key: PossibleInstanceKey,
   #[pin]
   source: StreamMap<usize, InstanceSourceStream>,
-  source_model: HashMap<usize, SceneModel>,
+  source_model: FastHashMap<usize, SceneModel>,
   removals: Vec<usize>,
   transformed: Option<(SceneModel, bool)>,
 }
@@ -479,7 +480,7 @@ fn build_instance_source_stream(
 
 /// maybe failed, if the source is empty
 fn create_instance(
-  source: &HashMap<usize, SceneModel>,
+  source: &FastHashMap<usize, SceneModel>,
   d_sys: &SceneNodeDeriveSystem,
   new_nodes: &SceneNodeCollection,
 ) -> Option<(SceneModel, bool)> {

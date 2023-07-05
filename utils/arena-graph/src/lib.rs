@@ -1,6 +1,5 @@
-use std::collections::BTreeSet;
-
-pub use arena::*;
+use arena::*;
+use fast_hash_collection::*;
 
 #[derive(Clone)]
 pub struct ArenaGraph<T> {
@@ -95,13 +94,13 @@ impl<T> ArenaGraph<T> {
     visitor: &mut impl FnMut(&ArenaGraphNode<T>),
     if_loop_exist: &mut impl FnMut(),
   ) {
-    let mut unresolved: BTreeSet<ArenaGraphNodeHandle<T>> = BTreeSet::new();
-    let mut visited: BTreeSet<ArenaGraphNodeHandle<T>> = BTreeSet::new();
+    let mut unresolved: FastHashSet<ArenaGraphNodeHandle<T>> = Default::default();
+    let mut visited: FastHashSet<ArenaGraphNodeHandle<T>> = Default::default();
 
     fn visit<T>(
       n_handle: ArenaGraphNodeHandle<T>,
-      visited: &mut BTreeSet<ArenaGraphNodeHandle<T>>,
-      unresolved: &mut BTreeSet<ArenaGraphNodeHandle<T>>,
+      visited: &mut FastHashSet<ArenaGraphNodeHandle<T>>,
+      unresolved: &mut FastHashSet<ArenaGraphNodeHandle<T>>,
       graph: &ArenaGraph<T>,
       visitor: &mut impl FnMut(&ArenaGraphNode<T>),
       if_loop_exist: &mut impl FnMut(),

@@ -191,7 +191,7 @@ impl BindingBuilder {
       let layout = &pipeline.bg_layouts[group_index];
 
       // hash
-      let mut hasher = DefaultHasher::default();
+      let mut hasher = FastHasher::default();
       group.hash_binding_ids(&mut hasher);
       layout.cache_id.hash(&mut hasher);
       let hash = hasher.finish();

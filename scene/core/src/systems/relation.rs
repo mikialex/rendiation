@@ -1,5 +1,4 @@
 use core::hash::Hash;
-use std::collections::{HashMap, HashSet};
 
 use arena::ArenaDelta;
 use futures::StreamExt;
@@ -10,7 +9,7 @@ use crate::*;
 
 pub struct OneToManyRefBookKeeping<O, M> {
   // we could use more efficient data structure
-  mapping: HashMap<O, HashSet<M>>,
+  mapping: FastHashMap<O, FastHashSet<M>>,
 }
 
 impl<O, M> Default for OneToManyRefBookKeeping<O, M> {
@@ -77,7 +76,7 @@ where
 {
   fn normalize(
     self,
-    states: &mut HashMap<M, O>,
+    states: &mut FastHashMap<M, O>,
     mut cb: impl FnMut(OneToManyRelationChange<O, M>),
   ) {
     use OneToManyRelationChange as O;
@@ -168,7 +167,7 @@ impl NodeReferenceModelBookKeeping {
       });
 
     let inner: Arc<RwLock<OneToManyRefBookKeeping<usize, usize>>> = Default::default();
-    let current_relation: Arc<RwLock<HashMap<usize, usize>>> = Default::default();
+    let current_relation: Arc<RwLock<FastHashMap<usize, usize>>> = Default::default();
 
     let inner_c = inner.clone();
 

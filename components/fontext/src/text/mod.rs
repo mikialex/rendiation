@@ -51,7 +51,7 @@ pub type TextHash = u64;
 
 impl TextInfo {
   pub fn hash(&self) -> TextHash {
-    let mut hasher = DefaultHasher::default();
+    let mut hasher = FastHasher::default();
     self.content.hash(&mut hasher);
     self.bounds.0.to_bits().hash(&mut hasher);
     self.bounds.1.to_bits().hash(&mut hasher);

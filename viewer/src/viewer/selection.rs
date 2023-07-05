@@ -1,10 +1,10 @@
-use std::collections::HashSet;
+use fast_hash_collection::FastHashSet;
 
 use crate::*;
 
 #[derive(Default)]
 pub struct SelectionSet {
-  pub selected: HashSet<SceneModel>,
+  pub selected: FastHashSet<SceneModel>,
 }
 
 impl<'a> IntoIterator for &'a SelectionSet {
@@ -19,7 +19,7 @@ impl<'a> IntoIterator for &'a SelectionSet {
 
 type SelectionSetIterType<'a> = impl Iterator<Item = &'a SceneModel>;
 
-fn iter(map: &HashSet<SceneModel>) -> SelectionSetIterType {
+fn iter(map: &FastHashSet<SceneModel>) -> SelectionSetIterType {
   map.iter()
 }
 

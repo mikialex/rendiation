@@ -2,7 +2,7 @@ use crate::*;
 
 #[derive(Clone)]
 pub struct BindGroupCache {
-  pub(crate) cache: Arc<RwLock<HashMap<u64, Arc<gpu::BindGroup>>>>,
+  pub(crate) cache: Arc<RwLock<FastHashMap<u64, Arc<gpu::BindGroup>>>>,
 }
 impl BindGroupCache {
   pub(crate) fn new() -> Self {
@@ -52,5 +52,5 @@ impl BindGroupResourceHolder {
 
 #[derive(Clone, Default)]
 pub struct BindGroupLayoutCache {
-  pub cache: Arc<RwLock<HashMap<u64, GPUBindGroupLayout>>>,
+  pub cache: Arc<RwLock<FastHashMap<u64, GPUBindGroupLayout>>>,
 }

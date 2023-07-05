@@ -2,7 +2,7 @@ use crate::*;
 
 #[derive(Default)]
 pub struct ResourcePoolImpl {
-  attachments: HashMap<PooledTextureKey, SingleResourcePool>,
+  attachments: FastHashMap<PooledTextureKey, SingleResourcePool>,
 }
 
 impl ResourcePoolImpl {

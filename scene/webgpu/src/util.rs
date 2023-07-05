@@ -1,15 +1,15 @@
 use crate::*;
 
 pub struct ValueIDGenerator<T> {
-  inner: HashMap<T, usize>,
+  inner: FastHashMap<T, usize>,
   values: Vec<T>,
 }
 
 impl<T> Default for ValueIDGenerator<T> {
   fn default() -> Self {
     Self {
-      inner: HashMap::default(),
-      values: Vec::new(),
+      inner: Default::default(),
+      values: Default::default(),
     }
   }
 }

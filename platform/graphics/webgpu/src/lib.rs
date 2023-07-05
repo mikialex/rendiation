@@ -20,7 +20,6 @@ mod types;
 use std::{
   any::*,
   borrow::Cow,
-  collections::{hash_map::DefaultHasher, HashMap},
   hash::{Hash, Hasher},
   ops::{Deref, DerefMut, Range},
   sync::atomic::{AtomicUsize, Ordering},
@@ -33,6 +32,7 @@ pub use binding::*;
 use bytemuck::*;
 pub use device::*;
 pub use encoder::*;
+use fast_hash_collection::*;
 pub use frame::*;
 use gpu::util::DeviceExt;
 pub use gpu::*;

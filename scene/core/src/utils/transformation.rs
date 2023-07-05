@@ -1,4 +1,3 @@
-use std::collections::{HashMap, HashSet};
 use std::hash::Hash;
 
 use crate::*;
@@ -63,7 +62,7 @@ impl<X> IncrementalStreamTransform for X {
     K: Hash + Eq + Clone + 'static,
     T: Clone + 'static,
   {
-    let mut cache: HashMap<K, T> = HashMap::new();
+    let mut cache: FastHashMap<K, T> = Default::default();
     self.map(move |v| match v {
       ContainerRefRetainDelta::Remove(key) => {
         let value = cache
@@ -86,7 +85,7 @@ impl<X> IncrementalStreamTransform for X {
     K: Hash + Eq + Clone + 'static,
     T: Clone + 'static + IncrementalBase<Delta = T>,
   {
-    let mut cache: HashSet<K> = HashSet::new();
+    let mut cache: FastHashSet<K> = Default::default();
     self
       .map(move |v| {
         // this one will always stay on stack

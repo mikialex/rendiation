@@ -1,5 +1,6 @@
-use std::{collections::HashMap, io::Write, path::Path};
+use std::{io::Write, path::Path};
 
+use fast_hash_collection::FastHashMap;
 use futures::{executor::ThreadPool, Future};
 use interphaser::{winit::event::VirtualKeyCode, *};
 use rendiation_scene_core::Scene;
@@ -11,7 +12,7 @@ pub struct Terminal {
   pub command_history: Vec<String>,
   pub current_command_editing: String,
   pub command_to_execute: Option<String>,
-  pub commands: HashMap<String, TerminalCommandCb>,
+  pub commands: FastHashMap<String, TerminalCommandCb>,
   pub executor: ThreadPool, // todo should passed in
 }
 

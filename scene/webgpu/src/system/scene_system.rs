@@ -21,7 +21,7 @@ pub struct SceneGPUSystem {
 
 #[derive(Default)]
 pub struct GPULightCache {
-  pub inner: HashMap<TypeId, Box<dyn Any>>,
+  pub inner: FastHashMap<TypeId, Box<dyn Any>>,
 }
 
 impl SceneGPUSystem {
