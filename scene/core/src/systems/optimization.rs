@@ -4,7 +4,7 @@ use core::{
 };
 
 use futures::*;
-use reactive::{do_updates_by, once_forever_pending, SignalStreamExt, StreamMap, StreamMapDelta};
+use reactive::{once_forever_pending, SignalStreamExt, StreamMap, StreamMapDelta};
 use rendiation_renderable_mesh::MeshDrawGroup;
 
 use crate::*;
@@ -296,9 +296,6 @@ impl Stream for Transformer {
     let mut this = self.project();
 
     // we simply recreate new instances if any incremental source changed (could optimize later)
-    // so, here we do some batch processing to avoid unnecessary instance rebuild
-    let mut batched = Vec::<_>::new();
-    do_updates_by(&mut this.source, cx, |d| batched.push(d));
     let mut batched = ready!(this.source.poll_next_unpin(cx)).unwrap(); // unwrap is safe
 
     if batched.is_empty() && this.source_model.is_empty() {
