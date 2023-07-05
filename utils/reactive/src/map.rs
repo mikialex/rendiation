@@ -166,7 +166,7 @@ where
       let last = this.waked.read().unwrap().last().cloned();
       if let Some(index) = last {
         let waker = Arc::new(ChangeWaker {
-          waker: this.waker.clone(),
+          waker: RwLock::new(this.waker.clone().into()),
           index: index.clone(),
           changed: this.waked.clone(),
         });

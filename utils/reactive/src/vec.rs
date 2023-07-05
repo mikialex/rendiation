@@ -55,7 +55,7 @@ pub struct IndexedItem<T> {
 pub(crate) struct ChangeWaker<T> {
   pub(crate) index: T,
   pub(crate) changed: Arc<RwLock<Vec<T>>>,
-  pub(crate) waker: Arc<RwLock<Option<Waker>>>,
+  pub(crate) waker: RwLock<Option<Arc<RwLock<Option<Waker>>>>>,
 }
 
 impl<T: Send + Sync + Clone> futures::task::ArcWake for ChangeWaker<T> {
@@ -65,10 +65,12 @@ impl<T: Send + Sync + Clone> futures::task::ArcWake for ChangeWaker<T> {
       .write()
       .unwrap()
       .push(arc_self.index.clone());
-    let waker = arc_self.waker.read().unwrap();
-    let waker: &Option<_> = &waker;
-    if let Some(waker) = waker {
-      waker.wake_by_ref();
+    if let Some(waker) = arc_self.waker.write().unwrap().take() {
+      let waker = waker.read().unwrap();
+      let waker: &Option<_> = &waker;
+      if let Some(waker) = waker {
+        waker.wake_by_ref();
+      }
     }
   }
 }
@@ -85,7 +87,7 @@ impl<T: Stream + Unpin> Stream for StreamVec<T> {
       let last = this.waked.read().unwrap().last().copied();
       if let Some(index) = last {
         let waker = Arc::new(ChangeWaker {
-          waker: this.waker.clone(),
+          waker: RwLock::new(this.waker.clone().into()),
           index,
           changed: this.waked.clone(),
         });
