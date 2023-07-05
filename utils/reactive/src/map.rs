@@ -147,50 +147,66 @@ where
   K: Clone + Send + Sync + Hash + Eq,
   T: Stream + Unpin,
 {
-  type Item = StreamMapDelta<K, T::Item>;
+  // we use the vec message to optimize the performance
+  type Item = Vec<StreamMapDelta<K, T::Item>>;
 
   fn poll_next(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Option<Self::Item>> {
     let this = self.project();
+    // install new waker
+    this.waker.write().unwrap().replace(cx.waker().clone());
+
+    // note: this is not precise estimation, because each waked value maybe emit multiple delta
+    let waked_size = this.waked.read().unwrap().len();
+    let result_size = this.ref_changes.len() + waked_size;
+    if result_size == 0 {
+      return Poll::Pending;
+    }
+    let mut results = Vec::with_capacity(result_size);
 
     if let Some(change) = this.ref_changes.pop() {
       let d = match change {
         RefChange::Insert(d) => StreamMapDelta::Insert(d),
         RefChange::Remove(d) => StreamMapDelta::Remove(d),
       };
-      return Poll::Ready(d.into());
+      results.push(d)
     }
 
-    this.waker.write().unwrap().replace(cx.waker().clone());
+    // note, we should use a new waked list to prevent dead lock:
+    // when we poll sub stream, sub stream will wake, and we still hold the original wake list
+    let new_waked: Arc<RwLock<Vec<K>>> = Default::default();
 
-    loop {
-      let last = this.waked.read().unwrap().last().cloned();
-      if let Some(index) = last {
-        let waker = Arc::new(ChangeWaker {
-          waker: RwLock::new(this.waker.clone().into()),
-          index: index.clone(),
-          changed: this.waked.clone(),
-        });
-        let waker = futures::task::waker_ref(&waker);
-        let mut cx = Context::from_waker(&waker);
+    let old_waked = this.waked.write().unwrap();
+    while let Some(key) = old_waked.last() {
+      // prepare the sub waker
+      let waker = Arc::new(ChangeWaker {
+        waker: RwLock::new(this.waker.clone().into()),
+        index: key.clone(),
+        changed: new_waked.clone(),
+      });
+      let waker = futures::task::waker_ref(&waker);
+      let mut cx = Context::from_waker(&waker);
 
-        if let Some(stream) = this.streams.get_mut(&index) {
-          if let Poll::Ready(r) = stream.poll_next_unpin(&mut cx) {
-            if let Some(r) = r {
-              return Poll::Ready(StreamMapDelta::Delta(index, r).into());
-            } else {
-              this.streams.remove(&index);
-              return Poll::Ready(StreamMapDelta::Remove(index).into());
-            }
+      // poll the sub stream
+      let mut should_remove = false;
+      if let Some(stream) = this.streams.get_mut(key) {
+        while let Poll::Ready(r) = stream.poll_next_unpin(&mut cx) {
+          if let Some(r) = r {
+            results.push(StreamMapDelta::Delta(key.clone(), r));
+          } else {
+            should_remove = true;
+            results.push(StreamMapDelta::Remove(key.clone()));
           }
         }
-
-        this.waked.write().unwrap().pop().unwrap();
-      } else {
-        break;
+      } // maybe removed before
+      if should_remove {
+        this.streams.remove(key);
       }
     }
+    drop(old_waked);
 
-    Poll::Pending
+    *this.waked = new_waked;
+
+    Poll::Ready(results.into())
   }
 }
 
@@ -229,7 +245,7 @@ where
   T: Stream + Unpin,
   K: Clone + Send + Sync + Hash + Eq,
 {
-  type Item = StreamMapDelta<K, T::Item>;
+  type Item = Vec<StreamMapDelta<K, T::Item>>;
 
   fn poll_next(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Option<Self::Item>> {
     let mut this = self.project();

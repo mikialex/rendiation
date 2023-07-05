@@ -125,6 +125,7 @@ fn instance_transform(
         }
       }
     })
+    .flat_map(futures::stream::iter)
     .filter_map_sync(|delta| {
       match delta {
         StreamMapDelta::Delta(key, deltas) => (key, deltas).into(),
@@ -298,6 +299,7 @@ impl Stream for Transformer {
     // so, here we do some batch processing to avoid unnecessary instance rebuild
     let mut batched = Vec::<_>::new();
     do_updates_by(&mut this.source, cx, |d| batched.push(d));
+    let mut batched = ready!(this.source.poll_next_unpin(cx)).unwrap(); // unwrap is safe
 
     if batched.is_empty() && this.source_model.is_empty() {
       debug_assert!(this.transformed.is_none());
