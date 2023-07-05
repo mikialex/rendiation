@@ -1,57 +1,43 @@
-use std::marker::PhantomData;
-
 use crate::*;
 
-pub trait ComponentExt<T>: Component<T> + Sized {
-  fn extend<A: ComponentAbility<T, Self>>(self, ability: A) -> Ability<T, Self, A> {
+pub trait ComponentExt: Component + Sized {
+  fn extend<A: ComponentAbility<Self>>(self, ability: A) -> Ability<Self, A> {
     Ability::new(self, ability)
-  }
-  fn lens<S, L: Lens<S, T>>(self, lens: L) -> LensWrap<S, T, L, Self> {
-    LensWrap::new(self, lens)
   }
 }
 
-impl<X, T> ComponentExt<T> for X where X: Component<T> + Sized {}
+impl<X> ComponentExt for X where X: Component + Sized {}
 
-pub trait ComponentAbilityExt<T, C>: ComponentAbility<T, C> + Sized {
-  fn wrap(self, inner: C) -> Ability<T, C, Self> {
+pub trait ComponentAbilityExt<C>: ComponentAbility<C> + Sized {
+  fn wrap(self, inner: C) -> Ability<C, Self> {
     Ability::new(inner, self)
   }
 }
 
-impl<C, X, T> ComponentAbilityExt<T, C> for X where X: ComponentAbility<T, C> + Sized {}
+impl<C, X> ComponentAbilityExt<C> for X where X: ComponentAbility<C> + Sized {}
 
-pub struct Ability<T, C, A> {
+pub struct Ability<C, A> {
   inner: C,
   ability: A,
-  phantom: PhantomData<T>,
 }
 
-impl<T, C, A> Ability<T, C, A> {
+impl<C, A> Ability<C, A> {
   pub fn new(inner: C, ability: A) -> Self {
-    Self {
-      inner,
-      ability,
-      phantom: PhantomData,
-    }
+    Self { inner, ability }
   }
 }
 
-pub trait ComponentAbility<T, C> {
-  fn update(&mut self, model: &T, inner: &mut C, ctx: &mut UpdateCtx);
-  fn event(&mut self, model: &mut T, event: &mut EventCtx, inner: &mut C);
+pub trait ComponentAbility<C> {
+  fn event(&mut self, event: &mut EventCtx, inner: &mut C);
 }
 
-impl<T, C, A> Component<T> for Ability<T, C, A>
+impl<C, A> Component for Ability<C, A>
 where
-  C: Component<T>,
-  A: ComponentAbility<T, C>,
+  C: Component,
+  A: ComponentAbility<C>,
 {
-  fn update(&mut self, model: &T, ctx: &mut UpdateCtx) {
-    self.ability.update(model, &mut self.inner, ctx);
-  }
-  fn event(&mut self, model: &mut T, event: &mut EventCtx) {
-    self.ability.event(model, event, &mut self.inner);
+  fn event(&mut self, event: &mut EventCtx) {
+    self.ability.event(event, &mut self.inner);
   }
 }
 
@@ -59,7 +45,7 @@ pub trait PresentableAbility<C> {
   fn render(&mut self, builder: &mut PresentationBuilder, inner: &mut C);
 }
 
-impl<T, C, A: PresentableAbility<C>> Presentable for Ability<T, C, A> {
+impl<C, A: PresentableAbility<C>> Presentable for Ability<C, A> {
   fn render(&mut self, builder: &mut crate::PresentationBuilder) {
     self.ability.render(builder, &mut self.inner)
   }
@@ -80,7 +66,7 @@ pub trait LayoutAbility<C> {
   fn set_position(&mut self, _position: UIPosition, _inner: &mut C) {}
 }
 
-impl<T, C, A: LayoutAbility<C>> LayoutAble for Ability<T, C, A> {
+impl<C, A: LayoutAbility<C>> LayoutAble for Ability<C, A> {
   fn layout(
     &mut self,
     constraint: crate::LayoutConstraint,
@@ -100,7 +86,7 @@ pub trait HotAreaPassBehavior<C> {
   }
 }
 
-impl<T, C, A> HotAreaProvider for Ability<T, C, A>
+impl<C, A> HotAreaProvider for Ability<C, A>
 where
   A: HotAreaPassBehavior<C>,
 {

@@ -113,7 +113,7 @@ impl EditableText {
           }
         }
         CursorMove::Right => {
-          if cursor.get_index() != self.text.content.get().len() {
+          if cursor.get_index() != self.text.content.len() {
             cursor.move_right();
           }
         }
@@ -149,9 +149,9 @@ pub struct FocusEditableText;
 pub struct TextChange(pub String);
 pub struct TextKeyboardInput(pub VirtualKeyCode);
 
-impl Component<String> for EditableText {
-  fn event(&mut self, model: &mut String, ctx: &mut EventCtx) {
-    self.text.event(model, ctx);
+impl Component for EditableText {
+  fn event(&mut self, ctx: &mut EventCtx) {
+    self.text.event(ctx);
 
     use winit::event::*;
 
@@ -180,20 +180,12 @@ impl Component<String> for EditableText {
         }
         WindowEvent::ReceivedCharacter(char) => {
           self.insert_at_cursor(*char, model);
-          ctx
-            .custom_event
-            .emit(TextChange(self.content.get().clone()))
+          ctx.custom_event.emit(TextChange(self.content.clone()))
         }
         _ => {}
       },
       _ => {}
     }
-  }
-
-  fn update(&mut self, model: &String, ctx: &mut UpdateCtx) {
-    self.text.content.set(model);
-    self.clamp_cursor_position();
-    self.text.update(model, ctx)
   }
 }
 
@@ -204,6 +196,8 @@ fn blink_show(dur: Duration) -> bool {
 
 impl Presentable for EditableText {
   fn render(&mut self, builder: &mut PresentationBuilder) {
+    self.clamp_cursor_position();
+    self.text.update(ctx);
     self.text.render(builder);
     if let Some(cursor) = &mut self.cursor {
       if blink_show(cursor.get_last_update_timestamp().elapsed()) {

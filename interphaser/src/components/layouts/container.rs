@@ -6,7 +6,7 @@ pub struct Container {
   pub child_align: ContainerAlignment,
   /// extra relative offset
   pub child_offset: ContainerItemOffset,
-  pub size: LayoutSource<ContainerSize>,
+  pub size: ContainerSize,
   /// for simplicity, we only support outer border now
   pub border: RectBorder,
   pub margin: RectBoundaryWidth,
@@ -38,7 +38,7 @@ impl Container {
       color: (1., 1., 1., 0.).into(),
       child_align: Default::default(),
       child_offset: Default::default(),
-      size: LayoutSource::new(size),
+      size,
       layout: Default::default(),
       border: Default::default(),
       margin: Default::default(),
@@ -53,26 +53,17 @@ impl Container {
   }
 }
 
-impl<T> Component<T> for Container {
-  fn update(&mut self, _model: &T, ctx: &mut UpdateCtx) {
-    self.size.refresh(&mut self.layout, ctx);
-  }
-}
+impl Component for Container {}
 
-impl<T, C: Component<T>> ComponentAbility<T, C> for Container {
-  fn update(&mut self, model: &T, inner: &mut C, ctx: &mut UpdateCtx) {
-    self.size.refresh(&mut self.layout, ctx);
-    inner.update(model, ctx);
-    self.layout.or_layout_change(ctx);
-  }
-
-  fn event(&mut self, model: &mut T, event: &mut EventCtx, inner: &mut C) {
-    inner.event(model, event);
+impl<C: Component> ComponentAbility<C> for Container {
+  fn event(&mut self, event: &mut EventCtx, inner: &mut C) {
+    inner.event(event);
   }
 }
 
 impl<C: Presentable> PresentableAbility<C> for Container {
   fn render(&mut self, builder: &mut PresentationBuilder, inner: &mut C) {
+    self.size.refresh(&mut self.layout, ctx);
     Presentable::render(self, builder);
     builder.push_offset(self.layout.relative_position);
     inner.render(builder);

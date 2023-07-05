@@ -176,33 +176,33 @@ impl Application {
   }
 
   fn update(&mut self) {
-    let mut ctx = UpdateCtx {
-      time_stamp: self.init_inst.elapsed(),
-      layout_changed: false,
-      fonts: &self.fonts,
-      last_frame_perf_info: &self.perf_info_last_frame,
-    };
-    self.current_perf.update_time = time_measure(|| self.root.update(&self.state, &mut ctx));
-    self.view_may_changed = false;
+    // let mut ctx = UpdateCtx {
+    //   time_stamp: self.init_inst.elapsed(),
+    //   layout_changed: false,
+    //   fonts: &self.fonts,
+    //   last_frame_perf_info: &self.perf_info_last_frame,
+    // };
+    // self.current_perf.update_time = time_measure(|| self.root.update(&self.state, &mut ctx));
+    // self.view_may_changed = false;
 
-    self.current_perf.layout_time = time_measure(|| {
-      let need_layout = ctx.layout_changed || self.root_size_changed;
-      self.root_size_changed = false;
-      if !need_layout {
-        return;
-      }
+    // self.current_perf.layout_time = time_measure(|| {
+    //   let need_layout = ctx.layout_changed || self.root_size_changed;
+    //   self.root_size_changed = false;
+    //   if !need_layout {
+    //     return;
+    //   }
 
-      let mut ctx = LayoutCtx {
-        fonts: &self.fonts,
-        text: &self.texts,
-      };
+    //   let mut ctx = LayoutCtx {
+    //     fonts: &self.fonts,
+    //     text: &self.texts,
+    //   };
 
-      self.root.layout(
-        LayoutConstraint::from_max(self.window_states.size),
-        &mut ctx,
-      );
-      self.root.set_position(UIPosition { x: 0., y: 0. })
-    });
+    //   self.root.layout(
+    //     LayoutConstraint::from_max(self.window_states.size),
+    //     &mut ctx,
+    //   );
+    //   self.root.set_position(UIPosition { x: 0., y: 0. })
+    // });
   }
 
   fn render(&mut self, frame: &RenderTargetView) {

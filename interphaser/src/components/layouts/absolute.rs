@@ -5,12 +5,9 @@ pub struct AbsoluteAnchor {
   position: UIPosition,
 }
 
-impl<T, C: Component<T>> ComponentAbility<T, C> for AbsoluteAnchor {
-  fn update(&mut self, model: &T, inner: &mut C, ctx: &mut UpdateCtx) {
-    inner.update(model, ctx);
-  }
-  fn event(&mut self, model: &mut T, event: &mut EventCtx, inner: &mut C) {
-    inner.event(model, event);
+impl<C: Component> ComponentAbility<C> for AbsoluteAnchor {
+  fn event(&mut self, event: &mut EventCtx, inner: &mut C) {
+    inner.event(event);
   }
 }
 
@@ -28,19 +25,17 @@ impl<C: HotAreaProvider> HotAreaPassBehavior<C> for AbsoluteAnchor {
   }
 }
 
-pub fn absolute_group<T>() -> ComponentArray<AbsChild<T>> {
-  ComponentArray {
-    children: Vec::new(),
-  }
+pub fn absolute_group() -> Vec<AbsChild> {
+  Vec::new()
 }
 
-pub struct AbsChild<T> {
+pub struct AbsChild {
   pub position: UIPosition,
-  pub inner: Box<dyn UIComponent<T>>,
+  pub inner: Box<dyn Component>,
 }
 
-impl<T> AbsChild<T> {
-  pub fn new(inner: impl UIComponent<T> + 'static) -> Self {
+impl AbsChild {
+  pub fn new(inner: impl Component + 'static) -> Self {
     Self {
       inner: Box::new(inner),
       position: Default::default(),
@@ -54,25 +49,21 @@ impl<T> AbsChild<T> {
   }
 }
 
-impl<T> Component<T> for AbsChild<T> {
-  fn event(&mut self, model: &mut T, event: &mut EventCtx) {
-    self.inner.event(model, event)
-  }
-
-  fn update(&mut self, model: &T, ctx: &mut UpdateCtx) {
-    self.inner.update(model, ctx)
+impl Component for AbsChild {
+  fn event(&mut self, event: &mut EventCtx) {
+    self.inner.event(event)
   }
 }
 
-impl<T> Presentable for AbsChild<T> {
+impl Presentable for AbsChild {
   fn render(&mut self, builder: &mut PresentationBuilder) {
     self.inner.render(builder)
   }
 }
 
-impl<T, C> LayoutAbility<C> for AbsoluteAnchor
+impl<C> LayoutAbility<C> for AbsoluteAnchor
 where
-  for<'a> &'a mut C: IntoIterator<Item = &'a mut AbsChild<T>, IntoIter: ExactSizeIterator>,
+  for<'a> &'a mut C: IntoIterator<Item = &'a mut AbsChild, IntoIter: ExactSizeIterator>,
 {
   fn layout(
     &mut self,

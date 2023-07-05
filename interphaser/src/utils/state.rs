@@ -41,7 +41,7 @@ impl<T> StateCell<T> {
 
   pub fn on_event<X, E>(
     &self,
-    f: impl Fn(&mut T, &mut EventHandleCtx, &E) + Copy,
+    f: impl Fn(&mut &mut EventHandleCtx, &E) + Copy,
   ) -> impl Fn(&mut X, &mut EventHandleCtx, &E) {
     let self_clone = self.clone();
     move |_x: &mut X, ctx: &mut EventHandleCtx, event: &E| {

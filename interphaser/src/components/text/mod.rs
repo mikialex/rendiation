@@ -27,7 +27,7 @@ impl Default for TextLayoutConfig {
 }
 
 pub struct Text {
-  pub content: LayoutSource<String>,
+  pub content: String,
   pub layout_config: TextLayoutConfig,
   pub text_layout_cache: Option<TextLayoutRef>,
   pub text_layout_size_cache: Option<UISize>,
@@ -37,7 +37,7 @@ pub struct Text {
 impl Default for Text {
   fn default() -> Self {
     Self {
-      content: LayoutSource::new("".into()),
+      content: "".into(),
       layout: Default::default(),
       layout_config: Default::default(),
       text_layout_cache: None,
@@ -49,7 +49,7 @@ impl Default for Text {
 impl Text {
   pub fn new(content: impl Into<String>) -> Self {
     Self {
-      content: LayoutSource::new(content.into()),
+      content: content.into(),
       ..Default::default()
     }
   }
@@ -78,7 +78,7 @@ impl Text {
           horizon_align,
           vertical_align,
         } => TextInfo {
-          content: self.content.get().clone(),
+          content: self.content.clone(),
           bounds: self.layout.size.into(),
           line_wrap,
           horizon_align,
@@ -89,7 +89,7 @@ impl Text {
           font_size: 30.,
         },
         TextLayoutConfig::SingleLineShrink => TextInfo {
-          content: self.content.get().clone(),
+          content: self.content.clone(),
           bounds: self.layout.size.into(),
           line_wrap: LineWrap::Single,
           horizon_align: TextHorizontalAlignment::Left,
@@ -110,7 +110,7 @@ impl Text {
       text
         .measure_size(
           &TextRelaxedInfo {
-            content: self.content.get().clone(),
+            content: self.content.clone(),
             font_size: 30.,
           },
           fonts,
@@ -120,14 +120,7 @@ impl Text {
   }
 }
 
-impl<T> Component<T> for Text {
-  fn update(&mut self, _: &T, ctx: &mut UpdateCtx) {
-    if self.content.changed() {
-      self.reset_text_layout_cache();
-    }
-    self.content.refresh(&mut self.layout, ctx);
-  }
-}
+impl Component for Text {}
 
 impl Presentable for Text {
   fn render(&mut self, builder: &mut PresentationBuilder) {

@@ -1,11 +1,8 @@
 use crate::*;
 
-impl<T, C: Component<T>> ComponentAbility<T, C> for Flex {
-  fn update(&mut self, model: &T, inner: &mut C, ctx: &mut UpdateCtx) {
-    inner.update(model, ctx);
-  }
-  fn event(&mut self, model: &mut T, event: &mut EventCtx, inner: &mut C) {
-    inner.event(model, event);
+impl<C: Component> ComponentAbility<C> for Flex {
+  fn event(&mut self, event: &mut EventCtx, inner: &mut C) {
+    inner.event(event);
   }
 }
 
@@ -23,9 +20,9 @@ impl<C: HotAreaProvider> HotAreaPassBehavior<C> for Flex {
   }
 }
 
-impl<T, C> LayoutAbility<C> for Flex
+impl<C> LayoutAbility<C> for Flex
 where
-  for<'a> &'a mut C: IntoIterator<Item = &'a mut Child<T>, IntoIter: ExactSizeIterator>,
+  for<'a> &'a mut C: IntoIterator<Item = &'a mut Child, IntoIter: ExactSizeIterator>,
 {
   fn layout(&mut self, bc: LayoutConstraint, ctx: &mut LayoutCtx, inner: &mut C) -> LayoutResult {
     // we loosen our constraints when passing to children.
