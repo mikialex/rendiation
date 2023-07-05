@@ -10,10 +10,8 @@ pub use event::*;
 mod inc;
 pub use inc::*;
 
-use crate::*;
-
-pub trait Component: Presentable + LayoutAble {
-  fn event(&mut self, event: &mut EventCtx) {}
+pub trait Component {
+  fn event(&mut self, event: &mut EventCtx);
 }
 
 // pub trait Component: Component + Presentable + LayoutAble + 'static {}

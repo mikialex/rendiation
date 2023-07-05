@@ -146,7 +146,7 @@ pub struct WindowConfig {
   pub position: UIPosition,
 }
 
-pub trait UI: LayoutAble + Presentable + Stream<Item = ()> {}
+pub trait UI: LayoutAble + Presentable + Component {}
 
 pub struct Application {
   root: Box<dyn UI>,
@@ -250,7 +250,7 @@ impl Application {
       gpu: self.gpu.clone(),
       view_may_changed: false,
     };
-    self.root.event(&mut self.state, &mut event);
+    self.root.event(&mut event);
     self.view_may_changed |= event.view_may_changed;
   }
 }

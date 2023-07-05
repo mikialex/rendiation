@@ -28,7 +28,7 @@ impl DerefMut for EditableText {
 impl EditableText {
   pub fn focus(&mut self) {
     if self.cursor.is_none() {
-      self.cursor = Cursor::new(self.content.get().len()).into();
+      self.cursor = Cursor::new(self.content.len()).into();
     }
   }
 
@@ -37,7 +37,7 @@ impl EditableText {
   // so we simply clamp it
   fn clamp_cursor_position(&mut self) {
     if let Some(cursor) = &mut self.cursor {
-      cursor.set_index(cursor.get_index().clamp(0, self.text.content.get().len()));
+      cursor.set_index(cursor.get_index().clamp(0, self.text.content.len()));
     }
   }
 
@@ -82,7 +82,7 @@ impl EditableText {
       let index = cursor.get_index();
       model.insert(index, c);
 
-      self.text.content.set(model.clone());
+      self.text.content = model.clone();
       self.text.reset_text_layout_cache();
       cursor.notify_text_layout_changed();
       cursor.move_right();
@@ -97,7 +97,7 @@ impl EditableText {
       }
       model.remove(cursor.get_index() - 1);
 
-      self.text.content.set(model.clone());
+      self.text.content = model.clone();
       self.text.reset_text_layout_cache();
       cursor.notify_text_layout_changed();
       cursor.move_left();

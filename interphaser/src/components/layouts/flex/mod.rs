@@ -4,10 +4,8 @@ mod layout_impl;
 
 pub use layout_impl::*;
 
-pub fn flex_group() -> ComponentArray<Child> {
-  ComponentArray {
-    children: Vec::new(),
-  }
+pub fn flex_group() -> Vec<Child> {
+  Vec::new()
 }
 
 pub struct Flex {

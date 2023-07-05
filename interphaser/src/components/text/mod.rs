@@ -120,8 +120,6 @@ impl Text {
   }
 }
 
-impl Component for Text {}
-
 impl Presentable for Text {
   fn render(&mut self, builder: &mut PresentationBuilder) {
     self.layout.update_world(builder.current_origin_offset());
@@ -139,10 +137,6 @@ impl Presentable for Text {
 
 impl LayoutAble for Text {
   fn layout(&mut self, constraint: LayoutConstraint, ctx: &mut LayoutCtx) -> LayoutResult {
-    if self.layout.skipable(constraint) {
-      return self.layout.size.with_default_baseline();
-    }
-
     match self.layout_config {
       TextLayoutConfig::SingleLineShrink => {
         let size = self.get_text_boundary(ctx.fonts, ctx.text);

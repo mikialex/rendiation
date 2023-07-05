@@ -100,14 +100,14 @@ impl<X, C: HotAreaProvider> HotAreaPassBehavior<C> for EventHandlerGroup<X> {
 }
 
 impl<X: EventHandlerType> EventHandler<X> {
-  pub fn by(fun: impl Fn(&mut &mut EventHandleCtx, &X::Event) + 'static) -> Self {
+  pub fn by(fun: impl Fn(&mut EventHandleCtx, &X::Event) + 'static) -> Self {
     Self {
       state: Default::default(),
       handler: Box::new(fun),
     }
   }
 
-  pub fn by_state(state: X, fun: impl Fn(&mut &mut EventHandleCtx, &X::Event) + 'static) -> Self {
+  pub fn by_state(state: X, fun: impl Fn(&mut EventHandleCtx, &X::Event) + 'static) -> Self {
     Self {
       state,
       handler: Box::new(fun),

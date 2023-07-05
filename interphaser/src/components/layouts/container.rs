@@ -63,7 +63,6 @@ impl<C: Component> ComponentAbility<C> for Container {
 
 impl<C: Presentable> PresentableAbility<C> for Container {
   fn render(&mut self, builder: &mut PresentationBuilder, inner: &mut C) {
-    self.size.refresh(&mut self.layout, ctx);
     Presentable::render(self, builder);
     builder.push_offset(self.layout.relative_position);
     inner.render(builder);
