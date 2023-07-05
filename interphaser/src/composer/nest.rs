@@ -1,57 +1,57 @@
 use crate::*;
 
-pub trait ComponentExt: Eventable + Sized {
-  fn extend<A: ComponentAbility<Self>>(self, ability: A) -> Ability<Self, A> {
-    Ability::new(self, ability)
+pub trait ComponentNestExt: Component + Sized {
+  fn nest_in<A: EventableNested<Self>>(self, ability: A) -> NestedComponent<Self, A> {
+    NestedComponent::new(self, ability)
   }
 }
 
-impl<X> ComponentExt for X where X: Eventable + Sized {}
+impl<X> ComponentNestExt for X where X: Component + Sized {}
 
-pub trait ComponentAbilityExt<C>: ComponentAbility<C> + Sized {
-  fn wrap(self, inner: C) -> Ability<C, Self> {
-    Ability::new(inner, self)
+pub trait ComponentAbilityExt<C>: Sized {
+  fn nest_over(self, inner: C) -> NestedComponent<C, Self> {
+    NestedComponent::new(inner, self)
   }
 }
 
-impl<C, X> ComponentAbilityExt<C> for X where X: ComponentAbility<C> + Sized {}
+impl<C, X> ComponentAbilityExt<C> for X where X: Sized {}
 
-pub struct Ability<C, A> {
+pub struct NestedComponent<C, A> {
   inner: C,
   ability: A,
 }
 
-impl<C, A> Ability<C, A> {
+impl<C, A> NestedComponent<C, A> {
   pub fn new(inner: C, ability: A) -> Self {
     Self { inner, ability }
   }
 }
 
-pub trait ComponentAbility<C> {
+pub trait EventableNested<C> {
   fn event(&mut self, event: &mut EventCtx, inner: &mut C);
 }
 
-impl<C, A> Eventable for Ability<C, A>
+impl<C, A> Eventable for NestedComponent<C, A>
 where
   C: Eventable,
-  A: ComponentAbility<C>,
+  A: EventableNested<C>,
 {
   fn event(&mut self, event: &mut EventCtx) {
     self.ability.event(event, &mut self.inner);
   }
 }
 
-pub trait PresentableAbility<C> {
+pub trait PresentableNested<C> {
   fn render(&mut self, builder: &mut PresentationBuilder, inner: &mut C);
 }
 
-impl<C, A: PresentableAbility<C>> Presentable for Ability<C, A> {
+impl<C, A: PresentableNested<C>> Presentable for NestedComponent<C, A> {
   fn render(&mut self, builder: &mut crate::PresentationBuilder) {
     self.ability.render(builder, &mut self.inner)
   }
 }
 
-pub trait LayoutAbility<C> {
+pub trait LayoutAbleNested<C> {
   fn layout(
     &mut self,
     constraint: LayoutConstraint,
@@ -66,7 +66,7 @@ pub trait LayoutAbility<C> {
   fn set_position(&mut self, _position: UIPosition, _inner: &mut C) {}
 }
 
-impl<C, A: LayoutAbility<C>> LayoutAble for Ability<C, A> {
+impl<C, A: LayoutAbleNested<C>> LayoutAble for NestedComponent<C, A> {
   fn layout(
     &mut self,
     constraint: crate::LayoutConstraint,
@@ -80,15 +80,15 @@ impl<C, A: LayoutAbility<C>> LayoutAble for Ability<C, A> {
   }
 }
 
-pub trait HotAreaPassBehavior<C> {
+pub trait HotAreaNested<C> {
   fn is_point_in(&self, _point: crate::UIPosition, _inner: &C) -> bool {
     false
   }
 }
 
-impl<C, A> HotAreaProvider for Ability<C, A>
+impl<C, A> HotAreaProvider for NestedComponent<C, A>
 where
-  A: HotAreaPassBehavior<C>,
+  A: HotAreaNested<C>,
 {
   fn is_point_in(&self, point: crate::UIPosition) -> bool {
     self.ability.is_point_in(point, &self.inner)

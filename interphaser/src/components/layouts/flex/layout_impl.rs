@@ -1,12 +1,12 @@
 use crate::*;
 
-impl<C: Eventable> ComponentAbility<C> for Flex {
+impl<C: Eventable> EventableNested<C> for Flex {
   fn event(&mut self, event: &mut EventCtx, inner: &mut C) {
     inner.event(event);
   }
 }
 
-impl<C: Presentable> PresentableAbility<C> for Flex {
+impl<C: Presentable> PresentableNested<C> for Flex {
   fn render(&mut self, builder: &mut PresentationBuilder, inner: &mut C) {
     builder.push_offset(self.layout.relative_position);
     inner.render(builder);
@@ -14,13 +14,13 @@ impl<C: Presentable> PresentableAbility<C> for Flex {
   }
 }
 
-impl<C: HotAreaProvider> HotAreaPassBehavior<C> for Flex {
+impl<C: HotAreaProvider> HotAreaNested<C> for Flex {
   fn is_point_in(&self, point: crate::UIPosition, inner: &C) -> bool {
     inner.is_point_in(point)
   }
 }
 
-impl<C> LayoutAbility<C> for Flex
+impl<C> LayoutAbleNested<C> for Flex
 where
   for<'a> &'a mut C: IntoIterator<Item = &'a mut Child, IntoIter: ExactSizeIterator>,
 {

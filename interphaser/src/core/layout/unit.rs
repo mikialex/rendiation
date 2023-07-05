@@ -5,7 +5,6 @@ use crate::*;
 /// The component tree actually not a layout tree. The real
 /// layout tree is composed by the LayoutUnit.
 pub struct LayoutUnit {
-  previous_constrains: LayoutConstraint,
   /// relative to parent top left
   pub relative_position: UIPosition,
   /// relative to screen top left
@@ -19,7 +18,6 @@ pub struct LayoutUnit {
 impl Default for LayoutUnit {
   fn default() -> Self {
     Self {
-      previous_constrains: Default::default(),
       relative_position: Default::default(),
       size: Default::default(),
       absolute_position: Default::default(),

@@ -5,13 +5,13 @@ pub struct AbsoluteAnchor {
   position: UIPosition,
 }
 
-impl<C: Eventable> ComponentAbility<C> for AbsoluteAnchor {
+impl<C: Eventable> EventableNested<C> for AbsoluteAnchor {
   fn event(&mut self, event: &mut EventCtx, inner: &mut C) {
     inner.event(event);
   }
 }
 
-impl<C: Presentable> PresentableAbility<C> for AbsoluteAnchor {
+impl<C: Presentable> PresentableNested<C> for AbsoluteAnchor {
   fn render(&mut self, builder: &mut PresentationBuilder, inner: &mut C) {
     builder.push_offset(self.position);
     inner.render(builder);
@@ -19,7 +19,7 @@ impl<C: Presentable> PresentableAbility<C> for AbsoluteAnchor {
   }
 }
 
-impl<C: HotAreaProvider> HotAreaPassBehavior<C> for AbsoluteAnchor {
+impl<C: HotAreaProvider> HotAreaNested<C> for AbsoluteAnchor {
   fn is_point_in(&self, point: crate::UIPosition, inner: &C) -> bool {
     inner.is_point_in(point)
   }
@@ -61,7 +61,7 @@ impl Presentable for AbsChild {
   }
 }
 
-impl<C> LayoutAbility<C> for AbsoluteAnchor
+impl<C> LayoutAbleNested<C> for AbsoluteAnchor
 where
   for<'a> &'a mut C: IntoIterator<Item = &'a mut AbsChild, IntoIter: ExactSizeIterator>,
 {

@@ -1,9 +1,8 @@
 use interphaser::*;
 
-use crate::{menu, terminal, MenuList, MenuModel, ViewerImpl};
+use crate::{terminal, ViewerImpl};
 
 pub struct ViewerApplication {
-  pub menu: MenuModel,
   pub viewer: ViewerImpl,
 }
 
@@ -11,50 +10,27 @@ impl Default for ViewerApplication {
   fn default() -> Self {
     ViewerApplication {
       viewer: Default::default(),
-      menu: create_menu(),
     }
   }
 }
 
-pub fn create_app() -> impl UIComponent<ViewerApplication> {
-  Flex::column().wrap(
-    flex_group()
-      .child(Child::fixed(menu().lens(lens!(ViewerApplication, menu))))
-      .child(Child::flex(
-        viewer().lens(lens!(ViewerApplication, viewer)),
-        1.,
-      )),
-  )
+pub fn create_app() -> impl Component {
+  Flex::column().nest_over(flex_group().child(Child::flex(viewer(), 1.)))
 }
 
-pub fn viewer() -> impl UIComponent<ViewerImpl> {
+pub fn viewer() -> impl Component {
   AbsoluteAnchor::default().wrap(
     absolute_group()
       .child(AbsChild::new(GPUCanvas::default()))
-      .child(AbsChild::new(terminal().lens(lens!(ViewerImpl, terminal))).with_position((0., 0.)))
+      .child(AbsChild::new(terminal().with_position((0., 0.))))
       .child(AbsChild::new(perf_panel()).with_position((0., 50.))),
   )
 }
 
-fn create_menu() -> MenuModel {
-  MenuModel {
-    lists: vec![
-      MenuList {
-        name: "3D Examples".to_string(),
-        items: Vec::new(),
-      },
-      MenuList {
-        name: "UI Examples".to_string(),
-        items: Vec::new(),
-      },
-    ],
-  }
-}
-
-fn perf_panel<T: 'static>() -> impl UIComponent<T> {
+fn perf_panel() -> impl Component {
   Container::sized((500., 200.))
     .padding(RectBoundaryWidth::equal(5.))
-    .wrap(
+    .nest_over(
     Text::default()
     .with_layout(TextLayoutConfig::SizedBox{
         line_wrap: LineWrap::Multiple,

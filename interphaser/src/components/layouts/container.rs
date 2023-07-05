@@ -53,17 +53,13 @@ impl Container {
   }
 }
 
-impl Eventable for Container {
-  fn event(&mut self, event: &mut EventCtx) {}
-}
-
-impl<C: Eventable> ComponentAbility<C> for Container {
+impl<C: Eventable> EventableNested<C> for Container {
   fn event(&mut self, event: &mut EventCtx, inner: &mut C) {
     inner.event(event);
   }
 }
 
-impl<C: Presentable> PresentableAbility<C> for Container {
+impl<C: Presentable> PresentableNested<C> for Container {
   fn render(&mut self, builder: &mut PresentationBuilder, inner: &mut C) {
     Presentable::render(self, builder);
     builder.push_offset(self.layout.relative_position);
@@ -172,7 +168,7 @@ pub struct ContainerItemOffset {
   pub y: f32,
 }
 
-impl<C: LayoutAble> LayoutAbility<C> for Container {
+impl<C: LayoutAble> LayoutAbleNested<C> for Container {
   fn layout(
     &mut self,
     constraint: LayoutConstraint,
@@ -206,7 +202,7 @@ impl<C: LayoutAble> LayoutAbility<C> for Container {
   }
 }
 
-impl<C> HotAreaPassBehavior<C> for Container {
+impl<C> HotAreaNested<C> for Container {
   fn is_point_in(&self, point: crate::UIPosition, _inner: &C) -> bool {
     self.layout.into_quad().is_point_in(point)
   }
@@ -233,4 +229,8 @@ impl Presentable for Container {
       )));
     }
   }
+}
+
+impl Eventable for Container {
+  fn event(&mut self, _event: &mut EventCtx) {}
 }

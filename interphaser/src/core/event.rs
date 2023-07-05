@@ -1,9 +1,13 @@
-use std::any::Any;
 use std::sync::Arc;
+use std::{any::Any, task::Context};
 
 use webgpu::GPU;
 
 use crate::{FontManager, TextCache, WindowState};
+
+pub trait Eventable {
+  fn event(&mut self, event: &mut EventCtx);
+}
 
 pub struct EventCtx<'a> {
   pub view_may_changed: bool,
@@ -13,6 +17,7 @@ pub struct EventCtx<'a> {
   pub fonts: &'a FontManager,
   pub texts: &'a mut TextCache,
   pub gpu: Arc<GPU>,
+  pub cx: &'a mut Context<'a>,
 }
 
 pub struct CustomEventCtx {

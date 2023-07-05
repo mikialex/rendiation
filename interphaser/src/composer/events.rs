@@ -56,7 +56,7 @@ impl<C> EventHandlerGroup<C> {
   }
 }
 
-impl<C: Eventable> ComponentAbility<C> for EventHandlerGroup<C> {
+impl<C: Eventable> EventableNested<C> for EventHandlerGroup<C> {
   fn event(&mut self, event: &mut EventCtx, inner: &mut C) {
     self
       .before_handlers
@@ -72,13 +72,13 @@ impl<C: Eventable> ComponentAbility<C> for EventHandlerGroup<C> {
   }
 }
 
-impl<X, C: Presentable> PresentableAbility<C> for EventHandlerGroup<X> {
+impl<X, C: Presentable> PresentableNested<C> for EventHandlerGroup<X> {
   fn render(&mut self, builder: &mut PresentationBuilder, inner: &mut C) {
     inner.render(builder);
   }
 }
 
-impl<X, C: LayoutAble> LayoutAbility<C> for EventHandlerGroup<X> {
+impl<X, C: LayoutAble> LayoutAbleNested<C> for EventHandlerGroup<X> {
   fn layout(
     &mut self,
     constraint: LayoutConstraint,
@@ -93,7 +93,7 @@ impl<X, C: LayoutAble> LayoutAbility<C> for EventHandlerGroup<X> {
   }
 }
 
-impl<X, C: HotAreaProvider> HotAreaPassBehavior<C> for EventHandlerGroup<X> {
+impl<X, C: HotAreaProvider> HotAreaNested<C> for EventHandlerGroup<X> {
   fn is_point_in(&self, point: crate::UIPosition, inner: &C) -> bool {
     inner.is_point_in(point)
   }
@@ -132,7 +132,7 @@ impl<C, X: EventHandlerImpl<C>> EventHandlerLike<C> for EventHandler<X> {
   }
 }
 
-impl<X: EventHandlerImpl<C>, C: Eventable> ComponentAbility<C> for EventHandler<X> {
+impl<X: EventHandlerImpl<C>, C: Eventable> EventableNested<C> for EventHandler<X> {
   fn event(&mut self, event: &mut EventCtx, inner: &mut C) {
     if !self.state.should_handle_in_bubble() {
       self.handle_event(event, inner);
@@ -146,13 +146,13 @@ impl<X: EventHandlerImpl<C>, C: Eventable> ComponentAbility<C> for EventHandler<
   }
 }
 
-impl<X: EventHandlerType, C: Presentable> PresentableAbility<C> for EventHandler<X> {
+impl<X: EventHandlerType, C: Presentable> PresentableNested<C> for EventHandler<X> {
   fn render(&mut self, builder: &mut PresentationBuilder, inner: &mut C) {
     inner.render(builder);
   }
 }
 
-impl<X: EventHandlerType, C: LayoutAble> LayoutAbility<C> for EventHandler<X> {
+impl<X: EventHandlerType, C: LayoutAble> LayoutAbleNested<C> for EventHandler<X> {
   fn layout(
     &mut self,
     constraint: LayoutConstraint,
@@ -167,7 +167,7 @@ impl<X: EventHandlerType, C: LayoutAble> LayoutAbility<C> for EventHandler<X> {
   }
 }
 
-impl<X: EventHandlerType, C: HotAreaProvider> HotAreaPassBehavior<C> for EventHandler<X> {
+impl<X: EventHandlerType, C: HotAreaProvider> HotAreaNested<C> for EventHandler<X> {
   fn is_point_in(&self, point: crate::UIPosition, inner: &C) -> bool {
     inner.is_point_in(point)
   }
