@@ -109,12 +109,12 @@ impl<T: IncrementalBase, Dirty> TreeHierarchyDerivedSystem<T, Dirty> {
     source_tree: &SharedTreeCollection<TREE>,
   ) -> TreeHierarchyDerivedSystem<T, B::Dirty>
   where
-    B: TreeIncrementalDeriveBehavior<T, S, M, TREE, Dirty = Dirty>,
+    B: TreeIncrementalDeriveBehavior<T, S, M, TREE::Core, Dirty = Dirty>,
     S: IncrementalBase,
     T: HierarchyDerivedBase<Source = S>,
     Dirty: Default + 'static,
     M: HierarchyDirtyMark,
-    TREE: 'static,
+    TREE: ShareCoreTree + 'static,
   {
     let derived_tree = Arc::new(RwLock::new(
       TreeCollection::<DerivedData<T, B::Dirty>>::default(),
@@ -206,8 +206,15 @@ impl<T: IncrementalBase, Dirty> TreeHierarchyDerivedSystem<T, Dirty> {
               let update_root_is_not_valid = derived_tree.get_node(update_root).parent.is_some();
 
               if !update_root_is_not_valid {
-                B::update_derived(tree, &mut derived_tree, update_root, &mut |delta| {
-                  derived_deltas.push((delta.0, Some(delta.1)));
+                // note, the source tree maybe mutate by other thread in parallel
+                // we must hold a entire tree lock when visit origin tree.
+                // because try recreate handle maybe failed, and even it succeeded, we can not sure
+                // if the recreated handle is valid when get the data we still could get corrupt
+                // data. so we have to use a large lock here
+                tree.visit_core_tree(|tree| {
+                  B::update_derived(tree, &mut derived_tree, update_root, &mut |delta| {
+                    derived_deltas.push((delta.0, Some(delta.1)));
+                  });
                 });
               }
             }
@@ -259,8 +266,7 @@ impl<T: IncrementalBase, M, TREE, X> TreeIncrementalDeriveBehavior<T, T::Source,
 where
   T: IncrementalHierarchyDerived<DirtyMark = M>,
   M: HierarchyDirtyMark,
-  // todo add a trait extract the common part of core tree and share core tree
-  TREE: ShareCoreTree<Node = X>,
+  TREE: CoreTree<Node = X>,
   X: Deref<Target = T::Source>,
 {
   type Dirty = ParentTreeDirty<M>;
@@ -330,16 +336,15 @@ where
       } else {
         let parent = parent.map(|parent| &parent.data().data);
 
-        let source_node = source_tree.recreate_handle(node_index);
-
-        source_tree.visit_node_data(source_node, |source_node| {
+        // the source tree maybe out of sync if the other thread mutate the source tree in parallel
+        if let Some(source_node) = source_tree.try_recreate_handle(node_index) {
           derived.data.hierarchy_update(
-            source_node.deref(),
+            source_tree.get_node_data(source_node).deref(),
             parent,
             &derived.dirty.sub_tree_dirty_mark_all,
             |delta| derived_delta_sender((node_index, delta)),
           );
-        });
+        }
 
         derived.dirty.sub_tree_dirty_mark_any = T::DirtyMark::default();
         derived.dirty.sub_tree_dirty_mark_all = T::DirtyMark::default();
@@ -361,7 +366,7 @@ impl<T: IncrementalBase, M, TREE, X> TreeIncrementalDeriveBehavior<T, T::Source,
 where
   T: IncrementalChildrenHierarchyDerived<DirtyMark = M>,
   M: HierarchyDirtyMark,
-  TREE: ShareCoreTree<Node = X>,
+  TREE: CoreTree<Node = X>,
   X: Deref<Target = T::Source>,
 {
   type Dirty = M;
@@ -415,10 +420,10 @@ where
       );
     });
 
-    let source_node = source_tree.recreate_handle(node_index);
-    source_tree.visit_node_data(source_node, |source_node| {
+    // the source tree maybe out of sync if the other thread mutate the source tree in parallel
+    if let Some(source_node) = source_tree.try_recreate_handle(node_index) {
       node_data.data.hierarchy_children_update(
-        source_node.deref(),
+        source_tree.get_node_data(source_node).deref(),
         |child_visitor| {
           node.visit_children_mut(|node| {
             let node_data = &unsafe { &mut (*node.node) }.data.data;
@@ -428,6 +433,6 @@ where
         &node_data.dirty,
         &mut |delta| derived_delta_sender((node_index, delta)),
       );
-    });
+    }
   }
 }

@@ -24,8 +24,8 @@ where
 {
   type Node = T::Node;
   type Handle = TreeNodeHandle<T::Node>;
-  fn recreate_handle(&self, index: usize) -> Self::Handle {
-    self.inner.recreate_handle(index)
+  fn try_recreate_handle(&self, index: usize) -> Option<Self::Handle> {
+    self.inner.try_recreate_handle(index)
   }
 
   fn node_has_parent(&self, handle: Self::Handle) -> bool {
@@ -88,6 +88,11 @@ where
 {
   type Node = T::Node;
   type Handle = TreeNodeHandle<T::Node>;
+  type Core = T::Core;
+  fn visit_core_tree<R>(&self, v: impl FnOnce(&Self::Core) -> R) -> R {
+    self.inner.visit_core_tree(v)
+  }
+
   fn recreate_handle(&self, index: usize) -> Self::Handle {
     self.inner.recreate_handle(index)
   }
