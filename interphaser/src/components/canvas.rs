@@ -79,9 +79,9 @@ pub trait CanvasPrinter {
   fn draw_canvas(&mut self, gpu: &Arc<GPU>, canvas: GPU2DTextureView);
 }
 
-impl Component for GPUCanvas {
+impl Eventable for GPUCanvas {
   fn event(&mut self, event: &mut EventCtx) {
-    if let Some(drawer) = &self.drawer {
+    if let Some(drawer) = &mut self.drawer {
       let position_info = CanvasWindowPositionInfo {
         absolute_position: self.layout.absolute_position,
         size: self.layout.size,

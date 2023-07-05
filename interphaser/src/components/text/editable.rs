@@ -149,7 +149,7 @@ pub struct FocusEditableText;
 pub struct TextChange(pub String);
 pub struct TextKeyboardInput(pub VirtualKeyCode);
 
-impl Component for EditableText {
+impl Eventable for EditableText {
   fn event(&mut self, ctx: &mut EventCtx) {
     self.text.event(ctx);
 
@@ -162,6 +162,8 @@ impl Component for EditableText {
     {
       self.focus()
     }
+
+    let model = todo!();
 
     match ctx.event {
       Event::WindowEvent { event, .. } => match event {
@@ -197,7 +199,6 @@ fn blink_show(dur: Duration) -> bool {
 impl Presentable for EditableText {
   fn render(&mut self, builder: &mut PresentationBuilder) {
     self.clamp_cursor_position();
-    self.text.update(ctx);
     self.text.render(builder);
     if let Some(cursor) = &mut self.cursor {
       if blink_show(cursor.get_last_update_timestamp().elapsed()) {

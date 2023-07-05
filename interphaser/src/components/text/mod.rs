@@ -34,6 +34,10 @@ pub struct Text {
   pub layout: LayoutUnit,
 }
 
+impl Eventable for Text {
+  fn event(&mut self, event: &mut EventCtx) {}
+}
+
 impl Default for Text {
   fn default() -> Self {
     Self {

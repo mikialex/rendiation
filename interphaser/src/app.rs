@@ -146,7 +146,7 @@ pub struct WindowConfig {
   pub position: UIPosition,
 }
 
-pub trait UI: LayoutAble + Presentable + Component {}
+pub trait UI: LayoutAble + Presentable + Eventable {}
 
 pub struct Application {
   root: Box<dyn UI>,

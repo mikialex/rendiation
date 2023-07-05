@@ -130,7 +130,7 @@ impl Child {
   }
 }
 
-impl Component for Child {
+impl Eventable for Child {
   fn event(&mut self, event: &mut EventCtx) {
     match self {
       Child::Fixed { widget, .. } => widget.event(event),

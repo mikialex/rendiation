@@ -53,9 +53,11 @@ impl Container {
   }
 }
 
-impl Component for Container {}
+impl Eventable for Container {
+  fn event(&mut self, event: &mut EventCtx) {}
+}
 
-impl<C: Component> ComponentAbility<C> for Container {
+impl<C: Eventable> ComponentAbility<C> for Container {
   fn event(&mut self, event: &mut EventCtx, inner: &mut C) {
     inner.event(event);
   }
@@ -177,14 +179,7 @@ impl<C: LayoutAble> LayoutAbility<C> for Container {
     ctx: &mut LayoutCtx,
     inner: &mut C,
   ) -> LayoutResult {
-    if self.layout.skipable(constraint) {
-      return self.layout.size.with_default_baseline();
-    }
-
-    let (self_size, child_size) = self
-      .size
-      .get()
-      .compute_size_pair(constraint, self, inner, ctx);
+    let (self_size, child_size) = self.size.compute_size_pair(constraint, self, inner, ctx);
 
     self.layout.size = self_size;
 
@@ -219,7 +214,7 @@ impl<C> HotAreaPassBehavior<C> for Container {
 
 impl LayoutAble for Container {
   fn layout(&mut self, constraint: LayoutConstraint, _ctx: &mut LayoutCtx) -> LayoutResult {
-    self.layout.size = self.size.get().compute_size_self(constraint);
+    self.layout.size = self.size.compute_size_self(constraint);
     self.layout.size.with_default_baseline()
   }
 

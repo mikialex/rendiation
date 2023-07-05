@@ -5,7 +5,7 @@ pub struct AbsoluteAnchor {
   position: UIPosition,
 }
 
-impl<C: Component> ComponentAbility<C> for AbsoluteAnchor {
+impl<C: Eventable> ComponentAbility<C> for AbsoluteAnchor {
   fn event(&mut self, event: &mut EventCtx, inner: &mut C) {
     inner.event(event);
   }
@@ -49,7 +49,7 @@ impl AbsChild {
   }
 }
 
-impl Component for AbsChild {
+impl Eventable for AbsChild {
   fn event(&mut self, event: &mut EventCtx) {
     self.inner.event(event)
   }

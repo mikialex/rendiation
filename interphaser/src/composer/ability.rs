@@ -1,12 +1,12 @@
 use crate::*;
 
-pub trait ComponentExt: Component + Sized {
+pub trait ComponentExt: Eventable + Sized {
   fn extend<A: ComponentAbility<Self>>(self, ability: A) -> Ability<Self, A> {
     Ability::new(self, ability)
   }
 }
 
-impl<X> ComponentExt for X where X: Component + Sized {}
+impl<X> ComponentExt for X where X: Eventable + Sized {}
 
 pub trait ComponentAbilityExt<C>: ComponentAbility<C> + Sized {
   fn wrap(self, inner: C) -> Ability<C, Self> {
@@ -31,9 +31,9 @@ pub trait ComponentAbility<C> {
   fn event(&mut self, event: &mut EventCtx, inner: &mut C);
 }
 
-impl<C, A> Component for Ability<C, A>
+impl<C, A> Eventable for Ability<C, A>
 where
-  C: Component,
+  C: Eventable,
   A: ComponentAbility<C>,
 {
   fn event(&mut self, event: &mut EventCtx) {

@@ -56,7 +56,7 @@ impl<C> EventHandlerGroup<C> {
   }
 }
 
-impl<C: Component> ComponentAbility<C> for EventHandlerGroup<C> {
+impl<C: Eventable> ComponentAbility<C> for EventHandlerGroup<C> {
   fn event(&mut self, event: &mut EventCtx, inner: &mut C) {
     self
       .before_handlers
@@ -132,7 +132,7 @@ impl<C, X: EventHandlerImpl<C>> EventHandlerLike<C> for EventHandler<X> {
   }
 }
 
-impl<X: EventHandlerImpl<C>, C: Component> ComponentAbility<C> for EventHandler<X> {
+impl<X: EventHandlerImpl<C>, C: Eventable> ComponentAbility<C> for EventHandler<X> {
   fn event(&mut self, event: &mut EventCtx, inner: &mut C) {
     if !self.state.should_handle_in_bubble() {
       self.handle_event(event, inner);

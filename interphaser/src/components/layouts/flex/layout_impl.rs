@@ -1,6 +1,6 @@
 use crate::*;
 
-impl<C: Component> ComponentAbility<C> for Flex {
+impl<C: Eventable> ComponentAbility<C> for Flex {
   fn event(&mut self, event: &mut EventCtx, inner: &mut C) {
     inner.event(event);
   }
