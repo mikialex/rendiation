@@ -1,4 +1,6 @@
-use std::{collections::HashSet, hash::Hash};
+use std::hash::Hash;
+
+use fast_hash_collection::*;
 
 pub trait AbstractDirectedGraphNode {
   fn visit_backward(&self, visitor: impl FnMut(&Self) -> bool);
@@ -12,8 +14,8 @@ pub trait AbstractDirectedGraphNode {
     Self: Sized + Hash + Eq + Clone,
   {
     struct Ctx<T> {
-      unresolved: HashSet<T>,
-      visited: HashSet<T>,
+      unresolved: FastHashSet<T>,
+      visited: FastHashSet<T>,
     }
 
     fn visit<T: AbstractDirectedGraphNode + Hash + Eq + Clone>(
