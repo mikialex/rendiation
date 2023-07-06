@@ -1,6 +1,5 @@
-use std::sync::Arc;
+use std::{sync::Arc, task::Context};
 
-use futures::Stream;
 use rendiation_algebra::*;
 use rendiation_texture::Size;
 use webgpu::*;
@@ -11,10 +10,7 @@ use winit::{
 
 use crate::*;
 
-pub async fn run_gui(
-  ui: impl FnOnce(Box<dyn Stream<Item = Event<()>>>) -> Box<dyn UI>,
-  config: WindowConfig,
-) {
+pub async fn run_gui(ui: impl Component + 'static, config: WindowConfig) {
   let event_loop = EventLoop::new();
   let builder = winit::window::WindowBuilder::new();
   let window = builder.build(&event_loop).unwrap();
@@ -58,7 +54,7 @@ pub async fn run_gui(
   let mut app = Application {
     fonts,
     texts,
-    root: todo!(),
+    root: Box::new(ui),
     root_size_changed: true,
     window_states: WindowState::new(
       UISize {
@@ -70,7 +66,6 @@ pub async fn run_gui(
     ui_renderer,
     window,
     last_update_inst: Instant::now(),
-    init_inst: Instant::now(),
     view_may_changed: false,
 
     perf_info_last_frame: PerformanceInfo::new(0),
@@ -146,10 +141,8 @@ pub struct WindowConfig {
   pub position: UIPosition,
 }
 
-pub trait UI: LayoutAble + Presentable + Stream<Item = ()> {}
-
 pub struct Application {
-  root: Box<dyn UI>,
+  root: Box<dyn Component>,
   window_states: WindowState,
   root_size_changed: bool,
   ui_renderer: WebGPUxUIRenderer,
@@ -162,7 +155,6 @@ pub struct Application {
   current_perf: PerformanceInfo,
 
   view_may_changed: bool,
-  init_inst: Instant,
   last_update_inst: Instant,
   surface: GPUSurface,
   gpu: Arc<GPU>,
@@ -176,33 +168,33 @@ impl Application {
   }
 
   fn update(&mut self) {
-    let mut ctx = UpdateCtx {
-      time_stamp: self.init_inst.elapsed(),
-      layout_changed: false,
-      fonts: &self.fonts,
-      last_frame_perf_info: &self.perf_info_last_frame,
-    };
-    self.current_perf.update_time = time_measure(|| self.root.update(&self.state, &mut ctx));
-    self.view_may_changed = false;
+    // let mut ctx = UpdateCtx {
+    //   time_stamp: self.init_inst.elapsed(),
+    //   layout_changed: false,
+    //   fonts: &self.fonts,
+    //   last_frame_perf_info: &self.perf_info_last_frame,
+    // };
+    // self.current_perf.update_time = time_measure(|| self.root.update(&self.state, &mut ctx));
+    // self.view_may_changed = false;
 
-    self.current_perf.layout_time = time_measure(|| {
-      let need_layout = ctx.layout_changed || self.root_size_changed;
-      self.root_size_changed = false;
-      if !need_layout {
-        return;
-      }
+    // self.current_perf.layout_time = time_measure(|| {
+    //   let need_layout = ctx.layout_changed || self.root_size_changed;
+    //   self.root_size_changed = false;
+    //   if !need_layout {
+    //     return;
+    //   }
 
-      let mut ctx = LayoutCtx {
-        fonts: &self.fonts,
-        text: &self.texts,
-      };
+    //   let mut ctx = LayoutCtx {
+    //     fonts: &self.fonts,
+    //     text: &self.texts,
+    //   };
 
-      self.root.layout(
-        LayoutConstraint::from_max(self.window_states.size),
-        &mut ctx,
-      );
-      self.root.set_position(UIPosition { x: 0., y: 0. })
-    });
+    //   self.root.layout(
+    //     LayoutConstraint::from_max(self.window_states.size),
+    //     &mut ctx,
+    //   );
+    //   self.root.set_position(UIPosition { x: 0., y: 0. })
+    // });
   }
 
   fn render(&mut self, frame: &RenderTargetView) {
@@ -241,6 +233,10 @@ impl Application {
     let window_size = self.window_states.size;
     self.window_states.event(event);
     self.root_size_changed |= window_size != self.window_states.size;
+
+    let waker = futures::task::noop_waker_ref();
+    let mut cx = Context::from_waker(waker);
+
     let mut event = EventCtx {
       event,
       custom_event: Default::default(),
@@ -249,8 +245,9 @@ impl Application {
       texts: &mut self.texts,
       gpu: self.gpu.clone(),
       view_may_changed: false,
+      cx: &mut cx,
     };
-    self.root.event(&mut self.state, &mut event);
+    self.root.event(&mut event);
     self.view_may_changed |= event.view_may_changed;
   }
 }

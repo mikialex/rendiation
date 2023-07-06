@@ -28,7 +28,7 @@ impl DerefMut for EditableText {
 impl EditableText {
   pub fn focus(&mut self) {
     if self.cursor.is_none() {
-      self.cursor = Cursor::new(self.content.get().len()).into();
+      self.cursor = Cursor::new(self.content.len()).into();
     }
   }
 
@@ -37,7 +37,7 @@ impl EditableText {
   // so we simply clamp it
   fn clamp_cursor_position(&mut self) {
     if let Some(cursor) = &mut self.cursor {
-      cursor.set_index(cursor.get_index().clamp(0, self.text.content.get().len()));
+      cursor.set_index(cursor.get_index().clamp(0, self.text.content.len()));
     }
   }
 
@@ -82,7 +82,7 @@ impl EditableText {
       let index = cursor.get_index();
       model.insert(index, c);
 
-      self.text.content.set(model.clone());
+      self.text.content = model.clone();
       self.text.reset_text_layout_cache();
       cursor.notify_text_layout_changed();
       cursor.move_right();
@@ -97,7 +97,7 @@ impl EditableText {
       }
       model.remove(cursor.get_index() - 1);
 
-      self.text.content.set(model.clone());
+      self.text.content = model.clone();
       self.text.reset_text_layout_cache();
       cursor.notify_text_layout_changed();
       cursor.move_left();
@@ -113,7 +113,7 @@ impl EditableText {
           }
         }
         CursorMove::Right => {
-          if cursor.get_index() != self.text.content.get().len() {
+          if cursor.get_index() != self.text.content.len() {
             cursor.move_right();
           }
         }
@@ -149,9 +149,9 @@ pub struct FocusEditableText;
 pub struct TextChange(pub String);
 pub struct TextKeyboardInput(pub VirtualKeyCode);
 
-impl Component<String> for EditableText {
-  fn event(&mut self, model: &mut String, ctx: &mut EventCtx) {
-    self.text.event(model, ctx);
+impl Eventable for EditableText {
+  fn event(&mut self, ctx: &mut EventCtx) {
+    self.text.event(ctx);
 
     use winit::event::*;
 
@@ -162,6 +162,8 @@ impl Component<String> for EditableText {
     {
       self.focus()
     }
+
+    let model = todo!();
 
     match ctx.event {
       Event::WindowEvent { event, .. } => match event {
@@ -180,20 +182,12 @@ impl Component<String> for EditableText {
         }
         WindowEvent::ReceivedCharacter(char) => {
           self.insert_at_cursor(*char, model);
-          ctx
-            .custom_event
-            .emit(TextChange(self.content.get().clone()))
+          ctx.custom_event.emit(TextChange(self.content.clone()))
         }
         _ => {}
       },
       _ => {}
     }
-  }
-
-  fn update(&mut self, model: &String, ctx: &mut UpdateCtx) {
-    self.text.content.set(model);
-    self.clamp_cursor_position();
-    self.text.update(model, ctx)
   }
 }
 
@@ -204,6 +198,7 @@ fn blink_show(dur: Duration) -> bool {
 
 impl Presentable for EditableText {
   fn render(&mut self, builder: &mut PresentationBuilder) {
+    self.clamp_cursor_position();
     self.text.render(builder);
     if let Some(cursor) = &mut self.cursor {
       if blink_show(cursor.get_last_update_timestamp().elapsed()) {

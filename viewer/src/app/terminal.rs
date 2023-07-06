@@ -78,28 +78,27 @@ impl Terminal {
   }
 }
 
-pub fn terminal() -> impl UIComponent<Terminal> {
+pub fn terminal() -> impl Component {
   Container::sized((UILength::ParentPercent(100.), UILength::Px(50.)))
     .padding(RectBoundaryWidth::equal(5.))
-    .wrap(
-      Text::default()
-        .with_layout(TextLayoutConfig::SizedBox {
-          line_wrap: LineWrap::Single,
-          horizon_align: TextHorizontalAlignment::Left,
-          vertical_align: TextVerticalAlignment::Top,
-        })
-        .editable()
-        .lens(lens!(Terminal, current_command_editing)), //
-    )
-    .extend(ClickHandler::by(|_, ctx, _| ctx.emit(FocusEditableText)))
-    .extend(SimpleHandler::<TextKeyboardInput, _>::by_state(
-      simple_handle_in_bubble(),
-      |terminal: &mut Terminal, _, e| {
-        if let TextKeyboardInput(VirtualKeyCode::Return) = e {
-          terminal.mark_execute()
-        }
-      },
-    ))
+  // .wrap(
+  //   Text::default()
+  //     .with_layout(TextLayoutConfig::SizedBox {
+  //       line_wrap: LineWrap::Single,
+  //       horizon_align: TextHorizontalAlignment::Left,
+  //       vertical_align: TextVerticalAlignment::Top,
+  //     })
+  //     .editable(),
+  // )
+  // .extend(ClickHandler::by(|_, ctx, _| ctx.emit(FocusEditableText)))
+  // .extend(SimpleHandler::<TextKeyboardInput, _>::by_state(
+  //   simple_handle_in_bubble(),
+  //   |terminal: &mut Terminal, _, e| {
+  //     if let TextKeyboardInput(VirtualKeyCode::Return) = e {
+  //       terminal.mark_execute()
+  //     }
+  //   },
+  // ))
 }
 
 pub fn register_default_commands(terminal: &mut Terminal) {
