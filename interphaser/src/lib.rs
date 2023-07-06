@@ -31,8 +31,5 @@ pub use utils::*;
 
 mod app;
 pub use app::*;
-
-mod perf;
-pub use fontext::*;
-pub use perf::*;
-pub use rendiation_canvas::*;
+use fontext::*;
+use rendiation_canvas::*;

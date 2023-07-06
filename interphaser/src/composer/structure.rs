@@ -234,44 +234,50 @@ use crate::*;
 //   }
 // }
 
-// #[derive(Default)]
-// pub struct ComponentArray<C> {
-//   pub children: Vec<C>,
-// }
+#[derive(Default)]
+pub struct ComponentArray<C> {
+  pub children: Vec<C>,
+}
 
-// impl<X> ComponentArray<X> {
-//   #[must_use]
-//   pub fn child(mut self, x: X) -> Self {
-//     self.children.push(x);
-//     self
-//   }
-// }
+impl<C> From<Vec<C>> for ComponentArray<C> {
+  fn from(children: Vec<C>) -> Self {
+    Self { children }
+  }
+}
 
-// type IterType2<'a, C: 'static> = impl Iterator<Item = &'a mut C> + 'a + ExactSizeIterator;
+impl<X> ComponentArray<X> {
+  #[must_use]
+  pub fn child(mut self, x: X) -> Self {
+    self.children.push(x);
+    self
+  }
+}
 
-// impl<'a, C: 'static> IntoIterator for &'a mut ComponentArray<C> {
-//   type Item = &'a mut C;
-//   type IntoIter = IterType2<'a, C>;
+type IterType2<'a, C: 'static> = impl Iterator<Item = &'a mut C> + 'a + ExactSizeIterator;
 
-//   fn into_iter(self) -> IterType2<'a, C> {
-//     self.children.iter_mut()
-//   }
-// }
+impl<'a, C: 'static> IntoIterator for &'a mut ComponentArray<C> {
+  type Item = &'a mut C;
+  type IntoIter = IterType2<'a, C>;
 
-// impl<C: Presentable> Presentable for ComponentArray<C> {
-//   fn render(&mut self, builder: &mut PresentationBuilder) {
-//     self.children.iter_mut().for_each(|c| c.render(builder))
-//   }
-// }
+  fn into_iter(self) -> IterType2<'a, C> {
+    self.children.iter_mut()
+  }
+}
 
-// impl<C> Component for ComponentArray<C>
-// where
-//   C: Component,
-// {
-//   fn event(&mut self, event: &mut crate::EventCtx) {
-//     self.children.iter_mut().for_each(|c| c.event(event))
-//   }
-// }
+impl<C: Presentable> Presentable for ComponentArray<C> {
+  fn render(&mut self, builder: &mut PresentationBuilder) {
+    self.children.iter_mut().for_each(|c| c.render(builder))
+  }
+}
+
+impl<C> Eventable for ComponentArray<C>
+where
+  C: Eventable,
+{
+  fn event(&mut self, event: &mut crate::EventCtx) {
+    self.children.iter_mut().for_each(|c| c.event(event))
+  }
+}
 
 // /// using Enum Discriminant to decide if we should cache UI Component instance
 // pub struct EnumMatcher {

@@ -25,8 +25,8 @@ impl<C: HotAreaProvider> HotAreaNested<C> for AbsoluteAnchor {
   }
 }
 
-pub fn absolute_group() -> Vec<AbsChild> {
-  Vec::new()
+pub fn absolute_group() -> ComponentArray<AbsChild> {
+  Vec::new().into()
 }
 
 pub struct AbsChild {
