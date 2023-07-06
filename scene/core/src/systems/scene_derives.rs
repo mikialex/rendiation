@@ -23,7 +23,7 @@ pub type SceneNodeChangeStreamIndexMapper =
 pub type SingleSceneNodeChangeStreamFanOut =
   StreamBroadcaster<SingleSceneNodeChangeStream, SceneNodeDerivedDataDelta, FanOut>;
 
-type StreamCacheUpdate = impl Stream<Item = IndexedItem<node::SceneNodeDerivedDataDelta>>
+type StreamCacheUpdate = impl Stream<Item = Vec<IndexedItem<node::SceneNodeDerivedDataDelta>>>
   + Unpin
   + AsRef<StreamVec<SingleSceneNodeChangeStreamFanOut>>;
 

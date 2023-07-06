@@ -47,6 +47,7 @@ impl<T> StreamVec<T> {
   }
 }
 
+#[derive(Clone)]
 pub struct IndexedItem<T> {
   pub index: usize,
   pub item: T,
@@ -76,16 +77,24 @@ impl<T: Send + Sync + Clone> futures::task::ArcWake for ChangeWaker<T> {
 }
 
 impl<T: Stream + Unpin> Stream for StreamVec<T> {
-  type Item = IndexedItem<T::Item>;
+  type Item = Vec<IndexedItem<T::Item>>;
 
   fn poll_next(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Option<Self::Item>> {
     let this = self.project();
-
+    // install new waker
     this.waker.write().unwrap().replace(cx.waker().clone());
 
+    // note: this is not precise estimation, because each waked value maybe emit multiple delta
+    let result_size = this.waked.read().unwrap().len();
+    if result_size == 0 {
+      return Poll::Pending;
+    }
+    let mut results = Vec::with_capacity(result_size);
+
     loop {
-      let last = this.waked.read().unwrap().last().copied();
+      let last = this.waked.write().unwrap().pop();
       if let Some(index) = last {
+        // prepare the sub waker
         let waker = Arc::new(ChangeWaker {
           waker: RwLock::new(this.waker.clone().into()),
           index,
@@ -94,20 +103,20 @@ impl<T: Stream + Unpin> Stream for StreamVec<T> {
         let waker = futures::task::waker_ref(&waker);
         let mut cx = Context::from_waker(&waker);
 
+        // poll the sub stream
         if let Some(stream) = this.streams.get_mut(index).unwrap() {
-          if let Poll::Ready(r) = stream
+          while let Poll::Ready(r) = stream
             .poll_next_unpin(&mut cx)
             .map(|r| r.map(|item| IndexedItem { index, item }))
           {
-            if r.is_none() {
-              this.streams[index] = None;
+            if let Some(r) = r {
+              results.push(r);
             } else {
-              return Poll::Ready(r);
+              this.streams[index] = None;
+              break;
             }
           }
         }
-
-        this.waked.write().unwrap().pop().unwrap();
       } else {
         break;
       }
@@ -155,11 +164,11 @@ impl<S, T> MergeIntoStreamVec<S, T> {
   }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone)]
 pub enum VecUpdateUnit<T> {
   Remove(usize),
   Active(usize),
-  Update { index: usize, item: T },
+  Updates(Vec<IndexedItem<T>>),
 }
 
 impl<S, T> Stream for MergeIntoStreamVec<S, T>
@@ -186,8 +195,8 @@ where
       }
     } else {
       // the vec will never terminated
-      if let Poll::Ready(Some(IndexedItem { index, item })) = this.vec.poll_next(cx) {
-        return Poll::Ready(Some(VecUpdateUnit::Update { index, item }));
+      if let Poll::Ready(Some(item)) = this.vec.poll_next(cx) {
+        return Poll::Ready(Some(VecUpdateUnit::Updates(item)));
       }
     }
 

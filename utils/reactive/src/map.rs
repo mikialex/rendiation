@@ -185,7 +185,6 @@ where
 
         // poll the sub stream
         if let Some(stream) = this.streams.get_mut(&key) {
-          // maybe removed before
           while let Poll::Ready(r) = stream.poll_next_unpin(&mut cx) {
             if let Some(r) = r {
               results.push(StreamMapDelta::Delta(key.clone(), r));

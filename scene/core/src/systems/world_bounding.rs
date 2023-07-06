@@ -78,8 +78,10 @@ impl SceneModelWorldBoundingSystem {
             self.models_bounding.push(None);
           }
         }
-        BoxUpdate::Update { index, item } => {
-          self.models_bounding[index] = item;
+        BoxUpdate::Updates(mut updates) => {
+          for IndexedItem { index, item } in updates.drain(..) {
+            self.models_bounding[index] = item;
+          }
         }
       }
     })
