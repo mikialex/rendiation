@@ -2,9 +2,13 @@ use std::sync::{Arc, RwLock};
 
 use crate::{CoreTree, TreeMutationError};
 
+// todo add a trait extract the common part of core tree and share core tree
 pub trait ShareCoreTree {
   type Node;
   type Handle: Copy;
+  type Core: CoreTree;
+
+  fn visit_core_tree<R>(&self, v: impl FnOnce(&Self::Core) -> R) -> R;
 
   fn recreate_handle(&self, index: usize) -> Self::Handle;
 
@@ -25,8 +29,12 @@ pub trait ShareCoreTree {
 
 impl<T: CoreTree> ShareCoreTree for RwLock<T> {
   type Node = T::Node;
-
   type Handle = T::Handle;
+  type Core = T;
+
+  fn visit_core_tree<R>(&self, v: impl FnOnce(&Self::Core) -> R) -> R {
+    v(&self.read().unwrap())
+  }
 
   fn recreate_handle(&self, index: usize) -> Self::Handle {
     self.read().unwrap().recreate_handle(index)

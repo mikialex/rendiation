@@ -2,9 +2,9 @@
 #![feature(const_float_bits_conv)]
 
 use core::num::NonZeroU64;
-use std::collections::HashMap;
 use std::path::Path;
 
+use fast_hash_collection::*;
 use gltf::{Node, Result as GltfResult};
 use rendiation_algebra::*;
 use rendiation_scene_core::{
@@ -21,9 +21,7 @@ use convert_utils::*;
 use rendiation_texture::{create_padding_buffer, GPUBufferImage, TextureFormat};
 
 pub fn load_gltf(path: impl AsRef<Path>, scene: &Scene) -> GltfResult<GltfLoadResult> {
-  let scene_inner = scene.read();
-  let root = scene_inner.root().clone();
-  drop(scene_inner);
+  let root = scene.root();
 
   let (document, mut buffers, mut images) = gltf::import(path)?;
 
@@ -67,10 +65,10 @@ struct Context {
 
 #[derive(Default)]
 pub struct GltfLoadResult {
-  pub primitive_map: HashMap<usize, SceneModelHandle>,
-  pub node_map: HashMap<usize, SceneNode>,
-  pub view_map: HashMap<usize, UnTypedBufferView>,
-  pub skin_map: HashMap<usize, Skeleton>,
+  pub primitive_map: FastHashMap<usize, SceneModelHandle>,
+  pub node_map: FastHashMap<usize, SceneNode>,
+  pub view_map: FastHashMap<usize, UnTypedBufferView>,
+  pub skin_map: FastHashMap<usize, Skeleton>,
   pub animations: Vec<SceneAnimation>,
 }
 

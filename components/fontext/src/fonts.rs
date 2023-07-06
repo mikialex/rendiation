@@ -13,7 +13,7 @@ pub struct GlyphID(pub(crate) char, pub(crate) FontId);
 
 #[derive(Default)]
 pub struct FontManager {
-  fonts_by_name: HashMap<String, (Rc<dyn Font>, FontId)>,
+  fonts_by_name: FastHashMap<String, (Rc<dyn Font>, FontId)>,
   fonts: Vec<Rc<dyn Font>>,
 }
 

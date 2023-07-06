@@ -31,7 +31,7 @@ impl SceneNodeGPUSystem {
     self.nodes.as_ref().get(index).map(|v| &v.as_ref().inner)
   }
 
-  pub fn new(scene: &Scene, derives: &SceneNodeDeriveSystem, cx: &ResourceGPUCtx) -> Self {
+  pub fn new(scene: &SceneCore, derives: &SceneNodeDeriveSystem, cx: &ResourceGPUCtx) -> Self {
     fn build_reactive_node(mat: WorldMatrixStream, cx: &ResourceGPUCtx) -> ReactiveNodeGPU {
       let node = NodeGPU::new(&cx.device);
       let state = RenderComponentCell::new(node);

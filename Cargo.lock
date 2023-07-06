@@ -116,6 +116,7 @@ name = "arena-graph"
 version = "0.0.1"
 dependencies = [
  "arena",
+ "fast-hash-collection",
 ]
 
 [[package]]
@@ -778,6 +779,7 @@ checksum = "21e50f3adc76d6a43f5ed73b698a87d0760ca74617f60f7c3b879003536fdd28"
 name = "dyn-downcast"
 version = "0.0.1"
 dependencies = [
+ "fast-hash-collection",
  "once_cell",
  "paste",
 ]
@@ -853,6 +855,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "fast-hash-collection"
+version = "0.0.1"
+dependencies = [
+ "rustc-hash",
+]
+
+[[package]]
 name = "flate2"
 version = "1.0.24"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -899,6 +908,7 @@ name = "fontext"
 version = "0.1.0"
 dependencies = [
  "bytemuck",
+ "fast-hash-collection",
  "font-loader",
  "glyph_brush",
  "linked-hash-map",
@@ -2400,6 +2410,7 @@ version = "0.0.1"
 dependencies = [
  "arena",
  "criterion",
+ "fast-hash-collection",
  "futures",
  "pin-project",
 ]
@@ -2458,6 +2469,9 @@ checksum = "216080ab382b992234dda86873c18d4c48358f5cfcb70fd693d7f6f2131b628b"
 [[package]]
 name = "rendiation-abstract-graph"
 version = "0.0.1"
+dependencies = [
+ "fast-hash-collection",
+]
 
 [[package]]
 name = "rendiation-abstract-tree"
@@ -2551,6 +2565,7 @@ version = "0.1.0"
 dependencies = [
  "bytemuck",
  "dyn-downcast",
+ "fast-hash-collection",
  "incremental",
  "rendiation-algebra",
  "rendiation-geometry",
@@ -2569,6 +2584,7 @@ dependencies = [
  "bytemuck",
  "dyn-clone",
  "dyn-downcast",
+ "fast-hash-collection",
  "futures",
  "incremental",
  "log",
@@ -2589,6 +2605,7 @@ dependencies = [
 name = "rendiation-scene-gltf-exporter"
 version = "0.0.1"
 dependencies = [
+ "fast-hash-collection",
  "gltf",
  "gltf-json",
  "rendiation-renderable-mesh",
@@ -2602,6 +2619,7 @@ name = "rendiation-scene-gltf-loader"
 version = "0.0.1"
 dependencies = [
  "bytemuck",
+ "fast-hash-collection",
  "gltf",
  "half 2.2.1",
  "rendiation-algebra",
@@ -2655,6 +2673,7 @@ dependencies = [
  "bitflags 2.0.2",
  "bytemuck",
  "dyn-clone",
+ "fast-hash-collection",
  "futures",
  "incremental",
  "linked-hash-map",
@@ -2692,6 +2711,7 @@ name = "rendiation-texture-packer"
 version = "0.1.0"
 dependencies = [
  "etagere",
+ "fast-hash-collection",
  "linked-hash-map",
  "rendiation-texture",
 ]
@@ -2719,6 +2739,7 @@ name = "rendiation-webgpu"
 version = "0.1.0"
 dependencies = [
  "bytemuck",
+ "fast-hash-collection",
  "futures",
  "reactive",
  "rendiation-algebra",
@@ -2900,6 +2921,7 @@ version = "0.1.0"
 dependencies = [
  "arena-graph",
  "bytemuck",
+ "fast-hash-collection",
  "once_cell",
  "paste",
  "rendiation-algebra",
@@ -3264,7 +3286,6 @@ dependencies = [
  "incremental",
  "reactive",
  "rendiation-abstract-tree",
- "smallvec",
  "storage",
 ]
 
@@ -3347,6 +3368,7 @@ dependencies = [
  "console_error_panic_hook",
  "dirs",
  "env_logger",
+ "fast-hash-collection",
  "futures",
  "image",
  "incremental",
@@ -3656,6 +3678,7 @@ dependencies = [
 name = "wgsl-codegen-graph"
 version = "0.1.0"
 dependencies = [
+ "fast-hash-collection",
  "linked_hash_set",
  "shadergraph",
 ]
@@ -3663,6 +3686,9 @@ dependencies = [
 [[package]]
 name = "wgsl-parser"
 version = "0.1.0"
+dependencies = [
+ "fast-hash-collection",
+]
 
 [[package]]
 name = "wgsl-shader-derives"

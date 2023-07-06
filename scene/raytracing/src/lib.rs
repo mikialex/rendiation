@@ -150,7 +150,7 @@ impl RayTracingSceneExt for Scene {
 
     let mut models_in_bvh_source = Vec::new();
 
-    for (_, model) in self.read().models.iter() {
+    for (_, model) in self.read().core.read().models.iter() {
       let model = model.read();
       if let ModelType::Foreign(foreign) = &model.model {
         if let Some(retraceable) = foreign.downcast_ref::<RayTracingSceneModel>() {
@@ -189,7 +189,7 @@ impl RayTracingSceneExt for Scene {
 
     result.models_bvh = models_bvh.into();
 
-    if let Some(bg) = &self.read().background {
+    if let Some(bg) = &self.read().core.read().background {
       match bg {
         SceneBackGround::Solid(bg) => {
           result.env = Some(Box::new(*bg));

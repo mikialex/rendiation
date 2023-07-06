@@ -21,7 +21,7 @@ pub struct SceneGPUSystem {
 
 #[derive(Default)]
 pub struct GPULightCache {
-  pub inner: HashMap<TypeId, Box<dyn Any>>,
+  pub inner: FastHashMap<TypeId, Box<dyn Any>>,
 }
 
 impl SceneGPUSystem {
@@ -52,7 +52,7 @@ type SceneGPUUpdateSource = impl Stream<Item = ()> + Unpin;
 
 impl SceneGPUSystem {
   pub fn new(
-    scene: &Scene,
+    scene: &SceneCore,
     derives: &SceneNodeDeriveSystem,
     contents: Arc<RwLock<ContentGPUSystem>>,
   ) -> Self {

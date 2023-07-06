@@ -146,7 +146,7 @@ impl SceneNode {
     &self,
     mapper: impl Fn(MaybeDeltaRef<SceneNodeDataImpl>, &dyn Fn(U)) + Send + Sync + 'static,
   ) -> impl Stream<Item = U> {
-    self.visit(|node| node.listen_by::<DefaultUnboundChannel, _>(mapper))
+    self.visit(|node| node.listen_by::<DefaultUnboundChannel, _, U>(mapper))
   }
 
   pub(crate) fn create_new(

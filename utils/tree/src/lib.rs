@@ -30,7 +30,12 @@ pub trait CoreTree {
   type Node;
   type Handle: Copy;
 
-  fn recreate_handle(&self, index: usize) -> Self::Handle;
+  fn try_recreate_handle(&self, index: usize) -> Option<Self::Handle>;
+  fn recreate_handle(&self, index: usize) -> Self::Handle {
+    self
+      .try_recreate_handle(index)
+      .expect("tree handle can not rebuild, maybe pair tree is corrupted")
+  }
 
   fn node_has_parent(&self, handle: Self::Handle) -> bool;
   fn get_node_data(&self, handle: Self::Handle) -> &Self::Node;
@@ -93,10 +98,8 @@ impl<T> CoreTree for TreeCollection<T> {
   type Node = T;
   type Handle = TreeNodeHandle<T>;
 
-  fn recreate_handle(&self, index: usize) -> TreeNodeHandle<T> {
-    self
-      .try_recreate_handle(index)
-      .expect("tree handle can not rebuild, maybe pair tree is corrupted")
+  fn try_recreate_handle(&self, index: usize) -> Option<Self::Handle> {
+    self.try_recreate_handle(index)
   }
 
   fn node_has_parent(&self, handle: Self::Handle) -> bool {

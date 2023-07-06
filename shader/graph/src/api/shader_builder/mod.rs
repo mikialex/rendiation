@@ -30,7 +30,7 @@ pub struct ShaderGraphRenderPipelineBuilder {
   /// Log the shader build result when building shader, for debug purpose.
   pub log_result: bool,
 
-  pub context: HashMap<TypeId, Box<dyn Any>>,
+  pub context: FastHashMap<TypeId, Box<dyn Any>>,
 }
 
 impl Default for ShaderGraphRenderPipelineBuilder {
@@ -169,7 +169,7 @@ pub struct ShaderGraphCompileResult<T: ShaderGraphCodeGenTarget> {
 
 #[derive(Default)]
 pub struct SemanticRegistry {
-  registered: HashMap<TypeId, Node<AnyType>>,
+  registered: FastHashMap<TypeId, Node<AnyType>>,
 }
 
 impl SemanticRegistry {

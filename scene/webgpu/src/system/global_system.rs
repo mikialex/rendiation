@@ -16,7 +16,7 @@ impl GlobalGPUSystem {
 
   pub fn get_or_create_scene_sys_with_content(
     &mut self,
-    scene: &Scene,
+    scene: &SceneCore,
     derives: &SceneNodeDeriveSystem,
   ) -> (&mut SceneGPUSystem, &RwLock<ContentGPUSystem>) {
     let scene = self.scenes.get_or_insert_with(scene.guid(), || {

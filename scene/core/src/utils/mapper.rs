@@ -1,6 +1,5 @@
 use std::{
   any::Any,
-  collections::{HashMap, HashSet},
   marker::PhantomData,
   sync::{Arc, RwLock},
 };
@@ -11,7 +10,7 @@ use crate::*;
 pub struct IdentityMapper<T, U: ApplicableIncremental> {
   extra_change_source:
     Option<Box<dyn Fn(&Identity<U>, &Arc<RwLock<ChangeRecorder>>, usize) -> Box<dyn Any>>>,
-  data: HashMap<usize, (T, bool, Box<dyn Any>)>,
+  data: FastHashMap<usize, (T, bool, Box<dyn Any>)>,
   changes: Arc<RwLock<ChangeRecorder>>,
   phantom: PhantomData<U>,
 }
@@ -19,7 +18,7 @@ pub struct IdentityMapper<T, U: ApplicableIncremental> {
 #[derive(Default)]
 pub struct ChangeRecorder {
   pub to_remove: Vec<usize>,
-  pub changed: HashSet<usize>,
+  pub changed: FastHashSet<usize>,
 }
 
 impl<T, U: ApplicableIncremental> Default for IdentityMapper<T, U> {

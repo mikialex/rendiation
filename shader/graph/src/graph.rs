@@ -146,7 +146,7 @@ pub struct ShaderGraphBuilder {
   ///
   /// this only contains struct used directly by node api.
   /// the struct used by shader fragments will be considered later
-  pub struct_defines: HashSet<&'static ShaderStructMetaInfo>,
+  pub struct_defines: FastHashSet<&'static ShaderStructMetaInfo>,
 }
 
 impl Default for ShaderGraphBuilder {

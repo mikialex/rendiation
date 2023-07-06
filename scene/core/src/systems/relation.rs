@@ -1,5 +1,4 @@
 use core::hash::Hash;
-use std::collections::{HashMap, HashSet};
 
 use arena::ArenaDelta;
 use futures::StreamExt;
@@ -10,7 +9,7 @@ use crate::*;
 
 pub struct OneToManyRefBookKeeping<O, M> {
   // we could use more efficient data structure
-  mapping: HashMap<O, HashSet<M>>,
+  mapping: FastHashMap<O, FastHashSet<M>>,
 }
 
 impl<O, M> Default for OneToManyRefBookKeeping<O, M> {
@@ -77,7 +76,7 @@ where
 {
   fn normalize(
     self,
-    states: &mut HashMap<M, O>,
+    states: &mut FastHashMap<M, O>,
     mut cb: impl FnMut(OneToManyRelationChange<O, M>),
   ) {
     use OneToManyRelationChange as O;
@@ -130,18 +129,20 @@ impl NodeReferenceModelBookKeeping {
     }
   }
 
-  pub fn new(scene: &Scene) -> Self {
-    let source1 = scene.unbound_listen_by(move |v, send| match v {
-      MaybeDeltaRef::Delta(d) => match d {
-        SceneInnerDelta::models(delta) => on_model_mutate(send, delta),
-        SceneInnerDelta::nodes(delta) => on_tree_mutate(send, delta),
-        _ => {}
-      },
-      MaybeDeltaRef::All(scene) => {
-        scene.nodes.expand(|delta| on_tree_mutate(send, &delta));
-        scene.models.expand(|delta| on_model_mutate(send, &delta));
-      }
-    });
+  pub fn new(scene: &SceneCore) -> Self {
+    let source1 = scene
+      .unbound_listen_by(move |v, send| match v {
+        MaybeDeltaRef::Delta(d) => match d {
+          SceneInnerDelta::models(delta) => on_model_mutate(send, delta),
+          SceneInnerDelta::nodes(delta) => on_tree_mutate(send, delta),
+          _ => {}
+        },
+        MaybeDeltaRef::All(scene) => {
+          scene.nodes.expand(|delta| on_tree_mutate(send, &delta));
+          scene.models.expand(|delta| on_model_mutate(send, &delta));
+        }
+      })
+      .batch_processing();
 
     use arena::ArenaDelta::*;
     let source2 = scene
@@ -160,15 +161,15 @@ impl NodeReferenceModelBookKeeping {
       })
       .flatten_into_vec_stream_signal()
       .filter_map_sync(|d| {
-        if let VecUpdateUnit::Update { item, .. } = d {
-          Some(item)
+        if let VecUpdateUnit::Updates(updates) = d {
+          Some(updates.into_iter().map(|c| c.item).collect::<Vec<_>>())
         } else {
           None
         }
       });
 
     let inner: Arc<RwLock<OneToManyRefBookKeeping<usize, usize>>> = Default::default();
-    let current_relation: Arc<RwLock<HashMap<usize, usize>>> = Default::default();
+    let current_relation: Arc<RwLock<FastHashMap<usize, usize>>> = Default::default();
 
     let inner_c = inner.clone();
 
@@ -178,12 +179,14 @@ impl NodeReferenceModelBookKeeping {
     let source = futures::stream::select_with_strategy(source1, source2, |_: &mut ()| {
       futures::stream::PollNext::Right
     })
-    .map(move |delta| {
+    .map(move |deltas| {
       let mut states = current_relation.write().unwrap();
       let mut inner = inner_c.write().unwrap();
-      delta.normalize(&mut states, |normalized| {
-        inner.apply_change(normalized);
-      });
+      for delta in deltas {
+        delta.normalize(&mut states, |normalized| {
+          inner.apply_change(normalized);
+        });
+      }
     });
 
     Self { inner, source }

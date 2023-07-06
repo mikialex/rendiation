@@ -31,7 +31,7 @@ impl GlyphPacker {
 
   pub fn process_queued<'a>(
     &'a mut self,
-    queue: &'a HashMap<(GlyphID, NormalizedGlyphRasterInfo), GlyphRasterInfo>,
+    queue: &'a FastHashMap<(GlyphID, NormalizedGlyphRasterInfo), GlyphRasterInfo>,
   ) -> GlyphPackFrameTask<'a> {
     GlyphPackFrameTask {
       packer: self,
@@ -42,7 +42,7 @@ impl GlyphPacker {
 
 pub struct GlyphPackFrameTask<'a> {
   packer: &'a mut GlyphPacker,
-  queue: &'a HashMap<(GlyphID, NormalizedGlyphRasterInfo), GlyphRasterInfo>,
+  queue: &'a FastHashMap<(GlyphID, NormalizedGlyphRasterInfo), GlyphRasterInfo>,
 }
 
 impl<'a> GlyphPackFrameTask<'a> {

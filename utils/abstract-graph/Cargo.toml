@@ -2,3 +2,6 @@
 edition = "2021"
 name = "rendiation-abstract-graph"
 version = "0.0.1"
+
+[dependencies]
+fast-hash-collection = {path = "../fast-hash-collection"}

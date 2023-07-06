@@ -1,5 +1,3 @@
-use std::hash::Hash;
-
 /// https://internals.rust-lang.org/t/pre-rfc-tryfromiterator-and-try-collect-to-enable-collecting-to-arrays/14423
 pub trait TryFromIterator<A>: Sized {
   type Error;
@@ -53,9 +51,4 @@ impl<T> CollectionSize for Vec<T> {
   fn len(&self) -> usize {
     self.len()
   }
-}
-
-pub trait HashAbleByConversion {
-  type HashAble: Hash + Eq;
-  fn to_hashable(&self) -> Self::HashAble;
 }

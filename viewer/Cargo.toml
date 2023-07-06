@@ -18,6 +18,7 @@ interphaser = {path = "../interphaser"}
 log = "0.4"
 pin-project = "1.0.12"
 rayon = "1.7.0"
+fast-hash-collection = {path = "../utils/fast-hash-collection"}
 reactive = {path = "../utils/reactive"}
 rendiation-algebra = {path = "../math/algebra"}
 rendiation-controller = {path = "../components/controller"}

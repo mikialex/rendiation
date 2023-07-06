@@ -1,12 +1,10 @@
-use std::{hash::Hash, mem};
+use std::hash::Hash;
 
 use rendiation_algebra::*;
 use rendiation_geometry::Positioned;
 
-use crate::*;
-
 #[repr(C)]
-#[derive(Clone, Copy, soa_derive::StructOfArray, Debug, shadergraph::ShaderVertex)]
+#[derive(Clone, Copy, soa_derive::StructOfArray, Debug, shadergraph::ShaderVertex, PartialEq)]
 // #[cfg_attr(feature = "shader", derive(shadergraph::ShaderVertex))] // todo, figure out how to use
 // with feature gate
 pub struct Vertex {
@@ -26,19 +24,19 @@ pub struct Vertex {
 unsafe impl bytemuck::Zeroable for Vertex {}
 unsafe impl bytemuck::Pod for Vertex {}
 
-#[derive(Copy, Clone, Hash, Eq, PartialEq)]
-pub struct HashableVertex {
-  pub position: Vec3<u32>,
-  pub normal: Vec3<u32>,
-  pub uv: Vec2<u32>,
-}
-
-impl HashAbleByConversion for Vertex {
-  type HashAble = HashableVertex;
-  fn to_hashable(&self) -> Self::HashAble {
-    unsafe { mem::transmute(*self) }
+impl Hash for Vertex {
+  fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+    self.position.x.to_bits().hash(state);
+    self.position.y.to_bits().hash(state);
+    self.position.z.to_bits().hash(state);
+    self.normal.x.to_bits().hash(state);
+    self.normal.y.to_bits().hash(state);
+    self.normal.z.to_bits().hash(state);
+    self.uv.x.to_bits().hash(state);
+    self.uv.y.to_bits().hash(state);
   }
 }
+impl Eq for Vertex {}
 
 impl Positioned for Vertex {
   type Position = Vec3<f32>;

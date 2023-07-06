@@ -6,18 +6,18 @@
 #![feature(return_position_impl_trait_in_trait)]
 #![feature(let_chains)]
 
- mod scene;
+mod scene;
 pub use scene::*;
 
- mod node;
+mod node;
 pub use node::*;
 
- mod ext;
+mod ext;
 pub use ext::*;
 
- mod mesh;
+mod mesh;
 pub use mesh::*;
- mod mesh_picking;
+mod mesh_picking;
 pub use mesh_picking::*;
 mod mesh_merge;
 pub use mesh_merge::*;
@@ -49,12 +49,10 @@ pub use utils::*;
 mod systems;
 use std::any::Any;
 use std::hash::Hash;
-use std::{
-  collections::HashMap,
-  sync::{Arc, RwLock},
-};
+use std::sync::{Arc, RwLock};
 
 pub use dyn_downcast::*;
+use fast_hash_collection::*;
 use futures::Stream;
 use incremental::*;
 use rendiation_algebra::*;

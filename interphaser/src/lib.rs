@@ -3,6 +3,7 @@
 #![feature(type_alias_impl_trait)]
 #![allow(clippy::collapsible_match)]
 #![allow(clippy::single_match)]
+#![allow(clippy::disallowed_types)]
 
 use std::time::Duration;
 #[cfg(not(target_arch = "wasm32"))]

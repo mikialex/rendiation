@@ -1,11 +1,11 @@
-use std::collections::HashSet;
+use fast_hash_collection::FastHashSet;
 
 use crate::*;
 
 #[derive(Default)]
 pub struct ForeignImplCollector {
-  pub depend_user_functions: HashSet<String>,
-  pub depend_user_struct: HashSet<String>,
+  pub depend_user_functions: FastHashSet<String>,
+  pub depend_user_struct: FastHashSet<String>,
 }
 
 impl ASTVisitor<FunctionCall> for ForeignImplCollector {

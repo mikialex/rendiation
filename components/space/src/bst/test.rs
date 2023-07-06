@@ -1,3 +1,5 @@
+#![allow(clippy::disallowed_types)]
+
 #[cfg(test)]
 use std::collections::HashSet;
 #[cfg(test)]

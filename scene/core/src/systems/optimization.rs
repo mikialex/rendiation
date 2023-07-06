@@ -4,7 +4,7 @@ use core::{
 };
 
 use futures::*;
-use reactive::{do_updates_by, once_forever_pending, SignalStreamExt, StreamMap, StreamMapDelta};
+use reactive::{once_forever_pending, SignalStreamExt, StreamMap, StreamMapDelta};
 use rendiation_renderable_mesh::MeshDrawGroup;
 
 use crate::*;
@@ -43,8 +43,8 @@ impl AutoInstanceSystem {
         _ => None,
       });
 
-    let (new_scene, _new_derives) = SceneInner::new();
-    let middle_scene_nodes = new_scene.read().nodes.clone();
+    let (new_scene, _new_derives) = SceneImpl::new();
+    let middle_scene_nodes = new_scene.read().core.read().nodes.clone();
 
     let transformed_models = instance_transform(model_input, d_system, &middle_scene_nodes)
       .map(|v| match v {
@@ -81,7 +81,8 @@ fn instance_transform(
   new_nodes: &SceneNodeCollection,
 ) -> impl Stream<Item = ModelOutChange> {
   // origin model id => transformed id
-  let mut source_id_transformer_map: HashMap<OriginModelId, PossibleInstanceKey> = HashMap::new();
+  let mut source_id_transformer_map: FastHashMap<OriginModelId, PossibleInstanceKey> =
+    Default::default();
 
   // transformed id => transformed
   let transformers: StreamMap<PossibleInstanceKey, Transformer> = StreamMap::default();
@@ -124,6 +125,7 @@ fn instance_transform(
         }
       }
     })
+    .flat_map(futures::stream::iter)
     .filter_map_sync(|delta| {
       match delta {
         StreamMapDelta::Delta(key, deltas) => (key, deltas).into(),
@@ -241,7 +243,7 @@ struct Transformer {
   key: PossibleInstanceKey,
   #[pin]
   source: StreamMap<usize, InstanceSourceStream>,
-  source_model: HashMap<usize, SceneModel>,
+  source_model: FastHashMap<usize, SceneModel>,
   removals: Vec<usize>,
   transformed: Option<(SceneModel, bool)>,
 }
@@ -294,9 +296,7 @@ impl Stream for Transformer {
     let mut this = self.project();
 
     // we simply recreate new instances if any incremental source changed (could optimize later)
-    // so, here we do some batch processing to avoid unnecessary instance rebuild
-    let mut batched = Vec::<_>::new();
-    do_updates_by(&mut this.source, cx, |d| batched.push(d));
+    let mut batched = ready!(this.source.poll_next_unpin(cx)).unwrap(); // unwrap is safe
 
     if batched.is_empty() && this.source_model.is_empty() {
       debug_assert!(this.transformed.is_none());
@@ -479,7 +479,7 @@ fn build_instance_source_stream(
 
 /// maybe failed, if the source is empty
 fn create_instance(
-  source: &HashMap<usize, SceneModel>,
+  source: &FastHashMap<usize, SceneModel>,
   d_sys: &SceneNodeDeriveSystem,
   new_nodes: &SceneNodeCollection,
 ) -> Option<(SceneModel, bool)> {

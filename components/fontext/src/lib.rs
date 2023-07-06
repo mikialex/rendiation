@@ -1,12 +1,11 @@
 use std::{
   any::Any,
   cell::RefCell,
-  collections::hash_map::DefaultHasher,
-  collections::{HashMap, HashSet},
   hash::{Hash, Hasher},
   rc::Rc,
 };
 
+use fast_hash_collection::*;
 use linked_hash_map::LinkedHashMap;
 use rendiation_algebra::Vec2;
 use rendiation_color::*;

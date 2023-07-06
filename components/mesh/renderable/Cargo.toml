@@ -14,5 +14,6 @@ rendiation-geometry = {path = "../../../math/geometry"}
 space-algorithm = {path = "../../space"}
 
 dyn-downcast = {path = "../../../utils/dyn-downcast"}
+fast-hash-collection = {path = "../../../utils/fast-hash-collection"}
 incremental = {path = "../../../utils/incremental"}
 shadergraph = {path = "../../../shader/graph"}

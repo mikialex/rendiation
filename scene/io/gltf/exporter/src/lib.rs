@@ -1,12 +1,12 @@
 #![feature(option_get_or_insert_default)]
 
 use std::borrow::Cow;
-use std::collections::BTreeMap;
 use std::fs::{self, File};
 use std::io::BufWriter;
 use std::ops::Deref;
-use std::{collections::HashMap, path::Path};
+use std::path::Path;
 
+use fast_hash_collection::*;
 use gltf_json::Root;
 use rendiation_scene_core::*;
 use rendiation_texture::TextureSampler;
@@ -30,9 +30,10 @@ pub fn build_scene_to_gltf(
   let ctx = Ctx::default();
 
   let mut scene_node_ids = Vec::default();
-  let mut scene_index_map = HashMap::new();
+  let mut scene_index_map = FastHashMap::default();
 
-  let scene = scene.read();
+  let scene_core = scene.get_scene_core();
+  let scene = scene_core.read();
   let tree = scene.nodes.inner.inner().inner.read().unwrap();
   tree.expand_with_mapping(
     |node| (node.deref().clone(), node.guid()),
@@ -332,7 +333,8 @@ impl Ctx {
           SceneMeshType::AttributesMesh(mesh) => {
             let mesh = mesh.read();
             self.models.get_or_insert_with(model.guid(), || {
-              let mut attributes = BTreeMap::default();
+              #[allow(clippy::disallowed_types)]
+              let mut attributes = std::collections::BTreeMap::default();
               for (key, att) in &mesh.attributes {
                 let (key, cty, ty) = map_semantic_att(*key);
                 let key = gltf_json::validation::Checked::Valid(key);
@@ -499,7 +501,7 @@ impl Ctx {
 
 struct Resource<K, T> {
   collected: std::cell::RefCell<Vec<T>>,
-  mapping: std::cell::RefCell<HashMap<K, gltf_json::Index<T>>>,
+  mapping: std::cell::RefCell<FastHashMap<K, gltf_json::Index<T>>>,
 }
 
 impl<K, T> Resource<K, T> {
