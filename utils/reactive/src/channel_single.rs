@@ -3,18 +3,18 @@ use std::{fmt, result::Result};
 use crate::*;
 
 #[derive(Debug)]
-pub struct Receiver<T> {
+pub struct SingleReceiver<T> {
   inner: Arc<Mutex<(Option<T>, Option<Waker>)>>,
 }
 
-impl<T> Stream for Receiver<T> {
+impl<T> Stream for SingleReceiver<T> {
   type Item = T;
 
   fn poll_next(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Option<Self::Item>> {
     if let Ok(mut inner) = self.inner.lock() {
       inner.1 = cx.waker().clone().into();
+      // check is_some first to avoid unnecessary move
       if inner.0.is_some() {
-        // maybe check is_some first will avoid unnecessary move
         let value = inner.0.take().unwrap();
         Poll::Ready(Some(value))
         // check if sender has dropped
@@ -31,11 +31,11 @@ impl<T> Stream for Receiver<T> {
 
 /// The updating-half of the single value channel.
 #[derive(Debug)]
-pub struct Updater<T> {
+pub struct SingleSender<T> {
   inner: Weak<Mutex<(Option<T>, Option<Waker>)>>,
 }
 
-impl<T> Drop for Updater<T> {
+impl<T> Drop for SingleSender<T> {
   fn drop(&mut self) {
     if let Some(inner) = self.inner.upgrade() {
       let inner = inner.lock().unwrap();
@@ -46,9 +46,9 @@ impl<T> Drop for Updater<T> {
   }
 }
 
-impl<T> Clone for Updater<T> {
+impl<T> Clone for SingleSender<T> {
   fn clone(&self) -> Self {
-    Updater {
+    SingleSender {
       inner: Weak::clone(&self.inner),
     }
   }
@@ -76,7 +76,7 @@ impl<T> fmt::Display for NoReceiverError<T> {
 
 impl<T> std::error::Error for NoReceiverError<T> {}
 
-impl<T> Updater<T> {
+impl<T> SingleSender<T> {
   /// Updates the latest value in this channel, to be accessed the next time
   ///
   /// This call will fail with [`NoReceiverError`](struct.NoReceiverError.html) if the receiver
@@ -96,17 +96,17 @@ impl<T> Updater<T> {
   }
 
   /// Returns true if the receiver has been dropped. Thus indicating any following call to
-  /// [`Updater::update`](struct.Updater.html#method.update) would fail.
+  /// [`SingleSender::update`](struct.Updater.html#method.update) would fail.
   pub fn has_no_receiver(&self) -> bool {
     self.inner.upgrade().is_none()
   }
 }
 
-pub fn single_value_channel<T>() -> (Updater<T>, Receiver<T>) {
-  let receiver = Receiver {
-    inner: Arc::new(Mutex::new((None, None))),
+pub fn single_value_channel<T>() -> (SingleSender<T>, SingleReceiver<T>) {
+  let receiver = SingleReceiver {
+    inner: Arc::new(Mutex::new((Default::default(), None))),
   };
-  let updater = Updater {
+  let updater = SingleSender {
     inner: Arc::downgrade(&receiver.inner),
   };
   (updater, receiver)

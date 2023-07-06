@@ -17,20 +17,20 @@ pub use signal_stream::*;
 mod vec;
 pub use vec::*;
 
-mod channel;
-pub use channel::*;
-
 mod poll_utils;
 pub use poll_utils::*;
 
 mod channel_like;
 pub use channel_like::*;
 
+mod channel_single;
+pub use channel_single::*;
+
+mod channel_batch;
+pub use channel_batch::*;
+
 mod source;
 pub use source::*;
-
-mod buff_shared;
-pub use buff_shared::*;
 
 mod broadcast;
 pub use broadcast::*;

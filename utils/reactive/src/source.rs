@@ -115,7 +115,7 @@ impl<T: 'static> EventSource<T> {
   where
     U: Send + Sync + 'static,
   {
-    self.listen_by::<DefaultUnboundChannel, _>(mapper, init)
+    self.listen_by::<DefaultUnboundChannel, _, U>(mapper, init)
   }
 
   pub fn single_listen_by<U>(
@@ -126,17 +126,17 @@ impl<T: 'static> EventSource<T> {
   where
     U: Send + Sync + 'static,
   {
-    self.listen_by::<DefaultSingleValueChannel, _>(mapper, init)
+    self.listen_by::<DefaultSingleValueChannel, _, U>(mapper, init)
   }
 
-  pub fn listen_by<C, U>(
+  pub fn listen_by<C, U, N>(
     &self,
     mapper: impl Fn(&T) -> U + Send + Sync + 'static,
     init: impl Fn(&dyn Fn(U)),
-  ) -> impl futures::Stream<Item = U> + 'static
+  ) -> impl futures::Stream<Item = N> + 'static
   where
     U: Send + Sync + 'static,
-    C: ChannelLike<U>,
+    C: ChannelLike<U, Message = N>,
   {
     let (sender, receiver) = C::build();
     let init_sends = |to_send| {
