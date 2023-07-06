@@ -2,9 +2,15 @@ use winit::event::VirtualKeyCode;
 
 use crate::*;
 
+pub enum TextEditMessage {
+  ContentChange(String),
+  KeyboardInput(VirtualKeyCode),
+}
+
 pub struct EditableText {
   text: Text,
   cursor: Option<Cursor>,
+  events: EventSource<TextEditMessage>,
 }
 
 use std::{
@@ -28,7 +34,7 @@ impl DerefMut for EditableText {
 impl EditableText {
   pub fn focus(&mut self) {
     if self.cursor.is_none() {
-      self.cursor = Cursor::new(self.content.len()).into();
+      self.cursor = Cursor::new(self.text.content.len()).into();
     }
   }
 
@@ -74,30 +80,28 @@ impl EditableText {
     }
   }
 
-  fn insert_at_cursor(&mut self, c: char, model: &mut String) {
+  fn insert_at_cursor(&mut self, c: char) {
     if c.is_control() {
       return;
     }
     if let Some(cursor) = &mut self.cursor {
       let index = cursor.get_index();
-      model.insert(index, c);
+      self.text.content.insert(index, c);
 
-      self.text.content = model.clone();
       self.text.reset_text_layout_cache();
       cursor.notify_text_layout_changed();
       cursor.move_right();
     }
   }
 
-  fn delete_at_cursor(&mut self, model: &mut String) {
+  fn delete_at_cursor(&mut self) {
+    let content = &mut self.text.content;
     if let Some(cursor) = &mut self.cursor {
       if cursor.get_index() == 0 {
         // if cursor at first, cant delete
         return;
       }
-      model.remove(cursor.get_index() - 1);
-
-      self.text.content = model.clone();
+      content.remove(cursor.get_index() - 1);
       self.text.reset_text_layout_cache();
       cursor.notify_text_layout_changed();
       cursor.move_left();
@@ -123,14 +127,14 @@ impl EditableText {
     }
   }
 
-  fn handle_input(&mut self, key: winit::event::VirtualKeyCode, model: &mut String) {
+  fn handle_input(&mut self, key: winit::event::VirtualKeyCode) {
     use winit::event::VirtualKeyCode::*;
     match key {
       Left => self.move_cursor(CursorMove::Left),
       Up => self.move_cursor(CursorMove::Up),
       Right => self.move_cursor(CursorMove::Right),
       Down => self.move_cursor(CursorMove::Down),
-      Back => self.delete_at_cursor(model),
+      Back => self.delete_at_cursor(),
       _ => {}
     }
   }
@@ -141,13 +145,10 @@ impl Text {
     EditableText {
       text: self,
       cursor: None,
+      events: Default::default(),
     }
   }
 }
-
-pub struct FocusEditableText;
-pub struct TextChange(pub String);
-pub struct TextKeyboardInput(pub VirtualKeyCode);
 
 impl Eventable for EditableText {
   fn event(&mut self, ctx: &mut EventCtx) {
@@ -155,23 +156,15 @@ impl Eventable for EditableText {
 
     use winit::event::*;
 
-    if ctx
-      .custom_event
-      .consume_if_type_is::<FocusEditableText>()
-      .is_some()
-    {
-      self.focus()
-    }
-
-    let model = todo!();
-
     match ctx.event {
       Event::WindowEvent { event, .. } => match event {
         WindowEvent::KeyboardInput { input, .. } => {
           if let Some(virtual_keycode) = input.virtual_keycode {
             if input.state == ElementState::Pressed {
-              self.handle_input(virtual_keycode, model);
-              ctx.custom_event.emit(TextKeyboardInput(virtual_keycode))
+              self.handle_input(virtual_keycode);
+              self
+                .events
+                .emit(&TextEditMessage::KeyboardInput(virtual_keycode))
             }
           }
         }
@@ -181,8 +174,10 @@ impl Eventable for EditableText {
           }
         }
         WindowEvent::ReceivedCharacter(char) => {
-          self.insert_at_cursor(*char, model);
-          ctx.custom_event.emit(TextChange(self.content.clone()))
+          self.insert_at_cursor(*char);
+          self
+            .events
+            .emit(&TextEditMessage::ContentChange(self.text.content.clone()))
         }
         _ => {}
       },

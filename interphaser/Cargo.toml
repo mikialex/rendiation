@@ -12,6 +12,7 @@ futures = "0.3.25"
 image = "*"
 incremental = {path = "../utils/incremental"}
 log = "0.4"
+reactive = {path = "../utils/reactive"}
 rendiation-algebra = {path = "../math/algebra"}
 rendiation-canvas = {path = "../components/canvas"}
 rendiation-color = {path = "../components/color"}

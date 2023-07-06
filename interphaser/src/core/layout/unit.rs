@@ -11,8 +11,6 @@ pub struct LayoutUnit {
   pub absolute_position: UIPosition,
   pub size: UISize,
   pub baseline_offset: f32,
-  pub attached: bool,
-  pub need_update: bool,
 }
 
 impl Default for LayoutUnit {
@@ -22,8 +20,6 @@ impl Default for LayoutUnit {
       size: Default::default(),
       absolute_position: Default::default(),
       baseline_offset: 0.,
-      attached: false,
-      need_update: true,
     }
   }
 }

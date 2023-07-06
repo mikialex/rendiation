@@ -159,7 +159,6 @@ impl Application {
 
     let mut event = EventCtx {
       event,
-      custom_event: Default::default(),
       states: &self.window_states,
       fonts: &self.fonts,
       texts: &mut self.texts,

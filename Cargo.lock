@@ -1503,6 +1503,7 @@ dependencies = [
  "incremental",
  "instant",
  "log",
+ "reactive",
  "rendiation-algebra",
  "rendiation-canvas",
  "rendiation-color",

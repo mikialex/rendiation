@@ -21,7 +21,7 @@ use webgpu::*;
 
 use crate::*;
 
-pub struct ViewerImpl {
+pub struct Viewer {
   content: Viewer3dContent,
   ctx: Option<Viewer3dRenderingCtx>,
   size: Size,
@@ -30,7 +30,7 @@ pub struct ViewerImpl {
   pub compute_executor: rayon::ThreadPool,
 }
 
-impl Default for ViewerImpl {
+impl Default for Viewer {
   fn default() -> Self {
     let io_executor = futures::executor::ThreadPool::builder()
       .name_prefix("rendiation_io_threads")
@@ -58,7 +58,7 @@ impl Default for ViewerImpl {
   }
 }
 
-impl CanvasPrinter for ViewerImpl {
+impl CanvasPrinter for Viewer {
   fn draw_canvas(&mut self, gpu: &Arc<GPU>, canvas: GPU2DTextureView) {
     self.content.update_state();
     self

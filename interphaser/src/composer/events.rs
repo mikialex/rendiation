@@ -1,22 +1,8 @@
-use std::any::Any;
-
 use winit::event::*;
 
 use crate::*;
 
-pub struct EventHandleCtx {
-  custom_event_emitter: CustomEventEmitter,
-}
-
-impl EventHandleCtx {
-  pub fn emit(&mut self, e: impl Any) {
-    self.custom_event_emitter.emit(e)
-  }
-}
-
-pub trait HotAreaProvider {
-  fn is_point_in(&self, point: UIPosition) -> bool;
-}
+pub struct EventHandleCtx {}
 
 pub struct EventHandler<X: EventHandlerType> {
   state: X,
@@ -27,8 +13,6 @@ pub trait EventHandlerLike<C> {
   fn handle_event(&mut self, event: &mut EventCtx, inner: &mut C);
   fn should_handle_in_bubble(&self) -> bool;
 }
-
-/// also, I can use composition, but trade compile time for performance
 
 pub struct EventHandlerGroup<C> {
   before_handlers: Vec<Box<dyn EventHandlerLike<C>>>,
@@ -117,14 +101,10 @@ impl<X: EventHandlerType> EventHandler<X> {
 
 impl<C, X: EventHandlerImpl<C>> EventHandlerLike<C> for EventHandler<X> {
   fn handle_event(&mut self, event: &mut EventCtx, inner: &mut C) {
-    event.custom_event.update();
     if let Some(e) = self.state.downcast_event(event, inner) {
-      let mut ctx = EventHandleCtx {
-        custom_event_emitter: Default::default(),
-      };
+      let mut ctx = EventHandleCtx {};
       (self.handler)(&mut ctx, e);
       event.view_may_changed = true;
-      event.custom_event.merge(ctx.custom_event_emitter);
     }
   }
   fn should_handle_in_bubble(&self) -> bool {
@@ -335,29 +315,3 @@ pub fn mouse_move(event: &Event<()>) -> Option<winit::dpi::PhysicalPosition<f64>
     _ => None,
   })
 }
-
-// pub type SimpleHandler<E, T> = EventHandler<StatelessHandler<E>>;
-
-// pub struct StatelessHandler(PhantomData, bool);
-
-// pub fn simple_handle_in_bubble() -> StatelessHandler {
-//   StatelessHandler(Default::default(), true)
-// }
-
-// impl Default for StatelessHandler {
-//   fn default() -> Self {
-//     Self(Default::default(), false)
-//   }
-// }
-
-// impl<E> EventHandlerType for StatelessHandler<E> {
-//   type Event = E;
-// }
-// impl<E: Any, C> EventHandlerImpl<C> for StatelessHandler<E> {
-//   fn downcast_event<'a>(&mut self, event: &'a mut EventCtx, _inner: &C) -> Option<&'a
-// Self::Event> {     event.custom_event.consume_if_type_is::<E>()
-//   }
-//   fn should_handle_in_bubble(&self) -> bool {
-//     self.1
-//   }
-// }
