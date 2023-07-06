@@ -104,7 +104,7 @@ impl<T: Stream + Unpin> Stream for StreamVec<T> {
         let mut cx = Context::from_waker(&waker);
 
         // poll the sub stream
-        if let Some(stream) = this.streams.get_mut(index).unwrap() {
+        if let Some(Some(stream)) = this.streams.get_mut(index) {
           while let Poll::Ready(r) = stream
             .poll_next_unpin(&mut cx)
             .map(|r| r.map(|item| IndexedItem { index, item }))
@@ -122,7 +122,7 @@ impl<T: Stream + Unpin> Stream for StreamVec<T> {
       }
     }
 
-    Poll::Pending
+    Poll::Ready(results.into())
   }
 }
 
