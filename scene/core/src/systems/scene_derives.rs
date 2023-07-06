@@ -1,4 +1,5 @@
 use futures::Stream;
+use futures::StreamExt;
 use reactive::*;
 use tree::CoreTree;
 use tree::ParentTree;
@@ -46,7 +47,7 @@ impl Stream for StreamCacheUpdateWrapper {
 
 impl SceneNodeDeriveSystem {
   pub fn new(nodes: &SceneNodeCollection) -> Self {
-    let stream = nodes.inner.inner().source.unbound_listen();
+    let stream = nodes.inner.inner().source.batch_listen();
     let inner_sys = TreeHierarchyDerivedSystem::<
       SceneNodeDerivedData,
       ParentTreeDirty<SceneNodeDeriveDataDirtyFlag>,
@@ -55,6 +56,7 @@ impl SceneNodeDeriveSystem {
     let indexed_stream_mapper: SceneNodeChangeStreamIndexMapper = inner_sys
       .derived_stream
       .fork_stream()
+      .flat_map(futures::stream::iter)
       // we don't care about deletions in this stream
       .filter_map_sync(|d: (usize, Option<SceneNodeDerivedDataDelta>)| d.1.map(|d1| (d.0, d1)))
       .create_index_mapping_broadcaster();
@@ -67,6 +69,7 @@ impl SceneNodeDeriveSystem {
     let stream_cache_updating: StreamCacheUpdate = inner_sys
       .derived_stream
       .fork_stream()
+      .flat_map(futures::stream::iter)
       .fold_signal_state_stream(sub_broad_caster, move |(idx, delta), sub_broad_caster| {
         if delta.is_none() {
           sub_broad_caster.insert(idx, None)

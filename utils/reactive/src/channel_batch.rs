@@ -14,7 +14,7 @@ impl<T> Stream for BatchReceiver<T> {
     if let Ok(mut inner) = self.inner.lock() {
       inner.1 = cx.waker().clone().into();
       // check is_empty first to avoid unnecessary move
-      if inner.0.is_empty() {
+      if !inner.0.is_empty() {
         let value = std::mem::take(&mut inner.0);
         Poll::Ready(Some(value))
         // check if sender has dropped

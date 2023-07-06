@@ -3286,7 +3286,6 @@ dependencies = [
  "incremental",
  "reactive",
  "rendiation-abstract-tree",
- "smallvec",
  "storage",
 ]
 
