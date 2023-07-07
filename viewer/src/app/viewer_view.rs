@@ -2,14 +2,10 @@ use interphaser::*;
 
 use crate::{terminal, Viewer};
 
-pub fn create_app() -> impl Component {
-  Flex::column().nest_over(flex_group().child(Child::flex(viewer(), 1.)))
-}
-
 pub fn viewer() -> impl Component {
-  let viewer = Viewer::default();
-
   let (terminal, to_execute) = terminal();
+
+  let viewer = Viewer::new(to_execute);
 
   AbsoluteAnchor::default().nest_over(
     absolute_group()

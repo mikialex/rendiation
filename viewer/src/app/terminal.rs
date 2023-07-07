@@ -1,9 +1,9 @@
-use std::{io::Write, path::Path};
+use std::{io::Write, path::Path, task::Context};
 
 use fast_hash_collection::FastHashMap;
 use futures::{executor::ThreadPool, Future, Stream, StreamExt};
 use interphaser::{winit::event::VirtualKeyCode, *};
-use reactive::SignalStreamExt;
+use reactive::{PollUtils, SignalStreamExt};
 use rendiation_scene_core::Scene;
 use webgpu::ReadableTextureBuffer;
 
@@ -11,24 +11,9 @@ use crate::Viewer3dRenderingCtx;
 
 pub struct Terminal {
   pub command_history: Vec<String>,
-  pub current_command_editing: String,
-  pub command_to_execute: Option<String>,
   pub commands: FastHashMap<String, TerminalCommandCb>,
   pub executor: ThreadPool, // todo should passed in
-}
-
-impl Default for Terminal {
-  fn default() -> Self {
-    let executor = ThreadPool::builder().pool_size(1).create().unwrap();
-
-    Self {
-      command_history: Default::default(),
-      current_command_editing: Default::default(),
-      command_to_execute: Default::default(),
-      commands: Default::default(),
-      executor,
-    }
-  }
+  pub command_source: BoxedUnpinStream<String>,
 }
 
 pub struct CommandCtx<'a> {
@@ -40,9 +25,15 @@ type TerminalCommandCb =
   Box<dyn Fn(&mut CommandCtx, &Vec<String>) -> Box<dyn Future<Output = ()> + Send + Unpin>>;
 
 impl Terminal {
-  pub fn mark_execute(&mut self) {
-    self.command_to_execute = self.current_command_editing.clone().into();
-    self.current_command_editing = String::new();
+  pub fn new(command_source: impl Stream<Item = String> + Unpin + 'static) -> Self {
+    let executor = ThreadPool::builder().pool_size(1).create().unwrap();
+
+    Self {
+      command_history: Default::default(),
+      commands: Default::default(),
+      executor,
+      command_source: Box::new(command_source),
+    }
   }
 
   pub fn register_command<F, FR>(&mut self, name: impl AsRef<str>, f: F) -> &mut Self
@@ -58,24 +49,28 @@ impl Terminal {
   }
 
   pub fn check_execute(&mut self, ctx: &mut CommandCtx) {
-    if let Some(command) = self.command_to_execute.take() {
-      let parameters: Vec<String> = command
-        .split_ascii_whitespace()
-        .map(|s| s.to_owned())
-        .collect();
+    let waker = futures::task::noop_waker_ref();
+    let mut cx = Context::from_waker(waker);
+    self
+      .command_source
+      .loop_poll_until_pending(&mut cx, |command| {
+        let parameters: Vec<String> = command
+          .split_ascii_whitespace()
+          .map(|s| s.to_owned())
+          .collect();
 
-      if let Some(command_name) = parameters.first() {
-        if let Some(exe) = self.commands.get(command_name) {
-          println!("execute: {command}");
+        if let Some(command_name) = parameters.first() {
+          if let Some(exe) = self.commands.get(command_name) {
+            println!("execute: {command}");
 
-          let task = exe(ctx, &parameters);
-          self.executor.spawn_ok(task);
-        } else {
-          println!("unknown command {command_name}")
+            let task = exe(ctx, &parameters);
+            self.executor.spawn_ok(task);
+          } else {
+            println!("unknown command {command_name}")
+          }
+          self.command_history.push(command);
         }
-        self.command_history.push(command);
-      }
-    }
+      });
   }
 }
 

@@ -6,6 +6,7 @@ pub use content::*;
 mod default_scene;
 pub use default_scene::*;
 mod rendering;
+use futures::Stream;
 pub use rendering::*;
 
 mod controller;
@@ -30,8 +31,8 @@ pub struct Viewer {
   pub compute_executor: rayon::ThreadPool,
 }
 
-impl Default for Viewer {
-  fn default() -> Self {
+impl Viewer {
+  pub fn new(terminal_inputs: impl Stream<Item = String> + Unpin + 'static) -> Self {
     let io_executor = futures::executor::ThreadPool::builder()
       .name_prefix("rendiation_io_threads")
       .pool_size(2)
@@ -46,7 +47,7 @@ impl Default for Viewer {
     let mut viewer = Self {
       content: Viewer3dContent::new(),
       size: Size::from_u32_pair_min_one((100, 100)),
-      terminal: Default::default(),
+      terminal: Terminal::new(terminal_inputs),
       ctx: None,
       io_executor,
       compute_executor,

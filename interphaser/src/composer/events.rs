@@ -11,7 +11,7 @@ pub struct EventHandler<X: EventHandlerType> {
 impl<X: EventHandlerType> Stream for EventHandler<X> {
   type Item = ();
 
-  fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+  fn poll_next(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
     Poll::Pending
   }
 }
