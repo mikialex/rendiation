@@ -100,6 +100,13 @@ impl<T: 'static> EventSource<T> {
     self.inner.write().unwrap().off(token)
   }
 
+  pub fn single_listen(&self) -> impl futures::Stream<Item = T>
+  where
+    T: Clone + Send + Sync,
+  {
+    self.single_listen_by(|v| v.clone(), |_| {})
+  }
+
   pub fn unbound_listen(&self) -> impl futures::Stream<Item = T>
   where
     T: Clone + Send + Sync,

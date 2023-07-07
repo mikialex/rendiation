@@ -2,11 +2,18 @@ use winit::event::*;
 
 use crate::*;
 
-pub struct EventHandleCtx {}
-
+#[derive(Default)]
 pub struct EventHandler<X: EventHandlerType> {
   state: X,
-  handler: Box<dyn Fn(&mut EventHandleCtx, &X::Event)>,
+  pub events: EventSource<X::Event>,
+}
+
+impl<X: EventHandlerType> Stream for EventHandler<X> {
+  type Item = ();
+
+  fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+    Poll::Pending
+  }
 }
 
 pub trait EventHandlerLike<C> {
@@ -83,27 +90,10 @@ impl<X, C: HotAreaProvider> HotAreaNested<C> for EventHandlerGroup<X> {
   }
 }
 
-impl<X: EventHandlerType> EventHandler<X> {
-  pub fn by(fun: impl Fn(&mut EventHandleCtx, &X::Event) + 'static) -> Self {
-    Self {
-      state: Default::default(),
-      handler: Box::new(fun),
-    }
-  }
-
-  pub fn by_state(state: X, fun: impl Fn(&mut EventHandleCtx, &X::Event) + 'static) -> Self {
-    Self {
-      state,
-      handler: Box::new(fun),
-    }
-  }
-}
-
 impl<C, X: EventHandlerImpl<C>> EventHandlerLike<C> for EventHandler<X> {
   fn handle_event(&mut self, event: &mut EventCtx, inner: &mut C) {
     if let Some(e) = self.state.downcast_event(event, inner) {
-      let mut ctx = EventHandleCtx {};
-      (self.handler)(&mut ctx, e);
+      self.events.emit(e)
     }
   }
   fn should_handle_in_bubble(&self) -> bool {
@@ -153,7 +143,7 @@ impl<X: EventHandlerType, C: HotAreaProvider> HotAreaNested<C> for EventHandler<
 }
 
 pub trait EventHandlerType: Default {
-  type Event;
+  type Event: 'static;
 }
 
 pub trait EventHandlerImpl<C>: EventHandlerType {

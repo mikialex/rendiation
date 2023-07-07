@@ -8,10 +8,13 @@ pub fn create_app() -> impl Component {
 
 pub fn viewer() -> impl Component {
   let viewer = Viewer::default();
+
+  let (terminal, to_execute) = terminal();
+
   AbsoluteAnchor::default().nest_over(
     absolute_group()
       .child(AbsChild::new(GPUCanvas::new(viewer)))
-      .child(AbsChild::new(terminal()).with_position((0., 0.)))
+      .child(AbsChild::new(terminal).with_position((0., 0.)))
       .child(AbsChild::new(perf_panel()).with_position((0., 50.))),
   )
 }

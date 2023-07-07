@@ -1,8 +1,9 @@
 use std::{io::Write, path::Path};
 
 use fast_hash_collection::FastHashMap;
-use futures::{executor::ThreadPool, Future, StreamExt};
+use futures::{executor::ThreadPool, Future, Stream, StreamExt};
 use interphaser::{winit::event::VirtualKeyCode, *};
+use reactive::SignalStreamExt;
 use rendiation_scene_core::Scene;
 use webgpu::ReadableTextureBuffer;
 
@@ -78,8 +79,8 @@ impl Terminal {
   }
 }
 
-pub fn terminal() -> impl Component {
-  let edit_text = Text::default()
+pub fn terminal() -> (impl Component, impl Stream<Item = String> + Unpin) {
+  let mut edit_text = Text::default()
     .with_layout(TextLayoutConfig::SizedBox {
       line_wrap: LineWrap::Single,
       horizon_align: TextHorizontalAlignment::Left,
@@ -87,25 +88,37 @@ pub fn terminal() -> impl Component {
     })
     .editable();
 
-  let mut current_content = String::new();
-  edit_text
-    .events
-    .unbound_listen()
-    .map(|e: TextEditMessage| match e {
-      TextEditMessage::ContentChange(content) => todo!(),
-      TextEditMessage::KeyboardInput(key) => {
-        if let VirtualKeyCode::Return = key {
-          // terminal.mark_execute()
+  let mut current_command = String::new();
+  let command_to_execute =
+    edit_text
+      .events
+      .unbound_listen()
+      .filter_map_sync(move |e: TextEditMessage| match e {
+        TextEditMessage::ContentChange(content) => {
+          current_command = content;
+          None
         }
-      }
-    });
+        TextEditMessage::KeyboardInput(key) => {
+          if let VirtualKeyCode::Return = key {
+            let command_to_execute = current_command.clone();
+            current_command = String::new();
+            Some(command_to_execute)
+          } else {
+            None
+          }
+        }
+      });
+
+  let clicker = ClickHandler::default();
+  let click_event = clicker.events.single_listen().map(|_| {});
+  edit_text.set_focus(click_event);
 
   let text_box = Container::sized((UILength::ParentPercent(100.), UILength::Px(50.)))
-    .padding(RectBoundaryWidth::equal(5.));
+    .padding(RectBoundaryWidth::equal(5.))
+    .nest_over(edit_text)
+    .nest_in(clicker);
 
-  // edit_text.set_focus_source(text_box.click_event());
-
-  text_box.nest_over(edit_text)
+  (text_box, command_to_execute)
 }
 
 pub fn register_default_commands(terminal: &mut Terminal) {

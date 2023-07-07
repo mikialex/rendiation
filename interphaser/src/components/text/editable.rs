@@ -20,7 +20,11 @@ pub struct EditableText {
 }
 
 impl EditableText {
-  pub fn focus(&mut self) {
+  pub fn set_focus(&mut self, focus: impl Stream<Item = ()> + Unpin + 'static) {
+    self.focus_input = Some(Box::new(focus))
+  }
+
+  fn focus(&mut self) {
     if self.cursor.is_none() {
       self.cursor = Cursor::new(self.text.content.len()).into();
     }
