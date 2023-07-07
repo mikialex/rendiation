@@ -9,21 +9,22 @@ use crate::*;
 pub struct GPUCanvas {
   current_render_buffer_size: Size,
   content: Option<GPU2DTextureView>,
-  drawer: Option<Box<dyn CanvasPrinter>>,
+  drawer: Box<dyn CanvasPrinter>,
   layout: LayoutUnit,
 }
 
-impl Default for GPUCanvas {
-  fn default() -> Self {
+impl GPUCanvas {
+  pub fn new(drawer: impl CanvasPrinter + 'static) -> Self {
     Self {
       current_render_buffer_size: Size::from_u32_pair_min_one((100, 100)),
       content: None,
-      drawer: None,
+      drawer: Box::new(drawer),
       layout: Default::default(),
     }
   }
 }
 
+trivial_stream_impl!(GPUCanvas);
 impl Presentable for GPUCanvas {
   fn render(&mut self, builder: &mut PresentationBuilder) {
     self.layout.update_world(builder.current_origin_offset());
@@ -81,45 +82,43 @@ pub trait CanvasPrinter {
 
 impl Eventable for GPUCanvas {
   fn event(&mut self, event: &mut EventCtx) {
-    if let Some(drawer) = &mut self.drawer {
-      let position_info = CanvasWindowPositionInfo {
-        absolute_position: self.layout.absolute_position,
-        size: self.layout.size,
-      };
+    let position_info = CanvasWindowPositionInfo {
+      absolute_position: self.layout.absolute_position,
+      size: self.layout.size,
+    };
 
-      drawer.event(event.event, event.states, position_info);
-      match event.event {
-        Event::RedrawRequested(_) => {
-          let new_size = drawer.update_render_size(self.layout.size.into());
-          if new_size != self.current_render_buffer_size {
-            self.content = None;
-          }
-
-          let target = self.content.get_or_insert_with(|| {
-            let device = &event.gpu.device;
-
-            let desc = webgpu::TextureDescriptor {
-              label: "interphase-canvas-output".into(),
-              size: map_size_gpu(new_size),
-              dimension: webgpu::TextureDimension::D2,
-              format: webgpu::TextureFormat::Rgba8Unorm,
-              view_formats: &[],
-              usage: webgpu::TextureUsages::TEXTURE_BINDING
-                | webgpu::TextureUsages::COPY_DST
-                | webgpu::TextureUsages::COPY_SRC
-                | webgpu::TextureUsages::RENDER_ATTACHMENT,
-              mip_level_count: 1,
-              sample_count: 1,
-            };
-
-            let texture = GPUTexture::create(desc, device);
-            texture.create_view(Default::default()).try_into().unwrap()
-          });
-
-          drawer.draw_canvas(&event.gpu, target.clone());
+    self.drawer.event(event.event, event.states, position_info);
+    match event.event {
+      Event::RedrawRequested(_) => {
+        let new_size = self.drawer.update_render_size(self.layout.size.into());
+        if new_size != self.current_render_buffer_size {
+          self.content = None;
         }
-        _ => {}
+
+        let target = self.content.get_or_insert_with(|| {
+          let device = &event.gpu.device;
+
+          let desc = webgpu::TextureDescriptor {
+            label: "interphase-canvas-output".into(),
+            size: map_size_gpu(new_size),
+            dimension: webgpu::TextureDimension::D2,
+            format: webgpu::TextureFormat::Rgba8Unorm,
+            view_formats: &[],
+            usage: webgpu::TextureUsages::TEXTURE_BINDING
+              | webgpu::TextureUsages::COPY_DST
+              | webgpu::TextureUsages::COPY_SRC
+              | webgpu::TextureUsages::RENDER_ATTACHMENT,
+            mip_level_count: 1,
+            sample_count: 1,
+          };
+
+          let texture = GPUTexture::create(desc, device);
+          texture.create_view(Default::default()).try_into().unwrap()
+        });
+
+        self.drawer.draw_canvas(&event.gpu, target.clone());
       }
+      _ => {}
     }
   }
 }

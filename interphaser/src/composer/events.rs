@@ -104,7 +104,6 @@ impl<C, X: EventHandlerImpl<C>> EventHandlerLike<C> for EventHandler<X> {
     if let Some(e) = self.state.downcast_event(event, inner) {
       let mut ctx = EventHandleCtx {};
       (self.handler)(&mut ctx, e);
-      event.view_may_changed = true;
     }
   }
   fn should_handle_in_bubble(&self) -> bool {

@@ -202,6 +202,7 @@ impl<C: LayoutAble> LayoutAbleNested<C> for Container {
   }
 }
 
+trivial_stream_impl!(Container);
 impl<C> HotAreaNested<C> for Container {
   fn is_point_in(&self, point: crate::UIPosition, _inner: &C) -> bool {
     self.layout.into_quad().is_point_in(point)

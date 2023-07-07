@@ -5,6 +5,7 @@ pub struct AbsoluteAnchor {
   position: UIPosition,
 }
 
+trivial_stream_impl!(AbsoluteAnchor);
 impl<C: Eventable> EventableNested<C> for AbsoluteAnchor {
   fn event(&mut self, event: &mut EventCtx, inner: &mut C) {
     inner.event(event);
@@ -49,6 +50,7 @@ impl AbsChild {
   }
 }
 
+trivial_stream_impl!(AbsChild);
 impl Eventable for AbsChild {
   fn event(&mut self, event: &mut EventCtx) {
     self.inner.event(event)

@@ -1,7 +1,7 @@
 use std::{io::Write, path::Path};
 
 use fast_hash_collection::FastHashMap;
-use futures::{executor::ThreadPool, Future};
+use futures::{executor::ThreadPool, Future, StreamExt};
 use interphaser::{winit::event::VirtualKeyCode, *};
 use rendiation_scene_core::Scene;
 use webgpu::ReadableTextureBuffer;
@@ -79,26 +79,33 @@ impl Terminal {
 }
 
 pub fn terminal() -> impl Component {
-  Container::sized((UILength::ParentPercent(100.), UILength::Px(50.)))
-    .padding(RectBoundaryWidth::equal(5.))
-  // .wrap(
-  //   Text::default()
-  //     .with_layout(TextLayoutConfig::SizedBox {
-  //       line_wrap: LineWrap::Single,
-  //       horizon_align: TextHorizontalAlignment::Left,
-  //       vertical_align: TextVerticalAlignment::Top,
-  //     })
-  //     .editable(),
-  // )
-  // .extend(ClickHandler::by(|_, ctx, _| ctx.emit(FocusEditableText)))
-  // .extend(SimpleHandler::<TextKeyboardInput, _>::by_state(
-  //   simple_handle_in_bubble(),
-  //   |terminal: &mut Terminal, _, e| {
-  //     if let TextKeyboardInput(VirtualKeyCode::Return) = e {
-  //       terminal.mark_execute()
-  //     }
-  //   },
-  // ))
+  let edit_text = Text::default()
+    .with_layout(TextLayoutConfig::SizedBox {
+      line_wrap: LineWrap::Single,
+      horizon_align: TextHorizontalAlignment::Left,
+      vertical_align: TextVerticalAlignment::Top,
+    })
+    .editable();
+
+  let mut current_content = String::new();
+  edit_text
+    .events
+    .unbound_listen()
+    .map(|e: TextEditMessage| match e {
+      TextEditMessage::ContentChange(content) => todo!(),
+      TextEditMessage::KeyboardInput(key) => {
+        if let VirtualKeyCode::Return = key {
+          // terminal.mark_execute()
+        }
+      }
+    });
+
+  let text_box = Container::sized((UILength::ParentPercent(100.), UILength::Px(50.)))
+    .padding(RectBoundaryWidth::equal(5.));
+
+  // edit_text.set_focus_source(text_box.click_event());
+
+  text_box.nest_over(edit_text)
 }
 
 pub fn register_default_commands(terminal: &mut Terminal) {

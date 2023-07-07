@@ -34,8 +34,9 @@ pub struct Text {
   pub layout: LayoutUnit,
 }
 
+trivial_stream_impl!(Text);
 impl Eventable for Text {
-  fn event(&mut self, event: &mut EventCtx) {}
+  fn event(&mut self, _: &mut EventCtx) {}
 }
 
 impl Default for Text {

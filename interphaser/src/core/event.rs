@@ -1,8 +1,3 @@
-use std::sync::Arc;
-use std::task::Context;
-
-use webgpu::GPU;
-
 use crate::*;
 
 pub trait Eventable {
@@ -14,11 +9,9 @@ pub trait HotAreaProvider {
 }
 
 pub struct EventCtx<'a> {
-  pub view_may_changed: bool,
   pub event: &'a winit::event::Event<'a, ()>,
   pub states: &'a WindowState,
   pub fonts: &'a FontManager,
   pub texts: &'a mut TextCache,
   pub gpu: Arc<GPU>,
-  pub cx: &'a mut Context<'a>,
 }

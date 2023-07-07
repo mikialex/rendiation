@@ -1,7 +1,11 @@
+use std::{task::ready, time::Duration};
+
+use futures::Stream;
 use winit::event::VirtualKeyCode;
 
 use crate::*;
 
+#[derive(Clone)]
 pub enum TextEditMessage {
   ContentChange(String),
   KeyboardInput(VirtualKeyCode),
@@ -10,25 +14,9 @@ pub enum TextEditMessage {
 pub struct EditableText {
   text: Text,
   cursor: Option<Cursor>,
-  events: EventSource<TextEditMessage>,
-}
-
-use std::{
-  ops::{Deref, DerefMut},
-  time::Duration,
-};
-impl Deref for EditableText {
-  type Target = Text;
-
-  fn deref(&self) -> &Self::Target {
-    &self.text
-  }
-}
-
-impl DerefMut for EditableText {
-  fn deref_mut(&mut self) -> &mut Self::Target {
-    &mut self.text
-  }
+  view_change: ViewUpdateNotifier,
+  pub events: EventSource<TextEditMessage>,
+  pub focus_input: Option<BoxedUnpinStream<()>>,
 }
 
 impl EditableText {
@@ -146,7 +134,23 @@ impl Text {
       text: self,
       cursor: None,
       events: Default::default(),
+      focus_input: Default::default(),
+      view_change: Default::default(),
     }
+  }
+}
+
+impl Stream for EditableText {
+  type Item = ();
+  fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+    ready!(self.view_change.poll_next_unpin(cx));
+    if let Some(inputs) = &mut self.focus_input {
+      if let Poll::Ready(Some(())) = inputs.poll_next_unpin(cx) {
+        self.focus();
+        self.view_change.notify();
+      }
+    }
+    Poll::Pending
   }
 }
 
@@ -164,20 +168,23 @@ impl Eventable for EditableText {
               self.handle_input(virtual_keycode);
               self
                 .events
-                .emit(&TextEditMessage::KeyboardInput(virtual_keycode))
+                .emit(&TextEditMessage::KeyboardInput(virtual_keycode));
+              self.view_change.notify();
             }
           }
         }
         WindowEvent::MouseInput { state, button, .. } => {
           if let (MouseButton::Left, ElementState::Pressed) = (button, state) {
-            self.update_cursor_by_click(ctx.states.mouse_position, ctx.fonts, ctx.texts)
+            self.update_cursor_by_click(ctx.states.mouse_position, ctx.fonts, ctx.texts);
+            self.view_change.notify();
           }
         }
         WindowEvent::ReceivedCharacter(char) => {
           self.insert_at_cursor(*char);
           self
             .events
-            .emit(&TextEditMessage::ContentChange(self.text.content.clone()))
+            .emit(&TextEditMessage::ContentChange(self.text.content.clone()));
+          self.view_change.notify();
         }
         _ => {}
       },

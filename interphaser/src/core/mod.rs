@@ -10,5 +10,9 @@ pub use event::*;
 mod inc;
 pub use inc::*;
 
-pub trait Component: Eventable + Presentable + LayoutAble {}
-impl<T> Component for T where T: Eventable + Presentable + LayoutAble {}
+use crate::*;
+
+pub trait Component: Eventable + Presentable + LayoutAble + Stream<Item = ()> + Unpin {}
+impl<T> Component for T where T: Eventable + Presentable + LayoutAble + Stream<Item = ()> + Unpin {}
+
+pub type BoxedUnpinStream<T> = Box<dyn Stream<Item = T> + Unpin>;

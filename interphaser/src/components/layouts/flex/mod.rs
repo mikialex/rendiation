@@ -130,6 +130,7 @@ impl Child {
   }
 }
 
+trivial_stream_impl!(Child);
 impl Eventable for Child {
   fn event(&mut self, event: &mut EventCtx) {
     match self {

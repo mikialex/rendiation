@@ -1,5 +1,6 @@
 use crate::*;
 
+trivial_stream_impl!(Flex);
 impl<C: Eventable> EventableNested<C> for Flex {
   fn event(&mut self, event: &mut EventCtx, inner: &mut C) {
     inner.event(event);

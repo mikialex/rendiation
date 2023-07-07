@@ -279,6 +279,20 @@ where
   }
 }
 
+impl<C> Stream for ComponentArray<C>
+where
+  C: Stream<Item = ()> + Unpin,
+{
+  type Item = ();
+
+  fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+    for child in &mut self.children {
+      ready!(child.poll_next_unpin(cx));
+    }
+    Poll::Pending
+  }
+}
+
 // /// using Enum Discriminant to decide if we should cache UI Component instance
 // pub struct EnumMatcher {
 //   com: Option<(Box<dyn Component>, std::mem::Discriminant)>,

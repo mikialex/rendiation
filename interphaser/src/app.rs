@@ -65,7 +65,6 @@ pub async fn run_gui(ui: impl Component + 'static, config: WindowConfig) {
     ui_renderer,
     window,
     last_update_inst: Instant::now(),
-    view_may_changed: false,
 
     gpu,
     surface,
@@ -144,7 +143,6 @@ pub struct Application {
 
   window: winit::window::Window,
 
-  view_may_changed: bool,
   last_update_inst: Instant,
   surface: GPUSurface,
   gpu: Arc<GPU>,
@@ -154,23 +152,21 @@ impl Application {
   fn event(&mut self, event: &winit::event::Event<()>) {
     self.window_states.event(event);
 
-    let waker = futures::task::noop_waker_ref();
-    let mut cx = Context::from_waker(waker);
-
     let mut event = EventCtx {
       event,
       states: &self.window_states,
       fonts: &self.fonts,
       texts: &mut self.texts,
       gpu: self.gpu.clone(),
-      view_may_changed: false,
-      cx: &mut cx,
     };
     self.root.event(&mut event);
-    self.view_may_changed |= event.view_may_changed;
   }
 
   fn render(&mut self, frame: &RenderTargetView) {
+    let waker = futures::task::noop_waker_ref();
+    let mut cx = Context::from_waker(waker);
+    do_updates_by(&mut self.root, &mut cx, |_| {});
+
     let mut ctx = LayoutCtx {
       fonts: &self.fonts,
       text: &self.texts,

@@ -1,29 +1,37 @@
 use crate::*;
 
-pub trait ComponentNestExt: Component + Sized {
-  fn nest_in<A: EventableNested<Self>>(self, ability: A) -> NestedComponent<Self, A> {
-    NestedComponent::new(self, ability)
+pub trait ComponentNestExt: Sized {
+  fn nest_in<A>(self, outer: A) -> NestedComponent<Self, A> {
+    NestedComponent::new(self, outer)
   }
-}
-
-impl<X> ComponentNestExt for X where X: Component + Sized {}
-
-pub trait ComponentAbilityExt<C>: Sized {
-  fn nest_over(self, inner: C) -> NestedComponent<C, Self> {
+  fn nest_over<C>(self, inner: C) -> NestedComponent<C, Self> {
     NestedComponent::new(inner, self)
   }
 }
 
-impl<C, X> ComponentAbilityExt<C> for X where X: Sized {}
+impl<X> ComponentNestExt for X where X: Sized {}
 
 pub struct NestedComponent<C, A> {
   inner: C,
-  ability: A,
+  outer: A,
 }
 
 impl<C, A> NestedComponent<C, A> {
-  pub fn new(inner: C, ability: A) -> Self {
-    Self { inner, ability }
+  pub fn new(inner: C, outer: A) -> Self {
+    Self { inner, outer }
+  }
+}
+
+impl<C, A> Stream for NestedComponent<C, A>
+where
+  C: Stream<Item = ()> + Unpin,
+  A: Stream<Item = ()> + Unpin,
+{
+  type Item = ();
+
+  fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+    ready!(self.outer.poll_next_unpin(cx));
+    self.inner.poll_next_unpin(cx)
   }
 }
 
@@ -37,7 +45,7 @@ where
   A: EventableNested<C>,
 {
   fn event(&mut self, event: &mut EventCtx) {
-    self.ability.event(event, &mut self.inner);
+    self.outer.event(event, &mut self.inner);
   }
 }
 
@@ -47,7 +55,7 @@ pub trait PresentableNested<C> {
 
 impl<C, A: PresentableNested<C>> Presentable for NestedComponent<C, A> {
   fn render(&mut self, builder: &mut crate::PresentationBuilder) {
-    self.ability.render(builder, &mut self.inner)
+    self.outer.render(builder, &mut self.inner)
   }
 }
 
@@ -72,11 +80,11 @@ impl<C, A: LayoutAbleNested<C>> LayoutAble for NestedComponent<C, A> {
     constraint: crate::LayoutConstraint,
     ctx: &mut LayoutCtx,
   ) -> crate::LayoutResult {
-    self.ability.layout(constraint, ctx, &mut self.inner)
+    self.outer.layout(constraint, ctx, &mut self.inner)
   }
 
   fn set_position(&mut self, position: crate::UIPosition) {
-    self.ability.set_position(position, &mut self.inner)
+    self.outer.set_position(position, &mut self.inner)
   }
 }
 
@@ -91,6 +99,6 @@ where
   A: HotAreaNested<C>,
 {
   fn is_point_in(&self, point: crate::UIPosition) -> bool {
-    self.ability.is_point_in(point, &self.inner)
+    self.outer.is_point_in(point, &self.inner)
   }
 }
