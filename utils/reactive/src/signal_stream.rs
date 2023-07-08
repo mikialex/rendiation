@@ -65,10 +65,6 @@ pub trait SignalStreamExt: Stream {
   where
     Self: Sized;
 
-  fn buffered_shared_unbound(self) -> BufferedSharedStream<Self>
-  where
-    Self: Sized;
-
   fn create_broad_caster(self) -> StreamBroadcaster<Self, Self::Item, FanOut>
   where
     Self: Sized + Stream;
@@ -165,13 +161,6 @@ impl<T: Stream> SignalStreamExt for T {
       inner: self,
       buffered: Vec::new(),
     }
-  }
-
-  fn buffered_shared_unbound(self) -> BufferedSharedStream<Self>
-  where
-    Self: Sized,
-  {
-    BufferedSharedStream::new(self)
   }
 
   fn create_broad_caster(self) -> StreamBroadcaster<Self, Self::Item, FanOut>

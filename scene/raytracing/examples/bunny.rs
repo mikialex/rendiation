@@ -9,7 +9,7 @@ fn main() {
 
   let mut frame = Frame::new(600, 600);
 
-  let mut scene = SceneInner::new().0;
+  let mut scene = SceneImpl::new().0;
 
   let perspective = PerspectiveProjection {
     fov: Deg::by(65.),

@@ -26,7 +26,6 @@ use core::ops::Deref;
 use std::{
   any::{Any, TypeId},
   cell::{Cell, RefCell},
-  collections::HashMap,
   hash::Hash,
   marker::PhantomData,
   rc::Rc,
@@ -41,6 +40,7 @@ use anymap::AnyMap;
 pub use background::*;
 use bytemuck::*;
 pub use camera::*;
+use fast_hash_collection::*;
 use futures::*;
 use incremental::*;
 pub use lights::*;

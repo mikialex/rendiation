@@ -66,7 +66,7 @@ impl SkeletonImpl {
       .iter()
       .enumerate()
       .map(|(index, joint)| (joint.node.guid(), index))
-      .collect::<HashMap<_, _>>();
+      .collect::<FastHashMap<_, _>>();
 
     self.joints.iter().for_each(|joint| {
       let bone_local = if let Some(parent_id) = joint.node.visit_parent(|p| p.guid())

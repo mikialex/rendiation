@@ -1,5 +1,30 @@
 use crate::*;
 
+pub fn get_main_pass_load_op(scene: &SceneCoreImpl) -> webgpu::Operations<webgpu::Color> {
+  let load = if let Some(bg) = &scene.background {
+    if let Some(clear_color) = match bg {
+      SceneBackGround::Solid(bg) => bg.require_pass_clear(),
+      SceneBackGround::Env(bg) => bg.require_pass_clear(),
+      SceneBackGround::Foreign(bg) => {
+        if let Some(bg) = bg.downcast_ref::<Box<dyn WebGPUBackground>>() {
+          bg.require_pass_clear()
+        } else {
+          None
+        }
+      }
+      _ => None,
+    } {
+      webgpu::LoadOp::Clear(clear_color)
+    } else {
+      webgpu::LoadOp::Load
+    }
+  } else {
+    webgpu::LoadOp::Load
+  };
+
+  webgpu::Operations { load, store: true }
+}
+
 pub struct ForwardScene<'a> {
   pub tonemap: &'a ToneMap,
   pub debugger: Option<&'a ScreenChannelDebugger>,
@@ -49,7 +74,7 @@ pub struct ForwardLightingSystem {
   gpu: ResourceGPUCtx,
   pub lights_collections: StreamMap<TypeId, Box<dyn ReactiveLightCollectionCompute>>,
   // we could use linked hashmap to keep visit order
-  pub mapping_length_idx: HashMap<TypeId, usize>,
+  pub mapping_length_idx: FastHashMap<TypeId, usize>,
 
   /// note todo!, we don't support correct codegen for primitive wrapper array type
   /// so we use vec4<u32> instead of u32
@@ -253,7 +278,7 @@ const LIGHT_MAX: usize = 8;
 pub struct LightList<T: ShaderLight> {
   uniform: ClampedUniformList<T, LIGHT_MAX>,
   empty_list: Vec<usize>,
-  mapping: HashMap<usize, usize>,
+  mapping: FastHashMap<usize, usize>,
   source: StreamMap<usize, Box<dyn Stream<Item = T> + Unpin>>,
   gpu: ResourceGPUCtx,
 }

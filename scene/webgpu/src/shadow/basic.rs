@@ -4,7 +4,7 @@ use crate::*;
 pub struct SingleProjectShadowMapSystem {
   #[pin]
   cameras_source: StreamMap<usize, ReactiveBasicShadowSceneCamera>,
-  cameras: HashMap<usize, SceneCamera>,
+  cameras: FastHashMap<usize, SceneCamera>,
   #[pin]
   shadow_maps: StreamMap<usize, ShadowMap>,
   maps: ShadowMapAllocator,
@@ -131,9 +131,9 @@ pub struct BasicShadowMapInfoList {
   list: ClampedUniformList<BasicShadowMapInfo, SHADOW_MAX>,
   /// map light id to index;
   empty_list: Vec<usize>,
-  mapping: HashMap<usize, usize>,
+  mapping: FastHashMap<usize, usize>,
   // todo support reordering?
-  emitter: HashMap<usize, futures::channel::mpsc::UnboundedSender<LightShadowAddressInfo>>,
+  emitter: FastHashMap<usize, futures::channel::mpsc::UnboundedSender<LightShadowAddressInfo>>,
 }
 
 impl BasicShadowMapInfoList {

@@ -1,41 +1,32 @@
-use std::{any::Any, marker::PhantomData};
-
 use winit::event::*;
 
 use crate::*;
 
-pub struct EventHandleCtx {
-  custom_event_emitter: CustomEventEmitter,
+#[derive(Default)]
+pub struct EventHandler<X: EventHandlerType> {
+  state: X,
+  pub events: EventSource<X::Event>,
 }
 
-impl EventHandleCtx {
-  pub fn emit(&mut self, e: impl Any) {
-    self.custom_event_emitter.emit(e)
+impl<X: EventHandlerType> Stream for EventHandler<X> {
+  type Item = ();
+
+  fn poll_next(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+    Poll::Pending
   }
 }
 
-pub trait HotAreaProvider {
-  fn is_point_in(&self, point: UIPosition) -> bool;
-}
-
-pub struct EventHandler<T, X: EventHandlerType> {
-  state: X,
-  handler: Box<dyn Fn(&mut T, &mut EventHandleCtx, &X::Event)>,
-}
-
-pub trait EventHandlerLike<T, C> {
-  fn handle_event(&mut self, model: &mut T, event: &mut EventCtx, inner: &mut C);
+pub trait EventHandlerLike<C> {
+  fn handle_event(&mut self, event: &mut EventCtx, inner: &mut C);
   fn should_handle_in_bubble(&self) -> bool;
 }
 
-/// also, I can use composition, but trade compile time for performance
-
-pub struct EventHandlerGroup<T, C> {
-  before_handlers: Vec<Box<dyn EventHandlerLike<T, C>>>,
-  after_handlers: Vec<Box<dyn EventHandlerLike<T, C>>>,
+pub struct EventHandlerGroup<C> {
+  before_handlers: Vec<Box<dyn EventHandlerLike<C>>>,
+  after_handlers: Vec<Box<dyn EventHandlerLike<C>>>,
 }
 
-impl<T, C> Default for EventHandlerGroup<T, C> {
+impl<C> Default for EventHandlerGroup<C> {
   fn default() -> Self {
     Self {
       before_handlers: Default::default(),
@@ -44,9 +35,9 @@ impl<T, C> Default for EventHandlerGroup<T, C> {
   }
 }
 
-impl<T, C> EventHandlerGroup<T, C> {
+impl<C> EventHandlerGroup<C> {
   #[must_use]
-  pub fn with(mut self, handler: impl EventHandlerLike<T, C> + 'static) -> Self {
+  pub fn with(mut self, handler: impl EventHandlerLike<C> + 'static) -> Self {
     if handler.should_handle_in_bubble() {
       self.after_handlers.push(Box::new(handler));
     } else {
@@ -56,33 +47,29 @@ impl<T, C> EventHandlerGroup<T, C> {
   }
 }
 
-impl<T, C: Component<T>> ComponentAbility<T, C> for EventHandlerGroup<T, C> {
-  fn event(&mut self, model: &mut T, event: &mut EventCtx, inner: &mut C) {
+impl<C: Eventable> EventableNested<C> for EventHandlerGroup<C> {
+  fn event(&mut self, event: &mut EventCtx, inner: &mut C) {
     self
       .before_handlers
       .iter_mut()
-      .for_each(|handler| handler.handle_event(model, event, inner));
+      .for_each(|handler| handler.handle_event(event, inner));
 
-    inner.event(model, event);
+    inner.event(event);
 
     self
       .after_handlers
       .iter_mut()
-      .for_each(|handler| handler.handle_event(model, event, inner));
-  }
-
-  fn update(&mut self, model: &T, inner: &mut C, ctx: &mut UpdateCtx) {
-    inner.update(model, ctx);
+      .for_each(|handler| handler.handle_event(event, inner));
   }
 }
 
-impl<T, X, C: Presentable> PresentableAbility<C> for EventHandlerGroup<T, X> {
+impl<X, C: Presentable> PresentableNested<C> for EventHandlerGroup<X> {
   fn render(&mut self, builder: &mut PresentationBuilder, inner: &mut C) {
     inner.render(builder);
   }
 }
 
-impl<T, X, C: LayoutAble> LayoutAbility<C> for EventHandlerGroup<T, X> {
+impl<X, C: LayoutAble> LayoutAbleNested<C> for EventHandlerGroup<X> {
   fn layout(
     &mut self,
     constraint: LayoutConstraint,
@@ -97,41 +84,16 @@ impl<T, X, C: LayoutAble> LayoutAbility<C> for EventHandlerGroup<T, X> {
   }
 }
 
-impl<T, X, C: HotAreaProvider> HotAreaPassBehavior<C> for EventHandlerGroup<T, X> {
+impl<X, C: HotAreaProvider> HotAreaNested<C> for EventHandlerGroup<X> {
   fn is_point_in(&self, point: crate::UIPosition, inner: &C) -> bool {
     inner.is_point_in(point)
   }
 }
 
-impl<T, X: EventHandlerType> EventHandler<T, X> {
-  pub fn by(fun: impl Fn(&mut T, &mut EventHandleCtx, &X::Event) + 'static) -> Self {
-    Self {
-      state: Default::default(),
-      handler: Box::new(fun),
-    }
-  }
-
-  pub fn by_state(
-    state: X,
-    fun: impl Fn(&mut T, &mut EventHandleCtx, &X::Event) + 'static,
-  ) -> Self {
-    Self {
-      state,
-      handler: Box::new(fun),
-    }
-  }
-}
-
-impl<C, T, X: EventHandlerImpl<C>> EventHandlerLike<T, C> for EventHandler<T, X> {
-  fn handle_event(&mut self, model: &mut T, event: &mut EventCtx, inner: &mut C) {
-    event.custom_event.update();
+impl<C, X: EventHandlerImpl<C>> EventHandlerLike<C> for EventHandler<X> {
+  fn handle_event(&mut self, event: &mut EventCtx, inner: &mut C) {
     if let Some(e) = self.state.downcast_event(event, inner) {
-      let mut ctx = EventHandleCtx {
-        custom_event_emitter: Default::default(),
-      };
-      (self.handler)(model, &mut ctx, e);
-      event.view_may_changed = true;
-      event.custom_event.merge(ctx.custom_event_emitter);
+      self.events.emit(e)
     }
   }
   fn should_handle_in_bubble(&self) -> bool {
@@ -139,31 +101,27 @@ impl<C, T, X: EventHandlerImpl<C>> EventHandlerLike<T, C> for EventHandler<T, X>
   }
 }
 
-impl<T, X: EventHandlerImpl<C>, C: Component<T>> ComponentAbility<T, C> for EventHandler<T, X> {
-  fn event(&mut self, model: &mut T, event: &mut EventCtx, inner: &mut C) {
+impl<X: EventHandlerImpl<C>, C: Eventable> EventableNested<C> for EventHandler<X> {
+  fn event(&mut self, event: &mut EventCtx, inner: &mut C) {
     if !self.state.should_handle_in_bubble() {
-      self.handle_event(model, event, inner);
+      self.handle_event(event, inner);
     }
 
-    inner.event(model, event);
+    inner.event(event);
 
     if self.state.should_handle_in_bubble() {
-      self.handle_event(model, event, inner);
+      self.handle_event(event, inner);
     }
-  }
-
-  fn update(&mut self, model: &T, inner: &mut C, ctx: &mut UpdateCtx) {
-    inner.update(model, ctx);
   }
 }
 
-impl<T, X: EventHandlerType, C: Presentable> PresentableAbility<C> for EventHandler<T, X> {
+impl<X: EventHandlerType, C: Presentable> PresentableNested<C> for EventHandler<X> {
   fn render(&mut self, builder: &mut PresentationBuilder, inner: &mut C) {
     inner.render(builder);
   }
 }
 
-impl<T, X: EventHandlerType, C: LayoutAble> LayoutAbility<C> for EventHandler<T, X> {
+impl<X: EventHandlerType, C: LayoutAble> LayoutAbleNested<C> for EventHandler<X> {
   fn layout(
     &mut self,
     constraint: LayoutConstraint,
@@ -178,14 +136,14 @@ impl<T, X: EventHandlerType, C: LayoutAble> LayoutAbility<C> for EventHandler<T,
   }
 }
 
-impl<T, X: EventHandlerType, C: HotAreaProvider> HotAreaPassBehavior<C> for EventHandler<T, X> {
+impl<X: EventHandlerType, C: HotAreaProvider> HotAreaNested<C> for EventHandler<X> {
   fn is_point_in(&self, point: crate::UIPosition, inner: &C) -> bool {
     inner.is_point_in(point)
   }
 }
 
 pub trait EventHandlerType: Default {
-  type Event;
+  type Event: 'static;
 }
 
 pub trait EventHandlerImpl<C>: EventHandlerType {
@@ -197,7 +155,7 @@ pub trait EventHandlerImpl<C>: EventHandlerType {
 
 #[derive(Default)]
 pub struct MouseDown;
-pub type MouseDownHandler<T> = EventHandler<T, MouseDown>;
+pub type MouseDownHandler = EventHandler<MouseDown>;
 impl EventHandlerType for MouseDown {
   type Event = ();
 }
@@ -214,7 +172,7 @@ impl<C: HotAreaProvider> EventHandlerImpl<C> for MouseDown {
 
 #[derive(Default)]
 pub struct MouseUp;
-pub type MouseUpHandler<T> = EventHandler<T, MouseUp>;
+pub type MouseUpHandler = EventHandler<MouseUp>;
 impl EventHandlerType for MouseUp {
   type Event = ();
 }
@@ -234,7 +192,7 @@ pub struct Click {
   mouse_down: bool,
 }
 
-pub type ClickHandler<T> = EventHandler<T, Click>;
+pub type ClickHandler = EventHandler<Click>;
 impl EventHandlerType for Click {
   type Event = ();
 }
@@ -256,7 +214,7 @@ impl<C: HotAreaProvider> EventHandlerImpl<C> for Click {
 
 #[derive(Default)]
 pub struct MouseMove;
-pub type MouseMoveHandler<T> = EventHandler<T, MouseMove>;
+pub type MouseMoveHandler = EventHandler<MouseMove>;
 impl EventHandlerType for MouseMove {
   type Event = ();
 }
@@ -276,7 +234,7 @@ pub struct MouseIn {
   is_mouse_in: bool,
 }
 
-pub type MouseInHandler<T> = EventHandler<T, MouseIn>;
+pub type MouseInHandler = EventHandler<MouseIn>;
 impl EventHandlerType for MouseIn {
   type Event = ();
 }
@@ -301,7 +259,7 @@ impl<C: HotAreaProvider> EventHandlerImpl<C> for MouseIn {
 pub struct MouseOut {
   is_mouse_in: bool,
 }
-pub type MouseOutHandler<T> = EventHandler<T, MouseOut>;
+pub type MouseOutHandler = EventHandler<MouseOut>;
 impl EventHandlerType for MouseOut {
   type Event = ();
 }
@@ -345,30 +303,4 @@ pub fn mouse_move(event: &Event<()>) -> Option<winit::dpi::PhysicalPosition<f64>
     WindowEvent::CursorMoved { position, .. } => Some(*position),
     _ => None,
   })
-}
-
-pub type SimpleHandler<E, T> = EventHandler<T, StatelessHandler<E>>;
-
-pub struct StatelessHandler<T>(PhantomData<T>, bool);
-
-pub fn simple_handle_in_bubble<T>() -> StatelessHandler<T> {
-  StatelessHandler(Default::default(), true)
-}
-
-impl<T> Default for StatelessHandler<T> {
-  fn default() -> Self {
-    Self(Default::default(), false)
-  }
-}
-
-impl<E> EventHandlerType for StatelessHandler<E> {
-  type Event = E;
-}
-impl<E: Any, C> EventHandlerImpl<C> for StatelessHandler<E> {
-  fn downcast_event<'a>(&mut self, event: &'a mut EventCtx, _inner: &C) -> Option<&'a Self::Event> {
-    event.custom_event.consume_if_type_is::<E>()
-  }
-  fn should_handle_in_bubble(&self) -> bool {
-    self.1
-  }
 }

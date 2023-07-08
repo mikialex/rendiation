@@ -119,7 +119,7 @@ impl<T: IncrementalBase> SceneItemRef<T> {
     U: Send + Sync + 'static,
   {
     let inner = self.read();
-    inner.listen_by::<DefaultUnboundChannel, _>(mapper)
+    inner.listen_by::<DefaultUnboundChannel, _, U>(mapper)
   }
 
   pub fn single_listen_by<U>(
@@ -130,7 +130,7 @@ impl<T: IncrementalBase> SceneItemRef<T> {
     U: Send + Sync + 'static,
   {
     let inner = self.read();
-    inner.listen_by::<DefaultSingleValueChannel, _>(mapper)
+    inner.listen_by::<DefaultSingleValueChannel, _, U>(mapper)
   }
 
   pub fn listen_by<C, U>(
@@ -138,11 +138,11 @@ impl<T: IncrementalBase> SceneItemRef<T> {
     mapper: impl FnMut(MaybeDeltaRef<T>, &dyn Fn(U)) + Send + Sync + 'static,
   ) -> impl Stream<Item = U>
   where
-    C: ChannelLike<U>,
+    C: ChannelLike<U, Message = U>,
     U: Send + Sync + 'static,
   {
     let inner = self.read();
-    inner.listen_by::<C, _>(mapper)
+    inner.listen_by::<C, _, U>(mapper)
   }
 
   pub fn create_drop(&self) -> impl Future<Output = ()> {
@@ -159,16 +159,16 @@ impl<T: IncrementalBase> Identity<T> {
   where
     U: Send + Sync + 'static,
   {
-    self.listen_by::<DefaultUnboundChannel, _>(mapper)
+    self.listen_by::<DefaultUnboundChannel, _, U>(mapper)
   }
 
-  pub fn listen_by<C, U>(
+  pub fn listen_by<C, U, N>(
     &self,
     mut mapper: impl FnMut(MaybeDeltaRef<T>, &dyn Fn(U)) + Send + Sync + 'static,
-  ) -> impl Stream<Item = U>
+  ) -> impl Stream<Item = N>
   where
     U: Send + Sync + 'static,
-    C: ChannelLike<U>,
+    C: ChannelLike<U, Message = N>,
   {
     let (sender, receiver) = C::build();
     let sender_c = sender.clone();

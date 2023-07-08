@@ -1,5 +1,4 @@
-use std::collections::*;
-
+use fast_hash_collection::*;
 use linked_hash_set::*;
 
 use crate::*;
@@ -9,14 +8,14 @@ pub struct CodeGenCtx {
   scopes: Vec<CodeGenScopeCtx>,
 
   /// first generated uniform structs(recursively)
-  generated_uniform_types: HashSet<&'static ShaderStructMetaInfo>,
+  generated_uniform_types: FastHashSet<&'static ShaderStructMetaInfo>,
 
   /// new collected(recursively) in main function logic, deduplicate by self
   depend_functions: LinkedHashSet<&'static ShaderFunctionMetaInfo>,
   /// new collected(recursively) in main function logic, deduplicate by self and uniform ones
   depend_types: LinkedHashSet<&'static ShaderStructMetaInfo>,
 
-  uniform_array_wrappers: HashSet<ReWrappedPrimitiveArrayItem>,
+  uniform_array_wrappers: FastHashSet<ReWrappedPrimitiveArrayItem>,
 }
 
 impl Default for CodeGenCtx {
@@ -123,7 +122,7 @@ impl CodeGenCtx {
 
 #[derive(Default)]
 pub struct CodeGenScopeCtx {
-  pub code_gen_history: HashMap<ShaderGraphNodeRawHandle, MiddleVariableCodeGenResult>,
+  pub code_gen_history: FastHashMap<ShaderGraphNodeRawHandle, MiddleVariableCodeGenResult>,
 }
 
 impl CodeGenScopeCtx {

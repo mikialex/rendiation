@@ -2,7 +2,7 @@ use crate::*;
 
 pub struct GlyphCache {
   packer: GlyphPacker,
-  queue: HashMap<(GlyphID, NormalizedGlyphRasterInfo), GlyphRasterInfo>,
+  queue: FastHashMap<(GlyphID, NormalizedGlyphRasterInfo), GlyphRasterInfo>,
   current_size: Size,
   tolerance: GlyphRasterTolerance,
 }

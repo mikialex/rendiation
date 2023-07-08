@@ -115,7 +115,7 @@ pub struct ShadowMapAllocatorImpl {
   map: GPU2DArrayDepthTextureView,
   sampler: GPUComparisonSamplerView,
   size_all: webgpu::Extent3d,
-  allocations: HashMap<usize, LiveAllocation>,
+  allocations: FastHashMap<usize, LiveAllocation>,
 }
 
 struct LiveAllocation {

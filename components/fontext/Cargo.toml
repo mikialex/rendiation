@@ -13,6 +13,7 @@ rendiation-color = {path = "../color"}
 rendiation-geometry = {path = "../../math/geometry"}
 rendiation-texture = {path = "../texture/core"}
 rendiation-texture-packer = {path = "../texture/packer"}
+fast-hash-collection = {path = "../../utils/fast-hash-collection"}
 
 glyph_brush = {version = "0.7", optional = true}
 

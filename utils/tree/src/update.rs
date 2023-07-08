@@ -3,7 +3,6 @@ use std::ops::Deref;
 use futures::{Stream, StreamExt};
 use incremental::IncrementalBase;
 use reactive::{do_updates, SignalStreamExt, StreamForker};
-use smallvec::SmallVec;
 
 use crate::*;
 
@@ -80,7 +79,7 @@ pub struct DerivedData<T, M> {
 pub struct TreeHierarchyDerivedSystem<T: IncrementalBase, Dirty> {
   derived_tree: Arc<RwLock<TreeCollection<DerivedData<T, Dirty>>>>,
   // we use boxed here to avoid another generic for tree delta input stream
-  pub derived_stream: StreamForker<Box<dyn Stream<Item = (usize, Option<T::Delta>)> + Unpin>>,
+  pub derived_stream: StreamForker<Box<dyn Stream<Item = Vec<(usize, Option<T::Delta>)>> + Unpin>>,
 }
 
 impl<T: IncrementalBase, M> Clone for TreeHierarchyDerivedSystem<T, M> {
@@ -105,24 +104,22 @@ impl<T: IncrementalBase, Dirty> TreeHierarchyDerivedSystem<T, Dirty> {
   }
 
   pub fn new<B, TREE, S, M>(
-    tree_delta: impl Stream<Item = TreeMutation<S>> + 'static,
+    tree_delta: impl Stream<Item = Vec<TreeMutation<S>>> + 'static,
     source_tree: &SharedTreeCollection<TREE>,
   ) -> TreeHierarchyDerivedSystem<T, B::Dirty>
   where
-    B: TreeIncrementalDeriveBehavior<T, S, M, TREE, Dirty = Dirty>,
+    B: TreeIncrementalDeriveBehavior<T, S, M, TREE::Core, Dirty = Dirty>,
     S: IncrementalBase,
     T: HierarchyDerivedBase<Source = S>,
     Dirty: Default + 'static,
     M: HierarchyDirtyMark,
-    TREE: 'static,
+    TREE: ShareCoreTree + 'static,
   {
     let derived_tree = Arc::new(RwLock::new(
       TreeCollection::<DerivedData<T, B::Dirty>>::default(),
     ));
 
     let derived_tree_c = derived_tree.clone();
-    let derived_tree_cc = derived_tree_c.clone();
-
     let source_tree = source_tree.clone();
 
     enum MarkingResult<T, Dirty> {
@@ -134,97 +131,105 @@ impl<T: IncrementalBase, Dirty> TreeHierarchyDerivedSystem<T, Dirty> {
     let derived_stream = tree_delta
       // mark stage
       // do dirty marking, return if should trigger hierarchy change, and the update root
-      .map(move |delta| {
-        let mut deltas = SmallVec::<[_; 2]>::new();
+      .map(move |deltas| {
+        let mut marking_results = Vec::with_capacity(deltas.len()); // should be upper bound
+        let mut derived_deltas = Vec::with_capacity(deltas.len()); // just estimation
         let mut derived_tree = derived_tree_c.write().unwrap();
-        let marking = match delta {
-          // simply create the default derived. insert into derived tree.
-          // we don't care the returned handle, as we assume they are allocated in the same position
-          // in the original tree.
-          TreeMutation::Create { data, .. } => {
-            let data = T::build_default(&data);
-            let node = derived_tree.create_node(DerivedData {
-              data: data.clone(),
-              dirty: Default::default(),
-            });
-            deltas.push(MarkingResult::Create(node.index(), data));
-            B::marking_dirty(&mut derived_tree, node, M::all_dirty())
+
+        // mark stage
+        // do dirty marking, return if should trigger hierarchy change, and the update root
+        for delta in deltas {
+          let marking = match delta {
+            // simply create the default derived. insert into derived tree.
+            // we don't care the returned handle, as we assume they are allocated in the same
+            // position in the original tree.
+            TreeMutation::Create { data, .. } => {
+              let data = T::build_default(&data);
+              let node = derived_tree.create_node(DerivedData {
+                data: data.clone(),
+                dirty: Default::default(),
+              });
+              marking_results.push(MarkingResult::Create(node.index(), data));
+              B::marking_dirty(&mut derived_tree, node, M::all_dirty())
+            }
+            // do pair remove in derived tree
+            TreeMutation::Delete(handle) => {
+              let handle = derived_tree.recreate_handle(handle);
+              derived_tree.delete_node(handle);
+              marking_results.push(MarkingResult::Remove(handle.index()));
+              continue;
+            }
+            // check if have any hierarchy effect, and do marking
+            TreeMutation::Mutate { node, delta } => {
+              let handle = derived_tree.recreate_handle(node);
+              B::filter_hierarchy_change(&delta)
+                .and_then(|dirty_mark| B::marking_dirty(&mut derived_tree, handle, dirty_mark))
+            }
+            // like update, and we will emit full dirty change
+            TreeMutation::Attach {
+              parent_target,
+              node,
+            } => {
+              let parent_target = derived_tree.recreate_handle(parent_target);
+              let node = derived_tree.recreate_handle(node);
+              derived_tree.node_add_child_by(parent_target, node).ok();
+              B::marking_dirty(&mut derived_tree, node, M::all_dirty())
+            }
+            // ditto
+            TreeMutation::Detach { node } => {
+              let node = derived_tree.recreate_handle(node);
+              derived_tree.node_detach_parent(node).ok();
+              B::marking_dirty(&mut derived_tree, node, M::all_dirty())
+            }
+          };
+          if let Some(marking) = marking {
+            marking_results.push(MarkingResult::UpdateRoot(marking));
           }
-          // do pair remove in derived tree
-          TreeMutation::Delete(handle) => {
-            let handle = derived_tree.recreate_handle(handle);
-            derived_tree.delete_node(handle);
-            deltas.push(MarkingResult::Remove(handle.index()));
-            return futures::stream::iter(deltas);
-          }
-          // check if have any hierarchy effect, and do marking
-          TreeMutation::Mutate { node, delta } => {
-            let handle = derived_tree.recreate_handle(node);
-            B::filter_hierarchy_change(&delta)
-              .and_then(|dirty_mark| B::marking_dirty(&mut derived_tree, handle, dirty_mark))
-          }
-          // like update, and we will emit full dirty change
-          TreeMutation::Attach {
-            parent_target,
-            node,
-          } => {
-            let parent_target = derived_tree.recreate_handle(parent_target);
-            let node = derived_tree.recreate_handle(node);
-            derived_tree.node_add_child_by(parent_target, node).ok();
-            B::marking_dirty(&mut derived_tree, node, M::all_dirty())
-          }
-          // ditto
-          TreeMutation::Detach { node } => {
-            let node = derived_tree.recreate_handle(node);
-            derived_tree.node_detach_parent(node).ok();
-            B::marking_dirty(&mut derived_tree, node, M::all_dirty())
-          }
-        };
-        if let Some(marking) = marking {
-          deltas.push(MarkingResult::UpdateRoot(marking));
         }
-        futures::stream::iter(deltas)
-      })
-      .flatten()
-      .buffered_unbound() // to make sure all markup finished
-      .map(move |marking_result| {
-        // this allocation can not removed, but could we calculate correct capacity or reuse the
-        // allocation?
-        let mut derived_deltas = Vec::new();
-        match marking_result {
-          MarkingResult::UpdateRoot(update_root) => {
-            let mut derived_tree = derived_tree_cc.write().unwrap();
-            // do full tree traverse check, emit all real update as stream
-            let tree: &TREE = &source_tree.inner;
 
-            // node maybe deleted
-            let node_has_deleted = !derived_tree.is_handle_valid(update_root);
+        // update stage
+        for marking_result in marking_results {
+          match marking_result {
+            MarkingResult::UpdateRoot(update_root) => {
+              // do full tree traverse check, emit all real update as stream
+              let tree: &TREE = &source_tree.inner;
 
-            if !node_has_deleted {
-              // if the previous emitted update root is attached to another tree, the new attached
-              // tree contains new root that should override the current update root.
-              let update_root_is_not_valid = derived_tree.get_node(update_root).parent.is_some();
+              // node maybe deleted
+              let node_has_deleted = !derived_tree.is_handle_valid(update_root);
 
-              if !update_root_is_not_valid {
-                B::update_derived(tree, &mut derived_tree, update_root, &mut |delta| {
-                  derived_deltas.push((delta.0, Some(delta.1)));
-                });
+              if !node_has_deleted {
+                // if the previous emitted update root is attached to another tree, the new attached
+                // tree contains new root that should override the current update root.
+                let update_root_is_not_valid = derived_tree.get_node(update_root).parent.is_some();
+
+                if !update_root_is_not_valid {
+                  // note, the source tree maybe mutate by other thread in parallel
+                  // we must hold a entire tree lock when visit origin tree.
+                  // because try recreate handle maybe failed, and even it succeeded, we can not
+                  // sure if the recreated handle is valid when get the data we
+                  // still could get corrupt data. so we have to use a large lock
+                  // here
+                  tree.visit_core_tree(|tree| {
+                    B::update_derived(tree, &mut derived_tree, update_root, &mut |delta| {
+                      derived_deltas.push((delta.0, Some(delta.1)));
+                    });
+                  });
+                }
               }
             }
-          }
-          MarkingResult::Remove(idx) => derived_deltas.push((idx, None)),
-          MarkingResult::Create(idx, created) => {
-            // we can not use the derived tree data because the previous delta is buffered, and the
-            // node at given index maybe removed by later message
-            created.expand(|d| derived_deltas.push((idx, Some(d))))
+            MarkingResult::Remove(idx) => derived_deltas.push((idx, None)),
+            MarkingResult::Create(idx, created) => {
+              // we can not use the derived tree data because the previous delta is buffered, and
+              // the node at given index maybe removed by later message
+              created.expand(|d| derived_deltas.push((idx, Some(d))))
+            }
           }
         }
 
-        futures::stream::iter(derived_deltas)
-      })
-      .flatten(); // we want all change here, not signal
+        derived_deltas
+      });
 
-    let boxed: Box<dyn Stream<Item = (usize, Option<T::Delta>)> + Unpin> =
+    let boxed: Box<dyn Stream<Item = Vec<(usize, Option<T::Delta>)>> + Unpin> =
       Box::new(Box::pin(derived_stream));
 
     Self {
@@ -259,8 +264,7 @@ impl<T: IncrementalBase, M, TREE, X> TreeIncrementalDeriveBehavior<T, T::Source,
 where
   T: IncrementalHierarchyDerived<DirtyMark = M>,
   M: HierarchyDirtyMark,
-  // todo add a trait extract the common part of core tree and share core tree
-  TREE: ShareCoreTree<Node = X>,
+  TREE: CoreTree<Node = X>,
   X: Deref<Target = T::Source>,
 {
   type Dirty = ParentTreeDirty<M>;
@@ -330,16 +334,15 @@ where
       } else {
         let parent = parent.map(|parent| &parent.data().data);
 
-        let source_node = source_tree.recreate_handle(node_index);
-
-        source_tree.visit_node_data(source_node, |source_node| {
+        // the source tree maybe out of sync if the other thread mutate the source tree in parallel
+        if let Some(source_node) = source_tree.try_recreate_handle(node_index) {
           derived.data.hierarchy_update(
-            source_node.deref(),
+            source_tree.get_node_data(source_node).deref(),
             parent,
             &derived.dirty.sub_tree_dirty_mark_all,
             |delta| derived_delta_sender((node_index, delta)),
           );
-        });
+        }
 
         derived.dirty.sub_tree_dirty_mark_any = T::DirtyMark::default();
         derived.dirty.sub_tree_dirty_mark_all = T::DirtyMark::default();
@@ -361,7 +364,7 @@ impl<T: IncrementalBase, M, TREE, X> TreeIncrementalDeriveBehavior<T, T::Source,
 where
   T: IncrementalChildrenHierarchyDerived<DirtyMark = M>,
   M: HierarchyDirtyMark,
-  TREE: ShareCoreTree<Node = X>,
+  TREE: CoreTree<Node = X>,
   X: Deref<Target = T::Source>,
 {
   type Dirty = M;
@@ -415,10 +418,10 @@ where
       );
     });
 
-    let source_node = source_tree.recreate_handle(node_index);
-    source_tree.visit_node_data(source_node, |source_node| {
+    // the source tree maybe out of sync if the other thread mutate the source tree in parallel
+    if let Some(source_node) = source_tree.try_recreate_handle(node_index) {
       node_data.data.hierarchy_children_update(
-        source_node.deref(),
+        source_tree.get_node_data(source_node).deref(),
         |child_visitor| {
           node.visit_children_mut(|node| {
             let node_data = &unsafe { &mut (*node.node) }.data.data;
@@ -428,6 +431,6 @@ where
         &node_data.dirty,
         &mut |delta| derived_delta_sender((node_index, delta)),
       );
-    });
+    }
   }
 }

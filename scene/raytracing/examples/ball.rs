@@ -8,7 +8,7 @@ fn main() {
 
   let mut frame = Frame::new(500, 500);
 
-  let mut scene = SceneInner::new().0;
+  let mut scene = SceneImpl::new().0;
 
   let perspective = make_perspective();
   let perspective = CameraProjector::Perspective(perspective);

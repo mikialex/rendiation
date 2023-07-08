@@ -19,14 +19,14 @@ impl TextCache {
 #[derive(Default)]
 pub struct TextCachePool {
   /// this cache maintained the all text cache
-  layout_cache: HashMap<TextHash, Rc<LayoutedTextGlyphs>>,
+  layout_cache: FastHashMap<TextHash, Rc<LayoutedTextGlyphs>>,
 
   /// this cache maintained the all text has already generated gpu vertex buffer.
-  gpu_cache: HashSet<TextHash>,
+  gpu_cache: FastHashSet<TextHash>,
   gpu_cache_to_delete: Vec<TextHash>,
 
   /// this cache maintained the all text need rendered in this frame
-  queue: HashSet<TextHash>,
+  queue: FastHashSet<TextHash>,
 }
 
 #[derive(Clone)]

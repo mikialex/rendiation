@@ -6,4 +6,5 @@ version = "0.1.0"
 
 [dependencies]
 shadergraph = {path = "../../../graph"}
+fast-hash-collection = {path = "../../../../utils/fast-hash-collection"}
 linked_hash_set = "0.1.4"

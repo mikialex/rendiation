@@ -33,7 +33,6 @@ pub trait PainterAPI {
   fn draw_bake(&mut self, p: &Self::Baked);
   fn bake(self) -> Self::Baked;
 
-  fn draw_baked(&mut self, baked: Self::Baked);
   fn stroke_shape(&mut self, shape: &Shape, style: &StrokeStyle);
   fn fill_shape(&mut self, shape: &Shape, style: &FillStyle);
 

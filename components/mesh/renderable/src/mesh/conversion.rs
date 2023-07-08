@@ -9,13 +9,10 @@
 // indexed -> noneIndexed expand?
 // noneIndexed -> indexed indexed?
 
-use std::{
-  cmp::Ordering,
-  collections::{HashMap, HashSet},
-  iter::FromIterator,
-  ops::Deref,
-};
+use std::hash::Hash;
+use std::{cmp::Ordering, iter::FromIterator, ops::Deref};
 
+use fast_hash_collection::*;
 use rendiation_algebra::{InnerProductSpace, Vec3};
 use rendiation_geometry::{LineSegment, Triangle};
 
@@ -33,7 +30,7 @@ where
   where
     RIU: FromIterator<IU::Output>,
   {
-    let mut deduplicate_set = HashSet::<LineSegment<IU::Output>>::new();
+    let mut deduplicate_set = FastHashSet::<LineSegment<IU::Output>>::default();
     self
       .primitive_iter()
       .zip(self.as_index_view().primitive_iter())
@@ -64,7 +61,7 @@ where
   /// non manifold mesh may affect result
   pub fn create_edge(&self, edge_threshold_angle: f32) -> NoneIndexedMesh<LineList, U> {
     // Map: edge id => (edge face idA, edge face idB(optional));
-    let mut edges = HashMap::<LineSegment<IU::Output>, (usize, Option<usize>)>::new();
+    let mut edges = FastHashMap::<LineSegment<IU::Output>, (usize, Option<usize>)>::default();
     self
       .primitive_iter()
       .zip(self.as_index_view().primitive_iter())
@@ -159,7 +156,7 @@ where
 impl<T, U> NoneIndexedMesh<T, U>
 where
   U: VertexContainer,
-  U::Output: HashAbleByConversion + Copy,
+  U::Output: Eq + Hash + Copy,
   for<'a> &'a U: IntoIterator<Item = &'a U::Output>,
   Self: AbstractMesh,
 {
@@ -167,13 +164,11 @@ where
   where
     IU: TryFromIterator<usize>,
   {
-    let mut deduplicate_map =
-      HashMap::<<U::Output as HashAbleByConversion>::HashAble, usize>::new();
+    let mut deduplicate_map = FastHashMap::<U::Output, usize>::default();
     let mut deduplicate_buffer = Vec::with_capacity(self.data.len());
     let data = &self.data;
     let index = IU::try_from_iter(data.into_iter().map(|v| {
-      let h = v.to_hashable();
-      *deduplicate_map.entry(h).or_insert_with(|| {
+      *deduplicate_map.entry(*v).or_insert_with(|| {
         deduplicate_buffer.push(*v);
         deduplicate_buffer.len() - 1
       })

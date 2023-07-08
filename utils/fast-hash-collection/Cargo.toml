@@ -1,0 +1,7 @@
+[package]
+edition = "2021"
+name = "fast-hash-collection"
+version = "0.0.1"
+
+[dependencies]
+rustc-hash = "1.1.0"

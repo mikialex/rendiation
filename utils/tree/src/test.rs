@@ -126,7 +126,7 @@ fn test_inc_update() {
   let tree = SharedTreeCollection::<
     ReactiveTreeCollection<RwLock<TreeCollection<TestNode>>, TestNode>,
   >::default();
-  let stream = tree.inner().source.unbound_listen();
+  let stream = tree.inner().source.batch_listen();
   let mut tree_sys =
     TreeHierarchyDerivedSystem::<TestNodeDerived, ParentTreeDirty<ValueSumIsDirty>>::new::<
       ParentTree,

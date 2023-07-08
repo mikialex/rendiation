@@ -1,5 +1,4 @@
-use std::collections::{HashMap, HashSet};
-
+use fast_hash_collection::*;
 use rendiation_texture::TextureRange;
 
 use crate::*;
@@ -7,7 +6,7 @@ use crate::*;
 pub struct ShelfPacker {
   config: PackerConfig,
 
-  packed: HashMap<PackId, (TextureRange, usize, usize)>,
+  packed: FastHashMap<PackId, (TextureRange, usize, usize)>,
   allocator: RowAllocator<Shelf>,
 }
 
@@ -52,15 +51,15 @@ impl ShelfPacker {
 
 struct RowAllocator<T> {
   id: usize,
-  sections: HashMap<usize, T>,
-  free: HashSet<usize>,
+  sections: FastHashMap<usize, T>,
+  free: FastHashSet<usize>,
 }
 
 impl<T: SectionLike> RowAllocator<T> {
   fn new(init: T) -> Self {
-    let mut sections = HashMap::new();
+    let mut sections = FastHashMap::default();
     sections.insert(0, init);
-    let mut free = HashSet::new();
+    let mut free = FastHashSet::default();
     free.insert(0);
     Self {
       id: 0,

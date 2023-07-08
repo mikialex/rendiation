@@ -54,7 +54,7 @@ type SceneGPUUpdateSource = impl Stream<Item = ()> + Unpin;
 
 impl SceneGPUSystem {
   pub fn new(
-    scene: &Scene,
+    scene: &SceneCore,
     derives: &SceneNodeDeriveSystem,
     contents: Arc<RwLock<ContentGPUSystem>>,
   ) -> Self {

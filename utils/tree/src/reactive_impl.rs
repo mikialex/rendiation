@@ -24,8 +24,8 @@ where
 {
   type Node = T::Node;
   type Handle = TreeNodeHandle<T::Node>;
-  fn recreate_handle(&self, index: usize) -> Self::Handle {
-    self.inner.recreate_handle(index)
+  fn try_recreate_handle(&self, index: usize) -> Option<Self::Handle> {
+    self.inner.try_recreate_handle(index)
   }
 
   fn node_has_parent(&self, handle: Self::Handle) -> bool {
@@ -88,6 +88,11 @@ where
 {
   type Node = T::Node;
   type Handle = TreeNodeHandle<T::Node>;
+  type Core = T::Core;
+  fn visit_core_tree<R>(&self, v: impl FnOnce(&Self::Core) -> R) -> R {
+    self.inner.visit_core_tree(v)
+  }
+
   fn recreate_handle(&self, index: usize) -> Self::Handle {
     self.inner.recreate_handle(index)
   }
@@ -124,17 +129,23 @@ where
     parent: Self::Handle,
     child_to_attach: Self::Handle,
   ) -> Result<(), TreeMutationError> {
-    self.source.emit(&TreeMutation::Attach {
-      parent_target: parent.index(),
-      node: child_to_attach.index(),
-    });
+    // to prevent emit invalid event
+    if !self.node_has_parent(child_to_attach) {
+      self.source.emit(&TreeMutation::Attach {
+        parent_target: parent.index(),
+        node: child_to_attach.index(),
+      });
+    }
     self.inner.node_add_child_by(parent, child_to_attach)
   }
 
   fn node_detach_parent(&self, child_to_detach: Self::Handle) -> Result<(), TreeMutationError> {
-    self.source.emit(&TreeMutation::Detach {
-      node: child_to_detach.index(),
-    });
+    // to prevent emit invalid event
+    if self.node_has_parent(child_to_detach) {
+      self.source.emit(&TreeMutation::Detach {
+        node: child_to_detach.index(),
+      });
+    }
     self.inner.node_detach_parent(child_to_detach)
   }
 }

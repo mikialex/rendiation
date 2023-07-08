@@ -97,7 +97,7 @@ pub trait WebGPUScenePickingExt {
 
 use std::cmp::Ordering;
 
-impl WebGPUScenePickingExt for SceneInner {
+impl WebGPUScenePickingExt for SceneCoreImpl {
   fn build_interactive_ctx<'a>(
     &'a self,
     normalized_position: Vec2<f32>,

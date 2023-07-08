@@ -26,7 +26,7 @@ pub use lighting::*;
 use crate::*;
 
 pub struct SceneRenderResourceGroup<'a> {
-  pub scene: &'a SceneInner,
+  pub scene: &'a SceneCoreImpl,
   pub resources: &'a ContentGPUSystem,
   pub scene_resources: &'a SceneGPUSystem,
   pub node_derives: &'a SceneNodeDeriveSystem,

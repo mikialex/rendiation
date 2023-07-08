@@ -25,8 +25,6 @@ pub mod std140;
 use std::{
   any::{Any, TypeId},
   cell::{Cell, RefCell},
-  collections::HashMap,
-  collections::HashSet,
   hash::{Hash, Hasher},
   marker::PhantomData,
   ops::*,
@@ -36,6 +34,7 @@ use std::{
 
 use arena_graph::*;
 pub use bytemuck::*;
+use fast_hash_collection::*;
 pub use rendiation_algebra::*;
 pub use shader_derives::*;
 pub use std140::*;
