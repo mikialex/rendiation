@@ -50,7 +50,13 @@ impl AbsChild {
   }
 }
 
-trivial_stream_impl!(AbsChild);
+impl Stream for AbsChild {
+  type Item = ();
+
+  fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+    self.inner.poll_next_unpin(cx)
+  }
+}
 impl Eventable for AbsChild {
   fn event(&mut self, event: &mut EventCtx) {
     self.inner.event(event)

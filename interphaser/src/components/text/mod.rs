@@ -29,12 +29,12 @@ impl Default for TextLayoutConfig {
 }
 
 pub struct Text {
-  pub content: String,
-  pub layout_config: TextLayoutConfig,
-  pub update_source: Option<BoxedUnpinStream<String>>,
-  pub text_layout_cache: Option<TextLayoutRef>,
-  pub text_layout_size_cache: Option<UISize>,
-  pub layout_computed: LayoutUnit,
+  content: String,
+  layout_config: TextLayoutConfig,
+  update_source: Option<BoxedUnpinStream<String>>,
+  text_layout_cache: Option<TextLayoutRef>,
+  text_layout_size_cache: Option<UISize>,
+  layout_computed: LayoutUnit,
 }
 
 impl Stream for Text {
@@ -50,7 +50,8 @@ impl Stream for Text {
       })
     }
     if changed {
-      self.reset_text_layout_cache();
+      self.text_layout_cache = None;
+      self.text_layout_size_cache = None;
       Poll::Ready(().into())
     } else {
       Poll::Pending
@@ -83,14 +84,12 @@ impl Text {
     }
   }
 
-  pub fn set_updater(&mut self, updater: impl Stream<Item = String> + Unpin + 'static) {
-    self.update_source = Some(Box::new(updater))
+  pub fn get_content(&self) -> &str {
+    &self.content
   }
 
-  // todo, put it in setters
-  pub fn reset_text_layout_cache(&mut self) {
-    self.text_layout_cache = None;
-    self.text_layout_size_cache = None;
+  pub fn set_updater(&mut self, updater: impl Stream<Item = String> + Unpin + 'static) {
+    self.update_source = Some(Box::new(updater))
   }
 
   #[must_use]

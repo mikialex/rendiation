@@ -13,8 +13,8 @@ pub enum TextEditMessage {
 
 pub struct EditableText {
   text: Text,
+  editing: String,
   cursor: Option<Cursor>,
-  view_change: ViewUpdateNotifier,
   pub events: EventSource<TextEditMessage>,
   pub focus_input: Option<BoxedUnpinStream<()>>,
 }
@@ -26,7 +26,7 @@ impl EditableText {
 
   fn focus(&mut self) {
     if self.cursor.is_none() {
-      self.cursor = Cursor::new(self.text.content.len()).into();
+      self.cursor = Cursor::new(self.editing.len()).into();
     }
   }
 
@@ -35,7 +35,7 @@ impl EditableText {
   // so we simply clamp it
   fn clamp_cursor_position(&mut self) {
     if let Some(cursor) = &mut self.cursor {
-      cursor.set_index(cursor.get_index().clamp(0, self.text.content.len()));
+      cursor.set_index(cursor.get_index().clamp(0, self.editing.len()));
     }
   }
 
@@ -78,23 +78,26 @@ impl EditableText {
     }
     if let Some(cursor) = &mut self.cursor {
       let index = cursor.get_index();
-      self.text.content.insert(index, c);
-
-      self.text.reset_text_layout_cache();
+      self.editing.insert(index, c);
+      self
+        .events
+        .emit(&TextEditMessage::ContentChange(self.editing.clone()));
       cursor.notify_text_layout_changed();
       cursor.move_right();
     }
   }
 
   fn delete_at_cursor(&mut self) {
-    let content = &mut self.text.content;
+    let content = &mut self.editing;
     if let Some(cursor) = &mut self.cursor {
       if cursor.get_index() == 0 {
         // if cursor at first, cant delete
         return;
       }
       content.remove(cursor.get_index() - 1);
-      self.text.reset_text_layout_cache();
+      self
+        .events
+        .emit(&TextEditMessage::ContentChange(self.editing.clone()));
       cursor.notify_text_layout_changed();
       cursor.move_left();
     }
@@ -109,7 +112,7 @@ impl EditableText {
           }
         }
         CursorMove::Right => {
-          if cursor.get_index() != self.text.content.len() {
+          if cursor.get_index() != self.editing.len() {
             cursor.move_right();
           }
         }
@@ -134,26 +137,41 @@ impl EditableText {
 
 impl Text {
   pub fn editable(self) -> EditableText {
-    EditableText {
+    let editing = self.get_content().into();
+    let mut r = EditableText {
       text: self,
+      editing,
       cursor: None,
       events: Default::default(),
       focus_input: Default::default(),
-      view_change: Default::default(),
-    }
+    };
+
+    let updater = r.events.single_listen().filter_map_sync(|v| match v {
+      TextEditMessage::ContentChange(v) => Some(v),
+      _ => None,
+    });
+
+    // note, this will override the previous user set updater
+    r.text.set_updater(updater);
+    r
   }
 }
 
 impl Stream for EditableText {
   type Item = ();
   fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
-    let view_changed = self.view_change.poll_next_unpin(cx).is_ready();
     if let Some(inputs) = &mut self.focus_input {
       if let Poll::Ready(Some(())) = inputs.poll_next_unpin(cx) {
         self.focus();
-        self.view_change.notify();
       }
     }
+    let mut view_changed = false;
+    // if cursor created(when focused), we will not miss the init poll(here)
+    if let Some(cursor) = &mut self.cursor {
+      view_changed |= cursor.poll_next_unpin(cx).is_ready();
+    }
+
+    view_changed |= self.text.poll_next_unpin(cx).is_ready();
     if view_changed {
       Poll::Ready(().into())
     } else {
@@ -177,22 +195,16 @@ impl Eventable for EditableText {
               self
                 .events
                 .emit(&TextEditMessage::KeyboardInput(virtual_keycode));
-              self.view_change.notify();
             }
           }
         }
         WindowEvent::MouseInput { state, button, .. } => {
           if let (MouseButton::Left, ElementState::Pressed) = (button, state) {
             self.update_cursor_by_click(ctx.states.mouse_position, ctx.fonts, ctx.texts);
-            self.view_change.notify();
           }
         }
         WindowEvent::ReceivedCharacter(char) => {
           self.insert_at_cursor(*char);
-          self
-            .events
-            .emit(&TextEditMessage::ContentChange(self.text.content.clone()));
-          self.view_change.notify();
         }
         _ => {}
       },

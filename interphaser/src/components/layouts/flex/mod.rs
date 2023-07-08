@@ -1,3 +1,5 @@
+use std::ops::DerefMut;
+
 use crate::*;
 
 mod layout_impl;
@@ -130,7 +132,18 @@ impl Child {
   }
 }
 
-trivial_stream_impl!(Child);
+impl Stream for Child {
+  type Item = ();
+
+  fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+    let this = self.deref_mut();
+    match this {
+      Child::Fixed { widget, .. } => widget.poll_next_unpin(cx),
+      Child::Flex { widget, .. } => widget.poll_next_unpin(cx),
+      _ => Poll::Pending,
+    }
+  }
+}
 impl Eventable for Child {
   fn event(&mut self, event: &mut EventCtx) {
     match self {

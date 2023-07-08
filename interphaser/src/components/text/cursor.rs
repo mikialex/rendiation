@@ -4,6 +4,15 @@ pub struct Cursor {
   index: usize,
   position: Option<CursorPositionInfo>,
   update_timestamp: Instant,
+  change: ViewUpdateNotifier,
+}
+
+impl Stream for Cursor {
+  type Item = ();
+
+  fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+    self.change.poll_next_unpin(cx)
+  }
 }
 
 struct CursorPositionInfo {
@@ -25,6 +34,7 @@ impl Cursor {
       position: None,
       index,
       update_timestamp: Instant::now(),
+      change: Default::default(),
     }
   }
 
@@ -36,12 +46,14 @@ impl Cursor {
     self.index += 1;
     self.position = None;
     self.update_timestamp = Instant::now();
+    self.change.notify();
   }
 
   pub fn move_left(&mut self) {
     self.index -= 1;
     self.position = None;
     self.update_timestamp = Instant::now();
+    self.change.notify();
   }
 
   pub fn set_index(&mut self, index: usize) {
@@ -50,6 +62,7 @@ impl Cursor {
       self.update_timestamp = Instant::now();
     }
     self.index = index;
+    self.change.notify();
   }
 
   pub fn get_last_update_timestamp(&self) -> Instant {
@@ -58,6 +71,7 @@ impl Cursor {
 
   pub fn notify_text_layout_changed(&mut self) {
     self.position = None;
+    self.change.notify();
   }
 
   // todo fix!
