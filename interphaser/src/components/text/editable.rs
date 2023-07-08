@@ -1,34 +1,36 @@
+use std::time::Duration;
+
+use futures::Stream;
 use winit::event::VirtualKeyCode;
 
 use crate::*;
 
+#[derive(Clone)]
+pub enum TextEditMessage {
+  ContentChange(String),
+  KeyboardInput(VirtualKeyCode),
+}
+
 pub struct EditableText {
   text: Text,
+  editing: String,
   cursor: Option<Cursor>,
-}
-
-use std::{
-  ops::{Deref, DerefMut},
-  time::Duration,
-};
-impl Deref for EditableText {
-  type Target = Text;
-
-  fn deref(&self) -> &Self::Target {
-    &self.text
-  }
-}
-
-impl DerefMut for EditableText {
-  fn deref_mut(&mut self) -> &mut Self::Target {
-    &mut self.text
-  }
+  pub events: EventSource<TextEditMessage>,
+  pub update_source: Option<BoxedUnpinStream<String>>,
+  pub focus_input: Option<BoxedUnpinStream<()>>,
 }
 
 impl EditableText {
-  pub fn focus(&mut self) {
+  pub fn set_focus(&mut self, focus: impl Stream<Item = ()> + Unpin + 'static) {
+    self.focus_input = Some(Box::new(focus))
+  }
+  pub fn set_update_source(&mut self, source: impl Stream<Item = String> + Unpin + 'static) {
+    self.update_source = Some(Box::new(source))
+  }
+
+  fn focus(&mut self) {
     if self.cursor.is_none() {
-      self.cursor = Cursor::new(self.content.get().len()).into();
+      self.cursor = Cursor::new(self.editing.len()).into();
     }
   }
 
@@ -37,7 +39,7 @@ impl EditableText {
   // so we simply clamp it
   fn clamp_cursor_position(&mut self) {
     if let Some(cursor) = &mut self.cursor {
-      cursor.set_index(cursor.get_index().clamp(0, self.text.content.get().len()));
+      cursor.set_index(cursor.get_index().clamp(0, self.editing.len()));
     }
   }
 
@@ -74,31 +76,32 @@ impl EditableText {
     }
   }
 
-  fn insert_at_cursor(&mut self, c: char, model: &mut String) {
+  fn insert_at_cursor(&mut self, c: char) {
     if c.is_control() {
       return;
     }
     if let Some(cursor) = &mut self.cursor {
       let index = cursor.get_index();
-      model.insert(index, c);
-
-      self.text.content.set(model.clone());
-      self.text.reset_text_layout_cache();
+      self.editing.insert(index, c);
+      self
+        .events
+        .emit(&TextEditMessage::ContentChange(self.editing.clone()));
       cursor.notify_text_layout_changed();
       cursor.move_right();
     }
   }
 
-  fn delete_at_cursor(&mut self, model: &mut String) {
+  fn delete_at_cursor(&mut self) {
+    let content = &mut self.editing;
     if let Some(cursor) = &mut self.cursor {
       if cursor.get_index() == 0 {
         // if cursor at first, cant delete
         return;
       }
-      model.remove(cursor.get_index() - 1);
-
-      self.text.content.set(model.clone());
-      self.text.reset_text_layout_cache();
+      content.remove(cursor.get_index() - 1);
+      self
+        .events
+        .emit(&TextEditMessage::ContentChange(self.editing.clone()));
       cursor.notify_text_layout_changed();
       cursor.move_left();
     }
@@ -113,7 +116,7 @@ impl EditableText {
           }
         }
         CursorMove::Right => {
-          if cursor.get_index() != self.text.content.get().len() {
+          if cursor.get_index() != self.editing.len() {
             cursor.move_right();
           }
         }
@@ -123,14 +126,14 @@ impl EditableText {
     }
   }
 
-  fn handle_input(&mut self, key: winit::event::VirtualKeyCode, model: &mut String) {
+  fn handle_input(&mut self, key: winit::event::VirtualKeyCode) {
     use winit::event::VirtualKeyCode::*;
     match key {
       Left => self.move_cursor(CursorMove::Left),
       Up => self.move_cursor(CursorMove::Up),
       Right => self.move_cursor(CursorMove::Right),
       Down => self.move_cursor(CursorMove::Down),
-      Back => self.delete_at_cursor(model),
+      Back => self.delete_at_cursor(),
       _ => {}
     }
   }
@@ -138,62 +141,89 @@ impl EditableText {
 
 impl Text {
   pub fn editable(self) -> EditableText {
-    EditableText {
+    let editing = self.get_content().into();
+    let mut r = EditableText {
       text: self,
+      editing,
       cursor: None,
+      events: Default::default(),
+      focus_input: Default::default(),
+      update_source: Default::default(),
+    };
+
+    let updater = r.events.unbound_listen().filter_map_sync(|v| match v {
+      TextEditMessage::ContentChange(v) => Some(v),
+      _ => None,
+    });
+
+    // note, this will override the previous user set updater
+    r.text.set_updater(updater);
+    r
+  }
+}
+
+impl Stream for EditableText {
+  type Item = ();
+  fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+    if let Some(update_source) = &mut self.update_source {
+      if let Poll::Ready(Some(content)) = update_source.poll_next_unpin(cx) {
+        self.editing = content;
+        self
+          .events
+          .emit(&TextEditMessage::ContentChange(self.editing.clone()));
+      }
+    }
+
+    if let Some(inputs) = &mut self.focus_input {
+      if let Poll::Ready(Some(())) = inputs.poll_next_unpin(cx) {
+        self.focus();
+      }
+    }
+    let mut view_changed = false;
+    // if cursor created(when focused), we will not miss the init poll(here)
+    if let Some(cursor) = &mut self.cursor {
+      view_changed |= cursor.poll_next_unpin(cx).is_ready();
+    }
+
+    view_changed |= self.text.poll_next_unpin(cx).is_ready();
+    if view_changed {
+      Poll::Ready(().into())
+    } else {
+      Poll::Pending
     }
   }
 }
 
-pub struct FocusEditableText;
-pub struct TextChange(pub String);
-pub struct TextKeyboardInput(pub VirtualKeyCode);
-
-impl Component<String> for EditableText {
-  fn event(&mut self, model: &mut String, ctx: &mut EventCtx) {
-    self.text.event(model, ctx);
+impl Eventable for EditableText {
+  fn event(&mut self, ctx: &mut EventCtx) {
+    self.text.event(ctx);
 
     use winit::event::*;
-
-    if ctx
-      .custom_event
-      .consume_if_type_is::<FocusEditableText>()
-      .is_some()
-    {
-      self.focus()
-    }
 
     match ctx.event {
       Event::WindowEvent { event, .. } => match event {
         WindowEvent::KeyboardInput { input, .. } => {
           if let Some(virtual_keycode) = input.virtual_keycode {
             if input.state == ElementState::Pressed {
-              self.handle_input(virtual_keycode, model);
-              ctx.custom_event.emit(TextKeyboardInput(virtual_keycode))
+              self.handle_input(virtual_keycode);
+              self
+                .events
+                .emit(&TextEditMessage::KeyboardInput(virtual_keycode));
             }
           }
         }
         WindowEvent::MouseInput { state, button, .. } => {
           if let (MouseButton::Left, ElementState::Pressed) = (button, state) {
-            self.update_cursor_by_click(ctx.states.mouse_position, ctx.fonts, ctx.texts)
+            self.update_cursor_by_click(ctx.states.mouse_position, ctx.fonts, ctx.texts);
           }
         }
         WindowEvent::ReceivedCharacter(char) => {
-          self.insert_at_cursor(*char, model);
-          ctx
-            .custom_event
-            .emit(TextChange(self.content.get().clone()))
+          self.insert_at_cursor(*char);
         }
         _ => {}
       },
       _ => {}
     }
-  }
-
-  fn update(&mut self, model: &String, ctx: &mut UpdateCtx) {
-    self.text.content.set(model);
-    self.clamp_cursor_position();
-    self.text.update(model, ctx)
   }
 }
 
@@ -204,6 +234,7 @@ fn blink_show(dur: Duration) -> bool {
 
 impl Presentable for EditableText {
   fn render(&mut self, builder: &mut PresentationBuilder) {
+    self.clamp_cursor_position();
     self.text.render(builder);
     if let Some(cursor) = &mut self.cursor {
       if blink_show(cursor.get_last_update_timestamp().elapsed()) {

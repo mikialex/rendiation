@@ -4,8 +4,6 @@ use std::{
   rc::Rc,
 };
 
-use crate::EventHandleCtx;
-
 pub struct StateCell<T> {
   state: Rc<RefCell<T>>,
 }
@@ -37,23 +35,6 @@ impl<T> StateCell<T> {
     move || {
       self_clone.mutate(f);
     }
-  }
-
-  pub fn on_event<X, E>(
-    &self,
-    f: impl Fn(&mut T, &mut EventHandleCtx, &E) + Copy,
-  ) -> impl Fn(&mut X, &mut EventHandleCtx, &E) {
-    let self_clone = self.clone();
-    move |_x: &mut X, ctx: &mut EventHandleCtx, event: &E| {
-      f(self_clone.state.borrow_mut().deref_mut(), ctx, event)
-    }
-  }
-
-  pub fn on_event_trigger<X, E>(
-    &self,
-    f: impl Fn(&mut T) + Copy,
-  ) -> impl Fn(&mut X, &mut EventHandleCtx, &E) {
-    self.on_event(move |s, _, _| f(s))
   }
 }
 

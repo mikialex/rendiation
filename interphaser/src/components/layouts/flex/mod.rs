@@ -1,13 +1,13 @@
+use std::ops::DerefMut;
+
 use crate::*;
 
 mod layout_impl;
 
 pub use layout_impl::*;
 
-pub fn flex_group<T>() -> ComponentArray<Child<T>> {
-  ComponentArray {
-    children: Vec::new(),
-  }
+pub fn flex_group() -> ComponentArray<Child> {
+  Vec::new().into()
 }
 
 pub struct Flex {
@@ -83,15 +83,15 @@ impl Flex {
   }
 }
 
-pub enum Child<T> {
+pub enum Child {
   Fixed {
-    widget: Box<dyn UIComponent<T>>,
+    widget: Box<dyn Component>,
     result: LayoutResult,
     position: UIPosition,
     alignment: Option<CrossAxisAlignment>,
   },
   Flex {
-    widget: Box<dyn UIComponent<T>>,
+    widget: Box<dyn Component>,
     result: LayoutResult,
     position: UIPosition,
     alignment: Option<CrossAxisAlignment>,
@@ -101,8 +101,8 @@ pub enum Child<T> {
   FlexedSpacer(f32, f32),
 }
 
-impl<T> Child<T> {
-  pub fn fixed(widget: impl UIComponent<T> + 'static) -> Self {
+impl Child {
+  pub fn fixed(widget: impl Component + 'static) -> Self {
     Self::Fixed {
       widget: Box::new(widget),
       result: Default::default(),
@@ -111,7 +111,7 @@ impl<T> Child<T> {
     }
   }
 
-  pub fn flex(widget: impl UIComponent<T> + 'static, flex: f32) -> Self {
+  pub fn flex(widget: impl Component + 'static, flex: f32) -> Self {
     Self::Flex {
       widget: Box::new(widget),
       result: Default::default(),
@@ -132,25 +132,29 @@ impl<T> Child<T> {
   }
 }
 
-impl<T> Component<T> for Child<T> {
-  fn event(&mut self, model: &mut T, event: &mut EventCtx) {
-    match self {
-      Child::Fixed { widget, .. } => widget.event(model, event),
-      Child::Flex { widget, .. } => widget.event(model, event),
-      _ => {}
+impl Stream for Child {
+  type Item = ();
+
+  fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+    let this = self.deref_mut();
+    match this {
+      Child::Fixed { widget, .. } => widget.poll_next_unpin(cx),
+      Child::Flex { widget, .. } => widget.poll_next_unpin(cx),
+      _ => Poll::Pending,
     }
   }
-
-  fn update(&mut self, model: &T, ctx: &mut UpdateCtx) {
+}
+impl Eventable for Child {
+  fn event(&mut self, event: &mut EventCtx) {
     match self {
-      Child::Fixed { widget, .. } => widget.update(model, ctx),
-      Child::Flex { widget, .. } => widget.update(model, ctx),
+      Child::Fixed { widget, .. } => widget.event(event),
+      Child::Flex { widget, .. } => widget.event(event),
       _ => {}
     }
   }
 }
 
-impl<T> Presentable for Child<T> {
+impl Presentable for Child {
   fn render(&mut self, builder: &mut PresentationBuilder) {
     match self {
       Child::Fixed { widget, .. } => widget.render(builder),
@@ -160,8 +164,8 @@ impl<T> Presentable for Child<T> {
   }
 }
 
-impl<T> Child<T> {
-  fn widget(&self) -> Option<(&dyn UIComponent<T>, &LayoutResult, &UIPosition)> {
+impl Child {
+  fn widget(&self) -> Option<(&dyn Component, &LayoutResult, &UIPosition)> {
     match self {
       Child::Fixed {
         widget,

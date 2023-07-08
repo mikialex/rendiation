@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::{sync::Arc, task::Context};
 
 use rendiation_algebra::*;
 use rendiation_texture::Size;
@@ -10,7 +10,7 @@ use winit::{
 
 use crate::*;
 
-pub async fn run_gui<T: 'static>(state: T, ui: impl UIComponent<T>, config: WindowConfig) {
+pub async fn run_gui(ui: impl Component + 'static, config: WindowConfig) {
   let event_loop = EventLoop::new();
   let builder = winit::window::WindowBuilder::new();
   let window = builder.build(&event_loop).unwrap();
@@ -52,11 +52,9 @@ pub async fn run_gui<T: 'static>(state: T, ui: impl UIComponent<T>, config: Wind
   let ui_renderer = WebGPUxUIRenderer::new(&gpu.device, prefer_target_fmt, text_cache_init_size);
 
   let mut app = Application {
-    state,
     fonts,
     texts,
     root: Box::new(ui),
-    root_size_changed: true,
     window_states: WindowState::new(
       UISize {
         width: initial_size.0,
@@ -67,12 +65,7 @@ pub async fn run_gui<T: 'static>(state: T, ui: impl UIComponent<T>, config: Wind
     ui_renderer,
     window,
     last_update_inst: Instant::now(),
-    init_inst: Instant::now(),
-    view_may_changed: false,
 
-    perf_info_last_frame: PerformanceInfo::new(0),
-    current_frame_id: 1,
-    current_perf: PerformanceInfo::new(1),
     gpu,
     surface,
   };
@@ -125,9 +118,7 @@ pub async fn run_gui<T: 'static>(state: T, ui: impl UIComponent<T>, config: Wind
       Event::RedrawRequested(_) => {
         if let Ok((frame, view)) = app.surface.get_current_frame_with_render_target_view() {
           app.gpu.poll();
-          app.update();
           app.render(&view);
-          app.frame_end();
           frame.present();
         }
       }
@@ -143,110 +134,76 @@ pub struct WindowConfig {
   pub position: UIPosition,
 }
 
-pub struct Application<T> {
-  state: T,
-  root: Box<dyn UIComponent<T>>,
+pub struct Application {
+  root: Box<dyn Component>,
   window_states: WindowState,
-  root_size_changed: bool,
   ui_renderer: WebGPUxUIRenderer,
   fonts: FontManager,
   texts: TextCache,
 
   window: winit::window::Window,
-  perf_info_last_frame: PerformanceInfo,
-  current_frame_id: usize,
-  current_perf: PerformanceInfo,
 
-  view_may_changed: bool,
-  init_inst: Instant,
   last_update_inst: Instant,
   surface: GPUSurface,
   gpu: Arc<GPU>,
 }
 
-impl<T> Application<T> {
-  fn frame_end(&mut self) {
-    self.current_frame_id += 1;
-    self.perf_info_last_frame = self.current_perf;
-    self.current_perf = PerformanceInfo::new(self.current_frame_id);
-  }
-
-  fn update(&mut self) {
-    let mut ctx = UpdateCtx {
-      time_stamp: self.init_inst.elapsed(),
-      layout_changed: false,
-      fonts: &self.fonts,
-      last_frame_perf_info: &self.perf_info_last_frame,
-    };
-    self.current_perf.update_time = time_measure(|| self.root.update(&self.state, &mut ctx));
-    self.view_may_changed = false;
-
-    self.current_perf.layout_time = time_measure(|| {
-      let need_layout = ctx.layout_changed || self.root_size_changed;
-      self.root_size_changed = false;
-      if !need_layout {
-        return;
-      }
-
-      let mut ctx = LayoutCtx {
-        fonts: &self.fonts,
-        text: &self.texts,
-      };
-
-      self.root.layout(
-        LayoutConstraint::from_max(self.window_states.size),
-        &mut ctx,
-      );
-      self.root.set_position(UIPosition { x: 0., y: 0. })
-    });
-  }
-
-  fn render(&mut self, frame: &RenderTargetView) {
-    let mut builder = PresentationBuilder::new(&self.fonts, &mut self.texts);
-    builder.present.view_size = self.window_states.size;
-
-    self.current_perf.rendering_prepare_time = time_measure(|| self.root.render(&mut builder));
-
-    self.current_perf.rendering_dispatch_time = time_measure(|| {
-      let mut task = WebGPUxUIRenderTask {
-        fonts: &self.fonts,
-        renderer: &mut self.ui_renderer,
-        presentation: &builder.present,
-      };
-
-      let mut encoder = self.gpu.create_encoder();
-      task.update(&self.gpu, &mut encoder, &self.fonts, builder.texts);
-
-      let mut decs = RenderPassDescriptorOwned::default();
-      decs.channels.push((
-        webgpu::Operations {
-          load: webgpu::LoadOp::Clear(webgpu::Color::WHITE),
-          store: true,
-        },
-        frame.clone(),
-      ));
-      {
-        let mut pass = encoder.begin_render_pass(decs);
-        task.setup_pass(&mut pass);
-      }
-      self.gpu.submit_encoder(encoder)
-    });
-  }
-
+impl Application {
   fn event(&mut self, event: &winit::event::Event<()>) {
-    let window_size = self.window_states.size;
     self.window_states.event(event);
-    self.root_size_changed |= window_size != self.window_states.size;
+
     let mut event = EventCtx {
       event,
-      custom_event: Default::default(),
       states: &self.window_states,
       fonts: &self.fonts,
       texts: &mut self.texts,
       gpu: self.gpu.clone(),
-      view_may_changed: false,
     };
-    self.root.event(&mut self.state, &mut event);
-    self.view_may_changed |= event.view_may_changed;
+    self.root.event(&mut event);
+  }
+
+  fn render(&mut self, frame: &RenderTargetView) {
+    let waker = futures::task::noop_waker_ref();
+    let mut cx = Context::from_waker(waker);
+    do_updates_by(&mut self.root, &mut cx, |_| {});
+
+    let mut ctx = LayoutCtx {
+      fonts: &self.fonts,
+      text: &self.texts,
+    };
+
+    self.root.layout(
+      LayoutConstraint::from_max(self.window_states.size),
+      &mut ctx,
+    );
+    self.root.set_position(UIPosition { x: 0., y: 0. });
+
+    let mut builder = PresentationBuilder::new(&self.fonts, &mut self.texts);
+    builder.present.view_size = self.window_states.size;
+
+    self.root.render(&mut builder);
+
+    let mut task = WebGPUxUIRenderTask {
+      fonts: &self.fonts,
+      renderer: &mut self.ui_renderer,
+      presentation: &builder.present,
+    };
+
+    let mut encoder = self.gpu.create_encoder();
+    task.update(&self.gpu, &mut encoder, &self.fonts, builder.texts);
+
+    let mut decs = RenderPassDescriptorOwned::default();
+    decs.channels.push((
+      webgpu::Operations {
+        load: webgpu::LoadOp::Clear(webgpu::Color::WHITE),
+        store: true,
+      },
+      frame.clone(),
+    ));
+    {
+      let mut pass = encoder.begin_render_pass(decs);
+      task.setup_pass(&mut pass);
+    }
+    self.gpu.submit_encoder(encoder)
   }
 }

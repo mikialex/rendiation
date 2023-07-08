@@ -7,12 +7,12 @@ version = "0.1.0"
 [dependencies]
 arena = {path = "../utils/arena"}
 bytemuck = {version = "1.4.1", features = ["derive"]}
-image = "*"
-log = "0.4"
-# nfd = "0.0.4"
 fontext = {path = "../components/fontext"}
 futures = "0.3.25"
+image = "*"
 incremental = {path = "../utils/incremental"}
+log = "0.4"
+reactive = {path = "../utils/reactive"}
 rendiation-algebra = {path = "../math/algebra"}
 rendiation-canvas = {path = "../components/canvas"}
 rendiation-color = {path = "../components/color"}

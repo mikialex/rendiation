@@ -9,19 +9,22 @@ use crate::*;
 pub struct GPUCanvas {
   current_render_buffer_size: Size,
   content: Option<GPU2DTextureView>,
+  drawer: Box<dyn CanvasPrinter>,
   layout: LayoutUnit,
 }
 
-impl Default for GPUCanvas {
-  fn default() -> Self {
+impl GPUCanvas {
+  pub fn new(drawer: impl CanvasPrinter + 'static) -> Self {
     Self {
       current_render_buffer_size: Size::from_u32_pair_min_one((100, 100)),
       content: None,
+      drawer: Box::new(drawer),
       layout: Default::default(),
     }
   }
 }
 
+trivial_stream_impl!(GPUCanvas);
 impl Presentable for GPUCanvas {
   fn render(&mut self, builder: &mut PresentationBuilder) {
     self.layout.update_world(builder.current_origin_offset());
@@ -77,17 +80,17 @@ pub trait CanvasPrinter {
   fn draw_canvas(&mut self, gpu: &Arc<GPU>, canvas: GPU2DTextureView);
 }
 
-impl<T: CanvasPrinter> Component<T> for GPUCanvas {
-  fn event(&mut self, model: &mut T, event: &mut EventCtx) {
+impl Eventable for GPUCanvas {
+  fn event(&mut self, event: &mut EventCtx) {
     let position_info = CanvasWindowPositionInfo {
       absolute_position: self.layout.absolute_position,
       size: self.layout.size,
     };
 
-    model.event(event.event, event.states, position_info);
+    self.drawer.event(event.event, event.states, position_info);
     match event.event {
       Event::RedrawRequested(_) => {
-        let new_size = model.update_render_size(self.layout.size.into());
+        let new_size = self.drawer.update_render_size(self.layout.size.into());
         if new_size != self.current_render_buffer_size {
           self.content = None;
         }
@@ -113,7 +116,7 @@ impl<T: CanvasPrinter> Component<T> for GPUCanvas {
           texture.create_view(Default::default()).try_into().unwrap()
         });
 
-        model.draw_canvas(&event.gpu, target.clone());
+        self.drawer.draw_canvas(&event.gpu, target.clone());
       }
       _ => {}
     }

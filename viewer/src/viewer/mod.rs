@@ -6,6 +6,7 @@ pub use content::*;
 mod default_scene;
 pub use default_scene::*;
 mod rendering;
+use futures::Stream;
 pub use rendering::*;
 
 mod controller;
@@ -21,7 +22,7 @@ use webgpu::*;
 
 use crate::*;
 
-pub struct ViewerImpl {
+pub struct Viewer {
   content: Viewer3dContent,
   ctx: Option<Viewer3dRenderingCtx>,
   size: Size,
@@ -30,8 +31,8 @@ pub struct ViewerImpl {
   pub compute_executor: rayon::ThreadPool,
 }
 
-impl Default for ViewerImpl {
-  fn default() -> Self {
+impl Viewer {
+  pub fn new(terminal_inputs: impl Stream<Item = String> + Unpin + 'static) -> Self {
     let io_executor = futures::executor::ThreadPool::builder()
       .name_prefix("rendiation_io_threads")
       .pool_size(2)
@@ -46,7 +47,7 @@ impl Default for ViewerImpl {
     let mut viewer = Self {
       content: Viewer3dContent::new(),
       size: Size::from_u32_pair_min_one((100, 100)),
-      terminal: Default::default(),
+      terminal: Terminal::new(terminal_inputs),
       ctx: None,
       io_executor,
       compute_executor,
@@ -58,7 +59,7 @@ impl Default for ViewerImpl {
   }
 }
 
-impl CanvasPrinter for ViewerImpl {
+impl CanvasPrinter for Viewer {
   fn draw_canvas(&mut self, gpu: &Arc<GPU>, canvas: GPU2DTextureView) {
     self.content.update_state();
     self

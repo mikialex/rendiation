@@ -6,7 +6,7 @@ pub struct Container {
   pub child_align: ContainerAlignment,
   /// extra relative offset
   pub child_offset: ContainerItemOffset,
-  pub size: LayoutSource<ContainerSize>,
+  pub size: ContainerSize,
   /// for simplicity, we only support outer border now
   pub border: RectBorder,
   pub margin: RectBoundaryWidth,
@@ -38,7 +38,7 @@ impl Container {
       color: (1., 1., 1., 0.).into(),
       child_align: Default::default(),
       child_offset: Default::default(),
-      size: LayoutSource::new(size),
+      size,
       layout: Default::default(),
       border: Default::default(),
       margin: Default::default(),
@@ -53,25 +53,13 @@ impl Container {
   }
 }
 
-impl<T> Component<T> for Container {
-  fn update(&mut self, _model: &T, ctx: &mut UpdateCtx) {
-    self.size.refresh(&mut self.layout, ctx);
+impl<C: Eventable> EventableNested<C> for Container {
+  fn event(&mut self, event: &mut EventCtx, inner: &mut C) {
+    inner.event(event);
   }
 }
 
-impl<T, C: Component<T>> ComponentAbility<T, C> for Container {
-  fn update(&mut self, model: &T, inner: &mut C, ctx: &mut UpdateCtx) {
-    self.size.refresh(&mut self.layout, ctx);
-    inner.update(model, ctx);
-    self.layout.or_layout_change(ctx);
-  }
-
-  fn event(&mut self, model: &mut T, event: &mut EventCtx, inner: &mut C) {
-    inner.event(model, event);
-  }
-}
-
-impl<C: Presentable> PresentableAbility<C> for Container {
+impl<C: Presentable> PresentableNested<C> for Container {
   fn render(&mut self, builder: &mut PresentationBuilder, inner: &mut C) {
     Presentable::render(self, builder);
     builder.push_offset(self.layout.relative_position);
@@ -180,21 +168,14 @@ pub struct ContainerItemOffset {
   pub y: f32,
 }
 
-impl<C: LayoutAble> LayoutAbility<C> for Container {
+impl<C: LayoutAble> LayoutAbleNested<C> for Container {
   fn layout(
     &mut self,
     constraint: LayoutConstraint,
     ctx: &mut LayoutCtx,
     inner: &mut C,
   ) -> LayoutResult {
-    if self.layout.skipable(constraint) {
-      return self.layout.size.with_default_baseline();
-    }
-
-    let (self_size, child_size) = self
-      .size
-      .get()
-      .compute_size_pair(constraint, self, inner, ctx);
+    let (self_size, child_size) = self.size.compute_size_pair(constraint, self, inner, ctx);
 
     self.layout.size = self_size;
 
@@ -221,7 +202,8 @@ impl<C: LayoutAble> LayoutAbility<C> for Container {
   }
 }
 
-impl<C> HotAreaPassBehavior<C> for Container {
+trivial_stream_impl!(Container);
+impl<C> HotAreaNested<C> for Container {
   fn is_point_in(&self, point: crate::UIPosition, _inner: &C) -> bool {
     self.layout.into_quad().is_point_in(point)
   }
@@ -229,7 +211,7 @@ impl<C> HotAreaPassBehavior<C> for Container {
 
 impl LayoutAble for Container {
   fn layout(&mut self, constraint: LayoutConstraint, _ctx: &mut LayoutCtx) -> LayoutResult {
-    self.layout.size = self.size.get().compute_size_self(constraint);
+    self.layout.size = self.size.compute_size_self(constraint);
     self.layout.size.with_default_baseline()
   }
 
@@ -248,4 +230,8 @@ impl Presentable for Container {
       )));
     }
   }
+}
+
+impl Eventable for Container {
+  fn event(&mut self, _event: &mut EventCtx) {}
 }

@@ -27,9 +27,8 @@ fn main() {
     position: (50., 50.).into(),
   };
 
-  let viewer = ViewerApplication::default();
   let ui = create_app();
-  let running_gui = run_gui(viewer, ui, window_init_config);
+  let running_gui = run_gui(ui, window_init_config);
 
   #[cfg(not(target_arch = "wasm32"))]
   {

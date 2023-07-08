@@ -1,3 +1,5 @@
+use std::ops::DerefMut;
+
 use crate::*;
 
 mod cursor;
@@ -27,18 +29,46 @@ impl Default for TextLayoutConfig {
 }
 
 pub struct Text {
-  pub content: LayoutSource<String>,
-  pub layout_config: TextLayoutConfig,
-  pub text_layout_cache: Option<TextLayoutRef>,
-  pub text_layout_size_cache: Option<UISize>,
-  pub layout: LayoutUnit,
+  content: String,
+  layout_config: TextLayoutConfig,
+  update_source: Option<BoxedUnpinStream<String>>,
+  text_layout_cache: Option<TextLayoutRef>,
+  text_layout_size_cache: Option<UISize>,
+  layout_computed: LayoutUnit,
+}
+
+impl Stream for Text {
+  type Item = ();
+
+  fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+    let mut changed = false;
+    let this = self.deref_mut();
+    if let Some(update_source) = &mut this.update_source {
+      update_source.loop_poll_until_pending(cx, |new_content| {
+        this.content = new_content;
+        changed = true;
+      })
+    }
+    if changed {
+      self.text_layout_cache = None;
+      self.text_layout_size_cache = None;
+      Poll::Ready(().into())
+    } else {
+      Poll::Pending
+    }
+  }
+}
+
+impl Eventable for Text {
+  fn event(&mut self, _: &mut EventCtx) {}
 }
 
 impl Default for Text {
   fn default() -> Self {
     Self {
-      content: LayoutSource::new("".into()),
-      layout: Default::default(),
+      content: "".into(),
+      layout_computed: Default::default(),
+      update_source: Default::default(),
       layout_config: Default::default(),
       text_layout_cache: None,
       text_layout_size_cache: None,
@@ -49,15 +79,17 @@ impl Default for Text {
 impl Text {
   pub fn new(content: impl Into<String>) -> Self {
     Self {
-      content: LayoutSource::new(content.into()),
+      content: content.into(),
       ..Default::default()
     }
   }
 
-  // todo, put it in setters
-  pub fn reset_text_layout_cache(&mut self) {
-    self.text_layout_cache = None;
-    self.text_layout_size_cache = None;
+  pub fn get_content(&self) -> &str {
+    &self.content
+  }
+
+  pub fn set_updater(&mut self, updater: impl Stream<Item = String> + Unpin + 'static) {
+    self.update_source = Some(Box::new(updater))
   }
 
   #[must_use]
@@ -78,24 +110,24 @@ impl Text {
           horizon_align,
           vertical_align,
         } => TextInfo {
-          content: self.content.get().clone(),
-          bounds: self.layout.size.into(),
+          content: self.content.clone(),
+          bounds: self.layout_computed.size.into(),
           line_wrap,
           horizon_align,
           vertical_align,
-          x: self.layout.absolute_position.x,
-          y: self.layout.absolute_position.y,
+          x: self.layout_computed.absolute_position.x,
+          y: self.layout_computed.absolute_position.y,
           color: (0., 0., 0., 1.).into(),
           font_size: 30.,
         },
         TextLayoutConfig::SingleLineShrink => TextInfo {
-          content: self.content.get().clone(),
-          bounds: self.layout.size.into(),
+          content: self.content.clone(),
+          bounds: self.layout_computed.size.into(),
           line_wrap: LineWrap::Single,
           horizon_align: TextHorizontalAlignment::Left,
           vertical_align: TextVerticalAlignment::Center,
-          x: self.layout.absolute_position.x,
-          y: self.layout.absolute_position.y,
+          x: self.layout_computed.absolute_position.x,
+          y: self.layout_computed.absolute_position.y,
           color: (0., 0., 0., 1.).into(),
           font_size: 30.,
         },
@@ -110,7 +142,7 @@ impl Text {
       text
         .measure_size(
           &TextRelaxedInfo {
-            content: self.content.get().clone(),
+            content: self.content.clone(),
             font_size: 30.,
           },
           fonts,
@@ -120,25 +152,18 @@ impl Text {
   }
 }
 
-impl<T> Component<T> for Text {
-  fn update(&mut self, _: &T, ctx: &mut UpdateCtx) {
-    if self.content.changed() {
-      self.reset_text_layout_cache();
-    }
-    self.content.refresh(&mut self.layout, ctx);
-  }
-}
-
 impl Presentable for Text {
   fn render(&mut self, builder: &mut PresentationBuilder) {
-    self.layout.update_world(builder.current_origin_offset());
+    self
+      .layout_computed
+      .update_world(builder.current_origin_offset());
 
     builder.present.primitives.push(Primitive::Text(
       self.get_text_layout(builder.fonts, builder.texts).clone(),
     ));
 
     builder.present.primitives.push(Primitive::Quad((
-      self.layout.into_quad(),
+      self.layout_computed.into_quad(),
       Style::SolidColor((0., 0., 0., 0.2).into()),
     )));
   }
@@ -146,24 +171,20 @@ impl Presentable for Text {
 
 impl LayoutAble for Text {
   fn layout(&mut self, constraint: LayoutConstraint, ctx: &mut LayoutCtx) -> LayoutResult {
-    if self.layout.skipable(constraint) {
-      return self.layout.size.with_default_baseline();
-    }
-
     match self.layout_config {
       TextLayoutConfig::SingleLineShrink => {
         let size = self.get_text_boundary(ctx.fonts, ctx.text);
-        self.layout.size = constraint.clamp(*size);
+        self.layout_computed.size = constraint.clamp(*size);
       }
       _ => {
-        self.layout.size = constraint.max();
+        self.layout_computed.size = constraint.max();
       }
     }
 
-    self.layout.size.with_default_baseline()
+    self.layout_computed.size.with_default_baseline()
   }
 
   fn set_position(&mut self, position: UIPosition) {
-    self.layout.set_relative_position(position)
+    self.layout_computed.set_relative_position(position)
   }
 }

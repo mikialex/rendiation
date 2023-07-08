@@ -5,16 +5,14 @@ pub struct AbsoluteAnchor {
   position: UIPosition,
 }
 
-impl<T, C: Component<T>> ComponentAbility<T, C> for AbsoluteAnchor {
-  fn update(&mut self, model: &T, inner: &mut C, ctx: &mut UpdateCtx) {
-    inner.update(model, ctx);
-  }
-  fn event(&mut self, model: &mut T, event: &mut EventCtx, inner: &mut C) {
-    inner.event(model, event);
+trivial_stream_impl!(AbsoluteAnchor);
+impl<C: Eventable> EventableNested<C> for AbsoluteAnchor {
+  fn event(&mut self, event: &mut EventCtx, inner: &mut C) {
+    inner.event(event);
   }
 }
 
-impl<C: Presentable> PresentableAbility<C> for AbsoluteAnchor {
+impl<C: Presentable> PresentableNested<C> for AbsoluteAnchor {
   fn render(&mut self, builder: &mut PresentationBuilder, inner: &mut C) {
     builder.push_offset(self.position);
     inner.render(builder);
@@ -22,25 +20,23 @@ impl<C: Presentable> PresentableAbility<C> for AbsoluteAnchor {
   }
 }
 
-impl<C: HotAreaProvider> HotAreaPassBehavior<C> for AbsoluteAnchor {
+impl<C: HotAreaProvider> HotAreaNested<C> for AbsoluteAnchor {
   fn is_point_in(&self, point: crate::UIPosition, inner: &C) -> bool {
     inner.is_point_in(point)
   }
 }
 
-pub fn absolute_group<T>() -> ComponentArray<AbsChild<T>> {
-  ComponentArray {
-    children: Vec::new(),
-  }
+pub fn absolute_group() -> ComponentArray<AbsChild> {
+  Vec::new().into()
 }
 
-pub struct AbsChild<T> {
+pub struct AbsChild {
   pub position: UIPosition,
-  pub inner: Box<dyn UIComponent<T>>,
+  pub inner: Box<dyn Component>,
 }
 
-impl<T> AbsChild<T> {
-  pub fn new(inner: impl UIComponent<T> + 'static) -> Self {
+impl AbsChild {
+  pub fn new(inner: impl Component + 'static) -> Self {
     Self {
       inner: Box::new(inner),
       position: Default::default(),
@@ -54,25 +50,28 @@ impl<T> AbsChild<T> {
   }
 }
 
-impl<T> Component<T> for AbsChild<T> {
-  fn event(&mut self, model: &mut T, event: &mut EventCtx) {
-    self.inner.event(model, event)
-  }
+impl Stream for AbsChild {
+  type Item = ();
 
-  fn update(&mut self, model: &T, ctx: &mut UpdateCtx) {
-    self.inner.update(model, ctx)
+  fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+    self.inner.poll_next_unpin(cx)
+  }
+}
+impl Eventable for AbsChild {
+  fn event(&mut self, event: &mut EventCtx) {
+    self.inner.event(event)
   }
 }
 
-impl<T> Presentable for AbsChild<T> {
+impl Presentable for AbsChild {
   fn render(&mut self, builder: &mut PresentationBuilder) {
     self.inner.render(builder)
   }
 }
 
-impl<T, C> LayoutAbility<C> for AbsoluteAnchor
+impl<C> LayoutAbleNested<C> for AbsoluteAnchor
 where
-  for<'a> &'a mut C: IntoIterator<Item = &'a mut AbsChild<T>, IntoIter: ExactSizeIterator>,
+  for<'a> &'a mut C: IntoIterator<Item = &'a mut AbsChild, IntoIter: ExactSizeIterator>,
 {
   fn layout(
     &mut self,
