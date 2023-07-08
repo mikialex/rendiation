@@ -3,7 +3,7 @@ use std::{io::Write, path::Path, task::Context};
 use fast_hash_collection::FastHashMap;
 use futures::{executor::ThreadPool, Future, Stream, StreamExt};
 use interphaser::{winit::event::VirtualKeyCode, *};
-use reactive::{PollUtils, SignalStreamExt};
+use reactive::{EventSource, PollUtils, SignalStreamExt};
 use rendiation_scene_core::Scene;
 use webgpu::ReadableTextureBuffer;
 
@@ -84,6 +84,8 @@ pub fn terminal() -> (impl Component, impl Stream<Item = String> + Unpin) {
     .editable();
 
   let mut current_command = String::new();
+  let clear_event = EventSource::default();
+  let clearer = clear_event.single_listen();
   let command_to_execute =
     edit_text
       .events
@@ -97,6 +99,7 @@ pub fn terminal() -> (impl Component, impl Stream<Item = String> + Unpin) {
           if let VirtualKeyCode::Return = key {
             let command_to_execute = current_command.clone();
             current_command = String::new();
+            clear_event.emit(&String::new());
             Some(command_to_execute)
           } else {
             None
@@ -107,6 +110,7 @@ pub fn terminal() -> (impl Component, impl Stream<Item = String> + Unpin) {
   let clicker = ClickHandler::default();
   let click_event = clicker.events.single_listen().map(|_| {});
   edit_text.set_focus(click_event);
+  edit_text.set_update_source(clearer);
 
   let text_box = Container::sized((UILength::ParentPercent(100.), UILength::Px(50.)))
     .padding(RectBoundaryWidth::equal(5.))

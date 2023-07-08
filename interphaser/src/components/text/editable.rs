@@ -16,12 +16,16 @@ pub struct EditableText {
   editing: String,
   cursor: Option<Cursor>,
   pub events: EventSource<TextEditMessage>,
+  pub update_source: Option<BoxedUnpinStream<String>>,
   pub focus_input: Option<BoxedUnpinStream<()>>,
 }
 
 impl EditableText {
   pub fn set_focus(&mut self, focus: impl Stream<Item = ()> + Unpin + 'static) {
     self.focus_input = Some(Box::new(focus))
+  }
+  pub fn set_update_source(&mut self, source: impl Stream<Item = String> + Unpin + 'static) {
+    self.update_source = Some(Box::new(source))
   }
 
   fn focus(&mut self) {
@@ -144,9 +148,10 @@ impl Text {
       cursor: None,
       events: Default::default(),
       focus_input: Default::default(),
+      update_source: Default::default(),
     };
 
-    let updater = r.events.single_listen().filter_map_sync(|v| match v {
+    let updater = r.events.unbound_listen().filter_map_sync(|v| match v {
       TextEditMessage::ContentChange(v) => Some(v),
       _ => None,
     });
@@ -160,6 +165,15 @@ impl Text {
 impl Stream for EditableText {
   type Item = ();
   fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+    if let Some(update_source) = &mut self.update_source {
+      if let Poll::Ready(Some(content)) = update_source.poll_next_unpin(cx) {
+        self.editing = content;
+        self
+          .events
+          .emit(&TextEditMessage::ContentChange(self.editing.clone()));
+      }
+    }
+
     if let Some(inputs) = &mut self.focus_input {
       if let Poll::Ready(Some(())) = inputs.poll_next_unpin(cx) {
         self.focus();
