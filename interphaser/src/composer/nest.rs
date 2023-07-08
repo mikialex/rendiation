@@ -30,8 +30,14 @@ where
   type Item = ();
 
   fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
-    ready!(self.outer.poll_next_unpin(cx));
-    self.inner.poll_next_unpin(cx)
+    let mut view_changed = false;
+    view_changed |= self.outer.poll_next_unpin(cx).is_ready();
+    view_changed |= self.inner.poll_next_unpin(cx).is_ready();
+    if view_changed {
+      Poll::Ready(().into())
+    } else {
+      Poll::Pending
+    }
   }
 }
 

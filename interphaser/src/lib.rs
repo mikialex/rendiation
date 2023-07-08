@@ -31,7 +31,6 @@ pub use utils::*;
 
 mod app;
 use std::sync::Arc;
-use std::task::ready;
 
 use ::core::{
   pin::Pin,

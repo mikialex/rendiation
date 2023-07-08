@@ -286,10 +286,15 @@ where
   type Item = ();
 
   fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+    let mut view_changed = false;
     for child in &mut self.children {
-      ready!(child.poll_next_unpin(cx));
+      view_changed |= child.poll_next_unpin(cx).is_ready();
     }
-    Poll::Pending
+    if view_changed {
+      Poll::Ready(().into())
+    } else {
+      Poll::Pending
+    }
   }
 }
 

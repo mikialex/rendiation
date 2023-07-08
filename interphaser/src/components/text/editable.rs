@@ -1,4 +1,4 @@
-use std::{task::ready, time::Duration};
+use std::time::Duration;
 
 use futures::Stream;
 use winit::event::VirtualKeyCode;
@@ -147,14 +147,18 @@ impl Text {
 impl Stream for EditableText {
   type Item = ();
   fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
-    ready!(self.view_change.poll_next_unpin(cx));
+    let view_changed = self.view_change.poll_next_unpin(cx).is_ready();
     if let Some(inputs) = &mut self.focus_input {
       if let Poll::Ready(Some(())) = inputs.poll_next_unpin(cx) {
         self.focus();
         self.view_change.notify();
       }
     }
-    Poll::Pending
+    if view_changed {
+      Poll::Ready(().into())
+    } else {
+      Poll::Pending
+    }
   }
 }
 
