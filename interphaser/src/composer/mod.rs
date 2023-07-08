@@ -1,8 +1,8 @@
 mod nest;
 pub use nest::*;
 
-mod structure;
-pub use structure::*;
+mod array;
+pub use array::*;
 
 mod events;
 pub use events::*;

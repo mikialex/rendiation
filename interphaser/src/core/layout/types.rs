@@ -1,7 +1,4 @@
-use rendiation_algebra::Vec2;
-use rendiation_geometry::Rectangle;
-
-use crate::LayoutResult;
+use crate::*;
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct LayoutConstraint {
@@ -213,5 +210,3 @@ impl From<UIPosition> for Vec2<f32> {
     Vec2 { x: val.x, y: val.y }
   }
 }
-
-pub type UIBound = Rectangle<f32>;

@@ -1,6 +1,7 @@
 #![feature(stmt_expr_attributes)]
 #![feature(associated_type_bounds)]
 #![feature(type_alias_impl_trait)]
+#![feature(const_option)]
 #![allow(clippy::collapsible_match)]
 #![allow(clippy::single_match)]
 #![allow(clippy::disallowed_types)]
@@ -29,6 +30,9 @@ pub use components::*;
 mod utils;
 pub use utils::*;
 
+mod window;
+pub use window::*;
+
 mod app;
 use std::sync::Arc;
 
@@ -41,5 +45,7 @@ pub use fontext::*;
 use futures::Stream;
 use futures::StreamExt;
 use reactive::*;
+use rendiation_algebra::*;
 pub use rendiation_canvas::*;
 use webgpu::GPU;
+use winit::event::Event;

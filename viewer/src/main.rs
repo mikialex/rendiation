@@ -16,12 +16,12 @@ pub use viewer::*;
 
 pub mod app;
 pub use app::*;
-use interphaser::{run_gui, WindowConfig};
+use interphaser::{run_gui, WindowSelfState};
 
 fn main() {
   register_viewer_extra_scene_features();
 
-  let window_init_config = WindowConfig {
+  let window_init_config = WindowSelfState {
     size: (1200., 800.).into(),
     title: "viewer".to_owned(),
     position: (50., 50.).into(),
