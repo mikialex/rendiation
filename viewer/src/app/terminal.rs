@@ -3,7 +3,7 @@ use std::{io::Write, path::Path, task::Context};
 use fast_hash_collection::FastHashMap;
 use futures::{executor::ThreadPool, Future, Stream, StreamExt};
 use interphaser::{winit::event::VirtualKeyCode, *};
-use reactive::{EventSource, PollUtils, SignalStreamExt};
+use reactive::{single_value_channel, PollUtils, SignalStreamExt};
 use rendiation_scene_core::Scene;
 use webgpu::ReadableTextureBuffer;
 
@@ -84,8 +84,7 @@ pub fn terminal() -> (impl Component, impl Stream<Item = String> + Unpin) {
     .editable();
 
   let mut current_command = String::new();
-  let clear_event = EventSource::default();
-  let clearer = clear_event.single_listen();
+  let (clear_trigger, clearer) = single_value_channel();
   let command_to_execute =
     edit_text
       .events
@@ -99,7 +98,7 @@ pub fn terminal() -> (impl Component, impl Stream<Item = String> + Unpin) {
           if let VirtualKeyCode::Return = key {
             let command_to_execute = current_command.clone();
             current_command = String::new();
-            clear_event.emit(&String::new());
+            clear_trigger.update(String::new()).ok();
             Some(command_to_execute)
           } else {
             None

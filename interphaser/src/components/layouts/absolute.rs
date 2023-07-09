@@ -71,7 +71,7 @@ impl Presentable for AbsChild {
 
 impl<C> LayoutAbleNested<C> for AbsoluteAnchor
 where
-  for<'a> &'a mut C: IntoIterator<Item = &'a mut AbsChild, IntoIter: ExactSizeIterator>,
+  for<'a> &'a mut C: IntoIterator<Item = &'a mut AbsChild>,
 {
   fn layout(
     &mut self,

@@ -60,9 +60,9 @@ impl Cursor {
     if index != self.index {
       self.position = None;
       self.update_timestamp = Instant::now();
+      self.change.notify();
     }
     self.index = index;
-    self.change.notify();
   }
 
   pub fn get_last_update_timestamp(&self) -> Instant {

@@ -1,4 +1,8 @@
-use std::{num::NonZeroUsize, sync::Arc, task::Context};
+use std::{
+  num::NonZeroUsize,
+  sync::{atomic::AtomicBool, Arc},
+  task::Context,
+};
 
 use rendiation_algebra::*;
 use rendiation_texture::Size;
@@ -110,9 +114,44 @@ impl UIPresenter for WebGpuUIPresenter {
 
 pub struct Application {
   root: Box<dyn Component>,
-
+  any_changed: Arc<NotifyWaker>,
   fonts: FontManager,
   texts: TextCache,
+}
+
+struct NotifyWaker {
+  inner: AtomicBool,
+}
+
+impl Default for NotifyWaker {
+  fn default() -> Self {
+    Self {
+      inner: AtomicBool::new(true),
+    }
+  }
+}
+
+impl NotifyWaker {
+  /// return if any changed contains
+  pub fn check_reset_changed(&self) -> bool {
+    self
+      .inner
+      .compare_exchange(
+        true,
+        false,
+        std::sync::atomic::Ordering::SeqCst,
+        std::sync::atomic::Ordering::SeqCst,
+      )
+      .is_ok()
+  }
+}
+
+impl futures::task::ArcWake for NotifyWaker {
+  fn wake_by_ref(arc_self: &Arc<Self>) {
+    arc_self
+      .inner
+      .fetch_or(true, std::sync::atomic::Ordering::SeqCst);
+  }
 }
 
 impl Application {
@@ -122,6 +161,7 @@ impl Application {
 
     Self {
       root: Box::new(root),
+      any_changed: Default::default(),
       fonts,
       texts,
     }
@@ -136,13 +176,16 @@ impl Application {
       gpu,
     };
     self.root.event(&mut event);
-    // todo we should call update here
+    self.update();
   }
 
   fn update(&mut self) {
-    let waker = futures::task::noop_waker_ref();
-    let mut cx = Context::from_waker(waker);
-    do_updates_by(&mut self.root, &mut cx, |_| {});
+    while self.any_changed.check_reset_changed() {
+      println!("ui update");
+      let waker = futures::task::waker_ref(&self.any_changed);
+      let mut cx = Context::from_waker(&waker);
+      do_updates_by(&mut self.root, &mut cx, |_| {});
+    }
   }
 
   fn encode_presentation(&mut self, root_size: UISize) -> UIPresentation {
