@@ -1,64 +1,13 @@
-// // use futures::Stream;
+// use futures::Stream;
 // use interphaser::*;
 
+// #[derive(Default)]
 // pub enum ButtonState {
+//   #[default]
 //   Normal,
 //   Pressed,
 //   Hovering,
 // }
-// impl Default for ButtonState {
-//   fn default() -> Self {
-//     Self::Normal
-//   }
-// }
-
-// // pub enum ButtonEvent {
-// //   Label(String),
-// // }
-
-// // pub enum ButtonViewReact {
-// //   Pressed,
-// //   Hovering,
-// // }
-
-// // pub fn button_x(inputs: impl Stream<Item = ButtonEvent>) -> impl Stream<Item =
-// ButtonViewReact> { //   // cx.view(Container::sized((200., 80.)))
-// // }
-
-// // pub fn button_list(inputs: impl Stream<Item = VecDelta<ButtonEvent>)>) -> impl Stream<Item =
-// (id, // ButtonViewReact)> {   // cx.view(Container::sized((200., 80.)))
-// // }
-
-// // struct MyButton {
-// //   boundary: Container,
-// //   label: Text,
-// // }
-
-// // impl UIView for MyButton {
-// //   type Event = ButtonEvent;
-
-// //   type React = ButtonViewReact;
-
-// //   fn event(&mut self, request: ViewRequest<Self::Event>, cb: impl
-// FnMut(ViewReact<Self::React>)) // {     match request {
-// //       ViewRequest::Platform(event) => match event {
-// //         PlatformRequest::Event { event } => todo!(),
-// //         PlatformRequest::Layout { parent_constraint, cb } => todo!(),
-// //         PlatformRequest::Rendering { ctx } => todo!(),
-// //     },
-// //       ViewRequest::State(delta, _) => match delta {
-// //         ButtonEvent::Label(text) => self.label.content.set(text),
-// //       },
-// //     }
-// //   }
-// // }
-
-// // pub fn button2() -> impl UIView {
-// //   Container::sized((200., 80.))
-// //     .color((1., 1., 1., 0.).into())
-// //     .wrap(Text::default().bind(move |s, t| s.content.set(label.eval(t))))
-// //     .extend(events)
-// // }
 
 // impl ButtonState {
 //   pub fn color(&self) -> Color {
@@ -72,9 +21,8 @@
 // }
 
 // pub fn button<T: 'static>(
-//   label: impl Fn(&T) -> String + 'static,
-//   on_click: impl Fn(&mut T, &mut EventHandleCtx, &()) + 'static,
-// ) -> impl UIComponent<T> {
+//   label: impl Stream<Item = String> + Unpin,
+// ) -> (impl Component, impl Stream<Item = ()>) {
 //   let state = ButtonState::use_state();
 
 //   let on_mouse_down = state.on_event_trigger(|s| *s = ButtonState::Pressed);
@@ -89,14 +37,9 @@
 //     .with(MouseDownHandler::by(on_mouse_down))
 //     .with(MouseUpHandler::by(on_mouse_up));
 
-//   // let transition = TimeBasedTransition {
-//   //   duration: 200,
-//   //   ty: Transition::Linear,
-//   // }
-//   // .into_animation();
-
 //   Container::sized((200., 80.))
+//     .updater(color_change.bind(Container::color_input))
 //     .bind(move |s, _| s.color = state.visit(|s| s.color()))
-//     .wrap(Text::default().bind(move |s, t| s.content.set(label(t))))
-//     .extend(events)
+//     .nest_over(Text::default().bind(move |s, t| s.content.set(label(t))))
+//     .nest_in(events)
 // }

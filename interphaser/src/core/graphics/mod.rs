@@ -1,11 +1,15 @@
-use crate::*;
-
-mod shape;
-pub use shape::*;
+use rendiation_texture::Size;
 use webgpu::GPU2DTextureView;
+
+use crate::*;
 
 pub trait Presentable {
   fn render(&mut self, builder: &mut PresentationBuilder);
+}
+
+pub trait UIPresenter {
+  fn resize(&mut self, size: Size);
+  fn render(&mut self, content: &UIPresentation, fonts: &FontManager, texts: &mut TextCache);
 }
 
 pub struct PresentationBuilder<'a> {

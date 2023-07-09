@@ -4,14 +4,13 @@ use std::{
   task::Context,
 };
 
-use rendiation_algebra::*;
 use rendiation_texture::Size;
 use webgpu::*;
 use winit::{event::*, event_loop::EventLoop};
 
 use crate::*;
 
-const TEXT_CACHE_INIT_SIZE: Size = Size {
+pub(crate) const TEXT_CACHE_INIT_SIZE: Size = Size {
   width: NonZeroUsize::new(512).unwrap(),
   height: NonZeroUsize::new(512).unwrap(),
 };
@@ -46,70 +45,6 @@ pub async fn run_gui(ui: impl Component + 'static, init_state: WindowSelfState) 
       _ => {}
     }
   });
-}
-
-pub trait UIPresenter {
-  fn resize(&mut self, size: Size);
-  fn render(&mut self, content: &UIPresentation, fonts: &FontManager, texts: &mut TextCache);
-}
-
-pub struct WebGpuUIPresenter {
-  surface: GPUSurface,
-  gpu: Arc<GPU>,
-  ui_renderer: WebGPUxUIRenderer,
-}
-
-impl WebGpuUIPresenter {
-  pub async fn new(window: &winit::window::Window) -> Self {
-    let (gpu, surface) = GPU::new_with_surface(window).await;
-    let gpu = Arc::new(gpu);
-
-    let prefer_target_fmt = surface.config.format;
-    let ui_renderer = WebGPUxUIRenderer::new(&gpu.device, prefer_target_fmt, TEXT_CACHE_INIT_SIZE);
-
-    Self {
-      surface,
-      gpu,
-      ui_renderer,
-    }
-  }
-}
-
-impl UIPresenter for WebGpuUIPresenter {
-  fn resize(&mut self, size: Size) {
-    self.surface.resize(size, &self.gpu.device);
-  }
-
-  fn render(&mut self, presentation: &UIPresentation, fonts: &FontManager, texts: &mut TextCache) {
-    if let Ok((frame, view)) = self.surface.get_current_frame_with_render_target_view() {
-      self.gpu.poll();
-
-      let mut task = WebGPUxUIRenderTask {
-        fonts,
-        renderer: &mut self.ui_renderer,
-        presentation,
-      };
-
-      let mut encoder = self.gpu.create_encoder();
-      task.update(&self.gpu, &mut encoder, fonts, texts);
-
-      let mut decs = RenderPassDescriptorOwned::default();
-      decs.channels.push((
-        webgpu::Operations {
-          load: webgpu::LoadOp::Clear(webgpu::Color::WHITE),
-          store: true,
-        },
-        view,
-      ));
-      {
-        let mut pass = encoder.begin_render_pass(decs);
-        task.setup_pass(&mut pass);
-      }
-      self.gpu.submit_encoder(encoder);
-
-      frame.present();
-    }
-  }
 }
 
 pub struct Application {
