@@ -42,6 +42,7 @@ use ::core::{
 };
 pub use app::*;
 pub use fontext::*;
+use futures::stream::FusedStream;
 use futures::Stream;
 use futures::StreamExt;
 use reactive::*;

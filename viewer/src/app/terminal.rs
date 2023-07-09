@@ -13,7 +13,7 @@ pub struct Terminal {
   pub command_history: Vec<String>,
   pub commands: FastHashMap<String, TerminalCommandCb>,
   pub executor: ThreadPool, // todo should passed in
-  pub command_source: BoxedUnpinStream<String>,
+  pub command_source: BoxedUnpinFusedStream<String>,
 }
 
 pub struct CommandCtx<'a> {
@@ -32,7 +32,7 @@ impl Terminal {
       command_history: Default::default(),
       commands: Default::default(),
       executor,
-      command_source: Box::new(command_source),
+      command_source: Box::new(command_source.fuse()),
     }
   }
 

@@ -7,6 +7,7 @@ use core::{
 use std::sync::{Arc, Mutex, RwLock, Weak};
 
 use fast_hash_collection::*;
+use futures::stream::FusedStream;
 use futures::Stream;
 use futures::StreamExt;
 use pin_project::pin_project;

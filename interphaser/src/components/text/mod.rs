@@ -31,7 +31,7 @@ impl Default for TextLayoutConfig {
 pub struct Text {
   content: String,
   layout_config: TextLayoutConfig,
-  update_source: Option<BoxedUnpinStream<String>>,
+  update_source: Option<BoxedUnpinFusedStream<String>>,
   text_layout_cache: Option<TextLayoutRef>,
   text_layout_size_cache: Option<UISize>,
   layout_computed: LayoutUnit,
@@ -89,7 +89,7 @@ impl Text {
   }
 
   pub fn set_updater(&mut self, updater: impl Stream<Item = String> + Unpin + 'static) {
-    self.update_source = Some(Box::new(updater))
+    self.update_source = Some(Box::new(updater.fuse()))
   }
 
   #[must_use]

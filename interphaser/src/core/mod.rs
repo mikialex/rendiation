@@ -16,3 +16,4 @@ pub trait Component: Eventable + Presentable + LayoutAble + Stream<Item = ()> + 
 impl<T> Component for T where T: Eventable + Presentable + LayoutAble + Stream<Item = ()> + Unpin {}
 
 pub type BoxedUnpinStream<T> = Box<dyn Stream<Item = T> + Unpin>;
+pub type BoxedUnpinFusedStream<T> = Box<dyn FusedStream<Item = T> + Unpin>;
