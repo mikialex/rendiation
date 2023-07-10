@@ -64,3 +64,33 @@ where
     })
   }
 }
+
+impl<C: Eventable, F, S> EventableNester<C> for StreamToReactiveUpdateNester<F, S> {
+  fn event(&mut self, event: &mut EventCtx, inner: &mut C) {
+    inner.event(event);
+  }
+}
+impl<C: Presentable, F, S> PresentableNester<C> for StreamToReactiveUpdateNester<F, S> {
+  fn render(&mut self, builder: &mut PresentationBuilder, inner: &mut C) {
+    inner.render(builder);
+  }
+}
+impl<C: HotAreaProvider, F, S> HotAreaNester<C> for StreamToReactiveUpdateNester<F, S> {
+  fn is_point_in(&self, point: crate::UIPosition, inner: &C) -> bool {
+    inner.is_point_in(point)
+  }
+}
+impl<C: LayoutAble, F, S> LayoutAbleNester<C> for StreamToReactiveUpdateNester<F, S> {
+  fn layout(
+    &mut self,
+    constraint: LayoutConstraint,
+    ctx: &mut LayoutCtx,
+    inner: &mut C,
+  ) -> LayoutResult {
+    inner.layout(constraint, ctx)
+  }
+
+  fn set_position(&mut self, position: UIPosition, inner: &mut C) {
+    inner.set_position(position)
+  }
+}

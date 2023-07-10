@@ -51,6 +51,9 @@ impl Container {
     self.color = color;
     self
   }
+  pub fn set_color(&mut self, color: Color) {
+    self.color = color
+  }
 }
 
 impl<C: Eventable> EventableNester<C> for Container {
