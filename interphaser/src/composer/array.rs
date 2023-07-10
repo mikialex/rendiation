@@ -19,13 +19,11 @@ impl<X> ComponentArray<X> {
   }
 }
 
-type IterType<'a, C: 'a> = impl Iterator<Item = &'a mut C> + 'a + ExactSizeIterator;
-
 impl<'a, C> IntoIterator for &'a mut ComponentArray<C> {
   type Item = &'a mut C;
-  type IntoIter = IterType<'a, C>;
+  type IntoIter = impl Iterator<Item = &'a mut C> + 'a + ExactSizeIterator;
 
-  fn into_iter(self) -> IterType<'a, C> {
+  fn into_iter(self) -> Self::IntoIter {
     self.children.iter_mut()
   }
 }

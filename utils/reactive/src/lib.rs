@@ -1,4 +1,5 @@
 #![feature(type_alias_impl_trait)]
+#![feature(slice_group_by)]
 
 use core::{
   pin::Pin,
@@ -35,6 +36,9 @@ pub use source::*;
 
 mod broadcast;
 pub use broadcast::*;
+
+mod batch_indexer;
+pub use batch_indexer::*;
 
 mod map;
 pub use map::*;
