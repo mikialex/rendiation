@@ -113,7 +113,7 @@ pub fn terminal() -> (impl Component, impl Stream<Item = String> + Unpin) {
 
   let text_box = Container::sized((UILength::ParentPercent(100.), UILength::Px(50.)))
     .padding(RectBoundaryWidth::equal(5.))
-    .nest_over(edit_text)
+    .wrap(edit_text)
     .nest_in(clicker);
 
   (text_box, command_to_execute)

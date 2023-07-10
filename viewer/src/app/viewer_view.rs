@@ -7,7 +7,7 @@ pub fn viewer() -> impl Component {
 
   let viewer = Viewer::new(to_execute);
 
-  AbsoluteAnchor::default().nest_over(
+  AbsoluteAnchor::default().wrap(
     absolute_group()
       .child(AbsChild::new(GPUCanvas::new(viewer)))
       .child(AbsChild::new(terminal).with_position((0., 0.)))

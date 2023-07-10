@@ -5,14 +5,14 @@ pub struct AbsoluteAnchor {
   position: UIPosition,
 }
 
-trivial_stream_impl!(AbsoluteAnchor);
-impl<C: Eventable> EventableNested<C> for AbsoluteAnchor {
+trivial_stream_nester_impl!(AbsoluteAnchor);
+impl<C: Eventable> EventableNester<C> for AbsoluteAnchor {
   fn event(&mut self, event: &mut EventCtx, inner: &mut C) {
     inner.event(event);
   }
 }
 
-impl<C: Presentable> PresentableNested<C> for AbsoluteAnchor {
+impl<C: Presentable> PresentableNester<C> for AbsoluteAnchor {
   fn render(&mut self, builder: &mut PresentationBuilder, inner: &mut C) {
     builder.push_offset(self.position);
     inner.render(builder);
@@ -20,7 +20,7 @@ impl<C: Presentable> PresentableNested<C> for AbsoluteAnchor {
   }
 }
 
-impl<C: HotAreaProvider> HotAreaNested<C> for AbsoluteAnchor {
+impl<C: HotAreaProvider> HotAreaNester<C> for AbsoluteAnchor {
   fn is_point_in(&self, point: crate::UIPosition, inner: &C) -> bool {
     inner.is_point_in(point)
   }
@@ -69,7 +69,7 @@ impl Presentable for AbsChild {
   }
 }
 
-impl<C> LayoutAbleNested<C> for AbsoluteAnchor
+impl<C> LayoutAbleNester<C> for AbsoluteAnchor
 where
   for<'a> &'a mut C: IntoIterator<Item = &'a mut AbsChild>,
 {

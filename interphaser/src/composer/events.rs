@@ -8,10 +8,8 @@ pub struct EventHandler<X: EventHandlerType> {
   pub events: EventSource<X::Event>,
 }
 
-impl<X: EventHandlerType> Stream for EventHandler<X> {
-  type Item = ();
-
-  fn poll_next(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+impl<C, X: EventHandlerType> ReactiveUpdateNester<C> for EventHandler<X> {
+  fn poll_update_inner(self: Pin<&mut Self>, _: &mut Context<'_>, _: &mut C) -> Poll<Option<()>> {
     Poll::Pending
   }
 }
@@ -47,7 +45,7 @@ impl<C> EventHandlerGroup<C> {
   }
 }
 
-impl<C: Eventable> EventableNested<C> for EventHandlerGroup<C> {
+impl<C: Eventable> EventableNester<C> for EventHandlerGroup<C> {
   fn event(&mut self, event: &mut EventCtx, inner: &mut C) {
     self
       .before_handlers
@@ -63,13 +61,13 @@ impl<C: Eventable> EventableNested<C> for EventHandlerGroup<C> {
   }
 }
 
-impl<X, C: Presentable> PresentableNested<C> for EventHandlerGroup<X> {
+impl<X, C: Presentable> PresentableNester<C> for EventHandlerGroup<X> {
   fn render(&mut self, builder: &mut PresentationBuilder, inner: &mut C) {
     inner.render(builder);
   }
 }
 
-impl<X, C: LayoutAble> LayoutAbleNested<C> for EventHandlerGroup<X> {
+impl<X, C: LayoutAble> LayoutAbleNester<C> for EventHandlerGroup<X> {
   fn layout(
     &mut self,
     constraint: LayoutConstraint,
@@ -84,7 +82,7 @@ impl<X, C: LayoutAble> LayoutAbleNested<C> for EventHandlerGroup<X> {
   }
 }
 
-impl<X, C: HotAreaProvider> HotAreaNested<C> for EventHandlerGroup<X> {
+impl<X, C: HotAreaProvider> HotAreaNester<C> for EventHandlerGroup<X> {
   fn is_point_in(&self, point: crate::UIPosition, inner: &C) -> bool {
     inner.is_point_in(point)
   }
@@ -101,7 +99,7 @@ impl<C, X: EventHandlerImpl<C>> EventHandlerLike<C> for EventHandler<X> {
   }
 }
 
-impl<X: EventHandlerImpl<C>, C: Eventable> EventableNested<C> for EventHandler<X> {
+impl<X: EventHandlerImpl<C>, C: Eventable> EventableNester<C> for EventHandler<X> {
   fn event(&mut self, event: &mut EventCtx, inner: &mut C) {
     if !self.state.should_handle_in_bubble() {
       self.handle_event(event, inner);
@@ -115,13 +113,13 @@ impl<X: EventHandlerImpl<C>, C: Eventable> EventableNested<C> for EventHandler<X
   }
 }
 
-impl<X: EventHandlerType, C: Presentable> PresentableNested<C> for EventHandler<X> {
+impl<X: EventHandlerType, C: Presentable> PresentableNester<C> for EventHandler<X> {
   fn render(&mut self, builder: &mut PresentationBuilder, inner: &mut C) {
     inner.render(builder);
   }
 }
 
-impl<X: EventHandlerType, C: LayoutAble> LayoutAbleNested<C> for EventHandler<X> {
+impl<X: EventHandlerType, C: LayoutAble> LayoutAbleNester<C> for EventHandler<X> {
   fn layout(
     &mut self,
     constraint: LayoutConstraint,
@@ -136,7 +134,7 @@ impl<X: EventHandlerType, C: LayoutAble> LayoutAbleNested<C> for EventHandler<X>
   }
 }
 
-impl<X: EventHandlerType, C: HotAreaProvider> HotAreaNested<C> for EventHandler<X> {
+impl<X: EventHandlerType, C: HotAreaProvider> HotAreaNester<C> for EventHandler<X> {
   fn is_point_in(&self, point: crate::UIPosition, inner: &C) -> bool {
     inner.is_point_in(point)
   }

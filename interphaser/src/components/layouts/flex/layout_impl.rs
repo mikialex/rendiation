@@ -1,13 +1,13 @@
 use crate::*;
 
-trivial_stream_impl!(Flex);
-impl<C: Eventable> EventableNested<C> for Flex {
+trivial_stream_nester_impl!(Flex);
+impl<C: Eventable> EventableNester<C> for Flex {
   fn event(&mut self, event: &mut EventCtx, inner: &mut C) {
     inner.event(event);
   }
 }
 
-impl<C: Presentable> PresentableNested<C> for Flex {
+impl<C: Presentable> PresentableNester<C> for Flex {
   fn render(&mut self, builder: &mut PresentationBuilder, inner: &mut C) {
     builder.push_offset(self.layout.relative_position);
     inner.render(builder);
@@ -15,15 +15,16 @@ impl<C: Presentable> PresentableNested<C> for Flex {
   }
 }
 
-impl<C: HotAreaProvider> HotAreaNested<C> for Flex {
+impl<C: HotAreaProvider> HotAreaNester<C> for Flex {
   fn is_point_in(&self, point: crate::UIPosition, inner: &C) -> bool {
     inner.is_point_in(point)
   }
 }
 
-impl<C> LayoutAbleNested<C> for Flex
+impl<C> LayoutAbleNester<C> for Flex
 where
-  for<'a> &'a mut C: IntoIterator<Item = &'a mut Child, IntoIter: ExactSizeIterator>,
+  for<'a> &'a mut C: IntoIterator<Item = &'a mut Child>,
+  for<'a> <&'a mut C as IntoIterator>::IntoIter: ExactSizeIterator,
 {
   fn layout(&mut self, bc: LayoutConstraint, ctx: &mut LayoutCtx, inner: &mut C) -> LayoutResult {
     // we loosen our constraints when passing to children.
