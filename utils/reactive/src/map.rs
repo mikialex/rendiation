@@ -1,4 +1,4 @@
-use std::hash::Hash;
+use std::{hash::Hash, sync::RwLockWriteGuard};
 
 use futures::{stream::FuturesUnordered, *};
 
@@ -82,10 +82,8 @@ impl<K, T> Default for StreamMap<K, T> {
   }
 }
 
-fn try_wake(w: &Arc<RwLock<Option<Waker>>>) {
-  let waker = w.read().unwrap();
-  let waker: &Option<_> = &waker;
-  if let Some(waker) = waker {
+fn try_wake(w: &Option<Waker>) {
+  if let Some(waker) = w {
     waker.wake_by_ref();
   }
 }
@@ -99,19 +97,51 @@ impl<K: Hash + Eq + Clone, T> StreamMap<K, T> {
   }
 
   pub fn insert(&mut self, key: K, value: T) {
+    self.write().insert(key, value)
+  }
+
+  pub fn get_or_insert_with(&mut self, key: K, f: impl FnOnce() -> T) -> &mut T {
+    let mut v = self.write();
+    let v = v.get_or_insert_with(key, f);
+    unsafe { std::mem::transmute(v) } // todo, fixme!
+  }
+
+  pub fn remove(&mut self, key: K) -> Option<T> {
+    self.write().remove(key)
+  }
+
+  pub fn write(&mut self) -> StreamMapWriteView<K, T> {
+    StreamMapWriteView {
+      streams: &mut self.streams,
+      ref_changes: &mut self.ref_changes,
+      waked: self.waked.write().unwrap(),
+      waker: self.waker.write().unwrap(),
+    }
+  }
+}
+
+pub struct StreamMapWriteView<'a, K, T> {
+  streams: &'a mut FastHashMap<K, T>,
+  ref_changes: &'a mut Vec<RefChange<K>>,
+  waked: RwLockWriteGuard<'a, Vec<K>>,
+  waker: RwLockWriteGuard<'a, Option<Waker>>,
+}
+
+impl<'a, K: Eq + Hash + Clone, T> StreamMapWriteView<'a, K, T> {
+  pub fn insert(&mut self, key: K, value: T) {
     // handle replace semantic
     if self.streams.contains_key(&key) {
       self.ref_changes.push(RefChange::Remove(key.clone()));
     }
     self.streams.insert(key.clone(), value);
-    self.waked.write().unwrap().push(key.clone());
+    self.waked.push(key.clone());
     self.ref_changes.push(RefChange::Insert(key));
     self.try_wake()
   }
 
   pub fn get_or_insert_with(&mut self, key: K, f: impl FnOnce() -> T) -> &mut T {
     self.streams.entry(key.clone()).or_insert_with(|| {
-      self.waked.write().unwrap().push(key.clone());
+      self.waked.push(key.clone());
       self.ref_changes.push(RefChange::Insert(key));
       try_wake(&self.waker);
       f()

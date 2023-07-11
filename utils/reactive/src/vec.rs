@@ -1,3 +1,5 @@
+use std::sync::RwLockWriteGuard;
+
 use futures::StreamExt;
 
 use crate::*;
@@ -29,18 +31,34 @@ impl<T> StreamVec<T> {
   }
 
   pub fn insert(&mut self, index: usize, st: Option<T>) {
+    self.write().insert(index, st)
+  }
+
+  pub fn write(&mut self) -> StreamVecWriteView<T> {
+    StreamVecWriteView {
+      streams: &mut self.streams,
+      waked: self.waked.write().unwrap(),
+      waker: self.waker.write().unwrap(),
+    }
+  }
+}
+
+pub struct StreamVecWriteView<'a, T> {
+  streams: &'a mut Vec<Option<T>>,
+  waked: RwLockWriteGuard<'a, Vec<usize>>,
+  waker: RwLockWriteGuard<'a, Option<Waker>>,
+}
+
+impl<'a, T> StreamVecWriteView<'a, T> {
+  pub fn insert(&mut self, index: usize, st: Option<T>) {
     // assure allocated
     while self.streams.len() <= index {
       self.streams.push(None);
     }
     self.streams[index] = st;
-    self.waked.write().unwrap().push(index);
-    self.try_wake()
-  }
+    self.waked.push(index);
 
-  pub fn try_wake(&self) {
-    let waker = self.waker.read().unwrap();
-    let waker: &Option<_> = &waker;
+    let waker: &Option<_> = &self.waker;
     if let Some(waker) = waker {
       waker.wake_by_ref();
     }

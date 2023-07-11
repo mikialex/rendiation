@@ -13,6 +13,7 @@ impl BindGroupCache {
 }
 
 pub struct BindGroupCacheInvalidation {
+  pub(crate) skip_drop: bool,
   pub(crate) cache_id_to_drop: u64,
   pub(crate) cache: BindGroupCache,
 }
@@ -21,6 +22,7 @@ impl BindGroupCacheInvalidation {
   // note we not impl Clone for good reason
   pub fn clone_another(&self) -> Self {
     Self {
+      skip_drop: self.skip_drop,
       cache_id_to_drop: self.cache_id_to_drop,
       cache: self.cache.clone(),
     }
@@ -29,6 +31,9 @@ impl BindGroupCacheInvalidation {
 
 impl Drop for BindGroupCacheInvalidation {
   fn drop(&mut self) {
+    if self.skip_drop {
+      return;
+    }
     self
       .cache
       .cache

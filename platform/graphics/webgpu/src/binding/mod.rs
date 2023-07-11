@@ -1,5 +1,3 @@
-use core::mem::ManuallyDrop;
-
 use shadergraph::{ShaderGraphNodeType, ShaderUniformProvider};
 
 use crate::*;
@@ -141,11 +139,11 @@ impl BindGroupBuilder<CacheAbleBindingBuildSource> {
       b.view_id.hash(hasher);
     });
   }
-  fn attach_bindgroup_invalidation_token(&self, token: BindGroupCacheInvalidation) {
+  fn attach_bindgroup_invalidation_token(&self, mut token: BindGroupCacheInvalidation) {
     self.items.iter().for_each(|b| {
       b.source.increase(&token);
     });
-    let _ = ManuallyDrop::new(token);
+    token.skip_drop = true;
   }
 }
 
@@ -205,6 +203,7 @@ impl BindingBuilder {
         group.attach_bindgroup_invalidation_token(BindGroupCacheInvalidation {
           cache_id_to_drop: hash,
           cache: cache.clone(),
+          skip_drop: false,
         });
 
         let bindgroup = group.create_bind_group(device, layout);
