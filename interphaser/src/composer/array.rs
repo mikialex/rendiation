@@ -28,18 +28,9 @@ impl<'a, C> IntoIterator for &'a mut ComponentArray<C> {
   }
 }
 
-impl<C: Presentable> Presentable for ComponentArray<C> {
-  fn render(&mut self, builder: &mut PresentationBuilder) {
-    self.children.iter_mut().for_each(|c| c.render(builder))
-  }
-}
-
-impl<C> Eventable for ComponentArray<C>
-where
-  C: Eventable,
-{
-  fn event(&mut self, event: &mut crate::EventCtx) {
-    self.children.iter_mut().for_each(|c| c.event(event))
+impl<C: View> View for ComponentArray<C> {
+  fn request(&mut self, detail: &mut ViewRequest) {
+    self.children.iter_mut().for_each(|c| c.request(detail))
   }
 }
 

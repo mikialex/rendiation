@@ -6,17 +6,51 @@ pub struct AbsoluteAnchor {
 }
 
 trivial_stream_nester_impl!(AbsoluteAnchor);
-impl<C: Eventable> EventableNester<C> for AbsoluteAnchor {
-  fn event(&mut self, event: &mut EventCtx, inner: &mut C) {
-    inner.event(event);
-  }
-}
+impl<C: View> ViewNester<C> for AbsoluteAnchor
+where
+  for<'a> &'a mut C: IntoIterator<Item = &'a mut AbsChild>,
+{
+  fn request_nester(&mut self, detail: &mut ViewRequest, inner: &mut C) {
+    match detail {
+      ViewRequest::Event(_) => inner.request(detail),
+      ViewRequest::Layout(p) => {
+        match p {
+          LayoutProtocol::DoLayout {
+            constraint,
+            output,
+            ctx,
+          } => {
+            // we just pass the parent constraint to children, so the anchor itself is
+            // transparent to children
+            let mut result = Default::default();
+            inner.into_iter().for_each(|child| {
+              child
+                .inner
+                .request(&mut ViewRequest::Layout(LayoutProtocol::DoLayout {
+                  constraint: *constraint,
+                  output: &mut result,
+                  ctx,
+                }));
+            });
 
-impl<C: Presentable> PresentableNester<C> for AbsoluteAnchor {
-  fn render(&mut self, builder: &mut PresentationBuilder, inner: &mut C) {
-    builder.push_offset(self.position);
-    inner.render(builder);
-    builder.pop_offset()
+            **output = constraint.max().with_default_baseline();
+          }
+          LayoutProtocol::PositionAt(position) => {
+            self.position = *position;
+            inner.into_iter().for_each(|child| {
+              child.request(&mut ViewRequest::Layout(LayoutProtocol::PositionAt(
+                child.position,
+              )));
+            });
+          }
+        }
+      }
+      ViewRequest::Encode(builder) => {
+        builder.push_offset(self.position);
+        inner.request(&mut ViewRequest::Encode(builder));
+        builder.pop_offset()
+      }
+    }
   }
 }
 
@@ -32,11 +66,11 @@ pub fn absolute_group() -> ComponentArray<AbsChild> {
 
 pub struct AbsChild {
   pub position: UIPosition,
-  pub inner: Box<dyn Component>,
+  pub inner: Box<dyn View>,
 }
 
 impl AbsChild {
-  pub fn new(inner: impl Component + 'static) -> Self {
+  pub fn new(inner: impl View + 'static) -> Self {
     Self {
       inner: Box::new(inner),
       position: Default::default(),
@@ -57,41 +91,9 @@ impl Stream for AbsChild {
     self.inner.poll_next_unpin(cx)
   }
 }
-impl Eventable for AbsChild {
-  fn event(&mut self, event: &mut EventCtx) {
-    self.inner.event(event)
-  }
-}
 
-impl Presentable for AbsChild {
-  fn render(&mut self, builder: &mut PresentationBuilder) {
-    self.inner.render(builder)
-  }
-}
-
-impl<C> LayoutAbleNester<C> for AbsoluteAnchor
-where
-  for<'a> &'a mut C: IntoIterator<Item = &'a mut AbsChild>,
-{
-  fn layout(
-    &mut self,
-    constraint: LayoutConstraint,
-    ctx: &mut LayoutCtx,
-    inner: &mut C,
-  ) -> LayoutResult {
-    // we just pass the parent constraint to children, so the anchor itself is
-    // transparent to children
-    inner.into_iter().for_each(|child| {
-      child.inner.layout(constraint, ctx);
-    });
-
-    constraint.max().with_default_baseline()
-  }
-
-  fn set_position(&mut self, position: UIPosition, inner: &mut C) {
-    self.position = position;
-    inner.into_iter().for_each(|child| {
-      child.inner.set_position(child.position);
-    });
+impl View for AbsChild {
+  fn request(&mut self, detail: &mut ViewRequest) {
+    self.inner.request(detail)
   }
 }

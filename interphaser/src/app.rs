@@ -15,7 +15,7 @@ pub(crate) const TEXT_CACHE_INIT_SIZE: Size = Size {
   height: NonZeroUsize::new(512).unwrap(),
 };
 
-pub async fn run_gui(ui: impl Component + 'static, init_state: WindowSelfState) {
+pub async fn run_gui(ui: impl View + 'static, init_state: WindowSelfState) {
   let event_loop = EventLoop::new();
 
   let mut window = Window::new(&event_loop, init_state.into(), futures::stream::pending());
@@ -48,7 +48,7 @@ pub async fn run_gui(ui: impl Component + 'static, init_state: WindowSelfState) 
 }
 
 pub struct Application {
-  root: Box<dyn Component>,
+  root: Box<dyn View>,
   any_changed: Arc<NotifyWaker>,
   fonts: FontManager,
   texts: TextCache,
@@ -90,7 +90,7 @@ impl futures::task::ArcWake for NotifyWaker {
 }
 
 impl Application {
-  pub fn new(root: impl Component + 'static) -> Self {
+  pub fn new(root: impl View + 'static) -> Self {
     let fonts = FontManager::new_with_default_font();
     let texts = TextCache::new_default_impl(TEXT_CACHE_INIT_SIZE);
 
@@ -110,7 +110,7 @@ impl Application {
       texts: &mut self.texts,
       gpu,
     };
-    self.root.event(&mut event);
+    self.root.request(&mut ViewRequest::Event(&mut event));
     self.update();
   }
 
@@ -134,14 +134,25 @@ impl Application {
 
     self
       .root
-      .layout(LayoutConstraint::from_max(root_size), &mut ctx);
-    self.root.set_position(UIPosition { x: 0., y: 0. });
+      .request(&mut ViewRequest::Layout(LayoutProtocol::DoLayout {
+        constraint: LayoutConstraint::from_max(root_size),
+        ctx: &mut ctx,
+        output: &mut LayoutResult {
+          size: root_size,
+          baseline_offset: 0.,
+        },
+      }));
+    self
+      .root
+      .request(&mut ViewRequest::Layout(LayoutProtocol::PositionAt(
+        UIPosition { x: 0., y: 0. },
+      )));
 
     // encoding render content
     let mut builder = PresentationBuilder::new(&self.fonts, &mut self.texts);
     builder.present.view_size = root_size;
 
-    self.root.render(&mut builder);
+    self.root.request(&mut ViewRequest::Encode(&mut builder));
 
     builder.present
   }

@@ -56,18 +56,47 @@ impl Container {
   }
 }
 
-impl<C: Eventable> EventableNester<C> for Container {
-  fn event(&mut self, event: &mut EventCtx, inner: &mut C) {
-    inner.event(event);
-  }
-}
+impl<C: View> ViewNester<C> for Container {
+  fn request_nester(&mut self, detail: &mut ViewRequest, inner: &mut C) {
+    match detail {
+      ViewRequest::Event(_) => inner.request(detail),
+      ViewRequest::Layout(p) => match p {
+        LayoutProtocol::DoLayout {
+          constraint,
+          ctx,
+          output,
+        } => {
+          let (self_size, child_size) = self.size.compute_size_pair(*constraint, self, inner, ctx);
+          self.layout.size = self_size;
+          let align_offset = self.child_align.make_offset(self.layout.size, child_size);
 
-impl<C: Presentable> PresentableNester<C> for Container {
-  fn render(&mut self, builder: &mut PresentationBuilder, inner: &mut C) {
-    Presentable::render(self, builder);
-    builder.push_offset(self.layout.relative_position);
-    inner.render(builder);
-    builder.pop_offset()
+          let position = UIPosition {
+            x: align_offset.x
+              + self.child_offset.x
+              + self.margin.left
+              + self.padding.left
+              + self.border.width.left,
+            y: align_offset.y
+              + self.child_offset.y
+              + self.margin.top
+              + self.padding.top
+              + self.border.width.top,
+          };
+          inner.request(&mut ViewRequest::Layout(LayoutProtocol::PositionAt(
+            position,
+          )));
+
+          **output = self.layout.size.with_default_baseline();
+        }
+        LayoutProtocol::PositionAt(p) => self.layout.set_relative_position(*p),
+      },
+      ViewRequest::Encode(builder) => {
+        self.request(&mut ViewRequest::Encode(builder));
+        builder.push_offset(self.layout.relative_position);
+        inner.request(&mut ViewRequest::Encode(builder));
+        builder.pop_offset()
+      }
+    }
   }
 }
 
@@ -100,7 +129,7 @@ impl ContainerSize {
     &self,
     constraint: LayoutConstraint,
     container: &Container,
-    child: &mut dyn LayoutAble,
+    child: &mut dyn View,
     ctx: &mut LayoutCtx,
   ) -> (UISize, UISize) {
     match self {
@@ -171,40 +200,6 @@ pub struct ContainerItemOffset {
   pub y: f32,
 }
 
-impl<C: LayoutAble> LayoutAbleNester<C> for Container {
-  fn layout(
-    &mut self,
-    constraint: LayoutConstraint,
-    ctx: &mut LayoutCtx,
-    inner: &mut C,
-  ) -> LayoutResult {
-    let (self_size, child_size) = self.size.compute_size_pair(constraint, self, inner, ctx);
-
-    self.layout.size = self_size;
-
-    let align_offset = self.child_align.make_offset(self.layout.size, child_size);
-
-    inner.set_position(UIPosition {
-      x: align_offset.x
-        + self.child_offset.x
-        + self.margin.left
-        + self.padding.left
-        + self.border.width.left,
-      y: align_offset.y
-        + self.child_offset.y
-        + self.margin.top
-        + self.padding.top
-        + self.border.width.top,
-    });
-
-    self.layout.size.with_default_baseline()
-  }
-
-  fn set_position(&mut self, position: UIPosition, _inner: &mut C) {
-    self.layout.set_relative_position(position);
-  }
-}
-
 trivial_stream_impl!(Container);
 trivial_stream_nester_impl!(Container);
 impl<C> HotAreaNester<C> for Container {
@@ -213,29 +208,28 @@ impl<C> HotAreaNester<C> for Container {
   }
 }
 
-impl LayoutAble for Container {
-  fn layout(&mut self, constraint: LayoutConstraint, _ctx: &mut LayoutCtx) -> LayoutResult {
-    self.layout.size = self.size.compute_size_self(constraint);
-    self.layout.size.with_default_baseline()
-  }
-
-  fn set_position(&mut self, position: UIPosition) {
-    self.layout.set_relative_position(position);
-  }
-}
-
-impl Presentable for Container {
-  fn render(&mut self, builder: &mut PresentationBuilder) {
-    self.layout.update_world(builder.current_origin_offset());
-    if self.color.a != 0. {
-      builder.present.primitives.push(Primitive::Quad((
-        self.layout.into_quad(),
-        Style::SolidColor(self.color),
-      )));
+impl View for Container {
+  fn request(&mut self, detail: &mut ViewRequest) {
+    match detail {
+      ViewRequest::Event(_) => {}
+      ViewRequest::Layout(p) => match p {
+        LayoutProtocol::DoLayout {
+          constraint, output, ..
+        } => {
+          self.layout.size = self.size.compute_size_self(*constraint);
+          **output = self.layout.size.with_default_baseline();
+        }
+        LayoutProtocol::PositionAt(p) => self.layout.set_relative_position(*p),
+      },
+      ViewRequest::Encode(builder) => {
+        self.layout.update_world(builder.current_origin_offset());
+        if self.color.a != 0. {
+          builder.present.primitives.push(Primitive::Quad((
+            self.layout.into_quad(),
+            Style::SolidColor(self.color),
+          )));
+        }
+      }
     }
   }
-}
-
-impl Eventable for Container {
-  fn event(&mut self, _event: &mut EventCtx) {}
 }

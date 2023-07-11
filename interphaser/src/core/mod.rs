@@ -9,8 +9,15 @@ pub use event::*;
 
 use crate::*;
 
-pub trait Component: Eventable + Presentable + LayoutAble + Stream<Item = ()> + Unpin {}
-impl<T> Component for T where T: Eventable + Presentable + LayoutAble + Stream<Item = ()> + Unpin {}
-
 pub type BoxedUnpinStream<T> = Box<dyn Stream<Item = T> + Unpin>;
 pub type BoxedUnpinFusedStream<T> = Box<dyn FusedStream<Item = T> + Unpin>;
+
+pub enum ViewRequest<'a, 'b, 'c> {
+  Event(&'a mut EventCtx<'b>),
+  Layout(LayoutProtocol<'b, 'c>),
+  Encode(&'a mut PresentationBuilder<'b>),
+}
+
+pub trait View: Stream<Item = ()> + Unpin {
+  fn request(&mut self, detail: &mut ViewRequest);
+}
