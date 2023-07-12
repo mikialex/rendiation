@@ -202,7 +202,6 @@ pub struct ContainerItemOffset {
 }
 
 trivial_stream_impl!(Container);
-trivial_stream_nester_impl!(Container);
 
 impl View for Container {
   fn request(&mut self, detail: &mut ViewRequest) {

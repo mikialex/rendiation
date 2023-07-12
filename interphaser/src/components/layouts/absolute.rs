@@ -6,7 +6,6 @@ pub struct AbsoluteAnchor {
 }
 
 trivial_stream_impl!(AbsoluteAnchor);
-trivial_stream_nester_impl!(AbsoluteAnchor);
 impl<C: View> ViewNester<C> for AbsoluteAnchor
 where
   for<'a> &'a mut C: IntoIterator<Item = &'a mut AbsChild>,

@@ -17,29 +17,6 @@ macro_rules! trivial_stream_impl {
   };
 }
 
-#[macro_export]
-macro_rules! trivial_stream_nester_impl {
-  ($Type: ty) => {
-    impl<C: Stream<Item = ()> + Unpin> ReactiveUpdateNester<C> for $Type {
-      fn poll_update_inner(
-        mut self: Pin<&mut Self>,
-        cx: &mut Context<'_>,
-        inner: &mut C,
-      ) -> Poll<Option<()>> {
-        // todo, we here to ignore the None case
-        let mut r = self.poll_next_unpin(cx).eq(&Poll::Ready(().into()));
-
-        r |= inner.poll_next_unpin(cx).eq(&Poll::Ready(().into()));
-        if r {
-          Poll::Ready(().into())
-        } else {
-          Poll::Pending
-        }
-      }
-    }
-  };
-}
-
 #[derive(Default)]
 pub struct ViewUpdateNotifier {
   inner: Option<Waker>,

@@ -43,7 +43,7 @@ pub fn button(label: String) -> (impl View, impl Stream<Item = ()>) {
   let click_event = clicker.events.single_listen().map(|_| {});
 
   let view = Container::sized((200., 80.))
-    .nest_in(color_change.bind(Container::set_color))
+    .react(color_change.bind(Container::set_color))
     .wrap(Text::new(label))
     .nest_in(clicker);
 

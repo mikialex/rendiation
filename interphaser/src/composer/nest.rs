@@ -3,61 +3,60 @@ use std::ops::DerefMut;
 use crate::*;
 
 /// Combinator structure
-pub struct NestedComponent<C, A> {
+pub struct NestedView<C, A> {
   inner: C,
   outer: A,
 }
 
-impl<C, A> NestedComponent<C, A> {
+impl<C, A> NestedView<C, A> {
   pub fn new(inner: C, outer: A) -> Self {
     Self { inner, outer }
   }
 }
 
 /// The helper trait to link different component together
-pub trait ComponentNestExt: Sized {
-  fn nest_in<A>(self, outer: A) -> NestedComponent<Self, A>
+pub trait ViewNestExt: Sized {
+  fn nest_in<A>(self, outer: A) -> NestedView<Self, A>
   where
     A: ViewNester<Self>,
   {
-    NestedComponent::new(self, outer)
+    NestedView::new(self, outer)
   }
-  fn wrap<C>(self, inner: C) -> NestedComponent<C, Self>
+  fn wrap<C>(self, inner: C) -> NestedView<C, Self>
 where
     // Self: ComponentNester<C>, 
     // todo check if compiler bug?
   {
-    NestedComponent::new(inner, self)
+    NestedView::new(inner, self)
   }
 }
-impl<X> ComponentNestExt for X where X: Sized {}
-
-pub trait ReactiveUpdateNester<C> {
-  fn poll_update_inner(
-    self: Pin<&mut Self>,
-    cx: &mut Context<'_>,
-    inner: &mut C,
-  ) -> Poll<Option<()>>;
-}
+impl<X> ViewNestExt for X where X: Sized {}
 
 pub trait ViewNester<C> {
   fn request_nester(&mut self, detail: &mut ViewRequest, inner: &mut C);
 }
 
-impl<C, A> Stream for NestedComponent<C, A>
+impl<C, A> Stream for NestedView<C, A>
 where
-  C: Unpin,
-  A: ReactiveUpdateNester<C> + Unpin,
+  C: Stream<Item = ()> + Unpin,
+  A: Stream<Item = ()> + Unpin,
 {
   type Item = ();
 
   fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
     let this = self.deref_mut();
-    Pin::new(&mut this.outer).poll_update_inner(cx, &mut this.inner)
+    // todo, we here to ignore the None case
+    let mut r = this.inner.poll_next_unpin(cx).eq(&Poll::Ready(().into()));
+    r |= this.outer.poll_next_unpin(cx).eq(&Poll::Ready(().into()));
+    if r {
+      Poll::Ready(().into())
+    } else {
+      Poll::Pending
+    }
   }
 }
 
-impl<C, A> View for NestedComponent<C, A>
+impl<C, A> View for NestedView<C, A>
 where
   A: ViewNester<C>,
   Self: Stream<Item = ()> + Unpin,
@@ -68,29 +67,7 @@ where
   }
 }
 
-impl<C, A, CC> ReactiveUpdateNester<CC> for NestedComponent<C, A>
-where
-  Self: Stream<Item = ()> + Unpin,
-  CC: Stream<Item = ()> + Unpin,
-{
-  fn poll_update_inner(
-    mut self: Pin<&mut Self>,
-    cx: &mut Context<'_>,
-    inner: &mut CC,
-  ) -> Poll<Option<()>> {
-    // todo, we here to ignore the None case
-    let mut r = self.poll_next_unpin(cx).eq(&Poll::Ready(().into()));
-
-    r |= inner.poll_next_unpin(cx).eq(&Poll::Ready(().into()));
-    if r {
-      Poll::Ready(().into())
-    } else {
-      Poll::Pending
-    }
-  }
-}
-
-impl<C, A, CC> ViewNester<CC> for NestedComponent<C, A>
+impl<C, A, CC> ViewNester<CC> for NestedView<C, A>
 where
   Self: View,
   CC: View,
