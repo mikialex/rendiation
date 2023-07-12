@@ -20,13 +20,21 @@ macro_rules! trivial_stream_impl {
 #[macro_export]
 macro_rules! trivial_stream_nester_impl {
   ($Type: ty) => {
-    impl<C> ReactiveUpdateNester<C> for $Type {
+    impl<C: Stream<Item = ()> + Unpin> ReactiveUpdateNester<C> for $Type {
       fn poll_update_inner(
-        self: Pin<&mut Self>,
-        _: &mut Context<'_>,
-        _: &mut C,
+        mut self: Pin<&mut Self>,
+        cx: &mut Context<'_>,
+        inner: &mut C,
       ) -> Poll<Option<()>> {
-        Poll::Pending
+        // todo, we here to ignore the None case
+        let mut r = self.poll_next_unpin(cx).eq(&Poll::Ready(().into()));
+
+        r |= inner.poll_next_unpin(cx).eq(&Poll::Ready(().into()));
+        if r {
+          Poll::Ready(().into())
+        } else {
+          Poll::Pending
+        }
       }
     }
   };

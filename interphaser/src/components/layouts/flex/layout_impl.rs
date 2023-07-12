@@ -1,5 +1,6 @@
 use crate::*;
 
+trivial_stream_impl!(Flex);
 trivial_stream_nester_impl!(Flex);
 impl<C: View> ViewNester<C> for Flex
 where

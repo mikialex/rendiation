@@ -5,6 +5,7 @@ pub struct AbsoluteAnchor {
   position: UIPosition,
 }
 
+trivial_stream_impl!(AbsoluteAnchor);
 trivial_stream_nester_impl!(AbsoluteAnchor);
 impl<C: View> ViewNester<C> for AbsoluteAnchor
 where
