@@ -111,6 +111,10 @@ pub trait SignalStreamExt: Stream {
   fn debug(self, label: impl AsRef<str>) -> DebugStream<Self>
   where
     Self: Sized + Stream;
+
+  fn keep_last(self) -> KeepLast<Self>
+  where
+    Self: Sized + Stream;
 }
 
 impl<T: Stream> SignalStreamExt for T {
@@ -250,6 +254,13 @@ impl<T: Stream> SignalStreamExt for T {
       inner: self,
       label: str.into(),
     }
+  }
+
+  fn keep_last(self) -> KeepLast<Self>
+  where
+    Self: Sized + Stream,
+  {
+    KeepLast { inner: self }
   }
 }
 
@@ -704,5 +715,35 @@ where
     }
 
     r
+  }
+}
+
+#[pin_project::pin_project]
+pub struct KeepLast<S> {
+  #[pin]
+  inner: S,
+}
+
+impl<S> Stream for KeepLast<S>
+where
+  S: Stream,
+  S::Item: std::fmt::Debug,
+{
+  type Item = S::Item;
+
+  fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+    let mut this = self.project();
+    let mut has_ready = false;
+    let mut last = None;
+    while let Poll::Ready(r) = this.inner.as_mut().poll_next(cx) {
+      has_ready = true;
+      last = r;
+    }
+
+    if has_ready {
+      Poll::Ready(last)
+    } else {
+      Poll::Pending
+    }
   }
 }

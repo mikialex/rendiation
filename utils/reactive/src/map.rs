@@ -67,8 +67,8 @@ impl<M, T: ReactiveMapping<M>> ReactiveMap<T, M> {
 pub struct StreamMap<K, T> {
   streams: FastHashMap<K, T>,
   ref_changes: Vec<RefChange<K>>,
-  waked: Arc<RwLock<Vec<K>>>,
-  waker: Arc<RwLock<Option<Waker>>>,
+  waked: Arc<SegQueue<K>>,
+  waker: Arc<AtomicWaker>,
 }
 
 impl<K, T> Default for StreamMap<K, T> {
@@ -79,14 +79,6 @@ impl<K, T> Default for StreamMap<K, T> {
       waked: Default::default(),
       waker: Default::default(),
     }
-  }
-}
-
-fn try_wake(w: &Arc<RwLock<Option<Waker>>>) {
-  let waker = w.read().unwrap();
-  let waker: &Option<_> = &waker;
-  if let Some(waker) = waker {
-    waker.wake_by_ref();
   }
 }
 
@@ -104,30 +96,26 @@ impl<K: Hash + Eq + Clone, T> StreamMap<K, T> {
       self.ref_changes.push(RefChange::Remove(key.clone()));
     }
     self.streams.insert(key.clone(), value);
-    self.waked.write().unwrap().push(key.clone());
+    self.waked.push(key.clone());
     self.ref_changes.push(RefChange::Insert(key));
-    self.try_wake()
+    self.waker.wake()
   }
 
   pub fn get_or_insert_with(&mut self, key: K, f: impl FnOnce() -> T) -> &mut T {
     self.streams.entry(key.clone()).or_insert_with(|| {
-      self.waked.write().unwrap().push(key.clone());
+      self.waked.push(key.clone());
       self.ref_changes.push(RefChange::Insert(key));
-      try_wake(&self.waker);
+      self.waker.wake();
       f()
     })
   }
 
   pub fn remove(&mut self, key: K) -> Option<T> {
-    self.try_wake();
+    self.waker.wake();
     self.streams.remove(&key).map(|d| {
       self.ref_changes.push(RefChange::Remove(key));
       d
     })
-  }
-
-  pub fn try_wake(&self) {
-    try_wake(&self.waker)
   }
 }
 
@@ -153,10 +141,10 @@ where
   fn poll_next(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Option<Self::Item>> {
     let this = self.project();
     // install new waker
-    this.waker.write().unwrap().replace(cx.waker().clone());
+    this.waker.register(cx.waker());
 
     // note: this is not precise estimation, because each waked value maybe emit multiple delta
-    let waked_size = this.waked.read().unwrap().len();
+    let waked_size = this.waked.len();
     let result_size = this.ref_changes.len() + waked_size;
     if result_size == 0 {
       return Poll::Pending;
@@ -172,11 +160,11 @@ where
     }
 
     loop {
-      let last = this.waked.write().unwrap().pop();
+      let last = this.waked.pop();
       if let Some(key) = last {
         // prepare the sub waker
         let waker = Arc::new(ChangeWaker {
-          waker: RwLock::new(this.waker.clone().into()),
+          waker: this.waker.clone(),
           index: key.clone(),
           changed: this.waked.clone(),
         });

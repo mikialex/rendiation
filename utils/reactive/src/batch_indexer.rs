@@ -89,13 +89,17 @@ where
         let mut start = 0;
         input.group_by(|a, b| a.0 == b.0).for_each(|slice| {
           let id = slice[0].0;
-          if let Some(Some(dis)) = this.distributer.get(id) {
-            let sub = AfterIndexedMessage {
-              source: input.clone(),
-              range: (start..start + slice.len()),
-            };
-            start += slice.len();
-            dis.unbounded_send(sub).ok();
+          if let Some(d) = this.distributer.get_mut(id) {
+            if let Some(dis) = d {
+              let sub = AfterIndexedMessage {
+                source: input.clone(),
+                range: (start..start + slice.len()),
+              };
+              start += slice.len();
+              if dis.unbounded_send(sub).is_err() {
+                *d = None;
+              }
+            }
           }
         });
         Poll::Ready(input.into())
