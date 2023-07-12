@@ -255,3 +255,8 @@ impl View for EditableText {
     }
   }
 }
+impl HotAreaProvider for EditableText {
+  fn is_point_in(&self, _: UIPosition) -> bool {
+    false // todo!()
+  }
+}

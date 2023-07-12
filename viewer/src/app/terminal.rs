@@ -74,7 +74,7 @@ impl Terminal {
   }
 }
 
-pub fn terminal() -> (impl Component, impl Stream<Item = String> + Unpin) {
+pub fn terminal() -> (impl View, impl Stream<Item = String> + Unpin) {
   let mut edit_text = Text::default()
     .with_layout(TextLayoutConfig::SizedBox {
       line_wrap: LineWrap::Single,

@@ -21,7 +21,7 @@ impl ButtonState {
   }
 }
 
-// pub fn button(label: String) -> (impl Component, impl Stream<Item = ()>) {
+// pub fn button(label: String) -> (impl View, impl Stream<Item = ()>) {
 //   let state = ButtonState::use_state();
 
 //   // let on_mouse_down = state.on_event_trigger(|s| *s = ButtonState::Pressed);

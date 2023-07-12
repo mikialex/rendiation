@@ -201,6 +201,13 @@ impl UISize {
     )
       .into()
   }
+
+  pub fn union(self, other: Self) -> Self {
+    Self {
+      width: self.width.max(other.width),
+      height: self.height.max(other.height),
+    }
+  }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Default)]

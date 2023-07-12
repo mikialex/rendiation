@@ -2,6 +2,18 @@ use std::ops::DerefMut;
 
 use crate::*;
 
+/// Combinator structure
+pub struct NestedComponent<C, A> {
+  inner: C,
+  outer: A,
+}
+
+impl<C, A> NestedComponent<C, A> {
+  pub fn new(inner: C, outer: A) -> Self {
+    Self { inner, outer }
+  }
+}
+
 /// The helper trait to link different component together
 pub trait ComponentNestExt: Sized {
   fn nest_in<A>(self, outer: A) -> NestedComponent<Self, A>
@@ -20,18 +32,6 @@ where
 }
 impl<X> ComponentNestExt for X where X: Sized {}
 
-/// Combinator structure
-pub struct NestedComponent<C, A> {
-  inner: C,
-  outer: A,
-}
-
-impl<C, A> NestedComponent<C, A> {
-  pub fn new(inner: C, outer: A) -> Self {
-    Self { inner, outer }
-  }
-}
-
 pub trait ReactiveUpdateNester<C> {
   fn poll_update_inner(
     self: Pin<&mut Self>,
@@ -40,45 +40,37 @@ pub trait ReactiveUpdateNester<C> {
   ) -> Poll<Option<()>>;
 }
 
+pub trait ViewNester<C> {
+  fn request_nester(&mut self, detail: &mut ViewRequest, inner: &mut C);
+}
+
+pub trait HotAreaNester<C> {
+  fn is_point_in(&self, _point: crate::UIPosition, _inner: &C) -> bool {
+    false
+  }
+}
+
 impl<C, A> Stream for NestedComponent<C, A>
 where
-  C: Stream<Item = ()> + Unpin,
+  C: Unpin,
   A: ReactiveUpdateNester<C> + Unpin,
 {
   type Item = ();
 
   fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
     let this = self.deref_mut();
-    let mut view_changed = false;
-    view_changed |= Pin::new(&mut this.outer)
-      .poll_update_inner(cx, &mut this.inner)
-      .is_ready();
-    view_changed |= this.inner.poll_next_unpin(cx).is_ready();
-    if view_changed {
-      Poll::Ready(().into())
-    } else {
-      Poll::Pending
-    }
+    Pin::new(&mut this.outer).poll_update_inner(cx, &mut this.inner)
   }
 }
 
-pub trait ViewNester<C> {
-  fn request_nester(&mut self, detail: &mut ViewRequest, inner: &mut C);
-}
-
-// impl<C, A: ViewNester<C>> View for NestedComponent<C, A>
-// where
-//   Self: Unpin,
-//   C: Stream,
-// {
-//   fn request(&mut self, detail: &mut ViewRequest) {
-//     self.outer.request_nester(detail, &mut self.inner)
-//   }
-// }
-
-pub trait HotAreaNester<C> {
-  fn is_point_in(&self, _point: crate::UIPosition, _inner: &C) -> bool {
-    false
+impl<C, A> View for NestedComponent<C, A>
+where
+  A: ViewNester<C>,
+  Self: Stream<Item = ()> + Unpin,
+{
+  fn request(&mut self, detail: &mut ViewRequest) {
+    // the behavior of nested view is fully decided by the nester
+    self.outer.request_nester(detail, &mut self.inner)
   }
 }
 
@@ -88,5 +80,60 @@ where
 {
   fn is_point_in(&self, point: crate::UIPosition) -> bool {
     self.outer.is_point_in(point, &self.inner)
+  }
+}
+
+impl<C, A, CC> ReactiveUpdateNester<CC> for NestedComponent<C, A>
+where
+  Self: Stream<Item = ()> + Unpin,
+  CC: Stream<Item = ()> + Unpin,
+{
+  fn poll_update_inner(
+    mut self: Pin<&mut Self>,
+    cx: &mut Context<'_>,
+    inner: &mut CC,
+  ) -> Poll<Option<()>> {
+    // todo, we here to ignore the None case
+    let mut r = self.poll_next_unpin(cx).eq(&Poll::Ready(().into()));
+
+    r |= inner.poll_next_unpin(cx).eq(&Poll::Ready(().into()));
+    if r {
+      Poll::Ready(().into())
+    } else {
+      Poll::Pending
+    }
+  }
+}
+
+impl<C, A, CC> ViewNester<CC> for NestedComponent<C, A>
+where
+  Self: View,
+  CC: View,
+{
+  fn request_nester(&mut self, detail: &mut ViewRequest, inner: &mut CC) {
+    if let ViewRequest::Layout(LayoutProtocol::DoLayout {
+      constraint,
+      ctx,
+      output,
+    }) = detail
+    {
+      let result_self = self.layout(*constraint, ctx);
+      let result_inner = self.layout(*constraint, ctx);
+      output.baseline_offset = result_inner.baseline_offset; // respect inner?
+      output.size = result_self.size.union(result_inner.size)
+    } else {
+      self.request(detail);
+      inner.request(detail);
+    }
+  }
+}
+
+impl<C, A, CC> HotAreaNester<CC> for NestedComponent<C, A>
+where
+  Self: HotAreaProvider,
+  CC: HotAreaProvider,
+{
+  fn is_point_in(&self, point: crate::UIPosition, inner: &CC) -> bool {
+    HotAreaProvider::is_point_in(self, point) || inner.is_point_in(point)
   }
 }

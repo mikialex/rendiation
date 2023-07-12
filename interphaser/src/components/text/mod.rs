@@ -191,3 +191,9 @@ impl View for Text {
     }
   }
 }
+
+impl HotAreaProvider for Text {
+  fn is_point_in(&self, _: UIPosition) -> bool {
+    false // todo!()
+  }
+}
