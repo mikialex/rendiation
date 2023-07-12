@@ -110,7 +110,7 @@ impl Application {
       texts: &mut self.texts,
       gpu,
     };
-    self.root.request(&mut ViewRequest::Event(&mut event));
+    self.root.event(&mut event);
     self.update();
   }
 
@@ -134,25 +134,14 @@ impl Application {
 
     self
       .root
-      .request(&mut ViewRequest::Layout(LayoutProtocol::DoLayout {
-        constraint: LayoutConstraint::from_max(root_size),
-        ctx: &mut ctx,
-        output: &mut LayoutResult {
-          size: root_size,
-          baseline_offset: 0.,
-        },
-      }));
-    self
-      .root
-      .request(&mut ViewRequest::Layout(LayoutProtocol::PositionAt(
-        UIPosition { x: 0., y: 0. },
-      )));
+      .layout(LayoutConstraint::from_max(root_size), &mut ctx);
+    self.root.set_position(UIPosition { x: 0., y: 0. });
 
     // encoding render content
     let mut builder = PresentationBuilder::new(&self.fonts, &mut self.texts);
     builder.present.view_size = root_size;
 
-    self.root.request(&mut ViewRequest::Encode(&mut builder));
+    self.root.draw(&mut builder);
 
     builder.present
   }

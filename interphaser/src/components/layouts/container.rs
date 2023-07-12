@@ -82,18 +82,16 @@ impl<C: View> ViewNester<C> for Container {
               + self.padding.top
               + self.border.width.top,
           };
-          inner.request(&mut ViewRequest::Layout(LayoutProtocol::PositionAt(
-            position,
-          )));
+          inner.set_position(position);
 
           **output = self.layout.size.with_default_baseline();
         }
         LayoutProtocol::PositionAt(p) => self.layout.set_relative_position(*p),
       },
       ViewRequest::Encode(builder) => {
-        self.request(&mut ViewRequest::Encode(builder));
+        self.draw(builder);
         builder.push_offset(self.layout.relative_position);
-        inner.request(&mut ViewRequest::Encode(builder));
+        inner.draw(builder);
         builder.pop_offset()
       }
     }

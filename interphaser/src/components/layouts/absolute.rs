@@ -22,15 +22,8 @@ where
           } => {
             // we just pass the parent constraint to children, so the anchor itself is
             // transparent to children
-            let mut result = Default::default();
             inner.into_iter().for_each(|child| {
-              child
-                .inner
-                .request(&mut ViewRequest::Layout(LayoutProtocol::DoLayout {
-                  constraint: *constraint,
-                  output: &mut result,
-                  ctx,
-                }));
+              child.inner.layout(*constraint, ctx);
             });
 
             **output = constraint.max().with_default_baseline();
@@ -38,16 +31,14 @@ where
           LayoutProtocol::PositionAt(position) => {
             self.position = *position;
             inner.into_iter().for_each(|child| {
-              child.request(&mut ViewRequest::Layout(LayoutProtocol::PositionAt(
-                child.position,
-              )));
+              child.set_position(child.position);
             });
           }
         }
       }
       ViewRequest::Encode(builder) => {
         builder.push_offset(self.position);
-        inner.request(&mut ViewRequest::Encode(builder));
+        inner.draw(builder);
         builder.pop_offset()
       }
     }

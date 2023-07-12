@@ -194,9 +194,9 @@ impl Stream for EditableText {
   }
 }
 
-impl Eventable for EditableText {
+impl EditableText {
   fn event(&mut self, ctx: &mut EventCtx) {
-    self.text.request(&mut ViewRequest::Event(ctx));
+    self.text.event(ctx);
 
     use winit::event::*;
 
@@ -239,7 +239,7 @@ impl View for EditableText {
       ViewRequest::Layout(_) => self.text.request(detail),
       ViewRequest::Encode(builder) => {
         self.clamp_cursor_position();
-        self.text.request(&mut ViewRequest::Encode(builder));
+        self.text.draw(builder);
         if let Some(cursor) = &mut self.cursor {
           if blink_show(cursor.get_last_update_timestamp().elapsed()) {
             return;
