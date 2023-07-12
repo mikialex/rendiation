@@ -1,5 +1,59 @@
+use std::ops::DerefMut;
+
 use crate::*;
 
+pub struct ReactiveNestedView<C, X> {
+  updater: X,
+  inner: C,
+}
+
+pub trait ReactiveUpdateNester<C> {
+  fn poll_update_inner(
+    self: Pin<&mut Self>,
+    cx: &mut Context<'_>,
+    inner: &mut C,
+  ) -> Poll<Option<()>>;
+}
+
+pub trait ViewReactExt: Sized {
+  fn react<X>(self, updater: X) -> ReactiveNestedView<Self, X>
+  where
+    X: ReactiveUpdateNester<Self>,
+  {
+    ReactiveNestedView {
+      updater,
+      inner: self,
+    }
+  }
+}
+impl<X> ViewReactExt for X where X: View {}
+
+impl<C, X> Stream for ReactiveNestedView<C, X>
+where
+  X: ReactiveUpdateNester<C> + Unpin,
+  C: View,
+  Self: Unpin,
+{
+  type Item = ();
+
+  fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+    let this = self.deref_mut();
+    Pin::new(&mut this.updater).poll_update_inner(cx, &mut this.inner)
+  }
+}
+impl<C: View, X> View for ReactiveNestedView<C, X>
+where
+  Self: Stream<Item = ()> + Unpin,
+{
+  fn request(&mut self, detail: &mut ViewRequest) {
+    self.inner.request(detail)
+  }
+}
+impl<C: View, X, CC: View> ViewNester<CC> for ReactiveNestedView<C, X> {
+  fn request_nester(&mut self, detail: &mut ViewRequest, inner: &mut CC) {
+    inner.request(detail)
+  }
+}
 // struct ReactiveUpdaterGroup<C> {
 //   updater: Vec<Box<dyn ReactiveUpdateNester<C>>>,
 // }
@@ -31,24 +85,26 @@ use crate::*;
 //   }
 // }
 
+impl<T: Stream + Sized> ReactiveUpdateNesterStreamExt for T {}
+
+pub struct StreamToReactiveUpdater<F, S> {
+  updater: F,
+  stream: S,
+}
+
 pub trait ReactiveUpdateNesterStreamExt: Stream + Sized {
-  fn bind<F>(self, updater: F) -> StreamToReactiveUpdateNester<F, Self> {
-    StreamToReactiveUpdateNester {
+  fn bind<F>(self, updater: F) -> StreamToReactiveUpdater<F, Self> {
+    StreamToReactiveUpdater {
       updater,
       stream: self,
     }
   }
 }
-impl<T: Stream + Sized> ReactiveUpdateNesterStreamExt for T {}
 
-pub struct StreamToReactiveUpdateNester<F, S> {
-  updater: F,
-  stream: S,
-}
-
-impl<C, F, S, T> ReactiveUpdateNester<C> for StreamToReactiveUpdateNester<F, S>
+impl<C, F, S, T> ReactiveUpdateNester<C> for StreamToReactiveUpdater<F, S>
 where
   S: Stream<Item = T> + Unpin,
+  C: Stream<Item = ()> + Unpin,
   F: Fn(&mut C, T),
   Self: Unpin,
 {
@@ -57,40 +113,21 @@ where
     cx: &mut Context<'_>,
     inner: &mut C,
   ) -> Poll<Option<()>> {
-    self.stream.poll_next_unpin(cx).map(|v| {
-      v.map(|v| {
-        (self.updater)(inner, v);
+    let mut r = self
+      .stream
+      .poll_next_unpin(cx)
+      .map(|v| {
+        v.map(|v| {
+          (self.updater)(inner, v);
+        })
       })
-    })
-  }
-}
+      .eq(&Poll::Ready(().into())); // todo, we here to ignore the None case
 
-impl<C: Eventable, F, S> EventableNester<C> for StreamToReactiveUpdateNester<F, S> {
-  fn event(&mut self, event: &mut EventCtx, inner: &mut C) {
-    inner.event(event);
-  }
-}
-impl<C: Presentable, F, S> PresentableNester<C> for StreamToReactiveUpdateNester<F, S> {
-  fn render(&mut self, builder: &mut PresentationBuilder, inner: &mut C) {
-    inner.render(builder);
-  }
-}
-impl<C: HotAreaProvider, F, S> HotAreaNester<C> for StreamToReactiveUpdateNester<F, S> {
-  fn is_point_in(&self, point: crate::UIPosition, inner: &C) -> bool {
-    inner.is_point_in(point)
-  }
-}
-impl<C: LayoutAble, F, S> LayoutAbleNester<C> for StreamToReactiveUpdateNester<F, S> {
-  fn layout(
-    &mut self,
-    constraint: LayoutConstraint,
-    ctx: &mut LayoutCtx,
-    inner: &mut C,
-  ) -> LayoutResult {
-    inner.layout(constraint, ctx)
-  }
-
-  fn set_position(&mut self, position: UIPosition, inner: &mut C) {
-    inner.set_position(position)
+    r |= inner.poll_next_unpin(cx).eq(&Poll::Ready(().into()));
+    if r {
+      Poll::Ready(().into())
+    } else {
+      Poll::Pending
+    }
   }
 }

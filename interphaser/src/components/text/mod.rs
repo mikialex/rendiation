@@ -37,32 +37,6 @@ pub struct Text {
   layout_computed: LayoutUnit,
 }
 
-impl Stream for Text {
-  type Item = ();
-
-  fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
-    let mut changed = false;
-    let this = self.deref_mut();
-    if let Some(update_source) = &mut this.update_source {
-      update_source.loop_poll_until_pending(cx, |new_content| {
-        this.content = new_content;
-        changed = true;
-      })
-    }
-    if changed {
-      self.text_layout_cache = None;
-      self.text_layout_size_cache = None;
-      Poll::Ready(().into())
-    } else {
-      Poll::Pending
-    }
-  }
-}
-
-impl Eventable for Text {
-  fn event(&mut self, _: &mut EventCtx) {}
-}
-
 impl Default for Text {
   fn default() -> Self {
     Self {
@@ -152,39 +126,68 @@ impl Text {
   }
 }
 
-impl Presentable for Text {
-  fn render(&mut self, builder: &mut PresentationBuilder) {
-    self
-      .layout_computed
-      .update_world(builder.current_origin_offset());
+impl Stream for Text {
+  type Item = ();
 
-    builder.present.primitives.push(Primitive::Text(
-      self.get_text_layout(builder.fonts, builder.texts).clone(),
-    ));
-
-    builder.present.primitives.push(Primitive::Quad((
-      self.layout_computed.into_quad(),
-      Style::SolidColor((0., 0., 0., 0.2).into()),
-    )));
+  fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+    let mut changed = false;
+    let this = self.deref_mut();
+    if let Some(update_source) = &mut this.update_source {
+      update_source.loop_poll_until_pending(cx, |new_content| {
+        this.content = new_content;
+        changed = true;
+      })
+    }
+    if changed {
+      self.text_layout_cache = None;
+      self.text_layout_size_cache = None;
+      Poll::Ready(().into())
+    } else {
+      Poll::Pending
+    }
   }
 }
 
-impl LayoutAble for Text {
-  fn layout(&mut self, constraint: LayoutConstraint, ctx: &mut LayoutCtx) -> LayoutResult {
-    match self.layout_config {
-      TextLayoutConfig::SingleLineShrink => {
-        let size = self.get_text_boundary(ctx.fonts, ctx.text);
-        self.layout_computed.size = constraint.clamp(*size);
+impl View for Text {
+  fn request(&mut self, detail: &mut ViewRequest) {
+    match detail {
+      ViewRequest::Layout(protocol) => match protocol {
+        LayoutProtocol::DoLayout {
+          constraint,
+          ctx,
+          output,
+        } => {
+          match self.layout_config {
+            TextLayoutConfig::SingleLineShrink => {
+              let size = self.get_text_boundary(ctx.fonts, ctx.text);
+              self.layout_computed.size = constraint.clamp(*size);
+            }
+            _ => {
+              self.layout_computed.size = constraint.max();
+            }
+          }
+
+          **output = self.layout_computed.size.with_default_baseline();
+        }
+        LayoutProtocol::PositionAt(position) => {
+          self.layout_computed.set_relative_position(*position)
+        }
+      },
+      ViewRequest::Encode(builder) => {
+        self
+          .layout_computed
+          .update_world(builder.current_origin_offset());
+
+        builder.present.primitives.push(Primitive::Text(
+          self.get_text_layout(builder.fonts, builder.texts).clone(),
+        ));
+
+        builder.present.primitives.push(Primitive::Quad((
+          self.layout_computed.into_quad(),
+          Style::SolidColor((0., 0., 0., 0.2).into()),
+        )));
       }
-      _ => {
-        self.layout_computed.size = constraint.max();
-      }
+      _ => {} // todo range select, hit test
     }
-
-    self.layout_computed.size.with_default_baseline()
-  }
-
-  fn set_position(&mut self, position: UIPosition) {
-    self.layout_computed.set_relative_position(position)
   }
 }

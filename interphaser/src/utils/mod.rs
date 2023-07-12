@@ -17,21 +17,6 @@ macro_rules! trivial_stream_impl {
   };
 }
 
-#[macro_export]
-macro_rules! trivial_stream_nester_impl {
-  ($Type: ty) => {
-    impl<C> ReactiveUpdateNester<C> for $Type {
-      fn poll_update_inner(
-        self: Pin<&mut Self>,
-        _: &mut Context<'_>,
-        _: &mut C,
-      ) -> Poll<Option<()>> {
-        Poll::Pending
-      }
-    }
-  };
-}
-
 #[derive(Default)]
 pub struct ViewUpdateNotifier {
   inner: Option<Waker>,

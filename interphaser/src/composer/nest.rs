@@ -2,69 +2,53 @@ use std::ops::DerefMut;
 
 use crate::*;
 
-/// The helper trait to link different component together
-pub trait ComponentNestExt: Sized {
-  fn nest_in<A>(self, outer: A) -> NestedComponent<Self, A>
-  where
-    A: ComponentNester<Self>,
-  {
-    NestedComponent::new(self, outer)
-  }
-  fn wrap<C>(self, inner: C) -> NestedComponent<C, Self>
-where
-    // Self: ComponentNester<C>, 
-    // todo check if compiler bug?
-  {
-    NestedComponent::new(inner, self)
-  }
-}
-impl<X> ComponentNestExt for X where X: Sized {}
-
 /// Combinator structure
-pub struct NestedComponent<C, A> {
+pub struct NestedView<C, A> {
   inner: C,
   outer: A,
 }
 
-impl<C, A> NestedComponent<C, A> {
+impl<C, A> NestedView<C, A> {
   pub fn new(inner: C, outer: A) -> Self {
     Self { inner, outer }
   }
 }
 
-/// This is the helper trait to wire up bounds to provide easier compiler error message
-pub trait ComponentNester<C>:
-  EventableNester<C> + LayoutAbleNester<C> + PresentableNester<C> + ReactiveUpdateNester<C>
-{
+/// The helper trait to link different component together
+pub trait ViewNestExt: Sized {
+  fn nest_in<A>(self, outer: A) -> NestedView<Self, A>
+  where
+    A: ViewNester<Self>,
+  {
+    NestedView::new(self, outer)
+  }
+  fn wrap<C>(self, inner: C) -> NestedView<C, Self>
+where
+    // Self: ComponentNester<C>, 
+    // todo check if compiler bug?
+  {
+    NestedView::new(inner, self)
+  }
 }
-impl<C, T> ComponentNester<C> for T where
-  T: EventableNester<C> + LayoutAbleNester<C> + PresentableNester<C> + ReactiveUpdateNester<C>
-{
+impl<X> ViewNestExt for X where X: Sized {}
+
+pub trait ViewNester<C> {
+  fn request_nester(&mut self, detail: &mut ViewRequest, inner: &mut C);
 }
 
-pub trait ReactiveUpdateNester<C> {
-  fn poll_update_inner(
-    self: Pin<&mut Self>,
-    cx: &mut Context<'_>,
-    inner: &mut C,
-  ) -> Poll<Option<()>>;
-}
-
-impl<C, A> Stream for NestedComponent<C, A>
+impl<C, A> Stream for NestedView<C, A>
 where
   C: Stream<Item = ()> + Unpin,
-  A: ReactiveUpdateNester<C> + Unpin,
+  A: Stream<Item = ()> + Unpin,
 {
   type Item = ();
 
   fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
     let this = self.deref_mut();
-    let mut view_changed = false;
-    view_changed |= Pin::new(&mut this.outer)
-      .poll_update_inner(cx, &mut this.inner)
-      .is_ready();
-    view_changed |= this.inner.poll_next_unpin(cx).is_ready();
-    if view_changed {
+    // todo, we here to ignore the None case
+    let mut r = this.inner.poll_next_unpin(cx).eq(&Poll::Ready(().into()));
+    r |= this.outer.poll_next_unpin(cx).eq(&Poll::Ready(().into()));
+    if r {
       Poll::Ready(().into())
     } else {
       Poll::Pending
@@ -72,70 +56,41 @@ where
   }
 }
 
-pub trait EventableNester<C> {
-  fn event(&mut self, event: &mut EventCtx, inner: &mut C);
-}
-
-impl<C, A> Eventable for NestedComponent<C, A>
+impl<C, A> View for NestedView<C, A>
 where
-  C: Eventable,
-  A: EventableNester<C>,
+  A: ViewNester<C>,
+  Self: Stream<Item = ()> + Unpin,
 {
-  fn event(&mut self, event: &mut EventCtx) {
-    self.outer.event(event, &mut self.inner);
+  fn request(&mut self, detail: &mut ViewRequest) {
+    // the behavior of nested view is fully decided by the nester
+    self.outer.request_nester(detail, &mut self.inner)
   }
 }
 
-pub trait PresentableNester<C> {
-  fn render(&mut self, builder: &mut PresentationBuilder, inner: &mut C);
-}
-
-impl<C, A: PresentableNester<C>> Presentable for NestedComponent<C, A> {
-  fn render(&mut self, builder: &mut crate::PresentationBuilder) {
-    self.outer.render(builder, &mut self.inner)
-  }
-}
-
-pub trait LayoutAbleNester<C> {
-  fn layout(
-    &mut self,
-    constraint: LayoutConstraint,
-    _ctx: &mut LayoutCtx,
-    _inner: &mut C,
-  ) -> LayoutResult {
-    LayoutResult {
-      size: constraint.min(),
-      baseline_offset: 0.,
+impl<C, A, CC> ViewNester<CC> for NestedView<C, A>
+where
+  Self: View,
+  CC: View,
+{
+  fn request_nester(&mut self, detail: &mut ViewRequest, inner: &mut CC) {
+    match detail {
+      ViewRequest::Layout(LayoutProtocol::DoLayout {
+        constraint,
+        ctx,
+        output,
+      }) => {
+        let result_self = self.layout(*constraint, ctx);
+        let result_inner = self.layout(*constraint, ctx);
+        output.baseline_offset = result_inner.baseline_offset; // respect inner?
+        output.size = result_self.size.union(result_inner.size)
+      }
+      ViewRequest::HitTest { point, result } => {
+        **result = self.hit_test(*point) || inner.hit_test(*point);
+      }
+      _ => {
+        self.request(detail);
+        inner.request(detail);
+      }
     }
-  }
-  fn set_position(&mut self, _position: UIPosition, _inner: &mut C) {}
-}
-
-impl<C, A: LayoutAbleNester<C>> LayoutAble for NestedComponent<C, A> {
-  fn layout(
-    &mut self,
-    constraint: crate::LayoutConstraint,
-    ctx: &mut LayoutCtx,
-  ) -> crate::LayoutResult {
-    self.outer.layout(constraint, ctx, &mut self.inner)
-  }
-
-  fn set_position(&mut self, position: crate::UIPosition) {
-    self.outer.set_position(position, &mut self.inner)
-  }
-}
-
-pub trait HotAreaNester<C> {
-  fn is_point_in(&self, _point: crate::UIPosition, _inner: &C) -> bool {
-    false
-  }
-}
-
-impl<C, A> HotAreaProvider for NestedComponent<C, A>
-where
-  A: HotAreaNester<C>,
-{
-  fn is_point_in(&self, point: crate::UIPosition) -> bool {
-    self.outer.is_point_in(point, &self.inner)
   }
 }

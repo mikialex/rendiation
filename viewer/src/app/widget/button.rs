@@ -21,31 +21,31 @@ impl ButtonState {
   }
 }
 
-// pub fn button(label: String) -> (impl Component, impl Stream<Item = ()>) {
-//   let state = ButtonState::use_state();
+pub fn button(label: String) -> (impl View, impl Stream<Item = ()>) {
+  let state = ButtonState::use_state();
 
-//   // let on_mouse_down = state.on_event_trigger(|s| *s = ButtonState::Pressed);
-//   // let on_mouse_up = state.on_event_trigger(|s| *s = ButtonState::Hovering);
-//   // let on_mouse_in = state.on_event_trigger(|s| *s = ButtonState::Hovering);
-//   // let on_mouse_out = state.on_event_trigger(|s| *s = ButtonState::Normal);
+  // let on_mouse_down = state.on_event_trigger(|s| *s = ButtonState::Pressed);
+  // let on_mouse_up = state.on_event_trigger(|s| *s = ButtonState::Hovering);
+  // let on_mouse_in = state.on_event_trigger(|s| *s = ButtonState::Hovering);
+  // let on_mouse_out = state.on_event_trigger(|s| *s = ButtonState::Normal);
 
-//   // let events = EventHandlerGroup::default()
-//   //   .with(ClickHandler::by(on_click))
-//   //   .with(MouseInHandler::by(on_mouse_in))
-//   //   .with(MouseOutHandler::by(on_mouse_out))
-//   //   .with(MouseDownHandler::by(on_mouse_down))
-//   //   .with(MouseUpHandler::by(on_mouse_up));
+  // let events = EventHandlerGroup::default()
+  //   .with(ClickHandler::by(on_click))
+  //   .with(MouseInHandler::by(on_mouse_in))
+  //   .with(MouseOutHandler::by(on_mouse_out))
+  //   .with(MouseDownHandler::by(on_mouse_down))
+  //   .with(MouseUpHandler::by(on_mouse_up));
 
-//   let color = EventSource::<Color>::default();
-//   let color_change = color.single_listen();
+  let color = EventSource::<Color>::default();
+  let color_change = color.single_listen();
 
-//   let clicker = ClickHandler::default();
-//   let click_event = clicker.events.single_listen().map(|_| {});
+  let clicker = ClickHandler::default();
+  let click_event = clicker.events.single_listen().map(|_| {});
 
-//   let view = Container::sized((200., 80.))
-//     .nest_in(color_change.bind(Container::set_color))
-//     .wrap(Text::new(label))
-//     .nest_in(clicker);
+  let view = Container::sized((200., 80.))
+    .react(color_change.bind(Container::set_color))
+    .wrap(Text::new(label))
+    .nest_in(clicker);
 
-//   (view, click_event)
-// }
+  (view, click_event)
+}

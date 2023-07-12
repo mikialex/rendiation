@@ -194,7 +194,7 @@ impl Stream for EditableText {
   }
 }
 
-impl Eventable for EditableText {
+impl EditableText {
   fn event(&mut self, ctx: &mut EventCtx) {
     self.text.event(ctx);
 
@@ -232,30 +232,26 @@ fn blink_show(dur: Duration) -> bool {
   time % 1000 > 500
 }
 
-impl Presentable for EditableText {
-  fn render(&mut self, builder: &mut PresentationBuilder) {
-    self.clamp_cursor_position();
-    self.text.render(builder);
-    if let Some(cursor) = &mut self.cursor {
-      if blink_show(cursor.get_last_update_timestamp().elapsed()) {
-        return;
+impl View for EditableText {
+  fn request(&mut self, detail: &mut ViewRequest) {
+    match detail {
+      ViewRequest::Event(event) => self.event(event),
+      ViewRequest::Encode(builder) => {
+        self.clamp_cursor_position();
+        self.text.draw(builder);
+        if let Some(cursor) = &mut self.cursor {
+          if blink_show(cursor.get_last_update_timestamp().elapsed()) {
+            return;
+          }
+
+          let layout = self.text.get_text_layout(builder.fonts, builder.texts);
+          builder.present.primitives.push(Primitive::Quad((
+            cursor.create_quad(layout),
+            Style::SolidColor((0., 0., 0., 1.).into()),
+          )));
+        }
       }
-
-      let layout = self.text.get_text_layout(builder.fonts, builder.texts);
-      builder.present.primitives.push(Primitive::Quad((
-        cursor.create_quad(layout),
-        Style::SolidColor((0., 0., 0., 1.).into()),
-      )));
+      _ => self.text.request(detail),
     }
-  }
-}
-
-impl LayoutAble for EditableText {
-  fn layout(&mut self, constraint: LayoutConstraint, ctx: &mut LayoutCtx) -> LayoutResult {
-    self.text.layout(constraint, ctx)
-  }
-
-  fn set_position(&mut self, position: UIPosition) {
-    self.text.set_position(position)
   }
 }

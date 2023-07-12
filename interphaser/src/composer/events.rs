@@ -8,12 +8,6 @@ pub struct EventHandler<X: EventHandlerType> {
   pub events: EventSource<X::Event>,
 }
 
-impl<C, X: EventHandlerType> ReactiveUpdateNester<C> for EventHandler<X> {
-  fn poll_update_inner(self: Pin<&mut Self>, _: &mut Context<'_>, _: &mut C) -> Poll<Option<()>> {
-    Poll::Pending
-  }
-}
-
 pub trait EventHandlerLike<C> {
   fn handle_event(&mut self, event: &mut EventCtx, inner: &mut C);
   fn should_handle_in_bubble(&self) -> bool;
@@ -45,46 +39,31 @@ impl<C> EventHandlerGroup<C> {
   }
 }
 
-impl<C: Eventable> EventableNester<C> for EventHandlerGroup<C> {
-  fn event(&mut self, event: &mut EventCtx, inner: &mut C) {
-    self
-      .before_handlers
-      .iter_mut()
-      .for_each(|handler| handler.handle_event(event, inner));
+impl<C: View> ViewNester<C> for EventHandlerGroup<C> {
+  fn request_nester(&mut self, detail: &mut ViewRequest, inner: &mut C) {
+    match detail {
+      ViewRequest::Event(event) => {
+        self
+          .before_handlers
+          .iter_mut()
+          .for_each(|handler| handler.handle_event(event, inner));
 
-    inner.event(event);
+        inner.event(event);
 
-    self
-      .after_handlers
-      .iter_mut()
-      .for_each(|handler| handler.handle_event(event, inner));
+        self
+          .after_handlers
+          .iter_mut()
+          .for_each(|handler| handler.handle_event(event, inner));
+      }
+      _ => inner.request(detail),
+    }
   }
 }
+impl<X: EventHandlerType> Stream for EventHandler<X> {
+  type Item = ();
 
-impl<X, C: Presentable> PresentableNester<C> for EventHandlerGroup<X> {
-  fn render(&mut self, builder: &mut PresentationBuilder, inner: &mut C) {
-    inner.render(builder);
-  }
-}
-
-impl<X, C: LayoutAble> LayoutAbleNester<C> for EventHandlerGroup<X> {
-  fn layout(
-    &mut self,
-    constraint: LayoutConstraint,
-    ctx: &mut LayoutCtx,
-    inner: &mut C,
-  ) -> LayoutResult {
-    inner.layout(constraint, ctx)
-  }
-
-  fn set_position(&mut self, position: UIPosition, inner: &mut C) {
-    inner.set_position(position)
-  }
-}
-
-impl<X, C: HotAreaProvider> HotAreaNester<C> for EventHandlerGroup<X> {
-  fn is_point_in(&self, point: crate::UIPosition, inner: &C) -> bool {
-    inner.is_point_in(point)
+  fn poll_next(self: Pin<&mut Self>, _: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+    Poll::Pending
   }
 }
 
@@ -99,44 +78,22 @@ impl<C, X: EventHandlerImpl<C>> EventHandlerLike<C> for EventHandler<X> {
   }
 }
 
-impl<X: EventHandlerImpl<C>, C: Eventable> EventableNester<C> for EventHandler<X> {
-  fn event(&mut self, event: &mut EventCtx, inner: &mut C) {
-    if !self.state.should_handle_in_bubble() {
-      self.handle_event(event, inner);
+impl<C: View, X: EventHandlerImpl<C>> ViewNester<C> for EventHandler<X> {
+  fn request_nester(&mut self, detail: &mut ViewRequest, inner: &mut C) {
+    match detail {
+      ViewRequest::Event(event) => {
+        if !self.state.should_handle_in_bubble() {
+          self.handle_event(event, inner);
+        }
+
+        inner.event(event);
+
+        if self.state.should_handle_in_bubble() {
+          self.handle_event(event, inner);
+        }
+      }
+      _ => inner.request(detail),
     }
-
-    inner.event(event);
-
-    if self.state.should_handle_in_bubble() {
-      self.handle_event(event, inner);
-    }
-  }
-}
-
-impl<X: EventHandlerType, C: Presentable> PresentableNester<C> for EventHandler<X> {
-  fn render(&mut self, builder: &mut PresentationBuilder, inner: &mut C) {
-    inner.render(builder);
-  }
-}
-
-impl<X: EventHandlerType, C: LayoutAble> LayoutAbleNester<C> for EventHandler<X> {
-  fn layout(
-    &mut self,
-    constraint: LayoutConstraint,
-    ctx: &mut LayoutCtx,
-    inner: &mut C,
-  ) -> LayoutResult {
-    inner.layout(constraint, ctx)
-  }
-
-  fn set_position(&mut self, position: UIPosition, inner: &mut C) {
-    inner.set_position(position)
-  }
-}
-
-impl<X: EventHandlerType, C: HotAreaProvider> HotAreaNester<C> for EventHandler<X> {
-  fn is_point_in(&self, point: crate::UIPosition, inner: &C) -> bool {
-    inner.is_point_in(point)
   }
 }
 
@@ -145,7 +102,11 @@ pub trait EventHandlerType: Default {
 }
 
 pub trait EventHandlerImpl<C>: EventHandlerType {
-  fn downcast_event<'a>(&mut self, event: &'a mut EventCtx, inner: &C) -> Option<&'a Self::Event>;
+  fn downcast_event<'a>(
+    &mut self,
+    event: &'a mut EventCtx,
+    inner: &mut C,
+  ) -> Option<&'a Self::Event>;
   fn should_handle_in_bubble(&self) -> bool {
     false
   }
@@ -157,10 +118,14 @@ pub type MouseDownHandler = EventHandler<MouseDown>;
 impl EventHandlerType for MouseDown {
   type Event = ();
 }
-impl<C: HotAreaProvider> EventHandlerImpl<C> for MouseDown {
-  fn downcast_event<'a>(&mut self, event: &'a mut EventCtx, inner: &C) -> Option<&'a Self::Event> {
+impl<C: View> EventHandlerImpl<C> for MouseDown {
+  fn downcast_event<'a>(
+    &mut self,
+    event: &'a mut EventCtx,
+    inner: &mut C,
+  ) -> Option<&'a Self::Event> {
     if let Some((MouseButton::Left, ElementState::Pressed)) = mouse(event.event) {
-      if inner.is_point_in(event.states.mouse_position) {
+      if inner.hit_test(event.states.mouse_position) {
         return Some(&());
       }
     }
@@ -174,10 +139,14 @@ pub type MouseUpHandler = EventHandler<MouseUp>;
 impl EventHandlerType for MouseUp {
   type Event = ();
 }
-impl<C: HotAreaProvider> EventHandlerImpl<C> for MouseUp {
-  fn downcast_event<'a>(&mut self, event: &'a mut EventCtx, inner: &C) -> Option<&'a Self::Event> {
+impl<C: View> EventHandlerImpl<C> for MouseUp {
+  fn downcast_event<'a>(
+    &mut self,
+    event: &'a mut EventCtx,
+    inner: &mut C,
+  ) -> Option<&'a Self::Event> {
     if let Some((MouseButton::Left, ElementState::Released)) = mouse(event.event) {
-      if inner.is_point_in(event.states.mouse_position) {
+      if inner.hit_test(event.states.mouse_position) {
         return Some(&());
       }
     }
@@ -194,14 +163,18 @@ pub type ClickHandler = EventHandler<Click>;
 impl EventHandlerType for Click {
   type Event = ();
 }
-impl<C: HotAreaProvider> EventHandlerImpl<C> for Click {
-  fn downcast_event<'a>(&mut self, event: &'a mut EventCtx, inner: &C) -> Option<&'a Self::Event> {
+impl<C: View> EventHandlerImpl<C> for Click {
+  fn downcast_event<'a>(
+    &mut self,
+    event: &'a mut EventCtx,
+    inner: &mut C,
+  ) -> Option<&'a Self::Event> {
     if let Some((MouseButton::Left, ElementState::Pressed)) = mouse(event.event) {
-      if inner.is_point_in(event.states.mouse_position) {
+      if inner.hit_test(event.states.mouse_position) {
         self.mouse_down = true;
       }
     } else if let Some((MouseButton::Left, ElementState::Released)) = mouse(event.event) {
-      if self.mouse_down && inner.is_point_in(event.states.mouse_position) {
+      if self.mouse_down && inner.hit_test(event.states.mouse_position) {
         return Some(&());
       }
       self.mouse_down = false;
@@ -216,10 +189,14 @@ pub type MouseMoveHandler = EventHandler<MouseMove>;
 impl EventHandlerType for MouseMove {
   type Event = ();
 }
-impl<C: HotAreaProvider> EventHandlerImpl<C> for MouseMove {
-  fn downcast_event<'a>(&mut self, event: &'a mut EventCtx, inner: &C) -> Option<&'a Self::Event> {
+impl<C: View> EventHandlerImpl<C> for MouseMove {
+  fn downcast_event<'a>(
+    &mut self,
+    event: &'a mut EventCtx,
+    inner: &mut C,
+  ) -> Option<&'a Self::Event> {
     if let Some(position) = mouse_move(event.event) {
-      if inner.is_point_in((position.x as f32, position.y as f32).into()) {
+      if inner.hit_test((position.x as f32, position.y as f32).into()) {
         return Some(&());
       }
     }
@@ -236,10 +213,14 @@ pub type MouseInHandler = EventHandler<MouseIn>;
 impl EventHandlerType for MouseIn {
   type Event = ();
 }
-impl<C: HotAreaProvider> EventHandlerImpl<C> for MouseIn {
-  fn downcast_event<'a>(&mut self, event: &'a mut EventCtx, inner: &C) -> Option<&'a Self::Event> {
+impl<C: View> EventHandlerImpl<C> for MouseIn {
+  fn downcast_event<'a>(
+    &mut self,
+    event: &'a mut EventCtx,
+    inner: &mut C,
+  ) -> Option<&'a Self::Event> {
     if let Some(position) = mouse_move(event.event) {
-      if inner.is_point_in((position.x as f32, position.y as f32).into()) {
+      if inner.hit_test((position.x as f32, position.y as f32).into()) {
         if !self.is_mouse_in {
           self.is_mouse_in = true;
           return Some(&());
@@ -261,10 +242,14 @@ pub type MouseOutHandler = EventHandler<MouseOut>;
 impl EventHandlerType for MouseOut {
   type Event = ();
 }
-impl<C: HotAreaProvider> EventHandlerImpl<C> for MouseOut {
-  fn downcast_event<'a>(&mut self, event: &'a mut EventCtx, inner: &C) -> Option<&'a Self::Event> {
+impl<C: View> EventHandlerImpl<C> for MouseOut {
+  fn downcast_event<'a>(
+    &mut self,
+    event: &'a mut EventCtx,
+    inner: &mut C,
+  ) -> Option<&'a Self::Event> {
     if let Some(position) = mouse_move(event.event) {
-      if !inner.is_point_in((position.x as f32, position.y as f32).into()) {
+      if !inner.hit_test((position.x as f32, position.y as f32).into()) {
         if self.is_mouse_in {
           self.is_mouse_in = false;
           return Some(&());
@@ -278,9 +263,9 @@ impl<C: HotAreaProvider> EventHandlerImpl<C> for MouseOut {
   }
 }
 
-// these downcast utils below is useful for downstream crates because they shouldn't care about impl
-// details so they are public and export, we should consider warp them in a namespace in the future
-// to prevent potential name collisions
+// these downcast utils below is useful for downstream crates because they shouldn't care about
+// impl details so they are public and export, we should consider warp them in a namespace in the
+// future to prevent potential name collisions
 
 pub fn window_event<'a>(event: &'a Event<()>) -> Option<&'a WindowEvent<'a>> {
   match event {

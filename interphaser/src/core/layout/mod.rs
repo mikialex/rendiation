@@ -18,12 +18,11 @@ pub struct LayoutResult {
   pub baseline_offset: f32,
 }
 
-pub trait LayoutAble {
-  fn layout(&mut self, constraint: LayoutConstraint, _ctx: &mut LayoutCtx) -> LayoutResult {
-    LayoutResult {
-      size: constraint.min(),
-      baseline_offset: 0.,
-    }
-  }
-  fn set_position(&mut self, _position: UIPosition) {}
+pub enum LayoutProtocol<'a, 'b> {
+  DoLayout {
+    constraint: LayoutConstraint,
+    ctx: &'a mut LayoutCtx<'b>,
+    output: &'a mut LayoutResult,
+  },
+  PositionAt(UIPosition),
 }

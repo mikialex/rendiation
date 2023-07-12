@@ -2,7 +2,7 @@ use interphaser::*;
 
 use crate::{terminal, Viewer};
 
-pub fn viewer() -> impl Component {
+pub fn viewer() -> impl View {
   let (terminal, to_execute) = terminal();
 
   let viewer = Viewer::new(to_execute);
