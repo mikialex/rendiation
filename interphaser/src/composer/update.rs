@@ -82,15 +82,3 @@ impl<C: View, F, S> ViewNester<C> for StreamToReactiveUpdateNester<F, S> {
     inner.request(detail)
   }
 }
-
-impl<C: HotAreaProvider, F, S> HotAreaNester<C> for StreamToReactiveUpdateNester<F, S> {
-  fn is_point_in(&self, point: crate::UIPosition, inner: &C) -> bool {
-    inner.is_point_in(point)
-  }
-}
-
-impl<F, S> HotAreaProvider for StreamToReactiveUpdateNester<F, S> {
-  fn is_point_in(&self, _: crate::UIPosition) -> bool {
-    false
-  }
-}

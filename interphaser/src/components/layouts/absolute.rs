@@ -12,7 +12,6 @@ where
 {
   fn request_nester(&mut self, detail: &mut ViewRequest, inner: &mut C) {
     match detail {
-      ViewRequest::Event(_) => inner.request(detail),
       ViewRequest::Layout(p) => {
         match p {
           LayoutProtocol::DoLayout {
@@ -41,13 +40,8 @@ where
         inner.draw(builder);
         builder.pop_offset()
       }
+      _ => inner.request(detail),
     }
-  }
-}
-
-impl<C: HotAreaProvider> HotAreaNester<C> for AbsoluteAnchor {
-  fn is_point_in(&self, point: crate::UIPosition, inner: &C) -> bool {
-    inner.is_point_in(point)
   }
 }
 

@@ -44,12 +44,6 @@ pub trait ViewNester<C> {
   fn request_nester(&mut self, detail: &mut ViewRequest, inner: &mut C);
 }
 
-pub trait HotAreaNester<C> {
-  fn is_point_in(&self, _point: crate::UIPosition, _inner: &C) -> bool {
-    false
-  }
-}
-
 impl<C, A> Stream for NestedComponent<C, A>
 where
   C: Unpin,
@@ -71,15 +65,6 @@ where
   fn request(&mut self, detail: &mut ViewRequest) {
     // the behavior of nested view is fully decided by the nester
     self.outer.request_nester(detail, &mut self.inner)
-  }
-}
-
-impl<C, A> HotAreaProvider for NestedComponent<C, A>
-where
-  A: HotAreaNester<C>,
-{
-  fn is_point_in(&self, point: crate::UIPosition) -> bool {
-    self.outer.is_point_in(point, &self.inner)
   }
 }
 
@@ -111,29 +96,24 @@ where
   CC: View,
 {
   fn request_nester(&mut self, detail: &mut ViewRequest, inner: &mut CC) {
-    if let ViewRequest::Layout(LayoutProtocol::DoLayout {
-      constraint,
-      ctx,
-      output,
-    }) = detail
-    {
-      let result_self = self.layout(*constraint, ctx);
-      let result_inner = self.layout(*constraint, ctx);
-      output.baseline_offset = result_inner.baseline_offset; // respect inner?
-      output.size = result_self.size.union(result_inner.size)
-    } else {
-      self.request(detail);
-      inner.request(detail);
+    match detail {
+      ViewRequest::Layout(LayoutProtocol::DoLayout {
+        constraint,
+        ctx,
+        output,
+      }) => {
+        let result_self = self.layout(*constraint, ctx);
+        let result_inner = self.layout(*constraint, ctx);
+        output.baseline_offset = result_inner.baseline_offset; // respect inner?
+        output.size = result_self.size.union(result_inner.size)
+      }
+      ViewRequest::HitTest { point, result } => {
+        **result = self.hit_test(*point) || inner.hit_test(*point);
+      }
+      _ => {
+        self.request(detail);
+        inner.request(detail);
+      }
     }
-  }
-}
-
-impl<C, A, CC> HotAreaNester<CC> for NestedComponent<C, A>
-where
-  Self: HotAreaProvider,
-  CC: HotAreaProvider,
-{
-  fn is_point_in(&self, point: crate::UIPosition, inner: &CC) -> bool {
-    HotAreaProvider::is_point_in(self, point) || inner.is_point_in(point)
   }
 }

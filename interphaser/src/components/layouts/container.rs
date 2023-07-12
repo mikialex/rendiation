@@ -59,7 +59,6 @@ impl Container {
 impl<C: View> ViewNester<C> for Container {
   fn request_nester(&mut self, detail: &mut ViewRequest, inner: &mut C) {
     match detail {
-      ViewRequest::Event(_) => inner.request(detail),
       ViewRequest::Layout(p) => match p {
         LayoutProtocol::DoLayout {
           constraint,
@@ -94,6 +93,10 @@ impl<C: View> ViewNester<C> for Container {
         inner.draw(builder);
         builder.pop_offset()
       }
+      ViewRequest::HitTest { point, result } => {
+        **result = self.hit_test(*point) || inner.hit_test(*point);
+      }
+      _ => inner.request(detail),
     }
   }
 }
@@ -200,11 +203,6 @@ pub struct ContainerItemOffset {
 
 trivial_stream_impl!(Container);
 trivial_stream_nester_impl!(Container);
-impl<C> HotAreaNester<C> for Container {
-  fn is_point_in(&self, point: crate::UIPosition, _inner: &C) -> bool {
-    self.layout.into_quad().is_point_in(point)
-  }
-}
 
 impl View for Container {
   fn request(&mut self, detail: &mut ViewRequest) {
@@ -227,6 +225,9 @@ impl View for Container {
             Style::SolidColor(self.color),
           )));
         }
+      }
+      ViewRequest::HitTest { point, result } => {
+        **result = self.layout.into_quad().is_point_in(*point)
       }
     }
   }

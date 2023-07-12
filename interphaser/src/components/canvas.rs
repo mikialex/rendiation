@@ -47,6 +47,7 @@ impl View for GPUCanvas {
           )));
         }
       }
+      _ => self.request(detail),
     }
   }
 }

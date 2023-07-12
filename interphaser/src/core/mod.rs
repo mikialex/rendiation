@@ -16,6 +16,10 @@ pub enum ViewRequest<'a, 'b, 'c> {
   Event(&'a mut EventCtx<'b>),
   Layout(LayoutProtocol<'b, 'c>),
   Encode(&'a mut PresentationBuilder<'b>),
+  HitTest {
+    point: UIPosition,
+    result: &'a mut bool,
+  },
 }
 
 pub trait View: Stream<Item = ()> + Unpin {
@@ -45,6 +49,15 @@ pub trait ViewHelperExt: View {
 
   fn draw(&mut self, ctx: &mut PresentationBuilder) {
     self.request(&mut ViewRequest::Encode(ctx));
+  }
+
+  fn hit_test(&mut self, point: UIPosition) -> bool {
+    let mut result = false;
+    self.request(&mut ViewRequest::HitTest {
+      point,
+      result: &mut result,
+    });
+    result
   }
 }
 impl<T: View + ?Sized> ViewHelperExt for T {}

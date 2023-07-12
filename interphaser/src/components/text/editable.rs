@@ -236,7 +236,6 @@ impl View for EditableText {
   fn request(&mut self, detail: &mut ViewRequest) {
     match detail {
       ViewRequest::Event(event) => self.event(event),
-      ViewRequest::Layout(_) => self.text.request(detail),
       ViewRequest::Encode(builder) => {
         self.clamp_cursor_position();
         self.text.draw(builder);
@@ -252,11 +251,7 @@ impl View for EditableText {
           )));
         }
       }
+      _ => self.text.request(detail),
     }
-  }
-}
-impl HotAreaProvider for EditableText {
-  fn is_point_in(&self, _: UIPosition) -> bool {
-    false // todo!()
   }
 }

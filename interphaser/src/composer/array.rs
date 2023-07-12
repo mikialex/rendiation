@@ -30,7 +30,14 @@ impl<'a, C> IntoIterator for &'a mut ComponentArray<C> {
 
 impl<C: View> View for ComponentArray<C> {
   fn request(&mut self, detail: &mut ViewRequest) {
-    self.children.iter_mut().for_each(|c| c.request(detail))
+    match detail {
+      // todo, union, not triggered because now covered by layouter
+      ViewRequest::Layout(_) => todo!(),
+      ViewRequest::HitTest { point, result } => {
+        **result = self.into_iter().any(|child| child.hit_test(*point));
+      }
+      _ => self.children.iter_mut().for_each(|c| c.request(detail)),
+    }
   }
 }
 

@@ -151,7 +151,6 @@ impl Stream for Text {
 impl View for Text {
   fn request(&mut self, detail: &mut ViewRequest) {
     match detail {
-      ViewRequest::Event(_) => {}
       ViewRequest::Layout(protocol) => match protocol {
         LayoutProtocol::DoLayout {
           constraint,
@@ -188,12 +187,7 @@ impl View for Text {
           Style::SolidColor((0., 0., 0., 0.2).into()),
         )));
       }
+      _ => {} // todo range select, hit test
     }
-  }
-}
-
-impl HotAreaProvider for Text {
-  fn is_point_in(&self, _: UIPosition) -> bool {
-    false // todo!()
   }
 }
