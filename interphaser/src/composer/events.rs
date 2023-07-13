@@ -1,11 +1,42 @@
+use std::ops::Deref;
+
 use winit::event::*;
 
 use crate::*;
 
-#[derive(Default)]
 pub struct EventHandler<X: EventHandlerType> {
   state: X,
   pub events: EventSource<X::Event>,
+}
+
+impl<T: EventHandlerType> Default for EventHandler<T> {
+  fn default() -> Self {
+    Self {
+      state: Default::default(),
+      events: Default::default(),
+    }
+  }
+}
+
+impl<X: EventHandlerType> EventHandler<X> {
+  pub fn any_triggered() -> (Self, impl Stream<Item = ()>) {
+    let event = Self::default();
+    let stream = event.any_triggered();
+    (event, stream)
+  }
+
+  pub fn on(f: impl FnMut(&X::Event) -> bool + 'static + Send + Sync) -> Self {
+    let event = Self::default();
+    event.on(f);
+    event
+  }
+}
+
+impl<X: EventHandlerType> Deref for EventHandler<X> {
+  type Target = EventSource<X::Event>;
+  fn deref(&self) -> &Self::Target {
+    &self.events
+  }
 }
 
 pub trait EventHandlerLike<C> {
@@ -36,6 +67,14 @@ impl<C> EventHandlerGroup<C> {
       self.before_handlers.push(Box::new(handler));
     }
     self
+  }
+}
+
+impl<C> Stream for EventHandlerGroup<C> {
+  type Item = ();
+
+  fn poll_next(self: Pin<&mut Self>, _: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+    Poll::Pending
   }
 }
 

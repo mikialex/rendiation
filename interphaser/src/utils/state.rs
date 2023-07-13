@@ -1,11 +1,20 @@
 use std::{
-  cell::RefCell,
-  ops::{Deref, DerefMut},
-  rc::Rc,
+  ops::Deref,
+  sync::{Arc, RwLock},
 };
 
+use reactive::EventSource;
+
 pub struct StateCell<T> {
-  state: Rc<RefCell<T>>,
+  state: Arc<RwLock<T>>,
+  events: EventSource<T>,
+}
+
+impl<T> Deref for StateCell<T> {
+  type Target = EventSource<T>;
+  fn deref(&self) -> &Self::Target {
+    &self.events
+  }
 }
 
 pub trait StateCreator: Default {
@@ -18,22 +27,29 @@ impl<T: Default> StateCreator for T {}
 impl<T> StateCell<T> {
   pub fn new(state: T) -> Self {
     Self {
-      state: Rc::new(RefCell::new(state)),
+      state: Arc::new(RwLock::new(state)),
+      events: Default::default(),
     }
   }
 
-  pub fn visit<R, F: Fn(&T) -> R>(&self, f: F) -> R {
-    f(self.state.borrow().deref())
-  }
-
-  pub fn mutate(&self, f: impl Fn(&mut T)) {
-    f(self.state.borrow_mut().deref_mut())
-  }
-
-  pub fn mutator(&self, f: impl Fn(&mut T) + Copy) -> impl Fn() {
-    let self_clone = self.clone();
-    move || {
-      self_clone.mutate(f);
+  pub fn on_event<X>(
+    &self,
+    mut logic: impl FnMut(&T, &X) -> T + Send + Sync,
+  ) -> impl FnMut(&X) -> bool + Send + Sync
+  where
+    T: Send + Sync + 'static,
+  {
+    let state = Arc::downgrade(&self.state);
+    let events = self.events.clone();
+    move |x| {
+      if let Some(state) = state.upgrade() {
+        let mut state = state.write().unwrap();
+        *state = logic(&state, x);
+        events.emit(&state);
+        false
+      } else {
+        true
+      }
     }
   }
 }
@@ -42,6 +58,7 @@ impl<T> Clone for StateCell<T> {
   fn clone(&self) -> Self {
     Self {
       state: self.state.clone(),
+      events: self.events.clone(),
     }
   }
 }
