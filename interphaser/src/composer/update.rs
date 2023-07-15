@@ -3,11 +3,17 @@ use std::ops::DerefMut;
 use crate::*;
 
 pub struct ReactiveNestedView<C, X> {
-  updater: X,
-  inner: C,
+  pub updater: X,
+  pub inner: C,
 }
 
-pub trait ReactiveUpdateNester<C> {
+impl<C, X> AsMut<C> for ReactiveNestedView<C, X> {
+  fn as_mut(&mut self) -> &mut C {
+    &mut self.inner
+  }
+}
+
+pub trait ReactiveUpdateNester<C>: Unpin {
   fn poll_update_inner(
     self: Pin<&mut Self>,
     cx: &mut Context<'_>,
@@ -54,36 +60,50 @@ impl<C: View, X, CC: View> ViewNester<CC> for ReactiveNestedView<C, X> {
     inner.request(detail)
   }
 }
-// struct ReactiveUpdaterGroup<C> {
-//   updater: Vec<Box<dyn ReactiveUpdateNester<C>>>,
-// }
+pub struct ReactiveUpdaterGroup<C> {
+  updater: Vec<Box<dyn ReactiveUpdateNester<C>>>,
+}
 
-// impl<C> Default for ReactiveUpdaterGroup<C> {
-//   fn default() -> Self {
-//     Self {
-//       updater: Default::default(),
-//     }
-//   }
-// }
+impl<C> Default for ReactiveUpdaterGroup<C> {
+  fn default() -> Self {
+    Self {
+      updater: Default::default(),
+    }
+  }
+}
 
-// impl<C> ReactiveUpdaterGroup<C> {
-//   pub fn with(self, another: impl ReactiveUpdateNester<C> + 'static) -> Self {
-//     todo!()
-//   }
-// }
+impl<C> ReactiveUpdaterGroup<C> {
+  pub fn with(mut self, another: impl ReactiveUpdateNester<C> + 'static) -> Self {
+    self.updater.push(Box::new(another));
+    self
+  }
+}
 
-// impl<C> ReactiveUpdateNester<C> for ReactiveUpdaterGroup<C> {
-//   fn poll_update_inner(
-//     self: Pin<&mut Self>,
-//     cx: &mut Context<'_>,
-//     inner: &mut C,
-//   ) -> Poll<Option<()>> {
-//     // for updater in &mut self.updater {
-//     //   //
-//     // }
-//     todo!()
-//   }
-// }
+impl<C> ReactiveUpdateNester<C> for ReactiveUpdaterGroup<C>
+where
+  C: Stream<Item = ()> + Unpin,
+{
+  fn poll_update_inner(
+    mut self: Pin<&mut Self>,
+    cx: &mut Context<'_>,
+    inner: &mut C,
+  ) -> Poll<Option<()>> {
+    let mut r = false;
+    let this = self.deref_mut();
+    for update in &mut this.updater {
+      r |= Pin::new(update.as_mut())
+        .poll_update_inner(cx, inner)
+        .eq(&Poll::Ready(().into())); // todo, we here to ignore the None case
+    }
+
+    r |= inner.poll_next_unpin(cx).eq(&Poll::Ready(().into()));
+    if r {
+      Poll::Ready(().into())
+    } else {
+      Poll::Pending
+    }
+  }
+}
 
 impl<T: Stream + Sized> ReactiveUpdateNesterStreamExt for T {}
 

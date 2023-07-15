@@ -4,23 +4,23 @@ use crate::*;
 
 /// Combinator structure
 pub struct NestedView<C, A> {
-  inner: C,
-  outer: A,
+  pub inner: C,
+  pub nester: A,
 }
 
 impl<C, A> NestedView<C, A> {
-  pub fn new(inner: C, outer: A) -> Self {
-    Self { inner, outer }
+  pub fn new(inner: C, nester: A) -> Self {
+    Self { inner, nester }
   }
 }
 
 /// The helper trait to link different component together
 pub trait ViewNestExt: Sized {
-  fn nest_in<A>(self, outer: A) -> NestedView<Self, A>
+  fn nest_in<A>(self, nester: A) -> NestedView<Self, A>
   where
     A: ViewNester<Self>,
   {
-    NestedView::new(self, outer)
+    NestedView::new(self, nester)
   }
   fn wrap<C>(self, inner: C) -> NestedView<C, Self>
 where
@@ -47,7 +47,7 @@ where
     let this = self.deref_mut();
     // todo, we here to ignore the None case
     let mut r = this.inner.poll_next_unpin(cx).eq(&Poll::Ready(().into()));
-    r |= this.outer.poll_next_unpin(cx).eq(&Poll::Ready(().into()));
+    r |= this.nester.poll_next_unpin(cx).eq(&Poll::Ready(().into()));
     if r {
       Poll::Ready(().into())
     } else {
@@ -63,7 +63,7 @@ where
 {
   fn request(&mut self, detail: &mut ViewRequest) {
     // the behavior of nested view is fully decided by the nester
-    self.outer.request_nester(detail, &mut self.inner)
+    self.nester.request_nester(detail, &mut self.inner)
   }
 }
 

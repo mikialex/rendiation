@@ -1,5 +1,3 @@
-use std::ops::DerefMut;
-
 use crate::*;
 
 mod cursor;
@@ -31,7 +29,6 @@ impl Default for TextLayoutConfig {
 pub struct Text {
   content: String,
   layout_config: TextLayoutConfig,
-  update_source: Option<BoxedUnpinFusedStream<String>>,
   text_layout_cache: Option<TextLayoutRef>,
   text_layout_size_cache: Option<UISize>,
   layout_computed: LayoutUnit,
@@ -42,7 +39,6 @@ impl Default for Text {
     Self {
       content: "".into(),
       layout_computed: Default::default(),
-      update_source: Default::default(),
       layout_config: Default::default(),
       text_layout_cache: None,
       text_layout_size_cache: None,
@@ -62,8 +58,10 @@ impl Text {
     &self.content
   }
 
-  pub fn set_updater(&mut self, updater: impl Stream<Item = String> + Unpin + 'static) {
-    self.update_source = Some(Box::new(updater.fuse()))
+  pub fn set_text(&mut self, new_content: String) {
+    self.content = new_content;
+    self.text_layout_cache = None;
+    self.text_layout_size_cache = None;
   }
 
   #[must_use]
@@ -126,28 +124,7 @@ impl Text {
   }
 }
 
-impl Stream for Text {
-  type Item = ();
-
-  fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
-    let mut changed = false;
-    let this = self.deref_mut();
-    if let Some(update_source) = &mut this.update_source {
-      update_source.loop_poll_until_pending(cx, |new_content| {
-        this.content = new_content;
-        changed = true;
-      })
-    }
-    if changed {
-      self.text_layout_cache = None;
-      self.text_layout_size_cache = None;
-      Poll::Ready(().into())
-    } else {
-      Poll::Pending
-    }
-  }
-}
-
+trivial_stream_impl!(Text);
 impl View for Text {
   fn request(&mut self, detail: &mut ViewRequest) {
     match detail {

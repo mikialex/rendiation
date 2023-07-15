@@ -75,7 +75,7 @@ impl Terminal {
 }
 
 pub fn terminal() -> (impl View, impl Stream<Item = String> + Unpin) {
-  let mut edit_text = Text::default()
+  let edit_text = Text::default()
     .with_layout(TextLayoutConfig::SizedBox {
       line_wrap: LineWrap::Single,
       horizon_align: TextHorizontalAlignment::Left,
@@ -87,6 +87,7 @@ pub fn terminal() -> (impl View, impl Stream<Item = String> + Unpin) {
   let (clear_trigger, clearer) = single_value_channel();
   let command_to_execute =
     edit_text
+      .nester
       .events
       .unbound_listen()
       .filter_map_sync(move |e: TextEditMessage| match e {
@@ -108,8 +109,12 @@ pub fn terminal() -> (impl View, impl Stream<Item = String> + Unpin) {
 
   let clicker = ClickHandler::default();
   let click_event = clicker.events.single_listen().map(|_| {});
-  edit_text.set_focus(click_event);
-  edit_text.set_update_source(clearer);
+
+  let text_updates = ReactiveUpdaterGroup::default()
+    .with(click_event.bind(|e: &mut EditableText, _| e.nester.focus()))
+    .with(clearer.bind(|e: &mut EditableText, t| e.nester.set_text(t)));
+
+  let edit_text = edit_text.react(text_updates);
 
   let text_box = Container::sized((UILength::ParentPercent(100.), UILength::Px(50.)))
     .padding(RectBoundaryWidth::equal(5.))
