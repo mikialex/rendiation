@@ -3,7 +3,7 @@ use crate::*;
 pub enum Shape {
   Rect(RectangleShape),
   RoundCorneredRect(RoundCorneredRectangleShape),
-  Path(Path2D<f32>),
+  Path(Path2dSegmentsGroup),
 }
 
 #[derive(Debug, Clone, Default, Copy)]
@@ -24,7 +24,7 @@ impl RectangleShape {
 #[derive(Debug, Clone, Default, Copy)]
 pub struct RoundCorneredRectangleShape {
   pub rect: RectangleShape,
-  pub radius: CornerRadius,
+  pub radius: RadiusGroup,
 }
 
 #[derive(Debug, Clone, Default, Copy)]
@@ -33,14 +33,6 @@ pub struct RadiusGroup {
   pub top_right: f32,
   pub bottom_left: f32,
   pub bottom_right: f32,
-}
-
-#[derive(Debug, Clone, Copy, Default)]
-pub enum CornerRadius {
-  #[default]
-  No,
-  All(f32),
-  Four(RadiusGroup),
 }
 
 #[derive(Default, Debug, Clone, Copy)]
@@ -64,6 +56,6 @@ impl RectBoundaryWidth {
 
 #[derive(Default)]
 pub struct RectBorder {
-  pub radius: CornerRadius,
+  pub radius: RadiusGroup,
   pub width: RectBoundaryWidth,
 }

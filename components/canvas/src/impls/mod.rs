@@ -1,6 +1,8 @@
 #![allow(dead_code)]
 #![allow(unused)]
 
+use lyon::path::traits::PathBuilder;
+
 use crate::*;
 
 struct PainterCtx {
@@ -139,9 +141,68 @@ fn triangulate_stroke(
 }
 
 fn triangulate_fill(shape: &Shape, style: &FillStyle, vertex_visitor: impl FnMut(GraphicsVertex)) {
-  todo!()
+  use lyon::tessellation::{FillOptions, FillTessellator, VertexBuffers};
+
+  let mut geometry: VertexBuffers<lyon::math::Point, u16> = VertexBuffers::new();
+  let mut geometry_builder = lyon::tessellation::geometry_builder::simple_builder(&mut geometry);
+  let options = FillOptions::tolerance(0.1);
+  let mut tessellator = FillTessellator::new();
+
+  let mut builder = tessellator.builder(&options, &mut geometry_builder);
+
+  match shape {
+    Shape::Rect(rect) => builder.add_rectangle(
+      &lyon::math::Box2D {
+        min: lyon::math::point(rect.x, rect.y),
+        max: lyon::math::point(rect.x + rect.width, rect.y + rect.height),
+      },
+      lyon::path::Winding::Positive,
+    ),
+    Shape::RoundCorneredRect(round_rect) => {
+      let rect = round_rect.rect;
+      let radius = round_rect.radius;
+      builder.add_rounded_rectangle(
+        &lyon::math::Box2D {
+          min: lyon::math::point(0.0, 0.0),
+          max: lyon::math::point(100.0, 50.0),
+        },
+        &lyon::path::builder::BorderRadii {
+          top_left: radius.top_left,
+          top_right: radius.top_right,
+          bottom_left: radius.bottom_left,
+          bottom_right: radius.bottom_right,
+        },
+        lyon::path::Winding::Positive,
+      )
+    }
+    Shape::Path(path) => {
+      for seg in &path.sub_paths {
+        builder.begin(into_lyon_point(seg.start));
+        for p in &seg.paths {
+          match &p.path {
+            Path2dType::Line(_) => {
+              builder.line_to(into_lyon_point(p.end_point));
+            }
+            Path2dType::QuadraticBezier(c) => {
+              builder.quadratic_bezier_to(into_lyon_point(c.ctrl), into_lyon_point(p.end_point));
+            }
+            Path2dType::CubicBezier(c) => {
+              builder.cubic_bezier_to(
+                into_lyon_point(c.ctrl1),
+                into_lyon_point(c.ctrl2),
+                into_lyon_point(p.end_point),
+              );
+            }
+          }
+        }
+        builder.end(seg.closed)
+      }
+    }
+  }
+
+  builder.build();
 }
 
-fn visit_normalized_path(shape: &Shape, path_visitor: impl FnMut(Path2dSegment<f32>)) {
-  todo!();
+fn into_lyon_point(v: Vec2<f32>) -> lyon::math::Point {
+  lyon::math::point(v.x, v.y)
 }

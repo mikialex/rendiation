@@ -1,6 +1,5 @@
 use rendiation_algebra::*;
 use rendiation_color::*;
-use rendiation_geometry::*;
 
 mod effect;
 mod impls;
