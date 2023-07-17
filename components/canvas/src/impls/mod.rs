@@ -1,7 +1,7 @@
 #![allow(dead_code)]
 #![allow(unused)]
 
-use lyon::path::traits::PathBuilder;
+use lyon::{lyon_tessellation::StrokeTessellator, path::traits::PathBuilder};
 
 use crate::*;
 
@@ -34,7 +34,8 @@ struct TransformState {
 #[derive(Default)]
 struct GraphicsRepresentation {
   object_meta: Vec<ObjectMetaData>,
-  triangulated: Vec<GraphicsVertex>,
+  vertices: Vec<GraphicsVertex>,
+  indices: Vec<u32>,
 
   images: Vec<GraphicsImageData>,
 }
@@ -87,9 +88,8 @@ impl PainterAPI for PainterCtx {
       uv_base: Default::default(),
     };
 
-    triangulate_stroke(shape, style, |v| {
-      self.recording.triangulated.push(v);
-    });
+    let builder = MeshBuilder::new(&mut self.recording.vertices, &mut self.recording.indices);
+    triangulate_stroke(shape, style, builder);
   }
 
   fn fill_shape(&mut self, shape: &Shape, style: &FillStyle) {
@@ -98,9 +98,9 @@ impl PainterAPI for PainterCtx {
       world_transform,
       uv_base: Default::default(),
     };
-    triangulate_fill(shape, style, |v| {
-      self.recording.triangulated.push(v);
-    });
+
+    let builder = MeshBuilder::new(&mut self.recording.vertices, &mut self.recording.indices);
+    triangulate_fill(shape, style, builder);
   }
 
   fn push_transform(&mut self, transform: Mat3<f32>) {
@@ -132,49 +132,140 @@ impl PainterAPI for PainterCtx {
   }
 }
 
+// todo, handle max u32
+struct MeshBuilder<'a> {
+  vertices: &'a mut Vec<GraphicsVertex>,
+  indices: &'a mut Vec<u32>,
+}
+
+impl<'a> MeshBuilder<'a> {
+  pub fn new(vertices: &'a mut Vec<GraphicsVertex>, indices: &'a mut Vec<u32>) -> Self {
+    let start = vertices.len() as u32;
+    Self { vertices, indices }
+  }
+}
+
+impl<'a> lyon::lyon_tessellation::GeometryBuilder for MeshBuilder<'a> {
+  fn add_triangle(
+    &mut self,
+    a: lyon::lyon_tessellation::VertexId,
+    b: lyon::lyon_tessellation::VertexId,
+    c: lyon::lyon_tessellation::VertexId,
+  ) {
+    self.indices.push(a.offset());
+    self.indices.push(b.offset());
+    self.indices.push(c.offset());
+  }
+}
+
+impl<'a> lyon::lyon_tessellation::FillGeometryBuilder for MeshBuilder<'a> {
+  fn add_fill_vertex(
+    &mut self,
+    vertex: lyon::lyon_tessellation::FillVertex,
+  ) -> Result<lyon::lyon_tessellation::VertexId, lyon::lyon_tessellation::GeometryBuilderError> {
+    // todo uv color
+    let position = vertex.position();
+    let vertex = GraphicsVertex {
+      position: Vec2::new(position.x, position.y),
+      color: Vec3::zero(),
+      uv: Vec2::zero(),
+      object_id: 0,
+    };
+    let index = self.vertices.len();
+    self.vertices.push(vertex);
+    Ok(lyon::lyon_tessellation::VertexId::from(index as u32))
+  }
+}
+
+impl<'a> lyon::lyon_tessellation::StrokeGeometryBuilder for MeshBuilder<'a> {
+  fn add_stroke_vertex(
+    &mut self,
+    vertex: lyon::lyon_tessellation::StrokeVertex,
+  ) -> Result<lyon::lyon_tessellation::VertexId, lyon::lyon_tessellation::GeometryBuilderError> {
+    // todo uv color
+    let position = vertex.position();
+    let vertex = GraphicsVertex {
+      position: Vec2::new(position.x, position.y),
+      color: Vec3::zero(),
+      uv: Vec2::zero(),
+      object_id: 0,
+    };
+    let index = self.vertices.len();
+    self.vertices.push(vertex);
+    Ok(lyon::lyon_tessellation::VertexId::from(index as u32))
+  }
+}
+
 fn triangulate_stroke(
   shape: &Shape,
   style: &StrokeStyle,
-  vertex_visitor: impl FnMut(GraphicsVertex),
+  mut builder: impl lyon::lyon_tessellation::StrokeGeometryBuilder,
 ) {
-  todo!()
+  use lyon::tessellation::{StrokeOptions, StrokeTessellator};
+
+  let options = StrokeOptions::tolerance(0.1);
+  let mut tessellator = StrokeTessellator::new();
+
+  let mut builder = tessellator.builder(&options, &mut builder);
+
+  match shape {
+    Shape::Rect(rect) => {
+      builder.add_rectangle(&into_lyon_rect(rect), lyon::path::Winding::Positive)
+    }
+    Shape::RoundCorneredRect(round_rect) => builder.add_rounded_rectangle(
+      &into_lyon_rect(&round_rect.rect),
+      &into_lyon_radius(&round_rect.radius),
+      lyon::path::Winding::Positive,
+    ),
+    Shape::Path(path) => {
+      for seg in &path.sub_paths {
+        builder.begin(into_lyon_point(seg.start));
+        for p in &seg.paths {
+          match &p.path {
+            Path2dType::Line(_) => {
+              builder.line_to(into_lyon_point(p.end_point));
+            }
+            Path2dType::QuadraticBezier(c) => {
+              builder.quadratic_bezier_to(into_lyon_point(c.ctrl), into_lyon_point(p.end_point));
+            }
+            Path2dType::CubicBezier(c) => {
+              builder.cubic_bezier_to(
+                into_lyon_point(c.ctrl1),
+                into_lyon_point(c.ctrl2),
+                into_lyon_point(p.end_point),
+              );
+            }
+          }
+        }
+        builder.end(seg.closed)
+      }
+    }
+  }
+
+  builder.build();
 }
 
-fn triangulate_fill(shape: &Shape, style: &FillStyle, vertex_visitor: impl FnMut(GraphicsVertex)) {
-  use lyon::tessellation::{FillOptions, FillTessellator, VertexBuffers};
+fn triangulate_fill(
+  shape: &Shape,
+  style: &FillStyle,
+  mut builder: impl lyon::lyon_tessellation::FillGeometryBuilder,
+) {
+  use lyon::tessellation::{FillOptions, FillTessellator};
 
-  let mut geometry: VertexBuffers<lyon::math::Point, u16> = VertexBuffers::new();
-  let mut geometry_builder = lyon::tessellation::geometry_builder::simple_builder(&mut geometry);
   let options = FillOptions::tolerance(0.1);
   let mut tessellator = FillTessellator::new();
 
-  let mut builder = tessellator.builder(&options, &mut geometry_builder);
+  let mut builder = tessellator.builder(&options, &mut builder);
 
   match shape {
-    Shape::Rect(rect) => builder.add_rectangle(
-      &lyon::math::Box2D {
-        min: lyon::math::point(rect.x, rect.y),
-        max: lyon::math::point(rect.x + rect.width, rect.y + rect.height),
-      },
+    Shape::Rect(rect) => {
+      builder.add_rectangle(&into_lyon_rect(rect), lyon::path::Winding::Positive)
+    }
+    Shape::RoundCorneredRect(round_rect) => builder.add_rounded_rectangle(
+      &into_lyon_rect(&round_rect.rect),
+      &into_lyon_radius(&round_rect.radius),
       lyon::path::Winding::Positive,
     ),
-    Shape::RoundCorneredRect(round_rect) => {
-      let rect = round_rect.rect;
-      let radius = round_rect.radius;
-      builder.add_rounded_rectangle(
-        &lyon::math::Box2D {
-          min: lyon::math::point(0.0, 0.0),
-          max: lyon::math::point(100.0, 50.0),
-        },
-        &lyon::path::builder::BorderRadii {
-          top_left: radius.top_left,
-          top_right: radius.top_right,
-          bottom_left: radius.bottom_left,
-          bottom_right: radius.bottom_right,
-        },
-        lyon::path::Winding::Positive,
-      )
-    }
     Shape::Path(path) => {
       for seg in &path.sub_paths {
         builder.begin(into_lyon_point(seg.start));
@@ -205,4 +296,20 @@ fn triangulate_fill(shape: &Shape, style: &FillStyle, vertex_visitor: impl FnMut
 
 fn into_lyon_point(v: Vec2<f32>) -> lyon::math::Point {
   lyon::math::point(v.x, v.y)
+}
+
+fn into_lyon_rect(rect: &RectangleShape) -> lyon::math::Box2D {
+  lyon::math::Box2D {
+    min: lyon::math::point(rect.x, rect.y),
+    max: lyon::math::point(rect.x + rect.width, rect.y + rect.height),
+  }
+}
+
+fn into_lyon_radius(radius: &RadiusGroup) -> lyon::path::builder::BorderRadii {
+  lyon::path::builder::BorderRadii {
+    top_left: radius.top_left,
+    top_right: radius.top_right,
+    bottom_left: radius.bottom_left,
+    bottom_right: radius.bottom_right,
+  }
 }
