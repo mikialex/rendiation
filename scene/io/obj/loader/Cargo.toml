@@ -1,0 +1,12 @@
+[package]
+authors = ["mikialex <18516340862@163.com>"]
+edition = "2021"
+name = "rendiation-scene-obj-loader"
+version = "0.1.0"
+
+[dependencies]
+
+rendiation-algebra = {path = "../../../../math/algebra"}
+rendiation-renderable-mesh = {path = "../../../../components/mesh/renderable"}
+rendiation-scene-core = {path = "../../../core"}
+tobj = "4.0.0"

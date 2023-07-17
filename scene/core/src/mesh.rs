@@ -174,6 +174,26 @@ pub struct AttributeAccessor {
   pub item_size: usize,
 }
 
+impl AttributeAccessor {
+  pub fn create_owned(buffer: Vec<u8>, item_size: usize) -> Self {
+    let byte_size = buffer.len();
+    let buffer = GeometryBufferInner { buffer };
+    let buffer = buffer.into_ref();
+    let view = UnTypedBufferView {
+      buffer,
+      range: Default::default(),
+    };
+    assert!(byte_size % item_size == 0);
+    let count = byte_size / item_size;
+    Self {
+      view,
+      byte_offset: 0,
+      count,
+      item_size,
+    }
+  }
+}
+
 pub struct AttributeAccessorReadView<'a> {
   view: UnTypedBufferViewReadView<'a>,
   acc: &'a AttributeAccessor,
