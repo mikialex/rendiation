@@ -9,8 +9,17 @@ pub type ModelOutChange = ContainerRefRetainContentDelta<(SceneModel, bool)>;
 
 pub fn model_transform<O>(
   scene_delta: impl Stream<Item = MixSceneDelta> + Unpin + 'static,
-  transformer: impl FnOnce(Box<dyn Stream<Item = ModelChange> + Unpin>, &SceneNodeCollection) -> O,
-) -> (impl Stream<Item = MixSceneDelta>, TransformStat)
+  transformer: impl FnOnce(
+    Box<dyn Stream<Item = ModelChange> + Unpin>,
+    &SceneNodeCollection,
+    &SceneNodeDeriveSystem,
+  ) -> O,
+) -> (
+  impl Stream<Item = MixSceneDelta>,
+  TransformStat,
+  Scene,
+  SceneNodeDeriveSystem,
+)
 where
   O: Stream<Item = ModelOutChange>,
 {
@@ -24,15 +33,17 @@ where
       _ => None,
     });
 
-  let (new_scene, _new_derives) = SceneImpl::new();
+  let (new_scene, new_derives) = SceneImpl::new();
+  let output_derives = new_derives.clone();
   let middle_scene_nodes = new_scene.read().core.read().nodes.clone();
   let (model_input, original) = stat_model_count(model_input.batch_processing()); // todo improve batch
   let model_input = Box::new(model_input.flat_map(futures::stream::iter)); // this box is just to make the code easy to write
 
-  let transformed_models = transformer(model_input, &middle_scene_nodes).map(|v| match v {
-    ContainerRefRetainContentDelta::Remove((v, _)) => ContainerRefRetainContentDelta::Remove(v),
-    ContainerRefRetainContentDelta::Insert((v, _)) => ContainerRefRetainContentDelta::Insert(v),
-  });
+  let transformed_models =
+    transformer(model_input, &middle_scene_nodes, &new_derives).map(|v| match v {
+      ContainerRefRetainContentDelta::Remove((v, _)) => ContainerRefRetainContentDelta::Remove(v),
+      ContainerRefRetainContentDelta::Insert((v, _)) => ContainerRefRetainContentDelta::Insert(v),
+    });
 
   let (transformed_models, transformed) = stat_model_count(transformed_models.batch_processing());
 
@@ -55,7 +66,7 @@ where
     transformed,
   };
 
-  (output, stat)
+  (output, stat, new_scene, output_derives)
 }
 
 fn prior_left(_: &mut ()) -> stream::PollNext {

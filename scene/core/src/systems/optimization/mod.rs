@@ -28,31 +28,40 @@ pub struct AutoInstanceSystem {
   pub stat: TransformStat,
 }
 
-// input
 impl AutoInstanceSystem {
-  // note, we have a subtle requirement that the other change in the stream has no dependency on
-  // model change in the same stream or we will have to handle it manually.
   pub fn new(
     scene_delta: impl Stream<Item = MixSceneDelta> + Unpin + 'static,
-    d_system: &SceneNodeDeriveSystem,
-  ) -> (Self, impl Stream<Item = MixSceneDelta>) {
-    let source_scene_derives = d_system.clone();
-    let (output, stat) = model_transform(scene_delta, move |model_input, middle_scene_nodes| {
-      let optimization = InstanceOptimization {
-        new_nodes_storage: middle_scene_nodes.clone(),
-        source_scene_derives,
-      };
-      recyclable_hash_many_to_one(model_input, optimization)
-    });
+    d_systems: &FastHashMap<usize, SceneNodeDeriveSystem>,
+  ) -> (
+    Self,
+    impl Stream<Item = MixSceneDelta>,
+    FastHashMap<usize, SceneNodeDeriveSystem>,
+  ) {
+    // todo make sure the d_systems are polled
+    let mut source_scene_derives = d_systems.clone();
+    let mut source_scene_derives_output = d_systems.clone();
+    let (output, stat, new_scene, new_derives) = model_transform(
+      scene_delta,
+      move |model_input, new_scene_nodes, new_derives| {
+        source_scene_derives.insert(new_scene_nodes.scene_guid, new_derives.clone());
+        let optimization = InstanceOptimization {
+          new_nodes_storage: new_scene_nodes.clone(),
+          source_scene_derives,
+        };
+        recyclable_hash_many_to_one(model_input, optimization)
+      },
+    );
 
-    (Self { stat }, output)
+    source_scene_derives_output.insert(new_scene.guid(), new_derives);
+
+    (Self { stat }, output, source_scene_derives_output)
   }
 }
 
 #[derive(Clone)]
 struct InstanceOptimization {
   new_nodes_storage: SceneNodeCollection,
-  source_scene_derives: SceneNodeDeriveSystem, // todo support multi scene input source
+  source_scene_derives: FastHashMap<usize, SceneNodeDeriveSystem>,
 }
 
 impl RecyclableHashManyToOne for InstanceOptimization {
@@ -60,7 +69,11 @@ impl RecyclableHashManyToOne for InstanceOptimization {
   type Key = PossibleInstanceKey;
 
   fn create_key(&self, model: &SceneModel) -> Self::Key {
-    compute_instance_key(model, &self.source_scene_derives)
+    let derives = self
+      .source_scene_derives
+      .get(&model.read().node.scene_id)
+      .unwrap();
+    compute_instance_key(model, derives)
   }
 
   fn create_transformer(&self, key: Self::Key) -> Self::Transformer {
@@ -152,7 +165,7 @@ fn compute_instance_key_inner(model: &SceneItemRef<StandardModel>) -> Option<Ins
 /// we call it transformer here because maybe this struct will likely be reused in another optimizer
 #[pin_project::pin_project]
 struct Transformer {
-  d_sys: SceneNodeDeriveSystem,
+  d_sys: FastHashMap<usize, SceneNodeDeriveSystem>,
   new_nodes: SceneNodeCollection,
   key: PossibleInstanceKey,
   #[pin]
@@ -165,7 +178,7 @@ struct Transformer {
 impl Transformer {
   pub fn new(
     key: PossibleInstanceKey,
-    d_sys: SceneNodeDeriveSystem,
+    d_sys: FastHashMap<usize, SceneNodeDeriveSystem>,
     new_nodes: SceneNodeCollection,
   ) -> Self {
     debug_log!("create new transformer with key: {key:?}");
@@ -183,7 +196,8 @@ impl Transformer {
 
 impl ModelProxy for Transformer {
   fn insert_source_model(&mut self, source: SceneModel) {
-    let change = build_instance_source_stream(&source, &self.d_sys, self.key.clone());
+    let derives = self.d_sys.get(&source.read().node.scene_id).unwrap();
+    let change = build_instance_source_stream(&source, derives, self.key.clone());
     self.source.insert(source.guid(), change);
     self.source_model.insert(source.guid(), source);
   }
@@ -387,7 +401,7 @@ fn build_instance_source_stream(
 /// maybe failed, if the source is empty
 fn create_instance(
   source: &FastHashMap<usize, SceneModel>,
-  d_sys: &SceneNodeDeriveSystem,
+  d_sys: &FastHashMap<usize, SceneNodeDeriveSystem>,
   new_nodes: &SceneNodeCollection,
 ) -> Option<(SceneModel, bool)> {
   let first = source.values().next()?;
@@ -409,8 +423,9 @@ fn create_instance(
       .values()
       .map(|m| {
         let node = &m.read().node;
-        let mat = d_sys.get_world_matrix(node);
-        let net_visible = d_sys.get_net_visible(node);
+        let derives = d_sys.get(&node.scene_id).unwrap();
+        let mat = derives.get_world_matrix(node);
+        let net_visible = derives.get_net_visible(node);
         if net_visible {
           mat
         } else {
