@@ -5,8 +5,8 @@ name = "rendiation-scene-obj-loader"
 version = "0.1.0"
 
 [dependencies]
-
 rendiation-algebra = {path = "../../../../math/algebra"}
 rendiation-renderable-mesh = {path = "../../../../components/mesh/renderable"}
 rendiation-scene-core = {path = "../../../core"}
+thiserror = "1.0.43"
 tobj = "4.0.0"
