@@ -7,6 +7,7 @@ version = "0.1.0"
 [dependencies]
 image = "*"
 incremental = {path = "../../../utils/incremental"}
+fast-hash-collection = {path = "../../../utils/fast-hash-collection"}
 rendiation-algebra = {path = "../../../math/algebra"}
 rendiation-geometry = {path = "../../../math/geometry"}
 rendiation-texture-types = {path = "../types"}

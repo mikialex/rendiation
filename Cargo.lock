@@ -2797,6 +2797,7 @@ dependencies = [
 name = "rendiation-texture"
 version = "0.1.0"
 dependencies = [
+ "fast-hash-collection",
  "image",
  "incremental",
  "rendiation-algebra",

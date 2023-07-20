@@ -9,7 +9,7 @@ pub trait HierarchyDerived {
 }
 
 /// we could use lifetime to make sure the source tree not changed when we hold the struct
-/// but actually too much trouble for me to do this
+/// but actually this should did by user
 pub struct ComputedDerivedTree<T: HierarchyDerived> {
   pub computed: Vec<Option<T>>,
 }
