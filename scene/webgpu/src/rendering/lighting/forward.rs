@@ -121,45 +121,45 @@ impl Stream for ForwardLightingSystem {
 
 impl ForwardLightingSystem {
   pub fn new(scene: &Scene, gpu: ResourceGPUCtx) -> Self {
-    fn insert_light(
-      c: &LightCollections,
-      // scene light id -> (light typeid, light id)
-      retained_lights: &mut FastHashMap<usize, (TypeId, usize)>,
-      light: SceneLight,
-    ) {
+    fn insert_light(c: &LightCollections, light: SceneLight) {
       let mut collection = c.write().unwrap();
-      let node = light.single_listen_by(with_field!(SceneLightInner => node));
 
-      retained_lights.insert(light.guid(), )
-
-      let light_impl = light
+      let light_impl_change = light
         .single_listen_by(with_field!(SceneLightInner => light))
-        .map(|light| {
-          //
-        });
+        .create_broad_caster();
 
-      let node = Box::new(node);
-      let light = light.read();
-      match &light.light {
-        SceneLightKind::PointLight(_) => todo!(),
-        SceneLightKind::SpotLight(light) => {
-          let uniform = light.create_uniform_stream(todo!(), node);
+      light_impl_change
+        .fork_stream()
+        .map(|l: SceneLightKind| match l {
+          SceneLightKind::SpotLight(l) => Enable(l.into()),
+          _ => Disable,
+        })
+        .map(|l| {
+          l.create_uniform_stream(
+            todo!(),
+            Box::new(light_weak.single_listen_by(with_field!(SceneLightInner => node))),
+          )
+        }) // note we not use fork because we want init value,
+        .flatten_signal()
 
-          //
-        }
-        SceneLightKind::DirectionalLight(light) => {
-          let uniform = light.create_uniform_stream(todo!(), node);
-        }
-        SceneLightKind::Foreign(_) => todo!(),
-        _ => todo!(),
-      }
+      // let node = Box::new(node);
+      // let light = light.read();
+      // match &light.light {
+      //   SceneLightKind::PointLight(_) => todo!(),
+      //   SceneLightKind::SpotLight(light) => {
+      //     let uniform = light.create_uniform_stream(todo!(), node);
+
+      //     //
+      //   }
+      //   SceneLightKind::DirectionalLight(light) => {
+      //     let uniform = light.create_uniform_stream(todo!(), node);
+      //   }
+      //   SceneLightKind::Foreign(_) => todo!(),
+      //   _ => todo!(),
+      // }
     }
 
-    fn remove_light(c: &LightCollections, 
-      // scene light id -> (light typeid, light id)
-      retained_lights: &mut FastHashMap<usize, (TypeId, usize)>,
-      light: SceneLight) {
-        
+    fn remove_light(c: &LightCollections, light: SceneLight) {
       let light = light.read();
       let mut collection = c.write().unwrap();
       match &light.light {
