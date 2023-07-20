@@ -63,23 +63,28 @@ pub struct ForwardSceneLightingDispatcher<'a> {
   debugger: Option<&'a ScreenChannelDebugger>,
 }
 
-pub trait ReactiveLightCollectionCompute: LightCollectionCompute + Stream<Item = ()> {}
+pub trait ReactiveLightCollectionCompute:
+  LightCollectionCompute + Stream<Item = (TypeId, usize)> + Any
+{
+}
 
 const MAX_SUPPORT_LIGHT_KIND_COUNT: usize = 8;
+
+type LightCollections = Arc<RwLock<StreamMap<TypeId, Box<dyn ReactiveLightCollectionCompute>>>>;
+
 /// contains gpu data that support forward rendering
 ///
 /// all uniform is update once in a frame. for convenience.
 #[pin_project::pin_project]
 pub struct ForwardLightingSystem {
   gpu: ResourceGPUCtx,
-  pub lights_collections: StreamMap<TypeId, Box<dyn ReactiveLightCollectionCompute>>,
+  pub lights_collections: LightCollections,
   // we could use linked hashmap to keep visit order
   pub mapping_length_idx: FastHashMap<TypeId, usize>,
 
   /// note todo!, we don't support correct codegen for primitive wrapper array type
   /// so we use vec4<u32> instead of u32
-  pub lengths:
-    Option<UniformBufferDataView<Shader140Array<Vec4<u32>, MAX_SUPPORT_LIGHT_KIND_COUNT>>>,
+  pub lengths: UniformBufferDataView<Shader140Array<Vec4<u32>, MAX_SUPPORT_LIGHT_KIND_COUNT>>,
 
   light_hash_cache: u64,
 }
@@ -115,28 +120,67 @@ impl Stream for ForwardLightingSystem {
 
 impl ForwardLightingSystem {
   pub fn new(scene: &Scene, gpu: ResourceGPUCtx) -> Self {
-    // scene
-    //   .unbound_listen_by(with_field_expand!(SceneInner => lights))
-    //   .map(|d| match d {
-    //     arena::ArenaDelta::Mutate(_) => todo!(),
-    //     arena::ArenaDelta::Insert((light, _)) => {
-    //       let node = light.single_listen_by(with_field!(SceneLightInner => node));
-    //       let light = light.read();
-    //       match &light.light {
-    //         SceneLightKind::PointLight(_) => todo!(),
-    //         SceneLightKind::SpotLight(light) => {
-    //           let uniform = light.create_uniform_stream(todo!(), node);
-    //           //
-    //         }
-    //         SceneLightKind::DirectionalLight(_) => todo!(),
-    //         SceneLightKind::Foreign(_) => todo!(),
-    //         _ => todo!(),
-    //       }
-    //     }
-    //     arena::ArenaDelta::Remove(_) => todo!(),
-    //   })
+    fn insert_light(c: &LightCollections, light: SceneLight) {
+      let mut collection = c.write().unwrap();
+      let node = light.single_listen_by(with_field!(SceneLightInner => node));
 
-    todo!()
+      // let node = light.single_listen_by(with_field!(SceneLightInner => node));
+
+      let node = Box::new(node);
+      let light = light.read();
+      match &light.light {
+        SceneLightKind::PointLight(_) => todo!(),
+        SceneLightKind::SpotLight(light) => {
+          let uniform = light.create_uniform_stream(todo!(), node);
+
+          //
+        }
+        SceneLightKind::DirectionalLight(light) => {
+          let uniform = light.create_uniform_stream(todo!(), node);
+        }
+        SceneLightKind::Foreign(_) => todo!(),
+        _ => todo!(),
+      }
+    }
+
+    fn remove_light(c: &LightCollections, light: SceneLight) {
+      let light = light.read();
+      let mut collection = c.write().unwrap();
+      match &light.light {
+        SceneLightKind::PointLight(_) => todo!(),
+        SceneLightKind::SpotLight(light) => {
+          // collection.get_mut(TypeId::of::<SpotLight>)
+        }
+        SceneLightKind::DirectionalLight(light) => {}
+        SceneLightKind::Foreign(_) => todo!(),
+        _ => todo!(),
+      }
+    }
+
+    let lights_collections = LightCollections::default();
+
+    let lc = lights_collections.clone();
+
+    let updater = scene.unbound_listen_by(all_delta).map(|d| match d {
+      MixSceneDelta::lights(l) => {
+        use ContainerRefRetainContentDelta::*;
+        match l {
+          Remove(l) => remove_light(&lc, l),
+          Insert(l) => insert_light(&lc, l),
+        }
+      }
+      _ => {}
+    });
+
+    let lengths = create_uniform2(Default::default(), &gpu.device);
+
+    Self {
+      gpu,
+      lengths,
+      lights_collections,
+      mapping_length_idx: Default::default(),
+      light_hash_cache: Default::default(),
+    }
   }
 }
 
@@ -147,8 +191,9 @@ impl<'a> ShaderPassBuilder for ForwardSceneLightingDispatcher<'a> {
   fn post_setup_pass(&self, ctx: &mut GPURenderPassCtx) {
     self.shadows.setup_pass(ctx);
 
-    ctx.binding.bind(self.lights.lengths.as_ref().unwrap());
-    for lights in self.lights.lights_collections.streams.values() {
+    ctx.binding.bind(&self.lights.lengths);
+    let lights_collections = self.lights.lights_collections.read().unwrap();
+    for lights in lights_collections.values() {
       lights.setup_pass(ctx)
     }
     self.lighting.tonemap.setup_pass(ctx);
@@ -239,7 +284,7 @@ impl ForwardLightingSystem {
     shading_impl: &dyn LightableSurfaceShadingDyn,
   ) -> Result<(), ShaderGraphBuildError> {
     builder.fragment(|builder, binding| {
-      let lengths_info = binding.uniform_by(self.lengths.as_ref().unwrap());
+      let lengths_info = binding.uniform_by(&self.lengths);
       let camera_position = builder.query::<CameraWorldMatrix>()?.position();
       let position =
         builder.query_or_interpolate_by::<FragmentWorldPosition, WorldVertexPosition>();
@@ -255,7 +300,8 @@ impl ForwardLightingSystem {
       let mut light_specular_result = consts(Vec3::zero());
       let mut light_diffuse_result = consts(Vec3::zero());
 
-      for (i, lights) in self.lights_collections.streams.values().enumerate() {
+      let lights_collections = self.lights_collections.read().unwrap();
+      for (i, lights) in lights_collections.values().enumerate() {
         let length = lengths_info.index(consts(i as u32)).x();
         builder.register::<LightCount>(length);
 
@@ -302,23 +348,28 @@ impl<T: ShaderLight> LightList<T> {
 }
 
 impl<T: ShaderLight> Stream for LightList<T> {
-  type Item = ();
+  type Item = usize;
 
   fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
     let this = self.project();
-    this.source.loop_poll_until_pending(cx, |d| match d {
-      StreamMapDelta::Remove(id) => {
-        let idx = this.mapping.remove(&id).unwrap();
-        this.empty_list.push(idx);
+    this.source.loop_poll_until_pending(cx, |updates| {
+      for update in updates {
+        match update {
+          StreamMapDelta::Remove(id) => {
+            let idx = this.mapping.remove(&id).unwrap();
+            this.empty_list.push(idx);
+          }
+          StreamMapDelta::Delta(id, value) => {
+            let idx = this.mapping.get(&id).unwrap();
+            this.uniform.source[*idx] = value;
+          }
+          _ => {}
+        }
       }
-      StreamMapDelta::Delta(id, value) => {
-        let idx = this.mapping.get(&id).unwrap();
-        this.uniform.source[*idx] = value;
-      }
-      _ => {}
     });
 
     this.uniform.update_gpu(&this.gpu.device);
+    todo!();
     Poll::Pending
   }
 }

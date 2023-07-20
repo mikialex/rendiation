@@ -53,7 +53,7 @@ impl Viewer3dRenderingCtx {
 
     let (scene_resource, content_res) = self
       .resources
-      .get_or_create_scene_sys_with_content(&content.scene.read().core, &content.scene_derived);
+      .get_or_create_scene_sys_with_content(&content.scene, &content.scene_derived);
     let resource = content_res.read().unwrap();
 
     let scene = content.scene.read();

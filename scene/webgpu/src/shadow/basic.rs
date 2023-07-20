@@ -42,30 +42,38 @@ impl SingleProjectShadowMapSystem {
   }
 
   pub fn maintain(&mut self, gpu_cameras: &mut SceneCameraGPUSystem, cx: &mut Context) {
-    do_updates_by(&mut self.cameras_source, cx, |updates| match updates {
-      StreamMapDelta::Delta(idx, (camera, size)) => {
-        self.shadow_maps.remove(idx); // deallocate map
-        self.shadow_maps.insert(idx, self.maps.allocate(size));
-        // create the gpu camera
-        gpu_cameras.get_or_insert(&camera, &self.derives, &self.gpu);
-        self.cameras.insert(idx, camera);
+    do_updates_by(&mut self.cameras_source, cx, |updates| {
+      for update in updates {
+        match update {
+          StreamMapDelta::Delta(idx, (camera, size)) => {
+            self.shadow_maps.remove(idx); // deallocate map
+            self.shadow_maps.insert(idx, self.maps.allocate(size));
+            // create the gpu camera
+            gpu_cameras.get_or_insert(&camera, &self.derives, &self.gpu);
+            self.cameras.insert(idx, camera);
+          }
+          StreamMapDelta::Remove(idx) => {
+            self.list.deallocate(idx);
+            self.cameras.remove(&idx);
+          }
+          _ => {}
+        }
       }
-      StreamMapDelta::Remove(idx) => {
-        self.list.deallocate(idx);
-        self.cameras.remove(&idx);
-      }
-      _ => {}
     });
 
-    do_updates(gpu_cameras, |d| {
-      if let StreamMapDelta::Delta(idx, shadow_camera) = d {
-        self.list.get_mut_data(idx).shadow_camera = shadow_camera;
+    do_updates(gpu_cameras, |updates| {
+      for update in updates {
+        if let StreamMapDelta::Delta(idx, shadow_camera) = update {
+          self.list.get_mut_data(idx).shadow_camera = shadow_camera;
+        }
       }
     });
 
     do_updates(&mut self.shadow_maps, |updates| {
-      if let StreamMapDelta::Delta(idx, delta) = updates {
-        self.list.get_mut_data(idx).map_info = delta;
+      for update in updates {
+        if let StreamMapDelta::Delta(idx, delta) = update {
+          self.list.get_mut_data(idx).map_info = delta;
+        }
       }
     });
 
@@ -73,10 +81,7 @@ impl SingleProjectShadowMapSystem {
   }
 
   pub fn update_depth_maps(&mut self, ctx: &mut FrameCtx, scene: &SceneRenderResourceGroup) {
-    assert_eq!(
-      self.cameras_source.streams.len(),
-      self.shadow_maps.streams.len()
-    );
+    assert_eq!(self.cameras_source.len(), self.shadow_maps.len());
 
     struct SceneDepth;
 
@@ -98,7 +103,7 @@ impl SingleProjectShadowMapSystem {
     }
 
     for (light_id, camera) in &self.cameras {
-      let map = self.shadow_maps.streams.get(light_id).unwrap();
+      let map = self.shadow_maps.get(light_id).unwrap();
       let (view, _map_info) = map.get_write_view();
 
       pass("shadow-depth")
@@ -131,13 +136,25 @@ pub struct BasicShadowMapInfoList {
   list: ClampedUniformList<BasicShadowMapInfo, SHADOW_MAX>,
   /// map light id to index;
   empty_list: Vec<usize>,
+  waker: futures::task::AtomicWaker,
   mapping: FastHashMap<usize, usize>,
   // todo support reordering?
   emitter: FastHashMap<usize, futures::channel::mpsc::UnboundedSender<LightShadowAddressInfo>>,
 }
 
+impl Stream for BasicShadowMapInfoList {
+  // emit new real size
+  type Item = usize;
+
+  fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+    self.waker.register(cx.waker());
+    todo!() // and gpu update
+  }
+}
+
 impl BasicShadowMapInfoList {
   fn allocate(&mut self, light_id: usize) -> impl Stream<Item = LightShadowAddressInfo> {
+    self.waker.wake();
     let idx = self.empty_list.pop().unwrap();
     let (sender, rec) = futures::channel::mpsc::unbounded();
     sender
@@ -148,11 +165,13 @@ impl BasicShadowMapInfoList {
     rec
   }
   fn deallocate(&mut self, light_id: usize) {
+    self.waker.wake();
     let index = self.mapping.remove(&light_id).unwrap();
     self.empty_list.push(index);
     self.emitter.remove(&light_id);
   }
   fn get_mut_data(&mut self, light_id: usize) -> &mut BasicShadowMapInfo {
+    self.waker.wake();
     let index = self.mapping.get(&light_id).unwrap();
     &mut self.list.source[*index]
   }
@@ -163,8 +182,9 @@ impl Default for BasicShadowMapInfoList {
     Self {
       list: Default::default(),
       mapping: Default::default(),
-      empty_list: (0..SHADOW_MAX).collect(),
+      empty_list: (0..SHADOW_MAX).rev().collect(),
       emitter: Default::default(),
+      waker: Default::default(),
     }
   }
 }

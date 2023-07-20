@@ -171,7 +171,7 @@ impl CameraProjection for WorkAroundResizableOrth {
     self.orth.update_projection::<WebGPU>(projection);
   }
 
-  fn resize(&mut self, size: (f32, f32)) {
+  fn resize(&mut self, _: (f32, f32)) {
     // nothing!
   }
 

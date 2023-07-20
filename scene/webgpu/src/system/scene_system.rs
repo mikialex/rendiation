@@ -54,7 +54,7 @@ type SceneGPUUpdateSource = impl Stream<Item = ()> + Unpin;
 
 impl SceneGPUSystem {
   pub fn new(
-    scene: &SceneCore,
+    scene: &Scene,
     derives: &SceneNodeDeriveSystem,
     contents: Arc<RwLock<ContentGPUSystem>>,
   ) -> Self {
@@ -64,10 +64,13 @@ impl SceneGPUSystem {
     let shadows = ShadowMapSystem::new(gpu.clone(), derives.clone());
     let lights = ForwardLightingSystem::new(scene, gpu.clone());
 
-    let nodes = SceneNodeGPUSystem::new(scene, derives, &gpu);
-    let cameras = RwLock::new(SceneCameraGPUSystem::new(scene, derives, &gpu));
+    let scene = scene.read();
+    let scene_core = &scene.core;
 
-    let source = scene.unbound_listen_by(all_delta).map(move |delta| {
+    let nodes = SceneNodeGPUSystem::new(scene_core, derives, &gpu);
+    let cameras = RwLock::new(SceneCameraGPUSystem::new(scene_core, derives, &gpu));
+
+    let source = scene_core.unbound_listen_by(all_delta).map(move |delta| {
       let contents = contents.write().unwrap();
       let mut models = models_c.write().unwrap();
       let models: &mut StreamMap<usize, ReactiveSceneModelGPUInstance> = &mut models;

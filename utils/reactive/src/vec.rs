@@ -56,6 +56,15 @@ impl<T: Send + Sync + Clone> futures::task::ArcWake for ChangeWaker<T> {
   }
 }
 
+impl<T> FusedStream for StreamVec<T>
+where
+  Self: Stream,
+{
+  fn is_terminated(&self) -> bool {
+    false // reactive container never terminates
+  }
+}
+
 impl<T: Stream + Unpin> Stream for StreamVec<T> {
   type Item = Vec<IndexedItem<T::Item>>;
 

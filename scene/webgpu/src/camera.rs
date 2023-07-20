@@ -6,25 +6,29 @@ pub struct SceneCameraGPUSystem {
 }
 
 impl Stream for SceneCameraGPUSystem {
-  type Item = StreamMapDelta<usize, CameraGPUTransform>;
+  type Item = Vec<StreamMapDelta<usize, CameraGPUTransform>>;
 
   fn poll_next(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Option<Self::Item>> {
     let this = self.project();
     let r = this.cameras.poll_next_unpin(cx);
 
     r.map(|v| {
-      v.map(|v| {
-        v.map(|k, _| {
-          this
-            .cameras
-            .as_ref()
-            .get(k)
-            .unwrap()
-            .as_ref()
-            .inner
-            .ubo
-            .get()
-        })
+      v.map(|vs| {
+        vs.into_iter()
+          .map(|v| {
+            v.map(|k, _| {
+              this
+                .cameras
+                .as_ref()
+                .get(k)
+                .unwrap()
+                .as_ref()
+                .inner
+                .ubo
+                .get()
+            })
+          })
+          .collect()
       })
     })
   }
