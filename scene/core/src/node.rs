@@ -177,11 +177,11 @@ impl SceneNode {
     self.inner.raw_handle_parent()
   }
 
-  pub fn detach_from_parent(&self) {
+  pub fn detach_from_parent(&self) -> Result<(), TreeMutationError> {
     self.inner.detach_from_parent()
   }
 
-  pub fn attach_to(&self, parent: &Self) {
+  pub fn attach_to(&self, parent: &Self) -> Result<(), TreeMutationError> {
     self.inner.attach_to(&parent.inner)
   }
 
