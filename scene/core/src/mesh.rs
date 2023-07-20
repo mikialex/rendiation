@@ -174,6 +174,25 @@ pub struct AttributeAccessor {
   pub item_size: usize,
 }
 
+impl AttributeAccessor {
+  pub fn create_owned<T: bytemuck::Pod>(input: Vec<T>, item_size: usize) -> Self {
+    let buffer = bytemuck::cast_slice(&input).to_owned();
+
+    let buffer = GeometryBufferInner { buffer };
+    let buffer = buffer.into_ref();
+    let view = UnTypedBufferView {
+      buffer,
+      range: Default::default(),
+    };
+    Self {
+      view,
+      byte_offset: 0,
+      count: input.len(),
+      item_size,
+    }
+  }
+}
+
 pub struct AttributeAccessorReadView<'a> {
   view: UnTypedBufferViewReadView<'a>,
   acc: &'a AttributeAccessor,

@@ -78,19 +78,14 @@ where
   }
 }
 
-#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, Default)]
 pub enum MeshDrawGroup {
+  #[default]
   Full,
   SubMesh(usize),
 }
 
 clone_self_incremental!(MeshDrawGroup);
-
-impl Default for MeshDrawGroup {
-  fn default() -> Self {
-    Self::Full
-  }
-}
 
 impl<T> GroupedMesh<T> {
   pub fn new(mesh: T, groups: MeshGroupsInfo) -> Self {
