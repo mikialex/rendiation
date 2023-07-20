@@ -1,5 +1,3 @@
-use std::ops::DerefMut;
-
 use crate::*;
 
 mod cursor;
@@ -31,36 +29,9 @@ impl Default for TextLayoutConfig {
 pub struct Text {
   content: String,
   layout_config: TextLayoutConfig,
-  update_source: Option<BoxedUnpinStream<String>>,
   text_layout_cache: Option<TextLayoutRef>,
   text_layout_size_cache: Option<UISize>,
   layout_computed: LayoutUnit,
-}
-
-impl Stream for Text {
-  type Item = ();
-
-  fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
-    let mut changed = false;
-    let this = self.deref_mut();
-    if let Some(update_source) = &mut this.update_source {
-      update_source.loop_poll_until_pending(cx, |new_content| {
-        this.content = new_content;
-        changed = true;
-      })
-    }
-    if changed {
-      self.text_layout_cache = None;
-      self.text_layout_size_cache = None;
-      Poll::Ready(().into())
-    } else {
-      Poll::Pending
-    }
-  }
-}
-
-impl Eventable for Text {
-  fn event(&mut self, _: &mut EventCtx) {}
 }
 
 impl Default for Text {
@@ -68,7 +39,6 @@ impl Default for Text {
     Self {
       content: "".into(),
       layout_computed: Default::default(),
-      update_source: Default::default(),
       layout_config: Default::default(),
       text_layout_cache: None,
       text_layout_size_cache: None,
@@ -88,8 +58,10 @@ impl Text {
     &self.content
   }
 
-  pub fn set_updater(&mut self, updater: impl Stream<Item = String> + Unpin + 'static) {
-    self.update_source = Some(Box::new(updater))
+  pub fn set_text(&mut self, new_content: String) {
+    self.content = new_content;
+    self.text_layout_cache = None;
+    self.text_layout_size_cache = None;
   }
 
   #[must_use]
@@ -152,39 +124,47 @@ impl Text {
   }
 }
 
-impl Presentable for Text {
-  fn render(&mut self, builder: &mut PresentationBuilder) {
-    self
-      .layout_computed
-      .update_world(builder.current_origin_offset());
+trivial_stream_impl!(Text);
+impl View for Text {
+  fn request(&mut self, detail: &mut ViewRequest) {
+    match detail {
+      ViewRequest::Layout(protocol) => match protocol {
+        LayoutProtocol::DoLayout {
+          constraint,
+          ctx,
+          output,
+        } => {
+          match self.layout_config {
+            TextLayoutConfig::SingleLineShrink => {
+              let size = self.get_text_boundary(ctx.fonts, ctx.text);
+              self.layout_computed.size = constraint.clamp(*size);
+            }
+            _ => {
+              self.layout_computed.size = constraint.max();
+            }
+          }
 
-    builder.present.primitives.push(Primitive::Text(
-      self.get_text_layout(builder.fonts, builder.texts).clone(),
-    ));
+          **output = self.layout_computed.size.with_default_baseline();
+        }
+        LayoutProtocol::PositionAt(position) => {
+          self.layout_computed.set_relative_position(*position)
+        }
+      },
+      ViewRequest::Encode(builder) => {
+        self
+          .layout_computed
+          .update_world(builder.current_origin_offset());
 
-    builder.present.primitives.push(Primitive::Quad((
-      self.layout_computed.into_quad(),
-      Style::SolidColor((0., 0., 0., 0.2).into()),
-    )));
-  }
-}
+        builder.present.primitives.push(Primitive::Text(
+          self.get_text_layout(builder.fonts, builder.texts).clone(),
+        ));
 
-impl LayoutAble for Text {
-  fn layout(&mut self, constraint: LayoutConstraint, ctx: &mut LayoutCtx) -> LayoutResult {
-    match self.layout_config {
-      TextLayoutConfig::SingleLineShrink => {
-        let size = self.get_text_boundary(ctx.fonts, ctx.text);
-        self.layout_computed.size = constraint.clamp(*size);
+        builder.present.primitives.push(Primitive::Quad((
+          self.layout_computed.into_quad(),
+          Style::SolidColor((0., 0., 0., 0.2).into()),
+        )));
       }
-      _ => {
-        self.layout_computed.size = constraint.max();
-      }
+      _ => {} // todo range select, hit test
     }
-
-    self.layout_computed.size.with_default_baseline()
-  }
-
-  fn set_position(&mut self, position: UIPosition) {
-    self.layout_computed.set_relative_position(position)
   }
 }

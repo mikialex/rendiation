@@ -1,6 +1,5 @@
 use rendiation_algebra::*;
 use rendiation_color::*;
-use rendiation_geometry::*;
 
 mod effect;
 mod impls;
@@ -19,7 +18,7 @@ pub trait PainterAPI {
 
   type Image;
   fn register_image(&mut self, image: Self::Image) -> TextureHandle;
-  fn render(&self) -> Self::Image;
+  fn render(&mut self, target: &Self::Image);
 
   /// baked data is the lossless snapshot of a painter API's drawing result. lossless means it's
   /// preserves vector representation, but not rasterized image, and keep better (but not necessary

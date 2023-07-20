@@ -19,7 +19,7 @@ pub enum ViewReaction<V, T: ApplicableIncremental> {
 
 /// View type could generic over any state T, as long as the T could provide
 /// given logic for view type
-pub trait View<T>
+pub trait ViewBase<T>
 where
   T: ApplicableIncremental,
 {
@@ -83,12 +83,14 @@ pub struct Component3DCollection<T, E> {
 }
 
 pub trait View3D<T: ApplicableIncremental>:
-  View<T> + SceneRayInteractive + SceneRenderable
+  ViewBase<T> + SceneRayInteractive + SceneRenderable
 {
   fn as_mut_interactive(&mut self) -> &mut dyn SceneRayInteractive;
   fn as_interactive(&self) -> &dyn SceneRayInteractive;
 }
-impl<T: ApplicableIncremental, X: View<T> + SceneRayInteractive + SceneRenderable> View3D<T> for X {
+impl<T: ApplicableIncremental, X: ViewBase<T> + SceneRayInteractive + SceneRenderable> View3D<T>
+  for X
+{
   fn as_mut_interactive(&mut self) -> &mut dyn SceneRayInteractive {
     self
   }
@@ -111,7 +113,7 @@ pub fn collection3d<T, E>() -> Component3DCollection<T, E> {
   }
 }
 
-impl<T: ApplicableIncremental, E> View<T> for Component3DCollection<T, E> {
+impl<T: ApplicableIncremental, E> ViewBase<T> for Component3DCollection<T, E> {
   type Event = E;
 
   fn event(

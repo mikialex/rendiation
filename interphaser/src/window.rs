@@ -28,7 +28,7 @@ impl WindowSelfState {
 pub struct Window {
   pub(crate) window_states: WindowState,
   pub(crate) window: winit::window::Window,
-  states: BoxedUnpinStream<WindowSelfState>,
+  states: BoxedUnpinFusedStream<WindowSelfState>,
   last_update_inst: Instant,
 }
 
@@ -73,7 +73,7 @@ impl Window {
     Self {
       window,
       window_states,
-      states: Box::new(states_updater),
+      states: Box::new(states_updater.fuse()),
       last_update_inst: Instant::now(),
     }
   }

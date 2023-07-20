@@ -187,6 +187,29 @@ impl<T: From<f32>> From<UISize> for (T, T) {
   }
 }
 
+impl From<RectBoundaryWidth> for UISize {
+  fn from(v: RectBoundaryWidth) -> Self {
+    (v.left + v.right, v.top + v.bottom).into()
+  }
+}
+
+impl UISize {
+  pub fn inset_boundary(self, b: &RectBoundaryWidth) -> Self {
+    (
+      (self.width - b.left - b.right).max(0.),
+      (self.height - b.top - b.bottom).max(0.),
+    )
+      .into()
+  }
+
+  pub fn union(self, other: Self) -> Self {
+    Self {
+      width: self.width.max(other.width),
+      height: self.height.max(other.height),
+    }
+  }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Default)]
 pub struct UIPosition {
   pub x: f32,

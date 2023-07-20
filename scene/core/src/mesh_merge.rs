@@ -124,30 +124,16 @@ pub fn merge_attribute_accessor<T: bytemuck::Pod>(
 ) -> Option<AttributeAccessor> {
   // todo stride support
   let first = inputs[0];
-
   let count = inputs.iter().map(|v| v.count).sum();
-  let byte_count = std::mem::size_of::<T>() * count;
 
-  let mut buffer = Vec::with_capacity(byte_count);
+  let mut merged = Vec::with_capacity(count);
   for (idx, acc) in inputs.iter().enumerate() {
     acc.read().visit_slice::<T>()?.iter().for_each(|v| {
-      buffer.extend(bytemuck::bytes_of(&mapper(idx, v)));
+      merged.push(mapper(idx, v));
     })
   }
 
-  let buffer = GeometryBufferInner { buffer };
-  let buffer = buffer.into_ref();
-  let view = UnTypedBufferView {
-    buffer,
-    range: Default::default(),
-  };
-  AttributeAccessor {
-    view,
-    byte_offset: 0,
-    count,
-    item_size: first.item_size,
-  }
-  .into()
+  AttributeAccessor::create_owned(merged, first.item_size).into()
 }
 
 fn merge_assume_all_suitable_and_fit(

@@ -25,26 +25,30 @@ impl GPUCanvas {
 }
 
 trivial_stream_impl!(GPUCanvas);
-impl Presentable for GPUCanvas {
-  fn render(&mut self, builder: &mut PresentationBuilder) {
-    self.layout.update_world(builder.current_origin_offset());
-    if let Some(content) = &self.content {
-      builder.present.primitives.push(Primitive::Quad((
-        self.layout.into_quad(),
-        Style::Texture(content.clone()),
-      )));
+impl View for GPUCanvas {
+  fn request(&mut self, detail: &mut ViewRequest) {
+    match detail {
+      ViewRequest::Event(ctx) => self.event(ctx),
+      ViewRequest::Layout(protocol) => match protocol {
+        LayoutProtocol::DoLayout {
+          constraint, output, ..
+        } => {
+          self.layout.size = constraint.max();
+          **output = self.layout.size.with_default_baseline();
+        }
+        LayoutProtocol::PositionAt(position) => self.layout.set_relative_position(*position),
+      },
+      ViewRequest::Encode(builder) => {
+        self.layout.update_world(builder.current_origin_offset());
+        if let Some(content) = &self.content {
+          builder.present.primitives.push(Primitive::Quad((
+            self.layout.into_quad(),
+            Style::Texture(content.clone()),
+          )));
+        }
+      }
+      _ => self.request(detail),
     }
-  }
-}
-
-impl LayoutAble for GPUCanvas {
-  fn layout(&mut self, constraint: LayoutConstraint, _ctx: &mut LayoutCtx) -> LayoutResult {
-    self.layout.size = constraint.max();
-    self.layout.size.with_default_baseline()
-  }
-
-  fn set_position(&mut self, position: UIPosition) {
-    self.layout.set_relative_position(position)
   }
 }
 
@@ -80,7 +84,7 @@ pub trait CanvasPrinter {
   fn draw_canvas(&mut self, gpu: &Arc<GPU>, canvas: GPU2DTextureView);
 }
 
-impl Eventable for GPUCanvas {
+impl GPUCanvas {
   fn event(&mut self, event: &mut EventCtx) {
     let position_info = CanvasWindowPositionInfo {
       absolute_position: self.layout.absolute_position,

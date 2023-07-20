@@ -48,7 +48,7 @@ impl<T: SceneRenderable> InteractiveWatchableInit<T> for T {
   }
 }
 
-impl<T: SceneRenderable, S: ApplicableIncremental> View<S> for InteractiveWatchable<T, S> {
+impl<T: SceneRenderable, S: ApplicableIncremental> ViewBase<S> for InteractiveWatchable<T, S> {
   type Event = ();
 
   fn event(

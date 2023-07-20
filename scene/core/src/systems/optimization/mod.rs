@@ -4,8 +4,11 @@ use core::{
 };
 
 use futures::*;
-use reactive::{once_forever_pending, SignalStreamExt, StreamMap, StreamMapDelta};
+use reactive::{once_forever_pending, SignalStreamExt, StreamMap};
 use rendiation_renderable_mesh::MeshDrawGroup;
+
+mod utils;
+use utils::*;
 
 use crate::*;
 
@@ -22,140 +25,64 @@ macro_rules! debug_log {
 }
 
 pub struct AutoInstanceSystem {
-  // maybe add some metrics collecting logic here?
+  pub stat: TransformStat,
 }
 
-// input
 impl AutoInstanceSystem {
-  // note, we have a subtle requirement that the other change in the stream has no dependency on
-  // model change in the same stream or we will have to handle it manually.
   pub fn new(
-    scene_delta: impl Stream<Item = MixSceneDelta> + Unpin,
-    d_system: &SceneNodeDeriveSystem,
-  ) -> (Self, impl Stream<Item = MixSceneDelta>) {
-    let broad_cast = scene_delta.create_broad_caster();
+    scene_delta: impl Stream<Item = MixSceneDelta> + Unpin + 'static,
+    d_systems: &FastHashMap<usize, SceneNodeDeriveSystem>,
+  ) -> (
+    Self,
+    impl Stream<Item = MixSceneDelta>,
+    FastHashMap<usize, SceneNodeDeriveSystem>,
+  ) {
+    // todo make sure the d_systems are polled
+    let mut source_scene_derives = d_systems.clone();
+    let mut source_scene_derives_output = d_systems.clone();
+    let (output, stat, new_scene, new_derives) = model_transform(
+      scene_delta,
+      move |model_input, new_scene_nodes, new_derives| {
+        source_scene_derives.insert(new_scene_nodes.scene_guid, new_derives.clone());
+        let optimization = InstanceOptimization {
+          new_nodes_storage: new_scene_nodes.clone(),
+          source_scene_derives,
+        };
+        recyclable_hash_many_to_one(model_input, optimization)
+      },
+    );
 
-    // split the model stream, maintain the old arena relationship
-    let model_input = broad_cast
-      .fork_stream()
-      .filter_map_sync(|delta| match delta {
-        MixSceneDelta::models(d) => Some(d),
-        _ => None,
-      });
+    source_scene_derives_output.insert(new_scene.guid(), new_derives);
 
-    let (new_scene, _new_derives) = SceneImpl::new();
-    let middle_scene_nodes = new_scene.read().core.read().nodes.clone();
-
-    let transformed_models = instance_transform(model_input, d_system, &middle_scene_nodes)
-      .map(|v| match v {
-        ContainerRefRetainContentDelta::Remove((v, _)) => ContainerRefRetainContentDelta::Remove(v),
-        ContainerRefRetainContentDelta::Insert((v, _)) => ContainerRefRetainContentDelta::Insert(v),
-      })
-      .map(MixSceneDelta::models);
-
-    // the other change stream
-    let other_stuff = broad_cast
-      .fork_stream()
-      .filter_map_sync(|delta| match &delta {
-        MixSceneDelta::models(_) => None,
-        _ => Some(delta),
-      });
-
-    let output = futures::stream::select_with_strategy(other_stuff, transformed_models, prior_left);
-
-    (Self {}, output)
+    (Self { stat }, output, source_scene_derives_output)
   }
 }
 
-type OriginModelId = usize;
-type ModelChange = ContainerRefRetainContentDelta<SceneModel>;
-type ModelOutChange = ContainerRefRetainContentDelta<(SceneModel, bool)>;
-
-fn prior_left(_: &mut ()) -> stream::PollNext {
-  stream::PollNext::Left
+#[derive(Clone)]
+struct InstanceOptimization {
+  new_nodes_storage: SceneNodeCollection,
+  source_scene_derives: FastHashMap<usize, SceneNodeDeriveSystem>,
 }
 
-fn instance_transform(
-  input: impl Stream<Item = ModelChange>,
-  d_sys: &SceneNodeDeriveSystem,
-  new_nodes: &SceneNodeCollection,
-) -> impl Stream<Item = ModelOutChange> {
-  // origin model id => transformed id
-  let mut source_id_transformer_map: FastHashMap<OriginModelId, PossibleInstanceKey> =
-    Default::default();
+impl RecyclableHashManyToOne for InstanceOptimization {
+  type Transformer = Transformer;
+  type Key = PossibleInstanceKey;
 
-  // transformed id => transformed
-  let transformers: StreamMap<PossibleInstanceKey, Transformer> = StreamMap::default();
+  fn create_key(&self, model: &SceneModel) -> Self::Key {
+    let derives = self
+      .source_scene_derives
+      .get(&model.read().node.scene_id)
+      .unwrap();
+    compute_instance_key(model, derives)
+  }
 
-  let (recycling_sender, recycled_models) = futures::channel::mpsc::unbounded();
-
-  let input = futures::stream::select_with_strategy(
-    recycled_models.map(ModelChange::Insert),
-    input,
-    prior_left, // always drain recycled first, because message order matters.
-  );
-
-  let d_sys = d_sys.clone();
-  let new_nodes = new_nodes.clone();
-  input
-    .fold_signal_state_stream(transformers, move |d, transformers| {
-      match d {
-        ModelChange::Insert(model) => {
-          let idx = model.guid();
-          // for any new coming model, calculate the instance key, and find which existing instance
-          // could be merged with
-          let key = compute_instance_key(&model, &d_sys);
-          source_id_transformer_map.insert(idx, key.clone());
-
-          // merge into the transformer or create a new transformer
-          transformers
-            .get_or_insert_with(key.clone(), || {
-              Transformer::new(key.clone(), d_sys.clone(), new_nodes.clone())
-            })
-            .add_new_source(model);
-        }
-        ModelChange::Remove(model) => {
-          let idx = model.guid();
-          let key = source_id_transformer_map.remove(&idx).unwrap();
-
-          let transformer = transformers.get_mut(&key).unwrap();
-          // remove the source model from the inside of the transformer,
-          // drop the source and eventually drop the transformer if no more source in it
-          transformer.notify_source_dropped(idx);
-        }
-      }
-    })
-    .flat_map(futures::stream::iter)
-    .filter_map_sync(|delta| {
-      match delta {
-        StreamMapDelta::Delta(key, deltas) => (key, deltas).into(),
-        _ => None, // we do not care the transformer insertion or removal here
-      }
-    })
-    .map(move |(_, deltas)| {
-      let transform_change = deltas
-        .into_iter()
-        .filter_map(|delta| {
-          match delta {
-            TransformerDelta::ReleaseUnsuitable(source) => {
-              recycling_sender.unbounded_send(source).ok();
-              return None;
-            }
-            TransformerDelta::DropSource(_) => return None,
-            TransformerDelta::NewTransformed(transformed, is_ins) => {
-              ModelOutChange::Insert((transformed, is_ins))
-            }
-            TransformerDelta::RemoveTransformed(transformed, is_ins) => {
-              ModelOutChange::Remove((transformed, is_ins))
-            }
-          }
-          .into()
-        })
-        .collect::<Vec<_>>(); // we have to do a collecting because this iter borrows the recycling_sender
-
-      futures::stream::iter(transform_change)
-    })
-    .flatten()
+  fn create_transformer(&self, key: Self::Key) -> Self::Transformer {
+    Transformer::new(
+      key,
+      self.source_scene_derives.clone(),
+      self.new_nodes_storage.clone(),
+    )
+  }
 }
 
 #[derive(Hash, PartialEq, Eq, Clone, Debug)]
@@ -238,7 +165,7 @@ fn compute_instance_key_inner(model: &SceneItemRef<StandardModel>) -> Option<Ins
 /// we call it transformer here because maybe this struct will likely be reused in another optimizer
 #[pin_project::pin_project]
 struct Transformer {
-  d_sys: SceneNodeDeriveSystem,
+  d_sys: FastHashMap<usize, SceneNodeDeriveSystem>,
   new_nodes: SceneNodeCollection,
   key: PossibleInstanceKey,
   #[pin]
@@ -251,7 +178,7 @@ struct Transformer {
 impl Transformer {
   pub fn new(
     key: PossibleInstanceKey,
-    d_sys: SceneNodeDeriveSystem,
+    d_sys: FastHashMap<usize, SceneNodeDeriveSystem>,
     new_nodes: SceneNodeCollection,
   ) -> Self {
     debug_log!("create new transformer with key: {key:?}");
@@ -265,28 +192,22 @@ impl Transformer {
       transformed: Default::default(),
     }
   }
+}
 
-  fn add_new_source(&mut self, source: SceneModel) {
-    let change = build_instance_source_stream(&source, &self.d_sys, self.key.clone());
+impl ModelProxy for Transformer {
+  fn insert_source_model(&mut self, source: SceneModel) {
+    let derives = self.d_sys.get(&source.read().node.scene_id).unwrap();
+    let change = build_instance_source_stream(&source, derives, self.key.clone());
     self.source.insert(source.guid(), change);
     self.source_model.insert(source.guid(), source);
   }
 
-  fn notify_source_dropped(&mut self, source_id: usize) {
+  fn remove_source_model_by_guid(&mut self, source_id: usize) {
     let _ = self.source.remove(source_id).unwrap();
     self.removals.push(source_id);
     // note, we do not remove the source_model map here, the stream polling will do this
     // automatically
   }
-}
-
-/// we only care about the reference change here(create new transformed instance)
-/// the downstream could listen the new ref to get what they want.
-pub enum TransformerDelta {
-  ReleaseUnsuitable(SceneModel), // original model
-  DropSource(SceneModel),        // original model
-  NewTransformed(SceneModel, bool),
-  RemoveTransformed(SceneModel, bool),
 }
 
 impl Stream for Transformer {
@@ -480,7 +401,7 @@ fn build_instance_source_stream(
 /// maybe failed, if the source is empty
 fn create_instance(
   source: &FastHashMap<usize, SceneModel>,
-  d_sys: &SceneNodeDeriveSystem,
+  d_sys: &FastHashMap<usize, SceneNodeDeriveSystem>,
   new_nodes: &SceneNodeCollection,
 ) -> Option<(SceneModel, bool)> {
   let first = source.values().next()?;
@@ -502,8 +423,9 @@ fn create_instance(
       .values()
       .map(|m| {
         let node = &m.read().node;
-        let mat = d_sys.get_world_matrix(node);
-        let net_visible = d_sys.get_net_visible(node);
+        let derives = d_sys.get(&node.scene_id).unwrap();
+        let mat = derives.get_world_matrix(node);
+        let net_visible = derives.get_net_visible(node);
         if net_visible {
           mat
         } else {

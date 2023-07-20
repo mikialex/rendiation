@@ -28,6 +28,7 @@ rendiation-mesh-generator = {path = "../components/mesh/generator"}
 rendiation-renderable-mesh = {path = "../components/mesh/renderable"}
 rendiation-scene-core = {path = "../scene/core"}
 rendiation-scene-gltf-loader = {path = "../scene/io/gltf/loader"}
+rendiation-scene-obj-loader = {path = "../scene/io/obj/loader"}
 rendiation-scene-interaction = {path = "../scene/interaction"}
 rendiation-scene-webgpu = {path = "../scene/webgpu"}
 rendiation-texture = {path = "../components/texture/core"}

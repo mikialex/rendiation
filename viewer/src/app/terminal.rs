@@ -3,7 +3,7 @@ use std::{io::Write, path::Path, task::Context};
 use fast_hash_collection::FastHashMap;
 use futures::{executor::ThreadPool, Future, Stream, StreamExt};
 use interphaser::{winit::event::VirtualKeyCode, *};
-use reactive::{EventSource, PollUtils, SignalStreamExt};
+use reactive::{single_value_channel, PollUtils, SignalStreamExt};
 use rendiation_scene_core::Scene;
 use webgpu::ReadableTextureBuffer;
 
@@ -13,7 +13,7 @@ pub struct Terminal {
   pub command_history: Vec<String>,
   pub commands: FastHashMap<String, TerminalCommandCb>,
   pub executor: ThreadPool, // todo should passed in
-  pub command_source: BoxedUnpinStream<String>,
+  pub command_source: BoxedUnpinFusedStream<String>,
 }
 
 pub struct CommandCtx<'a> {
@@ -32,7 +32,7 @@ impl Terminal {
       command_history: Default::default(),
       commands: Default::default(),
       executor,
-      command_source: Box::new(command_source),
+      command_source: Box::new(command_source.fuse()),
     }
   }
 
@@ -74,8 +74,8 @@ impl Terminal {
   }
 }
 
-pub fn terminal() -> (impl Component, impl Stream<Item = String> + Unpin) {
-  let mut edit_text = Text::default()
+pub fn terminal() -> (impl View, impl Stream<Item = String> + Unpin) {
+  let edit_text = Text::default()
     .with_layout(TextLayoutConfig::SizedBox {
       line_wrap: LineWrap::Single,
       horizon_align: TextHorizontalAlignment::Left,
@@ -84,10 +84,10 @@ pub fn terminal() -> (impl Component, impl Stream<Item = String> + Unpin) {
     .editable();
 
   let mut current_command = String::new();
-  let clear_event = EventSource::default();
-  let clearer = clear_event.single_listen();
+  let (clear_trigger, clearer) = single_value_channel();
   let command_to_execute =
     edit_text
+      .nester
       .events
       .unbound_listen()
       .filter_map_sync(move |e: TextEditMessage| match e {
@@ -99,7 +99,7 @@ pub fn terminal() -> (impl Component, impl Stream<Item = String> + Unpin) {
           if let VirtualKeyCode::Return = key {
             let command_to_execute = current_command.clone();
             current_command = String::new();
-            clear_event.emit(&String::new());
+            clear_trigger.update(String::new()).ok();
             Some(command_to_execute)
           } else {
             None
@@ -109,12 +109,16 @@ pub fn terminal() -> (impl Component, impl Stream<Item = String> + Unpin) {
 
   let clicker = ClickHandler::default();
   let click_event = clicker.events.single_listen().map(|_| {});
-  edit_text.set_focus(click_event);
-  edit_text.set_update_source(clearer);
+
+  let text_updates = ReactiveUpdaterGroup::default()
+    .with(click_event.bind(|e: &mut EditableText, _| e.nester.focus()))
+    .with(clearer.bind(|e: &mut EditableText, t| e.nester.set_text(t)));
+
+  let edit_text = edit_text.react(text_updates);
 
   let text_box = Container::sized((UILength::ParentPercent(100.), UILength::Px(50.)))
     .padding(RectBoundaryWidth::equal(5.))
-    .nest_over(edit_text)
+    .wrap(edit_text)
     .nest_in(clicker);
 
   (text_box, command_to_execute)
@@ -133,6 +137,22 @@ pub fn register_default_commands(terminal: &mut Terminal) {
 
       if let Some(file_handle) = file_handle {
         rendiation_scene_gltf_loader::load_gltf(file_handle.path(), &scene).unwrap();
+      }
+    })
+  });
+
+  terminal.register_command("load-obj", |ctx, _parameters| {
+    let scene = ctx.scene.clone();
+    Box::pin(async move {
+      use rfd::AsyncFileDialog;
+
+      let file_handle = AsyncFileDialog::new()
+        .add_filter("gltf", &["obj"])
+        .pick_file()
+        .await;
+
+      if let Some(file_handle) = file_handle {
+        rendiation_scene_obj_loader::load_obj(file_handle.path(), &scene).unwrap();
       }
     })
   });

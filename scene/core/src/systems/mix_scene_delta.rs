@@ -415,7 +415,7 @@ impl SceneRebuilder {
     let child = self.nodes.get(&child_guid).unwrap();
 
     let parent = self.nodes.get(&parent_guid).unwrap();
-    child.mapped.attach_to(&parent.mapped);
+    child.mapped.attach_to(&parent.mapped).unwrap();
   }
 
   fn handle_detach(
@@ -425,7 +425,7 @@ impl SceneRebuilder {
     source_nodes: &SceneNodeCollection,
   ) {
     let child = self.nodes.get(&node_guid).unwrap();
-    child.mapped.detach_from_parent();
+    child.mapped.detach_from_parent().unwrap();
 
     self.decrease_parent_chain_entity_ref_count_and_check_delete(
       source_nodes,
@@ -474,7 +474,7 @@ impl SceneRebuilder {
           let last_child = self.nodes.get(&last_child).unwrap();
           if new_created_parent || last_child.mapped.visit_parent(|_| {}).is_none() {
             let current = self.nodes.get(&node_guid).unwrap();
-            last_child.mapped.attach_to(&current.mapped);
+            last_child.mapped.attach_to(&current.mapped).unwrap();
           }
         }
 

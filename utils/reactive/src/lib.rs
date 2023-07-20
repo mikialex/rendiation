@@ -1,4 +1,5 @@
 #![feature(type_alias_impl_trait)]
+#![feature(slice_group_by)]
 
 use core::{
   pin::Pin,
@@ -6,7 +7,10 @@ use core::{
 };
 use std::sync::{Arc, Mutex, RwLock, Weak};
 
+use crossbeam_queue::SegQueue;
 use fast_hash_collection::*;
+use futures::stream::FusedStream;
+use futures::task::AtomicWaker;
 use futures::Stream;
 use futures::StreamExt;
 use pin_project::pin_project;
@@ -34,6 +38,9 @@ pub use source::*;
 
 mod broadcast;
 pub use broadcast::*;
+
+mod batch_indexer;
+pub use batch_indexer::*;
 
 mod map;
 pub use map::*;

@@ -9,6 +9,6 @@ pub use terminal::*;
 pub mod viewer_view;
 pub use viewer_view::*;
 
-pub fn create_app() -> impl Component {
-  Flex::column().nest_over(flex_group().child(Child::flex(viewer(), 1.)))
+pub fn create_app() -> impl View {
+  Flex::column().wrap(flex_group().child(Child::flex(viewer(), 1.)))
 }

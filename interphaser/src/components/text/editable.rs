@@ -11,27 +11,26 @@ pub enum TextEditMessage {
   KeyboardInput(VirtualKeyCode),
 }
 
-pub struct EditableText {
-  text: Text,
+pub type EditableText = NestedView<impl View + AsMut<Text>, TextEditing>;
+
+pub struct TextEditing {
   editing: String,
   cursor: Option<Cursor>,
   pub events: EventSource<TextEditMessage>,
-  pub update_source: Option<BoxedUnpinStream<String>>,
-  pub focus_input: Option<BoxedUnpinStream<()>>,
 }
 
-impl EditableText {
-  pub fn set_focus(&mut self, focus: impl Stream<Item = ()> + Unpin + 'static) {
-    self.focus_input = Some(Box::new(focus))
-  }
-  pub fn set_update_source(&mut self, source: impl Stream<Item = String> + Unpin + 'static) {
-    self.update_source = Some(Box::new(source))
-  }
-
-  fn focus(&mut self) {
+impl TextEditing {
+  pub fn focus(&mut self) {
     if self.cursor.is_none() {
       self.cursor = Cursor::new(self.editing.len()).into();
     }
+  }
+
+  pub fn set_text(&mut self, new_content: String) {
+    self.editing = new_content;
+    self
+      .events
+      .emit(&TextEditMessage::ContentChange(self.editing.clone()));
   }
 
   // when model updated by user side
@@ -48,8 +47,9 @@ impl EditableText {
     position: UIPosition,
     fonts: &FontManager,
     texts: &mut TextCache,
+    text: &mut Text,
   ) {
-    let layout = self.text.get_text_layout(fonts, texts);
+    let layout = text.get_text_layout(fonts, texts);
     let rect = layout
       .layout()
       .glyphs
@@ -142,50 +142,30 @@ impl EditableText {
 impl Text {
   pub fn editable(self) -> EditableText {
     let editing = self.get_content().into();
-    let mut r = EditableText {
-      text: self,
+    let edit = TextEditing {
       editing,
       cursor: None,
       events: Default::default(),
-      focus_input: Default::default(),
-      update_source: Default::default(),
     };
 
-    let updater = r.events.unbound_listen().filter_map_sync(|v| match v {
+    let text_change = edit.events.unbound_listen().filter_map_sync(|v| match v {
       TextEditMessage::ContentChange(v) => Some(v),
       _ => None,
     });
 
-    // note, this will override the previous user set updater
-    r.text.set_updater(updater);
-    r
+    self.react(text_change.bind(Text::set_text)).nest_in(edit)
   }
 }
 
-impl Stream for EditableText {
+impl Stream for TextEditing {
   type Item = ();
   fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
-    if let Some(update_source) = &mut self.update_source {
-      if let Poll::Ready(Some(content)) = update_source.poll_next_unpin(cx) {
-        self.editing = content;
-        self
-          .events
-          .emit(&TextEditMessage::ContentChange(self.editing.clone()));
-      }
-    }
-
-    if let Some(inputs) = &mut self.focus_input {
-      if let Poll::Ready(Some(())) = inputs.poll_next_unpin(cx) {
-        self.focus();
-      }
-    }
     let mut view_changed = false;
-    // if cursor created(when focused), we will not miss the init poll(here)
+    // todo fix if cursor created(when focused), we will not miss the init poll(here)
     if let Some(cursor) = &mut self.cursor {
       view_changed |= cursor.poll_next_unpin(cx).is_ready();
     }
 
-    view_changed |= self.text.poll_next_unpin(cx).is_ready();
     if view_changed {
       Poll::Ready(().into())
     } else {
@@ -194,10 +174,8 @@ impl Stream for EditableText {
   }
 }
 
-impl Eventable for EditableText {
-  fn event(&mut self, ctx: &mut EventCtx) {
-    self.text.event(ctx);
-
+impl TextEditing {
+  fn event(&mut self, ctx: &mut EventCtx, text: &mut Text) {
     use winit::event::*;
 
     match ctx.event {
@@ -214,7 +192,7 @@ impl Eventable for EditableText {
         }
         WindowEvent::MouseInput { state, button, .. } => {
           if let (MouseButton::Left, ElementState::Pressed) = (button, state) {
-            self.update_cursor_by_click(ctx.states.mouse_position, ctx.fonts, ctx.texts);
+            self.update_cursor_by_click(ctx.states.mouse_position, ctx.fonts, ctx.texts, text);
           }
         }
         WindowEvent::ReceivedCharacter(char) => {
@@ -232,30 +210,27 @@ fn blink_show(dur: Duration) -> bool {
   time % 1000 > 500
 }
 
-impl Presentable for EditableText {
-  fn render(&mut self, builder: &mut PresentationBuilder) {
-    self.clamp_cursor_position();
-    self.text.render(builder);
-    if let Some(cursor) = &mut self.cursor {
-      if blink_show(cursor.get_last_update_timestamp().elapsed()) {
-        return;
+impl<C: AsMut<Text>> ViewNester<C> for TextEditing {
+  fn request_nester(&mut self, detail: &mut ViewRequest, inner: &mut C) {
+    let text = inner.as_mut();
+    match detail {
+      ViewRequest::Event(event) => self.event(event, text),
+      ViewRequest::Encode(builder) => {
+        self.clamp_cursor_position();
+        text.draw(builder);
+        if let Some(cursor) = &mut self.cursor {
+          if blink_show(cursor.get_last_update_timestamp().elapsed()) {
+            return;
+          }
+
+          let layout = text.get_text_layout(builder.fonts, builder.texts);
+          builder.present.primitives.push(Primitive::Quad((
+            cursor.create_quad(layout),
+            Style::SolidColor((0., 0., 0., 1.).into()),
+          )));
+        }
       }
-
-      let layout = self.text.get_text_layout(builder.fonts, builder.texts);
-      builder.present.primitives.push(Primitive::Quad((
-        cursor.create_quad(layout),
-        Style::SolidColor((0., 0., 0., 1.).into()),
-      )));
+      _ => text.request(detail),
     }
-  }
-}
-
-impl LayoutAble for EditableText {
-  fn layout(&mut self, constraint: LayoutConstraint, ctx: &mut LayoutCtx) -> LayoutResult {
-    self.text.layout(constraint, ctx)
-  }
-
-  fn set_position(&mut self, position: UIPosition) {
-    self.text.set_position(position)
   }
 }

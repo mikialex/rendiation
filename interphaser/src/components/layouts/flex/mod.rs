@@ -85,13 +85,13 @@ impl Flex {
 
 pub enum Child {
   Fixed {
-    widget: Box<dyn Component>,
+    widget: Box<dyn View>,
     result: LayoutResult,
     position: UIPosition,
     alignment: Option<CrossAxisAlignment>,
   },
   Flex {
-    widget: Box<dyn Component>,
+    widget: Box<dyn View>,
     result: LayoutResult,
     position: UIPosition,
     alignment: Option<CrossAxisAlignment>,
@@ -102,7 +102,7 @@ pub enum Child {
 }
 
 impl Child {
-  pub fn fixed(widget: impl Component + 'static) -> Self {
+  pub fn fixed(widget: impl View + 'static) -> Self {
     Self::Fixed {
       widget: Box::new(widget),
       result: Default::default(),
@@ -111,7 +111,7 @@ impl Child {
     }
   }
 
-  pub fn flex(widget: impl Component + 'static, flex: f32) -> Self {
+  pub fn flex(widget: impl View + 'static, flex: f32) -> Self {
     Self::Flex {
       widget: Box::new(widget),
       result: Default::default(),
@@ -144,28 +144,18 @@ impl Stream for Child {
     }
   }
 }
-impl Eventable for Child {
-  fn event(&mut self, event: &mut EventCtx) {
+impl View for Child {
+  fn request(&mut self, detail: &mut ViewRequest) {
     match self {
-      Child::Fixed { widget, .. } => widget.event(event),
-      Child::Flex { widget, .. } => widget.event(event),
-      _ => {}
-    }
-  }
-}
-
-impl Presentable for Child {
-  fn render(&mut self, builder: &mut PresentationBuilder) {
-    match self {
-      Child::Fixed { widget, .. } => widget.render(builder),
-      Child::Flex { widget, .. } => widget.render(builder),
+      Child::Fixed { widget, .. } => widget.request(detail),
+      Child::Flex { widget, .. } => widget.request(detail),
       _ => {}
     }
   }
 }
 
 impl Child {
-  fn widget(&self) -> Option<(&dyn Component, &LayoutResult, &UIPosition)> {
+  fn widget(&self) -> Option<(&dyn View, &LayoutResult, &UIPosition)> {
     match self {
       Child::Fixed {
         widget,

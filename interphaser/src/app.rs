@@ -1,18 +1,21 @@
-use std::{num::NonZeroUsize, sync::Arc, task::Context};
+use std::{
+  num::NonZeroUsize,
+  sync::{atomic::AtomicBool, Arc},
+  task::Context,
+};
 
-use rendiation_algebra::*;
 use rendiation_texture::Size;
 use webgpu::*;
 use winit::{event::*, event_loop::EventLoop};
 
 use crate::*;
 
-const TEXT_CACHE_INIT_SIZE: Size = Size {
+pub(crate) const TEXT_CACHE_INIT_SIZE: Size = Size {
   width: NonZeroUsize::new(512).unwrap(),
   height: NonZeroUsize::new(512).unwrap(),
 };
 
-pub async fn run_gui(ui: impl Component + 'static, init_state: WindowSelfState) {
+pub async fn run_gui(ui: impl View + 'static, init_state: WindowSelfState) {
   let event_loop = EventLoop::new();
 
   let mut window = Window::new(&event_loop, init_state.into(), futures::stream::pending());
@@ -44,84 +47,56 @@ pub async fn run_gui(ui: impl Component + 'static, init_state: WindowSelfState) 
   });
 }
 
-pub trait UIPresenter {
-  fn resize(&mut self, size: Size);
-  fn render(&mut self, content: &UIPresentation, fonts: &FontManager, texts: &mut TextCache);
-}
-
-pub struct WebGpuUIPresenter {
-  surface: GPUSurface,
-  gpu: Arc<GPU>,
-  ui_renderer: WebGPUxUIRenderer,
-}
-
-impl WebGpuUIPresenter {
-  pub async fn new(window: &winit::window::Window) -> Self {
-    let (gpu, surface) = GPU::new_with_surface(window).await;
-    let gpu = Arc::new(gpu);
-
-    let prefer_target_fmt = surface.config.format;
-    let ui_renderer = WebGPUxUIRenderer::new(&gpu.device, prefer_target_fmt, TEXT_CACHE_INIT_SIZE);
-
-    Self {
-      surface,
-      gpu,
-      ui_renderer,
-    }
-  }
-}
-
-impl UIPresenter for WebGpuUIPresenter {
-  fn resize(&mut self, size: Size) {
-    self.surface.resize(size, &self.gpu.device);
-  }
-
-  fn render(&mut self, presentation: &UIPresentation, fonts: &FontManager, texts: &mut TextCache) {
-    if let Ok((frame, view)) = self.surface.get_current_frame_with_render_target_view() {
-      self.gpu.poll();
-
-      let mut task = WebGPUxUIRenderTask {
-        fonts,
-        renderer: &mut self.ui_renderer,
-        presentation,
-      };
-
-      let mut encoder = self.gpu.create_encoder();
-      task.update(&self.gpu, &mut encoder, fonts, texts);
-
-      let mut decs = RenderPassDescriptorOwned::default();
-      decs.channels.push((
-        webgpu::Operations {
-          load: webgpu::LoadOp::Clear(webgpu::Color::WHITE),
-          store: true,
-        },
-        view,
-      ));
-      {
-        let mut pass = encoder.begin_render_pass(decs);
-        task.setup_pass(&mut pass);
-      }
-      self.gpu.submit_encoder(encoder);
-
-      frame.present();
-    }
-  }
-}
-
 pub struct Application {
-  root: Box<dyn Component>,
-
+  root: Box<dyn View>,
+  any_changed: Arc<NotifyWaker>,
   fonts: FontManager,
   texts: TextCache,
 }
 
+struct NotifyWaker {
+  inner: AtomicBool,
+}
+
+impl Default for NotifyWaker {
+  fn default() -> Self {
+    Self {
+      inner: AtomicBool::new(true),
+    }
+  }
+}
+
+impl NotifyWaker {
+  /// return if any changed contains
+  pub fn check_reset_changed(&self) -> bool {
+    self
+      .inner
+      .compare_exchange(
+        true,
+        false,
+        std::sync::atomic::Ordering::SeqCst,
+        std::sync::atomic::Ordering::SeqCst,
+      )
+      .is_ok()
+  }
+}
+
+impl futures::task::ArcWake for NotifyWaker {
+  fn wake_by_ref(arc_self: &Arc<Self>) {
+    arc_self
+      .inner
+      .fetch_or(true, std::sync::atomic::Ordering::SeqCst);
+  }
+}
+
 impl Application {
-  pub fn new(root: impl Component + 'static) -> Self {
+  pub fn new(root: impl View + 'static) -> Self {
     let fonts = FontManager::new_with_default_font();
     let texts = TextCache::new_default_impl(TEXT_CACHE_INIT_SIZE);
 
     Self {
       root: Box::new(root),
+      any_changed: Default::default(),
       fonts,
       texts,
     }
@@ -136,13 +111,16 @@ impl Application {
       gpu,
     };
     self.root.event(&mut event);
-    // todo we should call update here
+    self.update();
   }
 
   fn update(&mut self) {
-    let waker = futures::task::noop_waker_ref();
-    let mut cx = Context::from_waker(waker);
-    do_updates_by(&mut self.root, &mut cx, |_| {});
+    while self.any_changed.check_reset_changed() {
+      println!("ui update");
+      let waker = futures::task::waker_ref(&self.any_changed);
+      let mut cx = Context::from_waker(&waker);
+      do_updates_by(&mut self.root, &mut cx, |_| {});
+    }
   }
 
   fn encode_presentation(&mut self, root_size: UISize) -> UIPresentation {
@@ -163,7 +141,7 @@ impl Application {
     let mut builder = PresentationBuilder::new(&self.fonts, &mut self.texts);
     builder.present.view_size = root_size;
 
-    self.root.render(&mut builder);
+    self.root.draw(&mut builder);
 
     builder.present
   }

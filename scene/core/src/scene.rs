@@ -304,6 +304,7 @@ impl ApplicableIncremental for SceneImpl {
     match delta {
       MixSceneDelta::background(bg) => self.core.set_background(bg.map(merge_maybe)),
       MixSceneDelta::active_camera(v) => self.core.set_active_camera(v.map(merge_maybe)),
+      // todo we have to store the handle on these scene objects
       MixSceneDelta::cameras(_) => todo!(),
       MixSceneDelta::lights(_) => todo!(),
       MixSceneDelta::models(_) => todo!(),

@@ -1,31 +1,42 @@
 use crate::*;
 
 trivial_stream_impl!(Flex);
-impl<C: Eventable> EventableNested<C> for Flex {
-  fn event(&mut self, event: &mut EventCtx, inner: &mut C) {
-    inner.event(event);
-  }
-}
-
-impl<C: Presentable> PresentableNested<C> for Flex {
-  fn render(&mut self, builder: &mut PresentationBuilder, inner: &mut C) {
-    builder.push_offset(self.layout.relative_position);
-    inner.render(builder);
-    builder.pop_offset()
-  }
-}
-
-impl<C: HotAreaProvider> HotAreaNested<C> for Flex {
-  fn is_point_in(&self, point: crate::UIPosition, inner: &C) -> bool {
-    inner.is_point_in(point)
-  }
-}
-
-impl<C> LayoutAbleNested<C> for Flex
+impl<C: View> ViewNester<C> for Flex
 where
-  for<'a> &'a mut C: IntoIterator<Item = &'a mut Child, IntoIter: ExactSizeIterator>,
+  for<'a> &'a mut C: IntoIterator<Item = &'a mut Child>,
+  for<'a> <&'a mut C as IntoIterator>::IntoIter: ExactSizeIterator,
 {
-  fn layout(&mut self, bc: LayoutConstraint, ctx: &mut LayoutCtx, inner: &mut C) -> LayoutResult {
+  fn request_nester(&mut self, detail: &mut ViewRequest, inner: &mut C) {
+    match detail {
+      ViewRequest::Layout(p) => match p {
+        LayoutProtocol::DoLayout {
+          constraint,
+          output,
+          ctx,
+        } => **output = self.layout_impl(*constraint, ctx, inner),
+        LayoutProtocol::PositionAt(position) => self.set_position_impl(*position),
+      },
+      ViewRequest::Encode(builder) => {
+        builder.push_offset(self.layout.relative_position);
+        inner.draw(builder);
+        builder.pop_offset()
+      }
+      _ => inner.request(detail),
+    }
+  }
+}
+
+impl Flex {
+  fn layout_impl<C>(
+    &mut self,
+    bc: LayoutConstraint,
+    ctx: &mut LayoutCtx,
+    inner: &mut C,
+  ) -> LayoutResult
+  where
+    for<'a> &'a mut C: IntoIterator<Item = &'a mut Child>,
+    for<'a> <&'a mut C as IntoIterator>::IntoIter: ExactSizeIterator,
+  {
     // we loosen our constraints when passing to children.
     let loosened_bc = bc.loosen();
 
@@ -231,7 +242,7 @@ where
     }
   }
 
-  fn set_position(&mut self, position: UIPosition, _inner: &mut C) {
+  fn set_position_impl(&mut self, position: UIPosition) {
     self.layout.set_relative_position(position);
   }
 }

@@ -1,5 +1,5 @@
 #![feature(stmt_expr_attributes)]
-#![feature(associated_type_bounds)]
+#![feature(impl_trait_in_assoc_type)]
 #![feature(type_alias_impl_trait)]
 #![feature(const_option)]
 #![allow(clippy::collapsible_match)]
@@ -42,6 +42,7 @@ use ::core::{
 };
 pub use app::*;
 pub use fontext::*;
+use futures::stream::FusedStream;
 use futures::Stream;
 use futures::StreamExt;
 use reactive::*;

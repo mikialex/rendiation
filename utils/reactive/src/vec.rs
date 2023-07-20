@@ -1,12 +1,10 @@
-use futures::StreamExt;
-
 use crate::*;
 
 #[pin_project]
 pub struct StreamVec<T> {
   streams: Vec<Option<T>>,
-  waked: Arc<RwLock<Vec<usize>>>,
-  waker: Arc<RwLock<Option<Waker>>>,
+  waked: Arc<SegQueue<usize>>,
+  waker: Arc<AtomicWaker>,
 }
 
 impl<T> Default for StreamVec<T> {
@@ -34,16 +32,8 @@ impl<T> StreamVec<T> {
       self.streams.push(None);
     }
     self.streams[index] = st;
-    self.waked.write().unwrap().push(index);
-    self.try_wake()
-  }
-
-  pub fn try_wake(&self) {
-    let waker = self.waker.read().unwrap();
-    let waker: &Option<_> = &waker;
-    if let Some(waker) = waker {
-      waker.wake_by_ref();
-    }
+    self.waked.push(index);
+    self.waker.wake();
   }
 }
 
@@ -55,24 +45,14 @@ pub struct IndexedItem<T> {
 
 pub(crate) struct ChangeWaker<T> {
   pub(crate) index: T,
-  pub(crate) changed: Arc<RwLock<Vec<T>>>,
-  pub(crate) waker: RwLock<Option<Arc<RwLock<Option<Waker>>>>>,
+  pub(crate) changed: Arc<SegQueue<T>>,
+  pub(crate) waker: Arc<AtomicWaker>,
 }
 
 impl<T: Send + Sync + Clone> futures::task::ArcWake for ChangeWaker<T> {
   fn wake_by_ref(arc_self: &Arc<Self>) {
-    arc_self
-      .changed
-      .write()
-      .unwrap()
-      .push(arc_self.index.clone());
-    if let Some(waker) = arc_self.waker.write().unwrap().take() {
-      let waker = waker.read().unwrap();
-      let waker: &Option<_> = &waker;
-      if let Some(waker) = waker {
-        waker.wake_by_ref();
-      }
-    }
+    arc_self.changed.push(arc_self.index.clone());
+    arc_self.waker.wake();
   }
 }
 
@@ -82,21 +62,21 @@ impl<T: Stream + Unpin> Stream for StreamVec<T> {
   fn poll_next(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Option<Self::Item>> {
     let this = self.project();
     // install new waker
-    this.waker.write().unwrap().replace(cx.waker().clone());
+    this.waker.register(cx.waker());
 
     // note: this is not precise estimation, because each waked value maybe emit multiple delta
-    let result_size = this.waked.read().unwrap().len();
+    let result_size = this.waked.len();
     if result_size == 0 {
       return Poll::Pending;
     }
     let mut results = Vec::with_capacity(result_size);
 
     loop {
-      let last = this.waked.write().unwrap().pop();
+      let last = this.waked.pop();
       if let Some(index) = last {
         // prepare the sub waker
         let waker = Arc::new(ChangeWaker {
-          waker: RwLock::new(this.waker.clone().into()),
+          waker: this.waker.clone(),
           index,
           changed: this.waked.clone(),
         });
