@@ -141,6 +141,22 @@ pub fn register_default_commands(terminal: &mut Terminal) {
     })
   });
 
+  terminal.register_command("load-obj", |ctx, _parameters| {
+    let scene = ctx.scene.clone();
+    Box::pin(async move {
+      use rfd::AsyncFileDialog;
+
+      let file_handle = AsyncFileDialog::new()
+        .add_filter("gltf", &["obj"])
+        .pick_file()
+        .await;
+
+      if let Some(file_handle) = file_handle {
+        rendiation_scene_obj_loader::load_obj(file_handle.path(), &scene).unwrap();
+      }
+    })
+  });
+
   terminal.register_command("screenshot", |ctx, _parameters| {
     let result = ctx
       .rendering

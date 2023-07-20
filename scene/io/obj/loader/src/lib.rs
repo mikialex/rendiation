@@ -3,21 +3,40 @@ use std::path::Path;
 use rendiation_algebra::Vec3;
 use rendiation_scene_core::{
   AttributeAccessor, AttributeIndexFormat, AttributeSemantic, AttributesMesh, IntoSceneItemRef,
-  NormalMapping, PhysicalSpecularGlossinessMaterial, SceneMaterialType, SceneMeshType,
-  SceneTexture2D, StandardModel, Texture2DWithSamplingData,
+  ModelType, NormalMapping, PhysicalSpecularGlossinessMaterial, Scene, SceneMaterialType,
+  SceneMeshType, SceneModelImpl, SceneTexture2D, SceneTexture2DType, StandardModel,
+  Texture2DWithSamplingData,
 };
+use rendiation_texture::*;
 
 #[derive(thiserror::Error, Debug)]
 pub enum ObjLoadError {
   #[error("Obj load or parse failed: {0}")]
-  LoadErr(#[from] tobj::LoadError),
+  ObjLoadErr(#[from] tobj::LoadError),
 }
 
 pub fn load_obj(
-  path: impl AsRef<Path>,
+  path: impl AsRef<Path> + std::fmt::Debug,
+  scene: &Scene,
+) -> Result<(), ObjLoadError> {
+  let models = load_obj_content(path, obj_loader_recommand_default_mat)?;
+  let node = scene.create_root_child();
+  for model in models {
+    let model = SceneModelImpl {
+      model: ModelType::Standard(model.into_ref()),
+      node: node.clone(),
+    }
+    .into_ref();
+    scene.insert_model(model);
+  }
+  Ok(())
+}
+
+pub fn load_obj_content(
+  path: impl AsRef<Path> + std::fmt::Debug,
   create_default_material: impl Fn() -> SceneMaterialType,
 ) -> Result<Vec<StandardModel>, ObjLoadError> {
-  let (models, materials) = tobj::load_obj("obj/cornell_box.obj", &tobj::GPU_LOAD_OPTIONS)?;
+  let (models, materials) = tobj::load_obj(path, &tobj::GPU_LOAD_OPTIONS)?;
 
   let models = models
     .iter()
@@ -87,6 +106,11 @@ pub fn load_obj(
   Ok(models)
 }
 
+pub fn obj_loader_recommand_default_mat() -> SceneMaterialType {
+  let mat = PhysicalSpecularGlossinessMaterial::default();
+  SceneMaterialType::PhysicalSpecularGlossiness(mat.into_ref())
+}
+
 /// convert obj material into scene material, only part of material parameters are supported
 fn into_rff_material(m: &tobj::Material) -> SceneMaterialType {
   let mut mat = PhysicalSpecularGlossinessMaterial::default();
@@ -97,25 +121,48 @@ fn into_rff_material(m: &tobj::Material) -> SceneMaterialType {
     mat.specular = Vec3::new(specular[0], specular[1], specular[2]);
   }
   if let Some(diffuse_texture) = &m.diffuse_texture {
-    mat.albedo_texture = load_texture_sampler_pair(&diffuse_texture).into();
+    mat.albedo_texture = load_texture_sampler_pair(diffuse_texture).into();
   }
   if let Some(specular_texture) = &m.specular_texture {
-    mat.specular_texture = load_texture_sampler_pair(&specular_texture).into();
+    mat.specular_texture = load_texture_sampler_pair(specular_texture).into();
   }
   if let Some(normal_texture) = &m.normal_texture {
-    mat.normal_texture = load_normal_map(&normal_texture).into();
+    mat.normal_texture = load_normal_map(normal_texture).into();
   }
   SceneMaterialType::PhysicalSpecularGlossiness(mat.into_ref())
 }
 
 fn load_texture_sampler_pair(path: impl AsRef<Path>) -> Texture2DWithSamplingData {
-  todo!()
+  Texture2DWithSamplingData {
+    texture: load_tex(path),
+    sampler: TextureSampler::tri_linear_repeat(),
+  }
 }
 
 fn load_normal_map(path: impl AsRef<Path>) -> NormalMapping {
-  todo!()
+  NormalMapping {
+    content: load_texture_sampler_pair(path),
+    scale: 1.0,
+  }
 }
 
-fn load_texture(path: impl AsRef<Path>) -> SceneTexture2D {
-  todo!()
+fn load_tex(path: impl AsRef<Path>) -> SceneTexture2D {
+  use image::io::Reader as ImageReader;
+  let img = ImageReader::open(path).unwrap().decode().unwrap();
+  let tex = match img {
+    image::DynamicImage::ImageRgba8(img) => {
+      let size = img.size();
+      let format = TextureFormat::Rgba8UnormSrgb;
+      let data = img.into_raw();
+      GPUBufferImage { data, format, size }
+    }
+    image::DynamicImage::ImageRgb8(img) => {
+      let size = img.size();
+      let format = TextureFormat::Rgba8UnormSrgb;
+      let data = create_padding_buffer(img.as_raw(), 3, &[255]);
+      GPUBufferImage { data, format, size }
+    }
+    _ => panic!("unsupported texture type"),
+  };
+  SceneTexture2DType::GPUBufferImage(tex).into_ref()
 }

@@ -2731,9 +2731,11 @@ dependencies = [
 name = "rendiation-scene-obj-loader"
 version = "0.1.0"
 dependencies = [
+ "image",
  "rendiation-algebra",
  "rendiation-renderable-mesh",
  "rendiation-scene-core",
+ "rendiation-texture",
  "thiserror",
  "tobj 4.0.0",
 ]
@@ -3493,6 +3495,7 @@ dependencies = [
  "rendiation-scene-core",
  "rendiation-scene-gltf-loader",
  "rendiation-scene-interaction",
+ "rendiation-scene-obj-loader",
  "rendiation-scene-webgpu",
  "rendiation-texture",
  "rendiation-webgpu",

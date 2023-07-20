@@ -124,9 +124,7 @@ pub fn merge_attribute_accessor<T: bytemuck::Pod>(
 ) -> Option<AttributeAccessor> {
   // todo stride support
   let first = inputs[0];
-
-  let count: usize = inputs.iter().map(|v| v.count).sum();
-  let byte_count = std::mem::size_of::<T>() * count;
+  let count = inputs.iter().map(|v| v.count).sum();
 
   let mut merged = Vec::with_capacity(count);
   for (idx, acc) in inputs.iter().enumerate() {
