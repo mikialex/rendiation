@@ -64,8 +64,9 @@ pub struct ForwardSceneLightingDispatcher<'a> {
 }
 
 pub trait ReactiveLightCollectionCompute:
-  LightCollectionCompute + Stream<Item = (TypeId, usize)> + Any
+  LightCollectionCompute + Stream<Item = usize> + Any
 {
+  // fn insert(&mut self, light_id: usize, i)
 }
 
 const MAX_SUPPORT_LIGHT_KIND_COUNT: usize = 8;
@@ -120,11 +121,22 @@ impl Stream for ForwardLightingSystem {
 
 impl ForwardLightingSystem {
   pub fn new(scene: &Scene, gpu: ResourceGPUCtx) -> Self {
-    fn insert_light(c: &LightCollections, light: SceneLight) {
+    fn insert_light(
+      c: &LightCollections,
+      // scene light id -> (light typeid, light id)
+      retained_lights: &mut FastHashMap<usize, (TypeId, usize)>,
+      light: SceneLight,
+    ) {
       let mut collection = c.write().unwrap();
       let node = light.single_listen_by(with_field!(SceneLightInner => node));
 
-      // let node = light.single_listen_by(with_field!(SceneLightInner => node));
+      retained_lights.insert(light.guid(), )
+
+      let light_impl = light
+        .single_listen_by(with_field!(SceneLightInner => light))
+        .map(|light| {
+          //
+        });
 
       let node = Box::new(node);
       let light = light.read();
@@ -143,7 +155,11 @@ impl ForwardLightingSystem {
       }
     }
 
-    fn remove_light(c: &LightCollections, light: SceneLight) {
+    fn remove_light(c: &LightCollections, 
+      // scene light id -> (light typeid, light id)
+      retained_lights: &mut FastHashMap<usize, (TypeId, usize)>,
+      light: SceneLight) {
+        
       let light = light.read();
       let mut collection = c.write().unwrap();
       match &light.light {
