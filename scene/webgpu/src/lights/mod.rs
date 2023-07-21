@@ -13,13 +13,13 @@ pub struct LightResourceCtx {
   pub derives: SceneNodeDeriveSystem,
 }
 
-pub trait WebGPULight {
+pub trait WebGPULight: Any {
   type Uniform: Std140 + Any;
   fn create_uniform_stream(
     &self,
     ctx: &LightResourceCtx,
     node: Box<dyn Stream<Item = SceneNode> + Unpin>,
-  ) -> impl Stream<Item = Self::Uniform>;
+  ) -> impl Stream<Item = Self::Uniform> + Unpin;
 }
 
 pub trait DynamicLightUniform: Any {
