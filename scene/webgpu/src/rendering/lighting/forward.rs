@@ -74,8 +74,6 @@ impl<T> ReactiveLightCollectionCompute for T where
 
 const MAX_SUPPORT_LIGHT_KIND_COUNT: usize = 8;
 
-type LightCollections = StreamMap<TypeId, Box<dyn ReactiveLightCollectionCompute>>;
-
 /// contains gpu data that support forward rendering
 ///
 /// all uniform is update once in a frame. for convenience.
@@ -84,7 +82,7 @@ pub struct ForwardLightingSystem {
   gpu: ResourceGPUCtx,
   /// note, the correctness now actually rely on the hashmap in stream map provide stable iter in
   /// stable order. currently, as long as we not insert new collection in runtime, it holds.
-  pub lights_collections: LightCollections,
+  pub lights_collections: StreamMap<TypeId, Box<dyn ReactiveLightCollectionCompute>>,
   // we could use linked hashmap to keep visit order
   pub mapping_length_idx: FastHashMap<TypeId, usize>,
 
@@ -128,8 +126,6 @@ impl Stream for ForwardLightingSystem {
 
 impl ForwardLightingSystem {
   pub fn new(scene: &Scene, gpu: ResourceGPUCtx, res: LightResourceCtx) -> Self {
-    let lights_collections = LightCollections::default();
-
     let scene_light_change = scene
       .unbound_listen_by(all_delta)
       .filter_map_sync(|d| match d {
@@ -142,11 +138,12 @@ impl ForwardLightingSystem {
       })
       .create_broad_caster();
 
-    let mut collections = StreamMap::default();
+    let mut lights_collections = StreamMap::default();
+    let mut mapping_length_idx = FastHashMap::default();
 
     let spot = scene_light_change
       .fork_stream()
-      .map(|(light_id, light)| {
+      .map(move |(light_id, light)| {
         let light_stream = light.map(|light| {
           let light_weak = light.downgrade();
           let res = res.clone();
@@ -181,7 +178,10 @@ impl ForwardLightingSystem {
       })
       .merge_into_light_list(gpu.clone());
 
-    collections.insert(TypeId::of::<SpotLight>(), Box::new(spot));
+    let tid = TypeId::of::<SpotLight>();
+    let li = Box::new(spot) as Box<dyn ReactiveLightCollectionCompute>;
+    lights_collections.insert(tid, li);
+    mapping_length_idx.insert(tid, 0);
 
     let lengths = create_uniform2(Default::default(), &gpu.device);
 
@@ -189,7 +189,7 @@ impl ForwardLightingSystem {
       gpu,
       lengths,
       lights_collections,
-      mapping_length_idx: Default::default(),
+      mapping_length_idx,
       light_hash_cache: Default::default(),
     }
   }
@@ -431,11 +431,7 @@ where
       for (light_id, light) in updates {
         this.list.update(light_id, light);
       }
-      if let Some(new_len) = this.list.maintain() {
-        Poll::Ready(new_len.into())
-      } else {
-        Poll::Pending
-      }
+      Poll::Ready(this.list.maintain().into())
     } else {
       Poll::Pending
     }
@@ -464,36 +460,38 @@ impl<T: ShaderLight> LightList<T> {
 
   pub fn update(&mut self, light_id: usize, light: Option<T>) {
     if let Some(value) = light {
-      let idx = self.empty_list.pop().unwrap();
-      self.mapping.insert(light_id, idx);
-      self.uniform.source[idx] = value;
+      if let Some(idx) = self.mapping.get(&light_id) {
+        self.uniform.source[*idx] = value;
+      } else {
+        let idx = self.empty_list.pop().unwrap();
+        self.mapping.insert(light_id, idx);
+        while self.uniform.source.len() <= idx {
+          self.uniform.source.push(T::default());
+        }
+        self.uniform.source[idx] = value;
+      }
     } else {
       let idx = self.mapping.remove(&light_id).unwrap();
       self.empty_list.push(idx);
     }
   }
 
-  pub fn maintain(&mut self) -> Option<usize> {
+  pub fn maintain(&mut self) -> usize {
     let empty_size = self.empty_list.len();
 
-    // self.empty_list.sort_by(|a, b| b.cmp(a));
-
-    // for i in 0..empty_size {
-    //   let check_idx = LIGHT_MAX - 1 - i;
-    //   if let Err(insert_position) = self
-    //     .empty_list
-    //     .binary_search_by(|a| check_idx.cmp(a)) // because we're reverse sort
-
-    //   {
-    //     let target = self.empty_list.pop().unwrap();
-    //     self.uniform.source[target] = self.uniform.source[check_idx];
-    //     self.empty_list.insert(insert_position - 1, element)
-    //   }
-    // }
+    self.empty_list.sort_by(|a, b| b.cmp(a));
+    // compact empty slot
+    let mut i = LIGHT_MAX;
+    for empty_index in &mut self.empty_list {
+      i -= 1;
+      if *empty_index != i {
+        self.uniform.source[*empty_index] = self.uniform.source[i];
+        *empty_index = i;
+      }
+    }
 
     self.uniform.update_gpu(&self.gpu.device);
-    todo!();
-    Some(LIGHT_MAX - empty_size) // todo
+    LIGHT_MAX - empty_size
   }
 }
 
