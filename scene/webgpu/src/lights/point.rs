@@ -40,7 +40,7 @@ impl WebGPULight for SceneItemRef<PointLight> {
 
   fn create_uniform_stream(
     &self,
-    ctx: &mut LightResourceCtx,
+    ctx: &LightResourceCtx,
     node: Box<dyn Stream<Item = SceneNode> + Unpin>,
   ) -> impl Stream<Item = Self::Uniform> {
     enum ShaderInfoDelta {

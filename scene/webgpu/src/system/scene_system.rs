@@ -61,8 +61,14 @@ impl SceneGPUSystem {
     let models: Arc<RwLock<StreamMap<usize, ReactiveSceneModelGPUInstance>>> = Default::default();
     let models_c = models.clone();
     let gpu = contents.read().unwrap().gpu.clone();
+
     let shadows = ShadowMapSystem::new(gpu.clone(), derives.clone());
-    let lights = ForwardLightingSystem::new(scene, gpu.clone());
+    let ctx = LightResourceCtx {
+      shadow_system: shadows.single_proj_sys.clone(),
+      derives: derives.clone(),
+    };
+
+    let lights = ForwardLightingSystem::new(scene, gpu.clone(), ctx);
 
     let scene = scene.read();
     let scene_core = &scene.core;

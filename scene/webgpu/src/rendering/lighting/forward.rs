@@ -64,14 +64,17 @@ pub struct ForwardSceneLightingDispatcher<'a> {
 }
 
 pub trait ReactiveLightCollectionCompute:
-  LightCollectionCompute + Stream<Item = usize> + Any
+  AsRef<dyn LightCollectionCompute> + Stream<Item = usize> + Unpin
 {
-  // fn insert(&mut self, light_id: usize, i)
+}
+impl<T> ReactiveLightCollectionCompute for T where
+  T: AsRef<dyn LightCollectionCompute> + Stream<Item = usize> + Unpin
+{
 }
 
 const MAX_SUPPORT_LIGHT_KIND_COUNT: usize = 8;
 
-type LightCollections = Arc<RwLock<StreamMap<TypeId, Box<dyn ReactiveLightCollectionCompute>>>>;
+type LightCollections = StreamMap<TypeId, Box<dyn ReactiveLightCollectionCompute>>;
 
 /// contains gpu data that support forward rendering
 ///
@@ -79,6 +82,8 @@ type LightCollections = Arc<RwLock<StreamMap<TypeId, Box<dyn ReactiveLightCollec
 #[pin_project::pin_project]
 pub struct ForwardLightingSystem {
   gpu: ResourceGPUCtx,
+  /// note, the correctness now actually rely on the hashmap in stream map provide stable iter in
+  /// stable order. currently, as long as we not insert new collection in runtime, it holds.
   pub lights_collections: LightCollections,
   // we could use linked hashmap to keep visit order
   pub mapping_length_idx: FastHashMap<TypeId, usize>,
@@ -95,98 +100,88 @@ impl Stream for ForwardLightingSystem {
 
   fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
     let this = self.project();
-    // this.lights_collections.
+    let r = if let Poll::Ready(Some(updates)) = this.lights_collections.poll_next_unpin(cx) {
+      for update in updates {
+        if let StreamMapDelta::Delta(tid, new_len) = update {
+          let index = this.mapping_length_idx.get(&tid).unwrap();
+          this.lengths.mutate(|lengths| {
+            lengths.inner[*index] = Vec4::new(new_len as u32, 0, 0, 0).into();
+          });
+        }
+      }
+      this.lengths.upload_with_diff(&this.gpu.queue);
+      Poll::Ready(().into())
+    } else {
+      Poll::Pending
+    };
 
-    //   let mut lengths: Shader140Array<Vec4<u32>, MAX_SUPPORT_LIGHT_KIND_COUNT> =
-    // Default::default();
+    use std::hash::Hasher;
+    let mut hasher = PipelineHasher::default();
+    for lights in this.lights_collections.values() {
+      lights.as_ref().as_ref().hash_pipeline(&mut hasher)
+    }
+    *this.light_hash_cache = hasher.finish();
 
-    //   self
-    //     .lights_collections
-    //     .iter_mut()
-    //     .map(|(_, c)| c.update_gpu(gpu))
-    //     .enumerate()
-    //     .for_each(|(i, l)| lengths.inner[i] = Vec4::new(l as u32, 0, 0, 0).into());
-
-    //   self.lengths = create_uniform(lengths, gpu).into();
-
-    //   let mut hasher = PipelineHasher::default();
-    //   for lights in self.lights_collections.values() {
-    //     lights.hash_pipeline(&mut hasher)
-    //   }
-    //   self.light_hash_cache = hasher.finish();
-
-    Poll::Pending
+    r
   }
 }
 
 impl ForwardLightingSystem {
-  pub fn new(scene: &Scene, gpu: ResourceGPUCtx) -> Self {
-    fn insert_light(c: &LightCollections, light: SceneLight) {
-      let mut collection = c.write().unwrap();
-
-      let light_impl_change = light
-        .single_listen_by(with_field!(SceneLightInner => light))
-        .create_broad_caster();
-
-      light_impl_change
-        .fork_stream()
-        .map(|l: SceneLightKind| match l {
-          SceneLightKind::SpotLight(l) => Enable(l.into()),
-          _ => Disable,
-        })
-        .map(|l| {
-          l.create_uniform_stream(
-            todo!(),
-            Box::new(light_weak.single_listen_by(with_field!(SceneLightInner => node))),
-          )
-        }) // note we not use fork because we want init value,
-        .flatten_signal()
-
-      // let node = Box::new(node);
-      // let light = light.read();
-      // match &light.light {
-      //   SceneLightKind::PointLight(_) => todo!(),
-      //   SceneLightKind::SpotLight(light) => {
-      //     let uniform = light.create_uniform_stream(todo!(), node);
-
-      //     //
-      //   }
-      //   SceneLightKind::DirectionalLight(light) => {
-      //     let uniform = light.create_uniform_stream(todo!(), node);
-      //   }
-      //   SceneLightKind::Foreign(_) => todo!(),
-      //   _ => todo!(),
-      // }
-    }
-
-    fn remove_light(c: &LightCollections, light: SceneLight) {
-      let light = light.read();
-      let mut collection = c.write().unwrap();
-      match &light.light {
-        SceneLightKind::PointLight(_) => todo!(),
-        SceneLightKind::SpotLight(light) => {
-          // collection.get_mut(TypeId::of::<SpotLight>)
-        }
-        SceneLightKind::DirectionalLight(light) => {}
-        SceneLightKind::Foreign(_) => todo!(),
-        _ => todo!(),
-      }
-    }
-
+  pub fn new(scene: &Scene, gpu: ResourceGPUCtx, res: LightResourceCtx) -> Self {
     let lights_collections = LightCollections::default();
 
-    let lc = lights_collections.clone();
+    let scene_light_change = scene
+      .unbound_listen_by(all_delta)
+      .filter_map_sync(|d| match d {
+        MixSceneDelta::lights(l) => l.into(),
+        _ => None,
+      })
+      .map(|light| match light {
+        ContainerRefRetainContentDelta::Remove(light) => (light.guid(), None),
+        ContainerRefRetainContentDelta::Insert(light) => (light.guid(), Some(light)),
+      })
+      .create_broad_caster();
 
-    let updater = scene.unbound_listen_by(all_delta).map(|d| match d {
-      MixSceneDelta::lights(l) => {
-        use ContainerRefRetainContentDelta::*;
-        match l {
-          Remove(l) => remove_light(&lc, l),
-          Insert(l) => insert_light(&lc, l),
-        }
-      }
-      _ => {}
-    });
+    let mut collections = StreamMap::default();
+
+    let spot = scene_light_change
+      .fork_stream()
+      .map(|(light_id, light)| {
+        let light_stream = light.map(|light| {
+          let light_weak = light.downgrade();
+          let res = res.clone();
+          light
+            .single_listen_by(with_field!(SceneLightInner => light))
+            .map(|l: SceneLightKind| match l {
+              SceneLightKind::SpotLight(l) => Some(l),
+              _ => None,
+            })
+            .map(move |l| {
+              light_weak.upgrade().zip(l).map(|(light, light_ty)| {
+                light_ty.create_uniform_stream(
+                  &res,
+                  Box::new(light.single_listen_by(with_field!(SceneLightInner => node))),
+                )
+              })
+            })
+            .flatten_option_outer()
+        });
+        (light_id, light_stream)
+      })
+      .flatten_into_map_stream_signal()
+      .map(|updates| {
+        updates
+          .into_iter()
+          .filter_map(|update| match update {
+            StreamMapDelta::Insert(_) => None,
+            StreamMapDelta::Remove(id) => Some((id, None)),
+            StreamMapDelta::Delta(id, v) => Some((id, v)),
+          })
+          .collect()
+      })
+      .merge_into_light_list(gpu.clone());
+
+    collections.insert(TypeId::of::<SpotLight>(), Box::new(spot));
 
     let lengths = create_uniform2(Default::default(), &gpu.device);
 
@@ -208,9 +203,8 @@ impl<'a> ShaderPassBuilder for ForwardSceneLightingDispatcher<'a> {
     self.shadows.setup_pass(ctx);
 
     ctx.binding.bind(&self.lights.lengths);
-    let lights_collections = self.lights.lights_collections.read().unwrap();
-    for lights in lights_collections.values() {
-      lights.setup_pass(ctx)
+    for lights in self.lights.lights_collections.values() {
+      lights.as_ref().as_ref().setup_pass(ctx)
     }
     self.lighting.tonemap.setup_pass(ctx);
   }
@@ -316,13 +310,17 @@ impl ForwardLightingSystem {
       let mut light_specular_result = consts(Vec3::zero());
       let mut light_diffuse_result = consts(Vec3::zero());
 
-      let lights_collections = self.lights_collections.read().unwrap();
-      for (i, lights) in lights_collections.values().enumerate() {
+      for (i, lights) in self.lights_collections.values().enumerate() {
         let length = lengths_info.index(consts(i as u32)).x();
         builder.register::<LightCount>(length);
 
-        let (diffuse, specular) =
-          lights.compute_lights(builder, binding, shading_impl, shading.as_ref(), &geom_ctx)?;
+        let (diffuse, specular) = lights.as_ref().as_ref().compute_lights(
+          builder,
+          binding,
+          shading_impl,
+          shading.as_ref(),
+          &geom_ctx,
+        )?;
         light_specular_result = specular + light_specular_result;
         light_diffuse_result = diffuse + light_diffuse_result;
       }
@@ -334,14 +332,123 @@ impl ForwardLightingSystem {
   }
 }
 
+#[pin_project::pin_project]
+struct ReactiveLightList<S, T: ShaderLight> {
+  list: LightList<T>,
+  #[pin]
+  input: S,
+}
+
+impl<S, T: ShaderLight> AsRef<dyn LightCollectionCompute> for ReactiveLightList<S, T> {
+  fn as_ref(&self) -> &(dyn LightCollectionCompute + 'static) {
+    &self.list
+  }
+}
+
+trait StreamForLightExt: Sized + Stream {
+  fn flatten_option_outer<SS: Stream>(self) -> FlattenOptionOuter<Self, SS>
+  where
+    Self: Stream<Item = Option<SS>>;
+
+  fn merge_into_light_list<T: ShaderLight>(self, gpu: ResourceGPUCtx) -> ReactiveLightList<Self, T>
+  where
+    Self: Stream<Item = Vec<(usize, Option<T>)>>;
+}
+impl<T: Sized + Stream> StreamForLightExt for T {
+  fn flatten_option_outer<SS>(self) -> FlattenOptionOuter<Self, SS>
+  where
+    Self: Stream<Item = Option<SS>>,
+    SS: Stream,
+  {
+    FlattenOptionOuter {
+      stream: self,
+      next: None,
+    }
+  }
+
+  fn merge_into_light_list<TT: ShaderLight>(
+    self,
+    gpu: ResourceGPUCtx,
+  ) -> ReactiveLightList<Self, TT>
+  where
+    Self: Stream<Item = Vec<(usize, Option<TT>)>>,
+  {
+    ReactiveLightList {
+      list: LightList::<TT>::new(gpu),
+      input: self,
+    }
+  }
+}
+#[pin_project::pin_project]
+struct FlattenOptionOuter<S, SS> {
+  #[pin]
+  stream: S,
+  #[pin]
+  next: Option<Option<SS>>,
+}
+
+impl<S, SS> Stream for FlattenOptionOuter<S, SS>
+where
+  S: Stream<Item = Option<SS>>,
+  SS: Stream,
+{
+  type Item = Option<SS::Item>;
+  /// first we check the outside, if the option yields, we pending, the other behavior is as same as
+  /// the flatten signal in reactive crate
+  fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+    let mut this = self.project();
+    Poll::Ready(loop {
+      // compare to the flatten, we poll the outside stream first
+      if let Poll::Ready(Some(s)) = this.stream.as_mut().poll_next(cx) {
+        this.next.set(Some(s));
+      } else if let Some(mut s) = this.next.as_mut().as_pin_mut() {
+        if let Some(s) = s.as_mut().as_pin_mut() {
+          if let Some(item) = ready!(s.poll_next(cx)) {
+            break Some(Some(item));
+          } else {
+            this.next.set(None);
+          }
+        } else {
+          return Poll::Pending;
+        }
+      } else {
+        break None;
+      }
+    })
+  }
+}
+
+impl<T, S> Stream for ReactiveLightList<S, T>
+where
+  T: ShaderLight,
+  S: Stream<Item = Vec<(usize, Option<T>)>>,
+{
+  type Item = usize;
+
+  fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+    let this = self.project();
+    if let Poll::Ready(Some(updates)) = this.input.poll_next(cx) {
+      for (light_id, light) in updates {
+        this.list.update(light_id, light);
+      }
+      if let Some(new_len) = this.list.maintain() {
+        Poll::Ready(new_len.into())
+      } else {
+        Poll::Pending
+      }
+    } else {
+      Poll::Pending
+    }
+  }
+}
+
 const LIGHT_MAX: usize = 8;
 
-#[pin_project::pin_project]
 pub struct LightList<T: ShaderLight> {
   uniform: ClampedUniformList<T, LIGHT_MAX>,
   empty_list: Vec<usize>,
+  // map light id to index
   mapping: FastHashMap<usize, usize>,
-  source: StreamMap<usize, Box<dyn Stream<Item = T> + Unpin>>,
   gpu: ResourceGPUCtx,
 }
 
@@ -349,44 +456,44 @@ impl<T: ShaderLight> LightList<T> {
   pub fn new(gpu: ResourceGPUCtx) -> Self {
     Self {
       uniform: Default::default(),
-      empty_list: (0..LIGHT_MAX).collect(),
+      empty_list: (0..LIGHT_MAX).rev().collect(),
       mapping: Default::default(),
-      source: Default::default(),
       gpu,
     }
   }
 
-  pub fn insert_light(&mut self, light_id: usize, light: impl Stream<Item = T> + Unpin + 'static) {
-    let idx = self.empty_list.pop().unwrap();
-    self.mapping.insert(light_id, idx);
-    self.source.insert(light_id, Box::new(light));
+  pub fn update(&mut self, light_id: usize, light: Option<T>) {
+    if let Some(value) = light {
+      let idx = self.empty_list.pop().unwrap();
+      self.mapping.insert(light_id, idx);
+      self.uniform.source[idx] = value;
+    } else {
+      let idx = self.mapping.remove(&light_id).unwrap();
+      self.empty_list.push(idx);
+    }
   }
-}
 
-impl<T: ShaderLight> Stream for LightList<T> {
-  type Item = usize;
+  pub fn maintain(&mut self) -> Option<usize> {
+    let empty_size = self.empty_list.len();
 
-  fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
-    let this = self.project();
-    this.source.loop_poll_until_pending(cx, |updates| {
-      for update in updates {
-        match update {
-          StreamMapDelta::Remove(id) => {
-            let idx = this.mapping.remove(&id).unwrap();
-            this.empty_list.push(idx);
-          }
-          StreamMapDelta::Delta(id, value) => {
-            let idx = this.mapping.get(&id).unwrap();
-            this.uniform.source[*idx] = value;
-          }
-          _ => {}
-        }
-      }
-    });
+    // self.empty_list.sort_by(|a, b| b.cmp(a));
 
-    this.uniform.update_gpu(&this.gpu.device);
+    // for i in 0..empty_size {
+    //   let check_idx = LIGHT_MAX - 1 - i;
+    //   if let Err(insert_position) = self
+    //     .empty_list
+    //     .binary_search_by(|a| check_idx.cmp(a)) // because we're reverse sort
+
+    //   {
+    //     let target = self.empty_list.pop().unwrap();
+    //     self.uniform.source[target] = self.uniform.source[check_idx];
+    //     self.empty_list.insert(insert_position - 1, element)
+    //   }
+    // }
+
+    self.uniform.update_gpu(&self.gpu.device);
     todo!();
-    Poll::Pending
+    Some(LIGHT_MAX - empty_size) // todo
   }
 }
 

@@ -7,25 +7,17 @@ pub use spot::*;
 
 use crate::*;
 
+#[derive(Clone)]
 pub struct LightResourceCtx {
-  pub providers: AnyMap,
+  pub shadow_system: Arc<RwLock<SingleProjectShadowMapSystem>>,
   pub derives: SceneNodeDeriveSystem,
-}
-
-impl LightResourceCtx {
-  pub fn shadow_system(&mut self) -> &mut SingleProjectShadowMapSystem {
-    self
-      .providers
-      .get_mut::<SingleProjectShadowMapSystem>()
-      .unwrap()
-  }
 }
 
 pub trait WebGPULight {
   type Uniform: Std140 + Any;
   fn create_uniform_stream(
     &self,
-    ctx: &mut LightResourceCtx,
+    ctx: &LightResourceCtx,
     node: Box<dyn Stream<Item = SceneNode> + Unpin>,
   ) -> impl Stream<Item = Self::Uniform>;
 }

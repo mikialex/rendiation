@@ -10,7 +10,7 @@ pub mod sampling;
 pub use sampling::*;
 
 pub struct ShadowMapSystem {
-  pub single_proj_sys: SingleProjectShadowMapSystem,
+  pub single_proj_sys: Arc<RwLock<SingleProjectShadowMapSystem>>,
   pub maps: ShadowMapAllocator,
   pub sampler: RawSampler,
 }
@@ -20,27 +20,37 @@ impl ShadowMapSystem {
     let maps = ShadowMapAllocator::new(gpu.clone());
     let mut sampler = SamplerDescriptor::default();
     sampler.compare = CompareFunction::Less.into();
+    let single_proj_sys = SingleProjectShadowMapSystem::new(gpu.clone(), maps.clone(), derives);
     Self {
-      single_proj_sys: SingleProjectShadowMapSystem::new(gpu.clone(), maps.clone(), derives),
+      single_proj_sys: Arc::new(RwLock::new(single_proj_sys)),
       sampler: gpu.device.create_and_cache_sampler(sampler),
       maps,
     }
   }
   pub fn maintain(&mut self, gpu_cameras: &mut SceneCameraGPUSystem, cx: &mut Context) {
-    self.single_proj_sys.maintain(gpu_cameras, cx)
+    self
+      .single_proj_sys
+      .write()
+      .unwrap()
+      .maintain(gpu_cameras, cx)
   }
 }
 
 impl ShaderPassBuilder for ShadowMapSystem {
   fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
-    self.single_proj_sys.list.setup_pass(ctx);
+    self.single_proj_sys.read().unwrap().list.setup_pass(ctx);
     self.maps.setup_pass(ctx)
   }
 }
 
 impl ShaderHashProvider for ShadowMapSystem {
   fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
-    self.single_proj_sys.list.hash_pipeline(hasher);
+    self
+      .single_proj_sys
+      .read()
+      .unwrap()
+      .list
+      .hash_pipeline(hasher);
     // self.maps.hash_pipeline(ctx) // we don't need this now?
   }
 }
@@ -50,7 +60,7 @@ impl ShaderGraphProvider for ShadowMapSystem {
     &self,
     builder: &mut ShaderGraphRenderPipelineBuilder,
   ) -> Result<(), ShaderGraphBuildError> {
-    self.single_proj_sys.list.build(builder)?;
+    self.single_proj_sys.read().unwrap().list.build(builder)?;
     self.maps.build(builder)
   }
 }

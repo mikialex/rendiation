@@ -75,7 +75,7 @@ impl WebGPULight for SceneItemRef<DirectionalLight> {
 
   fn create_uniform_stream(
     &self,
-    ctx: &mut LightResourceCtx,
+    ctx: &LightResourceCtx,
     node: Box<dyn Stream<Item = SceneNode> + Unpin>,
   ) -> impl Stream<Item = Self::Uniform> {
     enum ShaderInfoDelta {
@@ -94,7 +94,9 @@ impl WebGPULight for SceneItemRef<DirectionalLight> {
       .map(ShaderInfoDelta::Dir);
 
     let shadow = ctx
-      .shadow_system()
+      .shadow_system
+      .write()
+      .unwrap()
       .create_shadow_info_stream(
         self.guid(),
         build_shadow_projection(self),
