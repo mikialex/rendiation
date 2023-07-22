@@ -2,16 +2,35 @@ use crate::*;
 
 #[pin_project::pin_project]
 pub struct SceneCameraGPUSystem {
-  #[pin]
   cameras: SceneCameraGPUStorage,
 }
 
 impl Stream for SceneCameraGPUSystem {
-  type Item = ();
+  type Item = Vec<StreamMapDelta<usize, CameraGPUTransform>>;
 
   fn poll_next(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Option<Self::Item>> {
     let this = self.project();
-    this.cameras.poll_next(cx).map(|v| v.map(|_| {}))
+    let r = this.cameras.poll_next_unpin(cx);
+
+    r.map(|v| {
+      v.map(|vs| {
+        vs.into_iter()
+          .map(|v| {
+            v.map(|k, _| {
+              this
+                .cameras
+                .as_ref()
+                .get(k)
+                .unwrap()
+                .as_ref()
+                .inner
+                .ubo
+                .get()
+            })
+          })
+          .collect()
+      })
+    })
   }
 }
 

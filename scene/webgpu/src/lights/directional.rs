@@ -1,3 +1,5 @@
+use rendiation_geometry::{HyperRayCaster, Ray3};
+
 use crate::*;
 
 #[repr(C)]
@@ -68,32 +70,56 @@ wgsl_fn!(
   }
 );
 
-impl WebGPUSceneLight for SceneItemRef<DirectionalLight> {
-  // allocate shadow maps
-  fn pre_update(&self, ctx: &mut LightUpdateCtx, node: &SceneNode) {
-    let inner = self.read();
-    request_basic_shadow_map(&inner, ctx.scene.scene_resources, ctx.shadows, node);
-  }
+impl WebGPULight for SceneItemRef<DirectionalLight> {
+  type Uniform = DirectionalLightShaderInfo;
 
-  fn update(&self, ctx: &mut LightUpdateCtx, node: &SceneNode) {
-    let light = self.read();
-    let shadow = check_update_basic_shadow_map(&light, ctx, node);
+  fn create_uniform_stream(
+    &self,
+    ctx: &LightResourceCtx,
+    node: Box<dyn Stream<Item = SceneNode> + Unpin>,
+  ) -> impl Stream<Item = Self::Uniform> {
+    enum ShaderInfoDelta {
+      Dir(Vec3<f32>),
+      Shadow(LightShadowAddressInfo),
+      Ill(Vec3<f32>),
+    }
 
-    let lights = ctx.forward.get_or_create_list();
-    let gpu = DirectionalLightShaderInfo {
-      illuminance: light.illuminance * light.color_factor,
-      direction: ctx
-        .scene
-        .node_derives
-        .get_world_matrix(node)
-        .forward()
-        .reverse()
-        .normalize(),
-      shadow,
-      ..Zeroable::zeroed()
-    };
+    let node = node.create_broad_caster();
+    let derives = ctx.derives.clone();
+    let direction = node
+      .fork_stream()
+      .filter_map_sync(move |node| derives.create_world_matrix_stream(&node))
+      .flatten_signal()
+      .map(|mat| mat.forward().reverse().normalize())
+      .map(ShaderInfoDelta::Dir);
 
-    lights.source.push(gpu)
+    let shadow = ctx
+      .shadow_system
+      .write()
+      .unwrap()
+      .create_shadow_info_stream(
+        self.guid(),
+        build_shadow_projection(self),
+        node.fork_stream(),
+      )
+      .map(ShaderInfoDelta::Shadow);
+
+    let ill = self
+      .single_listen_by(any_change)
+      .filter_map_sync(self.defer_weak())
+      .map(|light| light.read().illuminance * light.read().color_factor)
+      .map(ShaderInfoDelta::Ill);
+
+    let delta = futures::stream_select!(direction, shadow, ill);
+
+    delta.fold_signal(DirectionalLightShaderInfo::default(), |delta, info| {
+      match delta {
+        ShaderInfoDelta::Dir(dir) => info.direction = dir,
+        ShaderInfoDelta::Shadow(shadow) => info.shadow = shadow,
+        ShaderInfoDelta::Ill(i) => info.illuminance = i,
+      };
+      Some(*info)
+    })
   }
 }
 
@@ -118,15 +144,50 @@ impl Default for DirectionalShadowMapExtraInfo {
   }
 }
 
-impl ShadowCameraCreator for DirectionalLight {
-  fn build_shadow_camera(&self, node: &SceneNode) -> SceneCamera {
-    let extra = self
-      .ext
-      .get::<DirectionalShadowMapExtraInfo>()
-      .copied()
-      .unwrap_or_default();
+fn build_shadow_projection(
+  light: &SceneItemRef<DirectionalLight>,
+) -> impl Stream<Item = (CameraProjector, Size)> {
+  get_dyn_trait_downcaster_static!(CameraProjection).register::<WorkAroundResizableOrth>();
+  light
+    .single_listen_by(any_change)
+    .filter_map_sync(light.defer_weak())
+    .map(|light| {
+      let light = light.read();
+      let shadow_info = light
+        .ext
+        .get::<DirectionalShadowMapExtraInfo>()
+        .cloned()
+        .unwrap_or_default();
+      let size = Size::from_u32_pair_min_one((512, 512)); // todo
+      let orth = WorkAroundResizableOrth {
+        orth: shadow_info.range,
+      };
+      let proj = CameraProjector::Foreign(Arc::new(orth));
+      (proj, size)
+    })
+}
 
-    let proj = CameraProjector::Orthographic(extra.range);
-    SceneCamera::create(proj, node.clone())
+#[derive(Clone, PartialEq)]
+struct WorkAroundResizableOrth {
+  orth: OrthographicProjection<f32>,
+}
+clone_self_diffable_incremental!(WorkAroundResizableOrth);
+type_as_dyn_trait!(WorkAroundResizableOrth, CameraProjection);
+
+impl CameraProjection for WorkAroundResizableOrth {
+  fn update_projection(&self, projection: &mut Mat4<f32>) {
+    self.orth.update_projection::<WebGPU>(projection);
+  }
+
+  fn resize(&mut self, _: (f32, f32)) {
+    // nothing!
+  }
+
+  fn pixels_per_unit(&self, distance: f32, view_height: f32) -> f32 {
+    self.orth.pixels_per_unit(distance, view_height)
+  }
+
+  fn cast_ray(&self, normalized_position: Vec2<f32>) -> Ray3<f32> {
+    self.orth.cast_ray(normalized_position)
   }
 }

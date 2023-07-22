@@ -1,6 +1,6 @@
 use crate::*;
 
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, PartialEq)]
 pub struct OrthographicProjection<T> {
   pub left: T,
   pub right: T,

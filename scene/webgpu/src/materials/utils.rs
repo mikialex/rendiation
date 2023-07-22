@@ -47,3 +47,23 @@ pub enum UniformChangePicked<T> {
   UniformChange,
   Origin(T),
 }
+
+pub struct ShadingSelection;
+
+pub trait BuilderUsefulExt {
+  fn get_or_compute_fragment_normal(&mut self) -> Node<Vec3<f32>>;
+}
+
+impl<'a> BuilderUsefulExt for ShaderGraphFragmentBuilderView<'a> {
+  fn get_or_compute_fragment_normal(&mut self) -> Node<Vec3<f32>> {
+    // check first and avoid unnecessary renormalize
+    if let Ok(normal) = self.query::<FragmentWorldNormal>() {
+      normal
+    } else {
+      let normal = self.query_or_interpolate_by::<FragmentWorldNormal, WorldVertexNormal>();
+      let normal = normal.normalize(); // renormalize
+      self.register::<FragmentWorldNormal>(normal);
+      normal
+    }
+  }
+}

@@ -145,7 +145,7 @@ pub const fn max_arr<const N: usize>(input: [usize; N]) -> usize {
 }
 
 #[repr(C, align(16))]
-#[derive(Clone, Copy, Default, Debug)]
+#[derive(Clone, Copy, Default, Debug, PartialEq, Eq)]
 pub struct Shader140ArrayWrapper<T> {
   pub inner: T,
 }
@@ -160,7 +160,7 @@ unsafe impl<T: Zeroable> Zeroable for Shader140ArrayWrapper<T> {}
 unsafe impl<T: Pod> Pod for Shader140ArrayWrapper<T> {}
 
 #[repr(C)]
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Shader140Array<T, const U: usize> {
   pub inner: [Shader140ArrayWrapper<T>; U],
 }

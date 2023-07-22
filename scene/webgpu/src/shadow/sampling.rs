@@ -1,5 +1,15 @@
 use crate::*;
 
+pub fn sample_shadow(
+  shadow_position: Node<Vec3<f32>>,
+  map: Node<ShaderDepthTexture2DArray>,
+  sampler: Node<ShaderCompareSampler>,
+  info: Node<ShadowMapAddressInfo>,
+) -> Node<f32> {
+  // sample_shadow_pcf_x4(shadow_position, map, sampler, info)
+  sample_shadow_pcf_x36_by_offset(shadow_position, map, sampler, info)
+}
+
 #[rustfmt::skip]
 wgsl_fn!(
   fn sample_shadow_pcf_x4(

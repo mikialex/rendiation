@@ -89,6 +89,15 @@ impl<K: Hash + Eq + Clone, T> StreamMap<K, T> {
   pub fn get_mut(&mut self, key: &K) -> Option<&mut T> {
     self.streams.get_mut(key)
   }
+  pub fn len(&self) -> usize {
+    self.streams.len()
+  }
+  pub fn is_empty(&self) -> bool {
+    self.streams.is_empty()
+  }
+  pub fn values(&self) -> impl Iterator<Item = &T> {
+    self.streams.values()
+  }
 
   pub fn insert(&mut self, key: K, value: T) {
     // handle replace semantic
@@ -128,6 +137,28 @@ pub enum StreamMapDelta<K, T> {
   Insert(K),
   Remove(K),
   Delta(K, T),
+}
+
+impl<K, T> StreamMapDelta<K, T> {
+  pub fn map<U>(self, f: impl FnOnce(&K, T) -> U) -> StreamMapDelta<K, U> {
+    match self {
+      StreamMapDelta::Insert(k) => StreamMapDelta::Insert(k),
+      StreamMapDelta::Remove(k) => StreamMapDelta::Remove(k),
+      StreamMapDelta::Delta(k, v) => {
+        let v = f(&k, v);
+        StreamMapDelta::Delta(k, v)
+      }
+    }
+  }
+}
+
+impl<K, T> FusedStream for StreamMap<K, T>
+where
+  Self: Stream,
+{
+  fn is_terminated(&self) -> bool {
+    false // reactive container never terminates
+  }
 }
 
 impl<K, T> Stream for StreamMap<K, T>

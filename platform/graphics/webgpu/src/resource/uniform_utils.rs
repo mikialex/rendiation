@@ -22,7 +22,7 @@ impl<T: Std140 + Default, const N: usize> ClampedUniformList<T, N> {
     self.gpu.take();
   }
 
-  pub fn update_gpu(&mut self, gpu: &GPU) -> usize {
+  pub fn update_gpu(&mut self, gpu: &GPUDevice) -> usize {
     let mut source = vec![T::default(); N];
     for (i, light) in self.source.iter().enumerate() {
       if i >= N {
@@ -31,7 +31,7 @@ impl<T: Std140 + Default, const N: usize> ClampedUniformList<T, N> {
       source[i] = *light;
     }
     let source = source.try_into().unwrap();
-    let lights_gpu = create_uniform(source, gpu);
+    let lights_gpu = create_uniform2(source, gpu);
     self.gpu = lights_gpu.into();
     self.source.len()
   }

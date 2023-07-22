@@ -2,6 +2,7 @@
 #![feature(hash_raw_entry)]
 #![feature(stmt_expr_attributes)]
 #![feature(type_alias_impl_trait)]
+#![feature(return_position_impl_trait_in_trait)]
 #![feature(impl_trait_in_assoc_type)]
 #![allow(clippy::field_reassign_with_default)]
 #![allow(incomplete_features)]
@@ -31,7 +32,6 @@ use std::{
   sync::{Arc, Mutex, RwLock},
 };
 
-use __core::hash::Hasher;
 use __core::{
   pin::Pin,
   task::{Context, Poll},
@@ -44,7 +44,6 @@ use fast_hash_collection::*;
 use futures::*;
 use incremental::*;
 pub use lights::*;
-use linked_hash_map::LinkedHashMap;
 pub use materials::*;
 pub use mesh::*;
 pub use mipmap_gen::*;

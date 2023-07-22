@@ -185,7 +185,7 @@ impl<T: IncrementalBase> SceneItemRef<T> {
       if let Some(origin) = self_weak.upgrade() {
         origin.read().delta_source.off(remove_token)
       }
-    })
+    });
   }
 
   pub fn trigger_change(&self, delta: &T::Delta) {

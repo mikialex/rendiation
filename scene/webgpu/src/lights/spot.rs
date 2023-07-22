@@ -72,45 +72,97 @@ impl PunctualShaderLight for SpotLightShaderInfo {
   }
 }
 
-impl WebGPUSceneLight for SceneItemRef<SpotLight> {
-  // allocate shadow maps
-  fn pre_update(&self, ctx: &mut LightUpdateCtx, node: &SceneNode) {
-    let inner = self.read();
-    request_basic_shadow_map(&inner, ctx.scene.scene_resources, ctx.shadows, node);
-  }
+impl WebGPULight for SceneItemRef<SpotLight> {
+  type Uniform = SpotLightShaderInfo;
 
-  fn update(&self, ctx: &mut LightUpdateCtx, node: &SceneNode) {
-    let light = self.read();
+  fn create_uniform_stream(
+    &self,
+    ctx: &LightResourceCtx,
+    node: Box<dyn Stream<Item = SceneNode> + Unpin>,
+  ) -> impl Stream<Item = Self::Uniform> {
+    enum ShaderInfoDelta {
+      DirPosition(Vec3<f32>, Vec3<f32>),
+      Shadow(LightShadowAddressInfo),
+      Light(SpotLightShaderInfoPart),
+    }
 
-    let shadow = check_update_basic_shadow_map(&light, ctx, node);
+    struct SpotLightShaderInfoPart {
+      pub luminance_intensity: Vec3<f32>,
+      pub cutoff_distance: f32,
+      pub half_cone_cos: f32,
+      pub half_penumbra_cos: f32,
+    }
 
-    let lights = ctx.forward.get_or_create_list();
-    let world = ctx.scene.node_derives.get_world_matrix(node);
+    let node = node.create_broad_caster();
+    let derives = ctx.derives.clone();
+    let direction = node
+      .fork_stream()
+      .filter_map_sync(move |node| derives.create_world_matrix_stream(&node))
+      .flatten_signal()
+      .map(|mat| (mat.forward().reverse().normalize(), mat.position()))
+      .map(|(a, b)| ShaderInfoDelta::DirPosition(a, b));
 
-    let gpu = SpotLightShaderInfo {
-      luminance_intensity: light.luminance_intensity * light.color_factor,
-      direction: world.forward().reverse().normalize(),
-      cutoff_distance: light.cutoff_distance,
-      half_cone_cos: light.half_cone_angle.cos(),
-      half_penumbra_cos: light.half_penumbra_angle.cos(),
-      position: world.position(),
-      shadow,
-      ..Zeroable::zeroed()
-    };
+    let shadow = ctx
+      .shadow_system
+      .write()
+      .unwrap()
+      .create_shadow_info_stream(
+        self.guid(),
+        build_shadow_projection(self),
+        node.fork_stream(),
+      )
+      .map(ShaderInfoDelta::Shadow);
 
-    lights.source.push(gpu)
+    let light = self
+      .single_listen_by(any_change)
+      .filter_map_sync(self.defer_weak())
+      .map(|light| {
+        let light = light.read();
+        SpotLightShaderInfoPart {
+          luminance_intensity: light.luminance_intensity * light.color_factor,
+          cutoff_distance: light.cutoff_distance,
+          half_cone_cos: light.half_cone_angle.cos(),
+          half_penumbra_cos: light.half_penumbra_angle.cos(),
+        }
+      })
+      .map(ShaderInfoDelta::Light);
+
+    let delta = futures::stream_select!(direction, shadow, light);
+
+    delta.fold_signal(SpotLightShaderInfo::default(), |delta, info| {
+      match delta {
+        ShaderInfoDelta::DirPosition(dir, pos) => {
+          info.direction = dir;
+          info.position = pos;
+        }
+        ShaderInfoDelta::Shadow(shadow) => info.shadow = shadow,
+        ShaderInfoDelta::Light(l) => {
+          info.luminance_intensity = l.luminance_intensity;
+          info.cutoff_distance = l.cutoff_distance;
+          info.half_penumbra_cos = l.half_penumbra_cos;
+          info.half_cone_cos = l.half_cone_cos;
+        }
+      };
+      Some(*info)
+    })
   }
 }
 
-impl ShadowCameraCreator for SpotLight {
-  fn build_shadow_camera(&self, node: &SceneNode) -> SceneCamera {
-    let proj = PerspectiveProjection {
-      near: 0.1,
-      far: 2000.,
-      fov: Deg::from_rad(self.half_cone_angle * 2.),
-      aspect: 1.,
-    };
-    let proj = CameraProjector::Perspective(proj);
-    SceneCamera::create(proj, node.clone())
-  }
+fn build_shadow_projection(
+  light: &SceneItemRef<SpotLight>,
+) -> impl Stream<Item = (CameraProjector, Size)> {
+  light
+    .single_listen_by(any_change)
+    .filter_map_sync(light.defer_weak())
+    .map(|light| {
+      let proj = PerspectiveProjection {
+        near: 0.1,
+        far: 2000.,
+        fov: Deg::from_rad(light.read().half_cone_angle * 2.),
+        aspect: 1.,
+      };
+      let proj = CameraProjector::Perspective(proj);
+      let size = Size::from_u32_pair_min_one((512, 512));
+      (proj, size)
+    })
 }

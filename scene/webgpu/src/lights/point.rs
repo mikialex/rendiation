@@ -35,20 +35,51 @@ impl PunctualShaderLight for PointLightShaderInfo {
   }
 }
 
-impl WebGPUSceneLight for SceneItemRef<PointLight> {
-  fn update(&self, ctx: &mut LightUpdateCtx, node: &SceneNode) {
-    let light = self.read();
+impl WebGPULight for SceneItemRef<PointLight> {
+  type Uniform = PointLightShaderInfo;
 
-    let lights = ctx.forward.get_or_create_list();
+  fn create_uniform_stream(
+    &self,
+    ctx: &LightResourceCtx,
+    node: Box<dyn Stream<Item = SceneNode> + Unpin>,
+  ) -> impl Stream<Item = Self::Uniform> {
+    enum ShaderInfoDelta {
+      Position(Vec3<f32>),
+      // Shadow(LightShadowAddressInfo),
+      Light(Vec3<f32>, f32),
+    }
 
-    let gpu = PointLightShaderInfo {
-      luminance_intensity: light.luminance_intensity * light.color_factor,
-      position: ctx.scene.node_derives.get_world_matrix(node).position(),
-      cutoff_distance: light.cutoff_distance,
-      ..Zeroable::zeroed()
-    };
+    let derives = ctx.derives.clone();
+    let direction = node
+      .filter_map_sync(move |node| derives.create_world_matrix_stream(&node))
+      .flatten_signal()
+      .map(|mat| mat.position())
+      .map(ShaderInfoDelta::Position);
 
-    lights.source.push(gpu)
+    let ill = self
+      .single_listen_by(any_change)
+      .filter_map_sync(self.defer_weak())
+      .map(|light| {
+        let light = light.read();
+        (
+          light.luminance_intensity * light.color_factor,
+          light.cutoff_distance,
+        )
+      })
+      .map(|(a, b)| ShaderInfoDelta::Light(a, b));
+
+    let delta = futures::stream_select!(direction, ill);
+
+    delta.fold_signal(PointLightShaderInfo::default(), |delta, info| {
+      match delta {
+        ShaderInfoDelta::Position(position) => info.position = position,
+        ShaderInfoDelta::Light(i, cutoff_distance) => {
+          info.luminance_intensity = i;
+          info.cutoff_distance = cutoff_distance;
+        }
+      };
+      Some(*info)
+    })
   }
 }
 

@@ -107,12 +107,6 @@ impl<T: Default + IncrementalBase> Default for Identity<T> {
   }
 }
 
-impl<T: IncrementalBase> Drop for Identity<T> {
-  fn drop(&mut self) {
-    self.drop_source.emit(&());
-  }
-}
-
 impl<T: IncrementalBase> std::ops::Deref for Identity<T> {
   type Target = T;
 

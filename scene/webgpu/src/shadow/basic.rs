@@ -1,184 +1,223 @@
 use crate::*;
 
-#[repr(C)]
-#[std140_layout]
-#[derive(Copy, Clone, ShaderStruct, Default)]
-pub struct LightShadowAddressInfo {
-  pub index: u32,
-  pub enabled: u32,
+#[pin_project::pin_project]
+pub struct SingleProjectShadowMapSystem {
+  #[pin]
+  cameras_source: StreamMap<usize, ReactiveBasicShadowSceneCamera>,
+  cameras: FastHashMap<usize, SceneCamera>,
+  cameras_id_map_light_id: FastHashMap<usize, usize>,
+  #[pin]
+  shadow_maps: StreamMap<usize, ShadowMap>,
+  maps: ShadowMapAllocator,
+  pub list: BasicShadowMapInfoList,
+  gpu: ResourceGPUCtx,
+  derives: SceneNodeDeriveSystem,
 }
 
-impl LightShadowAddressInfo {
-  pub fn new(enabled: bool, index: u32) -> Self {
+impl SingleProjectShadowMapSystem {
+  pub fn new(
+    gpu: ResourceGPUCtx,
+    maps: ShadowMapAllocator,
+    derives: SceneNodeDeriveSystem,
+  ) -> Self {
     Self {
-      enabled: enabled.into(),
-      index,
-      ..Zeroable::zeroed()
+      cameras_source: Default::default(),
+      shadow_maps: Default::default(),
+      cameras: Default::default(),
+      cameras_id_map_light_id: Default::default(),
+      maps,
+      list: Default::default(),
+      gpu,
+      derives,
+    }
+  }
+
+  pub fn create_shadow_info_stream(
+    &mut self,
+    light_id: usize,
+    proj: impl Stream<Item = (CameraProjector, Size)> + Unpin + 'static,
+    node_delta: impl Stream<Item = SceneNode> + Unpin + 'static,
+  ) -> impl Stream<Item = LightShadowAddressInfo> {
+    let camera_stream = basic_shadow_camera(Box::new(proj), Box::new(node_delta));
+    self.cameras_source.insert(light_id, camera_stream);
+    self.list.allocate(light_id)
+  }
+
+  pub fn maintain(&mut self, gpu_cameras: &mut SceneCameraGPUSystem, cx: &mut Context) {
+    do_updates_by(&mut self.cameras_source, cx, |updates| {
+      for update in updates {
+        match update {
+          StreamMapDelta::Delta(idx, (camera, size)) => {
+            self.shadow_maps.remove(idx); // deallocate map
+            self.shadow_maps.insert(idx, self.maps.allocate(size));
+            // create the gpu camera
+            gpu_cameras.get_or_insert(&camera, &self.derives, &self.gpu);
+            self.cameras_id_map_light_id.insert(camera.guid(), idx);
+            self.cameras.insert(idx, camera);
+          }
+          StreamMapDelta::Remove(idx) => {
+            self.list.deallocate(idx);
+            let camera = self.cameras.remove(&idx).unwrap();
+            self.cameras_id_map_light_id.remove(&camera.guid());
+          }
+          _ => {}
+        }
+      }
+    });
+
+    do_updates(gpu_cameras, |updates| {
+      for update in updates {
+        if let StreamMapDelta::Delta(camera_id, shadow_camera) = update {
+          let light_id = self.cameras_id_map_light_id.get(&camera_id).unwrap();
+          self.list.get_mut_data(*light_id).shadow_camera = shadow_camera;
+        }
+      }
+    });
+
+    do_updates(&mut self.shadow_maps, |updates| {
+      for update in updates {
+        if let StreamMapDelta::Delta(idx, delta) = update {
+          self.list.get_mut_data(idx).map_info = delta;
+        }
+      }
+    });
+
+    self.list.list.update_gpu(&self.gpu.device);
+  }
+
+  pub fn update_depth_maps(&mut self, ctx: &mut FrameCtx, scene: &SceneRenderResourceGroup) {
+    assert_eq!(self.cameras_source.len(), self.shadow_maps.len());
+
+    struct SceneDepth;
+
+    impl PassContentWithSceneAndCamera for SceneDepth {
+      fn render(
+        &mut self,
+        pass: &mut FrameRenderPass,
+        scene: &SceneRenderResourceGroup,
+        camera: &SceneCamera,
+      ) {
+        let mut render_list = RenderList::default();
+        render_list.prepare(scene, camera);
+
+        // we could just use default, because the color channel not exist at all
+        let base = default_dispatcher(pass);
+
+        render_list.setup_pass(pass, &base, camera, scene);
+      }
+    }
+
+    for (light_id, camera) in &self.cameras {
+      let map = self.shadow_maps.get(light_id).unwrap();
+      let (view, _map_info) = map.get_write_view();
+
+      pass("shadow-depth")
+        .with_depth(view, clear(1.))
+        .render(ctx)
+        .by(CameraSceneRef {
+          camera,
+          scene,
+          inner: SceneDepth,
+        });
+    }
+  }
+}
+
+type ReactiveBasicShadowSceneCamera = impl Stream<Item = (SceneCamera, Size)> + Unpin;
+
+// todo remove box
+fn basic_shadow_camera(
+  proj: Box<dyn Stream<Item = (CameraProjector, Size)> + Unpin>,
+  node_delta: Box<dyn Stream<Item = SceneNode> + Unpin>,
+) -> ReactiveBasicShadowSceneCamera {
+  proj
+    .zip(node_delta)
+    .map(|((p, size), node)| (SceneCamera::create(p, node), size))
+}
+
+const SHADOW_MAX: usize = 8;
+
+pub struct BasicShadowMapInfoList {
+  list: ClampedUniformList<BasicShadowMapInfo, SHADOW_MAX>,
+  /// map light id to index;
+  empty_list: Vec<usize>,
+  waker: futures::task::AtomicWaker,
+  mapping: FastHashMap<usize, usize>,
+  // todo support reordering?
+  emitter: FastHashMap<usize, futures::channel::mpsc::UnboundedSender<LightShadowAddressInfo>>,
+}
+
+impl Stream for BasicShadowMapInfoList {
+  // emit new real size
+  type Item = usize;
+
+  fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+    self.waker.register(cx.waker());
+    todo!() // and gpu update and reorder
+  }
+}
+
+impl BasicShadowMapInfoList {
+  fn allocate(&mut self, light_id: usize) -> impl Stream<Item = LightShadowAddressInfo> {
+    self.waker.wake();
+    let idx = self.empty_list.pop().unwrap();
+    let (sender, rec) = futures::channel::mpsc::unbounded();
+    sender
+      .unbounded_send(LightShadowAddressInfo::new(true, idx as u32))
+      .ok();
+    self.emitter.insert(light_id, sender);
+    self.mapping.insert(light_id, idx);
+    rec
+  }
+  fn deallocate(&mut self, light_id: usize) {
+    self.waker.wake();
+    let index = self.mapping.remove(&light_id).unwrap();
+    self.empty_list.push(index);
+    self.emitter.remove(&light_id);
+  }
+  fn get_mut_data(&mut self, light_id: usize) -> &mut BasicShadowMapInfo {
+    self.waker.wake();
+    let index = self.mapping.get(&light_id).unwrap();
+    while self.list.source.len() <= *index {
+      self.list.source.push(Default::default());
+    }
+    &mut self.list.source[*index]
+  }
+}
+
+impl Default for BasicShadowMapInfoList {
+  fn default() -> Self {
+    Self {
+      list: Default::default(),
+      mapping: Default::default(),
+      empty_list: (0..SHADOW_MAX).rev().collect(),
+      emitter: Default::default(),
+      waker: Default::default(),
     }
   }
 }
 
 only_fragment!(BasicShadowMapInfoGroup, Shader140Array<BasicShadowMapInfo, SHADOW_MAX>);
-only_fragment!(BasicShadowMap, ShaderDepthTexture2DArray);
-only_fragment!(BasicShadowMapSampler, ShaderCompareSampler);
 
-pub fn sample_shadow(
-  shadow_position: Node<Vec3<f32>>,
-  map: Node<ShaderDepthTexture2DArray>,
-  sampler: Node<ShaderCompareSampler>,
-  info: Node<ShadowMapAddressInfo>,
-) -> Node<f32> {
-  // sample_shadow_pcf_x4(shadow_position, map, sampler, info)
-  sample_shadow_pcf_x36_by_offset(shadow_position, map, sampler, info)
-}
-
-pub fn compute_shadow_position(
-  builder: &ShaderGraphFragmentBuilderView,
-  shadow_info: ENode<BasicShadowMapInfo>,
-) -> Result<Node<Vec3<f32>>, ShaderGraphBuildError> {
-  // another way to compute this is in vertex shader, maybe we will try it later.
-  let bias = shadow_info.bias.expand();
-  let world_position = builder.query::<FragmentWorldPosition>()?;
-  let world_normal = builder.query::<FragmentWorldNormal>()?;
-
-  // apply normal bias
-  let world_position = world_position + bias.normal_bias * world_normal;
-
-  let shadow_position =
-    shadow_info.shadow_camera.expand().view_projection * (world_position, 1.).into();
-
-  let shadow_position = shadow_position.xyz() / shadow_position.w();
-
-  // convert to uv space and apply offset bias
-  Ok(
-    shadow_position * consts(Vec3::new(0.5, -0.5, 1.))
-      + consts(Vec3::new(0.5, 0.5, 0.))
-      + (0., 0., bias.bias).into(),
-  )
-}
-
-pub struct SceneDepth;
-
-impl PassContentWithSceneAndCamera for SceneDepth {
-  fn render(
-    &mut self,
-    pass: &mut FrameRenderPass,
-    scene: &SceneRenderResourceGroup,
-    camera: &SceneCamera,
-  ) {
-    let mut render_list = RenderList::default();
-    render_list.prepare(scene, camera);
-
-    // we could just use default, because the color channel not exist at all
-    let base = default_dispatcher(pass);
-
-    render_list.setup_pass(pass, &base, camera, scene);
+impl ShaderGraphProvider for BasicShadowMapInfoList {
+  fn build(
+    &self,
+    builder: &mut ShaderGraphRenderPipelineBuilder,
+  ) -> Result<(), ShaderGraphBuildError> {
+    builder.fragment(|builder, binding| {
+      let list = binding.uniform_by(self.list.gpu.as_ref().unwrap());
+      builder.register::<BasicShadowMapInfoGroup>(list);
+      Ok(())
+    })
   }
 }
-
-#[derive(Clone)]
-pub struct BasicShadowGPU {
-  pub shadow_camera: SceneCamera,
-  pub map: ShadowMap,
+impl ShaderHashProvider for BasicShadowMapInfoList {
+  fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
+    self.list.hash_pipeline(hasher)
+  }
 }
-
-pub trait ShadowCameraCreator {
-  fn build_shadow_camera(&self, node: &SceneNode) -> SceneCamera;
-}
-
-fn get_shadow_map<T: Any + ShadowCameraCreator + Incremental>(
-  inner: &SceneItemRefGuard<T>,
-  resources: &SceneGPUSystem,
-  shadows: &mut ShadowMapSystem,
-  node: &SceneNode,
-) -> BasicShadowGPU {
-  let resolution = Size::from_usize_pair_min_one((512, 512));
-
-  let mut lights = resources.lights.borrow_mut();
-  lights
-    .inner
-    .entry(TypeId::of::<T>())
-    .or_insert_with(|| Box::<IdentityMapper<BasicShadowGPU, T>>::default())
-    .downcast_mut::<IdentityMapper<BasicShadowGPU, T>>()
-    .unwrap()
-    .get_update_or_insert_with_logic(inner, |logic| match logic {
-      ResourceLogic::Create(light) => {
-        let shadow_camera = light.build_shadow_camera(node);
-        let map = shadows.maps.allocate(resolution);
-        ResourceLogicResult::Create(BasicShadowGPU { shadow_camera, map })
-      }
-      ResourceLogic::Update(shadow, light) => {
-        let shadow_camera = light.build_shadow_camera(node);
-        let map = shadows.maps.allocate(resolution);
-        *shadow = BasicShadowGPU { shadow_camera, map };
-        ResourceLogicResult::Update(shadow)
-      }
-    })
-    .clone()
-}
-
-pub fn request_basic_shadow_map<T: Any + ShadowCameraCreator + Incremental>(
-  inner: &SceneItemRefGuard<T>,
-  resources: &SceneGPUSystem,
-  shadows: &mut ShadowMapSystem,
-  node: &SceneNode,
-) {
-  get_shadow_map(inner, resources, shadows, node);
-}
-
-pub fn check_update_basic_shadow_map<T: Any + ShadowCameraCreator + Incremental>(
-  inner: &SceneItemRefGuard<T>,
-  ctx: &mut LightUpdateCtx,
-  node: &SceneNode,
-) -> LightShadowAddressInfo {
-  let BasicShadowGPU { shadow_camera, map } =
-    get_shadow_map(inner, ctx.scene.scene_resources, ctx.shadows, node);
-
-  let (view, map_info) = map.get_write_view(ctx.ctx.gpu);
-
-  let shadow_camera_info = ctx
-    .scene
-    .scene_resources
-    .cameras
-    .write()
-    .unwrap()
-    .get_or_insert(
-      &shadow_camera,
-      ctx.scene.node_derives,
-      &ctx.scene.resources.gpu,
-    )
-    .as_ref()
-    .inner
-    .ubo
-    .get();
-
-  pass("shadow-depth")
-    .with_depth(view, clear(1.))
-    .render(ctx.ctx)
-    .by(CameraSceneRef {
-      camera: &shadow_camera,
-      scene: ctx.scene,
-      inner: SceneDepth,
-    });
-
-  let shadows = ctx
-    .shadows
-    .shadow_collections
-    .entry(TypeId::of::<BasicShadowMapInfoList>())
-    .or_insert_with(|| Box::<BasicShadowMapInfoList>::default());
-  let shadows = shadows
-    .as_any_mut()
-    .downcast_mut::<BasicShadowMapInfoList>()
-    .unwrap();
-
-  let index = shadows.list.source.len();
-
-  let mut info = BasicShadowMapInfo::default();
-  info.shadow_camera = shadow_camera_info;
-  info.bias = ShadowBias::new(-0.0001, 0.0);
-  info.map_info = map_info;
-
-  shadows.list.source.push(info);
-
-  LightShadowAddressInfo::new(true, index as u32)
+impl ShaderPassBuilder for BasicShadowMapInfoList {
+  fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
+    self.list.setup_pass(ctx)
+  }
 }

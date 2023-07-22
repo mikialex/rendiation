@@ -1,5 +1,3 @@
-pub mod forward;
-pub use forward::*;
 pub mod list;
 pub use list::*;
 pub mod copy_frame;
@@ -12,8 +10,6 @@ pub mod quad;
 pub use quad::*;
 pub mod blur;
 pub use blur::*;
-pub mod defer;
-pub use defer::*;
 pub mod tonemap;
 pub use tonemap::*;
 pub mod debug_channels;
@@ -24,6 +20,8 @@ pub mod ssao;
 pub use ssao::*;
 pub mod pass_base;
 pub use pass_base::*;
+pub mod lighting;
+pub use lighting::*;
 
 use crate::*;
 
@@ -107,10 +105,4 @@ where
   fn render(&mut self, pass: &mut FrameRenderPass) {
     self.inner.render(pass, self.scene, self.camera);
   }
-}
-
-pub trait RebuildAbleGPUCollectionBase {
-  fn reset(&mut self);
-  /// return count
-  fn update_gpu(&mut self, gpu: &GPU) -> usize;
 }

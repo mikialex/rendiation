@@ -7,80 +7,54 @@ pub use spot::*;
 
 use crate::*;
 
-pub struct LightUpdateCtx<'a, 'b> {
-  pub forward: &'a mut ForwardLightingSystem,
-  pub shadows: &'a mut ShadowMapSystem,
-  pub scene: &'a SceneRenderResourceGroup<'a>,
-  /// we need this ctx to encoding the depth map pass
-  pub ctx: &'a mut FrameCtx<'b>,
+#[derive(Clone)]
+pub struct LightResourceCtx {
+  pub shadow_system: Arc<RwLock<SingleProjectShadowMapSystem>>,
+  pub derives: SceneNodeDeriveSystem,
 }
 
-impl<'a, 'b> LightUpdateCtx<'a, 'b> {
-  pub fn update(&mut self) {
-    self.forward.before_update_scene(self.ctx.gpu);
-    self.shadows.before_update_scene(self.ctx.gpu);
+pub trait WebGPULight: Any {
+  type Uniform: Std140 + Any;
+  fn create_uniform_stream(
+    &self,
+    ctx: &LightResourceCtx,
+    node: Box<dyn Stream<Item = SceneNode> + Unpin>,
+  ) -> impl Stream<Item = Self::Uniform> + Unpin;
+}
 
-    let lights = &self.scene.scene.lights;
+pub trait DynamicLightUniform: Any {
+  fn as_bytes(&self) -> &[u8];
+}
 
-    for (_, light) in lights {
-      light.pre_update(self, &light.read().node)
-    }
-
-    for (_, light) in lights {
-      light.update(self, &light.read().node)
-    }
-    self.forward.after_update_scene(self.ctx.gpu);
-    self.shadows.after_update_scene(self.ctx.gpu);
+impl<T: Std140 + Any> DynamicLightUniform for T {
+  fn as_bytes(&self) -> &[u8] {
+    self.as_bytes()
   }
 }
 
-pub trait WebGPUSceneLight: Any {
-  fn pre_update(&self, _ctx: &mut LightUpdateCtx, _: &SceneNode) {}
-  fn update(&self, ctx: &mut LightUpdateCtx, node: &SceneNode);
+pub trait WebGPUSceneLight {
+  fn create_uniform(
+    &self,
+    ctx: &mut LightResourceCtx,
+    node: Box<dyn Stream<Item = SceneNode> + Unpin>,
+  ) -> Box<dyn Stream<Item = Box<dyn DynamicLightUniform>>>;
 }
-define_dyn_trait_downcaster_static!(WebGPUSceneLight);
-pub fn register_webgpu_light_features<T>()
+
+impl<T> WebGPUSceneLight for SceneItemRef<T>
 where
-  T: AsRef<dyn WebGPUSceneLight> + AsMut<dyn WebGPUSceneLight> + 'static,
+  Self: WebGPULight,
+  T: IncrementalBase,
 {
-  get_dyn_trait_downcaster_static!(WebGPUSceneLight).register::<T>()
-}
-
-impl WebGPUSceneLight for SceneLight {
-  fn pre_update(&self, ctx: &mut LightUpdateCtx, _: &SceneNode) {
-    let inner = self.read();
-    let light = &inner.light;
-    let node = &inner.node;
-
-    match light {
-      SceneLightKind::PointLight(l) => l.pre_update(ctx, node),
-      SceneLightKind::SpotLight(l) => l.pre_update(ctx, node),
-      SceneLightKind::DirectionalLight(l) => l.pre_update(ctx, node),
-      SceneLightKind::Foreign(l) => {
-        if let Some(l) = get_dyn_trait_downcaster_static!(WebGPUSceneLight).downcast_ref(l.as_ref())
-        {
-          l.pre_update(ctx, node);
-        }
-      }
-      _ => {}
-    }
-  }
-  fn update(&self, ctx: &mut LightUpdateCtx, _: &SceneNode) {
-    let inner = self.read();
-    let light = &inner.light;
-    let node = &inner.node;
-
-    match light {
-      SceneLightKind::PointLight(l) => l.update(ctx, node),
-      SceneLightKind::SpotLight(l) => l.update(ctx, node),
-      SceneLightKind::DirectionalLight(l) => l.update(ctx, node),
-      SceneLightKind::Foreign(l) => {
-        if let Some(l) = l.downcast_ref::<Box<dyn WebGPUSceneLight>>() {
-          l.update(ctx, node);
-        }
-      }
-      _ => {}
-    }
+  fn create_uniform(
+    &self,
+    ctx: &mut LightResourceCtx,
+    node: Box<dyn Stream<Item = SceneNode> + Unpin>,
+  ) -> Box<dyn Stream<Item = Box<dyn DynamicLightUniform>>> {
+    Box::new(
+      self
+        .create_uniform_stream(ctx, node)
+        .map(|uni| Box::new(uni) as Box<dyn DynamicLightUniform>),
+    )
   }
 }
 

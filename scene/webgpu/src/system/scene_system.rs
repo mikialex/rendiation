@@ -16,12 +16,8 @@ pub struct SceneGPUSystem {
   #[pin]
   source: SceneGPUUpdateSource,
 
-  pub lights: RefCell<GPULightCache>,
-}
-
-#[derive(Default)]
-pub struct GPULightCache {
-  pub inner: FastHashMap<TypeId, Box<dyn Any>>,
+  pub shadows: ShadowMapSystem,
+  pub lights: ForwardLightingSystem,
 }
 
 impl SceneGPUSystem {
@@ -38,13 +34,22 @@ impl Stream for SceneGPUSystem {
     early_return_ready!(this.source.poll_next(cx));
     early_return_ready!(this.nodes.poll_next(cx));
 
-    let mut cameras = this.cameras.write().unwrap();
-    let cameras: &mut SceneCameraGPUSystem = &mut cameras;
-    early_return_ready!(cameras.poll_next_unpin(cx));
+    let mut cameras_ = this.cameras.write().unwrap();
+    let cameras: &mut SceneCameraGPUSystem = &mut cameras_;
+    let cameras_poll = cameras.poll_next_unpin(cx).map(|v| v.map(|_| ()));
+    early_return_ready!(cameras_poll);
+    drop(cameras_);
 
     let mut models = this.models.write().unwrap();
     let models: &mut StreamMap<usize, ReactiveSceneModelGPUInstance> = &mut models;
     do_updates_by(models, cx, |_| {});
+
+    do_updates_by(this.lights, cx, |_| {});
+
+    let mut cameras = this.cameras.write().unwrap();
+    let cameras: &mut SceneCameraGPUSystem = &mut cameras;
+    this.shadows.maintain(cameras, cx);
+
     Poll::Pending
   }
 }
@@ -52,7 +57,7 @@ type SceneGPUUpdateSource = impl Stream<Item = ()> + Unpin;
 
 impl SceneGPUSystem {
   pub fn new(
-    scene: &SceneCore,
+    scene: &Scene,
     derives: &SceneNodeDeriveSystem,
     contents: Arc<RwLock<ContentGPUSystem>>,
   ) -> Self {
@@ -60,10 +65,21 @@ impl SceneGPUSystem {
     let models_c = models.clone();
     let gpu = contents.read().unwrap().gpu.clone();
 
-    let nodes = SceneNodeGPUSystem::new(scene, derives, &gpu);
-    let cameras = RwLock::new(SceneCameraGPUSystem::new(scene, derives, &gpu));
+    let shadows = ShadowMapSystem::new(gpu.clone(), derives.clone());
+    let ctx = LightResourceCtx {
+      shadow_system: shadows.single_proj_sys.clone(),
+      derives: derives.clone(),
+    };
 
-    let source = scene.unbound_listen_by(all_delta).map(move |delta| {
+    let lights = ForwardLightingSystem::new(scene, gpu.clone(), ctx);
+
+    let scene = scene.read();
+    let scene_core = &scene.core;
+
+    let nodes = SceneNodeGPUSystem::new(scene_core, derives, &gpu);
+    let cameras = RwLock::new(SceneCameraGPUSystem::new(scene_core, derives, &gpu));
+
+    let source = scene_core.unbound_listen_by(all_delta).map(move |delta| {
       let contents = contents.write().unwrap();
       let mut models = models_c.write().unwrap();
       let models: &mut StreamMap<usize, ReactiveSceneModelGPUInstance> = &mut models;
@@ -89,7 +105,8 @@ impl SceneGPUSystem {
       source,
       cameras,
       nodes,
-      lights: Default::default(),
+      lights,
+      shadows,
     }
   }
 

@@ -64,24 +64,6 @@
         {
             "type": "lldb",
             "request": "launch",
-            "name": "Debug executable 'rainray'",
-            "cargo": {
-                "args": [
-                    "build",
-                    "--example=bunny",
-                    "--package=rainray"
-                ],
-                "filter": {
-                    "name": "bunny",
-                    "kind": "example"
-                }
-            },
-            "args": [],
-            "cwd": "${workspaceFolder}"
-        },
-        {
-            "type": "lldb",
-            "request": "launch",
             "name": "Debug executable 'viewer'",
             "cargo": {
                 "args": [

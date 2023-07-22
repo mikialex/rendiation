@@ -1,7 +1,5 @@
 mod identity;
 pub use identity::*;
-mod mapper;
-pub use mapper::*;
 mod scene_item;
 pub use scene_item::*;
 mod transformation;
@@ -70,6 +68,10 @@ pub fn any_change<T: IncrementalBase>(view: MaybeDeltaRef<T>, send: &dyn Fn(()))
 
 pub fn any_change_no_init<T: IncrementalBase>(view: MaybeDeltaRef<T>, send: &dyn Fn(())) {
   any_change_with(false)(view, send)
+}
+
+pub fn no_change<T: IncrementalBase>(_view: MaybeDeltaRef<T>, _send: &dyn Fn(())) {
+  // do nothing at all
 }
 
 #[inline(always)]
