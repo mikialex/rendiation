@@ -39,6 +39,8 @@ impl GPUSurface {
       .or(capabilities.formats.first())
       .expect("could not find support formats in surface");
 
+    println!("swapchain use {:?} format", swapchain_format);
+
     let config = gpu::SurfaceConfiguration {
       usage: gpu::TextureUsages::RENDER_ATTACHMENT,
       format: *swapchain_format,

@@ -178,7 +178,9 @@ where
     });
   }
 
-  let mut ldr_result = attachment().format(TextureFormat::Rgba8Unorm).request(ctx);
+  let mut ldr_result = attachment()
+    .format(TextureFormat::Rgba8UnormSrgb)
+    .request(ctx);
 
   pass("tonemap")
     .with_color(ldr_result.write(), load())

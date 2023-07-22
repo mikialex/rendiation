@@ -36,7 +36,7 @@ impl ResourcePool {
 
 pub fn attachment() -> AttachmentDescriptor {
   AttachmentDescriptor {
-    format: gpu::TextureFormat::Rgba8Unorm,
+    format: gpu::TextureFormat::Rgba8UnormSrgb,
     sample_count: 1,
     sizer: default_sizer(),
   }

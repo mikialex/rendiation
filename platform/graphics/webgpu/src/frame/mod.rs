@@ -45,7 +45,7 @@ impl<'a> FrameCtx<'a> {
 
   pub fn multisampled_attachment(&self) -> AttachmentDescriptor {
     AttachmentDescriptor {
-      format: gpu::TextureFormat::Rgba8Unorm,
+      format: gpu::TextureFormat::Rgba8UnormSrgb,
       sample_count: self.msaa_sample_count,
       sizer: default_sizer(),
     }

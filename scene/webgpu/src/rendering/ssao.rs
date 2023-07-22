@@ -191,7 +191,7 @@ impl SSAO {
 
     let mut ao_result = attachment()
       .sizer(ratio_sizer(0.5)) // half resolution!
-      .format(webgpu::TextureFormat::Rgba8Unorm)
+      .format(webgpu::TextureFormat::Rgba8Unorm) // todo single channel
       .request(ctx);
 
     pass("ssao-compute")

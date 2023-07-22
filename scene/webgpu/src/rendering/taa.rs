@@ -51,12 +51,12 @@ impl TAA {
       .upload(&ctx.gpu.queue);
 
     let mut resolve_target = attachment()
-      .format(webgpu::TextureFormat::Rgba8Unorm)
+      .format(webgpu::TextureFormat::Rgba8UnormSrgb)
       .request(ctx);
 
     let history = self.history.get_or_insert_with(|| {
       attachment()
-        .format(webgpu::TextureFormat::Rgba8Unorm)
+        .format(webgpu::TextureFormat::Rgba8UnormSrgb)
         .request(ctx)
     });
 
