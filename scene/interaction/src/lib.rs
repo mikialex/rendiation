@@ -68,7 +68,7 @@ pub fn ray_pick_nearest_core(
     }
     ModelType::Foreign(model) => {
       if let Some(model) =
-        get_dyn_trait_downcaster_static!(SceneRayInteractive).downcast_ref(model.as_ref())
+        get_dyn_trait_downcaster_static!(SceneRayInteractive).downcast_ref(model.as_ref().as_any())
       {
         model.ray_pick_nearest(ctx)
       } else {

@@ -162,7 +162,7 @@ fn build_shadow_projection(
       let orth = WorkAroundResizableOrth {
         orth: shadow_info.range,
       };
-      let proj = CameraProjector::Foreign(Arc::new(orth));
+      let proj = CameraProjector::Foreign(Box::new(orth));
       (proj, size)
     })
 }

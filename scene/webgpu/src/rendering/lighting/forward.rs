@@ -6,7 +6,9 @@ pub fn get_main_pass_load_op(scene: &SceneCoreImpl) -> webgpu::Operations<webgpu
       SceneBackGround::Solid(bg) => bg.require_pass_clear(),
       SceneBackGround::Env(bg) => bg.require_pass_clear(),
       SceneBackGround::Foreign(bg) => {
-        if let Some(bg) = bg.downcast_ref::<Box<dyn WebGPUBackground>>() {
+        if let Some(bg) =
+          get_dyn_trait_downcaster_static!(WebGPUBackground).downcast_ref(bg.as_ref().as_any())
+        {
           bg.require_pass_clear()
         } else {
           None

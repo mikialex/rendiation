@@ -60,7 +60,7 @@ impl WebGPUSceneMaterial for SceneMaterialType {
         MaterialGPUInstance::Flat(instance)
       }
       Self::Foreign(m) => get_dyn_trait_downcaster_static!(WebGPUSceneMaterial)
-        .downcast_ref(m.as_ref())?
+        .downcast_ref(m.as_ref().as_any())?
         .create_scene_reactive_gpu(ctx)?,
       _ => return None,
     }
@@ -74,7 +74,7 @@ impl WebGPUSceneMaterial for SceneMaterialType {
       Self::Flat(m) => m.read().deref().is_transparent(),
       Self::Foreign(m) => {
         if let Some(m) =
-          get_dyn_trait_downcaster_static!(WebGPUSceneMaterial).downcast_ref(m.as_ref())
+          get_dyn_trait_downcaster_static!(WebGPUSceneMaterial).downcast_ref(m.as_ref().as_any())
         {
           m.is_transparent()
         } else {

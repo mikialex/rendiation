@@ -19,8 +19,8 @@ impl PickingConventionAgreement for SceneMaterialType {
       Self::PhysicalMetallicRoughness(m) => m.is_keep_mesh_shape(),
       Self::Flat(m) => m.is_keep_mesh_shape(),
       Self::Foreign(m) => {
-        if let Some(v) =
-          get_dyn_trait_downcaster_static!(PickingConventionAgreement).downcast_ref(m.as_ref())
+        if let Some(v) = get_dyn_trait_downcaster_static!(PickingConventionAgreement)
+          .downcast_ref(m.as_ref().as_any())
         {
           v.is_keep_mesh_shape()
         } else {

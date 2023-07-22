@@ -8,8 +8,6 @@ mod frame;
 mod integrator;
 mod sampling;
 
-use std::sync::Arc;
-
 pub use frame::*;
 pub use integrator::*;
 pub use sampling::*;
@@ -109,7 +107,7 @@ impl RayTracingSceneExt for Scene {
       shape: Box::new(shape),
       material: Box::new(material),
     };
-    let model = ModelType::Foreign(Arc::new(model));
+    let model = ModelType::Foreign(Box::new(model));
     let model = SceneModelImpl { node, model };
     let _ = self.insert_model(model.into());
     self
@@ -127,7 +125,7 @@ impl RayTracingSceneExt for Scene {
       shape: Box::new(shape),
       material: Box::new(material),
     };
-    let model = ModelType::Foreign(Arc::new(model));
+    let model = ModelType::Foreign(Box::new(model));
     let model = SceneModelImpl { node, model };
     let _ = self.insert_model(model.into());
     self
@@ -153,7 +151,7 @@ impl RayTracingSceneExt for Scene {
     for (_, model) in self.read().core.read().models.iter() {
       let model = model.read();
       if let ModelType::Foreign(foreign) = &model.model {
-        if let Some(retraceable) = foreign.downcast_ref::<RayTracingSceneModel>() {
+        if let Some(retraceable) = foreign.as_any().downcast_ref::<RayTracingSceneModel>() {
           let world_info = result.worlds.get_computed(model.node.raw_handle().index());
 
           let mut model = Model {
@@ -196,7 +194,11 @@ impl RayTracingSceneExt for Scene {
         }
         SceneBackGround::Env(_) => {}
         SceneBackGround::Foreign(foreign) => {
-          if let Some(retraceable_bg) = foreign.downcast_ref::<Box<dyn RayTracingBackground>>() {
+          if let Some(retraceable_bg) = foreign
+            .as_ref()
+            .as_any()
+            .downcast_ref::<std::sync::Arc<dyn RayTracingBackground>>()
+          {
             result.env = Some(dyn_clone::clone_box(&**retraceable_bg));
           }
         }

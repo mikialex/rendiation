@@ -32,7 +32,7 @@ impl WebGPUSceneMesh for SceneMeshType {
         MeshGPUInstance::TransformInstanced(instance)
       }
       Self::Foreign(m) => get_dyn_trait_downcaster_static!(WebGPUSceneMesh)
-        .downcast_ref(m.as_ref())?
+        .downcast_ref(m.as_ref().as_any())?
         .create_scene_reactive_gpu(ctx)?,
       _ => return None,
     }

@@ -1,5 +1,3 @@
-use std::sync::Arc;
-
 use incremental::EnumWrap;
 use rendiation_scene_core::*;
 use rendiation_scene_webgpu::*;
@@ -25,9 +23,9 @@ pub struct HelperLineModel {
 impl HelperLineModel {
   pub fn new(material: FatLineMaterial, mesh: HelperLineMesh, node: &SceneNode) -> Self {
     let mat = material.into_ref();
-    let mat = SceneMaterialType::Foreign(Arc::new(mat));
+    let mat = SceneMaterialType::Foreign(Box::new(mat));
 
-    let mesh = SceneMeshType::Foreign(Arc::new(mesh.into_ref()));
+    let mesh = SceneMeshType::Foreign(Box::new(mesh.into_ref()));
 
     let model = StandardModel::new(mat, mesh);
     let model = ModelType::Standard(model.into());
@@ -39,7 +37,7 @@ impl HelperLineModel {
   }
 
   pub fn update_mesh(&self, mesh: HelperLineMesh) {
-    let mesh = SceneMeshType::Foreign(Arc::new(mesh.into_ref()));
+    let mesh = SceneMeshType::Foreign(Box::new(mesh.into_ref()));
 
     if let ModelType::Standard(model) = &self.inner.model {
       mesh.wrap(StandardModelDelta::mesh).apply_modify(model);

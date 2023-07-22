@@ -30,7 +30,7 @@ pub type SceneTexture2D = SceneItemRef<SceneTexture2DType>;
 #[derive(Clone)]
 pub enum SceneTexture2DType {
   GPUBufferImage(GPUBufferImage),
-  Foreign(Arc<dyn Any + Send + Sync>),
+  Foreign(Box<dyn AnyClone + Send + Sync>),
 }
 
 clone_self_incremental!(SceneTexture2DType);

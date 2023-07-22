@@ -15,7 +15,7 @@ use crate::*;
 pub enum SceneMeshType {
   AttributesMesh(SceneItemRef<AttributesMesh>),
   TransformInstanced(SceneItemRef<TransformInstancedSceneMesh>),
-  Foreign(Arc<dyn Any + Send + Sync>),
+  Foreign(Box<dyn AnyClone + Send + Sync>),
 }
 
 clone_self_incremental!(SceneMeshType);
@@ -41,7 +41,7 @@ impl SceneMeshType {
       Self::AttributesMesh(m) => m.guid(),
       Self::TransformInstanced(m) => m.guid(),
       Self::Foreign(m) => get_dyn_trait_downcaster_static!(GlobalIdentified)
-        .downcast_ref(m.as_ref())?
+        .downcast_ref(m.as_ref().as_any())?
         .guid(),
     }
     .into()
@@ -358,7 +358,7 @@ impl WatchableSceneMeshLocalBounding for SceneMeshType {
       }
       SceneMeshType::Foreign(mesh) => {
         if let Some(mesh) = get_dyn_trait_downcaster_static!(WatchableSceneMeshLocalBounding)
-          .downcast_ref(mesh.as_ref())
+          .downcast_ref(mesh.as_ref().as_any())
         {
           mesh.build_local_bound_stream()
         } else {

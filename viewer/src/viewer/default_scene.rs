@@ -1,5 +1,3 @@
-use std::sync::Arc;
-
 use rendiation_algebra::*;
 use rendiation_mesh_generator::{
   CubeMeshParameter, IndexedMeshBuilder, SphereMeshParameter, TessellationConfig,
@@ -84,7 +82,7 @@ pub fn load_default_scene(scene: &Scene) {
       )
       .build_mesh_into()
       .into_ref();
-    let mesh = SceneMeshType::Foreign(Arc::new(mesh));
+    let mesh = SceneMeshType::Foreign(Box::new(mesh));
 
     let material = PhysicalSpecularGlossinessMaterial {
       albedo: Vec3::splat(1.),
@@ -113,7 +111,7 @@ pub fn load_default_scene(scene: &Scene) {
       builder = builder.triangulate_parametric(&face, TessellationConfig { u: 2, v: 3 }, true);
     }
     let mesh = builder.build_mesh().into_ref();
-    let mesh = SceneMeshType::Foreign(Arc::new(mesh));
+    let mesh = SceneMeshType::Foreign(Box::new(mesh));
 
     let material = PhysicalSpecularGlossinessMaterial {
       albedo: Vec3::splat(1.),
@@ -138,7 +136,7 @@ pub fn load_default_scene(scene: &Scene) {
       )
       .build_mesh_into()
       .into_ref();
-    let mesh = SceneMeshType::Foreign(Arc::new(mesh));
+    let mesh = SceneMeshType::Foreign(Box::new(mesh));
 
     let mesh = TransformInstancedSceneMesh {
       mesh,

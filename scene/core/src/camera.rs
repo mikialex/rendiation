@@ -92,7 +92,7 @@ pub enum CameraProjector {
   Perspective(PerspectiveProjection<f32>),
   ViewOrthographic(ViewFrustumOrthographicProjection<f32>),
   Orthographic(OrthographicProjection<f32>),
-  Foreign(Arc<dyn Any + Send + Sync>),
+  Foreign(Box<dyn AnyClone + Send + Sync>),
 }
 
 pub trait CameraProjection: Sync + Send + DynIncremental {
@@ -111,7 +111,7 @@ impl CameraProjector {
       CameraProjector::ViewOrthographic(p) => p.compute_projection_mat::<WebGPU>(),
       CameraProjector::Orthographic(p) => p.compute_projection_mat::<WebGPU>(),
       CameraProjector::Foreign(p) => get_dyn_trait_downcaster_static!(CameraProjection)
-        .downcast_ref(p.as_ref())?
+        .downcast_ref(p.as_ref().as_any())?
         .compute_projection_mat(),
     }
     .into()
@@ -138,7 +138,7 @@ impl CameraProjector {
       CameraProjector::ViewOrthographic(p) => p.pixels_per_unit(distance, view_height),
       CameraProjector::Orthographic(p) => p.pixels_per_unit(distance, view_height),
       CameraProjector::Foreign(p) => get_dyn_trait_downcaster_static!(CameraProjection)
-        .downcast_ref(p.as_ref())?
+        .downcast_ref(p.as_ref().as_any())?
         .pixels_per_unit(distance, view_height),
     }
     .into()
@@ -150,7 +150,7 @@ impl CameraProjector {
       CameraProjector::ViewOrthographic(p) => p.cast_ray(normalized_position),
       CameraProjector::Orthographic(p) => p.cast_ray(normalized_position),
       CameraProjector::Foreign(p) => get_dyn_trait_downcaster_static!(CameraProjection)
-        .downcast_ref(p.as_ref())?
+        .downcast_ref(p.as_ref().as_any())?
         .cast_ray(normalized_position),
     }
     .into()

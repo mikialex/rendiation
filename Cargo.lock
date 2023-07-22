@@ -2839,6 +2839,7 @@ name = "rendiation-webgpu"
 version = "0.1.0"
 dependencies = [
  "bytemuck",
+ "dyn-downcast",
  "fast-hash-collection",
  "futures",
  "reactive",

@@ -16,7 +16,11 @@ impl RayTracingBackground for SceneBackGround {
         Vec3::zero()
       }
       SceneBackGround::Foreign(bg) => {
-        if let Some(bg) = bg.downcast_ref::<Box<dyn RayTracingBackground>>() {
+        if let Some(bg) = bg
+          .as_ref()
+          .as_any()
+          .downcast_ref::<std::sync::Arc<dyn RayTracingBackground>>()
+        {
           bg.sample(ray)
         } else {
           Vec3::zero()
@@ -45,8 +49,8 @@ impl RayTracingBackground for GradientBackground {
     self.bottom_intensity.lerp(self.top_intensity, t)
   }
   fn create_scene_background(&self) -> Option<SceneBackGround> {
-    SceneBackGround::Foreign(std::sync::Arc::new(
-      Box::new(self.clone()) as Box<dyn RayTracingBackground>
+    SceneBackGround::Foreign(Box::new(
+      std::sync::Arc::new(self.clone()) as std::sync::Arc<dyn RayTracingBackground>
     ))
     .into()
   }

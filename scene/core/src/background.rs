@@ -5,7 +5,7 @@ use crate::*;
 pub enum SceneBackGround {
   Solid(SolidBackground),
   Env(EnvMapBackground),
-  Foreign(Arc<dyn Any + Send + Sync>),
+  Foreign(Box<dyn AnyClone + Send + Sync>),
 }
 
 clone_self_incremental!(SceneBackGround);

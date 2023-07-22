@@ -6,7 +6,7 @@ pub enum SceneMaterialType {
   PhysicalSpecularGlossiness(SceneItemRef<PhysicalSpecularGlossinessMaterial>),
   PhysicalMetallicRoughness(SceneItemRef<PhysicalMetallicRoughnessMaterial>),
   Flat(SceneItemRef<FlatMaterial>),
-  Foreign(Arc<dyn Any + Send + Sync>),
+  Foreign(Box<dyn AnyClone + Send + Sync>),
 }
 
 impl SceneMaterialType {
@@ -16,7 +16,7 @@ impl SceneMaterialType {
       Self::PhysicalMetallicRoughness(m) => m.guid(),
       Self::Flat(m) => m.guid(),
       Self::Foreign(m) => get_dyn_trait_downcaster_static!(GlobalIdentified)
-        .downcast_ref(m.as_ref())?
+        .downcast_ref(m.as_ref().as_any())?
         .guid(),
     }
     .into()

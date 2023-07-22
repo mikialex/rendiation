@@ -239,8 +239,8 @@ impl IntersectAbleGroupedMesh for SceneMeshType {
         .read()
         .intersect_list_by_group(ray, conf, result, group),
       SceneMeshType::Foreign(mesh) => {
-        if let Some(pickable) =
-          get_dyn_trait_downcaster_static!(IntersectAbleGroupedMesh).downcast_ref(mesh.as_ref())
+        if let Some(pickable) = get_dyn_trait_downcaster_static!(IntersectAbleGroupedMesh)
+          .downcast_ref(mesh.as_ref().as_any())
         {
           pickable.intersect_list_by_group(ray, conf, result, group)
         }
@@ -263,8 +263,8 @@ impl IntersectAbleGroupedMesh for SceneMeshType {
         mesh.read().intersect_nearest_by_group(ray, conf, group)
       }
       SceneMeshType::Foreign(mesh) => {
-        if let Some(pickable) =
-          get_dyn_trait_downcaster_static!(IntersectAbleGroupedMesh).downcast_ref(mesh.as_ref())
+        if let Some(pickable) = get_dyn_trait_downcaster_static!(IntersectAbleGroupedMesh)
+          .downcast_ref(mesh.as_ref().as_any())
         {
           pickable.intersect_nearest_by_group(ray, conf, group)
         } else {

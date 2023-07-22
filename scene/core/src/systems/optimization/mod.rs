@@ -143,7 +143,7 @@ fn compute_instance_key_inner(model: &SceneItemRef<StandardModel>) -> Option<Ins
 
   if let SceneMaterialType::Foreign(m) = &model.material {
     if get_dyn_trait_downcaster_static!(InstanceSourceRuleOut)
-      .downcast_ref(m.as_ref())
+      .downcast_ref(m.as_ref().as_any())
       .is_some()
     {
       return None;

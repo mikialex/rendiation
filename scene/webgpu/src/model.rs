@@ -79,10 +79,11 @@ pub fn setup_pass_core(
 
       RenderEmitter::new(components.as_slice()).render(&mut pass.ctx, draw_command);
     }
-    ModelType::Foreign(model) => {
-      if let Some(model) = model.downcast_ref::<Box<dyn SceneRenderable>>() {
-        model.render(pass, dispatcher, camera, resources)
-      }
+    ModelType::Foreign(_) => {
+      todo!()
+      // if let Some(model) = model.downcast_ref::<Box<dyn SceneRenderable>>() {
+      //   model.render(pass, dispatcher, camera, resources)
+      // }
     }
     _ => {}
   };
@@ -232,7 +233,7 @@ impl WebGPUSceneModel for ModelType {
     match self {
       Self::Standard(model) => ReactiveModelGPUType::Standard(build_standard_model_gpu(model, ctx)),
       Self::Foreign(m) => get_dyn_trait_downcaster_static!(WebGPUSceneModel)
-        .downcast_ref(m.as_ref())?
+        .downcast_ref(m.as_ref().as_any())?
         .create_scene_reactive_gpu(ctx)?,
       _ => return None,
     }

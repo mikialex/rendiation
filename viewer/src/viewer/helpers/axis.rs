@@ -1,4 +1,4 @@
-use std::{cell::RefCell, rc::Rc, sync::Arc};
+use std::{cell::RefCell, rc::Rc};
 
 use incremental::EnumWrap;
 use rendiation_algebra::*;
@@ -165,8 +165,8 @@ impl Arrow {
       )
       .build_mesh_into();
 
-    let cylinder_mesh = SceneMeshType::Foreign(Arc::new(cylinder.into_ref()));
-    let tip_mesh = SceneMeshType::Foreign(Arc::new(tip.into_ref()));
+    let cylinder_mesh = SceneMeshType::Foreign(Box::new(cylinder.into_ref()));
+    let tip_mesh = SceneMeshType::Foreign(Box::new(tip.into_ref()));
 
     (cylinder_mesh, tip_mesh)
   }

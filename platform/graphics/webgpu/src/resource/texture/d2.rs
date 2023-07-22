@@ -71,6 +71,7 @@ impl GPU2DTexture {
   }
 }
 
+define_dyn_trait_downcaster_static!(WebGPU2DTextureSource);
 pub trait WebGPU2DTextureSource: Send + Sync {
   fn format(&self) -> gpu::TextureFormat;
   fn as_bytes(&self) -> &[u8];

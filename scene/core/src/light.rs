@@ -6,7 +6,7 @@ pub enum SceneLightKind {
   PointLight(SceneItemRef<PointLight>),
   SpotLight(SceneItemRef<SpotLight>),
   DirectionalLight(SceneItemRef<DirectionalLight>),
-  Foreign(Arc<dyn Any + Send + Sync>),
+  Foreign(Box<dyn AnyClone + Send + Sync>),
 }
 
 clone_self_incremental!(SceneLightKind);
