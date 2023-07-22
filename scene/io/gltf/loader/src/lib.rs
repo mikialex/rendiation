@@ -365,7 +365,7 @@ fn build_image(data_input: gltf::image::Data) -> SceneTexture2D {
 }
 
 fn build_texture(texture: gltf::texture::Texture, ctx: &mut Context) -> Texture2DWithSamplingData {
-  let sampler = map_sampler(texture.sampler());
+  let sampler = map_sampler(texture.sampler()).into_ref();
   let image_index = texture.source().index();
   let texture = ctx.images.get(image_index).unwrap().clone();
   TextureWithSamplingData { texture, sampler }

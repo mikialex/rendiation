@@ -7,7 +7,7 @@ use crate::*;
 #[derive(Clone)]
 pub struct TextureWithSamplingData<T> {
   pub texture: T,
-  pub sampler: TextureSampler,
+  pub sampler: SceneItemRef<TextureSampler>,
 }
 
 impl<T: Clone + Send + Sync> SimpleIncremental for TextureWithSamplingData<T> {

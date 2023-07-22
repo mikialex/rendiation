@@ -480,13 +480,14 @@ impl Ctx {
       }
     })?;
 
-    let sampler = self
-      .samplers
-      .get_or_insert_with(ts.sampler, || map_sampler(ts.sampler, true).into())?;
+    let sampler_content = **ts.sampler.read();
+    let sampler = self.samplers.get_or_insert_with(sampler_content, || {
+      map_sampler(sampler_content, true).into()
+    })?;
 
     self
       .textures
-      .get_or_insert_with((ts.texture.guid(), ts.sampler), || {
+      .get_or_insert_with((ts.texture.guid(), sampler_content), || {
         gltf_json::Texture {
           name: Default::default(),
           sampler: Some(sampler),

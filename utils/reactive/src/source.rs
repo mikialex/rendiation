@@ -128,7 +128,7 @@ impl<T: 'static> EventSource<T> {
   pub fn unbound_listen_by<U>(
     &self,
     mapper: impl Fn(&T) -> U + Send + Sync + 'static,
-    init: impl Fn(&dyn Fn(U)),
+    init: impl FnOnce(&dyn Fn(U)),
   ) -> impl futures::Stream<Item = U>
   where
     U: Send + Sync + 'static,
@@ -139,7 +139,7 @@ impl<T: 'static> EventSource<T> {
   pub fn batch_listen_by<U>(
     &self,
     mapper: impl Fn(&T) -> U + Send + Sync + 'static,
-    init: impl Fn(&dyn Fn(U)),
+    init: impl FnOnce(&dyn Fn(U)),
   ) -> impl futures::Stream<Item = Vec<U>>
   where
     U: Send + Sync + 'static,
@@ -150,7 +150,7 @@ impl<T: 'static> EventSource<T> {
   pub fn single_listen_by<U>(
     &self,
     mapper: impl Fn(&T) -> U + Send + Sync + 'static,
-    init: impl Fn(&dyn Fn(U)),
+    init: impl FnOnce(&dyn Fn(U)),
   ) -> impl futures::Stream<Item = U> + 'static
   where
     U: Send + Sync + 'static,
@@ -161,7 +161,7 @@ impl<T: 'static> EventSource<T> {
   pub fn listen_by<C, U, N>(
     &self,
     mapper: impl Fn(&T) -> U + Send + Sync + 'static,
-    init: impl Fn(&dyn Fn(U)),
+    init: impl FnOnce(&dyn Fn(U)),
   ) -> impl futures::Stream<Item = N> + 'static
   where
     U: Send + Sync + 'static,

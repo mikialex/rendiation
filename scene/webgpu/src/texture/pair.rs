@@ -27,8 +27,10 @@ impl ShareBindableResourceCtx {
     &self,
     t: &Texture2DWithSamplingData,
   ) -> ReactiveGPUTextureSamplerPair {
-    let sampler = GPUSampler::create(t.sampler.into_gpu(), &self.gpu.device);
-    let sampler = sampler.create_default_view();
+    let ReactiveGPUSamplerView {
+      gpu: sampler,
+      changes: sampler_changes,
+    } = self.get_or_create_reactive_gpu_sampler(&t.sampler);
 
     let ReactiveGPU2DTextureView {
       gpu: texture,
@@ -37,7 +39,11 @@ impl ShareBindableResourceCtx {
 
     let pair = GPUTextureSamplerPair { texture, sampler };
 
-    ReactiveGPUTextureSamplerPair { pair, changes }
+    ReactiveGPUTextureSamplerPair {
+      pair,
+      changes,
+      sampler_changes,
+    }
   }
 }
 
@@ -45,7 +51,9 @@ impl ShareBindableResourceCtx {
 pub struct ReactiveGPUTextureSamplerPair {
   pair: GPUTextureSamplerPair,
   #[pin]
-  changes: Texture2dRenderComponentDeltaStream, // todo sampler gpu change streams
+  changes: Texture2dRenderComponentDeltaStream,
+  #[pin]
+  sampler_changes: SamplerRenderComponentDeltaStream,
 }
 
 impl Stream for ReactiveGPUTextureSamplerPair {
@@ -53,7 +61,17 @@ impl Stream for ReactiveGPUTextureSamplerPair {
 
   fn poll_next(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Option<Self::Item>> {
     let this = self.project();
-    this.changes.poll_next(cx)
+    let texture = this.changes.poll_next(cx);
+    let sampler = this.sampler_changes.poll_next(cx);
+    match (texture, sampler) {
+      (Poll::Ready(t), Poll::Ready(s)) => match (t, s) {
+        (Some(t), Some(s)) => Poll::Ready(Some(t | s)),
+        _ => Poll::Ready(None),
+      },
+      (Poll::Ready(r), Poll::Pending) => Poll::Ready(r),
+      (Poll::Pending, Poll::Ready(r)) => Poll::Ready(r),
+      (Poll::Pending, Poll::Pending) => Poll::Pending,
+    }
   }
 }
 

@@ -10,6 +10,7 @@ pub use d2::*;
 pub use pair::*;
 pub use sampler::*;
 
+#[derive(Clone)]
 pub enum TextureGPUChange {
   Reference2D(GPU2DTextureView),
   ReferenceCube(GPUCubeTextureView),
@@ -18,7 +19,7 @@ pub enum TextureGPUChange {
 }
 
 impl TextureGPUChange {
-  fn to_render_component_delta(&self) -> RenderComponentDeltaFlag {
+  fn into_render_component_delta(self) -> RenderComponentDeltaFlag {
     match self {
       TextureGPUChange::Reference2D(_) => RenderComponentDeltaFlag::ContentRef,
       TextureGPUChange::ReferenceCube(_) => RenderComponentDeltaFlag::ContentRef,

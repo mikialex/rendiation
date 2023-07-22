@@ -35,21 +35,17 @@ pub type ReactiveGPU2DTextureViewSource =
   impl AsRef<ReactiveGPU2DTextureSignal> + Stream<Item = TextureGPUChange>;
 
 impl ReactiveGPU2DTextureSignal {
-  // todo , fix send sync in webgpu resource first
-  // pub fn create_gpu_texture_stream(&self) -> impl Stream<Item = TextureGPUChange> {
-  //   // create channel here, and send the init value
-  //   let s = self
-  //     .inner
-  //     .listen_by(TextureGPUChange::to_render_component_delta);
-
-  //   s
-  // }
+  pub fn create_gpu_texture_stream(&self) -> impl Stream<Item = TextureGPUChange> {
+    let current = self.gpu.clone();
+    self.inner.single_listen_by(
+      |v| v.clone(),
+      |send| send(TextureGPUChange::Reference2D(current)),
+    )
+  }
   pub fn create_gpu_texture_com_delta_stream(&self) -> Texture2dRenderComponentDeltaStream {
     self
-      .inner
-      .unbound_listen_by(TextureGPUChange::to_render_component_delta, |v| {
-        v(RenderComponentDeltaFlag::ContentRef)
-      })
+      .create_gpu_texture_stream()
+      .map(TextureGPUChange::into_render_component_delta)
   }
 }
 

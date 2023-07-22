@@ -135,7 +135,7 @@ fn into_rff_material(m: &tobj::Material) -> SceneMaterialType {
 fn load_texture_sampler_pair(path: impl AsRef<Path>) -> Texture2DWithSamplingData {
   Texture2DWithSamplingData {
     texture: load_tex(path),
-    sampler: TextureSampler::tri_linear_repeat(),
+    sampler: TextureSampler::tri_linear_repeat().into_ref(),
   }
 }
 
