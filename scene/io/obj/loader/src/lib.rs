@@ -1,6 +1,6 @@
 use std::path::Path;
 
-use rendiation_algebra::Vec3;
+use rendiation_algebra::*;
 use rendiation_scene_core::{
   AttributeAccessor, AttributeIndexFormat, AttributeSemantic, AttributesMesh, IntoSceneItemRef,
   ModelType, NormalMapping, PhysicalSpecularGlossinessMaterial, Scene, SceneMaterialType,
@@ -19,7 +19,7 @@ pub fn load_obj(
   path: impl AsRef<Path> + std::fmt::Debug,
   scene: &Scene,
 ) -> Result<(), ObjLoadError> {
-  let models = load_obj_content(path, obj_loader_recommand_default_mat)?;
+  let models = load_obj_content(path, obj_loader_recommended_default_mat)?;
   let node = scene.create_root_child();
   for model in models {
     let model = SceneModelImpl {
@@ -47,32 +47,32 @@ pub fn load_obj_content(
       let mut attributes = Vec::with_capacity(3);
       attributes.push((
         AttributeSemantic::Positions,
-        AttributeAccessor::create_owned(m.mesh.positions.clone(), 1),
+        AttributeAccessor::create_owned(m.mesh.positions.clone(), 3),
       ));
       let vertices_count = m.mesh.positions.len() / 3;
 
       if !m.mesh.normals.is_empty() {
         attributes.push((
           AttributeSemantic::Normals,
-          AttributeAccessor::create_owned(m.mesh.positions.clone(), 1),
+          AttributeAccessor::create_owned(m.mesh.normals.clone(), 3),
         ));
       } else {
         // should we make this behavior configurable?
         attributes.push((
           AttributeSemantic::Normals,
-          AttributeAccessor::create_owned(vec![0.; vertices_count * 3], 1),
+          AttributeAccessor::create_owned(vec![Vec3::new(1., 0., 0.); vertices_count], 3),
         ));
       }
       if !m.mesh.texcoords.is_empty() {
         attributes.push((
           AttributeSemantic::TexCoords(0),
-          AttributeAccessor::create_owned(m.mesh.texcoords.clone(), 1),
+          AttributeAccessor::create_owned(m.mesh.texcoords.clone(), 2),
         ));
       } else {
         // should we make this behavior configurable?
         attributes.push((
           AttributeSemantic::TexCoords(0),
-          AttributeAccessor::create_owned(vec![0.; vertices_count * 2], 1),
+          AttributeAccessor::create_owned(vec![Vec2::new(0., 0.); vertices_count], 2),
         ));
       }
 
@@ -106,7 +106,7 @@ pub fn load_obj_content(
   Ok(models)
 }
 
-pub fn obj_loader_recommand_default_mat() -> SceneMaterialType {
+pub fn obj_loader_recommended_default_mat() -> SceneMaterialType {
   let mat = PhysicalSpecularGlossinessMaterial::default();
   SceneMaterialType::PhysicalSpecularGlossiness(mat.into_ref())
 }
@@ -146,6 +146,7 @@ fn load_normal_map(path: impl AsRef<Path>) -> NormalMapping {
   }
 }
 
+// todo texture loader should passed in and config ability freely
 fn load_tex(path: impl AsRef<Path>) -> SceneTexture2D {
   use image::io::Reader as ImageReader;
   let img = ImageReader::open(path).unwrap().decode().unwrap();

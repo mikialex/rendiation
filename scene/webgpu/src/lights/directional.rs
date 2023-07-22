@@ -175,8 +175,8 @@ clone_self_diffable_incremental!(WorkAroundResizableOrth);
 type_as_dyn_trait!(WorkAroundResizableOrth, CameraProjection);
 
 impl CameraProjection for WorkAroundResizableOrth {
-  fn update_projection(&self, projection: &mut Mat4<f32>) {
-    self.orth.update_projection::<WebGPU>(projection);
+  fn compute_projection_mat(&self) -> Mat4<f32> {
+    self.orth.compute_projection_mat::<WebGPU>()
   }
 
   fn resize(&mut self, _: (f32, f32)) {

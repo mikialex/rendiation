@@ -1,5 +1,5 @@
 use futures::StreamExt;
-use reactive::*;
+use reactive::SignalStreamExt;
 use rendiation_geometry::*;
 pub use rendiation_texture::Size;
 
@@ -18,6 +18,8 @@ impl SceneCamera {
   }
 
   pub fn create_projection_mat_stream(&self) -> impl Stream<Item = Mat4<f32>> {
+    // note, here we have to write like this because we do not have projector change in camera
+    // deltas
     self
       .single_listen_by(|view, send| match view {
         MaybeDeltaRef::Delta(delta) => match delta {
@@ -94,7 +96,8 @@ pub enum CameraProjector {
 }
 
 pub trait CameraProjection: Sync + Send + DynIncremental {
-  fn update_projection(&self, projection: &mut Mat4<f32>); // todo pass ndc space in?
+  /// note, currently we require the implementation use WebGPU NDC
+  fn compute_projection_mat(&self) -> Mat4<f32>;
   fn resize(&mut self, size: (f32, f32));
   fn pixels_per_unit(&self, distance: f32, view_height: f32) -> f32;
   fn cast_ray(&self, normalized_position: Vec2<f32>) -> Ray3<f32>;
@@ -102,18 +105,16 @@ pub trait CameraProjection: Sync + Send + DynIncremental {
 define_dyn_trait_downcaster_static!(CameraProjection);
 
 impl CameraProjector {
-  pub fn update_projection(&self, projection: &mut Mat4<f32>) {
+  pub fn compute_projection_mat(&self) -> Option<Mat4<f32>> {
     match self {
-      CameraProjector::Perspective(p) => p.update_projection::<WebGPU>(projection),
-      CameraProjector::ViewOrthographic(p) => p.update_projection::<WebGPU>(projection),
-      CameraProjector::Orthographic(p) => p.update_projection::<WebGPU>(projection),
-      CameraProjector::Foreign(p) => {
-        if let Some(p) = get_dyn_trait_downcaster_static!(CameraProjection).downcast_ref(p.as_ref())
-        {
-          p.update_projection(projection);
-        }
-      }
+      CameraProjector::Perspective(p) => p.compute_projection_mat::<WebGPU>(),
+      CameraProjector::ViewOrthographic(p) => p.compute_projection_mat::<WebGPU>(),
+      CameraProjector::Orthographic(p) => p.compute_projection_mat::<WebGPU>(),
+      CameraProjector::Foreign(p) => get_dyn_trait_downcaster_static!(CameraProjection)
+        .downcast_ref(p.as_ref())?
+        .compute_projection_mat(),
     }
+    .into()
   }
 
   pub fn resize(&mut self, size: (f32, f32)) {
@@ -192,9 +193,10 @@ impl AsRef<Self> for SceneCameraInner {
 
 impl SceneCameraInner {
   pub fn compute_project_mat(&self) -> Mat4<f32> {
-    let mut mat = Mat4::identity();
-    self.projection.update_projection(&mut mat);
-    mat
+    self
+      .projection
+      .compute_projection_mat()
+      .unwrap_or(Mat4::identity())
   }
 
   pub fn view_size_in_pixel(&self, frame_size: Size) -> Vec2<f32> {

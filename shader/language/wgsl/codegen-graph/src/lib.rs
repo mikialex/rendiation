@@ -573,7 +573,7 @@ fn gen_expr(data: &ShaderGraphNodeExpr, cx: &mut CodeGenCtx) -> String {
     }
     ShaderGraphNodeExpr::MatShrink { source, dimension } => {
       let from = cx.get_node_gen_result_var(*source);
-      // wgsl is terrible!
+      // wgsl is terrible! https://github.com/gpuweb/gpuweb/discussions/1421
       // todo, support node -> type and check;
       // todo, we only support 4 -> 3 now;
       // todo, check self if 4

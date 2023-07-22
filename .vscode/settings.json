@@ -127,6 +127,7 @@
         "sinc",
         "skipable",
         "Slerp",
+        "smallvec",
         "Sobol",
         "spirv",
         "splitn",
