@@ -40,6 +40,14 @@ impl ViewerPipeline {
 
     let mut mip_gen = scene.resources.bindable_ctx.gpu.mipmap_gen.borrow_mut();
     mip_gen.flush_mipmap_gen_request(ctx);
+    let mut single_proj_sys = scene
+      .scene_resources
+      .shadows
+      .single_proj_sys
+      .write()
+      .unwrap();
+    single_proj_sys.update_depth_maps(ctx, scene);
+    drop(single_proj_sys);
 
     let mut scene_depth = depth_attachment().request(ctx);
 

@@ -44,10 +44,12 @@ impl Stream for SceneGPUSystem {
     let models: &mut StreamMap<usize, ReactiveSceneModelGPUInstance> = &mut models;
     do_updates_by(models, cx, |_| {});
 
+    do_updates_by(this.lights, cx, |_| {});
+
     let mut cameras = this.cameras.write().unwrap();
     let cameras: &mut SceneCameraGPUSystem = &mut cameras;
     this.shadows.maintain(cameras, cx);
-    do_updates_by(this.lights, cx, |_| {});
+
     Poll::Pending
   }
 }
