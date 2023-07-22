@@ -64,6 +64,7 @@ impl ShadowMapAllocator {
       ..Zeroable::zeroed()
     };
 
+    sender.unbounded_send(current).ok();
     let allocation = LiveAllocation {
       size_requirement,
       info: current,
@@ -212,9 +213,7 @@ impl Stream for ShadowMap {
 impl ShadowMap {
   pub fn get_write_view(&self) -> (GPU2DTextureView, ShadowMapAddressInfo) {
     let inner = self.inner.borrow();
-    let id = inner.id;
-    let allocation = inner.allocations.get(&id).unwrap();
-
+    let allocation = inner.allocations.get(&self.id).unwrap();
     (
       inner
         .map

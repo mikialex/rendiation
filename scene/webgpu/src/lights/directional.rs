@@ -147,6 +147,7 @@ impl Default for DirectionalShadowMapExtraInfo {
 fn build_shadow_projection(
   light: &SceneItemRef<DirectionalLight>,
 ) -> impl Stream<Item = (CameraProjector, Size)> {
+  get_dyn_trait_downcaster_static!(CameraProjection).register::<WorkAroundResizableOrth>();
   light
     .single_listen_by(any_change)
     .filter_map_sync(light.defer_weak())
@@ -171,6 +172,7 @@ struct WorkAroundResizableOrth {
   orth: OrthographicProjection<f32>,
 }
 clone_self_diffable_incremental!(WorkAroundResizableOrth);
+type_as_dyn_trait!(WorkAroundResizableOrth, CameraProjection);
 
 impl CameraProjection for WorkAroundResizableOrth {
   fn update_projection(&self, projection: &mut Mat4<f32>) {

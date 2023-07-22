@@ -94,11 +94,12 @@ pub enum CameraProjector {
 }
 
 pub trait CameraProjection: Sync + Send + DynIncremental {
-  fn update_projection(&self, projection: &mut Mat4<f32>);
+  fn update_projection(&self, projection: &mut Mat4<f32>); // todo pass ndc space in?
   fn resize(&mut self, size: (f32, f32));
   fn pixels_per_unit(&self, distance: f32, view_height: f32) -> f32;
   fn cast_ray(&self, normalized_position: Vec2<f32>) -> Ray3<f32>;
 }
+define_dyn_trait_downcaster_static!(CameraProjection);
 
 impl CameraProjector {
   pub fn update_projection(&self, projection: &mut Mat4<f32>) {
@@ -106,7 +107,12 @@ impl CameraProjector {
       CameraProjector::Perspective(p) => p.update_projection::<WebGPU>(projection),
       CameraProjector::ViewOrthographic(p) => p.update_projection::<WebGPU>(projection),
       CameraProjector::Orthographic(p) => p.update_projection::<WebGPU>(projection),
-      CameraProjector::Foreign(_) => {}
+      CameraProjector::Foreign(p) => {
+        if let Some(p) = get_dyn_trait_downcaster_static!(CameraProjection).downcast_ref(p.as_ref())
+        {
+          p.update_projection(projection);
+        }
+      }
     }
   }
 
@@ -115,7 +121,13 @@ impl CameraProjector {
       CameraProjector::Perspective(p) => p.resize(size),
       CameraProjector::ViewOrthographic(p) => p.resize(size),
       CameraProjector::Orthographic(_) => {}
-      CameraProjector::Foreign(_) => {}
+      CameraProjector::Foreign(_p) => {
+        // todo, the arc not support mut
+        // if let Some(p) =
+        // get_dyn_trait_downcaster_static!(CameraProjection).downcast_mut(p.as_mut()) {
+        //   p.resize(size);
+        // }
+      }
     }
   }
 
@@ -124,7 +136,9 @@ impl CameraProjector {
       CameraProjector::Perspective(p) => p.pixels_per_unit(distance, view_height),
       CameraProjector::ViewOrthographic(p) => p.pixels_per_unit(distance, view_height),
       CameraProjector::Orthographic(p) => p.pixels_per_unit(distance, view_height),
-      CameraProjector::Foreign(_) => return None,
+      CameraProjector::Foreign(p) => get_dyn_trait_downcaster_static!(CameraProjection)
+        .downcast_ref(p.as_ref())?
+        .pixels_per_unit(distance, view_height),
     }
     .into()
   }
@@ -134,7 +148,9 @@ impl CameraProjector {
       CameraProjector::Perspective(p) => p.cast_ray(normalized_position),
       CameraProjector::ViewOrthographic(p) => p.cast_ray(normalized_position),
       CameraProjector::Orthographic(p) => p.cast_ray(normalized_position),
-      CameraProjector::Foreign(_) => return None,
+      CameraProjector::Foreign(p) => get_dyn_trait_downcaster_static!(CameraProjection)
+        .downcast_ref(p.as_ref())?
+        .cast_ray(normalized_position),
     }
     .into()
   }
