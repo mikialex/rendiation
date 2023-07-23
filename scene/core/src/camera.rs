@@ -122,12 +122,12 @@ impl CameraProjector {
       CameraProjector::Perspective(p) => p.resize(size),
       CameraProjector::ViewOrthographic(p) => p.resize(size),
       CameraProjector::Orthographic(_) => {}
-      CameraProjector::Foreign(_p) => {
-        // todo, the arc not support mut
-        // if let Some(p) =
-        // get_dyn_trait_downcaster_static!(CameraProjection).downcast_mut(p.as_mut()) {
-        //   p.resize(size);
-        // }
+      CameraProjector::Foreign(p) => {
+        if let Some(p) =
+          get_dyn_trait_downcaster_static!(CameraProjection).downcast_mut(p.as_mut().as_any_mut())
+        {
+          p.resize(size);
+        }
       }
     }
   }

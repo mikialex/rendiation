@@ -1,4 +1,5 @@
 #![feature(specialization)]
+#![feature(hash_raw_entry)]
 #![feature(type_alias_impl_trait)]
 #![allow(incomplete_features)]
 #![allow(clippy::field_reassign_with_default)]

@@ -3,10 +3,15 @@ use crate::*;
 #[derive(Default)]
 pub struct ResourcePoolImpl {
   attachments: FastHashMap<PooledTextureKey, SingleResourcePool>,
+  enable_reusing: bool,
 }
 
 impl ResourcePoolImpl {
   pub fn clear(&mut self) {
+    self.attachments.clear();
+  }
+  pub fn set_enable_reusing(&mut self, enable_reusing: bool) {
+    self.enable_reusing = enable_reusing;
     self.attachments.clear();
   }
 }
@@ -31,6 +36,13 @@ pub struct ResourcePool {
 impl ResourcePool {
   pub fn clear(&mut self) {
     self.inner.write().unwrap().clear()
+  }
+  pub fn set_enable_reusing(&mut self, enable_reusing: bool) {
+    self
+      .inner
+      .write()
+      .unwrap()
+      .set_enable_reusing(enable_reusing)
   }
 }
 
@@ -82,11 +94,13 @@ impl AsRef<Attachment> for Attachment {
 impl Drop for Attachment {
   fn drop(&mut self) {
     let mut pool = self.pool.inner.write().unwrap();
-    let pool = pool
-      .attachments
-      .entry(self.key) // maybe not exist when entire pool cleared when resize
-      .or_insert_with(Default::default);
-    pool.cached.push(self.texture.clone())
+    if pool.enable_reusing {
+      let pool = pool
+        .attachments
+        .entry(self.key) // maybe not exist when entire pool cleared when resize
+        .or_insert_with(Default::default);
+      pool.cached.push(self.texture.clone())
+    }
   }
 }
 

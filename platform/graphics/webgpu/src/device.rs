@@ -114,8 +114,15 @@ impl SamplerCache {
     let mut map = self.cache.write().unwrap();
     let desc = desc.into();
     map
-      .entry(desc.clone()) // todo optimize move
-      .or_insert_with(|| RawSampler(Arc::new(device.create_sampler(&desc.clone().into()))))
+      .raw_entry_mut()
+      .from_key(&desc)
+      .or_insert_with(|| {
+        (
+          desc.clone(),
+          RawSampler(Arc::new(device.create_sampler(&desc.clone().into()))),
+        )
+      })
+      .1
       .clone()
   }
 }
