@@ -69,7 +69,7 @@ impl WebGPUMaterial for FatLineMaterial {
       width: source.read().width,
       ..Zeroable::zeroed()
     };
-    let uniform = create_uniform2(uniform, &ctx.gpu.device);
+    let uniform = create_uniform(uniform, &ctx.gpu.device);
 
     let gpu = FatlineMaterialGPU { uniform };
     let state = RenderComponentCell::new(gpu);

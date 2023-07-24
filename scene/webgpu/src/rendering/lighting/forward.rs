@@ -214,7 +214,7 @@ impl ForwardLightingSystem {
     register_light_ty!(DirectionalLight);
     register_light_ty!(PointLight);
 
-    let lengths = create_uniform2(Default::default(), &gpu.device);
+    let lengths = create_uniform(Default::default(), &gpu.device);
 
     Self {
       gpu,

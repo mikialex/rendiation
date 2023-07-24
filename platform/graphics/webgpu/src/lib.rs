@@ -157,6 +157,12 @@ impl GPU {
   }
 }
 
+impl AsRef<GPUDevice> for GPU {
+  fn as_ref(&self) -> &GPUDevice {
+    &self.device
+  }
+}
+
 pub trait IndexBufferSourceType: Pod {
   const FORMAT: gpu::IndexFormat;
 }

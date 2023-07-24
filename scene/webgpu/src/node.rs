@@ -83,7 +83,7 @@ impl NodeGPU {
   }
 
   pub fn new(device: &GPUDevice) -> Self {
-    let ubo = create_uniform2(TransformGPUData::default(), device);
+    let ubo = create_uniform(TransformGPUData::default(), device);
     Self { ubo }
   }
 }

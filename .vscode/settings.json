@@ -132,6 +132,8 @@
         "spirv",
         "splitn",
         "SRGB",
+        "srgba",
+        "srgbness",
         "SSAO",
         "structor",
         "Subpixel",

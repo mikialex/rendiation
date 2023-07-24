@@ -23,10 +23,11 @@ use rendiation_texture::{create_padding_buffer, GPUBufferImage, TextureFormat};
 pub fn load_gltf(path: impl AsRef<Path>, scene: &Scene) -> GltfResult<GltfLoadResult> {
   let root = scene.root();
 
-  let (document, mut buffers, mut images) = gltf::import(path)?;
+  let (document, mut buffers, images) = gltf::import(path)?;
 
   let mut ctx = Context {
-    images: images.drain(..).map(build_image).collect(),
+    images,
+    build_images: Default::default(),
     attributes: buffers
       .drain(..)
       .map(|buffer| GeometryBufferInner { buffer: buffer.0 }.into())
@@ -58,7 +59,9 @@ pub fn load_gltf(path: impl AsRef<Path>, scene: &Scene) -> GltfResult<GltfLoadRe
 }
 
 struct Context {
-  images: Vec<SceneTexture2D>,
+  images: Vec<gltf::image::Data>,
+  /// map (image id, srgbness) => created texture
+  build_images: FastHashMap<(usize, bool), SceneTexture2D>,
   attributes: Vec<GeometryBuffer>,
   result: GltfLoadResult,
 }
@@ -286,18 +289,18 @@ fn build_pbr_material(
 
   let base_color_texture = pbr
     .base_color_texture()
-    .map(|tex| build_texture(tex.texture(), ctx));
+    .map(|tex| build_texture(tex.texture(), true, ctx));
 
   let metallic_roughness_texture = pbr
     .metallic_roughness_texture()
-    .map(|tex| build_texture(tex.texture(), ctx));
+    .map(|tex| build_texture(tex.texture(), false, ctx));
 
   let emissive_texture = material
     .emissive_texture()
-    .map(|tex| build_texture(tex.texture(), ctx));
+    .map(|tex| build_texture(tex.texture(), true, ctx));
 
   let normal_texture = material.normal_texture().map(|tex| NormalMapping {
-    content: build_texture(tex.texture(), ctx),
+    content: build_texture(tex.texture(), false, ctx),
     scale: tex.scale(),
   });
 
@@ -332,12 +335,12 @@ fn build_pbr_material(
 const F16_BYTES: [u8; 2] = half::f16::from_f32_const(1.0).to_le_bytes();
 const F32_BYTES: [u8; 4] = 1.0_f32.to_le_bytes();
 
-fn build_image(data_input: gltf::image::Data) -> SceneTexture2D {
-  let format = match data_input.format {
+fn build_image(data_input: gltf::image::Data, require_srgb: bool) -> SceneTexture2D {
+  let mut format = match data_input.format {
     gltf::image::Format::R8 => TextureFormat::R8Unorm,
     gltf::image::Format::R8G8 => TextureFormat::Rg8Unorm,
-    gltf::image::Format::R8G8B8 => TextureFormat::Rgba8UnormSrgb, // padding
-    gltf::image::Format::R8G8B8A8 => TextureFormat::Rgba8UnormSrgb,
+    gltf::image::Format::R8G8B8 => TextureFormat::Rgba8Unorm, // padding
+    gltf::image::Format::R8G8B8A8 => TextureFormat::Rgba8Unorm,
     gltf::image::Format::R16 => TextureFormat::R16Float,
     gltf::image::Format::R16G16 => TextureFormat::Rg16Float,
     gltf::image::Format::R16G16B16 => TextureFormat::Rgba16Float, // padding
@@ -345,6 +348,10 @@ fn build_image(data_input: gltf::image::Data) -> SceneTexture2D {
     gltf::image::Format::R32G32B32FLOAT => TextureFormat::Rgba32Float, // padding
     gltf::image::Format::R32G32B32A32FLOAT => TextureFormat::Rgba32Float,
   };
+
+  if require_srgb {
+    format = format.add_srgb_suffix();
+  }
 
   let data = if let Some((read_bytes, pad_bytes)) = match data_input.format {
     gltf::image::Format::R8G8B8 => (3, [255].as_slice()).into(),
@@ -364,9 +371,18 @@ fn build_image(data_input: gltf::image::Data) -> SceneTexture2D {
   SceneTexture2D::new(image)
 }
 
-fn build_texture(texture: gltf::texture::Texture, ctx: &mut Context) -> Texture2DWithSamplingData {
+fn build_texture(
+  texture: gltf::texture::Texture,
+  require_srgb: bool,
+  ctx: &mut Context,
+) -> Texture2DWithSamplingData {
   let sampler = map_sampler(texture.sampler()).into_ref();
   let image_index = texture.source().index();
-  let texture = ctx.images.get(image_index).unwrap().clone();
+  let texture = ctx
+    .build_images
+    .entry((image_index, require_srgb))
+    .or_insert_with(|| build_image(ctx.images.get(image_index).unwrap().clone(), require_srgb))
+    .clone();
+
   TextureWithSamplingData { texture, sampler }
 }

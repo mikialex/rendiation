@@ -166,7 +166,7 @@ impl WebGPUMaterial for PhysicalSpecularGlossinessMaterial {
     let m = source.read();
 
     let uniform = build_shader_uniform(&m);
-    let uniform = create_uniform2(uniform, &ctx.gpu.device);
+    let uniform = create_uniform(uniform, &ctx.gpu.device);
 
     let albedo_texture = m
       .albedo_texture
@@ -249,7 +249,7 @@ fn build_shader_uniform(
   m: &PhysicalSpecularGlossinessMaterial,
 ) -> PhysicalSpecularGlossinessMaterialUniform {
   let mut r = PhysicalSpecularGlossinessMaterialUniform {
-    albedo: m.albedo,
+    albedo: srgb_to_linear(m.albedo),
     specular: m.specular,
     emissive: m.emissive,
     glossiness: m.glossiness,

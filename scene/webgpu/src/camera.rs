@@ -184,7 +184,7 @@ impl CameraGPU {
   pub fn new(device: &GPUDevice) -> Self {
     Self {
       enable_jitter: false,
-      ubo: create_uniform2(CameraGPUTransform::default(), device),
+      ubo: create_uniform(CameraGPUTransform::default(), device),
     }
   }
 }

@@ -31,7 +31,7 @@ impl<T: Std140 + Default, const N: usize> ClampedUniformList<T, N> {
       source[i] = *light;
     }
     let source = source.try_into().unwrap();
-    let lights_gpu = create_uniform2(source, gpu);
+    let lights_gpu = create_uniform(source, gpu);
     self.gpu = lights_gpu.into();
     self.source.len()
   }

@@ -157,7 +157,7 @@ impl WebGPUMaterial for PhysicalMetallicRoughnessMaterial {
     let m = source.read();
 
     let uniform = build_shader_uniform(&m);
-    let uniform = create_uniform2(uniform, &ctx.gpu.device);
+    let uniform = create_uniform(uniform, &ctx.gpu.device);
 
     let base_color_texture = m
       .base_color_texture
@@ -235,7 +235,7 @@ fn build_shader_uniform(
   m: &PhysicalMetallicRoughnessMaterial,
 ) -> PhysicalMetallicRoughnessMaterialUniform {
   let mut r = PhysicalMetallicRoughnessMaterialUniform {
-    base_color: m.base_color,
+    base_color: srgb_to_linear(m.base_color),
     roughness: m.roughness,
     emissive: m.emissive,
     metallic: m.metallic,

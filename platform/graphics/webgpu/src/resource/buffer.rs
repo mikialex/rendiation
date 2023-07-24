@@ -99,11 +99,11 @@ pub struct UniformBufferDataView<T: Std140> {
 }
 
 /// just short convenient method
-pub fn create_uniform<T: Std140>(data: T, gpu: &GPU) -> UniformBufferDataView<T> {
-  UniformBufferDataView::create(&gpu.device, data)
-}
-pub fn create_uniform2<T: Std140>(data: T, device: &GPUDevice) -> UniformBufferDataView<T> {
-  UniformBufferDataView::create(device, data)
+pub fn create_uniform<T: Std140>(
+  data: T,
+  device: impl AsRef<GPUDevice>,
+) -> UniformBufferDataView<T> {
+  UniformBufferDataView::create(device.as_ref(), data)
 }
 
 impl<T: Std140> BindableResourceProvider for UniformBufferDataView<T> {

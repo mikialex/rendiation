@@ -4,6 +4,11 @@ use crate::*;
 pub struct GPUDevice {
   pub(crate) inner: Arc<GPUDeviceInner>,
 }
+impl AsRef<Self> for GPUDevice {
+  fn as_ref(&self) -> &Self {
+    self
+  }
+}
 
 impl GPUDevice {
   pub fn new(device: gpu::Device) -> Self {

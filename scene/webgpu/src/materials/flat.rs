@@ -57,11 +57,8 @@ impl WebGPUMaterial for FlatMaterial {
     source: &SceneItemRef<Self>,
     ctx: &ShareBindableResourceCtx,
   ) -> Self::ReactiveGPU {
-    let uniform = FlatMaterialUniform {
-      color: source.read().color,
-      ..Zeroable::zeroed()
-    };
-    let uniform = create_uniform2(uniform, &ctx.gpu.device);
+    let uniform = create_flat_material_uniform(&source.read());
+    let uniform = create_uniform(uniform, &ctx.gpu.device);
 
     let gpu = FlatMaterialGPU { uniform };
     let state = RenderComponentCell::new(gpu);
@@ -72,10 +69,7 @@ impl WebGPUMaterial for FlatMaterial {
       .single_listen_by::<()>(any_change_no_init)
       .filter_map_sync(source.defer_weak())
       .fold_signal(state, move |m, state| {
-        let uniform = FlatMaterialUniform {
-          color: m.read().color,
-          ..Zeroable::zeroed()
-        };
+        let uniform = create_flat_material_uniform(&m.read());
         state.inner.uniform.set(uniform);
         state.inner.uniform.upload(&ctx.gpu.queue);
         RenderComponentDeltaFlag::Content.into()
@@ -84,5 +78,12 @@ impl WebGPUMaterial for FlatMaterial {
 
   fn is_transparent(&self) -> bool {
     false
+  }
+}
+
+fn create_flat_material_uniform(m: &FlatMaterial) -> FlatMaterialUniform {
+  FlatMaterialUniform {
+    color: srgba_to_linear(m.color),
+    ..Zeroable::zeroed()
   }
 }
