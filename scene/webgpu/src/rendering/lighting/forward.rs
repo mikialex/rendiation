@@ -428,14 +428,18 @@ where
   /// the flatten signal in reactive crate
   fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
     let mut this = self.project();
-    Poll::Ready(loop {
+    loop {
       // compare to the flatten, we poll the outside stream first
-      if let Poll::Ready(Some(s)) = this.stream.as_mut().poll_next(cx) {
-        this.next.set(Some(s));
+      if let Poll::Ready(v) = this.stream.as_mut().poll_next(cx) {
+        if let Some(v) = v {
+          this.next.set(Some(v));
+        } else {
+          return Poll::Ready(None);
+        }
       } else if let Some(mut s) = this.next.as_mut().as_pin_mut() {
         if let Some(s) = s.as_mut().as_pin_mut() {
           if let Some(item) = ready!(s.poll_next(cx)) {
-            break Some(Some(item));
+            return Poll::Ready(Some(Some(item)));
           } else {
             this.next.set(None);
           }
@@ -443,9 +447,9 @@ where
           return Poll::Pending;
         }
       } else {
-        break None;
+        return Poll::Pending;
       }
-    })
+    }
   }
 }
 
