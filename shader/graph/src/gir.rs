@@ -405,8 +405,8 @@ shader_field_ty_mapper!(Mat3<f32>, Self);
 shader_field_ty_mapper!(Mat4<f32>, Self);
 
 // std140
-shader_field_ty_mapper!(Shader140Mat2, Mat2<f32>);
-shader_field_ty_mapper!(Shader140Mat3, Mat3<f32>);
+shader_field_ty_mapper!(Shader16PaddedMat2, Mat2<f32>);
+shader_field_ty_mapper!(Shader16PaddedMat3, Mat3<f32>);
 shader_field_ty_mapper!(Bool, bool);
 
 impl<T: ShaderStructMemberValueNodeType, const U: usize> ShaderFieldTypeMapper

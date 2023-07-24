@@ -51,6 +51,34 @@ macro_rules! primitive_ty {
   };
 }
 
+impl<T: ShaderStructMemberValueNodeType, const N: usize> ShaderGraphNodeType for [T; N] {
+  const TYPE: ShaderValueType = ShaderValueType::Fixed(
+    ShaderStructMemberValueType::FixedSizeArray((&T::MEMBER_TYPE, N)),
+  );
+}
+
+impl<T: ShaderStructMemberValueNodeType, const N: usize> ShaderGraphNodeType
+  for Shader140Array<T, N>
+{
+  const TYPE: ShaderValueType = ShaderValueType::Fixed(
+    ShaderStructMemberValueType::FixedSizeArray((&T::MEMBER_TYPE, N)),
+  );
+}
+
+impl<T: ShaderStructMemberValueNodeType, const N: usize> ShaderStructMemberValueNodeType
+  for [T; N]
+{
+  const MEMBER_TYPE: ShaderStructMemberValueType =
+    ShaderStructMemberValueType::FixedSizeArray((&T::MEMBER_TYPE, N));
+}
+
+impl<T: ShaderStructMemberValueNodeType, const N: usize> ShaderStructMemberValueNodeType
+  for Shader140Array<T, N>
+{
+  const MEMBER_TYPE: ShaderStructMemberValueType =
+    ShaderStructMemberValueType::FixedSizeArray((&T::MEMBER_TYPE, N));
+}
+
 // we group them together just to skip rustfmt entirely
 #[rustfmt::skip]
 mod impls {

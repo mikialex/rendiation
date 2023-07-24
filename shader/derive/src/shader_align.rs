@@ -42,8 +42,15 @@ fn check_attributes(attributes: &[Attribute]) -> Result<(), &'static str> {
   }
 }
 
-pub fn std140_impl(mut input: DeriveInput) -> TokenStream {
+pub fn shader_align_gen(
+  mut input: DeriveInput,
+  trait_name_str: &'static str,
+  min_struct_alignment: usize,
+) -> TokenStream {
   check_attributes(&input.attrs).unwrap();
+  let trait_name = format_ident!("{}", trait_name_str);
+  let trait_name = quote! {shadergraph::#trait_name};
+
   let input_name = &input.ident;
   let (impl_generics, ty_generics, where_clause) = input.generics.split_for_impl();
 
@@ -67,29 +74,21 @@ pub fn std140_impl(mut input: DeriveInput) -> TokenStream {
   // Gives an expression returning the layout-specific alignment for the type.
   let layout_alignment_of_ty = |ty: &Type| {
     quote! {
-        <#ty as shadergraph::Std140>::ALIGNMENT
-    }
-  };
-
-  // Gives an expression telling whether the type should have trailing padding
-  // at least equal to its alignment.
-  let layout_pad_at_end_of_ty = |ty: &Type| {
-    quote! {
-        <#ty as shadergraph::Std140>::PAD_AT_END
+        <#ty as #trait_name>::ALIGNMENT
     }
   };
 
   let field_alignments = fields.iter().map(|field| layout_alignment_of_ty(&field.ty));
   let struct_alignment = quote! {
       shadergraph::max_arr([
-          16,
+          #min_struct_alignment,
           #(#field_alignments,)*
       ])
   };
 
   // Generate names for each padding calculation function.
   let pad_fns: Vec<_> = (0..fields.len())
-    .map(|index| format_ident!("_{}__{}Pad{}", input_name, "std140", index))
+    .map(|index| format_ident!("_{}__{}Pad{}", input_name, trait_name_str, index))
     .collect();
 
   // Computes the offset immediately AFTER the field with the given index.
@@ -120,15 +119,11 @@ pub fn std140_impl(mut input: DeriveInput) -> TokenStream {
     output.into_iter().collect::<TokenStream>()
   };
 
-  let pad_fn_impls: TokenStream = fields
+  let pad_fn_impls: TokenStream = pad_fns
     .iter()
     .enumerate()
-    .map(|(index, prev_field)| {
-      let pad_fn = &pad_fns[index];
-
+    .map(|(index, pad_fn)| {
       let starting_offset = offset_after_field(index);
-      let prev_field_has_end_padding = layout_pad_at_end_of_ty(&prev_field.ty);
-      let prev_field_alignment = layout_alignment_of_ty(&prev_field.ty);
 
       let next_field_or_self_alignment = if index + 1 == fields.len() {
         quote!(#struct_alignment)
@@ -146,21 +141,10 @@ pub fn std140_impl(mut input: DeriveInput) -> TokenStream {
               // alignment we are.
               let starting_offset = #starting_offset;
 
-              // If the previous field is a struct or array, we must align
-              // the next field to at least THAT field's alignment.
-              let min_alignment = if #prev_field_has_end_padding {
-                  #prev_field_alignment
-              } else {
-                  0
-              };
-
               // We set our target alignment to the larger of the
               // alignment due to the previous field and the alignment
               // requirement of the next field.
-              let alignment = shadergraph::max(
-                  #next_field_or_self_alignment,
-                  min_alignment,
-              );
+              let alignment = #next_field_or_self_alignment;
 
               // Using everything we've got, compute our padding amount.
               shadergraph::align_offset(starting_offset, alignment)
@@ -172,9 +156,6 @@ pub fn std140_impl(mut input: DeriveInput) -> TokenStream {
   let mut new_fields = fields.clone();
   new_fields.clear();
   fields.iter().enumerate().for_each(|(index, f)| {
-    // let mut f = f.clone();
-    // let ty = &f.ty;
-    // f.ty = parse_quote!(<#ty as shadergraph::Std140TypeMapper>::StorageType);
     new_fields.push(f.clone());
 
     let pad_field_name = format_ident!("_pad{}", index);
@@ -192,9 +173,8 @@ pub fn std140_impl(mut input: DeriveInput) -> TokenStream {
       unsafe impl #impl_generics shadergraph::Zeroable for #input_name #ty_generics #where_clause {}
       unsafe impl #impl_generics shadergraph::Pod for #input_name #ty_generics #where_clause {}
 
-      unsafe impl #impl_generics shadergraph::Std140 for #input_name #ty_generics #where_clause {
+      unsafe impl #impl_generics #trait_name for #input_name #ty_generics #where_clause {
           const ALIGNMENT: usize = #struct_alignment;
-          const PAD_AT_END: bool = true;
       }
   };
 
@@ -219,7 +199,7 @@ pub fn std140_impl(mut input: DeriveInput) -> TokenStream {
     impl #impl_generics #input_name #ty_generics #where_clause {
         fn debug_metrics() -> String {
             let size = ::core::mem::size_of::<Self>();
-            let align = <Self as shadergraph::Std140>::ALIGNMENT;
+            let align = <Self as #trait_name>::ALIGNMENT;
 
             let zeroed: Self = shadergraph::Zeroable::zeroed();
 

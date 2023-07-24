@@ -32,13 +32,13 @@ impl Debug for Bool {
 #[repr(C)]
 #[rustfmt::skip]
 #[derive(Clone, Copy, Zeroable, Pod, PartialEq, Default)]
-pub struct Shader140Mat3 {
+pub struct Shader16PaddedMat3 {
   pub a1: f32, pub a2: f32, pub a3: f32, _pad1: f32,
   pub b1: f32, pub b2: f32, pub b3: f32, _pad2: f32,
   pub c1: f32, pub c2: f32, pub c3: f32, _pad3: f32,
 }
 
-impl From<Mat3<f32>> for Shader140Mat3 {
+impl From<Mat3<f32>> for Shader16PaddedMat3 {
   #[rustfmt::skip]
   fn from(v: Mat3<f32>) -> Self {
     Self {
@@ -50,9 +50,9 @@ impl From<Mat3<f32>> for Shader140Mat3 {
   }
 }
 
-impl From<Shader140Mat3> for Mat3<f32> {
+impl From<Shader16PaddedMat3> for Mat3<f32> {
   #[rustfmt::skip]
-  fn from(v: Shader140Mat3) -> Self {
+  fn from(v: Shader16PaddedMat3) -> Self {
     Self {
       a1: v.a1, a2: v.a2, a3: v.a3,
       b1: v.b1, b2: v.b2, b3: v.b3,
@@ -64,12 +64,12 @@ impl From<Shader140Mat3> for Mat3<f32> {
 #[repr(C)]
 #[rustfmt::skip]
 #[derive(Clone, Copy, Zeroable, Pod, PartialEq, Default)]
-pub struct Shader140Mat2 {
+pub struct Shader16PaddedMat2 {
   pub a1:f32, pub a2:f32, _pad1: [f32; 2],
   pub b1:f32, pub b2:f32, _pad2: [f32; 2],
 }
 
-impl From<Mat2<f32>> for Shader140Mat2 {
+impl From<Mat2<f32>> for Shader16PaddedMat2 {
   #[rustfmt::skip]
   fn from(v: Mat2<f32>) -> Self {
     Self {
@@ -80,9 +80,9 @@ impl From<Mat2<f32>> for Shader140Mat2 {
   }
 }
 
-impl From<Shader140Mat2> for Mat2<f32> {
+impl From<Shader16PaddedMat2> for Mat2<f32> {
   #[rustfmt::skip]
-  fn from(v: Shader140Mat2) -> Self {
+  fn from(v: Shader16PaddedMat2) -> Self {
     Self {
       a1: v.a1, a2: v.a2,
       b1: v.b1, b2: v.b2,

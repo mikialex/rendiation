@@ -18,7 +18,7 @@ pub mod interpolation;
 pub mod mat;
 pub mod projection;
 pub mod quat;
-pub mod std140;
+pub mod shader_aligned;
 pub mod vec;
 
 mod inc;
@@ -33,7 +33,7 @@ pub use mat::*;
 pub use num_traits::Zero;
 use num_traits::*;
 pub use projection::*;
-pub use std140::*;
+pub use shader_aligned::*;
 pub use vec::*;
 
 pub use self::quat::*;

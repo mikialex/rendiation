@@ -93,7 +93,7 @@ impl NodeGPU {
 #[derive(Clone, Copy, Default, PartialEq, ShaderStruct)]
 pub struct TransformGPUData {
   pub world_matrix: Mat4<f32>,
-  pub normal_matrix: Shader140Mat3,
+  pub normal_matrix: Shader16PaddedMat3,
 }
 
 impl TransformGPUData {

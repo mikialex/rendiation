@@ -1,19 +1,11 @@
 use crate::*;
 
-pub trait Std140TypeMapper {
-  type StorageType: Std140;
-}
-
-impl<T: Std140> Std140TypeMapper for T {
-  type StorageType = Self;
-}
-
 /// Trait implemented for all `std140` primitives. Generally should not be
 /// implemented outside this crate.
 ///
 /// # Safety
 ///
-///  should only be impl for std140 layout type, except for primitives
+///  should only be impl for std140 layout type
 pub unsafe trait Std140: Copy + Zeroable + Pod + 'static {
   /// The required alignment of the type. Must be a power of two.
   ///
@@ -22,12 +14,6 @@ pub unsafe trait Std140: Copy + Zeroable + Pod + 'static {
   /// control and zero their padding bytes, making converting them to and from
   /// slices safe.
   const ALIGNMENT: usize;
-
-  /// Whether this type requires a padding at the end (ie, is a struct or an array
-  /// of primitives).
-  /// See <https://www.khronos.org/registry/OpenGL/specs/gl/glspec45.core.pdf#page=159>
-  /// (rule 4 and 9)
-  const PAD_AT_END: bool = false;
 
   /// Casts the type to a byte array. Implementors should not override this
   /// method.
@@ -59,9 +45,6 @@ unsafe impl Std140 for u32 {
 unsafe impl Std140 for Bool {
   const ALIGNMENT: usize = 4;
 }
-impl Std140TypeMapper for bool {
-  type StorageType = Bool;
-}
 
 unsafe impl Std140 for Vec2<f32> {
   const ALIGNMENT: usize = 8;
@@ -87,25 +70,16 @@ unsafe impl Std140 for Vec4<u32> {
   const ALIGNMENT: usize = 16;
 }
 
-unsafe impl Std140 for Shader140Mat2 {
+unsafe impl Std140 for Shader16PaddedMat2 {
   const ALIGNMENT: usize = 16;
-  const PAD_AT_END: bool = true;
-}
-impl Std140TypeMapper for Mat2<f32> {
-  type StorageType = Shader140Mat2;
 }
 
-unsafe impl Std140 for Shader140Mat3 {
+unsafe impl Std140 for Shader16PaddedMat3 {
   const ALIGNMENT: usize = 16;
-  const PAD_AT_END: bool = true;
-}
-impl Std140TypeMapper for Mat3<f32> {
-  type StorageType = Shader140Mat3;
 }
 
 unsafe impl Std140 for Mat4<f32> {
   const ALIGNMENT: usize = 16;
-  const PAD_AT_END: bool = true;
 }
 
 /// Gives the number of bytes needed to make `offset` be aligned to `alignment`.
@@ -203,34 +177,4 @@ unsafe impl<T: Pod, const U: usize> Pod for Shader140Array<T, U> {}
 
 unsafe impl<T: Std140, const U: usize> Std140 for Shader140Array<T, U> {
   const ALIGNMENT: usize = max(16, T::ALIGNMENT);
-
-  const PAD_AT_END: bool = true;
-}
-
-impl<T: ShaderStructMemberValueNodeType, const N: usize> ShaderGraphNodeType for [T; N] {
-  const TYPE: ShaderValueType = ShaderValueType::Fixed(
-    ShaderStructMemberValueType::FixedSizeArray((&T::MEMBER_TYPE, N)),
-  );
-}
-
-impl<T: ShaderStructMemberValueNodeType, const N: usize> ShaderGraphNodeType
-  for Shader140Array<T, N>
-{
-  const TYPE: ShaderValueType = ShaderValueType::Fixed(
-    ShaderStructMemberValueType::FixedSizeArray((&T::MEMBER_TYPE, N)),
-  );
-}
-
-impl<T: ShaderStructMemberValueNodeType, const N: usize> ShaderStructMemberValueNodeType
-  for [T; N]
-{
-  const MEMBER_TYPE: ShaderStructMemberValueType =
-    ShaderStructMemberValueType::FixedSizeArray((&T::MEMBER_TYPE, N));
-}
-
-impl<T: ShaderStructMemberValueNodeType, const N: usize> ShaderStructMemberValueNodeType
-  for Shader140Array<T, N>
-{
-  const MEMBER_TYPE: ShaderStructMemberValueType =
-    ShaderStructMemberValueType::FixedSizeArray((&T::MEMBER_TYPE, N));
 }
