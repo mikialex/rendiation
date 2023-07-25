@@ -98,7 +98,7 @@ impl ShaderPassBuilder for BasicShadowMapInfoList {
 
 #[repr(C)]
 #[std140_layout]
-#[derive(Clone, Copy, Default, ShaderStruct)]
+#[derive(Clone, Copy, Default, ShaderStruct, Debug)]
 pub struct BasicShadowMapInfo {
   pub shadow_camera: CameraGPUTransform,
   pub bias: ShadowBias,
@@ -107,10 +107,11 @@ pub struct BasicShadowMapInfo {
 
 #[repr(C)]
 #[std140_layout]
-#[derive(Clone, Copy, Default, ShaderStruct)]
+#[derive(Clone, Copy, Default, ShaderStruct, Debug)]
 pub struct ShadowBias {
   pub bias: f32,
   pub normal_bias: f32,
+  pub padding: Vec2<f32>, // todo fix
 }
 
 impl ShadowBias {
@@ -130,6 +131,7 @@ pub struct ShadowMapAddressInfo {
   pub layer_index: i32,
   pub size: Vec2<f32>,
   pub offset: Vec2<f32>,
+  pub padding: Vec2<f32>, // todo fix
 }
 
 #[repr(C)]

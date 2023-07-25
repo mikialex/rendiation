@@ -740,17 +740,10 @@ fn gen_struct(builder: &mut CodeBuilder, meta: &ShaderStructMetaInfoOwned, is_un
       current_byte_used += padding_size;
 
       let align_require = ty.align_of_self(StructLayoutTarget::Std140);
-      let sizer = if padding_size != 0 && index + 1 == meta.fields.len() {
-        format!(
-          "@size({})",
-          ty.size_of_self(StructLayoutTarget::Std140) + padding_size
-        )
-      } else {
-        String::new()
-      };
+      let real_size = ty.size_of_self(StructLayoutTarget::Std140) + padding_size;
 
       builder.write_ln(format!(
-        "{sizer} @align({align_require}) {}: {},",
+        "@size({real_size}) @align({align_require}) {}: {},",
         name,
         gen_fix_type_impl(*ty, true)
       ));
