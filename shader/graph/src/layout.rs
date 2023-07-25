@@ -22,24 +22,19 @@ impl ShaderStructMetaInfoOwned {
   }
 
   pub fn size_of_self(&self, target: StructLayoutTarget) -> usize {
-    let mut last_offset_and_size_of_member = None::<(usize, usize)>;
-
-    for field in &self.fields {
-      if let Some((last_offset, last_size)) = last_offset_and_size_of_member {
-        last_offset_and_size_of_member = (
-          round_up(field.ty.align_of_self(target), last_offset + last_size),
-          field.ty.size_of_self(target),
-        )
-          .into();
+    let mut offset = 0;
+    for (index, field) in self.fields.iter().enumerate() {
+      let size = field.ty.size_of_self(target);
+      let alignment = if index + 1 == self.fields.len() {
+        self.align_of_self(target)
       } else {
-        last_offset_and_size_of_member = (0, field.ty.size_of_self(target)).into();
-      }
+        self.fields[index + 1].ty.align_of_self(target)
+      };
+      offset += size;
+      let pad_size = align_offset(offset, alignment);
+      offset += pad_size;
     }
-
-    round_up(
-      last_offset_and_size_of_member.unwrap().0,
-      self.align_of_self(target),
-    )
+    offset
   }
 }
 
@@ -118,7 +113,7 @@ impl PrimitiveShaderValueType {
       PrimitiveShaderValueType::Vec3Float32 => 12,
       PrimitiveShaderValueType::Vec4Float32 => 16,
       PrimitiveShaderValueType::Mat2Float32 => 16,
-      PrimitiveShaderValueType::Mat3Float32 => 36,
+      PrimitiveShaderValueType::Mat3Float32 => 48,
       PrimitiveShaderValueType::Mat4Float32 => 64,
       PrimitiveShaderValueType::Vec2Uint32 => 8,
       PrimitiveShaderValueType::Vec3Uint32 => 12,

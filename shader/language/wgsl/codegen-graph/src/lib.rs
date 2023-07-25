@@ -726,33 +726,34 @@ fn gen_struct(builder: &mut CodeBuilder, meta: &ShaderStructMetaInfoOwned, is_un
 
   if is_uniform {
     let mut current_byte_used = 0;
-    for ShaderStructFieldMetaInfoOwned { name, ty, .. } in &meta.fields {
-      let mut explicit_align: Option<usize> = None;
+    for (index, ShaderStructFieldMetaInfoOwned { name, ty, .. }) in meta.fields.iter().enumerate() {
+      let next_align_requirement = if index + 1 == meta.fields.len() {
+        meta.align_of_self(StructLayoutTarget::Std140)
+      } else {
+        meta.fields[index + 1]
+          .ty
+          .align_of_self(StructLayoutTarget::Std140)
+      };
+
+      current_byte_used += ty.size_of_self(StructLayoutTarget::Std140);
+      let padding_size = align_offset(current_byte_used, next_align_requirement);
+      current_byte_used += padding_size;
+
       let align_require = ty.align_of_self(StructLayoutTarget::Std140);
-      if current_byte_used % align_require != 0 {
-        explicit_align = align_require.into();
-      }
-
-      // If a structure member itself has a structure type S, then the number of bytes between
-      // the start of that member and the start of any following member must be at least roundUp(16,
-      // SizeOf(S)).
-      if let ShaderStructMemberValueType::Struct(_) = ty {
-        explicit_align = 16.into();
-      }
-
-      let explicit_align = explicit_align
-        .map(|a| format!(" @align({a})"))
-        .unwrap_or_default();
+      let sizer = if padding_size != 0 && index + 1 == meta.fields.len() {
+        format!(
+          "@size({})",
+          ty.size_of_self(StructLayoutTarget::Std140) + padding_size
+        )
+      } else {
+        String::new()
+      };
 
       builder.write_ln(format!(
-        "{} {}: {},",
-        explicit_align,
+        "{sizer} @align({align_require}) {}: {},",
         name,
         gen_fix_type_impl(*ty, true)
       ));
-
-      current_byte_used += ty.size_of_self(StructLayoutTarget::Std140);
-      current_byte_used = round_up(current_byte_used, align_require);
     }
   } else {
     for ShaderStructFieldMetaInfoOwned { name, ty, ty_deco } in &meta.fields {
