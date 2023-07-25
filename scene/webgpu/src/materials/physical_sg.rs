@@ -249,7 +249,7 @@ fn build_shader_uniform(
   m: &PhysicalSpecularGlossinessMaterial,
 ) -> PhysicalSpecularGlossinessMaterialUniform {
   let mut r = PhysicalSpecularGlossinessMaterialUniform {
-    albedo: srgb_to_linear(m.albedo),
+    albedo: m.albedo,
     specular: m.specular,
     emissive: m.emissive,
     glossiness: m.glossiness,

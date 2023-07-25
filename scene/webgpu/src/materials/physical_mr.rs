@@ -235,7 +235,7 @@ fn build_shader_uniform(
   m: &PhysicalMetallicRoughnessMaterial,
 ) -> PhysicalMetallicRoughnessMaterialUniform {
   let mut r = PhysicalMetallicRoughnessMaterialUniform {
-    base_color: srgb_to_linear(m.base_color),
+    base_color: m.base_color,
     roughness: m.roughness,
     emissive: m.emissive,
     metallic: m.metallic,
