@@ -740,13 +740,31 @@ fn gen_struct(builder: &mut CodeBuilder, meta: &ShaderStructMetaInfoOwned, is_un
       current_byte_used += padding_size;
 
       let align_require = ty.align_of_self(StructLayoutTarget::Std140);
-      let real_size = ty.size_of_self(StructLayoutTarget::Std140) + padding_size;
 
       builder.write_ln(format!(
-        "@size({real_size}) @align({align_require}) {}: {},",
+        "@align({align_require}) {}: {},",
         name,
         gen_fix_type_impl(*ty, true)
       ));
+
+      // this part is to solve a nasty memory layout issue:
+      // 140 struct requires 16 alignment, when the struct used in array, it's size is divisible by
+      // 16 but when use struct in struct it is not necessarily divisible by 16 (at least in
+      // some backend like metal). in upper level api (our std140 auto padding macro), we always
+      // make sure the size is round up to 16, so we have to solve the struct in struct case.
+      //
+      // at first, I tried use the wgsl @size notion to mark the last field with it's real size +
+      // padding size but it has no effect on my mac. the code below is my final workaround
+      // solution: we just generate the padding fields directly in wgsl and everything looks
+      // fine now.
+      if index + 1 == meta.fields.len() && padding_size > 0 {
+        assert!(padding_size % 4 == 0); // we assume the minimal type size is 4 bytes.
+        let pad_count = padding_size / 4;
+        // not using array here because I do not want hit anther strange layout issue!
+        for i in 0..pad_count {
+          builder.write_ln(format!("tail_padding_{i}: u32,",));
+        }
+      }
     }
   } else {
     for ShaderStructFieldMetaInfoOwned { name, ty, ty_deco } in &meta.fields {

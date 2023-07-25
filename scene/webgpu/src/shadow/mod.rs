@@ -111,7 +111,6 @@ pub struct BasicShadowMapInfo {
 pub struct ShadowBias {
   pub bias: f32,
   pub normal_bias: f32,
-  pub padding: Vec2<f32>, // todo fix
 }
 
 impl ShadowBias {
@@ -131,7 +130,6 @@ pub struct ShadowMapAddressInfo {
   pub layer_index: i32,
   pub size: Vec2<f32>,
   pub offset: Vec2<f32>,
-  pub padding: Vec2<f32>, // todo fix
 }
 
 #[repr(C)]
