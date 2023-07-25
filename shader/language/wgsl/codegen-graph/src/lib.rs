@@ -187,7 +187,7 @@ fn gen_vertex_out_struct(code: &mut CodeBuilder, vertex: &ShaderGraphVertexBuild
       });
     });
 
-  gen_struct(code, &shader_struct, false);
+  gen_struct(code, &shader_struct, None);
 }
 
 fn _gen_interpolation(int: ShaderVaryingInterpolation) -> &'static str {
@@ -241,7 +241,7 @@ fn gen_fragment_out_struct(code: &mut CodeBuilder, frag: &ShaderGraphFragmentBui
     });
   }
 
-  gen_struct(code, &shader_struct, false);
+  gen_struct(code, &shader_struct, None);
 }
 
 fn gen_node_with_dep_in_entry(
@@ -618,7 +618,7 @@ fn gen_uniform_structs(
             gen_uniform_structs_impl(code, cx, &f.ty);
           }
 
-          gen_struct(code, &(*meta).to_owned(), true);
+          gen_struct(code, &(*meta).to_owned(), StructLayoutTarget::Std140.into());
         }
       }
       ShaderStructMemberValueType::FixedSizeArray((ty, _)) => {
@@ -642,7 +642,7 @@ fn gen_uniform_structs(
 }
 
 fn gen_none_host_shareable_struct(builder: &mut CodeBuilder, meta: &ShaderStructMetaInfoOwned) {
-  gen_struct(builder, meta, false)
+  gen_struct(builder, meta, None)
 }
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
@@ -720,26 +720,28 @@ fn check_should_wrap(ty: &ShaderStructMemberValueType) -> Option<ReWrappedPrimit
 /// add last field size/alignment to meet the requirement.
 ///
 /// https://www.w3.org/TR/WGSL/#structure-member-layout
-fn gen_struct(builder: &mut CodeBuilder, meta: &ShaderStructMetaInfoOwned, is_uniform: bool) {
+fn gen_struct(
+  builder: &mut CodeBuilder,
+  meta: &ShaderStructMetaInfoOwned,
+  layout: Option<StructLayoutTarget>,
+) {
   builder.write_ln(format!("struct {} {{", meta.name));
   builder.tab();
 
-  if is_uniform {
+  if let Some(layout) = layout {
     let mut current_byte_used = 0;
     for (index, ShaderStructFieldMetaInfoOwned { name, ty, .. }) in meta.fields.iter().enumerate() {
       let next_align_requirement = if index + 1 == meta.fields.len() {
-        meta.align_of_self(StructLayoutTarget::Std140)
+        meta.align_of_self(layout)
       } else {
-        meta.fields[index + 1]
-          .ty
-          .align_of_self(StructLayoutTarget::Std140)
+        meta.fields[index + 1].ty.align_of_self(layout)
       };
 
-      current_byte_used += ty.size_of_self(StructLayoutTarget::Std140);
+      current_byte_used += ty.size_of_self(layout);
       let padding_size = align_offset(current_byte_used, next_align_requirement);
       current_byte_used += padding_size;
 
-      let align_require = ty.align_of_self(StructLayoutTarget::Std140);
+      let align_require = ty.align_of_self(layout);
 
       builder.write_ln(format!(
         "@align({align_require}) {}: {},",
