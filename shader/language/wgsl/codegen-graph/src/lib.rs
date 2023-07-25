@@ -187,7 +187,7 @@ fn gen_vertex_out_struct(code: &mut CodeBuilder, vertex: &ShaderGraphVertexBuild
       });
     });
 
-  gen_struct(code, &shader_struct, false);
+  gen_struct(code, &shader_struct, None);
 }
 
 fn _gen_interpolation(int: ShaderVaryingInterpolation) -> &'static str {
@@ -241,7 +241,7 @@ fn gen_fragment_out_struct(code: &mut CodeBuilder, frag: &ShaderGraphFragmentBui
     });
   }
 
-  gen_struct(code, &shader_struct, false);
+  gen_struct(code, &shader_struct, None);
 }
 
 fn gen_node_with_dep_in_entry(
@@ -618,7 +618,7 @@ fn gen_uniform_structs(
             gen_uniform_structs_impl(code, cx, &f.ty);
           }
 
-          gen_struct(code, &(*meta).to_owned(), true);
+          gen_struct(code, &(*meta).to_owned(), StructLayoutTarget::Std140.into());
         }
       }
       ShaderStructMemberValueType::FixedSizeArray((ty, _)) => {
@@ -642,7 +642,7 @@ fn gen_uniform_structs(
 }
 
 fn gen_none_host_shareable_struct(builder: &mut CodeBuilder, meta: &ShaderStructMetaInfoOwned) {
-  gen_struct(builder, meta, false)
+  gen_struct(builder, meta, None)
 }
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
@@ -720,39 +720,53 @@ fn check_should_wrap(ty: &ShaderStructMemberValueType) -> Option<ReWrappedPrimit
 /// add last field size/alignment to meet the requirement.
 ///
 /// https://www.w3.org/TR/WGSL/#structure-member-layout
-fn gen_struct(builder: &mut CodeBuilder, meta: &ShaderStructMetaInfoOwned, is_uniform: bool) {
+fn gen_struct(
+  builder: &mut CodeBuilder,
+  meta: &ShaderStructMetaInfoOwned,
+  layout: Option<StructLayoutTarget>,
+) {
   builder.write_ln(format!("struct {} {{", meta.name));
   builder.tab();
 
-  if is_uniform {
+  if let Some(layout) = layout {
     let mut current_byte_used = 0;
-    for ShaderStructFieldMetaInfoOwned { name, ty, .. } in &meta.fields {
-      let mut explicit_align: Option<usize> = None;
-      let align_require = ty.align_of_self(StructLayoutTarget::Std140);
-      if current_byte_used % align_require != 0 {
-        explicit_align = align_require.into();
-      }
+    for (index, ShaderStructFieldMetaInfoOwned { name, ty, .. }) in meta.fields.iter().enumerate() {
+      let next_align_requirement = if index + 1 == meta.fields.len() {
+        meta.align_of_self(layout)
+      } else {
+        meta.fields[index + 1].ty.align_of_self(layout)
+      };
 
-      // If a structure member itself has a structure type S, then the number of bytes between
-      // the start of that member and the start of any following member must be at least roundUp(16,
-      // SizeOf(S)).
-      if let ShaderStructMemberValueType::Struct(_) = ty {
-        explicit_align = 16.into();
-      }
+      current_byte_used += ty.size_of_self(layout);
+      let padding_size = align_offset(current_byte_used, next_align_requirement);
+      current_byte_used += padding_size;
 
-      let explicit_align = explicit_align
-        .map(|a| format!(" @align({a})"))
-        .unwrap_or_default();
+      let align_require = ty.align_of_self(layout);
 
       builder.write_ln(format!(
-        "{} {}: {},",
-        explicit_align,
+        "@align({align_require}) {}: {},",
         name,
         gen_fix_type_impl(*ty, true)
       ));
 
-      current_byte_used += ty.size_of_self(StructLayoutTarget::Std140);
-      current_byte_used = round_up(current_byte_used, align_require);
+      // this part is to solve a nasty memory layout issue:
+      // 140 struct requires 16 alignment, when the struct used in array, it's size is divisible by
+      // 16 but when use struct in struct it is not necessarily divisible by 16 (at least in
+      // some backend like metal). in upper level api (our std140 auto padding macro), we always
+      // make sure the size is round up to 16, so we have to solve the struct in struct case.
+      //
+      // at first, I tried use the wgsl @size notion to mark the last field with it's real size +
+      // padding size but it has no effect on my mac. the code below is my final workaround
+      // solution: we just generate the padding fields directly in wgsl and everything looks
+      // fine now.
+      if index + 1 == meta.fields.len() && padding_size > 0 {
+        assert!(padding_size % 4 == 0); // we assume the minimal type size is 4 bytes.
+        let pad_count = padding_size / 4;
+        // not using array here because I do not want hit anther strange layout issue!
+        for i in 0..pad_count {
+          builder.write_ln(format!("tail_padding_{i}: u32,",));
+        }
+      }
     }
   } else {
     for ShaderStructFieldMetaInfoOwned { name, ty, ty_deco } in &meta.fields {
