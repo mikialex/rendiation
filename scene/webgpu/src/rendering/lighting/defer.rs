@@ -212,7 +212,7 @@ struct SingleLight<'a, T: Std140> {
   light: &'a UniformBufferDataView<T>,
 }
 
-impl<'a, T: Std140 + ShaderGraphNodeType> ShaderPassBuilder for SingleLight<'a, T> {
+impl<'a, T: Std140 + ShaderStructMemberValueNodeType> ShaderPassBuilder for SingleLight<'a, T> {
   fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
     ctx.binding.bind(self.light)
   }

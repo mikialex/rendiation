@@ -2,18 +2,31 @@ use shadergraph::*;
 
 pub use crate::*;
 
-impl<T: ShaderGraphNodeType + Std140> ShaderUniformProvider for UniformBufferDataView<T> {
+impl<T: ShaderStructMemberValueNodeType + Std140> ShaderBindingProvider
+  for UniformBufferDataView<T>
+{
   type Node = T;
+  fn binding_type() -> ShaderBindingType {
+    ShaderBindingType::Uniform(T::MEMBER_TYPE)
+  }
 }
 
-impl<T: ShaderGraphNodeType + Std430> ShaderUniformProvider for StorageBufferDataView<T> {
+impl<T: ShaderUnsizedValueNodeType + Std430> ShaderBindingProvider for StorageBufferDataView<T> {
   type Node = T;
+  fn binding_type() -> ShaderBindingType {
+    ShaderBindingType::Storage(T::UNSIZED_TYPE)
+  }
 }
 
 macro_rules! map_shader_ty {
   ($ty: ty, $shader_ty: ty) => {
-    impl ShaderUniformProvider for $ty {
+    impl ShaderBindingProvider for $ty {
       type Node = $shader_ty;
+      fn binding_type() -> ShaderBindingType {
+        <$shader_ty as ShaderGraphNodeType>::TYPE
+          .try_into()
+          .unwrap()
+      }
     }
   };
 }

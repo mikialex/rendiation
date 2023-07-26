@@ -10,20 +10,30 @@ pub struct TestUniform {
   pub data3: Vec3<f32>,
 }
 
-impl ShaderUniformProvider for TestUniform {
+impl ShaderBindingProvider for TestUniform {
   type Node = Self;
+
+  fn binding_type() -> ShaderBindingType {
+    ShaderBindingType::Uniform(Self::MEMBER_TYPE)
+  }
 }
 
 pub struct FakeTexture2d;
 
-impl ShaderUniformProvider for FakeTexture2d {
+impl ShaderBindingProvider for FakeTexture2d {
   type Node = ShaderTexture2D;
+  fn binding_type() -> ShaderBindingType {
+    ShaderTexture2D::TYPE.try_into().unwrap()
+  }
 }
 
 pub struct FakeSampler;
 
-impl ShaderUniformProvider for FakeSampler {
+impl ShaderBindingProvider for FakeSampler {
   type Node = ShaderSampler;
+  fn binding_type() -> ShaderBindingType {
+    ShaderSampler::TYPE.try_into().unwrap()
+  }
 }
 
 impl ShaderGraphProvider for TestUniform {

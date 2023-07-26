@@ -1,4 +1,4 @@
-use shadergraph::{ShaderGraphNodeType, ShaderUniformProvider};
+use shadergraph::ShaderBindingProvider;
 
 use crate::*;
 
@@ -124,14 +124,11 @@ impl<T> BindGroupBuilder<T> {
 impl BindGroupBuilder<CacheAbleBindingBuildSource> {
   pub fn bind<T>(&mut self, item: &T)
   where
-    T: CacheAbleBindingSource + ShaderUniformProvider,
+    T: CacheAbleBindingSource + ShaderBindingProvider,
   {
     self.bind_raw(
       item.get_binding_build_source(),
-      map_shader_value_ty_to_binding_layout_type(
-        <<T as ShaderUniformProvider>::Node as ShaderGraphNodeType>::TYPE,
-        self.items.len(),
-      ),
+      map_shader_value_ty_to_binding_layout_type(T::binding_type(), self.items.len()),
     )
   }
   fn hash_binding_ids(&self, hasher: &mut impl Hasher) {
@@ -164,7 +161,7 @@ impl BindingBuilder {
 
   pub fn bind<T>(&mut self, item: &T)
   where
-    T: CacheAbleBindingSource + ShaderUniformProvider,
+    T: CacheAbleBindingSource + ShaderBindingProvider,
   {
     self.groups[self.current_index].bind(item)
   }

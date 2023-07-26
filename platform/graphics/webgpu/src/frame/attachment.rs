@@ -1,3 +1,5 @@
+use shadergraph::ShaderGraphNodeType;
+
 use crate::*;
 
 #[derive(Default)]
@@ -162,8 +164,12 @@ impl<T> CacheAbleBindingSource for AttachmentView<T> {
   }
 }
 
-impl<T> shadergraph::ShaderUniformProvider for AttachmentView<T> {
+impl<T> shadergraph::ShaderBindingProvider for AttachmentView<T> {
   type Node = shadergraph::ShaderTexture2D;
+
+  fn binding_type() -> shadergraph::ShaderBindingType {
+    shadergraph::ShaderTexture2D::TYPE.try_into().unwrap()
+  }
 }
 
 #[derive(Clone)]

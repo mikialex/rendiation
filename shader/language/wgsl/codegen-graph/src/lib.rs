@@ -645,6 +645,7 @@ fn gen_none_host_shareable_struct(builder: &mut CodeBuilder, meta: &ShaderStruct
   gen_struct(builder, meta, None)
 }
 
+// todo remove or rework this
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 pub enum ReWrappedPrimitiveArrayItem {
   Bool,
@@ -830,13 +831,17 @@ fn gen_bind_entry(
     "@group({}) @binding({}) var{} uniform_b_{}_i_{}: {};",
     group_index,
     item_index,
-    match entry.ty {
-      ShaderValueType::Fixed(_) => "<uniform>",
+    match entry.binding_ty {
+      ShaderBindingType::Uniform(_) => "<uniform>",
+      ShaderBindingType::Storage(_) | ShaderBindingType::SizedStorage(_) => "<storage>",
       _ => "",
     },
     group_index,
     item_index,
-    gen_type_impl(entry.ty, true),
+    gen_type_impl(
+      entry.ty,
+      matches!(entry.binding_ty, ShaderBindingType::Uniform(_))
+    ),
   ));
   *item_index += 1;
 }
@@ -907,6 +912,12 @@ fn gen_type_impl(ty: ShaderValueType, is_uniform: bool) -> String {
       }
     }
     ShaderValueType::Fixed(ty) => gen_fix_type_impl(ty, is_uniform),
+    ShaderValueType::Unsized(ty) => match ty {
+      ShaderUnSizedValueType::UnsizedArray(ty) => {
+        format!("array<{}>", gen_fix_type_impl(*ty, is_uniform))
+      }
+      ShaderUnSizedValueType::UnsizedStruct(meta) => meta.name.to_owned(),
+    },
     ShaderValueType::Never => unreachable!("can not code generate never type"),
   }
 }
