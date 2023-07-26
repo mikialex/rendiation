@@ -638,20 +638,20 @@ fn gen_binding_structs(
         ShaderValueType::Fixed(ty) => gen_binding_structs_impl(code, cx, ty),
         ShaderValueType::Unsized(ty) => match ty {
           ShaderUnSizedValueType::UnsizedArray(ty) => gen_binding_structs_impl(code, cx, ty),
-          ShaderUnSizedValueType::UnsizedStruct(_meta) => {
-            // if cx.add_generated_binding_structs(meta) {
-            //   for f in meta.sized_fields {
-            //     gen_binding_structs_impl(code, cx, &f.ty);
-            //   }
+          ShaderUnSizedValueType::UnsizedStruct(meta) => {
+            if cx.add_generated_unsized_binding_structs(meta) {
+              for f in meta.sized_fields {
+                gen_binding_structs_impl(code, cx, &f.ty);
+              }
 
-            //   if let ShaderStructMemberValueType::Struct(meta) = &meta.last_dynamic_array_field.1
-            // {     if cx.add_generated_binding_structs(meta) {
-            //       gen_struct(code, &(*meta).to_owned(), StructLayoutTarget::Std140.into());
-            //     }
-            //   }
+              if let ShaderStructMemberValueType::Struct(meta) = &meta.last_dynamic_array_field.1 {
+                if cx.add_generated_binding_structs(meta) {
+                  gen_struct(code, &(*meta).to_owned(), StructLayoutTarget::Std140.into());
+                }
+              }
 
-            //   gen_unsized_struct(code, cx, meta)
-            // }
+              gen_unsized_struct(code, meta)
+            }
           }
         },
         _ => {}
@@ -822,12 +822,44 @@ fn gen_struct(
   builder.write_ln("};");
 }
 
-// fn gen_unsized_struct(
-//   code: &mut CodeBuilder,
-//   cx: &mut CodeGenCtx,
-//   ty: &ShaderUnSizedStructMetaInfo,
-// ) {
-// }
+// the unsized struct only supported in std430, that make things easier
+fn gen_unsized_struct(builder: &mut CodeBuilder, meta: &ShaderUnSizedStructMetaInfo) {
+  builder.write_ln(format!("struct {} {{", meta.name));
+  builder.tab();
+
+  let layout = StructLayoutTarget::Std430;
+  let mut current_byte_used = 0;
+  let mut max_align = 1;
+  for (index, ShaderStructFieldMetaInfo { name, ty, .. }) in meta.sized_fields.iter().enumerate() {
+    let next_align_requirement = if index + 1 == meta.sized_fields.len() {
+      max_align
+    } else {
+      meta.sized_fields[index + 1].ty.align_of_self(layout)
+    };
+
+    current_byte_used += ty.size_of_self(layout);
+    max_align = max_align.max(ty.align_of_self(layout));
+    let padding_size = align_offset(current_byte_used, next_align_requirement);
+    current_byte_used += padding_size;
+
+    let align_require = ty.align_of_self(layout);
+
+    builder.write_ln(format!(
+      "@align({align_require}) {}: {},",
+      name,
+      gen_fix_type_impl(*ty, false)
+    ));
+  }
+
+  builder.write_ln(format!(
+    "{}: {},",
+    meta.last_dynamic_array_field.0,
+    gen_fix_type_impl(*meta.last_dynamic_array_field.1, false)
+  ));
+
+  builder.un_tab();
+  builder.write_ln("};");
+}
 
 fn gen_bindings(
   code: &mut CodeBuilder,
