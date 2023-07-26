@@ -40,18 +40,22 @@ impl Deref for GPURenderPipeline {
 }
 
 pub fn map_shader_value_ty_to_binding_layout_type(
-  v: ShaderBindingType,
+  v: ShaderBindingDescriptor,
   id: usize,
 ) -> gpu::BindGroupLayoutEntry {
-  use ShaderBindingType::*;
-  let ty = match v {
-    Uniform(_) => gpu::BindingType::Buffer {
-      ty: gpu::BufferBindingType::Uniform,
+  use ShaderValueType::*;
+  let ty = match v.ty {
+    Fixed(_) => gpu::BindingType::Buffer {
+      ty: if v.should_as_storage_buffer_if_is_buffer_like {
+        gpu::BufferBindingType::Storage { read_only: true }
+      } else {
+        gpu::BufferBindingType::Uniform
+      },
       has_dynamic_offset: false,
       // min_binding_size: gpu::BufferSize::new(std::mem::size_of::<T>() as u64), // todo
       min_binding_size: None,
     },
-    SizedStorage(_) | Storage(_) => gpu::BindingType::Buffer {
+    Unsized(_) => gpu::BindingType::Buffer {
       ty: gpu::BufferBindingType::Storage { read_only: true },
       has_dynamic_offset: false,
       // min_binding_size: gpu::BufferSize::new(std::mem::size_of::<T>() as u64), // todo
@@ -67,6 +71,7 @@ pub fn map_shader_value_ty_to_binding_layout_type(
       view_dimension: dimension,
     },
     CompareSampler => gpu::BindingType::Sampler(gpu::SamplerBindingType::Comparison),
+    Never => unreachable!(),
   };
   gpu::BindGroupLayoutEntry {
     binding: id as u32,
@@ -78,7 +83,7 @@ pub fn map_shader_value_ty_to_binding_layout_type(
 
 pub fn create_bindgroup_layout_by_node_ty<'a>(
   device: &GPUDevice,
-  iter: impl Iterator<Item = &'a ShaderBindingType>,
+  iter: impl Iterator<Item = &'a ShaderBindingDescriptor>,
 ) -> GPUBindGroupLayout {
   let entries: Vec<_> = iter
     .enumerate()
@@ -138,7 +143,7 @@ impl GPUDevice {
       .get(0..binding.len() - last_empty_count)
       .unwrap()
       .iter()
-      .map(|b| create_bindgroup_layout_by_node_ty(self, b.bindings.iter().map(|e| &e.binding_ty)))
+      .map(|b| create_bindgroup_layout_by_node_ty(self, b.bindings.iter().map(|e| &e.desc)))
       .collect();
 
     let layouts_ref: Vec<_> = layouts.iter().map(|l| l.inner.as_ref()).collect();

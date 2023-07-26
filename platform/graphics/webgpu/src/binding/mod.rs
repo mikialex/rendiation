@@ -128,7 +128,7 @@ impl BindGroupBuilder<CacheAbleBindingBuildSource> {
   {
     self.bind_raw(
       item.get_binding_build_source(),
-      map_shader_value_ty_to_binding_layout_type(T::binding_type(), self.items.len()),
+      map_shader_value_ty_to_binding_layout_type(T::binding_desc(), self.items.len()),
     )
   }
   fn hash_binding_ids(&self, hasher: &mut impl Hasher) {

@@ -7,12 +7,12 @@ pub struct CodeGenCtx {
   var_guid: usize,
   scopes: Vec<CodeGenScopeCtx>,
 
-  /// first generated uniform structs(recursively)
-  generated_uniform_types: FastHashSet<&'static ShaderStructMetaInfo>,
+  /// first generated binding structs(recursively)
+  generated_binding_types: FastHashSet<&'static ShaderStructMetaInfo>,
 
   /// new collected(recursively) in main function logic, deduplicate by self
   depend_functions: LinkedHashSet<&'static ShaderFunctionMetaInfo>,
-  /// new collected(recursively) in main function logic, deduplicate by self and uniform ones
+  /// new collected(recursively) in main function logic, deduplicate by self and binding ones
   depend_types: LinkedHashSet<&'static ShaderStructMetaInfo>,
 
   uniform_array_wrappers: FastHashSet<ReWrappedPrimitiveArrayItem>,
@@ -23,7 +23,7 @@ impl Default for CodeGenCtx {
     Self {
       var_guid: Default::default(),
       scopes: vec![Default::default()],
-      generated_uniform_types: Default::default(),
+      generated_binding_types: Default::default(),
       depend_functions: Default::default(),
       depend_types: Default::default(),
       uniform_array_wrappers: Default::default(),
@@ -46,8 +46,8 @@ impl CodeGenCtx {
   }
 
   /// note, recursive is done outside
-  pub fn add_generated_uniform_structs(&mut self, meta: &'static ShaderStructMetaInfo) -> bool {
-    self.generated_uniform_types.insert(meta)
+  pub fn add_generated_binding_structs(&mut self, meta: &'static ShaderStructMetaInfo) -> bool {
+    self.generated_binding_types.insert(meta)
   }
 
   pub fn add_special_uniform_array_wrapper(
@@ -69,7 +69,7 @@ impl CodeGenCtx {
   }
 
   pub fn add_struct_dep(&mut self, meta: &'static ShaderStructMetaInfo) {
-    if self.generated_uniform_types.contains(meta) {
+    if self.generated_binding_types.contains(meta) {
       return;
     }
 

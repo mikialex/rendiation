@@ -534,8 +534,7 @@ pub struct ShaderGraphBindGroup {
 
 #[derive(Clone, Copy)]
 pub struct ShaderGraphBindEntry {
-  pub ty: ShaderValueType,
-  pub binding_ty: ShaderBindingType,
+  pub desc: ShaderBindingDescriptor,
   pub vertex_node: ShaderGraphNodeRawHandle,
   pub fragment_node: ShaderGraphNodeRawHandle,
 }

@@ -6,15 +6,16 @@ impl<T: ShaderStructMemberValueNodeType + Std140> ShaderBindingProvider
   for UniformBufferDataView<T>
 {
   type Node = T;
-  fn binding_type() -> ShaderBindingType {
-    ShaderBindingType::Uniform(T::MEMBER_TYPE)
-  }
 }
 
 impl<T: ShaderUnsizedValueNodeType + Std430> ShaderBindingProvider for StorageBufferDataView<T> {
   type Node = T;
-  fn binding_type() -> ShaderBindingType {
-    ShaderBindingType::Storage(T::UNSIZED_TYPE)
+
+  fn binding_desc() -> ShaderBindingDescriptor {
+    ShaderBindingDescriptor {
+      should_as_storage_buffer_if_is_buffer_like: true,
+      ty: Self::Node::TYPE,
+    }
   }
 }
 
@@ -22,11 +23,6 @@ macro_rules! map_shader_ty {
   ($ty: ty, $shader_ty: ty) => {
     impl ShaderBindingProvider for $ty {
       type Node = $shader_ty;
-      fn binding_type() -> ShaderBindingType {
-        <$shader_ty as ShaderGraphNodeType>::TYPE
-          .try_into()
-          .unwrap()
-      }
     }
   };
 }

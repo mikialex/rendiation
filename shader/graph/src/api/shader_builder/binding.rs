@@ -3,50 +3,25 @@ use crate::*;
 /// should impl by user's container ty
 pub trait ShaderBindingProvider {
   type Node: ShaderGraphNodeType;
-  fn binding_type() -> ShaderBindingType;
+  fn binding_desc() -> ShaderBindingDescriptor {
+    ShaderBindingDescriptor {
+      should_as_storage_buffer_if_is_buffer_like: false,
+      ty: Self::Node::TYPE,
+    }
+  }
 }
 
 #[derive(Clone, Copy)]
-pub enum ShaderBindingType {
-  Uniform(ShaderStructMemberValueType),
-  Storage(ShaderUnSizedValueType),
-  SizedStorage(ShaderStructMemberValueType),
-  Sampler(SamplerBindingType),
-  CompareSampler,
-  Texture {
-    dimension: TextureViewDimension,
-    sample_type: TextureSampleType,
-  },
-}
-
-#[derive(Debug)]
-pub struct UnspecificShaderValueBindingUsage;
-impl TryFrom<ShaderValueType> for ShaderBindingType {
-  type Error = UnspecificShaderValueBindingUsage;
-
-  fn try_from(value: ShaderValueType) -> Result<Self, Self::Error> {
-    Ok(match value {
-      ShaderValueType::Fixed(_) => return Err(UnspecificShaderValueBindingUsage),
-      ShaderValueType::Unsized(s) => ShaderBindingType::Storage(s),
-      ShaderValueType::Sampler(s) => ShaderBindingType::Sampler(s),
-      ShaderValueType::CompareSampler => ShaderBindingType::CompareSampler,
-      ShaderValueType::Texture {
-        dimension,
-        sample_type,
-      } => ShaderBindingType::Texture {
-        dimension,
-        sample_type,
-      },
-      ShaderValueType::Never => unreachable!(),
-    })
-  }
+pub struct ShaderBindingDescriptor {
+  pub should_as_storage_buffer_if_is_buffer_like: bool,
+  pub ty: ShaderValueType,
 }
 
 impl<'a, T: ShaderBindingProvider> ShaderBindingProvider for &'a T {
   type Node = T::Node;
 
-  fn binding_type() -> ShaderBindingType {
-    T::binding_type()
+  fn binding_desc() -> ShaderBindingDescriptor {
+    T::binding_desc()
   }
 }
 
@@ -56,17 +31,17 @@ pub struct DisableFiltering<T>(pub T);
 
 impl<T: ShaderBindingProvider> ShaderBindingProvider for DisableFiltering<T> {
   type Node = T::Node;
-  fn binding_type() -> ShaderBindingType {
-    let mut ty = T::binding_type();
-    if let ShaderBindingType::Texture {
+  fn binding_desc() -> ShaderBindingDescriptor {
+    let mut ty = T::binding_desc();
+    if let ShaderValueType::Texture {
       sample_type: TextureSampleType::Float { filterable },
       ..
-    } = &mut ty
+    } = &mut ty.ty
     {
       *filterable = false;
     }
 
-    if let ShaderBindingType::Sampler(ty) = &mut ty {
+    if let ShaderValueType::Sampler(ty) = &mut ty.ty {
       *ty = SamplerBindingType::NonFiltering
     }
     ty
@@ -138,8 +113,7 @@ impl ShaderGraphBindGroupBuilder {
     let bindgroup = &mut self.bindings[bindgroup_index];
 
     let entry_index = bindgroup.bindings.len();
-    let ty = T::Node::TYPE;
-    let binding_ty = T::binding_type();
+    let desc = T::binding_desc();
 
     let node = ShaderGraphInputNode::Uniform {
       bindgroup_index,
@@ -157,8 +131,7 @@ impl ShaderGraphBindGroupBuilder {
     set_current_building(current_stage);
 
     let entry = ShaderGraphBindEntry {
-      ty,
-      binding_ty,
+      desc,
       vertex_node,
       fragment_node,
     };
