@@ -31,7 +31,7 @@ impl Deref for GPUBindGroupLayout {
 }
 
 pub trait CacheAbleBindingSource {
-  fn get_uniform(&self) -> CacheAbleBindingBuildSource;
+  fn get_binding_build_source(&self) -> CacheAbleBindingBuildSource;
 }
 
 impl<T> CacheAbleBindingSource for ResourceViewRc<T>
@@ -39,7 +39,7 @@ where
   T: Resource,
   Self: BindableResourceProvider,
 {
-  fn get_uniform(&self) -> CacheAbleBindingBuildSource {
+  fn get_binding_build_source(&self) -> CacheAbleBindingBuildSource {
     CacheAbleBindingBuildSource {
       source: self.get_bindable(),
       view_id: self.guid,
@@ -127,7 +127,7 @@ impl BindGroupBuilder<CacheAbleBindingBuildSource> {
     T: CacheAbleBindingSource + ShaderUniformProvider,
   {
     self.bind_raw(
-      item.get_uniform(),
+      item.get_binding_build_source(),
       map_shader_value_ty_to_binding_layout_type(
         <<T as ShaderUniformProvider>::Node as ShaderGraphNodeType>::TYPE,
         self.items.len(),

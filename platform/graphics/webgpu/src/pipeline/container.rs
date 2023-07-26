@@ -6,6 +6,10 @@ impl<T: ShaderGraphNodeType + Std140> ShaderUniformProvider for UniformBufferDat
   type Node = T;
 }
 
+impl<T: ShaderGraphNodeType + Std430> ShaderUniformProvider for StorageBufferDataView<T> {
+  type Node = T;
+}
+
 macro_rules! map_shader_ty {
   ($ty: ty, $shader_ty: ty) => {
     impl ShaderUniformProvider for $ty {

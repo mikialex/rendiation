@@ -1,95 +1,6 @@
-use shadergraph::Std140;
+use shadergraph::{Shader140Array, ShaderStructMemberValueNodeType, Std140};
 
 use crate::*;
-
-pub type GPUBufferResource = ResourceRc<GPUBuffer>;
-pub type GPUBufferResourceView = ResourceViewRc<GPUBuffer>;
-
-impl Resource for GPUBuffer {
-  type Descriptor = gpu::BufferUsages;
-  type View = GPUBufferView;
-  type ViewDescriptor = GPUBufferViewRange;
-
-  fn create_view(&self, des: &Self::ViewDescriptor) -> Self::View {
-    GPUBufferView {
-      buffer: self.clone(),
-      range: *des,
-    }
-  }
-}
-
-impl BindableResourceProvider for GPUBufferResourceView {
-  fn get_bindable(&self) -> BindingResourceOwned {
-    BindingResourceOwned::Buffer(self.clone())
-  }
-}
-
-#[derive(Clone)]
-pub struct GPUBuffer {
-  pub(crate) gpu: Arc<gpu::Buffer>,
-  pub(crate) size: std::num::NonZeroU64,
-}
-
-impl GPUBuffer {
-  pub fn create(device: &GPUDevice, bytes: &[u8], usage: gpu::BufferUsages) -> Self {
-    let gpu = device.create_buffer_init(&gpu::util::BufferInitDescriptor {
-      label: None,
-      contents: bytes,
-      usage,
-    });
-    Self {
-      gpu: Arc::new(gpu),
-      size: std::num::NonZeroU64::new(bytes.len() as u64).unwrap(),
-    }
-  }
-
-  pub fn update(&self, queue: &gpu::Queue, bytes: &[u8]) {
-    queue.write_buffer(&self.gpu, 0, bytes)
-  }
-
-  pub fn gpu(&self) -> &gpu::Buffer {
-    &self.gpu
-  }
-}
-
-impl BindableResourceView for GPUBufferView {
-  fn as_bindable(&self) -> gpu::BindingResource {
-    gpu::BindingResource::Buffer(self.as_buffer_binding())
-  }
-}
-
-#[derive(Debug, Copy, Clone, Default)]
-pub struct GPUBufferViewRange {
-  /// in bytes
-  pub offset: u64,
-  /// in bytes, Size of the binding, or None for using the rest of the buffer.
-  pub size: Option<std::num::NonZeroU64>,
-}
-
-#[derive(Clone)]
-pub struct GPUBufferView {
-  buffer: GPUBuffer,
-  range: GPUBufferViewRange,
-}
-
-impl GPUBufferView {
-  pub fn as_buffer_binding(&self) -> BufferBinding {
-    BufferBinding {
-      buffer: &self.buffer.gpu,
-      offset: self.range.offset,
-      size: self.range.size,
-    }
-  }
-}
-
-/// just short convenient method
-pub fn create_gpu_buffer(
-  data: &[u8],
-  usage: gpu::BufferUsages,
-  gpu: &GPUDevice,
-) -> GPUBufferResource {
-  GPUBufferResource::create_with_raw(GPUBuffer::create(gpu, data, usage), usage)
-}
 
 /// Typed uniform buffer with cpu data cache, which could being diffed when updating
 #[derive(Clone)]
@@ -112,8 +23,8 @@ impl<T: Std140> BindableResourceProvider for UniformBufferDataView<T> {
   }
 }
 impl<T: Std140> CacheAbleBindingSource for UniformBufferDataView<T> {
-  fn get_uniform(&self) -> CacheAbleBindingBuildSource {
-    self.gpu.get_uniform()
+  fn get_binding_build_source(&self) -> CacheAbleBindingBuildSource {
+    self.gpu.get_binding_build_source()
   }
 }
 impl<T: Std140> BindableResourceView for UniformBufferDataView<T> {
@@ -215,4 +126,52 @@ impl<T> DiffState<T> {
       changed: false,
     }
   }
+}
+
+pub struct ClampedUniformList<T: Std140, const N: usize> {
+  pub source: Vec<T>,
+  pub gpu: Option<UniformBufferDataView<Shader140Array<T, N>>>,
+}
+
+impl<T: Std140, const N: usize> Default for ClampedUniformList<T, N> {
+  fn default() -> Self {
+    Self {
+      source: Default::default(),
+      gpu: Default::default(),
+    }
+  }
+}
+
+impl<T: Std140 + Default, const N: usize> ClampedUniformList<T, N> {
+  pub fn reset(&mut self) {
+    self.source.clear();
+    self.gpu.take();
+  }
+
+  pub fn update_gpu(&mut self, gpu: &GPUDevice) -> usize {
+    let mut source = vec![T::default(); N];
+    for (i, light) in self.source.iter().enumerate() {
+      if i >= N {
+        break;
+      }
+      source[i] = *light;
+    }
+    let source = source.try_into().unwrap();
+    let lights_gpu = create_uniform(source, gpu);
+    self.gpu = lights_gpu.into();
+    self.source.len()
+  }
+}
+
+impl<T, const N: usize> ShaderPassBuilder for ClampedUniformList<T, N>
+where
+  T: Std140 + ShaderStructMemberValueNodeType,
+{
+  fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
+    ctx.binding.bind(self.gpu.as_ref().unwrap());
+  }
+}
+
+impl<T: Std140, const N: usize> ShaderHashProvider for ClampedUniformList<T, N> {
+  fn hash_pipeline(&self, _hasher: &mut PipelineHasher) {}
 }

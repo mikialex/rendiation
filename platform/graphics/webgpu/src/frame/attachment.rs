@@ -157,8 +157,8 @@ impl<T> AttachmentView<T> {
 }
 
 impl<T> CacheAbleBindingSource for AttachmentView<T> {
-  fn get_uniform(&self) -> CacheAbleBindingBuildSource {
-    self.view.get_uniform()
+  fn get_binding_build_source(&self) -> CacheAbleBindingBuildSource {
+    self.view.get_binding_build_source()
   }
 }
 
