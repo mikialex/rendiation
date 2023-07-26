@@ -1,4 +1,4 @@
-use shadergraph::{ShaderGraphNodeType, ShaderUniformProvider};
+use shadergraph::ShaderBindingProvider;
 
 use crate::*;
 
@@ -31,7 +31,7 @@ impl Deref for GPUBindGroupLayout {
 }
 
 pub trait CacheAbleBindingSource {
-  fn get_uniform(&self) -> CacheAbleBindingBuildSource;
+  fn get_binding_build_source(&self) -> CacheAbleBindingBuildSource;
 }
 
 impl<T> CacheAbleBindingSource for ResourceViewRc<T>
@@ -39,7 +39,7 @@ where
   T: Resource,
   Self: BindableResourceProvider,
 {
-  fn get_uniform(&self) -> CacheAbleBindingBuildSource {
+  fn get_binding_build_source(&self) -> CacheAbleBindingBuildSource {
     CacheAbleBindingBuildSource {
       source: self.get_bindable(),
       view_id: self.guid,
@@ -124,14 +124,11 @@ impl<T> BindGroupBuilder<T> {
 impl BindGroupBuilder<CacheAbleBindingBuildSource> {
   pub fn bind<T>(&mut self, item: &T)
   where
-    T: CacheAbleBindingSource + ShaderUniformProvider,
+    T: CacheAbleBindingSource + ShaderBindingProvider,
   {
     self.bind_raw(
-      item.get_uniform(),
-      map_shader_value_ty_to_binding_layout_type(
-        <<T as ShaderUniformProvider>::Node as ShaderGraphNodeType>::TYPE,
-        self.items.len(),
-      ),
+      item.get_binding_build_source(),
+      map_shader_value_ty_to_binding_layout_type(T::binding_desc(), self.items.len()),
     )
   }
   fn hash_binding_ids(&self, hasher: &mut impl Hasher) {
@@ -164,7 +161,7 @@ impl BindingBuilder {
 
   pub fn bind<T>(&mut self, item: &T)
   where
-    T: CacheAbleBindingSource + ShaderUniformProvider,
+    T: CacheAbleBindingSource + ShaderBindingProvider,
   {
     self.groups[self.current_index].bind(item)
   }

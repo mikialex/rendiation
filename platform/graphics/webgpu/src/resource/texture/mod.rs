@@ -132,8 +132,8 @@ pub struct GPUCubeArrayDepthTextureView(pub GPUTextureView);
 macro_rules! texture_view_inner {
   ($ty: ty) => {
     impl CacheAbleBindingSource for $ty {
-      fn get_uniform(&self) -> CacheAbleBindingBuildSource {
-        self.0.get_uniform()
+      fn get_binding_build_source(&self) -> CacheAbleBindingBuildSource {
+        self.0.get_binding_build_source()
       }
     }
 

@@ -28,7 +28,7 @@ pub struct ImmediateSampler {
   inner: TextureSampler,
 }
 
-impl ShaderUniformProvider for ImmediateSampler {
+impl ShaderBindingProvider for ImmediateSampler {
   type Node = ShaderSampler;
 }
 

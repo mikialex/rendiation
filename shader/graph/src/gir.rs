@@ -303,6 +303,7 @@ impl Hash for ShaderFunctionMetaInfo {
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub enum ShaderValueType {
   Fixed(ShaderStructMemberValueType),
+  Unsized(ShaderUnSizedValueType),
   Sampler(SamplerBindingType),
   CompareSampler,
   Texture {
@@ -317,6 +318,12 @@ pub enum ShaderStructMemberValueType {
   Primitive(PrimitiveShaderValueType),
   Struct(&'static ShaderStructMetaInfo),
   FixedSizeArray((&'static ShaderStructMemberValueType, usize)),
+}
+
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum ShaderUnSizedValueType {
+  UnsizedArray(&'static ShaderStructMemberValueType),
+  UnsizedStruct(&'static ShaderUnSizedStructMetaInfo),
 }
 
 /// use for compile time ubo field reflection by procedure macro;
@@ -342,6 +349,28 @@ impl PartialEq for ShaderStructMetaInfo {
 }
 impl Eq for ShaderStructMetaInfo {}
 impl Hash for ShaderStructMetaInfo {
+  fn hash<H: Hasher>(&self, state: &mut H) {
+    self.name.hash(state);
+  }
+}
+
+#[derive(Debug)]
+pub struct ShaderUnSizedStructMetaInfo {
+  pub name: &'static str,
+  pub sized_fields: &'static [ShaderStructFieldMetaInfo],
+  /// according to spec, only unsized array is supported, unsized struct is not
+  ///
+  /// https://www.w3.org/TR/WGSL/#struct-types
+  pub last_dynamic_array_field: (&'static str, &'static ShaderStructMemberValueType),
+}
+
+impl PartialEq for ShaderUnSizedStructMetaInfo {
+  fn eq(&self, other: &Self) -> bool {
+    self.name == other.name
+  }
+}
+impl Eq for ShaderUnSizedStructMetaInfo {}
+impl Hash for ShaderUnSizedStructMetaInfo {
   fn hash<H: Hasher>(&self, state: &mut H) {
     self.name.hash(state);
   }
@@ -470,6 +499,10 @@ pub trait ShaderStructMemberValueNodeType: ShaderGraphNodeType {
   const MEMBER_TYPE: ShaderStructMemberValueType;
 }
 
+pub trait ShaderUnsizedValueNodeType: ShaderGraphNodeType {
+  const UNSIZED_TYPE: ShaderUnSizedValueType;
+}
+
 pub trait PrimitiveShaderGraphNodeType: ShaderGraphNodeType + Default {
   const PRIMITIVE_TYPE: PrimitiveShaderValueType;
   fn to_primitive(&self) -> PrimitiveShaderValue;
@@ -501,7 +534,7 @@ pub struct ShaderGraphBindGroup {
 
 #[derive(Clone, Copy)]
 pub struct ShaderGraphBindEntry {
-  pub ty: ShaderValueType,
+  pub desc: ShaderBindingDescriptor,
   pub vertex_node: ShaderGraphNodeRawHandle,
   pub fragment_node: ShaderGraphNodeRawHandle,
 }

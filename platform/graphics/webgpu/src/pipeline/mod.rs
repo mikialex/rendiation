@@ -40,18 +40,29 @@ impl Deref for GPURenderPipeline {
 }
 
 pub fn map_shader_value_ty_to_binding_layout_type(
-  v: ShaderValueType,
+  v: ShaderBindingDescriptor,
   id: usize,
 ) -> gpu::BindGroupLayoutEntry {
-  let ty = match v {
-    ShaderValueType::Fixed(_) => gpu::BindingType::Buffer {
-      ty: gpu::BufferBindingType::Uniform,
+  use ShaderValueType::*;
+  let ty = match v.ty {
+    Fixed(_) => gpu::BindingType::Buffer {
+      ty: if v.should_as_storage_buffer_if_is_buffer_like {
+        gpu::BufferBindingType::Storage { read_only: true }
+      } else {
+        gpu::BufferBindingType::Uniform
+      },
       has_dynamic_offset: false,
       // min_binding_size: gpu::BufferSize::new(std::mem::size_of::<T>() as u64), // todo
       min_binding_size: None,
     },
-    ShaderValueType::Sampler(ty) => gpu::BindingType::Sampler(ty),
-    ShaderValueType::Texture {
+    Unsized(_) => gpu::BindingType::Buffer {
+      ty: gpu::BufferBindingType::Storage { read_only: true },
+      has_dynamic_offset: false,
+      // min_binding_size: gpu::BufferSize::new(std::mem::size_of::<T>() as u64), // todo
+      min_binding_size: None,
+    },
+    Sampler(ty) => gpu::BindingType::Sampler(ty),
+    Texture {
       dimension,
       sample_type,
     } => gpu::BindingType::Texture {
@@ -59,10 +70,8 @@ pub fn map_shader_value_ty_to_binding_layout_type(
       sample_type,
       view_dimension: dimension,
     },
-    ShaderValueType::Never => unreachable!(),
-    ShaderValueType::CompareSampler => {
-      gpu::BindingType::Sampler(gpu::SamplerBindingType::Comparison)
-    }
+    CompareSampler => gpu::BindingType::Sampler(gpu::SamplerBindingType::Comparison),
+    Never => unreachable!(),
   };
   gpu::BindGroupLayoutEntry {
     binding: id as u32,
@@ -74,11 +83,11 @@ pub fn map_shader_value_ty_to_binding_layout_type(
 
 pub fn create_bindgroup_layout_by_node_ty<'a>(
   device: &GPUDevice,
-  iter: impl Iterator<Item = &'a ShaderValueType>,
+  iter: impl Iterator<Item = &'a ShaderBindingDescriptor>,
 ) -> GPUBindGroupLayout {
   let entries: Vec<_> = iter
     .enumerate()
-    .map(|(i, entry_ty)| map_shader_value_ty_to_binding_layout_type(*entry_ty, i))
+    .map(|(i, ty)| map_shader_value_ty_to_binding_layout_type(*ty, i))
     .collect();
 
   device.create_and_cache_bindgroup_layout(entries.as_ref())
@@ -134,7 +143,7 @@ impl GPUDevice {
       .get(0..binding.len() - last_empty_count)
       .unwrap()
       .iter()
-      .map(|b| create_bindgroup_layout_by_node_ty(self, b.bindings.iter().map(|e| &e.ty)))
+      .map(|b| create_bindgroup_layout_by_node_ty(self, b.bindings.iter().map(|e| &e.desc)))
       .collect();
 
     let layouts_ref: Vec<_> = layouts.iter().map(|l| l.inner.as_ref()).collect();

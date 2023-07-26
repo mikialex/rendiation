@@ -25,9 +25,9 @@ pub enum RenderTargetView {
 }
 
 impl CacheAbleBindingSource for RenderTargetView {
-  fn get_uniform(&self) -> CacheAbleBindingBuildSource {
+  fn get_binding_build_source(&self) -> CacheAbleBindingBuildSource {
     match self {
-      RenderTargetView::Texture(t) => t.get_uniform(),
+      RenderTargetView::Texture(t) => t.get_binding_build_source(),
       RenderTargetView::SurfaceTexture { view_id, .. } => CacheAbleBindingBuildSource {
         source: self.get_bindable(),
         view_id: *view_id,

@@ -1,52 +1,51 @@
 use crate::*;
 
 /// should impl by user's container ty
-pub trait ShaderUniformProvider {
+pub trait ShaderBindingProvider {
   type Node: ShaderGraphNodeType;
-  // provide a way to modify node shader ty
-  fn modify_node_shader_value_type(_ty: &mut ShaderValueType) {
-    // default do nothing
+  fn binding_desc() -> ShaderBindingDescriptor {
+    ShaderBindingDescriptor {
+      should_as_storage_buffer_if_is_buffer_like: false,
+      ty: Self::Node::TYPE,
+    }
   }
 }
 
-impl<'a, T: ShaderUniformProvider> ShaderUniformProvider for &'a T {
+#[derive(Clone, Copy)]
+pub struct ShaderBindingDescriptor {
+  pub should_as_storage_buffer_if_is_buffer_like: bool,
+  pub ty: ShaderValueType,
+}
+
+impl<'a, T: ShaderBindingProvider> ShaderBindingProvider for &'a T {
   type Node = T::Node;
 
-  fn modify_node_shader_value_type(ty: &mut ShaderValueType) {
-    T::modify_node_shader_value_type(ty)
+  fn binding_desc() -> ShaderBindingDescriptor {
+    T::binding_desc()
   }
-}
-
-struct DirectProvider<N>(PhantomData<N>);
-impl<N: ShaderGraphNodeType> ShaderUniformProvider for DirectProvider<N> {
-  type Node = N;
 }
 
 /// https://www.w3.org/TR/webgpu/#texture-format-caps
 /// not all format could be filtered, use this to override
 pub struct DisableFiltering<T>(pub T);
 
-impl<T: ShaderUniformProvider> ShaderUniformProvider for DisableFiltering<T> {
+impl<T: ShaderBindingProvider> ShaderBindingProvider for DisableFiltering<T> {
   type Node = T::Node;
-
-  fn modify_node_shader_value_type(ty: &mut ShaderValueType) {
+  fn binding_desc() -> ShaderBindingDescriptor {
+    let mut ty = T::binding_desc();
     if let ShaderValueType::Texture {
       sample_type: TextureSampleType::Float { filterable },
       ..
-    } = ty
+    } = &mut ty.ty
     {
       *filterable = false;
     }
 
-    if let ShaderValueType::Sampler(ty) = ty {
+    if let ShaderValueType::Sampler(ty) = &mut ty.ty {
       *ty = SamplerBindingType::NonFiltering
     }
+    ty
   }
-}
-
-/// should impl by user's container ty
-pub trait DynamicShaderUniformProvider {
-  fn to_value(&self) -> ShaderValueType;
 }
 
 pub struct ShaderGraphBindGroupBuilder {
@@ -107,15 +106,14 @@ impl ShaderGraphBindGroupBuilder {
     std::mem::replace(&mut self.current_index, new)
   }
 
-  pub(crate) fn uniform_ty_inner<T: ShaderUniformProvider>(
+  pub(crate) fn uniform_ty_inner<T: ShaderBindingProvider>(
     &mut self,
   ) -> UniformNodePreparer<T::Node> {
     let bindgroup_index = self.current_index;
     let bindgroup = &mut self.bindings[bindgroup_index];
 
     let entry_index = bindgroup.bindings.len();
-    let mut ty = T::Node::TYPE;
-    T::modify_node_shader_value_type(&mut ty);
+    let desc = T::binding_desc();
 
     let node = ShaderGraphInputNode::Uniform {
       bindgroup_index,
@@ -133,7 +131,7 @@ impl ShaderGraphBindGroupBuilder {
     set_current_building(current_stage);
 
     let entry = ShaderGraphBindEntry {
-      ty,
+      desc,
       vertex_node,
       fragment_node,
     };
@@ -146,30 +144,15 @@ impl ShaderGraphBindGroupBuilder {
     }
   }
 
-  pub fn uniform<T: ShaderUniformProvider>(&mut self) -> UniformNodePreparer<T::Node> {
+  pub fn uniform<T: ShaderBindingProvider>(&mut self) -> UniformNodePreparer<T::Node> {
     self.uniform_ty_inner::<T>()
   }
 
-  pub fn uniform_by<T: ShaderUniformProvider>(
+  pub fn uniform_by<T: ShaderBindingProvider>(
     &mut self,
     _instance: &T,
   ) -> UniformNodePreparer<T::Node> {
     self.uniform::<T>()
-  }
-
-  /// N: the node type you want to cast
-  pub fn uniform_dyn_ty_by<T, N>(
-    &mut self,
-    instance: &T,
-  ) -> Result<UniformNodePreparer<N>, ShaderGraphBuildError>
-  where
-    T: DynamicShaderUniformProvider,
-    N: ShaderGraphNodeType,
-  {
-    if instance.to_value() != N::TYPE {
-      return Err(ShaderGraphBuildError::FailedDowncastShaderValueFromInput);
-    }
-    Ok(self.uniform_ty_inner::<DirectProvider<N>>())
   }
 
   pub(crate) fn wrap(&mut self) -> ShaderGraphBindGroupDirectBuilder {
@@ -182,23 +165,11 @@ pub struct ShaderGraphBindGroupDirectBuilder<'a> {
 }
 
 impl<'a> ShaderGraphBindGroupDirectBuilder<'a> {
-  pub fn uniform<T: ShaderUniformProvider>(&mut self) -> Node<T::Node> {
+  pub fn uniform<T: ShaderBindingProvider>(&mut self) -> Node<T::Node> {
     self.builder.uniform_ty_inner::<T>().using()
   }
 
-  pub fn uniform_by<T: ShaderUniformProvider>(&mut self, _instance: &T) -> Node<T::Node> {
+  pub fn uniform_by<T: ShaderBindingProvider>(&mut self, _instance: &T) -> Node<T::Node> {
     self.uniform::<T>()
-  }
-
-  /// N: the node type you want to cast
-  pub fn uniform_dyn_ty_by<T, N>(&mut self, instance: &T) -> Result<Node<N>, ShaderGraphBuildError>
-  where
-    T: DynamicShaderUniformProvider,
-    N: ShaderGraphNodeType,
-  {
-    if instance.to_value() != N::TYPE {
-      return Err(ShaderGraphBuildError::FailedDowncastShaderValueFromInput);
-    }
-    Ok(self.builder.uniform_ty_inner::<DirectProvider<N>>().using())
   }
 }

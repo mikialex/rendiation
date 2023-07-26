@@ -63,8 +63,8 @@ impl BindableResourceProvider for GPUComparisonSamplerView {
 }
 
 impl CacheAbleBindingSource for GPUComparisonSamplerView {
-  fn get_uniform(&self) -> CacheAbleBindingBuildSource {
-    self.0.get_uniform()
+  fn get_binding_build_source(&self) -> CacheAbleBindingBuildSource {
+    self.0.get_binding_build_source()
   }
 }
 

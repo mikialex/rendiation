@@ -157,12 +157,12 @@ impl<T> AttachmentView<T> {
 }
 
 impl<T> CacheAbleBindingSource for AttachmentView<T> {
-  fn get_uniform(&self) -> CacheAbleBindingBuildSource {
-    self.view.get_uniform()
+  fn get_binding_build_source(&self) -> CacheAbleBindingBuildSource {
+    self.view.get_binding_build_source()
   }
 }
 
-impl<T> shadergraph::ShaderUniformProvider for AttachmentView<T> {
+impl<T> shadergraph::ShaderBindingProvider for AttachmentView<T> {
   type Node = shadergraph::ShaderTexture2D;
 }
 

@@ -1,6 +1,7 @@
+use webgpu::*;
+
 use crate as shadergraph;
 use crate::*;
-use webgpu::*;
 
 #[repr(C)]
 #[std140_layout]
@@ -11,7 +12,7 @@ pub struct TestUniform {
   pub data3: Vec3<f32>,
 }
 
-impl ShaderUniformProvider for TestUniform {
+impl ShaderBindingProvider for TestUniform {
   type Node = Self;
 }
 
@@ -24,9 +25,7 @@ impl ShaderGraphProvider for TestUniform {
 
     builder.vertex(|builder, binding| {
       let uniform_a = binding
-        .uniform::<ResourceViewRc<UniformBuffer<Shader140Array<TestUniform, 4>>>>(
-          SB::Object,
-        );
+        .uniform::<ResourceViewRc<UniformBuffer<Shader140Array<TestUniform, 4>>>>(SB::Object);
 
       let mut_n: Node<Vec3<f32>> = Vec3::<f32>::new(0.0, 0.0, 0.0).into();
       let mut_n = mut_n.mutable();

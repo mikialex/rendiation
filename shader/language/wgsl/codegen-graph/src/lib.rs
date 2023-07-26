@@ -44,7 +44,7 @@ fn gen_vertex_shader(
   let mut code = CodeBuilder::default();
   let mut cx = CodeGenCtx::default();
 
-  gen_uniform_structs(
+  gen_binding_structs(
     &mut code,
     &mut cx,
     &pipeline_builder.bindgroups,
@@ -102,7 +102,7 @@ fn gen_fragment_shader(
   let mut code = CodeBuilder::default();
   let mut cx = CodeGenCtx::default();
 
-  gen_uniform_structs(
+  gen_binding_structs(
     &mut code,
     &mut cx,
     &pipeline_builder.bindgroups,
@@ -599,13 +599,13 @@ fn gen_input_name(input: &ShaderGraphInputNode) -> String {
   }
 }
 
-fn gen_uniform_structs(
+fn gen_binding_structs(
   code: &mut CodeBuilder,
   cx: &mut CodeGenCtx,
   bindings: &ShaderGraphBindGroupBuilder,
   _stage: ShaderStages,
 ) {
-  fn gen_uniform_structs_impl(
+  fn gen_binding_structs_impl(
     code: &mut CodeBuilder,
     cx: &mut CodeGenCtx,
     ty: &ShaderStructMemberValueType,
@@ -613,9 +613,9 @@ fn gen_uniform_structs(
     match ty {
       ShaderStructMemberValueType::Primitive(_) => {}
       ShaderStructMemberValueType::Struct(meta) => {
-        if cx.add_generated_uniform_structs(meta) {
+        if cx.add_generated_binding_structs(meta) {
           for f in meta.fields {
-            gen_uniform_structs_impl(code, cx, &f.ty);
+            gen_binding_structs_impl(code, cx, &f.ty);
           }
 
           gen_struct(code, &(*meta).to_owned(), StructLayoutTarget::Std140.into());
@@ -627,15 +627,34 @@ fn gen_uniform_structs(
             gen_wrapper_struct(code, wrapper)
           }
         }
-        gen_uniform_structs_impl(code, cx, ty)
+        gen_binding_structs_impl(code, cx, ty)
       }
     }
   }
 
   for g in &bindings.bindings {
-    for ShaderGraphBindEntry { ty, .. } in &g.bindings {
-      if let ShaderValueType::Fixed(ty) = ty {
-        gen_uniform_structs_impl(code, cx, ty)
+    for ShaderGraphBindEntry { desc, .. } in &g.bindings {
+      match &desc.ty {
+        ShaderValueType::Fixed(ty) => gen_binding_structs_impl(code, cx, ty),
+        ShaderValueType::Unsized(ty) => match ty {
+          ShaderUnSizedValueType::UnsizedArray(ty) => gen_binding_structs_impl(code, cx, ty),
+          ShaderUnSizedValueType::UnsizedStruct(meta) => {
+            if cx.add_generated_unsized_binding_structs(meta) {
+              for f in meta.sized_fields {
+                gen_binding_structs_impl(code, cx, &f.ty);
+              }
+
+              if let ShaderStructMemberValueType::Struct(meta) = &meta.last_dynamic_array_field.1 {
+                if cx.add_generated_binding_structs(meta) {
+                  gen_struct(code, &(*meta).to_owned(), StructLayoutTarget::Std140.into());
+                }
+              }
+
+              gen_unsized_struct(code, meta)
+            }
+          }
+        },
+        _ => {}
       }
     }
   }
@@ -645,6 +664,7 @@ fn gen_none_host_shareable_struct(builder: &mut CodeBuilder, meta: &ShaderStruct
   gen_struct(builder, meta, None)
 }
 
+// todo remove or rework this
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 pub enum ReWrappedPrimitiveArrayItem {
   Bool,
@@ -802,6 +822,45 @@ fn gen_struct(
   builder.write_ln("};");
 }
 
+// the unsized struct only supported in std430, that make things easier
+fn gen_unsized_struct(builder: &mut CodeBuilder, meta: &ShaderUnSizedStructMetaInfo) {
+  builder.write_ln(format!("struct {} {{", meta.name));
+  builder.tab();
+
+  let layout = StructLayoutTarget::Std430;
+  let mut current_byte_used = 0;
+  let mut max_align = 1;
+  for (index, ShaderStructFieldMetaInfo { name, ty, .. }) in meta.sized_fields.iter().enumerate() {
+    let next_align_requirement = if index + 1 == meta.sized_fields.len() {
+      max_align
+    } else {
+      meta.sized_fields[index + 1].ty.align_of_self(layout)
+    };
+
+    current_byte_used += ty.size_of_self(layout);
+    max_align = max_align.max(ty.align_of_self(layout));
+    let padding_size = align_offset(current_byte_used, next_align_requirement);
+    current_byte_used += padding_size;
+
+    let align_require = ty.align_of_self(layout);
+
+    builder.write_ln(format!(
+      "@align({align_require}) {}: {},",
+      name,
+      gen_fix_type_impl(*ty, false)
+    ));
+  }
+
+  builder.write_ln(format!(
+    "{}: {},",
+    meta.last_dynamic_array_field.0,
+    gen_fix_type_impl(*meta.last_dynamic_array_field.1, false)
+  ));
+
+  builder.un_tab();
+  builder.write_ln("};");
+}
+
 fn gen_bindings(
   code: &mut CodeBuilder,
   builder: &ShaderGraphBindGroupBuilder,
@@ -826,17 +885,29 @@ fn gen_bind_entry(
   item_index: &mut usize,
   _stage: ShaderStages,
 ) {
+  let is_uniform_buffer = match (
+    entry.desc.ty,
+    entry.desc.should_as_storage_buffer_if_is_buffer_like,
+  ) {
+    (ShaderValueType::Fixed(_), false) => true.into(),
+    (ShaderValueType::Fixed(_), true) => false.into(),
+    (ShaderValueType::Unsized(_), _) => false.into(),
+    _ => None,
+  };
   code.write_ln(format!(
     "@group({}) @binding({}) var{} uniform_b_{}_i_{}: {};",
     group_index,
     item_index,
-    match entry.ty {
-      ShaderValueType::Fixed(_) => "<uniform>",
-      _ => "",
-    },
+    is_uniform_buffer
+      .map(|is_uniform| if is_uniform {
+        String::from("<uniform>")
+      } else {
+        String::from("<storage>")
+      })
+      .unwrap_or_default(),
     group_index,
     item_index,
-    gen_type_impl(entry.ty, true),
+    gen_type_impl(entry.desc.ty, is_uniform_buffer.unwrap_or(false)),
   ));
   *item_index += 1;
 }
@@ -907,6 +978,12 @@ fn gen_type_impl(ty: ShaderValueType, is_uniform: bool) -> String {
       }
     }
     ShaderValueType::Fixed(ty) => gen_fix_type_impl(ty, is_uniform),
+    ShaderValueType::Unsized(ty) => match ty {
+      ShaderUnSizedValueType::UnsizedArray(ty) => {
+        format!("array<{}>", gen_fix_type_impl(*ty, is_uniform))
+      }
+      ShaderUnSizedValueType::UnsizedStruct(meta) => meta.name.to_owned(),
+    },
     ShaderValueType::Never => unreachable!("can not code generate never type"),
   }
 }

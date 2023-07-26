@@ -10,19 +10,19 @@ pub struct TestUniform {
   pub data3: Vec3<f32>,
 }
 
-impl ShaderUniformProvider for TestUniform {
+impl ShaderBindingProvider for TestUniform {
   type Node = Self;
 }
 
 pub struct FakeTexture2d;
 
-impl ShaderUniformProvider for FakeTexture2d {
+impl ShaderBindingProvider for FakeTexture2d {
   type Node = ShaderTexture2D;
 }
 
 pub struct FakeSampler;
 
-impl ShaderUniformProvider for FakeSampler {
+impl ShaderBindingProvider for FakeSampler {
   type Node = ShaderSampler;
 }
 
