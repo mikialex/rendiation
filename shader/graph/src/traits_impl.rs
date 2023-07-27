@@ -92,6 +92,13 @@ impl<T: ShaderStructMemberValueNodeType, const N: usize> ShaderStructMemberValue
     ShaderStructMemberValueType::FixedSizeArray((&T::MEMBER_TYPE, N));
 }
 
+impl<T: ShaderGraphNodeSingleType, const N: usize> ShaderGraphNodeType for BindingArray<T, N> {
+  const TYPE: ShaderValueType = ShaderValueType::BindingArray {
+    ty: T::SINGLE_TYPE,
+    count: N,
+  };
+}
+
 // we group them together just to skip rustfmt entirely
 #[rustfmt::skip]
 mod impls {

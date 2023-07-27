@@ -189,7 +189,7 @@ pub enum ShaderStages {
 }
 
 #[derive(Clone, Copy)]
-pub struct BindingArray<T>(PhantomData<T>);
+pub struct BindingArray<T, const N: usize>(PhantomData<T>);
 
 #[derive(Clone, Copy)]
 pub struct ShaderTexture1D;
