@@ -2,24 +2,29 @@ use crate::*;
 
 macro_rules! sg_node_impl {
   ($ty: ty, $ty_value: expr) => {
+    impl ShaderGraphNodeSingleType for $ty {
+      const SINGLE_TYPE: ShaderValueSingleType = $ty_value;
+    }
     impl ShaderGraphNodeType for $ty {
-      const TYPE: ShaderValueType = $ty_value;
+      const TYPE: ShaderValueType = ShaderValueType::Single(Self::SINGLE_TYPE);
     }
   };
 }
 
-sg_node_impl!(AnyType, ShaderValueType::Never);
+impl ShaderGraphNodeType for AnyType {
+  const TYPE: ShaderValueType = ShaderValueType::Never;
+}
 sg_node_impl!(
   ShaderSampler,
-  ShaderValueType::Sampler(SamplerBindingType::Filtering)
+  ShaderValueSingleType::Sampler(SamplerBindingType::Filtering)
 );
-sg_node_impl!(ShaderCompareSampler, ShaderValueType::CompareSampler);
+sg_node_impl!(ShaderCompareSampler, ShaderValueSingleType::CompareSampler);
 
 // Impl Notes:
 //
 // impl<T: PrimitiveShaderGraphNodeType> ShaderGraphNodeType for T {
-//   const TYPE: ShaderValueType =
-//     ShaderValueType::Fixed(ShaderStructMemberValueType::Primitive(T::PRIMITIVE_TYPE));
+//   const TYPE: ShaderValueSingleType =
+//     ShaderValueSingleType::Fixed(ShaderStructMemberValueType::Primitive(T::PRIMITIVE_TYPE));
 // }
 // impl<T: PrimitiveShaderGraphNodeType> ShaderStructMemberValueNodeType for T {
 //   const TYPE: ShaderStructMemberValueType =
@@ -34,7 +39,7 @@ macro_rules! primitive_ty {
   ($ty: ty, $primitive_ty_value: expr, $to_primitive: expr) => {
     sg_node_impl!(
       $ty,
-      ShaderValueType::Fixed(ShaderStructMemberValueType::Primitive($primitive_ty_value))
+      ShaderValueSingleType::Fixed(ShaderStructMemberValueType::Primitive($primitive_ty_value))
     );
 
     impl ShaderStructMemberValueNodeType for $ty {
@@ -51,18 +56,26 @@ macro_rules! primitive_ty {
   };
 }
 
-impl<T: ShaderStructMemberValueNodeType, const N: usize> ShaderGraphNodeType for [T; N] {
-  const TYPE: ShaderValueType = ShaderValueType::Fixed(
+impl<T: ShaderStructMemberValueNodeType, const N: usize> ShaderGraphNodeSingleType for [T; N] {
+  const SINGLE_TYPE: ShaderValueSingleType = ShaderValueSingleType::Fixed(
     ShaderStructMemberValueType::FixedSizeArray((&T::MEMBER_TYPE, N)),
   );
 }
+impl<T: ShaderStructMemberValueNodeType, const N: usize> ShaderGraphNodeType for [T; N] {
+  const TYPE: ShaderValueType = ShaderValueType::Single(Self::SINGLE_TYPE);
+}
 
+impl<T: ShaderStructMemberValueNodeType, const N: usize> ShaderGraphNodeSingleType
+  for Shader140Array<T, N>
+{
+  const SINGLE_TYPE: ShaderValueSingleType = ShaderValueSingleType::Fixed(
+    ShaderStructMemberValueType::FixedSizeArray((&T::MEMBER_TYPE, N)),
+  );
+}
 impl<T: ShaderStructMemberValueNodeType, const N: usize> ShaderGraphNodeType
   for Shader140Array<T, N>
 {
-  const TYPE: ShaderValueType = ShaderValueType::Fixed(
-    ShaderStructMemberValueType::FixedSizeArray((&T::MEMBER_TYPE, N)),
-  );
+  const TYPE: ShaderValueType = ShaderValueType::Single(Self::SINGLE_TYPE);
 }
 
 impl<T: ShaderStructMemberValueNodeType, const N: usize> ShaderStructMemberValueNodeType
@@ -117,68 +130,76 @@ vertex_input_node_impl!(Vec2<u32>, VertexFormat::Uint32x2);
 vertex_input_node_impl!(Vec3<u32>, VertexFormat::Uint32x3);
 vertex_input_node_impl!(Vec4<u32>, VertexFormat::Uint32x4);
 
-// these impl not use macro because not helping
-impl ShaderGraphNodeType for ShaderTexture2D {
-  const TYPE: ShaderValueType = ShaderValueType::Texture {
+sg_node_impl!(
+  ShaderTexture2D,
+  ShaderValueSingleType::Texture {
     dimension: TextureViewDimension::D2,
     sample_type: TextureSampleType::Float { filterable: true },
-  };
-}
-impl ShaderGraphNodeType for ShaderTextureCube {
-  const TYPE: ShaderValueType = ShaderValueType::Texture {
+  }
+);
+sg_node_impl!(
+  ShaderTextureCube,
+  ShaderValueSingleType::Texture {
     dimension: TextureViewDimension::Cube,
     sample_type: TextureSampleType::Float { filterable: true },
-  };
-}
-impl ShaderGraphNodeType for ShaderTexture1D {
-  const TYPE: ShaderValueType = ShaderValueType::Texture {
+  }
+);
+sg_node_impl!(
+  ShaderTexture1D,
+  ShaderValueSingleType::Texture {
     dimension: TextureViewDimension::D1,
     sample_type: TextureSampleType::Float { filterable: true },
-  };
-}
-impl ShaderGraphNodeType for ShaderTexture3D {
-  const TYPE: ShaderValueType = ShaderValueType::Texture {
+  }
+);
+sg_node_impl!(
+  ShaderTexture3D,
+  ShaderValueSingleType::Texture {
     dimension: TextureViewDimension::D3,
     sample_type: TextureSampleType::Float { filterable: true },
-  };
-}
-impl ShaderGraphNodeType for ShaderTexture2DArray {
-  const TYPE: ShaderValueType = ShaderValueType::Texture {
+  }
+);
+sg_node_impl!(
+  ShaderTexture2DArray,
+  ShaderValueSingleType::Texture {
     dimension: TextureViewDimension::D2Array,
     sample_type: TextureSampleType::Float { filterable: true },
-  };
-}
-impl ShaderGraphNodeType for ShaderTextureCubeArray {
-  const TYPE: ShaderValueType = ShaderValueType::Texture {
+  }
+);
+sg_node_impl!(
+  ShaderTextureCubeArray,
+  ShaderValueSingleType::Texture {
     dimension: TextureViewDimension::CubeArray,
     sample_type: TextureSampleType::Float { filterable: true },
-  };
-}
-
-impl ShaderGraphNodeType for ShaderDepthTexture2D {
-  const TYPE: ShaderValueType = ShaderValueType::Texture {
+  }
+);
+sg_node_impl!(
+  ShaderDepthTexture2D,
+  ShaderValueSingleType::Texture {
     dimension: TextureViewDimension::D2,
     sample_type: TextureSampleType::Depth,
-  };
-}
-impl ShaderGraphNodeType for ShaderDepthTexture2DArray {
-  const TYPE: ShaderValueType = ShaderValueType::Texture {
+  }
+);
+sg_node_impl!(
+  ShaderDepthTexture2DArray,
+  ShaderValueSingleType::Texture {
     dimension: TextureViewDimension::D2Array,
     sample_type: TextureSampleType::Depth,
-  };
-}
-impl ShaderGraphNodeType for ShaderDepthTextureCube {
-  const TYPE: ShaderValueType = ShaderValueType::Texture {
+  }
+);
+sg_node_impl!(
+  ShaderDepthTextureCube,
+  ShaderValueSingleType::Texture {
     dimension: TextureViewDimension::Cube,
     sample_type: TextureSampleType::Depth,
-  };
-}
-impl ShaderGraphNodeType for ShaderDepthTextureCubeArray {
-  const TYPE: ShaderValueType = ShaderValueType::Texture {
+  }
+);
+sg_node_impl!(
+  ShaderDepthTextureCubeArray,
+  ShaderValueSingleType::Texture {
     dimension: TextureViewDimension::CubeArray,
     sample_type: TextureSampleType::Depth,
-  };
-}
+  }
+);
 
 /// https://www.w3.org/TR/WGSL/#texturesample
 pub trait SingleSampleTarget {

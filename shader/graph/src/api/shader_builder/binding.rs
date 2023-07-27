@@ -33,17 +33,20 @@ impl<T: ShaderBindingProvider> ShaderBindingProvider for DisableFiltering<T> {
   type Node = T::Node;
   fn binding_desc() -> ShaderBindingDescriptor {
     let mut ty = T::binding_desc();
-    if let ShaderValueType::Texture {
-      sample_type: TextureSampleType::Float { filterable },
-      ..
-    } = &mut ty.ty
-    {
-      *filterable = false;
-    }
+    ty.ty.mutate_single(|ty| {
+      if let ShaderValueSingleType::Texture {
+        sample_type: TextureSampleType::Float { filterable },
+        ..
+      } = ty
+      {
+        *filterable = false;
+      }
 
-    if let ShaderValueType::Sampler(ty) = &mut ty.ty {
-      *ty = SamplerBindingType::NonFiltering
-    }
+      if let ShaderValueSingleType::Sampler(ty) = ty {
+        *ty = SamplerBindingType::NonFiltering
+      }
+    });
+
     ty
   }
 }
