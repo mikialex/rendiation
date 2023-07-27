@@ -39,7 +39,7 @@ impl InitResourceByAllocation for RawSampler {
 impl<'encoder, 'gpu> GPURenderPassCtx<'encoder, 'gpu> {
   pub fn bind_immediate_sampler(
     &mut self,
-    sampler: &(impl Into<SamplerDescriptor<'static>> + Clone),
+    sampler: &(impl Into<gpu::SamplerDescriptor<'static>> + Clone),
   ) {
     let sampler = GPUSampler::create(sampler.clone().into(), &self.gpu.device);
     let sampler = sampler.create_default_view();

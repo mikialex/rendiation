@@ -57,7 +57,7 @@ impl GPUDevice {
 
   pub fn create_and_cache_bindgroup_layout(
     &self,
-    layouts: &[BindGroupLayoutEntry],
+    layouts: &[gpu::BindGroupLayoutEntry],
   ) -> GPUBindGroupLayout {
     let mut hasher = FastHasher::default();
     layouts.hash(&mut hasher);

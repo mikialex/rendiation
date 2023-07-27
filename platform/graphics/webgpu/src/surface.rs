@@ -1,13 +1,13 @@
 use crate::*;
 
 pub trait SurfaceProvider {
-  fn create_surface(&self, instance: &gpu::Instance) -> gpu::Surface;
+  fn create_surface(&self, instance: &gpu::Instance) -> Result<gpu::Surface, CreateSurfaceError>;
   fn size(&self) -> Size;
 }
 
 impl SurfaceProvider for winit::window::Window {
-  fn create_surface(&self, instance: &gpu::Instance) -> gpu::Surface {
-    unsafe { instance.create_surface(self).unwrap() }
+  fn create_surface(&self, instance: &gpu::Instance) -> Result<gpu::Surface, CreateSurfaceError> {
+    unsafe { instance.create_surface(self) }
   }
 
   fn size(&self) -> Size {
@@ -25,30 +25,28 @@ pub struct GPUSurface {
 
 impl GPUSurface {
   #[allow(clippy::or_fun_call)]
-  pub fn new(
+  pub(crate) fn new(
     adapter: &gpu::Adapter,
     device: &GPUDevice,
     surface: gpu::Surface,
-    size: Size,
+    init_resolution: Size,
   ) -> Self {
     let capabilities = surface.get_capabilities(adapter);
     let swapchain_format = capabilities
       .formats
       .iter()
-      .find(|&f| *f == gpu::TextureFormat::Bgra8UnormSrgb) // should make sure use srgb
+      .find(|&f| *f == gpu::TextureFormat::Bgra8UnormSrgb) // prefer use srgb
       .or(capabilities.formats.first())
-      .expect("could not find support formats in surface");
-
-    println!("swapchain use {:?} format", swapchain_format);
+      .expect("should at least one supported format");
 
     let config = gpu::SurfaceConfiguration {
       usage: gpu::TextureUsages::RENDER_ATTACHMENT,
       format: *swapchain_format,
       view_formats: vec![*swapchain_format],
-      width: Into::<usize>::into(size.width) as u32,
-      height: Into::<usize>::into(size.height) as u32,
+      width: Into::<usize>::into(init_resolution.width) as u32,
+      height: Into::<usize>::into(init_resolution.height) as u32,
       present_mode: gpu::PresentMode::AutoVsync,
-      alpha_mode: CompositeAlphaMode::Auto,
+      alpha_mode: gpu::CompositeAlphaMode::Auto,
     };
 
     surface.configure(device, &config);
@@ -57,7 +55,7 @@ impl GPUSurface {
       capabilities,
       surface,
       config,
-      size,
+      size: init_resolution,
     }
   }
 

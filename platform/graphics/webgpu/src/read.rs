@@ -16,7 +16,7 @@ pub struct ReadableTextureBuffer {
 }
 
 impl ReadableTextureBuffer {
-  pub fn read_raw(&self) -> BufferView {
+  pub fn read_raw(&self) -> gpu::BufferView {
     self.buffer.read_raw()
   }
   pub fn info(&self) -> TextReadBufferInfo {
@@ -29,7 +29,7 @@ pub struct ReadableBuffer {
 }
 
 impl ReadableBuffer {
-  pub fn read_raw(&self) -> BufferView {
+  pub fn read_raw(&self) -> gpu::BufferView {
     self.buffer.slice(..).get_mapped_range()
   }
 }
@@ -47,11 +47,11 @@ use core::task::Poll;
 
 pub struct ReadBufferTask {
   buffer: Option<gpu::Buffer>,
-  inner: futures::channel::oneshot::Receiver<Result<(), BufferAsyncError>>,
+  inner: futures::channel::oneshot::Receiver<Result<(), gpu::BufferAsyncError>>,
 }
 
 impl ReadBufferTask {
-  pub fn new<S: RangeBounds<BufferAddress>>(buffer: gpu::Buffer, range: S) -> Self {
+  pub fn new<S: RangeBounds<gpu::BufferAddress>>(buffer: gpu::Buffer, range: S) -> Self {
     let buffer_slice = buffer.slice(range);
     let (sender, receiver) = futures::channel::oneshot::channel();
     buffer_slice.map_async(gpu::MapMode::Read, move |v| sender.send(v).unwrap());
@@ -155,12 +155,12 @@ impl GPUCommandEncoder {
       gpu::ImageCopyTexture {
         texture,
         mip_level: 0,
-        origin: Origin3d {
+        origin: gpu::Origin3d {
           x: range.offset_x as u32,
           y: range.offset_y as u32,
           z: 0,
         },
-        aspect: TextureAspect::All,
+        aspect: gpu::TextureAspect::All,
       },
       gpu::ImageCopyBuffer {
         buffer: &output_buffer,

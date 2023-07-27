@@ -165,14 +165,14 @@ pub fn color_same(r: f64) -> gpu::Color {
   }
 }
 
-pub fn clear<V>(v: V) -> Operations<V> {
+pub fn clear<V>(v: V) -> gpu::Operations<V> {
   gpu::Operations {
     load: gpu::LoadOp::Clear(v),
     store: true,
   }
 }
 
-pub fn load<V>() -> Operations<V> {
+pub fn load<V>() -> gpu::Operations<V> {
   gpu::Operations {
     load: gpu::LoadOp::Load,
     store: true,

@@ -6,7 +6,7 @@ pub enum BindingResourceOwned {
   BufferArray(Vec<GPUBufferResourceView>),
   Sampler(GPUSamplerView),
   SamplerArray(Vec<GPUSamplerView>),
-  RawTextureView(Arc<TextureView>, BindGroupResourceHolder), // to support surface texture
+  RawTextureView(Arc<gpu::TextureView>, BindGroupResourceHolder), // to support surface texture
   TextureView(GPUTextureView),
   TextureViewArray(Vec<GPUTextureView>),
 }
@@ -65,28 +65,28 @@ impl BindingResourceOwned {
 }
 
 pub enum BindingResourceOwnedRef<'a> {
-  Buffer(BufferBinding<'a>),
-  BufferArray(Vec<BufferBinding<'a>>),
-  Sampler(&'a Sampler),
-  SamplerArray(Vec<&'a Sampler>),
-  TextureView(&'a TextureView),
-  TextureViewArray(Vec<&'a TextureView>),
+  Buffer(gpu::BufferBinding<'a>),
+  BufferArray(Vec<gpu::BufferBinding<'a>>),
+  Sampler(&'a gpu::Sampler),
+  SamplerArray(Vec<&'a gpu::Sampler>),
+  TextureView(&'a gpu::TextureView),
+  TextureViewArray(Vec<&'a gpu::TextureView>),
 }
 
 impl<'a> BindingResourceOwnedRef<'a> {
   pub fn as_binding_ref(&'a self) -> gpu::BindingResource<'a> {
     match self {
-      BindingResourceOwnedRef::Buffer(buffer) => BindingResource::Buffer(buffer.clone()),
+      BindingResourceOwnedRef::Buffer(buffer) => gpu::BindingResource::Buffer(buffer.clone()),
       BindingResourceOwnedRef::BufferArray(buffers) => {
-        BindingResource::BufferArray(buffers.as_ref())
+        gpu::BindingResource::BufferArray(buffers.as_ref())
       }
-      BindingResourceOwnedRef::Sampler(sampler) => BindingResource::Sampler(sampler),
+      BindingResourceOwnedRef::Sampler(sampler) => gpu::BindingResource::Sampler(sampler),
       BindingResourceOwnedRef::SamplerArray(samplers) => {
-        BindingResource::SamplerArray(samplers.as_ref())
+        gpu::BindingResource::SamplerArray(samplers.as_ref())
       }
-      BindingResourceOwnedRef::TextureView(texture) => BindingResource::TextureView(texture),
+      BindingResourceOwnedRef::TextureView(texture) => gpu::BindingResource::TextureView(texture),
       BindingResourceOwnedRef::TextureViewArray(textures) => {
-        BindingResource::TextureViewArray(textures.as_ref())
+        gpu::BindingResource::TextureViewArray(textures.as_ref())
       }
     }
   }

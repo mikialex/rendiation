@@ -27,8 +27,20 @@ pub struct WebGpuUIPresenter {
 
 impl WebGpuUIPresenter {
   pub async fn new(window: &winit::window::Window) -> Self {
-    let (gpu, surface) = GPU::new_with_surface(window).await;
+    let mut minimal_required_features = Features::all_webgpu_mask();
+    minimal_required_features.remove(Features::TIMESTAMP_QUERY); // note: on macos we currently do not have this
+
+    let config = GPUCreateConfig {
+      backends: Backends::PRIMARY,
+      power_preference: PowerPreference::HighPerformance,
+      surface_for_compatible_check_init: Some((window, Size::from_usize_pair_min_one((300, 200)))),
+      minimal_required_features,
+      minimal_required_limits: Limits::default(),
+    };
+
+    let (gpu, surface) = GPU::new(config).await.unwrap();
     let gpu = Arc::new(gpu);
+    let surface = surface.unwrap();
 
     let prefer_target_fmt = surface.config.format;
     let ui_renderer = WebGPUxUIRenderer::new(&gpu.device, prefer_target_fmt, TEXT_CACHE_INIT_SIZE);

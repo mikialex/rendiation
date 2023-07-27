@@ -36,8 +36,17 @@ use dyn_downcast::*;
 pub use encoder::*;
 use fast_hash_collection::*;
 pub use frame::*;
-use gpu::util::DeviceExt;
-pub use gpu::*;
+pub use gpu::Features;
+// note: we can not just use * because it cause __core conflict
+pub use gpu::{
+  util, util::DeviceExt, vertex_attr_array, AddressMode, Backends, BindGroup, BindGroupDescriptor,
+  BindGroupEntry, BindGroupLayout, BindGroupLayoutDescriptor, BindingResource, Buffer,
+  BufferAsyncError, Color, CompareFunction, CreateSurfaceError, Device, FilterMode, FragmentState,
+  IndexFormat, Limits, LoadOp, Operations, PipelineLayoutDescriptor, PowerPreference,
+  PrimitiveTopology, Queue, RenderPipeline, RenderPipelineDescriptor, RequestDeviceError, Sampler,
+  SamplerBorderColor, SamplerDescriptor, ShaderModuleDescriptor, ShaderSource, TextureView,
+  TextureViewDescriptor, VertexBufferLayout, VertexState,
+};
 pub use pass::*;
 pub use pipeline::*;
 pub use queue::*;
@@ -49,12 +58,47 @@ pub use surface::*;
 use typed_arena::Arena;
 pub use types::*;
 use wgpu as gpu;
+pub use wgpu_types::*;
 
 pub struct GPU {
   _instance: gpu::Instance,
   _adaptor: gpu::Adapter,
+  info: GPUInfo,
   pub device: GPUDevice,
   pub queue: GPUQueue,
+}
+
+pub struct GPUCreateConfig<'a> {
+  pub backends: Backends,
+  pub power_preference: PowerPreference,
+  pub surface_for_compatible_check_init: Option<(&'a dyn SurfaceProvider, Size)>,
+  pub minimal_required_features: Features,
+  pub minimal_required_limits: Limits,
+}
+
+pub struct GPUInfo {
+  pub requested_backend_type: Backends,
+  pub power_preference: PowerPreference,
+  pub supported_features: Features,
+  pub supported_limits: Limits,
+}
+
+#[derive(thiserror::Error, Debug)]
+pub enum GPUCreateFailure {
+  #[error("Failed to request adapter, reasons unknown")]
+  AdapterRequestFailed,
+  #[error("Failed to request adapter, because failed to create test compatible surface")]
+  AdapterRequestFailedByUnableCreateTestCompatibleSurface(#[from] CreateSurfaceError),
+  #[error(
+    "Failed to create device because the the adaptor can not meet the minimal feature requirement"
+  )]
+  UnableToMeetFeatureMinimalRequirement(Features),
+  #[error(
+    "Failed to create device because the the adaptor can not meet the minimal limit requirement"
+  )]
+  UnableToMeetLimitMinimalRequirement(Limits),
+  #[error("Failed to create device, reasons unknown")]
+  DeviceQueueCreateFailedUnknownReason(#[from] RequestDeviceError),
 }
 
 impl GPU {
@@ -62,89 +106,106 @@ impl GPU {
     self._instance.poll_all(false);
   }
 
-  pub async fn new() -> Self {
+  pub fn create_another_surface(
+    &self,
+    provider: &dyn SurfaceProvider,
+    init_resolution: Size,
+  ) -> Result<GPUSurface, CreateSurfaceError> {
+    let surface = provider.create_surface(&self._instance)?;
+    Ok(GPUSurface::new(
+      &self._adaptor,
+      &self.device,
+      surface,
+      init_resolution,
+    ))
+  }
+
+  /// in some backend the surface is used to create the instance for example webgl, we have to
+  /// return the init surface with the gpu itself
+  pub async fn new(
+    config: GPUCreateConfig<'_>,
+  ) -> Result<(Self, Option<GPUSurface>), GPUCreateFailure> {
     let _instance = gpu::Instance::new(gpu::InstanceDescriptor {
       backends: gpu::Backends::PRIMARY,
       dx12_shader_compiler: Default::default(),
     });
     let power_preference = gpu::PowerPreference::HighPerformance;
 
+    let init_surface = config
+      .surface_for_compatible_check_init
+      .map(|s| s.0.create_surface(&_instance))
+      .transpose()?;
+
     let _adaptor = _instance
       .request_adapter(&gpu::RequestAdapterOptions {
         power_preference,
-        compatible_surface: None,
+        compatible_surface: init_surface.as_ref(),
         force_fallback_adapter: false,
       })
       .await
-      .expect("No suitable GPU adapters found on the system!");
+      .ok_or(GPUCreateFailure::AdapterRequestFailed)?;
+
+    let supported_features = _adaptor.features();
+    let supported_limits = _adaptor.limits();
+
+    if !config
+      .minimal_required_limits
+      .check_limits(&supported_limits)
+    {
+      // todo, list unsatisfied limits
+      return Err(GPUCreateFailure::UnableToMeetLimitMinimalRequirement(
+        supported_limits,
+      ));
+    }
+    if !supported_features.contains(config.minimal_required_features) {
+      return Err(GPUCreateFailure::UnableToMeetFeatureMinimalRequirement(
+        config.minimal_required_features - supported_features,
+      ));
+    }
 
     let (device, queue) = _adaptor
       .request_device(
         &gpu::DeviceDescriptor {
           label: None,
-          features: _adaptor.features(),
-          limits: _adaptor.limits(),
+          features: supported_features,
+          limits: supported_limits.clone(),
         },
         None,
       )
-      .await
-      .expect("Unable to find a suitable GPU device!");
+      .await?;
 
     let device = GPUDevice::new(device);
     let queue = GPUQueue::new(queue);
 
-    Self {
+    let info = GPUInfo {
+      requested_backend_type: config.backends,
+      power_preference: config.power_preference,
+      supported_features,
+      supported_limits,
+    };
+
+    let surface = init_surface.map(|init_surface| {
+      GPUSurface::new(
+        &_adaptor,
+        &device,
+        init_surface,
+        config.surface_for_compatible_check_init.as_ref().unwrap().1,
+      )
+    });
+
+    let gpu = Self {
       _instance,
       _adaptor,
+      info,
       device,
       queue,
-    }
+    };
+
+    Ok((gpu, surface))
   }
-  pub async fn new_with_surface(surface_provider: &dyn SurfaceProvider) -> (Self, GPUSurface) {
-    let _instance = gpu::Instance::new(gpu::InstanceDescriptor {
-      backends: gpu::Backends::PRIMARY,
-      dx12_shader_compiler: Default::default(),
-    });
-    let power_preference = gpu::PowerPreference::HighPerformance;
 
-    let surface = surface_provider.create_surface(&_instance);
-    let size = surface_provider.size();
-
-    let _adaptor = _instance
-      .request_adapter(&gpu::RequestAdapterOptions {
-        power_preference,
-        compatible_surface: Some(&surface),
-        force_fallback_adapter: false,
-      })
-      .await
-      .expect("No suitable GPU adapters found on the system!");
-
-    let (device, queue) = _adaptor
-      .request_device(
-        &gpu::DeviceDescriptor {
-          label: None,
-          features: _adaptor.features(),
-          limits: _adaptor.limits(),
-        },
-        None,
-      )
-      .await
-      .expect("Unable to find a suitable GPU device!");
-
-    let device = GPUDevice::new(device);
-    let queue = GPUQueue::new(queue);
-
-    let surface = GPUSurface::new(&_adaptor, &device, surface, size);
-
-    (
-      Self {
-        _instance,
-        _adaptor,
-        device,
-        queue,
-      },
-      surface,
-    )
+  pub fn info(&self) -> &GPUInfo {
+    &self.info
   }
 
   pub fn create_encoder(&self) -> GPUCommandEncoder {

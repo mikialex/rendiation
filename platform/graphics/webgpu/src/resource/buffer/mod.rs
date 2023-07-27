@@ -77,8 +77,8 @@ pub struct GPUBufferView {
 }
 
 impl GPUBufferView {
-  pub fn as_buffer_binding(&self) -> BufferBinding {
-    BufferBinding {
+  pub fn as_buffer_binding(&self) -> gpu::BufferBinding {
+    gpu::BufferBinding {
       buffer: &self.buffer.gpu,
       offset: self.range.offset,
       size: self.range.size,

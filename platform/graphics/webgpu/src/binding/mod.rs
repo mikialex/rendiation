@@ -67,11 +67,19 @@ impl<T> Default for BindGroupBuilder<T> {
 }
 
 pub trait BindingGroupBuildImpl: Sized {
-  fn build_bindgroup(sources: &[Self], device: &GPUDevice, layout: &BindGroupLayout) -> BindGroup;
+  fn build_bindgroup(
+    sources: &[Self],
+    device: &GPUDevice,
+    layout: &gpu::BindGroupLayout,
+  ) -> gpu::BindGroup;
 }
 
 impl BindingGroupBuildImpl for CacheAbleBindingBuildSource {
-  fn build_bindgroup(sources: &[Self], device: &GPUDevice, layout: &BindGroupLayout) -> BindGroup {
+  fn build_bindgroup(
+    sources: &[Self],
+    device: &GPUDevice,
+    layout: &gpu::BindGroupLayout,
+  ) -> gpu::BindGroup {
     let entries_prepare: Vec<_> = sources.iter().map(|s| s.source.prepare_ref()).collect();
     let entries: Vec<_> = entries_prepare
       .iter()

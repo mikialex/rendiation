@@ -49,7 +49,7 @@ impl WebGPUTextureCache {
       usage: webgpu::TextureUsages::TEXTURE_BINDING | webgpu::TextureUsages::COPY_DST,
       mip_level_count: 1,
       sample_count: 1,
-      view_formats: &[],
+      view_formats: &[] as &'static [rendiation_texture::TextureFormat],
     };
 
     let texture = GPUTexture::create(desc, device);

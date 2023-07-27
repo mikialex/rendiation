@@ -107,7 +107,7 @@ impl GPUCanvas {
             size: map_size_gpu(new_size),
             dimension: webgpu::TextureDimension::D2,
             format: webgpu::TextureFormat::Rgba8UnormSrgb,
-            view_formats: &[],
+            view_formats: &[] as &'static [rendiation_texture::TextureFormat],
             usage: webgpu::TextureUsages::TEXTURE_BINDING
               | webgpu::TextureUsages::COPY_DST
               | webgpu::TextureUsages::COPY_SRC
