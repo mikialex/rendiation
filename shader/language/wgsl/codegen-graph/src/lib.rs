@@ -359,13 +359,13 @@ fn gen_node(
                 "for(var {name}: u32 = 0u; {name} < {count}; {name} = {name} + 1u) {{",
                 count = cx.get_node_gen_result_var(*v)
               ),
-              format!("let {item_name} = name;"),
+              format!("let {item_name} = {name};"),
             ),
             ShaderIterator::FixedArray { length, array } => {
               let array = cx.get_node_gen_result_var(*array);
               (
                 format!("for(var {name}: u32 = 0u; {name} < {length}u; {name} = {name} + 1u) {{",),
-                format!("let {item_name} = {array }[{name}];"),
+                format!("let {item_name} = {array}[{name}];"),
               )
             }
             ShaderIterator::Clamped { source, max } => {

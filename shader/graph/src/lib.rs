@@ -5,10 +5,8 @@
 pub mod code_gen;
 pub use code_gen::*;
 
-pub mod std140;
-pub use std140::*;
-pub mod std430;
-pub use std430::*;
+pub mod layout_typed;
+pub use layout_typed::*;
 
 pub mod api;
 pub mod gir;

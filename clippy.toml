@@ -1,5 +1,5 @@
 
-# surpress the clippy warnings
+# suppress the clippy warnings
 type-complexity-threshold = 999
 
 disallowed-types = [
