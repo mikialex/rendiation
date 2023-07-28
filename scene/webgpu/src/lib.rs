@@ -56,6 +56,7 @@ use rendiation_renderable_mesh::group::MeshDrawGroup;
 use rendiation_renderable_mesh::mesh::*;
 pub use rendiation_scene_core::*;
 use rendiation_texture::TextureSampler;
+use rendiation_texture_gpu_system::*;
 use shadergraph::*;
 pub use shading::*;
 pub use shadow::*;

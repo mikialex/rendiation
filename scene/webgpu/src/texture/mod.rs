@@ -28,3 +28,35 @@ impl TextureGPUChange {
     }
   }
 }
+
+struct WebGPUTextureBackend;
+
+impl GPUTextureBackend for WebGPUTextureBackend {
+  type GPUTexture2D = GPU2DTextureView;
+  type GPUSampler = GPUSamplerView;
+  type GPUTexture2DBindingArray<const N: usize> = BindingResourceArray<GPU2DTextureView, N>;
+  type GPUSamplerBindingArray<const N: usize> = BindingResourceArray<GPUSamplerView, N>;
+  type BindingCollector = BindingBuilder;
+
+  fn bind_texture2d(collector: &mut Self::BindingCollector, texture: &Self::GPUTexture2D) {
+    collector.bind(texture);
+  }
+
+  fn bind_sampler(collector: &mut Self::BindingCollector, sampler: &Self::GPUSampler) {
+    collector.bind(sampler);
+  }
+
+  fn bind_texture2d_array<const N: usize>(
+    collector: &mut Self::BindingCollector,
+    textures: &Self::GPUTexture2DBindingArray<N>,
+  ) {
+    collector.bind(textures);
+  }
+
+  fn bind_sampler_array<const N: usize>(
+    collector: &mut Self::BindingCollector,
+    samplers: &Self::GPUSamplerBindingArray<N>,
+  ) {
+    collector.bind(samplers);
+  }
+}

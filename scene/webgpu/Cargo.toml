@@ -6,29 +6,30 @@ version = "0.1.0"
 
 [dependencies]
 anymap = "0.12.1"
-arena = {path = "../../utils/arena"}
-arena-graph = {path = "../../utils/arena-graph"}
+arena = { path = "../../utils/arena" }
+arena-graph = { path = "../../utils/arena-graph" }
 bitflags = "*"
-bytemuck = {version = "1.4.1", features = ["derive"]}
+bytemuck = { version = "1.4.1", features = ["derive"] }
 dyn-clone = "1.0.5"
 futures = "0.3.25"
-incremental = {path = "../../utils/incremental"}
-fast-hash-collection = {path = "../../utils/fast-hash-collection"}
+incremental = { path = "../../utils/incremental" }
+fast-hash-collection = { path = "../../utils/fast-hash-collection" }
 linked-hash-map = "0.5.4"
 log = "0.4"
 once_cell = "1.4.0"
 pin-project = "1.0.12"
 rand = "0.7.3"
-rendiation-algebra = {path = "../../math/algebra"}
-rendiation-color = {path = "../../components/color"}
-rendiation-geometry = {path = "../../math/geometry"}
-rendiation-renderable-mesh = {path = "../../components/mesh/renderable"}
-rendiation-scene-core = {path = "../core"}
-rendiation-texture = {path = "../../components/texture/core"}
-tree = {path = "../../utils/tree"}
+rendiation-algebra = { path = "../../math/algebra" }
+rendiation-color = { path = "../../components/color" }
+rendiation-geometry = { path = "../../math/geometry" }
+rendiation-renderable-mesh = { path = "../../components/mesh/renderable" }
+rendiation-texture-gpu-system = { path = "../../components/texture/gpu-system" }
+rendiation-scene-core = { path = "../core" }
+rendiation-texture = { path = "../../components/texture/core" }
+tree = { path = "../../utils/tree" }
 
-shadergraph = {path = "../../shader/graph"}
-wgsl-shader-derives = {path = "../../shader/language/wgsl/derive"}
+shadergraph = { path = "../../shader/graph" }
+wgsl-shader-derives = { path = "../../shader/language/wgsl/derive" }
 
-reactive = {path = "../../utils/reactive"}
-webgpu = {package = "rendiation-webgpu", path = "../../platform/graphics/webgpu"}
+reactive = { path = "../../utils/reactive" }
+webgpu = { package = "rendiation-webgpu", path = "../../platform/graphics/webgpu" }

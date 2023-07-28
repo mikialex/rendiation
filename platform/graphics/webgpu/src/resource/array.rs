@@ -25,6 +25,26 @@ impl<const N: usize> CacheAbleBindingSource for BindingResourceArray<GPUTextureV
   }
 }
 
+// todo, improve for performance and impl for other strong typed texture type
+impl<const N: usize> CacheAbleBindingSource for BindingResourceArray<GPU2DTextureView, N> {
+  fn get_binding_build_source(&self) -> CacheAbleBindingBuildSource {
+    let lowered = self.bindings.iter().map(|v| v.0.clone()).collect();
+    CacheAbleBindingBuildSource {
+      source: BindingResourceOwned::TextureViewArray(Arc::new(lowered)),
+      view_id: self.resource_id,
+    }
+  }
+}
+
+impl<const N: usize> CacheAbleBindingSource for BindingResourceArray<GPUSamplerView, N> {
+  fn get_binding_build_source(&self) -> CacheAbleBindingBuildSource {
+    CacheAbleBindingBuildSource {
+      source: BindingResourceOwned::SamplerArray(self.bindings.clone()),
+      view_id: self.resource_id,
+    }
+  }
+}
+
 impl<T, const N: usize> ShaderBindingProvider for BindingResourceArray<T, N>
 where
   T: ShaderBindingProvider,

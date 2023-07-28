@@ -16,14 +16,14 @@ pub trait GPUTextureBackend {
 
   type BindingCollector;
   fn bind_texture2d(collector: &mut Self::BindingCollector, texture: &Self::GPUTexture2D);
-  fn bind_sampler(collector: &mut Self::BindingCollector, texture: &Self::GPUSampler);
+  fn bind_sampler(collector: &mut Self::BindingCollector, sampler: &Self::GPUSampler);
   fn bind_texture2d_array<const N: usize>(
     collector: &mut Self::BindingCollector,
-    texture: &Self::GPUTexture2DBindingArray<N>,
+    textures: &Self::GPUTexture2DBindingArray<N>,
   );
   fn bind_sampler_array<const N: usize>(
     collector: &mut Self::BindingCollector,
-    texture: &Self::GPUSamplerBindingArray<N>,
+    samplers: &Self::GPUSamplerBindingArray<N>,
   );
 }
 
