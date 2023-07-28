@@ -60,3 +60,38 @@ impl GPUTextureBackend for WebGPUTextureBackend {
     collector.bind(samplers);
   }
 }
+
+#[derive(Clone)]
+pub struct WebGPUTextureBindingSystem {
+  inner: Arc<RwLock<BindlessTextureSystem<WebGPUTextureBackend>>>,
+}
+
+impl WebGPUTextureBindingSystem {
+  fn register_texture(&self, t: GPU2DTextureView) -> Texture2DHandle {
+    todo!()
+  }
+  fn deregister_texture(&self, t: Texture2DHandle) {
+    todo!()
+  }
+  fn register_sampler(&self, t: GPUSamplerView) -> SamplerHandle {
+    todo!()
+  }
+  fn deregister_sampler(&self, t: SamplerHandle) {
+    todo!()
+  }
+
+  fn map_texture_stream(
+    &self,
+    input: impl Stream<Item = GPU2DTextureView>,
+  ) -> impl Stream<Item = Texture2DHandle> {
+    let sys = self.clone();
+    let mut previous = None;
+    input.map(move |texture| {
+      let handle = sys.register_texture(texture);
+      if let Some(previous) = previous.replace(handle) {
+        sys.deregister_texture(previous);
+      }
+      handle
+    })
+  }
+}

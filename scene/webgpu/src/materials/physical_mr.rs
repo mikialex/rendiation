@@ -5,21 +5,21 @@ use crate::*;
 #[derive(Clone, Copy, ShaderStruct)]
 pub struct PhysicalMetallicRoughnessMaterialUniform {
   pub base_color: Vec3<f32>,
+  pub color_texture: Texture2DHandle,
   pub emissive: Vec3<f32>,
+  pub emissive_texture: Texture2DHandle,
   pub roughness: f32,
   pub metallic: f32,
+  pub metallic_roughness_texture: Texture2DHandle,
   pub reflectance: f32,
   pub normal_mapping_scale: f32,
+  pub normal_texture: Texture2DHandle,
   pub alpha_cutoff: f32,
   pub alpha: f32,
 }
 
 impl ShaderHashProvider for PhysicalMetallicRoughnessMaterialGPU {
   fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
-    // todo optimize for reduce shader permutation
-    self.base_color_texture.is_some().hash(hasher);
-    self.metallic_roughness_texture.is_some().hash(hasher);
-    self.emissive_texture.is_some().hash(hasher);
     self.alpha_mode.hash(hasher);
   }
 }

@@ -81,3 +81,17 @@ impl Deref for ReactiveGPUTextureSamplerPair {
     &self.pair
   }
 }
+
+pub struct GPUTextureSamplerProxyPair {
+  pub texture: Texture2DHandle,
+  pub sampler: SamplerHandle,
+}
+
+#[pin_project::pin_project]
+pub struct ReactiveGPUTextureSamplerProxyPair {
+  pair: GPUTextureSamplerProxyPair,
+  #[pin]
+  changes: Texture2dRenderComponentDeltaStream,
+  #[pin]
+  sampler_changes: SamplerRenderComponentDeltaStream,
+}
