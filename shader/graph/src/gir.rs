@@ -189,6 +189,9 @@ pub enum ShaderStages {
 }
 
 #[derive(Clone, Copy)]
+pub struct BindingArray<T, const N: usize>(PhantomData<T>);
+
+#[derive(Clone, Copy)]
 pub struct ShaderTexture1D;
 #[derive(Clone, Copy)]
 pub struct ShaderTexture2D;
@@ -302,6 +305,35 @@ impl Hash for ShaderFunctionMetaInfo {
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub enum ShaderValueType {
+  Single(ShaderValueSingleType),
+  BindingArray {
+    count: usize,
+    ty: ShaderValueSingleType,
+  },
+  Never,
+}
+impl ShaderValueType {
+  pub fn mutate_single<R>(
+    &mut self,
+    mut mutator: impl FnMut(&mut ShaderValueSingleType) -> R,
+  ) -> Option<R> {
+    match self {
+      ShaderValueType::Single(v) => mutator(v).into(),
+      ShaderValueType::BindingArray { ty, .. } => mutator(ty).into(),
+      ShaderValueType::Never => None,
+    }
+  }
+  pub fn visit_single<R>(&self, mut visitor: impl FnMut(&ShaderValueSingleType) -> R) -> Option<R> {
+    match self {
+      ShaderValueType::Single(v) => visitor(v).into(),
+      ShaderValueType::BindingArray { ty, .. } => visitor(ty).into(),
+      ShaderValueType::Never => None,
+    }
+  }
+}
+
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub enum ShaderValueSingleType {
   Fixed(ShaderStructMemberValueType),
   Unsized(ShaderUnSizedValueType),
   Sampler(SamplerBindingType),
@@ -310,7 +342,6 @@ pub enum ShaderValueType {
     dimension: TextureViewDimension,
     sample_type: TextureSampleType,
   },
-  Never,
 }
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
@@ -493,6 +524,10 @@ impl ShaderStructMetaInfoOwned {
 
 pub trait ShaderGraphNodeType: 'static + Copy {
   const TYPE: ShaderValueType;
+}
+
+pub trait ShaderGraphNodeSingleType: 'static + Copy {
+  const SINGLE_TYPE: ShaderValueSingleType;
 }
 
 pub trait ShaderStructMemberValueNodeType: ShaderGraphNodeType {

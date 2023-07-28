@@ -172,12 +172,14 @@ impl CameraGPU {
       .uniform_by(&self.ubo)
       .using_both(builder, |r, camera| {
         let camera = camera.expand();
-        r.reg::<CameraViewMatrix>(camera.view);
-        r.reg::<CameraProjectionMatrix>(camera.projection);
-        r.reg::<CameraProjectionInverseMatrix>(camera.projection_inv);
-        r.reg::<CameraWorldMatrix>(camera.world);
-        r.reg::<CameraViewProjectionMatrix>(camera.view_projection);
-        r.reg::<CameraViewProjectionInverseMatrix>(camera.view_projection_inv);
+        r.register_typed_both_stage::<CameraViewMatrix>(camera.view);
+        r.register_typed_both_stage::<CameraProjectionMatrix>(camera.projection);
+        r.register_typed_both_stage::<CameraProjectionInverseMatrix>(camera.projection_inv);
+        r.register_typed_both_stage::<CameraWorldMatrix>(camera.world);
+        r.register_typed_both_stage::<CameraViewProjectionMatrix>(camera.view_projection);
+        r.register_typed_both_stage::<CameraViewProjectionInverseMatrix>(
+          camera.view_projection_inv,
+        );
       })
   }
 

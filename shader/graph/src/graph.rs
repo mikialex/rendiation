@@ -158,13 +158,16 @@ impl Default for ShaderGraphBuilder {
   }
 }
 
+// todo unsized struct
 fn extract_struct_define(
   ty: &ShaderValueType,
   visitor: &mut impl FnMut(&'static ShaderStructMetaInfo),
 ) {
-  if let ShaderValueType::Fixed(v) = ty {
-    extract_struct_define_inner(v, visitor)
-  }
+  ty.visit_single(|ty| {
+    if let ShaderValueSingleType::Fixed(v) = ty {
+      extract_struct_define_inner(v, visitor)
+    }
+  });
 }
 
 fn extract_struct_define_inner(

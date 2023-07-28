@@ -634,9 +634,9 @@ fn gen_binding_structs(
 
   for g in &bindings.bindings {
     for ShaderGraphBindEntry { desc, .. } in &g.bindings {
-      match &desc.ty {
-        ShaderValueType::Fixed(ty) => gen_binding_structs_impl(code, cx, ty),
-        ShaderValueType::Unsized(ty) => match ty {
+      desc.ty.visit_single(|ty| match ty {
+        ShaderValueSingleType::Fixed(ty) => gen_binding_structs_impl(code, cx, ty),
+        ShaderValueSingleType::Unsized(ty) => match ty {
           ShaderUnSizedValueType::UnsizedArray(ty) => gen_binding_structs_impl(code, cx, ty),
           ShaderUnSizedValueType::UnsizedStruct(meta) => {
             if cx.add_generated_unsized_binding_structs(meta) {
@@ -655,7 +655,7 @@ fn gen_binding_structs(
           }
         },
         _ => {}
-      }
+      });
     }
   }
 }
@@ -885,15 +885,18 @@ fn gen_bind_entry(
   item_index: &mut usize,
   _stage: ShaderStages,
 ) {
-  let is_uniform_buffer = match (
-    entry.desc.ty,
-    entry.desc.should_as_storage_buffer_if_is_buffer_like,
-  ) {
-    (ShaderValueType::Fixed(_), false) => true.into(),
-    (ShaderValueType::Fixed(_), true) => false.into(),
-    (ShaderValueType::Unsized(_), _) => false.into(),
-    _ => None,
-  };
+  let is_uniform_buffer = entry
+    .desc
+    .ty
+    .visit_single(
+      |ty| match (ty, entry.desc.should_as_storage_buffer_if_is_buffer_like) {
+        (ShaderValueSingleType::Fixed(_), false) => true.into(),
+        (ShaderValueSingleType::Fixed(_), true) => false.into(),
+        (ShaderValueSingleType::Unsized(_), _) => false.into(),
+        _ => None,
+      },
+    )
+    .unwrap();
   code.write_ln(format!(
     "@group({}) @binding({}) var{} uniform_b_{}_i_{}: {};",
     group_index,
@@ -956,9 +959,21 @@ fn gen_primitive_type(ty: PrimitiveShaderValueType) -> &'static str {
 
 fn gen_type_impl(ty: ShaderValueType, is_uniform: bool) -> String {
   match ty {
-    ShaderValueType::Sampler(_) => "sampler".to_owned(),
-    ShaderValueType::CompareSampler => "sampler_comparison".to_owned(),
-    ShaderValueType::Texture {
+    ShaderValueType::Single(ty) => gen_single_type_impl(ty, is_uniform),
+    ShaderValueType::BindingArray { count, ty } => {
+      format!(
+        "binding_array<{}, {count}>",
+        gen_single_type_impl(ty, is_uniform)
+      )
+    }
+    ShaderValueType::Never => unreachable!("can not code generate never type"),
+  }
+}
+fn gen_single_type_impl(ty: ShaderValueSingleType, is_uniform: bool) -> String {
+  match ty {
+    ShaderValueSingleType::Sampler(_) => "sampler".to_owned(),
+    ShaderValueSingleType::CompareSampler => "sampler_comparison".to_owned(),
+    ShaderValueSingleType::Texture {
       dimension,
       sample_type,
     } => {
@@ -977,14 +992,13 @@ fn gen_type_impl(ty: ShaderValueType, is_uniform: bool) -> String {
         TextureViewDimension::D3 => format!("texture{suffix}_3d{ty_suffix}"),
       }
     }
-    ShaderValueType::Fixed(ty) => gen_fix_type_impl(ty, is_uniform),
-    ShaderValueType::Unsized(ty) => match ty {
+    ShaderValueSingleType::Fixed(ty) => gen_fix_type_impl(ty, is_uniform),
+    ShaderValueSingleType::Unsized(ty) => match ty {
       ShaderUnSizedValueType::UnsizedArray(ty) => {
         format!("array<{}>", gen_fix_type_impl(*ty, is_uniform))
       }
       ShaderUnSizedValueType::UnsizedStruct(meta) => meta.name.to_owned(),
     },
-    ShaderValueType::Never => unreachable!("can not code generate never type"),
   }
 }
 

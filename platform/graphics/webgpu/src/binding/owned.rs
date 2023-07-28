@@ -3,12 +3,12 @@ use crate::*;
 #[derive(Clone)]
 pub enum BindingResourceOwned {
   Buffer(GPUBufferResourceView),
-  BufferArray(Vec<GPUBufferResourceView>),
+  BufferArray(Arc<Vec<GPUBufferResourceView>>),
   Sampler(GPUSamplerView),
-  SamplerArray(Vec<GPUSamplerView>),
+  SamplerArray(Arc<Vec<GPUSamplerView>>),
   RawTextureView(Arc<gpu::TextureView>, BindGroupResourceHolder), // to support surface texture
   TextureView(GPUTextureView),
-  TextureViewArray(Vec<GPUTextureView>),
+  TextureViewArray(Arc<Vec<GPUTextureView>>),
 }
 
 impl BindingResourceOwned {

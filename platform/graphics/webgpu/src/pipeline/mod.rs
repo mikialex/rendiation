@@ -1,3 +1,4 @@
+use __core::num::NonZeroU32;
 use shadergraph::*;
 use wgsl_codegen_graph::*;
 
@@ -43,41 +44,49 @@ pub fn map_shader_value_ty_to_binding_layout_type(
   v: ShaderBindingDescriptor,
   id: usize,
 ) -> gpu::BindGroupLayoutEntry {
-  use ShaderValueType::*;
-  let ty = match v.ty {
-    Fixed(_) => gpu::BindingType::Buffer {
-      ty: if v.should_as_storage_buffer_if_is_buffer_like {
-        gpu::BufferBindingType::Storage { read_only: true }
-      } else {
-        gpu::BufferBindingType::Uniform
+  use ShaderValueSingleType::*;
+  let ty = v
+    .ty
+    .visit_single(|ty| match *ty {
+      Fixed(_) => gpu::BindingType::Buffer {
+        ty: if v.should_as_storage_buffer_if_is_buffer_like {
+          gpu::BufferBindingType::Storage { read_only: true }
+        } else {
+          gpu::BufferBindingType::Uniform
+        },
+        has_dynamic_offset: false,
+        // min_binding_size: gpu::BufferSize::new(std::mem::size_of::<T>() as u64), // todo
+        min_binding_size: None,
       },
-      has_dynamic_offset: false,
-      // min_binding_size: gpu::BufferSize::new(std::mem::size_of::<T>() as u64), // todo
-      min_binding_size: None,
-    },
-    Unsized(_) => gpu::BindingType::Buffer {
-      ty: gpu::BufferBindingType::Storage { read_only: true },
-      has_dynamic_offset: false,
-      // min_binding_size: gpu::BufferSize::new(std::mem::size_of::<T>() as u64), // todo
-      min_binding_size: None,
-    },
-    Sampler(ty) => gpu::BindingType::Sampler(ty),
-    Texture {
-      dimension,
-      sample_type,
-    } => gpu::BindingType::Texture {
-      multisampled: false,
-      sample_type,
-      view_dimension: dimension,
-    },
-    CompareSampler => gpu::BindingType::Sampler(gpu::SamplerBindingType::Comparison),
-    Never => unreachable!(),
+      Unsized(_) => gpu::BindingType::Buffer {
+        ty: gpu::BufferBindingType::Storage { read_only: true },
+        has_dynamic_offset: false,
+        // min_binding_size: gpu::BufferSize::new(std::mem::size_of::<T>() as u64), // todo
+        min_binding_size: None,
+      },
+      Sampler(ty) => gpu::BindingType::Sampler(ty),
+      Texture {
+        dimension,
+        sample_type,
+      } => gpu::BindingType::Texture {
+        multisampled: false,
+        sample_type,
+        view_dimension: dimension,
+      },
+      CompareSampler => gpu::BindingType::Sampler(gpu::SamplerBindingType::Comparison),
+    })
+    .unwrap();
+
+  let count = match v.ty {
+    ShaderValueType::BindingArray { count, .. } => Some(NonZeroU32::new(count as u32).unwrap()),
+    _ => None,
   };
+
   gpu::BindGroupLayoutEntry {
     binding: id as u32,
     visibility: gpu::ShaderStages::VERTEX_FRAGMENT,
     ty,
-    count: None,
+    count,
   }
 }
 

@@ -221,3 +221,29 @@ where
     .insert_graph()
   }
 }
+
+impl<T, const U: usize> Node<[T; U]>
+where
+  T: ShaderGraphNodeType,
+{
+  pub fn index(&self, node: Node<impl ShaderGraphNodeType>) -> Node<T> {
+    OperatorNode::Index {
+      array: self.handle(),
+      entry: node.handle(),
+    }
+    .insert_graph()
+  }
+}
+
+impl<T, const U: usize> Node<BindingArray<T, U>>
+where
+  T: ShaderGraphNodeType,
+{
+  pub fn index(&self, node: Node<impl ShaderGraphNodeType>) -> Node<T> {
+    OperatorNode::Index {
+      array: self.handle(),
+      entry: node.handle(),
+    }
+    .insert_graph()
+  }
+}

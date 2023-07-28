@@ -1,0 +1,8 @@
+[package]
+authors = ["MikiAlex <18516340862@163.com>"]
+edition = "2021"
+name = "rendiation-texture-gpu-system"
+version = "0.1.0"
+
+[dependencies]
+shadergraph = { path = "../../../shader/graph" }

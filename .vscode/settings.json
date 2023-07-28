@@ -17,6 +17,7 @@
         "bindgen",
         "bindgroup",
         "bindgroups",
+        "Bindless",
         "bindpoint",
         "binormal",
         "bitflags",
