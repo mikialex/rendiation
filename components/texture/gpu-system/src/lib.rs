@@ -7,10 +7,24 @@ pub type SamplerHandle = u32;
 pub trait GPUTextureBackend {
   type GPUTexture2D: ShaderBindingProvider<Node = ShaderTexture2D>;
   type GPUSampler: ShaderBindingProvider<Node = ShaderSampler>;
+  type GPUTexture2DBindingArray<const N: usize>: ShaderBindingProvider<
+    Node = BindingArray<ShaderTexture2D, N>,
+  >;
+  type GPUSamplerBindingArray<const N: usize>: ShaderBindingProvider<
+    Node = BindingArray<ShaderSampler, N>,
+  >;
 
   type BindingCollector;
   fn bind_texture2d(collector: &mut Self::BindingCollector, texture: &Self::GPUTexture2D);
   fn bind_sampler(collector: &mut Self::BindingCollector, texture: &Self::GPUSampler);
+  fn bind_texture2d_array<const N: usize>(
+    collector: &mut Self::BindingCollector,
+    texture: &Self::GPUTexture2DBindingArray<N>,
+  );
+  fn bind_sampler_array<const N: usize>(
+    collector: &mut Self::BindingCollector,
+    texture: &Self::GPUSamplerBindingArray<N>,
+  );
 }
 
 pub trait GPUTextureAdvanceBackend: GPUTextureBackend {
@@ -49,7 +63,7 @@ pub trait AbstractIndirectGPUTextureSystem<B: GPUTextureBackend> {
   fn register_system_self(&self, builder: &mut ShaderGraphRenderPipelineBuilder);
   fn sample_texture2d_indirect(
     &self,
-    builder: &mut ShaderGraphBindGroupDirectBuilder,
+    reg: &SemanticRegistry,
     shader_texture_handle: Node<Texture2DHandle>,
     shader_sampler_handle: Node<SamplerHandle>,
     uv: Node<Vec2<f32>>,
@@ -116,6 +130,8 @@ impl<B: GPUTextureBackend> AbstractTraditionalTextureSystem<B>
 
 pub struct BindlessTextureSystem<B: GPUTextureBackend> {
   inner: TraditionalPerDrawBindingSystem<B>,
+  texture_binding_array: B::GPUTexture2DBindingArray<1024>,
+  sampler_binding_array: B::GPUSamplerBindingArray<1024>,
 }
 
 /// pass through inner implementation
@@ -145,27 +161,45 @@ impl<B: GPUTextureBackend> AbstractTraditionalTextureSystem<B> for BindlessTextu
   }
 }
 
+both!(BindlessTexturesInShader, BindingArray<ShaderTexture2D, 1024>);
+both!(BindlessSamplersInShader, BindingArray<ShaderSampler, 1024>);
+
 impl<B: GPUTextureBackend> AbstractIndirectGPUTextureSystem<B> for BindlessTextureSystem<B> {
-  fn bind_system_self(&mut self, _collector: &mut B::BindingCollector) {
-    todo!()
+  fn bind_system_self(&mut self, collector: &mut B::BindingCollector) {
+    B::bind_texture2d_array(collector, &self.texture_binding_array);
+    B::bind_sampler_array(collector, &self.sampler_binding_array);
   }
 
-  fn register_system_self(&self, _builder: &mut ShaderGraphRenderPipelineBuilder) {
-    todo!()
+  fn register_system_self(&self, builder: &mut ShaderGraphRenderPipelineBuilder) {
+    builder
+      .uniform_by(&self.texture_binding_array)
+      .using_both(builder, |r, textures| {
+        r.register_typed_both_stage::<BindlessTexturesInShader>(textures);
+      });
+    builder
+      .uniform_by(&self.sampler_binding_array)
+      .using_both(builder, |r, samplers| {
+        r.register_typed_both_stage::<BindlessSamplersInShader>(samplers);
+      });
   }
 
   fn sample_texture2d_indirect(
     &self,
-    _builder: &mut ShaderGraphBindGroupDirectBuilder,
-    _shader_texture_handle: Node<Texture2DHandle>,
-    _shader_sampler_handle: Node<SamplerHandle>,
-    _uv: Node<Vec2<f32>>,
+    reg: &SemanticRegistry,
+    shader_texture_handle: Node<Texture2DHandle>,
+    shader_sampler_handle: Node<SamplerHandle>,
+    uv: Node<Vec2<f32>>,
   ) -> Node<Vec4<f32>> {
-    todo!()
+    let textures = reg
+      .query_typed_both_stage::<BindlessTexturesInShader>()
+      .unwrap();
+
+    let samplers = reg
+      .query_typed_both_stage::<BindlessSamplersInShader>()
+      .unwrap();
+
+    let texture = textures.index(shader_texture_handle);
+    let sampler = samplers.index(shader_sampler_handle);
+    texture.sample(sampler, uv)
   }
 }
-
-// pub struct VirtualTextureSystem<B: GPUTextureBackend> {
-//   great_pool: B::GPUTexture2D,
-//   page_textures: Box<dyn SlabAllocator<B::GPUTexture2D>>,
-// }

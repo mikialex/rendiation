@@ -81,7 +81,6 @@ impl<T: ShaderGraphNodeType> UniformNodePreparer<T> {
     unsafe { node.into_node() }
   }
 
-  #[must_use]
   pub fn using_both(
     self,
     builder: &mut ShaderGraphRenderPipelineBuilder,

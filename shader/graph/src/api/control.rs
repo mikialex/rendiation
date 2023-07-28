@@ -47,6 +47,14 @@ impl<T: ShaderGraphNodeType, const U: usize> ShaderIteratorAble for Node<Shader1
   type Item = T;
 }
 
+impl<T: ShaderGraphNodeType, const U: usize> ShaderIteratorAble for Node<[T; U]> {
+  type Item = T;
+}
+
+impl<T: ShaderGraphNodeType, const U: usize> ShaderIteratorAble for Node<BindingArray<T, U>> {
+  type Item = T;
+}
+
 pub struct ClampedShaderIter<T> {
   pub source: T,
   pub count: Node<u32>,

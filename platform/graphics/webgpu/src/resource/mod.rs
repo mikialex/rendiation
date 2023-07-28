@@ -4,6 +4,9 @@ pub mod texture;
 mod buffer;
 pub use buffer::*;
 
+mod array;
+pub use array::*;
+
 mod sampler;
 pub use sampler::*;
 
@@ -43,6 +46,9 @@ impl<T: Resource> std::ops::Deref for ResourceContainer<T> {
 }
 
 static RESOURCE_GUID: AtomicUsize = AtomicUsize::new(0);
+pub fn get_new_resource_guid() -> usize {
+  RESOURCE_GUID.fetch_add(1, Ordering::Relaxed)
+}
 
 impl<T: Resource> ResourceContainer<T> {
   pub fn create(desc: T::Descriptor, device: &GPUDevice) -> Self
@@ -63,7 +69,7 @@ impl<T: Resource> ResourceContainer<T> {
 
   pub fn create_with_raw(resource: T, desc: T::Descriptor) -> Self {
     Self {
-      guid: RESOURCE_GUID.fetch_add(1, Ordering::Relaxed),
+      guid: get_new_resource_guid(),
       resource,
       desc,
       bindgroup_holder: Default::default(),

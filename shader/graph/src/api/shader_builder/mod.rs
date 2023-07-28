@@ -173,6 +173,21 @@ pub struct SemanticRegistry {
 }
 
 impl SemanticRegistry {
+  pub fn query_typed_both_stage<T: SemanticFragmentShaderValue + SemanticFragmentShaderValue>(
+    &self,
+  ) -> Result<Node<T::ValueType>, ShaderGraphBuildError> {
+    self
+      .query(TypeId::of::<T>(), T::NAME)
+      .map(|n| unsafe { std::mem::transmute(n) })
+  }
+
+  pub fn register_typed_both_stage<T: SemanticVertexShaderValue + SemanticFragmentShaderValue>(
+    &mut self,
+    node: impl Into<Node<<T as SemanticVertexShaderValue>::ValueType>>,
+  ) {
+    self.register(TypeId::of::<T>(), node.into().cast_untyped_node());
+  }
+
   pub fn query(
     &self,
     id: TypeId,
@@ -183,13 +198,6 @@ impl SemanticRegistry {
       .get(&id)
       .copied()
       .ok_or(ShaderGraphBuildError::MissingRequiredDependency(name))
-  }
-
-  pub fn reg<T: SemanticVertexShaderValue + SemanticFragmentShaderValue>(
-    &mut self,
-    node: impl Into<Node<<T as SemanticVertexShaderValue>::ValueType>>,
-  ) {
-    self.register(TypeId::of::<T>(), node.into().cast_untyped_node());
   }
 
   pub fn register(&mut self, id: TypeId, node: NodeUntyped) -> &Node<AnyType> {
