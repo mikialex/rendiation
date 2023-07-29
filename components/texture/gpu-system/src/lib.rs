@@ -135,6 +135,21 @@ pub struct BindlessTextureSystem<B: GPUTextureBackend> {
 }
 
 /// pass through inner implementation
+impl<B: GPUTextureBackend> AbstractGPUTextureSystemBase<B> for BindlessTextureSystem<B> {
+  fn register_texture(&mut self, t: B::GPUTexture2D) -> Texture2DHandle {
+    self.inner.register_texture(t)
+  }
+  fn deregister_texture(&mut self, t: Texture2DHandle) {
+    self.inner.deregister_texture(t)
+  }
+  fn register_sampler(&mut self, t: B::GPUSampler) -> SamplerHandle {
+    self.inner.register_sampler(t)
+  }
+  fn deregister_sampler(&mut self, t: SamplerHandle) {
+    self.inner.deregister_sampler(t)
+  }
+}
+
 impl<B: GPUTextureBackend> AbstractTraditionalTextureSystem<B> for BindlessTextureSystem<B> {
   fn bind_texture2d(&mut self, collector: &mut B::BindingCollector, handle: Texture2DHandle) {
     self.inner.bind_texture2d(collector, handle)

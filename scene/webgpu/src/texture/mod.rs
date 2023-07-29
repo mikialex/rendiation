@@ -66,21 +66,43 @@ pub struct WebGPUTextureBindingSystem {
   inner: Arc<RwLock<BindlessTextureSystem<WebGPUTextureBackend>>>,
 }
 
+impl ShaderPassBuilder for WebGPUTextureBindingSystem {
+  fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
+    let mut inner = self.inner.write().unwrap();
+    inner.bind_system_self(&mut ctx.binding)
+  }
+}
+impl ShaderHashProvider for WebGPUTextureBindingSystem {}
+impl ShaderGraphProvider for WebGPUTextureBindingSystem {
+  fn build(
+    &self,
+    builder: &mut ShaderGraphRenderPipelineBuilder,
+  ) -> Result<(), ShaderGraphBuildError> {
+    let inner = self.inner.read().unwrap();
+    inner.register_system_self(builder);
+    Ok(())
+  }
+}
+
 impl WebGPUTextureBindingSystem {
   fn register_texture(&self, t: GPU2DTextureView) -> Texture2DHandle {
-    todo!()
+    let mut inner = self.inner.write().unwrap();
+    inner.register_texture(t)
   }
   fn deregister_texture(&self, t: Texture2DHandle) {
-    todo!()
+    let mut inner = self.inner.write().unwrap();
+    inner.deregister_texture(t)
   }
   fn register_sampler(&self, t: GPUSamplerView) -> SamplerHandle {
-    todo!()
+    let mut inner = self.inner.write().unwrap();
+    inner.register_sampler(t)
   }
   fn deregister_sampler(&self, t: SamplerHandle) {
-    todo!()
+    let mut inner = self.inner.write().unwrap();
+    inner.deregister_sampler(t)
   }
 
-  fn map_texture_stream(
+  pub fn map_texture_stream(
     &self,
     input: impl Stream<Item = GPU2DTextureView>,
   ) -> impl Stream<Item = Texture2DHandle> {
@@ -90,6 +112,21 @@ impl WebGPUTextureBindingSystem {
       let handle = sys.register_texture(texture);
       if let Some(previous) = previous.replace(handle) {
         sys.deregister_texture(previous);
+      }
+      handle
+    })
+  }
+
+  pub fn map_sampler_stream(
+    &self,
+    input: impl Stream<Item = GPUSamplerView>,
+  ) -> impl Stream<Item = SamplerHandle> {
+    let sys = self.clone();
+    let mut previous = None;
+    input.map(move |sampler| {
+      let handle = sys.register_sampler(sampler);
+      if let Some(previous) = previous.replace(handle) {
+        sys.deregister_sampler(previous);
       }
       handle
     })
