@@ -47,16 +47,15 @@ impl FontManager {
 pub struct DefaultFontProvider;
 
 impl crate::Font for ab_glyph::FontArc {
-  fn raster(&self, glyph_id: GlyphID, info: GlyphRasterInfo) -> Option<Texture2DBuffer<u8>> {
-    let GlyphID(char, _) = glyph_id;
+  fn raster(&self, glyph_id: GlyphId, info: GlyphRasterInfo) -> Option<Texture2DBuffer<u8>> {
+    let glyph_id = ab_glyph::GlyphId(glyph_id.0 as u16);
     let font = self;
     fn into_unsigned_u8(f: f32) -> u8 {
       (f * 255.) as u8
     }
 
-    let q_glyph = font
-      .glyph_id(char)
-      .with_scale_and_position(info.scale, point(info.position.x, info.position.y));
+    let q_glyph =
+      glyph_id.with_scale_and_position(info.scale, point(info.position.x, info.position.y));
 
     // Draw it.
     let outlined_glyph = font.outline_glyph(q_glyph)?;
@@ -166,8 +165,11 @@ impl TextGlyphLayouter for GlyphBrushLayouter {
         };
         bound.get_or_insert(rect).union(rect);
 
+        let glyph_id = font.glyph_id(c);
+        let glyph_id = GlyphId(glyph_id.0 as u32);
+
         (
-          GlyphID(c, font_id),
+          FontGlyphId { font_id, glyph_id },
           GlyphRasterInfo {
             position: (r.glyph.position.x, r.glyph.position.y).into(),
             scale: r.glyph.scale.x,

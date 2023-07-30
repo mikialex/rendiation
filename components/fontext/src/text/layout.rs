@@ -2,7 +2,7 @@ use crate::*;
 
 pub struct LayoutedTextGlyphs {
   pub source: String,
-  pub glyphs: Vec<(GlyphID, GlyphRasterInfo, GlyphBound)>,
+  pub glyphs: Vec<(FontGlyphId, GlyphRasterInfo, GlyphBound)>,
   pub bound: Option<Rectangle>,
 }
 

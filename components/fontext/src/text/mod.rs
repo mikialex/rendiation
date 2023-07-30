@@ -10,6 +10,9 @@ pub use layout::*;
 pub mod raster;
 pub use raster::*;
 
+pub mod shaping;
+pub use shaping::*;
+
 pub mod packer;
 pub use packer::*;
 

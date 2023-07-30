@@ -2,7 +2,7 @@ use crate::*;
 
 pub struct GlyphCache {
   packer: GlyphPacker,
-  queue: FastHashMap<(GlyphID, NormalizedGlyphRasterInfo), GlyphRasterInfo>,
+  queue: FastHashMap<(FontGlyphId, NormalizedGlyphRasterInfo), GlyphRasterInfo>,
   current_size: Size,
   tolerance: GlyphRasterTolerance,
 }
@@ -53,7 +53,7 @@ impl GlyphCache {
   #[allow(clippy::type_complexity)]
   pub fn get_cached_glyph_info(
     &self,
-    glyph: GlyphID,
+    glyph: FontGlyphId,
     info: GlyphRasterInfo,
   ) -> Option<([f32; 2], [f32; 2])> {
     let normalized = info.normalize(&self.tolerance);
@@ -121,7 +121,7 @@ impl GlyphCache {
     })
   }
 
-  pub fn queue_glyph(&mut self, glyph_id: GlyphID, info: GlyphRasterInfo) {
+  pub fn queue_glyph(&mut self, glyph_id: FontGlyphId, info: GlyphRasterInfo) {
     self
       .queue
       .insert((glyph_id, info.normalize(&self.tolerance)), info);

@@ -1,7 +1,7 @@
 use crate::*;
 
 pub trait Font: Any {
-  fn raster(&self, glyph_id: GlyphID, info: GlyphRasterInfo) -> Option<Texture2DBuffer<u8>>;
+  fn raster(&self, glyph_id: GlyphId, info: GlyphRasterInfo) -> Option<Texture2DBuffer<u8>>;
   fn as_any(&self) -> &dyn Any;
 }
 
@@ -9,7 +9,13 @@ pub trait Font: Any {
 pub struct FontId(pub(crate) usize);
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub struct GlyphID(pub(crate) char, pub(crate) FontId);
+pub struct GlyphId(pub(crate) u32);
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct FontGlyphId {
+  pub font_id: FontId,
+  pub glyph_id: GlyphId,
+}
 
 #[derive(Default)]
 pub struct FontManager {
@@ -53,10 +59,10 @@ impl FontManager {
 
   pub(crate) fn raster(
     &self,
-    glyph_id: GlyphID,
+    id: FontGlyphId,
     info: GlyphRasterInfo,
   ) -> Option<Texture2DBuffer<u8>> {
-    let font = self.get_font(glyph_id.1)?;
-    font.raster(glyph_id, info)
+    let font = self.get_font(id.font_id)?;
+    font.raster(id.glyph_id, info)
   }
 }
