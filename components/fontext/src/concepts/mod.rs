@@ -1,20 +1,14 @@
-pub mod cache_glyph;
-pub use cache_glyph::*;
-
-pub mod cache_text;
-pub use cache_text::*;
-
-pub mod layout;
+mod layout;
 pub use layout::*;
 
-pub mod raster;
+mod raster;
 pub use raster::*;
 
-pub mod shaping;
+mod shaping;
 pub use shaping::*;
 
-pub mod packer;
-pub use packer::*;
+mod fonts;
+pub use fonts::*;
 
 use crate::*;
 
@@ -27,6 +21,32 @@ pub enum LineWrap {
 impl Default for LineWrap {
   fn default() -> Self {
     Self::Single
+  }
+}
+
+#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
+pub enum TextHorizontalAlignment {
+  Center,
+  Left,
+  Right,
+}
+
+#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
+pub enum TextVerticalAlignment {
+  Center,
+  Top,
+  Bottom,
+}
+
+impl Default for TextHorizontalAlignment {
+  fn default() -> Self {
+    Self::Center
+  }
+}
+
+impl Default for TextVerticalAlignment {
+  fn default() -> Self {
+    Self::Center
   }
 }
 

@@ -7,44 +7,18 @@ use std::{
 
 use fast_hash_collection::*;
 use linked_hash_map::LinkedHashMap;
-use rendiation_algebra::Vec2;
+use rendiation_algebra::*;
 use rendiation_color::*;
-use rendiation_geometry::Rectangle;
+use rendiation_geometry::*;
 use rendiation_texture::{Size, Texture2D, Texture2DBuffer, TextureRange};
 use rendiation_texture_packer::etagere_wrap::EtagerePacker;
 use rendiation_texture_packer::{PackError, PackId, PackerConfig, RePackablePacker};
 
-mod text;
-pub use text::*;
+mod concepts;
+pub use concepts::*;
 
-mod fonts;
-pub use fonts::*;
+mod presentation;
+pub use presentation::*;
 
 #[cfg(feature = "glyph_brush_impl")]
 pub mod impls;
-
-#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
-pub enum TextHorizontalAlignment {
-  Center,
-  Left,
-  Right,
-}
-
-#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
-pub enum TextVerticalAlignment {
-  Center,
-  Top,
-  Bottom,
-}
-
-impl Default for TextHorizontalAlignment {
-  fn default() -> Self {
-    Self::Center
-  }
-}
-
-impl Default for TextVerticalAlignment {
-  fn default() -> Self {
-    Self::Center
-  }
-}
