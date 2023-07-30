@@ -63,15 +63,7 @@ impl Stream for ReactiveGPUTextureSamplerPair {
     let this = self.project();
     let texture = this.changes.poll_next(cx);
     let sampler = this.sampler_changes.poll_next(cx);
-    match (texture, sampler) {
-      (Poll::Ready(t), Poll::Ready(s)) => match (t, s) {
-        (Some(t), Some(s)) => Poll::Ready(Some(t | s)),
-        _ => Poll::Ready(None),
-      },
-      (Poll::Ready(r), Poll::Pending) => Poll::Ready(r),
-      (Poll::Pending, Poll::Ready(r)) => Poll::Ready(r),
-      (Poll::Pending, Poll::Pending) => Poll::Pending,
-    }
+    texture.p_or(sampler)
   }
 }
 
