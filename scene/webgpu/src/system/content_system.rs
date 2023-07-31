@@ -1,3 +1,5 @@
+use rendiation_texture::GPUBufferImage;
+
 use crate::*;
 
 /// The actual gpu data
@@ -100,6 +102,8 @@ pub struct ShareBindableResourceCtx {
   pub gpu: ResourceGPUCtx,
   pub custom_storage: Arc<RwLock<AnyMap>>,
 
+  pub default_sampler: SceneItemRef<TextureSampler>,
+  pub default_texture_2d: SceneTexture2D,
   pub sampler: Arc<RwLock<StreamMap<usize, ReactiveGPUSamplerViewSource>>>,
   pub texture_2d: Arc<RwLock<StreamMap<usize, ReactiveGPU2DTextureViewSource>>>,
   pub texture_cube: Arc<RwLock<StreamMap<usize, ReactiveGPUCubeTextureViewSource>>>,
@@ -130,7 +134,16 @@ impl Stream for ShareBindableResourceCtx {
 
 impl ShareBindableResourceCtx {
   pub fn new(gpu: &GPU) -> Self {
+    // create a 1x1 white pixel as the default texture;
+    let default_texture_2d = GPUBufferImage {
+      data: vec![255, 255, 255, 255],
+      format: TextureFormat::Rgba8UnormSrgb,
+      size: Size::from_u32_pair_min_one((1, 1)),
+    };
+    let default_texture_2d = SceneTexture2DType::GPUBufferImage(default_texture_2d).into_ref();
     Self {
+      default_texture_2d,
+      default_sampler: Default::default(),
       custom_storage: Arc::new(RwLock::new(AnyMap::new())),
       gpu: ResourceGPUCtx::new(gpu, Default::default()),
       sampler: Default::default(),

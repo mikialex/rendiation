@@ -10,38 +10,36 @@ pub fn then_some<X>(f: impl Fn(X) -> bool) -> impl Fn(X) -> Option<()> {
 
 pub fn apply_normal_map_delta(
   t: DeltaOf<Option<NormalMapping>>,
-  target: &mut Option<ReactiveGPUTextureSamplerPair>,
+  target: &mut ReactiveGPUTextureSamplerPair,
   ctx: &ShareBindableResourceCtx,
 ) -> RenderComponentDeltaFlag {
   if let Some(t) = t {
     match t {
       MaybeDelta::Delta(v) => match v {
         NormalMappingDelta::content(t) => {
-          *target = ctx.build_reactive_texture_sampler_pair(&t).into();
+          *target = ctx.build_reactive_texture_sampler_pair(Some(&t));
           RenderComponentDeltaFlag::RefAndHash
         }
         // scale handled in uniform groups
         NormalMappingDelta::scale(_) => RenderComponentDeltaFlag::Content,
       },
       MaybeDelta::All(t) => {
-        *target = ctx.build_reactive_texture_sampler_pair(&t.content).into();
+        *target = ctx.build_reactive_texture_sampler_pair(Some(&t.content));
         RenderComponentDeltaFlag::RefAndHash
       }
     }
   } else {
-    *target = None;
+    *target = ctx.build_reactive_texture_sampler_pair(None);
     RenderComponentDeltaFlag::RefAndHash
   }
 }
 
 pub fn apply_tex_pair_delta(
   t: Option<MaybeDelta<TextureWithSamplingData<SceneItemRef<SceneTexture2DType>>>>,
-  target: &mut Option<ReactiveGPUTextureSamplerPair>,
+  target: &mut ReactiveGPUTextureSamplerPair,
   ctx: &ShareBindableResourceCtx,
 ) -> RenderComponentDeltaFlag {
-  *target = t
-    .map(merge_maybe)
-    .map(|t| ctx.build_reactive_texture_sampler_pair(&t));
+  *target = ctx.build_reactive_texture_sampler_pair(t.map(merge_maybe).as_ref());
   RenderComponentDeltaFlag::RefAndHash
 }
 

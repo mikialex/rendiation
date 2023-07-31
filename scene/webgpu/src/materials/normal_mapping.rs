@@ -55,6 +55,35 @@ pub fn apply_normal_mapping(
   normal
 }
 
+pub fn apply_normal_mapping_conditional(
+  builder: &mut ShaderGraphFragmentBuilderView,
+  normal_map_sample: Node<Vec3<f32>>,
+  uv: Node<Vec2<f32>>,
+  scale: Node<f32>,
+  enabled: Node<bool>,
+) -> Node<Vec3<f32>> {
+  let normal = builder.get_or_compute_fragment_normal().mutable();
+  let position = builder.query_or_interpolate_by::<FragmentWorldPosition, WorldVertexPosition>();
+
+  if_by(enabled, || {
+    let normal_adjust = normal_map_sample * consts(Vec3::splat(2.)) - consts(Vec3::one());
+    let normal_adjust = normal_adjust * scale.splat::<Vec3<f32>>();
+
+    // todo, should we move this to upper?
+    let face = builder
+      .query::<FragmentFrontFacing>()
+      .unwrap() // builtin type
+      .select(consts(0.), consts(1.));
+
+    let n = perturb_normal_2_arb(position, normal.get(), normal_adjust, uv, face);
+    normal.set(n);
+  });
+
+  let normal = normal.get();
+  builder.register::<FragmentWorldNormal>(normal);
+  normal
+}
+
 wgsl_fn!(
   fn compute_normal_by_dxdy(position: vec3<f32>) -> vec3<f32> {
     /// note, webgpu canvas is left handed

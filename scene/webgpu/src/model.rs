@@ -167,6 +167,7 @@ pub fn build_standard_model_gpu(
     })
 }
 
+#[allow(clippy::large_enum_variant)]
 #[pin_project::pin_project(project = ReactiveSceneModelGPUTypeProj)]
 pub enum ReactiveModelGPUType {
   Standard(ReactiveStandardModelGPU),

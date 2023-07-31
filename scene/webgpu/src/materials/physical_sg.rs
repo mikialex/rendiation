@@ -5,21 +5,21 @@ use crate::*;
 #[derive(Clone, Copy, ShaderStruct)]
 pub struct PhysicalSpecularGlossinessMaterialUniform {
   pub albedo: Vec3<f32>,
+  pub albedo_texture: TextureSamplerHandlePair,
   pub specular: Vec3<f32>,
+  pub specular_texture: TextureSamplerHandlePair,
   pub emissive: Vec3<f32>,
+  pub emissive_texture: TextureSamplerHandlePair,
   pub glossiness: f32,
+  pub glossiness_texture: TextureSamplerHandlePair,
   pub normal_mapping_scale: f32,
+  pub normal_texture: TextureSamplerHandlePair,
   pub alpha_cutoff: f32,
   pub alpha: f32,
 }
 
 impl ShaderHashProvider for PhysicalSpecularGlossinessMaterialGPU {
   fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
-    // todo optimize for reduce shader permutation
-    self.albedo_texture.is_some().hash(hasher);
-    self.specular_texture.is_some().hash(hasher);
-    self.glossiness_texture.is_some().hash(hasher);
-    self.emissive_texture.is_some().hash(hasher);
     self.alpha_mode.hash(hasher);
   }
 }
@@ -27,11 +27,11 @@ impl ShaderHashProvider for PhysicalSpecularGlossinessMaterialGPU {
 #[pin_project::pin_project]
 pub struct PhysicalSpecularGlossinessMaterialGPU {
   uniform: UniformBufferDataView<PhysicalSpecularGlossinessMaterialUniform>,
-  albedo_texture: Option<ReactiveGPUTextureSamplerPair>,
-  specular_texture: Option<ReactiveGPUTextureSamplerPair>,
-  glossiness_texture: Option<ReactiveGPUTextureSamplerPair>,
-  emissive_texture: Option<ReactiveGPUTextureSamplerPair>,
-  normal_texture: Option<ReactiveGPUTextureSamplerPair>,
+  albedo_texture: ReactiveGPUTextureSamplerPair,
+  specular_texture: ReactiveGPUTextureSamplerPair,
+  glossiness_texture: ReactiveGPUTextureSamplerPair,
+  emissive_texture: ReactiveGPUTextureSamplerPair,
+  normal_texture: ReactiveGPUTextureSamplerPair,
   alpha_mode: AlphaMode,
 }
 
@@ -39,34 +39,25 @@ impl Stream for PhysicalSpecularGlossinessMaterialGPU {
   type Item = RenderComponentDeltaFlag;
 
   fn poll_next(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Option<Self::Item>> {
-    let mut this = self.project();
-    early_return_option_ready!(this.albedo_texture, cx);
-    early_return_option_ready!(this.specular_texture, cx);
-    early_return_option_ready!(this.glossiness_texture, cx);
-    early_return_option_ready!(this.emissive_texture, cx);
-    early_return_option_ready!(this.normal_texture, cx);
-    Poll::Pending
+    let this = self.project();
+    let mut r = RenderComponentDeltaFlag::default();
+    poll_update_texture_handle_uniform!(this, albedo_texture, cx, r);
+    poll_update_texture_handle_uniform!(this, specular_texture, cx, r);
+    poll_update_texture_handle_uniform!(this, glossiness_texture, cx, r);
+    poll_update_texture_handle_uniform!(this, emissive_texture, cx, r);
+    poll_update_texture_handle_uniform!(this, normal_texture, cx, r);
+    r.into_poll()
   }
 }
 
 impl ShaderPassBuilder for PhysicalSpecularGlossinessMaterialGPU {
   fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
     ctx.binding.bind(&self.uniform);
-    if let Some(t) = self.albedo_texture.as_ref() {
-      t.setup_pass(ctx)
-    }
-    if let Some(t) = self.specular_texture.as_ref() {
-      t.setup_pass(ctx)
-    }
-    if let Some(t) = self.glossiness_texture.as_ref() {
-      t.setup_pass(ctx)
-    }
-    if let Some(t) = self.emissive_texture.as_ref() {
-      t.setup_pass(ctx)
-    }
-    if let Some(t) = self.normal_texture.as_ref() {
-      t.setup_pass(ctx)
-    }
+    self.albedo_texture.setup_pass(ctx);
+    self.specular_texture.setup_pass(ctx);
+    self.glossiness_texture.setup_pass(ctx);
+    self.emissive_texture.setup_pass(ctx);
+    self.normal_texture.setup_pass(ctx);
   }
 }
 
@@ -86,36 +77,42 @@ impl ShaderGraphProvider for PhysicalSpecularGlossinessMaterialGPU {
 
       let mut alpha = uniform.alpha;
 
-      let albedo = if let Some(tex) = &self.albedo_texture {
-        let sample = tex.uniform_and_sample(binding, uv);
-        alpha *= sample.w();
-        sample.xyz() * uniform.albedo
-      } else {
-        uniform.albedo
-      };
+      let mut albedo = uniform.albedo;
+      let albedo_tex = self
+        .albedo_texture
+        .uniform_and_sample(binding, uniform.albedo_texture, uv);
+      alpha *= albedo_tex.w();
+      albedo *= albedo_tex.xyz();
 
-      let specular = if let Some(tex) = &self.specular_texture {
-        tex.uniform_and_sample(binding, uv).xyz() * uniform.specular
-      } else {
-        uniform.specular
-      };
+      let mut specular = uniform.specular;
+      specular *= self
+        .specular_texture
+        .uniform_and_sample(binding, uniform.specular_texture, uv)
+        .xyz();
 
-      let glossiness = if let Some(tex) = &self.glossiness_texture {
-        tex.uniform_and_sample(binding, uv).x() * uniform.glossiness
-      } else {
-        uniform.glossiness
-      };
+      let mut glossiness = uniform.glossiness;
+      glossiness *= self
+        .specular_texture
+        .uniform_and_sample(binding, uniform.glossiness_texture, uv)
+        .x();
 
-      let emissive = if let Some(tex) = &self.emissive_texture {
-        tex.uniform_and_sample(binding, uv).x() * uniform.emissive
-      } else {
-        uniform.emissive
-      };
+      let mut emissive = uniform.emissive;
+      emissive *= self
+        .emissive_texture
+        .uniform_and_sample(binding, uniform.emissive_texture, uv)
+        .xyz();
 
-      if let Some(tex) = &self.normal_texture {
-        let normal_sample = tex.uniform_and_sample(binding, uv).xyz();
-        apply_normal_mapping(builder, normal_sample, uv, uniform.normal_mapping_scale);
-      }
+      let (normal_sample, enabled) =
+        self
+          .normal_texture
+          .uniform_and_sample_enabled(binding, uniform.normal_texture, uv);
+      apply_normal_mapping_conditional(
+        builder,
+        normal_sample.xyz(),
+        uv,
+        uniform.normal_mapping_scale,
+        enabled,
+      );
 
       match self.alpha_mode {
         AlphaMode::Opaque => {}
@@ -168,30 +165,13 @@ impl WebGPUMaterial for PhysicalSpecularGlossinessMaterial {
     let uniform = build_shader_uniform(&m);
     let uniform = create_uniform(uniform, &ctx.gpu.device);
 
-    let albedo_texture = m
-      .albedo_texture
-      .as_ref()
-      .map(|t| ctx.build_reactive_texture_sampler_pair(t));
+    let albedo_texture = ctx.build_reactive_texture_sampler_pair(m.albedo_texture.as_ref());
+    let glossiness_texture = ctx.build_reactive_texture_sampler_pair(m.glossiness_texture.as_ref());
+    let specular_texture = ctx.build_reactive_texture_sampler_pair(m.specular_texture.as_ref());
+    let emissive_texture = ctx.build_reactive_texture_sampler_pair(m.emissive_texture.as_ref());
 
-    let glossiness_texture = m
-      .glossiness_texture
-      .as_ref()
-      .map(|t| ctx.build_reactive_texture_sampler_pair(t));
-
-    let specular_texture = m
-      .specular_texture
-      .as_ref()
-      .map(|t| ctx.build_reactive_texture_sampler_pair(t));
-
-    let emissive_texture = m
-      .emissive_texture
-      .as_ref()
-      .map(|t| ctx.build_reactive_texture_sampler_pair(t));
-
-    let normal_texture = m
-      .normal_texture
-      .as_ref()
-      .map(|t| ctx.build_reactive_texture_sampler_pair(&t.content));
+    let normal_texture =
+      ctx.build_reactive_texture_sampler_pair(m.normal_texture.as_ref().map(|t| &t.content));
 
     let gpu = PhysicalSpecularGlossinessMaterialGPU {
       uniform,

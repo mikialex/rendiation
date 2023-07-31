@@ -52,7 +52,7 @@ impl<T: Std140> UniformBufferDataView<T> {
     }
   }
 
-  pub fn mutate(&self, f: impl Fn(&mut T)) -> &Self {
+  pub fn mutate(&self, f: impl FnOnce(&mut T)) -> &Self {
     let mut state = self.diff.write().unwrap();
     f(&mut state.data);
     state.changed = true;

@@ -16,7 +16,7 @@ pub trait ReactiveRenderComponentSource: Stream<Item = RenderComponentDeltaFlag>
 }
 
 bitflags::bitflags! {
-  #[derive(Default, Copy, Clone)]
+  #[derive(Default, Copy, Clone, PartialEq, Eq)]
   pub struct RenderComponentDeltaFlag: u32 {
     const ShaderHash = 0b00000001;
     const ContentRef = 0b00000010;
@@ -28,6 +28,16 @@ bitflags::bitflags! {
 }
 
 pub type RenderComponentDeltaStream<T> = impl Stream<Item = RenderComponentDeltaFlag>;
+
+impl RenderComponentDeltaFlag {
+  pub fn into_poll(self) -> Poll<Option<Self>> {
+    if self != Default::default() {
+      Poll::Ready(Some(self))
+    } else {
+      Poll::Pending
+    }
+  }
+}
 
 #[pin_project::pin_project]
 pub struct RenderComponentCell<T> {
@@ -131,5 +141,16 @@ macro_rules! early_return_option_ready {
     if let Some(t) = &mut $e {
       early_return_ready!(t.poll_next_unpin($cx));
     }
+  };
+}
+
+#[macro_export]
+macro_rules! poll_update_texture_handle_uniform {
+  ($this: tt, $name: tt, $cx: tt, $flag: tt) => {
+    $this.$name.poll_change($cx, &mut $flag, |d| {
+      $this.uniform.mutate(|v| {
+        v.$name.apply(d).ok();
+      });
+    });
   };
 }

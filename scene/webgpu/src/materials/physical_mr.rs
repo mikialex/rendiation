@@ -5,15 +5,15 @@ use crate::*;
 #[derive(Clone, Copy, ShaderStruct)]
 pub struct PhysicalMetallicRoughnessMaterialUniform {
   pub base_color: Vec3<f32>,
-  pub color_texture: Texture2DHandle,
+  pub base_color_texture: TextureSamplerHandlePair,
   pub emissive: Vec3<f32>,
-  pub emissive_texture: Texture2DHandle,
+  pub emissive_texture: TextureSamplerHandlePair,
   pub roughness: f32,
   pub metallic: f32,
-  pub metallic_roughness_texture: Texture2DHandle,
+  pub metallic_roughness_texture: TextureSamplerHandlePair,
   pub reflectance: f32,
   pub normal_mapping_scale: f32,
-  pub normal_texture: Texture2DHandle,
+  pub normal_texture: TextureSamplerHandlePair,
   pub alpha_cutoff: f32,
   pub alpha: f32,
 }
@@ -27,10 +27,10 @@ impl ShaderHashProvider for PhysicalMetallicRoughnessMaterialGPU {
 #[pin_project::pin_project]
 pub struct PhysicalMetallicRoughnessMaterialGPU {
   uniform: UniformBufferDataView<PhysicalMetallicRoughnessMaterialUniform>,
-  base_color_texture: Option<ReactiveGPUTextureSamplerPair>,
-  metallic_roughness_texture: Option<ReactiveGPUTextureSamplerPair>,
-  emissive_texture: Option<ReactiveGPUTextureSamplerPair>,
-  normal_texture: Option<ReactiveGPUTextureSamplerPair>,
+  base_color_texture: ReactiveGPUTextureSamplerPair,
+  metallic_roughness_texture: ReactiveGPUTextureSamplerPair,
+  emissive_texture: ReactiveGPUTextureSamplerPair,
+  normal_texture: ReactiveGPUTextureSamplerPair,
   alpha_mode: AlphaMode,
 }
 
@@ -38,30 +38,23 @@ impl Stream for PhysicalMetallicRoughnessMaterialGPU {
   type Item = RenderComponentDeltaFlag;
 
   fn poll_next(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Option<Self::Item>> {
-    let mut this = self.project();
-    early_return_option_ready!(this.base_color_texture, cx);
-    early_return_option_ready!(this.metallic_roughness_texture, cx);
-    early_return_option_ready!(this.emissive_texture, cx);
-    early_return_option_ready!(this.normal_texture, cx);
-    Poll::Pending
+    let this = self.project();
+    let mut r = RenderComponentDeltaFlag::default();
+    poll_update_texture_handle_uniform!(this, base_color_texture, cx, r);
+    poll_update_texture_handle_uniform!(this, metallic_roughness_texture, cx, r);
+    poll_update_texture_handle_uniform!(this, emissive_texture, cx, r);
+    poll_update_texture_handle_uniform!(this, normal_texture, cx, r);
+    r.into_poll()
   }
 }
 
 impl ShaderPassBuilder for PhysicalMetallicRoughnessMaterialGPU {
   fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
     ctx.binding.bind(&self.uniform);
-    if let Some(t) = self.base_color_texture.as_ref() {
-      t.setup_pass(ctx)
-    }
-    if let Some(t) = self.metallic_roughness_texture.as_ref() {
-      t.setup_pass(ctx)
-    }
-    if let Some(t) = self.emissive_texture.as_ref() {
-      t.setup_pass(ctx)
-    }
-    if let Some(t) = self.normal_texture.as_ref() {
-      t.setup_pass(ctx)
-    }
+    self.base_color_texture.setup_pass(ctx);
+    self.metallic_roughness_texture.setup_pass(ctx);
+    self.emissive_texture.setup_pass(ctx);
+    self.normal_texture.setup_pass(ctx);
   }
 }
 
@@ -80,34 +73,45 @@ impl ShaderGraphProvider for PhysicalMetallicRoughnessMaterialGPU {
       let uv = builder.query_or_interpolate_by::<FragmentUv, GeometryUV>();
 
       let mut alpha = uniform.alpha;
+      let mut base_color = uniform.base_color;
 
-      let base_color = if let Some(tex) = &self.base_color_texture {
-        let sample = tex.uniform_and_sample(binding, uv);
-        alpha *= sample.w();
-        sample.xyz() * uniform.base_color
-      } else {
-        uniform.base_color
-      };
+      let base_color_tex =
+        self
+          .base_color_texture
+          .uniform_and_sample(binding, uniform.base_color_texture, uv);
+      alpha *= base_color_tex.w();
+      base_color *= base_color_tex.xyz();
 
       let mut metallic = uniform.metallic;
       let mut roughness = uniform.roughness;
 
-      if let Some(tex) = &self.metallic_roughness_texture {
-        let metallic_roughness = tex.uniform_and_sample(binding, uv);
-        metallic *= metallic_roughness.x();
-        roughness *= metallic_roughness.y();
-      }
+      let metallic_roughness_tex = self.metallic_roughness_texture.uniform_and_sample(
+        binding,
+        uniform.metallic_roughness_texture,
+        uv,
+      );
 
-      let emissive = if let Some(tex) = &self.emissive_texture {
-        tex.uniform_and_sample(binding, uv).x() * uniform.emissive
-      } else {
-        uniform.emissive
-      };
+      metallic *= metallic_roughness_tex.x();
+      roughness *= metallic_roughness_tex.y();
 
-      if let Some(tex) = &self.normal_texture {
-        let normal_sample = tex.uniform_and_sample(binding, uv).xyz();
-        apply_normal_mapping(builder, normal_sample, uv, uniform.normal_mapping_scale);
-      }
+      let mut emissive = uniform.emissive;
+      emissive *= self
+        .emissive_texture
+        .uniform_and_sample(binding, uniform.emissive_texture, uv)
+        .xyz();
+
+      let (normal_sample, enabled) =
+        self
+          .normal_texture
+          .uniform_and_sample_enabled(binding, uniform.normal_texture, uv);
+
+      apply_normal_mapping_conditional(
+        builder,
+        normal_sample.xyz(),
+        uv,
+        uniform.normal_mapping_scale,
+        enabled,
+      );
 
       match self.alpha_mode {
         AlphaMode::Opaque => {}
@@ -159,25 +163,13 @@ impl WebGPUMaterial for PhysicalMetallicRoughnessMaterial {
     let uniform = build_shader_uniform(&m);
     let uniform = create_uniform(uniform, &ctx.gpu.device);
 
-    let base_color_texture = m
-      .base_color_texture
-      .as_ref()
-      .map(|t| ctx.build_reactive_texture_sampler_pair(t));
+    let base_color_texture = ctx.build_reactive_texture_sampler_pair(m.base_color_texture.as_ref());
+    let metallic_roughness_texture =
+      ctx.build_reactive_texture_sampler_pair(m.metallic_roughness_texture.as_ref());
+    let emissive_texture = ctx.build_reactive_texture_sampler_pair(m.emissive_texture.as_ref());
 
-    let metallic_roughness_texture = m
-      .metallic_roughness_texture
-      .as_ref()
-      .map(|t| ctx.build_reactive_texture_sampler_pair(t));
-
-    let emissive_texture = m
-      .emissive_texture
-      .as_ref()
-      .map(|t| ctx.build_reactive_texture_sampler_pair(t));
-
-    let normal_texture = m
-      .normal_texture
-      .as_ref()
-      .map(|t| ctx.build_reactive_texture_sampler_pair(&t.content));
+    let normal_texture =
+      ctx.build_reactive_texture_sampler_pair(m.normal_texture.as_ref().map(|t| &t.content));
 
     let gpu = PhysicalMetallicRoughnessMaterialGPU {
       uniform,
