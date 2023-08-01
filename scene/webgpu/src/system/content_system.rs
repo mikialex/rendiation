@@ -102,6 +102,7 @@ pub struct ShareBindableResourceCtx {
   pub gpu: ResourceGPUCtx,
   pub custom_storage: Arc<RwLock<AnyMap>>,
 
+  pub binding_sys: WebGPUTextureBindingSystem,
   pub default_sampler: SceneItemRef<TextureSampler>,
   pub default_texture_2d: SceneTexture2D,
   pub sampler: Arc<RwLock<StreamMap<usize, ReactiveGPUSamplerViewSource>>>,
@@ -128,6 +129,8 @@ impl Stream for ShareBindableResourceCtx {
     let texture_cube: &mut StreamMap<usize, ReactiveGPUCubeTextureViewSource> = &mut texture_cube;
     do_updates_by(texture_cube, cx, |_| {});
 
+    do_updates_by(this.binding_sys, cx, |_| {});
+
     Poll::Pending
   }
 }
@@ -142,6 +145,7 @@ impl ShareBindableResourceCtx {
     };
     let default_texture_2d = SceneTexture2DType::GPUBufferImage(default_texture_2d).into_ref();
     Self {
+      binding_sys: Default::default(),
       default_texture_2d,
       default_sampler: Default::default(),
       custom_storage: Arc::new(RwLock::new(AnyMap::new())),

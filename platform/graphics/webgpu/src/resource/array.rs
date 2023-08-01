@@ -7,6 +7,12 @@ pub struct BindingResourceArray<T, const N: usize> {
   resource_id: usize,
 }
 
+impl<T, const N: usize> Default for BindingResourceArray<T, N> {
+  fn default() -> Self {
+    Self::new(Default::default())
+  }
+}
+
 impl<T, const N: usize> BindingResourceArray<T, N> {
   pub fn new(bindings: Arc<Vec<T>>) -> Self {
     Self {

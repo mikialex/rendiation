@@ -61,9 +61,18 @@ impl GPUTextureBackend for WebGPUTextureBackend {
   }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Default)]
 pub struct WebGPUTextureBindingSystem {
   inner: Arc<RwLock<BindlessTextureSystem<WebGPUTextureBackend>>>,
+}
+
+impl Stream for WebGPUTextureBindingSystem {
+  type Item = ();
+
+  fn poll_next(self: Pin<&mut Self>, _cx: &mut Context) -> Poll<Option<Self::Item>> {
+    // todo, slab compact
+    Poll::Pending
+  }
 }
 
 impl ShaderPassBuilder for WebGPUTextureBindingSystem {

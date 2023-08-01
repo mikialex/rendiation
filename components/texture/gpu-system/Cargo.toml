@@ -6,3 +6,4 @@ version = "0.1.0"
 
 [dependencies]
 shadergraph = { path = "../../../shader/graph" }
+slab = "0.4.8"

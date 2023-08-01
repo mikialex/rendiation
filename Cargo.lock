@@ -1845,25 +1845,6 @@ dependencies = [
 
 [[package]]
 name = "naga"
-version = "0.12.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "80cd00bd6180a8790f1c020ed258a46b8d73dd5bd6af104a238c9d71f806938e"
-dependencies = [
- "bit-set",
- "bitflags 1.2.1",
- "codespan-reporting",
- "hexf-parse",
- "indexmap",
- "log",
- "num-traits",
- "rustc-hash",
- "termcolor",
- "thiserror",
- "unicode-xid",
-]
-
-[[package]]
-name = "naga"
 version = "0.13.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c1ceaaa4eedaece7e4ec08c55c640ba03dbb73fb812a6570a59bcf1930d0f70e"
@@ -2518,6 +2499,7 @@ dependencies = [
  "fast-hash-collection",
  "futures",
  "pin-project",
+ "slab",
 ]
 
 [[package]]
@@ -2832,6 +2814,7 @@ name = "rendiation-texture-gpu-system"
 version = "0.1.0"
 dependencies = [
  "shadergraph",
+ "slab",
 ]
 
 [[package]]
@@ -3064,7 +3047,7 @@ dependencies = [
 name = "shadergraph-testing"
 version = "0.1.0"
 dependencies = [
- "naga 0.12.2",
+ "naga",
  "shadergraph",
  "wgpu-types",
  "wgsl-codegen-graph",
@@ -3105,9 +3088,12 @@ dependencies = [
 
 [[package]]
 name = "slab"
-version = "0.4.3"
+version = "0.4.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f173ac3d1a7e3b28003f40de0b5ce7fe2710f9b9dc3fc38664cebee46b3b6527"
+checksum = "6528351c9bc8ab22353f9d776db39a20288e8d6c37ef8cfe3317cf875eecfc2d"
+dependencies = [
+ "autocfg",
+]
 
 [[package]]
 name = "slotmap"
@@ -3725,7 +3711,7 @@ dependencies = [
  "cfg-if",
  "js-sys",
  "log",
- "naga 0.13.0",
+ "naga",
  "parking_lot",
  "profiling",
  "raw-window-handle 0.5.0",
@@ -3750,7 +3736,7 @@ dependencies = [
  "bitflags 2.0.2",
  "codespan-reporting",
  "log",
- "naga 0.13.0",
+ "naga",
  "parking_lot",
  "profiling",
  "raw-window-handle 0.5.0",
@@ -3787,7 +3773,7 @@ dependencies = [
  "libloading 0.8.0",
  "log",
  "metal",
- "naga 0.13.0",
+ "naga",
  "objc",
  "parking_lot",
  "profiling",

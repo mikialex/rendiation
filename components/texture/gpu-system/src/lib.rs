@@ -1,18 +1,17 @@
 // we could not depend on shadergraph theoretically if we abstract over shader node compose
 // but that will too complicated
 use shadergraph::*;
+use slab::Slab;
 pub type Texture2DHandle = u32;
 pub type SamplerHandle = u32;
 
 pub trait GPUTextureBackend {
   type GPUTexture2D: ShaderBindingProvider<Node = ShaderTexture2D>;
   type GPUSampler: ShaderBindingProvider<Node = ShaderSampler>;
-  type GPUTexture2DBindingArray<const N: usize>: ShaderBindingProvider<
-    Node = BindingArray<ShaderTexture2D, N>,
-  >;
-  type GPUSamplerBindingArray<const N: usize>: ShaderBindingProvider<
-    Node = BindingArray<ShaderSampler, N>,
-  >;
+  type GPUTexture2DBindingArray<const N: usize>: ShaderBindingProvider<Node = BindingArray<ShaderTexture2D, N>>
+    + Default;
+  type GPUSamplerBindingArray<const N: usize>: ShaderBindingProvider<Node = BindingArray<ShaderSampler, N>>
+    + Default;
 
   type BindingCollector;
   fn bind_texture2d(collector: &mut Self::BindingCollector, texture: &Self::GPUTexture2D);
@@ -70,29 +69,32 @@ pub trait AbstractIndirectGPUTextureSystem<B: GPUTextureBackend> {
   ) -> Node<Vec4<f32>>;
 }
 
-pub trait SlabAllocator<T> {
-  fn allocate(&mut self, item: T) -> u32;
-  fn deallocate(&mut self, item: u32);
-  fn get(&self, handle: u32) -> &T;
+pub struct TraditionalPerDrawBindingSystem<B: GPUTextureBackend> {
+  textures: Slab<B::GPUTexture2D>,
+  samplers: Slab<B::GPUSampler>,
 }
 
-pub struct TraditionalPerDrawBindingSystem<B: GPUTextureBackend> {
-  textures: Box<dyn SlabAllocator<B::GPUTexture2D>>,
-  samplers: Box<dyn SlabAllocator<B::GPUSampler>>,
+impl<B: GPUTextureBackend> Default for TraditionalPerDrawBindingSystem<B> {
+  fn default() -> Self {
+    Self {
+      textures: Default::default(),
+      samplers: Default::default(),
+    }
+  }
 }
 
 impl<B: GPUTextureBackend> AbstractGPUTextureSystemBase<B> for TraditionalPerDrawBindingSystem<B> {
   fn register_texture(&mut self, t: B::GPUTexture2D) -> Texture2DHandle {
-    self.textures.allocate(t)
+    self.textures.insert(t) as u32
   }
   fn deregister_texture(&mut self, t: Texture2DHandle) {
-    self.textures.deallocate(t)
+    self.textures.remove(t as usize);
   }
   fn register_sampler(&mut self, t: B::GPUSampler) -> SamplerHandle {
-    self.samplers.allocate(t)
+    self.samplers.insert(t) as u32
   }
   fn deregister_sampler(&mut self, t: SamplerHandle) {
-    self.samplers.deallocate(t)
+    self.samplers.remove(t as usize);
   }
 }
 
@@ -100,12 +102,12 @@ impl<B: GPUTextureBackend> AbstractTraditionalTextureSystem<B>
   for TraditionalPerDrawBindingSystem<B>
 {
   fn bind_texture2d(&mut self, collector: &mut B::BindingCollector, handle: Texture2DHandle) {
-    let texture = self.textures.get(handle);
+    let texture = self.textures.get(handle as usize).unwrap();
     B::bind_texture2d(collector, texture);
   }
 
   fn bind_sampler(&mut self, collector: &mut B::BindingCollector, handle: SamplerHandle) {
-    let sampler = self.samplers.get(handle);
+    let sampler = self.samplers.get(handle as usize).unwrap();
     B::bind_sampler(collector, sampler);
   }
 
@@ -114,7 +116,7 @@ impl<B: GPUTextureBackend> AbstractTraditionalTextureSystem<B>
     builder: &mut ShaderGraphBindGroupDirectBuilder,
     handle: Texture2DHandle,
   ) -> Node<ShaderTexture2D> {
-    let texture = self.textures.get(handle);
+    let texture = self.textures.get(handle as usize).unwrap();
     builder.uniform_by(texture)
   }
 
@@ -123,7 +125,7 @@ impl<B: GPUTextureBackend> AbstractTraditionalTextureSystem<B>
     builder: &mut ShaderGraphBindGroupDirectBuilder,
     handle: SamplerHandle,
   ) -> Node<ShaderSampler> {
-    let sampler = self.samplers.get(handle);
+    let sampler = self.samplers.get(handle as usize).unwrap();
     builder.uniform_by(sampler)
   }
 }
@@ -132,6 +134,15 @@ pub struct BindlessTextureSystem<B: GPUTextureBackend> {
   inner: TraditionalPerDrawBindingSystem<B>,
   texture_binding_array: B::GPUTexture2DBindingArray<1024>,
   sampler_binding_array: B::GPUSamplerBindingArray<1024>,
+}
+impl<B: GPUTextureBackend> Default for BindlessTextureSystem<B> {
+  fn default() -> Self {
+    Self {
+      inner: Default::default(),
+      texture_binding_array: Default::default(),
+      sampler_binding_array: Default::default(),
+    }
+  }
 }
 
 /// pass through inner implementation
