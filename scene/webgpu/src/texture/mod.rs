@@ -59,6 +59,22 @@ impl GPUTextureBackend for WebGPUTextureBackend {
   ) {
     collector.bind(samplers);
   }
+
+  fn update_texture2d_array<const N: usize>(
+    textures: &mut Self::GPUTexture2DBindingArray<N>,
+    source: impl Iterator<Item = Self::GPUTexture2D>,
+  ) {
+    let source: Vec<_> = source.collect();
+    *textures = BindingResourceArray::<GPU2DTextureView, N>::new(Arc::new(source));
+  }
+
+  fn update_sampler_array<const N: usize>(
+    samplers: &mut Self::GPUSamplerBindingArray<N>,
+    source: impl Iterator<Item = Self::GPUSampler>,
+  ) {
+    let source: Vec<_> = source.collect();
+    *samplers = BindingResourceArray::<GPUSamplerView, N>::new(Arc::new(source));
+  }
 }
 
 #[derive(Clone, Default)]
@@ -71,6 +87,9 @@ impl Stream for WebGPUTextureBindingSystem {
 
   fn poll_next(self: Pin<&mut Self>, _cx: &mut Context) -> Poll<Option<Self::Item>> {
     // todo, slab compact
+    let mut inner = self.inner.write().unwrap();
+    inner.maintain();
+
     Poll::Pending
   }
 }
