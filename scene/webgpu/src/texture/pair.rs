@@ -15,28 +15,40 @@ impl GPUTextureSamplerPair {
   pub fn uniform_and_sample(
     &self,
     binding: &mut ShaderGraphBindGroupDirectBuilder,
-    _handles: Node<TextureSamplerHandlePair>,
-    position: Node<Vec2<f32>>,
+    reg: &SemanticRegistry,
+    handles: Node<TextureSamplerHandlePair>,
+    uv: Node<Vec2<f32>>,
   ) -> Node<Vec4<f32>> {
-    // let handles = handles.expand();
-    let texture = self.sys.shader_bind_texture(binding, self.texture);
-    let sampler = self.sys.shader_bind_sampler(binding, self.sampler);
-    texture.sample(sampler, position)
+    let handles = handles.expand();
+    self.sys.maybe_sample_texture2d_indirect_and_bind_shader(
+      binding,
+      reg,
+      self.texture,
+      handles.texture_handle,
+      self.sampler,
+      handles.sampler_handle,
+      uv,
+    )
   }
 
   pub fn uniform_and_sample_enabled(
     &self,
     binding: &mut ShaderGraphBindGroupDirectBuilder,
+    reg: &SemanticRegistry,
     handles: Node<TextureSamplerHandlePair>,
-    position: Node<Vec2<f32>>,
+    uv: Node<Vec2<f32>>,
   ) -> (Node<Vec4<f32>>, Node<bool>) {
     let handles = handles.expand();
-    let texture = self.sys.shader_bind_texture(binding, self.texture);
-    let sampler = self.sys.shader_bind_sampler(binding, self.sampler);
-    (
-      texture.sample(sampler, position),
-      handles.texture_handle.equals(consts(0)),
-    )
+    let r = self.sys.maybe_sample_texture2d_indirect_and_bind_shader(
+      binding,
+      reg,
+      self.texture,
+      handles.texture_handle,
+      self.sampler,
+      handles.sampler_handle,
+      uv,
+    );
+    (r, handles.texture_handle.equals(consts(0)))
   }
 }
 

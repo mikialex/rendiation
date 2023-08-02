@@ -29,7 +29,7 @@ impl WebGpuUIPresenter {
   pub async fn new(window: &winit::window::Window) -> Self {
     let mut minimal_required_features = Features::all_webgpu_mask();
 
-    minimal_required_features.insert(Features::TEXTURE_BINDING_ARRAY);
+    // minimal_required_features.insert(Features::TEXTURE_BINDING_ARRAY);
     // minimal_required_features.insert(Features::BUFFER_BINDING_ARRAY);
     // minimal_required_features.insert(Features::PARTIALLY_BOUND_BINDING_ARRAY);
 

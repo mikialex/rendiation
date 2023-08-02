@@ -78,34 +78,39 @@ impl ShaderGraphProvider for PhysicalSpecularGlossinessMaterialGPU {
       let mut alpha = uniform.alpha;
 
       let mut albedo = uniform.albedo;
-      let albedo_tex = self
-        .albedo_texture
-        .uniform_and_sample(binding, uniform.albedo_texture, uv);
+      let albedo_tex = self.albedo_texture.uniform_and_sample(
+        binding,
+        builder.registry(),
+        uniform.albedo_texture,
+        uv,
+      );
       alpha *= albedo_tex.w();
       albedo *= albedo_tex.xyz();
 
       let mut specular = uniform.specular;
       specular *= self
         .specular_texture
-        .uniform_and_sample(binding, uniform.specular_texture, uv)
+        .uniform_and_sample(binding, builder.registry(), uniform.specular_texture, uv)
         .xyz();
 
       let mut glossiness = uniform.glossiness;
       glossiness *= self
         .specular_texture
-        .uniform_and_sample(binding, uniform.glossiness_texture, uv)
+        .uniform_and_sample(binding, builder.registry(), uniform.glossiness_texture, uv)
         .x();
 
       let mut emissive = uniform.emissive;
       emissive *= self
         .emissive_texture
-        .uniform_and_sample(binding, uniform.emissive_texture, uv)
+        .uniform_and_sample(binding, builder.registry(), uniform.emissive_texture, uv)
         .xyz();
 
-      let (normal_sample, enabled) =
-        self
-          .normal_texture
-          .uniform_and_sample_enabled(binding, uniform.normal_texture, uv);
+      let (normal_sample, enabled) = self.normal_texture.uniform_and_sample_enabled(
+        binding,
+        builder.registry(),
+        uniform.normal_texture,
+        uv,
+      );
       apply_normal_mapping_conditional(
         builder,
         normal_sample.xyz(),

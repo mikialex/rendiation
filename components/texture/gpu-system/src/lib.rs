@@ -1,9 +1,15 @@
+// we design this crate to provide an abstraction over different global gpu texture management
+// strategy with graphics api agnostic in mind
+
 // we could not depend on shadergraph theoretically if we abstract over shader node compose
 // but that will too complicated
 use shadergraph::*;
 use slab::Slab;
 pub type Texture2DHandle = u32;
 pub type SamplerHandle = u32;
+
+pub const MAX_TEXTURE_BINDING_ARRAY_LENGTH: usize = 8192;
+pub const MAX_SAMPLER_BINDING_ARRAY_LENGTH: usize = 8192;
 
 pub trait GPUTextureBackend {
   type GPUTexture2D: ShaderBindingProvider<Node = ShaderTexture2D> + Clone;
@@ -25,14 +31,19 @@ pub trait GPUTextureBackend {
     samplers: &Self::GPUSamplerBindingArray<N>,
   );
 
+  /// note, we should design some interface to partial update the array
+  /// but the wgpu not support partial update at all, so we not bother to do this now.
+  ///
+  /// the Option None case is to match the hole in linear allocated array, the implementation could
+  /// fill this by default value or use other proper ways to handle this case
   fn update_texture2d_array<const N: usize>(
     textures: &mut Self::GPUTexture2DBindingArray<N>,
-    source: impl Iterator<Item = Self::GPUTexture2D>,
+    source: Vec<Option<Self::GPUTexture2D>>,
   );
 
   fn update_sampler_array<const N: usize>(
     samplers: &mut Self::GPUSamplerBindingArray<N>,
-    source: impl Iterator<Item = Self::GPUSampler>,
+    source: Vec<Option<Self::GPUSampler>>,
   );
 }
 
@@ -146,13 +157,17 @@ pub struct BindlessTextureSystem<B: GPUTextureBackend> {
   inner: TraditionalPerDrawBindingSystem<B>,
   texture_binding_array: B::GPUTexture2DBindingArray<100>,
   sampler_binding_array: B::GPUSamplerBindingArray<10>,
+  any_changed: bool, // should we add change mark to per type?
+  enable_bindless: bool,
 }
-impl<B: GPUTextureBackend> Default for BindlessTextureSystem<B> {
-  fn default() -> Self {
+impl<B: GPUTextureBackend> BindlessTextureSystem<B> {
+  pub fn new(enable_bindless: bool) -> Self {
     Self {
       inner: Default::default(),
       texture_binding_array: Default::default(),
       sampler_binding_array: Default::default(),
+      any_changed: true,
+      enable_bindless,
     }
   }
 }
@@ -160,25 +175,51 @@ impl<B: GPUTextureBackend> Default for BindlessTextureSystem<B> {
 /// pass through inner implementation
 impl<B: GPUTextureBackend> AbstractGPUTextureSystemBase<B> for BindlessTextureSystem<B> {
   fn register_texture(&mut self, t: B::GPUTexture2D) -> Texture2DHandle {
+    self.any_changed = true;
     self.inner.register_texture(t)
   }
   fn deregister_texture(&mut self, t: Texture2DHandle) {
+    self.any_changed = true;
     self.inner.deregister_texture(t)
   }
   fn register_sampler(&mut self, t: B::GPUSampler) -> SamplerHandle {
+    self.any_changed = true;
     self.inner.register_sampler(t)
   }
   fn deregister_sampler(&mut self, t: SamplerHandle) {
+    self.any_changed = true;
     self.inner.deregister_sampler(t)
   }
   fn maintain(&mut self) {
+    if !self.any_changed {
+      return;
+    }
+    self.any_changed = false;
+    self.inner.maintain();
+
+    if !self.enable_bindless {
+      return;
+    }
+
+    // this is not good, maybe we should impl slab by ourself?
+    fn slab_to_hole_vec<T: Clone>(s: &Slab<T>) -> Vec<Option<T>> {
+      let mut r = Vec::with_capacity(s.capacity());
+      s.iter().for_each(|(idx, v)| {
+        while idx <= r.len() {
+          r.push(None)
+        }
+        r[idx] = v.clone().into();
+      });
+      r
+    }
+
     B::update_sampler_array(
       &mut self.sampler_binding_array,
-      self.inner.samplers.iter().map(|v| v.1.clone()),
+      slab_to_hole_vec(&self.inner.samplers),
     );
     B::update_texture2d_array(
       &mut self.texture_binding_array,
-      self.inner.textures.iter().map(|v| v.1.clone()),
+      slab_to_hole_vec(&self.inner.textures),
     );
   }
 }

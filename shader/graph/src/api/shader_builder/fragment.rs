@@ -107,6 +107,10 @@ impl ShaderGraphFragmentBuilder {
     result
   }
 
+  pub fn registry(&self) -> &SemanticRegistry {
+    &self.registry
+  }
+
   pub fn discard(&self) {
     ShaderSideEffectNode::Termination.insert_graph_bottom();
   }

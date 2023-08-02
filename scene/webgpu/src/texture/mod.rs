@@ -10,6 +10,9 @@ pub use d2::*;
 pub use pair::*;
 pub use sampler::*;
 
+/// note: we could design beautiful apis like Stream<Item = GPU2DTextureView> -> Stream<Item =
+/// Texture2DHandle>, but for now, we require bindless downgrade ability, so we directly combined
+/// the handle with the resource in BindableGPUChange
 #[derive(Clone)]
 pub enum BindableGPUChange {
   Reference2D(GPU2DTextureView, Texture2DHandle),
@@ -62,31 +65,72 @@ impl GPUTextureBackend for WebGPUTextureBackend {
 
   fn update_texture2d_array<const N: usize>(
     textures: &mut Self::GPUTexture2DBindingArray<N>,
-    source: impl Iterator<Item = Self::GPUTexture2D>,
+    source: Vec<Option<Self::GPUTexture2D>>,
   ) {
-    let source: Vec<_> = source.collect();
+    let first = source[0].clone().unwrap(); // we make sure the first is the default
+    let source: Vec<_> = source
+      .into_iter()
+      .map(|v| v.unwrap_or(first.clone()))
+      .collect();
     *textures = BindingResourceArray::<GPU2DTextureView, N>::new(Arc::new(source));
   }
 
   fn update_sampler_array<const N: usize>(
     samplers: &mut Self::GPUSamplerBindingArray<N>,
-    source: impl Iterator<Item = Self::GPUSampler>,
+    source: Vec<Option<Self::GPUSampler>>,
   ) {
-    let source: Vec<_> = source.collect();
+    let first = source[0].clone().unwrap(); // we make sure the first is the default
+    let source: Vec<_> = source
+      .into_iter()
+      .map(|v| v.unwrap_or(first.clone()))
+      .collect();
     *samplers = BindingResourceArray::<GPUSamplerView, N>::new(Arc::new(source));
   }
 }
 
-#[derive(Clone, Default)]
+#[derive(Clone)]
 pub struct WebGPUTextureBindingSystem {
+  bindless_enabled: bool,
   inner: Arc<RwLock<BindlessTextureSystem<WebGPUTextureBackend>>>,
+}
+
+impl WebGPUTextureBindingSystem {
+  pub fn new(gpu: &GPU, prefer_enable_bindless: bool) -> Self {
+    let info = gpu.info();
+    let mut bindless_effectively_supported = info
+      .supported_features
+      .contains(Features::TEXTURE_BINDING_ARRAY)
+      && info
+        .supported_features
+        .contains(Features::PARTIALLY_BOUND_BINDING_ARRAY)
+      && info
+        .supported_features
+        .contains(Features::SAMPLED_TEXTURE_AND_STORAGE_BUFFER_ARRAY_NON_UNIFORM_INDEXING);
+
+    // we estimate that the texture used except under the binding system will not exceed 128 per
+    // shader stage
+    if info.supported_limits.max_sampled_textures_per_shader_stage
+      < MAX_TEXTURE_BINDING_ARRAY_LENGTH as u32 + 128
+      || info.supported_limits.max_samplers_per_shader_stage
+        < MAX_SAMPLER_BINDING_ARRAY_LENGTH as u32 + 128
+    {
+      bindless_effectively_supported = false;
+    }
+
+    let bindless_enabled = prefer_enable_bindless && bindless_effectively_supported;
+
+    Self {
+      bindless_enabled,
+      inner: Arc::new(RwLock::new(BindlessTextureSystem::new(bindless_enabled))),
+    }
+  }
 }
 
 impl Stream for WebGPUTextureBindingSystem {
   type Item = ();
 
   fn poll_next(self: Pin<&mut Self>, _cx: &mut Context) -> Poll<Option<Self::Item>> {
-    // todo, slab compact
+    // todo, slab reorder compact?
     let mut inner = self.inner.write().unwrap();
     inner.maintain();
 
@@ -96,8 +140,7 @@ impl Stream for WebGPUTextureBindingSystem {
 
 impl ShaderPassBuilder for WebGPUTextureBindingSystem {
   fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
-    let mut inner = self.inner.write().unwrap();
-    inner.bind_system_self(&mut ctx.binding)
+    self.bind_system(&mut ctx.binding)
   }
 }
 impl ShaderHashProvider for WebGPUTextureBindingSystem {}
@@ -106,8 +149,7 @@ impl ShaderGraphProvider for WebGPUTextureBindingSystem {
     &self,
     builder: &mut ShaderGraphRenderPipelineBuilder,
   ) -> Result<(), ShaderGraphBuildError> {
-    let inner = self.inner.read().unwrap();
-    inner.register_system_self(builder);
+    self.shader_system(builder);
     Ok(())
   }
 }
@@ -131,17 +173,28 @@ impl WebGPUTextureBindingSystem {
   }
 
   pub fn bind_texture(&self, binding: &mut BindingBuilder, handle: Texture2DHandle) {
-    // todo, avoid lock access if bindless enabled
+    if self.bindless_enabled {
+      return;
+    }
+    // indeed, we lost performance in none bindless path by this lock access. This definitely has
+    // improvement space
     let mut inner = self.inner.write().unwrap();
     inner.bind_texture2d(binding, handle)
   }
 
   pub fn bind_sampler(&self, binding: &mut BindingBuilder, handle: SamplerHandle) {
+    if self.bindless_enabled {
+      return;
+    }
+    // ditto
     let mut inner = self.inner.write().unwrap();
     inner.bind_sampler(binding, handle)
   }
 
   pub fn bind_system(&self, binding: &mut BindingBuilder) {
+    if !self.bindless_enabled {
+      return;
+    }
     let mut inner = self.inner.write().unwrap();
     inner.bind_system_self(binding)
   }
@@ -165,39 +218,49 @@ impl WebGPUTextureBindingSystem {
   }
 
   pub fn shader_system(&self, builder: &mut ShaderGraphRenderPipelineBuilder) {
+    if !self.bindless_enabled {
+      return;
+    }
     let inner = self.inner.read().unwrap();
     inner.register_system_self(builder)
   }
 
-  // todo, this is current not used but provides better abstraction
-  pub fn map_texture_stream(
+  // note, when we unify the bind and bindless case, one bad point is the traditional bind
+  // path requires shader binding register, so if we blindly unify the sample method, each sample
+  // call will result distinct new binding point registered in traditional bind case, and that's
+  // bad. so we name our method to explicitly say we maybe do a bind register on shader when
+  // bindless is disabled.
+  //
+  // Even if the bindless is enabled, the user could mixed the usage with the binding and bindless
+  // freely. We could expose the underlayer indirect method for user side to solve the reuse and
+  // downgrade in future.
+  #[allow(clippy::too_many_arguments)]
+  pub fn maybe_sample_texture2d_indirect_and_bind_shader(
     &self,
-    input: impl Stream<Item = GPU2DTextureView>,
-  ) -> impl Stream<Item = Texture2DHandle> {
-    let sys = self.clone();
-    let mut previous = None;
-    input.map(move |texture| {
-      let handle = sys.register_texture(texture);
-      if let Some(previous) = previous.replace(handle) {
-        sys.deregister_texture(previous);
-      }
-      handle
-    })
-  }
+    binding: &mut ShaderGraphBindGroupDirectBuilder,
+    reg: &SemanticRegistry,
+    texture_handle: Texture2DHandle,
+    shader_texture_handle: Node<Texture2DHandle>,
+    sample_handle: SamplerHandle,
+    shader_sampler_handle: Node<SamplerHandle>,
+    uv: Node<Vec2<f32>>,
+  ) -> Node<Vec4<f32>> {
+    if self.bindless_enabled {
+      let textures = reg
+        .query_typed_both_stage::<BindlessTexturesInShader>()
+        .unwrap();
 
-  // todo, this is current not used but provides better abstraction
-  pub fn map_sampler_stream(
-    &self,
-    input: impl Stream<Item = GPUSamplerView>,
-  ) -> impl Stream<Item = SamplerHandle> {
-    let sys = self.clone();
-    let mut previous = None;
-    input.map(move |sampler| {
-      let handle = sys.register_sampler(sampler);
-      if let Some(previous) = previous.replace(handle) {
-        sys.deregister_sampler(previous);
-      }
-      handle
-    })
+      let samplers = reg
+        .query_typed_both_stage::<BindlessSamplersInShader>()
+        .unwrap();
+
+      let texture = textures.index(shader_texture_handle);
+      let sampler = samplers.index(shader_sampler_handle);
+      texture.sample(sampler, uv)
+    } else {
+      let texture = self.shader_bind_texture(binding, texture_handle);
+      let sampler = self.shader_bind_sampler(binding, sample_handle);
+      texture.sample(sampler, uv)
+    }
   }
 }

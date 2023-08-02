@@ -144,8 +144,8 @@ impl ShareBindableResourceCtx {
       size: Size::from_u32_pair_min_one((1, 1)),
     };
     let default_texture_2d = SceneTexture2DType::GPUBufferImage(default_texture_2d).into_ref();
-    Self {
-      binding_sys: Default::default(),
+    let sys = Self {
+      binding_sys: WebGPUTextureBindingSystem::new(gpu, true),
       default_texture_2d,
       default_sampler: Default::default(),
       custom_storage: Arc::new(RwLock::new(AnyMap::new())),
@@ -153,6 +153,15 @@ impl ShareBindableResourceCtx {
       sampler: Default::default(),
       texture_2d: Default::default(),
       texture_cube: Default::default(),
-    }
+    };
+
+    // make sure the binding sys has correct default value as the first element inserted
+    // this is essential, because under wgpu, even if we enabled partial bind, we require have at
+    // least one element in bind array, and we also rely on check the handle equals zero to decide
+    // if the item actually exist in shader
+    let _ = sys.get_or_create_reactive_gpu_sampler(&sys.default_sampler);
+    let _ = sys.get_or_create_reactive_gpu_texture2d(&sys.default_texture_2d);
+
+    sys
   }
 }

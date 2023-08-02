@@ -75,10 +75,12 @@ impl ShaderGraphProvider for PhysicalMetallicRoughnessMaterialGPU {
       let mut alpha = uniform.alpha;
       let mut base_color = uniform.base_color;
 
-      let base_color_tex =
-        self
-          .base_color_texture
-          .uniform_and_sample(binding, uniform.base_color_texture, uv);
+      let base_color_tex = self.base_color_texture.uniform_and_sample(
+        binding,
+        builder.registry(),
+        uniform.base_color_texture,
+        uv,
+      );
       alpha *= base_color_tex.w();
       base_color *= base_color_tex.xyz();
 
@@ -87,6 +89,7 @@ impl ShaderGraphProvider for PhysicalMetallicRoughnessMaterialGPU {
 
       let metallic_roughness_tex = self.metallic_roughness_texture.uniform_and_sample(
         binding,
+        builder.registry(),
         uniform.metallic_roughness_texture,
         uv,
       );
@@ -97,13 +100,15 @@ impl ShaderGraphProvider for PhysicalMetallicRoughnessMaterialGPU {
       let mut emissive = uniform.emissive;
       emissive *= self
         .emissive_texture
-        .uniform_and_sample(binding, uniform.emissive_texture, uv)
+        .uniform_and_sample(binding, builder.registry(), uniform.emissive_texture, uv)
         .xyz();
 
-      let (normal_sample, enabled) =
-        self
-          .normal_texture
-          .uniform_and_sample_enabled(binding, uniform.normal_texture, uv);
+      let (normal_sample, enabled) = self.normal_texture.uniform_and_sample_enabled(
+        binding,
+        builder.registry(),
+        uniform.normal_texture,
+        uv,
+      );
 
       apply_normal_mapping_conditional(
         builder,

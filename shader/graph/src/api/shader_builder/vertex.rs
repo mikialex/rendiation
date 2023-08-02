@@ -85,6 +85,10 @@ impl ShaderGraphVertexBuilder {
       })
   }
 
+  pub fn registry(&self) -> &SemanticRegistry {
+    &self.registry
+  }
+
   pub fn query<T: SemanticVertexShaderValue>(
     &self,
   ) -> Result<Node<T::ValueType>, ShaderGraphBuildError> {

@@ -50,3 +50,15 @@ members = [
 
 # https://doc.rust-lang.org/nightly/cargo/reference/features.html#feature-resolver-version-2
 resolver = "2"
+
+
+# https://doc.rust-lang.org/cargo/reference/profiles.html
+
+# currently our implementation not provide panic safety and recovery
+# and also enable unwind is bad for performance
+
+[profile.dev]
+panic = "abort"
+
+[profile.release]
+panic = "abort"
