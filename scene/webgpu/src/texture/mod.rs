@@ -11,20 +11,20 @@ pub use pair::*;
 pub use sampler::*;
 
 #[derive(Clone)]
-pub enum TextureGPUChange {
-  Reference2D(GPU2DTextureView),
+pub enum BindableGPUChange {
+  Reference2D(GPU2DTextureView, Texture2DHandle),
   ReferenceCube(GPUCubeTextureView),
-  ReferenceSampler(GPUSamplerView),
+  ReferenceSampler(GPUSamplerView, SamplerHandle),
   Content,
 }
 
-impl TextureGPUChange {
+impl BindableGPUChange {
   fn into_render_component_delta(self) -> RenderComponentDeltaFlag {
     match self {
-      TextureGPUChange::Reference2D(_) => RenderComponentDeltaFlag::ContentRef,
-      TextureGPUChange::ReferenceCube(_) => RenderComponentDeltaFlag::ContentRef,
-      TextureGPUChange::ReferenceSampler(_) => RenderComponentDeltaFlag::ContentRef,
-      TextureGPUChange::Content => RenderComponentDeltaFlag::Content,
+      BindableGPUChange::Reference2D(..) => RenderComponentDeltaFlag::ContentRef,
+      BindableGPUChange::ReferenceCube(..) => RenderComponentDeltaFlag::ContentRef,
+      BindableGPUChange::ReferenceSampler(..) => RenderComponentDeltaFlag::ContentRef,
+      BindableGPUChange::Content => RenderComponentDeltaFlag::Content,
     }
   }
 }
@@ -111,6 +111,46 @@ impl WebGPUTextureBindingSystem {
     inner.deregister_sampler(t)
   }
 
+  pub fn bind_texture(&self, binding: &mut BindingBuilder, handle: Texture2DHandle) {
+    // todo, avoid lock access if bindless enabled
+    let mut inner = self.inner.write().unwrap();
+    inner.bind_texture2d(binding, handle)
+  }
+
+  pub fn bind_sampler(&self, binding: &mut BindingBuilder, handle: SamplerHandle) {
+    let mut inner = self.inner.write().unwrap();
+    inner.bind_sampler(binding, handle)
+  }
+
+  pub fn bind_system(&self, binding: &mut BindingBuilder) {
+    let mut inner = self.inner.write().unwrap();
+    inner.bind_system_self(binding)
+  }
+
+  pub fn shader_bind_sampler(
+    &self,
+    builder: &mut ShaderGraphBindGroupDirectBuilder,
+    handle: SamplerHandle,
+  ) -> Node<ShaderSampler> {
+    let inner = self.inner.read().unwrap();
+    inner.register_shader_sampler(builder, handle)
+  }
+
+  pub fn shader_bind_texture(
+    &self,
+    builder: &mut ShaderGraphBindGroupDirectBuilder,
+    handle: Texture2DHandle,
+  ) -> Node<ShaderTexture2D> {
+    let inner = self.inner.read().unwrap();
+    inner.register_shader_texture2d(builder, handle)
+  }
+
+  pub fn shader_system(&self, builder: &mut ShaderGraphRenderPipelineBuilder) {
+    let inner = self.inner.read().unwrap();
+    inner.register_system_self(builder)
+  }
+
+  // todo, this is current not used but provides better abstraction
   pub fn map_texture_stream(
     &self,
     input: impl Stream<Item = GPU2DTextureView>,
@@ -126,6 +166,7 @@ impl WebGPUTextureBindingSystem {
     })
   }
 
+  // todo, this is current not used but provides better abstraction
   pub fn map_sampler_stream(
     &self,
     input: impl Stream<Item = GPUSamplerView>,

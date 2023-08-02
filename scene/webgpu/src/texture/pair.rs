@@ -1,25 +1,26 @@
 use crate::*;
 
 pub struct GPUTextureSamplerPair {
-  pub texture: GPU2DTextureView,
-  pub sampler: GPUSamplerView,
+  pub texture: Texture2DHandle,
+  pub sampler: SamplerHandle,
+  pub sys: WebGPUTextureBindingSystem,
 }
 
 impl GPUTextureSamplerPair {
   pub fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
-    ctx.binding.bind(&self.texture);
-    ctx.binding.bind(&self.sampler);
+    self.sys.bind_texture(&mut ctx.binding, self.texture);
+    self.sys.bind_sampler(&mut ctx.binding, self.sampler);
   }
 
   pub fn uniform_and_sample(
     &self,
     binding: &mut ShaderGraphBindGroupDirectBuilder,
-    handles: Node<TextureSamplerHandlePair>,
+    _handles: Node<TextureSamplerHandlePair>,
     position: Node<Vec2<f32>>,
   ) -> Node<Vec4<f32>> {
-    let _handles = handles.expand();
-    let texture = binding.uniform_by(&self.texture);
-    let sampler = binding.uniform_by(&self.sampler);
+    // let handles = handles.expand();
+    let texture = self.sys.shader_bind_texture(binding, self.texture);
+    let sampler = self.sys.shader_bind_sampler(binding, self.sampler);
     texture.sample(sampler, position)
   }
 
@@ -30,8 +31,8 @@ impl GPUTextureSamplerPair {
     position: Node<Vec2<f32>>,
   ) -> (Node<Vec4<f32>>, Node<bool>) {
     let handles = handles.expand();
-    let texture = binding.uniform_by(&self.texture);
-    let sampler = binding.uniform_by(&self.sampler);
+    let texture = self.sys.shader_bind_texture(binding, self.texture);
+    let sampler = self.sys.shader_bind_sampler(binding, self.sampler);
     (
       texture.sample(sampler, position),
       handles.texture_handle.equals(consts(0)),
@@ -44,37 +45,54 @@ impl ShareBindableResourceCtx {
     &self,
     t: Option<&Texture2DWithSamplingData>,
   ) -> ReactiveGPUTextureSamplerPair {
-    let ReactiveGPUSamplerView {
-      gpu: sampler,
-      changes: sampler_changes,
-    } = t
+    let (sampler_changes, _) = t
       .map(|t| self.get_or_create_reactive_gpu_sampler(&t.sampler))
       .unwrap_or(self.get_or_create_reactive_gpu_sampler(&self.default_sampler));
 
-    let ReactiveGPU2DTextureView {
-      gpu: texture,
-      changes,
-    } = t
+    let (texture_changes, _) = t
       .map(|t| self.get_or_create_reactive_gpu_texture2d(&t.texture))
       .unwrap_or(self.get_or_create_reactive_gpu_texture2d(&self.default_texture_2d));
 
-    let pair = GPUTextureSamplerPair { texture, sampler };
+    let pair = GPUTextureSamplerPair {
+      texture: 0, // will be updated later
+      sampler: 0, // will be updated later
+      sys: self.binding_sys.clone(),
+    };
+
+    let sampler_changes = sampler_changes.filter_map_sync(|v| match v {
+      BindableGPUChange::ReferenceSampler(_, v) => ContentOrHandleChange::Handle(v).into(),
+      BindableGPUChange::Content => ContentOrHandleChange::Content.into(),
+      _ => None,
+    });
+    let texture_changes = texture_changes.filter_map_sync(|v| match v {
+      BindableGPUChange::Reference2D(_, v) => ContentOrHandleChange::Handle(v).into(),
+      BindableGPUChange::Content => ContentOrHandleChange::Content.into(),
+      _ => None,
+    });
 
     ReactiveGPUTextureSamplerPair {
       pair,
-      changes,
+      texture_changes,
       sampler_changes,
     }
   }
 }
 
+pub enum ContentOrHandleChange {
+  Content,
+  Handle(u32),
+}
+
+pub type GPUTexture2dHandleChange = impl Stream<Item = ContentOrHandleChange> + Unpin;
+pub type GPUSamplerHandleChange = impl Stream<Item = ContentOrHandleChange> + Unpin;
+
 #[pin_project::pin_project]
 pub struct ReactiveGPUTextureSamplerPair {
   pair: GPUTextureSamplerPair,
   #[pin]
-  changes: Texture2dRenderComponentDeltaStream,
+  texture_changes: GPUTexture2dHandleChange,
   #[pin]
-  sampler_changes: SamplerRenderComponentDeltaStream,
+  sampler_changes: GPUSamplerHandleChange,
 }
 #[repr(C)]
 #[std140_layout]
@@ -86,7 +104,7 @@ pub struct TextureSamplerHandlePair {
 
 pub enum ReactiveGPUTextureSamplerPairDelta {
   ContentChange,
-  RefChange(DeltaOf<TextureSamplerHandlePair>),
+  RefChange(MaybeDelta<TextureSamplerHandlePair>),
 }
 
 impl ReactiveGPUTextureSamplerPair {
@@ -94,13 +112,13 @@ impl ReactiveGPUTextureSamplerPair {
     &mut self,
     cx: &mut Context,
     flag: &mut RenderComponentDeltaFlag,
-    cb: impl FnOnce(TextureSamplerHandlePairDelta),
+    cb: impl Fn(TextureSamplerHandlePairDelta),
   ) {
     if let Poll::Ready(Some(change)) = self.poll_next_unpin(cx) {
       *flag |= RenderComponentDeltaFlag::Content;
       if let ReactiveGPUTextureSamplerPairDelta::RefChange(change) = change {
         *flag |= RenderComponentDeltaFlag::ContentRef;
-        cb(change);
+        change.expand_delta(cb);
       }
     }
   }
@@ -109,19 +127,44 @@ impl Stream for ReactiveGPUTextureSamplerPair {
   type Item = ReactiveGPUTextureSamplerPairDelta;
 
   fn poll_next(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Option<Self::Item>> {
-    todo!()
-    // let this = self.project();
-    // let texture = this.changes.poll_next(cx);
-    // let sampler = this.sampler_changes.poll_next(cx);
-    // match (texture, sampler) {
-    //   (Poll::Ready(t), Poll::Ready(s)) => match (t, s) {
-    //     (Some(t), Some(s)) => Poll::Ready(Some(t | s)),
-    //     _ => Poll::Ready(None),
-    //   },
-    //   (Poll::Ready(r), Poll::Pending) => Poll::Ready(r),
-    //   (Poll::Pending, Poll::Ready(r)) => Poll::Ready(r),
-    //   (Poll::Pending, Poll::Pending) => Poll::Pending,
-    // }
+    let this = self.project();
+    let texture = this.texture_changes.poll_next(cx);
+    let sampler = this.sampler_changes.poll_next(cx);
+
+    use ContentOrHandleChange::*;
+    use ReactiveGPUTextureSamplerPairDelta::*;
+    use TextureSamplerHandlePairDelta::*;
+
+    if let Poll::Ready(Some(Handle(t))) = &texture {
+      this.pair.texture = *t;
+    }
+    if let Poll::Ready(Some(Handle(t))) = &sampler {
+      this.pair.sampler = *t;
+    }
+
+    // is this too complicated?
+    match (texture, sampler) {
+      (Poll::Ready(Some(t)), Poll::Ready(Some(s))) => Poll::Ready(Some(match (t, s) {
+        (Handle(th), Handle(sh)) => RefChange(MaybeDelta::All(TextureSamplerHandlePair {
+          texture_handle: th,
+          sampler_handle: sh,
+          ..Default::default()
+        })),
+        (Content, Content) => ContentChange,
+        (Content, Handle(h)) => RefChange(MaybeDelta::Delta(sampler_handle(h))),
+        (Handle(h), Content) => RefChange(MaybeDelta::Delta(texture_handle(h))),
+      })),
+      (Poll::Ready(Some(r)), Poll::Pending) => Poll::Ready(Some(match r {
+        Content => ContentChange,
+        Handle(h) => RefChange(MaybeDelta::Delta(texture_handle(h))),
+      })),
+      (Poll::Pending, Poll::Ready(Some(r))) => Poll::Ready(Some(match r {
+        Content => ContentChange,
+        Handle(h) => RefChange(MaybeDelta::Delta(sampler_handle(h))),
+      })),
+      (Poll::Pending, Poll::Pending) => Poll::Pending,
+      _ => Poll::Ready(None),
+    }
   }
 }
 
@@ -130,18 +173,4 @@ impl Deref for ReactiveGPUTextureSamplerPair {
   fn deref(&self) -> &Self::Target {
     &self.pair
   }
-}
-
-pub struct GPUTextureSamplerProxyPair {
-  pub texture: Texture2DHandle,
-  pub sampler: SamplerHandle,
-}
-
-#[pin_project::pin_project]
-pub struct ReactiveGPUTextureSamplerProxyPair {
-  pair: GPUTextureSamplerProxyPair,
-  #[pin]
-  changes: Texture2dRenderComponentDeltaStream,
-  #[pin]
-  sampler_changes: SamplerRenderComponentDeltaStream,
 }

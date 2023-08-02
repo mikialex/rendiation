@@ -1,49 +1,22 @@
 use crate::*;
 
 pub struct ReactiveGPUSamplerSignal {
-  inner: EventSource<TextureGPUChange>,
+  inner: EventSource<BindableGPUChange>,
+  handle: SamplerHandle,
   gpu: GPUSamplerView,
 }
 
-#[pin_project::pin_project]
-pub struct ReactiveGPUSamplerView {
-  #[pin]
-  pub changes: SamplerRenderComponentDeltaStream,
-  pub gpu: GPUSamplerView,
-}
-
-impl Stream for ReactiveGPUSamplerView {
-  type Item = RenderComponentDeltaFlag;
-
-  fn poll_next(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Option<Self::Item>> {
-    let this = self.project();
-    this.changes.poll_next(cx)
-  }
-}
-impl Deref for ReactiveGPUSamplerView {
-  type Target = GPUSamplerView;
-  fn deref(&self) -> &Self::Target {
-    &self.gpu
-  }
-}
-
-pub type SamplerRenderComponentDeltaStream = impl Stream<Item = RenderComponentDeltaFlag>;
-
 pub type ReactiveGPUSamplerViewSource =
-  impl AsRef<ReactiveGPUSamplerSignal> + Stream<Item = TextureGPUChange>;
+  impl AsRef<ReactiveGPUSamplerSignal> + Stream<Item = BindableGPUChange>;
 
 impl ReactiveGPUSamplerSignal {
-  pub fn create_gpu_sampler_stream(&self) -> impl Stream<Item = TextureGPUChange> {
+  pub fn create_gpu_sampler_stream(&self) -> impl Stream<Item = BindableGPUChange> {
     let current = self.gpu.clone();
+    let handle = self.handle;
     self.inner.single_listen_by(
       |v| v.clone(),
-      |send| send(TextureGPUChange::ReferenceSampler(current)),
+      move |send| send(BindableGPUChange::ReferenceSampler(current, handle)),
     )
-  }
-  pub fn create_gpu_sampler_com_delta_stream(&self) -> SamplerRenderComponentDeltaStream {
-    self
-      .create_gpu_sampler_stream()
-      .map(TextureGPUChange::into_render_component_delta)
   }
 }
 
@@ -51,7 +24,7 @@ impl ShareBindableResourceCtx {
   pub fn get_or_create_reactive_gpu_sampler(
     &self,
     sampler: &SceneItemRef<TextureSampler>,
-  ) -> ReactiveGPUSamplerView {
+  ) -> (impl Stream<Item = BindableGPUChange>, GPUSamplerView) {
     let mut samplers = self.sampler.write().unwrap();
 
     let cache = samplers.get_or_insert_with(sampler.guid(), || {
@@ -60,13 +33,16 @@ impl ShareBindableResourceCtx {
 
       let gpu_sampler = GPUSampler::create(source.into_gpu(), &self.gpu.device);
       let gpu_sampler = gpu_sampler.create_default_view();
+      let handle = self.binding_sys.register_sampler(gpu_sampler.clone());
 
       let gpu_sampler = ReactiveGPUSamplerSignal {
         inner: Default::default(),
         gpu: gpu_sampler,
+        handle,
       };
 
       let gpu_clone: ResourceGPUCtx = self.gpu.clone();
+      let bs = self.binding_sys.clone();
 
       sampler
         .unbound_listen_by(any_change_no_init)
@@ -75,19 +51,24 @@ impl ShareBindableResourceCtx {
           let source = sampler.read();
           let source: TextureSampler = **source;
           // creation will cached in device side now
+          // todo, apply this reuse in handle level
           let gpu_sampler = GPUSampler::create(source.into_gpu(), &gpu_clone.device);
           let recreated = gpu_sampler.create_default_view();
 
           gpu_tex.gpu = recreated.clone();
-          gpu_tex
-            .inner
-            .emit(&TextureGPUChange::ReferenceSampler(gpu_tex.gpu.clone()));
-          TextureGPUChange::ReferenceSampler(recreated).into()
+          bs.deregister_sampler(gpu_tex.handle);
+          gpu_tex.handle = bs.register_sampler(gpu_tex.gpu.clone());
+
+          gpu_tex.inner.emit(&BindableGPUChange::ReferenceSampler(
+            gpu_tex.gpu.clone(),
+            gpu_tex.handle,
+          ));
+          BindableGPUChange::ReferenceSampler(recreated, gpu_tex.handle).into()
         })
     });
 
     let gpu = cache.as_ref().gpu.clone();
-    let changes = cache.as_ref().create_gpu_sampler_com_delta_stream();
-    ReactiveGPUSamplerView { changes, gpu }
+    let changes = cache.as_ref().create_gpu_sampler_stream();
+    (changes, gpu)
   }
 }

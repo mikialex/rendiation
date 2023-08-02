@@ -3,49 +3,22 @@ use rendiation_texture::GPUBufferImage;
 use crate::*;
 
 pub struct ReactiveGPU2DTextureSignal {
-  inner: EventSource<TextureGPUChange>,
+  inner: EventSource<BindableGPUChange>,
+  handle: Texture2DHandle,
   gpu: GPU2DTextureView,
 }
 
-#[pin_project::pin_project]
-pub struct ReactiveGPU2DTextureView {
-  #[pin]
-  pub changes: Texture2dRenderComponentDeltaStream,
-  pub gpu: GPU2DTextureView,
-}
-
-impl Stream for ReactiveGPU2DTextureView {
-  type Item = RenderComponentDeltaFlag;
-
-  fn poll_next(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Option<Self::Item>> {
-    let this = self.project();
-    this.changes.poll_next(cx)
-  }
-}
-impl Deref for ReactiveGPU2DTextureView {
-  type Target = GPU2DTextureView;
-  fn deref(&self) -> &Self::Target {
-    &self.gpu
-  }
-}
-
-pub type Texture2dRenderComponentDeltaStream = impl Stream<Item = RenderComponentDeltaFlag>;
-
 pub type ReactiveGPU2DTextureViewSource =
-  impl AsRef<ReactiveGPU2DTextureSignal> + Stream<Item = TextureGPUChange>;
+  impl AsRef<ReactiveGPU2DTextureSignal> + Stream<Item = BindableGPUChange>;
 
 impl ReactiveGPU2DTextureSignal {
-  pub fn create_gpu_texture_stream(&self) -> impl Stream<Item = TextureGPUChange> {
+  pub fn create_gpu_texture_stream(&self) -> impl Stream<Item = BindableGPUChange> {
     let current = self.gpu.clone();
+    let handle = self.handle;
     self.inner.single_listen_by(
       |v| v.clone(),
-      |send| send(TextureGPUChange::Reference2D(current)),
+      move |send| send(BindableGPUChange::Reference2D(current, handle)),
     )
-  }
-  pub fn create_gpu_texture_com_delta_stream(&self) -> Texture2dRenderComponentDeltaStream {
-    self
-      .create_gpu_texture_stream()
-      .map(TextureGPUChange::into_render_component_delta)
   }
 }
 
@@ -53,34 +26,42 @@ impl ShareBindableResourceCtx {
   pub fn get_or_create_reactive_gpu_texture2d(
     &self,
     tex: &SceneTexture2D,
-  ) -> ReactiveGPU2DTextureView {
+  ) -> (impl Stream<Item = BindableGPUChange>, GPU2DTextureView) {
     let mut texture_2d = self.texture_2d.write().unwrap();
     let cache = texture_2d.get_or_insert_with(tex.guid(), || {
       let gpu_tex = self.gpu.create_gpu_texture2d(tex);
+      let handle = self.binding_sys.register_texture(gpu_tex.clone());
 
       let gpu_tex = ReactiveGPU2DTextureSignal {
         inner: Default::default(),
         gpu: gpu_tex,
+        handle,
       };
 
       let gpu_clone: ResourceGPUCtx = self.gpu.clone();
+      let bs = self.binding_sys.clone();
 
       tex
         .unbound_listen_by(any_change_no_init)
         .filter_map_sync(tex.defer_weak())
         .fold_signal(gpu_tex, move |tex, gpu_tex| {
           let recreated = gpu_clone.create_gpu_texture2d(&tex);
+
           gpu_tex.gpu = recreated.clone();
-          gpu_tex
-            .inner
-            .emit(&TextureGPUChange::Reference2D(gpu_tex.gpu.clone()));
-          TextureGPUChange::Reference2D(recreated).into()
+          bs.deregister_texture(gpu_tex.handle);
+          gpu_tex.handle = bs.register_texture(gpu_tex.gpu.clone());
+
+          gpu_tex.inner.emit(&BindableGPUChange::Reference2D(
+            gpu_tex.gpu.clone(),
+            gpu_tex.handle,
+          ));
+          BindableGPUChange::Reference2D(recreated, gpu_tex.handle).into()
         })
     });
 
     let gpu = cache.as_ref().gpu.clone();
-    let changes = cache.as_ref().create_gpu_texture_com_delta_stream();
-    ReactiveGPU2DTextureView { changes, gpu }
+    let changes = cache.as_ref().create_gpu_texture_stream();
+    (changes, gpu)
   }
 }
 

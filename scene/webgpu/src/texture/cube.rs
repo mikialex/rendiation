@@ -3,57 +3,36 @@ use rendiation_texture::CubeTextureFace;
 use crate::*;
 
 pub struct ReactiveGPUCubeTextureSignal {
-  inner: EventSource<TextureGPUChange>,
+  inner: EventSource<BindableGPUChange>,
   gpu: GPUCubeTextureView,
-}
-
-#[pin_project::pin_project]
-pub struct ReactiveGPUCubeTextureView {
-  #[pin]
-  pub changes: TextureCubeRenderComponentDeltaStream,
-  pub gpu: GPUCubeTextureView,
-}
-
-impl Stream for ReactiveGPUCubeTextureView {
-  type Item = RenderComponentDeltaFlag;
-
-  fn poll_next(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Option<Self::Item>> {
-    let this = self.project();
-    this.changes.poll_next(cx)
-  }
-}
-impl Deref for ReactiveGPUCubeTextureView {
-  type Target = GPUCubeTextureView;
-  fn deref(&self) -> &Self::Target {
-    &self.gpu
-  }
 }
 
 pub type TextureCubeRenderComponentDeltaStream = impl Stream<Item = RenderComponentDeltaFlag>;
 
 pub type ReactiveGPUCubeTextureViewSource =
-  impl AsRef<ReactiveGPUCubeTextureSignal> + Stream<Item = TextureGPUChange>;
+  impl AsRef<ReactiveGPUCubeTextureSignal> + Stream<Item = BindableGPUChange>;
 
 impl ReactiveGPUCubeTextureSignal {
-  pub fn create_gpu_texture_stream(&self) -> impl Stream<Item = TextureGPUChange> {
+  pub fn create_gpu_texture_stream(&self) -> impl Stream<Item = BindableGPUChange> {
     let current = self.gpu.clone();
     self.inner.single_listen_by(
       |v| v.clone(),
-      |send| send(TextureGPUChange::ReferenceCube(current)),
+      |send| send(BindableGPUChange::ReferenceCube(current)),
     )
   }
   pub fn create_gpu_texture_com_delta_stream(&self) -> TextureCubeRenderComponentDeltaStream {
     self
       .create_gpu_texture_stream()
-      .map(TextureGPUChange::into_render_component_delta)
+      .map(BindableGPUChange::into_render_component_delta)
   }
 }
 
 impl ShareBindableResourceCtx {
+  // todo cube texture bindless support
   pub fn get_or_create_reactive_gpu_texture_cube(
     &self,
     tex: &SceneTextureCube,
-  ) -> ReactiveGPUCubeTextureView {
+  ) -> (impl Stream<Item = BindableGPUChange>, GPUCubeTextureView) {
     let mut texture_cube = self.texture_cube.write().unwrap();
     let cache = texture_cube.get_or_insert_with(tex.guid(), || {
       let gpu_tex = self.gpu.create_gpu_texture_cube(tex);
@@ -73,14 +52,14 @@ impl ShareBindableResourceCtx {
           gpu_tex.gpu = recreated.clone();
           gpu_tex
             .inner
-            .emit(&TextureGPUChange::ReferenceCube(gpu_tex.gpu.clone()));
-          TextureGPUChange::ReferenceCube(recreated).into()
+            .emit(&BindableGPUChange::ReferenceCube(gpu_tex.gpu.clone()));
+          BindableGPUChange::ReferenceCube(recreated).into()
         })
     });
 
     let gpu = cache.as_ref().gpu.clone();
-    let changes = cache.as_ref().create_gpu_texture_com_delta_stream();
-    ReactiveGPUCubeTextureView { changes, gpu }
+    let changes = cache.as_ref().create_gpu_texture_stream();
+    (changes, gpu)
   }
 }
 

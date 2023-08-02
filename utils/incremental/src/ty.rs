@@ -190,6 +190,15 @@ pub enum MaybeDelta<T: IncrementalBase + Send + Sync> {
   All(T),
 }
 
+impl<T: IncrementalBase + Send + Sync> MaybeDelta<T> {
+  pub fn expand_delta(&self, f: impl Fn(T::Delta)) {
+    match self {
+      MaybeDelta::Delta(d) => f(d.clone()),
+      MaybeDelta::All(v) => v.expand(f),
+    }
+  }
+}
+
 pub fn merge_maybe<T>(v: MaybeDelta<T>) -> T
 where
   T: IncrementalBase<Delta = T>,
