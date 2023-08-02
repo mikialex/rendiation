@@ -143,7 +143,11 @@ impl ShaderPassBuilder for WebGPUTextureBindingSystem {
     self.bind_system(&mut ctx.binding)
   }
 }
-impl ShaderHashProvider for WebGPUTextureBindingSystem {}
+impl ShaderHashProvider for WebGPUTextureBindingSystem {
+  fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
+    self.bindless_enabled.hash(hasher)
+  }
+}
 impl ShaderGraphProvider for WebGPUTextureBindingSystem {
   fn build(
     &self,

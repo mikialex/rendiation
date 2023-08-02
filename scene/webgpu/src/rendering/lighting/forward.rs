@@ -48,10 +48,11 @@ impl<'a> PassContentWithSceneAndCamera for ForwardScene<'a> {
       lighting: self,
       debugger: self.debugger,
       override_shading: None,
-      bind_sys: &scene.resources.bindable_ctx.binding_sys,
       lights: &scene.scene_resources.lights,
       shadows: &scene.scene_resources.shadows,
     };
+    let dispatcher =
+      &scene.extend_bindless_resource_provider(&dispatcher) as &dyn RenderComponentAny;
 
     render_list.setup_pass(pass, &dispatcher, camera, scene);
   }
@@ -62,7 +63,6 @@ pub struct ForwardSceneLightingDispatcher<'a> {
   lighting: &'a ForwardScene<'a>,
   lights: &'a ForwardLightingSystem,
   shadows: &'a ShadowMapSystem,
-  bind_sys: &'a WebGPUTextureBindingSystem,
   override_shading: Option<&'static dyn LightableSurfaceShadingDyn>,
   debugger: Option<&'a ScreenChannelDebugger>,
 }
@@ -231,7 +231,6 @@ impl ForwardLightingSystem {
 impl<'a> ShaderPassBuilder for ForwardSceneLightingDispatcher<'a> {
   fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
     self.base.setup_pass(ctx);
-    self.bind_sys.setup_pass(ctx);
   }
   fn post_setup_pass(&self, ctx: &mut GPURenderPassCtx) {
     self.shadows.setup_pass(ctx);
@@ -248,7 +247,6 @@ impl<'a> ShaderHashProvider for ForwardSceneLightingDispatcher<'a> {
   fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
     self.lights.light_hash_cache.hash(hasher);
     self.shadows.hash_pipeline(hasher);
-    self.bind_sys.hash_pipeline(hasher);
 
     self.debugger.is_some().hash(hasher);
     if let Some(debugger) = &self.debugger {
@@ -271,8 +269,7 @@ impl<'a> ShaderGraphProvider for ForwardSceneLightingDispatcher<'a> {
     &self,
     builder: &mut ShaderGraphRenderPipelineBuilder,
   ) -> Result<(), ShaderGraphBuildError> {
-    self.base.build(builder)?;
-    self.bind_sys.build(builder)
+    self.base.build(builder)
   }
   fn post_build(
     &self,

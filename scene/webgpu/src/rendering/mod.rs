@@ -32,6 +32,18 @@ pub struct SceneRenderResourceGroup<'a> {
   pub node_derives: &'a SceneNodeDeriveSystem,
 }
 
+impl<'a> SceneRenderResourceGroup<'a> {
+  pub fn extend_bindless_resource_provider<T>(
+    &'a self,
+    dispatcher: &'a T,
+  ) -> BindlessResourceProvider<'a, T> {
+    BindlessResourceProvider {
+      base: dispatcher,
+      texture_system: &self.resources.bindable_ctx.binding_sys,
+    }
+  }
+}
+
 pub fn default_dispatcher(pass: &FrameRenderPass) -> DefaultPassDispatcher {
   DefaultPassDispatcher {
     formats: pass.ctx.pass.formats().clone(),

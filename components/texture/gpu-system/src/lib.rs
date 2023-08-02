@@ -8,6 +8,7 @@ use slab::Slab;
 pub type Texture2DHandle = u32;
 pub type SamplerHandle = u32;
 
+// todo, support runtime size by query client limitation
 pub const MAX_TEXTURE_BINDING_ARRAY_LENGTH: usize = 8192;
 pub const MAX_SAMPLER_BINDING_ARRAY_LENGTH: usize = 8192;
 
@@ -155,8 +156,8 @@ impl<B: GPUTextureBackend> AbstractTraditionalTextureSystem<B>
 
 pub struct BindlessTextureSystem<B: GPUTextureBackend> {
   inner: TraditionalPerDrawBindingSystem<B>,
-  texture_binding_array: B::GPUTexture2DBindingArray<100>,
-  sampler_binding_array: B::GPUSamplerBindingArray<10>,
+  texture_binding_array: B::GPUTexture2DBindingArray<MAX_TEXTURE_BINDING_ARRAY_LENGTH>,
+  sampler_binding_array: B::GPUSamplerBindingArray<MAX_SAMPLER_BINDING_ARRAY_LENGTH>,
   any_changed: bool, // should we add change mark to per type?
   enable_bindless: bool,
 }
@@ -205,7 +206,7 @@ impl<B: GPUTextureBackend> AbstractGPUTextureSystemBase<B> for BindlessTextureSy
     fn slab_to_hole_vec<T: Clone>(s: &Slab<T>) -> Vec<Option<T>> {
       let mut r = Vec::with_capacity(s.capacity());
       s.iter().for_each(|(idx, v)| {
-        while idx <= r.len() {
+        while idx >= r.len() {
           r.push(None)
         }
         r[idx] = v.clone().into();
@@ -250,8 +251,8 @@ impl<B: GPUTextureBackend> AbstractTraditionalTextureSystem<B> for BindlessTextu
   }
 }
 
-both!(BindlessTexturesInShader, BindingArray<ShaderTexture2D, 100>);
-both!(BindlessSamplersInShader, BindingArray<ShaderSampler, 10>);
+both!(BindlessTexturesInShader, BindingArray<ShaderTexture2D, MAX_TEXTURE_BINDING_ARRAY_LENGTH>);
+both!(BindlessSamplersInShader, BindingArray<ShaderSampler, MAX_SAMPLER_BINDING_ARRAY_LENGTH>);
 
 impl<B: GPUTextureBackend> AbstractIndirectGPUTextureSystem<B> for BindlessTextureSystem<B> {
   fn bind_system_self(&mut self, collector: &mut B::BindingCollector) {

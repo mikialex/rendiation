@@ -179,7 +179,13 @@ where
   ) {
     if let Some(objects) = self.objects.take() {
       for model in objects {
-        model.render(pass, &HighLightMaskDispatcher, camera, scene)
+        model.render(
+          pass,
+          &scene.extend_bindless_resource_provider(&HighLightMaskDispatcher)
+            as &dyn RenderComponentAny,
+          camera,
+          scene,
+        )
       }
     }
   }
