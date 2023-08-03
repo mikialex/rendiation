@@ -32,6 +32,7 @@ pub struct PhysicalMetallicRoughnessMaterialGPU {
   emissive_texture: ReactiveGPUTextureSamplerPair,
   normal_texture: ReactiveGPUTextureSamplerPair,
   alpha_mode: AlphaMode,
+  gpu: ResourceGPUCtx,
 }
 
 impl Stream for PhysicalMetallicRoughnessMaterialGPU {
@@ -40,10 +41,14 @@ impl Stream for PhysicalMetallicRoughnessMaterialGPU {
   fn poll_next(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Option<Self::Item>> {
     let this = self.project();
     let mut r = RenderComponentDeltaFlag::default();
-    poll_update_texture_handle_uniform!(this, base_color_texture, cx, r);
-    poll_update_texture_handle_uniform!(this, metallic_roughness_texture, cx, r);
-    poll_update_texture_handle_uniform!(this, emissive_texture, cx, r);
-    poll_update_texture_handle_uniform!(this, normal_texture, cx, r);
+    let mut c = false;
+    poll_update_texture_handle_uniform!(this, base_color_texture, cx, r, c);
+    poll_update_texture_handle_uniform!(this, metallic_roughness_texture, cx, r, c);
+    poll_update_texture_handle_uniform!(this, emissive_texture, cx, r, c);
+    poll_update_texture_handle_uniform!(this, normal_texture, cx, r, c);
+    if c {
+      this.uniform.upload(&this.gpu.queue)
+    }
     r.into_poll()
   }
 }
@@ -183,6 +188,7 @@ impl WebGPUMaterial for PhysicalMetallicRoughnessMaterial {
       emissive_texture,
       normal_texture,
       alpha_mode: m.alpha_mode,
+      gpu: ctx.gpu.clone(),
     };
 
     let state = RenderComponentCell::new(gpu);

@@ -191,7 +191,7 @@ pub enum MaybeDelta<T: IncrementalBase + Send + Sync> {
 }
 
 impl<T: IncrementalBase + Send + Sync> MaybeDelta<T> {
-  pub fn expand_delta(&self, f: impl Fn(T::Delta)) {
+  pub fn expand_delta(&self, mut f: impl FnMut(T::Delta)) {
     match self {
       MaybeDelta::Delta(d) => f(d.clone()),
       MaybeDelta::All(v) => v.expand(f),

@@ -146,10 +146,11 @@ macro_rules! early_return_option_ready {
 
 #[macro_export]
 macro_rules! poll_update_texture_handle_uniform {
-  ($this: tt, $name: tt, $cx: tt, $flag: tt) => {
+  ($this: tt, $name: tt, $cx: tt, $flag: tt, $uniform_flag: tt) => {
     $this.$name.poll_change($cx, &mut $flag, |d| {
       $this.uniform.mutate(|v| {
         v.$name.apply(d).ok();
+        $uniform_flag = true;
       });
     });
   };

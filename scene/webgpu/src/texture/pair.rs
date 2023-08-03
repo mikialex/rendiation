@@ -124,7 +124,7 @@ impl ReactiveGPUTextureSamplerPair {
     &mut self,
     cx: &mut Context,
     flag: &mut RenderComponentDeltaFlag,
-    cb: impl Fn(TextureSamplerHandlePairDelta),
+    cb: impl FnMut(TextureSamplerHandlePairDelta),
   ) {
     if let Poll::Ready(Some(change)) = self.poll_next_unpin(cx) {
       *flag |= RenderComponentDeltaFlag::Content;

@@ -417,8 +417,14 @@ fn gen_node(
     }
     ShaderGraphNode::Expr(expr) => {
       let name = cx.create_new_unique_name();
-      let expr = gen_expr(expr, cx);
-      let statement = format!("var {name} = {expr};");
+      let expr_s = gen_expr(expr, cx);
+      // todo, it's a workaround for bindless texture sampling (the accessed texture it self should
+      // only assigned to `let`)
+      let statement = if let &ShaderGraphNodeExpr::Operator(OperatorNode::Index { .. }) = expr {
+        format!("let {name} = {expr_s};")
+      } else {
+        format!("var {name} = {expr_s};")
+      };
       code.write_ln(&statement);
       cx.top_scope_mut().code_gen_history.insert(
         handle,
