@@ -141,7 +141,7 @@ impl WebGPUMesh for FatlineMesh {
   }
 }
 
-impl ShaderGraphProvider for FatlineMeshGPU {
+impl GraphicsShaderProvider for FatlineMeshGPU {
   fn build(
     &self,
     builder: &mut ShaderGraphRenderPipelineBuilder,

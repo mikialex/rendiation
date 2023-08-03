@@ -56,18 +56,18 @@ impl<'a, T> ShaderHashProviderAny for LinearBlurTask<'a, T> {
     self.config.type_id().hash(hasher);
   }
 }
-impl<'a, T> ShaderGraphProvider for LinearBlurTask<'a, T> {
+impl<'a, T> GraphicsShaderProvider for LinearBlurTask<'a, T> {
   fn build(
     &self,
     builder: &mut ShaderGraphRenderPipelineBuilder,
   ) -> Result<(), ShaderGraphBuildError> {
     builder.fragment(|builder, binding| {
-      let config = binding.uniform_by(self.config).expand();
-      let weights = binding.uniform_by(&self.weights.weights);
-      let weight_count = binding.uniform_by(&self.weights.weight_count);
+      let config = binding.bind_by(self.config).expand();
+      let weights = binding.bind_by(&self.weights.weights);
+      let weight_count = binding.bind_by(&self.weights.weight_count);
 
-      let input = binding.uniform_by(&self.input);
-      let sampler = binding.uniform::<GPUSamplerView>();
+      let input = binding.bind_by(&self.input);
+      let sampler = binding.binding::<GPUSamplerView>();
 
       let uv = builder.query::<FragmentUv>()?;
       let size = builder.query::<TexelSize>()?;

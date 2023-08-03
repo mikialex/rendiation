@@ -7,13 +7,13 @@ pub struct SolidUIPipeline {
   pub target_format: webgpu::TextureFormat,
 }
 
-impl ShaderGraphProvider for SolidUIPipeline {
+impl GraphicsShaderProvider for SolidUIPipeline {
   fn build(
     &self,
     builder: &mut ShaderGraphRenderPipelineBuilder,
   ) -> Result<(), shadergraph::ShaderGraphBuildError> {
     builder.set_binding_slot(0);
-    let global = builder.uniform::<UniformBufferDataView<UIGlobalParameter>>();
+    let global = builder.binding::<UniformBufferDataView<UIGlobalParameter>>();
 
     builder.vertex(|builder, _| {
       builder.register_vertex::<UIVertex>(VertexStepMode::Vertex);
@@ -54,13 +54,13 @@ pub struct TextureUIPipeline {
   pub target_format: webgpu::TextureFormat,
 }
 
-impl ShaderGraphProvider for TextureUIPipeline {
+impl GraphicsShaderProvider for TextureUIPipeline {
   fn build(
     &self,
     builder: &mut ShaderGraphRenderPipelineBuilder,
   ) -> Result<(), shadergraph::ShaderGraphBuildError> {
     builder.set_binding_slot(0);
-    let global = builder.uniform::<UniformBufferDataView<UIGlobalParameter>>();
+    let global = builder.binding::<UniformBufferDataView<UIGlobalParameter>>();
 
     builder.vertex(|builder, _| {
       builder.register_vertex::<UIVertex>(VertexStepMode::Vertex);
@@ -98,8 +98,8 @@ impl ShaderGraphProvider for TextureUIPipeline {
     builder.fragment(|builder, binding| {
       builder.define_out_by(channel(self.target_format).with_alpha_blend());
       let uv = builder.query::<FragmentUv>()?;
-      let texture = binding.uniform::<GPU2DTextureView>();
-      let sampler = binding.uniform::<GPUSamplerView>();
+      let texture = binding.binding::<GPU2DTextureView>();
+      let sampler = binding.binding::<GPUSamplerView>();
 
       builder.set_fragment_out(0, texture.sample(sampler, uv))
     })

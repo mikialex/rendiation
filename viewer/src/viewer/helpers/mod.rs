@@ -67,7 +67,7 @@ impl ShaderPassBuilder for WidgetDispatcher {
   }
 }
 
-impl ShaderGraphProvider for WidgetDispatcher {
+impl GraphicsShaderProvider for WidgetDispatcher {
   fn build(
     &self,
     builder: &mut ShaderGraphRenderPipelineBuilder,

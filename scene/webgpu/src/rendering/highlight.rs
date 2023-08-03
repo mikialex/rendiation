@@ -85,16 +85,16 @@ impl<'a, T> ShaderHashProviderAny for HighLightComposeTask<'a, T> {
   }
 }
 
-impl<'a, T> ShaderGraphProvider for HighLightComposeTask<'a, T> {
+impl<'a, T> GraphicsShaderProvider for HighLightComposeTask<'a, T> {
   fn build(
     &self,
     builder: &mut ShaderGraphRenderPipelineBuilder,
   ) -> Result<(), ShaderGraphBuildError> {
     builder.fragment(|builder, binding| {
-      let highlighter = binding.uniform_by(&self.lighter.data).expand();
+      let highlighter = binding.bind_by(&self.lighter.data).expand();
 
-      let mask = binding.uniform_by(&self.mask);
-      let sampler = binding.uniform::<GPUSamplerView>();
+      let mask = binding.bind_by(&self.mask);
+      let sampler = binding.binding::<GPUSamplerView>();
 
       let uv = builder.query::<FragmentUv>()?;
       let size = builder.query::<RenderBufferSize>()?;
@@ -148,7 +148,7 @@ pub const HIGH_LIGHT_MASK_TARGET_FORMAT: TextureFormat = TextureFormat::R8Unorm;
 impl ShaderHashProvider for HighLightMaskDispatcher {}
 impl ShaderPassBuilder for HighLightMaskDispatcher {}
 
-impl ShaderGraphProvider for HighLightMaskDispatcher {
+impl GraphicsShaderProvider for HighLightMaskDispatcher {
   fn build(
     &self,
     builder: &mut ShaderGraphRenderPipelineBuilder,

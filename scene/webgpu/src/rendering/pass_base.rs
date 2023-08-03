@@ -18,12 +18,12 @@ impl ShaderPassBuilder for DefaultPassDispatcher {
   }
 }
 
-impl ShaderGraphProvider for DefaultPassDispatcher {
+impl GraphicsShaderProvider for DefaultPassDispatcher {
   fn build(
     &self,
     builder: &mut ShaderGraphRenderPipelineBuilder,
   ) -> Result<(), ShaderGraphBuildError> {
-    let pass = builder.bindgroups.uniform_by(&self.pass_info);
+    let pass = builder.bindgroups.bind_by(&self.pass_info);
 
     builder.vertex(|builder, _| {
       let pass = pass.using().expand();

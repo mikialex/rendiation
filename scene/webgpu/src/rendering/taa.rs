@@ -90,21 +90,21 @@ struct TAAResolver<'a> {
   previous_camera: &'a CameraGPU,
 }
 
-impl<'a> ShaderGraphProvider for TAAResolver<'a> {
+impl<'a> GraphicsShaderProvider for TAAResolver<'a> {
   fn build(
     &self,
     builder: &mut ShaderGraphRenderPipelineBuilder,
   ) -> Result<(), ShaderGraphBuildError> {
     builder.fragment(|builder, binding| {
-      let sampler = binding.uniform::<DisableFiltering<GPUSamplerView>>();
-      let color_sampler = binding.uniform::<GPUSamplerView>();
-      let history = binding.uniform_by(&self.history);
-      let new = binding.uniform_by(&self.new_color);
-      let new_depth = binding.uniform_by(&DisableFiltering(&self.new_depth));
+      let sampler = binding.binding::<DisableFiltering<GPUSamplerView>>();
+      let color_sampler = binding.binding::<GPUSamplerView>();
+      let history = binding.bind_by(&self.history);
+      let new = binding.bind_by(&self.new_color);
+      let new_depth = binding.bind_by(&DisableFiltering(&self.new_depth));
 
-      let current_camera = binding.uniform_by(&self.current_camera.ubo).expand();
+      let current_camera = binding.bind_by(&self.current_camera.ubo).expand();
 
-      let previous_camera = binding.uniform_by(&self.previous_camera.ubo).expand();
+      let previous_camera = binding.bind_by(&self.previous_camera.ubo).expand();
 
       let uv = builder.query::<FragmentUv>()?;
 

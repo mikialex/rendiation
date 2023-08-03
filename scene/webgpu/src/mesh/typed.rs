@@ -27,7 +27,7 @@ impl<T> Stream for TypedMeshGPU<T> {
   }
 }
 
-impl<V, T, IU> ShaderGraphProvider for TypedMeshGPU<GroupedMesh<IndexedMesh<T, Vec<V>, IU>>>
+impl<V, T, IU> GraphicsShaderProvider for TypedMeshGPU<GroupedMesh<IndexedMesh<T, Vec<V>, IU>>>
 where
   V: ShaderGraphVertexInProvider,
   T: PrimitiveTopologyMeta,

@@ -26,12 +26,12 @@ impl DeferGBufferSchema<PhysicalShading> for MaterialDeferPassResult {
     ),
     ShaderGraphBuildError,
   > {
-    let world_position = binding.uniform_by(&self.world_position.read());
-    let normal = binding.uniform_by(&self.normal.read());
-    let material1 = binding.uniform_by(&self.material1.read());
-    let material2 = binding.uniform_by(&self.material2.read());
+    let world_position = binding.bind_by(&self.world_position.read());
+    let normal = binding.bind_by(&self.normal.read());
+    let material1 = binding.bind_by(&self.material1.read());
+    let material2 = binding.bind_by(&self.material2.read());
 
-    let sampler = binding.uniform::<GPUSamplerView>();
+    let sampler = binding.binding::<GPUSamplerView>();
 
     let uv = builder.query::<FragmentUv>()?;
 
@@ -94,7 +94,7 @@ where
 struct GBufferEncodeTaskDispatcher;
 impl ShaderHashProvider for GBufferEncodeTaskDispatcher {}
 impl ShaderPassBuilder for GBufferEncodeTaskDispatcher {}
-impl ShaderGraphProvider for GBufferEncodeTaskDispatcher {
+impl GraphicsShaderProvider for GBufferEncodeTaskDispatcher {
   fn build(
     &self,
     builder: &mut ShaderGraphRenderPipelineBuilder,
@@ -231,7 +231,7 @@ impl<'a, T: ShaderLight> LightCollectionCompute for SingleLight<'a, T> {
     shading: &dyn Any,
     geom_ctx: &ENode<ShaderLightingGeometricCtx>,
   ) -> Result<(Node<Vec3<f32>>, Node<Vec3<f32>>), ShaderGraphBuildError> {
-    let light = binding.uniform_by(self.light);
+    let light = binding.bind_by(self.light);
 
     let dep = T::create_dep(builder)?;
 
@@ -281,7 +281,7 @@ pub struct DrawDefer<'a, D, S, R> {
   pub target: &'a R,
 }
 
-impl<'a, S, D, R> ShaderGraphProvider for DrawDefer<'a, D, S, R>
+impl<'a, S, D, R> GraphicsShaderProvider for DrawDefer<'a, D, S, R>
 where
   S: LightableSurfaceShading,
   D: DeferGBufferSchema<S>,

@@ -55,7 +55,7 @@ impl ShaderHashProvider for ShadowMapSystem {
   }
 }
 
-impl ShaderGraphProvider for ShadowMapSystem {
+impl GraphicsShaderProvider for ShadowMapSystem {
   fn build(
     &self,
     builder: &mut ShaderGraphRenderPipelineBuilder,
@@ -73,13 +73,13 @@ pub struct BasicShadowMapInfoList {
   pub list: ShadowList<BasicShadowMapInfo>,
 }
 
-impl ShaderGraphProvider for BasicShadowMapInfoList {
+impl GraphicsShaderProvider for BasicShadowMapInfoList {
   fn build(
     &self,
     builder: &mut ShaderGraphRenderPipelineBuilder,
   ) -> Result<(), ShaderGraphBuildError> {
     builder.fragment(|builder, binding| {
-      let list = binding.uniform_by(self.list.gpu.as_ref().unwrap());
+      let list = binding.bind_by(self.list.gpu.as_ref().unwrap());
       builder.register::<BasicShadowMapInfoGroup>(list);
       Ok(())
     })

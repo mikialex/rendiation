@@ -33,7 +33,7 @@ impl ShaderHashProvider for ScreenChannelDebugger {
   }
 }
 
-impl ShaderGraphProvider for ScreenChannelDebugger {
+impl GraphicsShaderProvider for ScreenChannelDebugger {
   fn build(
     &self,
     builder: &mut ShaderGraphRenderPipelineBuilder,

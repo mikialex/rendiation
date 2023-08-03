@@ -59,7 +59,7 @@ impl<'a, T: ShaderHashProvider> ShaderHashProvider for BindlessResourceProvider<
     self.texture_system.hash_pipeline(hasher)
   }
 }
-impl<'a, T: ShaderGraphProvider> ShaderGraphProvider for BindlessResourceProvider<'a, T> {
+impl<'a, T: GraphicsShaderProvider> GraphicsShaderProvider for BindlessResourceProvider<'a, T> {
   fn build(
     &self,
     builder: &mut ShaderGraphRenderPipelineBuilder,

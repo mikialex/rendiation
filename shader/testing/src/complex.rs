@@ -3,7 +3,7 @@ use crate::*;
 
 struct Test;
 
-impl ShaderGraphProvider for Test {
+impl GraphicsShaderProvider for Test {
   fn build(
     &self,
     builder: &mut ShaderGraphRenderPipelineBuilder,

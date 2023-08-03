@@ -108,7 +108,7 @@ impl ShaderGraphBindGroupBuilder {
     std::mem::replace(&mut self.current_index, new)
   }
 
-  pub(crate) fn uniform_ty_inner<T: ShaderBindingProvider>(
+  pub(crate) fn binding_ty_inner<T: ShaderBindingProvider>(
     &mut self,
   ) -> UniformNodePreparer<T::Node> {
     let bindgroup_index = self.current_index;
@@ -146,15 +146,15 @@ impl ShaderGraphBindGroupBuilder {
     }
   }
 
-  pub fn uniform<T: ShaderBindingProvider>(&mut self) -> UniformNodePreparer<T::Node> {
-    self.uniform_ty_inner::<T>()
+  pub fn binding<T: ShaderBindingProvider>(&mut self) -> UniformNodePreparer<T::Node> {
+    self.binding_ty_inner::<T>()
   }
 
-  pub fn uniform_by<T: ShaderBindingProvider>(
+  pub fn bind_by<T: ShaderBindingProvider>(
     &mut self,
     _instance: &T,
   ) -> UniformNodePreparer<T::Node> {
-    self.uniform::<T>()
+    self.binding::<T>()
   }
 
   pub(crate) fn wrap(&mut self) -> ShaderGraphBindGroupDirectBuilder {
@@ -167,11 +167,11 @@ pub struct ShaderGraphBindGroupDirectBuilder<'a> {
 }
 
 impl<'a> ShaderGraphBindGroupDirectBuilder<'a> {
-  pub fn uniform<T: ShaderBindingProvider>(&mut self) -> Node<T::Node> {
-    self.builder.uniform_ty_inner::<T>().using()
+  pub fn binding<T: ShaderBindingProvider>(&mut self) -> Node<T::Node> {
+    self.builder.binding_ty_inner::<T>().using()
   }
 
-  pub fn uniform_by<T: ShaderBindingProvider>(&mut self, _instance: &T) -> Node<T::Node> {
-    self.uniform::<T>()
+  pub fn bind_by<T: ShaderBindingProvider>(&mut self, _instance: &T) -> Node<T::Node> {
+    self.binding::<T>()
   }
 }

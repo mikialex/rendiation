@@ -45,14 +45,14 @@ impl<T> ShaderPassBuilder for CopyFrame<T> {
   }
 }
 
-impl<T> ShaderGraphProvider for CopyFrame<T> {
+impl<T> GraphicsShaderProvider for CopyFrame<T> {
   fn build(
     &self,
     builder: &mut shadergraph::ShaderGraphRenderPipelineBuilder,
   ) -> Result<(), shadergraph::ShaderGraphBuildError> {
     builder.fragment(|builder, binding| {
-      let sampler = binding.uniform_by(&self.sampler);
-      let source = binding.uniform_by(&self.source);
+      let sampler = binding.bind_by(&self.sampler);
+      let source = binding.bind_by(&self.source);
 
       let uv = builder.query::<FragmentUv>()?;
       let value = source.sample(sampler, uv);

@@ -126,7 +126,7 @@ impl ShaderHashProvider for StateGPUInner {
   }
 }
 
-impl ShaderGraphProvider for StateGPUInner {
+impl GraphicsShaderProvider for StateGPUInner {
   fn build(
     &self,
     builder: &mut ShaderGraphRenderPipelineBuilder,

@@ -94,15 +94,15 @@ impl ShaderPassBuilder for ShadowMapAllocator {
   }
 }
 
-impl ShaderGraphProvider for ShadowMapAllocator {
+impl GraphicsShaderProvider for ShadowMapAllocator {
   fn build(
     &self,
     builder: &mut ShaderGraphRenderPipelineBuilder,
   ) -> Result<(), ShaderGraphBuildError> {
     let inner = self.inner.borrow();
     builder.fragment(|builder, binding| {
-      let map = binding.uniform_by(&inner.map);
-      let sampler = binding.uniform_by(&inner.sampler);
+      let map = binding.bind_by(&inner.map);
+      let sampler = binding.bind_by(&inner.sampler);
       builder.register::<BasicShadowMap>(map);
       builder.register::<BasicShadowMapSampler>(sampler);
       Ok(())

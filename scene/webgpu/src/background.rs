@@ -58,8 +58,8 @@ impl ShadingBackground for EnvMapBackgroundGPU {
     direction: Node<Vec3<f32>>,
   ) -> Result<(), ShaderGraphBuildError> {
     builder.fragment(|builder, binding| {
-      let cube = binding.uniform_by(&self.texture);
-      let sampler = binding.uniform_by(&self.sampler);
+      let cube = binding.bind_by(&self.texture);
+      let sampler = binding.bind_by(&self.sampler);
       cube.sample(sampler, direction);
       builder.register::<DefaultDisplay>(cube.sample(sampler, direction));
       Ok(())
@@ -91,7 +91,7 @@ impl<T: ShaderHashProvider> ShaderHashProvider for ShadingBackgroundTask<T> {
   }
 }
 
-impl<T: ShadingBackground> ShaderGraphProvider for ShadingBackgroundTask<T> {
+impl<T: ShadingBackground> GraphicsShaderProvider for ShadingBackgroundTask<T> {
   fn build(
     &self,
     builder: &mut ShaderGraphRenderPipelineBuilder,

@@ -66,7 +66,7 @@ impl ShaderPassBuilder for PhysicalSpecularGlossinessMaterialGPU {
   }
 }
 
-impl ShaderGraphProvider for PhysicalSpecularGlossinessMaterialGPU {
+impl GraphicsShaderProvider for PhysicalSpecularGlossinessMaterialGPU {
   fn build(
     &self,
     builder: &mut ShaderGraphRenderPipelineBuilder,
@@ -77,13 +77,13 @@ impl ShaderGraphProvider for PhysicalSpecularGlossinessMaterialGPU {
     );
 
     builder.fragment(|builder, binding| {
-      let uniform = binding.uniform_by(&self.uniform).expand();
+      let uniform = binding.bind_by(&self.uniform).expand();
       let uv = builder.query_or_interpolate_by::<FragmentUv, GeometryUV>();
 
       let mut alpha = uniform.alpha;
 
       let mut albedo = uniform.albedo;
-      let albedo_tex = self.albedo_texture.uniform_and_sample(
+      let albedo_tex = self.albedo_texture.bind_and_sample(
         binding,
         builder.registry(),
         uniform.albedo_texture,
@@ -95,22 +95,22 @@ impl ShaderGraphProvider for PhysicalSpecularGlossinessMaterialGPU {
       let mut specular = uniform.specular;
       specular *= self
         .specular_texture
-        .uniform_and_sample(binding, builder.registry(), uniform.specular_texture, uv)
+        .bind_and_sample(binding, builder.registry(), uniform.specular_texture, uv)
         .xyz();
 
       let mut glossiness = uniform.glossiness;
       glossiness *= self
         .specular_texture
-        .uniform_and_sample(binding, builder.registry(), uniform.glossiness_texture, uv)
+        .bind_and_sample(binding, builder.registry(), uniform.glossiness_texture, uv)
         .x();
 
       let mut emissive = uniform.emissive;
       emissive *= self
         .emissive_texture
-        .uniform_and_sample(binding, builder.registry(), uniform.emissive_texture, uv)
+        .bind_and_sample(binding, builder.registry(), uniform.emissive_texture, uv)
         .xyz();
 
-      let (normal_sample, enabled) = self.normal_texture.uniform_and_sample_enabled(
+      let (normal_sample, enabled) = self.normal_texture.bind_and_sample_enabled(
         binding,
         builder.registry(),
         uniform.normal_texture,

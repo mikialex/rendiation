@@ -59,7 +59,7 @@ impl ShaderHashProvider for FullScreenQuad {
     self.blend.hash(hasher)
   }
 }
-impl ShaderGraphProvider for FullScreenQuad {
+impl GraphicsShaderProvider for FullScreenQuad {
   fn build(
     &self,
     builder: &mut ShaderGraphRenderPipelineBuilder,

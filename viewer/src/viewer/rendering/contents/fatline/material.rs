@@ -119,7 +119,7 @@ impl ShaderPassBuilder for FatlineMaterialGPU {
   }
 }
 
-impl ShaderGraphProvider for FatlineMaterialGPU {
+impl GraphicsShaderProvider for FatlineMaterialGPU {
   fn build(
     &self,
     builder: &mut ShaderGraphRenderPipelineBuilder,
@@ -127,7 +127,7 @@ impl ShaderGraphProvider for FatlineMaterialGPU {
     builder.vertex(|builder, binding| {
       let uv = builder.query::<GeometryUV>()?;
       let color_with_alpha = builder.query::<GeometryColorWithAlpha>()?;
-      let material = binding.uniform_by(&self.uniform).expand();
+      let material = binding.bind_by(&self.uniform).expand();
 
       let vertex_position = fatline_vertex(
         builder.query::<CameraProjectionMatrix>()?,

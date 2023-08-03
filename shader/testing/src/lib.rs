@@ -6,7 +6,7 @@ mod varying;
 use shadergraph::*;
 use wgsl_codegen_graph::*;
 
-pub fn test_provider_success(s: &dyn ShaderGraphProvider) {
+pub fn test_provider_success(s: &dyn GraphicsShaderProvider) {
   let mut builder = Default::default();
   s.build(&mut builder).unwrap();
   let result = builder.build(WGSL);

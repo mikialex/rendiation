@@ -129,7 +129,7 @@ impl ShaderGraphRenderPipelineBuilder {
 
 /// The reason why we use two function is that the build process
 /// require to generate two separate root scope: two entry main function;
-pub trait ShaderGraphProvider {
+pub trait GraphicsShaderProvider {
   fn build(
     &self,
     _builder: &mut ShaderGraphRenderPipelineBuilder,
@@ -154,7 +154,7 @@ pub trait ShaderGraphProvider {
   }
 }
 
-impl ShaderGraphProvider for () {}
+impl GraphicsShaderProvider for () {}
 
 pub struct ShaderGraphCompileResult<T: ShaderGraphCodeGenTarget> {
   pub target: T,

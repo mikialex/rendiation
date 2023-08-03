@@ -48,7 +48,7 @@ impl ShaderHashProvider for AttributesMeshGPU {
     }
   }
 }
-impl ShaderGraphProvider for AttributesMeshGPU {
+impl GraphicsShaderProvider for AttributesMeshGPU {
   fn build(
     &self,
     builder: &mut ShaderGraphRenderPipelineBuilder,

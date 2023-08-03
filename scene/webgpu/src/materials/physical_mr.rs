@@ -63,7 +63,7 @@ impl ShaderPassBuilder for PhysicalMetallicRoughnessMaterialGPU {
   }
 }
 
-impl ShaderGraphProvider for PhysicalMetallicRoughnessMaterialGPU {
+impl GraphicsShaderProvider for PhysicalMetallicRoughnessMaterialGPU {
   fn build(
     &self,
     builder: &mut ShaderGraphRenderPipelineBuilder,
@@ -74,13 +74,13 @@ impl ShaderGraphProvider for PhysicalMetallicRoughnessMaterialGPU {
     );
 
     builder.fragment(|builder, binding| {
-      let uniform = binding.uniform_by(&self.uniform).expand();
+      let uniform = binding.bind_by(&self.uniform).expand();
       let uv = builder.query_or_interpolate_by::<FragmentUv, GeometryUV>();
 
       let mut alpha = uniform.alpha;
       let mut base_color = uniform.base_color;
 
-      let base_color_tex = self.base_color_texture.uniform_and_sample(
+      let base_color_tex = self.base_color_texture.bind_and_sample(
         binding,
         builder.registry(),
         uniform.base_color_texture,
@@ -92,7 +92,7 @@ impl ShaderGraphProvider for PhysicalMetallicRoughnessMaterialGPU {
       let mut metallic = uniform.metallic;
       let mut roughness = uniform.roughness;
 
-      let metallic_roughness_tex = self.metallic_roughness_texture.uniform_and_sample(
+      let metallic_roughness_tex = self.metallic_roughness_texture.bind_and_sample(
         binding,
         builder.registry(),
         uniform.metallic_roughness_texture,
@@ -105,10 +105,10 @@ impl ShaderGraphProvider for PhysicalMetallicRoughnessMaterialGPU {
       let mut emissive = uniform.emissive;
       emissive *= self
         .emissive_texture
-        .uniform_and_sample(binding, builder.registry(), uniform.emissive_texture, uv)
+        .bind_and_sample(binding, builder.registry(), uniform.emissive_texture, uv)
         .xyz();
 
-      let (normal_sample, enabled) = self.normal_texture.uniform_and_sample_enabled(
+      let (normal_sample, enabled) = self.normal_texture.bind_and_sample_enabled(
         binding,
         builder.registry(),
         uniform.normal_texture,

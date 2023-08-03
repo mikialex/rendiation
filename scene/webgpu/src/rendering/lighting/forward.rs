@@ -264,7 +264,7 @@ impl<'a> ShaderHashProviderAny for ForwardSceneLightingDispatcher<'a> {
   }
 }
 
-impl<'a> ShaderGraphProvider for ForwardSceneLightingDispatcher<'a> {
+impl<'a> GraphicsShaderProvider for ForwardSceneLightingDispatcher<'a> {
   fn build(
     &self,
     builder: &mut ShaderGraphRenderPipelineBuilder,
@@ -327,7 +327,7 @@ impl ForwardLightingSystem {
     shading_impl: &dyn LightableSurfaceShadingDyn,
   ) -> Result<(), ShaderGraphBuildError> {
     builder.fragment(|builder, binding| {
-      let lengths_info = binding.uniform_by(&self.lengths);
+      let lengths_info = binding.bind_by(&self.lengths);
       let camera_position = builder.query::<CameraWorldMatrix>()?.position();
       let position =
         builder.query_or_interpolate_by::<FragmentWorldPosition, WorldVertexPosition>();
@@ -556,7 +556,7 @@ impl<T: ShaderLight> LightCollectionCompute for LightList<T> {
     shading: &dyn Any,
     geom_ctx: &ENode<ShaderLightingGeometricCtx>,
   ) -> Result<(Node<Vec3<f32>>, Node<Vec3<f32>>), ShaderGraphBuildError> {
-    let lights = binding.uniform_by(self.uniform.gpu.as_ref().unwrap());
+    let lights = binding.bind_by(self.uniform.gpu.as_ref().unwrap());
 
     let dep = T::create_dep(builder)?;
 

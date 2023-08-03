@@ -108,13 +108,13 @@ impl TransformGPUData {
 
 impl ShaderHashProvider for NodeGPU {}
 
-impl ShaderGraphProvider for NodeGPU {
+impl GraphicsShaderProvider for NodeGPU {
   fn build(
     &self,
     builder: &mut ShaderGraphRenderPipelineBuilder,
   ) -> Result<(), ShaderGraphBuildError> {
     builder.vertex(|builder, binding| {
-      let model = binding.uniform_by(&self.ubo).expand();
+      let model = binding.bind_by(&self.ubo).expand();
       let position = builder.query::<GeometryPosition>()?;
       let position = model.world_matrix * (position, 1.).into();
 

@@ -177,7 +177,7 @@ impl<'a> ShaderHashProviderAny for Mipmap2DGeneratorTask<'a> {
   }
 }
 
-impl<'a> ShaderGraphProvider for Mipmap2DGeneratorTask<'a> {
+impl<'a> GraphicsShaderProvider for Mipmap2DGeneratorTask<'a> {
   fn build(
     &self,
     builder: &mut ShaderGraphRenderPipelineBuilder,
@@ -186,8 +186,8 @@ impl<'a> ShaderGraphProvider for Mipmap2DGeneratorTask<'a> {
       let position = builder.query::<FragmentPosition>()?.xy();
       let buffer_size = builder.query::<RenderBufferSize>()?;
       let texel_size = builder.query::<TexelSize>()? * consts(0.5);
-      let previous_level = binding.uniform_by(&self.view);
-      let sampler = binding.uniform::<GPUSamplerView>();
+      let previous_level = binding.bind_by(&self.view);
+      let sampler = binding.binding::<GPUSamplerView>();
 
       let result = self
         .reducer

@@ -107,18 +107,18 @@ impl<'a> ShaderPassBuilder for AOComputer<'a> {
     ctx.binding.bind(self.source_camera_gpu);
   }
 }
-impl<'a> ShaderGraphProvider for AOComputer<'a> {
+impl<'a> GraphicsShaderProvider for AOComputer<'a> {
   fn build(
     &self,
     builder: &mut ShaderGraphRenderPipelineBuilder,
   ) -> Result<(), ShaderGraphBuildError> {
     builder.fragment(|builder, binding| {
-      let depth_tex = binding.uniform_by(&DisableFiltering(&self.depth));
-      let parameter = binding.uniform_by(&self.parameter.parameters).expand();
-      let samples = binding.uniform_by(&self.parameter.samples);
-      let sampler = binding.uniform::<DisableFiltering<GPUSamplerView>>();
+      let depth_tex = binding.bind_by(&DisableFiltering(&self.depth));
+      let parameter = binding.bind_by(&self.parameter.parameters).expand();
+      let samples = binding.bind_by(&self.parameter.samples);
+      let sampler = binding.binding::<DisableFiltering<GPUSamplerView>>();
 
-      let camera = binding.uniform_by(self.source_camera_gpu).expand();
+      let camera = binding.bind_by(self.source_camera_gpu).expand();
 
       let uv = builder.query::<FragmentUv>()?;
 

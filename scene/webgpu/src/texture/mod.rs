@@ -148,7 +148,7 @@ impl ShaderHashProvider for WebGPUTextureBindingSystem {
     self.bindless_enabled.hash(hasher)
   }
 }
-impl ShaderGraphProvider for WebGPUTextureBindingSystem {
+impl GraphicsShaderProvider for WebGPUTextureBindingSystem {
   fn build(
     &self,
     builder: &mut ShaderGraphRenderPipelineBuilder,

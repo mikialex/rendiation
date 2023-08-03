@@ -3,7 +3,7 @@ use std::sync::Arc;
 use bytemuck::*;
 use rendiation_algebra::*;
 use rendiation_texture::Size;
-use shadergraph::{std140_layout, ShaderGraphProvider, ShaderStruct};
+use shadergraph::{std140_layout, GraphicsShaderProvider, ShaderStruct};
 use webgpu::util::DeviceExt;
 use webgpu::*;
 

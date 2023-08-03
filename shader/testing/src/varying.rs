@@ -12,7 +12,7 @@ impl SemanticFragmentShaderValue for TestSemantic {
   type ValueType = Vec4<f32>;
 }
 
-impl ShaderGraphProvider for Test {
+impl GraphicsShaderProvider for Test {
   fn build(
     &self,
     builder: &mut ShaderGraphRenderPipelineBuilder,

@@ -12,7 +12,7 @@ impl GPUTextureSamplerPair {
     self.sys.bind_sampler(&mut ctx.binding, self.sampler);
   }
 
-  pub fn uniform_and_sample(
+  pub fn bind_and_sample(
     &self,
     binding: &mut ShaderGraphBindGroupDirectBuilder,
     reg: &SemanticRegistry,
@@ -31,7 +31,7 @@ impl GPUTextureSamplerPair {
     )
   }
 
-  pub fn uniform_and_sample_enabled(
+  pub fn bind_and_sample_enabled(
     &self,
     binding: &mut ShaderGraphBindGroupDirectBuilder,
     reg: &SemanticRegistry,

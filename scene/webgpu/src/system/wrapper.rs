@@ -107,7 +107,7 @@ impl<T: ShaderPassBuilder> ShaderPassBuilder for RenderComponentCell<T> {
     self.inner.post_setup_pass(ctx)
   }
 }
-impl<T: ShaderGraphProvider> ShaderGraphProvider for RenderComponentCell<T> {
+impl<T: GraphicsShaderProvider> GraphicsShaderProvider for RenderComponentCell<T> {
   fn build(
     &self,
     builder: &mut ShaderGraphRenderPipelineBuilder,

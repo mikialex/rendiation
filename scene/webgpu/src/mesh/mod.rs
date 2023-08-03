@@ -148,7 +148,7 @@ impl ShaderPassBuilder for MeshGPUInstance {
   }
 }
 
-impl ShaderGraphProvider for MeshGPUInstance {
+impl GraphicsShaderProvider for MeshGPUInstance {
   fn build(
     &self,
     builder: &mut ShaderGraphRenderPipelineBuilder,

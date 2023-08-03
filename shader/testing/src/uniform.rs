@@ -26,16 +26,16 @@ impl ShaderBindingProvider for FakeSampler {
   type Node = ShaderSampler;
 }
 
-impl ShaderGraphProvider for TestUniform {
+impl GraphicsShaderProvider for TestUniform {
   fn build(
     &self,
     builder: &mut ShaderGraphRenderPipelineBuilder,
   ) -> Result<(), ShaderGraphBuildError> {
-    let uniform = builder.uniform::<Self>();
+    let uniform = builder.binding::<Self>();
 
     builder.vertex(|builder, binding| {
-      let tex = binding.uniform::<FakeTexture2d>();
-      let sampler = binding.uniform::<FakeSampler>();
+      let tex = binding.binding::<FakeTexture2d>();
+      let sampler = binding.binding::<FakeSampler>();
 
       let uniform = uniform.using().expand();
       let color = tex.sample(sampler, uniform.data2);

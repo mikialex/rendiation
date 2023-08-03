@@ -190,7 +190,7 @@ impl ShaderPassBuilder for MaterialGPUInstance {
   }
 }
 
-impl ShaderGraphProvider for MaterialGPUInstance {
+impl GraphicsShaderProvider for MaterialGPUInstance {
   fn build(
     &self,
     builder: &mut ShaderGraphRenderPipelineBuilder,

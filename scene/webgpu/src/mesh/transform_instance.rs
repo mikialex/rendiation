@@ -22,7 +22,7 @@ pub struct ShaderMat4VertexInput {
   mat: Mat4<f32>,
 }
 
-impl ShaderGraphProvider for TransformInstanceGPU {
+impl GraphicsShaderProvider for TransformInstanceGPU {
   fn build(
     &self,
     builder: &mut ShaderGraphRenderPipelineBuilder,

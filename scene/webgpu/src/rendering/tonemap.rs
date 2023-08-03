@@ -36,13 +36,13 @@ impl ShaderPassBuilder for ToneMap {
     ctx.binding.bind(&self.exposure);
   }
 }
-impl ShaderGraphProvider for ToneMap {
+impl GraphicsShaderProvider for ToneMap {
   fn build(
     &self,
     builder: &mut ShaderGraphRenderPipelineBuilder,
   ) -> Result<(), ShaderGraphBuildError> {
     builder.fragment(|builder, binding| {
-      let exposure = binding.uniform_by(&self.exposure);
+      let exposure = binding.bind_by(&self.exposure);
       let hdr = builder.query::<HDRLightResult>()?;
 
       let mapped = match self.ty {
@@ -153,14 +153,14 @@ impl<'a, T> ShaderPassBuilder for ToneMapTask<'a, T> {
   }
 }
 
-impl<'a, T> ShaderGraphProvider for ToneMapTask<'a, T> {
+impl<'a, T> GraphicsShaderProvider for ToneMapTask<'a, T> {
   fn build(
     &self,
     builder: &mut ShaderGraphRenderPipelineBuilder,
   ) -> Result<(), ShaderGraphBuildError> {
     builder.fragment(|builder, binding| {
-      let hdr = binding.uniform_by(&self.hdr);
-      let sampler = binding.uniform::<GPUSamplerView>();
+      let hdr = binding.bind_by(&self.hdr);
+      let sampler = binding.binding::<GPUSamplerView>();
 
       let uv = builder.query::<FragmentUv>()?;
       let hdr = hdr.sample(sampler, uv).xyz();

@@ -21,13 +21,13 @@ impl Stream for FlatMaterialGPU {
 
 impl ShaderHashProvider for FlatMaterialGPU {}
 
-impl ShaderGraphProvider for FlatMaterialGPU {
+impl GraphicsShaderProvider for FlatMaterialGPU {
   fn build(
     &self,
     builder: &mut ShaderGraphRenderPipelineBuilder,
   ) -> Result<(), ShaderGraphBuildError> {
     builder.fragment(|builder, binding| {
-      let uniform = binding.uniform_by(&self.uniform).expand();
+      let uniform = binding.bind_by(&self.uniform).expand();
 
       builder.register::<DefaultDisplay>(uniform.color);
       Ok(())

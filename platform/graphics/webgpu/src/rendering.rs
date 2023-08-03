@@ -2,7 +2,7 @@ use shadergraph::*;
 
 use crate::*;
 
-pub trait RenderComponent: ShaderHashProvider + ShaderGraphProvider + ShaderPassBuilder {
+pub trait RenderComponent: ShaderHashProvider + GraphicsShaderProvider + ShaderPassBuilder {
   fn render(&self, ctx: &mut GPURenderPassCtx, com: DrawCommand) {
     let mut hasher = PipelineHasher::default();
     self.hash_pipeline(&mut hasher);
@@ -31,7 +31,10 @@ pub trait RenderComponent: ShaderHashProvider + ShaderGraphProvider + ShaderPass
   }
 }
 
-impl<T> RenderComponent for T where T: ShaderHashProvider + ShaderGraphProvider + ShaderPassBuilder {}
+impl<T> RenderComponent for T where
+  T: ShaderHashProvider + GraphicsShaderProvider + ShaderPassBuilder
+{
+}
 
 pub trait RenderComponentAny: RenderComponent + ShaderHashProviderAny {}
 impl<T> RenderComponentAny for T where T: RenderComponent + ShaderHashProviderAny {}
@@ -55,7 +58,7 @@ impl<'a> ShaderPassBuilder for &'a dyn RenderComponentAny {
     (*self).post_setup_pass(ctx);
   }
 }
-impl<'a> ShaderGraphProvider for &'a dyn RenderComponentAny {
+impl<'a> GraphicsShaderProvider for &'a dyn RenderComponentAny {
   fn build(
     &self,
     builder: &mut ShaderGraphRenderPipelineBuilder,
@@ -103,7 +106,7 @@ impl<'a, 'b> ShaderHashProvider for RenderEmitter<'a, 'b> {
   }
 }
 
-impl<'a, 'b> ShaderGraphProvider for RenderEmitter<'a, 'b> {
+impl<'a, 'b> GraphicsShaderProvider for RenderEmitter<'a, 'b> {
   fn build(
     &self,
     builder: &mut ShaderGraphRenderPipelineBuilder,
@@ -163,7 +166,7 @@ impl<'a, T: ShaderPassBuilder> ShaderPassBuilder for BindingController<'a, T> {
     ctx.binding.set_binding_slot(before);
   }
 }
-impl<'a, T: ShaderGraphProvider> ShaderGraphProvider for BindingController<'a, T> {
+impl<'a, T: GraphicsShaderProvider> GraphicsShaderProvider for BindingController<'a, T> {
   fn build(
     &self,
     builder: &mut ShaderGraphRenderPipelineBuilder,

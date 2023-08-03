@@ -141,7 +141,7 @@ impl<B: GPUTextureBackend> AbstractTraditionalTextureSystem<B>
     handle: Texture2DHandle,
   ) -> Node<ShaderTexture2D> {
     let texture = self.textures.get(handle as usize).unwrap();
-    builder.uniform_by(texture)
+    builder.bind_by(texture)
   }
 
   fn register_shader_sampler(
@@ -150,7 +150,7 @@ impl<B: GPUTextureBackend> AbstractTraditionalTextureSystem<B>
     handle: SamplerHandle,
   ) -> Node<ShaderSampler> {
     let sampler = self.samplers.get(handle as usize).unwrap();
-    builder.uniform_by(sampler)
+    builder.bind_by(sampler)
   }
 }
 
@@ -262,12 +262,12 @@ impl<B: GPUTextureBackend> AbstractIndirectGPUTextureSystem<B> for BindlessTextu
 
   fn register_system_self(&self, builder: &mut ShaderGraphRenderPipelineBuilder) {
     builder
-      .uniform_by(&self.texture_binding_array)
+      .bind_by(&self.texture_binding_array)
       .using_both(builder, |r, textures| {
         r.register_typed_both_stage::<BindlessTexturesInShader>(textures);
       });
     builder
-      .uniform_by(&self.sampler_binding_array)
+      .bind_by(&self.sampler_binding_array)
       .using_both(builder, |r, samplers| {
         r.register_typed_both_stage::<BindlessSamplersInShader>(samplers);
       });
