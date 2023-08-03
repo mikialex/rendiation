@@ -39,6 +39,42 @@ impl RenderComponentDeltaFlag {
   }
 }
 
+pub trait PollOr {
+  fn poll_or(self, other: Self) -> Self;
+}
+impl PollOr for RenderComponentDeltaFlag {
+  fn poll_or(self, other: Self) -> Self {
+    self | other
+  }
+}
+impl PollOr for () {
+  fn poll_or(self, _: Self) -> Self {}
+}
+
+pub trait PollResultUtil<T> {
+  fn p_or(self, other: Self) -> Poll<Option<T>>;
+}
+impl<T: PollOr> PollResultUtil<T> for Poll<Option<T>> {
+  fn p_or(self, other: Self) -> Self {
+    match (self, other) {
+      (Poll::Ready(a), Poll::Ready(b)) => Poll::Ready(a.zip(b).map(|(a, b)| a.poll_or(b))),
+      (Poll::Ready(a), Poll::Pending) => Poll::Ready(a),
+      (Poll::Pending, Poll::Ready(b)) => Poll::Ready(b),
+      (Poll::Pending, Poll::Pending) => Poll::Pending,
+    }
+  }
+}
+impl<T: PollOr> PollResultUtil<T> for Option<Poll<Option<T>>> {
+  fn p_or(self, other: Self) -> Poll<Option<T>> {
+    match (self, other) {
+      (None, None) => Poll::Pending,
+      (None, Some(b)) => b,
+      (Some(a), None) => a,
+      (Some(a), Some(b)) => a.p_or(b),
+    }
+  }
+}
+
 #[pin_project::pin_project]
 pub struct RenderComponentCell<T> {
   source: EventSource<RenderComponentDeltaFlag>,

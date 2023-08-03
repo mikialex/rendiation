@@ -114,10 +114,10 @@ impl Stream for StandardModelGPU {
   type Item = RenderComponentDeltaFlag;
 
   fn poll_next(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Option<Self::Item>> {
-    let mut this = self.project();
-    early_return_option_ready!(this.material_delta, cx);
-    early_return_option_ready!(this.mesh_delta, cx);
-    Poll::Pending
+    let this = self.project();
+    let a = this.material_delta.as_mut().map(|v| v.poll_next_unpin(cx));
+    let b = this.mesh_delta.as_mut().map(|v| v.poll_next_unpin(cx));
+    a.p_or(b)
   }
 }
 
@@ -212,9 +212,12 @@ impl Stream for ReactiveSceneModelGPU {
   type Item = RenderComponentDeltaFlag;
 
   fn poll_next(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Option<Self::Item>> {
-    let mut this = self.project();
-    early_return_option_ready!(this.model_delta, cx);
-    Poll::Pending
+    let this = self.project();
+    this
+      .model_delta
+      .as_mut()
+      .map(|v| v.poll_next_unpin(cx))
+      .unwrap_or(Poll::Pending)
   }
 }
 

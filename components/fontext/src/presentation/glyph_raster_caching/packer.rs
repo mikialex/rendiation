@@ -2,7 +2,7 @@ use crate::*;
 
 pub struct GlyphPacker {
   packer: Box<dyn RePackablePacker>,
-  pack_info: LinkedHashMap<(GlyphID, NormalizedGlyphRasterInfo), (PackId, TextureRange)>,
+  pack_info: LinkedHashMap<(FontGlyphId, NormalizedGlyphRasterInfo), (PackId, TextureRange)>,
 }
 
 impl GlyphPacker {
@@ -25,13 +25,13 @@ impl GlyphPacker {
     self.pack_info = Default::default();
   }
 
-  pub fn get_packed(&self, key: &(GlyphID, NormalizedGlyphRasterInfo)) -> Option<TextureRange> {
+  pub fn get_packed(&self, key: &(FontGlyphId, NormalizedGlyphRasterInfo)) -> Option<TextureRange> {
     self.pack_info.get(key).map(|(_, range)| *range)
   }
 
   pub fn process_queued<'a>(
     &'a mut self,
-    queue: &'a FastHashMap<(GlyphID, NormalizedGlyphRasterInfo), GlyphRasterInfo>,
+    queue: &'a FastHashMap<(FontGlyphId, NormalizedGlyphRasterInfo), GlyphRasterInfo>,
   ) -> GlyphPackFrameTask<'a> {
     GlyphPackFrameTask {
       packer: self,
@@ -42,7 +42,7 @@ impl GlyphPacker {
 
 pub struct GlyphPackFrameTask<'a> {
   packer: &'a mut GlyphPacker,
-  queue: &'a FastHashMap<(GlyphID, NormalizedGlyphRasterInfo), GlyphRasterInfo>,
+  queue: &'a FastHashMap<(FontGlyphId, NormalizedGlyphRasterInfo), GlyphRasterInfo>,
 }
 
 impl<'a> GlyphPackFrameTask<'a> {
@@ -52,14 +52,14 @@ impl<'a> GlyphPackFrameTask<'a> {
 
   pub fn pack(
     &mut self,
-    glyph_id: GlyphID,
+    id: FontGlyphId,
     info: NormalizedGlyphRasterInfo,
     raw_info: GlyphRasterInfo,
     fonts: &FontManager,
   ) -> GlyphAddCacheResult {
-    if let Some(result) = self.packer.pack_info.get_refresh(&(glyph_id, info)) {
+    if let Some(result) = self.packer.pack_info.get_refresh(&(id, info)) {
       GlyphAddCacheResult::AlreadyCached(*result)
-    } else if let Some(data) = fonts.raster(glyph_id, raw_info) {
+    } else if let Some(data) = fonts.raster(id, raw_info) {
       loop {
         match self.packer.packer.pack_with_id(data.size()) {
           Ok(result) => {
@@ -68,7 +68,7 @@ impl<'a> GlyphPackFrameTask<'a> {
             let result = *self
               .packer
               .pack_info
-              .entry((glyph_id, info))
+              .entry((id, info))
               .or_insert((result.id, range));
 
             break GlyphAddCacheResult::NewCached { result, data };
