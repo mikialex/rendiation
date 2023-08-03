@@ -29,6 +29,7 @@ members = [
   "components/fontext",
   "components/canvas",
   "interphaser",
+  "shader/api",
   "shader/graph",
   "shader/testing",
   "shader/derive",
