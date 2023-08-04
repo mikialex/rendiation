@@ -33,9 +33,9 @@ pub struct ShaderGraphRenderPipelineBuilder {
   pub context: FastHashMap<TypeId, Box<dyn Any>>,
 }
 
-impl Default for ShaderGraphRenderPipelineBuilder {
-  fn default() -> Self {
-    set_build_graph();
+impl ShaderGraphRenderPipelineBuilder {
+  fn new(vertex: Box<dyn ShaderAPI>, frag: Box<dyn ShaderAPI>) -> Self {
+    set_build_graph(vertex, frag);
     Self {
       bindgroups: Default::default(),
       vertex: ShaderGraphVertexBuilder::new(),
@@ -91,40 +91,31 @@ impl ShaderGraphRenderPipelineBuilder {
     Ok(result)
   }
 
-  pub fn build<T: ShaderGraphCodeGenTarget>(
-    mut self,
-    target: T,
-  ) -> Result<ShaderGraphCompileResult<T>, ShaderGraphBuildError> {
-    todo!()
-    // self.vertex.sync_fragment_out(&mut self.fragment);
+  pub fn build(mut self) -> Result<ShaderGraphCompileResult, ShaderGraphBuildError> {
+    self.vertex.sync_fragment_out(&mut self.fragment);
 
-    // let PipelineShaderGraphPair {
-    //   mut vertex,
-    //   mut fragment,
-    //   ..
-    // } = take_build_graph();
+    let PipelineShaderGraphPair {
+      mut vertex,
+      mut fragment,
+      ..
+    } = take_build_graph();
 
-    // vertex.top_scope_mut().resolve_all_pending();
-    // fragment.top_scope_mut().resolve_all_pending();
-
-    // let shader = target.compile(&self, vertex, fragment);
-
-    // Ok(ShaderGraphCompileResult {
-    //   shader,
-    //   target,
-    //   bindings: self.bindgroups,
-    //   vertex_layouts: self.vertex.vertex_layouts,
-    //   primitive_state: self.vertex.primitive_state,
-    //   color_states: self
-    //     .fragment
-    //     .frag_output
-    //     .iter()
-    //     .cloned()
-    //     .map(|(_, s)| s)
-    //     .collect(),
-    //   depth_stencil: self.fragment.depth_stencil,
-    //   multisample: self.fragment.multisample,
-    // })
+    Ok(ShaderGraphCompileResult {
+      vertex_shader: vertex.build(),
+      frag_shader: fragment.build(),
+      bindings: self.bindgroups,
+      vertex_layouts: self.vertex.vertex_layouts,
+      primitive_state: self.vertex.primitive_state,
+      color_states: self
+        .fragment
+        .frag_output
+        .iter()
+        .cloned()
+        .map(|(_, s)| s)
+        .collect(),
+      depth_stencil: self.fragment.depth_stencil,
+      multisample: self.fragment.multisample,
+    })
   }
 }
 
@@ -147,8 +138,12 @@ pub trait GraphicsShaderProvider {
     Ok(())
   }
 
-  fn build_self(&self) -> Result<ShaderGraphRenderPipelineBuilder, ShaderGraphBuildError> {
-    let mut builder = Default::default();
+  fn build_self(
+    &self,
+    vertex: Box<dyn ShaderAPI>,
+    frag: Box<dyn ShaderAPI>,
+  ) -> Result<ShaderGraphRenderPipelineBuilder, ShaderGraphBuildError> {
+    let mut builder = ShaderGraphRenderPipelineBuilder::new(vertex, frag);
     self.build(&mut builder)?;
     self.post_build(&mut builder)?;
     Ok(builder)
@@ -157,9 +152,9 @@ pub trait GraphicsShaderProvider {
 
 impl GraphicsShaderProvider for () {}
 
-pub struct ShaderGraphCompileResult<T: ShaderGraphCodeGenTarget> {
-  pub target: T,
-  pub shader: T::ShaderSource,
+pub struct ShaderGraphCompileResult {
+  pub vertex_shader: (String, String),
+  pub frag_shader: (String, String),
   pub bindings: ShaderGraphBindGroupBuilder,
   pub vertex_layouts: Vec<ShaderGraphVertexBufferLayout>,
   pub primitive_state: PrimitiveState,
@@ -218,6 +213,12 @@ thread_local! {
   static IN_BUILDING_SHADER_GRAPH: RefCell<Option<PipelineShaderGraphPair>> = RefCell::new(None);
 }
 
+pub struct ForNodes {
+  pub item_node: ShaderGraphNodeRawHandle,
+  pub index_node: ShaderGraphNodeRawHandle,
+  pub for_cx: ShaderGraphNodeRawHandle,
+}
+
 pub trait ShaderAPI {
   fn register_ty(&mut self, ty: ShaderValueType);
   fn make_expression(&mut self, expr: ShaderGraphNodeExpr) -> ShaderGraphNodeRawHandle;
@@ -226,65 +227,14 @@ pub trait ShaderAPI {
   fn pop_scope(&mut self);
   fn push_if_scope(&mut self, condition: ShaderGraphNodeRawHandle);
   fn discard(&mut self);
-  fn push_for_scope(
-    &mut self,
-    target: ShaderGraphNodeRawHandle,
-  ) -> (
-    ShaderGraphNodeRawHandle,
-    ShaderGraphNodeRawHandle,
-    ShaderGraphNodeRawHandle,
-  );
+  fn push_for_scope(&mut self, target: ShaderIterator) -> ForNodes;
   fn do_continue(&mut self, looper: ShaderGraphNodeRawHandle);
   fn do_break(&mut self, looper: ShaderGraphNodeRawHandle);
-}
-
-impl ShaderAPI for ShaderGraphBuilder {
-  fn register_ty(&mut self, ty: ShaderValueType) {
-    todo!()
-  }
-
-  fn make_expression(&mut self, expr: ShaderGraphNodeExpr) -> ShaderGraphNodeRawHandle {
-    todo!()
-  }
-
-  fn define_input(&mut self, input: ShaderGraphInputNode) -> ShaderGraphNodeRawHandle {
-    todo!()
-  }
-
-  fn push_scope(&mut self) {
-    todo!()
-  }
-
-  fn pop_scope(&mut self) {
-    todo!()
-  }
-
-  fn push_if_scope(&mut self, condition: ShaderGraphNodeRawHandle) {
-    todo!()
-  }
-
-  fn discard(&mut self) {
-    todo!()
-  }
-
-  fn push_for_scope(
-    &mut self,
-    target: ShaderGraphNodeRawHandle,
-  ) -> (
-    ShaderGraphNodeRawHandle,
-    ShaderGraphNodeRawHandle,
-    ShaderGraphNodeRawHandle,
-  ) {
-    todo!()
-  }
-
-  fn do_continue(&mut self, looper: ShaderGraphNodeRawHandle) {
-    todo!()
-  }
-
-  fn do_break(&mut self, looper: ShaderGraphNodeRawHandle) {
-    todo!()
-  }
+  fn make_var(&mut self) -> ShaderGraphNodeRawHandle;
+  fn define_frag_out(&mut self, idx: usize) -> ShaderGraphNodeRawHandle;
+  fn write(&mut self, source: ShaderGraphNodeRawHandle, target: ShaderGraphNodeRawHandle);
+  fn load(&mut self, source: ShaderGraphNodeRawHandle) -> ShaderGraphNodeRawHandle;
+  fn build(&mut self) -> (String, String);
 }
 
 pub(crate) fn modify_graph<T>(modifier: impl FnOnce(&mut dyn ShaderAPI) -> T) -> T {
@@ -311,11 +261,11 @@ pub(crate) fn get_current_stage() -> Option<ShaderStages> {
   IN_BUILDING_SHADER_GRAPH.with_borrow_mut(|graph| graph.as_mut().unwrap().current)
 }
 
-pub(crate) fn set_build_graph() {
+pub(crate) fn set_build_graph(vertex: Box<dyn ShaderAPI>, fragment: Box<dyn ShaderAPI>) {
   IN_BUILDING_SHADER_GRAPH.with_borrow_mut(|graph| {
     graph.replace(PipelineShaderGraphPair {
-      vertex: Box::new(ShaderGraphBuilder::default()),
-      fragment: Box::new(ShaderGraphBuilder::default()),
+      vertex,
+      fragment,
       current: None,
     });
   })

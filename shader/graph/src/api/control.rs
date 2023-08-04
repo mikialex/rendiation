@@ -1,16 +1,16 @@
 use crate::*;
 
 pub struct ForCtx {
-  target_scope_id: usize,
+  target_scope_id: ShaderGraphNodeRawHandle,
 }
 
 impl ForCtx {
   pub fn do_continue(&self) {
-    ShaderSideEffectNode::Continue.insert_graph(self.target_scope_id);
+    modify_graph(|g| g.do_continue(self.target_scope_id));
   }
 
   pub fn do_break(&self) {
-    ShaderSideEffectNode::Break.insert_graph(self.target_scope_id);
+    modify_graph(|g| g.do_break(self.target_scope_id));
   }
 }
 
@@ -95,28 +95,20 @@ pub fn for_by_ok<T: Into<ShaderIterator> + ShaderIteratorAble>(
 where
   T::Item: ShaderGraphNodeType,
 {
-  let (item_node, index_node, target_scope_id) = modify_graph(|builder| {
-    let item_node = ShaderGraphNode::UnNamed.insert_into_graph(builder);
-    let index_node = ShaderGraphNode::UnNamed.insert_into_graph::<u32>(builder);
-    let id = builder.push_scope().graph_guid;
+  let ForNodes {
+    item_node,
+    index_node,
+    for_cx,
+  } = modify_graph(|g| g.push_for_scope(iterable.into()));
 
-    (item_node, index_node, id)
-  });
-  let cx = ForCtx { target_scope_id };
-
+  let cx = ForCtx {
+    target_scope_id: for_cx,
+  };
+  let index_node = unsafe { index_node.into_node() };
+  let item_node = unsafe { item_node.into_node() };
   logic(&cx, item_node, index_node)?;
 
-  modify_graph(|builder| {
-    let scope = builder.pop_scope();
-
-    ShaderControlFlowNode::For {
-      source: iterable.into(),
-      scope,
-      iter: item_node.handle(),
-      index: index_node.handle(),
-    }
-    .insert_into_graph(builder)
-  });
+  modify_graph(|g| g.pop_scope());
 
   Ok(())
 }
@@ -135,58 +127,14 @@ pub fn if_by_ok(
   condition: impl Into<Node<bool>>,
   logic: impl Fn() -> Result<(), ShaderGraphBuildError>,
 ) -> Result<(), ShaderGraphBuildError> {
-  let condition = condition.into();
+  let condition = condition.into().handle();
   modify_graph(|builder| {
-    builder.push_scope();
+    builder.push_if_scope(condition);
   });
 
   logic()?;
 
-  modify_graph(|builder| {
-    let scope = builder.pop_scope();
-    let condition = condition.handle();
-
-    ShaderControlFlowNode::If { condition, scope }.insert_into_graph(builder);
-  });
+  modify_graph(|g| g.pop_scope());
 
   Ok(())
 }
-
-// /// you can only return the current function, so we don't need
-// /// FunctionCtx to hold this function
-// pub fn early_return<T>(return_value: impl Into<Node<T>>) {
-//   ShaderSideEffectNode::Return(return_value.into().handle()).insert_graph_bottom();
-// }
-
-// /// use runtime leak to statically store the user gen function
-// pub static GLOBAL_USER_FUNCTIONS: once_cell::sync::Lazy<
-//   Mutex<HashMap<TypeId, &'static ShaderFunctionMetaInfo>>,
-// > = once_cell::sync::Lazy::new(|| Mutex::new(Default::default()));
-
-// pub trait IntoParam {
-//   fn into_param(self) -> Vec<ShaderGraphNodeRawHandle>;
-// }
-
-// impl<A, B> IntoParam for (A, B) {
-//   fn into_param(self) -> Vec<ShaderGraphNodeRawHandle> {
-//     todo!()
-//   }
-// }
-
-// pub fn function<T, P>(parameters: P, logic: impl Fn(P) -> Node<T> + Any) -> Node<T>
-// where
-//   T: ShaderGraphNodeType,
-//   P: IntoParam,
-// {
-//   let mut guard = GLOBAL_USER_FUNCTIONS.lock().unwrap();
-
-//   let meta = guard.entry(logic.type_id()).or_insert_with(|| {
-//     todo!();
-//   });
-
-//   ShaderGraphNode::Function(FunctionNode {
-//     prototype: meta,
-//     parameters: todo!(),
-//   })
-//   .insert_graph()
-// }

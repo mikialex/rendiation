@@ -1540,6 +1540,7 @@ dependencies = [
  "rendiation-color",
  "rendiation-geometry",
  "rendiation-renderable-mesh",
+ "rendiation-shader-backend-naga",
  "rendiation-texture",
  "rendiation-webgpu",
  "shadergraph",
@@ -1653,15 +1654,6 @@ name = "linked-hash-map"
 version = "0.5.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7fb9b38af92608140b86b693604b9ffcc5824240a484d1ecd4795bacb2fe88f3"
-
-[[package]]
-name = "linked_hash_set"
-version = "0.1.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "47186c6da4d81ca383c7c47c1bfc80f4b95f4720514d860a5407aaf4233f9588"
-dependencies = [
- "linked-hash-map",
-]
 
 [[package]]
 name = "lock_api"
@@ -2797,11 +2789,10 @@ dependencies = [
 ]
 
 [[package]]
-name = "rendiation-shader-api"
+name = "rendiation-shader-backend-naga"
 version = "0.1.0"
 dependencies = [
- "rendiation-algebra",
- "wgpu-types",
+ "shadergraph",
 ]
 
 [[package]]
@@ -2863,13 +2854,13 @@ dependencies = [
  "futures",
  "reactive",
  "rendiation-algebra",
+ "rendiation-shader-backend-naga",
  "rendiation-texture-types",
  "shadergraph",
  "thiserror",
  "typed-arena",
  "wgpu",
  "wgpu-types",
- "wgsl-codegen-graph",
  "winit",
 ]
 
@@ -3041,7 +3032,6 @@ dependencies = [
 name = "shadergraph"
 version = "0.1.0"
 dependencies = [
- "arena-graph",
  "bytemuck",
  "fast-hash-collection",
  "once_cell",
@@ -3049,17 +3039,6 @@ dependencies = [
  "rendiation-algebra",
  "shader-derives",
  "wgpu-types",
-]
-
-[[package]]
-name = "shadergraph-testing"
-version = "0.1.0"
-dependencies = [
- "naga",
- "shadergraph",
- "wgpu-types",
- "wgsl-codegen-graph",
- "wgsl-shader-derives",
 ]
 
 [[package]]
@@ -3806,15 +3785,6 @@ dependencies = [
  "bitflags 2.0.2",
  "js-sys",
  "web-sys",
-]
-
-[[package]]
-name = "wgsl-codegen-graph"
-version = "0.1.0"
-dependencies = [
- "fast-hash-collection",
- "linked_hash_set",
- "shadergraph",
 ]
 
 [[package]]

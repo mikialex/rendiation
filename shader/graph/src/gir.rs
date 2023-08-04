@@ -59,45 +59,6 @@ pub enum ShaderGraphNodeExpr {
   Copy(ShaderGraphNodeRawHandle),
 }
 
-pub struct ShaderGraphNodeData {
-  pub node: ShaderGraphNode,
-  pub ty: ShaderValueType,
-}
-
-pub enum ShaderGraphNode {
-  Input(ShaderGraphInputNode),
-  /// This is workaround for some case
-  UnNamed,
-  /// the old maybe not exist, but we require a side effect write
-  Write {
-    new: ShaderGraphNodeRawHandle,
-    old: Option<ShaderGraphNodeRawHandle>,
-  },
-  ControlFlow(ShaderControlFlowNode),
-  SideEffect(ShaderSideEffectNode),
-  Expr(ShaderGraphNodeExpr),
-}
-
-pub enum ShaderSideEffectNode {
-  Continue,
-  Break,
-  Return(ShaderGraphNodeRawHandle),
-  Termination,
-}
-
-pub enum ShaderControlFlowNode {
-  If {
-    condition: ShaderGraphNodeRawHandle,
-    scope: ShaderGraphScope,
-  },
-  For {
-    source: ShaderIterator,
-    scope: ShaderGraphScope,
-    index: ShaderGraphNodeRawHandle,
-    iter: ShaderGraphNodeRawHandle,
-  },
-}
-
 pub trait ShaderIteratorAble {
   type Item: ShaderGraphNodeType;
 }
@@ -572,4 +533,22 @@ pub struct ShaderGraphBindEntry {
   pub desc: ShaderBindingDescriptor,
   pub vertex_node: ShaderGraphNodeRawHandle,
   pub fragment_node: ShaderGraphNodeRawHandle,
+}
+
+impl OperatorNode {
+  pub fn insert_graph<T: ShaderGraphNodeType>(self) -> Node<T> {
+    ShaderGraphNodeExpr::Operator(self).insert_graph()
+  }
+}
+
+impl ShaderGraphInputNode {
+  pub fn insert_graph<T: ShaderGraphNodeType>(self) -> Node<T> {
+    modify_graph(|g| unsafe { g.define_input(self).into_node() })
+  }
+}
+
+impl ShaderGraphNodeExpr {
+  pub fn insert_graph<T: ShaderGraphNodeType>(self) -> Node<T> {
+    modify_graph(|graph| unsafe { graph.make_expression(self).into_node() })
+  }
 }

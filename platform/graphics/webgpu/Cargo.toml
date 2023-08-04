@@ -14,10 +14,10 @@ fast-hash-collection = { path = "../../../utils/fast-hash-collection" }
 rendiation-algebra = { path = "../../../math/algebra" }
 rendiation-texture-types = { path = "../../../components/texture/types" }
 shadergraph = { path = "../../../shader/graph" }
+rendiation-shader-backend-naga = { path = "../../../shader/backends/naga" }
 typed-arena = "2.0.1"
 wgpu = "0.17"
 wgpu-types = "0.17"
-wgsl-codegen-graph = { path = "../../../shader/language/wgsl/codegen-graph" }
 winit = { version = "0.27.1" }
 
 [features]

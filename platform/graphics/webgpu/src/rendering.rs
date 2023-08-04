@@ -1,3 +1,4 @@
+use rendiation_shader_backend_naga::ShaderAPINagaImpl;
 use shadergraph::*;
 
 use crate::*;
@@ -12,7 +13,14 @@ pub trait RenderComponent: ShaderHashProvider + GraphicsShaderProvider + ShaderP
       .device
       .get_or_cache_create_render_pipeline(hasher, |device| {
         device
-          .build_pipeline_by_shadergraph(self.build_self().unwrap())
+          .build_pipeline_by_shadergraph(
+            self
+              .build_self(
+                Box::<ShaderAPINagaImpl>::default(),
+                Box::<ShaderAPINagaImpl>::default(),
+              )
+              .unwrap(),
+          )
           .unwrap()
       });
 

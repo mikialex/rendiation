@@ -1,6 +1,5 @@
 use __core::num::NonZeroU32;
 use shadergraph::*;
-use wgsl_codegen_graph::*;
 
 use crate::*;
 pub mod container;
@@ -108,37 +107,35 @@ impl GPUDevice {
     builder: ShaderGraphRenderPipelineBuilder,
   ) -> Result<GPURenderPipeline, ShaderGraphBuildError> {
     let log_result = builder.log_result;
-    let compile_result = builder.build(WGSL)?;
+    let compile_result = builder.build()?;
 
     let ShaderGraphCompileResult {
-      shader,
+      vertex_shader: (vertex_shader, vertex_entry),
+      frag_shader: (frag_shader, frag_entry),
       bindings,
       vertex_layouts,
       primitive_state,
       color_states,
       depth_stencil,
       multisample,
-      target,
     } = compile_result;
-
-    let WGSLShaderSource { vertex, fragment } = shader;
 
     if log_result {
       println!();
       println!("=== shadergraph build result ===");
       println!("vertex shader: ");
-      println!("{vertex}");
+      println!("{vertex_shader}");
       println!("fragment shader: ");
-      println!("{fragment}");
+      println!("{frag_shader}");
     }
 
     let vertex = self.create_shader_module(gpu::ShaderModuleDescriptor {
       label: None,
-      source: gpu::ShaderSource::Wgsl(Cow::Borrowed(vertex.as_str())),
+      source: gpu::ShaderSource::Wgsl(Cow::Borrowed(vertex_shader.as_str())),
     });
     let fragment = self.create_shader_module(gpu::ShaderModuleDescriptor {
       label: None,
-      source: gpu::ShaderSource::Wgsl(Cow::Borrowed(fragment.as_str())),
+      source: gpu::ShaderSource::Wgsl(Cow::Borrowed(frag_shader.as_str())),
     });
 
     let binding = &bindings.bindings;
@@ -170,12 +167,12 @@ impl GPUDevice {
       layout: Some(&pipeline_layout),
       vertex: gpu::VertexState {
         module: &vertex,
-        entry_point: target.vertex_entry_name(),
+        entry_point: &vertex_entry,
         buffers: vertex_buffers.as_slice(),
       },
       fragment: Some(gpu::FragmentState {
         module: &fragment,
-        entry_point: target.fragment_entry_name(),
+        entry_point: &frag_entry,
         targets: color_states
           .iter()
           .map(|s| Some(s.clone()))

@@ -112,7 +112,7 @@ impl ShaderGraphFragmentBuilder {
   }
 
   pub fn discard(&self) {
-    ShaderSideEffectNode::Termination.insert_graph_bottom();
+    modify_graph(|g| g.discard())
   }
 
   pub fn query<T: SemanticFragmentShaderValue>(
@@ -167,8 +167,10 @@ impl ShaderGraphFragmentBuilder {
 
   /// Declare fragment outputs
   pub fn define_out_by(&mut self, meta: impl Into<ColorTargetState>) -> usize {
-    self.frag_output.push((consts(Vec4::zero()), meta.into()));
-    self.frag_output.len() - 1
+    let slot = self.frag_output.len();
+    let target = modify_graph(|g| unsafe { g.define_frag_out(slot).into_node() });
+    self.frag_output.push((target, meta.into()));
+    slot
   }
 
   /// always called by material side to provide fragment out
@@ -177,18 +179,13 @@ impl ShaderGraphFragmentBuilder {
     slot: usize,
     node: impl Into<Node<Vec4<f32>>>,
   ) -> Result<(), ShaderGraphBuildError> {
-    // because discard has side effect, we have to use a write to get correct dependency
-    let write = ShaderGraphNode::Write {
-      new: node.into().handle(),
-      old: None,
-    }
-    .insert_graph();
-
-    self
+    let target = self
       .frag_output
       .get_mut(slot)
       .ok_or(ShaderGraphBuildError::FragmentOutputSlotNotDeclared)?
-      .0 = write;
+      .0;
+    modify_graph(|g| g.write(node.into().handle(), target.handle()));
+
     Ok(())
   }
 
