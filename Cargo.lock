@@ -2799,6 +2799,10 @@ dependencies = [
 [[package]]
 name = "rendiation-shader-api"
 version = "0.1.0"
+dependencies = [
+ "rendiation-algebra",
+ "wgpu-types",
+]
 
 [[package]]
 name = "rendiation-texture"

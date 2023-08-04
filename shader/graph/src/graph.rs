@@ -18,7 +18,7 @@ impl<T> Node<T> {
   where
     X: ShaderGraphNodeType,
   {
-    modify_graph(|g| g.check_register_type::<X>());
+    modify_graph(|g| g.register_ty(X::TYPE));
     std::mem::transmute(self)
   }
 }

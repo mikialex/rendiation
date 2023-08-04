@@ -5,3 +5,5 @@ name = "rendiation-shader-api"
 version = "0.1.0"
 
 [dependencies]
+rendiation-algebra = { path = "../../math/algebra" }
+wgpu-types = "0.17"

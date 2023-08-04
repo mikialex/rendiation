@@ -14,7 +14,7 @@ impl ShaderGraphInputNode {
 
 impl ShaderGraphNodeExpr {
   pub fn insert_graph<T: ShaderGraphNodeType>(self) -> Node<T> {
-    modify_graph(|graph| self.insert_into_graph(graph))
+    modify_graph(|graph| unsafe { graph.make_expression(self).into_node() })
   }
 
   pub fn insert_into_graph<T: ShaderGraphNodeType>(

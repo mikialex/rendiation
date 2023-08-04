@@ -95,35 +95,36 @@ impl ShaderGraphRenderPipelineBuilder {
     mut self,
     target: T,
   ) -> Result<ShaderGraphCompileResult<T>, ShaderGraphBuildError> {
-    self.vertex.sync_fragment_out(&mut self.fragment);
+    todo!()
+    // self.vertex.sync_fragment_out(&mut self.fragment);
 
-    let PipelineShaderGraphPair {
-      mut vertex,
-      mut fragment,
-      ..
-    } = take_build_graph();
+    // let PipelineShaderGraphPair {
+    //   mut vertex,
+    //   mut fragment,
+    //   ..
+    // } = take_build_graph();
 
-    vertex.top_scope_mut().resolve_all_pending();
-    fragment.top_scope_mut().resolve_all_pending();
+    // vertex.top_scope_mut().resolve_all_pending();
+    // fragment.top_scope_mut().resolve_all_pending();
 
-    let shader = target.compile(&self, vertex, fragment);
+    // let shader = target.compile(&self, vertex, fragment);
 
-    Ok(ShaderGraphCompileResult {
-      shader,
-      target,
-      bindings: self.bindgroups,
-      vertex_layouts: self.vertex.vertex_layouts,
-      primitive_state: self.vertex.primitive_state,
-      color_states: self
-        .fragment
-        .frag_output
-        .iter()
-        .cloned()
-        .map(|(_, s)| s)
-        .collect(),
-      depth_stencil: self.fragment.depth_stencil,
-      multisample: self.fragment.multisample,
-    })
+    // Ok(ShaderGraphCompileResult {
+    //   shader,
+    //   target,
+    //   bindings: self.bindgroups,
+    //   vertex_layouts: self.vertex.vertex_layouts,
+    //   primitive_state: self.vertex.primitive_state,
+    //   color_states: self
+    //     .fragment
+    //     .frag_output
+    //     .iter()
+    //     .cloned()
+    //     .map(|(_, s)| s)
+    //     .collect(),
+    //   depth_stencil: self.fragment.depth_stencil,
+    //   multisample: self.fragment.multisample,
+    // })
   }
 }
 
@@ -207,10 +208,9 @@ impl SemanticRegistry {
   }
 }
 
-#[derive(Default)]
 pub(crate) struct PipelineShaderGraphPair {
-  vertex: ShaderGraphBuilder,
-  fragment: ShaderGraphBuilder,
+  vertex: Box<dyn ShaderAPI>,
+  fragment: Box<dyn ShaderAPI>,
   current: Option<ShaderStages>,
 }
 
@@ -218,13 +218,83 @@ thread_local! {
   static IN_BUILDING_SHADER_GRAPH: RefCell<Option<PipelineShaderGraphPair>> = RefCell::new(None);
 }
 
-pub(crate) fn modify_graph<T>(modifier: impl FnOnce(&mut ShaderGraphBuilder) -> T) -> T {
+pub trait ShaderAPI {
+  fn register_ty(&mut self, ty: ShaderValueType);
+  fn make_expression(&mut self, expr: ShaderGraphNodeExpr) -> ShaderGraphNodeRawHandle;
+  fn define_input(&mut self, input: ShaderGraphInputNode) -> ShaderGraphNodeRawHandle;
+  fn push_scope(&mut self);
+  fn pop_scope(&mut self);
+  fn push_if_scope(&mut self, condition: ShaderGraphNodeRawHandle);
+  fn discard(&mut self);
+  fn push_for_scope(
+    &mut self,
+    target: ShaderGraphNodeRawHandle,
+  ) -> (
+    ShaderGraphNodeRawHandle,
+    ShaderGraphNodeRawHandle,
+    ShaderGraphNodeRawHandle,
+  );
+  fn do_continue(&mut self, looper: ShaderGraphNodeRawHandle);
+  fn do_break(&mut self, looper: ShaderGraphNodeRawHandle);
+}
+
+impl ShaderAPI for ShaderGraphBuilder {
+  fn register_ty(&mut self, ty: ShaderValueType) {
+    todo!()
+  }
+
+  fn make_expression(&mut self, expr: ShaderGraphNodeExpr) -> ShaderGraphNodeRawHandle {
+    todo!()
+  }
+
+  fn define_input(&mut self, input: ShaderGraphInputNode) -> ShaderGraphNodeRawHandle {
+    todo!()
+  }
+
+  fn push_scope(&mut self) {
+    todo!()
+  }
+
+  fn pop_scope(&mut self) {
+    todo!()
+  }
+
+  fn push_if_scope(&mut self, condition: ShaderGraphNodeRawHandle) {
+    todo!()
+  }
+
+  fn discard(&mut self) {
+    todo!()
+  }
+
+  fn push_for_scope(
+    &mut self,
+    target: ShaderGraphNodeRawHandle,
+  ) -> (
+    ShaderGraphNodeRawHandle,
+    ShaderGraphNodeRawHandle,
+    ShaderGraphNodeRawHandle,
+  ) {
+    todo!()
+  }
+
+  fn do_continue(&mut self, looper: ShaderGraphNodeRawHandle) {
+    todo!()
+  }
+
+  fn do_break(&mut self, looper: ShaderGraphNodeRawHandle) {
+    todo!()
+  }
+}
+
+pub(crate) fn modify_graph<T>(modifier: impl FnOnce(&mut dyn ShaderAPI) -> T) -> T {
   IN_BUILDING_SHADER_GRAPH.with_borrow_mut(|graph| {
     let graph = graph.as_mut().unwrap();
     let graph = match graph.current.unwrap() {
       ShaderStages::Vertex => &mut graph.vertex,
       ShaderStages::Fragment => &mut graph.fragment,
-    };
+    }
+    .as_mut();
 
     modifier(graph)
   })
@@ -243,7 +313,11 @@ pub(crate) fn get_current_stage() -> Option<ShaderStages> {
 
 pub(crate) fn set_build_graph() {
   IN_BUILDING_SHADER_GRAPH.with_borrow_mut(|graph| {
-    graph.replace(Default::default());
+    graph.replace(PipelineShaderGraphPair {
+      vertex: Box::new(ShaderGraphBuilder::default()),
+      fragment: Box::new(ShaderGraphBuilder::default()),
+      current: None,
+    });
   })
 }
 
