@@ -230,7 +230,7 @@ pub trait ShaderAPI {
   fn push_for_scope(&mut self, target: ShaderIterator) -> ForNodes;
   fn do_continue(&mut self, looper: ShaderGraphNodeRawHandle);
   fn do_break(&mut self, looper: ShaderGraphNodeRawHandle);
-  fn make_var(&mut self) -> ShaderGraphNodeRawHandle;
+  fn make_var(&mut self, ty: ShaderValueType) -> ShaderGraphNodeRawHandle;
   fn define_frag_out(&mut self, idx: usize) -> ShaderGraphNodeRawHandle;
   fn write(&mut self, source: ShaderGraphNodeRawHandle, target: ShaderGraphNodeRawHandle);
   fn load(&mut self, source: ShaderGraphNodeRawHandle) -> ShaderGraphNodeRawHandle;

@@ -6,3 +6,5 @@ version = "0.1.0"
 
 [dependencies]
 shadergraph = { path = "../../graph" }
+naga = { version = "0.13.0", features = ["wgsl-out"] }
+fast-hash-collection = { path = "../../../utils/fast-hash-collection" }

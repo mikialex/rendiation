@@ -2792,6 +2792,8 @@ dependencies = [
 name = "rendiation-shader-backend-naga"
 version = "0.1.0"
 dependencies = [
+ "fast-hash-collection",
+ "naga",
  "shadergraph",
 ]
 

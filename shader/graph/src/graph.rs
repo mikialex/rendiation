@@ -42,7 +42,7 @@ pub struct NodeMutable<T> {
 impl<T: ShaderGraphNodeType> Node<T> {
   pub fn mutable(&self) -> NodeMutable<T> {
     let inner = modify_graph(|g| unsafe {
-      let v = g.make_var();
+      let v = g.make_var(T::TYPE);
       g.write(self.handle(), v);
       v.into_node()
     });
