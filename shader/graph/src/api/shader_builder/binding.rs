@@ -118,6 +118,7 @@ impl ShaderGraphBindGroupBuilder {
     let desc = T::binding_desc();
 
     let node = ShaderGraphInputNode::Uniform {
+      ty: T::Node::TYPE,
       bindgroup_index,
       entry_index,
     };

@@ -120,6 +120,7 @@ pub enum OperatorNode {
 pub enum ShaderGraphInputNode {
   BuiltIn(ShaderBuiltIn),
   Uniform {
+    ty: ShaderValueType,
     bindgroup_index: usize,
     entry_index: usize,
   },
