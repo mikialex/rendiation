@@ -240,7 +240,7 @@ impl From<PrimitiveShaderValue> for PrimitiveShaderValueType {
 }
 
 /// use for compile time ubo field reflection by procedure macro;
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct ShaderFunctionMetaInfo {
   pub function_name: &'static str,
   pub function_source: &'static str,

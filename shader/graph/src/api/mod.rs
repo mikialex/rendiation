@@ -10,6 +10,9 @@ pub use structor::*;
 mod swizzle;
 pub use swizzle::*;
 
+mod func;
+pub use func::*;
+
 mod math;
 pub use math::*;
 

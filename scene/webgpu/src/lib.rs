@@ -1,5 +1,6 @@
 #![feature(specialization)]
 #![feature(hash_raw_entry)]
+#![feature(type_name_of_val)]
 #![feature(stmt_expr_attributes)]
 #![feature(type_alias_impl_trait)]
 #![feature(return_position_impl_trait_in_trait)]

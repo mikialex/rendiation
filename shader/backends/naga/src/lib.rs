@@ -217,6 +217,14 @@ impl ShaderAPI for ShaderAPINagaImpl {
     todo!()
   }
 
+  fn define_module_input(&mut self, input: ShaderGraphInputNode) -> ShaderGraphNodeRawHandle {
+    todo!()
+  }
+
+  fn define_frag_out(&mut self, idx: usize) -> ShaderGraphNodeRawHandle {
+    todo!()
+  }
+
   fn make_expression(&mut self, expr: ShaderGraphNodeExpr) -> ShaderGraphNodeRawHandle {
     let expr = match expr {
       ShaderGraphNodeExpr::FunctionCall { meta, parameters } => todo!(),
@@ -265,11 +273,32 @@ impl ShaderAPI for ShaderAPINagaImpl {
     self.make_expression_inner(expr)
   }
 
-  fn define_module_input(&mut self, input: ShaderGraphInputNode) -> ShaderGraphNodeRawHandle {
-    todo!()
+  fn make_var(&mut self, ty: ShaderValueType) -> ShaderGraphNodeRawHandle {
+    let v = naga::LocalVariable {
+      name: None,
+      ty: self.register_ty_impl(ty),
+      init: None,
+    };
+    let var = self
+      .building_fn
+      .last_mut()
+      .unwrap()
+      .local_variables
+      .append(v, Span::UNDEFINED);
+
+    self.make_expression_inner(naga::Expression::LocalVariable(var))
   }
 
-  fn define_frag_out(&mut self, idx: usize) -> ShaderGraphNodeRawHandle {
+  fn write(&mut self, source: ShaderGraphNodeRawHandle, target: ShaderGraphNodeRawHandle) {
+    let st = naga::Statement::Store {
+      pointer: self.get_expression(target),
+      value: self.get_expression(source),
+    };
+    self.block.last_mut().unwrap().push(st, Span::UNDEFINED);
+  }
+
+  fn load(&mut self, source: ShaderGraphNodeRawHandle) -> ShaderGraphNodeRawHandle {
+    // naga::Expression::Load { pointer: () }
     todo!()
   }
 
@@ -317,37 +346,20 @@ impl ShaderAPI for ShaderAPINagaImpl {
     let st = naga::Statement::Continue;
     self.block.last_mut().unwrap().push(st, Span::UNDEFINED);
   }
-
   fn do_break(&mut self, looper: ShaderGraphNodeRawHandle) {
     let st = naga::Statement::Break;
     self.block.last_mut().unwrap().push(st, Span::UNDEFINED);
   }
 
-  fn make_var(&mut self, ty: ShaderValueType) -> ShaderGraphNodeRawHandle {
-    let v = naga::LocalVariable {
-      name: None,
-      ty: self.register_ty_impl(ty),
-      init: None,
-    };
-    let var = self
-      .building_fn
-      .last_mut()
-      .unwrap()
-      .local_variables
-      .append(v, Span::UNDEFINED);
-
-    self.make_expression_inner(naga::Expression::LocalVariable(var))
+  fn begin_define_fn(&mut self, name: String) -> Option<ShaderFunctionMetaInfo> {
+    todo!()
   }
 
-  fn write(&mut self, source: ShaderGraphNodeRawHandle, target: ShaderGraphNodeRawHandle) {
-    let st = naga::Statement::Store {
-      pointer: self.get_expression(target),
-      value: self.get_expression(source),
-    };
-    self.block.last_mut().unwrap().push(st, Span::UNDEFINED);
+  fn push_fn_parameter(&mut self, p: ShaderValueType) -> ShaderGraphNodeRawHandle {
+    todo!()
   }
-  fn load(&mut self, source: ShaderGraphNodeRawHandle) -> ShaderGraphNodeRawHandle {
-    // naga::Expression::Load { pointer: () }
+
+  fn end_fn_define(&mut self, return_ty: Option<ShaderValueType>) -> ShaderFunctionMetaInfo {
     todo!()
   }
 

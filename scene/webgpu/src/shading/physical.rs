@@ -159,14 +159,14 @@ fn fresnel_x_fn(v_dot_h: Node<f32>, f0: Node<Vec3<f32>>) -> Node<Vec3<f32>> {
 fn define_shader_fn(
   f: impl Fn(Node<f32>, Node<Vec3<f32>>) -> Node<Vec3<f32>>,
 ) -> impl Fn(Node<f32>, Node<Vec3<f32>>) -> Node<Vec3<f32>> {
-  let builder = push_fn_build(std::any::type_name_of_val(f));
-  let a = builder.push_fn_input_parameter::<f32>();
-  let b = builder.push_fn_input_parameter::<Vec3<f32>>();
-  let r = f(a, b);
-  builder.set_return(r);
-  f = builder.build();
+  let f_meta = begin_define_fn(std::any::type_name_of_val(&f).to_string()).unwrap_or_else(|| {
+    let a = push_fn_parameter::<f32>();
+    let b = push_fn_parameter::<Vec3<f32>>();
+    let r = f(a, b);
+    end_fn_define(Vec3::<f32>::TYPE.into())
+  });
 
-  |a, b| shader_fn_call(f, vec![a, b]).cast_type()
+  move |a, b| unsafe { shader_fn_call(f_meta.clone(), vec![a.handle(), b.handle()]).into_node() }
 }
 
 wgsl_fn!(
