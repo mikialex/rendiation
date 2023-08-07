@@ -16,8 +16,8 @@ pub trait RenderComponent: ShaderHashProvider + GraphicsShaderProvider + ShaderP
           .build_pipeline_by_shadergraph(
             self
               .build_self(
-                Box::<ShaderAPINagaImpl>::default(),
-                Box::<ShaderAPINagaImpl>::default(),
+                Box::new(ShaderAPINagaImpl::new(shadergraph::ShaderStages::Vertex)),
+                Box::new(ShaderAPINagaImpl::new(shadergraph::ShaderStages::Fragment)),
               )
               .unwrap(),
           )

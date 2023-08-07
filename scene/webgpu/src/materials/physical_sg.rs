@@ -127,9 +127,7 @@ impl GraphicsShaderProvider for PhysicalSpecularGlossinessMaterialGPU {
       match self.alpha_mode {
         AlphaMode::Opaque => {}
         AlphaMode::Mask => {
-          let alpha = alpha
-            .less_than(uniform.alpha_cutoff)
-            .select(consts(0.), alpha);
+          let alpha = alpha.less_than(uniform.alpha_cutoff).select(val(0.), alpha);
           builder.register::<AlphaChannel>(alpha);
           builder.register::<AlphaCutChannel>(uniform.alpha_cutoff);
         }

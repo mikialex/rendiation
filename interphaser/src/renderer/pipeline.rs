@@ -29,10 +29,10 @@ impl GraphicsShaderProvider for SolidUIPipeline {
       let global = global.using().expand();
 
       let vertex = (
-        consts(2.0) * position.x() / global.screen_size.x() - consts(1.0),
-        consts(1.0) - consts(2.0) * position.y() / global.screen_size.y(),
-        consts(0.0),
-        consts(1.0),
+        val(2.0) * position.x() / global.screen_size.x() - val(1.0),
+        val(1.0) - val(2.0) * position.y() / global.screen_size.y(),
+        val(0.0),
+        val(1.0),
       );
 
       builder.register::<ClipPosition>(vertex);
@@ -77,10 +77,10 @@ impl GraphicsShaderProvider for TextureUIPipeline {
       let global = global.using().expand();
 
       let vertex: Node<Vec4<_>> = (
-        consts(2.0) * position.x() / global.screen_size.x() - consts(1.0),
-        consts(1.0) - consts(2.0) * position.y() / global.screen_size.y(),
-        consts(0.0),
-        consts(1.0),
+        val(2.0) * position.x() / global.screen_size.x() - val(1.0),
+        val(1.0) - val(2.0) * position.y() / global.screen_size.y(),
+        val(0.0),
+        val(1.0),
       )
         .into();
 

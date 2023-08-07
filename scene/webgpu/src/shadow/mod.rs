@@ -169,8 +169,8 @@ pub fn compute_shadow_position(
 
   // convert to uv space and apply offset bias
   Ok(
-    shadow_position * consts(Vec3::new(0.5, -0.5, 1.))
-      + consts(Vec3::new(0.5, 0.5, 0.))
+    shadow_position * val(Vec3::new(0.5, -0.5, 1.))
+      + val(Vec3::new(0.5, 0.5, 0.))
       + (0., 0., bias.bias).into(),
   )
 }

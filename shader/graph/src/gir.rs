@@ -544,7 +544,7 @@ impl OperatorNode {
 
 impl ShaderGraphInputNode {
   pub fn insert_graph<T: ShaderGraphNodeType>(self) -> Node<T> {
-    modify_graph(|g| unsafe { g.define_input(self).into_node() })
+    modify_graph(|g| unsafe { g.define_module_input(self).into_node() })
   }
 }
 

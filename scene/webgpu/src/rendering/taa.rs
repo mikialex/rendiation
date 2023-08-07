@@ -122,7 +122,7 @@ impl<'a> GraphicsShaderProvider for TAAResolver<'a> {
 
       let ratio = 0.1;
 
-      let output = new * consts(ratio) + previous_clamped * consts(1. - ratio);
+      let output = new * val(ratio) + previous_clamped * val(1. - ratio);
 
       builder.set_fragment_out(0, (output, 1.))
     })

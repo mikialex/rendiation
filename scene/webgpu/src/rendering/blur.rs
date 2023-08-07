@@ -72,7 +72,7 @@ impl<'a, T> GraphicsShaderProvider for LinearBlurTask<'a, T> {
       let uv = builder.query::<FragmentUv>()?;
       let size = builder.query::<TexelSize>()?;
 
-      let sum = consts(Vec4::zero()).mutable();
+      let sum = val(Vec4::zero()).mutable();
 
       let iter = ClampedShaderIter {
         source: weights,
@@ -82,7 +82,7 @@ impl<'a, T> GraphicsShaderProvider for LinearBlurTask<'a, T> {
       let sample_offset = size * config.direction;
 
       for_by(iter, |_, weight, i| {
-        let position = uv + (i.into_f32() - weight_count.into_f32() * consts(0.5)) * sample_offset;
+        let position = uv + (i.into_f32() - weight_count.into_f32() * val(0.5)) * sample_offset;
         sum.set(sum.get() + weight * input.sample(sampler, position))
       });
 

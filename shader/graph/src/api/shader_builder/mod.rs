@@ -219,24 +219,6 @@ pub struct ForNodes {
   pub for_cx: ShaderGraphNodeRawHandle,
 }
 
-pub trait ShaderAPI {
-  fn register_ty(&mut self, ty: ShaderValueType);
-  fn make_expression(&mut self, expr: ShaderGraphNodeExpr) -> ShaderGraphNodeRawHandle;
-  fn define_input(&mut self, input: ShaderGraphInputNode) -> ShaderGraphNodeRawHandle;
-  fn push_scope(&mut self);
-  fn pop_scope(&mut self);
-  fn push_if_scope(&mut self, condition: ShaderGraphNodeRawHandle);
-  fn discard(&mut self);
-  fn push_for_scope(&mut self, target: ShaderIterator) -> ForNodes;
-  fn do_continue(&mut self, looper: ShaderGraphNodeRawHandle);
-  fn do_break(&mut self, looper: ShaderGraphNodeRawHandle);
-  fn make_var(&mut self, ty: ShaderValueType) -> ShaderGraphNodeRawHandle;
-  fn define_frag_out(&mut self, idx: usize) -> ShaderGraphNodeRawHandle;
-  fn write(&mut self, source: ShaderGraphNodeRawHandle, target: ShaderGraphNodeRawHandle);
-  fn load(&mut self, source: ShaderGraphNodeRawHandle) -> ShaderGraphNodeRawHandle;
-  fn build(&mut self) -> (String, String);
-}
-
 pub(crate) fn modify_graph<T>(modifier: impl FnOnce(&mut dyn ShaderAPI) -> T) -> T {
   IN_BUILDING_SHADER_GRAPH.with_borrow_mut(|graph| {
     let graph = graph.as_mut().unwrap();

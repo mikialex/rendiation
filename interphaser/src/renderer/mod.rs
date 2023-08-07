@@ -299,8 +299,8 @@ impl WebGPUxUIRenderer {
       .build_pipeline_by_shadergraph(
         SolidUIPipeline { target_format }
           .build_self(
-            Box::<ShaderAPINagaImpl>::default(),
-            Box::<ShaderAPINagaImpl>::default(),
+            Box::new(ShaderAPINagaImpl::new(shadergraph::ShaderStages::Vertex)),
+            Box::new(ShaderAPINagaImpl::new(shadergraph::ShaderStages::Fragment)),
           )
           .unwrap(),
       )
@@ -310,8 +310,8 @@ impl WebGPUxUIRenderer {
       .build_pipeline_by_shadergraph(
         TextureUIPipeline { target_format }
           .build_self(
-            Box::<ShaderAPINagaImpl>::default(),
-            Box::<ShaderAPINagaImpl>::default(),
+            Box::new(ShaderAPINagaImpl::new(shadergraph::ShaderStages::Vertex)),
+            Box::new(ShaderAPINagaImpl::new(shadergraph::ShaderStages::Fragment)),
           )
           .unwrap(),
       )

@@ -48,7 +48,7 @@ impl GPUTextureSamplerPair {
       handles.sampler_handle,
       uv,
     );
-    (r, handles.texture_handle.equals(consts(0)))
+    (r, handles.texture_handle.equals(val(0)))
   }
 }
 

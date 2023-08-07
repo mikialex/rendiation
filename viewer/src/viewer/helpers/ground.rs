@@ -194,8 +194,8 @@ impl<'a> GraphicsShaderProvider for InfinityShaderPlaneEffect<'a> {
       let uv = builder.query::<FragmentUv>()?;
       let plane = binding.bind_by(self.plane);
 
-      let ndc_xy = uv * consts(2.) - consts(Vec2::one());
-      let ndc_xy = ndc_xy * consts(Vec2::new(1., -1.));
+      let ndc_xy = uv * val(2.) - val(Vec2::one());
+      let ndc_xy = ndc_xy * val(Vec2::new(1., -1.));
 
       let far = view_proj_inv * (ndc_xy, 1., 1.).into();
       let near = view_proj_inv * (ndc_xy, 0., 1.).into();
@@ -211,7 +211,7 @@ impl<'a> GraphicsShaderProvider for InfinityShaderPlaneEffect<'a> {
       let plane_hit = hit.xyz();
       let plane_if_hit = hit.w(); // 1 is hit, 0 is not
 
-      let plane_hit_project = proj * view * (plane_hit, consts(1.)).into();
+      let plane_hit_project = proj * view * (plane_hit, val(1.)).into();
       builder.register::<FragmentDepthOutput>(plane_hit_project.z() / plane_hit_project.w());
 
       builder.register::<FragmentWorldPosition>(plane_hit);

@@ -40,30 +40,30 @@ impl LightableSurfaceShading for PhysicalShading {
   fn construct_shading(builder: &mut ShaderGraphFragmentBuilder) -> ENode<Self::ShaderStruct> {
     let perceptual_roughness = builder
       .query::<RoughnessChannel>()
-      .or_else(|_| Ok(consts(1.) - builder.query::<GlossinessChannel>()?))
-      .unwrap_or_else(|_: ShaderGraphBuildError| consts(0.3));
+      .or_else(|_| Ok(val(1.) - builder.query::<GlossinessChannel>()?))
+      .unwrap_or_else(|_: ShaderGraphBuildError| val(0.3));
 
     let base_color = builder
       .query::<ColorChannel>()
-      .unwrap_or_else(|_| consts(Vec3::splat(0.5)));
+      .unwrap_or_else(|_| val(Vec3::splat(0.5)));
 
     // assume specular workflow
     let (diffuse, f0) = if let Ok(specular) = builder.query::<SpecularChannel>() {
       let metallic = v_max3(specular);
-      (base_color * (consts(1.) - metallic), specular)
+      (base_color * (val(1.) - metallic), specular)
     } else {
       // assume metallic workflow
       let metallic = builder
         .query::<MetallicChannel>()
-        .unwrap_or_else(|_| consts(0.0));
+        .unwrap_or_else(|_| val(0.0));
 
       let reflectance = builder
         .query::<ReflectanceChannel>()
-        .unwrap_or_else(|_| consts(0.5));
+        .unwrap_or_else(|_| val(0.5));
 
       let dielectric_f0 = compute_dielectric_f0(reflectance);
 
-      let f0 = base_color * metallic + (dielectric_f0 * (consts(1.) - metallic)).splat();
+      let f0 = base_color * metallic + (dielectric_f0 * (val(1.) - metallic)).splat();
 
       (base_color, f0)
     };
@@ -142,6 +142,32 @@ wgsl_fn!(
     return f90 * fc + f0 * (1.0 - fc);
   }
 );
+
+// NOTE: Basically same as
+// https://de45xmedrsdbp.cloudfront.net/Resources/files/2013SiggraphPresentationsNotes-26915738.pdf
+// However, calculate a F90 instead of using 1.0 directly
+fn fresnel_x(v_dot_h: Node<f32>, f0: Node<Vec3<f32>>) -> Node<Vec3<f32>> {
+  let fc = (val(1.0) - v_dot_h).pow(val(5.0));
+  let f90 = (f0 * val(50.0)).clamp(val(Vec3::zero()), val(Vec3::one()));
+  f90 * fc + f0 * (val(1.0) - fc)
+}
+
+fn fresnel_x_fn(v_dot_h: Node<f32>, f0: Node<Vec3<f32>>) -> Node<Vec3<f32>> {
+  define_shader_fn(fresnel_x)(v_dot_h, f0)
+}
+
+fn define_shader_fn(
+  f: impl Fn(Node<f32>, Node<Vec3<f32>>) -> Node<Vec3<f32>>,
+) -> impl Fn(Node<f32>, Node<Vec3<f32>>) -> Node<Vec3<f32>> {
+  let builder = push_fn_build(std::any::type_name_of_val(f));
+  let a = builder.push_fn_input_parameter::<f32>();
+  let b = builder.push_fn_input_parameter::<Vec3<f32>>();
+  let r = f(a, b);
+  builder.set_return(r);
+  f = builder.build();
+
+  |a, b| shader_fn_call(f, vec![a, b]).cast_type()
+}
 
 wgsl_fn!(
   // Moving Frostbite to Physically Based Rendering 3.0 - page 12, listing 2

@@ -40,14 +40,14 @@ pub fn apply_normal_mapping(
   let normal = builder.get_or_compute_fragment_normal();
   let position = builder.query_or_interpolate_by::<FragmentWorldPosition, WorldVertexPosition>();
 
-  let normal_adjust = normal_map_sample * consts(Vec3::splat(2.)) - consts(Vec3::one());
+  let normal_adjust = normal_map_sample * val(Vec3::splat(2.)) - val(Vec3::one());
   let normal_adjust = normal_adjust * scale.splat::<Vec3<f32>>();
 
   // todo, should we move this to upper?
   let face = builder
     .query::<FragmentFrontFacing>()
     .unwrap() // builtin type
-    .select(consts(0.), consts(1.));
+    .select(val(0.), val(1.));
 
   let normal = perturb_normal_2_arb(position, normal, normal_adjust, uv, face);
   builder.register::<FragmentWorldNormal>(normal);
@@ -66,14 +66,14 @@ pub fn apply_normal_mapping_conditional(
   let position = builder.query_or_interpolate_by::<FragmentWorldPosition, WorldVertexPosition>();
 
   if_by(enabled, || {
-    let normal_adjust = normal_map_sample * consts(Vec3::splat(2.)) - consts(Vec3::one());
+    let normal_adjust = normal_map_sample * val(Vec3::splat(2.)) - val(Vec3::one());
     let normal_adjust = normal_adjust * scale.splat::<Vec3<f32>>();
 
     // todo, should we move this to upper?
     let face = builder
       .query::<FragmentFrontFacing>()
       .unwrap() // builtin type
-      .select(consts(0.), consts(1.));
+      .select(val(0.), val(1.));
 
     let n = perturb_normal_2_arb(position, normal.get(), normal_adjust, uv, face);
     normal.set(n);

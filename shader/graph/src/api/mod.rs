@@ -19,7 +19,7 @@ pub use control::*;
 use crate::*;
 
 #[must_use]
-pub fn consts<T>(v: T) -> Node<T>
+pub fn val<T>(v: T) -> Node<T>
 where
   T: PrimitiveShaderGraphNodeType,
 {

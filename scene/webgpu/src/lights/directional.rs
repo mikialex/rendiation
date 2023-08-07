@@ -28,9 +28,9 @@ impl PunctualShaderLight for DirectionalLightShaderInfo {
     _ctx: &ENode<ShaderLightingGeometricCtx>,
   ) -> Result<ENode<ShaderIncidentLight>, ShaderGraphBuildError> {
     let shadow_info = light.shadow.expand();
-    let occlusion = consts(1.).mutable();
+    let occlusion = val(1.).mutable();
 
-    if_by_ok(shadow_info.enabled.equals(consts(1)), || {
+    if_by_ok(shadow_info.enabled.equals(val(1)), || {
       let map = builder.query::<BasicShadowMap>().unwrap();
       let sampler = builder.query::<BasicShadowMapSampler>().unwrap();
 
@@ -51,7 +51,7 @@ impl PunctualShaderLight for DirectionalLightShaderInfo {
     })?;
 
     Ok(ENode::<ShaderIncidentLight> {
-      color: light.illuminance * (consts(1.) - occlusion.get()),
+      color: light.illuminance * (val(1.) - occlusion.get()),
       direction: light.direction,
     })
   }

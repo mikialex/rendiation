@@ -136,7 +136,7 @@ impl<'a> GraphicsShaderProvider for AOComputer<'a> {
 
       let normal = compute_normal_by_dxdy(position_world); // wrong
 
-      let random = random3(uv + parameter.noise_jit.splat()) * consts(2.) - consts(Vec3::one());
+      let random = random3(uv + parameter.noise_jit.splat()) * val(2.) - val(Vec3::one());
       let tangent = (random - normal * random.dot(normal)).normalize();
       let binormal = normal.cross(tangent);
       let tbn: Node<Mat3<f32>> = (tangent, binormal, normal).into();
@@ -150,10 +150,10 @@ impl<'a> GraphicsShaderProvider for AOComputer<'a> {
 
         let occluded = (sample_position_depth + parameter.bias)
           .less_or_equal_than(s_depth)
-          .select(consts(0.), consts(1.));
+          .select(val(0.), val(1.));
 
         let relative_depth_diff = parameter.radius / (sample_position_depth - s_depth).abs();
-        let intensity = relative_depth_diff.smoothstep(consts(0.), consts(1.));
+        let intensity = relative_depth_diff.smoothstep(val(0.), val(1.));
 
         let occluded = occluded * intensity;
         occlusion.set(occlusion.get() - occluded);
@@ -161,9 +161,9 @@ impl<'a> GraphicsShaderProvider for AOComputer<'a> {
 
       let occlusion = occlusion.get() / sample_count_f;
       let occlusion = occlusion.pow(parameter.magnitude);
-      let occlusion = parameter.contrast * (occlusion - consts(0.5)) + consts(0.5);
+      let occlusion = parameter.contrast * (occlusion - val(0.5)) + val(0.5);
 
-      builder.set_fragment_out(0, ((consts(1.) - occlusion.saturate()).splat(), 1.))
+      builder.set_fragment_out(0, ((val(1.) - occlusion.saturate()).splat(), 1.))
     })
   }
 }

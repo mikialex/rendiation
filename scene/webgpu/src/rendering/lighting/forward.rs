@@ -295,14 +295,12 @@ impl<'a> GraphicsShaderProvider for ForwardSceneLightingDispatcher<'a> {
     builder.fragment(|builder, _| {
       let ldr = builder.query::<LDRLightResult>()?;
 
-      let alpha = builder
-        .query::<AlphaChannel>()
-        .unwrap_or_else(|_| consts(1.0));
+      let alpha = builder.query::<AlphaChannel>().unwrap_or_else(|_| val(1.0));
 
       // should we use other way to get mask mode?
       let alpha = if builder.query::<AlphaCutChannel>().is_ok() {
-        if_by(alpha.equals(consts(0.)), || builder.discard());
-        consts(1.)
+        if_by(alpha.equals(val(0.)), || builder.discard());
+        val(1.)
       } else {
         alpha
       };
@@ -340,11 +338,11 @@ impl ForwardLightingSystem {
       };
       let shading = shading_impl.construct_shading_dyn(builder);
 
-      let mut light_specular_result = consts(Vec3::zero());
-      let mut light_diffuse_result = consts(Vec3::zero());
+      let mut light_specular_result = val(Vec3::zero());
+      let mut light_diffuse_result = val(Vec3::zero());
 
       for (i, lights) in self.lights_collections.values().enumerate() {
-        let length = lengths_info.index(consts(i as u32)).x();
+        let length = lengths_info.index(val(i as u32)).x();
         builder.register::<LightCount>(length);
 
         let (diffuse, specular) = lights.as_ref().as_ref().compute_lights(
@@ -560,8 +558,8 @@ impl<T: ShaderLight> LightCollectionCompute for LightList<T> {
 
     let dep = T::create_dep(builder)?;
 
-    let light_specular_result = consts(Vec3::zero()).mutable();
-    let light_diffuse_result = consts(Vec3::zero()).mutable();
+    let light_specular_result = val(Vec3::zero()).mutable();
+    let light_diffuse_result = val(Vec3::zero()).mutable();
 
     let light_count = builder.query::<LightCount>()?;
 

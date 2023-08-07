@@ -163,7 +163,7 @@ impl GraphicsShaderProvider for HighLightMaskDispatcher {
     &self,
     builder: &mut ShaderGraphRenderPipelineBuilder,
   ) -> Result<(), ShaderGraphBuildError> {
-    builder.fragment(|builder, _| builder.set_fragment_out(0, consts(Vec4::one())))
+    builder.fragment(|builder, _| builder.set_fragment_out(0, val(Vec4::one())))
   }
 }
 

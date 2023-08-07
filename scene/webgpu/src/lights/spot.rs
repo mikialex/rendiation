@@ -38,11 +38,11 @@ impl PunctualShaderLight for SpotLightShaderInfo {
     let angle_factor = angle_cos.smoothstep(light.half_cone_cos, light.half_penumbra_cos);
 
     let shadow_info = light.shadow.expand();
-    let occlusion = consts(1.).mutable();
+    let occlusion = val(1.).mutable();
 
     let intensity_factor = distance_factor * angle_factor;
 
-    if_by_ok(shadow_info.enabled.equals(consts(1)), || {
+    if_by_ok(shadow_info.enabled.equals(val(1)), || {
       let map = builder.query::<BasicShadowMap>().unwrap();
       let sampler = builder.query::<BasicShadowMapSampler>().unwrap();
 
@@ -52,7 +52,7 @@ impl PunctualShaderLight for SpotLightShaderInfo {
       let shadow_position = compute_shadow_position(builder, shadow_info)?;
 
       // we should have kept all light effective places inside the shadow volume
-      if_by(intensity_factor.greater_than(consts(0.)), || {
+      if_by(intensity_factor.greater_than(val(0.)), || {
         occlusion.set(sample_shadow(
           shadow_position,
           map,
@@ -63,7 +63,7 @@ impl PunctualShaderLight for SpotLightShaderInfo {
       Ok(())
     })?;
 
-    let shadow_factor = consts(1.) - occlusion.get();
+    let shadow_factor = val(1.) - occlusion.get();
 
     Ok(ENode::<ShaderIncidentLight> {
       color: light.luminance_intensity * intensity_factor * shadow_factor,

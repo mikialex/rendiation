@@ -15,7 +15,12 @@ pub struct ShaderAPINagaImpl {
 const ENTRY_POINT_NAME: &str = "main";
 
 impl ShaderAPINagaImpl {
-  pub fn new(stage: naga::ShaderStage) -> Self {
+  pub fn new(stage: ShaderStages) -> Self {
+    let stage = match stage {
+      ShaderStages::Vertex => naga::ShaderStage::Vertex,
+      ShaderStages::Fragment => naga::ShaderStage::Fragment,
+    };
+
     let module = naga::Module::default();
     let entry = naga::EntryPoint {
       name: ENTRY_POINT_NAME.to_owned(),
@@ -53,13 +58,13 @@ impl ShaderAPINagaImpl {
   fn make_expression_inner(&mut self, expr: naga::Expression) -> ShaderGraphNodeRawHandle {
     let handle = self
       .building_fn
-      .last()
+      .last_mut()
       .unwrap()
       .expressions
       .append(expr, Span::UNDEFINED);
 
     // should we merge these expression emits?
-    self.block.last().unwrap().push(
+    self.block.last_mut().unwrap().push(
       naga::Statement::Emit(naga::Range::new_from_bounds(handle, handle)),
       Span::UNDEFINED,
     );
@@ -243,10 +248,13 @@ impl ShaderAPI for ShaderAPINagaImpl {
         field_name,
         struct_node,
       } => todo!(),
-      ShaderGraphNodeExpr::StructConstruct { meta, fields } => naga::Expression::Compose {
-        ty: (),
-        components: (),
-      },
+      ShaderGraphNodeExpr::StructConstruct { meta, fields } => {
+        //   naga::Expression::Compose {
+        //   ty: (),
+        //   components: (),
+        // }
+        todo!()
+      }
       ShaderGraphNodeExpr::Const(c) => {
         // let handle = self.module.constants.append(value, Span::UNDEFINED);
         todo!()
@@ -257,7 +265,7 @@ impl ShaderAPI for ShaderAPINagaImpl {
     self.make_expression_inner(expr)
   }
 
-  fn define_input(&mut self, input: ShaderGraphInputNode) -> ShaderGraphNodeRawHandle {
+  fn define_module_input(&mut self, input: ShaderGraphInputNode) -> ShaderGraphNodeRawHandle {
     todo!()
   }
 
@@ -273,7 +281,7 @@ impl ShaderAPI for ShaderAPINagaImpl {
     let b = self.block.pop().unwrap();
     self
       .building_fn
-      .last()
+      .last_mut()
       .unwrap()
       .body
       .push(naga::Statement::Block(b), Span::UNDEFINED);
@@ -281,18 +289,18 @@ impl ShaderAPI for ShaderAPINagaImpl {
 
   fn push_if_scope(&mut self, condition: ShaderGraphNodeRawHandle) {
     self.block.push(Default::default());
-    let if_s = naga::Statement::If {
-      condition: (),
-      accept: (),
-      reject: (),
-    };
+    // let if_s = naga::Statement::If {
+    //   condition: (),
+    //   accept: (),
+    //   reject: (),
+    // };
     todo!()
   }
 
   fn discard(&mut self) {
     self
       .building_fn
-      .last()
+      .last_mut()
       .unwrap()
       .body
       .push(naga::Statement::Kill, Span::UNDEFINED)
@@ -302,6 +310,7 @@ impl ShaderAPI for ShaderAPINagaImpl {
     // self.block.push(naga::Block::default())
     // self.block.last().unwrap().push(naga::Statement::If { condition: (), accept: (), reject: ()
     // }, span)
+    todo!()
   }
 
   fn do_continue(&mut self, looper: ShaderGraphNodeRawHandle) {
@@ -322,7 +331,7 @@ impl ShaderAPI for ShaderAPINagaImpl {
     };
     let var = self
       .building_fn
-      .last()
+      .last_mut()
       .unwrap()
       .local_variables
       .append(v, Span::UNDEFINED);
@@ -335,10 +344,10 @@ impl ShaderAPI for ShaderAPINagaImpl {
       pointer: self.get_expression(target),
       value: self.get_expression(source),
     };
-    self.block.last().unwrap().push(st, Span::UNDEFINED);
+    self.block.last_mut().unwrap().push(st, Span::UNDEFINED);
   }
   fn load(&mut self, source: ShaderGraphNodeRawHandle) -> ShaderGraphNodeRawHandle {
-    naga::Expression::Load { pointer: () }
+    // naga::Expression::Load { pointer: () }
     todo!()
   }
 
