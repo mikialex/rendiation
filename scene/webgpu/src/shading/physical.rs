@@ -146,28 +146,29 @@ wgsl_fn!(
 // NOTE: Basically same as
 // https://de45xmedrsdbp.cloudfront.net/Resources/files/2013SiggraphPresentationsNotes-26915738.pdf
 // However, calculate a F90 instead of using 1.0 directly
-fn fresnel_x(v_dot_h: Node<f32>, f0: Node<Vec3<f32>>) -> Node<Vec3<f32>> {
+#[shadergraph_fn]
+pub fn fresnel_x(v_dot_h: Node<f32>, f0: Node<Vec3<f32>>) -> Node<Vec3<f32>> {
   let fc = (val(1.0) - v_dot_h).pow(val(5.0));
   let f90 = (f0 * val(50.0)).clamp(val(Vec3::zero()), val(Vec3::one()));
   f90 * fc + f0 * (val(1.0) - fc)
 }
 
-fn fresnel_x_fn(v_dot_h: Node<f32>, f0: Node<Vec3<f32>>) -> Node<Vec3<f32>> {
-  define_shader_fn(fresnel_x)(v_dot_h, f0)
-}
+// fn fresnel_x_fn_test(v_dot_h: Node<f32>, f0: Node<Vec3<f32>>) -> Node<Vec3<f32>> {
+//   define_shader_fn(fresnel_x)(v_dot_h, f0)
+// }
 
-fn define_shader_fn(
-  f: impl Fn(Node<f32>, Node<Vec3<f32>>) -> Node<Vec3<f32>>,
-) -> impl Fn(Node<f32>, Node<Vec3<f32>>) -> Node<Vec3<f32>> {
-  let f_meta = begin_define_fn(std::any::type_name_of_val(&f).to_string()).unwrap_or_else(|| {
-    let a = push_fn_parameter::<f32>();
-    let b = push_fn_parameter::<Vec3<f32>>();
-    let r = f(a, b);
-    end_fn_define(Vec3::<f32>::TYPE.into())
-  });
+// fn define_shader_fn(
+//   f: impl Fn(Node<f32>, Node<Vec3<f32>>) -> Node<Vec3<f32>>,
+// ) -> impl Fn(Node<f32>, Node<Vec3<f32>>) -> Node<Vec3<f32>> {
+//   let f_meta = begin_define_fn(std::any::type_name_of_val(&f).to_string()).unwrap_or_else(|| {
+//     let a = push_fn_parameter::<f32>();
+//     let b = push_fn_parameter::<Vec3<f32>>();
+//     let r = f(a, b);
+//     end_fn_define(Vec3::<f32>::TYPE.into())
+//   });
 
-  move |a, b| unsafe { shader_fn_call(f_meta.clone(), vec![a.handle(), b.handle()]).into_node() }
-}
+//   move |a, b| unsafe { shader_fn_call(f_meta.clone(), vec![a.handle(), b.handle()]).into_node() }
+// }
 
 wgsl_fn!(
   // Moving Frostbite to Physically Based Rendering 3.0 - page 12, listing 2

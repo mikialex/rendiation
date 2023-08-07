@@ -12,6 +12,14 @@ pub fn end_fn_define(ty: Option<ShaderValueType>) -> ShaderFunctionMetaInfo {
   modify_graph(|g| g.end_fn_define(ty))
 }
 
+// I do this because I don't know how to destruct T from Node<T> in proc macro syc ast, sad!
+pub trait ProcMacroNodeHelper {
+  type NodeType;
+}
+impl<T> ProcMacroNodeHelper for Node<T> {
+  type NodeType = T;
+}
+
 pub fn shader_fn_call(
   meta: ShaderFunctionMetaInfo,
   parameters: Vec<ShaderGraphNodeRawHandle>,

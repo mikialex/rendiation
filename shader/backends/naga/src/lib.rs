@@ -6,8 +6,9 @@ use shadergraph::*;
 pub struct ShaderAPINagaImpl {
   module: naga::Module,
   handle_id: usize,
-  building_fn: Vec<naga::Function>,
+  building_fn: Vec<(String, naga::Function, usize)>,
   block: Vec<naga::Block>,
+  fn_mapping: FastHashMap<String, (naga::Handle<naga::Function>, ShaderFunctionMetaInfo)>,
   consts_mapping: FastHashMap<ShaderGraphNodeRawHandle, naga::Handle<naga::Constant>>,
   expression_mapping: FastHashMap<ShaderGraphNodeRawHandle, naga::Handle<naga::Expression>>,
 }
@@ -44,6 +45,7 @@ impl ShaderAPINagaImpl {
       handle_id: 0,
       block: Default::default(),
       building_fn: Default::default(),
+      fn_mapping: Default::default(),
       consts_mapping: Default::default(),
       expression_mapping: Default::default(),
     }
@@ -60,6 +62,7 @@ impl ShaderAPINagaImpl {
       .building_fn
       .last_mut()
       .unwrap()
+      .1
       .expressions
       .append(expr, Span::UNDEFINED);
 
@@ -255,7 +258,14 @@ impl ShaderAPI for ShaderAPINagaImpl {
       ShaderGraphNodeExpr::FieldGet {
         field_name,
         struct_node,
-      } => todo!(),
+      } => {
+        // let node_type
+        // naga::Expression::AccessIndex {
+        //   base: (),
+        //   index: (),
+        // }
+        todo!()
+      }
       ShaderGraphNodeExpr::StructConstruct { meta, fields } => {
         //   naga::Expression::Compose {
         //   ty: (),
@@ -283,6 +293,7 @@ impl ShaderAPI for ShaderAPINagaImpl {
       .building_fn
       .last_mut()
       .unwrap()
+      .1
       .local_variables
       .append(v, Span::UNDEFINED);
 
@@ -312,6 +323,7 @@ impl ShaderAPI for ShaderAPINagaImpl {
       .building_fn
       .last_mut()
       .unwrap()
+      .1
       .body
       .push(naga::Statement::Block(b), Span::UNDEFINED);
   }
@@ -331,14 +343,13 @@ impl ShaderAPI for ShaderAPINagaImpl {
       .building_fn
       .last_mut()
       .unwrap()
+      .1
       .body
       .push(naga::Statement::Kill, Span::UNDEFINED)
   }
 
   fn push_for_scope(&mut self, target: ShaderIterator) -> ForNodes {
     // self.block.push(naga::Block::default())
-    // self.block.last().unwrap().push(naga::Statement::If { condition: (), accept: (), reject: ()
-    // }, span)
     todo!()
   }
 
@@ -352,14 +363,39 @@ impl ShaderAPI for ShaderAPINagaImpl {
   }
 
   fn begin_define_fn(&mut self, name: String) -> Option<ShaderFunctionMetaInfo> {
-    todo!()
+    if self.building_fn.iter().any(|f| f.0.eq(&name)) {
+      panic!("recursive fn definition is not allowed")
+    }
+    let r = self.fn_mapping.get(&name);
+
+    if r.is_none() {
+      self.building_fn.push((name, Default::default(), 0));
+    }
+
+    r.map(|v| v.1.clone())
   }
 
-  fn push_fn_parameter(&mut self, p: ShaderValueType) -> ShaderGraphNodeRawHandle {
-    todo!()
+  fn push_fn_parameter(&mut self, ty: ShaderValueType) -> ShaderGraphNodeRawHandle {
+    let ty = self.register_ty_impl(ty);
+    let last = self.building_fn.last_mut().unwrap();
+    last.1.arguments.push(naga::FunctionArgument {
+      name: None,
+      ty,
+      binding: None,
+    });
+    let expr = naga::Expression::FunctionArgument(last.2 as u32);
+    last.2 += 1;
+    self.make_expression_inner(expr)
   }
 
   fn end_fn_define(&mut self, return_ty: Option<ShaderValueType>) -> ShaderFunctionMetaInfo {
+    let (name, mut f, _) = self.building_fn.pop().unwrap();
+    f.result = return_ty.map(|ty| naga::FunctionResult {
+      ty: self.register_ty_impl(ty),
+      binding: None,
+    });
+    let handle = self.module.functions.append(f, Span::UNDEFINED);
+    self.fn_mapping.insert(name, (handle, todo!()));
     todo!()
   }
 

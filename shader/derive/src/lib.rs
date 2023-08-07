@@ -2,10 +2,12 @@ use proc_macro::TokenStream;
 use syn::parse_macro_input;
 
 mod shader_align;
+mod shader_fn;
 mod shader_struct;
 mod utils;
 mod vertex;
 use shader_align::*;
+use shader_fn::*;
 use shader_struct::*;
 use vertex::*;
 
@@ -67,4 +69,9 @@ pub fn std430_layout(_args: TokenStream, input: TokenStream) -> TokenStream {
   let expanded = shader_align_gen(input, "Std430", 0);
 
   TokenStream::from(expanded)
+}
+
+#[proc_macro_attribute]
+pub fn shadergraph_fn(_args: TokenStream, input: TokenStream) -> TokenStream {
+  shadergraph_fn_impl(_args, input)
 }
