@@ -87,6 +87,40 @@ where
   }
 }
 
+impl<T> BitAnd for Node<T>
+where
+  T: BitAnd<T, Output = T>,
+  T: ShaderGraphNodeType,
+{
+  type Output = Node<T>;
+
+  fn bitand(self, rhs: Self) -> Self::Output {
+    OperatorNode::Binary {
+      left: self.handle(),
+      right: rhs.handle(),
+      operator: BinaryOperator::BitAnd,
+    }
+    .insert_graph()
+  }
+}
+
+impl<T> BitOr for Node<T>
+where
+  T: BitOr<T, Output = T>,
+  T: ShaderGraphNodeType,
+{
+  type Output = Node<T>;
+
+  fn bitor(self, rhs: Self) -> Self::Output {
+    OperatorNode::Binary {
+      left: self.handle(),
+      right: rhs.handle(),
+      operator: BinaryOperator::BitOr,
+    }
+    .insert_graph()
+  }
+}
+
 impl<T> AddAssign for Node<T>
 where
   Self: Add<Output = Self> + Copy,

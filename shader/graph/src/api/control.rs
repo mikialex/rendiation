@@ -5,11 +5,13 @@ pub struct ForCtx {
 }
 
 impl ForCtx {
-  pub fn do_continue(&self) {
+  // note, we here use &mut self, is to prevent usage of nested continue statement.
+  // theoretically, we could rewrite control flow to support this feature in the future
+  pub fn do_continue(&mut self) {
     modify_graph(|g| g.do_continue(self.target_scope_id));
   }
-
-  pub fn do_break(&self) {
+  // ditto
+  pub fn do_break(&mut self) {
     modify_graph(|g| g.do_break(self.target_scope_id));
   }
 }

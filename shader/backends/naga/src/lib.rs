@@ -182,6 +182,8 @@ fn map_binary_op(o: BinaryOperator) -> naga::BinaryOperator {
     BinaryOperator::LessEqualThan => naga::BinaryOperator::LessEqual,
     BinaryOperator::LogicalOr => naga::BinaryOperator::LogicalOr,
     BinaryOperator::LogicalAnd => naga::BinaryOperator::LogicalAnd,
+    BinaryOperator::BitAnd => naga::BinaryOperator::And,
+    BinaryOperator::BitOr => naga::BinaryOperator::InclusiveOr,
   }
 }
 
@@ -217,7 +219,7 @@ fn map_primitive_type(t: PrimitiveShaderValueType) -> naga::TypeInner {
 
 impl ShaderAPI for ShaderAPINagaImpl {
   fn register_ty(&mut self, ty: ShaderValueType) {
-    todo!()
+    self.register_ty_impl(ty);
   }
 
   fn define_module_input(&mut self, input: ShaderGraphInputNode) -> ShaderGraphNodeRawHandle {
@@ -237,12 +239,31 @@ impl ShaderAPI for ShaderAPINagaImpl {
         position,
         index,
         level,
-      } => todo!(),
+      } => naga::Expression::ImageSample {
+        image: self.get_expression(texture),
+        sampler: self.get_expression(sampler),
+        gather: None,
+        coordinate: self.get_expression(position),
+        array_index: index.map(|index| self.get_expression(index)),
+        offset: None,
+        level: level
+          .map(|level| naga::SampleLevel::Exact(self.get_expression(level)))
+          .unwrap_or(naga::SampleLevel::Auto),
+        depth_ref: None,
+      },
       ShaderGraphNodeExpr::Swizzle { ty, source } => todo!(),
       ShaderGraphNodeExpr::Compose { target, parameters } => todo!(),
       ShaderGraphNodeExpr::MatShrink { source, dimension } => todo!(),
       ShaderGraphNodeExpr::Operator(op) => match op {
-        OperatorNode::Unary { one, operator } => todo!(),
+        OperatorNode::Unary { one, operator } => {
+          let op = match operator {
+            UnaryOperator::LogicalNot => naga::UnaryOperator::Not,
+          };
+          naga::Expression::Unary {
+            op,
+            expr: self.get_expression(one),
+          }
+        }
         OperatorNode::Binary {
           left,
           right,
@@ -253,7 +274,10 @@ impl ShaderAPI for ShaderAPINagaImpl {
           let op = map_binary_op(operator);
           naga::Expression::Binary { op, left, right }
         }
-        OperatorNode::Index { array, entry } => todo!(),
+        OperatorNode::Index { array, entry } => naga::Expression::Access {
+          base: self.get_expression(array),
+          index: self.get_expression(entry),
+        },
       },
       ShaderGraphNodeExpr::FieldGet {
         field_name,
@@ -277,7 +301,6 @@ impl ShaderAPI for ShaderAPINagaImpl {
         // let handle = self.module.constants.append(value, Span::UNDEFINED);
         todo!()
       }
-      ShaderGraphNodeExpr::Copy(_) => todo!(),
     };
 
     self.make_expression_inner(expr)
@@ -309,8 +332,10 @@ impl ShaderAPI for ShaderAPINagaImpl {
   }
 
   fn load(&mut self, source: ShaderGraphNodeRawHandle) -> ShaderGraphNodeRawHandle {
-    // naga::Expression::Load { pointer: () }
-    todo!()
+    let ex = naga::Expression::Load {
+      pointer: self.get_expression(source),
+    };
+    self.make_expression_inner(ex)
   }
 
   fn push_scope(&mut self) {

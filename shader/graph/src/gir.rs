@@ -56,7 +56,6 @@ pub enum ShaderGraphNodeExpr {
     fields: Vec<ShaderGraphNodeRawHandle>,
   },
   Const(ConstNode),
-  Copy(ShaderGraphNodeRawHandle),
 }
 
 pub trait ShaderIteratorAble {
@@ -99,6 +98,8 @@ pub enum BinaryOperator {
   LessEqualThan,
   LogicalOr,
   LogicalAnd,
+  BitAnd,
+  BitOr,
 }
 pub enum OperatorNode {
   Unary {

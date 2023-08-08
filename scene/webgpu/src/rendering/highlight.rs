@@ -110,6 +110,25 @@ impl<'a, T> GraphicsShaderProvider for HighLightComposeTask<'a, T> {
   }
 }
 
+// fn edge_intensity_x(
+//   uv: Node<Vec2<f32>>,
+//   mask: Node<ShaderTexture2D>,
+//   sp: Node<ShaderSampler>,
+//   width: Node<f32>,
+//   buffer_size: Node<Vec2<f32>>,
+// ) -> Node<f32> {
+//   let x_step = width / buffer_size.x();
+//   let y_step = width / buffer_size.y();
+
+//   let all = val(0.0).mutable();
+//   all = all + mask.sample(sp, uv).x();
+//   all = all + textureSample(mask, sp, vec2<f32>(uv.x + x_step, uv.y)).x;
+//   all = all + textureSample(mask, sp, vec2<f32>(uv.x, uv.y + y_step)).x;
+//   all = all + textureSample(mask, sp, vec2<f32>(uv.x + x_step, uv.y+ y_step)).x;
+
+//   return (1.0 - 2.0 * abs(all / 4. - 0.5));
+// }
+
 wgsl_fn!(
   fn edge_intensity(
     uv: vec2<f32>,

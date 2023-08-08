@@ -31,6 +31,35 @@ wgsl_fn!(
   }
 );
 
+// pub fn perturb_normal_2_arb_x(
+//   position: Node<Vec3<f32>>,
+//   surf_norm: Node<Vec3<f32>>,
+//   map_norm: Node<Vec3<f32>>,
+//   uv: Node<Vec2<f32>>,
+//   face_dir: Node<f32>,
+// ) {
+//   let q0 = position.dpdx();
+//   let q1 = position.dpdy();
+//   let st0 = uv.dpdx();
+//   let st1 = uv.dpdy();
+
+//   let n = surf_norm; // normalized
+
+//   let q1perp = q1.cross(n);
+//   let q0perp = n.cross(q0);
+
+//   let t = q1perp * st0.x + q0perp * st1.x;
+//   let b = q1perp * st0.y + q0perp * st1.y;
+
+//   let det = t.dot(t).max(b.dot(b));
+
+//   let scale = det
+//     .equals(val(0.0))
+//     .select(val(0.0), face_dir * det.inverse_sqrt());
+
+//   return (t * (map_norm.x() * scale) + b * (map_norm.y() * scale) + n *
+// map_norm.z()).normalize(); }
+
 pub fn apply_normal_mapping(
   builder: &mut ShaderGraphFragmentBuilderView,
   normal_map_sample: Node<Vec3<f32>>,

@@ -129,16 +129,16 @@ wgsl_fn!(
 
 // // shadergraph::define_shader_fn(background_direction2);
 
-// #[shadergraph::shader_fn]
+// #[shadergraph_fn]
 // fn background_direction2(
 //   vertex_index: Node<u32>,
 //   view: Node<Mat4<f32>>,
 //   projection_inv: Node<Mat4<f32>>) -> Node<Vec3<f32>> {   // hacky way to draw a large triangle
 //   let tmp1 = vertex_index.into_i32() / val(2);
-//   let tmp2 = vertex_index.into_i32() & 1;
+//   let tmp2 = vertex_index.into_i32() & val(1);
 //   let pos = (
-//     f32(tmp1) * 4.0 - 1.0,
-//     f32(tmp2) * 4.0 - 1.0,
+//     tmp1.into_f32() * val(4.0) - val(1.0),
+//     tmp2.into_f32() * val(4.0) - val(1.0),
 //     1.0,
 //     1.0
 //   ).into();
@@ -147,5 +147,5 @@ wgsl_fn!(
 //   let inv_model_view = transpose(mat3x3<f32>(view.x.xyz, view.y.xyz, view.z.xyz));
 //   let unprojected = projection_inv * pos;
 
-//   return inv_model_view * unprojected.xyz;
+//   return inv_model_view * unprojected.xyz();
 // }

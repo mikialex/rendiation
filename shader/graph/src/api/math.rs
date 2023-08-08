@@ -113,3 +113,12 @@ impl Node<bool> {
     )
   }
 }
+
+impl<T> Node<T> {
+  pub fn all(self) -> Node<bool> {
+    todo!()
+  }
+  pub fn any(self) -> Node<bool> {
+    todo!()
+  }
+}
