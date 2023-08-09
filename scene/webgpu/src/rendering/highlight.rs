@@ -103,52 +103,32 @@ impl<'a, T> GraphicsShaderProvider for HighLightComposeTask<'a, T> {
         0,
         (
           highlighter.color.xyz(),
-          edge_intensity(uv, mask, sampler, highlighter.width, size) * highlighter.color.w(),
+          edge_intensity_fn(uv, mask, sampler, highlighter.width, size) * highlighter.color.w(),
         ),
       )
     })
   }
 }
 
-// fn edge_intensity_x(
-//   uv: Node<Vec2<f32>>,
-//   mask: Node<ShaderTexture2D>,
-//   sp: Node<ShaderSampler>,
-//   width: Node<f32>,
-//   buffer_size: Node<Vec2<f32>>,
-// ) -> Node<f32> {
-//   let x_step = width / buffer_size.x();
-//   let y_step = width / buffer_size.y();
+#[shadergraph_fn]
+fn edge_intensity(
+  uv: Node<Vec2<f32>>,
+  mask: Node<ShaderTexture2D>,
+  sp: Node<ShaderSampler>,
+  width: Node<f32>,
+  buffer_size: Node<Vec2<f32>>,
+) -> Node<f32> {
+  let x_step = width / buffer_size.x();
+  let y_step = width / buffer_size.y();
 
-//   let all = val(0.0).mutable();
-//   all = all + mask.sample(sp, uv).x();
-//   all = all + textureSample(mask, sp, vec2<f32>(uv.x + x_step, uv.y)).x;
-//   all = all + textureSample(mask, sp, vec2<f32>(uv.x, uv.y + y_step)).x;
-//   all = all + textureSample(mask, sp, vec2<f32>(uv.x + x_step, uv.y+ y_step)).x;
+  let mut all = val(0.0);
+  all += mask.sample(sp, uv).x();
+  all += mask.sample(sp, (uv.x() + x_step, uv.y())).x();
+  all += mask.sample(sp, (uv.x(), uv.y() + y_step)).x();
+  all += mask.sample(sp, (uv.x() + x_step, uv.y() + y_step)).x();
 
-//   return (1.0 - 2.0 * abs(all / 4. - 0.5));
-// }
-
-wgsl_fn!(
-  fn edge_intensity(
-    uv: vec2<f32>,
-    mask: texture_2d<f32>,
-    sp: sampler,
-    width: f32,
-    buffer_size: vec2<f32>
-  ) -> f32 {
-    var x_step: f32 = width / buffer_size.x;
-    var y_step: f32 = width / buffer_size.y;
-
-    var all: f32 = 0.0;
-    all = all + textureSample(mask, sp, uv).x;
-    all = all + textureSample(mask, sp, vec2<f32>(uv.x + x_step, uv.y)).x;
-    all = all + textureSample(mask, sp, vec2<f32>(uv.x, uv.y + y_step)).x;
-    all = all + textureSample(mask, sp, vec2<f32>(uv.x + x_step, uv.y+ y_step)).x;
-
-    return (1.0 - 2.0 * abs(all / 4. - 0.5));
-  }
-);
+  val(1.0) - val(2.0) * (all / val(4.) - val(0.5)).abs()
+}
 
 pub struct HighLightDrawMaskTask<T> {
   objects: Option<T>,

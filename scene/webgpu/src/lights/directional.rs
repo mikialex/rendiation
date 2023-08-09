@@ -70,6 +70,19 @@ wgsl_fn!(
   }
 );
 
+// fn cull_directional_shadow_x(shadow_position: Node<Vec3<f32>>) -> Node<bool> {
+//   // maybe we could use sampler's border color config, but that's not part of standard webgpu
+// (wgpu   // supports)
+//   let left = shadow_position.x().greater_or_equal_than(val(0.));
+//   let right = shadow_position.x().less_or_equal_than(val(1.));
+//   let top = shadow_position.y().greater_or_equal_than(val(0.));
+//   let bottom = shadow_position.y().less_or_equal_than(val(1.));
+//   let far = shadow_position.z().less_or_equal_than(val(1.));
+
+//   let is_frustum = (left, right, top, bottom).into().all();
+//   is_frustum.and(far)
+// }
+
 impl WebGPULight for SceneItemRef<DirectionalLight> {
   type Uniform = DirectionalLightShaderInfo;
 

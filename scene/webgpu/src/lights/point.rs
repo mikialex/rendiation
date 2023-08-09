@@ -26,7 +26,7 @@ impl PunctualShaderLight for PointLightShaderInfo {
   ) -> Result<ENode<ShaderIncidentLight>, ShaderGraphBuildError> {
     let direction = ctx.position - light.position;
     let distance = direction.length();
-    let factor = punctual_light_intensity_to_illuminance_factor(distance, light.cutoff_distance);
+    let factor = punctual_light_intensity_to_illuminance_factor_fn(distance, light.cutoff_distance);
 
     Ok(ENode::<ShaderIncidentLight> {
       color: light.luminance_intensity * factor,
@@ -83,25 +83,23 @@ impl WebGPULight for SceneItemRef<PointLight> {
   }
 }
 
-wgsl_fn!(
-  // based upon Frostbite 3 Moving to Physically-based Rendering
-  // page 32, equation 26: E[window1]
-  // https://seblagarde.files.wordpress.com/2015/07/course_notes_moving_frostbite_to_pbr_v32.pdf
-  // this is intended to be used on spot and point lights who are represented as luminous intensity
-  // but who must be converted to illuminance for surface lighting calculation
-  fn punctual_light_intensity_to_illuminance_factor(
-    light_distance: f32,
-    cutoff_distance: f32,
-  ) -> f32 {
-    let distance_falloff = 1.0 / max(pow(light_distance, 2.), 0.01);
+/// based upon Frostbite 3 Moving to Physically-based Rendering
+/// page 32, equation 26: E[window1]
+/// https://seblagarde.files.wordpress.com/2015/07/course_notes_moving_frostbite_to_pbr_v32.pdf
+/// this is intended to be used on spot and point lights who are represented as luminous intensity
+/// but who must be converted to illuminance for surface lighting calculation
+#[shadergraph_fn]
+pub fn punctual_light_intensity_to_illuminance_factor(
+  light_distance: Node<f32>,
+  cutoff_distance: Node<f32>,
+) -> Node<f32> {
+  let l2 = light_distance * light_distance;
+  let distance_falloff = val(1.0) / l2.max(val(0.01));
 
-    // should I use pow2 pow4 for optimization?
+  let ratio = light_distance / cutoff_distance;
+  let cutoff = val(1.0) - ratio * ratio * ratio * ratio;
+  let cutoff = cutoff.saturate();
+  let cutoff = cutoff * cutoff;
 
-    let cutoff = pow(
-      saturate(1.0 - pow(light_distance / cutoff_distance, 4.)),
-      2.,
-    );
-
-    return distance_falloff * cutoff;
-  }
-);
+  distance_falloff * cutoff
+}

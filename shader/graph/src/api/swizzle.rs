@@ -106,6 +106,8 @@ impl_from!({ A: Vec3<f32>, B: f32 }, Vec4<f32>);
 
 impl_from!({ A: f32, B: f32, C: f32 }, Vec3<f32>);
 
+impl_from!({ A: f32, B: f32 }, Vec2<f32>);
+
 impl_from!({ A: Vec4<f32>, B: Vec4<f32>, C: Vec4<f32>, D:Vec4<f32> }, Mat4<f32>);
 impl_from!({ A: Vec3<f32>, B: Vec3<f32>, C: Vec3<f32> }, Mat3<f32>);
 

@@ -84,6 +84,21 @@ wgsl_fn!(
     return fract(sin(dot(seed, vec2<f32>(12.9898, 78.233))) * 43758.5453123);
   }
 );
+// #[shadergraph_fn]
+// fn random(seed: Node<Vec2<f32>>) -> Node<f32> {
+//   let s1 = val(12.9898);
+//   let s2 = val(78.233);
+//   let s3 = val(43758.5453123);
+//   (seed.dot((s1, s2)).sin() * s3).fract()
+// }
+
+// #[shadergraph_fn]
+// fn random3(seed: Node<Vec2<f32>>) -> Node<Vec3<f32>> {
+//   let x = random(seed);
+//   let y = random((seed + random()).sin());
+//   let z = random(seed + random().cos() + random());
+//   (x, y, z).into()
+// }
 
 wgsl_fn!(
   fn random3(uv: vec2<f32>) -> vec3<f32> {

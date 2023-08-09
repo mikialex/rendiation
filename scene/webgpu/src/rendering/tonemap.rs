@@ -46,9 +46,9 @@ impl GraphicsShaderProvider for ToneMap {
       let hdr = builder.query::<HDRLightResult>()?;
 
       let mapped = match self.ty {
-        ToneMapType::Linear => LinearToneMapping(hdr, exposure),
-        ToneMapType::Reinhard => ReinhardToneMapping(hdr, exposure),
-        ToneMapType::Cineon => OptimizedCineonToneMapping(hdr, exposure),
+        ToneMapType::Linear => linear_tone_mapping(hdr, exposure),
+        ToneMapType::Reinhard => reinhard_tone_mapping(hdr, exposure),
+        ToneMapType::Cineon => optimized_cineon_tone_mapping(hdr, exposure),
         ToneMapType::ACESFilmic => ACESFilmicToneMapping(hdr, exposure),
       };
 
@@ -58,33 +58,33 @@ impl GraphicsShaderProvider for ToneMap {
   }
 }
 
-wgsl_fn!(
-  // exposure only
-  fn LinearToneMapping(color: vec3<f32>, toneMappingExposure: f32) -> vec3<f32> {
-    return toneMappingExposure * color;
-  }
-);
+#[shadergraph_fn]
+fn linear_tone_mapping(color: Node<Vec3<f32>>, exposure: Node<f32>) -> Node<Vec3<f32>> {
+  exposure * color
+}
 
-wgsl_fn!(
-  // source: https://www.cs.utah.edu/docs/techreports/2002/pdf/UUCS-02-001.pdf
-  fn ReinhardToneMapping(color: vec3<f32>, toneMappingExposure: f32) -> vec3<f32> {
-    color *= toneMappingExposure;
-    return saturate(color / (vec3<f32>(1.0) + color));
-  }
-);
+/// source: https://www.cs.utah.edu/docs/techreports/2002/pdf/UUCS-02-001.pdf
+#[shadergraph_fn]
+fn reinhard_tone_mapping(color: Node<Vec3<f32>>, exposure: Node<f32>) -> Node<Vec3<f32>> {
+  let color = exposure * color;
+  let mapped = color / (val(Vec3::one()) + color);
+  mapped.saturate()
+}
 
-wgsl_fn!(
-  // source: http://filmicworlds.com/blog/filmic-tonemapping-operators/
-  fn OptimizedCineonToneMapping(color: vec3<f32>, toneMappingExposure: f32) -> vec3<f32> {
-    // optimized filmic operator by Jim Hejl and Richard Burgess-Dawson
-    color *= toneMappingExposure;
-    color = max(vec3<f32>(0.0), color - 0.004);
-    return pow(
-      (color * (6.2 * color + 0.5)) / (color * (6.2 * color + 1.7) + 0.06),
-      vec3<f32>(2.2),
-    );
-  }
-);
+// val vec3 splat
+fn val_v3s(f: f32) -> Node<Vec3<f32>> {
+  val(Vec3::splat(f))
+}
+
+/// optimized filmic operator by Jim Hejl and Richard Burgess-Dawson
+/// source: http://filmicworlds.com/blog/filmic-tonemapping-operators/
+fn optimized_cineon_tone_mapping(color: Node<Vec3<f32>>, exposure: Node<f32>) -> Node<Vec3<f32>> {
+  let color = exposure * color;
+  let color = (color - val_v3s(0.004)).max(val(Vec3::zero()));
+  let color = (color * (val(6.2) * color + val_v3s(0.5)))
+    / (color * (val(6.2) * color + val_v3s(1.7)) + val_v3s(0.06));
+  color.pow(val(2.2))
+}
 
 wgsl_fn!(
   // source: https://github.com/selfshadow/ltc_code/blob/master/webgl/shaders/ltc/ltc_blit.fs
@@ -94,6 +94,13 @@ wgsl_fn!(
     return a / b;
   }
 );
+
+// source: https://github.com/selfshadow/ltc_code/blob/master/webgl/shaders/ltc/ltc_blit.fs
+fn rrt_and_odt_fit(v: Node<Vec3<f32>>) -> Node<Vec3<f32>> {
+  let a = v * (v + val_v3s(0.0245786)) - val_v3s(0.000090537);
+  let b = v * (val(0.983729) * v + val_v3s(0.432951)) + val_v3s(0.238081);
+  a / b
+}
 
 wgsl_fn!(
   // this implementation of ACES is modified to accommodate a brighter viewing environment.

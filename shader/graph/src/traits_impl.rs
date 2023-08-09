@@ -282,11 +282,15 @@ impl ArraySampleTarget for ShaderDepthTextureCubeArray {
 }
 
 impl<T: SingleSampleTarget> Node<T> {
-  pub fn sample(&self, sampler: Node<T::Sampler>, position: Node<T::Input>) -> Node<T::Output> {
+  pub fn sample(
+    &self,
+    sampler: Node<T::Sampler>,
+    position: impl Into<Node<T::Input>>,
+  ) -> Node<T::Output> {
     ShaderGraphNodeExpr::TextureSampling {
       texture: self.handle(),
       sampler: sampler.handle(),
-      position: position.handle(),
+      position: position.into().handle(),
       index: None,
       level: None,
     }

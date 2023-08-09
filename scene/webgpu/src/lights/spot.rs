@@ -31,7 +31,7 @@ impl PunctualShaderLight for SpotLightShaderInfo {
     let direction = ctx.position - light.position;
     let distance = direction.length();
     let distance_factor =
-      punctual_light_intensity_to_illuminance_factor(distance, light.cutoff_distance);
+      punctual_light_intensity_to_illuminance_factor_fn(distance, light.cutoff_distance);
 
     let direction = direction.normalize();
     let angle_cos = direction.dot(light.direction);

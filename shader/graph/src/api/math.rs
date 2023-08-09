@@ -25,21 +25,25 @@ where
     make_builtin_call(ShaderBuiltInFunction::Length, [self.handle()])
   }
 
-  pub fn dot(self, other: Self) -> Node<f32> {
-    make_builtin_call(ShaderBuiltInFunction::Dot, [self.handle(), other.handle()])
+  pub fn dot(self, other: impl Into<Self>) -> Node<f32> {
+    make_builtin_call(
+      ShaderBuiltInFunction::Dot,
+      [self.handle(), other.into().handle()],
+    )
   }
 
-  pub fn cross(self, other: Self) -> Node<Vec3<f32>> {
+  pub fn cross(self, other: impl Into<Self>) -> Node<Vec3<f32>> {
     make_builtin_call(
       ShaderBuiltInFunction::Cross,
-      [self.handle(), other.handle()],
+      [self.handle(), other.into().handle()],
     )
   }
 }
 
 impl<T> Node<T>
 where
-  T: RealVector<f32> + PrimitiveShaderGraphNodeType,
+  T: PrimitiveShaderGraphNodeType, /* where
+                                    * T: RealVector<f32> + PrimitiveShaderGraphNodeType, */
 {
   pub fn min(self, other: Self) -> Self {
     make_builtin_call(ShaderBuiltInFunction::Min, [self.handle(), other.handle()])
@@ -63,7 +67,7 @@ where
   pub fn abs(self) -> Self {
     make_builtin_call(ShaderBuiltInFunction::Abs, [self.handle()])
   }
-  pub fn pow(self, e: Self) -> Self {
+  pub fn pow(self, e: Node<f32>) -> Self {
     make_builtin_call(ShaderBuiltInFunction::Pow, [self.handle(), e.handle()])
   }
   pub fn saturate(self) -> Self {
@@ -114,11 +118,64 @@ impl Node<bool> {
   }
 }
 
+// todo restrict
 impl<T> Node<T> {
   pub fn all(self) -> Node<bool> {
     todo!()
   }
   pub fn any(self) -> Node<bool> {
+    todo!()
+  }
+}
+
+// todo restrict
+impl<T> Node<T> {
+  pub fn dpdx(self) -> Node<T> {
+    todo!()
+  }
+  pub fn dpdy(self) -> Node<T> {
+    todo!()
+  }
+  pub fn dpdx_fine(self) -> Node<T> {
+    todo!()
+  }
+  pub fn dpdy_fine(self) -> Node<T> {
+    todo!()
+  }
+  pub fn dpdx_coarse(self) -> Node<T> {
+    todo!()
+  }
+  pub fn dpdy_coarse(self) -> Node<T> {
+    todo!()
+  }
+  pub fn fwidth(self) -> Node<T> {
+    todo!()
+  }
+  pub fn fwidth_fine(self) -> Node<T> {
+    todo!()
+  }
+  pub fn fwidth_coarse(self) -> Node<T> {
+    todo!()
+  }
+
+  pub fn sqrt(self) -> Node<T> {
+    todo!()
+  }
+  pub fn inverse_sqrt(self) -> Node<T> {
+    todo!()
+  }
+
+  pub fn sin(self) -> Node<T> {
+    todo!()
+  }
+  pub fn cos(self) -> Node<T> {
+    todo!()
+  }
+  pub fn tan(self) -> Node<T> {
+    todo!()
+  }
+
+  pub fn fract(self) -> Node<T> {
     todo!()
   }
 }
