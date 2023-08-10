@@ -1,5 +1,5 @@
 use __core::marker::PhantomData;
-use shadergraph::Std430;
+use rendiation_shader_api::Std430;
 
 use crate::*;
 

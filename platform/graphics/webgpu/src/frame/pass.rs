@@ -1,6 +1,6 @@
 use __core::marker::PhantomData;
 use rendiation_algebra::*;
-use shadergraph::{std140_layout, ShaderStruct};
+use rendiation_shader_api::{std140_layout, ShaderStruct};
 
 use crate::*;
 

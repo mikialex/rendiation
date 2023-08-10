@@ -19,7 +19,7 @@ rendiation-color = { path = "../components/color" }
 rendiation-geometry = { path = "../math/geometry" }
 rendiation-renderable-mesh = { path = "../components/mesh/renderable" }
 rendiation-texture = { path = "../components/texture/core" }
-shadergraph = { path = "../shader/graph" }
+rendiation-shader-api = { path = "../shader/api" }
 rendiation-shader-backend-naga = { path = "../shader/backends/naga" }
 webgpu = { package = "rendiation-webgpu", path = "../platform/graphics/webgpu" }
 winit = { version = "0.27.1" }

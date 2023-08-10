@@ -1,5 +1,5 @@
 use __core::num::NonZeroU32;
-use shadergraph::*;
+use rendiation_shader_api::*;
 
 use crate::*;
 pub mod container;
@@ -122,7 +122,7 @@ impl GPUDevice {
 
     if log_result {
       println!();
-      println!("=== shadergraph build result ===");
+      println!("=== rendiation_shader_api build result ===");
       println!("vertex shader: ");
       println!("{vertex_shader}");
       println!("fragment shader: ");

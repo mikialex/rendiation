@@ -5,6 +5,6 @@ name = "rendiation-shader-backend-naga"
 version = "0.1.0"
 
 [dependencies]
-shadergraph = { path = "../../graph" }
+rendiation-shader-api = { path = "../../api" }
 naga = { version = "0.13.0", features = ["wgsl-out"] }
 fast-hash-collection = { path = "../../../utils/fast-hash-collection" }

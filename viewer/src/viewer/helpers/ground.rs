@@ -9,7 +9,7 @@ use rendiation_scene_webgpu::{
   default_dispatcher, generate_quad, CameraGPU, MaterialStates, PassContentWithSceneAndCamera,
   SceneRenderResourceGroup, QUAD_DRAW_CMD,
 };
-use shadergraph::*;
+use rendiation_shader_api::*;
 use webgpu::{
   create_uniform, RenderComponent, RenderComponentAny, RenderEmitter, ShaderHashProvider,
   ShaderHashProviderAny, ShaderPassBuilder, UniformBufferDataView, GPU,

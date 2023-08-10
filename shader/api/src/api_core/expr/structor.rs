@@ -110,7 +110,7 @@ pub enum ShaderFieldDecorator {
   Location(usize),
 }
 
-/// This trait is to mapping the real struct ty into the shadergraph node ty.
+/// This trait is to mapping the real struct ty into the rendiation_shader_api node ty.
 /// These types may be different because the std140 type substitution
 pub trait ShaderFieldTypeMapper {
   type ShaderType: ShaderSizedValueNodeType;

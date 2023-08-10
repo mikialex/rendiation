@@ -18,19 +18,19 @@ pub fn generate_quad(vertex_index: Node<u32>) -> Node<QuadVertexOut> {
   let uv = val(Vec2::default()).mutable();
 
   switch_by(vertex_index)
-    .case(Some(0), || {
+    .case(0, || {
       position.set(Vec4::new(left, top, depth, 1.));
       uv.set(Vec2::new(0., 0.));
     })
-    .case(Some(1), || {
+    .case(1, || {
       position.set(Vec4::new(right, top, depth, 1.));
       uv.set(Vec2::new(1., 0.));
     })
-    .case(Some(2), || {
+    .case(2, || {
       position.set(Vec4::new(left, bottom, depth, 1.));
       uv.set(Vec2::new(0., 1.));
     })
-    .case(Some(3), || {
+    .case(3, || {
       position.set(Vec4::new(right, bottom, depth, 1.));
       uv.set(Vec2::new(1., 1.));
     })

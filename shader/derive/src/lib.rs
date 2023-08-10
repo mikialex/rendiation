@@ -11,10 +11,10 @@ use shader_fn::*;
 use shader_struct::*;
 use vertex::*;
 
-/// Mark the struct could be used as vertex input type in shadergraph
+/// Mark the struct could be used as vertex input type in rendiation_shader_api
 ///
 /// The struct's mem layout will generate the correct vertex buffer layout
-/// and inject semantic shader value in shadergraph.
+/// and inject semantic shader value in rendiation_shader_api.
 ///
 /// ## The memory layout should be compact
 #[proc_macro_derive(ShaderVertex, attributes(semantic))]
@@ -23,10 +23,10 @@ pub fn derive_vertex(input: TokenStream) -> TokenStream {
   derive_vertex_impl(input).into()
 }
 
-/// Mark the struct could be expressed in shadergraph type API
+/// Mark the struct could be expressed in rendiation_shader_api type API
 ///
 /// Implementation will add static struct meta info for reflection
-/// and define a shader graph instance type and convert methods for shadergraph usage.
+/// and define a shader graph instance type and convert methods for rendiation_shader_api usage.
 #[proc_macro_derive(ShaderStruct)]
 pub fn derive_shader_struct(input: TokenStream) -> TokenStream {
   let input = parse_macro_input!(input as syn::DeriveInput);

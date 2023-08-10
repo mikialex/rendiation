@@ -4,9 +4,11 @@ use rendiation_algebra::*;
 use rendiation_geometry::Positioned;
 
 #[repr(C)]
-#[derive(Clone, Copy, soa_derive::StructOfArray, Debug, shadergraph::ShaderVertex, PartialEq)]
-// #[cfg_attr(feature = "shader", derive(shadergraph::ShaderVertex))] // todo, figure out how to use
-// with feature gate
+#[derive(
+  Clone, Copy, soa_derive::StructOfArray, Debug, rendiation_shader_api::ShaderVertex, PartialEq,
+)]
+// #[cfg_attr(feature = "shader", derive(rendiation_shader_api::ShaderVertex))] // todo, figure out
+// how to use with feature gate
 pub struct Vertex {
   // #[cfg_attr(feature = "shader", semantic(GeometryPosition))]
   #[semantic(GeometryPosition)]

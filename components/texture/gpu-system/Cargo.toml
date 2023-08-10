@@ -5,5 +5,5 @@ name = "rendiation-texture-gpu-system"
 version = "0.1.0"
 
 [dependencies]
-shadergraph = { path = "../../../shader/graph" }
+rendiation-shader-api = { path = "../../../shader/api" }
 slab = "0.4.8"

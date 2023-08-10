@@ -1,4 +1,4 @@
-use shadergraph::{BindingArray, ShaderBindingProvider, ShaderGraphNodeSingleType};
+use rendiation_shader_api::{BindingArray, ShaderBindingProvider, ShaderGraphNodeSingleType};
 
 use crate::*;
 

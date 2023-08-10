@@ -166,7 +166,11 @@ pub struct SwitchBuilder<T>(PhantomData<T>);
 
 impl<T: SwitchableShaderType> SwitchBuilder<T> {
   /// None is the default case
-  pub fn case(self, v: Option<T>, scope: impl FnOnce()) -> Self {
+  pub fn case(self, v: T, scope: impl FnOnce()) -> Self {
+    todo!()
+  }
+
+  pub fn end_with_default(self, scope: impl FnOnce()) {
     todo!()
   }
 

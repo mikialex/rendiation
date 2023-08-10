@@ -2,9 +2,9 @@ use std::sync::Arc;
 
 use bytemuck::*;
 use rendiation_algebra::*;
+use rendiation_shader_api::{std140_layout, GraphicsShaderProvider, ShaderStruct};
 use rendiation_shader_backend_naga::ShaderAPINagaImpl;
 use rendiation_texture::Size;
-use shadergraph::{std140_layout, GraphicsShaderProvider, ShaderStruct};
 use webgpu::util::DeviceExt;
 use webgpu::*;
 
@@ -299,8 +299,12 @@ impl WebGPUxUIRenderer {
       .build_pipeline_by_shadergraph(
         SolidUIPipeline { target_format }
           .build_self(
-            Box::new(ShaderAPINagaImpl::new(shadergraph::ShaderStages::Vertex)),
-            Box::new(ShaderAPINagaImpl::new(shadergraph::ShaderStages::Fragment)),
+            Box::new(ShaderAPINagaImpl::new(
+              rendiation_shader_api::ShaderStages::Vertex,
+            )),
+            Box::new(ShaderAPINagaImpl::new(
+              rendiation_shader_api::ShaderStages::Fragment,
+            )),
           )
           .unwrap(),
       )
@@ -310,8 +314,12 @@ impl WebGPUxUIRenderer {
       .build_pipeline_by_shadergraph(
         TextureUIPipeline { target_format }
           .build_self(
-            Box::new(ShaderAPINagaImpl::new(shadergraph::ShaderStages::Vertex)),
-            Box::new(ShaderAPINagaImpl::new(shadergraph::ShaderStages::Fragment)),
+            Box::new(ShaderAPINagaImpl::new(
+              rendiation_shader_api::ShaderStages::Vertex,
+            )),
+            Box::new(ShaderAPINagaImpl::new(
+              rendiation_shader_api::ShaderStages::Fragment,
+            )),
           )
           .unwrap(),
       )

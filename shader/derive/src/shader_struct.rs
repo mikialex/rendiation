@@ -24,9 +24,9 @@ fn derive_shader_struct(s: &StructInfo) -> proc_macro2::TokenStream {
   let meta_info_fields = s.map_visible_fields(|(field_name, ty)| {
     let field_str = format!("{field_name}");
     quote! {
-     shadergraph::ShaderStructFieldMetaInfo {
+     rendiation_shader_api::ShaderStructFieldMetaInfo {
        name: #field_str,
-       ty: <<#ty as shadergraph::ShaderFieldTypeMapper>::ShaderType as shadergraph::ShaderSizedValueNodeType>::MEMBER_TYPE,
+       ty: <<#ty as rendiation_shader_api::ShaderFieldTypeMapper>::ShaderType as rendiation_shader_api::ShaderSizedValueNodeType>::MEMBER_TYPE,
        ty_deco: None,
      },
     }
@@ -35,14 +35,14 @@ fn derive_shader_struct(s: &StructInfo) -> proc_macro2::TokenStream {
   let field_methods = s.map_visible_fields(|(field_name, ty)| {
     let field_str = format!("{field_name}");
     quote! {
-      pub fn #field_name(node: shadergraph::Node<Self>) -> shadergraph::Node<<#ty as shadergraph::ShaderFieldTypeMapper>::ShaderType>{
-        shadergraph::expand_single::<<#ty as shadergraph::ShaderFieldTypeMapper>::ShaderType>(node.handle(), #field_str)
+      pub fn #field_name(node: rendiation_shader_api::Node<Self>) -> rendiation_shader_api::Node<<#ty as rendiation_shader_api::ShaderFieldTypeMapper>::ShaderType>{
+        rendiation_shader_api::expand_single::<<#ty as rendiation_shader_api::ShaderFieldTypeMapper>::ShaderType>(node.handle(), #field_str)
       }
     }
   });
 
   let instance_fields = s.map_visible_fields(|(field_name, ty)| {
-    quote! { pub #field_name: shadergraph::Node<<#ty as shadergraph::ShaderFieldTypeMapper>::ShaderType>, }
+    quote! { pub #field_name: rendiation_shader_api::Node<<#ty as rendiation_shader_api::ShaderFieldTypeMapper>::ShaderType>, }
   });
 
   let instance_fields_create = s.map_visible_fields(|(field_name, _ty)| {
@@ -55,8 +55,8 @@ fn derive_shader_struct(s: &StructInfo) -> proc_macro2::TokenStream {
 
   quote! {
     #[allow(non_upper_case_globals)]
-    pub const #meta_info_name: &shadergraph::ShaderStructMetaInfo =
-        &shadergraph::ShaderStructMetaInfo {
+    pub const #meta_info_name: &rendiation_shader_api::ShaderStructMetaInfo =
+        &rendiation_shader_api::ShaderStructMetaInfo {
           name: #struct_name_str,
           fields: &[
             #(#meta_info_fields)*
@@ -68,41 +68,41 @@ fn derive_shader_struct(s: &StructInfo) -> proc_macro2::TokenStream {
       #(#instance_fields)*
     }
 
-    impl shadergraph::ShaderGraphNodeType for #struct_name {
-      const TYPE: shadergraph::ShaderValueType =
-        shadergraph::ShaderValueType::Single(<Self as shadergraph::ShaderGraphNodeSingleType>::SINGLE_TYPE);
+    impl rendiation_shader_api::ShaderGraphNodeType for #struct_name {
+      const TYPE: rendiation_shader_api::ShaderValueType =
+        rendiation_shader_api::ShaderValueType::Single(<Self as rendiation_shader_api::ShaderGraphNodeSingleType>::SINGLE_TYPE);
     }
 
-    impl shadergraph::ShaderGraphNodeSingleType for #struct_name {
-      const SINGLE_TYPE: shadergraph::ShaderValueSingleType =
-        shadergraph::ShaderValueSingleType::Sized(shadergraph::ShaderSizedValueType::Struct(&#meta_info_name));
+    impl rendiation_shader_api::ShaderGraphNodeSingleType for #struct_name {
+      const SINGLE_TYPE: rendiation_shader_api::ShaderValueSingleType =
+        rendiation_shader_api::ShaderValueSingleType::Sized(rendiation_shader_api::ShaderSizedValueType::Struct(&#meta_info_name));
     }
 
     impl #struct_name {
       #(#field_methods)*
     }
 
-    impl shadergraph::ShaderFieldTypeMapper for #struct_name {
+    impl rendiation_shader_api::ShaderFieldTypeMapper for #struct_name {
       type ShaderType = #struct_name;
     }
 
-    impl shadergraph::ShaderSizedValueNodeType for #struct_name {
-      const MEMBER_TYPE: shadergraph::ShaderSizedValueType =
-        shadergraph::ShaderSizedValueType::Struct(&#meta_info_name);
+    impl rendiation_shader_api::ShaderSizedValueNodeType for #struct_name {
+      const MEMBER_TYPE: rendiation_shader_api::ShaderSizedValueType =
+        rendiation_shader_api::ShaderSizedValueType::Struct(&#meta_info_name);
     }
 
-    impl shadergraph::ShaderGraphStructuralNodeType for #struct_name {
+    impl rendiation_shader_api::ShaderGraphStructuralNodeType for #struct_name {
       type Instance = #shadergraph_instance_name;
-      fn meta_info() -> &'static shadergraph::ShaderStructMetaInfo{
+      fn meta_info() -> &'static rendiation_shader_api::ShaderStructMetaInfo{
         &#meta_info_name
       }
-      fn expand(node: shadergraph::Node<Self>) -> Self::Instance{
+      fn expand(node: rendiation_shader_api::Node<Self>) -> Self::Instance{
         #shadergraph_instance_name{
           #(#instance_fields_create)*
         }
       }
-      fn construct(instance: Self::Instance) -> shadergraph::Node<Self>{
-          shadergraph::ShaderGraphNodeExpr::StructConstruct {
+      fn construct(instance: Self::Instance) -> rendiation_shader_api::Node<Self>{
+          rendiation_shader_api::ShaderGraphNodeExpr::StructConstruct {
             meta: Self::meta_info(),
             fields: vec![
               #(#construct_nodes)*
@@ -112,8 +112,8 @@ fn derive_shader_struct(s: &StructInfo) -> proc_macro2::TokenStream {
     }
 
     impl #shadergraph_instance_name {
-      pub fn construct(self) -> shadergraph::Node<#struct_name> {
-        <#struct_name as shadergraph::ShaderGraphStructuralNodeType>::construct(self)
+      pub fn construct(self) -> rendiation_shader_api::Node<#struct_name> {
+        <#struct_name as rendiation_shader_api::ShaderGraphStructuralNodeType>::construct(self)
       }
     }
 

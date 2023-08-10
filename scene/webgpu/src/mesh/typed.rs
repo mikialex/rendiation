@@ -3,7 +3,7 @@ use core::marker::PhantomData;
 use bytemuck::Pod;
 use rendiation_renderable_mesh::MeshGroupsInfo;
 use rendiation_renderable_mesh::{GroupedMesh, IndexGet, MeshGroup};
-use shadergraph::*;
+use rendiation_shader_api::*;
 use webgpu::DrawCommand;
 
 use crate::*;

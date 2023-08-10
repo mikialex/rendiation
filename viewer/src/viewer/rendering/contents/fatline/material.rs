@@ -5,7 +5,7 @@ use bytemuck::Zeroable;
 use futures::Stream;
 use incremental::*;
 use reactive::*;
-use shadergraph::*;
+use rendiation_shader_api::*;
 use webgpu::*;
 
 use crate::*;

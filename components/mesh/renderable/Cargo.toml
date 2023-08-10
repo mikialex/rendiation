@@ -8,12 +8,12 @@ version = "0.1.0"
 bytemuck = "1.4.1"
 soa_derive = "0.8.1"
 
-rendiation-algebra = {path = "../../../math/algebra"}
-rendiation-geometry = {path = "../../../math/geometry"}
+rendiation-algebra = { path = "../../../math/algebra" }
+rendiation-geometry = { path = "../../../math/geometry" }
 
-space-algorithm = {path = "../../space"}
+space-algorithm = { path = "../../space" }
 
-dyn-downcast = {path = "../../../utils/dyn-downcast"}
-fast-hash-collection = {path = "../../../utils/fast-hash-collection"}
-incremental = {path = "../../../utils/incremental"}
-shadergraph = {path = "../../../shader/graph"}
+dyn-downcast = { path = "../../../utils/dyn-downcast" }
+fast-hash-collection = { path = "../../../utils/fast-hash-collection" }
+incremental = { path = "../../../utils/incremental" }
+rendiation-shader-api = { path = "../../../shader/api" }

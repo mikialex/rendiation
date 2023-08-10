@@ -162,8 +162,8 @@ impl<T> CacheAbleBindingSource for AttachmentView<T> {
   }
 }
 
-impl<T> shadergraph::ShaderBindingProvider for AttachmentView<T> {
-  type Node = shadergraph::ShaderTexture2D;
+impl<T> rendiation_shader_api::ShaderBindingProvider for AttachmentView<T> {
+  type Node = rendiation_shader_api::ShaderTexture2D;
 }
 
 #[derive(Clone)]

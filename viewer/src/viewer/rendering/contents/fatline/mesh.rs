@@ -9,7 +9,7 @@ use incremental::*;
 use reactive::*;
 use rendiation_geometry::*;
 use rendiation_renderable_mesh::{vertex::Vertex, *};
-use shadergraph::*;
+use rendiation_shader_api::*;
 use webgpu::*;
 
 use crate::*;

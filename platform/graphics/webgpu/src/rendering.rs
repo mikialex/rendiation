@@ -1,5 +1,5 @@
+use rendiation_shader_api::*;
 use rendiation_shader_backend_naga::ShaderAPINagaImpl;
-use shadergraph::*;
 
 use crate::*;
 
@@ -16,8 +16,12 @@ pub trait RenderComponent: ShaderHashProvider + GraphicsShaderProvider + ShaderP
           .build_pipeline_by_shadergraph(
             self
               .build_self(
-                Box::new(ShaderAPINagaImpl::new(shadergraph::ShaderStages::Vertex)),
-                Box::new(ShaderAPINagaImpl::new(shadergraph::ShaderStages::Fragment)),
+                Box::new(ShaderAPINagaImpl::new(
+                  rendiation_shader_api::ShaderStages::Vertex,
+                )),
+                Box::new(ShaderAPINagaImpl::new(
+                  rendiation_shader_api::ShaderStages::Fragment,
+                )),
               )
               .unwrap(),
           )

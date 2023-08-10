@@ -1,7 +1,7 @@
 use incremental::EnumWrap;
 use rendiation_scene_core::*;
 use rendiation_scene_webgpu::*;
-use shadergraph::*;
+use rendiation_shader_api::*;
 use webgpu::*;
 
 use crate::{FatLineMaterial, FatlineMesh};

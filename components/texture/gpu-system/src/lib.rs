@@ -1,9 +1,9 @@
 // we design this crate to provide an abstraction over different global gpu texture management
 // strategy with graphics api agnostic in mind
 
-// we could not depend on shadergraph theoretically if we abstract over shader node compose
-// but that will too complicated
-use shadergraph::*;
+// we could not depend on rendiation_shader_api theoretically if we abstract over shader node
+// compose but that will too complicated
+use rendiation_shader_api::*;
 use slab::Slab;
 pub type Texture2DHandle = u32;
 pub type SamplerHandle = u32;

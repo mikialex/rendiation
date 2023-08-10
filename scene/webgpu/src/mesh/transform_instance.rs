@@ -16,7 +16,7 @@ impl Stream for TransformInstanceGPU {
 only_vertex!(TransformInstanceMat, Mat4<f32>);
 
 #[repr(C)]
-#[derive(Clone, Copy, shadergraph::ShaderVertex)]
+#[derive(Clone, Copy, rendiation_shader_api::ShaderVertex)]
 pub struct ShaderMat4VertexInput {
   #[semantic(TransformInstanceMat)]
   mat: Mat4<f32>,

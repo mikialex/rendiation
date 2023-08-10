@@ -26,7 +26,7 @@ pub fn shadergraph_fn_impl(_args: TokenStream, input: TokenStream) -> TokenStrea
     })
     .map(|(name, ty)| {
       let name = quote::format_ident!("n_{}", name);
-      quote::quote! {let #name = builder.push_fn_parameter::<<#ty as shadergraph::ProcMacroNodeHelper>::NodeType>(); }
+      quote::quote! {let #name = builder.push_fn_parameter::<<#ty as rendiation_shader_api::ProcMacroNodeHelper>::NodeType>(); }
     })
     .collect();
 
@@ -47,9 +47,9 @@ pub fn shadergraph_fn_impl(_args: TokenStream, input: TokenStream) -> TokenStrea
     .collect();
 
   let rt_type = match rt {
-    syn::ReturnType::Default => quote::quote! { shadergraph::AnyType },
+    syn::ReturnType::Default => quote::quote! { rendiation_shader_api::AnyType },
     syn::ReturnType::Type(_, ty) => {
-      quote::quote! { <#ty as shadergraph::ProcMacroNodeHelper>::NodeType }
+      quote::quote! { <#ty as rendiation_shader_api::ProcMacroNodeHelper>::NodeType }
     }
   };
 
