@@ -1,5 +1,22 @@
 use crate::*;
 
+pub trait ShaderIteratorAble {
+  type Item: ShaderGraphNodeType;
+}
+
+pub enum ShaderIterator {
+  Const(u32),
+  Count(ShaderGraphNodeRawHandle),
+  FixedArray {
+    array: ShaderGraphNodeRawHandle,
+    length: usize,
+  },
+  Clamped {
+    source: Box<Self>,
+    max: ShaderGraphNodeRawHandle,
+  },
+}
+
 pub struct ForCtx {
   target_scope_id: ShaderGraphNodeRawHandle,
 }

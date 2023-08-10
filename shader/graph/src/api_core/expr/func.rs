@@ -1,5 +1,36 @@
 use crate::*;
 
+pub enum ShaderFunctionType {
+  Custom(&'static ShaderFunctionMetaInfo),
+  BuiltIn(ShaderBuiltInFunction),
+}
+
+/// use for compile time ubo field reflection by procedure macro;
+#[derive(Debug, Clone)]
+pub struct ShaderFunctionMetaInfo {
+  pub function_name: &'static str,
+  pub function_source: &'static str,
+  pub depend_functions: &'static [&'static ShaderFunctionMetaInfo],
+  pub depend_types: &'static [&'static ShaderStructMetaInfo],
+}
+
+// todo use other uuid mechanism as identity
+impl Eq for ShaderFunctionMetaInfo {}
+impl PartialEq for ShaderFunctionMetaInfo {
+  fn eq(&self, other: &Self) -> bool {
+    self.function_name == other.function_name
+  }
+}
+
+impl Hash for ShaderFunctionMetaInfo {
+  fn hash<H>(&self, state: &mut H)
+  where
+    H: Hasher,
+  {
+    self.function_name.hash(state);
+  }
+}
+
 pub struct FunctionBuildCtx<T>(PhantomData<T>);
 
 pub enum ShaderFnTryDefineResult<T> {

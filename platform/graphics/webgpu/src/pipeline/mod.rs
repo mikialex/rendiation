@@ -47,7 +47,7 @@ pub fn map_shader_value_ty_to_binding_layout_type(
   let ty = v
     .ty
     .visit_single(|ty| match *ty {
-      Fixed(_) => gpu::BindingType::Buffer {
+      Sized(_) => gpu::BindingType::Buffer {
         ty: if v.should_as_storage_buffer_if_is_buffer_like {
           gpu::BufferBindingType::Storage { read_only: true }
         } else {

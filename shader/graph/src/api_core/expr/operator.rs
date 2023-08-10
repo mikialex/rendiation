@@ -1,5 +1,48 @@
 use crate::*;
 
+pub enum UnaryOperator {
+  LogicalNot,
+}
+
+pub enum BinaryOperator {
+  Add,
+  Sub,
+  Mul,
+  Div,
+  Rem,
+  Eq,
+  NotEq,
+  GreaterThan,
+  LessThan,
+  GreaterEqualThan,
+  LessEqualThan,
+  LogicalOr,
+  LogicalAnd,
+  BitAnd,
+  BitOr,
+}
+pub enum OperatorNode {
+  Unary {
+    one: ShaderGraphNodeRawHandle,
+    operator: UnaryOperator,
+  },
+  Binary {
+    left: ShaderGraphNodeRawHandle,
+    right: ShaderGraphNodeRawHandle,
+    operator: BinaryOperator,
+  },
+  Index {
+    array: ShaderGraphNodeRawHandle,
+    entry: ShaderGraphNodeRawHandle,
+  },
+}
+
+impl OperatorNode {
+  pub fn insert_graph<T: ShaderGraphNodeType>(self) -> Node<T> {
+    ShaderGraphNodeExpr::Operator(self).insert_graph()
+  }
+}
+
 impl<T, U> Add for Node<T>
 where
   U: ShaderGraphNodeType,

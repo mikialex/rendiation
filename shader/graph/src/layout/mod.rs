@@ -1,4 +1,7 @@
+pub use typed::*;
+
 use crate::*;
+mod typed;
 
 /// Trait implemented for all `std140` primitives. Generally should not be
 /// implemented outside this crate.

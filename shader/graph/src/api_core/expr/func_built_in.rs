@@ -2,6 +2,23 @@ use rendiation_algebra::SquareMatrix;
 
 use crate::*;
 
+pub enum ShaderBuiltInFunction {
+  MatTranspose,
+  Normalize,
+  Length,
+  Dot,
+  Cross,
+  SmoothStep,
+  Select,
+  Min,
+  Max,
+  Clamp,
+  Abs,
+  Pow,
+  Saturate,
+  // todo other math
+}
+
 pub fn make_builtin_call<T: ShaderGraphNodeType>(
   ty: ShaderBuiltInFunction,
   params: impl IntoIterator<Item = ShaderGraphNodeRawHandle>,

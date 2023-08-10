@@ -2,9 +2,7 @@ use shadergraph::*;
 
 pub use crate::*;
 
-impl<T: ShaderStructMemberValueNodeType + Std140> ShaderBindingProvider
-  for UniformBufferDataView<T>
-{
+impl<T: ShaderSizedValueNodeType + Std140> ShaderBindingProvider for UniformBufferDataView<T> {
   type Node = T;
 }
 

@@ -80,9 +80,9 @@ impl ShaderAPINagaImpl {
   fn register_ty_impl(&mut self, ty: ShaderValueType) -> naga::Handle<naga::Type> {
     let ty = match ty {
       ShaderValueType::Single(v) => match v {
-        ShaderValueSingleType::Fixed(f) => match f {
-          ShaderStructMemberValueType::Primitive(p) => map_primitive_type(p),
-          ShaderStructMemberValueType::Struct(st) => {
+        ShaderValueSingleType::Sized(f) => match f {
+          ShaderSizedValueType::Primitive(p) => map_primitive_type(p),
+          ShaderSizedValueType::Struct(st) => {
             let members = st
               .fields
               .iter()
@@ -101,8 +101,8 @@ impl ShaderAPINagaImpl {
               span: todo!(),
             }
           }
-          ShaderStructMemberValueType::FixedSizeArray((ty, size)) => naga::TypeInner::Array {
-            base: self.register_ty_impl(ShaderValueType::Single(ShaderValueSingleType::Fixed(*ty))),
+          ShaderSizedValueType::FixedSizeArray((ty, size)) => naga::TypeInner::Array {
+            base: self.register_ty_impl(ShaderValueType::Single(ShaderValueSingleType::Sized(*ty))),
             size: naga::ArraySize::Constant(NonZeroU32::new(size as u32).unwrap()),
             stride: todo!(),
           },

@@ -167,7 +167,7 @@ impl CameraGPU {
   pub fn inject_uniforms(
     &self,
     builder: &mut ShaderGraphRenderPipelineBuilder,
-  ) -> UniformNodePreparer<CameraGPUTransform> {
+  ) -> BindingPreparer<CameraGPUTransform> {
     builder.bind_by(&self.ubo).using_both(builder, |r, camera| {
       let camera = camera.expand();
       r.register_typed_both_stage::<CameraViewMatrix>(camera.view);

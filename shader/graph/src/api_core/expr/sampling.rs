@@ -1,141 +1,36 @@
 use crate::*;
 
-macro_rules! sg_node_impl {
-  ($ty: ty, $ty_value: expr) => {
-    impl ShaderGraphNodeSingleType for $ty {
-      const SINGLE_TYPE: ShaderValueSingleType = $ty_value;
-    }
-    impl ShaderGraphNodeType for $ty {
-      const TYPE: ShaderValueType = ShaderValueType::Single(Self::SINGLE_TYPE);
-    }
-  };
-}
+#[derive(Clone, Copy)]
+pub struct ShaderTexture1D;
+#[derive(Clone, Copy)]
+pub struct ShaderTexture2D;
+#[derive(Clone, Copy)]
+pub struct ShaderTexture3D;
+#[derive(Clone, Copy)]
+pub struct ShaderTextureCube;
+#[derive(Clone, Copy)]
+pub struct ShaderTexture2DArray;
+#[derive(Clone, Copy)]
+pub struct ShaderTextureCubeArray;
+#[derive(Clone, Copy)]
+pub struct ShaderDepthTexture2D;
+#[derive(Clone, Copy)]
+pub struct ShaderDepthTextureCube;
+#[derive(Clone, Copy)]
+pub struct ShaderDepthTexture2DArray;
+#[derive(Clone, Copy)]
+pub struct ShaderDepthTextureCubeArray;
 
-impl ShaderGraphNodeType for AnyType {
-  const TYPE: ShaderValueType = ShaderValueType::Never;
-}
+#[derive(Clone, Copy)]
+pub struct ShaderSampler;
+#[derive(Clone, Copy)]
+pub struct ShaderCompareSampler;
+
 sg_node_impl!(
   ShaderSampler,
   ShaderValueSingleType::Sampler(SamplerBindingType::Filtering)
 );
 sg_node_impl!(ShaderCompareSampler, ShaderValueSingleType::CompareSampler);
-
-// Impl Notes:
-//
-// impl<T: PrimitiveShaderGraphNodeType> ShaderGraphNodeType for T {
-//   const TYPE: ShaderValueSingleType =
-//     ShaderValueSingleType::Fixed(ShaderStructMemberValueType::Primitive(T::PRIMITIVE_TYPE));
-// }
-// impl<T: PrimitiveShaderGraphNodeType> ShaderStructMemberValueNodeType for T {
-//   const TYPE: ShaderStructMemberValueType =
-//     ShaderStructMemberValueType::Primitive(T::PRIMITIVE_TYPE);
-// }
-//
-// We can not use above auto impl but the macro because rust not support trait associate const
-// specialization
-
-/// Impl note: why we not use the follow code instead of macro?
-macro_rules! primitive_ty {
-  ($ty: ty, $primitive_ty_value: expr, $to_primitive: expr) => {
-    sg_node_impl!(
-      $ty,
-      ShaderValueSingleType::Fixed(ShaderStructMemberValueType::Primitive($primitive_ty_value))
-    );
-
-    impl ShaderStructMemberValueNodeType for $ty {
-      const MEMBER_TYPE: ShaderStructMemberValueType =
-        ShaderStructMemberValueType::Primitive($primitive_ty_value);
-    }
-
-    impl PrimitiveShaderGraphNodeType for $ty {
-      const PRIMITIVE_TYPE: PrimitiveShaderValueType = $primitive_ty_value;
-      fn to_primitive(&self) -> PrimitiveShaderValue {
-        $to_primitive(*self)
-      }
-    }
-  };
-}
-
-impl<T: ShaderStructMemberValueNodeType, const N: usize> ShaderGraphNodeSingleType for [T; N] {
-  const SINGLE_TYPE: ShaderValueSingleType = ShaderValueSingleType::Fixed(
-    ShaderStructMemberValueType::FixedSizeArray((&T::MEMBER_TYPE, N)),
-  );
-}
-impl<T: ShaderStructMemberValueNodeType, const N: usize> ShaderGraphNodeType for [T; N] {
-  const TYPE: ShaderValueType = ShaderValueType::Single(Self::SINGLE_TYPE);
-}
-
-impl<T: ShaderStructMemberValueNodeType, const N: usize> ShaderGraphNodeSingleType
-  for Shader140Array<T, N>
-{
-  const SINGLE_TYPE: ShaderValueSingleType = ShaderValueSingleType::Fixed(
-    ShaderStructMemberValueType::FixedSizeArray((&T::MEMBER_TYPE, N)),
-  );
-}
-impl<T: ShaderStructMemberValueNodeType, const N: usize> ShaderGraphNodeType
-  for Shader140Array<T, N>
-{
-  const TYPE: ShaderValueType = ShaderValueType::Single(Self::SINGLE_TYPE);
-}
-
-impl<T: ShaderStructMemberValueNodeType, const N: usize> ShaderStructMemberValueNodeType
-  for [T; N]
-{
-  const MEMBER_TYPE: ShaderStructMemberValueType =
-    ShaderStructMemberValueType::FixedSizeArray((&T::MEMBER_TYPE, N));
-}
-
-impl<T: ShaderStructMemberValueNodeType, const N: usize> ShaderStructMemberValueNodeType
-  for Shader140Array<T, N>
-{
-  const MEMBER_TYPE: ShaderStructMemberValueType =
-    ShaderStructMemberValueType::FixedSizeArray((&T::MEMBER_TYPE, N));
-}
-
-impl<T: ShaderGraphNodeSingleType, const N: usize> ShaderGraphNodeType for BindingArray<T, N> {
-  const TYPE: ShaderValueType = ShaderValueType::BindingArray {
-    ty: T::SINGLE_TYPE,
-    count: N,
-  };
-}
-
-// we group them together just to skip rustfmt entirely
-#[rustfmt::skip]
-mod impls {
-  use crate::*;
-  primitive_ty!(bool, PrimitiveShaderValueType::Bool,  PrimitiveShaderValue::Bool);
-  primitive_ty!(u32, PrimitiveShaderValueType::Uint32,  PrimitiveShaderValue::Uint32);
-  primitive_ty!(i32, PrimitiveShaderValueType::Int32,  PrimitiveShaderValue::Int32);
-  primitive_ty!(f32, PrimitiveShaderValueType::Float32,  PrimitiveShaderValue::Float32);
-  primitive_ty!(Vec2<f32>, PrimitiveShaderValueType::Vec2Float32,  PrimitiveShaderValue::Vec2Float32);
-  primitive_ty!(Vec3<f32>, PrimitiveShaderValueType::Vec3Float32,  PrimitiveShaderValue::Vec3Float32);
-  primitive_ty!(Vec4<f32>, PrimitiveShaderValueType::Vec4Float32,  PrimitiveShaderValue::Vec4Float32);
-  primitive_ty!(Vec2<u32>, PrimitiveShaderValueType::Vec2Uint32,  PrimitiveShaderValue::Vec2Uint32);
-  primitive_ty!(Vec3<u32>, PrimitiveShaderValueType::Vec3Uint32,  PrimitiveShaderValue::Vec3Uint32);
-  primitive_ty!(Vec4<u32>, PrimitiveShaderValueType::Vec4Uint32,  PrimitiveShaderValue::Vec4Uint32);
-  primitive_ty!(Mat2<f32>, PrimitiveShaderValueType::Mat2Float32,  PrimitiveShaderValue::Mat2Float32);
-  primitive_ty!(Mat3<f32>, PrimitiveShaderValueType::Mat3Float32,  PrimitiveShaderValue::Mat3Float32);
-  primitive_ty!(Mat4<f32>, PrimitiveShaderValueType::Mat4Float32,  PrimitiveShaderValue::Mat4Float32);
-}
-
-macro_rules! vertex_input_node_impl {
-  ($ty: ty, $format: expr) => {
-    impl VertexInShaderGraphNodeType for $ty {
-      fn to_vertex_format() -> VertexFormat {
-        $format
-      }
-    }
-  };
-}
-vertex_input_node_impl!(f32, VertexFormat::Float32);
-vertex_input_node_impl!(Vec2<f32>, VertexFormat::Float32x2);
-vertex_input_node_impl!(Vec3<f32>, VertexFormat::Float32x3);
-vertex_input_node_impl!(Vec4<f32>, VertexFormat::Float32x4);
-
-vertex_input_node_impl!(u32, VertexFormat::Uint32);
-vertex_input_node_impl!(Vec2<u32>, VertexFormat::Uint32x2);
-vertex_input_node_impl!(Vec3<u32>, VertexFormat::Uint32x3);
-vertex_input_node_impl!(Vec4<u32>, VertexFormat::Uint32x4);
 
 sg_node_impl!(
   ShaderTexture2D,

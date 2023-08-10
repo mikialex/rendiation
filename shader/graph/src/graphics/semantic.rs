@@ -1,5 +1,45 @@
 use crate::*;
 
+#[derive(Default)]
+pub struct SemanticRegistry {
+  registered: FastHashMap<TypeId, Node<AnyType>>,
+}
+
+impl SemanticRegistry {
+  pub fn query_typed_both_stage<T: SemanticFragmentShaderValue + SemanticFragmentShaderValue>(
+    &self,
+  ) -> Result<Node<T::ValueType>, ShaderGraphBuildError> {
+    self
+      .query(TypeId::of::<T>(), T::NAME)
+      .map(|n| unsafe { std::mem::transmute(n) })
+  }
+
+  pub fn register_typed_both_stage<T: SemanticVertexShaderValue + SemanticFragmentShaderValue>(
+    &mut self,
+    node: impl Into<Node<<T as SemanticVertexShaderValue>::ValueType>>,
+  ) {
+    self.register(TypeId::of::<T>(), node.into().cast_untyped_node());
+  }
+
+  pub fn query(
+    &self,
+    id: TypeId,
+    name: &'static str,
+  ) -> Result<Node<AnyType>, ShaderGraphBuildError> {
+    self
+      .registered
+      .get(&id)
+      .copied()
+      .ok_or(ShaderGraphBuildError::MissingRequiredDependency(name))
+  }
+
+  pub fn register(&mut self, id: TypeId, node: NodeUntyped) -> &Node<AnyType> {
+    self.registered.insert(id, node);
+    // fixme, rust hashmap, pain in the ass..
+    self.registered.get(&id).unwrap()
+  }
+}
+
 #[macro_export]
 macro_rules! only_vertex {
   ($Type: ident, $NodeType: ty) => {

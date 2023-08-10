@@ -49,12 +49,12 @@ pub fn round_up(k: usize, n: usize) -> usize {
   (n + mask) & !mask
 }
 
-impl ShaderStructMemberValueType {
+impl ShaderSizedValueType {
   pub fn align_of_self(&self, target: StructLayoutTarget) -> usize {
     match self {
-      ShaderStructMemberValueType::Primitive(t) => t.align_of_self(),
-      ShaderStructMemberValueType::Struct(t) => (*t).to_owned().align_of_self(target),
-      ShaderStructMemberValueType::FixedSizeArray((t, _)) => {
+      ShaderSizedValueType::Primitive(t) => t.align_of_self(),
+      ShaderSizedValueType::Struct(t) => (*t).to_owned().align_of_self(target),
+      ShaderSizedValueType::FixedSizeArray((t, _)) => {
         let align = t.align_of_self(target);
         match target {
           StructLayoutTarget::Std140 => round_up(16, align),
@@ -66,8 +66,8 @@ impl ShaderStructMemberValueType {
 
   pub fn size_of_self(&self, target: StructLayoutTarget) -> usize {
     match self {
-      ShaderStructMemberValueType::Primitive(t) => t.size_of_self(),
-      ShaderStructMemberValueType::Struct(t) => {
+      ShaderSizedValueType::Primitive(t) => t.size_of_self(),
+      ShaderSizedValueType::Struct(t) => {
         let size = (*t).to_owned().size_of_self(target);
         // If a structure member itself has a structure type S, then the number of bytes between
         // the start of that member and the start of any following member must be at least
@@ -77,7 +77,7 @@ impl ShaderStructMemberValueType {
           StructLayoutTarget::Std430 => size,
         }
       }
-      ShaderStructMemberValueType::FixedSizeArray((ty, size)) => {
+      ShaderSizedValueType::FixedSizeArray((ty, size)) => {
         size * round_up(self.align_of_self(target), ty.size_of_self(target))
       }
     }

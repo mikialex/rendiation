@@ -83,7 +83,7 @@ pub struct ShaderLightingGeometricCtx {
 }
 
 pub trait ShaderLight:
-  ShaderGraphStructuralNodeType + ShaderStructMemberValueNodeType + Std140 + Sized + Default
+  ShaderGraphStructuralNodeType + ShaderSizedValueNodeType + Std140 + Sized + Default
 {
   /// this is to avoid mutable borrow errors in for_by and if_by.
   type Dependency;
@@ -105,7 +105,7 @@ pub trait ShaderLight:
 /// Punctual lights are defined as parameterized, infinitely small points that
 /// emit light in well-defined directions and intensities.
 pub trait PunctualShaderLight:
-  ShaderGraphStructuralNodeType + ShaderStructMemberValueNodeType + Std140 + Sized + Default
+  ShaderGraphStructuralNodeType + ShaderSizedValueNodeType + Std140 + Sized + Default
 {
   type PunctualDependency;
 

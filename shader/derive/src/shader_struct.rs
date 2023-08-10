@@ -23,7 +23,7 @@ fn derive_shader_struct(s: &StructInfo) -> proc_macro2::TokenStream {
     quote! {
      shadergraph::ShaderStructFieldMetaInfo {
        name: #field_str,
-       ty: <<#ty as shadergraph::ShaderFieldTypeMapper>::ShaderType as shadergraph::ShaderStructMemberValueNodeType>::MEMBER_TYPE,
+       ty: <<#ty as shadergraph::ShaderFieldTypeMapper>::ShaderType as shadergraph::ShaderSizedValueNodeType>::MEMBER_TYPE,
        ty_deco: None,
      },
     }
@@ -64,7 +64,7 @@ fn derive_shader_struct(s: &StructInfo) -> proc_macro2::TokenStream {
 
     impl shadergraph::ShaderGraphNodeSingleType for #struct_name {
       const SINGLE_TYPE: shadergraph::ShaderValueSingleType =
-        shadergraph::ShaderValueSingleType::Fixed(shadergraph::ShaderStructMemberValueType::Struct(&#meta_info_name));
+        shadergraph::ShaderValueSingleType::Sized(shadergraph::ShaderSizedValueType::Struct(&#meta_info_name));
     }
 
 
@@ -72,9 +72,9 @@ fn derive_shader_struct(s: &StructInfo) -> proc_macro2::TokenStream {
       type ShaderType = #struct_name;
     }
 
-    impl shadergraph::ShaderStructMemberValueNodeType for #struct_name {
-      const MEMBER_TYPE: shadergraph::ShaderStructMemberValueType =
-        shadergraph::ShaderStructMemberValueType::Struct(&#meta_info_name);
+    impl shadergraph::ShaderSizedValueNodeType for #struct_name {
+      const MEMBER_TYPE: shadergraph::ShaderSizedValueType =
+        shadergraph::ShaderSizedValueType::Struct(&#meta_info_name);
     }
 
     impl shadergraph::ShaderGraphStructuralNodeType for #struct_name {

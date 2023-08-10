@@ -1,0 +1,207 @@
+use crate::*;
+
+impl<T> Node<T>
+where
+  T: ShaderGraphStructuralNodeType,
+{
+  pub fn expand(self) -> T::Instance {
+    T::expand(self)
+  }
+}
+
+// todo unsized struct
+pub fn extract_struct_define(
+  ty: &ShaderValueType,
+  visitor: &mut impl FnMut(&'static ShaderStructMetaInfo),
+) {
+  ty.visit_single(|ty| {
+    if let ShaderValueSingleType::Sized(v) = ty {
+      extract_struct_define_inner(v, visitor)
+    }
+  });
+}
+
+pub fn extract_struct_define_inner(
+  ty: &ShaderSizedValueType,
+  visitor: &mut impl FnMut(&'static ShaderStructMetaInfo),
+) {
+  match ty {
+    ShaderSizedValueType::Primitive(_) => {}
+    ShaderSizedValueType::Struct(s) => visitor(s),
+    ShaderSizedValueType::FixedSizeArray((ty, _)) => extract_struct_define_inner(ty, visitor),
+  }
+}
+
+pub fn expand_single<T>(struct_node: ShaderGraphNodeRawHandle, field_name: &'static str) -> Node<T>
+where
+  T: ShaderGraphNodeType,
+{
+  ShaderGraphNodeExpr::FieldGet {
+    field_name,
+    struct_node,
+  }
+  .insert_graph()
+}
+
+/// use for compile time ubo field reflection by procedure macro;
+#[derive(Debug)]
+pub struct ShaderStructMetaInfo {
+  pub name: &'static str,
+  pub fields: &'static [ShaderStructFieldMetaInfo],
+}
+
+impl ShaderStructMetaInfo {
+  pub fn to_owned(&self) -> ShaderStructMetaInfoOwned {
+    ShaderStructMetaInfoOwned {
+      name: self.name.to_owned(),
+      fields: self.fields.iter().map(|f| f.to_owned()).collect(),
+    }
+  }
+}
+
+impl PartialEq for ShaderStructMetaInfo {
+  fn eq(&self, other: &Self) -> bool {
+    self.name == other.name
+  }
+}
+impl Eq for ShaderStructMetaInfo {}
+impl Hash for ShaderStructMetaInfo {
+  fn hash<H: Hasher>(&self, state: &mut H) {
+    self.name.hash(state);
+  }
+}
+
+#[derive(Debug)]
+pub struct ShaderUnSizedStructMetaInfo {
+  pub name: &'static str,
+  pub sized_fields: &'static [ShaderStructFieldMetaInfo],
+  /// according to spec, only unsized array is supported, unsized struct is not
+  ///
+  /// https://www.w3.org/TR/WGSL/#struct-types
+  pub last_dynamic_array_field: (&'static str, &'static ShaderSizedValueType),
+}
+
+impl PartialEq for ShaderUnSizedStructMetaInfo {
+  fn eq(&self, other: &Self) -> bool {
+    self.name == other.name
+  }
+}
+impl Eq for ShaderUnSizedStructMetaInfo {}
+impl Hash for ShaderUnSizedStructMetaInfo {
+  fn hash<H: Hasher>(&self, state: &mut H) {
+    self.name.hash(state);
+  }
+}
+
+/// https://www.w3.org/TR/WGSL/#builtin-values
+#[derive(Debug, Copy, Clone)]
+pub enum ShaderBuiltInDecorator {
+  VertexIndex,
+  InstanceIndex,
+  VertexPositionOut,
+  FragmentPositionIn,
+  FrontFacing,
+  FragDepth,
+}
+
+#[derive(Debug, Copy, Clone)]
+pub enum ShaderFieldDecorator {
+  BuiltIn(ShaderBuiltInDecorator),
+  Location(usize),
+}
+
+/// This trait is to mapping the real struct ty into the shadergraph node ty.
+/// These types may be different because the std140 type substitution
+pub trait ShaderFieldTypeMapper {
+  type ShaderType: ShaderSizedValueNodeType;
+}
+
+// Impl notes:
+//
+// impl<T: ShaderSizedValueNodeType> ShaderFieldTypeMapper for T {
+//   type ShaderType = T;
+// }
+//
+// The reason we can not use this(above) with default ShaderType specialization is
+//  the compiler can't infer this type equality:
+// `let v: <rendiation_algebra::Vec4<f32> as ShaderFieldTypeMapper>::ShaderType = Vec4::default();`
+//
+//  So we have to impl for all the types we know
+
+macro_rules! shader_field_ty_mapper {
+  ($src:ty, $dst:ty) => {
+    impl ShaderFieldTypeMapper for $src {
+      type ShaderType = $dst;
+    }
+  };
+}
+
+// standard
+shader_field_ty_mapper!(f32, Self);
+shader_field_ty_mapper!(u32, Self);
+shader_field_ty_mapper!(i32, Self);
+shader_field_ty_mapper!(Vec2<f32>, Self);
+shader_field_ty_mapper!(Vec3<f32>, Self);
+shader_field_ty_mapper!(Vec4<f32>, Self);
+shader_field_ty_mapper!(Vec2<u32>, Self);
+shader_field_ty_mapper!(Vec3<u32>, Self);
+shader_field_ty_mapper!(Vec4<u32>, Self);
+shader_field_ty_mapper!(Mat2<f32>, Self);
+shader_field_ty_mapper!(Mat3<f32>, Self);
+shader_field_ty_mapper!(Mat4<f32>, Self);
+
+// std140
+shader_field_ty_mapper!(Shader16PaddedMat2, Mat2<f32>);
+shader_field_ty_mapper!(Shader16PaddedMat3, Mat3<f32>);
+shader_field_ty_mapper!(Bool, bool);
+
+impl<T: ShaderSizedValueNodeType, const U: usize> ShaderFieldTypeMapper for Shader140Array<T, U> {
+  type ShaderType = [T; U];
+}
+
+#[derive(Debug)]
+pub struct ShaderStructFieldMetaInfo {
+  pub name: &'static str,
+  pub ty: ShaderSizedValueType,
+  pub ty_deco: Option<ShaderFieldDecorator>,
+}
+
+impl ShaderStructFieldMetaInfo {
+  pub fn to_owned(&self) -> ShaderStructFieldMetaInfoOwned {
+    ShaderStructFieldMetaInfoOwned {
+      name: self.name.to_owned(),
+      ty: self.ty,
+      ty_deco: self.ty_deco,
+    }
+  }
+}
+
+pub struct ShaderStructFieldMetaInfoOwned {
+  pub name: String,
+  pub ty: ShaderSizedValueType,
+  pub ty_deco: Option<ShaderFieldDecorator>,
+}
+
+pub struct ShaderStructMetaInfoOwned {
+  pub name: String,
+  pub fields: Vec<ShaderStructFieldMetaInfoOwned>,
+}
+
+impl ShaderStructMetaInfoOwned {
+  pub fn new(name: &str) -> Self {
+    Self {
+      name: name.to_owned(),
+      fields: Default::default(),
+    }
+  }
+
+  #[must_use]
+  pub fn add_field<T: ShaderSizedValueNodeType>(mut self, name: &str) -> Self {
+    self.fields.push(ShaderStructFieldMetaInfoOwned {
+      name: name.to_owned(),
+      ty: T::MEMBER_TYPE,
+      ty_deco: None,
+    });
+    self
+  }
+}

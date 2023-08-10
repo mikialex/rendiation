@@ -2,21 +2,12 @@
 #![allow(incomplete_features)]
 #![feature(local_key_cell_methods)]
 
-pub mod layout_typed;
-pub use layout_typed::*;
+mod api_core;
+mod compute;
+mod graphics;
+mod layout;
+mod re_export;
 
-pub mod api;
-pub mod gir;
-pub mod graph;
-
-pub use api::*;
-pub use gir::*;
-pub use graph::*;
-
-pub mod traits_impl;
-pub use traits_impl::*;
-
-pub mod layout;
 use std::{
   any::{Any, TypeId},
   cell::RefCell,
@@ -25,9 +16,13 @@ use std::{
   ops::*,
 };
 
+pub use api_core::*;
 pub use bytemuck::*;
+pub use compute::*;
 use fast_hash_collection::*;
+pub use graphics::*;
 pub use layout::*;
+pub use re_export::*;
 pub use rendiation_algebra::*;
 pub use shader_derives::*;
 

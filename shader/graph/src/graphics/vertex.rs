@@ -226,6 +226,30 @@ pub trait VertexInBuilder {
     S: SemanticVertexShaderValue<ValueType = Self>;
 }
 
+/// Mark self type could use as vertex buffer input
+pub trait VertexInShaderGraphNodeType: PrimitiveShaderGraphNodeType {
+  fn to_vertex_format() -> VertexFormat;
+}
+
+macro_rules! vertex_input_node_impl {
+  ($ty: ty, $format: expr) => {
+    impl VertexInShaderGraphNodeType for $ty {
+      fn to_vertex_format() -> VertexFormat {
+        $format
+      }
+    }
+  };
+}
+vertex_input_node_impl!(f32, VertexFormat::Float32);
+vertex_input_node_impl!(Vec2<f32>, VertexFormat::Float32x2);
+vertex_input_node_impl!(Vec3<f32>, VertexFormat::Float32x3);
+vertex_input_node_impl!(Vec4<f32>, VertexFormat::Float32x4);
+
+vertex_input_node_impl!(u32, VertexFormat::Uint32);
+vertex_input_node_impl!(Vec2<u32>, VertexFormat::Uint32x2);
+vertex_input_node_impl!(Vec3<u32>, VertexFormat::Uint32x3);
+vertex_input_node_impl!(Vec4<u32>, VertexFormat::Uint32x4);
+
 impl<T: VertexInShaderGraphNodeType> VertexInBuilder for T {
   fn build_attribute<S>(
     builder: &mut AttributesListBuilder,

@@ -93,28 +93,3 @@ impl ShaderGraphNodeRawHandle {
     unsafe { self.into_node() }
   }
 }
-
-// todo unsized struct
-pub fn extract_struct_define(
-  ty: &ShaderValueType,
-  visitor: &mut impl FnMut(&'static ShaderStructMetaInfo),
-) {
-  ty.visit_single(|ty| {
-    if let ShaderValueSingleType::Fixed(v) = ty {
-      extract_struct_define_inner(v, visitor)
-    }
-  });
-}
-
-pub fn extract_struct_define_inner(
-  ty: &ShaderStructMemberValueType,
-  visitor: &mut impl FnMut(&'static ShaderStructMetaInfo),
-) {
-  match ty {
-    ShaderStructMemberValueType::Primitive(_) => {}
-    ShaderStructMemberValueType::Struct(s) => visitor(s),
-    ShaderStructMemberValueType::FixedSizeArray((ty, _)) => {
-      extract_struct_define_inner(ty, visitor)
-    }
-  }
-}
