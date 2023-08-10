@@ -107,45 +107,27 @@ impl<T: ShadingBackground> GraphicsShaderProvider for ShadingBackgroundTask<T> {
   }
 }
 
-wgsl_fn!(
-  fn background_direction(vertex_index: u32, view: mat4x4<f32>, projection_inv: mat4x4<f32>) -> vec3<f32> {
-    // hacky way to draw a large triangle
-    let tmp1 = i32(vertex_index) / 2;
-    let tmp2 = i32(vertex_index) & 1;
-    let pos = vec4<f32>(
-      f32(tmp1) * 4.0 - 1.0,
-      f32(tmp2) * 4.0 - 1.0,
-      1.0,
-      1.0
-    );
+#[shadergraph_fn]
+fn background_direction(
+  vertex_index: Node<u32>,
+  view: Node<Mat4<f32>>,
+  projection_inv: Node<Mat4<f32>>,
+) -> Node<Vec3<f32>> {
+  // hacky way to draw a large triangle
+  let tmp1 = vertex_index.into_i32() / val(2);
+  let tmp2 = vertex_index.into_i32() & val(1);
+  let pos = (
+    tmp1.into_f32() * val(4.0) - val(1.0),
+    tmp2.into_f32() * val(4.0) - val(1.0),
+    val(1.0),
+    val(1.0),
+  )
+    .into();
 
-    // transposition = inversion for this orthonormal matrix
-    let inv_model_view = transpose(mat3x3<f32>(view.x.xyz, view.y.xyz, view.z.xyz));
-    let unprojected = projection_inv * pos;
+  let model_view: Node<Mat3<f32>> = (view.x().xyz(), view.y().xyz(), view.z().xyz()).into();
+  let inv_model_view = model_view.transpose(); // orthonormal
 
-    return inv_model_view * unprojected.xyz;
-  }
-);
+  let unprojected = projection_inv * pos;
 
-// // shadergraph::define_shader_fn(background_direction2);
-
-// #[shadergraph_fn]
-// fn background_direction2(
-//   vertex_index: Node<u32>,
-//   view: Node<Mat4<f32>>,
-//   projection_inv: Node<Mat4<f32>>) -> Node<Vec3<f32>> {   // hacky way to draw a large triangle
-//   let tmp1 = vertex_index.into_i32() / val(2);
-//   let tmp2 = vertex_index.into_i32() & val(1);
-//   let pos = (
-//     tmp1.into_f32() * val(4.0) - val(1.0),
-//     tmp2.into_f32() * val(4.0) - val(1.0),
-//     1.0,
-//     1.0
-//   ).into();
-
-//   // transposition = inversion for this orthonormal matrix
-//   let inv_model_view = transpose(mat3x3<f32>(view.x.xyz, view.y.xyz, view.z.xyz));
-//   let unprojected = projection_inv * pos;
-
-//   return inv_model_view * unprojected.xyz();
-// }
+  inv_model_view * unprojected.xyz()
+}

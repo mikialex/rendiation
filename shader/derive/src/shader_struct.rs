@@ -29,13 +29,21 @@ fn derive_shader_struct(s: &StructInfo) -> proc_macro2::TokenStream {
     }
   });
 
+  let field_methods = s.map_visible_fields(|(field_name, ty)| {
+    let field_str = format!("{field_name}");
+    quote! {
+      pub fn #field_name(node: shadergraph::Node<Self>) -> shadergraph::Node<<#ty as shadergraph::ShaderFieldTypeMapper>::ShaderType>{
+        shadergraph::expand_single::<<#ty as shadergraph::ShaderFieldTypeMapper>::ShaderType>(node.handle(), #field_str)
+      }
+    }
+  });
+
   let instance_fields = s.map_visible_fields(|(field_name, ty)| {
     quote! { pub #field_name: shadergraph::Node<<#ty as shadergraph::ShaderFieldTypeMapper>::ShaderType>, }
   });
 
-  let instance_fields_create = s.map_visible_fields(|(field_name, ty)| {
-    let field_str = format!("{field_name}");
-    quote! { #field_name: shadergraph::expand_single::<<#ty as shadergraph::ShaderFieldTypeMapper>::ShaderType>(node.handle(), #field_str), }
+  let instance_fields_create = s.map_visible_fields(|(field_name, _ty)| {
+    quote! { #field_name: Self::#field_name(node), }
   });
 
   let construct_nodes = s.map_visible_fields(|(field_name, _ty)| {
@@ -67,6 +75,9 @@ fn derive_shader_struct(s: &StructInfo) -> proc_macro2::TokenStream {
         shadergraph::ShaderValueSingleType::Sized(shadergraph::ShaderSizedValueType::Struct(&#meta_info_name));
     }
 
+    impl #struct_name {
+      #(#field_methods)*
+    }
 
     impl shadergraph::ShaderFieldTypeMapper for #struct_name {
       type ShaderType = #struct_name;

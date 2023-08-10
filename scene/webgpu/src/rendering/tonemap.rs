@@ -49,7 +49,7 @@ impl GraphicsShaderProvider for ToneMap {
         ToneMapType::Linear => linear_tone_mapping(hdr, exposure),
         ToneMapType::Reinhard => reinhard_tone_mapping(hdr, exposure),
         ToneMapType::Cineon => optimized_cineon_tone_mapping(hdr, exposure),
-        ToneMapType::ACESFilmic => ACESFilmicToneMapping(hdr, exposure),
+        ToneMapType::ACESFilmic => aces_filmic_tone_mapping(hdr, exposure),
       };
 
       builder.register::<LDRLightResult>(mapped);
@@ -80,20 +80,11 @@ fn val_v3s(f: f32) -> Node<Vec3<f32>> {
 /// source: http://filmicworlds.com/blog/filmic-tonemapping-operators/
 fn optimized_cineon_tone_mapping(color: Node<Vec3<f32>>, exposure: Node<f32>) -> Node<Vec3<f32>> {
   let color = exposure * color;
-  let color = (color - val_v3s(0.004)).max(val(Vec3::zero()));
+  let color = (color - val_v3s(0.004)).max(Vec3::zero());
   let color = (color * (val(6.2) * color + val_v3s(0.5)))
     / (color * (val(6.2) * color + val_v3s(1.7)) + val_v3s(0.06));
-  color.pow(val(2.2))
+  color.pow(2.2)
 }
-
-wgsl_fn!(
-  // source: https://github.com/selfshadow/ltc_code/blob/master/webgl/shaders/ltc/ltc_blit.fs
-  fn RRTAndODTFit(v: vec3<f32>, toneMappingExposure: f32) -> vec3<f32> {
-    let a = v * (v + 0.0245786) - 0.000090537;
-    let b = v * (0.983729 * v + 0.4329510) + 0.238081;
-    return a / b;
-  }
-);
 
 // source: https://github.com/selfshadow/ltc_code/blob/master/webgl/shaders/ltc/ltc_blit.fs
 fn rrt_and_odt_fit(v: Node<Vec3<f32>>) -> Node<Vec3<f32>> {
@@ -102,39 +93,37 @@ fn rrt_and_odt_fit(v: Node<Vec3<f32>>) -> Node<Vec3<f32>> {
   a / b
 }
 
-wgsl_fn!(
-  // this implementation of ACES is modified to accommodate a brighter viewing environment.
-  // the scale factor of 1/0.6 is subjective. see discussion in #19621.
-  fn ACESFilmicToneMapping(c: vec3<f32>, toneMappingExposure: f32) -> vec3<f32> {
-    // sRGB => XYZ => D65_2_D60 => AP1 => RRT_SAT
-    let ACESInputMat = mat3x3<f32>(
-      vec3<f32>( 0.59719, 0.07600, 0.02840 ), // transposed from source
-      vec3<f32>( 0.35458, 0.90834, 0.13383 ),
-      vec3<f32>( 0.04823, 0.01566, 0.83777 )
-    );
+/// this implementation of ACES is modified to accommodate a brighter viewing environment.
+/// the scale factor of 1/0.6 is subjective. see discussion in #19621 in three.js repo.
+fn aces_filmic_tone_mapping(color: Node<Vec3<f32>>, exposure: Node<f32>) -> Node<Vec3<f32>> {
+  // sRGB => XYZ => D65_2_D60 => AP1 => RRT_SAT
+  let aces_input_mat: Node<Mat3<f32>> = (
+    (val(0.59719), val(0.07600), val(0.02840)).into(), // transposed from source
+    (val(0.35458), val(0.90834), val(0.13383)).into(),
+    (val(0.04823), val(0.01566), val(0.83777)).into(),
+  )
+    .into();
 
-    // ODT_SAT => XYZ => D60_2_D65 => sRGB
-    let ACESOutputMat = mat3x3<f32>(
-      vec3<f32>(  1.60475, -0.10208, -0.00327 ), // transposed from source
-      vec3<f32>( -0.53108,  1.10813, -0.07276 ),
-      vec3<f32>( -0.07367, -0.00605,  1.07602 )
-    );
+  // ODT_SAT => XYZ => D60_2_D65 => sRGB
+  let aces_output_mat: Node<Mat3<f32>> = (
+    (val(1.60475), val(-0.10208), val(-0.00327)).into(), // transposed from source
+    (val(-0.53108), val(1.10813), val(-0.07276)).into(),
+    (val(-0.07367), val(-0.00605), val(1.07602)).into(),
+  )
+    .into();
 
-    var color = c;
+  let mut color = color;
+  color *= exposure / val_v3s(0.6);
 
-    color *= toneMappingExposure / 0.6;
+  color = aces_input_mat * color;
 
-    color = ACESInputMat * color;
+  // Apply RRT and ODT
+  color = rrt_and_odt_fit(color);
 
-    // Apply RRT and ODT
-    color = RRTAndODTFit(color, toneMappingExposure);
+  color = aces_output_mat * color;
 
-    color = ACESOutputMat * color;
-
-    // Clamp to [0, 1]
-    return saturate(color);
-  }
-);
+  color.saturate()
+}
 
 struct ToneMapTask<'a, T> {
   hdr: AttachmentView<T>,

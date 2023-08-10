@@ -94,7 +94,7 @@ pub fn punctual_light_intensity_to_illuminance_factor(
   cutoff_distance: Node<f32>,
 ) -> Node<f32> {
   let l2 = light_distance * light_distance;
-  let distance_falloff = val(1.0) / l2.max(val(0.01));
+  let distance_falloff = val(1.0) / l2.max(0.01);
 
   let ratio = light_distance / cutoff_distance;
   let cutoff = val(1.0) - ratio * ratio * ratio * ratio;

@@ -124,6 +124,20 @@ impl GraphicsShaderProvider for GridGroundShading {
   }
 }
 
+// #[shadergraph_fn]
+// fn grid(position: Node<Vec3<f32>>, config: Node<GridGroundConfig>) -> Node<Vec4<f32>> {
+//   let coord = position.xz() * GridGroundConfig::scale(config);
+//   let grid = ((coord - val(0.5)).fract() - val(0.5)).abs() / coord.fwidth();
+//   let lined = grid.x().min(grid.y());
+//   (
+//     val(0.2),
+//     val(0.2),
+//     val(0.2),
+//     val(1.0) - lined.min(val(1.0) + val(0.1)),
+//   )
+//     .into()
+// }
+
 wgsl_fn!(
   fn grid(position: vec3<f32>, config: GridGroundConfig) -> vec4<f32> {
     let coord = position.xz * config.scale;
@@ -206,7 +220,7 @@ impl<'a> GraphicsShaderProvider for InfinityShaderPlaneEffect<'a> {
       let direction = (far - near).normalize();
       let origin = near - (near - world.position()).dot(direction) * direction;
 
-      let hit = ray_plane_intersect(origin, direction, plane);
+      let hit = ray_plane_intersect(origin, direction, plane.expand());
 
       let plane_hit = hit.xyz();
       let plane_if_hit = hit.w(); // 1 is hit, 0 is not
@@ -247,25 +261,24 @@ impl<'a> GraphicsShaderProvider for InfinityShaderPlaneEffect<'a> {
 
 both!(IsHitInfinityPlane, f32);
 
-wgsl_fn! {
-  fn ray_plane_intersect(origin: vec3<f32>, direction: vec3<f32>, plane: ShaderPlane) -> vec4<f32> {
-    let denominator = dot(plane.normal, direction);
+fn ray_plane_intersect(
+  origin: Node<Vec3<f32>>,
+  direction: Node<Vec3<f32>>,
+  plane: ENode<ShaderPlane>,
+) -> Node<Vec4<f32>> {
+  let denominator = plane.normal.dot(direction);
 
-    // if denominator == T::zero() {
-    //   // line is coplanar, return origin
-    //   if plane.distance_to(&self.origin) == T::zero() {
-    //     return T::zero().into();
-    //   }
+  // if denominator == T::zero() {
+  //   // line is coplanar, return origin
+  //   if plane.distance_to(&self.origin) == T::zero() {
+  //     return T::zero().into();
+  //   }
 
-    //   return None;
-    // }
+  //   return None;
+  // }
 
-    let t = -(dot(origin, plane.normal) + plane.constant) / denominator;
+  let t = (plane.normal.dot(origin) + plane.constant) / denominator;
 
-    if (t >= 0.0) {
-      return vec4<f32>(origin + direction * t, 1.0);
-    } else {
-      return vec4<f32>(0.0);
-    }
-  }
+  t.less_than(0.)
+    .select(Vec4::zero(), (origin + direction * t, val(1.0)))
 }

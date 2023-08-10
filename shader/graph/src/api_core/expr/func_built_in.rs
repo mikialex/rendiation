@@ -62,16 +62,22 @@ where
   T: PrimitiveShaderGraphNodeType, /* where
                                     * T: RealVector<f32> + PrimitiveShaderGraphNodeType, */
 {
-  pub fn min(self, other: Self) -> Self {
-    make_builtin_call(ShaderBuiltInFunction::Min, [self.handle(), other.handle()])
+  pub fn min(self, other: impl Into<Self>) -> Self {
+    make_builtin_call(
+      ShaderBuiltInFunction::Min,
+      [self.handle(), other.into().handle()],
+    )
   }
-  pub fn max(self, other: Self) -> Self {
-    make_builtin_call(ShaderBuiltInFunction::Max, [self.handle(), other.handle()])
+  pub fn max(self, other: impl Into<Self>) -> Self {
+    make_builtin_call(
+      ShaderBuiltInFunction::Max,
+      [self.handle(), other.into().handle()],
+    )
   }
-  pub fn clamp(self, min: Self, max: Self) -> Self {
+  pub fn clamp(self, min: impl Into<Self>, max: impl Into<Self>) -> Self {
     make_builtin_call(
       ShaderBuiltInFunction::Clamp,
-      [self.handle(), min.handle(), max.handle()],
+      [self.handle(), min.into().handle(), max.into().handle()],
     )
   }
 }
@@ -84,8 +90,11 @@ where
   pub fn abs(self) -> Self {
     make_builtin_call(ShaderBuiltInFunction::Abs, [self.handle()])
   }
-  pub fn pow(self, e: Node<f32>) -> Self {
-    make_builtin_call(ShaderBuiltInFunction::Pow, [self.handle(), e.handle()])
+  pub fn pow(self, e: impl Into<Node<f32>>) -> Self {
+    make_builtin_call(
+      ShaderBuiltInFunction::Pow,
+      [self.handle(), e.into().handle()],
+    )
   }
   pub fn saturate(self) -> Self {
     make_builtin_call(ShaderBuiltInFunction::Saturate, [self.handle()])
@@ -96,10 +105,10 @@ impl<T> Node<T>
 where
   T: Lerp<T> + PrimitiveShaderGraphNodeType,
 {
-  pub fn smoothstep(self, low: Self, high: Self) -> Self {
+  pub fn smoothstep(self, low: impl Into<Self>, high: impl Into<Self>) -> Self {
     make_builtin_call(
       ShaderBuiltInFunction::SmoothStep,
-      [low.handle(), high.handle(), self.handle()],
+      [low.into().handle(), high.into().handle(), self.handle()],
     )
   }
 }
@@ -127,10 +136,18 @@ impl Node<Mat4<f32>> {
 }
 
 impl Node<bool> {
-  pub fn select<T: ShaderGraphNodeType>(&self, true_case: Node<T>, false_case: Node<T>) -> Node<T> {
+  pub fn select<T: ShaderGraphNodeType>(
+    &self,
+    true_case: impl Into<Node<T>>,
+    false_case: impl Into<Node<T>>,
+  ) -> Node<T> {
     make_builtin_call(
       ShaderBuiltInFunction::Select,
-      [false_case.handle(), true_case.handle(), self.handle()],
+      [
+        false_case.into().handle(),
+        true_case.into().handle(),
+        self.handle(),
+      ],
     )
   }
 }
@@ -194,5 +211,12 @@ impl<T> Node<T> {
 
   pub fn fract(self) -> Node<T> {
     todo!()
+  }
+}
+
+// todo expand to more type
+impl Node<Vec3<f32>> {
+  pub fn max_channel(self) -> Node<f32> {
+    self.x().max(self.y()).max(self.z())
   }
 }

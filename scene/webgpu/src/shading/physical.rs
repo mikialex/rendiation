@@ -23,17 +23,9 @@ both!(ReflectanceChannel, f32);
 
 pub struct PhysicalShading;
 
-wgsl_fn!(
-  fn v_max3(v: vec3<f32>) -> f32 {
-    return max(v.x, max(v.y, v.z));
-  }
-);
-
-wgsl_fn!(
-  fn compute_dielectric_f0(reflectance: f32) -> f32 {
-    return 0.16 * reflectance * reflectance;
-  }
-);
+pub fn compute_dielectric_f0(reflectance: Node<f32>) -> Node<f32> {
+  val(0.16) * reflectance * reflectance
+}
 
 impl LightableSurfaceShading for PhysicalShading {
   type ShaderStruct = ShaderPhysicalShading;
@@ -49,7 +41,7 @@ impl LightableSurfaceShading for PhysicalShading {
 
     // assume specular workflow
     let (diffuse, f0) = if let Ok(specular) = builder.query::<SpecularChannel>() {
-      let metallic = v_max3(specular);
+      let metallic = specular.max_channel();
       (base_color * (val(1.) - metallic), specular)
     } else {
       // assume metallic workflow
@@ -81,7 +73,7 @@ impl LightableSurfaceShading for PhysicalShading {
     ctx: &ENode<ShaderLightingGeometricCtx>,
   ) -> Result<ENode<ShaderLightingResult>, ShaderGraphBuildError> {
     Ok(
-      physical_shading(
+      physical_shading_fn(
         direct_light.construct(),
         ctx.construct(),
         self_node.construct(),
@@ -91,123 +83,100 @@ impl LightableSurfaceShading for PhysicalShading {
   }
 }
 
-wgsl_fn!(
-  fn physical_shading(
-    light: ShaderIncidentLight,
-    geometry: ShaderLightingGeometricCtx,
-    shading: ShaderPhysicalShading,
-  ) -> ShaderLightingResult {
-    var result: ShaderLightingResult;
-    let nDotL = biasNDotL(dot(-light.direction, geometry.normal));
-    if nDotL == 0.0 {
-      return result;
+#[shadergraph_fn]
+fn physical_shading(
+  light: Node<ShaderIncidentLight>,
+  geometry: Node<ShaderLightingGeometricCtx>,
+  shading: Node<ShaderPhysicalShading>,
+) -> Node<ShaderLightingResult> {
+  let light = light.expand();
+  let geometry = geometry.expand();
+  let shading = shading.expand();
+
+  let n_dot_l = bias_n_dot_l((-light.direction).dot(geometry.normal));
+
+  if_by(n_dot_l.equals(0.), || {
+    let black = ENode::<ShaderLightingResult> {
+      diffuse: val(Vec3::zero()),
+      specular: val(Vec3::zero()),
     }
-    let directDiffuseBRDF = evaluateBRDFDiffuse(shading.diffuse);
-    let directSpecularBRDF = evaluateBRDFSpecular(
-      shading,
-      geometry.view_dir,
-      -light.direction,
-      geometry.normal,
-    );
-    result.diffuse += light.color * directDiffuseBRDF * nDotL;
-    result.specular += light.color * directSpecularBRDF * nDotL;
-    return result;
-  }
-);
+    .construct();
+    // todo, how to restrict this only be used in function scope??
+    do_return(black.into())
+  });
 
-wgsl_fn!(
-  // Reduces shadow mapping artifacts near tangent
-  fn biasNDotL(nDotL: f32) -> f32 {
-    return clamp(nDotL * 1.08 - 0.08, 0.0, 1.0);
-  }
-);
+  let direct_diffuse_brdf = evaluate_brdf_diffuse(shading.diffuse);
+  let direct_specular_brdf = evaluate_brdf_specular(
+    shading,
+    geometry.view_dir,
+    -light.direction,
+    geometry.normal,
+  );
 
-wgsl_fn!(
-  // Microfacet Models for Refraction through Rough Surfaces - equation (33)
-  // http://graphicrants.blogspot.com/2013/08/specular-brdf-reference.html
-  fn D_GGX(NoH: f32, roughness4: f32) -> f32 {
-    let d = (NoH * roughness4 - NoH) * NoH + 1.0;
-    // return roughness4 / (PI * d * d); todo support constant
-    return roughness4 / (3.1415926 * d * d);
+  ENode::<ShaderLightingResult> {
+    diffuse: light.color * direct_diffuse_brdf * n_dot_l,
+    specular: light.color * direct_specular_brdf * n_dot_l,
   }
-);
+  .construct()
+}
 
-wgsl_fn!(
-  // NOTE: Basically same as
-  // https://de45xmedrsdbp.cloudfront.net/Resources/files/2013SiggraphPresentationsNotes-26915738.pdf
-  // However, calculate a F90 instead of using 1.0 directly
-  fn fresnel(vDotH: f32, f0: vec3<f32>) -> vec3<f32> {
-    let fc = pow(1.0 - vDotH, 5.0);
-    let f90 = clamp(f0 * 50.0, vec3<f32>(0.0), vec3<f32>(1.0));
-    return f90 * fc + f0 * (1.0 - fc);
-  }
-);
+fn bias_n_dot_l(n_dot_l: Node<f32>) -> Node<f32> {
+  (n_dot_l * val(1.08) - val(0.08)).saturate()
+}
+
+/// Microfacet Models for Refraction through Rough Surfaces - equation (33)
+/// http://graphicrants.blogspot.com/2013/08/specular-brdf-reference.html
+fn d_ggx(n_o_h: Node<f32>, roughness4: Node<f32>) -> Node<f32> {
+  let d = (n_o_h * roughness4 - n_o_h) * n_o_h + val(1.0);
+  roughness4 / (val(f32::PI()) * d * d)
+}
 
 // NOTE: Basically same as
 // https://de45xmedrsdbp.cloudfront.net/Resources/files/2013SiggraphPresentationsNotes-26915738.pdf
 // However, calculate a F90 instead of using 1.0 directly
 #[shadergraph_fn]
-pub fn fresnel_x(v_dot_h: Node<f32>, f0: Node<Vec3<f32>>) -> Node<Vec3<f32>> {
-  let fc = (val(1.0) - v_dot_h).pow(val(5.0));
-  let f90 = (f0 * val(50.0)).clamp(val(Vec3::zero()), val(Vec3::one()));
+fn fresnel(v_dot_h: Node<f32>, f0: Node<Vec3<f32>>) -> Node<Vec3<f32>> {
+  let fc = (val(1.0) - v_dot_h).pow(5.0);
+  let f90 = (f0 * val(50.0)).clamp(Vec3::zero(), Vec3::one());
   f90 * fc + f0 * (val(1.0) - fc)
 }
 
-// fn fresnel_x_fn_test(v_dot_h: Node<f32>, f0: Node<Vec3<f32>>) -> Node<Vec3<f32>> {
-//   define_shader_fn(fresnel_x)(v_dot_h, f0)
-// }
+/// Moving Frostbite to Physically Based Rendering 3.0 - page 12, listing 2
+/// https://seblagarde.files.wordpress.com/2015/07/course_notes_moving_frostbite_to_pbr_v32.pdf
+fn v_ggx_smith_correlated(
+  n_dot_l: Node<f32>,
+  n_dot_v: Node<f32>,
+  roughness4: Node<f32>,
+) -> Node<f32> {
+  let vis_smith_v = n_dot_v * (n_dot_v * (n_dot_v - n_dot_v * roughness4) + roughness4).sqrt();
+  let vis_smith_l = n_dot_l * (n_dot_l * (n_dot_l - n_dot_l * roughness4) + roughness4).sqrt();
+  val(0.5) / (vis_smith_v + vis_smith_l)
+}
 
-// fn define_shader_fn(
-//   f: impl Fn(Node<f32>, Node<Vec3<f32>>) -> Node<Vec3<f32>>,
-// ) -> impl Fn(Node<f32>, Node<Vec3<f32>>) -> Node<Vec3<f32>> {
-//   let f_meta = begin_define_fn(std::any::type_name_of_val(&f).to_string()).unwrap_or_else(|| {
-//     let a = push_fn_parameter::<f32>();
-//     let b = push_fn_parameter::<Vec3<f32>>();
-//     let r = f(a, b);
-//     end_fn_define(Vec3::<f32>::TYPE.into())
-//   });
+fn evaluate_brdf_diffuse(diffuse_color: Node<Vec3<f32>>) -> Node<Vec3<f32>> {
+  val(1. / f32::PI()) * diffuse_color
+}
 
-//   move |a, b| unsafe { shader_fn_call(f_meta.clone(), vec![a.handle(), b.handle()]).into_node() }
-// }
+fn evaluate_brdf_specular(
+  shading: ENode<ShaderPhysicalShading>,
+  v: Node<Vec3<f32>>,
+  l: Node<Vec3<f32>>,
+  n: Node<Vec3<f32>>,
+) -> Node<Vec3<f32>> {
+  const EPSILON_SHADING: f32 = 0.0001;
 
-wgsl_fn!(
-  // Moving Frostbite to Physically Based Rendering 3.0 - page 12, listing 2
-  // https://seblagarde.files.wordpress.com/2015/07/course_notes_moving_frostbite_to_pbr_v32.pdf
-  fn V_GGX_SmithCorrelated(nDotL: f32, nDotV: f32, roughness4: f32) -> f32 {
-    let Vis_SmithV = nDotV * sqrt(nDotV * (nDotV - nDotV * roughness4) + roughness4);
-    let Vis_SmithL = nDotL * sqrt(nDotL * (nDotL - nDotL * roughness4) + roughness4);
-    return 0.5 / (Vis_SmithV + Vis_SmithL);
-  }
-);
+  let h = (l + v).normalize();
+  let n_dot_l = l.dot(n).max(0.0);
+  let n_dot_v = n.dot(v).max(EPSILON_SHADING);
+  let n_dot_h = n.dot(h).max(EPSILON_SHADING);
+  let v_hot_h = v.dot(h).max(EPSILON_SHADING);
 
-wgsl_fn!(
-  fn evaluateBRDFDiffuse(diffuseColor: vec3<f32>) -> vec3<f32> {
-    // return INVERSE_PI * diffuseColor; todo support constant
-    return 0.3183098 * diffuseColor;
-  }
-);
+  let roughness2 = shading.perceptual_roughness;
+  let roughness4 = roughness2 * roughness2;
 
-wgsl_fn!(
-  fn evaluateBRDFSpecular(
-    shading: ShaderPhysicalShading,
-    V: vec3<f32>,
-    L: vec3<f32>,
-    N: vec3<f32>,
-  ) -> vec3<f32> {
-    let EPSILON_SHADING = 0.0001; // todo constant
-    let H = normalize(L + V);
-    let nDotL = max(dot(L, N), 0.0);
-    let nDotV = max(EPSILON_SHADING, dot(N, V));
-    let nDotH = max(EPSILON_SHADING, dot(N, H));
-    let vDotH = max(EPSILON_SHADING, dot(V, H));
+  let f = fresnel(v_hot_h, shading.f0);
+  let d = d_ggx(n_dot_h, roughness4).max(0.0);
+  let g = v_ggx_smith_correlated(n_dot_l, n_dot_v, roughness4).max(0.0);
 
-    let roughness2 = shading.perceptual_roughness;
-    let roughness4 = roughness2 * roughness2;
-
-    let f = fresnel(vDotH, shading.f0);
-    let d = max(D_GGX(nDotH, roughness4), 0.0);
-    let g = max(V_GGX_SmithCorrelated(nDotL, nDotV, roughness4), 0.0);
-
-    return d * g * f;
-  }
-);
+  d * g * f
+}

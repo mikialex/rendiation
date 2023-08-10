@@ -23,9 +23,7 @@ pub fn perturb_normal_2_arb(
 
   let det = t.dot(t).max(b.dot(b));
 
-  let scale = det
-    .equals(val(0.0))
-    .select(val(0.0), face_dir * det.inverse_sqrt());
+  let scale = det.equals(0.0).select(0.0, face_dir * det.inverse_sqrt());
 
   (t * (map_norm.x() * scale) + b * (map_norm.y() * scale) + n * map_norm.z()).normalize()
 }
@@ -46,7 +44,7 @@ pub fn apply_normal_mapping(
   let face = builder
     .query::<FragmentFrontFacing>()
     .unwrap() // builtin type
-    .select(val(0.), val(1.));
+    .select(0., 1.);
 
   let normal = perturb_normal_2_arb(position, normal, normal_adjust, uv, face);
   builder.register::<FragmentWorldNormal>(normal);
@@ -72,7 +70,7 @@ pub fn apply_normal_mapping_conditional(
     let face = builder
       .query::<FragmentFrontFacing>()
       .unwrap() // builtin type
-      .select(val(0.), val(1.));
+      .select(0., 1.);
 
     let n = perturb_normal_2_arb_fn(position, normal.get(), normal_adjust, uv, face);
     normal.set(n);
@@ -83,9 +81,7 @@ pub fn apply_normal_mapping_conditional(
   normal
 }
 
-wgsl_fn!(
-  fn compute_normal_by_dxdy(position: vec3<f32>) -> vec3<f32> {
-    /// note, webgpu canvas is left handed
-    return normalize(cross(dpdy(position), dpdx(position)));
-  }
-);
+pub fn compute_normal_by_dxdy(position: Node<Vec3<f32>>) -> Node<Vec3<f32>> {
+  // note, webgpu canvas is left handed
+  position.dpdy().cross(position.dpdx()).normalize()
+}

@@ -157,3 +157,24 @@ pub fn if_by_ok(
 
   Ok(())
 }
+
+pub trait SwitchableShaderType: ShaderGraphNodeType {}
+impl SwitchableShaderType for u32 {}
+impl SwitchableShaderType for i32 {}
+
+pub struct SwitchBuilder<T>(PhantomData<T>);
+
+impl<T: SwitchableShaderType> SwitchBuilder<T> {
+  /// None is the default case
+  pub fn case(self, v: Option<T>, scope: impl FnOnce()) -> Self {
+    todo!()
+  }
+
+  pub fn end(self) {
+    todo!()
+  }
+}
+
+pub fn switch_by<T>(selector: Node<T>) -> SwitchBuilder<T> {
+  SwitchBuilder(Default::default())
+}

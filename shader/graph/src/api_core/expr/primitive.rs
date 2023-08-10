@@ -200,8 +200,13 @@ macro_rules! swizzle_all {
 
     swizzle!(Vec3<$t>, Vec2<$t>, xy);
     swizzle!(Vec3<$t>, Vec2<$t>, xx);
+    swizzle!(Vec3<$t>, Vec2<$t>, xz);
     swizzle!(Vec3<$t>, Vec2<$t>, yx);
     swizzle!(Vec3<$t>, Vec2<$t>, yy);
+    swizzle!(Vec3<$t>, Vec2<$t>, yz);
+    swizzle!(Vec3<$t>, Vec2<$t>, zx);
+    swizzle!(Vec3<$t>, Vec2<$t>, zy);
+    swizzle!(Vec3<$t>, Vec2<$t>, zz);
     swizzle!(Vec3<$t>, $t, x);
     swizzle!(Vec3<$t>, $t, y);
     swizzle!(Vec3<$t>, $t, z);
@@ -215,6 +220,17 @@ swizzle_all!(f32);
 swizzle_all!(u32);
 // swizzle_all!(i32);
 // swizzle_all!(bool);
+
+macro_rules! swizzle_mat {
+  ($t: ty) => {
+    swizzle!(Mat4<$t>, Vec4<$t>, x);
+    swizzle!(Mat4<$t>, Vec4<$t>, y);
+    swizzle!(Mat4<$t>, Vec4<$t>, z);
+    swizzle!(Mat4<$t>, Vec4<$t>, w);
+  };
+}
+
+swizzle_mat!(f32);
 
 macro_rules! num_cast {
   ($src: ty, $dst: ty) => {

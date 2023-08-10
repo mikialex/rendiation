@@ -200,20 +200,27 @@ where
   }
 }
 
+impl<T> Neg for Node<T> {
+  type Output = Self;
+  fn neg(self) -> Self::Output {
+    todo!()
+  }
+}
+
 impl<T: PartialEq> Node<T> {
-  pub fn equals(&self, other: Self) -> Node<bool> {
+  pub fn equals(&self, other: impl Into<Self>) -> Node<bool> {
     OperatorNode::Binary {
       left: self.handle(),
-      right: other.handle(),
+      right: other.into().handle(),
       operator: BinaryOperator::Eq,
     }
     .insert_graph()
   }
 
-  pub fn not_equals(&self, other: Self) -> Node<bool> {
+  pub fn not_equals(&self, other: impl Into<Self>) -> Node<bool> {
     OperatorNode::Binary {
       left: self.handle(),
-      right: other.handle(),
+      right: other.into().handle(),
       operator: BinaryOperator::NotEq,
     }
     .insert_graph()
@@ -221,18 +228,18 @@ impl<T: PartialEq> Node<T> {
 }
 
 impl<T: PartialOrd> Node<T> {
-  pub fn less_than(&self, other: Self) -> Node<bool> {
+  pub fn less_than(&self, other: impl Into<Self>) -> Node<bool> {
     OperatorNode::Binary {
       left: self.handle(),
-      right: other.handle(),
+      right: other.into().handle(),
       operator: BinaryOperator::LessThan,
     }
     .insert_graph()
   }
-  pub fn less_or_equal_than(&self, other: Self) -> Node<bool> {
+  pub fn less_or_equal_than(&self, other: impl Into<Self>) -> Node<bool> {
     OperatorNode::Binary {
       left: self.handle(),
-      right: other.handle(),
+      right: other.into().handle(),
       operator: BinaryOperator::LessEqualThan,
     }
     .insert_graph()
@@ -245,10 +252,10 @@ impl<T: PartialOrd> Node<T> {
     }
     .insert_graph()
   }
-  pub fn greater_or_equal_than(&self, other: Self) -> Node<bool> {
+  pub fn greater_or_equal_than(&self, other: impl Into<Self>) -> Node<bool> {
     OperatorNode::Binary {
       left: self.handle(),
-      right: other.handle(),
+      right: other.into().handle(),
       operator: BinaryOperator::GreaterEqualThan,
     }
     .insert_graph()
@@ -257,20 +264,20 @@ impl<T: PartialOrd> Node<T> {
 
 impl Node<bool> {
   #[must_use]
-  pub fn or(&self, other: Self) -> Self {
+  pub fn or(&self, other: impl Into<Self>) -> Self {
     OperatorNode::Binary {
       left: self.handle(),
-      right: other.handle(),
+      right: other.into().handle(),
       operator: BinaryOperator::LogicalOr,
     }
     .insert_graph()
   }
 
   #[must_use]
-  pub fn and(&self, other: Self) -> Self {
+  pub fn and(&self, other: impl Into<Self>) -> Self {
     OperatorNode::Binary {
       left: self.handle(),
-      right: other.handle(),
+      right: other.into().handle(),
       operator: BinaryOperator::LogicalAnd,
     }
     .insert_graph()

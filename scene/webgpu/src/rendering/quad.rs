@@ -1,10 +1,24 @@
 use crate::*;
 
-#[derive(Copy, Clone, ShaderStruct)]
+#[derive(Copy, Clone, ShaderStruct, Default)]
 pub struct QuadVertexOut {
   pub position: Vec4<f32>,
   pub uv: Vec2<f32>,
 }
+
+// fn generate_quad2(vertex_index: Node<u32>) -> Node<QuadVertexOut> {
+//   let left = val(-1.0);
+//   let right = val(1.0);
+//   let top = val(1.0);
+//   let bottom = val(-1.0);
+//   let depth = val(0.0);
+
+//   // let quad = QuadVertexOut::default().mutable();
+
+//   switch_by(vertex_index).case(0, || {
+//     quad.set()
+//   }).end()
+// }
 
 wgsl_fn!(
   fn generate_quad(

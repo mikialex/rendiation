@@ -165,7 +165,7 @@ impl<'a> GraphicsShaderProvider for AOComputer<'a> {
 
         let occluded = (sample_position_depth + parameter.bias)
           .less_or_equal_than(s_depth)
-          .select(val(0.), val(1.));
+          .select(0., 1.);
 
         let relative_depth_diff = parameter.radius / (sample_position_depth - s_depth).abs();
         let intensity = relative_depth_diff.smoothstep(val(0.), val(1.));

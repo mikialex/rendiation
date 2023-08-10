@@ -30,7 +30,7 @@ impl PunctualShaderLight for DirectionalLightShaderInfo {
     let shadow_info = light.shadow.expand();
     let occlusion = val(1.).mutable();
 
-    if_by_ok(shadow_info.enabled.equals(val(1)), || {
+    if_by_ok(shadow_info.enabled.equals(1), || {
       let map = builder.query::<BasicShadowMap>().unwrap();
       let sampler = builder.query::<BasicShadowMapSampler>().unwrap();
 
