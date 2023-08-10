@@ -73,7 +73,7 @@ impl ChannelVisualize for FragmentWorldNormal {
       .query::<Self>()
       .unwrap_or_else(|_| val(Vec3::zero()));
 
-    (normal * val(0.5) + val(Vec3::splat(0.5)), 1.).into()
+    (normal * val(0.5) + val(Vec3::splat(0.5)), val(1.)).into()
   }
 }
 
@@ -83,7 +83,7 @@ impl ChannelVisualize for FragmentUv {
       .query::<Self>()
       .unwrap_or_else(|_| val(Vec2::zero()));
 
-    (uv, 0., 1.).into()
+    (uv, val(0.), val(1.)).into()
   }
 }
 
@@ -93,7 +93,7 @@ impl ChannelVisualize for ColorChannel {
       .query::<Self>()
       .unwrap_or_else(|_| val(Vec3::zero()));
 
-    (value, 1.).into()
+    (value, val(1.)).into()
   }
 }
 
@@ -102,7 +102,7 @@ impl ChannelVisualize for RoughnessChannel {
     let value = builder.query::<Self>().unwrap_or_else(|_| val(0.));
     let value: Node<Vec3<f32>> = value.splat();
 
-    (value, 1.).into()
+    (value, val(1.)).into()
   }
 }
 
@@ -111,6 +111,6 @@ impl ChannelVisualize for MetallicChannel {
     let value = builder.query::<Self>().unwrap_or_else(|_| val(0.));
     let value: Node<Vec3<f32>> = value.splat();
 
-    (value, 1.).into()
+    (value, val(1.)).into()
   }
 }

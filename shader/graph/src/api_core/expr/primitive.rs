@@ -151,17 +151,57 @@ macro_rules! swizzle {
   };
 }
 
-// we don't have impl<T> for Vec3<T> for ShaderGraphNode, so we have to do macro
 macro_rules! swizzle_all {
   ($t: ty) => {
+    swizzle!(Vec4<$t>, Vec3<$t>, xxy);
+    swizzle!(Vec4<$t>, Vec3<$t>, xxz);
+    swizzle!(Vec4<$t>, Vec3<$t>, xxx);
+    swizzle!(Vec4<$t>, Vec3<$t>, xyx);
     swizzle!(Vec4<$t>, Vec3<$t>, xyz);
+    swizzle!(Vec4<$t>, Vec3<$t>, xyy);
+    swizzle!(Vec4<$t>, Vec3<$t>, xzx);
+    swizzle!(Vec4<$t>, Vec3<$t>, xzy);
+    swizzle!(Vec4<$t>, Vec3<$t>, xzz);
+
+    swizzle!(Vec4<$t>, Vec3<$t>, yxy);
+    swizzle!(Vec4<$t>, Vec3<$t>, yxz);
+    swizzle!(Vec4<$t>, Vec3<$t>, yxx);
+    swizzle!(Vec4<$t>, Vec3<$t>, yyx);
+    swizzle!(Vec4<$t>, Vec3<$t>, yyz);
+    swizzle!(Vec4<$t>, Vec3<$t>, yyy);
+    swizzle!(Vec4<$t>, Vec3<$t>, yzx);
+    swizzle!(Vec4<$t>, Vec3<$t>, yzy);
+    swizzle!(Vec4<$t>, Vec3<$t>, yzz);
+
+    swizzle!(Vec4<$t>, Vec3<$t>, zxy);
+    swizzle!(Vec4<$t>, Vec3<$t>, zxz);
+    swizzle!(Vec4<$t>, Vec3<$t>, zxx);
+    swizzle!(Vec4<$t>, Vec3<$t>, zyx);
+    swizzle!(Vec4<$t>, Vec3<$t>, zyz);
+    swizzle!(Vec4<$t>, Vec3<$t>, zyy);
+    swizzle!(Vec4<$t>, Vec3<$t>, zzx);
+    swizzle!(Vec4<$t>, Vec3<$t>, zzy);
+    swizzle!(Vec4<$t>, Vec3<$t>, zzz);
+
     swizzle!(Vec4<$t>, Vec2<$t>, xy);
+    swizzle!(Vec4<$t>, Vec2<$t>, xz);
+    swizzle!(Vec4<$t>, Vec2<$t>, xx);
+    swizzle!(Vec4<$t>, Vec2<$t>, yx);
+    swizzle!(Vec4<$t>, Vec2<$t>, yz);
+    swizzle!(Vec4<$t>, Vec2<$t>, yy);
+    swizzle!(Vec4<$t>, Vec2<$t>, zx);
+    swizzle!(Vec4<$t>, Vec2<$t>, zy);
+    swizzle!(Vec4<$t>, Vec2<$t>, zz);
+
     swizzle!(Vec4<$t>, $t, x);
     swizzle!(Vec4<$t>, $t, y);
     swizzle!(Vec4<$t>, $t, z);
     swizzle!(Vec4<$t>, $t, w);
 
     swizzle!(Vec3<$t>, Vec2<$t>, xy);
+    swizzle!(Vec3<$t>, Vec2<$t>, xx);
+    swizzle!(Vec3<$t>, Vec2<$t>, yx);
+    swizzle!(Vec3<$t>, Vec2<$t>, yy);
     swizzle!(Vec3<$t>, $t, x);
     swizzle!(Vec3<$t>, $t, y);
     swizzle!(Vec3<$t>, $t, z);
@@ -173,6 +213,8 @@ macro_rules! swizzle_all {
 
 swizzle_all!(f32);
 swizzle_all!(u32);
+// swizzle_all!(i32);
+// swizzle_all!(bool);
 
 macro_rules! num_cast {
   ($src: ty, $dst: ty) => {
@@ -199,12 +241,11 @@ num_cast!(u32, i32);
 
 macro_rules! impl_from {
   ( { $($field: tt: $constraint: ty),+ }, $type_merged:ty) => {
-    impl< $($field),+ > From<( $($field),+ )> for Node<$type_merged>
-    where $($field: Into<Node<$constraint>>),+
+    impl From<( $(Node<$constraint>),+ )> for Node<$type_merged>
     {
       #[allow(non_snake_case)]
-      fn from(($($field),+): ($($field),+)) -> Self {
-        $(let $field = $field.into().handle();)+
+      fn from(($($field),+): ($(Node<$constraint>),+)) -> Self {
+        $(let $field = $field.handle();)+
         ShaderGraphNodeExpr::Compose {
           target: <$type_merged>::PRIMITIVE_TYPE,
           parameters: vec![$($field),+],
@@ -215,16 +256,28 @@ macro_rules! impl_from {
   }
 }
 
-impl_from!({ A: f32, B: f32, C: f32, D: f32 }, Vec4<f32>);
-impl_from!({ A: Vec2<f32>, B: f32, C: f32 }, Vec4<f32>);
-impl_from!({ A: Vec3<f32>, B: f32 }, Vec4<f32>);
+macro_rules! compose_all {
+  ($t: ty) => {
+    impl_from!({ A: $t, B: $t, C: $t, D: $t }, Vec4<$t>);
+    impl_from!({ A: Vec2<$t>, B: $t, C: $t }, Vec4<$t>);
+    impl_from!({ A: $t, B: Vec2<$t>, C: $t }, Vec4<$t>);
+    impl_from!({ A: $t, B: $t, C: Vec2<$t> }, Vec4<$t>);
+    impl_from!({ A: Vec3<$t>, B: $t }, Vec4<$t>);
+    impl_from!({ A: $t, B: Vec3<$t> }, Vec4<$t>);
+    impl_from!({ A: Vec2<$t>, B: Vec2<$t> }, Vec4<$t>);
 
-impl_from!({ A: f32, B: f32, C: f32 }, Vec3<f32>);
+    impl_from!({ A: $t, B: $t, C: $t }, Vec3<$t>);
+    impl_from!({ A: $t, B: Vec2<$t> }, Vec3<$t>);
+    impl_from!({ A: Vec2<$t>, B: $t }, Vec3<$t>);
 
-impl_from!({ A: f32, B: f32 }, Vec2<f32>);
+    impl_from!({ A: $t, B: $t }, Vec2<$t>);
 
-impl_from!({ A: Vec4<f32>, B: Vec4<f32>, C: Vec4<f32>, D:Vec4<f32> }, Mat4<f32>);
-impl_from!({ A: Vec3<f32>, B: Vec3<f32>, C: Vec3<f32> }, Mat3<f32>);
+    impl_from!({ A: Vec4<$t>, B: Vec4<$t>, C: Vec4<$t>, D:Vec4<$t> }, Mat4<$t>);
+    impl_from!({ A: Vec3<$t>, B: Vec3<$t>, C: Vec3<$t> }, Mat3<$t>);
+  }
+}
+
+compose_all!(f32);
 
 impl From<Node<Mat4<f32>>> for Node<Mat3<f32>> {
   fn from(n: Node<Mat4<f32>>) -> Self {

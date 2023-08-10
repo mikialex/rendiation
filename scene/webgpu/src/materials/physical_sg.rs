@@ -144,7 +144,7 @@ impl GraphicsShaderProvider for PhysicalSpecularGlossinessMaterialGPU {
       builder.register::<EmissiveChannel>(emissive);
       builder.register::<GlossinessChannel>(glossiness);
 
-      builder.register::<DefaultDisplay>((albedo, 1.));
+      builder.register::<DefaultDisplay>((albedo, val(1.)));
       Ok(())
     })
   }

@@ -163,7 +163,7 @@ pub fn compute_shadow_position(
   let world_position = world_position + bias.normal_bias * world_normal;
 
   let shadow_position =
-    shadow_info.shadow_camera.expand().view_projection * (world_position, 1.).into();
+    shadow_info.shadow_camera.expand().view_projection * (world_position, val(1.)).into();
 
   let shadow_position = shadow_position.xyz() / shadow_position.w();
 
@@ -171,6 +171,6 @@ pub fn compute_shadow_position(
   Ok(
     shadow_position * val(Vec3::new(0.5, -0.5, 1.))
       + val(Vec3::new(0.5, 0.5, 0.))
-      + (0., 0., bias.bias).into(),
+      + (val(0.), val(0.), bias.bias).into(),
   )
 }

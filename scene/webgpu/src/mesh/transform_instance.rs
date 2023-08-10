@@ -35,7 +35,7 @@ impl GraphicsShaderProvider for TransformInstanceGPU {
       let world_normal_mat: Node<Mat3<f32>> = world_mat.into();
 
       if let Ok(position) = builder.query::<GeometryPosition>() {
-        builder.register::<GeometryPosition>((world_mat * (position, 1.).into()).xyz());
+        builder.register::<GeometryPosition>((world_mat * (position, val(1.)).into()).xyz());
       }
 
       if let Ok(normal) = builder.query::<GeometryNormal>() {

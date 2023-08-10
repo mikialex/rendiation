@@ -174,7 +174,7 @@ impl<'a> GraphicsShaderProvider for InfinityShaderPlaneEffect<'a> {
     builder.vertex(|builder, _| {
       let out = generate_quad(builder.query::<VertexIndex>()?).expand();
       builder.set_vertex_out::<FragmentUv>(out.uv);
-      builder.register::<ClipPosition>((out.position.xyz(), 1.));
+      builder.register::<ClipPosition>((out.position.xyz(), val(1.)));
 
       builder.primitive_state = webgpu::PrimitiveState {
         topology: webgpu::PrimitiveTopology::TriangleStrip,
@@ -197,8 +197,8 @@ impl<'a> GraphicsShaderProvider for InfinityShaderPlaneEffect<'a> {
       let ndc_xy = uv * val(2.) - val(Vec2::one());
       let ndc_xy = ndc_xy * val(Vec2::new(1., -1.));
 
-      let far = view_proj_inv * (ndc_xy, 1., 1.).into();
-      let near = view_proj_inv * (ndc_xy, 0., 1.).into();
+      let far = view_proj_inv * (ndc_xy, val(1.), val(1.)).into();
+      let near = view_proj_inv * (ndc_xy, val(0.), val(1.)).into();
 
       let far = far.xyz() / far.w();
       let near = near.xyz() / near.w();

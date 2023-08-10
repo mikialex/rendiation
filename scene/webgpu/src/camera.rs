@@ -210,12 +210,12 @@ impl GraphicsShaderProvider for CameraGPU {
       let camera = camera.using().expand();
       let position = builder.query::<WorldVertexPosition>()?;
 
-      let mut clip_position = camera.view_projection * (position, 1.).into();
+      let mut clip_position = camera.view_projection * (position, val(1.)).into();
 
       if self.enable_jitter {
         let jitter = if let Ok(texel_size) = builder.query::<TexelSize>() {
           let jitter = texel_size * camera.jitter_normalized * clip_position.w();
-          (jitter, 0., 0.).into()
+          (jitter, val(0.), val(0.)).into()
         } else {
           Vec4::zero().into()
         };
@@ -255,7 +255,7 @@ pub fn shader_uv_space_to_world_space(
 ) -> Node<Vec3<f32>> {
   let xy = uv * val(2.) - val(Vec2::one());
   let xy = xy * val(Vec2::new(1., -1.));
-  let ndc = (xy, ndc_depth, 1.).into();
+  let ndc = (xy, ndc_depth, val(1.)).into();
   let world = camera.view_projection_inv * ndc;
   world.xyz() / world.w()
 }
@@ -264,7 +264,7 @@ pub fn shader_world_space_to_uv_space(
   camera: &ENode<CameraGPUTransform>,
   world: Node<Vec3<f32>>,
 ) -> (Node<Vec2<f32>>, Node<f32>) {
-  let clip = camera.view_projection * (world, 1.).into();
+  let clip = camera.view_projection * (world, val(1.)).into();
   let ndc = clip.xyz() / clip.w();
   let uv = ndc.xy() * val(Vec2::new(0.5, -0.5)) + val(Vec2::splat(0.5));
   (uv, ndc.z())

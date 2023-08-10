@@ -119,10 +119,10 @@ impl GraphicsShaderProvider for GBufferEncodeTaskDispatcher {
       let world_normal = builder.get_or_compute_fragment_normal();
 
       // override channel writes
-      builder.set_fragment_out(0, (world_position, 1.))?;
-      builder.set_fragment_out(1, (world_normal, 1.))?;
+      builder.set_fragment_out(0, (world_position, val(1.)))?;
+      builder.set_fragment_out(1, (world_normal, val(1.)))?;
       builder.set_fragment_out(2, (shading.diffuse, shading.perceptual_roughness))?;
-      builder.set_fragment_out(3, (shading.f0, 1.))?;
+      builder.set_fragment_out(3, (shading.f0, val(1.)))?;
       Ok(())
     })
   }
@@ -269,7 +269,7 @@ impl LightBufferSchema for SimpleLightSchema {
     builder: &mut ShaderGraphFragmentBuilder,
     result: ENode<ShaderLightingResult>,
   ) -> Result<(), ShaderGraphBuildError> {
-    builder.set_fragment_out(0, ((result.specular + result.diffuse), 1.0))
+    builder.set_fragment_out(0, ((result.specular + result.diffuse), val(1.0)))
   }
 }
 
