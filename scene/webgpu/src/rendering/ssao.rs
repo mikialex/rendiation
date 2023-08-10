@@ -79,32 +79,21 @@ pub struct AOComputer<'a> {
 }
 
 // improve use better way
-wgsl_fn!(
-  fn random(seed: vec2<f32>) -> f32 {
-    return fract(sin(dot(seed, vec2<f32>(12.9898, 78.233))) * 43758.5453123);
-  }
-);
-// #[shadergraph_fn]
-// fn random(seed: Node<Vec2<f32>>) -> Node<f32> {
-//   let s1 = val(12.9898);
-//   let s2 = val(78.233);
-//   let s3 = val(43758.5453123);
-//   (seed.dot((s1, s2)).sin() * s3).fract()
-// }
+#[shadergraph_fn]
+fn random(seed: Node<Vec2<f32>>) -> Node<f32> {
+  let s1 = val(12.9898);
+  let s2 = val(78.233);
+  let s3 = val(43758.545);
+  (seed.dot((s1, s2)).sin() * s3).fract()
+}
 
-// #[shadergraph_fn]
-// fn random3(seed: Node<Vec2<f32>>) -> Node<Vec3<f32>> {
-//   let x = random(seed);
-//   let y = random((seed + random()).sin());
-//   let z = random(seed + random().cos() + random());
-//   (x, y, z).into()
-// }
-
-wgsl_fn!(
-  fn random3(uv: vec2<f32>) -> vec3<f32> {
-    return vec3<f32>(random(uv), random(sin(uv + random(uv))), random(uv + cos(random(uv)) + random(uv)));
-  }
-);
+#[shadergraph_fn]
+fn random3(seed: Node<Vec2<f32>>) -> Node<Vec3<f32>> {
+  let x = random(seed);
+  let y = random((seed + random(seed).splat()).sin());
+  let z = random(seed + random(seed).cos().splat() + random(seed).splat());
+  (x, y, z).into()
+}
 
 impl<'a> ShaderHashProvider for AOComputer<'a> {}
 impl<'a> ShaderHashProviderAny for AOComputer<'a> {

@@ -52,9 +52,9 @@ impl<T: ShaderGraphNodeType> Node<T> {
 }
 
 impl<T> NodeMutable<T> {
-  pub fn set(&self, source: Node<T>) {
+  pub fn set(&self, source: impl Into<Node<T>>) {
     modify_graph(|g| {
-      g.write(self.inner.handle(), source.handle());
+      g.write(self.inner.handle(), source.into().handle());
     })
   }
   pub fn get(&self) -> Node<T> {

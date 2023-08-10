@@ -65,7 +65,6 @@ pub use system::*;
 pub use texture::*;
 pub use util::*;
 use webgpu::*;
-use wgsl_shader_derives::*;
 
 pub trait SceneRenderable {
   fn render(

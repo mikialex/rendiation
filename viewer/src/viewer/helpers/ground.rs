@@ -14,7 +14,6 @@ use webgpu::{
   create_uniform, RenderComponent, RenderComponentAny, RenderEmitter, ShaderHashProvider,
   ShaderHashProviderAny, ShaderPassBuilder, UniformBufferDataView, GPU,
 };
-use wgsl_shader_derives::wgsl_fn;
 
 pub struct GridGround {
   grid_config: SceneItemRef<GridGroundConfig>,
@@ -124,28 +123,20 @@ impl GraphicsShaderProvider for GridGroundShading {
   }
 }
 
-// #[shadergraph_fn]
-// fn grid(position: Node<Vec3<f32>>, config: Node<GridGroundConfig>) -> Node<Vec4<f32>> {
-//   let coord = position.xz() * GridGroundConfig::scale(config);
-//   let grid = ((coord - val(0.5)).fract() - val(0.5)).abs() / coord.fwidth();
-//   let lined = grid.x().min(grid.y());
-//   (
-//     val(0.2),
-//     val(0.2),
-//     val(0.2),
-//     val(1.0) - lined.min(val(1.0) + val(0.1)),
-//   )
-//     .into()
-// }
-
-wgsl_fn!(
-  fn grid(position: vec3<f32>, config: GridGroundConfig) -> vec4<f32> {
-    let coord = position.xz * config.scale;
-    let grid = abs(fract(coord - 0.5) - 0.5) / fwidth(coord);
-    let lined = min(grid.x, grid.y);
-    return vec4<f32>(0.2, 0.2, 0.2, 1.0 - min(lined, 1.0) + 0.1);
-  }
-);
+#[shadergraph_fn]
+fn grid(position: Node<Vec3<f32>>, config: Node<GridGroundConfig>) -> Node<Vec4<f32>> {
+  let coord = position.xz() * GridGroundConfig::scale(config);
+  let grid =
+    ((coord - val(Vec2::splat(0.5))).fract() - val(Vec2::splat(0.5))).abs() / coord.fwidth();
+  let lined = grid.x().min(grid.y());
+  (
+    val(0.2),
+    val(0.2),
+    val(0.2),
+    val(1.0) - lined.min(val(1.0) + val(0.1)),
+  )
+    .into()
+}
 
 pub struct InfinityShaderPlane {
   plane: UniformBufferDataView<ShaderPlane>,

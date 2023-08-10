@@ -6,54 +6,42 @@ pub struct QuadVertexOut {
   pub uv: Vec2<f32>,
 }
 
-// fn generate_quad2(vertex_index: Node<u32>) -> Node<QuadVertexOut> {
-//   let left = val(-1.0);
-//   let right = val(1.0);
-//   let top = val(1.0);
-//   let bottom = val(-1.0);
-//   let depth = val(0.0);
+pub fn generate_quad(vertex_index: Node<u32>) -> Node<QuadVertexOut> {
+  let left = -1.0;
+  let right = 1.0;
+  let top = 1.0;
+  let bottom = -1.0;
+  let depth = 0.0;
 
-//   // let quad = QuadVertexOut::default().mutable();
+  // let quad = QuadVertexOut::default().mutable();
+  let position = val(Vec4::default()).mutable();
+  let uv = val(Vec2::default()).mutable();
 
-//   switch_by(vertex_index).case(0, || {
-//     quad.set()
-//   }).end()
-// }
+  switch_by(vertex_index)
+    .case(Some(0), || {
+      position.set(Vec4::new(left, top, depth, 1.));
+      uv.set(Vec2::new(0., 0.));
+    })
+    .case(Some(1), || {
+      position.set(Vec4::new(right, top, depth, 1.));
+      uv.set(Vec2::new(1., 0.));
+    })
+    .case(Some(2), || {
+      position.set(Vec4::new(left, bottom, depth, 1.));
+      uv.set(Vec2::new(0., 1.));
+    })
+    .case(Some(3), || {
+      position.set(Vec4::new(right, bottom, depth, 1.));
+      uv.set(Vec2::new(1., 1.));
+    })
+    .end();
 
-wgsl_fn!(
-  fn generate_quad(
-    vertex_index: u32
-  ) -> QuadVertexOut {
-    var left: f32 = -1.0;
-    var right: f32 = 1.0;
-    var top: f32 = 1.0;
-    var bottom: f32 = -1.0;
-    var depth: f32 = 0.0;
-
-    var out: QuadVertexOut;
-
-    switch (i32(vertex_index)) {
-      case 0: {
-        out.position = vec4<f32>(left, top, depth, 1.);
-        out.uv = vec2<f32>(0., 0.);
-      }
-      case 1: {
-        out.position = vec4<f32>(right, top, depth, 1.);
-        out.uv = vec2<f32>(1., 0.);
-      }
-      case 2: {
-        out.position = vec4<f32>(left, bottom, depth, 1.);
-        out.uv = vec2<f32>(0., 1.);
-      }
-      default: {
-        out.position = vec4<f32>(right, bottom, depth, 1.);
-        out.uv = vec2<f32>(1., 1.);
-      }
-    }
-
-    return out;
+  ENode::<QuadVertexOut> {
+    position: position.get(),
+    uv: uv.get(),
   }
-);
+  .construct()
+}
 
 pub struct FullScreenQuad {
   blend: Option<webgpu::BlendState>,

@@ -151,6 +151,7 @@
         "Uint",
         "unclipped",
         "uninit",
+        "unloop",
         "unmap",
         "unnormalized",
         "Unorm",

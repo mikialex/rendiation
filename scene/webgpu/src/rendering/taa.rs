@@ -129,27 +129,28 @@ impl<'a> GraphicsShaderProvider for TAAResolver<'a> {
   }
 }
 
-wgsl_fn!(
-  fn clamp_color(
-    tex: texture_2d<f32>,
-    sp: sampler,
-    texel_size: vec2<f32>,
-    position: vec2<f32>,
-    previous: vec3<f32>,
-  ) -> vec3<f32> {
-    var minC = vec3<f32>(1.);
-    var maxC = vec3<f32>(0.);
+fn clamp_color(
+  tex: Node<ShaderTexture2D>,
+  sp: Node<ShaderSampler>,
+  texel_size: Node<Vec2<f32>>,
+  position: Node<Vec2<f32>>,
+  previous: Node<Vec3<f32>>,
+) -> Node<Vec3<f32>> {
+  let mut min_c = val(Vec3::one());
+  let mut max_c = val(Vec3::zero());
 
-    for(var i: i32 = -1; i <= 1; i++) {
-      for(var j: i32 = -1; j <= 1; j++) {
-        var sample = textureSample(tex, sp, position + vec2<f32>(f32(i),f32(j)) * texel_size).xyz;
-        minC = min(minC, sample); maxC = max(maxC, sample);
-      }
+  // unloop
+  for i in -1..=1 {
+    for j in -1..=1 {
+      let offset = val::<Vec2<_>>((i as f32, j as f32).into());
+      let sample = tex.sample(sp, position + texel_size * offset).xyz();
+      min_c = min_c.min(sample);
+      max_c = max_c.max(sample);
     }
-
-    return clamp(previous, minC, maxC);
   }
-);
+
+  previous.clamp(min_c, max_c)
+}
 
 impl<'a> ShaderPassBuilder for TAAResolver<'a> {
   fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {

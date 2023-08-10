@@ -6,56 +6,38 @@ pub fn sample_shadow(
   sampler: Node<ShaderCompareSampler>,
   info: Node<ShadowMapAddressInfo>,
 ) -> Node<f32> {
+  let info = info.expand();
   // sample_shadow_pcf_x4
-  // map.sample_compare_level(sampler, shadow_position.xy())
+  // map.sample_compare_index(
+  //   sampler,
+  //   shadow_position.xy(),
+  //   info.layer_index,
+  //   shadow_position.z(),
+  //   None,
+  // );
 
   // sample_shadow_pcf_x4(shadow_position, map, sampler, info)
-  sample_shadow_pcf_x36_by_offset(shadow_position, map, sampler, info)
+  sample_shadow_pcf_x36_by_offset(map, shadow_position, sampler, info)
 }
 
-#[rustfmt::skip]
-wgsl_fn!(
-  fn sample_shadow_pcf_x4(
-    shadow_position: vec3<f32>,
-    map: texture_depth_2d_array,
-    d_sampler: sampler_comparison,
-    info: ShadowMapAddressInfo,
-  ) -> f32 {
-    return textureSampleCompareLevel(
-      map,
-      d_sampler,
-      shadow_position.xy,
-      info.layer_index,
-      shadow_position.z
-    );
+fn sample_shadow_pcf_x36_by_offset(
+  map: Node<ShaderDepthTexture2DArray>,
+  shadow_position: Node<Vec3<f32>>,
+  d_sampler: Node<ShaderCompareSampler>,
+  info: ENode<ShadowMapAddressInfo>,
+) -> Node<f32> {
+  let uv = shadow_position.xy();
+  let depth = shadow_position.z();
+  let layer = info.layer_index;
+  let mut ratio = val(0.0);
+
+  let s = 2_i32; // we should write a for here?
+
+  for i in -1..=1 {
+    for j in -1..=1 {
+      ratio += map.sample_compare_index(d_sampler, uv, layer, depth, Some((s * i, s * j).into()));
+    }
   }
-);
 
-#[rustfmt::skip]
-wgsl_fn!(
-  fn sample_shadow_pcf_x36_by_offset(
-    shadow_position: vec3<f32>,
-    map: texture_depth_2d_array,
-    d_sampler: sampler_comparison,
-    info: ShadowMapAddressInfo,
-  ) -> f32 {
-    var uv = shadow_position.xy;
-    var depth = shadow_position.z;
-    var layer = info.layer_index;
-    var ratio = 0.0;
-
-    ratio += textureSampleCompareLevel(map, d_sampler, uv, layer, depth, vec2<i32>(2, -2));
-    ratio += textureSampleCompareLevel(map, d_sampler, uv, layer, depth, vec2<i32>(2, 0));
-    ratio += textureSampleCompareLevel(map, d_sampler, uv, layer, depth, vec2<i32>(2, 2));
-
-    ratio += textureSampleCompareLevel(map, d_sampler, uv, layer, depth, vec2<i32>(0, -2));
-    ratio += textureSampleCompareLevel(map, d_sampler, uv, layer, depth, vec2<i32>(0, 0));
-    ratio += textureSampleCompareLevel(map, d_sampler, uv, layer, depth, vec2<i32>(0, 2));
-
-    ratio += textureSampleCompareLevel(map, d_sampler, uv, layer, depth, vec2<i32>(-2, -2));
-    ratio += textureSampleCompareLevel(map, d_sampler, uv, layer, depth, vec2<i32>(-2, 0));
-    ratio += textureSampleCompareLevel(map, d_sampler, uv, layer, depth, vec2<i32>(-2, 2));
-
-    return ratio / 9.;
-  }
-);
+  ratio / val(9.)
+}

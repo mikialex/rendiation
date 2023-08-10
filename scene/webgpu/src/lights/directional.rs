@@ -57,31 +57,16 @@ impl PunctualShaderLight for DirectionalLightShaderInfo {
   }
 }
 
-wgsl_fn!(
-  /// custom extra culling for directional light
-  fn cull_directional_shadow(
-    shadow_position: vec3<f32>,
-  ) -> bool {
-    // maybe we could use sampler's border color config, but that's not part of standard webgpu (wgpu supports)
-    let inFrustumVec = vec4<bool>(shadow_position.x >= 0.0, shadow_position.x <= 1.0, shadow_position.y >= 0.0, shadow_position.y <= 1.0);
-    let inFrustum = all(inFrustumVec);
-    let frustumTestVec = vec2<bool>(inFrustum, shadow_position.z <= 1.0);
-    return all(frustumTestVec);
-  }
-);
+/// custom extra culling for directional light
+fn cull_directional_shadow(shadow_position: Node<Vec3<f32>>) -> Node<bool> {
+  let left = shadow_position.x().greater_or_equal_than(val(0.));
+  let right = shadow_position.x().less_or_equal_than(val(1.));
+  let top = shadow_position.y().greater_or_equal_than(val(0.));
+  let bottom = shadow_position.y().less_or_equal_than(val(1.));
+  let far = shadow_position.z().less_or_equal_than(val(1.));
 
-// fn cull_directional_shadow_x(shadow_position: Node<Vec3<f32>>) -> Node<bool> {
-//   // maybe we could use sampler's border color config, but that's not part of standard webgpu
-// (wgpu   // supports)
-//   let left = shadow_position.x().greater_or_equal_than(val(0.));
-//   let right = shadow_position.x().less_or_equal_than(val(1.));
-//   let top = shadow_position.y().greater_or_equal_than(val(0.));
-//   let bottom = shadow_position.y().less_or_equal_than(val(1.));
-//   let far = shadow_position.z().less_or_equal_than(val(1.));
-
-//   let is_frustum = (left, right, top, bottom).into().all();
-//   is_frustum.and(far)
-// }
+  left.and(right).and(top).and(bottom).and(far)
+}
 
 impl WebGPULight for SceneItemRef<DirectionalLight> {
   type Uniform = DirectionalLightShaderInfo;

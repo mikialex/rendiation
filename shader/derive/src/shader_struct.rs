@@ -1,6 +1,9 @@
 use quote::TokenStreamExt;
 use quote::{format_ident, quote};
-use shader_derives_shared::gen_struct_meta_name;
+
+pub fn gen_struct_meta_name(name: &str) -> syn::Ident {
+  format_ident!("{}_META_INFO", name)
+}
 
 use crate::utils::StructInfo;
 

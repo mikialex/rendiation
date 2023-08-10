@@ -247,3 +247,16 @@ impl<T: ArraySampleTarget> Node<T> {
     .insert_graph()
   }
 }
+
+impl Node<ShaderDepthTexture2DArray> {
+  pub fn sample_compare_index(
+    &self,
+    sampler: Node<ShaderCompareSampler>,
+    position: Node<Vec2<f32>>,
+    index: Node<impl ShaderArrayTextureSampleIndexType>,
+    reference: Node<f32>,
+    offset: Option<Vec2<i32>>,
+  ) -> Node<f32> {
+    todo!()
+  }
+}

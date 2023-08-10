@@ -2785,7 +2785,6 @@ dependencies = [
  "rendiation-webgpu",
  "shadergraph",
  "tree",
- "wgsl-shader-derives",
 ]
 
 [[package]]
@@ -3013,16 +3012,6 @@ dependencies = [
 
 [[package]]
 name = "shader-derives"
-version = "0.1.0"
-dependencies = [
- "proc-macro2",
- "quote",
- "shader-derives-shared",
- "syn 1.0.72",
-]
-
-[[package]]
-name = "shader-derives-shared"
 version = "0.1.0"
 dependencies = [
  "proc-macro2",
@@ -3509,7 +3498,6 @@ dependencies = [
  "rfd",
  "shadergraph",
  "wasm-bindgen-futures",
- "wgsl-shader-derives",
 ]
 
 [[package]]
@@ -3787,24 +3775,6 @@ dependencies = [
  "bitflags 2.0.2",
  "js-sys",
  "web-sys",
-]
-
-[[package]]
-name = "wgsl-parser"
-version = "0.1.0"
-dependencies = [
- "fast-hash-collection",
-]
-
-[[package]]
-name = "wgsl-shader-derives"
-version = "0.1.0"
-dependencies = [
- "proc-macro2",
- "quote",
- "shader-derives-shared",
- "syn 1.0.72",
- "wgsl-parser",
 ]
 
 [[package]]
