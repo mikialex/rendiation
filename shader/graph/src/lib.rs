@@ -50,9 +50,11 @@ pub trait ShaderAPI {
   fn do_continue(&mut self, looper: ShaderGraphNodeRawHandle);
   fn do_break(&mut self, looper: ShaderGraphNodeRawHandle);
 
-  fn begin_define_fn(&mut self, name: String) -> Option<ShaderFunctionMetaInfo>;
+  fn get_fn(&mut self, name: String) -> Option<ShaderFunctionMetaInfo>;
+  fn begin_define_fn(&mut self, name: String, return_ty: Option<ShaderValueType>);
   fn push_fn_parameter(&mut self, p: ShaderValueType) -> ShaderGraphNodeRawHandle;
-  fn end_fn_define(&mut self, return_ty: Option<ShaderValueType>) -> ShaderFunctionMetaInfo;
+  fn do_return(&mut self, v: Option<ShaderGraphNodeRawHandle>);
+  fn end_fn_define(&mut self) -> ShaderFunctionMetaInfo;
 
   fn build(&mut self) -> (String, String);
 }

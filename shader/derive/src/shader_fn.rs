@@ -26,7 +26,7 @@ pub fn shadergraph_fn_impl(_args: TokenStream, input: TokenStream) -> TokenStrea
     })
     .map(|(name, ty)| {
       let name = quote::format_ident!("n_{}", name);
-      quote::quote! {let #name = push_fn_parameter::<<#ty as shadergraph::ProcMacroNodeHelper>::NodeType>(); }
+      quote::quote! {let #name = builder.push_fn_parameter::<<#ty as shadergraph::ProcMacroNodeHelper>::NodeType>(); }
     })
     .collect();
 
@@ -46,10 +46,10 @@ pub fn shadergraph_fn_impl(_args: TokenStream, input: TokenStream) -> TokenStrea
     })
     .collect();
 
-  let rt_define = match rt {
-    syn::ReturnType::Default => quote::quote! {},
+  let rt_type = match rt {
+    syn::ReturnType::Default => quote::quote! { shadergraph::AnyType },
     syn::ReturnType::Type(_, ty) => {
-      quote::quote! { end_fn_define(<<#ty as shadergraph::ProcMacroNodeHelper>::NodeType>::TYPE.into()) }
+      quote::quote! { <#ty as shadergraph::ProcMacroNodeHelper>::NodeType }
     }
   };
 
@@ -70,10 +70,10 @@ pub fn shadergraph_fn_impl(_args: TokenStream, input: TokenStream) -> TokenStrea
 
   quote::quote! {
     #vis fn #fn_ident(#params) #rt {
-      let f_meta = begin_define_fn(std::any::type_name_of_val(&#origin_fn).to_string()).unwrap_or_else(|| {
-        #(#input_nodes)*
-        #origin_fn(#(#names)*);
-        #rt_define
+      let unique_name = std::any::type_name_of_val(&#origin_fn).to_string();
+      let f_meta = get_shader_fn::<#rt_type>(unique_name).or_define(|builder|{
+         #(#input_nodes)*
+          #origin_fn(#(#names)*);
       });
 
       unsafe { shader_fn_call(f_meta.clone(), vec![#(#real_input_call)*]).into_node() }

@@ -1,15 +1,60 @@
 use crate::*;
 
-pub fn begin_define_fn(name: String) -> Option<ShaderFunctionMetaInfo> {
-  modify_graph(|g| g.begin_define_fn(name))
+pub struct FunctionBuildCtx<T>(PhantomData<T>);
+
+pub enum ShaderFnTryDefineResult<T> {
+  NotDefined(FunctionBuildCtx<T>),
+  AlreadyDefined(ShaderFunctionMetaInfo),
 }
 
-pub fn push_fn_parameter<T: ShaderGraphNodeType>() -> Node<T> {
-  unsafe { modify_graph(|g| g.push_fn_parameter(T::TYPE)).into_node() }
+impl<T: ShaderGraphNodeType> ShaderFnTryDefineResult<T> {
+  pub fn or_define(self, f: impl FnOnce(&FunctionBuildCtx<T>)) -> ShaderFunctionMetaInfo {
+    match self {
+      ShaderFnTryDefineResult::NotDefined(builder) => {
+        f(&builder);
+        builder.end_fn_define()
+      }
+      ShaderFnTryDefineResult::AlreadyDefined(meta) => meta,
+    }
+  }
 }
 
-pub fn end_fn_define(ty: Option<ShaderValueType>) -> ShaderFunctionMetaInfo {
-  modify_graph(|g| g.end_fn_define(ty))
+// todo check T match returned meta
+pub fn get_shader_fn<T: ShaderGraphNodeType>(name: String) -> ShaderFnTryDefineResult<T> {
+  let info = modify_graph(|g| g.get_fn(name.clone()));
+
+  match info {
+    Some(info) => ShaderFnTryDefineResult::AlreadyDefined(info),
+    None => ShaderFnTryDefineResult::NotDefined(FunctionBuildCtx::begin(name)),
+  }
+}
+
+impl<T: ShaderGraphNodeType> FunctionBuildCtx<T> {
+  pub fn begin(name: String) -> Self {
+    let ty = T::TYPE;
+    let ty = match ty {
+      ShaderValueType::Never => None,
+      _ => Some(ty),
+    };
+    modify_graph(|g| g.begin_define_fn(name, ty));
+    Self(Default::default())
+  }
+
+  pub fn push_fn_parameter<P: ShaderGraphNodeType>(&self) -> Node<P> {
+    unsafe { modify_graph(|g| g.push_fn_parameter(P::TYPE)).into_node() }
+  }
+
+  pub fn do_return(&self, r: Node<T>) {
+    let handle = match T::TYPE {
+      ShaderValueType::Never => None,
+      _ => Some(r.handle()),
+    };
+    modify_graph(|g| g.do_return(handle))
+  }
+
+  pub fn end_fn_define(self) -> ShaderFunctionMetaInfo {
+    modify_graph(|g| g.end_fn_define())
+  }
 }
 
 // I do this because I don't know how to destruct T from Node<T> in proc macro syc ast, sad!

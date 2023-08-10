@@ -11,21 +11,22 @@ pub trait ShaderIterator: ShaderGraphNodeType {
   }
 
   fn for_each(self, visitor: impl Fn(Self::Item)) {
-    let has_next_f = define_fn(|cx| {
+    let has_next_f = get_shader_fn(new_name()).or_define(|cx| {
       let iter_self = cx.define_parameter();
       Self::shader_has_next(iter_self)
     });
 
-    let next_f = define_fn(|cx| {
+    let next_f = get_shader_fn::<bool>(new_name()).or_define(|cx| {
       let iter_self_mut = cx.define_parameter();
       cx.do_return(Self::shader_next(iter_self));
     });
 
     let shader_iter = self.mutable();
     while_by(|cx| {
-      let has_next = has_next_f();
+      let has_next = shader_fn_call(has_next_f, Vec::new());
       if_by(has_next.not(), || cx.do_break());
-      visitor(next_f(shader_iter))
+      let next = shader_fn_call::<Self::Item>(next_f, vec![shader_iter]);
+      visitor(unsafe { next.to_typed_node() })
     })
   }
 }

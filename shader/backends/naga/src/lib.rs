@@ -387,17 +387,23 @@ impl ShaderAPI for ShaderAPINagaImpl {
     self.block.last_mut().unwrap().push(st, Span::UNDEFINED);
   }
 
-  fn begin_define_fn(&mut self, name: String) -> Option<ShaderFunctionMetaInfo> {
+  fn get_fn(&mut self, name: String) -> Option<ShaderFunctionMetaInfo> {
+    self.fn_mapping.get(&name).map(|v| v.1.clone())
+  }
+
+  fn begin_define_fn(&mut self, name: String, return_ty: Option<ShaderValueType>) {
     if self.building_fn.iter().any(|f| f.0.eq(&name)) {
       panic!("recursive fn definition is not allowed")
     }
-    let r = self.fn_mapping.get(&name);
 
-    if r.is_none() {
-      self.building_fn.push((name, Default::default(), 0));
-    }
+    self.fn_mapping.remove(&name);
+    self.building_fn.push((name, Default::default(), 0));
 
-    r.map(|v| v.1.clone())
+    let (_, mut f, _) = self.building_fn.pop().unwrap();
+    f.result = return_ty.map(|ty| naga::FunctionResult {
+      ty: self.register_ty_impl(ty),
+      binding: None,
+    });
   }
 
   fn push_fn_parameter(&mut self, ty: ShaderValueType) -> ShaderGraphNodeRawHandle {
@@ -413,12 +419,12 @@ impl ShaderAPI for ShaderAPINagaImpl {
     self.make_expression_inner(expr)
   }
 
-  fn end_fn_define(&mut self, return_ty: Option<ShaderValueType>) -> ShaderFunctionMetaInfo {
-    let (name, mut f, _) = self.building_fn.pop().unwrap();
-    f.result = return_ty.map(|ty| naga::FunctionResult {
-      ty: self.register_ty_impl(ty),
-      binding: None,
-    });
+  fn do_return(&mut self, v: Option<ShaderGraphNodeRawHandle>) {
+    todo!()
+  }
+
+  fn end_fn_define(&mut self) -> ShaderFunctionMetaInfo {
+    let (name, f, _) = self.building_fn.pop().unwrap();
     let handle = self.module.functions.append(f, Span::UNDEFINED);
     self.fn_mapping.insert(name, (handle, todo!()));
     todo!()
