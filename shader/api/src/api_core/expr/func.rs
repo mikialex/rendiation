@@ -7,7 +7,7 @@ pub enum ShaderFunctionType {
 
 #[derive(Clone)]
 pub struct ShaderUserDefinedFunction {
-  name: String,
+  pub name: String,
 }
 
 pub struct FunctionBuildCtx<T>(PhantomData<T>);
@@ -68,7 +68,7 @@ impl<T: ShaderGraphNodeType> FunctionBuildCtx<T> {
 }
 
 // this is useful when define function by derive
-pub fn do_return<T>(v: Option<Node<T>>) {
+pub fn do_return<T>(_v: Option<Node<T>>) {
   todo!()
 }
 // I do this because I don't know how to destruct T from Node<T> in proc macro syc ast, sad!
@@ -85,7 +85,7 @@ pub fn shader_fn_call(
 ) -> ShaderGraphNodeRawHandle {
   modify_graph(|g| {
     let expr = ShaderGraphNodeExpr::FunctionCall {
-      meta: ShaderFunctionType::Custom(todo!()),
+      meta: ShaderFunctionType::Custom(meta),
       parameters,
     };
     g.make_expression(expr)

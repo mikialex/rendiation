@@ -6,11 +6,21 @@ use rendiation_shader_api::*;
 pub struct ShaderAPINagaImpl {
   module: naga::Module,
   handle_id: usize,
+  block: Vec<(naga::Block, BlockBuildingState)>,
+  control_structure: Vec<naga::Statement>,
   building_fn: Vec<(String, naga::Function, usize)>,
-  block: Vec<naga::Block>,
   fn_mapping: FastHashMap<String, (naga::Handle<naga::Function>, ShaderUserDefinedFunction)>,
   consts_mapping: FastHashMap<ShaderGraphNodeRawHandle, naga::Handle<naga::Constant>>,
   expression_mapping: FastHashMap<ShaderGraphNodeRawHandle, naga::Handle<naga::Expression>>,
+}
+
+pub enum BlockBuildingState {
+  Common,
+  SwitchCase(SwitchCaseCondition),
+  IfAccept,
+  IfReject,
+  Else,
+  Function,
 }
 
 const ENTRY_POINT_NAME: &str = "main";
@@ -48,7 +58,12 @@ impl ShaderAPINagaImpl {
       fn_mapping: Default::default(),
       consts_mapping: Default::default(),
       expression_mapping: Default::default(),
+      control_structure: Default::default(),
     }
+  }
+
+  fn push_top_statement(&mut self, st: naga::Statement) {
+    self.block.last_mut().unwrap().0.push(st, Span::UNDEFINED);
   }
 
   fn make_new_handle(&mut self) -> ShaderGraphNodeRawHandle {
@@ -67,10 +82,9 @@ impl ShaderAPINagaImpl {
       .append(expr, Span::UNDEFINED);
 
     // should we merge these expression emits?
-    self.block.last_mut().unwrap().push(
-      naga::Statement::Emit(naga::Range::new_from_bounds(handle, handle)),
-      Span::UNDEFINED,
-    );
+    self.push_top_statement(naga::Statement::Emit(naga::Range::new_from_bounds(
+      handle, handle,
+    )));
 
     let return_handle = self.make_new_handle();
     self.expression_mapping.insert(return_handle, handle);
@@ -232,7 +246,15 @@ impl ShaderAPI for ShaderAPINagaImpl {
 
   fn make_expression(&mut self, expr: ShaderGraphNodeExpr) -> ShaderGraphNodeRawHandle {
     let expr = match expr {
-      ShaderGraphNodeExpr::FunctionCall { meta, parameters } => todo!(),
+      ShaderGraphNodeExpr::FunctionCall { meta, parameters } => {
+        match meta {
+          ShaderFunctionType::Custom(meta) => {
+            // naga::Expression::CallResult(())
+            todo!()
+          }
+          ShaderFunctionType::BuiltIn(_) => todo!(),
+        }
+      }
       ShaderGraphNodeExpr::TextureSampling {
         texture,
         sampler,
@@ -330,7 +352,7 @@ impl ShaderAPI for ShaderAPINagaImpl {
       pointer: self.get_expression(target),
       value: self.get_expression(source),
     };
-    self.block.last_mut().unwrap().push(st, Span::UNDEFINED);
+    self.push_top_statement(st);
   }
 
   fn load(&mut self, source: ShaderGraphNodeRawHandle) -> ShaderGraphNodeRawHandle {
@@ -341,28 +363,50 @@ impl ShaderAPI for ShaderAPINagaImpl {
   }
 
   fn push_scope(&mut self) {
-    self.block.push(naga::Block::default())
+    self
+      .block
+      .push((naga::Block::default(), BlockBuildingState::Common))
   }
 
   fn pop_scope(&mut self) {
-    let b = self.block.pop().unwrap();
-    self
-      .building_fn
-      .last_mut()
-      .unwrap()
-      .1
-      .body
-      .push(naga::Statement::Block(b), Span::UNDEFINED);
+    let (b, ty) = self.block.pop().unwrap();
+    match ty {
+      BlockBuildingState::Common => self.push_top_statement(naga::Statement::Block(b)),
+      BlockBuildingState::SwitchCase(case) => {
+        let switch = self.control_structure.last_mut().unwrap();
+        if let naga::Statement::Switch { cases, .. } = switch {
+          let value = match case {
+            SwitchCaseCondition::U32(v) => naga::SwitchValue::U32(v),
+            SwitchCaseCondition::I32(v) => naga::SwitchValue::I32(v),
+            SwitchCaseCondition::Default => naga::SwitchValue::Default,
+          };
+          let case = naga::SwitchCase {
+            value,
+            body: b,
+            fall_through: false,
+          };
+          cases.push(case)
+        } else {
+          panic!("expect switch")
+        }
+      }
+      BlockBuildingState::IfAccept => todo!(),
+      BlockBuildingState::IfReject => todo!(),
+      BlockBuildingState::Else => todo!(),
+      BlockBuildingState::Function => todo!(),
+    }
   }
 
   fn push_if_scope(&mut self, condition: ShaderGraphNodeRawHandle) {
-    self.block.push(Default::default());
-    // let if_s = naga::Statement::If {
-    //   condition: (),
-    //   accept: (),
-    //   reject: (),
-    // };
-    todo!()
+    self
+      .block
+      .push((Default::default(), BlockBuildingState::IfAccept));
+    let if_s = naga::Statement::If {
+      condition: self.get_expression(condition),
+      accept: Default::default(),
+      reject: Default::default(),
+    };
+    self.control_structure.push(if_s);
   }
 
   fn discard(&mut self) {
@@ -380,25 +424,36 @@ impl ShaderAPI for ShaderAPINagaImpl {
     todo!()
   }
 
-  fn do_continue(&mut self, looper: ShaderGraphNodeRawHandle) {
+  // todo, check the looper is the direct parent
+  fn do_continue(&mut self, _looper: ShaderGraphNodeRawHandle) {
     let st = naga::Statement::Continue;
-    self.block.last_mut().unwrap().push(st, Span::UNDEFINED);
+    self.push_top_statement(st);
   }
-  fn do_break(&mut self, looper: ShaderGraphNodeRawHandle) {
+  // todo, check the looper is the direct parent
+  fn do_break(&mut self, _looper: ShaderGraphNodeRawHandle) {
     let st = naga::Statement::Break;
-    self.block.last_mut().unwrap().push(st, Span::UNDEFINED);
+    self.push_top_statement(st);
   }
 
-  fn begin_switch(&mut self, switch_target: ShaderGraphNodeRawHandle) {
-    todo!()
+  fn begin_switch(&mut self, selector: ShaderGraphNodeRawHandle) {
+    let selector = self.get_expression(selector);
+    let switch = naga::Statement::Switch {
+      selector,
+      cases: Default::default(),
+    };
+    self.control_structure.push(switch);
   }
 
   fn push_switch_case_scope(&mut self, case: SwitchCaseCondition) {
-    todo!()
+    self
+      .block
+      .push((Default::default(), BlockBuildingState::SwitchCase(case)));
   }
 
   fn end_switch(&mut self) {
-    todo!()
+    let switch = self.control_structure.pop().unwrap();
+    assert!(matches!(switch, naga::Statement::Switch { .. }));
+    self.push_top_statement(switch);
   }
 
   fn get_fn(&mut self, name: String) -> Option<ShaderUserDefinedFunction> {
@@ -412,6 +467,9 @@ impl ShaderAPI for ShaderAPINagaImpl {
 
     self.fn_mapping.remove(&name);
     self.building_fn.push((name, Default::default(), 0));
+    self
+      .block
+      .push((Default::default(), BlockBuildingState::Function));
 
     let (_, mut f, _) = self.building_fn.pop().unwrap();
     f.result = return_ty.map(|ty| naga::FunctionResult {
@@ -434,11 +492,16 @@ impl ShaderAPI for ShaderAPINagaImpl {
   }
 
   fn do_return(&mut self, v: Option<ShaderGraphNodeRawHandle>) {
-    todo!()
+    let value = v.map(|v| self.get_expression(v));
+    self.push_top_statement(naga::Statement::Return { value });
   }
 
   fn end_fn_define(&mut self) -> ShaderUserDefinedFunction {
-    let (name, f, _) = self.building_fn.pop().unwrap();
+    let (body, s) = self.block.pop().unwrap();
+    assert!(matches!(s, BlockBuildingState::Function));
+
+    let (name, mut f, _) = self.building_fn.pop().unwrap();
+    f.body = body;
     let handle = self.module.functions.append(f, Span::UNDEFINED);
     self.fn_mapping.insert(name, (handle, todo!()));
     todo!()
