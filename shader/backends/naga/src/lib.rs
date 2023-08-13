@@ -11,6 +11,7 @@ pub struct ShaderAPINagaImpl {
   building_fn: Vec<(String, naga::Function, usize)>,
   fn_mapping: FastHashMap<String, (naga::Handle<naga::Function>, ShaderUserDefinedFunction)>,
   consts_mapping: FastHashMap<ShaderNodeRawHandle, naga::Handle<naga::Constant>>,
+  ty_mapping: FastHashMap<ShaderValueType, naga::Handle<naga::Type>>,
   expression_mapping: FastHashMap<ShaderNodeRawHandle, naga::Handle<naga::Expression>>,
 }
 
@@ -58,6 +59,7 @@ impl ShaderAPINagaImpl {
       fn_mapping: Default::default(),
       consts_mapping: Default::default(),
       expression_mapping: Default::default(),
+      ty_mapping: Default::default(),
       control_structure: Default::default(),
     }
   }
@@ -92,6 +94,9 @@ impl ShaderAPINagaImpl {
   }
 
   fn register_ty_impl(&mut self, ty: ShaderValueType) -> naga::Handle<naga::Type> {
+    if let Some(handle) = self.ty_mapping.get(&ty) {
+      return *handle;
+    }
     let ty = match ty {
       ShaderValueType::Single(v) => match v {
         ShaderValueSingleType::Sized(f) => match f {
@@ -299,22 +304,18 @@ impl ShaderAPI for ShaderAPINagaImpl {
         },
       },
       ShaderNodeExpr::FieldGet {
-        field_name,
+        field_index,
         struct_node,
-      } => {
-        // let node_type
-        // naga::Expression::AccessIndex {
-        //   base: (),
-        //   index: (),
-        // }
-        todo!()
-      }
+      } => naga::Expression::AccessIndex {
+        base: self.get_expression(struct_node),
+        index: field_index as u32,
+      },
       ShaderNodeExpr::StructConstruct { meta, fields } => {
-        //   naga::Expression::Compose {
-        //   ty: (),
-        //   components: (),
-        // }
-        todo!()
+        let components = fields.iter().map(|f| self.get_expression(*f)).collect();
+        let ty = self.register_ty_impl(ShaderValueType::Single(ShaderValueSingleType::Sized(
+          ShaderSizedValueType::Struct(meta),
+        )));
+        naga::Expression::Compose { ty, components }
       }
       ShaderNodeExpr::Const(c) => {
         // let handle = self.module.constants.append(value, Span::UNDEFINED);
@@ -342,7 +343,7 @@ impl ShaderAPI for ShaderAPINagaImpl {
     self.make_expression_inner(naga::Expression::LocalVariable(var))
   }
 
-  fn write(&mut self, source: ShaderNodeRawHandle, target: ShaderNodeRawHandle) {
+  fn store(&mut self, source: ShaderNodeRawHandle, target: ShaderNodeRawHandle) {
     let st = naga::Statement::Store {
       pointer: self.get_expression(target),
       value: self.get_expression(source),

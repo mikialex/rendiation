@@ -184,7 +184,7 @@ impl ShaderFragmentBuilder {
       .get_mut(slot)
       .ok_or(ShaderBuildError::FragmentOutputSlotNotDeclared)?
       .0;
-    call_shader_api(|g| g.write(node.into().handle(), target.handle()));
+    call_shader_api(|g| g.store(node.into().handle(), target.handle()));
 
     Ok(())
   }

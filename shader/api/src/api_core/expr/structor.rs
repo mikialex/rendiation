@@ -32,12 +32,17 @@ pub fn extract_struct_define_inner(
   }
 }
 
-pub fn expand_single<T>(struct_node: ShaderNodeRawHandle, field_name: &'static str) -> Node<T>
+/// # Safety
+///
+/// the field index should be bounded and with correct type
+///
+/// .
+pub unsafe fn expand_single<T>(struct_node: ShaderNodeRawHandle, field_index: usize) -> Node<T>
 where
   T: ShaderNodeType,
 {
   ShaderNodeExpr::FieldGet {
-    field_name,
+    field_index,
     struct_node,
   }
   .insert_api()

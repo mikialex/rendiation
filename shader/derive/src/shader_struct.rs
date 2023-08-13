@@ -32,11 +32,15 @@ fn derive_shader_struct(s: &StructInfo) -> proc_macro2::TokenStream {
     }
   });
 
+  let mut i = 0;
   let field_methods = s.map_visible_fields(|(field_name, ty)| {
-    let field_str = format!("{field_name}");
+    i += 1;
+    let idx: usize = i - 1;
     quote! {
-      pub fn #field_name(node: rendiation_shader_api::Node<Self>) -> rendiation_shader_api::Node<<#ty as rendiation_shader_api::ShaderFieldTypeMapper>::ShaderType>{
-        rendiation_shader_api::expand_single::<<#ty as rendiation_shader_api::ShaderFieldTypeMapper>::ShaderType>(node.handle(), #field_str)
+      pub fn #field_name(node: rendiation_shader_api::Node<Self>) -> rendiation_shader_api::Node<<#ty as rendiation_shader_api::ShaderFieldTypeMapper>::ShaderType> {
+        unsafe {
+          rendiation_shader_api::expand_single::<<#ty as rendiation_shader_api::ShaderFieldTypeMapper>::ShaderType>(node.handle(), #idx)
+        }
       }
     }
   });

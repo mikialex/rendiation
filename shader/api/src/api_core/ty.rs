@@ -9,7 +9,7 @@ pub enum ShaderStages {
 #[derive(Clone, Copy)]
 pub struct BindingArray<T, const N: usize>(PhantomData<T>);
 
-#[derive(Clone, Copy, PartialEq, Eq)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash)]
 pub enum ShaderValueType {
   Single(ShaderValueSingleType),
   BindingArray {
@@ -38,7 +38,7 @@ impl ShaderValueType {
   }
 }
 
-#[derive(Clone, Copy, PartialEq, Eq)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash)]
 pub enum ShaderValueSingleType {
   Sized(ShaderSizedValueType),
   Unsized(ShaderUnSizedValueType),
@@ -50,14 +50,14 @@ pub enum ShaderValueSingleType {
   },
 }
 
-#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+#[derive(Clone, Copy, PartialEq, Eq, Debug, Hash)]
 pub enum ShaderSizedValueType {
   Primitive(PrimitiveShaderValueType),
   Struct(&'static ShaderStructMetaInfo),
   FixedSizeArray((&'static ShaderSizedValueType, usize)),
 }
 
-#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+#[derive(Clone, Copy, PartialEq, Eq, Debug, Hash)]
 pub enum ShaderUnSizedValueType {
   UnsizedArray(&'static ShaderSizedValueType),
   UnsizedStruct(&'static ShaderUnSizedStructMetaInfo),

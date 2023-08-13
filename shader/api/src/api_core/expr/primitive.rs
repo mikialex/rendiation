@@ -1,6 +1,6 @@
 use crate::*;
 
-#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+#[derive(Clone, Copy, PartialEq, Eq, Debug, Hash)]
 pub enum PrimitiveShaderValueType {
   Bool,
   Int32,

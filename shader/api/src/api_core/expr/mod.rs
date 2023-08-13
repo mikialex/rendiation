@@ -46,7 +46,7 @@ pub enum ShaderNodeExpr {
   },
   Operator(OperatorNode),
   FieldGet {
-    field_name: &'static str,
+    field_index: usize,
     struct_node: ShaderNodeRawHandle,
   },
   StructConstruct {

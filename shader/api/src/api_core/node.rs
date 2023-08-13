@@ -43,7 +43,7 @@ impl<T: ShaderNodeType> Node<T> {
   pub fn mutable(&self) -> NodeMutable<T> {
     let inner = call_shader_api(|g| unsafe {
       let v = g.make_var(T::TYPE);
-      g.write(self.handle(), v);
+      g.store(self.handle(), v);
       v.into_node()
     });
 
@@ -54,7 +54,7 @@ impl<T: ShaderNodeType> Node<T> {
 impl<T> NodeMutable<T> {
   pub fn set(&self, source: impl Into<Node<T>>) {
     call_shader_api(|g| {
-      g.write(self.inner.handle(), source.into().handle());
+      g.store(self.inner.handle(), source.into().handle());
     })
   }
   pub fn get(&self) -> Node<T> {

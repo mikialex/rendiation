@@ -34,7 +34,7 @@ pub trait ShaderAPI {
 
   fn make_expression(&mut self, expr: ShaderNodeExpr) -> ShaderNodeRawHandle;
   fn make_var(&mut self, ty: ShaderValueType) -> ShaderNodeRawHandle;
-  fn write(&mut self, source: ShaderNodeRawHandle, target: ShaderNodeRawHandle);
+  fn store(&mut self, source: ShaderNodeRawHandle, target: ShaderNodeRawHandle);
   fn load(&mut self, source: ShaderNodeRawHandle) -> ShaderNodeRawHandle;
 
   fn push_scope(&mut self);
