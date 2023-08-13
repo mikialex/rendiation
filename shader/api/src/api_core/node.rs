@@ -4,11 +4,11 @@ use crate::*;
 #[derive(Clone, Copy)]
 pub struct Node<T> {
   pub(crate) phantom: PhantomData<T>,
-  pub(crate) handle: ShaderGraphNodeRawHandle,
+  pub(crate) handle: ShaderNodeRawHandle,
 }
 
 impl<T> Node<T> {
-  pub fn handle(&self) -> ShaderGraphNodeRawHandle {
+  pub fn handle(&self) -> ShaderNodeRawHandle {
     self.handle
   }
 
@@ -16,22 +16,22 @@ impl<T> Node<T> {
   /// force type casting
   pub unsafe fn cast_type<X>(self) -> Node<X>
   where
-    X: ShaderGraphNodeType,
+    X: ShaderNodeType,
   {
-    modify_graph(|g| g.register_ty(X::TYPE));
+    call_shader_api(|g| g.register_ty(X::TYPE));
     std::mem::transmute(self)
   }
 }
 
 impl<T> From<T> for Node<T>
 where
-  T: PrimitiveShaderGraphNodeType,
+  T: PrimitiveShaderNodeType,
 {
   fn from(input: T) -> Self {
-    ShaderGraphNodeExpr::Const(ConstNode {
+    ShaderNodeExpr::Const(ConstNode {
       data: input.to_primitive(),
     })
-    .insert_graph()
+    .insert_api()
   }
 }
 
@@ -39,9 +39,9 @@ pub struct NodeMutable<T> {
   pub(crate) inner: Node<T>,
 }
 
-impl<T: ShaderGraphNodeType> Node<T> {
+impl<T: ShaderNodeType> Node<T> {
   pub fn mutable(&self) -> NodeMutable<T> {
-    let inner = modify_graph(|g| unsafe {
+    let inner = call_shader_api(|g| unsafe {
       let v = g.make_var(T::TYPE);
       g.write(self.handle(), v);
       v.into_node()
@@ -53,12 +53,12 @@ impl<T: ShaderGraphNodeType> Node<T> {
 
 impl<T> NodeMutable<T> {
   pub fn set(&self, source: impl Into<Node<T>>) {
-    modify_graph(|g| {
+    call_shader_api(|g| {
       g.write(self.inner.handle(), source.into().handle());
     })
   }
   pub fn get(&self) -> Node<T> {
-    modify_graph(|g| unsafe { g.load(self.inner.handle()).into_node() })
+    call_shader_api(|g| unsafe { g.load(self.inner.handle()).into_node() })
   }
 }
 
@@ -74,11 +74,11 @@ impl<T> Node<T> {
 pub type NodeUntyped = Node<AnyType>;
 
 #[derive(Clone, Copy, PartialEq, Eq, Hash)]
-pub struct ShaderGraphNodeRawHandle {
+pub struct ShaderNodeRawHandle {
   pub handle: usize,
 }
 
-impl ShaderGraphNodeRawHandle {
+impl ShaderNodeRawHandle {
   /// # Safety
   ///
   /// force type casting

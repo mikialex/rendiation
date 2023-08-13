@@ -296,7 +296,7 @@ impl WebGPUxUIRenderer {
     });
 
     let solid_color_pipeline = device
-      .build_pipeline_by_shadergraph(
+      .build_pipeline_by_shader_api(
         SolidUIPipeline { target_format }
           .build_self(
             Box::new(ShaderAPINagaImpl::new(
@@ -311,7 +311,7 @@ impl WebGPUxUIRenderer {
       .unwrap();
 
     let texture_pipeline = device
-      .build_pipeline_by_shadergraph(
+      .build_pipeline_by_shader_api(
         TextureUIPipeline { target_format }
           .build_self(
             Box::new(ShaderAPINagaImpl::new(

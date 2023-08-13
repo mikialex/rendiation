@@ -26,7 +26,7 @@ pub fn derive_vertex(input: TokenStream) -> TokenStream {
 /// Mark the struct could be expressed in rendiation_shader_api type API
 ///
 /// Implementation will add static struct meta info for reflection
-/// and define a shader graph instance type and convert methods for rendiation_shader_api usage.
+/// and define a shader api instance type and convert methods for rendiation_shader_api usage.
 #[proc_macro_derive(ShaderStruct)]
 pub fn derive_shader_struct(input: TokenStream) -> TokenStream {
   let input = parse_macro_input!(input as syn::DeriveInput);
@@ -72,6 +72,6 @@ pub fn std430_layout(_args: TokenStream, input: TokenStream) -> TokenStream {
 }
 
 #[proc_macro_attribute]
-pub fn shadergraph_fn(_args: TokenStream, input: TokenStream) -> TokenStream {
-  shadergraph_fn_impl(_args, input)
+pub fn shader_fn(_args: TokenStream, input: TokenStream) -> TokenStream {
+  shader_api_fn_impl(_args, input)
 }

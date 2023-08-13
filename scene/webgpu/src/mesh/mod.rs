@@ -149,10 +149,7 @@ impl ShaderPassBuilder for MeshGPUInstance {
 }
 
 impl GraphicsShaderProvider for MeshGPUInstance {
-  fn build(
-    &self,
-    builder: &mut ShaderGraphRenderPipelineBuilder,
-  ) -> Result<(), ShaderGraphBuildError> {
+  fn build(&self, builder: &mut ShaderRenderPipelineBuilder) -> Result<(), ShaderBuildError> {
     match self {
       Self::Attributes(m) => m.as_reactive_component().build(builder),
       Self::TransformInstanced(m) => m.as_reactive_component().build(builder),
@@ -160,10 +157,7 @@ impl GraphicsShaderProvider for MeshGPUInstance {
     }
   }
 
-  fn post_build(
-    &self,
-    builder: &mut ShaderGraphRenderPipelineBuilder,
-  ) -> Result<(), ShaderGraphBuildError> {
+  fn post_build(&self, builder: &mut ShaderRenderPipelineBuilder) -> Result<(), ShaderBuildError> {
     match self {
       Self::Attributes(m) => m.as_reactive_component().post_build(builder),
       Self::TransformInstanced(m) => m.as_reactive_component().post_build(builder),

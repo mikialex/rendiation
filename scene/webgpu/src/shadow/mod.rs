@@ -56,10 +56,7 @@ impl ShaderHashProvider for ShadowMapSystem {
 }
 
 impl GraphicsShaderProvider for ShadowMapSystem {
-  fn build(
-    &self,
-    builder: &mut ShaderGraphRenderPipelineBuilder,
-  ) -> Result<(), ShaderGraphBuildError> {
+  fn build(&self, builder: &mut ShaderRenderPipelineBuilder) -> Result<(), ShaderBuildError> {
     self.single_proj_sys.read().unwrap().list.build(builder)?;
     self.maps.build(builder)
   }
@@ -74,10 +71,7 @@ pub struct BasicShadowMapInfoList {
 }
 
 impl GraphicsShaderProvider for BasicShadowMapInfoList {
-  fn build(
-    &self,
-    builder: &mut ShaderGraphRenderPipelineBuilder,
-  ) -> Result<(), ShaderGraphBuildError> {
+  fn build(&self, builder: &mut ShaderRenderPipelineBuilder) -> Result<(), ShaderBuildError> {
     builder.fragment(|builder, binding| {
       let list = binding.bind_by(self.list.gpu.as_ref().unwrap());
       builder.register::<BasicShadowMapInfoGroup>(list);
@@ -151,9 +145,9 @@ impl LightShadowAddressInfo {
 }
 
 pub fn compute_shadow_position(
-  builder: &ShaderGraphFragmentBuilderView,
+  builder: &ShaderFragmentBuilderView,
   shadow_info: ENode<BasicShadowMapInfo>,
-) -> Result<Node<Vec3<f32>>, ShaderGraphBuildError> {
+) -> Result<Node<Vec3<f32>>, ShaderBuildError> {
   // another way to compute this is in vertex shader, maybe we will try it later.
   let bias = shadow_info.bias.expand();
   let world_position = builder.query::<FragmentWorldPosition>()?;

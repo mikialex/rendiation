@@ -10,8 +10,8 @@ pub struct SolidUIPipeline {
 impl GraphicsShaderProvider for SolidUIPipeline {
   fn build(
     &self,
-    builder: &mut ShaderGraphRenderPipelineBuilder,
-  ) -> Result<(), rendiation_shader_api::ShaderGraphBuildError> {
+    builder: &mut ShaderRenderPipelineBuilder,
+  ) -> Result<(), rendiation_shader_api::ShaderBuildError> {
     builder.set_binding_slot(0);
     let global = builder.binding::<UniformBufferDataView<UIGlobalParameter>>();
 
@@ -57,8 +57,8 @@ pub struct TextureUIPipeline {
 impl GraphicsShaderProvider for TextureUIPipeline {
   fn build(
     &self,
-    builder: &mut ShaderGraphRenderPipelineBuilder,
-  ) -> Result<(), rendiation_shader_api::ShaderGraphBuildError> {
+    builder: &mut ShaderRenderPipelineBuilder,
+  ) -> Result<(), rendiation_shader_api::ShaderBuildError> {
     builder.set_binding_slot(0);
     let global = builder.binding::<UniformBufferDataView<UIGlobalParameter>>();
 

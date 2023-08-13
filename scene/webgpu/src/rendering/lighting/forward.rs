@@ -265,16 +265,10 @@ impl<'a> ShaderHashProviderAny for ForwardSceneLightingDispatcher<'a> {
 }
 
 impl<'a> GraphicsShaderProvider for ForwardSceneLightingDispatcher<'a> {
-  fn build(
-    &self,
-    builder: &mut ShaderGraphRenderPipelineBuilder,
-  ) -> Result<(), ShaderGraphBuildError> {
+  fn build(&self, builder: &mut ShaderRenderPipelineBuilder) -> Result<(), ShaderBuildError> {
     self.base.build(builder)
   }
-  fn post_build(
-    &self,
-    builder: &mut ShaderGraphRenderPipelineBuilder,
-  ) -> Result<(), ShaderGraphBuildError> {
+  fn post_build(&self, builder: &mut ShaderRenderPipelineBuilder) -> Result<(), ShaderBuildError> {
     self.shadows.build(builder)?;
 
     let shading_impl = if let Some(override_shading) = self.override_shading {
@@ -321,9 +315,9 @@ only_fragment!(LightCount, u32);
 impl ForwardLightingSystem {
   pub fn compute_lights(
     &self,
-    builder: &mut ShaderGraphRenderPipelineBuilder,
+    builder: &mut ShaderRenderPipelineBuilder,
     shading_impl: &dyn LightableSurfaceShadingDyn,
-  ) -> Result<(), ShaderGraphBuildError> {
+  ) -> Result<(), ShaderBuildError> {
     builder.fragment(|builder, binding| {
       let lengths_info = binding.bind_by(&self.lengths);
       let camera_position = builder.query::<CameraWorldMatrix>()?.position();
@@ -548,12 +542,12 @@ impl<T: ShaderLight> ShaderPassBuilder for LightList<T> {
 impl<T: ShaderLight> LightCollectionCompute for LightList<T> {
   fn compute_lights(
     &self,
-    builder: &mut ShaderGraphFragmentBuilderView,
-    binding: &mut ShaderGraphBindGroupDirectBuilder,
+    builder: &mut ShaderFragmentBuilderView,
+    binding: &mut ShaderBindGroupDirectBuilder,
     shading_impl: &dyn LightableSurfaceShadingDyn,
     shading: &dyn Any,
     geom_ctx: &ENode<ShaderLightingGeometricCtx>,
-  ) -> Result<(Node<Vec3<f32>>, Node<Vec3<f32>>), ShaderGraphBuildError> {
+  ) -> Result<(Node<Vec3<f32>>, Node<Vec3<f32>>), ShaderBuildError> {
     let lights = binding.bind_by(self.uniform.gpu.as_ref().unwrap());
 
     let dep = T::create_dep(builder)?;

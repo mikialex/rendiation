@@ -107,10 +107,7 @@ impl ShaderPassBuilder for GridGroundShading {
   }
 }
 impl GraphicsShaderProvider for GridGroundShading {
-  fn build(
-    &self,
-    builder: &mut ShaderGraphRenderPipelineBuilder,
-  ) -> Result<(), ShaderGraphBuildError> {
+  fn build(&self, builder: &mut ShaderRenderPipelineBuilder) -> Result<(), ShaderBuildError> {
     builder.fragment(|builder, binding| {
       let shading = binding.bind_by(&self.shading);
       let world_position = builder.query::<FragmentWorldPosition>()?;
@@ -123,7 +120,7 @@ impl GraphicsShaderProvider for GridGroundShading {
   }
 }
 
-#[shadergraph_fn]
+#[shader_fn]
 fn grid(position: Node<Vec3<f32>>, config: Node<GridGroundConfig>) -> Node<Vec4<f32>> {
   let coord = position.xz() * GridGroundConfig::scale(config);
   let grid =
@@ -170,10 +167,7 @@ impl<'a> ShaderPassBuilder for InfinityShaderPlaneEffect<'a> {
 }
 
 impl<'a> GraphicsShaderProvider for InfinityShaderPlaneEffect<'a> {
-  fn build(
-    &self,
-    builder: &mut ShaderGraphRenderPipelineBuilder,
-  ) -> Result<(), ShaderGraphBuildError> {
+  fn build(&self, builder: &mut ShaderRenderPipelineBuilder) -> Result<(), ShaderBuildError> {
     self.camera.inject_uniforms(builder);
 
     builder.vertex(|builder, _| {
@@ -226,10 +220,7 @@ impl<'a> GraphicsShaderProvider for InfinityShaderPlaneEffect<'a> {
   }
 
   // override
-  fn post_build(
-    &self,
-    builder: &mut ShaderGraphRenderPipelineBuilder,
-  ) -> Result<(), ShaderGraphBuildError> {
+  fn post_build(&self, builder: &mut ShaderRenderPipelineBuilder) -> Result<(), ShaderBuildError> {
     builder.fragment(|builder, _| {
       let has_hit = builder.query::<IsHitInfinityPlane>()?;
       let previous_display = builder.query::<DefaultDisplay>()?;

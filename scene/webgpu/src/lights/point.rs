@@ -13,17 +13,17 @@ impl PunctualShaderLight for PointLightShaderInfo {
   type PunctualDependency = ();
 
   fn create_punctual_dep(
-    _: &mut ShaderGraphFragmentBuilderView,
-  ) -> Result<Self::PunctualDependency, ShaderGraphBuildError> {
+    _: &mut ShaderFragmentBuilderView,
+  ) -> Result<Self::PunctualDependency, ShaderBuildError> {
     Ok(())
   }
 
   fn compute_incident_light(
-    _: &ShaderGraphFragmentBuilderView,
+    _: &ShaderFragmentBuilderView,
     light: &ENode<Self>,
     _dep: &Self::PunctualDependency,
     ctx: &ENode<ShaderLightingGeometricCtx>,
-  ) -> Result<ENode<ShaderIncidentLight>, ShaderGraphBuildError> {
+  ) -> Result<ENode<ShaderIncidentLight>, ShaderBuildError> {
     let direction = ctx.position - light.position;
     let distance = direction.length();
     let factor = punctual_light_intensity_to_illuminance_factor_fn(distance, light.cutoff_distance);
@@ -88,7 +88,7 @@ impl WebGPULight for SceneItemRef<PointLight> {
 /// https://seblagarde.files.wordpress.com/2015/07/course_notes_moving_frostbite_to_pbr_v32.pdf
 /// this is intended to be used on spot and point lights who are represented as luminous intensity
 /// but who must be converted to illuminance for surface lighting calculation
-#[shadergraph_fn]
+#[shader_fn]
 pub fn punctual_light_intensity_to_illuminance_factor(
   light_distance: Node<f32>,
   cutoff_distance: Node<f32>,

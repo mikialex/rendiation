@@ -108,17 +108,11 @@ impl<T: ShaderPassBuilder> ShaderPassBuilder for RenderComponentCell<T> {
   }
 }
 impl<T: GraphicsShaderProvider> GraphicsShaderProvider for RenderComponentCell<T> {
-  fn build(
-    &self,
-    builder: &mut ShaderGraphRenderPipelineBuilder,
-  ) -> Result<(), ShaderGraphBuildError> {
+  fn build(&self, builder: &mut ShaderRenderPipelineBuilder) -> Result<(), ShaderBuildError> {
     self.inner.build(builder)
   }
 
-  fn post_build(
-    &self,
-    builder: &mut ShaderGraphRenderPipelineBuilder,
-  ) -> Result<(), ShaderGraphBuildError> {
+  fn post_build(&self, builder: &mut ShaderRenderPipelineBuilder) -> Result<(), ShaderBuildError> {
     self.inner.post_build(builder)
   }
 }

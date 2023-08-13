@@ -19,20 +19,20 @@ pub enum ShaderBuiltInFunction {
   // todo other math
 }
 
-pub fn make_builtin_call<T: ShaderGraphNodeType>(
+pub fn make_builtin_call<T: ShaderNodeType>(
   ty: ShaderBuiltInFunction,
-  params: impl IntoIterator<Item = ShaderGraphNodeRawHandle>,
+  params: impl IntoIterator<Item = ShaderNodeRawHandle>,
 ) -> Node<T> {
-  ShaderGraphNodeExpr::FunctionCall {
+  ShaderNodeExpr::FunctionCall {
     meta: ShaderFunctionType::BuiltIn(ty),
     parameters: params.into_iter().collect(),
   }
-  .insert_graph()
+  .insert_api()
 }
 
 impl<T> Node<T>
 where
-  T: InnerProductSpace<f32> + PrimitiveShaderGraphNodeType,
+  T: InnerProductSpace<f32> + PrimitiveShaderNodeType,
 {
   pub fn normalize(self) -> Self {
     make_builtin_call(ShaderBuiltInFunction::Normalize, [self.handle()])
@@ -59,8 +59,8 @@ where
 
 impl<T> Node<T>
 where
-  T: PrimitiveShaderGraphNodeType, /* where
-                                    * T: RealVector<f32> + PrimitiveShaderGraphNodeType, */
+  T: PrimitiveShaderNodeType, /* where
+                               * T: RealVector<f32> + PrimitiveShaderNodeType, */
 {
   pub fn min(self, other: impl Into<Self>) -> Self {
     make_builtin_call(
@@ -85,7 +85,7 @@ where
 // adhoc component-wise compute
 impl<T> Node<T>
 where
-  T: PrimitiveShaderGraphNodeType,
+  T: PrimitiveShaderNodeType,
 {
   pub fn abs(self) -> Self {
     make_builtin_call(ShaderBuiltInFunction::Abs, [self.handle()])
@@ -103,7 +103,7 @@ where
 
 impl<T> Node<T>
 where
-  T: Lerp<T> + PrimitiveShaderGraphNodeType,
+  T: Lerp<T> + PrimitiveShaderNodeType,
 {
   pub fn smoothstep(self, low: impl Into<Self>, high: impl Into<Self>) -> Self {
     make_builtin_call(
@@ -115,7 +115,7 @@ where
 
 impl<T> Node<T>
 where
-  T: SquareMatrix<f32> + PrimitiveShaderGraphNodeType,
+  T: SquareMatrix<f32> + PrimitiveShaderNodeType,
 {
   pub fn transpose(self) -> Self {
     make_builtin_call(ShaderBuiltInFunction::MatTranspose, [self.handle()])
@@ -127,16 +127,16 @@ impl Node<Mat4<f32>> {
     self.nth_colum(3).xyz()
   }
   pub fn nth_colum(self, n: impl Into<Node<i32>>) -> Node<Vec4<f32>> {
-    ShaderGraphNodeExpr::Operator(OperatorNode::Index {
+    ShaderNodeExpr::Operator(OperatorNode::Index {
       array: self.handle(),
       entry: n.into().handle(),
     })
-    .insert_graph()
+    .insert_api()
   }
 }
 
 impl Node<bool> {
-  pub fn select<T: ShaderGraphNodeType>(
+  pub fn select<T: ShaderNodeType>(
     &self,
     true_case: impl Into<Node<T>>,
     false_case: impl Into<Node<T>>,

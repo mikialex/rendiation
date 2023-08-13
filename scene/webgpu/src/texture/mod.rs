@@ -149,10 +149,7 @@ impl ShaderHashProvider for WebGPUTextureBindingSystem {
   }
 }
 impl GraphicsShaderProvider for WebGPUTextureBindingSystem {
-  fn build(
-    &self,
-    builder: &mut ShaderGraphRenderPipelineBuilder,
-  ) -> Result<(), ShaderGraphBuildError> {
+  fn build(&self, builder: &mut ShaderRenderPipelineBuilder) -> Result<(), ShaderBuildError> {
     self.shader_system(builder);
     Ok(())
   }
@@ -205,7 +202,7 @@ impl WebGPUTextureBindingSystem {
 
   pub fn shader_bind_sampler(
     &self,
-    builder: &mut ShaderGraphBindGroupDirectBuilder,
+    builder: &mut ShaderBindGroupDirectBuilder,
     handle: SamplerHandle,
   ) -> Node<ShaderSampler> {
     let inner = self.inner.read().unwrap();
@@ -214,14 +211,14 @@ impl WebGPUTextureBindingSystem {
 
   pub fn shader_bind_texture(
     &self,
-    builder: &mut ShaderGraphBindGroupDirectBuilder,
+    builder: &mut ShaderBindGroupDirectBuilder,
     handle: Texture2DHandle,
   ) -> Node<ShaderTexture2D> {
     let inner = self.inner.read().unwrap();
     inner.register_shader_texture2d(builder, handle)
   }
 
-  pub fn shader_system(&self, builder: &mut ShaderGraphRenderPipelineBuilder) {
+  pub fn shader_system(&self, builder: &mut ShaderRenderPipelineBuilder) {
     if !self.bindless_enabled {
       return;
     }
@@ -241,7 +238,7 @@ impl WebGPUTextureBindingSystem {
   #[allow(clippy::too_many_arguments)]
   pub fn maybe_sample_texture2d_indirect_and_bind_shader(
     &self,
-    binding: &mut ShaderGraphBindGroupDirectBuilder,
+    binding: &mut ShaderBindGroupDirectBuilder,
     reg: &SemanticRegistry,
     texture_handle: Texture2DHandle,
     shader_texture_handle: Node<Texture2DHandle>,

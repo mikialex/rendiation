@@ -1,13 +1,13 @@
 use crate::*;
 
 pub trait SemanticVertexShaderValue: Any {
-  type ValueType: ShaderGraphNodeType;
+  type ValueType: ShaderNodeType;
   const NAME: &'static str = std::any::type_name::<Self>();
 }
 
 /// Describes how the vertex buffer is interpreted.
 #[derive(Clone, Debug, Hash, Eq, PartialEq)]
-pub struct ShaderGraphVertexBufferLayout {
+pub struct ShaderVertexBufferLayout {
   /// The stride, in bytes, between elements of this buffer.
   pub array_stride: BufferAddress,
   /// How often this vertex buffer is "stepped" forward.
@@ -16,10 +16,10 @@ pub struct ShaderGraphVertexBufferLayout {
   pub attributes: Vec<VertexAttribute>,
 }
 
-pub struct ShaderGraphVertexBuilder {
+pub struct ShaderVertexBuilder {
   // user vertex in
   pub vertex_in: FastHashMap<TypeId, VertexIOInfo>,
-  pub vertex_layouts: Vec<ShaderGraphVertexBufferLayout>,
+  pub vertex_layouts: Vec<ShaderVertexBufferLayout>,
   pub primitive_state: PrimitiveState,
 
   // user semantic vertex
@@ -37,7 +37,7 @@ pub struct VertexIOInfo {
   pub location: usize,
 }
 
-impl ShaderGraphVertexBuilder {
+impl ShaderVertexBuilder {
   pub(crate) fn new() -> Self {
     let mut result = Self {
       vertex_in: Default::default(),
@@ -53,11 +53,10 @@ impl ShaderGraphVertexBuilder {
 
     set_current_building(ShaderStages::Vertex.into());
 
-    let vertex_index = ShaderGraphInputNode::BuiltIn(ShaderBuiltIn::VertexIndexId).insert_graph();
+    let vertex_index = ShaderInputNode::BuiltIn(ShaderBuiltIn::VertexIndexId).insert_api();
     result.register::<VertexIndex>(vertex_index);
 
-    let instance_index =
-      ShaderGraphInputNode::BuiltIn(ShaderBuiltIn::VertexInstanceId).insert_graph();
+    let instance_index = ShaderInputNode::BuiltIn(ShaderBuiltIn::VertexInstanceId).insert_api();
     result.register::<VertexInstanceIndex>(instance_index);
 
     set_current_building(None);
@@ -65,7 +64,7 @@ impl ShaderGraphVertexBuilder {
     result
   }
 
-  pub fn sync_fragment_out(&mut self, fragment: &mut ShaderGraphFragmentBuilder) {
+  pub fn sync_fragment_out(&mut self, fragment: &mut ShaderFragmentBuilder) {
     let vertex_out = &mut self.vertex_out;
     self
       .vertex_out_not_synced_to_fragment
@@ -74,7 +73,7 @@ impl ShaderGraphVertexBuilder {
         let VertexIOInfo { ty, location, .. } = *vertex_out.get(&id).unwrap();
 
         set_current_building(ShaderStages::Fragment.into());
-        let node = ShaderGraphInputNode::FragmentIn { ty, location }.insert_graph();
+        let node = ShaderInputNode::FragmentIn { ty, location }.insert_api();
         fragment.registry.register(id, node);
         set_current_building(None);
 
@@ -91,7 +90,7 @@ impl ShaderGraphVertexBuilder {
 
   pub fn query<T: SemanticVertexShaderValue>(
     &self,
-  ) -> Result<Node<T::ValueType>, ShaderGraphBuildError> {
+  ) -> Result<Node<T::ValueType>, ShaderBuildError> {
     self
       .registry
       .query(TypeId::of::<T>(), T::NAME)
@@ -101,7 +100,7 @@ impl ShaderGraphVertexBuilder {
   pub fn query_or_insert_default<T>(&mut self) -> Node<T::ValueType>
   where
     T: SemanticVertexShaderValue,
-    T::ValueType: PrimitiveShaderGraphNodeType,
+    T::ValueType: PrimitiveShaderNodeType,
   {
     if let Ok(n) = self.registry.query(TypeId::of::<T>(), T::NAME) {
       unsafe { n.cast_type() }
@@ -125,7 +124,7 @@ impl ShaderGraphVertexBuilder {
   pub fn register_vertex_in<T>(&mut self) -> u32
   where
     T: SemanticVertexShaderValue,
-    T::ValueType: PrimitiveShaderGraphNodeType,
+    T::ValueType: PrimitiveShaderNodeType,
   {
     self.register_vertex_in_inner(T::ValueType::PRIMITIVE_TYPE, TypeId::of::<T>())
   }
@@ -133,7 +132,7 @@ impl ShaderGraphVertexBuilder {
   /// untyped version
   pub fn register_vertex_in_inner(&mut self, ty: PrimitiveShaderValueType, ty_id: TypeId) -> u32 {
     let location = self.vertex_in.len();
-    let node = ShaderGraphInputNode::VertexIn { ty, location }.insert_graph();
+    let node = ShaderInputNode::VertexIn { ty, location }.insert_api();
     self.registry.register(ty_id, node);
 
     self.vertex_in.entry(ty_id).or_insert_with(|| VertexIOInfo {
@@ -145,14 +144,14 @@ impl ShaderGraphVertexBuilder {
     location as u32
   }
 
-  pub fn push_vertex_layout(&mut self, layout: ShaderGraphVertexBufferLayout) {
+  pub fn push_vertex_layout(&mut self, layout: ShaderVertexBufferLayout) {
     self.vertex_layouts.push(layout)
   }
 
   pub fn push_single_vertex_layout<T>(&mut self, step_mode: VertexStepMode)
   where
     T: SemanticVertexShaderValue,
-    T::ValueType: PrimitiveShaderGraphNodeType + VertexInBuilder,
+    T::ValueType: PrimitiveShaderNodeType + VertexInBuilder,
   {
     let mut builder = AttributesListBuilder::default();
     T::ValueType::build_attribute::<T>(&mut builder, self);
@@ -162,7 +161,7 @@ impl ShaderGraphVertexBuilder {
   pub fn set_vertex_out<T>(&mut self, node: impl Into<Node<T::ValueType>>)
   where
     T: SemanticFragmentShaderValue,
-    T::ValueType: PrimitiveShaderGraphNodeType,
+    T::ValueType: PrimitiveShaderNodeType,
   {
     let location = self.vertex_out.len();
     let node = node.into();
@@ -177,17 +176,14 @@ impl ShaderGraphVertexBuilder {
 
   pub fn register_vertex<V>(&mut self, step_mode: VertexStepMode)
   where
-    V: ShaderGraphVertexInProvider,
+    V: ShaderVertexInProvider,
   {
     V::provide_layout_and_vertex_in(self, step_mode)
   }
 }
 
-pub trait ShaderGraphVertexInProvider {
-  fn provide_layout_and_vertex_in(
-    builder: &mut ShaderGraphVertexBuilder,
-    step_mode: VertexStepMode,
-  );
+pub trait ShaderVertexInProvider {
+  fn provide_layout_and_vertex_in(builder: &mut ShaderVertexBuilder, step_mode: VertexStepMode);
 }
 
 #[derive(Default)]
@@ -208,8 +204,8 @@ impl AttributesListBuilder {
     self.byte_size_all += size;
   }
 
-  pub fn build(self, builder: &mut ShaderGraphVertexBuilder, step_mode: VertexStepMode) {
-    let layout = ShaderGraphVertexBufferLayout {
+  pub fn build(self, builder: &mut ShaderVertexBuilder, step_mode: VertexStepMode) {
+    let layout = ShaderVertexBufferLayout {
       array_stride: self.byte_size_all,
       step_mode,
       attributes: self.inner,
@@ -221,19 +217,19 @@ impl AttributesListBuilder {
 pub trait VertexInBuilder {
   fn build_attribute<S>(
     builder: &mut AttributesListBuilder,
-    vertex_builder: &mut ShaderGraphVertexBuilder,
+    vertex_builder: &mut ShaderVertexBuilder,
   ) where
     S: SemanticVertexShaderValue<ValueType = Self>;
 }
 
 /// Mark self type could use as vertex buffer input
-pub trait VertexInShaderGraphNodeType: PrimitiveShaderGraphNodeType {
+pub trait VertexInShaderNodeType: PrimitiveShaderNodeType {
   fn to_vertex_format() -> VertexFormat;
 }
 
 macro_rules! vertex_input_node_impl {
   ($ty: ty, $format: expr) => {
-    impl VertexInShaderGraphNodeType for $ty {
+    impl VertexInShaderNodeType for $ty {
       fn to_vertex_format() -> VertexFormat {
         $format
       }
@@ -250,10 +246,10 @@ vertex_input_node_impl!(Vec2<u32>, VertexFormat::Uint32x2);
 vertex_input_node_impl!(Vec3<u32>, VertexFormat::Uint32x3);
 vertex_input_node_impl!(Vec4<u32>, VertexFormat::Uint32x4);
 
-impl<T: VertexInShaderGraphNodeType> VertexInBuilder for T {
+impl<T: VertexInShaderNodeType> VertexInBuilder for T {
   fn build_attribute<S>(
     builder: &mut AttributesListBuilder,
-    vertex_builder: &mut ShaderGraphVertexBuilder,
+    vertex_builder: &mut ShaderVertexBuilder,
   ) where
     S: SemanticVertexShaderValue<ValueType = Self>,
   {
@@ -268,7 +264,7 @@ impl VertexInBuilder for Mat4<f32> {
   #[rustfmt::skip]
   fn build_attribute<S>(
     builder: &mut AttributesListBuilder,
-    vertex_builder: &mut ShaderGraphVertexBuilder,
+    vertex_builder: &mut ShaderVertexBuilder,
   ) where
     S: SemanticVertexShaderValue<ValueType = Self>,
   {

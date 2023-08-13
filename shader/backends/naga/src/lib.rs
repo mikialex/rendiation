@@ -10,8 +10,8 @@ pub struct ShaderAPINagaImpl {
   control_structure: Vec<naga::Statement>,
   building_fn: Vec<(String, naga::Function, usize)>,
   fn_mapping: FastHashMap<String, (naga::Handle<naga::Function>, ShaderUserDefinedFunction)>,
-  consts_mapping: FastHashMap<ShaderGraphNodeRawHandle, naga::Handle<naga::Constant>>,
-  expression_mapping: FastHashMap<ShaderGraphNodeRawHandle, naga::Handle<naga::Expression>>,
+  consts_mapping: FastHashMap<ShaderNodeRawHandle, naga::Handle<naga::Constant>>,
+  expression_mapping: FastHashMap<ShaderNodeRawHandle, naga::Handle<naga::Expression>>,
 }
 
 pub enum BlockBuildingState {
@@ -66,13 +66,13 @@ impl ShaderAPINagaImpl {
     self.block.last_mut().unwrap().0.push(st, Span::UNDEFINED);
   }
 
-  fn make_new_handle(&mut self) -> ShaderGraphNodeRawHandle {
+  fn make_new_handle(&mut self) -> ShaderNodeRawHandle {
     self.handle_id += 1;
     let handle = self.handle_id;
-    ShaderGraphNodeRawHandle { handle }
+    ShaderNodeRawHandle { handle }
   }
 
-  fn make_expression_inner(&mut self, expr: naga::Expression) -> ShaderGraphNodeRawHandle {
+  fn make_expression_inner(&mut self, expr: naga::Expression) -> ShaderNodeRawHandle {
     let handle = self
       .building_fn
       .last_mut()
@@ -156,7 +156,7 @@ impl ShaderAPINagaImpl {
     self.module.types.insert(ty, Span::UNDEFINED)
   }
 
-  fn get_expression(&self, handle: ShaderGraphNodeRawHandle) -> naga::Handle<naga::Expression> {
+  fn get_expression(&self, handle: ShaderNodeRawHandle) -> naga::Handle<naga::Expression> {
     *self.expression_mapping.get(&handle).unwrap()
   }
 
@@ -225,28 +225,23 @@ fn map_primitive_type(t: PrimitiveShaderValueType) -> naga::TypeInner {
 }
 }
 
-// enum ControlStructure{
-//   If{
-//     condition: naga::Handle<naga::Expression>,
-//   }
-// }
-
 impl ShaderAPI for ShaderAPINagaImpl {
   fn register_ty(&mut self, ty: ShaderValueType) {
     self.register_ty_impl(ty);
   }
 
-  fn define_module_input(&mut self, input: ShaderGraphInputNode) -> ShaderGraphNodeRawHandle {
+  fn define_module_input(&mut self, input: ShaderInputNode) -> ShaderNodeRawHandle {
+    // naga::GlobalVariable
     todo!()
   }
 
-  fn define_frag_out(&mut self, idx: usize) -> ShaderGraphNodeRawHandle {
+  fn define_frag_out(&mut self, idx: usize) -> ShaderNodeRawHandle {
     todo!()
   }
 
-  fn make_expression(&mut self, expr: ShaderGraphNodeExpr) -> ShaderGraphNodeRawHandle {
+  fn make_expression(&mut self, expr: ShaderNodeExpr) -> ShaderNodeRawHandle {
     let expr = match expr {
-      ShaderGraphNodeExpr::FunctionCall { meta, parameters } => {
+      ShaderNodeExpr::FunctionCall { meta, parameters } => {
         match meta {
           ShaderFunctionType::Custom(meta) => {
             // naga::Expression::CallResult(())
@@ -255,7 +250,7 @@ impl ShaderAPI for ShaderAPINagaImpl {
           ShaderFunctionType::BuiltIn(_) => todo!(),
         }
       }
-      ShaderGraphNodeExpr::TextureSampling {
+      ShaderNodeExpr::TextureSampling {
         texture,
         sampler,
         position,
@@ -275,10 +270,10 @@ impl ShaderAPI for ShaderAPINagaImpl {
           .unwrap_or(naga::SampleLevel::Auto),
         depth_ref: None,
       },
-      ShaderGraphNodeExpr::Swizzle { ty, source } => todo!(),
-      ShaderGraphNodeExpr::Compose { target, parameters } => todo!(),
-      ShaderGraphNodeExpr::MatShrink { source, dimension } => todo!(),
-      ShaderGraphNodeExpr::Operator(op) => match op {
+      ShaderNodeExpr::Swizzle { ty, source } => todo!(),
+      ShaderNodeExpr::Compose { target, parameters } => todo!(),
+      ShaderNodeExpr::MatShrink { source, dimension } => todo!(),
+      ShaderNodeExpr::Operator(op) => match op {
         OperatorNode::Unary { one, operator } => {
           let op = match operator {
             UnaryOperator::LogicalNot => naga::UnaryOperator::Not,
@@ -303,7 +298,7 @@ impl ShaderAPI for ShaderAPINagaImpl {
           index: self.get_expression(entry),
         },
       },
-      ShaderGraphNodeExpr::FieldGet {
+      ShaderNodeExpr::FieldGet {
         field_name,
         struct_node,
       } => {
@@ -314,14 +309,14 @@ impl ShaderAPI for ShaderAPINagaImpl {
         // }
         todo!()
       }
-      ShaderGraphNodeExpr::StructConstruct { meta, fields } => {
+      ShaderNodeExpr::StructConstruct { meta, fields } => {
         //   naga::Expression::Compose {
         //   ty: (),
         //   components: (),
         // }
         todo!()
       }
-      ShaderGraphNodeExpr::Const(c) => {
+      ShaderNodeExpr::Const(c) => {
         // let handle = self.module.constants.append(value, Span::UNDEFINED);
         todo!()
       }
@@ -330,7 +325,7 @@ impl ShaderAPI for ShaderAPINagaImpl {
     self.make_expression_inner(expr)
   }
 
-  fn make_var(&mut self, ty: ShaderValueType) -> ShaderGraphNodeRawHandle {
+  fn make_var(&mut self, ty: ShaderValueType) -> ShaderNodeRawHandle {
     let v = naga::LocalVariable {
       name: None,
       ty: self.register_ty_impl(ty),
@@ -347,7 +342,7 @@ impl ShaderAPI for ShaderAPINagaImpl {
     self.make_expression_inner(naga::Expression::LocalVariable(var))
   }
 
-  fn write(&mut self, source: ShaderGraphNodeRawHandle, target: ShaderGraphNodeRawHandle) {
+  fn write(&mut self, source: ShaderNodeRawHandle, target: ShaderNodeRawHandle) {
     let st = naga::Statement::Store {
       pointer: self.get_expression(target),
       value: self.get_expression(source),
@@ -355,7 +350,7 @@ impl ShaderAPI for ShaderAPINagaImpl {
     self.push_top_statement(st);
   }
 
-  fn load(&mut self, source: ShaderGraphNodeRawHandle) -> ShaderGraphNodeRawHandle {
+  fn load(&mut self, source: ShaderNodeRawHandle) -> ShaderNodeRawHandle {
     let ex = naga::Expression::Load {
       pointer: self.get_expression(source),
     };
@@ -397,7 +392,7 @@ impl ShaderAPI for ShaderAPINagaImpl {
     }
   }
 
-  fn push_if_scope(&mut self, condition: ShaderGraphNodeRawHandle) {
+  fn push_if_scope(&mut self, condition: ShaderNodeRawHandle) {
     self
       .block
       .push((Default::default(), BlockBuildingState::IfAccept));
@@ -425,17 +420,17 @@ impl ShaderAPI for ShaderAPINagaImpl {
   }
 
   // todo, check the looper is the direct parent
-  fn do_continue(&mut self, _looper: ShaderGraphNodeRawHandle) {
+  fn do_continue(&mut self, _looper: ShaderNodeRawHandle) {
     let st = naga::Statement::Continue;
     self.push_top_statement(st);
   }
   // todo, check the looper is the direct parent
-  fn do_break(&mut self, _looper: ShaderGraphNodeRawHandle) {
+  fn do_break(&mut self, _looper: ShaderNodeRawHandle) {
     let st = naga::Statement::Break;
     self.push_top_statement(st);
   }
 
-  fn begin_switch(&mut self, selector: ShaderGraphNodeRawHandle) {
+  fn begin_switch(&mut self, selector: ShaderNodeRawHandle) {
     let selector = self.get_expression(selector);
     let switch = naga::Statement::Switch {
       selector,
@@ -478,7 +473,7 @@ impl ShaderAPI for ShaderAPINagaImpl {
     });
   }
 
-  fn push_fn_parameter(&mut self, ty: ShaderValueType) -> ShaderGraphNodeRawHandle {
+  fn push_fn_parameter(&mut self, ty: ShaderValueType) -> ShaderNodeRawHandle {
     let ty = self.register_ty_impl(ty);
     let last = self.building_fn.last_mut().unwrap();
     last.1.arguments.push(naga::FunctionArgument {
@@ -491,7 +486,7 @@ impl ShaderAPI for ShaderAPINagaImpl {
     self.make_expression_inner(expr)
   }
 
-  fn do_return(&mut self, v: Option<ShaderGraphNodeRawHandle>) {
+  fn do_return(&mut self, v: Option<ShaderNodeRawHandle>) {
     let value = v.map(|v| self.get_expression(v));
     self.push_top_statement(naga::Statement::Return { value });
   }

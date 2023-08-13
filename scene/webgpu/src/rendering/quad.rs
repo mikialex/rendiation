@@ -62,10 +62,7 @@ impl ShaderHashProvider for FullScreenQuad {
   }
 }
 impl GraphicsShaderProvider for FullScreenQuad {
-  fn build(
-    &self,
-    builder: &mut ShaderGraphRenderPipelineBuilder,
-  ) -> Result<(), ShaderGraphBuildError> {
+  fn build(&self, builder: &mut ShaderRenderPipelineBuilder) -> Result<(), ShaderBuildError> {
     builder.vertex(|builder, _| {
       builder.primitive_state = webgpu::PrimitiveState {
         topology: webgpu::PrimitiveTopology::TriangleStrip,

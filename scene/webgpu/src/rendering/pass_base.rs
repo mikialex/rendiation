@@ -19,10 +19,7 @@ impl ShaderPassBuilder for DefaultPassDispatcher {
 }
 
 impl GraphicsShaderProvider for DefaultPassDispatcher {
-  fn build(
-    &self,
-    builder: &mut ShaderGraphRenderPipelineBuilder,
-  ) -> Result<(), ShaderGraphBuildError> {
+  fn build(&self, builder: &mut ShaderRenderPipelineBuilder) -> Result<(), ShaderBuildError> {
     let pass = builder.bindgroups.bind_by(&self.pass_info);
 
     builder.vertex(|builder, _| {
@@ -57,10 +54,7 @@ impl GraphicsShaderProvider for DefaultPassDispatcher {
     })
   }
 
-  fn post_build(
-    &self,
-    builder: &mut ShaderGraphRenderPipelineBuilder,
-  ) -> Result<(), ShaderGraphBuildError> {
+  fn post_build(&self, builder: &mut ShaderRenderPipelineBuilder) -> Result<(), ShaderBuildError> {
     builder.fragment(|builder, _| {
       if self.auto_write && !self.formats.color_formats.is_empty() {
         let default = builder.query_or_insert_default::<DefaultDisplay>();

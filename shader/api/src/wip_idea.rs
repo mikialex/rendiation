@@ -1,7 +1,7 @@
 use rendiation_webgpu::StorageBufferDataView;
 
-pub trait ShaderIterator: ShaderGraphNodeType {
-  type Item: ShaderGraphNodeType;
+pub trait ShaderIterator: ShaderNodeType {
+  type Item: ShaderNodeType;
   // we do not have sum type(enum) in shader!;
   fn shader_has_next(self: Node<Self>) -> Node<bool>;
   fn shader_next(mut_self: MutableNode<Self>) -> Node<Self::Item>;
@@ -37,7 +37,7 @@ pub trait Monoid {
 }
 
 pub trait ParallelComputation {
-  type InvocationItem: ShaderGraphNodeType;
+  type InvocationItem: ShaderNodeType;
   fn invocation_count(&self) -> usize;
 
   // in these default impls, theoretically we could check the gpu type and detail to compute proper

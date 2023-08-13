@@ -1,20 +1,20 @@
 use crate::*;
 
 pub trait SemanticFragmentShaderValue: Any {
-  type ValueType: ShaderGraphNodeType;
+  type ValueType: ShaderNodeType;
   const NAME: &'static str = std::any::type_name::<Self>();
 }
 
-pub struct ShaderGraphFragmentBuilderView<'a> {
-  pub(crate) base: &'a mut ShaderGraphFragmentBuilder,
-  pub(crate) vertex: &'a mut ShaderGraphVertexBuilder,
+pub struct ShaderFragmentBuilderView<'a> {
+  pub(crate) base: &'a mut ShaderFragmentBuilder,
+  pub(crate) vertex: &'a mut ShaderVertexBuilder,
 }
 
-impl<'a> ShaderGraphFragmentBuilderView<'a> {
+impl<'a> ShaderFragmentBuilderView<'a> {
   pub fn query_or_interpolate_by<T, V>(&mut self) -> Node<T::ValueType>
   where
     T: SemanticFragmentShaderValue,
-    T::ValueType: PrimitiveShaderGraphNodeType,
+    T::ValueType: PrimitiveShaderNodeType,
     V: SemanticVertexShaderValue,
     T: SemanticFragmentShaderValue<ValueType = <V as SemanticVertexShaderValue>::ValueType>,
   {
@@ -44,20 +44,20 @@ impl<'a> ShaderGraphFragmentBuilderView<'a> {
   }
 }
 
-impl<'a> Deref for ShaderGraphFragmentBuilderView<'a> {
-  type Target = ShaderGraphFragmentBuilder;
+impl<'a> Deref for ShaderFragmentBuilderView<'a> {
+  type Target = ShaderFragmentBuilder;
 
   fn deref(&self) -> &Self::Target {
     self.base
   }
 }
-impl<'a> DerefMut for ShaderGraphFragmentBuilderView<'a> {
+impl<'a> DerefMut for ShaderFragmentBuilderView<'a> {
   fn deref_mut(&mut self) -> &mut Self::Target {
     self.base
   }
 }
 
-pub struct ShaderGraphFragmentBuilder {
+pub struct ShaderFragmentBuilder {
   // user fragment in
   pub fragment_in: FastHashMap<
     TypeId,
@@ -78,7 +78,7 @@ pub struct ShaderGraphFragmentBuilder {
   pub multisample: MultisampleState,
 }
 
-impl ShaderGraphFragmentBuilder {
+impl ShaderFragmentBuilder {
   pub(crate) fn new() -> Self {
     let mut result = Self {
       fragment_in: Default::default(),
@@ -90,16 +90,16 @@ impl ShaderGraphFragmentBuilder {
 
     set_current_building(ShaderStages::Fragment.into());
 
-    let frag_ndc = ShaderGraphInputNode::BuiltIn(ShaderBuiltIn::FragmentNDC).insert_graph();
+    let frag_ndc = ShaderInputNode::BuiltIn(ShaderBuiltIn::FragmentNDC).insert_api();
     result.register::<FragmentPosition>(frag_ndc);
 
-    let facing = ShaderGraphInputNode::BuiltIn(ShaderBuiltIn::FragmentFrontFacing).insert_graph();
+    let facing = ShaderInputNode::BuiltIn(ShaderBuiltIn::FragmentFrontFacing).insert_api();
     result.register::<FragmentFrontFacing>(facing);
 
-    let index = ShaderGraphInputNode::BuiltIn(ShaderBuiltIn::FragmentSampleIndex).insert_graph();
+    let index = ShaderInputNode::BuiltIn(ShaderBuiltIn::FragmentSampleIndex).insert_api();
     result.register::<FragmentSampleIndex>(index);
 
-    let mask = ShaderGraphInputNode::BuiltIn(ShaderBuiltIn::FragmentSampleMask).insert_graph();
+    let mask = ShaderInputNode::BuiltIn(ShaderBuiltIn::FragmentSampleMask).insert_api();
     result.register::<FragmentSampleMaskInput>(mask);
 
     set_current_building(None);
@@ -112,12 +112,12 @@ impl ShaderGraphFragmentBuilder {
   }
 
   pub fn discard(&self) {
-    modify_graph(|g| g.discard())
+    call_shader_api(|g| g.discard())
   }
 
   pub fn query<T: SemanticFragmentShaderValue>(
     &self,
-  ) -> Result<Node<T::ValueType>, ShaderGraphBuildError> {
+  ) -> Result<Node<T::ValueType>, ShaderBuildError> {
     self
       .registry
       .query(TypeId::of::<T>(), T::NAME)
@@ -127,7 +127,7 @@ impl ShaderGraphFragmentBuilder {
   pub fn query_or_insert_default<T>(&mut self) -> Node<T::ValueType>
   where
     T: SemanticFragmentShaderValue,
-    T::ValueType: PrimitiveShaderGraphNodeType,
+    T::ValueType: PrimitiveShaderNodeType,
   {
     if let Ok(n) = self.registry.query(TypeId::of::<T>(), T::NAME) {
       unsafe { n.cast_type() }
@@ -149,18 +149,18 @@ impl ShaderGraphFragmentBuilder {
 
   pub fn get_fragment_in<T>(
     &mut self,
-  ) -> Result<Node<<T as SemanticVertexShaderValue>::ValueType>, ShaderGraphBuildError>
+  ) -> Result<Node<<T as SemanticVertexShaderValue>::ValueType>, ShaderBuildError>
   where
     T: SemanticFragmentShaderValue,
     T: SemanticVertexShaderValue,
-    <T as SemanticVertexShaderValue>::ValueType: PrimitiveShaderGraphNodeType,
+    <T as SemanticVertexShaderValue>::ValueType: PrimitiveShaderNodeType,
     T: SemanticFragmentShaderValue<ValueType = <T as SemanticVertexShaderValue>::ValueType>,
   {
     self
       .fragment_in
       .get(&TypeId::of::<T>())
       .map(|(n, _, _, _)| unsafe { (*n).cast_type() })
-      .ok_or(ShaderGraphBuildError::MissingRequiredDependency(
+      .ok_or(ShaderBuildError::MissingRequiredDependency(
         <T as SemanticVertexShaderValue>::NAME,
       ))
   }
@@ -168,7 +168,7 @@ impl ShaderGraphFragmentBuilder {
   /// Declare fragment outputs
   pub fn define_out_by(&mut self, meta: impl Into<ColorTargetState>) -> usize {
     let slot = self.frag_output.len();
-    let target = modify_graph(|g| unsafe { g.define_frag_out(slot).into_node() });
+    let target = call_shader_api(|g| unsafe { g.define_frag_out(slot).into_node() });
     self.frag_output.push((target, meta.into()));
     slot
   }
@@ -178,21 +178,18 @@ impl ShaderGraphFragmentBuilder {
     &mut self,
     slot: usize,
     node: impl Into<Node<Vec4<f32>>>,
-  ) -> Result<(), ShaderGraphBuildError> {
+  ) -> Result<(), ShaderBuildError> {
     let target = self
       .frag_output
       .get_mut(slot)
-      .ok_or(ShaderGraphBuildError::FragmentOutputSlotNotDeclared)?
+      .ok_or(ShaderBuildError::FragmentOutputSlotNotDeclared)?
       .0;
-    modify_graph(|g| g.write(node.into().handle(), target.handle()));
+    call_shader_api(|g| g.write(node.into().handle(), target.handle()));
 
     Ok(())
   }
 
-  pub fn get_fragment_out(
-    &mut self,
-    slot: usize,
-  ) -> Result<Node<Vec4<f32>>, ShaderGraphBuildError> {
+  pub fn get_fragment_out(&mut self, slot: usize) -> Result<Node<Vec4<f32>>, ShaderBuildError> {
     Ok(self.frag_output.get(slot).unwrap().0)
   }
 }

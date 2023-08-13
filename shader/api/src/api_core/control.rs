@@ -1,35 +1,35 @@
 use crate::*;
 
 pub trait ShaderIteratorAble {
-  type Item: ShaderGraphNodeType;
+  type Item: ShaderNodeType;
 }
 
 pub enum ShaderIterator {
   Const(u32),
-  Count(ShaderGraphNodeRawHandle),
+  Count(ShaderNodeRawHandle),
   FixedArray {
-    array: ShaderGraphNodeRawHandle,
+    array: ShaderNodeRawHandle,
     length: usize,
   },
   Clamped {
     source: Box<Self>,
-    max: ShaderGraphNodeRawHandle,
+    max: ShaderNodeRawHandle,
   },
 }
 
 pub struct ForCtx {
-  target_scope_id: ShaderGraphNodeRawHandle,
+  target_scope_id: ShaderNodeRawHandle,
 }
 
 impl ForCtx {
   // note, we here use &mut self, is to prevent usage of nested continue statement.
   // theoretically, we could rewrite control flow to support this feature in the future
   pub fn do_continue(&mut self) {
-    modify_graph(|g| g.do_continue(self.target_scope_id));
+    call_shader_api(|g| g.do_continue(self.target_scope_id));
   }
   // ditto
   pub fn do_break(&mut self) {
-    modify_graph(|g| g.do_break(self.target_scope_id));
+    call_shader_api(|g| g.do_break(self.target_scope_id));
   }
 }
 
@@ -62,15 +62,15 @@ impl<T, const U: usize> From<Node<Shader140Array<T, U>>> for ShaderIterator {
   }
 }
 
-impl<T: ShaderGraphNodeType, const U: usize> ShaderIteratorAble for Node<Shader140Array<T, U>> {
+impl<T: ShaderNodeType, const U: usize> ShaderIteratorAble for Node<Shader140Array<T, U>> {
   type Item = T;
 }
 
-impl<T: ShaderGraphNodeType, const U: usize> ShaderIteratorAble for Node<[T; U]> {
+impl<T: ShaderNodeType, const U: usize> ShaderIteratorAble for Node<[T; U]> {
   type Item = T;
 }
 
-impl<T: ShaderGraphNodeType, const U: usize> ShaderIteratorAble for Node<BindingArray<T, U>> {
+impl<T: ShaderNodeType, const U: usize> ShaderIteratorAble for Node<BindingArray<T, U>> {
   type Item = T;
 }
 
@@ -97,7 +97,7 @@ pub fn for_by<T: Into<ShaderIterator> + ShaderIteratorAble>(
   iterable: T,
   logic: impl Fn(&ForCtx, Node<T::Item>, Node<u32>),
 ) where
-  T::Item: ShaderGraphNodeType,
+  T::Item: ShaderNodeType,
 {
   for_by_ok(iterable, |ctx, i, v| {
     logic(ctx, i, v);
@@ -109,16 +109,16 @@ pub fn for_by<T: Into<ShaderIterator> + ShaderIteratorAble>(
 #[inline(never)]
 pub fn for_by_ok<T: Into<ShaderIterator> + ShaderIteratorAble>(
   iterable: T,
-  logic: impl Fn(&ForCtx, Node<T::Item>, Node<u32>) -> Result<(), ShaderGraphBuildError>,
-) -> Result<(), ShaderGraphBuildError>
+  logic: impl Fn(&ForCtx, Node<T::Item>, Node<u32>) -> Result<(), ShaderBuildError>,
+) -> Result<(), ShaderBuildError>
 where
-  T::Item: ShaderGraphNodeType,
+  T::Item: ShaderNodeType,
 {
   let ForNodes {
     item_node,
     index_node,
     for_cx,
-  } = modify_graph(|g| g.push_for_scope(iterable.into()));
+  } = call_shader_api(|g| g.push_for_scope(iterable.into()));
 
   let cx = ForCtx {
     target_scope_id: for_cx,
@@ -127,7 +127,7 @@ where
   let item_node = unsafe { item_node.into_node() };
   logic(&cx, item_node, index_node)?;
 
-  modify_graph(|g| g.pop_scope());
+  call_shader_api(|g| g.pop_scope());
 
   Ok(())
 }
@@ -144,21 +144,21 @@ pub fn if_by(condition: impl Into<Node<bool>>, logic: impl Fn()) {
 #[inline(never)]
 pub fn if_by_ok(
   condition: impl Into<Node<bool>>,
-  logic: impl Fn() -> Result<(), ShaderGraphBuildError>,
-) -> Result<(), ShaderGraphBuildError> {
+  logic: impl Fn() -> Result<(), ShaderBuildError>,
+) -> Result<(), ShaderBuildError> {
   let condition = condition.into().handle();
-  modify_graph(|builder| {
+  call_shader_api(|builder| {
     builder.push_if_scope(condition);
   });
 
   logic()?;
 
-  modify_graph(|g| g.pop_scope());
+  call_shader_api(|g| g.pop_scope());
 
   Ok(())
 }
 
-pub trait SwitchableShaderType: ShaderGraphNodeType {
+pub trait SwitchableShaderType: ShaderNodeType {
   fn into_condition(self) -> SwitchCaseCondition;
 }
 impl SwitchableShaderType for u32 {
@@ -183,20 +183,20 @@ pub struct SwitchBuilder<T>(PhantomData<T>);
 impl<T: SwitchableShaderType> SwitchBuilder<T> {
   /// None is the default case
   pub fn case(self, v: T, scope: impl FnOnce()) -> Self {
-    modify_graph(|g| g.push_switch_case_scope(v.into_condition()));
+    call_shader_api(|g| g.push_switch_case_scope(v.into_condition()));
     scope();
-    modify_graph(|g| g.pop_scope());
+    call_shader_api(|g| g.pop_scope());
     self
   }
 
   pub fn end_with_default(self, scope: impl FnOnce()) {
-    modify_graph(|g| g.push_switch_case_scope(SwitchCaseCondition::Default));
+    call_shader_api(|g| g.push_switch_case_scope(SwitchCaseCondition::Default));
     scope();
     self.end()
   }
 
   pub fn end(self) {
-    modify_graph(|g| {
+    call_shader_api(|g| {
       g.pop_scope();
       g.end_switch()
     });
@@ -204,6 +204,6 @@ impl<T: SwitchableShaderType> SwitchBuilder<T> {
 }
 
 pub fn switch_by<T>(selector: Node<T>) -> SwitchBuilder<T> {
-  modify_graph(|g| g.begin_switch(selector.handle()));
+  call_shader_api(|g| g.begin_switch(selector.handle()));
   SwitchBuilder(Default::default())
 }

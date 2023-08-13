@@ -29,11 +29,11 @@ pub fn compute_dielectric_f0(reflectance: Node<f32>) -> Node<f32> {
 
 impl LightableSurfaceShading for PhysicalShading {
   type ShaderStruct = ShaderPhysicalShading;
-  fn construct_shading(builder: &mut ShaderGraphFragmentBuilder) -> ENode<Self::ShaderStruct> {
+  fn construct_shading(builder: &mut ShaderFragmentBuilder) -> ENode<Self::ShaderStruct> {
     let perceptual_roughness = builder
       .query::<RoughnessChannel>()
       .or_else(|_| Ok(val(1.) - builder.query::<GlossinessChannel>()?))
-      .unwrap_or_else(|_: ShaderGraphBuildError| val(0.3));
+      .unwrap_or_else(|_: ShaderBuildError| val(0.3));
 
     let base_color = builder
       .query::<ColorChannel>()
@@ -71,7 +71,7 @@ impl LightableSurfaceShading for PhysicalShading {
     self_node: &ENode<Self::ShaderStruct>,
     direct_light: &ENode<ShaderIncidentLight>,
     ctx: &ENode<ShaderLightingGeometricCtx>,
-  ) -> Result<ENode<ShaderLightingResult>, ShaderGraphBuildError> {
+  ) -> Result<ENode<ShaderLightingResult>, ShaderBuildError> {
     Ok(
       physical_shading_fn(
         direct_light.construct(),
@@ -83,7 +83,7 @@ impl LightableSurfaceShading for PhysicalShading {
   }
 }
 
-#[shadergraph_fn]
+#[shader_fn]
 fn physical_shading(
   light: Node<ShaderIncidentLight>,
   geometry: Node<ShaderLightingGeometricCtx>,
@@ -134,7 +134,7 @@ fn d_ggx(n_o_h: Node<f32>, roughness4: Node<f32>) -> Node<f32> {
 // NOTE: Basically same as
 // https://de45xmedrsdbp.cloudfront.net/Resources/files/2013SiggraphPresentationsNotes-26915738.pdf
 // However, calculate a F90 instead of using 1.0 directly
-#[shadergraph_fn]
+#[shader_fn]
 fn fresnel(v_dot_h: Node<f32>, f0: Node<Vec3<f32>>) -> Node<Vec3<f32>> {
   let fc = (val(1.0) - v_dot_h).pow(5.0);
   let f90 = (f0 * val(50.0)).clamp(Vec3::zero(), Vec3::one());

@@ -18,40 +18,40 @@ pub use func::*;
 mod func_built_in;
 pub use func_built_in::*;
 
-pub enum ShaderGraphNodeExpr {
+pub enum ShaderNodeExpr {
   FunctionCall {
     meta: ShaderFunctionType,
-    parameters: Vec<ShaderGraphNodeRawHandle>,
+    parameters: Vec<ShaderNodeRawHandle>,
   },
   TextureSampling {
-    texture: ShaderGraphNodeRawHandle,
-    sampler: ShaderGraphNodeRawHandle,
-    position: ShaderGraphNodeRawHandle,
-    index: Option<ShaderGraphNodeRawHandle>,
-    level: Option<ShaderGraphNodeRawHandle>,
-    reference: Option<ShaderGraphNodeRawHandle>,
+    texture: ShaderNodeRawHandle,
+    sampler: ShaderNodeRawHandle,
+    position: ShaderNodeRawHandle,
+    index: Option<ShaderNodeRawHandle>,
+    level: Option<ShaderNodeRawHandle>,
+    reference: Option<ShaderNodeRawHandle>,
     offset: Option<Vec2<i32>>,
   },
   Swizzle {
     ty: &'static str,
-    source: ShaderGraphNodeRawHandle,
+    source: ShaderNodeRawHandle,
   },
   Compose {
     target: PrimitiveShaderValueType,
-    parameters: Vec<ShaderGraphNodeRawHandle>,
+    parameters: Vec<ShaderNodeRawHandle>,
   },
   MatShrink {
-    source: ShaderGraphNodeRawHandle,
+    source: ShaderNodeRawHandle,
     dimension: usize,
   },
   Operator(OperatorNode),
   FieldGet {
     field_name: &'static str,
-    struct_node: ShaderGraphNodeRawHandle,
+    struct_node: ShaderNodeRawHandle,
   },
   StructConstruct {
     meta: &'static ShaderStructMetaInfo,
-    fields: Vec<ShaderGraphNodeRawHandle>,
+    fields: Vec<ShaderNodeRawHandle>,
   },
   Const(ConstNode),
 }
@@ -64,13 +64,13 @@ pub struct ConstNode {
 #[must_use]
 pub fn val<T>(v: T) -> Node<T>
 where
-  T: PrimitiveShaderGraphNodeType,
+  T: PrimitiveShaderNodeType,
 {
   v.into()
 }
 
-impl ShaderGraphNodeExpr {
-  pub fn insert_graph<T: ShaderGraphNodeType>(self) -> Node<T> {
-    modify_graph(|graph| unsafe { graph.make_expression(self).into_node() })
+impl ShaderNodeExpr {
+  pub fn insert_api<T: ShaderNodeType>(self) -> Node<T> {
+    call_shader_api(|api| unsafe { api.make_expression(self).into_node() })
   }
 }

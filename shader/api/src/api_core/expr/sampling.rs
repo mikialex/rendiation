@@ -107,7 +107,7 @@ sg_node_impl!(
 pub trait SingleSampleTarget {
   type Input;
   type Sampler;
-  type Output: PrimitiveShaderGraphNodeType;
+  type Output: PrimitiveShaderNodeType;
 }
 
 impl SingleSampleTarget for ShaderTexture1D {
@@ -149,7 +149,7 @@ impl SingleSampleTarget for ShaderDepthTextureCube {
 pub trait ArraySampleTarget {
   type Input;
   type Sampler;
-  type Output: PrimitiveShaderGraphNodeType;
+  type Output: PrimitiveShaderNodeType;
 }
 
 impl ArraySampleTarget for ShaderTexture2DArray {
@@ -182,7 +182,7 @@ impl<T: SingleSampleTarget> Node<T> {
     sampler: Node<T::Sampler>,
     position: impl Into<Node<T::Input>>,
   ) -> Node<T::Output> {
-    ShaderGraphNodeExpr::TextureSampling {
+    ShaderNodeExpr::TextureSampling {
       texture: self.handle(),
       sampler: sampler.handle(),
       position: position.into().handle(),
@@ -191,7 +191,7 @@ impl<T: SingleSampleTarget> Node<T> {
       reference: None,
       offset: None,
     }
-    .insert_graph()
+    .insert_api()
   }
 
   pub fn sample_level(
@@ -200,7 +200,7 @@ impl<T: SingleSampleTarget> Node<T> {
     position: Node<T::Input>,
     level: Node<f32>,
   ) -> Node<T::Output> {
-    ShaderGraphNodeExpr::TextureSampling {
+    ShaderNodeExpr::TextureSampling {
       texture: self.handle(),
       sampler: sampler.handle(),
       position: position.handle(),
@@ -209,11 +209,11 @@ impl<T: SingleSampleTarget> Node<T> {
       reference: None,
       offset: None,
     }
-    .insert_graph()
+    .insert_api()
   }
 }
 
-pub trait ShaderArrayTextureSampleIndexType: ShaderGraphNodeType {}
+pub trait ShaderArrayTextureSampleIndexType: ShaderNodeType {}
 impl ShaderArrayTextureSampleIndexType for u32 {}
 impl ShaderArrayTextureSampleIndexType for i32 {}
 
@@ -224,7 +224,7 @@ impl<T: ArraySampleTarget> Node<T> {
     position: Node<T::Input>,
     index: Node<impl ShaderArrayTextureSampleIndexType>,
   ) -> Node<T::Output> {
-    ShaderGraphNodeExpr::TextureSampling {
+    ShaderNodeExpr::TextureSampling {
       texture: self.handle(),
       sampler: sampler.handle(),
       position: position.handle(),
@@ -233,7 +233,7 @@ impl<T: ArraySampleTarget> Node<T> {
       reference: None,
       offset: None,
     }
-    .insert_graph()
+    .insert_api()
   }
 
   pub fn sample_index_level(
@@ -243,7 +243,7 @@ impl<T: ArraySampleTarget> Node<T> {
     index: Node<impl ShaderArrayTextureSampleIndexType>,
     level: Node<f32>,
   ) -> Node<T::Output> {
-    ShaderGraphNodeExpr::TextureSampling {
+    ShaderNodeExpr::TextureSampling {
       texture: self.handle(),
       sampler: sampler.handle(),
       position: position.handle(),
@@ -252,7 +252,7 @@ impl<T: ArraySampleTarget> Node<T> {
       reference: None,
       offset: None,
     }
-    .insert_graph()
+    .insert_api()
   }
 }
 
@@ -265,7 +265,7 @@ impl Node<ShaderDepthTexture2DArray> {
     reference: Node<f32>,
     offset: Option<Vec2<i32>>,
   ) -> Node<f32> {
-    ShaderGraphNodeExpr::TextureSampling {
+    ShaderNodeExpr::TextureSampling {
       texture: self.handle(),
       sampler: sampler.handle(),
       position: position.handle(),
@@ -274,6 +274,6 @@ impl Node<ShaderDepthTexture2DArray> {
       reference: reference.handle().into(),
       offset,
     }
-    .insert_graph()
+    .insert_api()
   }
 }

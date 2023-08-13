@@ -17,17 +17,17 @@ impl PunctualShaderLight for SpotLightShaderInfo {
   type PunctualDependency = ();
 
   fn create_punctual_dep(
-    _: &mut ShaderGraphFragmentBuilderView,
-  ) -> Result<Self::PunctualDependency, ShaderGraphBuildError> {
+    _: &mut ShaderFragmentBuilderView,
+  ) -> Result<Self::PunctualDependency, ShaderBuildError> {
     Ok(())
   }
 
   fn compute_incident_light(
-    builder: &ShaderGraphFragmentBuilderView,
+    builder: &ShaderFragmentBuilderView,
     light: &ENode<Self>,
     _dep: &Self::PunctualDependency,
     ctx: &ENode<ShaderLightingGeometricCtx>,
-  ) -> Result<ENode<ShaderIncidentLight>, ShaderGraphBuildError> {
+  ) -> Result<ENode<ShaderIncidentLight>, ShaderBuildError> {
     let direction = ctx.position - light.position;
     let distance = direction.length();
     let distance_factor =

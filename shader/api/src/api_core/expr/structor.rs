@@ -2,7 +2,7 @@ use crate::*;
 
 impl<T> Node<T>
 where
-  T: ShaderGraphStructuralNodeType,
+  T: ShaderStructuralNodeType,
 {
   pub fn expand(self) -> T::Instance {
     T::expand(self)
@@ -32,15 +32,15 @@ pub fn extract_struct_define_inner(
   }
 }
 
-pub fn expand_single<T>(struct_node: ShaderGraphNodeRawHandle, field_name: &'static str) -> Node<T>
+pub fn expand_single<T>(struct_node: ShaderNodeRawHandle, field_name: &'static str) -> Node<T>
 where
-  T: ShaderGraphNodeType,
+  T: ShaderNodeType,
 {
-  ShaderGraphNodeExpr::FieldGet {
+  ShaderNodeExpr::FieldGet {
     field_name,
     struct_node,
   }
-  .insert_graph()
+  .insert_api()
 }
 
 /// use for compile time ubo field reflection by procedure macro;

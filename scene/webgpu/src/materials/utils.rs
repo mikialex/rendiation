@@ -54,7 +54,7 @@ pub trait BuilderUsefulExt {
   fn get_or_compute_fragment_normal(&mut self) -> Node<Vec3<f32>>;
 }
 
-impl<'a> BuilderUsefulExt for ShaderGraphFragmentBuilderView<'a> {
+impl<'a> BuilderUsefulExt for ShaderFragmentBuilderView<'a> {
   fn get_or_compute_fragment_normal(&mut self) -> Node<Vec3<f32>> {
     // check first and avoid unnecessary renormalize
     if let Ok(normal) = self.query::<FragmentWorldNormal>() {

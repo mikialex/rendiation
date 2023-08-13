@@ -1,6 +1,6 @@
 use crate::*;
 
-#[shadergraph_fn]
+#[shader_fn]
 pub fn perturb_normal_2_arb(
   position: Node<Vec3<f32>>,
   surf_norm: Node<Vec3<f32>>,
@@ -29,7 +29,7 @@ pub fn perturb_normal_2_arb(
 }
 
 pub fn apply_normal_mapping(
-  builder: &mut ShaderGraphFragmentBuilderView,
+  builder: &mut ShaderFragmentBuilderView,
   normal_map_sample: Node<Vec3<f32>>,
   uv: Node<Vec2<f32>>,
   scale: Node<f32>,
@@ -53,7 +53,7 @@ pub fn apply_normal_mapping(
 }
 
 pub fn apply_normal_mapping_conditional(
-  builder: &mut ShaderGraphFragmentBuilderView,
+  builder: &mut ShaderFragmentBuilderView,
   normal_map_sample: Node<Vec3<f32>>,
   uv: Node<Vec2<f32>>,
   scale: Node<f32>,

@@ -22,10 +22,7 @@ impl Stream for FlatMaterialGPU {
 impl ShaderHashProvider for FlatMaterialGPU {}
 
 impl GraphicsShaderProvider for FlatMaterialGPU {
-  fn build(
-    &self,
-    builder: &mut ShaderGraphRenderPipelineBuilder,
-  ) -> Result<(), ShaderGraphBuildError> {
+  fn build(&self, builder: &mut ShaderRenderPipelineBuilder) -> Result<(), ShaderBuildError> {
     builder.fragment(|builder, binding| {
       let uniform = binding.bind_by(&self.uniform).expand();
 

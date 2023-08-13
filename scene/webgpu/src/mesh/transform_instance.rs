@@ -23,10 +23,7 @@ pub struct ShaderMat4VertexInput {
 }
 
 impl GraphicsShaderProvider for TransformInstanceGPU {
-  fn build(
-    &self,
-    builder: &mut ShaderGraphRenderPipelineBuilder,
-  ) -> Result<(), ShaderGraphBuildError> {
+  fn build(&self, builder: &mut ShaderRenderPipelineBuilder) -> Result<(), ShaderBuildError> {
     self.mesh_gpu.build(builder)?;
     builder.vertex(|builder, _| {
       builder.register_vertex::<ShaderMat4VertexInput>(VertexStepMode::Instance);

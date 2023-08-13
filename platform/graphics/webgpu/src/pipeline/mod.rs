@@ -102,14 +102,14 @@ pub fn create_bindgroup_layout_by_node_ty<'a>(
 }
 
 impl GPUDevice {
-  pub fn build_pipeline_by_shadergraph(
+  pub fn build_pipeline_by_shader_api(
     &self,
-    builder: ShaderGraphRenderPipelineBuilder,
-  ) -> Result<GPURenderPipeline, ShaderGraphBuildError> {
+    builder: ShaderRenderPipelineBuilder,
+  ) -> Result<GPURenderPipeline, ShaderBuildError> {
     let log_result = builder.log_result;
     let compile_result = builder.build()?;
 
-    let ShaderGraphCompileResult {
+    let ShaderCompileResult {
       vertex_shader: (vertex_shader, vertex_entry),
       frag_shader: (frag_shader, frag_entry),
       bindings,
@@ -189,7 +189,7 @@ impl GPUDevice {
   }
 }
 
-pub fn convert_vertex_layout(layout: &ShaderGraphVertexBufferLayout) -> gpu::VertexBufferLayout {
+pub fn convert_vertex_layout(layout: &ShaderVertexBufferLayout) -> gpu::VertexBufferLayout {
   gpu::VertexBufferLayout {
     array_stride: layout.array_stride,
     step_mode: layout.step_mode,

@@ -119,10 +119,7 @@ impl ShaderPassBuilder for FatlineMaterialGPU {
 }
 
 impl GraphicsShaderProvider for FatlineMaterialGPU {
-  fn build(
-    &self,
-    builder: &mut ShaderGraphRenderPipelineBuilder,
-  ) -> Result<(), ShaderGraphBuildError> {
+  fn build(&self, builder: &mut ShaderRenderPipelineBuilder) -> Result<(), ShaderBuildError> {
     builder.vertex(|builder, binding| {
       let uv = builder.query::<GeometryUV>()?;
       let color_with_alpha = builder.query::<GeometryColorWithAlpha>()?;

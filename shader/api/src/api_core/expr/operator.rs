@@ -23,30 +23,30 @@ pub enum BinaryOperator {
 }
 pub enum OperatorNode {
   Unary {
-    one: ShaderGraphNodeRawHandle,
+    one: ShaderNodeRawHandle,
     operator: UnaryOperator,
   },
   Binary {
-    left: ShaderGraphNodeRawHandle,
-    right: ShaderGraphNodeRawHandle,
+    left: ShaderNodeRawHandle,
+    right: ShaderNodeRawHandle,
     operator: BinaryOperator,
   },
   Index {
-    array: ShaderGraphNodeRawHandle,
-    entry: ShaderGraphNodeRawHandle,
+    array: ShaderNodeRawHandle,
+    entry: ShaderNodeRawHandle,
   },
 }
 
 impl OperatorNode {
-  pub fn insert_graph<T: ShaderGraphNodeType>(self) -> Node<T> {
-    ShaderGraphNodeExpr::Operator(self).insert_graph()
+  pub fn insert_api<T: ShaderNodeType>(self) -> Node<T> {
+    ShaderNodeExpr::Operator(self).insert_api()
   }
 }
 
 impl<T, U> Add for Node<T>
 where
-  U: ShaderGraphNodeType,
-  T: ShaderGraphNodeType + Add<Output = U>,
+  U: ShaderNodeType,
+  T: ShaderNodeType + Add<Output = U>,
 {
   type Output = Node<U>;
 
@@ -56,14 +56,14 @@ where
       right: other.handle(),
       operator: BinaryOperator::Add,
     }
-    .insert_graph()
+    .insert_api()
   }
 }
 
 impl<T, U> Sub for Node<T>
 where
-  U: ShaderGraphNodeType,
-  T: ShaderGraphNodeType + Sub<Output = U>,
+  U: ShaderNodeType,
+  T: ShaderNodeType + Sub<Output = U>,
 {
   type Output = Node<U>;
 
@@ -73,14 +73,14 @@ where
       right: other.handle(),
       operator: BinaryOperator::Sub,
     }
-    .insert_graph()
+    .insert_api()
   }
 }
 
 impl<I, T, U> Mul<Node<I>> for Node<T>
 where
-  U: ShaderGraphNodeType,
-  T: ShaderGraphNodeType,
+  U: ShaderNodeType,
+  T: ShaderNodeType,
   T: Mul<I, Output = U>,
 {
   type Output = Node<U>;
@@ -91,14 +91,14 @@ where
       right: other.handle(),
       operator: BinaryOperator::Mul,
     }
-    .insert_graph()
+    .insert_api()
   }
 }
 
 impl<I, T, U> Div<Node<I>> for Node<T>
 where
-  U: ShaderGraphNodeType,
-  T: ShaderGraphNodeType,
+  U: ShaderNodeType,
+  T: ShaderNodeType,
   T: Div<I, Output = U>,
 {
   type Output = Node<U>;
@@ -109,14 +109,14 @@ where
       right: other.handle(),
       operator: BinaryOperator::Div,
     }
-    .insert_graph()
+    .insert_api()
   }
 }
 
 impl<T> Rem for Node<T>
 where
   T: Rem<T, Output = T>,
-  T: ShaderGraphNodeType,
+  T: ShaderNodeType,
 {
   type Output = Node<T>;
 
@@ -126,14 +126,14 @@ where
       right: rhs.handle(),
       operator: BinaryOperator::Rem,
     }
-    .insert_graph()
+    .insert_api()
   }
 }
 
 impl<T> BitAnd for Node<T>
 where
   T: BitAnd<T, Output = T>,
-  T: ShaderGraphNodeType,
+  T: ShaderNodeType,
 {
   type Output = Node<T>;
 
@@ -143,14 +143,14 @@ where
       right: rhs.handle(),
       operator: BinaryOperator::BitAnd,
     }
-    .insert_graph()
+    .insert_api()
   }
 }
 
 impl<T> BitOr for Node<T>
 where
   T: BitOr<T, Output = T>,
-  T: ShaderGraphNodeType,
+  T: ShaderNodeType,
 {
   type Output = Node<T>;
 
@@ -160,7 +160,7 @@ where
       right: rhs.handle(),
       operator: BinaryOperator::BitOr,
     }
-    .insert_graph()
+    .insert_api()
   }
 }
 
@@ -214,7 +214,7 @@ impl<T: PartialEq> Node<T> {
       right: other.into().handle(),
       operator: BinaryOperator::Eq,
     }
-    .insert_graph()
+    .insert_api()
   }
 
   pub fn not_equals(&self, other: impl Into<Self>) -> Node<bool> {
@@ -223,7 +223,7 @@ impl<T: PartialEq> Node<T> {
       right: other.into().handle(),
       operator: BinaryOperator::NotEq,
     }
-    .insert_graph()
+    .insert_api()
   }
 }
 
@@ -234,7 +234,7 @@ impl<T: PartialOrd> Node<T> {
       right: other.into().handle(),
       operator: BinaryOperator::LessThan,
     }
-    .insert_graph()
+    .insert_api()
   }
   pub fn less_or_equal_than(&self, other: impl Into<Self>) -> Node<bool> {
     OperatorNode::Binary {
@@ -242,7 +242,7 @@ impl<T: PartialOrd> Node<T> {
       right: other.into().handle(),
       operator: BinaryOperator::LessEqualThan,
     }
-    .insert_graph()
+    .insert_api()
   }
   pub fn greater_than(&self, other: impl Into<Self>) -> Node<bool> {
     OperatorNode::Binary {
@@ -250,7 +250,7 @@ impl<T: PartialOrd> Node<T> {
       right: other.into().handle(),
       operator: BinaryOperator::GreaterThan,
     }
-    .insert_graph()
+    .insert_api()
   }
   pub fn greater_or_equal_than(&self, other: impl Into<Self>) -> Node<bool> {
     OperatorNode::Binary {
@@ -258,7 +258,7 @@ impl<T: PartialOrd> Node<T> {
       right: other.into().handle(),
       operator: BinaryOperator::GreaterEqualThan,
     }
-    .insert_graph()
+    .insert_api()
   }
 }
 
@@ -270,7 +270,7 @@ impl Node<bool> {
       right: other.into().handle(),
       operator: BinaryOperator::LogicalOr,
     }
-    .insert_graph()
+    .insert_api()
   }
 
   #[must_use]
@@ -280,7 +280,7 @@ impl Node<bool> {
       right: other.into().handle(),
       operator: BinaryOperator::LogicalAnd,
     }
-    .insert_graph()
+    .insert_api()
   }
 
   #[must_use]
@@ -289,45 +289,45 @@ impl Node<bool> {
       operator: UnaryOperator::LogicalNot,
       one: self.handle(),
     }
-    .insert_graph()
+    .insert_api()
   }
 }
 
 impl<T, const U: usize> Node<Shader140Array<T, U>>
 where
-  T: ShaderGraphNodeType,
+  T: ShaderNodeType,
 {
-  pub fn index(&self, node: Node<impl ShaderGraphNodeType>) -> Node<T> {
+  pub fn index(&self, node: Node<impl ShaderNodeType>) -> Node<T> {
     OperatorNode::Index {
       array: self.handle(),
       entry: node.handle(),
     }
-    .insert_graph()
+    .insert_api()
   }
 }
 
 impl<T, const U: usize> Node<[T; U]>
 where
-  T: ShaderGraphNodeType,
+  T: ShaderNodeType,
 {
-  pub fn index(&self, node: Node<impl ShaderGraphNodeType>) -> Node<T> {
+  pub fn index(&self, node: Node<impl ShaderNodeType>) -> Node<T> {
     OperatorNode::Index {
       array: self.handle(),
       entry: node.handle(),
     }
-    .insert_graph()
+    .insert_api()
   }
 }
 
 impl<T, const U: usize> Node<BindingArray<T, U>>
 where
-  T: ShaderGraphNodeType,
+  T: ShaderNodeType,
 {
-  pub fn index(&self, node: Node<impl ShaderGraphNodeType>) -> Node<T> {
+  pub fn index(&self, node: Node<impl ShaderNodeType>) -> Node<T> {
     OperatorNode::Index {
       array: self.handle(),
       entry: node.handle(),
     }
-    .insert_graph()
+    .insert_api()
   }
 }

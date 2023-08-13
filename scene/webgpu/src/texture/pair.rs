@@ -14,7 +14,7 @@ impl GPUTextureSamplerPair {
 
   pub fn bind_and_sample(
     &self,
-    binding: &mut ShaderGraphBindGroupDirectBuilder,
+    binding: &mut ShaderBindGroupDirectBuilder,
     reg: &SemanticRegistry,
     handles: Node<TextureSamplerHandlePair>,
     uv: Node<Vec2<f32>>,
@@ -33,7 +33,7 @@ impl GPUTextureSamplerPair {
 
   pub fn bind_and_sample_enabled(
     &self,
-    binding: &mut ShaderGraphBindGroupDirectBuilder,
+    binding: &mut ShaderBindGroupDirectBuilder,
     reg: &SemanticRegistry,
     handles: Node<TextureSamplerHandlePair>,
     uv: Node<Vec2<f32>>,

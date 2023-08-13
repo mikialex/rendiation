@@ -191,10 +191,7 @@ impl ShaderPassBuilder for MaterialGPUInstance {
 }
 
 impl GraphicsShaderProvider for MaterialGPUInstance {
-  fn build(
-    &self,
-    builder: &mut ShaderGraphRenderPipelineBuilder,
-  ) -> Result<(), ShaderGraphBuildError> {
+  fn build(&self, builder: &mut ShaderRenderPipelineBuilder) -> Result<(), ShaderBuildError> {
     match self {
       Self::PhysicalMetallicRoughness(m) => m.as_reactive_component().build(builder),
       Self::PhysicalSpecularGlossiness(m) => m.as_reactive_component().build(builder),
@@ -203,10 +200,7 @@ impl GraphicsShaderProvider for MaterialGPUInstance {
     }
   }
 
-  fn post_build(
-    &self,
-    builder: &mut ShaderGraphRenderPipelineBuilder,
-  ) -> Result<(), ShaderGraphBuildError> {
+  fn post_build(&self, builder: &mut ShaderRenderPipelineBuilder) -> Result<(), ShaderBuildError> {
     match self {
       Self::PhysicalMetallicRoughness(m) => m.as_reactive_component().post_build(builder),
       Self::PhysicalSpecularGlossiness(m) => m.as_reactive_component().post_build(builder),

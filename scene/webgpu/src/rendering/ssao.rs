@@ -79,7 +79,7 @@ pub struct AOComputer<'a> {
 }
 
 // improve use better way
-#[shadergraph_fn]
+#[shader_fn]
 fn random(seed: Node<Vec2<f32>>) -> Node<f32> {
   let s1 = val(12.9898);
   let s2 = val(78.233);
@@ -87,7 +87,7 @@ fn random(seed: Node<Vec2<f32>>) -> Node<f32> {
   (seed.dot((s1, s2)).sin() * s3).fract()
 }
 
-#[shadergraph_fn]
+#[shader_fn]
 fn random3(seed: Node<Vec2<f32>>) -> Node<Vec3<f32>> {
   let x = random(seed);
   let y = random((seed + random(seed).splat()).sin());
@@ -112,10 +112,7 @@ impl<'a> ShaderPassBuilder for AOComputer<'a> {
   }
 }
 impl<'a> GraphicsShaderProvider for AOComputer<'a> {
-  fn build(
-    &self,
-    builder: &mut ShaderGraphRenderPipelineBuilder,
-  ) -> Result<(), ShaderGraphBuildError> {
+  fn build(&self, builder: &mut ShaderRenderPipelineBuilder) -> Result<(), ShaderBuildError> {
     builder.fragment(|builder, binding| {
       let depth_tex = binding.bind_by(&DisableFiltering(&self.depth));
       let parameter = binding.bind_by(&self.parameter.parameters).expand();

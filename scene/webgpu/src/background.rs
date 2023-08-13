@@ -54,9 +54,9 @@ struct EnvMapBackgroundGPU {
 impl ShadingBackground for EnvMapBackgroundGPU {
   fn shading(
     &self,
-    builder: &mut ShaderGraphRenderPipelineBuilder,
+    builder: &mut ShaderRenderPipelineBuilder,
     direction: Node<Vec3<f32>>,
-  ) -> Result<(), ShaderGraphBuildError> {
+  ) -> Result<(), ShaderBuildError> {
     builder.fragment(|builder, binding| {
       let cube = binding.bind_by(&self.texture);
       let sampler = binding.bind_by(&self.sampler);
@@ -74,9 +74,9 @@ struct ShadingBackgroundTask<T> {
 pub trait ShadingBackground {
   fn shading(
     &self,
-    builder: &mut ShaderGraphRenderPipelineBuilder,
+    builder: &mut ShaderRenderPipelineBuilder,
     direction: Node<Vec3<f32>>,
-  ) -> Result<(), ShaderGraphBuildError>;
+  ) -> Result<(), ShaderBuildError>;
 }
 
 impl<T: ShaderPassBuilder> ShaderPassBuilder for ShadingBackgroundTask<T> {
@@ -92,10 +92,7 @@ impl<T: ShaderHashProvider> ShaderHashProvider for ShadingBackgroundTask<T> {
 }
 
 impl<T: ShadingBackground> GraphicsShaderProvider for ShadingBackgroundTask<T> {
-  fn build(
-    &self,
-    builder: &mut ShaderGraphRenderPipelineBuilder,
-  ) -> Result<(), ShaderGraphBuildError> {
+  fn build(&self, builder: &mut ShaderRenderPipelineBuilder) -> Result<(), ShaderBuildError> {
     let direction = builder.vertex(|builder, _| {
       let vertex_index = builder.query::<VertexIndex>()?;
       let proj_inv = builder.query::<CameraProjectionInverseMatrix>()?;
@@ -107,7 +104,7 @@ impl<T: ShadingBackground> GraphicsShaderProvider for ShadingBackgroundTask<T> {
   }
 }
 
-#[shadergraph_fn]
+#[shader_fn]
 fn background_direction(
   vertex_index: Node<u32>,
   view: Node<Mat4<f32>>,

@@ -64,10 +64,7 @@ impl ShaderPassBuilder for PhysicalMetallicRoughnessMaterialGPU {
 }
 
 impl GraphicsShaderProvider for PhysicalMetallicRoughnessMaterialGPU {
-  fn build(
-    &self,
-    builder: &mut ShaderGraphRenderPipelineBuilder,
-  ) -> Result<(), ShaderGraphBuildError> {
+  fn build(&self, builder: &mut ShaderRenderPipelineBuilder) -> Result<(), ShaderBuildError> {
     builder.context.insert(
       ShadingSelection.type_id(),
       Box::new(&PhysicalShading as &dyn LightableSurfaceShadingDyn),

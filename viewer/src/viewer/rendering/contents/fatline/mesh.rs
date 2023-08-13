@@ -142,10 +142,7 @@ impl WebGPUMesh for FatlineMesh {
 }
 
 impl GraphicsShaderProvider for FatlineMeshGPU {
-  fn build(
-    &self,
-    builder: &mut ShaderGraphRenderPipelineBuilder,
-  ) -> Result<(), ShaderGraphBuildError> {
+  fn build(&self, builder: &mut ShaderRenderPipelineBuilder) -> Result<(), ShaderBuildError> {
     builder.vertex(|builder, _| {
       builder.register_vertex::<Vertex>(VertexStepMode::Vertex);
       builder.register_vertex::<FatLineVertex>(VertexStepMode::Instance);

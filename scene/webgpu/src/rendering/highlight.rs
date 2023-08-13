@@ -86,10 +86,7 @@ impl<'a, T> ShaderHashProviderAny for HighLightComposeTask<'a, T> {
 }
 
 impl<'a, T> GraphicsShaderProvider for HighLightComposeTask<'a, T> {
-  fn build(
-    &self,
-    builder: &mut ShaderGraphRenderPipelineBuilder,
-  ) -> Result<(), ShaderGraphBuildError> {
+  fn build(&self, builder: &mut ShaderRenderPipelineBuilder) -> Result<(), ShaderBuildError> {
     builder.fragment(|builder, binding| {
       let highlighter = binding.bind_by(&self.lighter.data).expand();
 
@@ -110,7 +107,7 @@ impl<'a, T> GraphicsShaderProvider for HighLightComposeTask<'a, T> {
   }
 }
 
-#[shadergraph_fn]
+#[shader_fn]
 fn edge_intensity(
   uv: Node<Vec2<f32>>,
   mask: Node<ShaderTexture2D>,
@@ -148,20 +145,14 @@ impl ShaderHashProvider for HighLightMaskDispatcher {}
 impl ShaderPassBuilder for HighLightMaskDispatcher {}
 
 impl GraphicsShaderProvider for HighLightMaskDispatcher {
-  fn build(
-    &self,
-    builder: &mut ShaderGraphRenderPipelineBuilder,
-  ) -> Result<(), ShaderGraphBuildError> {
+  fn build(&self, builder: &mut ShaderRenderPipelineBuilder) -> Result<(), ShaderBuildError> {
     builder.fragment(|builder, _| {
       builder.define_out_by(channel(HIGH_LIGHT_MASK_TARGET_FORMAT));
       Ok(())
     })
   }
 
-  fn post_build(
-    &self,
-    builder: &mut ShaderGraphRenderPipelineBuilder,
-  ) -> Result<(), ShaderGraphBuildError> {
+  fn post_build(&self, builder: &mut ShaderRenderPipelineBuilder) -> Result<(), ShaderBuildError> {
     builder.fragment(|builder, _| builder.set_fragment_out(0, val(Vec4::one())))
   }
 }

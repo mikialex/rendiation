@@ -17,14 +17,14 @@ const MATERIAL2_FORMAT: TextureFormat = TextureFormat::Rgba8Unorm;
 impl DeferGBufferSchema<PhysicalShading> for MaterialDeferPassResult {
   fn reconstruct(
     &self,
-    builder: &mut ShaderGraphFragmentBuilder,
-    binding: &mut ShaderGraphBindGroupDirectBuilder,
+    builder: &mut ShaderFragmentBuilder,
+    binding: &mut ShaderBindGroupDirectBuilder,
   ) -> Result<
     (
       ENode<ShaderLightingGeometricCtx>,
       ENode<ShaderPhysicalShading>,
     ),
-    ShaderGraphBuildError,
+    ShaderBuildError,
   > {
     let world_position = binding.bind_by(&self.world_position.read());
     let normal = binding.bind_by(&self.normal.read());
@@ -95,10 +95,7 @@ struct GBufferEncodeTaskDispatcher;
 impl ShaderHashProvider for GBufferEncodeTaskDispatcher {}
 impl ShaderPassBuilder for GBufferEncodeTaskDispatcher {}
 impl GraphicsShaderProvider for GBufferEncodeTaskDispatcher {
-  fn build(
-    &self,
-    builder: &mut ShaderGraphRenderPipelineBuilder,
-  ) -> Result<(), ShaderGraphBuildError> {
+  fn build(&self, builder: &mut ShaderRenderPipelineBuilder) -> Result<(), ShaderBuildError> {
     builder.fragment(|builder, _| {
       builder.define_out_by(channel(WORLD_POSITION_FORMAT));
       builder.define_out_by(channel(NORMAL_FORMAT));
@@ -107,10 +104,7 @@ impl GraphicsShaderProvider for GBufferEncodeTaskDispatcher {
     })
   }
 
-  fn post_build(
-    &self,
-    builder: &mut ShaderGraphRenderPipelineBuilder,
-  ) -> Result<(), ShaderGraphBuildError> {
+  fn post_build(&self, builder: &mut ShaderRenderPipelineBuilder) -> Result<(), ShaderBuildError> {
     builder.fragment(|builder, _| {
       // collect dependency
       let shading = PhysicalShading::construct_shading(builder);
@@ -225,12 +219,12 @@ impl<'a, T: Std140> ShaderHashProvider for SingleLight<'a, T> {
 impl<'a, T: ShaderLight> LightCollectionCompute for SingleLight<'a, T> {
   fn compute_lights(
     &self,
-    builder: &mut ShaderGraphFragmentBuilderView,
-    binding: &mut ShaderGraphBindGroupDirectBuilder,
+    builder: &mut ShaderFragmentBuilderView,
+    binding: &mut ShaderBindGroupDirectBuilder,
     shading_impl: &dyn LightableSurfaceShadingDyn,
     shading: &dyn Any,
     geom_ctx: &ENode<ShaderLightingGeometricCtx>,
-  ) -> Result<(Node<Vec3<f32>>, Node<Vec3<f32>>), ShaderGraphBuildError> {
+  ) -> Result<(Node<Vec3<f32>>, Node<Vec3<f32>>), ShaderBuildError> {
     let light = binding.bind_by(self.light);
 
     let dep = T::create_dep(builder)?;
@@ -250,25 +244,25 @@ impl<'a, T: ShaderLight> LightCollectionCompute for SingleLight<'a, T> {
 pub trait DeferGBufferSchema<S: LightableSurfaceShading> {
   fn reconstruct(
     &self,
-    builder: &mut ShaderGraphFragmentBuilder,
-    binding: &mut ShaderGraphBindGroupDirectBuilder,
-  ) -> Result<(ENode<ShaderLightingGeometricCtx>, ENode<S::ShaderStruct>), ShaderGraphBuildError>;
+    builder: &mut ShaderFragmentBuilder,
+    binding: &mut ShaderBindGroupDirectBuilder,
+  ) -> Result<(ENode<ShaderLightingGeometricCtx>, ENode<S::ShaderStruct>), ShaderBuildError>;
 }
 
 /// define a specific light buffer layout.
 pub trait LightBufferSchema {
   fn write_lighting(
-    builder: &mut ShaderGraphFragmentBuilder,
+    builder: &mut ShaderFragmentBuilder,
     result: ENode<ShaderLightingResult>,
-  ) -> Result<(), ShaderGraphBuildError>;
+  ) -> Result<(), ShaderBuildError>;
 }
 
 pub struct SimpleLightSchema;
 impl LightBufferSchema for SimpleLightSchema {
   fn write_lighting(
-    builder: &mut ShaderGraphFragmentBuilder,
+    builder: &mut ShaderFragmentBuilder,
     result: ENode<ShaderLightingResult>,
-  ) -> Result<(), ShaderGraphBuildError> {
+  ) -> Result<(), ShaderBuildError> {
     builder.set_fragment_out(0, ((result.specular + result.diffuse), val(1.0)))
   }
 }
@@ -287,10 +281,7 @@ where
   D: DeferGBufferSchema<S>,
   R: LightBufferSchema,
 {
-  fn build(
-    &self,
-    builder: &mut ShaderGraphRenderPipelineBuilder,
-  ) -> Result<(), ShaderGraphBuildError> {
+  fn build(&self, builder: &mut ShaderRenderPipelineBuilder) -> Result<(), ShaderBuildError> {
     builder.fragment(|builder, binding| {
       let (geom_ctx, shading) = self.defer.reconstruct(builder, binding)?;
 

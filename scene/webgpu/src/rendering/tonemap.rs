@@ -37,10 +37,7 @@ impl ShaderPassBuilder for ToneMap {
   }
 }
 impl GraphicsShaderProvider for ToneMap {
-  fn build(
-    &self,
-    builder: &mut ShaderGraphRenderPipelineBuilder,
-  ) -> Result<(), ShaderGraphBuildError> {
+  fn build(&self, builder: &mut ShaderRenderPipelineBuilder) -> Result<(), ShaderBuildError> {
     builder.fragment(|builder, binding| {
       let exposure = binding.bind_by(&self.exposure);
       let hdr = builder.query::<HDRLightResult>()?;
@@ -58,13 +55,13 @@ impl GraphicsShaderProvider for ToneMap {
   }
 }
 
-#[shadergraph_fn]
+#[shader_fn]
 fn linear_tone_mapping(color: Node<Vec3<f32>>, exposure: Node<f32>) -> Node<Vec3<f32>> {
   exposure * color
 }
 
 /// source: https://www.cs.utah.edu/docs/techreports/2002/pdf/UUCS-02-001.pdf
-#[shadergraph_fn]
+#[shader_fn]
 fn reinhard_tone_mapping(color: Node<Vec3<f32>>, exposure: Node<f32>) -> Node<Vec3<f32>> {
   let color = exposure * color;
   let mapped = color / (val(Vec3::one()) + color);
@@ -150,10 +147,7 @@ impl<'a, T> ShaderPassBuilder for ToneMapTask<'a, T> {
 }
 
 impl<'a, T> GraphicsShaderProvider for ToneMapTask<'a, T> {
-  fn build(
-    &self,
-    builder: &mut ShaderGraphRenderPipelineBuilder,
-  ) -> Result<(), ShaderGraphBuildError> {
+  fn build(&self, builder: &mut ShaderRenderPipelineBuilder) -> Result<(), ShaderBuildError> {
     builder.fragment(|builder, binding| {
       let hdr = binding.bind_by(&self.hdr);
       let sampler = binding.binding::<GPUSamplerView>();

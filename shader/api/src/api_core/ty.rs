@@ -63,66 +63,64 @@ pub enum ShaderUnSizedValueType {
   UnsizedStruct(&'static ShaderUnSizedStructMetaInfo),
 }
 
-pub trait ShaderGraphNodeType: 'static + Copy {
+pub trait ShaderNodeType: 'static + Copy {
   const TYPE: ShaderValueType;
 }
 
-pub trait ShaderGraphNodeSingleType: 'static + Copy {
+pub trait ShaderNodeSingleType: 'static + Copy {
   const SINGLE_TYPE: ShaderValueSingleType;
 }
 
-pub trait ShaderSizedValueNodeType: ShaderGraphNodeType {
+pub trait ShaderSizedValueNodeType: ShaderNodeType {
   const MEMBER_TYPE: ShaderSizedValueType;
 }
 
-pub trait ShaderUnsizedValueNodeType: ShaderGraphNodeType {
+pub trait ShaderUnsizedValueNodeType: ShaderNodeType {
   const UNSIZED_TYPE: ShaderUnSizedValueType;
 }
 
-pub trait PrimitiveShaderGraphNodeType: ShaderGraphNodeType + Default {
+pub trait PrimitiveShaderNodeType: ShaderNodeType + Default {
   const PRIMITIVE_TYPE: PrimitiveShaderValueType;
   fn to_primitive(&self) -> PrimitiveShaderValue;
 }
 
-pub trait ShaderGraphStructuralNodeType: ShaderGraphNodeType {
+pub trait ShaderStructuralNodeType: ShaderNodeType {
   type Instance;
   fn meta_info() -> &'static ShaderStructMetaInfo;
   fn expand(node: Node<Self>) -> Self::Instance;
   fn construct(instance: Self::Instance) -> Node<Self>;
 }
-pub type ENode<T> = <T as ShaderGraphStructuralNodeType>::Instance;
+pub type ENode<T> = <T as ShaderStructuralNodeType>::Instance;
 
 #[macro_export]
 macro_rules! sg_node_impl {
   ($ty: ty, $ty_value: expr) => {
-    impl ShaderGraphNodeSingleType for $ty {
+    impl ShaderNodeSingleType for $ty {
       const SINGLE_TYPE: ShaderValueSingleType = $ty_value;
     }
-    impl ShaderGraphNodeType for $ty {
+    impl ShaderNodeType for $ty {
       const TYPE: ShaderValueType = ShaderValueType::Single(Self::SINGLE_TYPE);
     }
   };
 }
 
-impl ShaderGraphNodeType for AnyType {
+impl ShaderNodeType for AnyType {
   const TYPE: ShaderValueType = ShaderValueType::Never;
 }
 
-impl<T: ShaderSizedValueNodeType, const N: usize> ShaderGraphNodeSingleType for [T; N] {
+impl<T: ShaderSizedValueNodeType, const N: usize> ShaderNodeSingleType for [T; N] {
   const SINGLE_TYPE: ShaderValueSingleType =
     ShaderValueSingleType::Sized(ShaderSizedValueType::FixedSizeArray((&T::MEMBER_TYPE, N)));
 }
-impl<T: ShaderSizedValueNodeType, const N: usize> ShaderGraphNodeType for [T; N] {
+impl<T: ShaderSizedValueNodeType, const N: usize> ShaderNodeType for [T; N] {
   const TYPE: ShaderValueType = ShaderValueType::Single(Self::SINGLE_TYPE);
 }
 
-impl<T: ShaderSizedValueNodeType, const N: usize> ShaderGraphNodeSingleType
-  for Shader140Array<T, N>
-{
+impl<T: ShaderSizedValueNodeType, const N: usize> ShaderNodeSingleType for Shader140Array<T, N> {
   const SINGLE_TYPE: ShaderValueSingleType =
     ShaderValueSingleType::Sized(ShaderSizedValueType::FixedSizeArray((&T::MEMBER_TYPE, N)));
 }
-impl<T: ShaderSizedValueNodeType, const N: usize> ShaderGraphNodeType for Shader140Array<T, N> {
+impl<T: ShaderSizedValueNodeType, const N: usize> ShaderNodeType for Shader140Array<T, N> {
   const TYPE: ShaderValueType = ShaderValueType::Single(Self::SINGLE_TYPE);
 }
 
@@ -138,7 +136,7 @@ impl<T: ShaderSizedValueNodeType, const N: usize> ShaderSizedValueNodeType
     ShaderSizedValueType::FixedSizeArray((&T::MEMBER_TYPE, N));
 }
 
-impl<T: ShaderGraphNodeSingleType, const N: usize> ShaderGraphNodeType for BindingArray<T, N> {
+impl<T: ShaderNodeSingleType, const N: usize> ShaderNodeType for BindingArray<T, N> {
   const TYPE: ShaderValueType = ShaderValueType::BindingArray {
     ty: T::SINGLE_TYPE,
     count: N,

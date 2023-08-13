@@ -8,7 +8,7 @@ pub struct SemanticRegistry {
 impl SemanticRegistry {
   pub fn query_typed_both_stage<T: SemanticFragmentShaderValue + SemanticFragmentShaderValue>(
     &self,
-  ) -> Result<Node<T::ValueType>, ShaderGraphBuildError> {
+  ) -> Result<Node<T::ValueType>, ShaderBuildError> {
     self
       .query(TypeId::of::<T>(), T::NAME)
       .map(|n| unsafe { std::mem::transmute(n) })
@@ -21,16 +21,12 @@ impl SemanticRegistry {
     self.register(TypeId::of::<T>(), node.into().cast_untyped_node());
   }
 
-  pub fn query(
-    &self,
-    id: TypeId,
-    name: &'static str,
-  ) -> Result<Node<AnyType>, ShaderGraphBuildError> {
+  pub fn query(&self, id: TypeId, name: &'static str) -> Result<Node<AnyType>, ShaderBuildError> {
     self
       .registered
       .get(&id)
       .copied()
-      .ok_or(ShaderGraphBuildError::MissingRequiredDependency(name))
+      .ok_or(ShaderBuildError::MissingRequiredDependency(name))
   }
 
   pub fn register(&mut self, id: TypeId, node: NodeUntyped) -> &Node<AnyType> {
@@ -94,7 +90,7 @@ both!(FragmentDepthOutput, f32);
 both!(FragmentSampleMaskOutput, u32);
 
 //////
-// shader graph builtin
+// shader builtin
 
 only_vertex!(GeometryPosition2D, Vec2<f32>);
 only_vertex!(GeometryPosition, Vec3<f32>);

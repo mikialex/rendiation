@@ -1,11 +1,11 @@
 use crate::*;
 
-pub struct ShaderGraphBindGroupBuilder {
-  pub bindings: Vec<ShaderGraphBindGroup>,
+pub struct ShaderBindGroupBuilder {
+  pub bindings: Vec<ShaderBindGroup>,
   pub current_index: usize,
 }
 
-impl Default for ShaderGraphBindGroupBuilder {
+impl Default for ShaderBindGroupBuilder {
   fn default() -> Self {
     Self {
       bindings: vec![Default::default(); 5],
@@ -17,10 +17,10 @@ impl Default for ShaderGraphBindGroupBuilder {
 #[derive(Clone)]
 pub struct BindingPreparer<T> {
   phantom: PhantomData<T>,
-  entry: ShaderGraphBindEntry,
+  entry: ShaderBindEntry,
 }
 
-impl<T: ShaderGraphNodeType> BindingPreparer<T> {
+impl<T: ShaderNodeType> BindingPreparer<T> {
   pub fn using(&self) -> Node<T> {
     let node = match get_current_stage().unwrap() {
       ShaderStages::Vertex => self.entry.vertex_node,
@@ -32,7 +32,7 @@ impl<T: ShaderGraphNodeType> BindingPreparer<T> {
 
   pub fn using_both(
     self,
-    builder: &mut ShaderGraphRenderPipelineBuilder,
+    builder: &mut ShaderRenderPipelineBuilder,
     register: impl Fn(&mut SemanticRegistry, Node<T>),
   ) -> Self {
     unsafe {
@@ -52,7 +52,7 @@ impl<T: ShaderGraphNodeType> BindingPreparer<T> {
   }
 }
 
-impl ShaderGraphBindGroupBuilder {
+impl ShaderBindGroupBuilder {
   pub fn set_binding_slot(&mut self, new: usize) -> usize {
     std::mem::replace(&mut self.current_index, new)
   }
@@ -64,7 +64,7 @@ impl ShaderGraphBindGroupBuilder {
     let entry_index = bindgroup.bindings.len();
     let desc = T::binding_desc();
 
-    let node = ShaderGraphInputNode::Binding {
+    let node = ShaderInputNode::Binding {
       ty: T::Node::TYPE,
       bindgroup_index,
       entry_index,
@@ -73,14 +73,14 @@ impl ShaderGraphBindGroupBuilder {
     let current_stage = get_current_stage();
 
     set_current_building(ShaderStages::Vertex.into());
-    let vertex_node = node.clone().insert_graph::<T::Node>().handle();
+    let vertex_node = node.clone().insert_api::<T::Node>().handle();
 
     set_current_building(ShaderStages::Fragment.into());
-    let fragment_node = node.insert_graph::<T::Node>().handle();
+    let fragment_node = node.insert_api::<T::Node>().handle();
 
     set_current_building(current_stage);
 
-    let entry = ShaderGraphBindEntry {
+    let entry = ShaderBindEntry {
       desc,
       vertex_node,
       fragment_node,
@@ -102,16 +102,16 @@ impl ShaderGraphBindGroupBuilder {
     self.binding::<T>()
   }
 
-  pub(crate) fn wrap(&mut self) -> ShaderGraphBindGroupDirectBuilder {
-    ShaderGraphBindGroupDirectBuilder { builder: self }
+  pub(crate) fn wrap(&mut self) -> ShaderBindGroupDirectBuilder {
+    ShaderBindGroupDirectBuilder { builder: self }
   }
 }
 
-pub struct ShaderGraphBindGroupDirectBuilder<'a> {
-  builder: &'a mut ShaderGraphBindGroupBuilder,
+pub struct ShaderBindGroupDirectBuilder<'a> {
+  builder: &'a mut ShaderBindGroupBuilder,
 }
 
-impl<'a> ShaderGraphBindGroupDirectBuilder<'a> {
+impl<'a> ShaderBindGroupDirectBuilder<'a> {
   pub fn binding<T: ShaderBindingProvider>(&mut self) -> Node<T::Node> {
     self.builder.binding_ty_inner::<T>().using()
   }

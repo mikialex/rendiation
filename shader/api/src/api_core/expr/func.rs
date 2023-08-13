@@ -17,7 +17,7 @@ pub enum ShaderFnTryDefineResult<T> {
   AlreadyDefined(ShaderUserDefinedFunction),
 }
 
-impl<T: ShaderGraphNodeType> ShaderFnTryDefineResult<T> {
+impl<T: ShaderNodeType> ShaderFnTryDefineResult<T> {
   pub fn or_define(self, f: impl FnOnce(&FunctionBuildCtx<T>)) -> ShaderUserDefinedFunction {
     match self {
       ShaderFnTryDefineResult::NotDefined(builder) => {
@@ -30,8 +30,8 @@ impl<T: ShaderGraphNodeType> ShaderFnTryDefineResult<T> {
 }
 
 // todo check T match returned meta
-pub fn get_shader_fn<T: ShaderGraphNodeType>(name: String) -> ShaderFnTryDefineResult<T> {
-  let info = modify_graph(|g| g.get_fn(name.clone()));
+pub fn get_shader_fn<T: ShaderNodeType>(name: String) -> ShaderFnTryDefineResult<T> {
+  let info = call_shader_api(|g| g.get_fn(name.clone()));
 
   match info {
     Some(info) => ShaderFnTryDefineResult::AlreadyDefined(info),
@@ -39,19 +39,19 @@ pub fn get_shader_fn<T: ShaderGraphNodeType>(name: String) -> ShaderFnTryDefineR
   }
 }
 
-impl<T: ShaderGraphNodeType> FunctionBuildCtx<T> {
+impl<T: ShaderNodeType> FunctionBuildCtx<T> {
   pub fn begin(name: String) -> Self {
     let ty = T::TYPE;
     let ty = match ty {
       ShaderValueType::Never => None,
       _ => Some(ty),
     };
-    modify_graph(|g| g.begin_define_fn(name, ty));
+    call_shader_api(|g| g.begin_define_fn(name, ty));
     Self(Default::default())
   }
 
-  pub fn push_fn_parameter<P: ShaderGraphNodeType>(&self) -> Node<P> {
-    unsafe { modify_graph(|g| g.push_fn_parameter(P::TYPE)).into_node() }
+  pub fn push_fn_parameter<P: ShaderNodeType>(&self) -> Node<P> {
+    unsafe { call_shader_api(|g| g.push_fn_parameter(P::TYPE)).into_node() }
   }
 
   pub fn do_return(&self, r: Node<T>) {
@@ -59,11 +59,11 @@ impl<T: ShaderGraphNodeType> FunctionBuildCtx<T> {
       ShaderValueType::Never => None,
       _ => Some(r.handle()),
     };
-    modify_graph(|g| g.do_return(handle))
+    call_shader_api(|g| g.do_return(handle))
   }
 
   pub fn end_fn_define(self) -> ShaderUserDefinedFunction {
-    modify_graph(|g| g.end_fn_define())
+    call_shader_api(|g| g.end_fn_define())
   }
 }
 
@@ -81,10 +81,10 @@ impl<T> ProcMacroNodeHelper for Node<T> {
 
 pub fn shader_fn_call(
   meta: ShaderUserDefinedFunction,
-  parameters: Vec<ShaderGraphNodeRawHandle>,
-) -> ShaderGraphNodeRawHandle {
-  modify_graph(|g| {
-    let expr = ShaderGraphNodeExpr::FunctionCall {
+  parameters: Vec<ShaderNodeRawHandle>,
+) -> ShaderNodeRawHandle {
+  call_shader_api(|g| {
+    let expr = ShaderNodeExpr::FunctionCall {
       meta: ShaderFunctionType::Custom(meta),
       parameters,
     };

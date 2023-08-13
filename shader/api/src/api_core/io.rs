@@ -1,7 +1,7 @@
 use crate::*;
 
 #[derive(Clone)]
-pub enum ShaderGraphInputNode {
+pub enum ShaderInputNode {
   BuiltIn(ShaderBuiltIn),
   Binding {
     ty: ShaderValueType,
@@ -18,9 +18,9 @@ pub enum ShaderGraphInputNode {
   },
 }
 
-impl ShaderGraphInputNode {
-  pub fn insert_graph<T: ShaderGraphNodeType>(self) -> Node<T> {
-    modify_graph(|g| unsafe { g.define_module_input(self).into_node() })
+impl ShaderInputNode {
+  pub fn insert_api<T: ShaderNodeType>(self) -> Node<T> {
+    call_shader_api(|g| unsafe { g.define_module_input(self).into_node() })
   }
 }
 
@@ -35,20 +35,20 @@ pub enum ShaderBuiltIn {
 }
 
 #[derive(Default, Clone)]
-pub struct ShaderGraphBindGroup {
-  pub bindings: Vec<ShaderGraphBindEntry>,
+pub struct ShaderBindGroup {
+  pub bindings: Vec<ShaderBindEntry>,
 }
 
 #[derive(Clone, Copy)]
-pub struct ShaderGraphBindEntry {
+pub struct ShaderBindEntry {
   pub desc: ShaderBindingDescriptor,
-  pub vertex_node: ShaderGraphNodeRawHandle,
-  pub fragment_node: ShaderGraphNodeRawHandle,
+  pub vertex_node: ShaderNodeRawHandle,
+  pub fragment_node: ShaderNodeRawHandle,
 }
 
 /// should impl by user's container ty
 pub trait ShaderBindingProvider {
-  type Node: ShaderGraphNodeType;
+  type Node: ShaderNodeType;
   fn binding_desc() -> ShaderBindingDescriptor {
     ShaderBindingDescriptor {
       should_as_storage_buffer_if_is_buffer_like: false,

@@ -1,6 +1,6 @@
 use crate::*;
 
-pub fn shadergraph_fn_impl(_args: TokenStream, input: TokenStream) -> TokenStream {
+pub fn shader_api_fn_impl(_args: TokenStream, input: TokenStream) -> TokenStream {
   let func = parse_macro_input!(input as syn::ItemFn);
 
   let sig = &func.sig;

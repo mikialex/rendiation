@@ -62,11 +62,11 @@ impl From<PrimitiveShaderValue> for PrimitiveShaderValueType {
 
 // Impl Notes:
 //
-// impl<T: PrimitiveShaderGraphNodeType> ShaderGraphNodeType for T {
+// impl<T: PrimitiveShaderNodeType> ShaderNodeType for T {
 //   const TYPE: ShaderValueSingleType =
 //     ShaderValueSingleType::Sized(ShaderSizedValueType::Primitive(T::PRIMITIVE_TYPE));
 // }
-// impl<T: PrimitiveShaderGraphNodeType> ShaderSizedValueNodeType for T {
+// impl<T: PrimitiveShaderNodeType> ShaderSizedValueNodeType for T {
 //   const TYPE: ShaderSizedValueType =
 //     ShaderSizedValueType::Primitive(T::PRIMITIVE_TYPE);
 // }
@@ -87,7 +87,7 @@ macro_rules! primitive_ty {
         ShaderSizedValueType::Primitive($primitive_ty_value);
     }
 
-    impl PrimitiveShaderGraphNodeType for $ty {
+    impl PrimitiveShaderNodeType for $ty {
       const PRIMITIVE_TYPE: PrimitiveShaderValueType = $primitive_ty_value;
       fn to_primitive(&self) -> PrimitiveShaderValue {
         $to_primitive(*self)
@@ -115,27 +115,24 @@ mod impls {
   primitive_ty!(Mat4<f32>, PrimitiveShaderValueType::Mat4Float32,  PrimitiveShaderValue::Mat4Float32);
 }
 
-fn swizzle_node<I: ShaderGraphNodeType, T: ShaderGraphNodeType>(
-  n: &Node<I>,
-  ty: &'static str,
-) -> Node<T> {
+fn swizzle_node<I: ShaderNodeType, T: ShaderNodeType>(n: &Node<I>, ty: &'static str) -> Node<T> {
   let source = n.handle();
-  ShaderGraphNodeExpr::Swizzle { ty, source }.insert_graph()
+  ShaderNodeExpr::Swizzle { ty, source }.insert_api()
 }
 
 impl<T> Node<T>
 where
-  T: ShaderGraphNodeType + Scalar,
+  T: ShaderNodeType + Scalar,
 {
   pub fn splat<V>(&self) -> Node<V>
   where
-    V: Vector<T> + ShaderGraphNodeType + PrimitiveShaderGraphNodeType,
+    V: Vector<T> + ShaderNodeType + PrimitiveShaderNodeType,
   {
-    ShaderGraphNodeExpr::Compose {
+    ShaderNodeExpr::Compose {
       target: V::PRIMITIVE_TYPE,
       parameters: vec![self.handle()],
     }
-    .insert_graph()
+    .insert_api()
   }
 }
 
@@ -278,11 +275,11 @@ macro_rules! num_cast {
       impl Node<$src> {
         pub fn [< into_ $dst >](&self) -> Node<$dst> {
           let a = self.handle();
-          ShaderGraphNodeExpr::Compose {
+          ShaderNodeExpr::Compose {
             target: $dst::PRIMITIVE_TYPE,
             parameters: vec![a],
           }
-          .insert_graph()
+          .insert_api()
         }
       }
     }
@@ -302,11 +299,11 @@ macro_rules! impl_from {
       #[allow(non_snake_case)]
       fn from(($($field),+): ($(Node<$constraint>),+)) -> Self {
         $(let $field = $field.handle();)+
-        ShaderGraphNodeExpr::Compose {
+        ShaderNodeExpr::Compose {
           target: <$type_merged>::PRIMITIVE_TYPE,
           parameters: vec![$($field),+],
         }
-        .insert_graph()
+        .insert_api()
       }
     }
   }
@@ -337,10 +334,10 @@ compose_all!(f32);
 
 impl From<Node<Mat4<f32>>> for Node<Mat3<f32>> {
   fn from(n: Node<Mat4<f32>>) -> Self {
-    ShaderGraphNodeExpr::MatShrink {
+    ShaderNodeExpr::MatShrink {
       source: n.handle(),
       dimension: 3,
     }
-    .insert_graph()
+    .insert_api()
   }
 }

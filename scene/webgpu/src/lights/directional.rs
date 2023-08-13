@@ -16,17 +16,17 @@ impl PunctualShaderLight for DirectionalLightShaderInfo {
   type PunctualDependency = ();
 
   fn create_punctual_dep(
-    _: &mut ShaderGraphFragmentBuilderView,
-  ) -> Result<Self::PunctualDependency, ShaderGraphBuildError> {
+    _: &mut ShaderFragmentBuilderView,
+  ) -> Result<Self::PunctualDependency, ShaderBuildError> {
     Ok(())
   }
 
   fn compute_incident_light(
-    builder: &ShaderGraphFragmentBuilderView,
+    builder: &ShaderFragmentBuilderView,
     light: &ENode<Self>,
     _dep: &Self::PunctualDependency,
     _ctx: &ENode<ShaderLightingGeometricCtx>,
-  ) -> Result<ENode<ShaderIncidentLight>, ShaderGraphBuildError> {
+  ) -> Result<ENode<ShaderIncidentLight>, ShaderBuildError> {
     let shadow_info = light.shadow.expand();
     let occlusion = val(1.).mutable();
 

@@ -57,10 +57,7 @@ impl<'a, T> ShaderHashProviderAny for LinearBlurTask<'a, T> {
   }
 }
 impl<'a, T> GraphicsShaderProvider for LinearBlurTask<'a, T> {
-  fn build(
-    &self,
-    builder: &mut ShaderGraphRenderPipelineBuilder,
-  ) -> Result<(), ShaderGraphBuildError> {
+  fn build(&self, builder: &mut ShaderRenderPipelineBuilder) -> Result<(), ShaderBuildError> {
     builder.fragment(|builder, binding| {
       let config = binding.bind_by(self.config).expand();
       let weights = binding.bind_by(&self.weights.weights);

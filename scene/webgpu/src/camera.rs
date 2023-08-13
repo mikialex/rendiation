@@ -166,7 +166,7 @@ pub struct CameraGPU {
 impl CameraGPU {
   pub fn inject_uniforms(
     &self,
-    builder: &mut ShaderGraphRenderPipelineBuilder,
+    builder: &mut ShaderRenderPipelineBuilder,
   ) -> BindingPreparer<CameraGPUTransform> {
     builder.bind_by(&self.ubo).using_both(builder, |r, camera| {
       let camera = camera.expand();
@@ -200,10 +200,7 @@ impl ShaderPassBuilder for CameraGPU {
 }
 
 impl GraphicsShaderProvider for CameraGPU {
-  fn build(
-    &self,
-    builder: &mut ShaderGraphRenderPipelineBuilder,
-  ) -> Result<(), ShaderGraphBuildError> {
+  fn build(&self, builder: &mut ShaderRenderPipelineBuilder) -> Result<(), ShaderBuildError> {
     let camera = self.inject_uniforms(builder);
 
     builder.vertex(|builder, _| {

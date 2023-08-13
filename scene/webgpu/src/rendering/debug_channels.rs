@@ -17,7 +17,7 @@ impl ScreenChannelDebugger {
 }
 
 pub trait ChannelVisualize: Any {
-  fn to_screen(&self, builder: &ShaderGraphFragmentBuilderView) -> Node<Vec4<f32>>;
+  fn to_screen(&self, builder: &ShaderFragmentBuilderView) -> Node<Vec4<f32>>;
 }
 
 impl ScreenChannelDebugger {
@@ -34,10 +34,7 @@ impl ShaderHashProvider for ScreenChannelDebugger {
 }
 
 impl GraphicsShaderProvider for ScreenChannelDebugger {
-  fn build(
-    &self,
-    builder: &mut ShaderGraphRenderPipelineBuilder,
-  ) -> Result<(), ShaderGraphBuildError> {
+  fn build(&self, builder: &mut ShaderRenderPipelineBuilder) -> Result<(), ShaderBuildError> {
     builder.fragment(|builder, _| {
       let ndc_position = builder.query::<FragmentPosition>()?;
 
@@ -68,7 +65,7 @@ impl GraphicsShaderProvider for ScreenChannelDebugger {
 }
 
 impl ChannelVisualize for FragmentWorldNormal {
-  fn to_screen(&self, builder: &ShaderGraphFragmentBuilderView) -> Node<Vec4<f32>> {
+  fn to_screen(&self, builder: &ShaderFragmentBuilderView) -> Node<Vec4<f32>> {
     let normal = builder
       .query::<Self>()
       .unwrap_or_else(|_| val(Vec3::zero()));
@@ -78,7 +75,7 @@ impl ChannelVisualize for FragmentWorldNormal {
 }
 
 impl ChannelVisualize for FragmentUv {
-  fn to_screen(&self, builder: &ShaderGraphFragmentBuilderView) -> Node<Vec4<f32>> {
+  fn to_screen(&self, builder: &ShaderFragmentBuilderView) -> Node<Vec4<f32>> {
     let uv = builder
       .query::<Self>()
       .unwrap_or_else(|_| val(Vec2::zero()));
@@ -88,7 +85,7 @@ impl ChannelVisualize for FragmentUv {
 }
 
 impl ChannelVisualize for ColorChannel {
-  fn to_screen(&self, builder: &ShaderGraphFragmentBuilderView) -> Node<Vec4<f32>> {
+  fn to_screen(&self, builder: &ShaderFragmentBuilderView) -> Node<Vec4<f32>> {
     let value = builder
       .query::<Self>()
       .unwrap_or_else(|_| val(Vec3::zero()));
@@ -98,7 +95,7 @@ impl ChannelVisualize for ColorChannel {
 }
 
 impl ChannelVisualize for RoughnessChannel {
-  fn to_screen(&self, builder: &ShaderGraphFragmentBuilderView) -> Node<Vec4<f32>> {
+  fn to_screen(&self, builder: &ShaderFragmentBuilderView) -> Node<Vec4<f32>> {
     let value = builder.query::<Self>().unwrap_or_else(|_| val(0.));
     let value: Node<Vec3<f32>> = value.splat();
 
@@ -107,7 +104,7 @@ impl ChannelVisualize for RoughnessChannel {
 }
 
 impl ChannelVisualize for MetallicChannel {
-  fn to_screen(&self, builder: &ShaderGraphFragmentBuilderView) -> Node<Vec4<f32>> {
+  fn to_screen(&self, builder: &ShaderFragmentBuilderView) -> Node<Vec4<f32>> {
     let value = builder.query::<Self>().unwrap_or_else(|_| val(0.));
     let value: Node<Vec3<f32>> = value.splat();
 

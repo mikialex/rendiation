@@ -13,7 +13,7 @@ pub trait RenderComponent: ShaderHashProvider + GraphicsShaderProvider + ShaderP
       .device
       .get_or_cache_create_render_pipeline(hasher, |device| {
         device
-          .build_pipeline_by_shadergraph(
+          .build_pipeline_by_shader_api(
             self
               .build_self(
                 Box::new(ShaderAPINagaImpl::new(
@@ -71,17 +71,11 @@ impl<'a> ShaderPassBuilder for &'a dyn RenderComponentAny {
   }
 }
 impl<'a> GraphicsShaderProvider for &'a dyn RenderComponentAny {
-  fn build(
-    &self,
-    builder: &mut ShaderGraphRenderPipelineBuilder,
-  ) -> Result<(), ShaderGraphBuildError> {
+  fn build(&self, builder: &mut ShaderRenderPipelineBuilder) -> Result<(), ShaderBuildError> {
     (*self).build(builder)
   }
 
-  fn post_build(
-    &self,
-    builder: &mut ShaderGraphRenderPipelineBuilder,
-  ) -> Result<(), ShaderGraphBuildError> {
+  fn post_build(&self, builder: &mut ShaderRenderPipelineBuilder) -> Result<(), ShaderBuildError> {
     (*self).post_build(builder)
   }
 }
@@ -119,20 +113,14 @@ impl<'a, 'b> ShaderHashProvider for RenderEmitter<'a, 'b> {
 }
 
 impl<'a, 'b> GraphicsShaderProvider for RenderEmitter<'a, 'b> {
-  fn build(
-    &self,
-    builder: &mut ShaderGraphRenderPipelineBuilder,
-  ) -> Result<(), ShaderGraphBuildError> {
+  fn build(&self, builder: &mut ShaderRenderPipelineBuilder) -> Result<(), ShaderBuildError> {
     for c in self.contents {
       c.build(builder)?;
     }
     Ok(())
   }
 
-  fn post_build(
-    &self,
-    builder: &mut ShaderGraphRenderPipelineBuilder,
-  ) -> Result<(), ShaderGraphBuildError> {
+  fn post_build(&self, builder: &mut ShaderRenderPipelineBuilder) -> Result<(), ShaderBuildError> {
     for c in self.contents.iter().rev() {
       c.post_build(builder)?;
     }
@@ -179,20 +167,14 @@ impl<'a, T: ShaderPassBuilder> ShaderPassBuilder for BindingController<'a, T> {
   }
 }
 impl<'a, T: GraphicsShaderProvider> GraphicsShaderProvider for BindingController<'a, T> {
-  fn build(
-    &self,
-    builder: &mut ShaderGraphRenderPipelineBuilder,
-  ) -> Result<(), ShaderGraphBuildError> {
+  fn build(&self, builder: &mut ShaderRenderPipelineBuilder) -> Result<(), ShaderBuildError> {
     let before = builder.set_binding_slot(self.target);
     let r = self.inner.build(builder);
     builder.set_binding_slot(before);
     r
   }
 
-  fn post_build(
-    &self,
-    builder: &mut ShaderGraphRenderPipelineBuilder,
-  ) -> Result<(), ShaderGraphBuildError> {
+  fn post_build(&self, builder: &mut ShaderRenderPipelineBuilder) -> Result<(), ShaderBuildError> {
     let before = builder.set_binding_slot(self.target);
     let r = self.inner.post_build(builder);
     builder.set_binding_slot(before);

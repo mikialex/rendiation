@@ -48,8 +48,8 @@ impl<T> ShaderPassBuilder for CopyFrame<T> {
 impl<T> GraphicsShaderProvider for CopyFrame<T> {
   fn build(
     &self,
-    builder: &mut rendiation_shader_api::ShaderGraphRenderPipelineBuilder,
-  ) -> Result<(), rendiation_shader_api::ShaderGraphBuildError> {
+    builder: &mut rendiation_shader_api::ShaderRenderPipelineBuilder,
+  ) -> Result<(), rendiation_shader_api::ShaderBuildError> {
     builder.fragment(|builder, binding| {
       let sampler = binding.bind_by(&self.sampler);
       let source = binding.bind_by(&self.source);
