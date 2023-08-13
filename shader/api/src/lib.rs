@@ -44,12 +44,15 @@ pub trait ShaderAPI {
   fn push_for_scope(&mut self, target: ShaderIterator) -> ForNodes;
   fn do_continue(&mut self, looper: ShaderGraphNodeRawHandle);
   fn do_break(&mut self, looper: ShaderGraphNodeRawHandle);
+  fn begin_switch(&mut self, switch_target: ShaderGraphNodeRawHandle);
+  fn push_switch_case_scope(&mut self, case: SwitchCaseCondition);
+  fn end_switch(&mut self);
 
-  fn get_fn(&mut self, name: String) -> Option<ShaderFunctionMetaInfo>;
+  fn get_fn(&mut self, name: String) -> Option<ShaderUserDefinedFunction>;
   fn begin_define_fn(&mut self, name: String, return_ty: Option<ShaderValueType>);
   fn push_fn_parameter(&mut self, p: ShaderValueType) -> ShaderGraphNodeRawHandle;
   fn do_return(&mut self, v: Option<ShaderGraphNodeRawHandle>);
-  fn end_fn_define(&mut self) -> ShaderFunctionMetaInfo;
+  fn end_fn_define(&mut self) -> ShaderUserDefinedFunction;
 
   fn build(&mut self) -> (String, String);
 }

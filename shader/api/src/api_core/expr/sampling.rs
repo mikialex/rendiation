@@ -188,6 +188,8 @@ impl<T: SingleSampleTarget> Node<T> {
       position: position.into().handle(),
       index: None,
       level: None,
+      reference: None,
+      offset: None,
     }
     .insert_graph()
   }
@@ -204,6 +206,8 @@ impl<T: SingleSampleTarget> Node<T> {
       position: position.handle(),
       index: None,
       level: level.handle().into(),
+      reference: None,
+      offset: None,
     }
     .insert_graph()
   }
@@ -226,6 +230,8 @@ impl<T: ArraySampleTarget> Node<T> {
       position: position.handle(),
       index: index.handle().into(),
       level: None,
+      reference: None,
+      offset: None,
     }
     .insert_graph()
   }
@@ -243,6 +249,8 @@ impl<T: ArraySampleTarget> Node<T> {
       position: position.handle(),
       index: index.handle().into(),
       level: level.handle().into(),
+      reference: None,
+      offset: None,
     }
     .insert_graph()
   }
@@ -257,6 +265,15 @@ impl Node<ShaderDepthTexture2DArray> {
     reference: Node<f32>,
     offset: Option<Vec2<i32>>,
   ) -> Node<f32> {
-    todo!()
+    ShaderGraphNodeExpr::TextureSampling {
+      texture: self.handle(),
+      sampler: sampler.handle(),
+      position: position.handle(),
+      index: index.handle().into(),
+      level: None,
+      reference: reference.handle().into(),
+      offset,
+    }
+    .insert_graph()
   }
 }

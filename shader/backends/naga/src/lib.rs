@@ -8,7 +8,7 @@ pub struct ShaderAPINagaImpl {
   handle_id: usize,
   building_fn: Vec<(String, naga::Function, usize)>,
   block: Vec<naga::Block>,
-  fn_mapping: FastHashMap<String, (naga::Handle<naga::Function>, ShaderFunctionMetaInfo)>,
+  fn_mapping: FastHashMap<String, (naga::Handle<naga::Function>, ShaderUserDefinedFunction)>,
   consts_mapping: FastHashMap<ShaderGraphNodeRawHandle, naga::Handle<naga::Constant>>,
   expression_mapping: FastHashMap<ShaderGraphNodeRawHandle, naga::Handle<naga::Expression>>,
 }
@@ -239,6 +239,8 @@ impl ShaderAPI for ShaderAPINagaImpl {
         position,
         index,
         level,
+        reference,
+        offset,
       } => naga::Expression::ImageSample {
         image: self.get_expression(texture),
         sampler: self.get_expression(sampler),
@@ -387,7 +389,19 @@ impl ShaderAPI for ShaderAPINagaImpl {
     self.block.last_mut().unwrap().push(st, Span::UNDEFINED);
   }
 
-  fn get_fn(&mut self, name: String) -> Option<ShaderFunctionMetaInfo> {
+  fn begin_switch(&mut self, switch_target: ShaderGraphNodeRawHandle) {
+    todo!()
+  }
+
+  fn push_switch_case_scope(&mut self, case: SwitchCaseCondition) {
+    todo!()
+  }
+
+  fn end_switch(&mut self) {
+    todo!()
+  }
+
+  fn get_fn(&mut self, name: String) -> Option<ShaderUserDefinedFunction> {
     self.fn_mapping.get(&name).map(|v| v.1.clone())
   }
 
@@ -423,7 +437,7 @@ impl ShaderAPI for ShaderAPINagaImpl {
     todo!()
   }
 
-  fn end_fn_define(&mut self) -> ShaderFunctionMetaInfo {
+  fn end_fn_define(&mut self) -> ShaderUserDefinedFunction {
     let (name, f, _) = self.building_fn.pop().unwrap();
     let handle = self.module.functions.append(f, Span::UNDEFINED);
     self.fn_mapping.insert(name, (handle, todo!()));

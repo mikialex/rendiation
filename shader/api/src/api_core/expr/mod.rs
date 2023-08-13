@@ -29,6 +29,8 @@ pub enum ShaderGraphNodeExpr {
     position: ShaderGraphNodeRawHandle,
     index: Option<ShaderGraphNodeRawHandle>,
     level: Option<ShaderGraphNodeRawHandle>,
+    reference: Option<ShaderGraphNodeRawHandle>,
+    offset: Option<Vec2<i32>>,
   },
   Swizzle {
     ty: &'static str,

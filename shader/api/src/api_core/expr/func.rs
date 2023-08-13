@@ -1,45 +1,24 @@
 use crate::*;
 
 pub enum ShaderFunctionType {
-  Custom(&'static ShaderFunctionMetaInfo),
+  Custom(ShaderUserDefinedFunction),
   BuiltIn(ShaderBuiltInFunction),
 }
 
-/// use for compile time ubo field reflection by procedure macro;
-#[derive(Debug, Clone)]
-pub struct ShaderFunctionMetaInfo {
-  pub function_name: &'static str,
-  pub function_source: &'static str,
-  pub depend_functions: &'static [&'static ShaderFunctionMetaInfo],
-  pub depend_types: &'static [&'static ShaderStructMetaInfo],
-}
-
-// todo use other uuid mechanism as identity
-impl Eq for ShaderFunctionMetaInfo {}
-impl PartialEq for ShaderFunctionMetaInfo {
-  fn eq(&self, other: &Self) -> bool {
-    self.function_name == other.function_name
-  }
-}
-
-impl Hash for ShaderFunctionMetaInfo {
-  fn hash<H>(&self, state: &mut H)
-  where
-    H: Hasher,
-  {
-    self.function_name.hash(state);
-  }
+#[derive(Clone)]
+pub struct ShaderUserDefinedFunction {
+  name: String,
 }
 
 pub struct FunctionBuildCtx<T>(PhantomData<T>);
 
 pub enum ShaderFnTryDefineResult<T> {
   NotDefined(FunctionBuildCtx<T>),
-  AlreadyDefined(ShaderFunctionMetaInfo),
+  AlreadyDefined(ShaderUserDefinedFunction),
 }
 
 impl<T: ShaderGraphNodeType> ShaderFnTryDefineResult<T> {
-  pub fn or_define(self, f: impl FnOnce(&FunctionBuildCtx<T>)) -> ShaderFunctionMetaInfo {
+  pub fn or_define(self, f: impl FnOnce(&FunctionBuildCtx<T>)) -> ShaderUserDefinedFunction {
     match self {
       ShaderFnTryDefineResult::NotDefined(builder) => {
         f(&builder);
@@ -83,7 +62,7 @@ impl<T: ShaderGraphNodeType> FunctionBuildCtx<T> {
     modify_graph(|g| g.do_return(handle))
   }
 
-  pub fn end_fn_define(self) -> ShaderFunctionMetaInfo {
+  pub fn end_fn_define(self) -> ShaderUserDefinedFunction {
     modify_graph(|g| g.end_fn_define())
   }
 }
@@ -101,7 +80,7 @@ impl<T> ProcMacroNodeHelper for Node<T> {
 }
 
 pub fn shader_fn_call(
-  meta: ShaderFunctionMetaInfo,
+  meta: ShaderUserDefinedFunction,
   parameters: Vec<ShaderGraphNodeRawHandle>,
 ) -> ShaderGraphNodeRawHandle {
   modify_graph(|g| {
