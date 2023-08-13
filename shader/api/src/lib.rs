@@ -24,7 +24,7 @@ pub use graphics::*;
 pub use layout::*;
 pub use re_export::*;
 pub use rendiation_algebra::*;
-pub use shader_derives::*;
+pub use rendiation_shader_derives::*;
 
 pub trait ShaderAPI {
   fn register_ty(&mut self, ty: ShaderValueType);

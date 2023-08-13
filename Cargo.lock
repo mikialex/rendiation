@@ -2796,7 +2796,7 @@ dependencies = [
  "once_cell",
  "paste",
  "rendiation-algebra",
- "shader-derives",
+ "rendiation-shader-derives",
  "wgpu-types",
 ]
 
@@ -2807,6 +2807,15 @@ dependencies = [
  "fast-hash-collection",
  "naga",
  "rendiation-shader-api",
+]
+
+[[package]]
+name = "rendiation-shader-derives"
+version = "0.1.0"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 1.0.72",
 ]
 
 [[package]]
@@ -3021,15 +3030,6 @@ dependencies = [
  "expat-sys",
  "freetype-sys",
  "pkg-config",
-]
-
-[[package]]
-name = "shader-derives"
-version = "0.1.0"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn 1.0.72",
 ]
 
 [[package]]
