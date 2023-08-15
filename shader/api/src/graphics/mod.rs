@@ -171,12 +171,6 @@ thread_local! {
   static IN_BUILDING_SHADER_API: RefCell<Option<PipelineShaderAPIPair>> = RefCell::new(None);
 }
 
-pub struct ForNodes {
-  pub item_node: ShaderNodeRawHandle,
-  pub index_node: ShaderNodeRawHandle,
-  pub for_cx: ShaderNodeRawHandle,
-}
-
 pub(crate) fn call_shader_api<T>(modifier: impl FnOnce(&mut dyn ShaderAPI) -> T) -> T {
   IN_BUILDING_SHADER_API.with_borrow_mut(|api| {
     let api = api.as_mut().unwrap();

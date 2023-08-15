@@ -1,5 +1,36 @@
 use crate::*;
 
+pub struct WhileCtx;
+
+pub fn while_by(condition: &NodeMutable<bool>, f: impl Fn(WhileCtx)) {
+  while_by_ok(condition, |cx| {
+    f(cx);
+    Ok(())
+  })
+  .unwrap()
+}
+
+pub fn while_by_ok(
+  condition: &NodeMutable<bool>,
+  f: impl Fn(WhileCtx) -> Result<(), ShaderBuildError>,
+) -> Result<(), ShaderBuildError> {
+  call_shader_api(|g| g.push_while_scope(condition.inner.handle()));
+  f(WhileCtx)?;
+  call_shader_api(|g| g.pop_scope());
+  Ok(())
+}
+
+impl WhileCtx {
+  // note, we here use &mut self, is to prevent usage of nested continue statement.
+  pub fn do_continue(&mut self) {
+    call_shader_api(|g| g.do_continue());
+  }
+  // ditto
+  pub fn do_break(&mut self) {
+    call_shader_api(|g| g.do_break());
+  }
+}
+
 pub trait ShaderIteratorAble {
   type Item: ShaderNodeType;
 }
@@ -17,19 +48,22 @@ pub enum ShaderIterator {
   },
 }
 
-pub struct ForCtx {
-  target_scope_id: ShaderNodeRawHandle,
+pub struct ForCtx;
+
+pub struct ForNodes {
+  pub item_node: ShaderNodeRawHandle,
+  pub index_node: ShaderNodeRawHandle,
+  pub for_cx: ShaderNodeRawHandle,
 }
 
 impl ForCtx {
   // note, we here use &mut self, is to prevent usage of nested continue statement.
-  // theoretically, we could rewrite control flow to support this feature in the future
   pub fn do_continue(&mut self) {
-    call_shader_api(|g| g.do_continue(self.target_scope_id));
+    call_shader_api(|g| g.do_continue());
   }
   // ditto
   pub fn do_break(&mut self) {
-    call_shader_api(|g| g.do_break(self.target_scope_id));
+    call_shader_api(|g| g.do_break());
   }
 }
 
@@ -114,22 +148,43 @@ pub fn for_by_ok<T: Into<ShaderIterator> + ShaderIteratorAble>(
 where
   T::Item: ShaderNodeType,
 {
-  let ForNodes {
-    item_node,
-    index_node,
-    for_cx,
-  } = call_shader_api(|g| g.push_for_scope(iterable.into()));
+  let iter: ShaderIterator = iterable.into();
 
-  let cx = ForCtx {
-    target_scope_id: for_cx,
+  let index = val(0).mutable();
+  let condition = val(false).mutable();
+
+  let init = match &iter {
+    ShaderIterator::Const(count) => index.get().less_than(val(*count)),
+    ShaderIterator::Count(_) => todo!(),
+    ShaderIterator::FixedArray { length, .. } => index.get().less_than(val(*length as u32)),
+    ShaderIterator::Clamped { max, .. } => index.get().less_than(unsafe { max.into_node() }),
   };
-  let index_node = unsafe { index_node.into_node() };
-  let item_node = unsafe { item_node.into_node() };
-  logic(&cx, item_node, index_node)?;
+  condition.set(init);
 
-  call_shader_api(|g| g.pop_scope());
+  fn get_item<T: ShaderNodeType>(
+    iter: &ShaderIterator,
+    index: &NodeMutable<u32>,
+  ) -> ShaderNodeRawHandle {
+    match &iter {
+      ShaderIterator::Const(_) => index.get().handle(),
+      ShaderIterator::Count(_) => todo!(),
+      ShaderIterator::FixedArray { array, .. } => {
+        let array: Node<[T; 0]> = unsafe { array.into_node() };
+        array.index(index.get()).handle()
+      }
+      ShaderIterator::Clamped { source, .. } => get_item::<T>(source, index),
+    }
+  }
 
-  Ok(())
+  while_by_ok(&condition, |_cx| {
+    logic(
+      &ForCtx,
+      unsafe { get_item::<T::Item>(&iter, &index).into_node() },
+      index.get(),
+    )?;
+    index.set(index.get() + val(1));
+    Ok(())
+  })
 }
 
 #[inline(never)]

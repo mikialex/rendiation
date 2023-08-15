@@ -28,7 +28,7 @@ pub use rendiation_shader_derives::*;
 
 pub trait ShaderAPI {
   fn define_module_input(&mut self, input: ShaderInputNode) -> ShaderNodeRawHandle;
-  fn define_frag_out(&mut self, idx: usize) -> ShaderNodeRawHandle;
+  fn define_frag_out(&mut self) -> ShaderNodeRawHandle;
 
   fn make_expression(&mut self, expr: ShaderNodeExpr) -> ShaderNodeRawHandle;
   fn make_var(&mut self, ty: ShaderValueType) -> ShaderNodeRawHandle;
@@ -38,13 +38,14 @@ pub trait ShaderAPI {
   fn push_scope(&mut self);
   fn pop_scope(&mut self);
   fn push_if_scope(&mut self, condition: ShaderNodeRawHandle);
-  fn discard(&mut self);
-  fn push_for_scope(&mut self, target: ShaderIterator) -> ForNodes;
-  fn do_continue(&mut self, looper: ShaderNodeRawHandle);
-  fn do_break(&mut self, looper: ShaderNodeRawHandle);
+  fn push_while_scope(&mut self, condition: ShaderNodeRawHandle);
+  fn do_continue(&mut self);
+  fn do_break(&mut self);
   fn begin_switch(&mut self, switch_target: ShaderNodeRawHandle);
   fn push_switch_case_scope(&mut self, case: SwitchCaseCondition);
   fn end_switch(&mut self);
+
+  fn discard(&mut self);
 
   fn get_fn(&mut self, name: String) -> Option<ShaderUserDefinedFunction>;
   fn begin_define_fn(&mut self, name: String, return_ty: Option<ShaderValueType>);

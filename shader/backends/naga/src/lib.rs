@@ -12,10 +12,15 @@ pub struct ShaderAPINagaImpl {
   control_structure: Vec<naga::Statement>,
   building_fn: Vec<naga::Function>,
   fn_mapping: FastHashMap<String, (naga::Handle<naga::Function>, ShaderUserDefinedFunction)>,
-  consts_mapping: FastHashMap<ShaderNodeRawHandle, naga::Handle<naga::Constant>>,
   ty_mapping: FastHashMap<ShaderValueType, naga::Handle<naga::Type>>,
   expression_mapping: FastHashMap<ShaderNodeRawHandle, naga::Handle<naga::Expression>>,
-  output_struct: Vec<usize>,
+  output_struct: Vec<ModuleOutputChannel>,
+}
+
+struct ModuleOutputChannel {
+  ty: naga::Handle<naga::Type>,
+  interpolation: Option<naga::Interpolation>,
+  sampling: Option<naga::Sampling>,
 }
 
 pub enum BlockBuildingState {
@@ -52,7 +57,6 @@ impl ShaderAPINagaImpl {
       block: Default::default(),
       building_fn: Default::default(),
       fn_mapping: Default::default(),
-      consts_mapping: Default::default(),
       expression_mapping: Default::default(),
       ty_mapping: Default::default(),
       control_structure: Default::default(),
@@ -246,9 +250,15 @@ impl ShaderAPI for ShaderAPINagaImpl {
         };
       }
       ShaderInputNode::UserDefinedIn { ty, location } => {
+        let ty = self.register_ty_impl(
+          ShaderValueType::Single(ShaderValueSingleType::Sized(
+            ShaderSizedValueType::Primitive(ty),
+          )),
+          None,
+        );
         self.add_fn_input_inner(naga::FunctionArgument {
           name: None,
-          ty: todo!(),
+          ty,
           binding: naga::Binding::Location {
             location: location as u32,
             interpolation: None,
@@ -260,9 +270,22 @@ impl ShaderAPI for ShaderAPINagaImpl {
     }
   }
 
-  fn define_frag_out(&mut self, idx: usize) -> ShaderNodeRawHandle {
+  fn define_frag_out(&mut self) -> ShaderNodeRawHandle {
     assert!(self.building_fn.len() == 1);
-    let fun = self.building_fn.last_mut().unwrap();
+
+    let ty = self.register_ty_impl(
+      ShaderValueType::Single(ShaderValueSingleType::Sized(
+        ShaderSizedValueType::Primitive(PrimitiveShaderValueType::Vec4Float32),
+      )),
+      None,
+    );
+
+    self.output_struct.push(ModuleOutputChannel {
+      ty,
+      interpolation: None,
+      sampling: None,
+    });
+
     todo!()
   }
 
@@ -283,7 +306,6 @@ impl ShaderAPI for ShaderAPINagaImpl {
               todo!()
             }
             ShaderFunctionType::BuiltIn(f) => {
-              //
               let fun = match f {
                 ShaderBuiltInFunction::MatTranspose => naga::MathFunction::Transpose,
                 ShaderBuiltInFunction::Normalize => naga::MathFunction::Normalize,
@@ -574,27 +596,15 @@ impl ShaderAPI for ShaderAPINagaImpl {
     self.control_structure.push(if_s);
   }
 
-  fn discard(&mut self) {
-    self
-      .building_fn
-      .last_mut()
-      .unwrap()
-      .body
-      .push(naga::Statement::Kill, Span::UNDEFINED)
-  }
-
-  fn push_for_scope(&mut self, target: ShaderIterator) -> ForNodes {
-    // self.block.push(naga::Block::default())
+  fn push_while_scope(&mut self, condition: ShaderNodeRawHandle) {
     todo!()
   }
 
-  // todo, check the looper is the direct parent
-  fn do_continue(&mut self, _looper: ShaderNodeRawHandle) {
+  fn do_continue(&mut self) {
     let st = naga::Statement::Continue;
     self.push_top_statement(st);
   }
-  // todo, check the looper is the direct parent
-  fn do_break(&mut self, _looper: ShaderNodeRawHandle) {
+  fn do_break(&mut self) {
     let st = naga::Statement::Break;
     self.push_top_statement(st);
   }
@@ -618,6 +628,15 @@ impl ShaderAPI for ShaderAPINagaImpl {
     let switch = self.control_structure.pop().unwrap();
     assert!(matches!(switch, naga::Statement::Switch { .. }));
     self.push_top_statement(switch);
+  }
+
+  fn discard(&mut self) {
+    self
+      .building_fn
+      .last_mut()
+      .unwrap()
+      .body
+      .push(naga::Statement::Kill, Span::UNDEFINED)
   }
 
   fn get_fn(&mut self, name: String) -> Option<ShaderUserDefinedFunction> {

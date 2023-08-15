@@ -168,7 +168,7 @@ impl ShaderFragmentBuilder {
   /// Declare fragment outputs
   pub fn define_out_by(&mut self, meta: impl Into<ColorTargetState>) -> usize {
     let slot = self.frag_output.len();
-    let target = call_shader_api(|g| unsafe { g.define_frag_out(slot).into_node() });
+    let target = call_shader_api(|g| unsafe { g.define_frag_out().into_node() });
     self.frag_output.push((target, meta.into()));
     slot
   }
