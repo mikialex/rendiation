@@ -26,8 +26,8 @@ struct ModuleOutputChannel {
 pub enum BlockBuildingState {
   Common,
   SwitchCase(SwitchCaseCondition),
+  Loop,
   IfAccept,
-  IfReject,
   Else,
   Function,
 }
@@ -564,8 +564,19 @@ impl ShaderAPI for ShaderAPINagaImpl {
           panic!("expect switch")
         }
       }
-      BlockBuildingState::IfAccept => todo!(),
-      BlockBuildingState::IfReject => todo!(),
+      BlockBuildingState::Loop => {
+        let mut loop_s = self.control_structure.pop().unwrap();
+        if let naga::Statement::Loop { body, .. } = &mut loop_s {
+          *body = b;
+        } else {
+          panic!("expect loop")
+        }
+        self.push_top_statement(loop_s);
+      }
+      BlockBuildingState::IfAccept => {
+        todo!()
+        //
+      }
       BlockBuildingState::Else => todo!(),
       BlockBuildingState::Function => {
         let mut bf = self.building_fn.pop().unwrap();
@@ -596,8 +607,16 @@ impl ShaderAPI for ShaderAPINagaImpl {
     self.control_structure.push(if_s);
   }
 
-  fn push_while_scope(&mut self, condition: ShaderNodeRawHandle) {
-    todo!()
+  fn push_loop_scope(&mut self) {
+    self
+      .block
+      .push((Default::default(), BlockBuildingState::Loop));
+    let loop_s = naga::Statement::Loop {
+      body: Default::default(),
+      continuing: Default::default(),
+      break_if: None,
+    };
+    self.control_structure.push(loop_s);
   }
 
   fn do_continue(&mut self) {

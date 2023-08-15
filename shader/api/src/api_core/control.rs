@@ -1,32 +1,29 @@
 use crate::*;
 
-pub struct WhileCtx;
+pub struct LoopCtx;
 
-pub fn while_by(condition: &NodeMutable<bool>, f: impl Fn(WhileCtx)) {
-  while_by_ok(condition, |cx| {
+pub fn loop_by(f: impl Fn(LoopCtx)) {
+  loop_by_ok(|cx| {
     f(cx);
     Ok(())
   })
   .unwrap()
 }
 
-pub fn while_by_ok(
-  condition: &NodeMutable<bool>,
-  f: impl Fn(WhileCtx) -> Result<(), ShaderBuildError>,
+pub fn loop_by_ok(
+  f: impl Fn(LoopCtx) -> Result<(), ShaderBuildError>,
 ) -> Result<(), ShaderBuildError> {
-  call_shader_api(|g| g.push_while_scope(condition.inner.handle()));
-  f(WhileCtx)?;
+  call_shader_api(|g| g.push_loop_scope());
+  f(LoopCtx)?;
   call_shader_api(|g| g.pop_scope());
   Ok(())
 }
 
-impl WhileCtx {
-  // note, we here use &mut self, is to prevent usage of nested continue statement.
-  pub fn do_continue(&mut self) {
+impl LoopCtx {
+  pub fn do_continue(&self) {
     call_shader_api(|g| g.do_continue());
   }
-  // ditto
-  pub fn do_break(&mut self) {
+  pub fn do_break(&self) {
     call_shader_api(|g| g.do_break());
   }
 }
@@ -57,12 +54,10 @@ pub struct ForNodes {
 }
 
 impl ForCtx {
-  // note, we here use &mut self, is to prevent usage of nested continue statement.
-  pub fn do_continue(&mut self) {
+  pub fn do_continue(&self) {
     call_shader_api(|g| g.do_continue());
   }
-  // ditto
-  pub fn do_break(&mut self) {
+  pub fn do_break(&self) {
     call_shader_api(|g| g.do_break());
   }
 }
@@ -153,14 +148,6 @@ where
   let index = val(0).mutable();
   let condition = val(false).mutable();
 
-  let init = match &iter {
-    ShaderIterator::Const(count) => index.get().less_than(val(*count)),
-    ShaderIterator::Count(_) => todo!(),
-    ShaderIterator::FixedArray { length, .. } => index.get().less_than(val(*length as u32)),
-    ShaderIterator::Clamped { max, .. } => index.get().less_than(unsafe { max.into_node() }),
-  };
-  condition.set(init);
-
   fn get_item<T: ShaderNodeType>(
     iter: &ShaderIterator,
     index: &NodeMutable<u32>,
@@ -176,13 +163,24 @@ where
     }
   }
 
-  while_by_ok(&condition, |_cx| {
+  loop_by_ok(|cx| {
+    let update = match &iter {
+      ShaderIterator::Const(count) => index.get().less_than(val(*count)),
+      ShaderIterator::Count(_) => todo!(),
+      ShaderIterator::FixedArray { length, .. } => index.get().less_than(val(*length as u32)),
+      ShaderIterator::Clamped { max, .. } => index.get().less_than(unsafe { max.into_node() }),
+    };
+    condition.set(update);
+    if_by(condition.get(), || cx.do_break());
+
     logic(
       &ForCtx,
       unsafe { get_item::<T::Item>(&iter, &index).into_node() },
       index.get(),
     )?;
+
     index.set(index.get() + val(1));
+
     Ok(())
   })
 }

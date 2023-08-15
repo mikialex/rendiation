@@ -38,7 +38,7 @@ pub trait ShaderAPI {
   fn push_scope(&mut self);
   fn pop_scope(&mut self);
   fn push_if_scope(&mut self, condition: ShaderNodeRawHandle);
-  fn push_while_scope(&mut self, condition: ShaderNodeRawHandle);
+  fn push_loop_scope(&mut self);
   fn do_continue(&mut self);
   fn do_break(&mut self);
   fn begin_switch(&mut self, switch_target: ShaderNodeRawHandle);
