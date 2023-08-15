@@ -73,7 +73,7 @@ impl ShaderVertexBuilder {
         let VertexIOInfo { ty, location, .. } = *vertex_out.get(&id).unwrap();
 
         set_current_building(ShaderStages::Fragment.into());
-        let node = ShaderInputNode::FragmentIn { ty, location }.insert_api();
+        let node = ShaderInputNode::UserDefinedIn { ty, location }.insert_api();
         fragment.registry.register(id, node);
         set_current_building(None);
 
@@ -132,7 +132,7 @@ impl ShaderVertexBuilder {
   /// untyped version
   pub fn register_vertex_in_inner(&mut self, ty: PrimitiveShaderValueType, ty_id: TypeId) -> u32 {
     let location = self.vertex_in.len();
-    let node = ShaderInputNode::VertexIn { ty, location }.insert_api();
+    let node = ShaderInputNode::UserDefinedIn { ty, location }.insert_api();
     self.registry.register(ty_id, node);
 
     self.vertex_in.entry(ty_id).or_insert_with(|| VertexIOInfo {

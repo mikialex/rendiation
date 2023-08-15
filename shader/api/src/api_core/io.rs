@@ -3,18 +3,14 @@ use crate::*;
 #[derive(Clone)]
 pub enum ShaderInputNode {
   BuiltIn(ShaderBuiltIn),
+  UserDefinedIn {
+    ty: PrimitiveShaderValueType,
+    location: usize,
+  },
   Binding {
     ty: ShaderValueType,
     bindgroup_index: usize,
     entry_index: usize,
-  },
-  VertexIn {
-    ty: PrimitiveShaderValueType,
-    location: usize,
-  },
-  FragmentIn {
-    ty: PrimitiveShaderValueType,
-    location: usize,
   },
 }
 

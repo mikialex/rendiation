@@ -100,7 +100,11 @@ impl ShaderAPINagaImpl {
     return_handle
   }
 
-  fn register_ty_impl(&mut self, ty: ShaderValueType) -> naga::Handle<naga::Type> {
+  fn register_ty_impl(
+    &mut self,
+    ty: ShaderValueType,
+    address_space: Option<naga::AddressSpace>,
+  ) -> naga::Handle<naga::Type> {
     if let Some(handle) = self.ty_mapping.get(&ty) {
       return *handle;
     }
@@ -116,7 +120,7 @@ impl ShaderAPINagaImpl {
                 //
                 naga::StructMember {
                   name: String::from(field.name).into(),
-                  ty: self.register_ty_impl(ty),
+                  ty: self.register_ty_impl(ty, None),
                   binding: None,
                   offset: todo!(),
                 }
@@ -128,7 +132,10 @@ impl ShaderAPINagaImpl {
             }
           }
           ShaderSizedValueType::FixedSizeArray((ty, size)) => naga::TypeInner::Array {
-            base: self.register_ty_impl(ShaderValueType::Single(ShaderValueSingleType::Sized(*ty))),
+            base: self.register_ty_impl(
+              ShaderValueType::Single(ShaderValueSingleType::Sized(*ty)),
+              None,
+            ),
             size: naga::ArraySize::Constant(NonZeroU32::new(size as u32).unwrap()),
             stride: todo!(),
           },
@@ -156,7 +163,7 @@ impl ShaderAPINagaImpl {
         }
       },
       ShaderValueType::BindingArray { count, ty } => naga::TypeInner::BindingArray {
-        base: self.register_ty_impl(ShaderValueType::Single(ty)),
+        base: self.register_ty_impl(ShaderValueType::Single(ty), address_space),
         size: naga::ArraySize::Constant(NonZeroU32::new(count as u32).unwrap()),
       },
       ShaderValueType::Never => todo!(),
@@ -191,63 +198,71 @@ impl ShaderAPINagaImpl {
     // self.module.constants.append(value, Span::UNDEFINED)
     todo!()
   }
-}
 
-fn map_binary_op(o: BinaryOperator) -> naga::BinaryOperator {
-  match o {
-    BinaryOperator::Add => naga::BinaryOperator::Add,
-    BinaryOperator::Sub => naga::BinaryOperator::Subtract,
-    BinaryOperator::Mul => naga::BinaryOperator::Multiply,
-    BinaryOperator::Div => naga::BinaryOperator::Divide,
-    BinaryOperator::Rem => naga::BinaryOperator::Modulo,
-    BinaryOperator::Eq => naga::BinaryOperator::Equal,
-    BinaryOperator::NotEq => naga::BinaryOperator::NotEqual,
-    BinaryOperator::GreaterThan => naga::BinaryOperator::Greater,
-    BinaryOperator::LessThan => naga::BinaryOperator::Less,
-    BinaryOperator::GreaterEqualThan => naga::BinaryOperator::GreaterEqual,
-    BinaryOperator::LessEqualThan => naga::BinaryOperator::LessEqual,
-    BinaryOperator::LogicalOr => naga::BinaryOperator::LogicalOr,
-    BinaryOperator::LogicalAnd => naga::BinaryOperator::LogicalAnd,
-    BinaryOperator::BitAnd => naga::BinaryOperator::And,
-    BinaryOperator::BitOr => naga::BinaryOperator::InclusiveOr,
+  fn add_fn_input_inner(&mut self, input: naga::FunctionArgument) -> ShaderNodeRawHandle {
+    let fun = self.building_fn.last_mut().unwrap();
+    let idx = fun.arguments.len() as u32;
+    fun.arguments.push(input);
+    self.make_expression_inner(naga::Expression::FunctionArgument(idx))
   }
-}
-
-#[rustfmt::skip]
-fn map_primitive_type(t: PrimitiveShaderValueType) -> naga::TypeInner {
-  use PrimitiveShaderValueType::*;
-  use naga::TypeInner::*;
-  use naga::ScalarKind::*;
-  use naga::VectorSize::*;
-
-  match t {
-    PrimitiveShaderValueType::Bool => Scalar { kind: naga::ScalarKind::Bool, width: 4 }, // bool is 4 bytes?
-    Int32 => Scalar { kind: Sint, width: 4 },
-    Uint32 => Scalar { kind: Uint, width: 4 },
-    Float32 => Scalar { kind: Float, width: 4 },
-    Vec2Float32 => Vector { size: Bi, kind:  Float, width: 4 },
-    Vec3Float32 => Vector { size: Tri, kind:  Float, width: 4 },
-    Vec4Float32 => Vector { size: Quad, kind:  Float, width: 4 },
-    Vec2Uint32 => Vector { size: Bi, kind:  Uint, width: 4 },
-    Vec3Uint32 => Vector { size: Tri, kind:  Uint, width: 4 },
-    Vec4Uint32 => Vector { size: Quad, kind:  Uint, width: 4 },
-    Mat2Float32 => Matrix { columns: Bi, rows: Bi, width: 4 },
-    Mat3Float32 => Matrix { columns: Tri, rows: Tri, width: 4 },
-    Mat4Float32 => Matrix { columns: Quad, rows: Quad, width: 4 },
-}
 }
 
 impl ShaderAPI for ShaderAPINagaImpl {
-  fn register_ty(&mut self, ty: ShaderValueType) {
-    self.register_ty_impl(ty);
-  }
-
   fn define_module_input(&mut self, input: ShaderInputNode) -> ShaderNodeRawHandle {
-    // naga::GlobalVariable
-    todo!()
+    assert!(self.building_fn.len() == 1);
+    match input {
+      ShaderInputNode::BuiltIn(ty) => {
+        let ty = match ty {
+          ShaderBuiltIn::VertexIndexId => naga::BuiltIn::VertexIndex,
+          ShaderBuiltIn::VertexInstanceId => naga::BuiltIn::InstanceIndex,
+          ShaderBuiltIn::FragmentFrontFacing => naga::BuiltIn::FrontFacing,
+          ShaderBuiltIn::FragmentSampleIndex => naga::BuiltIn::SampleIndex,
+          ShaderBuiltIn::FragmentSampleMask => naga::BuiltIn::SampleMask,
+          ShaderBuiltIn::FragmentNDC => naga::BuiltIn::PointCoord,
+        };
+
+        self.add_fn_input_inner(naga::FunctionArgument {
+          name: None,
+          ty: todo!(),
+          binding: naga::Binding::BuiltIn(ty).into(),
+        })
+      }
+      ShaderInputNode::Binding {
+        ty,
+        bindgroup_index,
+        entry_index,
+      } => {
+        naga::GlobalVariable {
+          name: None,
+          space: naga::AddressSpace::Private,
+          binding: naga::ResourceBinding {
+            group: todo!(),
+            binding: todo!(),
+          }
+          .into(),
+          ty: todo!(),
+          init: todo!(),
+        };
+      }
+      ShaderInputNode::UserDefinedIn { ty, location } => {
+        self.add_fn_input_inner(naga::FunctionArgument {
+          name: None,
+          ty: todo!(),
+          binding: naga::Binding::Location {
+            location: location as u32,
+            interpolation: None,
+            sampling: None,
+          }
+          .into(),
+        })
+      }
+    }
   }
 
   fn define_frag_out(&mut self, idx: usize) -> ShaderNodeRawHandle {
+    assert!(self.building_fn.len() == 1);
+    let fun = self.building_fn.last_mut().unwrap();
+    // fun.result
     todo!()
   }
 
@@ -372,9 +387,12 @@ impl ShaderAPI for ShaderAPINagaImpl {
           }
         }
         ShaderNodeExpr::Compose { target, parameters } => {
-          let ty = self.register_ty_impl(ShaderValueType::Single(ShaderValueSingleType::Sized(
-            ShaderSizedValueType::Primitive(target),
-          )));
+          let ty = self.register_ty_impl(
+            ShaderValueType::Single(ShaderValueSingleType::Sized(
+              ShaderSizedValueType::Primitive(target),
+            )),
+            None,
+          );
           let components = parameters.iter().map(|f| self.get_expression(*f)).collect();
           naga::Expression::Compose { ty, components }
         }
@@ -431,9 +449,12 @@ impl ShaderAPI for ShaderAPINagaImpl {
         },
         ShaderNodeExpr::StructConstruct { meta, fields } => {
           let components = fields.iter().map(|f| self.get_expression(*f)).collect();
-          let ty = self.register_ty_impl(ShaderValueType::Single(ShaderValueSingleType::Sized(
-            ShaderSizedValueType::Struct(meta),
-          )));
+          let ty = self.register_ty_impl(
+            ShaderValueType::Single(ShaderValueSingleType::Sized(ShaderSizedValueType::Struct(
+              meta,
+            ))),
+            None,
+          );
           naga::Expression::Compose { ty, components }
         }
         ShaderNodeExpr::Const(c) => {
@@ -449,7 +470,7 @@ impl ShaderAPI for ShaderAPINagaImpl {
   fn make_var(&mut self, ty: ShaderValueType) -> ShaderNodeRawHandle {
     let v = naga::LocalVariable {
       name: None,
-      ty: self.register_ty_impl(ty),
+      ty: self.register_ty_impl(ty, None),
       init: None,
     };
     let var = self
@@ -603,22 +624,18 @@ impl ShaderAPI for ShaderAPINagaImpl {
 
     let mut f = self.building_fn.pop().unwrap();
     f.result = return_ty.map(|ty| naga::FunctionResult {
-      ty: self.register_ty_impl(ty),
+      ty: self.register_ty_impl(ty, None),
       binding: None,
     });
   }
 
   fn push_fn_parameter(&mut self, ty: ShaderValueType) -> ShaderNodeRawHandle {
-    let ty = self.register_ty_impl(ty);
-    let last = self.building_fn.last_mut().unwrap();
-    let idx = last.arguments.len();
-    last.arguments.push(naga::FunctionArgument {
+    let ty = self.register_ty_impl(ty, None);
+    self.add_fn_input_inner(naga::FunctionArgument {
       name: None,
       ty,
       binding: None,
-    });
-    let expr = naga::Expression::FunctionArgument(idx as u32);
-    self.make_expression_inner(expr)
+    })
   }
 
   fn do_return(&mut self, v: Option<ShaderNodeRawHandle>) {
@@ -648,5 +665,49 @@ impl ShaderAPI for ShaderAPINagaImpl {
     let wgsl = wgsl::write_string(&self.module, &info, wgsl::WriterFlags::empty()).unwrap();
 
     (wgsl, ENTRY_POINT_NAME.to_owned())
+  }
+}
+
+fn map_binary_op(o: BinaryOperator) -> naga::BinaryOperator {
+  match o {
+    BinaryOperator::Add => naga::BinaryOperator::Add,
+    BinaryOperator::Sub => naga::BinaryOperator::Subtract,
+    BinaryOperator::Mul => naga::BinaryOperator::Multiply,
+    BinaryOperator::Div => naga::BinaryOperator::Divide,
+    BinaryOperator::Rem => naga::BinaryOperator::Modulo,
+    BinaryOperator::Eq => naga::BinaryOperator::Equal,
+    BinaryOperator::NotEq => naga::BinaryOperator::NotEqual,
+    BinaryOperator::GreaterThan => naga::BinaryOperator::Greater,
+    BinaryOperator::LessThan => naga::BinaryOperator::Less,
+    BinaryOperator::GreaterEqualThan => naga::BinaryOperator::GreaterEqual,
+    BinaryOperator::LessEqualThan => naga::BinaryOperator::LessEqual,
+    BinaryOperator::LogicalOr => naga::BinaryOperator::LogicalOr,
+    BinaryOperator::LogicalAnd => naga::BinaryOperator::LogicalAnd,
+    BinaryOperator::BitAnd => naga::BinaryOperator::And,
+    BinaryOperator::BitOr => naga::BinaryOperator::InclusiveOr,
+  }
+}
+
+#[rustfmt::skip]
+fn map_primitive_type(t: PrimitiveShaderValueType) -> naga::TypeInner {
+  use PrimitiveShaderValueType::*;
+  use naga::TypeInner::*;
+  use naga::ScalarKind::*;
+  use naga::VectorSize::*;
+
+  match t {
+    PrimitiveShaderValueType::Bool => Scalar { kind: naga::ScalarKind::Bool, width: 4 }, // bool is 4 bytes?
+    Int32 => Scalar { kind: Sint, width: 4 },
+    Uint32 => Scalar { kind: Uint, width: 4 },
+    Float32 => Scalar { kind: Float, width: 4 },
+    Vec2Float32 => Vector { size: Bi, kind:  Float, width: 4 },
+    Vec3Float32 => Vector { size: Tri, kind:  Float, width: 4 },
+    Vec4Float32 => Vector { size: Quad, kind:  Float, width: 4 },
+    Vec2Uint32 => Vector { size: Bi, kind:  Uint, width: 4 },
+    Vec3Uint32 => Vector { size: Tri, kind:  Uint, width: 4 },
+    Vec4Uint32 => Vector { size: Quad, kind:  Uint, width: 4 },
+    Mat2Float32 => Matrix { columns: Bi, rows: Bi, width: 4 },
+    Mat3Float32 => Matrix { columns: Tri, rows: Tri, width: 4 },
+    Mat4Float32 => Matrix { columns: Quad, rows: Quad, width: 4 },
   }
 }

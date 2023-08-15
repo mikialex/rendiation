@@ -18,7 +18,6 @@ impl<T> Node<T> {
   where
     X: ShaderNodeType,
   {
-    call_shader_api(|g| g.register_ty(X::TYPE));
     std::mem::transmute(self)
   }
 }

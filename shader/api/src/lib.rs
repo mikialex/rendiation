@@ -27,8 +27,6 @@ pub use rendiation_algebra::*;
 pub use rendiation_shader_derives::*;
 
 pub trait ShaderAPI {
-  fn register_ty(&mut self, ty: ShaderValueType);
-
   fn define_module_input(&mut self, input: ShaderInputNode) -> ShaderNodeRawHandle;
   fn define_frag_out(&mut self, idx: usize) -> ShaderNodeRawHandle;
 
