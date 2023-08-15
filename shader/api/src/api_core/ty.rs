@@ -43,7 +43,6 @@ pub enum ShaderValueSingleType {
   Sized(ShaderSizedValueType),
   Unsized(ShaderUnSizedValueType),
   Sampler(SamplerBindingType),
-  CompareSampler,
   Texture {
     dimension: TextureViewDimension,
     sample_type: TextureSampleType,

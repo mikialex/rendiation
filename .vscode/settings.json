@@ -34,6 +34,7 @@
         "colorspace",
         "combinators",
         "composability",
+        "constness",
         "consts",
         "Controllee",
         "Deque",

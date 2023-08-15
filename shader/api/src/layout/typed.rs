@@ -100,6 +100,9 @@ impl PrimitiveShaderValueType {
       PrimitiveShaderValueType::Vec2Uint32 => 8,
       PrimitiveShaderValueType::Vec3Uint32 => 16,
       PrimitiveShaderValueType::Vec4Uint32 => 16,
+      PrimitiveShaderValueType::Vec2Int32 => 8,
+      PrimitiveShaderValueType::Vec3Int32 => 16,
+      PrimitiveShaderValueType::Vec4Int32 => 16,
     }
   }
 
@@ -118,6 +121,9 @@ impl PrimitiveShaderValueType {
       PrimitiveShaderValueType::Vec2Uint32 => 8,
       PrimitiveShaderValueType::Vec3Uint32 => 12,
       PrimitiveShaderValueType::Vec4Uint32 => 16,
+      PrimitiveShaderValueType::Vec2Int32 => 8,
+      PrimitiveShaderValueType::Vec3Int32 => 12,
+      PrimitiveShaderValueType::Vec4Int32 => 16,
     }
   }
 }

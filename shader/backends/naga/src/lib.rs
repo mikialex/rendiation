@@ -15,6 +15,7 @@ pub struct ShaderAPINagaImpl {
   consts_mapping: FastHashMap<ShaderNodeRawHandle, naga::Handle<naga::Constant>>,
   ty_mapping: FastHashMap<ShaderValueType, naga::Handle<naga::Type>>,
   expression_mapping: FastHashMap<ShaderNodeRawHandle, naga::Handle<naga::Expression>>,
+  output_struct: Vec<usize>,
 }
 
 pub enum BlockBuildingState {
@@ -55,6 +56,7 @@ impl ShaderAPINagaImpl {
       expression_mapping: Default::default(),
       ty_mapping: Default::default(),
       control_structure: Default::default(),
+      output_struct: Default::default(),
     };
 
     api
@@ -140,9 +142,13 @@ impl ShaderAPINagaImpl {
             stride: todo!(),
           },
         },
-        ShaderValueSingleType::Unsized(_) => todo!(),
-        ShaderValueSingleType::Sampler(sampler) => naga::TypeInner::Sampler { comparison: false },
-        ShaderValueSingleType::CompareSampler => naga::TypeInner::Sampler { comparison: true },
+        ShaderValueSingleType::Unsized(ty) => match ty {
+          ShaderUnSizedValueType::UnsizedArray(ty) => todo!(),
+          ShaderUnSizedValueType::UnsizedStruct(meta) => todo!(),
+        },
+        ShaderValueSingleType::Sampler(sampler) => naga::TypeInner::Sampler {
+          comparison: matches!(sampler, SamplerBindingType::Comparison),
+        },
         ShaderValueSingleType::Texture {
           dimension,
           sample_type,
@@ -155,10 +161,25 @@ impl ShaderAPINagaImpl {
             TextureViewDimension::CubeArray => (naga::ImageDimension::Cube, true),
             TextureViewDimension::D3 => (naga::ImageDimension::D3, false),
           };
+          let class = match sample_type {
+            TextureSampleType::Float { .. } => naga::ImageClass::Sampled {
+              kind: naga::ScalarKind::Float,
+              multi: false,
+            },
+            TextureSampleType::Depth => naga::ImageClass::Depth { multi: false },
+            TextureSampleType::Sint => naga::ImageClass::Sampled {
+              kind: naga::ScalarKind::Sint,
+              multi: false,
+            },
+            TextureSampleType::Uint => naga::ImageClass::Sampled {
+              kind: naga::ScalarKind::Uint,
+              multi: false,
+            },
+          };
           naga::TypeInner::Image {
             dim,
             arrayed,
-            class: todo!(),
+            class,
           }
         }
       },
@@ -177,26 +198,6 @@ impl ShaderAPINagaImpl {
 
   fn get_expression(&self, handle: ShaderNodeRawHandle) -> naga::Handle<naga::Expression> {
     *self.expression_mapping.get(&handle).unwrap()
-  }
-
-  fn push_const(&mut self, constant: ConstNode) -> naga::Handle<naga::Constant> {
-    // match constant.data {
-    //   PrimitiveShaderValue::Bool(v) => naga::Expression::Literal(naga::Literal::Bool(v)),
-    //   PrimitiveShaderValue::Uint32(v) => naga::Expression::Literal(naga::Literal::U32(v)),
-    //   PrimitiveShaderValue::Int32(v) => naga::Expression::Literal(naga::Literal::I32(v)),
-    //   PrimitiveShaderValue::Float32(v) => naga::Expression::Literal(naga::Literal::F32(v)),
-    //   PrimitiveShaderValue::Vec2Float32(v) => naga::Expression::Compose(naga::Literal::F32(v)),
-    //   PrimitiveShaderValue::Vec3Float32(v) => todo!(),
-    //   PrimitiveShaderValue::Vec4Float32(v) => todo!(),
-    //   PrimitiveShaderValue::Vec2Uint32(v) => todo!(),
-    //   PrimitiveShaderValue::Vec3Uint32(v) => todo!(),
-    //   PrimitiveShaderValue::Vec4Uint32(v) => todo!(),
-    //   PrimitiveShaderValue::Mat2Float32(v) => todo!(),
-    //   PrimitiveShaderValue::Mat3Float32(v) => todo!(),
-    //   PrimitiveShaderValue::Mat4Float32(v) => todo!(),
-    // }
-    // self.module.constants.append(value, Span::UNDEFINED)
-    todo!()
   }
 
   fn add_fn_input_inner(&mut self, input: naga::FunctionArgument) -> ShaderNodeRawHandle {
@@ -262,7 +263,6 @@ impl ShaderAPI for ShaderAPINagaImpl {
   fn define_frag_out(&mut self, idx: usize) -> ShaderNodeRawHandle {
     assert!(self.building_fn.len() == 1);
     let fun = self.building_fn.last_mut().unwrap();
-    // fun.result
     todo!()
   }
 
@@ -293,9 +293,9 @@ impl ShaderAPI for ShaderAPINagaImpl {
                 ShaderBuiltInFunction::SmoothStep => naga::MathFunction::SmoothStep,
                 ShaderBuiltInFunction::Select => {
                   break naga::Expression::Select {
-                    condition: todo!(),
-                    accept: todo!(),
-                    reject: todo!(),
+                    condition: self.get_expression(parameters[0]),
+                    accept: self.get_expression(parameters[2]),
+                    reject: self.get_expression(parameters[1]),
                   }
                 }
                 ShaderBuiltInFunction::Min => naga::MathFunction::Min,
@@ -308,10 +308,10 @@ impl ShaderAPI for ShaderAPINagaImpl {
 
               naga::Expression::Math {
                 fun,
-                arg: todo!(),
-                arg1: todo!(),
-                arg2: todo!(),
-                arg3: todo!(),
+                arg: self.get_expression(parameters[0]),
+                arg1: parameters.get(1).map(|v| self.get_expression(*v)),
+                arg2: parameters.get(2).map(|v| self.get_expression(*v)),
+                arg3: parameters.get(3).map(|v| self.get_expression(*v)),
               }
             }
           }
@@ -331,9 +331,27 @@ impl ShaderAPI for ShaderAPINagaImpl {
           coordinate: self.get_expression(position),
           array_index: index.map(|index| self.get_expression(index)),
           offset: offset.map(|offset| {
-            // PrimitiveShaderValue::
-            // let v = ShaderNodeExpr::Const(ConstNode { data: offset })
-            todo!()
+            let ty = self.register_ty_impl(
+              ShaderValueType::Single(ShaderValueSingleType::Sized(
+                ShaderSizedValueType::Primitive(PrimitiveShaderValueType::Vec2Int32),
+              )),
+              None,
+            );
+            let a = self.module.const_expressions.append(
+              naga::Expression::Literal(naga::Literal::I32(offset.x)),
+              Span::UNDEFINED,
+            );
+            let b = self.module.const_expressions.append(
+              naga::Expression::Literal(naga::Literal::I32(offset.x)),
+              Span::UNDEFINED,
+            );
+            self.module.const_expressions.append(
+              naga::Expression::Compose {
+                ty,
+                components: vec![a, b],
+              },
+              Span::UNDEFINED,
+            )
           }),
           level: level
             .map(|level| naga::SampleLevel::Exact(self.get_expression(level)))
@@ -396,25 +414,6 @@ impl ShaderAPI for ShaderAPINagaImpl {
           let components = parameters.iter().map(|f| self.get_expression(*f)).collect();
           naga::Expression::Compose { ty, components }
         }
-        ShaderNodeExpr::MatShrink { source, dimension } => {
-          let source = self.get_expression(source);
-          let components = (0..dimension)
-            .map(|i| {
-              let index = self
-                .make_expression_inner_raw(naga::Expression::Literal(naga::Literal::U32(i as u32)));
-              let item = self.make_expression_inner_raw(naga::Expression::Access {
-                base: source,
-                index,
-              });
-              self.make_expression_inner_raw(todo!())
-            })
-            .collect();
-
-          naga::Expression::Compose {
-            ty: todo!(),
-            components,
-          }
-        }
         ShaderNodeExpr::Operator(op) => match op {
           OperatorNode::Unary { one, operator } => {
             let op = match operator {
@@ -457,10 +456,27 @@ impl ShaderAPI for ShaderAPINagaImpl {
           );
           naga::Expression::Compose { ty, components }
         }
-        ShaderNodeExpr::Const(c) => {
-          // let handle = self.module.constants.append(value, Span::UNDEFINED);
-          todo!()
-        }
+        ShaderNodeExpr::Const { data } => match data {
+          PrimitiveShaderValue::Bool(v) => naga::Expression::Literal(naga::Literal::Bool(v)),
+          PrimitiveShaderValue::Uint32(v) => naga::Expression::Literal(naga::Literal::U32(v)),
+          PrimitiveShaderValue::Int32(v) => naga::Expression::Literal(naga::Literal::I32(v)),
+          PrimitiveShaderValue::Float32(v) => naga::Expression::Literal(naga::Literal::F32(v)),
+          PrimitiveShaderValue::Vec2Float32(v) => naga::Expression::Compose {
+            ty: todo!(),
+            components: todo!(),
+          },
+          PrimitiveShaderValue::Vec3Float32(_) => todo!(),
+          PrimitiveShaderValue::Vec4Float32(_) => todo!(),
+          PrimitiveShaderValue::Vec2Uint32(_) => todo!(),
+          PrimitiveShaderValue::Vec3Uint32(_) => todo!(),
+          PrimitiveShaderValue::Vec4Uint32(_) => todo!(),
+          PrimitiveShaderValue::Vec2Int32(_) => todo!(),
+          PrimitiveShaderValue::Vec3Int32(_) => todo!(),
+          PrimitiveShaderValue::Vec4Int32(_) => todo!(),
+          PrimitiveShaderValue::Mat2Float32(_) => todo!(),
+          PrimitiveShaderValue::Mat3Float32(_) => todo!(),
+          PrimitiveShaderValue::Mat4Float32(_) => todo!(),
+        },
       };
     };
 
@@ -706,6 +722,9 @@ fn map_primitive_type(t: PrimitiveShaderValueType) -> naga::TypeInner {
     Vec2Uint32 => Vector { size: Bi, kind:  Uint, width: 4 },
     Vec3Uint32 => Vector { size: Tri, kind:  Uint, width: 4 },
     Vec4Uint32 => Vector { size: Quad, kind:  Uint, width: 4 },
+    Vec2Int32 => Vector { size: Bi, kind:  Sint, width: 4 },
+    Vec3Int32 => Vector { size: Tri, kind:  Sint, width: 4 },
+    Vec4Int32 => Vector { size: Quad, kind:  Sint, width: 4 },
     Mat2Float32 => Matrix { columns: Bi, rows: Bi, width: 4 },
     Mat3Float32 => Matrix { columns: Tri, rows: Tri, width: 4 },
     Mat4Float32 => Matrix { columns: Quad, rows: Quad, width: 4 },

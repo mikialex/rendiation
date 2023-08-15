@@ -40,10 +40,6 @@ pub enum ShaderNodeExpr {
     target: PrimitiveShaderValueType,
     parameters: Vec<ShaderNodeRawHandle>,
   },
-  MatShrink {
-    source: ShaderNodeRawHandle,
-    dimension: usize,
-  },
   Operator(OperatorNode),
   FieldGet {
     field_index: usize,
@@ -53,12 +49,9 @@ pub enum ShaderNodeExpr {
     meta: &'static ShaderStructMetaInfo,
     fields: Vec<ShaderNodeRawHandle>,
   },
-  Const(ConstNode),
-}
-
-#[derive(Clone)]
-pub struct ConstNode {
-  pub data: PrimitiveShaderValue,
+  Const {
+    data: PrimitiveShaderValue,
+  },
 }
 
 #[must_use]

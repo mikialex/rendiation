@@ -29,7 +29,7 @@ impl GraphicsShaderProvider for TransformInstanceGPU {
       builder.register_vertex::<ShaderMat4VertexInput>(VertexStepMode::Instance);
 
       let world_mat = builder.query::<TransformInstanceMat>()?;
-      let world_normal_mat: Node<Mat3<f32>> = world_mat.into();
+      let world_normal_mat = world_mat.shrink_to_3();
 
       if let Ok(position) = builder.query::<GeometryPosition>() {
         builder.register::<GeometryPosition>((world_mat * (position, val(1.)).into()).xyz());

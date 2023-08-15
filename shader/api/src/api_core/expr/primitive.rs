@@ -12,6 +12,9 @@ pub enum PrimitiveShaderValueType {
   Vec2Uint32,
   Vec3Uint32,
   Vec4Uint32,
+  Vec2Int32,
+  Vec3Int32,
+  Vec4Int32,
   Mat2Float32,
   Mat3Float32,
   Mat4Float32,
@@ -35,6 +38,9 @@ pub enum PrimitiveShaderValue {
   Vec2Uint32(Vec2<u32>),
   Vec3Uint32(Vec3<u32>),
   Vec4Uint32(Vec4<u32>),
+  Vec2Int32(Vec2<i32>),
+  Vec3Int32(Vec3<i32>),
+  Vec4Int32(Vec4<i32>),
   Mat2Float32(Mat2<f32>),
   Mat3Float32(Mat3<f32>),
   Mat4Float32(Mat4<f32>),
@@ -56,6 +62,9 @@ impl From<PrimitiveShaderValue> for PrimitiveShaderValueType {
       PrimitiveShaderValue::Vec2Uint32(_) => PrimitiveShaderValueType::Vec2Uint32,
       PrimitiveShaderValue::Vec3Uint32(_) => PrimitiveShaderValueType::Vec3Uint32,
       PrimitiveShaderValue::Vec4Uint32(_) => PrimitiveShaderValueType::Vec4Uint32,
+      PrimitiveShaderValue::Vec2Int32(_) => PrimitiveShaderValueType::Vec2Int32,
+      PrimitiveShaderValue::Vec3Int32(_) => PrimitiveShaderValueType::Vec3Int32,
+      PrimitiveShaderValue::Vec4Int32(_) => PrimitiveShaderValueType::Vec4Int32,
     }
   }
 }
@@ -110,6 +119,9 @@ mod impls {
   primitive_ty!(Vec2<u32>, PrimitiveShaderValueType::Vec2Uint32,  PrimitiveShaderValue::Vec2Uint32);
   primitive_ty!(Vec3<u32>, PrimitiveShaderValueType::Vec3Uint32,  PrimitiveShaderValue::Vec3Uint32);
   primitive_ty!(Vec4<u32>, PrimitiveShaderValueType::Vec4Uint32,  PrimitiveShaderValue::Vec4Uint32);
+  primitive_ty!(Vec2<i32>, PrimitiveShaderValueType::Vec2Int32,  PrimitiveShaderValue::Vec2Int32);
+  primitive_ty!(Vec3<i32>, PrimitiveShaderValueType::Vec3Int32,  PrimitiveShaderValue::Vec3Int32);
+  primitive_ty!(Vec4<i32>, PrimitiveShaderValueType::Vec4Int32,  PrimitiveShaderValue::Vec4Int32);
   primitive_ty!(Mat2<f32>, PrimitiveShaderValueType::Mat2Float32,  PrimitiveShaderValue::Mat2Float32);
   primitive_ty!(Mat3<f32>, PrimitiveShaderValueType::Mat3Float32,  PrimitiveShaderValue::Mat3Float32);
   primitive_ty!(Mat4<f32>, PrimitiveShaderValueType::Mat4Float32,  PrimitiveShaderValue::Mat4Float32);
@@ -255,7 +267,7 @@ macro_rules! swizzle_all {
 
 swizzle_all!(f32);
 swizzle_all!(u32);
-// swizzle_all!(i32);
+swizzle_all!(i32);
 // swizzle_all!(bool);
 
 macro_rules! swizzle_mat {
@@ -264,6 +276,13 @@ macro_rules! swizzle_mat {
     swizzle!(Mat4<$t>, Vec4<$t>, y);
     swizzle!(Mat4<$t>, Vec4<$t>, z);
     swizzle!(Mat4<$t>, Vec4<$t>, w);
+
+    swizzle!(Mat3<$t>, Vec3<$t>, x);
+    swizzle!(Mat3<$t>, Vec3<$t>, y);
+    swizzle!(Mat3<$t>, Vec3<$t>, z);
+
+    swizzle!(Mat2<$t>, Vec2<$t>, x);
+    swizzle!(Mat2<$t>, Vec2<$t>, y);
   };
 }
 
@@ -327,17 +346,36 @@ macro_rules! compose_all {
 
     impl_from!({ A: Vec4<$t>, B: Vec4<$t>, C: Vec4<$t>, D:Vec4<$t> }, Mat4<$t>);
     impl_from!({ A: Vec3<$t>, B: Vec3<$t>, C: Vec3<$t> }, Mat3<$t>);
+    impl_from!({ A: Vec2<$t>, B: Vec2<$t> }, Mat2<$t>);
   }
 }
 
 compose_all!(f32);
 
-impl From<Node<Mat4<f32>>> for Node<Mat3<f32>> {
-  fn from(n: Node<Mat4<f32>>) -> Self {
-    ShaderNodeExpr::MatShrink {
-      source: n.handle(),
-      dimension: 3,
-    }
-    .insert_api()
+impl Node<Mat4<f32>> {
+  pub fn shrink_to_3(self) -> Node<Mat3<f32>> {
+    let c1 = self.x();
+    let c2 = self.y();
+    let c3 = self.z();
+
+    (c1.xyz(), c2.xyz(), c3.xyz()).into()
+  }
+}
+
+impl Node<Mat4<f32>> {
+  pub fn shrink_to_2(self) -> Node<Mat2<f32>> {
+    let c1 = self.x();
+    let c2 = self.y();
+
+    (c1.xy(), c2.xy()).into()
+  }
+}
+
+impl Node<Mat3<f32>> {
+  pub fn shrink_to_2(self) -> Node<Mat2<f32>> {
+    let c1 = self.x();
+    let c2 = self.y();
+
+    (c1.xy(), c2.xy()).into()
   }
 }

@@ -30,7 +30,10 @@ sg_node_impl!(
   ShaderSampler,
   ShaderValueSingleType::Sampler(SamplerBindingType::Filtering)
 );
-sg_node_impl!(ShaderCompareSampler, ShaderValueSingleType::CompareSampler);
+sg_node_impl!(
+  ShaderCompareSampler,
+  ShaderValueSingleType::Sampler(SamplerBindingType::Comparison)
+);
 
 sg_node_impl!(
   ShaderTexture2D,

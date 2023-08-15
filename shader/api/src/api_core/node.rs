@@ -27,9 +27,9 @@ where
   T: PrimitiveShaderNodeType,
 {
   fn from(input: T) -> Self {
-    ShaderNodeExpr::Const(ConstNode {
+    ShaderNodeExpr::Const {
       data: input.to_primitive(),
-    })
+    }
     .insert_api()
   }
 }
