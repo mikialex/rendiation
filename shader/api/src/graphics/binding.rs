@@ -65,7 +65,7 @@ impl ShaderBindGroupBuilder {
     let desc = T::binding_desc();
 
     let node = ShaderInputNode::Binding {
-      ty: T::Node::TYPE,
+      desc,
       bindgroup_index,
       entry_index,
     };

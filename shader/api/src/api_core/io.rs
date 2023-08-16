@@ -8,7 +8,7 @@ pub enum ShaderInputNode {
     location: usize,
   },
   Binding {
-    ty: ShaderValueType,
+    desc: ShaderBindingDescriptor,
     bindgroup_index: usize,
     entry_index: usize,
   },
@@ -57,6 +57,29 @@ pub trait ShaderBindingProvider {
 pub struct ShaderBindingDescriptor {
   pub should_as_storage_buffer_if_is_buffer_like: bool,
   pub ty: ShaderValueType,
+}
+
+impl ShaderBindingDescriptor {
+  pub fn get_buffer_layout(&self) -> Option<StructLayoutTarget> {
+    match self.ty {
+      ShaderValueType::Single(ty) => match ty {
+        ShaderValueSingleType::Sized(_) => if self.should_as_storage_buffer_if_is_buffer_like {
+          StructLayoutTarget::Std430
+        } else {
+          StructLayoutTarget::Std140
+        }
+        .into(),
+        ShaderValueSingleType::Unsized(_) => StructLayoutTarget::Std430.into(),
+        _ => None,
+      },
+      ShaderValueType::BindingArray { ty, .. } => ShaderBindingDescriptor {
+        should_as_storage_buffer_if_is_buffer_like: self.should_as_storage_buffer_if_is_buffer_like,
+        ty: ShaderValueType::Single(ty),
+      }
+      .get_buffer_layout(),
+      ShaderValueType::Never => None,
+    }
+  }
 }
 
 impl<'a, T: ShaderBindingProvider> ShaderBindingProvider for &'a T {

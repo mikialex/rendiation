@@ -185,8 +185,35 @@ where
   })
 }
 
+pub struct ElseEmitter;
+
+impl ElseEmitter {
+  pub fn by_else_ok(
+    self,
+    logic: impl Fn() -> Result<(), ShaderBuildError>,
+  ) -> Result<(), ShaderBuildError> {
+    call_shader_api(|builder| {
+      builder.push_else_scope();
+    });
+
+    logic()?;
+
+    call_shader_api(|g| g.pop_scope());
+    Ok(())
+  }
+
+  pub fn else_by(self, logic: impl Fn()) {
+    self
+      .by_else_ok(|| {
+        logic();
+        Ok(())
+      })
+      .unwrap()
+  }
+}
+
 #[inline(never)]
-pub fn if_by(condition: impl Into<Node<bool>>, logic: impl Fn()) {
+pub fn if_by(condition: impl Into<Node<bool>>, logic: impl Fn()) -> ElseEmitter {
   if_by_ok(condition, || {
     logic();
     Ok(())
@@ -198,7 +225,7 @@ pub fn if_by(condition: impl Into<Node<bool>>, logic: impl Fn()) {
 pub fn if_by_ok(
   condition: impl Into<Node<bool>>,
   logic: impl Fn() -> Result<(), ShaderBuildError>,
-) -> Result<(), ShaderBuildError> {
+) -> Result<ElseEmitter, ShaderBuildError> {
   let condition = condition.into().handle();
   call_shader_api(|builder| {
     builder.push_if_scope(condition);
@@ -208,7 +235,7 @@ pub fn if_by_ok(
 
   call_shader_api(|g| g.pop_scope());
 
-  Ok(())
+  Ok(ElseEmitter)
 }
 
 pub trait SwitchableShaderType: ShaderNodeType {

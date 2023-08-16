@@ -181,6 +181,7 @@ impl ShaderStructFieldMetaInfo {
   }
 }
 
+#[derive(Clone)]
 pub struct ShaderStructFieldMetaInfoOwned {
   pub name: String,
   pub ty: ShaderSizedValueType,
