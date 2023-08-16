@@ -225,7 +225,7 @@ impl ShaderAPI for ShaderAPINagaImpl {
             width: 4,
           },
           ShaderBuiltInDecorator::FragmentPositionIn => naga::TypeInner::Vector {
-            size: naga::VectorSize::Bi,
+            size: naga::VectorSize::Quad,
             kind: naga::ScalarKind::Float,
             width: 4,
           },
@@ -257,14 +257,12 @@ impl ShaderAPI for ShaderAPINagaImpl {
         entry_index,
       } => {
         let ty = self.register_ty_impl(desc.ty, desc.get_buffer_layout());
-        let space = match desc
-          .get_buffer_layout()
-          .unwrap_or(StructLayoutTarget::Std140)
-        {
-          StructLayoutTarget::Std140 => naga::AddressSpace::Uniform,
-          StructLayoutTarget::Std430 => naga::AddressSpace::Storage {
+        let space = match desc.get_buffer_layout() {
+          Some(StructLayoutTarget::Std140) => naga::AddressSpace::Uniform,
+          Some(StructLayoutTarget::Std430) => naga::AddressSpace::Storage {
             access: StorageAccess::LOAD,
           },
+          None => naga::AddressSpace::Handle,
         };
         let g = naga::GlobalVariable {
           name: None,
@@ -279,7 +277,17 @@ impl ShaderAPI for ShaderAPINagaImpl {
         };
         let g = self.module.global_variables.append(g, Span::UNDEFINED);
         let g = self.make_expression_inner_raw(naga::Expression::GlobalVariable(g));
-        self.make_expression_inner(naga::Expression::Load { pointer: g })
+        let should_load = match desc.ty {
+          ShaderValueType::Single(v) => matches!(v, ShaderValueSingleType::Sized(_)),
+          _ => false,
+        };
+        if should_load {
+          self.make_expression_inner(naga::Expression::Load { pointer: g })
+        } else {
+          let return_handle = self.make_new_handle();
+          self.expression_mapping.insert(return_handle, g);
+          return_handle
+        }
       }
       ShaderInputNode::UserDefinedIn { ty, location } => {
         let ty = self.register_ty_impl(
@@ -993,7 +1001,7 @@ fn match_built_in(bt: ShaderBuiltInDecorator) -> naga::BuiltIn {
     ShaderBuiltInDecorator::FrontFacing => naga::BuiltIn::FrontFacing,
     ShaderBuiltInDecorator::FragSampleIndex => naga::BuiltIn::SampleIndex,
     ShaderBuiltInDecorator::FragSampleMask => naga::BuiltIn::SampleMask,
-    ShaderBuiltInDecorator::FragmentPositionIn => naga::BuiltIn::PointCoord,
+    ShaderBuiltInDecorator::FragmentPositionIn => naga::BuiltIn::Position { invariant: false },
     ShaderBuiltInDecorator::VertexPositionOut => naga::BuiltIn::Position { invariant: false },
     ShaderBuiltInDecorator::FragDepth => naga::BuiltIn::FragDepth,
   }

@@ -44,7 +44,7 @@ impl ShaderRenderPipelineBuilder {
       bindgroups: Default::default(),
       vertex: ShaderVertexBuilder::new(),
       fragment: ShaderFragmentBuilder::new(),
-      log_result: false,
+      log_result: true,
       context: Default::default(),
     }
   }

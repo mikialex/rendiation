@@ -52,8 +52,9 @@ impl<T: ShaderNodeType> Node<T> {
 
 impl<T> NodeMutable<T> {
   pub fn set(&self, source: impl Into<Node<T>>) {
+    let source = source.into();
     call_shader_api(|g| {
-      g.store(self.inner.handle(), source.into().handle());
+      g.store(self.inner.handle(), source.handle());
     })
   }
   pub fn get(&self) -> Node<T> {

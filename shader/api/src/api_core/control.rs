@@ -269,16 +269,12 @@ impl<T: SwitchableShaderType> SwitchBuilder<T> {
     self
   }
 
-  pub fn end_with_default(self, scope: impl FnOnce()) {
+  pub fn end_with_default(self, default: impl FnOnce()) {
     call_shader_api(|g| g.push_switch_case_scope(SwitchCaseCondition::Default));
-    scope();
-    self.end()
-  }
-
-  pub fn end(self) {
+    default();
     call_shader_api(|g| {
       g.pop_scope();
-      g.end_switch()
+      g.end_switch();
     });
   }
 }

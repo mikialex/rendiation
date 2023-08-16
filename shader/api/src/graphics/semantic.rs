@@ -81,7 +81,8 @@ only_vertex!(ClipPosition, Vec4<f32>);
 
 // fragment input
 both!(FragmentFrontFacing, bool);
-both!(FragmentPosition, Vec2<f32>);
+// this is actually vertex clip position
+both!(FragmentPosition, Vec4<f32>);
 both!(FragmentSampleIndex, u32);
 both!(FragmentSampleMaskInput, u32);
 

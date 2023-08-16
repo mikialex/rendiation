@@ -30,11 +30,10 @@ pub fn generate_quad(vertex_index: Node<u32>) -> Node<QuadVertexOut> {
       position.set(Vec4::new(left, bottom, depth, 1.));
       uv.set(Vec2::new(0., 1.));
     })
-    .case(3, || {
+    .end_with_default(|| {
       position.set(Vec4::new(right, bottom, depth, 1.));
       uv.set(Vec2::new(1., 1.));
-    })
-    .end();
+    });
 
   ENode::<QuadVertexOut> {
     position: position.get(),
