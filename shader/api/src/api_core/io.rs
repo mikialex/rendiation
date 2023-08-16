@@ -2,7 +2,7 @@ use crate::*;
 
 #[derive(Clone)]
 pub enum ShaderInputNode {
-  BuiltIn(ShaderBuiltIn),
+  BuiltIn(ShaderBuiltInDecorator),
   UserDefinedIn {
     ty: PrimitiveShaderValueType,
     location: usize,
@@ -20,14 +20,17 @@ impl ShaderInputNode {
   }
 }
 
-#[derive(Copy, Clone)]
-pub enum ShaderBuiltIn {
-  VertexIndexId,
-  VertexInstanceId,
-  FragmentFrontFacing,
-  FragmentSampleIndex,
-  FragmentSampleMask,
-  FragmentNDC,
+/// https://www.w3.org/TR/WGSL/#builtin-inputs-outputs
+#[derive(Debug, Copy, Clone)]
+pub enum ShaderBuiltInDecorator {
+  VertexIndex,
+  InstanceIndex,
+  VertexPositionOut,
+  FragmentPositionIn,
+  FrontFacing,
+  FragDepth,
+  FragSampleIndex,
+  FragSampleMask,
 }
 
 #[derive(Default, Clone)]

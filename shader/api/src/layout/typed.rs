@@ -34,7 +34,13 @@ impl ShaderStructMetaInfoOwned {
       let pad_size = align_offset(offset, alignment);
       offset += pad_size;
     }
-    offset
+    let size = offset;
+
+    // we always make sure the struct size is round up to struct align, this is different!
+    match target {
+      StructLayoutTarget::Std140 => round_up(16, size),
+      StructLayoutTarget::Std430 => size,
+    }
   }
 }
 
@@ -67,16 +73,7 @@ impl ShaderSizedValueType {
   pub fn size_of_self(&self, target: StructLayoutTarget) -> usize {
     match self {
       ShaderSizedValueType::Primitive(t) => t.size_of_self(),
-      ShaderSizedValueType::Struct(t) => {
-        let size = (*t).to_owned().size_of_self(target);
-        // If a structure member itself has a structure type S, then the number of bytes between
-        // the start of that member and the start of any following member must be at least
-        // roundUp(16, SizeOf(S)).
-        match target {
-          StructLayoutTarget::Std140 => round_up(16, size),
-          StructLayoutTarget::Std430 => size,
-        }
-      }
+      ShaderSizedValueType::Struct(t) => (*t).to_owned().size_of_self(target),
       ShaderSizedValueType::FixedSizeArray((ty, size)) => {
         size * round_up(self.align_of_self(target), ty.size_of_self(target))
       }

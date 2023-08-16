@@ -98,17 +98,6 @@ impl Hash for ShaderUnSizedStructMetaInfo {
   }
 }
 
-/// https://www.w3.org/TR/WGSL/#builtin-values
-#[derive(Debug, Copy, Clone)]
-pub enum ShaderBuiltInDecorator {
-  VertexIndex,
-  InstanceIndex,
-  VertexPositionOut,
-  FragmentPositionIn,
-  FrontFacing,
-  FragDepth,
-}
-
 #[derive(Debug, Copy, Clone)]
 pub enum ShaderFieldDecorator {
   BuiltIn(ShaderBuiltInDecorator),
