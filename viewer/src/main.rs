@@ -1,6 +1,7 @@
 #![feature(impl_trait_in_assoc_type)]
 #![feature(array_methods)]
 #![feature(specialization)]
+#![feature(generic_const_exprs)]
 #![feature(type_name_of_val)]
 #![feature(stmt_expr_attributes)]
 #![feature(type_alias_impl_trait)]

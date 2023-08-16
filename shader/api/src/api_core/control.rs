@@ -145,19 +145,19 @@ where
 {
   let iter: ShaderIterator = iterable.into();
 
-  let index = val(0).mutable();
-  let condition = val(false).mutable();
+  let index = val(0).make_local_var();
+  let condition = val(false).make_local_var();
 
   fn get_item<T: ShaderNodeType>(
     iter: &ShaderIterator,
-    index: &NodeMutable<u32>,
+    index: &LocalVarNode<u32>,
   ) -> ShaderNodeRawHandle {
     match &iter {
-      ShaderIterator::Const(_) => index.get().handle(),
+      ShaderIterator::Const(_) => index.load().handle(),
       ShaderIterator::Count(_) => todo!(),
       ShaderIterator::FixedArray { array, .. } => {
         let array: Node<[T; 0]> = unsafe { array.into_node() };
-        array.index(index.get()).handle()
+        array.index(index.load()).handle()
       }
       ShaderIterator::Clamped { source, .. } => get_item::<T>(source, index),
     }
@@ -165,21 +165,21 @@ where
 
   loop_by_ok(|cx| {
     let update = match &iter {
-      ShaderIterator::Const(count) => index.get().less_than(val(*count)),
+      ShaderIterator::Const(count) => index.load().less_than(val(*count)),
       ShaderIterator::Count(_) => todo!(),
-      ShaderIterator::FixedArray { length, .. } => index.get().less_than(val(*length as u32)),
-      ShaderIterator::Clamped { max, .. } => index.get().less_than(unsafe { max.into_node() }),
+      ShaderIterator::FixedArray { length, .. } => index.load().less_than(val(*length as u32)),
+      ShaderIterator::Clamped { max, .. } => index.load().less_than(unsafe { max.into_node() }),
     };
-    condition.set(update);
-    if_by(condition.get(), || cx.do_break());
+    condition.store(update);
+    if_by(condition.load(), || cx.do_break());
 
     logic(
       &ForCtx,
       unsafe { get_item::<T::Item>(&iter, &index).into_node() },
-      index.get(),
+      index.load(),
     )?;
 
-    index.set(index.get() + val(1));
+    index.store(index.load() + val(1));
 
     Ok(())
   })

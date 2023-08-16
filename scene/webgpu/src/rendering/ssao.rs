@@ -130,7 +130,7 @@ impl<'a> GraphicsShaderProvider for AOComputer<'a> {
 
       let sample_count_f = parameter.sample_count.into_f32();
 
-      let occlusion = sample_count_f.mutable();
+      let occlusion = sample_count_f.make_local_var();
 
       let depth = depth_tex.sample(sampler, uv).x();
       let position_world = shader_uv_space_to_world_space(&camera, uv, depth);
@@ -157,10 +157,10 @@ impl<'a> GraphicsShaderProvider for AOComputer<'a> {
         let intensity = relative_depth_diff.smoothstep(val(0.), val(1.));
 
         let occluded = occluded * intensity;
-        occlusion.set(occlusion.get() - occluded);
+        occlusion.store(occlusion.load() - occluded);
       });
 
-      let occlusion = occlusion.get() / sample_count_f;
+      let occlusion = occlusion.load() / sample_count_f;
       let occlusion = occlusion.pow(parameter.magnitude);
       let occlusion = parameter.contrast * (occlusion - val(0.5)) + val(0.5);
 

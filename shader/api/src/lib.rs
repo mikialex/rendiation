@@ -1,4 +1,6 @@
 #![feature(const_type_name)]
+#![feature(adt_const_params)]
+#![feature(generic_const_exprs)]
 #![allow(incomplete_features)]
 #![feature(local_key_cell_methods)]
 
@@ -33,7 +35,7 @@ pub trait ShaderAPI {
   fn define_vertex_position_output(&mut self) -> ShaderNodeRawHandle;
 
   fn make_expression(&mut self, expr: ShaderNodeExpr) -> ShaderNodeRawHandle;
-  fn make_var(&mut self, ty: ShaderValueType) -> ShaderNodeRawHandle;
+  fn make_local_var(&mut self, ty: ShaderValueType) -> ShaderNodeRawHandle;
   fn store(&mut self, source: ShaderNodeRawHandle, target: ShaderNodeRawHandle);
   fn load(&mut self, source: ShaderNodeRawHandle) -> ShaderNodeRawHandle;
 
@@ -58,3 +60,9 @@ pub trait ShaderAPI {
 
   fn build(&mut self) -> (String, String);
 }
+
+pub trait TruthCheckPass {}
+
+pub struct TruthCheckBool<const TERM: bool>();
+
+impl TruthCheckPass for TruthCheckBool<true> {}

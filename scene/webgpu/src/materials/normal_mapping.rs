@@ -59,7 +59,7 @@ pub fn apply_normal_mapping_conditional(
   scale: Node<f32>,
   enabled: Node<bool>,
 ) -> Node<Vec3<f32>> {
-  let normal = builder.get_or_compute_fragment_normal().mutable();
+  let normal = builder.get_or_compute_fragment_normal().make_local_var();
   let position = builder.query_or_interpolate_by::<FragmentWorldPosition, WorldVertexPosition>();
 
   if_by(enabled, || {
@@ -72,11 +72,11 @@ pub fn apply_normal_mapping_conditional(
       .unwrap() // builtin type
       .select(0., 1.);
 
-    let n = perturb_normal_2_arb_fn(position, normal.get(), normal_adjust, uv, face);
-    normal.set(n);
+    let n = perturb_normal_2_arb_fn(position, normal.load(), normal_adjust, uv, face);
+    normal.store(n);
   });
 
-  let normal = normal.get();
+  let normal = normal.load();
   builder.register::<FragmentWorldNormal>(normal);
   normal
 }

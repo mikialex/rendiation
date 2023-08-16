@@ -552,8 +552,8 @@ impl<T: ShaderLight> LightCollectionCompute for LightList<T> {
 
     let dep = T::create_dep(builder)?;
 
-    let light_specular_result = val(Vec3::zero()).mutable();
-    let light_diffuse_result = val(Vec3::zero()).mutable();
+    let light_specular_result = val(Vec3::zero()).make_local_var();
+    let light_diffuse_result = val(Vec3::zero()).make_local_var();
 
     let light_count = builder.query::<LightCount>()?;
 
@@ -568,11 +568,11 @@ impl<T: ShaderLight> LightCollectionCompute for LightList<T> {
         T::compute_direct_light(builder, &light, geom_ctx, shading_impl, shading, &dep)?;
 
       // improve impl by add assign
-      light_specular_result.set(light_specular_result.get() + light_result.specular);
-      light_diffuse_result.set(light_diffuse_result.get() + light_result.diffuse);
+      light_specular_result.store(light_specular_result.load() + light_result.specular);
+      light_diffuse_result.store(light_diffuse_result.load() + light_result.diffuse);
       Ok(())
     })?;
 
-    Ok((light_diffuse_result.get(), light_specular_result.get()))
+    Ok((light_diffuse_result.load(), light_specular_result.load()))
   }
 }

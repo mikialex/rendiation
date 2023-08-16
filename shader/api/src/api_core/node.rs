@@ -34,31 +34,30 @@ where
   }
 }
 
-pub struct NodeMutable<T> {
-  pub(crate) inner: Node<T>,
-}
-
+// todo restrict type to referable?
 impl<T: ShaderNodeType> Node<T> {
-  pub fn mutable(&self) -> NodeMutable<T> {
-    let inner = call_shader_api(|g| unsafe {
-      let v = g.make_var(T::TYPE);
+  pub fn make_local_var(&self) -> Node<ShaderPtr<T, { AddressSpace::Function }>> {
+    call_shader_api(|g| unsafe {
+      let v = g.make_local_var(T::TYPE);
       g.store(self.handle(), v);
       v.into_node()
-    });
-
-    NodeMutable { inner }
+    })
   }
 }
 
-impl<T> NodeMutable<T> {
-  pub fn set(&self, source: impl Into<Node<T>>) {
+impl<T, const W: AddressSpace> Node<ShaderPtr<T, W>> {
+  pub fn load(&self) -> Node<T> {
+    call_shader_api(|g| unsafe { g.load(self.handle()).into_node() })
+  }
+
+  pub fn store(&self, source: impl Into<Node<T>>)
+  where
+    TruthCheckBool<{ W.writeable() }>: TruthCheckPass,
+  {
     let source = source.into();
     call_shader_api(|g| {
-      g.store(self.inner.handle(), source.handle());
+      g.store(self.handle(), source.handle());
     })
-  }
-  pub fn get(&self) -> Node<T> {
-    call_shader_api(|g| unsafe { g.load(self.inner.handle()).into_node() })
   }
 }
 

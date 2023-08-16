@@ -6,6 +6,44 @@ pub enum ShaderStages {
   Fragment,
 }
 
+/// https://www.w3.org/TR/WGSL/#address-space
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub enum AddressSpace {
+  /// Function locals.
+  Function,
+  /// Private data, per invocation, mutable.
+  Private,
+  /// Workgroup shared data, mutable.
+  WorkGroup,
+  /// Uniform buffer data.
+  Uniform,
+  /// Storage buffer data, potentially mutable.
+  Storage { writeable: bool },
+  /// Opaque handles, such as samplers and images.
+  Handle,
+  /// Push constants.
+  PushConstant,
+}
+
+impl AddressSpace {
+  pub const fn writeable(self) -> bool {
+    match self {
+      AddressSpace::Function => true,
+      AddressSpace::Private => true,
+      AddressSpace::WorkGroup => true,
+      AddressSpace::Uniform => false,
+      AddressSpace::Storage { writeable } => writeable,
+      AddressSpace::Handle => false,
+      AddressSpace::PushConstant => false,
+    }
+  }
+}
+
+impl core::marker::ConstParamTy for AddressSpace {}
+
+pub struct ShaderPtr<T, const WRITEABLE: AddressSpace>(PhantomData<T>);
+pub type LocalVarNode<T> = Node<ShaderPtr<T, { AddressSpace::Function }>>;
+
 #[derive(Clone, Copy)]
 pub struct BindingArray<T, const N: usize>(PhantomData<T>);
 

@@ -13,31 +13,30 @@ pub fn generate_quad(vertex_index: Node<u32>) -> Node<QuadVertexOut> {
   let bottom = -1.0;
   let depth = 0.0;
 
-  // let quad = QuadVertexOut::default().mutable();
-  let position = val(Vec4::default()).mutable();
-  let uv = val(Vec2::default()).mutable();
+  let position = val(Vec4::default()).make_local_var();
+  let uv = val(Vec2::default()).make_local_var();
 
   switch_by(vertex_index)
     .case(0, || {
-      position.set(Vec4::new(left, top, depth, 1.));
-      uv.set(Vec2::new(0., 0.));
+      position.store(Vec4::new(left, top, depth, 1.));
+      uv.store(Vec2::new(0., 0.));
     })
     .case(1, || {
-      position.set(Vec4::new(right, top, depth, 1.));
-      uv.set(Vec2::new(1., 0.));
+      position.store(Vec4::new(right, top, depth, 1.));
+      uv.store(Vec2::new(1., 0.));
     })
     .case(2, || {
-      position.set(Vec4::new(left, bottom, depth, 1.));
-      uv.set(Vec2::new(0., 1.));
+      position.store(Vec4::new(left, bottom, depth, 1.));
+      uv.store(Vec2::new(0., 1.));
     })
     .end_with_default(|| {
-      position.set(Vec4::new(right, bottom, depth, 1.));
-      uv.set(Vec2::new(1., 1.));
+      position.store(Vec4::new(right, bottom, depth, 1.));
+      uv.store(Vec2::new(1., 1.));
     });
 
   ENode::<QuadVertexOut> {
-    position: position.get(),
-    uv: uv.get(),
+    position: position.load(),
+    uv: uv.load(),
   }
   .construct()
 }

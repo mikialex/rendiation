@@ -209,23 +209,23 @@ fn fatline_vertex(
   // undo aspect ratio adjustment
   let dir: Node<Vec2<_>> = (dir.x() / aspect, dir.y()).into();
   let offset: Node<Vec2<_>> = (offset.x() / aspect, dir.y()).into();
-  let offset = offset.mutable();
+  let offset = offset.make_local_var();
 
   // sign flip
   if_by(position.x().less_than(0.), || {
-    offset.set(-offset.get());
+    offset.store(-offset.load());
   });
 
   // end caps
   if_by(position.y().less_than(0.), || {
-    offset.set(offset.get() - dir);
+    offset.store(offset.load() - dir);
   });
 
   if_by(position.y().greater_than(1.), || {
-    offset.set(offset.get() + dir);
+    offset.store(offset.load() + dir);
   });
 
-  let mut offset = offset.get();
+  let mut offset = offset.load();
 
   // adjust for fatLineWidth
   offset *= width.splat();

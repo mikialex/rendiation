@@ -38,28 +38,28 @@ impl GraphicsShaderProvider for ScreenChannelDebugger {
     builder.fragment(|builder, _| {
       let ndc_position = builder.query::<FragmentPosition>()?;
 
-      let output = val(Vec4::new(0., 0., 0., 1.)).mutable();
+      let output = val(Vec4::new(0., 0., 0., 1.)).make_local_var();
 
       let width = builder.query::<RenderBufferSize>()?.x();
 
       let step = width / val(self.channels.len() as f32);
-      let start = val(0.).mutable();
+      let start = val(0.).make_local_var();
       for channel in &self.channels {
         let x = ndc_position.x();
-        let start_current = start.get();
+        let start_current = start.load();
         let start_end = start_current + step;
         if_by(
           start_current
             .less_than(x)
             .and(x.less_or_equal_than(start_end)),
           || {
-            output.set(output.get() + channel.to_screen(builder));
+            output.store(output.load() + channel.to_screen(builder));
           },
         );
-        start.set(start_end);
+        start.store(start_end);
       }
 
-      builder.set_fragment_out(0, output.get())
+      builder.set_fragment_out(0, output.load())
     })
   }
 }

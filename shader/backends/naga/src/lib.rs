@@ -322,7 +322,7 @@ impl ShaderAPI for ShaderAPINagaImpl {
     });
 
     let ty = ShaderValueType::Single(ShaderValueSingleType::Sized(ty));
-    let r = self.make_var(ty);
+    let r = self.make_local_var(ty);
     let exp = self.get_expression(r);
     self.outputs.push(exp);
     r
@@ -340,7 +340,7 @@ impl ShaderAPI for ShaderAPINagaImpl {
     });
 
     let ty = ShaderValueType::Single(ShaderValueSingleType::Sized(ty));
-    let r = self.make_var(ty);
+    let r = self.make_local_var(ty);
     let exp = self.get_expression(r);
     self.outputs.push(exp);
     r
@@ -358,7 +358,7 @@ impl ShaderAPI for ShaderAPINagaImpl {
     });
 
     let ty = ShaderValueType::Single(ShaderValueSingleType::Sized(ty));
-    let r = self.make_var(ty);
+    let r = self.make_local_var(ty);
     let exp = self.get_expression(r);
     self.outputs.push(exp);
     r
@@ -622,7 +622,7 @@ impl ShaderAPI for ShaderAPINagaImpl {
     self.make_expression_inner(expr)
   }
 
-  fn make_var(&mut self, ty: ShaderValueType) -> ShaderNodeRawHandle {
+  fn make_local_var(&mut self, ty: ShaderValueType) -> ShaderNodeRawHandle {
     let v = naga::LocalVariable {
       name: None,
       ty: self.register_ty_impl(ty, None),
