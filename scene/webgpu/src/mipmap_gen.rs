@@ -180,7 +180,7 @@ impl<'a> ShaderHashProviderAny for Mipmap2DGeneratorTask<'a> {
 impl<'a> GraphicsShaderProvider for Mipmap2DGeneratorTask<'a> {
   fn build(&self, builder: &mut ShaderRenderPipelineBuilder) -> Result<(), ShaderBuildError> {
     builder.fragment(|builder, binding| {
-      let position = builder.query::<FragmentPosition>()?.xy();
+      let position = builder.query::<FragmentPosition>()?;
       let buffer_size = builder.query::<RenderBufferSize>()?;
       let texel_size = builder.query::<TexelSize>()? * val(0.5);
       let previous_level = binding.bind_by(&self.view);

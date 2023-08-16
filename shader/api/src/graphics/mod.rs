@@ -98,6 +98,10 @@ impl ShaderRenderPipelineBuilder {
   pub fn build(mut self) -> Result<ShaderCompileResult, ShaderBuildError> {
     self.vertex.sync_fragment_out(&mut self.fragment);
 
+    set_current_building(ShaderStages::Vertex.into());
+    self.vertex.finalize_position_write();
+    set_current_building(None);
+
     let PipelineShaderAPIPair {
       mut vertex,
       mut fragment,

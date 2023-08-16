@@ -32,7 +32,7 @@ pub struct ShaderVertexBuilder {
 
 #[derive(Copy, Clone)]
 pub struct VertexIOInfo {
-  pub node: NodeUntyped,
+  pub node: ShaderNodeRawHandle,
   pub ty: PrimitiveShaderValueType,
   pub location: usize,
 }
@@ -137,7 +137,7 @@ impl ShaderVertexBuilder {
     self.registry.register(ty_id, node);
 
     self.vertex_in.entry(ty_id).or_insert_with(|| VertexIOInfo {
-      node: node.cast_untyped_node(),
+      node: node.handle(),
       ty,
       location,
     });
@@ -165,13 +165,19 @@ impl ShaderVertexBuilder {
     T::ValueType: PrimitiveShaderNodeType,
   {
     let location = self.vertex_out.len();
-    let node = node.into();
     let id = TypeId::of::<T>();
-    self.vertex_out.entry(id).or_insert_with(|| VertexIOInfo {
-      node: node.cast_untyped_node(),
-      ty: T::ValueType::PRIMITIVE_TYPE,
-      location,
-    });
+    let target = self
+      .vertex_out
+      .entry(id)
+      .or_insert_with(|| {
+        let ty = T::ValueType::PRIMITIVE_TYPE;
+        let node = call_shader_api(|api| api.define_vertex_output(ty));
+
+        VertexIOInfo { node, ty, location }
+      })
+      .node;
+    call_shader_api(|api| api.store(node.into().handle(), target));
+
     self.vertex_out_not_synced_to_fragment.insert(id);
   }
 
@@ -180,6 +186,16 @@ impl ShaderVertexBuilder {
     V: ShaderVertexInProvider,
   {
     V::provide_layout_and_vertex_in(self, step_mode)
+  }
+
+  /// currently we all depend on ClipPosition in semantic registry to given the final result
+  /// this behavior will be changed in future;
+  pub fn finalize_position_write(&mut self) {
+    let position = self.query_or_insert_default::<ClipPosition>();
+    call_shader_api(|api| {
+      let target = api.define_vertex_position_output();
+      api.store(position.handle(), target)
+    });
   }
 }
 

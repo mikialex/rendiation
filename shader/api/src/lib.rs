@@ -29,6 +29,8 @@ pub use rendiation_shader_derives::*;
 pub trait ShaderAPI {
   fn define_module_input(&mut self, input: ShaderInputNode) -> ShaderNodeRawHandle;
   fn define_frag_out(&mut self) -> ShaderNodeRawHandle;
+  fn define_vertex_output(&mut self, ty: PrimitiveShaderValueType) -> ShaderNodeRawHandle;
+  fn define_vertex_position_output(&mut self) -> ShaderNodeRawHandle;
 
   fn make_expression(&mut self, expr: ShaderNodeExpr) -> ShaderNodeRawHandle;
   fn make_var(&mut self, ty: ShaderValueType) -> ShaderNodeRawHandle;
