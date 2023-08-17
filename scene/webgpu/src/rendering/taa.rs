@@ -99,9 +99,9 @@ impl<'a> GraphicsShaderProvider for TAAResolver<'a> {
       let new = binding.bind_by(&self.new_color);
       let new_depth = binding.bind_by(&DisableFiltering(&self.new_depth));
 
-      let current_camera = binding.bind_by(&self.current_camera.ubo).expand();
+      let current_camera = binding.bind_by(&self.current_camera.ubo).load().expand();
 
-      let previous_camera = binding.bind_by(&self.previous_camera.ubo).expand();
+      let previous_camera = binding.bind_by(&self.previous_camera.ubo).load().expand();
 
       let uv = builder.query::<FragmentUv>()?;
 
@@ -127,8 +127,8 @@ impl<'a> GraphicsShaderProvider for TAAResolver<'a> {
 }
 
 fn clamp_color(
-  tex: Node<ShaderTexture2D>,
-  sp: Node<ShaderSampler>,
+  tex: HandleNode<ShaderTexture2D>,
+  sp: HandleNode<ShaderSampler>,
   texel_size: Node<Vec2<f32>>,
   position: Node<Vec2<f32>>,
   previous: Node<Vec3<f32>>,

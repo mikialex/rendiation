@@ -336,7 +336,7 @@ impl ForwardLightingSystem {
       let mut light_diffuse_result = val(Vec3::zero());
 
       for (i, lights) in self.lights_collections.values().enumerate() {
-        let length = lengths_info.index(val(i as u32)).x();
+        let length = lengths_info.index(val(i as u32)).load().x();
         builder.register::<LightCount>(length);
 
         let (diffuse, specular) = lights.as_ref().as_ref().compute_lights(
@@ -548,7 +548,7 @@ impl<T: ShaderLight> LightCollectionCompute for LightList<T> {
     shading: &dyn Any,
     geom_ctx: &ENode<ShaderLightingGeometricCtx>,
   ) -> Result<(Node<Vec3<f32>>, Node<Vec3<f32>>), ShaderBuildError> {
-    let lights = binding.bind_by(self.uniform.gpu.as_ref().unwrap());
+    let lights: UniformNode<_> = binding.bind_by2(self.uniform.gpu.as_ref().unwrap());
 
     let dep = T::create_dep(builder)?;
 
@@ -563,7 +563,7 @@ impl<T: ShaderLight> LightCollectionCompute for LightList<T> {
     };
 
     for_by_ok(light_iter, |_, light, _| {
-      let light = light.expand();
+      let light = light.load().expand();
       let light_result =
         T::compute_direct_light(builder, &light, geom_ctx, shading_impl, shading, &dep)?;
 

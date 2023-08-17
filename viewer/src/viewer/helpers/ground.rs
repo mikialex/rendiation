@@ -109,7 +109,7 @@ impl ShaderPassBuilder for GridGroundShading {
 impl GraphicsShaderProvider for GridGroundShading {
   fn build(&self, builder: &mut ShaderRenderPipelineBuilder) -> Result<(), ShaderBuildError> {
     builder.fragment(|builder, binding| {
-      let shading = binding.bind_by(&self.shading);
+      let shading = binding.bind_by(&self.shading).load();
       let world_position = builder.query::<FragmentWorldPosition>()?;
 
       let grid = grid(world_position, shading);
@@ -205,7 +205,7 @@ impl<'a> GraphicsShaderProvider for InfinityShaderPlaneEffect<'a> {
       let direction = (far - near).normalize();
       let origin = near - (near - world.position()).dot(direction) * direction;
 
-      let hit = ray_plane_intersect(origin, direction, plane.expand());
+      let hit = ray_plane_intersect(origin, direction, plane.load().expand());
 
       let plane_hit = hit.xyz();
       let plane_if_hit = hit.w(); // 1 is hit, 0 is not

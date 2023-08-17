@@ -275,7 +275,6 @@ impl<B: GPUTextureBackend> AbstractTraditionalTextureSystem<B> for BindlessTextu
     self.inner.register_shader_sampler(builder, handle)
   }
 }
-type HandlePtr<T> = ShaderPtr<T, { AddressSpace::Handle }>;
 both!(
   BindlessTexturesInShader,
   HandlePtr<BindingArray<ShaderTexture2D, MAX_TEXTURE_BINDING_ARRAY_LENGTH>>

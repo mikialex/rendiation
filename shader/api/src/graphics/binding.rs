@@ -58,9 +58,9 @@ impl ShaderBindGroupBuilder {
     std::mem::replace(&mut self.current_index, new)
   }
 
-  pub(crate) fn binding_ty_inner<T: ShaderBindingProvider>(
+  pub(crate) fn binding_ty_inner<T: ShaderBindingProvider, const S: AddressSpace>(
     &mut self,
-  ) -> BindingPreparer<T::Node, { T::SPACE }> {
+  ) -> BindingPreparer<T::Node, S> {
     let bindgroup_index = self.current_index;
     let bindgroup = &mut self.bindings[bindgroup_index];
 
@@ -98,7 +98,7 @@ impl ShaderBindGroupBuilder {
   }
 
   pub fn binding<T: ShaderBindingProvider>(&mut self) -> BindingPreparer<T::Node, { T::SPACE }> {
-    self.binding_ty_inner::<T>()
+    self.binding_ty_inner::<T, { T::SPACE }>()
   }
 
   pub fn bind_by<T: ShaderBindingProvider>(
@@ -119,7 +119,7 @@ pub struct ShaderBindGroupDirectBuilder<'a> {
 
 impl<'a> ShaderBindGroupDirectBuilder<'a> {
   pub fn binding<T: ShaderBindingProvider>(&mut self) -> Node<ShaderPtr<T::Node, { T::SPACE }>> {
-    self.builder.binding_ty_inner::<T>().using()
+    self.builder.binding_ty_inner::<T, { T::SPACE }>().using()
   }
 
   pub fn bind_by<T: ShaderBindingProvider>(
@@ -127,5 +127,17 @@ impl<'a> ShaderBindGroupDirectBuilder<'a> {
     _instance: &T,
   ) -> Node<ShaderPtr<T::Node, { T::SPACE }>> {
     self.binding::<T>()
+  }
+
+  pub fn binding2<T: ShaderBindingProvider, const S: AddressSpace>(
+    &mut self,
+  ) -> Node<ShaderPtr<T::Node, S>> {
+    self.builder.binding_ty_inner::<T, S>().using()
+  }
+  pub fn bind_by2<T: ShaderBindingProvider, const S: AddressSpace>(
+    &mut self,
+    _instance: &T,
+  ) -> Node<ShaderPtr<T::Node, S>> {
+    self.binding2::<T, S>()
   }
 }

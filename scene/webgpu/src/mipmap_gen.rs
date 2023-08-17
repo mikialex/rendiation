@@ -132,8 +132,8 @@ impl Mipmap2DGenerator {
 pub trait Mipmap2dReducer: Send + Sync {
   fn reduce(
     &self,
-    previous_level: Node<ShaderTexture2D>,
-    sampler: Node<ShaderSampler>,
+    previous_level: HandleNode<ShaderTexture2D>,
+    sampler: HandleNode<ShaderSampler>,
     current: Node<Vec2<f32>>,
     texel_size: Node<Vec2<f32>>,
   ) -> Node<Vec4<f32>>;
@@ -145,8 +145,8 @@ impl Mipmap2dReducer for DefaultMipmapReducer {
   #[rustfmt::skip]
   fn reduce(
     &self,
-    previous_level: Node<ShaderTexture2D>,
-    sampler: Node<ShaderSampler>,
+    previous_level: HandleNode<ShaderTexture2D>,
+    sampler: HandleNode<ShaderSampler>,
     current: Node<Vec2<f32>>,
     texel_size: Node<Vec2<f32>>,
   ) -> Node<Vec4<f32>> {

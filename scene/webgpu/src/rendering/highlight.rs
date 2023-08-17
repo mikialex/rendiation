@@ -88,9 +88,9 @@ impl<'a, T> ShaderHashProviderAny for HighLightComposeTask<'a, T> {
 impl<'a, T> GraphicsShaderProvider for HighLightComposeTask<'a, T> {
   fn build(&self, builder: &mut ShaderRenderPipelineBuilder) -> Result<(), ShaderBuildError> {
     builder.fragment(|builder, binding| {
-      let highlighter = binding.bind_by(&self.lighter.data).expand();
+      let highlighter = binding.bind_by(&self.lighter.data).load().expand();
 
-      let mask = binding.bind_by(&self.mask);
+      let mask = binding.bind_by2(&self.mask);
       let sampler = binding.binding::<GPUSamplerView>();
 
       let uv = builder.query::<FragmentUv>()?;
@@ -110,8 +110,8 @@ impl<'a, T> GraphicsShaderProvider for HighLightComposeTask<'a, T> {
 #[shader_fn]
 fn edge_intensity(
   uv: Node<Vec2<f32>>,
-  mask: Node<ShaderTexture2D>,
-  sp: Node<ShaderSampler>,
+  mask: HandleNode<ShaderTexture2D>,
+  sp: HandleNode<ShaderSampler>,
   width: Node<f32>,
   buffer_size: Node<Vec2<f32>>,
 ) -> Node<f32> {

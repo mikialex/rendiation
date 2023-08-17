@@ -47,7 +47,7 @@ impl PunctualShaderLight for SpotLightShaderInfo {
       let sampler = builder.query::<BasicShadowMapSampler>().unwrap();
 
       let shadow_infos = builder.query::<BasicShadowMapInfoGroup>().unwrap();
-      let shadow_info = shadow_infos.index(shadow_info.index).expand();
+      let shadow_info = shadow_infos.index(shadow_info.index).load().expand();
 
       let shadow_position = compute_shadow_position(builder, shadow_info)?;
 

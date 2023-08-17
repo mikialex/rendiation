@@ -115,11 +115,11 @@ impl<'a> GraphicsShaderProvider for AOComputer<'a> {
   fn build(&self, builder: &mut ShaderRenderPipelineBuilder) -> Result<(), ShaderBuildError> {
     builder.fragment(|builder, binding| {
       let depth_tex = binding.bind_by(&DisableFiltering(&self.depth));
-      let parameter = binding.bind_by(&self.parameter.parameters).expand();
+      let parameter = binding.bind_by(&self.parameter.parameters).load().expand();
       let samples = binding.bind_by(&self.parameter.samples);
       let sampler = binding.binding::<DisableFiltering<GPUSamplerView>>();
 
-      let camera = binding.bind_by(self.source_camera_gpu).expand();
+      let camera = binding.bind_by(self.source_camera_gpu).load().expand();
 
       let uv = builder.query::<FragmentUv>()?;
 
@@ -143,7 +143,7 @@ impl<'a> GraphicsShaderProvider for AOComputer<'a> {
       let tbn: Node<Mat3<f32>> = (tangent, binormal, normal).into();
 
       for_by(iter, |_, sample, _| {
-        let sample_position_offset = tbn * sample.xyz();
+        let sample_position_offset = tbn * sample.load().xyz();
         let sample_position_world = position_world + sample_position_offset * parameter.radius;
 
         let (s_uv, s_depth) = shader_world_space_to_uv_space(&camera, sample_position_world);

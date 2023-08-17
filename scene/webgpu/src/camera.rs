@@ -204,7 +204,7 @@ impl GraphicsShaderProvider for CameraGPU {
     let camera = self.inject_uniforms(builder);
 
     builder.vertex(|builder, _| {
-      let camera = camera.using().expand();
+      let camera = camera.using().load().expand();
       let position = builder.query::<WorldVertexPosition>()?;
 
       let mut clip_position = camera.view_projection * (position, val(1.)).into();

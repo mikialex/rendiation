@@ -2,8 +2,8 @@ use crate::*;
 
 pub fn sample_shadow(
   shadow_position: Node<Vec3<f32>>,
-  map: Node<ShaderDepthTexture2DArray>,
-  sampler: Node<ShaderCompareSampler>,
+  map: HandleNode<ShaderDepthTexture2DArray>,
+  sampler: HandleNode<ShaderCompareSampler>,
   info: Node<ShadowMapAddressInfo>,
 ) -> Node<f32> {
   let info = info.expand();
@@ -21,9 +21,9 @@ pub fn sample_shadow(
 }
 
 fn sample_shadow_pcf_x36_by_offset(
-  map: Node<ShaderDepthTexture2DArray>,
+  map: HandleNode<ShaderDepthTexture2DArray>,
   shadow_position: Node<Vec3<f32>>,
-  d_sampler: Node<ShaderCompareSampler>,
+  d_sampler: HandleNode<ShaderCompareSampler>,
   info: ENode<ShadowMapAddressInfo>,
 ) -> Node<f32> {
   let uv = shadow_position.xy();

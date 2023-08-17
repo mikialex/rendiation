@@ -56,11 +56,15 @@ pub type GlobalVariable<T> = Node<ShaderPtr<T, { AddressSpace::Private }>>;
 pub type LocalVarNode<T> = Node<ShaderPtr<T, { AddressSpace::Function }>>;
 pub type WorkGroupSharedNode<T> = Node<ShaderPtr<T, { AddressSpace::WorkGroup }>>;
 
-pub type UniformNode<T> = Node<ShaderPtr<T, { AddressSpace::Uniform }>>;
-pub type HandleNode<T> = Node<ShaderPtr<T, { AddressSpace::Handle }>>;
-pub type ReadOnlyStorageNode<T> =
-  Node<ShaderPtr<T, { AddressSpace::Storage { writeable: false } }>>;
-pub type StorageNode<T> = Node<ShaderPtr<T, { AddressSpace::Storage { writeable: true } }>>;
+pub type UniformPtr<T> = ShaderPtr<T, { AddressSpace::Uniform }>;
+pub type UniformNode<T> = Node<UniformPtr<T>>;
+pub type HandlePtr<T> = ShaderPtr<T, { AddressSpace::Handle }>;
+pub type HandleNode<T> = Node<HandlePtr<T>>;
+
+pub type ReadOnlyStoragePtr<T> = ShaderPtr<T, { AddressSpace::Storage { writeable: false } }>;
+pub type ReadOnlyStorageNode<T> = Node<ReadOnlyStoragePtr<T>>;
+pub type StoragePtr<T> = ShaderPtr<T, { AddressSpace::Storage { writeable: true } }>;
+pub type StorageNode<T> = Node<StoragePtr<T>>;
 
 #[derive(Clone, Copy)]
 pub struct BindingArray<T, const N: usize>(PhantomData<T>);

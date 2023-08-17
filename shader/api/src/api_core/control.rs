@@ -90,9 +90,20 @@ impl<T, const U: usize> From<Node<Shader140Array<T, U>>> for ShaderIterator {
     }
   }
 }
+impl<T, const U: usize> From<UniformNode<Shader140Array<T, U>>> for ShaderIterator {
+  fn from(v: UniformNode<Shader140Array<T, U>>) -> Self {
+    ShaderIterator::FixedArray {
+      array: v.handle(),
+      length: U,
+    }
+  }
+}
 
 impl<T: ShaderNodeType, const U: usize> ShaderIteratorAble for Node<Shader140Array<T, U>> {
   type Item = T;
+}
+impl<T: ShaderNodeType, const U: usize> ShaderIteratorAble for UniformNode<Shader140Array<T, U>> {
+  type Item = UniformPtr<T>;
 }
 
 impl<T: ShaderNodeType, const U: usize> ShaderIteratorAble for Node<[T; U]> {

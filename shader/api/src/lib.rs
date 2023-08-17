@@ -1,5 +1,6 @@
 #![feature(const_type_name)]
 #![feature(adt_const_params)]
+#![feature(associated_const_equality)]
 #![feature(generic_const_exprs)]
 #![allow(incomplete_features)]
 #![feature(local_key_cell_methods)]

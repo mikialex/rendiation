@@ -259,7 +259,7 @@ impl<T: ArraySampleTarget> HandleNode<T> {
   }
 }
 
-impl Node<ShaderDepthTexture2DArray> {
+impl HandleNode<ShaderDepthTexture2DArray> {
   pub fn sample_compare_index(
     &self,
     sampler: HandleNode<ShaderCompareSampler>,

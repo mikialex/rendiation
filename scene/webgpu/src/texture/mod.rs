@@ -204,7 +204,7 @@ impl WebGPUTextureBindingSystem {
     &self,
     builder: &mut ShaderBindGroupDirectBuilder,
     handle: SamplerHandle,
-  ) -> Node<ShaderSampler> {
+  ) -> HandleNode<ShaderSampler> {
     let inner = self.inner.read().unwrap();
     inner.register_shader_sampler(builder, handle)
   }
@@ -213,7 +213,7 @@ impl WebGPUTextureBindingSystem {
     &self,
     builder: &mut ShaderBindGroupDirectBuilder,
     handle: Texture2DHandle,
-  ) -> Node<ShaderTexture2D> {
+  ) -> HandleNode<ShaderTexture2D> {
     let inner = self.inner.read().unwrap();
     inner.register_shader_texture2d(builder, handle)
   }

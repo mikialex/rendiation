@@ -24,7 +24,7 @@ impl ShaderHashProvider for FlatMaterialGPU {}
 impl GraphicsShaderProvider for FlatMaterialGPU {
   fn build(&self, builder: &mut ShaderRenderPipelineBuilder) -> Result<(), ShaderBuildError> {
     builder.fragment(|builder, binding| {
-      let uniform = binding.bind_by(&self.uniform).expand();
+      let uniform = binding.bind_by(&self.uniform).load().expand();
 
       builder.register::<DefaultDisplay>(uniform.color);
       Ok(())

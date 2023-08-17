@@ -23,13 +23,14 @@ impl GraphicsShaderProvider for DefaultPassDispatcher {
     let pass = builder.bindgroups.bind_by(&self.pass_info);
 
     builder.vertex(|builder, _| {
-      let pass = pass.using().expand();
+      let pass = pass.using().load().expand();
       builder.register::<RenderBufferSize>(pass.buffer_size);
       builder.register::<TexelSize>(pass.texel_size);
       Ok(())
     })?;
+
     builder.fragment(|builder, _| {
-      let pass = pass.using().expand();
+      let pass = pass.using().load().expand();
       builder.register::<RenderBufferSize>(pass.buffer_size);
       builder.register::<TexelSize>(pass.texel_size);
 

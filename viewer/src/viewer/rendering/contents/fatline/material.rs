@@ -123,7 +123,7 @@ impl GraphicsShaderProvider for FatlineMaterialGPU {
     builder.vertex(|builder, binding| {
       let uv = builder.query::<GeometryUV>()?;
       let color_with_alpha = builder.query::<GeometryColorWithAlpha>()?;
-      let material = binding.bind_by(&self.uniform).expand();
+      let material = binding.bind_by(&self.uniform).load().expand();
 
       let vertex_position = fatline_vertex(
         builder.query::<CameraProjectionMatrix>()?,
