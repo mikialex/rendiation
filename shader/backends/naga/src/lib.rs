@@ -378,7 +378,7 @@ impl ShaderAPI for ShaderAPINagaImpl {
             }
             ShaderFunctionType::BuiltIn(f) => {
               let fun = match f {
-                ShaderBuiltInFunction::MatTranspose => naga::MathFunction::Transpose,
+                ShaderBuiltInFunction::Transpose => naga::MathFunction::Transpose,
                 ShaderBuiltInFunction::Normalize => naga::MathFunction::Normalize,
                 ShaderBuiltInFunction::Length => naga::MathFunction::Length,
                 ShaderBuiltInFunction::Dot => naga::MathFunction::Dot,
@@ -397,6 +397,100 @@ impl ShaderAPI for ShaderAPINagaImpl {
                 ShaderBuiltInFunction::Abs => naga::MathFunction::Abs,
                 ShaderBuiltInFunction::Pow => naga::MathFunction::Pow,
                 ShaderBuiltInFunction::Saturate => naga::MathFunction::Saturate,
+                ShaderBuiltInFunction::All => {
+                  break naga::Expression::Relational {
+                    fun: naga::RelationalFunction::All,
+                    argument: self.get_expression(parameters[0]),
+                  }
+                }
+                ShaderBuiltInFunction::Any => {
+                  break naga::Expression::Relational {
+                    fun: naga::RelationalFunction::Any,
+                    argument: self.get_expression(parameters[0]),
+                  }
+                }
+                ShaderBuiltInFunction::IsNan => {
+                  break naga::Expression::Relational {
+                    fun: naga::RelationalFunction::IsNan,
+                    argument: self.get_expression(parameters[0]),
+                  }
+                }
+                ShaderBuiltInFunction::IsInf => {
+                  break naga::Expression::Relational {
+                    fun: naga::RelationalFunction::IsInf,
+                    argument: self.get_expression(parameters[0]),
+                  }
+                }
+                ShaderBuiltInFunction::IsFinite => {
+                  break naga::Expression::Relational {
+                    fun: naga::RelationalFunction::IsFinite,
+                    argument: self.get_expression(parameters[0]),
+                  }
+                }
+                ShaderBuiltInFunction::IsNormal => {
+                  break naga::Expression::Relational {
+                    fun: naga::RelationalFunction::IsNormal,
+                    argument: self.get_expression(parameters[0]),
+                  }
+                }
+                ShaderBuiltInFunction::Cos => naga::MathFunction::Cos,
+                ShaderBuiltInFunction::Cosh => naga::MathFunction::Cosh,
+                ShaderBuiltInFunction::Sin => naga::MathFunction::Sin,
+                ShaderBuiltInFunction::Sinh => naga::MathFunction::Sinh,
+                ShaderBuiltInFunction::Tan => naga::MathFunction::Tan,
+                ShaderBuiltInFunction::Tanh => naga::MathFunction::Tanh,
+                ShaderBuiltInFunction::Acos => naga::MathFunction::Acos,
+                ShaderBuiltInFunction::Asin => naga::MathFunction::Asin,
+                ShaderBuiltInFunction::Atan => naga::MathFunction::Atan,
+                ShaderBuiltInFunction::Atan2 => naga::MathFunction::Atan2,
+                ShaderBuiltInFunction::Asinh => naga::MathFunction::Asinh,
+                ShaderBuiltInFunction::Acosh => naga::MathFunction::Acosh,
+                ShaderBuiltInFunction::Atanh => naga::MathFunction::Atanh,
+                ShaderBuiltInFunction::Radians => naga::MathFunction::Radians,
+                ShaderBuiltInFunction::Degrees => naga::MathFunction::Degrees,
+                ShaderBuiltInFunction::Ceil => naga::MathFunction::Ceil,
+                ShaderBuiltInFunction::Floor => naga::MathFunction::Floor,
+                ShaderBuiltInFunction::Round => naga::MathFunction::Round,
+                ShaderBuiltInFunction::Fract => naga::MathFunction::Fract,
+                ShaderBuiltInFunction::Trunc => naga::MathFunction::Trunc,
+                ShaderBuiltInFunction::Modf => naga::MathFunction::Modf,
+                ShaderBuiltInFunction::Frexp => naga::MathFunction::Frexp,
+                ShaderBuiltInFunction::Ldexp => naga::MathFunction::Ldexp,
+                ShaderBuiltInFunction::Exp => naga::MathFunction::Exp,
+                ShaderBuiltInFunction::Exp2 => naga::MathFunction::Exp2,
+                ShaderBuiltInFunction::Log => naga::MathFunction::Log,
+                ShaderBuiltInFunction::Log2 => naga::MathFunction::Log2,
+                ShaderBuiltInFunction::Outer => naga::MathFunction::Outer,
+                ShaderBuiltInFunction::Distance => naga::MathFunction::Distance,
+                ShaderBuiltInFunction::FaceForward => naga::MathFunction::FaceForward,
+                ShaderBuiltInFunction::Reflect => naga::MathFunction::Reflect,
+                ShaderBuiltInFunction::Refract => naga::MathFunction::Refract,
+                ShaderBuiltInFunction::Sign => naga::MathFunction::Sign,
+                ShaderBuiltInFunction::Fma => naga::MathFunction::Fma,
+                ShaderBuiltInFunction::Mix => naga::MathFunction::Mix,
+                ShaderBuiltInFunction::Step => naga::MathFunction::Step,
+                ShaderBuiltInFunction::Sqrt => naga::MathFunction::Sqrt,
+                ShaderBuiltInFunction::InverseSqrt => naga::MathFunction::InverseSqrt,
+                ShaderBuiltInFunction::Inverse => naga::MathFunction::Inverse,
+                ShaderBuiltInFunction::Determinant => naga::MathFunction::Determinant,
+                ShaderBuiltInFunction::CountTrailingZeros => naga::MathFunction::CountTrailingZeros,
+                ShaderBuiltInFunction::CountLeadingZeros => naga::MathFunction::CountLeadingZeros,
+                ShaderBuiltInFunction::CountOneBits => naga::MathFunction::CountOneBits,
+                ShaderBuiltInFunction::ReverseBits => naga::MathFunction::ReverseBits,
+                ShaderBuiltInFunction::ExtractBits => naga::MathFunction::ExtractBits,
+                ShaderBuiltInFunction::InsertBits => naga::MathFunction::InsertBits,
+                ShaderBuiltInFunction::FindLsb => naga::MathFunction::FindLsb,
+                ShaderBuiltInFunction::FindMsb => naga::MathFunction::FindMsb,
+                ShaderBuiltInFunction::Pack4x8snorm => naga::MathFunction::Pack4x8snorm,
+                ShaderBuiltInFunction::Pack4x8unorm => naga::MathFunction::Pack4x8unorm,
+                ShaderBuiltInFunction::Pack2x16snorm => naga::MathFunction::Pack2x16snorm,
+                ShaderBuiltInFunction::Pack2x16unorm => naga::MathFunction::Pack2x16unorm,
+                ShaderBuiltInFunction::Pack2x16float => naga::MathFunction::Pack2x16float,
+                ShaderBuiltInFunction::Unpack4x8snorm => naga::MathFunction::Unpack4x8snorm,
+                ShaderBuiltInFunction::Unpack4x8unorm => naga::MathFunction::Unpack4x8unorm,
+                ShaderBuiltInFunction::Unpack2x16snorm => naga::MathFunction::Unpack2x16snorm,
+                ShaderBuiltInFunction::Unpack2x16unorm => naga::MathFunction::Unpack2x16unorm,
+                ShaderBuiltInFunction::Unpack2x16float => naga::MathFunction::Unpack2x16float,
               };
 
               naga::Expression::Math {
@@ -507,10 +601,28 @@ impl ShaderAPI for ShaderAPINagaImpl {
           let components = parameters.iter().map(|f| self.get_expression(*f)).collect();
           naga::Expression::Compose { ty, components }
         }
+        ShaderNodeExpr::Derivative { axis, ctrl, source } => {
+          let axis = match axis {
+            DerivativeAxis::X => naga::DerivativeAxis::X,
+            DerivativeAxis::Y => naga::DerivativeAxis::Y,
+            DerivativeAxis::Width => naga::DerivativeAxis::Width,
+          };
+          let ctrl = match ctrl {
+            DerivativeControl::Coarse => naga::DerivativeControl::Coarse,
+            DerivativeControl::Fine => naga::DerivativeControl::Fine,
+            DerivativeControl::None => naga::DerivativeControl::None,
+          };
+          naga::Expression::Derivative {
+            axis,
+            ctrl,
+            expr: self.get_expression(source),
+          }
+        }
         ShaderNodeExpr::Operator(op) => match op {
           OperatorNode::Unary { one, operator } => {
             let op = match operator {
               UnaryOperator::LogicalNot => naga::UnaryOperator::Not,
+              UnaryOperator::Neg => naga::UnaryOperator::Negate,
             };
             naga::Expression::Unary {
               op,

@@ -21,8 +21,6 @@ pub enum AddressSpace {
   Storage { writeable: bool },
   /// Opaque handles, such as samplers and images.
   Handle,
-  /// Push constants.
-  PushConstant,
 }
 
 impl AddressSpace {
@@ -34,7 +32,6 @@ impl AddressSpace {
       AddressSpace::Uniform => false,
       AddressSpace::Storage { writeable } => writeable,
       AddressSpace::Handle => false,
-      AddressSpace::PushConstant => false,
     }
   }
 }
@@ -42,7 +39,15 @@ impl AddressSpace {
 impl core::marker::ConstParamTy for AddressSpace {}
 
 pub struct ShaderPtr<T, const WRITEABLE: AddressSpace>(PhantomData<T>);
+
+pub type GlobalVariable<T> = Node<ShaderPtr<T, { AddressSpace::Private }>>;
 pub type LocalVarNode<T> = Node<ShaderPtr<T, { AddressSpace::Function }>>;
+pub type WorkGroupSharedNode<T> = Node<ShaderPtr<T, { AddressSpace::WorkGroup }>>;
+
+pub type UniformNode<T> = Node<ShaderPtr<T, { AddressSpace::Uniform }>>;
+pub type ReadOnlyStorageNode<T> =
+  Node<ShaderPtr<T, { AddressSpace::Storage { writeable: false } }>>;
+pub type StorageNode<T> = Node<ShaderPtr<T, { AddressSpace::Storage { writeable: true } }>>;
 
 #[derive(Clone, Copy)]
 pub struct BindingArray<T, const N: usize>(PhantomData<T>);

@@ -36,6 +36,11 @@ pub enum ShaderNodeExpr {
     ty: &'static str,
     source: ShaderNodeRawHandle,
   },
+  Derivative {
+    axis: DerivativeAxis,
+    ctrl: DerivativeControl,
+    source: ShaderNodeRawHandle,
+  },
   Compose {
     target: PrimitiveShaderValueType,
     parameters: Vec<ShaderNodeRawHandle>,
@@ -52,6 +57,22 @@ pub enum ShaderNodeExpr {
   Const {
     data: PrimitiveShaderValue,
   },
+}
+
+/// Hint at which precision to compute a derivative.
+#[derive(Clone, Copy, Debug, Hash, Eq, Ord, PartialEq, PartialOrd)]
+pub enum DerivativeControl {
+  Coarse,
+  Fine,
+  None,
+}
+
+/// Axis on which to compute a derivative.
+#[derive(Clone, Copy, Debug, Hash, Eq, Ord, PartialEq, PartialOrd)]
+pub enum DerivativeAxis {
+  X,
+  Y,
+  Width,
 }
 
 #[must_use]

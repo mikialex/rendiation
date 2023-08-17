@@ -2,6 +2,7 @@ use crate::*;
 
 pub enum UnaryOperator {
   LogicalNot,
+  Neg,
 }
 
 pub enum BinaryOperator {
@@ -200,10 +201,15 @@ where
   }
 }
 
-impl<T> Neg for Node<T> {
+/// todo restrict
+impl<T: ShaderNodeType> Neg for Node<T> {
   type Output = Self;
   fn neg(self) -> Self::Output {
-    todo!()
+    OperatorNode::Unary {
+      one: self.handle(),
+      operator: UnaryOperator::Neg,
+    }
+    .insert_api()
   }
 }
 

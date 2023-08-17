@@ -3,8 +3,8 @@ use crate::*;
 #[repr(transparent)]
 #[derive(Clone, Copy)]
 pub struct Node<T> {
-  pub(crate) phantom: PhantomData<T>,
-  pub(crate) handle: ShaderNodeRawHandle,
+  phantom: PhantomData<T>,
+  handle: ShaderNodeRawHandle,
 }
 
 impl<T> Node<T> {

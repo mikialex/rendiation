@@ -2,21 +2,95 @@ use rendiation_algebra::SquareMatrix;
 
 use crate::*;
 
+#[derive(Clone, Copy, Debug, Hash, Eq, Ord, PartialEq, PartialOrd)]
 pub enum ShaderBuiltInFunction {
-  MatTranspose,
-  Normalize,
-  Length,
-  Dot,
-  Cross,
-  SmoothStep,
   Select,
+  // relational
+  All,
+  Any,
+  IsNan,
+  IsInf,
+  IsFinite,
+  IsNormal,
+  // comparison
+  Abs,
   Min,
   Max,
   Clamp,
-  Abs,
-  Pow,
   Saturate,
-  // todo other math
+  // trigonometry
+  Cos,
+  Cosh,
+  Sin,
+  Sinh,
+  Tan,
+  Tanh,
+  Acos,
+  Asin,
+  Atan,
+  Atan2,
+  Asinh,
+  Acosh,
+  Atanh,
+  Radians,
+  Degrees,
+  // decomposition
+  Ceil,
+  Floor,
+  Round,
+  Fract,
+  Trunc,
+  Modf,
+  Frexp,
+  Ldexp,
+  // exponent
+  Exp,
+  Exp2,
+  Log,
+  Log2,
+  Pow,
+  // geometry
+  Dot,
+  Outer,
+  Cross,
+  Distance,
+  Length,
+  Normalize,
+  FaceForward,
+  Reflect,
+  Refract,
+  // computational
+  Sign,
+  Fma,
+  Mix,
+  Step,
+  SmoothStep,
+  Sqrt,
+  InverseSqrt,
+  Inverse,
+  Transpose,
+  Determinant,
+  // bits
+  CountTrailingZeros,
+  CountLeadingZeros,
+  CountOneBits,
+  ReverseBits,
+  ExtractBits,
+  InsertBits,
+  FindLsb,
+  FindMsb,
+  // data packing
+  Pack4x8snorm,
+  Pack4x8unorm,
+  Pack2x16snorm,
+  Pack2x16unorm,
+  Pack2x16float,
+  // data unpacking
+  Unpack4x8snorm,
+  Unpack4x8unorm,
+  Unpack2x16snorm,
+  Unpack2x16unorm,
+  Unpack2x16float,
 }
 
 pub fn make_builtin_call<T: ShaderNodeType>(
@@ -118,7 +192,7 @@ where
   T: SquareMatrix<f32> + PrimitiveShaderNodeType,
 {
   pub fn transpose(self) -> Self {
-    make_builtin_call(ShaderBuiltInFunction::MatTranspose, [self.handle()])
+    make_builtin_call(ShaderBuiltInFunction::Transpose, [self.handle()])
   }
 }
 
@@ -153,64 +227,76 @@ impl Node<bool> {
 }
 
 // todo restrict
-impl<T> Node<T> {
+impl<T: ShaderNodeType> Node<T> {
   pub fn all(self) -> Node<bool> {
-    todo!()
+    make_builtin_call(ShaderBuiltInFunction::All, [self.handle()])
   }
   pub fn any(self) -> Node<bool> {
-    todo!()
+    make_builtin_call(ShaderBuiltInFunction::Any, [self.handle()])
   }
 }
 
 // todo restrict
-impl<T> Node<T> {
-  pub fn dpdx(self) -> Node<T> {
-    todo!()
-  }
-  pub fn dpdy(self) -> Node<T> {
-    todo!()
-  }
-  pub fn dpdx_fine(self) -> Node<T> {
-    todo!()
-  }
-  pub fn dpdy_fine(self) -> Node<T> {
-    todo!()
-  }
-  pub fn dpdx_coarse(self) -> Node<T> {
-    todo!()
-  }
-  pub fn dpdy_coarse(self) -> Node<T> {
-    todo!()
-  }
-  pub fn fwidth(self) -> Node<T> {
-    todo!()
-  }
-  pub fn fwidth_fine(self) -> Node<T> {
-    todo!()
-  }
-  pub fn fwidth_coarse(self) -> Node<T> {
-    todo!()
+impl<T: ShaderNodeType> Node<T> {
+  pub fn derivative(self, axis: DerivativeAxis, ctrl: DerivativeControl) -> Node<T> {
+    ShaderNodeExpr::Derivative {
+      axis,
+      ctrl,
+      source: self.handle(),
+    }
+    .insert_api()
   }
 
+  pub fn dpdx(self) -> Node<T> {
+    self.derivative(DerivativeAxis::X, DerivativeControl::None)
+  }
+  pub fn dpdy(self) -> Node<T> {
+    self.derivative(DerivativeAxis::Y, DerivativeControl::None)
+  }
+  pub fn dpdx_fine(self) -> Node<T> {
+    self.derivative(DerivativeAxis::X, DerivativeControl::Fine)
+  }
+  pub fn dpdy_fine(self) -> Node<T> {
+    self.derivative(DerivativeAxis::Y, DerivativeControl::Fine)
+  }
+  pub fn dpdx_coarse(self) -> Node<T> {
+    self.derivative(DerivativeAxis::X, DerivativeControl::Coarse)
+  }
+  pub fn dpdy_coarse(self) -> Node<T> {
+    self.derivative(DerivativeAxis::Y, DerivativeControl::Coarse)
+  }
+  pub fn fwidth(self) -> Node<T> {
+    self.derivative(DerivativeAxis::Width, DerivativeControl::None)
+  }
+  pub fn fwidth_fine(self) -> Node<T> {
+    self.derivative(DerivativeAxis::Width, DerivativeControl::Fine)
+  }
+  pub fn fwidth_coarse(self) -> Node<T> {
+    self.derivative(DerivativeAxis::Width, DerivativeControl::Coarse)
+  }
+}
+
+// todo restrict
+impl<T: ShaderNodeType> Node<T> {
   pub fn sqrt(self) -> Node<T> {
-    todo!()
+    make_builtin_call(ShaderBuiltInFunction::Length, [self.handle()])
   }
   pub fn inverse_sqrt(self) -> Node<T> {
-    todo!()
+    make_builtin_call(ShaderBuiltInFunction::InverseSqrt, [self.handle()])
   }
 
   pub fn sin(self) -> Node<T> {
-    todo!()
+    make_builtin_call(ShaderBuiltInFunction::Sin, [self.handle()])
   }
   pub fn cos(self) -> Node<T> {
-    todo!()
+    make_builtin_call(ShaderBuiltInFunction::Cos, [self.handle()])
   }
   pub fn tan(self) -> Node<T> {
-    todo!()
+    make_builtin_call(ShaderBuiltInFunction::Tan, [self.handle()])
   }
 
   pub fn fract(self) -> Node<T> {
-    todo!()
+    make_builtin_call(ShaderBuiltInFunction::Fract, [self.handle()])
   }
 }
 

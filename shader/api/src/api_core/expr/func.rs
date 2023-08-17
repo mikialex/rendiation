@@ -67,10 +67,6 @@ impl<T: ShaderNodeType> FunctionBuildCtx<T> {
   }
 }
 
-// this is useful when define function by derive
-pub fn do_return<T>(_v: Option<Node<T>>) {
-  todo!()
-}
 // I do this because I don't know how to destruct T from Node<T> in proc macro syc ast, sad!
 pub trait ProcMacroNodeHelper {
   type NodeType;

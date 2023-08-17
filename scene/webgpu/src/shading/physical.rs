@@ -83,41 +83,53 @@ impl LightableSurfaceShading for PhysicalShading {
   }
 }
 
-#[shader_fn]
-fn physical_shading(
+fn physical_shading_fn(
   light: Node<ShaderIncidentLight>,
   geometry: Node<ShaderLightingGeometricCtx>,
   shading: Node<ShaderPhysicalShading>,
 ) -> Node<ShaderLightingResult> {
-  let light = light.expand();
-  let geometry = geometry.expand();
-  let shading = shading.expand();
+  let meta =
+    get_shader_fn::<ShaderLightingResult>(String::from("physical_shading")).or_define(|cx| {
+      let light = light.expand();
+      let geometry = geometry.expand();
+      let shading = shading.expand();
 
-  let n_dot_l = bias_n_dot_l((-light.direction).dot(geometry.normal));
+      let n_dot_l = bias_n_dot_l((-light.direction).dot(geometry.normal));
 
-  if_by(n_dot_l.equals(0.), || {
-    let black = ENode::<ShaderLightingResult> {
-      diffuse: val(Vec3::zero()),
-      specular: val(Vec3::zero()),
-    }
-    .construct();
-    // todo, how to restrict this only be used in function scope??
-    do_return(black.into())
-  });
+      if_by(n_dot_l.equals(0.), || {
+        let black = ENode::<ShaderLightingResult> {
+          diffuse: val(Vec3::zero()),
+          specular: val(Vec3::zero()),
+        }
+        .construct();
+        // todo, how to restrict this only be used in function scope??
+        cx.do_return(black)
+      });
 
-  let direct_diffuse_brdf = evaluate_brdf_diffuse(shading.diffuse);
-  let direct_specular_brdf = evaluate_brdf_specular(
-    shading,
-    geometry.view_dir,
-    -light.direction,
-    geometry.normal,
-  );
+      let direct_diffuse_brdf = evaluate_brdf_diffuse(shading.diffuse);
+      let direct_specular_brdf = evaluate_brdf_specular(
+        shading,
+        geometry.view_dir,
+        -light.direction,
+        geometry.normal,
+      );
 
-  ENode::<ShaderLightingResult> {
-    diffuse: light.color * direct_diffuse_brdf * n_dot_l,
-    specular: light.color * direct_specular_brdf * n_dot_l,
+      cx.do_return(
+        ENode::<ShaderLightingResult> {
+          diffuse: light.color * direct_diffuse_brdf * n_dot_l,
+          specular: light.color * direct_specular_brdf * n_dot_l,
+        }
+        .construct(),
+      )
+    });
+
+  unsafe {
+    shader_fn_call(
+      meta,
+      vec![light.handle(), geometry.handle(), shading.handle()],
+    )
+    .into_node()
   }
-  .construct()
 }
 
 fn bias_n_dot_l(n_dot_l: Node<f32>) -> Node<f32> {

@@ -154,7 +154,7 @@ where
   ) -> ShaderNodeRawHandle {
     match &iter {
       ShaderIterator::Const(_) => index.load().handle(),
-      ShaderIterator::Count(_) => todo!(),
+      ShaderIterator::Count(_) => index.load().handle(),
       ShaderIterator::FixedArray { array, .. } => {
         let array: Node<[T; 0]> = unsafe { array.into_node() };
         array.index(index.load()).handle()
@@ -164,13 +164,13 @@ where
   }
 
   loop_by_ok(|cx| {
-    let update = match &iter {
+    let compare = match &iter {
       ShaderIterator::Const(count) => index.load().less_than(val(*count)),
-      ShaderIterator::Count(_) => todo!(),
+      ShaderIterator::Count(count) => index.load().less_than(unsafe { count.into_node() }),
       ShaderIterator::FixedArray { length, .. } => index.load().less_than(val(*length as u32)),
       ShaderIterator::Clamped { max, .. } => index.load().less_than(unsafe { max.into_node() }),
     };
-    condition.store(update);
+    condition.store(compare);
     if_by(condition.load(), || cx.do_break());
 
     logic(
