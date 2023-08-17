@@ -109,8 +109,8 @@ impl GPUDevice {
     let compile_result = builder.build()?;
 
     let ShaderCompileResult {
-      vertex_shader: (vertex_shader, vertex_entry),
-      frag_shader: (frag_shader, frag_entry),
+      vertex_shader: (vertex_entry, vertex_shader),
+      frag_shader: (frag_entry, frag_shader),
       bindings,
       vertex_layouts,
       primitive_state,
@@ -119,23 +119,49 @@ impl GPUDevice {
       multisample,
     } = compile_result;
 
+    fn convert_module_by_wgsl(module: &naga::Module) -> String {
+      use naga::back::wgsl;
+
+      let info = naga::valid::Validator::new(
+        naga::valid::ValidationFlags::all(),
+        naga::valid::Capabilities::all(),
+      )
+      .validate(module)
+      .unwrap();
+
+      wgsl::write_string(module, &info, wgsl::WriterFlags::empty()).unwrap()
+    }
+
+    let naga_vertex = *vertex_shader.downcast::<naga::Module>().unwrap();
+    let naga_fragment = *frag_shader.downcast::<naga::Module>().unwrap();
+
     if log_result {
       println!();
       println!("=== rendiation_shader_api build result ===");
       println!("vertex shader: ");
-      println!("{vertex_shader}");
+      println!("{}", convert_module_by_wgsl(&naga_vertex));
       println!("fragment shader: ");
-      println!("{frag_shader}");
+      println!("{}", convert_module_by_wgsl(&naga_fragment));
+      println!("=== result output finished ===");
     }
 
     let vertex = self.create_shader_module(gpu::ShaderModuleDescriptor {
       label: None,
-      source: gpu::ShaderSource::Wgsl(Cow::Borrowed(vertex_shader.as_str())),
+      source: gpu::ShaderSource::Naga(Cow::Owned(naga_vertex)),
     });
     let fragment = self.create_shader_module(gpu::ShaderModuleDescriptor {
       label: None,
-      source: gpu::ShaderSource::Wgsl(Cow::Borrowed(frag_shader.as_str())),
+      source: gpu::ShaderSource::Naga(Cow::Owned(naga_fragment)),
     });
+
+    // let vertex = self.create_shader_module(gpu::ShaderModuleDescriptor {
+    //   label: None,
+    //   source: gpu::ShaderSource::Wgsl(Cow::Owned(convert_module_by_wgsl(&naga_vertex))),
+    // });
+    // let fragment = self.create_shader_module(gpu::ShaderModuleDescriptor {
+    //   label: None,
+    //   source: gpu::ShaderSource::Wgsl(Cow::Owned(convert_module_by_wgsl(&naga_fragment))),
+    // });
 
     let binding = &bindings.bindings;
     let last_empty_count = binding

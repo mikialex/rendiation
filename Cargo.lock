@@ -2875,6 +2875,7 @@ dependencies = [
  "dyn-downcast",
  "fast-hash-collection",
  "futures",
+ "naga",
  "reactive",
  "rendiation-algebra",
  "rendiation-shader-api",

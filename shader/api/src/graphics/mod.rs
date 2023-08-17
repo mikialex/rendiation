@@ -38,7 +38,7 @@ pub struct ShaderRenderPipelineBuilder {
 }
 
 impl ShaderRenderPipelineBuilder {
-  fn new(vertex: Box<dyn ShaderAPI>, frag: Box<dyn ShaderAPI>) -> Self {
+  fn new(vertex: DynamicShaderAPI, frag: DynamicShaderAPI) -> Self {
     set_build_api(vertex, frag);
     Self {
       bindgroups: Default::default(),
@@ -142,8 +142,8 @@ pub trait GraphicsShaderProvider {
 
   fn build_self(
     &self,
-    vertex: Box<dyn ShaderAPI>,
-    frag: Box<dyn ShaderAPI>,
+    vertex: DynamicShaderAPI,
+    frag: DynamicShaderAPI,
   ) -> Result<ShaderRenderPipelineBuilder, ShaderBuildError> {
     let mut builder = ShaderRenderPipelineBuilder::new(vertex, frag);
     self.build(&mut builder)?;
@@ -155,8 +155,8 @@ pub trait GraphicsShaderProvider {
 impl GraphicsShaderProvider for () {}
 
 pub struct ShaderCompileResult {
-  pub vertex_shader: (String, String),
-  pub frag_shader: (String, String),
+  pub vertex_shader: (String, Box<dyn Any>),
+  pub frag_shader: (String, Box<dyn Any>),
   pub bindings: ShaderBindGroupBuilder,
   pub vertex_layouts: Vec<ShaderVertexBufferLayout>,
   pub primitive_state: PrimitiveState,
@@ -166,8 +166,8 @@ pub struct ShaderCompileResult {
 }
 
 pub(crate) struct PipelineShaderAPIPair {
-  vertex: Box<dyn ShaderAPI>,
-  fragment: Box<dyn ShaderAPI>,
+  vertex: DynamicShaderAPI,
+  fragment: DynamicShaderAPI,
   current: Option<ShaderStages>,
 }
 
@@ -175,7 +175,9 @@ thread_local! {
   static IN_BUILDING_SHADER_API: RefCell<Option<PipelineShaderAPIPair>> = RefCell::new(None);
 }
 
-pub(crate) fn call_shader_api<T>(modifier: impl FnOnce(&mut dyn ShaderAPI) -> T) -> T {
+pub(crate) fn call_shader_api<T>(
+  modifier: impl FnOnce(&mut dyn ShaderAPI<Output = Box<dyn Any>>) -> T,
+) -> T {
   IN_BUILDING_SHADER_API.with_borrow_mut(|api| {
     let api = api.as_mut().unwrap();
     let api = match api.current.unwrap() {
@@ -199,7 +201,7 @@ pub(crate) fn get_current_stage() -> Option<ShaderStages> {
   IN_BUILDING_SHADER_API.with_borrow_mut(|api| api.as_mut().unwrap().current)
 }
 
-pub(crate) fn set_build_api(vertex: Box<dyn ShaderAPI>, fragment: Box<dyn ShaderAPI>) {
+pub(crate) fn set_build_api(vertex: DynamicShaderAPI, fragment: DynamicShaderAPI) {
   IN_BUILDING_SHADER_API.with_borrow_mut(|api| {
     api.replace(PipelineShaderAPIPair {
       vertex,

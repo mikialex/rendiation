@@ -16,9 +16,10 @@ rendiation-texture-types = { path = "../../../components/texture/types" }
 rendiation-shader-api = { path = "../../../shader/api" }
 rendiation-shader-backend-naga = { path = "../../../shader/backends/naga" }
 typed-arena = "2.0.1"
-wgpu = "0.17"
+wgpu = { version = "0.17", features = ["naga"] }
 wgpu-types = "0.17"
 winit = { version = "0.27.1" }
+naga = { version = "0.13.0", features = ["wgsl-out"] }
 
 [features]
 webgl = ["wgpu/webgl"]

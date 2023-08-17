@@ -28,7 +28,10 @@ pub use re_export::*;
 pub use rendiation_algebra::*;
 pub use rendiation_shader_derives::*;
 
+pub type DynamicShaderAPI = Box<dyn ShaderAPI<Output = Box<dyn Any>>>;
+
 pub trait ShaderAPI {
+  type Output;
   fn define_module_input(&mut self, input: ShaderInputNode) -> ShaderNodeRawHandle;
   fn define_frag_out(&mut self) -> ShaderNodeRawHandle;
   fn define_vertex_output(&mut self, ty: PrimitiveShaderValueType) -> ShaderNodeRawHandle;
@@ -58,7 +61,7 @@ pub trait ShaderAPI {
   fn do_return(&mut self, v: Option<ShaderNodeRawHandle>);
   fn end_fn_define(&mut self) -> ShaderUserDefinedFunction;
 
-  fn build(&mut self) -> (String, String);
+  fn build(&mut self) -> (String, Self::Output);
 }
 
 pub trait TruthCheckPass {}
