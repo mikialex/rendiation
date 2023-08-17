@@ -90,6 +90,10 @@ fn physical_shading_fn(
 ) -> Node<ShaderLightingResult> {
   let meta =
     get_shader_fn::<ShaderLightingResult>(String::from("physical_shading")).or_define(|cx| {
+      let light = cx.push_fn_parameter::<ShaderIncidentLight>();
+      let geometry = cx.push_fn_parameter::<ShaderLightingGeometricCtx>();
+      let shading = cx.push_fn_parameter::<ShaderPhysicalShading>();
+
       let light = light.expand();
       let geometry = geometry.expand();
       let shading = shading.expand();

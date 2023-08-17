@@ -30,6 +30,7 @@ impl<T: ShaderNodeType> ShaderFnTryDefineResult<T> {
 }
 
 // todo check T match returned meta
+// todo, shader fn macro should check code not use rust return!
 pub fn get_shader_fn<T: ShaderNodeType>(name: String) -> ShaderFnTryDefineResult<T> {
   let info = call_shader_api(|g| g.get_fn(name.clone()));
 

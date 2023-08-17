@@ -101,6 +101,13 @@ impl ShaderAPINagaImpl {
     handle
   }
 
+  fn make_const_lit(&mut self, lit: naga::Literal) -> naga::Handle<naga::Expression> {
+    self
+      .module
+      .const_expressions
+      .append(naga::Expression::Literal(lit), Span::UNDEFINED)
+  }
+
   fn make_expression_inner(&mut self, expr: naga::Expression) -> ShaderNodeRawHandle {
     let handle = self.make_expression_inner_raw(expr);
     let return_handle = self.make_new_handle();
@@ -375,10 +382,28 @@ impl ShaderAPI for ShaderAPINagaImpl {
         ShaderNodeExpr::FunctionCall { meta, parameters } => {
           match meta {
             ShaderFunctionType::Custom(meta) => {
-              let (fun, _) = self.fn_mapping.get(&meta.name).unwrap();
-              let fun_desc = self.module.functions.try_get(*fun).unwrap();
+              let (fun, _) = *self.fn_mapping.get(&meta.name).unwrap();
+              let fun_desc = self.module.functions.try_get(fun).unwrap();
               assert!(fun_desc.result.is_some()); // todo, currently we do not support function without return value
-              naga::Expression::CallResult(*fun)
+                                                  // we have to control here not emit directly.
+              let r = self
+                .building_fn
+                .last_mut()
+                .unwrap()
+                .expressions
+                .append(naga::Expression::CallResult(fun), Span::UNDEFINED);
+              let r_handle = self.make_new_handle();
+              self.expression_mapping.insert(r_handle, r);
+
+              let arguments = parameters.iter().map(|p| self.get_expression(*p)).collect();
+
+              self.push_top_statement(naga::Statement::Call {
+                function: fun,
+                arguments,
+                result: Some(r),
+              });
+
+              return r_handle;
             }
             ShaderFunctionType::BuiltIn(f) => {
               let fun = match f {
@@ -528,14 +553,8 @@ impl ShaderAPI for ShaderAPINagaImpl {
               )),
               None,
             );
-            let a = self.module.const_expressions.append(
-              naga::Expression::Literal(naga::Literal::I32(offset.x)),
-              Span::UNDEFINED,
-            );
-            let b = self.module.const_expressions.append(
-              naga::Expression::Literal(naga::Literal::I32(offset.x)),
-              Span::UNDEFINED,
-            );
+            let a = self.make_const_lit(naga::Literal::I32(offset.x));
+            let b = self.make_const_lit(naga::Literal::I32(offset.y));
             self.module.const_expressions.append(
               naga::Expression::Compose {
                 ty,
@@ -565,16 +584,14 @@ impl ShaderAPI for ShaderAPINagaImpl {
 
           let size = match ty.len() {
             1 => {
-              let idx = match ty.chars().next().unwrap() {
+              let index = match ty.chars().next().unwrap() {
                 'x' | 'r' => 0,
                 'y' | 'g' => 1,
                 'z' | 'b' => 2,
                 'w' | 'a' => 3,
                 _ => panic!("invalid swizzle"),
               };
-              let index =
-                self.make_expression_inner_raw(naga::Expression::Literal(naga::Literal::U32(idx)));
-              break naga::Expression::Access {
+              break naga::Expression::AccessIndex {
                 base: source,
                 index,
               };

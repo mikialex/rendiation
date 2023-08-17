@@ -257,12 +257,12 @@ impl WebGPUTextureBindingSystem {
 
       let texture = textures.index(shader_texture_handle);
       let sampler = samplers.index(shader_sampler_handle);
-      texture.sample(sampler, uv)
+      texture.sample_level(sampler, uv, val(0.))
     } else {
       let texture = self.shader_bind_texture(binding, texture_handle);
       let sampler = self.shader_bind_sampler(binding, sample_handle);
       // todo currently mipmap is not supported
-      texture.sample_level(sampler, uv, val(0.))
+      texture.sample(sampler, uv)
     }
   }
 }

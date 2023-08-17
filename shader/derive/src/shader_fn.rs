@@ -73,7 +73,8 @@ pub fn shader_api_fn_impl(_args: TokenStream, input: TokenStream) -> TokenStream
       let unique_name = std::any::type_name_of_val(&#origin_fn).to_string();
       let f_meta = get_shader_fn::<#rt_type>(unique_name).or_define(|builder|{
          #(#input_nodes)*
-          #origin_fn(#(#names)*);
+          let r = #origin_fn(#(#names)*);
+          builder.do_return(r);
       });
 
       unsafe { shader_fn_call(f_meta.clone(), vec![#(#real_input_call)*]).into_node() }
