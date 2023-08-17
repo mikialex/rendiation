@@ -179,10 +179,10 @@ impl ArraySampleTarget for ShaderDepthTextureCubeArray {
   type Output = f32;
 }
 
-impl<T: SingleSampleTarget> Node<T> {
+impl<T: SingleSampleTarget> HandleNode<T> {
   pub fn sample(
     &self,
-    sampler: Node<T::Sampler>,
+    sampler: HandleNode<T::Sampler>,
     position: impl Into<Node<T::Input>>,
   ) -> Node<T::Output> {
     ShaderNodeExpr::TextureSampling {
@@ -199,7 +199,7 @@ impl<T: SingleSampleTarget> Node<T> {
 
   pub fn sample_level(
     &self,
-    sampler: Node<T::Sampler>,
+    sampler: HandleNode<T::Sampler>,
     position: Node<T::Input>,
     level: Node<f32>,
   ) -> Node<T::Output> {
@@ -220,10 +220,10 @@ pub trait ShaderArrayTextureSampleIndexType: ShaderNodeType {}
 impl ShaderArrayTextureSampleIndexType for u32 {}
 impl ShaderArrayTextureSampleIndexType for i32 {}
 
-impl<T: ArraySampleTarget> Node<T> {
+impl<T: ArraySampleTarget> HandleNode<T> {
   pub fn sample_index(
     &self,
-    sampler: Node<T::Sampler>,
+    sampler: HandleNode<T::Sampler>,
     position: Node<T::Input>,
     index: Node<impl ShaderArrayTextureSampleIndexType>,
   ) -> Node<T::Output> {
@@ -241,7 +241,7 @@ impl<T: ArraySampleTarget> Node<T> {
 
   pub fn sample_index_level(
     &self,
-    sampler: Node<T::Sampler>,
+    sampler: HandleNode<T::Sampler>,
     position: Node<T::Input>,
     index: Node<impl ShaderArrayTextureSampleIndexType>,
     level: Node<f32>,
@@ -262,7 +262,7 @@ impl<T: ArraySampleTarget> Node<T> {
 impl Node<ShaderDepthTexture2DArray> {
   pub fn sample_compare_index(
     &self,
-    sampler: Node<ShaderCompareSampler>,
+    sampler: HandleNode<ShaderCompareSampler>,
     position: Node<Vec2<f32>>,
     index: Node<impl ShaderArrayTextureSampleIndexType>,
     reference: Node<f32>,

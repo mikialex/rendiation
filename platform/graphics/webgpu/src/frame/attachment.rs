@@ -163,6 +163,7 @@ impl<T> CacheAbleBindingSource for AttachmentView<T> {
 }
 
 impl<T> rendiation_shader_api::ShaderBindingProvider for AttachmentView<T> {
+  const SPACE: rendiation_shader_api::AddressSpace = rendiation_shader_api::AddressSpace::Handle;
   type Node = rendiation_shader_api::ShaderTexture2D;
 }
 

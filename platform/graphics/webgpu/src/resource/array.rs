@@ -56,5 +56,6 @@ where
   T: ShaderBindingProvider,
   T::Node: ShaderNodeSingleType,
 {
+  const SPACE: rendiation_shader_api::AddressSpace = T::SPACE;
   type Node = BindingArray<T::Node, N>;
 }

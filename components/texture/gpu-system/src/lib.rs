@@ -32,6 +32,31 @@ pub trait GPUTextureBackend {
     samplers: &Self::GPUSamplerBindingArray<N>,
   );
 
+  fn register_shader_texture2d(
+    builder: &mut ShaderBindGroupDirectBuilder,
+    texture: &Self::GPUTexture2D,
+  ) -> HandleNode<ShaderTexture2D> {
+    todo!()
+  }
+  fn register_shader_sampler(
+    builder: &mut ShaderBindGroupDirectBuilder,
+    sampler: &Self::GPUSampler,
+  ) -> HandleNode<ShaderSampler> {
+    todo!()
+  }
+  fn register_shader_texture2d_array(
+    builder: &mut ShaderBindGroupDirectBuilder,
+    textures: &Self::GPUTexture2D,
+  ) -> HandleNode<BindingArray<ShaderTexture2D, MAX_TEXTURE_BINDING_ARRAY_LENGTH>> {
+    todo!()
+  }
+  fn register_shader_sampler_array(
+    builder: &mut ShaderBindGroupDirectBuilder,
+    samplers: &Self::GPUSampler,
+  ) -> HandleNode<BindingArray<ShaderSampler, MAX_TEXTURE_BINDING_ARRAY_LENGTH>> {
+    todo!()
+  }
+
   /// note, we should design some interface to partial update the array
   /// but the wgpu not support partial update at all, so we not bother to do this now.
   ///
@@ -70,12 +95,12 @@ pub trait AbstractTraditionalTextureSystem<B: GPUTextureBackend> {
     &self,
     builder: &mut ShaderBindGroupDirectBuilder,
     handle: Texture2DHandle,
-  ) -> Node<ShaderTexture2D>;
+  ) -> HandleNode<ShaderTexture2D>;
   fn register_shader_sampler(
     &self,
     builder: &mut ShaderBindGroupDirectBuilder,
     handle: SamplerHandle,
-  ) -> Node<ShaderSampler>;
+  ) -> HandleNode<ShaderSampler>;
 
   // note, we do not need to provide abstraction over Node<texture> direct sample
 }
@@ -139,18 +164,18 @@ impl<B: GPUTextureBackend> AbstractTraditionalTextureSystem<B>
     &self,
     builder: &mut ShaderBindGroupDirectBuilder,
     handle: Texture2DHandle,
-  ) -> Node<ShaderTexture2D> {
+  ) -> HandleNode<ShaderTexture2D> {
     let texture = self.textures.get(handle as usize).unwrap();
-    builder.bind_by(texture)
+    B::register_shader_texture2d(builder, texture)
   }
 
   fn register_shader_sampler(
     &self,
     builder: &mut ShaderBindGroupDirectBuilder,
     handle: SamplerHandle,
-  ) -> Node<ShaderSampler> {
+  ) -> HandleNode<ShaderSampler> {
     let sampler = self.samplers.get(handle as usize).unwrap();
-    builder.bind_by(sampler)
+    B::register_shader_sampler(builder, sampler)
   }
 }
 
@@ -238,7 +263,7 @@ impl<B: GPUTextureBackend> AbstractTraditionalTextureSystem<B> for BindlessTextu
     &self,
     builder: &mut ShaderBindGroupDirectBuilder,
     handle: Texture2DHandle,
-  ) -> Node<ShaderTexture2D> {
+  ) -> HandleNode<ShaderTexture2D> {
     self.inner.register_shader_texture2d(builder, handle)
   }
 
@@ -246,13 +271,19 @@ impl<B: GPUTextureBackend> AbstractTraditionalTextureSystem<B> for BindlessTextu
     &self,
     builder: &mut ShaderBindGroupDirectBuilder,
     handle: SamplerHandle,
-  ) -> Node<ShaderSampler> {
+  ) -> HandleNode<ShaderSampler> {
     self.inner.register_shader_sampler(builder, handle)
   }
 }
-
-both!(BindlessTexturesInShader, BindingArray<ShaderTexture2D, MAX_TEXTURE_BINDING_ARRAY_LENGTH>);
-both!(BindlessSamplersInShader, BindingArray<ShaderSampler, MAX_SAMPLER_BINDING_ARRAY_LENGTH>);
+type HandlePtr<T> = ShaderPtr<T, { AddressSpace::Handle }>;
+both!(
+  BindlessTexturesInShader,
+  HandlePtr<BindingArray<ShaderTexture2D, MAX_TEXTURE_BINDING_ARRAY_LENGTH>>
+);
+both!(
+  BindlessSamplersInShader,
+  HandlePtr<BindingArray<ShaderSampler, MAX_SAMPLER_BINDING_ARRAY_LENGTH>>
+);
 
 impl<B: GPUTextureBackend> AbstractIndirectGPUTextureSystem<B> for BindlessTextureSystem<B> {
   fn bind_system_self(&mut self, collector: &mut B::BindingCollector) {
@@ -261,16 +292,17 @@ impl<B: GPUTextureBackend> AbstractIndirectGPUTextureSystem<B> for BindlessTextu
   }
 
   fn register_system_self(&self, builder: &mut ShaderRenderPipelineBuilder) {
-    builder
-      .bind_by(&self.texture_binding_array)
-      .using_both(builder, |r, textures| {
-        r.register_typed_both_stage::<BindlessTexturesInShader>(textures);
-      });
-    builder
-      .bind_by(&self.sampler_binding_array)
-      .using_both(builder, |r, samplers| {
-        r.register_typed_both_stage::<BindlessSamplersInShader>(samplers);
-      });
+    todo!()
+    // builder
+    //   .bind_by(&self.texture_binding_array)
+    //   .using_both(builder, |r, textures| {
+    //     r.register_typed_both_stage::<BindlessTexturesInShader>(textures);
+    //   });
+    // builder
+    //   .bind_by(&self.sampler_binding_array)
+    //   .using_both(builder, |r, samplers| {
+    //     r.register_typed_both_stage::<BindlessSamplersInShader>(samplers);
+    //   });
   }
 
   fn sample_texture2d_indirect(

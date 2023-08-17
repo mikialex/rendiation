@@ -26,7 +26,7 @@ impl GraphicsShaderProvider for SolidUIPipeline {
       let position = builder.query::<GeometryPosition2D>()?;
       let color = builder.query::<GeometryColorWithAlpha>()?;
 
-      let global = global.using().expand();
+      let global = global.using().load().expand();
 
       let vertex = (
         val(2.0) * position.x() / global.screen_size.x() - val(1.0),
@@ -74,7 +74,7 @@ impl GraphicsShaderProvider for TextureUIPipeline {
       let color = builder.query::<GeometryColorWithAlpha>()?;
       let uv = builder.query::<GeometryUV>()?;
 
-      let global = global.using().expand();
+      let global = global.using().load().expand();
 
       let vertex: Node<Vec4<_>> = (
         val(2.0) * position.x() / global.screen_size.x() - val(1.0),
