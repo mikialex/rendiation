@@ -71,7 +71,7 @@ pub struct ShaderFragmentBuilder {
 
   pub(crate) registry: SemanticRegistry,
 
-  pub frag_output: Vec<(Node<Vec4<f32>>, ColorTargetState)>,
+  pub frag_output: Vec<(LocalVarNode<Vec4<f32>>, ColorTargetState)>,
   // improve: check the relationship between depth_output and depth_stencil
   pub depth_stencil: Option<DepthStencilState>,
   // improve: check if all the output should be multisampled target
@@ -175,23 +175,31 @@ impl ShaderFragmentBuilder {
   }
 
   /// always called by material side to provide fragment out
-  pub fn set_fragment_out(
+  pub fn store_fragment_out(
     &mut self,
     slot: usize,
     node: impl Into<Node<Vec4<f32>>>,
   ) -> Result<(), ShaderBuildError> {
-    let target = self
-      .frag_output
-      .get_mut(slot)
-      .ok_or(ShaderBuildError::FragmentOutputSlotNotDeclared)?
-      .0;
-    call_shader_api(|g| g.store(node.into().handle(), target.handle()));
-
+    let target = self.get_fragment_out_var(slot)?;
+    target.store(node.into());
     Ok(())
   }
 
-  pub fn get_fragment_out(&mut self, slot: usize) -> Result<Node<Vec4<f32>>, ShaderBuildError> {
-    Ok(self.frag_output.get(slot).unwrap().0)
+  fn get_fragment_out_var(
+    &mut self,
+    slot: usize,
+  ) -> Result<LocalVarNode<Vec4<f32>>, ShaderBuildError> {
+    Ok(
+      self
+        .frag_output
+        .get(slot)
+        .ok_or(ShaderBuildError::FragmentOutputSlotNotDeclared)?
+        .0,
+    )
+  }
+
+  pub fn load_fragment_out(&mut self, slot: usize) -> Result<Node<Vec4<f32>>, ShaderBuildError> {
+    Ok(self.get_fragment_out_var(slot)?.load())
   }
 }
 

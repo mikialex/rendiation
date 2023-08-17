@@ -159,7 +159,7 @@ pub fn compute_shadow_position(
   let shadow_position =
     shadow_info.shadow_camera.expand().view_projection * (world_position, val(1.)).into();
 
-  let shadow_position = shadow_position.xyz() / shadow_position.w();
+  let shadow_position = shadow_position.xyz() / shadow_position.w().splat();
 
   // convert to uv space and apply offset bias
   Ok(

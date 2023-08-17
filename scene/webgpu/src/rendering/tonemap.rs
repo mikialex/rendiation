@@ -110,7 +110,7 @@ fn aces_filmic_tone_mapping(color: Node<Vec3<f32>>, exposure: Node<f32>) -> Node
     .into();
 
   let mut color = color;
-  color *= exposure / val_v3s(0.6);
+  color *= (exposure / val(0.6)).splat();
 
   color = aces_input_mat * color;
 
@@ -163,7 +163,7 @@ impl<'a, T> GraphicsShaderProvider for ToneMapTask<'a, T> {
 
     builder.fragment(|builder, _| {
       let ldr = builder.query::<LDRLightResult>()?;
-      builder.set_fragment_out(0, (ldr, val(1.)))
+      builder.store_fragment_out(0, (ldr, val(1.)))
     })
   }
 }

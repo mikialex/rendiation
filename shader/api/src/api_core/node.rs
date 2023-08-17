@@ -36,7 +36,7 @@ where
 
 // todo restrict type to referable?
 impl<T: ShaderNodeType> Node<T> {
-  pub fn make_local_var(&self) -> Node<ShaderPtr<T, { AddressSpace::Function }>> {
+  pub fn make_local_var(&self) -> LocalVarNode<T> {
     call_shader_api(|g| unsafe {
       let v = g.make_local_var(T::TYPE);
       g.store(self.handle(), v);
@@ -56,7 +56,7 @@ impl<T, const W: AddressSpace> Node<ShaderPtr<T, W>> {
   {
     let source = source.into();
     call_shader_api(|g| {
-      g.store(self.handle(), source.handle());
+      g.store(source.handle(), self.handle());
     })
   }
 }

@@ -56,7 +56,7 @@ impl<T> GraphicsShaderProvider for CopyFrame<T> {
 
       let uv = builder.query::<FragmentUv>()?;
       let value = source.sample(sampler, uv);
-      builder.set_fragment_out(0, value)
+      builder.store_fragment_out(0, value)
     })
   }
 }

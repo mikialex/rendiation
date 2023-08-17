@@ -81,9 +81,9 @@ impl GraphicsShaderProvider for WidgetDispatcher {
       }
       .apply_pipeline_builder(builder);
 
-      let old = builder.get_fragment_out(0)?;
+      let old = builder.load_fragment_out(0)?;
       let new = (old.xyz() * old.w(), old.w());
-      builder.set_fragment_out(0, new)
+      builder.store_fragment_out(0, new)
     })
   }
 }

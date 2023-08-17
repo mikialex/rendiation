@@ -116,11 +116,16 @@ impl ShaderAPINagaImpl {
       return *handle;
     }
 
+    let mut name = None;
+
     let ty = match ty {
       ShaderValueType::Single(v) => match v {
         ShaderValueSingleType::Sized(f) => match f {
           ShaderSizedValueType::Primitive(p) => map_primitive_type(p),
-          ShaderSizedValueType::Struct(st) => gen_struct_define(self, st.to_owned(), layout),
+          ShaderSizedValueType::Struct(st) => {
+            name = st.name.to_owned().into();
+            gen_struct_define(self, st.to_owned(), layout)
+          }
           ShaderSizedValueType::FixedSizeArray((ty, size)) => naga::TypeInner::Array {
             base: self.register_ty_impl(
               ShaderValueType::Single(ShaderValueSingleType::Sized(*ty)),
@@ -177,10 +182,7 @@ impl ShaderAPINagaImpl {
       },
       ShaderValueType::Never => unreachable!(),
     };
-    let ty = naga::Type {
-      name: None,
-      inner: ty,
-    };
+    let ty = naga::Type { name, inner: ty };
     self.module.types.insert(ty, Span::UNDEFINED)
   }
 
@@ -751,10 +753,25 @@ impl ShaderAPI for ShaderAPINagaImpl {
   }
 
   fn store(&mut self, source: ShaderNodeRawHandle, target: ShaderNodeRawHandle) {
+    let pointer = self.get_expression(target);
+    let exp = self
+      .building_fn
+      .last_mut()
+      .unwrap()
+      .expressions
+      .get_mut(pointer);
+
+    match exp {
+      naga::Expression::GlobalVariable(_) => {}
+      naga::Expression::LocalVariable(_) => {}
+      ty => panic!("invalid store {:?}", ty),
+    }
+
     let st = naga::Statement::Store {
       pointer: self.get_expression(target),
       value: self.get_expression(source),
     };
+
     self.push_top_statement(st);
   }
 

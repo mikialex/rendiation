@@ -43,6 +43,7 @@ pub trait Vector<T: One + Zero + Copy>: Copy {
   fn splat(v: T) -> Self {
     Self::create(|| v)
   }
+  fn channel_count() -> usize;
 }
 
 /// the vector that in real number space

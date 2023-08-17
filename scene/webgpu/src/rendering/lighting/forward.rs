@@ -299,7 +299,7 @@ impl<'a> GraphicsShaderProvider for ForwardSceneLightingDispatcher<'a> {
         alpha
       };
 
-      builder.set_fragment_out(0, (ldr, alpha))
+      builder.store_fragment_out(0, (ldr, alpha))
     })?;
 
     if let Some(debugger) = &self.debugger {

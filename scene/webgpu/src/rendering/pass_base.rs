@@ -58,7 +58,7 @@ impl GraphicsShaderProvider for DefaultPassDispatcher {
     builder.fragment(|builder, _| {
       if self.auto_write && !self.formats.color_formats.is_empty() {
         let default = builder.query_or_insert_default::<DefaultDisplay>();
-        builder.set_fragment_out(0, default)
+        builder.store_fragment_out(0, default)
       } else {
         Ok(())
       }

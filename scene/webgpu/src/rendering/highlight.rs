@@ -96,7 +96,7 @@ impl<'a, T> GraphicsShaderProvider for HighLightComposeTask<'a, T> {
       let uv = builder.query::<FragmentUv>()?;
       let size = builder.query::<RenderBufferSize>()?;
 
-      builder.set_fragment_out(
+      builder.store_fragment_out(
         0,
         (
           highlighter.color.xyz(),
@@ -153,7 +153,7 @@ impl GraphicsShaderProvider for HighLightMaskDispatcher {
   }
 
   fn post_build(&self, builder: &mut ShaderRenderPipelineBuilder) -> Result<(), ShaderBuildError> {
-    builder.fragment(|builder, _| builder.set_fragment_out(0, val(Vec4::one())))
+    builder.fragment(|builder, _| builder.store_fragment_out(0, val(Vec4::one())))
   }
 }
 

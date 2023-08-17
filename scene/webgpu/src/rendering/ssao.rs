@@ -164,7 +164,7 @@ impl<'a> GraphicsShaderProvider for AOComputer<'a> {
       let occlusion = occlusion.pow(parameter.magnitude);
       let occlusion = parameter.contrast * (occlusion - val(0.5)) + val(0.5);
 
-      builder.set_fragment_out(0, ((val(1.) - occlusion.saturate()).splat(), val(1.)))
+      builder.store_fragment_out(0, ((val(1.) - occlusion.saturate()).splat(), val(1.)))
     })
   }
 }

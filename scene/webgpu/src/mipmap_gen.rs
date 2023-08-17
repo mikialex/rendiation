@@ -154,7 +154,7 @@ impl Mipmap2dReducer for DefaultMipmapReducer {
     r        += previous_level.sample_level(sampler, current + texel_size * val(Vec2::new(-0.5, -0.5)), val(0.));
     r        += previous_level.sample_level(sampler, current + texel_size * val(Vec2::new(-0.5,  0.5)), val(0.));
     r        += previous_level.sample_level(sampler, current + texel_size * val(Vec2::new( 0.5, -0.5)), val(0.));
-    r / val(4.)
+    r / val(4.).splat()
   }
 }
 struct Mipmap2DGeneratorTask<'a> {
@@ -190,7 +190,7 @@ impl<'a> GraphicsShaderProvider for Mipmap2DGeneratorTask<'a> {
         .reducer
         .reduce(previous_level, sampler, position / buffer_size, texel_size);
 
-      builder.set_fragment_out(0, result)
+      builder.store_fragment_out(0, result)
     })
   }
 }

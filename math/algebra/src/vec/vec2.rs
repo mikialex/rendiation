@@ -55,6 +55,10 @@ impl<T: One + Zero + Copy> Vector<T> for Vec2<T> {
       y: f(self.y, v2.y),
     }
   }
+
+  fn channel_count() -> usize {
+    2
+  }
 }
 
 impl<T> Vec2<T>

@@ -40,6 +40,14 @@ impl core::marker::ConstParamTy for AddressSpace {}
 
 pub struct ShaderPtr<T, const WRITEABLE: AddressSpace>(PhantomData<T>);
 
+// we do not have alias rule like rust in shader, so clone copy at will
+impl<T, const WRITEABLE: AddressSpace> Clone for ShaderPtr<T, WRITEABLE> {
+  fn clone(&self) -> Self {
+    Self(self.0)
+  }
+}
+impl<T, const WRITEABLE: AddressSpace> Copy for ShaderPtr<T, WRITEABLE> {}
+
 pub type GlobalVariable<T> = Node<ShaderPtr<T, { AddressSpace::Private }>>;
 pub type LocalVarNode<T> = Node<ShaderPtr<T, { AddressSpace::Function }>>;
 pub type WorkGroupSharedNode<T> = Node<ShaderPtr<T, { AddressSpace::WorkGroup }>>;

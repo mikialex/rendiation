@@ -199,8 +199,8 @@ impl<'a> GraphicsShaderProvider for InfinityShaderPlaneEffect<'a> {
       let far = view_proj_inv * (ndc_xy, val(1.), val(1.)).into();
       let near = view_proj_inv * (ndc_xy, val(0.), val(1.)).into();
 
-      let far = far.xyz() / far.w();
-      let near = near.xyz() / near.w();
+      let far = far.xyz() / far.w().splat();
+      let near = near.xyz() / near.w().splat();
 
       let direction = (far - near).normalize();
       let origin = near - (near - world.position()).dot(direction) * direction;

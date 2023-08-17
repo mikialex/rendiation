@@ -45,7 +45,7 @@ impl GraphicsShaderProvider for SolidUIPipeline {
       let color = builder.query::<FragmentColorAndAlpha>()?;
 
       let slot = builder.define_out_by(channel(self.target_format).with_alpha_blend());
-      builder.set_fragment_out(slot, color)
+      builder.store_fragment_out(slot, color)
     })
   }
 }
@@ -101,7 +101,7 @@ impl GraphicsShaderProvider for TextureUIPipeline {
       let texture = binding.binding::<GPU2DTextureView>();
       let sampler = binding.binding::<GPUSamplerView>();
 
-      builder.set_fragment_out(0, texture.sample(sampler, uv))
+      builder.store_fragment_out(0, texture.sample(sampler, uv))
     })
   }
 }

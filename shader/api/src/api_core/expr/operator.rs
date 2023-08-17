@@ -96,15 +96,15 @@ where
   }
 }
 
-impl<I, T, U> Div<Node<I>> for Node<T>
+impl<T, U> Div for Node<T>
 where
   U: ShaderNodeType,
   T: ShaderNodeType,
-  T: Div<I, Output = U>,
+  T: Div<Output = U>,
 {
   type Output = Node<U>;
 
-  fn div(self, other: Node<I>) -> Self::Output {
+  fn div(self, other: Self) -> Self::Output {
     OperatorNode::Binary {
       left: self.handle(),
       right: other.handle(),

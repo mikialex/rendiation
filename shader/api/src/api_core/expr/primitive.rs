@@ -142,7 +142,7 @@ where
   {
     ShaderNodeExpr::Compose {
       target: V::PRIMITIVE_TYPE,
-      parameters: vec![self.handle()],
+      parameters: vec![self.handle(); V::channel_count()],
     }
     .insert_api()
   }

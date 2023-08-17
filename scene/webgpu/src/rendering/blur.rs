@@ -83,7 +83,7 @@ impl<'a, T> GraphicsShaderProvider for LinearBlurTask<'a, T> {
         sum.store(sum.load() + weight * input.sample(sampler, position))
       });
 
-      builder.set_fragment_out(0, sum.load())
+      builder.store_fragment_out(0, sum.load())
     })
   }
 }

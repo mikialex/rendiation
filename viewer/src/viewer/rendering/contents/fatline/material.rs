@@ -193,8 +193,8 @@ fn fatline_vertex(
   let clip_end = projection * end;
 
   // ndc space
-  let ndc_start = clip_start.xy() / clip_start.w();
-  let ndc_end = clip_end.xy() / clip_end.w();
+  let ndc_start = clip_start.xy() / clip_start.w().splat();
+  let ndc_end = clip_end.xy() / clip_end.w().splat();
 
   // direction
   let dir = ndc_end - ndc_start;
@@ -231,7 +231,7 @@ fn fatline_vertex(
   offset *= width.splat();
   // adjust for clip-space to screen-space conversion // maybe resolution should be based on
   // viewport ...
-  offset = offset / view_size.y();
+  offset = offset / view_size.y().splat();
 
   // select end
   let clip = position.y().less_than(0.5).select(clip_start, clip_end);
