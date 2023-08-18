@@ -10,6 +10,9 @@ impl BindGroupCache {
       cache: Default::default(),
     }
   }
+  pub(crate) fn clear(&self) {
+    self.cache.write().unwrap().clear();
+  }
 }
 
 pub struct BindGroupCacheInvalidation {
@@ -58,4 +61,10 @@ impl BindGroupResourceHolder {
 #[derive(Clone, Default)]
 pub struct BindGroupLayoutCache {
   pub cache: Arc<RwLock<FastHashMap<u64, GPUBindGroupLayout>>>,
+}
+
+impl BindGroupLayoutCache {
+  pub(crate) fn clear(&self) {
+    self.cache.write().unwrap().clear();
+  }
 }

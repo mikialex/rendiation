@@ -31,6 +31,10 @@ impl Viewer3dRenderingCtx {
     }
   }
 
+  pub fn gpu(&self) -> &GPU {
+    &self.gpu
+  }
+
   /// only texture could be read. caller must sure the target passed in render call not using
   /// surface.
   pub fn read_next_render_result(
