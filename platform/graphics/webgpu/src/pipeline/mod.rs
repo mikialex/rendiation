@@ -122,12 +122,15 @@ impl GPUDevice {
     fn convert_module_by_wgsl(module: &naga::Module) -> String {
       use naga::back::wgsl;
 
-      let info = naga::valid::Validator::new(
-        naga::valid::ValidationFlags::all(),
-        naga::valid::Capabilities::all(),
-      )
-      .validate(module)
-      .unwrap();
+      let mut vf = naga::valid::ValidationFlags::empty();
+      // because we do not have source code, and debug some issues like cfg uniform is so difficult
+      // without source code, so here we disable some validation flags and make naga to
+      // generate wgsl first for our debug purpose
+      vf.remove(naga::valid::ValidationFlags::CONTROL_FLOW_UNIFORMITY);
+
+      let info = naga::valid::Validator::new(vf, naga::valid::Capabilities::all())
+        .validate(module)
+        .unwrap();
 
       wgsl::write_string(module, &info, wgsl::WriterFlags::empty()).unwrap()
     }

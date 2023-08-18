@@ -167,7 +167,7 @@ where
       ShaderIterator::Const(_) => index.load().handle(),
       ShaderIterator::Count(_) => index.load().handle(),
       ShaderIterator::FixedArray { array, .. } => {
-        let array: Node<[T; 0]> = unsafe { array.into_node() };
+        let array: LocalVarNode<[T; 0]> = unsafe { array.into_node() };
         array.index(index.load()).handle()
       }
       ShaderIterator::Clamped { source, .. } => get_item::<T>(source, index),

@@ -86,6 +86,37 @@ impl GPUTextureBackend for WebGPUTextureBackend {
       .collect();
     *samplers = BindingResourceArray::<GPUSamplerView, N>::new(Arc::new(source));
   }
+
+  fn register_shader_texture2d(
+    builder: &mut ShaderBindGroupDirectBuilder,
+    texture: &Self::GPUTexture2D,
+  ) -> HandleNode<ShaderTexture2D> {
+    builder.bind_by(texture)
+  }
+  fn register_shader_sampler(
+    builder: &mut ShaderBindGroupDirectBuilder,
+    sampler: &Self::GPUSampler,
+  ) -> HandleNode<ShaderSampler> {
+    builder.bind_by(sampler)
+  }
+  fn register_shader_texture2d_array(
+    builder: &mut ShaderRenderPipelineBuilder,
+    textures: &Self::GPUTexture2DBindingArray<MAX_TEXTURE_BINDING_ARRAY_LENGTH>,
+  ) -> BindingPreparer<
+    BindingArray<ShaderTexture2D, MAX_TEXTURE_BINDING_ARRAY_LENGTH>,
+    { AddressSpace::Handle },
+  > {
+    builder.bind_by(textures)
+  }
+  fn register_shader_sampler_array(
+    builder: &mut ShaderRenderPipelineBuilder,
+    samplers: &Self::GPUSamplerBindingArray<MAX_SAMPLER_BINDING_ARRAY_LENGTH>,
+  ) -> BindingPreparer<
+    BindingArray<ShaderSampler, MAX_SAMPLER_BINDING_ARRAY_LENGTH>,
+    { AddressSpace::Handle },
+  > {
+    builder.bind_by(samplers)
+  }
 }
 
 #[derive(Clone)]

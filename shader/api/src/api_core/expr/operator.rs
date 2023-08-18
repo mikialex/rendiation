@@ -36,6 +36,10 @@ pub enum OperatorNode {
     array: ShaderNodeRawHandle,
     entry: ShaderNodeRawHandle,
   },
+  IndexStatic {
+    array: ShaderNodeRawHandle,
+    entry: u32,
+  },
 }
 
 impl OperatorNode {
@@ -299,18 +303,18 @@ impl Node<bool> {
   }
 }
 
-impl<T, const U: usize> Node<Shader140Array<T, U>>
-where
-  T: ShaderNodeType,
-{
-  pub fn index(&self, node: Node<impl ShaderNodeType>) -> Node<T> {
-    OperatorNode::Index {
-      array: self.handle(),
-      entry: node.handle(),
-    }
-    .insert_api()
-  }
-}
+// impl<T, const U: usize> Node<Shader140Array<T, U>>
+// where
+//   T: ShaderNodeType,
+// {
+//   pub fn index(&self, node: Node<impl ShaderNodeType>) -> Node<T> {
+//     OperatorNode::Index {
+//       array: self.handle(),
+//       entry: node.handle(),
+//     }
+//     .insert_api()
+//   }
+// }
 impl<T, const U: usize> UniformNode<Shader140Array<T, U>>
 where
   T: ShaderNodeType,
@@ -324,18 +328,18 @@ where
   }
 }
 
-impl<T, const U: usize> Node<[T; U]>
-where
-  T: ShaderNodeType,
-{
-  pub fn index(&self, node: Node<impl ShaderNodeType>) -> Node<T> {
-    OperatorNode::Index {
-      array: self.handle(),
-      entry: node.handle(),
-    }
-    .insert_api()
-  }
-}
+// impl<T, const U: usize> Node<[T; U]>
+// where
+//   T: ShaderNodeType,
+// {
+//   pub fn index(&self, node: Node<impl ShaderNodeType>) -> Node<T> {
+//     OperatorNode::Index {
+//       array: self.handle(),
+//       entry: node.handle(),
+//     }
+//     .insert_api()
+//   }
+// }
 impl<T, const U: usize, const S: AddressSpace> Node<ShaderPtr<[T; U], S>>
 where
   T: ShaderNodeType,

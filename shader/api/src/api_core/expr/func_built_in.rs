@@ -200,10 +200,10 @@ impl Node<Mat4<f32>> {
   pub fn position(self) -> Node<Vec3<f32>> {
     self.nth_colum(3).xyz()
   }
-  pub fn nth_colum(self, n: impl Into<Node<i32>>) -> Node<Vec4<f32>> {
-    ShaderNodeExpr::Operator(OperatorNode::Index {
+  pub fn nth_colum(self, n: u32) -> Node<Vec4<f32>> {
+    ShaderNodeExpr::Operator(OperatorNode::IndexStatic {
       array: self.handle(),
-      entry: n.into().handle(),
+      entry: n,
     })
     .insert_api()
   }

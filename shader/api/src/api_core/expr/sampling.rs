@@ -190,7 +190,7 @@ impl<T: SingleSampleTarget> HandleNode<T> {
       sampler: sampler.handle(),
       position: position.into().handle(),
       index: None,
-      level: None,
+      level: SampleLevel::Auto,
       reference: None,
       offset: None,
     }
@@ -208,7 +208,7 @@ impl<T: SingleSampleTarget> HandleNode<T> {
       sampler: sampler.handle(),
       position: position.handle(),
       index: None,
-      level: level.handle().into(),
+      level: SampleLevel::Exact(level.handle()),
       reference: None,
       offset: None,
     }
@@ -232,7 +232,7 @@ impl<T: ArraySampleTarget> HandleNode<T> {
       sampler: sampler.handle(),
       position: position.handle(),
       index: index.handle().into(),
-      level: None,
+      level: SampleLevel::Auto,
       reference: None,
       offset: None,
     }
@@ -251,7 +251,7 @@ impl<T: ArraySampleTarget> HandleNode<T> {
       sampler: sampler.handle(),
       position: position.handle(),
       index: index.handle().into(),
-      level: level.handle().into(),
+      level: SampleLevel::Exact(level.handle()),
       reference: None,
       offset: None,
     }
@@ -260,7 +260,7 @@ impl<T: ArraySampleTarget> HandleNode<T> {
 }
 
 impl HandleNode<ShaderDepthTexture2DArray> {
-  pub fn sample_compare_index(
+  pub fn sample_compare_index_level(
     &self,
     sampler: HandleNode<ShaderCompareSampler>,
     position: Node<Vec2<f32>>,
@@ -273,7 +273,7 @@ impl HandleNode<ShaderDepthTexture2DArray> {
       sampler: sampler.handle(),
       position: position.handle(),
       index: index.handle().into(),
-      level: None,
+      level: SampleLevel::Zero,
       reference: reference.handle().into(),
       offset,
     }

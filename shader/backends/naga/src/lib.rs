@@ -137,7 +137,7 @@ impl ShaderAPINagaImpl {
           ShaderSizedValueType::FixedSizeArray((ty, size)) => naga::TypeInner::Array {
             base: self.register_ty_impl(
               ShaderValueType::Single(ShaderValueSingleType::Sized(*ty)),
-              None,
+              layout,
             ),
             size: naga::ArraySize::Constant(NonZeroU32::new(size as u32).unwrap()),
             stride: ty.size_of_self(layout.unwrap_or(StructLayoutTarget::Std430)) as u32,
@@ -288,17 +288,10 @@ impl ShaderAPI for ShaderAPINagaImpl {
         };
         let g = self.module.global_variables.append(g, Span::UNDEFINED);
         let g = self.make_expression_inner_raw(naga::Expression::GlobalVariable(g));
-        let should_load = match desc.ty {
-          ShaderValueType::Single(v) => matches!(v, ShaderValueSingleType::Sized(_)),
-          _ => false,
-        };
-        if should_load {
-          self.make_expression_inner(naga::Expression::Load { pointer: g })
-        } else {
-          let return_handle = self.make_new_handle();
-          self.expression_mapping.insert(return_handle, g);
-          return_handle
-        }
+
+        let return_handle = self.make_new_handle();
+        self.expression_mapping.insert(return_handle, g);
+        return_handle
       }
       ShaderInputNode::UserDefinedIn { ty, location } => {
         let ty = self.register_ty_impl(
@@ -563,9 +556,16 @@ impl ShaderAPI for ShaderAPINagaImpl {
               Span::UNDEFINED,
             )
           }),
-          level: level
-            .map(|level| naga::SampleLevel::Exact(self.get_expression(level)))
-            .unwrap_or(naga::SampleLevel::Auto),
+          level: match level {
+            SampleLevel::Auto => naga::SampleLevel::Auto,
+            SampleLevel::Zero => naga::SampleLevel::Zero,
+            SampleLevel::Exact(e) => naga::SampleLevel::Exact(self.get_expression(e)),
+            SampleLevel::Bias(e) => naga::SampleLevel::Bias(self.get_expression(e)),
+            SampleLevel::Gradient { x, y } => naga::SampleLevel::Gradient {
+              x: self.get_expression(x),
+              y: self.get_expression(y),
+            },
+          },
           depth_ref: reference.map(|r| self.get_expression(r)),
         },
         ShaderNodeExpr::Swizzle { ty, source } => {
@@ -612,6 +612,20 @@ impl ShaderAPI for ShaderAPINagaImpl {
             pattern,
           }
         }
+        ShaderNodeExpr::Convert {
+          source,
+          convert_to,
+          convert,
+        } => naga::Expression::As {
+          expr: self.get_expression(source),
+          kind: match convert_to {
+            ValueKind::Uint => naga::ScalarKind::Uint,
+            ValueKind::Int => naga::ScalarKind::Sint,
+            ValueKind::Float => naga::ScalarKind::Float,
+            ValueKind::Bool => naga::ScalarKind::Bool,
+          },
+          convert,
+        },
         ShaderNodeExpr::Compose { target, parameters } => {
           let ty = self.register_ty_impl(
             ShaderValueType::Single(ShaderValueSingleType::Sized(
@@ -663,6 +677,10 @@ impl ShaderAPI for ShaderAPINagaImpl {
           OperatorNode::Index { array, entry } => naga::Expression::Access {
             base: self.get_expression(array),
             index: self.get_expression(entry),
+          },
+          OperatorNode::IndexStatic { array, entry } => naga::Expression::AccessIndex {
+            base: self.get_expression(array),
+            index: entry,
           },
         },
         ShaderNodeExpr::FieldGet {

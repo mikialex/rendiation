@@ -35,7 +35,8 @@ fn sample_shadow_pcf_x36_by_offset(
 
   for i in -1..=1 {
     for j in -1..=1 {
-      ratio += map.sample_compare_index(d_sampler, uv, layer, depth, Some((s * i, s * j).into()));
+      ratio +=
+        map.sample_compare_index_level(d_sampler, uv, layer, depth, Some((s * i, s * j).into()));
     }
   }
 

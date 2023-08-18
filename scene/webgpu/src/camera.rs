@@ -169,7 +169,7 @@ impl CameraGPU {
     builder: &mut ShaderRenderPipelineBuilder,
   ) -> BindingPreparer<CameraGPUTransform, { AddressSpace::Uniform }> {
     builder.bind_by(&self.ubo).using_both(builder, |r, camera| {
-      let camera = camera.expand();
+      let camera = camera.load().expand();
       r.register_typed_both_stage::<CameraViewMatrix>(camera.view);
       r.register_typed_both_stage::<CameraProjectionMatrix>(camera.projection);
       r.register_typed_both_stage::<CameraProjectionInverseMatrix>(camera.projection_inv);

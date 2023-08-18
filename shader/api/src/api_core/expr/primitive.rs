@@ -294,9 +294,10 @@ macro_rules! num_cast {
       impl Node<$src> {
         pub fn [< into_ $dst >](&self) -> Node<$dst> {
           let a = self.handle();
-          ShaderNodeExpr::Compose {
-            target: $dst::PRIMITIVE_TYPE,
-            parameters: vec![a],
+          ShaderNodeExpr::Convert {
+            source: a,
+            convert_to: $dst::KIND,
+            convert: Some($dst::BYTE_WIDTH),
           }
           .insert_api()
         }

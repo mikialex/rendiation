@@ -34,7 +34,7 @@ impl<T: ShaderNodeType, const S: AddressSpace> BindingPreparer<T, S> {
   pub fn using_both(
     self,
     builder: &mut ShaderRenderPipelineBuilder,
-    register: impl Fn(&mut SemanticRegistry, Node<T>),
+    register: impl Fn(&mut SemanticRegistry, Node<ShaderPtr<T, S>>),
   ) -> Self {
     unsafe {
       set_current_building(ShaderStages::Vertex.into());

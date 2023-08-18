@@ -35,27 +35,25 @@ pub trait GPUTextureBackend {
   fn register_shader_texture2d(
     builder: &mut ShaderBindGroupDirectBuilder,
     texture: &Self::GPUTexture2D,
-  ) -> HandleNode<ShaderTexture2D> {
-    todo!()
-  }
+  ) -> HandleNode<ShaderTexture2D>;
   fn register_shader_sampler(
     builder: &mut ShaderBindGroupDirectBuilder,
     sampler: &Self::GPUSampler,
-  ) -> HandleNode<ShaderSampler> {
-    todo!()
-  }
+  ) -> HandleNode<ShaderSampler>;
   fn register_shader_texture2d_array(
-    builder: &mut ShaderBindGroupDirectBuilder,
-    textures: &Self::GPUTexture2D,
-  ) -> HandleNode<BindingArray<ShaderTexture2D, MAX_TEXTURE_BINDING_ARRAY_LENGTH>> {
-    todo!()
-  }
+    builder: &mut ShaderRenderPipelineBuilder,
+    textures: &Self::GPUTexture2DBindingArray<MAX_TEXTURE_BINDING_ARRAY_LENGTH>,
+  ) -> BindingPreparer<
+    BindingArray<ShaderTexture2D, MAX_TEXTURE_BINDING_ARRAY_LENGTH>,
+    { AddressSpace::Handle },
+  >;
   fn register_shader_sampler_array(
-    builder: &mut ShaderBindGroupDirectBuilder,
-    samplers: &Self::GPUSampler,
-  ) -> HandleNode<BindingArray<ShaderSampler, MAX_TEXTURE_BINDING_ARRAY_LENGTH>> {
-    todo!()
-  }
+    builder: &mut ShaderRenderPipelineBuilder,
+    samplers: &Self::GPUSamplerBindingArray<MAX_SAMPLER_BINDING_ARRAY_LENGTH>,
+  ) -> BindingPreparer<
+    BindingArray<ShaderSampler, MAX_SAMPLER_BINDING_ARRAY_LENGTH>,
+    { AddressSpace::Handle },
+  >;
 
   /// note, we should design some interface to partial update the array
   /// but the wgpu not support partial update at all, so we not bother to do this now.
@@ -291,17 +289,18 @@ impl<B: GPUTextureBackend> AbstractIndirectGPUTextureSystem<B> for BindlessTextu
   }
 
   fn register_system_self(&self, builder: &mut ShaderRenderPipelineBuilder) {
-    // todo!()
-    // builder
-    //   .bind_by(&self.texture_binding_array)
-    //   .using_both(builder, |r, textures| {
-    //     r.register_typed_both_stage::<BindlessTexturesInShader>(textures);
-    //   });
-    // builder
-    //   .bind_by(&self.sampler_binding_array)
-    //   .using_both(builder, |r, samplers| {
-    //     r.register_typed_both_stage::<BindlessSamplersInShader>(samplers);
-    //   });
+    B::register_shader_texture2d_array(builder, &self.texture_binding_array).using_both(
+      builder,
+      |r, textures| {
+        r.register_typed_both_stage::<BindlessTexturesInShader>(textures);
+      },
+    );
+    B::register_shader_sampler_array(builder, &self.sampler_binding_array).using_both(
+      builder,
+      |r, samplers| {
+        r.register_typed_both_stage::<BindlessSamplersInShader>(samplers);
+      },
+    );
   }
 
   fn sample_texture2d_indirect(

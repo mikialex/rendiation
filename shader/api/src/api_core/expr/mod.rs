@@ -18,7 +18,52 @@ pub use func::*;
 mod func_built_in;
 pub use func_built_in::*;
 
+pub enum ValueKind {
+  Uint,
+  Int,
+  Float,
+  Bool,
+}
+
+pub trait ValueType {
+  const KIND: ValueKind;
+  const BYTE_WIDTH: u8;
+}
+impl ValueType for u32 {
+  const KIND: ValueKind = ValueKind::Uint;
+  const BYTE_WIDTH: u8 = 4;
+}
+impl ValueType for i32 {
+  const KIND: ValueKind = ValueKind::Int;
+  const BYTE_WIDTH: u8 = 4;
+}
+impl ValueType for f32 {
+  const KIND: ValueKind = ValueKind::Float;
+  const BYTE_WIDTH: u8 = 4;
+}
+impl ValueType for bool {
+  const KIND: ValueKind = ValueKind::Bool;
+  const BYTE_WIDTH: u8 = 1;
+}
+
+#[derive(Clone, Copy)]
+pub enum SampleLevel {
+  Auto,
+  Zero,
+  Exact(ShaderNodeRawHandle),
+  Bias(ShaderNodeRawHandle),
+  Gradient {
+    x: ShaderNodeRawHandle,
+    y: ShaderNodeRawHandle,
+  },
+}
+
 pub enum ShaderNodeExpr {
+  Convert {
+    source: ShaderNodeRawHandle,
+    convert_to: ValueKind,
+    convert: Option<u8>,
+  },
   FunctionCall {
     meta: ShaderFunctionType,
     parameters: Vec<ShaderNodeRawHandle>,
@@ -28,7 +73,7 @@ pub enum ShaderNodeExpr {
     sampler: ShaderNodeRawHandle,
     position: ShaderNodeRawHandle,
     index: Option<ShaderNodeRawHandle>,
-    level: Option<ShaderNodeRawHandle>,
+    level: SampleLevel,
     reference: Option<ShaderNodeRawHandle>,
     offset: Option<Vec2<i32>>,
   },
