@@ -119,16 +119,10 @@ impl GPUDevice {
       multisample,
     } = compile_result;
 
-    fn convert_module_by_wgsl(module: &naga::Module) -> String {
+    fn convert_module_by_wgsl(module: &naga::Module, v: naga::valid::ValidationFlags) -> String {
       use naga::back::wgsl;
 
-      let mut vf = naga::valid::ValidationFlags::empty();
-      // because we do not have source code, and debug some issues like cfg uniform is so difficult
-      // without source code, so here we disable some validation flags and make naga to
-      // generate wgsl first for our debug purpose
-      vf.remove(naga::valid::ValidationFlags::CONTROL_FLOW_UNIFORMITY);
-
-      let info = naga::valid::Validator::new(vf, naga::valid::Capabilities::all())
+      let info = naga::valid::Validator::new(v, naga::valid::Capabilities::all())
         .validate(module)
         .unwrap();
 
@@ -141,10 +135,15 @@ impl GPUDevice {
     if log_result {
       println!();
       println!("=== rendiation_shader_api build result ===");
+
       println!("vertex shader: ");
-      println!("{}", convert_module_by_wgsl(&naga_vertex));
+      let vert = convert_module_by_wgsl(&naga_vertex, naga::valid::ValidationFlags::empty());
+      println!("{vert}",);
+
       println!("fragment shader: ");
-      println!("{}", convert_module_by_wgsl(&naga_fragment));
+      let frag = convert_module_by_wgsl(&naga_fragment, naga::valid::ValidationFlags::empty());
+      println!("{frag}");
+
       println!("=== result output finished ===");
     }
 

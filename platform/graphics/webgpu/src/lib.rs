@@ -126,7 +126,7 @@ impl GPU {
     config: GPUCreateConfig<'_>,
   ) -> Result<(Self, Option<GPUSurface>), GPUCreateFailure> {
     let _instance = gpu::Instance::new(gpu::InstanceDescriptor {
-      backends: gpu::Backends::PRIMARY,
+      backends: config.backends,
       dx12_shader_compiler: Default::default(),
     });
     let power_preference = gpu::PowerPreference::HighPerformance;

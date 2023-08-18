@@ -182,7 +182,7 @@ where
       ShaderIterator::Clamped { max, .. } => index.load().less_than(unsafe { max.into_node() }),
     };
     condition.store(compare);
-    if_by(condition.load(), || cx.do_break());
+    if_by(condition.load().not(), || cx.do_break());
 
     logic(
       &ForCtx,

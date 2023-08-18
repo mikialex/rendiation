@@ -204,6 +204,29 @@ impl ShaderAPINagaImpl {
     fun.arguments.push(input);
     self.make_expression_inner(naga::Expression::FunctionArgument(idx))
   }
+
+  fn define_out(
+    &mut self,
+    ty: PrimitiveShaderValueType,
+    name: String,
+    ty_deco: ShaderFieldDecorator,
+  ) -> ShaderNodeRawHandle {
+    assert!(self.block.len() == 1); // we should define input in root scope
+    assert!(self.building_fn.len() == 1);
+
+    let ty = ShaderSizedValueType::Primitive(ty);
+    self.outputs_define.push(ShaderStructFieldMetaInfoOwned {
+      name,
+      ty,
+      ty_deco: Some(ty_deco),
+    });
+
+    let ty = ShaderValueType::Single(ShaderValueSingleType::Sized(ty));
+    let r = self.make_local_var(ty);
+    let exp = self.get_expression(r);
+    self.outputs.push(exp);
+    r
+  }
 }
 
 impl ShaderAPI for ShaderAPINagaImpl {
@@ -314,7 +337,7 @@ impl ShaderAPI for ShaderAPINagaImpl {
     }
   }
 
-  fn define_frag_out(&mut self) -> ShaderNodeRawHandle {
+  fn define_next_frag_out(&mut self) -> ShaderNodeRawHandle {
     assert!(self.block.len() == 1); // we should define input in root scope
     assert!(self.building_fn.len() == 1);
 
@@ -332,40 +355,28 @@ impl ShaderAPI for ShaderAPINagaImpl {
     r
   }
 
-  fn define_vertex_output(&mut self, ty: PrimitiveShaderValueType) -> ShaderNodeRawHandle {
-    assert!(self.block.len() == 1); // we should define input in root scope
-    assert!(self.building_fn.len() == 1);
-
-    let ty = ShaderSizedValueType::Primitive(ty);
-    self.outputs_define.push(ShaderStructFieldMetaInfoOwned {
-      name: format!("vertex_out_{}", self.outputs_define.len()),
+  fn define_next_vertex_output(&mut self, ty: PrimitiveShaderValueType) -> ShaderNodeRawHandle {
+    self.define_out(
       ty,
-      ty_deco: ShaderFieldDecorator::Location(self.outputs.len()).into(),
-    });
-
-    let ty = ShaderValueType::Single(ShaderValueSingleType::Sized(ty));
-    let r = self.make_local_var(ty);
-    let exp = self.get_expression(r);
-    self.outputs.push(exp);
-    r
+      format!("vertex_out_{}", self.outputs_define.len()),
+      ShaderFieldDecorator::Location(self.outputs.len()),
+    )
   }
 
   fn define_vertex_position_output(&mut self) -> ShaderNodeRawHandle {
-    assert!(self.block.len() == 1); // we should define input in root scope
-    assert!(self.building_fn.len() == 1);
+    self.define_out(
+      PrimitiveShaderValueType::Vec4Float32,
+      String::from("vertex_point_out"),
+      ShaderFieldDecorator::BuiltIn(ShaderBuiltInDecorator::VertexPositionOut),
+    )
+  }
 
-    let ty = ShaderSizedValueType::Primitive(PrimitiveShaderValueType::Vec4Float32);
-    self.outputs_define.push(ShaderStructFieldMetaInfoOwned {
-      name: String::from("vertex_point_out"),
-      ty,
-      ty_deco: ShaderFieldDecorator::BuiltIn(ShaderBuiltInDecorator::VertexPositionOut).into(),
-    });
-
-    let ty = ShaderValueType::Single(ShaderValueSingleType::Sized(ty));
-    let r = self.make_local_var(ty);
-    let exp = self.get_expression(r);
-    self.outputs.push(exp);
-    r
+  fn define_frag_depth_output(&mut self) -> ShaderNodeRawHandle {
+    self.define_out(
+      PrimitiveShaderValueType::Float32,
+      String::from("frag_depth_out"),
+      ShaderFieldDecorator::BuiltIn(ShaderBuiltInDecorator::FragDepth),
+    )
   }
 
   fn make_expression(&mut self, expr: ShaderNodeExpr) -> ShaderNodeRawHandle {
@@ -377,8 +388,9 @@ impl ShaderAPI for ShaderAPINagaImpl {
             ShaderFunctionType::Custom(meta) => {
               let (fun, _) = *self.fn_mapping.get(&meta.name).unwrap();
               let fun_desc = self.module.functions.try_get(fun).unwrap();
-              assert!(fun_desc.result.is_some()); // todo, currently we do not support function without return value
-                                                  // we have to control here not emit directly.
+              // todo, currently we do not support function without return value
+              assert!(fun_desc.result.is_some());
+              // we have to control here not to emit the call exp.
               let r = self
                 .building_fn
                 .last_mut()
@@ -1159,7 +1171,7 @@ fn gen_struct_define(
     // have to solve the struct in struct case.
     //
     // I tried set the naga struct span, but has no effect, so here we add padding manually..
-    if index + 1 == meta.fields.len() && padding_size > 0 {
+    if l.is_some() && index + 1 == meta.fields.len() && padding_size > 0 {
       assert!(padding_size % 4 == 0); // we assume the minimal type size is 4 bytes.
       let pad_byte_start = field_offset + type_size;
       let pad_count = padding_size / 4;

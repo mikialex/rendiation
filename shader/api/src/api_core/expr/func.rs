@@ -10,6 +10,40 @@ pub struct ShaderUserDefinedFunction {
   pub name: String,
 }
 
+#[derive(Clone)]
+pub struct ShaderUserDefinedFunctionTyped<T> {
+  pub inner: ShaderUserDefinedFunction,
+  p: PhantomData<T>,
+}
+
+pub struct ShaderUserDefinedFunctionCaller<T> {
+  inner: ShaderUserDefinedFunction,
+  params: Vec<ShaderNodeRawHandle>,
+  p: PhantomData<T>,
+}
+
+impl<T> ShaderUserDefinedFunctionCaller<T> {
+  // todo, make it type safe
+  pub fn push<X>(mut self, p: Node<X>) -> Self {
+    self.params.push(p.handle());
+    self
+  }
+
+  pub fn call(self) -> Node<T> {
+    unsafe { shader_fn_call(self.inner, self.params).into_node() }
+  }
+}
+
+impl<T> ShaderUserDefinedFunctionTyped<T> {
+  pub fn prepare_parameters(self) -> ShaderUserDefinedFunctionCaller<T> {
+    ShaderUserDefinedFunctionCaller {
+      inner: self.inner,
+      params: Default::default(),
+      p: PhantomData,
+    }
+  }
+}
+
 pub struct FunctionBuildCtx<T>(PhantomData<T>);
 
 pub enum ShaderFnTryDefineResult<T> {
@@ -18,15 +52,26 @@ pub enum ShaderFnTryDefineResult<T> {
 }
 
 impl<T: ShaderNodeType> ShaderFnTryDefineResult<T> {
-  pub fn or_define(self, f: impl FnOnce(&FunctionBuildCtx<T>)) -> ShaderUserDefinedFunction {
-    match self {
+  pub fn or_define(
+    self,
+    f: impl FnOnce(&FunctionBuildCtx<T>),
+  ) -> ShaderUserDefinedFunctionTyped<T> {
+    let inner = match self {
       ShaderFnTryDefineResult::NotDefined(builder) => {
         f(&builder);
         builder.end_fn_define()
       }
       ShaderFnTryDefineResult::AlreadyDefined(meta) => meta,
+    };
+    ShaderUserDefinedFunctionTyped {
+      inner,
+      p: PhantomData,
     }
   }
+}
+
+pub fn shader_fn_name<T>(f: T) -> String {
+  std::any::type_name_of_val(&f).to_owned()
 }
 
 // todo check T match returned meta
@@ -54,11 +99,14 @@ impl<T: ShaderNodeType> FunctionBuildCtx<T> {
   pub fn push_fn_parameter<P: ShaderNodeType>(&self) -> Node<P> {
     unsafe { call_shader_api(|g| g.push_fn_parameter(P::TYPE)).into_node() }
   }
+  pub fn push_fn_parameter_by<P: ShaderNodeType>(&self, _node: Node<P>) -> Node<P> {
+    unsafe { call_shader_api(|g| g.push_fn_parameter(P::TYPE)).into_node() }
+  }
 
-  pub fn do_return(&self, r: Node<T>) {
+  pub fn do_return(&self, r: impl Into<Node<T>>) {
     let handle = match T::TYPE {
       ShaderValueType::Never => None,
-      _ => Some(r.handle()),
+      _ => Some(r.into().handle()),
     };
     call_shader_api(|g| g.do_return(handle))
   }

@@ -171,7 +171,7 @@ impl ShaderVertexBuilder {
       .entry(id)
       .or_insert_with(|| {
         let ty = T::ValueType::PRIMITIVE_TYPE;
-        let node = call_shader_api(|api| api.define_vertex_output(ty));
+        let node = call_shader_api(|api| api.define_next_vertex_output(ty));
 
         VertexIOInfo { node, ty, location }
       })

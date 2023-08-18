@@ -121,5 +121,11 @@ fn derive_shader_struct(s: &StructInfo) -> proc_macro2::TokenStream {
       }
     }
 
+    impl From<#shader_api_instance_name> for rendiation_shader_api::Node<#struct_name>{
+      fn from(v: #shader_api_instance_name) -> Self {
+        v.construct()
+      }
+    }
+
   }
 }

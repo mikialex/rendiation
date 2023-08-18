@@ -102,6 +102,10 @@ impl ShaderRenderPipelineBuilder {
     self.vertex.finalize_position_write();
     set_current_building(None);
 
+    set_current_building(ShaderStages::Fragment.into());
+    self.fragment.finalize_depth_write();
+    set_current_building(None);
+
     let PipelineShaderAPIPair {
       mut vertex,
       mut fragment,

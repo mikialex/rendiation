@@ -208,7 +208,7 @@ fn fatline_vertex(
 
   // undo aspect ratio adjustment
   let dir: Node<Vec2<_>> = (dir.x() / aspect, dir.y()).into();
-  let offset: Node<Vec2<_>> = (offset.x() / aspect, dir.y()).into();
+  let offset: Node<Vec2<_>> = (offset.x() / aspect, offset.y()).into();
   let offset = offset.make_local_var();
 
   // sign flip

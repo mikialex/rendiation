@@ -77,7 +77,7 @@ pub fn shader_api_fn_impl(_args: TokenStream, input: TokenStream) -> TokenStream
           builder.do_return(r);
       });
 
-      unsafe { shader_fn_call(f_meta.clone(), vec![#(#real_input_call)*]).into_node() }
+      unsafe { shader_fn_call(f_meta.inner.clone(), vec![#(#real_input_call)*]).into_node() }
     }
     #sig #block
   }

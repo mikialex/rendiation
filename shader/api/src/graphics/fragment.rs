@@ -169,7 +169,7 @@ impl ShaderFragmentBuilder {
   /// Declare fragment outputs
   pub fn define_out_by(&mut self, meta: impl Into<ColorTargetState>) -> usize {
     let slot = self.frag_output.len();
-    let target = call_shader_api(|g| unsafe { g.define_frag_out().into_node() });
+    let target = call_shader_api(|g| unsafe { g.define_next_frag_out().into_node() });
     self.frag_output.push((target, meta.into()));
     slot
   }
@@ -200,6 +200,18 @@ impl ShaderFragmentBuilder {
 
   pub fn load_fragment_out(&mut self, slot: usize) -> Result<Node<Vec4<f32>>, ShaderBuildError> {
     Ok(self.get_fragment_out_var(slot)?.load())
+  }
+
+  /// currently we all depend on FragmentDepthOutput in semantic registry to given the final result
+  /// this behavior will be changed in future;
+  pub fn finalize_depth_write(&mut self) {
+    let depth = self.query::<FragmentDepthOutput>();
+    if let Ok(depth) = depth {
+      call_shader_api(|api| {
+        let target = api.define_frag_depth_output();
+        api.store(depth.handle(), target)
+      });
+    }
   }
 }
 

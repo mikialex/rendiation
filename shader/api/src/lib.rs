@@ -1,5 +1,6 @@
 #![feature(const_type_name)]
 #![feature(adt_const_params)]
+#![feature(type_name_of_val)]
 #![feature(associated_const_equality)]
 #![feature(generic_const_exprs)]
 #![allow(incomplete_features)]
@@ -34,9 +35,10 @@ pub type DynamicShaderAPI = Box<dyn ShaderAPI<Output = Box<dyn Any>>>;
 pub trait ShaderAPI {
   type Output;
   fn define_module_input(&mut self, input: ShaderInputNode) -> ShaderNodeRawHandle;
-  fn define_frag_out(&mut self) -> ShaderNodeRawHandle;
-  fn define_vertex_output(&mut self, ty: PrimitiveShaderValueType) -> ShaderNodeRawHandle;
+  fn define_next_frag_out(&mut self) -> ShaderNodeRawHandle;
+  fn define_next_vertex_output(&mut self, ty: PrimitiveShaderValueType) -> ShaderNodeRawHandle;
   fn define_vertex_position_output(&mut self) -> ShaderNodeRawHandle;
+  fn define_frag_depth_output(&mut self) -> ShaderNodeRawHandle;
 
   fn make_expression(&mut self, expr: ShaderNodeExpr) -> ShaderNodeRawHandle;
   fn make_local_var(&mut self, ty: ShaderValueType) -> ShaderNodeRawHandle;

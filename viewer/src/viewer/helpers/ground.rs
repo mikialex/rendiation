@@ -262,5 +262,5 @@ fn ray_plane_intersect(
   let t = (plane.normal.dot(origin) + plane.constant) / denominator;
 
   t.less_than(0.)
-    .select(Vec4::zero(), (origin + direction * t, val(1.0)))
+    .select((origin + direction * t, val(1.0)), Vec4::zero())
 }
