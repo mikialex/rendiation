@@ -150,7 +150,7 @@ impl<'a> GraphicsShaderProvider for AOComputer<'a> {
         let sample_position_depth = depth_tex.sample(sampler, s_uv).x();
 
         let occluded = (sample_position_depth + parameter.bias)
-          .less_or_equal_than(s_depth)
+          .less_equal_than(s_depth)
           .select(0., 1.);
 
         let relative_depth_diff = parameter.radius / (sample_position_depth - s_depth).abs();

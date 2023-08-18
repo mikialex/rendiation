@@ -179,7 +179,9 @@ where
       ShaderIterator::Const(count) => index.load().less_than(val(*count)),
       ShaderIterator::Count(count) => index.load().less_than(unsafe { count.into_node() }),
       ShaderIterator::FixedArray { length, .. } => index.load().less_than(val(*length as u32)),
-      ShaderIterator::Clamped { max, .. } => index.load().less_than(unsafe { max.into_node() }),
+      ShaderIterator::Clamped { max, .. } => {
+        index.load().less_equal_than(unsafe { max.into_node() })
+      }
     };
     condition.store(compare);
     if_by(condition.load().not(), || cx.do_break());

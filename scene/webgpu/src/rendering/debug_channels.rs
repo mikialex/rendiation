@@ -49,9 +49,7 @@ impl GraphicsShaderProvider for ScreenChannelDebugger {
         let start_current = start.load();
         let start_end = start_current + step;
         if_by(
-          start_current
-            .less_than(x)
-            .and(x.less_or_equal_than(start_end)),
+          start_current.less_than(x).and(x.less_equal_than(start_end)),
           || {
             output.store(output.load() + channel.to_screen(builder));
           },

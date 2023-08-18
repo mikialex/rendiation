@@ -126,13 +126,7 @@ fn grid(position: Node<Vec3<f32>>, config: Node<GridGroundConfig>) -> Node<Vec4<
   let grid =
     ((coord - val(Vec2::splat(0.5))).fract() - val(Vec2::splat(0.5))).abs() / coord.fwidth();
   let lined = grid.x().min(grid.y());
-  (
-    val(0.2),
-    val(0.2),
-    val(0.2),
-    val(1.0) - lined.min(val(1.0) + val(0.1)),
-  )
-    .into()
+  (val(0.2), val(0.2), val(0.2), val(1.1) - lined.min(val(1.0))).into()
 }
 
 pub struct InfinityShaderPlane {
@@ -259,8 +253,8 @@ fn ray_plane_intersect(
   //   return None;
   // }
 
-  let t = (plane.normal.dot(origin) + plane.constant) / denominator;
+  let t = -(plane.normal.dot(origin) + plane.constant) / denominator;
 
-  t.less_than(0.)
+  t.greater_equal_than(0.)
     .select((origin + direction * t, val(1.0)), Vec4::zero())
 }

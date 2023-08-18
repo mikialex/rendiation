@@ -246,7 +246,7 @@ impl<T: PartialOrd> Node<T> {
     }
     .insert_api()
   }
-  pub fn less_or_equal_than(&self, other: impl Into<Self>) -> Node<bool> {
+  pub fn less_equal_than(&self, other: impl Into<Self>) -> Node<bool> {
     OperatorNode::Binary {
       left: self.handle(),
       right: other.into().handle(),
@@ -262,7 +262,7 @@ impl<T: PartialOrd> Node<T> {
     }
     .insert_api()
   }
-  pub fn greater_or_equal_than(&self, other: impl Into<Self>) -> Node<bool> {
+  pub fn greater_equal_than(&self, other: impl Into<Self>) -> Node<bool> {
     OperatorNode::Binary {
       left: self.handle(),
       right: other.into().handle(),
