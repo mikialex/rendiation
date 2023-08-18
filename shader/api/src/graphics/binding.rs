@@ -129,15 +129,15 @@ impl<'a> ShaderBindGroupDirectBuilder<'a> {
     self.binding::<T>()
   }
 
-  pub fn binding2<T: ShaderBindingProvider, const S: AddressSpace>(
+  pub fn binding_unchecked<T: ShaderBindingProvider, const S: AddressSpace>(
     &mut self,
   ) -> Node<ShaderPtr<T::Node, S>> {
     self.builder.binding_ty_inner::<T, S>().using()
   }
-  pub fn bind_by2<T: ShaderBindingProvider, const S: AddressSpace>(
+  pub fn bind_by_unchecked<T: ShaderBindingProvider, const S: AddressSpace>(
     &mut self,
     _instance: &T,
   ) -> Node<ShaderPtr<T::Node, S>> {
-    self.binding2::<T, S>()
+    self.binding_unchecked::<T, S>()
   }
 }

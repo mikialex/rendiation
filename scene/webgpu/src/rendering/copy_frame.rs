@@ -54,7 +54,7 @@ impl<T> GraphicsShaderProvider for CopyFrame<T> {
   ) -> Result<(), rendiation_shader_api::ShaderBuildError> {
     builder.fragment(|builder, binding| {
       let sampler = binding.bind_by(&self.sampler);
-      let source = binding.bind_by2(&self.source);
+      let source = binding.bind_by_unchecked(&self.source);
 
       let uv = builder.query::<FragmentUv>()?;
       let value = source.sample(sampler, uv);

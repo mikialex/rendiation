@@ -225,11 +225,11 @@ impl<'a, T: ShaderLight> LightCollectionCompute for SingleLight<'a, T> {
     shading: &dyn Any,
     geom_ctx: &ENode<ShaderLightingGeometricCtx>,
   ) -> Result<(Node<Vec3<f32>>, Node<Vec3<f32>>), ShaderBuildError> {
-    let light: UniformNode<_> = binding.bind_by2(self.light);
+    let light: UniformNode<T> = binding.bind_by_unchecked(self.light);
 
     let dep = T::create_dep(builder)?;
 
-    let light = light.load().expand();
+    let light = light.load_unchecked().expand();
     let light_result =
       T::compute_direct_light(builder, &light, geom_ctx, shading_impl, shading, &dep)?;
 

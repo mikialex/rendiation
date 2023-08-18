@@ -291,7 +291,7 @@ impl<B: GPUTextureBackend> AbstractIndirectGPUTextureSystem<B> for BindlessTextu
   }
 
   fn register_system_self(&self, builder: &mut ShaderRenderPipelineBuilder) {
-    todo!()
+    // todo!()
     // builder
     //   .bind_by(&self.texture_binding_array)
     //   .using_both(builder, |r, textures| {

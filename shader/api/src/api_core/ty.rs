@@ -34,6 +34,9 @@ impl AddressSpace {
       AddressSpace::Handle => false,
     }
   }
+  pub const fn loadable(self) -> bool {
+    !matches!(self, AddressSpace::Handle)
+  }
 }
 
 impl core::marker::ConstParamTy for AddressSpace {}

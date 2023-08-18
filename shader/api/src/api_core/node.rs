@@ -46,7 +46,14 @@ impl<T: ShaderNodeType> Node<T> {
 }
 
 impl<T, const W: AddressSpace> Node<ShaderPtr<T, W>> {
-  pub fn load(&self) -> Node<T> {
+  pub fn load_unchecked(&self) -> Node<T> {
+    call_shader_api(|g| unsafe { g.load(self.handle()).into_node() })
+  }
+
+  pub fn load(&self) -> Node<T>
+  where
+    TruthCheckBool<{ W.loadable() }>: TruthCheckPass,
+  {
     call_shader_api(|g| unsafe { g.load(self.handle()).into_node() })
   }
 

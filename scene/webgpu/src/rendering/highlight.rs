@@ -90,7 +90,7 @@ impl<'a, T> GraphicsShaderProvider for HighLightComposeTask<'a, T> {
     builder.fragment(|builder, binding| {
       let highlighter = binding.bind_by(&self.lighter.data).load().expand();
 
-      let mask = binding.bind_by2(&self.mask);
+      let mask = binding.bind_by_unchecked(&self.mask);
       let sampler = binding.binding::<GPUSamplerView>();
 
       let uv = builder.query::<FragmentUv>()?;

@@ -231,7 +231,7 @@ fn fatline_vertex(
   offset *= width.splat();
   // adjust for clip-space to screen-space conversion // maybe resolution should be based on
   // viewport ...
-  offset = offset / view_size.y().splat();
+  offset /= view_size.y().splat();
 
   // select end
   let clip = position.y().less_than(0.5).select(clip_start, clip_end);

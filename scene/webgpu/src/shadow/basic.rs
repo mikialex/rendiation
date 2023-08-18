@@ -206,7 +206,7 @@ only_fragment!(
 impl GraphicsShaderProvider for BasicShadowMapInfoList {
   fn build(&self, builder: &mut ShaderRenderPipelineBuilder) -> Result<(), ShaderBuildError> {
     builder.fragment(|builder, binding| {
-      let list = binding.bind_by2(self.list.gpu.as_ref().unwrap());
+      let list = binding.bind_by_unchecked(self.list.gpu.as_ref().unwrap());
       builder.register::<BasicShadowMapInfoGroup>(list);
       Ok(())
     })
