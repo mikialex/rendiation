@@ -49,7 +49,7 @@ pub fn shader_align_gen(
 ) -> TokenStream {
   check_attributes(&input.attrs).unwrap();
   let trait_name = format_ident!("{}", trait_name_str);
-  let trait_name = quote! {shadergraph::#trait_name};
+  let trait_name = quote! {rendiation_shader_api::#trait_name};
 
   let input_name = &input.ident;
   let (impl_generics, ty_generics, where_clause) = input.generics.split_for_impl();
@@ -80,7 +80,7 @@ pub fn shader_align_gen(
 
   let field_alignments = fields.iter().map(|field| layout_alignment_of_ty(&field.ty));
   let struct_alignment = quote! {
-      shadergraph::max_arr([
+      rendiation_shader_api::max_arr([
           #min_struct_alignment,
           #(#field_alignments,)*
       ])
@@ -147,7 +147,7 @@ pub fn shader_align_gen(
               let alignment = #next_field_or_self_alignment;
 
               // Using everything we've got, compute our padding amount.
-              shadergraph::align_offset(starting_offset, alignment)
+              rendiation_shader_api::align_offset(starting_offset, alignment)
           }
       }
     })
@@ -170,8 +170,8 @@ pub fn shader_align_gen(
   let trait_impl = quote! {
       #pad_fn_impls
 
-      unsafe impl #impl_generics shadergraph::Zeroable for #input_name #ty_generics #where_clause {}
-      unsafe impl #impl_generics shadergraph::Pod for #input_name #ty_generics #where_clause {}
+      unsafe impl #impl_generics rendiation_shader_api::Zeroable for #input_name #ty_generics #where_clause {}
+      unsafe impl #impl_generics rendiation_shader_api::Pod for #input_name #ty_generics #where_clause {}
 
       unsafe impl #impl_generics #trait_name for #input_name #ty_generics #where_clause {
           const ALIGNMENT: usize = #struct_alignment;
@@ -201,7 +201,7 @@ pub fn shader_align_gen(
             let size = ::core::mem::size_of::<Self>();
             let align = <Self as #trait_name>::ALIGNMENT;
 
-            let zeroed: Self = shadergraph::Zeroable::zeroed();
+            let zeroed: Self = rendiation_shader_api::Zeroable::zeroed();
 
             #[derive(Debug)]
             struct Field {

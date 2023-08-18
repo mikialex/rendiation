@@ -1,9 +1,0 @@
-
-[package]
-authors = ["mikialex <18516340862@163.com>"]
-edition = "2021"
-name = "wgsl-parser"
-version = "0.1.0"
-
-[dependencies]
-fast-hash-collection = {path = "../../../../utils/fast-hash-collection"}

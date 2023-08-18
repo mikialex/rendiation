@@ -28,8 +28,7 @@ rendiation-scene-core = { path = "../core" }
 rendiation-texture = { path = "../../components/texture/core" }
 tree = { path = "../../utils/tree" }
 
-shadergraph = { path = "../../shader/graph" }
-wgsl-shader-derives = { path = "../../shader/language/wgsl/derive" }
+rendiation-shader-api = { path = "../../shader/api" }
 
 reactive = { path = "../../utils/reactive" }
 webgpu = { package = "rendiation-webgpu", path = "../../platform/graphics/webgpu" }

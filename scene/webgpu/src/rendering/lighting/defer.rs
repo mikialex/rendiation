@@ -17,14 +17,14 @@ const MATERIAL2_FORMAT: TextureFormat = TextureFormat::Rgba8Unorm;
 impl DeferGBufferSchema<PhysicalShading> for MaterialDeferPassResult {
   fn reconstruct(
     &self,
-    builder: &mut ShaderGraphFragmentBuilder,
-    binding: &mut ShaderGraphBindGroupDirectBuilder,
+    builder: &mut ShaderFragmentBuilder,
+    binding: &mut ShaderBindGroupDirectBuilder,
   ) -> Result<
     (
       ENode<ShaderLightingGeometricCtx>,
       ENode<ShaderPhysicalShading>,
     ),
-    ShaderGraphBuildError,
+    ShaderBuildError,
   > {
     let world_position = binding.bind_by(&self.world_position.read());
     let normal = binding.bind_by(&self.normal.read());
@@ -95,10 +95,7 @@ struct GBufferEncodeTaskDispatcher;
 impl ShaderHashProvider for GBufferEncodeTaskDispatcher {}
 impl ShaderPassBuilder for GBufferEncodeTaskDispatcher {}
 impl GraphicsShaderProvider for GBufferEncodeTaskDispatcher {
-  fn build(
-    &self,
-    builder: &mut ShaderGraphRenderPipelineBuilder,
-  ) -> Result<(), ShaderGraphBuildError> {
+  fn build(&self, builder: &mut ShaderRenderPipelineBuilder) -> Result<(), ShaderBuildError> {
     builder.fragment(|builder, _| {
       builder.define_out_by(channel(WORLD_POSITION_FORMAT));
       builder.define_out_by(channel(NORMAL_FORMAT));
@@ -107,10 +104,7 @@ impl GraphicsShaderProvider for GBufferEncodeTaskDispatcher {
     })
   }
 
-  fn post_build(
-    &self,
-    builder: &mut ShaderGraphRenderPipelineBuilder,
-  ) -> Result<(), ShaderGraphBuildError> {
+  fn post_build(&self, builder: &mut ShaderRenderPipelineBuilder) -> Result<(), ShaderBuildError> {
     builder.fragment(|builder, _| {
       // collect dependency
       let shading = PhysicalShading::construct_shading(builder);
@@ -119,10 +113,10 @@ impl GraphicsShaderProvider for GBufferEncodeTaskDispatcher {
       let world_normal = builder.get_or_compute_fragment_normal();
 
       // override channel writes
-      builder.set_fragment_out(0, (world_position, 1.))?;
-      builder.set_fragment_out(1, (world_normal, 1.))?;
-      builder.set_fragment_out(2, (shading.diffuse, shading.perceptual_roughness))?;
-      builder.set_fragment_out(3, (shading.f0, 1.))?;
+      builder.store_fragment_out(0, (world_position, val(1.)))?;
+      builder.store_fragment_out(1, (world_normal, val(1.)))?;
+      builder.store_fragment_out(2, (shading.diffuse, shading.perceptual_roughness))?;
+      builder.store_fragment_out(3, (shading.f0, val(1.)))?;
       Ok(())
     })
   }
@@ -212,7 +206,7 @@ struct SingleLight<'a, T: Std140> {
   light: &'a UniformBufferDataView<T>,
 }
 
-impl<'a, T: Std140 + ShaderStructMemberValueNodeType> ShaderPassBuilder for SingleLight<'a, T> {
+impl<'a, T: Std140 + ShaderSizedValueNodeType> ShaderPassBuilder for SingleLight<'a, T> {
   fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
     ctx.binding.bind(self.light)
   }
@@ -225,17 +219,17 @@ impl<'a, T: Std140> ShaderHashProvider for SingleLight<'a, T> {
 impl<'a, T: ShaderLight> LightCollectionCompute for SingleLight<'a, T> {
   fn compute_lights(
     &self,
-    builder: &mut ShaderGraphFragmentBuilderView,
-    binding: &mut ShaderGraphBindGroupDirectBuilder,
+    builder: &mut ShaderFragmentBuilderView,
+    binding: &mut ShaderBindGroupDirectBuilder,
     shading_impl: &dyn LightableSurfaceShadingDyn,
     shading: &dyn Any,
     geom_ctx: &ENode<ShaderLightingGeometricCtx>,
-  ) -> Result<(Node<Vec3<f32>>, Node<Vec3<f32>>), ShaderGraphBuildError> {
-    let light = binding.bind_by(self.light);
+  ) -> Result<(Node<Vec3<f32>>, Node<Vec3<f32>>), ShaderBuildError> {
+    let light: UniformNode<T> = binding.bind_by_unchecked(self.light);
 
     let dep = T::create_dep(builder)?;
 
-    let light = light.expand();
+    let light = light.load_unchecked().expand();
     let light_result =
       T::compute_direct_light(builder, &light, geom_ctx, shading_impl, shading, &dep)?;
 
@@ -250,26 +244,26 @@ impl<'a, T: ShaderLight> LightCollectionCompute for SingleLight<'a, T> {
 pub trait DeferGBufferSchema<S: LightableSurfaceShading> {
   fn reconstruct(
     &self,
-    builder: &mut ShaderGraphFragmentBuilder,
-    binding: &mut ShaderGraphBindGroupDirectBuilder,
-  ) -> Result<(ENode<ShaderLightingGeometricCtx>, ENode<S::ShaderStruct>), ShaderGraphBuildError>;
+    builder: &mut ShaderFragmentBuilder,
+    binding: &mut ShaderBindGroupDirectBuilder,
+  ) -> Result<(ENode<ShaderLightingGeometricCtx>, ENode<S::ShaderStruct>), ShaderBuildError>;
 }
 
 /// define a specific light buffer layout.
 pub trait LightBufferSchema {
   fn write_lighting(
-    builder: &mut ShaderGraphFragmentBuilder,
+    builder: &mut ShaderFragmentBuilder,
     result: ENode<ShaderLightingResult>,
-  ) -> Result<(), ShaderGraphBuildError>;
+  ) -> Result<(), ShaderBuildError>;
 }
 
 pub struct SimpleLightSchema;
 impl LightBufferSchema for SimpleLightSchema {
   fn write_lighting(
-    builder: &mut ShaderGraphFragmentBuilder,
+    builder: &mut ShaderFragmentBuilder,
     result: ENode<ShaderLightingResult>,
-  ) -> Result<(), ShaderGraphBuildError> {
-    builder.set_fragment_out(0, ((result.specular + result.diffuse), 1.0))
+  ) -> Result<(), ShaderBuildError> {
+    builder.store_fragment_out(0, ((result.specular + result.diffuse), val(1.0)))
   }
 }
 
@@ -287,10 +281,7 @@ where
   D: DeferGBufferSchema<S>,
   R: LightBufferSchema,
 {
-  fn build(
-    &self,
-    builder: &mut ShaderGraphRenderPipelineBuilder,
-  ) -> Result<(), ShaderGraphBuildError> {
+  fn build(&self, builder: &mut ShaderRenderPipelineBuilder) -> Result<(), ShaderBuildError> {
     builder.fragment(|builder, binding| {
       let (geom_ctx, shading) = self.defer.reconstruct(builder, binding)?;
 

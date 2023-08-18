@@ -1,4 +1,4 @@
-use shadergraph::ShaderBindingProvider;
+use rendiation_shader_api::ShaderBindingProvider;
 
 use crate::*;
 

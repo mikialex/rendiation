@@ -166,10 +166,10 @@ pub struct CameraGPU {
 impl CameraGPU {
   pub fn inject_uniforms(
     &self,
-    builder: &mut ShaderGraphRenderPipelineBuilder,
-  ) -> UniformNodePreparer<CameraGPUTransform> {
+    builder: &mut ShaderRenderPipelineBuilder,
+  ) -> BindingPreparer<CameraGPUTransform, { AddressSpace::Uniform }> {
     builder.bind_by(&self.ubo).using_both(builder, |r, camera| {
-      let camera = camera.expand();
+      let camera = camera.load().expand();
       r.register_typed_both_stage::<CameraViewMatrix>(camera.view);
       r.register_typed_both_stage::<CameraProjectionMatrix>(camera.projection);
       r.register_typed_both_stage::<CameraProjectionInverseMatrix>(camera.projection_inv);
@@ -200,22 +200,19 @@ impl ShaderPassBuilder for CameraGPU {
 }
 
 impl GraphicsShaderProvider for CameraGPU {
-  fn build(
-    &self,
-    builder: &mut ShaderGraphRenderPipelineBuilder,
-  ) -> Result<(), ShaderGraphBuildError> {
+  fn build(&self, builder: &mut ShaderRenderPipelineBuilder) -> Result<(), ShaderBuildError> {
     let camera = self.inject_uniforms(builder);
 
     builder.vertex(|builder, _| {
-      let camera = camera.using().expand();
+      let camera = camera.using().load().expand();
       let position = builder.query::<WorldVertexPosition>()?;
 
-      let mut clip_position = camera.view_projection * (position, 1.).into();
+      let mut clip_position = camera.view_projection * (position, val(1.)).into();
 
       if self.enable_jitter {
         let jitter = if let Ok(texel_size) = builder.query::<TexelSize>() {
           let jitter = texel_size * camera.jitter_normalized * clip_position.w();
-          (jitter, 0., 0.).into()
+          (jitter, val(0.), val(0.)).into()
         } else {
           Vec4::zero().into()
         };
@@ -253,20 +250,20 @@ pub fn shader_uv_space_to_world_space(
   uv: Node<Vec2<f32>>,
   ndc_depth: Node<f32>,
 ) -> Node<Vec3<f32>> {
-  let xy = uv * consts(2.) - consts(Vec2::one());
-  let xy = xy * consts(Vec2::new(1., -1.));
-  let ndc = (xy, ndc_depth, 1.).into();
+  let xy = uv * val(2.) - val(Vec2::one());
+  let xy = xy * val(Vec2::new(1., -1.));
+  let ndc = (xy, ndc_depth, val(1.)).into();
   let world = camera.view_projection_inv * ndc;
-  world.xyz() / world.w()
+  world.xyz() / world.w().splat()
 }
 
 pub fn shader_world_space_to_uv_space(
   camera: &ENode<CameraGPUTransform>,
   world: Node<Vec3<f32>>,
 ) -> (Node<Vec2<f32>>, Node<f32>) {
-  let clip = camera.view_projection * (world, 1.).into();
-  let ndc = clip.xyz() / clip.w();
-  let uv = ndc.xy() * consts(Vec2::new(0.5, -0.5)) + consts(Vec2::splat(0.5));
+  let clip = camera.view_projection * (world, val(1.)).into();
+  let ndc = clip.xyz() / clip.w().splat();
+  let uv = ndc.xy() * val(Vec2::new(0.5, -0.5)) + val(Vec2::splat(0.5));
   (uv, ndc.z())
 }
 

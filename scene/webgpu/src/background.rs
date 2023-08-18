@@ -54,9 +54,9 @@ struct EnvMapBackgroundGPU {
 impl ShadingBackground for EnvMapBackgroundGPU {
   fn shading(
     &self,
-    builder: &mut ShaderGraphRenderPipelineBuilder,
+    builder: &mut ShaderRenderPipelineBuilder,
     direction: Node<Vec3<f32>>,
-  ) -> Result<(), ShaderGraphBuildError> {
+  ) -> Result<(), ShaderBuildError> {
     builder.fragment(|builder, binding| {
       let cube = binding.bind_by(&self.texture);
       let sampler = binding.bind_by(&self.sampler);
@@ -74,9 +74,9 @@ struct ShadingBackgroundTask<T> {
 pub trait ShadingBackground {
   fn shading(
     &self,
-    builder: &mut ShaderGraphRenderPipelineBuilder,
+    builder: &mut ShaderRenderPipelineBuilder,
     direction: Node<Vec3<f32>>,
-  ) -> Result<(), ShaderGraphBuildError>;
+  ) -> Result<(), ShaderBuildError>;
 }
 
 impl<T: ShaderPassBuilder> ShaderPassBuilder for ShadingBackgroundTask<T> {
@@ -92,10 +92,7 @@ impl<T: ShaderHashProvider> ShaderHashProvider for ShadingBackgroundTask<T> {
 }
 
 impl<T: ShadingBackground> GraphicsShaderProvider for ShadingBackgroundTask<T> {
-  fn build(
-    &self,
-    builder: &mut ShaderGraphRenderPipelineBuilder,
-  ) -> Result<(), ShaderGraphBuildError> {
+  fn build(&self, builder: &mut ShaderRenderPipelineBuilder) -> Result<(), ShaderBuildError> {
     let direction = builder.vertex(|builder, _| {
       let vertex_index = builder.query::<VertexIndex>()?;
       let proj_inv = builder.query::<CameraProjectionInverseMatrix>()?;
@@ -107,22 +104,27 @@ impl<T: ShadingBackground> GraphicsShaderProvider for ShadingBackgroundTask<T> {
   }
 }
 
-wgsl_fn!(
-  fn background_direction(vertex_index: u32, view: mat4x4<f32>, projection_inv: mat4x4<f32>) -> vec3<f32> {
-    // hacky way to draw a large triangle
-    let tmp1 = i32(vertex_index) / 2;
-    let tmp2 = i32(vertex_index) & 1;
-    let pos = vec4<f32>(
-      f32(tmp1) * 4.0 - 1.0,
-      f32(tmp2) * 4.0 - 1.0,
-      1.0,
-      1.0
-    );
+#[shader_fn]
+fn background_direction(
+  vertex_index: Node<u32>,
+  view: Node<Mat4<f32>>,
+  projection_inv: Node<Mat4<f32>>,
+) -> Node<Vec3<f32>> {
+  // hacky way to draw a large triangle
+  let tmp1 = vertex_index.into_i32() / val(2);
+  let tmp2 = vertex_index.into_i32() & val(1);
+  let pos = (
+    tmp1.into_f32() * val(4.0) - val(1.0),
+    tmp2.into_f32() * val(4.0) - val(1.0),
+    val(1.0),
+    val(1.0),
+  )
+    .into();
 
-    // transposition = inversion for this orthonormal matrix
-    let inv_model_view = transpose(mat3x3<f32>(view.x.xyz, view.y.xyz, view.z.xyz));
-    let unprojected = projection_inv * pos;
+  let model_view: Node<Mat3<f32>> = (view.x().xyz(), view.y().xyz(), view.z().xyz()).into();
+  let inv_model_view = model_view.transpose(); // orthonormal
 
-    return inv_model_view * unprojected.xyz;
-  }
-);
+  let unprojected = projection_inv * pos;
+
+  inv_model_view * unprojected.xyz()
+}

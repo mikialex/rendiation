@@ -91,7 +91,7 @@ impl MaterialStates {
     })
   }
 
-  pub fn apply_pipeline_builder(&self, builder: &mut ShaderGraphFragmentBuilder) {
+  pub fn apply_pipeline_builder(&self, builder: &mut ShaderFragmentBuilder) {
     // override all outputs states
     builder.frag_output.iter_mut().for_each(|(_, state)| {
       let format = state.format;
@@ -127,10 +127,7 @@ impl ShaderHashProvider for StateGPUInner {
 }
 
 impl GraphicsShaderProvider for StateGPUInner {
-  fn build(
-    &self,
-    builder: &mut ShaderGraphRenderPipelineBuilder,
-  ) -> Result<(), ShaderGraphBuildError> {
+  fn build(&self, builder: &mut ShaderRenderPipelineBuilder) -> Result<(), ShaderBuildError> {
     let id = STATE_ID.lock().unwrap();
 
     let value = id.get_value(self.state_id.get()).unwrap();

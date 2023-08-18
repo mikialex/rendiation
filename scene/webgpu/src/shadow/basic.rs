@@ -198,15 +198,15 @@ impl Default for BasicShadowMapInfoList {
   }
 }
 
-only_fragment!(BasicShadowMapInfoGroup, Shader140Array<BasicShadowMapInfo, SHADOW_MAX>);
+only_fragment!(
+  BasicShadowMapInfoGroup,
+  UniformPtr<Shader140Array<BasicShadowMapInfo, SHADOW_MAX>>
+);
 
 impl GraphicsShaderProvider for BasicShadowMapInfoList {
-  fn build(
-    &self,
-    builder: &mut ShaderGraphRenderPipelineBuilder,
-  ) -> Result<(), ShaderGraphBuildError> {
+  fn build(&self, builder: &mut ShaderRenderPipelineBuilder) -> Result<(), ShaderBuildError> {
     builder.fragment(|builder, binding| {
-      let list = binding.bind_by(self.list.gpu.as_ref().unwrap());
+      let list = binding.bind_by_unchecked(self.list.gpu.as_ref().unwrap());
       builder.register::<BasicShadowMapInfoGroup>(list);
       Ok(())
     })

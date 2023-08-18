@@ -109,14 +109,11 @@ impl TransformGPUData {
 impl ShaderHashProvider for NodeGPU {}
 
 impl GraphicsShaderProvider for NodeGPU {
-  fn build(
-    &self,
-    builder: &mut ShaderGraphRenderPipelineBuilder,
-  ) -> Result<(), ShaderGraphBuildError> {
+  fn build(&self, builder: &mut ShaderRenderPipelineBuilder) -> Result<(), ShaderBuildError> {
     builder.vertex(|builder, binding| {
-      let model = binding.bind_by(&self.ubo).expand();
+      let model = binding.bind_by(&self.ubo).load().expand();
       let position = builder.query::<GeometryPosition>()?;
-      let position = model.world_matrix * (position, 1.).into();
+      let position = model.world_matrix * (position, val(1.)).into();
 
       builder.register::<WorldMatrix>(model.world_matrix);
       builder.register::<WorldVertexPosition>(position.xyz());

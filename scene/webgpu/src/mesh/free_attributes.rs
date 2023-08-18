@@ -49,10 +49,7 @@ impl ShaderHashProvider for AttributesMeshGPU {
   }
 }
 impl GraphicsShaderProvider for AttributesMeshGPU {
-  fn build(
-    &self,
-    builder: &mut ShaderGraphRenderPipelineBuilder,
-  ) -> Result<(), ShaderGraphBuildError> {
+  fn build(&self, builder: &mut ShaderRenderPipelineBuilder) -> Result<(), ShaderBuildError> {
     let mode = VertexStepMode::Vertex;
     builder.vertex(|builder, _| {
       for (s, _) in &self.attributes {
@@ -68,7 +65,7 @@ impl GraphicsShaderProvider for AttributesMeshGPU {
             0 => builder.push_single_vertex_layout::<GeometryUVChannel<0>>(mode),
             1 => builder.push_single_vertex_layout::<GeometryUVChannel<1>>(mode),
             2 => builder.push_single_vertex_layout::<GeometryUVChannel<2>>(mode),
-            _ => return Err(ShaderGraphBuildError::SemanticNotSupported),
+            _ => return Err(ShaderBuildError::SemanticNotSupported),
           },
           AttributeSemantic::Joints(channel) => match channel {
             // support 4 channel should be enough
@@ -76,7 +73,7 @@ impl GraphicsShaderProvider for AttributesMeshGPU {
             1 => builder.push_single_vertex_layout::<JointIndexChannel<1>>(mode),
             2 => builder.push_single_vertex_layout::<JointIndexChannel<2>>(mode),
             3 => builder.push_single_vertex_layout::<JointIndexChannel<3>>(mode),
-            _ => return Err(ShaderGraphBuildError::SemanticNotSupported),
+            _ => return Err(ShaderBuildError::SemanticNotSupported),
           },
           AttributeSemantic::Weights(channel) => match channel {
             // support 4 channel should be enough
@@ -84,7 +81,7 @@ impl GraphicsShaderProvider for AttributesMeshGPU {
             1 => builder.push_single_vertex_layout::<WeightChannel<1>>(mode),
             2 => builder.push_single_vertex_layout::<WeightChannel<2>>(mode),
             3 => builder.push_single_vertex_layout::<WeightChannel<3>>(mode),
-            _ => return Err(ShaderGraphBuildError::SemanticNotSupported),
+            _ => return Err(ShaderBuildError::SemanticNotSupported),
           },
         }
       }

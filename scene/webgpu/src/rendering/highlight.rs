@@ -86,50 +86,46 @@ impl<'a, T> ShaderHashProviderAny for HighLightComposeTask<'a, T> {
 }
 
 impl<'a, T> GraphicsShaderProvider for HighLightComposeTask<'a, T> {
-  fn build(
-    &self,
-    builder: &mut ShaderGraphRenderPipelineBuilder,
-  ) -> Result<(), ShaderGraphBuildError> {
+  fn build(&self, builder: &mut ShaderRenderPipelineBuilder) -> Result<(), ShaderBuildError> {
     builder.fragment(|builder, binding| {
-      let highlighter = binding.bind_by(&self.lighter.data).expand();
+      let highlighter = binding.bind_by(&self.lighter.data).load().expand();
 
-      let mask = binding.bind_by(&self.mask);
+      let mask = binding.bind_by_unchecked(&self.mask);
       let sampler = binding.binding::<GPUSamplerView>();
 
       let uv = builder.query::<FragmentUv>()?;
       let size = builder.query::<RenderBufferSize>()?;
 
-      builder.set_fragment_out(
+      builder.store_fragment_out(
         0,
         (
           highlighter.color.xyz(),
-          edge_intensity(uv, mask, sampler, highlighter.width, size) * highlighter.color.w(),
+          edge_intensity_fn(uv, mask, sampler, highlighter.width, size) * highlighter.color.w(),
         ),
       )
     })
   }
 }
 
-wgsl_fn!(
-  fn edge_intensity(
-    uv: vec2<f32>,
-    mask: texture_2d<f32>,
-    sp: sampler,
-    width: f32,
-    buffer_size: vec2<f32>
-  ) -> f32 {
-    var x_step: f32 = width / buffer_size.x;
-    var y_step: f32 = width / buffer_size.y;
+#[shader_fn]
+fn edge_intensity(
+  uv: Node<Vec2<f32>>,
+  mask: HandleNode<ShaderTexture2D>,
+  sp: HandleNode<ShaderSampler>,
+  width: Node<f32>,
+  buffer_size: Node<Vec2<f32>>,
+) -> Node<f32> {
+  let x_step = width / buffer_size.x();
+  let y_step = width / buffer_size.y();
 
-    var all: f32 = 0.0;
-    all = all + textureSample(mask, sp, uv).x;
-    all = all + textureSample(mask, sp, vec2<f32>(uv.x + x_step, uv.y)).x;
-    all = all + textureSample(mask, sp, vec2<f32>(uv.x, uv.y + y_step)).x;
-    all = all + textureSample(mask, sp, vec2<f32>(uv.x + x_step, uv.y+ y_step)).x;
+  let mut all = val(0.0);
+  all += mask.sample(sp, uv).x();
+  all += mask.sample(sp, (uv.x() + x_step, uv.y())).x();
+  all += mask.sample(sp, (uv.x(), uv.y() + y_step)).x();
+  all += mask.sample(sp, (uv.x() + x_step, uv.y() + y_step)).x();
 
-    return (1.0 - 2.0 * abs(all / 4. - 0.5));
-  }
-);
+  val(1.0) - val(2.0) * (all / val(4.) - val(0.5)).abs()
+}
 
 pub struct HighLightDrawMaskTask<T> {
   objects: Option<T>,
@@ -149,21 +145,15 @@ impl ShaderHashProvider for HighLightMaskDispatcher {}
 impl ShaderPassBuilder for HighLightMaskDispatcher {}
 
 impl GraphicsShaderProvider for HighLightMaskDispatcher {
-  fn build(
-    &self,
-    builder: &mut ShaderGraphRenderPipelineBuilder,
-  ) -> Result<(), ShaderGraphBuildError> {
+  fn build(&self, builder: &mut ShaderRenderPipelineBuilder) -> Result<(), ShaderBuildError> {
     builder.fragment(|builder, _| {
       builder.define_out_by(channel(HIGH_LIGHT_MASK_TARGET_FORMAT));
       Ok(())
     })
   }
 
-  fn post_build(
-    &self,
-    builder: &mut ShaderGraphRenderPipelineBuilder,
-  ) -> Result<(), ShaderGraphBuildError> {
-    builder.fragment(|builder, _| builder.set_fragment_out(0, consts(Vec4::one())))
+  fn post_build(&self, builder: &mut ShaderRenderPipelineBuilder) -> Result<(), ShaderBuildError> {
+    builder.fragment(|builder, _| builder.store_fragment_out(0, val(Vec4::one())))
   }
 }
 

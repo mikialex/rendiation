@@ -265,16 +265,10 @@ impl<'a> ShaderHashProviderAny for ForwardSceneLightingDispatcher<'a> {
 }
 
 impl<'a> GraphicsShaderProvider for ForwardSceneLightingDispatcher<'a> {
-  fn build(
-    &self,
-    builder: &mut ShaderGraphRenderPipelineBuilder,
-  ) -> Result<(), ShaderGraphBuildError> {
+  fn build(&self, builder: &mut ShaderRenderPipelineBuilder) -> Result<(), ShaderBuildError> {
     self.base.build(builder)
   }
-  fn post_build(
-    &self,
-    builder: &mut ShaderGraphRenderPipelineBuilder,
-  ) -> Result<(), ShaderGraphBuildError> {
+  fn post_build(&self, builder: &mut ShaderRenderPipelineBuilder) -> Result<(), ShaderBuildError> {
     self.shadows.build(builder)?;
 
     let shading_impl = if let Some(override_shading) = self.override_shading {
@@ -295,19 +289,17 @@ impl<'a> GraphicsShaderProvider for ForwardSceneLightingDispatcher<'a> {
     builder.fragment(|builder, _| {
       let ldr = builder.query::<LDRLightResult>()?;
 
-      let alpha = builder
-        .query::<AlphaChannel>()
-        .unwrap_or_else(|_| consts(1.0));
+      let alpha = builder.query::<AlphaChannel>().unwrap_or_else(|_| val(1.0));
 
       // should we use other way to get mask mode?
       let alpha = if builder.query::<AlphaCutChannel>().is_ok() {
-        if_by(alpha.equals(consts(0.)), || builder.discard());
-        consts(1.)
+        if_by(alpha.equals(val(0.)), || builder.discard());
+        val(1.)
       } else {
         alpha
       };
 
-      builder.set_fragment_out(0, (ldr, alpha))
+      builder.store_fragment_out(0, (ldr, alpha))
     })?;
 
     if let Some(debugger) = &self.debugger {
@@ -323,9 +315,9 @@ only_fragment!(LightCount, u32);
 impl ForwardLightingSystem {
   pub fn compute_lights(
     &self,
-    builder: &mut ShaderGraphRenderPipelineBuilder,
+    builder: &mut ShaderRenderPipelineBuilder,
     shading_impl: &dyn LightableSurfaceShadingDyn,
-  ) -> Result<(), ShaderGraphBuildError> {
+  ) -> Result<(), ShaderBuildError> {
     builder.fragment(|builder, binding| {
       let lengths_info = binding.bind_by(&self.lengths);
       let camera_position = builder.query::<CameraWorldMatrix>()?.position();
@@ -340,11 +332,11 @@ impl ForwardLightingSystem {
       };
       let shading = shading_impl.construct_shading_dyn(builder);
 
-      let mut light_specular_result = consts(Vec3::zero());
-      let mut light_diffuse_result = consts(Vec3::zero());
+      let mut light_specular_result = val(Vec3::zero());
+      let mut light_diffuse_result = val(Vec3::zero());
 
       for (i, lights) in self.lights_collections.values().enumerate() {
-        let length = lengths_info.index(consts(i as u32)).x();
+        let length = lengths_info.index(val(i as u32)).load().x();
         builder.register::<LightCount>(length);
 
         let (diffuse, specular) = lights.as_ref().as_ref().compute_lights(
@@ -550,18 +542,18 @@ impl<T: ShaderLight> ShaderPassBuilder for LightList<T> {
 impl<T: ShaderLight> LightCollectionCompute for LightList<T> {
   fn compute_lights(
     &self,
-    builder: &mut ShaderGraphFragmentBuilderView,
-    binding: &mut ShaderGraphBindGroupDirectBuilder,
+    builder: &mut ShaderFragmentBuilderView,
+    binding: &mut ShaderBindGroupDirectBuilder,
     shading_impl: &dyn LightableSurfaceShadingDyn,
     shading: &dyn Any,
     geom_ctx: &ENode<ShaderLightingGeometricCtx>,
-  ) -> Result<(Node<Vec3<f32>>, Node<Vec3<f32>>), ShaderGraphBuildError> {
-    let lights = binding.bind_by(self.uniform.gpu.as_ref().unwrap());
+  ) -> Result<(Node<Vec3<f32>>, Node<Vec3<f32>>), ShaderBuildError> {
+    let lights: UniformNode<_> = binding.bind_by_unchecked(self.uniform.gpu.as_ref().unwrap());
 
     let dep = T::create_dep(builder)?;
 
-    let light_specular_result = consts(Vec3::zero()).mutable();
-    let light_diffuse_result = consts(Vec3::zero()).mutable();
+    let light_specular_result = val(Vec3::zero()).make_local_var();
+    let light_diffuse_result = val(Vec3::zero()).make_local_var();
 
     let light_count = builder.query::<LightCount>()?;
 
@@ -571,16 +563,16 @@ impl<T: ShaderLight> LightCollectionCompute for LightList<T> {
     };
 
     for_by_ok(light_iter, |_, light, _| {
-      let light = light.expand();
+      let light = light.load_unchecked().expand();
       let light_result =
         T::compute_direct_light(builder, &light, geom_ctx, shading_impl, shading, &dep)?;
 
       // improve impl by add assign
-      light_specular_result.set(light_specular_result.get() + light_result.specular);
-      light_diffuse_result.set(light_diffuse_result.get() + light_result.diffuse);
+      light_specular_result.store(light_specular_result.load() + light_result.specular);
+      light_diffuse_result.store(light_diffuse_result.load() + light_result.diffuse);
       Ok(())
     })?;
 
-    Ok((light_diffuse_result.get(), light_specular_result.get()))
+    Ok((light_diffuse_result.load(), light_specular_result.load()))
   }
 }

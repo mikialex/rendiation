@@ -1,4 +1,4 @@
-use shadergraph::{Shader140Array, ShaderStructMemberValueNodeType, Std140};
+use rendiation_shader_api::{Shader140Array, ShaderSizedValueNodeType, Std140};
 
 use crate::*;
 
@@ -165,7 +165,7 @@ impl<T: Std140 + Default, const N: usize> ClampedUniformList<T, N> {
 
 impl<T, const N: usize> ShaderPassBuilder for ClampedUniformList<T, N>
 where
-  T: Std140 + ShaderStructMemberValueNodeType,
+  T: Std140 + ShaderSizedValueNodeType,
 {
   fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
     ctx.binding.bind(self.gpu.as_ref().unwrap());

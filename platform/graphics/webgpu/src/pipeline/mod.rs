@@ -1,6 +1,5 @@
 use __core::num::NonZeroU32;
-use shadergraph::*;
-use wgsl_codegen_graph::*;
+use rendiation_shader_api::*;
 
 use crate::*;
 pub mod container;
@@ -48,7 +47,7 @@ pub fn map_shader_value_ty_to_binding_layout_type(
   let ty = v
     .ty
     .visit_single(|ty| match *ty {
-      Fixed(_) => gpu::BindingType::Buffer {
+      Sized(_) => gpu::BindingType::Buffer {
         ty: if v.should_as_storage_buffer_if_is_buffer_like {
           gpu::BufferBindingType::Storage { read_only: true }
         } else {
@@ -73,7 +72,6 @@ pub fn map_shader_value_ty_to_binding_layout_type(
         sample_type,
         view_dimension: dimension,
       },
-      CompareSampler => gpu::BindingType::Sampler(gpu::SamplerBindingType::Comparison),
     })
     .unwrap();
 
@@ -103,43 +101,69 @@ pub fn create_bindgroup_layout_by_node_ty<'a>(
 }
 
 impl GPUDevice {
-  pub fn build_pipeline_by_shadergraph(
+  pub fn build_pipeline_by_shader_api(
     &self,
-    builder: ShaderGraphRenderPipelineBuilder,
-  ) -> Result<GPURenderPipeline, ShaderGraphBuildError> {
+    builder: ShaderRenderPipelineBuilder,
+  ) -> Result<GPURenderPipeline, ShaderBuildError> {
     let log_result = builder.log_result;
-    let compile_result = builder.build(WGSL)?;
+    let compile_result = builder.build()?;
 
-    let ShaderGraphCompileResult {
-      shader,
+    let ShaderCompileResult {
+      vertex_shader: (vertex_entry, vertex_shader),
+      frag_shader: (frag_entry, frag_shader),
       bindings,
       vertex_layouts,
       primitive_state,
       color_states,
       depth_stencil,
       multisample,
-      target,
     } = compile_result;
 
-    let WGSLShaderSource { vertex, fragment } = shader;
+    fn convert_module_by_wgsl(module: &naga::Module, v: naga::valid::ValidationFlags) -> String {
+      use naga::back::wgsl;
+
+      let info = naga::valid::Validator::new(v, naga::valid::Capabilities::all())
+        .validate(module)
+        .unwrap();
+
+      wgsl::write_string(module, &info, wgsl::WriterFlags::empty()).unwrap()
+    }
+
+    let naga_vertex = *vertex_shader.downcast::<naga::Module>().unwrap();
+    let naga_fragment = *frag_shader.downcast::<naga::Module>().unwrap();
 
     if log_result {
       println!();
-      println!("=== shadergraph build result ===");
+      println!("=== rendiation_shader_api build result ===");
+
       println!("vertex shader: ");
-      println!("{vertex}");
+      let vert = convert_module_by_wgsl(&naga_vertex, naga::valid::ValidationFlags::empty());
+      println!("{vert}",);
+
       println!("fragment shader: ");
-      println!("{fragment}");
+      let frag = convert_module_by_wgsl(&naga_fragment, naga::valid::ValidationFlags::empty());
+      println!("{frag}");
+
+      println!("=== result output finished ===");
     }
 
     let vertex = self.create_shader_module(gpu::ShaderModuleDescriptor {
       label: None,
-      source: gpu::ShaderSource::Wgsl(Cow::Borrowed(vertex.as_str())),
+      source: gpu::ShaderSource::Naga(Cow::Owned(naga_vertex)),
     });
     let fragment = self.create_shader_module(gpu::ShaderModuleDescriptor {
       label: None,
-      source: gpu::ShaderSource::Wgsl(Cow::Borrowed(fragment.as_str())),
+      source: gpu::ShaderSource::Naga(Cow::Owned(naga_fragment)),
     });
+
+    // let vertex = self.create_shader_module(gpu::ShaderModuleDescriptor {
+    //   label: None,
+    //   source: gpu::ShaderSource::Wgsl(Cow::Owned(convert_module_by_wgsl(&naga_vertex))),
+    // });
+    // let fragment = self.create_shader_module(gpu::ShaderModuleDescriptor {
+    //   label: None,
+    //   source: gpu::ShaderSource::Wgsl(Cow::Owned(convert_module_by_wgsl(&naga_fragment))),
+    // });
 
     let binding = &bindings.bindings;
     let last_empty_count = binding
@@ -170,12 +194,12 @@ impl GPUDevice {
       layout: Some(&pipeline_layout),
       vertex: gpu::VertexState {
         module: &vertex,
-        entry_point: target.vertex_entry_name(),
+        entry_point: &vertex_entry,
         buffers: vertex_buffers.as_slice(),
       },
       fragment: Some(gpu::FragmentState {
         module: &fragment,
-        entry_point: target.fragment_entry_name(),
+        entry_point: &frag_entry,
         targets: color_states
           .iter()
           .map(|s| Some(s.clone()))
@@ -192,7 +216,7 @@ impl GPUDevice {
   }
 }
 
-pub fn convert_vertex_layout(layout: &ShaderGraphVertexBufferLayout) -> gpu::VertexBufferLayout {
+pub fn convert_vertex_layout(layout: &ShaderVertexBufferLayout) -> gpu::VertexBufferLayout {
   gpu::VertexBufferLayout {
     array_stride: layout.array_stride,
     step_mode: layout.step_mode,

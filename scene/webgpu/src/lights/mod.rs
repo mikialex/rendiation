@@ -68,7 +68,7 @@ pub struct ShaderIncidentLight {
 only_fragment!(HDRLightResult, Vec3<f32>);
 only_fragment!(LDRLightResult, Vec3<f32>);
 
-#[derive(Copy, Clone, ShaderStruct)]
+#[derive(Copy, Clone, ShaderStruct, Default)]
 pub struct ShaderLightingResult {
   pub diffuse: Vec3<f32>,
   pub specular: Vec3<f32>,
@@ -83,61 +83,61 @@ pub struct ShaderLightingGeometricCtx {
 }
 
 pub trait ShaderLight:
-  ShaderGraphStructuralNodeType + ShaderStructMemberValueNodeType + Std140 + Sized + Default
+  ShaderStructuralNodeType + ShaderSizedValueNodeType + Std140 + Sized + Default
 {
   /// this is to avoid mutable borrow errors in for_by and if_by.
   type Dependency;
 
   fn create_dep(
-    builder: &mut ShaderGraphFragmentBuilderView,
-  ) -> Result<Self::Dependency, ShaderGraphBuildError>;
+    builder: &mut ShaderFragmentBuilderView,
+  ) -> Result<Self::Dependency, ShaderBuildError>;
 
   fn compute_direct_light(
-    builder: &ShaderGraphFragmentBuilderView,
+    builder: &ShaderFragmentBuilderView,
     light: &ENode<Self>,
     ctx: &ENode<ShaderLightingGeometricCtx>,
     shading_impl: &dyn LightableSurfaceShadingDyn,
     shading: &dyn Any,
     dep: &Self::Dependency,
-  ) -> Result<ENode<ShaderLightingResult>, ShaderGraphBuildError>;
+  ) -> Result<ENode<ShaderLightingResult>, ShaderBuildError>;
 }
 
 /// Punctual lights are defined as parameterized, infinitely small points that
 /// emit light in well-defined directions and intensities.
 pub trait PunctualShaderLight:
-  ShaderGraphStructuralNodeType + ShaderStructMemberValueNodeType + Std140 + Sized + Default
+  ShaderStructuralNodeType + ShaderSizedValueNodeType + Std140 + Sized + Default
 {
   type PunctualDependency;
 
   fn create_punctual_dep(
-    builder: &mut ShaderGraphFragmentBuilderView,
-  ) -> Result<Self::PunctualDependency, ShaderGraphBuildError>;
+    builder: &mut ShaderFragmentBuilderView,
+  ) -> Result<Self::PunctualDependency, ShaderBuildError>;
 
   fn compute_incident_light(
-    builder: &ShaderGraphFragmentBuilderView,
+    builder: &ShaderFragmentBuilderView,
     light: &ENode<Self>,
     dep: &Self::PunctualDependency,
     ctx: &ENode<ShaderLightingGeometricCtx>,
-  ) -> Result<ENode<ShaderIncidentLight>, ShaderGraphBuildError>;
+  ) -> Result<ENode<ShaderIncidentLight>, ShaderBuildError>;
 }
 
 impl<T: PunctualShaderLight> ShaderLight for T {
   type Dependency = T::PunctualDependency;
 
   fn create_dep(
-    builder: &mut ShaderGraphFragmentBuilderView,
-  ) -> Result<Self::Dependency, ShaderGraphBuildError> {
+    builder: &mut ShaderFragmentBuilderView,
+  ) -> Result<Self::Dependency, ShaderBuildError> {
     T::create_punctual_dep(builder)
   }
 
   fn compute_direct_light(
-    builder: &ShaderGraphFragmentBuilderView,
+    builder: &ShaderFragmentBuilderView,
     light: &ENode<Self>,
     ctx: &ENode<ShaderLightingGeometricCtx>,
     shading_impl: &dyn LightableSurfaceShadingDyn,
     shading: &dyn Any,
     dep: &Self::Dependency,
-  ) -> Result<ENode<ShaderLightingResult>, ShaderGraphBuildError> {
+  ) -> Result<ENode<ShaderLightingResult>, ShaderBuildError> {
     // todo, check if incident light intensity zero
     let incident = T::compute_incident_light(builder, light, dep, ctx)?;
     shading_impl.compute_lighting_by_incident_dyn(shading, &incident, ctx)

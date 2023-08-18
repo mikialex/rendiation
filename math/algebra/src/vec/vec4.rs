@@ -66,6 +66,9 @@ impl<T: One + Zero + Copy> Vector<T> for Vec4<T> {
       w: f(self.w, v2.w),
     }
   }
+  fn channel_count() -> usize {
+    4
+  }
 }
 
 impl<T> fmt::Display for Vec4<T>

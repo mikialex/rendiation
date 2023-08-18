@@ -30,6 +30,8 @@ pub struct ImmediateSampler {
 
 impl ShaderBindingProvider for ImmediateSampler {
   type Node = ShaderSampler;
+
+  const SPACE: AddressSpace = AddressSpace::Handle;
 }
 
 impl From<ImmediateSampler> for SamplerDescriptor<'static> {
@@ -48,15 +50,15 @@ impl<T> ShaderPassBuilder for CopyFrame<T> {
 impl<T> GraphicsShaderProvider for CopyFrame<T> {
   fn build(
     &self,
-    builder: &mut shadergraph::ShaderGraphRenderPipelineBuilder,
-  ) -> Result<(), shadergraph::ShaderGraphBuildError> {
+    builder: &mut rendiation_shader_api::ShaderRenderPipelineBuilder,
+  ) -> Result<(), rendiation_shader_api::ShaderBuildError> {
     builder.fragment(|builder, binding| {
       let sampler = binding.bind_by(&self.sampler);
-      let source = binding.bind_by(&self.source);
+      let source = binding.bind_by_unchecked(&self.source);
 
       let uv = builder.query::<FragmentUv>()?;
       let value = source.sample(sampler, uv);
-      builder.set_fragment_out(0, value)
+      builder.store_fragment_out(0, value)
     })
   }
 }

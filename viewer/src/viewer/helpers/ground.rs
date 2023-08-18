@@ -9,12 +9,11 @@ use rendiation_scene_webgpu::{
   default_dispatcher, generate_quad, CameraGPU, MaterialStates, PassContentWithSceneAndCamera,
   SceneRenderResourceGroup, QUAD_DRAW_CMD,
 };
-use shadergraph::*;
+use rendiation_shader_api::*;
 use webgpu::{
   create_uniform, RenderComponent, RenderComponentAny, RenderEmitter, ShaderHashProvider,
   ShaderHashProviderAny, ShaderPassBuilder, UniformBufferDataView, GPU,
 };
-use wgsl_shader_derives::wgsl_fn;
 
 pub struct GridGround {
   grid_config: SceneItemRef<GridGroundConfig>,
@@ -108,12 +107,9 @@ impl ShaderPassBuilder for GridGroundShading {
   }
 }
 impl GraphicsShaderProvider for GridGroundShading {
-  fn build(
-    &self,
-    builder: &mut ShaderGraphRenderPipelineBuilder,
-  ) -> Result<(), ShaderGraphBuildError> {
+  fn build(&self, builder: &mut ShaderRenderPipelineBuilder) -> Result<(), ShaderBuildError> {
     builder.fragment(|builder, binding| {
-      let shading = binding.bind_by(&self.shading);
+      let shading = binding.bind_by(&self.shading).load();
       let world_position = builder.query::<FragmentWorldPosition>()?;
 
       let grid = grid(world_position, shading);
@@ -124,14 +120,14 @@ impl GraphicsShaderProvider for GridGroundShading {
   }
 }
 
-wgsl_fn!(
-  fn grid(position: vec3<f32>, config: GridGroundConfig) -> vec4<f32> {
-    let coord = position.xz * config.scale;
-    let grid = abs(fract(coord - 0.5) - 0.5) / fwidth(coord);
-    let lined = min(grid.x, grid.y);
-    return vec4<f32>(0.2, 0.2, 0.2, 1.0 - min(lined, 1.0) + 0.1);
-  }
-);
+#[shader_fn]
+fn grid(position: Node<Vec3<f32>>, config: Node<GridGroundConfig>) -> Node<Vec4<f32>> {
+  let coord = position.xz() * GridGroundConfig::scale(config);
+  let grid =
+    ((coord - val(Vec2::splat(0.5))).fract() - val(Vec2::splat(0.5))).abs() / coord.fwidth();
+  let lined = grid.x().min(grid.y());
+  (val(0.2), val(0.2), val(0.2), val(1.1) - lined.min(val(1.0))).into()
+}
 
 pub struct InfinityShaderPlane {
   plane: UniformBufferDataView<ShaderPlane>,
@@ -165,16 +161,13 @@ impl<'a> ShaderPassBuilder for InfinityShaderPlaneEffect<'a> {
 }
 
 impl<'a> GraphicsShaderProvider for InfinityShaderPlaneEffect<'a> {
-  fn build(
-    &self,
-    builder: &mut ShaderGraphRenderPipelineBuilder,
-  ) -> Result<(), ShaderGraphBuildError> {
+  fn build(&self, builder: &mut ShaderRenderPipelineBuilder) -> Result<(), ShaderBuildError> {
     self.camera.inject_uniforms(builder);
 
     builder.vertex(|builder, _| {
       let out = generate_quad(builder.query::<VertexIndex>()?).expand();
       builder.set_vertex_out::<FragmentUv>(out.uv);
-      builder.register::<ClipPosition>((out.position.xyz(), 1.));
+      builder.register::<ClipPosition>((out.position.xyz(), val(1.)));
 
       builder.primitive_state = webgpu::PrimitiveState {
         topology: webgpu::PrimitiveTopology::TriangleStrip,
@@ -194,24 +187,24 @@ impl<'a> GraphicsShaderProvider for InfinityShaderPlaneEffect<'a> {
       let uv = builder.query::<FragmentUv>()?;
       let plane = binding.bind_by(self.plane);
 
-      let ndc_xy = uv * consts(2.) - consts(Vec2::one());
-      let ndc_xy = ndc_xy * consts(Vec2::new(1., -1.));
+      let ndc_xy = uv * val(2.) - val(Vec2::one());
+      let ndc_xy = ndc_xy * val(Vec2::new(1., -1.));
 
-      let far = view_proj_inv * (ndc_xy, 1., 1.).into();
-      let near = view_proj_inv * (ndc_xy, 0., 1.).into();
+      let far = view_proj_inv * (ndc_xy, val(1.), val(1.)).into();
+      let near = view_proj_inv * (ndc_xy, val(0.), val(1.)).into();
 
-      let far = far.xyz() / far.w();
-      let near = near.xyz() / near.w();
+      let far = far.xyz() / far.w().splat();
+      let near = near.xyz() / near.w().splat();
 
       let direction = (far - near).normalize();
       let origin = near - (near - world.position()).dot(direction) * direction;
 
-      let hit = ray_plane_intersect(origin, direction, plane);
+      let hit = ray_plane_intersect(origin, direction, plane.load().expand());
 
       let plane_hit = hit.xyz();
       let plane_if_hit = hit.w(); // 1 is hit, 0 is not
 
-      let plane_hit_project = proj * view * (plane_hit, consts(1.)).into();
+      let plane_hit_project = proj * view * (plane_hit, val(1.)).into();
       builder.register::<FragmentDepthOutput>(plane_hit_project.z() / plane_hit_project.w());
 
       builder.register::<FragmentWorldPosition>(plane_hit);
@@ -221,10 +214,7 @@ impl<'a> GraphicsShaderProvider for InfinityShaderPlaneEffect<'a> {
   }
 
   // override
-  fn post_build(
-    &self,
-    builder: &mut ShaderGraphRenderPipelineBuilder,
-  ) -> Result<(), ShaderGraphBuildError> {
+  fn post_build(&self, builder: &mut ShaderRenderPipelineBuilder) -> Result<(), ShaderBuildError> {
     builder.fragment(|builder, _| {
       let has_hit = builder.query::<IsHitInfinityPlane>()?;
       let previous_display = builder.query::<DefaultDisplay>()?;
@@ -247,25 +237,24 @@ impl<'a> GraphicsShaderProvider for InfinityShaderPlaneEffect<'a> {
 
 both!(IsHitInfinityPlane, f32);
 
-wgsl_fn! {
-  fn ray_plane_intersect(origin: vec3<f32>, direction: vec3<f32>, plane: ShaderPlane) -> vec4<f32> {
-    let denominator = dot(plane.normal, direction);
+fn ray_plane_intersect(
+  origin: Node<Vec3<f32>>,
+  direction: Node<Vec3<f32>>,
+  plane: ENode<ShaderPlane>,
+) -> Node<Vec4<f32>> {
+  let denominator = plane.normal.dot(direction);
 
-    // if denominator == T::zero() {
-    //   // line is coplanar, return origin
-    //   if plane.distance_to(&self.origin) == T::zero() {
-    //     return T::zero().into();
-    //   }
+  // if denominator == T::zero() {
+  //   // line is coplanar, return origin
+  //   if plane.distance_to(&self.origin) == T::zero() {
+  //     return T::zero().into();
+  //   }
 
-    //   return None;
-    // }
+  //   return None;
+  // }
 
-    let t = -(dot(origin, plane.normal) + plane.constant) / denominator;
+  let t = -(plane.normal.dot(origin) + plane.constant) / denominator;
 
-    if (t >= 0.0) {
-      return vec4<f32>(origin + direction * t, 1.0);
-    } else {
-      return vec4<f32>(0.0);
-    }
-  }
+  t.greater_equal_than(0.)
+    .select((origin + direction * t, val(1.0)), Vec4::zero())
 }

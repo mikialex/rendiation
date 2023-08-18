@@ -19,20 +19,18 @@ impl ShaderPassBuilder for DefaultPassDispatcher {
 }
 
 impl GraphicsShaderProvider for DefaultPassDispatcher {
-  fn build(
-    &self,
-    builder: &mut ShaderGraphRenderPipelineBuilder,
-  ) -> Result<(), ShaderGraphBuildError> {
+  fn build(&self, builder: &mut ShaderRenderPipelineBuilder) -> Result<(), ShaderBuildError> {
     let pass = builder.bindgroups.bind_by(&self.pass_info);
 
     builder.vertex(|builder, _| {
-      let pass = pass.using().expand();
+      let pass = pass.using().load().expand();
       builder.register::<RenderBufferSize>(pass.buffer_size);
       builder.register::<TexelSize>(pass.texel_size);
       Ok(())
     })?;
+
     builder.fragment(|builder, _| {
-      let pass = pass.using().expand();
+      let pass = pass.using().load().expand();
       builder.register::<RenderBufferSize>(pass.buffer_size);
       builder.register::<TexelSize>(pass.texel_size);
 
@@ -57,14 +55,11 @@ impl GraphicsShaderProvider for DefaultPassDispatcher {
     })
   }
 
-  fn post_build(
-    &self,
-    builder: &mut ShaderGraphRenderPipelineBuilder,
-  ) -> Result<(), ShaderGraphBuildError> {
+  fn post_build(&self, builder: &mut ShaderRenderPipelineBuilder) -> Result<(), ShaderBuildError> {
     builder.fragment(|builder, _| {
       if self.auto_write && !self.formats.color_formats.is_empty() {
         let default = builder.query_or_insert_default::<DefaultDisplay>();
-        builder.set_fragment_out(0, default)
+        builder.store_fragment_out(0, default)
       } else {
         Ok(())
       }

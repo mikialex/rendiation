@@ -1,0 +1,10 @@
+[package]
+authors = ["mikialex <18516340862@163.com>"]
+edition = "2021"
+name = "rendiation-shader-backend-naga"
+version = "0.1.0"
+
+[dependencies]
+rendiation-shader-api = { path = "../../api" }
+naga = { version = "0.13.0" }
+fast-hash-collection = { path = "../../../utils/fast-hash-collection" }

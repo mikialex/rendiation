@@ -132,8 +132,8 @@ impl Mipmap2DGenerator {
 pub trait Mipmap2dReducer: Send + Sync {
   fn reduce(
     &self,
-    previous_level: Node<ShaderTexture2D>,
-    sampler: Node<ShaderSampler>,
+    previous_level: HandleNode<ShaderTexture2D>,
+    sampler: HandleNode<ShaderSampler>,
     current: Node<Vec2<f32>>,
     texel_size: Node<Vec2<f32>>,
   ) -> Node<Vec4<f32>>;
@@ -145,16 +145,16 @@ impl Mipmap2dReducer for DefaultMipmapReducer {
   #[rustfmt::skip]
   fn reduce(
     &self,
-    previous_level: Node<ShaderTexture2D>,
-    sampler: Node<ShaderSampler>,
+    previous_level: HandleNode<ShaderTexture2D>,
+    sampler: HandleNode<ShaderSampler>,
     current: Node<Vec2<f32>>,
     texel_size: Node<Vec2<f32>>,
   ) -> Node<Vec4<f32>> {
-    let mut r = previous_level.sample_level(sampler, current + texel_size * consts(Vec2::new( 0.5,  0.5)), consts(0.));
-    r        += previous_level.sample_level(sampler, current + texel_size * consts(Vec2::new(-0.5, -0.5)), consts(0.));
-    r        += previous_level.sample_level(sampler, current + texel_size * consts(Vec2::new(-0.5,  0.5)), consts(0.));
-    r        += previous_level.sample_level(sampler, current + texel_size * consts(Vec2::new( 0.5, -0.5)), consts(0.));
-    r / consts(4.)
+    let mut r = previous_level.sample_level(sampler, current + texel_size * val(Vec2::new( 0.5,  0.5)), val(0.));
+    r        += previous_level.sample_level(sampler, current + texel_size * val(Vec2::new(-0.5, -0.5)), val(0.));
+    r        += previous_level.sample_level(sampler, current + texel_size * val(Vec2::new(-0.5,  0.5)), val(0.));
+    r        += previous_level.sample_level(sampler, current + texel_size * val(Vec2::new( 0.5, -0.5)), val(0.));
+    r / val(4.).splat()
   }
 }
 struct Mipmap2DGeneratorTask<'a> {
@@ -178,14 +178,11 @@ impl<'a> ShaderHashProviderAny for Mipmap2DGeneratorTask<'a> {
 }
 
 impl<'a> GraphicsShaderProvider for Mipmap2DGeneratorTask<'a> {
-  fn build(
-    &self,
-    builder: &mut ShaderGraphRenderPipelineBuilder,
-  ) -> Result<(), ShaderGraphBuildError> {
+  fn build(&self, builder: &mut ShaderRenderPipelineBuilder) -> Result<(), ShaderBuildError> {
     builder.fragment(|builder, binding| {
       let position = builder.query::<FragmentPosition>()?.xy();
       let buffer_size = builder.query::<RenderBufferSize>()?;
-      let texel_size = builder.query::<TexelSize>()? * consts(0.5);
+      let texel_size = builder.query::<TexelSize>()? * val(0.5);
       let previous_level = binding.bind_by(&self.view);
       let sampler = binding.binding::<GPUSamplerView>();
 
@@ -193,7 +190,7 @@ impl<'a> GraphicsShaderProvider for Mipmap2DGeneratorTask<'a> {
         .reducer
         .reduce(previous_level, sampler, position / buffer_size, texel_size);
 
-      builder.set_fragment_out(0, result)
+      builder.store_fragment_out(0, result)
     })
   }
 }

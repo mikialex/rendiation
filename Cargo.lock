@@ -1540,9 +1540,10 @@ dependencies = [
  "rendiation-color",
  "rendiation-geometry",
  "rendiation-renderable-mesh",
+ "rendiation-shader-api",
+ "rendiation-shader-backend-naga",
  "rendiation-texture",
  "rendiation-webgpu",
- "shadergraph",
  "wasm-bindgen-futures",
  "web-sys",
  "winit",
@@ -1653,15 +1654,6 @@ name = "linked-hash-map"
 version = "0.5.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7fb9b38af92608140b86b693604b9ffcc5824240a484d1ecd4795bacb2fe88f3"
-
-[[package]]
-name = "linked_hash_set"
-version = "0.1.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "47186c6da4d81ca383c7c47c1bfc80f4b95f4720514d860a5407aaf4233f9588"
-dependencies = [
- "linked-hash-map",
-]
 
 [[package]]
 name = "lock_api"
@@ -2657,7 +2649,7 @@ dependencies = [
  "incremental",
  "rendiation-algebra",
  "rendiation-geometry",
- "shadergraph",
+ "rendiation-shader-api",
  "soa_derive",
  "space-algorithm",
 ]
@@ -2714,8 +2706,8 @@ dependencies = [
  "rendiation-geometry",
  "rendiation-renderable-mesh",
  "rendiation-scene-core",
+ "rendiation-shader-api",
  "rendiation-texture",
- "shadergraph",
 ]
 
 [[package]]
@@ -2788,17 +2780,43 @@ dependencies = [
  "rendiation-geometry",
  "rendiation-renderable-mesh",
  "rendiation-scene-core",
+ "rendiation-shader-api",
  "rendiation-texture",
  "rendiation-texture-gpu-system",
  "rendiation-webgpu",
- "shadergraph",
  "tree",
- "wgsl-shader-derives",
 ]
 
 [[package]]
 name = "rendiation-shader-api"
 version = "0.1.0"
+dependencies = [
+ "bytemuck",
+ "fast-hash-collection",
+ "once_cell",
+ "paste",
+ "rendiation-algebra",
+ "rendiation-shader-derives",
+ "wgpu-types",
+]
+
+[[package]]
+name = "rendiation-shader-backend-naga"
+version = "0.1.0"
+dependencies = [
+ "fast-hash-collection",
+ "naga",
+ "rendiation-shader-api",
+]
+
+[[package]]
+name = "rendiation-shader-derives"
+version = "0.1.0"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 1.0.72",
+]
 
 [[package]]
 name = "rendiation-texture"
@@ -2817,7 +2835,7 @@ dependencies = [
 name = "rendiation-texture-gpu-system"
 version = "0.1.0"
 dependencies = [
- "shadergraph",
+ "rendiation-shader-api",
  "slab",
 ]
 
@@ -2857,15 +2875,16 @@ dependencies = [
  "dyn-downcast",
  "fast-hash-collection",
  "futures",
+ "naga",
  "reactive",
  "rendiation-algebra",
+ "rendiation-shader-api",
+ "rendiation-shader-backend-naga",
  "rendiation-texture-types",
- "shadergraph",
  "thiserror",
  "typed-arena",
  "wgpu",
  "wgpu-types",
- "wgsl-codegen-graph",
  "winit",
 ]
 
@@ -3012,50 +3031,6 @@ dependencies = [
  "expat-sys",
  "freetype-sys",
  "pkg-config",
-]
-
-[[package]]
-name = "shader-derives"
-version = "0.1.0"
-dependencies = [
- "proc-macro2",
- "quote",
- "shader-derives-shared",
- "syn 1.0.72",
-]
-
-[[package]]
-name = "shader-derives-shared"
-version = "0.1.0"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn 1.0.72",
-]
-
-[[package]]
-name = "shadergraph"
-version = "0.1.0"
-dependencies = [
- "arena-graph",
- "bytemuck",
- "fast-hash-collection",
- "once_cell",
- "paste",
- "rendiation-algebra",
- "shader-derives",
- "wgpu-types",
-]
-
-[[package]]
-name = "shadergraph-testing"
-version = "0.1.0"
-dependencies = [
- "naga",
- "shadergraph",
- "wgpu-types",
- "wgsl-codegen-graph",
- "wgsl-shader-derives",
 ]
 
 [[package]]
@@ -3519,12 +3494,11 @@ dependencies = [
  "rendiation-scene-interaction",
  "rendiation-scene-obj-loader",
  "rendiation-scene-webgpu",
+ "rendiation-shader-api",
  "rendiation-texture",
  "rendiation-webgpu",
  "rfd",
- "shadergraph",
  "wasm-bindgen-futures",
- "wgsl-shader-derives",
 ]
 
 [[package]]
@@ -3802,33 +3776,6 @@ dependencies = [
  "bitflags 2.0.2",
  "js-sys",
  "web-sys",
-]
-
-[[package]]
-name = "wgsl-codegen-graph"
-version = "0.1.0"
-dependencies = [
- "fast-hash-collection",
- "linked_hash_set",
- "shadergraph",
-]
-
-[[package]]
-name = "wgsl-parser"
-version = "0.1.0"
-dependencies = [
- "fast-hash-collection",
-]
-
-[[package]]
-name = "wgsl-shader-derives"
-version = "0.1.0"
-dependencies = [
- "proc-macro2",
- "quote",
- "shader-derives-shared",
- "syn 1.0.72",
- "wgsl-parser",
 ]
 
 [[package]]

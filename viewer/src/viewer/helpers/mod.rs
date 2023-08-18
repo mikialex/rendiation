@@ -1,7 +1,7 @@
 use incremental::EnumWrap;
 use rendiation_scene_core::*;
 use rendiation_scene_webgpu::*;
-use shadergraph::*;
+use rendiation_shader_api::*;
 use webgpu::*;
 
 use crate::{FatLineMaterial, FatlineMesh};
@@ -68,16 +68,10 @@ impl ShaderPassBuilder for WidgetDispatcher {
 }
 
 impl GraphicsShaderProvider for WidgetDispatcher {
-  fn build(
-    &self,
-    builder: &mut ShaderGraphRenderPipelineBuilder,
-  ) -> Result<(), ShaderGraphBuildError> {
+  fn build(&self, builder: &mut ShaderRenderPipelineBuilder) -> Result<(), ShaderBuildError> {
     self.inner.build(builder)
   }
-  fn post_build(
-    &self,
-    builder: &mut ShaderGraphRenderPipelineBuilder,
-  ) -> Result<(), ShaderGraphBuildError> {
+  fn post_build(&self, builder: &mut ShaderRenderPipelineBuilder) -> Result<(), ShaderBuildError> {
     self.inner.post_build(builder)?;
     builder.fragment(|builder, _| {
       // todo improve, we should only override blend
@@ -87,9 +81,9 @@ impl GraphicsShaderProvider for WidgetDispatcher {
       }
       .apply_pipeline_builder(builder);
 
-      let old = builder.get_fragment_out(0)?;
+      let old = builder.load_fragment_out(0)?;
       let new = (old.xyz() * old.w(), old.w());
-      builder.set_fragment_out(0, new)
+      builder.store_fragment_out(0, new)
     })
   }
 }

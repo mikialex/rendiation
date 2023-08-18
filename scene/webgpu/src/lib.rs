@@ -1,5 +1,7 @@
 #![feature(specialization)]
+#![feature(generic_const_exprs)]
 #![feature(hash_raw_entry)]
+#![feature(type_name_of_val)]
 #![feature(stmt_expr_attributes)]
 #![feature(type_alias_impl_trait)]
 #![feature(return_position_impl_trait_in_trait)]
@@ -55,16 +57,15 @@ use rendiation_algebra::*;
 use rendiation_renderable_mesh::group::MeshDrawGroup;
 use rendiation_renderable_mesh::mesh::*;
 pub use rendiation_scene_core::*;
+use rendiation_shader_api::*;
 use rendiation_texture::TextureSampler;
 use rendiation_texture_gpu_system::*;
-use shadergraph::*;
 pub use shading::*;
 pub use shadow::*;
 pub use system::*;
 pub use texture::*;
 pub use util::*;
 use webgpu::*;
-use wgsl_shader_derives::*;
 
 pub trait SceneRenderable {
   fn render(

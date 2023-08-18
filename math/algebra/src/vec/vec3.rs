@@ -62,6 +62,9 @@ impl<T: One + Zero + Copy> Vector<T> for Vec3<T> {
       z: f(self.z, v2.z),
     }
   }
+  fn channel_count() -> usize {
+    3
+  }
 }
 
 impl<T> Vec3<T>

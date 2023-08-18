@@ -1,45 +1,45 @@
 use crate::*;
 
-#[derive(Copy, Clone, ShaderStruct)]
+#[derive(Copy, Clone, ShaderStruct, Default)]
 pub struct QuadVertexOut {
   pub position: Vec4<f32>,
   pub uv: Vec2<f32>,
 }
 
-wgsl_fn!(
-  fn generate_quad(
-    vertex_index: u32
-  ) -> QuadVertexOut {
-    var left: f32 = -1.0;
-    var right: f32 = 1.0;
-    var top: f32 = 1.0;
-    var bottom: f32 = -1.0;
-    var depth: f32 = 0.0;
+pub fn generate_quad(vertex_index: Node<u32>) -> Node<QuadVertexOut> {
+  let left = -1.0;
+  let right = 1.0;
+  let top = 1.0;
+  let bottom = -1.0;
+  let depth = 0.0;
 
-    var out: QuadVertexOut;
+  let position = val(Vec4::default()).make_local_var();
+  let uv = val(Vec2::default()).make_local_var();
 
-    switch (i32(vertex_index)) {
-      case 0: {
-        out.position = vec4<f32>(left, top, depth, 1.);
-        out.uv = vec2<f32>(0., 0.);
-      }
-      case 1: {
-        out.position = vec4<f32>(right, top, depth, 1.);
-        out.uv = vec2<f32>(1., 0.);
-      }
-      case 2: {
-        out.position = vec4<f32>(left, bottom, depth, 1.);
-        out.uv = vec2<f32>(0., 1.);
-      }
-      default: {
-        out.position = vec4<f32>(right, bottom, depth, 1.);
-        out.uv = vec2<f32>(1., 1.);
-      }
-    }
+  switch_by(vertex_index)
+    .case(0, || {
+      position.store(Vec4::new(left, top, depth, 1.));
+      uv.store(Vec2::new(0., 0.));
+    })
+    .case(1, || {
+      position.store(Vec4::new(right, top, depth, 1.));
+      uv.store(Vec2::new(1., 0.));
+    })
+    .case(2, || {
+      position.store(Vec4::new(left, bottom, depth, 1.));
+      uv.store(Vec2::new(0., 1.));
+    })
+    .end_with_default(|| {
+      position.store(Vec4::new(right, bottom, depth, 1.));
+      uv.store(Vec2::new(1., 1.));
+    });
 
-    return out;
+  ENode::<QuadVertexOut> {
+    position: position.load(),
+    uv: uv.load(),
   }
-);
+  .construct()
+}
 
 pub struct FullScreenQuad {
   blend: Option<webgpu::BlendState>,
@@ -60,10 +60,7 @@ impl ShaderHashProvider for FullScreenQuad {
   }
 }
 impl GraphicsShaderProvider for FullScreenQuad {
-  fn build(
-    &self,
-    builder: &mut ShaderGraphRenderPipelineBuilder,
-  ) -> Result<(), ShaderGraphBuildError> {
+  fn build(&self, builder: &mut ShaderRenderPipelineBuilder) -> Result<(), ShaderBuildError> {
     builder.vertex(|builder, _| {
       builder.primitive_state = webgpu::PrimitiveState {
         topology: webgpu::PrimitiveTopology::TriangleStrip,

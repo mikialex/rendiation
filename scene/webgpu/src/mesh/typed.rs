@@ -3,7 +3,7 @@ use core::marker::PhantomData;
 use bytemuck::Pod;
 use rendiation_renderable_mesh::MeshGroupsInfo;
 use rendiation_renderable_mesh::{GroupedMesh, IndexGet, MeshGroup};
-use shadergraph::*;
+use rendiation_shader_api::*;
 use webgpu::DrawCommand;
 
 use crate::*;
@@ -29,13 +29,10 @@ impl<T> Stream for TypedMeshGPU<T> {
 
 impl<V, T, IU> GraphicsShaderProvider for TypedMeshGPU<GroupedMesh<IndexedMesh<T, Vec<V>, IU>>>
 where
-  V: ShaderGraphVertexInProvider,
+  V: ShaderVertexInProvider,
   T: PrimitiveTopologyMeta,
 {
-  fn build(
-    &self,
-    builder: &mut ShaderGraphRenderPipelineBuilder,
-  ) -> Result<(), ShaderGraphBuildError> {
+  fn build(&self, builder: &mut ShaderRenderPipelineBuilder) -> Result<(), ShaderBuildError> {
     builder.vertex(|builder, _| {
       builder.register_vertex::<V>(VertexStepMode::Vertex);
       builder.primitive_state.topology = map_topology(T::ENUM);
@@ -103,7 +100,7 @@ impl IndexBufferSourceTypeProvider for DynIndexContainer {
 
 impl<V, T, IU> ReactiveRenderComponentSource for ReactiveMeshGPUOfTypedMesh<V, T, IU>
 where
-  V: Pod + ShaderGraphVertexInProvider + Unpin,
+  V: Pod + ShaderVertexInProvider + Unpin,
   T: PrimitiveTopologyMeta + Unpin,
   IU: IndexGet + AsGPUBytes + IndexBufferSourceTypeProvider + Unpin + 'static,
   IndexedMesh<T, Vec<V>, IU>: GPUConsumableMeshBuffer,
@@ -116,7 +113,7 @@ where
 
 impl<V, T, IU> MeshDrawcallEmitter for ReactiveMeshGPUOfTypedMesh<V, T, IU>
 where
-  V: Pod + ShaderGraphVertexInProvider + Unpin,
+  V: Pod + ShaderVertexInProvider + Unpin,
   T: PrimitiveTopologyMeta + Unpin,
   IU: IndexGet + AsGPUBytes + IndexBufferSourceTypeProvider + Unpin + 'static,
   IndexedMesh<T, Vec<V>, IU>: GPUConsumableMeshBuffer,
@@ -139,7 +136,7 @@ where
 
 pub type ReactiveMeshGPUOfTypedMesh<V, T, IU>
 where
-  V: Pod + ShaderGraphVertexInProvider + Unpin,
+  V: Pod + ShaderVertexInProvider + Unpin,
   T: PrimitiveTopologyMeta + Unpin,
   IU: IndexGet + AsGPUBytes + IndexBufferSourceTypeProvider + Unpin + 'static,
   IndexedMesh<T, Vec<V>, IU>: GPUConsumableMeshBuffer,
@@ -149,7 +146,7 @@ where
 
 impl<V, T, IU> WebGPUMesh for GroupedMesh<IndexedMesh<T, Vec<V>, IU>>
 where
-  V: Pod + ShaderGraphVertexInProvider + Unpin,
+  V: Pod + ShaderVertexInProvider + Unpin,
   T: PrimitiveTopologyMeta + Unpin,
   IU: IndexGet + AsGPUBytes + IndexBufferSourceTypeProvider + Unpin + 'static,
   IndexedMesh<T, Vec<V>, IU>: GPUConsumableMeshBuffer,

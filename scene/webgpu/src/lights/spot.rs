@@ -17,43 +17,43 @@ impl PunctualShaderLight for SpotLightShaderInfo {
   type PunctualDependency = ();
 
   fn create_punctual_dep(
-    _: &mut ShaderGraphFragmentBuilderView,
-  ) -> Result<Self::PunctualDependency, ShaderGraphBuildError> {
+    _: &mut ShaderFragmentBuilderView,
+  ) -> Result<Self::PunctualDependency, ShaderBuildError> {
     Ok(())
   }
 
   fn compute_incident_light(
-    builder: &ShaderGraphFragmentBuilderView,
+    builder: &ShaderFragmentBuilderView,
     light: &ENode<Self>,
     _dep: &Self::PunctualDependency,
     ctx: &ENode<ShaderLightingGeometricCtx>,
-  ) -> Result<ENode<ShaderIncidentLight>, ShaderGraphBuildError> {
+  ) -> Result<ENode<ShaderIncidentLight>, ShaderBuildError> {
     let direction = ctx.position - light.position;
     let distance = direction.length();
     let distance_factor =
-      punctual_light_intensity_to_illuminance_factor(distance, light.cutoff_distance);
+      punctual_light_intensity_to_illuminance_factor_fn(distance, light.cutoff_distance);
 
     let direction = direction.normalize();
     let angle_cos = direction.dot(light.direction);
     let angle_factor = angle_cos.smoothstep(light.half_cone_cos, light.half_penumbra_cos);
 
     let shadow_info = light.shadow.expand();
-    let occlusion = consts(1.).mutable();
+    let occlusion = val(1.).make_local_var();
 
     let intensity_factor = distance_factor * angle_factor;
 
-    if_by_ok(shadow_info.enabled.equals(consts(1)), || {
+    if_by_ok(shadow_info.enabled.equals(1), || {
       let map = builder.query::<BasicShadowMap>().unwrap();
       let sampler = builder.query::<BasicShadowMapSampler>().unwrap();
 
       let shadow_infos = builder.query::<BasicShadowMapInfoGroup>().unwrap();
-      let shadow_info = shadow_infos.index(shadow_info.index).expand();
+      let shadow_info = shadow_infos.index(shadow_info.index).load().expand();
 
       let shadow_position = compute_shadow_position(builder, shadow_info)?;
 
       // we should have kept all light effective places inside the shadow volume
-      if_by(intensity_factor.greater_than(consts(0.)), || {
-        occlusion.set(sample_shadow(
+      if_by(intensity_factor.greater_than(0.), || {
+        occlusion.store(sample_shadow(
           shadow_position,
           map,
           sampler,
@@ -63,7 +63,7 @@ impl PunctualShaderLight for SpotLightShaderInfo {
       Ok(())
     })?;
 
-    let shadow_factor = consts(1.) - occlusion.get();
+    let shadow_factor = val(1.) - occlusion.load();
 
     Ok(ENode::<ShaderIncidentLight> {
       color: light.luminance_intensity * intensity_factor * shadow_factor,

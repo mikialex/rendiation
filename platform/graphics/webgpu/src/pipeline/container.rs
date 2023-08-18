@@ -1,14 +1,16 @@
-use shadergraph::*;
+use rendiation_shader_api::*;
 
 pub use crate::*;
 
-impl<T: ShaderStructMemberValueNodeType + Std140> ShaderBindingProvider
-  for UniformBufferDataView<T>
-{
+impl<T: ShaderSizedValueNodeType + Std140> ShaderBindingProvider for UniformBufferDataView<T> {
+  const SPACE: AddressSpace = AddressSpace::Uniform;
   type Node = T;
 }
 
-impl<T: ShaderUnsizedValueNodeType + Std430> ShaderBindingProvider for StorageBufferDataView<T> {
+impl<T: ShaderUnsizedValueNodeType + Std430> ShaderBindingProvider
+  for StorageBufferReadOnlyDataView<T>
+{
+  const SPACE: AddressSpace = AddressSpace::Storage { writeable: false };
   type Node = T;
 
   fn binding_desc() -> ShaderBindingDescriptor {
@@ -22,6 +24,7 @@ impl<T: ShaderUnsizedValueNodeType + Std430> ShaderBindingProvider for StorageBu
 macro_rules! map_shader_ty {
   ($ty: ty, $shader_ty: ty) => {
     impl ShaderBindingProvider for $ty {
+      const SPACE: AddressSpace = AddressSpace::Handle;
       type Node = $shader_ty;
     }
   };

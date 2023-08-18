@@ -1,5 +1,5 @@
 use rendiation_algebra::*;
-use shadergraph::*;
+use rendiation_shader_api::*;
 
 #[repr(C)]
 #[derive(Debug, Copy, Clone, ShaderVertex, Zeroable, Pod)]

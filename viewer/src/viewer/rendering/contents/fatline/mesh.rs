@@ -9,7 +9,7 @@ use incremental::*;
 use reactive::*;
 use rendiation_geometry::*;
 use rendiation_renderable_mesh::{vertex::Vertex, *};
-use shadergraph::*;
+use rendiation_shader_api::*;
 use webgpu::*;
 
 use crate::*;
@@ -142,10 +142,7 @@ impl WebGPUMesh for FatlineMesh {
 }
 
 impl GraphicsShaderProvider for FatlineMeshGPU {
-  fn build(
-    &self,
-    builder: &mut ShaderGraphRenderPipelineBuilder,
-  ) -> Result<(), ShaderGraphBuildError> {
+  fn build(&self, builder: &mut ShaderRenderPipelineBuilder) -> Result<(), ShaderBuildError> {
     builder.vertex(|builder, _| {
       builder.register_vertex::<Vertex>(VertexStepMode::Vertex);
       builder.register_vertex::<FatLineVertex>(VertexStepMode::Instance);

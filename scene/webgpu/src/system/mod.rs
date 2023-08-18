@@ -60,18 +60,12 @@ impl<'a, T: ShaderHashProvider> ShaderHashProvider for BindlessResourceProvider<
   }
 }
 impl<'a, T: GraphicsShaderProvider> GraphicsShaderProvider for BindlessResourceProvider<'a, T> {
-  fn build(
-    &self,
-    builder: &mut ShaderGraphRenderPipelineBuilder,
-  ) -> Result<(), ShaderGraphBuildError> {
+  fn build(&self, builder: &mut ShaderRenderPipelineBuilder) -> Result<(), ShaderBuildError> {
     self.base.build(builder)?;
     self.texture_system.build(builder)
   }
 
-  fn post_build(
-    &self,
-    builder: &mut ShaderGraphRenderPipelineBuilder,
-  ) -> Result<(), ShaderGraphBuildError> {
+  fn post_build(&self, builder: &mut ShaderRenderPipelineBuilder) -> Result<(), ShaderBuildError> {
     self.base.post_build(builder)
   }
 }

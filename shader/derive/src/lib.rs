@@ -2,17 +2,19 @@ use proc_macro::TokenStream;
 use syn::parse_macro_input;
 
 mod shader_align;
+mod shader_fn;
 mod shader_struct;
 mod utils;
 mod vertex;
 use shader_align::*;
+use shader_fn::*;
 use shader_struct::*;
 use vertex::*;
 
-/// Mark the struct could be used as vertex input type in shadergraph
+/// Mark the struct could be used as vertex input type in rendiation_shader_api
 ///
 /// The struct's mem layout will generate the correct vertex buffer layout
-/// and inject semantic shader value in shadergraph.
+/// and inject semantic shader value in rendiation_shader_api.
 ///
 /// ## The memory layout should be compact
 #[proc_macro_derive(ShaderVertex, attributes(semantic))]
@@ -21,10 +23,10 @@ pub fn derive_vertex(input: TokenStream) -> TokenStream {
   derive_vertex_impl(input).into()
 }
 
-/// Mark the struct could be expressed in shadergraph type API
+/// Mark the struct could be expressed in rendiation_shader_api type API
 ///
 /// Implementation will add static struct meta info for reflection
-/// and define a shader graph instance type and convert methods for shadergraph usage.
+/// and define a shader api instance type and convert methods for rendiation_shader_api usage.
 #[proc_macro_derive(ShaderStruct)]
 pub fn derive_shader_struct(input: TokenStream) -> TokenStream {
   let input = parse_macro_input!(input as syn::DeriveInput);
@@ -67,4 +69,9 @@ pub fn std430_layout(_args: TokenStream, input: TokenStream) -> TokenStream {
   let expanded = shader_align_gen(input, "Std430", 0);
 
   TokenStream::from(expanded)
+}
+
+#[proc_macro_attribute]
+pub fn shader_fn(_args: TokenStream, input: TokenStream) -> TokenStream {
+  shader_api_fn_impl(_args, input)
 }

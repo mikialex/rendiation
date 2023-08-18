@@ -1,4 +1,4 @@
-use shadergraph::*;
+use rendiation_shader_api::*;
 use webgpu::*;
 
 use crate::{renderer::UIGlobalParameter, UIVertex};
@@ -10,8 +10,8 @@ pub struct SolidUIPipeline {
 impl GraphicsShaderProvider for SolidUIPipeline {
   fn build(
     &self,
-    builder: &mut ShaderGraphRenderPipelineBuilder,
-  ) -> Result<(), shadergraph::ShaderGraphBuildError> {
+    builder: &mut ShaderRenderPipelineBuilder,
+  ) -> Result<(), rendiation_shader_api::ShaderBuildError> {
     builder.set_binding_slot(0);
     let global = builder.binding::<UniformBufferDataView<UIGlobalParameter>>();
 
@@ -26,13 +26,13 @@ impl GraphicsShaderProvider for SolidUIPipeline {
       let position = builder.query::<GeometryPosition2D>()?;
       let color = builder.query::<GeometryColorWithAlpha>()?;
 
-      let global = global.using().expand();
+      let global = global.using().load().expand();
 
       let vertex = (
-        consts(2.0) * position.x() / global.screen_size.x() - consts(1.0),
-        consts(1.0) - consts(2.0) * position.y() / global.screen_size.y(),
-        consts(0.0),
-        consts(1.0),
+        val(2.0) * position.x() / global.screen_size.x() - val(1.0),
+        val(1.0) - val(2.0) * position.y() / global.screen_size.y(),
+        val(0.0),
+        val(1.0),
       );
 
       builder.register::<ClipPosition>(vertex);
@@ -45,7 +45,7 @@ impl GraphicsShaderProvider for SolidUIPipeline {
       let color = builder.query::<FragmentColorAndAlpha>()?;
 
       let slot = builder.define_out_by(channel(self.target_format).with_alpha_blend());
-      builder.set_fragment_out(slot, color)
+      builder.store_fragment_out(slot, color)
     })
   }
 }
@@ -57,8 +57,8 @@ pub struct TextureUIPipeline {
 impl GraphicsShaderProvider for TextureUIPipeline {
   fn build(
     &self,
-    builder: &mut ShaderGraphRenderPipelineBuilder,
-  ) -> Result<(), shadergraph::ShaderGraphBuildError> {
+    builder: &mut ShaderRenderPipelineBuilder,
+  ) -> Result<(), rendiation_shader_api::ShaderBuildError> {
     builder.set_binding_slot(0);
     let global = builder.binding::<UniformBufferDataView<UIGlobalParameter>>();
 
@@ -74,13 +74,13 @@ impl GraphicsShaderProvider for TextureUIPipeline {
       let color = builder.query::<GeometryColorWithAlpha>()?;
       let uv = builder.query::<GeometryUV>()?;
 
-      let global = global.using().expand();
+      let global = global.using().load().expand();
 
       let vertex: Node<Vec4<_>> = (
-        consts(2.0) * position.x() / global.screen_size.x() - consts(1.0),
-        consts(1.0) - consts(2.0) * position.y() / global.screen_size.y(),
-        consts(0.0),
-        consts(1.0),
+        val(2.0) * position.x() / global.screen_size.x() - val(1.0),
+        val(1.0) - val(2.0) * position.y() / global.screen_size.y(),
+        val(0.0),
+        val(1.0),
       )
         .into();
 
@@ -101,7 +101,7 @@ impl GraphicsShaderProvider for TextureUIPipeline {
       let texture = binding.binding::<GPU2DTextureView>();
       let sampler = binding.binding::<GPUSamplerView>();
 
-      builder.set_fragment_out(0, texture.sample(sampler, uv))
+      builder.store_fragment_out(0, texture.sample(sampler, uv))
     })
   }
 }

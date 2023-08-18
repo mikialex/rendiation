@@ -17,7 +17,7 @@ impl ScreenChannelDebugger {
 }
 
 pub trait ChannelVisualize: Any {
-  fn to_screen(&self, builder: &ShaderGraphFragmentBuilderView) -> Node<Vec4<f32>>;
+  fn to_screen(&self, builder: &ShaderFragmentBuilderView) -> Node<Vec4<f32>>;
 }
 
 impl ScreenChannelDebugger {
@@ -34,83 +34,78 @@ impl ShaderHashProvider for ScreenChannelDebugger {
 }
 
 impl GraphicsShaderProvider for ScreenChannelDebugger {
-  fn build(
-    &self,
-    builder: &mut ShaderGraphRenderPipelineBuilder,
-  ) -> Result<(), ShaderGraphBuildError> {
+  fn build(&self, builder: &mut ShaderRenderPipelineBuilder) -> Result<(), ShaderBuildError> {
     builder.fragment(|builder, _| {
       let ndc_position = builder.query::<FragmentPosition>()?;
 
-      let output = consts(Vec4::new(0., 0., 0., 1.)).mutable();
+      let output = val(Vec4::new(0., 0., 0., 1.)).make_local_var();
 
       let width = builder.query::<RenderBufferSize>()?.x();
 
-      let step = width / consts(self.channels.len() as f32);
-      let start = consts(0.).mutable();
+      let step = width / val(self.channels.len() as f32);
+      let start = val(0.).make_local_var();
       for channel in &self.channels {
         let x = ndc_position.x();
-        let start_current = start.get();
+        let start_current = start.load();
         let start_end = start_current + step;
         if_by(
-          start_current
-            .less_than(x)
-            .and(x.less_or_equal_than(start_end)),
+          start_current.less_than(x).and(x.less_equal_than(start_end)),
           || {
-            output.set(output.get() + channel.to_screen(builder));
+            output.store(output.load() + channel.to_screen(builder));
           },
         );
-        start.set(start_end);
+        start.store(start_end);
       }
 
-      builder.set_fragment_out(0, output.get())
+      builder.store_fragment_out(0, output.load())
     })
   }
 }
 
 impl ChannelVisualize for FragmentWorldNormal {
-  fn to_screen(&self, builder: &ShaderGraphFragmentBuilderView) -> Node<Vec4<f32>> {
+  fn to_screen(&self, builder: &ShaderFragmentBuilderView) -> Node<Vec4<f32>> {
     let normal = builder
       .query::<Self>()
-      .unwrap_or_else(|_| consts(Vec3::zero()));
+      .unwrap_or_else(|_| val(Vec3::zero()));
 
-    (normal * consts(0.5) + consts(Vec3::splat(0.5)), 1.).into()
+    (normal * val(0.5) + val(Vec3::splat(0.5)), val(1.)).into()
   }
 }
 
 impl ChannelVisualize for FragmentUv {
-  fn to_screen(&self, builder: &ShaderGraphFragmentBuilderView) -> Node<Vec4<f32>> {
+  fn to_screen(&self, builder: &ShaderFragmentBuilderView) -> Node<Vec4<f32>> {
     let uv = builder
       .query::<Self>()
-      .unwrap_or_else(|_| consts(Vec2::zero()));
+      .unwrap_or_else(|_| val(Vec2::zero()));
 
-    (uv, 0., 1.).into()
+    (uv, val(0.), val(1.)).into()
   }
 }
 
 impl ChannelVisualize for ColorChannel {
-  fn to_screen(&self, builder: &ShaderGraphFragmentBuilderView) -> Node<Vec4<f32>> {
+  fn to_screen(&self, builder: &ShaderFragmentBuilderView) -> Node<Vec4<f32>> {
     let value = builder
       .query::<Self>()
-      .unwrap_or_else(|_| consts(Vec3::zero()));
+      .unwrap_or_else(|_| val(Vec3::zero()));
 
-    (value, 1.).into()
+    (value, val(1.)).into()
   }
 }
 
 impl ChannelVisualize for RoughnessChannel {
-  fn to_screen(&self, builder: &ShaderGraphFragmentBuilderView) -> Node<Vec4<f32>> {
-    let value = builder.query::<Self>().unwrap_or_else(|_| consts(0.));
+  fn to_screen(&self, builder: &ShaderFragmentBuilderView) -> Node<Vec4<f32>> {
+    let value = builder.query::<Self>().unwrap_or_else(|_| val(0.));
     let value: Node<Vec3<f32>> = value.splat();
 
-    (value, 1.).into()
+    (value, val(1.)).into()
   }
 }
 
 impl ChannelVisualize for MetallicChannel {
-  fn to_screen(&self, builder: &ShaderGraphFragmentBuilderView) -> Node<Vec4<f32>> {
-    let value = builder.query::<Self>().unwrap_or_else(|_| consts(0.));
+  fn to_screen(&self, builder: &ShaderFragmentBuilderView) -> Node<Vec4<f32>> {
+    let value = builder.query::<Self>().unwrap_or_else(|_| val(0.));
     let value: Node<Vec3<f32>> = value.splat();
 
-    (value, 1.).into()
+    (value, val(1.)).into()
   }
 }

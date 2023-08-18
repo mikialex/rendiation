@@ -1,9 +1,9 @@
 // we design this crate to provide an abstraction over different global gpu texture management
 // strategy with graphics api agnostic in mind
 
-// we could not depend on shadergraph theoretically if we abstract over shader node compose
-// but that will too complicated
-use shadergraph::*;
+// we could not depend on rendiation_shader_api theoretically if we abstract over shader node
+// compose but that will too complicated
+use rendiation_shader_api::*;
 use slab::Slab;
 pub type Texture2DHandle = u32;
 pub type SamplerHandle = u32;
@@ -31,6 +31,29 @@ pub trait GPUTextureBackend {
     collector: &mut Self::BindingCollector,
     samplers: &Self::GPUSamplerBindingArray<N>,
   );
+
+  fn register_shader_texture2d(
+    builder: &mut ShaderBindGroupDirectBuilder,
+    texture: &Self::GPUTexture2D,
+  ) -> HandleNode<ShaderTexture2D>;
+  fn register_shader_sampler(
+    builder: &mut ShaderBindGroupDirectBuilder,
+    sampler: &Self::GPUSampler,
+  ) -> HandleNode<ShaderSampler>;
+  fn register_shader_texture2d_array(
+    builder: &mut ShaderRenderPipelineBuilder,
+    textures: &Self::GPUTexture2DBindingArray<MAX_TEXTURE_BINDING_ARRAY_LENGTH>,
+  ) -> BindingPreparer<
+    BindingArray<ShaderTexture2D, MAX_TEXTURE_BINDING_ARRAY_LENGTH>,
+    { AddressSpace::Handle },
+  >;
+  fn register_shader_sampler_array(
+    builder: &mut ShaderRenderPipelineBuilder,
+    samplers: &Self::GPUSamplerBindingArray<MAX_SAMPLER_BINDING_ARRAY_LENGTH>,
+  ) -> BindingPreparer<
+    BindingArray<ShaderSampler, MAX_SAMPLER_BINDING_ARRAY_LENGTH>,
+    { AddressSpace::Handle },
+  >;
 
   /// note, we should design some interface to partial update the array
   /// but the wgpu not support partial update at all, so we not bother to do this now.
@@ -68,21 +91,21 @@ pub trait AbstractTraditionalTextureSystem<B: GPUTextureBackend> {
 
   fn register_shader_texture2d(
     &self,
-    builder: &mut ShaderGraphBindGroupDirectBuilder,
+    builder: &mut ShaderBindGroupDirectBuilder,
     handle: Texture2DHandle,
-  ) -> Node<ShaderTexture2D>;
+  ) -> HandleNode<ShaderTexture2D>;
   fn register_shader_sampler(
     &self,
-    builder: &mut ShaderGraphBindGroupDirectBuilder,
+    builder: &mut ShaderBindGroupDirectBuilder,
     handle: SamplerHandle,
-  ) -> Node<ShaderSampler>;
+  ) -> HandleNode<ShaderSampler>;
 
   // note, we do not need to provide abstraction over Node<texture> direct sample
 }
 
 pub trait AbstractIndirectGPUTextureSystem<B: GPUTextureBackend> {
   fn bind_system_self(&mut self, collector: &mut B::BindingCollector);
-  fn register_system_self(&self, builder: &mut ShaderGraphRenderPipelineBuilder);
+  fn register_system_self(&self, builder: &mut ShaderRenderPipelineBuilder);
   fn sample_texture2d_indirect(
     &self,
     reg: &SemanticRegistry,
@@ -137,20 +160,20 @@ impl<B: GPUTextureBackend> AbstractTraditionalTextureSystem<B>
 
   fn register_shader_texture2d(
     &self,
-    builder: &mut ShaderGraphBindGroupDirectBuilder,
+    builder: &mut ShaderBindGroupDirectBuilder,
     handle: Texture2DHandle,
-  ) -> Node<ShaderTexture2D> {
+  ) -> HandleNode<ShaderTexture2D> {
     let texture = self.textures.get(handle as usize).unwrap();
-    builder.bind_by(texture)
+    B::register_shader_texture2d(builder, texture)
   }
 
   fn register_shader_sampler(
     &self,
-    builder: &mut ShaderGraphBindGroupDirectBuilder,
+    builder: &mut ShaderBindGroupDirectBuilder,
     handle: SamplerHandle,
-  ) -> Node<ShaderSampler> {
+  ) -> HandleNode<ShaderSampler> {
     let sampler = self.samplers.get(handle as usize).unwrap();
-    builder.bind_by(sampler)
+    B::register_shader_sampler(builder, sampler)
   }
 }
 
@@ -236,23 +259,28 @@ impl<B: GPUTextureBackend> AbstractTraditionalTextureSystem<B> for BindlessTextu
 
   fn register_shader_texture2d(
     &self,
-    builder: &mut ShaderGraphBindGroupDirectBuilder,
+    builder: &mut ShaderBindGroupDirectBuilder,
     handle: Texture2DHandle,
-  ) -> Node<ShaderTexture2D> {
+  ) -> HandleNode<ShaderTexture2D> {
     self.inner.register_shader_texture2d(builder, handle)
   }
 
   fn register_shader_sampler(
     &self,
-    builder: &mut ShaderGraphBindGroupDirectBuilder,
+    builder: &mut ShaderBindGroupDirectBuilder,
     handle: SamplerHandle,
-  ) -> Node<ShaderSampler> {
+  ) -> HandleNode<ShaderSampler> {
     self.inner.register_shader_sampler(builder, handle)
   }
 }
-
-both!(BindlessTexturesInShader, BindingArray<ShaderTexture2D, MAX_TEXTURE_BINDING_ARRAY_LENGTH>);
-both!(BindlessSamplersInShader, BindingArray<ShaderSampler, MAX_SAMPLER_BINDING_ARRAY_LENGTH>);
+both!(
+  BindlessTexturesInShader,
+  HandlePtr<BindingArray<ShaderTexture2D, MAX_TEXTURE_BINDING_ARRAY_LENGTH>>
+);
+both!(
+  BindlessSamplersInShader,
+  HandlePtr<BindingArray<ShaderSampler, MAX_SAMPLER_BINDING_ARRAY_LENGTH>>
+);
 
 impl<B: GPUTextureBackend> AbstractIndirectGPUTextureSystem<B> for BindlessTextureSystem<B> {
   fn bind_system_self(&mut self, collector: &mut B::BindingCollector) {
@@ -260,17 +288,19 @@ impl<B: GPUTextureBackend> AbstractIndirectGPUTextureSystem<B> for BindlessTextu
     B::bind_sampler_array(collector, &self.sampler_binding_array);
   }
 
-  fn register_system_self(&self, builder: &mut ShaderGraphRenderPipelineBuilder) {
-    builder
-      .bind_by(&self.texture_binding_array)
-      .using_both(builder, |r, textures| {
+  fn register_system_self(&self, builder: &mut ShaderRenderPipelineBuilder) {
+    B::register_shader_texture2d_array(builder, &self.texture_binding_array).using_both(
+      builder,
+      |r, textures| {
         r.register_typed_both_stage::<BindlessTexturesInShader>(textures);
-      });
-    builder
-      .bind_by(&self.sampler_binding_array)
-      .using_both(builder, |r, samplers| {
+      },
+    );
+    B::register_shader_sampler_array(builder, &self.sampler_binding_array).using_both(
+      builder,
+      |r, samplers| {
         r.register_typed_both_stage::<BindlessSamplersInShader>(samplers);
-      });
+      },
+    );
   }
 
   fn sample_texture2d_indirect(

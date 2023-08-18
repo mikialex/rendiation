@@ -64,17 +64,14 @@ impl ShaderPassBuilder for PhysicalMetallicRoughnessMaterialGPU {
 }
 
 impl GraphicsShaderProvider for PhysicalMetallicRoughnessMaterialGPU {
-  fn build(
-    &self,
-    builder: &mut ShaderGraphRenderPipelineBuilder,
-  ) -> Result<(), ShaderGraphBuildError> {
+  fn build(&self, builder: &mut ShaderRenderPipelineBuilder) -> Result<(), ShaderBuildError> {
     builder.context.insert(
       ShadingSelection.type_id(),
       Box::new(&PhysicalShading as &dyn LightableSurfaceShadingDyn),
     );
 
     builder.fragment(|builder, binding| {
-      let uniform = binding.bind_by(&self.uniform).expand();
+      let uniform = binding.bind_by(&self.uniform).load().expand();
       let uv = builder.query_or_interpolate_by::<FragmentUv, GeometryUV>();
 
       let mut alpha = uniform.alpha;
@@ -126,9 +123,7 @@ impl GraphicsShaderProvider for PhysicalMetallicRoughnessMaterialGPU {
       match self.alpha_mode {
         AlphaMode::Opaque => {}
         AlphaMode::Mask => {
-          let alpha = alpha
-            .less_than(uniform.alpha_cutoff)
-            .select(consts(0.), alpha);
+          let alpha = alpha.less_than(uniform.alpha_cutoff).select(val(0.), alpha);
           builder.register::<AlphaChannel>(alpha);
           builder.register::<AlphaCutChannel>(uniform.alpha_cutoff);
         }
@@ -145,7 +140,7 @@ impl GraphicsShaderProvider for PhysicalMetallicRoughnessMaterialGPU {
       builder.register::<MetallicChannel>(metallic);
       builder.register::<RoughnessChannel>(roughness);
 
-      builder.register::<DefaultDisplay>((base_color, 1.));
+      builder.register::<DefaultDisplay>((base_color, val(1.)));
       Ok(())
     })
   }

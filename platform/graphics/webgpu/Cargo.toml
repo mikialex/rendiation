@@ -13,12 +13,13 @@ reactive = { path = "../../../utils/reactive" }
 fast-hash-collection = { path = "../../../utils/fast-hash-collection" }
 rendiation-algebra = { path = "../../../math/algebra" }
 rendiation-texture-types = { path = "../../../components/texture/types" }
-shadergraph = { path = "../../../shader/graph" }
+rendiation-shader-api = { path = "../../../shader/api" }
+rendiation-shader-backend-naga = { path = "../../../shader/backends/naga" }
 typed-arena = "2.0.1"
-wgpu = "0.17"
+wgpu = { version = "0.17", features = ["naga"] }
 wgpu-types = "0.17"
-wgsl-codegen-graph = { path = "../../../shader/language/wgsl/codegen-graph" }
 winit = { version = "0.27.1" }
+naga = { version = "0.13.0", features = ["wgsl-out"] }
 
 [features]
 webgl = ["wgpu/webgl"]

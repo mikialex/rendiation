@@ -16,31 +16,31 @@ impl PunctualShaderLight for DirectionalLightShaderInfo {
   type PunctualDependency = ();
 
   fn create_punctual_dep(
-    _: &mut ShaderGraphFragmentBuilderView,
-  ) -> Result<Self::PunctualDependency, ShaderGraphBuildError> {
+    _: &mut ShaderFragmentBuilderView,
+  ) -> Result<Self::PunctualDependency, ShaderBuildError> {
     Ok(())
   }
 
   fn compute_incident_light(
-    builder: &ShaderGraphFragmentBuilderView,
+    builder: &ShaderFragmentBuilderView,
     light: &ENode<Self>,
     _dep: &Self::PunctualDependency,
     _ctx: &ENode<ShaderLightingGeometricCtx>,
-  ) -> Result<ENode<ShaderIncidentLight>, ShaderGraphBuildError> {
+  ) -> Result<ENode<ShaderIncidentLight>, ShaderBuildError> {
     let shadow_info = light.shadow.expand();
-    let occlusion = consts(1.).mutable();
+    let occlusion = val(1.).make_local_var();
 
-    if_by_ok(shadow_info.enabled.equals(consts(1)), || {
+    if_by_ok(shadow_info.enabled.equals(1), || {
       let map = builder.query::<BasicShadowMap>().unwrap();
       let sampler = builder.query::<BasicShadowMapSampler>().unwrap();
 
       let shadow_infos = builder.query::<BasicShadowMapInfoGroup>().unwrap();
-      let shadow_info = shadow_infos.index(shadow_info.index).expand();
+      let shadow_info = shadow_infos.index(shadow_info.index).load().expand();
 
       let shadow_position = compute_shadow_position(builder, shadow_info)?;
 
       if_by(cull_directional_shadow(shadow_position), || {
-        occlusion.set(sample_shadow(
+        occlusion.store(sample_shadow(
           shadow_position,
           map,
           sampler,
@@ -51,24 +51,22 @@ impl PunctualShaderLight for DirectionalLightShaderInfo {
     })?;
 
     Ok(ENode::<ShaderIncidentLight> {
-      color: light.illuminance * (consts(1.) - occlusion.get()),
+      color: light.illuminance * (val(1.) - occlusion.load()),
       direction: light.direction,
     })
   }
 }
 
-wgsl_fn!(
-  /// custom extra culling for directional light
-  fn cull_directional_shadow(
-    shadow_position: vec3<f32>,
-  ) -> bool {
-    // maybe we could use sampler's border color config, but that's not part of standard webgpu (wgpu supports)
-    let inFrustumVec = vec4<bool>(shadow_position.x >= 0.0, shadow_position.x <= 1.0, shadow_position.y >= 0.0, shadow_position.y <= 1.0);
-    let inFrustum = all(inFrustumVec);
-    let frustumTestVec = vec2<bool>(inFrustum, shadow_position.z <= 1.0);
-    return all(frustumTestVec);
-  }
-);
+/// custom extra culling for directional light
+fn cull_directional_shadow(shadow_position: Node<Vec3<f32>>) -> Node<bool> {
+  let left = shadow_position.x().greater_equal_than(val(0.));
+  let right = shadow_position.x().less_equal_than(val(1.));
+  let top = shadow_position.y().greater_equal_than(val(0.));
+  let bottom = shadow_position.y().less_equal_than(val(1.));
+  let far = shadow_position.z().less_equal_than(val(1.));
+
+  left.and(right).and(top).and(bottom).and(far)
+}
 
 impl WebGPULight for SceneItemRef<DirectionalLight> {
   type Uniform = DirectionalLightShaderInfo;
