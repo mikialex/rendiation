@@ -89,6 +89,7 @@ pub struct ForwardLightingSystem {
   pub lights_collections: StreamMap<TypeId, Box<dyn ReactiveLightCollectionCompute>>,
   // we could use linked hashmap to keep visit order
   pub mapping_length_idx: FastHashMap<TypeId, usize>,
+  pub lights_insert_order: Vec<TypeId>,
 
   /// note todo!, we don't support correct codegen for primitive wrapper array type
   /// so we use vec4<u32> instead of u32
@@ -119,7 +120,8 @@ impl Stream for ForwardLightingSystem {
 
     use std::hash::Hasher;
     let mut hasher = PipelineHasher::default();
-    for lights in this.lights_collections.values() {
+    for lid in this.lights_insert_order {
+      let lights = this.lights_collections.get(lid).unwrap();
       lights.as_ref().as_ref().hash_pipeline(&mut hasher)
     }
     *this.light_hash_cache = hasher.finish();
@@ -144,10 +146,12 @@ impl ForwardLightingSystem {
 
     let mut lights_collections = StreamMap::default();
     let mut mapping_length_idx = FastHashMap::default();
+    let mut lights_insert_order = Vec::default();
 
     fn register_light_ty<T>(
       lights_collections: &mut StreamMap<TypeId, Box<dyn ReactiveLightCollectionCompute>>,
       mapping_length_idx: &mut FastHashMap<TypeId, usize>,
+      lights_insert_order: &mut Vec<TypeId>,
       gpu: &ResourceGPUCtx,
       res: &LightResourceCtx,
       upstream: impl Stream<Item = (usize, Option<SceneLight>)> + Unpin + 'static,
@@ -194,6 +198,7 @@ impl ForwardLightingSystem {
       let li = Box::new(light_impl) as Box<dyn ReactiveLightCollectionCompute>;
       lights_collections.insert(tid, li);
       mapping_length_idx.insert(tid, mapping_length_idx.len());
+      lights_insert_order.push(tid);
     }
 
     macro_rules! register_light_ty {
@@ -201,6 +206,7 @@ impl ForwardLightingSystem {
         register_light_ty(
           &mut lights_collections,
           &mut mapping_length_idx,
+          &mut lights_insert_order,
           &gpu,
           &res,
           scene_light_change.fork_stream(),
@@ -222,6 +228,7 @@ impl ForwardLightingSystem {
       gpu,
       lengths,
       lights_collections,
+      lights_insert_order,
       mapping_length_idx,
       light_hash_cache: Default::default(),
     }
@@ -236,7 +243,8 @@ impl<'a> ShaderPassBuilder for ForwardSceneLightingDispatcher<'a> {
     self.shadows.setup_pass(ctx);
 
     ctx.binding.bind(&self.lights.lengths);
-    for lights in self.lights.lights_collections.values() {
+    for lid in &self.lights.lights_insert_order {
+      let lights = self.lights.lights_collections.get(lid).unwrap();
       lights.as_ref().as_ref().setup_pass(ctx)
     }
     self.lighting.tonemap.setup_pass(ctx);
@@ -335,7 +343,8 @@ impl ForwardLightingSystem {
       let mut light_specular_result = val(Vec3::zero());
       let mut light_diffuse_result = val(Vec3::zero());
 
-      for (i, lights) in self.lights_collections.values().enumerate() {
+      for (i, lid) in self.lights_insert_order.iter().enumerate() {
+        let lights = self.lights_collections.get(lid).unwrap();
         let length = lengths_info.index(val(i as u32)).load().x();
         builder.register::<LightCount>(length);
 
@@ -509,7 +518,7 @@ impl<T: ShaderLight> LightList<T> {
     let empty_size = self.empty_list.len();
 
     self.empty_list.sort_by(|a, b| b.cmp(a));
-    // compact empty slot
+    // compact empty slot, todo, reduce data movement
     let mut i = LIGHT_MAX;
     for empty_index in &mut self.empty_list {
       i -= 1;
