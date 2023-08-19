@@ -2631,6 +2631,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "rendiation-lighting-ltc"
+version = "0.1.0"
+dependencies = [
+ "rendiation-algebra",
+ "rendiation-shader-api",
+ "rendiation-texture",
+]
+
+[[package]]
 name = "rendiation-mesh-generator"
 version = "0.1.0"
 dependencies = [

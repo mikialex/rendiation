@@ -25,6 +25,7 @@ members = [
   "components/texture/packer",
   "components/texture/gpu-system",
   "components/texture/generative",
+  "components/lighting/ltc",
   "components/space",
   "components/fontext",
   "components/canvas",
