@@ -125,8 +125,6 @@ impl<'a> GraphicsShaderProvider for AOComputer<'a> {
 
       let sample_count_f = parameter.sample_count.into_f32();
 
-      let occlusion = sample_count_f.make_local_var();
-
       let depth = depth_tex.sample(sampler, uv).x();
       let position_world = shader_uv_space_to_world_space(&camera, uv, depth);
 
@@ -137,15 +135,16 @@ impl<'a> GraphicsShaderProvider for AOComputer<'a> {
       let binormal = normal.cross(tangent);
       let tbn: Node<Mat3<f32>> = (tangent, binormal, normal).into();
 
-      samples
+      let occlusion_sum = samples
         .into_shader_iter()
         .clamp_by(parameter.sample_count)
-        .for_each(|(_, sample), _| {
+        .map(|(_, sample): (_, UniformNode<Vec4<f32>>)| {
           let sample_position_offset = tbn * sample.load().xyz();
           let sample_position_world = position_world + sample_position_offset * parameter.radius;
 
           let (s_uv, s_depth) = shader_world_space_to_uv_space(&camera, sample_position_world);
-          let sample_position_depth = depth_tex.sample(sampler, s_uv).x();
+          // I think the naga's shader uniformity analysis is bugged if we use sample call here.
+          let sample_position_depth = depth_tex.sample_level(sampler, s_uv, val(0.)).x();
 
           let occluded = (sample_position_depth + parameter.bias)
             .less_equal_than(s_depth)
@@ -154,11 +153,12 @@ impl<'a> GraphicsShaderProvider for AOComputer<'a> {
           let relative_depth_diff = parameter.radius / (sample_position_depth - s_depth).abs();
           let intensity = relative_depth_diff.smoothstep(val(0.), val(1.));
 
-          let occluded = occluded * intensity;
-          occlusion.store(occlusion.load() - occluded);
-        });
+          occluded * intensity
+        })
+        .sum();
 
-      let occlusion = occlusion.load() / sample_count_f;
+      let occlusion = parameter.sample_count.into_f32() - occlusion_sum;
+      let occlusion = occlusion / sample_count_f;
       let occlusion = occlusion.pow(parameter.magnitude);
       let occlusion = parameter.contrast * (occlusion - val(0.5)) + val(0.5);
 

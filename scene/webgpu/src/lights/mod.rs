@@ -74,6 +74,19 @@ pub struct ShaderLightingResult {
   pub specular: Vec3<f32>,
 }
 
+// note, we have to use the real name but not the ENode<ShaderAPIInstance> or we can not pass the
+// rust orphan rules
+impl core::ops::Add for ShaderLightingResultShaderAPIInstance {
+  type Output = Self;
+
+  fn add(self, rhs: Self) -> Self::Output {
+    Self {
+      diffuse: self.diffuse + rhs.diffuse,
+      specular: self.specular + rhs.specular,
+    }
+  }
+}
+
 #[derive(Copy, Clone, ShaderStruct)]
 pub struct ShaderLightingGeometricCtx {
   pub position: Vec3<f32>,

@@ -23,11 +23,22 @@ pub trait ShaderIteratorExt: ShaderIterator + Sized {
     });
   }
 
-  fn map<F>(self, f: F) -> ShaderMapIter<Self, F> {
+  fn sum<T>(self) -> Self::Item
+  where
+    Self: ShaderIterator<Item = Node<T>>,
+    T: ShaderSizedValueNodeType,
+    Node<T>: Add<Output = Node<T>>,
+  {
+    let value = zeroed_val::<T>().make_local_var();
+    self.for_each(|item, _| value.store_unchecked(value.load_unchecked() + item));
+    value.load_unchecked()
+  }
+
+  fn map<F: Fn(I) -> O, I, O>(self, f: F) -> ShaderMapIter<Self, F> {
     ShaderMapIter { iter: self, f }
   }
 
-  fn filter<F>(self, f: F) -> ShaderFilterIter<Self, F> {
+  fn filter<F: Fn(&I) -> Node<bool>, I>(self, f: F) -> ShaderFilterIter<Self, F> {
     ShaderFilterIter { iter: self, f }
   }
 
@@ -38,7 +49,7 @@ pub trait ShaderIteratorExt: ShaderIterator + Sized {
     }
   }
 
-  fn take_while<F>(self, f: F) -> ShaderTakeWhileIter<Self, F> {
+  fn take_while<F: Fn(&I) -> Node<bool>, I>(self, f: F) -> ShaderTakeWhileIter<Self, F> {
     ShaderTakeWhileIter { iter: self, f }
   }
 
@@ -100,7 +111,7 @@ pub struct ShaderFilterIter<T, F> {
 impl<T, F, TT> ShaderIterator for ShaderFilterIter<T, F>
 where
   T: ShaderIterator<Item = Node<TT>>,
-  TT: ShaderSizedValueNodeType + Default,
+  TT: ShaderSizedValueNodeType,
   F: Fn(&T::Item) -> Node<bool>,
 {
   type Item = T::Item;
@@ -127,14 +138,14 @@ pub struct ShaderMapIter<T, F> {
   f: F,
 }
 
-impl<T, F, TT, MTT> ShaderIterator for ShaderMapIter<T, F>
+impl<T, F, TT> ShaderIterator for ShaderMapIter<T, F>
 where
-  T: ShaderIterator<Item = Node<TT>>,
+  T: ShaderIterator,
+  T::Item: Copy,
   TT: ShaderSizedValueNodeType,
-  MTT: ShaderSizedValueNodeType,
-  F: Fn(Node<TT>) -> Node<MTT>,
+  F: Fn(T::Item) -> Node<TT>,
 {
-  type Item = Node<MTT>;
+  type Item = Node<TT>;
 
   fn shader_next(&self) -> (Node<bool>, Self::Item) {
     let (inner_has_next, inner) = self.iter.shader_next();

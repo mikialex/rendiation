@@ -348,13 +348,10 @@ impl ForwardLightingSystem {
         let length = lengths_info.index(val(i as u32)).load().x();
         builder.register::<LightCount>(length);
 
-        let (diffuse, specular) = lights.as_ref().as_ref().compute_lights(
-          builder,
-          binding,
-          shading_impl,
-          shading.as_ref(),
-          &geom_ctx,
-        );
+        let ENode::<ShaderLightingResult> { diffuse, specular } = lights
+          .as_ref()
+          .as_ref()
+          .compute_lights(builder, binding, shading_impl, shading.as_ref(), &geom_ctx);
         light_specular_result = specular + light_specular_result;
         light_diffuse_result = diffuse + light_diffuse_result;
       }
@@ -556,7 +553,7 @@ impl<T: ShaderLight> LightCollectionCompute for LightList<T> {
     shading_impl: &dyn LightableSurfaceShadingDyn,
     shading: &dyn Any,
     geom_ctx: &ENode<ShaderLightingGeometricCtx>,
-  ) -> (Node<Vec3<f32>>, Node<Vec3<f32>>) {
+  ) -> ENode<ShaderLightingResult> {
     let lights: UniformNode<_> = binding.bind_by_unchecked(self.uniform.gpu.as_ref().unwrap());
 
     let dep = T::create_dep(builder);
@@ -579,6 +576,9 @@ impl<T: ShaderLight> LightCollectionCompute for LightList<T> {
         light_diffuse_result.store(light_diffuse_result.load() + light_result.diffuse);
       });
 
-    (light_diffuse_result.load(), light_specular_result.load())
+    ENode::<ShaderLightingResult> {
+      diffuse: light_diffuse_result.load(),
+      specular: light_specular_result.load(),
+    }
   }
 }
