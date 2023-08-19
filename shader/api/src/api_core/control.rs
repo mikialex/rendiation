@@ -32,7 +32,7 @@ pub trait ShaderIteratorAble {
   type Item: ShaderNodeType;
 }
 
-pub enum ShaderIterator {
+pub enum ShaderIteratorLegacy {
   Const(u32),
   Count(ShaderNodeRawHandle),
   FixedArray {
@@ -62,9 +62,9 @@ impl ForCtx {
   }
 }
 
-impl From<u32> for ShaderIterator {
+impl From<u32> for ShaderIteratorLegacy {
   fn from(v: u32) -> Self {
-    ShaderIterator::Const(v)
+    ShaderIteratorLegacy::Const(v)
   }
 }
 
@@ -72,9 +72,9 @@ impl ShaderIteratorAble for u32 {
   type Item = u32;
 }
 
-impl From<Node<u32>> for ShaderIterator {
+impl From<Node<u32>> for ShaderIteratorLegacy {
   fn from(v: Node<u32>) -> Self {
-    ShaderIterator::Count(v.handle())
+    ShaderIteratorLegacy::Count(v.handle())
   }
 }
 
@@ -82,17 +82,17 @@ impl ShaderIteratorAble for Node<u32> {
   type Item = u32;
 }
 
-impl<T, const U: usize> From<Node<Shader140Array<T, U>>> for ShaderIterator {
+impl<T, const U: usize> From<Node<Shader140Array<T, U>>> for ShaderIteratorLegacy {
   fn from(v: Node<Shader140Array<T, U>>) -> Self {
-    ShaderIterator::FixedArray {
+    ShaderIteratorLegacy::FixedArray {
       array: v.handle(),
       length: U,
     }
   }
 }
-impl<T, const U: usize> From<UniformNode<Shader140Array<T, U>>> for ShaderIterator {
+impl<T, const U: usize> From<UniformNode<Shader140Array<T, U>>> for ShaderIteratorLegacy {
   fn from(v: UniformNode<Shader140Array<T, U>>) -> Self {
-    ShaderIterator::FixedArray {
+    ShaderIteratorLegacy::FixedArray {
       array: v.handle(),
       length: U,
     }
@@ -119,9 +119,9 @@ pub struct ClampedShaderIter<T> {
   pub count: Node<u32>,
 }
 
-impl<T: Into<ShaderIterator>> From<ClampedShaderIter<T>> for ShaderIterator {
+impl<T: Into<ShaderIteratorLegacy>> From<ClampedShaderIter<T>> for ShaderIteratorLegacy {
   fn from(v: ClampedShaderIter<T>) -> Self {
-    ShaderIterator::Clamped {
+    ShaderIteratorLegacy::Clamped {
       source: Box::new(v.source.into()),
       max: v.count.handle(),
     }
@@ -133,7 +133,7 @@ impl<T: ShaderIteratorAble> ShaderIteratorAble for ClampedShaderIter<T> {
 }
 
 #[inline(never)]
-pub fn for_by<T: Into<ShaderIterator> + ShaderIteratorAble>(
+pub fn for_by<T: Into<ShaderIteratorLegacy> + ShaderIteratorAble>(
   iterable: T,
   logic: impl Fn(&ForCtx, Node<T::Item>, Node<u32>),
 ) where
@@ -147,39 +147,41 @@ pub fn for_by<T: Into<ShaderIterator> + ShaderIteratorAble>(
 }
 
 #[inline(never)]
-pub fn for_by_ok<T: Into<ShaderIterator> + ShaderIteratorAble>(
+pub fn for_by_ok<T: Into<ShaderIteratorLegacy> + ShaderIteratorAble>(
   iterable: T,
   logic: impl Fn(&ForCtx, Node<T::Item>, Node<u32>) -> Result<(), ShaderBuildError>,
 ) -> Result<(), ShaderBuildError>
 where
   T::Item: ShaderNodeType,
 {
-  let iter: ShaderIterator = iterable.into();
+  let iter: ShaderIteratorLegacy = iterable.into();
 
   let index = val(0).make_local_var();
   let condition = val(false).make_local_var();
 
   fn get_item<T: ShaderNodeType>(
-    iter: &ShaderIterator,
+    iter: &ShaderIteratorLegacy,
     index: &LocalVarNode<u32>,
   ) -> ShaderNodeRawHandle {
     match &iter {
-      ShaderIterator::Const(_) => index.load().handle(),
-      ShaderIterator::Count(_) => index.load().handle(),
-      ShaderIterator::FixedArray { array, .. } => {
+      ShaderIteratorLegacy::Const(_) => index.load().handle(),
+      ShaderIteratorLegacy::Count(_) => index.load().handle(),
+      ShaderIteratorLegacy::FixedArray { array, .. } => {
         let array: LocalVarNode<[T; 0]> = unsafe { array.into_node() };
         array.index(index.load()).handle()
       }
-      ShaderIterator::Clamped { source, .. } => get_item::<T>(source, index),
+      ShaderIteratorLegacy::Clamped { source, .. } => get_item::<T>(source, index),
     }
   }
 
   loop_by_ok(|cx| {
     let compare = match &iter {
-      ShaderIterator::Const(count) => index.load().less_than(val(*count)),
-      ShaderIterator::Count(count) => index.load().less_than(unsafe { count.into_node() }),
-      ShaderIterator::FixedArray { length, .. } => index.load().less_than(val(*length as u32)),
-      ShaderIterator::Clamped { max, .. } => {
+      ShaderIteratorLegacy::Const(count) => index.load().less_than(val(*count)),
+      ShaderIteratorLegacy::Count(count) => index.load().less_than(unsafe { count.into_node() }),
+      ShaderIteratorLegacy::FixedArray { length, .. } => {
+        index.load().less_than(val(*length as u32))
+      }
+      ShaderIteratorLegacy::Clamped { max, .. } => {
         index.load().less_equal_than(unsafe { max.into_node() })
       }
     };

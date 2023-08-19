@@ -128,6 +128,14 @@ where
   v.into()
 }
 
+#[must_use]
+pub fn zeroed_val<T>() -> Node<T>
+where
+  T: ShaderSizedValueNodeType,
+{
+  todo!()
+}
+
 impl ShaderNodeExpr {
   pub fn insert_api<T: ShaderNodeType>(self) -> Node<T> {
     call_shader_api(|api| unsafe { api.make_expression(self).into_node() })
