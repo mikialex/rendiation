@@ -123,14 +123,7 @@ impl<'a> GraphicsShaderProvider for AOComputer<'a> {
 
       let uv = builder.query::<FragmentUv>()?;
 
-      let iter = ClampedShaderIter {
-        source: samples,
-        count: parameter.sample_count,
-      };
-
       let sample_count_f = parameter.sample_count.into_f32();
-
-      let occlusion = sample_count_f.make_local_var();
 
       let depth = depth_tex.sample(sampler, uv).x();
       let position_world = shader_uv_space_to_world_space(&camera, uv, depth);
@@ -142,25 +135,30 @@ impl<'a> GraphicsShaderProvider for AOComputer<'a> {
       let binormal = normal.cross(tangent);
       let tbn: Node<Mat3<f32>> = (tangent, binormal, normal).into();
 
-      for_by(iter, |_, sample, _| {
-        let sample_position_offset = tbn * sample.load().xyz();
-        let sample_position_world = position_world + sample_position_offset * parameter.radius;
+      let occlusion_sum = samples
+        .into_shader_iter()
+        .clamp_by(parameter.sample_count)
+        .map(|(_, sample): (_, UniformNode<Vec4<f32>>)| {
+          let sample_position_offset = tbn * sample.load().xyz();
+          let sample_position_world = position_world + sample_position_offset * parameter.radius;
 
-        let (s_uv, s_depth) = shader_world_space_to_uv_space(&camera, sample_position_world);
-        let sample_position_depth = depth_tex.sample(sampler, s_uv).x();
+          let (s_uv, s_depth) = shader_world_space_to_uv_space(&camera, sample_position_world);
+          // I think the naga's shader uniformity analysis is bugged if we use sample call here.
+          let sample_position_depth = depth_tex.sample_level(sampler, s_uv, val(0.)).x();
 
-        let occluded = (sample_position_depth + parameter.bias)
-          .less_equal_than(s_depth)
-          .select(0., 1.);
+          let occluded = (sample_position_depth + parameter.bias)
+            .less_equal_than(s_depth)
+            .select(0., 1.);
 
-        let relative_depth_diff = parameter.radius / (sample_position_depth - s_depth).abs();
-        let intensity = relative_depth_diff.smoothstep(val(0.), val(1.));
+          let relative_depth_diff = parameter.radius / (sample_position_depth - s_depth).abs();
+          let intensity = relative_depth_diff.smoothstep(val(0.), val(1.));
 
-        let occluded = occluded * intensity;
-        occlusion.store(occlusion.load() - occluded);
-      });
+          occluded * intensity
+        })
+        .sum();
 
-      let occlusion = occlusion.load() / sample_count_f;
+      let occlusion = parameter.sample_count.into_f32() - occlusion_sum;
+      let occlusion = occlusion / sample_count_f;
       let occlusion = occlusion.pow(parameter.magnitude);
       let occlusion = parameter.contrast * (occlusion - val(0.5)) + val(0.5);
 

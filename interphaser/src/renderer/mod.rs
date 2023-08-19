@@ -298,14 +298,7 @@ impl WebGPUxUIRenderer {
     let solid_color_pipeline = device
       .build_pipeline_by_shader_api(
         SolidUIPipeline { target_format }
-          .build_self(
-            Box::new(ShaderAPINagaImpl::new(
-              rendiation_shader_api::ShaderStages::Vertex,
-            )),
-            Box::new(ShaderAPINagaImpl::new(
-              rendiation_shader_api::ShaderStages::Fragment,
-            )),
-          )
+          .build_self(&|stage| Box::new(ShaderAPINagaImpl::new(stage)))
           .unwrap(),
       )
       .unwrap();
@@ -313,14 +306,7 @@ impl WebGPUxUIRenderer {
     let texture_pipeline = device
       .build_pipeline_by_shader_api(
         TextureUIPipeline { target_format }
-          .build_self(
-            Box::new(ShaderAPINagaImpl::new(
-              rendiation_shader_api::ShaderStages::Vertex,
-            )),
-            Box::new(ShaderAPINagaImpl::new(
-              rendiation_shader_api::ShaderStages::Fragment,
-            )),
-          )
+          .build_self(&|stage| Box::new(ShaderAPINagaImpl::new(stage)))
           .unwrap(),
       )
       .unwrap();

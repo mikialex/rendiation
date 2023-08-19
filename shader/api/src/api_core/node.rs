@@ -57,6 +57,13 @@ impl<T, const W: AddressSpace> Node<ShaderPtr<T, W>> {
     call_shader_api(|g| unsafe { g.load(self.handle()).into_node() })
   }
 
+  pub fn store_unchecked(&self, source: impl Into<Node<T>>) {
+    let source = source.into();
+    call_shader_api(|g| {
+      g.store(source.handle(), self.handle());
+    })
+  }
+
   pub fn store(&self, source: impl Into<Node<T>>)
   where
     TruthCheckBool<{ W.writeable() }>: TruthCheckPass,

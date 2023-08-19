@@ -4,6 +4,7 @@ use crate::*;
 pub enum ShaderStages {
   Vertex,
   Fragment,
+  Compute,
 }
 
 /// https://www.w3.org/TR/WGSL/#address-space

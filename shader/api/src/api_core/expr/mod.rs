@@ -59,6 +59,9 @@ pub enum SampleLevel {
 }
 
 pub enum ShaderNodeExpr {
+  Zeroed {
+    target: ShaderSizedValueType,
+  },
   Convert {
     source: ShaderNodeRawHandle,
     convert_to: ValueKind,
@@ -126,6 +129,17 @@ where
   T: PrimitiveShaderNodeType,
 {
   v.into()
+}
+
+#[must_use]
+pub fn zeroed_val<T>() -> Node<T>
+where
+  T: ShaderSizedValueNodeType,
+{
+  ShaderNodeExpr::Zeroed {
+    target: T::MEMBER_TYPE,
+  }
+  .insert_api()
 }
 
 impl ShaderNodeExpr {

@@ -35,6 +35,7 @@ impl ShaderAPINagaImpl {
     let stage = match stage {
       ShaderStages::Vertex => naga::ShaderStage::Vertex,
       ShaderStages::Fragment => naga::ShaderStage::Fragment,
+      ShaderStages::Compute => naga::ShaderStage::Compute,
     };
 
     let mut module = naga::Module::default();
@@ -383,6 +384,10 @@ impl ShaderAPI for ShaderAPINagaImpl {
     #[allow(clippy::never_loop)] // we here use loop to early exit match block!
     let expr = loop {
       break match expr {
+        ShaderNodeExpr::Zeroed { target } => naga::Expression::ZeroValue(self.register_ty_impl(
+          ShaderValueType::Single(ShaderValueSingleType::Sized(target)),
+          None,
+        )),
         ShaderNodeExpr::FunctionCall { meta, parameters } => {
           match meta {
             ShaderFunctionType::Custom(meta) => {
