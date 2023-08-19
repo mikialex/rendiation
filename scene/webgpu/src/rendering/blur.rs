@@ -77,7 +77,8 @@ impl<'a, T> GraphicsShaderProvider for LinearBlurTask<'a, T> {
         .map(|(i, weight): (Node<u32>, UniformNode<Vec4<f32>>)| {
           let weight = weight.load();
           let position = uv + (i.into_f32() - weight_count.into_f32() * val(0.5)) * sample_offset;
-          weight * input.sample(sampler, position)
+          // I think the naga's shader uniformity analysis is bugged if we use sample call here.
+          weight * input.sample_level(sampler, position, val(0.))
         })
         .sum();
 

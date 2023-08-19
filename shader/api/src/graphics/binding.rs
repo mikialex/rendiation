@@ -26,6 +26,7 @@ impl<T: ShaderNodeType, const S: AddressSpace> BindingPreparer<T, S> {
     let node = match get_current_stage().unwrap() {
       ShaderStages::Vertex => self.entry.vertex_node,
       ShaderStages::Fragment => self.entry.fragment_node,
+      ShaderStages::Compute => todo!(),
     };
 
     unsafe { node.into_node() }

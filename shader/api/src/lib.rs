@@ -68,6 +68,59 @@ pub trait ShaderAPI {
   fn build(&mut self) -> (String, Self::Output);
 }
 
+pub(crate) struct ShaderBuildingCtx {
+  vertex: DynamicShaderAPI,
+  fragment: DynamicShaderAPI,
+  compute: DynamicShaderAPI,
+  current: Option<ShaderStages>,
+}
+
+thread_local! {
+  static IN_BUILDING_SHADER_API: RefCell<Option<ShaderBuildingCtx>> = RefCell::new(None);
+}
+
+pub(crate) fn call_shader_api<T>(
+  modifier: impl FnOnce(&mut dyn ShaderAPI<Output = Box<dyn Any>>) -> T,
+) -> T {
+  IN_BUILDING_SHADER_API.with_borrow_mut(|api| {
+    let api = api.as_mut().unwrap();
+    let api = match api.current.unwrap() {
+      ShaderStages::Vertex => &mut api.vertex,
+      ShaderStages::Fragment => &mut api.fragment,
+      ShaderStages::Compute => &mut api.compute,
+    }
+    .as_mut();
+
+    modifier(api)
+  })
+}
+
+pub(crate) fn set_current_building(current: Option<ShaderStages>) {
+  IN_BUILDING_SHADER_API.with_borrow_mut(|api| {
+    let api = api.as_mut().unwrap();
+    api.current = current
+  })
+}
+
+pub(crate) fn get_current_stage() -> Option<ShaderStages> {
+  IN_BUILDING_SHADER_API.with_borrow_mut(|api| api.as_mut().unwrap().current)
+}
+
+pub(crate) fn set_build_api(api_builder: &dyn Fn(ShaderStages) -> DynamicShaderAPI) {
+  IN_BUILDING_SHADER_API.with_borrow_mut(|api| {
+    api.replace(ShaderBuildingCtx {
+      vertex: api_builder(ShaderStages::Vertex),
+      fragment: api_builder(ShaderStages::Fragment),
+      compute: api_builder(ShaderStages::Compute),
+      current: None,
+    });
+  })
+}
+
+pub(crate) fn take_build_api() -> ShaderBuildingCtx {
+  IN_BUILDING_SHADER_API.with_borrow_mut(|api| api.take().unwrap())
+}
+
 pub trait TruthCheckPass {}
 
 pub struct TruthCheckBool<const TERM: bool>();
