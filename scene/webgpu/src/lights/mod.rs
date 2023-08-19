@@ -85,12 +85,9 @@ pub struct ShaderLightingGeometricCtx {
 pub trait ShaderLight:
   ShaderStructuralNodeType + ShaderSizedValueNodeType + Std140 + Sized + Default
 {
-  /// this is to avoid mutable borrow errors in for_by and if_by.
   type Dependency;
 
-  fn create_dep(
-    builder: &mut ShaderFragmentBuilderView,
-  ) -> Result<Self::Dependency, ShaderBuildError>;
+  fn create_dep(builder: &mut ShaderFragmentBuilderView) -> Self::Dependency;
 
   fn compute_direct_light(
     builder: &ShaderFragmentBuilderView,
@@ -99,7 +96,7 @@ pub trait ShaderLight:
     shading_impl: &dyn LightableSurfaceShadingDyn,
     shading: &dyn Any,
     dep: &Self::Dependency,
-  ) -> Result<ENode<ShaderLightingResult>, ShaderBuildError>;
+  ) -> ENode<ShaderLightingResult>;
 }
 
 /// Punctual lights are defined as parameterized, infinitely small points that
@@ -109,24 +106,20 @@ pub trait PunctualShaderLight:
 {
   type PunctualDependency;
 
-  fn create_punctual_dep(
-    builder: &mut ShaderFragmentBuilderView,
-  ) -> Result<Self::PunctualDependency, ShaderBuildError>;
+  fn create_punctual_dep(builder: &mut ShaderFragmentBuilderView) -> Self::PunctualDependency;
 
   fn compute_incident_light(
     builder: &ShaderFragmentBuilderView,
     light: &ENode<Self>,
     dep: &Self::PunctualDependency,
     ctx: &ENode<ShaderLightingGeometricCtx>,
-  ) -> Result<ENode<ShaderIncidentLight>, ShaderBuildError>;
+  ) -> ENode<ShaderIncidentLight>;
 }
 
 impl<T: PunctualShaderLight> ShaderLight for T {
   type Dependency = T::PunctualDependency;
 
-  fn create_dep(
-    builder: &mut ShaderFragmentBuilderView,
-  ) -> Result<Self::Dependency, ShaderBuildError> {
+  fn create_dep(builder: &mut ShaderFragmentBuilderView) -> Self::Dependency {
     T::create_punctual_dep(builder)
   }
 
@@ -137,9 +130,9 @@ impl<T: PunctualShaderLight> ShaderLight for T {
     shading_impl: &dyn LightableSurfaceShadingDyn,
     shading: &dyn Any,
     dep: &Self::Dependency,
-  ) -> Result<ENode<ShaderLightingResult>, ShaderBuildError> {
+  ) -> ENode<ShaderLightingResult> {
     // todo, check if incident light intensity zero
-    let incident = T::compute_incident_light(builder, light, dep, ctx)?;
+    let incident = T::compute_incident_light(builder, light, dep, ctx);
     shading_impl.compute_lighting_by_incident_dyn(shading, &incident, ctx)
   }
 }

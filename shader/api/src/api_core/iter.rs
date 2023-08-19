@@ -41,6 +41,13 @@ pub trait ShaderIteratorExt: ShaderIterator + Sized {
   fn take_while<F>(self, f: F) -> ShaderTakeWhileIter<Self, F> {
     ShaderTakeWhileIter { iter: self, f }
   }
+
+  fn clamp_by<T>(self, count: Node<u32>) -> impl ShaderIterator<Item = (Node<u32>, Node<T>)>
+  where
+    Self: ShaderIterator<Item = (Node<u32>, Node<T>)>,
+  {
+    self.take_while(move |&(idx, _): &(Node<u32>, Node<T>)| idx.less_than(count))
+  }
 }
 impl<T: ShaderIterator + Sized> ShaderIteratorExt for T {}
 
@@ -63,14 +70,14 @@ impl<T: ShaderNodeType, const U: usize> ShaderIterator for UniformArrayIter<T, U
   type Item = (Node<u32>, UniformNode<T>);
 
   fn shader_next(&self) -> (Node<bool>, Self::Item) {
-    let current = self.cursor.load();
-    let next = current + val(1);
-    self.cursor.store(next);
-    let has_next = current.less_than(val(U as u32));
+    let current_next = self.cursor.load();
+    self.cursor.store(current_next + val(1));
+    let has_next = current_next.less_than(val(U as u32));
 
     // should we do the clamp by ourself?
-    let uniform = self.array.index(next.min(val(U as u32)));
-    (has_next, (next, uniform))
+    assert!(U >= 1);
+    let uniform = self.array.index(current_next.min(val(U as u32 - 1)));
+    (has_next, (current_next, uniform))
   }
 }
 

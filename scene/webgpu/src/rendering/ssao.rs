@@ -123,11 +123,6 @@ impl<'a> GraphicsShaderProvider for AOComputer<'a> {
 
       let uv = builder.query::<FragmentUv>()?;
 
-      let iter = ClampedShaderIter {
-        source: samples,
-        count: parameter.sample_count,
-      };
-
       let sample_count_f = parameter.sample_count.into_f32();
 
       let occlusion = sample_count_f.make_local_var();
@@ -142,23 +137,26 @@ impl<'a> GraphicsShaderProvider for AOComputer<'a> {
       let binormal = normal.cross(tangent);
       let tbn: Node<Mat3<f32>> = (tangent, binormal, normal).into();
 
-      for_by(iter, |_, sample, _| {
-        let sample_position_offset = tbn * sample.load().xyz();
-        let sample_position_world = position_world + sample_position_offset * parameter.radius;
+      samples
+        .into_shader_iter()
+        .clamp_by(parameter.sample_count)
+        .for_each(|(_, sample), _| {
+          let sample_position_offset = tbn * sample.load().xyz();
+          let sample_position_world = position_world + sample_position_offset * parameter.radius;
 
-        let (s_uv, s_depth) = shader_world_space_to_uv_space(&camera, sample_position_world);
-        let sample_position_depth = depth_tex.sample(sampler, s_uv).x();
+          let (s_uv, s_depth) = shader_world_space_to_uv_space(&camera, sample_position_world);
+          let sample_position_depth = depth_tex.sample(sampler, s_uv).x();
 
-        let occluded = (sample_position_depth + parameter.bias)
-          .less_equal_than(s_depth)
-          .select(0., 1.);
+          let occluded = (sample_position_depth + parameter.bias)
+            .less_equal_than(s_depth)
+            .select(0., 1.);
 
-        let relative_depth_diff = parameter.radius / (sample_position_depth - s_depth).abs();
-        let intensity = relative_depth_diff.smoothstep(val(0.), val(1.));
+          let relative_depth_diff = parameter.radius / (sample_position_depth - s_depth).abs();
+          let intensity = relative_depth_diff.smoothstep(val(0.), val(1.));
 
-        let occluded = occluded * intensity;
-        occlusion.store(occlusion.load() - occluded);
-      });
+          let occluded = occluded * intensity;
+          occlusion.store(occlusion.load() - occluded);
+        });
 
       let occlusion = occlusion.load() / sample_count_f;
       let occlusion = occlusion.pow(parameter.magnitude);

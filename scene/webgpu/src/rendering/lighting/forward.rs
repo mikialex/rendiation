@@ -345,7 +345,7 @@ impl ForwardLightingSystem {
           shading_impl,
           shading.as_ref(),
           &geom_ctx,
-        )?;
+        );
         light_specular_result = specular + light_specular_result;
         light_diffuse_result = diffuse + light_diffuse_result;
       }
@@ -547,32 +547,29 @@ impl<T: ShaderLight> LightCollectionCompute for LightList<T> {
     shading_impl: &dyn LightableSurfaceShadingDyn,
     shading: &dyn Any,
     geom_ctx: &ENode<ShaderLightingGeometricCtx>,
-  ) -> Result<(Node<Vec3<f32>>, Node<Vec3<f32>>), ShaderBuildError> {
+  ) -> (Node<Vec3<f32>>, Node<Vec3<f32>>) {
     let lights: UniformNode<_> = binding.bind_by_unchecked(self.uniform.gpu.as_ref().unwrap());
 
-    let dep = T::create_dep(builder)?;
+    let dep = T::create_dep(builder);
 
     let light_specular_result = val(Vec3::zero()).make_local_var();
     let light_diffuse_result = val(Vec3::zero()).make_local_var();
 
-    let light_count = builder.query::<LightCount>()?;
+    let light_count = builder.query::<LightCount>().unwrap();
 
-    let light_iter = ClampedShaderIter {
-      source: lights,
-      count: light_count,
-    };
+    lights
+      .into_shader_iter()
+      .clamp_by(light_count)
+      .for_each(|(_, light), _| {
+        let light = light.load_unchecked().expand();
+        let light_result =
+          T::compute_direct_light(builder, &light, geom_ctx, shading_impl, shading, &dep);
 
-    for_by_ok(light_iter, |_, light, _| {
-      let light = light.load_unchecked().expand();
-      let light_result =
-        T::compute_direct_light(builder, &light, geom_ctx, shading_impl, shading, &dep)?;
+        // improve impl by add assign
+        light_specular_result.store(light_specular_result.load() + light_result.specular);
+        light_diffuse_result.store(light_diffuse_result.load() + light_result.diffuse);
+      });
 
-      // improve impl by add assign
-      light_specular_result.store(light_specular_result.load() + light_result.specular);
-      light_diffuse_result.store(light_diffuse_result.load() + light_result.diffuse);
-      Ok(())
-    })?;
-
-    Ok((light_diffuse_result.load(), light_specular_result.load()))
+    (light_diffuse_result.load(), light_specular_result.load())
   }
 }

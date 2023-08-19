@@ -2,6 +2,7 @@
 #![feature(adt_const_params)]
 #![feature(type_name_of_val)]
 #![feature(associated_const_equality)]
+#![feature(return_position_impl_trait_in_trait)]
 #![feature(generic_const_exprs)]
 #![allow(incomplete_features)]
 #![feature(local_key_cell_methods)]

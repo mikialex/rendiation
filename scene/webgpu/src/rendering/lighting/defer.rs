@@ -224,16 +224,16 @@ impl<'a, T: ShaderLight> LightCollectionCompute for SingleLight<'a, T> {
     shading_impl: &dyn LightableSurfaceShadingDyn,
     shading: &dyn Any,
     geom_ctx: &ENode<ShaderLightingGeometricCtx>,
-  ) -> Result<(Node<Vec3<f32>>, Node<Vec3<f32>>), ShaderBuildError> {
+  ) -> (Node<Vec3<f32>>, Node<Vec3<f32>>) {
     let light: UniformNode<T> = binding.bind_by_unchecked(self.light);
 
-    let dep = T::create_dep(builder)?;
+    let dep = T::create_dep(builder);
 
     let light = light.load_unchecked().expand();
     let light_result =
-      T::compute_direct_light(builder, &light, geom_ctx, shading_impl, shading, &dep)?;
+      T::compute_direct_light(builder, &light, geom_ctx, shading_impl, shading, &dep);
 
-    Ok((light_result.diffuse, light_result.specular))
+    (light_result.diffuse, light_result.specular)
   }
 }
 
@@ -288,7 +288,7 @@ where
       let result =
         self
           .light
-          .compute_lights_grouped(builder, binding, self.shading, &shading, &geom_ctx)?;
+          .compute_lights_grouped(builder, binding, self.shading, &shading, &geom_ctx);
 
       R::write_lighting(builder, result)
     })
