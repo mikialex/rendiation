@@ -1,4 +1,7 @@
-use crate::*;
+use crate::{
+  brdf::{Brdf, BrdfEval},
+  *,
+};
 
 #[derive(Clone, Debug)]
 pub struct LtcFitConfig {
@@ -40,7 +43,37 @@ fn fit_tab(config: &LtcFitConfig, tab: &mut Vec<Mat3<f32>>, tab_mag_fresnel: &mu
 }
 
 fn gen_sphere_tab(config: &LtcFitConfig, tab_sphere: &mut Vec<f32>) {
-  todo!()
+  let n = config.lut_size;
+  for j in 0..n {
+    for i in 0..n {
+      let u1 = (i as f32) / (n - 1) as f32;
+      let u2 = (j as f32) / (n - 1) as f32;
+
+      // z = cos(elevation angle)
+      let z = u1 * 2.0 - 1.0;
+
+      // length of average dir., proportional to sin(sigma)^2
+      let len = u2;
+
+      let sigma = len.sqrt().asin();
+      let omega = z.acos();
+
+      // compute projected (cosine-weighted) solid angle of spherical cap
+      let value = if sigma > 0. {
+        //             value = ihemi(omega, sigma)/(pi*len);
+        todo!()
+      } else {
+        z.max(0.)
+      };
+      let value = 0.0;
+
+      if value.is_nan() {
+        println!("encounter nan value")
+      }
+
+      tab_sphere[i + j * n] = value;
+    }
+  }
 }
 
 fn pack_tab(
@@ -151,99 +184,102 @@ impl LTC {
   }
 }
 
-// // computes
-// // * the norm (albedo) of the BRDF
-// // * the average Schlick Fresnel value
-// // * the average direction of the BRDF
-// void computeAvgTerms(const Brdf& brdf, const vec3& V, const float alpha,
-//     float& norm, float& fresnel, vec3& averageDir)
-// {
-//     norm = 0.0f;
-//     fresnel = 0.0f;
-//     averageDir = vec3(0, 0, 0);
+#[derive(Default)]
+struct AverageInfo {
+  /// the average direction of the BRDF
+  direction: Vec3<f32>,
+  /// the average Schlick Fresnel value
+  fresnel: f32,
+  /// the norm (albedo) of the BRDF
+  norm: f32,
+}
 
-//     for (int j = 0; j < Nsample; ++j)
-//     for (int i = 0; i < Nsample; ++i)
-//     {
-//         const float U1 = (i + 0.5f)/Nsample;
-//         const float U2 = (j + 0.5f)/Nsample;
+fn compute_avg_terms<B: Brdf>(v: Vec3<f32>, alpha: f32, sample: usize) -> AverageInfo {
+  let mut avg = AverageInfo::default();
 
-//         // sample
-//         const vec3 L = brdf.sample(V, alpha, U1, U2);
+  for j in 0..sample {
+    for i in 0..sample {
+      let u1 = (i as f32 + 0.5) / sample as f32;
+      let u2 = (j as f32 + 0.5) / sample as f32;
 
-//         // eval
-//         float pdf;
-//         float eval = brdf.eval(V, L, alpha, pdf);
+      let l = B::sample(v, alpha, u1, u2);
+      let eval = B::eval(v, l, alpha);
 
-//         if (pdf > 0)
-//         {
-//             float weight = eval / pdf;
+      if eval.pdf > 0. {
+        let weight = eval.value / eval.pdf;
 
-//             vec3 H = normalize(V+L);
+        let h = (v + l).normalize();
 
-//             // accumulate
-//             norm       += weight;
-//             fresnel    += weight * pow(1.0f - glm::max(dot(V, H), 0.0f), 5.0f);
-//             averageDir += weight * L;
-//         }
-//     }
+        // accumulate
+        avg.norm += weight;
+        avg.fresnel += weight * (1.0 - v.dot(h).max(0.0)).powi(5);
+        avg.direction += weight * l;
+      }
+    }
+  }
 
-//     norm    /= (float)(Nsample*Nsample);
-//     fresnel /= (float)(Nsample*Nsample);
+  let sample_count = (sample * sample) as f32;
+  avg.norm /= sample_count;
+  avg.fresnel /= sample_count;
 
-//     // clear y component, which should be zero with isotropic BRDFs
-//     averageDir.y = 0.0f;
+  // clear y component, which should be zero with isotropic BRDFs
+  avg.direction.y = 0.0;
+  avg.direction = avg.direction.normalize();
 
-//     averageDir = normalize(averageDir);
-// }
+  avg
+}
 
-// // compute the error between the BRDF and the LTC
-// // using Multiple Importance Sampling
-// float computeError(const LTC& ltc, const Brdf& brdf, const vec3& V, const float alpha)
-// {
-//     double error = 0.0;
+// compute the error between the BRDF and the LTC
+// using Multiple Importance Sampling
+fn compute_error<B: Brdf>(ltc: &LTC, v: Vec3<f32>, alpha: f32, sample: usize) -> f32 {
+  let mut error: f64 = 0.0;
 
-//     for (int j = 0; j < Nsample; ++j)
-//     for (int i = 0; i < Nsample; ++i)
-//     {
-//         const float U1 = (i + 0.5f)/Nsample;
-//         const float U2 = (j + 0.5f)/Nsample;
+  for j in 0..sample {
+    for i in 0..sample {
+      let u1 = (i as f32 + 0.5) / sample as f32;
+      let u2 = (j as f32 + 0.5) / sample as f32;
 
-//         // importance sample LTC
-//         {
-//             // sample
-//             const vec3 L = ltc.sample(U1, U2);
+      // importance sample LTC
+      {
+        // sample
+        let l = ltc.sample(u1, u2);
+        let BrdfEval {
+          value: eval_brdf,
+          pdf: pdf_brdf,
+        } = B::eval(v, *l, alpha);
 
-//             float pdf_brdf;
-//             float eval_brdf = brdf.eval(V, L, alpha, pdf_brdf);
-//             float eval_ltc = ltc.eval(L);
-//             float pdf_ltc = eval_ltc/ltc.magnitude;
+        let eval_ltc = ltc.eval(*l);
+        let pdf_ltc = eval_ltc / ltc.magnitude;
 
-//             // error with MIS weight
-//             double error_ = fabsf(eval_brdf - eval_ltc);
-//             error_ = error_*error_*error_;
-//             error += error_/(pdf_ltc + pdf_brdf);
-//         }
+        // error with MIS weight
+        let error_ = (eval_brdf - eval_ltc).abs() as f64;
+        let error_ = error_ * error_ * error_;
+        error += error_ / (pdf_ltc + pdf_brdf) as f64;
+      }
 
-//         // importance sample BRDF
-//         {
-//             // sample
-//             const vec3 L = brdf.sample(V, alpha, U1, U2);
+      // importance sample BRDF
+      {
+        // sample
+        let l = B::sample(v, alpha, u1, u2);
 
-//             float pdf_brdf;
-//             float eval_brdf = brdf.eval(V, L, alpha, pdf_brdf);
-//             float eval_ltc = ltc.eval(L);
-//             float pdf_ltc = eval_ltc/ltc.magnitude;
+        let BrdfEval {
+          value: eval_brdf,
+          pdf: pdf_brdf,
+        } = B::eval(v, l, alpha);
 
-//             // error with MIS weight
-//             double error_ = fabsf(eval_brdf - eval_ltc);
-//             error_ = error_*error_*error_;
-//             error += error_/(pdf_ltc + pdf_brdf);
-//         }
-//     }
+        let eval_ltc = ltc.eval(l);
+        let pdf_ltc = eval_ltc / ltc.magnitude;
 
-//     return (float)error / (float)(Nsample*Nsample);
-// }
+        // error with MIS weight
+        let error_ = (eval_brdf - eval_ltc).abs() as f64;
+        let error_ = error_ * error_ * error_;
+        error += error_ / (pdf_ltc + pdf_brdf) as f64;
+      }
+    }
+  }
+
+  (error / (sample * sample) as f64) as f32
+}
 
 // struct FitLTC
 // {
@@ -393,69 +429,193 @@ impl LTC {
 //     }
 // }
 
-// float sqr(float x)
-// {
-//     return x*x;
-// }
+fn sqr(x: f32) -> f32 {
+  x * x
+}
 
-// float G(float w, float s, float g)
-// {
-//     return -2.0f*sinf(w)*cosf(s)*cosf(g) + pi/2.0f - g + sinf(g)*cosf(g);
-// }
+fn G(w: f32, s: f32, g: f32) -> f32 {
+  -2.0 * w.sin() * s.cos() * g.cos() + f32::PI() / 2.0 + g.sin() * g.cos()
+}
 
-// float H(float w, float s, float g)
-// {
-//     float sinsSq = sqr(sin(s));
-//     float cosgSq = sqr(cos(g));
+fn H(w: f32, s: f32, g: f32) -> f32 {
+  let sin_s_sq = sqr(s.sin());
+  let cos_g_sq = sqr(g.cos());
 
-//     return cosf(w)*(cosf(g)*sqrtf(sinsSq - cosgSq) + sinsSq*asinf(cosf(g)/sinf(s)));
-// }
+  w.cos() * (g.cos() * (sin_s_sq - cos_g_sq).sqrt() + sin_s_sq * (g.cos() / s.sin()).asin())
+}
 
-// float ihemi(float w, float s)
-// {
-//     float g = asinf(cosf(s)/sinf(w));
-//     float sinsSq = sqr(sinf(s));
+fn ihemi(w: f32, s: f32) -> f32 {
+  let g = (s.cos() / w.sin()).asin();
+  let sin_s_sq = sqr(s.sin());
 
-//     if (w >= 0.0f && w <= (pi/2.0f - s))
-//         return pi*cosf(w)*sinsSq;
+  let pi = f32::PI();
 
-//     if (w >= (pi/2.0f - s) && w < pi/2.0f)
-//         return pi*cosf(w)*sinsSq + G(w, s, g) - H(w, s, g);
+  if w >= 0.0 && w <= (pi / 2.0 - s) {
+    return pi * w.cos() * sin_s_sq;
+  }
 
-//     if (w >= pi/2.0f && w < (pi/2.0f + s))
-//         return G(w, s, g) + H(w, s, g);
+  if w >= (pi / 2.0 - s) && w < pi / 2.0 {
+    return pi * w.cos() * sin_s_sq + G(w, s, g) - H(w, s, g);
+  }
 
-//     return 0.0f;
-// }
+  if w >= pi / 2.0 && w < (pi / 2.0 + s) {
+    return G(w, s, g) + H(w, s, g);
+  }
 
-// void genSphereTab(float* tabSphere, int N)
-// {
-//     for (int j = 0; j < N; ++j)
-//     for (int i = 0; i < N; ++i)
+  0.0
+}
+
+fn mov<const N: usize>(r: &mut [f32; N], v: &[f32; N]) {
+  *r = *v;
+}
+
+fn set<const N: usize>(r: &mut [f32; N], v: f32) {
+  *r = [v; N];
+}
+
+fn add<const N: usize>(r: &mut [f32; N], v: &[f32; N]) {
+  r.iter_mut().zip(v.iter()).for_each(|(r, v)| *r += v)
+}
+
+struct NelderMeadSearchConfig<const N: usize> {
+  start: [f32; N],
+  max_iter: usize,
+  delta: f32,
+  pmin: f32,
+  tolerance: f32,
+}
+
+/// Downhill simplex solver:
+/// http://en.wikipedia.org/wiki/Nelder%E2%80%93Mead_method#One_possible_variation_of_the_NM_algorithm
+/// using the termination criterion from Numerical Recipes in C++ (3rd Ed.)
+fn nelder_mead<const N: usize>(
+  objective_fn: impl Fn(&[f32; N]) -> f32,
+  config: NelderMeadSearchConfig<N>,
+) -> [f32; N] {
+  todo!()
+}
+
+// // Downhill simplex solver:
+// // http://en.wikipedia.org/wiki/Nelder%E2%80%93Mead_method#One_possible_variation_of_the_NM_algorithm
+// // using the termination criterion from Numerical Recipes in C++ (3rd Ed.)
+// template<int DIM, typename FUNC>
+// float NelderMead(
+//     float* pmin, const float* start, float delta, float tolerance, int maxIters, FUNC
+// objectiveFn) {
+//     // standard coefficients from Nelder-Mead
+//     const float reflect  = 1.0f;
+//     const float expand   = 2.0f;
+//     const float contract = 0.5f;
+//     const float shrink   = 0.5f;
+
+//     typedef float point[DIM];
+//     const int NB_POINTS = DIM + 1;
+
+//     point s[NB_POINTS];
+//     float f[NB_POINTS];
+
+//     // initialise simplex
+//     mov(s[0], start, DIM);
+//     for (int i = 1; i < NB_POINTS; i++)
 //     {
-//         const float U1 = float(i)/(N - 1);
-//         const float U2 = float(j)/(N - 1);
-
-//         // z = cos(elevation angle)
-//         float z = 2.0f*U1 - 1.0f;
-
-//         // length of average dir., proportional to sin(sigma)^2
-//         float len = U2;
-
-//         float sigma = asinf(sqrtf(len));
-//         float omega = acosf(z);
-
-//         // compute projected (cosine-weighted) solid angle of spherical cap
-//         float value = 0.0f;
-
-//         if (sigma > 0.0f)
-//             value = ihemi(omega, sigma)/(pi*len);
-//         else
-//             value = std::max<float>(z, 0.0f);
-
-//         if (value != value)
-//             printf("nan!\n");
-
-//         tabSphere[i + j*N] = value;
+//         mov(s[i], start, DIM);
+//         s[i][i - 1] += delta;
 //     }
+
+//     // evaluate function at each point on simplex
+//     for (int i = 0; i < NB_POINTS; i++)
+//         f[i] = objectiveFn(s[i]);
+
+//     int lo = 0, hi, nh;
+
+//     for (int j = 0; j < maxIters; j++)
+//     {
+//         // find lowest, highest and next highest
+//         lo = hi = nh = 0;
+//         for (int i = 1; i < NB_POINTS; i++)
+//         {
+//             if (f[i] < f[lo])
+//                 lo = i;
+//             if (f[i] > f[hi])
+//             {
+//                 nh = hi;
+//                 hi = i;
+//             }
+//             else if (f[i] > f[nh])
+//                 nh = i;
+//         }
+
+//         // stop if we've reached the required tolerance level
+//         float a = fabsf(f[lo]);
+//         float b = fabsf(f[hi]);
+//         if (2.0f*fabsf(a - b) < (a + b)*tolerance)
+//             break;
+
+//         // compute centroid (excluding the worst point)
+//         point o;
+//         set(o, 0.0f, DIM);
+//         for (int i = 0; i < NB_POINTS; i++)
+//         {
+//             if (i == hi) continue;
+//             add(o, s[i], DIM);
+//         }
+
+//         for (int i = 0; i < DIM; i++)
+//             o[i] /= DIM;
+
+//         // reflection
+//         point r;
+//         for (int i = 0; i < DIM; i++)
+//             r[i] = o[i] + reflect*(o[i] - s[hi][i]);
+
+//         float fr = objectiveFn(r);
+//         if (fr < f[nh])
+//         {
+//             if (fr < f[lo])
+//             {
+//                 // expansion
+//                 point e;
+//                 for (int i = 0; i < DIM; i++)
+//                     e[i] = o[i] + expand*(o[i] - s[hi][i]);
+
+//                 float fe = objectiveFn(e);
+//                 if (fe < fr)
+//                 {
+//                     mov(s[hi], e, DIM);
+//                     f[hi] = fe;
+//                     continue;
+//                 }
+//             }
+
+//             mov(s[hi], r, DIM);
+//             f[hi] = fr;
+//             continue;
+//         }
+
+//         // contraction
+//         point c;
+//         for (int i = 0; i < DIM; i++)
+//             c[i] = o[i] - contract*(o[i] - s[hi][i]);
+
+//         float fc = objectiveFn(c);
+//         if (fc < f[hi])
+//         {
+//             mov(s[hi], c, DIM);
+//             f[hi] = fc;
+//             continue;
+//         }
+
+//         // reduction
+//         for (int k = 0; k < NB_POINTS; k++)
+//         {
+//             if (k == lo) continue;
+//             for (int i = 0; i < DIM; i++)
+//                 s[k][i] = s[lo][i] + shrink*(s[k][i] - s[lo][i]);
+//             f[k] = objectiveFn(s[k]);
+//         }
+//     }
+
+//     // return best point and its value
+//     mov(pmin, s[lo], DIM);
+//     return f[lo];
 // }
