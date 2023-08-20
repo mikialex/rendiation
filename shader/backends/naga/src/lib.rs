@@ -42,8 +42,8 @@ impl ShaderAPINagaImpl {
     let entry = naga::EntryPoint {
       name: ENTRY_POINT_NAME.to_owned(),
       stage,
-      early_depth_test: None,    // todo expose
-      workgroup_size: [0, 0, 0], // todo expose , why naga not make this an enum??
+      early_depth_test: None,
+      workgroup_size: [0, 0, 0],
       function: Default::default(),
     };
     module.entry_points.push(entry);
@@ -232,6 +232,19 @@ impl ShaderAPINagaImpl {
 
 impl ShaderAPI for ShaderAPINagaImpl {
   type Output = Box<dyn core::any::Any>;
+
+  fn set_workgroup_size(&mut self, size: (u32, u32, u32)) {
+    self.module.entry_points[0].workgroup_size = [size.0, size.1, size.2]
+  }
+
+  fn barrier(&mut self, scope: BarrierScope) {
+    let b = match scope {
+      BarrierScope::Storage => naga::Barrier::STORAGE,
+      BarrierScope::WorkGroup => naga::Barrier::WORK_GROUP,
+    };
+    self.push_top_statement(naga::Statement::Barrier(b));
+  }
+
   fn define_module_input(&mut self, input: ShaderInputNode) -> ShaderNodeRawHandle {
     assert!(self.building_fn.len() == 1);
     match input {

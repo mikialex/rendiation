@@ -93,7 +93,7 @@ impl ShaderRenderPipelineBuilder {
     Ok(result)
   }
 
-  pub fn build(mut self) -> Result<ShaderCompileResult, ShaderBuildError> {
+  pub fn build(mut self) -> Result<GraphicsShaderCompileResult, ShaderBuildError> {
     self.vertex.sync_fragment_out(&mut self.fragment);
 
     set_current_building(ShaderStages::Vertex.into());
@@ -110,7 +110,7 @@ impl ShaderRenderPipelineBuilder {
       ..
     } = take_build_api();
 
-    Ok(ShaderCompileResult {
+    Ok(GraphicsShaderCompileResult {
       vertex_shader: vertex.build(),
       frag_shader: fragment.build(),
       bindings: self.bindgroups,
@@ -155,7 +155,7 @@ pub trait GraphicsShaderProvider {
 
 impl GraphicsShaderProvider for () {}
 
-pub struct ShaderCompileResult {
+pub struct GraphicsShaderCompileResult {
   pub vertex_shader: (String, Box<dyn Any>),
   pub frag_shader: (String, Box<dyn Any>),
   pub bindings: ShaderBindGroupBuilder,

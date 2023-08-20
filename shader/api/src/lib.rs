@@ -33,8 +33,17 @@ pub use rendiation_shader_derives::*;
 
 pub type DynamicShaderAPI = Box<dyn ShaderAPI<Output = Box<dyn Any>>>;
 
+pub enum BarrierScope {
+  Storage,
+  WorkGroup,
+}
+
 pub trait ShaderAPI {
   type Output;
+
+  fn set_workgroup_size(&mut self, size: (u32, u32, u32));
+  fn barrier(&mut self, scope: BarrierScope);
+
   fn define_module_input(&mut self, input: ShaderInputNode) -> ShaderNodeRawHandle;
   fn define_next_frag_out(&mut self) -> ShaderNodeRawHandle;
   fn define_next_vertex_output(&mut self, ty: PrimitiveShaderValueType) -> ShaderNodeRawHandle;

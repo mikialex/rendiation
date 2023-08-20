@@ -108,7 +108,7 @@ impl GPUDevice {
     let log_result = builder.log_result;
     let compile_result = builder.build()?;
 
-    let ShaderCompileResult {
+    let GraphicsShaderCompileResult {
       vertex_shader: (vertex_entry, vertex_shader),
       frag_shader: (frag_entry, frag_shader),
       bindings,
