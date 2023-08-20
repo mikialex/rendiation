@@ -25,6 +25,7 @@ impl ShaderPassBuilder for AttributesMeshGPU {
         AttributeSemantic::TexCoords(_) => ctx.set_vertex_buffer_owned_next(b),
         AttributeSemantic::Joints(_) => ctx.set_vertex_buffer_owned_next(b),
         AttributeSemantic::Weights(_) => ctx.set_vertex_buffer_owned_next(b),
+        AttributeSemantic::Foreign(_) => todo!(),
       }
     }
     if let Some((buffer, index_format)) = &self.indices {
@@ -83,6 +84,7 @@ impl GraphicsShaderProvider for AttributesMeshGPU {
             3 => builder.push_single_vertex_layout::<WeightChannel<3>>(mode),
             _ => return Err(ShaderBuildError::SemanticNotSupported),
           },
+          AttributeSemantic::Foreign(_) => todo!(),
         }
       }
       builder.primitive_state.topology = self.mode;
@@ -174,7 +176,7 @@ impl WebGPUMesh for AttributesMesh {
         .map(|(s, vertices)| {
           let buffer = get_update_buffer(&mut custom_storage, &vertices.view.buffer, &ctx.gpu);
           let buffer_view = buffer.create_view(map_view(vertices.compute_gpu_buffer_range()));
-          (*s, buffer_view)
+          (s.clone(), buffer_view)
         })
         .collect();
 

@@ -336,7 +336,7 @@ impl Ctx {
               #[allow(clippy::disallowed_types)]
               let mut attributes = std::collections::BTreeMap::default();
               for (key, att) in &mesh.attributes {
-                let (key, cty, ty) = map_semantic_att(*key);
+                let (key, cty, ty) = map_semantic_att(key)?;
                 let key = gltf_json::validation::Checked::Valid(key);
                 attributes.insert(key, self.build_inline_accessor(att, cty, ty, false)?);
               }

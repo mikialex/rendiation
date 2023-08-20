@@ -1,3 +1,4 @@
+use std::any::TypeId;
 use std::num::NonZeroU64;
 use std::ops::Deref;
 
@@ -56,7 +57,7 @@ pub struct TransformInstancedSceneMesh {
 clone_self_incremental!(TransformInstancedSceneMesh);
 
 /// Vertex attribute semantic name.
-#[derive(Copy, Clone, Debug, Eq, Hash, PartialEq, PartialOrd, Ord)]
+#[derive(Clone, Debug, Eq, Hash, PartialEq, PartialOrd, Ord)]
 pub enum AttributeSemantic {
   /// XYZ vertex positions.
   Positions,
@@ -79,6 +80,9 @@ pub enum AttributeSemantic {
 
   /// Joint weights.
   Weights(u32),
+
+  Foreign(TypeId),
+  // Foreign(TypeId, Box<dyn AnyClone + Send + Sync>),
 }
 
 #[derive(Clone)]
@@ -260,7 +264,7 @@ pub struct AttributesMesh {
 }
 
 pub struct AttributeMeshReadView<'a> {
-  pub attributes: Vec<(AttributeSemantic, AttributeAccessorReadView<'a>)>,
+  pub attributes: Vec<(&'a AttributeSemantic, AttributeAccessorReadView<'a>)>,
   pub indices: Option<(AttributeIndexFormat, AttributeAccessorReadView<'a>)>,
   pub mesh: &'a AttributesMesh,
 }
@@ -274,23 +278,19 @@ impl<'a> Deref for AttributeMeshReadView<'a> {
 }
 
 impl<'a> AttributeMeshReadView<'a> {
-  pub fn get_attribute(&self, s: AttributeSemantic) -> Option<&AttributeAccessorReadView> {
+  pub fn get_attribute(&self, s: &AttributeSemantic) -> Option<&AttributeAccessorReadView> {
     self.attributes.iter().find(|(k, _)| *k == s).map(|r| &r.1)
   }
   pub fn get_position(&self) -> &AttributeAccessorReadView {
     self
-      .get_attribute(AttributeSemantic::Positions)
+      .get_attribute(&AttributeSemantic::Positions)
       .expect("position attribute should always exist")
   }
 }
 
 impl AttributesMesh {
   pub fn read(&self) -> AttributeMeshReadView {
-    let attributes = self
-      .attributes
-      .iter()
-      .map(|(k, a)| (*k, a.read()))
-      .collect();
+    let attributes = self.attributes.iter().map(|(k, a)| (k, a.read())).collect();
     let indices = self.indices.as_ref().map(|(f, a)| (*f, a.read()));
 
     AttributeMeshReadView {
@@ -300,12 +300,12 @@ impl AttributesMesh {
     }
   }
 
-  pub fn get_attribute(&self, s: AttributeSemantic) -> Option<&AttributeAccessor> {
-    self.attributes.iter().find(|(k, _)| *k == s).map(|r| &r.1)
+  pub fn get_attribute(&self, s: &AttributeSemantic) -> Option<&AttributeAccessor> {
+    self.attributes.iter().find(|(k, _)| k == s).map(|r| &r.1)
   }
   pub fn get_position(&self) -> &AttributeAccessor {
     self
-      .get_attribute(AttributeSemantic::Positions)
+      .get_attribute(&AttributeSemantic::Positions)
       .expect("position attribute should always exist")
   }
 }
