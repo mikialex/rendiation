@@ -138,7 +138,9 @@ fn compute_instance_key(model: &SceneModel, d_sys: &SceneNodeDeriveSystem) -> Po
 pub trait InstanceSourceRuleOut {}
 define_dyn_trait_downcaster_static!(InstanceSourceRuleOut);
 
-fn compute_instance_key_inner(model: &SceneItemRef<StandardModel>) -> Option<InstanceContentKey> {
+fn compute_instance_key_inner(
+  model: &SharedIncrementalSignal<StandardModel>,
+) -> Option<InstanceContentKey> {
   let model = model.read();
 
   if let SceneMaterialType::Foreign(m) = &model.material {

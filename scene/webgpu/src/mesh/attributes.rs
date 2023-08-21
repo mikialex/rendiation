@@ -162,12 +162,12 @@ impl WebGPUMesh for AttributesMesh {
   type ReactiveGPU = AttributesMeshGPUReactive;
 
   fn create_reactive_gpu(
-    source: &SceneItemRef<Self>,
+    source: &SharedIncrementalSignal<Self>,
     ctx: &ShareBindableResourceCtx,
   ) -> Self::ReactiveGPU {
     let ctx = ctx.clone();
 
-    let create = move |mesh: &SceneItemRef<AttributesMesh>| {
+    let create = move |mesh: &SharedIncrementalSignal<AttributesMesh>| {
       let mut custom_storage = ctx.custom_storage.write().unwrap();
       let mesh = mesh.read();
       let attributes = mesh

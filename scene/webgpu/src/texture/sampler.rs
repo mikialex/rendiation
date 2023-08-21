@@ -23,7 +23,7 @@ impl ReactiveGPUSamplerSignal {
 impl ShareBindableResourceCtx {
   pub fn get_or_create_reactive_gpu_sampler(
     &self,
-    sampler: &SceneItemRef<TextureSampler>,
+    sampler: &SharedIncrementalSignal<TextureSampler>,
   ) -> (impl Stream<Item = BindableGPUChange>, GPUSamplerView) {
     let mut samplers = self.sampler.write().unwrap();
 

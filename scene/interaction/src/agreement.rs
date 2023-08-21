@@ -32,7 +32,7 @@ impl PickingConventionAgreement for SceneMaterialType {
   }
 }
 
-impl<T> PickingConventionAgreement for SceneItemRef<T>
+impl<T> PickingConventionAgreement for SharedIncrementalSignal<T>
 where
   T: PickingConventionAgreement + IncrementalBase,
 {

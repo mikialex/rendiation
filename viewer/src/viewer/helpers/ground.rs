@@ -3,7 +3,7 @@ use futures::Stream;
 use incremental::*;
 use reactive::ReactiveMap;
 use rendiation_scene_core::{
-  any_change, IntoSceneItemRef, SceneItemReactiveSimpleMapping, SceneItemRef,
+  any_change, IntoSceneItemRef, SceneItemReactiveSimpleMapping, SharedIncrementalSignal,
 };
 use rendiation_scene_webgpu::{
   default_dispatcher, generate_quad, CameraGPU, MaterialStates, PassContentWithSceneAndCamera,
@@ -16,7 +16,7 @@ use webgpu::{
 };
 
 pub struct GridGround {
-  grid_config: SceneItemRef<GridGroundConfig>,
+  grid_config: SharedIncrementalSignal<GridGroundConfig>,
 }
 
 impl PassContentWithSceneAndCamera for &mut GridGround {
@@ -29,7 +29,7 @@ impl PassContentWithSceneAndCamera for &mut GridGround {
     let base = default_dispatcher(pass);
 
     let mut custom_storage = scene.resources.custom_storage.borrow_mut();
-    let gpus: &mut ReactiveMap<SceneItemRef<GridGroundConfig>, InfinityShaderPlane> =
+    let gpus: &mut ReactiveMap<SharedIncrementalSignal<GridGroundConfig>, InfinityShaderPlane> =
       custom_storage.entry().or_insert_with(Default::default);
 
     let grid_gpu = gpus.get_with_update(&self.grid_config, pass.ctx.gpu);
@@ -47,7 +47,9 @@ impl PassContentWithSceneAndCamera for &mut GridGround {
   }
 }
 
-impl SceneItemReactiveSimpleMapping<InfinityShaderPlane> for SceneItemRef<GridGroundConfig> {
+impl SceneItemReactiveSimpleMapping<InfinityShaderPlane>
+  for SharedIncrementalSignal<GridGroundConfig>
+{
   type ChangeStream = impl Stream<Item = ()> + Unpin;
   type Ctx<'a> = GPU;
 

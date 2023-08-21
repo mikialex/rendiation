@@ -102,26 +102,43 @@ impl SceneCoreImpl {
   }
 }
 
-pub type SceneCore = SceneItemRef<SceneCoreImpl>;
+pub type SceneCore = SharedIncrementalSignal<SceneCoreImpl>;
 
 fn arena_insert<T: IncrementalBase>(
-  arena: &mut Arena<SceneItemRef<T>>,
-  item: SceneItemRef<T>,
-) -> (ArenaDelta<SceneItemRef<T>>, Handle<SceneItemRef<T>>) {
+  arena: &mut Arena<SharedIncrementalSignal<T>>,
+  item: SharedIncrementalSignal<T>,
+) -> (
+  ArenaDelta<SharedIncrementalSignal<T>>,
+  Handle<SharedIncrementalSignal<T>>,
+) {
   let handle = arena.insert(item.clone());
   let delta = ArenaDelta::Insert((item, handle));
   (delta, handle)
 }
 
 fn arena_remove<T: IncrementalBase>(
-  arena: &mut Arena<SceneItemRef<T>>,
-  handle: Handle<SceneItemRef<T>>,
-) -> ArenaDelta<SceneItemRef<T>> {
+  arena: &mut Arena<SharedIncrementalSignal<T>>,
+  handle: Handle<SharedIncrementalSignal<T>>,
+) -> ArenaDelta<SharedIncrementalSignal<T>> {
   arena.remove(handle);
   ArenaDelta::Remove(handle)
 }
 
-impl SceneCore {
+pub trait SceneCoreExt {
+  fn create_root_child(&self) -> SceneNode;
+  fn compute_full_derived(&self) -> ComputedDerivedTree<SceneNodeDerivedData>;
+  fn insert_model(&self, model: SceneModel) -> SceneModelHandle;
+  fn remove_model(&self, model: SceneModelHandle);
+  fn insert_light(&self, light: SceneLight) -> SceneLightHandle;
+  fn remove_light(&self, light: SceneLightHandle);
+  fn insert_camera(&self, camera: SceneCamera) -> SceneCameraHandle;
+  fn remove_camera(&self, camera: SceneCameraHandle);
+  fn set_active_camera(&self, camera: Option<SceneCamera>);
+  fn set_background(&self, background: Option<SceneBackGround>);
+  fn update_ext(&self, delta: DeltaOf<DynamicExtension>);
+}
+
+impl SceneCoreExt for SceneCore {
   fn create_root_child(&self) -> SceneNode {
     let root = self.read().root().clone(); // avoid dead lock
     root.create_child()
@@ -314,55 +331,71 @@ impl ApplicableIncremental for SceneImpl {
   }
 }
 
-pub type Scene = SceneItemRef<SceneImpl>;
+pub type Scene = SharedIncrementalSignal<SceneImpl>;
 
-impl Scene {
-  pub fn root(&self) -> SceneNode {
+pub trait SceneExt {
+  fn root(&self) -> SceneNode;
+  fn get_scene_core(&self) -> SceneCore;
+  fn create_root_child(&self) -> SceneNode;
+  fn compute_full_derived(&self) -> ComputedDerivedTree<SceneNodeDerivedData>;
+  fn insert_model(&self, model: SceneModel) -> SceneModelHandle;
+  fn remove_model(&self, model: SceneModelHandle);
+  fn insert_light(&self, light: SceneLight) -> SceneLightHandle;
+  fn remove_light(&self, light: SceneLightHandle);
+  fn insert_camera(&self, camera: SceneCamera) -> SceneCameraHandle;
+  fn remove_camera(&self, camera: SceneCameraHandle);
+  fn set_active_camera(&self, camera: Option<SceneCamera>);
+  fn set_background(&self, background: Option<SceneBackGround>);
+  fn update_ext(&self, delta: DeltaOf<DynamicExtension>);
+}
+
+impl SceneExt for Scene {
+  fn root(&self) -> SceneNode {
     self.read().core.read().root().clone()
   }
 
-  pub fn get_scene_core(&self) -> SceneCore {
+  fn get_scene_core(&self) -> SceneCore {
     self.read().core.clone()
   }
 
-  pub fn create_root_child(&self) -> SceneNode {
+  fn create_root_child(&self) -> SceneNode {
     self.read().core.create_root_child()
   }
 
-  pub fn compute_full_derived(&self) -> ComputedDerivedTree<SceneNodeDerivedData> {
+  fn compute_full_derived(&self) -> ComputedDerivedTree<SceneNodeDerivedData> {
     self.read().core.compute_full_derived()
   }
 
-  pub fn insert_model(&self, model: SceneModel) -> SceneModelHandle {
+  fn insert_model(&self, model: SceneModel) -> SceneModelHandle {
     self.read().core.insert_model(model)
   }
-  pub fn remove_model(&self, model: SceneModelHandle) {
+  fn remove_model(&self, model: SceneModelHandle) {
     self.read().core.remove_model(model)
   }
 
-  pub fn insert_light(&self, light: SceneLight) -> SceneLightHandle {
+  fn insert_light(&self, light: SceneLight) -> SceneLightHandle {
     self.read().core.insert_light(light)
   }
-  pub fn remove_light(&self, light: SceneLightHandle) {
+  fn remove_light(&self, light: SceneLightHandle) {
     self.read().core.remove_light(light)
   }
 
-  pub fn insert_camera(&self, camera: SceneCamera) -> SceneCameraHandle {
+  fn insert_camera(&self, camera: SceneCamera) -> SceneCameraHandle {
     self.read().core.insert_camera(camera)
   }
-  pub fn remove_camera(&self, camera: SceneCameraHandle) {
+  fn remove_camera(&self, camera: SceneCameraHandle) {
     self.read().core.remove_camera(camera)
   }
 
-  pub fn set_active_camera(&self, camera: Option<SceneCamera>) {
+  fn set_active_camera(&self, camera: Option<SceneCamera>) {
     self.read().core.set_active_camera(camera);
   }
 
-  pub fn set_background(&self, background: Option<SceneBackGround>) {
+  fn set_background(&self, background: Option<SceneBackGround>) {
     self.read().core.set_background(background);
   }
 
-  pub fn update_ext(&self, delta: DeltaOf<DynamicExtension>) {
+  fn update_ext(&self, delta: DeltaOf<DynamicExtension>) {
     self.read().core.update_ext(delta)
   }
 }

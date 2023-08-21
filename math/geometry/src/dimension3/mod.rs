@@ -31,11 +31,11 @@ pub enum Axis3 {
 impl SpaceAxis<3> for Axis3 {}
 
 use rendiation_algebra::Vec3;
-impl<T> Positioned for Vec3<T> {
+impl<T: Copy> Positioned for Vec3<T> {
   type Position = Self;
 
-  fn position(&self) -> &Self::Position {
-    self
+  fn position(&self) -> Self::Position {
+    *self
   }
 
   fn mut_position(&mut self) -> &mut Self::Position {

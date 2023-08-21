@@ -160,7 +160,7 @@ use PhysicalMetallicRoughnessMaterialDelta as PD;
 impl WebGPUMaterial for PhysicalMetallicRoughnessMaterial {
   type ReactiveGPU = PhysicalMetallicRoughnessMaterialReactiveGPU;
   fn create_reactive_gpu(
-    source: &SceneItemRef<Self>,
+    source: &SharedIncrementalSignal<Self>,
     ctx: &ShareBindableResourceCtx,
   ) -> Self::ReactiveGPU {
     let m = source.read();

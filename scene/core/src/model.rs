@@ -1,8 +1,6 @@
-use rendiation_renderable_mesh::group::MeshDrawGroup;
-
 use crate::*;
 
-pub type SceneModel = SceneItemRef<SceneModelImpl>;
+pub type SceneModel = SharedIncrementalSignal<SceneModelImpl>;
 
 #[derive(Incremental)]
 pub struct SceneModelImpl {
@@ -13,7 +11,7 @@ pub struct SceneModelImpl {
 #[non_exhaustive]
 #[derive(Clone)]
 pub enum ModelType {
-  Standard(SceneItemRef<StandardModel>),
+  Standard(SharedIncrementalSignal<StandardModel>),
   Foreign(Box<dyn AnyClone + Send + Sync>),
 }
 
@@ -50,7 +48,7 @@ impl StandardModel {
   }
 }
 
-pub type Skeleton = SceneItemRef<SkeletonImpl>;
+pub type Skeleton = SharedIncrementalSignal<SkeletonImpl>;
 #[derive(Clone)]
 pub struct SkeletonImpl {
   pub joints: Vec<Joint>,

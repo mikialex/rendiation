@@ -58,3 +58,7 @@ panic = "abort"
 
 [profile.release]
 panic = "abort"
+
+
+# [patch.crates-io]
+# naga = { path = "../references/naga" }

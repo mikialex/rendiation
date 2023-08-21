@@ -10,11 +10,11 @@ use rendiation_renderable_mesh::{
 };
 
 pub fn register_viewer_extra_scene_features() {
-  register_material::<SceneItemRef<FatLineMaterial>>();
+  register_material::<SharedIncrementalSignal<FatLineMaterial>>();
 
-  register_mesh::<SceneItemRef<FatlineMesh>>();
+  register_mesh::<SharedIncrementalSignal<FatlineMesh>>();
   register_mesh::<
-    SceneItemRef<GroupedMesh<IndexedMesh<TriangleList, Vec<Vertex>, DynIndexContainer>>>,
+    SharedIncrementalSignal<GroupedMesh<IndexedMesh<TriangleList, Vec<Vertex>, DynIndexContainer>>>,
   >();
 }
 

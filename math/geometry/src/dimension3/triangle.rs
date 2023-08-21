@@ -2,19 +2,19 @@ use crate::*;
 
 pub type Triangle3D<T = f32> = Triangle<Vec3<T>>;
 
-impl<T: Scalar> Triangle3D<T> {
+impl<S: Scalar, T: Positioned<Position = Vec3<S>>> Triangle<T> {
   #[inline(always)]
-  fn face_normal_unnormalized(&self) -> Vec3<T> {
-    let cb = self.c - self.b;
-    let ab = self.a - self.b;
+  fn face_normal_unnormalized(&self) -> Vec3<S> {
+    let cb = self.c.position() - self.b.position();
+    let ab = self.a.position() - self.b.position();
     cb.cross(ab)
   }
-  pub fn face_normal(&self) -> NormalizedVector<T, Vec3<T>> {
+  pub fn face_normal(&self) -> NormalizedVector<S, Vec3<S>> {
     self.face_normal_unnormalized().into_normalized()
   }
 
-  pub fn is_same_direction(&self, direction: Vec3<T>) -> bool {
-    self.face_normal_unnormalized().dot(direction) > T::zero()
+  pub fn is_same_direction(&self, direction: Vec3<S>) -> bool {
+    self.face_normal_unnormalized().dot(direction) > S::zero()
   }
 }
 

@@ -2,12 +2,22 @@ pub mod typed;
 pub use typed::*;
 pub mod transform_instance;
 pub use transform_instance::*;
-pub mod free_attributes;
-pub use free_attributes::*;
+pub mod attributes;
+pub use attributes::*;
 
 use crate::*;
 
 pub type ReactiveMeshGPUOf<T> = <T as WebGPUMesh>::ReactiveGPU;
+
+pub fn map_topology(pt: PrimitiveTopology) -> webgpu::PrimitiveTopology {
+  match pt {
+    PrimitiveTopology::PointList => webgpu::PrimitiveTopology::PointList,
+    PrimitiveTopology::LineList => webgpu::PrimitiveTopology::LineList,
+    PrimitiveTopology::LineStrip => webgpu::PrimitiveTopology::LineStrip,
+    PrimitiveTopology::TriangleList => webgpu::PrimitiveTopology::TriangleList,
+    PrimitiveTopology::TriangleStrip => webgpu::PrimitiveTopology::TriangleStrip,
+  }
+}
 
 pub trait WebGPUSceneMesh: Any + Send + Sync {
   fn create_scene_reactive_gpu(&self, ctx: &ShareBindableResourceCtx) -> Option<MeshGPUInstance>;
@@ -40,18 +50,18 @@ impl WebGPUSceneMesh for SceneMeshType {
   }
 }
 
-impl<T: WebGPUMesh> WebGPUSceneMesh for SceneItemRef<T> {
+impl<T: WebGPUMesh> WebGPUSceneMesh for SharedIncrementalSignal<T> {
   fn create_scene_reactive_gpu(&self, ctx: &ShareBindableResourceCtx) -> Option<MeshGPUInstance> {
     let instance = T::create_reactive_gpu(self, ctx);
     MeshGPUInstance::Foreign(Box::new(instance) as Box<dyn ReactiveMeshGPUSource>).into()
   }
 }
-impl<T: WebGPUMesh> AsRef<dyn WebGPUSceneMesh> for SceneItemRef<T> {
+impl<T: WebGPUMesh> AsRef<dyn WebGPUSceneMesh> for SharedIncrementalSignal<T> {
   fn as_ref(&self) -> &(dyn WebGPUSceneMesh + 'static) {
     self
   }
 }
-impl<T: WebGPUMesh> AsMut<dyn WebGPUSceneMesh> for SceneItemRef<T> {
+impl<T: WebGPUMesh> AsMut<dyn WebGPUSceneMesh> for SharedIncrementalSignal<T> {
   fn as_mut(&mut self) -> &mut (dyn WebGPUSceneMesh + 'static) {
     self
   }
@@ -60,7 +70,7 @@ impl<T: WebGPUMesh> AsMut<dyn WebGPUSceneMesh> for SceneItemRef<T> {
 pub trait WebGPUMesh: Any + Send + Sync + IncrementalBase {
   type ReactiveGPU: ReactiveMeshGPUSource;
   fn create_reactive_gpu(
-    source: &SceneItemRef<Self>,
+    source: &SharedIncrementalSignal<Self>,
     ctx: &ShareBindableResourceCtx,
   ) -> Self::ReactiveGPU;
 }

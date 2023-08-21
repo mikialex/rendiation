@@ -10,85 +10,11 @@
 // noneIndexed -> indexed indexed?
 
 use std::hash::Hash;
-use std::{cmp::Ordering, iter::FromIterator, ops::Deref};
+use std::{cmp::Ordering, iter::FromIterator};
 
 use fast_hash_collection::*;
-use rendiation_algebra::{InnerProductSpace, Vec3};
-use rendiation_geometry::{LineSegment, Triangle};
 
 use crate::*;
-
-impl<T, U, IU> IndexedMesh<T, U, IU>
-where
-  for<'a> IndexView<'a, Self>: AbstractMesh<Primitive = Triangle<IU::Output>>,
-  Self: AbstractMesh,
-  IU: IndexContainer,
-  IU::Output: IndexType,
-  U: Clone,
-{
-  pub fn create_wireframe<RIU>(&self) -> IndexedMesh<LineList, U, RIU>
-  where
-    RIU: FromIterator<IU::Output>,
-  {
-    let mut deduplicate_set = FastHashSet::<LineSegment<IU::Output>>::default();
-    self
-      .primitive_iter()
-      .zip(self.as_index_view().primitive_iter())
-      .for_each(|(_, f)| {
-        f.for_each_edge(|edge| {
-          deduplicate_set.insert(edge.swap_if(|l| l.start < l.end));
-        })
-      });
-    let new_index = deduplicate_set
-      .iter()
-      .flat_map(|l| l.iter_point().copied())
-      .collect();
-    IndexedMesh::new(self.vertex.clone(), new_index)
-  }
-}
-
-impl<T, U, IU> IndexedMesh<T, U, IU>
-where
-  for<'a> IndexView<'a, Self>: AbstractMesh<Primitive = Triangle<IU::Output>>,
-  Self: AbstractMesh<Primitive = Triangle<U::Output>>,
-  U: VertexContainer + FromIterator<U::Output>,
-  IU: IndexContainer,
-  IU::Output: IndexType,
-  U::Output: Copy,
-  U::Output: Deref<Target = Vec3<f32>>,
-{
-  /// maybe you should merge vertex before create edge
-  /// non manifold mesh may affect result
-  pub fn create_edge(&self, edge_threshold_angle: f32) -> NoneIndexedMesh<LineList, U> {
-    // Map: edge id => (edge face idA, edge face idB(optional));
-    let mut edges = FastHashMap::<LineSegment<IU::Output>, (usize, Option<usize>)>::default();
-    self
-      .primitive_iter()
-      .zip(self.as_index_view().primitive_iter())
-      .enumerate()
-      .for_each(|(face_id, (_, f))| {
-        f.for_each_edge(|edge| {
-          edges
-            .entry(edge.swap_if(|l| l.start < l.end))
-            .and_modify(|e| e.1 = Some(face_id))
-            .or_insert_with(|| (face_id, None));
-        })
-      });
-    let normals = self
-      .primitive_iter()
-      .map(|f| f.map(|v| *v).face_normal().value)
-      .collect::<Vec<Vec3<f32>>>();
-    let threshold_dot = edge_threshold_angle.cos();
-    let data = edges
-      .iter()
-      .filter(|(_, f)| f.1.is_none() || normals[f.0].dot(normals[f.1.unwrap()]) <= threshold_dot)
-      .map(|(e, _)| e)
-      .flat_map(|l| l.iter_point())
-      .map(|i| self.vertex.index_get(i.into_usize()).unwrap())
-      .collect();
-    NoneIndexedMesh::new(data)
-  }
-}
 
 impl<T, U, IU> IndexedMesh<T, U, IU>
 where

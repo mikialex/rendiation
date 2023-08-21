@@ -203,7 +203,7 @@ fn on_tree_mutate(send: impl Fn(Change<usize, usize>), delta: &TreeMutation<Scen
 
 fn on_model_mutate(
   send: impl Fn(Change<usize, usize>) + Copy,
-  delta: &ArenaDelta<SceneItemRef<SceneModelImpl>>,
+  delta: &ArenaDelta<SharedIncrementalSignal<SceneModelImpl>>,
 ) {
   match delta {
     arena::ArenaDelta::Mutate((model, h)) => {

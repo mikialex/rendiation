@@ -69,7 +69,7 @@ impl PunctualShaderLight for SpotLightShaderInfo {
   }
 }
 
-impl WebGPULight for SceneItemRef<SpotLight> {
+impl WebGPULight for SharedIncrementalSignal<SpotLight> {
   type Uniform = SpotLightShaderInfo;
 
   fn create_uniform_stream(
@@ -146,7 +146,7 @@ impl WebGPULight for SceneItemRef<SpotLight> {
 }
 
 fn build_shadow_projection(
-  light: &SceneItemRef<SpotLight>,
+  light: &SharedIncrementalSignal<SpotLight>,
 ) -> impl Stream<Item = (CameraProjector, Size)> {
   light
     .single_listen_by(any_change)

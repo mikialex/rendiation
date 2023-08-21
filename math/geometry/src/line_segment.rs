@@ -39,7 +39,7 @@ where
   where
     V: VectorSpace<T> + IntoNormalizedVector<T, V>,
   {
-    (*end.position() - *start.position()).into_normalized()
+    (end.position() - start.position()).into_normalized()
   }
 }
 

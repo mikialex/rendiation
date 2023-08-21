@@ -10,7 +10,7 @@ use rendiation_algebra::*;
 use rendiation_scene_core::{
   AnimationSampler, AttributeAccessor, AttributeIndexFormat, AttributesMesh, BufferViewRange,
   GeometryBuffer, GeometryBufferInner, IntoSceneItemRef, Joint, ModelType, NormalMapping,
-  PhysicalMetallicRoughnessMaterial, Scene, SceneAnimation, SceneAnimationChannel,
+  PhysicalMetallicRoughnessMaterial, Scene, SceneAnimation, SceneAnimationChannel, SceneExt,
   SceneMaterialType, SceneMeshType, SceneModel, SceneModelHandle, SceneModelImpl, SceneNode,
   SceneTexture2D, SceneTexture2DType, Skeleton, SkeletonImpl, StandardModel,
   Texture2DWithSamplingData, TextureWithSamplingData, UnTypedBufferView,

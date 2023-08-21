@@ -9,7 +9,7 @@ use rendiation_algebra::Mat4;
 use rendiation_controller::{
   ControllerWinitAdapter, InputBound, OrbitController, Transformed3DControllee,
 };
-use rendiation_renderable_mesh::mesh::MeshBufferIntersectConfig;
+use rendiation_renderable_mesh::MeshBufferIntersectConfig;
 use rendiation_scene_interaction::WebGPUScenePickingExt;
 
 use crate::*;

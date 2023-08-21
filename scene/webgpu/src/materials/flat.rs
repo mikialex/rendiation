@@ -51,7 +51,7 @@ impl WebGPUMaterial for FlatMaterial {
   type ReactiveGPU = FlatMaterialReactiveGPU;
 
   fn create_reactive_gpu(
-    source: &SceneItemRef<Self>,
+    source: &SharedIncrementalSignal<Self>,
     ctx: &ShareBindableResourceCtx,
   ) -> Self::ReactiveGPU {
     let uniform = create_flat_material_uniform(&source.read());

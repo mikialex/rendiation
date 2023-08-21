@@ -40,7 +40,7 @@ pub trait WebGPUSceneLight {
   ) -> Box<dyn Stream<Item = Box<dyn DynamicLightUniform>>>;
 }
 
-impl<T> WebGPUSceneLight for SceneItemRef<T>
+impl<T> WebGPUSceneLight for SharedIncrementalSignal<T>
 where
   Self: WebGPULight,
   T: IncrementalBase,

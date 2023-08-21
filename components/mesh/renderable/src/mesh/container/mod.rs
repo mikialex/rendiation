@@ -1,8 +1,10 @@
 //! The actually mesh data container, define how we store the vertex
 
-pub mod indexed;
-pub mod none_indexed;
+mod attributes;
+mod indexed;
+mod none_indexed;
 
+pub use attributes::*;
 pub use indexed::*;
 pub use none_indexed::*;
 

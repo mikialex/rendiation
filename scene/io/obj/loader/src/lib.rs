@@ -3,7 +3,7 @@ use std::path::Path;
 use rendiation_algebra::*;
 use rendiation_scene_core::{
   AttributeAccessor, AttributeIndexFormat, AttributeSemantic, AttributesMesh, IntoSceneItemRef,
-  ModelType, NormalMapping, PhysicalSpecularGlossinessMaterial, Scene, SceneMaterialType,
+  ModelType, NormalMapping, PhysicalSpecularGlossinessMaterial, Scene, SceneExt, SceneMaterialType,
   SceneMeshType, SceneModelImpl, SceneTexture2D, SceneTexture2DType, StandardModel,
   Texture2DWithSamplingData,
 };

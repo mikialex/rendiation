@@ -248,9 +248,9 @@ checksum = "cf1de2fe8c75bc145a2f577add951f8134889b4795d47466a54a5c846d691693"
 
 [[package]]
 name = "bitflags"
-version = "2.0.2"
+version = "2.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "487f1e0fcbe47deb8b0574e646def1c903389d95241dd1bbcc6ce4a715dfc0c1"
+checksum = "b4682ae6287fcf752ecaabbfcc7b6f9b72aa33933dc23a554d853aea8eea8635"
 
 [[package]]
 name = "block"
@@ -696,7 +696,7 @@ version = "0.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e16e44ab292b1dddfdaf7be62cfd8877df52f2f3fde5858d95bab606be259f20"
 dependencies = [
- "bitflags 2.0.2",
+ "bitflags 2.4.0",
  "libloading 0.8.0",
  "winapi",
 ]
@@ -1303,7 +1303,7 @@ version = "0.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "fbcd2dba93594b227a1f57ee09b8b9da8892c34d55aa332e034a228d0fe6a171"
 dependencies = [
- "bitflags 2.0.2",
+ "bitflags 2.4.0",
  "gpu-alloc-types",
 ]
 
@@ -1313,7 +1313,7 @@ version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "98ff03b468aa837d70984d55f5d3f846f6ec31fe34bbb97c4f85219caeee1ca4"
 dependencies = [
- "bitflags 2.0.2",
+ "bitflags 2.4.0",
 ]
 
 [[package]]
@@ -1776,7 +1776,7 @@ version = "0.26.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "623b5e6cefd76e58f774bd3cc0c6f5c7615c58c03a97815245a25c3c9bdee318"
 dependencies = [
- "bitflags 2.0.2",
+ "bitflags 2.4.0",
  "block",
  "core-graphics-types",
  "foreign-types 0.5.0",
@@ -1842,7 +1842,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c1ceaaa4eedaece7e4ec08c55c640ba03dbb73fb812a6570a59bcf1930d0f70e"
 dependencies = [
  "bit-set",
- "bitflags 2.0.2",
+ "bitflags 2.4.0",
  "codespan-reporting",
  "hexf-parse",
  "indexmap",
@@ -2498,6 +2498,8 @@ dependencies = [
 name = "reactive-incremental"
 version = "0.0.1"
 dependencies = [
+ "dyn-downcast",
+ "futures",
  "incremental",
  "reactive",
 ]
@@ -2647,9 +2649,11 @@ dependencies = [
  "dyn-downcast",
  "fast-hash-collection",
  "incremental",
+ "reactive-incremental",
  "rendiation-algebra",
  "rendiation-geometry",
  "rendiation-shader-api",
+ "smallvec",
  "soa_derive",
  "space-algorithm",
 ]
@@ -2660,7 +2664,7 @@ version = "0.1.0"
 dependencies = [
  "anymap",
  "arena",
- "bitflags 2.0.2",
+ "bitflags 2.4.0",
  "bytemuck",
  "dyn-clone",
  "dyn-downcast",
@@ -2672,6 +2676,7 @@ dependencies = [
  "paste",
  "pin-project",
  "reactive",
+ "reactive-incremental",
  "rendiation-algebra",
  "rendiation-animation",
  "rendiation-geometry",
@@ -2763,7 +2768,7 @@ dependencies = [
  "anymap",
  "arena",
  "arena-graph",
- "bitflags 2.0.2",
+ "bitflags 2.4.0",
  "bytemuck",
  "dyn-clone",
  "fast-hash-collection",
@@ -3711,7 +3716,7 @@ checksum = "ecf7454d9386f602f7399225c92dd2fbdcde52c519bc8fb0bd6fbeb388075dc2"
 dependencies = [
  "arrayvec 0.7.2",
  "bit-vec",
- "bitflags 2.0.2",
+ "bitflags 2.4.0",
  "codespan-reporting",
  "log",
  "naga",
@@ -3736,7 +3741,7 @@ dependencies = [
  "arrayvec 0.7.2",
  "ash",
  "bit-set",
- "bitflags 2.0.2",
+ "bitflags 2.4.0",
  "block",
  "core-graphics-types",
  "d3d12",
@@ -3773,7 +3778,7 @@ version = "0.17.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ee64d7398d0c2f9ca48922c902ef69c42d000c759f3db41e355f4a570b052b67"
 dependencies = [
- "bitflags 2.0.2",
+ "bitflags 2.4.0",
  "js-sys",
  "web-sys",
 ]

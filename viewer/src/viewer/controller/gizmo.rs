@@ -777,7 +777,7 @@ impl AxisActiveState {
 }
 
 struct HelperMesh {
-  material: SceneItemRef<FlatMaterial>,
+  material: SharedIncrementalSignal<FlatMaterial>,
   model: OverridableMeshModelImpl,
 }
 

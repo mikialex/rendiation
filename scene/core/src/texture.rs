@@ -7,7 +7,7 @@ use crate::*;
 #[derive(Clone)]
 pub struct TextureWithSamplingData<T> {
   pub texture: T,
-  pub sampler: SceneItemRef<TextureSampler>,
+  pub sampler: SharedIncrementalSignal<TextureSampler>,
 }
 
 impl<T: Clone + Send + Sync> SimpleIncremental for TextureWithSamplingData<T> {
@@ -24,7 +24,7 @@ impl<T: Clone + Send + Sync> SimpleIncremental for TextureWithSamplingData<T> {
 
 pub type Texture2DWithSamplingData = TextureWithSamplingData<SceneTexture2D>;
 
-pub type SceneTexture2D = SceneItemRef<SceneTexture2DType>;
+pub type SceneTexture2D = SharedIncrementalSignal<SceneTexture2DType>;
 
 #[non_exhaustive]
 #[derive(Clone)]
@@ -41,7 +41,7 @@ impl Debug for SceneTexture2DType {
   }
 }
 
-pub type SceneTextureCube = SceneItemRef<SceneTextureCubeImpl>;
+pub type SceneTextureCube = SharedIncrementalSignal<SceneTextureCubeImpl>;
 
 #[derive(Clone)]
 pub struct SceneTextureCubeImpl {

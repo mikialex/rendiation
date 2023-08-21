@@ -1,7 +1,5 @@
 #![feature(type_alias_impl_trait)]
-#![feature(stmt_expr_attributes)]
 #![allow(incomplete_features)]
-#![feature(iterator_try_collect)]
 #![feature(impl_trait_in_assoc_type)]
 #![feature(return_position_impl_trait_in_trait)]
 #![feature(let_chains)]
@@ -17,10 +15,6 @@ pub use ext::*;
 
 mod mesh;
 pub use mesh::*;
-mod mesh_picking;
-pub use mesh_picking::*;
-mod mesh_merge;
-pub use mesh_merge::*;
 
 mod material;
 pub use material::*;
@@ -43,9 +37,6 @@ pub use camera::*;
 mod animation;
 pub use animation::*;
 
-mod utils;
-pub use utils::*;
-
 mod systems;
 use std::hash::Hash;
 use std::sync::{Arc, RwLock};
@@ -54,5 +45,7 @@ pub use dyn_downcast::*;
 use fast_hash_collection::*;
 use futures::Stream;
 use incremental::*;
+pub use reactive_incremental::*;
 use rendiation_algebra::*;
+pub use rendiation_renderable_mesh::*;
 pub use systems::*;

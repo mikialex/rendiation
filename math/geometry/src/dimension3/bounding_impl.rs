@@ -7,7 +7,7 @@ where
 {
   #[inline(always)]
   fn to_bounding(&self) -> Box3<T> {
-    self.map(|v| *v.position()).iter_point().collect()
+    self.map(|v| v.position()).iter_point().collect()
   }
 }
 
@@ -18,7 +18,7 @@ where
 {
   #[inline(always)]
   fn to_bounding(&self) -> Box3<T> {
-    self.map(|v| *v.position()).iter_point().collect()
+    self.map(|v| v.position()).iter_point().collect()
   }
 }
 
@@ -29,6 +29,6 @@ where
 {
   #[inline(always)]
   fn to_bounding(&self) -> Box3<T> {
-    [self.map(|v| *v.position()).0].iter().collect()
+    [self.map(|v| v.position()).0].iter().collect()
   }
 }

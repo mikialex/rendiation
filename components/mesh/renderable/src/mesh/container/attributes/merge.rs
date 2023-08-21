@@ -1,4 +1,4 @@
-use rendiation_renderable_mesh::{MeshGroup, MeshGroupsInfo, PrimitiveTopology};
+use rendiation_algebra::*;
 use smallvec::SmallVec;
 
 use crate::*;
