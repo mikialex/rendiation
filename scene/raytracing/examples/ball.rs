@@ -1,4 +1,5 @@
 use rendiation_algebra::*;
+use rendiation_geometry::*;
 use rendiation_scene_raytracing::*;
 mod utils;
 use utils::*;
