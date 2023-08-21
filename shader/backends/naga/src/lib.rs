@@ -1230,7 +1230,7 @@ fn struct_member(
   let mut members = Vec::new();
   for (index, ShaderStructFieldMetaInfoOwned { name, ty, ty_deco }) in fields.iter().enumerate() {
     let next_align_requirement = if index + 1 == fields.len() {
-      align_of_struct_sized_fields(&fields, layout)
+      align_of_struct_sized_fields(fields, layout)
     } else {
       fields[index + 1].ty.align_of_self(layout)
     };

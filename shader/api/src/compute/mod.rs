@@ -24,6 +24,35 @@ pub trait IntoWorkgroupSize {
   fn into_size(self) -> (u32, u32, u32);
 }
 
+pub struct ComputeCx<'a>(&'a ShaderComputePipelineBuilder);
+
+impl<'a> ComputeCx<'a> {
+  pub fn storage_barrier(&self) {
+    call_shader_api(|api| api.barrier(BarrierScope::Storage))
+  }
+
+  pub fn workgroup_barrier(&self) {
+    call_shader_api(|api| api.barrier(BarrierScope::WorkGroup))
+  }
+
+  pub fn global_invocation_id(&self) -> Node<Vec3<u32>> {
+    self.0.global_invocation_id
+  }
+
+  pub fn local_invocation_id(&self) -> Node<Vec3<u32>> {
+    self.0.local_invocation_id
+  }
+
+  /// https://www.w3.org/TR/WGSL/#local-invocation-index
+  pub fn local_invocation_index(&self) -> Node<u32> {
+    self.0.local_invocation_index
+  }
+
+  pub fn workgroup_id(&self) -> Node<Vec3<u32>> {
+    self.0.workgroup_id
+  }
+}
+
 impl ShaderComputePipelineBuilder {
   pub fn new(api: &dyn Fn(ShaderStages) -> DynamicShaderAPI) -> Self {
     set_build_api(api);
@@ -40,33 +69,14 @@ impl ShaderComputePipelineBuilder {
     }
   }
 
-  pub fn set_work_group_size(&self, size: impl IntoWorkgroupSize) {
-    call_shader_api(|api| api.set_workgroup_size(size.into_size()))
+  pub fn entry(self, f: impl FnOnce(ComputeCx)) -> Self {
+    f(ComputeCx(&self));
+    self
   }
 
-  pub fn storage_barrier(&self) {
-    call_shader_api(|api| api.barrier(BarrierScope::Storage))
-  }
-
-  pub fn workgroup_barrier(&self) {
-    call_shader_api(|api| api.barrier(BarrierScope::WorkGroup))
-  }
-
-  pub fn global_invocation_id(&self) -> Node<Vec3<u32>> {
-    self.global_invocation_id
-  }
-
-  pub fn local_invocation_id(&self) -> Node<Vec3<u32>> {
-    self.local_invocation_id
-  }
-
-  /// https://www.w3.org/TR/WGSL/#local-invocation-index
-  pub fn local_invocation_index(&self) -> Node<u32> {
-    self.local_invocation_index
-  }
-
-  pub fn workgroup_id(&self) -> Node<Vec3<u32>> {
-    self.workgroup_id
+  pub fn config_work_group_size(self, size: impl IntoWorkgroupSize) -> Self {
+    call_shader_api(|api| api.set_workgroup_size(size.into_size()));
+    self
   }
 
   pub fn build(self) -> Result<ComputeShaderCompileResult, ShaderBuildError> {

@@ -89,7 +89,8 @@ impl<U> IndexedMeshBuilder<TriangleList, U> {
         let u = u as f32 * u_step;
         let v = v as f32 * v_step;
         let vertex = U::Vertex::from_surface(surface, (u, v).into());
-        self.vertex.push_vertex(vertex)
+        self.vertex.push_vertex(vertex);
+        self.vertex_count += 1;
       }
     }
 
@@ -164,7 +165,8 @@ impl<U> IndexedMeshBuilder<LineList, U> {
         let u = u as f32 * u_step;
         let v = v as f32 * v_step;
         let vertex = U::Vertex::from_surface(surface, (u, v).into());
-        self.vertex.push_vertex(vertex)
+        self.vertex.push_vertex(vertex);
+        self.vertex_count += 1;
       }
     }
 

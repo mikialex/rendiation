@@ -1,5 +1,6 @@
 use __core::num::NonZeroU32;
 use rendiation_shader_api::*;
+use rendiation_shader_backend_naga::ShaderAPINagaImpl;
 
 use crate::*;
 pub mod container;
@@ -221,5 +222,43 @@ pub fn convert_vertex_layout(layout: &ShaderVertexBufferLayout) -> gpu::VertexBu
     array_stride: layout.array_stride,
     step_mode: layout.step_mode,
     attributes: layout.attributes.as_slice(),
+  }
+}
+
+pub fn compute_shader_builder() -> ShaderComputePipelineBuilder {
+  ShaderComputePipelineBuilder::new(&|stage| Box::new(ShaderAPINagaImpl::new(stage)))
+}
+
+#[derive(Clone)]
+pub struct GPUComputePipeline {
+  pub inner: Arc<GPUComputePipelineInner>,
+}
+
+impl Deref for GPUComputePipeline {
+  type Target = GPUComputePipelineInner;
+
+  fn deref(&self) -> &Self::Target {
+    &self.inner
+  }
+}
+
+pub struct GPUComputePipelineInner {
+  pub pipeline: gpu::ComputePipeline,
+  pub bg_layouts: Vec<GPUBindGroupLayout>,
+}
+
+trait ComputeIntoPipelineExt {
+  fn create_compute_pipeline(self, device: impl AsRef<GPUDevice>) -> GPUComputePipeline;
+}
+
+impl ComputeIntoPipelineExt for ComputeShaderCompileResult {
+  fn create_compute_pipeline(self, device: impl AsRef<GPUDevice>) -> GPUComputePipeline {
+    let device = device.as_ref();
+    device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
+      label: None,
+      layout: todo!(),
+      module: todo!(),
+      entry_point: &self.shader.0,
+    });
   }
 }

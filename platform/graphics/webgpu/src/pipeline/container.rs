@@ -21,6 +21,18 @@ impl<T: ShaderUnsizedValueNodeType + Std430> ShaderBindingProvider
   }
 }
 
+impl<T: ShaderUnsizedValueNodeType + Std430> ShaderBindingProvider for StorageBufferDataView<T> {
+  const SPACE: AddressSpace = AddressSpace::Storage { writeable: true };
+  type Node = T;
+
+  fn binding_desc() -> ShaderBindingDescriptor {
+    ShaderBindingDescriptor {
+      should_as_storage_buffer_if_is_buffer_like: true,
+      ty: Self::Node::TYPE,
+    }
+  }
+}
+
 macro_rules! map_shader_ty {
   ($ty: ty, $shader_ty: ty) => {
     impl ShaderBindingProvider for $ty {

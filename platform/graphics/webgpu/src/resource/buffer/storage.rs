@@ -39,9 +39,39 @@ impl<T: Std430 + ?Sized> StorageBufferReadOnlyDataView<T> {
 }
 
 /// just short convenient method
-pub fn create_storage<T: Std430 + ?Sized>(
+pub fn create_readonly_storage<T: Std430 + ?Sized>(
   data: T,
   device: impl AsRef<GPUDevice>,
 ) -> StorageBufferReadOnlyDataView<T> {
   StorageBufferReadOnlyDataView::create(device.as_ref(), data)
 }
+
+#[derive(Clone)]
+pub struct StorageBufferDataView<T: Std430 + ?Sized> {
+  gpu: GPUBufferResourceView,
+  phantom: PhantomData<T>,
+}
+
+impl<T: Std430 + ?Sized> BindableResourceProvider for StorageBufferDataView<T> {
+  fn get_bindable(&self) -> BindingResourceOwned {
+    self.gpu.get_bindable()
+  }
+}
+impl<T: Std430 + ?Sized> CacheAbleBindingSource for StorageBufferDataView<T> {
+  fn get_binding_build_source(&self) -> CacheAbleBindingBuildSource {
+    self.gpu.get_binding_build_source()
+  }
+}
+impl<T: Std430 + ?Sized> BindableResourceView for StorageBufferDataView<T> {
+  fn as_bindable(&self) -> gpu::BindingResource {
+    self.gpu.as_bindable()
+  }
+}
+
+// /// just short convenient method
+// pub fn create_storage<T: Std430 + ?Sized>(
+//   data: Option<T>,
+//   device: impl AsRef<GPUDevice>,
+// ) -> StorageBufferDataView<T> {
+//   StorageBufferDataView::create(device.as_ref(), data)
+// }
