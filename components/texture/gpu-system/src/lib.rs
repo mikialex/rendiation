@@ -289,13 +289,13 @@ impl<B: GPUTextureBackend> AbstractIndirectGPUTextureSystem<B> for BindlessTextu
   }
 
   fn register_system_self(&self, builder: &mut ShaderRenderPipelineBuilder) {
-    B::register_shader_texture2d_array(builder, &self.texture_binding_array).using_both(
+    B::register_shader_texture2d_array(builder, &self.texture_binding_array).using_graphics_pair(
       builder,
       |r, textures| {
         r.register_typed_both_stage::<BindlessTexturesInShader>(textures);
       },
     );
-    B::register_shader_sampler_array(builder, &self.sampler_binding_array).using_both(
+    B::register_shader_sampler_array(builder, &self.sampler_binding_array).using_graphics_pair(
       builder,
       |r, samplers| {
         r.register_typed_both_stage::<BindlessSamplersInShader>(samplers);

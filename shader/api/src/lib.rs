@@ -8,6 +8,7 @@
 #![feature(local_key_cell_methods)]
 
 mod api_core;
+mod binding;
 mod compute;
 mod graphics;
 mod layout;
@@ -22,6 +23,7 @@ use std::{
 };
 
 pub use api_core::*;
+pub use binding::*;
 pub use bytemuck::*;
 pub use compute::*;
 use fast_hash_collection::*;

@@ -145,8 +145,18 @@ impl ShaderAPINagaImpl {
           },
         },
         ShaderValueSingleType::Unsized(ty) => match ty {
-          ShaderUnSizedValueType::UnsizedArray(_) => todo!(),
-          ShaderUnSizedValueType::UnsizedStruct(_) => todo!(),
+          ShaderUnSizedValueType::UnsizedArray(ty) => naga::TypeInner::Array {
+            base: self.register_ty_impl(
+              ShaderValueType::Single(ShaderValueSingleType::Sized(*ty)),
+              layout,
+            ),
+            size: naga::ArraySize::Dynamic,
+            stride: ty.size_of_self(layout.unwrap_or(StructLayoutTarget::Std430)) as u32,
+          },
+          ShaderUnSizedValueType::UnsizedStruct(meta) => {
+            name = meta.name.to_owned().into();
+            gen_unsized_struct_define(self, meta)
+          }
         },
         ShaderValueSingleType::Sampler(sampler) => naga::TypeInner::Sampler {
           comparison: matches!(sampler, SamplerBindingType::Comparison),
@@ -256,11 +266,11 @@ impl ShaderAPI for ShaderAPINagaImpl {
             kind: naga::ScalarKind::Uint,
             width: 4,
           },
-          ShaderBuiltInDecorator::InstanceIndex => naga::TypeInner::Scalar {
+          ShaderBuiltInDecorator::VertexInstanceIndex => naga::TypeInner::Scalar {
             kind: naga::ScalarKind::Uint,
             width: 4,
           },
-          ShaderBuiltInDecorator::FrontFacing => naga::TypeInner::Scalar {
+          ShaderBuiltInDecorator::FragFrontFacing => naga::TypeInner::Scalar {
             kind: naga::ScalarKind::Bool,
             width: naga::BOOL_WIDTH,
           },
@@ -272,7 +282,7 @@ impl ShaderAPI for ShaderAPINagaImpl {
             kind: naga::ScalarKind::Uint,
             width: 4,
           },
-          ShaderBuiltInDecorator::FragmentPositionIn => naga::TypeInner::Vector {
+          ShaderBuiltInDecorator::FragPositionIn => naga::TypeInner::Vector {
             size: naga::VectorSize::Quad,
             kind: naga::ScalarKind::Float,
             width: 4,
@@ -284,6 +294,25 @@ impl ShaderAPI for ShaderAPINagaImpl {
           },
           ShaderBuiltInDecorator::FragDepth => naga::TypeInner::Scalar {
             kind: naga::ScalarKind::Float,
+            width: 4,
+          },
+          ShaderBuiltInDecorator::CompLocalInvocationId => naga::TypeInner::Vector {
+            size: naga::VectorSize::Tri,
+            kind: naga::ScalarKind::Uint,
+            width: 4,
+          },
+          ShaderBuiltInDecorator::CompGlobalInvocationId => naga::TypeInner::Vector {
+            size: naga::VectorSize::Tri,
+            kind: naga::ScalarKind::Uint,
+            width: 4,
+          },
+          ShaderBuiltInDecorator::CompLocalInvocationIndex => naga::TypeInner::Scalar {
+            kind: naga::ScalarKind::Uint,
+            width: 4,
+          },
+          ShaderBuiltInDecorator::CompWorkgroupId => naga::TypeInner::Vector {
+            size: naga::VectorSize::Tri,
+            kind: naga::ScalarKind::Uint,
             width: 4,
           },
         };
@@ -1145,16 +1174,65 @@ fn gen_struct_define(
 ) -> naga::TypeInner {
   let layout = l.unwrap_or(StructLayoutTarget::Std430); // is this ok??
 
+  let members = struct_member(&meta.name, api, &meta.fields, l);
+
+  assert!(!members.is_empty());
+
+  // is this ok??
+  let size = meta.size_of_self(layout);
+
+  naga::TypeInner::Struct {
+    members,
+    span: size as u32,
+  }
+}
+
+fn gen_unsized_struct_define(
+  api: &mut ShaderAPINagaImpl,
+  meta: &ShaderUnSizedStructMetaInfo,
+) -> naga::TypeInner {
+  let layout = StructLayoutTarget::Std430;
+
+  let fields: Vec<_> = meta.sized_fields.iter().map(|f| f.to_owned()).collect();
+  let mut members = struct_member(meta.name, api, &fields, Some(layout));
+
+  let field_size = size_of_struct_sized_fields(&fields, layout);
+  let (name, array_ty) = meta.last_dynamic_array_field;
+
+  members.push(naga::StructMember {
+    name: name.to_string().into(),
+    ty: api.register_ty_impl(
+      ShaderValueType::Single(ShaderValueSingleType::Unsized(
+        ShaderUnSizedValueType::UnsizedArray(array_ty),
+      )),
+      Some(layout),
+    ),
+    binding: None,
+    offset: field_size as u32,
+  });
+
+  naga::TypeInner::Struct {
+    members,
+    span: (field_size + array_ty.size_of_self(layout)) as u32,
+  }
+}
+
+fn struct_member(
+  name: &str,
+  api: &mut ShaderAPINagaImpl,
+  fields: &[ShaderStructFieldMetaInfoOwned],
+  l: Option<StructLayoutTarget>,
+) -> Vec<naga::StructMember> {
+  let layout = l.unwrap_or(StructLayoutTarget::Std430); // is this ok??
+
   let mut extra_explicit_padding_count = 0;
   let mut current_byte_used = 0;
   let mut members = Vec::new();
-  for (index, ShaderStructFieldMetaInfoOwned { name, ty, ty_deco }) in
-    meta.fields.iter().enumerate()
-  {
-    let next_align_requirement = if index + 1 == meta.fields.len() {
-      meta.align_of_self(layout)
+  for (index, ShaderStructFieldMetaInfoOwned { name, ty, ty_deco }) in fields.iter().enumerate() {
+    let next_align_requirement = if index + 1 == fields.len() {
+      align_of_struct_sized_fields(&fields, layout)
     } else {
-      meta.fields[index + 1].ty.align_of_self(layout)
+      fields[index + 1].ty.align_of_self(layout)
     };
 
     let field_offset = current_byte_used;
@@ -1189,7 +1267,7 @@ fn gen_struct_define(
     // have to solve the struct in struct case.
     //
     // I tried set the naga struct span, but has no effect, so here we add padding manually..
-    if l.is_some() && index + 1 == meta.fields.len() && padding_size > 0 {
+    if l.is_some() && index + 1 == fields.len() && padding_size > 0 {
       assert!(padding_size % 4 == 0); // we assume the minimal type size is 4 bytes.
       let pad_byte_start = field_offset + type_size;
       let pad_count = padding_size / 4;
@@ -1212,28 +1290,23 @@ fn gen_struct_define(
 
   api
     .struct_extra_padding_count
-    .insert(meta.name.clone(), extra_explicit_padding_count);
-
-  assert!(!members.is_empty());
-
-  // is this ok??
-  let size = meta.size_of_self(layout);
-
-  naga::TypeInner::Struct {
-    members,
-    span: size as u32,
-  }
+    .insert(name.to_string(), extra_explicit_padding_count);
+  members
 }
 
 fn match_built_in(bt: ShaderBuiltInDecorator) -> naga::BuiltIn {
   match bt {
     ShaderBuiltInDecorator::VertexIndex => naga::BuiltIn::VertexIndex,
-    ShaderBuiltInDecorator::InstanceIndex => naga::BuiltIn::InstanceIndex,
-    ShaderBuiltInDecorator::FrontFacing => naga::BuiltIn::FrontFacing,
+    ShaderBuiltInDecorator::VertexInstanceIndex => naga::BuiltIn::InstanceIndex,
+    ShaderBuiltInDecorator::FragFrontFacing => naga::BuiltIn::FrontFacing,
     ShaderBuiltInDecorator::FragSampleIndex => naga::BuiltIn::SampleIndex,
     ShaderBuiltInDecorator::FragSampleMask => naga::BuiltIn::SampleMask,
-    ShaderBuiltInDecorator::FragmentPositionIn => naga::BuiltIn::Position { invariant: false },
+    ShaderBuiltInDecorator::FragPositionIn => naga::BuiltIn::Position { invariant: false },
     ShaderBuiltInDecorator::VertexPositionOut => naga::BuiltIn::Position { invariant: false },
     ShaderBuiltInDecorator::FragDepth => naga::BuiltIn::FragDepth,
+    ShaderBuiltInDecorator::CompLocalInvocationId => naga::BuiltIn::LocalInvocationId,
+    ShaderBuiltInDecorator::CompGlobalInvocationId => naga::BuiltIn::GlobalInvocationId,
+    ShaderBuiltInDecorator::CompLocalInvocationIndex => naga::BuiltIn::LocalInvocationIndex,
+    ShaderBuiltInDecorator::CompWorkgroupId => naga::BuiltIn::WorkGroupId,
   }
 }

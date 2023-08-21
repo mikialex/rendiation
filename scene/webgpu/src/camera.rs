@@ -168,15 +168,19 @@ impl CameraGPU {
     &self,
     builder: &mut ShaderRenderPipelineBuilder,
   ) -> BindingPreparer<CameraGPUTransform, { AddressSpace::Uniform }> {
-    builder.bind_by(&self.ubo).using_both(builder, |r, camera| {
-      let camera = camera.load().expand();
-      r.register_typed_both_stage::<CameraViewMatrix>(camera.view);
-      r.register_typed_both_stage::<CameraProjectionMatrix>(camera.projection);
-      r.register_typed_both_stage::<CameraProjectionInverseMatrix>(camera.projection_inv);
-      r.register_typed_both_stage::<CameraWorldMatrix>(camera.world);
-      r.register_typed_both_stage::<CameraViewProjectionMatrix>(camera.view_projection);
-      r.register_typed_both_stage::<CameraViewProjectionInverseMatrix>(camera.view_projection_inv);
-    })
+    builder
+      .bind_by(&self.ubo)
+      .using_graphics_pair(builder, |r, camera| {
+        let camera = camera.load().expand();
+        r.register_typed_both_stage::<CameraViewMatrix>(camera.view);
+        r.register_typed_both_stage::<CameraProjectionMatrix>(camera.projection);
+        r.register_typed_both_stage::<CameraProjectionInverseMatrix>(camera.projection_inv);
+        r.register_typed_both_stage::<CameraWorldMatrix>(camera.world);
+        r.register_typed_both_stage::<CameraViewProjectionMatrix>(camera.view_projection);
+        r.register_typed_both_stage::<CameraViewProjectionInverseMatrix>(
+          camera.view_projection_inv,
+        );
+      })
   }
 
   pub fn new(device: &GPUDevice) -> Self {

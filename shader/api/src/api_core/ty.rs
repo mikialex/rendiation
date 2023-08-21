@@ -155,6 +155,11 @@ pub trait ShaderStructuralNodeType: ShaderNodeType {
 }
 pub type ENode<T> = <T as ShaderStructuralNodeType>::Instance;
 
+pub trait ShaderUnsizedStructuralNodeType: ShaderNodeType {
+  type Instance;
+  fn meta_info() -> &'static ShaderUnSizedStructMetaInfo;
+}
+
 #[macro_export]
 macro_rules! sg_node_impl {
   ($ty: ty, $ty_value: expr) => {

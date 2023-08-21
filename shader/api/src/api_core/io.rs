@@ -24,13 +24,17 @@ impl ShaderInputNode {
 #[derive(Debug, Copy, Clone)]
 pub enum ShaderBuiltInDecorator {
   VertexIndex,
-  InstanceIndex,
+  VertexInstanceIndex,
   VertexPositionOut,
-  FragmentPositionIn,
-  FrontFacing,
+  FragPositionIn,
+  FragFrontFacing,
   FragDepth,
   FragSampleIndex,
   FragSampleMask,
+  CompLocalInvocationId,
+  CompGlobalInvocationId,
+  CompLocalInvocationIndex,
+  CompWorkgroupId,
 }
 
 #[derive(Default, Clone)]
@@ -43,6 +47,7 @@ pub struct ShaderBindEntry {
   pub desc: ShaderBindingDescriptor,
   pub vertex_node: ShaderNodeRawHandle,
   pub fragment_node: ShaderNodeRawHandle,
+  pub compute_node: ShaderNodeRawHandle,
 }
 
 /// should impl by user's container ty

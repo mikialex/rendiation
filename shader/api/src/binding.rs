@@ -26,13 +26,13 @@ impl<T: ShaderNodeType, const S: AddressSpace> BindingPreparer<T, S> {
     let node = match get_current_stage().unwrap() {
       ShaderStages::Vertex => self.entry.vertex_node,
       ShaderStages::Fragment => self.entry.fragment_node,
-      ShaderStages::Compute => todo!(),
+      ShaderStages::Compute => self.entry.compute_node,
     };
 
     unsafe { node.into_node() }
   }
 
-  pub fn using_both(
+  pub fn using_graphics_pair(
     self,
     builder: &mut ShaderRenderPipelineBuilder,
     register: impl Fn(&mut SemanticRegistry, Node<ShaderPtr<T, S>>),
@@ -80,7 +80,10 @@ impl ShaderBindGroupBuilder {
     let vertex_node = node.clone().insert_api::<T::Node>().handle();
 
     set_current_building(ShaderStages::Fragment.into());
-    let fragment_node = node.insert_api::<T::Node>().handle();
+    let fragment_node = node.clone().insert_api::<T::Node>().handle();
+
+    set_current_building(ShaderStages::Compute.into());
+    let compute_node = node.insert_api::<T::Node>().handle();
 
     set_current_building(current_stage);
 
@@ -88,6 +91,7 @@ impl ShaderBindGroupBuilder {
       desc,
       vertex_node,
       fragment_node,
+      compute_node,
     };
 
     bindgroup.bindings.push(entry);
