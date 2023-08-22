@@ -37,11 +37,9 @@ impl WebGpuUIPresenter {
     minimal_required_features.remove(Features::TIMESTAMP_QUERY); // note: on macos we currently do not have this
 
     let config = GPUCreateConfig {
-      backends: Backends::PRIMARY,
-      power_preference: PowerPreference::HighPerformance,
       surface_for_compatible_check_init: Some((window, Size::from_usize_pair_min_one((300, 200)))),
       minimal_required_features,
-      minimal_required_limits: Limits::default(),
+      ..Default::default()
     };
 
     let (gpu, surface) = GPU::new(config).await.unwrap();

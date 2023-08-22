@@ -10,21 +10,32 @@ pub struct ShaderComputePipelineBuilder {
   local_invocation_id: Node<Vec3<u32>>,
   local_invocation_index: Node<u32>,
   workgroup_id: Node<Vec3<u32>>,
-}
-
-impl std::ops::Deref for ShaderComputePipelineBuilder {
-  type Target = ShaderBindGroupBuilder;
-
-  fn deref(&self) -> &Self::Target {
-    &self.bindgroups
-  }
+  pub log_result: bool,
 }
 
 pub trait IntoWorkgroupSize {
   fn into_size(self) -> (u32, u32, u32);
 }
 
-pub struct ComputeCx<'a>(&'a ShaderComputePipelineBuilder);
+impl IntoWorkgroupSize for u32 {
+  fn into_size(self) -> (u32, u32, u32) {
+    (self, 1, 1)
+  }
+}
+
+impl IntoWorkgroupSize for (u32, u32) {
+  fn into_size(self) -> (u32, u32, u32) {
+    (self.0, self.1, 1)
+  }
+}
+
+impl IntoWorkgroupSize for (u32, u32, u32) {
+  fn into_size(self) -> (u32, u32, u32) {
+    self
+  }
+}
+
+pub struct ComputeCx<'a>(&'a mut ShaderComputePipelineBuilder);
 
 impl<'a> ComputeCx<'a> {
   pub fn storage_barrier(&self) {
@@ -51,6 +62,24 @@ impl<'a> ComputeCx<'a> {
   pub fn workgroup_id(&self) -> Node<Vec3<u32>> {
     self.0.workgroup_id
   }
+
+  pub fn define_workgroup_shared_var<T: ShaderSizedValueNodeType>(&self) -> WorkGroupSharedNode<T> {
+    ShaderInputNode::WorkGroupShared { ty: T::MEMBER_TYPE }.insert_api()
+  }
+  pub fn define_invocation_private_var<T: ShaderSizedValueNodeType>(&self) -> GlobalVariable<T> {
+    ShaderInputNode::Private { ty: T::MEMBER_TYPE }.insert_api()
+  }
+
+  pub fn bind_by<T: ShaderBindingProvider>(
+    &mut self,
+    instance: &T,
+  ) -> Node<ShaderPtr<T::Node, { T::SPACE }>> {
+    self.0.bindgroups.bind_by(instance).using()
+  }
+
+  pub fn binding<T: ShaderBindingProvider>(&mut self) -> Node<ShaderPtr<T::Node, { T::SPACE }>> {
+    self.0.bindgroups.binding().using()
+  }
 }
 
 impl ShaderComputePipelineBuilder {
@@ -66,11 +95,12 @@ impl ShaderComputePipelineBuilder {
       local_invocation_id: ShaderInputNode::BuiltIn(CompLocalInvocationId).insert_api(),
       local_invocation_index: ShaderInputNode::BuiltIn(CompLocalInvocationIndex).insert_api(),
       workgroup_id: ShaderInputNode::BuiltIn(CompWorkgroupId).insert_api(),
+      log_result: false,
     }
   }
 
-  pub fn entry(self, f: impl FnOnce(ComputeCx)) -> Self {
-    f(ComputeCx(&self));
+  pub fn entry(mut self, f: impl FnOnce(ComputeCx)) -> Self {
+    f(ComputeCx(&mut self));
     self
   }
 

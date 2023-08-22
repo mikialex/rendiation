@@ -26,8 +26,6 @@ pub trait RenderComponent: ShaderHashProvider + GraphicsShaderProvider + ShaderP
 
     self.setup_pass_self(ctx);
 
-    ctx.pass.set_pipeline_owned(&pipeline);
-
     ctx
       .binding
       .setup_pass(&mut ctx.pass, &ctx.gpu.device, &pipeline);

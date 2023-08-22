@@ -76,6 +76,21 @@ pub struct GPUCreateConfig<'a> {
   pub minimal_required_limits: Limits,
 }
 
+impl<'a> Default for GPUCreateConfig<'a> {
+  fn default() -> Self {
+    let mut minimal_required_features = Features::all_webgpu_mask();
+    minimal_required_features.remove(Features::TIMESTAMP_QUERY); // note: on macos we currently do not have this
+
+    Self {
+      backends: Backends::all(),
+      power_preference: PowerPreference::HighPerformance,
+      surface_for_compatible_check_init: None,
+      minimal_required_features,
+      minimal_required_limits: Default::default(),
+    }
+  }
+}
+
 pub struct GPUInfo {
   pub requested_backend_type: Backends,
   pub power_preference: PowerPreference,

@@ -6,14 +6,32 @@ use crate::*;
 pub mod container;
 pub use container as c;
 
-#[derive(Clone)]
-pub struct GPURenderPipeline {
-  pub inner: Arc<GPURenderPipelineInner>,
+pub type GPURenderPipeline = GPUPipeline<wgpu::RenderPipeline>;
+pub type GPUComputePipeline = GPUPipeline<wgpu::ComputePipeline>;
+
+pub struct GPUPipeline<T> {
+  pub inner: Arc<GPUPipelineInner<T>>,
 }
 
-impl GPURenderPipeline {
-  fn new(pipeline: gpu::RenderPipeline, bg_layouts: Vec<GPUBindGroupLayout>) -> Self {
-    let inner = GPURenderPipelineInner {
+impl<T> Deref for GPUPipeline<T> {
+  type Target = GPUPipelineInner<T>;
+
+  fn deref(&self) -> &Self::Target {
+    &self.inner
+  }
+}
+
+impl<T> Clone for GPUPipeline<T> {
+  fn clone(&self) -> Self {
+    Self {
+      inner: self.inner.clone(),
+    }
+  }
+}
+
+impl<T> GPUPipeline<T> {
+  fn new(pipeline: T, bg_layouts: Vec<GPUBindGroupLayout>) -> Self {
+    let inner = GPUPipelineInner {
       pipeline,
       bg_layouts,
     };
@@ -27,16 +45,16 @@ impl GPURenderPipeline {
   }
 }
 
-pub struct GPURenderPipelineInner {
-  pub pipeline: gpu::RenderPipeline,
+pub struct GPUPipelineInner<T> {
+  pub pipeline: T,
   pub bg_layouts: Vec<GPUBindGroupLayout>,
 }
 
-impl Deref for GPURenderPipeline {
-  type Target = GPURenderPipelineInner;
+impl<T> Deref for GPUPipelineInner<T> {
+  type Target = T;
 
   fn deref(&self) -> &Self::Target {
-    &self.inner
+    &self.pipeline
   }
 }
 
@@ -120,16 +138,6 @@ impl GPUDevice {
       multisample,
     } = compile_result;
 
-    fn convert_module_by_wgsl(module: &naga::Module, v: naga::valid::ValidationFlags) -> String {
-      use naga::back::wgsl;
-
-      let info = naga::valid::Validator::new(v, naga::valid::Capabilities::all())
-        .validate(module)
-        .unwrap();
-
-      wgsl::write_string(module, &info, wgsl::WriterFlags::empty()).unwrap()
-    }
-
     let naga_vertex = *vertex_shader.downcast::<naga::Module>().unwrap();
     let naga_fragment = *frag_shader.downcast::<naga::Module>().unwrap();
 
@@ -166,27 +174,7 @@ impl GPUDevice {
     //   source: gpu::ShaderSource::Wgsl(Cow::Owned(convert_module_by_wgsl(&naga_fragment))),
     // });
 
-    let binding = &bindings.bindings;
-    let last_empty_count = binding
-      .iter()
-      .rev()
-      .take_while(|l| l.bindings.is_empty())
-      .count();
-
-    let layouts: Vec<_> = binding
-      .get(0..binding.len() - last_empty_count)
-      .unwrap()
-      .iter()
-      .map(|b| create_bindgroup_layout_by_node_ty(self, b.bindings.iter().map(|e| &e.desc)))
-      .collect();
-
-    let layouts_ref: Vec<_> = layouts.iter().map(|l| l.inner.as_ref()).collect();
-
-    let pipeline_layout = self.create_pipeline_layout(&gpu::PipelineLayoutDescriptor {
-      label: None,
-      bind_group_layouts: layouts_ref.as_slice(),
-      push_constant_ranges: &[],
-    });
+    let (layouts, pipeline_layout) = create_layouts(self, &bindings);
 
     let vertex_buffers: Vec<_> = vertex_layouts.iter().map(convert_vertex_layout).collect();
 
@@ -213,8 +201,46 @@ impl GPUDevice {
       multiview: None,
     });
 
-    Ok(GPURenderPipeline::new(pipeline, layouts))
+    Ok(GPUPipeline::new(pipeline, layouts))
   }
+}
+
+fn create_layouts(
+  device: &GPUDevice,
+  builder: &ShaderBindGroupBuilder,
+) -> (Vec<GPUBindGroupLayout>, wgpu::PipelineLayout) {
+  let binding = &builder.bindings;
+  let last_empty_count = binding
+    .iter()
+    .rev()
+    .take_while(|l| l.bindings.is_empty())
+    .count();
+
+  let layouts: Vec<_> = binding
+    .get(0..binding.len() - last_empty_count)
+    .unwrap()
+    .iter()
+    .map(|b| create_bindgroup_layout_by_node_ty(device, b.bindings.iter().map(|e| &e.desc)))
+    .collect();
+
+  let layouts_ref: Vec<_> = layouts.iter().map(|l| l.inner.as_ref()).collect();
+
+  let pipeline_layout = device.create_pipeline_layout(&gpu::PipelineLayoutDescriptor {
+    label: None,
+    bind_group_layouts: layouts_ref.as_slice(),
+    push_constant_ranges: &[],
+  });
+  (layouts, pipeline_layout)
+}
+
+fn convert_module_by_wgsl(module: &naga::Module, v: naga::valid::ValidationFlags) -> String {
+  use naga::back::wgsl;
+
+  let info = naga::valid::Validator::new(v, naga::valid::Capabilities::all())
+    .validate(module)
+    .unwrap();
+
+  wgsl::write_string(module, &info, wgsl::WriterFlags::empty()).unwrap()
 }
 
 pub fn convert_vertex_layout(layout: &ShaderVertexBufferLayout) -> gpu::VertexBufferLayout {
@@ -229,36 +255,51 @@ pub fn compute_shader_builder() -> ShaderComputePipelineBuilder {
   ShaderComputePipelineBuilder::new(&|stage| Box::new(ShaderAPINagaImpl::new(stage)))
 }
 
-#[derive(Clone)]
-pub struct GPUComputePipeline {
-  pub inner: Arc<GPUComputePipelineInner>,
+pub trait ComputeIntoPipelineExt {
+  fn create_compute_pipeline(
+    self,
+    device: impl AsRef<GPUDevice>,
+  ) -> Result<GPUComputePipeline, ShaderBuildError>;
 }
 
-impl Deref for GPUComputePipeline {
-  type Target = GPUComputePipelineInner;
+impl ComputeIntoPipelineExt for ShaderComputePipelineBuilder {
+  fn create_compute_pipeline(
+    self,
+    device: impl AsRef<GPUDevice>,
+  ) -> Result<GPUComputePipeline, ShaderBuildError> {
+    let log_result = self.log_result;
+    let result = self.build()?;
 
-  fn deref(&self) -> &Self::Target {
-    &self.inner
-  }
-}
-
-pub struct GPUComputePipelineInner {
-  pub pipeline: gpu::ComputePipeline,
-  pub bg_layouts: Vec<GPUBindGroupLayout>,
-}
-
-trait ComputeIntoPipelineExt {
-  fn create_compute_pipeline(self, device: impl AsRef<GPUDevice>) -> GPUComputePipeline;
-}
-
-impl ComputeIntoPipelineExt for ComputeShaderCompileResult {
-  fn create_compute_pipeline(self, device: impl AsRef<GPUDevice>) -> GPUComputePipeline {
     let device = device.as_ref();
-    device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
+
+    let (entry, shader) = result.shader;
+
+    let naga_compute = shader.downcast::<naga::Module>().unwrap();
+
+    if log_result {
+      println!();
+      println!("=== rendiation_shader_api build result ===");
+
+      println!("compute shader: ");
+      let comp = convert_module_by_wgsl(&naga_compute, naga::valid::ValidationFlags::empty());
+      println!("{comp}",);
+
+      println!("=== result output finished ===");
+    }
+
+    let module = device.create_shader_module(gpu::ShaderModuleDescriptor {
       label: None,
-      layout: todo!(),
-      module: todo!(),
-      entry_point: &self.shader.0,
+      source: gpu::ShaderSource::Naga(Cow::Owned(*naga_compute)),
     });
+    let (layouts, pipeline_layout) = create_layouts(device, &result.bindings);
+
+    let pipeline = device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
+      label: None,
+      layout: Some(&pipeline_layout),
+      module: &module,
+      entry_point: &entry,
+    });
+
+    Ok(GPUPipeline::new(pipeline, layouts))
   }
 }

@@ -12,6 +12,12 @@ pub enum ShaderInputNode {
     bindgroup_index: usize,
     entry_index: usize,
   },
+  WorkGroupShared {
+    ty: ShaderSizedValueType,
+  },
+  Private {
+    ty: ShaderSizedValueType,
+  },
 }
 
 impl ShaderInputNode {
