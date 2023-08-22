@@ -62,13 +62,27 @@ pub trait ShaderIteratorExt: ShaderIterator + Sized {
 }
 impl<T: ShaderIterator + Sized> ShaderIteratorExt for T {}
 
-impl ShaderIterator for LocalVarNode<u32> {
+pub struct StepTo {
+  to: Node<u32>,
+  current: LocalVarNode<u32>,
+}
+
+impl StepTo {
+  fn new(to: Node<u32>) -> Self {
+    Self {
+      to,
+      current: val(0).make_local_var(),
+    }
+  }
+}
+
+impl ShaderIterator for StepTo {
   type Item = Node<u32>;
 
   fn shader_next(&self) -> (Node<bool>, Self::Item) {
-    let current = self.load();
-    self.store(current - val(1));
-    (current.equals(val(0)).not(), current)
+    let current = self.current.load();
+    self.current.store(current + val(1));
+    (current.equals(self.to).not(), current)
   }
 }
 
@@ -93,18 +107,18 @@ impl<T: ShaderNodeType, const U: usize> ShaderIterator for UniformArrayIter<T, U
 }
 
 impl IntoShaderIterator for u32 {
-  type ShaderIter = LocalVarNode<u32>;
+  type ShaderIter = StepTo;
 
   fn into_shader_iter(self) -> Self::ShaderIter {
-    val(self).make_local_var()
+    StepTo::new(val(self))
   }
 }
 
 impl IntoShaderIterator for Node<u32> {
-  type ShaderIter = LocalVarNode<u32>;
+  type ShaderIter = StepTo;
 
   fn into_shader_iter(self) -> Self::ShaderIter {
-    self.make_local_var()
+    StepTo::new(self)
   }
 }
 

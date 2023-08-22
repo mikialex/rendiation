@@ -53,13 +53,23 @@ pub struct CacheAbleBindingBuildSource {
 }
 
 pub struct BindGroupBuilder<T> {
+  is_compute: bool,
   items: Vec<T>,
   layouts: Vec<gpu::BindGroupLayoutEntry>,
+}
+
+impl<T> std::fmt::Debug for BindGroupBuilder<T> {
+  fn fmt(&self, f: &mut __core::fmt::Formatter<'_>) -> __core::fmt::Result {
+    f.debug_struct("BindGroupBuilder")
+      .field("is_compute", &self.is_compute)
+      .finish()
+  }
 }
 
 impl<T> Default for BindGroupBuilder<T> {
   fn default() -> Self {
     Self {
+      is_compute: false,
       items: Default::default(),
       layouts: Default::default(),
     }
@@ -99,6 +109,13 @@ impl BindingGroupBuildImpl for CacheAbleBindingBuildSource {
 }
 
 impl<T> BindGroupBuilder<T> {
+  pub fn new_as_compute() -> Self {
+    Self {
+      is_compute: true,
+      ..Default::default()
+    }
+  }
+
   pub fn reset(&mut self) {
     self.items.clear();
     self.layouts.clear();
@@ -136,7 +153,11 @@ impl BindGroupBuilder<CacheAbleBindingBuildSource> {
   {
     self.bind_raw(
       item.get_binding_build_source(),
-      map_shader_value_ty_to_binding_layout_type(T::binding_desc(), self.items.len()),
+      map_shader_value_ty_to_binding_layout_type(
+        T::binding_desc(),
+        self.items.len(),
+        self.is_compute,
+      ),
     )
   }
   fn hash_binding_ids(&self, hasher: &mut impl Hasher) {
@@ -159,6 +180,14 @@ pub struct BindingBuilder {
 }
 
 impl BindingBuilder {
+  pub fn new_as_compute() -> Self {
+    let groups: Vec<_> = (0..5).map(|_| BindGroupBuilder::new_as_compute()).collect();
+    Self {
+      groups: groups.try_into().unwrap(),
+      ..Default::default()
+    }
+  }
+
   pub fn set_binding_slot(&mut self, new: usize) -> usize {
     std::mem::replace(&mut self.current_index, new)
   }

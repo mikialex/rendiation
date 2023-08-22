@@ -337,7 +337,11 @@ impl ShaderAPI for ShaderAPINagaImpl {
         let space = match desc.get_buffer_layout() {
           Some(StructLayoutTarget::Std140) => naga::AddressSpace::Uniform,
           Some(StructLayoutTarget::Std430) => naga::AddressSpace::Storage {
-            access: StorageAccess::LOAD,
+            access: if desc.writeable_if_storage {
+              StorageAccess::all()
+            } else {
+              StorageAccess::LOAD
+            },
           },
           None => naga::AddressSpace::Handle,
         };
@@ -894,20 +898,6 @@ impl ShaderAPI for ShaderAPINagaImpl {
   }
 
   fn store(&mut self, source: ShaderNodeRawHandle, target: ShaderNodeRawHandle) {
-    let pointer = self.get_expression(target);
-    let exp = self
-      .building_fn
-      .last_mut()
-      .unwrap()
-      .expressions
-      .get_mut(pointer);
-
-    match exp {
-      naga::Expression::GlobalVariable(_) => {}
-      naga::Expression::LocalVariable(_) => {}
-      ty => panic!("invalid store {:?}", ty),
-    }
-
     let st = naga::Statement::Store {
       pointer: self.get_expression(target),
       value: self.get_expression(source),

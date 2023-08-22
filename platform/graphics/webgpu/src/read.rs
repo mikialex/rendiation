@@ -129,10 +129,17 @@ impl GPUCommandEncoder {
       size,
     );
 
-    self
-      .on_submit
-      .once_future(|_| {})
-      .then(|_| ReadBufferTask::new(output_buffer, ..))
+    // self
+    //   .on_submit
+    //   .once_future(|_| {})
+    //   .then(|_| ReadBufferTask::new(output_buffer, ..))
+
+    let device = device.clone();
+    self.on_submit.once_future(|_| {}).then(move |_| {
+      let r = ReadBufferTask::new(output_buffer, ..);
+      device.poll(Maintain::Wait);
+      r
+    })
   }
 
   pub fn read_texture_2d(

@@ -12,6 +12,7 @@ pub async fn test_prefix_sum() {
 
   let pipeline = compute_shader_builder()
     .config_work_group_size(WORK_GROUP_SIZE)
+    // .log_shader()
     .entry(|cx| {
       let shared = cx.define_workgroup_shared_var::<[u32; WORK_GROUP_SIZE as usize]>();
       let input = cx.bind_by(&input);
@@ -41,11 +42,11 @@ pub async fn test_prefix_sum() {
     .unwrap();
 
   let mut encoder = gpu.create_encoder().compute_pass_scoped(|mut pass| {
-    let mut bb = BindingBuilder::default();
+    let mut bb = BindingBuilder::new_as_compute();
     bb.bind(&input)
       .bind(&output)
       .setup_compute_pass(&mut pass, &gpu.device, &pipeline);
-    pass.dispatch_workgroups(1, 0, 0);
+    pass.dispatch_workgroups(1, 1, 1);
   });
   let result = encoder.read_buffer(&gpu.device, &output);
   gpu.submit_encoder(encoder);

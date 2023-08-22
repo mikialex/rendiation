@@ -15,6 +15,7 @@ where
   fn binding_desc() -> ShaderBindingDescriptor {
     ShaderBindingDescriptor {
       should_as_storage_buffer_if_is_buffer_like: true,
+      writeable_if_storage: false,
       ty: Self::Node::TYPE,
     }
   }
@@ -29,6 +30,7 @@ where
   fn binding_desc() -> ShaderBindingDescriptor {
     ShaderBindingDescriptor {
       should_as_storage_buffer_if_is_buffer_like: true,
+      writeable_if_storage: true,
       ty: Self::Node::TYPE,
     }
   }

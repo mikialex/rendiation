@@ -61,6 +61,7 @@ impl<T> Deref for GPUPipelineInner<T> {
 pub fn map_shader_value_ty_to_binding_layout_type(
   v: ShaderBindingDescriptor,
   id: usize,
+  is_compute: bool,
 ) -> gpu::BindGroupLayoutEntry {
   use ShaderValueSingleType::*;
   let ty = v
@@ -68,7 +69,9 @@ pub fn map_shader_value_ty_to_binding_layout_type(
     .visit_single(|ty| match *ty {
       Sized(_) => gpu::BindingType::Buffer {
         ty: if v.should_as_storage_buffer_if_is_buffer_like {
-          gpu::BufferBindingType::Storage { read_only: true }
+          gpu::BufferBindingType::Storage {
+            read_only: !v.writeable_if_storage,
+          }
         } else {
           gpu::BufferBindingType::Uniform
         },
@@ -77,7 +80,9 @@ pub fn map_shader_value_ty_to_binding_layout_type(
         min_binding_size: None,
       },
       Unsized(_) => gpu::BindingType::Buffer {
-        ty: gpu::BufferBindingType::Storage { read_only: true },
+        ty: gpu::BufferBindingType::Storage {
+          read_only: !v.writeable_if_storage,
+        },
         has_dynamic_offset: false,
         // min_binding_size: gpu::BufferSize::new(std::mem::size_of::<T>() as u64), // todo
         min_binding_size: None,
@@ -101,7 +106,11 @@ pub fn map_shader_value_ty_to_binding_layout_type(
 
   gpu::BindGroupLayoutEntry {
     binding: id as u32,
-    visibility: gpu::ShaderStages::VERTEX_FRAGMENT,
+    visibility: if is_compute {
+      gpu::ShaderStages::all()
+    } else {
+      gpu::ShaderStages::VERTEX_FRAGMENT
+    },
     ty,
     count,
   }
@@ -110,10 +119,11 @@ pub fn map_shader_value_ty_to_binding_layout_type(
 pub fn create_bindgroup_layout_by_node_ty<'a>(
   device: &GPUDevice,
   iter: impl Iterator<Item = &'a ShaderBindingDescriptor>,
+  is_compute: bool,
 ) -> GPUBindGroupLayout {
   let entries: Vec<_> = iter
     .enumerate()
-    .map(|(i, ty)| map_shader_value_ty_to_binding_layout_type(*ty, i))
+    .map(|(i, ty)| map_shader_value_ty_to_binding_layout_type(*ty, i, is_compute))
     .collect();
 
   device.create_and_cache_bindgroup_layout(entries.as_ref())
@@ -174,7 +184,7 @@ impl GPUDevice {
     //   source: gpu::ShaderSource::Wgsl(Cow::Owned(convert_module_by_wgsl(&naga_fragment))),
     // });
 
-    let (layouts, pipeline_layout) = create_layouts(self, &bindings);
+    let (layouts, pipeline_layout) = create_layouts(self, &bindings, false);
 
     let vertex_buffers: Vec<_> = vertex_layouts.iter().map(convert_vertex_layout).collect();
 
@@ -208,6 +218,7 @@ impl GPUDevice {
 fn create_layouts(
   device: &GPUDevice,
   builder: &ShaderBindGroupBuilder,
+  is_compute: bool,
 ) -> (Vec<GPUBindGroupLayout>, wgpu::PipelineLayout) {
   let binding = &builder.bindings;
   let last_empty_count = binding
@@ -220,7 +231,9 @@ fn create_layouts(
     .get(0..binding.len() - last_empty_count)
     .unwrap()
     .iter()
-    .map(|b| create_bindgroup_layout_by_node_ty(device, b.bindings.iter().map(|e| &e.desc)))
+    .map(|b| {
+      create_bindgroup_layout_by_node_ty(device, b.bindings.iter().map(|e| &e.desc), is_compute)
+    })
     .collect();
 
   let layouts_ref: Vec<_> = layouts.iter().map(|l| l.inner.as_ref()).collect();
@@ -291,7 +304,7 @@ impl ComputeIntoPipelineExt for ShaderComputePipelineBuilder {
       label: None,
       source: gpu::ShaderSource::Naga(Cow::Owned(*naga_compute)),
     });
-    let (layouts, pipeline_layout) = create_layouts(device, &result.bindings);
+    let (layouts, pipeline_layout) = create_layouts(device, &result.bindings, true);
 
     let pipeline = device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
       label: None,

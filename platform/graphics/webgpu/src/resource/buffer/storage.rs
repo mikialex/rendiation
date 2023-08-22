@@ -122,7 +122,8 @@ impl<'a, T: Std430MaybeUnsized + ?Sized> StorageBufferInit<'a, T> {
 
 impl<T: Std430MaybeUnsized + ?Sized> StorageBufferDataView<T> {
   pub fn create(device: &GPUDevice, data: StorageBufferInit<T>) -> Self {
-    let usage = gpu::BufferUsages::STORAGE | gpu::BufferUsages::COPY_DST;
+    let usage =
+      gpu::BufferUsages::STORAGE | gpu::BufferUsages::COPY_DST | gpu::BufferUsages::COPY_SRC;
     let gpu = GPUBuffer::create(device, data.into_buffer_init(), usage);
     let gpu = GPUBufferResource::create_with_raw(gpu, usage).create_default_view();
 

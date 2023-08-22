@@ -208,7 +208,7 @@ struct SingleLight<'a, T: Std140> {
 
 impl<'a, T: Std140 + ShaderSizedValueNodeType> ShaderPassBuilder for SingleLight<'a, T> {
   fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
-    ctx.binding.bind(self.light)
+    ctx.binding.bind(self.light);
   }
 }
 impl<'a, T: Std140> ShaderHashProvider for SingleLight<'a, T> {

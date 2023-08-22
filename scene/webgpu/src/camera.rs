@@ -199,7 +199,7 @@ impl ShaderHashProvider for CameraGPU {
 
 impl ShaderPassBuilder for CameraGPU {
   fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
-    ctx.binding.bind(&self.ubo)
+    ctx.binding.bind(&self.ubo);
   }
 }
 

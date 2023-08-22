@@ -62,6 +62,7 @@ pub trait ShaderBindingProvider {
   fn binding_desc() -> ShaderBindingDescriptor {
     ShaderBindingDescriptor {
       should_as_storage_buffer_if_is_buffer_like: false,
+      writeable_if_storage: false,
       ty: Self::Node::TYPE,
     }
   }
@@ -71,6 +72,7 @@ pub trait ShaderBindingProvider {
 pub struct ShaderBindingDescriptor {
   pub should_as_storage_buffer_if_is_buffer_like: bool,
   pub ty: ShaderValueType,
+  pub writeable_if_storage: bool,
 }
 
 impl ShaderBindingDescriptor {
@@ -88,6 +90,7 @@ impl ShaderBindingDescriptor {
       },
       ShaderValueType::BindingArray { ty, .. } => ShaderBindingDescriptor {
         should_as_storage_buffer_if_is_buffer_like: self.should_as_storage_buffer_if_is_buffer_like,
+        writeable_if_storage: false,
         ty: ShaderValueType::Single(ty),
       }
       .get_buffer_layout(),

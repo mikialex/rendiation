@@ -106,6 +106,11 @@ impl ShaderComputePipelineBuilder {
     self
   }
 
+  pub fn log_shader(mut self) -> Self {
+    self.log_result = true;
+    self
+  }
+
   pub fn build(self) -> Result<ComputeShaderCompileResult, ShaderBuildError> {
     let ShaderBuildingCtx { mut compute, .. } = take_build_api();
 
