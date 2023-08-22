@@ -21,7 +21,7 @@ pub enum ShaderInputNode {
 }
 
 impl ShaderInputNode {
-  pub fn insert_api<T: ShaderNodeType>(self) -> Node<T> {
+  pub fn insert_api<T: ShaderNodeType + ?Sized>(self) -> Node<T> {
     call_shader_api(|g| unsafe { g.define_module_input(self).into_node() })
   }
 }
@@ -59,7 +59,7 @@ pub struct ShaderBindEntry {
 /// should impl by user's container ty
 pub trait ShaderBindingProvider {
   const SPACE: AddressSpace;
-  type Node: ShaderNodeType;
+  type Node: ShaderNodeType + ?Sized;
   fn binding_desc() -> ShaderBindingDescriptor {
     ShaderBindingDescriptor {
       should_as_storage_buffer_if_is_buffer_like: false,

@@ -99,8 +99,8 @@ impl ShaderComputePipelineBuilder {
     }
   }
 
-  pub fn entry(mut self, f: impl FnOnce(ComputeCx)) -> Self {
-    f(ComputeCx(&mut self));
+  pub fn entry(mut self, f: impl FnOnce(&mut ComputeCx)) -> Self {
+    f(&mut ComputeCx(&mut self));
     self
   }
 

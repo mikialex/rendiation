@@ -1,13 +1,23 @@
 use crate::*;
 
 #[repr(transparent)]
-#[derive(Clone, Copy)]
-pub struct Node<T> {
+pub struct Node<T: ?Sized> {
   phantom: PhantomData<T>,
   handle: ShaderNodeRawHandle,
 }
 
-impl<T> Node<T> {
+impl<T: ?Sized> Clone for Node<T> {
+  fn clone(&self) -> Self {
+    Self {
+      phantom: self.phantom,
+      handle: self.handle,
+    }
+  }
+}
+
+impl<T: ?Sized> Copy for Node<T> {}
+
+impl<T: ?Sized> Node<T> {
   pub fn handle(&self) -> ShaderNodeRawHandle {
     self.handle
   }
@@ -95,7 +105,7 @@ impl ShaderNodeRawHandle {
   /// # Safety
   ///
   /// force type casting
-  pub unsafe fn into_node<X>(&self) -> Node<X> {
+  pub unsafe fn into_node<X: ?Sized>(&self) -> Node<X> {
     Node {
       handle: *self,
       phantom: PhantomData,

@@ -42,7 +42,7 @@ impl AddressSpace {
 
 impl core::marker::ConstParamTy for AddressSpace {}
 
-pub struct ShaderPtr<T, const S: AddressSpace>(PhantomData<T>);
+pub struct ShaderPtr<T: ?Sized, const S: AddressSpace>(PhantomData<T>);
 
 impl<T: ShaderNodeType, const S: AddressSpace> ShaderNodeType for ShaderPtr<T, S> {
   const TYPE: ShaderValueType = T::TYPE;
@@ -71,7 +71,7 @@ pub type StoragePtr<T> = ShaderPtr<T, { AddressSpace::Storage { writeable: true 
 pub type StorageNode<T> = Node<StoragePtr<T>>;
 
 #[derive(Clone, Copy)]
-pub struct BindingArray<T, const N: usize>(PhantomData<T>);
+pub struct BindingArray<T: ?Sized, const N: usize>(PhantomData<T>);
 
 #[derive(Clone, Copy, PartialEq, Eq, Hash)]
 pub enum ShaderValueType {
@@ -126,11 +126,11 @@ pub enum ShaderUnSizedValueType {
   UnsizedStruct(&'static ShaderUnSizedStructMetaInfo),
 }
 
-pub trait ShaderNodeType: 'static + Copy {
+pub trait ShaderNodeType: 'static {
   const TYPE: ShaderValueType;
 }
 
-pub trait ShaderNodeSingleType: 'static + Copy {
+pub trait ShaderNodeSingleType: 'static {
   const SINGLE_TYPE: ShaderValueSingleType;
 }
 
@@ -142,12 +142,25 @@ pub trait ShaderUnsizedValueNodeType: ShaderNodeType {
   const UNSIZED_TYPE: ShaderUnSizedValueType;
 }
 
+pub enum MaybeUnsizedValueType {
+  Sized(ShaderSizedValueType),
+  Unsized(ShaderUnSizedValueType),
+}
+
+impl<T: ShaderSizedValueNodeType> ShaderMaybeUnsizedValueNodeType for T {
+  const MAYBE_UNSIZED_TYPE: MaybeUnsizedValueType = MaybeUnsizedValueType::Sized(Self::MEMBER_TYPE);
+}
+
+pub trait ShaderMaybeUnsizedValueNodeType: ShaderNodeType {
+  const MAYBE_UNSIZED_TYPE: MaybeUnsizedValueType;
+}
+
 pub trait PrimitiveShaderNodeType: ShaderNodeType + Default {
   const PRIMITIVE_TYPE: PrimitiveShaderValueType;
   fn to_primitive(&self) -> PrimitiveShaderValue;
 }
 
-pub trait ShaderStructuralNodeType: ShaderNodeType {
+pub trait ShaderStructuralNodeType: ShaderNodeType + Sized {
   type Instance;
   fn meta_info() -> &'static ShaderStructMetaInfo;
   fn expand(node: Node<Self>) -> Self::Instance;
@@ -204,9 +217,22 @@ impl<T: ShaderSizedValueNodeType, const N: usize> ShaderSizedValueNodeType
     ShaderSizedValueType::FixedSizeArray((&T::MEMBER_TYPE, N));
 }
 
-impl<T: ShaderNodeSingleType, const N: usize> ShaderNodeType for BindingArray<T, N> {
+impl<T: ShaderNodeSingleType + ?Sized, const N: usize> ShaderNodeType for BindingArray<T, N> {
   const TYPE: ShaderValueType = ShaderValueType::BindingArray {
     ty: T::SINGLE_TYPE,
     count: N,
   };
+}
+
+impl<T: ShaderSizedValueNodeType> ShaderNodeType for [T] {
+  const TYPE: ShaderValueType =
+    ShaderValueType::Single(ShaderValueSingleType::Unsized(Self::UNSIZED_TYPE));
+}
+impl<T: ShaderSizedValueNodeType> ShaderUnsizedValueNodeType for [T] {
+  const UNSIZED_TYPE: ShaderUnSizedValueType =
+    ShaderUnSizedValueType::UnsizedArray(&T::MEMBER_TYPE);
+}
+impl<T: ShaderSizedValueNodeType> ShaderMaybeUnsizedValueNodeType for [T] {
+  const MAYBE_UNSIZED_TYPE: MaybeUnsizedValueType =
+    MaybeUnsizedValueType::Unsized(Self::UNSIZED_TYPE);
 }

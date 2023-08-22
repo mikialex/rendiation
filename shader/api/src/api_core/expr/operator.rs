@@ -303,51 +303,40 @@ impl Node<bool> {
   }
 }
 
-// impl<T, const U: usize> Node<Shader140Array<T, U>>
-// where
-//   T: ShaderNodeType,
-// {
-//   pub fn index(&self, node: Node<impl ShaderNodeType>) -> Node<T> {
-//     OperatorNode::Index {
-//       array: self.handle(),
-//       entry: node.handle(),
-//     }
-//     .insert_api()
-//   }
-// }
 impl<T, const U: usize> UniformNode<Shader140Array<T, U>>
 where
   T: ShaderNodeType,
 {
-  pub fn index(&self, node: Node<impl ShaderNodeType>) -> UniformNode<T> {
+  pub fn index(&self, node: impl Into<Node<u32>>) -> UniformNode<T> {
     OperatorNode::Index {
       array: self.handle(),
-      entry: node.handle(),
+      entry: node.into().handle(),
     }
     .insert_api()
   }
 }
 
-// impl<T, const U: usize> Node<[T; U]>
-// where
-//   T: ShaderNodeType,
-// {
-//   pub fn index(&self, node: Node<impl ShaderNodeType>) -> Node<T> {
-//     OperatorNode::Index {
-//       array: self.handle(),
-//       entry: node.handle(),
-//     }
-//     .insert_api()
-//   }
-// }
 impl<T, const U: usize, const S: AddressSpace> Node<ShaderPtr<[T; U], S>>
 where
   T: ShaderNodeType,
 {
-  pub fn index(&self, node: Node<impl ShaderNodeType>) -> Node<ShaderPtr<T, S>> {
+  pub fn index(&self, node: impl Into<Node<u32>>) -> Node<ShaderPtr<T, S>> {
     OperatorNode::Index {
       array: self.handle(),
-      entry: node.handle(),
+      entry: node.into().handle(),
+    }
+    .insert_api()
+  }
+}
+
+impl<T, const S: AddressSpace> Node<ShaderPtr<[T], S>>
+where
+  T: ShaderNodeType,
+{
+  pub fn index(&self, node: impl Into<Node<u32>>) -> Node<ShaderPtr<T, S>> {
+    OperatorNode::Index {
+      array: self.handle(),
+      entry: node.into().handle(),
     }
     .insert_api()
   }
@@ -357,10 +346,10 @@ impl<T, const U: usize, const S: AddressSpace> Node<ShaderPtr<BindingArray<T, U>
 where
   T: ShaderNodeType,
 {
-  pub fn index(&self, node: Node<impl ShaderNodeType>) -> Node<ShaderPtr<T, S>> {
+  pub fn index(&self, node: impl Into<Node<u32>>) -> Node<ShaderPtr<T, S>> {
     OperatorNode::Index {
       array: self.handle(),
-      entry: node.handle(),
+      entry: node.into().handle(),
     }
     .insert_api()
   }

@@ -16,12 +16,12 @@ impl Default for ShaderBindGroupBuilder {
 
 // todo, constrain valid T and S
 #[derive(Clone)]
-pub struct BindingPreparer<T, const S: AddressSpace> {
+pub struct BindingPreparer<T: ?Sized, const S: AddressSpace> {
   phantom: PhantomData<T>,
   entry: ShaderBindEntry,
 }
 
-impl<T: ShaderNodeType, const S: AddressSpace> BindingPreparer<T, S> {
+impl<T: ShaderNodeType + ?Sized, const S: AddressSpace> BindingPreparer<T, S> {
   pub fn using(&self) -> Node<ShaderPtr<T, S>> {
     let node = match get_current_stage().unwrap() {
       ShaderStages::Vertex => self.entry.vertex_node,

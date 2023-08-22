@@ -7,8 +7,9 @@ impl<T: ShaderSizedValueNodeType + Std140> ShaderBindingProvider for UniformBuff
   type Node = T;
 }
 
-impl<T: ShaderUnsizedValueNodeType + Std430> ShaderBindingProvider
-  for StorageBufferReadOnlyDataView<T>
+impl<T> ShaderBindingProvider for StorageBufferReadOnlyDataView<T>
+where
+  T: ShaderMaybeUnsizedValueNodeType + Std430MaybeUnsized + ?Sized,
 {
   const SPACE: AddressSpace = AddressSpace::Storage { writeable: false };
   type Node = T;
@@ -21,7 +22,10 @@ impl<T: ShaderUnsizedValueNodeType + Std430> ShaderBindingProvider
   }
 }
 
-impl<T: ShaderUnsizedValueNodeType + Std430> ShaderBindingProvider for StorageBufferDataView<T> {
+impl<T> ShaderBindingProvider for StorageBufferDataView<T>
+where
+  T: ShaderMaybeUnsizedValueNodeType + Std430MaybeUnsized + ?Sized,
+{
   const SPACE: AddressSpace = AddressSpace::Storage { writeable: true };
   type Node = T;
 
