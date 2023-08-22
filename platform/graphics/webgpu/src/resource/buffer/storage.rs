@@ -9,6 +9,14 @@ pub struct StorageBufferReadOnlyDataView<T: Std430MaybeUnsized + ?Sized> {
   phantom: PhantomData<T>,
 }
 
+impl<T: Std430MaybeUnsized + ?Sized> Deref for StorageBufferReadOnlyDataView<T> {
+  type Target = GPUBufferResourceView;
+
+  fn deref(&self) -> &Self::Target {
+    &self.gpu
+  }
+}
+
 impl<T: Std430MaybeUnsized + ?Sized> BindableResourceProvider for StorageBufferReadOnlyDataView<T> {
   fn get_bindable(&self) -> BindingResourceOwned {
     self.gpu.get_bindable()
@@ -51,6 +59,14 @@ pub fn create_gpu_readonly_storage<T: Std430MaybeUnsized + ?Sized>(
 pub struct StorageBufferDataView<T: Std430MaybeUnsized + ?Sized> {
   gpu: GPUBufferResourceView,
   phantom: PhantomData<T>,
+}
+
+impl<T: Std430MaybeUnsized + ?Sized> Deref for StorageBufferDataView<T> {
+  type Target = GPUBufferResourceView;
+
+  fn deref(&self) -> &Self::Target {
+    &self.gpu
+  }
 }
 
 impl<T: Std430MaybeUnsized + ?Sized> BindableResourceProvider for StorageBufferDataView<T> {

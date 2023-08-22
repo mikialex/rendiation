@@ -21,6 +21,9 @@ pub enum BinaryOperator {
   LogicalAnd,
   BitAnd,
   BitOr,
+  ShiftLeft,
+  /// Right shift carries the sign of signed integers only.
+  ShiftRight,
 }
 pub enum OperatorNode {
   Unary {
@@ -130,6 +133,40 @@ where
       left: self.handle(),
       right: rhs.handle(),
       operator: BinaryOperator::Rem,
+    }
+    .insert_api()
+  }
+}
+
+impl<T> Shl for Node<T>
+where
+  T: Shl<T, Output = T>,
+  T: ShaderNodeType,
+{
+  type Output = Self;
+
+  fn shl(self, rhs: Self) -> Self::Output {
+    OperatorNode::Binary {
+      left: self.handle(),
+      right: rhs.handle(),
+      operator: BinaryOperator::ShiftLeft,
+    }
+    .insert_api()
+  }
+}
+
+impl<T> Shr for Node<T>
+where
+  T: Shr<T, Output = T>,
+  T: ShaderNodeType,
+{
+  type Output = Self;
+
+  fn shr(self, rhs: Self) -> Self::Output {
+    OperatorNode::Binary {
+      left: self.handle(),
+      right: rhs.handle(),
+      operator: BinaryOperator::ShiftRight,
     }
     .insert_api()
   }
@@ -343,6 +380,7 @@ sized_array_like_index!(UniformNode);
 sized_array_like_index!(HandleNode);
 sized_array_like_index!(StorageNode);
 sized_array_like_index!(ReadOnlyStorageNode);
+sized_array_like_index!(WorkGroupSharedNode);
 
 macro_rules! slice_like_index {
   ($NodeType: tt) => {

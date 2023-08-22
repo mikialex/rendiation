@@ -163,7 +163,8 @@ impl<'a> DerefMut for GPURenderPass<'a> {
 pub struct GPURenderPassDataHolder {
   buffers: Arena<Arc<gpu::Buffer>>,
   bindgroups: Arena<Arc<gpu::BindGroup>>,
-  pipelines: Arena<GPURenderPipeline>,
+  graphics_pipelines: Arena<GPURenderPipeline>,
+  compute_pipelines: Arena<GPUComputePipeline>,
 }
 
 impl<'a> GPURenderPass<'a> {
@@ -176,7 +177,7 @@ impl<'a> GPURenderPass<'a> {
   }
 
   pub fn set_pipeline_owned(&mut self, pipeline: &GPURenderPipeline) {
-    let pipeline = self.holder.pipelines.alloc(pipeline.clone());
+    let pipeline = self.holder.graphics_pipelines.alloc(pipeline.clone());
     self.pass.set_pipeline(&pipeline.inner.as_ref().pipeline)
   }
 
@@ -263,4 +264,45 @@ pub enum DrawCommand {
     instances: Range<u32>,
   },
   Skip,
+}
+
+pub struct GPUComputePass<'a> {
+  pub(crate) pass: gpu::ComputePass<'a>,
+  pub(crate) holder: &'a GPURenderPassDataHolder,
+  pub(crate) placeholder_bg: Arc<gpu::BindGroup>,
+}
+
+impl<'a> Deref for GPUComputePass<'a> {
+  type Target = gpu::ComputePass<'a>;
+
+  fn deref(&self) -> &Self::Target {
+    &self.pass
+  }
+}
+
+impl<'a> DerefMut for GPUComputePass<'a> {
+  fn deref_mut(&mut self) -> &mut Self::Target {
+    &mut self.pass
+  }
+}
+
+impl<'a> GPUComputePass<'a> {
+  pub fn set_pipeline_owned(&mut self, pipeline: &GPUComputePipeline) {
+    let pipeline = self.holder.compute_pipelines.alloc(pipeline.clone());
+    self.pass.set_pipeline(&pipeline.inner.as_ref().pipeline)
+  }
+
+  pub fn set_bind_group_placeholder(&mut self, index: u32) {
+    self.set_bind_group_owned(index, &self.placeholder_bg.clone(), &[]);
+  }
+
+  pub fn set_bind_group_owned(
+    &mut self,
+    index: u32,
+    bind_group: &Arc<gpu::BindGroup>,
+    offsets: &[gpu::DynamicOffset],
+  ) {
+    let bind_group = self.holder.bindgroups.alloc(bind_group.clone());
+    self.set_bind_group(index, bind_group, offsets)
+  }
 }

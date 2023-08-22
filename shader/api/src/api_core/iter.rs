@@ -92,6 +92,22 @@ impl<T: ShaderNodeType, const U: usize> ShaderIterator for UniformArrayIter<T, U
   }
 }
 
+impl IntoShaderIterator for u32 {
+  type ShaderIter = LocalVarNode<u32>;
+
+  fn into_shader_iter(self) -> Self::ShaderIter {
+    val(self).make_local_var()
+  }
+}
+
+impl IntoShaderIterator for Node<u32> {
+  type ShaderIter = LocalVarNode<u32>;
+
+  fn into_shader_iter(self) -> Self::ShaderIter {
+    self.make_local_var()
+  }
+}
+
 impl<T: ShaderNodeType, const U: usize> IntoShaderIterator for UniformNode<Shader140Array<T, U>> {
   type ShaderIter = UniformArrayIter<T, U>;
 

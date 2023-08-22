@@ -110,15 +110,9 @@ impl GPUCommandEncoder {
   pub fn read_buffer(
     &mut self,
     device: &GPUDevice,
-    buffer: &GPUBuffer,
-    range: GPUBufferViewRange,
+    buffer: &GPUBufferView,
   ) -> ReadBufferFromStagingBuffer {
-    let size = if let Some(size) = range.size {
-      size
-    } else {
-      buffer.size
-    }
-    .into();
+    let size = buffer.view_byte_size().into();
 
     let output_buffer = device.create_buffer(&gpu::BufferDescriptor {
       label: None,
@@ -127,7 +121,13 @@ impl GPUCommandEncoder {
       mapped_at_creation: false,
     });
 
-    self.copy_buffer_to_buffer(buffer.gpu.as_ref(), range.offset, &output_buffer, 0, size);
+    self.copy_buffer_to_buffer(
+      &buffer.buffer.gpu,
+      buffer.range.offset,
+      &output_buffer,
+      0,
+      size,
+    );
 
     self
       .on_submit

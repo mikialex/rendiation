@@ -41,6 +41,19 @@ impl GPUCommandEncoder {
     gpu
   }
 
+  pub fn compute_pass_scoped(mut self, f: impl Fn(GPUComputePass)) -> Self {
+    f(self.begin_compute_pass());
+    self
+  }
+
+  pub fn begin_compute_pass(&mut self) -> GPUComputePass {
+    GPUComputePass {
+      pass: self.encoder.begin_compute_pass(&Default::default()),
+      holder: &mut self.holder,
+      placeholder_bg: self.placeholder_bg.clone(),
+    }
+  }
+
   pub fn do_u_hear_the_people_sing(&mut self, mut des: RenderPassDescriptorOwned) {
     des.channels.iter_mut().for_each(|c| {
       c.0 = gpu::Operations {

@@ -1,4 +1,5 @@
 mod uniform;
+use __core::num::NonZeroU64;
 pub use uniform::*;
 
 mod storage;
@@ -89,8 +90,18 @@ pub struct GPUBufferViewRange {
 
 #[derive(Clone)]
 pub struct GPUBufferView {
-  buffer: GPUBuffer,
-  range: GPUBufferViewRange,
+  pub buffer: GPUBuffer,
+  pub range: GPUBufferViewRange,
+}
+
+impl GPUBufferView {
+  pub fn view_byte_size(&self) -> NonZeroU64 {
+    if let Some(size) = self.range.size {
+      size
+    } else {
+      self.buffer.size
+    }
+  }
 }
 
 impl GPUBufferView {

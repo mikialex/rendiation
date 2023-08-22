@@ -28,7 +28,7 @@ pub trait RenderComponent: ShaderHashProvider + GraphicsShaderProvider + ShaderP
 
     ctx
       .binding
-      .setup_pass(&mut ctx.pass, &ctx.gpu.device, &pipeline);
+      .setup_render_pass(&mut ctx.pass, &ctx.gpu.device, &pipeline);
 
     ctx.pass.draw_by_command(com)
   }
