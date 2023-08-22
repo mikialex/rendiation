@@ -1,4 +1,4 @@
-use rendiation_shader_api::{BindingArray, ShaderBindingProvider, ShaderNodeSingleType};
+use rendiation_shader_api::*;
 
 use crate::*;
 
@@ -54,8 +54,7 @@ impl<const N: usize> CacheAbleBindingSource for BindingResourceArray<GPUSamplerV
 impl<T, const N: usize> ShaderBindingProvider for BindingResourceArray<T, N>
 where
   T: ShaderBindingProvider,
-  T::Node: ShaderNodeSingleType,
+  ShaderHandlePtr<BindingArray<T::Node, N>>: ShaderNodeType,
 {
-  const SPACE: rendiation_shader_api::AddressSpace = T::SPACE;
-  type Node = BindingArray<T::Node, N>;
+  type Node = ShaderHandlePtr<BindingArray<T::Node, N>>;
 }

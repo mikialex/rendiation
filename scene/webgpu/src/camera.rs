@@ -167,7 +167,7 @@ impl CameraGPU {
   pub fn inject_uniforms(
     &self,
     builder: &mut ShaderRenderPipelineBuilder,
-  ) -> BindingPreparer<CameraGPUTransform, { AddressSpace::Uniform }> {
+  ) -> BindingPreparer<ShaderUniformPtr<CameraGPUTransform>> {
     builder
       .bind_by(&self.ubo)
       .using_graphics_pair(builder, |r, camera| {

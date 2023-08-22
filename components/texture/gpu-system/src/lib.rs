@@ -13,11 +13,11 @@ pub const MAX_TEXTURE_BINDING_ARRAY_LENGTH: usize = 8192;
 pub const MAX_SAMPLER_BINDING_ARRAY_LENGTH: usize = 8192;
 
 pub trait GPUTextureBackend {
-  type GPUTexture2D: ShaderBindingProvider<Node = ShaderTexture2D> + Clone;
-  type GPUSampler: ShaderBindingProvider<Node = ShaderSampler> + Clone;
-  type GPUTexture2DBindingArray<const N: usize>: ShaderBindingProvider<Node = BindingArray<ShaderTexture2D, N>>
+  type GPUTexture2D: ShaderBindingProvider<Node = ShaderHandlePtr<ShaderTexture2D>> + Clone;
+  type GPUSampler: ShaderBindingProvider<Node = ShaderHandlePtr<ShaderSampler>> + Clone;
+  type GPUTexture2DBindingArray<const N: usize>: ShaderBindingProvider<Node = ShaderHandlePtr<BindingArray<ShaderHandlePtr<ShaderTexture2D>, N>>>
     + Default;
-  type GPUSamplerBindingArray<const N: usize>: ShaderBindingProvider<Node = BindingArray<ShaderSampler, N>>
+  type GPUSamplerBindingArray<const N: usize>: ShaderBindingProvider<Node = ShaderHandlePtr<BindingArray<ShaderHandlePtr<ShaderSampler>, N>>>
     + Default;
 
   type BindingCollector;
@@ -44,15 +44,15 @@ pub trait GPUTextureBackend {
     builder: &mut ShaderRenderPipelineBuilder,
     textures: &Self::GPUTexture2DBindingArray<MAX_TEXTURE_BINDING_ARRAY_LENGTH>,
   ) -> BindingPreparer<
-    BindingArray<ShaderTexture2D, MAX_TEXTURE_BINDING_ARRAY_LENGTH>,
-    { AddressSpace::Handle },
+    ShaderHandlePtr<
+      BindingArray<ShaderHandlePtr<ShaderTexture2D>, MAX_TEXTURE_BINDING_ARRAY_LENGTH>,
+    >,
   >;
   fn register_shader_sampler_array(
     builder: &mut ShaderRenderPipelineBuilder,
     samplers: &Self::GPUSamplerBindingArray<MAX_SAMPLER_BINDING_ARRAY_LENGTH>,
   ) -> BindingPreparer<
-    BindingArray<ShaderSampler, MAX_SAMPLER_BINDING_ARRAY_LENGTH>,
-    { AddressSpace::Handle },
+    ShaderHandlePtr<BindingArray<ShaderHandlePtr<ShaderSampler>, MAX_SAMPLER_BINDING_ARRAY_LENGTH>>,
   >;
 
   /// note, we should design some interface to partial update the array
@@ -275,11 +275,11 @@ impl<B: GPUTextureBackend> AbstractTraditionalTextureSystem<B> for BindlessTextu
 }
 both!(
   BindlessTexturesInShader,
-  HandlePtr<BindingArray<ShaderTexture2D, MAX_TEXTURE_BINDING_ARRAY_LENGTH>>
+  ShaderHandlePtr<BindingArray<ShaderHandlePtr<ShaderTexture2D>, MAX_TEXTURE_BINDING_ARRAY_LENGTH>>
 );
 both!(
   BindlessSamplersInShader,
-  HandlePtr<BindingArray<ShaderSampler, MAX_SAMPLER_BINDING_ARRAY_LENGTH>>
+  ShaderHandlePtr<BindingArray<ShaderHandlePtr<ShaderSampler>, MAX_SAMPLER_BINDING_ARRAY_LENGTH>>
 );
 
 impl<B: GPUTextureBackend> AbstractIndirectGPUTextureSystem<B> for BindlessTextureSystem<B> {
@@ -318,8 +318,8 @@ impl<B: GPUTextureBackend> AbstractIndirectGPUTextureSystem<B> for BindlessTextu
       .query_typed_both_stage::<BindlessSamplersInShader>()
       .unwrap();
 
-    let texture = textures.index(shader_texture_handle);
-    let sampler = samplers.index(shader_sampler_handle);
+    let texture = textures.index(shader_texture_handle).load();
+    let sampler = samplers.index(shader_sampler_handle).load();
     texture.sample(sampler, uv)
   }
 }

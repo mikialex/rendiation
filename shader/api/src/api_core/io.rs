@@ -58,7 +58,6 @@ pub struct ShaderBindEntry {
 
 /// should impl by user's container ty
 pub trait ShaderBindingProvider {
-  const SPACE: AddressSpace;
   type Node: ShaderNodeType + ?Sized;
   fn binding_desc() -> ShaderBindingDescriptor {
     ShaderBindingDescriptor {
@@ -98,7 +97,6 @@ impl ShaderBindingDescriptor {
 }
 
 impl<'a, T: ShaderBindingProvider> ShaderBindingProvider for &'a T {
-  const SPACE: AddressSpace = T::SPACE;
   type Node = T::Node;
 
   fn binding_desc() -> ShaderBindingDescriptor {
@@ -111,7 +109,6 @@ impl<'a, T: ShaderBindingProvider> ShaderBindingProvider for &'a T {
 pub struct DisableFiltering<T>(pub T);
 
 impl<T: ShaderBindingProvider> ShaderBindingProvider for DisableFiltering<T> {
-  const SPACE: AddressSpace = T::SPACE;
   type Node = T::Node;
   fn binding_desc() -> ShaderBindingDescriptor {
     let mut ty = T::binding_desc();

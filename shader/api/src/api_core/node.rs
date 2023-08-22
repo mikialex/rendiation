@@ -55,33 +55,47 @@ impl<T: ShaderNodeType> Node<T> {
   }
 }
 
-impl<T, const W: AddressSpace> Node<ShaderPtr<T, W>> {
-  pub fn load_unchecked(&self) -> Node<T> {
+macro_rules! impl_load {
+  ($Type: tt) => {
+    impl<T> $Type<T> {
+      pub fn load(&self) -> Node<T> {
+        call_shader_api(|g| unsafe { g.load(self.handle()).into_node() })
+      }
+    }
+  };
+}
+macro_rules! impl_store {
+  ($Type: tt) => {
+    impl<T> $Type<T> {
+      pub fn store(&self, source: impl Into<Node<T>>) {
+        let source = source.into();
+        call_shader_api(|g| {
+          g.store(source.handle(), self.handle());
+        })
+      }
+    }
+  };
+}
+
+impl_load!(LocalVarNode);
+impl_store!(LocalVarNode);
+
+impl_load!(GlobalVarNode);
+impl_store!(GlobalVarNode);
+
+impl_load!(StorageNode);
+impl_store!(StorageNode);
+
+impl_load!(WorkGroupSharedNode);
+impl_store!(WorkGroupSharedNode);
+
+impl_load!(ReadOnlyStorageNode);
+impl_load!(UniformNode);
+
+// used in bindless
+impl<T> Node<ShaderHandlePtr<ShaderHandlePtr<T>>> {
+  pub fn load(&self) -> Node<ShaderHandlePtr<T>> {
     call_shader_api(|g| unsafe { g.load(self.handle()).into_node() })
-  }
-
-  pub fn load(&self) -> Node<T>
-  where
-    TruthCheckBool<{ W.loadable() }>: TruthCheckPass,
-  {
-    call_shader_api(|g| unsafe { g.load(self.handle()).into_node() })
-  }
-
-  pub fn store_unchecked(&self, source: impl Into<Node<T>>) {
-    let source = source.into();
-    call_shader_api(|g| {
-      g.store(source.handle(), self.handle());
-    })
-  }
-
-  pub fn store(&self, source: impl Into<Node<T>>)
-  where
-    TruthCheckBool<{ W.writeable() }>: TruthCheckPass,
-  {
-    let source = source.into();
-    call_shader_api(|g| {
-      g.store(source.handle(), self.handle());
-    })
   }
 }
 

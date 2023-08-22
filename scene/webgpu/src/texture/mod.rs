@@ -103,8 +103,9 @@ impl GPUTextureBackend for WebGPUTextureBackend {
     builder: &mut ShaderRenderPipelineBuilder,
     textures: &Self::GPUTexture2DBindingArray<MAX_TEXTURE_BINDING_ARRAY_LENGTH>,
   ) -> BindingPreparer<
-    BindingArray<ShaderTexture2D, MAX_TEXTURE_BINDING_ARRAY_LENGTH>,
-    { AddressSpace::Handle },
+    ShaderHandlePtr<
+      BindingArray<ShaderHandlePtr<ShaderTexture2D>, MAX_TEXTURE_BINDING_ARRAY_LENGTH>,
+    >,
   > {
     builder.bind_by(textures)
   }
@@ -112,8 +113,7 @@ impl GPUTextureBackend for WebGPUTextureBackend {
     builder: &mut ShaderRenderPipelineBuilder,
     samplers: &Self::GPUSamplerBindingArray<MAX_SAMPLER_BINDING_ARRAY_LENGTH>,
   ) -> BindingPreparer<
-    BindingArray<ShaderSampler, MAX_SAMPLER_BINDING_ARRAY_LENGTH>,
-    { AddressSpace::Handle },
+    ShaderHandlePtr<BindingArray<ShaderHandlePtr<ShaderSampler>, MAX_SAMPLER_BINDING_ARRAY_LENGTH>>,
   > {
     builder.bind_by(samplers)
   }
@@ -286,8 +286,8 @@ impl WebGPUTextureBindingSystem {
         .query_typed_both_stage::<BindlessSamplersInShader>()
         .unwrap();
 
-      let texture = textures.index(shader_texture_handle);
-      let sampler = samplers.index(shader_sampler_handle);
+      let texture = textures.index(shader_texture_handle).load();
+      let sampler = samplers.index(shader_sampler_handle).load();
       texture.sample_level(sampler, uv, val(0.))
     } else {
       let texture = self.shader_bind_texture(binding, texture_handle);

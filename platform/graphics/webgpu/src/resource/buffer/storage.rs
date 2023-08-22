@@ -1,5 +1,5 @@
-use __core::marker::PhantomData;
-use rendiation_shader_api::Std430MaybeUnsized;
+use __core::{marker::PhantomData, num::NonZeroU64};
+use rendiation_shader_api::{Std430, Std430MaybeUnsized};
 
 use crate::*;
 
@@ -69,12 +69,25 @@ impl<T: Std430MaybeUnsized + ?Sized> BindableResourceView for StorageBufferDataV
   }
 }
 
+impl<'a, T: Std430> From<&'a [T]> for StorageBufferInit<'a, [T]> {
+  fn from(value: &'a [T]) -> Self {
+    StorageBufferInit::WithInit(value)
+  }
+}
+
+impl<'a, T: Std430> From<usize> for StorageBufferInit<'a, [T]> {
+  fn from(len: usize) -> Self {
+    let byte_len = std::mem::size_of::<T>() * len;
+    StorageBufferInit::Zeroed(NonZeroU64::new(byte_len as u64).unwrap())
+  }
+}
+
 /// just short convenient method
-pub fn create_gpu_read_write_storage<T: Std430MaybeUnsized + ?Sized>(
-  data: StorageBufferInit<T>,
+pub fn create_gpu_read_write_storage<'a, T: Std430MaybeUnsized + ?Sized + 'static>(
+  data: impl Into<StorageBufferInit<'a, T>>,
   device: impl AsRef<GPUDevice>,
 ) -> StorageBufferDataView<T> {
-  StorageBufferDataView::create(device.as_ref(), data)
+  StorageBufferDataView::create(device.as_ref(), data.into())
 }
 
 pub enum StorageBufferInit<'a, T: Std430MaybeUnsized + ?Sized> {

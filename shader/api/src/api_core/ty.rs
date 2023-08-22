@@ -40,35 +40,43 @@ impl AddressSpace {
   }
 }
 
-impl core::marker::ConstParamTy for AddressSpace {}
+pub struct ShaderLocalPtr<T: ?Sized>(PhantomData<T>);
+pub struct ShaderPrivatePtr<T: ?Sized>(PhantomData<T>);
+pub struct ShaderHandlePtr<T: ?Sized>(PhantomData<T>);
+pub struct ShaderUniformPtr<T: ?Sized>(PhantomData<T>);
+pub struct ShaderReadOnlyStoragePtr<T: ?Sized>(PhantomData<T>);
+pub struct ShaderStoragePtr<T: ?Sized>(PhantomData<T>);
+pub struct ShaderWorkGroupPtr<T: ?Sized>(PhantomData<T>);
 
-pub struct ShaderPtr<T: ?Sized, const S: AddressSpace>(PhantomData<T>);
-
-impl<T: ShaderNodeType, const S: AddressSpace> ShaderNodeType for ShaderPtr<T, S> {
+impl<T: ShaderNodeType> ShaderNodeType for ShaderLocalPtr<T> {
+  const TYPE: ShaderValueType = T::TYPE;
+}
+impl<T: ShaderNodeType> ShaderNodeType for ShaderPrivatePtr<T> {
+  const TYPE: ShaderValueType = T::TYPE;
+}
+impl<T: ShaderNodeType> ShaderNodeType for ShaderHandlePtr<T> {
+  const TYPE: ShaderValueType = T::TYPE;
+}
+impl<T: ShaderNodeType> ShaderNodeType for ShaderUniformPtr<T> {
+  const TYPE: ShaderValueType = T::TYPE;
+}
+impl<T: ShaderNodeType + ?Sized> ShaderNodeType for ShaderReadOnlyStoragePtr<T> {
+  const TYPE: ShaderValueType = T::TYPE;
+}
+impl<T: ShaderNodeType + ?Sized> ShaderNodeType for ShaderStoragePtr<T> {
+  const TYPE: ShaderValueType = T::TYPE;
+}
+impl<T: ShaderNodeType> ShaderNodeType for ShaderWorkGroupPtr<T> {
   const TYPE: ShaderValueType = T::TYPE;
 }
 
-// we do not have alias rule like rust in shader, so clone copy at will
-impl<T, const S: AddressSpace> Clone for ShaderPtr<T, S> {
-  fn clone(&self) -> Self {
-    Self(self.0)
-  }
-}
-impl<T, const S: AddressSpace> Copy for ShaderPtr<T, S> {}
-
-pub type GlobalVariable<T> = Node<ShaderPtr<T, { AddressSpace::Private }>>;
-pub type LocalVarNode<T> = Node<ShaderPtr<T, { AddressSpace::Function }>>;
-pub type WorkGroupSharedNode<T> = Node<ShaderPtr<T, { AddressSpace::WorkGroup }>>;
-
-pub type UniformPtr<T> = ShaderPtr<T, { AddressSpace::Uniform }>;
-pub type UniformNode<T> = Node<UniformPtr<T>>;
-pub type HandlePtr<T> = ShaderPtr<T, { AddressSpace::Handle }>;
-pub type HandleNode<T> = Node<HandlePtr<T>>;
-
-pub type ReadOnlyStoragePtr<T> = ShaderPtr<T, { AddressSpace::Storage { writeable: false } }>;
-pub type ReadOnlyStorageNode<T> = Node<ReadOnlyStoragePtr<T>>;
-pub type StoragePtr<T> = ShaderPtr<T, { AddressSpace::Storage { writeable: true } }>;
-pub type StorageNode<T> = Node<StoragePtr<T>>;
+pub type GlobalVarNode<T> = Node<ShaderPrivatePtr<T>>;
+pub type LocalVarNode<T> = Node<ShaderLocalPtr<T>>;
+pub type WorkGroupSharedNode<T> = Node<ShaderWorkGroupPtr<T>>;
+pub type UniformNode<T> = Node<ShaderUniformPtr<T>>;
+pub type HandleNode<T> = Node<ShaderHandlePtr<T>>;
+pub type ReadOnlyStorageNode<T> = Node<ShaderReadOnlyStoragePtr<T>>;
+pub type StorageNode<T> = Node<ShaderStoragePtr<T>>;
 
 #[derive(Clone, Copy)]
 pub struct BindingArray<T: ?Sized, const N: usize>(PhantomData<T>);
@@ -217,7 +225,9 @@ impl<T: ShaderSizedValueNodeType, const N: usize> ShaderSizedValueNodeType
     ShaderSizedValueType::FixedSizeArray((&T::MEMBER_TYPE, N));
 }
 
-impl<T: ShaderNodeSingleType + ?Sized, const N: usize> ShaderNodeType for BindingArray<T, N> {
+impl<T: ShaderNodeSingleType + ?Sized, const N: usize> ShaderNodeType
+  for BindingArray<ShaderHandlePtr<T>, N>
+{
   const TYPE: ShaderValueType = ShaderValueType::BindingArray {
     ty: T::SINGLE_TYPE,
     count: N,

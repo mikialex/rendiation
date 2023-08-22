@@ -303,54 +303,63 @@ impl Node<bool> {
   }
 }
 
-impl<T, const U: usize> UniformNode<Shader140Array<T, U>>
-where
-  T: ShaderNodeType,
-{
-  pub fn index(&self, node: impl Into<Node<u32>>) -> UniformNode<T> {
-    OperatorNode::Index {
-      array: self.handle(),
-      entry: node.into().handle(),
+macro_rules! sized_array_like_index {
+  ($NodeType: tt, $ArrayType: tt) => {
+    impl<T, const U: usize> $NodeType<$ArrayType<T, U>>
+    where
+      T: ShaderNodeType,
+    {
+      pub fn index(&self, node: impl Into<Node<u32>>) -> $NodeType<T> {
+        OperatorNode::Index {
+          array: self.handle(),
+          entry: node.into().handle(),
+        }
+        .insert_api()
+      }
     }
-    .insert_api()
-  }
+  };
+  ($NodeType: tt) => {
+    impl<T, const U: usize> $NodeType<[T; U]>
+    where
+      T: ShaderNodeType,
+    {
+      pub fn index(&self, node: impl Into<Node<u32>>) -> $NodeType<T> {
+        OperatorNode::Index {
+          array: self.handle(),
+          entry: node.into().handle(),
+        }
+        .insert_api()
+      }
+    }
+  };
 }
 
-impl<T, const U: usize, const S: AddressSpace> Node<ShaderPtr<[T; U], S>>
-where
-  T: ShaderNodeType,
-{
-  pub fn index(&self, node: impl Into<Node<u32>>) -> Node<ShaderPtr<T, S>> {
-    OperatorNode::Index {
-      array: self.handle(),
-      entry: node.into().handle(),
+sized_array_like_index!(HandleNode, BindingArray);
+sized_array_like_index!(UniformNode, Shader140Array);
+
+sized_array_like_index!(LocalVarNode);
+sized_array_like_index!(GlobalVarNode);
+sized_array_like_index!(UniformNode);
+sized_array_like_index!(HandleNode);
+sized_array_like_index!(StorageNode);
+sized_array_like_index!(ReadOnlyStorageNode);
+
+macro_rules! slice_like_index {
+  ($NodeType: tt) => {
+    impl<T> $NodeType<[T]>
+    where
+      T: ShaderNodeType,
+    {
+      pub fn index(&self, node: impl Into<Node<u32>>) -> $NodeType<T> {
+        OperatorNode::Index {
+          array: self.handle(),
+          entry: node.into().handle(),
+        }
+        .insert_api()
+      }
     }
-    .insert_api()
-  }
+  };
 }
 
-impl<T, const S: AddressSpace> Node<ShaderPtr<[T], S>>
-where
-  T: ShaderNodeType,
-{
-  pub fn index(&self, node: impl Into<Node<u32>>) -> Node<ShaderPtr<T, S>> {
-    OperatorNode::Index {
-      array: self.handle(),
-      entry: node.into().handle(),
-    }
-    .insert_api()
-  }
-}
-
-impl<T, const U: usize, const S: AddressSpace> Node<ShaderPtr<BindingArray<T, U>, S>>
-where
-  T: ShaderNodeType,
-{
-  pub fn index(&self, node: impl Into<Node<u32>>) -> Node<ShaderPtr<T, S>> {
-    OperatorNode::Index {
-      array: self.handle(),
-      entry: node.into().handle(),
-    }
-    .insert_api()
-  }
-}
+slice_like_index!(StorageNode);
+slice_like_index!(ReadOnlyStorageNode);

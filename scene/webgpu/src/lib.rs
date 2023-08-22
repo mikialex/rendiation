@@ -1,5 +1,4 @@
 #![feature(specialization)]
-#![feature(generic_const_exprs)]
 #![feature(hash_raw_entry)]
 #![feature(type_name_of_val)]
 #![feature(stmt_expr_attributes)]

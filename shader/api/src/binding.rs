@@ -14,15 +14,14 @@ impl Default for ShaderBindGroupBuilder {
   }
 }
 
-// todo, constrain valid T and S
 #[derive(Clone)]
-pub struct BindingPreparer<T: ?Sized, const S: AddressSpace> {
+pub struct BindingPreparer<T: ?Sized> {
   phantom: PhantomData<T>,
   entry: ShaderBindEntry,
 }
 
-impl<T: ShaderNodeType + ?Sized, const S: AddressSpace> BindingPreparer<T, S> {
-  pub fn using(&self) -> Node<ShaderPtr<T, S>> {
+impl<T: ShaderNodeType + ?Sized> BindingPreparer<T> {
+  pub fn using(&self) -> Node<T> {
     let node = match get_current_stage().unwrap() {
       ShaderStages::Vertex => self.entry.vertex_node,
       ShaderStages::Fragment => self.entry.fragment_node,
@@ -35,7 +34,7 @@ impl<T: ShaderNodeType + ?Sized, const S: AddressSpace> BindingPreparer<T, S> {
   pub fn using_graphics_pair(
     self,
     builder: &mut ShaderRenderPipelineBuilder,
-    register: impl Fn(&mut SemanticRegistry, Node<ShaderPtr<T, S>>),
+    register: impl Fn(&mut SemanticRegistry, Node<T>),
   ) -> Self {
     unsafe {
       set_current_building(ShaderStages::Vertex.into());
@@ -59,9 +58,7 @@ impl ShaderBindGroupBuilder {
     std::mem::replace(&mut self.current_index, new)
   }
 
-  pub(crate) fn binding_ty_inner<T: ShaderBindingProvider, const S: AddressSpace>(
-    &mut self,
-  ) -> BindingPreparer<T::Node, S> {
+  pub(crate) fn binding_ty_inner<T: ShaderBindingProvider>(&mut self) -> BindingPreparer<T::Node> {
     let bindgroup_index = self.current_index;
     let bindgroup = &mut self.bindings[bindgroup_index];
 
@@ -102,14 +99,11 @@ impl ShaderBindGroupBuilder {
     }
   }
 
-  pub fn binding<T: ShaderBindingProvider>(&mut self) -> BindingPreparer<T::Node, { T::SPACE }> {
-    self.binding_ty_inner::<T, { T::SPACE }>()
+  pub fn binding<T: ShaderBindingProvider>(&mut self) -> BindingPreparer<T::Node> {
+    self.binding_ty_inner::<T>()
   }
 
-  pub fn bind_by<T: ShaderBindingProvider>(
-    &mut self,
-    _instance: &T,
-  ) -> BindingPreparer<T::Node, { T::SPACE }> {
+  pub fn bind_by<T: ShaderBindingProvider>(&mut self, _instance: &T) -> BindingPreparer<T::Node> {
     self.binding::<T>()
   }
 
@@ -123,26 +117,11 @@ pub struct ShaderBindGroupDirectBuilder<'a> {
 }
 
 impl<'a> ShaderBindGroupDirectBuilder<'a> {
-  pub fn binding<T: ShaderBindingProvider>(&mut self) -> Node<ShaderPtr<T::Node, { T::SPACE }>> {
-    self.builder.binding_ty_inner::<T, { T::SPACE }>().using()
+  pub fn binding<T: ShaderBindingProvider>(&mut self) -> Node<T::Node> {
+    self.builder.binding_ty_inner::<T>().using()
   }
 
-  pub fn bind_by<T: ShaderBindingProvider>(
-    &mut self,
-    _instance: &T,
-  ) -> Node<ShaderPtr<T::Node, { T::SPACE }>> {
+  pub fn bind_by<T: ShaderBindingProvider>(&mut self, _instance: &T) -> Node<T::Node> {
     self.binding::<T>()
-  }
-
-  pub fn binding_unchecked<T: ShaderBindingProvider, const S: AddressSpace>(
-    &mut self,
-  ) -> Node<ShaderPtr<T::Node, S>> {
-    self.builder.binding_ty_inner::<T, S>().using()
-  }
-  pub fn bind_by_unchecked<T: ShaderBindingProvider, const S: AddressSpace>(
-    &mut self,
-    _instance: &T,
-  ) -> Node<ShaderPtr<T::Node, S>> {
-    self.binding_unchecked::<T, S>()
   }
 }

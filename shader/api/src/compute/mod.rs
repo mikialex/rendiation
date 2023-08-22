@@ -66,19 +66,16 @@ impl<'a> ComputeCx<'a> {
   pub fn define_workgroup_shared_var<T: ShaderSizedValueNodeType>(&self) -> WorkGroupSharedNode<T> {
     ShaderInputNode::WorkGroupShared { ty: T::MEMBER_TYPE }.insert_api()
   }
-  pub fn define_invocation_private_var<T: ShaderSizedValueNodeType>(&self) -> GlobalVariable<T> {
+  pub fn define_invocation_private_var<T: ShaderSizedValueNodeType>(&self) -> GlobalVarNode<T> {
     ShaderInputNode::Private { ty: T::MEMBER_TYPE }.insert_api()
   }
 
-  pub fn bind_by<T: ShaderBindingProvider>(
-    &mut self,
-    instance: &T,
-  ) -> Node<ShaderPtr<T::Node, { T::SPACE }>> {
+  pub fn bind_by<T: ShaderBindingProvider>(&mut self, instance: &T) -> Node<T::Node> {
     self.0.bindgroups.bind_by(instance).using()
   }
 
-  pub fn binding<T: ShaderBindingProvider>(&mut self) -> Node<ShaderPtr<T::Node, { T::SPACE }>> {
-    self.0.bindgroups.binding().using()
+  pub fn binding<T: ShaderBindingProvider>(&mut self) -> Node<T::Node> {
+    self.0.bindgroups.binding::<T>().using()
   }
 }
 

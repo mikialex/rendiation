@@ -30,8 +30,8 @@ pub trait ShaderIteratorExt: ShaderIterator + Sized {
     Node<T>: Add<Output = Node<T>>,
   {
     let value = zeroed_val::<T>().make_local_var();
-    self.for_each(|item, _| value.store_unchecked(value.load_unchecked() + item));
-    value.load_unchecked()
+    self.for_each(|item, _| value.store(value.load() + item));
+    value.load()
   }
 
   fn map<F: Fn(I) -> O, I, O>(self, f: F) -> ShaderMapIter<Self, F> {
@@ -126,10 +126,10 @@ where
       });
       if_by((self.f)(&inner), || {
         has_next.store(val(true));
-        item.store_unchecked(inner);
+        item.store(inner);
       });
     });
-    (has_next.load(), item.load_unchecked())
+    (has_next.load(), item.load())
   }
 }
 
@@ -151,9 +151,9 @@ where
     let (inner_has_next, inner) = self.iter.shader_next();
     let item = zeroed_val().make_local_var();
     if_by(inner_has_next, || {
-      item.store_unchecked((self.f)(inner));
+      item.store((self.f)(inner));
     });
-    (inner_has_next, item.load_unchecked())
+    (inner_has_next, item.load())
   }
 }
 
