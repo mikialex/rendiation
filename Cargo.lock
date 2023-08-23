@@ -2824,6 +2824,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "rendiation-shader-library"
+version = "0.1.0"
+dependencies = [
+ "rendiation-algebra",
+ "rendiation-shader-api",
+]
+
+[[package]]
 name = "rendiation-texture"
 version = "0.1.0"
 dependencies = [

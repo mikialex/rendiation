@@ -71,6 +71,7 @@ pub fn round_up(k: usize, n: usize) -> usize {
 impl ShaderSizedValueType {
   pub fn align_of_self(&self, target: StructLayoutTarget) -> usize {
     match self {
+      ShaderSizedValueType::Atomic(t) => t.align_of_self(),
       ShaderSizedValueType::Primitive(t) => t.align_of_self(),
       ShaderSizedValueType::Struct(t) => (*t).to_owned().align_of_self(target),
       ShaderSizedValueType::FixedSizeArray((t, _)) => {
@@ -85,11 +86,28 @@ impl ShaderSizedValueType {
 
   pub fn size_of_self(&self, target: StructLayoutTarget) -> usize {
     match self {
+      ShaderSizedValueType::Atomic(t) => t.size_of_self(),
       ShaderSizedValueType::Primitive(t) => t.size_of_self(),
       ShaderSizedValueType::Struct(t) => (*t).to_owned().size_of_self(target),
       ShaderSizedValueType::FixedSizeArray((ty, size)) => {
         size * round_up(self.align_of_self(target), ty.size_of_self(target))
       }
+    }
+  }
+}
+
+impl ShaderAtomicValueType {
+  pub fn align_of_self(&self) -> usize {
+    match self {
+      ShaderAtomicValueType::I32 => 4,
+      ShaderAtomicValueType::U32 => 4,
+    }
+  }
+
+  pub fn size_of_self(&self) -> usize {
+    match self {
+      ShaderAtomicValueType::I32 => 4,
+      ShaderAtomicValueType::U32 => 4,
     }
   }
 }

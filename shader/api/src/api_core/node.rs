@@ -44,6 +44,89 @@ where
   }
 }
 
+macro_rules! atomic_impls {
+  ($NodeType: tt) => {
+    impl<T: AtomicityShaderNodeType> $NodeType<Atomic<T>> {
+      pub fn atomic_add(&self, v: Node<T>) -> Node<T> {
+        ShaderNodeExpr::AtomicCall {
+          ty: T::ATOM,
+          pointer: self.handle(),
+          function: AtomicFunction::Add,
+          value: v.handle(),
+        }
+        .insert_api()
+      }
+      pub fn atomic_sub(&self, v: Node<T>) -> Node<T> {
+        ShaderNodeExpr::AtomicCall {
+          ty: T::ATOM,
+          pointer: self.handle(),
+          function: AtomicFunction::Subtract,
+          value: v.handle(),
+        }
+        .insert_api()
+      }
+      pub fn atomic_min(&self, v: Node<T>) -> Node<T> {
+        ShaderNodeExpr::AtomicCall {
+          ty: T::ATOM,
+          pointer: self.handle(),
+          function: AtomicFunction::Min,
+          value: v.handle(),
+        }
+        .insert_api()
+      }
+      pub fn atomic_max(&self, v: Node<T>) -> Node<T> {
+        ShaderNodeExpr::AtomicCall {
+          ty: T::ATOM,
+          pointer: self.handle(),
+          function: AtomicFunction::Max,
+          value: v.handle(),
+        }
+        .insert_api()
+      }
+      pub fn atomic_and(&self, v: Node<T>) -> Node<T> {
+        ShaderNodeExpr::AtomicCall {
+          ty: T::ATOM,
+          pointer: self.handle(),
+          function: AtomicFunction::And,
+          value: v.handle(),
+        }
+        .insert_api()
+      }
+      pub fn atomic_or(&self, v: Node<T>) -> Node<T> {
+        ShaderNodeExpr::AtomicCall {
+          ty: T::ATOM,
+          pointer: self.handle(),
+          function: AtomicFunction::InclusiveOr,
+          value: v.handle(),
+        }
+        .insert_api()
+      }
+      pub fn atomic_xor(&self, v: Node<T>) -> Node<T> {
+        ShaderNodeExpr::AtomicCall {
+          ty: T::ATOM,
+          pointer: self.handle(),
+          function: AtomicFunction::ExclusiveOr,
+          value: v.handle(),
+        }
+        .insert_api()
+      }
+      // todo, compare exchange weak
+      pub fn atomic_exchange(&self, v: Node<T>) -> Node<T> {
+        ShaderNodeExpr::AtomicCall {
+          ty: T::ATOM,
+          pointer: self.handle(),
+          function: AtomicFunction::Exchange { compare: None },
+          value: v.handle(),
+        }
+        .insert_api()
+      }
+    }
+  };
+}
+
+atomic_impls!(WorkGroupSharedNode);
+atomic_impls!(StorageNode);
+
 // todo restrict type to referable?
 impl<T: ShaderNodeType> Node<T> {
   pub fn make_local_var(&self) -> LocalVarNode<T> {

@@ -67,6 +67,12 @@ pub enum ShaderNodeExpr {
     convert_to: ValueKind,
     convert: Option<u8>,
   },
+  AtomicCall {
+    ty: ShaderAtomicValueType,
+    pointer: ShaderNodeRawHandle,
+    function: AtomicFunction,
+    value: ShaderNodeRawHandle,
+  },
   FunctionCall {
     meta: ShaderFunctionType,
     parameters: Vec<ShaderNodeRawHandle>,
@@ -121,6 +127,20 @@ pub enum DerivativeAxis {
   X,
   Y,
   Width,
+}
+
+#[derive(Clone, Copy, Hash, Eq, PartialEq)]
+pub enum AtomicFunction {
+  Add,
+  Subtract,
+  And,
+  ExclusiveOr,
+  InclusiveOr,
+  Min,
+  Max,
+  Exchange {
+    compare: Option<ShaderNodeRawHandle>,
+  },
 }
 
 #[must_use]

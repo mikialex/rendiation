@@ -40,6 +40,14 @@ impl AddressSpace {
   }
 }
 
+pub struct Atomic<T>(PhantomData<T>);
+
+impl<T: AtomicityShaderNodeType> ShaderNodeType for Atomic<T> {
+  const TYPE: ShaderValueType = ShaderValueType::Single(ShaderValueSingleType::Sized(
+    ShaderSizedValueType::Atomic(T::ATOM),
+  ));
+}
+
 pub struct ShaderLocalPtr<T: ?Sized>(PhantomData<T>);
 pub struct ShaderPrivatePtr<T: ?Sized>(PhantomData<T>);
 pub struct ShaderHandlePtr<T: ?Sized>(PhantomData<T>);
@@ -80,6 +88,12 @@ pub type StorageNode<T> = Node<ShaderStoragePtr<T>>;
 
 #[derive(Clone, Copy)]
 pub struct BindingArray<T: ?Sized, const N: usize>(PhantomData<T>);
+
+#[derive(Clone, Copy, PartialEq, Eq, Debug, Hash)]
+pub enum ShaderAtomicValueType {
+  I32,
+  U32,
+}
 
 #[derive(Clone, Copy, PartialEq, Eq, Hash)]
 pub enum ShaderValueType {
@@ -123,6 +137,7 @@ pub enum ShaderValueSingleType {
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug, Hash)]
 pub enum ShaderSizedValueType {
+  Atomic(ShaderAtomicValueType),
   Primitive(PrimitiveShaderValueType),
   Struct(&'static ShaderStructMetaInfo),
   FixedSizeArray((&'static ShaderSizedValueType, usize)),
@@ -166,6 +181,10 @@ pub trait ShaderMaybeUnsizedValueNodeType: ShaderNodeType {
 pub trait PrimitiveShaderNodeType: ShaderNodeType + Default {
   const PRIMITIVE_TYPE: PrimitiveShaderValueType;
   fn to_primitive(&self) -> PrimitiveShaderValue;
+}
+
+pub trait AtomicityShaderNodeType: ShaderNodeType {
+  const ATOM: ShaderAtomicValueType;
 }
 
 pub trait ShaderStructuralNodeType: ShaderNodeType + Sized {

@@ -32,6 +32,7 @@ members = [
   "shader/api",
   "shader/derive",
   "shader/backends/naga",
+  "shader/library",
   "scene/core",
   "scene/webgpu",
   "scene/raytracing",
@@ -58,6 +59,11 @@ panic = "abort"
 
 [profile.release]
 panic = "abort"
+
+# used when you are profiling in release but want debug symbol enabled
+[profile.profiling]
+inherits = "release"
+debug = true
 
 
 # [patch.crates-io]

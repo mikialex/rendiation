@@ -130,6 +130,16 @@ impl ShaderAPINagaImpl {
     let ty = match ty {
       ShaderValueType::Single(v) => match v {
         ShaderValueSingleType::Sized(f) => match f {
+          ShaderSizedValueType::Atomic(t) => naga::TypeInner::Atomic {
+            kind: match t {
+              ShaderAtomicValueType::I32 => naga::ScalarKind::Sint,
+              ShaderAtomicValueType::U32 => naga::ScalarKind::Uint,
+            },
+            width: match t {
+              ShaderAtomicValueType::I32 => 4,
+              ShaderAtomicValueType::U32 => 4,
+            },
+          },
           ShaderSizedValueType::Primitive(p) => map_primitive_type(p),
           ShaderSizedValueType::Struct(st) => {
             name = st.name.to_owned().into();
@@ -472,6 +482,53 @@ impl ShaderAPI for ShaderAPINagaImpl {
           ShaderValueType::Single(ShaderValueSingleType::Sized(target)),
           None,
         )),
+        ShaderNodeExpr::AtomicCall {
+          ty,
+          pointer,
+          function,
+          value,
+        } => {
+          let mut comparison = false;
+          let fun = match function {
+            AtomicFunction::Add => naga::AtomicFunction::Add,
+            AtomicFunction::Subtract => naga::AtomicFunction::Subtract,
+            AtomicFunction::And => naga::AtomicFunction::And,
+            AtomicFunction::ExclusiveOr => naga::AtomicFunction::ExclusiveOr,
+            AtomicFunction::InclusiveOr => naga::AtomicFunction::InclusiveOr,
+            AtomicFunction::Min => naga::AtomicFunction::Min,
+            AtomicFunction::Max => naga::AtomicFunction::Max,
+            AtomicFunction::Exchange { compare } => naga::AtomicFunction::Exchange {
+              compare: compare.map(|c| {
+                comparison = true;
+                self.get_expression(c)
+              }),
+            },
+          };
+
+          let ty = self.register_ty_impl(
+            ShaderValueType::Single(ShaderValueSingleType::Sized(ShaderSizedValueType::Atomic(
+              ty,
+            ))),
+            None,
+          );
+
+          // we have to control here not to emit the call exp.
+          let r = self.building_fn.last_mut().unwrap().expressions.append(
+            naga::Expression::AtomicResult { ty, comparison },
+            Span::UNDEFINED,
+          );
+          let r_handle = self.make_new_handle();
+          self.expression_mapping.insert(r_handle, r);
+
+          self.push_top_statement(naga::Statement::Atomic {
+            pointer: self.get_expression(pointer),
+            fun,
+            value: self.get_expression(value),
+            result: r,
+          });
+
+          return r_handle;
+        }
         ShaderNodeExpr::FunctionCall { meta, parameters } => {
           match meta {
             ShaderFunctionType::Custom(meta) => {

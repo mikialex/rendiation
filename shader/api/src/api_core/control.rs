@@ -28,30 +28,40 @@ impl LoopCtx {
   }
 }
 
-pub struct ElseEmitter;
+pub struct ElseEmitter(usize);
 
 impl ElseEmitter {
-  pub fn by_else_ok(
-    self,
-    logic: impl Fn() -> Result<(), ShaderBuildError>,
-  ) -> Result<(), ShaderBuildError> {
+  pub fn else_if(mut self, condition: impl Into<Node<bool>>, logic: impl Fn()) -> ElseEmitter {
+    let condition = condition.into().handle();
+    call_shader_api(|builder| {
+      builder.push_else_scope();
+      builder.push_if_scope(condition);
+    });
+    logic();
+    self.0 += 1;
+    self
+  }
+
+  pub fn else_over(self) {
+    // closing outer scope
+    for _ in 0..self.0 {
+      call_shader_api(|g| g.pop_scope());
+    }
+  }
+
+  pub fn else_by(self, logic: impl Fn()) {
     call_shader_api(|builder| {
       builder.push_else_scope();
     });
 
-    logic()?;
+    logic();
 
     call_shader_api(|g| g.pop_scope());
-    Ok(())
-  }
 
-  pub fn else_by(self, logic: impl Fn()) {
-    self
-      .by_else_ok(|| {
-        logic();
-        Ok(())
-      })
-      .unwrap()
+    // closing outer scope
+    for _ in 0..self.0 {
+      call_shader_api(|g| g.pop_scope());
+    }
   }
 }
 
@@ -78,7 +88,7 @@ pub fn if_by_ok(
 
   call_shader_api(|g| g.pop_scope());
 
-  Ok(ElseEmitter)
+  Ok(ElseEmitter(0))
 }
 
 pub trait SwitchableShaderType: ShaderNodeType {
