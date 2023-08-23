@@ -21,6 +21,7 @@
         "bindpoint",
         "binormal",
         "bitand",
+        "bitcast",
         "bitflags",
         "Blinn",
         "Bowtie",

@@ -164,12 +164,37 @@ where
   pub fn abs(self) -> Self {
     make_builtin_call(ShaderBuiltInFunction::Abs, [self.handle()])
   }
+
+  /// e^self
+  pub fn exp(self, e: impl Into<Node<f32>>) -> Self {
+    make_builtin_call(
+      ShaderBuiltInFunction::Exp,
+      [self.handle(), e.into().handle()],
+    )
+  }
+  /// 2^self
+  pub fn exp2(self, e: impl Into<Node<f32>>) -> Self {
+    make_builtin_call(
+      ShaderBuiltInFunction::Exp2,
+      [self.handle(), e.into().handle()],
+    )
+  }
+  /// e based, ln(self)
+  pub fn log(self) -> Self {
+    make_builtin_call(ShaderBuiltInFunction::Log, [self.handle()])
+  }
+  /// 2 based, log(2, self)
+  pub fn log2(self) -> Self {
+    make_builtin_call(ShaderBuiltInFunction::Log2, [self.handle()])
+  }
+  /// self^e
   pub fn pow(self, e: impl Into<Node<f32>>) -> Self {
     make_builtin_call(
       ShaderBuiltInFunction::Pow,
       [self.handle(), e.into().handle()],
     )
   }
+
   pub fn saturate(self) -> Self {
     make_builtin_call(ShaderBuiltInFunction::Saturate, [self.handle()])
   }
@@ -294,9 +319,30 @@ impl<T: ShaderNodeType> Node<T> {
   pub fn tan(self) -> Node<T> {
     make_builtin_call(ShaderBuiltInFunction::Tan, [self.handle()])
   }
+  pub fn asin(self) -> Node<T> {
+    make_builtin_call(ShaderBuiltInFunction::Asin, [self.handle()])
+  }
+  pub fn acos(self) -> Node<T> {
+    make_builtin_call(ShaderBuiltInFunction::Acos, [self.handle()])
+  }
+  pub fn atan(self) -> Node<T> {
+    make_builtin_call(ShaderBuiltInFunction::Atan, [self.handle()])
+  }
 
+  pub fn ceil(self) -> Node<T> {
+    make_builtin_call(ShaderBuiltInFunction::Ceil, [self.handle()])
+  }
+  pub fn floor(self) -> Node<T> {
+    make_builtin_call(ShaderBuiltInFunction::Floor, [self.handle()])
+  }
+  pub fn round(self) -> Node<T> {
+    make_builtin_call(ShaderBuiltInFunction::Round, [self.handle()])
+  }
   pub fn fract(self) -> Node<T> {
     make_builtin_call(ShaderBuiltInFunction::Fract, [self.handle()])
+  }
+  pub fn trunc(self) -> Node<T> {
+    make_builtin_call(ShaderBuiltInFunction::Trunc, [self.handle()])
   }
 }
 
