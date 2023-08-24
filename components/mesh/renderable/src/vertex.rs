@@ -43,8 +43,8 @@ impl Eq for Vertex {}
 impl Positioned for Vertex {
   type Position = Vec3<f32>;
 
-  fn position(&self) -> &Self::Position {
-    &self.position
+  fn position(&self) -> Self::Position {
+    self.position
   }
   fn mut_position(&mut self) -> &mut Self::Position {
     &mut self.position

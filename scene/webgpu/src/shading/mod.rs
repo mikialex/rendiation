@@ -13,7 +13,7 @@ pub trait LightableSurfaceShading: Any {
     self_node: &ENode<Self::ShaderStruct>,
     incident: &ENode<ShaderIncidentLight>,
     ctx: &ENode<ShaderLightingGeometricCtx>,
-  ) -> Result<ENode<ShaderLightingResult>, ShaderBuildError>;
+  ) -> ENode<ShaderLightingResult>;
 }
 
 pub trait LightableSurfaceShadingDyn: Any {
@@ -24,7 +24,7 @@ pub trait LightableSurfaceShadingDyn: Any {
     self_node: &dyn Any,
     direct_light: &ENode<ShaderIncidentLight>,
     ctx: &ENode<ShaderLightingGeometricCtx>,
-  ) -> Result<ENode<ShaderLightingResult>, ShaderBuildError>;
+  ) -> ENode<ShaderLightingResult>;
 }
 impl<T: LightableSurfaceShading> LightableSurfaceShadingDyn for T {
   fn construct_shading_dyn(&self, builder: &mut ShaderFragmentBuilder) -> Box<dyn Any> {
@@ -36,7 +36,7 @@ impl<T: LightableSurfaceShading> LightableSurfaceShadingDyn for T {
     self_node: &dyn Any,
     direct_light: &ENode<ShaderIncidentLight>,
     ctx: &ENode<ShaderLightingGeometricCtx>,
-  ) -> Result<ENode<ShaderLightingResult>, ShaderBuildError> {
+  ) -> ENode<ShaderLightingResult> {
     let self_node = self_node
       .downcast_ref::<ENode<<Self as LightableSurfaceShading>::ShaderStruct>>()
       .unwrap();

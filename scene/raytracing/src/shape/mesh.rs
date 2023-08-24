@@ -2,14 +2,7 @@ use std::sync::Arc;
 
 use rendiation_algebra::{Vec2, Vec3};
 use rendiation_geometry::{Box3, Ray3, Triangle};
-use rendiation_renderable_mesh::{
-  mesh::{
-    AbstractMesh, BVHIntersectAbleExtendedAbstractMesh, IndexedMesh, MeshBufferIntersectConfig,
-    NoneIndexedMesh, TriangleList,
-  },
-  vertex::Vertex,
-  IndexBuffer,
-};
+use rendiation_renderable_mesh::{vertex::Vertex, IndexBuffer, *};
 use space_algorithm::{
   bvh::{FlattenBVH, SAH},
   utils::TreeBuildOption,
@@ -24,7 +17,7 @@ pub trait ShadingNormalProvider {
 impl ShadingNormalProvider for Triangle<Vertex> {
   fn get_normal(&self, point: Vec3<f32>) -> NormalizedVec3<f32> {
     let barycentric = self
-      .map(|v| *v.position())
+      .map(|v| v.position())
       .barycentric(point)
       .unwrap_or(Vec3::new(1., 0., 0.));
     let normal =
@@ -45,7 +38,6 @@ where
   G: BVHIntersectAbleExtendedAbstractMesh<Box3>,
 {
   pub fn new(mesh: G) -> Self {
-    use rendiation_renderable_mesh::mesh::BVHExtendedBuildAbstractMesh;
     let bvh = mesh.build_bvh(
       &mut SAH::new(4),
       &TreeBuildOption {
@@ -55,7 +47,7 @@ where
     );
     let face_normal = mesh
       .primitive_iter()
-      .map(|p| p.map(|v| *v.position()).face_normal())
+      .map(|p| p.map(|v| v.position()).face_normal())
       .collect();
     Self {
       mesh,
@@ -168,7 +160,7 @@ impl TriangleMesh<IndexedMesh<TriangleList, Vec<Vertex>, IndexBuffer<u32>>> {
     if need_compute_vertex_normal {
       let face_normals: Vec<NormalizedVec3<f32>> = mesh
         .primitive_iter()
-        .map(|p| p.map(|v| *v.position()).face_normal())
+        .map(|p| p.map(|v| v.position()).face_normal())
         .collect();
 
       mesh.data.iter_mut().for_each(|v| v.normal = Vec3::zero());

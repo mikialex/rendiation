@@ -9,8 +9,8 @@ where
   #[inline]
   fn intersect(&self, face: &Triangle<U>, side: &FaceSide) -> OptionalNearest<HitPoint3D<T>> {
     let Triangle { a, b, c } = match side {
-      FaceSide::Double | FaceSide::Front => face.map(|v| *v.position()),
-      FaceSide::Back => face.map(|v| *v.position()).flip(),
+      FaceSide::Double | FaceSide::Front => face.map(|v| v.position()),
+      FaceSide::Back => face.map(|v| v.position()).flip(),
     };
 
     let backface_culling = match side {
@@ -84,7 +84,7 @@ where
 {
   #[inline]
   fn intersect(&self, line: &LineSegment<U>, t: &T) -> OptionalNearest<HitPoint3D<T>> {
-    let (dist_sq, inter_ray, _) = self.distance_sq_to_segment(line.map(|v| *v.position()));
+    let (dist_sq, inter_ray, _) = self.distance_sq_to_segment(line.map(|v| v.position()));
     if dist_sq > *t * *t {
       return OptionalNearest::none();
     }
@@ -100,7 +100,7 @@ where
 {
   #[inline]
   fn intersect(&self, point: &Point<U>, t: &T) -> OptionalNearest<HitPoint3D<T>> {
-    let point = point.map(|v| *v.position()).0;
+    let point = point.map(|v| v.position()).0;
     let dist_sq = self.distance_sq_to_point(point);
     if dist_sq > *t * *t {
       return OptionalNearest::none();

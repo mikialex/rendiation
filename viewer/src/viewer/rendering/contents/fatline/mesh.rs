@@ -86,7 +86,7 @@ impl WebGPUMesh for FatlineMesh {
   type ReactiveGPU = ReactiveFatlineGPU;
 
   fn create_reactive_gpu(
-    source: &SceneItemRef<Self>,
+    source: &SharedIncrementalSignal<Self>,
     ctx: &ShareBindableResourceCtx,
   ) -> Self::ReactiveGPU {
     let weak = source.downgrade();

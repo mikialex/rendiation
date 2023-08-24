@@ -15,18 +15,14 @@ pub struct DirectionalLightShaderInfo {
 impl PunctualShaderLight for DirectionalLightShaderInfo {
   type PunctualDependency = ();
 
-  fn create_punctual_dep(
-    _: &mut ShaderFragmentBuilderView,
-  ) -> Result<Self::PunctualDependency, ShaderBuildError> {
-    Ok(())
-  }
+  fn create_punctual_dep(_: &mut ShaderFragmentBuilderView) -> Self::PunctualDependency {}
 
   fn compute_incident_light(
     builder: &ShaderFragmentBuilderView,
     light: &ENode<Self>,
     _dep: &Self::PunctualDependency,
     _ctx: &ENode<ShaderLightingGeometricCtx>,
-  ) -> Result<ENode<ShaderIncidentLight>, ShaderBuildError> {
+  ) -> ENode<ShaderIncidentLight> {
     let shadow_info = light.shadow.expand();
     let occlusion = val(1.).make_local_var();
 
@@ -48,12 +44,13 @@ impl PunctualShaderLight for DirectionalLightShaderInfo {
         ))
       });
       Ok(())
-    })?;
+    })
+    .unwrap();
 
-    Ok(ENode::<ShaderIncidentLight> {
+    ENode::<ShaderIncidentLight> {
       color: light.illuminance * (val(1.) - occlusion.load()),
       direction: light.direction,
-    })
+    }
   }
 }
 
@@ -68,7 +65,7 @@ fn cull_directional_shadow(shadow_position: Node<Vec3<f32>>) -> Node<bool> {
   left.and(right).and(top).and(bottom).and(far)
 }
 
-impl WebGPULight for SceneItemRef<DirectionalLight> {
+impl WebGPULight for SharedIncrementalSignal<DirectionalLight> {
   type Uniform = DirectionalLightShaderInfo;
 
   fn create_uniform_stream(
@@ -143,7 +140,7 @@ impl Default for DirectionalShadowMapExtraInfo {
 }
 
 fn build_shadow_projection(
-  light: &SceneItemRef<DirectionalLight>,
+  light: &SharedIncrementalSignal<DirectionalLight>,
 ) -> impl Stream<Item = (CameraProjector, Size)> {
   get_dyn_trait_downcaster_static!(CameraProjection).register::<WorkAroundResizableOrth>();
   light

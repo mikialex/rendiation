@@ -83,8 +83,8 @@ impl ShadowMapAllocator {
   }
 }
 
-only_fragment!(BasicShadowMap, HandlePtr<ShaderDepthTexture2DArray>);
-only_fragment!(BasicShadowMapSampler, HandlePtr<ShaderCompareSampler>);
+only_fragment!(BasicShadowMap, ShaderHandlePtr<ShaderDepthTexture2DArray>);
+only_fragment!(BasicShadowMapSampler, ShaderHandlePtr<ShaderCompareSampler>);
 
 impl ShaderPassBuilder for ShadowMapAllocator {
   fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {

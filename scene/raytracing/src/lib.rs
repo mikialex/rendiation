@@ -23,7 +23,7 @@ use arena::Handle;
 pub use background::*;
 pub use light::*;
 pub use material::*;
-pub use math::*;
+use math::*;
 pub use model::*;
 use rendiation_algebra::*;
 pub use rendiation_scene_core::*;

@@ -1,11 +1,13 @@
 #![feature(associated_type_bounds)]
 #![feature(type_alias_impl_trait)]
+#![feature(stmt_expr_attributes)]
+#![feature(iterator_try_collect)]
 
-pub mod group;
+mod group;
 pub use group::*;
-pub mod mesh;
+mod mesh;
 pub use mesh::*;
-pub mod utils;
+mod utils;
 pub use utils::*;
 
 pub mod vertex;

@@ -162,7 +162,7 @@ impl WebGPUMaterial for PhysicalSpecularGlossinessMaterial {
   type ReactiveGPU = PhysicalSpecularGlossinessMaterialReactiveGPU;
 
   fn create_reactive_gpu(
-    source: &SceneItemRef<Self>,
+    source: &SharedIncrementalSignal<Self>,
     ctx: &ShareBindableResourceCtx,
   ) -> Self::ReactiveGPU {
     let m = source.read();
@@ -213,7 +213,10 @@ impl WebGPUMaterial for PhysicalSpecularGlossinessMaterial {
           RenderComponentDeltaFlag::ContentRef.into()
         }
         UniformChangePicked::Origin(delta) => match delta {
-          PD::alpha_mode(_) => RenderComponentDeltaFlag::ShaderHash,
+          PD::alpha_mode(mode) => {
+            state.alpha_mode = mode;
+            RenderComponentDeltaFlag::ShaderHash
+          }
           PD::albedo_texture(t) => apply_tex_pair_delta(t, &mut state.albedo_texture, &ctx),
           PD::glossiness_texture(t) => apply_tex_pair_delta(t, &mut state.glossiness_texture, &ctx),
           PD::specular_texture(t) => apply_tex_pair_delta(t, &mut state.specular_texture, &ctx),

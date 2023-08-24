@@ -155,12 +155,12 @@ where
   type ReactiveGPU = ReactiveMeshGPUOfTypedMesh<V, T, IU>;
 
   fn create_reactive_gpu(
-    source: &SceneItemRef<Self>,
+    source: &SharedIncrementalSignal<Self>,
     ctx: &ShareBindableResourceCtx,
   ) -> Self::ReactiveGPU {
     let ctx = ctx.clone();
 
-    let create = move |m: &SceneItemRef<Self>| {
+    let create = move |m: &SharedIncrementalSignal<Self>| {
       let mesh = m.read();
       TypedMeshGPU {
         marker: Default::default(),
@@ -177,16 +177,6 @@ where
         state.inner = create(&mesh);
         RenderComponentDeltaFlag::all().into()
       })
-  }
-}
-
-pub fn map_topology(pt: PrimitiveTopology) -> webgpu::PrimitiveTopology {
-  match pt {
-    PrimitiveTopology::PointList => webgpu::PrimitiveTopology::PointList,
-    PrimitiveTopology::LineList => webgpu::PrimitiveTopology::LineList,
-    PrimitiveTopology::LineStrip => webgpu::PrimitiveTopology::LineStrip,
-    PrimitiveTopology::TriangleList => webgpu::PrimitiveTopology::TriangleList,
-    PrimitiveTopology::TriangleStrip => webgpu::PrimitiveTopology::TriangleStrip,
   }
 }
 

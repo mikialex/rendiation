@@ -61,7 +61,7 @@ impl WebGPUMaterial for FatLineMaterial {
   type ReactiveGPU = ReactiveFatlineMaterialGPU;
 
   fn create_reactive_gpu(
-    source: &SceneItemRef<Self>,
+    source: &SharedIncrementalSignal<Self>,
     ctx: &ShareBindableResourceCtx,
   ) -> Self::ReactiveGPU {
     let uniform = FatlineMaterialUniform {

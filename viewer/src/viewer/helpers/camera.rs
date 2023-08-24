@@ -1,7 +1,7 @@
 use futures::Stream;
 use reactive::{do_updates, ReactiveMap};
 use rendiation_algebra::*;
-use rendiation_renderable_mesh::{group::GroupedMesh, mesh::NoneIndexedMesh};
+use rendiation_renderable_mesh::{GroupedMesh, NoneIndexedMesh};
 
 use super::*;
 use crate::FatLineVertex;

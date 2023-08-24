@@ -21,6 +21,9 @@ pub enum BinaryOperator {
   LogicalAnd,
   BitAnd,
   BitOr,
+  ShiftLeft,
+  /// Right shift carries the sign of signed integers only.
+  ShiftRight,
 }
 pub enum OperatorNode {
   Unary {
@@ -130,6 +133,40 @@ where
       left: self.handle(),
       right: rhs.handle(),
       operator: BinaryOperator::Rem,
+    }
+    .insert_api()
+  }
+}
+
+impl<T> Shl for Node<T>
+where
+  T: Shl<T, Output = T>,
+  T: ShaderNodeType,
+{
+  type Output = Self;
+
+  fn shl(self, rhs: Self) -> Self::Output {
+    OperatorNode::Binary {
+      left: self.handle(),
+      right: rhs.handle(),
+      operator: BinaryOperator::ShiftLeft,
+    }
+    .insert_api()
+  }
+}
+
+impl<T> Shr for Node<T>
+where
+  T: Shr<T, Output = T>,
+  T: ShaderNodeType,
+{
+  type Output = Self;
+
+  fn shr(self, rhs: Self) -> Self::Output {
+    OperatorNode::Binary {
+      left: self.handle(),
+      right: rhs.handle(),
+      operator: BinaryOperator::ShiftRight,
     }
     .insert_api()
   }
@@ -303,65 +340,64 @@ impl Node<bool> {
   }
 }
 
-// impl<T, const U: usize> Node<Shader140Array<T, U>>
-// where
-//   T: ShaderNodeType,
-// {
-//   pub fn index(&self, node: Node<impl ShaderNodeType>) -> Node<T> {
-//     OperatorNode::Index {
-//       array: self.handle(),
-//       entry: node.handle(),
-//     }
-//     .insert_api()
-//   }
-// }
-impl<T, const U: usize> UniformNode<Shader140Array<T, U>>
-where
-  T: ShaderNodeType,
-{
-  pub fn index(&self, node: Node<impl ShaderNodeType>) -> UniformNode<T> {
-    OperatorNode::Index {
-      array: self.handle(),
-      entry: node.handle(),
+macro_rules! sized_array_like_index {
+  ($NodeType: tt, $ArrayType: tt) => {
+    impl<T, const U: usize> $NodeType<$ArrayType<T, U>>
+    where
+      T: ShaderNodeType,
+    {
+      pub fn index(&self, node: impl Into<Node<u32>>) -> $NodeType<T> {
+        OperatorNode::Index {
+          array: self.handle(),
+          entry: node.into().handle(),
+        }
+        .insert_api()
+      }
     }
-    .insert_api()
-  }
+  };
+  ($NodeType: tt) => {
+    impl<T, const U: usize> $NodeType<[T; U]>
+    where
+      T: ShaderNodeType,
+    {
+      pub fn index(&self, node: impl Into<Node<u32>>) -> $NodeType<T> {
+        OperatorNode::Index {
+          array: self.handle(),
+          entry: node.into().handle(),
+        }
+        .insert_api()
+      }
+    }
+  };
 }
 
-// impl<T, const U: usize> Node<[T; U]>
-// where
-//   T: ShaderNodeType,
-// {
-//   pub fn index(&self, node: Node<impl ShaderNodeType>) -> Node<T> {
-//     OperatorNode::Index {
-//       array: self.handle(),
-//       entry: node.handle(),
-//     }
-//     .insert_api()
-//   }
-// }
-impl<T, const U: usize, const S: AddressSpace> Node<ShaderPtr<[T; U], S>>
-where
-  T: ShaderNodeType,
-{
-  pub fn index(&self, node: Node<impl ShaderNodeType>) -> Node<ShaderPtr<T, S>> {
-    OperatorNode::Index {
-      array: self.handle(),
-      entry: node.handle(),
+sized_array_like_index!(HandleNode, BindingArray);
+sized_array_like_index!(UniformNode, Shader140Array);
+
+sized_array_like_index!(LocalVarNode);
+sized_array_like_index!(GlobalVarNode);
+sized_array_like_index!(UniformNode);
+sized_array_like_index!(HandleNode);
+sized_array_like_index!(StorageNode);
+sized_array_like_index!(ReadOnlyStorageNode);
+sized_array_like_index!(WorkGroupSharedNode);
+
+macro_rules! slice_like_index {
+  ($NodeType: tt) => {
+    impl<T> $NodeType<[T]>
+    where
+      T: ShaderNodeType,
+    {
+      pub fn index(&self, node: impl Into<Node<u32>>) -> $NodeType<T> {
+        OperatorNode::Index {
+          array: self.handle(),
+          entry: node.into().handle(),
+        }
+        .insert_api()
+      }
     }
-    .insert_api()
-  }
+  };
 }
 
-impl<T, const U: usize, const S: AddressSpace> Node<ShaderPtr<BindingArray<T, U>, S>>
-where
-  T: ShaderNodeType,
-{
-  pub fn index(&self, node: Node<impl ShaderNodeType>) -> Node<ShaderPtr<T, S>> {
-    OperatorNode::Index {
-      array: self.handle(),
-      entry: node.handle(),
-    }
-    .insert_api()
-  }
-}
+slice_like_index!(StorageNode);
+slice_like_index!(ReadOnlyStorageNode);

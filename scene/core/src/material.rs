@@ -3,9 +3,9 @@ use crate::*;
 #[non_exhaustive]
 #[derive(Clone)]
 pub enum SceneMaterialType {
-  PhysicalSpecularGlossiness(SceneItemRef<PhysicalSpecularGlossinessMaterial>),
-  PhysicalMetallicRoughness(SceneItemRef<PhysicalMetallicRoughnessMaterial>),
-  Flat(SceneItemRef<FlatMaterial>),
+  PhysicalSpecularGlossiness(SharedIncrementalSignal<PhysicalSpecularGlossinessMaterial>),
+  PhysicalMetallicRoughness(SharedIncrementalSignal<PhysicalMetallicRoughnessMaterial>),
+  Flat(SharedIncrementalSignal<FlatMaterial>),
   Foreign(Box<dyn AnyClone + Send + Sync>),
 }
 

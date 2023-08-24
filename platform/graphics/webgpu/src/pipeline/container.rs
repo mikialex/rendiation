@@ -3,19 +3,34 @@ use rendiation_shader_api::*;
 pub use crate::*;
 
 impl<T: ShaderSizedValueNodeType + Std140> ShaderBindingProvider for UniformBufferDataView<T> {
-  const SPACE: AddressSpace = AddressSpace::Uniform;
-  type Node = T;
+  type Node = ShaderUniformPtr<T>;
 }
 
-impl<T: ShaderUnsizedValueNodeType + Std430> ShaderBindingProvider
-  for StorageBufferReadOnlyDataView<T>
+impl<T> ShaderBindingProvider for StorageBufferReadOnlyDataView<T>
+where
+  T: ShaderMaybeUnsizedValueNodeType + Std430MaybeUnsized + ?Sized,
 {
-  const SPACE: AddressSpace = AddressSpace::Storage { writeable: false };
-  type Node = T;
+  type Node = ShaderReadOnlyStoragePtr<T>;
 
   fn binding_desc() -> ShaderBindingDescriptor {
     ShaderBindingDescriptor {
       should_as_storage_buffer_if_is_buffer_like: true,
+      writeable_if_storage: false,
+      ty: Self::Node::TYPE,
+    }
+  }
+}
+
+impl<T> ShaderBindingProvider for StorageBufferDataView<T>
+where
+  T: ShaderMaybeUnsizedValueNodeType + Std430MaybeUnsized + ?Sized,
+{
+  type Node = ShaderStoragePtr<T>;
+
+  fn binding_desc() -> ShaderBindingDescriptor {
+    ShaderBindingDescriptor {
+      should_as_storage_buffer_if_is_buffer_like: true,
+      writeable_if_storage: true,
       ty: Self::Node::TYPE,
     }
   }
@@ -24,8 +39,7 @@ impl<T: ShaderUnsizedValueNodeType + Std430> ShaderBindingProvider
 macro_rules! map_shader_ty {
   ($ty: ty, $shader_ty: ty) => {
     impl ShaderBindingProvider for $ty {
-      const SPACE: AddressSpace = AddressSpace::Handle;
-      type Node = $shader_ty;
+      type Node = ShaderHandlePtr<$shader_ty>;
     }
   };
 }

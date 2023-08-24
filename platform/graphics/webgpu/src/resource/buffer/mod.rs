@@ -1,4 +1,5 @@
 mod uniform;
+use __core::num::NonZeroU64;
 pub use uniform::*;
 
 mod storage;
@@ -34,16 +35,33 @@ pub struct GPUBuffer {
   pub(crate) size: std::num::NonZeroU64,
 }
 
+pub enum BufferInit<'a> {
+  WithInit(&'a [u8]),
+  Zeroed(std::num::NonZeroU64),
+}
+
 impl GPUBuffer {
-  pub fn create(device: &GPUDevice, bytes: &[u8], usage: gpu::BufferUsages) -> Self {
-    let gpu = device.create_buffer_init(&gpu::util::BufferInitDescriptor {
-      label: None,
-      contents: bytes,
-      usage,
-    });
+  pub fn create(device: &GPUDevice, init: BufferInit, usage: gpu::BufferUsages) -> Self {
+    let gpu = match init {
+      BufferInit::WithInit(bytes) => device.create_buffer_init(&gpu::util::BufferInitDescriptor {
+        label: None,
+        contents: bytes,
+        usage,
+      }),
+      BufferInit::Zeroed(size) => device.create_buffer(&wgpu::BufferDescriptor {
+        label: None,
+        size: size.get(),
+        usage,
+        mapped_at_creation: false,
+      }),
+    };
+    let size = match init {
+      BufferInit::WithInit(bytes) => std::num::NonZeroU64::new(bytes.len() as u64).unwrap(),
+      BufferInit::Zeroed(size) => size,
+    };
     Self {
       gpu: Arc::new(gpu),
-      size: std::num::NonZeroU64::new(bytes.len() as u64).unwrap(),
+      size,
     }
   }
 
@@ -72,8 +90,18 @@ pub struct GPUBufferViewRange {
 
 #[derive(Clone)]
 pub struct GPUBufferView {
-  buffer: GPUBuffer,
-  range: GPUBufferViewRange,
+  pub buffer: GPUBuffer,
+  pub range: GPUBufferViewRange,
+}
+
+impl GPUBufferView {
+  pub fn view_byte_size(&self) -> NonZeroU64 {
+    if let Some(size) = self.range.size {
+      size
+    } else {
+      self.buffer.size
+    }
+  }
 }
 
 impl GPUBufferView {
@@ -92,5 +120,8 @@ pub fn create_gpu_buffer(
   usage: gpu::BufferUsages,
   gpu: &GPUDevice,
 ) -> GPUBufferResource {
-  GPUBufferResource::create_with_raw(GPUBuffer::create(gpu, data, usage), usage)
+  GPUBufferResource::create_with_raw(
+    GPUBuffer::create(gpu, BufferInit::WithInit(data), usage),
+    usage,
+  )
 }

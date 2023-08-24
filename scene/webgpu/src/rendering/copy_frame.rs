@@ -29,9 +29,7 @@ pub struct ImmediateSampler {
 }
 
 impl ShaderBindingProvider for ImmediateSampler {
-  type Node = ShaderSampler;
-
-  const SPACE: AddressSpace = AddressSpace::Handle;
+  type Node = ShaderHandlePtr<ShaderSampler>;
 }
 
 impl From<ImmediateSampler> for SamplerDescriptor<'static> {
@@ -54,7 +52,7 @@ impl<T> GraphicsShaderProvider for CopyFrame<T> {
   ) -> Result<(), rendiation_shader_api::ShaderBuildError> {
     builder.fragment(|builder, binding| {
       let sampler = binding.bind_by(&self.sampler);
-      let source = binding.bind_by_unchecked(&self.source);
+      let source = binding.bind_by(&self.source);
 
       let uv = builder.query::<FragmentUv>()?;
       let value = source.sample(sampler, uv);

@@ -127,6 +127,6 @@ impl GraphicsShaderProvider for NodeGPU {
 
 impl ShaderPassBuilder for NodeGPU {
   fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
-    ctx.binding.bind(&self.ubo)
+    ctx.binding.bind(&self.ubo);
   }
 }

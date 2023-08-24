@@ -57,7 +57,7 @@ impl ShaderVertexBuilder {
     result.register::<VertexIndex>(vertex_index);
 
     let instance_index =
-      ShaderInputNode::BuiltIn(ShaderBuiltInDecorator::InstanceIndex).insert_api();
+      ShaderInputNode::BuiltIn(ShaderBuiltInDecorator::VertexInstanceIndex).insert_api();
     result.register::<VertexInstanceIndex>(instance_index);
 
     set_current_building(None);

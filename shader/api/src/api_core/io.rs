@@ -12,10 +12,16 @@ pub enum ShaderInputNode {
     bindgroup_index: usize,
     entry_index: usize,
   },
+  WorkGroupShared {
+    ty: ShaderSizedValueType,
+  },
+  Private {
+    ty: ShaderSizedValueType,
+  },
 }
 
 impl ShaderInputNode {
-  pub fn insert_api<T: ShaderNodeType>(self) -> Node<T> {
+  pub fn insert_api<T: ShaderNodeType + ?Sized>(self) -> Node<T> {
     call_shader_api(|g| unsafe { g.define_module_input(self).into_node() })
   }
 }
@@ -24,13 +30,17 @@ impl ShaderInputNode {
 #[derive(Debug, Copy, Clone)]
 pub enum ShaderBuiltInDecorator {
   VertexIndex,
-  InstanceIndex,
+  VertexInstanceIndex,
   VertexPositionOut,
-  FragmentPositionIn,
-  FrontFacing,
+  FragPositionIn,
+  FragFrontFacing,
   FragDepth,
   FragSampleIndex,
   FragSampleMask,
+  CompLocalInvocationId,
+  CompGlobalInvocationId,
+  CompLocalInvocationIndex,
+  CompWorkgroupId,
 }
 
 #[derive(Default, Clone)]
@@ -43,15 +53,16 @@ pub struct ShaderBindEntry {
   pub desc: ShaderBindingDescriptor,
   pub vertex_node: ShaderNodeRawHandle,
   pub fragment_node: ShaderNodeRawHandle,
+  pub compute_node: ShaderNodeRawHandle,
 }
 
 /// should impl by user's container ty
 pub trait ShaderBindingProvider {
-  const SPACE: AddressSpace;
-  type Node: ShaderNodeType;
+  type Node: ShaderNodeType + ?Sized;
   fn binding_desc() -> ShaderBindingDescriptor {
     ShaderBindingDescriptor {
       should_as_storage_buffer_if_is_buffer_like: false,
+      writeable_if_storage: false,
       ty: Self::Node::TYPE,
     }
   }
@@ -61,6 +72,7 @@ pub trait ShaderBindingProvider {
 pub struct ShaderBindingDescriptor {
   pub should_as_storage_buffer_if_is_buffer_like: bool,
   pub ty: ShaderValueType,
+  pub writeable_if_storage: bool,
 }
 
 impl ShaderBindingDescriptor {
@@ -78,6 +90,7 @@ impl ShaderBindingDescriptor {
       },
       ShaderValueType::BindingArray { ty, .. } => ShaderBindingDescriptor {
         should_as_storage_buffer_if_is_buffer_like: self.should_as_storage_buffer_if_is_buffer_like,
+        writeable_if_storage: false,
         ty: ShaderValueType::Single(ty),
       }
       .get_buffer_layout(),
@@ -87,7 +100,6 @@ impl ShaderBindingDescriptor {
 }
 
 impl<'a, T: ShaderBindingProvider> ShaderBindingProvider for &'a T {
-  const SPACE: AddressSpace = T::SPACE;
   type Node = T::Node;
 
   fn binding_desc() -> ShaderBindingDescriptor {
@@ -100,7 +112,6 @@ impl<'a, T: ShaderBindingProvider> ShaderBindingProvider for &'a T {
 pub struct DisableFiltering<T>(pub T);
 
 impl<T: ShaderBindingProvider> ShaderBindingProvider for DisableFiltering<T> {
-  const SPACE: AddressSpace = T::SPACE;
   type Node = T::Node;
   fn binding_desc() -> ShaderBindingDescriptor {
     let mut ty = T::binding_desc();

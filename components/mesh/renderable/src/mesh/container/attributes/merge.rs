@@ -1,4 +1,4 @@
-use rendiation_renderable_mesh::{MeshGroup, MeshGroupsInfo, PrimitiveTopology};
+use rendiation_algebra::*;
 use smallvec::SmallVec;
 
 use crate::*;
@@ -96,7 +96,7 @@ pub struct AttributeMeshMergeKey {
 
 pub fn compute_merge_key(att: &&AttributesMesh) -> AttributeMeshMergeKey {
   let mut attributes: SmallVec<[AttributeSemantic; 3]> =
-    att.attributes.iter().map(|(k, _)| *k).collect();
+    att.attributes.iter().map(|(k, _)| k.clone()).collect();
   attributes.sort();
 
   AttributeMeshMergeKey {
@@ -133,7 +133,7 @@ pub fn merge_attribute_accessor<T: bytemuck::Pod>(
     })
   }
 
-  AttributeAccessor::create_owned(merged, first.item_size).into()
+  AttributeAccessor::create_owned(merged, first.item_byte_size).into()
 }
 
 fn merge_assume_all_suitable_and_fit(
@@ -149,7 +149,7 @@ fn merge_assume_all_suitable_and_fit(
     .map(|(key, _)| {
       let to_merge = inputs
         .iter()
-        .map(|att| att.get_attribute(*key))
+        .map(|att| att.get_attribute(key))
         .try_collect::<Vec<_>>()
         .ok_or(MergeError::CannotMergeDifferentTypes)?;
 
@@ -161,7 +161,7 @@ fn merge_assume_all_suitable_and_fit(
         _ => return Err(MergeError::UnsupportedAttributeType),
       }
       .ok_or(MergeError::AttributeDataAccessFailed)?;
-      Ok((*key, att))
+      Ok((key.clone(), att))
     })
     .try_collect::<Vec<_>>()?;
 

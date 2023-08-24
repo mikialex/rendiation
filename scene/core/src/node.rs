@@ -4,7 +4,7 @@ use tree::*;
 
 use crate::*;
 
-pub type SceneNodeData = Identity<SceneNodeDataImpl>;
+pub type SceneNodeData = IncrementalSignal<SceneNodeDataImpl>;
 pub type SceneNodeHandle = TreeNodeHandle<SceneNodeData>;
 
 #[derive(Incremental, Clone)]
@@ -154,7 +154,7 @@ impl SceneNode {
     data: SceneNodeDataImpl,
     scene_id: usize,
   ) -> Self {
-    let identity = Identity::new(data);
+    let identity = IncrementalSignal::new(data);
     Self {
       guid: identity.guid(),
       scene_id,

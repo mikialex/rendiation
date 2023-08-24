@@ -28,200 +28,40 @@ impl LoopCtx {
   }
 }
 
-pub trait ShaderIteratorAble {
-  type Item: ShaderNodeType;
-}
-
-pub enum ShaderIterator {
-  Const(u32),
-  Count(ShaderNodeRawHandle),
-  FixedArray {
-    array: ShaderNodeRawHandle,
-    length: usize,
-  },
-  Clamped {
-    source: Box<Self>,
-    max: ShaderNodeRawHandle,
-  },
-}
-
-pub struct ForCtx;
-
-pub struct ForNodes {
-  pub item_node: ShaderNodeRawHandle,
-  pub index_node: ShaderNodeRawHandle,
-  pub for_cx: ShaderNodeRawHandle,
-}
-
-impl ForCtx {
-  pub fn do_continue(&self) {
-    call_shader_api(|g| g.do_continue());
-  }
-  pub fn do_break(&self) {
-    call_shader_api(|g| g.do_break());
-  }
-}
-
-impl From<u32> for ShaderIterator {
-  fn from(v: u32) -> Self {
-    ShaderIterator::Const(v)
-  }
-}
-
-impl ShaderIteratorAble for u32 {
-  type Item = u32;
-}
-
-impl From<Node<u32>> for ShaderIterator {
-  fn from(v: Node<u32>) -> Self {
-    ShaderIterator::Count(v.handle())
-  }
-}
-
-impl ShaderIteratorAble for Node<u32> {
-  type Item = u32;
-}
-
-impl<T, const U: usize> From<Node<Shader140Array<T, U>>> for ShaderIterator {
-  fn from(v: Node<Shader140Array<T, U>>) -> Self {
-    ShaderIterator::FixedArray {
-      array: v.handle(),
-      length: U,
-    }
-  }
-}
-impl<T, const U: usize> From<UniformNode<Shader140Array<T, U>>> for ShaderIterator {
-  fn from(v: UniformNode<Shader140Array<T, U>>) -> Self {
-    ShaderIterator::FixedArray {
-      array: v.handle(),
-      length: U,
-    }
-  }
-}
-
-impl<T: ShaderNodeType, const U: usize> ShaderIteratorAble for Node<Shader140Array<T, U>> {
-  type Item = T;
-}
-impl<T: ShaderNodeType, const U: usize> ShaderIteratorAble for UniformNode<Shader140Array<T, U>> {
-  type Item = UniformPtr<T>;
-}
-
-impl<T: ShaderNodeType, const U: usize> ShaderIteratorAble for Node<[T; U]> {
-  type Item = T;
-}
-
-impl<T: ShaderNodeType, const U: usize> ShaderIteratorAble for Node<BindingArray<T, U>> {
-  type Item = T;
-}
-
-pub struct ClampedShaderIter<T> {
-  pub source: T,
-  pub count: Node<u32>,
-}
-
-impl<T: Into<ShaderIterator>> From<ClampedShaderIter<T>> for ShaderIterator {
-  fn from(v: ClampedShaderIter<T>) -> Self {
-    ShaderIterator::Clamped {
-      source: Box::new(v.source.into()),
-      max: v.count.handle(),
-    }
-  }
-}
-
-impl<T: ShaderIteratorAble> ShaderIteratorAble for ClampedShaderIter<T> {
-  type Item = T::Item;
-}
-
-#[inline(never)]
-pub fn for_by<T: Into<ShaderIterator> + ShaderIteratorAble>(
-  iterable: T,
-  logic: impl Fn(&ForCtx, Node<T::Item>, Node<u32>),
-) where
-  T::Item: ShaderNodeType,
-{
-  for_by_ok(iterable, |ctx, i, v| {
-    logic(ctx, i, v);
-    Ok(())
-  })
-  .unwrap()
-}
-
-#[inline(never)]
-pub fn for_by_ok<T: Into<ShaderIterator> + ShaderIteratorAble>(
-  iterable: T,
-  logic: impl Fn(&ForCtx, Node<T::Item>, Node<u32>) -> Result<(), ShaderBuildError>,
-) -> Result<(), ShaderBuildError>
-where
-  T::Item: ShaderNodeType,
-{
-  let iter: ShaderIterator = iterable.into();
-
-  let index = val(0).make_local_var();
-  let condition = val(false).make_local_var();
-
-  fn get_item<T: ShaderNodeType>(
-    iter: &ShaderIterator,
-    index: &LocalVarNode<u32>,
-  ) -> ShaderNodeRawHandle {
-    match &iter {
-      ShaderIterator::Const(_) => index.load().handle(),
-      ShaderIterator::Count(_) => index.load().handle(),
-      ShaderIterator::FixedArray { array, .. } => {
-        let array: LocalVarNode<[T; 0]> = unsafe { array.into_node() };
-        array.index(index.load()).handle()
-      }
-      ShaderIterator::Clamped { source, .. } => get_item::<T>(source, index),
-    }
-  }
-
-  loop_by_ok(|cx| {
-    let compare = match &iter {
-      ShaderIterator::Const(count) => index.load().less_than(val(*count)),
-      ShaderIterator::Count(count) => index.load().less_than(unsafe { count.into_node() }),
-      ShaderIterator::FixedArray { length, .. } => index.load().less_than(val(*length as u32)),
-      ShaderIterator::Clamped { max, .. } => {
-        index.load().less_equal_than(unsafe { max.into_node() })
-      }
-    };
-    condition.store(compare);
-    if_by(condition.load().not(), || cx.do_break());
-
-    logic(
-      &ForCtx,
-      unsafe { get_item::<T::Item>(&iter, &index).into_node() },
-      index.load(),
-    )?;
-
-    index.store(index.load() + val(1));
-
-    Ok(())
-  })
-}
-
-pub struct ElseEmitter;
+pub struct ElseEmitter(usize);
 
 impl ElseEmitter {
-  pub fn by_else_ok(
-    self,
-    logic: impl Fn() -> Result<(), ShaderBuildError>,
-  ) -> Result<(), ShaderBuildError> {
+  pub fn else_if(mut self, condition: impl Into<Node<bool>>, logic: impl Fn()) -> ElseEmitter {
+    let condition = condition.into().handle();
+    call_shader_api(|builder| {
+      builder.push_else_scope();
+      builder.push_if_scope(condition);
+    });
+    logic();
+    self.0 += 1;
+    self
+  }
+
+  pub fn else_over(self) {
+    // closing outer scope
+    for _ in 0..self.0 {
+      call_shader_api(|g| g.pop_scope());
+    }
+  }
+
+  pub fn else_by(self, logic: impl Fn()) {
     call_shader_api(|builder| {
       builder.push_else_scope();
     });
 
-    logic()?;
+    logic();
 
     call_shader_api(|g| g.pop_scope());
-    Ok(())
-  }
 
-  pub fn else_by(self, logic: impl Fn()) {
-    self
-      .by_else_ok(|| {
-        logic();
-        Ok(())
-      })
-      .unwrap()
+    // closing outer scope
+    for _ in 0..self.0 {
+      call_shader_api(|g| g.pop_scope());
+    }
   }
 }
 
@@ -248,7 +88,7 @@ pub fn if_by_ok(
 
   call_shader_api(|g| g.pop_scope());
 
-  Ok(ElseEmitter)
+  Ok(ElseEmitter(0))
 }
 
 pub trait SwitchableShaderType: ShaderNodeType {

@@ -6,8 +6,6 @@ pub mod fragment;
 pub use fragment::*;
 pub mod semantic;
 pub use semantic::*;
-pub mod binding;
-pub use binding::*;
 
 #[derive(Copy, Clone)]
 pub enum ShaderVaryingInterpolation {
@@ -24,12 +22,10 @@ pub enum ShaderBuildError {
 }
 
 pub struct ShaderRenderPipelineBuilder {
-  // uniforms
-  pub bindgroups: ShaderBindGroupBuilder,
+  bindgroups: ShaderBindGroupBuilder,
 
-  // todo sealed except for codegen
-  pub vertex: ShaderVertexBuilder,
-  pub fragment: ShaderFragmentBuilder,
+  pub(crate) vertex: ShaderVertexBuilder,
+  pub(crate) fragment: ShaderFragmentBuilder,
 
   /// Log the shader build result when building shader, for debug purpose.
   pub log_result: bool,
@@ -38,8 +34,8 @@ pub struct ShaderRenderPipelineBuilder {
 }
 
 impl ShaderRenderPipelineBuilder {
-  fn new(vertex: DynamicShaderAPI, frag: DynamicShaderAPI) -> Self {
-    set_build_api(vertex, frag);
+  fn new(api: &dyn Fn(ShaderStages) -> DynamicShaderAPI) -> Self {
+    set_build_api(api);
     Self {
       bindgroups: Default::default(),
       vertex: ShaderVertexBuilder::new(),
@@ -95,7 +91,7 @@ impl ShaderRenderPipelineBuilder {
     Ok(result)
   }
 
-  pub fn build(mut self) -> Result<ShaderCompileResult, ShaderBuildError> {
+  pub fn build(mut self) -> Result<GraphicsShaderCompileResult, ShaderBuildError> {
     self.vertex.sync_fragment_out(&mut self.fragment);
 
     set_current_building(ShaderStages::Vertex.into());
@@ -106,13 +102,13 @@ impl ShaderRenderPipelineBuilder {
     self.fragment.finalize_depth_write();
     set_current_building(None);
 
-    let PipelineShaderAPIPair {
+    let ShaderBuildingCtx {
       mut vertex,
       mut fragment,
       ..
     } = take_build_api();
 
-    Ok(ShaderCompileResult {
+    Ok(GraphicsShaderCompileResult {
       vertex_shader: vertex.build(),
       frag_shader: fragment.build(),
       bindings: self.bindgroups,
@@ -146,10 +142,9 @@ pub trait GraphicsShaderProvider {
 
   fn build_self(
     &self,
-    vertex: DynamicShaderAPI,
-    frag: DynamicShaderAPI,
+    api_builder: &dyn Fn(ShaderStages) -> DynamicShaderAPI,
   ) -> Result<ShaderRenderPipelineBuilder, ShaderBuildError> {
-    let mut builder = ShaderRenderPipelineBuilder::new(vertex, frag);
+    let mut builder = ShaderRenderPipelineBuilder::new(api_builder);
     self.build(&mut builder)?;
     self.post_build(&mut builder)?;
     Ok(builder)
@@ -158,7 +153,7 @@ pub trait GraphicsShaderProvider {
 
 impl GraphicsShaderProvider for () {}
 
-pub struct ShaderCompileResult {
+pub struct GraphicsShaderCompileResult {
   pub vertex_shader: (String, Box<dyn Any>),
   pub frag_shader: (String, Box<dyn Any>),
   pub bindings: ShaderBindGroupBuilder,
@@ -167,54 +162,4 @@ pub struct ShaderCompileResult {
   pub color_states: Vec<ColorTargetState>,
   pub depth_stencil: Option<DepthStencilState>,
   pub multisample: MultisampleState,
-}
-
-pub(crate) struct PipelineShaderAPIPair {
-  vertex: DynamicShaderAPI,
-  fragment: DynamicShaderAPI,
-  current: Option<ShaderStages>,
-}
-
-thread_local! {
-  static IN_BUILDING_SHADER_API: RefCell<Option<PipelineShaderAPIPair>> = RefCell::new(None);
-}
-
-pub(crate) fn call_shader_api<T>(
-  modifier: impl FnOnce(&mut dyn ShaderAPI<Output = Box<dyn Any>>) -> T,
-) -> T {
-  IN_BUILDING_SHADER_API.with_borrow_mut(|api| {
-    let api = api.as_mut().unwrap();
-    let api = match api.current.unwrap() {
-      ShaderStages::Vertex => &mut api.vertex,
-      ShaderStages::Fragment => &mut api.fragment,
-    }
-    .as_mut();
-
-    modifier(api)
-  })
-}
-
-pub(crate) fn set_current_building(current: Option<ShaderStages>) {
-  IN_BUILDING_SHADER_API.with_borrow_mut(|api| {
-    let api = api.as_mut().unwrap();
-    api.current = current
-  })
-}
-
-pub(crate) fn get_current_stage() -> Option<ShaderStages> {
-  IN_BUILDING_SHADER_API.with_borrow_mut(|api| api.as_mut().unwrap().current)
-}
-
-pub(crate) fn set_build_api(vertex: DynamicShaderAPI, fragment: DynamicShaderAPI) {
-  IN_BUILDING_SHADER_API.with_borrow_mut(|api| {
-    api.replace(PipelineShaderAPIPair {
-      vertex,
-      fragment,
-      current: None,
-    });
-  })
-}
-
-pub(crate) fn take_build_api() -> PipelineShaderAPIPair {
-  IN_BUILDING_SHADER_API.with_borrow_mut(|api| api.take().unwrap())
 }

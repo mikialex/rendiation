@@ -43,7 +43,7 @@ impl<T: Std140> UniformBufferDataView<T> {
 
   pub fn create(device: &GPUDevice, data: T) -> Self {
     let usage = gpu::BufferUsages::UNIFORM | gpu::BufferUsages::COPY_DST;
-    let gpu = GPUBuffer::create(device, bytemuck::cast_slice(&[data]), usage);
+    let gpu = GPUBuffer::create(device, BufferInit::WithInit(data.as_bytes()), usage);
     let gpu = GPUBufferResource::create_with_raw(gpu, usage).create_default_view();
 
     Self {

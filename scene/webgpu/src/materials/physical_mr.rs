@@ -160,7 +160,7 @@ use PhysicalMetallicRoughnessMaterialDelta as PD;
 impl WebGPUMaterial for PhysicalMetallicRoughnessMaterial {
   type ReactiveGPU = PhysicalMetallicRoughnessMaterialReactiveGPU;
   fn create_reactive_gpu(
-    source: &SceneItemRef<Self>,
+    source: &SharedIncrementalSignal<Self>,
     ctx: &ShareBindableResourceCtx,
   ) -> Self::ReactiveGPU {
     let m = source.read();
@@ -210,7 +210,10 @@ impl WebGPUMaterial for PhysicalMetallicRoughnessMaterial {
           RenderComponentDeltaFlag::ContentRef.into()
         }
         UniformChangePicked::Origin(delta) => match delta {
-          PD::alpha_mode(_) => RenderComponentDeltaFlag::ShaderHash,
+          PD::alpha_mode(mode) => {
+            state.alpha_mode = mode;
+            RenderComponentDeltaFlag::ShaderHash
+          }
           PD::base_color_texture(t) => apply_tex_pair_delta(t, &mut state.base_color_texture, &ctx),
           PD::metallic_roughness_texture(t) => {
             apply_tex_pair_delta(t, &mut state.metallic_roughness_texture, &ctx)

@@ -37,11 +37,9 @@ impl WebGpuUIPresenter {
     minimal_required_features.remove(Features::TIMESTAMP_QUERY); // note: on macos we currently do not have this
 
     let config = GPUCreateConfig {
-      backends: Backends::PRIMARY,
-      power_preference: PowerPreference::HighPerformance,
       surface_for_compatible_check_init: Some((window, Size::from_usize_pair_min_one((300, 200)))),
       minimal_required_features,
-      minimal_required_limits: Limits::default(),
+      ..Default::default()
     };
 
     let (gpu, surface) = GPU::new(config).await.unwrap();
@@ -298,14 +296,7 @@ impl WebGPUxUIRenderer {
     let solid_color_pipeline = device
       .build_pipeline_by_shader_api(
         SolidUIPipeline { target_format }
-          .build_self(
-            Box::new(ShaderAPINagaImpl::new(
-              rendiation_shader_api::ShaderStages::Vertex,
-            )),
-            Box::new(ShaderAPINagaImpl::new(
-              rendiation_shader_api::ShaderStages::Fragment,
-            )),
-          )
+          .build_self(&|stage| Box::new(ShaderAPINagaImpl::new(stage)))
           .unwrap(),
       )
       .unwrap();
@@ -313,14 +304,7 @@ impl WebGPUxUIRenderer {
     let texture_pipeline = device
       .build_pipeline_by_shader_api(
         TextureUIPipeline { target_format }
-          .build_self(
-            Box::new(ShaderAPINagaImpl::new(
-              rendiation_shader_api::ShaderStages::Vertex,
-            )),
-            Box::new(ShaderAPINagaImpl::new(
-              rendiation_shader_api::ShaderStages::Fragment,
-            )),
-          )
+          .build_self(&|stage| Box::new(ShaderAPINagaImpl::new(stage)))
           .unwrap(),
       )
       .unwrap();

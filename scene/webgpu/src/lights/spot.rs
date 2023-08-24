@@ -16,18 +16,14 @@ pub struct SpotLightShaderInfo {
 impl PunctualShaderLight for SpotLightShaderInfo {
   type PunctualDependency = ();
 
-  fn create_punctual_dep(
-    _: &mut ShaderFragmentBuilderView,
-  ) -> Result<Self::PunctualDependency, ShaderBuildError> {
-    Ok(())
-  }
+  fn create_punctual_dep(_: &mut ShaderFragmentBuilderView) -> Self::PunctualDependency {}
 
   fn compute_incident_light(
     builder: &ShaderFragmentBuilderView,
     light: &ENode<Self>,
     _dep: &Self::PunctualDependency,
     ctx: &ENode<ShaderLightingGeometricCtx>,
-  ) -> Result<ENode<ShaderIncidentLight>, ShaderBuildError> {
+  ) -> ENode<ShaderIncidentLight> {
     let direction = ctx.position - light.position;
     let distance = direction.length();
     let distance_factor =
@@ -61,18 +57,19 @@ impl PunctualShaderLight for SpotLightShaderInfo {
         ))
       });
       Ok(())
-    })?;
+    })
+    .unwrap();
 
     let shadow_factor = val(1.) - occlusion.load();
 
-    Ok(ENode::<ShaderIncidentLight> {
+    ENode::<ShaderIncidentLight> {
       color: light.luminance_intensity * intensity_factor * shadow_factor,
       direction,
-    })
+    }
   }
 }
 
-impl WebGPULight for SceneItemRef<SpotLight> {
+impl WebGPULight for SharedIncrementalSignal<SpotLight> {
   type Uniform = SpotLightShaderInfo;
 
   fn create_uniform_stream(
@@ -149,7 +146,7 @@ impl WebGPULight for SceneItemRef<SpotLight> {
 }
 
 fn build_shadow_projection(
-  light: &SceneItemRef<SpotLight>,
+  light: &SharedIncrementalSignal<SpotLight>,
 ) -> impl Stream<Item = (CameraProjector, Size)> {
   light
     .single_listen_by(any_change)

@@ -208,7 +208,7 @@ struct SingleLight<'a, T: Std140> {
 
 impl<'a, T: Std140 + ShaderSizedValueNodeType> ShaderPassBuilder for SingleLight<'a, T> {
   fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
-    ctx.binding.bind(self.light)
+    ctx.binding.bind(self.light);
   }
 }
 impl<'a, T: Std140> ShaderHashProvider for SingleLight<'a, T> {
@@ -224,16 +224,13 @@ impl<'a, T: ShaderLight> LightCollectionCompute for SingleLight<'a, T> {
     shading_impl: &dyn LightableSurfaceShadingDyn,
     shading: &dyn Any,
     geom_ctx: &ENode<ShaderLightingGeometricCtx>,
-  ) -> Result<(Node<Vec3<f32>>, Node<Vec3<f32>>), ShaderBuildError> {
-    let light: UniformNode<T> = binding.bind_by_unchecked(self.light);
+  ) -> ENode<ShaderLightingResult> {
+    let light: UniformNode<T> = binding.bind_by(self.light);
 
-    let dep = T::create_dep(builder)?;
+    let dep = T::create_dep(builder);
 
-    let light = light.load_unchecked().expand();
-    let light_result =
-      T::compute_direct_light(builder, &light, geom_ctx, shading_impl, shading, &dep)?;
-
-    Ok((light_result.diffuse, light_result.specular))
+    let light = light.load().expand();
+    T::compute_direct_light(builder, &light, geom_ctx, shading_impl, shading, &dep)
   }
 }
 
@@ -285,10 +282,9 @@ where
     builder.fragment(|builder, binding| {
       let (geom_ctx, shading) = self.defer.reconstruct(builder, binding)?;
 
-      let result =
-        self
-          .light
-          .compute_lights_grouped(builder, binding, self.shading, &shading, &geom_ctx)?;
+      let result = self
+        .light
+        .compute_lights(builder, binding, self.shading, &shading, &geom_ctx);
 
       R::write_lighting(builder, result)
     })

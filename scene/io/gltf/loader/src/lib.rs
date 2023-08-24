@@ -10,7 +10,7 @@ use rendiation_algebra::*;
 use rendiation_scene_core::{
   AnimationSampler, AttributeAccessor, AttributeIndexFormat, AttributesMesh, BufferViewRange,
   GeometryBuffer, GeometryBufferInner, IntoSceneItemRef, Joint, ModelType, NormalMapping,
-  PhysicalMetallicRoughnessMaterial, Scene, SceneAnimation, SceneAnimationChannel,
+  PhysicalMetallicRoughnessMaterial, Scene, SceneAnimation, SceneAnimationChannel, SceneExt,
   SceneMaterialType, SceneMeshType, SceneModel, SceneModelHandle, SceneModelImpl, SceneNode,
   SceneTexture2D, SceneTexture2DType, Skeleton, SkeletonImpl, StandardModel,
   Texture2DWithSamplingData, TextureWithSamplingData, UnTypedBufferView,
@@ -255,7 +255,7 @@ fn build_accessor(accessor: gltf::Accessor, ctx: &mut Context) -> AttributeAcces
   let byte_offset = accessor.offset();
   let count = accessor.count();
 
-  let item_size = match ty {
+  let item_byte_size = match ty {
     gltf::accessor::DataType::I8 => 1,
     gltf::accessor::DataType::U8 => 1,
     gltf::accessor::DataType::I16 => 2,
@@ -276,7 +276,7 @@ fn build_accessor(accessor: gltf::Accessor, ctx: &mut Context) -> AttributeAcces
     view,
     count,
     byte_offset,
-    item_size,
+    item_byte_size,
   }
 }
 

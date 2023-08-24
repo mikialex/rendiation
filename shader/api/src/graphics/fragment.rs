@@ -90,11 +90,10 @@ impl ShaderFragmentBuilder {
 
     set_current_building(ShaderStages::Fragment.into());
 
-    let frag_ndc =
-      ShaderInputNode::BuiltIn(ShaderBuiltInDecorator::FragmentPositionIn).insert_api();
+    let frag_ndc = ShaderInputNode::BuiltIn(ShaderBuiltInDecorator::FragPositionIn).insert_api();
     result.register::<FragmentPosition>(frag_ndc);
 
-    let facing = ShaderInputNode::BuiltIn(ShaderBuiltInDecorator::FrontFacing).insert_api();
+    let facing = ShaderInputNode::BuiltIn(ShaderBuiltInDecorator::FragFrontFacing).insert_api();
     result.register::<FragmentFrontFacing>(facing);
 
     let index = ShaderInputNode::BuiltIn(ShaderBuiltInDecorator::FragSampleIndex).insert_api();

@@ -63,28 +63,26 @@ impl<'a, T> GraphicsShaderProvider for LinearBlurTask<'a, T> {
       let weights = binding.bind_by(&self.weights.weights);
       let weight_count = binding.bind_by(&self.weights.weight_count).load();
 
-      let input: HandleNode<_> = binding.bind_by_unchecked(&self.input);
+      let input: HandleNode<_> = binding.bind_by(&self.input);
       let sampler = binding.binding::<GPUSamplerView>();
 
       let uv = builder.query::<FragmentUv>()?;
       let size = builder.query::<TexelSize>()?;
 
-      let sum = val(Vec4::zero()).make_local_var();
-
-      let iter = ClampedShaderIter {
-        source: weights,
-        count: weight_count,
-      };
-
       let sample_offset = size * config.direction;
 
-      for_by(iter, |_, weight, i| {
-        let weight = weight.load();
-        let position = uv + (i.into_f32() - weight_count.into_f32() * val(0.5)) * sample_offset;
-        sum.store(sum.load() + weight * input.sample(sampler, position))
-      });
+      let sum = weights
+        .into_shader_iter()
+        .clamp_by(weight_count)
+        .map(|(i, weight): (Node<u32>, UniformNode<Vec4<f32>>)| {
+          let weight = weight.load();
+          let position = uv + (i.into_f32() - weight_count.into_f32() * val(0.5)) * sample_offset;
+          // I think the naga's shader uniformity analysis is bugged if we use sample call here.
+          weight * input.sample_level(sampler, position, val(0.))
+        })
+        .sum();
 
-      builder.store_fragment_out(0, sum.load())
+      builder.store_fragment_out(0, sum)
     })
   }
 }

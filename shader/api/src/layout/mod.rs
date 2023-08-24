@@ -206,6 +206,12 @@ pub unsafe trait Std430: Copy + Zeroable + Pod {
   fn as_bytes(&self) -> &[u8] {
     bytes_of(self)
   }
+
+  /// we not require this method on std140 because we never need to read back from uniform buffer
+  fn from_bytes(bytes: &[u8]) -> Self {
+    // should we do copy unaligned?
+    *bytemuck::from_bytes(bytes)
+  }
 }
 
 unsafe impl Std430 for f32 {
@@ -269,4 +275,31 @@ where
   Self: Pod,
 {
   const ALIGNMENT: usize = T::ALIGNMENT;
+}
+
+/// # Safety
+/// should only be impl on std430 layout type
+pub unsafe trait Std430MaybeUnsized {
+  fn bytes(&self) -> &[u8];
+  fn from_bytes_into_boxed(bytes: &[u8]) -> Box<Self>;
+}
+
+unsafe impl<T: Std430> Std430MaybeUnsized for T {
+  fn bytes(&self) -> &[u8] {
+    self.as_bytes()
+  }
+  fn from_bytes_into_boxed(bytes: &[u8]) -> Box<Self> {
+    Box::new(Self::from_bytes(bytes))
+  }
+}
+unsafe impl<T: Std430> Std430MaybeUnsized for [T] {
+  fn bytes(&self) -> &[u8] {
+    bytemuck::cast_slice(self)
+  }
+  fn from_bytes_into_boxed(bytes: &[u8]) -> Box<Self> {
+    let slice: &[T] = bytemuck::cast_slice(bytes);
+    // we should try unsafe here, todo
+    // https://www.reddit.com/r/rust/comments/jzwwqb/about_creating_a_boxed_slice/
+    Vec::from_iter(slice.iter().copied()).into_boxed_slice()
+  }
 }

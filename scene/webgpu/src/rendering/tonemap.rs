@@ -149,7 +149,7 @@ impl<'a, T> ShaderPassBuilder for ToneMapTask<'a, T> {
 impl<'a, T> GraphicsShaderProvider for ToneMapTask<'a, T> {
   fn build(&self, builder: &mut ShaderRenderPipelineBuilder) -> Result<(), ShaderBuildError> {
     builder.fragment(|builder, binding| {
-      let hdr = binding.bind_by_unchecked(&self.hdr);
+      let hdr = binding.bind_by(&self.hdr);
       let sampler = binding.binding::<GPUSamplerView>();
 
       let uv = builder.query::<FragmentUv>()?;

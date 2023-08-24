@@ -4,6 +4,7 @@ use crate::*;
 pub enum ShaderStages {
   Vertex,
   Fragment,
+  Compute,
 }
 
 /// https://www.w3.org/TR/WGSL/#address-space
@@ -39,38 +40,60 @@ impl AddressSpace {
   }
 }
 
-impl core::marker::ConstParamTy for AddressSpace {}
+pub struct Atomic<T>(PhantomData<T>);
 
-pub struct ShaderPtr<T, const S: AddressSpace>(PhantomData<T>);
+impl<T: AtomicityShaderNodeType> ShaderNodeType for Atomic<T> {
+  const TYPE: ShaderValueType = ShaderValueType::Single(ShaderValueSingleType::Sized(
+    ShaderSizedValueType::Atomic(T::ATOM),
+  ));
+}
 
-impl<T: ShaderNodeType, const S: AddressSpace> ShaderNodeType for ShaderPtr<T, S> {
+pub struct ShaderLocalPtr<T: ?Sized>(PhantomData<T>);
+pub struct ShaderPrivatePtr<T: ?Sized>(PhantomData<T>);
+pub struct ShaderHandlePtr<T: ?Sized>(PhantomData<T>);
+pub struct ShaderUniformPtr<T: ?Sized>(PhantomData<T>);
+pub struct ShaderReadOnlyStoragePtr<T: ?Sized>(PhantomData<T>);
+pub struct ShaderStoragePtr<T: ?Sized>(PhantomData<T>);
+pub struct ShaderWorkGroupPtr<T: ?Sized>(PhantomData<T>);
+
+impl<T: ShaderNodeType> ShaderNodeType for ShaderLocalPtr<T> {
+  const TYPE: ShaderValueType = T::TYPE;
+}
+impl<T: ShaderNodeType> ShaderNodeType for ShaderPrivatePtr<T> {
+  const TYPE: ShaderValueType = T::TYPE;
+}
+impl<T: ShaderNodeType> ShaderNodeType for ShaderHandlePtr<T> {
+  const TYPE: ShaderValueType = T::TYPE;
+}
+impl<T: ShaderNodeType> ShaderNodeType for ShaderUniformPtr<T> {
+  const TYPE: ShaderValueType = T::TYPE;
+}
+impl<T: ShaderNodeType + ?Sized> ShaderNodeType for ShaderReadOnlyStoragePtr<T> {
+  const TYPE: ShaderValueType = T::TYPE;
+}
+impl<T: ShaderNodeType + ?Sized> ShaderNodeType for ShaderStoragePtr<T> {
+  const TYPE: ShaderValueType = T::TYPE;
+}
+impl<T: ShaderNodeType> ShaderNodeType for ShaderWorkGroupPtr<T> {
   const TYPE: ShaderValueType = T::TYPE;
 }
 
-// we do not have alias rule like rust in shader, so clone copy at will
-impl<T, const S: AddressSpace> Clone for ShaderPtr<T, S> {
-  fn clone(&self) -> Self {
-    Self(self.0)
-  }
-}
-impl<T, const S: AddressSpace> Copy for ShaderPtr<T, S> {}
-
-pub type GlobalVariable<T> = Node<ShaderPtr<T, { AddressSpace::Private }>>;
-pub type LocalVarNode<T> = Node<ShaderPtr<T, { AddressSpace::Function }>>;
-pub type WorkGroupSharedNode<T> = Node<ShaderPtr<T, { AddressSpace::WorkGroup }>>;
-
-pub type UniformPtr<T> = ShaderPtr<T, { AddressSpace::Uniform }>;
-pub type UniformNode<T> = Node<UniformPtr<T>>;
-pub type HandlePtr<T> = ShaderPtr<T, { AddressSpace::Handle }>;
-pub type HandleNode<T> = Node<HandlePtr<T>>;
-
-pub type ReadOnlyStoragePtr<T> = ShaderPtr<T, { AddressSpace::Storage { writeable: false } }>;
-pub type ReadOnlyStorageNode<T> = Node<ReadOnlyStoragePtr<T>>;
-pub type StoragePtr<T> = ShaderPtr<T, { AddressSpace::Storage { writeable: true } }>;
-pub type StorageNode<T> = Node<StoragePtr<T>>;
+pub type GlobalVarNode<T> = Node<ShaderPrivatePtr<T>>;
+pub type LocalVarNode<T> = Node<ShaderLocalPtr<T>>;
+pub type WorkGroupSharedNode<T> = Node<ShaderWorkGroupPtr<T>>;
+pub type UniformNode<T> = Node<ShaderUniformPtr<T>>;
+pub type HandleNode<T> = Node<ShaderHandlePtr<T>>;
+pub type ReadOnlyStorageNode<T> = Node<ShaderReadOnlyStoragePtr<T>>;
+pub type StorageNode<T> = Node<ShaderStoragePtr<T>>;
 
 #[derive(Clone, Copy)]
-pub struct BindingArray<T, const N: usize>(PhantomData<T>);
+pub struct BindingArray<T: ?Sized, const N: usize>(PhantomData<T>);
+
+#[derive(Clone, Copy, PartialEq, Eq, Debug, Hash)]
+pub enum ShaderAtomicValueType {
+  I32,
+  U32,
+}
 
 #[derive(Clone, Copy, PartialEq, Eq, Hash)]
 pub enum ShaderValueType {
@@ -114,6 +137,7 @@ pub enum ShaderValueSingleType {
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug, Hash)]
 pub enum ShaderSizedValueType {
+  Atomic(ShaderAtomicValueType),
   Primitive(PrimitiveShaderValueType),
   Struct(&'static ShaderStructMetaInfo),
   FixedSizeArray((&'static ShaderSizedValueType, usize)),
@@ -125,11 +149,11 @@ pub enum ShaderUnSizedValueType {
   UnsizedStruct(&'static ShaderUnSizedStructMetaInfo),
 }
 
-pub trait ShaderNodeType: 'static + Copy {
+pub trait ShaderNodeType: 'static {
   const TYPE: ShaderValueType;
 }
 
-pub trait ShaderNodeSingleType: 'static + Copy {
+pub trait ShaderNodeSingleType: 'static {
   const SINGLE_TYPE: ShaderValueSingleType;
 }
 
@@ -141,18 +165,40 @@ pub trait ShaderUnsizedValueNodeType: ShaderNodeType {
   const UNSIZED_TYPE: ShaderUnSizedValueType;
 }
 
+pub enum MaybeUnsizedValueType {
+  Sized(ShaderSizedValueType),
+  Unsized(ShaderUnSizedValueType),
+}
+
+impl<T: ShaderSizedValueNodeType> ShaderMaybeUnsizedValueNodeType for T {
+  const MAYBE_UNSIZED_TYPE: MaybeUnsizedValueType = MaybeUnsizedValueType::Sized(Self::MEMBER_TYPE);
+}
+
+pub trait ShaderMaybeUnsizedValueNodeType: ShaderNodeType {
+  const MAYBE_UNSIZED_TYPE: MaybeUnsizedValueType;
+}
+
 pub trait PrimitiveShaderNodeType: ShaderNodeType + Default {
   const PRIMITIVE_TYPE: PrimitiveShaderValueType;
   fn to_primitive(&self) -> PrimitiveShaderValue;
 }
 
-pub trait ShaderStructuralNodeType: ShaderNodeType {
+pub trait AtomicityShaderNodeType: ShaderNodeType {
+  const ATOM: ShaderAtomicValueType;
+}
+
+pub trait ShaderStructuralNodeType: ShaderNodeType + Sized {
   type Instance;
   fn meta_info() -> &'static ShaderStructMetaInfo;
   fn expand(node: Node<Self>) -> Self::Instance;
   fn construct(instance: Self::Instance) -> Node<Self>;
 }
 pub type ENode<T> = <T as ShaderStructuralNodeType>::Instance;
+
+pub trait ShaderUnsizedStructuralNodeType: ShaderNodeType {
+  type Instance;
+  fn meta_info() -> &'static ShaderUnSizedStructMetaInfo;
+}
 
 #[macro_export]
 macro_rules! sg_node_impl {
@@ -198,9 +244,24 @@ impl<T: ShaderSizedValueNodeType, const N: usize> ShaderSizedValueNodeType
     ShaderSizedValueType::FixedSizeArray((&T::MEMBER_TYPE, N));
 }
 
-impl<T: ShaderNodeSingleType, const N: usize> ShaderNodeType for BindingArray<T, N> {
+impl<T: ShaderNodeSingleType + ?Sized, const N: usize> ShaderNodeType
+  for BindingArray<ShaderHandlePtr<T>, N>
+{
   const TYPE: ShaderValueType = ShaderValueType::BindingArray {
     ty: T::SINGLE_TYPE,
     count: N,
   };
+}
+
+impl<T: ShaderSizedValueNodeType> ShaderNodeType for [T] {
+  const TYPE: ShaderValueType =
+    ShaderValueType::Single(ShaderValueSingleType::Unsized(Self::UNSIZED_TYPE));
+}
+impl<T: ShaderSizedValueNodeType> ShaderUnsizedValueNodeType for [T] {
+  const UNSIZED_TYPE: ShaderUnSizedValueType =
+    ShaderUnSizedValueType::UnsizedArray(&T::MEMBER_TYPE);
+}
+impl<T: ShaderSizedValueNodeType> ShaderMaybeUnsizedValueNodeType for [T] {
+  const MAYBE_UNSIZED_TYPE: MaybeUnsizedValueType =
+    MaybeUnsizedValueType::Unsized(Self::UNSIZED_TYPE);
 }

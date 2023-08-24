@@ -35,14 +35,15 @@ impl ShaderAPINagaImpl {
     let stage = match stage {
       ShaderStages::Vertex => naga::ShaderStage::Vertex,
       ShaderStages::Fragment => naga::ShaderStage::Fragment,
+      ShaderStages::Compute => naga::ShaderStage::Compute,
     };
 
     let mut module = naga::Module::default();
     let entry = naga::EntryPoint {
       name: ENTRY_POINT_NAME.to_owned(),
       stage,
-      early_depth_test: None,    // todo expose
-      workgroup_size: [0, 0, 0], // todo expose , why naga not make this an enum??
+      early_depth_test: None,
+      workgroup_size: [0, 0, 0],
       function: Default::default(),
     };
     module.entry_points.push(entry);
@@ -129,6 +130,16 @@ impl ShaderAPINagaImpl {
     let ty = match ty {
       ShaderValueType::Single(v) => match v {
         ShaderValueSingleType::Sized(f) => match f {
+          ShaderSizedValueType::Atomic(t) => naga::TypeInner::Atomic {
+            kind: match t {
+              ShaderAtomicValueType::I32 => naga::ScalarKind::Sint,
+              ShaderAtomicValueType::U32 => naga::ScalarKind::Uint,
+            },
+            width: match t {
+              ShaderAtomicValueType::I32 => 4,
+              ShaderAtomicValueType::U32 => 4,
+            },
+          },
           ShaderSizedValueType::Primitive(p) => map_primitive_type(p),
           ShaderSizedValueType::Struct(st) => {
             name = st.name.to_owned().into();
@@ -144,8 +155,18 @@ impl ShaderAPINagaImpl {
           },
         },
         ShaderValueSingleType::Unsized(ty) => match ty {
-          ShaderUnSizedValueType::UnsizedArray(_) => todo!(),
-          ShaderUnSizedValueType::UnsizedStruct(_) => todo!(),
+          ShaderUnSizedValueType::UnsizedArray(ty) => naga::TypeInner::Array {
+            base: self.register_ty_impl(
+              ShaderValueType::Single(ShaderValueSingleType::Sized(*ty)),
+              layout,
+            ),
+            size: naga::ArraySize::Dynamic,
+            stride: ty.size_of_self(layout.unwrap_or(StructLayoutTarget::Std430)) as u32,
+          },
+          ShaderUnSizedValueType::UnsizedStruct(meta) => {
+            name = meta.name.to_owned().into();
+            gen_unsized_struct_define(self, meta)
+          }
         },
         ShaderValueSingleType::Sampler(sampler) => naga::TypeInner::Sampler {
           comparison: matches!(sampler, SamplerBindingType::Comparison),
@@ -231,6 +252,19 @@ impl ShaderAPINagaImpl {
 
 impl ShaderAPI for ShaderAPINagaImpl {
   type Output = Box<dyn core::any::Any>;
+
+  fn set_workgroup_size(&mut self, size: (u32, u32, u32)) {
+    self.module.entry_points[0].workgroup_size = [size.0, size.1, size.2]
+  }
+
+  fn barrier(&mut self, scope: BarrierScope) {
+    let b = match scope {
+      BarrierScope::Storage => naga::Barrier::STORAGE,
+      BarrierScope::WorkGroup => naga::Barrier::WORK_GROUP,
+    };
+    self.push_top_statement(naga::Statement::Barrier(b));
+  }
+
   fn define_module_input(&mut self, input: ShaderInputNode) -> ShaderNodeRawHandle {
     assert!(self.building_fn.len() == 1);
     match input {
@@ -242,11 +276,11 @@ impl ShaderAPI for ShaderAPINagaImpl {
             kind: naga::ScalarKind::Uint,
             width: 4,
           },
-          ShaderBuiltInDecorator::InstanceIndex => naga::TypeInner::Scalar {
+          ShaderBuiltInDecorator::VertexInstanceIndex => naga::TypeInner::Scalar {
             kind: naga::ScalarKind::Uint,
             width: 4,
           },
-          ShaderBuiltInDecorator::FrontFacing => naga::TypeInner::Scalar {
+          ShaderBuiltInDecorator::FragFrontFacing => naga::TypeInner::Scalar {
             kind: naga::ScalarKind::Bool,
             width: naga::BOOL_WIDTH,
           },
@@ -258,7 +292,7 @@ impl ShaderAPI for ShaderAPINagaImpl {
             kind: naga::ScalarKind::Uint,
             width: 4,
           },
-          ShaderBuiltInDecorator::FragmentPositionIn => naga::TypeInner::Vector {
+          ShaderBuiltInDecorator::FragPositionIn => naga::TypeInner::Vector {
             size: naga::VectorSize::Quad,
             kind: naga::ScalarKind::Float,
             width: 4,
@@ -270,6 +304,25 @@ impl ShaderAPI for ShaderAPINagaImpl {
           },
           ShaderBuiltInDecorator::FragDepth => naga::TypeInner::Scalar {
             kind: naga::ScalarKind::Float,
+            width: 4,
+          },
+          ShaderBuiltInDecorator::CompLocalInvocationId => naga::TypeInner::Vector {
+            size: naga::VectorSize::Tri,
+            kind: naga::ScalarKind::Uint,
+            width: 4,
+          },
+          ShaderBuiltInDecorator::CompGlobalInvocationId => naga::TypeInner::Vector {
+            size: naga::VectorSize::Tri,
+            kind: naga::ScalarKind::Uint,
+            width: 4,
+          },
+          ShaderBuiltInDecorator::CompLocalInvocationIndex => naga::TypeInner::Scalar {
+            kind: naga::ScalarKind::Uint,
+            width: 4,
+          },
+          ShaderBuiltInDecorator::CompWorkgroupId => naga::TypeInner::Vector {
+            size: naga::VectorSize::Tri,
+            kind: naga::ScalarKind::Uint,
             width: 4,
           },
         };
@@ -294,7 +347,11 @@ impl ShaderAPI for ShaderAPINagaImpl {
         let space = match desc.get_buffer_layout() {
           Some(StructLayoutTarget::Std140) => naga::AddressSpace::Uniform,
           Some(StructLayoutTarget::Std430) => naga::AddressSpace::Storage {
-            access: StorageAccess::LOAD,
+            access: if desc.writeable_if_storage {
+              StorageAccess::all()
+            } else {
+              StorageAccess::LOAD
+            },
           },
           None => naga::AddressSpace::Handle,
         };
@@ -333,6 +390,44 @@ impl ShaderAPI for ShaderAPINagaImpl {
           }
           .into(),
         })
+      }
+      ShaderInputNode::WorkGroupShared { ty } => {
+        let ty = self.register_ty_impl(
+          ShaderValueType::Single(ShaderValueSingleType::Sized(ty)),
+          None,
+        );
+        let g = naga::GlobalVariable {
+          name: None,
+          space: naga::AddressSpace::WorkGroup,
+          binding: None,
+          ty,
+          init: None,
+        };
+        let g = self.module.global_variables.append(g, Span::UNDEFINED);
+        let g = self.make_expression_inner_raw(naga::Expression::GlobalVariable(g));
+
+        let return_handle = self.make_new_handle();
+        self.expression_mapping.insert(return_handle, g);
+        return_handle
+      }
+      ShaderInputNode::Private { ty } => {
+        let ty = self.register_ty_impl(
+          ShaderValueType::Single(ShaderValueSingleType::Sized(ty)),
+          None,
+        );
+        let g = naga::GlobalVariable {
+          name: None,
+          space: naga::AddressSpace::Private,
+          binding: None,
+          ty,
+          init: None,
+        };
+        let g = self.module.global_variables.append(g, Span::UNDEFINED);
+        let g = self.make_expression_inner_raw(naga::Expression::GlobalVariable(g));
+
+        let return_handle = self.make_new_handle();
+        self.expression_mapping.insert(return_handle, g);
+        return_handle
       }
     }
   }
@@ -383,6 +478,57 @@ impl ShaderAPI for ShaderAPINagaImpl {
     #[allow(clippy::never_loop)] // we here use loop to early exit match block!
     let expr = loop {
       break match expr {
+        ShaderNodeExpr::Zeroed { target } => naga::Expression::ZeroValue(self.register_ty_impl(
+          ShaderValueType::Single(ShaderValueSingleType::Sized(target)),
+          None,
+        )),
+        ShaderNodeExpr::AtomicCall {
+          ty,
+          pointer,
+          function,
+          value,
+        } => {
+          let mut comparison = false;
+          let fun = match function {
+            AtomicFunction::Add => naga::AtomicFunction::Add,
+            AtomicFunction::Subtract => naga::AtomicFunction::Subtract,
+            AtomicFunction::And => naga::AtomicFunction::And,
+            AtomicFunction::ExclusiveOr => naga::AtomicFunction::ExclusiveOr,
+            AtomicFunction::InclusiveOr => naga::AtomicFunction::InclusiveOr,
+            AtomicFunction::Min => naga::AtomicFunction::Min,
+            AtomicFunction::Max => naga::AtomicFunction::Max,
+            AtomicFunction::Exchange { compare } => naga::AtomicFunction::Exchange {
+              compare: compare.map(|c| {
+                comparison = true;
+                self.get_expression(c)
+              }),
+            },
+          };
+
+          let ty = self.register_ty_impl(
+            ShaderValueType::Single(ShaderValueSingleType::Sized(ShaderSizedValueType::Atomic(
+              ty,
+            ))),
+            None,
+          );
+
+          // we have to control here not to emit the call exp.
+          let r = self.building_fn.last_mut().unwrap().expressions.append(
+            naga::Expression::AtomicResult { ty, comparison },
+            Span::UNDEFINED,
+          );
+          let r_handle = self.make_new_handle();
+          self.expression_mapping.insert(r_handle, r);
+
+          self.push_top_statement(naga::Statement::Atomic {
+            pointer: self.get_expression(pointer),
+            fun,
+            value: self.get_expression(value),
+            result: r,
+          });
+
+          return r_handle;
+        }
         ShaderNodeExpr::FunctionCall { meta, parameters } => {
           match meta {
             ShaderFunctionType::Custom(meta) => {
@@ -809,20 +955,6 @@ impl ShaderAPI for ShaderAPINagaImpl {
   }
 
   fn store(&mut self, source: ShaderNodeRawHandle, target: ShaderNodeRawHandle) {
-    let pointer = self.get_expression(target);
-    let exp = self
-      .building_fn
-      .last_mut()
-      .unwrap()
-      .expressions
-      .get_mut(pointer);
-
-    match exp {
-      naga::Expression::GlobalVariable(_) => {}
-      naga::Expression::LocalVariable(_) => {}
-      ty => panic!("invalid store {:?}", ty),
-    }
-
     let st = naga::Statement::Store {
       pointer: self.get_expression(target),
       value: self.get_expression(source),
@@ -1090,6 +1222,8 @@ fn map_binary_op(o: BinaryOperator) -> naga::BinaryOperator {
     BinaryOperator::LogicalAnd => naga::BinaryOperator::LogicalAnd,
     BinaryOperator::BitAnd => naga::BinaryOperator::And,
     BinaryOperator::BitOr => naga::BinaryOperator::InclusiveOr,
+    BinaryOperator::ShiftLeft => naga::BinaryOperator::ShiftLeft,
+    BinaryOperator::ShiftRight => naga::BinaryOperator::ShiftRight,
   }
 }
 
@@ -1127,16 +1261,65 @@ fn gen_struct_define(
 ) -> naga::TypeInner {
   let layout = l.unwrap_or(StructLayoutTarget::Std430); // is this ok??
 
+  let members = struct_member(&meta.name, api, &meta.fields, l);
+
+  assert!(!members.is_empty());
+
+  // is this ok??
+  let size = meta.size_of_self(layout);
+
+  naga::TypeInner::Struct {
+    members,
+    span: size as u32,
+  }
+}
+
+fn gen_unsized_struct_define(
+  api: &mut ShaderAPINagaImpl,
+  meta: &ShaderUnSizedStructMetaInfo,
+) -> naga::TypeInner {
+  let layout = StructLayoutTarget::Std430;
+
+  let fields: Vec<_> = meta.sized_fields.iter().map(|f| f.to_owned()).collect();
+  let mut members = struct_member(meta.name, api, &fields, Some(layout));
+
+  let field_size = size_of_struct_sized_fields(&fields, layout);
+  let (name, array_ty) = meta.last_dynamic_array_field;
+
+  members.push(naga::StructMember {
+    name: name.to_string().into(),
+    ty: api.register_ty_impl(
+      ShaderValueType::Single(ShaderValueSingleType::Unsized(
+        ShaderUnSizedValueType::UnsizedArray(array_ty),
+      )),
+      Some(layout),
+    ),
+    binding: None,
+    offset: field_size as u32,
+  });
+
+  naga::TypeInner::Struct {
+    members,
+    span: (field_size + array_ty.size_of_self(layout)) as u32,
+  }
+}
+
+fn struct_member(
+  name: &str,
+  api: &mut ShaderAPINagaImpl,
+  fields: &[ShaderStructFieldMetaInfoOwned],
+  l: Option<StructLayoutTarget>,
+) -> Vec<naga::StructMember> {
+  let layout = l.unwrap_or(StructLayoutTarget::Std430); // is this ok??
+
   let mut extra_explicit_padding_count = 0;
   let mut current_byte_used = 0;
   let mut members = Vec::new();
-  for (index, ShaderStructFieldMetaInfoOwned { name, ty, ty_deco }) in
-    meta.fields.iter().enumerate()
-  {
-    let next_align_requirement = if index + 1 == meta.fields.len() {
-      meta.align_of_self(layout)
+  for (index, ShaderStructFieldMetaInfoOwned { name, ty, ty_deco }) in fields.iter().enumerate() {
+    let next_align_requirement = if index + 1 == fields.len() {
+      align_of_struct_sized_fields(fields, layout)
     } else {
-      meta.fields[index + 1].ty.align_of_self(layout)
+      fields[index + 1].ty.align_of_self(layout)
     };
 
     let field_offset = current_byte_used;
@@ -1171,7 +1354,7 @@ fn gen_struct_define(
     // have to solve the struct in struct case.
     //
     // I tried set the naga struct span, but has no effect, so here we add padding manually..
-    if l.is_some() && index + 1 == meta.fields.len() && padding_size > 0 {
+    if l.is_some() && index + 1 == fields.len() && padding_size > 0 {
       assert!(padding_size % 4 == 0); // we assume the minimal type size is 4 bytes.
       let pad_byte_start = field_offset + type_size;
       let pad_count = padding_size / 4;
@@ -1194,28 +1377,23 @@ fn gen_struct_define(
 
   api
     .struct_extra_padding_count
-    .insert(meta.name.clone(), extra_explicit_padding_count);
-
-  assert!(!members.is_empty());
-
-  // is this ok??
-  let size = meta.size_of_self(layout);
-
-  naga::TypeInner::Struct {
-    members,
-    span: size as u32,
-  }
+    .insert(name.to_string(), extra_explicit_padding_count);
+  members
 }
 
 fn match_built_in(bt: ShaderBuiltInDecorator) -> naga::BuiltIn {
   match bt {
     ShaderBuiltInDecorator::VertexIndex => naga::BuiltIn::VertexIndex,
-    ShaderBuiltInDecorator::InstanceIndex => naga::BuiltIn::InstanceIndex,
-    ShaderBuiltInDecorator::FrontFacing => naga::BuiltIn::FrontFacing,
+    ShaderBuiltInDecorator::VertexInstanceIndex => naga::BuiltIn::InstanceIndex,
+    ShaderBuiltInDecorator::FragFrontFacing => naga::BuiltIn::FrontFacing,
     ShaderBuiltInDecorator::FragSampleIndex => naga::BuiltIn::SampleIndex,
     ShaderBuiltInDecorator::FragSampleMask => naga::BuiltIn::SampleMask,
-    ShaderBuiltInDecorator::FragmentPositionIn => naga::BuiltIn::Position { invariant: false },
+    ShaderBuiltInDecorator::FragPositionIn => naga::BuiltIn::Position { invariant: false },
     ShaderBuiltInDecorator::VertexPositionOut => naga::BuiltIn::Position { invariant: false },
     ShaderBuiltInDecorator::FragDepth => naga::BuiltIn::FragDepth,
+    ShaderBuiltInDecorator::CompLocalInvocationId => naga::BuiltIn::LocalInvocationId,
+    ShaderBuiltInDecorator::CompGlobalInvocationId => naga::BuiltIn::GlobalInvocationId,
+    ShaderBuiltInDecorator::CompLocalInvocationIndex => naga::BuiltIn::LocalInvocationIndex,
+    ShaderBuiltInDecorator::CompWorkgroupId => naga::BuiltIn::WorkGroupId,
   }
 }

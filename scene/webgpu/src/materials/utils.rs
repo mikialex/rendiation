@@ -35,7 +35,7 @@ pub fn apply_normal_map_delta(
 }
 
 pub fn apply_tex_pair_delta(
-  t: Option<MaybeDelta<TextureWithSamplingData<SceneItemRef<SceneTexture2DType>>>>,
+  t: Option<MaybeDelta<TextureWithSamplingData<SharedIncrementalSignal<SceneTexture2DType>>>>,
   target: &mut ReactiveGPUTextureSamplerPair,
   ctx: &ShareBindableResourceCtx,
 ) -> RenderComponentDeltaFlag {

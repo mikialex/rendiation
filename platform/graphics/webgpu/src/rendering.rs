@@ -15,14 +15,7 @@ pub trait RenderComponent: ShaderHashProvider + GraphicsShaderProvider + ShaderP
         device
           .build_pipeline_by_shader_api(
             self
-              .build_self(
-                Box::new(ShaderAPINagaImpl::new(
-                  rendiation_shader_api::ShaderStages::Vertex,
-                )),
-                Box::new(ShaderAPINagaImpl::new(
-                  rendiation_shader_api::ShaderStages::Fragment,
-                )),
-              )
+              .build_self(&|stage| Box::new(ShaderAPINagaImpl::new(stage)))
               .unwrap(),
           )
           .unwrap()
@@ -33,11 +26,9 @@ pub trait RenderComponent: ShaderHashProvider + GraphicsShaderProvider + ShaderP
 
     self.setup_pass_self(ctx);
 
-    ctx.pass.set_pipeline_owned(&pipeline);
-
     ctx
       .binding
-      .setup_pass(&mut ctx.pass, &ctx.gpu.device, &pipeline);
+      .setup_render_pass(&mut ctx.pass, &ctx.gpu.device, &pipeline);
 
     ctx.pass.draw_by_command(com)
   }

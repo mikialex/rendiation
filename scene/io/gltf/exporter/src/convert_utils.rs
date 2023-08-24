@@ -60,14 +60,15 @@ pub fn map_alpha_mode(alpha_mode: AlphaMode) -> gltf_json::material::AlphaMode {
 }
 
 #[rustfmt::skip]
-pub fn map_semantic_att(att: AttributeSemantic) -> (gltf_json::mesh::Semantic, gltf_json::accessor::ComponentType, gltf_json::accessor::Type) {
+pub fn map_semantic_att(att: &AttributeSemantic) -> Option<(gltf_json::mesh::Semantic, gltf_json::accessor::ComponentType, gltf_json::accessor::Type)> {
   match att {
     AttributeSemantic::Positions => (gltf_json::mesh::Semantic::Positions, gltf_json::accessor::ComponentType::F32, gltf_json::accessor::Type::Vec3),
     AttributeSemantic::Normals => (gltf_json::mesh::Semantic::Normals, gltf_json::accessor::ComponentType::F32, gltf_json::accessor::Type::Vec3),
     AttributeSemantic::Tangents => (gltf_json::mesh::Semantic::Tangents, gltf_json::accessor::ComponentType::F32, gltf_json::accessor::Type::Vec3),
-    AttributeSemantic::Colors(v) => (gltf_json::mesh::Semantic::Colors(v), gltf_json::accessor::ComponentType::F32, gltf_json::accessor::Type::Vec3), // todo check att data
-    AttributeSemantic::TexCoords(v) => (gltf_json::mesh::Semantic::TexCoords(v), gltf_json::accessor::ComponentType::F32, gltf_json::accessor::Type::Vec2),
-    AttributeSemantic::Joints(v) => (gltf_json::mesh::Semantic::Joints(v), gltf_json::accessor::ComponentType::F32, gltf_json::accessor::Type::Scalar), // todo check spec
-    AttributeSemantic::Weights(v) => (gltf_json::mesh::Semantic::Weights(v), gltf_json::accessor::ComponentType::F32, gltf_json::accessor::Type::Vec4), // todo check spec
-  }
+    AttributeSemantic::Colors(v) => (gltf_json::mesh::Semantic::Colors(*v), gltf_json::accessor::ComponentType::F32, gltf_json::accessor::Type::Vec3), // todo check att data
+    AttributeSemantic::TexCoords(v) => (gltf_json::mesh::Semantic::TexCoords(*v), gltf_json::accessor::ComponentType::F32, gltf_json::accessor::Type::Vec2),
+    AttributeSemantic::Joints(v) => (gltf_json::mesh::Semantic::Joints(*v), gltf_json::accessor::ComponentType::F32, gltf_json::accessor::Type::Scalar), // todo check spec
+    AttributeSemantic::Weights(v) => (gltf_json::mesh::Semantic::Weights(*v), gltf_json::accessor::ComponentType::F32, gltf_json::accessor::Type::Vec4), // todo check spec
+    AttributeSemantic::Foreign(_) => return None, 
+  }.into()
 }

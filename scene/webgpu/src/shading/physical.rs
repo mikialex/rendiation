@@ -71,15 +71,13 @@ impl LightableSurfaceShading for PhysicalShading {
     self_node: &ENode<Self::ShaderStruct>,
     direct_light: &ENode<ShaderIncidentLight>,
     ctx: &ENode<ShaderLightingGeometricCtx>,
-  ) -> Result<ENode<ShaderLightingResult>, ShaderBuildError> {
-    Ok(
-      physical_shading_fn(
-        direct_light.construct(),
-        ctx.construct(),
-        self_node.construct(),
-      )
-      .expand(),
+  ) -> ENode<ShaderLightingResult> {
+    physical_shading_fn(
+      direct_light.construct(),
+      ctx.construct(),
+      self_node.construct(),
     )
+    .expand()
   }
 }
 

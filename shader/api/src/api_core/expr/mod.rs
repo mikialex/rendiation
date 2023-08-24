@@ -59,10 +59,19 @@ pub enum SampleLevel {
 }
 
 pub enum ShaderNodeExpr {
+  Zeroed {
+    target: ShaderSizedValueType,
+  },
   Convert {
     source: ShaderNodeRawHandle,
     convert_to: ValueKind,
     convert: Option<u8>,
+  },
+  AtomicCall {
+    ty: ShaderAtomicValueType,
+    pointer: ShaderNodeRawHandle,
+    function: AtomicFunction,
+    value: ShaderNodeRawHandle,
   },
   FunctionCall {
     meta: ShaderFunctionType,
@@ -120,12 +129,37 @@ pub enum DerivativeAxis {
   Width,
 }
 
+#[derive(Clone, Copy, Hash, Eq, PartialEq)]
+pub enum AtomicFunction {
+  Add,
+  Subtract,
+  And,
+  ExclusiveOr,
+  InclusiveOr,
+  Min,
+  Max,
+  Exchange {
+    compare: Option<ShaderNodeRawHandle>,
+  },
+}
+
 #[must_use]
 pub fn val<T>(v: T) -> Node<T>
 where
   T: PrimitiveShaderNodeType,
 {
   v.into()
+}
+
+#[must_use]
+pub fn zeroed_val<T>() -> Node<T>
+where
+  T: ShaderSizedValueNodeType,
+{
+  ShaderNodeExpr::Zeroed {
+    target: T::MEMBER_TYPE,
+  }
+  .insert_api()
 }
 
 impl ShaderNodeExpr {

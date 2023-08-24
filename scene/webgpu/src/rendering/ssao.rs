@@ -1,3 +1,5 @@
+use rendiation_shader_library::sampling::*;
+
 use crate::*;
 
 // https://github.com/lettier/3d-game-shaders-for-beginners/blob/master/sections/ssao.md
@@ -78,23 +80,6 @@ pub struct AOComputer<'a> {
   source_camera_gpu: &'a UniformBufferDataView<CameraGPUTransform>,
 }
 
-// improve use better way
-#[shader_fn]
-fn random(seed: Node<Vec2<f32>>) -> Node<f32> {
-  let s1 = val(12.9898);
-  let s2 = val(78.233);
-  let s3 = val(43758.545);
-  (seed.dot((s1, s2)).sin() * s3).fract()
-}
-
-#[shader_fn]
-fn random3(seed: Node<Vec2<f32>>) -> Node<Vec3<f32>> {
-  let x = random(seed);
-  let y = random((seed + random(seed).splat()).sin());
-  let z = random(seed + random(seed).cos().splat() + random(seed).splat());
-  (x, y, z).into()
-}
-
 impl<'a> ShaderHashProvider for AOComputer<'a> {}
 impl<'a> ShaderHashProviderAny for AOComputer<'a> {
   fn hash_pipeline_and_with_type_id(&self, hasher: &mut PipelineHasher) {
@@ -123,44 +108,42 @@ impl<'a> GraphicsShaderProvider for AOComputer<'a> {
 
       let uv = builder.query::<FragmentUv>()?;
 
-      let iter = ClampedShaderIter {
-        source: samples,
-        count: parameter.sample_count,
-      };
-
       let sample_count_f = parameter.sample_count.into_f32();
-
-      let occlusion = sample_count_f.make_local_var();
 
       let depth = depth_tex.sample(sampler, uv).x();
       let position_world = shader_uv_space_to_world_space(&camera, uv, depth);
 
-      let normal = compute_normal_by_dxdy(position_world); // wrong
+      let normal = compute_normal_by_dxdy(position_world); // wrong, but i do not want pay cost to use normal texture input
 
-      let random = random3(uv + parameter.noise_jit.splat()) * val(2.) - val(Vec3::one());
+      let random = random3_fn(uv + parameter.noise_jit.splat()) * val(2.) - val(Vec3::one());
       let tangent = (random - normal * random.dot(normal)).normalize();
       let binormal = normal.cross(tangent);
       let tbn: Node<Mat3<f32>> = (tangent, binormal, normal).into();
 
-      for_by(iter, |_, sample, _| {
-        let sample_position_offset = tbn * sample.load().xyz();
-        let sample_position_world = position_world + sample_position_offset * parameter.radius;
+      let occlusion_sum = samples
+        .into_shader_iter()
+        .clamp_by(parameter.sample_count)
+        .map(|(_, sample): (_, UniformNode<Vec4<f32>>)| {
+          let sample_position_offset = tbn * sample.load().xyz();
+          let sample_position_world = position_world + sample_position_offset * parameter.radius;
 
-        let (s_uv, s_depth) = shader_world_space_to_uv_space(&camera, sample_position_world);
-        let sample_position_depth = depth_tex.sample(sampler, s_uv).x();
+          let (s_uv, s_depth) = shader_world_space_to_uv_space(&camera, sample_position_world);
+          // I think the naga's shader uniformity analysis is bugged if we use sample call here.
+          let sample_position_depth = depth_tex.sample_level(sampler, s_uv, val(0.)).x();
 
-        let occluded = (sample_position_depth + parameter.bias)
-          .less_equal_than(s_depth)
-          .select(0., 1.);
+          let occluded = (sample_position_depth + parameter.bias)
+            .less_equal_than(s_depth)
+            .select(0., 1.);
 
-        let relative_depth_diff = parameter.radius / (sample_position_depth - s_depth).abs();
-        let intensity = relative_depth_diff.smoothstep(val(0.), val(1.));
+          let relative_depth_diff = parameter.radius / (sample_position_depth - s_depth).abs();
+          let intensity = relative_depth_diff.smoothstep(val(0.), val(1.));
 
-        let occluded = occluded * intensity;
-        occlusion.store(occlusion.load() - occluded);
-      });
+          occluded * intensity
+        })
+        .sum();
 
-      let occlusion = occlusion.load() / sample_count_f;
+      let occlusion = parameter.sample_count.into_f32() - occlusion_sum;
+      let occlusion = occlusion / sample_count_f;
       let occlusion = occlusion.pow(parameter.magnitude);
       let occlusion = parameter.contrast * (occlusion - val(0.5)) + val(0.5);
 

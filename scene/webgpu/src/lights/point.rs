@@ -12,30 +12,26 @@ pub struct PointLightShaderInfo {
 impl PunctualShaderLight for PointLightShaderInfo {
   type PunctualDependency = ();
 
-  fn create_punctual_dep(
-    _: &mut ShaderFragmentBuilderView,
-  ) -> Result<Self::PunctualDependency, ShaderBuildError> {
-    Ok(())
-  }
+  fn create_punctual_dep(_: &mut ShaderFragmentBuilderView) -> Self::PunctualDependency {}
 
   fn compute_incident_light(
     _: &ShaderFragmentBuilderView,
     light: &ENode<Self>,
     _dep: &Self::PunctualDependency,
     ctx: &ENode<ShaderLightingGeometricCtx>,
-  ) -> Result<ENode<ShaderIncidentLight>, ShaderBuildError> {
+  ) -> ENode<ShaderIncidentLight> {
     let direction = ctx.position - light.position;
     let distance = direction.length();
     let factor = punctual_light_intensity_to_illuminance_factor_fn(distance, light.cutoff_distance);
 
-    Ok(ENode::<ShaderIncidentLight> {
+    ENode::<ShaderIncidentLight> {
       color: light.luminance_intensity * factor,
       direction: direction.normalize(),
-    })
+    }
   }
 }
 
-impl WebGPULight for SceneItemRef<PointLight> {
+impl WebGPULight for SharedIncrementalSignal<PointLight> {
   type Uniform = PointLightShaderInfo;
 
   fn create_uniform_stream(

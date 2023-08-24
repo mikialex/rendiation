@@ -4,7 +4,7 @@ use incremental::EnumWrap;
 use rendiation_algebra::*;
 use rendiation_geometry::OptionalNearest;
 use rendiation_mesh_generator::*;
-use rendiation_renderable_mesh::{mesh::MeshBufferHitPoint, vertex::Vertex, TriangleList};
+use rendiation_renderable_mesh::{vertex::Vertex, MeshBufferHitPoint, TriangleList};
 use rendiation_scene_interaction::{SceneRayInteractive, SceneRayInteractiveCtx};
 use webgpu::{FrameRenderPass, RenderComponentAny};
 
@@ -56,7 +56,7 @@ type ArrowMaterial = FlatMaterial;
 pub struct Arrow {
   cylinder: OverridableMeshModelImpl,
   tip: OverridableMeshModelImpl,
-  material: SceneItemRef<ArrowMaterial>,
+  material: SharedIncrementalSignal<ArrowMaterial>,
   pub root: SceneNode,
 }
 

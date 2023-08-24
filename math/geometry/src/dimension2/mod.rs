@@ -16,11 +16,11 @@ pub enum Axis2 {
 impl SpaceAxis<2> for Axis2 {}
 
 use rendiation_algebra::Vec2;
-impl<T> Positioned for Vec2<T> {
+impl<T: Copy> Positioned for Vec2<T> {
   type Position = Self;
 
-  fn position(&self) -> &Self::Position {
-    self
+  fn position(&self) -> Self::Position {
+    *self
   }
 
   fn mut_position(&mut self) -> &mut Self::Position {

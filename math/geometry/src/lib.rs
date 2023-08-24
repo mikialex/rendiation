@@ -39,7 +39,7 @@ pub use triangle::*;
 
 pub trait Positioned {
   type Position;
-  fn position(&self) -> &Self::Position;
+  fn position(&self) -> Self::Position;
   fn mut_position(&mut self) -> &mut Self::Position;
 }
 

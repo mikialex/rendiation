@@ -2,9 +2,12 @@ use rendiation_renderable_mesh::{vertex::Vertex, *};
 
 use crate::*;
 
+mod container;
+
 pub struct IndexedMeshBuilder<T, U> {
   index: DynIndexContainer,
   vertex: U,
+  vertex_count: usize,
   phantom: PhantomData<T>,
   groups: MeshGroupsInfo,
 }
@@ -14,6 +17,7 @@ impl<T, U: Default> Default for IndexedMeshBuilder<T, U> {
     Self {
       index: Default::default(),
       vertex: Default::default(),
+      vertex_count: 0,
       phantom: Default::default(),
       groups: Default::default(),
     }
@@ -40,17 +44,15 @@ pub struct TessellationConfig {
   pub v: usize,
 }
 
-pub trait VertexBuildingContainer: CollectionSize {
+pub trait VertexBuildingContainer {
   type Vertex;
   fn push_vertex(&mut self, v: Self::Vertex);
+  fn reserve(&mut self, _additional: usize) {}
 }
 
-impl<T> VertexBuildingContainer for Vec<T> {
-  type Vertex = T;
-
-  fn push_vertex(&mut self, v: Self::Vertex) {
-    self.push(v)
-  }
+pub trait IndexedBuildingContainer {
+  fn push_index(&mut self, index: usize);
+  fn reserve(&mut self, _additional: usize) {}
 }
 
 impl VertexBuilding for Vertex {
@@ -79,7 +81,7 @@ impl<U> IndexedMeshBuilder<TriangleList, U> {
     U: VertexBuildingContainer,
     U::Vertex: VertexBuilding,
   {
-    let index_start = self.vertex.len();
+    let index_start = self.vertex_count;
     let u_step = 1. / config.u as f32;
     let v_step = 1. / config.v as f32;
     for u in 0..=config.u {
@@ -87,7 +89,8 @@ impl<U> IndexedMeshBuilder<TriangleList, U> {
         let u = u as f32 * u_step;
         let v = v as f32 * v_step;
         let vertex = U::Vertex::from_surface(surface, (u, v).into());
-        self.vertex.push_vertex(vertex)
+        self.vertex.push_vertex(vertex);
+        self.vertex_count += 1;
       }
     }
 
@@ -154,7 +157,7 @@ impl<U> IndexedMeshBuilder<LineList, U> {
     U: VertexBuildingContainer,
     U::Vertex: VertexBuilding,
   {
-    let index_start = self.vertex.len();
+    let index_start = self.vertex_count;
     let u_step = 1. / config.u as f32;
     let v_step = 1. / config.v as f32;
     for u in 0..config.u {
@@ -162,7 +165,8 @@ impl<U> IndexedMeshBuilder<LineList, U> {
         let u = u as f32 * u_step;
         let v = v as f32 * v_step;
         let vertex = U::Vertex::from_surface(surface, (u, v).into());
-        self.vertex.push_vertex(vertex)
+        self.vertex.push_vertex(vertex);
+        self.vertex_count += 1;
       }
     }
 

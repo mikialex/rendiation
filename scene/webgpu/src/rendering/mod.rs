@@ -22,6 +22,8 @@ pub mod pass_base;
 pub use pass_base::*;
 pub mod lighting;
 pub use lighting::*;
+pub mod chromatic_aberration;
+pub use chromatic_aberration::*;
 
 use crate::*;
 

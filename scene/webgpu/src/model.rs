@@ -126,7 +126,7 @@ pub type ReactiveStandardModelGPU = impl AsRef<RenderComponentCell<StandardModel
   + Unpin;
 
 pub fn build_standard_model_gpu(
-  source: &SceneItemRef<StandardModel>,
+  source: &SharedIncrementalSignal<StandardModel>,
   ctx: &GPUModelResourceCtx,
 ) -> ReactiveStandardModelGPU {
   let s = source.read();

@@ -35,6 +35,22 @@ impl GPUDevice {
     }
   }
 
+  pub fn create_cache_report(&self) -> GPUResourceCacheSizeReport {
+    GPUResourceCacheSizeReport {
+      bindgroup_count: self.inner.bindgroup_cache.cache.read().unwrap().len(),
+      bindgroup_layout_count: self.inner.bindgroup_layout_cache.cache.read().unwrap().len(),
+      sampler_count:self.inner.sampler_cache.cache.read().unwrap().len(),
+      pipeline_count: self.inner.pipeline_cache.cache.read().unwrap().len(),
+    }
+  }
+
+  pub fn clear_resource_cache(&self) {
+    self.inner.bindgroup_cache.clear();
+    self.inner.bindgroup_layout_cache.clear();
+    self.inner.sampler_cache.clear();
+    self.inner.pipeline_cache.clear();
+  }
+
   pub fn create_encoder(&self) -> GPUCommandEncoder {
     let encoder = self.create_command_encoder(&gpu::CommandEncoderDescriptor { label: None });
     GPUCommandEncoder::new(encoder, self)
@@ -88,6 +104,14 @@ impl GPUDevice {
   }
 }
 
+#[derive(Debug, Copy, Clone)]
+pub struct GPUResourceCacheSizeReport {
+  pub bindgroup_count: usize,
+  pub bindgroup_layout_count: usize,
+  pub sampler_count: usize,
+  pub pipeline_count: usize,
+}
+
 pub(crate) struct GPUDeviceInner {
   device: gpu::Device,
   sampler_cache: SamplerCache,
@@ -129,6 +153,9 @@ impl SamplerCache {
       })
       .1
       .clone()
+  }
+  pub(crate) fn clear(&self) {
+    self.cache.write().unwrap().clear();
   }
 }
 
@@ -189,5 +216,8 @@ impl RenderPipelineCache {
       .entry(key)
       .or_insert_with(creator)
       .clone()
+  }
+  pub(crate) fn clear(&self) {
+    self.cache.write().unwrap().clear();
   }
 }

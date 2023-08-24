@@ -103,7 +103,7 @@ pub struct ShareBindableResourceCtx {
   pub custom_storage: Arc<RwLock<AnyMap>>,
 
   pub binding_sys: WebGPUTextureBindingSystem,
-  pub default_sampler: SceneItemRef<TextureSampler>,
+  pub default_sampler: SharedIncrementalSignal<TextureSampler>,
   pub default_texture_2d: SceneTexture2D,
   pub sampler: Arc<RwLock<StreamMap<usize, ReactiveGPUSamplerViewSource>>>,
   pub texture_2d: Arc<RwLock<StreamMap<usize, ReactiveGPU2DTextureViewSource>>>,

@@ -76,6 +76,21 @@ pub struct GPUCreateConfig<'a> {
   pub minimal_required_limits: Limits,
 }
 
+impl<'a> Default for GPUCreateConfig<'a> {
+  fn default() -> Self {
+    let mut minimal_required_features = Features::all_webgpu_mask();
+    minimal_required_features.remove(Features::TIMESTAMP_QUERY); // note: on macos we currently do not have this
+
+    Self {
+      backends: Backends::all(),
+      power_preference: PowerPreference::HighPerformance,
+      surface_for_compatible_check_init: None,
+      minimal_required_features,
+      minimal_required_limits: Default::default(),
+    }
+  }
+}
+
 pub struct GPUInfo {
   pub requested_backend_type: Backends,
   pub power_preference: PowerPreference,
@@ -102,24 +117,6 @@ pub enum GPUCreateFailure {
 }
 
 impl GPU {
-  pub fn poll(&self) {
-    self._instance.poll_all(false);
-  }
-
-  pub fn create_another_surface(
-    &self,
-    provider: &dyn SurfaceProvider,
-    init_resolution: Size,
-  ) -> Result<GPUSurface, CreateSurfaceError> {
-    let surface = provider.create_surface(&self._instance)?;
-    Ok(GPUSurface::new(
-      &self._adaptor,
-      &self.device,
-      surface,
-      init_resolution,
-    ))
-  }
-
   /// in some backend the surface is used to create the instance for example webgl, we have to
   /// return the init surface with the gpu itself
   pub async fn new(
@@ -202,6 +199,34 @@ impl GPU {
     };
 
     Ok((gpu, surface))
+  }
+
+  pub fn poll(&self) {
+    self._instance.poll_all(false);
+  }
+
+  pub fn create_cache_report(&self) -> GPUResourceCacheSizeReport {
+    self.device.create_cache_report()
+  }
+
+  /// clear the resource cached in device. note,if the outside hold the cache, they may still not be
+  /// released.
+  pub fn clear_resource_cache(&self) {
+    self.device.clear_resource_cache();
+  }
+
+  pub fn create_another_surface(
+    &self,
+    provider: &dyn SurfaceProvider,
+    init_resolution: Size,
+  ) -> Result<GPUSurface, CreateSurfaceError> {
+    let surface = provider.create_surface(&self._instance)?;
+    Ok(GPUSurface::new(
+      &self._adaptor,
+      &self.device,
+      surface,
+      init_resolution,
+    ))
   }
 
   pub fn info(&self) -> &GPUInfo {

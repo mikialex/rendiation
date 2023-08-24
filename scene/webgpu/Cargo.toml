@@ -8,7 +8,7 @@ version = "0.1.0"
 anymap = "0.12.1"
 arena = { path = "../../utils/arena" }
 arena-graph = { path = "../../utils/arena-graph" }
-bitflags = "*"
+bitflags = "2.2"
 bytemuck = { version = "1.4.1", features = ["derive"] }
 dyn-clone = "1.0.5"
 futures = "0.3.25"
@@ -26,6 +26,7 @@ rendiation-renderable-mesh = { path = "../../components/mesh/renderable" }
 rendiation-texture-gpu-system = { path = "../../components/texture/gpu-system" }
 rendiation-scene-core = { path = "../core" }
 rendiation-texture = { path = "../../components/texture/core" }
+rendiation-shader-library = { path = "../../shader/library" }
 tree = { path = "../../utils/tree" }
 
 rendiation-shader-api = { path = "../../shader/api" }

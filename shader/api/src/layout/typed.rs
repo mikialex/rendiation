@@ -6,41 +6,54 @@ pub enum StructLayoutTarget {
   Std430,
 }
 
+pub fn align_of_struct_sized_fields(
+  fields: &[ShaderStructFieldMetaInfoOwned],
+  target: StructLayoutTarget,
+) -> usize {
+  let align = fields
+    .iter()
+    .map(|field| field.ty.align_of_self(target))
+    .max()
+    .unwrap_or(1);
+
+  match target {
+    StructLayoutTarget::Std140 => round_up(16, align),
+    StructLayoutTarget::Std430 => align,
+  }
+}
+
+pub fn size_of_struct_sized_fields(
+  fields: &[ShaderStructFieldMetaInfoOwned],
+  target: StructLayoutTarget,
+) -> usize {
+  let mut offset = 0;
+  for (index, field) in fields.iter().enumerate() {
+    let size = field.ty.size_of_self(target);
+    let alignment = if index + 1 == fields.len() {
+      align_of_struct_sized_fields(fields, target)
+    } else {
+      fields[index + 1].ty.align_of_self(target)
+    };
+    offset += size;
+    let pad_size = align_offset(offset, alignment);
+    offset += pad_size;
+  }
+  let size = offset;
+
+  // we always make sure the struct size is round up to struct align, this is different!
+  match target {
+    StructLayoutTarget::Std140 => round_up(16, size),
+    StructLayoutTarget::Std430 => size,
+  }
+}
+
 impl ShaderStructMetaInfoOwned {
   pub fn align_of_self(&self, target: StructLayoutTarget) -> usize {
-    let align = self
-      .fields
-      .iter()
-      .map(|field| field.ty.align_of_self(target))
-      .max()
-      .unwrap_or(1);
-
-    match target {
-      StructLayoutTarget::Std140 => round_up(16, align),
-      StructLayoutTarget::Std430 => align,
-    }
+    align_of_struct_sized_fields(&self.fields, target)
   }
 
   pub fn size_of_self(&self, target: StructLayoutTarget) -> usize {
-    let mut offset = 0;
-    for (index, field) in self.fields.iter().enumerate() {
-      let size = field.ty.size_of_self(target);
-      let alignment = if index + 1 == self.fields.len() {
-        self.align_of_self(target)
-      } else {
-        self.fields[index + 1].ty.align_of_self(target)
-      };
-      offset += size;
-      let pad_size = align_offset(offset, alignment);
-      offset += pad_size;
-    }
-    let size = offset;
-
-    // we always make sure the struct size is round up to struct align, this is different!
-    match target {
-      StructLayoutTarget::Std140 => round_up(16, size),
-      StructLayoutTarget::Std430 => size,
-    }
+    size_of_struct_sized_fields(&self.fields, target)
   }
 }
 
@@ -58,6 +71,7 @@ pub fn round_up(k: usize, n: usize) -> usize {
 impl ShaderSizedValueType {
   pub fn align_of_self(&self, target: StructLayoutTarget) -> usize {
     match self {
+      ShaderSizedValueType::Atomic(t) => t.align_of_self(),
       ShaderSizedValueType::Primitive(t) => t.align_of_self(),
       ShaderSizedValueType::Struct(t) => (*t).to_owned().align_of_self(target),
       ShaderSizedValueType::FixedSizeArray((t, _)) => {
@@ -72,11 +86,28 @@ impl ShaderSizedValueType {
 
   pub fn size_of_self(&self, target: StructLayoutTarget) -> usize {
     match self {
+      ShaderSizedValueType::Atomic(t) => t.size_of_self(),
       ShaderSizedValueType::Primitive(t) => t.size_of_self(),
       ShaderSizedValueType::Struct(t) => (*t).to_owned().size_of_self(target),
       ShaderSizedValueType::FixedSizeArray((ty, size)) => {
         size * round_up(self.align_of_self(target), ty.size_of_self(target))
       }
+    }
+  }
+}
+
+impl ShaderAtomicValueType {
+  pub fn align_of_self(&self) -> usize {
+    match self {
+      ShaderAtomicValueType::I32 => 4,
+      ShaderAtomicValueType::U32 => 4,
+    }
+  }
+
+  pub fn size_of_self(&self) -> usize {
+    match self {
+      ShaderAtomicValueType::I32 => 4,
+      ShaderAtomicValueType::U32 => 4,
     }
   }
 }

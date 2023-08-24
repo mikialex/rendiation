@@ -9,29 +9,6 @@ where
   }
 }
 
-// todo unsized struct
-pub fn extract_struct_define(
-  ty: &ShaderValueType,
-  visitor: &mut impl FnMut(&'static ShaderStructMetaInfo),
-) {
-  ty.visit_single(|ty| {
-    if let ShaderValueSingleType::Sized(v) = ty {
-      extract_struct_define_inner(v, visitor)
-    }
-  });
-}
-
-pub fn extract_struct_define_inner(
-  ty: &ShaderSizedValueType,
-  visitor: &mut impl FnMut(&'static ShaderStructMetaInfo),
-) {
-  match ty {
-    ShaderSizedValueType::Primitive(_) => {}
-    ShaderSizedValueType::Struct(s) => visitor(s),
-    ShaderSizedValueType::FixedSizeArray((ty, _)) => extract_struct_define_inner(ty, visitor),
-  }
-}
-
 /// # Safety
 ///
 /// the field index should be bounded and with correct type
@@ -71,28 +48,6 @@ impl PartialEq for ShaderStructMetaInfo {
 }
 impl Eq for ShaderStructMetaInfo {}
 impl Hash for ShaderStructMetaInfo {
-  fn hash<H: Hasher>(&self, state: &mut H) {
-    self.name.hash(state);
-  }
-}
-
-#[derive(Debug)]
-pub struct ShaderUnSizedStructMetaInfo {
-  pub name: &'static str,
-  pub sized_fields: &'static [ShaderStructFieldMetaInfo],
-  /// according to spec, only unsized array is supported, unsized struct is not
-  ///
-  /// https://www.w3.org/TR/WGSL/#struct-types
-  pub last_dynamic_array_field: (&'static str, &'static ShaderSizedValueType),
-}
-
-impl PartialEq for ShaderUnSizedStructMetaInfo {
-  fn eq(&self, other: &Self) -> bool {
-    self.name == other.name
-  }
-}
-impl Eq for ShaderUnSizedStructMetaInfo {}
-impl Hash for ShaderUnSizedStructMetaInfo {
   fn hash<H: Hasher>(&self, state: &mut H) {
     self.name.hash(state);
   }
@@ -198,5 +153,33 @@ impl ShaderStructMetaInfoOwned {
       ty_deco: None,
     });
     self
+  }
+}
+
+#[derive(Debug)]
+pub struct ShaderUnSizedStructMetaInfo {
+  pub name: &'static str,
+  pub sized_fields: &'static [ShaderStructFieldMetaInfo],
+  /// according to spec, only unsized array is supported, unsized struct is not
+  ///
+  /// https://www.w3.org/TR/WGSL/#struct-types
+  pub last_dynamic_array_field: (&'static str, &'static ShaderSizedValueType),
+}
+
+impl ShaderUnSizedStructMetaInfo {
+  pub fn layout_430_min_size(&self) -> usize {
+    todo!()
+  }
+}
+
+impl PartialEq for ShaderUnSizedStructMetaInfo {
+  fn eq(&self, other: &Self) -> bool {
+    self.name == other.name
+  }
+}
+impl Eq for ShaderUnSizedStructMetaInfo {}
+impl Hash for ShaderUnSizedStructMetaInfo {
+  fn hash<H: Hasher>(&self, state: &mut H) {
+    self.name.hash(state);
   }
 }

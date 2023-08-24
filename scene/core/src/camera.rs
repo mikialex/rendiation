@@ -5,10 +5,25 @@ pub use rendiation_texture::Size;
 
 use crate::*;
 
-pub type SceneCamera = SceneItemRef<SceneCameraInner>;
+pub type SceneCamera = SharedIncrementalSignal<SceneCameraInner>;
 
-impl SceneCamera {
-  pub fn create(projection: CameraProjector, node: SceneNode) -> Self {
+pub trait SceneCameraExt {
+  fn create(projection: CameraProjector, node: SceneNode) -> Self;
+
+  fn create_projection_mat_stream(&self) -> impl Stream<Item = Mat4<f32>>;
+
+  fn resize(&self, size: (f32, f32));
+
+  /// normalized_position: -1 to 1
+  fn cast_world_ray(
+    &self,
+    normalized_position: Vec2<f32>,
+    d_sys: &SceneNodeDeriveSystem,
+  ) -> Ray3<f32>;
+}
+
+impl SceneCameraExt for SceneCamera {
+  fn create(projection: CameraProjector, node: SceneNode) -> Self {
     SceneCameraInner {
       bounds: Default::default(),
       projection,
@@ -17,7 +32,7 @@ impl SceneCamera {
     .into_ref()
   }
 
-  pub fn create_projection_mat_stream(&self) -> impl Stream<Item = Mat4<f32>> {
+  fn create_projection_mat_stream(&self) -> impl Stream<Item = Mat4<f32>> {
     // note, here we have to write like this because we do not have projector change in camera
     // deltas
     self
@@ -33,7 +48,7 @@ impl SceneCamera {
       .map(|camera| camera.read().compute_project_mat())
   }
 
-  pub fn resize(&self, size: (f32, f32)) {
+  fn resize(&self, size: (f32, f32)) {
     self.mutate(|mut camera| {
       let resize = CameraProjectorDelta::Resize(size);
       camera.modify(SceneCameraInnerDelta::projection(resize));
@@ -41,7 +56,7 @@ impl SceneCamera {
   }
 
   /// normalized_position: -1 to 1
-  pub fn cast_world_ray(
+  fn cast_world_ray(
     &self,
     normalized_position: Vec2<f32>,
     d_sys: &SceneNodeDeriveSystem,

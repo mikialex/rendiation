@@ -125,6 +125,18 @@ pub fn terminal() -> (impl View, impl Stream<Item = String> + Unpin) {
 }
 
 pub fn register_default_commands(terminal: &mut Terminal) {
+  // this mainly to do test
+  terminal.register_command("clear-gpu-resource-cache", |ctx, _parameters| {
+    if let Some(r) = &ctx.rendering {
+      println!(
+        "current gpu resource cache details: {:?}",
+        r.gpu().create_cache_report()
+      );
+      r.gpu().clear_resource_cache();
+    }
+    Box::pin(async {})
+  });
+
   terminal.register_command("load-gltf", |ctx, _parameters| {
     let scene = ctx.scene.clone();
     Box::pin(async move {
