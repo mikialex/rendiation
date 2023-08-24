@@ -167,11 +167,12 @@ pub struct AttributeAccessor {
   pub byte_offset: usize,
   pub count: usize,
   /// corespondent to the data type
-  pub item_size: usize,
+  /// for example: vec3<f32> => 3 * 4
+  pub item_byte_size: usize,
 }
 
 impl AttributeAccessor {
-  pub fn create_owned<T: bytemuck::Pod>(input: Vec<T>, item_size: usize) -> Self {
+  pub fn create_owned<T: bytemuck::Pod>(input: Vec<T>, item_byte_size: usize) -> Self {
     let buffer = bytemuck::cast_slice(&input).to_owned();
 
     let buffer = GeometryBufferInner { buffer };
@@ -184,7 +185,7 @@ impl AttributeAccessor {
       view,
       byte_offset: 0,
       count: input.len(),
-      item_size,
+      item_byte_size,
     }
   }
 }
@@ -229,7 +230,7 @@ impl AttributeAccessor {
     let inner_offset = self.view.range.offset;
     BufferViewRange {
       offset: inner_offset + self.byte_offset as u64,
-      size: NonZeroU64::new((self.count * self.item_size) as u64)
+      size: NonZeroU64::new((self.count * self.item_byte_size) as u64)
         .unwrap() // safe
         .into(),
     }

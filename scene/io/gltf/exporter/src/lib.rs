@@ -180,7 +180,7 @@ struct AttributeAccessorKey {
   pub view: usize,
   pub byte_offset: usize,
   pub count: usize,
-  pub item_size: usize,
+  pub item_byte_size: usize,
 }
 
 struct InlineBinary {
@@ -274,7 +274,7 @@ impl Ctx {
       view: view.value(),
       byte_offset: acc.byte_offset,
       count: acc.count,
-      item_size: acc.item_size,
+      item_byte_size: acc.item_byte_size,
     };
 
     self.accessors.get_or_insert_with(key, || {

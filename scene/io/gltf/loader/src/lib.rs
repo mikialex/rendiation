@@ -255,7 +255,7 @@ fn build_accessor(accessor: gltf::Accessor, ctx: &mut Context) -> AttributeAcces
   let byte_offset = accessor.offset();
   let count = accessor.count();
 
-  let item_size = match ty {
+  let item_byte_size = match ty {
     gltf::accessor::DataType::I8 => 1,
     gltf::accessor::DataType::U8 => 1,
     gltf::accessor::DataType::I16 => 2,
@@ -276,7 +276,7 @@ fn build_accessor(accessor: gltf::Accessor, ctx: &mut Context) -> AttributeAcces
     view,
     count,
     byte_offset,
-    item_size,
+    item_byte_size,
   }
 }
 

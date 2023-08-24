@@ -133,7 +133,7 @@ pub fn merge_attribute_accessor<T: bytemuck::Pod>(
     })
   }
 
-  AttributeAccessor::create_owned(merged, first.item_size).into()
+  AttributeAccessor::create_owned(merged, first.item_byte_size).into()
 }
 
 fn merge_assume_all_suitable_and_fit(

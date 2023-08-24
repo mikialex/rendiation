@@ -42,37 +42,37 @@ pub fn load_obj_content(
     .iter()
     .map(|m| {
       let indices = &m.mesh.indices;
-      let indices = AttributeAccessor::create_owned(indices.clone(), 1);
+      let indices = AttributeAccessor::create_owned(indices.clone(), 1 * 4);
 
       let mut attributes = Vec::with_capacity(3);
       attributes.push((
         AttributeSemantic::Positions,
-        AttributeAccessor::create_owned(m.mesh.positions.clone(), 3),
+        AttributeAccessor::create_owned(m.mesh.positions.clone(), 3 * 4),
       ));
       let vertices_count = m.mesh.positions.len() / 3;
 
       if !m.mesh.normals.is_empty() {
         attributes.push((
           AttributeSemantic::Normals,
-          AttributeAccessor::create_owned(m.mesh.normals.clone(), 3),
+          AttributeAccessor::create_owned(m.mesh.normals.clone(), 3 * 4),
         ));
       } else {
         // should we make this behavior configurable?
         attributes.push((
           AttributeSemantic::Normals,
-          AttributeAccessor::create_owned(vec![Vec3::new(1., 0., 0.); vertices_count], 3),
+          AttributeAccessor::create_owned(vec![Vec3::new(1., 0., 0.); vertices_count], 3 * 4),
         ));
       }
       if !m.mesh.texcoords.is_empty() {
         attributes.push((
           AttributeSemantic::TexCoords(0),
-          AttributeAccessor::create_owned(m.mesh.texcoords.clone(), 2),
+          AttributeAccessor::create_owned(m.mesh.texcoords.clone(), 2 * 4),
         ));
       } else {
         // should we make this behavior configurable?
         attributes.push((
           AttributeSemantic::TexCoords(0),
-          AttributeAccessor::create_owned(vec![Vec2::new(0., 0.); vertices_count], 2),
+          AttributeAccessor::create_owned(vec![Vec2::new(0., 0.); vertices_count], 2 * 4),
         ));
       }
 
