@@ -1,3 +1,5 @@
+use rendiation_shader_library::sampling::*;
+
 use crate::*;
 
 // https://github.com/lettier/3d-game-shaders-for-beginners/blob/master/sections/ssao.md
@@ -78,23 +80,6 @@ pub struct AOComputer<'a> {
   source_camera_gpu: &'a UniformBufferDataView<CameraGPUTransform>,
 }
 
-// improve use better way
-#[shader_fn]
-fn random(seed: Node<Vec2<f32>>) -> Node<f32> {
-  let s1 = val(12.9898);
-  let s2 = val(78.233);
-  let s3 = val(43758.545);
-  (seed.dot((s1, s2)).sin() * s3).fract()
-}
-
-#[shader_fn]
-fn random3(seed: Node<Vec2<f32>>) -> Node<Vec3<f32>> {
-  let x = random(seed);
-  let y = random((seed + random(seed).splat()).sin());
-  let z = random(seed + random(seed).cos().splat() + random(seed).splat());
-  (x, y, z).into()
-}
-
 impl<'a> ShaderHashProvider for AOComputer<'a> {}
 impl<'a> ShaderHashProviderAny for AOComputer<'a> {
   fn hash_pipeline_and_with_type_id(&self, hasher: &mut PipelineHasher) {
@@ -128,9 +113,9 @@ impl<'a> GraphicsShaderProvider for AOComputer<'a> {
       let depth = depth_tex.sample(sampler, uv).x();
       let position_world = shader_uv_space_to_world_space(&camera, uv, depth);
 
-      let normal = compute_normal_by_dxdy(position_world); // wrong
+      let normal = compute_normal_by_dxdy(position_world); // wrong, but i do not want pay cost to use normal texture input
 
-      let random = random3(uv + parameter.noise_jit.splat()) * val(2.) - val(Vec3::one());
+      let random = random3_fn(uv + parameter.noise_jit.splat()) * val(2.) - val(Vec3::one());
       let tangent = (random - normal * random.dot(normal)).normalize();
       let binormal = normal.cross(tangent);
       let tbn: Node<Mat3<f32>> = (tangent, binormal, normal).into();

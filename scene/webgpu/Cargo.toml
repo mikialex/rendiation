@@ -26,6 +26,7 @@ rendiation-renderable-mesh = { path = "../../components/mesh/renderable" }
 rendiation-texture-gpu-system = { path = "../../components/texture/gpu-system" }
 rendiation-scene-core = { path = "../core" }
 rendiation-texture = { path = "../../components/texture/core" }
+rendiation-shader-library = { path = "../../shader/library" }
 tree = { path = "../../utils/tree" }
 
 rendiation-shader-api = { path = "../../shader/api" }
