@@ -56,7 +56,7 @@ fn fit_tab(
   let mut ltc = LTC::default();
 
   // loop over theta and alpha
-  for a_r in 0..config.lut_size - 1 {
+  for a_r in 0..config.lut_size {
     let a = config.lut_size - 1 - a_r;
     for t in 0..config.lut_size {
       // parameterized by sqrt(1 - cos(theta))
@@ -78,7 +78,9 @@ fn fit_tab(
       // init the hemisphere in which the distribution is fitted
       // if theta == 0 the lobe is rotationally symmetric and aligned with Z = (0 0 1)
       let isotropic = if t == 0 {
-        ltc = Default::default();
+        ltc.x = Vec3::new(1., 0., 0.);
+        ltc.y = Vec3::new(0., 1., 0.);
+        ltc.z = Vec3::new(0., 0., 1.);
 
         if a == config.lut_size - 1
         // roughness = 1

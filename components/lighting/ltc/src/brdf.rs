@@ -12,7 +12,7 @@ pub trait Brdf: Copy {
 
 #[derive(Clone, Copy)]
 #[allow(clippy::upper_case_acronyms)]
-struct GGX;
+pub struct GGX;
 
 impl Brdf for GGX {
   fn eval(&self, v: Vec3<f32>, l: Vec3<f32>, alpha: f32) -> BrdfEval {
