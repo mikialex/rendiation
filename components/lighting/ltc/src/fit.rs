@@ -1,3 +1,5 @@
+use rendiation_texture::Size;
+
 use crate::{
   brdf::{Brdf, BrdfEval},
   *,
@@ -5,12 +7,20 @@ use crate::{
 
 #[derive(Clone, Debug)]
 pub struct LtcFitConfig {
-  /// size of precomputed table (theta, alpha)
+  /// width of precomputed square table (theta, alpha)
   pub lut_size: usize,
   /// number of samples used to compute the error during fitting
   pub sample_count: usize,
-  /// minimal roughness (avoid singularities)
-  pub minimal_roughness: f32,
+}
+
+impl LtcFitConfig {
+  pub fn lut_data_size(&self) -> usize {
+    self.lut_size * self.lut_size
+  }
+
+  fn size(&self) -> Size {
+    Size::from_usize_pair_min_one((self.lut_size, self.lut_size))
+  }
 }
 
 impl Default for LtcFitConfig {
@@ -18,7 +28,6 @@ impl Default for LtcFitConfig {
     Self {
       lut_size: 64,
       sample_count: 32,
-      minimal_roughness: 0.00001,
     }
   }
 }
@@ -28,21 +37,112 @@ pub struct LtcFitResult {
   pub ltc_lut2: Texture2DBuffer<Vec4<f32>>,
 }
 
-pub fn fit(config: &LtcFitConfig) -> LtcFitResult {
-  let mut tab = vec![Mat3::<f32>::identity(); config.lut_size * config.lut_size];
-  let mut tab_mag_fresnel = vec![Vec2::<f32>::zero(); config.lut_size * config.lut_size];
-  let mut tab_sphere = vec![0.; config.lut_size * config.lut_size];
+pub fn fit(brdf: impl Brdf, config: &LtcFitConfig) -> LtcFitResult {
+  let mut tab = vec![Mat3::<f32>::identity(); config.lut_data_size()];
+  let mut tab_mag_fresnel = vec![Vec2::<f32>::zero(); config.lut_data_size()];
+  let mut tab_sphere = vec![0.; config.lut_data_size()];
 
-  fit_tab(config, &mut tab, &mut tab_mag_fresnel);
+  fit_tab(brdf, config, &mut tab, &mut tab_mag_fresnel);
   gen_sphere_tab(config, &mut tab_sphere);
   pack_tab(config, &mut tab, &mut tab_mag_fresnel, &mut tab_sphere)
 }
 
-fn fit_tab(config: &LtcFitConfig, tab: &mut Vec<Mat3<f32>>, tab_mag_fresnel: &mut Vec<Vec2<f32>>) {
-  todo!()
+fn fit_tab(
+  brdf: impl Brdf,
+  config: &LtcFitConfig,
+  tab: &mut [Mat3<f32>],
+  tab_mag_fresnel: &mut [Vec2<f32>],
+) {
+  let mut ltc = LTC::default();
+
+  // loop over theta and alpha
+  for a_r in 0..config.lut_size - 1 {
+    let a = config.lut_size - 1 - a_r;
+    for t in 0..config.lut_size {
+      // parameterized by sqrt(1 - cos(theta))
+      let x = t as f32 / (config.lut_size - 1) as f32;
+      let ct = 1.0 - x * x;
+      let theta = ct.acos().min(f32::PI() / 2.0);
+      let v = Vec3::new(theta.sin(), 0., theta.cos());
+
+      // alpha = roughness^2
+      let roughness = a as f32 / (config.lut_size - 1) as f32;
+      // minimal roughness (avoid singularities)
+      let alpha = roughness * roughness.max(0.00001);
+
+      let avg = compute_avg_terms(brdf, v, alpha, config.sample_count);
+      ltc.fresnel = avg.fresnel;
+      ltc.magnitude = avg.norm;
+
+      // 1. first guess for the fit
+      // init the hemisphere in which the distribution is fitted
+      // if theta == 0 the lobe is rotationally symmetric and aligned with Z = (0 0 1)
+      let isotropic = if t == 0 {
+        ltc = Default::default();
+
+        if a == config.lut_size - 1
+        // roughness = 1
+        {
+          ltc.m11 = 1.0;
+          ltc.m22 = 1.0;
+        } else {
+          // init with roughness of previous fit
+          ltc.m11 = tab[a + 1 + t * config.lut_size].a1;
+          ltc.m22 = tab[a + 1 + t * config.lut_size].b2;
+        }
+
+        ltc.m13 = 0.;
+        ltc.update();
+
+        true
+      } else {
+        // otherwise use previous configuration as first guess
+        let l = avg.direction;
+        let t1 = Vec3::new(l.z, 0., -l.x);
+        let t2 = Vec3::new(0., 1., 0.);
+        ltc.x = t1;
+        ltc.y = t2;
+        ltc.z = l;
+
+        ltc.update();
+
+        false
+      };
+
+      // 2. fit (explore parameter space and refine first guess)
+      let nm_config = NelderMeadSearchConfig {
+        start: vec![ltc.m11, ltc.m22, ltc.m13],
+        max_iter: 100,
+        delta: 0.05,
+        tolerance: 1e-5,
+      };
+      // Find best-fit LTC lobe (scale, alphax, alphay)
+      let (_, best_fit) = nelder_mead(
+        |current_fit| {
+          update_ltc_fit_result(&mut ltc, current_fit, isotropic);
+          compute_error(brdf, &ltc, v, alpha, config.sample_count)
+        },
+        nm_config,
+      );
+
+      update_ltc_fit_result(&mut ltc, &best_fit, isotropic);
+
+      // copy data
+      let idx = a + t * config.lut_size;
+      tab[idx] = ltc.m;
+      tab_mag_fresnel[idx].x = ltc.magnitude;
+      tab_mag_fresnel[idx].y = ltc.fresnel;
+
+      // kill useless coefs in matrix
+      tab[idx].a2 = 0.;
+      tab[idx].b1 = 0.;
+      tab[idx].c2 = 0.;
+      tab[idx].b3 = 0.;
+    }
+  }
 }
 
-fn gen_sphere_tab(config: &LtcFitConfig, tab_sphere: &mut Vec<f32>) {
+fn gen_sphere_tab(config: &LtcFitConfig, tab_sphere: &mut [f32]) {
   let n = config.lut_size;
   for j in 0..n {
     for i in 0..n {
@@ -60,12 +160,10 @@ fn gen_sphere_tab(config: &LtcFitConfig, tab_sphere: &mut Vec<f32>) {
 
       // compute projected (cosine-weighted) solid angle of spherical cap
       let value = if sigma > 0. {
-        //             value = ihemi(omega, sigma)/(pi*len);
-        todo!()
+        ihemi(omega, sigma) / (f32::PI() * len)
       } else {
         z.max(0.)
       };
-      let value = 0.0;
 
       if value.is_nan() {
         println!("encounter nan value")
@@ -78,33 +176,37 @@ fn gen_sphere_tab(config: &LtcFitConfig, tab_sphere: &mut Vec<f32>) {
 
 fn pack_tab(
   config: &LtcFitConfig,
-  tab: &mut Vec<Mat3<f32>>,
-  tab_mag_fresnel: &mut Vec<Vec2<f32>>,
-  tab_sphere: &mut Vec<f32>,
+  tab: &mut [Mat3<f32>],
+  tab_mag_fresnel: &mut [Vec2<f32>],
+  tab_sphere: &mut [f32],
 ) -> LtcFitResult {
-  // for (int i = 0; i < N*N; ++i)
-  // {
-  //     const mat3& m = tab[i];
+  let mut ltc_lut1 = Vec::with_capacity(config.lut_data_size());
+  let mut ltc_lut2 = Vec::with_capacity(config.lut_data_size());
+  for i in 0..config.lut_data_size() {
+    let m = tab[i];
 
-  //     mat3 invM = inverse(m);
+    let mut inv_m = m.inverse_or_identity();
 
-  //     // normalize by the middle element
-  //     invM /= invM[1][1];
+    // normalize by the middle element
+    inv_m /= inv_m.b2;
 
-  //     // store the variable terms
-  //     tex1[i].x = invM[0][0];
-  //     tex1[i].y = invM[0][2];
-  //     tex1[i].z = invM[2][0];
-  //     tex1[i].w = invM[2][2];
+    ltc_lut1.push(Vec4::new(inv_m.a1, inv_m.a3, inv_m.c1, inv_m.c3));
+    let tab_mag_fresnel = tab_mag_fresnel[i];
+    ltc_lut2.push(Vec4::new(
+      tab_mag_fresnel.x,
+      tab_mag_fresnel.y,
+      0.0,
+      tab_sphere[i],
+    ));
+  }
 
-  //     tex2[i].x = tabMagFresnel[i][0];
-  //     tex2[i].y = tabMagFresnel[i][1];
-  //     tex2[i].z = 0.0f; // unused
-  //     tex2[i].w = tabSphere[i];
-  // }
-  todo!()
+  let ltc_lut1 = Texture2DBuffer::from_raw(ltc_lut1, config.size());
+  let ltc_lut2 = Texture2DBuffer::from_raw(ltc_lut2, config.size());
+
+  LtcFitResult { ltc_lut1, ltc_lut2 }
 }
 
+#[allow(clippy::upper_case_acronyms)]
 struct LTC {
   /// lobe magnitude
   magnitude: f32,
@@ -194,7 +296,7 @@ struct AverageInfo {
   norm: f32,
 }
 
-fn compute_avg_terms<B: Brdf>(v: Vec3<f32>, alpha: f32, sample: usize) -> AverageInfo {
+fn compute_avg_terms(brdf: impl Brdf, v: Vec3<f32>, alpha: f32, sample: usize) -> AverageInfo {
   let mut avg = AverageInfo::default();
 
   for j in 0..sample {
@@ -202,8 +304,8 @@ fn compute_avg_terms<B: Brdf>(v: Vec3<f32>, alpha: f32, sample: usize) -> Averag
       let u1 = (i as f32 + 0.5) / sample as f32;
       let u2 = (j as f32 + 0.5) / sample as f32;
 
-      let l = B::sample(v, alpha, u1, u2);
-      let eval = B::eval(v, l, alpha);
+      let l = brdf.sample(v, alpha, u1, u2);
+      let eval = brdf.eval(v, l, alpha);
 
       if eval.pdf > 0. {
         let weight = eval.value / eval.pdf;
@@ -231,7 +333,7 @@ fn compute_avg_terms<B: Brdf>(v: Vec3<f32>, alpha: f32, sample: usize) -> Averag
 
 // compute the error between the BRDF and the LTC
 // using Multiple Importance Sampling
-fn compute_error<B: Brdf>(ltc: &LTC, v: Vec3<f32>, alpha: f32, sample: usize) -> f32 {
+fn compute_error(brdf: impl Brdf, ltc: &LTC, v: Vec3<f32>, alpha: f32, sample: usize) -> f32 {
   let mut error: f64 = 0.0;
 
   for j in 0..sample {
@@ -241,12 +343,11 @@ fn compute_error<B: Brdf>(ltc: &LTC, v: Vec3<f32>, alpha: f32, sample: usize) ->
 
       // importance sample LTC
       {
-        // sample
         let l = ltc.sample(u1, u2);
         let BrdfEval {
           value: eval_brdf,
           pdf: pdf_brdf,
-        } = B::eval(v, *l, alpha);
+        } = brdf.eval(v, *l, alpha);
 
         let eval_ltc = ltc.eval(*l);
         let pdf_ltc = eval_ltc / ltc.magnitude;
@@ -259,13 +360,12 @@ fn compute_error<B: Brdf>(ltc: &LTC, v: Vec3<f32>, alpha: f32, sample: usize) ->
 
       // importance sample BRDF
       {
-        // sample
-        let l = B::sample(v, alpha, u1, u2);
+        let l = brdf.sample(v, alpha, u1, u2);
 
         let BrdfEval {
           value: eval_brdf,
           pdf: pdf_brdf,
-        } = B::eval(v, l, alpha);
+        } = brdf.eval(v, l, alpha);
 
         let eval_ltc = ltc.eval(l);
         let pdf_ltc = eval_ltc / ltc.magnitude;
@@ -281,163 +381,32 @@ fn compute_error<B: Brdf>(ltc: &LTC, v: Vec3<f32>, alpha: f32, sample: usize) ->
   (error / (sample * sample) as f64) as f32
 }
 
-// struct FitLTC
-// {
-//     FitLTC(LTC& ltc_, const Brdf& brdf, bool isotropic_, const vec3& V_, float alpha_) :
-//         ltc(ltc_), brdf(brdf), V(V_), alpha(alpha_), isotropic(isotropic_)
-//     {
-//     }
+fn update_ltc_fit_result(ltc: &mut LTC, fit_result: &[f32], isotropic: bool) {
+  let m11 = fit_result[0].max(1e-7);
+  let m22 = fit_result[1].max(1e-7);
+  let m13 = fit_result[2];
 
-//     void update(const float* params)
-//     {
-//         float m11 = std::max<float>(params[0], 1e-7f);
-//         float m22 = std::max<float>(params[1], 1e-7f);
-//         float m13 = params[2];
-
-//         if (isotropic)
-//         {
-//             ltc.m11 = m11;
-//             ltc.m22 = m11;
-//             ltc.m13 = 0.0f;
-//         }
-//         else
-//         {
-//             ltc.m11 = m11;
-//             ltc.m22 = m22;
-//             ltc.m13 = m13;
-//         }
-//         ltc.update();
-//     }
-
-//     float operator()(const float* params)
-//     {
-//         update(params);
-//         return computeError(ltc, brdf, V, alpha);
-//     }
-
-//     const Brdf& brdf;
-//     LTC& ltc;
-//     bool isotropic;
-
-//     const vec3& V;
-//     float alpha;
-// };
-
-// // fit brute force
-// // refine first guess by exploring parameter space
-// void fit(LTC& ltc, const Brdf& brdf, const vec3& V, const float alpha, const float epsilon =
-// 0.05f, const bool isotropic = false) {
-//     float startFit[3] = { ltc.m11, ltc.m22, ltc.m13 };
-//     float resultFit[3];
-
-//     FitLTC fitter(ltc, brdf, isotropic, V, alpha);
-
-//     // Find best-fit LTC lobe (scale, alphax, alphay)
-//     float error = NelderMead<3>(resultFit, startFit, epsilon, 1e-5f, 100, fitter);
-
-//     // Update LTC with best fitting values
-//     fitter.update(resultFit);
-// }
-
-// // fit data
-// void fitTab(mat3* tab, vec2* tabMagFresnel, const int N, const Brdf& brdf)
-// {
-//     LTC ltc;
-
-//     // loop over theta and alpha
-//     for (int a = N - 1; a >=     0; --a)
-//     for (int t =     0; t <= N - 1; ++t)
-//     {
-//         // parameterised by sqrt(1 - cos(theta))
-//         float x = t/float(N - 1);
-//         float ct = 1.0f - x*x;
-//         float theta = std::min<float>(1.57f, acosf(ct));
-//         const vec3 V = vec3(sinf(theta), 0, cosf(theta));
-
-//         // alpha = roughness^2
-//         float roughness = a/float(N - 1);
-//         float alpha = std::max<float>(roughness*roughness, MIN_ALPHA);
-
-//         cout << "a = " << a << "\t t = " << t  << endl;
-//         cout << "alpha = " << alpha << "\t theta = " << theta << endl;
-//         cout << endl;
-
-//         vec3 averageDir;
-//         computeAvgTerms(brdf, V, alpha, ltc.magnitude, ltc.fresnel, averageDir);
-
-//         bool isotropic;
-
-//         // 1. first guess for the fit
-//         // init the hemisphere in which the distribution is fitted
-//         // if theta == 0 the lobe is rotationally symmetric and aligned with Z = (0 0 1)
-//         if (t == 0)
-//         {
-//             ltc.X = vec3(1, 0, 0);
-//             ltc.Y = vec3(0, 1, 0);
-//             ltc.Z = vec3(0, 0, 1);
-
-//             if (a == N - 1) // roughness = 1
-//             {
-//                 ltc.m11 = 1.0f;
-//                 ltc.m22 = 1.0f;
-//             }
-//             else // init with roughness of previous fit
-//             {
-//                 ltc.m11 = tab[a + 1 + t*N][0][0];
-//                 ltc.m22 = tab[a + 1 + t*N][1][1];
-//             }
-
-//             ltc.m13 = 0;
-//             ltc.update();
-
-//             isotropic = true;
-//         }
-//         // otherwise use previous configuration as first guess
-//         else
-//         {
-//             vec3 L = averageDir;
-//             vec3 T1(L.z, 0, -L.x);
-//             vec3 T2(0, 1, 0);
-//             ltc.X = T1;
-//             ltc.Y = T2;
-//             ltc.Z = L;
-
-//             ltc.update();
-
-//             isotropic = false;
-//         }
-
-//         // 2. fit (explore parameter space and refine first guess)
-//         float epsilon = 0.05f;
-//         fit(ltc, brdf, V, alpha, epsilon, isotropic);
-
-//         // copy data
-//         tab[a + t*N] = ltc.M;
-//         tabMagFresnel[a + t*N][0] = ltc.magnitude;
-//         tabMagFresnel[a + t*N][1] = ltc.fresnel;
-
-//         // kill useless coefs in matrix
-//         tab[a+t*N][0][1] = 0;
-//         tab[a+t*N][1][0] = 0;
-//         tab[a+t*N][2][1] = 0;
-//         tab[a+t*N][1][2] = 0;
-
-//         cout << tab[a+t*N][0][0] << "\t " << tab[a+t*N][1][0] << "\t " << tab[a+t*N][2][0] <<
-// endl;         cout << tab[a+t*N][0][1] << "\t " << tab[a+t*N][1][1] << "\t " << tab[a+t*N][2][1]
-// << endl;         cout << tab[a+t*N][0][2] << "\t " << tab[a+t*N][1][2] << "\t " <<
-// tab[a+t*N][2][2] << endl;         cout << endl;
-//     }
-// }
+  if isotropic {
+    ltc.m11 = m11;
+    ltc.m22 = m11;
+    ltc.m13 = 0.0;
+  } else {
+    ltc.m11 = m11;
+    ltc.m22 = m22;
+    ltc.m13 = m13;
+  }
+  ltc.update();
+}
 
 fn sqr(x: f32) -> f32 {
   x * x
 }
 
-fn G(w: f32, s: f32, g: f32) -> f32 {
+fn g_f(w: f32, s: f32, g: f32) -> f32 {
   -2.0 * w.sin() * s.cos() * g.cos() + f32::PI() / 2.0 + g.sin() * g.cos()
 }
 
-fn H(w: f32, s: f32, g: f32) -> f32 {
+fn h_f(w: f32, s: f32, g: f32) -> f32 {
   let sin_s_sq = sqr(s.sin());
   let cos_g_sq = sqr(g.cos());
 
@@ -455,167 +424,158 @@ fn ihemi(w: f32, s: f32) -> f32 {
   }
 
   if w >= (pi / 2.0 - s) && w < pi / 2.0 {
-    return pi * w.cos() * sin_s_sq + G(w, s, g) - H(w, s, g);
+    return pi * w.cos() * sin_s_sq + g_f(w, s, g) - h_f(w, s, g);
   }
 
   if w >= pi / 2.0 && w < (pi / 2.0 + s) {
-    return G(w, s, g) + H(w, s, g);
+    return g_f(w, s, g) + h_f(w, s, g);
   }
 
   0.0
 }
 
-fn mov<const N: usize>(r: &mut [f32; N], v: &[f32; N]) {
-  *r = *v;
-}
-
-fn set<const N: usize>(r: &mut [f32; N], v: f32) {
-  *r = [v; N];
-}
-
-fn add<const N: usize>(r: &mut [f32; N], v: &[f32; N]) {
-  r.iter_mut().zip(v.iter()).for_each(|(r, v)| *r += v)
-}
-
-struct NelderMeadSearchConfig<const N: usize> {
-  start: [f32; N],
+struct NelderMeadSearchConfig {
+  start: Vec<f32>,
   max_iter: usize,
   delta: f32,
-  pmin: f32,
   tolerance: f32,
+}
+
+fn mov(r: &mut [f32], v: &[f32]) {
+  r.copy_from_slice(v)
+}
+
+fn set(r: &mut [f32], v: f32) {
+  r.fill(v)
+}
+
+fn add(r: &mut [f32], v: &[f32]) {
+  r.iter_mut().zip(v.iter()).for_each(|(r, v)| *r += v)
 }
 
 /// Downhill simplex solver:
 /// http://en.wikipedia.org/wiki/Nelder%E2%80%93Mead_method#One_possible_variation_of_the_NM_algorithm
 /// using the termination criterion from Numerical Recipes in C++ (3rd Ed.)
-fn nelder_mead<const N: usize>(
-  objective_fn: impl Fn(&[f32; N]) -> f32,
-  config: NelderMeadSearchConfig<N>,
-) -> [f32; N] {
-  todo!()
+#[allow(clippy::needless_range_loop)]
+fn nelder_mead(
+  mut objective_fn: impl FnMut(&[f32]) -> f32,
+  config: NelderMeadSearchConfig,
+) -> (f32, Vec<f32>) {
+  // standard coefficients from Nelder-Mead
+  let reflect = 1.0;
+  let expand = 2.0;
+  let contract = 0.5;
+  let shrink = 0.5;
+
+  //     typedef float point[DIM];
+  //     const int NB_POINTS = DIM + 1;
+
+  let number_points = config.start.len() + 1;
+  let mut s: Vec<Vec<f32>> = Vec::new();
+
+  // initialize simplex
+  s.push(config.start.clone());
+  for i in 1..number_points {
+    s.push(config.start.clone());
+    s[i][i - 1] += config.delta;
+  }
+
+  // evaluate function at each point on simplex
+  let mut f: Vec<f32> = (0..number_points).map(|i| objective_fn(&s[i])).collect();
+
+  let mut lo = 0;
+
+  let mut o = vec![0.; config.start.len()];
+  let mut r = vec![0.; config.start.len()];
+  let mut e = vec![0.; config.start.len()];
+  let mut c = vec![0.; config.start.len()];
+  let len = o.len();
+  let len_f = o.len() as f32;
+
+  for _ in 0..config.max_iter {
+    // find lowest, highest and next highest
+    lo = 0;
+    let mut hi = 0;
+    let mut nh = 0;
+    for i in 1..number_points {
+      if f[i] < f[lo] {
+        lo = i;
+      }
+      if f[i] > f[hi] {
+        nh = hi;
+        hi = i;
+      } else if f[i] > f[nh] {
+        nh = i;
+      }
+    }
+
+    // stop if we've reached the required tolerance level
+    let a = f[lo].abs();
+    let b = f[hi].abs();
+    if (a - b).abs() * 2.0 < (a + b) * config.tolerance {
+      break;
+    }
+
+    // compute centroid (excluding the worst point)
+    set(&mut o, 0.);
+    for i in 0..number_points {
+      if i == hi {
+        continue;
+      }
+      add(&mut o, &s[i])
+    }
+    o.iter_mut().for_each(|v| *v /= len_f);
+
+    // reflection
+    for i in 0..len {
+      r[i] = o[i] + reflect * (o[i] - s[hi][i]);
+    }
+
+    let fr = objective_fn(&r);
+    if fr < f[nh] {
+      if fr < f[lo] {
+        // expansion
+        for i in 0..len {
+          e[i] = o[i] + expand * (o[i] - s[hi][i]);
+        }
+
+        let fe = objective_fn(&e);
+        if fe < fr {
+          mov(&mut s[hi], &e);
+          f[hi] = fe;
+          continue;
+        }
+      }
+
+      mov(&mut s[hi], &r);
+      f[hi] = fr;
+      continue;
+    }
+
+    // contraction
+    for i in 0..len {
+      c[i] = o[i] - contract * (o[i] - s[hi][i]);
+    }
+
+    let fc = objective_fn(&c);
+    if fc < f[hi] {
+      mov(&mut s[hi], &c);
+      f[hi] = fc;
+      continue;
+    }
+
+    // reduction
+    for k in 0..number_points {
+      if k == lo {
+        continue;
+      }
+      for i in 0..len {
+        s[k][i] = s[lo][i] + shrink * (s[k][i] - s[lo][i]);
+      }
+      f[k] = objective_fn(&s[k]);
+    }
+  }
+
+  // return best point and its value
+  (f[lo], s[lo].clone())
 }
-
-// // Downhill simplex solver:
-// // http://en.wikipedia.org/wiki/Nelder%E2%80%93Mead_method#One_possible_variation_of_the_NM_algorithm
-// // using the termination criterion from Numerical Recipes in C++ (3rd Ed.)
-// template<int DIM, typename FUNC>
-// float NelderMead(
-//     float* pmin, const float* start, float delta, float tolerance, int maxIters, FUNC
-// objectiveFn) {
-//     // standard coefficients from Nelder-Mead
-//     const float reflect  = 1.0f;
-//     const float expand   = 2.0f;
-//     const float contract = 0.5f;
-//     const float shrink   = 0.5f;
-
-//     typedef float point[DIM];
-//     const int NB_POINTS = DIM + 1;
-
-//     point s[NB_POINTS];
-//     float f[NB_POINTS];
-
-//     // initialise simplex
-//     mov(s[0], start, DIM);
-//     for (int i = 1; i < NB_POINTS; i++)
-//     {
-//         mov(s[i], start, DIM);
-//         s[i][i - 1] += delta;
-//     }
-
-//     // evaluate function at each point on simplex
-//     for (int i = 0; i < NB_POINTS; i++)
-//         f[i] = objectiveFn(s[i]);
-
-//     int lo = 0, hi, nh;
-
-//     for (int j = 0; j < maxIters; j++)
-//     {
-//         // find lowest, highest and next highest
-//         lo = hi = nh = 0;
-//         for (int i = 1; i < NB_POINTS; i++)
-//         {
-//             if (f[i] < f[lo])
-//                 lo = i;
-//             if (f[i] > f[hi])
-//             {
-//                 nh = hi;
-//                 hi = i;
-//             }
-//             else if (f[i] > f[nh])
-//                 nh = i;
-//         }
-
-//         // stop if we've reached the required tolerance level
-//         float a = fabsf(f[lo]);
-//         float b = fabsf(f[hi]);
-//         if (2.0f*fabsf(a - b) < (a + b)*tolerance)
-//             break;
-
-//         // compute centroid (excluding the worst point)
-//         point o;
-//         set(o, 0.0f, DIM);
-//         for (int i = 0; i < NB_POINTS; i++)
-//         {
-//             if (i == hi) continue;
-//             add(o, s[i], DIM);
-//         }
-
-//         for (int i = 0; i < DIM; i++)
-//             o[i] /= DIM;
-
-//         // reflection
-//         point r;
-//         for (int i = 0; i < DIM; i++)
-//             r[i] = o[i] + reflect*(o[i] - s[hi][i]);
-
-//         float fr = objectiveFn(r);
-//         if (fr < f[nh])
-//         {
-//             if (fr < f[lo])
-//             {
-//                 // expansion
-//                 point e;
-//                 for (int i = 0; i < DIM; i++)
-//                     e[i] = o[i] + expand*(o[i] - s[hi][i]);
-
-//                 float fe = objectiveFn(e);
-//                 if (fe < fr)
-//                 {
-//                     mov(s[hi], e, DIM);
-//                     f[hi] = fe;
-//                     continue;
-//                 }
-//             }
-
-//             mov(s[hi], r, DIM);
-//             f[hi] = fr;
-//             continue;
-//         }
-
-//         // contraction
-//         point c;
-//         for (int i = 0; i < DIM; i++)
-//             c[i] = o[i] - contract*(o[i] - s[hi][i]);
-
-//         float fc = objectiveFn(c);
-//         if (fc < f[hi])
-//         {
-//             mov(s[hi], c, DIM);
-//             f[hi] = fc;
-//             continue;
-//         }
-
-//         // reduction
-//         for (int k = 0; k < NB_POINTS; k++)
-//         {
-//             if (k == lo) continue;
-//             for (int i = 0; i < DIM; i++)
-//                 s[k][i] = s[lo][i] + shrink*(s[k][i] - s[lo][i]);
-//             f[k] = objectiveFn(s[k]);
-//         }
-//     }
-
-//     // return best point and its value
-//     mov(pmin, s[lo], DIM);
-//     return f[lo];
-// }

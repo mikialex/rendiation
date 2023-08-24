@@ -1,3 +1,5 @@
+#![feature(type_name_of_val)]
+
 use rendiation_algebra::*;
 use rendiation_shader_api::*;
 use rendiation_texture::Texture2DBuffer;
