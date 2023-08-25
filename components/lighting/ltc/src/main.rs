@@ -12,22 +12,7 @@ use brdf::*;
 use fit::*;
 
 pub fn main() {
-  // let ltc_map = fit::fit(GGX, &LtcFitConfig::default());
-  // let ltc_map = fit::fit(
-  //   GGX,
-  //   &LtcFitConfig {
-  //     lut_size: 32,
-  //     sample_count: 32,
-  //   },
-  // );
-
-  let ltc_map = fit::fit(
-    GGX,
-    &LtcFitConfig {
-      lut_size: 8,
-      sample_count: 32,
-    },
-  );
+  let ltc_map = fit::fit(GGX, &LtcFitConfig::default());
 
   write_image(&ltc_map.ltc_lut1, "ltc_1.png");
   write_image(&ltc_map.ltc_lut2, "ltc_2.png");
@@ -40,7 +25,7 @@ fn write_image(texture: &Texture2DBuffer<Vec4<f32>>, path: impl AsRef<Path>) {
         (pix.x.clamp(0.0, 1.0) * 255.0) as u8,
         (pix.y.clamp(0.0, 1.0) * 255.0) as u8,
         (pix.z.clamp(0.0, 1.0) * 255.0) as u8,
-        255,
+        (pix.w.clamp(0.0, 1.0) * 255.0) as u8,
       ])
     })
     .save(path)

@@ -252,7 +252,7 @@ impl Default for LTC {
 impl LTC {
   fn eval(&self, l: Vec3<f32>) -> f32 {
     let l_original = (self.inverse_m * l).normalize();
-    let l_ = self.m * l;
+    let l_ = self.m * l_original;
 
     let length = l_.length();
     let jacobian = self.m_determinant / (length * length * length);
@@ -405,7 +405,7 @@ fn sqr(x: f32) -> f32 {
 }
 
 fn g_f(w: f32, s: f32, g: f32) -> f32 {
-  -2.0 * w.sin() * s.cos() * g.cos() + f32::PI() / 2.0 + g.sin() * g.cos()
+  -2.0 * w.sin() * s.cos() * g.cos() + f32::PI() / 2.0 - g + g.sin() * g.cos()
 }
 
 fn h_f(w: f32, s: f32, g: f32) -> f32 {
