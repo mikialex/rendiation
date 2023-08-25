@@ -91,6 +91,23 @@ pub fn if_by_ok(
   Ok(ElseEmitter(0))
 }
 
+impl Node<bool> {
+  pub fn select_branched<T: ShaderSizedValueNodeType>(
+    self,
+    tr: impl Fn() -> Node<T>,
+    fal: impl Fn() -> Node<T>,
+  ) -> Node<T> {
+    let re = zeroed_val().make_local_var();
+    if_by(self, || {
+      re.store(tr());
+    })
+    .else_by(|| {
+      re.store(fal());
+    });
+    re.load()
+  }
+}
+
 pub trait SwitchableShaderType: ShaderNodeType {
   fn into_condition(self) -> SwitchCaseCondition;
 }

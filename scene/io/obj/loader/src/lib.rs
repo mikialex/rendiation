@@ -42,7 +42,7 @@ pub fn load_obj_content(
     .iter()
     .map(|m| {
       let indices = &m.mesh.indices;
-      let indices = AttributeAccessor::create_owned(indices.clone(), 1 * 4);
+      let indices = AttributeAccessor::create_owned(indices.clone(), 4);
 
       let mut attributes = Vec::with_capacity(3);
       attributes.push((

@@ -1,0 +1,11 @@
+[package]
+authors = ["mikialex <18516340862@163.com>"]
+edition = "2021"
+name = "rendiation-lighting-ltc"
+version = "0.1.0"
+
+[dependencies]
+image = "*" # todo, I should make it an standalone crate for bin target
+rendiation-algebra = {path = "../../../math/algebra"} 
+rendiation-shader-api = {path = "../../../shader/api"} 
+rendiation-texture = {path = "../../texture/core"}

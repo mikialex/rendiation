@@ -328,6 +328,12 @@ impl<T: ShaderNodeType> Node<T> {
   pub fn atan(self) -> Node<T> {
     make_builtin_call(ShaderBuiltInFunction::Atan, [self.handle()])
   }
+  pub fn atan2(self, other: Node<T>) -> Node<T> {
+    make_builtin_call(
+      ShaderBuiltInFunction::Atan2,
+      [self.handle(), other.handle()],
+    )
+  }
 
   pub fn ceil(self) -> Node<T> {
     make_builtin_call(ShaderBuiltInFunction::Ceil, [self.handle()])
