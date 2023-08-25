@@ -62,13 +62,13 @@ fn fit_tab(
       // parameterized by sqrt(1 - cos(theta))
       let x = t as f32 / (config.lut_size - 1) as f32;
       let ct = 1.0 - x * x;
-      let theta = ct.acos().min(f32::PI() / 2.0);
+      let theta = ct.acos().min(f32::PI() / 2.0 - 0.001);
       let v = Vec3::new(theta.sin(), 0., theta.cos());
 
       // alpha = roughness^2
       let roughness = a as f32 / (config.lut_size - 1) as f32;
       // minimal roughness (avoid singularities)
-      let alpha = roughness * roughness.max(0.00001);
+      let alpha = (roughness * roughness).max(0.00001);
 
       let avg = compute_avg_terms(brdf, v, alpha, config.sample_count);
       ltc.fresnel = avg.fresnel;
@@ -114,9 +114,9 @@ fn fit_tab(
       // 2. fit (explore parameter space and refine first guess)
       let nm_config = NelderMeadSearchConfig {
         start: vec![ltc.m11, ltc.m22, ltc.m13],
-        max_iter: 100,
         delta: 0.05,
         tolerance: 1e-5,
+        max_iter: 100,
       };
       // Find best-fit LTC lobe (scale, alphax, alphay)
       let (_, best_fit) = nelder_mead(
@@ -187,7 +187,7 @@ fn pack_tab(
   for i in 0..config.lut_data_size() {
     let m = tab[i];
 
-    let mut inv_m = m.inverse_or_identity();
+    let mut inv_m = m.inverse().unwrap();
 
     // normalize by the middle element
     inv_m /= inv_m.b2;
@@ -272,7 +272,7 @@ impl LTC {
       0.,       self.m22, 0.,
       self.m13, 0.,       1.
     );
-    self.inverse_m = self.m.inverse_or_identity();
+    self.inverse_m = self.m.inverse().unwrap();
     self.m_determinant = self.m.det().abs();
   }
 
@@ -438,9 +438,9 @@ fn ihemi(w: f32, s: f32) -> f32 {
 
 struct NelderMeadSearchConfig {
   start: Vec<f32>,
-  max_iter: usize,
   delta: f32,
   tolerance: f32,
+  max_iter: usize,
 }
 
 fn mov(r: &mut [f32], v: &[f32]) {
@@ -468,9 +468,6 @@ fn nelder_mead(
   let expand = 2.0;
   let contract = 0.5;
   let shrink = 0.5;
-
-  //     typedef float point[DIM];
-  //     const int NB_POINTS = DIM + 1;
 
   let number_points = config.start.len() + 1;
   let mut s: Vec<Vec<f32>> = Vec::new();
@@ -578,6 +575,6 @@ fn nelder_mead(
     }
   }
 
-  // return best point and its value
+  // return minimal error and best fit
   (f[lo], s[lo].clone())
 }

@@ -33,9 +33,9 @@ impl Brdf for GGX {
 
     // D
     let h = (v + l).normalize();
-    let slopex = h.x / h.z;
-    let slopey = h.y / h.z;
-    let mut d = 1.0 / (1.0 + (slopex * slopex + slopey * slopey) / alpha / alpha);
+    let slope_x = h.x / h.z;
+    let slope_y = h.y / h.z;
+    let mut d = 1.0 / (1.0 + (slope_x * slope_x + slope_y * slope_y) / alpha / alpha);
     d *= d;
     d /= f32::PI() * alpha * alpha * h.z * h.z * h.z * h.z;
 
