@@ -54,16 +54,15 @@ struct EnvMapBackgroundGPU {
 impl ShadingBackground for EnvMapBackgroundGPU {
   fn shading(
     &self,
-    builder: &mut ShaderRenderPipelineBuilder,
+    builder: &mut ShaderFragmentBuilderView,
+    binding: &mut ShaderBindGroupDirectBuilder,
     direction: Node<Vec3<f32>>,
   ) -> Result<(), ShaderBuildError> {
-    builder.fragment(|builder, binding| {
-      let cube = binding.bind_by(&self.texture);
-      let sampler = binding.bind_by(&self.sampler);
-      cube.sample(sampler, direction);
-      builder.register::<DefaultDisplay>(cube.sample(sampler, direction));
-      Ok(())
-    })
+    let cube = binding.bind_by(&self.texture);
+    let sampler = binding.bind_by(&self.sampler);
+    cube.sample(sampler, direction);
+    builder.register::<DefaultDisplay>(cube.sample(sampler, direction));
+    Ok(())
   }
 }
 
@@ -74,7 +73,8 @@ struct ShadingBackgroundTask<T> {
 pub trait ShadingBackground {
   fn shading(
     &self,
-    builder: &mut ShaderRenderPipelineBuilder,
+    builder: &mut ShaderFragmentBuilderView,
+    binding: &mut ShaderBindGroupDirectBuilder,
     direction: Node<Vec3<f32>>,
   ) -> Result<(), ShaderBuildError>;
 }
@@ -91,40 +91,42 @@ impl<T: ShaderHashProvider> ShaderHashProvider for ShadingBackgroundTask<T> {
   }
 }
 
+both!(CameraWorldDirection, Vec3<f32>);
+
 impl<T: ShadingBackground> GraphicsShaderProvider for ShadingBackgroundTask<T> {
   fn build(&self, builder: &mut ShaderRenderPipelineBuilder) -> Result<(), ShaderBuildError> {
-    let direction = builder.vertex(|builder, _| {
+    builder.vertex(|builder, _| {
       let vertex_index = builder.query::<VertexIndex>()?;
-      let proj_inv = builder.query::<CameraProjectionInverseMatrix>()?;
+      let projection_inv = builder.query::<CameraProjectionInverseMatrix>()?;
       let view = builder.query::<CameraViewMatrix>()?;
-      Ok(background_direction(vertex_index, view, proj_inv))
+
+      // hacky way to draw a large triangle
+      let tmp1 = vertex_index.into_i32() / val(2);
+      let tmp2 = vertex_index.into_i32() & val(1);
+      let clip_position = (
+        tmp1.into_f32() * val(4.0) - val(1.0),
+        tmp2.into_f32() * val(4.0) - val(1.0),
+        val(1.0),
+        val(1.0),
+      )
+        .into();
+
+      let model_view: Node<Mat3<f32>> = (view.x().xyz(), view.y().xyz(), view.z().xyz()).into();
+      let inv_model_view = model_view.transpose(); // orthonormal
+
+      let unprojected = projection_inv * clip_position;
+
+      let direction = inv_model_view * unprojected.xyz();
+
+      builder.register::<ClipPosition>(clip_position);
+      builder.register::<CameraWorldDirection>(direction);
+      Ok(())
     })?;
 
-    self.content.shading(builder, direction)
+    builder.fragment(|builder, binding| {
+      let direction = builder.query::<CameraWorldDirection>()?;
+      self.content.shading(builder, binding, direction)?;
+      Ok(())
+    })
   }
-}
-
-#[shader_fn]
-fn background_direction(
-  vertex_index: Node<u32>,
-  view: Node<Mat4<f32>>,
-  projection_inv: Node<Mat4<f32>>,
-) -> Node<Vec3<f32>> {
-  // hacky way to draw a large triangle
-  let tmp1 = vertex_index.into_i32() / val(2);
-  let tmp2 = vertex_index.into_i32() & val(1);
-  let pos = (
-    tmp1.into_f32() * val(4.0) - val(1.0),
-    tmp2.into_f32() * val(4.0) - val(1.0),
-    val(1.0),
-    val(1.0),
-  )
-    .into();
-
-  let model_view: Node<Mat3<f32>> = (view.x().xyz(), view.y().xyz(), view.z().xyz()).into();
-  let inv_model_view = model_view.transpose(); // orthonormal
-
-  let unprojected = projection_inv * pos;
-
-  inv_model_view * unprojected.xyz()
 }

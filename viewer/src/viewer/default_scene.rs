@@ -47,10 +47,6 @@ pub fn load_img_cube() -> SceneTextureCube {
 }
 
 pub fn load_default_scene(scene: &Scene) {
-  scene.set_background(Some(SceneBackGround::Solid(SolidBackground {
-    intensity: Vec3::new(0.1, 0.1, 0.1),
-  })));
-
   let path = if cfg!(windows) {
     "C:/Users/mk/Desktop/rrf-resource/planets/earth_atmos_2048.jpg"
   } else {
@@ -62,16 +58,12 @@ pub fn load_default_scene(scene: &Scene) {
     sampler: TextureSampler::tri_linear_repeat().into_ref(),
   };
 
-  // let texture_cube = scene.add_texture_cube(load_img_cube());
-
-  // let background_mat = EnvMapBackGroundMaterial {
-  //   sampler: TextureSampler::default(),
-  //   texture: texture_cube,
-  // };
-  // let background_mat = scene.add_material(background_mat);
-  // let bg = DrawableBackground::new(background_mat);
-
-  // scene.background = Box::new(bg);
+  scene.set_background(Some(SceneBackGround::Solid(SolidBackground {
+    intensity: Vec3::new(0.1, 0.1, 0.1),
+  })));
+  scene.set_background(Some(SceneBackGround::Env(EnvMapBackground {
+    texture: load_img_cube(),
+  })));
 
   {
     let mesh = IndexedMeshBuilder::<TriangleList, Vec<Vertex>>::default()
