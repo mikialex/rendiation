@@ -371,7 +371,6 @@ macro_rules! sized_array_like_index {
   };
 }
 
-sized_array_like_index!(HandleNode, BindingArray);
 sized_array_like_index!(UniformNode, Shader140Array);
 
 sized_array_like_index!(LocalVarNode);
@@ -381,6 +380,20 @@ sized_array_like_index!(HandleNode);
 sized_array_like_index!(StorageNode);
 sized_array_like_index!(ReadOnlyStorageNode);
 sized_array_like_index!(WorkGroupSharedNode);
+
+// this is a bit special
+impl<T, const U: usize> HandleNode<BindingArray<T, U>>
+where
+  T: ShaderNodeType,
+{
+  pub fn index(&self, node: impl Into<Node<u32>>) -> Node<T> {
+    OperatorNode::Index {
+      array: self.handle(),
+      entry: node.into().handle(),
+    }
+    .insert_api()
+  }
+}
 
 macro_rules! slice_like_index {
   ($NodeType: tt) => {

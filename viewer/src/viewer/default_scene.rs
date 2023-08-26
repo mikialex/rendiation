@@ -61,9 +61,9 @@ pub fn load_default_scene(scene: &Scene) {
   scene.set_background(Some(SceneBackGround::Solid(SolidBackground {
     intensity: Vec3::new(0.1, 0.1, 0.1),
   })));
-  scene.set_background(Some(SceneBackGround::Env(EnvMapBackground {
-    texture: load_img_cube(),
-  })));
+  // scene.set_background(Some(SceneBackGround::Env(EnvMapBackground {
+  //   texture: load_img_cube(),
+  // })));
 
   {
     let mesh = IndexedMeshBuilder::<TriangleList, Vec<Vertex>>::default()

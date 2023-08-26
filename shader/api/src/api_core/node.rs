@@ -175,13 +175,6 @@ impl_store!(WorkGroupSharedNode);
 impl_load!(ReadOnlyStorageNode);
 impl_load!(UniformNode);
 
-// used in bindless
-impl<T> Node<ShaderHandlePtr<ShaderHandlePtr<T>>> {
-  pub fn load(&self) -> Node<ShaderHandlePtr<T>> {
-    call_shader_api(|g| unsafe { g.load(self.handle()).into_node() })
-  }
-}
-
 #[derive(Copy, Clone)]
 pub struct AnyType;
 

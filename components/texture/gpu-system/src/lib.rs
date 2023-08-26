@@ -318,8 +318,8 @@ impl<B: GPUTextureBackend> AbstractIndirectGPUTextureSystem<B> for BindlessTextu
       .query_typed_both_stage::<BindlessSamplersInShader>()
       .unwrap();
 
-    let texture = textures.index(shader_texture_handle).load();
-    let sampler = samplers.index(shader_sampler_handle).load();
+    let texture = textures.index(shader_texture_handle);
+    let sampler = samplers.index(shader_sampler_handle);
     texture.sample(sampler, uv)
   }
 }
