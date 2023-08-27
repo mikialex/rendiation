@@ -32,6 +32,14 @@ impl<T> StateCell<T> {
     }
   }
 
+  pub fn single_listen(&self) -> impl futures::Stream<Item = T>
+  where
+    T: Clone + Send + Sync + 'static,
+  {
+    let init = self.state.read().unwrap().clone();
+    self.single_listen_by(|v| v.clone(), |f| f(init))
+  }
+
   pub fn on_event<X>(
     &self,
     mut logic: impl FnMut(&T, &X) -> T + Send + Sync,
