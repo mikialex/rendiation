@@ -55,9 +55,12 @@ where
     self.inner.request(detail)
   }
 }
-impl<C: View, X, CC: View> ViewNester<CC> for ReactiveNestedView<C, X> {
+
+/// when ReactiveNestedView act as view nest, the ReactiveNestedView's content: inner should impl
+/// ViewNester over the nested view
+impl<C: ViewNester<CC>, X, CC> ViewNester<CC> for ReactiveNestedView<C, X> {
   fn request_nester(&mut self, detail: &mut ViewRequest, inner: &mut CC) {
-    inner.request(detail)
+    self.inner.request_nester(detail, inner)
   }
 }
 pub struct ReactiveUpdaterGroup<C> {

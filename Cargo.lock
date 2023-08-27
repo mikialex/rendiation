@@ -3525,6 +3525,7 @@ dependencies = [
  "rendiation-mesh-generator",
  "rendiation-renderable-mesh",
  "rendiation-scene-core",
+ "rendiation-scene-gltf-exporter",
  "rendiation-scene-gltf-loader",
  "rendiation-scene-interaction",
  "rendiation-scene-obj-loader",

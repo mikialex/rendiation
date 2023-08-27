@@ -122,6 +122,7 @@ pub enum UILength {
   ParentPercent(f32),
 }
 
+/// convert float default to logic pixel
 impl From<f32> for UILength {
   fn from(v: f32) -> Self {
     Self::Px(v)

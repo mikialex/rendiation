@@ -169,6 +169,20 @@ pub fn register_default_commands(terminal: &mut Terminal) {
     })
   });
 
+  terminal.register_command("export-gltf", |ctx, _parameters| {
+    let scene = ctx.scene.clone();
+    
+    Box::pin(async move { 
+      if let Some(mut dir) = dirs::download_dir() {
+        dir.push("gltf_export");
+        rendiation_scene_gltf_exporter::build_scene_to_gltf(&scene, &dir, "scene").unwrap();
+      }else {
+        log::error!("failed to locate the system's default download directory to write viewer screenshot image")
+      }
+    
+     })
+  });
+
   terminal.register_command("screenshot", |ctx, _parameters| {
     let result = ctx
       .rendering
@@ -181,11 +195,11 @@ pub fn register_default_commands(terminal: &mut Terminal) {
         match result.await {
             Ok(r) =>{
               if let Some(mut dir) = dirs::download_dir() {
-              dir.push("screenshot.png"); // will override old but ok
-              write_png(&r, dir);
-            }else {
-              log::error!("failed to locate the system's default download directory to write viewer screenshot image")
-            }
+                dir.push("screenshot.png"); // will override old but ok
+                write_png(&r, dir);
+              }else {
+                log::error!("failed to locate the system's default download directory to write viewer screenshot image")
+              }
             },
             Err(e) => log::error!("{e:?}"),
         }

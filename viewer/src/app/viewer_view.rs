@@ -1,17 +1,20 @@
 use interphaser::*;
 
-use crate::{terminal, Viewer};
+use crate::{button, terminal, Viewer};
 
 pub fn viewer() -> impl View {
   let (terminal, to_execute) = terminal();
 
   let viewer = Viewer::new(to_execute);
 
+  let (button_view, _) = button(String::from("test button"));
+
   AbsoluteAnchor::default().wrap(
     absolute_group()
       .child(AbsChild::new(GPUCanvas::new(viewer)))
       .child(AbsChild::new(terminal).with_position((0., 0.)))
-      // .child(AbsChild::new(perf_panel()).with_position((0., 50.))),
+      .child(AbsChild::new(button_view).with_position((500., 500.))),
+    // .child(AbsChild::new(perf_panel()).with_position((0., 50.))),
   )
 }
 

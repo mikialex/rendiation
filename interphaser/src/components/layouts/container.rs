@@ -112,6 +112,7 @@ pub enum AdaptChildSelfBehavior {
 }
 
 impl ContainerSize {
+  /// This used in the container as the view child case
   pub fn compute_size_self(&self, constraint: LayoutConstraint) -> UISize {
     match self {
       ContainerSize::ConstraintChild { size } => {
@@ -125,6 +126,7 @@ impl ContainerSize {
     }
   }
 
+  /// This used in the container as the nester case
   /// (self size, child size)
   pub fn compute_size_pair(
     &self,
