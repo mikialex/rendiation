@@ -37,20 +37,35 @@ impl WebGPUBackground for EnvMapBackground {
 impl SceneRenderable for EnvMapBackground {
   fn render<'a>(
     &self,
-    _pass: &mut FrameRenderPass,
-    _dispatcher: &dyn RenderComponentAny,
-    _camera: &SceneCamera,
-    _scene: &SceneRenderResourceGroup,
+    pass: &mut FrameRenderPass,
+    base: &dyn RenderComponentAny,
+    camera: &SceneCamera,
+    scene: &SceneRenderResourceGroup,
   ) {
-    todo!()
+    let (_, texture) = scene
+      .resources
+      .bindable_ctx
+      .get_or_create_reactive_gpu_texture_cube(&self.texture);
+
+    // should we cache it?
+    let content = EnvMapBackgroundGPU { texture };
+    let content = ShadingBackgroundTask { content };
+
+    let cameras = scene.scene_resources.cameras.read().unwrap();
+    let camera_gpu = cameras.get_camera_gpu(camera).unwrap();
+
+    let components: [&dyn RenderComponentAny; 4] =
+      [&base, &FullScreenQuad::default(), camera_gpu, &content];
+
+    RenderEmitter::new(components.as_slice()).render(&mut pass.ctx, QUAD_DRAW_CMD);
   }
 }
 
 struct EnvMapBackgroundGPU {
   texture: GPUCubeTextureView,
-  sampler: GPUSamplerView,
 }
 
+impl ShaderHashProvider for EnvMapBackgroundGPU {}
 impl ShadingBackground for EnvMapBackgroundGPU {
   fn shading(
     &self,
@@ -59,10 +74,17 @@ impl ShadingBackground for EnvMapBackgroundGPU {
     direction: Node<Vec3<f32>>,
   ) -> Result<(), ShaderBuildError> {
     let cube = binding.bind_by(&self.texture);
-    let sampler = binding.bind_by(&self.sampler);
+    let sampler = binding.binding::<GPUSamplerView>();
     cube.sample(sampler, direction);
     builder.register::<DefaultDisplay>(cube.sample(sampler, direction));
     Ok(())
+  }
+}
+
+impl ShaderPassBuilder for EnvMapBackgroundGPU {
+  fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
+    ctx.binding.bind(&self.texture);
+    ctx.bind_immediate_sampler(&TextureSampler::default().into_gpu());
   }
 }
 
@@ -118,7 +140,6 @@ impl<T: ShadingBackground> GraphicsShaderProvider for ShadingBackgroundTask<T> {
 
       let direction = inv_model_view * unprojected.xyz();
 
-      builder.register::<ClipPosition>(clip_position);
       builder.register::<CameraWorldDirection>(direction);
       Ok(())
     })?;
