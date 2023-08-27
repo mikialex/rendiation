@@ -40,6 +40,8 @@ pub fn button(label: String) -> (impl View, impl Stream<Item = ()>) {
 
   let view = Container::sized((200., 80.))
     .react(color.bind(Container::set_color))
+    .into_state_holder()
+    .hold_state(state)
     .wrap(Text::new(label))
     .nest_in(events)
     .nest_in(clicker);

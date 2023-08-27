@@ -2,7 +2,7 @@ use std::ops::DerefMut;
 
 use crate::*;
 
-/// Combinator structure
+/// Combinator structure, to combine a parent view with a single child view
 pub struct NestedView<C, A> {
   pub inner: C,
   pub nester: A,

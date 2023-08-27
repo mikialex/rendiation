@@ -7,7 +7,10 @@ pub fn viewer() -> impl View {
 
   let viewer = Viewer::new(to_execute);
 
-  let (button_view, _) = button(String::from("test button"));
+  let (button_view, _button_action) = button(String::from("test button"));
+
+  // // how do I do log??
+  // Box::leak(Box::new(button_action));
 
   AbsoluteAnchor::default().wrap(
     absolute_group()
