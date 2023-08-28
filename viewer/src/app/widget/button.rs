@@ -48,3 +48,7 @@ pub fn button(label: String) -> (impl View, impl Stream<Item = ()>) {
 
   (view, clicked)
 }
+
+// pub fn switch() ->  (impl View, impl Stream<Item = bool>) {
+
+// }
