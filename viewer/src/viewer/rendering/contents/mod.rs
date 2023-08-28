@@ -4,7 +4,7 @@ mod fatline;
 pub use fatline::*;
 mod model_overrides;
 pub use model_overrides::*;
-use rendiation_renderable_mesh::{
+use rendiation_mesh_core::{
   vertex::Vertex, DynIndexContainer, GroupedMesh, IndexedMesh, IntersectAbleGroupedMesh,
   TriangleList,
 };

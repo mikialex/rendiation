@@ -1,8 +1,8 @@
 use rendiation_algebra::*;
+use rendiation_mesh_core::{vertex::Vertex, TriangleList};
 use rendiation_mesh_generator::{
   CubeMeshParameter, IndexedMeshBuilder, SphereMeshParameter, TessellationConfig,
 };
-use rendiation_renderable_mesh::{vertex::Vertex, TriangleList};
 use rendiation_texture::{
   create_padding_buffer, GPUBufferImage, Texture2D, TextureFormat, TextureSampler,
 };

@@ -47,5 +47,5 @@ use futures::Stream;
 use incremental::*;
 pub use reactive_incremental::*;
 use rendiation_algebra::*;
-pub use rendiation_renderable_mesh::*;
+pub use rendiation_mesh_core::*;
 pub use systems::*;

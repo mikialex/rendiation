@@ -1548,7 +1548,7 @@ dependencies = [
  "rendiation-canvas",
  "rendiation-color",
  "rendiation-geometry",
- "rendiation-renderable-mesh",
+ "rendiation-mesh-core",
  "rendiation-shader-api",
  "rendiation-shader-backend-naga",
  "rendiation-texture",
@@ -2617,16 +2617,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "rendiation-editable-mesh"
-version = "0.1.0"
-dependencies = [
- "arena",
- "rendiation-algebra",
- "rendiation-geometry",
- "tobj 0.1.12",
-]
-
-[[package]]
 name = "rendiation-generative-texture"
 version = "0.0.1"
 dependencies = [
@@ -2654,16 +2644,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "rendiation-mesh-generator"
-version = "0.1.0"
-dependencies = [
- "rendiation-algebra",
- "rendiation-geometry",
- "rendiation-renderable-mesh",
-]
-
-[[package]]
-name = "rendiation-renderable-mesh"
+name = "rendiation-mesh-core"
 version = "0.1.0"
 dependencies = [
  "bytemuck",
@@ -2677,6 +2658,15 @@ dependencies = [
  "smallvec",
  "soa_derive",
  "space-algorithm",
+]
+
+[[package]]
+name = "rendiation-mesh-generator"
+version = "0.1.0"
+dependencies = [
+ "rendiation-algebra",
+ "rendiation-geometry",
+ "rendiation-mesh-core",
 ]
 
 [[package]]
@@ -2701,7 +2691,7 @@ dependencies = [
  "rendiation-algebra",
  "rendiation-animation",
  "rendiation-geometry",
- "rendiation-renderable-mesh",
+ "rendiation-mesh-core",
  "rendiation-texture",
  "smallvec",
  "tree",
@@ -2714,7 +2704,7 @@ dependencies = [
  "fast-hash-collection",
  "gltf",
  "gltf-json",
- "rendiation-renderable-mesh",
+ "rendiation-mesh-core",
  "rendiation-scene-core",
  "rendiation-texture",
  "tree",
@@ -2730,7 +2720,7 @@ dependencies = [
  "half 2.2.1",
  "rendiation-algebra",
  "rendiation-geometry",
- "rendiation-renderable-mesh",
+ "rendiation-mesh-core",
  "rendiation-scene-core",
  "rendiation-shader-api",
  "rendiation-texture",
@@ -2743,7 +2733,7 @@ dependencies = [
  "incremental",
  "rendiation-algebra",
  "rendiation-geometry",
- "rendiation-renderable-mesh",
+ "rendiation-mesh-core",
  "rendiation-scene-core",
 ]
 
@@ -2753,7 +2743,7 @@ version = "0.1.0"
 dependencies = [
  "image",
  "rendiation-algebra",
- "rendiation-renderable-mesh",
+ "rendiation-mesh-core",
  "rendiation-scene-core",
  "rendiation-texture",
  "thiserror",
@@ -2773,7 +2763,7 @@ dependencies = [
  "rendiation-algebra",
  "rendiation-color",
  "rendiation-geometry",
- "rendiation-renderable-mesh",
+ "rendiation-mesh-core",
  "rendiation-scene-core",
  "rendiation-texture",
  "space-algorithm",
@@ -2804,7 +2794,7 @@ dependencies = [
  "rendiation-algebra",
  "rendiation-color",
  "rendiation-geometry",
- "rendiation-renderable-mesh",
+ "rendiation-mesh-core",
  "rendiation-scene-core",
  "rendiation-shader-api",
  "rendiation-shader-library",
@@ -3390,12 +3380,6 @@ dependencies = [
 
 [[package]]
 name = "tobj"
-version = "0.1.12"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fe69d3e3b94bf71dfd868eb38b0830917bb177a7b32b58cab7ca72691aba7729"
-
-[[package]]
-name = "tobj"
 version = "2.0.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2468f55be8e59cf7219f1685cf1af4eb00ef2314823a7941a41c8d69538f881b"
@@ -3522,8 +3506,8 @@ dependencies = [
  "rendiation-controller",
  "rendiation-generative-texture",
  "rendiation-geometry",
+ "rendiation-mesh-core",
  "rendiation-mesh-generator",
- "rendiation-renderable-mesh",
  "rendiation-scene-core",
  "rendiation-scene-gltf-exporter",
  "rendiation-scene-gltf-loader",

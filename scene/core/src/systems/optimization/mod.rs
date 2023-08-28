@@ -5,7 +5,7 @@ use core::{
 
 use futures::*;
 use reactive::{once_forever_pending, SignalStreamExt, StreamMap};
-use rendiation_renderable_mesh::MeshDrawGroup;
+use rendiation_mesh_core::MeshDrawGroup;
 
 mod utils;
 use utils::*;

@@ -6,8 +6,8 @@ version = "0.0.1"
 [dependencies]
 gltf = "1.2.0"
 gltf-json = "1.2.0"
-rendiation-renderable-mesh = {path = "../../../../components/mesh/renderable"}
-rendiation-scene-core = {path = "../../../core"}
-rendiation-texture = {path = "../../../../components/texture/core"}
-tree = {path = "../../../../utils/tree"}
-fast-hash-collection = {path = "../../../../utils/fast-hash-collection"}
+rendiation-mesh-core = { path = "../../../../components/mesh/core" }
+rendiation-scene-core = { path = "../../../core" }
+rendiation-texture = { path = "../../../../components/texture/core" }
+tree = { path = "../../../../utils/tree" }
+fast-hash-collection = { path = "../../../../utils/fast-hash-collection" }

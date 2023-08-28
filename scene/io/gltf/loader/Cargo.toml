@@ -9,7 +9,7 @@ gltf = "1.2.0"
 half = "*"
 rendiation-algebra = { path = "../../../../math/algebra" }
 rendiation-geometry = { path = "../../../../math/geometry" }
-rendiation-renderable-mesh = { path = "../../../../components/mesh/renderable" }
+rendiation-mesh-core = { path = "../../../../components/mesh/core" }
 rendiation-scene-core = { path = "../../../core" }
 rendiation-texture = { path = "../../../../components/texture/core" }
 rendiation-shader-api = { path = "../../../../shader/api" }

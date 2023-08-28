@@ -1,4 +1,4 @@
-use rendiation_renderable_mesh::DynIndexContainer;
+use rendiation_mesh_core::DynIndexContainer;
 
 use crate::*;
 

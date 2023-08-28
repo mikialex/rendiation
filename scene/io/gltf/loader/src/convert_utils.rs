@@ -1,5 +1,5 @@
 use rendiation_algebra::{Mat4, Quat};
-use rendiation_renderable_mesh::PrimitiveTopology;
+use rendiation_mesh_core::PrimitiveTopology;
 use rendiation_scene_core::{
   AlphaMode, AttributeSemantic, InterpolationStyle, SceneAnimationField,
 };

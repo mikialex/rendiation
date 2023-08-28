@@ -13,12 +13,12 @@ rayon = "1.7.0"
 statrs = "0.16.0"
 tobj = "2.0.3"
 
-arena = {path = "../../utils/arena"}
-rendiation-algebra = {path = "../../math/algebra"}
-rendiation-color = {path = "../../components/color"}
-rendiation-geometry = {path = "../../math/geometry"}
-rendiation-renderable-mesh = {path = "../../components/mesh/renderable"}
-rendiation-scene-core = {path = "../core"}
-rendiation-texture = {path = "../../components/texture/core"}
-space-algorithm = {path = "../../components/space"}
-tree = {path = "../../utils/tree"}
+arena = { path = "../../utils/arena" }
+rendiation-algebra = { path = "../../math/algebra" }
+rendiation-color = { path = "../../components/color" }
+rendiation-geometry = { path = "../../math/geometry" }
+rendiation-mesh-core = { path = "../../components/mesh/core" }
+rendiation-scene-core = { path = "../core" }
+rendiation-texture = { path = "../../components/texture/core" }
+space-algorithm = { path = "../../components/space" }
+tree = { path = "../../utils/tree" }

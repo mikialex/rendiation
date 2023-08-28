@@ -1,7 +1,7 @@
 use incremental::*;
 use rendiation_algebra::*;
 use rendiation_geometry::*;
-use rendiation_renderable_mesh::*;
+use rendiation_mesh_core::*;
 use rendiation_scene_core::*;
 
 mod agreement;

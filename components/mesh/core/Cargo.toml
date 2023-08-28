@@ -1,7 +1,7 @@
 [package]
 authors = ["mikialex <18516340862@163.com>"]
 edition = "2021"
-name = "rendiation-renderable-mesh"
+name = "rendiation-mesh-core"
 version = "0.1.0"
 
 [dependencies]

@@ -8,7 +8,7 @@ use futures::Stream;
 use incremental::*;
 use reactive::*;
 use rendiation_geometry::*;
-use rendiation_renderable_mesh::{vertex::Vertex, *};
+use rendiation_mesh_core::{vertex::Vertex, *};
 use rendiation_shader_api::*;
 use webgpu::*;
 
