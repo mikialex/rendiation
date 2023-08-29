@@ -1,5 +1,5 @@
 use rendiation_algebra::*;
-use rendiation_renderable_mesh::{GroupedMesh, NoneIndexedMesh};
+use rendiation_mesh_core::{GroupedMesh, NoneIndexedMesh};
 
 use super::*;
 use crate::*;

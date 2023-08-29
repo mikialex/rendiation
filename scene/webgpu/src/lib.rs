@@ -53,7 +53,7 @@ pub use node::*;
 use reactive::*;
 pub use rendering::*;
 use rendiation_algebra::*;
-use rendiation_renderable_mesh::*;
+use rendiation_mesh_core::*;
 use rendiation_scene_core::*;
 use rendiation_shader_api::*;
 use rendiation_texture::TextureSampler;

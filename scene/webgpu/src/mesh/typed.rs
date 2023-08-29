@@ -1,8 +1,8 @@
 use core::marker::PhantomData;
 
 use bytemuck::Pod;
-use rendiation_renderable_mesh::MeshGroupsInfo;
-use rendiation_renderable_mesh::{GroupedMesh, IndexGet, MeshGroup};
+use rendiation_mesh_core::MeshGroupsInfo;
+use rendiation_mesh_core::{GroupedMesh, IndexGet, MeshGroup};
 use rendiation_shader_api::*;
 use webgpu::DrawCommand;
 

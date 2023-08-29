@@ -48,11 +48,20 @@ pub trait GPUParallelSplit {
   );
 }
 
-pub trait GPURecursiveFunction {
+enum Child {
+  WorkA(Node<f32>),
+  WorkB(Node<f32>),
+}
+
+pub trait GPURecursiveProcess {
   type Input;
-  type Output;
   type Child;
-  fn process_and_split(input: Self::Input, child_collector: impl Fn(Self::Child)) -> Self::Output;
+  type Context;
+  fn process_and_split(
+    input: Self::Input,
+    cx: &Self::Context,
+    child_collector: impl Fn(Self::Child),
+  );
 }
 
 // pub struct HierarchyCullingNode {}

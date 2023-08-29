@@ -104,6 +104,19 @@ pub trait InnerProductSpace<T: Scalar>: VectorSpace<T> {
     *self
   }
 
+  /// return the length before normalization
+  #[inline]
+  fn normalize_self(&mut self) -> T {
+    let mag_sq = self.length2();
+    if mag_sq > T::zero() {
+      let length = mag_sq.sqrt();
+      let inv_sqrt = T::one() / length;
+      *self = *self * inv_sqrt;
+      return length;
+    }
+    T::zero()
+  }
+
   #[inline]
   #[must_use]
   fn reflect<Rhs: InnerData<Self>>(&self, normal: Rhs) -> Self {

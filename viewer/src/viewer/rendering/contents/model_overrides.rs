@@ -2,7 +2,7 @@ use std::rc::Rc;
 
 use __core::cell::RefCell;
 use rendiation_geometry::OptionalNearest;
-use rendiation_renderable_mesh::MeshBufferHitPoint;
+use rendiation_mesh_core::MeshBufferHitPoint;
 use rendiation_scene_interaction::*;
 use rendiation_shader_api::*;
 use webgpu::*;

@@ -3,8 +3,8 @@ use std::{cell::RefCell, rc::Rc};
 use incremental::EnumWrap;
 use rendiation_algebra::*;
 use rendiation_geometry::OptionalNearest;
+use rendiation_mesh_core::{vertex::Vertex, MeshBufferHitPoint, TriangleList};
 use rendiation_mesh_generator::*;
-use rendiation_renderable_mesh::{vertex::Vertex, MeshBufferHitPoint, TriangleList};
 use rendiation_scene_interaction::{SceneRayInteractive, SceneRayInteractiveCtx};
 use webgpu::{FrameRenderPass, RenderComponentAny};
 

@@ -3,7 +3,7 @@ use reactive::once_forever_pending;
 use reactive::{PollUtils, SignalStreamExt};
 use rendiation_geometry::{Box3, Ray3};
 use rendiation_geometry::{OptionalNearest, SpaceBounding};
-use rendiation_renderable_mesh::*;
+use rendiation_mesh_core::*;
 
 use crate::*;
 

@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use rendiation_algebra::{Vec2, Vec3};
 use rendiation_geometry::{Box3, Ray3, Triangle};
-use rendiation_renderable_mesh::{vertex::Vertex, IndexBuffer, *};
+use rendiation_mesh_core::{vertex::Vertex, IndexBuffer, *};
 use space_algorithm::{
   bvh::{FlattenBVH, SAH},
   utils::TreeBuildOption,

@@ -80,7 +80,7 @@ pub fn load_obj_content(
       let attribute_mesh = AttributesMesh {
         attributes,
         indices: (AttributeIndexFormat::Uint32, indices).into(),
-        mode: rendiation_renderable_mesh::PrimitiveTopology::TriangleList,
+        mode: rendiation_mesh_core::PrimitiveTopology::TriangleList,
         groups: Default::default(),
       };
       let mesh = SceneMeshType::AttributesMesh(attribute_mesh.into_ref());

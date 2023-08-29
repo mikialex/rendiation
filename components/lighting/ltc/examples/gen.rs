@@ -1,18 +1,11 @@
-#![feature(type_name_of_val)]
-
-use rendiation_algebra::*;
-use rendiation_texture::*;
-
-mod brdf;
-mod fit;
-
 use std::path::Path;
 
-use brdf::*;
-use fit::*;
+use rendiation_algebra::Vec4;
+use rendiation_lighting_ltc::*;
+use rendiation_texture::*;
 
 pub fn main() {
-  let ltc_map = fit::fit(GGX, &LtcFitConfig::default());
+  let ltc_map = fit(GGX, &LtcFitConfig::default());
 
   write_image(&ltc_map.ltc_lut1, "ltc_1.png");
   write_image(&ltc_map.ltc_lut2, "ltc_2.png");

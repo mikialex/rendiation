@@ -23,7 +23,7 @@ fast-hash-collection = { path = "../../utils/fast-hash-collection" }
 rendiation-algebra = { path = "../../math/algebra" }
 rendiation-animation = { path = "../../components/animation" }
 rendiation-geometry = { path = "../../math/geometry" }
-rendiation-renderable-mesh = { path = "../../components/mesh/renderable" }
+rendiation-mesh-core = { path = "../../components/mesh/core" }
 rendiation-texture = { path = "../../components/texture/core" }
 smallvec = "1.9.0"
 tree = { path = "../../utils/tree" }

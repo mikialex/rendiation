@@ -4,7 +4,7 @@ use interphaser::{
   winit::event::{ElementState, Event, MouseButton},
   CanvasWindowPositionInfo, WindowState,
 };
-use rendiation_renderable_mesh::MeshBufferHitPoint;
+use rendiation_mesh_core::MeshBufferHitPoint;
 use rendiation_scene_interaction::*;
 use webgpu::{FrameRenderPass, RenderComponentAny};
 

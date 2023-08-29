@@ -1,4 +1,4 @@
-use rendiation_renderable_mesh::PrimitiveTopology;
+use rendiation_mesh_core::PrimitiveTopology;
 use rendiation_scene_core::{AlphaMode, AttributeSemantic};
 use rendiation_texture::{AddressMode, FilterMode, TextureSampler};
 

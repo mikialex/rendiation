@@ -7,8 +7,8 @@ use interphaser::{
 };
 use rendiation_algebra::*;
 use rendiation_geometry::{IntersectAble, OptionalNearest, Plane, Ray3};
+use rendiation_mesh_core::{vertex::Vertex, TriangleList};
 use rendiation_mesh_generator::*;
-use rendiation_renderable_mesh::{vertex::Vertex, TriangleList};
 use rendiation_scene_interaction::*;
 use webgpu::{FrameRenderPass, RenderComponentAny};
 
@@ -797,7 +797,7 @@ impl SceneRayInteractive for HelperMesh {
   fn ray_pick_nearest(
     &self,
     ctx: &SceneRayInteractiveCtx,
-  ) -> OptionalNearest<rendiation_renderable_mesh::MeshBufferHitPoint> {
+  ) -> OptionalNearest<rendiation_mesh_core::MeshBufferHitPoint> {
     self.model.ray_pick_nearest(ctx)
   }
 }

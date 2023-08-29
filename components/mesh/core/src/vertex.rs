@@ -5,7 +5,13 @@ use rendiation_geometry::Positioned;
 
 #[repr(C)]
 #[derive(
-  Clone, Copy, soa_derive::StructOfArray, Debug, rendiation_shader_api::ShaderVertex, PartialEq,
+  Clone,
+  Copy,
+  soa_derive::StructOfArray,
+  Debug,
+  rendiation_shader_api::ShaderVertex,
+  PartialEq,
+  Default,
 )]
 // #[cfg_attr(feature = "shader", derive(rendiation_shader_api::ShaderVertex))] // todo, figure out
 // how to use with feature gate
