@@ -2670,6 +2670,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "rendiation-mesh-simplification"
+version = "0.1.0"
+dependencies = [
+ "rendiation-algebra",
+ "rendiation-geometry",
+ "rendiation-mesh-core",
+]
+
+[[package]]
 name = "rendiation-scene-core"
 version = "0.1.0"
 dependencies = [

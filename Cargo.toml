@@ -19,6 +19,7 @@ members = [
   "components/controller",
   "components/mesh/core",
   "components/mesh/generator",
+  "components/mesh/simplification",
   "components/texture/core",
   "components/texture/types",
   "components/texture/packer",
