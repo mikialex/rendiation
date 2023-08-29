@@ -21,6 +21,7 @@ impl EdgeAdjacency {
     result
   }
   pub fn update(&mut self, indices: &[u32], remap: Option<&[u32]>) {
+    self.counts.fill(0);
     let face_count = indices.len() / 3;
 
     // fill edge counts

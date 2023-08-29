@@ -81,3 +81,37 @@ pub type BuildPositionHasher = BuildHasherDefault<PositionHasher>;
 // }
 
 // pub type BuildIdHasher = BuildHasherDefault<IdHasher>;
+
+#[derive(Default)]
+pub struct VertexHasher {
+  state: u32,
+}
+
+impl Hasher for VertexHasher {
+  fn write(&mut self, bytes: &[u8]) {
+    // MurmurHash2
+    const M: u32 = 0x5bd1e995;
+    const R: i32 = 24;
+
+    let mut h = self.state;
+
+    for k4 in bytes.chunks_exact(4) {
+      let mut k = u32::from_ne_bytes(k4.try_into().unwrap());
+
+      k = k.wrapping_mul(M);
+      k ^= k >> R;
+      k = k.wrapping_mul(M);
+
+      h = h.wrapping_mul(M);
+      h ^= k;
+    }
+
+    self.state = h;
+  }
+
+  fn finish(&self) -> u64 {
+    self.state as u64
+  }
+}
+
+pub type BuildVertexHasher = BuildHasherDefault<VertexHasher>;

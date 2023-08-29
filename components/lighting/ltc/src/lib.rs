@@ -8,6 +8,7 @@ mod brdf;
 mod fit;
 mod shader;
 
+pub use brdf::*;
 pub use fit::*;
 pub use shader::*;
 

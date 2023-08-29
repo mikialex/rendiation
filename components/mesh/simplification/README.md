@@ -4,6 +4,10 @@ This implementation is roughly based on the https://github.com/zeux/meshoptimize
 
 My original algorithm reading notes: https://mikialex.github.io/2020/04/04/mesh-simplification/
 
+## Bin Examples
+
+Run `cargo r --package rendiation-mesh-simplification --example simplification --release`
+
 ## Paper references
 
 Michael Garland and Paul S. Heckbert. Surface simplification using quadric error metrics. 1997
