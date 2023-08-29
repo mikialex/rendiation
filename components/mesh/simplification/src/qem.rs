@@ -69,23 +69,23 @@ pub(crate) fn inversed_or_zeroed(value: f32) -> f32 {
 }
 
 impl Quadric {
-  /// we could also using Quadric to express the point to point squared distance.
-  /// just encode (x - X) ^ 2 + (y - Y)^2 + (z - Z)^2 into the quadric
-  pub fn from_point(x: f32, y: f32, z: f32, w: f32) -> Self {
-    Self {
-      a00: w,
-      a11: w,
-      a22: w,
-      a10: 0.0,
-      a20: 0.0,
-      a21: 0.0,
-      b0: -2.0 * x * w,
-      b1: -2.0 * y * w,
-      b2: -2.0 * z * w,
-      c: (x * x + y * y + z * z) * w,
-      w,
-    }
-  }
+  // /// we could also using Quadric to express the point to point squared distance.
+  // /// just encode (x - X) ^ 2 + (y - Y)^2 + (z - Z)^2 into the quadric
+  // pub fn from_point(x: f32, y: f32, z: f32, w: f32) -> Self {
+  //   Self {
+  //     a00: w,
+  //     a11: w,
+  //     a22: w,
+  //     a10: 0.0,
+  //     a20: 0.0,
+  //     a21: 0.0,
+  //     b0: -2.0 * x * w,
+  //     b1: -2.0 * y * w,
+  //     b2: -2.0 * z * w,
+  //     c: (x * x + y * y + z * z) * w,
+  //     w,
+  //   }
+  // }
 
   pub fn from_plane(a: f32, b: f32, c: f32, d: f32, w: f32) -> Self {
     let aw = a * w;

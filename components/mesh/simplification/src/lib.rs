@@ -1,4 +1,5 @@
 #![allow(clippy::disallowed_types)] // we have already used custom hasher
+#![allow(clippy::too_many_arguments)]
 
 use std::collections::{hash_map::Entry, HashMap};
 
@@ -37,7 +38,8 @@ pub fn simplify<Vertex>(
   vertices: &[Vertex],
   target_index_count: usize,
   target_error: f32,
-) -> usize
+  lock_border: bool,
+) -> (usize, f32)
 where
   Vertex: Positioned<Position = Vec3<f32>>,
 {
@@ -66,6 +68,7 @@ where
     &adjacency,
     &remap,
     &wedge,
+    lock_border,
   );
 
   let mut vertex_positions = vec![Vec3::default(); vertices.len()]; // TODO: spare init?
@@ -93,6 +96,7 @@ where
   let mut collapse_locked = vec![false; vertices.len()];
 
   let mut result_count = indices.len();
+  let mut result_error = 0.;
 
   // `target_error` input is linear; we need to adjust it to match `Quadric::error` units
   let error_limit = target_error * target_error;
@@ -124,27 +128,7 @@ where
 
     sort_edge_collapses(&mut collapse_order, &edge_collapses[0..edge_collapse_count]);
 
-    // most collapses remove 2 triangles; use this to establish a bound on the pass in terms of
-    // error limit note that edge_collapse_goal is an estimate; triangle_collapse_goal will be
-    // used to actually limit collapses
     let triangle_collapse_goal = (result_count - target_index_count) / 3;
-    let edge_collapse_goal = triangle_collapse_goal / 2;
-
-    // we limit the error in each pass based on the error of optimal last collapse; since many
-    // collapses will be locked as they will share vertices with other successfull collapses, we
-    // need to increase the acceptable error by this factor
-    const PASS_ERROR_BOUND: f32 = 1.5;
-
-    let error_goal = if edge_collapse_goal < edge_collapse_count {
-      unsafe {
-        edge_collapses[collapse_order[edge_collapse_goal] as usize]
-          .u
-          .error
-          * PASS_ERROR_BOUND
-      }
-    } else {
-      f32::MAX
-    };
 
     for (i, r) in collapse_remap.iter_mut().enumerate() {
       *r = i as u32;
@@ -156,14 +140,16 @@ where
       &mut collapse_remap,
       &mut collapse_locked,
       &mut vertex_quadrics,
-      &edge_collapses,
+      &edge_collapses[0..edge_collapse_count],
       &collapse_order,
       &remap,
       &wedge,
       &vertex_kind,
+      &vertex_positions,
+      &adjacency,
       triangle_collapse_goal,
-      error_goal,
       error_limit,
+      &mut result_error,
     );
 
     // no edges can be collapsed any more due to hitting the error limit or triangle collapse limit
@@ -180,7 +166,10 @@ where
     result_count = new_count;
   }
 
-  result_count
+  // result_error is quadratic; we need to remap it back to linear
+  let out_result_error = result_error.sqrt();
+
+  (result_count, out_result_error)
 }
 
 pub fn calc_pos_extents<Vertex>(vertices: &[Vertex]) -> ([f32; 3], f32)
@@ -375,6 +364,7 @@ fn rank_edge_collapses(
   }
 }
 
+#[allow(clippy::needless_range_loop)]
 fn sort_edge_collapses(sort_order: &mut [u32], collapses: &[Collapse]) {
   const SORT_BITS: usize = 11;
 
@@ -418,12 +408,20 @@ fn perform_edge_collapses(
   remap: &[u32],
   wedge: &[u32],
   vertex_kind: &[VertexKind],
+  vertex_positions: &[Vec3<f32>],
+  adjacency: &EdgeAdjacency,
   triangle_collapse_goal: usize,
-  error_goal: f32,
   error_limit: f32,
+  result_error: &mut f32,
 ) -> usize {
+  let collapse_count = collapses.len();
   let mut edge_collapses = 0;
   let mut triangle_collapses = 0;
+
+  // most collapses remove 2 triangles; use this to establish a bound on the pass in terms of error
+  // limit note that edge_collapse_goal is an estimate; triangle_collapse_goal will be used to
+  // actually limit collapses
+  let mut edge_collapse_goal = triangle_collapse_goal / 2;
 
   for order in collapse_order {
     let c = collapses[*order as usize].clone();
@@ -434,11 +432,23 @@ fn perform_edge_collapses(
       break;
     }
 
-    if error > error_goal && triangle_collapses > triangle_collapse_goal / 10 {
+    if triangle_collapses >= triangle_collapse_goal {
       break;
     }
 
-    if triangle_collapses >= triangle_collapse_goal {
+    // we limit the error in each pass based on the error of optimal last collapse; since many
+    // collapses will be locked as they will share vertices with other successfull collapses, we
+    // need to increase the acceptable error by some factor
+    let error_goal = if edge_collapse_goal < collapse_count {
+      let c_ = &collapses[collapse_order[edge_collapse_goal] as usize];
+      1.5 * unsafe { c_.u.error }
+    } else {
+      f32::MAX
+    };
+
+    // on average, each collapse is expected to lock 6 other collapses; to avoid degenerate passes
+    // on meshes with odd topology, we only abort if we got over 1/6 collapses accordingly.
+    if error > error_goal && triangle_collapses > triangle_collapse_goal / 6 {
       break;
     }
 
@@ -456,10 +466,17 @@ fn perform_edge_collapses(
       continue;
     }
 
+    if has_triangle_flips(adjacency, vertex_positions, collapse_remap, r0, r1) {
+      // adjust collapse goal since this collapse is invalid and shouldn't factor into error goal
+      edge_collapse_goal += 1;
+
+      continue;
+    }
+
     assert_eq!(collapse_remap[r0] as usize, r0);
     assert_eq!(collapse_remap[r1] as usize, r1);
 
-    vertex_quadrics[r1] = vertex_quadrics[r1] + vertex_quadrics[r0];
+    vertex_quadrics[r1] += vertex_quadrics[r0];
 
     match vertex_kind[i0] {
       VertexKind::Complex => {
@@ -502,16 +519,75 @@ fn perform_edge_collapses(
       2
     };
     edge_collapses += 1;
+
+    *result_error = if *result_error < error {
+      error
+    } else {
+      *result_error
+    };
   }
 
   edge_collapses
+}
+
+// does triangle ABC flip when C is replaced with D?
+fn has_triangle_flip(a: Vec3<f32>, b: Vec3<f32>, c: Vec3<f32>, d: Vec3<f32>) -> bool {
+  let eb = b - a;
+  let ec = c - a;
+  let ed = d - a;
+
+  let nbc = eb.cross(ec);
+  let nbd = eb.cross(ed);
+
+  nbc.x * nbd.x + nbc.y * nbd.y + nbc.z * nbd.z < 0.0
+}
+
+fn has_triangle_flips(
+  adjacency: &EdgeAdjacency,
+  vertex_positions: &[Vec3<f32>],
+  collapse_remap: &[u32],
+  i0: usize,
+  i1: usize,
+) -> bool {
+  assert_eq!(collapse_remap[i0] as usize, i0);
+  assert_eq!(collapse_remap[i1] as usize, i1);
+
+  let v0 = vertex_positions[i0];
+  let v1 = vertex_positions[i1];
+
+  let count = adjacency.counts[i0] as usize;
+  let edges = &adjacency.data[adjacency.offsets[i0] as usize..count];
+
+  for i in 0..count {
+    let a = collapse_remap[edges[i].next as usize];
+    let b = collapse_remap[edges[i].prev as usize];
+
+    // skip triangles that get collapsed
+    // note: this is mathematically redundant as if either of these is true, the dot product in
+    // hasTriangleFlip should be 0
+    if a == i1 as u32 || b == i1 as u32 {
+      continue;
+    }
+
+    // early-out when at least one triangle flips due to a collapse
+    if has_triangle_flip(
+      vertex_positions[a as usize],
+      vertex_positions[b as usize],
+      v0,
+      v1,
+    ) {
+      return true;
+    }
+  }
+
+  false
 }
 
 fn remap_index_buffer(indices: &mut [u32], collapse_remap: &[u32]) -> usize {
   let mut write = 0;
 
   for i in (0..indices.len()).step_by(3) {
-    let v0 = collapse_remap[indices[i + 0] as usize];
+    let v0 = collapse_remap[indices[i] as usize];
     let v1 = collapse_remap[indices[i + 1] as usize];
     let v2 = collapse_remap[indices[i + 2] as usize];
 
@@ -521,7 +597,7 @@ fn remap_index_buffer(indices: &mut [u32], collapse_remap: &[u32]) -> usize {
     assert_eq!(collapse_remap[v2 as usize], v2);
 
     if v0 != v1 && v0 != v2 && v1 != v2 {
-      indices[write + 0] = v0;
+      indices[write] = v0;
       indices[write + 1] = v1;
       indices[write + 2] = v2;
       write += 3;
@@ -603,6 +679,7 @@ fn classify_vertices(
   adjacency: &EdgeAdjacency,
   remap: &[u32],
   wedge: &[u32],
+  lock_border: bool,
 ) {
   // incoming & outgoing open edges: `INVALID_INDEX` if no open edges, i if there are more than 1
   // note that this is the same data as required in loop[] arrays; loop[] data is only valid for
@@ -694,6 +771,14 @@ fn classify_vertices(
 
       result[i] = result[remap[i] as usize];
     }
+  }
+
+  if lock_border {
+    result.iter_mut().for_each(|v| {
+      if let VertexKind::Border = v {
+        *v = VertexKind::Locked
+      }
+    })
   }
 }
 

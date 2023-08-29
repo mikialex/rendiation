@@ -45,11 +45,11 @@ impl EdgeAdjacency {
 
     // fill edge data
     for i in 0..face_count {
-      let mut a = indices[i * 3 + 0] as usize;
+      let mut a = indices[i * 3] as usize;
       let mut b = indices[i * 3 + 1] as usize;
       let mut c = indices[i * 3 + 2] as usize;
 
-      let v = if let Some(remap) = remap {
+      if let Some(remap) = remap {
         a = remap[a] as usize;
         b = remap[b] as usize;
         c = remap[c] as usize;
