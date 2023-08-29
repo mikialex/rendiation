@@ -60,7 +60,7 @@ impl AddAssign for Quadric {
 }
 
 #[inline(always)]
-pub(crate) fn inversed_or_zeroed(value: f32) -> f32 {
+pub(crate) fn inverse_or_zeroed(value: f32) -> f32 {
   if value != 0.0 {
     1.0 / value
   } else {
@@ -112,12 +112,7 @@ impl Quadric {
     let p10 = p1 - p0;
     let p20 = p2 - p0;
 
-    // normal = cross(p1 - p0, p2 - p0)
-    let mut normal = Vec3::new(
-      p10.y * p20.z - p10.z * p20.y,
-      p10.z * p20.x - p10.x * p20.z,
-      p10.x * p20.y - p10.y * p20.x,
-    );
+    let mut normal = p10.cross(p20);
     let area = normal.normalize_self();
 
     let distance = normal.x * p0.x + normal.y * p0.y + normal.z * p0.z;
@@ -142,14 +137,9 @@ impl Quadric {
     let p20p = p20.dot(p10);
 
     // normal = altitude of triangle from point p2 onto edge p1-p0
-    let mut normal = Vec3::new(
-      p20.x - p10.x * p20p,
-      p20.y - p10.y * p20p,
-      p20.z - p10.z * p20p,
-    );
-    normal.normalize_self();
+    let normal = (p20 - p10 * p20p).normalize();
 
-    let distance = normal.x * p0.x + normal.y * p0.y + normal.z * p0.z;
+    let distance = normal.dot(p0);
 
     // note: the weight is scaled linearly with edge length; this has to match the triangle weight
     Self::from_plane(normal.x, normal.y, normal.z, -distance, length * weight)
@@ -177,20 +167,28 @@ impl Quadric {
     r += ry * v.y;
     r += rz * v.z;
 
-    let s = inversed_or_zeroed(self.w);
+    let s = inverse_or_zeroed(self.w);
 
     r.abs() * s
   }
 }
 
-pub fn fill_face_quadrics(
-  vertex_quadrics: &mut [Quadric],
+pub fn fill_quadrics(
   indices: &[u32],
   vertex_positions: &[Vec3<f32>],
   remap: &[u32],
-) {
-  for i in indices.chunks_exact(3) {
-    let (i0, i1, i2) = (i[0] as usize, i[1] as usize, i[2] as usize);
+  vertex_kind: &[VertexKind],
+  BorderLoops {
+    openout: loop_,
+    openinc: loopback,
+  }: &BorderLoops,
+) -> Vec<Quadric> {
+  let mut vertex_quadrics = vec![Quadric::default(); vertex_positions.len()];
+
+  // for each triangle
+  for i in indices.array_chunks::<3>().copied() {
+    let [i0, i1, i2] = i;
+    let (i0, i1, i2) = (i0 as usize, i1 as usize, i2 as usize);
 
     let q = Quadric::from_triangle(
       vertex_positions[i0],
@@ -202,21 +200,9 @@ pub fn fill_face_quadrics(
     vertex_quadrics[remap[i0] as usize] += q;
     vertex_quadrics[remap[i1] as usize] += q;
     vertex_quadrics[remap[i2] as usize] += q;
-  }
-}
 
-pub fn fill_edge_quadrics(
-  vertex_quadrics: &mut [Quadric],
-  indices: &[u32],
-  vertex_positions: &[Vec3<f32>],
-  remap: &[u32],
-  vertex_kind: &[VertexKind],
-  loop_: &[u32],
-  loopback: &[u32],
-) {
-  for i in indices.chunks_exact(3) {
+    // for each edge
     const NEXT: [usize; 3] = [1, 2, 0];
-
     for e in 0..3 {
       let i0 = i[e] as usize;
       let i1 = i[NEXT[e]] as usize;
@@ -228,23 +214,23 @@ pub fn fill_edge_quadrics(
       // note that we need to add the error even for edged that connect e.g. border & locked
       // if we don't do that, the adjacent border->border edge won't have correct errors for corners
       if k0 != VertexKind::Border
-        && k0 != VertexKind::Seam
+        && k0 != VertexKind::SimpleSeam
         && k1 != VertexKind::Border
-        && k1 != VertexKind::Seam
+        && k1 != VertexKind::SimpleSeam
       {
         continue;
       }
 
-      if (k0 == VertexKind::Border || k0 == VertexKind::Seam) && loop_[i0] != i1 as u32 {
+      if (k0 == VertexKind::Border || k0 == VertexKind::SimpleSeam) && loop_[i0] != i1 as u32 {
         continue;
       }
 
-      if (k1 == VertexKind::Border || k1 == VertexKind::Seam) && loopback[i1] != i0 as u32 {
+      if (k1 == VertexKind::Border || k1 == VertexKind::SimpleSeam) && loopback[i1] != i0 as u32 {
         continue;
       }
 
       // seam edges should occur twice (i0->i1 and i1->i0) - skip redundant edges
-      if HAS_OPPOSITE[k0.index()][k1.index()] && remap[i1] > remap[i0] {
+      if VertexKind::has_opposite(k0, k1) && remap[i1] > remap[i0] {
         continue;
       }
 
@@ -273,4 +259,6 @@ pub fn fill_edge_quadrics(
       vertex_quadrics[remap[i1] as usize] += q;
     }
   }
+
+  vertex_quadrics
 }

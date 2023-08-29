@@ -11,7 +11,7 @@ fn main() {
 
   let start = Instant::now();
 
-  let (count, err) = simplify(
+  let (count, err) = simplify_by_edge_collapse(
     &mut dest_idx,
     &mesh.indices,
     &mesh.vertices,
