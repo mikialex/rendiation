@@ -1,7 +1,7 @@
 pub struct EdgeAdjacency {
-  pub counts: Vec<u32>,
-  pub offsets: Vec<u32>,
-  pub data: Vec<HalfEdge>,
+  counts: Vec<u32>,
+  offsets: Vec<u32>,
+  data: Vec<HalfEdge>,
 }
 
 #[derive(Default, Clone, Copy)]
@@ -20,6 +20,7 @@ impl EdgeAdjacency {
     result.update(indices, None);
     result
   }
+
   pub fn update(&mut self, indices: &[u32], remap: Option<&[u32]>) {
     self.counts.fill(0);
     let face_count = indices.len() / 3;
@@ -77,12 +78,19 @@ impl EdgeAdjacency {
     }
   }
 
-  pub fn has_edge(&self, a: u32, b: u32) -> bool {
-    let count = self.counts[a as usize] as usize;
-    let offset = self.offsets[a as usize] as usize;
+  pub fn has_half_edge(&self, from: u32, to: u32) -> bool {
+    let count = self.counts[from as usize] as usize;
+    let offset = self.offsets[from as usize] as usize;
 
     self.data[offset..offset + count]
       .iter()
-      .any(|d| d.next == b)
+      .any(|d| d.next == to)
+  }
+
+  pub fn iter_vertex_outgoing_half_edges(&self, v: usize) -> impl Iterator<Item = &HalfEdge> {
+    let offset = self.offsets[v] as usize;
+    let count = self.counts[v] as usize;
+
+    self.data[offset..offset + count].iter()
   }
 }

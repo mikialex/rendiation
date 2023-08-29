@@ -1,5 +1,5 @@
-use std::fmt::Debug;
 use std::path::Path;
+use std::{fmt::Debug, time::Instant};
 
 use rendiation_algebra::{Vec2, Vec3};
 use rendiation_mesh_core::vertex::Vertex;
@@ -8,6 +8,9 @@ use rendiation_mesh_simplification::*;
 fn main() {
   let mesh = Mesh::load("/Users/mikialex/dev/resources/testdata/bunny.obj").unwrap();
   let mut dest_idx = mesh.indices.clone();
+
+  let start = Instant::now();
+
   let (count, err) = simplify(
     &mut dest_idx,
     &mesh.indices,
@@ -17,7 +20,12 @@ fn main() {
     false,
   );
 
-  println!("result count: {count}, error: {err}");
+  let duration = start.elapsed();
+
+  println!(
+    "result count: {count}, error: {err}, time: {}",
+    duration.as_micros() as f64 / 1000.0
+  );
 }
 
 #[derive(Clone, Default)]

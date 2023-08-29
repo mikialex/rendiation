@@ -4,7 +4,7 @@
 use std::collections::{hash_map::Entry, HashMap};
 
 use rendiation_algebra::*;
-use rendiation_geometry::Positioned;
+use rendiation_geometry::{Box3, Positioned};
 
 mod qem;
 use qem::*;
@@ -12,10 +12,13 @@ use qem::*;
 mod hasher;
 use hasher::*;
 
+mod vertex_kind;
+use vertex_kind::*;
+
 mod adjacency;
 use adjacency::*;
 
-pub const INVALID_INDEX: u32 = u32::MAX;
+const INVALID_INDEX: u32 = u32::MAX;
 
 /// Reduces the number of triangles in the mesh, attempting to preserve mesh appearance as much as
 /// possible.
@@ -52,27 +55,16 @@ where
   let mut adjacency = EdgeAdjacency::new(indices, vertices.len());
 
   // build position remap that maps each vertex to the one with identical position
-  let mut remap = vec![0u32; vertices.len()];
-  let mut wedge = vec![0u32; vertices.len()];
-  build_position_remap(&mut remap, &mut wedge, vertices);
+  let PositionalRemapping { remap, wedge } = build_position_remap(vertices);
 
   // classify vertices; vertex kind determines collapse rules, see `CAN_COLLAPSE`
-  let mut vertex_kind = vec![VertexKind::Manifold; vertices.len()];
-  let mut loop_ = vec![INVALID_INDEX; vertices.len()];
-  let mut loopback = vec![INVALID_INDEX; vertices.len()];
-  classify_vertices(
-    &mut vertex_kind,
-    &mut loop_,
-    &mut loopback,
-    vertices.len(),
-    &adjacency,
-    &remap,
-    &wedge,
-    lock_border,
-  );
+  let ClassifyResult {
+    vertex_kind,
+    mut loop_,
+    mut loopback,
+  } = classify_vertices(vertices.len(), &adjacency, &remap, &wedge, lock_border);
 
-  let mut vertex_positions = vec![Vec3::default(); vertices.len()]; // TODO: spare init?
-  rescale_positions(&mut vertex_positions, vertices);
+  let vertex_positions = rescale_positions(vertices);
 
   let mut vertex_quadrics = vec![Quadric::default(); vertices.len()];
   fill_face_quadrics(&mut vertex_quadrics, indices, &vertex_positions, &remap);
@@ -172,46 +164,20 @@ where
   (result_count, out_result_error)
 }
 
-pub fn calc_pos_extents<Vertex>(vertices: &[Vertex]) -> ([f32; 3], f32)
+/// rescale the vertex into unit cube with min(0,0,0)
+fn rescale_positions<Vertex>(vertices: &[Vertex]) -> Vec<Vec3<f32>>
 where
   Vertex: Positioned<Position = Vec3<f32>>,
 {
-  let mut minv = [f32::MAX; 3];
-  let mut maxv = [-f32::MAX; 3];
-
-  for vertex in vertices {
-    let v = vertex.position();
-
-    for j in 0..3 {
-      minv[j] = minv[j].min(v[j]);
-      maxv[j] = maxv[j].max(v[j]);
-    }
-  }
-
-  let extent = (maxv[0] - minv[0])
-    .max(maxv[1] - minv[1])
-    .max(maxv[2] - minv[2]);
-
-  (minv, extent)
-}
-
-fn rescale_positions<Vertex>(result: &mut [Vec3<f32>], vertices: &[Vertex])
-where
-  Vertex: Positioned<Position = Vec3<f32>>,
-{
-  let (minv, extent) = calc_pos_extents(vertices);
-
-  for (i, vertex) in vertices.iter().enumerate() {
-    result[i] = vertex.position();
-  }
-
+  let bbox: Box3 = vertices.iter().map(|v| v.position()).collect();
+  let box_size = bbox.size();
+  let extent = box_size.x.max(box_size.y).max(box_size.z);
   let scale = inversed_or_zeroed(extent);
 
-  for pos in result {
-    pos.x = (pos.x - minv[0]) * scale;
-    pos.y = (pos.y - minv[1]) * scale;
-    pos.z = (pos.z - minv[2]) * scale;
-  }
+  vertices
+    .iter()
+    .map(|v| (v.position() - bbox.min) * scale)
+    .collect()
 }
 
 #[derive(Clone, Default)]
@@ -539,7 +505,7 @@ fn has_triangle_flip(a: Vec3<f32>, b: Vec3<f32>, c: Vec3<f32>, d: Vec3<f32>) -> 
   let nbc = eb.cross(ec);
   let nbd = eb.cross(ed);
 
-  nbc.x * nbd.x + nbc.y * nbd.y + nbc.z * nbd.z < 0.0
+  nbc.dot(nbd) < 0.0
 }
 
 fn has_triangle_flips(
@@ -555,13 +521,9 @@ fn has_triangle_flips(
   let v0 = vertex_positions[i0];
   let v1 = vertex_positions[i1];
 
-  let start = adjacency.offsets[i0] as usize;
-  let count = adjacency.counts[i0] as usize;
-  let edges = &adjacency.data[start..start + count];
-
-  for i in 0..count {
-    let a = collapse_remap[edges[i].next as usize];
-    let b = collapse_remap[edges[i].prev as usize];
+  for edge in adjacency.iter_vertex_outgoing_half_edges(i0) {
+    let a = collapse_remap[edge.next as usize];
+    let b = collapse_remap[edge.prev as usize];
 
     // skip triangles that get collapsed
     // note: this is mathematically redundant as if either of these is true, the dot product in
@@ -625,202 +587,60 @@ fn remap_edge_loops(loop_: &mut [u32], collapse_remap: &[u32]) {
   }
 }
 
-fn build_position_remap<Vertex>(remap: &mut [u32], wedge: &mut [u32], vertices: &[Vertex])
+struct PositionalRemapping {
+  remap: Vec<u32>,
+  wedge: Vec<u32>,
+}
+
+fn build_position_remap<Vertex>(vertices: &[Vertex]) -> PositionalRemapping
 where
   Vertex: Positioned<Position = Vec3<f32>>,
 {
+  // build wedge table: for each vertex, which other vertex is the next wedge that also maps to the
+  // same vertex? entries in table form a (cyclic) wedge loop per vertex; for manifold vertices,
+  // wedge[i] == remap[i] == i
+  let mut wedge: Vec<_> = (0..vertices.len() as u32).collect();
+
+  // for example we have (position, other attribute)
+  // [(a, x), (a, x), (b, x), (c, x), (c, x), (d, x), (c, x)]
+  // we have remap:
+  // [0, 0, 2, 3, 3, 5, 3]
+  // we have wedge:
+  // [1, 0, 2, 6, 3, 5, 4]
+  // in wedge table we can see the loop around vertex c: 3 -> 6 -> 4 -> 3
+  // the "loop" is just a loop link list to visit all vertex that share one same position, do not
+  // have the geometric meaning.
+
   let mut table = HashMap::with_capacity_and_hasher(vertices.len(), BuildPositionHasher::default());
 
   // build forward remap: for each vertex, which other (canonical) vertex does it map to?
   // we use position equivalence for this, and remap vertices to other existing vertices
-  for (index, vertex) in vertices.iter().enumerate() {
-    remap[index] = match table.entry(VertexPosition(vertex.position().into())) {
-      Entry::Occupied(entry) => *entry.get(),
-      Entry::Vacant(entry) => {
-        entry.insert(index as u32);
-        index as u32
-      }
-    };
-  }
+  let remap: Vec<_> = vertices
+    .iter()
+    .enumerate()
+    .map(
+      |(i, vertex)| match table.entry(VertexPosition(vertex.position().into())) {
+        Entry::Occupied(entry) => {
+          let ri = *entry.get();
 
-  // build wedge table: for each vertex, which other vertex is the next wedge that also maps to the
-  // same vertex? entries in table form a (cyclic) wedge loop per vertex; for manifold vertices,
-  // wedge[i] == remap[i] == i
-  for (i, w) in wedge.iter_mut().enumerate() {
-    *w = i as u32;
-  }
-
-  for (i, ri) in remap.iter().enumerate() {
-    let ri = *ri as usize;
-
-    if ri != i {
-      let r = ri;
-
-      wedge[i] = wedge[r];
-      wedge[r] = i as u32;
-    }
-  }
-}
-
-#[derive(Clone, Copy, PartialEq)]
-pub enum VertexKind {
-  Manifold, // not on an attribute seam, not on any boundary
-  Border,   // not on an attribute seam, has exactly two open edges
-  Seam,     // on an attribute seam with exactly two attribute seam edges
-  Complex,  /* none of the above; these vertices can move as long as all wedges move to the
-             * target vertex */
-  Locked, // none of the above; these vertices can't move
-}
-
-fn classify_vertices(
-  result: &mut [VertexKind],
-  loop_: &mut [u32],
-  loopback: &mut [u32],
-  vertex_count: usize,
-  adjacency: &EdgeAdjacency,
-  remap: &[u32],
-  wedge: &[u32],
-  lock_border: bool,
-) {
-  // incoming & outgoing open edges: `INVALID_INDEX` if no open edges, i if there are more than 1
-  // note that this is the same data as required in loop[] arrays; loop[] data is only valid for
-  // border/seam but here it's okay to fill the data out for other types of vertices as well
-  let openinc = loopback;
-  let openout = loop_;
-
-  for vertex in 0..vertex_count {
-    let offset = adjacency.offsets[vertex] as usize;
-    let count = adjacency.counts[vertex] as usize;
-
-    let edges = &adjacency.data[offset..offset + count];
-
-    for edge in edges {
-      let target = edge.next;
-
-      if target == vertex as u32 {
-        // degenerate triangles have two distinct edges instead of three, and the self edge
-        // is bi-directional by definition; this can break border/seam classification by "closing"
-        // the open edge from another triangle and falsely marking the vertex as manifold
-        // instead we mark the vertex as having >1 open edges which turns it into locked/complex
-        openinc[vertex] = vertex as u32;
-        openout[vertex] = vertex as u32;
-      } else if !adjacency.has_edge(target, vertex as u32) {
-        openinc[target as usize] = if openinc[target as usize] == INVALID_INDEX {
-          vertex as u32
-        } else {
-          target
-        };
-        openout[vertex] = if openout[vertex] == INVALID_INDEX {
-          target
-        } else {
-          vertex as u32
-        };
-      }
-    }
-  }
-
-  for i in 0..vertex_count {
-    if remap[i] == i as u32 {
-      if wedge[i] == i as u32 {
-        // no attribute seam, need to check if it's manifold
-        let openi = openinc[i];
-        let openo = openout[i];
-
-        // note: we classify any vertices with no open edges as manifold
-        // this is technically incorrect - if 4 triangles share an edge, we'll classify vertices as
-        // manifold it's unclear if this is a problem in practice
-        if openi == INVALID_INDEX && openo == INVALID_INDEX {
-          result[i] = VertexKind::Manifold;
-        } else if openi != i as u32 && openo != i as u32 {
-          result[i] = VertexKind::Border;
-        } else {
-          result[i] = VertexKind::Locked;
-        }
-      } else if wedge[wedge[i] as usize] == i as u32 {
-        // attribute seam; need to distinguish between Seam and Locked
-        let w = wedge[i] as usize;
-        let openiv = openinc[i] as usize;
-        let openov = openout[i] as usize;
-        let openiw = openinc[w] as usize;
-        let openow = openout[w] as usize;
-
-        // seam should have one open half-edge for each vertex, and the edges need to "connect" -
-        // point to the same vertex post-remap
-        if openiv != INVALID_INDEX as usize
-          && openiv != i
-          && openov != INVALID_INDEX as usize
-          && openov != i
-          && openiw != INVALID_INDEX as usize
-          && openiw != w
-          && openow != INVALID_INDEX as usize
-          && openow != w
-        {
-          if remap[openiv] == remap[openow] && remap[openov] == remap[openiw] {
-            result[i] = VertexKind::Seam;
-          } else {
-            result[i] = VertexKind::Locked;
+          let r = ri as usize;
+          if r != i {
+            wedge[i] = wedge[r];
+            wedge[r] = i as u32;
           }
-        } else {
-          result[i] = VertexKind::Locked;
+
+          ri
         }
-      } else {
-        // more than one vertex maps to this one; we don't have classification available
-        result[i] = VertexKind::Locked;
-      }
-    } else {
-      assert!(remap[i] < i as u32);
+        Entry::Vacant(entry) => {
+          entry.insert(i as u32);
+          i as u32
+        }
+      },
+    )
+    .collect();
 
-      result[i] = result[remap[i] as usize];
-    }
-  }
-
-  if lock_border {
-    result.iter_mut().for_each(|v| {
-      if let VertexKind::Border = v {
-        *v = VertexKind::Locked
-      }
-    })
-  }
+  PositionalRemapping { remap, wedge }
 }
-
-impl VertexKind {
-  pub fn index(&self) -> usize {
-    match *self {
-      VertexKind::Manifold => 0,
-      VertexKind::Border => 1,
-      VertexKind::Seam => 2,
-      VertexKind::Complex => 3,
-      VertexKind::Locked => 4,
-    }
-  }
-}
-
-const KIND_COUNT: usize = 5;
-
-// manifold vertices can collapse onto anything
-// border/seam vertices can only be collapsed onto border/seam respectively
-// complex vertices can collapse onto complex/locked
-// a rule of thumb is that collapsing kind A into kind B preserves the kind B in the target vertex
-// for example, while we could collapse Complex into Manifold, this would mean the target vertex
-// isn't Manifold anymore
-const CAN_COLLAPSE: [[bool; KIND_COUNT]; KIND_COUNT] = [
-  [true, true, true, true, true],
-  [false, true, false, false, false],
-  [false, false, true, false, false],
-  [false, false, false, true, true],
-  [false, false, false, false, false],
-];
-
-// if a vertex is manifold or seam, adjoining edges are guaranteed to have an opposite edge
-// note that for seam edges, the opposite edge isn't present in the attribute-based topology
-// but is present if you consider a position-only mesh variant
-const HAS_OPPOSITE: [[bool; KIND_COUNT]; KIND_COUNT] = [
-  [true, true, true, false, true],
-  [true, false, true, false, false],
-  [true, true, true, false, true],
-  [false, false, false, false, false],
-  [true, false, true, false, false],
-];
 
 /// Generates vertex buffer from the source vertex buffer and remap table generated by
 /// [generate_vertex_remap].
