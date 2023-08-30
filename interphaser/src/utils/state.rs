@@ -3,6 +3,7 @@ use std::{
   sync::{Arc, RwLock},
 };
 
+use futures::{Stream, StreamExt};
 use reactive::EventSource;
 
 pub struct StateCell<T> {
@@ -17,14 +18,14 @@ impl<T> Deref for StateCell<T> {
   }
 }
 
-pub trait StateCreator: Default {
+pub trait StateCreator: Default + 'static {
   fn use_state() -> StateCell<Self> {
     StateCell::new(Default::default())
   }
 }
-impl<T: Default> StateCreator for T {}
+impl<T: Default + 'static> StateCreator for T {}
 
-impl<T> StateCell<T> {
+impl<T: 'static> StateCell<T> {
   pub fn new(state: T) -> Self {
     Self {
       state: Arc::new(RwLock::new(state)),
@@ -38,6 +39,30 @@ impl<T> StateCell<T> {
   {
     let init = self.state.read().unwrap().clone();
     self.single_listen_by(|v| v.clone(), |f| f(init))
+  }
+
+  pub fn modify_by_stream(&self, s: impl Stream<Item = T>) -> impl Stream<Item = T>
+  where
+    T: Clone,
+  {
+    self.modify_by_stream_by(s, |new, _old| new.clone())
+  }
+
+  pub fn modify_by_stream_by<X: Clone>(
+    &self,
+    s: impl Stream<Item = X>,
+    modify: impl Fn(&X, &T) -> T,
+  ) -> impl Stream<Item = X> {
+    let state = Arc::downgrade(&self.state);
+    let events = self.events.clone();
+    s.map(move |v| {
+      if let Some(state) = state.upgrade() {
+        let mut state = state.write().unwrap();
+        *state = modify(&v, &state);
+        events.emit(&state);
+      }
+      v
+    })
   }
 
   pub fn on_event<X>(

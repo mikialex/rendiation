@@ -67,6 +67,13 @@ where
   }
 }
 
+// todo, should use this, this is correct
+// impl<A: ViewNester<CC>, C, CC> ViewNester<CC> for NestedView<C, A> {
+//   fn request_nester(&mut self, detail: &mut ViewRequest, inner: &mut CC) {
+//     self.nester.request_nester(detail, inner)
+//   }
+// }
+
 impl<C, A, CC> ViewNester<CC> for NestedView<C, A>
 where
   Self: View,
@@ -79,11 +86,15 @@ where
         ctx,
         output,
       }) => {
+        // parent layout result as child's constraint
         let result_self = self.layout(*constraint, ctx);
-        let result_inner = self.layout(*constraint, ctx);
+        let parent_constraint = LayoutConstraint::from_max(result_self.size);
+        let result_inner = inner.layout(parent_constraint, ctx);
+
         output.baseline_offset = result_inner.baseline_offset; // respect inner?
-        output.size = result_self.size.union(result_inner.size)
+        output.size = result_self.size;
       }
+      // union the parent and child result
       ViewRequest::HitTest { point, result } => {
         **result = self.hit_test(*point) || inner.hit_test(*point);
       }

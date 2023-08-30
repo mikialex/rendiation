@@ -1,6 +1,7 @@
 use interphaser::*;
+use reactive::once_forever_pending;
 
-use crate::{button, terminal, Viewer};
+use crate::{button, checkbox, terminal, Viewer};
 
 pub fn viewer() -> impl View {
   let (terminal, to_execute) = terminal();
@@ -8,6 +9,7 @@ pub fn viewer() -> impl View {
   let viewer = Viewer::new(to_execute);
 
   let (button_view, _button_action) = button(String::from("test button"));
+  let (checkbox_view, _) = checkbox(once_forever_pending(true));
 
   // // how do I do log??
   // Box::leak(Box::new(button_action));
@@ -16,7 +18,8 @@ pub fn viewer() -> impl View {
     absolute_group()
       .child(AbsChild::new(GPUCanvas::new(viewer)))
       .child(AbsChild::new(terminal).with_position((0., 0.)))
-      .child(AbsChild::new(button_view).with_position((500., 500.))),
+      .child(AbsChild::new(button_view).with_position((500., 500.)))
+      .child(AbsChild::new(checkbox_view).with_position((500., 600.))),
     // .child(AbsChild::new(perf_panel()).with_position((0., 50.))),
   )
 }

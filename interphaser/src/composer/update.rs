@@ -110,11 +110,6 @@ where
 
 impl<T: Stream + Sized> ReactiveUpdateNesterStreamExt for T {}
 
-pub struct StreamToReactiveUpdater<F, S> {
-  updater: F,
-  stream: S,
-}
-
 pub trait ReactiveUpdateNesterStreamExt: Stream + Sized {
   fn bind<F>(self, updater: F) -> StreamToReactiveUpdater<F, Self> {
     StreamToReactiveUpdater {
@@ -122,6 +117,11 @@ pub trait ReactiveUpdateNesterStreamExt: Stream + Sized {
       stream: self,
     }
   }
+}
+
+pub struct StreamToReactiveUpdater<F, S> {
+  updater: F,
+  stream: S,
 }
 
 impl<C, F, S, T> ReactiveUpdateNester<C> for StreamToReactiveUpdater<F, S>
