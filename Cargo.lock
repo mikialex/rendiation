@@ -2670,6 +2670,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "rendiation-mesh-gpu-system"
+version = "0.1.0"
+dependencies = [
+ "fast-hash-collection",
+ "rendiation-shader-api",
+ "slab",
+]
+
+[[package]]
 name = "rendiation-mesh-simplification"
 version = "0.1.0"
 dependencies = [
