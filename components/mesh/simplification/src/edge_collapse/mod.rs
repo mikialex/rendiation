@@ -3,6 +3,28 @@ use crate::*;
 mod vertex_kind;
 pub use vertex_kind::*;
 
+#[derive(Clone, Copy)]
+pub struct EdgeCollapseConfig {
+  /// the target index count to simplify, it may be not achieved due to the topology constraint and
+  /// error config
+  pub target_index_count: usize,
+  /// the max error rate allowed in simplify.
+  pub target_error: f32,
+  /// if the border allow to be simplify.
+  pub lock_border: bool,
+}
+
+#[derive(Clone, Copy)]
+pub struct EdgeCollapseResult {
+  /// the result error rate
+  pub result_error: f32,
+  /// the number of indices after simplification.
+  ///
+  ///  The resulting index buffer references vertices from the original vertex buffer.
+  /// If the original vertex data isn't required, creating a compact vertex buffer is recommended.
+  pub result_count: usize,
+}
+
 /// Reduces the number of triangles in the mesh, attempting to preserve mesh appearance as much as
 /// possible.
 ///
@@ -10,22 +32,19 @@ pub use vertex_kind::*;
 /// topology constraints or target error. If not all attributes from the input mesh are required,
 /// it's recommended to reindex the mesh  prior to simplification.
 ///
-/// Returns the number of indices after simplification, with destination containing new index data.
-/// The resulting index buffer references vertices from the original vertex buffer.
-/// If the original vertex data isn't required, creating a compact vertex buffer is recommended.
+/// ## Arguments
 ///
-/// # Arguments
-///
-/// * `destination`: must contain enough space for the **source** index buffer (since optimization
-///   is iterative, this means `indices.len()` elements - **not** `target_index_count`!)
+/// * `destination`: must contain enough space for the **source** index buffer
 pub fn simplify_by_edge_collapse<Vertex>(
   destination: &mut [u32],
   indices: &[u32],
   vertices: &[Vertex],
-  target_index_count: usize,
-  target_error: f32,
-  lock_border: bool,
-) -> (usize, f32)
+  EdgeCollapseConfig {
+    target_index_count,
+    target_error,
+    lock_border,
+  }: EdgeCollapseConfig,
+) -> EdgeCollapseResult
 where
   Vertex: Positioned<Position = Vec3<f32>>,
 {
@@ -104,7 +123,7 @@ where
 
     collapse_locked.fill(false);
 
-    let collapses = perform_edge_collapses(
+    let collapses_count = perform_edge_collapses(
       &mut collapse_remap,
       &mut collapse_locked,
       &mut vertex_quadrics,
@@ -121,7 +140,7 @@ where
     );
 
     // no edges can be collapsed any more due to hitting the error limit or triangle collapse limit
-    if collapses == 0 {
+    if collapses_count == 0 {
       break;
     }
 
@@ -137,7 +156,10 @@ where
   // result_error is quadratic; we need to remap it back to linear
   let out_result_error = result_error.sqrt();
 
-  (result_count, out_result_error)
+  EdgeCollapseResult {
+    result_error: out_result_error,
+    result_count,
+  }
 }
 
 /// rescale the vertex into unit cube with min(0,0,0)
@@ -233,7 +255,7 @@ fn pick_edge_collapses(
       // edge can be collapsed in either direction - we will pick the one with minimum error
       // note: we evaluate error later during collapse ranking, here we just tag the edge as
       // bidirectional
-      if VertexKind::can_collapse(k0, k1) & VertexKind::can_collapse(k1, k0) {
+      if VertexKind::can_collapse(k0, k1) && VertexKind::can_collapse(k1, k0) {
         let c = Collapse {
           v0: i0 as u32,
           v1: i1 as u32,

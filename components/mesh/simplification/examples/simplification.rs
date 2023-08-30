@@ -11,19 +11,24 @@ fn main() {
 
   let start = Instant::now();
 
-  let (count, err) = simplify_by_edge_collapse(
+  let EdgeCollapseResult {
+    result_error,
+    result_count,
+  } = simplify_by_edge_collapse(
     &mut dest_idx,
     &mesh.indices,
     &mesh.vertices,
-    500,
-    100.,
-    false,
+    EdgeCollapseConfig {
+      target_index_count: 500,
+      target_error: 100.,
+      lock_border: false,
+    },
   );
 
   let duration = start.elapsed();
 
   println!(
-    "result count: {count}, error: {err}, time: {}",
+    "result count: {result_count}, error: {result_error}, time: {}",
     duration.as_micros() as f64 / 1000.0
   );
 }

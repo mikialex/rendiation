@@ -16,6 +16,8 @@ both!(AlphaChannel, f32);
 both!(ColorChannel, Vec3<f32>);
 both!(SpecularChannel, Vec3<f32>);
 
+// This is the alpha, which is the square of the perceptual roughness
+// (perceptual roughness is artist friendly so usually used in material parameters)
 both!(RoughnessChannel, f32);
 both!(MetallicChannel, f32);
 both!(GlossinessChannel, f32);

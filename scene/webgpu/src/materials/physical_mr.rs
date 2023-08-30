@@ -138,7 +138,7 @@ impl GraphicsShaderProvider for PhysicalMetallicRoughnessMaterialGPU {
       builder.register::<ColorChannel>(base_color);
       builder.register::<EmissiveChannel>(emissive);
       builder.register::<MetallicChannel>(metallic);
-      builder.register::<RoughnessChannel>(roughness);
+      builder.register::<RoughnessChannel>(roughness * roughness);
 
       builder.register::<DefaultDisplay>((base_color, val(1.)));
       Ok(())
