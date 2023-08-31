@@ -252,11 +252,32 @@ impl<T: ShaderNodeSingleType + ?Sized, const N: usize> ShaderNodeType
     count: N,
   };
 }
+impl<T: ShaderNodeSingleType + ?Sized, const N: usize> ShaderNodeType
+  for BindingArray<ShaderStoragePtr<T>, N>
+{
+  const TYPE: ShaderValueType = ShaderValueType::BindingArray {
+    ty: T::SINGLE_TYPE,
+    count: N,
+  };
+}
+impl<T: ShaderNodeSingleType + ?Sized, const N: usize> ShaderNodeType
+  for BindingArray<ShaderReadOnlyStoragePtr<T>, N>
+{
+  const TYPE: ShaderValueType = ShaderValueType::BindingArray {
+    ty: T::SINGLE_TYPE,
+    count: N,
+  };
+}
 
 impl<T: ShaderSizedValueNodeType> ShaderNodeType for [T] {
-  const TYPE: ShaderValueType =
-    ShaderValueType::Single(ShaderValueSingleType::Unsized(Self::UNSIZED_TYPE));
+  const TYPE: ShaderValueType = ShaderValueType::Single(Self::SINGLE_TYPE);
 }
+
+impl<T: ShaderSizedValueNodeType> ShaderNodeSingleType for [T] {
+  const SINGLE_TYPE: ShaderValueSingleType =
+    ShaderValueSingleType::Unsized(ShaderUnSizedValueType::UnsizedArray(&T::MEMBER_TYPE));
+}
+
 impl<T: ShaderSizedValueNodeType> ShaderUnsizedValueNodeType for [T] {
   const UNSIZED_TYPE: ShaderUnSizedValueType =
     ShaderUnSizedValueType::UnsizedArray(&T::MEMBER_TYPE);

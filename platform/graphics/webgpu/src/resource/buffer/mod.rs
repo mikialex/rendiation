@@ -65,6 +65,10 @@ impl GPUBuffer {
     }
   }
 
+  pub fn size(&self) -> NonZeroU64 {
+    self.size
+  }
+
   pub fn update(&self, queue: &gpu::Queue, bytes: &[u8]) {
     queue.write_buffer(&self.gpu, 0, bytes)
   }

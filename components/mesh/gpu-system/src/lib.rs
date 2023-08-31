@@ -1,40 +1,18 @@
+#![feature(strict_provenance)]
+
 use __core::ops::Range;
 use fast_hash_collection::FastHashMap;
 use rendiation_shader_api::*;
+use rendiation_webgpu::*;
 use slab::Slab;
+
+mod allocator;
+use allocator::*;
 
 // todo, support runtime size by query client limitation
 pub const MAX_STORAGE_BINDING_ARRAY_LENGTH: usize = 8192;
 
-pub trait GPUMeshBackend {
-  type BindingCollector;
-
-  type GPUBuffer;
-  type GPUIndexBuffer;
-  type GPUStorageBuffer<T: ?Sized>: ShaderBindingProvider<Node = ShaderReadOnlyStoragePtr<T>>
-    + Clone;
-  type GPUStorageBufferBindingArray<T: ?Sized, const N: usize>: ShaderBindingProvider<Node = ShaderHandlePtr<BindingArray<ShaderReadOnlyStoragePtr<T>, N>>>
-    + Default;
-
-  fn bind_storage<T>(collector: &mut Self::BindingCollector, sampler: &Self::GPUStorageBuffer<T>);
-  fn bind_storage_array<T, const N: usize>(
-    collector: &mut Self::BindingCollector,
-    textures: &Self::GPUStorageBufferBindingArray<T, N>,
-  );
-
-  type DeviceQueue;
-  fn copy_from_host(
-    device_queue: &Self::DeviceQueue,
-    host: &[u8],
-    target: &Self::GPUBuffer,
-    offset: u32,
-  );
-}
-
-#[derive(Clone, Copy)]
-pub struct MeshSystemMeshHandle {
-  pub inner: u32,
-}
+pub type MeshSystemMeshHandle = u32;
 
 #[derive(Clone)]
 pub struct MeshSystemMeshInstance {
@@ -48,35 +26,31 @@ impl Drop for MeshSystemMeshInstance {
   }
 }
 
-/// could we just using the abstraction in the std like https://doc.rust-lang.org/std/alloc/trait.Allocator.html
-pub trait LinearAllocator {
-  /// return offset
-  fn allocate(&mut self, byte_size: usize) -> usize;
-  fn deallocate(&mut self, offset: usize);
-}
-
-struct MeshGPUDrivenSystemInner {}
-
-pub struct MeshGPUDrivenSystem<B: GPUMeshBackend> {
+pub struct MeshGPUDrivenSystem {
   next_id: usize,
   // range to index buffer,index to vertex_indirect_buffer
   draw_ranges: FastHashMap<u32, (Range<u32>, DrawVertexIndirectInfo)>,
 
-  index_allocator: Box<dyn LinearAllocator>,
-  index_buffer: B::GPUIndexBuffer,
+  index_buffer: GPUSubAllocateBuffer<u32>,
   // todo, not store here, should generate each time
-  vertex_address_buffer: B::GPUStorageBuffer<[DrawVertexIndirectInfo]>,
+  vertex_address_buffer: StorageBufferReadOnlyDataView<[DrawVertexIndirectInfo]>,
 
-  position_vertex_buffers: Slab<B::GPUStorageBuffer<[Vec3<f32>]>>,
-  normal_vertex_buffers: Slab<B::GPUStorageBuffer<[Vec3<f32>]>>,
-  normal_uv_buffers: Slab<B::GPUStorageBuffer<[Vec2<f32>]>>,
+  position_vertex_buffers: Slab<StorageBufferReadOnlyDataView<[Vec3<f32>]>>,
+  normal_vertex_buffers: Slab<StorageBufferReadOnlyDataView<[Vec3<f32>]>>,
+  normal_uv_buffers: Slab<StorageBufferReadOnlyDataView<[Vec2<f32>]>>,
 
-  bindless_position_vertex_buffers_f32:
-    B::GPUStorageBufferBindingArray<[Vec3<f32>], MAX_STORAGE_BINDING_ARRAY_LENGTH>,
-  bindless_normal_vertex_buffers_u32:
-    B::GPUStorageBufferBindingArray<[Vec3<f32>], MAX_STORAGE_BINDING_ARRAY_LENGTH>,
-  bindless_uv_vertex_buffers_u32:
-    B::GPUStorageBufferBindingArray<[Vec2<f32>], MAX_STORAGE_BINDING_ARRAY_LENGTH>,
+  bindless_position_vertex_buffers: BindingResourceArray<
+    StorageBufferReadOnlyDataView<[Vec3<f32>]>,
+    MAX_STORAGE_BINDING_ARRAY_LENGTH,
+  >,
+  bindless_normal_vertex_buffers: BindingResourceArray<
+    StorageBufferReadOnlyDataView<[Vec3<f32>]>,
+    MAX_STORAGE_BINDING_ARRAY_LENGTH,
+  >,
+  bindless_uv_vertex_buffers: BindingResourceArray<
+    StorageBufferReadOnlyDataView<[Vec2<f32>]>,
+    MAX_STORAGE_BINDING_ARRAY_LENGTH,
+  >,
 }
 
 // impl Stream for MeshGPUDrivenSystem {
@@ -84,6 +58,7 @@ pub struct MeshGPUDrivenSystem<B: GPUMeshBackend> {
 // }
 
 #[repr(C)]
+#[std430_layout]
 #[derive(Clone, Copy, ShaderStruct)]
 pub struct DrawVertexIndirectInfo {
   pub position_buffer_id: u32,
@@ -115,7 +90,7 @@ pub struct DrawIndirect {
   pub base_instance: u32,
 }
 
-impl<B: GPUMeshBackend> MeshGPUDrivenSystem<B> {
+impl MeshGPUDrivenSystem {
   pub fn maintain(&mut self) {
     // todo check any changed
   }
@@ -134,7 +109,7 @@ impl<B: GPUMeshBackend> MeshGPUDrivenSystem<B> {
     buffer: impl Iterator<Item = MeshSystemMeshHandle> + 'static,
   ) -> impl Iterator<Item = (DrawIndirect, DrawVertexIndirectInfo)> + '_ {
     buffer.enumerate().map(|(i, handle)| {
-      let (range, vertex_info) = self.draw_ranges.get(&handle.inner).unwrap();
+      let (range, vertex_info) = self.draw_ranges.get(&handle).unwrap();
       let draw_indirect = DrawIndirect {
         vertex_count: range.end - range.start,
         instance_count: 1,
@@ -164,19 +139,19 @@ impl<B: GPUMeshBackend> MeshGPUDrivenSystem<B> {
     let vertex_addresses = binding.bind_by(&self.vertex_address_buffer);
     let vertex_address = vertex_addresses.index(draw_id).load().expand();
 
-    let position = binding.bind_by(&self.bindless_position_vertex_buffers_f32);
+    let position = binding.bind_by(&self.bindless_position_vertex_buffers);
     let position = position.index(vertex_address.position_buffer_id);
     let position = position
       .index(vertex_address.position_buffer_offset + vertex_id)
       .load();
 
-    let normal = binding.bind_by(&self.bindless_normal_vertex_buffers_u32);
+    let normal = binding.bind_by(&self.bindless_normal_vertex_buffers);
     let normal = normal.index(vertex_address.position_buffer_id);
     let normal = normal
       .index(vertex_address.normal_buffer_offset + vertex_id)
       .load();
 
-    let uv = binding.bind_by(&self.bindless_uv_vertex_buffers_u32);
+    let uv = binding.bind_by(&self.bindless_uv_vertex_buffers);
     let uv = uv.index(vertex_address.position_buffer_id);
     let uv = uv.index(vertex_address.uv_buffer_offset + vertex_id).load();
 
