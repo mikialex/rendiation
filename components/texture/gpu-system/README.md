@@ -4,4 +4,3 @@
   * traditional per drawcall texture binding
   * bindless texture system
   * virtual texture system
-* should be graphics api agnostic

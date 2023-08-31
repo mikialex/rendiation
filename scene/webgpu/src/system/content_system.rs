@@ -102,7 +102,7 @@ pub struct ShareBindableResourceCtx {
   pub gpu: ResourceGPUCtx,
   pub custom_storage: Arc<RwLock<AnyMap>>,
 
-  pub binding_sys: WebGPUTextureBindingSystem,
+  pub binding_sys: GPUTextureBindingSystem,
   pub default_sampler: SharedIncrementalSignal<TextureSampler>,
   pub default_texture_2d: SceneTexture2D,
   pub sampler: Arc<RwLock<StreamMap<usize, ReactiveGPUSamplerViewSource>>>,
@@ -145,7 +145,7 @@ impl ShareBindableResourceCtx {
     };
     let default_texture_2d = SceneTexture2DType::GPUBufferImage(default_texture_2d).into_ref();
     let sys = Self {
-      binding_sys: WebGPUTextureBindingSystem::new(gpu, true),
+      binding_sys: GPUTextureBindingSystem::new(gpu, true),
       default_texture_2d,
       default_sampler: Default::default(),
       custom_storage: Arc::new(RwLock::new(AnyMap::new())),
