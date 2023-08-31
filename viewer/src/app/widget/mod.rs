@@ -20,7 +20,7 @@ impl InteractState {
   }
 }
 
-fn interactive_rect(size: impl Into<UISize<UILength>>) -> impl View {
+fn interactive_rect<C: View>(size: impl Into<UISize<UILength>>) -> impl View + ViewNester<C> {
   let state = InteractState::use_state();
 
   let on_mouse_down = state.on_event(|_, _| InteractState::Pressed);
