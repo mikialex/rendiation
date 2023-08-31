@@ -7,7 +7,6 @@ version = "0.1.0"
 [dependencies]
 rendiation-webgpu = { path = "../../../platform/graphics/webgpu" }
 rendiation-shader-api = { path = "../../../shader/api" }
-fast-hash-collection = { path = "../../../utils/fast-hash-collection" }
 buddy_system_allocator = "0.9.0"
 bytemuck = "1.4.1"
 slab = "0.4.8"

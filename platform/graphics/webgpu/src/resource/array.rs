@@ -51,6 +51,29 @@ impl<const N: usize> CacheAbleBindingSource for BindingResourceArray<GPUSamplerV
   }
 }
 
+// todo, improve for performance and impl for other strong  type
+impl<T: ?Sized + Std430MaybeUnsized, const N: usize> CacheAbleBindingSource
+  for BindingResourceArray<StorageBufferDataView<T>, N>
+{
+  fn get_binding_build_source(&self) -> CacheAbleBindingBuildSource {
+    CacheAbleBindingBuildSource {
+      source: BindingResourceOwned::BufferArray(todo!()),
+      view_id: self.resource_id,
+    }
+  }
+}
+// todo, improve for performance and impl for other strong  type
+impl<T: ?Sized + Std430MaybeUnsized, const N: usize> CacheAbleBindingSource
+  for BindingResourceArray<StorageBufferReadOnlyDataView<T>, N>
+{
+  fn get_binding_build_source(&self) -> CacheAbleBindingBuildSource {
+    CacheAbleBindingBuildSource {
+      source: BindingResourceOwned::BufferArray(todo!()),
+      view_id: self.resource_id,
+    }
+  }
+}
+
 impl<T, const N: usize> ShaderBindingProvider for BindingResourceArray<T, N>
 where
   T: ShaderBindingProvider,

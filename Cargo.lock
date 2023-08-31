@@ -2685,7 +2685,6 @@ version = "0.1.0"
 dependencies = [
  "buddy_system_allocator",
  "bytemuck",
- "fast-hash-collection",
  "rendiation-shader-api",
  "rendiation-webgpu",
  "slab",
@@ -2827,6 +2826,7 @@ dependencies = [
  "rendiation-color",
  "rendiation-geometry",
  "rendiation-mesh-core",
+ "rendiation-mesh-gpu-system",
  "rendiation-scene-core",
  "rendiation-shader-api",
  "rendiation-shader-library",

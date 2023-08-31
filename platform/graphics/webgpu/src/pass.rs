@@ -252,7 +252,7 @@ impl<'a> GPURenderPass<'a> {
   }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub enum DrawCommand {
   Indexed {
     base_vertex: i32,
@@ -262,6 +262,9 @@ pub enum DrawCommand {
   Array {
     vertices: Range<u32>,
     instances: Range<u32>,
+  },
+  Indirect {
+    buffer: GPUBuffer,
   },
   Skip,
 }
