@@ -3,7 +3,7 @@ use crate::*;
 pub struct GPUTextureSamplerPair {
   pub texture: Texture2DHandle,
   pub sampler: SamplerHandle,
-  pub sys: WebGPUTextureBindingSystem,
+  pub sys: GPUTextureBindingSystem,
 }
 
 impl GPUTextureSamplerPair {

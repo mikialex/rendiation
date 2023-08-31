@@ -6,4 +6,6 @@ version = "0.1.0"
 
 [dependencies]
 rendiation-shader-api = { path = "../../../shader/api" }
+rendiation-webgpu = { path = "../../../platform/graphics/webgpu" }
 slab = "0.4.8"
+futures = "0.3.25"

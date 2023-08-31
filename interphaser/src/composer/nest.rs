@@ -67,30 +67,15 @@ where
   }
 }
 
-impl<C, A, CC> ViewNester<CC> for NestedView<C, A>
+// if nested view work as the nester, the nester behavior if fully decided by the nested
+// and what important, the nest it self should impl view. self view update happens before the nest
+// logic
+impl<A, C: ViewNester<CC>, CC> ViewNester<CC> for NestedView<C, A>
 where
   Self: View,
-  CC: View,
 {
   fn request_nester(&mut self, detail: &mut ViewRequest, inner: &mut CC) {
-    match detail {
-      ViewRequest::Layout(LayoutProtocol::DoLayout {
-        constraint,
-        ctx,
-        output,
-      }) => {
-        let result_self = self.layout(*constraint, ctx);
-        let result_inner = self.layout(*constraint, ctx);
-        output.baseline_offset = result_inner.baseline_offset; // respect inner?
-        output.size = result_self.size.union(result_inner.size)
-      }
-      ViewRequest::HitTest { point, result } => {
-        **result = self.hit_test(*point) || inner.hit_test(*point);
-      }
-      _ => {
-        self.request(detail);
-        inner.request(detail);
-      }
-    }
+    self.request(detail);
+    self.inner.request_nester(detail, inner)
   }
 }

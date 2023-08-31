@@ -31,7 +31,7 @@ impl ResourceGPUCtx {
 
 pub struct BindlessResourceProvider<'a, T> {
   pub(crate) base: &'a T,
-  pub(crate) texture_system: &'a WebGPUTextureBindingSystem,
+  pub(crate) texture_system: &'a GPUTextureBindingSystem,
 }
 
 impl<'a, T: ShaderPassBuilder> ShaderPassBuilder for BindlessResourceProvider<'a, T> {

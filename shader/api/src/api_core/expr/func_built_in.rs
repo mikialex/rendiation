@@ -173,11 +173,8 @@ where
     )
   }
   /// 2^self
-  pub fn exp2(self, e: impl Into<Node<f32>>) -> Self {
-    make_builtin_call(
-      ShaderBuiltInFunction::Exp2,
-      [self.handle(), e.into().handle()],
-    )
+  pub fn exp2(self) -> Self {
+    make_builtin_call(ShaderBuiltInFunction::Exp2, [self.handle()])
   }
   /// e based, ln(self)
   pub fn log(self) -> Self {
