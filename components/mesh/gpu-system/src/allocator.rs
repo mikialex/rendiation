@@ -1,5 +1,4 @@
 use core::alloc::Layout;
-use core::num::NonZeroU64;
 use core::num::NonZeroUsize;
 use core::ptr::NonNull;
 use core::{marker::PhantomData, ops::Range};
@@ -18,24 +17,30 @@ struct GPUSubAllocateBufferInner<T> {
   phantom: PhantomData<T>,
   // should we try other allocator that support relocate and shrink??
   allocator: buddy_system_allocator::Heap<32>,
-  buffer: GPUBuffer,
+  buffer: GPUBufferResourceView,
   usage: BufferUsages,
   max_byte_size: usize,
 }
 
 impl<T> GPUSubAllocateBufferInner<T> {
   fn grow(&mut self, grow_bytes: usize, device: &GPUDevice, queue: &GPUQueue) {
-    let current_size: u64 = self.buffer.size().into();
+    let current_size: u64 = self.buffer.resource.size().into();
     let new_size = current_size + grow_bytes as u64;
-    let new_buffer = GPUBuffer::create(
-      device,
-      BufferInit::Zeroed(NonZeroU64::new(new_size).unwrap()),
-      self.usage,
-    );
+
+    let new_buffer = create_gpu_buffer_zeroed(new_size, self.usage, device);
+    let new_buffer = new_buffer.create_view(Default::default());
+
     // should we batch these call?
     let mut encoder = device.create_encoder();
-    encoder.copy_buffer_to_buffer(self.buffer.gpu(), 0, new_buffer.gpu(), 0, current_size);
+    encoder.copy_buffer_to_buffer(
+      self.buffer.resource.gpu(),
+      0,
+      new_buffer.resource.gpu(),
+      0,
+      current_size,
+    );
     queue.submit(Some(encoder.finish()));
+
     self.buffer = new_buffer;
     unsafe {
       self
@@ -45,8 +50,9 @@ impl<T> GPUSubAllocateBufferInner<T> {
   }
 }
 
+#[derive(Clone)]
 pub struct GPUSubAllocateBufferToken<T> {
-  pub byte_range: Range<usize>,
+  byte_range: Range<usize>,
   alloc: Weak<RwLock<GPUSubAllocateBufferInner<T>>>,
 }
 
@@ -65,8 +71,8 @@ impl<T> Drop for GPUSubAllocateBufferToken<T> {
 }
 
 impl<T> GPUSubAllocateBuffer<T> {
-  pub fn get_buffer(&self) -> GPUBuffer {
-    todo!()
+  pub fn get_buffer(&self) -> GPUBufferResourceView {
+    self.inner.read().unwrap().buffer.clone()
   }
 
   pub fn init_with_initial_item_count(
@@ -84,11 +90,8 @@ impl<T> GPUSubAllocateBuffer<T> {
     let mut inner = buddy_system_allocator::Heap::<32>::empty();
     unsafe { buddy_system_allocator::Heap::<32>::init(&mut inner, 0, init_byte_size) };
 
-    let buffer = GPUBuffer::create(
-      device,
-      BufferInit::Zeroed(NonZeroU64::new(init_byte_size as u64).unwrap()),
-      usage,
-    );
+    let buffer = create_gpu_buffer_zeroed(init_byte_size as u64, usage, device);
+    let buffer = buffer.create_view(Default::default());
 
     let inner = GPUSubAllocateBufferInner {
       phantom: PhantomData,
@@ -114,13 +117,13 @@ impl<T> GPUSubAllocateBuffer<T> {
     T: Pod,
   {
     let mut alloc = self.inner.write().unwrap();
-    let current_size: u64 = alloc.buffer.size().into();
+    let current_size: u64 = alloc.buffer.resource.size().into();
     let required_byte_size = std::mem::size_of_val(content);
     loop {
       if let Ok(ptr) = alloc.allocator.alloc(Layout::new::<T>()) {
         let offset: usize = ptr.addr().into();
         queue.write_buffer(
-          alloc.buffer.gpu(),
+          alloc.buffer.resource.gpu(),
           offset as u64,
           bytemuck::cast_slice(content),
         );

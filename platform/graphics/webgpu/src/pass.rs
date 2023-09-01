@@ -247,7 +247,20 @@ impl<'a> GPURenderPass<'a> {
         vertices,
         instances,
       } => self.draw(vertices, instances),
-      _ => {}
+      DrawCommand::Skip => {}
+      DrawCommand::MultiIndirect {
+        indirect_buffer,
+        indexed,
+        indirect_offset,
+        count,
+      } => {
+        let buffer = self.holder.buffers.alloc(indirect_buffer.gpu);
+        if indexed {
+          self.multi_draw_indexed_indirect(buffer, indirect_offset, count)
+        } else {
+          self.multi_draw_indirect(buffer, indirect_offset, count)
+        }
+      }
     }
   }
 }
@@ -263,8 +276,11 @@ pub enum DrawCommand {
     vertices: Range<u32>,
     instances: Range<u32>,
   },
-  Indirect {
-    buffer: GPUBuffer,
+  MultiIndirect {
+    indexed: bool,
+    indirect_buffer: GPUBuffer,
+    indirect_offset: BufferAddress,
+    count: u32,
   },
   Skip,
 }

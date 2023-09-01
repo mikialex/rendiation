@@ -126,6 +126,22 @@ pub fn create_gpu_buffer(
 ) -> GPUBufferResource {
   GPUBufferResource::create_with_raw(
     GPUBuffer::create(gpu, BufferInit::WithInit(data), usage),
-    usage,
+    usage, // todo, not good
+  )
+}
+
+/// just short convenient method
+pub fn create_gpu_buffer_zeroed(
+  byte_size: u64,
+  usage: gpu::BufferUsages,
+  gpu: &GPUDevice,
+) -> GPUBufferResource {
+  GPUBufferResource::create_with_raw(
+    GPUBuffer::create(
+      gpu,
+      BufferInit::Zeroed(NonZeroU64::new(byte_size).unwrap()),
+      usage,
+    ),
+    usage, // todo, not good
   )
 }

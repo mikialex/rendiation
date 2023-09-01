@@ -1,3 +1,4 @@
+use rendiation_mesh_gpu_system::GPUBindlessMeshSystem;
 use rendiation_texture::GPUBufferImage;
 
 use crate::*;
@@ -102,7 +103,7 @@ pub struct ShareBindableResourceCtx {
   pub gpu: ResourceGPUCtx,
   pub custom_storage: Arc<RwLock<AnyMap>>,
 
-  pub bindless_mesh: GPUBindlessMeshSystem,
+  pub bindless_mesh: Option<GPUBindlessMeshSystem>,
 
   pub binding_sys: GPUTextureBindingSystem,
   pub default_sampler: SharedIncrementalSignal<TextureSampler>,

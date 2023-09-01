@@ -26,7 +26,8 @@ impl GPUBindlessMeshSystem {
     iter: impl Iterator<Item = MeshSystemMeshHandle> + 'static,
   ) -> impl Iterator<Item = (DrawIndirect, DrawVertexIndirectInfo)> + '_ {
     iter.enumerate().map(|(i, handle)| {
-        let DrawMetaData { start,  count, vertex_info, .. } = self.meta_data.get(handle as usize).unwrap();
+      let sys = self.inner.read().unwrap();
+        let DrawMetaData { start,  count, vertex_info, .. } = sys.meta_data.get(handle as usize).unwrap();
         let draw_indirect = DrawIndirect {
           vertex_count: *count,
           instance_count: 1,
@@ -46,8 +47,12 @@ pub struct BindlessMeshDispatcher<'a> {
 
 impl<'a> BindlessMeshDispatcher<'a> {
   pub fn draw_command(&self) -> DrawCommand {
-    DrawCommand::Indirect {
-      buffer: self.draw_indirect_buffer.clone(),
+    let size: u64 = self.draw_indirect_buffer.size().into();
+    DrawCommand::MultiIndirect {
+      indirect_buffer: self.draw_indirect_buffer.clone(),
+      indexed: true,
+      indirect_offset: 0,
+      count: size as u32,
     }
   }
 }
@@ -58,7 +63,10 @@ impl<'a> ShaderPassBuilder for BindlessMeshDispatcher<'a> {
   fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
     ctx.binding.bind(&self.vertex_address_buffer);
 
-    let sys = self.system;
+    let sys = self.system.inner.read().unwrap();
+    let index = sys.index_buffer.get_buffer();
+    ctx.pass.set_index_buffer_owned(&index, IndexFormat::Uint32);
+
     ctx.binding.bind(&sys.bindless_position_vertex_buffers);
     ctx.binding.bind(&sys.bindless_normal_vertex_buffers);
     ctx.binding.bind(&sys.bindless_uv_vertex_buffers);
@@ -74,21 +82,19 @@ impl<'a> GraphicsShaderProvider for BindlessMeshDispatcher<'a> {
       let vertex_addresses = binding.bind_by(&self.vertex_address_buffer);
       let vertex_address = vertex_addresses.index(draw_id).load().expand();
 
-      let position = binding.bind_by(&self.system.bindless_position_vertex_buffers);
+      let sys = self.system.inner.read().unwrap();
+
+      let position = binding.bind_by(&sys.bindless_position_vertex_buffers);
       let position = position.index(vertex_address.position_buffer_id);
-      let position = position
-        .index(vertex_address.position_buffer_offset + vertex_id)
-        .load();
+      let position = position.index(vertex_id).load();
 
-      let normal = binding.bind_by(&self.system.bindless_normal_vertex_buffers);
+      let normal = binding.bind_by(&sys.bindless_normal_vertex_buffers);
       let normal = normal.index(vertex_address.position_buffer_id);
-      let normal = normal
-        .index(vertex_address.normal_buffer_offset + vertex_id)
-        .load();
+      let normal = normal.index(vertex_id).load();
 
-      let uv = binding.bind_by(&self.system.bindless_uv_vertex_buffers);
+      let uv = binding.bind_by(&sys.bindless_uv_vertex_buffers);
       let uv = uv.index(vertex_address.position_buffer_id);
-      let uv = uv.index(vertex_address.uv_buffer_offset + vertex_id).load();
+      let uv = uv.index(vertex_id).load();
 
       vertex.register::<GeometryPosition>(position);
       vertex.register::<GeometryNormal>(normal);
