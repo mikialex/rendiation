@@ -39,7 +39,9 @@ impl View for GPUCanvas {
         LayoutProtocol::PositionAt(position) => self.layout.set_relative_position(*position),
       },
       ViewRequest::Encode(builder) => {
-        self.layout.update_world(builder.current_origin_offset());
+        self
+          .layout
+          .update_world(builder.current_absolution_origin());
         if let Some(content) = &self.content {
           builder.present.primitives.push(Primitive::Quad((
             self.layout.into_quad(),

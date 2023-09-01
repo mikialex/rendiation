@@ -3,11 +3,11 @@ use std::{io::Write, path::Path, task::Context};
 use fast_hash_collection::FastHashMap;
 use futures::{executor::ThreadPool, Future, Stream, StreamExt};
 use interphaser::{winit::event::VirtualKeyCode, *};
-use reactive::{single_value_channel, PollUtils, SignalStreamExt};
+use reactive::{single_value_channel, PollUtils};
 use rendiation_scene_core::Scene;
 use webgpu::ReadableTextureBuffer;
 
-use crate::Viewer3dRenderingCtx;
+use crate::{text_box, Viewer3dRenderingCtx};
 
 pub struct Terminal {
   pub command_history: Vec<String>,
@@ -75,51 +75,33 @@ impl Terminal {
 }
 
 pub fn terminal() -> (impl View, impl Stream<Item = String> + Unpin) {
-  let edit_text = Text::default()
-    .with_layout(TextLayoutConfig::SizedBox {
-      line_wrap: LineWrap::Single,
-      horizon_align: TextHorizontalAlignment::Left,
-      vertical_align: TextVerticalAlignment::Top,
+  let current_command = String::use_state();
+  let content = current_command.single_listen();
+
+  let size = (UILength::ParentPercent(100.), UILength::Px(50.));
+  let (text_box, content) = text_box(size, content);
+
+  let (execute_trigger, command_to_execute) = single_value_channel();
+
+  let modify = current_command
+    .modify_by_stream_by(content, move |edit, current| match edit {
+      TextEditMessage::ContentChange(content) => {
+        *current = content.clone();
+      }
+      TextEditMessage::KeyboardInput(key) => {
+        if let VirtualKeyCode::Return = key {
+          let command_to_execute = current.clone();
+          execute_trigger.update(command_to_execute).ok();
+          *current = String::new();
+        }
+      }
     })
-    .editable();
+    .map(|_| {});
 
-  let mut current_command = String::new();
-  let (clear_trigger, clearer) = single_value_channel();
-  let command_to_execute =
-    edit_text
-      .nester
-      .events
-      .unbound_listen()
-      .filter_map_sync(move |e: TextEditMessage| match e {
-        TextEditMessage::ContentChange(content) => {
-          current_command = content;
-          None
-        }
-        TextEditMessage::KeyboardInput(key) => {
-          if let VirtualKeyCode::Return = key {
-            let command_to_execute = current_command.clone();
-            current_command = String::new();
-            clear_trigger.update(String::new()).ok();
-            Some(command_to_execute)
-          } else {
-            None
-          }
-        }
-      });
-
-  let clicker = ClickHandler::default();
-  let click_event = clicker.events.single_listen().map(|_| {});
-
-  let text_updates = ReactiveUpdaterGroup::default()
-    .with(click_event.bind(|e: &mut EditableText, _| e.nester.focus()))
-    .with(clearer.bind(|e: &mut EditableText, t| e.nester.set_text(t)));
-
-  let edit_text = edit_text.react(text_updates);
-
-  let text_box = Container::sized((UILength::ParentPercent(100.), UILength::Px(50.)))
-    .padding(RectBoundaryWidth::equal(5.))
-    .wrap(edit_text)
-    .nest_in(clicker);
+  let text_box = text_box
+    .into_any_holder()
+    .hold_state(current_command)
+    .hold_stream(modify);
 
   (text_box, command_to_execute)
 }
@@ -171,15 +153,15 @@ pub fn register_default_commands(terminal: &mut Terminal) {
 
   terminal.register_command("export-gltf", |ctx, _parameters| {
     let scene = ctx.scene.clone();
-    
-    Box::pin(async move { 
+
+    Box::pin(async move {
       if let Some(mut dir) = dirs::download_dir() {
         dir.push("gltf_export");
         rendiation_scene_gltf_exporter::build_scene_to_gltf(&scene, &dir, "scene").unwrap();
       }else {
         log::error!("failed to locate the system's default download directory to write viewer screenshot image")
       }
-    
+
      })
   });
 

@@ -1,4 +1,5 @@
-use crate::*;
+use rendiation_algebra::*;
+use rendiation_canvas_core::*;
 
 pub struct TriangulationBasedPainter<R> {
   recording: GraphicsRepresentation,

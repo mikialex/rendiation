@@ -17,9 +17,9 @@ where
         LayoutProtocol::PositionAt(position) => self.set_position_impl(*position),
       },
       ViewRequest::Encode(builder) => {
-        builder.push_offset(self.layout.relative_position);
+        builder.push_translate(self.layout.relative_position);
         inner.draw(builder);
-        builder.pop_offset()
+        builder.pop_translate()
       }
       _ => inner.request(detail),
     }

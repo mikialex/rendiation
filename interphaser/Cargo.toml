@@ -14,7 +14,7 @@ incremental = { path = "../utils/incremental" }
 log = "0.4"
 reactive = { path = "../utils/reactive" }
 rendiation-algebra = { path = "../math/algebra" }
-rendiation-canvas = { path = "../components/canvas" }
+rendiation-canvas-core = { path = "../components/canvas/core" }
 rendiation-color = { path = "../components/color" }
 rendiation-geometry = { path = "../math/geometry" }
 rendiation-mesh-core = { path = "../components/mesh/core" }

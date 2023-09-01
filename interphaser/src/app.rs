@@ -50,6 +50,7 @@ pub async fn run_gui(ui: impl View + 'static, init_state: WindowSelfState) {
 pub struct Application {
   root: Box<dyn View>,
   any_changed: Arc<NotifyWaker>,
+  event_filter: Box<dyn Fn(&PlatformEvent) -> bool>,
   fonts: FontManager,
   texts: TextCache,
 }
@@ -99,15 +100,20 @@ impl Application {
       any_changed: Default::default(),
       fonts,
       texts,
+      event_filter: Box::new(|_| true),
     }
   }
 
   fn event(&mut self, event: &winit::event::Event<()>, gpu: Arc<GPU>, window_states: &WindowState) {
+    // if !(self.event_filter)(event) {// todo use with waker
+    //   return;
+    // }
     let mut event = EventCtx {
       event,
       states: window_states,
       fonts: &self.fonts,
       texts: &mut self.texts,
+      event_filter: &mut self.event_filter,
       gpu,
     };
     self.root.event(&mut event);

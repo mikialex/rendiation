@@ -2,13 +2,11 @@ use rendiation_algebra::*;
 use rendiation_color::*;
 
 mod effect;
-mod impls;
 mod path;
 mod shape;
 mod style;
 
 pub use effect::*;
-pub use impls::*;
 pub use path::*;
 pub use shape::*;
 pub use style::*;

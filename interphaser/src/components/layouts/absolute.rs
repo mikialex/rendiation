@@ -36,9 +36,9 @@ where
         }
       }
       ViewRequest::Encode(builder) => {
-        builder.push_offset(self.position);
+        builder.push_translate(self.position);
         inner.draw(builder);
-        builder.pop_offset()
+        builder.pop_translate()
       }
       _ => inner.request(detail),
     }

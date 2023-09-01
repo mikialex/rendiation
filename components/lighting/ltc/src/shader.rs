@@ -69,7 +69,7 @@ pub fn ltc_light_eval(
     || ltc_evaluate_rect_fn(normal, view, position, all_one, light, ltc_2, sampler),
   );
 
-  (diff * diffuse_color + specular_color) * light_color
+  (diff * diffuse_color + spec * specular_color) * light_color
 }
 
 #[shader_fn]

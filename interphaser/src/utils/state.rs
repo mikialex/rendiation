@@ -43,23 +43,30 @@ impl<T: 'static> StateCell<T> {
 
   pub fn modify_by_stream(&self, s: impl Stream<Item = T>) -> impl Stream<Item = T>
   where
-    T: Clone,
+    T: Clone + PartialEq,
   {
-    self.modify_by_stream_by(s, |new, _old| new.clone())
+    self.modify_by_stream_by(s, |new, old| *old = new.clone())
   }
 
-  pub fn modify_by_stream_by<X: Clone>(
+  pub fn modify_by_stream_by<X>(
     &self,
     s: impl Stream<Item = X>,
-    modify: impl Fn(&X, &T) -> T,
-  ) -> impl Stream<Item = X> {
+    modify: impl Fn(&X, &mut T),
+  ) -> impl Stream<Item = X>
+  where
+    T: Clone + PartialEq,
+  {
     let state = Arc::downgrade(&self.state);
     let events = self.events.clone();
     s.map(move |v| {
       if let Some(state) = state.upgrade() {
         let mut state = state.write().unwrap();
-        *state = modify(&v, &state);
-        events.emit(&state);
+        let mut new_state = state.clone();
+        modify(&v, &mut new_state);
+        if new_state != *state {
+          *state = new_state;
+          events.emit(&state);
+        }
       }
       v
     })

@@ -1,0 +1,14 @@
+[package]
+authors = ["mikialex <18516340862@163.com>"]
+edition = "2021"
+name = "rendiation-canvas-gpu"
+version = "0.1.0"
+
+[dependencies]
+rendiation-canvas-core = { path = "../core" }
+bytemuck = "1.4.1"
+fontext = { path = "../../fontext" }
+lyon = "1.0.1"
+rendiation-algebra = { path = "../../../math/algebra" }
+rendiation-color = { path = "../../color" }
+rendiation-geometry = { path = "../../../math/geometry" }

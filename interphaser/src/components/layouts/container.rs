@@ -89,9 +89,9 @@ impl<C: View> ViewNester<C> for Container {
       },
       ViewRequest::Encode(builder) => {
         self.draw(builder);
-        builder.push_offset(self.layout.relative_position);
+        builder.push_translate(self.layout.relative_position);
         inner.draw(builder);
-        builder.pop_offset()
+        builder.pop_translate()
       }
       ViewRequest::HitTest { point, result } => {
         **result = self.hit_test(*point) || inner.hit_test(*point);
@@ -219,7 +219,9 @@ impl View for Container {
         LayoutProtocol::PositionAt(p) => self.layout.set_relative_position(*p),
       },
       ViewRequest::Encode(builder) => {
-        self.layout.update_world(builder.current_origin_offset());
+        self
+          .layout
+          .update_world(builder.current_absolution_origin());
         if self.color.a != 0. {
           builder.present.primitives.push(Primitive::Quad((
             self.layout.into_quad(),

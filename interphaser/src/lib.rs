@@ -47,6 +47,6 @@ use futures::Stream;
 use futures::StreamExt;
 use reactive::*;
 use rendiation_algebra::*;
-pub use rendiation_canvas::*;
+pub use rendiation_canvas_core::*;
 use webgpu::GPU;
 use winit::event::Event;
