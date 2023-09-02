@@ -1,3 +1,6 @@
+use bytemuck::{Pod, Zeroable};
+use rendiation_shader_api::*;
+
 use crate::*;
 
 pub struct TriangulationBasedPainter<R> {
@@ -13,18 +16,30 @@ pub trait TriangulationBasedRendererImpl {
   fn render(&mut self, target: &Self::Image, content: &GraphicsRepresentation);
 }
 
-#[derive(Debug, Clone, Copy)]
+only_vertex!(GeometryColorWithAlphaPremultiplied, Vec3<f32>);
+only_vertex!(UIMetadata, u32);
+
+#[repr(C)]
+#[derive(Debug, Clone, Copy, ShaderStruct, ShaderVertex, Zeroable, Pod)]
 pub struct GraphicsVertex {
+  #[semantic(GeometryPosition2D)]
   pub position: Vec2<f32>,
+  #[semantic(GeometryColorWithAlphaPremultiplied)]
   pub color: Vec3<f32>,
+  #[semantic(GeometryUV)]
   pub uv: Vec2<f32>,
+  #[semantic(UIMetadata)]
   pub object_id: u32, // point to ObjectMetaData[]
 }
 
-#[derive(Debug, Clone, Copy)]
+#[repr(C)]
+#[std430_layout]
+#[derive(Debug, Clone, Copy, ShaderStruct)]
 pub struct ObjectMetaData {
-  pub world_transform: Mat3<f32>,
-  pub uv_base: Vec3<f32>,
+  pub world_transform: Shader16PaddedMat3,
+  pub uv_base: Vec2<f32>,
+  /// fot this id, 0 means not image, 1 means text atlas, so the real image index is id - 1
+  pub image_id: u32,
 }
 
 struct TransformState {
@@ -34,11 +49,11 @@ struct TransformState {
 
 #[derive(Default)]
 pub struct GraphicsRepresentation {
-  object_meta: Vec<ObjectMetaData>,
-  vertices: Vec<GraphicsVertex>,
-  indices: Vec<u32>,
+  pub object_meta: Vec<ObjectMetaData>,
+  pub vertices: Vec<GraphicsVertex>,
+  pub indices: Vec<u32>,
 
-  images: Vec<GraphicsImageData>,
+  pub images: Vec<GraphicsImageData>,
 }
 
 impl GraphicsRepresentation {
@@ -101,10 +116,12 @@ where
   }
 
   fn stroke_shape(&mut self, shape: &Shape, style: &StrokeStyle) {
-    let world_transform = self.get_current_world_transform();
+    let world_transform = self.get_current_world_transform().into();
     let meta = ObjectMetaData {
       world_transform,
       uv_base: Default::default(),
+      image_id: 0,
+      ..Zeroable::zeroed()
     };
 
     let meta_index = self.recording.object_meta.len();
@@ -119,10 +136,12 @@ where
   }
 
   fn fill_shape(&mut self, shape: &Shape, style: &FillStyle) {
-    let world_transform = self.get_current_world_transform();
+    let world_transform = self.get_current_world_transform().into();
     let meta = ObjectMetaData {
       world_transform,
       uv_base: Default::default(),
+      image_id: 0,
+      ..Zeroable::zeroed()
     };
     let meta_index = self.recording.object_meta.len();
     self.recording.object_meta.push(meta);

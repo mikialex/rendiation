@@ -13,3 +13,4 @@ rendiation-algebra = { path = "../../../math/algebra" }
 rendiation-color = { path = "../../color" }
 rendiation-webgpu = { path = "../../../platform/graphics/webgpu" }
 rendiation-geometry = { path = "../../../math/geometry" }
+rendiation-shader-api = { path = "../../../shader/api" }
