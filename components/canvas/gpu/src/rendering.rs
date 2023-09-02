@@ -1,55 +1,94 @@
-use rendiation_shader_api::GraphicsShaderProvider;
+use std::sync::Arc;
+
+use rendiation_shader_api::*;
 use rendiation_webgpu::*;
 
 use crate::*;
 
 pub struct WebGPUCanvasRenderer {
-  device: GPUDevice,
-  queue: GPUQueue,
+  gpu: Arc<GPU>,
+  pool: ResourcePool,
 }
 
 impl TriangulationBasedRendererImpl for WebGPUCanvasRenderer {
   type Image = RenderTargetView;
 
   fn render(&mut self, target: &Self::Image, content: &GraphicsRepresentation) {
-    let encoder = self.device.create_encoder();
+    let device = &self.gpu.device;
 
-    let metadata_buffer = create_gpu_readonly_storage(content.object_meta.as_slice(), &self.device);
+    let metadata_buffer = create_gpu_readonly_storage(content.object_meta.as_slice(), device);
     let vertex_buffer = bytemuck::cast_slice(&content.vertices);
-    let vertex_buffer = create_gpu_buffer(vertex_buffer, BufferUsages::VERTEX, &self.device);
+    let vertex_buffer = create_gpu_buffer(vertex_buffer, BufferUsages::VERTEX, device);
     let index_buffer = bytemuck::cast_slice(&content.indices);
-    let index_buffer = create_gpu_buffer(index_buffer, BufferUsages::INDEX, &self.device);
+    let index_buffer = create_gpu_buffer(index_buffer, BufferUsages::INDEX, device);
 
     // encode.
 
-    // pass("gui")
-    //   .with_color(target.clone(), load())
-    //   .render(todo!())
-    //   .by(renderable);
+    let mut ctx = FrameCtx::new(&self.gpu, target.size(), &self.pool);
 
-    self.queue.submit(Some(encoder.finish()));
+    let _ = pass("gui")
+      .with_color(target.clone(), load())
+      .render(&mut ctx);
+
+    ctx.final_submit();
   }
 }
 
-// struct UIContextGPU {
-//   texture_atlas: GPUTextureView,
-//   font_atlas: GPUTextureView,
-// }
+struct UIContextGPU {
+  texture_atlas: GPUTextureView,
+  font_atlas: GPUTextureView,
+}
 
-// struct UIPrimitivesGPU {
-//   vertex_buffer: GPUBuffer,
-//   index_buffer: GPUBuffer,
-//   metadata_buffer: GPUBuffer,
-// }
+struct UIPrimitivesGPU {
+  vertex_buffer: GPUBufferResourceView,
+  index_buffer: GPUBufferResourceView,
+  metadata_buffer: StorageBufferReadOnlyDataView<[ObjectMetaData]>,
+}
 
-// impl GraphicsShaderProvider for UIPrimitivesGPU {
-//   fn build(
-//     &self,
-//     builder: &mut rendiation_shader_api::ShaderRenderPipelineBuilder,
-//   ) -> Result<(), rendiation_shader_api::ShaderBuildError> {
-//     builder.vertex(|shader, binding| {
-//       //
-//       Ok(())
-//     })
-//   }
-// }
+impl ShaderPassBuilder for UIPrimitivesGPU {
+  fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
+    ctx.binding.bind(&self.metadata_buffer);
+    ctx
+      .pass
+      .set_index_buffer_owned(&self.index_buffer, IndexFormat::Uint32);
+    ctx.set_vertex_buffer_owned_next(&self.vertex_buffer);
+  }
+}
+
+impl GraphicsShaderProvider for UIPrimitivesGPU {
+  fn build(
+    &self,
+    builder: &mut rendiation_shader_api::ShaderRenderPipelineBuilder,
+  ) -> Result<(), rendiation_shader_api::ShaderBuildError> {
+    builder.vertex(|builder, binding| {
+      builder.register_vertex::<GraphicsVertex>(VertexStepMode::Vertex);
+      builder.primitive_state.topology = PrimitiveTopology::TriangleList;
+      builder.primitive_state.cull_mode = None;
+
+      let position = builder.query::<GeometryPosition2D>().unwrap();
+      let color = builder
+        .query::<GeometryColorWithAlphaPremultiplied>()
+        .unwrap();
+      let uv = builder.query::<GeometryUV>().unwrap();
+
+      let meta_index = builder.query::<UIMetadata>().unwrap();
+
+      let metadata = binding.bind_by(&self.metadata_buffer);
+      let metadata = metadata.index(meta_index).load().expand();
+
+      let position = metadata.world_transform * position;
+      let image_id = metadata.image_id;
+      let uv = uv * metadata.uv_scale + metadata.uv_offset;
+      //
+      Ok(())
+    })?;
+
+    builder.fragment(|builder, binding| {
+      let uv = builder.query::<FragmentUv>()?;
+      let texture = binding.binding::<GPU2DTextureView>();
+      let sampler = binding.binding::<GPUSamplerView>();
+
+      builder.store_fragment_out(0, texture.sample(sampler, uv))
+    })
+  }
+}

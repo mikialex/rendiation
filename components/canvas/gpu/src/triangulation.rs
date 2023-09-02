@@ -37,7 +37,8 @@ pub struct GraphicsVertex {
 #[derive(Debug, Clone, Copy, ShaderStruct)]
 pub struct ObjectMetaData {
   pub world_transform: Shader16PaddedMat3,
-  pub uv_base: Vec2<f32>,
+  pub uv_offset: Vec2<f32>,
+  pub uv_scale: Vec2<f32>,
   /// fot this id, 0 means not image, 1 means text atlas, so the real image index is id - 1
   pub image_id: u32,
 }
@@ -119,7 +120,8 @@ where
     let world_transform = self.get_current_world_transform().into();
     let meta = ObjectMetaData {
       world_transform,
-      uv_base: Default::default(),
+      uv_offset: Default::default(),
+      uv_scale: Default::default(),
       image_id: 0,
       ..Zeroable::zeroed()
     };
@@ -139,7 +141,8 @@ where
     let world_transform = self.get_current_world_transform().into();
     let meta = ObjectMetaData {
       world_transform,
-      uv_base: Default::default(),
+      uv_offset: Default::default(),
+      uv_scale: Default::default(),
       image_id: 0,
       ..Zeroable::zeroed()
     };

@@ -3,7 +3,7 @@ use crate::*;
 pub struct AttributesMeshGPU {
   attributes: Vec<(AttributeSemantic, GPUBufferResourceView)>,
   indices: Option<(GPUBufferResourceView, webgpu::IndexFormat)>,
-  mode: webgpu::PrimitiveTopology,
+  topology: webgpu::PrimitiveTopology,
   draw: DrawCommand,
 }
 
@@ -39,10 +39,10 @@ impl ShaderHashProvider for AttributesMeshGPU {
     for (s, _) in &self.attributes {
       s.hash(hasher)
     }
-    self.mode.hash(hasher);
+    self.topology.hash(hasher);
     if let Some((_, f)) = &self.indices {
-      if webgpu::PrimitiveTopology::LineStrip == self.mode
-        || webgpu::PrimitiveTopology::TriangleStrip == self.mode
+      if webgpu::PrimitiveTopology::LineStrip == self.topology
+        || webgpu::PrimitiveTopology::TriangleStrip == self.topology
       {
         f.hash(hasher)
       }
@@ -87,7 +87,7 @@ impl GraphicsShaderProvider for AttributesMeshGPU {
           AttributeSemantic::Foreign(_) => todo!(),
         }
       }
-      builder.primitive_state.topology = self.mode;
+      builder.primitive_state.topology = self.topology;
       Ok(())
     })
   }
@@ -189,7 +189,7 @@ impl WebGPUMesh for AttributesMesh {
       AttributesMeshGPU {
         attributes,
         indices,
-        mode: map_topology(mesh.mode),
+        topology: map_topology(mesh.mode),
         draw: draw_command(&mesh),
       }
     };
