@@ -11,4 +11,5 @@ fontext = { path = "../../fontext" }
 lyon = "1.0.1"
 rendiation-algebra = { path = "../../../math/algebra" }
 rendiation-color = { path = "../../color" }
+rendiation-webgpu = { path = "../../../platform/graphics/webgpu" }
 rendiation-geometry = { path = "../../../math/geometry" }
