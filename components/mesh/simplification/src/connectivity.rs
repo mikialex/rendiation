@@ -14,7 +14,7 @@ pub struct HalfEdge {
 
 impl EdgeAdjacency {
   pub fn new(indices: &[u32], vertex_count: usize) -> Self {
-    let mut result = EdgeAdjacency {
+    let mut result = Self {
       counts: vec![0; vertex_count],
       offsets: vec![0; vertex_count],
       data: vec![Default::default(); indices.len()],
