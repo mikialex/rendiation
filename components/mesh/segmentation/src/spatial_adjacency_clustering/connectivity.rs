@@ -1,7 +1,7 @@
 pub struct TriangleAdjacency {
   pub counts: Vec<u32>,
-  offsets: Vec<u32>,
-  data: Vec<u32>,
+  pub offsets: Vec<u32>,
+  pub face_ids: Vec<u32>,
 }
 
 impl TriangleAdjacency {
@@ -9,7 +9,7 @@ impl TriangleAdjacency {
     let mut adjacency = Self {
       counts: vec![0; vertex_count],
       offsets: vec![0; vertex_count],
-      data: vec![Default::default(); indices.len()],
+      face_ids: vec![Default::default(); indices.len()],
     };
 
     for index in indices {
@@ -27,9 +27,9 @@ impl TriangleAdjacency {
 
     // fill triangle data
     for (i, [a, b, c]) in indices.array_chunks::<3>().enumerate() {
-      adjacency.data[adjacency.offsets[*a as usize] as usize] = i as u32;
-      adjacency.data[adjacency.offsets[*b as usize] as usize] = i as u32;
-      adjacency.data[adjacency.offsets[*c as usize] as usize] = i as u32;
+      adjacency.face_ids[adjacency.offsets[*a as usize] as usize] = i as u32;
+      adjacency.face_ids[adjacency.offsets[*b as usize] as usize] = i as u32;
+      adjacency.face_ids[adjacency.offsets[*c as usize] as usize] = i as u32;
 
       adjacency.offsets[*a as usize] += 1;
       adjacency.offsets[*b as usize] += 1;
@@ -49,6 +49,11 @@ impl TriangleAdjacency {
   pub fn iter_adjacency_faces(&self, vertex: usize) -> impl Iterator<Item = u32> + '_ {
     let start = self.offsets[vertex] as usize;
     let count = self.counts[vertex] as usize;
-    self.data.get(start..start + count).unwrap().iter().copied()
+    self
+      .face_ids
+      .get(start..start + count)
+      .unwrap()
+      .iter()
+      .copied()
   }
 }

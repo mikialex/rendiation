@@ -74,8 +74,8 @@ use crate::*;
 
 #[derive(Default, Clone, Copy)]
 pub struct Cone {
-  pub p: Vec3<f32>,
-  pub n: Vec3<f32>,
+  pub position: Vec3<f32>,
+  pub direction: Vec3<f32>,
 }
 
 pub fn get_meshlet_cone(acc: &Cone, triangle_count: u32) -> Cone {
@@ -87,16 +87,16 @@ pub fn get_meshlet_cone(acc: &Cone, triangle_count: u32) -> Cone {
     1. / triangle_count as f32
   };
 
-  result.p *= center_scale;
+  result.position *= center_scale;
 
-  let axis_length = result.n.length2();
+  let axis_length = result.direction.length2();
   let axis_scale = if axis_length == 0. {
     0.
   } else {
     1. / axis_length.sqrt()
   };
 
-  result.n *= axis_scale;
+  result.direction *= axis_scale;
 
   result
 }
@@ -121,8 +121,8 @@ pub fn compute_triangle_cones<V: Positioned<Position = Vec3<f32>>>(
 
     let center = (p1 + p1 + p2) / 3.;
     cones.push(Cone {
-      p: center,
-      n: normal,
+      position: center,
+      direction: normal,
     });
     mesh_area += area;
   }
