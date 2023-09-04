@@ -140,6 +140,11 @@ pub trait InnerProductSpace<T: Scalar>: VectorSpace<T> {
   }
 
   #[inline]
+  fn distance2<Rhs: InnerData<Self>>(&self, b: Rhs) -> T {
+    (*self - b.get_inner()).length2()
+  }
+
+  #[inline]
   fn dot<Rhs: InnerData<Self>>(&self, b: Rhs) -> T {
     self.dot_impl(b.get_inner())
   }
