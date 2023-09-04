@@ -2690,6 +2690,7 @@ dependencies = [
  "rendiation-algebra",
  "rendiation-geometry",
  "rendiation-mesh-core",
+ "space-algorithm",
  "tobj 4.0.0",
 ]
 

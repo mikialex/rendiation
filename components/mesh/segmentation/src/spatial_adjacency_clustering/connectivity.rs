@@ -56,4 +56,23 @@ impl TriangleAdjacency {
       .iter()
       .copied()
   }
+
+  pub fn update_by_remove_a_triangle(&mut self, triangle_idx: usize, indices: &[u32]) {
+    for k in 0..3 {
+      let index = indices[triangle_idx * 3 + k] as usize;
+
+      let start = self.offsets[index] as usize;
+      let count = self.counts[index] as usize;
+      let neighbors = self.face_ids.get_mut(start..start + count).unwrap();
+      let last = neighbors[count - 1];
+
+      for tri in neighbors {
+        if *tri as usize == triangle_idx {
+          *tri = last; // we do only remove one tri so it's ok not to update last cursor
+          self.counts[index] -= 1;
+          break;
+        }
+      }
+    }
+  }
 }

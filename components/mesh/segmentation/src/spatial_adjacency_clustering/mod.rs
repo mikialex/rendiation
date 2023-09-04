@@ -1,6 +1,11 @@
 mod connectivity;
 use connectivity::*;
 
+mod bounding;
+use bounding::*;
+mod space_search;
+use space_search::*;
+
 use crate::*;
 
 // This must be <= 255 since index 0xff is used internally to index a vertex that doesn't belong to
@@ -22,7 +27,7 @@ pub struct Meshlet {
   pub triangle_count: u32,
 }
 
-pub struct Config {
+pub struct ClusteringConfig {
   pub max_vertices: u8,
   /// should <= 512
   pub max_triangles: u32,
@@ -31,8 +36,42 @@ pub struct Config {
   pub cone_weight: f32,
 }
 
-pub fn build_meshlets<V: Positioned<Position = Vec3<f32>>, SA: SpaceSearchAcceleration>(
-  config: Config,
+impl ClusteringConfig {
+  pub fn validate(&self) -> bool {
+    self.max_triangles >= 3
+      && self.max_triangles >= 1
+      && self.max_triangles <= MESHLET_MAX_TRIANGLES
+      // ensures the caller will compute output space properly as index data is 4b aligned
+      && self.max_triangles % 4 == 0
+      && self.cone_weight >= 0.
+      && self.cone_weight <= 1.
+  }
+}
+
+fn build_meshlets_bound(index_count: usize, config: &ClusteringConfig) -> usize {
+  assert!(index_count % 3 == 0);
+  assert!(index_count > 0);
+  assert!(config.validate());
+
+  // meshlet construction is limited by max vertices and max triangles per meshlet
+  // the worst case is that the input is an unindexed stream since this equally stresses both limits
+  // note that we assume that in the worst case, we leave 2 vertices unpacked in each meshlet - if
+  // we have space for 3 we can pack any triangle
+  let max_vertices_conservative = (config.max_vertices - 2) as usize;
+  let meshlet_limit_vertices =
+    (index_count + max_vertices_conservative - 1) / max_vertices_conservative;
+  let meshlet_limit_triangles =
+    (index_count / 3 + config.max_triangles as usize - 1) / config.max_triangles as usize;
+
+  if meshlet_limit_vertices > meshlet_limit_triangles {
+    meshlet_limit_vertices
+  } else {
+    meshlet_limit_triangles
+  }
+}
+
+pub fn build_meshlets<V: Positioned<Position = Vec3<f32>>, SA: SpaceSearchAcceleration<V>>(
+  config: &ClusteringConfig,
   indices: &[u32],
   vertices: &[V],
   meshlets: &mut [Meshlet],
@@ -41,12 +80,6 @@ pub fn build_meshlets<V: Positioned<Position = Vec3<f32>>, SA: SpaceSearchAccele
 ) -> usize {
   assert!(indices.len() / 3 == 0);
   assert!(indices.len() >= 3);
-
-  assert!(config.max_vertices >= 3);
-  assert!(config.max_triangles >= 1 && config.max_triangles <= MESHLET_MAX_TRIANGLES);
-  // ensures the caller will compute output space properly as index data is 4b aligned
-  assert!(config.max_triangles % 4 == 0);
-  assert!(config.cone_weight >= 0. && config.cone_weight <= 1.);
 
   let mut adjacency = TriangleAdjacency::new(indices, vertices.len());
 
@@ -61,7 +94,6 @@ pub fn build_meshlets<V: Positioned<Position = Vec3<f32>>, SA: SpaceSearchAccele
   // assuming each meshlet is a square patch, expected radius is sqrt(expected area)
   let meshlet_expected_radius = (triangle_area_avg * config.max_triangles as f32).sqrt() * 0.5;
 
-  // todo accel
   let space_search = SA::build(indices, vertices);
 
   // index of the vertex in the meshlet, 0xff if the vertex isn't used
@@ -112,8 +144,12 @@ pub fn build_meshlets<V: Positioned<Position = Vec3<f32>>, SA: SpaceSearchAccele
     // when we run out of neighboring triangles we need to switch to spatial search; we currently
     // just pick the closest triangle irrespective of connectivity
     if best_triangle == !0 {
-      best_triangle =
-        space_search.search_nearest(meshlet_cone.position, |index| emitted_flags[index as usize]);
+      best_triangle = space_search.search_nearest(
+        meshlet_cone.position,
+        |index| emitted_flags[index as usize],
+        indices,
+        vertices,
+      );
     }
 
     if best_triangle == !0 {
@@ -138,8 +174,7 @@ pub fn build_meshlets<V: Positioned<Position = Vec3<f32>>, SA: SpaceSearchAccele
       meshlet_vertices,
       meshlet_triangles,
       meshlet_offset,
-      config.max_vertices as u32,
-      config.max_triangles,
+      config,
     ) {
       meshlet_offset += 1;
       meshlet_cone_acc = Default::default();
@@ -149,24 +184,8 @@ pub fn build_meshlets<V: Positioned<Position = Vec3<f32>>, SA: SpaceSearchAccele
     live_triangles[b] -= 1;
     live_triangles[c] -= 1;
 
-    // remove emitted triangle from adjacency data
     // this makes sure that we spend less time traversing these lists on subsequent iterations
-    for k in 0..3 {
-      let index = indices[best_triangle * 3 + k] as usize;
-
-      let start = adjacency.offsets[index] as usize;
-      let count = adjacency.counts[index] as usize;
-      let neighbors = adjacency.face_ids.get_mut(start..start + count).unwrap();
-      let last = neighbors[count - 1];
-
-      for tri in neighbors {
-        if *tri as usize == best_triangle {
-          *tri = last;
-          adjacency.counts[index] -= 1;
-          break;
-        }
-      }
-    }
+    adjacency.update_by_remove_a_triangle(best_triangle, indices);
 
     // update aggregated meshlet cone data for scoring subsequent triangles
     meshlet_cone_acc.position += triangles[best_triangle].position;
@@ -182,14 +201,8 @@ pub fn build_meshlets<V: Positioned<Position = Vec3<f32>>, SA: SpaceSearchAccele
     meshlet_offset += 1;
   }
 
-  // assert!(meshlet_offset <= meshopt_buildMeshletsBound(index_count, max_vertices,
-  // max_triangles));
+  assert!(meshlet_offset as usize <= build_meshlets_bound(indices.len(), config));
   meshlet_offset as usize
-}
-
-pub trait SpaceSearchAcceleration {
-  fn build<V>(indices: &[u32], vertices: &[V]) -> Self;
-  fn search_nearest(&self, position: Vec3<f32>, should_skip: impl Fn(u32) -> bool) -> u32;
 }
 
 fn finish_meshlet(meshlet: &Meshlet, meshlet_triangles: &mut [u8]) {
@@ -212,8 +225,7 @@ fn append_meshlet(
   meshlet_vertices: &mut [u32],
   meshlet_triangles: &mut [u8],
   meshlet_offset: u32,
-  max_vertices: u32,
-  max_triangles: u32,
+  config: &ClusteringConfig,
 ) -> bool {
   let av = used[a as usize];
   let bv = used[b as usize];
@@ -223,7 +235,9 @@ fn append_meshlet(
 
   let used_extra = (av == 0xff) as u32 + (bv == 0xff) as u32 + (cv == 0xff) as u32;
 
-  if meshlet.vertex_count + used_extra > max_vertices || meshlet.triangle_count >= max_triangles {
+  if meshlet.vertex_count + used_extra > config.max_vertices as u32
+    || meshlet.triangle_count >= config.max_triangles
+  {
     meshlets[meshlet_offset as usize] = *meshlet;
 
     for j in 0..meshlet.vertex_count {
@@ -295,7 +309,7 @@ fn get_neighbor_triangle(
       let mut extra =
         (used[a] == 0xff) as u32 + (used[b] == 0xff) as u32 + (used[c] == 0xff) as u32;
 
-      // triangles that don't add new vertices to meshlets are max. priority
+      // triangles that don't add new vertices to meshlets are max priority
       if extra != 0 {
         // artificially increase the priority of dangling triangles as they're expensive to add to
         // new meshlets

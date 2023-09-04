@@ -2,13 +2,13 @@
 
 This implementation is roughly based on the https://github.com/zeux/meshoptimizer v 0.19, with the reference rust port of https://github.com/yzsolt/meshopt-rs.
 
-My original algorithm reading notes: https://mikialex.github.io/2020/04/04/mesh-simplification/
+My original algorithm reading notes is here: https://mikialex.github.io/2020/04/04/mesh-simplification/
 
 ## Bin Examples
 
 Run `cargo r --package rendiation-mesh-simplification --example simplification --release`
 
-## Paper references
+## Paper references introduce by meshoptimizer
 
 Michael Garland and Paul S. Heckbert. Surface simplification using quadric error metrics. 1997
 
