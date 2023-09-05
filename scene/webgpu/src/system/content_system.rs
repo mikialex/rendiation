@@ -19,8 +19,8 @@ pub struct ContentGPUSystem {
 pub type ReactiveModelRenderComponentDeltaSource = impl Stream<Item = RenderComponentDeltaFlag>;
 
 impl ContentGPUSystem {
-  pub fn new(gpu: &GPU) -> Self {
-    let bindable_ctx = ShareBindableResourceCtx::new(gpu);
+  pub fn new(gpu: &GPU, config: BindableResourceConfig) -> Self {
+    let bindable_ctx = ShareBindableResourceCtx::new(gpu, config);
     let gpu = ResourceGPUCtx::new(gpu, Default::default());
 
     let model_ctx = GPUModelResourceCtx {
@@ -138,8 +138,17 @@ impl Stream for ShareBindableResourceCtx {
   }
 }
 
+#[derive(Clone, Copy, Debug)]
+pub struct BindableResourceConfig {
+  /// decide if should enable texture bindless support if platform hardware supported
+  pub prefer_bindless_texture: bool,
+  /// decide if should enable mesh bindless (multi indirect draw) support if platform hardware
+  /// supported
+  pub prefer_bindless_mesh: bool,
+}
+
 impl ShareBindableResourceCtx {
-  pub fn new(gpu: &GPU) -> Self {
+  pub fn new(gpu: &GPU, config: BindableResourceConfig) -> Self {
     // create a 1x1 white pixel as the default texture;
     let default_texture_2d = GPUBufferImage {
       data: vec![255, 255, 255, 255],
@@ -148,8 +157,11 @@ impl ShareBindableResourceCtx {
     };
     let default_texture_2d = SceneTexture2DType::GPUBufferImage(default_texture_2d).into_ref();
     let sys = Self {
-      bindless_mesh: GPUBindlessMeshSystem::new(gpu),
-      binding_sys: GPUTextureBindingSystem::new(gpu, true),
+      bindless_mesh: config
+        .prefer_bindless_mesh
+        .then(|| GPUBindlessMeshSystem::new(gpu))
+        .flatten(),
+      binding_sys: GPUTextureBindingSystem::new(gpu, config.prefer_bindless_texture),
       default_texture_2d,
       default_sampler: Default::default(),
       custom_storage: Arc::new(RwLock::new(AnyMap::new())),

@@ -6,8 +6,8 @@ pub struct GlobalGPUSystem {
 }
 
 impl GlobalGPUSystem {
-  pub fn new(gpu: &GPU) -> Self {
-    let content = ContentGPUSystem::new(gpu);
+  pub fn new(gpu: &GPU, config: BindableResourceConfig) -> Self {
+    let content = ContentGPUSystem::new(gpu, config);
     Self {
       content: Arc::new(RwLock::new(content)),
       scenes: Default::default(),

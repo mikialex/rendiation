@@ -32,9 +32,9 @@ impl GPUTextureBindingSystem {
     // we estimate that the texture used except under the binding system will not exceed 128 per
     // shader stage
     if info.supported_limits.max_sampled_textures_per_shader_stage
-      < MAX_TEXTURE_BINDING_ARRAY_LENGTH as u32 + 128
+      >= MAX_TEXTURE_BINDING_ARRAY_LENGTH as u32 + 128
       || info.supported_limits.max_samplers_per_shader_stage
-        < MAX_SAMPLER_BINDING_ARRAY_LENGTH as u32 + 128
+        >= MAX_SAMPLER_BINDING_ARRAY_LENGTH as u32 + 128
     {
       bindless_effectively_supported = false;
     }

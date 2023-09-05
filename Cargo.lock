@@ -2699,6 +2699,8 @@ version = "0.1.0"
 dependencies = [
  "buddy_system_allocator",
  "bytemuck",
+ "futures",
+ "pin-project",
  "rendiation-shader-api",
  "rendiation-webgpu",
  "slab",

@@ -134,8 +134,11 @@ impl ReactiveRenderComponentSource for AttributesMeshGPUReactive {
 
 impl MeshDrawcallEmitter for AttributesMeshGPUReactive {
   fn draw_command(&self, _group: MeshDrawGroup) -> DrawCommand {
-    let inner: &AttributesMeshGPU = self.as_ref();
-    inner.draw.clone()
+    let inner: &MaybeBindlessMesh<AttributesMeshGPU> = self.as_ref();
+    match inner {
+      MaybeBindlessMesh::Traditional(inner) => inner.draw.clone(),
+      MaybeBindlessMesh::Bindless(_) => DrawCommand::Skip,
+    }
   }
 }
 /// the current represent do not have meaningful mesh draw group concept
@@ -155,8 +158,8 @@ fn draw_command(mesh: &AttributesMesh) -> webgpu::DrawCommand {
   }
 }
 
-type AttributesMeshGPUReactive =
-  impl AsRef<RenderComponentCell<AttributesMeshGPU>> + Stream<Item = RenderComponentDeltaFlag>;
+type AttributesMeshGPUReactive = impl AsRef<RenderComponentCell<MaybeBindlessMesh<AttributesMeshGPU>>>
+  + Stream<Item = RenderComponentDeltaFlag>;
 
 impl WebGPUMesh for AttributesMesh {
   type ReactiveGPU = AttributesMeshGPUReactive;
@@ -186,12 +189,12 @@ impl WebGPUMesh for AttributesMesh {
         (buffer_view, map_index(*format))
       });
 
-      AttributesMeshGPU {
+      MaybeBindlessMesh::Traditional(AttributesMeshGPU {
         attributes,
         indices,
         topology: map_topology(mesh.mode),
         draw: draw_command(&mesh),
-      }
+      })
     };
 
     let state = RenderComponentCell::new(create(source));

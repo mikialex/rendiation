@@ -21,7 +21,13 @@ pub struct Viewer3dRenderingCtx {
 
 impl Viewer3dRenderingCtx {
   pub fn new(gpu: Arc<GPU>) -> Self {
-    let gpu_resources = GlobalGPUSystem::new(&gpu);
+    let gpu_resources = GlobalGPUSystem::new(
+      &gpu,
+      BindableResourceConfig {
+        prefer_bindless_texture: true,
+        prefer_bindless_mesh: false, // not ready to use
+      },
+    );
     Self {
       pipeline: ViewerPipeline::new(gpu.as_ref()),
       gpu,

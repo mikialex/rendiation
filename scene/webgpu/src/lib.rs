@@ -54,6 +54,7 @@ use reactive::*;
 pub use rendering::*;
 use rendiation_algebra::*;
 use rendiation_mesh_core::*;
+use rendiation_mesh_gpu_system::*;
 use rendiation_scene_core::*;
 use rendiation_shader_api::*;
 use rendiation_texture::TextureSampler;

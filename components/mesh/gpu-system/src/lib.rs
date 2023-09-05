@@ -9,6 +9,9 @@ use slab::Slab;
 mod allocator;
 use allocator::*;
 
+mod wrap;
+pub use wrap::*;
+
 mod draw;
 pub use draw::*;
 
@@ -110,7 +113,7 @@ impl GPUBindlessMeshSystem {
       bindless_effectively_supported = false;
     }
 
-    if bindless_effectively_supported {
+    if !bindless_effectively_supported {
       return None;
     }
 
