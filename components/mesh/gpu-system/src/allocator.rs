@@ -16,7 +16,12 @@ type AllocationHandel = xalloc::tlsf::TlsfRegion<xalloc::arena::sys::Ptr>;
 
 struct GPUSubAllocateBufferInner {
   ranges: FastHashMap<u32, (Range<u32>, AllocationHandel)>,
-  // should we try other allocator that support relocate and shrink??
+  // todo should we try other allocator that support relocate and shrink??
+  //
+  // In the rust ecosystem, there are many allocator implementations but it's rare to find one for
+  // our use case, because what we want is an allocator to manage the external memory not the
+  // internal, which means the allocate does not own the memory and is unable to store internal
+  // allocation states and data structures into the requested but not allocated memory space.
   allocator: xalloc::SysTlsf<u32>,
   buffer: GPUBufferResourceView,
   usage: BufferUsages,
@@ -137,7 +142,7 @@ impl GPUSubAllocateBuffer {
     content: &[u8],
     device: &GPUDevice,
     queue: &GPUQueue,
-  ) -> Option<GPUSubAllocateBufferToken> {
+  ) -> Option<(GPUSubAllocateBufferToken, u32)> {
     let mut alloc = self.inner.write().unwrap();
     let current_size: u64 = alloc.buffer.resource.size().into();
     let required_byte_size = content.len() as u32;
@@ -158,11 +163,14 @@ impl GPUSubAllocateBuffer {
           "duplicate active allocation handle used"
         );
 
-        break GPUSubAllocateBufferToken {
-          token: allocation_handle,
-          alloc: Arc::downgrade(&self.inner),
-        }
-        .into();
+        break (
+          GPUSubAllocateBufferToken {
+            token: allocation_handle,
+            alloc: Arc::downgrade(&self.inner),
+          },
+          offset,
+        )
+          .into();
       } else if alloc.max_byte_size as u64 >= current_size {
         break None;
       } else {

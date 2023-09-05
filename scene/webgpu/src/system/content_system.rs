@@ -134,6 +134,10 @@ impl Stream for ShareBindableResourceCtx {
 
     do_updates_by(this.binding_sys, cx, |_| {});
 
+    if let Some(bindless_mesh) = this.bindless_mesh {
+      bindless_mesh.maintain();
+    }
+
     Poll::Pending
   }
 }

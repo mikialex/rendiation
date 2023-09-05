@@ -128,10 +128,12 @@ impl GPUBindlessMeshSystem {
     let relocations: Arc<RwLock<Vec<RelocationMessage>>> = Default::default();
 
     let r = relocations.clone();
+    // we do not set any changed flag here because we know only allocate and deallocate triggers
+    // relocate and these code path has been marked.
     index_buffer.set_relocate_callback(move |m| r.write().unwrap().push(m));
 
     let inner = GPUBindlessMeshSystemInner {
-      any_changed: Default::default(),
+      any_changed: true,
       metadata: Default::default(),
       index_buffer,
       relocations,
@@ -200,7 +202,7 @@ impl GPUBindlessMeshSystem {
     let uv = StorageBufferReadOnlyDataView::create(device, uv.as_slice());
 
     let metadata = DrawMetaData {
-      start: 0, // todo, currently we not effectively support this.
+      start: 0, // will write later..
       count: index.len() as u32,
       vertex_info: DrawVertexIndirectInfo {
         position_buffer_id: inner.position_vertex_buffers.insert(position) as u32,
@@ -212,14 +214,16 @@ impl GPUBindlessMeshSystem {
     };
     let handle = inner.metadata.insert(metadata) as u32;
 
+    let (allocation, start) =
+      inner
+        .index_buffer
+        .allocate(handle, bytemuck::cast_slice(&index), device, queue)?;
+
+    inner.metadata.get_mut(handle as usize).unwrap().start = start;
+
     MeshSystemMeshInstance {
       handle,
-      _index_holder: Arc::new(inner.index_buffer.allocate(
-        handle,
-        bytemuck::cast_slice(&index),
-        device,
-        queue,
-      )?),
+      _index_holder: Arc::new(allocation),
       system: Arc::downgrade(&self.inner),
     }
     .into()

@@ -38,7 +38,7 @@ impl BindlessDrawCreatorInDevice {
       vertex_count: meta.count,
       instance_count: val(1),
       base_vertex: meta.start,
-      base_instance: val(0), // todo impl another buffer or a atomic counter
+      base_instance: val(0), // todo impl another buffer or a global atomic counter
     }
     .construct();
 
