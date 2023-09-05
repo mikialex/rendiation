@@ -244,16 +244,7 @@ fn ray_plane_intersect(
   direction: Node<Vec3<f32>>,
   plane: ENode<ShaderPlane>,
 ) -> Node<Vec4<f32>> {
-  let denominator = plane.normal.dot(direction);
-
-  // if denominator == T::zero() {
-  //   // line is coplanar, return origin
-  //   if plane.distance_to(&self.origin) == T::zero() {
-  //     return T::zero().into();
-  //   }
-
-  //   return None;
-  // }
+  let denominator = plane.normal.dot(direction); // I don't care if it's zero!
 
   let t = -(plane.normal.dot(origin) + plane.constant) / denominator;
 

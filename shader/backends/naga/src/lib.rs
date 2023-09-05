@@ -127,7 +127,7 @@ impl ShaderAPINagaImpl {
 
     let mut name = None;
 
-    let ty = match ty {
+    let naga_ty = match ty {
       ShaderValueType::Single(v) => match v {
         ShaderValueSingleType::Sized(f) => match f {
           ShaderSizedValueType::Atomic(t) => naga::TypeInner::Atomic {
@@ -211,8 +211,13 @@ impl ShaderAPINagaImpl {
       },
       ShaderValueType::Never => unreachable!(),
     };
-    let ty = naga::Type { name, inner: ty };
-    self.module.types.insert(ty, Span::UNDEFINED)
+    let naga_ty = naga::Type {
+      name,
+      inner: naga_ty,
+    };
+    let type_handle = self.module.types.insert(naga_ty, Span::UNDEFINED);
+    self.ty_mapping.insert(ty, type_handle);
+    type_handle
   }
 
   fn get_expression(&self, handle: ShaderNodeRawHandle) -> naga::Handle<naga::Expression> {
@@ -1089,8 +1094,15 @@ impl ShaderAPI for ShaderAPINagaImpl {
   }
 
   fn push_else_scope(&mut self) {
-    let if_s = self.block.last_mut().unwrap().0.pop().unwrap();
-    assert!(matches!(if_s, naga::Statement::If { .. }));
+    // find last if block in the top level statements
+    let top_statements = &mut self.block.last_mut().unwrap().0;
+    let index = top_statements
+      .iter()
+      .rev()
+      .position(|s| matches!(s, naga::Statement::If { .. }))
+      .expect("expect if clause");
+    let if_s = top_statements.remove(top_statements.len() - index - 1);
+
     self.control_structure.push(if_s);
     self
       .block
