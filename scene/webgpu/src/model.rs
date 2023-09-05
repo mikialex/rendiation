@@ -53,7 +53,7 @@ pub fn setup_pass_core(
           .material
           .create_scene_reactive_gpu(&resources.resources.bindable_ctx)
           .unwrap()
-      }) as &dyn RenderComponentAny;
+      });
 
       let mut meshes = resources.resources.model_ctx.meshes.write().unwrap();
       if model.mesh.guid().is_none() {
@@ -67,17 +67,16 @@ pub fn setup_pass_core(
       });
 
       let draw_command = mesh_gpu.draw_command(model.group);
-      let mesh_gpu: &dyn RenderComponentAny = mesh_gpu;
 
-      let components: [&dyn RenderComponentAny; 5] = [
-        &pass_gpu.assign_binding_index(0),
-        &mesh_gpu.assign_binding_index(2),
-        &node_gpu.assign_binding_index(2),
-        &camera_gpu.assign_binding_index(1),
-        &material_gpu.assign_binding_index(2),
-      ];
-
-      RenderEmitter::new(components.as_slice()).render(&mut pass.ctx, draw_command);
+      dispatch_model_draw_with_preferred_binding_frequency(
+        pass_gpu,
+        mesh_gpu,
+        node_gpu,
+        camera_gpu,
+        material_gpu,
+        draw_command,
+        &mut pass.ctx,
+      );
     }
     ModelType::Foreign(_) => {
       todo!()
@@ -87,6 +86,26 @@ pub fn setup_pass_core(
     }
     _ => {}
   };
+}
+
+pub fn dispatch_model_draw_with_preferred_binding_frequency(
+  base: &dyn RenderComponentAny,
+  mesh: &MeshGPUInstance,
+  node: &NodeGPU,
+  camera: &CameraGPU,
+  material: &MaterialGPUInstance,
+  draw_command: DrawCommand,
+  pass: &mut GPURenderPassCtx,
+) {
+  let components: [&dyn RenderComponentAny; 5] = [
+    &base.assign_binding_index(0),
+    &mesh.assign_binding_index(2),
+    &node.assign_binding_index(2),
+    &camera.assign_binding_index(1),
+    &material.assign_binding_index(2),
+  ];
+
+  RenderEmitter::new(components.as_slice()).render(pass, draw_command);
 }
 
 impl SceneRenderable for SceneModelImpl {

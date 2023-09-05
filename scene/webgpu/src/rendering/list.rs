@@ -145,9 +145,15 @@ fn model_setup_pass_core(
   let mesh_gpu = ctx.meshes.get(&model_gpu.mesh_id.unwrap()).unwrap();
   let pass_gpu = dispatcher;
 
-  let components = [pass_gpu, mesh_gpu, node_gpu, camera_gpu, material_gpu];
-
   let draw_command = mesh_gpu.draw_command(model_gpu.group);
 
-  RenderEmitter::new(components.as_slice()).render(&mut pass.ctx, draw_command);
+  dispatch_model_draw_with_preferred_binding_frequency(
+    pass_gpu,
+    mesh_gpu,
+    node_gpu,
+    camera_gpu,
+    material_gpu,
+    draw_command,
+    &mut pass.ctx,
+  )
 }
