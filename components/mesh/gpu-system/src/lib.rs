@@ -54,9 +54,21 @@ pub struct GPUBindlessMeshSystem {
   inner: Arc<RwLock<GPUBindlessMeshSystemInner>>,
 }
 
+type BindlessPositionVertexBuffer = BindingResourceArray<
+  StorageBufferReadOnlyDataView<[Vec3<f32>]>,
+  MAX_STORAGE_BINDING_ARRAY_LENGTH,
+>;
+
+type BindlessNormalVertexBuffer = BindlessPositionVertexBuffer;
+
+type BindlessUvVertexBuffer = BindingResourceArray<
+  StorageBufferReadOnlyDataView<[Vec2<f32>]>,
+  MAX_STORAGE_BINDING_ARRAY_LENGTH,
+>;
+
 pub struct GPUBindlessMeshSystemInner {
   any_changed: bool,
-  meta_data: Slab<DrawMetaData>,
+  metadata: Slab<DrawMetaData>,
 
   index_buffer: GPUSubAllocateBuffer<u32>,
 
@@ -64,18 +76,9 @@ pub struct GPUBindlessMeshSystemInner {
   normal_vertex_buffers: Slab<StorageBufferReadOnlyDataView<[Vec3<f32>]>>,
   uv_vertex_buffers: Slab<StorageBufferReadOnlyDataView<[Vec2<f32>]>>,
 
-  bindless_position_vertex_buffers: BindingResourceArray<
-    StorageBufferReadOnlyDataView<[Vec3<f32>]>,
-    MAX_STORAGE_BINDING_ARRAY_LENGTH,
-  >,
-  bindless_normal_vertex_buffers: BindingResourceArray<
-    StorageBufferReadOnlyDataView<[Vec3<f32>]>,
-    MAX_STORAGE_BINDING_ARRAY_LENGTH,
-  >,
-  bindless_uv_vertex_buffers: BindingResourceArray<
-    StorageBufferReadOnlyDataView<[Vec2<f32>]>,
-    MAX_STORAGE_BINDING_ARRAY_LENGTH,
-  >,
+  bindless_position_vertex_buffers: BindlessPositionVertexBuffer,
+  bindless_normal_vertex_buffers: BindlessNormalVertexBuffer,
+  bindless_uv_vertex_buffers: BindlessUvVertexBuffer,
 }
 
 impl GPUBindlessMeshSystem {
@@ -113,7 +116,7 @@ impl GPUBindlessMeshSystem {
 
     let inner = GPUBindlessMeshSystemInner {
       any_changed: Default::default(),
-      meta_data: Default::default(),
+      metadata: Default::default(),
       index_buffer: GPUSubAllocateBuffer::init_with_initial_item_count(
         &gpu.device,
         10_0000,
@@ -140,7 +143,14 @@ impl GPUBindlessMeshSystem {
       return;
     }
 
-    todo!();
+    let source = slab_to_vec(&inner.position_vertex_buffers);
+    inner.bindless_position_vertex_buffers = BindlessPositionVertexBuffer::new(Arc::new(source));
+
+    let source = slab_to_vec(&inner.normal_vertex_buffers);
+    inner.bindless_normal_vertex_buffers = BindlessNormalVertexBuffer::new(Arc::new(source));
+
+    let source = slab_to_vec(&inner.uv_vertex_buffers);
+    inner.bindless_uv_vertex_buffers = BindlessUvVertexBuffer::new(Arc::new(source));
 
     inner.any_changed = false;
   }
@@ -166,7 +176,7 @@ impl GPUBindlessMeshSystem {
     let uv = StorageBufferReadOnlyDataView::create(device, uv.as_slice());
 
     let metadata = DrawMetaData {
-      start: 0, // todo
+      start: 0, // todo, currently we not effectively support this.
       count: index.len() as u32,
       vertex_info: DrawVertexIndirectInfo {
         position_buffer_id: inner.position_vertex_buffers.insert(position) as u32,
@@ -176,7 +186,7 @@ impl GPUBindlessMeshSystem {
       },
       ..Zeroable::zeroed()
     };
-    let handle = inner.meta_data.insert(metadata) as u32;
+    let handle = inner.metadata.insert(metadata) as u32;
 
     MeshSystemMeshInstance {
       handle,
@@ -186,10 +196,6 @@ impl GPUBindlessMeshSystem {
     .into()
   }
 }
-
-// impl Stream for GPUBindlessMeshSystem {
-
-// }
 
 #[derive(Clone)]
 pub struct MeshSystemMeshInstance {
@@ -210,7 +216,7 @@ impl Drop for MeshSystemMeshInstance {
       let mut system = system.write().unwrap();
       system.any_changed = true;
 
-      let meta = system.meta_data.remove(self.handle as usize);
+      let meta = system.metadata.remove(self.handle as usize);
       let vertex = meta.vertex_info;
       system
         .position_vertex_buffers
@@ -223,4 +229,17 @@ impl Drop for MeshSystemMeshInstance {
         .remove(vertex.uv_buffer_id as usize);
     }
   }
+}
+
+// this is not good, maybe we should impl slab by ourself?
+fn slab_to_vec<T: Clone>(s: &Slab<T>) -> Vec<T> {
+  let mut r = Vec::with_capacity(s.capacity());
+  let default = s.get(0).unwrap();
+  s.iter().for_each(|(idx, v)| {
+    while idx >= r.len() {
+      r.push(default.clone())
+    }
+    r[idx] = v.clone();
+  });
+  r
 }

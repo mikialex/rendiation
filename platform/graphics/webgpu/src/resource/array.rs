@@ -51,24 +51,26 @@ impl<const N: usize> CacheAbleBindingSource for BindingResourceArray<GPUSamplerV
   }
 }
 
-// todo, improve for performance and impl for other strong  type
+// todo, improve for performance and impl for other strong type
 impl<T: ?Sized + Std430MaybeUnsized, const N: usize> CacheAbleBindingSource
   for BindingResourceArray<StorageBufferDataView<T>, N>
 {
   fn get_binding_build_source(&self) -> CacheAbleBindingBuildSource {
+    let lowered = self.bindings.iter().map(|v| v.gpu.clone()).collect();
     CacheAbleBindingBuildSource {
-      source: BindingResourceOwned::BufferArray(todo!()),
+      source: BindingResourceOwned::BufferArray(Arc::new(lowered)),
       view_id: self.resource_id,
     }
   }
 }
-// todo, improve for performance and impl for other strong  type
+// todo, improve for performance and impl for other strong type
 impl<T: ?Sized + Std430MaybeUnsized, const N: usize> CacheAbleBindingSource
   for BindingResourceArray<StorageBufferReadOnlyDataView<T>, N>
 {
   fn get_binding_build_source(&self) -> CacheAbleBindingBuildSource {
+    let lowered = self.bindings.iter().map(|v| v.gpu.clone()).collect();
     CacheAbleBindingBuildSource {
-      source: BindingResourceOwned::BufferArray(todo!()),
+      source: BindingResourceOwned::BufferArray(Arc::new(lowered)),
       view_id: self.resource_id,
     }
   }

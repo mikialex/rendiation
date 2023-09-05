@@ -2702,7 +2702,8 @@ dependencies = [
  "rendiation-shader-api",
  "rendiation-webgpu",
  "slab",
- 
+]
+
 [[package]]
 name = "rendiation-mesh-segmentation"
 version = "0.1.0"

@@ -4,8 +4,6 @@ mod transform_instance;
 pub use transform_instance::*;
 mod attributes;
 pub use attributes::*;
-mod bindless;
-pub use bindless::*;
 
 use crate::*;
 
