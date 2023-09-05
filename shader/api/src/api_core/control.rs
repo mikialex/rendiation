@@ -38,6 +38,7 @@ impl ElseEmitter {
       builder.push_if_scope(condition);
     });
     logic();
+    call_shader_api(|api| api.pop_scope());
     self.0 += 1;
     self
   }

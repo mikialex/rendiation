@@ -38,8 +38,14 @@ impl GPUDevice {
   pub fn create_cache_report(&self) -> GPUResourceCacheSizeReport {
     GPUResourceCacheSizeReport {
       bindgroup_count: self.inner.bindgroup_cache.cache.read().unwrap().len(),
-      bindgroup_layout_count: self.inner.bindgroup_layout_cache.cache.read().unwrap().len(),
-      sampler_count:self.inner.sampler_cache.cache.read().unwrap().len(),
+      bindgroup_layout_count: self
+        .inner
+        .bindgroup_layout_cache
+        .cache
+        .read()
+        .unwrap()
+        .len(),
+      sampler_count: self.inner.sampler_cache.cache.read().unwrap().len(),
       pipeline_count: self.inner.pipeline_cache.cache.read().unwrap().len(),
     }
   }

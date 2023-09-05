@@ -4,7 +4,7 @@ use interphaser::*;
 #[derive(Default, Clone)]
 pub enum InteractState {
   #[default]
-  Normal,
+  Default,
   Pressed,
   Hovering,
 }
@@ -12,8 +12,8 @@ pub enum InteractState {
 impl InteractState {
   pub fn color(self) -> Color {
     match self {
-      InteractState::Normal => (0.8, 0.8, 0.8, 1.0),
-      InteractState::Pressed => (0.7, 0.7, 0.7, 1.0),
+      InteractState::Default => (0.8, 0.8, 0.8, 1.0),
+      InteractState::Pressed => (0.5, 0.5, 0.5, 1.0),
       InteractState::Hovering => (0.9, 0.9, 0.9, 1.0),
     }
     .into()
@@ -26,7 +26,7 @@ fn interactive_rect<C: View>(size: impl Into<UISize<UILength>>) -> impl View + V
   let on_mouse_down = state.on_event(|_, _| InteractState::Pressed);
   let on_mouse_up = state.on_event(|_, _| InteractState::Hovering);
   let on_mouse_in = state.on_event(|_, _| InteractState::Hovering);
-  let on_mouse_out = state.on_event(|_, _| InteractState::Normal);
+  let on_mouse_out = state.on_event(|_, _| InteractState::Default);
 
   let events = EventHandlerGroup::default()
     .with(MouseInHandler::on(on_mouse_in))
@@ -71,7 +71,7 @@ pub fn checkbox(
   let stream_out = checked_state.single_listen();
 
   let binding = checked_state.modify_by_stream(binding).map(|_| ());
-  let clicked = checked_state.modify_by_stream_by(clicked, |_, checked| !checked);
+  let clicked = checked_state.modify_by_stream_by(clicked, |_, checked| *checked = !*checked);
 
   let check_flag = Container::sized((40., 40.))
     .react(color.bind(Container::set_color))
@@ -85,4 +85,35 @@ pub fn checkbox(
     .wrap(check_flag);
 
   (view, stream_out)
+}
+
+pub fn text_box(
+  size: impl Into<UISize<UILength>>,
+  content: impl Stream<Item = String> + Unpin + 'static,
+) -> (impl View, impl Stream<Item = TextEditMessage> + Unpin) {
+  let edit_text = Text::default()
+    .with_layout(TextLayoutConfig::SizedBox {
+      line_wrap: LineWrap::Single,
+      horizon_align: TextHorizontalAlignment::Left,
+      vertical_align: TextVerticalAlignment::Top,
+    })
+    .editable();
+
+  let changes = edit_text.nester.events.unbound_listen();
+
+  let clicker = ClickHandler::default();
+  let click_event = clicker.events.single_listen().map(|_| {});
+
+  let text_updates = ReactiveUpdaterGroup::default()
+    .with(click_event.bind(|e: &mut EditableText, _| e.nester.focus()))
+    .with(content.bind(|e: &mut EditableText, t| e.nester.set_text(t)));
+
+  let edit_text = edit_text.react(text_updates);
+
+  let text_box = Container::sized(size)
+    .padding(RectBoundaryWidth::equal(5.))
+    .wrap(edit_text)
+    .nest_in(clicker);
+
+  (text_box, changes)
 }

@@ -31,6 +31,7 @@ pub struct RenderPassGPUInfoData {
   pub buffer_size: Vec2<f32>,
 }
 
+/// create a pass descriptor with given name, the name is used for debug purpose
 pub fn pass(name: impl Into<String>) -> PassDescriptor<'static> {
   let mut desc = RenderPassDescriptorOwned::default();
   desc.name = name.into();

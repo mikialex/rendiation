@@ -2,13 +2,11 @@ use rendiation_algebra::*;
 use rendiation_color::*;
 
 mod effect;
-mod impls;
 mod path;
 mod shape;
 mod style;
 
 pub use effect::*;
-pub use impls::*;
 pub use path::*;
 pub use shape::*;
 pub use style::*;
@@ -46,3 +44,12 @@ pub trait PainterAPI {
 }
 
 pub type TextureHandle = usize;
+
+/// PainterAPI naturally support text by converting text to shape or bitmap by user.
+/// However, it's only suitable for art text. For large paragraph of UI text,  the
+/// painter maybe support custom way to draw them efficiently. Compare to the pervious way
+/// the TextWriterExtensionAPI extend the ability to painter api but with more constraint text input
+/// interface
+pub trait TextWriterExtensionAPI: PainterAPI {
+  fn write_text(&mut self, layouted_text: u32);
+}

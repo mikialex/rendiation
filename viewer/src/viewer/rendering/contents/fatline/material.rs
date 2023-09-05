@@ -173,19 +173,6 @@ fn fatline_vertex(
   let start = view * world_matrix * fatline_start;
   let end = view * world_matrix * fatline_end;
 
-  // // special case for perspective projection, and segments that terminate either in, or behind,
-  // the camera plane // clearly the gpu firmware has a way of addressing this issue when
-  // projecting into ndc space // but we need to perform ndc-space calculations in the shader, so
-  // we must address this issue directly // perhaps there is a more elegant solution --
-  // WestLangley bool perspective = ( projection[ 2 ][ 3 ] == - 1.0 ); // 4th entry in the 3rd
-  // column if ( perspective ) {{
-  //     if ( start.z < 0.0 && end.z >= 0.0 ) {{
-  //         trimSegment( start, end );
-  //     }} else if ( end.z < 0.0 && start.z >= 0.0 ) {{
-  //         trimSegment( end, start );
-  //     }}
-  // }}
-
   let aspect = view_size.x() / view_size.y();
 
   // clip space

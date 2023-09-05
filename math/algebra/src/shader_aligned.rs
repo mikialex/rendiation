@@ -31,7 +31,7 @@ impl Debug for Bool {
 
 #[repr(C)]
 #[rustfmt::skip]
-#[derive(Clone, Copy, Zeroable, Pod, PartialEq, Default)]
+#[derive(Clone, Copy, Zeroable, Pod, PartialEq, Default, Debug)]
 pub struct Shader16PaddedMat3 {
   pub a1: f32, pub a2: f32, pub a3: f32, _pad1: f32,
   pub b1: f32, pub b2: f32, pub b3: f32, _pad2: f32,
@@ -63,7 +63,7 @@ impl From<Shader16PaddedMat3> for Mat3<f32> {
 
 #[repr(C)]
 #[rustfmt::skip]
-#[derive(Clone, Copy, Zeroable, Pod, PartialEq, Default)]
+#[derive(Clone, Copy, Zeroable, Pod, PartialEq, Default, Debug)]
 pub struct Shader16PaddedMat2 {
   pub a1:f32, pub a2:f32, _pad1: [f32; 2],
   pub b1:f32, pub b2:f32, _pad2: [f32; 2],

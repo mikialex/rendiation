@@ -27,20 +27,20 @@ impl<'a> PresentationBuilder<'a> {
     }
   }
 
-  pub fn push_offset(&mut self, offset: UIPosition) {
+  pub fn push_translate(&mut self, offset: UIPosition) {
     self.parent_offset_chain.push(offset);
     self.current_origin_offset.x += offset.x;
     self.current_origin_offset.y += offset.y;
   }
 
-  pub fn pop_offset(&mut self) {
+  pub fn pop_translate(&mut self) {
     if let Some(offset) = self.parent_offset_chain.pop() {
       self.current_origin_offset.x -= offset.x;
       self.current_origin_offset.y -= offset.y;
     }
   }
 
-  pub fn current_origin_offset(&self) -> UIPosition {
+  pub fn current_absolution_origin(&self) -> UIPosition {
     self.current_origin_offset
   }
 }

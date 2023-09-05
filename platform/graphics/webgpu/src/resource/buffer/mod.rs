@@ -122,7 +122,7 @@ impl GPUBufferView {
 pub fn create_gpu_buffer(
   data: &[u8],
   usage: gpu::BufferUsages,
-  gpu: &GPUDevice,
+  device: &GPUDevice,
 ) -> GPUBufferResource {
   GPUBufferResource::create_with_raw(
     GPUBuffer::create(gpu, BufferInit::WithInit(data), usage),

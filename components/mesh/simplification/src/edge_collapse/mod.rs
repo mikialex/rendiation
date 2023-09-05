@@ -35,10 +35,10 @@ pub struct EdgeCollapseResult {
 /// ## Arguments
 ///
 /// * `destination`: must contain enough space for the **source** index buffer
-pub fn simplify_by_edge_collapse<Vertex>(
+pub fn simplify_by_edge_collapse<V>(
   destination: &mut [u32],
   indices: &[u32],
-  vertices: &[Vertex],
+  vertices: &[V],
   EdgeCollapseConfig {
     target_index_count,
     target_error,
@@ -46,7 +46,7 @@ pub fn simplify_by_edge_collapse<Vertex>(
   }: EdgeCollapseConfig,
 ) -> EdgeCollapseResult
 where
-  Vertex: Positioned<Position = Vec3<f32>>,
+  V: Positioned<Position = Vec3<f32>>,
 {
   assert_eq!(indices.len() % 3, 0);
   assert!(target_index_count <= indices.len());

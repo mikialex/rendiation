@@ -153,7 +153,7 @@ impl View for Text {
       ViewRequest::Encode(builder) => {
         self
           .layout_computed
-          .update_world(builder.current_origin_offset());
+          .update_world(builder.current_absolution_origin());
 
         builder.present.primitives.push(Primitive::Text(
           self.get_text_layout(builder.fonts, builder.texts).clone(),

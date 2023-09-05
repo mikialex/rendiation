@@ -170,6 +170,17 @@ impl<T: Scalar> ContainAble<T, Box3<T>, 3> for Box3<T> {
   }
 }
 
+impl<T: Scalar> ContainAble<T, Vec3<T>, 3> for Box3<T> {
+  fn contains(&self, point: &Vec3<T>) -> bool {
+    self.min.x <= point.x
+      && self.min.y <= point.y
+      && self.min.z <= point.z
+      && self.max.x >= point.x
+      && self.max.y >= point.y
+      && self.max.z >= point.z
+  }
+}
+
 impl<T: Scalar> Box3<T> {
   /// return (near, far)
   pub fn get_near_far_by_direction(&self, dir: NormalizedVector<T, Vec3<T>>) -> (Vec3<T>, Vec3<T>) {
@@ -191,5 +202,15 @@ impl<T: Scalar> Box3<T> {
     }
 
     (near, far)
+  }
+}
+
+impl Box3<f32> {
+  pub fn nearest_point(&self, point: Vec3<f32>) -> Vec3<f32> {
+    Vec3::new(
+      point.x.clamp(self.min.x, self.max.x),
+      point.y.clamp(self.min.y, self.max.y),
+      point.z.clamp(self.min.z, self.max.z),
+    )
   }
 }
