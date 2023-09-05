@@ -59,7 +59,7 @@ impl LightableSurfaceShading for PhysicalShading {
 
       let f0 = base_color * metallic + (dielectric_f0 * (val(1.) - metallic)).splat();
 
-      (base_color, f0)
+      (base_color * (val(1.) - metallic), f0)
     };
 
     ENode::<Self::ShaderStruct> {

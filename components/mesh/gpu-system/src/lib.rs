@@ -73,7 +73,8 @@ pub struct GPUBindlessMeshSystemInner {
   any_changed: bool,
   metadata: Slab<DrawMetaData>,
 
-  index_buffer: GPUSubAllocateBuffer<u32>,
+  index_buffer: GPUSubAllocateBuffer,
+  relocations: Arc<RwLock<Vec<RelocationMessage>>>, // we could use a channel, so what?
 
   position_vertex_buffers: Slab<StorageBufferReadOnlyDataView<[Vec3<f32>]>>,
   normal_vertex_buffers: Slab<StorageBufferReadOnlyDataView<[Vec3<f32>]>>,
@@ -117,15 +118,23 @@ impl GPUBindlessMeshSystem {
       return None;
     }
 
+    let index_buffer = GPUSubAllocateBuffer::init_with_initial_item_count(
+      &gpu.device,
+      10_0000,
+      1000_0000,
+      BufferUsages::INDEX,
+    );
+
+    let relocations: Arc<RwLock<Vec<RelocationMessage>>> = Default::default();
+
+    let r = relocations.clone();
+    index_buffer.set_relocate_callback(move |m| r.write().unwrap().push(m));
+
     let inner = GPUBindlessMeshSystemInner {
       any_changed: Default::default(),
       metadata: Default::default(),
-      index_buffer: GPUSubAllocateBuffer::init_with_initial_item_count(
-        &gpu.device,
-        10_0000,
-        1000_0000,
-        BufferUsages::INDEX,
-      ),
+      index_buffer,
+      relocations,
       position_vertex_buffers: Default::default(),
       normal_vertex_buffers: Default::default(),
       uv_vertex_buffers: Default::default(),
@@ -142,8 +151,20 @@ impl GPUBindlessMeshSystem {
 
   pub fn maintain(&mut self) {
     let mut inner = self.inner.write().unwrap();
+    let inner: &mut GPUBindlessMeshSystemInner = &mut inner;
     if !inner.any_changed {
       return;
+    }
+
+    {
+      let metadata = &mut inner.metadata;
+      let relocations = &mut inner.relocations.write().unwrap();
+      let relocations: &mut Vec<RelocationMessage> = relocations;
+      relocations.iter().for_each(|m| {
+        let meta = metadata.get_mut(m.allocation_handle as usize).unwrap();
+        meta.start = m.new_offset;
+      });
+      *relocations = Vec::new(); // free any space
     }
 
     let source = slab_to_vec(&inner.position_vertex_buffers);
@@ -193,7 +214,12 @@ impl GPUBindlessMeshSystem {
 
     MeshSystemMeshInstance {
       handle,
-      _index_holder: inner.index_buffer.allocate(&index, device, queue)?,
+      _index_holder: Arc::new(inner.index_buffer.allocate(
+        handle,
+        bytemuck::cast_slice(&index),
+        device,
+        queue,
+      )?),
       system: Arc::downgrade(&self.inner),
     }
     .into()
@@ -203,7 +229,7 @@ impl GPUBindlessMeshSystem {
 #[derive(Clone)]
 pub struct MeshSystemMeshInstance {
   handle: MeshSystemMeshHandle,
-  _index_holder: GPUSubAllocateBufferToken<u32>,
+  _index_holder: Arc<GPUSubAllocateBufferToken>,
   system: Weak<RwLock<GPUBindlessMeshSystemInner>>,
 }
 

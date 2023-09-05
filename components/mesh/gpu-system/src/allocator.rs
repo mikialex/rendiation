@@ -1,104 +1,124 @@
-use core::alloc::Layout;
-use core::num::NonZeroUsize;
-use core::ptr::NonNull;
-use core::{marker::PhantomData, ops::Range};
 use std::sync::Arc;
 use std::sync::RwLock;
 use std::sync::Weak;
 
-use bytemuck::Pod;
+use __core::ops::Range;
+use fast_hash_collection::*;
 use rendiation_webgpu::*;
 
-pub struct GPUSubAllocateBuffer<T> {
-  inner: Arc<RwLock<GPUSubAllocateBufferInner<T>>>,
+use crate::*;
+
+pub struct GPUSubAllocateBuffer {
+  inner: Arc<RwLock<GPUSubAllocateBufferInner>>,
 }
 
-struct GPUSubAllocateBufferInner<T> {
-  phantom: PhantomData<T>,
+type AllocationHandel = xalloc::tlsf::TlsfRegion<xalloc::arena::sys::Ptr>;
+
+struct GPUSubAllocateBufferInner {
+  ranges: FastHashMap<u32, (Range<u32>, AllocationHandel)>,
   // should we try other allocator that support relocate and shrink??
-  allocator: buddy_system_allocator::Heap<32>,
+  allocator: xalloc::SysTlsf<u32>,
   buffer: GPUBufferResourceView,
   usage: BufferUsages,
   max_byte_size: usize,
+  relocate_callback: Option<Box<dyn Fn(RelocationMessage)>>,
 }
 
-impl<T> GPUSubAllocateBufferInner<T> {
-  fn grow(&mut self, grow_bytes: usize, device: &GPUDevice, queue: &GPUQueue) {
+pub struct RelocationMessage {
+  pub allocation_handle: u32,
+  pub new_offset: u32,
+}
+
+impl GPUSubAllocateBufferInner {
+  fn grow(&mut self, grow_bytes: u32, device: &GPUDevice, queue: &GPUQueue) {
     let current_size: u64 = self.buffer.resource.size().into();
     let new_size = current_size + grow_bytes as u64;
 
     let new_buffer = create_gpu_buffer_zeroed(new_size, self.usage, device);
     let new_buffer = new_buffer.create_view(Default::default());
 
-    // should we batch these call?
     let mut encoder = device.create_encoder();
-    encoder.copy_buffer_to_buffer(
-      self.buffer.resource.gpu(),
-      0,
-      new_buffer.resource.gpu(),
-      0,
-      current_size,
-    );
+    let mut new_allocator = xalloc::SysTlsf::new(new_size as u32);
+
+    // move all old data to new allocation
+    self
+      .ranges
+      .iter_mut()
+      .for_each(|(allocation_handle, (current, token))| {
+        let size = current.end - current.start;
+        let (new_token, new_offset) = new_allocator
+          .alloc(size)
+          .expect("relocation should success");
+
+        encoder.copy_buffer_to_buffer(
+          self.buffer.resource.gpu(),
+          current.start as u64,
+          new_buffer.resource.gpu(),
+          new_offset as u64,
+          size as u64,
+        );
+
+        *token = new_token;
+        *current = new_offset..new_offset + size;
+        if let Some(cb) = &self.relocate_callback {
+          cb(RelocationMessage {
+            allocation_handle: *allocation_handle,
+            new_offset,
+          })
+        }
+      });
+
     queue.submit(Some(encoder.finish()));
 
     self.buffer = new_buffer;
-    unsafe {
-      self
-        .allocator
-        .add_to_heap(current_size as usize, new_size as usize)
-    };
+    self.allocator = new_allocator;
   }
 }
 
-#[derive(Clone)]
-pub struct GPUSubAllocateBufferToken<T> {
-  byte_range: Range<usize>,
-  alloc: Weak<RwLock<GPUSubAllocateBufferInner<T>>>,
+pub struct GPUSubAllocateBufferToken {
+  token: u32,
+  alloc: Weak<RwLock<GPUSubAllocateBufferInner>>,
 }
 
-impl<T> Drop for GPUSubAllocateBufferToken<T> {
+impl Drop for GPUSubAllocateBufferToken {
   fn drop(&mut self) {
     if let Some(alloc) = self.alloc.upgrade() {
-      let ptr =
-        NonNull::<u8>::dangling().with_addr(NonZeroUsize::new(self.byte_range.start).unwrap());
-      alloc
-        .write()
-        .unwrap()
-        .allocator
-        .dealloc(ptr, Layout::new::<T>())
+      let mut inner = alloc.write().unwrap();
+
+      let (_, token) = inner.ranges.remove(&self.token).unwrap();
+      inner.allocator.dealloc(token).unwrap();
     }
   }
 }
 
-impl<T> GPUSubAllocateBuffer<T> {
+impl GPUSubAllocateBuffer {
   pub fn get_buffer(&self) -> GPUBufferResourceView {
     self.inner.read().unwrap().buffer.clone()
   }
 
   pub fn init_with_initial_item_count(
     device: &GPUDevice,
-    count: usize,
-    max_count: usize,
+    init_byte_size: usize,
+    max_byte_size: usize,
     mut usage: BufferUsages,
   ) -> Self {
-    assert!(max_count >= count);
+    assert!(max_byte_size >= init_byte_size);
 
     // make sure we can grow buffer
     usage.insert(BufferUsages::COPY_DST | BufferUsages::COPY_SRC);
 
-    let init_byte_size = std::mem::size_of::<T>() * count;
-    let mut inner = buddy_system_allocator::Heap::<32>::empty();
-    unsafe { buddy_system_allocator::Heap::<32>::init(&mut inner, 0, init_byte_size) };
+    let inner = xalloc::SysTlsf::new(init_byte_size as u32);
 
     let buffer = create_gpu_buffer_zeroed(init_byte_size as u64, usage, device);
     let buffer = buffer.create_view(Default::default());
 
     let inner = GPUSubAllocateBufferInner {
-      phantom: PhantomData,
+      ranges: Default::default(),
       allocator: inner,
       buffer,
-      max_byte_size: max_count * std::mem::size_of::<T>(),
+      max_byte_size,
       usage,
+      relocate_callback: None,
     };
 
     Self {
@@ -106,38 +126,50 @@ impl<T> GPUSubAllocateBuffer<T> {
     }
   }
 
+  pub fn set_relocate_callback(&self, relocate_callback: impl Fn(RelocationMessage) + 'static) {
+    self.inner.write().unwrap().relocate_callback = Some(Box::new(relocate_callback))
+  }
+
   /// deallocate handled by drop, return None means oom
   pub fn allocate(
     &self,
-    content: &[T],
+    allocation_handle: u32,
+    content: &[u8],
     device: &GPUDevice,
     queue: &GPUQueue,
-  ) -> Option<GPUSubAllocateBufferToken<T>>
-  where
-    T: Pod,
-  {
+  ) -> Option<GPUSubAllocateBufferToken> {
     let mut alloc = self.inner.write().unwrap();
     let current_size: u64 = alloc.buffer.resource.size().into();
-    let required_byte_size = std::mem::size_of_val(content);
+    let required_byte_size = content.len() as u32;
     loop {
-      if let Ok(ptr) = alloc.allocator.alloc(Layout::new::<T>()) {
-        let offset: usize = ptr.addr().into();
+      if let Some((token, offset)) = alloc.allocator.alloc(required_byte_size) {
         queue.write_buffer(
           alloc.buffer.resource.gpu(),
           offset as u64,
           bytemuck::cast_slice(content),
         );
 
+        let previous = alloc.ranges.insert(
+          allocation_handle,
+          (offset..offset + required_byte_size, token),
+        );
+        assert!(
+          previous.is_some(),
+          "duplicate active allocation handle used"
+        );
+
         break GPUSubAllocateBufferToken {
-          byte_range: offset..offset + required_byte_size,
+          token: allocation_handle,
           alloc: Arc::downgrade(&self.inner),
         }
         .into();
       } else if alloc.max_byte_size as u64 >= current_size {
         break None;
       } else {
-        let grow_planed = ((current_size as f32) * 1.25) as usize;
-        let real_grow_size = grow_planed.max(required_byte_size).min(alloc.max_byte_size);
+        let grow_planed = ((current_size as f32) * 1.5) as u32;
+        let real_grow_size = grow_planed
+          .max(required_byte_size)
+          .min(alloc.max_byte_size as u32);
         alloc.grow(real_grow_size, device, queue)
       }
     }
