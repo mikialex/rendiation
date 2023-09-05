@@ -194,9 +194,9 @@ dependencies = [
 
 [[package]]
 name = "autocfg"
-version = "1.0.1"
+version = "1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cdb031dd78e28731d87d56cc8ffef4a8f36ca26c38fe2de700543e627f8a464a"
+checksum = "d468802bab17cbc0cc575e9b053f41e72aa36bfa6b7f55e3529ffa43161b97fa"
 
 [[package]]
 name = "backtrace"
@@ -257,6 +257,15 @@ name = "block"
 version = "0.1.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0d8c1fef690941d3e7788d328517591fecc684c084084702d6ff1641e993699a"
+
+[[package]]
+name = "buddy_system_allocator"
+version = "0.9.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "43f9365b6b0c9e1663ca4ca9440c00eda46bc85a3407070be8b5e0d8d1f29629"
+dependencies = [
+ "spin",
+]
 
 [[package]]
 name = "bumpalo"
@@ -1666,10 +1675,11 @@ checksum = "7fb9b38af92608140b86b693604b9ffcc5824240a484d1ecd4795bacb2fe88f3"
 
 [[package]]
 name = "lock_api"
-version = "0.4.6"
+version = "0.4.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "88943dd7ef4a2e5a4bfa2753aaab3013e34ce2533d1996fb18ef591e315e2b3b"
+checksum = "c1cc9717a20b1bb222f333e6a92fd32f7d8a18ddc5a3191a11af45dcbf4dcd16"
 dependencies = [
+ "autocfg",
  "scopeguard",
 ]
 
@@ -2684,6 +2694,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "rendiation-mesh-gpu-system"
+version = "0.1.0"
+dependencies = [
+ "buddy_system_allocator",
+ "bytemuck",
+ "rendiation-shader-api",
+ "rendiation-webgpu",
+ "slab",
+]
+
+[[package]]
 name = "rendiation-mesh-segmentation"
 version = "0.1.0"
 dependencies = [
@@ -2830,6 +2851,7 @@ dependencies = [
  "rendiation-color",
  "rendiation-geometry",
  "rendiation-mesh-core",
+ "rendiation-mesh-gpu-system",
  "rendiation-scene-core",
  "rendiation-shader-api",
  "rendiation-shader-library",

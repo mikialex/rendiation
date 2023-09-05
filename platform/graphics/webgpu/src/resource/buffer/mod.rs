@@ -65,6 +65,10 @@ impl GPUBuffer {
     }
   }
 
+  pub fn size(&self) -> NonZeroU64 {
+    self.size
+  }
+
   pub fn update(&self, queue: &gpu::Queue, bytes: &[u8]) {
     queue.write_buffer(&self.gpu, 0, bytes)
   }
@@ -122,6 +126,22 @@ pub fn create_gpu_buffer(
 ) -> GPUBufferResource {
   GPUBufferResource::create_with_raw(
     GPUBuffer::create(device, BufferInit::WithInit(data), usage),
-    usage,
+    usage, // todo, not good
+  )
+}
+
+/// just short convenient method
+pub fn create_gpu_buffer_zeroed(
+  byte_size: u64,
+  usage: gpu::BufferUsages,
+  device: &GPUDevice,
+) -> GPUBufferResource {
+  GPUBufferResource::create_with_raw(
+    GPUBuffer::create(
+      device,
+      BufferInit::Zeroed(NonZeroU64::new(byte_size).unwrap()),
+      usage,
+    ),
+    usage, // todo, not good
   )
 }

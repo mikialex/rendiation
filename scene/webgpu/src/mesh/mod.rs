@@ -1,8 +1,8 @@
-pub mod typed;
+mod typed;
 pub use typed::*;
-pub mod transform_instance;
+mod transform_instance;
 pub use transform_instance::*;
-pub mod attributes;
+mod attributes;
 pub use attributes::*;
 
 use crate::*;

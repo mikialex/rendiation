@@ -1,3 +1,4 @@
+use rendiation_mesh_gpu_system::GPUBindlessMeshSystem;
 use rendiation_texture::GPUBufferImage;
 
 use crate::*;
@@ -102,6 +103,8 @@ pub struct ShareBindableResourceCtx {
   pub gpu: ResourceGPUCtx,
   pub custom_storage: Arc<RwLock<AnyMap>>,
 
+  pub bindless_mesh: Option<GPUBindlessMeshSystem>,
+
   pub binding_sys: GPUTextureBindingSystem,
   pub default_sampler: SharedIncrementalSignal<TextureSampler>,
   pub default_texture_2d: SceneTexture2D,
@@ -145,6 +148,7 @@ impl ShareBindableResourceCtx {
     };
     let default_texture_2d = SceneTexture2DType::GPUBufferImage(default_texture_2d).into_ref();
     let sys = Self {
+      bindless_mesh: GPUBindlessMeshSystem::new(gpu),
       binding_sys: GPUTextureBindingSystem::new(gpu, true),
       default_texture_2d,
       default_sampler: Default::default(),

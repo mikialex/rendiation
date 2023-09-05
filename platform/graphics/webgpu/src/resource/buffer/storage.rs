@@ -3,10 +3,18 @@ use rendiation_shader_api::{Std430, Std430MaybeUnsized};
 
 use crate::*;
 
-#[derive(Clone)]
 pub struct StorageBufferReadOnlyDataView<T: Std430MaybeUnsized + ?Sized> {
-  gpu: GPUBufferResourceView,
+  pub(crate) gpu: GPUBufferResourceView,
   phantom: PhantomData<T>,
+}
+
+impl<T: Std430MaybeUnsized + ?Sized> Clone for StorageBufferReadOnlyDataView<T> {
+  fn clone(&self) -> Self {
+    Self {
+      gpu: self.gpu.clone(),
+      phantom: PhantomData,
+    }
+  }
 }
 
 impl<T: Std430MaybeUnsized + ?Sized> Deref for StorageBufferReadOnlyDataView<T> {
@@ -57,7 +65,7 @@ pub fn create_gpu_readonly_storage<T: Std430MaybeUnsized + ?Sized>(
 
 #[derive(Clone)]
 pub struct StorageBufferDataView<T: Std430MaybeUnsized + ?Sized> {
-  gpu: GPUBufferResourceView,
+  pub(crate) gpu: GPUBufferResourceView,
   phantom: PhantomData<T>,
 }
 

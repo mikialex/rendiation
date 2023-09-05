@@ -78,6 +78,9 @@ impl MeshDrawcallEmitter for TransformInstanceGPUReactive {
         *instances = 0..inner.transforms_count
       }
       DrawCommand::Skip => {}
+      DrawCommand::MultiIndirect { .. } => {
+        panic!("indirect draw is impossible in the transform instance")
+      }
     }
     c
   }
