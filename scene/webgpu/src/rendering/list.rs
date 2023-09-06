@@ -8,14 +8,6 @@ pub struct RenderList {
   pub(crate) transparent: Vec<(SceneModelHandle, f32)>,
 }
 
-pub fn is_model_enable_blend(model: &ModelType) -> bool {
-  match model {
-    ModelType::Standard(model) => model.read().material.is_transparent(),
-    ModelType::Foreign(_) => false, // todo
-    _ => false,
-  }
-}
-
 impl RenderList {
   pub fn prepare(&mut self, scene: &SceneRenderResourceGroup, camera: &SceneCamera) {
     if scene.scene.active_camera.is_none() {
@@ -36,8 +28,7 @@ impl RenderList {
         .position();
       let depth = (model_pos - camera_pos).dot(camera_forward);
 
-      let is_transparent = is_model_enable_blend(&m.read().model);
-      if is_transparent {
+      if m.read().model.should_use_alpha_blend() {
         self.transparent.push((h, depth));
       } else {
         self.opaque.push((h, depth));
@@ -156,4 +147,33 @@ fn model_setup_pass_core(
     draw_command,
     &mut pass.ctx,
   )
+}
+
+pub trait AlphaBlendDecider {
+  fn should_use_alpha_blend(&self) -> bool;
+}
+define_dyn_trait_downcaster_static!(AlphaBlendDecider);
+
+impl AlphaBlendDecider for SharedIncrementalSignal<StandardModel> {
+  fn should_use_alpha_blend(&self) -> bool {
+    self.read().material.is_transparent()
+  }
+}
+
+impl AlphaBlendDecider for ModelType {
+  fn should_use_alpha_blend(&self) -> bool {
+    match self {
+      ModelType::Standard(_) => todo!(),
+      ModelType::Foreign(any) => {
+        if let Some(any) =
+          get_dyn_trait_downcaster_static!(AlphaBlendDecider).downcast_ref(any.as_ref().as_any())
+        {
+          any.should_use_alpha_blend()
+        } else {
+          false
+        }
+      }
+      _ => false,
+    }
+  }
 }
