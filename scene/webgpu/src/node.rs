@@ -23,14 +23,6 @@ pub type SceneNodeGPUStorage = impl AsRef<StreamVec<ReactiveNodeGPU>>
   + Unpin;
 
 impl SceneNodeGPUSystem {
-  pub fn get_node_gpu(&self, node: &SceneNode) -> Option<&NodeGPU> {
-    self.get_by_raw(node.raw_handle().index())
-  }
-
-  pub fn get_by_raw(&self, index: usize) -> Option<&NodeGPU> {
-    self.nodes.as_ref().get(index).map(|v| &v.as_ref().inner)
-  }
-
   pub fn new(scene: &SceneCore, derives: &SceneNodeDeriveSystem, cx: &ResourceGPUCtx) -> Self {
     fn build_reactive_node(mat: WorldMatrixStream, cx: &ResourceGPUCtx) -> ReactiveNodeGPU {
       let node = NodeGPU::new(&cx.device);
@@ -68,6 +60,14 @@ impl SceneNodeGPUSystem {
       .flatten_into_vec_stream_signal();
 
     Self { nodes }
+  }
+
+  pub fn get_node_gpu(&self, node: &SceneNode) -> Option<&NodeGPU> {
+    self.get_by_raw(node.raw_handle().index())
+  }
+
+  pub fn get_by_raw(&self, index: usize) -> Option<&NodeGPU> {
+    self.nodes.as_ref().get(index).map(|v| &v.as_ref().inner)
   }
 }
 

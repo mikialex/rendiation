@@ -1,6 +1,7 @@
 use std::ops::Deref;
 
 use incremental::*;
+use reactive::do_updates;
 
 use crate::*;
 
@@ -123,29 +124,28 @@ fn test_full_update() {
 
 #[test]
 fn test_inc_update() {
-  let tree = SharedTreeCollection::<
-    ReactiveTreeCollection<RwLock<TreeCollection<TestNode>>, TestNode>,
-  >::default();
-  let stream = tree.inner().source.batch_listen();
+  type Tree = ReactiveTreeCollection<RwLock<TreeCollection<TestNode>>, TestNode>;
+  let tree = Arc::<Tree>::default();
+  let stream = tree.source.batch_listen();
   let mut tree_sys =
     TreeHierarchyDerivedSystem::<TestNodeDerived, ParentTreeDirty<ValueSumIsDirty>>::new::<
       ParentTree,
-      _,
+      Tree,
       _,
       _,
     >(stream, &tree);
 
-  let root = tree.create_new_root(TestNode { value: 0 });
+  let root = ShareTreeNode::new_as_root(TestNode { value: 0 }, &tree);
   let a = root.create_child(TestNode { value: 3 });
   let b = a.create_child(TestNode { value: 2 });
   let c = a.create_child(TestNode { value: 1 });
-  let d = tree.create_new_root(TestNode { value: 10 });
+  let d = ShareTreeNode::new_as_root(TestNode { value: 10 }, &tree);
 
-  tree_sys.maintain();
+  do_updates(&mut tree_sys.derived_stream, |_| {});
 
   fn getter(
     tree_sys: &TreeHierarchyDerivedSystem<TestNodeDerived, ParentTreeDirty<ValueSumIsDirty>>,
-    node: &ShareTreeNode<ReactiveTreeCollection<RwLock<TreeCollection<TestNode>>, TestNode>>,
+    node: &ShareTreeNode<Tree>,
   ) -> TestNodeDerived {
     tree_sys.visit_derived_tree(|tree| {
       let handle = tree.recreate_handle(node.raw_handle().index());
@@ -163,12 +163,12 @@ fn test_inc_update() {
   assert_eq!(d_derived.value_sum, 10);
 
   root.mutate(|r| r.value = 1);
-  tree.inner().source.emit(&TreeMutation::Mutate {
+  tree.source.emit(&TreeMutation::Mutate {
     node: root.raw_handle().index(),
     delta: TestNodeDelta::value(1),
   });
 
-  tree_sys.maintain();
+  do_updates(&mut tree_sys.derived_stream, |_| {});
 
   let root_derived = getter(&tree_sys, &root);
   assert_eq!(root_derived.value_sum, 1);

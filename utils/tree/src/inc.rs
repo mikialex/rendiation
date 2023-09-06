@@ -1,5 +1,3 @@
-use std::ops::Deref;
-
 use incremental::ApplicableIncremental;
 
 use crate::*;
@@ -109,16 +107,5 @@ impl<T: ApplicableIncremental + Clone> ApplicableIncremental for TreeCollection<
         .node_detach_parent(self.recreate_handle(node))
         .map_err(TreeDeltaMutationError::Mutation),
     }
-  }
-}
-
-impl<T> IncrementalBase for SharedTreeCollection<T>
-where
-  T: IncrementalBase,
-{
-  type Delta = T::Delta;
-
-  fn expand(&self, cb: impl FnMut(Self::Delta)) {
-    self.inner.deref().expand(cb);
   }
 }

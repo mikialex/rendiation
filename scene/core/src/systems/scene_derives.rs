@@ -47,7 +47,7 @@ impl Stream for StreamCacheUpdateWrapper {
 
 impl SceneNodeDeriveSystem {
   pub fn new(nodes: &SceneNodeCollection) -> Self {
-    let stream = nodes.inner.inner().source.batch_listen();
+    let stream = nodes.inner.source.batch_listen();
     let inner_sys = TreeHierarchyDerivedSystem::<
       SceneNodeDerivedData,
       ParentTreeDirty<SceneNodeDeriveDataDirtyFlag>,

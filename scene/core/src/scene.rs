@@ -32,9 +32,8 @@ pub struct SceneNodeCollection {
   pub inner: SceneNodeCollectionInner,
   pub scene_guid: usize,
 }
-pub type SceneNodeCollectionInner = SharedTreeCollection<
-  ReactiveTreeCollection<RwLock<TreeCollection<SceneNodeData>>, SceneNodeDataImpl>,
->;
+pub type SceneNodeCollectionInner =
+  Arc<ReactiveTreeCollection<RwLock<TreeCollection<SceneNodeData>>, SceneNodeDataImpl>>;
 
 impl SceneNodeCollection {
   pub fn create_node(&self, data: SceneNodeDataImpl) -> SceneNode {
@@ -46,7 +45,7 @@ impl IncrementalBase for SceneNodeCollection {
   type Delta = TreeMutation<SceneNodeDataImpl>;
 
   fn expand(&self, mut cb: impl FnMut(Self::Delta)) {
-    let tree = self.inner.inner().inner.read().unwrap();
+    let tree = self.inner.inner.read().unwrap();
     tree.expand_with_mapping(|node| node.deref().clone(), |d| cb(d.into()));
   }
 }
@@ -81,7 +80,7 @@ impl SceneCoreImpl {
     let scene_id = scene.guid();
 
     let s = scene.read();
-    s.nodes.inner.inner().source.on(move |d| {
+    s.nodes.inner.source.on(move |d| {
       scene_source_clone.emit(&SceneInnerDelta::nodes(d.clone()));
       false
     });
@@ -146,7 +145,7 @@ impl SceneCoreExt for SceneCore {
 
   fn compute_full_derived(&self) -> ComputedDerivedTree<SceneNodeDerivedData> {
     self.visit(|t| {
-      let tree = t.nodes.inner.inner().inner.read().unwrap();
+      let tree = t.nodes.inner.inner.read().unwrap();
       ComputedDerivedTree::compute_from(&tree)
     })
   }

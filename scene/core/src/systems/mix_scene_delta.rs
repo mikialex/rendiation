@@ -268,17 +268,12 @@ struct NodeMapping {
 struct SceneWatcher {
   change_remove_token: RemoveToken<TreeMutation<SceneNodeDataImpl>>,
   ref_count: usize,
-  nodes: SceneNodeCollection, // todo weak?
+  nodes: SceneNodeCollection,
 }
 
 impl Drop for SceneWatcher {
   fn drop(&mut self) {
-    self
-      .nodes
-      .inner
-      .inner()
-      .source
-      .off(self.change_remove_token);
+    self.nodes.inner.source.off(self.change_remove_token);
   }
 }
 
@@ -314,37 +309,41 @@ fn add_watch_origin_scene_change(rebuilder: &ShareableRebuilder, source_node: &S
       scene_guid,
     };
     let source_collection_c = source_collection.clone();
-    let rebuilder = rebuilder.clone();
+    let rebuilder = Arc::downgrade(rebuilder);
 
     let remove_token = source_node.inner.visit_raw_storage(move |tree| {
       tree.source.on(move |delta| {
-        let mut rebuilder = rebuilder.write().unwrap();
+        if let Some(rebuilder) = rebuilder.upgrade() {
+          let mut rebuilder = rebuilder.write().unwrap();
 
-        match delta {
-          tree::TreeMutation::Attach {
-            parent_target,
-            node,
-          } => {
-            if let Some(node_guid) = rebuilder.try_get_original_node_guid(scene_guid, *node) {
-              rebuilder.handle_attach(node_guid, *parent_target, &source_collection);
+          match delta {
+            tree::TreeMutation::Attach {
+              parent_target,
+              node,
+            } => {
+              if let Some(node_guid) = rebuilder.try_get_original_node_guid(scene_guid, *node) {
+                rebuilder.handle_attach(node_guid, *parent_target, &source_collection);
+              }
             }
-          }
-          tree::TreeMutation::Detach { node } => {
-            if let Some(node_guid) = rebuilder.try_get_original_node_guid(scene_guid, *node) {
-              rebuilder.handle_detach(node_guid, *node, &source_collection);
+            tree::TreeMutation::Detach { node } => {
+              if let Some(node_guid) = rebuilder.try_get_original_node_guid(scene_guid, *node) {
+                rebuilder.handle_detach(node_guid, *node, &source_collection);
+              }
             }
-          }
-          tree::TreeMutation::Mutate { node, delta } => {
-            // get the mapped node
-            if let Some(node_guid) = rebuilder.try_get_original_node_guid(scene_guid, *node) {
-              let node = &rebuilder.nodes.get(&node_guid).unwrap().mapped;
-              // pass the delta
-              node.mutate(|mut n| n.modify(delta.clone()))
+            tree::TreeMutation::Mutate { node, delta } => {
+              // get the mapped node
+              if let Some(node_guid) = rebuilder.try_get_original_node_guid(scene_guid, *node) {
+                let node = &rebuilder.nodes.get(&node_guid).unwrap().mapped;
+                // pass the delta
+                node.mutate(|mut n| n.modify(delta.clone()))
+              }
             }
+            _ => {}
           }
-          _ => {}
+          false
+        } else {
+          true
         }
-        false
       })
     });
 
@@ -543,7 +542,7 @@ fn visit_self_parent_chain(
   node_handle: NodeArenaIndex,
   mut f: impl FnMut(NodeGuid, NodeArenaIndex, &SceneNodeDataImpl),
 ) {
-  let tree = nodes.inner.inner().inner.read().unwrap();
+  let tree = nodes.inner.inner.read().unwrap();
   let node_handle = tree.recreate_handle(node_handle);
 
   tree.create_node_ref(node_handle).traverse_parent(|node| {

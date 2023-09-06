@@ -2,7 +2,7 @@ use std::ops::Deref;
 
 use futures::{Stream, StreamExt};
 use incremental::IncrementalBase;
-use reactive::{do_updates, SignalStreamExt, StreamForker};
+use reactive::{SignalStreamExt, StreamForker};
 
 use crate::*;
 
@@ -92,20 +92,9 @@ impl<T: IncrementalBase, M> Clone for TreeHierarchyDerivedSystem<T, M> {
 }
 
 impl<T: IncrementalBase, Dirty> TreeHierarchyDerivedSystem<T, Dirty> {
-  pub fn maintain(&mut self) {
-    do_updates(&mut self.derived_stream, |_| {});
-  }
-
-  pub fn visit_derived_tree<R>(
-    &self,
-    v: impl FnOnce(&TreeCollection<DerivedData<T, Dirty>>) -> R,
-  ) -> R {
-    v(&self.derived_tree.read().unwrap())
-  }
-
   pub fn new<B, TREE, S, M>(
     tree_delta: impl Stream<Item = Vec<TreeMutation<S>>> + 'static,
-    source_tree: &SharedTreeCollection<TREE>,
+    source_tree: &Arc<TREE>,
   ) -> TreeHierarchyDerivedSystem<T, B::Dirty>
   where
     B: TreeIncrementalDeriveBehavior<T, S, M, TREE::Core, Dirty = Dirty>,
@@ -120,7 +109,7 @@ impl<T: IncrementalBase, Dirty> TreeHierarchyDerivedSystem<T, Dirty> {
     ));
 
     let derived_tree_c = derived_tree.clone();
-    let source_tree = source_tree.clone();
+    let source_tree = Arc::downgrade(source_tree);
 
     enum MarkingResult<T, Dirty> {
       UpdateRoot(TreeNodeHandle<DerivedData<T, Dirty>>),
@@ -129,9 +118,10 @@ impl<T: IncrementalBase, Dirty> TreeHierarchyDerivedSystem<T, Dirty> {
     }
 
     let derived_stream = tree_delta
+      .filter_map_sync(move |deltas| source_tree.upgrade().map(|tree| (tree, deltas)))
       // mark stage
       // do dirty marking, return if should trigger hierarchy change, and the update root
-      .map(move |deltas| {
+      .map(move |(source_tree, deltas)| {
         let mut marking_results = Vec::with_capacity(deltas.len()); // should be upper bound
         let mut derived_deltas = Vec::with_capacity(deltas.len()); // just estimation
         let mut derived_tree = derived_tree_c.write().unwrap();
@@ -192,7 +182,7 @@ impl<T: IncrementalBase, Dirty> TreeHierarchyDerivedSystem<T, Dirty> {
           match marking_result {
             MarkingResult::UpdateRoot(update_root) => {
               // do full tree traverse check, emit all real update as stream
-              let tree: &TREE = &source_tree.inner;
+              let tree: &TREE = &source_tree;
 
               // node maybe deleted
               let node_has_deleted = !derived_tree.is_handle_valid(update_root);
@@ -236,6 +226,13 @@ impl<T: IncrementalBase, Dirty> TreeHierarchyDerivedSystem<T, Dirty> {
       derived_tree,
       derived_stream: boxed.create_broad_caster(),
     }
+  }
+
+  pub fn visit_derived_tree<R>(
+    &self,
+    v: impl FnOnce(&TreeCollection<DerivedData<T, Dirty>>) -> R,
+  ) -> R {
+    v(&self.derived_tree.read().unwrap())
   }
 }
 

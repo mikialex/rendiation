@@ -158,7 +158,7 @@ impl SceneNode {
     Self {
       guid: identity.guid(),
       scene_id,
-      inner: nodes.create_new_root(identity),
+      inner: ShareTreeNode::new_as_root(identity, &nodes),
     }
   }
 

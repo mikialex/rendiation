@@ -76,43 +76,8 @@ impl<T: CoreTree> ShareCoreTree for RwLock<T> {
   }
 }
 
-#[derive(Default)]
-pub struct SharedTreeCollection<T> {
-  pub(crate) inner: Arc<T>,
-}
-
-impl<T: ShareCoreTree> SharedTreeCollection<T> {
-  pub fn inner(&self) -> &T {
-    &self.inner
-  }
-
-  #[must_use]
-  pub fn create_new_root(&self, n: T::Node) -> ShareTreeNode<T> {
-    let root = self.inner.create_node(n);
-
-    let root = NodeRef {
-      nodes: self.clone(),
-      handle: root,
-    };
-
-    let root = NodeInner::new(root);
-
-    ShareTreeNode {
-      inner: Arc::new(RwLock::new(root)),
-    }
-  }
-}
-
-impl<T> Clone for SharedTreeCollection<T> {
-  fn clone(&self) -> Self {
-    Self {
-      inner: self.inner.clone(),
-    }
-  }
-}
-
 pub struct NodeRef<T: ShareCoreTree> {
-  pub(crate) nodes: SharedTreeCollection<T>,
+  pub(crate) nodes: Arc<T>,
   pub(crate) handle: T::Handle,
 }
 
@@ -127,12 +92,12 @@ impl<T: ShareCoreTree> Clone for NodeRef<T> {
 
 impl<T: ShareCoreTree> Drop for NodeRef<T> {
   fn drop(&mut self) {
-    self.nodes.inner.delete_node(self.handle)
+    self.nodes.delete_node(self.handle)
   }
 }
 
 pub struct NodeInner<T: ShareCoreTree> {
-  pub nodes: SharedTreeCollection<T>,
+  pub nodes: Arc<T>,
   parent: Option<ShareTreeNode<T>>,
   inner: Arc<NodeRef<T>>,
 }
@@ -147,7 +112,7 @@ impl<T: ShareCoreTree> NodeInner<T> {
   }
 
   pub fn detach_from_parent(&mut self) -> Result<(), TreeMutationError> {
-    self.nodes.inner.node_detach_parent(self.inner.handle)
+    self.nodes.node_detach_parent(self.inner.handle)
   }
 }
 
@@ -173,7 +138,22 @@ impl<T: ShareCoreTree> Clone for ShareTreeNode<T> {
 }
 
 impl<T: ShareCoreTree> ShareTreeNode<T> {
-  pub fn get_node_collection(&self) -> SharedTreeCollection<T> {
+  pub fn new_as_root(n: T::Node, tree: &Arc<T>) -> Self {
+    let root = tree.create_node(n);
+
+    let root = NodeRef {
+      nodes: tree.clone(),
+      handle: root,
+    };
+
+    let root = NodeInner::new(root);
+
+    ShareTreeNode {
+      inner: Arc::new(RwLock::new(root)),
+    }
+  }
+
+  pub fn get_node_collection(&self) -> Arc<T> {
     self.inner.read().unwrap().inner.nodes.clone()
   }
 
@@ -192,7 +172,7 @@ impl<T: ShareCoreTree> ShareTreeNode<T> {
 
   pub fn visit_raw_storage<F: FnOnce(&T) -> R, R>(&self, v: F) -> R {
     let inner = self.inner.read().unwrap();
-    v(&inner.nodes.inner)
+    v(&inner.nodes)
   }
 
   pub fn detach_from_parent(&self) -> Result<(), TreeMutationError> {
@@ -204,7 +184,6 @@ impl<T: ShareCoreTree> ShareTreeNode<T> {
 
     inner
       .nodes
-      .inner
       .node_add_child_by(parent.raw_handle(), inner.inner.handle)?;
 
     inner.parent = Some(parent.clone());
@@ -218,7 +197,7 @@ impl<T: ShareCoreTree> ShareTreeNode<T> {
 
     let child = NodeInner::new(NodeRef {
       nodes: inner.nodes.clone(),
-      handle: inner.nodes.inner.create_node(n),
+      handle: inner.nodes.create_node(n),
     });
 
     let child = ShareTreeNode {
@@ -240,22 +219,18 @@ impl<T: ShareCoreTree> ShareTreeNode<T> {
 
   pub fn mutate<F: FnOnce(&mut T::Node) -> R, R>(&self, f: F) -> R {
     let inner = self.inner.read().unwrap();
-    inner.nodes.inner.mutate_node_data(inner.inner.handle, f)
+    inner.nodes.mutate_node_data(inner.inner.handle, f)
   }
 
   pub fn visit<F: FnOnce(&T::Node) -> R, R>(&self, f: F) -> R {
     let inner = self.inner.read().unwrap();
-    inner.nodes.inner.visit_node_data(inner.inner.handle, f)
+    inner.nodes.visit_node_data(inner.inner.handle, f)
   }
 
   pub fn visit_parent<F: FnOnce(&T::Node) -> R, R>(&self, f: F) -> Option<R> {
     let inner = self.inner.read().unwrap();
     if let Some(parent) = &inner.parent {
-      inner
-        .nodes
-        .inner
-        .visit_node_data(parent.raw_handle(), f)
-        .into()
+      inner.nodes.visit_node_data(parent.raw_handle(), f).into()
     } else {
       None
     }
