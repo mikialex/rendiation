@@ -311,6 +311,7 @@ num_cast!(f32, u32);
 num_cast!(f32, i32);
 num_cast!(i32, f32);
 num_cast!(u32, i32);
+num_cast!(u32, bool);
 
 macro_rules! impl_from {
   ( { $($field: tt: $constraint: ty),+ }, $type_merged:ty) => {

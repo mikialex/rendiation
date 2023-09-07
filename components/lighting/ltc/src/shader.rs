@@ -12,6 +12,7 @@ pub struct LTCRectLight {
   pub p2: Vec3<f32>,
   pub p3: Vec3<f32>,
   pub p4: Vec3<f32>,
+  pub intensity: Vec3<f32>,
   pub double_side: Bool,
   pub is_disk: Bool,
 }
@@ -19,28 +20,28 @@ pub struct LTCRectLight {
 only_fragment!(LtcLUT1, ShaderHandlePtr<ShaderTexture2D>);
 only_fragment!(LtcLUT2, ShaderHandlePtr<ShaderTexture2D>);
 
-const LUT_SIZE: usize = 64;
+const LUT_SIZE: f32 = 64.;
+const LUT_SCALE: f32 = (LUT_SIZE - 1.) / LUT_SIZE;
+const LUT_BIAS: f32 = 0.5 / LUT_SIZE;
 
 pub fn ltc_light_eval(
   light: UniformNode<LTCRectLight>,
   diffuse_color: Node<Vec3<f32>>,
   specular_color: Node<Vec3<f32>>,
   roughness: Node<f32>,
-  light_color: Node<Vec3<f32>>,
   position: Node<Vec3<f32>>,
   normal: Node<Vec3<f32>>,
   view: Node<Vec3<f32>>,
   ltc_1: HandleNode<ShaderTexture2D>,
   ltc_2: HandleNode<ShaderTexture2D>,
   sampler: HandleNode<ShaderSampler>,
-) -> Node<Vec3<f32>> {
+) -> (Node<Vec3<f32>>, Node<Vec3<f32>>) {
   let light = light.load();
 
   let n_dot_v = normal.dot(view).saturate();
 
   let uv: Node<Vec2<_>> = (roughness, (val(1.0) - n_dot_v).sqrt()).into();
-  let offset = val(0.5 / LUT_SIZE as f32).splat(); // make sure we sample pixel center.
-  let uv = uv + offset;
+  let uv = uv * val(LUT_SCALE) + val(LUT_BIAS).splat();
 
   let t1 = ltc_1.sample(sampler, uv);
   let t2 = ltc_2.sample(sampler, uv);
@@ -53,6 +54,7 @@ pub fn ltc_light_eval(
     .into();
 
   let disk = light.expand().is_disk;
+  let light_color = LTCRectLight::intensity(light);
 
   let mut spec = disk.select_branched(
     || ltc_evaluate_disk_fn(normal, view, position, min_v, light, ltc_2, sampler),
@@ -60,16 +62,22 @@ pub fn ltc_light_eval(
   );
 
   // BRDF shadowing and Fresnel
-  spec *= diffuse_color * t2.x() + (val(1.0).splat() - diffuse_color) * t2.y();
+  spec *= specular_color * t2.x() + (val(1.0).splat() - diffuse_color) * t2.y();
 
-  let all_one = (val(1.).splat(), val(1.).splat(), val(1.).splat()).into();
+  let identity = (
+    // todo useless?
+    val(vec3(1., 0., 0.)),
+    val(vec3(0., 1., 0.)),
+    val(vec3(0., 0., 1.)),
+  )
+    .into();
 
   let diff = disk.select_branched(
-    || ltc_evaluate_disk_fn(normal, view, position, all_one, light, ltc_2, sampler),
-    || ltc_evaluate_rect_fn(normal, view, position, all_one, light, ltc_2, sampler),
+    || ltc_evaluate_disk_fn(normal, view, position, identity, light, ltc_2, sampler),
+    || ltc_evaluate_rect_fn(normal, view, position, identity, light, ltc_2, sampler),
   );
 
-  (diff * diffuse_color + spec * specular_color) * light_color
+  (diff * diffuse_color * light_color, spec * light_color)
 }
 
 #[shader_fn]
@@ -118,8 +126,8 @@ pub fn ltc_evaluate_rect(
       let z = z * behind.select(-1., 1.);
 
       let uv: Node<Vec2<_>> = (z * val(0.5) + val(0.5), len).into();
-      let offset = val(0.5 / 64.).splat(); // make sure we sample pixel center.
-      let scale = ltc_2.sample(sampler, uv + offset).z();
+      let uv = uv * val(LUT_SCALE) + val(LUT_BIAS).splat();
+      let scale = ltc_2.sample_level(sampler, uv, val(0.)).w();
 
       (len * scale).splat()
     },
@@ -156,16 +164,17 @@ pub fn ltc_evaluate_disk(
   let l = light.expand();
   // construct orthonormal basis around N
   let t1 = v - n * v.dot(n).splat::<Vec3<_>>();
+  let t1 = t1.normalize();
   let t2 = n.cross(t1);
 
   // rotate area light in (T1, T2, N) basis
   let m: Node<Mat3<_>> = (t1, t2, n).into();
-  let min_v = min_v * m.transpose();
+  let base = min_v * m.transpose();
 
   // polygon
-  let l1 = min_v * (l.p1 - p);
-  let l2 = min_v * (l.p2 - p);
-  let l3 = min_v * (l.p3 - p);
+  let l1 = base * (l.p1 - p);
+  let l2 = base * (l.p2 - p);
+  let l3 = base * (l.p3 - p);
 
   // init ellipse
   let C = val(0.5) * (l1 + l3);
@@ -176,12 +185,7 @@ pub fn ltc_evaluate_disk(
   let V1 = min_v * V1;
   let V2 = min_v * V2;
 
-  // if(!twoSided && dot(cross(V1, V2), C) < 0.0)
-  //     return vec3(0.0);
-
-  let dir = l.p1 - p;
-  let light_normal = (l.p2 - l.p1).cross(l.p4 - l.p1);
-  let behind = dir.dot(light_normal).less_than(0.);
+  let behind = V1.cross(V2).dot(C).less_than(0.);
 
   behind.not().or(l.double_side).select_branched(
     || {
@@ -254,7 +258,7 @@ pub fn ltc_evaluate_disk(
       let c2 = val(1.0) - a * (val(1.0) + x0 * x0) - b * (val(1.0) + y0 * y0);
       let c3 = val(1.0);
 
-      let roots = solve_cubic((c0, c1, c2, c3).into());
+      let roots = solve_cubic_fn((c0, c1, c2, c3).into());
       let e1 = roots.x();
       let e2 = roots.y();
       let e3 = roots.z();
@@ -274,8 +278,8 @@ pub fn ltc_evaluate_disk(
 
       // use tabulated horizon-clipped sphere
       let uv: Node<Vec2<_>> = (avg_dir.z() * val(0.5) + val(0.5), form_factor).into();
-      let offset = val(0.5 / 64.).splat(); // make sure we sample pixel center.
-      let scale = ltc_2.sample(sampler, uv + offset).z();
+      let uv = uv * val(LUT_SCALE) + val(LUT_BIAS).splat();
+      let scale = ltc_2.sample_level(sampler, uv, val(0.)).w();
 
       let spec = form_factor * scale;
 
@@ -337,7 +341,7 @@ pub fn solve_cubic(coef: Node<Vec4<f32>>) -> Node<Vec3<f32>> {
     let x_1d = val(2.0) * (-c_d).sqrt() * theta.cos();
     let x_3d = val(2.0) * (-c_d).sqrt() * (theta + val((2.0 / 3.0) * f32::PI())).cos();
 
-    let xs = (x_1d + x_3d).greater_than(val(2.) * c).select(x_1d, x_3d);
+    let xs = (x_1d + x_3d).less_than(val(2.) * c).select(x_1d, x_3d);
 
     vec2(-d, xs + c)
   };

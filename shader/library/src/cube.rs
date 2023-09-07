@@ -20,7 +20,7 @@ pub fn screen_position_to_cube_face(position: Node<Vec2<f32>>) -> Node<CubeFaceI
       face_id.store(2);
     });
   })
-  .else_if(y.greater_than(1. / 3.), || {
+  .else_if(y.greater_than(2. / 3.), || {
     if_by(x.greater_than(0.25).and(x.less_than(0.5)), || {
       uv.store(((x - val(0.25)) * val(4.), (y - val(2. / 3.)) * val(3.)));
       face_id.store(3);
@@ -55,6 +55,7 @@ pub fn screen_position_to_cube_face(position: Node<Vec2<f32>>) -> Node<CubeFaceI
 #[shader_fn]
 pub fn direction_for(face: Node<i32>, uv: Node<Vec2<f32>>) -> Node<Vec3<f32>> {
   let result = val(Vec3::zero()).make_local_var();
+  let uv = val(2.) * uv - val(1.).splat();
 
   switch_by(face)
     .case(0, || {
