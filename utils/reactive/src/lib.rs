@@ -36,9 +36,6 @@ pub use channel_batch::*;
 mod source;
 pub use source::*;
 
-mod reactive_slab;
-pub use reactive_slab::*;
-
 mod broadcast;
 pub use broadcast::*;
 

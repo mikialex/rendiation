@@ -31,7 +31,8 @@ enum Entry<T> {
   Occupied { generation: u64, value: T },
 }
 
-const DEFAULT_CAPACITY: usize = 4;
+/// we aimed for controlling memory consumption
+const DEFAULT_CAPACITY: usize = 0;
 
 impl<T> Default for Arena<T> {
   fn default() -> Arena<T> {
