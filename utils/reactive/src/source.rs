@@ -1,4 +1,4 @@
-use std::sync::{Arc, RwLock};
+use std::sync::Arc;
 
 use arena::{Arena, Handle};
 use futures::{Future, Stream};
@@ -58,7 +58,8 @@ impl<T> Default for Source<T> {
 
 /// a simple event dispatcher.
 pub struct EventSource<T> {
-  inner: Arc<RwLock<Source<T>>>,
+  /// the source is alway need mutable access, so we not use rwlock here
+  inner: Arc<Mutex<Source<T>>>,
 }
 
 impl<T> Default for EventSource<T> {
@@ -87,17 +88,17 @@ impl<T: 'static> EventSource<T> {
   }
 
   pub fn emit(&self, event: &T) {
-    let mut inner = self.inner.write().unwrap();
+    let mut inner = self.inner.lock().unwrap();
     inner.emit(event);
   }
 
   /// return should be removed from source after emitted
   pub fn on(&self, f: impl FnMut(&T) -> bool + Send + Sync + 'static) -> RemoveToken<T> {
-    self.inner.write().unwrap().on(f)
+    self.inner.lock().unwrap().on(f)
   }
 
   pub fn off(&self, token: RemoveToken<T>) {
-    self.inner.write().unwrap().off(token)
+    self.inner.lock().unwrap().off(token)
   }
 
   pub fn any_triggered(&self) -> impl futures::Stream<Item = ()> {
@@ -235,13 +236,13 @@ impl<T> Drop for EventSourceDropper<T> {
   fn drop(&mut self) {
     if let Some(source) = self.weak.inner.upgrade() {
       // it's safe to remove again here (has no effect)
-      source.write().unwrap().off(self.remove_token)
+      source.lock().unwrap().off(self.remove_token)
     }
   }
 }
 
 pub struct WeakSource<T> {
-  inner: std::sync::Weak<RwLock<Source<T>>>,
+  inner: std::sync::Weak<Mutex<Source<T>>>,
 }
 
 impl<T> Clone for WeakSource<T> {
@@ -255,7 +256,7 @@ impl<T> Clone for WeakSource<T> {
 impl<T> WeakSource<T> {
   pub fn emit(&self, event: &T) -> bool {
     if let Some(e) = self.inner.upgrade() {
-      e.write().unwrap().emit(event);
+      e.lock().unwrap().emit(event);
       true
     } else {
       false
@@ -289,7 +290,8 @@ impl<T> Default for OnceSource<T> {
 }
 
 pub struct EventOnceSource<T> {
-  inner: Arc<RwLock<OnceSource<T>>>,
+  /// the source is alway need mutable access, so we not use rwlock here
+  inner: Arc<Mutex<OnceSource<T>>>,
 }
 
 impl<T> Default for EventOnceSource<T> {
@@ -302,11 +304,11 @@ impl<T> Default for EventOnceSource<T> {
 
 impl<T> EventOnceSource<T> {
   pub fn emit(&self, item: &T) {
-    let mut inner = self.inner.write().unwrap();
+    let mut inner = self.inner.lock().unwrap();
     inner.emit(item);
   }
 
   pub fn on(&self, f: impl FnOnce(&T) + Send + Sync + 'static) {
-    self.inner.write().unwrap().on(f)
+    self.inner.lock().unwrap().on(f)
   }
 }

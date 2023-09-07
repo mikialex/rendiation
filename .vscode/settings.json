@@ -126,6 +126,7 @@
         "reproject",
         "rgba",
         "rustfmt",
+        "rwlock",
         "SceneDrawcall",
         "scenegraph",
         "sceno",
