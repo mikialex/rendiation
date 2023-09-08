@@ -13,9 +13,6 @@ use reactive::*;
 mod shared;
 pub use shared::*;
 
-mod storage;
-pub use storage::*;
-
 static GLOBAL_ID: AtomicUsize = AtomicUsize::new(0);
 
 pub fn alloc_global_res_id() -> usize {

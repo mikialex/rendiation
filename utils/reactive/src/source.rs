@@ -4,10 +4,53 @@ use futures::{Future, Stream};
 
 use crate::*;
 
+// we are not extract to the upstream storage crate here for now.
+pub struct SourceStorage<T> {
+  inner: Vec<(u32, T)>,
+  next_id: u32,
+}
+
+impl<T> SourceStorage<T> {
+  pub fn insert(&mut self, item: T) -> u32 {
+    self.next_id += 1;
+    self.inner.push((self.next_id, item));
+    self.next_id
+  }
+
+  pub fn remove(&mut self, handle: u32) {
+    let idx = self
+      .inner
+      .iter()
+      .position(|v| v.0 == handle)
+      .expect("event source remove failed");
+    let _ = self.inner.swap_remove(idx);
+  }
+
+  pub fn iter_remove_if(&mut self, f: impl Fn(&mut T) -> bool) {
+    let mut idx = 0;
+    while idx < self.inner.len() {
+      let item = &mut self.inner[idx].1;
+      if f(item) {
+        self.inner.swap_remove(idx);
+      } else {
+        idx += 1;
+      }
+    }
+  }
+}
+
+impl<T> Default for SourceStorage<T> {
+  fn default() -> Self {
+    Self {
+      inner: Default::default(),
+      next_id: 0,
+    }
+  }
+}
+
 pub struct Source<T> {
   // return if should remove
-  listeners: Vec<(u32, Box<dyn FnMut(&T) -> bool + Send + Sync>)>,
-  next_id: u32, // u32 should be enough
+  storage: SourceStorage<Box<dyn FnMut(&T) -> bool + Send + Sync>>,
 }
 
 pub struct RemoveToken<T> {
@@ -28,41 +71,25 @@ impl<T> Copy for RemoveToken<T> {}
 impl<T> Source<T> {
   /// return should be removed from source after emitted
   pub fn on(&mut self, cb: impl FnMut(&T) -> bool + Send + Sync + 'static) -> RemoveToken<T> {
-    self.next_id += 1;
-    self.listeners.push((self.next_id, Box::new(cb)));
     RemoveToken {
-      handle: self.next_id,
+      handle: self.storage.insert(Box::new(cb)),
       phantom: PhantomData,
     }
   }
   pub fn off(&mut self, token: RemoveToken<T>) {
-    let idx = self
-      .listeners
-      .iter()
-      .position(|v| v.0 == token.handle)
-      .expect("event source remove failed");
-    let _ = self.listeners.swap_remove(idx);
+    self.storage.remove(token.handle);
   }
 
   #[allow(unused_must_use)]
   pub fn emit(&mut self, event: &T) {
-    let mut idx = 0;
-    while idx < self.listeners.len() {
-      let listener = &mut self.listeners[idx].1;
-      if listener(event) {
-        self.listeners.swap_remove(idx);
-      } else {
-        idx += 1;
-      }
-    }
+    self.storage.iter_remove_if(|f| f(event));
   }
 }
 
 impl<T> Default for Source<T> {
   fn default() -> Self {
     Self {
-      listeners: Default::default(),
-      next_id: 0,
+      storage: Default::default(),
     }
   }
 }
