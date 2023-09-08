@@ -1,23 +1,25 @@
-use std::sync::Arc;
+use std::{marker::PhantomData, sync::Arc};
 
-use arena::{Arena, Handle};
 use futures::{Future, Stream};
 
 use crate::*;
 
 pub struct Source<T> {
   // return if should remove
-  listeners: Arena<Box<dyn FnMut(&T) -> bool + Send + Sync>>,
+  listeners: Vec<(u32, Box<dyn FnMut(&T) -> bool + Send + Sync>)>,
+  next_id: u32, // u32 should be enough
 }
 
 pub struct RemoveToken<T> {
-  handle: Handle<Box<dyn FnMut(&T) -> bool + Send + Sync>>,
+  handle: u32,
+  phantom: PhantomData<T>,
 }
 
 impl<T> Clone for RemoveToken<T> {
   fn clone(&self) -> Self {
     Self {
       handle: self.handle,
+      phantom: PhantomData,
     }
   }
 }
@@ -26,25 +28,33 @@ impl<T> Copy for RemoveToken<T> {}
 impl<T> Source<T> {
   /// return should be removed from source after emitted
   pub fn on(&mut self, cb: impl FnMut(&T) -> bool + Send + Sync + 'static) -> RemoveToken<T> {
-    let handle = self.listeners.insert(Box::new(cb));
-    RemoveToken { handle }
+    self.next_id += 1;
+    self.listeners.push((self.next_id, Box::new(cb)));
+    RemoveToken {
+      handle: self.next_id,
+      phantom: PhantomData,
+    }
   }
   pub fn off(&mut self, token: RemoveToken<T>) {
-    self.listeners.remove(token.handle);
+    let idx = self
+      .listeners
+      .iter()
+      .position(|v| v.0 == token.handle)
+      .expect("event source remove failed");
+    let _ = self.listeners.swap_remove(idx);
   }
 
   #[allow(unused_must_use)]
   pub fn emit(&mut self, event: &T) {
-    // todo avoid any possible allocation.
-    let mut to_remove = Vec::with_capacity(0);
-    self.listeners.iter_mut().for_each(|(handle, cb)| {
-      if cb(event) {
-        to_remove.push(handle)
+    let mut idx = 0;
+    while idx < self.listeners.len() {
+      let listener = &mut self.listeners[idx].1;
+      if listener(event) {
+        self.listeners.swap_remove(idx);
+      } else {
+        idx += 1;
       }
-    });
-    to_remove.drain(..).for_each(|handle| {
-      self.listeners.remove(handle);
-    })
+    }
   }
 }
 
@@ -52,6 +62,7 @@ impl<T> Default for Source<T> {
   fn default() -> Self {
     Self {
       listeners: Default::default(),
+      next_id: 0,
     }
   }
 }
