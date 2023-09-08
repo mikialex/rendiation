@@ -9,6 +9,7 @@ rendiation-algebra = { path = "../../../../math/algebra" }
 rendiation-mesh-core = { path = "../../../../components/mesh/core" }
 rendiation-texture = { path = "../../../../components/texture/core" }
 rendiation-scene-core = { path = "../../../core" }
+smallvec = "1.9.0"
 thiserror = "1.0.43"
 tobj = "4.0.0"
 image = "*"

@@ -2,6 +2,7 @@ use std::{any::TypeId, num::NonZeroU64};
 
 use incremental::*;
 use reactive_incremental::*;
+use smallvec::SmallVec;
 
 use crate::{MeshGroupsInfo, PrimitiveTopology};
 
@@ -248,16 +249,19 @@ pub enum AttributeIndexFormat {
 
 clone_self_incremental!(AttributesMesh);
 
+pub const MOST_COMMON_ATTRIBUTE_COUNT: usize = 3;
+
 #[derive(Clone)]
 pub struct AttributesMesh {
-  pub attributes: Vec<(AttributeSemantic, AttributeAccessor)>,
+  pub attributes: SmallVec<[(AttributeSemantic, AttributeAccessor); MOST_COMMON_ATTRIBUTE_COUNT]>,
   pub indices: Option<(AttributeIndexFormat, AttributeAccessor)>,
   pub mode: PrimitiveTopology,
   pub groups: MeshGroupsInfo,
 }
 
 pub struct AttributeMeshReadView<'a> {
-  pub attributes: Vec<(&'a AttributeSemantic, AttributeAccessorReadView<'a>)>,
+  pub attributes:
+    SmallVec<[(&'a AttributeSemantic, AttributeAccessorReadView<'a>); MOST_COMMON_ATTRIBUTE_COUNT]>,
   pub indices: Option<(AttributeIndexFormat, AttributeAccessorReadView<'a>)>,
   pub mesh: &'a AttributesMesh,
 }

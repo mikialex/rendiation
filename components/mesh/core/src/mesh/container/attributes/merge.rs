@@ -163,7 +163,7 @@ fn merge_assume_all_suitable_and_fit(
       .ok_or(MergeError::AttributeDataAccessFailed)?;
       Ok((key.clone(), att))
     })
-    .try_collect::<Vec<_>>()?;
+    .try_collect::<SmallVec<_>>()?;
 
   let vertex_counts = inputs.iter().map(|att| att.get_position().count);
   let vertex_prefix_offset: Vec<_> = prefix_scan::<UsizeSum>(vertex_counts.clone())

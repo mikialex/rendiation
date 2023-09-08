@@ -8,6 +8,7 @@ use rendiation_scene_core::{
   Texture2DWithSamplingData,
 };
 use rendiation_texture::*;
+use smallvec::SmallVec;
 
 #[derive(thiserror::Error, Debug)]
 pub enum ObjLoadError {
@@ -44,7 +45,7 @@ pub fn load_obj_content(
       let indices = &m.mesh.indices;
       let indices = AttributeAccessor::create_owned(indices.clone(), 4);
 
-      let mut attributes = Vec::with_capacity(3);
+      let mut attributes = SmallVec::with_capacity(3);
       attributes.push((
         AttributeSemantic::Positions,
         AttributeAccessor::create_owned(m.mesh.positions.clone(), 3 * 4),

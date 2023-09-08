@@ -2853,6 +2853,7 @@ dependencies = [
  "rendiation-mesh-core",
  "rendiation-scene-core",
  "rendiation-texture",
+ "smallvec",
  "thiserror",
  "tobj 4.0.0",
 ]

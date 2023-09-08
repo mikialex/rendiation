@@ -36,7 +36,7 @@ impl HierarchyDerived for SceneNodeDerivedData {
 
 bitflags! {
   #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Default)]
-  pub struct SceneNodeDeriveDataDirtyFlag: u32 {
+  pub struct SceneNodeDeriveDataDirtyFlag: u8 {
     const WorldMatrix = 0b00000001;
     const NetVisible = 0b00000010;
   }
