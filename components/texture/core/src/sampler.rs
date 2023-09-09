@@ -11,6 +11,11 @@ pub struct TextureSampler {
 }
 
 impl TextureSampler {
+  pub fn with_double_linear(mut self) -> Self {
+    self.mag_filter = FilterMode::Linear;
+    self.min_filter = FilterMode::Linear;
+    self
+  }
   pub fn tri_linear_repeat() -> Self {
     Self {
       address_mode_u: AddressMode::Repeat,

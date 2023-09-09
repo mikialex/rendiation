@@ -167,7 +167,7 @@ impl<'a> GraphicsShaderProvider for InfinityShaderPlaneEffect<'a> {
     self.camera.inject_uniforms(builder);
 
     builder.vertex(|builder, _| {
-      let out = generate_quad(builder.query::<VertexIndex>()?).expand();
+      let out = generate_quad(builder.query::<VertexIndex>()?, 0.).expand();
       builder.set_vertex_out::<FragmentUv>(out.uv);
       builder.register::<ClipPosition>((out.position.xyz(), val(1.)));
 

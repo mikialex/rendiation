@@ -67,6 +67,12 @@ impl ResourceGPUCtx {
   fn create_gpu_texture_cube(&self, tex: &SceneTextureCube) -> GPUCubeTextureView {
     let texture = tex.read();
     let first = as_2d_source(&texture.faces[0]);
+
+    let view_desc = webgpu::TextureViewDescriptor {
+      dimension: Some(webgpu::TextureViewDimension::Cube),
+      ..Default::default()
+    };
+
     if let Some(t) = &first {
       let source = &texture.faces;
       let desc = t.create_cube_desc(MipLevelCount::EmptyMipMap);
@@ -83,12 +89,12 @@ impl ResourceGPUCtx {
         .upload(queue, &as_2d_source(&source[3]).unwrap(), CubeTextureFace::NegativeY, 0)
         .upload(queue, &as_2d_source(&source[4]).unwrap(), CubeTextureFace::PositiveZ, 0)
         .upload(queue, &as_2d_source(&source[5]).unwrap(), CubeTextureFace::NegativeZ, 0)
-        .create_default_view()
+        .create_view(view_desc)
         .try_into()
         .unwrap()
     } else {
       let tex: GPUCubeTexture = create_fallback_empty_cube_texture(&self.device);
-      tex.create_default_view().try_into().unwrap()
+      tex.create_view(view_desc).try_into().unwrap()
     }
   }
 }

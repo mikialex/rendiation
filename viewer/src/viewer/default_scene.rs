@@ -31,14 +31,25 @@ pub fn load_tex(path: &str) -> SceneTexture2DType {
 }
 
 pub fn load_img_cube() -> SceneTextureCube {
-  let path = [
-    "C:/Users/mk/Desktop/rrf-resource/Park2/posx.jpg",
-    "C:/Users/mk/Desktop/rrf-resource/Park2/negx.jpg",
-    "C:/Users/mk/Desktop/rrf-resource/Park2/posy.jpg",
-    "C:/Users/mk/Desktop/rrf-resource/Park2/negy.jpg",
-    "C:/Users/mk/Desktop/rrf-resource/Park2/posz.jpg",
-    "C:/Users/mk/Desktop/rrf-resource/Park2/negz.jpg",
-  ];
+  let path = if cfg!(windows) {
+    [
+      "C:/Users/mk/Desktop/rrf-resource/Park2/posx.jpg",
+      "C:/Users/mk/Desktop/rrf-resource/Park2/negx.jpg",
+      "C:/Users/mk/Desktop/rrf-resource/Park2/posy.jpg",
+      "C:/Users/mk/Desktop/rrf-resource/Park2/negy.jpg",
+      "C:/Users/mk/Desktop/rrf-resource/Park2/posz.jpg",
+      "C:/Users/mk/Desktop/rrf-resource/Park2/negz.jpg",
+    ]
+  } else {
+    [
+      "/Users/mikialex/dev/references/three.js/examples/textures/cube/pisa/px.png",
+      "/Users/mikialex/dev/references/three.js/examples/textures/cube/pisa/nx.png",
+      "/Users/mikialex/dev/references/three.js/examples/textures/cube/pisa/py.png",
+      "/Users/mikialex/dev/references/three.js/examples/textures/cube/pisa/ny.png",
+      "/Users/mikialex/dev/references/three.js/examples/textures/cube/pisa/pz.png",
+      "/Users/mikialex/dev/references/three.js/examples/textures/cube/pisa/nz.png",
+    ]
+  };
 
   SceneTextureCubeImpl {
     faces: path.map(load_tex),

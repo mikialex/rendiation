@@ -6,12 +6,11 @@ pub struct QuadVertexOut {
   pub uv: Vec2<f32>,
 }
 
-pub fn generate_quad(vertex_index: Node<u32>) -> Node<QuadVertexOut> {
+pub fn generate_quad(vertex_index: Node<u32>, depth: f32) -> Node<QuadVertexOut> {
   let left = -1.0;
   let right = 1.0;
   let top = 1.0;
   let bottom = -1.0;
-  let depth = 0.0;
 
   let position = val(Vec4::default()).make_local_var();
   let uv = val(Vec2::default()).make_local_var();
@@ -67,7 +66,7 @@ impl GraphicsShaderProvider for FullScreenQuad {
         front_face: webgpu::FrontFace::Cw,
         ..Default::default()
       };
-      let out = generate_quad(builder.query::<VertexIndex>()?).expand();
+      let out = generate_quad(builder.query::<VertexIndex>()?, 0.).expand();
       builder.register::<ClipPosition>(out.position);
       builder.set_vertex_out::<FragmentUv>(out.uv);
       Ok(())

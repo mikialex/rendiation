@@ -45,6 +45,7 @@ pub type SceneTextureCube = SharedIncrementalSignal<SceneTextureCubeImpl>;
 
 #[derive(Clone)]
 pub struct SceneTextureCubeImpl {
+  /// in: px, nx, py, ny, pz, nz order
   pub faces: [SceneTexture2DType; 6],
 }
 

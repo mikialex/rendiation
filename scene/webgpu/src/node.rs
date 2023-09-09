@@ -86,6 +86,19 @@ impl NodeGPU {
     let ubo = create_uniform(TransformGPUData::default(), device);
     Self { ubo }
   }
+
+  pub fn inject_uniforms(
+    &self,
+    builder: &mut ShaderRenderPipelineBuilder,
+  ) -> BindingPreparer<ShaderUniformPtr<TransformGPUData>> {
+    builder
+      .bind_by(&self.ubo)
+      .using_graphics_pair(builder, |r, node| {
+        let node = node.load().expand();
+        r.register_typed_both_stage::<WorldMatrix>(node.world_matrix);
+        r.register_typed_both_stage::<WorldNormalMatrix>(node.normal_matrix);
+      })
+  }
 }
 
 #[repr(C)]
@@ -116,6 +129,7 @@ impl GraphicsShaderProvider for NodeGPU {
       let position = model.world_matrix * (position, val(1.)).into();
 
       builder.register::<WorldMatrix>(model.world_matrix);
+      builder.register::<WorldNormalMatrix>(model.normal_matrix);
       builder.register::<WorldVertexPosition>(position.xyz());
 
       let normal = builder.query::<GeometryNormal>()?;
