@@ -107,6 +107,7 @@
         "powf",
         "powi",
         "precompute",
+        "prefiltering",
         "raii",
         "rasterization",
         "Rasterized",
