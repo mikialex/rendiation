@@ -18,6 +18,7 @@ interphaser = { path = "../interphaser" }
 log = "0.4"
 pin-project = "1.0.12"
 rayon = "1.7.0"
+heap-tools = { path = "../utils/heap-tools" }
 fast-hash-collection = { path = "../utils/fast-hash-collection" }
 reactive = { path = "../utils/reactive" }
 rendiation-algebra = { path = "../math/algebra" }
@@ -43,3 +44,4 @@ wasm-bindgen-futures = "0.4.28"
 
 [features]
 webgl = ["webgpu/webgl"]
+heap-debug = ["heap-tools/enabled"]

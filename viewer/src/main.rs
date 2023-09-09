@@ -9,6 +9,8 @@
 #![allow(clippy::collapsible_match)]
 #![allow(clippy::field_reassign_with_default)]
 
+use std::alloc::System;
+
 use rendiation_scene_core::*;
 use rendiation_scene_webgpu::*;
 
@@ -17,7 +19,11 @@ pub use viewer::*;
 
 pub mod app;
 pub use app::*;
+use heap_tools::*;
 use interphaser::{run_gui, WindowSelfState};
+
+#[global_allocator]
+static GLOBAL_ALLOCATOR: PreciseAllocationHook<System> = PreciseAllocationHook::new(System);
 
 fn main() {
   register_viewer_extra_scene_features();

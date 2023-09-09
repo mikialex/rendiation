@@ -189,6 +189,44 @@ pub fn register_default_commands(terminal: &mut Terminal) {
 
     })
   });
+
+  #[cfg(feature = "heap-debug")]
+  {
+    use crate::GLOBAL_ALLOCATOR;
+    terminal.register_command("log-heap-stat", |_ctx, _parameters| {
+      let stat = GLOBAL_ALLOCATOR.report();
+      println!("{:#?}", stat);
+      Box::pin(async {})
+    });
+    terminal.register_command("reset-heap-peak", |_ctx, _parameters| {
+      GLOBAL_ALLOCATOR.reset_history_peak();
+      println!("allocator history peak stat has been reset!");
+      Box::pin(async {})
+    });
+
+    terminal.register_command("log-all-type-count-stat", |_ctx, _parameters| {
+      let global = heap_tools::HEAP_TOOL_GLOBAL_INSTANCE_COUNTER
+        .read()
+        .unwrap();
+      for (ty, report) in global.report_all_instance_count() {
+        println!(
+          "{ty} => current: {}, peak: {}",
+          report.current, report.history_peak
+        );
+      }
+
+      Box::pin(async {})
+    });
+
+    terminal.register_command("reset-all-type-count-peak-stat", |_ctx, _parameters| {
+      heap_tools::HEAP_TOOL_GLOBAL_INSTANCE_COUNTER
+        .write()
+        .unwrap()
+        .reset_all_instance_history_peak();
+      println!("all type instance counter peak stat has been reset!");
+      Box::pin(async {})
+    });
+  }
 }
 
 fn write_png(result: &ReadableTextureBuffer, png_output_path: impl AsRef<Path>) {

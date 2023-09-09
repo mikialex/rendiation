@@ -8,3 +8,4 @@ futures = "0.3.25"
 incremental = { path = "../incremental" }
 reactive = { path = "../reactive" }
 dyn-downcast = { path = "../dyn-downcast" }
+heap-tools = { path = "../heap-tools" }

@@ -1422,6 +1422,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "heap-tools"
+version = "0.0.1"
+dependencies = [
+ "fast-hash-collection",
+ "once_cell",
+]
+
+[[package]]
 name = "heck"
 version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2569,6 +2577,7 @@ version = "0.0.1"
 dependencies = [
  "dyn-downcast",
  "futures",
+ "heap-tools",
  "incremental",
  "reactive",
 ]
@@ -3614,6 +3623,7 @@ dependencies = [
  "env_logger",
  "fast-hash-collection",
  "futures",
+ "heap-tools",
  "image",
  "incremental",
  "interphaser",

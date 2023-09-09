@@ -7,6 +7,7 @@ use std::{
 
 use dyn_downcast::*;
 use futures::{Future, Stream};
+use heap_tools::Counted;
 use incremental::*;
 use reactive::*;
 
@@ -24,6 +25,7 @@ pub struct IncrementalSignal<T: IncrementalBase> {
   inner: T,
   pub delta_source: EventSource<T::Delta>,
   pub drop_source: EventOnceSource<()>,
+  _counting: Counted<Self>,
 }
 
 impl<T: IncrementalBase> AsRef<T> for IncrementalSignal<T> {
@@ -81,6 +83,7 @@ impl<T: IncrementalBase> IncrementalSignal<T> {
       id: alloc_global_res_id(),
       delta_source: Default::default(),
       drop_source: Default::default(),
+      _counting: Default::default(),
     }
   }
 

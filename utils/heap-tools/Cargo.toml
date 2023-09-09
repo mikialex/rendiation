@@ -1,0 +1,11 @@
+[package]
+edition = "2021"
+name = "heap-tools"
+version = "0.0.1"
+
+[dependencies]
+once_cell = "1.4.0"
+fast-hash-collection = { path = "../fast-hash-collection" }
+
+[features]
+enabled = []

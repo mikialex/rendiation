@@ -38,6 +38,7 @@
         "constness",
         "consts",
         "Controllee",
+        "dealloc",
         "Deque",
         "diffable",
         "downcasted",
