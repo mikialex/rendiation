@@ -32,7 +32,7 @@ impl ShadowMapSystem {
       .single_proj_sys
       .write()
       .unwrap()
-      .maintain(gpu_cameras, cx)
+      .poll_updates(gpu_cameras, cx)
   }
 }
 

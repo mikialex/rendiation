@@ -51,26 +51,24 @@ impl Terminal {
   pub fn check_execute(&mut self, ctx: &mut CommandCtx) {
     let waker = futures::task::noop_waker_ref();
     let mut cx = Context::from_waker(waker);
-    self
-      .command_source
-      .loop_poll_until_pending(&mut cx, |command| {
-        let parameters: Vec<String> = command
-          .split_ascii_whitespace()
-          .map(|s| s.to_owned())
-          .collect();
+    self.command_source.poll_until_pending(&mut cx, |command| {
+      let parameters: Vec<String> = command
+        .split_ascii_whitespace()
+        .map(|s| s.to_owned())
+        .collect();
 
-        if let Some(command_name) = parameters.first() {
-          if let Some(exe) = self.commands.get(command_name) {
-            println!("execute: {command}");
+      if let Some(command_name) = parameters.first() {
+        if let Some(exe) = self.commands.get(command_name) {
+          println!("execute: {command}");
 
-            let task = exe(ctx, &parameters);
-            self.executor.spawn_ok(task);
-          } else {
-            println!("unknown command {command_name}")
-          }
-          self.command_history.push(command);
+          let task = exe(ctx, &parameters);
+          self.executor.spawn_ok(task);
+        } else {
+          println!("unknown command {command_name}")
         }
-      });
+        self.command_history.push(command);
+      }
+    });
   }
 }
 

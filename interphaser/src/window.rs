@@ -127,7 +127,7 @@ impl Stream for Window {
     let this = self.deref_mut();
     this
       .states
-      .loop_poll_until_pending(cx, |new| new.apply(&this.window));
+      .poll_until_pending(cx, |new| new.apply(&this.window));
     Poll::Pending
   }
 }

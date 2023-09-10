@@ -49,6 +49,7 @@ pub async fn run_gui(ui: impl View + 'static, init_state: WindowSelfState) {
 
 pub struct Application {
   root: Box<dyn View>,
+  root_terminated: bool, // we could use something like fused view to express this
   any_changed: Arc<NotifyWaker>,
   event_filter: Box<dyn Fn(&PlatformEvent) -> bool>,
   fonts: FontManager,
@@ -97,6 +98,7 @@ impl Application {
 
     Self {
       root: Box::new(root),
+      root_terminated: false,
       any_changed: Default::default(),
       fonts,
       texts,
@@ -122,10 +124,15 @@ impl Application {
 
   fn update(&mut self) {
     while self.any_changed.check_reset_changed() {
+      if self.root_terminated {
+        return;
+      }
       println!("ui update");
       let waker = futures::task::waker_ref(&self.any_changed);
       let mut cx = Context::from_waker(&waker);
-      do_updates_by(&mut self.root, &mut cx, |_| {});
+      self.root_terminated = self
+        .root
+        .poll_until_pending_or_terminate_not_care_result(&mut cx);
     }
   }
 

@@ -5,7 +5,7 @@ use __core::{
   pin::Pin,
   task::{Context, Poll},
 };
-use futures::Stream;
+use futures::{stream::FusedStream, Stream};
 use rendiation_webgpu::*;
 
 use crate::*;
@@ -57,6 +57,11 @@ impl Stream for GPUTextureBindingSystem {
     inner.maintain();
 
     Poll::Pending
+  }
+}
+impl FusedStream for GPUTextureBindingSystem {
+  fn is_terminated(&self) -> bool {
+    false
   }
 }
 

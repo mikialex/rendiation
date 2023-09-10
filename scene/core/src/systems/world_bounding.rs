@@ -4,6 +4,7 @@ use rendiation_geometry::Box3;
 
 use crate::*;
 
+#[pin_project::pin_project]
 pub struct SceneModelWorldBoundingSystem {
   /// actually data
   models_bounding: Vec<Option<Box3>>,
@@ -64,30 +65,41 @@ impl SceneModelWorldBoundingSystem {
     }
   }
 
-  pub fn maintain(&mut self) {
-    do_updates(&mut self.handler, |update| {
+  pub fn get_model_bounding(&self, handle: SceneModelHandle) -> &Option<Box3> {
+    &self.models_bounding[handle.index()]
+  }
+}
+
+impl Stream for SceneModelWorldBoundingSystem {
+  type Item = ();
+
+  fn poll_next(
+    self: std::pin::Pin<&mut Self>,
+    cx: &mut std::task::Context<'_>,
+  ) -> std::task::Poll<Option<Self::Item>> {
+    let this = self.project();
+    if this.handler.poll_until_pending_or_terminate(cx, |update| {
       // collect box updates
       // send into downstream stream TODO
       // update cache,
       match update {
         BoxUpdate::Remove(index) => {
-          self.models_bounding[index] = None;
+          this.models_bounding[index] = None;
         }
         BoxUpdate::Active(index) => {
-          if index == self.models_bounding.len() {
-            self.models_bounding.push(None);
+          if index == this.models_bounding.len() {
+            this.models_bounding.push(None);
           }
         }
         BoxUpdate::Updates(mut updates) => {
           for IndexedItem { index, item } in updates.drain(..) {
-            self.models_bounding[index] = item;
+            this.models_bounding[index] = item;
           }
         }
       }
-    })
-  }
-
-  pub fn get_model_bounding(&self, handle: SceneModelHandle) -> &Option<Box3> {
-    &self.models_bounding[handle.index()]
+    }) {
+      return std::task::Poll::Ready(None);
+    }
+    std::task::Poll::Pending
   }
 }

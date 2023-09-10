@@ -1,3 +1,5 @@
+use futures::stream::FusedStream;
+
 use crate::*;
 
 pub fn get_main_pass_load_op(scene: &SceneCoreImpl) -> webgpu::Operations<webgpu::Color> {
@@ -127,6 +129,11 @@ impl Stream for ForwardLightingSystem {
     *this.light_hash_cache = hasher.finish();
 
     r
+  }
+}
+impl FusedStream for ForwardLightingSystem {
+  fn is_terminated(&self) -> bool {
+    false
   }
 }
 

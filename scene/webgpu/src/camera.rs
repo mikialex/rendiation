@@ -5,6 +5,11 @@ pub struct SceneCameraGPUSystem {
   cameras: SceneCameraGPUStorage,
 }
 
+impl FusedStream for SceneCameraGPUSystem {
+  fn is_terminated(&self) -> bool {
+    false
+  }
+}
 impl Stream for SceneCameraGPUSystem {
   type Item = Vec<StreamMapDelta<usize, CameraGPUTransform>>;
 
