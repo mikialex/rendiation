@@ -24,6 +24,8 @@ pub mod lighting;
 pub use lighting::*;
 pub mod chromatic_aberration;
 pub use chromatic_aberration::*;
+pub mod vignette;
+pub use vignette::*;
 
 use crate::*;
 
