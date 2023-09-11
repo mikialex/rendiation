@@ -43,8 +43,8 @@ impl SingleProjectShadowMapSystem {
     self.list.allocate(light_id)
   }
 
-  pub fn maintain(&mut self, gpu_cameras: &mut SceneCameraGPUSystem, cx: &mut Context) {
-    do_updates_by(&mut self.cameras_source, cx, |updates| {
+  pub fn poll_updates(&mut self, gpu_cameras: &mut SceneCameraGPUSystem, cx: &mut Context) {
+    self.cameras_source.poll_until_pending(cx, |updates| {
       for update in updates {
         match update {
           StreamMapDelta::Delta(idx, (camera, size)) => {
@@ -65,7 +65,7 @@ impl SingleProjectShadowMapSystem {
       }
     });
 
-    do_updates(gpu_cameras, |updates| {
+    gpu_cameras.poll_until_pending(cx, |updates| {
       for update in updates {
         if let StreamMapDelta::Delta(camera_id, shadow_camera) = update {
           let light_id = self.cameras_id_map_light_id.get(&camera_id).unwrap();
@@ -74,7 +74,7 @@ impl SingleProjectShadowMapSystem {
       }
     });
 
-    do_updates(&mut self.shadow_maps, |updates| {
+    self.shadow_maps.poll_until_pending(cx, |updates| {
       for update in updates {
         if let StreamMapDelta::Delta(idx, delta) = update {
           self.list.get_mut_data(idx).map_info = delta;

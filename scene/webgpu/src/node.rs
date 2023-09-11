@@ -6,6 +6,11 @@ pub struct SceneNodeGPUSystem {
   nodes: SceneNodeGPUStorage,
 }
 
+impl FusedStream for SceneNodeGPUSystem {
+  fn is_terminated(&self) -> bool {
+    false
+  }
+}
 impl Stream for SceneNodeGPUSystem {
   type Item = ();
 

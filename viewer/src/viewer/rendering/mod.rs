@@ -8,7 +8,7 @@ pub use contents::*;
 mod pipeline;
 use futures::Future;
 use pipeline::*;
-use reactive::EventSource;
+use reactive::{EventSource, PollUtils};
 use webgpu::*;
 
 pub struct Viewer3dRenderingCtx {
@@ -58,12 +58,18 @@ impl Viewer3dRenderingCtx {
   }
 
   pub fn render(&mut self, target: RenderTargetView, content: &mut Viewer3dContent) {
-    content.maintain();
-    self.resources.maintain();
+    let waker = futures::task::noop_waker_ref();
+    let mut cx = std::task::Context::from_waker(waker);
 
-    let (scene_resource, content_res) = self
-      .resources
-      .get_or_create_scene_sys_with_content(&content.scene, &content.scene_derived);
+    content.maintain();
+
+    self.resources.poll_until_pending_not_care_result(&mut cx);
+
+    let (scene_resource, content_res) = self.resources.get_or_create_scene_sys_with_content(
+      &content.scene,
+      &content.scene_derived,
+      &mut cx,
+    );
     let resource = content_res.read().unwrap();
 
     let scene = content.scene.read();

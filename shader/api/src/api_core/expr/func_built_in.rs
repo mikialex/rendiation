@@ -209,6 +209,16 @@ where
   }
 }
 
+// todo fix bound
+impl<T: PrimitiveShaderNodeType> Node<T> {
+  pub fn mix(self, low: impl Into<Self>, high: impl Into<Self>) -> Self {
+    make_builtin_call(
+      ShaderBuiltInFunction::Mix,
+      [low.into().handle(), high.into().handle(), self.handle()],
+    )
+  }
+}
+
 impl<T> Node<T>
 where
   T: SquareMatrix<f32> + PrimitiveShaderNodeType,

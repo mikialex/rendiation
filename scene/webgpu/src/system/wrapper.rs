@@ -156,25 +156,6 @@ impl<T> RenderComponentCell<T> {
 }
 
 #[macro_export]
-macro_rules! early_return_ready {
-  ($e:expr) => {
-    match $e {
-      $crate::task::Poll::Ready(t) => return $crate::task::Poll::Ready(t),
-      $crate::task::Poll::Pending => {}
-    }
-  };
-}
-
-#[macro_export]
-macro_rules! early_return_option_ready {
-  ($e:expr, $cx:expr ) => {
-    if let Some(t) = &mut $e {
-      early_return_ready!(t.poll_next_unpin($cx));
-    }
-  };
-}
-
-#[macro_export]
 macro_rules! poll_update_texture_handle_uniform {
   ($this: tt, $name: tt, $cx: tt, $flag: tt, $uniform_flag: tt) => {
     $this.$name.poll_change($cx, &mut $flag, |d| {

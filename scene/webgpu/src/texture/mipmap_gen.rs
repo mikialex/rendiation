@@ -139,6 +139,18 @@ pub trait Mipmap2dReducer: Send + Sync {
   ) -> Node<Vec4<f32>>;
 }
 
+pub trait MipmapCubeReducer: Send + Sync {
+  fn reduce(
+    &self,
+    previous_level: HandleNode<ShaderTextureCube>,
+    sampler: HandleNode<ShaderSampler>,
+    current_uv: Node<Vec2<f32>>,
+    current_face_index: u8,
+    current_world_direction: Node<Vec3<f32>>,
+    texel_size: Node<Vec2<f32>>,
+  );
+}
+
 struct DefaultMipmapReducer;
 
 impl Mipmap2dReducer for DefaultMipmapReducer {
@@ -157,6 +169,7 @@ impl Mipmap2dReducer for DefaultMipmapReducer {
     r / val(4.).splat()
   }
 }
+
 struct Mipmap2DGeneratorTask<'a> {
   view: GPU2DTextureView,
   reducer: &'a dyn Mipmap2dReducer,

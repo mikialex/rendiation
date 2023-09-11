@@ -9,25 +9,6 @@ use pin_project::pin_project;
 
 use crate::*;
 
-pub fn do_updates<T: Stream + Unpin>(stream: &mut T, on_update: impl FnMut(T::Item)) {
-  // synchronously polling the stream, pull out all updates.
-  // note, if the compute stream contains async mapping, the async part is actually
-  // polled inactively.
-  let waker = futures::task::noop_waker_ref();
-  let mut cx = Context::from_waker(waker);
-  do_updates_by(stream, &mut cx, on_update)
-}
-
-pub fn do_updates_by<T: Stream + Unpin>(
-  stream: &mut T,
-  cx: &mut Context,
-  mut on_update: impl FnMut(T::Item),
-) {
-  while let Poll::Ready(Some(update)) = stream.poll_next_unpin(cx) {
-    on_update(update)
-  }
-}
-
 pub fn once_forever_pending<T>(value: T) -> impl Stream<Item = T> + Unpin {
   once(core::future::ready(value)).chain(futures::stream::pending())
 }

@@ -5,6 +5,9 @@ pub struct SceneGPUSystem {
   pub gpu: ResourceGPUCtx,
 
   #[pin]
+  source: SceneGPUUpdateSource,
+
+  #[pin]
   pub nodes: SceneNodeGPUSystem,
 
   #[pin]
@@ -13,44 +16,44 @@ pub struct SceneGPUSystem {
   #[pin]
   pub models: Arc<RwLock<StreamMap<usize, ReactiveSceneModelGPUInstance>>>,
 
-  #[pin]
-  source: SceneGPUUpdateSource,
-
   pub shadows: ShadowMapSystem,
   pub lights: ForwardLightingSystem,
-}
-
-impl SceneGPUSystem {
-  pub fn encode(&self, _encoder: &mut GPUCommandEncoder, _pass_dispatcher: &dyn RenderComponent) {
-    // do encoding
-  }
 }
 
 impl Stream for SceneGPUSystem {
   type Item = ();
 
   fn poll_next(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Option<Self::Item>> {
-    let this = self.project();
-    early_return_ready!(this.source.poll_next(cx));
-    early_return_ready!(this.nodes.poll_next(cx));
+    let mut this = self.project();
+    if this
+      .source
+      .poll_until_pending_or_terminate_not_care_result(cx)
+    {
+      return Poll::Ready(None);
+    }
+    this.nodes.poll_until_pending_not_care_result(cx);
 
     let mut cameras_ = this.cameras.write().unwrap();
     let cameras: &mut SceneCameraGPUSystem = &mut cameras_;
-    let cameras_poll = cameras.poll_next_unpin(cx).map(|v| v.map(|_| ()));
-    early_return_ready!(cameras_poll);
+    cameras.poll_until_pending_not_care_result(cx);
     drop(cameras_);
 
     let mut models = this.models.write().unwrap();
     let models: &mut StreamMap<usize, ReactiveSceneModelGPUInstance> = &mut models;
-    do_updates_by(models, cx, |_| {});
+    models.poll_until_pending_not_care_result(cx);
 
-    do_updates_by(this.lights, cx, |_| {});
+    this.lights.poll_until_pending_not_care_result(cx);
 
     let mut cameras = this.cameras.write().unwrap();
     let cameras: &mut SceneCameraGPUSystem = &mut cameras;
     this.shadows.maintain(cameras, cx);
 
     Poll::Pending
+  }
+}
+impl FusedStream for SceneGPUSystem {
+  fn is_terminated(&self) -> bool {
+    false
   }
 }
 type SceneGPUUpdateSource = impl Stream<Item = ()> + Unpin;
@@ -108,9 +111,5 @@ impl SceneGPUSystem {
       lights,
       shadows,
     }
-  }
-
-  pub fn maintain(&mut self) {
-    do_updates(self, |_| {});
   }
 }

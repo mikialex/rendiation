@@ -5,6 +5,7 @@ use interphaser::{
   winit::event::{ElementState, Event, MouseButton},
   CanvasWindowPositionInfo, WindowState,
 };
+use reactive::PollUtils;
 use rendiation_algebra::Mat4;
 use rendiation_controller::{
   ControllerWinitAdapter, InputBound, OrbitController, Transformed3DControllee,
@@ -47,7 +48,7 @@ impl Viewer3dContent {
       ground: Default::default(),
       axis_helper,
       grid_helper,
-      camera_helpers: Default::default(),
+      camera_helpers: CameraHelpers::new(&scene),
       gizmo,
     };
 
@@ -63,8 +64,20 @@ impl Viewer3dContent {
   }
 
   pub fn maintain(&mut self) {
-    self.scene_derived.maintain();
-    self.scene_bounding.maintain();
+    let waker = futures::task::noop_waker_ref();
+    let mut cx = std::task::Context::from_waker(waker);
+    let _ = self
+      .scene_derived
+      .poll_until_pending_or_terminate_not_care_result(&mut cx);
+    let _ = self
+      .scene_bounding
+      .poll_until_pending_or_terminate_not_care_result(&mut cx);
+
+    let _ = self
+      .widgets
+      .borrow_mut()
+      .camera_helpers
+      .poll_until_pending_or_terminate_not_care_result(&mut cx);
   }
 
   pub fn resize_view(&mut self, size: (f32, f32)) {

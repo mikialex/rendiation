@@ -1,8 +1,12 @@
 use core::hash::Hash;
+use std::{
+  pin::Pin,
+  task::{Context, Poll},
+};
 
 use arena::ArenaDelta;
 use futures::StreamExt;
-use reactive::{do_updates, SignalStreamExt, VecUpdateUnit};
+use reactive::{SignalStreamExt, VecUpdateUnit};
 use tree::TreeMutation;
 
 use crate::*;
@@ -115,13 +119,17 @@ pub struct NodeReferenceModelBookKeeping {
   source: NodeReferenceModelBookKeepingSource,
 }
 
+impl Stream for NodeReferenceModelBookKeeping {
+  type Item = ();
+
+  fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context) -> Poll<Option<Self::Item>> {
+    self.source.poll_next_unpin(cx)
+  }
+}
+
 type NodeReferenceModelBookKeepingSource = impl Stream<Item = ()> + Unpin;
 
 impl NodeReferenceModelBookKeeping {
-  pub fn maintain(&mut self) {
-    do_updates(&mut self.source, |_| {});
-  }
-
   pub fn query_node_referenced_model_indices(&self, node: &SceneNode, model_index: impl Fn(usize)) {
     let inner = self.inner.read().unwrap();
     if let Some(models) = inner.mapping.get(&node.raw_handle().index()) {

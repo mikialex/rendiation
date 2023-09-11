@@ -1,5 +1,7 @@
-use futures::Stream;
-use reactive::{do_updates, ReactiveMap};
+use std::sync::{Arc, RwLock};
+
+use futures::{Stream, StreamExt};
+use reactive::{PollUtils, SignalStreamExt, StreamMap};
 use rendiation_algebra::*;
 use rendiation_mesh_core::{GroupedMesh, NoneIndexedMesh};
 
@@ -94,38 +96,92 @@ fn build_debug_line_in_camera_space(project_mat: Mat4<f32>) -> HelperLineMesh {
   HelperLineMesh::new(lines)
 }
 
-impl SceneItemReactiveMapping<CameraHelper> for SceneCamera {
-  type ChangeStream = impl Stream<Item = Mat4<f32>> + Unpin;
-  type Ctx<'a> = ();
+type ReactiveCameraHelper = impl Stream<Item = ()> + AsRef<CameraHelper> + Unpin;
 
-  fn build(&self, _: &Self::Ctx<'_>) -> (CameraHelper, Self::ChangeStream) {
-    let source = self.read();
-    let helper =
-      CameraHelper::from_node_and_project_matrix(source.node.clone(), source.compute_project_mat());
-
-    // todo, node change
-    let change = self.create_projection_mat_stream();
-    (helper, change)
-  }
-
-  fn update(&self, mapped: &mut CameraHelper, change: &mut Self::ChangeStream, _: &Self::Ctx<'_>) {
-    do_updates(change, |delta| {
-      mapped.update(delta);
-    });
-  }
+fn create_reactive_camera_helper(camera: &SceneCamera) -> ReactiveCameraHelper {
+  let c = camera.read();
+  let helper_init =
+    CameraHelper::from_node_and_project_matrix(c.node.clone(), c.compute_project_mat());
+  let c = camera.downgrade();
+  camera
+    .unbound_listen_by(all_delta)
+    .fold_signal(helper_init, move |delta, state| {
+      match delta {
+        SceneCameraInnerDelta::bounds(_) => {}
+        SceneCameraInnerDelta::projection(_) => {
+          if let Some(cam) = c.upgrade() {
+            state.update(cam.read().compute_project_mat());
+          }
+        }
+        SceneCameraInnerDelta::node(_) => {
+          if let Some(cam) = c.upgrade() {
+            let c = cam.read();
+            *state =
+              CameraHelper::from_node_and_project_matrix(c.node.clone(), c.compute_project_mat());
+          }
+        }
+      };
+      Some(())
+    })
 }
 
 pub struct CameraHelpers {
+  /// this just control draw, it should be always get update
   pub enabled: bool,
-  pub helpers: ReactiveMap<SceneCamera, CameraHelper>,
+  pub helpers: Arc<RwLock<StreamMap<usize, ReactiveCameraHelper>>>,
+  updater: Box<dyn Stream<Item = ()> + Unpin>,
 }
 
-impl Default for CameraHelpers {
-  fn default() -> Self {
+impl CameraHelpers {
+  pub fn new(scene: &Scene) -> Self {
+    let helpers: StreamMap<usize, ReactiveCameraHelper> = Default::default();
+    let helpers = Arc::new(RwLock::new(helpers));
+    let h = helpers.clone();
+    let updater = scene
+      .unbound_listen_by(all_delta)
+      .filter_map_sync(|delta: MixSceneDelta| match delta {
+        MixSceneDelta::cameras(c) => Some(c),
+        _ => None,
+      })
+      .map(move |delta| match delta {
+        // todo improve
+        ContainerRefRetainContentDelta::Remove(c) => {
+          let _ = helpers.write().unwrap().remove(c.guid()).unwrap();
+        }
+        ContainerRefRetainContentDelta::Insert(c) => {
+          helpers
+            .write()
+            .unwrap()
+            .insert(c.guid(), create_reactive_camera_helper(&c));
+        }
+      });
     Self {
       enabled: true,
-      helpers: Default::default(),
+      helpers: h,
+      updater: Box::new(updater),
     }
+  }
+}
+
+impl Stream for CameraHelpers {
+  type Item = ();
+
+  fn poll_next(
+    mut self: __core::pin::Pin<&mut Self>,
+    cx: &mut __core::task::Context<'_>,
+  ) -> __core::task::Poll<Option<Self::Item>> {
+    if self
+      .updater
+      .poll_until_pending_or_terminate_not_care_result(cx)
+    {
+      return __core::task::Poll::Ready(None);
+    }
+    self
+      .helpers
+      .write()
+      .unwrap()
+      .poll_until_pending_not_care_result(cx);
+    __core::task::Poll::Pending
   }
 }
 
@@ -141,7 +197,8 @@ impl PassContentWithSceneAndCamera for &mut CameraHelpers {
     }
 
     for (_, draw_camera) in &scene.scene.cameras {
-      let helper = self.helpers.get_with_update(draw_camera, &());
+      let helpers = self.helpers.read().unwrap();
+      let helper = helpers.get(&draw_camera.guid()).unwrap().as_ref();
 
       helper.model.inner.render(
         pass,

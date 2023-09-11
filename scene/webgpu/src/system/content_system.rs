@@ -54,17 +54,24 @@ impl ContentGPUSystem {
   }
 }
 
+impl FusedStream for ContentGPUSystem {
+  fn is_terminated(&self) -> bool {
+    false
+  }
+}
 impl Stream for ContentGPUSystem {
   type Item = ();
 
   fn poll_next(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Option<Self::Item>> {
-    let mut this = self.project();
-    do_updates_by(&mut this.bindable_ctx, cx, |_| {});
-    do_updates_by(&mut this.model_ctx, cx, |_| {});
+    let this = self.project();
+    this.bindable_ctx.poll_until_pending_not_care_result(cx);
+    this.model_ctx.poll_until_pending_not_care_result(cx);
 
-    let mut models = this.models.write().unwrap();
-    let models: &mut StreamMap<usize, ReactiveModelGPUType> = &mut models;
-    do_updates_by(models, cx, |_| {});
+    this
+      .models
+      .write()
+      .unwrap()
+      .poll_until_pending_not_care_result(cx);
     Poll::Pending
   }
 }
@@ -80,20 +87,21 @@ pub struct GPUModelResourceCtx {
 impl Stream for GPUModelResourceCtx {
   type Item = ();
 
+  #[rustfmt::skip]
   fn poll_next(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Option<Self::Item>> {
-    let mut this = self.project();
+    let this = self.project();
 
-    do_updates_by(&mut this.shared, cx, |_| {});
+    this.shared.poll_until_pending_not_care_result(cx);
 
-    let mut materials = this.materials.write().unwrap();
-    let materials: &mut StreamMap<usize, MaterialGPUInstance> = &mut materials;
-    do_updates_by(materials, cx, |_| {});
-
-    let mut meshes = this.meshes.write().unwrap();
-    let meshes: &mut StreamMap<usize, MeshGPUInstance> = &mut meshes;
-    do_updates_by(meshes, cx, |_| {});
+    this.materials.write().unwrap().poll_until_pending_not_care_result(cx);
+    this.meshes.write().unwrap().poll_until_pending_not_care_result(cx);
 
     Poll::Pending
+  }
+}
+impl FusedStream for GPUModelResourceCtx {
+  fn is_terminated(&self) -> bool {
+    false
   }
 }
 
@@ -112,33 +120,32 @@ pub struct ShareBindableResourceCtx {
   pub texture_2d: Arc<RwLock<StreamMap<usize, ReactiveGPU2DTextureViewSource>>>,
   pub texture_cube: Arc<RwLock<StreamMap<usize, ReactiveGPUCubeTextureViewSource>>>,
   // share uniform buffers
+  // share storage buffers
   // share vertex buffers
 }
 
 impl Stream for ShareBindableResourceCtx {
   type Item = ();
 
+  #[rustfmt::skip]
   fn poll_next(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Option<Self::Item>> {
     let this = self.project();
-    let mut sampler = this.sampler.write().unwrap();
-    let sampler: &mut StreamMap<usize, ReactiveGPUSamplerViewSource> = &mut sampler;
-    do_updates_by(sampler, cx, |_| {});
+    this.sampler.write().unwrap().poll_until_pending_not_care_result(cx);
+    this.texture_2d.write().unwrap().poll_until_pending_not_care_result(cx);
+    this.texture_cube.write().unwrap().poll_until_pending_not_care_result(cx);
 
-    let mut texture_2d = this.texture_2d.write().unwrap();
-    let texture_2d: &mut StreamMap<usize, ReactiveGPU2DTextureViewSource> = &mut texture_2d;
-    do_updates_by(texture_2d, cx, |_| {});
-
-    let mut texture_cube = this.texture_cube.write().unwrap();
-    let texture_cube: &mut StreamMap<usize, ReactiveGPUCubeTextureViewSource> = &mut texture_cube;
-    do_updates_by(texture_cube, cx, |_| {});
-
-    do_updates_by(this.binding_sys, cx, |_| {});
+    this.binding_sys.poll_until_pending_not_care_result(cx);
 
     if let Some(bindless_mesh) = this.bindless_mesh {
       bindless_mesh.maintain();
     }
 
     Poll::Pending
+  }
+}
+impl FusedStream for ShareBindableResourceCtx {
+  fn is_terminated(&self) -> bool {
+    false
   }
 }
 

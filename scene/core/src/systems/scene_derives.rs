@@ -96,13 +96,32 @@ impl SceneNodeDeriveSystem {
       indexed_stream_mapper,
     }
   }
+}
 
-  pub fn maintain(&mut self) {
-    let updater: &mut StreamCacheUpdateWrapper = &mut self.updater.write().unwrap();
-    do_updates(updater, |_| {});
-    let mut indexed_stream_mapper: &mut SceneNodeChangeStreamIndexMapper =
-      &mut self.indexed_stream_mapper.write().unwrap();
-    do_updates(&mut indexed_stream_mapper, |_| {});
+impl Stream for SceneNodeDeriveSystem {
+  type Item = ();
+
+  fn poll_next(
+    self: std::pin::Pin<&mut Self>,
+    cx: &mut std::task::Context<'_>,
+  ) -> std::task::Poll<Option<Self::Item>> {
+    if self
+      .updater
+      .write()
+      .unwrap()
+      .poll_until_pending_or_terminate_not_care_result(cx)
+    {
+      return std::task::Poll::Ready(None);
+    }
+    if self
+      .indexed_stream_mapper
+      .write()
+      .unwrap()
+      .poll_until_pending_or_terminate_not_care_result(cx)
+    {
+      return std::task::Poll::Ready(None);
+    }
+    std::task::Poll::Pending
   }
 }
 

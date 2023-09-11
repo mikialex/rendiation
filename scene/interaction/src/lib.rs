@@ -121,7 +121,6 @@ impl WebGPUScenePickingExt for SceneCoreImpl {
     ctx: &SceneRayInteractiveCtx,
     bounding_system: &mut SceneModelWorldBoundingSystem,
   ) -> Option<(&'a SceneModel, MeshBufferHitPoint)> {
-    bounding_system.maintain();
     interaction_picking(
       self.models.iter().filter_map(|(handle, m)| {
         if let Some(bounding) = bounding_system.get_model_bounding(handle) {
