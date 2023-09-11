@@ -48,7 +48,7 @@ impl Viewer3dContent {
       ground: Default::default(),
       axis_helper,
       grid_helper,
-      camera_helpers: Default::default(),
+      camera_helpers: CameraHelpers::new(&scene),
       gizmo,
     };
 
@@ -71,6 +71,12 @@ impl Viewer3dContent {
       .poll_until_pending_or_terminate_not_care_result(&mut cx);
     let _ = self
       .scene_bounding
+      .poll_until_pending_or_terminate_not_care_result(&mut cx);
+
+    let _ = self
+      .widgets
+      .borrow_mut()
+      .camera_helpers
       .poll_until_pending_or_terminate_not_care_result(&mut cx);
   }
 
