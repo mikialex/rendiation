@@ -137,19 +137,13 @@ impl<T: IncrementalBase> SharedIncrementalSignal<T> {
     T: ApplicableIncremental,
   {
     let other_weak = other.downgrade();
-    let remove_token = self.read().delta_source.on(move |delta| {
+    // here we not care the listener removal because we use weak
+    self.read().delta_source.on(move |delta| {
       if let Some(other) = other_weak.upgrade() {
         other.mutate(|mut m| m.modify(extra_mapper(delta.clone())));
         false
       } else {
         true
-      }
-    });
-
-    let self_weak = self.downgrade();
-    other.read().drop_source.on(move |_| {
-      if let Some(origin) = self_weak.upgrade() {
-        origin.read().delta_source.off(remove_token)
       }
     });
   }

@@ -6,7 +6,7 @@ use std::{
 };
 
 use dyn_downcast::*;
-use futures::{Future, Stream};
+use futures::{Future, Stream, StreamExt};
 use heap_tools::Counted;
 use incremental::*;
 use reactive::*;
@@ -24,7 +24,6 @@ pub struct IncrementalSignal<T: IncrementalBase> {
   id: usize,
   inner: T,
   pub delta_source: EventSource<T::Delta>,
-  pub drop_source: EventOnceSource<()>,
   _counting: Counted<Self>,
 }
 
@@ -82,7 +81,6 @@ impl<T: IncrementalBase> IncrementalSignal<T> {
       inner,
       id: alloc_global_res_id(),
       delta_source: Default::default(),
-      drop_source: Default::default(),
       _counting: Default::default(),
     }
   }
@@ -121,6 +119,16 @@ impl<T: IncrementalBase> IncrementalSignal<T> {
     self.listen_by::<DefaultUnboundChannel, _, U>(mapper)
   }
 
+  pub fn single_listen_by<U>(
+    &self,
+    mapper: impl FnMut(MaybeDeltaRef<T>, &dyn Fn(U)) + Send + Sync + 'static,
+  ) -> impl Stream<Item = U>
+  where
+    U: Send + Sync + 'static,
+  {
+    self.listen_by::<DefaultSingleValueChannel, _, U>(mapper)
+  }
+
   pub fn listen_by<C, U, N>(
     &self,
     mut mapper: impl FnMut(MaybeDeltaRef<T>, &dyn Fn(U)) + Send + Sync + 'static,
@@ -148,14 +156,16 @@ impl<T: IncrementalBase> IncrementalSignal<T> {
     EventSourceStream::new(dropper, receiver)
   }
 
-  // todo, how to handle too many drop listener? in fact we never cleanup them
   pub fn create_drop(&self) -> impl Future<Output = ()> {
-    let (sender, receiver) = futures::channel::oneshot::channel::<()>();
-    self.drop_source.on(move |_| {
-      sender.send(()).ok();
-    });
-    use futures::FutureExt;
-    receiver.map(|_| ())
+    let mut s = self.single_listen_by(no_change);
+
+    Box::pin(async move {
+      loop {
+        if s.next().await.is_none() {
+          break;
+        }
+      }
+    })
   }
 }
 
