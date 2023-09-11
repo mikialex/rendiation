@@ -19,7 +19,7 @@ pub fn vignette(
 ) -> Node<Vec3<f32>> {
   let config = config.load().expand();
   let distance = (uv - val(0.5).splat()).abs() * config.mid_point.splat::<Vec2<f32>>();
-  let distance: Node<Vec2<f32>> = (distance.x() * config.aspect, distance.y()).into();
+  let distance = vec2_node((distance.x() * config.aspect, distance.y()));
   let distance = distance.saturate().pow(config.radius);
 
   let amount = (val(1.) - distance.dot(distance))

@@ -8,7 +8,7 @@ pub fn integrate_brdf(
   sample_count: Node<u32>,
 ) -> Node<Vec2<f32>> {
   let roughness2 = roughness * roughness;
-  let view: Node<Vec3<_>> = ((val(1.) - n_dot_v * n_dot_v).sqrt(), val(0.), n_dot_v).into();
+  let view = vec3_node(((val(1.) - n_dot_v * n_dot_v).sqrt(), val(0.), n_dot_v));
 
   let sum = sample_count
     .into_shader_iter()
@@ -25,8 +25,7 @@ pub fn integrate_brdf(
       let g_vis = (g * v_dot_h / (n_dot_h * n_dot_v)).max(0.);
       let fc = (val(1.) - v_dot_h).pow(5.0);
 
-      let r: Node<Vec2<f32>> = ((val(1.) - fc) * g_vis, fc * g_vis).into();
-      r
+      vec2_node(((val(1.) - fc) * g_vis, fc * g_vis))
     })
     .sum();
 

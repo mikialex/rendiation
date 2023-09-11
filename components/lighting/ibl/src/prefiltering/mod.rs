@@ -63,8 +63,7 @@ pub fn prefilter_specular(
           let mip_level = (val(0.5) * (omega_s / omega_p).log2() + val(1.)).max(0.);
 
           let sample = env.sample_level(sampler, light, mip_level).xyz() * n_dot_l;
-          let r: Node<Vec4<f32>> = (sample, n_dot_l).into();
-          r
+          vec4_node((sample, n_dot_l))
         },
         || val(Vec4::zero()),
       )
@@ -87,12 +86,11 @@ fn tbn(normal: Node<Vec3<f32>>) -> Node<Mat3<f32>> {
   let sign = normal.z().less_than(0.).select(val(-1.), val(1.));
   let a = val(-1.) / (sign + normal.z());
   let b = normal.x() * normal.y() * a;
-  let tangent: Node<Vec3<f32>> = (
+  let tangent = vec3_node((
     val(1.) + sign * normal.x() * normal.y() * a,
     sign * b,
     -sign * normal.x(),
-  )
-    .into();
-  let bi_tangent: Node<Vec3<f32>> = (b, sign + normal.y() * normal.y() * a, -normal.y()).into();
+  ));
+  let bi_tangent = vec3_node((b, sign + normal.y() * normal.y() * a, -normal.y()));
   (tangent.normalize(), bi_tangent.normalize(), normal).into()
 }

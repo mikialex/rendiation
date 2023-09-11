@@ -76,13 +76,12 @@ impl GraphicsShaderProvider for TextureUIPipeline {
 
       let global = global.using().load().expand();
 
-      let vertex: Node<Vec4<_>> = (
+      let vertex = vec4_node((
         val(2.0) * position.x() / global.screen_size.x() - val(1.0),
         val(1.0) - val(2.0) * position.y() / global.screen_size.y(),
         val(0.0),
         val(1.0),
-      )
-        .into();
+      ));
 
       builder.register::<ClipPosition>(vertex);
       builder.set_vertex_out::<FragmentColorAndAlpha>(color);
