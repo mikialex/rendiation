@@ -2721,6 +2721,7 @@ dependencies = [
  "image",
  "rendiation-algebra",
  "rendiation-shader-api",
+ "rendiation-shader-library",
  "rendiation-texture",
 ]
 

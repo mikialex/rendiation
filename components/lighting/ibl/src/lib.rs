@@ -1,3 +1,5 @@
+use rendiation_shader_api::*;
+
 mod prefiltering;
 pub use prefiltering::*;
 
