@@ -29,6 +29,7 @@ members = [
   "components/texture/gpu-system",
   "components/texture/generative",
   "components/lighting/ltc",
+  "components/lighting/ibl",
   "components/space",
   "components/fontext",
   "components/canvas/core",

@@ -167,8 +167,8 @@ fn fatline_vertex(
   view_size: Node<Vec2<f32>>,
   width: Node<f32>,
 ) -> Node<Vec4<f32>> {
-  let fatline_start: Node<Vec4<_>> = (fatline_start, val(1.0)).into();
-  let fatline_end: Node<Vec4<_>> = (fatline_end, val(1.0)).into();
+  let fatline_start = vec4_node((fatline_start, val(1.0)));
+  let fatline_end = vec4_node((fatline_end, val(1.0)));
   // camera space
   let start = view * world_matrix * fatline_start;
   let end = view * world_matrix * fatline_end;
@@ -187,15 +187,15 @@ fn fatline_vertex(
   let dir = ndc_end - ndc_start;
 
   // account for clip-space aspect ratio
-  let dir: Node<Vec2<_>> = (dir.x() * aspect, dir.y()).into();
+  let dir = vec2_node((dir.x() * aspect, dir.y()));
   let dir = dir.normalize();
 
   // perpendicular to dir
-  let offset: Node<Vec2<_>> = (dir.y(), -dir.x()).into();
+  let offset = vec2_node((dir.y(), -dir.x()));
 
   // undo aspect ratio adjustment
-  let dir: Node<Vec2<_>> = (dir.x() / aspect, dir.y()).into();
-  let offset: Node<Vec2<_>> = (offset.x() / aspect, offset.y()).into();
+  let dir = vec2_node((dir.x() / aspect, dir.y()));
+  let offset = vec2_node((offset.x() / aspect, offset.y()));
   let offset = offset.make_local_var();
 
   // sign flip

@@ -352,6 +352,25 @@ macro_rules! compose_all {
   }
 }
 
+pub fn vec2_node<T>(x: impl Into<Node<Vec2<T>>>) -> Node<Vec2<T>> {
+  x.into()
+}
+pub fn vec3_node<T>(x: impl Into<Node<Vec3<T>>>) -> Node<Vec3<T>> {
+  x.into()
+}
+pub fn vec4_node<T>(x: impl Into<Node<Vec4<T>>>) -> Node<Vec4<T>> {
+  x.into()
+}
+pub fn mat2_node<T>(x: impl Into<Node<Mat2<T>>>) -> Node<Mat2<T>> {
+  x.into()
+}
+pub fn mat3_node<T>(x: impl Into<Node<Mat3<T>>>) -> Node<Mat3<T>> {
+  x.into()
+}
+pub fn mat4_node<T>(x: impl Into<Node<Mat4<T>>>) -> Node<Mat4<T>> {
+  x.into()
+}
+
 compose_all!(f32);
 
 impl Node<Mat4<f32>> {

@@ -40,7 +40,7 @@ pub fn ltc_light_eval(
 
   let n_dot_v = normal.dot(view).saturate();
 
-  let uv: Node<Vec2<_>> = (roughness, (val(1.0) - n_dot_v).sqrt()).into();
+  let uv = vec2_node((roughness, (val(1.0) - n_dot_v).sqrt()));
   let uv = uv * val(LUT_SCALE) + val(LUT_BIAS).splat();
 
   let t1 = ltc_1.sample(sampler, uv);
@@ -96,7 +96,7 @@ pub fn ltc_evaluate_rect(
   let t2 = n.cross(t1);
 
   // rotate area light in (T1, T2, N) basis
-  let m: Node<Mat3<_>> = (t1, t2, n).into();
+  let m = mat3_node((t1, t2, n));
   let min_v = min_v * m.transpose();
 
   // polygon
@@ -125,7 +125,7 @@ pub fn ltc_evaluate_rect(
       let z = v_sum.z() / len;
       let z = z * behind.select(-1., 1.);
 
-      let uv: Node<Vec2<_>> = (z * val(0.5) + val(0.5), len).into();
+      let uv = vec2_node((z * val(0.5) + val(0.5), len));
       let uv = uv * val(LUT_SCALE) + val(LUT_BIAS).splat();
       let scale = ltc_2.sample_level(sampler, uv, val(0.)).w();
 
@@ -168,7 +168,7 @@ pub fn ltc_evaluate_disk(
   let t2 = n.cross(t1);
 
   // rotate area light in (T1, T2, N) basis
-  let m: Node<Mat3<_>> = (t1, t2, n).into();
+  let m = mat3_node((t1, t2, n));
   let base = min_v * m.transpose();
 
   // polygon
@@ -263,9 +263,9 @@ pub fn ltc_evaluate_disk(
       let e2 = roots.y();
       let e3 = roots.z();
 
-      let avg_dir: Node<Vec3<_>> = (a * x0 / (a - e2), b * y0 / (b - e2), val(1.0)).into();
+      let avg_dir = vec3_node((a * x0 / (a - e2), b * y0 / (b - e2), val(1.0)));
 
-      let rotate: Node<Mat3<_>> = (V1, V2, V3).into();
+      let rotate = mat3_node((V1, V2, V3));
 
       let avg_dir = rotate * avg_dir;
       let avg_dir = avg_dir.normalize();
@@ -277,7 +277,7 @@ pub fn ltc_evaluate_disk(
         l_1 * l_2 * ((val(1.0) + l_1 * l_1) * (val(1.0) + l_2 * l_2)).inverse_sqrt();
 
       // use tabulated horizon-clipped sphere
-      let uv: Node<Vec2<_>> = (avg_dir.z() * val(0.5) + val(0.5), form_factor).into();
+      let uv = vec2_node((avg_dir.z() * val(0.5) + val(0.5), form_factor));
       let uv = uv * val(LUT_SCALE) + val(LUT_BIAS).splat();
       let scale = ltc_2.sample_level(sampler, uv, val(0.)).w();
 
@@ -295,9 +295,9 @@ pub fn ltc_evaluate_disk(
 #[shader_fn]
 pub fn solve_cubic(coef: Node<Vec4<f32>>) -> Node<Vec3<f32>> {
   // Normalize the polynomial
-  let coef: Node<Vec4<_>> = (coef.xyz() / coef.w().splat(), coef.w()).into();
+  let coef = vec4_node((coef.xyz() / coef.w().splat(), coef.w()));
   // Divide middle coefficients by three
-  let coef: Node<Vec4<_>> = (coef.x(), coef.yz() / val(3.).splat(), coef.w()).into();
+  let coef = vec4_node((coef.x(), coef.yz() / val(3.).splat(), coef.w()));
 
   let a = coef.w();
   let b = coef.z();
@@ -305,12 +305,11 @@ pub fn solve_cubic(coef: Node<Vec4<f32>>) -> Node<Vec3<f32>> {
   let d = coef.x();
 
   // Compute the Hessian and the discriminant
-  let delta: Node<Vec3<_>> = (
+  let delta = vec3_node((
     -coef.z() * coef.z() + coef.y(),
     -coef.y() * coef.z() + coef.x(),
     Node::<Vec2<_>>::from((coef.z(), -coef.y())).dot(coef.xy()),
-  )
-    .into();
+  ));
 
   let discriminant = Node::<Vec2<_>>::from((val(4.0) * delta.x(), -delta.y())).dot(delta.zy());
 
@@ -350,9 +349,9 @@ pub fn solve_cubic(coef: Node<Vec4<f32>>) -> Node<Vec3<f32>> {
   let f = -xlc.x() * xsc.y() - xlc.y() * xsc.x();
   let g = xlc.x() * xsc.x();
 
-  let xmc: Node<Vec2<_>> = (c * f - b * g, -b * f + c * e).into();
+  let xmc = vec2_node((c * f - b * g, -b * f + c * e));
 
-  let root: Node<Vec3<_>> = (xsc.x() / xsc.y(), xmc.x() / xmc.y(), xlc.x() / xlc.y()).into();
+  let root = vec3_node((xsc.x() / xsc.y(), xmc.x() / xmc.y(), xlc.x() / xlc.y()));
 
   let result = root.make_local_var();
 

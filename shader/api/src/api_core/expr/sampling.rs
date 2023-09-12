@@ -200,15 +200,15 @@ impl<T: SingleSampleTarget> HandleNode<T> {
   pub fn sample_level(
     &self,
     sampler: HandleNode<T::Sampler>,
-    position: Node<T::Input>,
-    level: Node<f32>,
+    position: impl Into<Node<T::Input>>,
+    level: impl Into<Node<f32>>,
   ) -> Node<T::Output> {
     ShaderNodeExpr::TextureSampling {
       texture: self.handle(),
       sampler: sampler.handle(),
-      position: position.handle(),
+      position: position.into().handle(),
       index: None,
-      level: SampleLevel::Exact(level.handle()),
+      level: SampleLevel::Exact(level.into().handle()),
       reference: None,
       offset: None,
     }

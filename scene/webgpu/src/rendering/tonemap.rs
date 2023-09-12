@@ -94,20 +94,18 @@ fn rrt_and_odt_fit(v: Node<Vec3<f32>>) -> Node<Vec3<f32>> {
 /// the scale factor of 1/0.6 is subjective. see discussion in #19621 in three.js repo.
 fn aces_filmic_tone_mapping(color: Node<Vec3<f32>>, exposure: Node<f32>) -> Node<Vec3<f32>> {
   // sRGB => XYZ => D65_2_D60 => AP1 => RRT_SAT
-  let aces_input_mat: Node<Mat3<f32>> = (
+  let aces_input_mat = mat3_node((
     (val(0.59719), val(0.07600), val(0.02840)).into(), // transposed from source
     (val(0.35458), val(0.90834), val(0.13383)).into(),
     (val(0.04823), val(0.01566), val(0.83777)).into(),
-  )
-    .into();
+  ));
 
   // ODT_SAT => XYZ => D60_2_D65 => sRGB
-  let aces_output_mat: Node<Mat3<f32>> = (
+  let aces_output_mat = mat3_node((
     (val(1.60475), val(-0.10208), val(-0.00327)).into(), // transposed from source
     (val(-0.53108), val(1.10813), val(-0.07276)).into(),
     (val(-0.07367), val(-0.00605), val(1.07602)).into(),
-  )
-    .into();
+  ));
 
   let mut color = color;
   color *= (exposure / val(0.6)).splat();

@@ -118,7 +118,7 @@ impl<'a> GraphicsShaderProvider for AOComputer<'a> {
       let random = random3_fn(uv + parameter.noise_jit.splat()) * val(2.) - val(Vec3::one());
       let tangent = (random - normal * random.dot(normal)).normalize();
       let binormal = normal.cross(tangent);
-      let tbn: Node<Mat3<f32>> = (tangent, binormal, normal).into();
+      let tbn = mat3_node((tangent, binormal, normal));
 
       let occlusion_sum = samples
         .into_shader_iter()

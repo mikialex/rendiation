@@ -39,10 +39,6 @@ impl<'a> FrameCtx<'a> {
     self.gpu.submit_encoder(self.encoder)
   }
 
-  pub fn notify_output_resized(&self) {
-    self.pool.inner.write().unwrap().clear();
-  }
-
   pub fn multisampled_attachment(&self) -> AttachmentDescriptor {
     AttachmentDescriptor {
       format: gpu::TextureFormat::Rgba8UnormSrgb,
