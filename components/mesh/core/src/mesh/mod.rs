@@ -1,10 +1,13 @@
-pub mod bvh;
-pub mod container;
-pub mod conversion;
-pub mod conversion2;
-pub mod intersection;
-pub mod primitive;
+mod bvh;
+mod collect;
+mod container;
+mod conversion;
+mod intersection;
+mod primitive;
+
 pub use bvh::*;
+pub use collect::*;
 pub use container::*;
+pub use conversion::*;
 pub use intersection::*;
 pub use primitive::*;

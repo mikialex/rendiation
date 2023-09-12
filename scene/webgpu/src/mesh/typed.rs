@@ -84,11 +84,7 @@ impl<T: IndexBufferSourceType> IndexBufferSourceTypeProvider for Vec<T> {
     T::FORMAT
   }
 }
-impl<T: IndexBufferSourceType> IndexBufferSourceTypeProvider for IndexBuffer<T> {
-  fn format(&self) -> webgpu::IndexFormat {
-    T::FORMAT
-  }
-}
+
 impl IndexBufferSourceTypeProvider for DynIndexContainer {
   fn format(&self) -> webgpu::IndexFormat {
     match self {

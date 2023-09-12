@@ -1,25 +1,66 @@
-//! The conversion method between different mesh types
-
-// todo for convert between different mesh type
-
-// downgrade:
-// mesh -> line , wireframe? edge?
-// line -> point
-
-// indexed -> noneIndexed expand?
-// noneIndexed -> indexed indexed?
-
-use std::hash::Hash;
-use std::{cmp::Ordering, iter::FromIterator};
-
 use fast_hash_collection::*;
+use rendiation_algebra::*;
+use rendiation_geometry::*;
 
 use crate::*;
 
+/// from a triangle iter to create a line list iter, the line shared in different adjacent triangle
+/// will be deduplicated
+pub fn create_wireframe<T>(
+  triangles: impl Iterator<Item = Triangle<T>>,
+) -> impl Iterator<Item = LineSegment<T>>
+where
+  T: Copy + Clone + Eq + Ord + std::hash::Hash,
+{
+  let mut deduplicate_set = FastHashSet::<LineSegment<T>>::default();
+
+  triangles.for_each(|face| {
+    face.for_each_edge(|edge| {
+      deduplicate_set.insert(edge.swap_if(|l| l.start < l.end));
+    })
+  });
+
+  deduplicate_set.into_iter()
+}
+
+/// almost as same as create_wireframe, but if the edge is created depends on the adjacent face
+/// angle threshold. Maybe you should merge vertex before create edge， non manifold mesh may affect
+/// result
+pub fn create_edges<T>(
+  triangles: impl Iterator<Item = Triangle<T>>,
+  edge_threshold_angle: f32,
+) -> impl Iterator<Item = LineSegment<T>>
+where
+  T: Copy + Clone + Eq + Ord + std::hash::Hash + Positioned<Position = Vec3<f32>>,
+{
+  // todo, estimate capacity or use iter collect
+
+  // Map: edge id => (edge face idA, edge face idB(optional));
+  let mut edges = FastHashMap::<LineSegment<T>, (usize, Option<usize>)>::default();
+  let mut normals = Vec::default();
+  triangles.enumerate().for_each(|(face_id, face)| {
+    normals.push(face.face_normal());
+    face.for_each_edge(|edge| {
+      edges
+        .entry(edge.swap_if(|l| l.start < l.end))
+        .and_modify(|e| e.1 = Some(face_id)) // if we find the e.1 is some already, the mesh is non manifold
+        .or_insert_with(|| (face_id, None));
+    })
+  });
+
+  let threshold_dot = edge_threshold_angle.cos();
+
+  edges
+    .into_iter()
+    .filter(move |(_, f)| f.1.is_none() || normals[f.0].dot(normals[f.1.unwrap()]) <= threshold_dot)
+    .map(|(edge, _)| edge)
+}
+
+// todo improve
 impl<T, U, IU> IndexedMesh<T, U, IU>
 where
-  IU: IndexContainer + TryFromIterator<usize>,
-  for<'a> &'a IU: IntoIterator<Item = IU::Output>,
+  IU: IndexContainer + TryFromIterator<u32>,
+  IU: IntoIterator<Item = IU::Output> + Clone,
   for<'a> &'a U: IntoIterator<Item = &'a U::Output>,
   U: VertexContainer,
   IU::Output: IndexType,
@@ -27,7 +68,7 @@ where
 {
   pub fn merge_vertex_by_sorting(
     &self,
-    mut sorter: impl FnMut(&U::Output, &U::Output) -> Ordering,
+    mut sorter: impl FnMut(&U::Output, &U::Output) -> std::cmp::Ordering,
     mut merger: impl FnMut(&U::Output, &U::Output) -> bool,
   ) -> Result<IndexedMesh<T, Vec<U::Output>, IU>, IU::Error> {
     let data = &self.vertex;
@@ -54,61 +95,14 @@ where
       });
     }
 
-    let index = &self.index;
-    let new_index = IU::try_from_iter(index.into_iter().map(|i| resort_map[i.into_usize()]))?;
+    let new_index = IU::try_from_iter(
+      self
+        .index
+        .clone()
+        .into_iter()
+        .map(|i| resort_map[i.into_usize()] as u32),
+    )?;
 
     Ok(IndexedMesh::new(merge_data, new_index))
-  }
-}
-
-impl<T, U, IU> IndexedMesh<T, U, IU>
-where
-  IU: IndexContainer,
-  IU::Output: IndexType,
-  U: IndexGet + FromIterator<U::Output>,
-  for<'a> &'a IU: IntoIterator<Item = IU::Output>,
-{
-  pub fn expand_to_none_index_geometry(&self) -> NoneIndexedMesh<T, U> {
-    let index = &self.index;
-    NoneIndexedMesh::new(
-      index
-        .into_iter()
-        .map(|i| self.vertex.index_get((i).into_usize()).unwrap())
-        .collect(),
-    )
-  }
-}
-
-impl<T, U> NoneIndexedMesh<T, U>
-where
-  U: VertexContainer,
-  U::Output: Eq + Hash + Copy,
-  for<'a> &'a U: IntoIterator<Item = &'a U::Output>,
-  Self: AbstractMesh,
-{
-  pub fn create_index_geometry<IU>(&self) -> Result<IndexedMesh<T, Vec<U::Output>, IU>, IU::Error>
-  where
-    IU: TryFromIterator<usize>,
-  {
-    let mut deduplicate_map = FastHashMap::<U::Output, usize>::default();
-    let mut deduplicate_buffer = Vec::with_capacity(self.data.len());
-    let data = &self.data;
-    let index = IU::try_from_iter(data.into_iter().map(|v| {
-      *deduplicate_map.entry(*v).or_insert_with(|| {
-        deduplicate_buffer.push(*v);
-        deduplicate_buffer.len() - 1
-      })
-    }))?;
-    deduplicate_buffer.shrink_to_fit();
-    Ok(IndexedMesh::new(deduplicate_buffer, index))
-  }
-}
-
-impl<T, U, IU> IndexedMesh<T, U, IU>
-where
-  U: Clone,
-{
-  pub fn create_point_cloud(&self) -> NoneIndexedMesh<PointList, U> {
-    NoneIndexedMesh::new(self.vertex.clone())
   }
 }

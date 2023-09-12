@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use rendiation_algebra::{Vec2, Vec3};
 use rendiation_geometry::{Box3, Ray3, Triangle};
-use rendiation_mesh_core::{vertex::Vertex, IndexBuffer, *};
+use rendiation_mesh_core::{vertex::Vertex, *};
 use space_algorithm::{
   bvh::{FlattenBVH, SAH},
   utils::TreeBuildOption,
@@ -99,7 +99,7 @@ where
   }
 }
 
-impl TriangleMesh<IndexedMesh<TriangleList, Vec<Vertex>, IndexBuffer<u32>>> {
+impl TriangleMesh<IndexedMesh<TriangleList, Vec<Vertex>, Vec<u32>>> {
   pub fn from_path_obj(path: &str) -> Self {
     let obj = tobj::load_obj(path, true);
     let (models, _) = obj.unwrap();
@@ -178,7 +178,7 @@ impl TriangleMesh<IndexedMesh<TriangleList, Vec<Vertex>, IndexBuffer<u32>>> {
         .for_each(|v| v.normal = v.normal.normalize());
     }
 
-    let mesh = mesh.create_index_geometry().unwrap();
+    let mesh: IndexedMesh<TriangleList, Vec<Vertex>, Vec<u32>> = mesh.primitive_iter().collect();
     use std::cmp::Ordering;
     #[allow(clippy::float_cmp)]
     let mesh = mesh

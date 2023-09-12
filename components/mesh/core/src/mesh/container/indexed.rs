@@ -146,42 +146,6 @@ impl<'a> IntoIterator for &'a DynIndexContainer {
   }
 }
 
-pub struct IndexBuffer<T> {
-  inner: Vec<T>,
-}
-
-impl<I: TryFrom<usize>> TryFromIterator<usize> for IndexBuffer<I> {
-  type Error = <I as std::convert::TryFrom<usize>>::Error;
-  fn try_from_iter<T: IntoIterator<Item = usize>>(iter: T) -> Result<Self, Self::Error> {
-    let inner: Result<Vec<I>, Self::Error> = iter.into_iter().map(|i| I::try_from(i)).collect();
-    let inner = inner?;
-    Ok(Self { inner })
-  }
-}
-
-type CopiedIter<'a, T: Copy + 'static> = impl Iterator<Item = T> + 'a;
-fn get_iter_copied<T: Copy>(v: &[T]) -> CopiedIter<T> {
-  v.iter().copied()
-}
-
-impl<'a, T: Copy + 'static> IntoIterator for &'a IndexBuffer<T> {
-  type Item = T;
-
-  type IntoIter = CopiedIter<'a, T>;
-
-  fn into_iter(self) -> Self::IntoIter {
-    get_iter_copied(&self.inner)
-  }
-}
-
-impl<T: Copy> IndexGet for IndexBuffer<T> {
-  type Output = T;
-
-  fn index_get(&self, key: usize) -> Option<Self::Output> {
-    self.inner.get(key).copied()
-  }
-}
-
 impl IndexGet for DynIndexContainer {
   type Output = DynIndex;
 
@@ -191,12 +155,6 @@ impl IndexGet for DynIndexContainer {
       DynIndexContainer::Uint32(i) => DynIndex::Uint32(i.index_get(key).unwrap()),
     }
     .into()
-  }
-}
-
-impl<T> CollectionSize for IndexBuffer<T> {
-  fn len(&self) -> usize {
-    self.inner.len()
   }
 }
 
