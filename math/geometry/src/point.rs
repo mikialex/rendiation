@@ -9,6 +9,15 @@ impl<U> Point<U> {
   }
 }
 
+type PointPointIter<V> = impl Iterator<Item = V>;
+impl<U> IntoIterator for Point<U> {
+  type Item = U;
+  type IntoIter = PointPointIter<U>;
+  fn into_iter(self) -> PointPointIter<U> {
+    std::iter::once(self.0)
+  }
+}
+
 impl<T, U, V, M, const D: usize> SpaceEntity<T, D> for Point<U>
 where
   T: Scalar,

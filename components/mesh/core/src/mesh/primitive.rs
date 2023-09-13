@@ -43,13 +43,13 @@ where
   fn from_data(data: &U, offset: usize) -> Option<Self> {
     let start = data.index_get(offset)?;
     let end = data.index_get(offset + 1)?;
-    LineSegment::line_segment(start, end).into()
+    LineSegment::new(start, end).into()
   }
   #[inline(always)]
   unsafe fn from_data_unchecked(data: &U, offset: usize) -> Self {
     let start = data.index_get(offset).unwrap_unchecked();
     let end = data.index_get(offset + 1).unwrap_unchecked();
-    LineSegment::line_segment(start, end)
+    LineSegment::new(start, end)
   }
 }
 

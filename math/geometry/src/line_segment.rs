@@ -47,7 +47,7 @@ pub type LineSegment<U> = SpaceLineSegment<U, StraitLine<U>>;
 pub type LineSegment2D<T> = LineSegment<Vec2<T>>;
 
 impl<V> LineSegment<V> {
-  pub fn line_segment(start: V, end: V) -> Self {
+  pub fn new(start: V, end: V) -> Self {
     Self {
       start,
       end,
@@ -57,6 +57,15 @@ impl<V> LineSegment<V> {
 
   pub fn iter_point(&self) -> impl Iterator<Item = &V> {
     once(&self.start).chain(once(&self.end))
+  }
+}
+
+type LineSegmentPointIter<V> = impl Iterator<Item = V>;
+impl<U> IntoIterator for LineSegment<U> {
+  type Item = U;
+  type IntoIter = LineSegmentPointIter<U>;
+  fn into_iter(self) -> LineSegmentPointIter<U> {
+    once(self.start).chain(once(self.end))
   }
 }
 
@@ -80,7 +89,7 @@ impl<V> LineSegment<V> {
 
   #[must_use]
   pub fn swap(self) -> Self {
-    Self::line_segment(self.end, self.start)
+    Self::new(self.end, self.start)
   }
 
   #[must_use]

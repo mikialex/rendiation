@@ -1,50 +1,58 @@
 use fast_hash_collection::FastHashMap;
-use rendiation_geometry::Triangle;
+use rendiation_geometry::{LineSegment, Point, Triangle};
 
 use crate::*;
 
-impl<V> FromIterator<Triangle<V>> for IndexedMesh<TriangleList, Vec<V>, Vec<u32>>
+// we should consider merge it with other similar trait
+pub trait Simplex: IntoIterator<Item = Self::Vertex> {
+  type Vertex;
+  type Topology;
+  const DIMENSION: usize;
+}
+
+impl<V> Simplex for Point<V> {
+  type Vertex = V;
+  type Topology = PointList;
+  const DIMENSION: usize = 1;
+}
+impl<V> Simplex for LineSegment<V> {
+  type Vertex = V;
+  type Topology = LineList;
+  const DIMENSION: usize = 2;
+}
+impl<V> Simplex for Triangle<V> {
+  type Vertex = V;
+  type Topology = TriangleList;
+  const DIMENSION: usize = 3;
+}
+
+impl<P: Simplex> FromIterator<P> for NoneIndexedMesh<P::Topology, Vec<P::Vertex>> {
+  fn from_iter<T: IntoIterator<Item = P>>(iter: T) -> Self {
+    let iter = iter.into_iter();
+    NoneIndexedMesh::new(iter.flatten().collect())
+  }
+}
+
+impl<P: Simplex> FromIterator<P> for IndexedMesh<P::Topology, Vec<P::Vertex>, Vec<u32>>
 where
-  V: std::hash::Hash + Eq + Copy,
+  P::Vertex: std::hash::Hash + Eq + Copy,
 {
-  fn from_iter<T: IntoIterator<Item = Triangle<V>>>(iter: T) -> Self {
-    let mut deduplicate = FastHashMap::<V, u32>::default();
+  fn from_iter<T: IntoIterator<Item = P>>(iter: T) -> Self {
+    let mut deduplicate = FastHashMap::<P::Vertex, u32>::default();
     let iter = iter.into_iter();
 
-    let mut vertices: Vec<V> = Vec::with_capacity(iter.size_hint().0 * 3);
-    let mut indices: Vec<u32> = Vec::with_capacity(iter.size_hint().0 * 3);
+    let mut vertices: Vec<P::Vertex> = Vec::with_capacity(iter.size_hint().0 * P::DIMENSION);
 
-    let mut push_v = |v: V| {
+    let push_v = |v: P::Vertex| {
       *deduplicate.entry(v).or_insert_with(|| {
         vertices.push(v);
         vertices.len() as u32 - 1
       })
     };
-    iter.for_each(|tri| {
-      indices.push(push_v(tri.a));
-      indices.push(push_v(tri.b));
-      indices.push(push_v(tri.c));
-    });
 
+    let indices = iter.flat_map(|p| p.into_iter()).map(push_v).collect();
     vertices.shrink_to_fit();
-    indices.shrink_to_fit();
+
     IndexedMesh::new(vertices, indices)
-  }
-}
-
-impl<V> FromIterator<Triangle<V>> for NoneIndexedMesh<TriangleList, Vec<V>> {
-  fn from_iter<T: IntoIterator<Item = Triangle<V>>>(iter: T) -> Self {
-    let iter = iter.into_iter();
-
-    let mut vertices: Vec<V> = Vec::with_capacity(iter.size_hint().0 * 3);
-
-    iter.for_each(|tri| {
-      vertices.push(tri.a);
-      vertices.push(tri.b);
-      vertices.push(tri.c);
-    });
-
-    vertices.shrink_to_fit();
-    NoneIndexedMesh::new(vertices)
   }
 }
