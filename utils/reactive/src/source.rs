@@ -48,9 +48,11 @@ impl<T> Default for SourceStorage<T> {
   }
 }
 
+pub type EventListener<T> = Box<dyn FnMut(&T) -> bool + Send + Sync>;
+
 pub struct Source<T> {
   // return if should remove
-  storage: SourceStorage<Box<dyn FnMut(&T) -> bool + Send + Sync>>,
+  storage: SourceStorage<EventListener<T>>,
 }
 
 pub struct RemoveToken<T> {
@@ -172,7 +174,7 @@ impl<T: 'static> EventSource<T> {
   where
     U: Send + Sync + 'static,
   {
-    self.listen_by::<DefaultUnboundChannel, _, U>(mapper, init)
+    self.listen_by::<U, _, _>(mapper, init, &DefaultUnboundChannel)
   }
 
   pub fn batch_listen_by<U>(
@@ -183,7 +185,7 @@ impl<T: 'static> EventSource<T> {
   where
     U: Send + Sync + 'static,
   {
-    self.listen_by::<DefaultBatchChannel, _, Vec<U>>(mapper, init)
+    self.listen_by::<Vec<U>, _, _>(mapper, init, &DefaultBatchChannel)
   }
 
   pub fn single_listen_by<U>(
@@ -194,19 +196,20 @@ impl<T: 'static> EventSource<T> {
   where
     U: Send + Sync + 'static,
   {
-    self.listen_by::<DefaultSingleValueChannel, _, U>(mapper, init)
+    self.listen_by::<U, _, _>(mapper, init, &DefaultSingleValueChannel)
   }
 
-  pub fn listen_by<C, U, N>(
+  pub fn listen_by<N, C, U>(
     &self,
     mapper: impl Fn(&T) -> U + Send + Sync + 'static,
     init: impl FnOnce(&dyn Fn(U)),
+    channel_builder: &C,
   ) -> impl futures::Stream<Item = N> + 'static
   where
     U: Send + Sync + 'static,
     C: ChannelLike<U, Message = N>,
   {
-    let (sender, receiver) = C::build();
+    let (sender, receiver) = channel_builder.build();
     let init_sends = |to_send| {
       C::send(&sender, to_send);
     };

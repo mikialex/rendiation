@@ -116,7 +116,7 @@ impl<T: IncrementalBase> IncrementalSignal<T> {
   where
     U: Send + Sync + 'static,
   {
-    self.listen_by::<DefaultUnboundChannel, _, U>(mapper)
+    self.listen_by::<U, _, _>(mapper, &DefaultUnboundChannel)
   }
 
   pub fn single_listen_by<U>(
@@ -126,18 +126,19 @@ impl<T: IncrementalBase> IncrementalSignal<T> {
   where
     U: Send + Sync + 'static,
   {
-    self.listen_by::<DefaultSingleValueChannel, _, U>(mapper)
+    self.listen_by::<U, _, _>(mapper, &DefaultSingleValueChannel)
   }
 
-  pub fn listen_by<C, U, N>(
+  pub fn listen_by<N, C, U>(
     &self,
     mut mapper: impl FnMut(MaybeDeltaRef<T>, &dyn Fn(U)) + Send + Sync + 'static,
+    channel_builder: &C,
   ) -> impl Stream<Item = N>
   where
     U: Send + Sync + 'static,
     C: ChannelLike<U, Message = N>,
   {
-    let (sender, receiver) = C::build();
+    let (sender, receiver) = channel_builder.build();
     let sender_c = sender.clone();
     let send = move |mapped| {
       C::send(&sender_c, mapped);
