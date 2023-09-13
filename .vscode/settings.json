@@ -79,6 +79,7 @@
         "Layouter",
         "Lerp",
         "Lightable",
+        "linklist",
         "lookat",
         "memoffset",
         "Mesher",

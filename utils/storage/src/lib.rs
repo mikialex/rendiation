@@ -1,10 +1,14 @@
 mod deduplication;
 mod generational;
 mod generational_shrinkable;
+mod index_reuse;
+mod linklist_pool;
 
 pub use deduplication::*;
 pub use generational::*;
 pub use generational_shrinkable::*;
+pub use index_reuse::*;
+pub use linklist_pool::*;
 
 pub type Handle<T, S> = <S as StorageBehavior<T>>::Handle;
 
@@ -34,7 +38,8 @@ pub trait HandlePredictableStorage<T>: StorageBehavior<T> {
 
 /// this is use for saving memory. u32 should be enough for most container size, and Option<u32>
 /// could be represent by u32 max.
-struct IndexPtr {
+#[derive(Clone, Copy)]
+pub struct IndexPtr {
   index: u32,
 }
 
