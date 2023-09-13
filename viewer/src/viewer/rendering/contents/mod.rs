@@ -1,5 +1,7 @@
 use crate::*;
 
+mod lined_mesh;
+pub use lined_mesh::*;
 mod fatline;
 pub use fatline::*;
 mod model_overrides;
