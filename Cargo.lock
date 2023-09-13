@@ -2562,13 +2562,13 @@ dependencies = [
 name = "reactive"
 version = "0.0.1"
 dependencies = [
- "arena",
  "criterion",
  "crossbeam-queue",
  "fast-hash-collection",
  "futures",
  "pin-project",
  "slab",
+ "storage",
 ]
 
 [[package]]

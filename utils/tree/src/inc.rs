@@ -37,7 +37,7 @@ impl<T> TreeCollection<T> {
     mapper: impl Fn(&T) -> U,
     mut cb: impl FnMut(TreeExpandMutation<U>),
   ) {
-    for (handle, node) in &self.nodes.data {
+    for (handle, node) in &self.nodes {
       if node.parent.is_none() {
         let node = self.create_node_ref(handle);
         node.traverse_pair_subtree(|self_node, parent| {

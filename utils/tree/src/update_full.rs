@@ -17,7 +17,7 @@ pub struct ComputedDerivedTree<T: HierarchyDerived> {
 impl<T: HierarchyDerived> ComputedDerivedTree<T> {
   pub fn compute_from<X: Deref<Target = T::Source>>(source: &TreeCollection<X>) -> Self {
     let mut computed = Vec::with_capacity(source.capacity());
-    for (handle, node) in &source.nodes.data {
+    for (handle, node) in &source.nodes {
       if node.parent.is_none() {
         let node = source.create_node_ref(handle);
         node.traverse(&mut |node| {

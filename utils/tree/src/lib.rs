@@ -5,7 +5,7 @@ use std::sync::{Arc, RwLock};
 use abst::TreeNodeMutPtr;
 use incremental::IncrementalBase;
 pub use rendiation_abstract_tree::*;
-use storage::{generational::Arena, *};
+use storage::*;
 
 mod share;
 pub use share::*;
@@ -52,7 +52,7 @@ pub trait CoreTree {
 }
 
 pub struct TreeCollection<T> {
-  nodes: Storage<TreeNode<T>, Arena<TreeNode<T>>>,
+  nodes: Arena<TreeNode<T>>,
 }
 
 pub type TreeNodeHandle<T> = Handle<TreeNode<T>, Arena<TreeNode<T>>>;
@@ -196,12 +196,12 @@ impl<T> CoreTree for TreeCollection<T> {
 }
 
 impl<T> TreeCollection<T> {
-  pub fn nodes(&self) -> &Storage<TreeNode<T>, Arena<TreeNode<T>>> {
+  pub fn nodes(&self) -> &Arena<TreeNode<T>> {
     &self.nodes
   }
 
   pub fn capacity(&self) -> usize {
-    self.nodes.data.capacity()
+    self.nodes.capacity()
   }
 
   pub fn get_node(&self, handle: TreeNodeHandle<T>) -> &TreeNode<T> {
@@ -221,7 +221,7 @@ impl<T> TreeCollection<T> {
   }
 
   pub fn try_recreate_handle(&self, index: usize) -> Option<TreeNodeHandle<T>> {
-    self.nodes.data.get_handle(index)
+    self.nodes.get_handle(index)
   }
 
   pub fn is_handle_valid(&self, handle: TreeNodeHandle<T>) -> bool {

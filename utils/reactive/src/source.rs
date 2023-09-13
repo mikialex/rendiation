@@ -1,58 +1,15 @@
 use std::{marker::PhantomData, sync::Arc};
 
 use futures::{Future, Stream};
+use storage::*;
 
 use crate::*;
-
-// we are not extract to the upstream storage crate here for now.
-pub struct SourceStorage<T> {
-  inner: Vec<(u32, T)>,
-  next_id: u32,
-}
-
-impl<T> SourceStorage<T> {
-  pub fn insert(&mut self, item: T) -> u32 {
-    self.next_id += 1;
-    self.inner.push((self.next_id, item));
-    self.next_id
-  }
-
-  pub fn remove(&mut self, handle: u32) {
-    let idx = self
-      .inner
-      .iter()
-      .position(|v| v.0 == handle)
-      .expect("event source remove failed");
-    let _ = self.inner.swap_remove(idx);
-  }
-
-  pub fn iter_remove_if(&mut self, f: impl Fn(&mut T) -> bool) {
-    let mut idx = 0;
-    while idx < self.inner.len() {
-      let item = &mut self.inner[idx].1;
-      if f(item) {
-        self.inner.swap_remove(idx);
-      } else {
-        idx += 1;
-      }
-    }
-  }
-}
-
-impl<T> Default for SourceStorage<T> {
-  fn default() -> Self {
-    Self {
-      inner: Default::default(),
-      next_id: 0,
-    }
-  }
-}
 
 pub type EventListener<T> = Box<dyn FnMut(&T) -> bool + Send + Sync>;
 
 pub struct Source<T> {
   // return if should remove
-  storage: SourceStorage<EventListener<T>>,
+  storage: GenerationalShrinkableVec<EventListener<T>>,
 }
 
 pub struct RemoveToken<T> {
