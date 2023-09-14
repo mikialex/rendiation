@@ -67,7 +67,7 @@ impl WatchableSceneMeshLocalBounding for SceneMeshType {
           .map(|mesh| {
             let mesh = mesh.read();
             let local: Box3 = mesh
-              .read()
+              .read_shape()
               .primitive_iter()
               .map(|p| p.to_bounding())
               .collect();
@@ -157,7 +157,7 @@ impl IntersectAbleGroupedMesh for SceneMeshType {
     match self {
       SceneMeshType::AttributesMesh(mesh) => mesh
         .read()
-        .read()
+        .read_shape()
         .intersect_list_by_group(ray, conf, result, group),
       SceneMeshType::TransformInstanced(mesh) => mesh
         .read()
@@ -181,7 +181,7 @@ impl IntersectAbleGroupedMesh for SceneMeshType {
     match self {
       SceneMeshType::AttributesMesh(mesh) => mesh
         .read()
-        .read()
+        .read_shape()
         .intersect_nearest_by_group(ray, conf, group),
       SceneMeshType::TransformInstanced(mesh) => {
         mesh.read().intersect_nearest_by_group(ray, conf, group)

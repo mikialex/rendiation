@@ -2,9 +2,10 @@ use std::{any::TypeId, num::NonZeroU64};
 
 use incremental::*;
 use reactive_incremental::*;
+use rendiation_algebra::Vec3;
 use smallvec::SmallVec;
 
-use crate::{MeshGroupsInfo, PrimitiveTopology};
+use crate::{IndexGet, MeshGroupsInfo, PrimitiveTopology};
 
 mod merge;
 mod picking;
@@ -13,6 +14,8 @@ pub use merge::*;
 pub use picking::*;
 
 /// Vertex attribute semantic name.
+///
+/// https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#meshes
 #[derive(Clone, Debug, Eq, Hash, PartialEq, PartialOrd, Ord)]
 pub enum AttributeSemantic {
   /// XYZ vertex positions.
@@ -278,12 +281,26 @@ impl<'a> AttributeMeshReadView<'a> {
   pub fn get_attribute(&self, s: &AttributeSemantic) -> Option<&AttributeAccessorReadView> {
     self.attributes.iter().find(|(k, _)| *k == s).map(|r| &r.1)
   }
-  pub fn get_position(&self) -> &AttributeAccessorReadView {
+  pub fn get_position(&self) -> &[Vec3<f32>] {
     self
       .get_attribute(&AttributeSemantic::Positions)
       .expect("position attribute should always exist")
+      .visit_slice::<Vec3<f32>>()
+      .unwrap()
   }
 }
+
+pub struct PositionReader<'a> {
+  position: &'a [Vec3<f32>],
+}
+impl<'a> IndexGet for PositionReader<'a> {
+  type Output = Vec3<f32>;
+
+  fn index_get(&self, key: usize) -> Option<Self::Output> {
+    self.position.get(key).copied()
+  }
+}
+pub type AttributeMeshShapeReadView<'a> = AttributeMeshCustomReadView<'a, PositionReader<'a>>;
 
 impl AttributesMesh {
   pub fn read(&self) -> AttributeMeshReadView {
@@ -294,6 +311,16 @@ impl AttributesMesh {
       attributes,
       indices,
       mesh: self,
+    }
+  }
+
+  pub fn read_shape(&self) -> AttributeMeshShapeReadView {
+    let inner = self.read();
+    let position = inner.get_position();
+    let position = unsafe { std::mem::transmute(position) }; // note, here how can we prove it ??
+    AttributeMeshCustomReadView {
+      inner,
+      reader: PositionReader { position },
     }
   }
 

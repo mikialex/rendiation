@@ -26,5 +26,5 @@ pub fn vignette(
     .saturate()
     .pow(config.feather * val(5.0))
     .splat::<Vec3<f32>>();
-  color * amount.mix(config.color, Vec3::one())
+  color * amount.mix(config.color, val(Vec3::one()))
 }
