@@ -197,24 +197,25 @@ where
   }
 }
 
+// todo fix bound
 impl<T> Node<T>
 where
-  T: Lerp<T> + PrimitiveShaderNodeType,
+  T: PrimitiveShaderNodeType,
 {
-  pub fn smoothstep(self, low: impl Into<Self>, high: impl Into<Self>) -> Self {
+  pub fn smoothstep<V: PrimitiveShaderNodeType>(self, low: Node<V>, high: Node<V>) -> Node<V> {
     make_builtin_call(
       ShaderBuiltInFunction::SmoothStep,
-      [low.into().handle(), high.into().handle(), self.handle()],
+      [low.handle(), high.handle(), self.handle()],
     )
   }
 }
 
 // todo fix bound
 impl<T: PrimitiveShaderNodeType> Node<T> {
-  pub fn mix(self, low: impl Into<Self>, high: impl Into<Self>) -> Self {
+  pub fn mix<V: PrimitiveShaderNodeType>(self, low: Node<V>, high: Node<V>) -> Node<V> {
     make_builtin_call(
       ShaderBuiltInFunction::Mix,
-      [low.into().handle(), high.into().handle(), self.handle()],
+      [low.handle(), high.handle(), self.handle()],
     )
   }
 }
