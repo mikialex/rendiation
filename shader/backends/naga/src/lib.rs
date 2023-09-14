@@ -1152,12 +1152,7 @@ impl ShaderAPI for ShaderAPINagaImpl {
   }
 
   fn discard(&mut self) {
-    self
-      .building_fn
-      .last_mut()
-      .unwrap()
-      .body
-      .push(naga::Statement::Kill, Span::UNDEFINED)
+    self.push_top_statement(naga::Statement::Kill)
   }
 
   fn get_fn(&mut self, name: String) -> Option<ShaderUserDefinedFunction> {
