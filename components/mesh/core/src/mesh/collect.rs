@@ -7,22 +7,26 @@ use crate::*;
 pub trait Simplex: IntoIterator<Item = Self::Vertex> {
   type Vertex;
   type Topology;
+  const TOPOLOGY: PrimitiveTopology;
   const DIMENSION: usize;
 }
 
 impl<V> Simplex for Point<V> {
   type Vertex = V;
   type Topology = PointList;
+  const TOPOLOGY: PrimitiveTopology = PrimitiveTopology::PointList;
   const DIMENSION: usize = 1;
 }
 impl<V> Simplex for LineSegment<V> {
   type Vertex = V;
   type Topology = LineList;
+  const TOPOLOGY: PrimitiveTopology = PrimitiveTopology::LineList;
   const DIMENSION: usize = 2;
 }
 impl<V> Simplex for Triangle<V> {
   type Vertex = V;
   type Topology = TriangleList;
+  const TOPOLOGY: PrimitiveTopology = PrimitiveTopology::TriangleList;
   const DIMENSION: usize = 3;
 }
 
@@ -54,5 +58,60 @@ where
     vertices.shrink_to_fit();
 
     IndexedMesh::new(vertices, indices)
+  }
+}
+
+pub trait AttributeVertex {
+  fn layout() -> Vec<AttributeSemantic>;
+  fn write(self, target: &mut [Vec<u8>]);
+}
+
+impl<P: Simplex> FromIterator<P> for AttributesMesh
+where
+  P::Vertex: std::hash::Hash + Eq + Copy + AttributeVertex,
+{
+  fn from_iter<T: IntoIterator<Item = P>>(iter: T) -> Self {
+    let mut deduplicate = FastHashMap::<P::Vertex, u32>::default();
+    let iter = iter.into_iter();
+
+    let layout = <P::Vertex as AttributeVertex>::layout();
+
+    let vertex_max_count = iter.size_hint().0 * P::DIMENSION;
+
+    let mut write_count = 0;
+    let mut buffers: Vec<_> = layout
+      .iter()
+      .map(|k| Vec::with_capacity(vertex_max_count * k.item_byte_size()))
+      .collect();
+
+    let push_v = |v: P::Vertex| {
+      *deduplicate.entry(v).or_insert_with(|| {
+        v.write(&mut buffers);
+        write_count += 1;
+        write_count as u32 - 1
+      })
+    };
+
+    let indices: Vec<u32> = iter.flat_map(|p| p.into_iter()).map(push_v).collect();
+    let indices = (
+      AttributeIndexFormat::Uint32,
+      AttributeAccessor::create_owned(indices, 4),
+    );
+
+    let attributes = buffers
+      .into_iter()
+      .zip(layout)
+      .map(|(buffer, s)| {
+        let buffer = AttributeAccessor::create_owned(buffer, s.item_byte_size());
+        (s, buffer)
+      })
+      .collect();
+
+    AttributesMesh {
+      attributes,
+      indices: Some(indices),
+      mode: P::TOPOLOGY,
+      groups: Default::default(),
+    }
   }
 }

@@ -1,5 +1,6 @@
 use std::{any::TypeId, num::NonZeroU64};
 
+use dyn_downcast::*;
 use incremental::*;
 use reactive_incremental::*;
 use rendiation_algebra::Vec3;
@@ -41,6 +42,29 @@ pub enum AttributeSemantic {
   Weights(u32),
 
   Foreign(ForeignAttributeKey),
+}
+
+pub trait AttributeReadSchema {
+  fn item_byte_size(&self) -> usize;
+}
+define_dyn_trait_downcaster_static!(AttributeReadSchema);
+
+impl AttributeReadSchema for AttributeSemantic {
+  fn item_byte_size(&self) -> usize {
+    match self {
+      AttributeSemantic::Positions => 3 * 4,
+      AttributeSemantic::Normals => 3 * 4,
+      AttributeSemantic::Tangents => 4 * 4,
+      AttributeSemantic::Colors(_) => 4 * 4,
+      AttributeSemantic::TexCoords(_) => 2 * 4,
+      AttributeSemantic::Joints(_) => 4 * 2,
+      AttributeSemantic::Weights(_) => 4 * 4,
+      AttributeSemantic::Foreign(key) => get_dyn_trait_downcaster_static!(AttributeReadSchema)
+        .downcast_ref(key.implementation.as_ref().as_any())
+        .unwrap() // todo, we should make this static bound
+        .item_byte_size(),
+    }
+  }
 }
 
 #[derive(Clone)]
@@ -301,6 +325,21 @@ impl<'a> IndexGet for PositionReader<'a> {
   }
 }
 pub type AttributeMeshShapeReadView<'a> = AttributeMeshCustomReadView<'a, PositionReader<'a>>;
+
+#[derive(Clone, Copy)]
+pub struct FullReader<'a> {
+  pub keys: &'a [AttributeSemantic],
+  pub bytes: &'a [&'a [u8]],
+}
+
+impl<'a> IndexGet for FullReader<'a> {
+  type Output = (Self, usize); // this is neat!
+
+  fn index_get(&self, key: usize) -> Option<Self::Output> {
+    // should we do option bound check here??
+    Some((*self, key))
+  }
+}
 
 impl AttributesMesh {
   pub fn read(&self) -> AttributeMeshReadView {
