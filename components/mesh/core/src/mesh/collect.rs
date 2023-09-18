@@ -62,19 +62,37 @@ where
 }
 
 pub trait AttributeVertex {
-  fn layout() -> Vec<AttributeSemantic>;
   fn write(self, target: &mut [Vec<u8>]);
 }
 
-impl<P: Simplex> FromIterator<P> for AttributesMesh
-where
-  P::Vertex: std::hash::Hash + Eq + Copy + AttributeVertex,
-{
-  fn from_iter<T: IntoIterator<Item = P>>(iter: T) -> Self {
+impl<'a> AttributeVertex for FullReaderRead<'a> {
+  fn write(self, target: &mut [Vec<u8>]) {
+    for (k, (target, source)) in self
+      .reader
+      .keys
+      .iter()
+      .zip(target.iter_mut().zip(self.reader.bytes))
+    {
+      let byte_size = k.item_byte_size();
+      target.extend_from_slice(
+        source
+          .get(self.idx * byte_size..(self.idx + 1) * byte_size)
+          .unwrap(),
+      )
+    }
+  }
+}
+
+impl AttributesMesh {
+  pub fn from_iter<T: IntoIterator<Item = P>, P: Simplex>(
+    iter: T,
+    layout: Vec<AttributeSemantic>,
+  ) -> Self
+  where
+    P::Vertex: std::hash::Hash + Eq + Copy + AttributeVertex,
+  {
     let mut deduplicate = FastHashMap::<P::Vertex, u32>::default();
     let iter = iter.into_iter();
-
-    let layout = <P::Vertex as AttributeVertex>::layout();
 
     let vertex_max_count = iter.size_hint().0 * P::DIMENSION;
 

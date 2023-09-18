@@ -332,12 +332,21 @@ pub struct FullReader<'a> {
   pub bytes: &'a [&'a [u8]],
 }
 
+#[derive(Clone, Copy)]
+pub struct FullReaderRead<'a> {
+  pub reader: FullReader<'a>,
+  pub idx: usize,
+}
+
 impl<'a> IndexGet for FullReader<'a> {
-  type Output = (Self, usize); // this is neat!
+  type Output = FullReaderRead<'a>; // this is neat!
 
   fn index_get(&self, key: usize) -> Option<Self::Output> {
     // should we do option bound check here??
-    Some((*self, key))
+    Some(FullReaderRead {
+      reader: *self,
+      idx: key,
+    })
   }
 }
 
