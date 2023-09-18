@@ -30,7 +30,7 @@ pub struct SceneCoreImpl {
 #[derive(Clone)]
 pub struct SceneNodeCollection {
   pub inner: SceneNodeCollectionInner,
-  pub scene_guid: usize,
+  pub scene_guid: u64,
 }
 pub type SceneNodeCollectionInner =
   Arc<ReactiveTreeCollection<RwLock<TreeCollection<SceneNodeData>>, SceneNodeDataImpl>>;

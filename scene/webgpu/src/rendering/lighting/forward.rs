@@ -161,7 +161,7 @@ impl ForwardLightingSystem {
       lights_insert_order: &mut Vec<TypeId>,
       gpu: &ResourceGPUCtx,
       res: &LightResourceCtx,
-      upstream: impl Stream<Item = (usize, Option<SceneLight>)> + Unpin + 'static,
+      upstream: impl Stream<Item = (u64, Option<SceneLight>)> + Unpin + 'static,
       downcaster: impl Fn(SceneLightKind) -> Option<T> + Copy + 'static,
     ) where
       T: WebGPULight,
@@ -390,7 +390,7 @@ trait StreamForLightExt: Sized + Stream {
 
   fn merge_into_light_list<T: ShaderLight>(self, gpu: ResourceGPUCtx) -> ReactiveLightList<Self, T>
   where
-    Self: Stream<Item = Vec<(usize, Option<T>)>>;
+    Self: Stream<Item = Vec<(u64, Option<T>)>>;
 }
 impl<T: Sized + Stream> StreamForLightExt for T {
   fn flatten_option_outer<SS>(self) -> FlattenOptionOuter<Self, SS>
@@ -409,7 +409,7 @@ impl<T: Sized + Stream> StreamForLightExt for T {
     gpu: ResourceGPUCtx,
   ) -> ReactiveLightList<Self, TT>
   where
-    Self: Stream<Item = Vec<(usize, Option<TT>)>>,
+    Self: Stream<Item = Vec<(u64, Option<TT>)>>,
   {
     ReactiveLightList {
       list: LightList::<TT>::new(gpu),
@@ -463,7 +463,7 @@ where
 impl<T, S> Stream for ReactiveLightList<S, T>
 where
   T: ShaderLight,
-  S: Stream<Item = Vec<(usize, Option<T>)>>,
+  S: Stream<Item = Vec<(u64, Option<T>)>>,
 {
   type Item = usize;
 
@@ -486,7 +486,7 @@ pub struct LightList<T: ShaderLight> {
   uniform: ClampedUniformList<T, LIGHT_MAX>,
   empty_list: Vec<usize>,
   // map light id to index
-  mapping: FastHashMap<usize, usize>,
+  mapping: FastHashMap<u64, usize>,
   gpu: ResourceGPUCtx,
 }
 
@@ -500,7 +500,7 @@ impl<T: ShaderLight> LightList<T> {
     }
   }
 
-  pub fn update(&mut self, light_id: usize, light: Option<T>) {
+  pub fn update(&mut self, light_id: u64, light: Option<T>) {
     if let Some(value) = light {
       if let Some(idx) = self.mapping.get(&light_id) {
         self.uniform.source[*idx] = value;

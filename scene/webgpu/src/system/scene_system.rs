@@ -14,7 +14,7 @@ pub struct SceneGPUSystem {
   pub cameras: RwLock<SceneCameraGPUSystem>, // todo remove lock?
 
   #[pin]
-  pub models: Arc<RwLock<StreamMap<usize, ReactiveSceneModelGPUInstance>>>,
+  pub models: Arc<RwLock<StreamMap<u64, ReactiveSceneModelGPUInstance>>>,
 
   pub shadows: ShadowMapSystem,
   pub lights: ForwardLightingSystem,
@@ -39,7 +39,7 @@ impl Stream for SceneGPUSystem {
     drop(cameras_);
 
     let mut models = this.models.write().unwrap();
-    let models: &mut StreamMap<usize, ReactiveSceneModelGPUInstance> = &mut models;
+    let models: &mut StreamMap<u64, ReactiveSceneModelGPUInstance> = &mut models;
     models.poll_until_pending_not_care_result(cx);
 
     this.lights.poll_until_pending_not_care_result(cx);
@@ -64,7 +64,7 @@ impl SceneGPUSystem {
     derives: &SceneNodeDeriveSystem,
     contents: Arc<RwLock<ContentGPUSystem>>,
   ) -> Self {
-    let models: Arc<RwLock<StreamMap<usize, ReactiveSceneModelGPUInstance>>> = Default::default();
+    let models: Arc<RwLock<StreamMap<u64, ReactiveSceneModelGPUInstance>>> = Default::default();
     let models_c = models.clone();
     let gpu = contents.read().unwrap().gpu.clone();
 
@@ -85,7 +85,7 @@ impl SceneGPUSystem {
     let source = scene_core.unbound_listen_by(all_delta).map(move |delta| {
       let contents = contents.write().unwrap();
       let mut models = models_c.write().unwrap();
-      let models: &mut StreamMap<usize, ReactiveSceneModelGPUInstance> = &mut models;
+      let models: &mut StreamMap<u64, ReactiveSceneModelGPUInstance> = &mut models;
       if let SceneInnerDelta::models(delta) = delta {
         match delta {
           arena::ArenaDelta::Mutate((model, _)) => {
@@ -95,8 +95,8 @@ impl SceneGPUSystem {
           arena::ArenaDelta::Insert((model, _)) => {
             models.get_or_insert_with(model.guid(), || build_scene_model_gpu(&model, &contents));
           }
-          arena::ArenaDelta::Remove(handle) => {
-            models.remove(handle.index());
+          arena::ArenaDelta::Remove(_handle) => {
+            // models.remove(handle.index()); todo fixme
           }
         }
       }

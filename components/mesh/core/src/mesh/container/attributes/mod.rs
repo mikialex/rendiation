@@ -331,6 +331,7 @@ pub struct FullReader<'a> {
   pub keys: &'a [AttributeSemantic],
   pub bytes: &'a [&'a [u8]],
 }
+pub type AttributeMeshFullReadView<'a> = AttributeMeshCustomReadView<'a, FullReader<'a>>;
 
 #[derive(Clone, Copy)]
 pub struct FullReaderRead<'a> {

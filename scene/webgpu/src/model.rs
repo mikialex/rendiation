@@ -122,9 +122,9 @@ impl SceneRenderable for SceneModelImpl {
 
 #[pin_project::pin_project]
 pub struct StandardModelGPU {
-  pub(crate) material_id: Option<usize>,
+  pub(crate) material_id: Option<u64>,
   material_delta: Option<ReactiveMaterialRenderComponentDeltaSource>,
-  pub(crate) mesh_id: Option<usize>,
+  pub(crate) mesh_id: Option<u64>,
   mesh_delta: Option<ReactiveMeshRenderComponentDeltaSource>,
   pub(crate) group: MeshDrawGroup,
 }
@@ -223,7 +223,7 @@ impl Stream for ReactiveModelGPUType {
 #[pin_project::pin_project]
 pub struct ReactiveSceneModelGPU {
   pub(crate) node_id: usize, // todo add stream here
-  pub(crate) model_id: Option<usize>,
+  pub(crate) model_id: Option<u64>,
   model_delta: Option<ReactiveModelRenderComponentDeltaSource>,
 }
 

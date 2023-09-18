@@ -10,7 +10,7 @@ pub enum SceneMaterialType {
 }
 
 impl SceneMaterialType {
-  pub fn guid(&self) -> Option<usize> {
+  pub fn guid(&self) -> Option<u64> {
     match self {
       Self::PhysicalSpecularGlossiness(m) => m.guid(),
       Self::PhysicalMetallicRoughness(m) => m.guid(),
@@ -101,6 +101,7 @@ impl Default for PhysicalSpecularGlossinessMaterial {
 pub struct PhysicalMetallicRoughnessMaterial {
   /// in conductor case will act as specular color,
   /// in dielectric case will act as diffuse color,
+  /// which is decided by metallic property
   pub base_color: Vec3<f32>,
   pub roughness: f32,
   pub metallic: f32,
@@ -115,7 +116,6 @@ pub struct PhysicalMetallicRoughnessMaterial {
   pub normal_texture: Option<NormalMapping>,
   pub ext: DynamicExtension,
 }
-// clone_self_incremental!(PhysicalMetallicRoughnessMaterial);
 
 impl Default for PhysicalMetallicRoughnessMaterial {
   fn default() -> Self {

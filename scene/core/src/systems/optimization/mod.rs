@@ -31,11 +31,11 @@ pub struct AutoInstanceSystem {
 impl AutoInstanceSystem {
   pub fn new(
     scene_delta: impl Stream<Item = MixSceneDelta> + Unpin + 'static,
-    d_systems: &FastHashMap<usize, SceneNodeDeriveSystem>,
+    d_systems: &FastHashMap<u64, SceneNodeDeriveSystem>,
   ) -> (
     Self,
     impl Stream<Item = MixSceneDelta>,
-    FastHashMap<usize, SceneNodeDeriveSystem>,
+    FastHashMap<u64, SceneNodeDeriveSystem>,
   ) {
     // todo make sure the d_systems are polled
     let mut source_scene_derives = d_systems.clone();
@@ -61,7 +61,7 @@ impl AutoInstanceSystem {
 #[derive(Clone)]
 struct InstanceOptimization {
   new_nodes_storage: SceneNodeCollection,
-  source_scene_derives: FastHashMap<usize, SceneNodeDeriveSystem>,
+  source_scene_derives: FastHashMap<u64, SceneNodeDeriveSystem>,
 }
 
 impl RecyclableHashManyToOne for InstanceOptimization {
@@ -93,14 +93,14 @@ struct InstanceKey {
 
 #[derive(Hash, PartialEq, Eq, Clone, Debug)]
 struct InstanceContentKey {
-  pub material_id: usize,
-  pub mesh_id: usize,
+  pub material_id: u64,
+  pub mesh_id: u64,
   pub group: MeshDrawGroup,
 }
 
 #[derive(Hash, PartialEq, Eq, Clone, Debug)]
 enum PossibleInstanceKey {
-  UnableToInstance(usize), // just the origin model uuid
+  UnableToInstance(u64), // just the origin model uuid
   Instanced(InstanceKey),
 }
 
@@ -167,20 +167,20 @@ fn compute_instance_key_inner(
 /// we call it transformer here because maybe this struct will likely be reused in another optimizer
 #[pin_project::pin_project]
 struct Transformer {
-  d_sys: FastHashMap<usize, SceneNodeDeriveSystem>,
+  d_sys: FastHashMap<u64, SceneNodeDeriveSystem>,
   new_nodes: SceneNodeCollection,
   key: PossibleInstanceKey,
   #[pin]
-  source: StreamMap<usize, InstanceSourceStream>,
-  source_model: FastHashMap<usize, SceneModel>,
-  removals: Vec<usize>,
+  source: StreamMap<u64, InstanceSourceStream>,
+  source_model: FastHashMap<u64, SceneModel>,
+  removals: Vec<u64>,
   transformed: Option<(SceneModel, bool)>,
 }
 
 impl Transformer {
   pub fn new(
     key: PossibleInstanceKey,
-    d_sys: FastHashMap<usize, SceneNodeDeriveSystem>,
+    d_sys: FastHashMap<u64, SceneNodeDeriveSystem>,
     new_nodes: SceneNodeCollection,
   ) -> Self {
     debug_log!("create new transformer with key: {key:?}");
@@ -204,7 +204,7 @@ impl ModelProxy for Transformer {
     self.source_model.insert(source.guid(), source);
   }
 
-  fn remove_source_model_by_guid(&mut self, source_id: usize) {
+  fn remove_source_model_by_guid(&mut self, source_id: u64) {
     let _ = self.source.remove(source_id).unwrap();
     self.removals.push(source_id);
     // note, we do not remove the source_model map here, the stream polling will do this
@@ -402,8 +402,8 @@ fn build_instance_source_stream(
 
 /// maybe failed, if the source is empty
 fn create_instance(
-  source: &FastHashMap<usize, SceneModel>,
-  d_sys: &FastHashMap<usize, SceneNodeDeriveSystem>,
+  source: &FastHashMap<u64, SceneModel>,
+  d_sys: &FastHashMap<u64, SceneNodeDeriveSystem>,
   new_nodes: &SceneNodeCollection,
 ) -> Option<(SceneModel, bool)> {
   let first = source.values().next()?;

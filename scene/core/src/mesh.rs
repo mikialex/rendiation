@@ -17,7 +17,6 @@ pub enum SceneMeshType {
 
 clone_self_incremental!(SceneMeshType);
 
-// todo should use macro
 pub fn register_core_mesh_features<T>()
 where
   T: AsRef<dyn IntersectAbleGroupedMesh>
@@ -33,7 +32,7 @@ where
 }
 
 impl SceneMeshType {
-  pub fn guid(&self) -> Option<usize> {
+  pub fn guid(&self) -> Option<u64> {
     match self {
       Self::AttributesMesh(m) => m.guid(),
       Self::TransformInstanced(m) => m.guid(),

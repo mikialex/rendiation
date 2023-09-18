@@ -2,7 +2,7 @@
 
 use std::{
   ops::Deref,
-  sync::atomic::{AtomicUsize, Ordering},
+  sync::atomic::{AtomicU64, Ordering},
 };
 
 use dyn_downcast::*;
@@ -14,14 +14,14 @@ use reactive::*;
 mod shared;
 pub use shared::*;
 
-static GLOBAL_ID: AtomicUsize = AtomicUsize::new(0);
+static GLOBAL_ID: AtomicU64 = AtomicU64::new(0);
 
-pub fn alloc_global_res_id() -> usize {
+pub fn alloc_global_res_id() -> u64 {
   GLOBAL_ID.fetch_add(1, Ordering::Relaxed)
 }
 
 pub struct IncrementalSignal<T: IncrementalBase> {
-  id: usize,
+  id: u64,
   inner: T,
   pub delta_source: EventSource<T::Delta>,
   _counting: Counted<Self>,
@@ -54,13 +54,14 @@ where
   }
 }
 
+/// A globally marked item, marked by a globally incremental u64 flag
 pub trait GlobalIdentified {
-  fn guid(&self) -> usize;
+  fn guid(&self) -> u64;
 }
 define_dyn_trait_downcaster_static!(GlobalIdentified);
 
 impl<T: IncrementalBase> GlobalIdentified for IncrementalSignal<T> {
-  fn guid(&self) -> usize {
+  fn guid(&self) -> u64 {
     self.id
   }
 }
@@ -149,9 +150,6 @@ impl<T: IncrementalBase> IncrementalSignal<T> {
       mapper(MaybeDeltaRef::Delta(v), &send);
       C::is_closed(&sender)
     });
-    // todo impl custom unbound channel: if sender drop, the receiver will still hold the history
-    // message which is unnecessary. The better behavior will just drop the history and emit
-    // Poll::Ready::None
 
     let dropper = EventSourceDropper::new(remove_token, self.delta_source.make_weak());
     EventSourceStream::new(dropper, receiver)
@@ -184,9 +182,12 @@ impl<T: IncrementalBase> std::ops::Deref for IncrementalSignal<T> {
   }
 }
 
+/// An wrapper struct that prevent outside directly accessing the mutable T, but have to modify it
+/// through the explicit delta type. When modifying, the delta maybe checked if is really valid by
+/// diffing, and the change will be collect by a internal collector
 pub struct Mutating<'a, T: IncrementalBase> {
-  pub(crate) inner: &'a mut T,
-  pub(crate) collector: &'a mut dyn FnMut(&T::Delta),
+  inner: &'a mut T,
+  collector: &'a mut dyn FnMut(&T::Delta),
 }
 
 impl<'a, T: IncrementalBase> Deref for Mutating<'a, T> {

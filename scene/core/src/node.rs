@@ -127,8 +127,8 @@ impl Default for SceneNodeDataImpl {
 
 #[derive(Clone)]
 pub struct SceneNode {
-  pub(crate) guid: usize,
-  pub(crate) scene_id: usize,
+  pub(crate) guid: u64,
+  pub(crate) scene_id: u64,
   pub(crate) inner:
     ShareTreeNode<ReactiveTreeCollection<RwLock<TreeCollection<SceneNodeData>>, SceneNodeDataImpl>>,
 }
@@ -136,7 +136,7 @@ pub struct SceneNode {
 clone_self_incremental!(SceneNode);
 
 impl GlobalIdentified for SceneNode {
-  fn guid(&self) -> usize {
+  fn guid(&self) -> u64 {
     self.guid
   }
 }
@@ -152,7 +152,7 @@ impl SceneNode {
   pub(crate) fn create_new(
     nodes: SceneNodeCollectionInner,
     data: SceneNodeDataImpl,
-    scene_id: usize,
+    scene_id: u64,
   ) -> Self {
     let identity = IncrementalSignal::new(data);
     Self {

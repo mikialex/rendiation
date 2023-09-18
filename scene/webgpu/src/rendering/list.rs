@@ -79,10 +79,10 @@ impl RenderList {
 struct ModelGPURenderResourceView<'a> {
   nodes: &'a SceneNodeGPUSystem,
   cameras: RwLockReadGuard<'a, SceneCameraGPUSystem>,
-  scene_models: RwLockReadGuard<'a, StreamMap<usize, ReactiveSceneModelGPUInstance>>,
-  models: RwLockReadGuard<'a, StreamMap<usize, ReactiveModelGPUType>>,
-  materials: RwLockReadGuard<'a, StreamMap<usize, MaterialGPUInstance>>,
-  meshes: RwLockReadGuard<'a, StreamMap<usize, MeshGPUInstance>>,
+  scene_models: RwLockReadGuard<'a, StreamMap<u64, ReactiveSceneModelGPUInstance>>,
+  models: RwLockReadGuard<'a, StreamMap<u64, ReactiveModelGPUType>>,
+  materials: RwLockReadGuard<'a, StreamMap<u64, MaterialGPUInstance>>,
+  meshes: RwLockReadGuard<'a, StreamMap<u64, MeshGPUInstance>>,
 }
 
 impl<'a> ModelGPURenderResourceView<'a> {
@@ -100,7 +100,7 @@ impl<'a> ModelGPURenderResourceView<'a> {
 
 fn scene_model_setup_pass_core(
   gpu_pass: &mut FrameRenderPass,
-  model_guid: usize,
+  model_guid: u64,
   camera_gpu: &CameraGPU,
   resource_view: &ModelGPURenderResourceView,
   dispatcher: &dyn RenderComponentAny,

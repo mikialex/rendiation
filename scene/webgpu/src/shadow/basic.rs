@@ -3,11 +3,11 @@ use crate::*;
 #[pin_project::pin_project]
 pub struct SingleProjectShadowMapSystem {
   #[pin]
-  cameras_source: StreamMap<usize, ReactiveBasicShadowSceneCamera>,
-  cameras: FastHashMap<usize, SceneCamera>,
-  cameras_id_map_light_id: FastHashMap<usize, usize>,
+  cameras_source: StreamMap<u64, ReactiveBasicShadowSceneCamera>,
+  cameras: FastHashMap<u64, SceneCamera>,
+  cameras_id_map_light_id: FastHashMap<u64, u64>,
   #[pin]
-  shadow_maps: StreamMap<usize, ShadowMap>,
+  shadow_maps: StreamMap<u64, ShadowMap>,
   maps: ShadowMapAllocator,
   pub list: BasicShadowMapInfoList,
   gpu: ResourceGPUCtx,
@@ -34,7 +34,7 @@ impl SingleProjectShadowMapSystem {
 
   pub fn create_shadow_info_stream(
     &mut self,
-    light_id: usize,
+    light_id: u64,
     proj: impl Stream<Item = (CameraProjector, Size)> + Unpin + 'static,
     node_delta: impl Stream<Item = SceneNode> + Unpin + 'static,
   ) -> impl Stream<Item = LightShadowAddressInfo> {
@@ -143,9 +143,9 @@ pub struct BasicShadowMapInfoList {
   /// map light id to index;
   empty_list: Vec<usize>,
   waker: futures::task::AtomicWaker,
-  mapping: FastHashMap<usize, usize>,
+  mapping: FastHashMap<u64, usize>,
   // todo support reordering?
-  emitter: FastHashMap<usize, futures::channel::mpsc::UnboundedSender<LightShadowAddressInfo>>,
+  emitter: FastHashMap<u64, futures::channel::mpsc::UnboundedSender<LightShadowAddressInfo>>,
 }
 
 impl Stream for BasicShadowMapInfoList {
@@ -159,7 +159,7 @@ impl Stream for BasicShadowMapInfoList {
 }
 
 impl BasicShadowMapInfoList {
-  fn allocate(&mut self, light_id: usize) -> impl Stream<Item = LightShadowAddressInfo> {
+  fn allocate(&mut self, light_id: u64) -> impl Stream<Item = LightShadowAddressInfo> {
     self.waker.wake();
     let idx = self.empty_list.pop().unwrap();
     let (sender, rec) = futures::channel::mpsc::unbounded();
@@ -170,13 +170,13 @@ impl BasicShadowMapInfoList {
     self.mapping.insert(light_id, idx);
     rec
   }
-  fn deallocate(&mut self, light_id: usize) {
+  fn deallocate(&mut self, light_id: u64) {
     self.waker.wake();
     let index = self.mapping.remove(&light_id).unwrap();
     self.empty_list.push(index);
     self.emitter.remove(&light_id);
   }
-  fn get_mut_data(&mut self, light_id: usize) -> &mut BasicShadowMapInfo {
+  fn get_mut_data(&mut self, light_id: u64) -> &mut BasicShadowMapInfo {
     self.waker.wake();
     let index = self.mapping.get(&light_id).unwrap();
     while self.list.source.len() <= *index {

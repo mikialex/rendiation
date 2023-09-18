@@ -128,13 +128,13 @@ fn create_reactive_camera_helper(camera: &SceneCamera) -> ReactiveCameraHelper {
 pub struct CameraHelpers {
   /// this just control draw, it should be always get update
   pub enabled: bool,
-  pub helpers: Arc<RwLock<StreamMap<usize, ReactiveCameraHelper>>>,
+  pub helpers: Arc<RwLock<StreamMap<u64, ReactiveCameraHelper>>>,
   updater: Box<dyn Stream<Item = ()> + Unpin>,
 }
 
 impl CameraHelpers {
   pub fn new(scene: &Scene) -> Self {
-    let helpers: StreamMap<usize, ReactiveCameraHelper> = Default::default();
+    let helpers: StreamMap<u64, ReactiveCameraHelper> = Default::default();
     let helpers = Arc::new(RwLock::new(helpers));
     let h = helpers.clone();
     let updater = scene

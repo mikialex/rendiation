@@ -11,7 +11,7 @@ impl FusedStream for SceneCameraGPUSystem {
   }
 }
 impl Stream for SceneCameraGPUSystem {
-  type Item = Vec<StreamMapDelta<usize, CameraGPUTransform>>;
+  type Item = Vec<StreamMapDelta<u64, CameraGPUTransform>>;
 
   fn poll_next(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Option<Self::Item>> {
     let this = self.project();
@@ -44,9 +44,9 @@ pub type ReactiveCameraGPU = impl Stream<Item = RenderComponentDeltaFlag>
   + AsMut<RenderComponentCell<CameraGPU>>
   + Unpin;
 
-pub type SceneCameraGPUStorage = impl AsRef<StreamMap<usize, ReactiveCameraGPU>>
-  + AsMut<StreamMap<usize, ReactiveCameraGPU>>
-  + Stream<Item = Vec<StreamMapDelta<usize, RenderComponentDeltaFlag>>>
+pub type SceneCameraGPUStorage = impl AsRef<StreamMap<u64, ReactiveCameraGPU>>
+  + AsMut<StreamMap<u64, ReactiveCameraGPU>>
+  + Stream<Item = Vec<StreamMapDelta<u64, RenderComponentDeltaFlag>>>
   + Unpin;
 
 enum CameraGPUDelta {
@@ -132,7 +132,7 @@ impl SceneCameraGPUSystem {
     let derives = derives.clone();
     let cx = cx.clone();
 
-    let mut index_mapper = FastHashMap::<SceneCameraHandle, usize>::default();
+    let mut index_mapper = FastHashMap::<SceneCameraHandle, u64>::default();
 
     let cameras = scene
       .unbound_listen_by(with_field_expand!(SceneCoreImpl => cameras))

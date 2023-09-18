@@ -18,7 +18,7 @@ pub enum ModelType {
 clone_self_incremental!(ModelType);
 
 impl ModelType {
-  pub fn guid(&self) -> Option<usize> {
+  pub fn guid(&self) -> Option<u64> {
     match self {
       Self::Standard(m) => m.guid(),
       Self::Foreign(m) => get_dyn_trait_downcaster_static!(GlobalIdentified)

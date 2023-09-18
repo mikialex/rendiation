@@ -154,24 +154,24 @@ pub fn build_scene_to_gltf(
 
 #[derive(Default)]
 struct Ctx {
-  nodes: Resource<usize, gltf_json::Node>,
-  models: Resource<usize, gltf_json::Mesh>,
-  cameras: Resource<usize, gltf_json::Camera>,
+  nodes: Resource<u64, gltf_json::Node>,
+  models: Resource<u64, gltf_json::Mesh>,
+  cameras: Resource<u64, gltf_json::Camera>,
 
-  materials: Resource<usize, gltf_json::Material>,
-  images: Resource<usize, gltf_json::Image>,
+  materials: Resource<u64, gltf_json::Material>,
+  images: Resource<u64, gltf_json::Image>,
   samplers: Resource<TextureSampler, gltf_json::texture::Sampler>,
-  textures: Resource<(usize, TextureSampler), gltf_json::Texture>,
+  textures: Resource<(u64, TextureSampler), gltf_json::Texture>,
 
   binary_data: std::cell::RefCell<Option<InlineBinary>>,
-  buffers: Resource<usize, gltf_json::Buffer>,
+  buffers: Resource<u64, gltf_json::Buffer>,
   buffer_views: Resource<ViewKey, gltf_json::buffer::View>,
   accessors: Resource<AttributeAccessorKey, gltf_json::Accessor>,
 }
 
 #[derive(PartialEq, Eq, Hash)]
 struct ViewKey {
-  pub buffer_id: usize,
+  pub buffer_id: u64,
   pub view_range: BufferViewRange,
 }
 
@@ -298,11 +298,7 @@ impl Ctx {
     })
   }
 
-  pub fn build_node(
-    &self,
-    node: &SceneNodeDataImpl,
-    id: usize,
-  ) -> gltf_json::Index<gltf_json::Node> {
+  pub fn build_node(&self, node: &SceneNodeDataImpl, id: u64) -> gltf_json::Index<gltf_json::Node> {
     self
       .nodes
       .get_or_insert_with(id, || {

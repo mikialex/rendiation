@@ -12,7 +12,7 @@ pub struct ContentGPUSystem {
   pub(crate) gpu: ResourceGPUCtx,
   pub model_ctx: GPUModelResourceCtx,
   pub bindable_ctx: ShareBindableResourceCtx,
-  pub models: Arc<RwLock<StreamMap<usize, ReactiveModelGPUType>>>,
+  pub models: Arc<RwLock<StreamMap<u64, ReactiveModelGPUType>>>,
   pub custom_storage: Arc<RefCell<AnyMap>>,
 }
 
@@ -80,8 +80,8 @@ impl Stream for ContentGPUSystem {
 #[pin_project::pin_project]
 pub struct GPUModelResourceCtx {
   pub shared: ShareBindableResourceCtx,
-  pub materials: Arc<RwLock<StreamMap<usize, MaterialGPUInstance>>>,
-  pub meshes: Arc<RwLock<StreamMap<usize, MeshGPUInstance>>>,
+  pub materials: Arc<RwLock<StreamMap<u64, MaterialGPUInstance>>>,
+  pub meshes: Arc<RwLock<StreamMap<u64, MeshGPUInstance>>>,
 }
 
 impl Stream for GPUModelResourceCtx {
@@ -116,9 +116,9 @@ pub struct ShareBindableResourceCtx {
   pub binding_sys: GPUTextureBindingSystem,
   pub default_sampler: SharedIncrementalSignal<TextureSampler>,
   pub default_texture_2d: SceneTexture2D,
-  pub sampler: Arc<RwLock<StreamMap<usize, ReactiveGPUSamplerViewSource>>>,
-  pub texture_2d: Arc<RwLock<StreamMap<usize, ReactiveGPU2DTextureViewSource>>>,
-  pub texture_cube: Arc<RwLock<StreamMap<usize, ReactiveGPUCubeTextureViewSource>>>,
+  pub sampler: Arc<RwLock<StreamMap<u64, ReactiveGPUSamplerViewSource>>>,
+  pub texture_2d: Arc<RwLock<StreamMap<u64, ReactiveGPU2DTextureViewSource>>>,
+  pub texture_cube: Arc<RwLock<StreamMap<u64, ReactiveGPUCubeTextureViewSource>>>,
   // share uniform buffers
   // share storage buffers
   // share vertex buffers

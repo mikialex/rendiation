@@ -11,6 +11,9 @@ pub trait ChannelLike<T> {
   fn is_closed(sender: &Self::Sender) -> bool;
 }
 
+// todo impl custom unbound channel: if sender drop, the receiver will still hold the history
+// message which is unnecessary. The better behavior will just drop the history and emit
+// Poll::Ready::None
 pub struct DefaultUnboundChannel;
 
 impl<T: Send + Sync + 'static> ChannelLike<T> for DefaultUnboundChannel {

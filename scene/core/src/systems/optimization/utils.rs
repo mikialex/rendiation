@@ -3,7 +3,7 @@ use reactive::*;
 
 use crate::*;
 
-pub type OriginModelId = usize;
+pub type OriginModelId = u64;
 pub type ModelChange = ContainerRefRetainContentDelta<SceneModel>;
 pub type ModelOutChange = ContainerRefRetainContentDelta<(SceneModel, bool)>;
 
@@ -74,23 +74,23 @@ fn prior_left(_: &mut ()) -> stream::PollNext {
 }
 
 pub struct TransformStat {
-  original: Arc<RwLock<usize>>,
-  transformed: Arc<RwLock<usize>>,
+  original: Arc<RwLock<u64>>,
+  transformed: Arc<RwLock<u64>>,
 }
 
 impl TransformStat {
-  pub fn original(&self) -> usize {
+  pub fn original(&self) -> u64 {
     *self.original.read().unwrap()
   }
-  pub fn transformed(&self) -> usize {
+  pub fn transformed(&self) -> u64 {
     *self.transformed.read().unwrap()
   }
 }
 
 pub fn stat_model_count(
   input: impl Stream<Item = Vec<ModelChange>>,
-) -> (impl Stream<Item = Vec<ModelChange>>, Arc<RwLock<usize>>) {
-  let stat = Arc::new(RwLock::new(0_usize));
+) -> (impl Stream<Item = Vec<ModelChange>>, Arc<RwLock<u64>>) {
+  let stat = Arc::new(RwLock::new(0_u64));
   let stat_c = stat.clone();
   let s = input.map(move |ms| {
     let mut stat = stat.write().unwrap();
@@ -114,7 +114,7 @@ pub trait RecyclableHashManyToOne: Clone {
 
 pub trait ModelProxy {
   fn insert_source_model(&mut self, model: SceneModel);
-  fn remove_source_model_by_guid(&mut self, guid: usize);
+  fn remove_source_model_by_guid(&mut self, guid: u64);
 }
 
 /// we only care about the reference change here

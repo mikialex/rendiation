@@ -9,7 +9,7 @@ pub trait ReactiveMapping<M> {
   type DropFuture: Future<Output = ()> + Unpin;
   type Ctx<'a>;
 
-  fn key(&self) -> usize;
+  fn key(&self) -> u64;
 
   fn build(&self, ctx: &Self::Ctx<'_>) -> (M, Self::ChangeStream, Self::DropFuture);
 
@@ -17,13 +17,13 @@ pub trait ReactiveMapping<M> {
 }
 
 pub struct ReactiveMap<T: ReactiveMapping<M>, M> {
-  mapping: FastHashMap<usize, (M, T::ChangeStream)>,
+  mapping: FastHashMap<u64, (M, T::ChangeStream)>,
   /// when drop consumed, we remove the mapped from mapping, we could make this sync to drop.
   /// but if we do so, the mapping have to wrapped in interior mutable container, and it's
   /// impossible to get mut reference directly in safe rust.
   ///
   /// user should call cleanup periodically to do the actually remove now.
-  drop_futures: FuturesUnordered<KeyedDropFuture<T::DropFuture, usize>>,
+  drop_futures: FuturesUnordered<KeyedDropFuture<T::DropFuture, u64>>,
 }
 
 impl<M, T: ReactiveMapping<M>> Default for ReactiveMap<T, M> {

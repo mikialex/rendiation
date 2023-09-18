@@ -95,9 +95,9 @@ pub fn mix_scene_folding(
   let nodes = sc.read().nodes.clone();
   let rebuilder = SceneRebuilder::new(nodes);
   let rebuilder = Arc::new(RwLock::new(rebuilder));
-  let mut model_handle_map: FastHashMap<usize, SceneModelHandle> = Default::default();
-  let mut camera_handle_map: FastHashMap<usize, SceneCameraHandle> = Default::default();
-  let mut light_handle_map: FastHashMap<usize, SceneLightHandle> = Default::default();
+  let mut model_handle_map: FastHashMap<u64, SceneModelHandle> = Default::default();
+  let mut camera_handle_map: FastHashMap<u64, SceneCameraHandle> = Default::default();
+  let mut light_handle_map: FastHashMap<u64, SceneLightHandle> = Default::default();
 
   let output = input.map(move |delta| {
     //
@@ -257,8 +257,8 @@ fn transform_model_node(m: &SceneModel, rebuilder: &ShareableRebuilder) -> Scene
 }
 
 type NodeArenaIndex = usize;
-type NodeGuid = usize;
-type SceneGuid = usize;
+type NodeGuid = u64;
+type SceneGuid = u64;
 
 struct NodeMapping {
   mapped: SceneNode,

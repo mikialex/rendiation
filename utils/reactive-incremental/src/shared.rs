@@ -16,12 +16,12 @@ pub struct SharedIncrementalSignal<T: IncrementalBase> {
   inner: Arc<RwLock<IncrementalSignal<T>>>,
 
   // we keep this id on the self, to avoid unnecessary read lock.
-  id: usize,
+  id: u64,
 }
 
 pub struct SceneItemWeakRef<T: IncrementalBase> {
   inner: Weak<RwLock<IncrementalSignal<T>>>,
-  id: usize,
+  id: u64,
 }
 
 impl<T: IncrementalBase> SceneItemWeakRef<T> {
@@ -94,7 +94,7 @@ where
 }
 
 impl<T: IncrementalBase> GlobalIdentified for SharedIncrementalSignal<T> {
-  fn guid(&self) -> usize {
+  fn guid(&self) -> u64 {
     self.id
   }
 }
@@ -238,7 +238,7 @@ where
   type DropFuture = impl Future<Output = ()> + Unpin;
   type Ctx<'a> = <Self as SceneItemReactiveMapping<M>>::Ctx<'a>;
 
-  fn key(&self) -> usize {
+  fn key(&self) -> u64 {
     self.read().guid()
   }
 

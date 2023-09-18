@@ -22,6 +22,7 @@ impl<T: IndexGet<Output: Copy> + CollectionSize> VertexContainer for T {}
 pub trait IndexContainer: IndexGet<Output: IndexType> + CollectionSize {}
 impl<T: IndexGet<Output: IndexType> + CollectionSize> IndexContainer for T {}
 
+/// The abstract mesh is an a random access primitive iterator
 pub trait AbstractMesh {
   type Primitive;
 
@@ -44,6 +45,14 @@ pub trait AbstractMesh {
       current: 0,
       count: self.primitive_count(),
     }
+  }
+
+  /// check the mesh has no out of bound error.
+  fn validate_access(&self) -> bool
+  where
+    Self: Sized,
+  {
+    self.primitive_iter().count == self.primitive_count()
   }
 
   /// ## Safety
@@ -103,7 +112,7 @@ pub trait AbstractMesh {
 }
 
 /// Provide basic count and grouping info in gpu rendering ctx.
-/// Indicate this type could be used in gpu rendering (contains well specific vertex/index buffer)
+/// Indicate this type could be used in gpu rendering (contains well specified vertex/index buffer)
 pub trait GPUConsumableMeshBuffer {
   fn draw_count(&self) -> usize;
 

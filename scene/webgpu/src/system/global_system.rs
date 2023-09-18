@@ -2,7 +2,7 @@ use crate::*;
 
 pub struct GlobalGPUSystem {
   pub content: Arc<RwLock<ContentGPUSystem>>,
-  pub scenes: StreamMap<usize, SceneGPUSystem>,
+  pub scenes: StreamMap<u64, SceneGPUSystem>,
 }
 
 impl Stream for GlobalGPUSystem {
