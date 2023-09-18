@@ -312,6 +312,17 @@ impl<'a> AttributeMeshReadView<'a> {
       .visit_slice::<Vec3<f32>>()
       .unwrap()
   }
+
+  pub fn create_full_read_view_base(&self) -> FullReaderBase {
+    FullReaderBase {
+      keys: self.attributes.iter().map(|(k, _)| (*k).clone()).collect(),
+      bytes: self
+        .attributes
+        .iter()
+        .map(|(_, b)| b.visit_bytes().unwrap())
+        .collect(),
+    }
+  }
 }
 
 pub struct PositionReader<'a> {
@@ -326,28 +337,28 @@ impl<'a> IndexGet for PositionReader<'a> {
 }
 pub type AttributeMeshShapeReadView<'a> = AttributeMeshCustomReadView<'a, PositionReader<'a>>;
 
-#[derive(Clone, Copy)]
-pub struct FullReader<'a> {
-  pub keys: &'a [AttributeSemantic],
-  pub bytes: &'a [&'a [u8]],
+pub struct FullReaderBase<'a> {
+  pub keys: Vec<AttributeSemantic>,
+  pub bytes: Vec<&'a [u8]>,
 }
-pub type AttributeMeshFullReadView<'a> = AttributeMeshCustomReadView<'a, FullReader<'a>>;
+
+pub type AttributeMeshFullReadView<'a> = AttributeMeshCustomReadView<'a, FullReaderBase<'a>>;
 
 #[derive(Clone, Copy)]
 pub struct FullReaderRead<'a> {
-  pub reader: FullReader<'a>,
+  pub reader: &'a FullReaderBase<'a>,
   pub idx: usize,
 }
 
-impl<'a> IndexGet for FullReader<'a> {
-  type Output = FullReaderRead<'a>; // this is neat!
+impl<'a> IndexGet for FullReaderBase<'a> {
+  type Output = FullReaderRead<'a>;
 
   fn index_get(&self, key: usize) -> Option<Self::Output> {
+    // todo, fixme, this is not safe for now. we use the index get trait that not strong enough to
+    // constraint the returned output has relation with self lifetime.
+    let reader: &'a FullReaderBase<'a> = unsafe { std::mem::transmute(self) };
     // should we do option bound check here??
-    Some(FullReaderRead {
-      reader: *self,
-      idx: key,
-    })
+    Some(FullReaderRead { reader, idx: key })
   }
 }
 
@@ -363,10 +374,20 @@ impl AttributesMesh {
     }
   }
 
+  pub fn read_full(&self) -> AttributeMeshFullReadView {
+    let inner = self.read();
+    let reader = inner.create_full_read_view_base();
+    // safety: the returned reference is origin from the buffer itself, no cyclic reference exists
+    // the allocate temp buffer is immutable and has stable heap location.
+    let reader = unsafe { std::mem::transmute(reader) };
+    AttributeMeshFullReadView { inner, reader }
+  }
+
   pub fn read_shape(&self) -> AttributeMeshShapeReadView {
     let inner = self.read();
     let position = inner.get_position();
-    let position = unsafe { std::mem::transmute(position) }; // note, here how can we prove it ??
+    // safety: the returned reference is origin from the buffer itself, no cyclic reference exists
+    let position = unsafe { std::mem::transmute(position) };
     AttributeMeshCustomReadView {
       inner,
       reader: PositionReader { position },

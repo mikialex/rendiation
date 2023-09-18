@@ -23,8 +23,15 @@ use crate::*;
 pub struct LinedMesh {
   /// note, user should make sure the mesh not shared with others
   /// todo, impl runtime ownership checking
-  pub mesh: SceneMeshType,
-  pub lines: Vec<LineSegment<u32>>,
+  mesh: SceneMeshType,
+  #[allow(dead_code)] // todo
+  lines: Vec<LineSegment<u32>>,
+}
+
+impl LinedMesh {
+  pub fn new(mesh: SceneMeshType, lines: Vec<LineSegment<u32>>) -> Self {
+    Self { mesh, lines }
+  }
 }
 clone_self_incremental!(LinedMesh);
 
@@ -144,11 +151,13 @@ fn generate_barycentric_buffer_and_expanded_mesh(
   mesh: &SharedIncrementalSignal<LinedMesh>,
 ) -> Option<(SceneMeshType, Vec<Vec3<f32>>)> {
   let mesh = mesh.read();
-  let mesh = match &mesh.mesh {
+  let _ = match &mesh.mesh {
     SceneMeshType::AttributesMesh(mesh) => mesh,
     _ => return None,
   };
-  let _ = mesh.read();
+  // let target_layout = mesh.read().read().create_full_read_view_base().keys;
+  // let mapping = mesh.read().read_full().primitive_iter();
+  // AttributesMesh::from_iter(mapping, target_layout);
   //
   None
 }

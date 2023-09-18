@@ -71,7 +71,7 @@ impl<'a> AttributeVertex for FullReaderRead<'a> {
       .reader
       .keys
       .iter()
-      .zip(target.iter_mut().zip(self.reader.bytes))
+      .zip(target.iter_mut().zip(&self.reader.bytes))
     {
       let byte_size = k.item_byte_size();
       target.extend_from_slice(
