@@ -39,6 +39,9 @@ pub use source::*;
 mod broadcast;
 pub use broadcast::*;
 
+mod notify_scope;
+pub use notify_scope::*;
+
 mod batch_indexer;
 pub use batch_indexer::*;
 

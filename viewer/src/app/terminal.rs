@@ -48,10 +48,8 @@ impl Terminal {
     self
   }
 
-  pub fn check_execute(&mut self, ctx: &mut CommandCtx) {
-    let waker = futures::task::noop_waker_ref();
-    let mut cx = Context::from_waker(waker);
-    self.command_source.poll_until_pending(&mut cx, |command| {
+  pub fn check_execute(&mut self, ctx: &mut CommandCtx, cx: &mut Context) {
+    self.command_source.poll_until_pending(cx, |command| {
       let parameters: Vec<String> = command
         .split_ascii_whitespace()
         .map(|s| s.to_owned())

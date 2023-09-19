@@ -57,18 +57,18 @@ impl Viewer3dRenderingCtx {
     self.pool.clear();
   }
 
-  pub fn render(&mut self, target: RenderTargetView, content: &mut Viewer3dContent) {
-    let waker = futures::task::noop_waker_ref();
-    let mut cx = std::task::Context::from_waker(waker);
-
-    content.maintain();
-
-    self.resources.poll_until_pending_not_care_result(&mut cx);
+  pub fn render(
+    &mut self,
+    target: RenderTargetView,
+    content: &mut Viewer3dContent,
+    cx: &mut std::task::Context,
+  ) {
+    self.resources.poll_until_pending_not_care_result(cx);
 
     let (scene_resource, content_res) = self.resources.get_or_create_scene_sys_with_content(
       &content.scene,
       &content.scene_derived,
-      &mut cx,
+      cx,
     );
     let resource = content_res.read().unwrap();
 

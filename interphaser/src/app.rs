@@ -1,8 +1,4 @@
-use std::{
-  num::NonZeroUsize,
-  sync::{atomic::AtomicBool, Arc},
-  task::Context,
-};
+use std::{num::NonZeroUsize, sync::Arc};
 
 use rendiation_texture::Size;
 use webgpu::*;
@@ -50,45 +46,10 @@ pub async fn run_gui(ui: impl View + 'static, init_state: WindowSelfState) {
 pub struct Application {
   root: Box<dyn View>,
   root_terminated: bool, // we could use something like fused view to express this
-  any_changed: Arc<NotifyWaker>,
+  any_changed: NotifyScope,
   event_filter: Box<dyn Fn(&PlatformEvent) -> bool>,
   fonts: FontManager,
   texts: TextCache,
-}
-
-struct NotifyWaker {
-  inner: AtomicBool,
-}
-
-impl Default for NotifyWaker {
-  fn default() -> Self {
-    Self {
-      inner: AtomicBool::new(true),
-    }
-  }
-}
-
-impl NotifyWaker {
-  /// return if any changed contains
-  pub fn check_reset_changed(&self) -> bool {
-    self
-      .inner
-      .compare_exchange(
-        true,
-        false,
-        std::sync::atomic::Ordering::SeqCst,
-        std::sync::atomic::Ordering::SeqCst,
-      )
-      .is_ok()
-  }
-}
-
-impl futures::task::ArcWake for NotifyWaker {
-  fn wake_by_ref(arc_self: &Arc<Self>) {
-    arc_self
-      .inner
-      .fetch_or(true, std::sync::atomic::Ordering::SeqCst);
-  }
 }
 
 impl Application {
@@ -123,17 +84,15 @@ impl Application {
   }
 
   fn update(&mut self) {
-    while self.any_changed.check_reset_changed() {
+    self.any_changed.update_total(None, |cx| {
       if self.root_terminated {
         return;
       }
       println!("ui update");
-      let waker = futures::task::waker_ref(&self.any_changed);
-      let mut cx = Context::from_waker(&waker);
       self.root_terminated = self
         .root
-        .poll_until_pending_or_terminate_not_care_result(&mut cx);
-    }
+        .poll_until_pending_or_terminate_not_care_result(cx);
+    })
   }
 
   fn encode_presentation(&mut self, root_size: UISize) -> UIPresentation {

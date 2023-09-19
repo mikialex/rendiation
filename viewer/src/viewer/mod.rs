@@ -7,6 +7,7 @@ mod default_scene;
 pub use default_scene::*;
 mod rendering;
 use futures::Stream;
+use reactive::NotifyScope;
 pub use rendering::*;
 
 mod controller;
@@ -29,6 +30,7 @@ pub struct Viewer {
   pub terminal: Terminal,
   pub io_executor: futures::executor::ThreadPool,
   pub compute_executor: rayon::ThreadPool,
+  pub render_flag: NotifyScope,
 }
 
 impl Viewer {
@@ -51,6 +53,7 @@ impl Viewer {
       ctx: None,
       io_executor,
       compute_executor,
+      render_flag: Default::default(),
     };
 
     register_default_commands(&mut viewer.terminal);
@@ -61,11 +64,17 @@ impl Viewer {
 
 impl CanvasPrinter for Viewer {
   fn draw_canvas(&mut self, gpu: &Arc<GPU>, canvas: GPU2DTextureView) {
-    self.content.update_state();
-    self
-      .ctx
-      .get_or_insert_with(|| Viewer3dRenderingCtx::new(gpu.clone()))
-      .render(RenderTargetView::Texture(canvas), &mut self.content)
+    self.render_flag.notify_by(None, |cx| {
+      self.content.per_frame_update(cx);
+    });
+    // todo
+    self.render_flag.notify_by(None, |cx| {
+      println!("draw");
+      self
+        .ctx
+        .get_or_insert_with(|| Viewer3dRenderingCtx::new(gpu.clone()))
+        .render(RenderTargetView::Texture(canvas), &mut self.content, cx)
+    });
   }
 
   fn event(
@@ -74,13 +83,17 @@ impl CanvasPrinter for Viewer {
     states: &WindowState,
     position_info: CanvasWindowPositionInfo,
   ) {
-    let mut ctx = CommandCtx {
-      scene: &self.content.scene,
-      rendering: self.ctx.as_mut(),
-    };
+    self.render_flag.notify_by(None, |cx| {
+      let mut ctx = CommandCtx {
+        scene: &self.content.scene,
+        rendering: self.ctx.as_mut(),
+      };
 
-    self.terminal.check_execute(&mut ctx);
-    self.content.event(event, states, position_info)
+      self.terminal.check_execute(&mut ctx, cx);
+      self
+        .content
+        .per_event_update(event, states, position_info, cx)
+    });
   }
 
   fn update_render_size(&mut self, layout_size: (f32, f32)) -> Size {

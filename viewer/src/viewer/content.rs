@@ -63,36 +63,21 @@ impl Viewer3dContent {
     }
   }
 
-  pub fn maintain(&mut self) {
-    let waker = futures::task::noop_waker_ref();
-    let mut cx = std::task::Context::from_waker(waker);
-    let _ = self
-      .scene_derived
-      .poll_until_pending_or_terminate_not_care_result(&mut cx);
-    let _ = self
-      .scene_bounding
-      .poll_until_pending_or_terminate_not_care_result(&mut cx);
-
-    let _ = self
-      .widgets
-      .borrow_mut()
-      .camera_helpers
-      .poll_until_pending_or_terminate_not_care_result(&mut cx);
-  }
-
   pub fn resize_view(&mut self, size: (f32, f32)) {
     if let Some(camera) = &self.scene.read().core.read().active_camera {
       camera.resize(size)
     }
   }
 
-  pub fn event(
+  pub fn per_event_update(
     &mut self,
     event: &Event<()>,
     states: &WindowState,
     position_info: CanvasWindowPositionInfo,
+    cx: &mut std::task::Context,
   ) {
-    self.maintain();
+    self.update_3d_view(cx);
+
     let bound = InputBound {
       origin: (
         position_info.absolute_position.x,
@@ -154,9 +139,7 @@ impl Viewer3dContent {
     }
   }
 
-  pub fn update_state(&mut self) {
-    self.maintain();
-
+  pub fn per_frame_update(&mut self, cx: &mut std::task::Context) {
     let widgets = self.widgets.get_mut();
     let gizmo = &mut widgets.gizmo;
     gizmo.update(&self.scene_derived);
@@ -179,6 +162,23 @@ impl Viewer3dContent {
         controllee: &camera.read().node,
       });
     }
+
+    self.update_3d_view(cx);
+  }
+
+  fn update_3d_view(&mut self, cx: &mut std::task::Context) {
+    let _ = self
+      .scene_derived
+      .poll_until_pending_or_terminate_not_care_result(cx);
+    let _ = self
+      .scene_bounding
+      .poll_until_pending_or_terminate_not_care_result(cx);
+
+    let _ = self
+      .widgets
+      .borrow_mut()
+      .camera_helpers
+      .poll_until_pending_or_terminate_not_care_result(cx);
   }
 }
 
