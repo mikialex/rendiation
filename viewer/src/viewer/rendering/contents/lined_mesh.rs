@@ -151,13 +151,23 @@ fn generate_barycentric_buffer_and_expanded_mesh(
   mesh: &SharedIncrementalSignal<LinedMesh>,
 ) -> Option<(SceneMeshType, Vec<Vec3<f32>>)> {
   let mesh = mesh.read();
-  let _ = match &mesh.mesh {
+  let mesh = match &mesh.mesh {
     SceneMeshType::AttributesMesh(mesh) => mesh,
     _ => return None,
   };
-  // let target_layout = mesh.read().read().create_full_read_view_base().keys;
-  // let mapping = mesh.read().read_full().primitive_iter();
-  // AttributesMesh::from_iter(mapping, target_layout);
+
+  let _: AttributesMesh = mesh
+    .read()
+    .read_full()
+    .primitive_iter()
+    .filter_map(|p| match p {
+      AttributeDynPrimitive::Triangle(t) => Some(t),
+      _ => None,
+    })
+    .collect();
+
+  // let barycentric = todo!
+
   //
   None
 }

@@ -1,4 +1,4 @@
-use std::{any::TypeId, num::NonZeroU64};
+use std::{any::TypeId, hash::Hash, num::NonZeroU64};
 
 use dyn_downcast::*;
 use incremental::*;
@@ -61,7 +61,7 @@ impl AttributeReadSchema for AttributeSemantic {
       AttributeSemantic::Weights(_) => 4 * 4,
       AttributeSemantic::Foreign(key) => get_dyn_trait_downcaster_static!(AttributeReadSchema)
         .downcast_ref(key.implementation.as_ref().as_any())
-        .unwrap() // todo, we should make this static bound
+        .unwrap() // this is safe to unwrap, because it's bounded in ForeignAttributeKey new method
         .item_byte_size(),
     }
   }
@@ -71,6 +71,24 @@ impl AttributeReadSchema for AttributeSemantic {
 pub struct ForeignAttributeKey {
   id: TypeId,
   pub implementation: Box<dyn AnyClone + Send + Sync>,
+}
+
+impl ForeignAttributeKey {
+  pub fn new<T>(implementation: T) -> Self
+  where
+    T: std::any::Any
+      + Clone
+      + Send
+      + Sync
+      + AsRef<dyn AttributeReadSchema>
+      + AsMut<dyn AttributeReadSchema>,
+  {
+    get_dyn_trait_downcaster_static!(AttributeReadSchema).register::<T>();
+    Self {
+      id: implementation.type_id(),
+      implementation: Box::new(implementation),
+    }
+  }
 }
 
 impl std::fmt::Debug for ForeignAttributeKey {
@@ -348,6 +366,43 @@ pub type AttributeMeshFullReadView<'a> = AttributeMeshCustomReadView<'a, FullRea
 pub struct FullReaderRead<'a> {
   pub reader: &'a FullReaderBase<'a>,
   pub idx: usize,
+}
+
+impl<'a> Hash for FullReaderRead<'a> {
+  fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+    self.read_bytes().for_each(|bytes| bytes.hash(state))
+  }
+}
+
+impl<'a> PartialEq for FullReaderRead<'a> {
+  fn eq(&self, other: &Self) -> bool {
+    if self.reader.keys.len() != other.reader.keys.len() {
+      return false;
+    }
+    for (a, b) in self.read_bytes().zip(other.read_bytes()) {
+      if a != b {
+        return false;
+      }
+    }
+    true
+  }
+}
+impl<'a> Eq for FullReaderRead<'a> {}
+
+impl<'a> FullReaderRead<'a> {
+  pub fn read_bytes(&self) -> impl Iterator<Item = &'a [u8]> + '_ {
+    self
+      .reader
+      .keys
+      .iter()
+      .zip(&self.reader.bytes)
+      .map(|(k, source)| {
+        let byte_size = k.item_byte_size();
+        source
+          .get(self.idx * byte_size..(self.idx + 1) * byte_size)
+          .unwrap()
+      })
+  }
 }
 
 impl<'a> IndexGet for FullReaderBase<'a> {

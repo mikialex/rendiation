@@ -118,12 +118,14 @@ pub struct AttributeMeshCustomReadView<'a, F> {
   pub inner: AttributeMeshReadView<'a>,
   pub reader: F,
 }
+
 impl<'a, F> Deref for AttributeMeshCustomReadView<'a, F> {
   type Target = AttributeMeshReadView<'a>;
   fn deref(&self) -> &Self::Target {
     &self.inner
   }
 }
+
 impl<'a, F> GPUConsumableMeshBuffer for AttributeMeshCustomReadView<'a, F> {
   fn draw_count(&self) -> usize {
     self.mesh.draw_count()
