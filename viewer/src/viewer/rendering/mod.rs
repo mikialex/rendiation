@@ -6,6 +6,8 @@ mod contents;
 pub use contents::*;
 
 mod pipeline;
+use std::task::Context;
+
 use futures::Future;
 use pipeline::*;
 use reactive::{EventSource, PollUtils};
@@ -35,6 +37,11 @@ impl Viewer3dRenderingCtx {
       pool: Default::default(),
       on_encoding_finished: Default::default(),
     }
+  }
+
+  /// some effect maybe take continuously draw in next frames to finish
+  pub fn setup_render_waker(&self, cx: &mut Context) {
+    self.pipeline.setup_render_waker(cx)
   }
 
   pub fn gpu(&self) -> &GPU {

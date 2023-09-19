@@ -30,7 +30,7 @@ pub struct Viewer {
   pub terminal: Terminal,
   pub io_executor: futures::executor::ThreadPool,
   pub compute_executor: rayon::ThreadPool,
-  pub render_flag: NotifyScope,
+  pub on_demand_draw: NotifyScope,
 }
 
 impl Viewer {
@@ -53,7 +53,7 @@ impl Viewer {
       ctx: None,
       io_executor,
       compute_executor,
-      render_flag: Default::default(),
+      on_demand_draw: Default::default(),
     };
 
     register_default_commands(&mut viewer.terminal);
@@ -64,11 +64,16 @@ impl Viewer {
 
 impl CanvasPrinter for Viewer {
   fn draw_canvas(&mut self, gpu: &Arc<GPU>, canvas: GPU2DTextureView) {
-    self.render_flag.notify_by(None, |cx| {
-      self.content.per_frame_update(cx);
+    self.on_demand_draw.notify_by(|cx| {
+      self.content.poll_update(cx);
+      self.content.per_frame_update();
+      if let Some(ctx) = &mut self.ctx {
+        ctx.setup_render_waker(cx);
+      }
+      self.content.poll_update(cx);
     });
-    // todo
-    self.render_flag.notify_by(None, |cx| {
+
+    self.on_demand_draw.update_once(|cx| {
       println!("draw");
       self
         .ctx
@@ -83,16 +88,15 @@ impl CanvasPrinter for Viewer {
     states: &WindowState,
     position_info: CanvasWindowPositionInfo,
   ) {
-    self.render_flag.notify_by(None, |cx| {
+    self.on_demand_draw.notify_by(|cx| {
       let mut ctx = CommandCtx {
         scene: &self.content.scene,
         rendering: self.ctx.as_mut(),
       };
 
       self.terminal.check_execute(&mut ctx, cx);
-      self
-        .content
-        .per_event_update(event, states, position_info, cx)
+      self.content.poll_update(cx);
+      self.content.per_event_update(event, states, position_info)
     });
   }
 

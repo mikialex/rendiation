@@ -1,3 +1,5 @@
+use std::task::Context;
+
 use webgpu::*;
 
 use crate::*;
@@ -25,6 +27,11 @@ impl ViewerPipeline {
       channel_debugger: ScreenChannelDebugger::default_useful(),
       tonemap: ToneMap::new(gpu),
     }
+  }
+
+  /// some effect maybe take continuously draw in next frames to finish
+  pub fn setup_render_waker(&self, _cx: &mut Context) {
+    // todo
   }
 }
 

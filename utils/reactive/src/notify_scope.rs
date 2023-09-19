@@ -9,52 +9,50 @@ pub struct NotifyScope {
 
 struct NotifyScopeInner {
   waked: AtomicBool,
-  upstream: Mutex<Option<Waker>>,
+  upstream: AtomicWaker,
 }
 
 impl Default for NotifyScopeInner {
   fn default() -> Self {
     Self {
       waked: AtomicBool::new(true),
-      upstream: Mutex::new(None),
+      upstream: Default::default(),
     }
   }
 }
 
 impl NotifyScope {
-  pub fn update_once(
-    &self,
-    upstream: Option<&mut Context>,
-    update: impl FnOnce(&mut Context),
-  ) -> bool {
-    self.poll_changed_update(upstream.map(|cx| cx.waker()).cloned(), update)
+  pub fn setup_waker(&self, upstream: Option<&mut Context>) {
+    if let Some(cx) = upstream {
+      self.inner.upstream.register(cx.waker());
+    }
   }
 
-  pub fn update_total(&self, upstream: Option<&mut Context>, mut update: impl FnMut(&mut Context)) {
-    let upstream = upstream.map(|cx| cx.waker()).cloned();
+  pub fn wake(&self) {
+    futures::task::ArcWake::wake_by_ref(&self.inner);
+  }
+  pub fn update_once(&self, update: impl FnOnce(&mut Context)) -> bool {
+    self.poll_changed_update(update)
+  }
+
+  pub fn update_total(&self, mut update: impl FnMut(&mut Context)) -> bool {
+    let mut any_change = false;
     loop {
-      if !self.poll_changed_update(upstream.clone(), &mut update) {
-        return;
+      if !self.poll_changed_update(&mut update) {
+        return any_change;
+      } else {
+        any_change = true
       }
     }
   }
 
-  pub fn notify_by(&self, upstream: Option<&mut Context>, logic: impl FnOnce(&mut Context)) {
-    let upstream = upstream.map(|cx| cx.waker()).cloned();
-    *self.inner.upstream.lock().unwrap() = upstream;
-
+  pub fn notify_by(&self, logic: impl FnOnce(&mut Context)) {
     let waker = futures::task::waker_ref(&self.inner);
     let mut cx = Context::from_waker(&waker);
     logic(&mut cx)
   }
 
-  pub fn poll_changed_update(
-    &self,
-    upstream: Option<Waker>,
-    update: impl FnOnce(&mut Context),
-  ) -> bool {
-    *self.inner.upstream.lock().unwrap() = upstream;
-
+  fn poll_changed_update(&self, update: impl FnOnce(&mut Context)) -> bool {
     if self
       .inner
       .waked
@@ -81,8 +79,6 @@ impl futures::task::ArcWake for NotifyScopeInner {
     arc_self
       .waked
       .fetch_or(true, std::sync::atomic::Ordering::SeqCst);
-    if let Some(upstream) = arc_self.upstream.lock().unwrap().take() {
-      upstream.wake()
-    }
+    arc_self.upstream.wake()
   }
 }

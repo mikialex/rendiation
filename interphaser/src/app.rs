@@ -84,7 +84,7 @@ impl Application {
   }
 
   fn update(&mut self) {
-    self.any_changed.update_total(None, |cx| {
+    self.any_changed.update_total(|cx| {
       if self.root_terminated {
         return;
       }
@@ -92,7 +92,7 @@ impl Application {
       self.root_terminated = self
         .root
         .poll_until_pending_or_terminate_not_care_result(cx);
-    })
+    });
   }
 
   fn encode_presentation(&mut self, root_size: UISize) -> UIPresentation {

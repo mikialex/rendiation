@@ -93,12 +93,12 @@ impl GPUCanvas {
       size: self.layout.size,
     };
 
-    self.drawer.event(event.event, event.states, position_info);
     match event.event {
       Event::RedrawRequested(_) => {
         let new_size = self.drawer.update_render_size(self.layout.size.into());
         if new_size != self.current_render_buffer_size {
           self.content = None;
+          self.current_render_buffer_size = new_size;
         }
 
         let target = self.content.get_or_insert_with(|| {
@@ -124,7 +124,7 @@ impl GPUCanvas {
 
         self.drawer.draw_canvas(&event.gpu, target.clone());
       }
-      _ => {}
+      _ => self.drawer.event(event.event, event.states, position_info),
     }
   }
 }

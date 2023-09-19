@@ -1,10 +1,14 @@
+use std::task::Context;
+
 use fast_hash_collection::FastHashSet;
+use futures::task::AtomicWaker;
 
 use crate::*;
 
 #[derive(Default)]
 pub struct SelectionSet {
   pub selected: FastHashSet<SceneModel>,
+  changed: AtomicWaker,
 }
 
 impl<'a> IntoIterator for &'a SelectionSet {
@@ -24,19 +28,26 @@ fn iter(map: &FastHashSet<SceneModel>) -> SelectionSetIterType {
 }
 
 impl SelectionSet {
+  pub fn setup_waker(&self, cx: &Context) {
+    self.changed.register(cx.waker())
+  }
+
   pub fn is_empty(&self) -> bool {
     self.selected.is_empty()
   }
 
   pub fn select(&mut self, model: &SceneModel) {
+    self.changed.wake();
     self.selected.insert(model.clone());
   }
 
   pub fn deselect(&mut self, model: &SceneModel) {
+    self.changed.wake();
     self.selected.remove(model);
   }
 
   pub fn clear(&mut self) {
+    self.changed.wake();
     self.selected.clear();
   }
 

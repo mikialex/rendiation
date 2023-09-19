@@ -74,10 +74,7 @@ impl Viewer3dContent {
     event: &Event<()>,
     states: &WindowState,
     position_info: CanvasWindowPositionInfo,
-    cx: &mut std::task::Context,
   ) {
-    self.update_3d_view(cx);
-
     let bound = InputBound {
       origin: (
         position_info.absolute_position.x,
@@ -139,7 +136,7 @@ impl Viewer3dContent {
     }
   }
 
-  pub fn per_frame_update(&mut self, cx: &mut std::task::Context) {
+  pub fn per_frame_update(&mut self) {
     let widgets = self.widgets.get_mut();
     let gizmo = &mut widgets.gizmo;
     gizmo.update(&self.scene_derived);
@@ -162,11 +159,9 @@ impl Viewer3dContent {
         controllee: &camera.read().node,
       });
     }
-
-    self.update_3d_view(cx);
   }
 
-  fn update_3d_view(&mut self, cx: &mut std::task::Context) {
+  fn poll_update_3d_view(&mut self, cx: &mut std::task::Context) {
     let _ = self
       .scene_derived
       .poll_until_pending_or_terminate_not_care_result(cx);
@@ -179,6 +174,11 @@ impl Viewer3dContent {
       .borrow_mut()
       .camera_helpers
       .poll_until_pending_or_terminate_not_care_result(cx);
+  }
+
+  pub fn poll_update(&mut self, cx: &mut std::task::Context) {
+    self.poll_update_3d_view(cx);
+    self.selections.setup_waker(cx);
   }
 }
 
