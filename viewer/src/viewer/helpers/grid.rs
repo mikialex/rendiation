@@ -14,7 +14,7 @@ pub struct GridHelper {
 impl GridHelper {
   pub fn new(root: &SceneNode, config: GridConfig) -> Self {
     let mesh = build_grid(&config);
-    let mat = FatLineMaterial::new(1.);
+    let mat = WidenedLineMaterial::new(1.);
     let root = root.clone();
     let node = root.create_child();
     let mesh = HelperLineModel::new(mat, mesh, &node);
@@ -75,7 +75,7 @@ fn build_grid(config: &GridConfig) -> HelperLineMesh {
     let start = Vec3::new(x as f32 * config.width, 0., 0 as f32);
     let end = Vec3::new(x as f32, 0., config.height_segments as f32 * config.height);
 
-    let line = FatLineVertex { start, end, color };
+    let line = WidenedLineVertex { start, end, color };
     lines.push(line)
   }
 
@@ -83,7 +83,7 @@ fn build_grid(config: &GridConfig) -> HelperLineMesh {
     let start = Vec3::new(0 as f32, 0., y as f32 * config.height);
     let end = Vec3::new(config.width_segments as f32 * config.width, 0., y as f32);
 
-    let line = FatLineVertex { start, end, color };
+    let line = WidenedLineVertex { start, end, color };
     lines.push(line)
   }
 

@@ -62,7 +62,7 @@ where
 }
 
 pub trait AttributeVertex {
-  fn layout(&self) -> &[AttributeSemantic];
+  fn layout(&self) -> Vec<AttributeSemantic>;
   fn write(self, target: &mut [Vec<u8>]);
 }
 
@@ -73,8 +73,8 @@ impl<'a> AttributeVertex for FullReaderRead<'a> {
     }
   }
 
-  fn layout(&self) -> &[AttributeSemantic] {
-    &self.reader.keys
+  fn layout(&self) -> Vec<AttributeSemantic> {
+    self.reader.keys.clone()
   }
 }
 
@@ -95,8 +95,8 @@ where
     let push_v = |v: P::Vertex| {
       *deduplicate.entry(v).or_insert_with(|| {
         let buffers = buffers.get_or_insert_with(|| {
-          layout = Vec::from(v.layout()).into();
-          v.layout()
+          layout
+            .get_or_insert_with(|| v.layout())
             .iter()
             .map(|k| Vec::with_capacity(vertex_max_count * k.item_byte_size()))
             .collect()

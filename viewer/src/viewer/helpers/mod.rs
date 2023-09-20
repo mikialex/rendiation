@@ -4,7 +4,7 @@ use rendiation_scene_webgpu::*;
 use rendiation_shader_api::*;
 use webgpu::*;
 
-use crate::{FatLineMaterial, FatlineMesh};
+use crate::{WidenedLineMaterial, WidenedLineMesh};
 
 mod axis;
 mod camera;
@@ -15,13 +15,13 @@ pub use camera::*;
 pub use grid::*;
 pub use ground::*;
 
-pub type HelperLineMesh = FatlineMesh;
+pub type HelperLineMesh = WidenedLineMesh;
 pub struct HelperLineModel {
   pub inner: SceneModelImpl,
 }
 
 impl HelperLineModel {
-  pub fn new(material: FatLineMaterial, mesh: HelperLineMesh, node: &SceneNode) -> Self {
+  pub fn new(material: WidenedLineMaterial, mesh: HelperLineMesh, node: &SceneNode) -> Self {
     let mat = material.into_ref();
     let mat = SceneMaterialType::Foreign(Box::new(mat));
 

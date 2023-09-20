@@ -12,12 +12,12 @@ use crate::*;
 
 #[repr(C)]
 #[derive(Clone, Incremental)]
-pub struct FatLineMaterial {
+pub struct WidenedLineMaterial {
   pub width: f32,
   pub state: MaterialStates,
 }
 
-impl FatLineMaterial {
+impl WidenedLineMaterial {
   pub fn new(width: f32) -> Self {
     Self {
       width,
@@ -29,20 +29,20 @@ impl FatLineMaterial {
 #[repr(C)]
 #[std140_layout]
 #[derive(Clone, Copy, ShaderStruct)]
-pub struct FatlineMaterialUniform {
+pub struct WidenedLineMaterialUniform {
   pub width: f32,
 }
 
-type ReactiveFatlineMaterialGPUInner =
-  impl AsRef<RenderComponentCell<FatlineMaterialGPU>> + Stream<Item = RenderComponentDeltaFlag>;
+type ReactiveWidenedLineMaterialGPUInner =
+  impl AsRef<RenderComponentCell<WidenedLineMaterialGPU>> + Stream<Item = RenderComponentDeltaFlag>;
 
 #[pin_project::pin_project]
-pub struct ReactiveFatlineMaterialGPU {
+pub struct ReactiveWidenedLineMaterialGPU {
   #[pin]
-  inner: ReactiveFatlineMaterialGPUInner,
+  inner: ReactiveWidenedLineMaterialGPUInner,
 }
 
-impl Stream for ReactiveFatlineMaterialGPU {
+impl Stream for ReactiveWidenedLineMaterialGPU {
   type Item = RenderComponentDeltaFlag;
 
   fn poll_next(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Option<Self::Item>> {
@@ -51,26 +51,26 @@ impl Stream for ReactiveFatlineMaterialGPU {
   }
 }
 
-impl ReactiveRenderComponentSource for ReactiveFatlineMaterialGPU {
+impl ReactiveRenderComponentSource for ReactiveWidenedLineMaterialGPU {
   fn as_reactive_component(&self) -> &dyn ReactiveRenderComponent {
     self.inner.as_ref() as &dyn ReactiveRenderComponent
   }
 }
 
-impl WebGPUMaterial for FatLineMaterial {
-  type ReactiveGPU = ReactiveFatlineMaterialGPU;
+impl WebGPUMaterial for WidenedLineMaterial {
+  type ReactiveGPU = ReactiveWidenedLineMaterialGPU;
 
   fn create_reactive_gpu(
     source: &SharedIncrementalSignal<Self>,
     ctx: &ShareBindableResourceCtx,
   ) -> Self::ReactiveGPU {
-    let uniform = FatlineMaterialUniform {
+    let uniform = WidenedLineMaterialUniform {
       width: source.read().width,
       ..Zeroable::zeroed()
     };
     let uniform = create_uniform(uniform, &ctx.gpu.device);
 
-    let gpu = FatlineMaterialGPU { uniform };
+    let gpu = WidenedLineMaterialGPU { uniform };
     let state = RenderComponentCell::new(gpu);
 
     let weak_material = source.downgrade();
@@ -80,7 +80,7 @@ impl WebGPUMaterial for FatLineMaterial {
       .single_listen_by::<()>(any_change_no_init)
       .fold_signal(state, move |_, state| {
         if let Some(m) = weak_material.upgrade() {
-          let uniform = FatlineMaterialUniform {
+          let uniform = WidenedLineMaterialUniform {
             width: m.read().width,
             ..Zeroable::zeroed()
           };
@@ -90,7 +90,7 @@ impl WebGPUMaterial for FatLineMaterial {
         RenderComponentDeltaFlag::Content.into()
       });
 
-    ReactiveFatlineMaterialGPU { inner }
+    ReactiveWidenedLineMaterialGPU { inner }
   }
 
   fn is_transparent(&self) -> bool {
@@ -98,11 +98,11 @@ impl WebGPUMaterial for FatLineMaterial {
   }
 }
 
-pub struct FatlineMaterialGPU {
-  uniform: UniformBufferDataView<FatlineMaterialUniform>,
+pub struct WidenedLineMaterialGPU {
+  uniform: UniformBufferDataView<WidenedLineMaterialUniform>,
 }
 
-impl Stream for FatlineMaterialGPU {
+impl Stream for WidenedLineMaterialGPU {
   type Item = RenderComponentDeltaFlag;
 
   fn poll_next(self: Pin<&mut Self>, _: &mut Context) -> Poll<Option<Self::Item>> {
@@ -110,27 +110,27 @@ impl Stream for FatlineMaterialGPU {
   }
 }
 
-impl ShaderHashProvider for FatlineMaterialGPU {}
+impl ShaderHashProvider for WidenedLineMaterialGPU {}
 
-impl ShaderPassBuilder for FatlineMaterialGPU {
+impl ShaderPassBuilder for WidenedLineMaterialGPU {
   fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
     ctx.binding.bind(&self.uniform);
   }
 }
 
-impl GraphicsShaderProvider for FatlineMaterialGPU {
+impl GraphicsShaderProvider for WidenedLineMaterialGPU {
   fn build(&self, builder: &mut ShaderRenderPipelineBuilder) -> Result<(), ShaderBuildError> {
     builder.vertex(|builder, binding| {
       let uv = builder.query::<GeometryUV>()?;
       let color_with_alpha = builder.query::<GeometryColorWithAlpha>()?;
       let material = binding.bind_by(&self.uniform).load().expand();
 
-      let vertex_position = fatline_vertex(
+      let vertex_position = widened_line_vertex(
         builder.query::<CameraProjectionMatrix>()?,
         builder.query::<CameraViewMatrix>()?,
         builder.query::<WorldMatrix>()?,
-        builder.query::<FatLineStart>()?,
-        builder.query::<FatLineEnd>()?,
+        builder.query::<WidenedLineStart>()?,
+        builder.query::<WidenedLineEnd>()?,
         builder.query::<GeometryPosition>()?,
         builder.query::<RenderBufferSize>()?,
         material.width,
@@ -146,7 +146,7 @@ impl GraphicsShaderProvider for FatlineMaterialGPU {
       let uv = builder.query::<FragmentUv>()?;
       let color = builder.query::<FragmentColorAndAlpha>()?;
 
-      if_by(discard_fatline_round_corner(uv), || {
+      if_by(discard_round_corner(uv), || {
         builder.discard();
       });
 
@@ -157,21 +157,21 @@ impl GraphicsShaderProvider for FatlineMaterialGPU {
 }
 
 #[allow(clippy::too_many_arguments)]
-fn fatline_vertex(
+fn widened_line_vertex(
   projection: Node<Mat4<f32>>,
   view: Node<Mat4<f32>>,
   world_matrix: Node<Mat4<f32>>,
-  fatline_start: Node<Vec3<f32>>,
-  fatline_end: Node<Vec3<f32>>,
+  widened_line_start: Node<Vec3<f32>>,
+  widened_line_end: Node<Vec3<f32>>,
   position: Node<Vec3<f32>>,
   view_size: Node<Vec2<f32>>,
   width: Node<f32>,
 ) -> Node<Vec4<f32>> {
-  let fatline_start = vec4_node((fatline_start, val(1.0)));
-  let fatline_end = vec4_node((fatline_end, val(1.0)));
+  let widened_line_start = vec4_node((widened_line_start, val(1.0)));
+  let widened_line_end = vec4_node((widened_line_end, val(1.0)));
   // camera space
-  let start = view * world_matrix * fatline_start;
-  let end = view * world_matrix * fatline_end;
+  let start = view * world_matrix * widened_line_start;
+  let end = view * world_matrix * widened_line_end;
 
   let aspect = view_size.x() / view_size.y();
 
@@ -214,7 +214,7 @@ fn fatline_vertex(
 
   let mut offset = offset.load();
 
-  // adjust for fatLineWidth
+  // adjust for width
   offset *= width.splat();
   // adjust for clip-space to screen-space conversion // maybe resolution should be based on
   // viewport ...
@@ -228,7 +228,7 @@ fn fatline_vertex(
   (clip.xy() + offset, clip.zw()).into()
 }
 
-fn discard_fatline_round_corner(uv: Node<Vec2<f32>>) -> Node<bool> {
+fn discard_round_corner(uv: Node<Vec2<f32>>) -> Node<bool> {
   let a = uv.x();
   let b = uv.y() + uv.y().greater_than(0.).select(-1., 1.);
   let len2 = a * a + b * b;

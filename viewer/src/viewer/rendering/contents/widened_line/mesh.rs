@@ -15,18 +15,18 @@ use webgpu::*;
 use crate::*;
 
 #[derive(Clone)]
-pub struct FatlineMesh {
-  inner: GroupedMesh<NoneIndexedMesh<LineList, Vec<FatLineVertex>>>,
+pub struct WidenedLineMesh {
+  inner: GroupedMesh<NoneIndexedMesh<LineList, Vec<WidenedLineVertex>>>,
 }
-clone_self_incremental!(FatlineMesh);
+clone_self_incremental!(WidenedLineMesh);
 
-impl FatlineMesh {
-  pub fn new(inner: GroupedMesh<NoneIndexedMesh<LineList, Vec<FatLineVertex>>>) -> Self {
+impl WidenedLineMesh {
+  pub fn new(inner: GroupedMesh<NoneIndexedMesh<LineList, Vec<WidenedLineVertex>>>) -> Self {
     Self { inner }
   }
 }
 
-impl IntersectAbleGroupedMesh for FatlineMesh {
+impl IntersectAbleGroupedMesh for WidenedLineMesh {
   fn intersect_list_by_group(
     &self,
     _ray: Ray3,
@@ -46,16 +46,16 @@ impl IntersectAbleGroupedMesh for FatlineMesh {
   }
 }
 
-type ReactiveFatlineGPUInner =
-  impl AsRef<RenderComponentCell<FatlineMeshGPU>> + Stream<Item = RenderComponentDeltaFlag>;
+type ReactiveWidenedLineGPUInner =
+  impl AsRef<RenderComponentCell<WidenedLineMeshGPU>> + Stream<Item = RenderComponentDeltaFlag>;
 
 #[pin_project::pin_project]
-pub struct ReactiveFatlineGPU {
+pub struct ReactiveWidenedLineGPU {
   #[pin]
-  inner: ReactiveFatlineGPUInner,
+  inner: ReactiveWidenedLineGPUInner,
 }
 
-impl Stream for ReactiveFatlineGPU {
+impl Stream for ReactiveWidenedLineGPU {
   type Item = RenderComponentDeltaFlag;
 
   fn poll_next(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Option<Self::Item>> {
@@ -64,17 +64,17 @@ impl Stream for ReactiveFatlineGPU {
   }
 }
 
-impl ReactiveRenderComponentSource for ReactiveFatlineGPU {
+impl ReactiveRenderComponentSource for ReactiveWidenedLineGPU {
   fn as_reactive_component(&self) -> &dyn ReactiveRenderComponent {
     self.inner.as_ref() as &dyn ReactiveRenderComponent
   }
 }
 
-impl MeshDrawcallEmitter for ReactiveFatlineGPU {
+impl MeshDrawcallEmitter for ReactiveWidenedLineGPU {
   fn draw_command(&self, _group: MeshDrawGroup) -> DrawCommand {
     let range = self.inner.as_ref().inner.range_full;
 
-    FATLINE_INSTANCE.with(|instance| DrawCommand::Indexed {
+    LINE_SEG_INSTANCE.with(|instance| DrawCommand::Indexed {
       base_vertex: 0,
       indices: 0..instance.draw_count() as u32,
       instances: range.into(),
@@ -82,8 +82,8 @@ impl MeshDrawcallEmitter for ReactiveFatlineGPU {
   }
 }
 
-impl WebGPUMesh for FatlineMesh {
-  type ReactiveGPU = ReactiveFatlineGPU;
+impl WebGPUMesh for WidenedLineMesh {
+  type ReactiveGPU = ReactiveWidenedLineGPU;
 
   fn create_reactive_gpu(
     source: &SharedIncrementalSignal<Self>,
@@ -104,7 +104,7 @@ impl WebGPUMesh for FatlineMesh {
           .write()
           .unwrap()
           .entry()
-          .or_insert_with(|| create_fatline_quad_gpu(&ctx.gpu.device))
+          .or_insert_with(|| create_widened_line_quad_gpu(&ctx.gpu.device))
           .data
           .clone();
 
@@ -113,7 +113,7 @@ impl WebGPUMesh for FatlineMesh {
           count: mesh.inner.mesh.draw_count(),
         };
 
-        Some(FatlineMeshGPU {
+        Some(WidenedLineMeshGPU {
           vertex,
           instance,
           range_full,
@@ -137,15 +137,15 @@ impl WebGPUMesh for FatlineMesh {
         }
       });
 
-    ReactiveFatlineGPU { inner }
+    ReactiveWidenedLineGPU { inner }
   }
 }
 
-impl GraphicsShaderProvider for FatlineMeshGPU {
+impl GraphicsShaderProvider for WidenedLineMeshGPU {
   fn build(&self, builder: &mut ShaderRenderPipelineBuilder) -> Result<(), ShaderBuildError> {
     builder.vertex(|builder, _| {
       builder.register_vertex::<Vertex>(VertexStepMode::Vertex);
-      builder.register_vertex::<FatLineVertex>(VertexStepMode::Instance);
+      builder.register_vertex::<WidenedLineVertex>(VertexStepMode::Instance);
       builder.primitive_state.topology = webgpu::PrimitiveTopology::TriangleList;
       builder.primitive_state.cull_mode = None;
       Ok(())
@@ -153,23 +153,23 @@ impl GraphicsShaderProvider for FatlineMeshGPU {
   }
 }
 
-impl ShaderHashProvider for FatlineMeshGPU {}
+impl ShaderHashProvider for WidenedLineMeshGPU {}
 
-impl ShaderPassBuilder for FatlineMeshGPU {
+impl ShaderPassBuilder for WidenedLineMeshGPU {
   fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
     self.instance.setup_pass(ctx);
     ctx.set_vertex_buffer_owned_next(&self.vertex);
   }
 }
 
-pub struct FatlineMeshGPU {
+pub struct WidenedLineMeshGPU {
   vertex: GPUBufferResourceView,
-  /// All fatline gpu instance shall share one instance buffer
+  /// All widened_line gpu instance shall share one instance buffer
   instance: Rc<MeshGPU>,
   range_full: MeshGroup,
 }
 
-impl Stream for FatlineMeshGPU {
+impl Stream for WidenedLineMeshGPU {
   type Item = RenderComponentDeltaFlag;
   fn poll_next(self: Pin<&mut Self>, _: &mut Context) -> Poll<Option<Self::Item>> {
     Poll::Pending
@@ -180,23 +180,23 @@ use bytemuck::{Pod, Zeroable};
 
 #[repr(C)]
 #[derive(Copy, Clone, Zeroable, Pod, ShaderVertex)]
-pub struct FatLineVertex {
-  #[semantic(FatLineStart)]
+pub struct WidenedLineVertex {
+  #[semantic(WidenedLineStart)]
   pub start: Vec3<f32>,
-  #[semantic(FatLineEnd)]
+  #[semantic(WidenedLineEnd)]
   pub end: Vec3<f32>,
   #[semantic(GeometryColorWithAlpha)]
   pub color: Vec4<f32>,
 }
 
-only_vertex!(FatLineStart, Vec3<f32>);
-only_vertex!(FatLineEnd, Vec3<f32>);
+only_vertex!(WidenedLineStart, Vec3<f32>);
+only_vertex!(WidenedLineEnd, Vec3<f32>);
 
-pub struct FatlineQuadInstance {
+pub struct WidenedLineQuadInstance {
   data: Rc<MeshGPU>,
 }
 
-fn create_fatline_quad() -> IndexedMesh<TriangleList, Vec<Vertex>, Vec<u16>> {
+fn create_widened_line_quad() -> IndexedMesh<TriangleList, Vec<Vertex>, Vec<u16>> {
   #[rustfmt::skip]
   let positions: Vec<isize> = vec![- 1, 2, 0, 1, 2, 0, - 1, 1, 0, 1, 1, 0, - 1, 0, 0, 1, 0, 0, - 1, - 1, 0, 1, - 1, 0];
   let positions: &[Vec3<isize>] = bytemuck::cast_slice(positions.as_slice());
@@ -218,11 +218,11 @@ fn create_fatline_quad() -> IndexedMesh<TriangleList, Vec<Vertex>, Vec<u16>> {
 }
 
 thread_local! {
-  static FATLINE_INSTANCE: IndexedMesh<TriangleList, Vec<Vertex>, Vec<u16>> = create_fatline_quad()
+  static LINE_SEG_INSTANCE: IndexedMesh<TriangleList, Vec<Vertex>, Vec<u16>> = create_widened_line_quad()
 }
 
-fn create_fatline_quad_gpu(device: &webgpu::GPUDevice) -> FatlineQuadInstance {
-  FatlineQuadInstance {
-    data: Rc::new(FATLINE_INSTANCE.with(|f| create_gpu(f, device, Default::default()))),
+fn create_widened_line_quad_gpu(device: &webgpu::GPUDevice) -> WidenedLineQuadInstance {
+  WidenedLineQuadInstance {
+    data: Rc::new(LINE_SEG_INSTANCE.with(|f| create_gpu(f, device, Default::default()))),
   }
 }

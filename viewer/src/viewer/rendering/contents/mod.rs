@@ -1,9 +1,9 @@
 use crate::*;
 
-mod lined_mesh;
-pub use lined_mesh::*;
-mod fatline;
-pub use fatline::*;
+mod solid_lined_mesh;
+pub use solid_lined_mesh::*;
+mod widened_line;
+pub use widened_line::*;
 mod model_overrides;
 pub use model_overrides::*;
 use rendiation_mesh_core::{
@@ -12,9 +12,9 @@ use rendiation_mesh_core::{
 };
 
 pub fn register_viewer_extra_scene_features() {
-  register_material::<SharedIncrementalSignal<FatLineMaterial>>();
+  register_material::<SharedIncrementalSignal<WidenedLineMaterial>>();
 
-  register_mesh::<SharedIncrementalSignal<FatlineMesh>>();
+  register_mesh::<SharedIncrementalSignal<WidenedLineMesh>>();
   register_mesh::<
     SharedIncrementalSignal<GroupedMesh<IndexedMesh<TriangleList, Vec<Vertex>, DynIndexContainer>>>,
   >();

@@ -16,23 +16,19 @@ impl Stream for AttributesMeshGPU {
 
 impl ShaderPassBuilder for AttributesMeshGPU {
   fn setup_pass(&self, ctx: &mut webgpu::GPURenderPassCtx) {
-    for (s, b) in &self.attributes {
-      match s {
-        AttributeSemantic::Positions => ctx.set_vertex_buffer_owned_next(b),
-        AttributeSemantic::Normals => ctx.set_vertex_buffer_owned_next(b),
-        AttributeSemantic::Tangents => {}
-        AttributeSemantic::Colors(_) => ctx.set_vertex_buffer_owned_next(b),
-        AttributeSemantic::TexCoords(_) => ctx.set_vertex_buffer_owned_next(b),
-        AttributeSemantic::Joints(_) => ctx.set_vertex_buffer_owned_next(b),
-        AttributeSemantic::Weights(_) => ctx.set_vertex_buffer_owned_next(b),
-        AttributeSemantic::Foreign(_) => todo!(),
-      }
+    for (_, b) in &self.attributes {
+      ctx.set_vertex_buffer_owned_next(b);
     }
     if let Some((buffer, index_format)) = &self.indices {
       ctx.pass.set_index_buffer_owned(buffer, *index_format)
     }
   }
 }
+
+pub trait CustomAttributeKeyGPU {
+  fn inject_shader(&self, builder: &mut ShaderVertexBuilder);
+}
+define_dyn_trait_downcaster_static!(CustomAttributeKeyGPU);
 
 impl ShaderHashProvider for AttributesMeshGPU {
   fn hash_pipeline(&self, hasher: &mut webgpu::PipelineHasher) {
@@ -59,7 +55,7 @@ impl GraphicsShaderProvider for AttributesMeshGPU {
             builder.push_single_vertex_layout::<GeometryPosition>(mode)
           }
           AttributeSemantic::Normals => builder.push_single_vertex_layout::<GeometryNormal>(mode),
-          AttributeSemantic::Tangents => {}
+          AttributeSemantic::Tangents => builder.push_single_vertex_layout::<GeometryTangent>(mode),
           AttributeSemantic::Colors(_) => builder.push_single_vertex_layout::<GeometryColor>(mode),
           AttributeSemantic::TexCoords(channel) => match channel {
             // support 3 channel should be enough
@@ -84,7 +80,12 @@ impl GraphicsShaderProvider for AttributesMeshGPU {
             3 => builder.push_single_vertex_layout::<WeightChannel<3>>(mode),
             _ => return Err(ShaderBuildError::SemanticNotSupported),
           },
-          AttributeSemantic::Foreign(_) => todo!(),
+          AttributeSemantic::Foreign(key) => {
+            get_dyn_trait_downcaster_static!(CustomAttributeKeyGPU)
+              .downcast_ref(key.implementation.as_ref().as_any())
+              .ok_or(ShaderBuildError::SemanticNotSupported)?
+              .inject_shader(builder)
+          }
         }
       }
       builder.primitive_state.topology = self.topology;

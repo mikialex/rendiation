@@ -96,6 +96,8 @@ both!(FragmentSampleMaskOutput, u32);
 only_vertex!(GeometryPosition2D, Vec2<f32>);
 only_vertex!(GeometryPosition, Vec3<f32>);
 only_vertex!(GeometryNormal, Vec3<f32>);
+// the forth channel is hand ness
+only_vertex!(GeometryTangent, Vec4<f32>);
 
 pub type GeometryUV = GeometryUVChannel<0>;
 pub struct GeometryUVChannel<const I: usize>;
