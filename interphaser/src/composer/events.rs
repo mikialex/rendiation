@@ -108,8 +108,8 @@ impl<X: EventHandlerType> Stream for EventHandler<X> {
 
 impl<C, X: EventHandlerImpl<C>> EventHandlerLike<C> for EventHandler<X> {
   fn handle_event(&mut self, event: &mut EventCtx, inner: &mut C) {
-    if let Some(e) = self.state.downcast_event(event, inner) {
-      self.events.emit(e)
+    if let Some(e) = self.state.process_event(event, inner) {
+      self.events.emit(&e)
     }
   }
   fn should_handle_in_bubble(&self) -> bool {
@@ -141,11 +141,7 @@ pub trait EventHandlerType: Default {
 }
 
 pub trait EventHandlerImpl<C>: EventHandlerType {
-  fn downcast_event<'a>(
-    &mut self,
-    event: &'a mut EventCtx,
-    inner: &mut C,
-  ) -> Option<&'a Self::Event>;
+  fn process_event(&mut self, event: &mut EventCtx, inner: &mut C) -> Option<Self::Event>;
   fn should_handle_in_bubble(&self) -> bool {
     false
   }
@@ -158,14 +154,10 @@ impl EventHandlerType for MouseDown {
   type Event = ();
 }
 impl<C: View> EventHandlerImpl<C> for MouseDown {
-  fn downcast_event<'a>(
-    &mut self,
-    event: &'a mut EventCtx,
-    inner: &mut C,
-  ) -> Option<&'a Self::Event> {
+  fn process_event(&mut self, event: &mut EventCtx, inner: &mut C) -> Option<Self::Event> {
     if let Some((MouseButton::Left, ElementState::Pressed)) = mouse(event.event) {
       if inner.hit_test(event.states.mouse_position) {
-        return Some(&());
+        return Some(());
       }
     }
     None
@@ -179,14 +171,10 @@ impl EventHandlerType for MouseUp {
   type Event = ();
 }
 impl<C: View> EventHandlerImpl<C> for MouseUp {
-  fn downcast_event<'a>(
-    &mut self,
-    event: &'a mut EventCtx,
-    inner: &mut C,
-  ) -> Option<&'a Self::Event> {
+  fn process_event(&mut self, event: &mut EventCtx, inner: &mut C) -> Option<Self::Event> {
     if let Some((MouseButton::Left, ElementState::Released)) = mouse(event.event) {
       if inner.hit_test(event.states.mouse_position) {
-        return Some(&());
+        return Some(());
       }
     }
     None
@@ -203,20 +191,16 @@ impl EventHandlerType for Click {
   type Event = ();
 }
 impl<C: View> EventHandlerImpl<C> for Click {
-  fn downcast_event<'a>(
-    &mut self,
-    event: &'a mut EventCtx,
-    inner: &mut C,
-  ) -> Option<&'a Self::Event> {
+  fn process_event(&mut self, event: &mut EventCtx, inner: &mut C) -> Option<Self::Event> {
     if let Some((MouseButton::Left, ElementState::Pressed)) = mouse(event.event) {
       if inner.hit_test(event.states.mouse_position) {
         self.mouse_down = true;
       }
     } else if let Some((MouseButton::Left, ElementState::Released)) = mouse(event.event) {
       if self.mouse_down && inner.hit_test(event.states.mouse_position) {
-        return Some(&());
+        self.mouse_down = false;
+        return Some(());
       }
-      self.mouse_down = false;
     }
     None
   }
@@ -229,14 +213,10 @@ impl EventHandlerType for MouseMove {
   type Event = ();
 }
 impl<C: View> EventHandlerImpl<C> for MouseMove {
-  fn downcast_event<'a>(
-    &mut self,
-    event: &'a mut EventCtx,
-    inner: &mut C,
-  ) -> Option<&'a Self::Event> {
+  fn process_event(&mut self, event: &mut EventCtx, inner: &mut C) -> Option<Self::Event> {
     if let Some(position) = mouse_move(event.event) {
       if inner.hit_test((position.x as f32, position.y as f32).into()) {
-        return Some(&());
+        return Some(());
       }
     }
     None
@@ -253,16 +233,12 @@ impl EventHandlerType for MouseIn {
   type Event = ();
 }
 impl<C: View> EventHandlerImpl<C> for MouseIn {
-  fn downcast_event<'a>(
-    &mut self,
-    event: &'a mut EventCtx,
-    inner: &mut C,
-  ) -> Option<&'a Self::Event> {
+  fn process_event(&mut self, event: &mut EventCtx, inner: &mut C) -> Option<Self::Event> {
     if let Some(position) = mouse_move(event.event) {
       if inner.hit_test((position.x as f32, position.y as f32).into()) {
         if !self.is_mouse_in {
           self.is_mouse_in = true;
-          return Some(&());
+          return Some(());
         }
         self.is_mouse_in = true;
       } else {
@@ -282,16 +258,12 @@ impl EventHandlerType for MouseOut {
   type Event = ();
 }
 impl<C: View> EventHandlerImpl<C> for MouseOut {
-  fn downcast_event<'a>(
-    &mut self,
-    event: &'a mut EventCtx,
-    inner: &mut C,
-  ) -> Option<&'a Self::Event> {
+  fn process_event(&mut self, event: &mut EventCtx, inner: &mut C) -> Option<Self::Event> {
     if let Some(position) = mouse_move(event.event) {
       if !inner.hit_test((position.x as f32, position.y as f32).into()) {
         if self.is_mouse_in {
           self.is_mouse_in = false;
-          return Some(&());
+          return Some(());
         }
         self.is_mouse_in = false;
       } else {
@@ -325,4 +297,38 @@ pub fn mouse_move(event: &Event<()>) -> Option<winit::dpi::PhysicalPosition<f64>
     WindowEvent::CursorMoved { position, .. } => Some(*position),
     _ => None,
   })
+}
+
+#[derive(Default)]
+pub struct Drag {
+  mouse_down: bool,
+}
+
+#[derive(Clone, Copy)]
+pub enum DragEvent {
+  StartDrag,
+  EndDrag,
+  Dragging,
+}
+
+impl EventHandlerType for Drag {
+  type Event = DragEvent;
+}
+impl<C: View> EventHandlerImpl<C> for Drag {
+  fn process_event(&mut self, event: &mut EventCtx, inner: &mut C) -> Option<Self::Event> {
+    if let Some((MouseButton::Left, ElementState::Pressed)) = mouse(event.event) {
+      if inner.hit_test(event.states.mouse_position) {
+        self.mouse_down = true;
+        return Some(DragEvent::StartDrag);
+      }
+    } else if let Some((MouseButton::Left, ElementState::Released)) = mouse(event.event) {
+      if self.mouse_down {
+        self.mouse_down = false;
+        return Some(DragEvent::EndDrag);
+      }
+    } else if mouse_move(event.event).is_some() && self.mouse_down {
+      return Some(DragEvent::Dragging);
+    }
+    None
+  }
 }

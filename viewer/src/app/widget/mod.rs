@@ -1,5 +1,6 @@
 use futures::*;
 use interphaser::*;
+use reactive::once_forever_pending;
 
 #[derive(Default, Clone)]
 pub enum InteractState {
@@ -116,4 +117,23 @@ pub fn text_box(
     .nest_in(clicker);
 
   (text_box, changes)
+}
+
+/// input and output is normalized
+pub fn slider(
+  binding: impl Stream<Item = f32> + Unpin + 'static,
+) -> (impl View, impl Stream<Item = f32>) {
+  let slider_length = 400.;
+  let slider_rail_width = 40.;
+  let handle_size = 40.;
+
+  let _binding = binding.map(|v| v.clamp(0., 1.));
+
+  let handle = interactive_rect::<Text>((handle_size, handle_size));
+
+  let rail = interactive_rect((slider_length, slider_rail_width));
+
+  let view = rail.wrap(absolute_group().child(AbsChild::new(handle).with_position((0., 0.))));
+  let change = once_forever_pending(0.);
+  (view, change)
 }

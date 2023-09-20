@@ -191,7 +191,7 @@ pub fn register_default_commands(terminal: &mut Terminal) {
       let model = model.read();
       if let rendiation_scene_core::ModelType::Standard(model) = &model.model {
         let mesh = model.read().mesh.clone();
-        let lined_mesh = SolidLinedMesh::new(mesh, Vec::new());
+        let lined_mesh = SolidLinedMesh::new(mesh);
         let mesh = SceneMeshType::Foreign(Box::new(lined_mesh.into_ref()));
         model.mutate(|mut model| model.modify(StandardModelDelta::mesh(mesh)));
       }

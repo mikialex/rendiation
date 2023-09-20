@@ -8,7 +8,7 @@ use futures::Stream;
 use incremental::*;
 use reactive::SignalStreamExt;
 use rendiation_algebra::Vec3;
-use rendiation_geometry::{LineSegment, OptionalNearest, Ray3, Triangle};
+use rendiation_geometry::{OptionalNearest, Ray3, Triangle};
 use rendiation_shader_api::*;
 use webgpu::*;
 
@@ -25,13 +25,11 @@ pub struct SolidLinedMesh {
   /// note, user should make sure the mesh not shared with others
   /// todo, impl runtime ownership checking
   mesh: SceneMeshType,
-  #[allow(dead_code)] // todo
-  lines: Vec<LineSegment<u32>>,
 }
 
 impl SolidLinedMesh {
-  pub fn new(mesh: SceneMeshType, lines: Vec<LineSegment<u32>>) -> Self {
-    Self { mesh, lines }
+  pub fn new(mesh: SceneMeshType) -> Self {
+    Self { mesh }
   }
 }
 clone_self_incremental!(SolidLinedMesh);

@@ -4,7 +4,9 @@ use crate::*;
 pub struct Container {
   pub color: Color,
   pub child_align: ContainerAlignment,
-  /// extra relative offset
+  /// extra relative(parent) offset for self
+  pub self_offset: ContainerItemOffset,
+  /// extra relative(self) offset for child
   pub child_offset: ContainerItemOffset,
   pub size: ContainerSize,
   /// for simplicity, we only support outer border now
@@ -37,6 +39,7 @@ impl Container {
     Self {
       color: (1., 1., 1., 0.).into(),
       child_align: Default::default(),
+      self_offset: Default::default(),
       child_offset: Default::default(),
       size,
       layout: Default::default(),
@@ -85,7 +88,10 @@ impl<C: View> ViewNester<C> for Container {
 
           **output = self.layout.size.with_default_baseline();
         }
-        LayoutProtocol::PositionAt(p) => self.layout.set_relative_position(*p),
+        LayoutProtocol::PositionAt(p) => {
+          let position = (p.x + self.self_offset.x, p.y + self.self_offset.y);
+          self.layout.set_relative_position(position.into())
+        }
       },
       ViewRequest::Encode(builder) => {
         self.draw(builder);
