@@ -7,7 +7,7 @@ use crate::*;
 
 #[derive(Default)]
 pub struct SelectionSet {
-  pub selected: FastHashSet<SceneModel>,
+  selected: FastHashSet<SceneModel>,
   changed: AtomicWaker,
 }
 
@@ -51,7 +51,11 @@ impl SelectionSet {
     self.selected.clear();
   }
 
-  pub fn as_renderables(&self) -> impl Iterator<Item = &dyn SceneRenderable> {
+  pub fn iter_selected(&self) -> impl Iterator<Item = &SceneModel> {
+    self.selected.iter()
+  }
+
+  pub fn iter_renderables(&self) -> impl Iterator<Item = &dyn SceneRenderable> {
     self.selected.iter().map(|m| m as &dyn SceneRenderable)
   }
 }

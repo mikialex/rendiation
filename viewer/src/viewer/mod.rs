@@ -92,6 +92,7 @@ impl CanvasPrinter for Viewer {
       let mut ctx = CommandCtx {
         scene: &self.content.scene,
         rendering: self.ctx.as_mut(),
+        selection_set: &self.content.selections,
       };
 
       self.terminal.check_execute(&mut ctx, cx);

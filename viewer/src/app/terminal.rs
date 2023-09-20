@@ -4,10 +4,10 @@ use fast_hash_collection::FastHashMap;
 use futures::{executor::ThreadPool, Future, Stream, StreamExt};
 use interphaser::{winit::event::VirtualKeyCode, *};
 use reactive::{single_value_channel, PollUtils};
-use rendiation_scene_core::Scene;
+use rendiation_scene_core::{IntoSceneItemRef, Scene, SceneMeshType, StandardModelDelta};
 use webgpu::ReadableTextureBuffer;
 
-use crate::{text_box, Viewer3dRenderingCtx};
+use crate::{text_box, SelectionSet, SolidLinedMesh, Viewer3dRenderingCtx};
 
 pub struct Terminal {
   pub command_history: Vec<String>,
@@ -19,6 +19,7 @@ pub struct Terminal {
 pub struct CommandCtx<'a> {
   pub scene: &'a Scene,
   pub rendering: Option<&'a mut Viewer3dRenderingCtx>,
+  pub selection_set: &'a SelectionSet,
 }
 
 type TerminalCommandCb =
@@ -154,11 +155,10 @@ pub fn register_default_commands(terminal: &mut Terminal) {
       if let Some(mut dir) = dirs::download_dir() {
         dir.push("gltf_export");
         rendiation_scene_gltf_exporter::build_scene_to_gltf(&scene, &dir, "scene").unwrap();
-      }else {
-        log::error!("failed to locate the system's default download directory to write viewer screenshot image")
+      } else {
+        log::error!("failed to locate the system's default download directory to write file output")
       }
-
-     })
+    })
   });
 
   terminal.register_command("screenshot", |ctx, _parameters| {
@@ -184,6 +184,20 @@ pub fn register_default_commands(terminal: &mut Terminal) {
       }
 
     })
+  });
+
+  terminal.register_command("into-solid-line-mesh", |ctx, _parameters| {
+    for model in ctx.selection_set.iter_selected() {
+      let model = model.read();
+      if let rendiation_scene_core::ModelType::Standard(model) = &model.model {
+        let mesh = model.read().mesh.clone();
+        let lined_mesh = SolidLinedMesh::new(mesh, Vec::new());
+        let mesh = SceneMeshType::Foreign(Box::new(lined_mesh.into_ref()));
+        model.mutate(|mut model| model.modify(StandardModelDelta::mesh(mesh)));
+      }
+    }
+
+    Box::pin(async move {})
   });
 
   #[cfg(feature = "heap-debug")]

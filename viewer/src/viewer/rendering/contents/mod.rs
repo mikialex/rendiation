@@ -14,6 +14,7 @@ use rendiation_mesh_core::{
 pub fn register_viewer_extra_scene_features() {
   register_material::<SharedIncrementalSignal<WidenedLineMaterial>>();
 
+  register_mesh::<SharedIncrementalSignal<SolidLinedMesh>>();
   register_mesh::<SharedIncrementalSignal<WidenedLineMesh>>();
   register_mesh::<
     SharedIncrementalSignal<GroupedMesh<IndexedMesh<TriangleList, Vec<Vertex>, DynIndexContainer>>>,

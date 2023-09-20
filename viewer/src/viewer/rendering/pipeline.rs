@@ -76,7 +76,7 @@ impl ViewerPipeline {
     let highlight_compose = (!content.selections.is_empty()).then(|| {
       self
         .highlight
-        .draw(content.selections.as_renderables(), ctx, scene)
+        .draw(content.selections.iter_renderables(), ctx, scene)
     });
 
     let mut scene_result = attachment().request(ctx);

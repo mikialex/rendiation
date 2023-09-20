@@ -220,6 +220,7 @@ pub struct AttributeAccessor {
 impl AttributeAccessor {
   pub fn create_owned<T: bytemuck::Pod>(input: Vec<T>, item_byte_size: usize) -> Self {
     let buffer = bytemuck::cast_slice(&input).to_owned();
+    let count = buffer.len() / item_byte_size;
 
     let buffer = GeometryBufferInner { buffer };
     let buffer = buffer.into_ref();
@@ -230,7 +231,7 @@ impl AttributeAccessor {
     Self {
       view,
       byte_offset: 0,
-      count: input.len(),
+      count,
       item_byte_size,
     }
   }

@@ -263,6 +263,7 @@ impl GraphicsShaderProvider for SolidLinedMeshGPU {
       if let Ok(color) = builder.query::<ColorChannel>() {
         builder.register::<ColorChannel>(ratio.mix(line_color, color));
       }
+      // builder.register::<ColorChannel>(barycentric);
 
       Ok(())
     })
