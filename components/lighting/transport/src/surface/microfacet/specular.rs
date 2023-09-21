@@ -13,10 +13,9 @@ pub struct Specular<D, G, F> {
 // http://graphicrants.blogspot.com/2013/08/specular-brdf-reference.html
 // http://www.codinglabs.net/article_physically_based_rendering_cook_torrance.aspx
 // https://blog.selfshadow.com/publications/s2012-shading-course/burley/s2012_pbs_disney_brdf_notes_v3.pdf
-pub trait PhysicalSpecular:
+pub trait PhysicalSpecular<C: IntersectionCtxBase>:
   MicroFacetNormalDistribution + MicroFacetGeometricShadow + MicroFacetFresnel + Clone
 {
-  type IntersectionCtx;
   fn f0(&self, albedo: Vec3<f32>) -> Vec3<f32>;
 
   fn specular_estimate(&self, albedo: Vec3<f32>) -> f32 {
@@ -31,28 +30,29 @@ pub trait PhysicalSpecular:
   fn sample_light_dir_use_bsdf_importance(
     &self,
     view_dir: NormalizedVec3<f32>,
-    intersection: &Self::IntersectionCtx,
+    intersection: &C,
     sampler: &mut dyn Sampler,
   ) -> NormalizedVec3<f32> {
     let micro_surface_normal =
-      self.sample_micro_surface_normal(intersection.shading_normal, sampler);
+      self.sample_micro_surface_normal(intersection.shading_normal(), sampler);
     view_dir.reverse().reflect(micro_surface_normal)
   }
   fn pdf(
     &self,
     view_dir: NormalizedVec3<f32>,
     light_dir: NormalizedVec3<f32>,
-    intersection: &Self::IntersectionCtx,
+    intersection: &C,
   ) -> f32 {
     let micro_surface_normal = (view_dir + light_dir).into_normalized();
-    let normal_pdf = self.surface_normal_pdf(intersection.shading_normal, micro_surface_normal);
+    let normal_pdf = self.surface_normal_pdf(intersection.shading_normal(), micro_surface_normal);
     normal_pdf / (4.0 * micro_surface_normal.dot(view_dir).abs())
   }
 }
 
-impl<D, G, F> PhysicalSpecular for Specular<D, G, F>
+impl<D, G, F, C> PhysicalSpecular<C> for Specular<D, G, F>
 where
   Self: MicroFacetNormalDistribution + MicroFacetGeometricShadow + MicroFacetFresnel + Clone,
+  C: IntersectionCtxBase,
 {
   fn f0(&self, albedo: Vec3<f32>) -> Vec3<f32> {
     let f0 = ((self.ior - 1.0) / (self.ior + 1.0)).powi(2);
@@ -68,7 +68,7 @@ pub trait MicroFacetNormalDistribution {
   fn sample_micro_surface_normal(
     &self,
     normal: NormalizedVec3<f32>,
-    sample: impl Sampler,
+    sample: &mut dyn Sampler,
   ) -> NormalizedVec3<f32>;
   fn surface_normal_pdf(
     &self,

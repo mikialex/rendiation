@@ -1,10 +1,9 @@
 use std::{any::Any, ops::AddAssign};
 
-use crate::math::*;
-
 pub mod mesh;
 pub use mesh::*;
-use rendiation_algebra::{IntoNormalizedVector, Mat4, SpaceEntity, Vec2, Vec3};
+
+use crate::*;
 
 pub trait Shape: Sync + Send + 'static + dyn_clone::DynClone {
   fn as_any(&self) -> &dyn Any;
@@ -46,6 +45,12 @@ pub struct Intersection {
   pub geometric_normal: NormalizedVec3<f32>,
   pub shading_normal: NormalizedVec3<f32>,
   pub uv: Option<Vec2<f32>>,
+}
+
+impl IntersectionCtxBase for Intersection {
+  fn shading_normal(&self) -> NormalizedVec3<f32> {
+    self.shading_normal
+  }
 }
 
 const ORIGIN: f32 = 1.0 / 32.0;

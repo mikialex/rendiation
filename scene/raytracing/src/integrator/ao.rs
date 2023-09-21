@@ -3,9 +3,7 @@ use rendiation_color::LinearRGBColor;
 use rendiation_geometry::Ray3;
 
 use super::Integrator;
-use crate::{
-  math::uniform_sample_sphere_dir, FixedSamplesPerPixel, RayTraceable, RngSampler, Sampler,
-};
+use crate::{uniform_sample_sphere_dir, FixedSamplesPerPixel, RayTraceable, RngSampler, Sampler};
 
 pub struct AOIntegrator {
   sample_count: usize,

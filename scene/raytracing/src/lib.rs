@@ -14,19 +14,18 @@ pub use sampling::*;
 
 pub mod background;
 pub mod light;
-pub mod material;
-pub mod math;
 pub mod model;
 pub mod shape;
 
 use arena::Handle;
 pub use background::*;
 pub use light::*;
-pub use material::*;
-use math::*;
 pub use model::*;
 use rendiation_algebra::*;
+use rendiation_geometry::*;
+use rendiation_light_transport::*;
 pub use rendiation_scene_core::*;
+use rendiation_statistics::*;
 pub use shape::*;
 use space_algorithm::{
   bvh::{FlattenBVH, SAH},

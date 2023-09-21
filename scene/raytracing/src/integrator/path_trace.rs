@@ -137,7 +137,7 @@ impl RussianRoulette {
   /// return should break sampling
   pub fn roulette_exit(&self, throughput: &mut Vec3<f32>) -> bool {
     if throughput.max_channel() < self.roulette_threshold {
-      if rand() < self.roulette_factor {
+      if rand::random::<f32>() < self.roulette_factor {
         return true;
       }
       *throughput /= 1. - self.roulette_factor;

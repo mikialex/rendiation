@@ -12,21 +12,21 @@ pub struct RtxPhysicalMaterial<D, S> {
   pub specular: S,
 }
 
-impl<D, S> LightTransportSurface for RtxPhysicalMaterial<D, S>
+impl<D, S, C> LightTransportSurface<C> for RtxPhysicalMaterial<D, S>
 where
-  D: PhysicalDiffuse + Send + Sync + 'static,
-  S: PhysicalSpecular + Send + Sync + 'static,
+  D: PhysicalDiffuse + Send + Sync + 'static + LightTransportSurface<C>,
+  S: PhysicalSpecular<C> + Send + Sync + 'static,
+  C: IntersectionCtxBase,
 {
-  type IntersectionCtx = S::IntersectionCtx;
   fn bsdf(
     &self,
     view_dir: NormalizedVec3<f32>,
     light_dir: NormalizedVec3<f32>,
-    intersection: &Self::IntersectionCtx,
+    intersection: &C,
   ) -> Vec3<f32> {
     let l = light_dir;
     let v = view_dir;
-    let n = intersection.shading_normal;
+    let n = intersection.shading_normal();
     let h = (l + v).into_normalized();
 
     let f = self
@@ -49,7 +49,7 @@ where
   fn sample_light_dir_use_bsdf_importance_impl(
     &self,
     view_dir: NormalizedVec3<f32>,
-    intersection: &Self::IntersectionCtx,
+    intersection: &C,
     sampler: &mut dyn Sampler,
   ) -> NormalizedVec3<f32> {
     if sampler.next() < self.specular.specular_estimate(self.diffuse.albedo()) {
@@ -67,7 +67,7 @@ where
     &self,
     view_dir: NormalizedVec3<f32>,
     light_dir: NormalizedVec3<f32>,
-    intersection: &Self::IntersectionCtx,
+    intersection: &C,
   ) -> f32 {
     let specular_estimate = self.specular.specular_estimate(self.diffuse.albedo());
     let spec = self.specular.pdf(view_dir, light_dir, intersection);

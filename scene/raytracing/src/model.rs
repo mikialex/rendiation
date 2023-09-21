@@ -1,7 +1,12 @@
 use crate::*;
 
 pub trait Material:
-  Send + Sync + 'static + dyn_clone::DynClone + LightTransportSurface<IntersectionCtx = Intersection>
+  Send + Sync + 'static + dyn_clone::DynClone + LightTransportSurface<Intersection>
+{
+}
+
+impl<T> Material for T where
+  T: Send + Sync + 'static + dyn_clone::DynClone + LightTransportSurface<Intersection>
 {
 }
 

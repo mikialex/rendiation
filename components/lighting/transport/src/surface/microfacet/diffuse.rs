@@ -12,14 +12,12 @@ pub struct Diffuse<T> {
 
 #[derive(Clone)]
 pub struct Lambertian;
-impl LightTransportSurface for Diffuse<Lambertian> {
-  type IntersectionCtx = ();
-
+impl<C: IntersectionCtxBase> LightTransportSurface<C> for Diffuse<Lambertian> {
   fn bsdf(
     &self,
     _view_dir: NormalizedVec3<f32>,
     _light_dir: NormalizedVec3<f32>,
-    _intersection: &Self::IntersectionCtx,
+    _intersection: &C,
   ) -> Vec3<f32> {
     PhysicalDiffuse::albedo(self) / Vec3::splat(PI)
   }
@@ -27,7 +25,7 @@ impl LightTransportSurface for Diffuse<Lambertian> {
   fn sample_light_dir_use_bsdf_importance_impl(
     &self,
     _view_dir: NormalizedVec3<f32>,
-    intersection: &Self::IntersectionCtx,
+    intersection: &C,
     sampler: &mut dyn Sampler,
   ) -> NormalizedVec3<f32> {
     // Simple cosine-sampling using Malley's method
@@ -35,16 +33,16 @@ impl LightTransportSurface for Diffuse<Lambertian> {
     let x = sample.x;
     let y = sample.y;
     let z = (1.0 - x * x - y * y).sqrt();
-    (intersection.shading_normal.local_to_world() * Vec3::new(x, y, z)).into_normalized()
+    (intersection.shading_normal().local_to_world() * Vec3::new(x, y, z)).into_normalized()
   }
 
   fn pdf(
     &self,
     _view_dir: NormalizedVec3<f32>,
     light_dir: NormalizedVec3<f32>,
-    intersection: &Self::IntersectionCtx,
+    intersection: &C,
   ) -> f32 {
-    light_dir.dot(intersection.shading_normal).max(0.0) * INV_PI
+    light_dir.dot(intersection.shading_normal()).max(0.0) * INV_PI
   }
 }
 
@@ -78,13 +76,12 @@ impl OrenNayar {
   }
 }
 
-impl LightTransportSurface for OrenNayar {
-  type IntersectionCtx = ();
+impl<C> LightTransportSurface<C> for OrenNayar {
   fn bsdf(
     &self,
     _view_dir: NormalizedVec3<f32>,
     _light_dir: NormalizedVec3<f32>,
-    _intersection: &Self::IntersectionCtx,
+    _intersection: &C,
   ) -> Vec3<f32> {
     todo!()
     // let sin_theta_i = sin_theta(wi);
@@ -115,7 +112,7 @@ impl LightTransportSurface for OrenNayar {
   fn sample_light_dir_use_bsdf_importance_impl(
     &self,
     _view_dir: NormalizedVec3<f32>,
-    _intersection: &Self::IntersectionCtx,
+    _intersection: &C,
     _sampler: &mut dyn Sampler,
   ) -> NormalizedVec3<f32> {
     todo!()
@@ -125,7 +122,7 @@ impl LightTransportSurface for OrenNayar {
     &self,
     _view_dir: NormalizedVec3<f32>,
     _light_dir: NormalizedVec3<f32>,
-    _intersection: &Self::IntersectionCtx,
+    _intersection: &C,
   ) -> f32 {
     todo!()
   }
