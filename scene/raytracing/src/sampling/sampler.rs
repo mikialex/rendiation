@@ -21,7 +21,7 @@ pub trait Sampler {
   /// sample(), some samplers can generate better point distributions if they know that two
   /// dimensions will be used together.
   fn next_2d(&mut self) -> (f32, f32);
-  fn next_2d_vec(&mut self) -> Vec2<f32> {
+  fn next_vec2(&mut self) -> Vec2<f32> {
     Vec2::from(self.next_2d())
   }
 }

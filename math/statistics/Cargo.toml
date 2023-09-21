@@ -1,0 +1,8 @@
+[package]
+edition = "2021"
+name = "rendiation-statistics"
+version = "0.1.0"
+
+
+[dependencies]
+rendiation-algebra = { path = "../algebra" }

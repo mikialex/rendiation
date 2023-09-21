@@ -6,4 +6,5 @@ version = "0.1.0"
 
 [dependencies]
 rendiation-algebra = { path = "../../../math/algebra" }
+rendiation-statistics = { path = "../../../math/statistics" }
 rendiation-shader-api = { path = "../../../shader/api" }

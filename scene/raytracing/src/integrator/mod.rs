@@ -56,7 +56,7 @@ pub trait Integrator<T: Send + Sync>: Send + Sync {
           .sample_pixel(|next_sampling_index| {
             sampler.reset(next_sampling_index);
 
-            let sample_point = Vec2::new(x, y) + jitter_unit * sampler.next_2d_vec();
+            let sample_point = Vec2::new(x, y) + jitter_unit * sampler.next_vec2();
             let sample_point = sample_point * 2. - Vec2::one();
             let ray = ray_source.cast_ray(sample_point);
             self.integrate(scene, ray, &mut sampler).into()

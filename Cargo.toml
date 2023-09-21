@@ -2,6 +2,7 @@
 members = [
   "math/algebra",
   "math/geometry",
+  "math/statistics",
   "utils/incremental",
   "utils/incremental-derive",
   "utils/reactive",
