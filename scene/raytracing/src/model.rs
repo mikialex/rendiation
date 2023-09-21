@@ -1,5 +1,17 @@
 use crate::*;
 
+pub trait Material:
+  Send + Sync + 'static + dyn_clone::DynClone + LightTransportSurface<Intersection>
+{
+}
+
+impl<T> Material for T where
+  T: Send + Sync + 'static + dyn_clone::DynClone + LightTransportSurface<Intersection>
+{
+}
+
+dyn_clone::clone_trait_object!(Material);
+
 #[derive(Clone)]
 pub struct Model {
   pub shape: Box<dyn Shape>,

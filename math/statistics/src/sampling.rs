@@ -1,14 +1,4 @@
-pub use rand as randx;
-use rendiation_algebra::IntoNormalizedVector;
-pub use rendiation_algebra::NormalizedVec3;
-use rendiation_algebra::{InnerProductSpace, Vec2, Vec3};
-pub use rendiation_geometry::*;
-
-use crate::Sampler;
-
-pub fn rand() -> f32 {
-  randx::random()
-}
+use crate::*;
 
 pub const PI_OVER_4: f32 = std::f32::consts::PI / 4.0;
 pub const PI_OVER_2: f32 = std::f32::consts::PI / 2.0;
@@ -19,7 +9,7 @@ pub const INV_PI: f32 = 1.0 / std::f32::consts::PI;
 /// Uniformly distribute samples over a unit disk.
 pub fn concentric_sample_disk(sampler: &mut (impl Sampler + ?Sized)) -> Vec2<f32> {
   // map uniform random numbers to $[-1,1]^2$s
-  let u_offset = sampler.next_2d_vec() * 2.0 - Vec2::new(1.0, 1.0);
+  let u_offset = sampler.next_vec2() * 2.0 - Vec2::new(1.0, 1.0);
   // handle degeneracy at the origin
   if u_offset.x == 0.0 && u_offset.y == 0.0 {
     return Vec2::new(0.0, 0.0);

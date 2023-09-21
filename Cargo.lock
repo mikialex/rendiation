@@ -2715,6 +2715,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "rendiation-light-transport"
+version = "0.1.0"
+dependencies = [
+ "rendiation-algebra",
+ "rendiation-shader-api",
+ "rendiation-statistics",
+]
+
+[[package]]
 name = "rendiation-lighting-ibl"
 version = "0.1.0"
 dependencies = [
@@ -2891,8 +2900,10 @@ dependencies = [
  "rendiation-algebra",
  "rendiation-color",
  "rendiation-geometry",
+ "rendiation-light-transport",
  "rendiation-mesh-core",
  "rendiation-scene-core",
+ "rendiation-statistics",
  "rendiation-texture",
  "space-algorithm",
  "statrs",
@@ -2970,6 +2981,13 @@ version = "0.1.0"
 dependencies = [
  "rendiation-algebra",
  "rendiation-shader-api",
+]
+
+[[package]]
+name = "rendiation-statistics"
+version = "0.1.0"
+dependencies = [
+ "rendiation-algebra",
 ]
 
 [[package]]

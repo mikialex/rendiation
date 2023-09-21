@@ -1,15 +1,23 @@
-use rendiation_algebra::{InnerProductSpace, IntoNormalizedVector, Vec3, Vector};
-
 use crate::*;
+
+pub trait PhysicalDiffuse: Clone {
+  fn albedo(&self) -> Vec3<f32>;
+}
+
+#[derive(Clone)]
+pub struct Diffuse<T> {
+  pub albedo: Vec3<f32>,
+  pub diffuse_model: T,
+}
 
 #[derive(Clone)]
 pub struct Lambertian;
-impl Material for Diffuse<Lambertian> {
+impl<C: IntersectionCtxBase> LightTransportSurface<C> for Diffuse<Lambertian> {
   fn bsdf(
     &self,
     _view_dir: NormalizedVec3<f32>,
     _light_dir: NormalizedVec3<f32>,
-    _intersection: &Intersection,
+    _intersection: &C,
   ) -> Vec3<f32> {
     PhysicalDiffuse::albedo(self) / Vec3::splat(PI)
   }
@@ -17,7 +25,7 @@ impl Material for Diffuse<Lambertian> {
   fn sample_light_dir_use_bsdf_importance_impl(
     &self,
     _view_dir: NormalizedVec3<f32>,
-    intersection: &Intersection,
+    intersection: &C,
     sampler: &mut dyn Sampler,
   ) -> NormalizedVec3<f32> {
     // Simple cosine-sampling using Malley's method
@@ -25,16 +33,16 @@ impl Material for Diffuse<Lambertian> {
     let x = sample.x;
     let y = sample.y;
     let z = (1.0 - x * x - y * y).sqrt();
-    (intersection.shading_normal.local_to_world() * Vec3::new(x, y, z)).into_normalized()
+    (intersection.shading_normal().local_to_world() * Vec3::new(x, y, z)).into_normalized()
   }
 
   fn pdf(
     &self,
     _view_dir: NormalizedVec3<f32>,
     light_dir: NormalizedVec3<f32>,
-    intersection: &Intersection,
+    intersection: &C,
   ) -> f32 {
-    light_dir.dot(intersection.shading_normal).max(0.0) * INV_PI
+    light_dir.dot(intersection.shading_normal()).max(0.0) * INV_PI
   }
 }
 
@@ -68,12 +76,12 @@ impl OrenNayar {
   }
 }
 
-impl Material for OrenNayar {
+impl<C> LightTransportSurface<C> for OrenNayar {
   fn bsdf(
     &self,
     _view_dir: NormalizedVec3<f32>,
     _light_dir: NormalizedVec3<f32>,
-    _intersection: &Intersection,
+    _intersection: &C,
   ) -> Vec3<f32> {
     todo!()
     // let sin_theta_i = sin_theta(wi);
@@ -104,7 +112,7 @@ impl Material for OrenNayar {
   fn sample_light_dir_use_bsdf_importance_impl(
     &self,
     _view_dir: NormalizedVec3<f32>,
-    _intersection: &Intersection,
+    _intersection: &C,
     _sampler: &mut dyn Sampler,
   ) -> NormalizedVec3<f32> {
     todo!()
@@ -114,7 +122,7 @@ impl Material for OrenNayar {
     &self,
     _view_dir: NormalizedVec3<f32>,
     _light_dir: NormalizedVec3<f32>,
-    _intersection: &Intersection,
+    _intersection: &C,
   ) -> f32 {
     todo!()
   }
