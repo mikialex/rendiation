@@ -58,24 +58,3 @@ pub trait Material: Send + Sync + 'static + dyn_clone::DynClone {
 }
 
 dyn_clone::clone_trait_object!(Material);
-
-pub trait Evaluation<C, I, O> {
-  fn evaluate(&self, input: I, ctx: &C) -> O;
-}
-
-pub type Evaluator<C, I, O> = Box<dyn Evaluation<C, I, O>>;
-
-pub struct ValueCell<O> {
-  value: O,
-}
-
-impl<C, I, O: Copy> Evaluation<C, I, O> for ValueCell<O> {
-  fn evaluate(&self, _: I, _: &C) -> O {
-    self.value
-  }
-}
-
-pub enum ValueOrTexture<O> {
-  Value(O),
-  // Texture()
-}

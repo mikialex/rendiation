@@ -30,6 +30,7 @@ members = [
   "components/texture/generative",
   "components/lighting/ltc",
   "components/lighting/ibl",
+  "components/lighting/transport",
   "components/space",
   "components/fontext",
   "components/canvas/core",
@@ -57,7 +58,7 @@ resolver = "2"
 
 # https://doc.rust-lang.org/cargo/reference/profiles.html
 
-# currently our implementation not provide panic safety and recovery
+# currently our implementation not provide panic safety and panic recovery
 # and also enable unwind is bad for performance
 
 [profile.dev]

@@ -2715,6 +2715,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "rendiation-light-transport"
+version = "0.1.0"
+dependencies = [
+ "rendiation-algebra",
+ "rendiation-shader-api",
+]
+
+[[package]]
 name = "rendiation-lighting-ibl"
 version = "0.1.0"
 dependencies = [
