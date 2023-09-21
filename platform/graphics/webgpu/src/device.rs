@@ -193,9 +193,28 @@ where
   }
 }
 
+/// User could use this to debug if the hashing logic issue
+pub struct DebugHasher<T> {
+  hash_history: Vec<(Vec<u8>, std::backtrace::Backtrace)>,
+  hasher: T,
+}
+
+impl<T: std::hash::Hasher> std::hash::Hasher for DebugHasher<T> {
+  fn finish(&self) -> u64 {
+    self.hasher.finish()
+  }
+
+  fn write(&mut self, bytes: &[u8]) {
+    self
+      .hash_history
+      .push((Vec::from(bytes), std::backtrace::Backtrace::force_capture()));
+    self.hasher.write(bytes)
+  }
+}
+
 #[derive(Default)]
-pub struct PipelineHasher {
-  hasher: FastHasher,
+pub struct PipelineHasher<T = FastHasher> {
+  hasher: T,
 }
 
 impl std::hash::Hasher for PipelineHasher {
