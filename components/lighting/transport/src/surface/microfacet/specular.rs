@@ -207,6 +207,15 @@ impl<D, F> MicroFacetGeometricShadow for Specular<D, CookTorrance, F> {
   }
 }
 
+// #[derive(Clone)]
+// pub struct Smith;
+
+// impl<D, F> MicroFacetGeometricShadow for Specular<D, Smith, F> {
+//   fn g(&self, l: NormalizedVec3<f32>, v: NormalizedVec3<f32>, n: NormalizedVec3<f32>) -> f32 {
+
+//   }
+// }
+
 #[derive(Clone)]
 pub struct Schlick;
 impl<D, G> MicroFacetFresnel for Specular<D, G, Schlick> {

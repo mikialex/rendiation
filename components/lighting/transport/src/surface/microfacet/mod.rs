@@ -6,6 +6,9 @@ pub use diffuse::*;
 mod specular;
 pub use specular::*;
 
+mod shader;
+pub use shader::*;
+
 #[derive(Clone)]
 pub struct RtxPhysicalMaterial<D, S> {
   pub diffuse: D,

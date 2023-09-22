@@ -23,6 +23,8 @@ rendiation-algebra = { path = "../../math/algebra" }
 rendiation-color = { path = "../../components/color" }
 rendiation-geometry = { path = "../../math/geometry" }
 rendiation-mesh-core = { path = "../../components/mesh/core" }
+rendiation-lighting-transport = { path = "../../components/lighting/transport" }
+rendiation-lighting-ibl-core = { path = "../../components/lighting/ibl/core" }
 rendiation-texture-gpu-system = { path = "../../components/texture/gpu-system" }
 rendiation-mesh-gpu-system = { path = "../../components/mesh/gpu-system" }
 rendiation-scene-core = { path = "../core" }

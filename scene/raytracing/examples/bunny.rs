@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use rendiation_algebra::*;
 use rendiation_geometry::*;
-use rendiation_light_transport::*;
+use rendiation_lighting_transport::*;
 use rendiation_scene_raytracing::*;
 
 fn main() {

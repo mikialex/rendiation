@@ -52,6 +52,7 @@ pub use node::*;
 use reactive::*;
 pub use rendering::*;
 use rendiation_algebra::*;
+use rendiation_lighting_transport::*;
 use rendiation_mesh_core::*;
 use rendiation_mesh_gpu_system::*;
 use rendiation_scene_core::*;

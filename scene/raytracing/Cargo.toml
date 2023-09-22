@@ -18,7 +18,7 @@ rendiation-algebra = { path = "../../math/algebra" }
 rendiation-statistics = { path = "../../math/statistics" }
 rendiation-color = { path = "../../components/color" }
 rendiation-geometry = { path = "../../math/geometry" }
-rendiation-light-transport = { path = "../../components/lighting/transport" }
+rendiation-lighting-transport = { path = "../../components/lighting/transport" }
 rendiation-mesh-core = { path = "../../components/mesh/core" }
 rendiation-scene-core = { path = "../core" }
 rendiation-texture = { path = "../../components/texture/core" }
