@@ -77,7 +77,7 @@ impl<V: Copy> Triangle<V> {
   }
 }
 
-type TrianglePointIter<V> = impl Iterator<Item = V>;
+pub type TrianglePointIter<V> = impl Iterator<Item = V>;
 impl<U> IntoIterator for Triangle<U> {
   type Item = U;
   type IntoIter = TrianglePointIter<U>;

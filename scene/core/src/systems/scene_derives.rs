@@ -15,8 +15,8 @@ pub struct SceneNodeDeriveSystem {
   updater: Arc<RwLock<StreamCacheUpdateWrapper>>,
   indexed_stream_mapper: Arc<RwLock<SceneNodeChangeStreamIndexMapper>>,
 }
-type SingleSceneNodeChangeStream = impl Stream<Item = SceneNodeDerivedDataDelta> + Unpin;
-type SceneNodeChangeStream = impl Stream<Item = (usize, SceneNodeDerivedDataDelta)> + Unpin;
+pub type SingleSceneNodeChangeStream = impl Stream<Item = SceneNodeDerivedDataDelta> + Unpin;
+pub type SceneNodeChangeStream = impl Stream<Item = (usize, SceneNodeDerivedDataDelta)> + Unpin;
 
 pub type SceneNodeChangeStreamIndexMapper =
   StreamBroadcaster<SceneNodeChangeStream, SceneNodeDerivedDataDelta, IndexMapping>;

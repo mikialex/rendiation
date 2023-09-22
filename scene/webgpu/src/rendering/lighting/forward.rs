@@ -260,6 +260,7 @@ impl<'a> ShaderPassBuilder for ForwardSceneLightingDispatcher<'a> {
 
 impl<'a> ShaderHashProvider for ForwardSceneLightingDispatcher<'a> {
   fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
+    self.base.hash_pipeline(hasher);
     self.lights.light_hash_cache.hash(hasher);
     self.shadows.hash_pipeline(hasher);
 

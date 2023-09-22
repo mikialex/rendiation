@@ -39,7 +39,7 @@ pub struct ClusteringConfig {
 impl ClusteringConfig {
   pub fn validate(&self) -> bool {
     self.max_triangles >= 3
-      && self.max_triangles >= 1
+      && self.max_vertices >= 1
       && self.max_triangles <= MESHLET_MAX_TRIANGLES
       // ensures the caller will compute output space properly as index data is 4b aligned
       && self.max_triangles % 4 == 0

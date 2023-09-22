@@ -60,7 +60,7 @@ impl<V> LineSegment<V> {
   }
 }
 
-type LineSegmentPointIter<V> = impl Iterator<Item = V>;
+pub type LineSegmentPointIter<V> = impl Iterator<Item = V>;
 impl<U> IntoIterator for LineSegment<U> {
   type Item = U;
   type IntoIter = LineSegmentPointIter<U>;

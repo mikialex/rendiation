@@ -56,7 +56,9 @@ impl<T> Default for Source<T> {
 /// a simple event dispatcher.
 pub struct EventSource<T> {
   /// the source is alway need mutable access, so we not use rwlock here
-  inner: Arc<Mutex<Source<T>>>,
+  ///
+  /// we expose the underlayer lock to make sure the outside could control the lock scope
+  pub lock: Arc<Mutex<Source<T>>>,
 }
 
 impl<T> Default for EventSource<T> {
@@ -64,7 +66,7 @@ impl<T> Default for EventSource<T> {
   // as long as no one add listener, no allocation happens
   fn default() -> Self {
     Self {
-      inner: Default::default(),
+      lock: Default::default(),
     }
   }
 }
@@ -72,7 +74,7 @@ impl<T> Default for EventSource<T> {
 impl<T> Clone for EventSource<T> {
   fn clone(&self) -> Self {
     Self {
-      inner: self.inner.clone(),
+      lock: self.lock.clone(),
     }
   }
 }
@@ -80,22 +82,22 @@ impl<T> Clone for EventSource<T> {
 impl<T: 'static> EventSource<T> {
   pub fn make_weak(&self) -> WeakSource<T> {
     WeakSource {
-      inner: Arc::downgrade(&self.inner),
+      inner: Arc::downgrade(&self.lock),
     }
   }
 
   pub fn emit(&self, event: &T) {
-    let mut inner = self.inner.lock().unwrap();
+    let mut inner = self.lock.lock().unwrap();
     inner.emit(event);
   }
 
   /// return should be removed from source after emitted
   pub fn on(&self, f: impl FnMut(&T) -> bool + Send + Sync + 'static) -> RemoveToken<T> {
-    self.inner.lock().unwrap().on(f)
+    self.lock.lock().unwrap().on(f)
   }
 
   pub fn off(&self, token: RemoveToken<T>) {
-    self.inner.lock().unwrap().off(token)
+    self.lock.lock().unwrap().off(token)
   }
 
   pub fn any_triggered(&self) -> impl futures::Stream<Item = ()> {

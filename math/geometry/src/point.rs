@@ -9,7 +9,7 @@ impl<U> Point<U> {
   }
 }
 
-type PointPointIter<V> = impl Iterator<Item = V>;
+pub type PointPointIter<V> = impl Iterator<Item = V>;
 impl<U> IntoIterator for Point<U> {
   type Item = U;
   type IntoIter = PointPointIter<U>;

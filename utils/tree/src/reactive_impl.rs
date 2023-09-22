@@ -43,8 +43,10 @@ where
 
   fn create_node(&mut self, data: Self::Node) -> Self::Handle {
     let d = data.deref().clone();
+    // make sure the tree mutation and mutation record are synchronized
+    let mut source = self.source.lock.lock().unwrap();
     let handle = self.inner.create_node(data);
-    self.source.emit(&TreeMutation::Create {
+    source.emit(&TreeMutation::Create {
       data: d,
       node: handle.index(),
     });
@@ -52,7 +54,9 @@ where
   }
 
   fn delete_node(&mut self, handle: Self::Handle) {
-    self.source.emit(&TreeMutation::Delete(handle.index()));
+    // make sure the tree mutation and mutation record are synchronized
+    let mut source = self.source.lock.lock().unwrap();
+    source.emit(&TreeMutation::Delete(handle.index()));
     self.inner.delete_node(handle)
   }
 
@@ -61,8 +65,10 @@ where
     parent: Self::Handle,
     child_to_attach: Self::Handle,
   ) -> Result<(), TreeMutationError> {
+    // make sure the tree mutation and mutation record are synchronized
+    let mut source = self.source.lock.lock().unwrap();
     if !self.inner.node_has_parent(child_to_attach) {
-      self.source.emit(&TreeMutation::Attach {
+      source.emit(&TreeMutation::Attach {
         parent_target: parent.index(),
         node: child_to_attach.index(),
       });
@@ -71,8 +77,10 @@ where
   }
 
   fn node_detach_parent(&mut self, child_to_detach: Self::Handle) -> Result<(), TreeMutationError> {
+    // make sure the tree mutation and mutation record are synchronized
+    let mut source = self.source.lock.lock().unwrap();
     if self.inner.node_has_parent(child_to_detach) {
-      self.source.emit(&TreeMutation::Detach {
+      source.emit(&TreeMutation::Detach {
         node: child_to_detach.index(),
       });
     }
@@ -111,8 +119,10 @@ where
 
   fn create_node(&self, data: Self::Node) -> Self::Handle {
     let d = data.deref().clone();
+    // make sure the tree mutation and mutation record are synchronized
+    let mut source = self.source.lock.lock().unwrap();
     let handle = self.inner.create_node(data);
-    self.source.emit(&TreeMutation::Create {
+    source.emit(&TreeMutation::Create {
       data: d,
       node: handle.index(),
     });
@@ -120,7 +130,9 @@ where
   }
 
   fn delete_node(&self, handle: Self::Handle) {
-    self.source.emit(&TreeMutation::Delete(handle.index()));
+    // make sure the tree mutation and mutation record are synchronized
+    let mut source = self.source.lock.lock().unwrap();
+    source.emit(&TreeMutation::Delete(handle.index()));
     self.inner.delete_node(handle)
   }
 
@@ -129,9 +141,11 @@ where
     parent: Self::Handle,
     child_to_attach: Self::Handle,
   ) -> Result<(), TreeMutationError> {
+    // make sure the tree mutation and mutation record are synchronized
+    let mut source = self.source.lock.lock().unwrap();
     // to prevent emit invalid event
     if !self.node_has_parent(child_to_attach) {
-      self.source.emit(&TreeMutation::Attach {
+      source.emit(&TreeMutation::Attach {
         parent_target: parent.index(),
         node: child_to_attach.index(),
       });
@@ -140,9 +154,11 @@ where
   }
 
   fn node_detach_parent(&self, child_to_detach: Self::Handle) -> Result<(), TreeMutationError> {
+    // make sure the tree mutation and mutation record are synchronized
+    let mut source = self.source.lock.lock().unwrap();
     // to prevent emit invalid event
     if self.node_has_parent(child_to_detach) {
-      self.source.emit(&TreeMutation::Detach {
+      source.emit(&TreeMutation::Detach {
         node: child_to_detach.index(),
       });
     }
