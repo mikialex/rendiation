@@ -44,14 +44,15 @@ pub use gpu::{
   BufferAsyncError, Color, CompareFunction, CreateSurfaceError, Device, FilterMode, FragmentState,
   IndexFormat, Limits, LoadOp, Operations, PipelineLayoutDescriptor, PowerPreference,
   PrimitiveTopology, Queue, RenderPipeline, RenderPipelineDescriptor, RequestDeviceError, Sampler,
-  SamplerBorderColor, SamplerDescriptor, ShaderModuleDescriptor, ShaderSource, TextureView,
-  TextureViewDescriptor, VertexBufferLayout, VertexState,
+  SamplerBorderColor, SamplerDescriptor, ShaderModuleDescriptor, ShaderSource, ShaderStages,
+  TextureView, TextureViewDescriptor, VertexBufferLayout, VertexState,
 };
 pub use pass::*;
 pub use pipeline::*;
 pub use queue::*;
 pub use read::*;
 pub use rendering::*;
+use rendiation_shader_api::*;
 use rendiation_texture_types::*;
 pub use resource::*;
 pub use surface::*;

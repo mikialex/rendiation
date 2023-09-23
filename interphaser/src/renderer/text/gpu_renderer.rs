@@ -3,17 +3,17 @@ use std::mem;
 
 use rendiation_algebra::*;
 use rendiation_texture::Size;
-use webgpu::*;
 
 use super::WebGPUxTextPrimitive;
 use crate::TextQuadInstance;
+use crate::*;
 
 pub struct TextWebGPURenderer {
   transform: UniformBufferDataView<Mat4<f32>>,
-  sampler: webgpu::Sampler,
-  bindgroup_layout: webgpu::BindGroupLayout,
-  bindgroup: webgpu::BindGroup,
-  raw: webgpu::RenderPipeline,
+  sampler: Sampler,
+  bindgroup_layout: BindGroupLayout,
+  bindgroup: BindGroup,
+  raw: RenderPipeline,
 }
 
 #[derive(Debug)]
@@ -23,8 +23,8 @@ pub struct TextureWriteData<'a> {
 }
 
 impl<'a> WebGPU2DTextureSource for TextureWriteData<'a> {
-  fn format(&self) -> webgpu::TextureFormat {
-    webgpu::TextureFormat::R8Unorm
+  fn format(&self) -> TextureFormat {
+    TextureFormat::R8Unorm
   }
 
   fn as_bytes(&self) -> &[u8] {
@@ -38,50 +38,50 @@ impl<'a> WebGPU2DTextureSource for TextureWriteData<'a> {
 
 impl TextWebGPURenderer {
   pub fn new(
-    device: &webgpu::GPUDevice,
-    filter_mode: webgpu::FilterMode,
-    render_format: webgpu::TextureFormat,
+    device: &GPUDevice,
+    filter_mode: FilterMode,
+    render_format: TextureFormat,
     view_size: Vec2<f32>,
-    cache_view: &webgpu::TextureView,
+    cache_view: &TextureView,
   ) -> Self {
     let transform =
       UniformBufferDataView::create(device, orthographic_projection(view_size.x, view_size.y));
 
-    let sampler = device.create_sampler(&webgpu::SamplerDescriptor {
-      address_mode_u: webgpu::AddressMode::ClampToEdge,
-      address_mode_v: webgpu::AddressMode::ClampToEdge,
-      address_mode_w: webgpu::AddressMode::ClampToEdge,
+    let sampler = device.create_sampler(&SamplerDescriptor {
+      address_mode_u: AddressMode::ClampToEdge,
+      address_mode_v: AddressMode::ClampToEdge,
+      address_mode_w: AddressMode::ClampToEdge,
       mag_filter: filter_mode,
       min_filter: filter_mode,
       mipmap_filter: filter_mode,
       ..Default::default()
     });
 
-    let uniform_layout = device.create_bind_group_layout(&webgpu::BindGroupLayoutDescriptor {
+    let uniform_layout = device.create_bind_group_layout(&BindGroupLayoutDescriptor {
       label: Some("TextWebGPURenderer uniforms"),
       entries: &[
-        webgpu::BindGroupLayoutEntry {
+        BindGroupLayoutEntry {
           binding: 0,
-          visibility: webgpu::ShaderStages::VERTEX_FRAGMENT,
-          ty: webgpu::BindingType::Buffer {
-            ty: webgpu::BufferBindingType::Uniform,
+          visibility: rendiation_webgpu::ShaderStages::VERTEX_FRAGMENT,
+          ty: BindingType::Buffer {
+            ty: BufferBindingType::Uniform,
             has_dynamic_offset: false,
-            min_binding_size: webgpu::BufferSize::new(mem::size_of::<[f32; 16]>() as u64),
+            min_binding_size: BufferSize::new(mem::size_of::<[f32; 16]>() as u64),
           },
           count: None,
         },
-        webgpu::BindGroupLayoutEntry {
+        BindGroupLayoutEntry {
           binding: 1,
-          visibility: webgpu::ShaderStages::VERTEX_FRAGMENT,
-          ty: webgpu::BindingType::Sampler(webgpu::SamplerBindingType::Filtering),
+          visibility: rendiation_webgpu::ShaderStages::VERTEX_FRAGMENT,
+          ty: BindingType::Sampler(SamplerBindingType::Filtering),
           count: None,
         },
-        webgpu::BindGroupLayoutEntry {
+        BindGroupLayoutEntry {
           binding: 2,
-          visibility: webgpu::ShaderStages::VERTEX_FRAGMENT,
-          ty: webgpu::BindingType::Texture {
-            sample_type: webgpu::TextureSampleType::Float { filterable: true },
-            view_dimension: webgpu::TextureViewDimension::D2,
+          visibility: rendiation_webgpu::ShaderStages::VERTEX_FRAGMENT,
+          ty: BindingType::Texture {
+            sample_type: TextureSampleType::Float { filterable: true },
+            view_dimension: TextureViewDimension::D2,
             multisampled: false,
           },
           count: None,
@@ -91,27 +91,27 @@ impl TextWebGPURenderer {
 
     let bindgroup = create_bindgroup(device, &uniform_layout, &transform, &sampler, cache_view);
 
-    let layout = device.create_pipeline_layout(&webgpu::PipelineLayoutDescriptor {
+    let layout = device.create_pipeline_layout(&PipelineLayoutDescriptor {
       label: None,
       push_constant_ranges: &[],
       bind_group_layouts: &[&uniform_layout],
     });
 
-    let shader = device.create_shader_module(webgpu::ShaderModuleDescriptor {
+    let shader = device.create_shader_module(ShaderModuleDescriptor {
       label: Some("Glyph Shader"),
-      source: webgpu::ShaderSource::Wgsl(Cow::Borrowed(include_str!("./glyph.wgsl"))),
+      source: ShaderSource::Wgsl(Cow::Borrowed(include_str!("./glyph.wgsl"))),
     });
 
-    let raw = device.create_render_pipeline(&webgpu::RenderPipelineDescriptor {
+    let raw = device.create_render_pipeline(&RenderPipelineDescriptor {
       label: None,
       layout: Some(&layout),
-      vertex: webgpu::VertexState {
+      vertex: VertexState {
         module: &shader,
         entry_point: "vs_main",
-        buffers: &[webgpu::VertexBufferLayout {
+        buffers: &[VertexBufferLayout {
           array_stride: mem::size_of::<TextQuadInstance>() as u64,
-          step_mode: webgpu::VertexStepMode::Instance,
-          attributes: &webgpu::vertex_attr_array![
+          step_mode: VertexStepMode::Instance,
+          attributes: &vertex_attr_array![
               0 => Float32x3,
               1 => Float32x2,
               2 => Float32x2,
@@ -120,20 +120,20 @@ impl TextWebGPURenderer {
           ],
         }],
       },
-      primitive: webgpu::PrimitiveState {
-        topology: webgpu::PrimitiveTopology::TriangleStrip,
-        front_face: webgpu::FrontFace::Cw,
+      primitive: PrimitiveState {
+        topology: PrimitiveTopology::TriangleStrip,
+        front_face: FrontFace::Cw,
         ..Default::default()
       },
       depth_stencil: None,
-      multisample: webgpu::MultisampleState::default(),
-      fragment: Some(webgpu::FragmentState {
+      multisample: MultisampleState::default(),
+      fragment: Some(FragmentState {
         module: &shader,
         entry_point: "fs_main",
-        targets: &[Some(webgpu::ColorTargetState {
+        targets: &[Some(ColorTargetState {
           format: render_format,
-          blend: Some(webgpu::BlendState::ALPHA_BLENDING),
-          write_mask: webgpu::ColorWrites::ALL,
+          blend: Some(BlendState::ALPHA_BLENDING),
+          write_mask: ColorWrites::ALL,
         })],
       }),
       multiview: None,
@@ -148,7 +148,7 @@ impl TextWebGPURenderer {
     }
   }
 
-  pub fn resize_view(&mut self, size: Vec2<f32>, queue: &webgpu::Queue) {
+  pub fn resize_view(&mut self, size: Vec2<f32>, queue: &Queue) {
     self
       .transform
       .mutate(|t| *t = orthographic_projection(size.x, size.y));
@@ -163,7 +163,7 @@ impl TextWebGPURenderer {
     render_pass.draw(0..4, 0..text.length);
   }
 
-  pub fn cache_resized(&mut self, device: &webgpu::Device, cache_view: &webgpu::TextureView) {
+  pub fn cache_resized(&mut self, device: &Device, cache_view: &TextureView) {
     self.bindgroup = create_bindgroup(
       device,
       &self.bindgroup_layout,
@@ -186,27 +186,27 @@ pub fn orthographic_projection(width: f32, height: f32) -> Mat4<f32> {
 }
 
 fn create_bindgroup(
-  device: &webgpu::Device,
-  layout: &webgpu::BindGroupLayout,
+  device: &Device,
+  layout: &BindGroupLayout,
   transform: &UniformBufferDataView<Mat4<f32>>,
-  sampler: &webgpu::Sampler,
-  cache: &webgpu::TextureView,
-) -> webgpu::BindGroup {
-  device.create_bind_group(&webgpu::BindGroupDescriptor {
+  sampler: &Sampler,
+  cache: &TextureView,
+) -> BindGroup {
+  device.create_bind_group(&BindGroupDescriptor {
     label: Some("TextWebGPURenderer uniforms"),
     layout,
     entries: &[
-      webgpu::BindGroupEntry {
+      BindGroupEntry {
         binding: 0,
         resource: transform.as_bindable(),
       },
-      webgpu::BindGroupEntry {
+      BindGroupEntry {
         binding: 1,
-        resource: webgpu::BindingResource::Sampler(sampler),
+        resource: BindingResource::Sampler(sampler),
       },
-      webgpu::BindGroupEntry {
+      BindGroupEntry {
         binding: 2,
-        resource: webgpu::BindingResource::TextureView(cache),
+        resource: BindingResource::TextureView(cache),
       },
     ],
   })

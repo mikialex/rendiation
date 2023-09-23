@@ -1,7 +1,6 @@
 use std::sync::Arc;
 
 use rendiation_texture::Size;
-use webgpu::{map_size_gpu, GPU2DTextureView, GPUTexture, GPU};
 use winit::event::Event;
 
 use crate::*;
@@ -104,16 +103,16 @@ impl GPUCanvas {
         let target = self.content.get_or_insert_with(|| {
           let device = &event.gpu.device;
 
-          let desc = webgpu::TextureDescriptor {
+          let desc = TextureDescriptor {
             label: "interphase-canvas-output".into(),
             size: map_size_gpu(new_size),
-            dimension: webgpu::TextureDimension::D2,
-            format: webgpu::TextureFormat::Rgba8UnormSrgb,
+            dimension: TextureDimension::D2,
+            format: TextureFormat::Rgba8UnormSrgb,
             view_formats: &[] as &'static [rendiation_texture::TextureFormat],
-            usage: webgpu::TextureUsages::TEXTURE_BINDING
-              | webgpu::TextureUsages::COPY_DST
-              | webgpu::TextureUsages::COPY_SRC
-              | webgpu::TextureUsages::RENDER_ATTACHMENT,
+            usage: TextureUsages::TEXTURE_BINDING
+              | TextureUsages::COPY_DST
+              | TextureUsages::COPY_SRC
+              | TextureUsages::RENDER_ATTACHMENT,
             mip_level_count: 1,
             sample_count: 1,
           };

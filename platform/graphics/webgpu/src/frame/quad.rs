@@ -41,13 +41,13 @@ pub fn generate_quad(vertex_index: Node<u32>, depth: f32) -> Node<QuadVertexOut>
 }
 
 pub struct FullScreenQuad {
-  blend: Option<webgpu::BlendState>,
+  blend: Option<BlendState>,
 }
 
 impl Default for FullScreenQuad {
   fn default() -> Self {
     Self {
-      blend: Some(webgpu::BlendState::ALPHA_BLENDING),
+      blend: Some(BlendState::ALPHA_BLENDING),
     }
   }
 }
@@ -61,9 +61,9 @@ impl ShaderHashProvider for FullScreenQuad {
 impl GraphicsShaderProvider for FullScreenQuad {
   fn build(&self, builder: &mut ShaderRenderPipelineBuilder) -> Result<(), ShaderBuildError> {
     builder.vertex(|builder, _| {
-      builder.primitive_state = webgpu::PrimitiveState {
-        topology: webgpu::PrimitiveTopology::TriangleStrip,
-        front_face: webgpu::FrontFace::Cw,
+      builder.primitive_state = PrimitiveState {
+        topology: PrimitiveTopology::TriangleStrip,
+        front_face: FrontFace::Cw,
         ..Default::default()
       };
       let out = generate_quad(builder.query::<VertexIndex>()?, 0.).expand();
@@ -73,13 +73,15 @@ impl GraphicsShaderProvider for FullScreenQuad {
     })?;
 
     builder.fragment(|builder, _| {
-      MaterialStates {
-        blend: self.blend,
-        depth_write_enabled: false,
-        depth_compare: webgpu::CompareFunction::Always,
-        ..Default::default()
+      builder.frag_output.iter_mut().for_each(|(_, state)| {
+        state.blend = self.blend;
+      });
+
+      if let Some(depth) = &mut builder.depth_stencil {
+        depth.depth_compare = CompareFunction::Always;
+        depth.depth_write_enabled = false;
       }
-      .apply_pipeline_builder(builder);
+
       Ok(())
     })
   }
@@ -117,7 +119,7 @@ impl<T> PassContent for QuadDraw<T>
 where
   T: RenderComponentAny,
 {
-  default fn render(&mut self, pass: &mut FrameRenderPass) {
+  fn render(&mut self, pass: &mut FrameRenderPass) {
     let mut base = default_dispatcher(pass);
     base.auto_write = false;
     let components: [&dyn RenderComponentAny; 3] = [&base, &self.quad, &self.content];

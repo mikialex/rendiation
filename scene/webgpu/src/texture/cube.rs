@@ -68,8 +68,8 @@ impl ResourceGPUCtx {
     let texture = tex.read();
     let first = as_2d_source(&texture.faces[0]);
 
-    let view_desc = webgpu::TextureViewDescriptor {
-      dimension: Some(webgpu::TextureViewDimension::Cube),
+    let view_desc = TextureViewDescriptor {
+      dimension: Some(TextureViewDimension::Cube),
       ..Default::default()
     };
 
@@ -101,19 +101,19 @@ impl ResourceGPUCtx {
 
 fn create_fallback_empty_cube_texture(device: &GPUDevice) -> GPUCubeTexture {
   GPUTexture::create(
-    webgpu::TextureDescriptor {
+    TextureDescriptor {
       label: "unimplemented default texture".into(),
-      size: webgpu::Extent3d {
+      size: Extent3d {
         width: 1,
         height: 1,
         depth_or_array_layers: 6,
       },
       mip_level_count: 1,
       sample_count: 1,
-      dimension: webgpu::TextureDimension::D2,
-      format: webgpu::TextureFormat::Rgba8UnormSrgb,
+      dimension: TextureDimension::D2,
+      format: TextureFormat::Rgba8UnormSrgb,
       view_formats: &[],
-      usage: webgpu::TextureUsages::all(),
+      usage: TextureUsages::all(),
     },
     device,
   )

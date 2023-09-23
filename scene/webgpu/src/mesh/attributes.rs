@@ -2,8 +2,8 @@ use crate::*;
 
 pub struct AttributesMeshGPU {
   attributes: Vec<(AttributeSemantic, GPUBufferResourceView)>,
-  indices: Option<(GPUBufferResourceView, webgpu::IndexFormat)>,
-  topology: webgpu::PrimitiveTopology,
+  indices: Option<(GPUBufferResourceView, IndexFormat)>,
+  topology: rendiation_webgpu::PrimitiveTopology,
   draw: DrawCommand,
 }
 
@@ -15,7 +15,7 @@ impl Stream for AttributesMeshGPU {
 }
 
 impl ShaderPassBuilder for AttributesMeshGPU {
-  fn setup_pass(&self, ctx: &mut webgpu::GPURenderPassCtx) {
+  fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
     for (_, b) in &self.attributes {
       ctx.set_vertex_buffer_owned_next(b);
     }
@@ -31,14 +31,14 @@ pub trait CustomAttributeKeyGPU {
 define_dyn_trait_downcaster_static!(CustomAttributeKeyGPU);
 
 impl ShaderHashProvider for AttributesMeshGPU {
-  fn hash_pipeline(&self, hasher: &mut webgpu::PipelineHasher) {
+  fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
     for (s, _) in &self.attributes {
       s.hash(hasher)
     }
     self.topology.hash(hasher);
     if let Some((_, f)) = &self.indices {
-      if webgpu::PrimitiveTopology::LineStrip == self.topology
-        || webgpu::PrimitiveTopology::TriangleStrip == self.topology
+      if rendiation_webgpu::PrimitiveTopology::LineStrip == self.topology
+        || rendiation_webgpu::PrimitiveTopology::TriangleStrip == self.topology
       {
         f.hash(hasher)
       }
@@ -106,7 +106,7 @@ impl SceneItemReactiveSimpleMapping<GPUAttributesBuffer> for GeometryBuffer {
     let source = self.read();
     let gpu_buffer = create_gpu_buffer(
       self.read().buffer.as_slice(),
-      webgpu::BufferUsages::INDEX | webgpu::BufferUsages::VERTEX,
+      BufferUsages::INDEX | BufferUsages::VERTEX,
       &gpu.device,
     );
 
@@ -143,16 +143,16 @@ impl MeshDrawcallEmitter for AttributesMeshGPUReactive {
   }
 }
 /// the current represent do not have meaningful mesh draw group concept
-fn draw_command(mesh: &AttributesMesh) -> webgpu::DrawCommand {
+fn draw_command(mesh: &AttributesMesh) -> DrawCommand {
   if let Some((_, indices)) = &mesh.indices {
-    webgpu::DrawCommand::Indexed {
+    DrawCommand::Indexed {
       base_vertex: 0,
       indices: 0..indices.count as u32,
       instances: 0..1,
     }
   } else {
     let attribute = &mesh.attributes.last().unwrap().1;
-    webgpu::DrawCommand::Array {
+    DrawCommand::Array {
       vertices: 0..attribute.count as u32,
       instances: 0..1,
     }
@@ -217,9 +217,9 @@ fn map_view(view: BufferViewRange) -> GPUBufferViewRange {
   }
 }
 
-fn map_index(index: AttributeIndexFormat) -> webgpu::IndexFormat {
+fn map_index(index: AttributeIndexFormat) -> IndexFormat {
   match index {
-    AttributeIndexFormat::Uint16 => webgpu::IndexFormat::Uint16,
-    AttributeIndexFormat::Uint32 => webgpu::IndexFormat::Uint32,
+    AttributeIndexFormat::Uint16 => IndexFormat::Uint16,
+    AttributeIndexFormat::Uint32 => IndexFormat::Uint32,
   }
 }

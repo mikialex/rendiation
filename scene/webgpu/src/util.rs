@@ -52,28 +52,28 @@ where
   }
 }
 
-fn convert_wrap(mode: rendiation_texture::AddressMode) -> webgpu::AddressMode {
+fn convert_wrap(mode: rendiation_texture::AddressMode) -> AddressMode {
   match mode {
-    rendiation_texture::AddressMode::ClampToEdge => webgpu::AddressMode::ClampToEdge,
-    rendiation_texture::AddressMode::Repeat => webgpu::AddressMode::Repeat,
-    rendiation_texture::AddressMode::MirrorRepeat => webgpu::AddressMode::MirrorRepeat,
+    rendiation_texture::AddressMode::ClampToEdge => AddressMode::ClampToEdge,
+    rendiation_texture::AddressMode::Repeat => AddressMode::Repeat,
+    rendiation_texture::AddressMode::MirrorRepeat => AddressMode::MirrorRepeat,
   }
 }
 
-fn convert_filter(mode: rendiation_texture::FilterMode) -> webgpu::FilterMode {
+fn convert_filter(mode: rendiation_texture::FilterMode) -> FilterMode {
   match mode {
-    rendiation_texture::FilterMode::Nearest => webgpu::FilterMode::Nearest,
-    rendiation_texture::FilterMode::Linear => webgpu::FilterMode::Linear,
+    rendiation_texture::FilterMode::Nearest => FilterMode::Nearest,
+    rendiation_texture::FilterMode::Linear => FilterMode::Linear,
   }
 }
 
 pub trait SamplerConvertExt<'a> {
-  fn into_gpu(self) -> webgpu::SamplerDescriptor<'a>;
+  fn into_gpu(self) -> SamplerDescriptor<'a>;
 }
 
 impl<'a> SamplerConvertExt<'a> for rendiation_texture::TextureSampler {
-  fn into_gpu(self) -> webgpu::SamplerDescriptor<'a> {
-    webgpu::SamplerDescriptor {
+  fn into_gpu(self) -> SamplerDescriptor<'a> {
+    SamplerDescriptor {
       label: None,
       address_mode_u: convert_wrap(self.address_mode_u),
       address_mode_v: convert_wrap(self.address_mode_v),

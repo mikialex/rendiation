@@ -1,5 +1,4 @@
 use rendiation_texture::Size;
-use webgpu::GPU2DTextureView;
 
 use crate::*;
 
@@ -47,7 +46,7 @@ impl<'a> PresentationBuilder<'a> {
 
 #[derive(Clone)]
 pub enum Style {
-  SolidColor(Color),
+  SolidColor(DisplayColor),
   Texture(GPU2DTextureView),
 }
 

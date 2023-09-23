@@ -39,7 +39,7 @@ impl From<ImmediateSampler> for SamplerDescriptor<'static> {
 }
 
 impl<T> ShaderPassBuilder for CopyFrame<T> {
-  fn setup_pass(&self, ctx: &mut webgpu::GPURenderPassCtx) {
+  fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
     ctx.bind_immediate_sampler(&self.sampler);
     ctx.binding.bind(&self.source);
   }

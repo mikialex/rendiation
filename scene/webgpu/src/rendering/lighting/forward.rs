@@ -2,7 +2,7 @@ use futures::stream::FusedStream;
 
 use crate::*;
 
-pub fn get_main_pass_load_op(scene: &SceneCoreImpl) -> webgpu::Operations<webgpu::Color> {
+pub fn get_main_pass_load_op(scene: &SceneCoreImpl) -> Operations<Color> {
   let load = if let Some(bg) = &scene.background {
     if let Some(clear_color) = match bg {
       SceneBackGround::Solid(bg) => bg.require_pass_clear(),
@@ -18,15 +18,15 @@ pub fn get_main_pass_load_op(scene: &SceneCoreImpl) -> webgpu::Operations<webgpu
       }
       _ => None,
     } {
-      webgpu::LoadOp::Clear(clear_color)
+      LoadOp::Clear(clear_color)
     } else {
-      webgpu::LoadOp::Load
+      LoadOp::Load
     }
   } else {
-    webgpu::LoadOp::Load
+    LoadOp::Load
   };
 
-  webgpu::Operations { load, store: true }
+  Operations { load, store: true }
 }
 
 pub struct ForwardScene<'a> {

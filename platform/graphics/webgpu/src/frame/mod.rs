@@ -4,6 +4,12 @@ pub use pass::*;
 pub mod attachment;
 pub use attachment::*;
 
+pub mod quad;
+pub use quad::*;
+
+pub mod pass_base;
+pub use pass_base::*;
+
 use crate::*;
 
 pub struct FrameCtx<'a> {

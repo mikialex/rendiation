@@ -26,7 +26,7 @@ impl ShadowMapAllocator {
     if inner.size_all.depth_or_array_layers == inner.allocations.len() as u32 {
       // resize and emit changes
       let map = GPUTexture::create(
-        webgpu::TextureDescriptor {
+        TextureDescriptor {
           label: "shadow-maps".into(),
           size: Extent3d {
             width: inner.size_all.width,
@@ -35,10 +35,10 @@ impl ShadowMapAllocator {
           },
           mip_level_count: 1,
           sample_count: 1,
-          dimension: webgpu::TextureDimension::D2,
-          format: webgpu::TextureFormat::Depth32Float,
+          dimension: TextureDimension::D2,
+          format: TextureFormat::Depth32Float,
           view_formats: &[],
-          usage: webgpu::TextureUsages::TEXTURE_BINDING | webgpu::TextureUsages::RENDER_ATTACHMENT,
+          usage: TextureUsages::TEXTURE_BINDING | TextureUsages::RENDER_ATTACHMENT,
         },
         &inner.gpu.device,
       );
@@ -112,7 +112,7 @@ pub struct ShadowMapAllocatorImpl {
   gpu: ResourceGPUCtx,
   map: GPU2DArrayDepthTextureView,
   sampler: GPUComparisonSamplerView,
-  size_all: webgpu::Extent3d,
+  size_all: Extent3d,
   allocations: FastHashMap<usize, LiveAllocation>,
 }
 
@@ -125,7 +125,7 @@ struct LiveAllocation {
 
 impl ShadowMapAllocatorImpl {
   fn new(gpu: ResourceGPUCtx) -> Self {
-    let init_size = webgpu::Extent3d {
+    let init_size = Extent3d {
       width: 512,
       height: 512,
       depth_or_array_layers: 5_u32,
@@ -133,15 +133,15 @@ impl ShadowMapAllocatorImpl {
 
     // todo should we create when init?
     let map = GPUTexture::create(
-      webgpu::TextureDescriptor {
+      TextureDescriptor {
         label: "shadow-maps".into(),
         size: init_size,
         mip_level_count: 1,
         sample_count: 1,
-        dimension: webgpu::TextureDimension::D2,
-        format: webgpu::TextureFormat::Depth32Float,
+        dimension: TextureDimension::D2,
+        format: TextureFormat::Depth32Float,
         view_formats: &[],
-        usage: webgpu::TextureUsages::TEXTURE_BINDING | webgpu::TextureUsages::RENDER_ATTACHMENT,
+        usage: TextureUsages::TEXTURE_BINDING | TextureUsages::RENDER_ATTACHMENT,
       },
       &gpu.device,
     );
@@ -150,11 +150,11 @@ impl ShadowMapAllocatorImpl {
     let mapping = Default::default();
 
     let sampler = GPUSampler::create(
-      webgpu::SamplerDescriptor {
-        mag_filter: webgpu::FilterMode::Linear,
-        min_filter: webgpu::FilterMode::Linear,
-        mipmap_filter: webgpu::FilterMode::Nearest,
-        compare: webgpu::CompareFunction::Greater.into(),
+      SamplerDescriptor {
+        mag_filter: FilterMode::Linear,
+        min_filter: FilterMode::Linear,
+        mipmap_filter: FilterMode::Nearest,
+        compare: CompareFunction::Greater.into(),
         ..Default::default()
       },
       &gpu.device,
@@ -215,9 +215,9 @@ impl ShadowMap {
       inner
         .map
         .resource
-        .create_view(webgpu::TextureViewDescriptor {
+        .create_view(TextureViewDescriptor {
           label: Some("shadow-write-view"),
-          dimension: Some(webgpu::TextureViewDimension::D2),
+          dimension: Some(TextureViewDimension::D2),
           base_array_layer: allocation.info.layer_index as u32,
           array_layer_count: Some(1),
           ..Default::default()

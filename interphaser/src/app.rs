@@ -1,7 +1,6 @@
 use std::{num::NonZeroUsize, sync::Arc};
 
 use rendiation_texture::Size;
-use webgpu::*;
 use winit::{event::*, event_loop::EventLoop};
 
 use crate::*;

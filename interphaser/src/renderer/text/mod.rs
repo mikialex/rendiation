@@ -4,8 +4,8 @@ pub mod gpu_cache;
 pub use gpu_cache::*;
 use rendiation_algebra::Vec2;
 use rendiation_texture::{Size, Texture2DBuffer, TextureFormat};
-use webgpu::{GPURenderPass, WebGPU2DTextureSource, GPU};
 
+use crate::*;
 use crate::{FontManager, TextCache, TextHash, TextureCacheAction, VertexCacheAction};
 
 pub struct TextRenderer {
@@ -16,9 +16,9 @@ pub struct TextRenderer {
 
 impl TextRenderer {
   pub fn new(
-    device: &webgpu::GPUDevice,
-    filter_mode: webgpu::FilterMode,
-    render_format: webgpu::TextureFormat,
+    device: &GPUDevice,
+    filter_mode: FilterMode,
+    render_format: TextureFormat,
     init_size: Size,
   ) -> Self {
     let texture_cache = WebGPUTextureCache::init(init_size, device);
@@ -36,7 +36,7 @@ impl TextRenderer {
     }
   }
 
-  pub fn resize_view(&mut self, size: Vec2<f32>, queue: &webgpu::Queue) {
+  pub fn resize_view(&mut self, size: Vec2<f32>, queue: &Queue) {
     self.renderer.resize_view(size, queue)
   }
 

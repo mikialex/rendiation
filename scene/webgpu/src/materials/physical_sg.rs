@@ -131,7 +131,7 @@ impl GraphicsShaderProvider for PhysicalSpecularGlossinessMaterialGPU {
         AlphaMode::Blend => {
           builder.register::<AlphaChannel>(alpha);
           builder.frag_output.iter_mut().for_each(|(_, state)| {
-            state.blend = webgpu::BlendState::ALPHA_BLENDING.into();
+            state.blend = BlendState::ALPHA_BLENDING.into();
           });
         }
       };

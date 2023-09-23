@@ -2,15 +2,6 @@ use rendiation_shader_library::sampling::{hammersley_2d_fn, sample_hemisphere_co
 
 use crate::*;
 
-// pub struct PrefilteredCubeMapPair {
-//   diffuse: GPUTextureCube,
-//   specular: GPUTextureCube,
-// }
-
-// pub fn prefilter(cube: GPUTextureCube) -> PrefilteredCubeMapPair {
-//   todo!()
-// }
-
 pub fn prefilter_diffuse(
   env: HandleNode<ShaderTextureCube>,
   sampler: HandleNode<ShaderSampler>,

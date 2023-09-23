@@ -148,19 +148,19 @@ impl<'a> WebGPU2DTextureSource for GPUBufferImageForeignImpl<'a> {
 
 fn create_fallback_empty_texture(device: &GPUDevice) -> GPU2DTexture {
   GPUTexture::create(
-    webgpu::TextureDescriptor {
+    TextureDescriptor {
       label: "unimplemented default texture".into(),
-      size: webgpu::Extent3d {
+      size: Extent3d {
         width: 1,
         height: 1,
         depth_or_array_layers: 1,
       },
       mip_level_count: 1,
       sample_count: 1,
-      dimension: webgpu::TextureDimension::D2,
-      format: webgpu::TextureFormat::Rgba8UnormSrgb,
+      dimension: TextureDimension::D2,
+      format: TextureFormat::Rgba8UnormSrgb,
       view_formats: &[],
-      usage: webgpu::TextureUsages::all(),
+      usage: TextureUsages::all(),
     },
     device,
   )

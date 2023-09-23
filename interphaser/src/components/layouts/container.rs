@@ -2,7 +2,7 @@ use crate::*;
 
 /// setup a sized box and use this for positioning child
 pub struct Container {
-  pub color: Color,
+  pub color: DisplayColor,
   pub child_align: ContainerAlignment,
   /// extra relative(parent) offset for self
   pub self_offset: ContainerItemOffset,
@@ -50,11 +50,11 @@ impl Container {
   }
 
   #[must_use]
-  pub fn color(mut self, color: Color) -> Self {
+  pub fn color(mut self, color: DisplayColor) -> Self {
     self.color = color;
     self
   }
-  pub fn set_color(&mut self, color: Color) {
+  pub fn set_color(&mut self, color: DisplayColor) {
     self.color = color
   }
 }

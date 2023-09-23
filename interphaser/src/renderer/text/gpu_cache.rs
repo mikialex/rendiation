@@ -1,19 +1,16 @@
 use std::collections::HashMap;
 
 use rendiation_texture::{Size, TextureRange};
-use webgpu::{
-  map_size_gpu, util::DeviceExt, GPU2DTexture, GPU2DTextureView, GPUTexture, WebGPU2DTextureSource,
-};
 
-use crate::{TextHash, TextQuadInstance};
+use crate::*;
 
 pub struct WebGPUxTextPrimitive {
-  pub vertex_buffer: webgpu::Buffer,
+  pub vertex_buffer: Buffer,
   pub length: u32,
 }
 
 pub fn create_gpu_text(
-  device: &webgpu::Device,
+  device: &Device,
   instances: &[TextQuadInstance],
 ) -> Option<WebGPUxTextPrimitive> {
   if instances.is_empty() {
@@ -21,10 +18,10 @@ pub fn create_gpu_text(
   }
   let instances_bytes = bytemuck::cast_slice(instances);
 
-  let vertex_buffer = device.create_buffer_init(&webgpu::util::BufferInitDescriptor {
+  let vertex_buffer = device.create_buffer_init(&util::BufferInitDescriptor {
     label: None,
     contents: instances_bytes,
-    usage: webgpu::BufferUsages::VERTEX,
+    usage: BufferUsages::VERTEX,
   });
 
   WebGPUxTextPrimitive {
@@ -40,13 +37,13 @@ pub struct WebGPUTextureCache {
 }
 
 impl WebGPUTextureCache {
-  pub fn init(size: Size, device: &webgpu::GPUDevice) -> Self {
-    let desc = webgpu::TextureDescriptor {
+  pub fn init(size: Size, device: &GPUDevice) -> Self {
+    let desc = TextureDescriptor {
       label: "text-glyph-atlas".into(),
       size: map_size_gpu(size),
-      dimension: webgpu::TextureDimension::D2,
-      format: webgpu::TextureFormat::R8Unorm,
-      usage: webgpu::TextureUsages::TEXTURE_BINDING | webgpu::TextureUsages::COPY_DST,
+      dimension: TextureDimension::D2,
+      format: TextureFormat::R8Unorm,
+      usage: TextureUsages::TEXTURE_BINDING | TextureUsages::COPY_DST,
       mip_level_count: 1,
       sample_count: 1,
       view_formats: &[] as &'static [rendiation_texture::TextureFormat],
@@ -62,14 +59,14 @@ impl WebGPUTextureCache {
     &self,
     data: &dyn WebGPU2DTextureSource,
     range: TextureRange,
-    queue: &webgpu::Queue,
+    queue: &Queue,
   ) {
     self
       .texture
       .upload_with_origin(queue, data, 0, range.origin);
   }
 
-  pub fn get_view(&self) -> &webgpu::TextureView {
+  pub fn get_view(&self) -> &TextureView {
     &self.view.0
   }
 }

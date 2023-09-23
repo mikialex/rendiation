@@ -6,14 +6,10 @@ use rendiation_scene_core::{
   any_change, IntoSceneItemRef, SceneItemReactiveSimpleMapping, SharedIncrementalSignal,
 };
 use rendiation_scene_webgpu::{
-  default_dispatcher, generate_quad, CameraGPU, MaterialStates, PassContentWithSceneAndCamera,
-  SceneRenderResourceGroup, QUAD_DRAW_CMD,
+  CameraGPU, MaterialStates, PassContentWithSceneAndCamera, SceneRenderResourceGroup,
 };
 use rendiation_shader_api::*;
-use webgpu::{
-  create_uniform, RenderComponent, RenderComponentAny, RenderEmitter, ShaderHashProvider,
-  ShaderHashProviderAny, ShaderPassBuilder, UniformBufferDataView, GPU,
-};
+use webgpu::*;
 
 pub struct GridGround {
   grid_config: SharedIncrementalSignal<GridGroundConfig>,

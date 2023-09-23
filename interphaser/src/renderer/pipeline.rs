@@ -1,10 +1,9 @@
 use rendiation_shader_api::*;
-use webgpu::*;
 
-use crate::{renderer::UIGlobalParameter, UIVertex};
+use crate::*;
 
 pub struct SolidUIPipeline {
-  pub target_format: webgpu::TextureFormat,
+  pub target_format: TextureFormat,
 }
 
 impl GraphicsShaderProvider for SolidUIPipeline {
@@ -17,8 +16,8 @@ impl GraphicsShaderProvider for SolidUIPipeline {
 
     builder.vertex(|builder, _| {
       builder.register_vertex::<UIVertex>(VertexStepMode::Vertex);
-      builder.primitive_state = webgpu::PrimitiveState {
-        topology: webgpu::PrimitiveTopology::TriangleList,
+      builder.primitive_state = PrimitiveState {
+        topology: PrimitiveTopology::TriangleList,
         cull_mode: None,
         ..Default::default()
       };
@@ -51,7 +50,7 @@ impl GraphicsShaderProvider for SolidUIPipeline {
 }
 
 pub struct TextureUIPipeline {
-  pub target_format: webgpu::TextureFormat,
+  pub target_format: TextureFormat,
 }
 
 impl GraphicsShaderProvider for TextureUIPipeline {
@@ -64,8 +63,8 @@ impl GraphicsShaderProvider for TextureUIPipeline {
 
     builder.vertex(|builder, _| {
       builder.register_vertex::<UIVertex>(VertexStepMode::Vertex);
-      builder.primitive_state = webgpu::PrimitiveState {
-        topology: webgpu::PrimitiveTopology::TriangleList,
+      builder.primitive_state = PrimitiveState {
+        topology: PrimitiveTopology::TriangleList,
         cull_mode: None,
         ..Default::default()
       };
@@ -90,7 +89,7 @@ impl GraphicsShaderProvider for TextureUIPipeline {
       Ok(())
     })?;
 
-    use webgpu::container::*;
+    use container::*;
 
     builder.set_binding_slot(1);
 

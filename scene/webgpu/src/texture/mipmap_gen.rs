@@ -50,7 +50,7 @@ impl Mipmap2DGenerator {
   pub fn generate(&self, ctx: &mut FrameCtx, texture: &GPU2DTexture) {
     for write_level in 1..texture.desc.mip_level_count {
       let write_view: GPU2DTextureView = texture
-        .create_view(webgpu::TextureViewDescriptor {
+        .create_view(TextureViewDescriptor {
           base_mip_level: write_level,
           mip_level_count: Some(1),
           base_array_layer: 0,
@@ -61,7 +61,7 @@ impl Mipmap2DGenerator {
 
       let read_level = write_level - 1;
       let read_view = texture
-        .create_view(webgpu::TextureViewDescriptor {
+        .create_view(TextureViewDescriptor {
           base_mip_level: read_level,
           mip_level_count: Some(1),
           base_array_layer: 0,
@@ -89,12 +89,12 @@ impl Mipmap2DGenerator {
     for write_level in 1..texture.desc.mip_level_count {
       for face in 0..texture.desc.size.depth_or_array_layers {
         let write_view: GPU2DTextureView = texture
-          .create_view(webgpu::TextureViewDescriptor {
+          .create_view(TextureViewDescriptor {
             base_mip_level: write_level,
             mip_level_count: Some(1),
             base_array_layer: face,
             // it defaults to None which defaults to cube type
-            dimension: Some(webgpu::TextureViewDimension::D2),
+            dimension: Some(TextureViewDimension::D2),
             ..Default::default()
           })
           .try_into()
@@ -102,7 +102,7 @@ impl Mipmap2DGenerator {
 
         let read_level = write_level - 1;
         let read_view = texture
-          .create_view(webgpu::TextureViewDescriptor {
+          .create_view(TextureViewDescriptor {
             base_mip_level: read_level,
             mip_level_count: Some(1),
             base_array_layer: face,

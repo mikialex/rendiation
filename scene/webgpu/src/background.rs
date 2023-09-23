@@ -1,13 +1,13 @@
 use crate::*;
 
 pub trait WebGPUBackground: 'static + SceneRenderable {
-  fn require_pass_clear(&self) -> Option<webgpu::Color>;
+  fn require_pass_clear(&self) -> Option<Color>;
 }
 define_dyn_trait_downcaster_static!(WebGPUBackground);
 
 impl WebGPUBackground for SolidBackground {
-  fn require_pass_clear(&self) -> Option<webgpu::Color> {
-    webgpu::Color {
+  fn require_pass_clear(&self) -> Option<Color> {
+    Color {
       r: self.intensity.r() as f64,
       g: self.intensity.g() as f64,
       b: self.intensity.b() as f64,
@@ -29,7 +29,7 @@ impl SceneRenderable for SolidBackground {
 }
 
 impl WebGPUBackground for EnvMapBackground {
-  fn require_pass_clear(&self) -> Option<webgpu::Color> {
+  fn require_pass_clear(&self) -> Option<Color> {
     None
   }
 }

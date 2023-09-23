@@ -6,7 +6,7 @@ use rendiation_geometry::OptionalNearest;
 use rendiation_mesh_core::{vertex::Vertex, MeshBufferHitPoint, TriangleList};
 use rendiation_mesh_generator::*;
 use rendiation_scene_interaction::{SceneRayInteractive, SceneRayInteractiveCtx};
-use webgpu::{FrameRenderPass, RenderComponentAny};
+use webgpu::{default_dispatcher, FrameRenderPass, RenderComponentAny};
 
 use super::WidgetDispatcher;
 use crate::*;

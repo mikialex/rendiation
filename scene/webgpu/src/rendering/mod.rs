@@ -6,8 +6,6 @@ pub mod highlight;
 pub use highlight::*;
 pub mod background;
 pub use background::*;
-pub mod quad;
-pub use quad::*;
 pub mod blur;
 pub use blur::*;
 pub mod tonemap;
@@ -18,8 +16,6 @@ pub mod taa;
 pub use taa::*;
 pub mod ssao;
 pub use ssao::*;
-pub mod pass_base;
-pub use pass_base::*;
 pub mod lighting;
 pub use lighting::*;
 pub mod chromatic_aberration;
@@ -45,14 +41,6 @@ impl<'a> SceneRenderResourceGroup<'a> {
       base: dispatcher,
       texture_system: &self.resources.bindable_ctx.binding_sys,
     }
-  }
-}
-
-pub fn default_dispatcher(pass: &FrameRenderPass) -> DefaultPassDispatcher {
-  DefaultPassDispatcher {
-    formats: pass.ctx.pass.formats().clone(),
-    pass_info: pass.pass_info.clone(),
-    auto_write: true,
   }
 }
 

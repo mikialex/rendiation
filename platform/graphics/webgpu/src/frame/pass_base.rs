@@ -1,5 +1,13 @@
 use crate::*;
 
+pub fn default_dispatcher(pass: &FrameRenderPass) -> DefaultPassDispatcher {
+  DefaultPassDispatcher {
+    formats: pass.ctx.pass.formats().clone(),
+    pass_info: pass.pass_info.clone(),
+    auto_write: true,
+  }
+}
+
 pub struct DefaultPassDispatcher {
   pub formats: RenderTargetFormatsInfo,
   pub auto_write: bool,

@@ -106,7 +106,7 @@ impl WebGPUMesh for TransformInstancedSceneMesh {
 
       let instance_gpu = create_gpu_buffer(
         bytemuck::cast_slice(mesh.transforms.as_slice()),
-        webgpu::BufferUsages::VERTEX,
+        BufferUsages::VERTEX,
         &ctx.gpu.device,
       )
       .create_default_view();

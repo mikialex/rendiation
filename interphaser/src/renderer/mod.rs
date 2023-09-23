@@ -5,8 +5,6 @@ use rendiation_algebra::*;
 use rendiation_shader_api::{std140_layout, GraphicsShaderProvider, ShaderStruct};
 use rendiation_shader_backend_naga::ShaderAPINagaImpl;
 use rendiation_texture::Size;
-use webgpu::util::DeviceExt;
-use webgpu::*;
 
 mod pipeline;
 use pipeline::*;
@@ -77,8 +75,8 @@ impl UIPresenter for WebGpuUIPresenter {
 
       let mut decs = RenderPassDescriptorOwned::default();
       decs.channels.push((
-        webgpu::Operations {
-          load: webgpu::LoadOp::Clear(webgpu::Color::WHITE),
+        Operations {
+          load: LoadOp::Clear(rendiation_webgpu::Color::WHITE),
           store: true,
         },
         view,
@@ -107,7 +105,7 @@ impl<'r> WebGPUxUIRenderTask<'r> {
       GPUxUIPrimitive::SolidColor(p) => {
         pass.set_pipeline(&renderer.resource.solid_color_pipeline.pipeline);
         pass.set_bind_group(0, &self.renderer.resource.global_bindgroup, &[]);
-        pass.set_index_buffer(p.index_buffer.slice(..), webgpu::IndexFormat::Uint32);
+        pass.set_index_buffer(p.index_buffer.slice(..), IndexFormat::Uint32);
         pass.set_vertex_buffer(0, p.vertex_buffer.slice(..));
         pass.draw_indexed(0..p.length, 0, 0..1);
       }
@@ -115,7 +113,7 @@ impl<'r> WebGPUxUIRenderTask<'r> {
         pass.set_pipeline(&renderer.resource.texture_pipeline.pipeline);
         pass.set_bind_group(0, &self.renderer.resource.global_bindgroup, &[]);
         pass.set_bind_group(1, &tex.bindgroup, &[]);
-        pass.set_index_buffer(tex.index_buffer.slice(..), webgpu::IndexFormat::Uint32);
+        pass.set_index_buffer(tex.index_buffer.slice(..), IndexFormat::Uint32);
         pass.set_vertex_buffer(0, tex.vertex_buffer.slice(..));
         pass.draw_indexed(0..tex.length, 0, 0..1);
       }
@@ -139,17 +137,17 @@ impl<'r> WebGPUxUIRenderTask<'r> {
 }
 
 pub struct GPUxUISolidColorPrimitive {
-  // uniform: webgpu::Buffer,
-  // bindgroup: webgpu::BindGroup,
-  vertex_buffer: webgpu::Buffer,
-  index_buffer: webgpu::Buffer,
+  // uniform: Buffer,
+  // bindgroup: BindGroup,
+  vertex_buffer: Buffer,
+  index_buffer: Buffer,
   length: u32,
 }
 
 pub struct GPUxUITexturedPrimitive {
-  bindgroup: webgpu::BindGroup,
-  vertex_buffer: webgpu::Buffer,
-  index_buffer: webgpu::Buffer,
+  bindgroup: BindGroup,
+  vertex_buffer: Buffer,
+  index_buffer: Buffer,
   length: u32,
 }
 
@@ -161,10 +159,10 @@ pub enum GPUxUIPrimitive {
 
 #[allow(clippy::vec_init_then_push)]
 fn build_quad(
-  device: &webgpu::Device,
+  device: &Device,
   quad: &crate::RectangleShape,
-  color: crate::Color,
-) -> (webgpu::Buffer, webgpu::Buffer) {
+  color: DisplayColor,
+) -> (Buffer, Buffer) {
   let mut vertices = Vec::new();
 
   #[rustfmt::skip]
@@ -183,17 +181,17 @@ fn build_quad(
   index.push(3);
 
   let vertex = bytemuck::cast_slice(vertices.as_slice());
-  let vertex_buffer = device.create_buffer_init(&webgpu::util::BufferInitDescriptor {
+  let vertex_buffer = device.create_buffer_init(&util::BufferInitDescriptor {
     label: None,
     contents: vertex,
-    usage: webgpu::BufferUsages::VERTEX,
+    usage: BufferUsages::VERTEX,
   });
 
   let index = bytemuck::cast_slice(index.as_slice());
-  let index_buffer = device.create_buffer_init(&webgpu::util::BufferInitDescriptor {
+  let index_buffer = device.create_buffer_init(&util::BufferInitDescriptor {
     label: None,
     contents: index,
-    usage: webgpu::BufferUsages::INDEX,
+    usage: BufferUsages::INDEX,
   });
 
   (index_buffer, vertex_buffer)
@@ -202,7 +200,7 @@ fn build_quad(
 impl Primitive {
   pub fn create_gpu(
     &self,
-    device: &webgpu::GPUDevice,
+    device: &GPUDevice,
     _encoder: &mut GPUCommandEncoder,
     res: &UIxGPUxResource,
     texts: &mut TextCache,
@@ -223,15 +221,15 @@ impl Primitive {
         crate::Style::Texture(view) => {
           let (index_buffer, vertex_buffer) = build_quad(device, quad, (1., 1., 1., 1.).into());
 
-          let bindgroup = device.create_bind_group(&webgpu::BindGroupDescriptor {
+          let bindgroup = device.create_bind_group(&BindGroupDescriptor {
             label: None,
             layout: &res.texture_bg_layout,
             entries: &[
-              webgpu::BindGroupEntry {
+              BindGroupEntry {
                 binding: 0,
                 resource: view.as_bindable(),
               },
-              webgpu::BindGroupEntry {
+              BindGroupEntry {
                 binding: 1,
                 resource: res.sampler.as_bindable(),
               },
@@ -262,20 +260,16 @@ pub struct WebGPUxUIRenderer {
 }
 
 pub struct UIxGPUxResource {
-  solid_color_pipeline: webgpu::GPURenderPipeline,
-  texture_pipeline: webgpu::GPURenderPipeline,
+  solid_color_pipeline: GPURenderPipeline,
+  texture_pipeline: GPURenderPipeline,
   global_ui_state: UniformBufferDataView<UIGlobalParameter>,
-  texture_bg_layout: webgpu::GPUBindGroupLayout,
-  sampler: webgpu::Sampler,
-  global_bindgroup: webgpu::BindGroup,
+  texture_bg_layout: GPUBindGroupLayout,
+  sampler: Sampler,
+  global_bindgroup: BindGroup,
 }
 
 impl WebGPUxUIRenderer {
-  pub fn new(
-    device: &webgpu::GPUDevice,
-    target_format: webgpu::TextureFormat,
-    text_cache_init_size: Size,
-  ) -> Self {
+  pub fn new(device: &GPUDevice, target_format: TextureFormat, text_cache_init_size: Size) -> Self {
     let global_ui_state = UIGlobalParameter {
       screen_size: Vec2::new(1000., 1000.),
       ..Zeroable::zeroed()
@@ -284,9 +278,9 @@ impl WebGPUxUIRenderer {
     let global_ui_state = UniformBufferDataView::create(device, global_ui_state);
     let global_uniform_bind_group_layout = UIGlobalParameter::create_bind_group_layout(device);
 
-    let global_bindgroup = device.create_bind_group(&webgpu::BindGroupDescriptor {
+    let global_bindgroup = device.create_bind_group(&BindGroupDescriptor {
       layout: &global_uniform_bind_group_layout,
-      entries: &[webgpu::BindGroupEntry {
+      entries: &[BindGroupEntry {
         binding: 0,
         resource: global_ui_state.as_bindable(),
       }],
@@ -313,18 +307,18 @@ impl WebGPUxUIRenderer {
 
     let text_renderer = TextRenderer::new(
       device,
-      webgpu::FilterMode::Linear,
+      FilterMode::Linear,
       target_format,
       text_cache_init_size,
     );
 
     let sampler = device.create_sampler(&SamplerDescriptor {
-      address_mode_u: webgpu::AddressMode::ClampToEdge,
-      address_mode_v: webgpu::AddressMode::ClampToEdge,
-      address_mode_w: webgpu::AddressMode::ClampToEdge,
-      mag_filter: webgpu::FilterMode::Nearest,
-      min_filter: webgpu::FilterMode::Nearest,
-      mipmap_filter: webgpu::FilterMode::Nearest,
+      address_mode_u: AddressMode::ClampToEdge,
+      address_mode_v: AddressMode::ClampToEdge,
+      address_mode_w: AddressMode::ClampToEdge,
+      mag_filter: FilterMode::Nearest,
+      min_filter: FilterMode::Nearest,
+      mipmap_filter: FilterMode::Nearest,
       ..Default::default()
     });
 
@@ -384,16 +378,16 @@ pub struct UIGlobalParameter {
 }
 
 impl UIGlobalParameter {
-  fn create_bind_group_layout(device: &webgpu::Device) -> webgpu::BindGroupLayout {
-    device.create_bind_group_layout(&webgpu::BindGroupLayoutDescriptor {
+  fn create_bind_group_layout(device: &Device) -> BindGroupLayout {
+    device.create_bind_group_layout(&BindGroupLayoutDescriptor {
       label: None,
-      entries: &[webgpu::BindGroupLayoutEntry {
+      entries: &[BindGroupLayoutEntry {
         binding: 0,
-        visibility: webgpu::ShaderStages::VERTEX_FRAGMENT,
-        ty: webgpu::BindingType::Buffer {
+        visibility: rendiation_webgpu::ShaderStages::VERTEX_FRAGMENT,
+        ty: BindingType::Buffer {
           has_dynamic_offset: false,
           min_binding_size: None,
-          ty: webgpu::BufferBindingType::Uniform,
+          ty: BufferBindingType::Uniform,
         },
         count: None,
       }],

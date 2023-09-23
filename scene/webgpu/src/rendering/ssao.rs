@@ -152,17 +152,6 @@ impl<'a> GraphicsShaderProvider for AOComputer<'a> {
   }
 }
 
-// a little hack to get camera gpu without copy
-impl<'a> PassContent for QuadDraw<AOComputer<'a>> {
-  fn render(&mut self, pass: &mut FrameRenderPass) {
-    let mut base = default_dispatcher(pass);
-
-    base.auto_write = false;
-    let components: [&dyn RenderComponentAny; 3] = [&base, &self.quad, &self.content];
-    RenderEmitter::new(components.as_slice()).render(&mut pass.ctx, QUAD_DRAW_CMD);
-  }
-}
-
 impl SSAO {
   pub fn draw(
     &self,
@@ -175,7 +164,7 @@ impl SSAO {
 
     let mut ao_result = attachment()
       .sizer(ratio_sizer(0.5)) // half resolution!
-      .format(webgpu::TextureFormat::Rgba8Unorm) // todo single channel
+      .format(TextureFormat::Rgba8Unorm) // todo single channel
       .request(ctx);
 
     pass("ssao-compute")

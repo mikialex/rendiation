@@ -10,7 +10,7 @@ use rendiation_geometry::{IntersectAble, OptionalNearest, Plane, Ray3};
 use rendiation_mesh_core::{vertex::Vertex, TriangleList};
 use rendiation_mesh_generator::*;
 use rendiation_scene_interaction::*;
-use webgpu::{FrameRenderPass, RenderComponentAny};
+use webgpu::{default_dispatcher, FrameRenderPass, RenderComponentAny};
 
 use crate::*;
 

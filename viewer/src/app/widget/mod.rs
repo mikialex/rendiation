@@ -11,7 +11,7 @@ pub enum InteractState {
 }
 
 impl InteractState {
-  pub fn color(self) -> Color {
+  pub fn color(self) -> DisplayColor {
     match self {
       InteractState::Default => (0.8, 0.8, 0.8, 1.0),
       InteractState::Pressed => (0.5, 0.5, 0.5, 1.0),

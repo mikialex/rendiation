@@ -1,9 +1,9 @@
 use crate::*;
 
-pub type Color = ColorWithAlpha<SRGBColor<f32>, f32>;
+pub type DisplayColor = ColorWithAlpha<SRGBColor<f32>, f32>;
 
 pub struct SolidFillStyle {
-  pub color: Color,
+  pub color: DisplayColor,
   pub alpha: f32,
 }
 

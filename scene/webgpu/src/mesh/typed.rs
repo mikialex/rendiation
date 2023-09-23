@@ -4,14 +4,14 @@ use bytemuck::Pod;
 use rendiation_mesh_core::MeshGroupsInfo;
 use rendiation_mesh_core::{GroupedMesh, IndexGet, MeshGroup};
 use rendiation_shader_api::*;
-use webgpu::DrawCommand;
+use DrawCommand;
 
 use crate::*;
 
 pub struct MeshGPU {
   range_full: MeshGroup,
   vertex: Vec<GPUBufferResourceView>,
-  index: Option<(GPUBufferResourceView, webgpu::IndexFormat)>,
+  index: Option<(GPUBufferResourceView, IndexFormat)>,
   groups: MeshGroupsInfo,
 }
 
@@ -41,14 +41,14 @@ where
   }
 }
 
-impl<T> webgpu::ShaderPassBuilder for TypedMeshGPU<T> {
-  fn setup_pass(&self, ctx: &mut webgpu::GPURenderPassCtx) {
+impl<T> ShaderPassBuilder for TypedMeshGPU<T> {
+  fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
     self.setup_pass(ctx)
   }
 }
 
 /// variance info is encoded in T's type id
-impl<T: 'static> webgpu::ShaderHashProvider for TypedMeshGPU<T> {}
+impl<T: 'static> ShaderHashProvider for TypedMeshGPU<T> {}
 
 impl MeshGPU {
   pub fn get_range_full(&self) -> MeshGroup {
@@ -76,17 +76,17 @@ impl<T> TypedMeshGPU<T> {
 }
 
 pub trait IndexBufferSourceTypeProvider {
-  fn format(&self) -> webgpu::IndexFormat;
+  fn format(&self) -> IndexFormat;
 }
 
 impl<T: IndexBufferSourceType> IndexBufferSourceTypeProvider for Vec<T> {
-  fn format(&self) -> webgpu::IndexFormat {
+  fn format(&self) -> IndexFormat {
     T::FORMAT
   }
 }
 
 impl IndexBufferSourceTypeProvider for DynIndexContainer {
-  fn format(&self) -> webgpu::IndexFormat {
+  fn format(&self) -> IndexFormat {
     match self {
       DynIndexContainer::Uint16(_) => u16::FORMAT,
       DynIndexContainer::Uint32(_) => u32::FORMAT,
@@ -197,7 +197,7 @@ impl AsGPUBytes for DynIndexContainer {
 
 pub fn create_gpu<V, T, IU>(
   mesh: &IndexedMesh<T, Vec<V>, IU>,
-  device: &webgpu::GPUDevice,
+  device: &GPUDevice,
   groups: MeshGroupsInfo,
 ) -> MeshGPU
 where
@@ -206,17 +206,12 @@ where
   IndexedMesh<T, Vec<V>, IU>: GPUConsumableMeshBuffer,
 {
   let vertex = bytemuck::cast_slice(mesh.vertex.as_slice());
-  let vertex =
-    create_gpu_buffer(vertex, webgpu::BufferUsages::VERTEX, device).create_default_view();
+  let vertex = create_gpu_buffer(vertex, BufferUsages::VERTEX, device).create_default_view();
 
   let vertex = vec![vertex];
 
-  let index = create_gpu_buffer(
-    mesh.index.as_gpu_bytes(),
-    webgpu::BufferUsages::INDEX,
-    device,
-  )
-  .create_default_view();
+  let index =
+    create_gpu_buffer(mesh.index.as_gpu_bytes(), BufferUsages::INDEX, device).create_default_view();
 
   let index = (index, mesh.index.format()).into();
 

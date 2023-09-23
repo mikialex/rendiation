@@ -21,7 +21,7 @@ rendiation-mesh-core = { path = "../components/mesh/core" }
 rendiation-texture = { path = "../components/texture/core" }
 rendiation-shader-api = { path = "../shader/api" }
 rendiation-shader-backend-naga = { path = "../shader/backends/naga" }
-webgpu = { package = "rendiation-webgpu", path = "../platform/graphics/webgpu" }
+rendiation-webgpu = { path = "../platform/graphics/webgpu" }
 winit = { version = "0.27.1" }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
