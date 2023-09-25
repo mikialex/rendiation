@@ -62,7 +62,7 @@ impl TAA {
 
     pass("taa-resolve")
       .with_color(resolve_target.write(), load())
-      .render(ctx)
+      .render_ctx(ctx)
       .by(
         TAAResolver {
           history: history.read(),

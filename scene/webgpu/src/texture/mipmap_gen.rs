@@ -78,7 +78,7 @@ impl Mipmap2DGenerator {
 
       pass("mip-gen-2d")
         .with_color(write_view, load())
-        .render(ctx)
+        .render_ctx(ctx)
         .by(task);
     }
   }
@@ -119,7 +119,7 @@ impl Mipmap2DGenerator {
 
         pass("mip-gen-cube-face")
           .with_color(write_view, load())
-          .render(ctx)
+          .render_ctx(ctx)
           .by(task);
       }
     }

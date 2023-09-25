@@ -169,10 +169,10 @@ impl<T: IncrementalBase> SharedIncrementalSignal<T> {
     visitor(&inner)
   }
 
-  pub fn read(&self) -> SceneItemRefGuard<T> {
+  pub fn read(&self) -> SignalRefGuard<T> {
     // ignore lock poison
     let inner = self.inner.read().unwrap_or_else(|e| e.into_inner());
-    SceneItemRefGuard { inner }
+    SignalRefGuard { inner }
   }
 
   pub fn write_unchecked(&self) -> SceneItemRefMutGuard<T> {
@@ -182,11 +182,11 @@ impl<T: IncrementalBase> SharedIncrementalSignal<T> {
   }
 }
 
-pub struct SceneItemRefGuard<'a, T: IncrementalBase> {
+pub struct SignalRefGuard<'a, T: IncrementalBase> {
   inner: RwLockReadGuard<'a, IncrementalSignal<T>>,
 }
 
-impl<'a, T: IncrementalBase> Deref for SceneItemRefGuard<'a, T> {
+impl<'a, T: IncrementalBase> Deref for SignalRefGuard<'a, T> {
   type Target = IncrementalSignal<T>;
 
   fn deref(&self) -> &Self::Target {

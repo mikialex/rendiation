@@ -55,7 +55,7 @@ impl HighLighter {
 
     pass("highlight-selected-mask")
       .with_color(selected_mask.write(), clear(color_same(0.)))
-      .render(ctx)
+      .render_ctx(ctx)
       .by(scene.by_main_camera_and_self(highlight(objects)));
 
     self.draw_result(selected_mask.read_into())

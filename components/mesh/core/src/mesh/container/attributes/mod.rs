@@ -158,7 +158,7 @@ impl UnTypedBufferView {
 }
 
 pub struct UnTypedBufferViewReadView<'a> {
-  buffer: SceneItemRefGuard<'a, GeometryBufferInner>,
+  buffer: SignalRefGuard<'a, GeometryBufferInner>,
   view: &'a UnTypedBufferView,
 }
 

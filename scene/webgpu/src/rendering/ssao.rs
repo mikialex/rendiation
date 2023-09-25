@@ -169,7 +169,7 @@ impl SSAO {
 
     pass("ssao-compute")
       .with_color(ao_result.write(), load())
-      .render(ctx)
+      .render_ctx(ctx)
       .by(
         AOComputer {
           source_camera_gpu: &source_camera_gpu.ubo,

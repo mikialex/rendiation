@@ -159,6 +159,34 @@ fn draw_command(mesh: &AttributesMesh) -> DrawCommand {
   }
 }
 
+#[allow(clippy::collapsible_match)]
+pub fn support_bindless<'a>(mesh: &'a AttributeMeshReadView<'a>) -> Option<BindlessMeshSource<'a>> {
+  if PrimitiveTopology::TriangleList != mesh.mode {
+    return None;
+  }
+
+  if let Some((fmt, index)) = &mesh.indices {
+    if let AttributeIndexFormat::Uint32 = fmt {
+      if mesh.attributes.len() != 3 {
+        return None;
+      }
+      let position = mesh.get_position();
+      if let Some(normal) = mesh.get_attribute(&AttributeSemantic::Normals) {
+        if let Some(uv) = mesh.get_attribute(&AttributeSemantic::TexCoords(0)) {
+          return BindlessMeshSource {
+            index: index.visit_slice()?,
+            position,
+            normal: normal.visit_slice()?,
+            uv: uv.visit_slice()?,
+          }
+          .into();
+        }
+      }
+    }
+  }
+  None
+}
+
 type AttributesMeshGPUReactive = impl AsRef<RenderComponentCell<MaybeBindlessMesh<AttributesMeshGPU>>>
   + Stream<Item = RenderComponentDeltaFlag>;
 
@@ -172,30 +200,40 @@ impl WebGPUMesh for AttributesMesh {
     let ctx = ctx.clone();
 
     let create = move |mesh: &SharedIncrementalSignal<AttributesMesh>| {
-      let mut custom_storage = ctx.custom_storage.write().unwrap();
-      let mesh = mesh.read();
-      let attributes = mesh
-        .attributes
-        .iter()
-        .map(|(s, vertices)| {
-          let buffer = get_update_buffer(&mut custom_storage, &vertices.view.buffer, &ctx.gpu);
-          let buffer_view = buffer.create_view(map_view(vertices.compute_gpu_buffer_range()));
-          (s.clone(), buffer_view)
+      let m = mesh.read();
+      let m = unsafe { std::mem::transmute(&m.read()) }; // todo why?
+      if let Some(sys) = &ctx.bindless_mesh && let Some(mesh) = support_bindless(m){
+        let gpu = &ctx.gpu;
+        let handle = sys
+          .create_mesh_instance(mesh, &gpu.device, &gpu.queue)
+          .unwrap();
+        MaybeBindlessMesh::Bindless(handle)
+      } else {
+        let mut custom_storage = ctx.custom_storage.write().unwrap();
+        let mesh = mesh.read();
+        let attributes = mesh
+          .attributes
+          .iter()
+          .map(|(s, vertices)| {
+            let buffer = get_update_buffer(&mut custom_storage, &vertices.view.buffer, &ctx.gpu);
+            let buffer_view = buffer.create_view(map_view(vertices.compute_gpu_buffer_range()));
+            (s.clone(), buffer_view)
+          })
+          .collect();
+
+        let indices = mesh.indices.as_ref().map(|(format, i)| {
+          let buffer = get_update_buffer(&mut custom_storage, &i.view.buffer, &ctx.gpu);
+          let buffer_view = buffer.create_view(map_view(i.compute_gpu_buffer_range()));
+          (buffer_view, map_index(*format))
+        });
+
+        MaybeBindlessMesh::Traditional(AttributesMeshGPU {
+          attributes,
+          indices,
+          topology: map_topology(mesh.mode),
+          draw: draw_command(&mesh),
         })
-        .collect();
-
-      let indices = mesh.indices.as_ref().map(|(format, i)| {
-        let buffer = get_update_buffer(&mut custom_storage, &i.view.buffer, &ctx.gpu);
-        let buffer_view = buffer.create_view(map_view(i.compute_gpu_buffer_range()));
-        (buffer_view, map_index(*format))
-      });
-
-      MaybeBindlessMesh::Traditional(AttributesMeshGPU {
-        attributes,
-        indices,
-        topology: map_topology(mesh.mode),
-        draw: draw_command(&mesh),
-      })
+      }
     };
 
     let state = RenderComponentCell::new(create(source));

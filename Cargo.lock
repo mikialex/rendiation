@@ -2717,6 +2717,11 @@ dependencies = [
 [[package]]
 name = "rendiation-lighting-ibl-cli"
 version = "0.1.0"
+dependencies = [
+ "rendiation-lighting-ibl-gpu",
+ "rendiation-texture",
+ "rendiation-webgpu",
+]
 
 [[package]]
 name = "rendiation-lighting-ibl-core"

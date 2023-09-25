@@ -58,8 +58,8 @@ impl ViewerPipeline {
 
     let mut scene_depth = depth_attachment().request(ctx);
 
-    let mut msaa_color = ctx.multisampled_attachment().request(ctx);
-    let mut msaa_depth = ctx.multisampled_depth_attachment().request(ctx);
+    let mut msaa_color = attachment().sample_count(4).request(ctx);
+    let mut msaa_depth = depth_attachment().sample_count(4).request(ctx);
 
     let mut widgets_result = attachment().request(ctx);
 
@@ -67,7 +67,7 @@ impl ViewerPipeline {
       .with_color(msaa_color.write(), clear(all_zero()))
       .with_depth(msaa_depth.write(), clear(1.))
       .resolve_to(widgets_result.write())
-      .render(ctx)
+      .render_ctx(ctx)
       .by(scene.by_main_camera_and_self(&mut widgets.axis_helper))
       .by(scene.by_main_camera_and_self(&mut widgets.grid_helper))
       .by(scene.by_main_camera_and_self(&mut widgets.gizmo))
@@ -118,7 +118,7 @@ impl ViewerPipeline {
     pass("scene")
       .with_color(scene_result.write(), get_main_pass_load_op(scene.scene))
       .with_depth(scene_depth.write(), clear(1.))
-      .render(ctx)
+      .render_ctx(ctx)
       .by(scene.by_main_camera_and_self(BackGroundRendering))
       .by(
         scene.by_main_camera_and_self(ForwardScene {
@@ -146,7 +146,7 @@ impl ViewerPipeline {
 
     pass("compose-all")
       .with_color(final_target.clone(), load())
-      .render(ctx)
+      .render_ctx(ctx)
       .by(copy_frame(taa_result.read(), None))
       .by(highlight_compose)
       .by(copy_frame(

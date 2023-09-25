@@ -155,7 +155,7 @@ pub fn draw_linear_blur<'a, T: AsRef<Attachment> + 'a>(
 
   pass("blur")
     .with_color(dst.write(), load())
-    .render(ctx)
+    .render_ctx(ctx)
     .by(task.draw_quad());
 
   dst

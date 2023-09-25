@@ -69,6 +69,13 @@ type BindlessUvVertexBuffer = BindingResourceArray<
   MAX_STORAGE_BINDING_ARRAY_LENGTH,
 >;
 
+pub struct BindlessMeshSource<'a> {
+  pub index: &'a [u32],
+  pub position: &'a [Vec3<f32>],
+  pub normal: &'a [Vec3<f32>],
+  pub uv: &'a [Vec2<f32>],
+}
+
 pub struct GPUBindlessMeshSystemInner {
   any_changed: bool,
   metadata: Slab<DrawMetaData>,
@@ -145,10 +152,23 @@ impl GPUBindlessMeshSystem {
       bindless_uv_vertex_buffers: Default::default(),
     };
 
-    Self {
+    let re = Self {
       inner: Arc::new(RwLock::new(inner)),
-    }
-    .into()
+    };
+
+    // insert at least one mesh for bindless to work
+    re.create_mesh_instance(
+      BindlessMeshSource {
+        index: &[0],
+        position: &[Vec3::zero(), Vec3::zero(), Vec3::zero()],
+        normal: &[Vec3::zero(), Vec3::zero(), Vec3::zero()],
+        uv: &[Vec2::zero(), Vec2::zero(), Vec2::zero()],
+      },
+      &gpu.device,
+      &gpu.queue,
+    );
+
+    re.into()
   }
 
   pub fn maintain(&mut self) {
@@ -183,23 +203,27 @@ impl GPUBindlessMeshSystem {
 
   /// maybe unable to allocate more!
   pub fn create_mesh_instance(
-    &mut self,
-    index: Vec<u32>,
-    position: Vec<Vec3<f32>>,
-    normal: Vec<Vec3<f32>>,
-    uv: Vec<Vec2<f32>>,
+    &self,
+    source: BindlessMeshSource,
     device: &GPUDevice,
     queue: &GPUQueue,
   ) -> Option<MeshSystemMeshInstance> {
+    let BindlessMeshSource {
+      index,
+      position,
+      normal,
+      uv,
+    } = source;
+
     assert_eq!(position.len(), normal.len());
     assert_eq!(position.len(), uv.len());
 
     let mut inner = self.inner.write().unwrap();
     inner.any_changed = true;
 
-    let position = StorageBufferReadOnlyDataView::create(device, position.as_slice());
-    let normal = StorageBufferReadOnlyDataView::create(device, normal.as_slice());
-    let uv = StorageBufferReadOnlyDataView::create(device, uv.as_slice());
+    let position = StorageBufferReadOnlyDataView::create(device, position);
+    let normal = StorageBufferReadOnlyDataView::create(device, normal);
+    let uv = StorageBufferReadOnlyDataView::create(device, uv);
 
     let metadata = DrawMetaData {
       start: 0, // will write later..
@@ -217,7 +241,7 @@ impl GPUBindlessMeshSystem {
     let (allocation, start) =
       inner
         .index_buffer
-        .allocate(handle, bytemuck::cast_slice(&index), device, queue)?;
+        .allocate(handle, bytemuck::cast_slice(index), device, queue)?;
 
     inner.metadata.get_mut(handle as usize).unwrap().start = start;
 

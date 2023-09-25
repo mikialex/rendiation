@@ -7,7 +7,7 @@ use crate::*;
 
 pub struct WebGPUCanvasRenderer {
   gpu: Arc<GPU>,
-  pool: ResourcePool,
+  pool: AttachmentPool,
 }
 
 impl TriangulationBasedRendererImpl for WebGPUCanvasRenderer {
@@ -28,7 +28,7 @@ impl TriangulationBasedRendererImpl for WebGPUCanvasRenderer {
 
     let _ = pass("gui")
       .with_color(target.clone(), load())
-      .render(&mut ctx);
+      .render_ctx(&mut ctx);
 
     ctx.final_submit();
   }

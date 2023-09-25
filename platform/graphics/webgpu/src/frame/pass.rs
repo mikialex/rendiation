@@ -97,8 +97,17 @@ impl<'a> PassDescriptor<'a> {
   }
 
   #[must_use]
-  pub fn render<'x>(self, ctx: &'x mut FrameCtx) -> ActiveRenderPass<'x> {
-    let pass = ctx.encoder.begin_render_pass(self.desc.clone());
+  pub fn render_ctx<'x>(self, ctx: &'x mut FrameCtx) -> ActiveRenderPass<'x> {
+    self.render(&mut ctx.encoder, ctx.gpu)
+  }
+
+  #[must_use]
+  pub fn render<'x>(
+    self,
+    encoder: &'x mut GPUCommandEncoder,
+    gpu: &'x GPU,
+  ) -> ActiveRenderPass<'x> {
+    let pass = encoder.begin_render_pass(self.desc.clone());
 
     let buffer_size = self.buffer_size();
     let pass_info = RenderPassGPUInfoData {
@@ -106,9 +115,9 @@ impl<'a> PassDescriptor<'a> {
       buffer_size,
       ..Zeroable::zeroed()
     };
-    let pass_info = create_uniform(pass_info, ctx.gpu);
+    let pass_info = create_uniform(pass_info, gpu);
 
-    let c = GPURenderPassCtx::new(pass, ctx.gpu);
+    let c = GPURenderPassCtx::new(pass, gpu);
 
     let pass = FrameRenderPass { ctx: c, pass_info };
 

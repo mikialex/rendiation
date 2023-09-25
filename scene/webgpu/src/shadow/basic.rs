@@ -114,7 +114,7 @@ impl SingleProjectShadowMapSystem {
 
       pass("shadow-depth")
         .with_depth(view, clear(1.))
-        .render(ctx)
+        .render_ctx(ctx)
         .by(CameraSceneRef {
           camera,
           scene,

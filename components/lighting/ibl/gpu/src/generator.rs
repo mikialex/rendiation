@@ -14,15 +14,11 @@ impl GraphicsShaderProvider for BrdfLUTGenerator {
   }
 }
 
-pub fn generate_brdf_lut(
-  ctx: &mut FrameCtx,
-  target: GPU2DTextureView,
-  generator: &dyn RenderComponentAny,
-) {
+pub fn generate_brdf_lut(ctx: &mut FrameCtx, target: GPU2DTextureView) {
   pass("brdf lut generate")
     .with_color(target, load())
-    .render(ctx)
-    .by(generator.draw_quad());
+    .render_ctx(ctx)
+    .by(BrdfLUTGenerator.draw_quad());
 }
 
 // pub struct PrefilteredCubeMapPair {

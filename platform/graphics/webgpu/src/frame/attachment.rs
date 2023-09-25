@@ -2,13 +2,31 @@ use rendiation_shader_api::*;
 
 use crate::*;
 
+#[derive(Clone, Default)]
+pub struct AttachmentPool {
+  pub inner: Arc<RwLock<AttachmentPoolImpl>>,
+}
+
+impl AttachmentPool {
+  pub fn clear(&mut self) {
+    self.inner.write().unwrap().clear()
+  }
+  pub fn set_enable_reusing(&mut self, enable_reusing: bool) {
+    self
+      .inner
+      .write()
+      .unwrap()
+      .set_enable_reusing(enable_reusing)
+  }
+}
+
 #[derive(Default)]
-pub struct ResourcePoolImpl {
-  attachments: FastHashMap<PooledTextureKey, SingleResourcePool>,
+pub struct AttachmentPoolImpl {
+  attachments: FastHashMap<PooledTextureKey, SingleAttachmentPool>,
   enable_reusing: bool,
 }
 
-impl ResourcePoolImpl {
+impl AttachmentPoolImpl {
   pub fn clear(&mut self) {
     self.attachments.clear();
   }
@@ -26,26 +44,8 @@ struct PooledTextureKey {
 }
 
 #[derive(Default)]
-struct SingleResourcePool {
+struct SingleAttachmentPool {
   cached: Vec<GPU2DTexture>,
-}
-
-#[derive(Clone, Default)]
-pub struct ResourcePool {
-  pub inner: Arc<RwLock<ResourcePoolImpl>>,
-}
-
-impl ResourcePool {
-  pub fn clear(&mut self) {
-    self.inner.write().unwrap().clear()
-  }
-  pub fn set_enable_reusing(&mut self, enable_reusing: bool) {
-    self
-      .inner
-      .write()
-      .unwrap()
-      .set_enable_reusing(enable_reusing)
-  }
 }
 
 pub fn attachment() -> AttachmentDescriptor {
@@ -74,7 +74,7 @@ pub fn depth_stencil_attachment() -> AttachmentDescriptor {
 
 /// Ownership is always transferred, do not support clone.
 pub struct Attachment {
-  pool: ResourcePool,
+  pool: AttachmentPool,
   des: AttachmentDescriptor,
   texture: GPU2DTexture,
   key: PooledTextureKey,
@@ -128,7 +128,7 @@ impl Attachment {
   }
 
   pub fn read(&self) -> AttachmentView<&Self> {
-    assert_eq!(self.des.sample_count, 1); // todo support latter
+    assert_eq!(self.des.sample_count, 1);
 
     AttachmentView {
       resource: self,
@@ -137,7 +137,7 @@ impl Attachment {
   }
 
   pub fn read_into(self) -> AttachmentView<Self> {
-    assert_eq!(self.des.sample_count, 1); // todo support latter
+    assert_eq!(self.des.sample_count, 1);
 
     let view = self.create_default_2d_view().into();
     AttachmentView {
@@ -198,6 +198,12 @@ impl AttachmentDescriptor {
   #[must_use]
   pub fn sizer(mut self, sizer: impl Fn(Size) -> Size + 'static) -> Self {
     self.sizer = Arc::new(sizer);
+    self
+  }
+
+  #[must_use]
+  pub fn sample_count(mut self, sample_count: u32) -> Self {
+    self.sample_count = sample_count;
     self
   }
 }

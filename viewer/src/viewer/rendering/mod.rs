@@ -15,7 +15,7 @@ use webgpu::*;
 
 pub struct Viewer3dRenderingCtx {
   pipeline: ViewerPipeline,
-  pool: ResourcePool,
+  pool: AttachmentPool,
   resources: GlobalGPUSystem,
   gpu: Arc<GPU>,
   on_encoding_finished: EventSource<ViewRenderedState>,

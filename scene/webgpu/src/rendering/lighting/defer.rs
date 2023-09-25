@@ -150,7 +150,7 @@ where
     .with_color(encode_target.world_position.write(), clear(all_zero()))
     .with_color(encode_target.normal.write(), clear(all_zero()))
     .with_color(encode_target.material1.write(), clear(all_zero()))
-    .render(ctx)
+    .render_ctx(ctx)
     .by(scene.by_main_camera_and_self(GBufferEncodeTask { objects }));
 
   let mut hdr_result = attachment().format(TextureFormat::Rgba32Float).request(ctx);
@@ -167,7 +167,7 @@ where
 
       pass("light_pass")
         .with_color(hdr_result.write(), load())
-        .render(ctx)
+        .render_ctx(ctx)
         .by(defer);
     });
   }
@@ -178,7 +178,7 @@ where
 
   pass("tonemap")
     .with_color(ldr_result.write(), load())
-    .render(ctx)
+    .render_ctx(ctx)
     .by(tonemap.tonemap(hdr_result.read()));
 
   ldr_result
