@@ -11,6 +11,9 @@ use slab::Slab;
 mod allocator;
 use allocator::*;
 
+mod type_workaround;
+use type_workaround::*;
+
 mod wrap;
 pub use wrap::*;
 
@@ -58,18 +61,18 @@ pub struct DrawIndirect {
 pub struct GPUBindlessMeshSystem {
   inner: Arc<RwLock<GPUBindlessMeshSystemInner>>,
   /// to prevent the first slot get dropped
-  first_default_handle: Option<MeshSystemMeshInstance>,
+  first_default_handle: Arc<Option<MeshSystemMeshInstance>>,
 }
 
 type BindlessPositionVertexBuffer = BindingResourceArray<
-  StorageBufferReadOnlyDataView<[Vec3<f32>]>,
+  StorageBufferReadOnlyDataView<BindlessStorageWorkaround<Vec3<f32>>>,
   MAX_STORAGE_BINDING_ARRAY_LENGTH,
 >;
 
 type BindlessNormalVertexBuffer = BindlessPositionVertexBuffer;
 
 type BindlessUvVertexBuffer = BindingResourceArray<
-  StorageBufferReadOnlyDataView<[Vec2<f32>]>,
+  StorageBufferReadOnlyDataView<BindlessStorageWorkaround<Vec2<f32>>>,
   MAX_STORAGE_BINDING_ARRAY_LENGTH,
 >;
 
@@ -87,9 +90,10 @@ pub struct GPUBindlessMeshSystemInner {
   index_buffer: GPUSubAllocateBuffer,
   relocations: Arc<RwLock<Vec<RelocationMessage>>>, // we could use a channel, so what?
 
-  position_vertex_buffers: Slab<StorageBufferReadOnlyDataView<[Vec3<f32>]>>,
-  normal_vertex_buffers: Slab<StorageBufferReadOnlyDataView<[Vec3<f32>]>>,
-  uv_vertex_buffers: Slab<StorageBufferReadOnlyDataView<[Vec2<f32>]>>,
+  position_vertex_buffers:
+    Slab<StorageBufferReadOnlyDataView<BindlessStorageWorkaround<Vec3<f32>>>>,
+  normal_vertex_buffers: Slab<StorageBufferReadOnlyDataView<BindlessStorageWorkaround<Vec3<f32>>>>,
+  uv_vertex_buffers: Slab<StorageBufferReadOnlyDataView<BindlessStorageWorkaround<Vec2<f32>>>>,
 
   bindless_position_vertex_buffers: BindlessPositionVertexBuffer,
   bindless_normal_vertex_buffers: BindlessNormalVertexBuffer,
@@ -158,7 +162,7 @@ impl GPUBindlessMeshSystem {
 
     let mut re = Self {
       inner: Arc::new(RwLock::new(inner)),
-      first_default_handle: None,
+      first_default_handle: Arc::new(None),
     };
 
     // insert at least one mesh for bindless to work
@@ -172,7 +176,7 @@ impl GPUBindlessMeshSystem {
       &gpu.device,
       &gpu.queue,
     );
-    re.first_default_handle = h;
+    re.first_default_handle = Arc::new(h);
 
     re.into()
   }
@@ -227,9 +231,14 @@ impl GPUBindlessMeshSystem {
     let mut inner = self.inner.write().unwrap();
     inner.any_changed = true;
 
-    let position = StorageBufferReadOnlyDataView::create(device, position);
-    let normal = StorageBufferReadOnlyDataView::create(device, normal);
-    let uv = StorageBufferReadOnlyDataView::create(device, uv);
+    let position = StorageBufferReadOnlyDataView::create(
+      device,
+      BindlessStorageWorkaround::cast_slice(position),
+    );
+    let normal =
+      StorageBufferReadOnlyDataView::create(device, BindlessStorageWorkaround::cast_slice(normal));
+    let uv =
+      StorageBufferReadOnlyDataView::create(device, BindlessStorageWorkaround::cast_slice(uv));
 
     let metadata = DrawMetaData {
       start: 0, // will write later..
@@ -260,7 +269,6 @@ impl GPUBindlessMeshSystem {
   }
 }
 
-#[derive(Clone)]
 pub struct MeshSystemMeshInstance {
   handle: MeshSystemMeshHandle,
   _index_holder: Arc<GPUSubAllocateBufferToken>,

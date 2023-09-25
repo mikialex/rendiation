@@ -86,15 +86,15 @@ impl GraphicsShaderProvider for BindlessMeshDispatcher {
 
       let position = binding.bind_by(&sys.bindless_position_vertex_buffers);
       let position = position.index(vertex_address.position_buffer_id);
-      let position = position.index(vertex_id).load();
+      let position = BindlessStorageWorkaround::read_index_shader(position, vertex_id).load();
 
       let normal = binding.bind_by(&sys.bindless_normal_vertex_buffers);
       let normal = normal.index(vertex_address.position_buffer_id);
-      let normal = normal.index(vertex_id).load();
+      let normal = BindlessStorageWorkaround::read_index_shader(normal, vertex_id).load();
 
       let uv = binding.bind_by(&sys.bindless_uv_vertex_buffers);
       let uv = uv.index(vertex_address.position_buffer_id);
-      let uv = uv.index(vertex_id).load();
+      let uv = BindlessStorageWorkaround::read_index_shader(uv, vertex_id).load();
 
       vertex.register::<GeometryPosition>(position);
       vertex.register::<GeometryNormal>(normal);
