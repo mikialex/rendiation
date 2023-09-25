@@ -43,6 +43,7 @@ impl<'a> PassContentWithSceneAndCamera for ForwardScene<'a> {
   ) {
     let mut render_list = RenderList::default();
     render_list.prepare(scene, camera);
+    let render_list = MaybeBindlessMeshRenderList::from_list(render_list, scene);
 
     let base = default_dispatcher(pass);
     let dispatcher = ForwardSceneLightingDispatcher {

@@ -82,6 +82,21 @@ pub enum MeshGPUInstance {
   Foreign(Box<dyn ReactiveMeshGPUSource>),
 }
 
+impl MeshGPUInstance {
+  pub fn get_bindless(&self) -> Option<MeshSystemMeshHandle> {
+    match self {
+      MeshGPUInstance::Attributes(mesh) => {
+        let mesh: &RenderComponentCell<MaybeBindlessMesh<AttributesMeshGPU>> = mesh.as_ref();
+        match &mesh.inner {
+          MaybeBindlessMesh::Bindless(m) => Some(m.mesh_handle()),
+          _ => None,
+        }
+      }
+      _ => None,
+    }
+  }
+}
+
 pub trait ReactiveMeshGPUSource: ReactiveRenderComponentSource + MeshDrawcallEmitter {}
 impl<T: ReactiveRenderComponentSource + MeshDrawcallEmitter> ReactiveMeshGPUSource for T {}
 

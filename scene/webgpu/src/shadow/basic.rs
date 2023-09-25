@@ -99,6 +99,7 @@ impl SingleProjectShadowMapSystem {
       ) {
         let mut render_list = RenderList::default();
         render_list.prepare(scene, camera);
+        let render_list = MaybeBindlessMeshRenderList::from_list(render_list, scene);
 
         // we could just use default, because the color channel not exist at all
         let base = default_dispatcher(pass);

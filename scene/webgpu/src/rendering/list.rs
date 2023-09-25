@@ -47,22 +47,26 @@ impl RenderList {
     dispatcher: &dyn RenderComponentAny,
     camera: &SceneCamera,
     resource: &SceneRenderResourceGroup,
+    skip_opaque: bool,
   ) {
     let resource_view = ModelGPURenderResourceView::new(resource);
     let camera_gpu = resource_view.cameras.get_camera_gpu(camera).unwrap();
 
     let models = &resource.scene.models;
 
-    self.opaque.iter().for_each(|(handle, _)| {
-      let model = models.get(*handle).unwrap();
-      scene_model_setup_pass_core(
-        gpu_pass,
-        model.guid(),
-        camera_gpu,
-        &resource_view,
-        dispatcher,
-      );
-    });
+    if !skip_opaque {
+      self.opaque.iter().for_each(|(handle, _)| {
+        let model = models.get(*handle).unwrap();
+        scene_model_setup_pass_core(
+          gpu_pass,
+          model.guid(),
+          camera_gpu,
+          &resource_view,
+          dispatcher,
+        );
+      });
+    }
+
     self.transparent.iter().for_each(|(handle, _)| {
       let model = models.get(*handle).unwrap();
       scene_model_setup_pass_core(
@@ -76,13 +80,13 @@ impl RenderList {
   }
 }
 
-struct ModelGPURenderResourceView<'a> {
-  nodes: &'a SceneNodeGPUSystem,
-  cameras: RwLockReadGuard<'a, SceneCameraGPUSystem>,
-  scene_models: RwLockReadGuard<'a, StreamMap<u64, ReactiveSceneModelGPUInstance>>,
-  models: RwLockReadGuard<'a, StreamMap<u64, ReactiveModelGPUType>>,
-  materials: RwLockReadGuard<'a, StreamMap<u64, MaterialGPUInstance>>,
-  meshes: RwLockReadGuard<'a, StreamMap<u64, MeshGPUInstance>>,
+pub(crate) struct ModelGPURenderResourceView<'a> {
+  pub(crate) nodes: &'a SceneNodeGPUSystem,
+  pub(crate) cameras: RwLockReadGuard<'a, SceneCameraGPUSystem>,
+  pub(crate) scene_models: RwLockReadGuard<'a, StreamMap<u64, ReactiveSceneModelGPUInstance>>,
+  pub(crate) models: RwLockReadGuard<'a, StreamMap<u64, ReactiveModelGPUType>>,
+  pub(crate) materials: RwLockReadGuard<'a, StreamMap<u64, MaterialGPUInstance>>,
+  pub(crate) meshes: RwLockReadGuard<'a, StreamMap<u64, MeshGPUInstance>>,
 }
 
 impl<'a> ModelGPURenderResourceView<'a> {
@@ -98,7 +102,7 @@ impl<'a> ModelGPURenderResourceView<'a> {
   }
 }
 
-fn scene_model_setup_pass_core(
+pub(crate) fn scene_model_setup_pass_core(
   gpu_pass: &mut FrameRenderPass,
   model_guid: u64,
   camera_gpu: &CameraGPU,

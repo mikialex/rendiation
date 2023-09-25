@@ -159,7 +159,7 @@ impl GPUSubAllocateBuffer {
           (offset..offset + required_byte_size, token),
         );
         assert!(
-          previous.is_some(),
+          previous.is_none(),
           "duplicate active allocation handle used"
         );
 

@@ -61,7 +61,10 @@ pub fn load_obj_content(
         // should we make this behavior configurable?
         attributes.push((
           AttributeSemantic::Normals,
-          AttributeAccessor::create_owned(vec![Vec3::new(1., 0., 0.); vertices_count], 3 * 4),
+          AttributeAccessor::create_owned(
+            vec![Vec3::<f32>::new(1., 0., 0.); vertices_count],
+            3 * 4,
+          ),
         ));
       }
       if !m.mesh.texcoords.is_empty() {
@@ -73,7 +76,7 @@ pub fn load_obj_content(
         // should we make this behavior configurable?
         attributes.push((
           AttributeSemantic::TexCoords(0),
-          AttributeAccessor::create_owned(vec![Vec2::new(0., 0.); vertices_count], 2 * 4),
+          AttributeAccessor::create_owned(vec![Vec2::<f32>::new(0., 0.); vertices_count], 2 * 4),
         ));
       }
 

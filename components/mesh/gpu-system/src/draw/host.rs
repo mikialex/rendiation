@@ -3,7 +3,7 @@ use crate::*;
 impl GPUBindlessMeshSystem {
   pub fn create_host_draw_dispatcher(
     &self,
-    iter: impl Iterator<Item = MeshSystemMeshHandle> + 'static,
+    iter: impl Iterator<Item = MeshSystemMeshHandle>,
     device: &GPUDevice,
   ) -> BindlessMeshDispatcher {
     let (draw, draw_info): (Vec<_>, Vec<_>) = self.map_draw_command_buffer_in_host(iter).unzip();
@@ -17,14 +17,14 @@ impl GPUBindlessMeshSystem {
     BindlessMeshDispatcher {
       draw_indirect_buffer,
       vertex_address_buffer,
-      system: self,
+      system: self.clone(),
     }
   }
 
-  pub fn map_draw_command_buffer_in_host(
-    &self,
-    iter: impl Iterator<Item = MeshSystemMeshHandle> + 'static,
-  ) -> impl Iterator<Item = (DrawIndirect, DrawVertexIndirectInfo)> + '_ {
+  pub fn map_draw_command_buffer_in_host<'a>(
+    &'a self,
+    iter: impl Iterator<Item = MeshSystemMeshHandle> + 'a,
+  ) -> impl Iterator<Item = (DrawIndirect, DrawVertexIndirectInfo)> + 'a {
     iter.enumerate().map(|(i, handle)| {
       let sys = self.inner.read().unwrap();
         let DrawMetaData { start,  count, vertex_info, .. } = sys.metadata.get(handle as usize).unwrap();
@@ -39,13 +39,13 @@ impl GPUBindlessMeshSystem {
   }
 }
 
-pub struct BindlessMeshDispatcher<'a> {
+pub struct BindlessMeshDispatcher {
   draw_indirect_buffer: GPUBuffer,
   vertex_address_buffer: StorageBufferReadOnlyDataView<[DrawVertexIndirectInfo]>,
-  system: &'a GPUBindlessMeshSystem,
+  system: GPUBindlessMeshSystem,
 }
 
-impl<'a> BindlessMeshDispatcher<'a> {
+impl BindlessMeshDispatcher {
   pub fn draw_command(&self) -> DrawCommand {
     let size: u64 = self.draw_indirect_buffer.size().into();
     DrawCommand::MultiIndirect {
@@ -57,9 +57,9 @@ impl<'a> BindlessMeshDispatcher<'a> {
   }
 }
 
-impl<'a> ShaderHashProvider for BindlessMeshDispatcher<'a> {}
+impl ShaderHashProvider for BindlessMeshDispatcher {}
 
-impl<'a> ShaderPassBuilder for BindlessMeshDispatcher<'a> {
+impl ShaderPassBuilder for BindlessMeshDispatcher {
   fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
     ctx.binding.bind(&self.vertex_address_buffer);
 
@@ -73,7 +73,7 @@ impl<'a> ShaderPassBuilder for BindlessMeshDispatcher<'a> {
   }
 }
 
-impl<'a> GraphicsShaderProvider for BindlessMeshDispatcher<'a> {
+impl GraphicsShaderProvider for BindlessMeshDispatcher {
   fn build(&self, builder: &mut ShaderRenderPipelineBuilder) -> Result<(), ShaderBuildError> {
     builder.vertex(|vertex, binding| {
       let draw_id = vertex.query::<VertexInstanceIndex>().unwrap();

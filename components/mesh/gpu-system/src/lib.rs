@@ -1,4 +1,6 @@
 #![feature(strict_provenance)]
+#![feature(specialization)]
+#![allow(incomplete_features)]
 
 use std::sync::{Arc, RwLock, Weak};
 
@@ -55,6 +57,8 @@ pub struct DrawIndirect {
 #[derive(Clone)]
 pub struct GPUBindlessMeshSystem {
   inner: Arc<RwLock<GPUBindlessMeshSystemInner>>,
+  /// to prevent the first slot get dropped
+  first_default_handle: Option<MeshSystemMeshInstance>,
 }
 
 type BindlessPositionVertexBuffer = BindingResourceArray<
@@ -152,12 +156,13 @@ impl GPUBindlessMeshSystem {
       bindless_uv_vertex_buffers: Default::default(),
     };
 
-    let re = Self {
+    let mut re = Self {
       inner: Arc::new(RwLock::new(inner)),
+      first_default_handle: None,
     };
 
     // insert at least one mesh for bindless to work
-    re.create_mesh_instance(
+    let h = re.create_mesh_instance(
       BindlessMeshSource {
         index: &[0],
         position: &[Vec3::zero(), Vec3::zero(), Vec3::zero()],
@@ -167,6 +172,7 @@ impl GPUBindlessMeshSystem {
       &gpu.device,
       &gpu.queue,
     );
+    re.first_default_handle = h;
 
     re.into()
   }
