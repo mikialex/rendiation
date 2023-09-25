@@ -96,6 +96,7 @@ impl MaybeBindlessMeshRenderList {
               system,
             },
           );
+          gpu_pass.draw_by_command(system.draw_command());
         }
       };
     }

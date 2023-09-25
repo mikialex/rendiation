@@ -32,12 +32,13 @@ impl BindlessDrawCreatorInDevice {
   pub fn generate_draw_command(
     &self,
     mesh_handle: Node<u32>,
-  ) -> (Node<DrawIndirect>, Node<DrawVertexIndirectInfo>) {
+  ) -> (Node<DrawIndexedIndirect>, Node<DrawVertexIndirectInfo>) {
     let meta = self.node.index(mesh_handle).load().expand();
-    let draw = ENode::<DrawIndirect> {
+    let draw = ENode::<DrawIndexedIndirect> {
       vertex_count: meta.count,
       instance_count: val(1),
-      base_vertex: meta.start,
+      base_index: meta.start,
+      vertex_offset: val(0),
       base_instance: val(0), // todo impl another buffer or a global atomic counter
     }
     .construct();

@@ -1,5 +1,6 @@
 use crate::*;
 
+// todo, make this upstream
 /// Currently, the naga only support struct in bind array of storage buffer, so we have to wrap the
 /// array into the struct, so we have to impl some trait by hand
 #[repr(transparent)]
@@ -38,8 +39,8 @@ pub trait BindlessStorageWorkaroundNameHack {
 impl BindlessStorageWorkaroundNameHack for Vec2<f32> {
   const NAME: &'static str = "BindlessStorageWorkaroundVec2f32";
 }
-impl BindlessStorageWorkaroundNameHack for Vec3<f32> {
-  const NAME: &'static str = "BindlessStorageWorkaroundVec3f32";
+impl BindlessStorageWorkaroundNameHack for Vec4<f32> {
+  const NAME: &'static str = "BindlessStorageWorkaroundVec4f32";
 }
 
 impl<T> ShaderNodeSingleType for BindlessStorageWorkaround<T>

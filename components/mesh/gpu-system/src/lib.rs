@@ -36,7 +36,7 @@ pub struct DrawMetaData {
 
 #[repr(C)]
 #[std430_layout]
-#[derive(Clone, Copy, ShaderStruct)]
+#[derive(Clone, Copy, ShaderStruct, Debug)]
 pub struct DrawVertexIndirectInfo {
   pub position_buffer_id: u32,
   pub normal_buffer_id: u32,
@@ -44,14 +44,16 @@ pub struct DrawVertexIndirectInfo {
 }
 
 #[repr(C)]
-#[derive(Clone, Copy, ShaderStruct, Zeroable, Pod)]
-pub struct DrawIndirect {
+#[derive(Clone, Copy, ShaderStruct, Zeroable, Pod, Debug)]
+pub struct DrawIndexedIndirect {
   /// The number of vertices to draw.
   pub vertex_count: u32,
   /// The number of instances to draw.
   pub instance_count: u32,
-  /// The Index of the first vertex to draw.
-  pub base_vertex: u32,
+  /// The base index within the index buffer.
+  pub base_index: u32,
+  /// The value added to the vertex index before indexing into the vertex buffer.
+  pub vertex_offset: i32,
   /// The instance ID of the first instance to draw.
   /// Has to be 0, unless INDIRECT_FIRST_INSTANCE is enabled.
   pub base_instance: u32,
@@ -64,8 +66,9 @@ pub struct GPUBindlessMeshSystem {
   first_default_handle: Arc<Option<MeshSystemMeshInstance>>,
 }
 
+// todo, make alignment constraint work
 type BindlessPositionVertexBuffer = BindingResourceArray<
-  StorageBufferReadOnlyDataView<BindlessStorageWorkaround<Vec3<f32>>>,
+  StorageBufferReadOnlyDataView<BindlessStorageWorkaround<Vec4<f32>>>,
   MAX_STORAGE_BINDING_ARRAY_LENGTH,
 >;
 
@@ -78,8 +81,8 @@ type BindlessUvVertexBuffer = BindingResourceArray<
 
 pub struct BindlessMeshSource<'a> {
   pub index: &'a [u32],
-  pub position: &'a [Vec3<f32>],
-  pub normal: &'a [Vec3<f32>],
+  pub position: &'a [Vec4<f32>],
+  pub normal: &'a [Vec4<f32>],
   pub uv: &'a [Vec2<f32>],
 }
 
@@ -91,8 +94,8 @@ pub struct GPUBindlessMeshSystemInner {
   relocations: Arc<RwLock<Vec<RelocationMessage>>>, // we could use a channel, so what?
 
   position_vertex_buffers:
-    Slab<StorageBufferReadOnlyDataView<BindlessStorageWorkaround<Vec3<f32>>>>,
-  normal_vertex_buffers: Slab<StorageBufferReadOnlyDataView<BindlessStorageWorkaround<Vec3<f32>>>>,
+    Slab<StorageBufferReadOnlyDataView<BindlessStorageWorkaround<Vec4<f32>>>>,
+  normal_vertex_buffers: Slab<StorageBufferReadOnlyDataView<BindlessStorageWorkaround<Vec4<f32>>>>,
   uv_vertex_buffers: Slab<StorageBufferReadOnlyDataView<BindlessStorageWorkaround<Vec2<f32>>>>,
 
   bindless_position_vertex_buffers: BindlessPositionVertexBuffer,
@@ -169,8 +172,8 @@ impl GPUBindlessMeshSystem {
     let h = re.create_mesh_instance(
       BindlessMeshSource {
         index: &[0],
-        position: &[Vec3::zero(), Vec3::zero(), Vec3::zero()],
-        normal: &[Vec3::zero(), Vec3::zero(), Vec3::zero()],
+        position: &[Vec4::zero(), Vec4::zero(), Vec4::zero()],
+        normal: &[Vec4::zero(), Vec4::zero(), Vec4::zero()],
         uv: &[Vec2::zero(), Vec2::zero(), Vec2::zero()],
       },
       &gpu.device,

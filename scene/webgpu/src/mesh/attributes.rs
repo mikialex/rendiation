@@ -159,8 +159,17 @@ fn draw_command(mesh: &AttributesMesh) -> DrawCommand {
   }
 }
 
+fn to_vec4(vec3: &[Vec3<f32>]) -> Vec<Vec4<f32>> {
+  vec3.iter().map(|v| Vec4::new(v.x, v.y, v.z, 0.0)).collect()
+}
+
 #[allow(clippy::collapsible_match)]
-pub fn support_bindless<'a>(mesh: &'a AttributeMeshReadView<'a>) -> Option<BindlessMeshSource<'a>> {
+pub fn support_bindless(
+  mesh: &AttributeMeshReadView,
+  sys: &GPUBindlessMeshSystem,
+  device: &GPUDevice,
+  queue: &GPUQueue,
+) -> Option<MeshSystemMeshInstance> {
   if PrimitiveTopology::TriangleList != mesh.mode {
     return None;
   }
@@ -171,15 +180,24 @@ pub fn support_bindless<'a>(mesh: &'a AttributeMeshReadView<'a>) -> Option<Bindl
         return None;
       }
       let position = mesh.get_position();
+      let position = to_vec4(position);
       if let Some(normal) = mesh.get_attribute(&AttributeSemantic::Normals) {
+        let normal = to_vec4(normal.visit_slice::<Vec3<f32>>()?);
         if let Some(uv) = mesh.get_attribute(&AttributeSemantic::TexCoords(0)) {
-          return BindlessMeshSource {
-            index: index.visit_slice()?,
-            position,
-            normal: normal.visit_slice()?,
-            uv: uv.visit_slice()?,
-          }
-          .into();
+          return Some(
+            sys
+              .create_mesh_instance(
+                BindlessMeshSource {
+                  index: index.visit_slice()?,
+                  position: &position,
+                  normal: &normal,
+                  uv: uv.visit_slice()?,
+                },
+                device,
+                queue,
+              )
+              .unwrap(),
+          );
         }
       }
     }
@@ -201,13 +219,10 @@ impl WebGPUMesh for AttributesMesh {
 
     let create = move |mesh: &SharedIncrementalSignal<AttributesMesh>| {
       let m = mesh.read();
+      let gpu = &ctx.gpu;
       let m = unsafe { std::mem::transmute(&m.read()) }; // todo why?
-      if let Some(sys) = &ctx.bindless_mesh && let Some(mesh) = support_bindless(m){
-        let gpu = &ctx.gpu;
-        let handle = sys
-          .create_mesh_instance(mesh, &gpu.device, &gpu.queue)
-          .unwrap();
-        MaybeBindlessMesh::Bindless(handle)
+      if let Some(sys) = &ctx.bindless_mesh && let Some(mesh) = support_bindless(m , sys,&gpu.device, &gpu.queue){
+        MaybeBindlessMesh::Bindless(mesh)
       } else {
         let mut custom_storage = ctx.custom_storage.write().unwrap();
         let mesh = mesh.read();

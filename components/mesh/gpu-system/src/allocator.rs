@@ -38,6 +38,7 @@ impl GPUSubAllocateBufferInner {
   fn grow(&mut self, grow_bytes: u32, device: &GPUDevice, queue: &GPUQueue) {
     let current_size: u64 = self.buffer.resource.size().into();
     let new_size = current_size + grow_bytes as u64;
+    dbg!(new_size);
 
     let new_buffer = create_gpu_buffer_zeroed(new_size, self.usage, device);
     let new_buffer = new_buffer.create_view(Default::default());
@@ -171,14 +172,14 @@ impl GPUSubAllocateBuffer {
           offset,
         )
           .into();
-      } else if alloc.max_byte_size as u64 >= current_size {
+      } else if alloc.max_byte_size as u64 <= current_size {
         break None;
       } else {
         let grow_planed = ((current_size as f32) * 1.5) as u32;
         let real_grow_size = grow_planed
           .max(required_byte_size)
           .min(alloc.max_byte_size as u32);
-        alloc.grow(real_grow_size, device, queue)
+        alloc.grow(real_grow_size - current_size as u32, device, queue)
       }
     }
   }
