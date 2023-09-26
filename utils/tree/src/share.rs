@@ -96,13 +96,13 @@ impl<T: ShareCoreTree> Drop for NodeRef<T> {
   }
 }
 
-pub struct NodeInner<T: ShareCoreTree> {
+pub struct NodeImpl<T: ShareCoreTree> {
   pub nodes: Arc<T>,
   parent: Option<ShareTreeNode<T>>,
   inner: Arc<NodeRef<T>>,
 }
 
-impl<T: ShareCoreTree> NodeInner<T> {
+impl<T: ShareCoreTree> NodeImpl<T> {
   pub fn new(inner: NodeRef<T>) -> Self {
     Self {
       nodes: inner.nodes.clone(),
@@ -116,7 +116,7 @@ impl<T: ShareCoreTree> NodeInner<T> {
   }
 }
 
-impl<T: ShareCoreTree> Drop for NodeInner<T> {
+impl<T: ShareCoreTree> Drop for NodeImpl<T> {
   fn drop(&mut self) {
     // the inner should check, but we add here for guard
     if self.parent.is_some() {
@@ -126,7 +126,7 @@ impl<T: ShareCoreTree> Drop for NodeInner<T> {
 }
 
 pub struct ShareTreeNode<T: ShareCoreTree> {
-  pub inner: Arc<RwLock<NodeInner<T>>>,
+  pub inner: Arc<RwLock<NodeImpl<T>>>,
 }
 
 impl<T: ShareCoreTree> Clone for ShareTreeNode<T> {
@@ -146,7 +146,7 @@ impl<T: ShareCoreTree> ShareTreeNode<T> {
       handle: root,
     };
 
-    let root = NodeInner::new(root);
+    let root = NodeImpl::new(root);
 
     ShareTreeNode {
       inner: Arc::new(RwLock::new(root)),
@@ -195,7 +195,7 @@ impl<T: ShareCoreTree> ShareTreeNode<T> {
   pub fn create_child(&self, n: T::Node) -> Self {
     let inner = self.inner.read().unwrap();
 
-    let child = NodeInner::new(NodeRef {
+    let child = NodeImpl::new(NodeRef {
       nodes: inner.nodes.clone(),
       handle: inner.nodes.create_node(n),
     });

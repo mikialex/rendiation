@@ -32,14 +32,14 @@ impl std::fmt::Debug for MixSceneDelta {
 }
 
 pub fn map_scene_delta_to_mixed(
-  input: impl Stream<Item = SceneInnerDelta> + Unpin,
+  input: impl Stream<Item = SceneInternalDelta> + Unpin,
 ) -> impl Stream<Item = MixSceneDelta> {
   let input = input.create_broad_caster();
 
   let cameras = input
     .fork_stream()
     .filter_map_sync(|delta| match delta {
-      SceneInnerDelta::cameras(c) => Some(c),
+      SceneInternalDelta::cameras(c) => Some(c),
       _ => None,
     })
     .map(IndependentItemContainerDelta::from)
@@ -50,7 +50,7 @@ pub fn map_scene_delta_to_mixed(
   let lights = input
     .fork_stream()
     .filter_map_sync(|delta| match delta {
-      SceneInnerDelta::lights(c) => Some(c),
+      SceneInternalDelta::lights(c) => Some(c),
       _ => None,
     })
     .map(IndependentItemContainerDelta::from)
@@ -61,7 +61,7 @@ pub fn map_scene_delta_to_mixed(
   let models = input
     .fork_stream()
     .filter_map_sync(|delta| match delta {
-      SceneInnerDelta::models(c) => Some(c),
+      SceneInternalDelta::models(c) => Some(c),
       _ => None,
     })
     .map(IndependentItemContainerDelta::from)
@@ -70,9 +70,9 @@ pub fn map_scene_delta_to_mixed(
     .map(MixSceneDelta::models);
 
   let others = input.fork_stream().filter_map_sync(|delta| match delta {
-    SceneInnerDelta::background(b) => MixSceneDelta::background(b).into(),
-    SceneInnerDelta::active_camera(c) => MixSceneDelta::active_camera(c).into(),
-    SceneInnerDelta::ext(ext) => MixSceneDelta::ext(ext).into(),
+    SceneInternalDelta::background(b) => MixSceneDelta::background(b).into(),
+    SceneInternalDelta::active_camera(c) => MixSceneDelta::active_camera(c).into(),
+    SceneInternalDelta::ext(ext) => MixSceneDelta::ext(ext).into(),
     _ => None,
   });
 
@@ -190,20 +190,21 @@ fn transform_camera_node(m: &SceneCamera, rebuilder: &ShareableRebuilder) -> Sce
   let (adder, remover) = make_add_remover(rebuilder);
 
   let camera = m.read();
-  let r = SceneCameraInner {
+  let r = SceneCameraImpl {
     bounds: camera.bounds,
     projection: camera.projection.clone(),
     node: adder(camera.node.clone()),
+    attach_index: None,
   }
   .into_ref();
 
   let mut previous_node = camera.node.clone();
 
   m.pass_changes_to(&r, move |delta| match delta {
-    SceneCameraInnerDelta::node(node) => {
+    SceneCameraImplDelta::node(node) => {
       remover(previous_node.clone());
       previous_node = node.clone();
-      SceneCameraInnerDelta::node(adder(node))
+      SceneCameraImplDelta::node(adder(node))
     }
     _ => delta,
   });
@@ -214,19 +215,20 @@ fn transform_light_node(m: &SceneLight, rebuilder: &ShareableRebuilder) -> Scene
   let (adder, remover) = make_add_remover(rebuilder);
 
   let light = m.read();
-  let r = SceneLightInner {
+  let r = SceneLightImpl {
     node: adder(light.node.clone()),
     light: light.light.clone(),
+    attach_index: None,
   }
   .into_ref();
 
   let mut previous_node = light.node.clone();
 
   m.pass_changes_to(&r, move |delta| match delta {
-    SceneLightInnerDelta::node(node) => {
+    SceneLightImplDelta::node(node) => {
       remover(previous_node.clone());
       previous_node = node.clone();
-      SceneLightInnerDelta::node(adder(node))
+      SceneLightImplDelta::node(adder(node))
     }
     _ => delta,
   });
@@ -237,11 +239,7 @@ fn transform_model_node(m: &SceneModel, rebuilder: &ShareableRebuilder) -> Scene
   let (adder, remover) = make_add_remover(rebuilder);
 
   let model = m.read();
-  let r = SceneModelImpl {
-    node: adder(model.node.clone()),
-    model: model.model.clone(),
-  }
-  .into_ref();
+  let r = SceneModelImpl::new(model.model.clone(), adder(model.node.clone())).into_ref();
 
   let mut previous_node = model.node.clone();
 

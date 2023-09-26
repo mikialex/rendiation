@@ -147,7 +147,7 @@ impl WebGPULight for SharedIncrementalSignal<SpotLight> {
 
 fn build_shadow_projection(
   light: &SharedIncrementalSignal<SpotLight>,
-) -> impl Stream<Item = (CameraProjector, Size)> {
+) -> impl Stream<Item = (CameraProjectionEnum, Size)> {
   light
     .single_listen_by(any_change)
     .filter_map_sync(light.defer_weak())
@@ -158,7 +158,7 @@ fn build_shadow_projection(
         fov: Deg::from_rad(light.read().half_cone_angle * 2.),
         aspect: 1.,
       };
-      let proj = CameraProjector::Perspective(proj);
+      let proj = CameraProjectionEnum::Perspective(proj);
       let size = Size::from_u32_pair_min_one((512, 512));
       (proj, size)
     })

@@ -46,13 +46,13 @@ impl IntersectAbleGroupedMesh for WidenedLineMesh {
   }
 }
 
-type ReactiveWidenedLineGPUInner =
+type ReactiveWidenedLineGPUImpl =
   impl AsRef<RenderComponentCell<WidenedLineMeshGPU>> + Stream<Item = RenderComponentDeltaFlag>;
 
 #[pin_project::pin_project]
 pub struct ReactiveWidenedLineGPU {
   #[pin]
-  inner: ReactiveWidenedLineGPUInner,
+  inner: ReactiveWidenedLineGPUImpl,
 }
 
 impl Stream for ReactiveWidenedLineGPU {

@@ -40,7 +40,7 @@ impl ContentGPUSystem {
 
   pub fn get_or_create_reactive_model_render_component_delta_source(
     &self,
-    model: &ModelType,
+    model: &ModelEnum,
   ) -> Option<ReactiveModelRenderComponentDeltaSource> {
     self
       .models

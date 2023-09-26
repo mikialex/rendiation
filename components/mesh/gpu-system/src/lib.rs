@@ -61,7 +61,7 @@ pub struct DrawIndexedIndirect {
 
 #[derive(Clone)]
 pub struct GPUBindlessMeshSystem {
-  inner: Arc<RwLock<GPUBindlessMeshSystemInner>>,
+  inner: Arc<RwLock<GPUBindlessMeshSystemImpl>>,
   /// just to prevent the first slot get dropped
   first_default_handle: Arc<Option<MeshSystemMeshInstance>>,
 }
@@ -86,7 +86,7 @@ pub struct BindlessMeshSource<'a> {
   pub uv: &'a [Vec2<f32>],
 }
 
-pub struct GPUBindlessMeshSystemInner {
+pub struct GPUBindlessMeshSystemImpl {
   any_changed: bool,
   metadata: Slab<DrawMetaData>,
 
@@ -150,7 +150,7 @@ impl GPUBindlessMeshSystem {
     // relocate and these code path has been marked.
     index_buffer.set_relocate_callback(move |m| r.write().unwrap().push(m));
 
-    let inner = GPUBindlessMeshSystemInner {
+    let inner = GPUBindlessMeshSystemImpl {
       any_changed: true,
       metadata: Default::default(),
       index_buffer,
@@ -186,7 +186,7 @@ impl GPUBindlessMeshSystem {
 
   pub fn maintain(&mut self) {
     let mut inner = self.inner.write().unwrap();
-    let inner: &mut GPUBindlessMeshSystemInner = &mut inner;
+    let inner: &mut GPUBindlessMeshSystemImpl = &mut inner;
     if !inner.any_changed {
       return;
     }
@@ -272,7 +272,7 @@ impl GPUBindlessMeshSystem {
 pub struct MeshSystemMeshInstance {
   handle: MeshSystemMeshHandle,
   _index_holder: Arc<GPUSubAllocateBufferToken>,
-  system: Weak<RwLock<GPUBindlessMeshSystemInner>>,
+  system: Weak<RwLock<GPUBindlessMeshSystemImpl>>,
 }
 
 impl MeshSystemMeshInstance {

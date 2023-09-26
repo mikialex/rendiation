@@ -35,7 +35,7 @@ impl SingleProjectShadowMapSystem {
   pub fn create_shadow_info_stream(
     &mut self,
     light_id: u64,
-    proj: impl Stream<Item = (CameraProjector, Size)> + Unpin + 'static,
+    proj: impl Stream<Item = (CameraProjectionEnum, Size)> + Unpin + 'static,
     node_delta: impl Stream<Item = SceneNode> + Unpin + 'static,
   ) -> impl Stream<Item = LightShadowAddressInfo> {
     let camera_stream = basic_shadow_camera(Box::new(proj), Box::new(node_delta));
@@ -129,12 +129,12 @@ type ReactiveBasicShadowSceneCamera = impl Stream<Item = (SceneCamera, Size)> + 
 
 // todo remove box
 fn basic_shadow_camera(
-  proj: Box<dyn Stream<Item = (CameraProjector, Size)> + Unpin>,
+  proj: Box<dyn Stream<Item = (CameraProjectionEnum, Size)> + Unpin>,
   node_delta: Box<dyn Stream<Item = SceneNode> + Unpin>,
 ) -> ReactiveBasicShadowSceneCamera {
   proj
     .zip(node_delta)
-    .map(|((p, size), node)| (SceneCamera::create(p, node), size))
+    .map(|((p, size), node)| (SceneCameraImpl::new(p, node).into_ref(), size))
 }
 
 const SHADOW_MAX: usize = 8;

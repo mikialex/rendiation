@@ -41,7 +41,7 @@ where
   get_dyn_trait_downcaster_static!(WebGPUSceneMaterial).register::<T>()
 }
 
-impl WebGPUSceneMaterial for SceneMaterialType {
+impl WebGPUSceneMaterial for MaterialEnum {
   fn create_scene_reactive_gpu(
     &self,
     ctx: &ShareBindableResourceCtx,
@@ -215,7 +215,7 @@ pub type ReactiveMaterialRenderComponentDeltaSource = impl Stream<Item = RenderC
 impl GPUModelResourceCtx {
   pub fn get_or_create_reactive_material_render_component_delta_source(
     &self,
-    material: &SceneMaterialType,
+    material: &MaterialEnum,
   ) -> Option<ReactiveMaterialRenderComponentDeltaSource> {
     self
       .materials

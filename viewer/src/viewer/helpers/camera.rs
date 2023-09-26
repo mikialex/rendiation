@@ -107,19 +107,20 @@ fn create_reactive_camera_helper(camera: &SceneCamera) -> ReactiveCameraHelper {
     .unbound_listen_by(all_delta)
     .fold_signal(helper_init, move |delta, state| {
       match delta {
-        SceneCameraInnerDelta::bounds(_) => {}
-        SceneCameraInnerDelta::projection(_) => {
+        SceneCameraImplDelta::bounds(_) => {}
+        SceneCameraImplDelta::projection(_) => {
           if let Some(cam) = c.upgrade() {
             state.update(cam.read().compute_project_mat());
           }
         }
-        SceneCameraInnerDelta::node(_) => {
+        SceneCameraImplDelta::node(_) => {
           if let Some(cam) = c.upgrade() {
             let c = cam.read();
             *state =
               CameraHelper::from_node_and_project_matrix(c.node.clone(), c.compute_project_mat());
           }
         }
+        SceneCameraImplDelta::attach_index(_) => {}
       };
       Some(())
     })

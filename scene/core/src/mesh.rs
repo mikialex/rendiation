@@ -9,13 +9,13 @@ use crate::*;
 
 #[non_exhaustive]
 #[derive(Clone)]
-pub enum SceneMeshType {
+pub enum MeshEnum {
   AttributesMesh(SharedIncrementalSignal<AttributesMesh>),
   TransformInstanced(SharedIncrementalSignal<TransformInstancedSceneMesh>),
   Foreign(Box<dyn AnyClone + Send + Sync>),
 }
 
-clone_self_incremental!(SceneMeshType);
+clone_self_incremental!(MeshEnum);
 
 pub fn register_core_mesh_features<T>()
 where
@@ -31,7 +31,7 @@ where
   get_dyn_trait_downcaster_static!(IntersectAbleGroupedMesh).register::<T>();
 }
 
-impl SceneMeshType {
+impl MeshEnum {
   pub fn guid(&self) -> Option<u64> {
     match self {
       Self::AttributesMesh(m) => m.guid(),
@@ -46,7 +46,7 @@ impl SceneMeshType {
 
 #[derive(Clone)]
 pub struct TransformInstancedSceneMesh {
-  pub mesh: SceneMeshType,
+  pub mesh: MeshEnum,
   pub transforms: Vec<Mat4<f32>>,
 }
 clone_self_incremental!(TransformInstancedSceneMesh);
@@ -56,10 +56,10 @@ pub trait WatchableSceneMeshLocalBounding {
 }
 define_dyn_trait_downcaster_static!(WatchableSceneMeshLocalBounding);
 
-impl WatchableSceneMeshLocalBounding for SceneMeshType {
+impl WatchableSceneMeshLocalBounding for MeshEnum {
   fn build_local_bound_stream(&self) -> Box<dyn Stream<Item = Option<Box3>> + Unpin> {
     match self {
-      SceneMeshType::AttributesMesh(mesh) => {
+      MeshEnum::AttributesMesh(mesh) => {
         let st = mesh
           .single_listen_by(any_change)
           .filter_map_sync(mesh.defer_weak())
@@ -74,7 +74,7 @@ impl WatchableSceneMeshLocalBounding for SceneMeshType {
           });
         Box::new(st) as Box<dyn Stream<Item = Option<Box3>> + Unpin>
       }
-      SceneMeshType::TransformInstanced(mesh) => {
+      MeshEnum::TransformInstanced(mesh) => {
         let st = mesh
           .single_listen_by(any_change)
           .filter_map_sync(mesh.defer_weak())
@@ -97,7 +97,7 @@ impl WatchableSceneMeshLocalBounding for SceneMeshType {
           });
         Box::new(st)
       }
-      SceneMeshType::Foreign(mesh) => {
+      MeshEnum::Foreign(mesh) => {
         if let Some(mesh) = get_dyn_trait_downcaster_static!(WatchableSceneMeshLocalBounding)
           .downcast_ref(mesh.as_ref().as_any())
         {
@@ -145,7 +145,7 @@ impl IntersectAbleGroupedMesh for TransformInstancedSceneMesh {
   }
 }
 
-impl IntersectAbleGroupedMesh for SceneMeshType {
+impl IntersectAbleGroupedMesh for MeshEnum {
   fn intersect_list_by_group(
     &self,
     ray: Ray3,
@@ -154,14 +154,14 @@ impl IntersectAbleGroupedMesh for SceneMeshType {
     group: MeshDrawGroup,
   ) {
     match self {
-      SceneMeshType::AttributesMesh(mesh) => mesh
+      MeshEnum::AttributesMesh(mesh) => mesh
         .read()
         .read_shape()
         .intersect_list_by_group(ray, conf, result, group),
-      SceneMeshType::TransformInstanced(mesh) => mesh
+      MeshEnum::TransformInstanced(mesh) => mesh
         .read()
         .intersect_list_by_group(ray, conf, result, group),
-      SceneMeshType::Foreign(mesh) => {
+      MeshEnum::Foreign(mesh) => {
         if let Some(pickable) = get_dyn_trait_downcaster_static!(IntersectAbleGroupedMesh)
           .downcast_ref(mesh.as_ref().as_any())
         {
@@ -178,14 +178,14 @@ impl IntersectAbleGroupedMesh for SceneMeshType {
     group: MeshDrawGroup,
   ) -> OptionalNearest<MeshBufferHitPoint> {
     match self {
-      SceneMeshType::AttributesMesh(mesh) => mesh
+      MeshEnum::AttributesMesh(mesh) => mesh
         .read()
         .read_shape()
         .intersect_nearest_by_group(ray, conf, group),
-      SceneMeshType::TransformInstanced(mesh) => {
+      MeshEnum::TransformInstanced(mesh) => {
         mesh.read().intersect_nearest_by_group(ray, conf, group)
       }
-      SceneMeshType::Foreign(mesh) => {
+      MeshEnum::Foreign(mesh) => {
         if let Some(pickable) = get_dyn_trait_downcaster_static!(IntersectAbleGroupedMesh)
           .downcast_ref(mesh.as_ref().as_any())
         {

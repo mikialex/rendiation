@@ -2,14 +2,14 @@ use crate::*;
 
 #[non_exhaustive]
 #[derive(Clone)]
-pub enum SceneMaterialType {
+pub enum MaterialEnum {
   PhysicalSpecularGlossiness(SharedIncrementalSignal<PhysicalSpecularGlossinessMaterial>),
   PhysicalMetallicRoughness(SharedIncrementalSignal<PhysicalMetallicRoughnessMaterial>),
   Flat(SharedIncrementalSignal<FlatMaterial>),
   Foreign(Box<dyn AnyClone + Send + Sync>),
 }
 
-impl SceneMaterialType {
+impl MaterialEnum {
   pub fn guid(&self) -> Option<u64> {
     match self {
       Self::PhysicalSpecularGlossiness(m) => m.guid(),
@@ -23,7 +23,7 @@ impl SceneMaterialType {
   }
 }
 
-clone_self_incremental!(SceneMaterialType);
+clone_self_incremental!(MaterialEnum);
 
 pub fn register_core_material_features<T>()
 where

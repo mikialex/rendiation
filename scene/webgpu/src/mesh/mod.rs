@@ -30,7 +30,7 @@ where
   get_dyn_trait_downcaster_static!(WebGPUSceneMesh).register::<T>()
 }
 
-impl WebGPUSceneMesh for SceneMeshType {
+impl WebGPUSceneMesh for MeshEnum {
   fn create_scene_reactive_gpu(&self, ctx: &ShareBindableResourceCtx) -> Option<MeshGPUInstance> {
     match self {
       Self::AttributesMesh(m) => {
@@ -196,7 +196,7 @@ pub type ReactiveMeshRenderComponentDeltaSource = impl Stream<Item = RenderCompo
 impl GPUModelResourceCtx {
   pub fn get_or_create_reactive_mesh_render_component_delta_source(
     &self,
-    mesh: &SceneMeshType,
+    mesh: &MeshEnum,
   ) -> Option<ReactiveMeshRenderComponentDeltaSource> {
     self
       .meshes

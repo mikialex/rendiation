@@ -1,7 +1,7 @@
 use crate::*;
 
 pub struct StreamBroadcaster<S, D, F> {
-  inner: Arc<RwLock<StreamBroadcasterInner<S, D, F>>>,
+  inner: Arc<RwLock<StreamBroadcasterImpl<S, D, F>>>,
 }
 
 impl<S, D, F, I> Stream for StreamBroadcaster<S, D, F>
@@ -14,7 +14,7 @@ where
 
   fn poll_next(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Option<Self::Item>> {
     let mut inner = self.inner.write().unwrap();
-    let inner: &mut StreamBroadcasterInner<_, _, _> = &mut inner;
+    let inner: &mut StreamBroadcasterImpl<_, _, _> = &mut inner;
     let inner = Pin::new(inner);
     inner.poll_next(cx)
   }
@@ -30,7 +30,7 @@ impl<S, D, F> Clone for StreamBroadcaster<S, D, F> {
 
 impl<S, D, F> StreamBroadcaster<S, D, F> {
   pub fn new(source: S, broad_cast: F) -> Self {
-    let inner = StreamBroadcasterInner {
+    let inner = StreamBroadcasterImpl {
       source,
       distributer: Default::default(),
       broad_cast,
@@ -41,14 +41,14 @@ impl<S, D, F> StreamBroadcaster<S, D, F> {
 }
 
 #[pin_project]
-struct StreamBroadcasterInner<S, D, F> {
+struct StreamBroadcasterImpl<S, D, F> {
   #[pin]
   source: S,
   distributer: Vec<Option<futures::channel::mpsc::UnboundedSender<D>>>,
   broad_cast: F,
 }
 
-impl<S, D, F, I> Stream for StreamBroadcasterInner<S, D, F>
+impl<S, D, F, I> Stream for StreamBroadcasterImpl<S, D, F>
 where
   S: Stream<Item = I> + Unpin,
   S::Item: Clone,
@@ -77,7 +77,7 @@ pub struct BroadcastedStream<S, D, F> {
   #[pin]
   rev: futures::channel::mpsc::UnboundedReceiver<D>,
   index: usize,
-  source: Arc<RwLock<StreamBroadcasterInner<S, D, F>>>,
+  source: Arc<RwLock<StreamBroadcasterImpl<S, D, F>>>,
 }
 
 pub trait BroadcastBehavior<I, O> {
@@ -94,7 +94,7 @@ where
   fn poll_next(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Option<Self::Item>> {
     let outer_this = self.project();
     let mut inner = outer_this.source.write().unwrap();
-    let inner: &mut StreamBroadcasterInner<_, _, _> = &mut inner;
+    let inner: &mut StreamBroadcasterImpl<_, _, _> = &mut inner;
     let inner = Pin::new(inner);
     let mut this = inner.project();
     // must use while let here, because we rely on this to update all depend system

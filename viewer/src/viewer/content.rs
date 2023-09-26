@@ -10,6 +10,7 @@ use rendiation_algebra::Mat4;
 use rendiation_controller::{
   ControllerWinitAdapter, InputBound, OrbitController, Transformed3DControllee,
 };
+// use rendiation_geometry::Box3;
 use rendiation_mesh_core::MeshBufferIntersectConfig;
 use rendiation_scene_interaction::WebGPUScenePickingExt;
 
@@ -68,6 +69,32 @@ impl Viewer3dContent {
       camera.resize(size)
     }
   }
+
+  // fn fit_camera_view(
+  //   &self,
+  //   // padding_ratio: f32,
+  //   // target: &SceneModel,
+  // ) {
+  //   let padding_ratio = 0.1;
+  //   let scene_inner = &self.scene.read().core;
+  //   let camera = scene_inner.read().active_camera.as_ref().unwrap();
+
+  //   let mut bbox = Box3::empty();
+  //   for model in self.selections.iter_selected() {
+  //     if let Some(b) = self.scene_bounding.get_model_bounding(todo!()) {
+  //       bbox.expand_by_other(*b);
+  //     } else {
+  //       // for unbound model, we should include the it's coord's center point
+  //       // todo, add a trait to support logically better center point
+  //       let world = self.scene_derived.get_world_matrix(&model.read().node);
+  //       bbox.expand_by_point(world.position());
+  //     }
+  //   }
+
+  //   if bbox.is_empty() {
+  //     return;
+  //   }
+  // }
 
   pub fn per_event_update(
     &mut self,

@@ -104,14 +104,14 @@ impl MaterialStates {
   }
 }
 
-pub struct StateGPUInner {
+pub struct StateGPUImpl {
   state_id: Cell<ValueID<MaterialStates>>,
 }
 
 static STATE_ID: once_cell::sync::Lazy<Mutex<ValueIDGenerator<MaterialStates>>> =
   once_cell::sync::Lazy::new(|| Mutex::new(ValueIDGenerator::default()));
 
-impl StateGPUInner {
+impl StateGPUImpl {
   pub fn new(states: &MaterialStates) -> Self {
     let state_id = STATE_ID.lock().unwrap().get_uuid(states);
     Self {
@@ -120,13 +120,13 @@ impl StateGPUInner {
   }
 }
 
-impl ShaderHashProvider for StateGPUInner {
+impl ShaderHashProvider for StateGPUImpl {
   fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
     self.state_id.get().hash(hasher)
   }
 }
 
-impl GraphicsShaderProvider for StateGPUInner {
+impl GraphicsShaderProvider for StateGPUImpl {
   fn build(&self, builder: &mut ShaderRenderPipelineBuilder) -> Result<(), ShaderBuildError> {
     let id = STATE_ID.lock().unwrap();
 

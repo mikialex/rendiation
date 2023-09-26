@@ -9,9 +9,13 @@ pub type SceneLightHandle = Handle<SceneLight>;
 pub type SceneModelHandle = Handle<SceneModel>;
 pub type SceneCameraHandle = Handle<SceneCamera>;
 
+pub type SceneCore = SharedIncrementalSignal<SceneCoreImpl>;
+
 pub struct SceneCoreImpl {
+  /// scene environment config, mainly decide background effect.
   pub background: Option<SceneBackGround>,
 
+  /// the rendering camera for main view, should be one of camera in self.cameras
   pub active_camera: Option<SceneCamera>,
 
   /// All cameras in the scene
@@ -21,33 +25,12 @@ pub struct SceneCoreImpl {
   /// All models in the scene
   pub models: Arena<SceneModel>,
 
+  /// scene tree
   pub nodes: SceneNodeCollection,
   root: SceneNode,
 
+  /// scene level dynamic extension port
   pub ext: DynamicExtension,
-}
-
-#[derive(Clone)]
-pub struct SceneNodeCollection {
-  pub inner: SceneNodeCollectionInner,
-  pub scene_guid: u64,
-}
-pub type SceneNodeCollectionInner =
-  Arc<ReactiveTreeCollection<RwLock<TreeCollection<SceneNodeData>>, SceneNodeDataImpl>>;
-
-impl SceneNodeCollection {
-  pub fn create_node(&self, data: SceneNodeDataImpl) -> SceneNode {
-    SceneNode::create_new(self.inner.clone(), data, self.scene_guid)
-  }
-}
-
-impl IncrementalBase for SceneNodeCollection {
-  type Delta = TreeMutation<SceneNodeDataImpl>;
-
-  fn expand(&self, mut cb: impl FnMut(Self::Delta)) {
-    let tree = self.inner.inner.read().unwrap();
-    tree.expand_with_mapping(|node| node.deref().clone(), |d| cb(d.into()));
-  }
 }
 
 impl SceneCoreImpl {
@@ -81,7 +64,7 @@ impl SceneCoreImpl {
 
     let s = scene.read();
     s.nodes.inner.source.on(move |d| {
-      scene_source_clone.emit(&SceneInnerDelta::nodes(d.clone()));
+      scene_source_clone.emit(&SceneInternalDelta::nodes(d.clone()));
       false
     });
     drop(s);
@@ -101,8 +84,6 @@ impl SceneCoreImpl {
   }
 }
 
-pub type SceneCore = SharedIncrementalSignal<SceneCoreImpl>;
-
 fn arena_insert<T: IncrementalBase>(
   arena: &mut Arena<SharedIncrementalSignal<T>>,
   item: SharedIncrementalSignal<T>,
@@ -118,9 +99,14 @@ fn arena_insert<T: IncrementalBase>(
 fn arena_remove<T: IncrementalBase>(
   arena: &mut Arena<SharedIncrementalSignal<T>>,
   handle: Handle<SharedIncrementalSignal<T>>,
-) -> ArenaDelta<SharedIncrementalSignal<T>> {
-  arena.remove(handle);
-  ArenaDelta::Remove(handle)
+) -> (
+  SharedIncrementalSignal<T>,
+  ArenaDelta<SharedIncrementalSignal<T>>,
+) {
+  let removed = arena
+    .remove(handle)
+    .expect("removed an none exist entity in scene");
+  (removed, ArenaDelta::Remove(handle))
 }
 
 pub trait SceneCoreExt {
@@ -154,15 +140,27 @@ impl SceneCoreExt for SceneCore {
     self.mutate(|mut scene| unsafe {
       let s = scene.get_mut_ref();
       let (delta, handle) = arena_insert(&mut s.models, model);
-      scene.trigger_change_but_not_apply(delta.wrap(SceneInnerDelta::models));
+
+      // todo, the attach index now is exposed to user, but should not..
+      let inserted = s.models.get(handle).unwrap();
+      assert!(inserted.read().attach_index().is_none());
+      let d = SceneModelImplDelta::attach_index(Some(handle.index()).map(MaybeDelta::All));
+      inserted.mutate(|mut m| m.modify(d));
+
+      scene.trigger_change_but_not_apply(delta.wrap(SceneInternalDelta::models));
       handle
     })
   }
   fn remove_model(&self, model: SceneModelHandle) {
     self.mutate(|mut scene| unsafe {
       let s = scene.get_mut_ref();
-      let delta = arena_remove(&mut s.models, model);
-      scene.trigger_change_but_not_apply(delta.wrap(SceneInnerDelta::models));
+      let (removed, delta) = arena_remove(&mut s.models, model);
+
+      assert!(removed.read().attach_index().is_some());
+      let d = SceneModelImplDelta::attach_index(None.map(MaybeDelta::All));
+      removed.mutate(|mut m| m.modify(d));
+
+      scene.trigger_change_but_not_apply(delta.wrap(SceneInternalDelta::models));
     })
   }
 
@@ -170,15 +168,26 @@ impl SceneCoreExt for SceneCore {
     self.mutate(|mut scene| unsafe {
       let s = scene.get_mut_ref();
       let (delta, handle) = arena_insert(&mut s.lights, light);
-      scene.trigger_change_but_not_apply(delta.wrap(SceneInnerDelta::lights));
+
+      let inserted = s.lights.get(handle).unwrap();
+      assert!(inserted.read().attach_index().is_none());
+      let d = SceneLightImplDelta::attach_index(Some(handle.index()).map(MaybeDelta::All));
+      inserted.mutate(|mut m| m.modify(d));
+
+      scene.trigger_change_but_not_apply(delta.wrap(SceneInternalDelta::lights));
       handle
     })
   }
   fn remove_light(&self, light: SceneLightHandle) {
     self.mutate(|mut scene| unsafe {
       let s = scene.get_mut_ref();
-      let delta = arena_remove(&mut s.lights, light);
-      scene.trigger_change_but_not_apply(delta.wrap(SceneInnerDelta::lights));
+      let (removed, delta) = arena_remove(&mut s.lights, light);
+
+      assert!(removed.read().attach_index().is_some());
+      let d = SceneLightImplDelta::attach_index(None.map(MaybeDelta::All));
+      removed.mutate(|mut m| m.modify(d));
+
+      scene.trigger_change_but_not_apply(delta.wrap(SceneInternalDelta::lights));
     })
   }
 
@@ -186,15 +195,26 @@ impl SceneCoreExt for SceneCore {
     self.mutate(|mut scene| unsafe {
       let s = scene.get_mut_ref();
       let (delta, handle) = arena_insert(&mut s.cameras, camera);
-      scene.trigger_change_but_not_apply(delta.wrap(SceneInnerDelta::cameras));
+
+      let inserted = s.cameras.get(handle).unwrap();
+      assert!(inserted.read().attach_index().is_none());
+      let d = SceneCameraImplDelta::attach_index(Some(handle.index()).map(MaybeDelta::All));
+      inserted.mutate(|mut m| m.modify(d));
+
+      scene.trigger_change_but_not_apply(delta.wrap(SceneInternalDelta::cameras));
       handle
     })
   }
   fn remove_camera(&self, camera: SceneCameraHandle) {
     self.mutate(|mut scene| unsafe {
       let s = scene.get_mut_ref();
-      let delta = arena_remove(&mut s.cameras, camera);
-      scene.trigger_change_but_not_apply(delta.wrap(SceneInnerDelta::cameras));
+      let (removed, delta) = arena_remove(&mut s.cameras, camera);
+
+      assert!(removed.read().attach_index().is_some());
+      let d = SceneCameraImplDelta::attach_index(None.map(MaybeDelta::All));
+      removed.mutate(|mut m| m.modify(d));
+
+      scene.trigger_change_but_not_apply(delta.wrap(SceneInternalDelta::cameras));
     })
   }
 
@@ -204,7 +224,7 @@ impl SceneCoreExt for SceneCore {
       s.active_camera = camera.clone();
       let delta = camera
         .map(MaybeDelta::All)
-        .wrap(SceneInnerDelta::active_camera);
+        .wrap(SceneInternalDelta::active_camera);
       scene.trigger_change_but_not_apply(delta);
     })
   }
@@ -215,7 +235,7 @@ impl SceneCoreExt for SceneCore {
       s.background = background.clone();
       let delta = background
         .map(MaybeDelta::All)
-        .wrap(SceneInnerDelta::background);
+        .wrap(SceneInternalDelta::background);
       scene.trigger_change_but_not_apply(delta);
     })
   }
@@ -224,14 +244,14 @@ impl SceneCoreExt for SceneCore {
     self.mutate(|mut scene| unsafe {
       let s = scene.get_mut_ref();
       s.ext.apply(delta.clone()).unwrap();
-      scene.trigger_change_but_not_apply(delta.wrap(SceneInnerDelta::ext));
+      scene.trigger_change_but_not_apply(delta.wrap(SceneInternalDelta::ext));
     })
   }
 }
 
 #[allow(non_camel_case_types)]
 #[derive(Clone)]
-pub enum SceneInnerDelta {
+pub enum SceneInternalDelta {
   background(DeltaOf<Option<SceneBackGround>>),
   default_camera(DeltaOf<SceneCamera>),
   active_camera(DeltaOf<Option<SceneCamera>>),
@@ -242,7 +262,7 @@ pub enum SceneInnerDelta {
   nodes(DeltaOf<SceneNodeCollection>),
 }
 
-impl std::fmt::Debug for SceneInnerDelta {
+impl std::fmt::Debug for SceneInternalDelta {
   fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
     match self {
       Self::background(_) => f.debug_tuple("background").finish(),
@@ -258,10 +278,10 @@ impl std::fmt::Debug for SceneInnerDelta {
 }
 
 impl IncrementalBase for SceneCoreImpl {
-  type Delta = SceneInnerDelta;
+  type Delta = SceneInternalDelta;
 
   fn expand(&self, mut cb: impl FnMut(Self::Delta)) {
-    use SceneInnerDelta::*;
+    use SceneInternalDelta::*;
     self.nodes.expand(|d| cb(nodes(d)));
     self.background.expand(|d| cb(background(d)));
     self.active_camera.expand(|d| cb(active_camera(d)));
@@ -271,6 +291,8 @@ impl IncrementalBase for SceneCoreImpl {
     self.ext.expand(|d| cb(ext(d)));
   }
 }
+
+pub type Scene = SharedIncrementalSignal<SceneImpl>;
 
 pub struct SceneImpl {
   pub core: SceneCore,
@@ -312,25 +334,6 @@ impl IncrementalBase for SceneImpl {
     });
   }
 }
-
-impl ApplicableIncremental for SceneImpl {
-  type Error = ();
-
-  fn apply(&mut self, delta: Self::Delta) -> Result<(), Self::Error> {
-    match delta {
-      MixSceneDelta::background(bg) => self.core.set_background(bg.map(merge_maybe)),
-      MixSceneDelta::active_camera(v) => self.core.set_active_camera(v.map(merge_maybe)),
-      // todo we have to store the handle on these scene objects
-      MixSceneDelta::cameras(_) => todo!(),
-      MixSceneDelta::lights(_) => todo!(),
-      MixSceneDelta::models(_) => todo!(),
-      MixSceneDelta::ext(v) => self.core.update_ext(v),
-    }
-    Ok(())
-  }
-}
-
-pub type Scene = SharedIncrementalSignal<SceneImpl>;
 
 pub trait SceneExt {
   fn root(&self) -> SceneNode;
@@ -396,5 +399,36 @@ impl SceneExt for Scene {
 
   fn update_ext(&self, delta: DeltaOf<DynamicExtension>) {
     self.read().core.update_ext(delta)
+  }
+}
+
+// /// Manage multi camera view in scene, this idea is not explored but I keep it here
+// pub struct CameraGroup {
+//   pub cameras: Vec<SceneCamera>,
+//   pub current_rendering_camera: usize,
+//   /// if no camera provides, we will use default-camera for handling this case easily.
+//   pub default_camera: SceneCamera,
+// }
+
+#[derive(Clone)]
+pub struct SceneNodeCollection {
+  pub inner: SceneNodeCollectionImpl,
+  pub scene_guid: u64,
+}
+pub type SceneNodeCollectionImpl =
+  Arc<ReactiveTreeCollection<RwLock<TreeCollection<SceneNodeData>>, SceneNodeDataImpl>>;
+
+impl SceneNodeCollection {
+  pub fn create_node(&self, data: SceneNodeDataImpl) -> SceneNode {
+    SceneNode::create_new(self.inner.clone(), data, self.scene_guid)
+  }
+}
+
+impl IncrementalBase for SceneNodeCollection {
+  type Delta = TreeMutation<SceneNodeDataImpl>;
+
+  fn expand(&self, mut cb: impl FnMut(Self::Delta)) {
+    let tree = self.inner.inner.read().unwrap();
+    tree.expand_with_mapping(|node| node.deref().clone(), |d| cb(d.into()));
   }
 }

@@ -150,7 +150,7 @@ impl SceneNode {
   }
 
   pub(crate) fn create_new(
-    nodes: SceneNodeCollectionInner,
+    nodes: SceneNodeCollectionImpl,
     data: SceneNodeDataImpl,
     scene_id: u64,
   ) -> Self {

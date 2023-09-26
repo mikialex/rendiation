@@ -163,7 +163,7 @@ impl ForwardLightingSystem {
       gpu: &ResourceGPUCtx,
       res: &LightResourceCtx,
       upstream: impl Stream<Item = (u64, Option<SceneLight>)> + Unpin + 'static,
-      downcaster: impl Fn(SceneLightKind) -> Option<T> + Copy + 'static,
+      downcaster: impl Fn(LightEnum) -> Option<T> + Copy + 'static,
     ) where
       T: WebGPULight,
       T::Uniform: ShaderLight,
@@ -175,13 +175,13 @@ impl ForwardLightingSystem {
             let light_weak = light.downgrade();
             let res = res.clone();
             light
-              .single_listen_by(with_field!(SceneLightInner => light))
+              .single_listen_by(with_field!(SceneLightImpl => light))
               .map(downcaster)
               .map(move |l| {
                 light_weak.upgrade().zip(l).map(|(light, light_ty)| {
                   light_ty.create_uniform_stream(
                     &res,
-                    Box::new(light.single_listen_by(with_field!(SceneLightInner => node))),
+                    Box::new(light.single_listen_by(with_field!(SceneLightImpl => node))),
                   )
                 })
               })
@@ -219,7 +219,7 @@ impl ForwardLightingSystem {
           &res,
           scene_light_change.fork_stream(),
           |l| match l {
-            SceneLightKind::$Type(l) => Some(l),
+            LightEnum::$Type(l) => Some(l),
             _ => None,
           },
         );

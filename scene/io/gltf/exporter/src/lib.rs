@@ -321,12 +321,12 @@ impl Ctx {
       .unwrap()
   }
 
-  pub fn build_model(&self, model: &ModelType) -> Option<gltf_json::Index<gltf_json::Mesh>> {
+  pub fn build_model(&self, model: &ModelEnum) -> Option<gltf_json::Index<gltf_json::Mesh>> {
     match model {
-      ModelType::Standard(model) => {
+      ModelEnum::Standard(model) => {
         let model = model.read();
         match &model.mesh {
-          SceneMeshType::AttributesMesh(mesh) => {
+          MeshEnum::AttributesMesh(mesh) => {
             let mesh = mesh.read();
             self.models.get_or_insert_with(model.guid(), || {
               #[allow(clippy::disallowed_types)]
@@ -374,8 +374,8 @@ impl Ctx {
               .into()
             })
           }
-          SceneMeshType::TransformInstanced(_) => None,
-          SceneMeshType::Foreign(_) => None,
+          MeshEnum::TransformInstanced(_) => None,
+          MeshEnum::Foreign(_) => None,
           _ => None,
         }
       }
@@ -385,11 +385,11 @@ impl Ctx {
 
   pub fn build_material(
     &self,
-    material: &SceneMaterialType,
+    material: &MaterialEnum,
   ) -> Option<gltf_json::Index<gltf_json::Material>> {
     match material {
-      SceneMaterialType::PhysicalSpecularGlossiness(_) => None,
-      SceneMaterialType::PhysicalMetallicRoughness(material) => {
+      MaterialEnum::PhysicalSpecularGlossiness(_) => None,
+      MaterialEnum::PhysicalMetallicRoughness(material) => {
         self.materials.get_or_insert_with(material.guid(), || {
           let material = material.read();
           gltf_json::Material {
@@ -436,8 +436,8 @@ impl Ctx {
           .into()
         })
       }
-      SceneMaterialType::Flat(_) => None,
-      SceneMaterialType::Foreign(_) => None,
+      MaterialEnum::Flat(_) => None,
+      MaterialEnum::Foreign(_) => None,
       _ => None,
     }
   }

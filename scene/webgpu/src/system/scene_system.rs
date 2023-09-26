@@ -86,7 +86,7 @@ impl SceneGPUSystem {
       let contents = contents.write().unwrap();
       let mut models = models_c.write().unwrap();
       let models: &mut StreamMap<u64, ReactiveSceneModelGPUInstance> = &mut models;
-      if let SceneInnerDelta::models(delta) = delta {
+      if let SceneInternalDelta::models(delta) = delta {
         match delta {
           arena::ArenaDelta::Mutate((model, _)) => {
             models.remove(model.guid());

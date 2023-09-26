@@ -4,20 +4,35 @@ pub type SceneModel = SharedIncrementalSignal<SceneModelImpl>;
 
 #[derive(Incremental)]
 pub struct SceneModelImpl {
-  pub model: ModelType,
+  pub model: ModelEnum,
   pub node: SceneNode,
+  pub(crate) attach_index: Option<usize>,
+}
+
+impl SceneModelImpl {
+  pub fn new(model: ModelEnum, node: SceneNode) -> Self {
+    Self {
+      model,
+      node,
+      attach_index: None,
+    }
+  }
+
+  pub fn attach_index(&self) -> Option<usize> {
+    self.attach_index
+  }
 }
 
 #[non_exhaustive]
 #[derive(Clone)]
-pub enum ModelType {
+pub enum ModelEnum {
   Standard(SharedIncrementalSignal<StandardModel>),
   Foreign(Box<dyn AnyClone + Send + Sync>),
 }
 
-clone_self_incremental!(ModelType);
+clone_self_incremental!(ModelEnum);
 
-impl ModelType {
+impl ModelEnum {
   pub fn guid(&self) -> Option<u64> {
     match self {
       Self::Standard(m) => m.guid(),
@@ -31,14 +46,14 @@ impl ModelType {
 
 #[derive(Incremental)]
 pub struct StandardModel {
-  pub material: SceneMaterialType,
-  pub mesh: SceneMeshType,
+  pub material: MaterialEnum,
+  pub mesh: MeshEnum,
   pub group: MeshDrawGroup,
   pub skeleton: Option<Skeleton>,
 }
 
 impl StandardModel {
-  pub fn new(material: impl Into<SceneMaterialType>, mesh: impl Into<SceneMeshType>) -> Self {
+  pub fn new(material: impl Into<MaterialEnum>, mesh: impl Into<MeshEnum>) -> Self {
     Self {
       material: material.into(),
       mesh: mesh.into(),

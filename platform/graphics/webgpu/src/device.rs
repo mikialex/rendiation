@@ -2,7 +2,7 @@ use crate::*;
 
 #[derive(Clone)]
 pub struct GPUDevice {
-  pub(crate) inner: Arc<GPUDeviceInner>,
+  pub(crate) inner: Arc<GPUDeviceImpl>,
 }
 impl AsRef<Self> for GPUDevice {
   fn as_ref(&self) -> &Self {
@@ -21,7 +21,7 @@ impl GPUDevice {
       label: None,
     });
 
-    let inner = GPUDeviceInner {
+    let inner = GPUDeviceImpl {
       device,
       sampler_cache: Default::default(),
       bindgroup_cache: BindGroupCache::new(),
@@ -118,7 +118,7 @@ pub struct GPUResourceCacheSizeReport {
   pub pipeline_count: usize,
 }
 
-pub(crate) struct GPUDeviceInner {
+pub(crate) struct GPUDeviceImpl {
   device: gpu::Device,
   sampler_cache: SamplerCache,
   bindgroup_cache: BindGroupCache,

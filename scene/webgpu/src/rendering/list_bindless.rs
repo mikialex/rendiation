@@ -23,7 +23,7 @@ impl MaybeBindlessMeshRenderList {
 
       for (m, _) in &list.opaque {
         //   if model.read().node.get_world
-        if let ModelType::Standard(model) = &m.read().model {
+        if let ModelEnum::Standard(model) = &m.read().model {
           let model = model.read();
           let mesh_id = model.mesh.guid().unwrap();
           if let Some(mesh_gpu) = meshes_gpu.get(&mesh_id) {

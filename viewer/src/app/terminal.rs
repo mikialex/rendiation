@@ -4,7 +4,7 @@ use fast_hash_collection::FastHashMap;
 use futures::{executor::ThreadPool, Future, Stream, StreamExt};
 use interphaser::{winit::event::VirtualKeyCode, *};
 use reactive::{single_value_channel, PollUtils};
-use rendiation_scene_core::{IntoSceneItemRef, Scene, SceneMeshType, StandardModelDelta};
+use rendiation_scene_core::{IntoSceneItemRef, MeshEnum, Scene, StandardModelDelta};
 use webgpu::ReadableTextureBuffer;
 
 use crate::{text_box, SelectionSet, SolidLinedMesh, Viewer3dRenderingCtx};
@@ -189,10 +189,10 @@ pub fn register_default_commands(terminal: &mut Terminal) {
   terminal.register_command("into-solid-line-mesh", |ctx, _parameters| {
     for model in ctx.selection_set.iter_selected() {
       let model = model.read();
-      if let rendiation_scene_core::ModelType::Standard(model) = &model.model {
+      if let rendiation_scene_core::ModelEnum::Standard(model) = &model.model {
         let mesh = model.read().mesh.clone();
         let lined_mesh = SolidLinedMesh::new(mesh);
-        let mesh = SceneMeshType::Foreign(Box::new(lined_mesh.into_ref()));
+        let mesh = MeshEnum::Foreign(Box::new(lined_mesh.into_ref()));
         model.mutate(|mut model| model.modify(StandardModelDelta::mesh(mesh)));
       }
     }

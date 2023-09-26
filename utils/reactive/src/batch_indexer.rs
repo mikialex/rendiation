@@ -3,12 +3,12 @@ use std::ops::Range;
 use crate::*;
 
 pub struct StreamBatchIndexer<S, T> {
-  inner: Arc<RwLock<StreamBatchIndexerInner<S, T>>>,
+  inner: Arc<RwLock<StreamBatchIndexerImpl<S, T>>>,
 }
 
 impl<S, T> StreamBatchIndexer<S, T> {
   pub fn new(source: S) -> Self {
-    let inner = StreamBatchIndexerInner {
+    let inner = StreamBatchIndexerImpl {
       source,
       distributer: Default::default(),
     };
@@ -41,13 +41,13 @@ where
 
   fn poll_next(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Option<Self::Item>> {
     let mut inner = self.inner.write().unwrap();
-    let inner: &mut StreamBatchIndexerInner<_, _> = &mut inner;
+    let inner: &mut StreamBatchIndexerImpl<_, _> = &mut inner;
     inner.poll_next_unpin(cx)
   }
 }
 
 #[pin_project]
-struct StreamBatchIndexerInner<S, T> {
+struct StreamBatchIndexerImpl<S, T> {
   #[pin]
   source: S,
   distributer: Vec<Option<futures::channel::mpsc::UnboundedSender<AfterIndexedMessage<T>>>>,
@@ -72,7 +72,7 @@ impl<T: Clone> Iterator for AfterIndexedMessage<T> {
   }
 }
 
-impl<S, T> Stream for StreamBatchIndexerInner<S, T>
+impl<S, T> Stream for StreamBatchIndexerImpl<S, T>
 where
   S: Stream<Item = Vec<(usize, T)>> + Unpin,
 {
@@ -118,7 +118,7 @@ pub struct BatchIndexedStream<S, T> {
   #[pin]
   rev: futures::channel::mpsc::UnboundedReceiver<AfterIndexedMessage<T>>,
   index: usize,
-  source: Arc<RwLock<StreamBatchIndexerInner<S, T>>>,
+  source: Arc<RwLock<StreamBatchIndexerImpl<S, T>>>,
 }
 
 impl<S, T> Stream for BatchIndexedStream<S, T>
@@ -130,7 +130,7 @@ where
   fn poll_next(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Option<Self::Item>> {
     let outer_this = self.project();
     let mut inner = outer_this.source.write().unwrap();
-    let inner: &mut StreamBatchIndexerInner<_, _> = &mut inner;
+    let inner: &mut StreamBatchIndexerImpl<_, _> = &mut inner;
     // just trigger the upstream
     let _ = inner.poll_next_unpin(cx);
 

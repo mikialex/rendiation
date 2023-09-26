@@ -5,11 +5,47 @@ pub use rendiation_texture::Size;
 
 use crate::*;
 
-pub type SceneCamera = SharedIncrementalSignal<SceneCameraInner>;
+pub type SceneCamera = SharedIncrementalSignal<SceneCameraImpl>;
+
+#[derive(Incremental)]
+pub struct SceneCameraImpl {
+  pub bounds: CameraViewBounds,
+  pub projection: CameraProjectionEnum,
+  pub node: SceneNode,
+  pub(crate) attach_index: Option<usize>,
+}
+
+impl SceneCameraImpl {
+  pub fn new(projection: CameraProjectionEnum, node: SceneNode) -> Self {
+    Self {
+      bounds: Default::default(),
+      projection,
+      node,
+      attach_index: None,
+    }
+  }
+
+  pub fn attach_index(&self) -> Option<usize> {
+    self.attach_index
+  }
+
+  pub fn compute_project_mat(&self) -> Mat4<f32> {
+    self
+      .projection
+      .compute_projection_mat()
+      .unwrap_or(Mat4::identity())
+  }
+
+  pub fn view_size_in_pixel(&self, frame_size: Size) -> Vec2<f32> {
+    let width: usize = frame_size.width.into();
+    let width = width as f32 * self.bounds.width;
+    let height: usize = frame_size.height.into();
+    let height = height as f32 * self.bounds.height;
+    (width, height).into()
+  }
+}
 
 pub trait SceneCameraExt {
-  fn create(projection: CameraProjector, node: SceneNode) -> Self;
-
   fn create_projection_mat_stream(&self) -> impl Stream<Item = Mat4<f32>>;
 
   fn resize(&self, size: (f32, f32));
@@ -23,23 +59,14 @@ pub trait SceneCameraExt {
 }
 
 impl SceneCameraExt for SceneCamera {
-  fn create(projection: CameraProjector, node: SceneNode) -> Self {
-    SceneCameraInner {
-      bounds: Default::default(),
-      projection,
-      node,
-    }
-    .into_ref()
-  }
-
   fn create_projection_mat_stream(&self) -> impl Stream<Item = Mat4<f32>> {
     // note, here we have to write like this because we do not have projector change in camera
     // deltas
     self
       .single_listen_by(|view, send| match view {
         MaybeDeltaRef::Delta(delta) => match delta {
-          SceneCameraInnerDelta::projection(_) => send(()),
-          SceneCameraInnerDelta::node(_) => send(()),
+          SceneCameraImplDelta::projection(_) => send(()),
+          SceneCameraImplDelta::node(_) => send(()),
           _ => {}
         },
         MaybeDeltaRef::All(_) => send(()),
@@ -51,7 +78,7 @@ impl SceneCameraExt for SceneCamera {
   fn resize(&self, size: (f32, f32)) {
     self.mutate(|mut camera| {
       let resize = CameraProjectorDelta::Resize(size);
-      camera.modify(SceneCameraInnerDelta::projection(resize));
+      camera.modify(SceneCameraImplDelta::projection(resize));
     })
   }
 
@@ -75,14 +102,6 @@ impl SceneCameraExt for SceneCamera {
   }
 }
 
-// /// Manage multi camera view in scene
-// pub struct CameraGroup {
-//   pub cameras: Vec<SceneCamera>,
-//   pub current_rendering_camera: usize,
-//   /// if no camera provides, we will use default-camera for handling this case easily.
-//   pub default_camera: SceneCamera,
-// }
-
 #[derive(Clone, Copy, Incremental)]
 pub struct CameraViewBounds {
   pub width: f32,
@@ -103,7 +122,7 @@ impl Default for CameraViewBounds {
 }
 
 #[derive(Clone)]
-pub enum CameraProjector {
+pub enum CameraProjectionEnum {
   Perspective(PerspectiveProjection<f32>),
   ViewOrthographic(ViewFrustumOrthographicProjection<f32>),
   Orthographic(OrthographicProjection<f32>),
@@ -119,13 +138,13 @@ pub trait CameraProjection: Sync + Send + DynIncremental {
 }
 define_dyn_trait_downcaster_static!(CameraProjection);
 
-impl CameraProjector {
+impl CameraProjectionEnum {
   pub fn compute_projection_mat(&self) -> Option<Mat4<f32>> {
     match self {
-      CameraProjector::Perspective(p) => p.compute_projection_mat::<WebGPU>(),
-      CameraProjector::ViewOrthographic(p) => p.compute_projection_mat::<WebGPU>(),
-      CameraProjector::Orthographic(p) => p.compute_projection_mat::<WebGPU>(),
-      CameraProjector::Foreign(p) => get_dyn_trait_downcaster_static!(CameraProjection)
+      CameraProjectionEnum::Perspective(p) => p.compute_projection_mat::<WebGPU>(),
+      CameraProjectionEnum::ViewOrthographic(p) => p.compute_projection_mat::<WebGPU>(),
+      CameraProjectionEnum::Orthographic(p) => p.compute_projection_mat::<WebGPU>(),
+      CameraProjectionEnum::Foreign(p) => get_dyn_trait_downcaster_static!(CameraProjection)
         .downcast_ref(p.as_ref().as_any())?
         .compute_projection_mat(),
     }
@@ -134,10 +153,10 @@ impl CameraProjector {
 
   pub fn resize(&mut self, size: (f32, f32)) {
     match self {
-      CameraProjector::Perspective(p) => p.resize(size),
-      CameraProjector::ViewOrthographic(p) => p.resize(size),
-      CameraProjector::Orthographic(_) => {}
-      CameraProjector::Foreign(p) => {
+      CameraProjectionEnum::Perspective(p) => p.resize(size),
+      CameraProjectionEnum::ViewOrthographic(p) => p.resize(size),
+      CameraProjectionEnum::Orthographic(_) => {}
+      CameraProjectionEnum::Foreign(p) => {
         if let Some(p) =
           get_dyn_trait_downcaster_static!(CameraProjection).downcast_mut(p.as_mut().as_any_mut())
         {
@@ -149,10 +168,10 @@ impl CameraProjector {
 
   pub fn pixels_per_unit(&self, distance: f32, view_height: f32) -> Option<f32> {
     match self {
-      CameraProjector::Perspective(p) => p.pixels_per_unit(distance, view_height),
-      CameraProjector::ViewOrthographic(p) => p.pixels_per_unit(distance, view_height),
-      CameraProjector::Orthographic(p) => p.pixels_per_unit(distance, view_height),
-      CameraProjector::Foreign(p) => get_dyn_trait_downcaster_static!(CameraProjection)
+      CameraProjectionEnum::Perspective(p) => p.pixels_per_unit(distance, view_height),
+      CameraProjectionEnum::ViewOrthographic(p) => p.pixels_per_unit(distance, view_height),
+      CameraProjectionEnum::Orthographic(p) => p.pixels_per_unit(distance, view_height),
+      CameraProjectionEnum::Foreign(p) => get_dyn_trait_downcaster_static!(CameraProjection)
         .downcast_ref(p.as_ref().as_any())?
         .pixels_per_unit(distance, view_height),
     }
@@ -161,10 +180,10 @@ impl CameraProjector {
 
   pub fn cast_ray(&self, normalized_position: Vec2<f32>) -> Option<Ray3<f32>> {
     match self {
-      CameraProjector::Perspective(p) => p.cast_ray(normalized_position),
-      CameraProjector::ViewOrthographic(p) => p.cast_ray(normalized_position),
-      CameraProjector::Orthographic(p) => p.cast_ray(normalized_position),
-      CameraProjector::Foreign(p) => get_dyn_trait_downcaster_static!(CameraProjection)
+      CameraProjectionEnum::Perspective(p) => p.cast_ray(normalized_position),
+      CameraProjectionEnum::ViewOrthographic(p) => p.cast_ray(normalized_position),
+      CameraProjectionEnum::Orthographic(p) => p.cast_ray(normalized_position),
+      CameraProjectionEnum::Foreign(p) => get_dyn_trait_downcaster_static!(CameraProjection)
         .downcast_ref(p.as_ref().as_any())?
         .cast_ray(normalized_position),
     }
@@ -175,10 +194,10 @@ impl CameraProjector {
 #[derive(Clone)]
 pub enum CameraProjectorDelta {
   Resize((f32, f32)),
-  Type(CameraProjector),
+  Type(CameraProjectionEnum),
 }
 
-impl SimpleIncremental for CameraProjector {
+impl SimpleIncremental for CameraProjectionEnum {
   type Delta = CameraProjectorDelta;
 
   fn s_apply(&mut self, delta: Self::Delta) {
@@ -190,35 +209,5 @@ impl SimpleIncremental for CameraProjector {
 
   fn s_expand(&self, mut cb: impl FnMut(Self::Delta)) {
     cb(CameraProjectorDelta::Type(self.clone()));
-  }
-}
-
-#[derive(Incremental)]
-pub struct SceneCameraInner {
-  pub bounds: CameraViewBounds,
-  pub projection: CameraProjector,
-  pub node: SceneNode,
-}
-
-impl AsRef<Self> for SceneCameraInner {
-  fn as_ref(&self) -> &Self {
-    self
-  }
-}
-
-impl SceneCameraInner {
-  pub fn compute_project_mat(&self) -> Mat4<f32> {
-    self
-      .projection
-      .compute_projection_mat()
-      .unwrap_or(Mat4::identity())
-  }
-
-  pub fn view_size_in_pixel(&self, frame_size: Size) -> Vec2<f32> {
-    let width: usize = frame_size.width.into();
-    let width = width as f32 * self.bounds.width;
-    let height: usize = frame_size.height.into();
-    let height = height as f32 * self.bounds.height;
-    (width, height).into()
   }
 }

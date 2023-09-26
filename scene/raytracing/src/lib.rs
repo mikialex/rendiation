@@ -53,7 +53,7 @@ pub struct SceneAcceleration {
 }
 
 pub struct RayTracingCamera {
-  pub proj: CameraProjector,
+  pub proj: CameraProjectionEnum,
   pub world: Mat4<f32>,
 }
 
@@ -106,8 +106,8 @@ impl RayTracingSceneExt for Scene {
       shape: Box::new(shape),
       material: Box::new(material),
     };
-    let model = ModelType::Foreign(Box::new(model));
-    let model = SceneModelImpl { node, model };
+    let model = ModelEnum::Foreign(Box::new(model));
+    let model = SceneModelImpl::new(model, node);
     let _ = self.insert_model(model.into());
     self
   }
@@ -124,8 +124,8 @@ impl RayTracingSceneExt for Scene {
       shape: Box::new(shape),
       material: Box::new(material),
     };
-    let model = ModelType::Foreign(Box::new(model));
-    let model = SceneModelImpl { node, model };
+    let model = ModelEnum::Foreign(Box::new(model));
+    let model = SceneModelImpl::new(model, node);
     let _ = self.insert_model(model.into());
     self
   }
@@ -149,7 +149,7 @@ impl RayTracingSceneExt for Scene {
 
     for (_, model) in self.read().core.read().models.iter() {
       let model = model.read();
-      if let ModelType::Foreign(foreign) = &model.model {
+      if let ModelEnum::Foreign(foreign) = &model.model {
         if let Some(retraceable) = foreign.as_any().downcast_ref::<RayTracingSceneModel>() {
           let world_info = result.worlds.get_computed(model.node.raw_handle().index());
 

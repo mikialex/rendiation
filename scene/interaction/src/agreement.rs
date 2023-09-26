@@ -12,7 +12,7 @@ where
   get_dyn_trait_downcaster_static!(PickingConventionAgreement).register::<T>()
 }
 
-impl PickingConventionAgreement for SceneMaterialType {
+impl PickingConventionAgreement for MaterialEnum {
   fn is_keep_mesh_shape(&self) -> bool {
     match self {
       Self::PhysicalSpecularGlossiness(m) => m.is_keep_mesh_shape(),

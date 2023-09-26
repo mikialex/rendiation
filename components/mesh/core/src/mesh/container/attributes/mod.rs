@@ -124,13 +124,13 @@ impl std::hash::Hash for ForeignAttributeKey {
 }
 
 #[derive(Clone)]
-pub struct GeometryBufferInner {
+pub struct GeometryBufferImpl {
   pub buffer: Vec<u8>,
 }
 
-clone_self_incremental!(GeometryBufferInner);
+clone_self_incremental!(GeometryBufferImpl);
 
-pub type GeometryBuffer = SharedIncrementalSignal<GeometryBufferInner>;
+pub type GeometryBuffer = SharedIncrementalSignal<GeometryBufferImpl>;
 
 #[derive(Debug, Copy, Clone, Default, PartialEq, Eq, Hash)]
 pub struct BufferViewRange {
@@ -158,7 +158,7 @@ impl UnTypedBufferView {
 }
 
 pub struct UnTypedBufferViewReadView<'a> {
-  buffer: SignalRefGuard<'a, GeometryBufferInner>,
+  buffer: SignalRefGuard<'a, GeometryBufferImpl>,
   view: &'a UnTypedBufferView,
 }
 
@@ -222,7 +222,7 @@ impl AttributeAccessor {
     let buffer = bytemuck::cast_slice(&input).to_owned();
     let count = buffer.len() / item_byte_size;
 
-    let buffer = GeometryBufferInner { buffer };
+    let buffer = GeometryBufferImpl { buffer };
     let buffer = buffer.into_ref();
     let view = UnTypedBufferView {
       buffer,

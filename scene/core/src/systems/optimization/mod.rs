@@ -117,8 +117,8 @@ fn is_front_side(mat: Mat4<f32>) -> bool {
 fn compute_instance_key(model: &SceneModel, d_sys: &SceneNodeDeriveSystem) -> PossibleInstanceKey {
   let m = model.read();
   let content = match &m.model {
-    ModelType::Standard(model) => compute_instance_key_inner(model),
-    ModelType::Foreign(_) => None,
+    ModelEnum::Standard(model) => compute_instance_key_inner(model),
+    ModelEnum::Foreign(_) => None,
   };
 
   if let Some(content) = content {
@@ -143,7 +143,7 @@ fn compute_instance_key_inner(
 ) -> Option<InstanceContentKey> {
   let model = model.read();
 
-  if let SceneMaterialType::Foreign(m) = &model.material {
+  if let MaterialEnum::Foreign(m) = &model.material {
     if get_dyn_trait_downcaster_static!(InstanceSourceRuleOut)
       .downcast_ref(m.as_ref().as_any())
       .is_some()
@@ -152,7 +152,7 @@ fn compute_instance_key_inner(
     }
   }
 
-  if let SceneMeshType::TransformInstanced(_) = &model.mesh {
+  if let MeshEnum::TransformInstanced(_) = &model.mesh {
     return None;
   }
 
@@ -365,7 +365,7 @@ fn build_instance_source_stream(
   let model = model
     .single_listen_by(with_field!(SceneModelImpl => model))
     .map(move |model| match model {
-      ModelType::Standard(sm) => {
+      ModelEnum::Standard(sm) => {
         let model_ref = sm.downgrade();
         let key = key.clone();
         let watch = sm.unbound_listen_by(all_delta).filter_map_sync(move |_| {
@@ -390,7 +390,7 @@ fn build_instance_source_stream(
 
         Box::new(watch) as BoxedWatcher
       }
-      ModelType::Foreign(_) => match key {
+      ModelEnum::Foreign(_) => match key {
         PIK::UnableToInstance(_) => Box::new(futures::stream::pending()) as BoxedWatcher,
         PIK::Instanced(_) => Box::new(once_forever_pending(InsUpdate::InstanceKeyChanged)),
       },
@@ -413,8 +413,8 @@ fn create_instance(
   } else {
     let first = first.read();
     let model = match &first.model {
-      ModelType::Standard(model) => model,
-      ModelType::Foreign(_) => unreachable!(),
+      ModelEnum::Standard(model) => model,
+      ModelEnum::Foreign(_) => unreachable!(),
     };
 
     let model = model.read();
@@ -440,15 +440,16 @@ fn create_instance(
 
     let instance_model = StandardModel {
       material,
-      mesh: SceneMeshType::TransformInstanced(instance_mesh),
+      mesh: MeshEnum::TransformInstanced(instance_mesh),
       group: model.group,
       skeleton: None,
     }
     .into_ref();
 
     let instance_model = SceneModelImpl {
-      model: ModelType::Standard(instance_model),
+      model: ModelEnum::Standard(instance_model),
       node: new_nodes.create_node(Default::default()),
+      attach_index: None,
     }
     .into_ref();
 

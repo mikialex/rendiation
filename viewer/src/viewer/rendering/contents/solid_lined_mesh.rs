@@ -24,11 +24,11 @@ use crate::*;
 pub struct SolidLinedMesh {
   /// note, user should make sure the mesh not shared with others
   /// todo, impl runtime ownership checking
-  mesh: SceneMeshType,
+  mesh: MeshEnum,
 }
 
 impl SolidLinedMesh {
-  pub fn new(mesh: SceneMeshType) -> Self {
+  pub fn new(mesh: MeshEnum) -> Self {
     Self { mesh }
   }
 }
@@ -61,13 +61,13 @@ pub struct SolidLinedMeshGPU {
   mesh_gpu: MeshGPUInstance,
 }
 
-type ReactiveSolidLinedMeshGPUInner =
+type ReactiveSolidLinedMeshGPUImpl =
   impl AsRef<RenderComponentCell<SolidLinedMeshGPU>> + Stream<Item = RenderComponentDeltaFlag>;
 
 #[pin_project::pin_project]
 pub struct ReactiveSolidLinedMeshGPU {
   #[pin]
-  inner: ReactiveSolidLinedMeshGPUInner,
+  inner: ReactiveSolidLinedMeshGPUImpl,
 }
 
 impl Stream for ReactiveSolidLinedMeshGPU {
@@ -180,10 +180,10 @@ impl<'a> AttributeVertex for FullReaderReadWithBarycentric<'a> {
 
 fn generate_barycentric_buffer_and_expanded_mesh(
   mesh: &SharedIncrementalSignal<SolidLinedMesh>,
-) -> Option<SceneMeshType> {
+) -> Option<MeshEnum> {
   let mesh = mesh.read();
   let mesh = match &mesh.mesh {
-    SceneMeshType::AttributesMesh(mesh) => mesh,
+    MeshEnum::AttributesMesh(mesh) => mesh,
     _ => return None,
   };
 
@@ -213,7 +213,7 @@ fn generate_barycentric_buffer_and_expanded_mesh(
     })
     .collect();
 
-  SceneMeshType::AttributesMesh(mesh.into_ref()).into()
+  MeshEnum::AttributesMesh(mesh.into_ref()).into()
 }
 
 #[derive(Clone, Copy)]

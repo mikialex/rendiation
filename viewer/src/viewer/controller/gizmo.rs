@@ -436,19 +436,19 @@ fn build_plane(root: &SceneNode, auto_scale: &AutoScale, mat: Mat4<f32>) -> Help
     .build_mesh_into()
     .into_ref();
 
-  let mesh = SceneMeshType::Foreign(Box::new(mesh));
+  let mesh = MeshEnum::Foreign(Box::new(mesh));
 
   let material = solid_material(RED).into_ref();
   let m = material.clone();
-  let material = SceneMaterialType::Flat(material);
+  let material = MaterialEnum::Flat(material);
 
   let plane = root.create_child();
 
   plane.set_local_matrix(mat);
 
   let model = StandardModel::new(material, mesh);
-  let model = ModelType::Standard(model.into());
-  let model = SceneModelImpl { model, node: plane };
+  let model = ModelEnum::Standard(model.into());
+  let model = SceneModelImpl::new(model, plane);
   let mut model = model.into_matrix_overridable();
   model.push_override(auto_scale.clone());
   HelperMesh { model, material: m }
@@ -468,20 +468,17 @@ fn build_rotator(root: &SceneNode, auto_scale: &AutoScale, mat: Mat4<f32>) -> He
     .build_mesh_into()
     .into_ref();
 
-  let mesh = SceneMeshType::Foreign(Box::new(mesh));
+  let mesh = MeshEnum::Foreign(Box::new(mesh));
 
   let material = solid_material(RED).into_ref();
   let m = material.clone();
-  let material = SceneMaterialType::Flat(material);
+  let material = MaterialEnum::Flat(material);
 
   let torus = root.create_child();
 
   let model = StandardModel::new(material, mesh);
-  let model = ModelType::Standard(model.into());
-  let model = SceneModelImpl {
-    model,
-    node: torus.clone(),
-  };
+  let model = ModelEnum::Standard(model.into());
+  let model = SceneModelImpl::new(model, torus.clone());
   let mut model = model.into_matrix_overridable();
 
   torus.set_local_matrix(mat);

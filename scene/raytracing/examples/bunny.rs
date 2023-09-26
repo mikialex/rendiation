@@ -17,8 +17,8 @@ fn main() {
     fov: Deg::by(65.),
     ..Default::default()
   };
-  let perspective = CameraProjector::Perspective(perspective);
-  let camera = SceneCamera::create(perspective, scene.create_root_child());
+  let perspective = CameraProjectionEnum::Perspective(perspective);
+  let camera = SceneCameraImpl::new(perspective, scene.create_root_child()).into_ref();
   camera.read().node.set_local_matrix(Mat4::lookat(
     Vec3::new(0., 8., 10.),
     Vec3::new(0., 5., 0.),

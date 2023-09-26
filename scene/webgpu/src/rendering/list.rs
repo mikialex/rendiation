@@ -179,11 +179,11 @@ impl AlphaBlendDecider for SharedIncrementalSignal<StandardModel> {
   }
 }
 
-impl AlphaBlendDecider for ModelType {
+impl AlphaBlendDecider for ModelEnum {
   fn should_use_alpha_blend(&self) -> bool {
     match self {
-      ModelType::Standard(model) => model.should_use_alpha_blend(),
-      ModelType::Foreign(any) => {
+      ModelEnum::Standard(model) => model.should_use_alpha_blend(),
+      ModelEnum::Foreign(any) => {
         if let Some(any) =
           get_dyn_trait_downcaster_static!(AlphaBlendDecider).downcast_ref(any.as_ref().as_any())
         {

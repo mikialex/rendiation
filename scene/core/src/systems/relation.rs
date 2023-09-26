@@ -141,8 +141,8 @@ impl NodeReferenceModelBookKeeping {
     let source1 = scene
       .unbound_listen_by(move |v, send| match v {
         MaybeDeltaRef::Delta(d) => match d {
-          SceneInnerDelta::models(delta) => on_model_mutate(send, delta),
-          SceneInnerDelta::nodes(delta) => on_tree_mutate(send, delta),
+          SceneInternalDelta::models(delta) => on_model_mutate(send, delta),
+          SceneInternalDelta::nodes(delta) => on_tree_mutate(send, delta),
           _ => {}
         },
         MaybeDeltaRef::All(scene) => {
@@ -157,7 +157,7 @@ impl NodeReferenceModelBookKeeping {
       .unbound_listen_by(|view, send| match view {
         MaybeDeltaRef::All(scene) => scene.models.expand(send),
         MaybeDeltaRef::Delta(delta) => {
-          if let SceneInnerDelta::models(model_delta) = delta {
+          if let SceneInternalDelta::models(model_delta) = delta {
             send(model_delta.clone())
           }
         }

@@ -3,8 +3,8 @@ use std::path::Path;
 use rendiation_algebra::*;
 use rendiation_scene_core::{
   AttributeAccessor, AttributeIndexFormat, AttributeSemantic, AttributesMesh, IntoSceneItemRef,
-  ModelType, NormalMapping, PhysicalSpecularGlossinessMaterial, Scene, SceneExt, SceneMaterialType,
-  SceneMeshType, SceneModelImpl, SceneTexture2D, SceneTexture2DType, StandardModel,
+  MaterialEnum, MeshEnum, ModelEnum, NormalMapping, PhysicalSpecularGlossinessMaterial, Scene,
+  SceneExt, SceneModelImpl, SceneTexture2D, SceneTexture2DType, StandardModel,
   Texture2DWithSamplingData,
 };
 use rendiation_texture::*;
@@ -23,11 +23,7 @@ pub fn load_obj(
   let models = load_obj_content(path, obj_loader_recommended_default_mat)?;
   let node = scene.create_root_child();
   for model in models {
-    let model = SceneModelImpl {
-      model: ModelType::Standard(model.into_ref()),
-      node: node.clone(),
-    }
-    .into_ref();
+    let model = SceneModelImpl::new(ModelEnum::Standard(model.into_ref()), node.clone()).into_ref();
     scene.insert_model(model);
   }
   Ok(())
@@ -35,7 +31,7 @@ pub fn load_obj(
 
 pub fn load_obj_content(
   path: impl AsRef<Path> + std::fmt::Debug,
-  create_default_material: impl Fn() -> SceneMaterialType,
+  create_default_material: impl Fn() -> MaterialEnum,
 ) -> Result<Vec<StandardModel>, ObjLoadError> {
   let (models, materials) = tobj::load_obj(path, &tobj::GPU_LOAD_OPTIONS)?;
 
@@ -87,7 +83,7 @@ pub fn load_obj_content(
         mode: rendiation_mesh_core::PrimitiveTopology::TriangleList,
         groups: Default::default(),
       };
-      let mesh = SceneMeshType::AttributesMesh(attribute_mesh.into_ref());
+      let mesh = MeshEnum::AttributesMesh(attribute_mesh.into_ref());
 
       let mut material = None;
       if let Some(material_id) = m.mesh.material_id {
@@ -110,13 +106,13 @@ pub fn load_obj_content(
   Ok(models)
 }
 
-pub fn obj_loader_recommended_default_mat() -> SceneMaterialType {
+pub fn obj_loader_recommended_default_mat() -> MaterialEnum {
   let mat = PhysicalSpecularGlossinessMaterial::default();
-  SceneMaterialType::PhysicalSpecularGlossiness(mat.into_ref())
+  MaterialEnum::PhysicalSpecularGlossiness(mat.into_ref())
 }
 
 /// convert obj material into scene material, only part of material parameters are supported
-fn into_rff_material(m: &tobj::Material) -> SceneMaterialType {
+fn into_rff_material(m: &tobj::Material) -> MaterialEnum {
   let mut mat = PhysicalSpecularGlossinessMaterial::default();
   if let Some(diffuse) = m.diffuse {
     mat.albedo = Vec3::new(diffuse[0], diffuse[1], diffuse[2]);
@@ -133,7 +129,7 @@ fn into_rff_material(m: &tobj::Material) -> SceneMaterialType {
   if let Some(normal_texture) = &m.normal_texture {
     mat.normal_texture = load_normal_map(normal_texture).into();
   }
-  SceneMaterialType::PhysicalSpecularGlossiness(mat.into_ref())
+  MaterialEnum::PhysicalSpecularGlossiness(mat.into_ref())
 }
 
 fn load_texture_sampler_pair(path: impl AsRef<Path>) -> Texture2DWithSamplingData {

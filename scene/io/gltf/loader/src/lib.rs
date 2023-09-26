@@ -9,11 +9,11 @@ use gltf::{Node, Result as GltfResult};
 use rendiation_algebra::*;
 use rendiation_scene_core::{
   AnimationSampler, AttributeAccessor, AttributeIndexFormat, AttributesMesh, BufferViewRange,
-  GeometryBuffer, GeometryBufferInner, IntoSceneItemRef, Joint, ModelType, NormalMapping,
-  PhysicalMetallicRoughnessMaterial, Scene, SceneAnimation, SceneAnimationChannel, SceneExt,
-  SceneMaterialType, SceneMeshType, SceneModel, SceneModelHandle, SceneModelImpl, SceneNode,
-  SceneTexture2D, SceneTexture2DType, Skeleton, SkeletonImpl, StandardModel,
-  Texture2DWithSamplingData, TextureWithSamplingData, UnTypedBufferView,
+  GeometryBuffer, GeometryBufferImpl, IntoSceneItemRef, Joint, MaterialEnum, MeshEnum, ModelEnum,
+  NormalMapping, PhysicalMetallicRoughnessMaterial, Scene, SceneAnimation, SceneAnimationChannel,
+  SceneExt, SceneModel, SceneModelHandle, SceneModelImpl, SceneNode, SceneTexture2D,
+  SceneTexture2DType, Skeleton, SkeletonImpl, StandardModel, Texture2DWithSamplingData,
+  TextureWithSamplingData, UnTypedBufferView,
 };
 
 mod convert_utils;
@@ -30,7 +30,7 @@ pub fn load_gltf(path: impl AsRef<Path>, scene: &Scene) -> GltfResult<GltfLoadRe
     build_images: Default::default(),
     attributes: buffers
       .drain(..)
-      .map(|buffer| GeometryBufferInner { buffer: buffer.0 }.into())
+      .map(|buffer| GeometryBufferImpl { buffer: buffer.0 }.into())
       .collect(),
     result: Default::default(),
   };
@@ -144,10 +144,10 @@ fn build_model(
     mode,
     groups: Default::default(),
   };
-  let mesh = SceneMeshType::AttributesMesh(mesh.into());
+  let mesh = MeshEnum::AttributesMesh(mesh.into());
 
   let material = build_pbr_material(primitive.material(), ctx);
-  let material = SceneMaterialType::PhysicalMetallicRoughness(material.into());
+  let material = MaterialEnum::PhysicalMetallicRoughness(material.into());
 
   let mut model = StandardModel::new(material, mesh);
 
@@ -156,8 +156,8 @@ fn build_model(
     model.skeleton = Some(sk.clone())
   }
 
-  let model = ModelType::Standard(model.into());
-  let model = SceneModelImpl { model, node };
+  let model = ModelEnum::Standard(model.into());
+  let model = SceneModelImpl::new(model, node);
   SceneModel::new(model)
 }
 

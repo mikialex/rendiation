@@ -9,12 +9,12 @@ use rendiation_webgpu::*;
 use crate::*;
 
 pub struct GPUSubAllocateBuffer {
-  inner: Arc<RwLock<GPUSubAllocateBufferInner>>,
+  inner: Arc<RwLock<GPUSubAllocateBufferImpl>>,
 }
 
 type AllocationHandel = xalloc::tlsf::TlsfRegion<xalloc::arena::sys::Ptr>;
 
-struct GPUSubAllocateBufferInner {
+struct GPUSubAllocateBufferImpl {
   ranges: FastHashMap<u32, (Range<u32>, AllocationHandel)>,
   // todo should we try other allocator that support relocate and shrink??
   //
@@ -34,7 +34,7 @@ pub struct RelocationMessage {
   pub new_offset: u32,
 }
 
-impl GPUSubAllocateBufferInner {
+impl GPUSubAllocateBufferImpl {
   fn grow(&mut self, grow_bytes: u32, device: &GPUDevice, queue: &GPUQueue) {
     let current_size: u64 = self.buffer.resource.size().into();
     let new_size = current_size + grow_bytes as u64;
@@ -82,7 +82,7 @@ impl GPUSubAllocateBufferInner {
 
 pub struct GPUSubAllocateBufferToken {
   token: u32,
-  alloc: Weak<RwLock<GPUSubAllocateBufferInner>>,
+  alloc: Weak<RwLock<GPUSubAllocateBufferImpl>>,
 }
 
 impl Drop for GPUSubAllocateBufferToken {
@@ -117,7 +117,7 @@ impl GPUSubAllocateBuffer {
     let buffer = create_gpu_buffer_zeroed(init_byte_size as u64, usage, device);
     let buffer = buffer.create_view(Default::default());
 
-    let inner = GPUSubAllocateBufferInner {
+    let inner = GPUSubAllocateBufferImpl {
       ranges: Default::default(),
       allocator: inner,
       buffer,

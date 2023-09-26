@@ -2,23 +2,38 @@ use crate::*;
 
 #[non_exhaustive]
 #[derive(Clone)]
-pub enum SceneLightKind {
+pub enum LightEnum {
   PointLight(SharedIncrementalSignal<PointLight>),
   SpotLight(SharedIncrementalSignal<SpotLight>),
   DirectionalLight(SharedIncrementalSignal<DirectionalLight>),
   Foreign(Box<dyn AnyClone + Send + Sync>),
 }
 
-clone_self_incremental!(SceneLightKind);
+clone_self_incremental!(LightEnum);
 
-pub type SceneLight = SharedIncrementalSignal<SceneLightInner>;
+pub type SceneLight = SharedIncrementalSignal<SceneLightImpl>;
 
 #[derive(Incremental)]
-pub struct SceneLightInner {
-  pub light: SceneLightKind,
+pub struct SceneLightImpl {
+  pub light: LightEnum,
   /// Note: Light properties are unaffected by node transforms by default
   /// — for example, range and intensity do not change with scale.
   pub node: SceneNode,
+  pub(crate) attach_index: Option<usize>,
+}
+
+impl SceneLightImpl {
+  pub fn new(light: LightEnum, node: SceneNode) -> Self {
+    Self {
+      light,
+      node,
+      attach_index: None,
+    }
+  }
+
+  pub fn attach_index(&self) -> Option<usize> {
+    self.attach_index
+  }
 }
 
 #[derive(Debug, Clone, Incremental)]

@@ -33,13 +33,13 @@ pub struct WidenedLineMaterialUniform {
   pub width: f32,
 }
 
-type ReactiveWidenedLineMaterialGPUInner =
+type ReactiveWidenedLineMaterialGPUImpl =
   impl AsRef<RenderComponentCell<WidenedLineMaterialGPU>> + Stream<Item = RenderComponentDeltaFlag>;
 
 #[pin_project::pin_project]
 pub struct ReactiveWidenedLineMaterialGPU {
   #[pin]
-  inner: ReactiveWidenedLineMaterialGPUInner,
+  inner: ReactiveWidenedLineMaterialGPUImpl,
 }
 
 impl Stream for ReactiveWidenedLineMaterialGPU {

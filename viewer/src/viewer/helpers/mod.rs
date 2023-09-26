@@ -23,23 +23,20 @@ pub struct HelperLineModel {
 impl HelperLineModel {
   pub fn new(material: WidenedLineMaterial, mesh: HelperLineMesh, node: &SceneNode) -> Self {
     let mat = material.into_ref();
-    let mat = SceneMaterialType::Foreign(Box::new(mat));
+    let mat = MaterialEnum::Foreign(Box::new(mat));
 
-    let mesh = SceneMeshType::Foreign(Box::new(mesh.into_ref()));
+    let mesh = MeshEnum::Foreign(Box::new(mesh.into_ref()));
 
     let model = StandardModel::new(mat, mesh);
-    let model = ModelType::Standard(model.into());
-    let model = SceneModelImpl {
-      model,
-      node: node.clone(),
-    };
+    let model = ModelEnum::Standard(model.into());
+    let model = SceneModelImpl::new(model, node.clone());
     Self { inner: model }
   }
 
   pub fn update_mesh(&self, mesh: HelperLineMesh) {
-    let mesh = SceneMeshType::Foreign(Box::new(mesh.into_ref()));
+    let mesh = MeshEnum::Foreign(Box::new(mesh.into_ref()));
 
-    if let ModelType::Standard(model) = &self.inner.model {
+    if let ModelEnum::Standard(model) = &self.inner.model {
       mesh.wrap(StandardModelDelta::mesh).apply_modify(model);
     }
   }

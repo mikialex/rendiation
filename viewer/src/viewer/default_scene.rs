@@ -85,21 +85,21 @@ pub fn load_default_scene(scene: &Scene) {
       )
       .build_mesh_into()
       .into_ref();
-    let mesh = SceneMeshType::Foreign(Box::new(mesh));
+    let mesh = MeshEnum::Foreign(Box::new(mesh));
 
     let material = PhysicalSpecularGlossinessMaterial {
       albedo: Vec3::splat(1.),
       albedo_texture: texture.clone().into(),
       ..Default::default()
     };
-    let material = SceneMaterialType::PhysicalSpecularGlossiness(material.into());
+    let material = MaterialEnum::PhysicalSpecularGlossiness(material.into());
 
     let child = scene.create_root_child();
     child.set_local_matrix(Mat4::translate((2., 0., 3.)));
 
     let model = StandardModel::new(material, mesh);
-    let model = ModelType::Standard(model.into());
-    let model = SceneModelImpl { model, node: child };
+    let model = ModelEnum::Standard(model.into());
+    let model = SceneModelImpl::new(model, child);
     let _ = scene.insert_model(model.into());
   }
 
@@ -114,19 +114,19 @@ pub fn load_default_scene(scene: &Scene) {
       builder = builder.triangulate_parametric(&face, TessellationConfig { u: 2, v: 3 }, true);
     }
     let mesh = builder.build_mesh().into_ref();
-    let mesh = SceneMeshType::Foreign(Box::new(mesh));
+    let mesh = MeshEnum::Foreign(Box::new(mesh));
 
     let material = PhysicalSpecularGlossinessMaterial {
       albedo: Vec3::splat(1.),
       albedo_texture: texture.clone().into(),
       ..Default::default()
     };
-    let material = SceneMaterialType::PhysicalSpecularGlossiness(material.into());
+    let material = MaterialEnum::PhysicalSpecularGlossiness(material.into());
     let child = scene.create_root_child();
 
     let model = StandardModel::new(material, mesh);
-    let model = ModelType::Standard(model.into());
-    let model = SceneModelImpl { model, node: child };
+    let model = ModelEnum::Standard(model.into());
+    let model = SceneModelImpl::new(model, child);
     let _ = scene.insert_model(model.into());
   }
 
@@ -139,7 +139,7 @@ pub fn load_default_scene(scene: &Scene) {
       )
       .build_mesh_into()
       .into_ref();
-    let mesh = SceneMeshType::Foreign(Box::new(mesh));
+    let mesh = MeshEnum::Foreign(Box::new(mesh));
 
     let mesh = TransformInstancedSceneMesh {
       mesh,
@@ -151,19 +151,19 @@ pub fn load_default_scene(scene: &Scene) {
       ],
     }
     .into_ref();
-    let mesh = SceneMeshType::TransformInstanced(mesh);
+    let mesh = MeshEnum::TransformInstanced(mesh);
 
     let material = PhysicalSpecularGlossinessMaterial {
       albedo: Vec3::splat(1.),
       albedo_texture: texture.into(),
       ..Default::default()
     };
-    let material = SceneMaterialType::PhysicalSpecularGlossiness(material.into());
+    let material = MaterialEnum::PhysicalSpecularGlossiness(material.into());
     let child = scene.create_root_child();
 
     let model = StandardModel::new(material, mesh);
-    let model = ModelType::Standard(model.into());
-    let model = SceneModelImpl { model, node: child };
+    let model = ModelEnum::Standard(model.into());
+    let model = SceneModelImpl::new(model, child);
     let _ = scene.insert_model(model.into());
   }
 
@@ -171,20 +171,20 @@ pub fn load_default_scene(scene: &Scene) {
 
   {
     let camera = PerspectiveProjection::default();
-    let camera = CameraProjector::Perspective(camera);
+    let camera = CameraProjectionEnum::Perspective(camera);
     let camera_node = scene.create_root_child();
     camera_node.set_local_matrix(Mat4::lookat(Vec3::splat(3.), Vec3::splat(0.), up));
-    let camera = SceneCamera::create(camera, camera_node);
+    let camera = SceneCameraImpl::new(camera, camera_node).into_ref();
     let _ = scene.insert_camera(camera.clone());
     scene.set_active_camera(camera.into());
   }
 
   {
     let camera = PerspectiveProjection::default();
-    let camera = CameraProjector::Perspective(camera);
+    let camera = CameraProjectionEnum::Perspective(camera);
     let camera_node = scene.create_root_child();
     camera_node.set_local_matrix(Mat4::lookat(Vec3::splat(3.), Vec3::splat(0.), up));
-    let camera = SceneCamera::create(camera, camera_node);
+    let camera = SceneCameraImpl::new(camera, camera_node).into_ref();
     let _ = scene.insert_camera(camera);
   }
 
@@ -195,11 +195,8 @@ pub fn load_default_scene(scene: &Scene) {
     color_factor: Vec3::one(),
     ext: Default::default(),
   };
-  let directional_light = SceneLightKind::DirectionalLight(directional_light.into());
-  let directional_light = SceneLightInner {
-    light: directional_light,
-    node: directional_light_node,
-  };
+  let directional_light = LightEnum::DirectionalLight(directional_light.into());
+  let directional_light = SceneLightImpl::new(directional_light, directional_light_node);
   scene.insert_light(directional_light.into());
 
   let directional_light_node = scene.create_root_child();
@@ -213,11 +210,8 @@ pub fn load_default_scene(scene: &Scene) {
     color_factor: Vec3::new(5., 3., 2.) / Vec3::splat(5.),
     ext: Default::default(),
   };
-  let directional_light = SceneLightKind::DirectionalLight(directional_light.into());
-  let directional_light = SceneLightInner {
-    light: directional_light,
-    node: directional_light_node,
-  };
+  let directional_light = LightEnum::DirectionalLight(directional_light.into());
+  let directional_light = SceneLightImpl::new(directional_light, directional_light_node);
   scene.insert_light(directional_light.into());
 
   let point_light_node = scene.create_root_child();
@@ -228,11 +222,8 @@ pub fn load_default_scene(scene: &Scene) {
     cutoff_distance: 40.,
     ext: Default::default(),
   };
-  let point_light = SceneLightKind::PointLight(point_light.into());
-  let point_light = SceneLightInner {
-    light: point_light,
-    node: point_light_node,
-  };
+  let point_light = LightEnum::PointLight(point_light.into());
+  let point_light = SceneLightImpl::new(point_light, point_light_node);
   scene.insert_light(point_light.into());
 
   let spot_light_node = scene.create_root_child();
@@ -245,10 +236,7 @@ pub fn load_default_scene(scene: &Scene) {
     half_penumbra_angle: Deg::by(5. / 2.).to_rad(),
     ext: Default::default(),
   };
-  let spot_light = SceneLightKind::SpotLight(spot_light.into());
-  let spot_light = SceneLightInner {
-    light: spot_light,
-    node: spot_light_node,
-  };
+  let spot_light = LightEnum::SpotLight(spot_light.into());
+  let spot_light = SceneLightImpl::new(spot_light, spot_light_node);
   scene.insert_light(spot_light.into());
 }

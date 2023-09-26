@@ -102,16 +102,13 @@ impl Arrow {
 
     let material = solid_material((1., 1., 1.)).into_ref();
     let modify_material = material.clone();
-    let material = SceneMaterialType::Flat(material);
+    let material = MaterialEnum::Flat(material);
 
     let node_cylinder = root.create_child();
 
     let model = StandardModel::new(material.clone(), cylinder_mesh);
-    let model = ModelType::Standard(model.into());
-    let model = SceneModelImpl {
-      model,
-      node: node_cylinder,
-    };
+    let model = ModelEnum::Standard(model.into());
+    let model = SceneModelImpl::new(model, node_cylinder);
     let mut cylinder = model.into_matrix_overridable();
     cylinder.push_override(auto_scale.clone());
 
@@ -119,11 +116,8 @@ impl Arrow {
     node_tip.set_local_matrix(Mat4::translate((0., 2., 0.)));
 
     let model = StandardModel::new(material, tip_mesh);
-    let model = ModelType::Standard(model.into());
-    let model = SceneModelImpl {
-      model,
-      node: node_tip,
-    };
+    let model = ModelEnum::Standard(model.into());
+    let model = SceneModelImpl::new(model, node_tip);
     let mut tip = model.into_matrix_overridable();
     tip.push_override(auto_scale.clone());
 
@@ -135,7 +129,7 @@ impl Arrow {
     }
   }
 
-  pub fn default_shape() -> (SceneMeshType, SceneMeshType) {
+  pub fn default_shape() -> (MeshEnum, MeshEnum) {
     let config = TessellationConfig { u: 1, v: 10 };
     let cylinder = IndexedMeshBuilder::<TriangleList, Vec<Vertex>>::default()
       .triangulate_parametric(
@@ -165,8 +159,8 @@ impl Arrow {
       )
       .build_mesh_into();
 
-    let cylinder_mesh = SceneMeshType::Foreign(Box::new(cylinder.into_ref()));
-    let tip_mesh = SceneMeshType::Foreign(Box::new(tip.into_ref()));
+    let cylinder_mesh = MeshEnum::Foreign(Box::new(cylinder.into_ref()));
+    let tip_mesh = MeshEnum::Foreign(Box::new(tip.into_ref()));
 
     (cylinder_mesh, tip_mesh)
   }

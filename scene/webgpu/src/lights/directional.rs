@@ -141,7 +141,7 @@ impl Default for DirectionalShadowMapExtraInfo {
 
 fn build_shadow_projection(
   light: &SharedIncrementalSignal<DirectionalLight>,
-) -> impl Stream<Item = (CameraProjector, Size)> {
+) -> impl Stream<Item = (CameraProjectionEnum, Size)> {
   get_dyn_trait_downcaster_static!(CameraProjection).register::<WorkAroundResizableOrth>();
   light
     .single_listen_by(any_change)
@@ -157,7 +157,7 @@ fn build_shadow_projection(
       let orth = WorkAroundResizableOrth {
         orth: shadow_info.range,
       };
-      let proj = CameraProjector::Foreign(Box::new(orth));
+      let proj = CameraProjectionEnum::Foreign(Box::new(orth));
       (proj, size)
     })
 }

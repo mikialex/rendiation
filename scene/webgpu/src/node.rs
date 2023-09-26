@@ -48,7 +48,7 @@ impl SceneNodeGPUSystem {
       .unbound_listen_by(|view, send| match view {
         MaybeDeltaRef::All(scene) => scene.nodes.expand(send),
         MaybeDeltaRef::Delta(delta) => {
-          if let SceneInnerDelta::nodes(node_d) = delta {
+          if let SceneInternalDelta::nodes(node_d) = delta {
             send(node_d.clone())
           }
         }

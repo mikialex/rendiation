@@ -38,7 +38,7 @@ pub fn ray_pick_nearest_core(
   world_mat: Mat4<f32>,
 ) -> OptionalNearest<MeshBufferHitPoint> {
   match &m.model {
-    ModelType::Standard(model) => {
+    ModelEnum::Standard(model) => {
       let net_visible = ctx.node_derives.get_net_visible(&m.node);
       if !net_visible {
         return OptionalNearest::none();
@@ -66,7 +66,7 @@ pub fn ray_pick_nearest_core(
       };
       result
     }
-    ModelType::Foreign(model) => {
+    ModelEnum::Foreign(model) => {
       if let Some(model) =
         get_dyn_trait_downcaster_static!(SceneRayInteractive).downcast_ref(model.as_ref().as_any())
       {

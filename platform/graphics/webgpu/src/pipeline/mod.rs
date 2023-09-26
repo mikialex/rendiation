@@ -10,11 +10,11 @@ pub type GPURenderPipeline = GPUPipeline<wgpu::RenderPipeline>;
 pub type GPUComputePipeline = GPUPipeline<wgpu::ComputePipeline>;
 
 pub struct GPUPipeline<T> {
-  pub inner: Arc<GPUPipelineInner<T>>,
+  pub inner: Arc<GPUPipelineImpl<T>>,
 }
 
 impl<T> Deref for GPUPipeline<T> {
-  type Target = GPUPipelineInner<T>;
+  type Target = GPUPipelineImpl<T>;
 
   fn deref(&self) -> &Self::Target {
     &self.inner
@@ -31,7 +31,7 @@ impl<T> Clone for GPUPipeline<T> {
 
 impl<T> GPUPipeline<T> {
   fn new(pipeline: T, bg_layouts: Vec<GPUBindGroupLayout>) -> Self {
-    let inner = GPUPipelineInner {
+    let inner = GPUPipelineImpl {
       pipeline,
       bg_layouts,
     };
@@ -45,12 +45,12 @@ impl<T> GPUPipeline<T> {
   }
 }
 
-pub struct GPUPipelineInner<T> {
+pub struct GPUPipelineImpl<T> {
   pub pipeline: T,
   pub bg_layouts: Vec<GPUBindGroupLayout>,
 }
 
-impl<T> Deref for GPUPipelineInner<T> {
+impl<T> Deref for GPUPipelineImpl<T> {
   type Target = T;
 
   fn deref(&self) -> &Self::Target {

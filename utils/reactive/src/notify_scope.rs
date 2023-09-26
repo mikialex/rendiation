@@ -4,15 +4,15 @@ use crate::*;
 
 #[derive(Default)]
 pub struct NotifyScope {
-  inner: Arc<NotifyScopeInner>,
+  inner: Arc<NotifyScopeImpl>,
 }
 
-struct NotifyScopeInner {
+struct NotifyScopeImpl {
   waked: AtomicBool,
   upstream: AtomicWaker,
 }
 
-impl Default for NotifyScopeInner {
+impl Default for NotifyScopeImpl {
   fn default() -> Self {
     Self {
       waked: AtomicBool::new(true),
@@ -74,7 +74,7 @@ impl NotifyScope {
   }
 }
 
-impl futures::task::ArcWake for NotifyScopeInner {
+impl futures::task::ArcWake for NotifyScopeImpl {
   fn wake_by_ref(arc_self: &Arc<Self>) {
     arc_self
       .waked

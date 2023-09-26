@@ -27,7 +27,7 @@ pub fn setup_pass_core(
   resources: &SceneRenderResourceGroup,
 ) {
   match &model_input.model {
-    ModelType::Standard(model) => {
+    ModelEnum::Standard(model) => {
       let model = model.read();
       let pass_gpu = dispatcher;
 
@@ -78,7 +78,7 @@ pub fn setup_pass_core(
         &mut pass.ctx,
       );
     }
-    ModelType::Foreign(_) => {
+    ModelEnum::Foreign(_) => {
       todo!()
       // if let Some(model) = model.downcast_ref::<Box<dyn SceneRenderable>>() {
       //   model.render(pass, dispatcher, camera, resources)
@@ -251,7 +251,7 @@ where
   get_dyn_trait_downcaster_static!(WebGPUSceneModel).register::<T>()
 }
 
-impl WebGPUSceneModel for ModelType {
+impl WebGPUSceneModel for ModelEnum {
   fn create_scene_reactive_gpu(&self, ctx: &GPUModelResourceCtx) -> Option<ReactiveModelGPUType> {
     match self {
       Self::Standard(model) => ReactiveModelGPUType::Standard(build_standard_model_gpu(model, ctx)),
@@ -301,6 +301,7 @@ pub fn build_scene_model_gpu(
           // todo, handle node change
           RenderComponentDeltaFlag::ContentRef
         }
+        SceneModelImplDelta::attach_index(_) => RenderComponentDeltaFlag::empty(),
       }
       .into()
     })

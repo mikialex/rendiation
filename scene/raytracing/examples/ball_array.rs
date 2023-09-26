@@ -13,8 +13,8 @@ fn main() {
   let mut scene = SceneImpl::new().0;
 
   let perspective = make_perspective();
-  let perspective = CameraProjector::Perspective(perspective);
-  let camera = SceneCamera::create(perspective, scene.create_root_child());
+  let perspective = CameraProjectionEnum::Perspective(perspective);
+  let camera = SceneCameraImpl::new(perspective, scene.create_root_child()).into_ref();
 
   scene
     .model_node(
