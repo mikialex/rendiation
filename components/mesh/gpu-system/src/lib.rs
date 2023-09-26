@@ -62,11 +62,11 @@ pub struct DrawIndexedIndirect {
 #[derive(Clone)]
 pub struct GPUBindlessMeshSystem {
   inner: Arc<RwLock<GPUBindlessMeshSystemInner>>,
-  /// to prevent the first slot get dropped
+  /// just to prevent the first slot get dropped
   first_default_handle: Arc<Option<MeshSystemMeshInstance>>,
 }
 
-// todo, make alignment constraint work
+// todo, make alignment type constraint in slice case work
 type BindlessPositionVertexBuffer = BindingResourceArray<
   StorageBufferReadOnlyDataView<BindlessStorageWorkaround<Vec4<f32>>>,
   MAX_STORAGE_BINDING_ARRAY_LENGTH,
@@ -234,14 +234,13 @@ impl GPUBindlessMeshSystem {
     let mut inner = self.inner.write().unwrap();
     inner.any_changed = true;
 
-    let position = StorageBufferReadOnlyDataView::create(
-      device,
-      BindlessStorageWorkaround::cast_slice(position),
-    );
-    let normal =
-      StorageBufferReadOnlyDataView::create(device, BindlessStorageWorkaround::cast_slice(normal));
-    let uv =
-      StorageBufferReadOnlyDataView::create(device, BindlessStorageWorkaround::cast_slice(uv));
+    let position = BindlessStorageWorkaround::cast_slice(position);
+    let normal = BindlessStorageWorkaround::cast_slice(normal);
+    let uv = BindlessStorageWorkaround::cast_slice(uv);
+
+    let position = StorageBufferReadOnlyDataView::create(device, position);
+    let normal = StorageBufferReadOnlyDataView::create(device, normal);
+    let uv = StorageBufferReadOnlyDataView::create(device, uv);
 
     let metadata = DrawMetaData {
       start: 0, // will write later..
@@ -256,10 +255,8 @@ impl GPUBindlessMeshSystem {
     };
     let handle = inner.metadata.insert(metadata) as u32;
 
-    let (allocation, start) =
-      inner
-        .index_buffer
-        .allocate(handle, bytemuck::cast_slice(index), device, queue)?;
+    let index = bytemuck::cast_slice(index);
+    let (allocation, start) = inner.index_buffer.allocate(handle, index, device, queue)?;
 
     inner.metadata.get_mut(handle as usize).unwrap().start = start;
 

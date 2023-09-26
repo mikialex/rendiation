@@ -25,7 +25,6 @@ impl GPUBindlessMeshSystem {
     &'a self,
     iter: impl Iterator<Item = MeshSystemMeshHandle> + 'a,
   ) -> impl Iterator<Item = (DrawIndexedIndirect, DrawVertexIndirectInfo)> + 'a {
-    dbg!("list:");
     iter.enumerate().map(|(i, handle)| {
       let sys = self.inner.read().unwrap();
         let DrawMetaData { start,  count, vertex_info, .. } = sys.metadata.get(handle as usize).unwrap();
@@ -36,8 +35,6 @@ impl GPUBindlessMeshSystem {
           vertex_offset: 0,
           base_instance: i as u32, // we rely on this to get draw id. https://www.g-truc.net/post-0518.html
         };
-        dbg!(draw_indirect);
-        dbg!(vertex_info);
         (draw_indirect, *vertex_info)
       })
   }
@@ -85,28 +82,25 @@ impl GraphicsShaderProvider for BindlessMeshDispatcher {
       let vertex_id = vertex.query::<VertexIndex>().unwrap();
 
       let vertex_addresses = binding.bind_by(&self.vertex_address_buffer);
-      // let vertex_address = vertex_addresses.index(draw_id).load().expand();
+      let vertex_address = vertex_addresses.index(draw_id).load().expand();
 
       let sys = self.system.inner.read().unwrap();
 
       let position = binding.bind_by(&sys.bindless_position_vertex_buffers);
-      // let position = position.index(vertex_address.position_buffer_id);
-      // let position = BindlessStorageWorkaround::read_index_shader(position, vertex_id).load();
+      let position = position.index(vertex_address.position_buffer_id);
+      let position = BindlessStorageWorkaround::shader_read_index(position, vertex_id).load();
 
       let normal = binding.bind_by(&sys.bindless_normal_vertex_buffers);
-      // let normal = normal.index(vertex_address.normal_buffer_id);
-      // let normal = BindlessStorageWorkaround::read_index_shader(normal, vertex_id).load();
+      let normal = normal.index(vertex_address.normal_buffer_id);
+      let normal = BindlessStorageWorkaround::shader_read_index(normal, vertex_id).load();
 
       let uv = binding.bind_by(&sys.bindless_uv_vertex_buffers);
-      // let uv = uv.index(vertex_address.uv_buffer_id);
-      // let uv = BindlessStorageWorkaround::read_index_shader(uv, vertex_id).load();
+      let uv = uv.index(vertex_address.uv_buffer_id);
+      let uv = BindlessStorageWorkaround::shader_read_index(uv, vertex_id).load();
 
-      // vertex.register::<GeometryPosition>(position.xyz());
-      // vertex.register::<GeometryNormal>(normal.xyz());
-      // vertex.register::<GeometryUV>(uv);
-      vertex.register::<GeometryPosition>(val(Vec3::zero()));
-      vertex.register::<GeometryNormal>(val(Vec3::zero()));
-      vertex.register::<GeometryUV>(val(Vec2::zero()));
+      vertex.register::<GeometryPosition>(position.xyz());
+      vertex.register::<GeometryNormal>(normal.xyz());
+      vertex.register::<GeometryUV>(uv);
       Ok(())
     })
   }

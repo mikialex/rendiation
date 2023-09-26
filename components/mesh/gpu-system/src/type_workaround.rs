@@ -14,15 +14,28 @@ impl<T: ShaderSizedValueNodeType> BindlessStorageWorkaround<T> {
     unsafe { std::mem::transmute(array) }
   }
 
-  pub fn read_index_shader(
+  pub fn shader_read_index(
     node: Node<ShaderReadOnlyStoragePtr<BindlessStorageWorkaround<T>>>,
     index: Node<u32>,
   ) -> Node<ShaderReadOnlyStoragePtr<T>> {
+    // we should impl this but for simplicity we skipped, instead we directly support this call
+    // impl<T: ShaderSizedValueNodeType> ShaderUnsizedStructuralNodeType for
+    // BindlessStorageWorkaround<T> {
+    //   type Instance = ();
+    //   fn meta_info() -> &'static ShaderUnSizedStructMetaInfo {
+    //     &ShaderUnSizedStructMetaInfo {
+    //       name: "BindlessStorageWorkaround",
+    //       sized_fields: &[],
+    //       last_dynamic_array_field: (&"array", &T::MEMBER_TYPE),
+    //     }
+    //   }
+    // }
+
     let array_ptr: Node<ShaderReadOnlyStoragePtr<[T]>> = ShaderNodeExpr::FieldGet {
       field_index: 0,
       struct_node: node.handle(),
     }
-    .insert_api(); // todo, this should be unsafe
+    .insert_api();
     array_ptr.index(index)
   }
 }
@@ -55,19 +68,6 @@ where
     }),
   );
 }
-
-// we should impl this but for simplicity we skipped
-// impl<T: ShaderSizedValueNodeType> ShaderUnsizedStructuralNodeType for
-// BindlessStorageWorkaround<T> {
-//   type Instance = ();
-//   fn meta_info() -> &'static ShaderUnSizedStructMetaInfo {
-//     &ShaderUnSizedStructMetaInfo {
-//       name: "BindlessStorageWorkaround",
-//       sized_fields: &[],
-//       last_dynamic_array_field: (&"array", &T::MEMBER_TYPE),
-//     }
-//   }
-// }
 
 impl<T: ShaderSizedValueNodeType> ShaderMaybeUnsizedValueNodeType for BindlessStorageWorkaround<T> {
   const MAYBE_UNSIZED_TYPE: MaybeUnsizedValueType = todo!();

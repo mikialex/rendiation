@@ -4,12 +4,18 @@ use crate::*;
 
 #[derive(Default)]
 pub struct RenderList {
-  pub(crate) opaque: Vec<(SceneModelHandle, f32)>,
-  pub(crate) transparent: Vec<(SceneModelHandle, f32)>,
+  pub(crate) opaque: Vec<(SceneModel, f32)>,
+  pub(crate) transparent: Vec<(SceneModel, f32)>,
 }
 
 impl RenderList {
-  pub fn prepare(&mut self, scene: &SceneRenderResourceGroup, camera: &SceneCamera) {
+  pub fn collect_from_scene_objects(
+    &mut self,
+    scene: &SceneRenderResourceGroup,
+    iter: impl Iterator<Item = SceneModel>,
+    camera: &SceneCamera,
+    blend: bool,
+  ) {
     if scene.scene.active_camera.is_none() {
       return;
     }
@@ -21,17 +27,17 @@ impl RenderList {
     self.opaque.clear();
     self.transparent.clear();
 
-    for (h, m) in scene.scene.models.iter() {
+    for m in iter {
       let model_pos = scene
         .node_derives
         .get_world_matrix(&m.get_node())
         .position();
       let depth = (model_pos - camera_pos).dot(camera_forward);
 
-      if m.read().model.should_use_alpha_blend() {
-        self.transparent.push((h, depth));
+      if blend && m.read().model.should_use_alpha_blend() {
+        self.transparent.push((m.clone(), depth));
       } else {
-        self.opaque.push((h, depth));
+        self.opaque.push((m.clone(), depth));
       }
     }
 
@@ -39,6 +45,19 @@ impl RenderList {
     self
       .transparent
       .sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap());
+  }
+  pub fn collect_from_scene(
+    &mut self,
+    scene: &SceneRenderResourceGroup,
+    camera: &SceneCamera,
+    blend: bool,
+  ) {
+    self.collect_from_scene_objects(
+      scene,
+      scene.scene.models.iter().map(|(_, m)| m.clone()),
+      camera,
+      blend,
+    )
   }
 
   pub fn setup_pass(
@@ -52,11 +71,8 @@ impl RenderList {
     let resource_view = ModelGPURenderResourceView::new(resource);
     let camera_gpu = resource_view.cameras.get_camera_gpu(camera).unwrap();
 
-    let models = &resource.scene.models;
-
     if !skip_opaque {
-      self.opaque.iter().for_each(|(handle, _)| {
-        let model = models.get(*handle).unwrap();
+      self.opaque.iter().for_each(|(model, _)| {
         scene_model_setup_pass_core(
           gpu_pass,
           model.guid(),
@@ -67,8 +83,7 @@ impl RenderList {
       });
     }
 
-    self.transparent.iter().for_each(|(handle, _)| {
-      let model = models.get(*handle).unwrap();
+    self.transparent.iter().for_each(|(model, _)| {
       scene_model_setup_pass_core(
         gpu_pass,
         model.guid(),

@@ -38,7 +38,6 @@ impl GPUSubAllocateBufferInner {
   fn grow(&mut self, grow_bytes: u32, device: &GPUDevice, queue: &GPUQueue) {
     let current_size: u64 = self.buffer.resource.size().into();
     let new_size = current_size + grow_bytes as u64;
-    dbg!(new_size);
 
     let new_buffer = create_gpu_buffer_zeroed(new_size, self.usage, device);
     let new_buffer = new_buffer.create_view(Default::default());
@@ -164,14 +163,12 @@ impl GPUSubAllocateBuffer {
           "duplicate active allocation handle used"
         );
 
-        break (
-          GPUSubAllocateBufferToken {
-            token: allocation_handle,
-            alloc: Arc::downgrade(&self.inner),
-          },
-          offset,
-        )
-          .into();
+        let token = GPUSubAllocateBufferToken {
+          token: allocation_handle,
+          alloc: Arc::downgrade(&self.inner),
+        };
+
+        break (token, offset).into();
       } else if alloc.max_byte_size as u64 <= current_size {
         break None;
       } else {

@@ -53,7 +53,7 @@ pub async fn test_prefix_sum() {
 
   let result = result.await.unwrap();
   let result = <[u32]>::from_bytes_into_boxed(&result.read_raw()).into_vec();
-  dbg!(result);
+  println!("{:?}", result);
 }
 
 fn main() {

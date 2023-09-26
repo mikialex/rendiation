@@ -40,23 +40,23 @@ impl HighLighter {
     .draw_quad()
   }
 
-  pub fn draw<'i, T>(
+  pub fn draw<T>(
     &self,
     objects: T,
     ctx: &mut FrameCtx,
     scene: &SceneRenderResourceGroup,
   ) -> impl PassContent + '_
   where
-    T: Iterator<Item = &'i dyn SceneRenderable>,
+    T: Iterator<Item = SceneModel>,
   {
     let mut selected_mask = attachment()
       .format(HIGH_LIGHT_MASK_TARGET_FORMAT)
       .request(ctx);
 
-    // pass("highlight-selected-mask")
-    //   .with_color(selected_mask.write(), clear(color_same(0.)))
-    //   .render_ctx(ctx)
-    //   .by(scene.by_main_camera_and_self(highlight(objects)));
+    pass("highlight-selected-mask")
+      .with_color(selected_mask.write(), clear(color_same(0.)))
+      .render_ctx(ctx)
+      .by(scene.by_main_camera_and_self(highlight(objects)));
 
     self.draw_result(selected_mask.read_into())
   }
@@ -157,9 +157,9 @@ impl GraphicsShaderProvider for HighLightMaskDispatcher {
   }
 }
 
-impl<'i, T> PassContentWithSceneAndCamera for HighLightDrawMaskTask<T>
+impl<T> PassContentWithSceneAndCamera for HighLightDrawMaskTask<T>
 where
-  T: Iterator<Item = &'i dyn SceneRenderable>,
+  T: Iterator<Item = SceneModel>,
 {
   fn render(
     &mut self,
@@ -168,15 +168,9 @@ where
     camera: &SceneCamera,
   ) {
     if let Some(objects) = self.objects.take() {
-      for model in objects {
-        model.render(
-          pass,
-          &scene.extend_bindless_resource_provider(&HighLightMaskDispatcher)
-            as &dyn RenderComponentAny,
-          camera,
-          scene,
-        )
-      }
+      let mut list = RenderList::default();
+      list.collect_from_scene_objects(scene, objects, camera, false);
+      list.setup_pass(pass, &HighLightMaskDispatcher, camera, scene, false)
     }
   }
 }

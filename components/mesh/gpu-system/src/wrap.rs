@@ -9,7 +9,8 @@ use futures::{Stream, StreamExt};
 
 use crate::*;
 
-// todo, support single draw fallback
+// todo, support single draw fallback, or if we miss inject the upper system, the shader dependency
+// could not found.
 #[pin_project::pin_project(project = MaybeBindlessMeshProj)]
 pub enum MaybeBindlessMesh<T> {
   Traditional(T),
