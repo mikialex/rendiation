@@ -292,6 +292,13 @@ pub fn mouse(event: &Event<()>) -> Option<(MouseButton, ElementState)> {
   })
 }
 
+pub fn keyboard(event: &Event<()>) -> Option<(Option<VirtualKeyCode>, ElementState)> {
+  window_event(event).and_then(|e| match e {
+    WindowEvent::KeyboardInput { input, .. } => Some((input.virtual_keycode, input.state)),
+    _ => None,
+  })
+}
+
 pub fn mouse_move(event: &Event<()>) -> Option<winit::dpi::PhysicalPosition<f64>> {
   window_event(event).and_then(|e| match e {
     WindowEvent::CursorMoved { position, .. } => Some(*position),

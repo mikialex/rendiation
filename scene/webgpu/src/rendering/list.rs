@@ -1,3 +1,4 @@
+use core::cmp::Ordering::Equal;
 use std::sync::RwLockReadGuard;
 
 use crate::*;
@@ -41,10 +42,12 @@ impl RenderList {
       }
     }
 
-    self.opaque.sort_by(|a, b| a.1.partial_cmp(&b.1).unwrap());
+    self
+      .opaque
+      .sort_by(|a, b| a.1.partial_cmp(&b.1).unwrap_or(Equal));
     self
       .transparent
-      .sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap());
+      .sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(Equal));
   }
   pub fn collect_from_scene(
     &mut self,

@@ -4,6 +4,7 @@ use crate::*;
 pub struct PerspectiveProjection<T> {
   pub near: T,
   pub far: T,
+  /// vertical fov
   pub fov: Deg<T>,
   pub aspect: T,
 }
