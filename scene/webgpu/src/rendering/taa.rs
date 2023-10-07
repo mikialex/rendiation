@@ -9,8 +9,14 @@ pub struct TAA {
   frame_index: usize,
   jitters: Vec<Vec2<f32>>,
   history: Option<Attachment>,
+  /// these two camera is owned and only used in reproject in resolve
   current_camera: CameraGPU,
   previous_camera: CameraGPU,
+}
+
+pub struct NewTAAFrameSample {
+  pub new_color: Attachment,
+  pub new_depth: Attachment,
 }
 
 impl TAA {
@@ -24,20 +30,23 @@ impl TAA {
     }
   }
 
-  pub fn next_jitter(&mut self) -> Vec2<f32> {
-    let r = self.jitters[self.frame_index % SAMPLE_COUNT];
-    self.frame_index += 1;
-    r
-  }
-
-  pub fn resolve(
+  pub fn render_aa_content(
     &mut self,
-    new_color: &Attachment,
-    new_depth: &Attachment,
+    camera: &SceneCamera,
+    scene: &SceneRenderResourceGroup,
     ctx: &mut FrameCtx,
-    new_camera: &CameraGPU,
+    render: impl FnOnce(&mut FrameCtx) -> NewTAAFrameSample,
   ) -> &Attachment {
-    // improve? i think we could try copy buffer to buffer here.
+    let mut cameras = scene.scene_resources.cameras.write().unwrap();
+    let camera_gpu = cameras.get_camera_gpu_mut(camera).unwrap();
+
+    let next_jitter = self.next_jitter();
+    camera_gpu
+      .ubo
+      .mutate(|uniform| uniform.jitter_normalized = next_jitter)
+      .upload(&ctx.gpu.queue);
+
+    // todo improve? i think we could try copy buffer to buffer here.
     self
       .previous_camera
       .ubo
@@ -47,9 +56,34 @@ impl TAA {
     self
       .current_camera
       .ubo
-      .copy_cpu(&new_camera.ubo)
+      .copy_cpu(&camera_gpu.ubo)
       .upload(&ctx.gpu.queue);
 
+    drop(cameras);
+
+    // flush buffer writes;
+    ctx.make_submit();
+
+    let NewTAAFrameSample {
+      new_color,
+      new_depth,
+    } = render(ctx);
+
+    self.resolve(&new_color, &new_depth, ctx)
+  }
+
+  fn next_jitter(&mut self) -> Vec2<f32> {
+    let r = self.jitters[self.frame_index % SAMPLE_COUNT];
+    self.frame_index += 1;
+    r
+  }
+
+  fn resolve(
+    &mut self,
+    new_color: &Attachment,
+    new_depth: &Attachment,
+    ctx: &mut FrameCtx,
+  ) -> &Attachment {
     let mut resolve_target = attachment()
       .format(TextureFormat::Rgba8UnormSrgb)
       .request(ctx);

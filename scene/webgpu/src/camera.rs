@@ -52,8 +52,6 @@ pub type SceneCameraGPUStorage = impl AsRef<StreamMap<u64, ReactiveCameraGPU>>
 enum CameraGPUDelta {
   Proj(Mat4<f32>),
   WorldMat(Mat4<f32>),
-  // Jitter(Vec2<f32>),
-  // JitterEnable(bool),
 }
 
 pub fn build_reactive_camera(
@@ -164,7 +162,6 @@ impl SceneCameraGPUSystem {
 }
 
 pub struct CameraGPU {
-  pub enable_jitter: bool,
   pub ubo: UniformBufferDataView<CameraGPUTransform>,
 }
 
@@ -190,17 +187,12 @@ impl CameraGPU {
 
   pub fn new(device: &GPUDevice) -> Self {
     Self {
-      enable_jitter: false,
       ubo: create_uniform(CameraGPUTransform::default(), device),
     }
   }
 }
 
-impl ShaderHashProvider for CameraGPU {
-  fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
-    self.enable_jitter.hash(hasher)
-  }
-}
+impl ShaderHashProvider for CameraGPU {}
 
 impl ShaderPassBuilder for CameraGPU {
   fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
@@ -218,15 +210,13 @@ impl GraphicsShaderProvider for CameraGPU {
 
       let mut clip_position = camera.view_projection * (position, val(1.)).into();
 
-      if self.enable_jitter {
-        let jitter = if let Ok(texel_size) = builder.query::<TexelSize>() {
-          let jitter = texel_size * camera.jitter_normalized * clip_position.w();
-          (jitter, val(0.), val(0.)).into()
-        } else {
-          Vec4::zero().into()
-        };
-        clip_position += jitter;
-      }
+      let jitter = if let Ok(texel_size) = builder.query::<TexelSize>() {
+        let jitter = texel_size * camera.jitter_normalized * clip_position.w();
+        (jitter, val(0.), val(0.)).into()
+      } else {
+        Vec4::zero().into()
+      };
+      clip_position += jitter;
 
       builder.register::<ClipPosition>(clip_position);
 
@@ -250,7 +240,8 @@ pub struct CameraGPUTransform {
   pub view_projection: Mat4<f32>,
   pub view_projection_inv: Mat4<f32>,
 
-  /// -0.5 to 0.5
+  /// jitter is always applied (cheap and reduce shader variance)
+  /// range: -0.5 to 0.5
   pub jitter_normalized: Vec2<f32>,
 }
 

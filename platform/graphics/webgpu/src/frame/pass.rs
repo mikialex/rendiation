@@ -31,10 +31,11 @@ pub struct RenderPassGPUInfoData {
   pub buffer_size: Vec2<f32>,
 }
 
-/// create a pass descriptor with given name, the name is used for debug purpose
+/// Create a pass descriptor with given name. The provide name is used for debug purpose, not
+/// required to be unique
 pub fn pass(name: impl Into<String>) -> PassDescriptor<'static> {
   let mut desc = RenderPassDescriptorOwned::default();
-  desc.name = name.into();
+  desc.name = name.into(); // todo, use cow to avoid allocation
   PassDescriptor {
     phantom: PhantomData,
     desc,
