@@ -165,7 +165,7 @@ impl ShaderHashProvider for MaterialGPUInstance {
       Self::PhysicalMetallicRoughness(m) => m.as_reactive_component().hash_pipeline(hasher),
       Self::PhysicalSpecularGlossiness(m) => m.as_reactive_component().hash_pipeline(hasher),
       Self::Flat(m) => m.as_reactive_component().hash_pipeline(hasher),
-      Self::Foreign(m) => m.as_reactive_component().hash_pipeline_and_with_type_id(hasher),
+      Self::Foreign(m) => m.as_reactive_component().hash_pipeline_with_type_info(hasher),
     }
   }
 }

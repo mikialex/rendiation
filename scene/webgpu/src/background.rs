@@ -117,7 +117,7 @@ impl<'a, T: ShaderHashProvider> ShaderHashProvider for ShadingBackgroundTask<'a,
   }
 }
 impl<'a, T: ShaderHashProvider + Any> ShaderHashProviderAny for ShadingBackgroundTask<'a, T> {
-  fn hash_pipeline_and_with_type_id(&self, hasher: &mut PipelineHasher) {
+  fn hash_pipeline_with_type_info(&self, hasher: &mut PipelineHasher) {
     struct Mark;
     Mark.type_id().hash(hasher);
     self.content.type_id().hash(hasher);

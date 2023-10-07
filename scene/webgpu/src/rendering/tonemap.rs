@@ -126,7 +126,7 @@ struct ToneMapTask<'a, T> {
 }
 
 impl<'a, T> ShaderHashProviderAny for ToneMapTask<'a, T> {
-  fn hash_pipeline_and_with_type_id(&self, hasher: &mut PipelineHasher) {
+  fn hash_pipeline_with_type_info(&self, hasher: &mut PipelineHasher) {
     self.config.type_id().hash(hasher);
     self.hash_pipeline(hasher);
   }

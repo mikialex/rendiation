@@ -275,7 +275,7 @@ impl<'a> ShaderHashProvider for ForwardSceneLightingDispatcher<'a> {
 }
 
 impl<'a> ShaderHashProviderAny for ForwardSceneLightingDispatcher<'a> {
-  fn hash_pipeline_and_with_type_id(&self, hasher: &mut PipelineHasher) {
+  fn hash_pipeline_with_type_info(&self, hasher: &mut PipelineHasher) {
     self.hash_pipeline(hasher);
     // this is so special(I think) that id could skip
   }

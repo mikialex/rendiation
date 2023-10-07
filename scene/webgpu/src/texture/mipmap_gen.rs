@@ -184,7 +184,7 @@ impl<'a> ShaderPassBuilder for Mipmap2DGeneratorTask<'a> {
 
 impl<'a> ShaderHashProvider for Mipmap2DGeneratorTask<'a> {}
 impl<'a> ShaderHashProviderAny for Mipmap2DGeneratorTask<'a> {
-  fn hash_pipeline_and_with_type_id(&self, hasher: &mut PipelineHasher) {
+  fn hash_pipeline_with_type_info(&self, hasher: &mut PipelineHasher) {
     struct Mark;
     Mark.type_id().hash(hasher)
   }

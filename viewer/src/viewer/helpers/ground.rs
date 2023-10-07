@@ -147,7 +147,7 @@ pub struct InfinityShaderPlaneEffect<'a> {
 
 impl<'a> ShaderHashProvider for InfinityShaderPlaneEffect<'a> {}
 impl<'a> ShaderHashProviderAny for InfinityShaderPlaneEffect<'a> {
-  fn hash_pipeline_and_with_type_id(&self, hasher: &mut webgpu::PipelineHasher) {
+  fn hash_pipeline_with_type_info(&self, hasher: &mut webgpu::PipelineHasher) {
     self.plane.type_id().hash(hasher)
   }
 }

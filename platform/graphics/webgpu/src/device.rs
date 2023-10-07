@@ -170,6 +170,20 @@ pub struct RenderPipelineCache {
   pub cache: RwLock<FastHashMap<u64, GPURenderPipeline>>,
 }
 
+/// Note, here we not merge this trait into the graphics pipeline build trait because the hashing is
+/// mainly used in pipeline caching, and the caching is optional by design.
+///
+/// Another strong version of the similar idea is: This approach could avoid accidental missing
+/// hashing
+///
+/// ```
+/// pub trait GraphicsPipelineVariant: GraphicsShaderProvider + Hash + Eq {}
+/// pub trait GraphicsPipelineVariantProvider {
+///   fn create_pipeline_variant(&self) -> Box<dyn GraphicsPipelineVariant>;
+/// }
+/// ```
+/// however, we choose not use this approach for now because it will create much more heap
+/// allocation
 pub trait ShaderHashProvider {
   fn hash_pipeline(&self, _hasher: &mut PipelineHasher) {}
 }
@@ -180,14 +194,14 @@ impl ShaderHashProvider for () {}
 /// impl with itself's type identity info. In this case, the user should impl this trait
 /// manually.
 pub trait ShaderHashProviderAny: ShaderHashProvider {
-  fn hash_pipeline_and_with_type_id(&self, hasher: &mut PipelineHasher);
+  fn hash_pipeline_with_type_info(&self, hasher: &mut PipelineHasher);
 }
 
 impl<T> ShaderHashProviderAny for T
 where
   T: ShaderHashProvider + Any,
 {
-  default fn hash_pipeline_and_with_type_id(&self, hasher: &mut PipelineHasher) {
+  default fn hash_pipeline_with_type_info(&self, hasher: &mut PipelineHasher) {
     self.type_id().hash(hasher);
     self.hash_pipeline(hasher);
   }

@@ -48,8 +48,8 @@ impl<'a> ShaderHashProvider for &'a dyn RenderComponentAny {
   }
 }
 impl<'a> ShaderHashProviderAny for &'a dyn RenderComponentAny {
-  fn hash_pipeline_and_with_type_id(&self, hasher: &mut PipelineHasher) {
-    (*self).hash_pipeline_and_with_type_id(hasher)
+  fn hash_pipeline_with_type_info(&self, hasher: &mut PipelineHasher) {
+    (*self).hash_pipeline_with_type_info(hasher)
   }
 }
 impl<'a> ShaderPassBuilder for &'a dyn RenderComponentAny {
@@ -99,7 +99,7 @@ impl<'a, 'b> ShaderHashProvider for RenderEmitter<'a, 'b> {
     self
       .contents
       .iter()
-      .for_each(|com| com.hash_pipeline_and_with_type_id(hasher))
+      .for_each(|com| com.hash_pipeline_with_type_info(hasher))
   }
 }
 
@@ -139,8 +139,8 @@ impl<'a, T: ShaderHashProvider> ShaderHashProvider for BindingController<'a, T> 
   }
 }
 impl<'a, T: ShaderHashProviderAny> ShaderHashProviderAny for BindingController<'a, T> {
-  fn hash_pipeline_and_with_type_id(&self, hasher: &mut PipelineHasher) {
-    self.inner.hash_pipeline_and_with_type_id(hasher)
+  fn hash_pipeline_with_type_info(&self, hasher: &mut PipelineHasher) {
+    self.inner.hash_pipeline_with_type_info(hasher)
     // note, the binding info should hashed by binding grouper if necessary
   }
 }

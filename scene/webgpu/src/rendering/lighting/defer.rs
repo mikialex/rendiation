@@ -296,7 +296,7 @@ impl<'a, D, S, R> ShaderHashProvider for DrawDefer<'a, D, S, R> {
 }
 
 impl<'a, D: Any, S: Any, R: Any> ShaderHashProviderAny for DrawDefer<'a, D, S, R> {
-  fn hash_pipeline_and_with_type_id(&self, hasher: &mut PipelineHasher) {
+  fn hash_pipeline_with_type_info(&self, hasher: &mut PipelineHasher) {
     TypeId::of::<D>().hash(hasher);
     TypeId::of::<S>().hash(hasher);
     TypeId::of::<R>().hash(hasher);

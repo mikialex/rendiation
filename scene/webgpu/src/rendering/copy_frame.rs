@@ -10,7 +10,7 @@ impl<T> ShaderHashProvider for CopyFrame<T> {
 }
 
 impl<T> ShaderHashProviderAny for CopyFrame<T> {
-  fn hash_pipeline_and_with_type_id(&self, hasher: &mut PipelineHasher) {
+  fn hash_pipeline_with_type_info(&self, hasher: &mut PipelineHasher) {
     CopyFrameTypeMark.type_id().hash(hasher);
   }
 }

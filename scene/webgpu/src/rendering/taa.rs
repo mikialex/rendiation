@@ -169,7 +169,7 @@ impl<'a> ShaderPassBuilder for TAAResolver<'a> {
 }
 impl<'a> ShaderHashProvider for TAAResolver<'a> {}
 impl<'a> ShaderHashProviderAny for TAAResolver<'a> {
-  fn hash_pipeline_and_with_type_id(&self, hasher: &mut PipelineHasher) {
+  fn hash_pipeline_with_type_info(&self, hasher: &mut PipelineHasher) {
     struct Marker;
     Marker.type_id().hash(hasher)
   }

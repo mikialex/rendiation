@@ -46,10 +46,10 @@ impl<'a, T: ShaderPassBuilder> ShaderPassBuilder for BindlessResourceProvider<'a
 }
 
 impl<'a, T: ShaderHashProviderAny> ShaderHashProviderAny for BindlessResourceProvider<'a, T> {
-  fn hash_pipeline_and_with_type_id(&self, hasher: &mut PipelineHasher) {
+  fn hash_pipeline_with_type_info(&self, hasher: &mut PipelineHasher) {
     struct Marker;
     Marker.type_id().hash(hasher);
-    self.base.hash_pipeline_and_with_type_id(hasher)
+    self.base.hash_pipeline_with_type_info(hasher)
   }
 }
 

@@ -80,7 +80,7 @@ impl<'a, T> ShaderHashProvider for HighLightComposeTask<'a, T> {
 }
 
 impl<'a, T> ShaderHashProviderAny for HighLightComposeTask<'a, T> {
-  fn hash_pipeline_and_with_type_id(&self, hasher: &mut PipelineHasher) {
+  fn hash_pipeline_with_type_info(&self, hasher: &mut PipelineHasher) {
     self.lighter.type_id().hash(hasher);
   }
 }
@@ -170,7 +170,8 @@ where
     if let Some(objects) = self.objects.take() {
       let mut list = RenderList::default();
       list.collect_from_scene_objects(scene, objects, camera, false);
-      list.setup_pass(pass, &HighLightMaskDispatcher, camera, scene, false)
+      let list = MaybeBindlessMeshRenderList::from_list(list, scene);
+      list.setup_pass(pass, &HighLightMaskDispatcher, camera, scene)
     }
   }
 }
