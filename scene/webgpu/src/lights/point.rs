@@ -10,14 +10,9 @@ pub struct PointLightShaderInfo {
 }
 
 impl PunctualShaderLight for PointLightShaderInfo {
-  type PunctualDependency = ();
-
-  fn create_punctual_dep(_: &mut ShaderFragmentBuilderView) -> Self::PunctualDependency {}
-
   fn compute_incident_light(
     _: &ShaderFragmentBuilderView,
     light: &ENode<Self>,
-    _dep: &Self::PunctualDependency,
     ctx: &ENode<ShaderLightingGeometricCtx>,
   ) -> ENode<ShaderIncidentLight> {
     let direction = ctx.position - light.position;

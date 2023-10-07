@@ -565,7 +565,7 @@ impl<T: ShaderLight> LightCollectionCompute for LightList<T> {
   ) -> ENode<ShaderLightingResult> {
     let lights: UniformNode<_> = binding.bind_by(self.uniform.gpu.as_ref().unwrap());
 
-    let dep = T::create_dep(builder);
+    T::create_dep(builder);
 
     let light_specular_result = val(Vec3::zero()).make_local_var();
     let light_diffuse_result = val(Vec3::zero()).make_local_var();
@@ -578,7 +578,7 @@ impl<T: ShaderLight> LightCollectionCompute for LightList<T> {
       .for_each(|(_, light), _| {
         let light = light.load().expand();
         let light_result =
-          T::compute_direct_light(builder, &light, geom_ctx, shading_impl, shading, &dep);
+          T::compute_direct_light(builder, &light, geom_ctx, shading_impl, shading);
 
         // improve impl by add assign
         light_specular_result.store(light_specular_result.load() + light_result.specular);

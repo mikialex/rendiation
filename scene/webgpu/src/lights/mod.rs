@@ -98,9 +98,9 @@ pub struct ShaderLightingGeometricCtx {
 pub trait ShaderLight:
   ShaderStructuralNodeType + ShaderSizedValueNodeType + Std140 + Sized + Default
 {
-  type Dependency;
-
-  fn create_dep(builder: &mut ShaderFragmentBuilderView) -> Self::Dependency;
+  /// for given light type, this method will only called once in shader building process
+  /// user could inject any custom dependency in shader that shared among all light instance
+  fn create_dep(_builder: &mut ShaderFragmentBuilderView) {}
 
   fn compute_direct_light(
     builder: &ShaderFragmentBuilderView,
@@ -108,7 +108,6 @@ pub trait ShaderLight:
     ctx: &ENode<ShaderLightingGeometricCtx>,
     shading_impl: &dyn LightableSurfaceShadingDyn,
     shading: &dyn Any,
-    dep: &Self::Dependency,
   ) -> ENode<ShaderLightingResult>;
 }
 
@@ -117,22 +116,18 @@ pub trait ShaderLight:
 pub trait PunctualShaderLight:
   ShaderStructuralNodeType + ShaderSizedValueNodeType + Std140 + Sized + Default
 {
-  type PunctualDependency;
-
-  fn create_punctual_dep(builder: &mut ShaderFragmentBuilderView) -> Self::PunctualDependency;
+  /// see base trait similar method
+  fn create_punctual_dep(_builder: &mut ShaderFragmentBuilderView) {}
 
   fn compute_incident_light(
     builder: &ShaderFragmentBuilderView,
     light: &ENode<Self>,
-    dep: &Self::PunctualDependency,
     ctx: &ENode<ShaderLightingGeometricCtx>,
   ) -> ENode<ShaderIncidentLight>;
 }
 
 impl<T: PunctualShaderLight> ShaderLight for T {
-  type Dependency = T::PunctualDependency;
-
-  fn create_dep(builder: &mut ShaderFragmentBuilderView) -> Self::Dependency {
+  fn create_dep(builder: &mut ShaderFragmentBuilderView) {
     T::create_punctual_dep(builder)
   }
 
@@ -142,10 +137,26 @@ impl<T: PunctualShaderLight> ShaderLight for T {
     ctx: &ENode<ShaderLightingGeometricCtx>,
     shading_impl: &dyn LightableSurfaceShadingDyn,
     shading: &dyn Any,
-    dep: &Self::Dependency,
   ) -> ENode<ShaderLightingResult> {
-    // todo, check if incident light intensity zero
-    let incident = T::compute_incident_light(builder, light, dep, ctx);
-    shading_impl.compute_lighting_by_incident_dyn(shading, &incident, ctx)
+    let incident = T::compute_incident_light(builder, light, ctx);
+
+    incident
+      .color
+      .equals(Vec3::zero())
+      .all()
+      .select_branched(
+        || {
+          ShaderLightingResult::construct(ENode::<ShaderLightingResult> {
+            diffuse: val(Vec3::zero()),
+            specular: val(Vec3::zero()),
+          })
+        },
+        || {
+          shading_impl
+            .compute_lighting_by_incident_dyn(shading, &incident, ctx)
+            .construct()
+        },
+      )
+      .expand()
   }
 }

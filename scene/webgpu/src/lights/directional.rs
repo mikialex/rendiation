@@ -13,14 +13,9 @@ pub struct DirectionalLightShaderInfo {
 }
 
 impl PunctualShaderLight for DirectionalLightShaderInfo {
-  type PunctualDependency = ();
-
-  fn create_punctual_dep(_: &mut ShaderFragmentBuilderView) -> Self::PunctualDependency {}
-
   fn compute_incident_light(
     builder: &ShaderFragmentBuilderView,
     light: &ENode<Self>,
-    _dep: &Self::PunctualDependency,
     _ctx: &ENode<ShaderLightingGeometricCtx>,
   ) -> ENode<ShaderIncidentLight> {
     let shadow_info = light.shadow.expand();
