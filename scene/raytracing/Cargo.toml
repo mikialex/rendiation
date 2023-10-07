@@ -5,7 +5,7 @@ name = "rendiation-scene-raytracing"
 version = "0.1.0"
 
 [dependencies]
-dyn-clone = "1.0.5"
+dyn-clone = {workspace = true}
 image = "*"
 indicatif = "0.15"
 rand = "0.7.3"
@@ -13,14 +13,14 @@ rayon = "1.7.0"
 statrs = "0.16.0"
 tobj = "2.0.3"
 
-arena = { path = "../../utils/arena" }
-rendiation-algebra = { path = "../../math/algebra" }
-rendiation-statistics = { path = "../../math/statistics" }
-rendiation-color = { path = "../../components/color" }
-rendiation-geometry = { path = "../../math/geometry" }
-rendiation-lighting-transport = { path = "../../components/lighting/transport" }
-rendiation-mesh-core = { path = "../../components/mesh/core" }
-rendiation-scene-core = { path = "../core" }
-rendiation-texture = { path = "../../components/texture/core" }
-space-algorithm = { path = "../../components/space" }
-tree = { path = "../../utils/tree" }
+arena = {path = "../../utils/arena"}
+rendiation-algebra = {path = "../../math/algebra"}
+rendiation-color = {path = "../../components/color"}
+rendiation-geometry = {path = "../../math/geometry"}
+rendiation-lighting-transport = {path = "../../components/lighting/transport"}
+rendiation-mesh-core = {path = "../../components/mesh/core"}
+rendiation-scene-core = {path = "../core"}
+rendiation-statistics = {path = "../../math/statistics"}
+rendiation-texture = {path = "../../components/texture/core"}
+space-algorithm = {path = "../../components/space"}
+tree = {path = "../../utils/tree"}

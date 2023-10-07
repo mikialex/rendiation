@@ -4,9 +4,9 @@ name = "rendiation-algebra"
 version = "0.1.0"
 
 [dependencies]
-bytemuck = {version = "1.4.1", features = ["derive"]}
+bytemuck = {workspace = true, features = ["derive"]}
 num-traits = "0.2"
-paste = "1.0.2"
+paste = {workspace = true}
 
 incremental = {path = "../../utils/incremental"}
 

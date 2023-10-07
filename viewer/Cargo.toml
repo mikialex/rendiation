@@ -5,43 +5,43 @@ name = "viewer"
 version = "0.1.0"
 
 [dependencies]
-bytemuck = { version = "1.4.1", features = ["derive"] }
+bytemuck = {workspace = true, features = ["derive"]}
 env_logger = "0.8.4"
-futures = { version = "0.3.25", features = ["thread-pool"] }
+futures = {workspace = true, features = ["thread-pool"]}
 
-dirs = "4.0.0"
-image = "*"
-png = "*"      # for better control over writing
+dirs = "4.0.0" 
+image = "*" 
+png = "*" # for better control over writing
 
-incremental = { path = "../utils/incremental" }
-interphaser = { path = "../interphaser" }
-log = "0.4"
-pin-project = "1.0.12"
+fast-hash-collection = {path = "../utils/fast-hash-collection"}
+heap-tools = {path = "../utils/heap-tools"}
+incremental = {path = "../utils/incremental"}
+interphaser = {path = "../interphaser"}
+log = {workspace = true}
+pin-project = {workspace = true}
 rayon = "1.7.0"
-heap-tools = { path = "../utils/heap-tools" }
-fast-hash-collection = { path = "../utils/fast-hash-collection" }
-reactive = { path = "../utils/reactive" }
-rendiation-algebra = { path = "../math/algebra" }
-rendiation-controller = { path = "../components/controller" }
-rendiation-generative-texture = { path = "../components/texture/generative" }
-rendiation-geometry = { path = "../math/geometry" }
-rendiation-mesh-generator = { path = "../components/mesh/generator" }
-rendiation-mesh-core = { path = "../components/mesh/core" }
-rendiation-scene-core = { path = "../scene/core" }
-rendiation-scene-gltf-loader = { path = "../scene/io/gltf/loader" }
-rendiation-scene-gltf-exporter = { path = "../scene/io/gltf/exporter" }
-rendiation-scene-obj-loader = { path = "../scene/io/obj/loader" }
-rendiation-scene-interaction = { path = "../scene/interaction" }
-rendiation-scene-webgpu = { path = "../scene/webgpu" }
-rendiation-texture = { path = "../components/texture/core" }
+reactive = {path = "../utils/reactive"}
+rendiation-algebra = {path = "../math/algebra"}
+rendiation-controller = {path = "../components/controller"}
+rendiation-generative-texture = {path = "../components/texture/generative"}
+rendiation-geometry = {path = "../math/geometry"}
+rendiation-mesh-core = {path = "../components/mesh/core"}
+rendiation-mesh-generator = {path = "../components/mesh/generator"}
+rendiation-scene-core = {path = "../scene/core"}
+rendiation-scene-gltf-exporter = {path = "../scene/io/gltf/exporter"}
+rendiation-scene-gltf-loader = {path = "../scene/io/gltf/loader"}
+rendiation-scene-interaction = {path = "../scene/interaction"}
+rendiation-scene-obj-loader = {path = "../scene/io/obj/loader"}
+rendiation-scene-webgpu = {path = "../scene/webgpu"}
+rendiation-shader-api = {path = "../shader/api"}
+rendiation-texture = {path = "../components/texture/core"}
 rfd = "0.10.0"
-rendiation-shader-api = { path = "../shader/api" }
-webgpu = { package = "rendiation-webgpu", path = "../platform/graphics/webgpu" }
+webgpu = {package = "rendiation-webgpu", path = "../platform/graphics/webgpu"}
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 console_error_panic_hook = "0.1.6"
 wasm-bindgen-futures = "0.4.28"
 
 [features]
-webgl = ["webgpu/webgl"]
 heap-debug = ["heap-tools/enabled"]
+webgl = ["webgpu/webgl"]

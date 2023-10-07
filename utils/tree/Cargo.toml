@@ -4,7 +4,7 @@ name = "tree"
 version = "0.0.1"
 
 [dependencies]
-futures = "0.3.25"
+futures = {workspace = true}
 incremental = {path = "../incremental"}
 reactive = {path = "../reactive"}
 rendiation-abstract-tree = {path = "../abstract-tree"}

@@ -4,8 +4,8 @@ name = "heap-tools"
 version = "0.0.1"
 
 [dependencies]
-once_cell = "1.4.0"
-fast-hash-collection = { path = "../fast-hash-collection" }
+fast-hash-collection = {path = "../fast-hash-collection"}
+once_cell = {workspace = true}
 
 [features]
 enabled = []

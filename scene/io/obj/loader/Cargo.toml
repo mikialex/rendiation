@@ -5,11 +5,11 @@ name = "rendiation-scene-obj-loader"
 version = "0.1.0"
 
 [dependencies]
-rendiation-algebra = { path = "../../../../math/algebra" }
-rendiation-mesh-core = { path = "../../../../components/mesh/core" }
-rendiation-texture = { path = "../../../../components/texture/core" }
-rendiation-scene-core = { path = "../../../core" }
-smallvec = "1.9.0"
+image = "*"
+rendiation-algebra = {path = "../../../../math/algebra"}
+rendiation-mesh-core = {path = "../../../../components/mesh/core"}
+rendiation-scene-core = {path = "../../../core"}
+rendiation-texture = {path = "../../../../components/texture/core"}
+smallvec = {workspace = true}
 thiserror = "1.0.43"
 tobj = "4.0.0"
-image = "*"

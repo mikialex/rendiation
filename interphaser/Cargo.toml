@@ -5,27 +5,27 @@ name = "interphaser"
 version = "0.1.0"
 
 [dependencies]
-arena = { path = "../utils/arena" }
-bytemuck = { version = "1.4.1", features = ["derive"] }
-fontext = { path = "../components/fontext" }
-futures = "0.3.25"
+arena = {path = "../utils/arena"}
+bytemuck = {workspace = true, features = ["derive"]}
+fontext = {path = "../components/fontext"}
+futures = {workspace = true}
 image = "*"
-incremental = { path = "../utils/incremental" }
-log = "0.4"
-reactive = { path = "../utils/reactive" }
-rendiation-algebra = { path = "../math/algebra" }
-rendiation-canvas-core = { path = "../components/canvas/core" }
-rendiation-color = { path = "../components/color" }
-rendiation-geometry = { path = "../math/geometry" }
-rendiation-mesh-core = { path = "../components/mesh/core" }
-rendiation-texture = { path = "../components/texture/core" }
-rendiation-shader-api = { path = "../shader/api" }
-rendiation-shader-backend-naga = { path = "../shader/backends/naga" }
-rendiation-webgpu = { path = "../platform/graphics/webgpu" }
-winit = { version = "0.27.1" }
+incremental = {path = "../utils/incremental"}
+log = {workspace = true}
+reactive = {path = "../utils/reactive"}
+rendiation-algebra = {path = "../math/algebra"}
+rendiation-canvas-core = {path = "../components/canvas/core"}
+rendiation-color = {path = "../components/color"}
+rendiation-geometry = {path = "../math/geometry"}
+rendiation-mesh-core = {path = "../components/mesh/core"}
+rendiation-shader-api = {path = "../shader/api"}
+rendiation-shader-backend-naga = {path = "../shader/backends/naga"}
+rendiation-texture = {path = "../components/texture/core"}
+rendiation-webgpu = {path = "../platform/graphics/webgpu"}
+winit = {workspace = true}
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 console_error_panic_hook = "0.1.6"
 instant = "0.1.12"
 wasm-bindgen-futures = "0.4.28"
-web-sys = { version = "0.3.53" }
+web-sys = {version = "0.3.53"}

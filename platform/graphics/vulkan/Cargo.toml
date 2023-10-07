@@ -12,14 +12,13 @@ autoexamples = false
 [lib]
 test = false
 
-
 [dependencies]
 ash = {version = "0.37", features = ["linked"]}
 ash-window = "0.12"
 raw-window-handle = "0.5"
-winit = {version = "0.27.1"}
+winit = {workspace = true}
 
 anyhow = "1.0"
-log = "0.4"
+log = {workspace = true}
 simple_logger = "4.0"
 thiserror = "1.0"

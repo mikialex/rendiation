@@ -5,21 +5,21 @@ name = "rendiation-webgpu"
 version = "0.1.0"
 
 [dependencies]
-bytemuck = { version = "1.4.1", features = ["derive"] }
-futures = "0.3.25"
+bytemuck = {workspace = true, features = ["derive"]}
+dyn-downcast = {path = "../../../utils/dyn-downcast"}
+fast-hash-collection = {path = "../../../utils/fast-hash-collection"}
+futures = {workspace = true}
+naga = {version = "0.13.0", features = ["wgsl-out"]}
+reactive = {path = "../../../utils/reactive"}
+rendiation-algebra = {path = "../../../math/algebra"}
+rendiation-shader-api = {path = "../../../shader/api"}
+rendiation-shader-backend-naga = {path = "../../../shader/backends/naga"}
+rendiation-texture-types = {path = "../../../components/texture/types"}
 thiserror = "1.0.43"
-dyn-downcast = { path = "../../../utils/dyn-downcast" }
-reactive = { path = "../../../utils/reactive" }
-fast-hash-collection = { path = "../../../utils/fast-hash-collection" }
-rendiation-algebra = { path = "../../../math/algebra" }
-rendiation-texture-types = { path = "../../../components/texture/types" }
-rendiation-shader-api = { path = "../../../shader/api" }
-rendiation-shader-backend-naga = { path = "../../../shader/backends/naga" }
 typed-arena = "2.0.1"
-wgpu = { version = "0.17", features = ["naga"] }
+wgpu = {version = "0.17", features = ["naga"]}
 wgpu-types = "0.17"
-winit = { version = "0.27.1" }
-naga = { version = "0.13.0", features = ["wgsl-out"] }
+winit = {workspace = true}
 
 [features]
 webgl = ["wgpu/webgl"]

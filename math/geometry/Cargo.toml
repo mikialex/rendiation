@@ -4,5 +4,5 @@ name = "rendiation-geometry"
 version = "0.1.0"
 
 [dependencies]
-bytemuck = "1.4.1"
+bytemuck = {workspace = true, features = ["derive"]}
 rendiation-algebra = {path = "../algebra"}

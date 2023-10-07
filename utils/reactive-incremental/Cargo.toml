@@ -4,8 +4,8 @@ name = "reactive-incremental"
 version = "0.0.1"
 
 [dependencies]
-futures = "0.3.25"
-incremental = { path = "../incremental" }
-reactive = { path = "../reactive" }
-dyn-downcast = { path = "../dyn-downcast" }
-heap-tools = { path = "../heap-tools" }
+dyn-downcast = {path = "../dyn-downcast"}
+futures = {workspace = true}
+heap-tools = {path = "../heap-tools"}
+incremental = {path = "../incremental"}
+reactive = {path = "../reactive"}

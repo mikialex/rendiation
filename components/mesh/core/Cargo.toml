@@ -5,17 +5,17 @@ name = "rendiation-mesh-core"
 version = "0.1.0"
 
 [dependencies]
-bytemuck = "1.4.1"
+bytemuck = {workspace = true, features = ["derive"]}
 soa_derive = "0.8.1"
 
-rendiation-algebra = { path = "../../../math/algebra" }
-rendiation-geometry = { path = "../../../math/geometry" }
+rendiation-algebra = {path = "../../../math/algebra"}
+rendiation-geometry = {path = "../../../math/geometry"}
 
-space-algorithm = { path = "../../space" }
+space-algorithm = {path = "../../space"}
 
-smallvec = "1.9.0"
-dyn-downcast = { path = "../../../utils/dyn-downcast" }
-fast-hash-collection = { path = "../../../utils/fast-hash-collection" }
-incremental = { path = "../../../utils/incremental" }
-reactive-incremental = { path = "../../../utils/reactive-incremental" }
-rendiation-shader-api = { path = "../../../shader/api" }
+dyn-downcast = {path = "../../../utils/dyn-downcast"}
+fast-hash-collection = {path = "../../../utils/fast-hash-collection"}
+incremental = {path = "../../../utils/incremental"}
+reactive-incremental = {path = "../../../utils/reactive-incremental"}
+rendiation-shader-api = {path = "../../../shader/api"}
+smallvec = {workspace = true}

@@ -5,12 +5,12 @@ name = "rendiation-canvas-gpu"
 version = "0.1.0"
 
 [dependencies]
-rendiation-canvas-core = { path = "../core" }
-bytemuck = "1.4.1"
-fontext = { path = "../../fontext" }
+bytemuck = {workspace = true, features = ["derive"]}
+fontext = {path = "../../fontext"}
 lyon = "1.0.1"
-rendiation-algebra = { path = "../../../math/algebra" }
-rendiation-color = { path = "../../color" }
-rendiation-webgpu = { path = "../../../platform/graphics/webgpu" }
-rendiation-geometry = { path = "../../../math/geometry" }
-rendiation-shader-api = { path = "../../../shader/api" }
+rendiation-algebra = {path = "../../../math/algebra"}
+rendiation-canvas-core = {path = "../core"}
+rendiation-color = {path = "../../color"}
+rendiation-geometry = {path = "../../../math/geometry"}
+rendiation-shader-api = {path = "../../../shader/api"}
+rendiation-webgpu = {path = "../../../platform/graphics/webgpu"}
