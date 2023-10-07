@@ -40,7 +40,6 @@ pub fn apply_normal_mapping(
   let normal_adjust = normal_map_sample * val(Vec3::splat(2.)) - val(Vec3::one());
   let normal_adjust = normal_adjust * scale.splat::<Vec3<f32>>();
 
-  // todo, should we move this to upper?
   let face = builder
     .query::<FragmentFrontFacing>()
     .unwrap() // builtin type
@@ -66,7 +65,6 @@ pub fn apply_normal_mapping_conditional(
     let normal_adjust = normal_map_sample * val(Vec3::splat(2.)) - val(Vec3::one());
     let normal_adjust = normal_adjust * scale.splat::<Vec3<f32>>();
 
-    // todo, should we move this to upper?
     let face = builder
       .query::<FragmentFrontFacing>()
       .unwrap() // builtin type

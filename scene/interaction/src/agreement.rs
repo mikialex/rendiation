@@ -1,7 +1,11 @@
 use crate::*;
 
 pub trait PickingConventionAgreement {
-  fn is_keep_mesh_shape(&self) -> bool;
+  /// decide if the material's display affect static mesh shape.
+  /// most of material do not have vertex shader logic so default to true.
+  fn is_keep_mesh_shape(&self) -> bool {
+    true
+  }
 }
 
 define_dyn_trait_downcaster_static!(PickingConventionAgreement);
@@ -41,20 +45,6 @@ where
   }
 }
 
-impl PickingConventionAgreement for FlatMaterial {
-  fn is_keep_mesh_shape(&self) -> bool {
-    true
-  }
-}
-
-impl PickingConventionAgreement for PhysicalSpecularGlossinessMaterial {
-  fn is_keep_mesh_shape(&self) -> bool {
-    true
-  }
-}
-
-impl PickingConventionAgreement for PhysicalMetallicRoughnessMaterial {
-  fn is_keep_mesh_shape(&self) -> bool {
-    true
-  }
-}
+impl PickingConventionAgreement for FlatMaterial {}
+impl PickingConventionAgreement for PhysicalSpecularGlossinessMaterial {}
+impl PickingConventionAgreement for PhysicalMetallicRoughnessMaterial {}
