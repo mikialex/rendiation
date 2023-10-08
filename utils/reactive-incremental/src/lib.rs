@@ -140,14 +140,15 @@ impl<T: IncrementalBase> IncrementalSignal<T> {
     C: ChannelLike<U, Message = N>,
   {
     let (sender, receiver) = channel_builder.build();
-    let sender_c = sender.clone();
-    let send = move |mapped| {
-      C::send(&sender_c, mapped);
-    };
-    mapper(MaybeDeltaRef::All(self), &send);
+
+    mapper(MaybeDeltaRef::All(self), &|mapped| {
+      C::send(&sender, mapped);
+    });
 
     let remove_token = self.delta_source.on(move |v| {
-      mapper(MaybeDeltaRef::Delta(v), &send);
+      mapper(MaybeDeltaRef::Delta(v), &|mapped| {
+        C::send(&sender, mapped);
+      });
       C::is_closed(&sender)
     });
 

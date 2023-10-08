@@ -111,7 +111,7 @@ impl Viewer3dContent {
       CameraProjectionEnum::Perspective(proj) => {
         // todo check horizon fov
         let half_fov = proj.fov.to_rad() / 2.;
-        let canvas_half_size = half_fov.tan() * proj.near;
+        let canvas_half_size = half_fov.tan(); // todo consider near far limit
         let padded_canvas_half_size = canvas_half_size * (1.0 - padding_ratio);
         let desired_half_fov = padded_canvas_half_size.atan();
         let desired_distance = object_radius / desired_half_fov.sin();

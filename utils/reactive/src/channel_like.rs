@@ -2,7 +2,7 @@ use crate::*;
 
 pub trait ChannelLike<T> {
   type Message;
-  type Sender: Clone + Send + Sync + 'static;
+  type Sender: Send + Sync + 'static;
   type Receiver: Stream<Item = Self::Message> + Send + Sync + 'static;
 
   fn build(&self) -> (Self::Sender, Self::Receiver);
