@@ -25,6 +25,7 @@ impl GPUBindlessMeshSystem {
     &'a self,
     iter: impl Iterator<Item = MeshSystemMeshHandle> + 'a,
   ) -> impl Iterator<Item = (DrawIndexedIndirect, DrawVertexIndirectInfo)> + 'a {
+    println!("dddddd");
     iter.enumerate().map(|(i, handle)| {
       let sys = self.inner.read().unwrap();
         let DrawMetaData { start,  count, vertex_info, .. } = sys.metadata.get(handle as usize).unwrap();

@@ -140,6 +140,7 @@ impl GPUBindlessMeshSystem {
       &gpu.device,
       10_0000,
       1000_0000,
+      4,
       BufferUsages::INDEX,
     );
 
