@@ -49,7 +49,7 @@ impl Viewer3dRenderingCtx {
   }
 
   /// only texture could be read. caller must sure the target passed in render call not using
-  /// surface.
+  /// window surface.
   pub fn read_next_render_result(
     &mut self,
   ) -> impl Future<Output = Result<ReadableTextureBuffer, ViewerRenderResultReadBackErr>> {

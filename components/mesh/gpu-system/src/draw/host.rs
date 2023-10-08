@@ -25,6 +25,7 @@ impl GPUBindlessMeshSystem {
     &'a self,
     iter: impl Iterator<Item = MeshSystemMeshHandle> + 'a,
   ) -> impl Iterator<Item = (DrawIndexedIndirect, DrawVertexIndirectInfo)> + 'a {
+    println!("dddddd");
     iter.enumerate().map(|(i, handle)| {
       let sys = self.inner.read().unwrap();
         let DrawMetaData { start,  count, vertex_info, .. } = sys.metadata.get(handle as usize).unwrap();
@@ -99,9 +100,9 @@ impl GraphicsShaderProvider for BindlessMeshDispatcher {
       let uv = binding.bind_by(&sys.uv);
       let uv = uv.index(vertex_address.uv_buffer_offset + vertex_id).load();
 
-      vertex.register::<GeometryPosition>(position);
-      vertex.register::<GeometryNormal>(normal);
-      vertex.register::<GeometryUV>(uv);
+      vertex.register::<GeometryPosition>(position.xyz());
+      vertex.register::<GeometryNormal>(normal.xyz());
+      vertex.register::<GeometryUV>(uv.xy());
       Ok(())
     })
   }

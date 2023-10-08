@@ -65,6 +65,17 @@ pub fn build_scene_mesh(f: impl FnOnce(&mut SceneMeshBuilder)) -> MeshEnum {
   f(&mut builder);
   let mesh = builder.finish();
   // could use to test foreign mesh rendering?
+  MeshEnum::Foreign(Box::new(mesh.into_ref()))
+  // let mut attribute: AttributesMesh = mesh.mesh.primitive_iter().collect();
+  // attribute.groups = mesh.groups;
+  // MeshEnum::AttributesMesh(attribute.into_ref())
+}
+
+pub fn build_scene_mesh2(f: impl FnOnce(&mut SceneMeshBuilder)) -> MeshEnum {
+  let mut builder = SceneMeshBuilder::default();
+  f(&mut builder);
+  let mesh = builder.finish();
+  // could use to test foreign mesh rendering?
   // return MeshEnum::Foreign(Box::new(mesh.into_ref()))
   let mut attribute: AttributesMesh = mesh.mesh.primitive_iter().collect();
   attribute.groups = mesh.groups;
@@ -249,19 +260,23 @@ pub fn load_default_scene(scene: &Scene) {
   let spot_light = SceneLightImpl::new(spot_light, spot_light_node);
   scene.insert_light(spot_light.into());
 
-  // stress_test(scene);
+  stress_test(scene);
 }
 
-/// create 10k model in scene, each model use different material, mesh and node instance.
-/// node has tree layer of hierarchy
 pub fn stress_test(scene: &Scene) {
-  for i in 0..100 {
+  let material = PhysicalSpecularGlossinessMaterial {
+    albedo: Vec3::splat(1.),
+    albedo_texture: None,
+    ..Default::default()
+  };
+  let material = MaterialEnum::PhysicalSpecularGlossiness(material.into());
+  for i in 0..10 {
     let i_parent = scene.create_root_child();
     i_parent.set_local_matrix(Mat4::translate((i as f32, 0., 0.)));
     for j in 0..10 {
       let j_parent = i_parent.create_child();
       j_parent.set_local_matrix(Mat4::translate((0., 0., j as f32)));
-      for k in 0..10 {
+      for k in 0..1 {
         let node = j_parent.create_child();
         node.set_local_matrix(Mat4::translate((0., k as f32, 0.)));
 
@@ -270,23 +285,16 @@ pub fn stress_test(scene: &Scene) {
           height: 0.2,
           depth: 0.2,
         };
-        let mesh = build_scene_mesh(|builder| {
+        let mesh = build_scene_mesh2(|builder| {
           for face in cube.make_faces() {
             builder.triangulate_parametric(&face, TessellationConfig { u: 2, v: 3 }, true);
           }
         });
 
-        let material = PhysicalSpecularGlossinessMaterial {
-          albedo: Vec3::splat(1.),
-          albedo_texture: None,
-          ..Default::default()
-        };
-        let material = MaterialEnum::PhysicalSpecularGlossiness(material.into());
-
         let child = scene.create_root_child();
         child.set_local_matrix(Mat4::translate((2., 0., 3.)));
 
-        let model = StandardModel::new(material, mesh);
+        let model = StandardModel::new(material.clone(), mesh);
         let model = ModelEnum::Standard(model.into());
         let model = SceneModelImpl::new(model, node);
         let _ = scene.insert_model(model.into());

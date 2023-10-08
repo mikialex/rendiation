@@ -25,7 +25,8 @@ struct GPUSubAllocateBufferImpl {
   allocator: xalloc::SysTlsf<u32>,
   buffer: GPUBufferResourceView,
   usage: BufferUsages,
-  max_byte_size: usize,
+  max_size: usize,
+  item_byte_size: usize,
   relocate_callback: Option<Box<dyn Fn(RelocationMessage)>>,
 }
 
@@ -57,10 +58,10 @@ impl GPUSubAllocateBufferImpl {
 
         encoder.copy_buffer_to_buffer(
           self.buffer.resource.gpu(),
-          current.start as u64,
+          current.start as u64 * self.item_byte_size as u64,
           new_buffer.resource.gpu(),
-          new_offset as u64,
-          size as u64,
+          new_offset as u64 * self.item_byte_size as u64,
+          size as u64 * self.item_byte_size as u64,
         );
 
         *token = new_token;
@@ -103,25 +104,27 @@ impl GPUSubAllocateBuffer {
 
   pub fn init_with_initial_item_count(
     device: &GPUDevice,
-    init_byte_size: usize,
-    max_byte_size: usize,
+    init_size: usize,
+    max_size: usize,
+    item_byte_size: usize,
     mut usage: BufferUsages,
   ) -> Self {
-    assert!(max_byte_size >= init_byte_size);
+    assert!(max_size >= init_size);
 
     // make sure we can grow buffer
     usage.insert(BufferUsages::COPY_DST | BufferUsages::COPY_SRC);
 
-    let inner = xalloc::SysTlsf::new(init_byte_size as u32);
+    let inner = xalloc::SysTlsf::new(init_size as u32);
 
-    let buffer = create_gpu_buffer_zeroed(init_byte_size as u64, usage, device);
+    let buffer = create_gpu_buffer_zeroed((init_size * item_byte_size) as u64, usage, device);
     let buffer = buffer.create_view(Default::default());
 
     let inner = GPUSubAllocateBufferImpl {
       ranges: Default::default(),
       allocator: inner,
       buffer,
-      max_byte_size,
+      max_size,
+      item_byte_size,
       usage,
       relocate_callback: None,
     };
@@ -145,19 +148,20 @@ impl GPUSubAllocateBuffer {
   ) -> Option<(GPUSubAllocateBufferToken, u32)> {
     let mut alloc = self.inner.write().unwrap();
     let current_size: u64 = alloc.buffer.resource.size().into();
-    let required_byte_size = content.len() as u32;
+    assert!(!content.is_empty());
+    assert!(content.len() % alloc.item_byte_size == 0);
+    let required_size = (content.len() / alloc.item_byte_size) as u32;
     loop {
-      if let Some((token, offset)) = alloc.allocator.alloc(required_byte_size) {
+      if let Some((token, offset)) = alloc.allocator.alloc(required_size) {
         queue.write_buffer(
           alloc.buffer.resource.gpu(),
-          offset as u64,
+          (offset as usize * alloc.item_byte_size) as u64,
           bytemuck::cast_slice(content),
         );
 
-        let previous = alloc.ranges.insert(
-          allocation_handle,
-          (offset..offset + required_byte_size, token),
-        );
+        let previous = alloc
+          .ranges
+          .insert(allocation_handle, (offset..offset + required_size, token));
         assert!(
           previous.is_none(),
           "duplicate active allocation handle used"
@@ -169,13 +173,11 @@ impl GPUSubAllocateBuffer {
         };
 
         break (token, offset).into();
-      } else if alloc.max_byte_size as u64 <= current_size {
+      } else if alloc.max_size as u64 <= current_size {
         break None;
       } else {
         let grow_planed = ((current_size as f32) * 1.5) as u32;
-        let real_grow_size = grow_planed
-          .max(required_byte_size)
-          .min(alloc.max_byte_size as u32);
+        let real_grow_size = grow_planed.max(required_size).min(alloc.max_size as u32);
         alloc.grow(real_grow_size - current_size as u32, device, queue)
       }
     }

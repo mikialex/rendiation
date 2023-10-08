@@ -97,9 +97,20 @@ impl DerefMut for BufferPool {
 }
 
 impl BufferPool {
-  pub fn new(init_byte: usize, max_byte: usize, usage: BufferUsages, device: &GPUDevice) -> Self {
-    let buffer =
-      GPUSubAllocateBuffer::init_with_initial_item_count(device, init_byte, max_byte, usage);
+  pub fn new(
+    init_byte: usize,
+    max_byte: usize,
+    usage: BufferUsages,
+    item_byte_size: usize,
+    device: &GPUDevice,
+  ) -> Self {
+    let buffer = GPUSubAllocateBuffer::init_with_initial_item_count(
+      device,
+      init_byte,
+      max_byte,
+      item_byte_size,
+      usage,
+    );
 
     let relocations: Arc<RwLock<Vec<RelocationMessage>>> = Default::default();
 
@@ -163,9 +174,9 @@ pub struct GPUBindlessMeshSystemImpl {
 
   index_buffer: BufferPool,
 
-  position: VertexBufferPool<Vec3<f32>>,
-  normal: VertexBufferPool<Vec3<f32>>,
-  uv: VertexBufferPool<Vec2<f32>>,
+  position: VertexBufferPool<Vec4<f32>>,
+  normal: VertexBufferPool<Vec4<f32>>,
+  uv: VertexBufferPool<Vec4<f32>>,
 }
 
 impl GPUBindlessMeshSystem {
@@ -182,15 +193,33 @@ impl GPUBindlessMeshSystem {
       return None;
     }
 
-    let index_buffer = BufferPool::new(10_0000, 1000_0000, BufferUsages::INDEX, &gpu.device);
+    let index_buffer = BufferPool::new(10_0000, 1000_0000, BufferUsages::INDEX, 4, &gpu.device);
 
-    let position = BufferPool::new(10_0000, 1000_0000, BufferUsages::STORAGE, &gpu.device);
+    let position = BufferPool::new(
+      10_0000,
+      1000_0000,
+      BufferUsages::STORAGE,
+      4 * 4,
+      &gpu.device,
+    );
     let position = VertexBufferPool::new(position);
 
-    let normal = BufferPool::new(10_0000, 1000_0000, BufferUsages::STORAGE, &gpu.device);
+    let normal = BufferPool::new(
+      10_0000,
+      1000_0000,
+      BufferUsages::STORAGE,
+      4 * 4,
+      &gpu.device,
+    );
     let normal = VertexBufferPool::new(normal);
 
-    let uv = BufferPool::new(10_0000, 1000_0000, BufferUsages::STORAGE, &gpu.device);
+    let uv = BufferPool::new(
+      10_0000,
+      1000_0000,
+      BufferUsages::STORAGE,
+      4 * 4,
+      &gpu.device,
+    );
     let uv = VertexBufferPool::new(uv);
 
     let inner = GPUBindlessMeshSystemImpl {
@@ -289,9 +318,19 @@ impl GPUBindlessMeshSystem {
     let index = bytemuck::cast_slice(index);
     let (allocation, start) = inner.index_buffer.allocate(handle, index, device, queue)?;
 
-    let position = bytemuck::cast_slice(position);
-    let normal = bytemuck::cast_slice(normal);
-    let uv = bytemuck::cast_slice(uv);
+    let position: Vec<Vec4<f32>> = position
+      .iter()
+      .map(|v| Vec4::new(v.x, v.y, v.z, 0.))
+      .collect();
+    let normal: Vec<Vec4<f32>> = normal
+      .iter()
+      .map(|v| Vec4::new(v.x, v.y, v.z, 0.))
+      .collect();
+    let uv: Vec<Vec4<f32>> = uv.iter().map(|v| Vec4::new(v.x, v.y, 0., 0.)).collect();
+
+    let position = bytemuck::cast_slice(&position);
+    let normal = bytemuck::cast_slice(&normal);
+    let uv = bytemuck::cast_slice(&uv);
 
     let (_position_holder, position) = inner.position.allocate(handle, position, device, queue)?;
     let (_normal_holder, normal) = inner.normal.allocate(handle, normal, device, queue)?;
