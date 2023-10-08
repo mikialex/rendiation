@@ -1,7 +1,7 @@
 use rendiation_algebra::*;
 use rendiation_mesh_core::{vertex::Vertex, TriangleList};
 use rendiation_mesh_generator::{
-  CubeMeshParameter, IndexedMeshBuilder, SphereMeshParameter, TessellationConfig,
+  CubeMeshParameter, IndexedMeshBuilder, IntoTransformed3D, SphereMeshParameter, TessellationConfig,
 };
 use rendiation_texture::{
   create_padding_buffer, GPUBufferImage, Texture2D, TextureFormat, TextureSampler,
@@ -260,7 +260,7 @@ pub fn load_default_scene(scene: &Scene) {
   let spot_light = SceneLightImpl::new(spot_light, spot_light_node);
   scene.insert_light(spot_light.into());
 
-  stress_test(scene);
+  stress_test2(scene);
 }
 
 pub fn stress_test(scene: &Scene) {
@@ -288,6 +288,46 @@ pub fn stress_test(scene: &Scene) {
         let mesh = build_scene_mesh2(|builder| {
           for face in cube.make_faces() {
             builder.triangulate_parametric(&face, TessellationConfig { u: 2, v: 3 }, true);
+          }
+        });
+
+        let child = scene.create_root_child();
+        child.set_local_matrix(Mat4::translate((2., 0., 3.)));
+
+        let model = StandardModel::new(material.clone(), mesh);
+        let model = ModelEnum::Standard(model.into());
+        let model = SceneModelImpl::new(model, node);
+        let _ = scene.insert_model(model.into());
+      }
+    }
+  }
+}
+
+pub fn stress_test2(scene: &Scene) {
+  let material = PhysicalSpecularGlossinessMaterial {
+    albedo: Vec3::splat(1.),
+    albedo_texture: None,
+    ..Default::default()
+  };
+  let material = MaterialEnum::PhysicalSpecularGlossiness(material.into());
+  for i in 0..10 {
+    let i_parent = scene.create_root_child();
+    for j in 0..10 {
+      let j_parent = i_parent.create_child();
+      for k in 0..1 {
+        let node = j_parent.create_child();
+        let cube = CubeMeshParameter {
+          width: 0.2,
+          height: 0.2,
+          depth: 0.2,
+        };
+        let mesh = build_scene_mesh2(|builder| {
+          for face in cube.make_faces() {
+            builder.triangulate_parametric(
+              &face.transform_by(Mat4::translate((i as f32, k as f32, j as f32))),
+              TessellationConfig { u: 2, v: 3 },
+              true,
+            );
           }
         });
 

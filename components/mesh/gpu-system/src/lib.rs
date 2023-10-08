@@ -66,8 +66,6 @@ pub struct DrawIndexedIndirect {
 #[derive(Clone)]
 pub struct GPUBindlessMeshSystem {
   inner: Arc<RwLock<GPUBindlessMeshSystemImpl>>,
-  /// just to prevent the first slot get dropped
-  first_default_handle: Arc<Option<MeshSystemMeshInstance>>,
 }
 
 pub struct BindlessMeshSource<'a> {
@@ -231,25 +229,10 @@ impl GPUBindlessMeshSystem {
       uv,
     };
 
-    let mut re = Self {
+    Self {
       inner: Arc::new(RwLock::new(inner)),
-      first_default_handle: Arc::new(None),
-    };
-
-    // insert at least one mesh for bindless to work
-    let h = re.create_mesh_instance(
-      BindlessMeshSource {
-        index: &[0],
-        position: &[Vec4::zero(), Vec4::zero(), Vec4::zero()],
-        normal: &[Vec4::zero(), Vec4::zero(), Vec4::zero()],
-        uv: &[Vec2::zero(), Vec2::zero(), Vec2::zero()],
-      },
-      &gpu.device,
-      &gpu.queue,
-    );
-    re.first_default_handle = Arc::new(h);
-
-    re.into()
+    }
+    .into()
   }
 
   pub fn maintain(&mut self) {
