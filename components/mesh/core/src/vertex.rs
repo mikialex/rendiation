@@ -3,6 +3,8 @@ use std::hash::Hash;
 use rendiation_algebra::*;
 use rendiation_geometry::Positioned;
 
+use crate::{AttributeSemantic, AttributeVertex};
+
 #[repr(C)]
 #[derive(
   Clone,
@@ -31,6 +33,22 @@ pub struct Vertex {
 
 unsafe impl bytemuck::Zeroable for Vertex {}
 unsafe impl bytemuck::Pod for Vertex {}
+
+impl AttributeVertex for Vertex {
+  fn layout(&self) -> Vec<AttributeSemantic> {
+    vec![
+      AttributeSemantic::Positions,
+      AttributeSemantic::Normals,
+      AttributeSemantic::TexCoords(0),
+    ]
+  }
+
+  fn write(self, target: &mut [Vec<u8>]) {
+    target[0].extend(bytemuck::bytes_of(&self.position));
+    target[1].extend(bytemuck::bytes_of(&self.normal));
+    target[2].extend(bytemuck::bytes_of(&self.uv));
+  }
+}
 
 impl Hash for Vertex {
   fn hash<H: std::hash::Hasher>(&self, state: &mut H) {

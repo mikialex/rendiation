@@ -7,7 +7,6 @@ use interphaser::{
 };
 use rendiation_algebra::*;
 use rendiation_geometry::{IntersectAble, OptionalNearest, Plane, Ray3};
-use rendiation_mesh_core::{vertex::Vertex, TriangleList};
 use rendiation_mesh_generator::*;
 use rendiation_scene_interaction::*;
 use webgpu::{default_dispatcher, FrameRenderPass, RenderComponentAny};
@@ -427,16 +426,13 @@ impl PassContentWithSceneAndCamera for &mut Gizmo {
 type AutoScale = Rc<RefCell<ViewAutoScalable>>;
 
 fn build_plane(root: &SceneNode, auto_scale: &AutoScale, mat: Mat4<f32>) -> HelperMesh {
-  let mesh = IndexedMeshBuilder::<TriangleList, Vec<Vertex>>::default()
-    .triangulate_parametric(
+  let mesh = build_scene_mesh(|builder| {
+    builder.triangulate_parametric(
       &ParametricPlane.transform_by(Mat4::translate((-0.5, -0.5, 0.))),
       TessellationConfig { u: 1, v: 1 },
       true,
-    )
-    .build_mesh_into()
-    .into_ref();
-
-  let mesh = MeshEnum::Foreign(Box::new(mesh));
+    );
+  });
 
   let material = solid_material(RED).into_ref();
   let m = material.clone();
@@ -455,8 +451,8 @@ fn build_plane(root: &SceneNode, auto_scale: &AutoScale, mat: Mat4<f32>) -> Help
 }
 
 fn build_rotator(root: &SceneNode, auto_scale: &AutoScale, mat: Mat4<f32>) -> HelperMesh {
-  let mesh = IndexedMeshBuilder::<TriangleList, Vec<Vertex>>::default()
-    .triangulate_parametric(
+  let mesh = build_scene_mesh(|builder| {
+    builder.triangulate_parametric(
       &TorusMeshParameter {
         radius: 1.5,
         tube_radius: 0.03,
@@ -464,11 +460,8 @@ fn build_rotator(root: &SceneNode, auto_scale: &AutoScale, mat: Mat4<f32>) -> He
       .make_surface(),
       TessellationConfig { u: 36, v: 4 },
       true,
-    )
-    .build_mesh_into()
-    .into_ref();
-
-  let mesh = MeshEnum::Foreign(Box::new(mesh));
+    );
+  });
 
   let material = solid_material(RED).into_ref();
   let m = material.clone();

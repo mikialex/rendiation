@@ -57,6 +57,20 @@ pub fn load_img_cube() -> SceneTextureCube {
   .into()
 }
 
+type SceneMeshBuilder =
+  IndexedMeshBuilder<GroupedMesh<IndexedMesh<TriangleList, Vec<Vertex>, DynIndexContainer>>>;
+
+pub fn build_scene_mesh(f: impl FnOnce(&mut SceneMeshBuilder)) -> MeshEnum {
+  let mut builder = SceneMeshBuilder::default();
+  f(&mut builder);
+  let mesh = builder.finish();
+  // could use to test foreign mesh rendering?
+  // return MeshEnum::Foreign(Box::new(mesh.into_ref()))
+  let mut attribute: AttributesMesh = mesh.mesh.primitive_iter().collect();
+  attribute.groups = mesh.groups;
+  MeshEnum::AttributesMesh(attribute.into_ref())
+}
+
 pub fn load_default_scene(scene: &Scene) {
   let path = if cfg!(windows) {
     "C:/Users/mk/Desktop/rrf-resource/planets/earth_atmos_2048.jpg"
@@ -77,15 +91,13 @@ pub fn load_default_scene(scene: &Scene) {
   // })));
 
   {
-    let mesh = IndexedMeshBuilder::<TriangleList, Vec<Vertex>>::default()
-      .triangulate_parametric(
+    let mesh = build_scene_mesh(|builder| {
+      builder.triangulate_parametric(
         &SphereMeshParameter::default().make_surface(),
         TessellationConfig { u: 16, v: 16 },
         true,
-      )
-      .build_mesh_into()
-      .into_ref();
-    let mesh = MeshEnum::Foreign(Box::new(mesh));
+      );
+    });
 
     let material = PhysicalSpecularGlossinessMaterial {
       albedo: Vec3::splat(1.),
@@ -109,12 +121,11 @@ pub fn load_default_scene(scene: &Scene) {
       height: 2.,
       depth: 3.,
     };
-    let mut builder = IndexedMeshBuilder::<TriangleList, Vec<Vertex>>::default();
-    for face in cube.make_faces() {
-      builder = builder.triangulate_parametric(&face, TessellationConfig { u: 2, v: 3 }, true);
-    }
-    let mesh = builder.build_mesh().into_ref();
-    let mesh = MeshEnum::Foreign(Box::new(mesh));
+    let mesh = build_scene_mesh(|builder| {
+      for face in cube.make_faces() {
+        builder.triangulate_parametric(&face, TessellationConfig { u: 2, v: 3 }, true);
+      }
+    });
 
     let material = PhysicalSpecularGlossinessMaterial {
       albedo: Vec3::splat(1.),
@@ -131,15 +142,13 @@ pub fn load_default_scene(scene: &Scene) {
   }
 
   {
-    let mesh = IndexedMeshBuilder::<TriangleList, Vec<Vertex>>::default()
-      .triangulate_parametric(
+    let mesh = build_scene_mesh(|builder| {
+      builder.triangulate_parametric(
         &SphereMeshParameter::default().make_surface(),
         TessellationConfig { u: 16, v: 16 },
         true,
-      )
-      .build_mesh_into()
-      .into_ref();
-    let mesh = MeshEnum::Foreign(Box::new(mesh));
+      );
+    });
 
     let mesh = TransformInstancedSceneMesh {
       mesh,
@@ -261,12 +270,11 @@ pub fn stress_test(scene: &Scene) {
           height: 0.2,
           depth: 0.2,
         };
-        let mut builder = IndexedMeshBuilder::<TriangleList, Vec<Vertex>>::default();
-        for face in cube.make_faces() {
-          builder = builder.triangulate_parametric(&face, TessellationConfig { u: 2, v: 3 }, true);
-        }
-        let mesh = builder.build_mesh().into_ref();
-        let mesh = MeshEnum::Foreign(Box::new(mesh));
+        let mesh = build_scene_mesh(|builder| {
+          for face in cube.make_faces() {
+            builder.triangulate_parametric(&face, TessellationConfig { u: 2, v: 3 }, true);
+          }
+        });
 
         let material = PhysicalSpecularGlossinessMaterial {
           albedo: Vec3::splat(1.),

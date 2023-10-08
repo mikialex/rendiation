@@ -178,6 +178,7 @@ impl PrimitiveTopology {
 
 clone_self_incremental!(PrimitiveTopology);
 
+#[derive(Clone, Default)]
 pub struct PointList;
 impl PrimitiveTopologyMeta for PointList {
   type Primitive<T> = Point<T>;
@@ -186,6 +187,7 @@ impl PrimitiveTopologyMeta for PointList {
   const ENUM: PrimitiveTopology = PrimitiveTopology::PointList;
 }
 
+#[derive(Clone, Default)]
 pub struct TriangleList;
 impl PrimitiveTopologyMeta for TriangleList {
   type Primitive<T> = Triangle<T>;
@@ -194,6 +196,7 @@ impl PrimitiveTopologyMeta for TriangleList {
   const ENUM: PrimitiveTopology = PrimitiveTopology::TriangleList;
 }
 
+#[derive(Clone, Default)]
 pub struct TriangleStrip;
 impl PrimitiveTopologyMeta for TriangleStrip {
   type Primitive<T> = Triangle<T>;
@@ -202,6 +205,7 @@ impl PrimitiveTopologyMeta for TriangleStrip {
   const ENUM: PrimitiveTopology = PrimitiveTopology::TriangleStrip;
 }
 
+#[derive(Clone, Default)]
 pub struct LineList;
 impl PrimitiveTopologyMeta for LineList {
   type Primitive<T> = LineSegment<T>;
@@ -210,6 +214,7 @@ impl PrimitiveTopologyMeta for LineList {
   const ENUM: PrimitiveTopology = PrimitiveTopology::LineList;
 }
 
+#[derive(Clone, Default)]
 pub struct LineStrip;
 impl PrimitiveTopologyMeta for LineStrip {
   type Primitive<T> = LineSegment<T>;

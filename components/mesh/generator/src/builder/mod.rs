@@ -1,40 +1,30 @@
-use rendiation_mesh_core::{vertex::Vertex, *};
+use rendiation_mesh_core::vertex::Vertex;
 
 use crate::*;
 
 mod container;
 
-pub struct IndexedMeshBuilder<T, U> {
-  index: DynIndexContainer,
-  vertex: U,
+pub struct IndexedMeshBuilder<T> {
+  mesh: T,
   vertex_count: usize,
-  phantom: PhantomData<T>,
-  groups: MeshGroupsInfo,
 }
 
-impl<T, U: Default> Default for IndexedMeshBuilder<T, U> {
+impl<T: Default> Default for IndexedMeshBuilder<T> {
   fn default() -> Self {
     Self {
-      index: Default::default(),
-      vertex: Default::default(),
+      mesh: Default::default(),
       vertex_count: 0,
-      phantom: Default::default(),
-      groups: Default::default(),
     }
   }
 }
 
-impl<T, U> IndexedMeshBuilder<T, U> {
-  pub fn build_mesh_into(self) -> GroupedMesh<IndexedMesh<T, U, DynIndexContainer>> {
-    let mesh = IndexedMesh::new(self.vertex, self.index);
-    GroupedMesh::new(mesh, self.groups)
+impl<T> IndexedMeshBuilder<T> {
+  pub fn finish(self) -> T {
+    self.mesh
   }
-  pub fn build_mesh(&self) -> GroupedMesh<IndexedMesh<T, U, DynIndexContainer>>
-  where
-    U: Clone,
-  {
-    let mesh = IndexedMesh::new(self.vertex.clone(), self.index.clone());
-    GroupedMesh::new(mesh, self.groups.clone())
+
+  pub fn building_mesh(&self) -> &T {
+    &self.mesh
   }
 }
 
@@ -55,6 +45,11 @@ pub trait IndexedBuildingContainer {
   fn reserve(&mut self, _additional: usize) {}
 }
 
+pub trait GroupBuildingContainer {
+  fn push_consequent(&mut self, count: usize);
+  fn extend_last(&mut self, count: usize);
+}
+
 impl VertexBuilding for Vertex {
   fn from_surface(surface: &impl ParametricSurface, uv: Vec2<f32>) -> Self {
     Self {
@@ -70,16 +65,17 @@ pub trait VertexBuilding {
   fn from_surface(surface: &impl ParametricSurface, uv: Vec2<f32>) -> Self;
 }
 
-impl<U> IndexedMeshBuilder<TriangleList, U> {
+// todo how do we make topology safe and make grouping optional?
+impl<T> IndexedMeshBuilder<T> {
   pub fn triangulate_parametric(
-    mut self,
+    &mut self,
     surface: &impl ParametricSurface,
     config: TessellationConfig,
     keep_grouping: bool,
-  ) -> Self
+  ) -> &mut Self
   where
-    U: VertexBuildingContainer,
-    U::Vertex: VertexBuilding,
+    T: VertexBuildingContainer + IndexedBuildingContainer + GroupBuildingContainer,
+    T::Vertex: VertexBuilding,
   {
     let index_start = self.vertex_count;
     let u_step = 1. / config.u as f32;
@@ -88,8 +84,8 @@ impl<U> IndexedMeshBuilder<TriangleList, U> {
       for v in 0..=config.v {
         let u = u as f32 * u_step;
         let v = v as f32 * v_step;
-        let vertex = U::Vertex::from_surface(surface, (u, v).into());
-        self.vertex.push_vertex(vertex);
+        let vertex = T::Vertex::from_surface(surface, (u, v).into());
+        self.mesh.push_vertex(vertex);
         self.vertex_count += 1;
       }
     }
@@ -105,21 +101,21 @@ impl<U> IndexedMeshBuilder<TriangleList, U> {
         let c = uv_to_index(u + 1, v);
         let d = uv_to_index(u + 1, v + 1);
 
-        self.index.push_index_clamped_u32(a);
-        self.index.push_index_clamped_u32(c);
-        self.index.push_index_clamped_u32(b);
+        self.mesh.push_index(a);
+        self.mesh.push_index(c);
+        self.mesh.push_index(b);
 
-        self.index.push_index_clamped_u32(b);
-        self.index.push_index_clamped_u32(c);
-        self.index.push_index_clamped_u32(d);
+        self.mesh.push_index(b);
+        self.mesh.push_index(c);
+        self.mesh.push_index(d);
       }
     }
 
     let count = config.u * config.v * 6;
     if keep_grouping {
-      self.groups.push_consequent(count);
+      self.mesh.push_consequent(count);
     } else {
-      self.groups.extend_last(count)
+      self.mesh.extend_last(count)
     }
 
     self
@@ -128,34 +124,36 @@ impl<U> IndexedMeshBuilder<TriangleList, U> {
 
 #[test]
 fn triangulate() {
-  let builder = IndexedMeshBuilder::<TriangleList, Vec<Vertex>>::default();
-  let builder =
-    builder.triangulate_parametric(&ParametricPlane, TessellationConfig { u: 1, v: 1 }, true);
-  let mesh = builder.build_mesh();
+  use rendiation_mesh_core::{
+    CollectionSize, DynIndexContainer, GroupedMesh, IndexedMesh, TriangleList,
+  };
+  let mut builder = IndexedMeshBuilder::<
+    GroupedMesh<IndexedMesh<TriangleList, Vec<Vertex>, DynIndexContainer>>,
+  >::default();
+  builder.triangulate_parametric(&ParametricPlane, TessellationConfig { u: 1, v: 1 }, true);
+  let mesh = builder.building_mesh();
   assert_eq!(mesh.mesh.index.len(), 6);
   assert_eq!(mesh.mesh.vertex.len(), 4);
-  let builder =
-    builder.triangulate_parametric(&ParametricPlane, TessellationConfig { u: 1, v: 1 }, true);
-  let mesh = builder.build_mesh();
+  builder.triangulate_parametric(&ParametricPlane, TessellationConfig { u: 1, v: 1 }, true);
+  let mesh = builder.building_mesh();
   assert_eq!(mesh.mesh.index.len(), 6 + 6);
   assert_eq!(mesh.mesh.vertex.len(), 4 + 4);
-  let builder =
-    builder.triangulate_parametric(&ParametricPlane, TessellationConfig { u: 2, v: 3 }, true);
-  let mesh = builder.build_mesh();
+  builder.triangulate_parametric(&ParametricPlane, TessellationConfig { u: 2, v: 3 }, true);
+  let mesh = builder.building_mesh();
   assert_eq!(mesh.mesh.index.len(), 6 + 6 + 36);
   assert_eq!(mesh.mesh.vertex.len(), 4 + 4 + 12);
 }
 
-impl<U> IndexedMeshBuilder<LineList, U> {
+impl<T> IndexedMeshBuilder<T> {
   pub fn build_grid_parametric(
-    mut self,
+    &mut self,
     surface: &impl ParametricSurface,
     config: TessellationConfig,
     keep_grouping: bool,
-  ) -> Self
+  ) -> &mut Self
   where
-    U: VertexBuildingContainer,
-    U::Vertex: VertexBuilding,
+    T: VertexBuildingContainer + IndexedBuildingContainer + GroupBuildingContainer,
+    T::Vertex: VertexBuilding,
   {
     let index_start = self.vertex_count;
     let u_step = 1. / config.u as f32;
@@ -164,8 +162,8 @@ impl<U> IndexedMeshBuilder<LineList, U> {
       for v in 0..config.v {
         let u = u as f32 * u_step;
         let v = v as f32 * v_step;
-        let vertex = U::Vertex::from_surface(surface, (u, v).into());
-        self.vertex.push_vertex(vertex);
+        let vertex = T::Vertex::from_surface(surface, (u, v).into());
+        self.mesh.push_vertex(vertex);
         self.vertex_count += 1;
       }
     }
@@ -181,28 +179,28 @@ impl<U> IndexedMeshBuilder<LineList, U> {
         let c = uv_to_index(u + 1, v);
         let d = uv_to_index(u + 1, v + 1);
 
-        self.index.push_index_clamped_u32(a);
-        self.index.push_index_clamped_u32(b);
+        self.mesh.push_index(a);
+        self.mesh.push_index(b);
 
-        self.index.push_index_clamped_u32(a);
-        self.index.push_index_clamped_u32(c);
+        self.mesh.push_index(a);
+        self.mesh.push_index(c);
 
         if u == config.u {
-          self.index.push_index_clamped_u32(c);
-          self.index.push_index_clamped_u32(d);
+          self.mesh.push_index(c);
+          self.mesh.push_index(d);
         }
 
         if v == config.v {
-          self.index.push_index_clamped_u32(b);
-          self.index.push_index_clamped_u32(d);
+          self.mesh.push_index(b);
+          self.mesh.push_index(d);
         }
       }
     }
     let count = config.u * config.v * 4 + config.u * 2 + config.v * 2;
     if keep_grouping {
-      self.groups.push_consequent(count);
+      self.mesh.push_consequent(count);
     } else {
-      self.groups.extend_last(count)
+      self.mesh.extend_last(count)
     }
 
     self

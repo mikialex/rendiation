@@ -57,7 +57,7 @@ impl MeshGroupsInfo {
   }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Default)]
 pub struct GroupedMesh<T> {
   pub mesh: T,
   pub groups: MeshGroupsInfo,

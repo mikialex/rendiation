@@ -148,15 +148,6 @@ impl<T: IncrementalBase> SharedIncrementalSignal<T> {
     });
   }
 
-  pub fn trigger_change(&self, delta: &T::Delta) {
-    // ignore lock poison
-    let inner = self.inner.read().unwrap_or_else(|e| e.into_inner());
-    let data: &T = &inner;
-    let view = &DeltaView { data, delta };
-    let view = unsafe { std::mem::transmute(view) };
-    inner.delta_source.emit(view);
-  }
-
   pub fn mutate<R>(&self, mutator: impl FnOnce(Mutating<T>) -> R) -> R {
     // ignore lock poison
     let mut inner = self.inner.write().unwrap_or_else(|e| e.into_inner());

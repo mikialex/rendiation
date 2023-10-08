@@ -1,6 +1,5 @@
 #![feature(type_alias_impl_trait)]
 
-use std::marker::PhantomData;
 use std::ops::Range;
 
 use rendiation_algebra::*;

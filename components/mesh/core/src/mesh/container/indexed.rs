@@ -168,6 +168,7 @@ impl CollectionSize for DynIndexContainer {
 }
 
 /// A indexed mesh that use vertex as primitive;
+#[derive(Default, Clone)]
 pub struct IndexedMesh<T, U, IU> {
   pub vertex: U,
   pub index: IU,
@@ -186,16 +187,6 @@ where
 
   fn s_expand(&self, mut cb: impl FnMut(Self::Delta)) {
     cb(self.clone())
-  }
-}
-
-impl<T, U: Clone, IU: Clone> Clone for IndexedMesh<T, U, IU> {
-  fn clone(&self) -> Self {
-    Self {
-      vertex: self.vertex.clone(),
-      index: self.index.clone(),
-      _phantom: self._phantom,
-    }
   }
 }
 

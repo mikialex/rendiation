@@ -210,13 +210,13 @@ impl<'a, T: ApplicableIncremental> Mutating<'a, T> {
 
 impl<'a, T: IncrementalBase> Mutating<'a, T> {
   /// # Safety
-  /// the mutation should be record manually
+  /// the mutation should be record manually, and will not triggered in the collector
   pub unsafe fn get_mut_ref(&mut self) -> &mut T {
     self.inner
   }
 
   /// # Safety
-  /// the mutation will be not apply on original data
+  /// the mutation will be not apply on original data but only triggered in the collector
   pub unsafe fn trigger_change_but_not_apply(&mut self, delta: T::Delta) {
     (self.collector)(&delta);
   }

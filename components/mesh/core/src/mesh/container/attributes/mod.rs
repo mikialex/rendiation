@@ -329,7 +329,7 @@ impl<'a> AttributeMeshReadView<'a> {
       .get_attribute(&AttributeSemantic::Positions)
       .expect("position attribute should always exist")
       .visit_slice::<Vec3<f32>>()
-      .unwrap()
+      .expect("position type is maybe not correct")
   }
 
   pub fn create_full_read_view_base(&self) -> FullReaderBase {

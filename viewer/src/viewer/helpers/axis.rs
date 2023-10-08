@@ -3,7 +3,7 @@ use std::{cell::RefCell, rc::Rc};
 use incremental::EnumWrap;
 use rendiation_algebra::*;
 use rendiation_geometry::OptionalNearest;
-use rendiation_mesh_core::{vertex::Vertex, MeshBufferHitPoint, TriangleList};
+use rendiation_mesh_core::MeshBufferHitPoint;
 use rendiation_mesh_generator::*;
 use rendiation_scene_interaction::{SceneRayInteractive, SceneRayInteractiveCtx};
 use webgpu::{default_dispatcher, FrameRenderPass, RenderComponentAny};
@@ -131,8 +131,8 @@ impl Arrow {
 
   pub fn default_shape() -> (MeshEnum, MeshEnum) {
     let config = TessellationConfig { u: 1, v: 10 };
-    let cylinder = IndexedMeshBuilder::<TriangleList, Vec<Vertex>>::default()
-      .triangulate_parametric(
+    let cylinder_mesh = build_scene_mesh(|builder| {
+      builder.triangulate_parametric(
         &CylinderMeshParameter {
           radius_top: 0.02,
           radius_bottom: 0.02,
@@ -142,11 +142,11 @@ impl Arrow {
         .body_surface(),
         config,
         true,
-      )
-      .build_mesh_into();
+      );
+    });
 
-    let tip = IndexedMeshBuilder::<TriangleList, Vec<Vertex>>::default()
-      .triangulate_parametric(
+    let tip_mesh = build_scene_mesh(|builder| {
+      builder.triangulate_parametric(
         &CylinderMeshParameter {
           radius_top: 0.0,
           radius_bottom: 0.06,
@@ -156,11 +156,8 @@ impl Arrow {
         .body_surface(),
         config,
         true,
-      )
-      .build_mesh_into();
-
-    let cylinder_mesh = MeshEnum::Foreign(Box::new(cylinder.into_ref()));
-    let tip_mesh = MeshEnum::Foreign(Box::new(tip.into_ref()));
+      );
+    });
 
     (cylinder_mesh, tip_mesh)
   }
