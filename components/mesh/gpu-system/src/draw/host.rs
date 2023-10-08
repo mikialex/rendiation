@@ -68,9 +68,9 @@ impl ShaderPassBuilder for BindlessMeshDispatcher {
     let index = sys.index_buffer.get_buffer();
     ctx.pass.set_index_buffer_owned(&index, IndexFormat::Uint32);
 
-    ctx.binding.bind(&sys.bindless_position_vertex_buffers);
-    ctx.binding.bind(&sys.bindless_normal_vertex_buffers);
-    ctx.binding.bind(&sys.bindless_uv_vertex_buffers);
+    ctx.binding.bind(&sys.position);
+    ctx.binding.bind(&sys.normal);
+    ctx.binding.bind(&sys.uv);
   }
 }
 
@@ -86,20 +86,21 @@ impl GraphicsShaderProvider for BindlessMeshDispatcher {
 
       let sys = self.system.inner.read().unwrap();
 
-      let position = binding.bind_by(&sys.bindless_position_vertex_buffers);
-      let position = position.index(vertex_address.position_buffer_id);
-      let position = BindlessStorageWorkaround::shader_read_index(position, vertex_id).load();
+      let position = binding.bind_by(&sys.position);
+      let position = position
+        .index(vertex_address.position_buffer_offset + vertex_id)
+        .load();
 
-      let normal = binding.bind_by(&sys.bindless_normal_vertex_buffers);
-      let normal = normal.index(vertex_address.normal_buffer_id);
-      let normal = BindlessStorageWorkaround::shader_read_index(normal, vertex_id).load();
+      let normal = binding.bind_by(&sys.normal);
+      let normal = normal
+        .index(vertex_address.normal_buffer_offset + vertex_id)
+        .load();
 
-      let uv = binding.bind_by(&sys.bindless_uv_vertex_buffers);
-      let uv = uv.index(vertex_address.uv_buffer_id);
-      let uv = BindlessStorageWorkaround::shader_read_index(uv, vertex_id).load();
+      let uv = binding.bind_by(&sys.uv);
+      let uv = uv.index(vertex_address.uv_buffer_offset + vertex_id).load();
 
-      vertex.register::<GeometryPosition>(position.xyz());
-      vertex.register::<GeometryNormal>(normal.xyz());
+      vertex.register::<GeometryPosition>(position);
+      vertex.register::<GeometryNormal>(normal);
       vertex.register::<GeometryUV>(uv);
       Ok(())
     })

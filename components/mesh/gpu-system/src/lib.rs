@@ -4,6 +4,10 @@
 
 use std::sync::{Arc, RwLock, Weak};
 
+use __core::{
+  marker::PhantomData,
+  ops::{Deref, DerefMut},
+};
 use rendiation_shader_api::*;
 use rendiation_webgpu::*;
 use slab::Slab;
@@ -11,8 +15,8 @@ use slab::Slab;
 mod allocator;
 use allocator::*;
 
-mod type_workaround;
-use type_workaround::*;
+// mod type_workaround;
+// use type_workaround::*;
 
 mod wrap;
 pub use wrap::*;
@@ -38,9 +42,9 @@ pub struct DrawMetaData {
 #[std430_layout]
 #[derive(Clone, Copy, ShaderStruct, Debug)]
 pub struct DrawVertexIndirectInfo {
-  pub position_buffer_id: u32,
-  pub normal_buffer_id: u32,
-  pub uv_buffer_id: u32,
+  pub position_buffer_offset: u32,
+  pub normal_buffer_offset: u32,
+  pub uv_buffer_offset: u32,
 }
 
 #[repr(C)]
@@ -66,19 +70,6 @@ pub struct GPUBindlessMeshSystem {
   first_default_handle: Arc<Option<MeshSystemMeshInstance>>,
 }
 
-// todo, make alignment type constraint in slice case work
-type BindlessPositionVertexBuffer = BindingResourceArray<
-  StorageBufferReadOnlyDataView<BindlessStorageWorkaround<Vec4<f32>>>,
-  MAX_STORAGE_BINDING_ARRAY_LENGTH,
->;
-
-type BindlessNormalVertexBuffer = BindlessPositionVertexBuffer;
-
-type BindlessUvVertexBuffer = BindingResourceArray<
-  StorageBufferReadOnlyDataView<BindlessStorageWorkaround<Vec2<f32>>>,
-  MAX_STORAGE_BINDING_ARRAY_LENGTH,
->;
-
 pub struct BindlessMeshSource<'a> {
   pub index: &'a [u32],
   pub position: &'a [Vec4<f32>],
@@ -86,81 +77,129 @@ pub struct BindlessMeshSource<'a> {
   pub uv: &'a [Vec2<f32>],
 }
 
+pub struct BufferPool {
+  buffer: GPUSubAllocateBuffer,
+  // we could use a channel, so what?
+  relocations: Arc<RwLock<Vec<RelocationMessage>>>,
+}
+
+impl Deref for BufferPool {
+  type Target = GPUSubAllocateBuffer;
+
+  fn deref(&self) -> &Self::Target {
+    &self.buffer
+  }
+}
+impl DerefMut for BufferPool {
+  fn deref_mut(&mut self) -> &mut Self::Target {
+    &mut self.buffer
+  }
+}
+
+impl BufferPool {
+  pub fn new(init_byte: usize, max_byte: usize, usage: BufferUsages, device: &GPUDevice) -> Self {
+    let buffer =
+      GPUSubAllocateBuffer::init_with_initial_item_count(device, init_byte, max_byte, usage);
+
+    let relocations: Arc<RwLock<Vec<RelocationMessage>>> = Default::default();
+
+    let r = relocations.clone();
+    buffer.set_relocate_callback(move |m| r.write().unwrap().push(m));
+
+    Self {
+      buffer,
+      relocations,
+    }
+  }
+
+  pub fn flush_relocation(&self, cb: impl FnMut(&RelocationMessage)) {
+    let mut relocations = self.relocations.write().unwrap();
+    let relocations: &mut Vec<RelocationMessage> = &mut relocations;
+    relocations.iter().for_each(cb);
+    *relocations = Vec::new(); // free any space
+  }
+}
+
+pub struct VertexBufferPool<T> {
+  pool: BufferPool,
+  ty: PhantomData<T>,
+}
+
+impl<T> Deref for VertexBufferPool<T> {
+  type Target = BufferPool;
+
+  fn deref(&self) -> &Self::Target {
+    &self.pool
+  }
+}
+impl<T> DerefMut for VertexBufferPool<T> {
+  fn deref_mut(&mut self) -> &mut Self::Target {
+    &mut self.pool
+  }
+}
+
+impl<T> VertexBufferPool<T> {
+  pub fn new(pool: BufferPool) -> Self {
+    Self {
+      pool,
+      ty: Default::default(),
+    }
+  }
+}
+
+impl<T> CacheAbleBindingSource for VertexBufferPool<T> {
+  fn get_binding_build_source(&self) -> CacheAbleBindingBuildSource {
+    self.pool.buffer.get_buffer().get_binding_build_source()
+  }
+}
+
+impl<T: ShaderSizedValueNodeType> ShaderBindingProvider for VertexBufferPool<T> {
+  type Node = ShaderReadOnlyStoragePtr<[T]>;
+}
+
 pub struct GPUBindlessMeshSystemImpl {
   any_changed: bool,
   metadata: Slab<DrawMetaData>,
 
-  index_buffer: GPUSubAllocateBuffer,
-  relocations: Arc<RwLock<Vec<RelocationMessage>>>, // we could use a channel, so what?
+  index_buffer: BufferPool,
 
-  position_vertex_buffers:
-    Slab<StorageBufferReadOnlyDataView<BindlessStorageWorkaround<Vec4<f32>>>>,
-  normal_vertex_buffers: Slab<StorageBufferReadOnlyDataView<BindlessStorageWorkaround<Vec4<f32>>>>,
-  uv_vertex_buffers: Slab<StorageBufferReadOnlyDataView<BindlessStorageWorkaround<Vec2<f32>>>>,
-
-  bindless_position_vertex_buffers: BindlessPositionVertexBuffer,
-  bindless_normal_vertex_buffers: BindlessNormalVertexBuffer,
-  bindless_uv_vertex_buffers: BindlessUvVertexBuffer,
+  position: VertexBufferPool<Vec3<f32>>,
+  normal: VertexBufferPool<Vec3<f32>>,
+  uv: VertexBufferPool<Vec2<f32>>,
 }
 
 impl GPUBindlessMeshSystem {
   pub fn new(gpu: &GPU) -> Option<Self> {
     let info = gpu.info();
-    let mut bindless_effectively_supported = info
+    let bindless_effectively_supported = info
       .supported_features
-      .contains(Features::BUFFER_BINDING_ARRAY)
+      .contains(Features::MULTI_DRAW_INDIRECT)
       && info
         .supported_features
-        .contains(Features::MULTI_DRAW_INDIRECT)
-      && info
-        .supported_features
-        .contains(Features::INDIRECT_FIRST_INSTANCE)
-      && info
-        .supported_features
-        .contains(Features::PARTIALLY_BOUND_BINDING_ARRAY)
-      && info
-        .supported_features
-        .contains(Features::SAMPLED_TEXTURE_AND_STORAGE_BUFFER_ARRAY_NON_UNIFORM_INDEXING);
-
-    // we estimate that the buffer used except under the binding system will not exceed 128 per
-    // shader stage
-    if info.supported_limits.max_sampled_textures_per_shader_stage
-      < MAX_STORAGE_BINDING_ARRAY_LENGTH as u32 + 128
-      || info.supported_limits.max_samplers_per_shader_stage
-        < MAX_STORAGE_BINDING_ARRAY_LENGTH as u32 + 128
-    {
-      bindless_effectively_supported = false;
-    }
+        .contains(Features::INDIRECT_FIRST_INSTANCE);
 
     if !bindless_effectively_supported {
       return None;
     }
 
-    let index_buffer = GPUSubAllocateBuffer::init_with_initial_item_count(
-      &gpu.device,
-      10_0000,
-      1000_0000,
-      BufferUsages::INDEX,
-    );
+    let index_buffer = BufferPool::new(10_0000, 1000_0000, BufferUsages::INDEX, &gpu.device);
 
-    let relocations: Arc<RwLock<Vec<RelocationMessage>>> = Default::default();
+    let position = BufferPool::new(10_0000, 1000_0000, BufferUsages::STORAGE, &gpu.device);
+    let position = VertexBufferPool::new(position);
 
-    let r = relocations.clone();
-    // we do not set any changed flag here because we know only allocate and deallocate triggers
-    // relocate and these code path has been marked.
-    index_buffer.set_relocate_callback(move |m| r.write().unwrap().push(m));
+    let normal = BufferPool::new(10_0000, 1000_0000, BufferUsages::STORAGE, &gpu.device);
+    let normal = VertexBufferPool::new(normal);
+
+    let uv = BufferPool::new(10_0000, 1000_0000, BufferUsages::STORAGE, &gpu.device);
+    let uv = VertexBufferPool::new(uv);
 
     let inner = GPUBindlessMeshSystemImpl {
       any_changed: true,
       metadata: Default::default(),
       index_buffer,
-      relocations,
-      position_vertex_buffers: Default::default(),
-      normal_vertex_buffers: Default::default(),
-      uv_vertex_buffers: Default::default(),
-      bindless_position_vertex_buffers: Default::default(),
-      bindless_normal_vertex_buffers: Default::default(),
-      bindless_uv_vertex_buffers: Default::default(),
+      position,
+      normal,
+      uv,
     };
 
     let mut re = Self {
@@ -191,25 +230,27 @@ impl GPUBindlessMeshSystem {
       return;
     }
 
-    {
-      let metadata = &mut inner.metadata;
-      let relocations = &mut inner.relocations.write().unwrap();
-      let relocations: &mut Vec<RelocationMessage> = relocations;
-      relocations.iter().for_each(|m| {
-        let meta = metadata.get_mut(m.allocation_handle as usize).unwrap();
-        meta.start = m.new_offset;
-      });
-      *relocations = Vec::new(); // free any space
-    }
+    let metadata = &mut inner.metadata;
 
-    let source = slab_to_vec(&inner.position_vertex_buffers);
-    inner.bindless_position_vertex_buffers = BindlessPositionVertexBuffer::new(Arc::new(source));
+    inner.index_buffer.flush_relocation(|m| {
+      let meta = metadata.get_mut(m.allocation_handle as usize).unwrap();
+      meta.start = m.new_offset;
+    });
 
-    let source = slab_to_vec(&inner.normal_vertex_buffers);
-    inner.bindless_normal_vertex_buffers = BindlessNormalVertexBuffer::new(Arc::new(source));
+    inner.position.pool.flush_relocation(|m| {
+      let meta = metadata.get_mut(m.allocation_handle as usize).unwrap();
+      meta.vertex_info.position_buffer_offset = m.new_offset;
+    });
 
-    let source = slab_to_vec(&inner.uv_vertex_buffers);
-    inner.bindless_uv_vertex_buffers = BindlessUvVertexBuffer::new(Arc::new(source));
+    inner.normal.pool.flush_relocation(|m| {
+      let meta = metadata.get_mut(m.allocation_handle as usize).unwrap();
+      meta.vertex_info.normal_buffer_offset = m.new_offset;
+    });
+
+    inner.uv.pool.flush_relocation(|m| {
+      let meta = metadata.get_mut(m.allocation_handle as usize).unwrap();
+      meta.vertex_info.uv_buffer_offset = m.new_offset;
+    });
 
     inner.any_changed = false;
   }
@@ -234,21 +275,11 @@ impl GPUBindlessMeshSystem {
     let mut inner = self.inner.write().unwrap();
     inner.any_changed = true;
 
-    let position = BindlessStorageWorkaround::cast_slice(position);
-    let normal = BindlessStorageWorkaround::cast_slice(normal);
-    let uv = BindlessStorageWorkaround::cast_slice(uv);
-
-    let position = StorageBufferReadOnlyDataView::create(device, position);
-    let normal = StorageBufferReadOnlyDataView::create(device, normal);
-    let uv = StorageBufferReadOnlyDataView::create(device, uv);
-
+    // will write later..
     let metadata = DrawMetaData {
-      start: 0, // will write later..
+      start: 0,
       count: index.len() as u32,
       vertex_info: DrawVertexIndirectInfo {
-        position_buffer_id: inner.position_vertex_buffers.insert(position) as u32,
-        normal_buffer_id: inner.normal_vertex_buffers.insert(normal) as u32,
-        uv_buffer_id: inner.uv_vertex_buffers.insert(uv) as u32,
         ..Zeroable::zeroed()
       },
       ..Zeroable::zeroed()
@@ -258,11 +289,26 @@ impl GPUBindlessMeshSystem {
     let index = bytemuck::cast_slice(index);
     let (allocation, start) = inner.index_buffer.allocate(handle, index, device, queue)?;
 
-    inner.metadata.get_mut(handle as usize).unwrap().start = start;
+    let position = bytemuck::cast_slice(position);
+    let normal = bytemuck::cast_slice(normal);
+    let uv = bytemuck::cast_slice(uv);
+
+    let (_position_holder, position) = inner.position.allocate(handle, position, device, queue)?;
+    let (_normal_holder, normal) = inner.normal.allocate(handle, normal, device, queue)?;
+    let (_uv_holder, uv) = inner.uv.allocate(handle, uv, device, queue)?;
+
+    let metadata = inner.metadata.get_mut(handle as usize).unwrap();
+    metadata.start = start;
+    metadata.vertex_info.position_buffer_offset = position;
+    metadata.vertex_info.normal_buffer_offset = normal;
+    metadata.vertex_info.uv_buffer_offset = uv;
 
     MeshSystemMeshInstance {
       handle,
       _index_holder: Arc::new(allocation),
+      _uv_holder: Arc::new(_uv_holder),
+      _position_holder: Arc::new(_position_holder),
+      _normal_holder: Arc::new(_normal_holder),
       system: Arc::downgrade(&self.inner),
     }
     .into()
@@ -272,6 +318,9 @@ impl GPUBindlessMeshSystem {
 pub struct MeshSystemMeshInstance {
   handle: MeshSystemMeshHandle,
   _index_holder: Arc<GPUSubAllocateBufferToken>,
+  _position_holder: Arc<GPUSubAllocateBufferToken>,
+  _uv_holder: Arc<GPUSubAllocateBufferToken>,
+  _normal_holder: Arc<GPUSubAllocateBufferToken>,
   system: Weak<RwLock<GPUBindlessMeshSystemImpl>>,
 }
 
@@ -287,17 +336,7 @@ impl Drop for MeshSystemMeshInstance {
       let mut system = system.write().unwrap();
       system.any_changed = true;
 
-      let meta = system.metadata.remove(self.handle as usize);
-      let vertex = meta.vertex_info;
-      system
-        .position_vertex_buffers
-        .remove(vertex.position_buffer_id as usize);
-      system
-        .normal_vertex_buffers
-        .remove(vertex.normal_buffer_id as usize);
-      system
-        .uv_vertex_buffers
-        .remove(vertex.uv_buffer_id as usize);
+      system.metadata.remove(self.handle as usize);
     }
   }
 }
