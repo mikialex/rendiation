@@ -10,6 +10,7 @@ mod compute;
 mod graphics;
 mod layout;
 mod re_export;
+mod type_workaround;
 
 use std::{
   any::{Any, TypeId},
@@ -29,6 +30,7 @@ pub use layout::*;
 pub use re_export::*;
 pub use rendiation_algebra::*;
 pub use rendiation_shader_derives::*;
+pub use type_workaround::*;
 
 pub type DynamicShaderAPI = Box<dyn ShaderAPI<Output = Box<dyn Any>>>;
 
@@ -128,9 +130,3 @@ pub(crate) fn set_build_api(api_builder: &dyn Fn(ShaderStages) -> DynamicShaderA
 pub(crate) fn take_build_api() -> ShaderBuildingCtx {
   IN_BUILDING_SHADER_API.with_borrow_mut(|api| api.take().unwrap())
 }
-
-pub trait TruthCheckPass {}
-
-pub struct TruthCheckBool<const TERM: bool>();
-
-impl TruthCheckPass for TruthCheckBool<true> {}

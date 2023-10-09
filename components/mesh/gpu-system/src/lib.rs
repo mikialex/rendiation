@@ -1,4 +1,3 @@
-#![feature(strict_provenance)]
 #![feature(specialization)]
 #![allow(incomplete_features)]
 
@@ -14,9 +13,6 @@ use slab::Slab;
 
 mod allocator;
 use allocator::*;
-
-// mod type_workaround;
-// use type_workaround::*;
 
 mod wrap;
 pub use wrap::*;
