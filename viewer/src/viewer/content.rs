@@ -192,7 +192,7 @@ impl Viewer3dContent {
         self.selections.clear();
         self.selections.select(nearest);
 
-        gizmo.set_target(nearest.get_node().into(), &self.scene_derived);
+        gizmo.set_target(nearest.read().node.clone().into(), &self.scene_derived);
       } else if !keep_target_for_gizmo {
         gizmo.set_target(None, &self.scene_derived);
       }

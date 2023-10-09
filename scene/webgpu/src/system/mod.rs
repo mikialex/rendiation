@@ -3,14 +3,14 @@ use crate::*;
 mod wrapper;
 pub use wrapper::*;
 
-mod content_system;
-pub use content_system::*;
+mod content;
+pub use content::*;
 
-mod scene_system;
-pub use scene_system::*;
+mod scene;
+pub use scene::*;
 
-mod global_system;
-pub use global_system::*;
+mod global;
+pub use global::*;
 
 #[derive(Clone)]
 pub struct ResourceGPUCtx {

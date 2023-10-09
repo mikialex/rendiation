@@ -31,7 +31,7 @@ impl RenderList {
     for m in iter {
       let model_pos = scene
         .node_derives
-        .get_world_matrix(&m.get_node())
+        .get_world_matrix(&m.read().node)
         .position();
       let depth = (model_pos - camera_pos).dot(camera_forward);
 

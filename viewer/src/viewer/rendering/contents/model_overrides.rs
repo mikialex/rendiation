@@ -68,12 +68,6 @@ impl std::ops::DerefMut for OverridableMeshModelImpl {
   }
 }
 
-impl SceneNodeControlled for OverridableMeshModelImpl {
-  fn visit_node(&self, visitor: &mut dyn FnMut(&SceneNode)) {
-    visitor(&self.inner.node)
-  }
-}
-
 impl SceneRenderable for OverridableMeshModelImpl {
   fn render(
     &self,

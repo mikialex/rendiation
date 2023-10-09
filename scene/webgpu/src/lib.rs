@@ -18,7 +18,6 @@ pub mod model;
 pub mod node;
 pub mod rendering;
 pub mod shading;
-pub mod shadow;
 pub mod texture;
 pub mod util;
 
@@ -62,7 +61,6 @@ use rendiation_texture::TextureSampler;
 use rendiation_texture_gpu_system::*;
 use rendiation_webgpu::*;
 pub use shading::*;
-pub use shadow::*;
 pub use system::*;
 pub use texture::*;
 pub use util::*;
@@ -75,15 +73,4 @@ pub trait SceneRenderable {
     camera: &SceneCamera,
     scene: &SceneRenderResourceGroup,
   );
-}
-
-pub trait SceneNodeControlled {
-  fn visit_node(&self, visitor: &mut dyn FnMut(&SceneNode));
-  fn get_node(&self) -> SceneNode {
-    let mut result = None;
-    self.visit_node(&mut |node| {
-      result = node.clone().into();
-    });
-    result.unwrap()
-  }
 }
