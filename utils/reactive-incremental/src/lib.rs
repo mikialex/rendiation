@@ -14,6 +14,9 @@ use reactive::*;
 mod shared;
 pub use shared::*;
 
+mod group;
+pub use group::*;
+
 static GLOBAL_ID: AtomicU64 = AtomicU64::new(0);
 
 pub fn alloc_global_res_id() -> u64 {

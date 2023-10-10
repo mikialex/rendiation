@@ -9,6 +9,14 @@ pub struct LinkListPool<T> {
   pool: IndexReusedVec<LinkListNode<T>>,
 }
 
+impl<T> Default for LinkListPool<T> {
+  fn default() -> Self {
+    Self {
+      pool: Default::default(),
+    }
+  }
+}
+
 impl<T> LinkListPool<T> {
   pub fn make_list(&mut self) -> ListHandle {
     ListHandle {

@@ -2580,6 +2580,7 @@ dependencies = [
  "heap-tools",
  "incremental",
  "reactive",
+ "storage",
 ]
 
 [[package]]
