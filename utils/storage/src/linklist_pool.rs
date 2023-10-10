@@ -24,7 +24,7 @@ impl<T> LinkListPool<T> {
       tail: u32::MAX,
     }
   }
-  pub fn insert(&mut self, list: &mut ListHandle, data: T) {
+  pub fn insert(&mut self, list: &mut ListHandle, data: T) -> u32 {
     let idx = self.pool.insert(LinkListNode {
       next: IndexPtr::new(None),
       data,
@@ -37,6 +37,11 @@ impl<T> LinkListPool<T> {
       let pre = self.pool.get_mut(list.tail);
       pre.next.set(Some(idx as usize));
     }
+    idx
+  }
+
+  pub fn remove(&mut self, _list: &mut ListHandle, _to_remove_idx: u32) {
+    todo!()
   }
 
   pub fn drop_list(&mut self, mut list: ListHandle) {

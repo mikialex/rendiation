@@ -6,7 +6,7 @@ use crate::*;
 
 struct SignalItem<T> {
   data: T,
-  sub_event_handle: Option<ListHandle>,
+  sub_event_handle: Option<ListHandle>, // todo, drop list
   ref_count: u32,
   guid: u64, // weak semantics is impl by the guid compare in data access
 }
@@ -14,7 +14,7 @@ struct SignalItem<T> {
 pub struct IncrementalSignalGroupImpl<T: IncrementalBase> {
   data: RwLock<IndexReusedVec<SignalItem<T>>>,
   group_watcher: EventSource<T::Delta>,
-  sub_watcher: RwLock<LinkListPool<EventListener<T>>>,
+  sub_watcher: RwLock<LinkListPool<EventListener<T::Delta>>>,
 }
 
 impl<T: IncrementalBase> Default for IncrementalSignalGroupImpl<T> {
@@ -80,6 +80,20 @@ pub struct IncrementalSignalPtr<T: IncrementalBase> {
 }
 
 impl<T: IncrementalBase> IncrementalSignalPtr<T> {
+  fn mutate_inner<R>(
+    &self,
+    f: impl FnOnce(&mut SignalItem<T>, &IncrementalSignalGroupImpl<T>) -> R,
+  ) -> Option<R> {
+    if let Some(inner) = self.inner.upgrade() {
+      let mut storage = inner.data.write().unwrap();
+      let data = storage.get_mut(self.index);
+      if data.guid == self.guid {
+        return Some(f(data, &inner));
+      }
+    }
+    None
+  }
+
   pub fn read(&self) -> Option<SignalPtrGuard<T>> {
     if let Some(inner) = self.inner.upgrade() {
       let storage = inner.data.read().unwrap();
@@ -98,40 +112,56 @@ impl<T: IncrementalBase> IncrementalSignalPtr<T> {
   }
 
   /// return should be removed from source after emitted
-  fn on(&self, f: impl FnMut(&T::Delta) -> bool + Send + Sync + 'static) -> RemoveToken<T::Delta> {
-    // self.inner.group_watcher.on(f)
-    todo!()
+  fn on(&self, f: impl FnMut(&T::Delta) -> bool + Send + Sync + 'static) -> Option<u32> {
+    self.mutate_inner(|data, inner| {
+      let mut sub_watcher = inner.sub_watcher.write().unwrap();
+      let watcher_handle = data
+        .sub_event_handle
+        .get_or_insert_with(|| sub_watcher.make_list());
+      sub_watcher.insert(watcher_handle, Box::new(f))
+    })
   }
 
-  fn off(&self, token: RemoveToken<T::Delta>) {
-    // self.inner.group_watcher.off(token)
+  fn off(&self, token: u32) {
+    self.mutate_inner(|data, inner| {
+      let mut sub_watcher = inner.sub_watcher.write().unwrap();
+      sub_watcher.remove(data.sub_event_handle.as_mut().unwrap(), token);
+    });
   }
 
-  //   pub fn listen_by<N, C, U>(
-  //     &self,
-  //     mut mapper: impl FnMut(MaybeDeltaRef<T>, &dyn Fn(U)) + Send + Sync + 'static,
-  //     channel_builder: &C,
-  //   ) -> impl Stream<Item = N>
-  //   where
-  //     U: Send + Sync + 'static,
-  //     C: ChannelLike<U, Message = N>,
-  //   {
-  //     let (sender, receiver) = channel_builder.build();
+  fn emit(&self, delta: &T::Delta) {
+    self.mutate_inner(|data, inner| {
+      let mut sub_watcher = inner.sub_watcher.write().unwrap();
+      sub_watcher.visit_and_remove(data.sub_event_handle.as_mut().unwrap(), |f| f(delta))
+    });
+  }
 
-  //     mapper(MaybeDeltaRef::All(self), &|mapped| {
+  // pub fn listen_by<N, C, U>(
+  //   &self,
+  //   mut mapper: impl FnMut(MaybeDeltaRef<T>, &dyn Fn(U)) + Send + Sync + 'static,
+  //   channel_builder: &C,
+  // ) -> Option<impl Stream<Item = N>>
+  // where
+  //   U: Send + Sync + 'static,
+  //   C: ChannelLike<U, Message = N>,
+  // {
+  //   let (sender, receiver) = channel_builder.build();
+
+  //   let data = self.read()?;
+  //   mapper(MaybeDeltaRef::All(&data), &|mapped| {
+  //     C::send(&sender, mapped);
+  //   });
+
+  //   let remove_token = self.on(move |v| {
+  //     mapper(MaybeDeltaRef::Delta(v), &|mapped| {
   //       C::send(&sender, mapped);
   //     });
+  //     C::is_closed(&sender)
+  //   });
 
-  //     let remove_token = self.delta_source.on(move |v| {
-  //       mapper(MaybeDeltaRef::Delta(v), &|mapped| {
-  //         C::send(&sender, mapped);
-  //       });
-  //       C::is_closed(&sender)
-  //     });
-
-  //     let dropper = EventSourceDropper::new(remove_token, self.delta_source.make_weak());
-  //     EventSourceStream::new(dropper, receiver)
-  //   }
+  //   let dropper = EventSourceDropper::new(remove_token, self.delta_source.make_weak());
+  //   EventSourceStream::new(dropper, receiver)
+  // }
 }
 
 impl<T: IncrementalBase> Clone for IncrementalSignalPtr<T> {
