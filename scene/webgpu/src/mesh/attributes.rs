@@ -98,7 +98,7 @@ struct GPUAttributesBuffer {
   inner: GPUBufferResource,
 }
 
-impl SceneItemReactiveSimpleMapping<GPUAttributesBuffer> for GeometryBuffer {
+impl GlobalIdReactiveSimpleMapping<GPUAttributesBuffer> for GeometryBuffer {
   type ChangeStream = impl Stream<Item = ()> + Unpin;
   type Ctx<'a> = ResourceGPUCtx;
 

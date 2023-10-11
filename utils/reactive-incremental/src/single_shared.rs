@@ -11,25 +11,30 @@ use reactive::{do_updates, ReactiveMapping};
 use crate::IncrementalSignal;
 use crate::*;
 
-#[derive(Default)]
 pub struct SharedIncrementalSignal<T: IncrementalBase> {
   inner: Arc<RwLock<IncrementalSignal<T>>>,
 
   // we keep this id on the self, to avoid unnecessary read lock.
-  id: u64,
+  guid: u64,
 }
 
-pub struct SceneItemWeakRef<T: IncrementalBase> {
+impl<T: IncrementalBase + Default> Default for SharedIncrementalSignal<T> {
+  fn default() -> Self {
+    Self::new(T::default())
+  }
+}
+
+pub struct SharedIncrementalWeakSignal<T: IncrementalBase> {
   inner: Weak<RwLock<IncrementalSignal<T>>>,
-  id: u64,
+  guid: u64,
 }
 
-impl<T: IncrementalBase> SceneItemWeakRef<T> {
+impl<T: IncrementalBase> SharedIncrementalWeakSignal<T> {
   pub fn upgrade(&self) -> Option<SharedIncrementalSignal<T>> {
-    self
-      .inner
-      .upgrade()
-      .map(|inner| SharedIncrementalSignal { inner, id: self.id })
+    self.inner.upgrade().map(|inner| SharedIncrementalSignal {
+      inner,
+      guid: self.guid,
+    })
   }
 }
 
@@ -54,20 +59,20 @@ impl<T: IncrementalBase> Clone for SharedIncrementalSignal<T> {
   fn clone(&self) -> Self {
     Self {
       inner: self.inner.clone(),
-      id: self.id,
+      guid: self.guid,
     }
   }
 }
 
 impl<T: IncrementalBase> std::hash::Hash for SharedIncrementalSignal<T> {
   fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-    self.id.hash(state);
+    self.guid.hash(state);
   }
 }
 
 impl<T: IncrementalBase> PartialEq for SharedIncrementalSignal<T> {
   fn eq(&self, other: &Self) -> bool {
-    self.id == other.id
+    self.guid == other.guid
   }
 }
 impl<T: IncrementalBase> Eq for SharedIncrementalSignal<T> {}
@@ -78,11 +83,11 @@ impl<T: IncrementalBase> From<T> for SharedIncrementalSignal<T> {
   }
 }
 
-pub trait ModifySceneItemDelta<T: IncrementalBase> {
+pub trait SharedIncrementalSignalApplyDelta<T: IncrementalBase> {
   fn apply_modify(self, target: &SharedIncrementalSignal<T>);
 }
 
-impl<T, X> ModifySceneItemDelta<T> for X
+impl<T, X> SharedIncrementalSignalApplyDelta<T> for X
 where
   T: ApplicableIncremental<Delta = X>,
 {
@@ -95,7 +100,7 @@ where
 
 impl<T: IncrementalBase> GlobalIdentified for SharedIncrementalSignal<T> {
   fn guid(&self) -> u64 {
-    self.id
+    self.guid
   }
 }
 impl<T: IncrementalBase> AsRef<dyn GlobalIdentified> for SharedIncrementalSignal<T> {
@@ -114,13 +119,13 @@ impl<T: IncrementalBase> SharedIncrementalSignal<T> {
     let inner = IncrementalSignal::new(source);
     let id = inner.guid();
     let inner = Arc::new(RwLock::new(inner));
-    Self { inner, id }
+    Self { inner, guid: id }
   }
 
-  pub fn downgrade(&self) -> SceneItemWeakRef<T> {
-    SceneItemWeakRef {
+  pub fn downgrade(&self) -> SharedIncrementalWeakSignal<T> {
+    SharedIncrementalWeakSignal {
       inner: Arc::downgrade(&self.inner),
-      id: self.id,
+      guid: self.guid,
     }
   }
 
@@ -166,10 +171,10 @@ impl<T: IncrementalBase> SharedIncrementalSignal<T> {
     SignalRefGuard { inner }
   }
 
-  pub fn write_unchecked(&self) -> SceneItemRefMutGuard<T> {
+  pub fn write_unchecked(&self) -> SignalRefMutGuard<T> {
     // ignore lock poison
     let inner = self.inner.write().unwrap_or_else(|e| e.into_inner());
-    SceneItemRefMutGuard { inner }
+    SignalRefMutGuard { inner }
   }
 }
 
@@ -185,11 +190,11 @@ impl<'a, T: IncrementalBase> Deref for SignalRefGuard<'a, T> {
   }
 }
 
-pub struct SceneItemRefMutGuard<'a, T: IncrementalBase> {
+pub struct SignalRefMutGuard<'a, T: IncrementalBase> {
   inner: RwLockWriteGuard<'a, IncrementalSignal<T>>,
 }
 
-impl<'a, T: IncrementalBase> Deref for SceneItemRefMutGuard<'a, T> {
+impl<'a, T: IncrementalBase> Deref for SignalRefMutGuard<'a, T> {
   type Target = IncrementalSignal<T>;
 
   fn deref(&self) -> &Self::Target {
@@ -197,37 +202,28 @@ impl<'a, T: IncrementalBase> Deref for SceneItemRefMutGuard<'a, T> {
   }
 }
 
-impl<'a, T: IncrementalBase> DerefMut for SceneItemRefMutGuard<'a, T> {
+impl<'a, T: IncrementalBase> DerefMut for SignalRefMutGuard<'a, T> {
   fn deref_mut(&mut self) -> &mut Self::Target {
     self.inner.deref_mut()
   }
 }
 
-pub trait IntoSceneItemRef: Sized + IncrementalBase {
+pub trait IntoSharedIncrementalSignal: Sized + IncrementalBase {
   fn into_ref(self) -> SharedIncrementalSignal<Self> {
     self.into()
   }
 }
 
-impl<T: IncrementalBase> IntoSceneItemRef for T {}
-
-pub trait SceneItemReactiveMapping<M> {
-  type ChangeStream: Stream + Unpin;
-  type Ctx<'a>;
-
-  fn build(&self, ctx: &Self::Ctx<'_>) -> (M, Self::ChangeStream);
-
-  fn update(&self, mapped: &mut M, change: &mut Self::ChangeStream, ctx: &Self::Ctx<'_>);
-}
+impl<T: IncrementalBase> IntoSharedIncrementalSignal for T {}
 
 impl<M, T> ReactiveMapping<M> for SharedIncrementalSignal<T>
 where
   T: IncrementalBase + Send + Sync + 'static,
-  Self: SceneItemReactiveMapping<M>,
+  Self: GlobalIdReactiveMapping<M>,
 {
-  type ChangeStream = <Self as SceneItemReactiveMapping<M>>::ChangeStream;
+  type ChangeStream = <Self as GlobalIdReactiveMapping<M>>::ChangeStream;
   type DropFuture = impl Future<Output = ()> + Unpin;
-  type Ctx<'a> = <Self as SceneItemReactiveMapping<M>>::Ctx<'a>;
+  type Ctx<'a> = <Self as GlobalIdReactiveMapping<M>>::Ctx<'a>;
 
   fn key(&self) -> u64 {
     self.read().guid()
@@ -235,140 +231,35 @@ where
 
   fn build(&self, ctx: &Self::Ctx<'_>) -> (M, Self::ChangeStream, Self::DropFuture) {
     let drop = self.create_drop();
-    let (mapped, change) = SceneItemReactiveMapping::build(self, ctx);
+    let (mapped, change) = GlobalIdReactiveMapping::build(self, ctx);
     (mapped, change, drop)
   }
 
   fn update(&self, mapped: &mut M, change: &mut Self::ChangeStream, ctx: &Self::Ctx<'_>) {
-    SceneItemReactiveMapping::update(self, mapped, change, ctx)
+    GlobalIdReactiveMapping::update(self, mapped, change, ctx)
   }
 }
 
-pub trait SceneItemReactiveSimpleMapping<M> {
-  type ChangeStream: Stream + Unpin;
-  type Ctx<'a>;
-
-  fn build(&self, ctx: &Self::Ctx<'_>) -> (M, Self::ChangeStream);
-}
-
-impl<M, T> SceneItemReactiveMapping<M> for SharedIncrementalSignal<T>
+impl<M, T> GlobalIdReactiveMapping<M> for SharedIncrementalSignal<T>
 where
   T: IncrementalBase + Send + Sync + 'static,
-  Self: SceneItemReactiveSimpleMapping<M>,
+  Self: GlobalIdReactiveSimpleMapping<M>,
 {
-  type ChangeStream = <Self as SceneItemReactiveSimpleMapping<M>>::ChangeStream;
-  type Ctx<'a> = <Self as SceneItemReactiveSimpleMapping<M>>::Ctx<'a>;
+  type ChangeStream = <Self as GlobalIdReactiveSimpleMapping<M>>::ChangeStream;
+  type Ctx<'a> = <Self as GlobalIdReactiveSimpleMapping<M>>::Ctx<'a>;
 
   fn build(&self, ctx: &Self::Ctx<'_>) -> (M, Self::ChangeStream) {
-    SceneItemReactiveSimpleMapping::build(self, ctx)
+    GlobalIdReactiveSimpleMapping::build(self, ctx)
   }
 
   fn update(&self, mapped: &mut M, change: &mut Self::ChangeStream, ctx: &Self::Ctx<'_>) {
     let mut pair = None;
     do_updates(change, |_| {
-      pair = SceneItemReactiveMapping::build(self, ctx).into();
+      pair = GlobalIdReactiveMapping::build(self, ctx).into();
     });
     if let Some((new_mapped, new_change)) = pair {
       *mapped = new_mapped;
       *change = new_change;
-    }
-  }
-}
-
-#[macro_export]
-macro_rules! with_field {
-  ($ty:ty =>$field:tt) => {
-    |view, send| match view {
-      incremental::MaybeDeltaRef::All(value) => send(value.$field.clone()),
-      incremental::MaybeDeltaRef::Delta(delta) => {
-        if let incremental::DeltaOf::<$ty>::$field(field) = delta {
-          send(field.clone())
-        }
-      }
-    }
-  };
-}
-
-#[macro_export]
-macro_rules! with_field_expand {
-  ($ty:ty =>$field:tt) => {
-    |view, send| match view {
-      incremental::MaybeDeltaRef::All(value) => value.$field.expand(send),
-      incremental::MaybeDeltaRef::Delta(delta) => {
-        if let incremental::DeltaOf::<$ty>::$field(field) = delta {
-          send(field.clone())
-        }
-      }
-    }
-  };
-}
-
-#[macro_export]
-macro_rules! with_field_change {
-  ($ty:ty =>$field:tt) => {
-    |view, send| match view {
-      incremental::MaybeDeltaRef::All(value) => send(()),
-      incremental::MaybeDeltaRef::Delta(delta) => {
-        if let incremental::DeltaOf::<$ty>::$field(field) = delta {
-          send(())
-        }
-      }
-    }
-  };
-}
-
-pub fn all_delta<T: IncrementalBase>(view: MaybeDeltaRef<T>, send: &dyn Fn(T::Delta)) {
-  all_delta_with(true, Some)(view, send)
-}
-
-pub fn all_delta_no_init<T: IncrementalBase>(view: MaybeDeltaRef<T>, send: &dyn Fn(T::Delta)) {
-  all_delta_with(false, Some)(view, send)
-}
-
-pub fn any_change<T: IncrementalBase>(view: MaybeDeltaRef<T>, send: &dyn Fn(())) {
-  any_change_with(true)(view, send)
-}
-
-pub fn any_change_no_init<T: IncrementalBase>(view: MaybeDeltaRef<T>, send: &dyn Fn(())) {
-  any_change_with(false)(view, send)
-}
-
-pub fn no_change<T: IncrementalBase>(_view: MaybeDeltaRef<T>, _send: &dyn Fn(())) {
-  // do nothing at all
-}
-
-#[inline(always)]
-pub fn any_change_with<T: IncrementalBase>(
-  should_send_when_init: bool,
-) -> impl Fn(MaybeDeltaRef<T>, &dyn Fn(())) {
-  move |view, send| match view {
-    MaybeDeltaRef::All(_) => {
-      if should_send_when_init {
-        send(())
-      }
-    }
-    MaybeDeltaRef::Delta(_) => send(()),
-  }
-}
-
-#[inline(always)]
-pub fn all_delta_with<T: IncrementalBase, X>(
-  should_send_when_init: bool,
-  filter_map: impl Fn(T::Delta) -> Option<X>,
-) -> impl Fn(MaybeDeltaRef<T>, &dyn Fn(X)) {
-  move |view, send| {
-    let my_send = |d| {
-      if let Some(d) = filter_map(d) {
-        send(d)
-      }
-    };
-    match view {
-      MaybeDeltaRef::All(value) => {
-        if should_send_when_init {
-          value.expand(my_send)
-        }
-      }
-      MaybeDeltaRef::Delta(delta) => my_send(delta.clone()),
     }
   }
 }

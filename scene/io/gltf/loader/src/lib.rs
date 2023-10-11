@@ -9,11 +9,11 @@ use gltf::{Node, Result as GltfResult};
 use rendiation_algebra::*;
 use rendiation_scene_core::{
   AnimationSampler, AttributeAccessor, AttributeIndexFormat, AttributesMesh, BufferViewRange,
-  GeometryBuffer, GeometryBufferImpl, IntoSceneItemRef, Joint, MaterialEnum, MeshEnum, ModelEnum,
-  NormalMapping, PhysicalMetallicRoughnessMaterial, Scene, SceneAnimation, SceneAnimationChannel,
-  SceneExt, SceneModel, SceneModelHandle, SceneModelImpl, SceneNode, SceneTexture2D,
-  SceneTexture2DType, Skeleton, SkeletonImpl, StandardModel, Texture2DWithSamplingData,
-  TextureWithSamplingData, UnTypedBufferView,
+  GeometryBuffer, GeometryBufferImpl, IntoSharedIncrementalSignal, Joint, MaterialEnum, MeshEnum,
+  ModelEnum, NormalMapping, PhysicalMetallicRoughnessMaterial, Scene, SceneAnimation,
+  SceneAnimationChannel, SceneExt, SceneModel, SceneModelHandle, SceneModelImpl, SceneNode,
+  SceneTexture2D, SceneTexture2DType, Skeleton, SkeletonImpl, StandardModel,
+  Texture2DWithSamplingData, TextureWithSamplingData, UnTypedBufferView,
 };
 
 mod convert_utils;

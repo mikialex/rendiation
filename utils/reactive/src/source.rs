@@ -1,6 +1,6 @@
 use std::{marker::PhantomData, sync::Arc};
 
-use futures::{Future, Stream};
+use futures::Future;
 use storage::*;
 
 use crate::*;
@@ -178,7 +178,7 @@ impl<T: 'static> EventSource<T> {
       C::is_closed(&sender)
     });
     let dropper = EventSourceDropper::new(remove_token, self.make_weak());
-    EventSourceStream::new(dropper, receiver)
+    DropperAttachedStream::new(dropper, receiver)
   }
 
   pub fn once_future<R>(
@@ -194,30 +194,6 @@ impl<T: 'static> EventSource<T> {
     let f = move |p: &_| f.lock().unwrap().take().map(|f| f(p));
     let any = self.single_listen_by(f, |_| {});
     any.into_future().map(|(r, _)| r.unwrap().unwrap())
-  }
-}
-
-#[pin_project::pin_project]
-pub struct EventSourceStream<T, S> {
-  dropper: EventSourceDropper<T>,
-  #[pin]
-  stream: S,
-}
-
-impl<T, S> EventSourceStream<T, S> {
-  pub fn new(dropper: EventSourceDropper<T>, stream: S) -> Self {
-    Self { dropper, stream }
-  }
-}
-
-impl<T, S> Stream for EventSourceStream<T, S>
-where
-  S: Stream,
-{
-  type Item = S::Item;
-
-  fn poll_next(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Option<Self::Item>> {
-    self.project().stream.poll_next(cx)
   }
 }
 

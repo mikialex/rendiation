@@ -3,7 +3,7 @@ use futures::Stream;
 use incremental::*;
 use reactive::ReactiveMap;
 use rendiation_scene_core::{
-  any_change, IntoSceneItemRef, SceneItemReactiveSimpleMapping, SharedIncrementalSignal,
+  any_change, GlobalIdReactiveSimpleMapping, IntoSharedIncrementalSignal, SharedIncrementalSignal,
 };
 use rendiation_scene_webgpu::{
   CameraGPU, MaterialStates, PassContentWithSceneAndCamera, SceneRenderResourceGroup,
@@ -43,7 +43,7 @@ impl PassContentWithSceneAndCamera for &mut GridGround {
   }
 }
 
-impl SceneItemReactiveSimpleMapping<InfinityShaderPlane>
+impl GlobalIdReactiveSimpleMapping<InfinityShaderPlane>
   for SharedIncrementalSignal<GridGroundConfig>
 {
   type ChangeStream = impl Stream<Item = ()> + Unpin;

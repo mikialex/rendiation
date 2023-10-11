@@ -4,7 +4,7 @@ use fast_hash_collection::FastHashMap;
 use futures::{executor::ThreadPool, Future, Stream, StreamExt};
 use interphaser::{winit::event::VirtualKeyCode, *};
 use reactive::{single_value_channel, PollUtils};
-use rendiation_scene_core::{IntoSceneItemRef, MeshEnum, Scene, StandardModelDelta};
+use rendiation_scene_core::{IntoSharedIncrementalSignal, MeshEnum, Scene, StandardModelDelta};
 use webgpu::ReadableTextureBuffer;
 
 use crate::{text_box, SelectionSet, SolidLinedMesh, Viewer3dRenderingCtx};

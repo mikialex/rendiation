@@ -2,10 +2,10 @@ use std::path::Path;
 
 use rendiation_algebra::*;
 use rendiation_scene_core::{
-  AttributeAccessor, AttributeIndexFormat, AttributeSemantic, AttributesMesh, IntoSceneItemRef,
-  MaterialEnum, MeshEnum, ModelEnum, NormalMapping, PhysicalSpecularGlossinessMaterial, Scene,
-  SceneExt, SceneModelImpl, SceneTexture2D, SceneTexture2DType, StandardModel,
-  Texture2DWithSamplingData,
+  AttributeAccessor, AttributeIndexFormat, AttributeSemantic, AttributesMesh,
+  IntoSharedIncrementalSignal, MaterialEnum, MeshEnum, ModelEnum, NormalMapping,
+  PhysicalSpecularGlossinessMaterial, Scene, SceneExt, SceneModelImpl, SceneTexture2D,
+  SceneTexture2DType, StandardModel, Texture2DWithSamplingData,
 };
 use rendiation_texture::*;
 use smallvec::SmallVec;

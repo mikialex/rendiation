@@ -3,6 +3,15 @@ pub struct IndexReusedVec<T> {
   empty_list: Vec<u32>,
 }
 
+impl<T> Default for IndexReusedVec<T> {
+  fn default() -> Self {
+    Self {
+      storage: Default::default(),
+      empty_list: Default::default(),
+    }
+  }
+}
+
 impl<T> IndexReusedVec<T> {
   pub fn insert(&mut self, data: T) -> u32 {
     if let Some(empty) = self.empty_list.pop() {
@@ -14,14 +23,18 @@ impl<T> IndexReusedVec<T> {
     }
   }
 
-  pub fn remove(&mut self, idx: u32) {
+  pub fn remove(&mut self, idx: u32) -> T {
     self.empty_list.push(idx);
     let idx = idx as usize;
     assert!(self.storage[idx].is_some());
-    self.storage[idx] = None;
+    self.storage[idx].take().unwrap()
   }
 
   pub fn get_mut(&mut self, idx: u32) -> &mut T {
-    self.storage[idx as usize].as_mut().unwrap()
+    self.storage[idx as usize].as_mut().expect("bad index")
+  }
+
+  pub fn get(&self, idx: u32) -> &T {
+    self.storage[idx as usize].as_ref().expect("bad index")
   }
 }
