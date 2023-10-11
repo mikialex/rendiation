@@ -23,11 +23,11 @@ impl<T> IndexReusedVec<T> {
     }
   }
 
-  pub fn remove(&mut self, idx: u32) {
+  pub fn remove(&mut self, idx: u32) -> T {
     self.empty_list.push(idx);
     let idx = idx as usize;
     assert!(self.storage[idx].is_some());
-    self.storage[idx] = None;
+    self.storage[idx].take().unwrap()
   }
 
   pub fn get_mut(&mut self, idx: u32) -> &mut T {

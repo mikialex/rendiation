@@ -1,8 +1,3 @@
-use std::{
-  cell::Cell,
-  sync::{Arc, Mutex},
-};
-
 use crate::*;
 
 pub struct LinkListPool<T> {
@@ -40,19 +35,19 @@ impl<T> LinkListPool<T> {
     idx
   }
 
-  pub fn remove(&mut self, _list: &mut ListHandle, _to_remove_idx: u32) {
-    todo!()
+  pub fn remove(&mut self, list: &mut ListHandle, to_remove_idx: u32) {
+    self.visit_and_remove(list, |_, idx| (idx == to_remove_idx, idx != to_remove_idx))
   }
 
   pub fn drop_list(&mut self, mut list: ListHandle) {
-    self.visit_and_remove(&mut list, |_| true)
+    self.visit_and_remove(&mut list, |_, _| (true, true))
   }
 
-  /// visitor return if should remove
+  /// visitor (data, index) return (should remove, should continue)
   pub fn visit_and_remove(
     &mut self,
     list: &mut ListHandle,
-    mut visitor: impl FnMut(&mut T) -> bool,
+    mut visitor: impl FnMut(&mut T, u32) -> (bool, bool),
   ) {
     let mut previous = None;
     let mut next_to_visit = IndexPtr::new((list.head == u32::MAX).then_some(list.head as usize));
@@ -60,7 +55,8 @@ impl<T> LinkListPool<T> {
       let to_visit = to_visit as u32;
       let data = self.pool.get_mut(to_visit);
       next_to_visit = data.next;
-      if visitor(&mut data.data) {
+      let (should_remove, should_continue) = visitor(&mut data.data, to_visit);
+      if should_remove {
         // remove current node
         if let Some(previous) = previous {
           // if not first, we update previous node's next
@@ -70,6 +66,9 @@ impl<T> LinkListPool<T> {
       } else {
         // update previous only if we not remove current
         previous = to_visit.into();
+      }
+      if !should_continue {
+        return;
       }
     }
   }
@@ -84,37 +83,4 @@ pub struct ListHandle {
 struct LinkListNode<T> {
   next: IndexPtr,
   data: T,
-}
-
-pub struct LinkListPoolShared<T> {
-  pool: Arc<Mutex<LinkListPool<T>>>,
-}
-
-pub struct ListInstance<T> {
-  pool: LinkListPoolShared<T>,
-  handle: Cell<ListHandle>,
-}
-
-impl<T> ListInstance<T> {
-  pub fn insert(&self, item: T) {
-    let mut pool = self.pool.pool.lock().unwrap();
-    let mut handle = self.handle.get();
-    pool.insert(&mut handle, item);
-    self.handle.set(handle);
-  }
-
-  /// visitor return if should remove
-  pub fn visit_and_remove(&self, f: impl FnMut(&mut T) -> bool) {
-    let mut pool = self.pool.pool.lock().unwrap();
-    let mut handle = self.handle.get();
-    pool.visit_and_remove(&mut handle, f);
-    self.handle.set(handle);
-  }
-}
-
-impl<T> Drop for ListInstance<T> {
-  fn drop(&mut self) {
-    let mut pool = self.pool.pool.lock().unwrap();
-    pool.drop_list(self.handle.get())
-  }
 }

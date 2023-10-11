@@ -2576,6 +2576,7 @@ name = "reactive-incremental"
 version = "0.0.1"
 dependencies = [
  "dyn-downcast",
+ "fast-hash-collection",
  "futures",
  "heap-tools",
  "incremental",

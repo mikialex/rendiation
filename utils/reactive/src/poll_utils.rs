@@ -84,3 +84,27 @@ pub trait PollUtils: Stream + Unpin {
 }
 
 impl<T> PollUtils for T where T: Stream + Unpin {}
+
+#[pin_project::pin_project]
+pub struct DropperAttachedStream<T, S> {
+  dropper: T,
+  #[pin]
+  stream: S,
+}
+
+impl<T, S> DropperAttachedStream<T, S> {
+  pub fn new(dropper: T, stream: S) -> Self {
+    Self { dropper, stream }
+  }
+}
+
+impl<T, S> Stream for DropperAttachedStream<T, S>
+where
+  S: Stream,
+{
+  type Item = S::Item;
+
+  fn poll_next(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Option<Self::Item>> {
+    self.project().stream.poll_next(cx)
+  }
+}
