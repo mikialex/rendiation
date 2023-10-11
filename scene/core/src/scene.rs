@@ -1,5 +1,3 @@
-use std::ops::Deref;
-
 use arena::{Arena, ArenaDelta, Handle};
 use tree::*;
 
@@ -416,19 +414,19 @@ pub struct SceneNodeCollection {
   pub scene_guid: u64,
 }
 pub type SceneNodeCollectionImpl =
-  Arc<ReactiveTreeCollection<RwLock<TreeCollection<SceneNodeData>>, SceneNodeDataImpl>>;
+  Arc<ReactiveTreeCollection<RwLock<TreeCollection<SceneNodeData>>, SceneNodeData>>;
 
 impl SceneNodeCollection {
-  pub fn create_node(&self, data: SceneNodeDataImpl) -> SceneNode {
+  pub fn create_node(&self, data: SceneNodeData) -> SceneNode {
     SceneNode::create_new(self.inner.clone(), data, self.scene_guid)
   }
 }
 
 impl IncrementalBase for SceneNodeCollection {
-  type Delta = TreeMutation<SceneNodeDataImpl>;
+  type Delta = TreeMutation<SceneNodeData>;
 
   fn expand(&self, mut cb: impl FnMut(Self::Delta)) {
     let tree = self.inner.inner.read().unwrap();
-    tree.expand_with_mapping(|node| node.deref().clone(), |d| cb(d.into()));
+    tree.expand_with_mapping(|node| node.clone(), |d| cb(d.into()));
   }
 }

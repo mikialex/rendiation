@@ -1,5 +1,3 @@
-use std::ops::Deref;
-
 use futures::StreamExt;
 use reactive::{RemoveToken, SignalStreamExt};
 use tree::{AbstractParentAddressableTreeNode, CoreTree, TreeMutation};
@@ -264,7 +262,7 @@ struct NodeMapping {
 }
 
 struct SceneWatcher {
-  change_remove_token: RemoveToken<TreeMutation<SceneNodeDataImpl>>,
+  change_remove_token: RemoveToken<TreeMutation<SceneNodeData>>,
   ref_count: usize,
   nodes: SceneNodeCollection,
 }
@@ -538,7 +536,7 @@ impl SceneRebuilder {
 fn visit_self_parent_chain(
   nodes: &SceneNodeCollection,
   node_handle: NodeArenaIndex,
-  mut f: impl FnMut(NodeGuid, NodeArenaIndex, &SceneNodeDataImpl),
+  mut f: impl FnMut(NodeGuid, NodeArenaIndex, &SceneNodeData),
 ) {
   let tree = nodes.inner.inner.read().unwrap();
   let node_handle = tree.recreate_handle(node_handle);
@@ -546,7 +544,7 @@ fn visit_self_parent_chain(
   tree.create_node_ref(node_handle).traverse_parent(|node| {
     let data = node.node.data();
     let index = node.node.handle().index();
-    f(data.guid(), index, data.deref());
+    f(data.guid(), index, data);
     true
   })
 }

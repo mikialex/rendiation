@@ -58,6 +58,12 @@ pub struct Mutating<'a, T: IncrementalBase> {
   collector: &'a mut dyn FnMut(&T::Delta),
 }
 
+impl<'a, T: IncrementalBase> Mutating<'a, T> {
+  pub fn new(inner: &'a mut T, collector: &'a mut dyn FnMut(&T::Delta)) -> Self {
+    Self { inner, collector }
+  }
+}
+
 impl<'a, T: IncrementalBase> Deref for Mutating<'a, T> {
   type Target = T;
 

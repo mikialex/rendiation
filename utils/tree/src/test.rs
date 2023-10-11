@@ -1,5 +1,3 @@
-use std::ops::Deref;
-
 use incremental::*;
 use reactive::do_updates;
 
@@ -8,14 +6,6 @@ use crate::*;
 #[derive(Incremental, Clone)]
 struct TestNode {
   pub value: usize,
-}
-
-impl Deref for TestNode {
-  type Target = Self;
-
-  fn deref(&self) -> &Self::Target {
-    self
-  }
 }
 
 #[derive(Incremental, Copy, Clone, Default)]

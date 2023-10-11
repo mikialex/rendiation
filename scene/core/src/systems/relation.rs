@@ -201,7 +201,7 @@ impl NodeReferenceModelBookKeeping {
   }
 }
 
-fn on_tree_mutate(send: impl Fn(Change<usize, usize>), delta: &TreeMutation<SceneNodeDataImpl>) {
+fn on_tree_mutate(send: impl Fn(Change<usize, usize>), delta: &TreeMutation<SceneNodeData>) {
   match delta {
     tree::TreeMutation::Create { node, .. } => send(Change::CreateOne(*node)),
     tree::TreeMutation::Delete(node) => send(Change::RemoveOne(*node)),

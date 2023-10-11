@@ -1,5 +1,3 @@
-use std::ops::Deref;
-
 use futures::{Stream, StreamExt};
 use incremental::IncrementalBase;
 use reactive::{SignalStreamExt, StreamForker};
@@ -256,13 +254,12 @@ pub trait TreeIncrementalDeriveBehavior<T: IncrementalBase, S: IncrementalBase, 
 
 pub struct ParentTree;
 
-impl<T: IncrementalBase, M, TREE, X> TreeIncrementalDeriveBehavior<T, T::Source, M, TREE>
+impl<T: IncrementalBase, M, TREE> TreeIncrementalDeriveBehavior<T, T::Source, M, TREE>
   for ParentTree
 where
   T: IncrementalHierarchyDerived<DirtyMark = M>,
   M: HierarchyDirtyMark,
-  TREE: CoreTree<Node = X>,
-  X: Deref<Target = T::Source>,
+  TREE: CoreTree<Node = T::Source>,
 {
   type Dirty = ParentTreeDirty<M>;
 
@@ -334,7 +331,7 @@ where
         // the source tree maybe out of sync if the other thread mutate the source tree in parallel
         if let Some(source_node) = source_tree.try_recreate_handle(node_index) {
           derived.data.hierarchy_update(
-            source_tree.get_node_data(source_node).deref(),
+            source_tree.get_node_data(source_node),
             parent,
             &derived.dirty.sub_tree_dirty_mark_all,
             |delta| derived_delta_sender((node_index, delta)),
@@ -356,13 +353,12 @@ where
 
 pub struct ChildrenTree;
 
-impl<T: IncrementalBase, M, TREE, X> TreeIncrementalDeriveBehavior<T, T::Source, M, TREE>
+impl<T: IncrementalBase, M, TREE> TreeIncrementalDeriveBehavior<T, T::Source, M, TREE>
   for ChildrenTree
 where
   T: IncrementalChildrenHierarchyDerived<DirtyMark = M>,
   M: HierarchyDirtyMark,
-  TREE: CoreTree<Node = X>,
-  X: Deref<Target = T::Source>,
+  TREE: CoreTree<Node = T::Source>,
 {
   type Dirty = M;
 
@@ -418,7 +414,7 @@ where
     // the source tree maybe out of sync if the other thread mutate the source tree in parallel
     if let Some(source_node) = source_tree.try_recreate_handle(node_index) {
       node_data.data.hierarchy_children_update(
-        source_tree.get_node_data(source_node).deref(),
+        source_tree.get_node_data(source_node),
         |child_visitor| {
           node.visit_children_mut(|node| {
             let node_data = &unsafe { &mut (*node.node) }.data.data;

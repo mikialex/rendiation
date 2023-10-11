@@ -1,16 +1,64 @@
+use std::ops::Deref;
+
 use bitflags::bitflags;
-use reactive::DefaultUnboundChannel;
 use tree::*;
 
 use crate::*;
 
-pub type SceneNodeData = IncrementalSignal<SceneNodeDataImpl>;
+// pub type SceneNodeData = SceneNodeDataImpl;
 pub type SceneNodeHandle = TreeNodeHandle<SceneNodeData>;
 
 #[derive(Incremental, Clone)]
 pub struct SceneNodeDataImpl {
   pub local_matrix: Mat4<f32>,
   pub visible: bool,
+}
+
+pub struct SceneNodeData {
+  guid: u64,
+  pub data: SceneNodeDataImpl,
+}
+impl Deref for SceneNodeData {
+  type Target = SceneNodeDataImpl;
+
+  fn deref(&self) -> &Self::Target {
+    &self.data
+  }
+}
+
+impl SceneNodeData {
+  pub fn guid(&self) -> u64 {
+    self.guid
+  }
+}
+
+impl Default for SceneNodeData {
+  fn default() -> Self {
+    Self {
+      guid: alloc_global_res_id(),
+      data: Default::default(),
+    }
+  }
+}
+impl Clone for SceneNodeData {
+  fn clone(&self) -> Self {
+    Self {
+      guid: alloc_global_res_id(),
+      data: self.data.clone(),
+    }
+  }
+}
+
+impl SimpleIncremental for SceneNodeData {
+  type Delta = <SceneNodeDataImpl as IncrementalBase>::Delta;
+
+  fn s_apply(&mut self, delta: Self::Delta) {
+    self.data.apply(delta).unwrap()
+  }
+
+  fn s_expand(&self, cb: impl FnMut(Self::Delta)) {
+    self.data.expand(cb)
+  }
 }
 
 #[derive(Incremental, Clone)]
@@ -20,7 +68,7 @@ pub struct SceneNodeDerivedData {
 }
 
 impl HierarchyDerived for SceneNodeDerivedData {
-  type Source = SceneNodeDataImpl;
+  type Source = SceneNodeData;
 
   fn compute_hierarchy(self_source: &Self::Source, parent_derived: Option<&Self>) -> Self {
     if let Some(parent) = parent_derived {
@@ -58,11 +106,11 @@ impl HierarchyDirtyMark for SceneNodeDeriveDataDirtyFlag {
 }
 
 impl HierarchyDerivedBase for SceneNodeDerivedData {
-  type Source = SceneNodeDataImpl;
+  type Source = SceneNodeData;
   fn build_default(self_source: &Self::Source) -> Self {
     SceneNodeDerivedData {
-      world_matrix: self_source.local_matrix,
-      net_visible: self_source.visible,
+      world_matrix: self_source.data.local_matrix,
+      net_visible: self_source.data.visible,
     }
   }
 }
@@ -130,7 +178,7 @@ pub struct SceneNode {
   pub(crate) guid: u64,
   pub(crate) scene_id: u64,
   pub(crate) inner:
-    ShareTreeNode<ReactiveTreeCollection<RwLock<TreeCollection<SceneNodeData>>, SceneNodeDataImpl>>,
+    ShareTreeNode<ReactiveTreeCollection<RwLock<TreeCollection<SceneNodeData>>, SceneNodeData>>,
 }
 
 clone_self_incremental!(SceneNode);
@@ -142,23 +190,15 @@ impl GlobalIdentified for SceneNode {
 }
 
 impl SceneNode {
-  pub fn listen_by<U: Send + Sync + 'static>(
-    &self,
-    mapper: impl Fn(MaybeDeltaRef<SceneNodeDataImpl>, &dyn Fn(U)) + Send + Sync + 'static,
-  ) -> impl Stream<Item = U> {
-    self.visit(|node| node.listen_by::<U, _, _>(mapper, &DefaultUnboundChannel))
-  }
-
   pub(crate) fn create_new(
     nodes: SceneNodeCollectionImpl,
-    data: SceneNodeDataImpl,
+    data: SceneNodeData,
     scene_id: u64,
   ) -> Self {
-    let identity = IncrementalSignal::new(data);
     Self {
-      guid: identity.guid(),
+      guid: data.guid,
       scene_id,
-      inner: ShareTreeNode::new_as_root(identity, &nodes),
+      inner: ShareTreeNode::new_as_root(data, &nodes),
     }
   }
 
@@ -188,7 +228,7 @@ impl SceneNode {
   #[must_use]
   pub fn create_child(&self) -> Self {
     let inner = self.inner.create_child_default();
-    let guid = inner.visit(|n| n.guid());
+    let guid = alloc_global_res_id();
     let scene_id = self.scene_id;
     Self {
       inner,
@@ -197,13 +237,16 @@ impl SceneNode {
     }
   }
 
-  pub fn mutate<F: FnOnce(Mutating<SceneNodeDataImpl>) -> T, T>(&self, f: F) -> T {
+  pub fn mutate<F: FnOnce(Mutating<SceneNodeData>) -> T, T>(&self, f: F) -> T {
     let source = self.inner.visit_raw_storage(|tree| tree.source.clone());
     let index = self.inner.raw_handle().index();
     self.inner.mutate(|node| {
-      node.mutate_with(f, |delta| {
-        source.emit(&tree::TreeMutation::Mutate { node: index, delta })
-      })
+      f(Mutating::new(node, &mut |delta| {
+        source.emit(&tree::TreeMutation::Mutate {
+          node: index,
+          delta: delta.clone(),
+        })
+      }))
     })
   }
 

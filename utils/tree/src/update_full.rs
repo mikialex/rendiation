@@ -1,5 +1,3 @@
-use std::ops::Deref;
-
 use crate::*;
 
 pub trait HierarchyDerived {
@@ -15,7 +13,7 @@ pub struct ComputedDerivedTree<T: HierarchyDerived> {
 }
 
 impl<T: HierarchyDerived> ComputedDerivedTree<T> {
-  pub fn compute_from<X: Deref<Target = T::Source>>(source: &TreeCollection<X>) -> Self {
+  pub fn compute_from(source: &TreeCollection<T::Source>) -> Self {
     let mut computed = Vec::with_capacity(source.capacity());
     for (handle, node) in &source.nodes {
       if node.parent.is_none() {

@@ -2,9 +2,9 @@ use ::reactive::EventSource;
 
 use crate::*;
 
-pub struct ReactiveTreeCollection<T, X: IncrementalBase> {
+pub struct ReactiveTreeCollection<T, N: IncrementalBase> {
   pub inner: T,
-  pub source: EventSource<TreeMutation<X>>,
+  pub source: EventSource<TreeMutation<N>>,
 }
 
 impl<T: Default, X: IncrementalBase> Default for ReactiveTreeCollection<T, X> {
@@ -16,11 +16,10 @@ impl<T: Default, X: IncrementalBase> Default for ReactiveTreeCollection<T, X> {
   }
 }
 
-impl<T, X, N> CoreTree for ReactiveTreeCollection<T, X>
+impl<T, N> CoreTree for ReactiveTreeCollection<T, N>
 where
   T: CoreTree<Handle = TreeNodeHandle<N>, Node = N>,
-  N: std::ops::Deref<Target = X>,
-  X: IncrementalBase + Clone,
+  N: IncrementalBase + Clone,
 {
   type Node = T::Node;
   type Handle = TreeNodeHandle<T::Node>;
@@ -42,7 +41,7 @@ where
   }
 
   fn create_node(&mut self, data: Self::Node) -> Self::Handle {
-    let d = data.deref().clone();
+    let d = data.clone();
     // make sure the tree mutation and mutation record are synchronized
     let mut source = self.source.lock.lock().unwrap();
     let handle = self.inner.create_node(data);
@@ -88,11 +87,10 @@ where
   }
 }
 
-impl<T, X, N> ShareCoreTree for ReactiveTreeCollection<T, X>
+impl<T, N> ShareCoreTree for ReactiveTreeCollection<T, N>
 where
   T: ShareCoreTree<Handle = TreeNodeHandle<N>, Node = N>,
-  N: std::ops::Deref<Target = X>,
-  X: IncrementalBase + Clone,
+  N: IncrementalBase + Clone,
 {
   type Node = T::Node;
   type Handle = TreeNodeHandle<T::Node>;
@@ -118,7 +116,7 @@ where
   }
 
   fn create_node(&self, data: Self::Node) -> Self::Handle {
-    let d = data.deref().clone();
+    let d = data.clone();
     // make sure the tree mutation and mutation record are synchronized
     let mut source = self.source.lock.lock().unwrap();
     let handle = self.inner.create_node(data);
