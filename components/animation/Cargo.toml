@@ -5,4 +5,4 @@ name = "rendiation-animation"
 version = "0.1.0"
 
 [dependencies]
-rendiation-algebra = {path = "../../math/algebra"}
+rendiation-algebra = { path = "../../math/algebra" }

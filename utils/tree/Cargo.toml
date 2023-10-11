@@ -4,8 +4,8 @@ name = "tree"
 version = "0.0.1"
 
 [dependencies]
-futures = {workspace = true}
-incremental = {path = "../incremental"}
-reactive = {path = "../reactive"}
-rendiation-abstract-tree = {path = "../abstract-tree"}
-storage = {path = "../storage"}
+futures = { workspace = true }
+incremental = { path = "../incremental" }
+reactive = { path = "../reactive" }
+rendiation-abstract-tree = { path = "../abstract-tree" }
+storage = { path = "../storage" }

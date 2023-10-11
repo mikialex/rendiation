@@ -5,5 +5,5 @@ name = "rendiation-color"
 version = "0.1.0"
 
 [dependencies]
-bytemuck = {workspace = true, features = ["derive"]}
-rendiation-algebra = {path = "../../math/algebra"}
+bytemuck = { workspace = true, features = ["derive"] }
+rendiation-algebra = { path = "../../math/algebra" }

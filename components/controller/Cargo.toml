@@ -5,6 +5,6 @@ name = "rendiation-controller"
 version = "0.1.0"
 
 [dependencies]
-rendiation-algebra = {path = "../../math/algebra"}
-rendiation-geometry = {path = "../../math/geometry"}
-winit = {workspace = true}
+rendiation-algebra = { path = "../../math/algebra" }
+rendiation-geometry = { path = "../../math/geometry" }
+winit = { workspace = true }

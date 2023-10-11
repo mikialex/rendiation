@@ -6,32 +6,32 @@ version = "0.1.0"
 
 [dependencies]
 anymap = "0.12.1"
-arena = {path = "../../utils/arena"}
-arena-graph = {path = "../../utils/arena-graph"}
-bitflags = {workspace = true}
-bytemuck = {workspace = true, features = ["derive"]}
-dyn-clone = {workspace = true}
-fast-hash-collection = {path = "../../utils/fast-hash-collection"}
-futures = {workspace = true}
-incremental = {path = "../../utils/incremental"}
+arena = { path = "../../utils/arena" }
+arena-graph = { path = "../../utils/arena-graph" }
+bitflags = { workspace = true }
+bytemuck = { workspace = true, features = ["derive"] }
+dyn-clone = { workspace = true }
+fast-hash-collection = { path = "../../utils/fast-hash-collection" }
+futures = { workspace = true }
+incremental = { path = "../../utils/incremental" }
 linked-hash-map = "0.5.4"
-log = {workspace = true}
-once_cell = {workspace = true}
-pin-project = {workspace = true}
+log = { workspace = true }
+once_cell = { workspace = true }
+pin-project = { workspace = true }
 rand = "0.7.3"
-rendiation-algebra = {path = "../../math/algebra"}
-rendiation-color = {path = "../../components/color"}
-rendiation-geometry = {path = "../../math/geometry"}
-rendiation-lighting-ibl-core = {path = "../../components/lighting/ibl/core"}
-rendiation-lighting-transport = {path = "../../components/lighting/transport"}
-rendiation-mesh-core = {path = "../../components/mesh/core"}
-rendiation-mesh-gpu-system = {path = "../../components/mesh/gpu-system"}
-rendiation-scene-core = {path = "../core"}
-rendiation-shader-api = {path = "../../shader/api"}
-rendiation-shader-library = {path = "../../shader/library"}
-rendiation-texture = {path = "../../components/texture/core"}
-rendiation-texture-gpu-system = {path = "../../components/texture/gpu-system"}
-tree = {path = "../../utils/tree"}
+rendiation-algebra = { path = "../../math/algebra" }
+rendiation-color = { path = "../../components/color" }
+rendiation-geometry = { path = "../../math/geometry" }
+rendiation-lighting-ibl-core = { path = "../../components/lighting/ibl/core" }
+rendiation-lighting-transport = { path = "../../components/lighting/transport" }
+rendiation-mesh-core = { path = "../../components/mesh/core" }
+rendiation-mesh-gpu-system = { path = "../../components/mesh/gpu-system" }
+rendiation-scene-core = { path = "../core" }
+rendiation-shader-api = { path = "../../shader/api" }
+rendiation-shader-library = { path = "../../shader/library" }
+rendiation-texture = { path = "../../components/texture/core" }
+rendiation-texture-gpu-system = { path = "../../components/texture/gpu-system" }
+tree = { path = "../../utils/tree" }
 
-reactive = {path = "../../utils/reactive"}
-rendiation-webgpu = {path = "../../platform/graphics/webgpu"}
+reactive = { path = "../../utils/reactive" }
+rendiation-webgpu = { path = "../../platform/graphics/webgpu" }

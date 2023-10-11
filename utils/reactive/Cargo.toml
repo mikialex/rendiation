@@ -5,14 +5,14 @@ version = "0.0.1"
 
 [dependencies]
 crossbeam-queue = "0.3.8"
-fast-hash-collection = {path = "../fast-hash-collection"}
-futures = {workspace = true}
-pin-project = {workspace = true}
+fast-hash-collection = { path = "../fast-hash-collection" }
+futures = { workspace = true }
+pin-project = { workspace = true }
 slab = "0.4.8"
-storage = {path = "../storage"}
+storage = { path = "../storage" }
 
 [dev-dependencies]
-criterion = {version = "0.4", features = ["html_reports"]}
+criterion = { version = "0.4", features = ["html_reports"] }
 
 [[bench]]
 harness = false

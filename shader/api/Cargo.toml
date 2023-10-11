@@ -5,10 +5,10 @@ name = "rendiation-shader-api"
 version = "0.1.0"
 
 [dependencies]
-bytemuck = {workspace = true, features = ["derive"]}
-fast-hash-collection = {path = "../../utils/fast-hash-collection"}
-once_cell = {workspace = true}
-paste = {workspace = true}
-rendiation-algebra = {path = "../../math/algebra"}
-rendiation-shader-derives = {path = "../derive"}
+bytemuck = { workspace = true, features = ["derive"] }
+fast-hash-collection = { path = "../../utils/fast-hash-collection" }
+once_cell = { workspace = true }
+paste = { workspace = true }
+rendiation-algebra = { path = "../../math/algebra" }
+rendiation-shader-derives = { path = "../derive" }
 wgpu-types = "0.17"

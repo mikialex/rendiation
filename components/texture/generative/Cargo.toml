@@ -4,8 +4,8 @@ name = "rendiation-generative-texture"
 version = "0.0.1"
 
 [dependencies]
-rendiation-algebra = {path = "../../../math/algebra"}
-rendiation-texture= {path = "../core"}
+rendiation-algebra = { path = "../../../math/algebra" }
+rendiation-texture = { path = "../core" }
 
 [dev-dependencies]
 image = "*"

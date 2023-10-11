@@ -4,6 +4,6 @@ name = "dyn-downcast"
 version = "0.0.1"
 
 [dependencies]
-fast-hash-collection = {path = "../fast-hash-collection"}
-once_cell = {workspace = true}
-paste = {workspace = true}
+fast-hash-collection = { path = "../fast-hash-collection" }
+once_cell = { workspace = true }
+paste = { workspace = true }

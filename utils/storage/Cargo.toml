@@ -4,4 +4,4 @@ name = "storage"
 version = "0.0.1"
 
 [dependencies]
-arena = {path = "../arena"}
+arena = { path = "../arena" }

@@ -6,8 +6,8 @@ normalize_comments = true
 tab_spaces = 2
 use_field_init_shorthand = true
 
-comment_width = 100 # the max width default is 100
-wrap_comments = true 
+comment_width = 100  # the max width default is 100
+wrap_comments = true
 
 # enum_discrim_align_threshold = 24
 # struct_field_align_threshold = 24

@@ -13,12 +13,12 @@ autoexamples = false
 test = false
 
 [dependencies]
-ash = {version = "0.37", features = ["linked"]}
+ash = { version = "0.37", features = ["linked"] }
 ash-window = "0.12"
 raw-window-handle = "0.5"
-winit = {workspace = true}
+winit = { workspace = true }
 
 anyhow = "1.0"
-log = {workspace = true}
+log = { workspace = true }
 simple_logger = "4.0"
 thiserror = "1.0"

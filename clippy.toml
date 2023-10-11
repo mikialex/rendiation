@@ -7,5 +7,5 @@ disallowed-types = [
     { path = "std::collections::HashMap", reason = "should use fast hashmap if possible for better performance" },
     { path = "std::collections::BTreeSet", reason = "should use fast hashset if possible for better performance" },
     { path = "std::collections::HashSet", reason = "should use fast hashset if possible for better performance" },
-    {path = "std::collections::hash_map::DefaultHasher", reason = "should use fast hasher if possible for better performance"}
+    { path = "std::collections::hash_map::DefaultHasher", reason = "should use fast hasher if possible for better performance" },
 ]

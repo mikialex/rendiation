@@ -5,4 +5,4 @@ edition = "2021"
 
 [dependencies]
 arena = { path = "../arena" }
-fast-hash-collection = {path = "../fast-hash-collection"}
+fast-hash-collection = { path = "../fast-hash-collection" }
