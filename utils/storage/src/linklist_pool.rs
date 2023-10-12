@@ -13,12 +13,6 @@ impl<T> Default for LinkListPool<T> {
 }
 
 impl<T> LinkListPool<T> {
-  pub fn make_list(&mut self) -> ListHandle {
-    ListHandle {
-      head: u32::MAX,
-      tail: u32::MAX,
-    }
-  }
   pub fn insert(&mut self, list: &mut ListHandle, data: T) -> u32 {
     let idx = self.pool.insert(LinkListNode {
       next: IndexPtr::new(None),
@@ -100,6 +94,15 @@ pub struct ListHandle {
   tail: u32,
 }
 
+impl Default for ListHandle {
+  fn default() -> Self {
+    Self {
+      head: u32::MAX,
+      tail: u32::MAX,
+    }
+  }
+}
+
 struct LinkListNode<T> {
   next: IndexPtr,
   data: T,
@@ -108,8 +111,8 @@ struct LinkListNode<T> {
 #[test]
 fn test() {
   let mut pool = LinkListPool::default();
-  let mut list_a = pool.make_list();
-  let mut list_b = pool.make_list();
+  let mut list_a = ListHandle::default();
+  let mut list_b = ListHandle::default();
 
   let a_1 = pool.insert(&mut list_a, 0);
   let a_2 = pool.insert(&mut list_a, 1);

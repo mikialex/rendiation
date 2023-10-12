@@ -5,7 +5,6 @@ use tree::*;
 
 use crate::*;
 
-// pub type SceneNodeData = SceneNodeDataImpl;
 pub type SceneNodeHandle = TreeNodeHandle<SceneNodeData>;
 
 #[derive(Incremental, Clone)]

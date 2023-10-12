@@ -3685,6 +3685,7 @@ dependencies = [
  "png",
  "rayon",
  "reactive",
+ "reactive-incremental",
  "rendiation-algebra",
  "rendiation-controller",
  "rendiation-generative-texture",

@@ -310,9 +310,9 @@ pub fn stress_test2(scene: &Scene) {
     ..Default::default()
   };
   let material = MaterialEnum::PhysicalSpecularGlossiness(material.into());
-  for i in 0..10 {
+  for i in 0..100 {
     let i_parent = scene.create_root_child();
-    for j in 0..10 {
+    for j in 0..100 {
       let j_parent = i_parent.create_child();
       for k in 0..1 {
         let node = j_parent.create_child();

@@ -1,4 +1,5 @@
 #![feature(impl_trait_in_assoc_type)]
+#![feature(return_position_impl_trait_in_trait)]
 
 use std::{
   ops::Deref,

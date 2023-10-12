@@ -3,7 +3,7 @@ use crate::*;
 pub trait ChannelLike<T> {
   type Message;
   type Sender: Send + Sync + 'static;
-  type Receiver: Stream<Item = Self::Message> + Send + Sync + 'static;
+  type Receiver: Stream<Item = Self::Message> + Send + Sync + Unpin + 'static;
 
   fn build(&self) -> (Self::Sender, Self::Receiver);
   /// return if had sent successfully

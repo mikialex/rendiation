@@ -97,3 +97,46 @@ pub fn all_delta_with<T: IncrementalBase, X>(
     }
   }
 }
+
+pub trait IncrementalListenBy<T: IncrementalBase> {
+  fn listen_by<N, C, U>(
+    &self,
+    mapper: impl FnMut(MaybeDeltaRef<T>, &dyn Fn(U)) + Send + Sync + 'static,
+    channel_builder: &C,
+  ) -> impl Stream<Item = N> + Unpin
+  where
+    U: Send + Sync + 'static,
+    C: ChannelLike<U, Message = N>;
+
+  fn unbound_listen_by<U>(
+    &self,
+    mapper: impl FnMut(MaybeDeltaRef<T>, &dyn Fn(U)) + Send + Sync + 'static,
+  ) -> impl Stream<Item = U> + Unpin
+  where
+    U: Send + Sync + 'static,
+  {
+    self.listen_by::<U, _, _>(mapper, &DefaultUnboundChannel)
+  }
+
+  fn single_listen_by<U>(
+    &self,
+    mapper: impl FnMut(MaybeDeltaRef<T>, &dyn Fn(U)) + Send + Sync + 'static,
+  ) -> impl Stream<Item = U> + Unpin
+  where
+    U: Send + Sync + 'static,
+  {
+    self.listen_by::<U, _, _>(mapper, &DefaultSingleValueChannel)
+  }
+
+  fn create_drop(&self) -> impl Future<Output = ()> {
+    let mut s = self.single_listen_by(no_change);
+
+    Box::pin(async move {
+      loop {
+        if s.next().await.is_none() {
+          break;
+        }
+      }
+    })
+  }
+}

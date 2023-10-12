@@ -239,45 +239,18 @@ where
   }
 }
 
-impl<T: IncrementalBase> SharedIncrementalSignal<T> {
-  pub fn unbound_listen_by<U>(
-    &self,
-    mapper: impl FnMut(MaybeDeltaRef<T>, &dyn Fn(U)) + Send + Sync + 'static,
-  ) -> impl Stream<Item = U>
-  where
-    U: Send + Sync + 'static,
-  {
-    let inner = self.read();
-    inner.listen_by::<U, _, _>(mapper, &DefaultUnboundChannel)
-  }
-
-  pub fn single_listen_by<U>(
-    &self,
-    mapper: impl FnMut(MaybeDeltaRef<T>, &dyn Fn(U)) + Send + Sync + 'static,
-  ) -> impl Stream<Item = U>
-  where
-    U: Send + Sync + 'static,
-  {
-    let inner = self.read();
-    inner.listen_by::<U, _, _>(mapper, &DefaultSingleValueChannel)
-  }
-
-  pub fn listen_by<C, U>(
+impl<T: IncrementalBase> IncrementalListenBy<T> for SharedIncrementalSignal<T> {
+  fn listen_by<N, C, U>(
     &self,
     mapper: impl FnMut(MaybeDeltaRef<T>, &dyn Fn(U)) + Send + Sync + 'static,
     channel_builder: &C,
-  ) -> impl Stream<Item = U>
+  ) -> impl Stream<Item = N> + Unpin
   where
-    C: ChannelLike<U, Message = U>,
     U: Send + Sync + 'static,
+    C: ChannelLike<U, Message = N>,
   {
     let inner = self.read();
-    inner.listen_by::<U, C, _>(mapper, channel_builder)
-  }
-
-  pub fn create_drop(&self) -> impl Future<Output = ()> {
-    let inner = self.read();
-    inner.create_drop()
+    inner.listen_by::<N, C, U>(mapper, channel_builder)
   }
 }
 

@@ -8,35 +8,20 @@ use storage::*;
 
 use crate::*;
 
+/// https://en.wikipedia.org/wiki/Plane_(Dungeons_%26_Dragons)
 #[derive(Default)]
-pub struct ReactiveStoragePlane {
+pub struct PLANE {
   storages: FastHashMap<TypeId, Box<dyn Any + Send + Sync>>,
 }
 
-static ACTIVE_PLANE: RwLock<Option<ReactiveStoragePlane>> = RwLock::new(None);
-pub fn setup_active_plane(sg: ReactiveStoragePlane) -> Option<ReactiveStoragePlane> {
+static ACTIVE_PLANE: RwLock<Option<PLANE>> = RwLock::new(None);
+pub fn setup_active_plane(sg: PLANE) -> Option<PLANE> {
   ACTIVE_PLANE.write().unwrap().replace(sg)
 }
 
-// pub fn test(scene: Scene) {
-//   let attribute_bbox_stream = query_type::<AttributesMesh>().listen_by();
-//   let custom_bbox_stream = query_type::<MyCustomMesh>().listen_by();
-
-//   let mesh_stream = query_type::<MeshEnum>().listen_by();
-//   let mesh_local_bbox_system = MeshLocalBBoxSystem::new(mesh_stream, attribute_bbox_stream)
-//     .register_another_custom(custom_bbox_stream);
-
-//   let mesh_model_ref_system = ..;
-//   let model_scene_model_ref_system = ..;
-
-//   let node_scene_model_ref_system = ..;
-
-//   scheduler.register().register()
-// }
-
 struct SignalItem<T> {
   data: T,
-  sub_event_handle: Option<ListHandle>,
+  sub_event_handle: ListHandle,
   ref_count: u32,
   guid: u64, // weak semantics is impl by the guid compare in data access
 }
@@ -67,7 +52,7 @@ impl<T: IncrementalBase> IncrementalSignalStorage<T> {
     let guid = alloc_global_res_id();
     let data = SignalItem {
       data,
-      sub_event_handle: None,
+      sub_event_handle: Default::default(),
       ref_count: 1,
       guid,
     };
@@ -88,7 +73,7 @@ impl<T: IncrementalBase> Default for IncrementalSignalStorage<T> {
   }
 }
 
-/// data access point
+/// RAII handle
 pub struct IncrementalSignalPtr<T: IncrementalBase> {
   inner: Weak<IncrementalSignalGroupImpl<T>>, // todo, use id
   index: u32,
@@ -188,17 +173,14 @@ impl<T: IncrementalBase> IncrementalSignalPtr<T> {
   pub fn on(&self, f: impl FnMut(&T::Delta) -> bool + Send + Sync + 'static) -> Option<u32> {
     self.mutate_inner(|data, inner| {
       let mut sub_watcher = inner.sub_watchers.write().unwrap();
-      let watcher_handle = data
-        .sub_event_handle
-        .get_or_insert_with(|| sub_watcher.make_list());
-      sub_watcher.insert(watcher_handle, Box::new(f))
+      sub_watcher.insert(&mut data.sub_event_handle, Box::new(f))
     })
   }
 
   pub fn off(&self, token: u32) {
     self.mutate_inner(|data, inner| {
       let mut sub_watcher = inner.sub_watchers.write().unwrap();
-      sub_watcher.remove(data.sub_event_handle.as_mut().unwrap(), token);
+      sub_watcher.remove(&mut data.sub_event_handle, token);
     });
   }
   /// # Safety
@@ -208,9 +190,7 @@ impl<T: IncrementalBase> IncrementalSignalPtr<T> {
     self.mutate_inner(|data, inner| {
       let mut sub_watcher = inner.sub_watchers.write().unwrap();
       // emit sub child
-      if let Some(list) = data.sub_event_handle.as_mut() {
-        sub_watcher.visit_and_remove(list, |f, _| (f(delta), true));
-      }
+      sub_watcher.visit_and_remove(&mut data.sub_event_handle, |f, _| (f(delta), true));
     });
   }
 
@@ -222,9 +202,7 @@ impl<T: IncrementalBase> IncrementalSignalPtr<T> {
         inner: &mut data.data,
         collector: &mut |delta| {
           // emit sub child
-          if let Some(list) = data.sub_event_handle.as_mut() {
-            sub_watcher.visit_and_remove(list, |f, _| (f(delta), true));
-          }
+          sub_watcher.visit_and_remove(&mut data.sub_event_handle, |f, _| (f(delta), true));
         },
       })
     })
@@ -240,31 +218,18 @@ impl<T: IncrementalBase> IncrementalSignalPtr<T> {
     self.try_read().map(|r| visitor(&r)).unwrap()
   }
 
-  pub fn unbound_listen_by<U>(
-    &self,
-    mapper: impl FnMut(MaybeDeltaRef<T>, &dyn Fn(U)) + Send + Sync + 'static,
-  ) -> impl Stream<Item = U>
-  where
-    U: Send + Sync + 'static,
-  {
-    self.listen_by::<U, _, _>(mapper, &DefaultUnboundChannel)
+  pub fn defer_weak(&self) -> impl Fn(()) -> Option<Self> {
+    let weak = self.downgrade();
+    move |_| weak.upgrade()
   }
+}
 
-  pub fn single_listen_by<U>(
-    &self,
-    mapper: impl FnMut(MaybeDeltaRef<T>, &dyn Fn(U)) + Send + Sync + 'static,
-  ) -> impl Stream<Item = U>
-  where
-    U: Send + Sync + 'static,
-  {
-    self.listen_by::<U, _, _>(mapper, &DefaultSingleValueChannel)
-  }
-
-  pub fn listen_by<N, C, U>(
+impl<T: IncrementalBase> IncrementalListenBy<T> for IncrementalSignalPtr<T> {
+  fn listen_by<N, C, U>(
     &self,
     mut mapper: impl FnMut(MaybeDeltaRef<T>, &dyn Fn(U)) + Send + Sync + 'static,
     channel_builder: &C,
-  ) -> impl Stream<Item = N>
+  ) -> impl Stream<Item = N> + Unpin
   where
     U: Send + Sync + 'static,
     C: ChannelLike<U, Message = N>,
@@ -292,23 +257,6 @@ impl<T: IncrementalBase> IncrementalSignalPtr<T> {
       weak: self.downgrade(),
     };
     DropperAttachedStream::new(dropper, receiver)
-  }
-
-  pub fn create_drop(&self) -> impl Future<Output = ()> {
-    let mut s = self.single_listen_by(no_change);
-
-    Box::pin(async move {
-      loop {
-        if s.next().await.is_none() {
-          break;
-        }
-      }
-    })
-  }
-
-  pub fn defer_weak(&self) -> impl Fn(()) -> Option<Self> {
-    let weak = self.downgrade();
-    move |_| weak.upgrade()
   }
 }
 
@@ -351,10 +299,13 @@ impl<T: IncrementalBase> Drop for IncrementalSignalPtr<T> {
       if data.guid == self.guid {
         data.ref_count -= 1;
         if data.ref_count == 0 {
+          inner
+            .sub_watchers
+            .write()
+            .unwrap()
+            .drop_list(data.sub_event_handle);
           let removed = storage.remove(self.index);
-          if let Some(list) = removed.sub_event_handle {
-            inner.sub_watchers.write().unwrap().drop_list(list);
-          }
+
           to_remove = removed.into();
         }
       }
@@ -427,10 +378,10 @@ impl<T: IncrementalBase> IncrementalSignalWeakPtr<T> {
   pub fn upgrade(&self) -> Option<IncrementalSignalPtr<T>> {
     if let Some(inner) = self.inner.upgrade() {
       let mut storage = inner.data.write().unwrap();
+      // maybe not valid at all (index is deallocated and not reused)
       if let Some(data) = storage.try_get_mut(self.index) {
-        // maybe not valid at all
         if data.guid == self.guid {
-          // event index is ok, we must check it's our data
+          // event index is ok, we must check if it's our data
           data.ref_count += 1;
           return Some(IncrementalSignalPtr {
             inner: self.inner.clone(),
