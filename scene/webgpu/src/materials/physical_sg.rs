@@ -162,7 +162,7 @@ impl WebGPUMaterial for PhysicalSpecularGlossinessMaterial {
   type ReactiveGPU = PhysicalSpecularGlossinessMaterialReactiveGPU;
 
   fn create_reactive_gpu(
-    source: &SharedIncrementalSignal<Self>,
+    source: &IncrementalSignalPtr<Self>,
     ctx: &ShareBindableResourceCtx,
   ) -> Self::ReactiveGPU {
     let m = source.read();
@@ -188,6 +188,7 @@ impl WebGPUMaterial for PhysicalSpecularGlossinessMaterial {
       alpha_mode: m.alpha_mode,
       gpu: ctx.gpu.clone(),
     };
+    drop(m);
 
     let state = RenderComponentCell::new(gpu);
 

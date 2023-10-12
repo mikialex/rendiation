@@ -14,7 +14,7 @@ fn main() {
 
   let perspective = make_perspective();
   let perspective = CameraProjectionEnum::Perspective(perspective);
-  let camera = SceneCameraImpl::new(perspective, scene.create_root_child()).into_ref();
+  let camera = SceneCameraImpl::new(perspective, scene.create_root_child()).into_ptr();
 
   scene
     .model_node(

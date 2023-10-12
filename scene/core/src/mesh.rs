@@ -10,8 +10,8 @@ use crate::*;
 #[non_exhaustive]
 #[derive(Clone)]
 pub enum MeshEnum {
-  AttributesMesh(SharedIncrementalSignal<AttributesMesh>),
-  TransformInstanced(SharedIncrementalSignal<TransformInstancedSceneMesh>),
+  AttributesMesh(IncrementalSignalPtr<AttributesMesh>),
+  TransformInstanced(IncrementalSignalPtr<TransformInstancedSceneMesh>),
   Foreign(Box<dyn AnyClone + Send + Sync>),
 }
 

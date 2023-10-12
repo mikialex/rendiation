@@ -50,18 +50,18 @@ impl WebGPUSceneMesh for MeshEnum {
   }
 }
 
-impl<T: WebGPUMesh> WebGPUSceneMesh for SharedIncrementalSignal<T> {
+impl<T: WebGPUMesh> WebGPUSceneMesh for IncrementalSignalPtr<T> {
   fn create_scene_reactive_gpu(&self, ctx: &ShareBindableResourceCtx) -> Option<MeshGPUInstance> {
     let instance = T::create_reactive_gpu(self, ctx);
     MeshGPUInstance::Foreign(Box::new(instance) as Box<dyn ReactiveMeshGPUSource>).into()
   }
 }
-impl<T: WebGPUMesh> AsRef<dyn WebGPUSceneMesh> for SharedIncrementalSignal<T> {
+impl<T: WebGPUMesh> AsRef<dyn WebGPUSceneMesh> for IncrementalSignalPtr<T> {
   fn as_ref(&self) -> &(dyn WebGPUSceneMesh + 'static) {
     self
   }
 }
-impl<T: WebGPUMesh> AsMut<dyn WebGPUSceneMesh> for SharedIncrementalSignal<T> {
+impl<T: WebGPUMesh> AsMut<dyn WebGPUSceneMesh> for IncrementalSignalPtr<T> {
   fn as_mut(&mut self) -> &mut (dyn WebGPUSceneMesh + 'static) {
     self
   }
@@ -70,7 +70,7 @@ impl<T: WebGPUMesh> AsMut<dyn WebGPUSceneMesh> for SharedIncrementalSignal<T> {
 pub trait WebGPUMesh: Any + Send + Sync + IncrementalBase {
   type ReactiveGPU: ReactiveMeshGPUSource;
   fn create_reactive_gpu(
-    source: &SharedIncrementalSignal<Self>,
+    source: &IncrementalSignalPtr<Self>,
     ctx: &ShareBindableResourceCtx,
   ) -> Self::ReactiveGPU;
 }

@@ -3,9 +3,9 @@ use crate::*;
 #[non_exhaustive]
 #[derive(Clone)]
 pub enum MaterialEnum {
-  PhysicalSpecularGlossiness(SharedIncrementalSignal<PhysicalSpecularGlossinessMaterial>),
-  PhysicalMetallicRoughness(SharedIncrementalSignal<PhysicalMetallicRoughnessMaterial>),
-  Flat(SharedIncrementalSignal<FlatMaterial>),
+  PhysicalSpecularGlossiness(IncrementalSignalPtr<PhysicalSpecularGlossinessMaterial>),
+  PhysicalMetallicRoughness(IncrementalSignalPtr<PhysicalMetallicRoughnessMaterial>),
+  Flat(IncrementalSignalPtr<FlatMaterial>),
   Foreign(Box<dyn AnyClone + Send + Sync>),
 }
 

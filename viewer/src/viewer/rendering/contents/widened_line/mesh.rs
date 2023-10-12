@@ -86,7 +86,7 @@ impl WebGPUMesh for WidenedLineMesh {
   type ReactiveGPU = ReactiveWidenedLineGPU;
 
   fn create_reactive_gpu(
-    source: &SharedIncrementalSignal<Self>,
+    source: &IncrementalSignalPtr<Self>,
     ctx: &ShareBindableResourceCtx,
   ) -> Self::ReactiveGPU {
     let weak = source.downgrade();

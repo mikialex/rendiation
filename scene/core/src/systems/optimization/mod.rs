@@ -139,7 +139,7 @@ pub trait InstanceSourceRuleOut {}
 define_dyn_trait_downcaster_static!(InstanceSourceRuleOut);
 
 fn compute_instance_key_inner(
-  model: &SharedIncrementalSignal<StandardModel>,
+  model: &IncrementalSignalPtr<StandardModel>,
 ) -> Option<InstanceContentKey> {
   let model = model.read();
 
@@ -436,7 +436,7 @@ fn create_instance(
       })
       .collect();
 
-    let instance_mesh = TransformInstancedSceneMesh { mesh, transforms }.into_ref();
+    let instance_mesh = TransformInstancedSceneMesh { mesh, transforms }.into_ptr();
 
     let instance_model = StandardModel {
       material,
@@ -444,14 +444,14 @@ fn create_instance(
       group: model.group,
       skeleton: None,
     }
-    .into_ref();
+    .into_ptr();
 
     let instance_model = SceneModelImpl {
       model: ModelEnum::Standard(instance_model),
       node: new_nodes.create_node(Default::default()),
       attach_index: None,
     }
-    .into_ref();
+    .into_ptr();
 
     (instance_model, true).into()
   }

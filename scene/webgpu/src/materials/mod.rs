@@ -18,7 +18,7 @@ pub type ReactiveMaterialGPUOf<T> = <T as WebGPUMaterial>::ReactiveGPU;
 pub trait WebGPUMaterial: IncrementalBase {
   type ReactiveGPU: ReactiveRenderComponentSource;
   fn create_reactive_gpu(
-    source: &SharedIncrementalSignal<Self>,
+    source: &IncrementalSignalPtr<Self>,
     ctx: &ShareBindableResourceCtx,
   ) -> Self::ReactiveGPU;
 
@@ -86,7 +86,7 @@ impl WebGPUSceneMaterial for MaterialEnum {
   }
 }
 
-impl<M> WebGPUSceneMaterial for SharedIncrementalSignal<M>
+impl<M> WebGPUSceneMaterial for IncrementalSignalPtr<M>
 where
   M: WebGPUMaterial,
 {
@@ -103,12 +103,12 @@ where
     self.read().deref().is_transparent()
   }
 }
-impl<T: WebGPUMaterial> AsRef<dyn WebGPUSceneMaterial> for SharedIncrementalSignal<T> {
+impl<T: WebGPUMaterial> AsRef<dyn WebGPUSceneMaterial> for IncrementalSignalPtr<T> {
   fn as_ref(&self) -> &(dyn WebGPUSceneMaterial + 'static) {
     self
   }
 }
-impl<T: WebGPUMaterial> AsMut<dyn WebGPUSceneMaterial> for SharedIncrementalSignal<T> {
+impl<T: WebGPUMaterial> AsMut<dyn WebGPUSceneMaterial> for IncrementalSignalPtr<T> {
   fn as_mut(&mut self) -> &mut (dyn WebGPUSceneMaterial + 'static) {
     self
   }

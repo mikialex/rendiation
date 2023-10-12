@@ -3,7 +3,7 @@ use std::path::Path;
 use rendiation_algebra::*;
 use rendiation_scene_core::{
   AttributeAccessor, AttributeIndexFormat, AttributeSemantic, AttributesMesh,
-  IntoSharedIncrementalSignal, MaterialEnum, MeshEnum, ModelEnum, NormalMapping,
+  IntoIncrementalSignalPtr, MaterialEnum, MeshEnum, ModelEnum, NormalMapping,
   PhysicalSpecularGlossinessMaterial, Scene, SceneExt, SceneModelImpl, SceneTexture2D,
   SceneTexture2DType, StandardModel, Texture2DWithSamplingData,
 };
@@ -23,7 +23,7 @@ pub fn load_obj(
   let models = load_obj_content(path, obj_loader_recommended_default_mat)?;
   let node = scene.create_root_child();
   for model in models {
-    let model = SceneModelImpl::new(ModelEnum::Standard(model.into_ref()), node.clone()).into_ref();
+    let model = SceneModelImpl::new(ModelEnum::Standard(model.into_ptr()), node.clone()).into_ptr();
     scene.insert_model(model);
   }
   Ok(())
@@ -83,7 +83,7 @@ pub fn load_obj_content(
         mode: rendiation_mesh_core::PrimitiveTopology::TriangleList,
         groups: Default::default(),
       };
-      let mesh = MeshEnum::AttributesMesh(attribute_mesh.into_ref());
+      let mesh = MeshEnum::AttributesMesh(attribute_mesh.into_ptr());
 
       let mut material = None;
       if let Some(material_id) = m.mesh.material_id {
@@ -108,7 +108,7 @@ pub fn load_obj_content(
 
 pub fn obj_loader_recommended_default_mat() -> MaterialEnum {
   let mat = PhysicalSpecularGlossinessMaterial::default();
-  MaterialEnum::PhysicalSpecularGlossiness(mat.into_ref())
+  MaterialEnum::PhysicalSpecularGlossiness(mat.into_ptr())
 }
 
 /// convert obj material into scene material, only part of material parameters are supported
@@ -129,13 +129,13 @@ fn into_rff_material(m: &tobj::Material) -> MaterialEnum {
   if let Some(normal_texture) = &m.normal_texture {
     mat.normal_texture = load_normal_map(normal_texture).into();
   }
-  MaterialEnum::PhysicalSpecularGlossiness(mat.into_ref())
+  MaterialEnum::PhysicalSpecularGlossiness(mat.into_ptr())
 }
 
 fn load_texture_sampler_pair(path: impl AsRef<Path>) -> Texture2DWithSamplingData {
   Texture2DWithSamplingData {
     texture: load_tex(path),
-    sampler: TextureSampler::tri_linear_repeat().into_ref(),
+    sampler: TextureSampler::tri_linear_repeat().into_ptr(),
   }
 }
 
@@ -165,5 +165,5 @@ fn load_tex(path: impl AsRef<Path>) -> SceneTexture2D {
     }
     _ => panic!("unsupported texture type"),
   };
-  SceneTexture2DType::GPUBufferImage(tex).into_ref()
+  SceneTexture2DType::GPUBufferImage(tex).into_ptr()
 }

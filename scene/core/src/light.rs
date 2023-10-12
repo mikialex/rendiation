@@ -3,15 +3,15 @@ use crate::*;
 #[non_exhaustive]
 #[derive(Clone)]
 pub enum LightEnum {
-  PointLight(SharedIncrementalSignal<PointLight>),
-  SpotLight(SharedIncrementalSignal<SpotLight>),
-  DirectionalLight(SharedIncrementalSignal<DirectionalLight>),
+  PointLight(IncrementalSignalPtr<PointLight>),
+  SpotLight(IncrementalSignalPtr<SpotLight>),
+  DirectionalLight(IncrementalSignalPtr<DirectionalLight>),
   Foreign(Box<dyn AnyClone + Send + Sync>),
 }
 
 clone_self_incremental!(LightEnum);
 
-pub type SceneLight = SharedIncrementalSignal<SceneLightImpl>;
+pub type SceneLight = IncrementalSignalPtr<SceneLightImpl>;
 
 #[derive(Incremental)]
 pub struct SceneLightImpl {

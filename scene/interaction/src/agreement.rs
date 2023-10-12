@@ -36,7 +36,7 @@ impl PickingConventionAgreement for MaterialEnum {
   }
 }
 
-impl<T> PickingConventionAgreement for SharedIncrementalSignal<T>
+impl<T> PickingConventionAgreement for IncrementalSignalPtr<T>
 where
   T: PickingConventionAgreement + IncrementalBase,
 {

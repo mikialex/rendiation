@@ -130,7 +130,7 @@ pub struct GeometryBufferImpl {
 
 clone_self_incremental!(GeometryBufferImpl);
 
-pub type GeometryBuffer = SharedIncrementalSignal<GeometryBufferImpl>;
+pub type GeometryBuffer = IncrementalSignalPtr<GeometryBufferImpl>;
 
 #[derive(Debug, Copy, Clone, Default, PartialEq, Eq, Hash)]
 pub struct BufferViewRange {
@@ -158,7 +158,7 @@ impl UnTypedBufferView {
 }
 
 pub struct UnTypedBufferViewReadView<'a> {
-  buffer: SignalRefGuard<'a, GeometryBufferImpl>,
+  buffer: SignalPtrGuard<'a, GeometryBufferImpl>,
   view: &'a UnTypedBufferView,
 }
 
@@ -223,7 +223,7 @@ impl AttributeAccessor {
     let count = buffer.len() / item_byte_size;
 
     let buffer = GeometryBufferImpl { buffer };
-    let buffer = buffer.into_ref();
+    let buffer = buffer.into_ptr();
     let view = UnTypedBufferView {
       buffer,
       range: Default::default(),

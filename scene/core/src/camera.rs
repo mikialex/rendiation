@@ -5,7 +5,7 @@ pub use rendiation_texture::Size;
 
 use crate::*;
 
-pub type SceneCamera = SharedIncrementalSignal<SceneCameraImpl>;
+pub type SceneCamera = IncrementalSignalPtr<SceneCameraImpl>;
 
 #[derive(Incremental)]
 pub struct SceneCameraImpl {
@@ -79,7 +79,7 @@ impl SceneCameraExt for SceneCamera {
     self.mutate(|mut camera| {
       let resize = CameraProjectorDelta::Resize(size);
       camera.modify(SceneCameraImplDelta::projection(resize));
-    })
+    });
   }
 
   /// normalized_position: -1 to 1

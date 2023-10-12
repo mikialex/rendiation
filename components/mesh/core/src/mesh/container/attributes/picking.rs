@@ -8,7 +8,7 @@ use rendiation_geometry::*;
 use crate::*;
 
 impl<T: IntersectAbleGroupedMesh + IncrementalBase> IntersectAbleGroupedMesh
-  for SharedIncrementalSignal<T>
+  for IncrementalSignalPtr<T>
 {
   fn intersect_list_by_group(
     &self,
@@ -32,14 +32,14 @@ impl<T: IntersectAbleGroupedMesh + IncrementalBase> IntersectAbleGroupedMesh
   }
 }
 impl<T: IntersectAbleGroupedMesh + IncrementalBase> AsRef<dyn IntersectAbleGroupedMesh>
-  for SharedIncrementalSignal<T>
+  for IncrementalSignalPtr<T>
 {
   fn as_ref(&self) -> &(dyn IntersectAbleGroupedMesh + 'static) {
     self
   }
 }
 impl<T: IntersectAbleGroupedMesh + IncrementalBase> AsMut<dyn IntersectAbleGroupedMesh>
-  for SharedIncrementalSignal<T>
+  for IncrementalSignalPtr<T>
 {
   fn as_mut(&mut self) -> &mut (dyn IntersectAbleGroupedMesh + 'static) {
     self

@@ -176,7 +176,7 @@ pub trait AlphaBlendDecider {
 }
 define_dyn_trait_downcaster_static!(AlphaBlendDecider);
 
-impl AlphaBlendDecider for SharedIncrementalSignal<StandardModel> {
+impl AlphaBlendDecider for IncrementalSignalPtr<StandardModel> {
   fn should_use_alpha_blend(&self) -> bool {
     self.read().material.is_transparent()
   }

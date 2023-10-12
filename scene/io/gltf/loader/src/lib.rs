@@ -9,7 +9,7 @@ use gltf::{Node, Result as GltfResult};
 use rendiation_algebra::*;
 use rendiation_scene_core::{
   AnimationSampler, AttributeAccessor, AttributeIndexFormat, AttributesMesh, BufferViewRange,
-  GeometryBuffer, GeometryBufferImpl, IntoSharedIncrementalSignal, Joint, MaterialEnum, MeshEnum,
+  GeometryBuffer, GeometryBufferImpl, IntoIncrementalSignalPtr, Joint, MaterialEnum, MeshEnum,
   ModelEnum, NormalMapping, PhysicalMetallicRoughnessMaterial, Scene, SceneAnimation,
   SceneAnimationChannel, SceneExt, SceneModel, SceneModelHandle, SceneModelImpl, SceneNode,
   SceneTexture2D, SceneTexture2DType, Skeleton, SkeletonImpl, StandardModel,
@@ -221,7 +221,7 @@ fn build_skin(skin: gltf::Skin, ctx: &mut Context) {
   //   .and_then(|n| ctx.result.node_map.get(&n.index()))
   //   .unwrap_or(scene_inner.root());
 
-  let skeleton = SkeletonImpl { joints }.into_ref();
+  let skeleton = SkeletonImpl { joints }.into_ptr();
   ctx.result.skin_map.insert(skin.index(), skeleton);
 }
 
@@ -376,7 +376,7 @@ fn build_texture(
   require_srgb: bool,
   ctx: &mut Context,
 ) -> Texture2DWithSamplingData {
-  let sampler = map_sampler(texture.sampler()).into_ref();
+  let sampler = map_sampler(texture.sampler()).into_ptr();
   let image_index = texture.source().index();
   let texture = ctx
     .build_images

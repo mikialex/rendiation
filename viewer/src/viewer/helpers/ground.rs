@@ -3,7 +3,7 @@ use futures::Stream;
 use incremental::*;
 use reactive::ReactiveMap;
 use rendiation_scene_core::{
-  any_change, GlobalIdReactiveSimpleMapping, IntoSharedIncrementalSignal, SharedIncrementalSignal,
+  any_change, GlobalIdReactiveSimpleMapping, IncrementalSignalPtr, IntoIncrementalSignalPtr,
 };
 use rendiation_scene_webgpu::{
   CameraGPU, MaterialStates, PassContentWithSceneAndCamera, SceneRenderResourceGroup,
@@ -12,7 +12,7 @@ use rendiation_shader_api::*;
 use webgpu::*;
 
 pub struct GridGround {
-  grid_config: SharedIncrementalSignal<GridGroundConfig>,
+  grid_config: IncrementalSignalPtr<GridGroundConfig>,
 }
 
 impl PassContentWithSceneAndCamera for &mut GridGround {
@@ -25,7 +25,7 @@ impl PassContentWithSceneAndCamera for &mut GridGround {
     let base = default_dispatcher(pass);
 
     let mut custom_storage = scene.resources.custom_storage.borrow_mut();
-    let gpus: &mut ReactiveMap<SharedIncrementalSignal<GridGroundConfig>, InfinityShaderPlane> =
+    let gpus: &mut ReactiveMap<IncrementalSignalPtr<GridGroundConfig>, InfinityShaderPlane> =
       custom_storage.entry().or_insert_with(Default::default);
 
     let grid_gpu = gpus.get_with_update(&self.grid_config, pass.ctx.gpu);
@@ -43,17 +43,16 @@ impl PassContentWithSceneAndCamera for &mut GridGround {
   }
 }
 
-impl GlobalIdReactiveSimpleMapping<InfinityShaderPlane>
-  for SharedIncrementalSignal<GridGroundConfig>
-{
+impl GlobalIdReactiveSimpleMapping<InfinityShaderPlane> for IncrementalSignalPtr<GridGroundConfig> {
   type ChangeStream = impl Stream<Item = ()> + Unpin;
   type Ctx<'a> = GPU;
 
   fn build(&self, ctx: &Self::Ctx<'_>) -> (InfinityShaderPlane, Self::ChangeStream) {
     let source = self.read();
-    let grid_gpu = create_grid_gpu(**source, ctx);
+    let grid_gpu = create_grid_gpu(*source, ctx);
+    drop(source);
 
-    let change = source.unbound_listen_by(any_change);
+    let change = self.unbound_listen_by(any_change);
     (grid_gpu, change)
   }
 }
@@ -82,7 +81,7 @@ impl Default for GridGround {
         color: Vec4::splat(1.),
         ..Zeroable::zeroed()
       }
-      .into_ref(),
+      .into_ptr(),
     }
   }
 }

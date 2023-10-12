@@ -65,10 +65,10 @@ pub fn build_scene_mesh(f: impl FnOnce(&mut SceneMeshBuilder)) -> MeshEnum {
   f(&mut builder);
   let mesh = builder.finish();
   // could use to test foreign mesh rendering?
-  MeshEnum::Foreign(Box::new(mesh.into_ref()))
+  MeshEnum::Foreign(Box::new(mesh.into_ptr()))
   // let mut attribute: AttributesMesh = mesh.mesh.primitive_iter().collect();
   // attribute.groups = mesh.groups;
-  // MeshEnum::AttributesMesh(attribute.into_ref())
+  // MeshEnum::AttributesMesh(attribute.into_ptr())
 }
 
 pub fn build_scene_mesh2(f: impl FnOnce(&mut SceneMeshBuilder)) -> MeshEnum {
@@ -76,10 +76,10 @@ pub fn build_scene_mesh2(f: impl FnOnce(&mut SceneMeshBuilder)) -> MeshEnum {
   f(&mut builder);
   let mesh = builder.finish();
   // could use to test foreign mesh rendering?
-  // return MeshEnum::Foreign(Box::new(mesh.into_ref()))
+  // return MeshEnum::Foreign(Box::new(mesh.into_ptr()))
   let mut attribute: AttributesMesh = mesh.mesh.primitive_iter().collect();
   attribute.groups = mesh.groups;
-  MeshEnum::AttributesMesh(attribute.into_ref())
+  MeshEnum::AttributesMesh(attribute.into_ptr())
 }
 
 pub fn load_default_scene(scene: &Scene) {
@@ -90,8 +90,8 @@ pub fn load_default_scene(scene: &Scene) {
   };
 
   let texture = TextureWithSamplingData {
-    texture: load_tex(path).into_ref(),
-    sampler: TextureSampler::tri_linear_repeat().into_ref(),
+    texture: load_tex(path).into_ptr(),
+    sampler: TextureSampler::tri_linear_repeat().into_ptr(),
   };
 
   scene.set_background(Some(SceneBackGround::Solid(SolidBackground {
@@ -170,7 +170,7 @@ pub fn load_default_scene(scene: &Scene) {
         Mat4::translate((10., 0., 6.)),
       ],
     }
-    .into_ref();
+    .into_ptr();
     let mesh = MeshEnum::TransformInstanced(mesh);
 
     let material = PhysicalSpecularGlossinessMaterial {
@@ -194,7 +194,7 @@ pub fn load_default_scene(scene: &Scene) {
     let camera = CameraProjectionEnum::Perspective(camera);
     let camera_node = scene.create_root_child();
     camera_node.set_local_matrix(Mat4::lookat(Vec3::splat(3.), Vec3::splat(0.), up));
-    let camera = SceneCameraImpl::new(camera, camera_node).into_ref();
+    let camera = SceneCameraImpl::new(camera, camera_node).into_ptr();
     let _ = scene.insert_camera(camera.clone());
     scene.set_active_camera(camera.into());
   }
@@ -204,7 +204,7 @@ pub fn load_default_scene(scene: &Scene) {
     let camera = CameraProjectionEnum::Perspective(camera);
     let camera_node = scene.create_root_child();
     camera_node.set_local_matrix(Mat4::lookat(Vec3::splat(3.), Vec3::splat(0.), up));
-    let camera = SceneCameraImpl::new(camera, camera_node).into_ref();
+    let camera = SceneCameraImpl::new(camera, camera_node).into_ptr();
     let _ = scene.insert_camera(camera);
   }
 

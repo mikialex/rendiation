@@ -96,7 +96,7 @@ impl WebGPUMesh for SolidLinedMesh {
   type ReactiveGPU = ReactiveSolidLinedMeshGPU;
 
   fn create_reactive_gpu(
-    source: &SharedIncrementalSignal<Self>,
+    source: &IncrementalSignalPtr<Self>,
     ctx: &ShareBindableResourceCtx,
   ) -> Self::ReactiveGPU {
     let weak = source.downgrade();
@@ -179,7 +179,7 @@ impl<'a> AttributeVertex for FullReaderReadWithBarycentric<'a> {
 }
 
 fn generate_barycentric_buffer_and_expanded_mesh(
-  mesh: &SharedIncrementalSignal<SolidLinedMesh>,
+  mesh: &IncrementalSignalPtr<SolidLinedMesh>,
 ) -> Option<MeshEnum> {
   let mesh = mesh.read();
   let mesh = match &mesh.mesh {
@@ -213,7 +213,7 @@ fn generate_barycentric_buffer_and_expanded_mesh(
     })
     .collect();
 
-  MeshEnum::AttributesMesh(mesh.into_ref()).into()
+  MeshEnum::AttributesMesh(mesh.into_ptr()).into()
 }
 
 #[derive(Clone, Copy)]

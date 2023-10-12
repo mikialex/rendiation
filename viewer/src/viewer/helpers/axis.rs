@@ -56,7 +56,7 @@ type ArrowMaterial = FlatMaterial;
 pub struct Arrow {
   cylinder: OverridableMeshModelImpl,
   tip: OverridableMeshModelImpl,
-  material: SharedIncrementalSignal<ArrowMaterial>,
+  material: IncrementalSignalPtr<ArrowMaterial>,
   pub root: SceneNode,
 }
 
@@ -100,7 +100,7 @@ impl Arrow {
 
     let (cylinder_mesh, tip_mesh) = Arrow::default_shape();
 
-    let material = solid_material((1., 1., 1.)).into_ref();
+    let material = solid_material((1., 1., 1.)).into_ptr();
     let modify_material = material.clone();
     let material = MaterialEnum::Flat(material);
 

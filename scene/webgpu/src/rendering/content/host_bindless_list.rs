@@ -21,7 +21,7 @@ impl MaybeBindlessMeshRenderList {
 
       let mut opaque_override = Vec::with_capacity(list.opaque.len());
 
-      for (m, _) in &list.opaque {
+      for (index, (m, _)) in list.opaque.iter().enumerate() {
         //   if model.read().node.get_world
         if let ModelEnum::Standard(model) = &m.read().model {
           let model = model.read();
@@ -30,7 +30,7 @@ impl MaybeBindlessMeshRenderList {
             if let Some(mesh_handle) = mesh_gpu.get_bindless() {
               let collected = bindless_grouper
                 .entry(model.material.guid())
-                .or_insert_with(|| (Vec::default(), m.clone()));
+                .or_insert_with(|| (Vec::default(), index));
               collected.0.push(mesh_handle);
               continue;
             }
@@ -40,9 +40,12 @@ impl MaybeBindlessMeshRenderList {
       }
 
       for (mesh_handles, any_model) in bindless_grouper.values() {
-        let list = system
+        let dispatcher = system
           .create_host_draw_dispatcher(mesh_handles.iter().copied(), &scene.resources.gpu.device);
-        opaque_override.push(ModelMaybeBindlessDraw::Bindless((list, any_model.clone())));
+        opaque_override.push(ModelMaybeBindlessDraw::Bindless((
+          dispatcher,
+          list.opaque[*any_model].0.clone(),
+        )));
       }
       //
       Self {

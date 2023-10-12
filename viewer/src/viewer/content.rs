@@ -157,45 +157,60 @@ impl Viewer3dContent {
       position_info.size.height as usize,
     ));
 
-    let s = self.scene.read();
-    let scene = &s.core.read();
-
-    let interactive_ctx = scene.build_interactive_ctx(
-      normalized_screen_position,
-      camera_view_size,
-      &self.pick_config,
-      &self.scene_derived,
-    );
-
-    let mut ctx = EventCtx3D::new(
-      states,
-      event,
-      &position_info,
-      scene,
-      &interactive_ctx,
-      &self.scene_derived,
-    );
-
     let widgets = self.widgets.get_mut();
     let gizmo = &mut widgets.gizmo;
 
-    let keep_target_for_gizmo = gizmo.event(&mut ctx);
+    enum SelectAction {
+      DeSelect,
+      Select(SceneNode),
+      Nothing,
+    }
+    let mut act = SelectAction::Nothing;
+
+    {
+      let s = self.scene.read();
+      let scene = &s.core.read();
+
+      let interactive_ctx = scene.build_interactive_ctx(
+        normalized_screen_position,
+        camera_view_size,
+        &self.pick_config,
+        &self.scene_derived,
+      );
+
+      let mut ctx = EventCtx3D::new(
+        states,
+        event,
+        &position_info,
+        scene,
+        &interactive_ctx,
+        &self.scene_derived,
+      );
+
+      let keep_target_for_gizmo = gizmo.event(&mut ctx);
+
+      if let Some((MouseButton::Left, ElementState::Pressed)) = mouse(event) {
+        if let Some((nearest, _)) =
+          scene.interaction_picking(&interactive_ctx, &mut self.scene_bounding)
+        {
+          self.selections.clear();
+          self.selections.select(nearest);
+
+          act = SelectAction::Select(nearest.read().node.clone());
+        } else if !keep_target_for_gizmo {
+          act = SelectAction::DeSelect;
+        }
+      };
+    }
+
+    match act {
+      SelectAction::DeSelect => gizmo.set_target(None, &self.scene_derived),
+      SelectAction::Select(node) => gizmo.set_target(node.into(), &self.scene_derived),
+      SelectAction::Nothing => {}
+    }
 
     if !gizmo.has_active() {
       self.controller.event(event, bound);
-    }
-
-    if let Some((MouseButton::Left, ElementState::Pressed)) = mouse(event) {
-      if let Some((nearest, _)) =
-        scene.interaction_picking(&interactive_ctx, &mut self.scene_bounding)
-      {
-        self.selections.clear();
-        self.selections.select(nearest);
-
-        gizmo.set_target(nearest.read().node.clone().into(), &self.scene_derived);
-      } else if !keep_target_for_gizmo {
-        gizmo.set_target(None, &self.scene_derived);
-      }
     }
 
     if let Some((Some(VirtualKeyCode::F), ElementState::Pressed)) = keyboard(event) {
@@ -207,21 +222,23 @@ impl Viewer3dContent {
     let widgets = self.widgets.get_mut();
     let gizmo = &mut widgets.gizmo;
     gizmo.update(&self.scene_derived);
-    if let Some(camera) = &self.scene.read().core.read().active_camera {
-      struct ControlleeWrapper<'a> {
-        controllee: &'a SceneNode,
+
+    struct ControlleeWrapper<'a> {
+      controllee: &'a SceneNode,
+    }
+
+    impl<'a> Transformed3DControllee for ControlleeWrapper<'a> {
+      fn get_matrix(&self) -> Mat4<f32> {
+        self.controllee.get_local_matrix()
       }
 
-      impl<'a> Transformed3DControllee for ControlleeWrapper<'a> {
-        fn get_matrix(&self) -> Mat4<f32> {
-          self.controllee.get_local_matrix()
-        }
-
-        fn set_matrix(&mut self, m: Mat4<f32>) {
-          self.controllee.set_local_matrix(m)
-        }
+      fn set_matrix(&mut self, m: Mat4<f32>) {
+        self.controllee.set_local_matrix(m)
       }
+    }
 
+    let active_camera = self.scene.read().core.read().active_camera.clone();
+    if let Some(camera) = &active_camera {
       self.controller.update(&mut ControlleeWrapper {
         controllee: &camera.read().node,
       });

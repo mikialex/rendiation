@@ -24,6 +24,7 @@ pub struct Gizmo {
   root: SceneNode,
   target: Option<SceneNode>,
   deltas: Vec<DeltaOf<GizmoState>>,
+  to_update_target: Option<Mat4<f32>>,
   view: Component3DCollection<GizmoState, ()>,
 }
 
@@ -157,6 +158,7 @@ impl Gizmo {
       view,
       target: None,
       deltas: Default::default(),
+      to_update_target: None,
     };
 
     r.states.expand(|d| r.deltas.push(d));
@@ -257,7 +259,7 @@ impl Gizmo {
           };
           if let Some(target) = &self.states.target_state {
             if let Some(start) = &self.states.start_state {
-              if let Some(target_local_new) =
+              self.to_update_target =
                 handle_translating(start, target, &self.states.active.translate, action).or_else(
                   || {
                     handle_rotating(
@@ -269,13 +271,6 @@ impl Gizmo {
                     )
                   },
                 )
-              {
-                self
-                  .target
-                  .as_ref()
-                  .unwrap()
-                  .set_local_matrix(target_local_new)
-              }
             }
           }
         }
@@ -288,6 +283,14 @@ impl Gizmo {
   }
 
   pub fn update(&mut self, node_sys: &SceneNodeDeriveSystem) {
+    if let Some(target_local_new) = self.to_update_target.take() {
+      self.to_update_target = target_local_new.into();
+      self
+        .target
+        .as_ref()
+        .unwrap()
+        .set_local_matrix(target_local_new)
+    }
     self.sync_target(node_sys);
     for d in self.deltas.drain(..) {
       self.view.update(&self.states, &d);
@@ -434,7 +437,7 @@ fn build_plane(root: &SceneNode, auto_scale: &AutoScale, mat: Mat4<f32>) -> Help
     );
   });
 
-  let material = solid_material(RED).into_ref();
+  let material = solid_material(RED).into_ptr();
   let m = material.clone();
   let material = MaterialEnum::Flat(material);
 
@@ -463,7 +466,7 @@ fn build_rotator(root: &SceneNode, auto_scale: &AutoScale, mat: Mat4<f32>) -> He
     );
   });
 
-  let material = solid_material(RED).into_ref();
+  let material = solid_material(RED).into_ptr();
   let m = material.clone();
   let material = MaterialEnum::Flat(material);
 
@@ -767,7 +770,7 @@ impl AxisActiveState {
 }
 
 struct HelperMesh {
-  material: SharedIncrementalSignal<FlatMaterial>,
+  material: IncrementalSignalPtr<FlatMaterial>,
   model: OverridableMeshModelImpl,
 }
 

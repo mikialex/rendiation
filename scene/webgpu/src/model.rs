@@ -25,7 +25,7 @@ pub type ReactiveStandardModelGPU = impl AsRef<RenderComponentCell<StandardModel
   + Unpin;
 
 pub fn build_standard_model_gpu(
-  source: &SharedIncrementalSignal<StandardModel>,
+  source: &IncrementalSignalPtr<StandardModel>,
   ctx: &GPUModelResourceCtx,
 ) -> ReactiveStandardModelGPU {
   let s = source.read();
@@ -36,6 +36,7 @@ pub fn build_standard_model_gpu(
     mesh_delta: ctx.get_or_create_reactive_mesh_render_component_delta_source(&s.mesh),
     group: s.group,
   };
+  drop(s);
 
   let state = RenderComponentCell::new(gpu);
   let ctx = ctx.clone();
@@ -148,10 +149,10 @@ pub type ReactiveSceneModelGPUInstance =
   impl AsRef<RenderComponentCell<ReactiveSceneModelGPU>> + Stream<Item = RenderComponentDeltaFlag>;
 
 pub fn build_scene_model_gpu(
-  source: &SceneModel,
+  s: &SceneModel,
   ctx: &ContentGPUSystem,
 ) -> ReactiveSceneModelGPUInstance {
-  let source = source.read();
+  let source = s.read();
 
   let model_id = source.model.guid();
   let model_delta = ctx.get_or_create_reactive_model_render_component_delta_source(&source.model);
@@ -161,12 +162,12 @@ pub fn build_scene_model_gpu(
     model_id,
     model_delta,
   };
+  drop(source);
 
   let state = RenderComponentCell::new(instance);
   let ctx = ctx.clone();
 
-  source
-    .unbound_listen_by(all_delta)
+  s.unbound_listen_by(all_delta)
     .fold_signal_flatten(state, move |v, state| {
       match v {
         SceneModelImplDelta::model(model) => {

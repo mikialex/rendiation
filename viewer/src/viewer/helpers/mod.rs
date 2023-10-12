@@ -22,10 +22,10 @@ pub struct HelperLineModel {
 
 impl HelperLineModel {
   pub fn new(material: WidenedLineMaterial, mesh: HelperLineMesh, node: &SceneNode) -> Self {
-    let mat = material.into_ref();
+    let mat = material.into_ptr();
     let mat = MaterialEnum::Foreign(Box::new(mat));
 
-    let mesh = MeshEnum::Foreign(Box::new(mesh.into_ref()));
+    let mesh = MeshEnum::Foreign(Box::new(mesh.into_ptr()));
 
     let model = StandardModel::new(mat, mesh);
     let model = ModelEnum::Standard(model.into());
@@ -34,7 +34,7 @@ impl HelperLineModel {
   }
 
   pub fn update_mesh(&self, mesh: HelperLineMesh) {
-    let mesh = MeshEnum::Foreign(Box::new(mesh.into_ref()));
+    let mesh = MeshEnum::Foreign(Box::new(mesh.into_ptr()));
 
     if let ModelEnum::Standard(model) = &self.inner.model {
       mesh.wrap(StandardModelDelta::mesh).apply_modify(model);

@@ -114,7 +114,7 @@ pub struct ShareBindableResourceCtx {
   pub bindless_mesh: Option<GPUBindlessMeshSystem>,
 
   pub binding_sys: GPUTextureBindingSystem,
-  pub default_sampler: SharedIncrementalSignal<TextureSampler>,
+  pub default_sampler: IncrementalSignalPtr<TextureSampler>,
   pub default_texture_2d: SceneTexture2D,
   pub sampler: Arc<RwLock<StreamMap<u64, ReactiveGPUSamplerViewSource>>>,
   pub texture_2d: Arc<RwLock<StreamMap<u64, ReactiveGPU2DTextureViewSource>>>,
@@ -166,7 +166,7 @@ impl ShareBindableResourceCtx {
       format: TextureFormat::Rgba8UnormSrgb,
       size: Size::from_u32_pair_min_one((1, 1)),
     };
-    let default_texture_2d = SceneTexture2DType::GPUBufferImage(default_texture_2d).into_ref();
+    let default_texture_2d = SceneTexture2DType::GPUBufferImage(default_texture_2d).into_ptr();
     let sys = Self {
       bindless_mesh: config
         .prefer_bindless_mesh

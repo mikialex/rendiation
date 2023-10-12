@@ -134,7 +134,7 @@ fn basic_shadow_camera(
 ) -> ReactiveBasicShadowSceneCamera {
   proj
     .zip(node_delta)
-    .map(|((p, size), node)| (SceneCameraImpl::new(p, node).into_ref(), size))
+    .map(|((p, size), node)| (SceneCameraImpl::new(p, node).into_ptr(), size))
 }
 
 const SHADOW_MAX: usize = 8;

@@ -26,7 +26,7 @@ impl PunctualShaderLight for PointLightShaderInfo {
   }
 }
 
-impl WebGPULight for SharedIncrementalSignal<PointLight> {
+impl WebGPULight for IncrementalSignalPtr<PointLight> {
   type Uniform = PointLightShaderInfo;
 
   fn create_uniform_stream(

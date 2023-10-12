@@ -151,12 +151,12 @@ where
   type ReactiveGPU = ReactiveMeshGPUOfTypedMesh<V, T, IU>;
 
   fn create_reactive_gpu(
-    source: &SharedIncrementalSignal<Self>,
+    source: &IncrementalSignalPtr<Self>,
     ctx: &ShareBindableResourceCtx,
   ) -> Self::ReactiveGPU {
     let ctx = ctx.clone();
 
-    let create = move |m: &SharedIncrementalSignal<Self>| {
+    let create = move |m: &IncrementalSignalPtr<Self>| {
       let mesh = m.read();
       TypedMeshGPU {
         marker: Default::default(),

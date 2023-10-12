@@ -61,7 +61,7 @@ impl WebGPUMaterial for WidenedLineMaterial {
   type ReactiveGPU = ReactiveWidenedLineMaterialGPU;
 
   fn create_reactive_gpu(
-    source: &SharedIncrementalSignal<Self>,
+    source: &IncrementalSignalPtr<Self>,
     ctx: &ShareBindableResourceCtx,
   ) -> Self::ReactiveGPU {
     let uniform = WidenedLineMaterialUniform {

@@ -14,7 +14,7 @@ fn main() {
 
   let perspective = make_perspective();
   let perspective = CameraProjectionEnum::Perspective(perspective);
-  let camera = SceneCameraImpl::new(perspective, scene.create_root_child()).into_ref();
+  let camera = SceneCameraImpl::new(perspective, scene.create_root_child()).into_ptr();
   camera.read().node.set_local_matrix(Mat4::lookat(
     Vec3::new(0., 8., 10.),
     Vec3::new(0., 5., 0.),

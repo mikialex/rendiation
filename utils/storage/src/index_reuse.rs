@@ -30,11 +30,19 @@ impl<T> IndexReusedVec<T> {
     self.storage[idx].take().unwrap()
   }
 
+  pub fn try_get_mut(&mut self, idx: u32) -> Option<&mut T> {
+    self.storage[idx as usize].as_mut()
+  }
+
+  pub fn try_get(&self, idx: u32) -> Option<&T> {
+    self.storage[idx as usize].as_ref()
+  }
+
   pub fn get_mut(&mut self, idx: u32) -> &mut T {
-    self.storage[idx as usize].as_mut().expect("bad index")
+    self.try_get_mut(idx).expect("bad index")
   }
 
   pub fn get(&self, idx: u32) -> &T {
-    self.storage[idx as usize].as_ref().expect("bad index")
+    self.try_get(idx).expect("bad index")
   }
 }

@@ -26,6 +26,7 @@ use interphaser::{run_gui, WindowSelfState};
 static GLOBAL_ALLOCATOR: PreciseAllocationHook<System> = PreciseAllocationHook::new(System);
 
 fn main() {
+  setup_active_plane(Default::default());
   register_viewer_extra_scene_features();
 
   let window_init_config = WindowSelfState {

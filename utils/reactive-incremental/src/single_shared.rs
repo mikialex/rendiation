@@ -84,14 +84,14 @@ impl<T: IncrementalBase> From<T> for SharedIncrementalSignal<T> {
 }
 
 pub trait SharedIncrementalSignalApplyDelta<T: IncrementalBase> {
-  fn apply_modify(self, target: &SharedIncrementalSignal<T>);
+  fn apply_modify_sh(self, target: &SharedIncrementalSignal<T>);
 }
 
 impl<T, X> SharedIncrementalSignalApplyDelta<T> for X
 where
   T: ApplicableIncremental<Delta = X>,
 {
-  fn apply_modify(self, target: &SharedIncrementalSignal<T>) {
+  fn apply_modify_sh(self, target: &SharedIncrementalSignal<T>) {
     target.mutate(|mut m| {
       m.modify(self);
     })
@@ -134,25 +134,6 @@ impl<T: IncrementalBase> SharedIncrementalSignal<T> {
     move |_| weak.upgrade()
   }
 
-  pub fn pass_changes_to(
-    &self,
-    other: &Self,
-    mut extra_mapper: impl FnMut(T::Delta) -> T::Delta + Send + Sync + 'static,
-  ) where
-    T: ApplicableIncremental,
-  {
-    let other_weak = other.downgrade();
-    // here we not care the listener removal because we use weak
-    self.read().delta_source.on(move |delta| {
-      if let Some(other) = other_weak.upgrade() {
-        other.mutate(|mut m| m.modify(extra_mapper(delta.clone())));
-        false
-      } else {
-        true
-      }
-    });
-  }
-
   pub fn mutate<R>(&self, mutator: impl FnOnce(Mutating<T>) -> R) -> R {
     // ignore lock poison
     let mut inner = self.inner.write().unwrap_or_else(|e| e.into_inner());
@@ -169,12 +150,6 @@ impl<T: IncrementalBase> SharedIncrementalSignal<T> {
     // ignore lock poison
     let inner = self.inner.read().unwrap_or_else(|e| e.into_inner());
     SignalRefGuard { inner }
-  }
-
-  pub fn write_unchecked(&self) -> SignalRefMutGuard<T> {
-    // ignore lock poison
-    let inner = self.inner.write().unwrap_or_else(|e| e.into_inner());
-    SignalRefMutGuard { inner }
   }
 }
 

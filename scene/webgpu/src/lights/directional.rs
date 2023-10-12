@@ -60,7 +60,7 @@ fn cull_directional_shadow(shadow_position: Node<Vec3<f32>>) -> Node<bool> {
   left.and(right).and(top).and(bottom).and(far)
 }
 
-impl WebGPULight for SharedIncrementalSignal<DirectionalLight> {
+impl WebGPULight for IncrementalSignalPtr<DirectionalLight> {
   type Uniform = DirectionalLightShaderInfo;
 
   fn create_uniform_stream(
@@ -135,7 +135,7 @@ impl Default for DirectionalShadowMapExtraInfo {
 }
 
 fn build_shadow_projection(
-  light: &SharedIncrementalSignal<DirectionalLight>,
+  light: &IncrementalSignalPtr<DirectionalLight>,
 ) -> impl Stream<Item = (CameraProjectionEnum, Size)> {
   get_dyn_trait_downcaster_static!(CameraProjection).register::<WorkAroundResizableOrth>();
   light

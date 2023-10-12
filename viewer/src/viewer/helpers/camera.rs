@@ -102,6 +102,7 @@ fn create_reactive_camera_helper(camera: &SceneCamera) -> ReactiveCameraHelper {
   let c = camera.read();
   let helper_init =
     CameraHelper::from_node_and_project_matrix(c.node.clone(), c.compute_project_mat());
+  drop(c);
   let c = camera.downgrade();
   camera
     .unbound_listen_by(all_delta)

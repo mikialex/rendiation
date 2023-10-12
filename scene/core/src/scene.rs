@@ -7,7 +7,7 @@ pub type SceneLightHandle = Handle<SceneLight>;
 pub type SceneModelHandle = Handle<SceneModel>;
 pub type SceneCameraHandle = Handle<SceneCamera>;
 
-pub type SceneCore = SharedIncrementalSignal<SceneCoreImpl>;
+pub type SceneCore = IncrementalSignalPtr<SceneCoreImpl>;
 
 pub struct SceneCoreImpl {
   /// scene environment config, mainly decide background effect.
@@ -54,25 +54,25 @@ impl SceneCoreImpl {
       active_camera: None,
       ext: Default::default(),
     }
-    .into_ref();
+    .into_ptr();
 
     // forward the inner change to outer
-    let scene_source_clone = scene.read().delta_source.clone();
-    let scene_id = scene.guid();
-
+    let weak_scene = scene.downgrade();
     let s = scene.read();
-    s.nodes.inner.source.on(move |d| {
-      scene_source_clone.emit(&SceneInternalDelta::nodes(d.clone()));
+    s.nodes.inner.source.on(move |d| unsafe {
+      if let Some(s) = weak_scene.upgrade() {
+        s.emit_manually(&SceneInternalDelta::nodes(d.clone()))
+      }
       false
     });
     drop(s);
 
-    let mut s = scene.write_unchecked();
-    s.mutate_unchecked(|s| {
+    let scene_id = scene.guid();
+    scene.mutate(|mut m| unsafe {
+      let s = m.get_mut_ref();
       s.nodes.scene_guid = scene_id;
       s.root.scene_id = scene_id;
     });
-    drop(s);
 
     (scene, system)
   }
@@ -83,11 +83,11 @@ impl SceneCoreImpl {
 }
 
 fn arena_insert<T: IncrementalBase>(
-  arena: &mut Arena<SharedIncrementalSignal<T>>,
-  item: SharedIncrementalSignal<T>,
+  arena: &mut Arena<IncrementalSignalPtr<T>>,
+  item: IncrementalSignalPtr<T>,
 ) -> (
-  ArenaDelta<SharedIncrementalSignal<T>>,
-  Handle<SharedIncrementalSignal<T>>,
+  ArenaDelta<IncrementalSignalPtr<T>>,
+  Handle<IncrementalSignalPtr<T>>,
 ) {
   let handle = arena.insert(item.clone());
   let delta = ArenaDelta::Insert((item, handle));
@@ -95,12 +95,9 @@ fn arena_insert<T: IncrementalBase>(
 }
 
 fn arena_remove<T: IncrementalBase>(
-  arena: &mut Arena<SharedIncrementalSignal<T>>,
-  handle: Handle<SharedIncrementalSignal<T>>,
-) -> (
-  SharedIncrementalSignal<T>,
-  ArenaDelta<SharedIncrementalSignal<T>>,
-) {
+  arena: &mut Arena<IncrementalSignalPtr<T>>,
+  handle: Handle<IncrementalSignalPtr<T>>,
+) -> (IncrementalSignalPtr<T>, ArenaDelta<IncrementalSignalPtr<T>>) {
   let removed = arena
     .remove(handle)
     .expect("removed an none exist entity in scene");
@@ -290,7 +287,7 @@ impl IncrementalBase for SceneCoreImpl {
   }
 }
 
-pub type Scene = SharedIncrementalSignal<SceneImpl>;
+pub type Scene = IncrementalSignalPtr<SceneImpl>;
 
 pub struct SceneImpl {
   pub core: SceneCore,
@@ -300,7 +297,7 @@ impl SceneImpl {
   pub fn new() -> (Scene, SceneNodeDeriveSystem) {
     let (scene, d) = SceneCoreImpl::new();
     let scene = SceneImpl { core: scene };
-    (scene.into_ref(), d)
+    (scene.into_ptr(), d)
   }
 }
 

@@ -103,7 +103,6 @@ impl GlobalIdReactiveSimpleMapping<GPUAttributesBuffer> for GeometryBuffer {
   type Ctx<'a> = ResourceGPUCtx;
 
   fn build(&self, gpu: &Self::Ctx<'_>) -> (GPUAttributesBuffer, Self::ChangeStream) {
-    let source = self.read();
     let gpu_buffer = create_gpu_buffer(
       self.read().buffer.as_slice(),
       BufferUsages::INDEX | BufferUsages::VERTEX,
@@ -112,7 +111,7 @@ impl GlobalIdReactiveSimpleMapping<GPUAttributesBuffer> for GeometryBuffer {
 
     let gpu_buffer = GPUAttributesBuffer { inner: gpu_buffer };
 
-    let change = source.unbound_listen_by(any_change);
+    let change = self.unbound_listen_by(any_change);
     (gpu_buffer, change)
   }
 }
@@ -212,12 +211,12 @@ impl WebGPUMesh for AttributesMesh {
   type ReactiveGPU = AttributesMeshGPUReactive;
 
   fn create_reactive_gpu(
-    source: &SharedIncrementalSignal<Self>,
+    source: &IncrementalSignalPtr<Self>,
     ctx: &ShareBindableResourceCtx,
   ) -> Self::ReactiveGPU {
     let ctx = ctx.clone();
 
-    let create = move |mesh: &SharedIncrementalSignal<AttributesMesh>| {
+    let create = move |mesh: &IncrementalSignalPtr<AttributesMesh>| {
       let m = mesh.read();
       let gpu = &ctx.gpu;
       let m = unsafe { std::mem::transmute(&m.read()) }; // todo why?

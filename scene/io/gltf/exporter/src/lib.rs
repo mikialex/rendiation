@@ -476,7 +476,7 @@ impl Ctx {
       }
     })?;
 
-    let sampler_content = **ts.sampler.read();
+    let sampler_content = *ts.sampler.read();
     let sampler = self.samplers.get_or_insert_with(sampler_content, || {
       map_sampler(sampler_content, true).into()
     })?;

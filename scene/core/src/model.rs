@@ -1,6 +1,6 @@
 use crate::*;
 
-pub type SceneModel = SharedIncrementalSignal<SceneModelImpl>;
+pub type SceneModel = IncrementalSignalPtr<SceneModelImpl>;
 
 #[derive(Incremental)]
 pub struct SceneModelImpl {
@@ -26,7 +26,7 @@ impl SceneModelImpl {
 #[non_exhaustive]
 #[derive(Clone)]
 pub enum ModelEnum {
-  Standard(SharedIncrementalSignal<StandardModel>),
+  Standard(IncrementalSignalPtr<StandardModel>),
   Foreign(Box<dyn AnyClone + Send + Sync>),
 }
 
@@ -63,7 +63,7 @@ impl StandardModel {
   }
 }
 
-pub type Skeleton = SharedIncrementalSignal<SkeletonImpl>;
+pub type Skeleton = IncrementalSignalPtr<SkeletonImpl>;
 #[derive(Clone)]
 pub struct SkeletonImpl {
   pub joints: Vec<Joint>,

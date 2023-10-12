@@ -93,12 +93,12 @@ impl WebGPUMesh for TransformInstancedSceneMesh {
   type ReactiveGPU = TransformInstanceGPUReactive;
 
   fn create_reactive_gpu(
-    source: &SharedIncrementalSignal<Self>,
+    source: &IncrementalSignalPtr<Self>,
     ctx: &ShareBindableResourceCtx,
   ) -> Self::ReactiveGPU {
     let ctx = ctx.clone();
 
-    let create = move |m: &SharedIncrementalSignal<Self>| {
+    let create = move |m: &IncrementalSignalPtr<Self>| {
       let mesh = m.read();
       // todo, current we do not support reuse this inner mesh!
       let mesh_gpu = mesh.mesh.create_scene_reactive_gpu(&ctx).unwrap();

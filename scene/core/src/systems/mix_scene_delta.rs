@@ -184,6 +184,25 @@ fn make_add_remover(
   (adder, remover)
 }
 
+pub fn pass_changes_to<T: IncrementalBase>(
+  source: &IncrementalSignalPtr<T>,
+  other: &IncrementalSignalPtr<T>,
+  mut extra_mapper: impl FnMut(T::Delta) -> T::Delta + Send + Sync + 'static,
+) where
+  T: ApplicableIncremental,
+{
+  let other_weak = other.downgrade();
+  // here we not care the listener removal because we use weak
+  source.on(move |delta| {
+    if let Some(other) = other_weak.upgrade() {
+      other.mutate(|mut m| m.modify(extra_mapper(delta.clone())));
+      false
+    } else {
+      true
+    }
+  });
+}
+
 fn transform_camera_node(m: &SceneCamera, rebuilder: &ShareableRebuilder) -> SceneCamera {
   let (adder, remover) = make_add_remover(rebuilder);
 
@@ -194,11 +213,11 @@ fn transform_camera_node(m: &SceneCamera, rebuilder: &ShareableRebuilder) -> Sce
     node: adder(camera.node.clone()),
     attach_index: None,
   }
-  .into_ref();
+  .into_ptr();
 
   let mut previous_node = camera.node.clone();
 
-  m.pass_changes_to(&r, move |delta| match delta {
+  pass_changes_to(m, &r, move |delta| match delta {
     SceneCameraImplDelta::node(node) => {
       remover(previous_node.clone());
       previous_node = node.clone();
@@ -218,11 +237,11 @@ fn transform_light_node(m: &SceneLight, rebuilder: &ShareableRebuilder) -> Scene
     light: light.light.clone(),
     attach_index: None,
   }
-  .into_ref();
+  .into_ptr();
 
   let mut previous_node = light.node.clone();
 
-  m.pass_changes_to(&r, move |delta| match delta {
+  pass_changes_to(m, &r, move |delta| match delta {
     SceneLightImplDelta::node(node) => {
       remover(previous_node.clone());
       previous_node = node.clone();
@@ -237,11 +256,11 @@ fn transform_model_node(m: &SceneModel, rebuilder: &ShareableRebuilder) -> Scene
   let (adder, remover) = make_add_remover(rebuilder);
 
   let model = m.read();
-  let r = SceneModelImpl::new(model.model.clone(), adder(model.node.clone())).into_ref();
+  let r = SceneModelImpl::new(model.model.clone(), adder(model.node.clone())).into_ptr();
 
   let mut previous_node = model.node.clone();
 
-  m.pass_changes_to(&r, move |delta| match delta {
+  pass_changes_to(m, &r, move |delta| match delta {
     SceneModelImplDelta::node(node) => {
       remover(previous_node.clone());
       previous_node = node.clone();

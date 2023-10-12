@@ -23,13 +23,12 @@ impl ReactiveGPUSamplerSignal {
 impl ShareBindableResourceCtx {
   pub fn get_or_create_reactive_gpu_sampler(
     &self,
-    sampler: &SharedIncrementalSignal<TextureSampler>,
+    sampler: &IncrementalSignalPtr<TextureSampler>,
   ) -> (impl Stream<Item = BindableGPUChange>, GPUSamplerView) {
     let mut samplers = self.sampler.write().unwrap();
 
     let cache = samplers.get_or_insert_with(sampler.guid(), || {
-      let source = sampler.read();
-      let source: TextureSampler = **source;
+      let source = *sampler.read();
 
       let gpu_sampler = GPUSampler::create(source.into_gpu(), &self.gpu.device);
       let gpu_sampler = gpu_sampler.create_default_view();
@@ -49,7 +48,7 @@ impl ShareBindableResourceCtx {
         .filter_map_sync(sampler.defer_weak())
         .fold_signal(gpu_sampler, move |sampler, gpu_tex| {
           let source = sampler.read();
-          let source: TextureSampler = **source;
+          let source: TextureSampler = *source;
           // creation will cached in device side now
           // todo, apply this reuse in handle level
           let gpu_sampler = GPUSampler::create(source.into_gpu(), &gpu_clone.device);

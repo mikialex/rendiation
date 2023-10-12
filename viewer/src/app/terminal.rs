@@ -4,7 +4,7 @@ use fast_hash_collection::FastHashMap;
 use futures::{executor::ThreadPool, Future, Stream, StreamExt};
 use interphaser::{winit::event::VirtualKeyCode, *};
 use reactive::{single_value_channel, PollUtils};
-use rendiation_scene_core::{IntoSharedIncrementalSignal, MeshEnum, Scene, StandardModelDelta};
+use rendiation_scene_core::{IntoIncrementalSignalPtr, MeshEnum, Scene, StandardModelDelta};
 use webgpu::ReadableTextureBuffer;
 
 use crate::{text_box, SelectionSet, SolidLinedMesh, Viewer3dRenderingCtx};
@@ -192,7 +192,7 @@ pub fn register_default_commands(terminal: &mut Terminal) {
       if let rendiation_scene_core::ModelEnum::Standard(model) = &model.model {
         let mesh = model.read().mesh.clone();
         let lined_mesh = SolidLinedMesh::new(mesh);
-        let mesh = MeshEnum::Foreign(Box::new(lined_mesh.into_ref()));
+        let mesh = MeshEnum::Foreign(Box::new(lined_mesh.into_ptr()));
         model.mutate(|mut model| model.modify(StandardModelDelta::mesh(mesh)));
       }
     }

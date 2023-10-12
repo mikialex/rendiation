@@ -50,21 +50,12 @@ impl<T: IncrementalBase> IncrementalSignal<T> {
   }
 
   pub fn mutate<R>(&mut self, mutator: impl FnOnce(Mutating<T>) -> R) -> R {
-    self.mutate_with(mutator, |_| {})
-  }
-
-  pub fn mutate_with<R>(
-    &mut self,
-    mutator: impl FnOnce(Mutating<T>) -> R,
-    mut extra_collector: impl FnMut(T::Delta),
-  ) -> R {
     let data = &mut self.inner;
     let dispatcher = &self.delta_source;
     mutator(Mutating {
       inner: data,
       collector: &mut |delta| {
         dispatcher.emit(delta);
-        extra_collector(delta.clone())
       },
     })
   }
