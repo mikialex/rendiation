@@ -133,7 +133,7 @@ impl<T: 'static> EventSource<T> {
   where
     U: Send + Sync + 'static,
   {
-    self.listen_by::<U, _, _>(mapper, init, &DefaultUnboundChannel)
+    self.listen_by::<U, _, _>(mapper, init, &mut DefaultUnboundChannel)
   }
 
   pub fn batch_listen_by<U>(
@@ -144,7 +144,7 @@ impl<T: 'static> EventSource<T> {
   where
     U: Send + Sync + 'static,
   {
-    self.listen_by::<Vec<U>, _, _>(mapper, init, &DefaultBatchChannel)
+    self.listen_by::<Vec<U>, _, _>(mapper, init, &mut DefaultBatchChannel)
   }
 
   pub fn single_listen_by<U>(
@@ -155,14 +155,14 @@ impl<T: 'static> EventSource<T> {
   where
     U: Send + Sync + 'static,
   {
-    self.listen_by::<U, _, _>(mapper, init, &DefaultSingleValueChannel)
+    self.listen_by::<U, _, _>(mapper, init, &mut DefaultSingleValueChannel)
   }
 
   pub fn listen_by<N, C, U>(
     &self,
     mapper: impl Fn(&T) -> U + Send + Sync + 'static,
     init: impl FnOnce(&dyn Fn(U)),
-    channel_builder: &C,
+    channel_builder: &mut C,
   ) -> impl futures::Stream<Item = N> + 'static
   where
     U: Send + Sync + 'static,

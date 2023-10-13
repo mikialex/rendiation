@@ -102,7 +102,7 @@ pub trait IncrementalListenBy<T: IncrementalBase> {
   fn listen_by<N, C, U>(
     &self,
     mapper: impl FnMut(MaybeDeltaRef<T>, &dyn Fn(U)) + Send + Sync + 'static,
-    channel_builder: &C,
+    channel_builder: &mut C,
   ) -> impl Stream<Item = N> + Unpin
   where
     U: Send + Sync + 'static,
@@ -115,7 +115,7 @@ pub trait IncrementalListenBy<T: IncrementalBase> {
   where
     U: Send + Sync + 'static,
   {
-    self.listen_by::<U, _, _>(mapper, &DefaultUnboundChannel)
+    self.listen_by::<U, _, _>(mapper, &mut DefaultUnboundChannel)
   }
 
   fn single_listen_by<U>(
@@ -124,8 +124,9 @@ pub trait IncrementalListenBy<T: IncrementalBase> {
   ) -> impl Stream<Item = U> + Unpin
   where
     U: Send + Sync + 'static,
+    U: IncrementalBase<Delta = U>,
   {
-    self.listen_by::<U, _, _>(mapper, &DefaultSingleValueChannel)
+    self.listen_by::<U, _, _>(mapper, &mut DefaultSingleValueChannel)
   }
 
   fn create_drop(&self) -> impl Future<Output = ()> {

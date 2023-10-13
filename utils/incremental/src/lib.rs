@@ -35,9 +35,6 @@ pub fn expand_out<T: IncrementalBase>(item: &T) -> Vec<T::Delta> {
   r
 }
 
-pub trait AtomicIncremental {}
-impl<T> AtomicIncremental for T where T: IncrementalBase<Delta = T> {}
-
 pub type DeltaOf<T> = <T as IncrementalBase>::Delta;
 
 /// Not all data types could impl this because this requires us to construct the delta

@@ -243,7 +243,7 @@ impl<T: IncrementalBase> IncrementalListenBy<T> for SharedIncrementalSignal<T> {
   fn listen_by<N, C, U>(
     &self,
     mapper: impl FnMut(MaybeDeltaRef<T>, &dyn Fn(U)) + Send + Sync + 'static,
-    channel_builder: &C,
+    channel_builder: &mut C,
   ) -> impl Stream<Item = N> + Unpin
   where
     U: Send + Sync + 'static,

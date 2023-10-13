@@ -75,7 +75,7 @@ impl<T: IncrementalBase> Default for IncrementalSignalStorage<T> {
 
 /// RAII handle
 pub struct IncrementalSignalPtr<T: IncrementalBase> {
-  inner: Weak<IncrementalSignalGroupImpl<T>>, // todo, use id
+  inner: Weak<IncrementalSignalGroupImpl<T>>,
   index: u32,
   guid: u64,
 }
@@ -228,7 +228,7 @@ impl<T: IncrementalBase> IncrementalListenBy<T> for IncrementalSignalPtr<T> {
   fn listen_by<N, C, U>(
     &self,
     mut mapper: impl FnMut(MaybeDeltaRef<T>, &dyn Fn(U)) + Send + Sync + 'static,
-    channel_builder: &C,
+    channel_builder: &mut C,
   ) -> impl Stream<Item = N> + Unpin
   where
     U: Send + Sync + 'static,

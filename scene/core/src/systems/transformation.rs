@@ -16,7 +16,7 @@ pub enum ContainerRefRetainDelta<K, T> {
 }
 
 #[derive(Clone, Debug)]
-pub enum ContainerRefRetainContentDelta<T> {
+pub enum ContainerRefRetainContentDelta<T: PartialEq> {
   Remove(T),
   Insert(T),
 }
@@ -42,7 +42,7 @@ pub trait IncrementalStreamTransform {
   where
     Self: Stream<Item = ContainerRefRetainDelta<K, T>>,
     K: Hash + Eq + Clone + 'static,
-    T: Clone + 'static;
+    T: Clone + PartialEq + 'static;
 
   fn transform_delta_to_ref_retained_by_hashing<K, T>(
     self,
@@ -60,7 +60,7 @@ impl<X> IncrementalStreamTransform for X {
   where
     Self: Stream<Item = ContainerRefRetainDelta<K, T>>,
     K: Hash + Eq + Clone + 'static,
-    T: Clone + 'static,
+    T: Clone + PartialEq + 'static,
   {
     let mut cache: FastHashMap<K, T> = Default::default();
     self.map(move |v| match v {
