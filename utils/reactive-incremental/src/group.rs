@@ -104,6 +104,22 @@ impl<T: IncrementalBase> AsMut<dyn GlobalIdentified> for IncrementalSignalPtr<T>
   }
 }
 
+impl<T: IncrementalBase> LinearIdentified for IncrementalSignalPtr<T> {
+  fn alloc_index(&self) -> u32 {
+    self.index
+  }
+}
+impl<T: IncrementalBase> AsRef<dyn LinearIdentified> for IncrementalSignalPtr<T> {
+  fn as_ref(&self) -> &(dyn LinearIdentified + 'static) {
+    self
+  }
+}
+impl<T: IncrementalBase> AsMut<dyn LinearIdentified> for IncrementalSignalPtr<T> {
+  fn as_mut(&mut self) -> &mut (dyn LinearIdentified + 'static) {
+    self
+  }
+}
+
 impl<T: IncrementalBase> IncrementalSignalPtr<T> {
   pub fn new(data: T) -> Self {
     let id = data.type_id();
@@ -372,6 +388,38 @@ pub struct IncrementalSignalWeakPtr<T: IncrementalBase> {
   inner: Weak<IncrementalSignalGroupImpl<T>>,
   index: u32,
   guid: u64,
+}
+
+impl<T: IncrementalBase> GlobalIdentified for IncrementalSignalWeakPtr<T> {
+  fn guid(&self) -> u64 {
+    self.guid
+  }
+}
+impl<T: IncrementalBase> AsRef<dyn GlobalIdentified> for IncrementalSignalWeakPtr<T> {
+  fn as_ref(&self) -> &(dyn GlobalIdentified + 'static) {
+    self
+  }
+}
+impl<T: IncrementalBase> AsMut<dyn GlobalIdentified> for IncrementalSignalWeakPtr<T> {
+  fn as_mut(&mut self) -> &mut (dyn GlobalIdentified + 'static) {
+    self
+  }
+}
+
+impl<T: IncrementalBase> LinearIdentified for IncrementalSignalWeakPtr<T> {
+  fn alloc_index(&self) -> u32 {
+    self.index
+  }
+}
+impl<T: IncrementalBase> AsRef<dyn LinearIdentified> for IncrementalSignalWeakPtr<T> {
+  fn as_ref(&self) -> &(dyn LinearIdentified + 'static) {
+    self
+  }
+}
+impl<T: IncrementalBase> AsMut<dyn LinearIdentified> for IncrementalSignalWeakPtr<T> {
+  fn as_mut(&mut self) -> &mut (dyn LinearIdentified + 'static) {
+    self
+  }
 }
 
 impl<T: IncrementalBase> IncrementalSignalWeakPtr<T> {
