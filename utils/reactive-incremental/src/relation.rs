@@ -66,9 +66,7 @@ where
   }
 }
 
-pub trait ReactiveKVCollectionRelationalProjExt<K, V>:
-  Sized + 'static + ReactiveKVCollection<K, V>
-{
+pub trait ReactiveKVCollectionExt<K, V>: Sized + 'static + ReactiveKVCollection<K, V> {
   fn relational_project<MK>(
     self,
     relations: impl ReactiveOneToManyRefBookKeeping<K, MK> + 'static,
@@ -82,13 +80,23 @@ pub trait ReactiveKVCollectionRelationalProjExt<K, V>:
       relations: Box::new(relations),
     }
   }
+  // fn map<V2>(self, f: impl Fn(V) -> V2) -> impl ReactiveKVCollection<K, V2> {
+  //   //
+  // }
+  // fn zip<V2>(
+  //   self,
+  //   other: impl ReactiveKVCollection<K, V2>,
+  // ) -> impl ReactiveKVCollection<K, (V, V2)> {
+  //   //
+  // }
 }
-impl<T, K, V> ReactiveKVCollectionRelationalProjExt<K, V> for T where
+impl<T, K, V> ReactiveKVCollectionExt<K, V> for T where
   T: Sized + 'static + ReactiveKVCollection<K, V>
 {
 }
 
 pub trait ReactiveKVCollection<K, V>: Stream<Item = Vec<(K, Option<V>)>> + Unpin {
+  /// should access after poll
   fn access(&self, key: &K) -> Option<V>;
 }
 

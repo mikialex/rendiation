@@ -19,16 +19,35 @@ pub fn setup_active_plane(sg: PLANE) -> Option<PLANE> {
   ACTIVE_PLANE.write().unwrap().replace(sg)
 }
 
-struct SignalItem<T> {
-  data: T,
+pub(crate) struct SignalItem<T> {
+  pub(crate) data: T,
   sub_event_handle: ListHandle,
   ref_count: u32,
   guid: u64, // weak semantics is impl by the guid compare in data access
 }
 
+pub enum StorageGroupChange<'a, T: IncrementalBase> {
+  /// we are not suppose to support sub listen in group watch, so we not emit strong count ptr
+  /// message.
+  Create {
+    index: u32,
+    data: &'a T,
+  },
+  Mutate {
+    index: u32,
+    delta: T::Delta,
+  },
+  Drop {
+    index: u32,
+  },
+}
+
 pub struct IncrementalSignalGroupImpl<T: IncrementalBase> {
-  data: RwLock<IndexReusedVec<SignalItem<T>>>,
+  pub(crate) data: RwLock<IndexReusedVec<SignalItem<T>>>,
   sub_watchers: RwLock<LinkListPool<EventListener<T::Delta>>>,
+  // note, it's fake static, as long as we expose the unique lifetime to user, it's safe to user
+  // side.
+  pub(crate) group_watchers: EventSource<StorageGroupChange<'static, T>>,
 }
 
 impl<T: IncrementalBase> Default for IncrementalSignalGroupImpl<T> {
@@ -36,6 +55,7 @@ impl<T: IncrementalBase> Default for IncrementalSignalGroupImpl<T> {
     Self {
       data: Default::default(),
       sub_watchers: Default::default(),
+      group_watchers: Default::default(),
     }
   }
 }
@@ -43,7 +63,7 @@ impl<T: IncrementalBase> Default for IncrementalSignalGroupImpl<T> {
 /// data storage point
 #[derive(Clone)]
 pub struct IncrementalSignalStorage<T: IncrementalBase> {
-  inner: Arc<IncrementalSignalGroupImpl<T>>,
+  pub(crate) inner: Arc<IncrementalSignalGroupImpl<T>>,
 }
 
 impl<T: IncrementalBase> IncrementalSignalStorage<T> {
@@ -57,11 +77,31 @@ impl<T: IncrementalBase> IncrementalSignalStorage<T> {
       guid,
     };
     let index = storage.insert(data);
+    self.inner.group_watchers.emit(&StorageGroupChange::Create {
+      data: unsafe { std::mem::transmute(&storage.get(index).data) },
+      index,
+    });
+
     IncrementalSignalPtr {
       inner: Arc::downgrade(&self.inner),
       index,
       guid,
     }
+  }
+
+  /// return should be removed from source after emitted
+  pub fn on(
+    &self,
+    f: impl FnMut(&StorageGroupChange<T>) -> bool + Send + Sync + 'static,
+  ) -> RemoveToken<group::StorageGroupChange<T>> {
+    self.inner.group_watchers.on(f)
+  }
+
+  pub fn off(&self, token: RemoveToken<group::StorageGroupChange<T>>) {
+    self
+      .inner
+      .group_watchers
+      .off(unsafe { std::mem::transmute(token) })
   }
 }
 
@@ -207,6 +247,10 @@ impl<T: IncrementalBase> IncrementalSignalPtr<T> {
       let mut sub_watcher = inner.sub_watchers.write().unwrap();
       // emit sub child
       sub_watcher.visit_and_remove(&mut data.sub_event_handle, |f, _| (f(delta), true));
+      inner.group_watchers.emit(&StorageGroupChange::Mutate {
+        index: self.index,
+        delta: delta.clone(),
+      });
     });
   }
 
@@ -219,6 +263,10 @@ impl<T: IncrementalBase> IncrementalSignalPtr<T> {
         collector: &mut |delta| {
           // emit sub child
           sub_watcher.visit_and_remove(&mut data.sub_event_handle, |f, _| (f(delta), true));
+          inner.group_watchers.emit(&StorageGroupChange::Mutate {
+            index: self.index,
+            delta: delta.clone(),
+          });
         },
       })
     })
@@ -325,6 +373,9 @@ impl<T: IncrementalBase> Drop for IncrementalSignalPtr<T> {
           to_remove = removed.into();
         }
       }
+      inner
+        .group_watchers
+        .emit(&StorageGroupChange::Drop { index: self.index });
     }
     drop(to_remove);
   }

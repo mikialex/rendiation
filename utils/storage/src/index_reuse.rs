@@ -23,6 +23,14 @@ impl<T> IndexReusedVec<T> {
     }
   }
 
+  pub fn iter(&self) -> impl Iterator<Item = (u32, &T)> {
+    self
+      .storage
+      .iter()
+      .enumerate()
+      .filter_map(|(index, v)| Some((index as u32, v.as_ref()?)))
+  }
+
   pub fn remove(&mut self, idx: u32) -> T {
     self.empty_list.push(idx);
     let idx = idx as usize;
