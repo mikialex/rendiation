@@ -7,6 +7,7 @@ version = "0.0.1"
 dyn-downcast = { path = "../dyn-downcast" }
 fast-hash-collection = { path = "../fast-hash-collection" }
 futures = { workspace = true }
+pin-project = { workspace = true }
 heap-tools = { path = "../heap-tools" }
 incremental = { path = "../incremental" }
 reactive = { path = "../reactive" }

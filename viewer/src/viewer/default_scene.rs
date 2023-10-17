@@ -260,7 +260,7 @@ pub fn load_default_scene(scene: &Scene) {
   let spot_light = SceneLightImpl::new(spot_light, spot_light_node);
   scene.insert_light(spot_light.into());
 
-  stress_test2(scene);
+  // stress_test2(scene);
 }
 
 pub fn stress_test(scene: &Scene) {

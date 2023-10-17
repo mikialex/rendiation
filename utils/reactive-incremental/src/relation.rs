@@ -1,4 +1,4 @@
-use std::hash::Hash;
+use std::{hash::Hash, marker::PhantomData};
 
 use fast_hash_collection::*;
 
@@ -6,24 +6,36 @@ use crate::*;
 
 /// O for one, M for many, multiple M reference O;
 /// This delta is m's o reference change
+#[derive(Clone, Copy)]
 pub struct ManyToOneReferenceChange<O, M> {
   pub many: M,
   pub new_one: Option<O>,
 }
 
-pub struct OneToManyProjection<O, M, X> {
-  upstream: Box<dyn ReactiveKVCollection<O, X>>,
-  relations: Box<dyn ReactiveOneToManyRefBookKeeping<O, M>>,
+pub struct OneToManyProjection<O, M, X, Upstream, Relation>
+where
+  Upstream: ReactiveKVCollection<O, X>,
+  Relation: ReactiveOneToManyRefBookKeeping<O, M>,
+  X: IncrementalBase,
+{
+  upstream: Upstream,
+  relations: Relation,
+  o_ty: PhantomData<O>,
+  m_ty: PhantomData<M>,
+  x_ty: PhantomData<X>,
 }
 
-impl<O, M, X> Stream for OneToManyProjection<O, M, X>
+impl<O, M, X, Upstream, Relation> Stream for OneToManyProjection<O, M, X, Upstream, Relation>
 where
-  M: Clone,
-  X: Clone,
+  M: Clone + Unpin,
+  X: Clone + Unpin + IncrementalBase,
+  O: Clone + Unpin,
+  Upstream: ReactiveKVCollection<O, X>,
+  Relation: ReactiveOneToManyRefBookKeeping<O, M>,
 {
   // many maybe not attach to any one.
   // so if upstream relation yield a (m, None(o ref)), we directly map to (m, None(x value))
-  type Item = Vec<(M, Option<X>)>;
+  type Item = Vec<VirtualKVCollectionDelta<M, X>>;
 
   fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context) -> Poll<Option<Self::Item>> {
     // We update the relational changes first, note:, this projection is timeline lossy because we
@@ -34,16 +46,40 @@ where
 
     let mut output = Vec::new(); // it's hard to predict capacity, should we compute it?
     if let Poll::Ready(Some(relational_changes)) = relational_changes {
-      for ManyToOneReferenceChange { many, new_one } in relational_changes {
-        let one_change = new_one.map(|one| self.upstream.access(&one)).unwrap();
-        output.push((many, one_change));
+      for change in &relational_changes {
+        self.relations.apply_change(change.clone());
       }
+
+      self.upstream.access(|getter| {
+        for ManyToOneReferenceChange { many, new_one } in relational_changes {
+          if let Some(one_change) = new_one.map(|one| getter(one.clone())).unwrap() {
+            output.push(VirtualKVCollectionDelta::Insert(many, one_change));
+          } else {
+            output.push(VirtualKVCollectionDelta::Remove(many));
+          }
+        }
+      })
     }
     if let Poll::Ready(Some(upstream_changes)) = upstream_changes {
-      for (one, change) in upstream_changes {
-        self.relations.inv_query(&one, &mut |many| {
-          output.push((many.clone(), change.clone()));
-        })
+      for delta in upstream_changes {
+        match delta {
+          VirtualKVCollectionDelta::Insert(one, new) => {
+            self.relations.inv_query(&one, &mut |many| {
+              output.push(VirtualKVCollectionDelta::Insert(many.clone(), new.clone()));
+            })
+          }
+          VirtualKVCollectionDelta::Remove(one) => self.relations.inv_query(&one, &mut |many| {
+            output.push(VirtualKVCollectionDelta::Remove(many.clone()));
+          }),
+          VirtualKVCollectionDelta::Delta(one, change) => {
+            self.relations.inv_query(&one, &mut |many| {
+              output.push(VirtualKVCollectionDelta::Delta(
+                many.clone(),
+                change.clone(),
+              ));
+            })
+          }
+        }
       }
     }
 
@@ -55,49 +91,47 @@ where
   }
 }
 
-impl<O, M, X> ReactiveKVCollection<M, X> for OneToManyProjection<O, M, X>
+impl<O, M, X, Upstream, Relation> ReactiveKVCollection<M, X>
+  for OneToManyProjection<O, M, X, Upstream, Relation>
 where
-  M: Clone,
-  X: Clone,
+  M: Clone + Unpin,
+  X: Clone + Unpin + IncrementalBase,
+  O: Clone + Unpin,
+  Upstream: ReactiveKVCollection<O, X>,
+  Relation: ReactiveOneToManyRefBookKeeping<O, M>,
 {
-  fn access(&self, key: &M) -> Option<X> {
-    let one = self.relations.query(key)?;
-    self.upstream.access(one)
+  fn access(&self, getter: impl FnOnce(&dyn Fn(M) -> Option<X>)) {
+    self.upstream.access(move |upstream_getter| {
+      getter(&|key| {
+        let one = self.relations.query(&key)?;
+        upstream_getter(one.clone())
+      })
+    })
   }
 }
 
-pub trait ReactiveKVCollectionExt<K, V>: Sized + 'static + ReactiveKVCollection<K, V> {
-  fn relational_project<MK>(
-    self,
-    relations: impl ReactiveOneToManyRefBookKeeping<K, MK> + 'static,
-  ) -> impl ReactiveKVCollection<MK, V>
+pub trait ReactiveKVCollectionRelationExt<K, V: IncrementalBase>:
+  Sized + 'static + ReactiveKVCollection<K, V>
+{
+  fn relational_project<MK, Relation>(self, relations: Relation) -> impl ReactiveKVCollection<MK, V>
   where
-    V: Clone,
-    MK: Clone,
+    V: Clone + Unpin,
+    MK: Clone + Unpin,
+    K: Clone + Unpin,
+    Relation: ReactiveOneToManyRefBookKeeping<K, MK> + 'static,
   {
     OneToManyProjection {
-      upstream: Box::new(self),
-      relations: Box::new(relations),
+      upstream: self,
+      relations,
+      o_ty: PhantomData,
+      m_ty: PhantomData,
+      x_ty: PhantomData,
     }
   }
-  // fn map<V2>(self, f: impl Fn(V) -> V2) -> impl ReactiveKVCollection<K, V2> {
-  //   //
-  // }
-  // fn zip<V2>(
-  //   self,
-  //   other: impl ReactiveKVCollection<K, V2>,
-  // ) -> impl ReactiveKVCollection<K, (V, V2)> {
-  //   //
-  // }
 }
-impl<T, K, V> ReactiveKVCollectionExt<K, V> for T where
+impl<T, K, V: IncrementalBase> ReactiveKVCollectionRelationExt<K, V> for T where
   T: Sized + 'static + ReactiveKVCollection<K, V>
 {
-}
-
-pub trait ReactiveKVCollection<K, V>: Stream<Item = Vec<(K, Option<V>)>> + Unpin {
-  /// should access after poll
-  fn access(&self, key: &K) -> Option<V>;
 }
 
 pub trait ReactiveOneToManyRefBookKeeping<O, M>:
@@ -105,6 +139,7 @@ pub trait ReactiveOneToManyRefBookKeeping<O, M>:
 {
   fn query(&self, many: &M) -> Option<&O>;
   fn inv_query(&self, one: &O, many_visitor: &mut dyn FnMut(&M));
+  fn apply_change(&mut self, change: ManyToOneReferenceChange<O, M>);
 }
 
 // let sm_local =  local_bbox
