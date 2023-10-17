@@ -78,7 +78,7 @@ impl<'a> AttributeVertex for FullReaderRead<'a> {
   }
 }
 
-impl<P: Simplex> FromIterator<P> for AttributesMesh
+impl<P: Simplex> FromIterator<P> for AttributeMeshData
 where
   P::Vertex: std::hash::Hash + Eq + Copy + AttributeVertex,
 {
@@ -109,16 +109,36 @@ where
     };
 
     let indices: Vec<u32> = iter.flat_map(|p| p.into_iter()).map(push_v).collect();
-    let indices = (
-      AttributeIndexFormat::Uint32,
-      AttributeAccessor::create_owned(indices, 4),
-    );
 
     let attributes = buffers
       .unwrap()
       .into_iter()
       .zip(layout.unwrap())
-      .map(|(buffer, s)| {
+      .map(|(buffer, s)| (s, buffer))
+      .collect();
+
+    AttributeMeshData {
+      attributes,
+      indices: Some(indices),
+      mode: P::TOPOLOGY,
+      groups: Default::default(),
+    }
+  }
+}
+
+pub struct AttributeMeshData {
+  pub attributes: Vec<(AttributeSemantic, Vec<u8>)>,
+  pub indices: Option<Vec<u32>>,
+  pub mode: PrimitiveTopology,
+  pub groups: MeshGroupsInfo,
+}
+
+impl AttributeMeshData {
+  pub fn build(self) -> AttributesMesh {
+    let attributes = self
+      .attributes
+      .into_iter()
+      .map(|(s, buffer)| {
         let buffer = AttributeAccessor::create_owned(buffer, s.item_byte_size());
         (s, buffer)
       })
@@ -126,9 +146,12 @@ where
 
     AttributesMesh {
       attributes,
-      indices: Some(indices),
-      mode: P::TOPOLOGY,
-      groups: Default::default(),
+      indices: self.indices.map(|buffer| {
+        let buffer = AttributeAccessor::create_owned(buffer, 4);
+        (AttributeIndexFormat::Uint32, buffer)
+      }),
+      mode: self.mode,
+      groups: self.groups,
     }
   }
 }

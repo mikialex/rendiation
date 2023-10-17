@@ -186,8 +186,9 @@ fn generate_barycentric_buffer_and_expanded_mesh(
     MeshEnum::AttributesMesh(mesh) => mesh,
     _ => return None,
   };
+  drop(mesh);
 
-  let mesh: AttributesMesh = mesh
+  let mesh: AttributeMeshData = mesh
     .read()
     .read_full()
     .primitive_iter()
@@ -212,6 +213,8 @@ fn generate_barycentric_buffer_and_expanded_mesh(
       )
     })
     .collect();
+
+  let mesh = mesh.build();
 
   MeshEnum::AttributesMesh(mesh.into_ptr()).into()
 }

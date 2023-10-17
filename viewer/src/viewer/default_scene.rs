@@ -77,9 +77,9 @@ pub fn build_scene_mesh2(f: impl FnOnce(&mut SceneMeshBuilder)) -> MeshEnum {
   let mesh = builder.finish();
   // could use to test foreign mesh rendering?
   // return MeshEnum::Foreign(Box::new(mesh.into_ptr()))
-  let mut attribute: AttributesMesh = mesh.mesh.primitive_iter().collect();
+  let mut attribute: AttributeMeshData = mesh.mesh.primitive_iter().collect();
   attribute.groups = mesh.groups;
-  MeshEnum::AttributesMesh(attribute.into_ptr())
+  MeshEnum::AttributesMesh(attribute.build().into_ptr())
 }
 
 pub fn load_default_scene(scene: &Scene) {

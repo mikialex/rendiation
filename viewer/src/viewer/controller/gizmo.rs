@@ -285,11 +285,9 @@ impl Gizmo {
   pub fn update(&mut self, node_sys: &SceneNodeDeriveSystem) {
     if let Some(target_local_new) = self.to_update_target.take() {
       self.to_update_target = target_local_new.into();
-      self
-        .target
-        .as_ref()
-        .unwrap()
-        .set_local_matrix(target_local_new)
+      if let Some(target) = self.target.as_ref() {
+        target.set_local_matrix(target_local_new)
+      }
     }
     self.sync_target(node_sys);
     for d in self.deltas.drain(..) {
