@@ -13,7 +13,7 @@ impl<T: IncrementalBase + Clone> IncrementalSignalStorage<T> {
     let (sender, receiver) = channel_builder.build();
 
     {
-      let data = self.inner.data.write().unwrap();
+      let data = self.inner.data.write();
 
       for (index, data) in data.iter() {
         mapper(

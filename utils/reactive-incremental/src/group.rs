@@ -1,6 +1,6 @@
 use std::{
   any::{Any, TypeId},
-  sync::{Arc, RwLock, RwLockReadGuard, Weak},
+  sync::{Arc, Weak},
 };
 
 use fast_hash_collection::FastHashMap;
@@ -14,9 +14,9 @@ pub struct PLANE {
   storages: FastHashMap<TypeId, Box<dyn Any + Send + Sync>>,
 }
 
-static ACTIVE_PLANE: RwLock<Option<PLANE>> = RwLock::new(None);
+static ACTIVE_PLANE: parking_lot::RwLock<Option<PLANE>> = parking_lot::RwLock::new(None);
 pub fn setup_active_plane(sg: PLANE) -> Option<PLANE> {
-  ACTIVE_PLANE.write().unwrap().replace(sg)
+  ACTIVE_PLANE.write().replace(sg)
 }
 
 pub(crate) struct SignalItem<T> {
@@ -43,8 +43,8 @@ pub enum StorageGroupChange<'a, T: IncrementalBase> {
 }
 
 pub struct IncrementalSignalGroupImpl<T: IncrementalBase> {
-  pub(crate) data: RwLock<IndexReusedVec<SignalItem<T>>>,
-  sub_watchers: RwLock<LinkListPool<EventListener<T::Delta>>>,
+  pub(crate) data: parking_lot::RwLock<IndexReusedVec<SignalItem<T>>>,
+  sub_watchers: parking_lot::RwLock<LinkListPool<EventListener<T::Delta>>>,
   // note, it's fake static, as long as we expose the unique lifetime to user, it's safe to user
   // side.
   pub(crate) group_watchers: EventSource<StorageGroupChange<'static, T>>,
@@ -68,7 +68,7 @@ pub struct IncrementalSignalStorage<T: IncrementalBase> {
 
 impl<T: IncrementalBase> IncrementalSignalStorage<T> {
   pub fn alloc(&self, data: T) -> IncrementalSignalPtr<T> {
-    let mut storage = self.inner.data.write().unwrap();
+    let mut storage = self.inner.data.write();
     let guid = alloc_global_res_id();
     let data = SignalItem {
       data,
@@ -164,7 +164,7 @@ impl<T: IncrementalBase> IncrementalSignalPtr<T> {
   pub fn new(data: T) -> Self {
     let id = data.type_id();
 
-    let try_read_storages = ACTIVE_PLANE.read().unwrap();
+    let try_read_storages = ACTIVE_PLANE.read();
     let storages = try_read_storages
       .as_ref()
       .expect("global storage group not specified");
@@ -175,7 +175,7 @@ impl<T: IncrementalBase> IncrementalSignalPtr<T> {
       storage.alloc(data)
     } else {
       drop(try_read_storages);
-      let mut storages = ACTIVE_PLANE.write().unwrap();
+      let mut storages = ACTIVE_PLANE.write();
       let storages = storages
         .as_mut()
         .expect("global storage group not specified");
@@ -195,7 +195,7 @@ impl<T: IncrementalBase> IncrementalSignalPtr<T> {
     f: impl FnOnce(&mut SignalItem<T>, &IncrementalSignalGroupImpl<T>) -> R,
   ) -> Option<R> {
     if let Some(inner) = self.inner.upgrade() {
-      let mut storage = inner.data.write().unwrap();
+      let mut storage = inner.data.write();
       let data = storage.get_mut(self.index);
       if data.guid == self.guid {
         return Some(f(data, &inner));
@@ -206,7 +206,7 @@ impl<T: IncrementalBase> IncrementalSignalPtr<T> {
 
   pub fn try_read(&self) -> Option<SignalPtrGuard<T>> {
     if let Some(inner) = self.inner.upgrade() {
-      let storage = inner.data.read().unwrap();
+      let storage = inner.data.read_recursive();
       let data = storage.get(self.index);
       if data.guid == self.guid {
         // Safety, this ref to the self holder
@@ -228,14 +228,14 @@ impl<T: IncrementalBase> IncrementalSignalPtr<T> {
   /// return should be removed from source after emitted
   pub fn on(&self, f: impl FnMut(&T::Delta) -> bool + Send + Sync + 'static) -> Option<u32> {
     self.mutate_inner(|data, inner| {
-      let mut sub_watcher = inner.sub_watchers.write().unwrap();
+      let mut sub_watcher = inner.sub_watchers.write();
       sub_watcher.insert(&mut data.sub_event_handle, Box::new(f))
     })
   }
 
   pub fn off(&self, token: u32) {
     self.mutate_inner(|data, inner| {
-      let mut sub_watcher = inner.sub_watchers.write().unwrap();
+      let mut sub_watcher = inner.sub_watchers.write();
       sub_watcher.remove(&mut data.sub_event_handle, token);
     });
   }
@@ -244,7 +244,7 @@ impl<T: IncrementalBase> IncrementalSignalPtr<T> {
   /// User should know what they're doing
   pub unsafe fn emit_manually(&self, delta: &T::Delta) {
     self.mutate_inner(|data, inner| {
-      let mut sub_watcher = inner.sub_watchers.write().unwrap();
+      let mut sub_watcher = inner.sub_watchers.write();
       // emit sub child
       sub_watcher.visit_and_remove(&mut data.sub_event_handle, |f, _| (f(delta), true));
       inner.group_watchers.emit(&StorageGroupChange::Mutate {
@@ -256,7 +256,7 @@ impl<T: IncrementalBase> IncrementalSignalPtr<T> {
 
   pub fn try_mutate<R>(&self, mutator: impl FnOnce(Mutating<T>) -> R) -> Option<R> {
     self.mutate_inner(|data, inner| {
-      let mut sub_watcher = inner.sub_watchers.write().unwrap();
+      let mut sub_watcher = inner.sub_watchers.write();
 
       mutator(Mutating {
         inner: &mut data.data,
@@ -340,7 +340,7 @@ impl<T: IncrementalBase> Drop for IncrementalSignalStorageEventDropper<T> {
 impl<T: IncrementalBase> Clone for IncrementalSignalPtr<T> {
   fn clone(&self) -> Self {
     if let Some(inner) = self.inner.upgrade() {
-      let mut storage = inner.data.write().unwrap();
+      let mut storage = inner.data.write();
       let data = storage.get_mut(self.index);
       if data.guid == self.guid {
         data.ref_count += 1;
@@ -358,16 +358,12 @@ impl<T: IncrementalBase> Drop for IncrementalSignalPtr<T> {
   fn drop(&mut self) {
     let mut to_remove = None; // defer the T's drop to avoid dead lock if T contains another Self
     if let Some(inner) = self.inner.upgrade() {
-      let mut storage = inner.data.write().unwrap();
+      let mut storage = inner.data.write();
       let data = storage.get_mut(self.index);
       if data.guid == self.guid {
         data.ref_count -= 1;
         if data.ref_count == 0 {
-          inner
-            .sub_watchers
-            .write()
-            .unwrap()
-            .drop_list(data.sub_event_handle);
+          inner.sub_watchers.write().drop_list(data.sub_event_handle);
           let removed = storage.remove(self.index);
 
           to_remove = removed.into();
@@ -476,7 +472,7 @@ impl<T: IncrementalBase> AsMut<dyn LinearIdentified> for IncrementalSignalWeakPt
 impl<T: IncrementalBase> IncrementalSignalWeakPtr<T> {
   pub fn upgrade(&self) -> Option<IncrementalSignalPtr<T>> {
     if let Some(inner) = self.inner.upgrade() {
-      let mut storage = inner.data.write().unwrap();
+      let mut storage = inner.data.write();
       // maybe not valid at all (index is deallocated and not reused)
       if let Some(data) = storage.try_get_mut(self.index) {
         if data.guid == self.guid {
@@ -497,7 +493,7 @@ impl<T: IncrementalBase> IncrementalSignalWeakPtr<T> {
 
 pub struct SignalPtrGuard<'a, T: IncrementalBase> {
   _holder: Arc<IncrementalSignalGroupImpl<T>>,
-  inner: RwLockReadGuard<'a, IndexReusedVec<SignalItem<T>>>,
+  inner: parking_lot::RwLockReadGuard<'a, IndexReusedVec<SignalItem<T>>>,
   index: u32,
   guid: u64,
 }
