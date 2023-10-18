@@ -186,7 +186,6 @@ fn generate_barycentric_buffer_and_expanded_mesh(
     MeshEnum::AttributesMesh(mesh) => mesh,
     _ => return None,
   };
-  drop(mesh);
 
   let mesh: AttributeMeshData = mesh
     .read()

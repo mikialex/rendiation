@@ -197,6 +197,18 @@ impl<T: IncrementalBase + Send + Sync> MaybeDelta<T> {
       MaybeDelta::All(v) => v.expand(f),
     }
   }
+  pub fn expect_delta(self) -> T::Delta {
+    match self {
+      MaybeDelta::Delta(v) => v,
+      MaybeDelta::All(_) => unreachable!(),
+    }
+  }
+  pub fn expect_all(self) -> T {
+    match self {
+      MaybeDelta::Delta(_) => unreachable!(),
+      MaybeDelta::All(v) => v,
+    }
+  }
 }
 
 pub fn merge_maybe<T>(v: MaybeDelta<T>) -> T

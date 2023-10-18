@@ -52,7 +52,7 @@ where
 
       self.upstream.access(|getter| {
         for ManyToOneReferenceChange { many, new_one } in relational_changes {
-          if let Some(one_change) = new_one.map(|one| getter(one.clone())).unwrap() {
+          if let Some(one_change) = new_one.map(getter).unwrap() {
             output.push(VirtualKVCollectionDelta::Insert(many, one_change));
           } else {
             output.push(VirtualKVCollectionDelta::Remove(many));

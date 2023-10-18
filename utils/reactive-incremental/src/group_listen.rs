@@ -1,3 +1,10 @@
+use std::{
+  sync::{Arc, Mutex, Weak},
+  task::Waker,
+};
+
+use fast_hash_collection::*;
+
 use crate::*;
 
 impl<T: IncrementalBase + Clone> IncrementalSignalStorage<T> {
@@ -43,26 +50,65 @@ impl<T: IncrementalBase + Clone> IncrementalSignalStorage<T> {
   }
 }
 
-// pub struct GroupSingleValue<T> {
-//   deduplicate: FastHashMap<u32, T>,
-// }
+pub struct GroupSingleValueSender<T> {
+  inner: Weak<Mutex<(FastHashMap<u32, T>, Option<Waker>)>>,
+}
 
-// impl<T> ChannelLike<T> for GroupSingleValue<T> {
-//   type Message = Vec<T>;
+impl<T> Drop for GroupSingleValueSender<T> {
+  fn drop(&mut self) {
+    if let Some(inner) = self.inner.upgrade() {
+      let inner = inner.lock().unwrap();
+      if let Some(waker) = &inner.1 {
+        waker.wake_by_ref()
+      }
+    }
+  }
+}
 
-//   type Sender;
+pub struct GroupSingleValueReceiver<T> {
+  inner: Arc<Mutex<(FastHashMap<u32, T>, Option<Waker>)>>,
+}
 
-//   type Receiver;
+impl<T> Stream for GroupSingleValueReceiver<T> {
+  type Item = Vec<T>;
 
-//   fn build(&mut self) -> (Self::Sender, Self::Receiver) {
-//     todo!()
-//   }
+  fn poll_next(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Option<Self::Item>> {
+    if let Ok(mut inner) = self.inner.lock() {
+      inner.1 = cx.waker().clone().into();
+      // check is_some first to avoid unnecessary move
+      if !inner.0.is_empty() {
+        let value = std::mem::take(&mut inner.0);
+        Poll::Ready(Some(todo!()))
+        // check if sender has dropped
+      } else if Arc::weak_count(&self.inner) == 0 {
+        Poll::Ready(None)
+      } else {
+        Poll::Pending
+      }
+    } else {
+      Poll::Ready(None)
+    }
+  }
+}
 
-//   fn send(sender: &Self::Sender, message: T) -> bool {
-//     todo!()
-//   }
+pub struct DefaultSingleValueGroupChannel;
 
-//   fn is_closed(sender: &Self::Sender) -> bool {
-//     todo!()
-//   }
-// }
+impl<T: Send + Sync + 'static> ChannelLike<T> for DefaultSingleValueGroupChannel {
+  type Message = Vec<T>;
+
+  type Sender = GroupSingleValueSender<T>;
+
+  type Receiver = GroupSingleValueReceiver<T>;
+
+  fn build(&mut self) -> (Self::Sender, Self::Receiver) {
+    todo!()
+  }
+
+  fn send(sender: &Self::Sender, message: T) -> bool {
+    todo!()
+  }
+
+  fn is_closed(sender: &Self::Sender) -> bool {
+    todo!()
+  }
+}

@@ -2,6 +2,14 @@ use std::marker::PhantomData;
 
 use crate::*;
 
+// post/async transform
+// Vec<KVDelta<K, V>> ==(if V::Delta==V, single value)=> Vec<KVDelta<K, V>>
+// Vec<KVDelta<K, V>> ==(drop any invalid in history + group by k)=> Vec<KVDelta<K, V>>
+
+// sync reduce
+// group single value
+// group multi value
+
 pub enum VirtualKVCollectionDelta<K, V: IncrementalBase> {
   Insert(K, V),
   Remove(K),
@@ -13,16 +21,26 @@ impl<K, V: IncrementalBase> VirtualKVCollectionDelta<K, V> {
     self,
     mapper: impl FnOnce(MaybeDelta<V>) -> MaybeDelta<R>,
   ) -> VirtualKVCollectionDelta<K, R> {
-    //    match self{
-    //     Self::Insert(k, v) =>  Self::Insert(k, v),
-    //     Self::Remove(k) => todo!(),
-    //     Self::Delta(k, d) => todo!(),
-    // }
-    todo!()
+    type Rt<K, R> = VirtualKVCollectionDelta<K, R>;
+    match self {
+      Self::Insert(k, v) => Rt::Insert(k, mapper(MaybeDelta::All(v)).expect_all()),
+      Self::Remove(k) => Rt::<K, R>::Remove(k),
+      Self::Delta(k, d) => Rt::<K, R>::Delta(k, mapper(MaybeDelta::Delta(d)).expect_delta()),
+    }
   }
 }
 
 /// An abstraction of reactive key-value like virtual container.
+///
+/// This trait maybe could generalize to SignalLike trait:
+/// ```rust
+/// pub trait Signal<T: IncrementalBase>: Stream<Item = T::Delta> {
+///   fn access(&self) -> T;
+/// }
+/// ```
+/// However, this idea has is not baked enough. For example, how do we express efficient partial
+/// access for large T or container like T? Should we use some accessor associate trait or type as
+/// the accessor key? Should we link this type to the T like how we did in Incremental trait?
 pub trait ReactiveKVCollection<K, V: IncrementalBase>:
   Stream<Item = Vec<VirtualKVCollectionDelta<K, V>>> + Unpin
 {
@@ -44,9 +62,21 @@ pub trait ReactiveKVCollection<K, V: IncrementalBase>:
 pub trait ReactiveKVCollectionExt<K, V: IncrementalBase>:
   Sized + 'static + ReactiveKVCollection<K, V>
 {
-  // fn map<V2>(self, f: impl Fn(V) -> V2) -> impl ReactiveKVCollection<K, V2> {
-  //   //
-  // }
+  fn map<V2>(
+    self,
+    f: impl Fn(MaybeDelta<V>) -> MaybeDelta<V2> + Copy,
+  ) -> impl ReactiveKVCollection<K, V2>
+  where
+    V: IncrementalBase,
+    V2: IncrementalBase,
+  {
+    ReactiveKVMap {
+      inner: self,
+      map: f,
+      k: PhantomData,
+      pre_v: PhantomData,
+    }
+  }
   // fn zip<V2>(
   //   self,
   //   other: impl ReactiveKVCollection<K, V2>,
@@ -77,6 +107,8 @@ where
 {
   type Item = Vec<VirtualKVCollectionDelta<K, V2>>;
 
+  // in current implementation, each map operator will do a allocation and data movement, could we
+  // avoid this cost?
   fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
     let this = self.project();
     this.inner.poll_next(cx).map(|r| {
@@ -100,15 +132,7 @@ where
 {
   fn access(&self, getter: impl FnOnce(&dyn Fn(K) -> Option<V2>)) {
     self.inner.access(move |inner_getter| {
-      getter(&|key| {
-        inner_getter(key).map(|v| {
-          if let MaybeDelta::All(r) = (self.map)(MaybeDelta::All(v)) {
-            r
-          } else {
-            unreachable!()
-          }
-        })
-      })
+      getter(&|key| inner_getter(key).map(|v| (self.map)(MaybeDelta::All(v)).expect_all()))
     })
   }
 }
