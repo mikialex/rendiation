@@ -15,6 +15,7 @@ pub struct ManyToOneReferenceChange<O, M> {
 pub struct OneToManyProjection<O, M, X, Upstream, Relation>
 where
   Upstream: ReactiveKVCollection<O, X>,
+  Upstream::Item: IntoIterator<Item = VirtualKVCollectionDelta<O, X>>,
   Relation: ReactiveOneToManyRefBookKeeping<O, M>,
   X: IncrementalBase,
 {
@@ -31,6 +32,7 @@ where
   X: Clone + Unpin + IncrementalBase,
   O: Clone + Unpin,
   Upstream: ReactiveKVCollection<O, X>,
+  Upstream::Item: IntoIterator<Item = VirtualKVCollectionDelta<O, X>>,
   Relation: ReactiveOneToManyRefBookKeeping<O, M>,
 {
   // many maybe not attach to any one.
@@ -53,7 +55,7 @@ where
       self.upstream.access(|getter| {
         for ManyToOneReferenceChange { many, new_one } in relational_changes {
           if let Some(one_change) = new_one.map(getter).unwrap() {
-            output.push(VirtualKVCollectionDelta::Insert(many, one_change));
+            output.push(VirtualKVCollectionDelta::Delta(many, one_change));
           } else {
             output.push(VirtualKVCollectionDelta::Remove(many));
           }
@@ -63,11 +65,6 @@ where
     if let Poll::Ready(Some(upstream_changes)) = upstream_changes {
       for delta in upstream_changes {
         match delta {
-          VirtualKVCollectionDelta::Insert(one, new) => {
-            self.relations.inv_query(&one, &mut |many| {
-              output.push(VirtualKVCollectionDelta::Insert(many.clone(), new.clone()));
-            })
-          }
           VirtualKVCollectionDelta::Remove(one) => self.relations.inv_query(&one, &mut |many| {
             output.push(VirtualKVCollectionDelta::Remove(many.clone()));
           }),
@@ -91,13 +88,14 @@ where
   }
 }
 
-impl<O, M, X, Upstream, Relation> ReactiveKVCollection<M, X>
+impl<O, M, X, Upstream, Relation> VirtualKVCollection<M, X>
   for OneToManyProjection<O, M, X, Upstream, Relation>
 where
   M: Clone + Unpin,
   X: Clone + Unpin + IncrementalBase,
   O: Clone + Unpin,
   Upstream: ReactiveKVCollection<O, X>,
+  Upstream::Item: IntoIterator<Item = VirtualKVCollectionDelta<O, X>>,
   Relation: ReactiveOneToManyRefBookKeeping<O, M>,
 {
   fn access(&self, getter: impl FnOnce(&dyn Fn(M) -> Option<X>)) {
@@ -112,8 +110,13 @@ where
 
 pub trait ReactiveKVCollectionRelationExt<K, V: IncrementalBase>:
   Sized + 'static + ReactiveKVCollection<K, V>
+where
+  Self::Item: IntoIterator<Item = VirtualKVCollectionDelta<K, V>>,
 {
-  fn relational_project<MK, Relation>(self, relations: Relation) -> impl ReactiveKVCollection<MK, V>
+  fn relational_project<MK, Relation>(
+    self,
+    relations: Relation,
+  ) -> OneToManyProjection<K, MK, V, Self, Relation>
   where
     V: Clone + Unpin,
     MK: Clone + Unpin,
@@ -129,8 +132,10 @@ pub trait ReactiveKVCollectionRelationExt<K, V: IncrementalBase>:
     }
   }
 }
-impl<T, K, V: IncrementalBase> ReactiveKVCollectionRelationExt<K, V> for T where
-  T: Sized + 'static + ReactiveKVCollection<K, V>
+impl<T, K, V: IncrementalBase> ReactiveKVCollectionRelationExt<K, V> for T
+where
+  T: Sized + 'static + ReactiveKVCollection<K, V>,
+  Self::Item: IntoIterator<Item = VirtualKVCollectionDelta<K, V>>,
 {
 }
 

@@ -10,24 +10,35 @@ use crate::*;
 // group single value
 // group multi value
 
-pub enum VirtualKVCollectionDelta<K, V: IncrementalBase> {
-  Insert(K, V),
+pub enum VirtualKVCollectionDelta<K, V> {
+  /// here we not impose any delta on
+  Delta(K, V),
   Remove(K),
-  Delta(K, V::Delta),
 }
 
-impl<K, V: IncrementalBase> VirtualKVCollectionDelta<K, V> {
-  pub fn map<R: IncrementalBase>(
-    self,
-    mapper: impl FnOnce(MaybeDelta<V>) -> MaybeDelta<R>,
-  ) -> VirtualKVCollectionDelta<K, R> {
+impl<K, V> VirtualKVCollectionDelta<K, V> {
+  pub fn map<R>(self, mapper: impl FnOnce(V) -> R) -> VirtualKVCollectionDelta<K, R> {
     type Rt<K, R> = VirtualKVCollectionDelta<K, R>;
     match self {
-      Self::Insert(k, v) => Rt::Insert(k, mapper(MaybeDelta::All(v)).expect_all()),
       Self::Remove(k) => Rt::<K, R>::Remove(k),
-      Self::Delta(k, d) => Rt::<K, R>::Delta(k, mapper(MaybeDelta::Delta(d)).expect_delta()),
+      Self::Delta(k, d) => Rt::<K, R>::Delta(k, mapper(d)),
     }
   }
+
+  // should we just use struct??
+  pub fn key(&self) -> &K {
+    match self {
+      Self::Remove(k) => k,
+      Self::Delta(k, _) => k,
+    }
+  }
+}
+
+pub trait VirtualKVCollection<K, V> {
+  /// Access the current value. we use this scoped api style for fast batch accessing(avoid internal
+  /// fragmented locking). the returned V is pass by ownership because we may create data on the
+  /// fly.
+  fn access(&self, getter: impl FnOnce(&dyn Fn(K) -> Option<V>));
 }
 
 /// An abstraction of reactive key-value like virtual container.
@@ -41,35 +52,32 @@ impl<K, V: IncrementalBase> VirtualKVCollectionDelta<K, V> {
 /// However, this idea has is not baked enough. For example, how do we express efficient partial
 /// access for large T or container like T? Should we use some accessor associate trait or type as
 /// the accessor key? Should we link this type to the T like how we did in Incremental trait?
-pub trait ReactiveKVCollection<K, V: IncrementalBase>:
-  Stream<Item = Vec<VirtualKVCollectionDelta<K, V>>> + Unpin
+pub trait ReactiveKVCollection<K, V>: VirtualKVCollection<K, V> + Stream + Unpin
+where
+  Self::Item: IntoIterator<Item = VirtualKVCollectionDelta<K, V>>,
 {
-  /// Access the current value. we use this scoped api style for fast batch accessing(avoid internal
-  /// fragmented locking). the returned V is pass by ownership because we may create data on the
-  /// fly.
-  ///
-  /// The data maybe slate because the visitor maybe not directly access the original source data,
-  /// but access the cache. This access abstract the internal cache mechanism. Note, even if the
-  /// polling issued before access, you still can not guaranteed to access the "current" data due to
-  /// the multi-threaded source mutation. Because of this limitation, user should make sure their
-  /// downstream consuming logic is timeline insensitive.
-  ///
-  /// In the future, maybe we could add new sub-trait to enforce the data access is consistent with
-  /// the polling logic in tradeoff of the potential memory overhead.
-  fn access(&self, getter: impl FnOnce(&dyn Fn(K) -> Option<V>));
 }
 
-pub trait ReactiveKVCollectionExt<K, V: IncrementalBase>:
-  Sized + 'static + ReactiveKVCollection<K, V>
+/// The data maybe slate if we combine these two trait directly because the visitor maybe not
+/// directly access the original source data, but access the cache. This access abstract the
+/// internal cache mechanism. Note, even if the polling issued before access, you still can not
+/// guaranteed to access the "current" data due to the multi-threaded source mutation. Because of
+/// this limitation, user should make sure their downstream consuming logic is timeline insensitive.
+///
+/// In the future, maybe we could add new sub-trait to enforce the data access is consistent with
+/// the polling logic in tradeoff of the potential memory overhead.
+impl<T, K, V> ReactiveKVCollection<K, V> for T
+where
+  T: VirtualKVCollection<K, V> + Stream + Unpin,
+  Self::Item: IntoIterator<Item = VirtualKVCollectionDelta<K, V>>,
 {
-  fn map<V2>(
-    self,
-    f: impl Fn(MaybeDelta<V>) -> MaybeDelta<V2> + Copy,
-  ) -> impl ReactiveKVCollection<K, V2>
-  where
-    V: IncrementalBase,
-    V2: IncrementalBase,
-  {
+}
+
+pub trait ReactiveKVCollectionExt<K, V>: Sized + 'static + ReactiveKVCollection<K, V>
+where
+  Self::Item: IntoIterator<Item = VirtualKVCollectionDelta<K, V>>,
+{
+  fn map<V2, F: Fn(V) -> V2 + Copy>(self, f: F) -> ReactiveKVMap<Self, F, K, V2> {
     ReactiveKVMap {
       inner: self,
       map: f,
@@ -84,13 +92,15 @@ pub trait ReactiveKVCollectionExt<K, V: IncrementalBase>:
   //   //
   // }
 }
-impl<T, K, V: IncrementalBase> ReactiveKVCollectionExt<K, V> for T where
-  T: Sized + 'static + ReactiveKVCollection<K, V>
+impl<T, K, V> ReactiveKVCollectionExt<K, V> for T
+where
+  T: Sized + 'static + ReactiveKVCollection<K, V>,
+  Self::Item: IntoIterator<Item = VirtualKVCollectionDelta<K, V>>,
 {
 }
 
 #[pin_project::pin_project]
-struct ReactiveKVMap<T, F, K, V> {
+pub struct ReactiveKVMap<T, F, K, V> {
   #[pin]
   inner: T,
   map: F,
@@ -100,39 +110,30 @@ struct ReactiveKVMap<T, F, K, V> {
 
 impl<T, F, K, V, V2> Stream for ReactiveKVMap<T, F, K, V>
 where
-  F: Fn(MaybeDelta<V>) -> MaybeDelta<V2> + Copy,
-  T: ReactiveKVCollection<K, V>,
-  V: IncrementalBase,
-  V2: IncrementalBase,
+  F: Fn(V) -> V2 + Copy + 'static,
+  T: Stream,
+  T::Item: IntoIterator<Item = VirtualKVCollectionDelta<K, V>>,
 {
-  type Item = Vec<VirtualKVCollectionDelta<K, V2>>;
+  type Item = impl IntoIterator<Item = VirtualKVCollectionDelta<K, V2>>;
 
-  // in current implementation, each map operator will do a allocation and data movement, could we
-  // avoid this cost?
   fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
     let this = self.project();
-    this.inner.poll_next(cx).map(|r| {
-      r.map(|deltas| {
-        deltas
-          .into_iter()
-          .map(|delta| delta.map(|v| (this.map)(v)))
-          .collect()
-      })
-    })
+    let mapper = *this.map;
+    this
+      .inner
+      .poll_next(cx)
+      .map(move |r| r.map(move |deltas| deltas.into_iter().map(move |delta| delta.map(mapper))))
   }
 }
 
-impl<T, F, K, V, V2> ReactiveKVCollection<K, V2> for ReactiveKVMap<T, F, K, V>
+impl<T, F, K, V, V2> VirtualKVCollection<K, V2> for ReactiveKVMap<T, F, K, V>
 where
-  F: Fn(MaybeDelta<V>) -> MaybeDelta<V2> + Copy,
-  T: ReactiveKVCollection<K, V>,
-  V: IncrementalBase,
-  V2: IncrementalBase,
-  V2: Send + Sync,
+  F: Fn(V) -> V2 + Copy,
+  T: VirtualKVCollection<K, V>,
 {
   fn access(&self, getter: impl FnOnce(&dyn Fn(K) -> Option<V2>)) {
-    self.inner.access(move |inner_getter| {
-      getter(&|key| inner_getter(key).map(|v| (self.map)(MaybeDelta::All(v)).expect_all()))
-    })
+    self
+      .inner
+      .access(move |inner_getter| getter(&|key| inner_getter(key).map(|v| (self.map)(v))))
   }
 }
