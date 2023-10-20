@@ -12,6 +12,8 @@ heap-tools = { path = "../heap-tools" }
 incremental = { path = "../incremental" }
 reactive = { path = "../reactive" }
 storage = { path = "../storage" }
+smallvec = { workspace = true }
+
 
 # we use it's rwlock to avoid recursive read deadlock
 parking_lot = "0.12.1"

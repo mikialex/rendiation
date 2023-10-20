@@ -147,14 +147,21 @@ pub trait ReactiveOneToManyRefBookKeeping<O, M>:
   fn apply_change(&mut self, change: ManyToOneReferenceChange<O, M>);
 }
 
-// let sm_local =  local_bbox
-//   .relational_project(mesh_model_ref)
+// let att_locals = att.watch(..)
+// let att_model_ref = model.watch(..)
+// let fatline_locals = fatlines.watch(..)
+// let fatline_model_ref = model.watch(..)
+
+// let model_local_bbox = fatline_locals.relational_project(fatline_model_ref)
+//   .merge(att_locals.relational_project(att_model_ref))
+
+// let sm_local =  model_local_bbox
 //   .relational_project(model_sm_ref)
 
 // let sm_world_mat = node_mat
 // .relational_project(node_sm_ref)
 
-// let sm_world = sm_world_mat.merge(sm_local)
+// let sm_world = sm_world_mat.zip(sm_local).map(..).materialize()
 
 pub struct OneToManyRefHashBookKeeping<O, M> {
   mapping: FastHashMap<O, FastHashSet<M>>,

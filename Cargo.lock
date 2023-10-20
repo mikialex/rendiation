@@ -2583,6 +2583,7 @@ dependencies = [
  "parking_lot",
  "pin-project",
  "reactive",
+ "smallvec",
  "storage",
 ]
 

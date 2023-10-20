@@ -50,7 +50,37 @@ impl<T: IncrementalBase + Clone> IncrementalSignalStorage<T> {
   }
 }
 
-type GroupSingleValueChangeBuffer<T> = FastHashMap<u32, GroupSingleValueState<T>>;
+pub struct GroupSingleValueChangeBuffer<T> {
+  inner: FastHashMap<u32, GroupSingleValueState<T>>,
+}
+
+impl<T> Default for GroupSingleValueChangeBuffer<T> {
+  fn default() -> Self {
+    Self {
+      inner: Default::default(),
+    }
+  }
+}
+
+impl<T> IntoIterator for GroupSingleValueChangeBuffer<T> {
+  type Item = VirtualKVCollectionDelta<u32, T>;
+  type IntoIter = impl Iterator<Item = Self::Item>;
+
+  fn into_iter(self) -> Self::IntoIter {
+    self.inner.into_iter().flat_map(|(id, state)| {
+      let mut expand = smallvec::SmallVec::<[VirtualKVCollectionDelta<u32, T>; 2]>::new();
+      match state {
+        GroupSingleValueState::Next(v) => expand.push(VirtualKVCollectionDelta::Delta(id, v)),
+        GroupSingleValueState::RemoveThenNext(v) => {
+          expand.push(VirtualKVCollectionDelta::Remove(id));
+          expand.push(VirtualKVCollectionDelta::Delta(id, v));
+        }
+        GroupSingleValueState::Remove => expand.push(VirtualKVCollectionDelta::Remove(id)),
+      }
+      expand
+    })
+  }
+}
 
 pub struct GroupSingleValueSender<T> {
   inner: Weak<Mutex<(GroupSingleValueChangeBuffer<T>, Option<Waker>)>>,
@@ -84,7 +114,7 @@ impl<T> Stream for GroupSingleValueReceiver<T> {
     if let Ok(mut inner) = self.inner.lock() {
       inner.1 = cx.waker().clone().into();
       // check is_some first to avoid unnecessary move
-      if !inner.0.is_empty() {
+      if !inner.0.inner.is_empty() {
         let value = std::mem::take(&mut inner.0);
         Poll::Ready(Some(value))
         // check if sender has dropped
@@ -131,6 +161,7 @@ impl<T: Send + Clone + Sync + 'static> ChannelLike<VirtualKVCollectionDelta<u32,
 
       inner
         .0
+        .inner
         .entry(*message.key())
         .and_modify(|state| {
           *state = match state {
@@ -157,7 +188,7 @@ impl<T: Send + Clone + Sync + 'static> ChannelLike<VirtualKVCollectionDelta<u32,
         });
 
       if let Some(remove) = should_remove {
-        inner.0.remove(remove);
+        inner.0.inner.remove(remove);
       }
 
       if let Some(waker) = &inner.1 {
