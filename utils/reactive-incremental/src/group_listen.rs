@@ -10,12 +10,15 @@ use crate::*;
 impl<T: IncrementalBase + Clone> IncrementalSignalStorage<T> {
   pub fn listen_by<N, C, U>(
     &self,
-    mut mapper: impl FnMut(&StorageGroupChange<T>, &dyn Fn(U)) + Send + Sync + 'static,
+    mut mapper: impl FnMut(&StorageGroupChange<T>, &dyn Fn(VirtualKVCollectionDelta<u32, U>))
+      + Send
+      + Sync
+      + 'static,
     channel_builder: &mut C,
   ) -> impl Stream<Item = N> + Unpin
   where
     U: Send + Sync + 'static,
-    C: ChannelLike<U, Message = N>,
+    C: ChannelLike<VirtualKVCollectionDelta<u32, U>, Message = N>,
   {
     let (sender, receiver) = channel_builder.build();
 
@@ -35,7 +38,7 @@ impl<T: IncrementalBase + Clone> IncrementalSignalStorage<T> {
       }
     }
 
-    // could we try another way to do workaround this??
+    // could we try another way to workaround this??
     let s: &'static Self = unsafe { std::mem::transmute(self) };
 
     let remove_token = s.on(move |v| {
@@ -47,6 +50,40 @@ impl<T: IncrementalBase + Clone> IncrementalSignalStorage<T> {
 
     let dropper = EventSourceDropper::new(remove_token, self.inner.group_watchers.make_weak());
     DropperAttachedStream::new(dropper, receiver)
+  }
+
+  pub fn single_listen_by<U>(
+    &self,
+    mapper: impl FnMut(&StorageGroupChange<T>, &dyn Fn(VirtualKVCollectionDelta<u32, U>))
+      + Send
+      + Sync
+      + 'static,
+  ) -> impl Stream<Item = GroupSingleValueChangeBuffer<U>> + Unpin
+  where
+    U: Send + Sync + Clone + 'static,
+    U: IncrementalBase<Delta = U>,
+  {
+    self.listen_by::<_, _, _>(mapper, &mut DefaultSingleValueGroupChannel)
+  }
+
+  pub fn single_listen_by_into_reactive_collection<U>(
+    &self,
+    mapper: impl FnMut(&StorageGroupChange<T>, &dyn Fn(VirtualKVCollectionDelta<u32, U>))
+      + Send
+      + Sync
+      + 'static
+      + Clone,
+  ) -> impl ReactiveKVCollection<u32, U>
+  where
+    U: Send + Sync + Clone + 'static,
+    U: IncrementalBase<Delta = U>,
+  {
+    let mapper_c = Box::new(mapper.clone());
+    ReactiveKVCollectionForSingleValue::<T, _, U> {
+      inner: self.single_listen_by(mapper),
+      original: self.clone(),
+      mapper: Mutex::new(mapper_c),
+    }
   }
 }
 
@@ -105,6 +142,54 @@ pub enum GroupSingleValueState<T> {
 
 pub struct GroupSingleValueReceiver<T> {
   inner: Arc<Mutex<(GroupSingleValueChangeBuffer<T>, Option<Waker>)>>,
+}
+
+struct ReactiveKVCollectionForSingleValue<T: IncrementalBase, S, U: IncrementalBase> {
+  original: IncrementalSignalStorage<T>,
+  inner: S,
+  mapper: Mutex<
+    Box<dyn FnMut(&StorageGroupChange<T>, &dyn Fn(VirtualKVCollectionDelta<u32, U>)) + Send + Sync>,
+  >,
+}
+
+impl<T: IncrementalBase, S, U: IncrementalBase> VirtualKVCollection<u32, U>
+  for ReactiveKVCollectionForSingleValue<T, S, U>
+{
+  fn access(&self, getter: impl FnOnce(&dyn Fn(u32) -> Option<U>)) {
+    let data = self.original.inner.data.read();
+    getter(&|key| {
+      data.try_get(key).map(|v| &v.data).map(|v| {
+        // this is not good, but i will keep it
+        let result: std::cell::RefCell<Option<_>> = Default::default();
+        (self.mapper.lock().unwrap())(
+          &StorageGroupChange::Create {
+            data: unsafe { std::mem::transmute(v) },
+            index: key,
+          },
+          &|mapped| {
+            if let VirtualKVCollectionDelta::Delta(_, v) = mapped {
+              *result.borrow_mut() = Some(v)
+            }
+          },
+        );
+        let mut r = result.borrow_mut();
+        r.take().unwrap()
+      })
+    })
+  }
+}
+
+impl<T, S, U> Stream for ReactiveKVCollectionForSingleValue<T, S, U>
+where
+  T: IncrementalBase,
+  U: IncrementalBase,
+  S: Stream<Item = GroupSingleValueChangeBuffer<U>> + Unpin,
+{
+  type Item = GroupSingleValueChangeBuffer<U>;
+
+  fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+    self.inner.poll_next_unpin(cx)
+  }
 }
 
 impl<T> Stream for GroupSingleValueReceiver<T> {

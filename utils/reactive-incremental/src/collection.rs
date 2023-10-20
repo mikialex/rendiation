@@ -1,5 +1,7 @@
 use std::marker::PhantomData;
 
+use fast_hash_collection::FastHashMap;
+
 use crate::*;
 
 // post/async transform
@@ -91,12 +93,66 @@ where
   // ) -> impl ReactiveKVCollection<K, (V, V2)> {
   //   //
   // }
+
+  fn materialize_unordered(self) -> UnorderedMaterializedReactiveKVMap<Self, K, V> {
+    UnorderedMaterializedReactiveKVMap {
+      inner: self,
+      cache: Default::default(),
+    }
+  }
 }
 impl<T, K, V> ReactiveKVCollectionExt<K, V> for T
 where
   T: Sized + 'static + ReactiveKVCollection<K, V>,
   Self::Item: IntoIterator<Item = VirtualKVCollectionDelta<K, V>>,
 {
+}
+
+#[pin_project::pin_project]
+pub struct UnorderedMaterializedReactiveKVMap<Map, K, V> {
+  #[pin]
+  inner: Map,
+  cache: FastHashMap<K, V>,
+}
+
+impl<Map, K, V> Stream for UnorderedMaterializedReactiveKVMap<Map, K, V>
+where
+  Map: Stream,
+  K: std::hash::Hash + Eq,
+  V: IncrementalBase<Delta = V>,
+  Map::Item: IntoIterator<Item = VirtualKVCollectionDelta<K, V>> + Clone,
+{
+  type Item = Map::Item;
+
+  fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+    let this = self.project();
+    let r = this.inner.poll_next(cx);
+    if let Poll::Ready(Some(changes)) = &r {
+      for change in changes.clone().into_iter() {
+        match change {
+          VirtualKVCollectionDelta::Delta(k, v) => {
+            this.cache.insert(k, v);
+          }
+          VirtualKVCollectionDelta::Remove(k) => {
+            // todo, shrink
+            this.cache.remove(&k);
+          }
+        }
+      }
+    }
+    r
+  }
+}
+
+impl<K, V, Map> VirtualKVCollection<K, V> for UnorderedMaterializedReactiveKVMap<Map, K, V>
+where
+  Map: VirtualKVCollection<K, V>,
+  K: std::hash::Hash + Eq,
+  V: Clone,
+{
+  fn access(&self, getter: impl FnOnce(&dyn Fn(K) -> Option<V>)) {
+    getter(&|key| self.cache.get(&key).cloned())
+  }
 }
 
 #[pin_project::pin_project]
