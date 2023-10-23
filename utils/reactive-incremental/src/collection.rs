@@ -37,6 +37,8 @@ impl<K, V> VirtualKVCollectionDelta<K, V> {
 }
 
 pub trait VirtualKVCollection<K, V> {
+  // fn iter(&self) -> impl Iterator<Item = (K, V)>;
+
   /// Access the current value. we use this scoped api style for fast batch accessing(avoid internal
   /// fragmented locking). the returned V is pass by ownership because we may create data on the
   /// fly.
@@ -44,6 +46,9 @@ pub trait VirtualKVCollection<K, V> {
 }
 
 /// An abstraction of reactive key-value like virtual container.
+///
+/// You can imagine this is a data table with the K as the primary key and V as the data table.
+/// In this table, besides getting data, you can also poll it's partial change.
 ///
 /// This trait maybe could generalize to SignalLike trait:
 /// ```rust
@@ -79,6 +84,7 @@ pub trait ReactiveKVCollectionExt<K, V>: Sized + 'static + ReactiveKVCollection<
 where
   Self::Item: IntoIterator<Item = VirtualKVCollectionDelta<K, V>>,
 {
+  /// map map<k, v> to map<k, v2>
   fn map<V2, F: Fn(V) -> V2 + Copy>(self, f: F) -> ReactiveKVMap<Self, F, K, V2> {
     ReactiveKVMap {
       inner: self,
@@ -87,6 +93,19 @@ where
       pre_v: PhantomData,
     }
   }
+
+  /// filter map<k, v> by v
+  fn filter<F>(self, f: F) -> ReactiveKVFilter<Self, F, K> {
+    ReactiveKVFilter {
+      inner: self,
+      checker: f,
+      k: PhantomData,
+    }
+  }
+
+  /// filter map<k, v> by reactive set<k>
+  // fn filter_by_keyset(self, set:)
+
   // fn zip<V2>(
   //   self,
   //   other: impl ReactiveKVCollection<K, V2>,
@@ -191,5 +210,85 @@ where
     self
       .inner
       .access(move |inner_getter| getter(&|key| inner_getter(key).map(|v| (self.map)(v))))
+  }
+}
+
+#[pin_project::pin_project]
+pub struct ReactiveKVFilter<T, F, K> {
+  #[pin]
+  inner: T,
+  checker: F,
+  k: PhantomData<K>,
+}
+
+impl<T, F, K, V> Stream for ReactiveKVFilter<T, F, K>
+where
+  F: Fn(&V) -> bool + Copy + 'static,
+  T: Stream,
+  T::Item: IntoIterator<Item = VirtualKVCollectionDelta<K, V>>,
+{
+  type Item = impl IntoIterator<Item = VirtualKVCollectionDelta<K, V>>;
+
+  fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+    let this = self.project();
+    let checker = *this.checker;
+    this.inner.poll_next(cx).map(move |r| {
+      r.map(move |deltas| {
+        deltas.into_iter().filter(move |delta| match delta {
+          VirtualKVCollectionDelta::Delta(_, v) => checker(v),
+          // the Remove variant maybe called many times for given k
+          VirtualKVCollectionDelta::Remove(_) => true,
+        })
+      })
+    })
+  }
+}
+
+impl<T, F, K, V> VirtualKVCollection<K, V> for ReactiveKVFilter<T, F, K>
+where
+  F: Fn(&V) -> bool + Copy,
+  T: VirtualKVCollection<K, V>,
+{
+  fn access(&self, getter: impl FnOnce(&dyn Fn(K) -> Option<V>)) {
+    self.inner.access(move |inner_getter| {
+      getter(&|key| inner_getter(key).and_then(|v| (self.checker)(&v).then_some(v)))
+    })
+  }
+}
+
+#[pin_project::pin_project]
+pub struct ReactiveKVZip<T1, T2, K> {
+  #[pin]
+  a: T1,
+  #[pin]
+  b: T2,
+  k: PhantomData<K>,
+}
+
+impl<T1, T2, K, V1, V2> Stream for ReactiveKVZip<T1, T2, K>
+where
+  T1: Stream,
+  T1::Item: IntoIterator<Item = VirtualKVCollectionDelta<K, V1>>,
+  T2: Stream,
+  T2::Item: IntoIterator<Item = VirtualKVCollectionDelta<K, V2>>,
+{
+  type Item = impl IntoIterator<Item = VirtualKVCollectionDelta<K, (V1, V2)>>;
+
+  fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+    let this = self.project();
+
+    let t1 = this.a.poll_next(cx);
+    let t2 = this.b.poll_next(cx);
+
+    match (t1, t2) {
+      (Poll::Ready(Some(v1)), Poll::Ready(Some(v2))) => {
+        // let intersections = FastHashMap::default();
+        Poll::Ready(Some(Vec::new()))
+      }
+      (Poll::Ready(Some(v1)), Poll::Pending) => Poll::Ready(Some(Vec::new())),
+      (Poll::Pending, Poll::Ready(Some(v2))) => Poll::Ready(Some(Vec::new())),
+      (Poll::Pending, Poll::Pending) => Poll::Pending,
+      _ => Poll::Ready(None), // this should not reached
+    }
   }
 }

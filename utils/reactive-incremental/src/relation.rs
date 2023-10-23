@@ -35,8 +35,6 @@ where
   Upstream::Item: IntoIterator<Item = VirtualKVCollectionDelta<O, X>>,
   Relation: ReactiveOneToManyRefBookKeeping<O, M>,
 {
-  // many maybe not attach to any one.
-  // so if upstream relation yield a (m, None(o ref)), we directly map to (m, None(x value))
   type Item = Vec<VirtualKVCollectionDelta<M, X>>;
 
   fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context) -> Poll<Option<Self::Item>> {
@@ -113,6 +111,7 @@ pub trait ReactiveKVCollectionRelationExt<K, V: IncrementalBase>:
 where
   Self::Item: IntoIterator<Item = VirtualKVCollectionDelta<K, V>>,
 {
+  /// project map<O, V> -> map<M, V> when we have O - M one to many
   fn relational_project<MK, Relation>(
     self,
     relations: Relation,
