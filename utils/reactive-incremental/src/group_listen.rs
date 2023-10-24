@@ -7,13 +7,10 @@ use fast_hash_collection::*;
 
 use crate::*;
 
-impl<T: IncrementalBase + Clone> IncrementalSignalStorage<T> {
+impl<T: IncrementalBase> IncrementalSignalStorage<T> {
   pub fn listen_by<N, C, U>(
     &self,
-    mut mapper: impl FnMut(&StorageGroupChange<T>, &dyn Fn(VirtualKVCollectionDelta<u32, U>))
-      + Send
-      + Sync
-      + 'static,
+    mut mapper: impl FnMut(MaybeDeltaRef<T>, &dyn Fn(U)) + Send + Sync + 'static,
     channel_builder: &mut C,
   ) -> impl Stream<Item = N> + Unpin
   where
@@ -26,15 +23,9 @@ impl<T: IncrementalBase + Clone> IncrementalSignalStorage<T> {
       let data = self.inner.data.write();
 
       for (index, data) in data.iter() {
-        mapper(
-          &StorageGroupChange::Create {
-            data: unsafe { std::mem::transmute(data) },
-            index,
-          },
-          &|mapped| {
-            C::send(&sender, mapped);
-          },
-        )
+        mapper(MaybeDeltaRef::All(&data.data), &|mapped| {
+          C::send(&sender, VirtualKVCollectionDelta::Delta(index, mapped));
+        })
       }
     }
 
@@ -42,9 +33,20 @@ impl<T: IncrementalBase + Clone> IncrementalSignalStorage<T> {
     let s: &'static Self = unsafe { std::mem::transmute(self) };
 
     let remove_token = s.on(move |v| {
-      mapper(v, &|mapped| {
-        C::send(&sender, mapped);
-      });
+      match v {
+        StorageGroupChange::Create { index, data } => mapper(MaybeDeltaRef::All(data), &|mapped| {
+          C::send(&sender, VirtualKVCollectionDelta::Delta(*index, mapped));
+        }),
+        StorageGroupChange::Mutate { index, delta } => {
+          mapper(MaybeDeltaRef::Delta(delta), &|mapped| {
+            C::send(&sender, VirtualKVCollectionDelta::Delta(*index, mapped));
+          });
+        }
+        StorageGroupChange::Drop { index } => {
+          C::send(&sender, VirtualKVCollectionDelta::Remove(*index));
+        }
+      }
+
       C::is_closed(&sender)
     });
 
@@ -54,25 +56,17 @@ impl<T: IncrementalBase + Clone> IncrementalSignalStorage<T> {
 
   pub fn single_listen_by<U>(
     &self,
-    mapper: impl FnMut(&StorageGroupChange<T>, &dyn Fn(VirtualKVCollectionDelta<u32, U>))
-      + Send
-      + Sync
-      + 'static,
+    mapper: impl FnMut(MaybeDeltaRef<T>, &dyn Fn(U)) + Send + Sync + 'static,
   ) -> impl Stream<Item = GroupSingleValueChangeBuffer<U>> + Unpin
   where
     U: Send + Sync + Clone + 'static,
-    U: IncrementalBase<Delta = U>,
   {
     self.listen_by::<_, _, _>(mapper, &mut DefaultSingleValueGroupChannel)
   }
 
   pub fn single_listen_by_into_reactive_collection<U>(
     &self,
-    mapper: impl FnMut(&StorageGroupChange<T>, &dyn Fn(VirtualKVCollectionDelta<u32, U>))
-      + Send
-      + Sync
-      + 'static
-      + Clone,
+    mapper: impl FnMut(MaybeDeltaRef<T>, &dyn Fn(U)) + Send + Sync + 'static + Clone,
   ) -> impl ReactiveKVCollection<u32, U>
   where
     U: Send + Sync + Clone + 'static,
@@ -147,30 +141,22 @@ pub struct GroupSingleValueReceiver<T> {
 struct ReactiveKVCollectionForSingleValue<T: IncrementalBase, S, U: IncrementalBase> {
   original: IncrementalSignalStorage<T>,
   inner: S,
-  mapper: Mutex<
-    Box<dyn FnMut(&StorageGroupChange<T>, &dyn Fn(VirtualKVCollectionDelta<u32, U>)) + Send + Sync>,
-  >,
+  mapper: Mutex<Box<dyn FnMut(MaybeDeltaRef<T>, &dyn Fn(U)) + Send + Sync>>,
 }
 
 impl<T: IncrementalBase, S, U: IncrementalBase> VirtualKVCollection<u32, U>
   for ReactiveKVCollectionForSingleValue<T, S, U>
 {
-  fn access(&self) -> impl Fn(u32) -> Option<U> + '_ {
+  fn access(&self, _: bool) -> impl Fn(u32) -> Option<U> + '_ {
     let data = self.original.inner.data.read();
     move |key| {
       data.try_get(key).map(|v| &v.data).map(|v| {
         // this is not good, but i will keep it
         let result: std::cell::RefCell<Option<_>> = Default::default();
+
         (self.mapper.lock().unwrap())(
-          &StorageGroupChange::Create {
-            data: unsafe { std::mem::transmute(v) },
-            index: key,
-          },
-          &|mapped| {
-            if let VirtualKVCollectionDelta::Delta(_, v) = mapped {
-              *result.borrow_mut() = Some(v)
-            }
-          },
+          MaybeDeltaRef::All(unsafe { std::mem::transmute(v) }),
+          &|mapped| *result.borrow_mut() = Some(mapped),
         );
         let mut r = result.borrow_mut();
         r.take().unwrap()

@@ -61,9 +61,16 @@ impl<T: IncrementalBase> Default for IncrementalSignalGroupImpl<T> {
 }
 
 /// data storage point
-#[derive(Clone)]
 pub struct IncrementalSignalStorage<T: IncrementalBase> {
   pub(crate) inner: Arc<IncrementalSignalGroupImpl<T>>,
+}
+
+impl<T: IncrementalBase> Clone for IncrementalSignalStorage<T> {
+  fn clone(&self) -> Self {
+    Self {
+      inner: self.inner.clone(),
+    }
+  }
 }
 
 impl<T: IncrementalBase> IncrementalSignalStorage<T> {

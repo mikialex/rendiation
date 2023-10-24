@@ -19,11 +19,14 @@ pub enum VirtualKVCollectionDelta<K, V> {
 }
 
 impl<K, V> VirtualKVCollectionDelta<K, V> {
-  pub fn map<R>(self, mapper: impl FnOnce(V) -> R) -> VirtualKVCollectionDelta<K, R> {
+  pub fn map<R>(self, mapper: impl FnOnce(&K, V) -> R) -> VirtualKVCollectionDelta<K, R> {
     type Rt<K, R> = VirtualKVCollectionDelta<K, R>;
     match self {
       Self::Remove(k) => Rt::<K, R>::Remove(k),
-      Self::Delta(k, d) => Rt::<K, R>::Delta(k, mapper(d)),
+      Self::Delta(k, d) => {
+        let mapped = mapper(&k, d);
+        Rt::<K, R>::Delta(k, mapped)
+      }
     }
   }
 
@@ -42,13 +45,18 @@ pub trait VirtualKVCollection<K, V> {
   /// Access the current value. we use this scoped api style for fast batch accessing(avoid internal
   /// fragmented locking). the returned V is pass by ownership because we may create data on the
   /// fly.
-  fn access(&self) -> impl Fn(K) -> Option<V> + '_;
+  ///
+  /// If the skip_cache is true, the implementation will not be incremental
+  fn access(&self, skip_cache: bool) -> impl Fn(K) -> Option<V> + '_;
 }
 
 /// An abstraction of reactive key-value like virtual container.
 ///
-/// You can imagine this is a data table with the K as the primary key and V as the data table.
-/// In this table, besides getting data, you can also poll it's partial change.
+/// You can imagine this is a data table with the K as the primary key and V as the row of the
+/// data(not contains K). In this table, besides getting data, you can also poll it's partial
+/// changes.
+///
+/// Implementation notes:
 ///
 /// This trait maybe could generalize to SignalLike trait:
 /// ```rust
@@ -56,7 +64,7 @@ pub trait VirtualKVCollection<K, V> {
 ///   fn access(&self) -> T;
 /// }
 /// ```
-/// However, this idea has is not baked enough. For example, how do we express efficient partial
+/// However, this idea has not baked enough. For example, how do we express efficient partial
 /// access for large T or container like T? Should we use some accessor associate trait or type as
 /// the accessor key? Should we link this type to the T like how we did in Incremental trait?
 pub trait ReactiveKVCollection<K, V>: VirtualKVCollection<K, V> + Stream + Unpin {}
@@ -76,21 +84,24 @@ where
 {
 }
 
-/// dynamic version of above trait
+/// dynamic version of the above trait
 pub trait DynamicVirtualKVCollection<K, V> {
-  fn access(&self, getter: &dyn FnOnce(&dyn Fn(K) -> Option<V>));
+  fn access(&self, getter: &dyn FnOnce(&dyn Fn(K) -> Option<V>), skip_cache: bool);
 }
 pub trait DynamicReactiveKVCollection<K, V>:
   DynamicVirtualKVCollection<K, V> + Stream<Item = Vec<VirtualKVCollectionDelta<K, V>>> + Unpin
 {
 }
 impl<K, V> VirtualKVCollection<K, V> for &dyn DynamicReactiveKVCollection<K, V> {
-  fn access(&self) -> impl Fn(K) -> Option<V> + '_ {
-    |key| {
+  fn access(&self, skip_cache: bool) -> impl Fn(K) -> Option<V> + '_ {
+    move |key| {
       let mut r = None;
-      (*self).access(&|getter| {
-        r = getter(key);
-      });
+      (*self).access(
+        &|getter| {
+          r = getter(key);
+        },
+        skip_cache,
+      );
       r
     }
   }
@@ -105,8 +116,7 @@ where
     ReactiveKVMap {
       inner: self,
       map: f,
-      k: PhantomData,
-      pre_v: PhantomData,
+      phantom: PhantomData,
     }
   }
 
@@ -122,12 +132,27 @@ where
   /// filter map<k, v> by reactive set<k>
   // fn filter_by_keyset(self, set:)
 
-  // fn zip<V2>(
-  //   self,
-  //   other: impl ReactiveKVCollection<K, V2>,
-  // ) -> impl ReactiveKVCollection<K, (V, V2)> {
-  //   //
-  // }
+  fn zip<V2, Other: ReactiveKVCollection<K, V2>>(
+    self,
+    other: Other,
+  ) -> ReactiveKVZip<Self, Other, K> {
+    ReactiveKVZip {
+      a: self,
+      b: other,
+      k: PhantomData,
+    }
+  }
+
+  fn select<Other: ReactiveKVCollection<K, V>>(
+    self,
+    other: Other,
+  ) -> ReactiveKVSelect<Self, Other, K> {
+    ReactiveKVSelect {
+      a: self,
+      b: other,
+      k: PhantomData,
+    }
+  }
 
   fn materialize_unordered(self) -> UnorderedMaterializedReactiveKVMap<Self, K, V> {
     UnorderedMaterializedReactiveKVMap {
@@ -185,8 +210,15 @@ where
   K: std::hash::Hash + Eq,
   V: Clone,
 {
-  fn access(&self) -> impl Fn(K) -> Option<V> + '_ {
-    |key| self.cache.get(&key).cloned()
+  fn access(&self, skip_cache: bool) -> impl Fn(K) -> Option<V> + '_ {
+    let inner = self.inner.access(skip_cache);
+    move |key| {
+      if skip_cache {
+        inner(key)
+      } else {
+        self.cache.get(&key).cloned()
+      }
+    }
   }
 }
 
@@ -195,8 +227,7 @@ pub struct ReactiveKVMap<T, F, K, V> {
   #[pin]
   inner: T,
   map: F,
-  k: PhantomData<K>,
-  pre_v: PhantomData<V>,
+  phantom: PhantomData<(K, V)>,
 }
 
 impl<T, F, K, V, V2> Stream for ReactiveKVMap<T, F, K, V>
@@ -210,10 +241,13 @@ where
   fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
     let this = self.project();
     let mapper = *this.map;
-    this
-      .inner
-      .poll_next(cx)
-      .map(move |r| r.map(move |deltas| deltas.into_iter().map(move |delta| delta.map(mapper))))
+    this.inner.poll_next(cx).map(move |r| {
+      r.map(move |deltas| {
+        deltas
+          .into_iter()
+          .map(move |delta| delta.map(|_, v| mapper(v)))
+      })
+    })
   }
 }
 
@@ -222,8 +256,8 @@ where
   F: Fn(V) -> V2 + Copy,
   T: VirtualKVCollection<K, V>,
 {
-  fn access(&self) -> impl Fn(K) -> Option<V2> + '_ {
-    let inner_getter = self.inner.access();
+  fn access(&self, skip_cache: bool) -> impl Fn(K) -> Option<V2> + '_ {
+    let inner_getter = self.inner.access(skip_cache);
     move |key| inner_getter(key).map(|v| (self.map)(v))
   }
 }
@@ -264,8 +298,8 @@ where
   F: Fn(&V) -> bool + Copy,
   T: VirtualKVCollection<K, V>,
 {
-  fn access(&self) -> impl Fn(K) -> Option<V> + '_ {
-    let inner_getter = self.inner.access();
+  fn access(&self, skip_cache: bool) -> impl Fn(K) -> Option<V> + '_ {
+    let inner_getter = self.inner.access(skip_cache);
     move |key| inner_getter(key).and_then(|v| (self.checker)(&v).then_some(v))
   }
 }
@@ -285,9 +319,9 @@ where
   T1: VirtualKVCollection<K, V1>,
   T2: VirtualKVCollection<K, V2>,
 {
-  fn access(&self) -> impl Fn(K) -> Option<(V1, V2)> + '_ {
-    let getter_a = self.a.access();
-    let getter_b = self.b.access();
+  fn access(&self, skip_cache: bool) -> impl Fn(K) -> Option<(V1, V2)> + '_ {
+    let getter_a = self.a.access(skip_cache);
+    let getter_b = self.b.access(skip_cache);
 
     move |key| getter_a(key).zip(getter_b(key))
   }
@@ -295,9 +329,10 @@ where
 
 impl<T1, T2, K, V1, V2> Stream for ReactiveKVZip<T1, T2, K>
 where
-  T1: Stream,
+  K: Clone,
+  T1: Stream + Unpin,
   T1::Item: IntoIterator<Item = VirtualKVCollectionDelta<K, V1>>,
-  T2: Stream,
+  T2: Stream + Unpin,
   T2::Item: IntoIterator<Item = VirtualKVCollectionDelta<K, V2>>,
   // we require this to make the zip meaningful
   V1: IncrementalBase<Delta = V1>,
@@ -307,27 +342,39 @@ where
 {
   type Item = impl IntoIterator<Item = VirtualKVCollectionDelta<K, (V1, V2)>>;
 
-  fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
-    let this = self.project();
+  fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+    let t1 = self.a.poll_next_unpin(cx);
+    let t2 = self.b.poll_next_unpin(cx);
 
-    let t1 = this.a.poll_next(cx);
-    let t2 = this.b.poll_next(cx);
+    let a_access = self.a.access(false);
+    let b_access = self.b.access(false);
 
     match (t1, t2) {
       (Poll::Ready(Some(v1)), Poll::Ready(Some(v2))) => {
-        // let intersections = FastHashMap::default();
+        let intersections: FastHashMap<K, (Option<V1>, Option<V2>)> = FastHashMap::default();
+        v1.into_iter().for_each(|d| {
+          match d {
+            VirtualKVCollectionDelta::Delta(K, V) => {
+              //
+            }
+            VirtualKVCollectionDelta::Remove(K) => {
+              //
+            }
+          }
+        });
+
         Poll::Ready(Some(Vec::new()))
       }
-      (Poll::Ready(Some(v1)), Poll::Pending) => {
-        // self.b.access(|getter|{
-        //           let r = v1.into_iter().map(|v1|{
-
-        // }).collect::<Vec<_>>();
-        // })
-
-        Poll::Ready(Some(Vec::new()))
-      }
-      (Poll::Pending, Poll::Ready(Some(v2))) => Poll::Ready(Some(Vec::new())),
+      (Poll::Ready(Some(v1)), Poll::Pending) => Poll::Ready(Some(
+        v1.into_iter()
+          .map(|v1| v1.map(|k, v| (v, b_access(k.clone()).unwrap())))
+          .collect::<Vec<_>>(),
+      )),
+      (Poll::Pending, Poll::Ready(Some(v2))) => Poll::Ready(Some(
+        v2.into_iter()
+          .map(|v2| v2.map(|k, v| (a_access(k.clone()).unwrap(), v)))
+          .collect::<Vec<_>>(),
+      )),
       (Poll::Pending, Poll::Pending) => Poll::Pending,
       _ => Poll::Ready(None), // this should not reached
     }
@@ -350,9 +397,9 @@ where
   T1: VirtualKVCollection<K, V>,
   T2: VirtualKVCollection<K, V>,
 {
-  fn access(&self) -> impl Fn(K) -> Option<V> + '_ {
-    let getter_a = self.a.access();
-    let getter_b = self.b.access();
+  fn access(&self, skip_cache: bool) -> impl Fn(K) -> Option<V> + '_ {
+    let getter_a = self.a.access(skip_cache);
+    let getter_b = self.b.access(skip_cache);
 
     move |key| getter_a(key).or(getter_b(key))
   }

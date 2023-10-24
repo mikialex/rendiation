@@ -1,6 +1,7 @@
 use std::{hash::Hash, marker::PhantomData};
 
 use fast_hash_collection::*;
+use storage::{LinkListPool, ListHandle};
 
 use crate::*;
 
@@ -12,18 +13,29 @@ pub struct ManyToOneReferenceChange<O, M> {
   pub new_one: Option<O>,
 }
 
+impl<O, M> VirtualKVCollectionDelta<M, Option<O>> {
+  /// not make sense sometimes
+  pub fn into_ref_change(self) -> ManyToOneReferenceChange<O, M> {
+    match self {
+      VirtualKVCollectionDelta::Delta(many, one) => ManyToOneReferenceChange { many, new_one: one },
+      VirtualKVCollectionDelta::Remove(many) => ManyToOneReferenceChange {
+        many,
+        new_one: None,
+      },
+    }
+  }
+}
+
 pub struct OneToManyProjection<O, M, X, Upstream, Relation>
 where
   Upstream: ReactiveKVCollection<O, X>,
   Upstream::Item: IntoIterator<Item = VirtualKVCollectionDelta<O, X>>,
-  Relation: ReactiveOneToManyRefBookKeeping<O, M>,
+  Relation: OneToManyRefBookKeeping<O, M>,
   X: IncrementalBase,
 {
   upstream: Upstream,
   relations: Relation,
-  o_ty: PhantomData<O>,
-  m_ty: PhantomData<M>,
-  x_ty: PhantomData<X>,
+  phantom: PhantomData<(O, M, X)>,
 }
 
 impl<O, M, X, Upstream, Relation> Stream for OneToManyProjection<O, M, X, Upstream, Relation>
@@ -33,7 +45,8 @@ where
   O: Clone + Unpin,
   Upstream: ReactiveKVCollection<O, X>,
   Upstream::Item: IntoIterator<Item = VirtualKVCollectionDelta<O, X>>,
-  Relation: ReactiveOneToManyRefBookKeeping<O, M>,
+  Relation: OneToManyRefBookKeeping<O, M>,
+  Relation: Stream<Item = Vec<ManyToOneReferenceChange<O, M>>> + Unpin,
 {
   type Item = Vec<VirtualKVCollectionDelta<M, X>>;
 
@@ -50,7 +63,7 @@ where
         self.relations.apply_change(change.clone());
       }
 
-      let mut getter = self.upstream.access();
+      let mut getter = self.upstream.access(false);
       for ManyToOneReferenceChange { many, new_one } in relational_changes {
         if let Some(one_change) = new_one.map(&mut getter).unwrap() {
           output.push(VirtualKVCollectionDelta::Delta(many, one_change));
@@ -93,10 +106,10 @@ where
   O: Clone + Unpin,
   Upstream: ReactiveKVCollection<O, X>,
   Upstream::Item: IntoIterator<Item = VirtualKVCollectionDelta<O, X>>,
-  Relation: ReactiveOneToManyRefBookKeeping<O, M>,
+  Relation: OneToManyRefBookKeeping<O, M>,
 {
-  fn access(&self) -> impl Fn(M) -> Option<X> + '_ {
-    let upstream_getter = self.upstream.access();
+  fn access(&self, skip_cache: bool) -> impl Fn(M) -> Option<X> + '_ {
+    let upstream_getter = self.upstream.access(skip_cache);
     move |key| {
       let one = self.relations.query(&key)?;
       upstream_getter(one.clone())
@@ -118,14 +131,12 @@ where
     V: Clone + Unpin,
     MK: Clone + Unpin,
     K: Clone + Unpin,
-    Relation: ReactiveOneToManyRefBookKeeping<K, MK> + 'static,
+    Relation: OneToManyRefBookKeeping<K, MK> + 'static,
   {
     OneToManyProjection {
       upstream: self,
       relations,
-      o_ty: PhantomData,
-      m_ty: PhantomData,
-      x_ty: PhantomData,
+      phantom: PhantomData,
     }
   }
 }
@@ -136,9 +147,7 @@ where
 {
 }
 
-pub trait ReactiveOneToManyRefBookKeeping<O, M>:
-  Stream<Item = Vec<ManyToOneReferenceChange<O, M>>> + Unpin
-{
+pub trait OneToManyRefBookKeeping<O, M> {
   fn query(&self, many: &M) -> Option<&O>;
   fn inv_query(&self, one: &O, many_visitor: &mut dyn FnMut(&M));
   fn apply_change(&mut self, change: ManyToOneReferenceChange<O, M>);
@@ -174,12 +183,20 @@ impl<O, M> Default for OneToManyRefHashBookKeeping<O, M> {
   }
 }
 
-impl<O, M> OneToManyRefHashBookKeeping<O, M>
+impl<O, M> OneToManyRefBookKeeping<O, M> for OneToManyRefHashBookKeeping<O, M>
 where
   O: Hash + Eq + Clone,
   M: Hash + Eq + Clone,
 {
-  pub fn apply_change(&mut self, change: ManyToOneReferenceChange<O, M>) {
+  fn query(&self, many: &M) -> Option<&O> {
+    todo!()
+  }
+
+  fn inv_query(&self, one: &O, many_visitor: &mut dyn FnMut(&M)) {
+    todo!()
+  }
+
+  fn apply_change(&mut self, change: ManyToOneReferenceChange<O, M>) {
     let mapping = &mut self.mapping;
     let ManyToOneReferenceChange { many, new_one } = change;
     let old_refed_one = self.rev_mapping.get(&many);
@@ -201,5 +218,38 @@ where
     }
 
     self.rev_mapping.insert(many.clone(), new_one);
+  }
+}
+
+pub struct OneToManyRefDenseBookKeeping<O, M> {
+  mapping_buffer: LinkListPool<u32>,
+  mapping: Vec<ListHandle>,
+  rev_mapping: Vec<u32>,
+  phantom: PhantomData<(O, M)>,
+}
+
+impl<O, M> Default for OneToManyRefDenseBookKeeping<O, M> {
+  fn default() -> Self {
+    Self {
+      mapping_buffer: Default::default(),
+      mapping: Default::default(),
+      rev_mapping: Default::default(),
+      phantom: Default::default(),
+    }
+  }
+}
+
+impl<O, M> OneToManyRefBookKeeping<O, M> for OneToManyRefDenseBookKeeping<O, M> {
+  fn query(&self, many: &M) -> Option<&O> {
+    todo!()
+  }
+
+  fn inv_query(&self, one: &O, many_visitor: &mut dyn FnMut(&M)) {
+    todo!()
+  }
+
+  fn apply_change(&mut self, change: ManyToOneReferenceChange<O, M>) {
+    let ManyToOneReferenceChange { many, new_one } = change;
+    todo!()
   }
 }
