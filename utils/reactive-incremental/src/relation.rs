@@ -50,15 +50,14 @@ where
         self.relations.apply_change(change.clone());
       }
 
-      self.upstream.access(|getter| {
-        for ManyToOneReferenceChange { many, new_one } in relational_changes {
-          if let Some(one_change) = new_one.map(getter).unwrap() {
-            output.push(VirtualKVCollectionDelta::Delta(many, one_change));
-          } else {
-            output.push(VirtualKVCollectionDelta::Remove(many));
-          }
+      let mut getter = self.upstream.access();
+      for ManyToOneReferenceChange { many, new_one } in relational_changes {
+        if let Some(one_change) = new_one.map(&mut getter).unwrap() {
+          output.push(VirtualKVCollectionDelta::Delta(many, one_change));
+        } else {
+          output.push(VirtualKVCollectionDelta::Remove(many));
         }
-      })
+      }
     }
     if let Poll::Ready(Some(upstream_changes)) = upstream_changes {
       for delta in upstream_changes {
@@ -96,13 +95,12 @@ where
   Upstream::Item: IntoIterator<Item = VirtualKVCollectionDelta<O, X>>,
   Relation: ReactiveOneToManyRefBookKeeping<O, M>,
 {
-  fn access(&self, getter: impl FnOnce(&dyn Fn(M) -> Option<X>)) {
-    self.upstream.access(move |upstream_getter| {
-      getter(&|key| {
-        let one = self.relations.query(&key)?;
-        upstream_getter(one.clone())
-      })
-    })
+  fn access(&self) -> impl Fn(M) -> Option<X> + '_ {
+    let upstream_getter = self.upstream.access();
+    move |key| {
+      let one = self.relations.query(&key)?;
+      upstream_getter(one.clone())
+    }
   }
 }
 

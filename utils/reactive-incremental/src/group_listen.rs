@@ -155,9 +155,9 @@ struct ReactiveKVCollectionForSingleValue<T: IncrementalBase, S, U: IncrementalB
 impl<T: IncrementalBase, S, U: IncrementalBase> VirtualKVCollection<u32, U>
   for ReactiveKVCollectionForSingleValue<T, S, U>
 {
-  fn access(&self, getter: impl FnOnce(&dyn Fn(u32) -> Option<U>)) {
+  fn access(&self) -> impl Fn(u32) -> Option<U> + '_ {
     let data = self.original.inner.data.read();
-    getter(&|key| {
+    move |key| {
       data.try_get(key).map(|v| &v.data).map(|v| {
         // this is not good, but i will keep it
         let result: std::cell::RefCell<Option<_>> = Default::default();
@@ -175,7 +175,7 @@ impl<T: IncrementalBase, S, U: IncrementalBase> VirtualKVCollection<u32, U>
         let mut r = result.borrow_mut();
         r.take().unwrap()
       })
-    })
+    }
   }
 }
 

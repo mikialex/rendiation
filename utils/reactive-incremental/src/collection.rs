@@ -42,7 +42,7 @@ pub trait VirtualKVCollection<K, V> {
   /// Access the current value. we use this scoped api style for fast batch accessing(avoid internal
   /// fragmented locking). the returned V is pass by ownership because we may create data on the
   /// fly.
-  fn access(&self, getter: impl FnOnce(&dyn Fn(K) -> Option<V>));
+  fn access(&self) -> impl Fn(K) -> Option<V> + '_;
 }
 
 /// An abstraction of reactive key-value like virtual container.
@@ -59,11 +59,7 @@ pub trait VirtualKVCollection<K, V> {
 /// However, this idea has is not baked enough. For example, how do we express efficient partial
 /// access for large T or container like T? Should we use some accessor associate trait or type as
 /// the accessor key? Should we link this type to the T like how we did in Incremental trait?
-pub trait ReactiveKVCollection<K, V>: VirtualKVCollection<K, V> + Stream + Unpin
-where
-  Self::Item: IntoIterator<Item = VirtualKVCollectionDelta<K, V>>,
-{
-}
+pub trait ReactiveKVCollection<K, V>: VirtualKVCollection<K, V> + Stream + Unpin {}
 
 /// The data maybe slate if we combine these two trait directly because the visitor maybe not
 /// directly access the original source data, but access the cache. This access abstract the
@@ -78,6 +74,26 @@ where
   T: VirtualKVCollection<K, V> + Stream + Unpin,
   Self::Item: IntoIterator<Item = VirtualKVCollectionDelta<K, V>>,
 {
+}
+
+/// dynamic version of above trait
+pub trait DynamicVirtualKVCollection<K, V> {
+  fn access(&self, getter: &dyn FnOnce(&dyn Fn(K) -> Option<V>));
+}
+pub trait DynamicReactiveKVCollection<K, V>:
+  DynamicVirtualKVCollection<K, V> + Stream<Item = Vec<VirtualKVCollectionDelta<K, V>>> + Unpin
+{
+}
+impl<K, V> VirtualKVCollection<K, V> for &dyn DynamicReactiveKVCollection<K, V> {
+  fn access(&self) -> impl Fn(K) -> Option<V> + '_ {
+    |key| {
+      let mut r = None;
+      (*self).access(&|getter| {
+        r = getter(key);
+      });
+      r
+    }
+  }
 }
 
 pub trait ReactiveKVCollectionExt<K, V>: Sized + 'static + ReactiveKVCollection<K, V>
@@ -169,8 +185,8 @@ where
   K: std::hash::Hash + Eq,
   V: Clone,
 {
-  fn access(&self, getter: impl FnOnce(&dyn Fn(K) -> Option<V>)) {
-    getter(&|key| self.cache.get(&key).cloned())
+  fn access(&self) -> impl Fn(K) -> Option<V> + '_ {
+    |key| self.cache.get(&key).cloned()
   }
 }
 
@@ -206,10 +222,9 @@ where
   F: Fn(V) -> V2 + Copy,
   T: VirtualKVCollection<K, V>,
 {
-  fn access(&self, getter: impl FnOnce(&dyn Fn(K) -> Option<V2>)) {
-    self
-      .inner
-      .access(move |inner_getter| getter(&|key| inner_getter(key).map(|v| (self.map)(v))))
+  fn access(&self) -> impl Fn(K) -> Option<V2> + '_ {
+    let inner_getter = self.inner.access();
+    move |key| inner_getter(key).map(|v| (self.map)(v))
   }
 }
 
@@ -249,10 +264,9 @@ where
   F: Fn(&V) -> bool + Copy,
   T: VirtualKVCollection<K, V>,
 {
-  fn access(&self, getter: impl FnOnce(&dyn Fn(K) -> Option<V>)) {
-    self.inner.access(move |inner_getter| {
-      getter(&|key| inner_getter(key).and_then(|v| (self.checker)(&v).then_some(v)))
-    })
+  fn access(&self) -> impl Fn(K) -> Option<V> + '_ {
+    let inner_getter = self.inner.access();
+    move |key| inner_getter(key).and_then(|v| (self.checker)(&v).then_some(v))
   }
 }
 
@@ -265,12 +279,31 @@ pub struct ReactiveKVZip<T1, T2, K> {
   k: PhantomData<K>,
 }
 
+impl<T1, T2, K, V1, V2> VirtualKVCollection<K, (V1, V2)> for ReactiveKVZip<T1, T2, K>
+where
+  K: Copy,
+  T1: VirtualKVCollection<K, V1>,
+  T2: VirtualKVCollection<K, V2>,
+{
+  fn access(&self) -> impl Fn(K) -> Option<(V1, V2)> + '_ {
+    let getter_a = self.a.access();
+    let getter_b = self.b.access();
+
+    move |key| getter_a(key).zip(getter_b(key))
+  }
+}
+
 impl<T1, T2, K, V1, V2> Stream for ReactiveKVZip<T1, T2, K>
 where
   T1: Stream,
   T1::Item: IntoIterator<Item = VirtualKVCollectionDelta<K, V1>>,
   T2: Stream,
   T2::Item: IntoIterator<Item = VirtualKVCollectionDelta<K, V2>>,
+  // we require this to make the zip meaningful
+  V1: IncrementalBase<Delta = V1>,
+  V2: IncrementalBase<Delta = V2>,
+  T1: VirtualKVCollection<K, V1>,
+  T2: VirtualKVCollection<K, V2>,
 {
   type Item = impl IntoIterator<Item = VirtualKVCollectionDelta<K, (V1, V2)>>;
 
@@ -285,8 +318,68 @@ where
         // let intersections = FastHashMap::default();
         Poll::Ready(Some(Vec::new()))
       }
-      (Poll::Ready(Some(v1)), Poll::Pending) => Poll::Ready(Some(Vec::new())),
+      (Poll::Ready(Some(v1)), Poll::Pending) => {
+        // self.b.access(|getter|{
+        //           let r = v1.into_iter().map(|v1|{
+
+        // }).collect::<Vec<_>>();
+        // })
+
+        Poll::Ready(Some(Vec::new()))
+      }
       (Poll::Pending, Poll::Ready(Some(v2))) => Poll::Ready(Some(Vec::new())),
+      (Poll::Pending, Poll::Pending) => Poll::Pending,
+      _ => Poll::Ready(None), // this should not reached
+    }
+  }
+}
+
+/// T1, T2's K should not overlap
+#[pin_project::pin_project]
+pub struct ReactiveKVSelect<T1, T2, K> {
+  #[pin]
+  a: T1,
+  #[pin]
+  b: T2,
+  k: PhantomData<K>,
+}
+
+impl<T1, T2, K, V> VirtualKVCollection<K, V> for ReactiveKVSelect<T1, T2, K>
+where
+  K: Copy,
+  T1: VirtualKVCollection<K, V>,
+  T2: VirtualKVCollection<K, V>,
+{
+  fn access(&self) -> impl Fn(K) -> Option<V> + '_ {
+    let getter_a = self.a.access();
+    let getter_b = self.b.access();
+
+    move |key| getter_a(key).or(getter_b(key))
+  }
+}
+
+impl<T1, T2, K, V> Stream for ReactiveKVSelect<T1, T2, K>
+where
+  T1: Stream,
+  T1::Item: IntoIterator<Item = VirtualKVCollectionDelta<K, V>>,
+  T2: Stream,
+  T2::Item: IntoIterator<Item = VirtualKVCollectionDelta<K, V>>,
+{
+  type Item = impl IntoIterator<Item = VirtualKVCollectionDelta<K, V>>;
+
+  fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+    let this = self.project();
+
+    let t1 = this.a.poll_next(cx);
+    let t2 = this.b.poll_next(cx);
+
+    // todo, avoid collect!
+    match (t1, t2) {
+      (Poll::Ready(Some(v1)), Poll::Ready(Some(v2))) => {
+        Poll::Ready(Some(v1.into_iter().chain(v2).collect::<Vec<_>>()))
+      }
+      (Poll::Ready(Some(v1)), Poll::Pending) => Poll::Ready(Some(v1.into_iter().collect())),
+      (Poll::Pending, Poll::Ready(Some(v2))) => Poll::Ready(Some(v2.into_iter().collect())),
       (Poll::Pending, Poll::Pending) => Poll::Pending,
       _ => Poll::Ready(None), // this should not reached
     }

@@ -38,6 +38,9 @@ mod animation;
 pub use animation::*;
 
 mod systems;
+pub use systems::*;
+
+mod systems2;
 use std::hash::Hash;
 use std::sync::{Arc, RwLock};
 
@@ -48,4 +51,4 @@ use incremental::*;
 pub use reactive_incremental::*;
 use rendiation_algebra::*;
 pub use rendiation_mesh_core::*;
-pub use systems::*;
+pub use systems2::*;
