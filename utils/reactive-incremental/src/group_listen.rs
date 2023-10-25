@@ -147,10 +147,15 @@ struct ReactiveKVCollectionForSingleValue<T: IncrementalBase, S, U: IncrementalB
 impl<T: IncrementalBase, S, U: IncrementalBase> VirtualKVCollection<u32, U>
   for ReactiveKVCollectionForSingleValue<T, S, U>
 {
-  fn access(&self, _: bool) -> impl Fn(u32) -> Option<U> + '_ {
+  fn iter_key(&self, _skip_cache: bool) -> impl Iterator<Item = u32> + '_ {
+    let data = self.original.inner.data.read();
+    // data.iter().map(|v| 1)
+    [].into_iter()
+  }
+  fn access(&self, _: bool) -> impl Fn(&u32) -> Option<U> + '_ {
     let data = self.original.inner.data.read();
     move |key| {
-      data.try_get(key).map(|v| &v.data).map(|v| {
+      data.try_get(*key).map(|v| &v.data).map(|v| {
         // this is not good, but i will keep it
         let result: std::cell::RefCell<Option<_>> = Default::default();
 

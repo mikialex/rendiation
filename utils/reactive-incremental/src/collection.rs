@@ -1,6 +1,8 @@
-use std::marker::PhantomData;
+use std::{marker::PhantomData, sync::Arc};
 
 use fast_hash_collection::FastHashMap;
+use futures::task::{ArcWake, AtomicWaker};
+use parking_lot::{RwLock, RwLockReadGuard};
 
 use crate::*;
 
@@ -40,14 +42,26 @@ impl<K, V> VirtualKVCollectionDelta<K, V> {
 }
 
 pub trait VirtualKVCollection<K, V> {
-  // fn iter(&self) -> impl Iterator<Item = (K, V)>;
+  fn iter_key(&self, skip_cache: bool) -> impl Iterator<Item = K> + '_;
+
+  fn iter_key_value(&self, skip_cache: bool) -> impl Iterator<Item = (K, V)> + '_ {
+    let access = self.access(skip_cache);
+    self.iter_key(skip_cache).map(move |k| {
+      let v = access(&k).expect("iter_key_value provide key but not have valid value");
+      (k, v)
+    })
+  }
 
   /// Access the current value. we use this scoped api style for fast batch accessing(avoid internal
   /// fragmented locking). the returned V is pass by ownership because we may create data on the
   /// fly.
   ///
-  /// If the skip_cache is true, the implementation will not be incremental
-  fn access(&self, skip_cache: bool) -> impl Fn(K) -> Option<V> + '_;
+  /// If the skip_cache is true, the implementation will not be incremental and will make sure the
+  /// access is up to date. If the return is None, it means the value is not exist in the table.
+  ///
+  /// The implementation should guarantee it's ok to allow  multiple accessor instance exist in same
+  /// time. (should only create read guard in underlayer)
+  fn access(&self, skip_cache: bool) -> impl Fn(&K) -> Option<V> + '_;
 }
 
 /// An abstraction of reactive key-value like virtual container.
@@ -86,24 +100,32 @@ where
 
 /// dynamic version of the above trait
 pub trait DynamicVirtualKVCollection<K, V> {
-  fn access(&self, getter: &dyn FnOnce(&dyn Fn(K) -> Option<V>), skip_cache: bool);
+  fn iter_key_boxed(&self, skip_cache: bool) -> Box<dyn Iterator<Item = K> + '_>;
+  fn access_boxed(&self, skip_cache: bool) -> Box<dyn Fn(&K) -> Option<V> + '_>;
+}
+impl<K, V, T> DynamicVirtualKVCollection<K, V> for T
+where
+  Self: ReactiveKVCollection<K, V>,
+{
+  fn iter_key_boxed(&self, skip_cache: bool) -> Box<dyn Iterator<Item = K> + '_> {
+    Box::new(self.iter_key(skip_cache))
+  }
+
+  fn access_boxed(&self, skip_cache: bool) -> Box<dyn Fn(&K) -> Option<V> + '_> {
+    Box::new(self.access(skip_cache))
+  }
 }
 pub trait DynamicReactiveKVCollection<K, V>:
   DynamicVirtualKVCollection<K, V> + Stream<Item = Vec<VirtualKVCollectionDelta<K, V>>> + Unpin
 {
 }
 impl<K, V> VirtualKVCollection<K, V> for &dyn DynamicReactiveKVCollection<K, V> {
-  fn access(&self, skip_cache: bool) -> impl Fn(K) -> Option<V> + '_ {
-    move |key| {
-      let mut r = None;
-      (*self).access(
-        &|getter| {
-          r = getter(key);
-        },
-        skip_cache,
-      );
-      r
-    }
+  fn access(&self, skip_cache: bool) -> impl Fn(&K) -> Option<V> + '_ {
+    self.access_boxed(skip_cache)
+  }
+
+  fn iter_key(&self, skip_cache: bool) -> impl Iterator<Item = K> + '_ {
+    self.iter_key_boxed(skip_cache)
   }
 }
 
@@ -129,8 +151,13 @@ where
     }
   }
 
-  /// filter map<k, v> by reactive set<k>
-  // fn filter_by_keyset(self, set:)
+  // /// filter map<k, v> by reactive set<k>
+  // fn filter_by_keyset<S: ReactiveKVCollection<K, ()>>(
+  //   self,
+  //   set: S,
+  // ) -> impl ReactiveKVCollection<K, V> {
+  //   //
+  // }
 
   fn zip<V2, Other: ReactiveKVCollection<K, V2>>(
     self,
@@ -167,6 +194,121 @@ where
   Self::Item: IntoIterator<Item = VirtualKVCollectionDelta<K, V>>,
 {
 }
+
+// pub struct ReactiveKVMapFork<Map> {
+//   inner: Arc<RwLock<Map>>,
+//   wakers: Arc<WakerBroadcast>,
+//   id: u64,
+// }
+
+// struct WakerBroadcast {
+//   wakers: RwLock<FastHashMap<u64, AtomicWaker>>,
+// }
+// impl ArcWake for WakerBroadcast {
+//   fn wake_by_ref(arc_self: &Arc<Self>) {
+//     let wakers = arc_self.wakers.read();
+//     for w in wakers.values() {
+//       w.wake()
+//     }
+//   }
+// }
+
+// impl<Map> Drop for ReactiveKVMapFork<Map> {
+//   fn drop(&mut self) {
+//     self.wakers.wakers.write().remove(&self.id);
+//   }
+// }
+// impl<Map> Clone for ReactiveKVMapFork<Map> {
+//   fn clone(&self) -> Self {
+//     self.wakers.clone().wake();
+//     Self {
+//       inner: self.inner.clone(),
+//       wakers: self.wakers.clone(),
+//       id: alloc_global_res_id(),
+//     }
+//   }
+// }
+
+// impl<Map: Stream + Unpin> Stream for ReactiveKVMapFork<Map> {
+//   type Item = Map::Item;
+
+//   fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+//     // these writes should not deadlock, because we not prefer the concurrency between the table
+//     // updates. if we do allow it in the future, just change it to try write or yield pending.
+
+//     {
+//       let mut wakers = self.wakers.wakers.write();
+//       let waker = wakers.entry(self.id).or_insert_with(Default::default);
+//       waker.register(cx.waker());
+//     }
+
+//     let waker = futures::task::waker_ref(&self.wakers);
+//     let mut cx = std::task::Context::from_waker(&waker);
+
+//     let mut inner = self.inner.write();
+//     inner.poll_next_unpin(&mut cx)
+//   }
+// }
+
+// impl<K, V, Map> VirtualKVCollection<K, V> for ReactiveKVMapFork<Map>
+// where
+//   Map: VirtualKVCollection<K, V> + 'static,
+// {
+//   fn iter_key(&self, skip_cache: bool) -> impl Iterator<Item = K> + '_ {
+//     struct ReactiveKVMapForkRead<'a, Map, I> {
+//       _inner: RwLockReadGuard<'a, Map>,
+//       inner_iter: I,
+//     }
+
+//     impl<'a, Map, I: Iterator> Iterator for ReactiveKVMapForkRead<'a, Map, I> {
+//       type Item = I::Item;
+
+//       fn next(&mut self) -> Option<Self::Item> {
+//         self.inner_iter.next()
+//       }
+//     }
+
+//     /// util to get accessor type
+//     type IterOf<'a, M: VirtualKVCollection<K, V> + 'a, K, V> = impl Iterator<Item = K> + 'a;
+//     fn get_iter<'a, K, V, M>(map: &M, skip_cache: bool) -> IterOf<M, K, V>
+//     where
+//       M: VirtualKVCollection<K, V> + 'a,
+//     {
+//       map.iter_key(skip_cache)
+//     }
+
+//     let inner = self.inner.read();
+//     let inner_iter = get_iter(inner.deref(), skip_cache);
+//     // safety: read guard is hold by iter, acc's real reference is form the Map
+//     let inner_iter: IterOf<'static, Map, K, V> = unsafe { std::mem::transmute(inner_iter) };
+//     ReactiveKVMapForkRead {
+//       _inner: inner,
+//       inner_iter,
+//     }
+//   }
+
+//   fn access(&self, skip_cache: bool) -> impl Fn(&K) -> Option<V> + '_ {
+//     let inner = self.inner.read();
+
+//     /// util to get accessor type
+//     type AccessorOf<'a, M: VirtualKVCollection<K, V> + 'a, K, V> = impl Fn(&K) -> Option<V> + 'a;
+//     fn get_accessor<'a, K, V, M>(map: &M, skip_cache: bool) -> AccessorOf<M, K, V>
+//     where
+//       M: VirtualKVCollection<K, V> + 'a,
+//     {
+//       map.access(skip_cache)
+//     }
+
+//     let acc: AccessorOf<Map, K, V> = get_accessor(inner.deref(), skip_cache);
+//     // safety: read guard is hold by closure, acc's real reference is form the Map
+//     let acc: AccessorOf<'static, Map, K, V> = unsafe { std::mem::transmute(acc) };
+//     move |key| {
+//       let _holder = &inner;
+//       let acc = &acc;
+//       acc(key)
+//     }
+//   }
+// }
 
 #[pin_project::pin_project]
 pub struct UnorderedMaterializedReactiveKVMap<Map, K, V> {
@@ -207,16 +349,23 @@ where
 impl<K, V, Map> VirtualKVCollection<K, V> for UnorderedMaterializedReactiveKVMap<Map, K, V>
 where
   Map: VirtualKVCollection<K, V>,
-  K: std::hash::Hash + Eq,
+  K: std::hash::Hash + Eq + Clone,
   V: Clone,
 {
-  fn access(&self, skip_cache: bool) -> impl Fn(K) -> Option<V> + '_ {
+  fn iter_key(&self, skip_cache: bool) -> impl Iterator<Item = K> + '_ {
+    if skip_cache {
+      Box::new(self.inner.iter_key(skip_cache)) as Box<dyn Iterator<Item = K> + '_>
+    } else {
+      Box::new(self.cache.keys().cloned()) as Box<dyn Iterator<Item = K> + '_>
+    }
+  }
+  fn access(&self, skip_cache: bool) -> impl Fn(&K) -> Option<V> + '_ {
     let inner = self.inner.access(skip_cache);
     move |key| {
       if skip_cache {
         inner(key)
       } else {
-        self.cache.get(&key).cloned()
+        self.cache.get(key).cloned()
       }
     }
   }
@@ -256,7 +405,10 @@ where
   F: Fn(V) -> V2 + Copy,
   T: VirtualKVCollection<K, V>,
 {
-  fn access(&self, skip_cache: bool) -> impl Fn(K) -> Option<V2> + '_ {
+  fn iter_key(&self, skip_cache: bool) -> impl Iterator<Item = K> + '_ {
+    self.inner.iter_key(skip_cache)
+  }
+  fn access(&self, skip_cache: bool) -> impl Fn(&K) -> Option<V2> + '_ {
     let inner_getter = self.inner.access(skip_cache);
     move |key| inner_getter(key).map(|v| (self.map)(v))
   }
@@ -298,9 +450,57 @@ where
   F: Fn(&V) -> bool + Copy,
   T: VirtualKVCollection<K, V>,
 {
-  fn access(&self, skip_cache: bool) -> impl Fn(K) -> Option<V> + '_ {
+  fn iter_key(&self, skip_cache: bool) -> impl Iterator<Item = K> + '_ {
+    let inner_getter = self.inner.access(skip_cache);
+    self.inner.iter_key(skip_cache).filter(move |k| {
+      let v = inner_getter(k).unwrap();
+      (self.checker)(&v)
+    })
+  }
+  fn access(&self, skip_cache: bool) -> impl Fn(&K) -> Option<V> + '_ {
     let inner_getter = self.inner.access(skip_cache);
     move |key| inner_getter(key).and_then(|v| (self.checker)(&v).then_some(v))
+  }
+}
+
+#[pin_project::pin_project]
+pub struct ReactiveKSetFilter<T, KS, K> {
+  #[pin]
+  inner: T,
+  #[pin]
+  keys: KS,
+  k: PhantomData<K>,
+}
+
+impl<T, KS, K, V> Stream for ReactiveKSetFilter<T, KS, K>
+where
+  T: Stream,
+  T::Item: IntoIterator<Item = VirtualKVCollectionDelta<K, V>>,
+  KS: ReactiveKVCollection<K, ()>,
+{
+  type Item = impl IntoIterator<Item = VirtualKVCollectionDelta<K, V>>;
+
+  fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+    let this = self.project();
+    let keys_change = this.keys.poll_next(cx);
+    let inner_change = this.inner.poll_next(cx);
+    // todo!()
+    Poll::Ready(Some(Vec::new()))
+  }
+}
+
+impl<T, KS, K, V> VirtualKVCollection<K, V> for ReactiveKSetFilter<T, KS, K>
+where
+  KS: ReactiveKVCollection<K, ()>,
+  T: VirtualKVCollection<K, V>,
+{
+  fn iter_key(&self, skip_cache: bool) -> impl Iterator<Item = K> + '_ {
+    self.keys.iter_key(skip_cache)
+  }
+  fn access(&self, skip_cache: bool) -> impl Fn(&K) -> Option<V> + '_ {
+    let keys_acc = self.keys.access(skip_cache);
+    let inner_getter = self.inner.access(skip_cache);
+    move |key| keys_acc(key).and_then(|_| inner_getter(key))
   }
 }
 
@@ -319,7 +519,11 @@ where
   T1: VirtualKVCollection<K, V1>,
   T2: VirtualKVCollection<K, V2>,
 {
-  fn access(&self, skip_cache: bool) -> impl Fn(K) -> Option<(V1, V2)> + '_ {
+  /// we require the T1 T2 has the same key range
+  fn iter_key(&self, skip_cache: bool) -> impl Iterator<Item = K> + '_ {
+    self.a.iter_key(skip_cache)
+  }
+  fn access(&self, skip_cache: bool) -> impl Fn(&K) -> Option<(V1, V2)> + '_ {
     let getter_a = self.a.access(skip_cache);
     let getter_b = self.b.access(skip_cache);
 
@@ -367,12 +571,12 @@ where
       }
       (Poll::Ready(Some(v1)), Poll::Pending) => Poll::Ready(Some(
         v1.into_iter()
-          .map(|v1| v1.map(|k, v| (v, b_access(k.clone()).unwrap())))
+          .map(|v1| v1.map(|k, v| (v, b_access(k).unwrap())))
           .collect::<Vec<_>>(),
       )),
       (Poll::Pending, Poll::Ready(Some(v2))) => Poll::Ready(Some(
         v2.into_iter()
-          .map(|v2| v2.map(|k, v| (a_access(k.clone()).unwrap(), v)))
+          .map(|v2| v2.map(|k, v| (a_access(k).unwrap(), v)))
           .collect::<Vec<_>>(),
       )),
       (Poll::Pending, Poll::Pending) => Poll::Pending,
@@ -397,7 +601,14 @@ where
   T1: VirtualKVCollection<K, V>,
   T2: VirtualKVCollection<K, V>,
 {
-  fn access(&self, skip_cache: bool) -> impl Fn(K) -> Option<V> + '_ {
+  /// we require the T1 T2 has the different key range
+  fn iter_key(&self, skip_cache: bool) -> impl Iterator<Item = K> + '_ {
+    self
+      .a
+      .iter_key(skip_cache)
+      .chain(self.b.iter_key(skip_cache))
+  }
+  fn access(&self, skip_cache: bool) -> impl Fn(&K) -> Option<V> + '_ {
     let getter_a = self.a.access(skip_cache);
     let getter_b = self.b.access(skip_cache);
 

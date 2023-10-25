@@ -65,7 +65,7 @@ where
 
       let mut getter = self.upstream.access(false);
       for ManyToOneReferenceChange { many, new_one } in relational_changes {
-        if let Some(one_change) = new_one.map(&mut getter).unwrap() {
+        if let Some(one_change) = new_one.map(|v| getter(&v)).unwrap() {
           output.push(VirtualKVCollectionDelta::Delta(many, one_change));
         } else {
           output.push(VirtualKVCollectionDelta::Remove(many));
@@ -108,12 +108,17 @@ where
   Upstream::Item: IntoIterator<Item = VirtualKVCollectionDelta<O, X>>,
   Relation: OneToManyRefBookKeeping<O, M>,
 {
-  fn access(&self, skip_cache: bool) -> impl Fn(M) -> Option<X> + '_ {
+  fn access(&self, skip_cache: bool) -> impl Fn(&M) -> Option<X> + '_ {
     let upstream_getter = self.upstream.access(skip_cache);
     move |key| {
-      let one = self.relations.query(&key)?;
-      upstream_getter(one.clone())
+      let one = self.relations.query(key)?;
+      upstream_getter(one)
     }
+  }
+
+  // skip_cache is always true here
+  fn iter_key(&self, _skip_cache: bool) -> impl Iterator<Item = M> + '_ {
+    self.relations.iter_many()
   }
 }
 
@@ -150,6 +155,7 @@ where
 pub trait OneToManyRefBookKeeping<O, M> {
   fn query(&self, many: &M) -> Option<&O>;
   fn inv_query(&self, one: &O, many_visitor: &mut dyn FnMut(&M));
+  fn iter_many(&self) -> impl Iterator<Item = M> + '_;
   fn apply_change(&mut self, change: ManyToOneReferenceChange<O, M>);
 }
 
@@ -194,6 +200,10 @@ where
 
   fn inv_query(&self, one: &O, many_visitor: &mut dyn FnMut(&M)) {
     todo!()
+  }
+
+  fn iter_many(&self) -> impl Iterator<Item = M> + '_ {
+    [].into_iter()
   }
 
   fn apply_change(&mut self, change: ManyToOneReferenceChange<O, M>) {
@@ -246,6 +256,10 @@ impl<O, M> OneToManyRefBookKeeping<O, M> for OneToManyRefDenseBookKeeping<O, M> 
 
   fn inv_query(&self, one: &O, many_visitor: &mut dyn FnMut(&M)) {
     todo!()
+  }
+
+  fn iter_many(&self) -> impl Iterator<Item = M> + '_ {
+    [].into_iter()
   }
 
   fn apply_change(&mut self, change: ManyToOneReferenceChange<O, M>) {
