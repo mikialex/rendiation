@@ -5,6 +5,16 @@ use storage::{LinkListPool, ListHandle};
 
 use crate::*;
 
+// pub trait OneToOneReactiveRelation<A, B>:
+//   ReactiveKVCollection<A, B> + ReactiveKVCollection<B, A>
+// {
+// }
+
+// pub trait OneToManyReactiveRelation<O, M>: ReactiveKVCollection<M, O>
+// {
+//   fn inv_query(&self, one: &O, many_visitor: &mut dyn FnMut(&M));
+// }
+
 /// O for one, M for many, multiple M reference O;
 /// This delta is m's o reference change
 #[derive(Clone, Copy)]
@@ -63,7 +73,7 @@ where
         self.relations.apply_change(change.clone());
       }
 
-      let mut getter = self.upstream.access(false);
+      let getter = self.upstream.access(false);
       for ManyToOneReferenceChange { many, new_one } in relational_changes {
         if let Some(one_change) = new_one.map(|v| getter(&v)).unwrap() {
           output.push(VirtualKVCollectionDelta::Delta(many, one_change));
@@ -159,22 +169,6 @@ pub trait OneToManyRefBookKeeping<O, M> {
   fn apply_change(&mut self, change: ManyToOneReferenceChange<O, M>);
 }
 
-// let att_locals = att.watch(..)
-// let att_model_ref = model.watch(..)
-// let fatline_locals = fatlines.watch(..)
-// let fatline_model_ref = model.watch(..)
-
-// let model_local_bbox = fatline_locals.relational_project(fatline_model_ref)
-//   .merge(att_locals.relational_project(att_model_ref))
-
-// let sm_local =  model_local_bbox
-//   .relational_project(model_sm_ref)
-
-// let sm_world_mat = node_mat
-// .relational_project(node_sm_ref)
-
-// let sm_world = sm_world_mat.zip(sm_local).map(..).materialize()
-
 pub struct OneToManyRefHashBookKeeping<O, M> {
   mapping: FastHashMap<O, FastHashSet<M>>,
   rev_mapping: FastHashMap<M, Option<O>>,
@@ -195,15 +189,21 @@ where
   M: Hash + Eq + Clone,
 {
   fn query(&self, many: &M) -> Option<&O> {
-    todo!()
+    if let Some(r) = self.rev_mapping.get(many) {
+      r.as_ref()
+    } else {
+      None
+    }
   }
 
   fn inv_query(&self, one: &O, many_visitor: &mut dyn FnMut(&M)) {
-    todo!()
+    if let Some(r) = self.mapping.get(one) {
+      r.iter().for_each(many_visitor)
+    }
   }
 
   fn iter_many(&self) -> impl Iterator<Item = M> + '_ {
-    [].into_iter()
+    self.rev_mapping.keys().cloned()
   }
 
   fn apply_change(&mut self, change: ManyToOneReferenceChange<O, M>) {

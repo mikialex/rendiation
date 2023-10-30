@@ -32,6 +32,13 @@ impl<K, V> VirtualKVCollectionDelta<K, V> {
     }
   }
 
+  pub fn value(self) -> Option<V> {
+    match self {
+      Self::Delta(_, v) => Some(v),
+      Self::Remove(_) => None,
+    }
+  }
+
   // should we just use struct??
   pub fn key(&self) -> &K {
     match self {
@@ -106,6 +113,7 @@ pub trait DynamicVirtualKVCollection<K, V> {
 impl<K, V, T> DynamicVirtualKVCollection<K, V> for T
 where
   Self: ReactiveKVCollection<K, V>,
+  <Self as Stream>::Item: IntoIterator<Item = VirtualKVCollectionDelta<K, V>>,
 {
   fn iter_key_boxed(&self, skip_cache: bool) -> Box<dyn Iterator<Item = K> + '_> {
     Box::new(self.iter_key(skip_cache))
@@ -143,7 +151,25 @@ where
   }
 
   /// filter map<k, v> by v
-  fn collective_filter<F>(self, f: F) -> ReactiveKVFilter<Self, F, K> {
+  fn collective_filter<F: Fn(V) -> bool>(
+    self,
+    f: F,
+  ) -> ReactiveKVFilter<Self, FilterToMap<V, F>, K, V>
+  where
+    V: Copy,
+  {
+    ReactiveKVFilter {
+      inner: self,
+      checker: fn_map(f),
+      k: PhantomData,
+    }
+  }
+
+  /// filter map<k, v> by v
+  fn collective_filter_map<V2, F: Fn(V) -> Option<V2>>(
+    self,
+    f: F,
+  ) -> ReactiveKVFilter<Self, F, K, V> {
     ReactiveKVFilter {
       inner: self,
       checker: f,
@@ -171,6 +197,7 @@ where
     }
   }
 
+  /// K should not overlap
   fn collective_select<Other>(
     self,
     other: Other,
@@ -183,6 +210,7 @@ where
     self.collective_union(other).collective_map(selector)
   }
 
+  /// K should fully overlap
   fn collective_zip<Other, V2>(
     self,
     other: Other,
@@ -193,6 +221,27 @@ where
     Other::Item: IntoIterator<Item = VirtualKVCollectionDelta<K, V2>>,
   {
     self.collective_union(other).collective_map(zipper)
+  }
+
+  /// only return overlapped part
+  fn collective_intersect<Other, V2>(
+    self,
+    other: Other,
+  ) -> ReactiveKVFilter<
+    ReactiveKVUnion<Self, Other, K>,
+    IntersectFn<V, V2>,
+    K,
+    (Option<V>, Option<V2>),
+  >
+  where
+    V: Copy,
+    K: Copy + std::hash::Hash + Eq + 'static,
+    Other: ReactiveKVCollection<K, V2>,
+    Other::Item: IntoIterator<Item = VirtualKVCollectionDelta<K, V2>>,
+  {
+    self
+      .collective_union(other)
+      .collective_filter_map(intersect_fn)
   }
 
   fn materialize_unordered(self) -> UnorderedMaterializedReactiveKVCollection<Self, K, V> {
@@ -225,8 +274,20 @@ fn zipper<T, U>((a, b): (Option<T>, Option<U>)) -> (T, U) {
   }
 }
 
+fn intersect_fn<T, U>((a, b): (Option<T>, Option<U>)) -> Option<(T, U)> {
+  match (a, b) {
+    (Some(a), Some(b)) => Some((a, b)),
+    _ => None,
+  }
+}
+
 type Selector<T> = impl Fn((Option<T>, Option<T>)) -> T;
 type Zipper<T, U> = impl Fn((Option<T>, Option<U>)) -> (T, U);
+type IntersectFn<T, U> = impl Fn((Option<T>, Option<U>)) -> Option<(T, U)>;
+type FilterToMap<T: Copy, F: Fn(T) -> bool> = impl Fn(T) -> Option<T>;
+fn fn_map<T: Copy, F: Fn(T) -> bool>(f: F) -> FilterToMap<T, F> {
+  move |v| if f(v) { Some(v) } else { None }
+}
 
 // pub struct ReactiveKVMapFork<Map> {
 //   inner: Arc<RwLock<Map>>,
@@ -448,51 +509,54 @@ where
 }
 
 #[pin_project::pin_project]
-pub struct ReactiveKVFilter<T, F, K> {
+pub struct ReactiveKVFilter<T, F, K, V> {
   #[pin]
   inner: T,
   checker: F,
-  k: PhantomData<K>,
+  k: PhantomData<(K, V)>,
 }
 
-impl<T, F, K, V> Stream for ReactiveKVFilter<T, F, K>
+impl<T, F, K, V, V2> Stream for ReactiveKVFilter<T, F, K, V>
 where
-  F: Fn(&V) -> bool + Copy + 'static,
+  F: Fn(V) -> Option<V2> + Copy + 'static,
   T: Stream,
   T::Item: IntoIterator<Item = VirtualKVCollectionDelta<K, V>>,
 {
-  type Item = impl IntoIterator<Item = VirtualKVCollectionDelta<K, V>>;
+  type Item = impl IntoIterator<Item = VirtualKVCollectionDelta<K, V2>>;
 
   fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
     let this = self.project();
     let checker = *this.checker;
     this.inner.poll_next(cx).map(move |r| {
       r.map(move |deltas| {
-        deltas.into_iter().filter(move |delta| match delta {
-          VirtualKVCollectionDelta::Delta(_, v) => checker(v),
+        deltas.into_iter().map(move |delta| match delta {
+          VirtualKVCollectionDelta::Delta(k, v) => match checker(v) {
+            Some(v) => VirtualKVCollectionDelta::Delta(k, v),
+            None => VirtualKVCollectionDelta::Remove(k),
+          },
           // the Remove variant maybe called many times for given k
-          VirtualKVCollectionDelta::Remove(_) => true,
+          VirtualKVCollectionDelta::Remove(k) => VirtualKVCollectionDelta::Remove(k),
         })
       })
     })
   }
 }
 
-impl<T, F, K, V> VirtualKVCollection<K, V> for ReactiveKVFilter<T, F, K>
+impl<T, F, K, V, V2> VirtualKVCollection<K, V2> for ReactiveKVFilter<T, F, K, V>
 where
-  F: Fn(&V) -> bool + Copy,
+  F: Fn(&V) -> Option<V2> + Copy,
   T: VirtualKVCollection<K, V>,
 {
   fn iter_key(&self, skip_cache: bool) -> impl Iterator<Item = K> + '_ {
     let inner_getter = self.inner.access(skip_cache);
     self.inner.iter_key(skip_cache).filter(move |k| {
       let v = inner_getter(k).unwrap();
-      (self.checker)(&v)
+      (self.checker)(&v).is_some()
     })
   }
-  fn access(&self, skip_cache: bool) -> impl Fn(&K) -> Option<V> + '_ {
+  fn access(&self, skip_cache: bool) -> impl Fn(&K) -> Option<V2> + '_ {
     let inner_getter = self.inner.access(skip_cache);
-    move |key| inner_getter(key).and_then(|v| (self.checker)(&v).then_some(v))
+    move |key| inner_getter(key).and_then(|v| (self.checker)(&v))
   }
 }
 
@@ -503,38 +567,6 @@ pub struct ReactiveKSetFilter<T, KS, K> {
   #[pin]
   keys: KS,
   k: PhantomData<K>,
-}
-
-impl<T, KS, K, V> Stream for ReactiveKSetFilter<T, KS, K>
-where
-  T: Stream,
-  T::Item: IntoIterator<Item = VirtualKVCollectionDelta<K, V>>,
-  KS: ReactiveKVCollection<K, ()>,
-{
-  type Item = impl IntoIterator<Item = VirtualKVCollectionDelta<K, V>>;
-
-  fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
-    let this = self.project();
-    let keys_change = this.keys.poll_next(cx);
-    let inner_change = this.inner.poll_next(cx);
-    // todo!()
-    Poll::Ready(Some(Vec::new()))
-  }
-}
-
-impl<T, KS, K, V> VirtualKVCollection<K, V> for ReactiveKSetFilter<T, KS, K>
-where
-  KS: ReactiveKVCollection<K, ()>,
-  T: VirtualKVCollection<K, V>,
-{
-  fn iter_key(&self, skip_cache: bool) -> impl Iterator<Item = K> + '_ {
-    self.keys.iter_key(skip_cache)
-  }
-  fn access(&self, skip_cache: bool) -> impl Fn(&K) -> Option<V> + '_ {
-    let keys_acc = self.keys.access(skip_cache);
-    let inner_getter = self.inner.access(skip_cache);
-    move |key| keys_acc(key).and_then(|_| inner_getter(key))
-  }
 }
 
 #[pin_project::pin_project]
@@ -574,7 +606,7 @@ where
 
 impl<T1, T2, K, V1, V2> Stream for ReactiveKVUnion<T1, T2, K>
 where
-  K: Clone,
+  K: Clone + std::hash::Hash + Eq,
   T1: Stream + Unpin,
   T1::Item: IntoIterator<Item = VirtualKVCollectionDelta<K, V1>>,
   T2: Stream + Unpin,
@@ -593,28 +625,63 @@ where
 
     match (t1, t2) {
       (Poll::Ready(Some(v1)), Poll::Ready(Some(v2))) => {
-        let intersections: FastHashMap<K, (Option<V1>, Option<V2>)> = FastHashMap::default();
-        v1.into_iter().for_each(|d| {
-          match d {
-            VirtualKVCollectionDelta::Delta(K, V) => {
-              //
-            }
-            VirtualKVCollectionDelta::Remove(K) => {
-              //
-            }
+        let mut intersections: FastHashMap<K, (Option<V1>, Option<V2>)> = FastHashMap::default();
+        v1.into_iter().for_each(|d| match d {
+          VirtualKVCollectionDelta::Delta(k, v) => {
+            intersections.entry(k).or_insert_with(Default::default).0 = Some(v);
+          }
+          VirtualKVCollectionDelta::Remove(k) => {
+            intersections.entry(k).or_insert_with(Default::default).0 = None;
+          }
+        });
+        v2.into_iter().for_each(|d| match d {
+          VirtualKVCollectionDelta::Delta(k, v) => {
+            intersections.entry(k).or_insert_with(Default::default).1 = Some(v);
+          }
+          VirtualKVCollectionDelta::Remove(k) => {
+            intersections.entry(k).or_insert_with(Default::default).1 = None;
           }
         });
 
-        Poll::Ready(Some(Vec::new()))
+        let output = intersections
+          .into_iter()
+          .map(|(k, v)| {
+            let v_map = match v {
+              (Some(v1), Some(v2)) => (Some(v1), Some(v2)),
+              (Some(v1), None) => (Some(v1), b_access(&k)),
+              (None, Some(v2)) => (a_access(&k), Some(v2)),
+              (None, None) => return VirtualKVCollectionDelta::Remove(k),
+            };
+            VirtualKVCollectionDelta::Delta(k, v_map)
+          })
+          .collect::<Vec<_>>();
+
+        Poll::Ready(Some(output))
       }
       (Poll::Ready(Some(v1)), Poll::Pending) => Poll::Ready(Some(
         v1.into_iter()
-          .map(|v1| v1.map(|k, v| (Some(v), b_access(k))))
+          .map(|v1| {
+            let k = v1.key().clone();
+            let v1 = v1.value();
+            let v2 = b_access(&k);
+            match (&v1, &v2) {
+              (None, None) => VirtualKVCollectionDelta::Remove(k),
+              _ => VirtualKVCollectionDelta::Delta(k, (v1, v2)),
+            }
+          })
           .collect::<Vec<_>>(),
       )),
       (Poll::Pending, Poll::Ready(Some(v2))) => Poll::Ready(Some(
         v2.into_iter()
-          .map(|v2| v2.map(|k, v| (a_access(k), Some(v))))
+          .map(|v2| {
+            let k = v2.key().clone();
+            let v1 = a_access(&k);
+            let v2 = v2.value();
+            match (&v1, &v2) {
+              (None, None) => VirtualKVCollectionDelta::Remove(k),
+              _ => VirtualKVCollectionDelta::Delta(k, (v1, v2)),
+            }
+          })
           .collect::<Vec<_>>(),
       )),
       (Poll::Pending, Poll::Pending) => Poll::Pending,
