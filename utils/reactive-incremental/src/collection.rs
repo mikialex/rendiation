@@ -1,6 +1,6 @@
 use std::{marker::PhantomData, sync::Arc};
 
-use fast_hash_collection::FastHashMap;
+use fast_hash_collection::{FastHashMap, FastHashSet};
 use futures::task::{ArcWake, AtomicWaker};
 use parking_lot::{RwLock, RwLockReadGuard};
 
@@ -81,7 +81,7 @@ pub trait VirtualKVCollection<K, V> {
 /// However, this idea has not baked enough. For example, how do we express efficient partial
 /// access for large T or container like T? Should we use some accessor associate trait or type as
 /// the accessor key? Should we link this type to the T like how we did in Incremental trait?
-pub trait ReactiveKVCollection<K, V>: VirtualKVCollection<K, V> + Stream + Unpin {}
+pub trait ReactiveKVCollection<K, V>: VirtualKVCollection<K, V> + Stream + Unpin + 'static {}
 
 /// The data maybe slate if we combine these two trait directly because the visitor maybe not
 /// directly access the original source data, but access the cache. This access abstract the
@@ -93,7 +93,7 @@ pub trait ReactiveKVCollection<K, V>: VirtualKVCollection<K, V> + Stream + Unpin
 /// the polling logic in tradeoff of the potential memory overhead.
 impl<T, K, V> ReactiveKVCollection<K, V> for T
 where
-  T: VirtualKVCollection<K, V> + Stream + Unpin,
+  T: VirtualKVCollection<K, V> + Stream + Unpin + 'static,
   Self::Item: IntoIterator<Item = VirtualKVCollectionDelta<K, V>>,
 {
 }
@@ -134,7 +134,7 @@ where
   Self::Item: IntoIterator<Item = VirtualKVCollectionDelta<K, V>>,
 {
   /// map map<k, v> to map<k, v2>
-  fn map<V2, F: Fn(V) -> V2 + Copy>(self, f: F) -> ReactiveKVMap<Self, F, K, V2> {
+  fn collective_map<V2, F: Fn(V) -> V2 + Copy>(self, f: F) -> ReactiveKVMap<Self, F, K, V2> {
     ReactiveKVMap {
       inner: self,
       map: f,
@@ -143,7 +143,7 @@ where
   }
 
   /// filter map<k, v> by v
-  fn filter<F>(self, f: F) -> ReactiveKVFilter<Self, F, K> {
+  fn collective_filter<F>(self, f: F) -> ReactiveKVFilter<Self, F, K> {
     ReactiveKVFilter {
       inner: self,
       checker: f,
@@ -159,30 +159,44 @@ where
   //   //
   // }
 
-  fn zip<V2, Other: ReactiveKVCollection<K, V2>>(
-    self,
-    other: Other,
-  ) -> ReactiveKVZip<Self, Other, K> {
-    ReactiveKVZip {
+  fn collective_union<V2, Other>(self, other: Other) -> ReactiveKVUnion<Self, Other, K>
+  where
+    Other: ReactiveKVCollection<K, V2>,
+    Other::Item: IntoIterator<Item = VirtualKVCollectionDelta<K, V2>>,
+  {
+    ReactiveKVUnion {
       a: self,
       b: other,
       k: PhantomData,
     }
   }
 
-  fn select<Other: ReactiveKVCollection<K, V>>(
+  fn collective_select<Other>(
     self,
     other: Other,
-  ) -> ReactiveKVSelect<Self, Other, K> {
-    ReactiveKVSelect {
-      a: self,
-      b: other,
-      k: PhantomData,
-    }
+  ) -> ReactiveKVMap<ReactiveKVUnion<Self, Other, K>, Selector<V>, K, V>
+  where
+    K: Copy + std::hash::Hash + Eq + 'static,
+    Other: ReactiveKVCollection<K, V>,
+    Other::Item: IntoIterator<Item = VirtualKVCollectionDelta<K, V>>,
+  {
+    self.collective_union(other).collective_map(selector)
   }
 
-  fn materialize_unordered(self) -> UnorderedMaterializedReactiveKVMap<Self, K, V> {
-    UnorderedMaterializedReactiveKVMap {
+  fn collective_zip<Other, V2>(
+    self,
+    other: Other,
+  ) -> ReactiveKVMap<ReactiveKVUnion<Self, Other, K>, Zipper<V, V2>, K, (V, V2)>
+  where
+    K: Copy + std::hash::Hash + Eq + 'static,
+    Other: ReactiveKVCollection<K, V2>,
+    Other::Item: IntoIterator<Item = VirtualKVCollectionDelta<K, V2>>,
+  {
+    self.collective_union(other).collective_map(zipper)
+  }
+
+  fn materialize_unordered(self) -> UnorderedMaterializedReactiveKVCollection<Self, K, V> {
+    UnorderedMaterializedReactiveKVCollection {
       inner: self,
       cache: Default::default(),
     }
@@ -194,6 +208,25 @@ where
   Self::Item: IntoIterator<Item = VirtualKVCollectionDelta<K, V>>,
 {
 }
+
+fn selector<T>((a, b): (Option<T>, Option<T>)) -> T {
+  match (a, b) {
+    (Some(_), Some(_)) => unreachable!("key set should not overlap"),
+    (Some(a), None) => a,
+    (None, Some(b)) => b,
+    (None, None) => unreachable!("value not selected"),
+  }
+}
+
+fn zipper<T, U>((a, b): (Option<T>, Option<U>)) -> (T, U) {
+  match (a, b) {
+    (Some(a), Some(b)) => (a, b),
+    _ => unreachable!("value not zipped"),
+  }
+}
+
+type Selector<T> = impl Fn((Option<T>, Option<T>)) -> T;
+type Zipper<T, U> = impl Fn((Option<T>, Option<U>)) -> (T, U);
 
 // pub struct ReactiveKVMapFork<Map> {
 //   inner: Arc<RwLock<Map>>,
@@ -311,13 +344,13 @@ where
 // }
 
 #[pin_project::pin_project]
-pub struct UnorderedMaterializedReactiveKVMap<Map, K, V> {
+pub struct UnorderedMaterializedReactiveKVCollection<Map, K, V> {
   #[pin]
   inner: Map,
   cache: FastHashMap<K, V>,
 }
 
-impl<Map, K, V> Stream for UnorderedMaterializedReactiveKVMap<Map, K, V>
+impl<Map, K, V> Stream for UnorderedMaterializedReactiveKVCollection<Map, K, V>
 where
   Map: Stream,
   K: std::hash::Hash + Eq,
@@ -346,7 +379,7 @@ where
   }
 }
 
-impl<K, V, Map> VirtualKVCollection<K, V> for UnorderedMaterializedReactiveKVMap<Map, K, V>
+impl<K, V, Map> VirtualKVCollection<K, V> for UnorderedMaterializedReactiveKVCollection<Map, K, V>
 where
   Map: VirtualKVCollection<K, V>,
   K: std::hash::Hash + Eq + Clone,
@@ -505,7 +538,7 @@ where
 }
 
 #[pin_project::pin_project]
-pub struct ReactiveKVZip<T1, T2, K> {
+pub struct ReactiveKVUnion<T1, T2, K> {
   #[pin]
   a: T1,
   #[pin]
@@ -513,38 +546,43 @@ pub struct ReactiveKVZip<T1, T2, K> {
   k: PhantomData<K>,
 }
 
-impl<T1, T2, K, V1, V2> VirtualKVCollection<K, (V1, V2)> for ReactiveKVZip<T1, T2, K>
+impl<T1, T2, K, V1, V2> VirtualKVCollection<K, (Option<V1>, Option<V2>)>
+  for ReactiveKVUnion<T1, T2, K>
 where
-  K: Copy,
+  K: Copy + std::hash::Hash + Eq,
   T1: VirtualKVCollection<K, V1>,
   T2: VirtualKVCollection<K, V2>,
 {
   /// we require the T1 T2 has the same key range
   fn iter_key(&self, skip_cache: bool) -> impl Iterator<Item = K> + '_ {
-    self.a.iter_key(skip_cache)
+    let mut keys = FastHashSet::<K>::default();
+    self.a.iter_key(skip_cache).for_each(|k| {
+      keys.insert(k);
+    });
+    self.b.iter_key(skip_cache).for_each(|k| {
+      keys.insert(k);
+    });
+    keys.into_iter()
   }
-  fn access(&self, skip_cache: bool) -> impl Fn(&K) -> Option<(V1, V2)> + '_ {
+  fn access(&self, skip_cache: bool) -> impl Fn(&K) -> Option<(Option<V1>, Option<V2>)> + '_ {
     let getter_a = self.a.access(skip_cache);
     let getter_b = self.b.access(skip_cache);
 
-    move |key| getter_a(key).zip(getter_b(key))
+    move |key| Some((getter_a(key), getter_b(key)))
   }
 }
 
-impl<T1, T2, K, V1, V2> Stream for ReactiveKVZip<T1, T2, K>
+impl<T1, T2, K, V1, V2> Stream for ReactiveKVUnion<T1, T2, K>
 where
   K: Clone,
   T1: Stream + Unpin,
   T1::Item: IntoIterator<Item = VirtualKVCollectionDelta<K, V1>>,
   T2: Stream + Unpin,
   T2::Item: IntoIterator<Item = VirtualKVCollectionDelta<K, V2>>,
-  // we require this to make the zip meaningful
-  V1: IncrementalBase<Delta = V1>,
-  V2: IncrementalBase<Delta = V2>,
   T1: VirtualKVCollection<K, V1>,
   T2: VirtualKVCollection<K, V2>,
 {
-  type Item = impl IntoIterator<Item = VirtualKVCollectionDelta<K, (V1, V2)>>;
+  type Item = impl IntoIterator<Item = VirtualKVCollectionDelta<K, (Option<V1>, Option<V2>)>>;
 
   fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
     let t1 = self.a.poll_next_unpin(cx);
@@ -571,75 +609,16 @@ where
       }
       (Poll::Ready(Some(v1)), Poll::Pending) => Poll::Ready(Some(
         v1.into_iter()
-          .map(|v1| v1.map(|k, v| (v, b_access(k).unwrap())))
+          .map(|v1| v1.map(|k, v| (Some(v), b_access(k))))
           .collect::<Vec<_>>(),
       )),
       (Poll::Pending, Poll::Ready(Some(v2))) => Poll::Ready(Some(
         v2.into_iter()
-          .map(|v2| v2.map(|k, v| (a_access(k).unwrap(), v)))
+          .map(|v2| v2.map(|k, v| (a_access(k), Some(v))))
           .collect::<Vec<_>>(),
       )),
       (Poll::Pending, Poll::Pending) => Poll::Pending,
-      _ => Poll::Ready(None), // this should not reached
-    }
-  }
-}
-
-/// T1, T2's K should not overlap
-#[pin_project::pin_project]
-pub struct ReactiveKVSelect<T1, T2, K> {
-  #[pin]
-  a: T1,
-  #[pin]
-  b: T2,
-  k: PhantomData<K>,
-}
-
-impl<T1, T2, K, V> VirtualKVCollection<K, V> for ReactiveKVSelect<T1, T2, K>
-where
-  K: Copy,
-  T1: VirtualKVCollection<K, V>,
-  T2: VirtualKVCollection<K, V>,
-{
-  /// we require the T1 T2 has the different key range
-  fn iter_key(&self, skip_cache: bool) -> impl Iterator<Item = K> + '_ {
-    self
-      .a
-      .iter_key(skip_cache)
-      .chain(self.b.iter_key(skip_cache))
-  }
-  fn access(&self, skip_cache: bool) -> impl Fn(&K) -> Option<V> + '_ {
-    let getter_a = self.a.access(skip_cache);
-    let getter_b = self.b.access(skip_cache);
-
-    move |key| getter_a(key).or(getter_b(key))
-  }
-}
-
-impl<T1, T2, K, V> Stream for ReactiveKVSelect<T1, T2, K>
-where
-  T1: Stream,
-  T1::Item: IntoIterator<Item = VirtualKVCollectionDelta<K, V>>,
-  T2: Stream,
-  T2::Item: IntoIterator<Item = VirtualKVCollectionDelta<K, V>>,
-{
-  type Item = impl IntoIterator<Item = VirtualKVCollectionDelta<K, V>>;
-
-  fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
-    let this = self.project();
-
-    let t1 = this.a.poll_next(cx);
-    let t2 = this.b.poll_next(cx);
-
-    // todo, avoid collect!
-    match (t1, t2) {
-      (Poll::Ready(Some(v1)), Poll::Ready(Some(v2))) => {
-        Poll::Ready(Some(v1.into_iter().chain(v2).collect::<Vec<_>>()))
-      }
-      (Poll::Ready(Some(v1)), Poll::Pending) => Poll::Ready(Some(v1.into_iter().collect())),
-      (Poll::Pending, Poll::Ready(Some(v2))) => Poll::Ready(Some(v2.into_iter().collect())),
-      (Poll::Pending, Poll::Pending) => Poll::Pending,
-      _ => Poll::Ready(None), // this should not reached
+      _ => Poll::Ready(None),
     }
   }
 }
