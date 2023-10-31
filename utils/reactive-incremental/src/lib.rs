@@ -79,6 +79,9 @@ pub trait LinearIdentified {
   fn alloc_index(&self) -> u32;
 }
 define_dyn_trait_downcaster_static!(LinearIdentified);
+pub trait LinearIdentification: LinearIdentified {
+  fn from_alloc_index(idx: u32) -> Self;
+}
 
 /// An wrapper struct that prevent outside directly accessing the mutable T, but have to modify it
 /// through the explicit delta type. When modifying, the delta maybe checked if is really valid by

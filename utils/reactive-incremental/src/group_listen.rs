@@ -15,7 +15,7 @@ impl<T: IncrementalBase> IncrementalSignalStorage<T> {
   ) -> impl Stream<Item = N> + Unpin
   where
     U: Send + Sync + 'static,
-    C: ChannelLike<VirtualKVCollectionDelta<u32, U>, Message = N>,
+    C: ChannelLike<CollectionDelta<u32, U>, Message = N>,
   {
     let (sender, receiver) = channel_builder.build();
 
@@ -24,7 +24,7 @@ impl<T: IncrementalBase> IncrementalSignalStorage<T> {
 
       for (index, data) in data.iter() {
         mapper(MaybeDeltaRef::All(&data.data), &|mapped| {
-          C::send(&sender, VirtualKVCollectionDelta::Delta(index, mapped));
+          C::send(&sender, CollectionDelta::Delta(index, mapped));
         })
       }
     }
@@ -35,15 +35,15 @@ impl<T: IncrementalBase> IncrementalSignalStorage<T> {
     let remove_token = s.on(move |v| {
       match v {
         StorageGroupChange::Create { index, data } => mapper(MaybeDeltaRef::All(data), &|mapped| {
-          C::send(&sender, VirtualKVCollectionDelta::Delta(*index, mapped));
+          C::send(&sender, CollectionDelta::Delta(*index, mapped));
         }),
         StorageGroupChange::Mutate { index, delta } => {
           mapper(MaybeDeltaRef::Delta(delta), &|mapped| {
-            C::send(&sender, VirtualKVCollectionDelta::Delta(*index, mapped));
+            C::send(&sender, CollectionDelta::Delta(*index, mapped));
           });
         }
         StorageGroupChange::Drop { index } => {
-          C::send(&sender, VirtualKVCollectionDelta::Remove(*index));
+          C::send(&sender, CollectionDelta::Remove(*index));
         }
       }
 
@@ -67,13 +67,13 @@ impl<T: IncrementalBase> IncrementalSignalStorage<T> {
   pub fn single_listen_by_into_reactive_collection<U>(
     &self,
     mapper: impl FnMut(MaybeDeltaRef<T>, &dyn Fn(U)) + Send + Sync + 'static + Clone,
-  ) -> impl ReactiveKVCollection<u32, U>
+  ) -> impl ReactiveCollection<u32, U>
   where
     U: Send + Sync + Clone + 'static,
     U: IncrementalBase<Delta = U>,
   {
     let mapper_c = Box::new(mapper.clone());
-    ReactiveKVCollectionForSingleValue::<T, _, U> {
+    ReactiveCollectionForSingleValue::<T, _, U> {
       inner: self.single_listen_by(mapper),
       original: self.clone(),
       mapper: Mutex::new(mapper_c),
@@ -94,19 +94,19 @@ impl<T> Default for GroupSingleValueChangeBuffer<T> {
 }
 
 impl<T> IntoIterator for GroupSingleValueChangeBuffer<T> {
-  type Item = VirtualKVCollectionDelta<u32, T>;
+  type Item = CollectionDelta<u32, T>;
   type IntoIter = impl Iterator<Item = Self::Item>;
 
   fn into_iter(self) -> Self::IntoIter {
     self.inner.into_iter().flat_map(|(id, state)| {
-      let mut expand = smallvec::SmallVec::<[VirtualKVCollectionDelta<u32, T>; 2]>::new();
+      let mut expand = smallvec::SmallVec::<[CollectionDelta<u32, T>; 2]>::new();
       match state {
-        GroupSingleValueState::Next(v) => expand.push(VirtualKVCollectionDelta::Delta(id, v)),
+        GroupSingleValueState::Next(v) => expand.push(CollectionDelta::Delta(id, v)),
         GroupSingleValueState::RemoveThenNext(v) => {
-          expand.push(VirtualKVCollectionDelta::Remove(id));
-          expand.push(VirtualKVCollectionDelta::Delta(id, v));
+          expand.push(CollectionDelta::Remove(id));
+          expand.push(CollectionDelta::Delta(id, v));
         }
-        GroupSingleValueState::Remove => expand.push(VirtualKVCollectionDelta::Remove(id)),
+        GroupSingleValueState::Remove => expand.push(CollectionDelta::Remove(id)),
       }
       expand
     })
@@ -138,14 +138,14 @@ pub struct GroupSingleValueReceiver<T> {
   inner: Arc<Mutex<(GroupSingleValueChangeBuffer<T>, Option<Waker>)>>,
 }
 
-struct ReactiveKVCollectionForSingleValue<T: IncrementalBase, S, U: IncrementalBase> {
+struct ReactiveCollectionForSingleValue<T: IncrementalBase, S, U: IncrementalBase> {
   original: IncrementalSignalStorage<T>,
   inner: S,
   mapper: Mutex<Box<dyn FnMut(MaybeDeltaRef<T>, &dyn Fn(U)) + Send + Sync>>,
 }
 
-impl<T: IncrementalBase, S, U: IncrementalBase> VirtualKVCollection<u32, U>
-  for ReactiveKVCollectionForSingleValue<T, S, U>
+impl<T: IncrementalBase, S, U: IncrementalBase> VirtualCollection<u32, U>
+  for ReactiveCollectionForSingleValue<T, S, U>
 {
   fn iter_key(&self, _skip_cache: bool) -> impl Iterator<Item = u32> + '_ {
     let data = self.original.inner.data.read();
@@ -170,7 +170,7 @@ impl<T: IncrementalBase, S, U: IncrementalBase> VirtualKVCollection<u32, U>
   }
 }
 
-impl<T, S, U> Stream for ReactiveKVCollectionForSingleValue<T, S, U>
+impl<T, S, U> Stream for ReactiveCollectionForSingleValue<T, S, U>
 where
   T: IncrementalBase,
   U: IncrementalBase,
@@ -207,7 +207,7 @@ impl<T> Stream for GroupSingleValueReceiver<T> {
 
 pub struct DefaultSingleValueGroupChannel;
 
-impl<T: Send + Clone + Sync + 'static> ChannelLike<VirtualKVCollectionDelta<u32, T>>
+impl<T: Send + Clone + Sync + 'static> ChannelLike<CollectionDelta<u32, T>>
   for DefaultSingleValueGroupChannel
 {
   type Message = GroupSingleValueChangeBuffer<T>;
@@ -226,14 +226,14 @@ impl<T: Send + Clone + Sync + 'static> ChannelLike<VirtualKVCollectionDelta<u32,
     (updater, receiver)
   }
 
-  fn send(sender: &Self::Sender, message: VirtualKVCollectionDelta<u32, T>) -> bool {
+  fn send(sender: &Self::Sender, message: CollectionDelta<u32, T>) -> bool {
     if let Some(inner) = sender.inner.upgrade() {
       let mut inner = inner.lock().unwrap();
 
       let mut should_remove = None;
 
+      use CollectionDelta as Change;
       use GroupSingleValueState as State;
-      use VirtualKVCollectionDelta as Change;
 
       inner
         .0

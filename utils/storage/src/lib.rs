@@ -1,12 +1,14 @@
 mod deduplication;
 mod generational;
 mod generational_shrinkable;
+mod index_kept;
 mod index_reuse;
 mod linklist_pool;
 
 pub use deduplication::*;
 pub use generational::*;
 pub use generational_shrinkable::*;
+pub use index_kept::*;
 pub use index_reuse::*;
 pub use linklist_pool::*;
 

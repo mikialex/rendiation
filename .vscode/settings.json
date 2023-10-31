@@ -53,6 +53,7 @@
         "eval",
         "evaluatable",
         "eventable",
+        "fanout",
         "Finalizer",
         "fontext",
         "fract",

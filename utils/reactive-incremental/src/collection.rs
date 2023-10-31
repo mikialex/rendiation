@@ -3,26 +3,20 @@ use std::{marker::PhantomData, sync::Arc};
 use fast_hash_collection::{FastHashMap, FastHashSet};
 use futures::task::{ArcWake, AtomicWaker};
 use parking_lot::{RwLock, RwLockReadGuard};
+use storage::IndexKeptVec;
 
 use crate::*;
 
-// post/async transform
-// Vec<KVDelta<K, V>> ==(if V::Delta==V, single value)=> Vec<KVDelta<K, V>>
-// Vec<KVDelta<K, V>> ==(drop any invalid in history + group by k)=> Vec<KVDelta<K, V>>
-
-// sync reduce
-// group single value
-// group multi value
-
-pub enum VirtualKVCollectionDelta<K, V> {
+#[derive(Debug, Clone, Copy)]
+pub enum CollectionDelta<K, V> {
   /// here we not impose any delta on
   Delta(K, V),
   Remove(K),
 }
 
-impl<K, V> VirtualKVCollectionDelta<K, V> {
-  pub fn map<R>(self, mapper: impl FnOnce(&K, V) -> R) -> VirtualKVCollectionDelta<K, R> {
-    type Rt<K, R> = VirtualKVCollectionDelta<K, R>;
+impl<K, V> CollectionDelta<K, V> {
+  pub fn map<R>(self, mapper: impl FnOnce(&K, V) -> R) -> CollectionDelta<K, R> {
+    type Rt<K, R> = CollectionDelta<K, R>;
     match self {
       Self::Remove(k) => Rt::<K, R>::Remove(k),
       Self::Delta(k, d) => {
@@ -48,7 +42,7 @@ impl<K, V> VirtualKVCollectionDelta<K, V> {
   }
 }
 
-pub trait VirtualKVCollection<K, V> {
+pub trait VirtualCollection<K, V> {
   fn iter_key(&self, skip_cache: bool) -> impl Iterator<Item = K> + '_;
 
   fn iter_key_value(&self, skip_cache: bool) -> impl Iterator<Item = (K, V)> + '_ {
@@ -88,7 +82,7 @@ pub trait VirtualKVCollection<K, V> {
 /// However, this idea has not baked enough. For example, how do we express efficient partial
 /// access for large T or container like T? Should we use some accessor associate trait or type as
 /// the accessor key? Should we link this type to the T like how we did in Incremental trait?
-pub trait ReactiveKVCollection<K, V>: VirtualKVCollection<K, V> + Stream + Unpin + 'static {}
+pub trait ReactiveCollection<K, V>: VirtualCollection<K, V> + Stream + Unpin + 'static {}
 
 /// The data maybe slate if we combine these two trait directly because the visitor maybe not
 /// directly access the original source data, but access the cache. This access abstract the
@@ -98,22 +92,22 @@ pub trait ReactiveKVCollection<K, V>: VirtualKVCollection<K, V> + Stream + Unpin
 ///
 /// In the future, maybe we could add new sub-trait to enforce the data access is consistent with
 /// the polling logic in tradeoff of the potential memory overhead.
-impl<T, K, V> ReactiveKVCollection<K, V> for T
+impl<T, K, V> ReactiveCollection<K, V> for T
 where
-  T: VirtualKVCollection<K, V> + Stream + Unpin + 'static,
-  Self::Item: IntoIterator<Item = VirtualKVCollectionDelta<K, V>>,
+  T: VirtualCollection<K, V> + Stream + Unpin + 'static,
+  Self::Item: IntoIterator<Item = CollectionDelta<K, V>>,
 {
 }
 
 /// dynamic version of the above trait
-pub trait DynamicVirtualKVCollection<K, V> {
+pub trait DynamicVirtualCollection<K, V> {
   fn iter_key_boxed(&self, skip_cache: bool) -> Box<dyn Iterator<Item = K> + '_>;
   fn access_boxed(&self, skip_cache: bool) -> Box<dyn Fn(&K) -> Option<V> + '_>;
 }
-impl<K, V, T> DynamicVirtualKVCollection<K, V> for T
+impl<K, V, T> DynamicVirtualCollection<K, V> for T
 where
-  Self: ReactiveKVCollection<K, V>,
-  <Self as Stream>::Item: IntoIterator<Item = VirtualKVCollectionDelta<K, V>>,
+  Self: ReactiveCollection<K, V>,
+  <Self as Stream>::Item: IntoIterator<Item = CollectionDelta<K, V>>,
 {
   fn iter_key_boxed(&self, skip_cache: bool) -> Box<dyn Iterator<Item = K> + '_> {
     Box::new(self.iter_key(skip_cache))
@@ -123,11 +117,11 @@ where
     Box::new(self.access(skip_cache))
   }
 }
-pub trait DynamicReactiveKVCollection<K, V>:
-  DynamicVirtualKVCollection<K, V> + Stream<Item = Vec<VirtualKVCollectionDelta<K, V>>> + Unpin
+pub trait DynamicReactiveCollection<K, V>:
+  DynamicVirtualCollection<K, V> + Stream<Item = Vec<CollectionDelta<K, V>>> + Unpin
 {
 }
-impl<K, V> VirtualKVCollection<K, V> for &dyn DynamicReactiveKVCollection<K, V> {
+impl<K, V> VirtualCollection<K, V> for &dyn DynamicReactiveCollection<K, V> {
   fn access(&self, skip_cache: bool) -> impl Fn(&K) -> Option<V> + '_ {
     self.access_boxed(skip_cache)
   }
@@ -137,9 +131,9 @@ impl<K, V> VirtualKVCollection<K, V> for &dyn DynamicReactiveKVCollection<K, V> 
   }
 }
 
-pub trait ReactiveKVCollectionExt<K, V>: Sized + 'static + ReactiveKVCollection<K, V>
+pub trait ReactiveCollectionExt<K, V>: Sized + 'static + ReactiveCollection<K, V>
 where
-  Self::Item: IntoIterator<Item = VirtualKVCollectionDelta<K, V>>,
+  Self::Item: IntoIterator<Item = CollectionDelta<K, V>>,
 {
   /// map map<k, v> to map<k, v2>
   fn collective_map<V2, F: Fn(V) -> V2 + Copy>(self, f: F) -> ReactiveKVMap<Self, F, K, V2> {
@@ -178,17 +172,17 @@ where
   }
 
   // /// filter map<k, v> by reactive set<k>
-  // fn filter_by_keyset<S: ReactiveKVCollection<K, ()>>(
+  // fn filter_by_keyset<S: ReactiveCollection<K, ()>>(
   //   self,
   //   set: S,
-  // ) -> impl ReactiveKVCollection<K, V> {
+  // ) -> impl ReactiveCollection<K, V> {
   //   //
   // }
 
   fn collective_union<V2, Other>(self, other: Other) -> ReactiveKVUnion<Self, Other, K>
   where
-    Other: ReactiveKVCollection<K, V2>,
-    Other::Item: IntoIterator<Item = VirtualKVCollectionDelta<K, V2>>,
+    Other: ReactiveCollection<K, V2>,
+    Other::Item: IntoIterator<Item = CollectionDelta<K, V2>>,
   {
     ReactiveKVUnion {
       a: self,
@@ -204,8 +198,8 @@ where
   ) -> ReactiveKVMap<ReactiveKVUnion<Self, Other, K>, Selector<V>, K, V>
   where
     K: Copy + std::hash::Hash + Eq + 'static,
-    Other: ReactiveKVCollection<K, V>,
-    Other::Item: IntoIterator<Item = VirtualKVCollectionDelta<K, V>>,
+    Other: ReactiveCollection<K, V>,
+    Other::Item: IntoIterator<Item = CollectionDelta<K, V>>,
   {
     self.collective_union(other).collective_map(selector)
   }
@@ -217,8 +211,8 @@ where
   ) -> ReactiveKVMap<ReactiveKVUnion<Self, Other, K>, Zipper<V, V2>, K, (V, V2)>
   where
     K: Copy + std::hash::Hash + Eq + 'static,
-    Other: ReactiveKVCollection<K, V2>,
-    Other::Item: IntoIterator<Item = VirtualKVCollectionDelta<K, V2>>,
+    Other: ReactiveCollection<K, V2>,
+    Other::Item: IntoIterator<Item = CollectionDelta<K, V2>>,
   {
     self.collective_union(other).collective_map(zipper)
   }
@@ -236,25 +230,31 @@ where
   where
     V: Copy,
     K: Copy + std::hash::Hash + Eq + 'static,
-    Other: ReactiveKVCollection<K, V2>,
-    Other::Item: IntoIterator<Item = VirtualKVCollectionDelta<K, V2>>,
+    Other: ReactiveCollection<K, V2>,
+    Other::Item: IntoIterator<Item = CollectionDelta<K, V2>>,
   {
     self
       .collective_union(other)
       .collective_filter_map(intersect_fn)
   }
 
-  fn materialize_unordered(self) -> UnorderedMaterializedReactiveKVCollection<Self, K, V> {
-    UnorderedMaterializedReactiveKVCollection {
+  fn materialize_unordered(self) -> UnorderedMaterializedReactiveCollection<Self, K, V> {
+    UnorderedMaterializedReactiveCollection {
+      inner: self,
+      cache: Default::default(),
+    }
+  }
+  fn materialize_linear(self) -> LinearMaterializedReactiveCollection<Self, V> {
+    LinearMaterializedReactiveCollection {
       inner: self,
       cache: Default::default(),
     }
   }
 }
-impl<T, K, V> ReactiveKVCollectionExt<K, V> for T
+impl<T, K, V> ReactiveCollectionExt<K, V> for T
 where
-  T: Sized + 'static + ReactiveKVCollection<K, V>,
-  Self::Item: IntoIterator<Item = VirtualKVCollectionDelta<K, V>>,
+  T: Sized + 'static + ReactiveCollection<K, V>,
+  Self::Item: IntoIterator<Item = CollectionDelta<K, V>>,
 {
 }
 
@@ -344,9 +344,9 @@ fn fn_map<T: Copy, F: Fn(T) -> bool>(f: F) -> FilterToMap<T, F> {
 //   }
 // }
 
-// impl<K, V, Map> VirtualKVCollection<K, V> for ReactiveKVMapFork<Map>
+// impl<K, V, Map> VirtualCollection<K, V> for ReactiveKVMapFork<Map>
 // where
-//   Map: VirtualKVCollection<K, V> + 'static,
+//   Map: VirtualCollection<K, V> + 'static,
 // {
 //   fn iter_key(&self, skip_cache: bool) -> impl Iterator<Item = K> + '_ {
 //     struct ReactiveKVMapForkRead<'a, Map, I> {
@@ -363,10 +363,10 @@ fn fn_map<T: Copy, F: Fn(T) -> bool>(f: F) -> FilterToMap<T, F> {
 //     }
 
 //     /// util to get accessor type
-//     type IterOf<'a, M: VirtualKVCollection<K, V> + 'a, K, V> = impl Iterator<Item = K> + 'a;
+//     type IterOf<'a, M: VirtualCollection<K, V> + 'a, K, V> = impl Iterator<Item = K> + 'a;
 //     fn get_iter<'a, K, V, M>(map: &M, skip_cache: bool) -> IterOf<M, K, V>
 //     where
-//       M: VirtualKVCollection<K, V> + 'a,
+//       M: VirtualCollection<K, V> + 'a,
 //     {
 //       map.iter_key(skip_cache)
 //     }
@@ -385,10 +385,10 @@ fn fn_map<T: Copy, F: Fn(T) -> bool>(f: F) -> FilterToMap<T, F> {
 //     let inner = self.inner.read();
 
 //     /// util to get accessor type
-//     type AccessorOf<'a, M: VirtualKVCollection<K, V> + 'a, K, V> = impl Fn(&K) -> Option<V> + 'a;
+//     type AccessorOf<'a, M: VirtualCollection<K, V> + 'a, K, V> = impl Fn(&K) -> Option<V> + 'a;
 //     fn get_accessor<'a, K, V, M>(map: &M, skip_cache: bool) -> AccessorOf<M, K, V>
 //     where
-//       M: VirtualKVCollection<K, V> + 'a,
+//       M: VirtualCollection<K, V> + 'a,
 //     {
 //       map.access(skip_cache)
 //     }
@@ -405,18 +405,18 @@ fn fn_map<T: Copy, F: Fn(T) -> bool>(f: F) -> FilterToMap<T, F> {
 // }
 
 #[pin_project::pin_project]
-pub struct UnorderedMaterializedReactiveKVCollection<Map, K, V> {
+pub struct UnorderedMaterializedReactiveCollection<Map, K, V> {
   #[pin]
   inner: Map,
   cache: FastHashMap<K, V>,
 }
 
-impl<Map, K, V> Stream for UnorderedMaterializedReactiveKVCollection<Map, K, V>
+impl<Map, K, V> Stream for UnorderedMaterializedReactiveCollection<Map, K, V>
 where
   Map: Stream,
   K: std::hash::Hash + Eq,
   V: IncrementalBase<Delta = V>,
-  Map::Item: IntoIterator<Item = VirtualKVCollectionDelta<K, V>> + Clone,
+  Map::Item: IntoIterator<Item = CollectionDelta<K, V>> + Clone,
 {
   type Item = Map::Item;
 
@@ -426,10 +426,10 @@ where
     if let Poll::Ready(Some(changes)) = &r {
       for change in changes.clone().into_iter() {
         match change {
-          VirtualKVCollectionDelta::Delta(k, v) => {
+          CollectionDelta::Delta(k, v) => {
             this.cache.insert(k, v);
           }
-          VirtualKVCollectionDelta::Remove(k) => {
+          CollectionDelta::Remove(k) => {
             // todo, shrink
             this.cache.remove(&k);
           }
@@ -440,9 +440,9 @@ where
   }
 }
 
-impl<K, V, Map> VirtualKVCollection<K, V> for UnorderedMaterializedReactiveKVCollection<Map, K, V>
+impl<K, V, Map> VirtualCollection<K, V> for UnorderedMaterializedReactiveCollection<Map, K, V>
 where
-  Map: VirtualKVCollection<K, V>,
+  Map: VirtualCollection<K, V>,
   K: std::hash::Hash + Eq + Clone,
   V: Clone,
 {
@@ -466,6 +466,68 @@ where
 }
 
 #[pin_project::pin_project]
+pub struct LinearMaterializedReactiveCollection<Map, V> {
+  #[pin]
+  inner: Map,
+  cache: IndexKeptVec<V>,
+}
+
+impl<Map, K, V> Stream for LinearMaterializedReactiveCollection<Map, V>
+where
+  Map: Stream,
+  K: LinearIdentification,
+  V: IncrementalBase<Delta = V>,
+  Map::Item: IntoIterator<Item = CollectionDelta<K, V>> + Clone,
+{
+  type Item = Map::Item;
+
+  fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+    let this = self.project();
+    let r = this.inner.poll_next(cx);
+    if let Poll::Ready(Some(changes)) = &r {
+      for change in changes.clone().into_iter() {
+        match change {
+          CollectionDelta::Delta(k, v) => {
+            this.cache.insert(v, k.alloc_index());
+          }
+          CollectionDelta::Remove(k) => {
+            // todo, shrink
+            this.cache.remove(k.alloc_index());
+          }
+        }
+      }
+    }
+    r
+  }
+}
+
+impl<K, V, Map> VirtualCollection<K, V> for LinearMaterializedReactiveCollection<Map, V>
+where
+  Map: VirtualCollection<K, V>,
+  K: LinearIdentification + 'static,
+  V: Clone,
+{
+  fn iter_key(&self, skip_cache: bool) -> impl Iterator<Item = K> + '_ {
+    if skip_cache {
+      Box::new(self.inner.iter_key(skip_cache)) as Box<dyn Iterator<Item = K> + '_>
+    } else {
+      Box::new(self.cache.iter().map(|(k, _)| K::from_alloc_index(k)))
+        as Box<dyn Iterator<Item = K> + '_>
+    }
+  }
+  fn access(&self, skip_cache: bool) -> impl Fn(&K) -> Option<V> + '_ {
+    let inner = self.inner.access(skip_cache);
+    move |key| {
+      if skip_cache {
+        inner(key)
+      } else {
+        self.cache.try_get(key.alloc_index()).cloned()
+      }
+    }
+  }
+}
+
+#[pin_project::pin_project]
 pub struct ReactiveKVMap<T, F, K, V> {
   #[pin]
   inner: T,
@@ -477,9 +539,9 @@ impl<T, F, K, V, V2> Stream for ReactiveKVMap<T, F, K, V>
 where
   F: Fn(V) -> V2 + Copy + 'static,
   T: Stream,
-  T::Item: IntoIterator<Item = VirtualKVCollectionDelta<K, V>>,
+  T::Item: IntoIterator<Item = CollectionDelta<K, V>>,
 {
-  type Item = impl IntoIterator<Item = VirtualKVCollectionDelta<K, V2>>;
+  type Item = impl IntoIterator<Item = CollectionDelta<K, V2>>;
 
   fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
     let this = self.project();
@@ -494,10 +556,10 @@ where
   }
 }
 
-impl<T, F, K, V, V2> VirtualKVCollection<K, V2> for ReactiveKVMap<T, F, K, V>
+impl<T, F, K, V, V2> VirtualCollection<K, V2> for ReactiveKVMap<T, F, K, V>
 where
   F: Fn(V) -> V2 + Copy,
-  T: VirtualKVCollection<K, V>,
+  T: VirtualCollection<K, V>,
 {
   fn iter_key(&self, skip_cache: bool) -> impl Iterator<Item = K> + '_ {
     self.inner.iter_key(skip_cache)
@@ -520,9 +582,9 @@ impl<T, F, K, V, V2> Stream for ReactiveKVFilter<T, F, K, V>
 where
   F: Fn(V) -> Option<V2> + Copy + 'static,
   T: Stream,
-  T::Item: IntoIterator<Item = VirtualKVCollectionDelta<K, V>>,
+  T::Item: IntoIterator<Item = CollectionDelta<K, V>>,
 {
-  type Item = impl IntoIterator<Item = VirtualKVCollectionDelta<K, V2>>;
+  type Item = impl IntoIterator<Item = CollectionDelta<K, V2>>;
 
   fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
     let this = self.project();
@@ -530,22 +592,22 @@ where
     this.inner.poll_next(cx).map(move |r| {
       r.map(move |deltas| {
         deltas.into_iter().map(move |delta| match delta {
-          VirtualKVCollectionDelta::Delta(k, v) => match checker(v) {
-            Some(v) => VirtualKVCollectionDelta::Delta(k, v),
-            None => VirtualKVCollectionDelta::Remove(k),
+          CollectionDelta::Delta(k, v) => match checker(v) {
+            Some(v) => CollectionDelta::Delta(k, v),
+            None => CollectionDelta::Remove(k),
           },
           // the Remove variant maybe called many times for given k
-          VirtualKVCollectionDelta::Remove(k) => VirtualKVCollectionDelta::Remove(k),
+          CollectionDelta::Remove(k) => CollectionDelta::Remove(k),
         })
       })
     })
   }
 }
 
-impl<T, F, K, V, V2> VirtualKVCollection<K, V2> for ReactiveKVFilter<T, F, K, V>
+impl<T, F, K, V, V2> VirtualCollection<K, V2> for ReactiveKVFilter<T, F, K, V>
 where
   F: Fn(&V) -> Option<V2> + Copy,
-  T: VirtualKVCollection<K, V>,
+  T: VirtualCollection<K, V>,
 {
   fn iter_key(&self, skip_cache: bool) -> impl Iterator<Item = K> + '_ {
     let inner_getter = self.inner.access(skip_cache);
@@ -578,12 +640,12 @@ pub struct ReactiveKVUnion<T1, T2, K> {
   k: PhantomData<K>,
 }
 
-impl<T1, T2, K, V1, V2> VirtualKVCollection<K, (Option<V1>, Option<V2>)>
+impl<T1, T2, K, V1, V2> VirtualCollection<K, (Option<V1>, Option<V2>)>
   for ReactiveKVUnion<T1, T2, K>
 where
   K: Copy + std::hash::Hash + Eq,
-  T1: VirtualKVCollection<K, V1>,
-  T2: VirtualKVCollection<K, V2>,
+  T1: VirtualCollection<K, V1>,
+  T2: VirtualCollection<K, V2>,
 {
   /// we require the T1 T2 has the same key range
   fn iter_key(&self, skip_cache: bool) -> impl Iterator<Item = K> + '_ {
@@ -608,13 +670,13 @@ impl<T1, T2, K, V1, V2> Stream for ReactiveKVUnion<T1, T2, K>
 where
   K: Clone + std::hash::Hash + Eq,
   T1: Stream + Unpin,
-  T1::Item: IntoIterator<Item = VirtualKVCollectionDelta<K, V1>>,
+  T1::Item: IntoIterator<Item = CollectionDelta<K, V1>>,
   T2: Stream + Unpin,
-  T2::Item: IntoIterator<Item = VirtualKVCollectionDelta<K, V2>>,
-  T1: VirtualKVCollection<K, V1>,
-  T2: VirtualKVCollection<K, V2>,
+  T2::Item: IntoIterator<Item = CollectionDelta<K, V2>>,
+  T1: VirtualCollection<K, V1>,
+  T2: VirtualCollection<K, V2>,
 {
-  type Item = impl IntoIterator<Item = VirtualKVCollectionDelta<K, (Option<V1>, Option<V2>)>>;
+  type Item = impl IntoIterator<Item = CollectionDelta<K, (Option<V1>, Option<V2>)>>;
 
   fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
     let t1 = self.a.poll_next_unpin(cx);
@@ -627,18 +689,18 @@ where
       (Poll::Ready(Some(v1)), Poll::Ready(Some(v2))) => {
         let mut intersections: FastHashMap<K, (Option<V1>, Option<V2>)> = FastHashMap::default();
         v1.into_iter().for_each(|d| match d {
-          VirtualKVCollectionDelta::Delta(k, v) => {
+          CollectionDelta::Delta(k, v) => {
             intersections.entry(k).or_insert_with(Default::default).0 = Some(v);
           }
-          VirtualKVCollectionDelta::Remove(k) => {
+          CollectionDelta::Remove(k) => {
             intersections.entry(k).or_insert_with(Default::default).0 = None;
           }
         });
         v2.into_iter().for_each(|d| match d {
-          VirtualKVCollectionDelta::Delta(k, v) => {
+          CollectionDelta::Delta(k, v) => {
             intersections.entry(k).or_insert_with(Default::default).1 = Some(v);
           }
-          VirtualKVCollectionDelta::Remove(k) => {
+          CollectionDelta::Remove(k) => {
             intersections.entry(k).or_insert_with(Default::default).1 = None;
           }
         });
@@ -650,9 +712,9 @@ where
               (Some(v1), Some(v2)) => (Some(v1), Some(v2)),
               (Some(v1), None) => (Some(v1), b_access(&k)),
               (None, Some(v2)) => (a_access(&k), Some(v2)),
-              (None, None) => return VirtualKVCollectionDelta::Remove(k),
+              (None, None) => return CollectionDelta::Remove(k),
             };
-            VirtualKVCollectionDelta::Delta(k, v_map)
+            CollectionDelta::Delta(k, v_map)
           })
           .collect::<Vec<_>>();
 
@@ -665,8 +727,8 @@ where
             let v1 = v1.value();
             let v2 = b_access(&k);
             match (&v1, &v2) {
-              (None, None) => VirtualKVCollectionDelta::Remove(k),
-              _ => VirtualKVCollectionDelta::Delta(k, (v1, v2)),
+              (None, None) => CollectionDelta::Remove(k),
+              _ => CollectionDelta::Delta(k, (v1, v2)),
             }
           })
           .collect::<Vec<_>>(),
@@ -678,8 +740,8 @@ where
             let v1 = a_access(&k);
             let v2 = v2.value();
             match (&v1, &v2) {
-              (None, None) => VirtualKVCollectionDelta::Remove(k),
-              _ => VirtualKVCollectionDelta::Delta(k, (v1, v2)),
+              (None, None) => CollectionDelta::Remove(k),
+              _ => CollectionDelta::Delta(k, (v1, v2)),
             }
           })
           .collect::<Vec<_>>(),
