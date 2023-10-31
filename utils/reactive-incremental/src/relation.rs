@@ -23,8 +23,6 @@ pub trait OneToManyRefBookKeeping<O, M> {
 
 pub trait ReactiveCollectionRelationExt<K, V: IncrementalBase>:
   Sized + 'static + ReactiveCollection<K, V>
-where
-  Self::Item: IntoIterator<Item = CollectionDelta<K, V>>,
 {
   fn derive_one_to_many(self) -> OneToManyRefHashBookKeeping<V, K>
   where
@@ -52,43 +50,39 @@ where
     }
   }
 }
-impl<T, K, V: IncrementalBase> ReactiveCollectionRelationExt<K, V> for T
-where
-  T: Sized + 'static + ReactiveCollection<K, V>,
-  Self::Item: IntoIterator<Item = CollectionDelta<K, V>>,
+impl<T, K, V: IncrementalBase> ReactiveCollectionRelationExt<K, V> for T where
+  T: Sized + 'static + ReactiveCollection<K, V>
 {
 }
 
 pub struct OneToManyFanout<O, M, X, Upstream, Relation>
 where
   Upstream: ReactiveCollection<O, X>,
-  Upstream::Item: IntoIterator<Item = CollectionDelta<O, X>>,
   Relation: OneToManyRefBookKeeping<O, M>,
-  X: IncrementalBase,
 {
   upstream: Upstream,
   relations: Relation,
   phantom: PhantomData<(O, M, X)>,
 }
 
-impl<O, M, X, Upstream, Relation> Stream for OneToManyFanout<O, M, X, Upstream, Relation>
+impl<O, M, X, Upstream, Relation> ReactiveCollection<M, X>
+  for OneToManyFanout<O, M, X, Upstream, Relation>
 where
-  M: Clone + Unpin,
-  X: Clone + Unpin + IncrementalBase,
-  O: Clone + Unpin,
+  M: Clone + Unpin + 'static,
+  X: Clone + Unpin + 'static,
+  O: Clone + Unpin + 'static,
   Upstream: ReactiveCollection<O, X>,
-  Upstream::Item: IntoIterator<Item = CollectionDelta<O, X>>,
-  Relation: OneToManyRefBookKeeping<O, M>,
+  Relation: OneToManyRefBookKeeping<O, M> + 'static,
   Relation: Stream<Item = Vec<CollectionDelta<M, O>>> + Unpin,
 {
-  type Item = Vec<CollectionDelta<M, X>>;
+  type Changes = Vec<CollectionDelta<M, X>>;
 
-  fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context) -> Poll<Option<Self::Item>> {
+  fn poll_changes(&mut self, cx: &mut Context<'_>) -> Poll<Option<Self::Changes>> {
     // We update the relational changes first, note:, this projection is timeline lossy because we
     // assume the consumer will only care about changes happens in the latest reference
     // structure. This is like the flatten signal in single object style.
     let relational_changes = self.relations.poll_next_unpin(cx);
-    let upstream_changes = self.upstream.poll_next_unpin(cx);
+    let upstream_changes = self.upstream.poll_changes(cx);
 
     let mut output = Vec::new(); // it's hard to predict capacity, should we compute it?
     if let Poll::Ready(Some(relational_changes)) = relational_changes {
@@ -132,10 +126,9 @@ impl<O, M, X, Upstream, Relation> VirtualCollection<M, X>
   for OneToManyFanout<O, M, X, Upstream, Relation>
 where
   M: Clone + Unpin,
-  X: Clone + Unpin + IncrementalBase,
+  X: Clone + Unpin,
   O: Clone + Unpin,
   Upstream: ReactiveCollection<O, X>,
-  Upstream::Item: IntoIterator<Item = CollectionDelta<O, X>>,
   Relation: OneToManyRefBookKeeping<O, M>,
 {
   fn access(&self, skip_cache: bool) -> impl Fn(&M) -> Option<X> + '_ {

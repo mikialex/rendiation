@@ -170,15 +170,15 @@ impl<T: IncrementalBase, S, U: IncrementalBase> VirtualCollection<u32, U>
   }
 }
 
-impl<T, S, U> Stream for ReactiveCollectionForSingleValue<T, S, U>
+impl<T, S, U> ReactiveCollection<u32, U> for ReactiveCollectionForSingleValue<T, S, U>
 where
   T: IncrementalBase,
   U: IncrementalBase,
-  S: Stream<Item = GroupSingleValueChangeBuffer<U>> + Unpin,
+  S: Stream<Item = GroupSingleValueChangeBuffer<U>> + Unpin + 'static,
 {
-  type Item = GroupSingleValueChangeBuffer<U>;
+  type Changes = GroupSingleValueChangeBuffer<U>;
 
-  fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+  fn poll_changes(&mut self, cx: &mut Context<'_>) -> Poll<Option<Self::Changes>> {
     self.inner.poll_next_unpin(cx)
   }
 }
