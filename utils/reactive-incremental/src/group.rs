@@ -1,5 +1,6 @@
 use std::{
   any::{Any, TypeId},
+  marker::PhantomData,
   sync::{Arc, Weak},
 };
 
@@ -26,19 +27,54 @@ pub(crate) struct SignalItem<T> {
   guid: u64, // weak semantics is impl by the guid compare in data access
 }
 
+pub struct ItemAllocIndex<T> {
+  pub index: u32,
+  phantom: PhantomData<T>,
+}
+
+impl<T> Clone for ItemAllocIndex<T> {
+  fn clone(&self) -> Self {
+    Self {
+      index: self.index,
+      phantom: self.phantom,
+    }
+  }
+}
+impl<T> Copy for ItemAllocIndex<T> {}
+impl<T> PartialEq for ItemAllocIndex<T> {
+  fn eq(&self, other: &Self) -> bool {
+    self.index == other.index
+  }
+}
+impl<T> Eq for ItemAllocIndex<T> {}
+impl<T> std::hash::Hash for ItemAllocIndex<T> {
+  fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+    self.index.hash(state);
+  }
+}
+
+impl<T> From<u32> for ItemAllocIndex<T> {
+  fn from(value: u32) -> Self {
+    Self {
+      index: value,
+      phantom: PhantomData,
+    }
+  }
+}
+
 pub enum StorageGroupChange<'a, T: IncrementalBase> {
   /// we are not suppose to support sub listen in group watch, so we not emit strong count ptr
   /// message.
   Create {
-    index: u32,
+    index: ItemAllocIndex<T>,
     data: &'a T,
   },
   Mutate {
-    index: u32,
+    index: ItemAllocIndex<T>,
     delta: T::Delta,
   },
   Drop {
-    index: u32,
+    index: ItemAllocIndex<T>,
   },
 }
 
@@ -86,7 +122,7 @@ impl<T: IncrementalBase> IncrementalSignalStorage<T> {
     let index = storage.insert(data);
     self.inner.group_watchers.emit(&StorageGroupChange::Create {
       data: unsafe { std::mem::transmute(&storage.get(index).data) },
-      index,
+      index: index.into(),
     });
 
     IncrementalSignalPtr {
@@ -255,7 +291,7 @@ impl<T: IncrementalBase> IncrementalSignalPtr<T> {
       // emit sub child
       sub_watcher.visit_and_remove(&mut data.sub_event_handle, |f, _| (f(delta), true));
       inner.group_watchers.emit(&StorageGroupChange::Mutate {
-        index: self.index,
+        index: self.index.into(),
         delta: delta.clone(),
       });
     });
@@ -271,7 +307,7 @@ impl<T: IncrementalBase> IncrementalSignalPtr<T> {
           // emit sub child
           sub_watcher.visit_and_remove(&mut data.sub_event_handle, |f, _| (f(delta), true));
           inner.group_watchers.emit(&StorageGroupChange::Mutate {
-            index: self.index,
+            index: self.index.into(),
             delta: delta.clone(),
           });
         },
@@ -376,9 +412,9 @@ impl<T: IncrementalBase> Drop for IncrementalSignalPtr<T> {
           to_remove = removed.into();
         }
       }
-      inner
-        .group_watchers
-        .emit(&StorageGroupChange::Drop { index: self.index });
+      inner.group_watchers.emit(&StorageGroupChange::Drop {
+        index: self.index.into(),
+      });
     }
     drop(to_remove);
   }

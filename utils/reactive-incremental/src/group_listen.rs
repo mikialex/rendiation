@@ -15,7 +15,7 @@ impl<T: IncrementalBase> IncrementalSignalStorage<T> {
   ) -> impl Stream<Item = N> + Unpin
   where
     U: Send + Sync + 'static,
-    C: ChannelLike<CollectionDelta<u32, U>, Message = N>,
+    C: ChannelLike<CollectionDelta<ItemAllocIndex<T>, U>, Message = N>,
   {
     let (sender, receiver) = channel_builder.build();
 
@@ -24,7 +24,7 @@ impl<T: IncrementalBase> IncrementalSignalStorage<T> {
 
       for (index, data) in data.iter() {
         mapper(MaybeDeltaRef::All(&data.data), &|mapped| {
-          C::send(&sender, CollectionDelta::Delta(index, mapped));
+          C::send(&sender, CollectionDelta::Delta(index.into(), mapped));
         })
       }
     }
@@ -57,7 +57,7 @@ impl<T: IncrementalBase> IncrementalSignalStorage<T> {
   pub fn single_listen_by<U>(
     &self,
     mapper: impl FnMut(MaybeDeltaRef<T>, &dyn Fn(U)) + Send + Sync + 'static,
-  ) -> impl Stream<Item = GroupSingleValueChangeBuffer<U>> + Unpin
+  ) -> impl Stream<Item = GroupSingleValueChangeBuffer<T, U>> + Unpin
   where
     U: Send + Sync + Clone + 'static,
   {
@@ -67,7 +67,7 @@ impl<T: IncrementalBase> IncrementalSignalStorage<T> {
   pub fn single_listen_by_into_reactive_collection<U>(
     &self,
     mapper: impl FnMut(MaybeDeltaRef<T>, &dyn Fn(U)) + Send + Sync + 'static + Clone,
-  ) -> impl ReactiveCollection<u32, U>
+  ) -> impl ReactiveCollection<ItemAllocIndex<T>, U>
   where
     U: Send + Sync + Clone + 'static,
     U: IncrementalBase<Delta = U>,
@@ -81,11 +81,11 @@ impl<T: IncrementalBase> IncrementalSignalStorage<T> {
   }
 }
 
-pub struct GroupSingleValueChangeBuffer<T> {
-  inner: FastHashMap<u32, GroupSingleValueState<T>>,
+pub struct GroupSingleValueChangeBuffer<K, T> {
+  inner: FastHashMap<ItemAllocIndex<K>, GroupSingleValueState<T>>,
 }
 
-impl<T> Default for GroupSingleValueChangeBuffer<T> {
+impl<K, T> Default for GroupSingleValueChangeBuffer<K, T> {
   fn default() -> Self {
     Self {
       inner: Default::default(),
@@ -93,13 +93,13 @@ impl<T> Default for GroupSingleValueChangeBuffer<T> {
   }
 }
 
-impl<T> IntoIterator for GroupSingleValueChangeBuffer<T> {
-  type Item = CollectionDelta<u32, T>;
+impl<K, T> IntoIterator for GroupSingleValueChangeBuffer<K, T> {
+  type Item = CollectionDelta<ItemAllocIndex<K>, T>;
   type IntoIter = impl Iterator<Item = Self::Item>;
 
   fn into_iter(self) -> Self::IntoIter {
     self.inner.into_iter().flat_map(|(id, state)| {
-      let mut expand = smallvec::SmallVec::<[CollectionDelta<u32, T>; 2]>::new();
+      let mut expand = smallvec::SmallVec::<[CollectionDelta<ItemAllocIndex<K>, T>; 2]>::new();
       match state {
         GroupSingleValueState::Next(v) => expand.push(CollectionDelta::Delta(id, v)),
         GroupSingleValueState::RemoveThenNext(v) => {
@@ -113,11 +113,11 @@ impl<T> IntoIterator for GroupSingleValueChangeBuffer<T> {
   }
 }
 
-pub struct GroupSingleValueSender<T> {
-  inner: Weak<Mutex<(GroupSingleValueChangeBuffer<T>, Option<Waker>)>>,
+pub struct GroupSingleValueSender<K, T> {
+  inner: Weak<Mutex<(GroupSingleValueChangeBuffer<K, T>, Option<Waker>)>>,
 }
 
-impl<T> Drop for GroupSingleValueSender<T> {
+impl<K, T> Drop for GroupSingleValueSender<K, T> {
   fn drop(&mut self) {
     if let Some(inner) = self.inner.upgrade() {
       let inner = inner.lock().unwrap();
@@ -134,8 +134,8 @@ pub enum GroupSingleValueState<T> {
   Remove,
 }
 
-pub struct GroupSingleValueReceiver<T> {
-  inner: Arc<Mutex<(GroupSingleValueChangeBuffer<T>, Option<Waker>)>>,
+pub struct GroupSingleValueReceiver<K, T> {
+  inner: Arc<Mutex<(GroupSingleValueChangeBuffer<K, T>, Option<Waker>)>>,
 }
 
 struct ReactiveCollectionForSingleValue<T: IncrementalBase, S, U: IncrementalBase> {
@@ -144,18 +144,19 @@ struct ReactiveCollectionForSingleValue<T: IncrementalBase, S, U: IncrementalBas
   mapper: Mutex<Box<dyn FnMut(MaybeDeltaRef<T>, &dyn Fn(U)) + Send + Sync>>,
 }
 
-impl<T: IncrementalBase, S, U: IncrementalBase> VirtualCollection<u32, U>
+impl<T: IncrementalBase, S, U: IncrementalBase> VirtualCollection<ItemAllocIndex<T>, U>
   for ReactiveCollectionForSingleValue<T, S, U>
 {
-  fn iter_key(&self, _skip_cache: bool) -> impl Iterator<Item = u32> + '_ {
+  fn iter_key(&self, _skip_cache: bool) -> impl Iterator<Item = ItemAllocIndex<T>> + '_ {
     let data = self.original.inner.data.read();
-    // data.iter().map(|v| 1)
-    [].into_iter()
+    // todo, use unsafe to avoid clone
+    let cloned_keys = data.iter().map(|v| v.0.into()).collect::<Vec<_>>();
+    cloned_keys.into_iter()
   }
-  fn access(&self, _: bool) -> impl Fn(&u32) -> Option<U> + '_ {
+  fn access(&self, _: bool) -> impl Fn(&ItemAllocIndex<T>) -> Option<U> + '_ {
     let data = self.original.inner.data.read();
     move |key| {
-      data.try_get(*key).map(|v| &v.data).map(|v| {
+      data.try_get(key.index).map(|v| &v.data).map(|v| {
         // this is not good, but i will keep it
         let result: std::cell::RefCell<Option<_>> = Default::default();
 
@@ -170,21 +171,21 @@ impl<T: IncrementalBase, S, U: IncrementalBase> VirtualCollection<u32, U>
   }
 }
 
-impl<T, S, U> ReactiveCollection<u32, U> for ReactiveCollectionForSingleValue<T, S, U>
+impl<T, S, U> ReactiveCollection<ItemAllocIndex<T>, U> for ReactiveCollectionForSingleValue<T, S, U>
 where
   T: IncrementalBase,
   U: IncrementalBase,
-  S: Stream<Item = GroupSingleValueChangeBuffer<U>> + Unpin + 'static,
+  S: Stream<Item = GroupSingleValueChangeBuffer<T, U>> + Unpin + 'static,
 {
-  type Changes = GroupSingleValueChangeBuffer<U>;
+  type Changes = GroupSingleValueChangeBuffer<T, U>;
 
   fn poll_changes(&mut self, cx: &mut Context<'_>) -> Poll<Option<Self::Changes>> {
     self.inner.poll_next_unpin(cx)
   }
 }
 
-impl<T> Stream for GroupSingleValueReceiver<T> {
-  type Item = GroupSingleValueChangeBuffer<T>;
+impl<K, T> Stream for GroupSingleValueReceiver<K, T> {
+  type Item = GroupSingleValueChangeBuffer<K, T>;
 
   fn poll_next(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Option<Self::Item>> {
     if let Ok(mut inner) = self.inner.lock() {
@@ -207,14 +208,14 @@ impl<T> Stream for GroupSingleValueReceiver<T> {
 
 pub struct DefaultSingleValueGroupChannel;
 
-impl<T: Send + Clone + Sync + 'static> ChannelLike<CollectionDelta<u32, T>>
-  for DefaultSingleValueGroupChannel
+impl<T: Send + Clone + Sync + 'static, K: Send + Sync + 'static>
+  ChannelLike<CollectionDelta<ItemAllocIndex<K>, T>> for DefaultSingleValueGroupChannel
 {
-  type Message = GroupSingleValueChangeBuffer<T>;
+  type Message = GroupSingleValueChangeBuffer<K, T>;
 
-  type Sender = GroupSingleValueSender<T>;
+  type Sender = GroupSingleValueSender<K, T>;
 
-  type Receiver = GroupSingleValueReceiver<T>;
+  type Receiver = GroupSingleValueReceiver<K, T>;
 
   fn build(&mut self) -> (Self::Sender, Self::Receiver) {
     let receiver = GroupSingleValueReceiver {
@@ -226,7 +227,7 @@ impl<T: Send + Clone + Sync + 'static> ChannelLike<CollectionDelta<u32, T>>
     (updater, receiver)
   }
 
-  fn send(sender: &Self::Sender, message: CollectionDelta<u32, T>) -> bool {
+  fn send(sender: &Self::Sender, message: CollectionDelta<ItemAllocIndex<K>, T>) -> bool {
     if let Some(inner) = sender.inner.upgrade() {
       let mut inner = inner.lock().unwrap();
 
