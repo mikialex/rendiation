@@ -86,12 +86,33 @@ impl<T> LinkListPool<T> {
       }
     }
   }
+
+  /// visitor (data, index) return should continue
+  pub fn visit(&self, list: &ListHandle, mut visitor: impl FnMut(&T, u32) -> bool) {
+    let mut next_to_visit = IndexPtr::new((list.head != u32::MAX).then_some(list.head as usize));
+    while let Some(to_visit) = next_to_visit.get() {
+      let to_visit = to_visit as u32;
+      let data = self.pool.get(to_visit);
+      next_to_visit = data.next;
+      let should_continue = visitor(&data.data, to_visit);
+
+      if !should_continue {
+        return;
+      }
+    }
+  }
 }
 
 #[derive(Copy, Clone, Debug)]
 pub struct ListHandle {
   head: u32,
   tail: u32,
+}
+
+impl ListHandle {
+  pub fn is_empty(&self) -> bool {
+    self.head != u32::MAX
+  }
 }
 
 impl Default for ListHandle {

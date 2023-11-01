@@ -5,32 +5,60 @@ use storage::{LinkListPool, ListHandle};
 
 use crate::*;
 
-// pub trait VirtualMultiCollection<K, V> {
-//   fn iter_key(&self, skip_cache: bool) -> impl Iterator<Item = K> + '_;
-//   fn access_multi(&self, skip_cache: bool) -> impl Fn(&K, &dyn Fn(V)) + '_;
-// }
-// pub trait ReactiveMultiCollection<K, V>:
-//   VirtualMultiCollection<K, V> + Stream + Unpin + 'static
-// {
-// }
-
-pub trait OneToManyRefBookKeeping<O, M> {
-  fn query(&self, many: &M) -> Option<&O>;
-  fn inv_query(&self, one: &O, many_visitor: &mut dyn FnMut(&M));
-  fn iter_many(&self) -> impl Iterator<Item = M> + '_;
-  fn apply_change(&mut self, change: CollectionDelta<M, O>);
+/// Implementation should guarantee for each v -> k, have the bijection of k -> v;
+///
+/// we could use ReactiveCollection<A, B>+ ReactiveCollection<B, A> as parent bound but rust think
+/// it will impl conflict. and we also want avoid unnecessary stream fork
+pub trait ReactiveOneToOneRelationship<A, B>: ReactiveCollection<A, B> {
+  fn iter_by_value_one_one(&self, skip_cache: bool) -> impl Iterator<Item = B> + '_;
+  fn access_by_value_one_one(&self, skip_cache: bool) -> impl Fn(&B) -> Option<A> + '_;
 }
 
-pub trait ReactiveCollectionRelationExt<K, V: IncrementalBase>:
-  Sized + 'static + ReactiveCollection<K, V>
+pub trait ReactiveOneToManyRelationship<O, M>:
+  VirtualMultiCollection<O, M> + ReactiveCollection<M, O>
 {
-  fn derive_one_to_many(self) -> OneToManyRefHashBookKeeping<V, K>
+}
+
+impl<T, O, M> ReactiveOneToManyRelationship<O, M> for T where
+  T: VirtualMultiCollection<O, M> + ReactiveCollection<M, O>
+{
+}
+
+pub trait ReactiveCollectionRelationExt<K, V>: Sized + 'static + ReactiveCollection<K, V> {
+  fn into_one_to_many_by_hash(self) -> impl ReactiveOneToManyRelationship<V, K>
   where
-    K: Eq,
-    V: Eq,
+    Self::Changes: Clone,
+    K: Hash + Eq + Clone + 'static,
+    V: Hash + Eq + Clone + 'static,
   {
-    todo!()
+    OneToManyRefHashBookKeeping {
+      upstream: self,
+      mapping: Default::default(),
+      rev_mapping: Default::default(),
+    }
   }
+  fn into_one_to_many_by_idx(self) -> impl ReactiveOneToManyRelationship<V, K>
+  where
+    Self::Changes: Clone,
+    K: LinearIdentification + Clone + 'static,
+    V: LinearIdentification + Clone + 'static,
+  {
+    OneToManyRefDenseBookKeeping {
+      upstream: self,
+      mapping_buffer: Default::default(),
+      mapping: Default::default(),
+      rev_mapping: Default::default(),
+      phantom: PhantomData,
+    }
+  }
+
+  // fn cast_into_one_to_one(self) -> impl ReactiveOneToOneRelationship<V, K>
+  // where
+  //   K: Eq,
+  //   V: Eq,
+  // {
+  //   todo!()
+  // }
 
   /// project map<O, V> -> map<M, V> when we have O - M one to many
   fn one_to_many_fanout<MK, Relation>(
@@ -38,10 +66,10 @@ pub trait ReactiveCollectionRelationExt<K, V: IncrementalBase>:
     relations: Relation,
   ) -> OneToManyFanout<K, MK, V, Self, Relation>
   where
-    V: Clone + Unpin,
-    MK: Clone + Unpin,
-    K: Clone + Unpin,
-    Relation: OneToManyRefBookKeeping<K, MK> + 'static,
+    V: Clone,
+    MK: Clone,
+    K: Clone,
+    Relation: ReactiveOneToManyRelationship<K, MK> + 'static,
   {
     OneToManyFanout {
       upstream: self,
@@ -58,7 +86,7 @@ impl<T, K, V: IncrementalBase> ReactiveCollectionRelationExt<K, V> for T where
 pub struct OneToManyFanout<O, M, X, Upstream, Relation>
 where
   Upstream: ReactiveCollection<O, X>,
-  Relation: OneToManyRefBookKeeping<O, M>,
+  Relation: ReactiveOneToManyRelationship<O, M>,
 {
   upstream: Upstream,
   relations: Relation,
@@ -68,28 +96,20 @@ where
 impl<O, M, X, Upstream, Relation> ReactiveCollection<M, X>
   for OneToManyFanout<O, M, X, Upstream, Relation>
 where
-  M: Clone + Unpin + 'static,
-  X: Clone + Unpin + 'static,
-  O: Clone + Unpin + 'static,
+  M: Clone + 'static,
+  X: Clone + 'static,
+  O: Clone + 'static,
   Upstream: ReactiveCollection<O, X>,
-  Relation: OneToManyRefBookKeeping<O, M> + 'static,
-  Relation: Stream<Item = Vec<CollectionDelta<M, O>>> + Unpin,
+  Relation: ReactiveOneToManyRelationship<O, M> + 'static,
 {
   type Changes = Vec<CollectionDelta<M, X>>;
 
   fn poll_changes(&mut self, cx: &mut Context<'_>) -> Poll<Option<Self::Changes>> {
-    // We update the relational changes first, note:, this projection is timeline lossy because we
-    // assume the consumer will only care about changes happens in the latest reference
-    // structure. This is like the flatten signal in single object style.
-    let relational_changes = self.relations.poll_next_unpin(cx);
+    let relational_changes = self.relations.poll_changes(cx);
     let upstream_changes = self.upstream.poll_changes(cx);
 
     let mut output = Vec::new(); // it's hard to predict capacity, should we compute it?
     if let Poll::Ready(Some(relational_changes)) = relational_changes {
-      for change in &relational_changes {
-        self.relations.apply_change(change.clone());
-      }
-
       let getter = self.upstream.access(false);
       for change in relational_changes {
         let many = change.key().clone();
@@ -101,14 +121,15 @@ where
         }
       }
     }
+    let inv_querier = self.relations.access_multi(false);
     if let Poll::Ready(Some(upstream_changes)) = upstream_changes {
       for delta in upstream_changes {
         match delta {
-          CollectionDelta::Remove(one) => self.relations.inv_query(&one, &mut |many| {
-            output.push(CollectionDelta::Remove(many.clone()));
+          CollectionDelta::Remove(one) => inv_querier(&one, &mut |many| {
+            output.push(CollectionDelta::Remove(many));
           }),
-          CollectionDelta::Delta(one, change) => self.relations.inv_query(&one, &mut |many| {
-            output.push(CollectionDelta::Delta(many.clone(), change.clone()));
+          CollectionDelta::Delta(one, change) => inv_querier(&one, &mut |many| {
+            output.push(CollectionDelta::Delta(many, change.clone()));
           }),
         }
       }
@@ -125,152 +146,208 @@ where
 impl<O, M, X, Upstream, Relation> VirtualCollection<M, X>
   for OneToManyFanout<O, M, X, Upstream, Relation>
 where
-  M: Clone + Unpin,
-  X: Clone + Unpin,
-  O: Clone + Unpin,
+  M: Clone,
+  X: Clone,
+  O: Clone,
   Upstream: ReactiveCollection<O, X>,
-  Relation: OneToManyRefBookKeeping<O, M>,
+  Relation: ReactiveOneToManyRelationship<O, M>,
 {
   fn access(&self, skip_cache: bool) -> impl Fn(&M) -> Option<X> + '_ {
     let upstream_getter = self.upstream.access(skip_cache);
+    let access = self.relations.access(skip_cache);
     move |key| {
-      let one = self.relations.query(key)?;
-      upstream_getter(one)
+      let one = access(key)?;
+      upstream_getter(&one)
     }
   }
 
-  // skip_cache is always true here
-  fn iter_key(&self, _skip_cache: bool) -> impl Iterator<Item = M> + '_ {
-    self.relations.iter_many()
+  fn iter_key(&self, skip_cache: bool) -> impl Iterator<Item = M> + '_ {
+    self.relations.iter_key(skip_cache)
   }
 }
 
-pub struct OneToManyRefHashBookKeeping<O, M> {
+pub struct OneToManyRefHashBookKeeping<O, M, T> {
+  upstream: T,
   mapping: FastHashMap<O, FastHashSet<M>>,
+  /// this could be removed if we redefine the collection change set with previous v
   rev_mapping: FastHashMap<M, Option<O>>,
 }
 
-impl<O, M> Default for OneToManyRefHashBookKeeping<O, M> {
-  fn default() -> Self {
-    Self {
-      mapping: Default::default(),
-      rev_mapping: Default::default(),
+impl<O, M, T> VirtualCollection<M, O> for OneToManyRefHashBookKeeping<O, M, T>
+where
+  T: ReactiveCollection<M, O>,
+{
+  fn iter_key(&self, skip_cache: bool) -> impl Iterator<Item = M> + '_ {
+    self.upstream.iter_key(skip_cache)
+  }
+
+  fn access(&self, skip_cache: bool) -> impl Fn(&M) -> Option<O> + '_ {
+    self.upstream.access(skip_cache)
+  }
+}
+
+impl<O, M, T> VirtualMultiCollection<O, M> for OneToManyRefHashBookKeeping<O, M, T>
+where
+  M: Hash + Eq + Clone + 'static,
+  O: Hash + Eq + Clone + 'static,
+{
+  fn iter_key_in_multi_collection(&self, _skip_cache: bool) -> impl Iterator<Item = O> + '_ {
+    self.mapping.keys().cloned()
+  }
+
+  fn access_multi(&self, _skip_cache: bool) -> impl Fn(&O, &mut dyn FnMut(M)) + '_ {
+    move |o, visitor| {
+      if let Some(set) = self.mapping.get(o) {
+        for many in set.iter() {
+          visitor(many.clone())
+        }
+      }
     }
   }
 }
 
-impl<O, M> OneToManyRefBookKeeping<O, M> for OneToManyRefHashBookKeeping<O, M>
+impl<O, M, T> ReactiveCollection<M, O> for OneToManyRefHashBookKeeping<O, M, T>
 where
-  O: Hash + Eq + Clone,
-  M: Hash + Eq + Clone,
+  T: ReactiveCollection<M, O>,
+  T::Changes: Clone,
+  M: Hash + Eq + Clone + 'static,
+  O: Hash + Eq + Clone + 'static,
 {
-  fn query(&self, many: &M) -> Option<&O> {
-    if let Some(r) = self.rev_mapping.get(many) {
-      r.as_ref()
-    } else {
-      None
-    }
-  }
+  type Changes = T::Changes;
 
-  fn inv_query(&self, one: &O, many_visitor: &mut dyn FnMut(&M)) {
-    if let Some(r) = self.mapping.get(one) {
-      r.iter().for_each(many_visitor)
-    }
-  }
+  fn poll_changes(&mut self, cx: &mut Context<'_>) -> Poll<Option<Self::Changes>> {
+    let r = self.upstream.poll_changes(cx);
 
-  fn iter_many(&self) -> impl Iterator<Item = M> + '_ {
-    self.rev_mapping.keys().cloned()
-  }
+    if let Poll::Ready(Some(changes)) = r.clone() {
+      for change in changes {
+        let mapping = &mut self.mapping;
+        let many = change.key().clone();
+        let new_one = change.value();
+        let old_refed_one = self.rev_mapping.get(&many);
+        // remove possible old relations
+        if let Some(Some(old_refed_one)) = old_refed_one {
+          let previous_one_refed_many = mapping.get_mut(old_refed_one).unwrap();
+          previous_one_refed_many.remove(&many);
+          if previous_one_refed_many.is_empty() {
+            mapping.remove(old_refed_one);
+            // todo shrink
+          }
+        }
 
-  fn apply_change(&mut self, change: CollectionDelta<M, O>) {
-    let mapping = &mut self.mapping;
-    let many = change.key().clone();
-    let new_one = change.value();
-    let old_refed_one = self.rev_mapping.get(&many);
-    // remove possible old relations
-    if let Some(Some(old_refed_one)) = old_refed_one {
-      let previous_one_refed_many = mapping.get_mut(old_refed_one).unwrap();
-      previous_one_refed_many.remove(&many);
-      if previous_one_refed_many.is_empty() {
-        mapping.remove(old_refed_one);
-        // todo shrink
+        // setup new relations
+        if let Some(new_one) = &new_one {
+          let new_one_refed_many = mapping
+            .entry(new_one.clone())
+            .or_insert_with(Default::default);
+          new_one_refed_many.insert(many.clone());
+        }
+
+        self.rev_mapping.insert(many.clone(), new_one);
       }
     }
 
-    // setup new relations
-    if let Some(new_one) = &new_one {
-      let new_one_refed_many = mapping
-        .entry(new_one.clone())
-        .or_insert_with(Default::default);
-      new_one_refed_many.insert(many.clone());
-    }
-
-    self.rev_mapping.insert(many.clone(), new_one);
+    r
   }
 }
 
-pub struct OneToManyRefDenseBookKeeping<O, M> {
+pub struct OneToManyRefDenseBookKeeping<O, M, T> {
+  upstream: T,
   mapping_buffer: LinkListPool<u32>,
   mapping: Vec<ListHandle>,
   rev_mapping: Vec<u32>,
   phantom: PhantomData<(O, M)>,
 }
 
-impl<O, M> Default for OneToManyRefDenseBookKeeping<O, M> {
-  fn default() -> Self {
-    Self {
-      mapping_buffer: Default::default(),
-      mapping: Default::default(),
-      rev_mapping: Default::default(),
-      phantom: Default::default(),
+impl<O, M, T> VirtualCollection<M, O> for OneToManyRefDenseBookKeeping<O, M, T>
+where
+  T: ReactiveCollection<M, O>,
+{
+  fn iter_key(&self, skip_cache: bool) -> impl Iterator<Item = M> + '_ {
+    self.upstream.iter_key(skip_cache)
+  }
+
+  fn access(&self, skip_cache: bool) -> impl Fn(&M) -> Option<O> + '_ {
+    self.upstream.access(skip_cache)
+  }
+}
+
+impl<O, M, T> VirtualMultiCollection<O, M> for OneToManyRefDenseBookKeeping<O, M, T>
+where
+  M: LinearIdentification + Clone + 'static,
+  O: LinearIdentification + Clone + 'static,
+{
+  fn iter_key_in_multi_collection(&self, _skip_cache: bool) -> impl Iterator<Item = O> + '_ {
+    self
+      .mapping
+      .iter()
+      .enumerate()
+      .filter_map(|(i, list)| list.is_empty().then_some(O::from_alloc_index(i as u32)))
+  }
+
+  fn access_multi(&self, _skip_cache: bool) -> impl Fn(&O, &mut dyn FnMut(M)) + '_ {
+    move |o, visitor| {
+      if let Some(list) = self.mapping.get(o.alloc_index() as usize) {
+        self.mapping_buffer.visit(list, |v, _| {
+          visitor(M::from_alloc_index(*v));
+          true
+        })
+      }
     }
   }
 }
 
-impl<O, M> OneToManyRefBookKeeping<O, M> for OneToManyRefDenseBookKeeping<O, M>
+impl<O, M, T> ReactiveCollection<M, O> for OneToManyRefDenseBookKeeping<O, M, T>
 where
-  O: LinearIdentified + Copy,
-  M: LinearIdentified + Copy,
+  T: ReactiveCollection<M, O>,
+  T::Changes: Clone,
+  M: LinearIdentification + Clone + 'static,
+  O: LinearIdentification + Clone + 'static,
 {
-  fn query(&self, many: &M) -> Option<&O> {
-    todo!()
-  }
+  type Changes = T::Changes;
 
-  fn inv_query(&self, one: &O, many_visitor: &mut dyn FnMut(&M)) {
-    todo!()
-  }
+  fn poll_changes(&mut self, cx: &mut Context<'_>) -> Poll<Option<Self::Changes>> {
+    let r = self.upstream.poll_changes(cx);
 
-  fn iter_many(&self) -> impl Iterator<Item = M> + '_ {
-    [].into_iter()
-  }
+    if let Poll::Ready(Some(changes)) = r.clone() {
+      for change in changes {
+        let mapping = &mut self.mapping;
+        let many = *change.key();
+        let new_one = change.value();
 
-  fn apply_change(&mut self, change: CollectionDelta<M, O>) {
-    let mapping = &mut self.mapping;
-    let many = change.key();
-    let new_one = change.value();
+        let old_refed_one = self.rev_mapping.get(many.alloc_index() as usize);
+        // remove possible old relations
+        if let Some(old_refed_one) = old_refed_one {
+          if *old_refed_one != u32::MAX {
+            let previous_one_refed_many = mapping.get_mut(*old_refed_one as usize).unwrap();
 
-    let old_refed_one = self.rev_mapping.get(many.alloc_index() as usize);
-    // remove possible old relations
-    if let Some(old_refed_one) = old_refed_one {
-      if *old_refed_one != u32::MAX {
-        // let previous_one_refed_many = mapping.get_mut(old_refed_one).unwrap();
-        // // this is O(n), should we care about it?
-        // previous_one_refed_many.remove(&many);
-        // if previous_one_refed_many.is_empty() {
-        //   mapping.remove(old_refed_one);
-        // todo shrink
-        // }
+            //  this is O(n), should we care about it?
+            self
+              .mapping_buffer
+              .visit_and_remove(previous_one_refed_many, |value, _| {
+                let should_remove = *value == many.alloc_index();
+                (should_remove, !should_remove)
+              });
+
+            if previous_one_refed_many.is_empty() {
+              // todo tail shrink
+            }
+          }
+        }
+
+        // setup new relations
+        if let Some(new_one) = &new_one {
+          mapping[new_one.alloc_index() as usize] = ListHandle::default();
+          self.mapping_buffer.insert(
+            &mut mapping[new_one.alloc_index() as usize],
+            new_one.alloc_index(),
+          );
+        }
+
+        self.rev_mapping[many.alloc_index() as usize] =
+          new_one.map(|v| v.alloc_index()).unwrap_or(u32::MAX)
       }
     }
 
-    // setup new relations
-    if let Some(new_one) = &new_one {
-      // let new_one_refed_many = mapping
-      //   .entry(new_one.clone())
-      //   .or_insert_with(Default::default);
-      // new_one_refed_many.insert(many.clone());
-    }
-
-    // self.rev_mapping.insert(many.clone(), new_one);
+    r
   }
 }

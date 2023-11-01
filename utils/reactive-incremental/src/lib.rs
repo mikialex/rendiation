@@ -79,7 +79,7 @@ pub trait LinearIdentified {
   fn alloc_index(&self) -> u32;
 }
 define_dyn_trait_downcaster_static!(LinearIdentified);
-pub trait LinearIdentification: LinearIdentified {
+pub trait LinearIdentification: LinearIdentified + Copy {
   fn from_alloc_index(idx: u32) -> Self;
 }
 

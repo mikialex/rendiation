@@ -66,6 +66,11 @@ pub trait VirtualCollection<K, V> {
   fn access(&self, skip_cache: bool) -> impl Fn(&K) -> Option<V> + '_;
 }
 
+pub trait VirtualMultiCollection<K, V> {
+  fn iter_key_in_multi_collection(&self, skip_cache: bool) -> impl Iterator<Item = K> + '_;
+  fn access_multi(&self, skip_cache: bool) -> impl Fn(&K, &mut dyn FnMut(V)) + '_;
+}
+
 /// An abstraction of reactive key-value like virtual container.
 ///
 /// You can imagine this is a data table with the K as the primary key and V as the row of the
@@ -139,11 +144,37 @@ pub trait ReactiveCollection<K, V>: VirtualCollection<K, V> + 'static {
 //   }
 // }
 
+#[pin_project::pin_project]
+struct ReactiveCollectionAsStream<T, K, V> {
+  #[pin]
+  inner: T,
+  phantom: PhantomData<(K, V)>,
+}
+
+impl<K, V, T: ReactiveCollection<K, V> + Unpin> Stream for ReactiveCollectionAsStream<T, K, V> {
+  type Item = T::Changes;
+
+  fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+    let mut this = self.project();
+    this.inner.poll_changes(cx)
+  }
+}
+
 pub trait ReactiveCollectionExt<K, V>: Sized + 'static + ReactiveCollection<K, V>
 where
   V: 'static,
   K: 'static,
 {
+  fn into_change_stream(self) -> impl Stream<Item = Self::Changes>
+  where
+    Self: Unpin,
+  {
+    ReactiveCollectionAsStream {
+      inner: self,
+      phantom: PhantomData,
+    }
+  }
+
   /// map map<k, v> to map<k, v2>
   fn collective_map<V2, F>(self, f: F) -> impl ReactiveCollection<K, V2>
   where
