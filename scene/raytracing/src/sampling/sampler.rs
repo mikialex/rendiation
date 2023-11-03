@@ -3,6 +3,18 @@ use std::sync::Arc;
 use rand::{prelude::SliceRandom, rngs::ThreadRng, Rng};
 use rendiation_statistics::*;
 
+pub struct SamplePrecomputedRequest {
+  pub min_spp: usize,
+  pub max_1d_dimension: usize,
+  pub max_2d_dimension: usize,
+}
+
+pub trait SampleGenerator: Default {
+  fn override_spp(&self, requested_min_spp: usize) -> usize;
+  fn gen_1d(&self, index: usize) -> f32;
+  fn gen_2d(&self, index: usize) -> (f32, f32);
+}
+
 #[derive(Clone)]
 pub struct SampleStorage {
   samples_1d_arrays: Vec<Vec<f32>>,
@@ -21,22 +33,10 @@ impl SampleStorage {
   }
 }
 
-pub struct SamplePrecomputedRequest {
-  pub min_spp: usize,
-  pub max_1d_dimension: usize,
-  pub max_2d_dimension: usize,
-}
-
-pub trait SampleGenerator: Default {
-  fn override_ssp(&self, ssp: usize) -> usize;
-  fn gen_1d(&self, index: usize) -> f32;
-  fn gen_2d(&self, index: usize) -> (f32, f32);
-}
-
 impl SampleStorage {
   pub fn generate<G: SampleGenerator>(request: SamplePrecomputedRequest) -> Self {
     let gen = G::default();
-    let spp = gen.override_ssp(request.min_spp);
+    let spp = gen.override_spp(request.min_spp);
 
     let mut samples_1d_arrays: Vec<Vec<f32>> = (0..request.max_1d_dimension)
       .map(|_| (0..spp).map(|i| gen.gen_1d(i)).collect())

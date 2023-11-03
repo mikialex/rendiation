@@ -53,7 +53,7 @@ impl Model {
 
     let local_ray = world_ray.apply_matrix_into(*world_matrix_inverse);
 
-    if let PossibleIntersection(Some(mut intersection)) = self.shape.intersect(local_ray) {
+    if let Some(mut intersection) = self.shape.intersect(local_ray) {
       intersection.apply_matrix(*world_matrix, *normal_matrix);
       let distance = intersection.position.distance(world_ray.origin);
 
