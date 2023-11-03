@@ -37,26 +37,51 @@ pub fn model_attribute_boxes() -> impl ReactiveCollection<AllocIdx<StandardModel
   attribute_boxes().one_to_many_fanout(std_model_att_mesh_ref_change().into_one_to_many_by_idx())
 }
 
-// pub fn model_boxes() -> impl ReactiveCollection<AllocIdx<StandardModel>, Box3<f32>> {
-//   //
-// }
+pub fn model_boxes(
+  foreign_mesh_local_box_support: impl ReactiveCollection<AllocIdx<StandardModel>, Box3<f32>>,
+) -> impl ReactiveCollection<AllocIdx<StandardModel>, Box3<f32>> {
+  model_attribute_boxes().collective_select(foreign_mesh_local_box_support)
+}
 
-// pub fn model_boxes() -> impl ReactiveCollection<AllocIdx<SceneModel>, Box3<f32>> {
-//   //
-// }
+pub fn scene_model_std_model_ref_change(
+) -> impl ReactiveCollection<AllocIdx<SceneModelImpl>, AllocIdx<StandardModel>> {
+  storage_of::<SceneModelImpl>().single_listen_by_into_reactive_collection(|change, collector| {
+    field_of!(SceneModelImpl => model)(change, &|mesh| {
+      if let ModelEnum::Standard(mesh) = mesh {
+        collector(AllocIdx::from(mesh.alloc_index()))
+      }
+    })
+  })
+}
 
-// pub fn model_node() -> impl ReactiveCollection<AllocIdx<SceneModel>, AllocIdx<SceneNode>> {
-//   //
-// }
+pub fn scene_model_local_boxes(
+  foreign_mesh_local_box_support: impl ReactiveCollection<AllocIdx<StandardModel>, Box3<f32>>,
+) -> impl ReactiveCollection<AllocIdx<SceneModelImpl>, Box3<f32>> {
+  model_boxes(foreign_mesh_local_box_support)
+    .one_to_many_fanout(scene_model_std_model_ref_change().into_one_to_many_by_idx())
+}
 
-// pub fn node_world() -> impl ReactiveCollection<AllocIdx<SceneNode>, Mat4<f32>> {
-//   //
-// }
+pub type NodeGUID = u64;
+pub fn scene_model_node_ref_change() -> impl ReactiveCollection<AllocIdx<SceneModelImpl>, NodeGUID>
+{
+  storage_of::<SceneModelImpl>().single_listen_by_into_reactive_collection(|change, collector| {
+    field_of!(SceneModelImpl => node)(change, &|node| collector(node.guid()))
+  })
+}
 
-// pub fn model_world() -> impl ReactiveCollection<AllocIdx<SceneModel>, Mat4<f32>> {
-//   //
-// }
+pub fn scene_model_world(
+  node_world: impl ReactiveCollection<NodeGUID, Mat4<f32>>,
+) -> impl ReactiveCollection<AllocIdx<SceneModelImpl>, Mat4<f32>> {
+  node_world.one_to_many_fanout(scene_model_node_ref_change().into_one_to_many_by_hash())
+}
 
-// pub fn model_world_box() -> impl ReactiveCollection<AllocIdx<SceneModel>, Box3<f32>> {
-//   //
-// }
+pub fn scene_model_world_box(
+  node_world: impl ReactiveCollection<NodeGUID, Mat4<f32>>,
+  foreign_mesh_local_box_support: impl ReactiveCollection<AllocIdx<StandardModel>, Box3<f32>>,
+  foreign_model_local_box_support: impl ReactiveCollection<AllocIdx<SceneModelImpl>, Box3<f32>>,
+) -> impl ReactiveCollection<AllocIdx<SceneModelImpl>, Box3<f32>> {
+  scene_model_local_boxes(foreign_mesh_local_box_support)
+    .collective_select(foreign_model_local_box_support)
+    .collective_intersect(scene_model_world(node_world))
+    .collective_map(|(local_bbox, world_mat)| local_bbox.apply_matrix_into(world_mat))
+}
