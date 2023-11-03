@@ -111,7 +111,7 @@ pub trait VirtualMultiCollection<K, V> {
 /// In the future, maybe we could add new sub-trait to enforce the data access is consistent with
 /// the polling logic in tradeoff of the potential memory overhead.
 pub trait ReactiveCollection<K, V>: VirtualCollection<K, V> + 'static {
-  type Changes: IntoIterator<Item = CollectionDelta<K, V>>;
+  type Changes: Iterator<Item = CollectionDelta<K, V>> + Clone;
   fn poll_changes(&mut self, cx: &mut Context<'_>) -> Poll<Option<Self::Changes>>;
 }
 
@@ -162,7 +162,7 @@ impl<K, V, T: ReactiveCollection<K, V> + Unpin> Stream for ReactiveCollectionAsS
 
 pub trait ReactiveCollectionExt<K, V>: Sized + 'static + ReactiveCollection<K, V>
 where
-  V: 'static,
+  V: Clone + 'static,
   K: 'static,
 {
   fn into_change_stream(self) -> impl Stream<Item = Self::Changes>
@@ -219,6 +219,7 @@ where
   where
     Other: ReactiveCollection<K, V2>,
     K: Copy + std::hash::Hash + Eq,
+    V2: Clone,
   {
     ReactiveKVUnion {
       a: self,
@@ -241,7 +242,7 @@ where
   where
     K: Copy + std::hash::Hash + Eq,
     Other: ReactiveCollection<K, V2>,
-    V2: 'static,
+    V2: Clone + 'static,
   {
     self.collective_union(other).collective_map(zipper)
   }
@@ -251,7 +252,7 @@ where
   where
     K: Copy + std::hash::Hash + Eq + 'static,
     Other: ReactiveCollection<K, V2>,
-    V2: 'static,
+    V2: Clone + 'static,
   {
     self
       .collective_union(other)
@@ -298,7 +299,7 @@ where
 impl<T, K, V> ReactiveCollectionExt<K, V> for T
 where
   T: Sized + 'static + ReactiveCollection<K, V>,
-  V: 'static,
+  V: Clone + 'static,
   K: 'static,
 {
 }
@@ -579,7 +580,7 @@ where
   F: Fn(V) -> V2 + Copy + 'static,
   T: ReactiveCollection<K, V>,
 {
-  type Changes = impl IntoIterator<Item = CollectionDelta<K, V2>>;
+  type Changes = impl Iterator<Item = CollectionDelta<K, V2>> + Clone;
 
   fn poll_changes(&mut self, cx: &mut Context<'_>) -> Poll<Option<Self::Changes>> {
     let mapper = self.map;
@@ -620,7 +621,7 @@ where
   K: 'static,
   V: 'static,
 {
-  type Changes = impl IntoIterator<Item = CollectionDelta<K, V2>>;
+  type Changes = impl Iterator<Item = CollectionDelta<K, V2>> + Clone;
 
   fn poll_changes(&mut self, cx: &mut Context<'_>) -> Poll<Option<Self::Changes>> {
     let checker = self.checker;
@@ -695,8 +696,10 @@ where
   K: Copy + std::hash::Hash + Eq + 'static,
   T1: ReactiveCollection<K, V1>,
   T2: ReactiveCollection<K, V2>,
+  V1: Clone,
+  V2: Clone,
 {
-  type Changes = impl IntoIterator<Item = CollectionDelta<K, (Option<V1>, Option<V2>)>>;
+  type Changes = impl Iterator<Item = CollectionDelta<K, (Option<V1>, Option<V2>)>> + Clone;
 
   fn poll_changes(&mut self, cx: &mut Context<'_>) -> Poll<Option<Self::Changes>> {
     let t1 = self.a.poll_changes(cx);
@@ -705,10 +708,10 @@ where
     let a_access = self.a.access(false);
     let b_access = self.b.access(false);
 
-    match (t1, t2) {
+    let r = match (t1, t2) {
       (Poll::Ready(Some(v1)), Poll::Ready(Some(v2))) => {
         let mut intersections: FastHashMap<K, (Option<V1>, Option<V2>)> = FastHashMap::default();
-        v1.into_iter().for_each(|d| match d {
+        v1.for_each(|d| match d {
           CollectionDelta::Delta(k, v) => {
             intersections.entry(k).or_insert_with(Default::default).0 = Some(v);
           }
@@ -716,7 +719,7 @@ where
             intersections.entry(k).or_insert_with(Default::default).0 = None;
           }
         });
-        v2.into_iter().for_each(|d| match d {
+        v2.for_each(|d| match d {
           CollectionDelta::Delta(k, v) => {
             intersections.entry(k).or_insert_with(Default::default).1 = Some(v);
           }
@@ -738,36 +741,39 @@ where
           })
           .collect::<Vec<_>>();
 
-        Poll::Ready(Some(output))
+        output
       }
-      (Poll::Ready(Some(v1)), Poll::Pending) => Poll::Ready(Some(
-        v1.into_iter()
-          .map(|v1| {
-            let k = *v1.key();
-            let v1 = v1.value();
-            let v2 = b_access(&k);
-            match (&v1, &v2) {
-              (None, None) => CollectionDelta::Remove(k),
-              _ => CollectionDelta::Delta(k, (v1, v2)),
-            }
-          })
-          .collect::<Vec<_>>(),
-      )),
-      (Poll::Pending, Poll::Ready(Some(v2))) => Poll::Ready(Some(
-        v2.into_iter()
-          .map(|v2| {
-            let k = *v2.key();
-            let v1 = a_access(&k);
-            let v2 = v2.value();
-            match (&v1, &v2) {
-              (None, None) => CollectionDelta::Remove(k),
-              _ => CollectionDelta::Delta(k, (v1, v2)),
-            }
-          })
-          .collect::<Vec<_>>(),
-      )),
-      (Poll::Pending, Poll::Pending) => Poll::Pending,
-      _ => Poll::Ready(None),
+      (Poll::Ready(Some(v1)), Poll::Pending) => v1
+        .map(|v1| {
+          let k = *v1.key();
+          let v1 = v1.value();
+          let v2 = b_access(&k);
+          match (&v1, &v2) {
+            (None, None) => CollectionDelta::Remove(k),
+            _ => CollectionDelta::Delta(k, (v1, v2)),
+          }
+        })
+        .collect::<Vec<_>>(),
+      (Poll::Pending, Poll::Ready(Some(v2))) => v2
+        .map(|v2| {
+          let k = *v2.key();
+          let v1 = a_access(&k);
+          let v2 = v2.value();
+          match (&v1, &v2) {
+            (None, None) => CollectionDelta::Remove(k),
+            _ => CollectionDelta::Delta(k, (v1, v2)),
+          }
+        })
+        .collect::<Vec<_>>(),
+
+      (Poll::Pending, Poll::Pending) => return Poll::Pending,
+      _ => return Poll::Ready(None),
+    };
+
+    if r.is_empty() {
+      return Poll::Pending;
     }
+
+    return Poll::Ready(Some(r.into_iter()));
   }
 }

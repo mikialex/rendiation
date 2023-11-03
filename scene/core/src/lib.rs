@@ -4,6 +4,17 @@
 #![feature(return_position_impl_trait_in_trait)]
 #![feature(let_chains)]
 
+use std::hash::Hash;
+use std::sync::{Arc, RwLock};
+
+pub use dyn_downcast::*;
+use fast_hash_collection::*;
+use futures::Stream;
+use incremental::*;
+pub use reactive_incremental::*;
+use rendiation_algebra::*;
+pub use rendiation_mesh_core::*;
+
 mod scene;
 pub use scene::*;
 
@@ -40,15 +51,5 @@ pub use animation::*;
 mod systems;
 pub use systems::*;
 
-mod systems2;
-use std::hash::Hash;
-use std::sync::{Arc, RwLock};
-
-pub use dyn_downcast::*;
-use fast_hash_collection::*;
-use futures::Stream;
-use incremental::*;
-pub use reactive_incremental::*;
-use rendiation_algebra::*;
-pub use rendiation_mesh_core::*;
-pub use systems2::*;
+mod systems_next;
+pub use systems_next::*;

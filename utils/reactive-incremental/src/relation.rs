@@ -78,7 +78,7 @@ pub trait ReactiveCollectionRelationExt<K, V>: Sized + 'static + ReactiveCollect
     }
   }
 }
-impl<T, K, V: IncrementalBase> ReactiveCollectionRelationExt<K, V> for T where
+impl<T, K, V> ReactiveCollectionRelationExt<K, V> for T where
   T: Sized + 'static + ReactiveCollection<K, V>
 {
 }
@@ -102,7 +102,7 @@ where
   Upstream: ReactiveCollection<O, X>,
   Relation: ReactiveOneToManyRelationship<O, M> + 'static,
 {
-  type Changes = Vec<CollectionDelta<M, X>>;
+  type Changes = impl Iterator<Item = CollectionDelta<M, X>> + Clone;
 
   fn poll_changes(&mut self, cx: &mut Context<'_>) -> Poll<Option<Self::Changes>> {
     let relational_changes = self.relations.poll_changes(cx);
@@ -138,7 +138,7 @@ where
     if output.is_empty() {
       Poll::Pending
     } else {
-      Poll::Ready(Some(output))
+      Poll::Ready(Some(output.into_iter()))
     }
   }
 }

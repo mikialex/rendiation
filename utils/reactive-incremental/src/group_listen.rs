@@ -15,7 +15,7 @@ impl<T: IncrementalBase> IncrementalSignalStorage<T> {
   ) -> impl Stream<Item = N> + Unpin
   where
     U: Send + Sync + 'static,
-    C: ChannelLike<CollectionDelta<ItemAllocIndex<T>, U>, Message = N>,
+    C: ChannelLike<CollectionDelta<AllocIdx<T>, U>, Message = N>,
   {
     let (sender, receiver) = channel_builder.build();
 
@@ -67,10 +67,9 @@ impl<T: IncrementalBase> IncrementalSignalStorage<T> {
   pub fn single_listen_by_into_reactive_collection<U>(
     &self,
     mapper: impl FnMut(MaybeDeltaRef<T>, &dyn Fn(U)) + Send + Sync + 'static + Clone,
-  ) -> impl ReactiveCollection<ItemAllocIndex<T>, U>
+  ) -> impl ReactiveCollection<AllocIdx<T>, U>
   where
     U: Send + Sync + Clone + 'static,
-    U: IncrementalBase<Delta = U>,
   {
     let mapper_c = Box::new(mapper.clone());
     ReactiveCollectionForSingleValue::<T, _, U> {
@@ -82,7 +81,15 @@ impl<T: IncrementalBase> IncrementalSignalStorage<T> {
 }
 
 pub struct GroupSingleValueChangeBuffer<K, T> {
-  inner: FastHashMap<ItemAllocIndex<K>, GroupSingleValueState<T>>,
+  inner: FastHashMap<AllocIdx<K>, GroupSingleValueState<T>>,
+}
+
+impl<K, T: Clone> Clone for GroupSingleValueChangeBuffer<K, T> {
+  fn clone(&self) -> Self {
+    Self {
+      inner: self.inner.clone(),
+    }
+  }
 }
 
 impl<K, T> Default for GroupSingleValueChangeBuffer<K, T> {
@@ -93,23 +100,28 @@ impl<K, T> Default for GroupSingleValueChangeBuffer<K, T> {
   }
 }
 
-impl<K, T> IntoIterator for GroupSingleValueChangeBuffer<K, T> {
-  type Item = CollectionDelta<ItemAllocIndex<K>, T>;
-  type IntoIter = impl Iterator<Item = Self::Item>;
+impl<K, T: Clone> IntoIterator for GroupSingleValueChangeBuffer<K, T> {
+  type Item = CollectionDelta<AllocIdx<K>, T>;
+  type IntoIter = impl Iterator<Item = Self::Item> + Clone;
 
   fn into_iter(self) -> Self::IntoIter {
-    self.inner.into_iter().flat_map(|(id, state)| {
-      let mut expand = smallvec::SmallVec::<[CollectionDelta<ItemAllocIndex<K>, T>; 2]>::new();
-      match state {
-        GroupSingleValueState::Next(v) => expand.push(CollectionDelta::Delta(id, v)),
-        GroupSingleValueState::RemoveThenNext(v) => {
-          expand.push(CollectionDelta::Remove(id));
-          expand.push(CollectionDelta::Delta(id, v));
+    let buffer = self
+      .inner
+      .into_iter()
+      .flat_map(|(id, state)| {
+        let mut expand = smallvec::SmallVec::<[CollectionDelta<AllocIdx<K>, T>; 2]>::new();
+        match state {
+          GroupSingleValueState::Next(v) => expand.push(CollectionDelta::Delta(id, v)),
+          GroupSingleValueState::RemoveThenNext(v) => {
+            expand.push(CollectionDelta::Remove(id));
+            expand.push(CollectionDelta::Delta(id, v));
+          }
+          GroupSingleValueState::Remove => expand.push(CollectionDelta::Remove(id)),
         }
-        GroupSingleValueState::Remove => expand.push(CollectionDelta::Remove(id)),
-      }
-      expand
-    })
+        expand
+      })
+      .collect::<Vec<_>>();
+    buffer.into_iter()
   }
 }
 
@@ -128,6 +140,7 @@ impl<K, T> Drop for GroupSingleValueSender<K, T> {
   }
 }
 
+#[derive(Clone)]
 pub enum GroupSingleValueState<T> {
   Next(T),
   RemoveThenNext(T),
@@ -138,22 +151,22 @@ pub struct GroupSingleValueReceiver<K, T> {
   inner: Arc<Mutex<(GroupSingleValueChangeBuffer<K, T>, Option<Waker>)>>,
 }
 
-struct ReactiveCollectionForSingleValue<T: IncrementalBase, S, U: IncrementalBase> {
+struct ReactiveCollectionForSingleValue<T: IncrementalBase, S, U> {
   original: IncrementalSignalStorage<T>,
   inner: S,
   mapper: Mutex<Box<dyn FnMut(MaybeDeltaRef<T>, &dyn Fn(U)) + Send + Sync>>,
 }
 
-impl<T: IncrementalBase, S, U: IncrementalBase> VirtualCollection<ItemAllocIndex<T>, U>
+impl<T: IncrementalBase, S, U> VirtualCollection<AllocIdx<T>, U>
   for ReactiveCollectionForSingleValue<T, S, U>
 {
-  fn iter_key(&self, _skip_cache: bool) -> impl Iterator<Item = ItemAllocIndex<T>> + '_ {
+  fn iter_key(&self, _skip_cache: bool) -> impl Iterator<Item = AllocIdx<T>> + '_ {
     let data = self.original.inner.data.read();
     // todo, use unsafe to avoid clone
     let cloned_keys = data.iter().map(|v| v.0.into()).collect::<Vec<_>>();
     cloned_keys.into_iter()
   }
-  fn access(&self, _: bool) -> impl Fn(&ItemAllocIndex<T>) -> Option<U> + '_ {
+  fn access(&self, _: bool) -> impl Fn(&AllocIdx<T>) -> Option<U> + '_ {
     let data = self.original.inner.data.read();
     move |key| {
       data.try_get(key.index).map(|v| &v.data).map(|v| {
@@ -171,16 +184,19 @@ impl<T: IncrementalBase, S, U: IncrementalBase> VirtualCollection<ItemAllocIndex
   }
 }
 
-impl<T, S, U> ReactiveCollection<ItemAllocIndex<T>, U> for ReactiveCollectionForSingleValue<T, S, U>
+impl<T, S, U> ReactiveCollection<AllocIdx<T>, U> for ReactiveCollectionForSingleValue<T, S, U>
 where
   T: IncrementalBase,
-  U: IncrementalBase,
+  U: Clone + 'static,
   S: Stream<Item = GroupSingleValueChangeBuffer<T, U>> + Unpin + 'static,
 {
-  type Changes = GroupSingleValueChangeBuffer<T, U>;
+  type Changes = impl Iterator<Item = CollectionDelta<AllocIdx<T>, U>> + Clone;
 
   fn poll_changes(&mut self, cx: &mut Context<'_>) -> Poll<Option<Self::Changes>> {
-    self.inner.poll_next_unpin(cx)
+    self
+      .inner
+      .poll_next_unpin(cx)
+      .map(|v| v.map(|v| v.into_iter()))
   }
 }
 
@@ -209,7 +225,7 @@ impl<K, T> Stream for GroupSingleValueReceiver<K, T> {
 pub struct DefaultSingleValueGroupChannel;
 
 impl<T: Send + Clone + Sync + 'static, K: Send + Sync + 'static>
-  ChannelLike<CollectionDelta<ItemAllocIndex<K>, T>> for DefaultSingleValueGroupChannel
+  ChannelLike<CollectionDelta<AllocIdx<K>, T>> for DefaultSingleValueGroupChannel
 {
   type Message = GroupSingleValueChangeBuffer<K, T>;
 
@@ -227,7 +243,7 @@ impl<T: Send + Clone + Sync + 'static, K: Send + Sync + 'static>
     (updater, receiver)
   }
 
-  fn send(sender: &Self::Sender, message: CollectionDelta<ItemAllocIndex<K>, T>) -> bool {
+  fn send(sender: &Self::Sender, message: CollectionDelta<AllocIdx<K>, T>) -> bool {
     if let Some(inner) = sender.inner.upgrade() {
       let mut inner = inner.lock().unwrap();
 

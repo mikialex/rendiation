@@ -360,6 +360,7 @@ fn build_instance_source_stream(
         }
       }),
       SceneNodeDerivedDataDelta::net_visible(_) => InsUpdate::Visibility.into(),
+      _ => None,
     });
 
   let model = model

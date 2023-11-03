@@ -63,6 +63,7 @@ impl SimpleIncremental for SceneNodeData {
 #[derive(Incremental, Clone)]
 pub struct SceneNodeDerivedData {
   pub world_matrix: Mat4<f32>,
+  pub world_matrix_inverse: Mat4<f32>,
   pub net_visible: bool,
 }
 
@@ -71,8 +72,11 @@ impl HierarchyDerived for SceneNodeDerivedData {
 
   fn compute_hierarchy(self_source: &Self::Source, parent_derived: Option<&Self>) -> Self {
     if let Some(parent) = parent_derived {
+      let world_matrix = parent.world_matrix * self_source.local_matrix;
+      let world_matrix_inverse = world_matrix.inverse_or_identity();
       Self {
-        world_matrix: parent.world_matrix * self_source.local_matrix,
+        world_matrix,
+        world_matrix_inverse,
         net_visible: parent.net_visible && self_source.visible,
       }
     } else {
@@ -109,6 +113,7 @@ impl HierarchyDerivedBase for SceneNodeDerivedData {
   fn build_default(self_source: &Self::Source) -> Self {
     SceneNodeDerivedData {
       world_matrix: self_source.data.local_matrix,
+      world_matrix_inverse: self_source.data.local_matrix.inverse_or_identity(),
       net_visible: self_source.data.visible,
     }
   }
@@ -139,7 +144,11 @@ impl IncrementalHierarchyDerived for SceneNodeDerivedData {
         let new_world = parent.world_matrix * self_source.local_matrix;
         if new_world != self.world_matrix {
           self.world_matrix = new_world;
-          collect(SceneNodeDerivedDataDelta::world_matrix(new_world))
+          self.world_matrix_inverse = new_world.inverse_or_identity();
+          collect(SceneNodeDerivedDataDelta::world_matrix(new_world));
+          collect(SceneNodeDerivedDataDelta::world_matrix_inverse(
+            self.world_matrix_inverse,
+          ))
         }
       }
       // too cheap, don't check flag

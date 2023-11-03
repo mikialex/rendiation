@@ -20,6 +20,10 @@ pub fn setup_active_plane(sg: PLANE) -> Option<PLANE> {
   ACTIVE_PLANE.write().replace(sg)
 }
 
+pub fn storage_of<T: IncrementalBase>() -> IncrementalSignalStorage<T> {
+  todo!()
+}
+
 pub(crate) struct SignalItem<T> {
   pub(crate) data: T,
   sub_event_handle: ListHandle,
@@ -27,12 +31,12 @@ pub(crate) struct SignalItem<T> {
   guid: u64, // weak semantics is impl by the guid compare in data access
 }
 
-pub struct ItemAllocIndex<T> {
+pub struct AllocIdx<T> {
   pub index: u32,
   phantom: PhantomData<T>,
 }
 
-impl<T> Clone for ItemAllocIndex<T> {
+impl<T> Clone for AllocIdx<T> {
   fn clone(&self) -> Self {
     Self {
       index: self.index,
@@ -40,20 +44,31 @@ impl<T> Clone for ItemAllocIndex<T> {
     }
   }
 }
-impl<T> Copy for ItemAllocIndex<T> {}
-impl<T> PartialEq for ItemAllocIndex<T> {
+impl<T> Copy for AllocIdx<T> {}
+impl<T> PartialEq for AllocIdx<T> {
   fn eq(&self, other: &Self) -> bool {
     self.index == other.index
   }
 }
-impl<T> Eq for ItemAllocIndex<T> {}
-impl<T> std::hash::Hash for ItemAllocIndex<T> {
+impl<T> Eq for AllocIdx<T> {}
+impl<T> std::hash::Hash for AllocIdx<T> {
   fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
     self.index.hash(state);
   }
 }
 
-impl<T> From<u32> for ItemAllocIndex<T> {
+impl<T> LinearIdentified for AllocIdx<T> {
+  fn alloc_index(&self) -> u32 {
+    self.index
+  }
+}
+impl<T> LinearIdentification for AllocIdx<T> {
+  fn from_alloc_index(idx: u32) -> Self {
+    Self::from(idx)
+  }
+}
+
+impl<T> From<u32> for AllocIdx<T> {
   fn from(value: u32) -> Self {
     Self {
       index: value,
@@ -66,15 +81,15 @@ pub enum StorageGroupChange<'a, T: IncrementalBase> {
   /// we are not suppose to support sub listen in group watch, so we not emit strong count ptr
   /// message.
   Create {
-    index: ItemAllocIndex<T>,
+    index: AllocIdx<T>,
     data: &'a T,
   },
   Mutate {
-    index: ItemAllocIndex<T>,
+    index: AllocIdx<T>,
     delta: T::Delta,
   },
   Drop {
-    index: ItemAllocIndex<T>,
+    index: AllocIdx<T>,
   },
 }
 
@@ -408,13 +423,13 @@ impl<T: IncrementalBase> Drop for IncrementalSignalPtr<T> {
         if data.ref_count == 0 {
           inner.sub_watchers.write().drop_list(data.sub_event_handle);
           let removed = storage.remove(self.index);
+          inner.group_watchers.emit(&StorageGroupChange::Drop {
+            index: self.index.into(),
+          });
 
           to_remove = removed.into();
         }
       }
-      inner.group_watchers.emit(&StorageGroupChange::Drop {
-        index: self.index.into(),
-      });
     }
     drop(to_remove);
   }

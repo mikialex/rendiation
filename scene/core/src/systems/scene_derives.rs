@@ -184,7 +184,7 @@ impl SceneNodeDeriveSystem {
       .create_derived_stream_by_raw_handle(index)?
       .filter_map_sync(|d| match d {
         SceneNodeDerivedDataDelta::world_matrix(m) => Some(m),
-        SceneNodeDerivedDataDelta::net_visible(_) => None,
+        _ => None,
       })
       .into()
   }
