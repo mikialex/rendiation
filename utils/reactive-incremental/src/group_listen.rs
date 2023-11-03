@@ -111,8 +111,8 @@ impl<K, T: Clone> IntoIterator for GroupSingleValueChangeBuffer<K, T> {
       .flat_map(|(id, state)| {
         let mut expand = smallvec::SmallVec::<[CollectionDelta<AllocIdx<K>, T>; 2]>::new();
         match state {
-          GroupSingleValueState::Next(v) => expand.push(CollectionDelta::Delta(id, v)),
-          GroupSingleValueState::RemoveThenNext(v) => {
+          GroupSingleValueState::NewInsert(v) => expand.push(CollectionDelta::Delta(id, v)),
+          GroupSingleValueState::ChangeTo(v) => {
             expand.push(CollectionDelta::Remove(id));
             expand.push(CollectionDelta::Delta(id, v));
           }
@@ -142,8 +142,8 @@ impl<K, T> Drop for GroupSingleValueSender<K, T> {
 
 #[derive(Clone)]
 pub enum GroupSingleValueState<T> {
-  Next(T),
-  RemoveThenNext(T),
+  NewInsert(T),
+  ChangeTo(T),
   Remove,
 }
 
@@ -258,25 +258,25 @@ impl<T: Send + Clone + Sync + 'static, K: Send + Sync + 'static>
         .entry(*message.key())
         .and_modify(|state| {
           *state = match state {
-            State::Next(_) => match &message {
-              Change::Delta(_, v) => State::Next(v.clone()),
+            State::NewInsert(_) => match &message {
+              Change::Delta(_, v) => State::NewInsert(v.clone()),
               Change::Remove(k) => {
                 should_remove = Some(k);
                 return;
               }
             },
-            State::RemoveThenNext(_) => match &message {
-              Change::Delta(_, v) => State::RemoveThenNext(v.clone()),
+            State::ChangeTo(_) => match &message {
+              Change::Delta(_, v) => State::ChangeTo(v.clone()),
               Change::Remove(_) => State::Remove,
             },
             State::Remove => match &message {
-              Change::Delta(_, v) => State::RemoveThenNext(v.clone()),
+              Change::Delta(_, v) => State::ChangeTo(v.clone()),
               Change::Remove(_) => unreachable!(),
             },
           }
         })
         .or_insert_with(|| match &message {
-          Change::Delta(_, v) => State::Next(v.clone()),
+          Change::Delta(_, v) => State::NewInsert(v.clone()),
           Change::Remove(_) => State::Remove,
         });
 

@@ -467,7 +467,7 @@ where
   fn poll_changes(&mut self, cx: &mut Context<'_>) -> Poll<Option<Self::Changes>> {
     let r = self.inner.poll_changes(cx);
     if let Poll::Ready(Some(changes)) = &r {
-      for change in changes.clone().into_iter() {
+      for change in changes.clone() {
         match change {
           CollectionDelta::Delta(k, v) => {
             self.cache.insert(k, v);
@@ -525,7 +525,7 @@ where
   fn poll_changes(&mut self, cx: &mut Context<'_>) -> Poll<Option<Self::Changes>> {
     let r = self.inner.poll_changes(cx);
     if let Poll::Ready(Some(changes)) = &r {
-      for change in changes.clone().into_iter() {
+      for change in changes.clone() {
         match change {
           CollectionDelta::Delta(k, v) => {
             self.cache.insert(v, k.alloc_index());
@@ -728,20 +728,13 @@ where
           }
         });
 
-        let output = intersections
+        intersections
           .into_iter()
-          .map(|(k, v)| {
-            let v_map = match v {
-              (Some(v1), Some(v2)) => (Some(v1), Some(v2)),
-              (Some(v1), None) => (Some(v1), b_access(&k)),
-              (None, Some(v2)) => (a_access(&k), Some(v2)),
-              (None, None) => return CollectionDelta::Remove(k),
-            };
-            CollectionDelta::Delta(k, v_map)
+          .map(|(k, v)| match v {
+            (None, None) => CollectionDelta::Remove(k),
+            _ => CollectionDelta::Delta(k, v),
           })
-          .collect::<Vec<_>>();
-
-        output
+          .collect::<Vec<_>>()
       }
       (Poll::Ready(Some(v1)), Poll::Pending) => v1
         .map(|v1| {
@@ -774,6 +767,6 @@ where
       return Poll::Pending;
     }
 
-    return Poll::Ready(Some(r.into_iter()));
+    Poll::Ready(Some(r.into_iter()))
   }
 }

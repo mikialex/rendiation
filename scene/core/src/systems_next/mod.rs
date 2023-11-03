@@ -2,6 +2,9 @@ use rendiation_geometry::Box3;
 
 use crate::*;
 
+mod optimization;
+pub use optimization::*;
+
 #[macro_export]
 macro_rules! field_of {
   ($ty:ty =>$field:tt) => {
@@ -18,13 +21,17 @@ macro_rules! field_of {
 
 pub fn std_model_att_mesh_ref_change(
 ) -> impl ReactiveCollection<AllocIdx<StandardModel>, AllocIdx<AttributesMesh>> {
-  storage_of::<StandardModel>().single_listen_by_into_reactive_collection(|change, collector| {
-    field_of!(StandardModel => mesh)(change, &|mesh| {
-      if let MeshEnum::AttributesMesh(mesh) = mesh {
-        collector(AllocIdx::from(mesh.alloc_index()))
-      }
+  storage_of::<StandardModel>()
+    .single_listen_by_into_reactive_collection(|change, collector| {
+      field_of!(StandardModel => mesh)(change, &|mesh| {
+        if let MeshEnum::AttributesMesh(mesh) = mesh {
+          collector(Some(AllocIdx::from(mesh.alloc_index())))
+        } else {
+          collector(None)
+        }
+      })
     })
-  })
+    .collective_filter_map(|v| v)
 }
 
 pub fn attribute_boxes() -> impl ReactiveCollection<AllocIdx<AttributesMesh>, Box3<f32>> {
@@ -45,13 +52,17 @@ pub fn model_boxes(
 
 pub fn scene_model_std_model_ref_change(
 ) -> impl ReactiveCollection<AllocIdx<SceneModelImpl>, AllocIdx<StandardModel>> {
-  storage_of::<SceneModelImpl>().single_listen_by_into_reactive_collection(|change, collector| {
-    field_of!(SceneModelImpl => model)(change, &|mesh| {
-      if let ModelEnum::Standard(mesh) = mesh {
-        collector(AllocIdx::from(mesh.alloc_index()))
-      }
+  storage_of::<SceneModelImpl>()
+    .single_listen_by_into_reactive_collection(|change, collector| {
+      field_of!(SceneModelImpl => model)(change, &|mesh| {
+        if let ModelEnum::Standard(mesh) = mesh {
+          collector(Some(AllocIdx::from(mesh.alloc_index())))
+        } else {
+          collector(None)
+        }
+      })
     })
-  })
+    .collective_filter_map(|v| v)
 }
 
 pub fn scene_model_local_boxes(
