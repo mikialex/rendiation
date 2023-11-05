@@ -5,12 +5,15 @@ use rendiation_geometry::*;
 use rendiation_lighting_transport::*;
 use rendiation_scene_raytracing::*;
 
+mod utils;
+use utils::*;
+
 fn main() {
   setup_active_plane(Default::default());
   let mut renderer = PathTraceIntegrator::default();
   // renderer.sample_per_pixel = 1;
 
-  let mut frame = Frame::new(600, 600);
+  let mut frame = make_frame(600, 600);
 
   let mut scene = SceneImpl::new().0;
 
@@ -87,5 +90,5 @@ fn main() {
   let camera = source.build_camera(&camera);
   renderer.render(&camera, &mut source, &mut frame);
 
-  frame.write_result("bunny");
+  write_frame(&frame, "bunny");
 }

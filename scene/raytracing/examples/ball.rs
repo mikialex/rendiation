@@ -9,7 +9,7 @@ fn main() {
   setup_active_plane(Default::default());
   let mut renderer = PathTraceIntegrator::default();
 
-  let mut frame = Frame::new(500, 500);
+  let mut frame = make_frame(500, 500);
 
   let mut scene = SceneImpl::new().0;
 
@@ -82,5 +82,5 @@ fn main() {
   let camera = source.build_camera(&camera);
   renderer.render(&camera, &mut source, &mut frame);
 
-  frame.write_result("ball");
+  write_frame(&frame, "ball");
 }

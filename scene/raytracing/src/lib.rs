@@ -2,10 +2,7 @@
 #![allow(clippy::many_single_char_names)]
 #![allow(unstable_name_collisions)]
 
-mod frame;
 mod integrator;
-
-pub use frame::*;
 pub use integrator::*;
 
 pub mod background;
