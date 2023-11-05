@@ -187,6 +187,21 @@ where
     }
   }
 
+  /// map map<k, v> to map<k, v2>
+  fn collective_execute_map_by<V2, F, FF>(self, f: F) -> impl ReactiveCollection<K, V2>
+  where
+    F: Fn() -> FF + 'static,
+    FF: Fn(&K, V) -> V2 + 'static,
+    K: Clone,
+    V2: Clone,
+  {
+    ReactiveKVExecuteMap {
+      inner: self,
+      map_creator: f,
+      phantom: PhantomData,
+    }
+  }
+
   /// filter map<k, v> by v
   fn collective_filter<F>(self, f: F) -> impl ReactiveCollection<K, V>
   where
@@ -234,7 +249,14 @@ where
     K: Copy + std::hash::Hash + Eq,
     Other: ReactiveCollection<K, V>,
   {
-    self.collective_union(other).collective_map(selector)
+    self
+      .collective_union(other)
+      .collective_map(|(a, b)| match (a, b) {
+        (Some(_), Some(_)) => unreachable!("key set should not overlap"),
+        (Some(a), None) => a,
+        (None, Some(b)) => b,
+        (None, None) => unreachable!("value not selected"),
+      })
   }
 
   /// K should fully overlap
@@ -244,7 +266,12 @@ where
     Other: ReactiveCollection<K, V2>,
     V2: Clone + 'static,
   {
-    self.collective_union(other).collective_map(zipper)
+    self
+      .collective_union(other)
+      .collective_map(|(a, b)| match (a, b) {
+        (Some(a), Some(b)) => (a, b),
+        _ => unreachable!("value not zipped"),
+      })
   }
 
   /// only return overlapped part
@@ -256,7 +283,10 @@ where
   {
     self
       .collective_union(other)
-      .collective_filter_map(intersect_fn)
+      .collective_filter_map(|(a, b)| match (a, b) {
+        (Some(a), Some(b)) => Some((a, b)),
+        _ => None,
+      })
   }
 
   /// filter map<k, v> by reactive set<k>
@@ -302,29 +332,6 @@ where
   V: Clone + 'static,
   K: 'static,
 {
-}
-
-fn selector<T>((a, b): (Option<T>, Option<T>)) -> T {
-  match (a, b) {
-    (Some(_), Some(_)) => unreachable!("key set should not overlap"),
-    (Some(a), None) => a,
-    (None, Some(b)) => b,
-    (None, None) => unreachable!("value not selected"),
-  }
-}
-
-fn zipper<T, U>((a, b): (Option<T>, Option<U>)) -> (T, U) {
-  match (a, b) {
-    (Some(a), Some(b)) => (a, b),
-    _ => unreachable!("value not zipped"),
-  }
-}
-
-fn intersect_fn<T, U>((a, b): (Option<T>, Option<U>)) -> Option<(T, U)> {
-  match (a, b) {
-    (Some(a), Some(b)) => Some((a, b)),
-    _ => None,
-  }
 }
 
 pub struct ReactiveKVMapFork<Map: ReactiveCollection<K, V>, K, V> {
@@ -564,6 +571,54 @@ where
         self.cache.try_get(key.alloc_index()).cloned()
       }
     }
+  }
+}
+
+/// compare to ReactiveKVMap, this execute immediately and not impose too many bounds on mapper
+pub struct ReactiveKVExecuteMap<T, F, K, V> {
+  inner: T,
+  map_creator: F,
+  phantom: PhantomData<(K, V)>,
+}
+
+impl<T, F, K, V, V2, FF> ReactiveCollection<K, V2> for ReactiveKVExecuteMap<T, F, K, V>
+where
+  V: 'static,
+  K: Clone + 'static,
+  F: Fn() -> FF + 'static,
+  FF: Fn(&K, V) -> V2 + 'static,
+  V2: Clone,
+  T: ReactiveCollection<K, V>,
+{
+  type Changes = impl Iterator<Item = CollectionDelta<K, V2>> + Clone;
+
+  fn poll_changes(&mut self, cx: &mut Context<'_>) -> Poll<Option<Self::Changes>> {
+    self.inner.poll_changes(cx).map(move |r| {
+      r.map(move |deltas| {
+        let mapper = (self.map_creator)();
+        deltas
+          .into_iter()
+          .map(move |delta| delta.map(|k, v| mapper(k, v)))
+          .collect::<Vec<_>>()
+          .into_iter()
+      })
+    })
+  }
+}
+
+impl<T, F, FF, K, V, V2> VirtualCollection<K, V2> for ReactiveKVExecuteMap<T, F, K, V>
+where
+  F: Fn() -> FF + 'static,
+  FF: Fn(&K, V) -> V2 + 'static,
+  T: VirtualCollection<K, V>,
+{
+  fn iter_key(&self, skip_cache: bool) -> impl Iterator<Item = K> + '_ {
+    self.inner.iter_key(skip_cache)
+  }
+  fn access(&self, skip_cache: bool) -> impl Fn(&K) -> Option<V2> + '_ {
+    let inner_getter = self.inner.access(skip_cache);
+    let mapper = (self.map_creator)();
+    move |key| inner_getter(key).map(|v| mapper(key, v))
   }
 }
 

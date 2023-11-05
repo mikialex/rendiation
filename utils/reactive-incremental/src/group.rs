@@ -24,8 +24,8 @@ pub fn storage_of<T: IncrementalBase>() -> IncrementalSignalStorage<T> {
   todo!()
 }
 
-pub(crate) struct SignalItem<T> {
-  pub(crate) data: T,
+pub struct SignalItem<T> {
+  pub data: T,
   sub_event_handle: ListHandle,
   ref_count: u32,
   guid: u64, // weak semantics is impl by the guid compare in data access
@@ -94,7 +94,7 @@ pub enum StorageGroupChange<'a, T: IncrementalBase> {
 }
 
 pub struct IncrementalSignalGroupImpl<T: IncrementalBase> {
-  pub(crate) data: parking_lot::RwLock<IndexReusedVec<SignalItem<T>>>,
+  pub data: parking_lot::RwLock<IndexReusedVec<SignalItem<T>>>,
   sub_watchers: parking_lot::RwLock<LinkListPool<EventListener<T::Delta>>>,
   // note, it's fake static, as long as we expose the unique lifetime to user, it's safe to user
   // side.
@@ -113,7 +113,7 @@ impl<T: IncrementalBase> Default for IncrementalSignalGroupImpl<T> {
 
 /// data storage point
 pub struct IncrementalSignalStorage<T: IncrementalBase> {
-  pub(crate) inner: Arc<IncrementalSignalGroupImpl<T>>,
+  pub inner: Arc<IncrementalSignalGroupImpl<T>>,
 }
 
 impl<T: IncrementalBase> Clone for IncrementalSignalStorage<T> {
@@ -144,6 +144,17 @@ impl<T: IncrementalBase> IncrementalSignalStorage<T> {
       inner: Arc::downgrade(&self.inner),
       index,
       guid,
+    }
+  }
+
+  pub fn create_key_mapper<V>(&self, mapper: impl Fn(&T) -> V) -> impl Fn(AllocIdx<T>) -> V {
+    let data_holder = self.inner.clone();
+    let guard = self.inner.data.read_recursive();
+    let guard: RwLockReadGuard<'static, IndexReusedVec<SignalItem<T>>> =
+      unsafe { std::mem::transmute(guard) };
+    move |key| {
+      let _ = data_holder;
+      mapper(&guard.get(key.index).data)
     }
   }
 

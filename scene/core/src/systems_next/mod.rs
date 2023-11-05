@@ -37,7 +37,10 @@ pub fn std_model_att_mesh_ref_change(
 pub fn attribute_boxes() -> impl ReactiveCollection<AllocIdx<AttributesMesh>, Box3<f32>> {
   storage_of::<AttributesMesh>()
     .single_listen_by_into_reactive_collection(any_change)
-    .collective_map(|_| todo!())
+    .collective_execute_map_by(|| {
+      let box_compute = storage_of::<AttributesMesh>().create_key_mapper(|_v| todo!());
+      move |k, _| box_compute(*k)
+    })
 }
 
 pub fn model_attribute_boxes() -> impl ReactiveCollection<AllocIdx<StandardModel>, Box3<f32>> {
