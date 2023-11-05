@@ -107,7 +107,7 @@ impl<G, F> MicroFacetNormalDistribution for Specular<BlinnPhong, G, F> {
 
     let (sin_t, cos_t) = theta.sin_cos();
     // Generate halfway vector by sampling azimuth uniformly
-    let sample = concentric_sample_disk(sampler);
+    let sample = concentric_sample_disk(sampler.next_vec2());
     let x = sample.x;
     let y = sample.y;
     let h = Vec3::new(x * sin_t, y * sin_t, cos_t);
@@ -147,7 +147,7 @@ impl<G, F> MicroFacetNormalDistribution for Specular<Beckmann, G, F> {
 
     let (sin_t, cos_t) = theta.sin_cos();
     // Generate halfway vector by sampling azimuth uniformly
-    let sample = concentric_sample_disk(sampler);
+    let sample = concentric_sample_disk(sampler.next_vec2());
     let x = sample.x;
     let y = sample.y;
     let h = Vec3::new(x * sin_t, y * sin_t, cos_t);

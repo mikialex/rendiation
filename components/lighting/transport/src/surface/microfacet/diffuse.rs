@@ -29,7 +29,7 @@ impl<C: IntersectionCtxBase> LightTransportSurface<C> for Diffuse<Lambertian> {
     sampler: &mut dyn Sampler,
   ) -> NormalizedVec3<f32> {
     // Simple cosine-sampling using Malley's method
-    let sample = concentric_sample_disk(sampler);
+    let sample = concentric_sample_disk(sampler.next_vec2());
     let x = sample.x;
     let y = sample.y;
     let z = (1.0 - x * x - y * y).sqrt();

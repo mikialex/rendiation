@@ -22,22 +22,6 @@ pub struct Model {
 }
 
 impl Model {
-  pub fn new<M, G>(shape: G, material: M) -> Self
-  where
-    M: Material,
-    G: Shape,
-  {
-    let shape = Box::new(shape);
-    let material = Box::new(material);
-    Model {
-      shape,
-      material,
-      world_matrix: Default::default(),
-      world_matrix_inverse: Default::default(),
-      normal_matrix: Default::default(),
-    }
-  }
-
   pub fn update_nearest_hit<'b>(
     &'b self,
     world_ray: Ray3,

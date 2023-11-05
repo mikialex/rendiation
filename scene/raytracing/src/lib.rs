@@ -1,23 +1,18 @@
-#![feature(generic_const_exprs)]
 #![allow(clippy::or_fun_call)]
 #![allow(clippy::many_single_char_names)]
 #![allow(unstable_name_collisions)]
-#![allow(incomplete_features)]
 
 mod frame;
 mod integrator;
-mod sampling;
 
 pub use frame::*;
 pub use integrator::*;
-pub use sampling::*;
 
 pub mod background;
 pub mod light;
 pub mod model;
 pub mod shape;
 
-use arena::Handle;
 pub use background::*;
 pub use light::*;
 pub use model::*;
@@ -31,7 +26,7 @@ use space_algorithm::{
   bvh::{FlattenBVH, SAH},
   utils::TreeBuildOption,
 };
-use tree::{ComputedDerivedTree, TreeNodeHandle};
+use tree::ComputedDerivedTree;
 
 #[derive(Clone)]
 pub struct RayTracingSceneModel {
@@ -209,7 +204,7 @@ impl RayTracingSceneExt for Scene {
   }
 }
 
-impl RayTraceable for SceneAcceleration {
+impl RayTraceContentBase for SceneAcceleration {
   fn get_any_hit(&self, world_ray: Ray3) -> bool {
     let mut find = false;
     let bvh = self.models_bvh.as_ref().unwrap();
@@ -235,6 +230,14 @@ impl RayTraceable for SceneAcceleration {
     false
   }
 
+  fn get_min_dist_hit(&self, world_ray: Ray3) -> Option<(Intersection, f32)> {
+    self
+      .get_min_dist_hit_with_model(world_ray)
+      .map(|(a, b, _)| (a, b))
+  }
+}
+
+impl RayTraceContentForStat for SceneAcceleration {
   fn get_min_dist_hit_stat(&self, world_ray: Ray3) -> IntersectionStatistic {
     let mut box_c = 0;
     let mut stat = IntersectionStatistic::default();
@@ -258,8 +261,10 @@ impl RayTraceable for SceneAcceleration {
     }
     stat
   }
+}
 
-  fn get_min_dist_hit(&self, world_ray: Ray3) -> Option<(Intersection, f32, &Model)> {
+impl RayTraceContentForPathTracing for SceneAcceleration {
+  fn get_min_dist_hit_with_model(&self, world_ray: Ray3) -> Option<(Intersection, f32, &Model)> {
     let mut min_distance = std::f32::INFINITY;
     let mut result = None;
 
@@ -283,17 +288,6 @@ impl RayTraceable for SceneAcceleration {
     result.map(|(intersection, model)| (intersection, min_distance, model))
   }
 
-  fn test_point_visible_to_point(&self, point_a: Vec3<f32>, point_b: Vec3<f32>) -> bool {
-    let ray = Ray3::from_point_to_point(point_a, point_b);
-    let distance = (point_a - point_b).length();
-
-    if let Some(hit_result) = self.get_min_dist_hit(ray) {
-      hit_result.1 > distance
-    } else {
-      true
-    }
-  }
-
   fn sample_environment(&self, world_ray: Ray3) -> Vec3<f32> {
     if let Some(env) = &self.env {
       env.sample(&world_ray)
@@ -302,7 +296,3 @@ impl RayTraceable for SceneAcceleration {
     }
   }
 }
-
-pub type NodeHandle = TreeNodeHandle<SceneNode>;
-pub type ModelHandle = usize;
-pub type LightHandle = Handle<Light>;

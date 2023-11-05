@@ -1,11 +1,17 @@
 use rendiation_algebra::*;
 
-pub trait PixelSampler: Sized {
+pub trait PixelSampleController: Sized {
+  /// decide if the current pixel should continue sampling
   fn should_sample(&self) -> bool;
+  /// update the internal control state with new sample result
   fn update_sample_result(&mut self, result: Vec3<f32>);
+  /// if the pixel sampling is sufficient, take self and output the final result
   fn take_result(self) -> Vec3<f32>;
+  /// return the sample index (how many times has sampled for this pixel), the sampler require this
+  /// to get correct sample.
   fn next_sample_index(&self) -> usize;
 
+  /// the generalized sample logic for a pixel, pass the per sample logic in.
   fn sample_pixel(mut self, mut per_sample: impl FnMut(usize) -> Vec3<f32>) -> Vec3<f32> {
     loop {
       if !self.should_sample() {
@@ -16,6 +22,7 @@ pub trait PixelSampler: Sized {
   }
 }
 
+/// the naive sampler control with fixed sample count for each pixel
 pub struct FixedSamplesPerPixel {
   target_samples_per_pixel: usize,
   current_samples: usize,
@@ -32,7 +39,7 @@ impl FixedSamplesPerPixel {
   }
 }
 
-impl PixelSampler for FixedSamplesPerPixel {
+impl PixelSampleController for FixedSamplesPerPixel {
   fn should_sample(&self) -> bool {
     self.current_samples < self.target_samples_per_pixel
   }
@@ -103,7 +110,7 @@ impl Default for AdaptivePixelSamplerConfig {
   }
 }
 
-impl PixelSampler for AdaptivePixelSampler {
+impl PixelSampleController for AdaptivePixelSampler {
   fn should_sample(&self) -> bool {
     let config = &self.config;
     if self.current_samples < config.min_sample_count {

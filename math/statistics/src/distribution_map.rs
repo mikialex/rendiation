@@ -7,9 +7,9 @@ pub const INV_PI: f32 = 1.0 / std::f32::consts::PI;
 
 /// http://l2program.co.uk/900/concentric-disk-sampling
 /// Uniformly distribute samples over a unit disk.
-pub fn concentric_sample_disk(sampler: &mut (impl Sampler + ?Sized)) -> Vec2<f32> {
+pub fn concentric_sample_disk(sample: Vec2<f32>) -> Vec2<f32> {
   // map uniform random numbers to $[-1,1]^2$s
-  let u_offset = sampler.next_vec2() * 2.0 - Vec2::new(1.0, 1.0);
+  let u_offset = sample * 2.0 - Vec2::new(1.0, 1.0);
   // handle degeneracy at the origin
   if u_offset.x == 0.0 && u_offset.y == 0.0 {
     return Vec2::new(0.0, 0.0);
@@ -27,17 +27,17 @@ pub fn concentric_sample_disk(sampler: &mut (impl Sampler + ?Sized)) -> Vec2<f32
   Vec2::new(theta.cos(), theta.sin()) * r
 }
 
-pub fn cosine_sample_hemisphere(sampler: &mut (impl Sampler + ?Sized)) -> Vec3<f32> {
-  let d = concentric_sample_disk(sampler);
+pub fn cosine_sample_hemisphere(sample: Vec2<f32>) -> Vec3<f32> {
+  let d = concentric_sample_disk(sample);
   let z = 0.0_f32.max(1.0 - d.x * d.x - d.y * d.y).sqrt();
   Vec3::new(d.x, d.y, z)
 }
 
 pub fn cosine_sample_hemisphere_in_dir(
   dir: NormalizedVec3<f32>,
-  sampler: &mut (impl Sampler + ?Sized),
+  sample: Vec2<f32>,
 ) -> (NormalizedVec3<f32>, f32) {
-  let offset = cosine_sample_hemisphere(sampler);
+  let offset = cosine_sample_hemisphere(sample);
 
   let left = Vec3::new(0.0, 1.0, 0.0).cross(*dir).normalize();
   let up = left.cross(*dir);
@@ -58,8 +58,8 @@ pub fn cosine_sample_hemisphere_in_dir(
 }
 
 /// Uniformly sample a direction on the unit sphere about the origin
-pub fn uniform_sample_sphere_dir(sampler: &mut (impl Sampler + ?Sized)) -> NormalizedVec3<f32> {
-  let (sample_x, sample_y) = sampler.next_2d();
+pub fn uniform_sample_sphere_dir(sample: Vec2<f32>) -> NormalizedVec3<f32> {
+  let (sample_x, sample_y) = sample.into();
   let z = 1.0 - 2.0 * sample_x;
   let r = f32::sqrt(f32::max(0.0, 1.0 - z * z));
   let phi = PI * 2.0 * sample_y;

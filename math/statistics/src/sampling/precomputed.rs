@@ -1,7 +1,8 @@
 use std::sync::Arc;
 
-use rand::{prelude::SliceRandom, rngs::ThreadRng, Rng};
-use rendiation_statistics::*;
+use rand::{prelude::SliceRandom, rngs::ThreadRng};
+
+use crate::*;
 
 pub struct SamplePrecomputedRequest {
   pub min_spp: usize,
@@ -10,6 +11,7 @@ pub struct SamplePrecomputedRequest {
 }
 
 pub trait SampleGenerator: Default {
+  /// the override should larger than requested.
   fn override_spp(&self, requested_min_spp: usize) -> usize;
   fn gen_1d(&self, index: usize) -> f32;
   fn gen_2d(&self, index: usize) -> (f32, f32);
@@ -127,21 +129,4 @@ impl Sampler for PrecomputedSampler {
       self.backup.next_2d()
     }
   }
-}
-
-#[derive(Default)]
-pub struct RngSampler {
-  rng: ThreadRng,
-}
-
-impl Sampler for RngSampler {
-  fn next(&mut self) -> f32 {
-    self.rng.gen()
-  }
-
-  fn next_2d(&mut self) -> (f32, f32) {
-    (self.rng.gen(), self.rng.gen())
-  }
-
-  fn reset(&mut self, _next_sampling_index: usize) {}
 }

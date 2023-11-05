@@ -50,7 +50,15 @@ impl Default for PathTraceIntegrator {
 //   }
 // }
 
-impl<T: RayTraceable> Integrator<T> for PathTraceIntegrator {
+pub trait RayTraceContentForPathTracing: RayTraceContentBase {
+  fn get_min_dist_hit_with_model(&self, world_ray: Ray3) -> Option<(Intersection, f32, &Model)>;
+  fn sample_environment(&self, world_ray: Ray3) -> Vec3<f32>;
+}
+
+impl<T> Integrator<T> for PathTraceIntegrator
+where
+  T: RayTraceContentForPathTracing,
+{
   type PixelSampler = AdaptivePixelSampler;
   fn create_pixel_sampler(&self) -> Self::PixelSampler {
     self.sampling_config.into()
@@ -75,7 +83,7 @@ impl<T: RayTraceable> Integrator<T> for PathTraceIntegrator {
     let mut current_ray = ray;
 
     for _depth in 0..self.bounce_time_limit {
-      if let Some((intersection, _, model)) = target.get_min_dist_hit(current_ray) {
+      if let Some((intersection, _, model)) = target.get_min_dist_hit_with_model(current_ray) {
         let view_dir = current_ray.direction.reverse();
 
         let BRDFImportantSampled {

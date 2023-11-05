@@ -1,6 +1,7 @@
 use std::time::Instant;
 
 use indicatif::ProgressBar;
+pub use pixel_sample_control::*;
 use rayon::prelude::*;
 use rendiation_algebra::*;
 use rendiation_color::LinearRGBColor;
@@ -10,6 +11,7 @@ use rendiation_texture::Texture2D;
 pub mod ao;
 pub mod intersection_stat;
 pub mod path_trace;
+pub mod pixel_sample_control;
 pub use ao::*;
 pub use intersection_stat::*;
 pub use path_trace::*;
@@ -18,14 +20,18 @@ use crate::Frame;
 use crate::*;
 
 pub trait Integrator<T: Send + Sync>: Send + Sync {
+  /// per pixel integrate logic
   fn integrate(&self, target: &T, ray: Ray3, sampler: &mut dyn Sampler) -> LinearRGBColor<f32>;
 
-  type PixelSampler: PixelSampler;
+  /// per pixel sampler controller this integrator prefer
+  type PixelSampler: PixelSampleController;
   fn create_pixel_sampler(&self) -> Self::PixelSampler;
 
+  /// the actual sample provider this integrator prefer
   type Sampler: Sampler;
   fn create_sampler(&self) -> Self::Sampler;
 
+  /// the render logic
   fn render(
     &mut self,
     ray_source: &(impl RayCaster3<f32> + Send + Sync),
@@ -78,10 +84,19 @@ pub trait Integrator<T: Send + Sync>: Send + Sync {
   }
 }
 
-pub trait RayTraceable: Send + Sync {
+/// different integrator has different requirements for the target(scene), this is the base trait
+pub trait RayTraceContentBase: Send + Sync {
   fn get_any_hit(&self, world_ray: Ray3) -> bool;
-  fn get_min_dist_hit_stat(&self, world_ray: Ray3) -> IntersectionStatistic;
-  fn get_min_dist_hit(&self, world_ray: Ray3) -> Option<(Intersection, f32, &Model)>;
-  fn test_point_visible_to_point(&self, point_a: Vec3<f32>, point_b: Vec3<f32>) -> bool;
-  fn sample_environment(&self, world_ray: Ray3) -> Vec3<f32>;
+  fn get_min_dist_hit(&self, world_ray: Ray3) -> Option<(Intersection, f32)>;
+
+  fn test_point_visible_to_point(&self, point_a: Vec3<f32>, point_b: Vec3<f32>) -> bool {
+    let ray = Ray3::from_point_to_point(point_a, point_b);
+    let distance = (point_a - point_b).length();
+
+    if let Some(hit_result) = self.get_min_dist_hit(ray) {
+      hit_result.1 > distance
+    } else {
+      true
+    }
+  }
 }

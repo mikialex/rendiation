@@ -1,7 +1,7 @@
 use rendiation_color::LinearRGBColor;
 use rendiation_geometry::Ray3;
 
-use crate::{FixedSamplesPerPixel, Integrator, RayTraceable, RngSampler, Sampler};
+use crate::*;
 
 pub struct IntersectionVisualize {
   pub box_weight: f32,
@@ -22,7 +22,14 @@ impl Default for IntersectionVisualize {
   }
 }
 
-impl<T: RayTraceable> Integrator<T> for IntersectionVisualize {
+pub trait RayTraceContentForStat: RayTraceContentBase {
+  fn get_min_dist_hit_stat(&self, world_ray: Ray3) -> IntersectionStatistic;
+}
+
+impl<T> Integrator<T> for IntersectionVisualize
+where
+  T: RayTraceContentForStat,
+{
   type PixelSampler = FixedSamplesPerPixel;
   fn create_pixel_sampler(&self) -> Self::PixelSampler {
     FixedSamplesPerPixel::by_target_samples_per_pixel(4)
