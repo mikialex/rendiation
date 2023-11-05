@@ -66,13 +66,13 @@ where
     self
   }
 
-  fn intersect(&self, ray: Ray3) -> PossibleIntersection {
+  fn intersect(&self, ray: Ray3) -> Option<Intersection> {
     let nearest =
       self
         .mesh
         .intersect_nearest_bvh(ray, &self.bvh, &MeshBufferIntersectConfig::default());
 
-    PossibleIntersection(nearest.0.map(|hit| {
+    nearest.0.map(|hit| {
       let primitive = self.mesh.primitive_at(hit.primitive_index).unwrap();
       let geometric_normal = self.face_normal[hit.primitive_index];
       let shading_normal = primitive.get_normal(hit.hit.position);
@@ -82,7 +82,7 @@ where
         shading_normal,
         uv: None,
       }
-    }))
+    })
   }
 
   fn get_bbox(&self) -> Option<Box3> {

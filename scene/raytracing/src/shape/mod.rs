@@ -8,10 +8,10 @@ use crate::*;
 pub trait Shape: Sync + Send + 'static + dyn_clone::DynClone {
   fn as_any(&self) -> &dyn Any;
 
-  fn intersect(&self, ray: Ray3) -> PossibleIntersection;
+  fn intersect(&self, ray: Ray3) -> Option<Intersection>;
 
   fn has_any_intersect(&self, ray: Ray3) -> bool {
-    self.intersect(ray).0.is_some()
+    self.intersect(ray).is_some()
   }
 
   fn get_bbox(&self) -> Option<Box3> {
@@ -101,16 +101,14 @@ impl Intersection {
   }
 }
 
-pub struct PossibleIntersection(pub Option<Intersection>);
-
 impl Shape for Sphere {
   fn as_any(&self) -> &dyn std::any::Any {
     self
   }
 
-  fn intersect(&self, ray: Ray3) -> PossibleIntersection {
+  fn intersect(&self, ray: Ray3) -> Option<Intersection> {
     let result: OptionalNearest<HitPoint3D> = ray.intersect(self, &());
-    PossibleIntersection(result.0.map(|near| {
+    result.0.map(|near| {
       let normal = (near.position - self.center).into_normalized();
       Intersection {
         position: near.position,
@@ -118,7 +116,7 @@ impl Shape for Sphere {
         shading_normal: normal,
         uv: None,
       }
-    }))
+    })
   }
 
   fn get_bbox(&self) -> Option<Box3> {
@@ -131,13 +129,13 @@ impl Shape for Plane {
     self
   }
 
-  fn intersect(&self, ray: Ray3) -> PossibleIntersection {
+  fn intersect(&self, ray: Ray3) -> Option<Intersection> {
     let result: OptionalNearest<HitPoint3D> = ray.intersect(self, &());
-    PossibleIntersection(result.0.map(|near| Intersection {
+    result.0.map(|near| Intersection {
       position: near.position,
       geometric_normal: self.normal,
       shading_normal: self.normal,
       uv: None,
-    }))
+    })
   }
 }

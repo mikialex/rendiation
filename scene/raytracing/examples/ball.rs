@@ -6,6 +6,7 @@ mod utils;
 use utils::*;
 
 fn main() {
+  setup_active_plane(Default::default());
   let mut renderer = PathTraceIntegrator::default();
 
   let mut frame = Frame::new(500, 500);

@@ -18,8 +18,8 @@ impl Default for SobolSamplingGenerator {
 }
 
 impl SampleGenerator for SobolSamplingGenerator {
-  fn override_ssp(&self, ssp: usize) -> usize {
-    ssp.next_power_of_two()
+  fn override_spp(&self, requested_min_spp: usize) -> usize {
+    requested_min_spp.next_power_of_two()
   }
 
   fn gen_1d(&self, n: usize) -> f32 {

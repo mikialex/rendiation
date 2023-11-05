@@ -6,6 +6,7 @@ use rendiation_lighting_transport::*;
 use rendiation_scene_raytracing::*;
 
 fn main() {
+  setup_active_plane(Default::default());
   let mut renderer = PathTraceIntegrator::default();
   // renderer.sample_per_pixel = 1;
 
