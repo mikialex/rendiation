@@ -52,17 +52,17 @@ pub trait VirtualCollection<K, V> {
     })
   }
 
-  /// Access the current value. we use this scoped api style for fast batch accessing(avoid internal
-  /// fragmented locking). the returned V is pass by ownership because we may create data on the
-  /// fly.
+  /// Access the current value. we use this scoped api style for fast batch accessing(to avoid
+  /// internal fragmented locking). the returned V is passed by ownership because we may create data
+  /// on the fly.
   ///
   /// If the skip_cache is true, the implementation will not be incremental and will make sure the
   /// access is up to date.
   ///
-  /// If the return is None, it means the value is not exist in the table.
+  /// If the return is None, it means the value does not exist in the table.
   ///
-  /// The implementation should guarantee it's ok to allow  multiple accessor instance exist in same
-  /// time. (should only create read guard in underlayer)
+  /// The implementation should guarantee it's ok to allow multiple accessor instances to exist at
+  /// the same time. (should only create read guard in underlayer)
   fn access(&self, skip_cache: bool) -> impl Fn(&K) -> Option<V> + '_;
 }
 
@@ -74,7 +74,7 @@ pub trait VirtualMultiCollection<K, V> {
 /// An abstraction of reactive key-value like virtual container.
 ///
 /// You can imagine this is a data table with the K as the primary key and V as the row of the
-/// data(not contains K). In this table, besides getting data, you can also poll it's partial
+/// data(not containing K). In this table, besides getting data, you can also poll its partial
 /// changes.
 ///
 /// ## Implementation notes:
@@ -115,34 +115,69 @@ pub trait ReactiveCollection<K, V>: VirtualCollection<K, V> + 'static {
   fn poll_changes(&mut self, cx: &mut Context<'_>) -> Poll<Option<Self::Changes>>;
 }
 
-// /// dynamic version of the above trait
-// pub trait DynamicVirtualCollection<K, V> {
-//   fn iter_key_boxed(&self, skip_cache: bool) -> Box<dyn Iterator<Item = K> + '_>;
-//   fn access_boxed(&self, skip_cache: bool) -> Box<dyn Fn(&K) -> Option<V> + '_>;
-// }
-// impl<K, V, T> DynamicVirtualCollection<K, V> for T
-// where
-//   Self: ReactiveCollection<K, V>,
-// {
-//   fn iter_key_boxed(&self, skip_cache: bool) -> Box<dyn Iterator<Item = K> + '_> {
-//     Box::new(self.iter_key(skip_cache))
-//   }
+/// it's useful to use () as the empty collection
+impl<K: 'static, V> VirtualCollection<K, V> for () {
+  fn iter_key(&self, _skip_cache: bool) -> impl Iterator<Item = K> + '_ {
+    [].into_iter()
+  }
+  fn access(&self, _skip_cache: bool) -> impl Fn(&K) -> Option<V> + '_ {
+    |_| None
+  }
+}
 
-//   fn access_boxed(&self, skip_cache: bool) -> Box<dyn Fn(&K) -> Option<V> + '_> {
-//     Box::new(self.access(skip_cache))
-//   }
-// }
-// pub trait DynamicReactiveCollection<K, V>: ReactiveCollection<K, V> {}
+pub struct EmptyIter<K, V>(PhantomData<(K, V)>);
+impl<K, V> Clone for EmptyIter<K, V> {
+  fn clone(&self) -> Self {
+    Self(self.0)
+  }
+}
+impl<K, V> Iterator for EmptyIter<K, V> {
+  type Item = CollectionDelta<K, V>;
 
-// impl<K, V> VirtualCollection<K, V> for &dyn DynamicReactiveCollection<K, V> {
-//   fn access(&self, skip_cache: bool) -> impl Fn(&K) -> Option<V> + '_ {
-//     self.access_boxed(skip_cache)
-//   }
+  fn next(&mut self) -> Option<Self::Item> {
+    None
+  }
+}
+impl<K: 'static, V> ReactiveCollection<K, V> for () {
+  type Changes = EmptyIter<K, V>;
 
-//   fn iter_key(&self, skip_cache: bool) -> impl Iterator<Item = K> + '_ {
-//     self.iter_key_boxed(skip_cache)
-//   }
-// }
+  fn poll_changes(&mut self, _cx: &mut Context<'_>) -> Poll<Option<Self::Changes>> {
+    Poll::Pending
+  }
+}
+
+/// dynamic version of the above trait
+pub trait DynamicVirtualCollection<K, V> {
+  fn iter_key_boxed(&self, skip_cache: bool) -> Box<dyn Iterator<Item = K> + '_>;
+  fn access_boxed(&self, skip_cache: bool) -> Box<dyn Fn(&K) -> Option<V> + '_>;
+}
+impl<K, V, T> DynamicVirtualCollection<K, V> for T
+where
+  Self: VirtualCollection<K, V>,
+{
+  fn iter_key_boxed(&self, skip_cache: bool) -> Box<dyn Iterator<Item = K> + '_> {
+    Box::new(self.iter_key(skip_cache))
+  }
+
+  fn access_boxed(&self, skip_cache: bool) -> Box<dyn Fn(&K) -> Option<V> + '_> {
+    Box::new(self.access(skip_cache))
+  }
+}
+pub trait DynamicReactiveCollection<K, V>: ReactiveCollection<K, V> {
+  fn poll_changes_dyn(&mut self, _cx: &mut Context<'_>)
+    -> Poll<Option<Vec<CollectionDelta<K, V>>>>;
+}
+
+impl<K, V, T> DynamicReactiveCollection<K, V> for T
+where
+  T: ReactiveCollection<K, V>,
+{
+  fn poll_changes_dyn(&mut self, cx: &mut Context<'_>) -> Poll<Option<Vec<CollectionDelta<K, V>>>> {
+    self
+      .poll_changes(cx)
+      .map(|v| v.map(|v| v.collect::<Vec<_>>()))
+  }
+}
 
 #[pin_project::pin_project]
 struct ReactiveCollectionAsStream<T, K, V> {

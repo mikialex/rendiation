@@ -21,8 +21,39 @@ pub fn setup_active_plane(sg: PLANE) -> Option<PLANE> {
   ACTIVE_PLANE.write().replace(sg)
 }
 
+pub fn access_storage_of<T: IncrementalBase, R>(
+  acc: impl FnOnce(&IncrementalSignalStorage<T>) -> R,
+) -> R {
+  let id = TypeId::of::<T>();
+
+  // not add write lock first if the storage exists
+  let try_read_storages = ACTIVE_PLANE.read();
+  let storages = try_read_storages
+    .as_ref()
+    .expect("global storage group not specified");
+  if let Some(storage) = storages.storages.get(&id) {
+    let storage = storage
+      .downcast_ref::<IncrementalSignalStorage<T>>()
+      .unwrap();
+    acc(storage)
+  } else {
+    drop(try_read_storages);
+    let mut storages = ACTIVE_PLANE.write();
+    let storages = storages
+      .as_mut()
+      .expect("global storage group not specified");
+    let storage = storages
+      .storages
+      .entry(id)
+      .or_insert_with(|| Box::<IncrementalSignalStorage<T>>::default());
+    let storage = storage
+      .downcast_ref::<IncrementalSignalStorage<T>>()
+      .unwrap();
+    acc(storage)
+  }
+}
 pub fn storage_of<T: IncrementalBase>() -> IncrementalSignalStorage<T> {
-  todo!()
+  access_storage_of(|s| s.clone())
 }
 
 pub struct SignalItem<T> {
@@ -232,32 +263,7 @@ impl<T: IncrementalBase> AsMut<dyn LinearIdentified> for IncrementalSignalPtr<T>
 
 impl<T: IncrementalBase> IncrementalSignalPtr<T> {
   pub fn new(data: T) -> Self {
-    let id = data.type_id();
-
-    let try_read_storages = ACTIVE_PLANE.read();
-    let storages = try_read_storages
-      .as_ref()
-      .expect("global storage group not specified");
-    if let Some(storage) = storages.storages.get(&id) {
-      let storage = storage
-        .downcast_ref::<IncrementalSignalStorage<T>>()
-        .unwrap();
-      storage.alloc(data)
-    } else {
-      drop(try_read_storages);
-      let mut storages = ACTIVE_PLANE.write();
-      let storages = storages
-        .as_mut()
-        .expect("global storage group not specified");
-      let storage = storages
-        .storages
-        .entry(id)
-        .or_insert_with(|| Box::<IncrementalSignalStorage<T>>::default());
-      let storage = storage
-        .downcast_ref::<IncrementalSignalStorage<T>>()
-        .unwrap();
-      storage.alloc(data)
-    }
+    access_storage_of(|storage| storage.alloc(data))
   }
 
   fn mutate_inner<R>(
