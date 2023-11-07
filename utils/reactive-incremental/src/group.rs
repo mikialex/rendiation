@@ -122,6 +122,7 @@ pub enum StorageGroupChange<'a, T: IncrementalBase> {
   },
   Drop {
     index: AllocIdx<T>,
+    data: &'a T,
   },
 }
 
@@ -443,6 +444,7 @@ impl<T: IncrementalBase> Drop for IncrementalSignalPtr<T> {
           let removed = storage.remove(self.index);
           inner.group_watchers.emit(&StorageGroupChange::Drop {
             index: self.index.into(),
+            data: unsafe { std::mem::transmute(&removed) },
           });
 
           to_remove = removed.into();

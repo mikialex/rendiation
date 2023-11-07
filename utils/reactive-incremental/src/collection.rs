@@ -18,7 +18,10 @@ impl<K, V> CollectionDelta<K, V> {
   pub fn map<R>(self, mapper: impl Fn(&K, V) -> R) -> CollectionDelta<K, R> {
     type Rt<K, R> = CollectionDelta<K, R>;
     match self {
-      Self::Remove(k, pre) => Rt::<K, R>::Remove(k, mapper(&k, pre)),
+      Self::Remove(k, pre) => {
+        let mapped = mapper(&k, pre);
+        Rt::<K, R>::Remove(k, mapped)
+      }
       Self::Delta(k, d, pre) => {
         let mapped = mapper(&k, d);
         let mapped_pre = pre.map(|d| mapper(&k, d));
@@ -723,7 +726,7 @@ where
           match delta {
             CollectionDelta::Delta(k, v, pre_v) => {
               let new_map = checker(v);
-              let pre_map = pre_v.map(checker).flatten();
+              let pre_map = pre_v.and_then(checker);
               match (new_map, pre_map) {
                 (Some(v), Some(pre_v)) => CollectionDelta::Delta(k, v, Some(pre_v)),
                 (Some(v), None) => CollectionDelta::Delta(k, v, None),
@@ -797,7 +800,8 @@ where
   }
 }
 
-fn union<K, V1, V2>(
+/// we should manually impl zip, intersect, select, to avoid overhead
+fn union<K: Clone, V1: Clone, V2: Clone>(
   change1: Option<CollectionDelta<K, V1>>,
   change2: Option<CollectionDelta<K, V2>>,
   v1_current: &impl Fn(&K) -> Option<V1>,
@@ -808,13 +812,13 @@ fn union<K, V1, V2>(
     (None, Some(change2)) => match change2 {
       CollectionDelta::Delta(k, v2, p2) => {
         let v1_current = v1_current(&k);
-        CollectionDelta::Delta(k, (v1_current, Some(v2)), Some((v1_current, p2)))
+        CollectionDelta::Delta(k, (v1_current.clone(), Some(v2)), Some((v1_current, p2)))
       }
       CollectionDelta::Remove(k, p2) => {
         if let Some(v1_current) = v1_current(&k) {
           CollectionDelta::Delta(
             k,
-            (Some(v1_current), None),
+            (Some(v1_current.clone()), None),
             Some((Some(v1_current), Some(p2))),
           )
         } else {
@@ -825,13 +829,13 @@ fn union<K, V1, V2>(
     (Some(change1), None) => match change1 {
       CollectionDelta::Delta(k, v1, p1) => {
         let v2_current = v2_current(&k);
-        CollectionDelta::Delta(k, (Some(v1), v2_current), Some((p1, v2_current)))
+        CollectionDelta::Delta(k, (Some(v1), v2_current.clone()), Some((p1, v2_current)))
       }
       CollectionDelta::Remove(k, p1) => {
         if let Some(v2_current) = v2_current(&k) {
           CollectionDelta::Delta(
             k,
-            (None, Some(v2_current)),
+            (None, Some(v2_current.clone())),
             Some((Some(p1), Some(v2_current))),
           )
         } else {
@@ -844,10 +848,10 @@ fn union<K, V1, V2>(
         CollectionDelta::Delta(k, (Some(v1), Some(v2)), Some((p1, p2)))
       }
       (CollectionDelta::Delta(_, v1, p1), CollectionDelta::Remove(k, p2)) => {
-        CollectionDelta::Delta(k, (Some(v1), v2_current(&k)), Some((p1, Some(p2))))
+        CollectionDelta::Delta(k.clone(), (Some(v1), v2_current(&k)), Some((p1, Some(p2))))
       }
       (CollectionDelta::Remove(k, p1), CollectionDelta::Delta(_, v2, p2)) => {
-        CollectionDelta::Delta(k, (v1_current(&k), Some(v2)), Some((Some(p1), p2)))
+        CollectionDelta::Delta(k.clone(), (v1_current(&k), Some(v2)), Some((Some(p1), p2)))
       }
       (CollectionDelta::Remove(k, p1), CollectionDelta::Remove(_, p2)) => {
         CollectionDelta::Remove(k, (Some(p1), Some(p2)))

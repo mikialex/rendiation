@@ -42,9 +42,9 @@ impl<T: IncrementalBase> IncrementalSignalStorage<T> {
             C::send(&sender, SingleValueGroupChange::Delta(*index, mapped));
           });
         }
-        StorageGroupChange::Drop { index } => {
-          C::send(&sender, SingleValueGroupChange::Remove(*index));
-        }
+        StorageGroupChange::Drop { index, data } => mapper(MaybeDeltaRef::All(data), &|mapped| {
+          C::send(&sender, SingleValueGroupChange::Remove(*index, mapped));
+        }),
       }
 
       C::is_closed(&sender)
@@ -149,7 +149,7 @@ pub enum GroupSingleValueState<T> {
 
 pub enum SingleValueGroupChange<K, T> {
   Delta(K, T),
-  Remove(K),
+  Remove(K, T),
 }
 
 pub struct GroupSingleValueReceiver<K, T> {
@@ -259,7 +259,7 @@ impl<T: Send + Clone + Sync + 'static, K: Send + Sync + 'static>
 
       let key = match message {
         Change::Delta(k, _) => k,
-        Change::Remove(k) => k,
+        Change::Remove(k, _) => k,
       };
 
       inner
@@ -270,24 +270,24 @@ impl<T: Send + Clone + Sync + 'static, K: Send + Sync + 'static>
           *state = match state {
             State::NewInsert(_) => match &message {
               Change::Delta(_, v) => State::NewInsert(v.clone()),
-              Change::Remove(k) => {
+              Change::Remove(k, _pn) => {
                 should_remove = Some(k);
                 return;
               }
             },
             State::ChangeTo(_, p) => match &message {
-              Change::Delta(_, v) => State::ChangeTo(v.clone(), *p),
-              Change::Remove(_) => State::Remove(*p),
+              Change::Delta(_, v) => State::ChangeTo(v.clone(), p.clone()),
+              Change::Remove(_, pn) => State::Remove(pn.clone()),
             },
-            State::Remove(p) => match &message {
+            State::Remove(_) => match &message {
               Change::Delta(_, v) => State::NewInsert(v.clone()),
-              Change::Remove(_) => unreachable!(),
+              Change::Remove(_, _) => unreachable!(),
             },
           }
         })
         .or_insert_with(|| match &message {
           Change::Delta(_, v) => State::NewInsert(v.clone()),
-          Change::Remove(_) => State::Remove(),
+          Change::Remove(_, pn) => State::Remove(pn.clone()),
         });
 
       if let Some(remove) = should_remove {

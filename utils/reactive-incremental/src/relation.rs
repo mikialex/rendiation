@@ -135,7 +135,7 @@ where
       for change in relational_changes {
         match change {
           CollectionDelta::Delta(k, v, p) => {
-            let p = p.map(|p| getter(&p)).flatten();
+            let p = p.and_then(|p| getter(&p));
             if let Some(v) = getter(&v) {
               output.push(CollectionDelta::Delta(k, v, p));
             } else if let Some(p) = p {
