@@ -8,35 +8,37 @@ use crate::*;
 
 #[derive(Debug, Clone, Copy)]
 pub enum CollectionDelta<K, V> {
-  /// here we not impose any delta on
-  Delta(K, V),
-  Remove(K),
+  // k, new_v, pre_v
+  Delta(K, V, Option<V>),
+  // k, pre_v
+  Remove(K, V),
 }
 
 impl<K, V> CollectionDelta<K, V> {
-  pub fn map<R>(self, mapper: impl FnOnce(&K, V) -> R) -> CollectionDelta<K, R> {
+  pub fn map<R>(self, mapper: impl Fn(&K, V) -> R) -> CollectionDelta<K, R> {
     type Rt<K, R> = CollectionDelta<K, R>;
     match self {
-      Self::Remove(k) => Rt::<K, R>::Remove(k),
-      Self::Delta(k, d) => {
+      Self::Remove(k, pre) => Rt::<K, R>::Remove(k, mapper(&k, pre)),
+      Self::Delta(k, d, pre) => {
         let mapped = mapper(&k, d);
-        Rt::<K, R>::Delta(k, mapped)
+        let mapped_pre = pre.map(|d| mapper(&k, d));
+        Rt::<K, R>::Delta(k, mapped, mapped_pre)
       }
     }
   }
 
-  pub fn value(self) -> Option<V> {
+  pub fn new_value(self) -> Option<V> {
     match self {
-      Self::Delta(_, v) => Some(v),
-      Self::Remove(_) => None,
+      Self::Delta(_, v, _) => Some(v),
+      Self::Remove(_, _) => None,
     }
   }
 
   // should we just use struct??
   pub fn key(&self) -> &K {
     match self {
-      Self::Remove(k) => k,
-      Self::Delta(k, _) => k,
+      Self::Remove(k, _) => k,
+      Self::Delta(k, _, _) => k,
     }
   }
 }
@@ -511,10 +513,10 @@ where
     if let Poll::Ready(Some(changes)) = &r {
       for change in changes.clone() {
         match change {
-          CollectionDelta::Delta(k, v) => {
+          CollectionDelta::Delta(k, v, _) => {
             self.cache.insert(k, v);
           }
-          CollectionDelta::Remove(k) => {
+          CollectionDelta::Remove(k, _) => {
             // todo, shrink
             self.cache.remove(&k);
           }
@@ -569,10 +571,10 @@ where
     if let Poll::Ready(Some(changes)) = &r {
       for change in changes.clone() {
         match change {
-          CollectionDelta::Delta(k, v) => {
+          CollectionDelta::Delta(k, v, _) => {
             self.cache.insert(v, k.alloc_index());
           }
-          CollectionDelta::Remove(k) => {
+          CollectionDelta::Remove(k, _) => {
             // todo, shrink
             self.cache.remove(k.alloc_index());
           }
@@ -717,13 +719,28 @@ where
     let checker = self.checker;
     self.inner.poll_changes(cx).map(move |r| {
       r.map(move |deltas| {
-        deltas.into_iter().map(move |delta| match delta {
-          CollectionDelta::Delta(k, v) => match checker(v) {
-            Some(v) => CollectionDelta::Delta(k, v),
-            None => CollectionDelta::Remove(k),
-          },
-          // the Remove variant maybe called many times for given k
-          CollectionDelta::Remove(k) => CollectionDelta::Remove(k),
+        deltas.into_iter().filter_map(move |delta| {
+          match delta {
+            CollectionDelta::Delta(k, v, pre_v) => {
+              let new_map = checker(v);
+              let pre_map = pre_v.map(checker).flatten();
+              match (new_map, pre_map) {
+                (Some(v), Some(pre_v)) => CollectionDelta::Delta(k, v, Some(pre_v)),
+                (Some(v), None) => CollectionDelta::Delta(k, v, None),
+                (None, Some(pre_v)) => CollectionDelta::Remove(k, pre_v),
+                (None, None) => return None,
+              }
+              .into()
+            }
+            // the Remove variant maybe called many times for given k
+            CollectionDelta::Remove(k, pre_v) => {
+              let pre_map = checker(pre_v);
+              match pre_map {
+                Some(pre) => CollectionDelta::Remove(k, pre).into(),
+                None => None,
+              }
+            }
+          }
         })
       })
     })
@@ -780,6 +797,71 @@ where
   }
 }
 
+fn union<K, V1, V2>(
+  change1: Option<CollectionDelta<K, V1>>,
+  change2: Option<CollectionDelta<K, V2>>,
+  v1_current: &impl Fn(&K) -> Option<V1>,
+  v2_current: &impl Fn(&K) -> Option<V2>,
+) -> Option<CollectionDelta<K, (Option<V1>, Option<V2>)>> {
+  let r = match (change1, change2) {
+    (None, None) => return None,
+    (None, Some(change2)) => match change2 {
+      CollectionDelta::Delta(k, v2, p2) => {
+        let v1_current = v1_current(&k);
+        CollectionDelta::Delta(k, (v1_current, Some(v2)), Some((v1_current, p2)))
+      }
+      CollectionDelta::Remove(k, p2) => {
+        if let Some(v1_current) = v1_current(&k) {
+          CollectionDelta::Delta(
+            k,
+            (Some(v1_current), None),
+            Some((Some(v1_current), Some(p2))),
+          )
+        } else {
+          CollectionDelta::Remove(k, (None, Some(p2)))
+        }
+      }
+    },
+    (Some(change1), None) => match change1 {
+      CollectionDelta::Delta(k, v1, p1) => {
+        let v2_current = v2_current(&k);
+        CollectionDelta::Delta(k, (Some(v1), v2_current), Some((p1, v2_current)))
+      }
+      CollectionDelta::Remove(k, p1) => {
+        if let Some(v2_current) = v2_current(&k) {
+          CollectionDelta::Delta(
+            k,
+            (None, Some(v2_current)),
+            Some((Some(p1), Some(v2_current))),
+          )
+        } else {
+          CollectionDelta::Remove(k, (Some(p1), None))
+        }
+      }
+    },
+    (Some(change1), Some(change2)) => match (change1, change2) {
+      (CollectionDelta::Delta(k, v1, p1), CollectionDelta::Delta(_, v2, p2)) => {
+        CollectionDelta::Delta(k, (Some(v1), Some(v2)), Some((p1, p2)))
+      }
+      (CollectionDelta::Delta(_, v1, p1), CollectionDelta::Remove(k, p2)) => {
+        CollectionDelta::Delta(k, (Some(v1), v2_current(&k)), Some((p1, Some(p2))))
+      }
+      (CollectionDelta::Remove(k, p1), CollectionDelta::Delta(_, v2, p2)) => {
+        CollectionDelta::Delta(k, (v1_current(&k), Some(v2)), Some((Some(p1), p2)))
+      }
+      (CollectionDelta::Remove(k, p1), CollectionDelta::Remove(_, p2)) => {
+        CollectionDelta::Remove(k, (Some(p1), Some(p2)))
+      }
+    },
+  };
+
+  if let CollectionDelta::Delta(k, new, Some((None, None))) = r {
+    return CollectionDelta::Delta(k, new, None).into();
+  }
+
+  r.into()
+}
+
 impl<T1, T2, K, V1, V2> ReactiveCollection<K, (Option<V1>, Option<V2>)>
   for ReactiveKVUnion<T1, T2, K>
 where
@@ -800,53 +882,33 @@ where
 
     let r = match (t1, t2) {
       (Poll::Ready(Some(v1)), Poll::Ready(Some(v2))) => {
-        let mut intersections: FastHashMap<K, (Option<V1>, Option<V2>)> = FastHashMap::default();
-        v1.for_each(|d| match d {
-          CollectionDelta::Delta(k, v) => {
-            intersections.entry(k).or_insert_with(Default::default).0 = Some(v);
-          }
-          CollectionDelta::Remove(k) => {
-            intersections.entry(k).or_insert_with(Default::default).0 = None;
-          }
+        let mut intersections: FastHashMap<
+          K,
+          (
+            Option<CollectionDelta<K, V1>>,
+            Option<CollectionDelta<K, V2>>,
+          ),
+        > = FastHashMap::default();
+        v1.for_each(|d| {
+          let key = *d.key();
+          intersections.entry(key).or_insert_with(Default::default).0 = Some(d)
         });
-        v2.for_each(|d| match d {
-          CollectionDelta::Delta(k, v) => {
-            intersections.entry(k).or_insert_with(Default::default).1 = Some(v);
-          }
-          CollectionDelta::Remove(k) => {
-            intersections.entry(k).or_insert_with(Default::default).1 = None;
-          }
+
+        v2.for_each(|d| {
+          let key = *d.key();
+          intersections.entry(key).or_insert_with(Default::default).1 = Some(d)
         });
 
         intersections
           .into_iter()
-          .map(|(k, v)| match v {
-            (None, None) => CollectionDelta::Remove(k),
-            _ => CollectionDelta::Delta(k, v),
-          })
+          .filter_map(|(_, (d1, d2))| union(d1, d2, &a_access, &b_access))
           .collect::<Vec<_>>()
       }
       (Poll::Ready(Some(v1)), Poll::Pending) => v1
-        .map(|v1| {
-          let k = *v1.key();
-          let v1 = v1.value();
-          let v2 = b_access(&k);
-          match (&v1, &v2) {
-            (None, None) => CollectionDelta::Remove(k),
-            _ => CollectionDelta::Delta(k, (v1, v2)),
-          }
-        })
+        .filter_map(|d1| union(Some(d1), None, &a_access, &b_access))
         .collect::<Vec<_>>(),
       (Poll::Pending, Poll::Ready(Some(v2))) => v2
-        .map(|v2| {
-          let k = *v2.key();
-          let v1 = a_access(&k);
-          let v2 = v2.value();
-          match (&v1, &v2) {
-            (None, None) => CollectionDelta::Remove(k),
-            _ => CollectionDelta::Delta(k, (v1, v2)),
-          }
-        })
+        .filter_map(|d2| union(None, Some(d2), &a_access, &b_access))
         .collect::<Vec<_>>(),
 
       (Poll::Pending, Poll::Pending) => return Poll::Pending,

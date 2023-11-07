@@ -133,12 +133,20 @@ where
     if let Poll::Ready(Some(relational_changes)) = relational_changes {
       let getter = self.upstream.access(false);
       for change in relational_changes {
-        let many = change.key().clone();
-        let new_one = change.value();
-        if let Some(one_change) = new_one.map(|v| getter(&v)).unwrap() {
-          output.push(CollectionDelta::Delta(many, one_change));
-        } else {
-          output.push(CollectionDelta::Remove(many));
+        match change {
+          CollectionDelta::Delta(k, v, p) => {
+            let p = p.map(|p| getter(&p)).flatten();
+            if let Some(v) = getter(&v) {
+              output.push(CollectionDelta::Delta(k, v, p));
+            } else if let Some(p) = p {
+              output.push(CollectionDelta::Remove(k, p));
+            }
+          }
+          CollectionDelta::Remove(k, p) => {
+            if let Some(p) = getter(&p) {
+              output.push(CollectionDelta::Remove(k, p));
+            }
+          }
         }
       }
     }
@@ -146,15 +154,17 @@ where
     if let Poll::Ready(Some(upstream_changes)) = upstream_changes {
       for delta in upstream_changes {
         match delta {
-          CollectionDelta::Remove(one) => inv_querier(&one, &mut |many| {
-            output.push(CollectionDelta::Remove(many));
+          CollectionDelta::Remove(one, p) => inv_querier(&one, &mut |many| {
+            output.push(CollectionDelta::Remove(many, p.clone()));
           }),
-          CollectionDelta::Delta(one, change) => inv_querier(&one, &mut |many| {
-            output.push(CollectionDelta::Delta(many, change.clone()));
+          CollectionDelta::Delta(one, change, p) => inv_querier(&one, &mut |many| {
+            output.push(CollectionDelta::Delta(many, change.clone(), p.clone()));
           }),
         }
       }
     }
+
+    // todo, check if two change set has overlap and fix delta coherency
 
     if output.is_empty() {
       Poll::Pending
@@ -340,7 +350,7 @@ where
       for change in changes {
         let mapping = &mut self.mapping;
         let many = change.key().clone();
-        let new_one = change.value();
+        let new_one = change.new_value();
         let old_refed_one = self.rev_mapping.get(&many);
         // remove possible old relations
         if let Some(Some(old_refed_one)) = old_refed_one {
@@ -430,7 +440,7 @@ where
       for change in changes {
         let mapping = &mut self.mapping;
         let many = *change.key();
-        let new_one = change.value();
+        let new_one = change.new_value();
 
         let old_refed_one = self.rev_mapping.get(many.alloc_index() as usize);
         // remove possible old relations

@@ -15,7 +15,7 @@ impl<T: IncrementalBase> IncrementalSignalStorage<T> {
   ) -> impl Stream<Item = N> + Unpin
   where
     U: Send + Sync + 'static,
-    C: ChannelLike<CollectionDelta<AllocIdx<T>, U>, Message = N>,
+    C: ChannelLike<SingleValueGroupChange<AllocIdx<T>, U>, Message = N>,
   {
     let (sender, receiver) = channel_builder.build();
 
@@ -24,7 +24,7 @@ impl<T: IncrementalBase> IncrementalSignalStorage<T> {
 
       for (index, data) in data.iter() {
         mapper(MaybeDeltaRef::All(&data.data), &|mapped| {
-          C::send(&sender, CollectionDelta::Delta(index.into(), mapped));
+          C::send(&sender, SingleValueGroupChange::Delta(index.into(), mapped));
         })
       }
     }
@@ -35,15 +35,15 @@ impl<T: IncrementalBase> IncrementalSignalStorage<T> {
     let remove_token = s.on(move |v| {
       match v {
         StorageGroupChange::Create { index, data } => mapper(MaybeDeltaRef::All(data), &|mapped| {
-          C::send(&sender, CollectionDelta::Delta(*index, mapped));
+          C::send(&sender, SingleValueGroupChange::Delta(*index, mapped));
         }),
         StorageGroupChange::Mutate { index, delta } => {
           mapper(MaybeDeltaRef::Delta(delta), &|mapped| {
-            C::send(&sender, CollectionDelta::Delta(*index, mapped));
+            C::send(&sender, SingleValueGroupChange::Delta(*index, mapped));
           });
         }
         StorageGroupChange::Drop { index } => {
-          C::send(&sender, CollectionDelta::Remove(*index));
+          C::send(&sender, SingleValueGroupChange::Remove(*index));
         }
       }
 
@@ -111,12 +111,11 @@ impl<K, T: Clone> IntoIterator for GroupSingleValueChangeBuffer<K, T> {
       .flat_map(|(id, state)| {
         let mut expand = smallvec::SmallVec::<[CollectionDelta<AllocIdx<K>, T>; 2]>::new();
         match state {
-          GroupSingleValueState::NewInsert(v) => expand.push(CollectionDelta::Delta(id, v)),
-          GroupSingleValueState::ChangeTo(v) => {
-            expand.push(CollectionDelta::Remove(id));
-            expand.push(CollectionDelta::Delta(id, v));
+          GroupSingleValueState::NewInsert(v) => expand.push(CollectionDelta::Delta(id, v, None)),
+          GroupSingleValueState::ChangeTo(v, p) => {
+            expand.push(CollectionDelta::Delta(id, v, Some(p)));
           }
-          GroupSingleValueState::Remove => expand.push(CollectionDelta::Remove(id)),
+          GroupSingleValueState::Remove(p) => expand.push(CollectionDelta::Remove(id, p)),
         }
         expand
       })
@@ -143,8 +142,14 @@ impl<K, T> Drop for GroupSingleValueSender<K, T> {
 #[derive(Clone)]
 pub enum GroupSingleValueState<T> {
   NewInsert(T),
-  ChangeTo(T),
-  Remove,
+  // new, old
+  ChangeTo(T, T),
+  Remove(T),
+}
+
+pub enum SingleValueGroupChange<K, T> {
+  Delta(K, T),
+  Remove(K),
 }
 
 pub struct GroupSingleValueReceiver<K, T> {
@@ -225,7 +230,7 @@ impl<K, T> Stream for GroupSingleValueReceiver<K, T> {
 pub struct DefaultSingleValueGroupChannel;
 
 impl<T: Send + Clone + Sync + 'static, K: Send + Sync + 'static>
-  ChannelLike<CollectionDelta<AllocIdx<K>, T>> for DefaultSingleValueGroupChannel
+  ChannelLike<SingleValueGroupChange<AllocIdx<K>, T>> for DefaultSingleValueGroupChannel
 {
   type Message = GroupSingleValueChangeBuffer<K, T>;
 
@@ -243,19 +248,24 @@ impl<T: Send + Clone + Sync + 'static, K: Send + Sync + 'static>
     (updater, receiver)
   }
 
-  fn send(sender: &Self::Sender, message: CollectionDelta<AllocIdx<K>, T>) -> bool {
+  fn send(sender: &Self::Sender, message: SingleValueGroupChange<AllocIdx<K>, T>) -> bool {
     if let Some(inner) = sender.inner.upgrade() {
       let mut inner = inner.lock().unwrap();
 
       let mut should_remove = None;
 
-      use CollectionDelta as Change;
       use GroupSingleValueState as State;
+      use SingleValueGroupChange as Change;
+
+      let key = match message {
+        Change::Delta(k, _) => k,
+        Change::Remove(k) => k,
+      };
 
       inner
         .0
         .inner
-        .entry(*message.key())
+        .entry(key)
         .and_modify(|state| {
           *state = match state {
             State::NewInsert(_) => match &message {
@@ -265,19 +275,19 @@ impl<T: Send + Clone + Sync + 'static, K: Send + Sync + 'static>
                 return;
               }
             },
-            State::ChangeTo(_) => match &message {
-              Change::Delta(_, v) => State::ChangeTo(v.clone()),
-              Change::Remove(_) => State::Remove,
+            State::ChangeTo(_, p) => match &message {
+              Change::Delta(_, v) => State::ChangeTo(v.clone(), *p),
+              Change::Remove(_) => State::Remove(*p),
             },
-            State::Remove => match &message {
-              Change::Delta(_, v) => State::ChangeTo(v.clone()),
+            State::Remove(p) => match &message {
+              Change::Delta(_, v) => State::NewInsert(v.clone()),
               Change::Remove(_) => unreachable!(),
             },
           }
         })
         .or_insert_with(|| match &message {
           Change::Delta(_, v) => State::NewInsert(v.clone()),
-          Change::Remove(_) => State::Remove,
+          Change::Remove(_) => State::Remove(),
         });
 
       if let Some(remove) = should_remove {
