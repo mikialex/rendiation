@@ -81,3 +81,23 @@ pub fn instance_mapping(
     })
     .into_one_to_many_by_hash()
 }
+
+// pub fn selected_scene() -> impl ReactiveCollection<AllocIdx<Scene>, ()> {
+
+// }
+
+// pub fn selected_scene_models() -> impl ReactiveCollection<AllocIdx<SceneModels>, ()> {
+
+// }
+
+// pub fn selected_scene_std_models() -> impl ReactiveCollection<AllocIdx<StandardModel>, ()> {
+
+// }
+
+// pub fn selected_scene_std_models() -> impl ReactiveCollection<AllocIdx<StandardModel>, ()> {
+
+// }
+
+// pub fn selected_scene_std_models() -> impl ReactiveCollection<AllocIdx<StandardModel>, ()> {
+
+// }

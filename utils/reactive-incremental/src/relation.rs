@@ -61,14 +61,11 @@ pub trait ReactiveCollectionRelationExt<K, V>: Sized + 'static + ReactiveCollect
   // }
 
   /// project map<O, V> -> map<M, V> when we have O - M one to many
-  fn one_to_many_fanout<MK, Relation>(
-    self,
-    relations: Relation,
-  ) -> OneToManyFanout<K, MK, V, Self, Relation>
+  fn one_to_many_fanout<MK, Relation>(self, relations: Relation) -> impl ReactiveCollection<MK, V>
   where
-    V: Clone,
-    MK: Clone,
-    K: Clone,
+    V: Clone + 'static,
+    MK: Clone + 'static,
+    K: Clone + 'static,
     Relation: ReactiveOneToManyRelationship<K, MK> + 'static,
   {
     OneToManyFanout {
@@ -80,6 +77,30 @@ pub trait ReactiveCollectionRelationExt<K, V>: Sized + 'static + ReactiveCollect
 }
 impl<T, K, V> ReactiveCollectionRelationExt<K, V> for T where
   T: Sized + 'static + ReactiveCollection<K, V>
+{
+}
+
+pub trait ReactiveCollectionRelationReduceExt<K>:
+  Sized + 'static + ReactiveCollection<K, ()>
+{
+  fn many_to_one_key_reduce<SK, Relation>(
+    self,
+    relations: Relation,
+  ) -> impl ReactiveCollection<SK, ()>
+  where
+    SK: Clone + 'static,
+    K: Clone + 'static,
+    Relation: ReactiveOneToManyRelationship<SK, K> + 'static,
+  {
+    ManyToOneReduce {
+      upstream: self,
+      relations,
+      phantom: PhantomData,
+    }
+  }
+}
+impl<T, K> ReactiveCollectionRelationReduceExt<K> for T where
+  T: Sized + 'static + ReactiveCollection<K, ()>
 {
 }
 
@@ -163,6 +184,103 @@ where
 
   fn iter_key(&self, skip_cache: bool) -> impl Iterator<Item = M> + '_ {
     self.relations.iter_key(skip_cache)
+  }
+}
+
+pub struct ManyToOneReduce<O, M, Upstream, Relation>
+where
+  Upstream: ReactiveCollection<M, ()>,
+  Relation: ReactiveOneToManyRelationship<O, M>,
+{
+  upstream: Upstream,
+  relations: Relation,
+  phantom: PhantomData<(O, M)>,
+}
+
+impl<O, M, Upstream, Relation> ReactiveCollection<O, ()>
+  for ManyToOneReduce<O, M, Upstream, Relation>
+where
+  M: Clone + 'static,
+  O: Clone + 'static,
+  Upstream: ReactiveCollection<M, ()>,
+  Relation: ReactiveOneToManyRelationship<O, M>,
+{
+  type Changes = impl Iterator<Item = CollectionDelta<O, ()>> + Clone;
+
+  fn poll_changes(&mut self, cx: &mut Context<'_>) -> Poll<Option<Self::Changes>> {
+    let relational_changes = self.relations.poll_changes(cx);
+    let upstream_changes = self.upstream.poll_changes(cx);
+
+    let mut output = Vec::new(); // it's hard to predict capacity, should we compute it?
+
+    // let getter = self.upstream.access(false);
+    // let m_acc = self.relations.access_multi(false);
+
+    // if let Poll::Ready(Some(relational_changes)) = relational_changes {
+    //   for change in relational_changes {
+    //     let many = change.key().clone();
+    //     let new_one = change.value();
+
+    //     if let Some(one_change) = new_one.map(|v| getter(&v)).unwrap() {
+    //       output.push(CollectionDelta::Delta(many, one_change));
+    //     } else {
+    //       output.push(CollectionDelta::Remove(many));
+    //     }
+    //     //
+    //   }
+    // }
+
+    // if let Poll::Ready(Some(relational_changes)) = relational_changes {
+    //   let getter = self.upstream.access(false);
+    //   for change in relational_changes {
+    //     let many = change.key().clone();
+    //     let new_one = change.value();
+    //     if let Some(one_change) = new_one.map(|v| getter(&v)).unwrap() {
+    //       output.push(CollectionDelta::Delta(many, one_change));
+    //     } else {
+    //       output.push(CollectionDelta::Remove(many));
+    //     }
+    //   }
+    // }
+    // let inv_querier = self.relations.access_multi(false);
+    // if let Poll::Ready(Some(upstream_changes)) = upstream_changes {
+    //   for delta in upstream_changes {
+    //     match delta {
+    //       CollectionDelta::Remove(one) => inv_querier(&one, &mut |many| {
+    //         output.push(CollectionDelta::Remove(many));
+    //       }),
+    //       CollectionDelta::Delta(one, change) => inv_querier(&one, &mut |many| {
+    //         output.push(CollectionDelta::Delta(many, change.clone()));
+    //       }),
+    //     }
+    //   }
+    // }
+
+    if output.is_empty() {
+      Poll::Pending
+    } else {
+      Poll::Ready(Some(output.into_iter()))
+    }
+  }
+}
+
+impl<O, M, Upstream, Relation> VirtualCollection<O, ()>
+  for ManyToOneReduce<O, M, Upstream, Relation>
+where
+  Upstream: ReactiveCollection<M, ()>,
+  Relation: ReactiveOneToManyRelationship<O, M>,
+{
+  fn iter_key(&self, skip_cache: bool) -> impl Iterator<Item = O> + '_ {
+    self.relations.iter_key_in_multi_collection(skip_cache)
+  }
+
+  fn access(&self, skip_cache: bool) -> impl Fn(&O) -> Option<()> + '_ {
+    let acc = self.relations.access_multi(skip_cache);
+    move |k| {
+      let mut has = false;
+      acc(k, &mut |_| has = true);
+      has.then_some(())
+    }
   }
 }
 
