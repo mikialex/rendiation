@@ -13,6 +13,11 @@ macro_rules! clone_self_incremental_base {
         Some(1)
       }
     }
+    impl $crate::ReversibleIncremental for $Type {
+      fn reverse_delta(&self, _delta: &Self::Delta) -> Self::Delta {
+        self.clone()
+      }
+    }
   };
 }
 
@@ -264,5 +269,17 @@ impl<T: ApplicableIncremental + Clone + Send + Sync> ApplicableIncremental for O
       *self = None;
     }
     Ok(())
+  }
+}
+
+impl<T: ReversibleIncremental + Clone + Send + Sync> ReversibleIncremental for Option<T> {
+  fn reverse_delta(&self, delta: &Self::Delta) -> Self::Delta {
+    match delta {
+      Some(delta) => match delta {
+        MaybeDelta::Delta(d) => Some(MaybeDelta::Delta(self.as_ref().unwrap().reverse_delta(d))),
+        MaybeDelta::All(v) => Some(MaybeDelta::All(v.clone())),
+      },
+      None => None,
+    }
   }
 }

@@ -123,7 +123,6 @@ pub trait IncrementalEditing: ApplicableIncremental {
   fn expand_edit_path(&self, other: &Self, cb: impl FnMut(Self::Delta));
 }
 
-pub trait ReverseIncremental: ApplicableIncremental {
-  /// return reversed delta
-  fn apply_rev(&mut self, delta: Self::Delta) -> Result<Self::Delta, Self::Error>;
+pub trait ReversibleIncremental: ApplicableIncremental {
+  fn reverse_delta(&self, delta: &Self::Delta) -> Self::Delta;
 }
