@@ -54,7 +54,7 @@ impl<T: IncrementalBase> IncrementalSignal<T> {
     let dispatcher = &self.delta_source;
     mutator(Mutating {
       inner: data,
-      collector: &mut |delta| {
+      collector: &mut |delta, _| {
         dispatcher.emit(delta);
       },
     })

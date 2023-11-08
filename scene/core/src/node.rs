@@ -249,7 +249,7 @@ impl SceneNode {
     let source = self.inner.visit_raw_storage(|tree| tree.source.clone());
     let index = self.inner.raw_handle().index();
     self.inner.mutate(|node| {
-      f(Mutating::new(node, &mut |delta| {
+      f(Mutating::new(node, &mut |delta, _| {
         source.emit(&tree::TreeMutation::Mutate {
           node: index,
           delta: delta.clone(),

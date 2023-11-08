@@ -16,12 +16,12 @@ pub fn std_model_material_ids(
 
 pub fn std_model_physical_mr_ref_change() -> impl ReactiveCollection<AllocIdx<StandardModel>, u64> {
   storage_of::<StandardModel>()
-    .single_listen_by_into_reactive_collection(|change, collector| {
-      field_of!(StandardModel => material)(change, &|material| {
+    .listen_to_reactive_collection(|change| {
+      field_of!(change, StandardModel => material).map(|material| {
         if let MaterialEnum::PhysicalMetallicRoughness(material) = material {
-          collector(Some(material.guid()))
+          Some(material.guid())
         } else {
-          collector(None)
+          None
         }
       })
     })
@@ -29,12 +29,12 @@ pub fn std_model_physical_mr_ref_change() -> impl ReactiveCollection<AllocIdx<St
 }
 pub fn std_model_physical_sg_ref_change() -> impl ReactiveCollection<AllocIdx<StandardModel>, u64> {
   storage_of::<StandardModel>()
-    .single_listen_by_into_reactive_collection(|change, collector| {
-      field_of!(StandardModel => material)(change, &|material| {
+    .listen_to_reactive_collection(|change| {
+      field_of!(change, StandardModel => material).map(|material| {
         if let MaterialEnum::PhysicalSpecularGlossiness(material) = material {
-          collector(Some(material.guid()))
+          Some(material.guid())
         } else {
-          collector(None)
+          None
         }
       })
     })
@@ -50,12 +50,12 @@ pub fn scene_model_material_ids(
 
 pub fn optimizable_std_model() -> impl ReactiveCollection<AllocIdx<StandardModel>, ()> {
   storage_of::<StandardModel>()
-    .single_listen_by_into_reactive_collection(|change, collector| {
-      field_of!(StandardModel => mesh)(change, &|mesh| {
+    .listen_to_reactive_collection(|change| {
+      field_of!(change, StandardModel => mesh).map(|mesh| {
         if let MeshEnum::AttributesMesh(_) = mesh {
-          collector(Some(())) // todo, check if attribute mesh is correct type
+          Some(()) // todo, check if attribute mesh is correct type
         } else {
-          collector(None)
+          None
         }
       })
     })

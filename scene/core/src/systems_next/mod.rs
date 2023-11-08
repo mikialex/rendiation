@@ -9,12 +9,14 @@ pub use node_derives::*;
 
 #[macro_export]
 macro_rules! field_of {
-  ($ty:ty =>$field:tt) => {
-    |view: incremental::MaybeDeltaRef<'_, $ty>, send: &dyn Fn(&_)| match view {
-      incremental::MaybeDeltaRef::All(value) => send(&value.$field),
+  ($view: tt, $ty:ty =>$field:tt) => {
+    match $view {
+      incremental::MaybeDeltaRef::All(value) => Some(&value.$field),
       incremental::MaybeDeltaRef::Delta(delta) => {
         if let incremental::DeltaOf::<$ty>::$field(field) = delta {
-          send(field)
+          Some(field)
+        } else {
+          None
         }
       }
     }

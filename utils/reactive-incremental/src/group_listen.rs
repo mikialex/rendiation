@@ -8,24 +8,31 @@ use fast_hash_collection::*;
 use crate::*;
 
 impl<T: IncrementalBase> IncrementalSignalStorage<T> {
-  pub fn listen_by<N, C, U>(
+  // in mapper, if receive full, should not return none!
+  pub fn listen_to_reactive_collection<U>(
     &self,
-    mut mapper: impl FnMut(MaybeDeltaRef<T>, &dyn Fn(U)) + Send + Sync + 'static,
-    channel_builder: &mut C,
-  ) -> impl Stream<Item = N> + Unpin
+    mapper: impl Fn(MaybeDeltaRef<T>) -> Option<U> + Copy + Send + Sync + 'static,
+  ) -> impl ReactiveCollection<AllocIdx<T>, U>
   where
-    U: Send + Sync + 'static,
-    C: ChannelLike<SingleValueGroupChange<AllocIdx<T>, U>, Message = N>,
+    U: Clone + Send + Sync + 'static,
   {
-    let (sender, receiver) = channel_builder.build();
+    let receiver = GroupSingleValueReceiver {
+      inner: Arc::new(Mutex::new((Default::default(), None))),
+    };
+    let sender = GroupSingleValueSender {
+      inner: Arc::downgrade(&receiver.inner),
+    };
 
     {
       let data = self.inner.data.write();
 
       for (index, data) in data.iter() {
-        mapper(MaybeDeltaRef::All(&data.data), &|mapped| {
-          C::send(&sender, SingleValueGroupChange::Delta(index.into(), mapped));
-        })
+        let mapped = mapper(MaybeDeltaRef::All(&data.data)).unwrap();
+        let change = SingleValueGroupChange {
+          key: index.into(),
+          change: GroupSingleValueState::NewInsert(mapped),
+        };
+        sender.send(change);
       }
     }
 
@@ -34,48 +41,50 @@ impl<T: IncrementalBase> IncrementalSignalStorage<T> {
 
     let remove_token = s.on(move |v| {
       match v {
-        StorageGroupChange::Create { index, data } => mapper(MaybeDeltaRef::All(data), &|mapped| {
-          C::send(&sender, SingleValueGroupChange::Delta(*index, mapped));
-        }),
-        StorageGroupChange::Mutate { index, delta } => {
-          mapper(MaybeDeltaRef::Delta(delta), &|mapped| {
-            C::send(&sender, SingleValueGroupChange::Delta(*index, mapped));
-          });
+        StorageGroupChange::Create { index, data } => {
+          if let Some(mapped) = mapper(MaybeDeltaRef::All(data)) {
+            let change = SingleValueGroupChange {
+              key: *index,
+              change: GroupSingleValueState::NewInsert(mapped),
+            };
+            sender.send(change);
+          }
         }
-        StorageGroupChange::Drop { index, data } => mapper(MaybeDeltaRef::All(data), &|mapped| {
-          C::send(&sender, SingleValueGroupChange::Remove(*index, mapped));
-        }),
+        StorageGroupChange::Mutate {
+          index,
+          delta,
+          data_before_mutate,
+        } => {
+          if let Some(mapped) = mapper(MaybeDeltaRef::Delta(delta)) {
+            let mapped_before = mapper(MaybeDeltaRef::All(data_before_mutate)).unwrap();
+            let change = SingleValueGroupChange {
+              key: *index,
+              change: GroupSingleValueState::ChangeTo(mapped, mapped_before),
+            };
+            sender.send(change);
+          }
+        }
+        StorageGroupChange::Drop { index, data } => {
+          let mapped = mapper(MaybeDeltaRef::All(data)).unwrap();
+          let change = SingleValueGroupChange {
+            key: *index,
+            change: GroupSingleValueState::Remove(mapped),
+          };
+          sender.send(change);
+        }
       }
 
-      C::is_closed(&sender)
+      sender.is_closed()
     });
 
     let dropper = EventSourceDropper::new(remove_token, self.inner.group_watchers.make_weak());
-    DropperAttachedStream::new(dropper, receiver)
-  }
+    let source = DropperAttachedStream::new(dropper, receiver);
 
-  pub fn single_listen_by<U>(
-    &self,
-    mapper: impl FnMut(MaybeDeltaRef<T>, &dyn Fn(U)) + Send + Sync + 'static,
-  ) -> impl Stream<Item = GroupSingleValueChangeBuffer<T, U>> + Unpin
-  where
-    U: Send + Sync + Clone + 'static,
-  {
-    self.listen_by::<_, _, _>(mapper, &mut DefaultSingleValueGroupChannel)
-  }
-
-  pub fn single_listen_by_into_reactive_collection<U>(
-    &self,
-    mapper: impl FnMut(MaybeDeltaRef<T>, &dyn Fn(U)) + Send + Sync + 'static + Clone,
-  ) -> impl ReactiveCollection<AllocIdx<T>, U>
-  where
-    U: Send + Sync + Clone + 'static,
-  {
-    let mapper_c = Box::new(mapper.clone());
+    let mapper_c = Box::new(mapper);
     ReactiveCollectionForSingleValue::<T, _, U> {
-      inner: self.single_listen_by(mapper),
+      inner: source,
       original: self.clone(),
-      mapper: Mutex::new(mapper_c),
+      mapper: mapper_c,
     }
   }
 }
@@ -128,6 +137,62 @@ pub struct GroupSingleValueSender<K, T> {
   inner: Weak<Mutex<(GroupSingleValueChangeBuffer<K, T>, Option<Waker>)>>,
 }
 
+impl<K, T: Clone> GroupSingleValueSender<K, T> {
+  fn send(&self, message: SingleValueGroupChange<AllocIdx<K>, T>) -> bool {
+    if let Some(inner) = self.inner.upgrade() {
+      let mut inner = inner.lock().unwrap();
+
+      let mut should_remove = None;
+
+      use GroupSingleValueState as State;
+
+      let key = message.key;
+
+      inner
+        .0
+        .inner
+        .entry(key)
+        .and_modify(|state| {
+          *state = match state {
+            State::NewInsert(_) => match &message.change {
+              State::NewInsert(_new) => unreachable!(),
+              State::ChangeTo(new, _old) => State::NewInsert(new.clone()),
+              State::Remove(_old) => {
+                should_remove = Some(key);
+                return;
+              }
+            },
+            State::ChangeTo(_current_new, old) => match &message.change {
+              State::NewInsert(_new) => unreachable!(),
+              State::ChangeTo(new, _current_new) => State::ChangeTo(new.clone(), old.clone()),
+              State::Remove(old) => State::Remove(old.clone()),
+            },
+            State::Remove(old) => match &message.change {
+              State::NewInsert(new) => State::ChangeTo(new.clone(), old.clone()),
+              State::ChangeTo(_new, _current_new) => unreachable!(),
+              State::Remove(_old) => unreachable!(),
+            },
+          }
+        })
+        .or_insert(message.change.clone()); // we should do some check here?
+
+      if let Some(remove) = should_remove {
+        inner.0.inner.remove(&remove);
+      }
+
+      if let Some(waker) = &inner.1 {
+        waker.wake_by_ref()
+      }
+      true
+    } else {
+      false
+    }
+  }
+  fn is_closed(&self) -> bool {
+    self.inner.upgrade().is_none()
+  }
+}
+
 impl<K, T> Drop for GroupSingleValueSender<K, T> {
   fn drop(&mut self) {
     if let Some(inner) = self.inner.upgrade() {
@@ -147,9 +212,9 @@ pub enum GroupSingleValueState<T> {
   Remove(T),
 }
 
-pub enum SingleValueGroupChange<K, T> {
-  Delta(K, T),
-  Remove(K, T),
+pub struct SingleValueGroupChange<K, T> {
+  key: K,
+  change: GroupSingleValueState<T>,
 }
 
 pub struct GroupSingleValueReceiver<K, T> {
@@ -159,7 +224,7 @@ pub struct GroupSingleValueReceiver<K, T> {
 struct ReactiveCollectionForSingleValue<T: IncrementalBase, S, U> {
   original: IncrementalSignalStorage<T>,
   inner: S,
-  mapper: Mutex<Box<dyn FnMut(MaybeDeltaRef<T>, &dyn Fn(U)) + Send + Sync>>,
+  mapper: Box<dyn Fn(MaybeDeltaRef<T>) -> Option<U> + Send + Sync>,
 }
 
 impl<T: IncrementalBase, S, U> VirtualCollection<AllocIdx<T>, U>
@@ -174,17 +239,10 @@ impl<T: IncrementalBase, S, U> VirtualCollection<AllocIdx<T>, U>
   fn access(&self, _: bool) -> impl Fn(&AllocIdx<T>) -> Option<U> + '_ {
     let data = self.original.inner.data.read();
     move |key| {
-      data.try_get(key.index).map(|v| &v.data).map(|v| {
-        // this is not good, but i will keep it
-        let result: std::cell::RefCell<Option<_>> = Default::default();
-
-        (self.mapper.lock().unwrap())(
-          MaybeDeltaRef::All(unsafe { std::mem::transmute(v) }),
-          &|mapped| *result.borrow_mut() = Some(mapped),
-        );
-        let mut r = result.borrow_mut();
-        r.take().unwrap()
-      })
+      data
+        .try_get(key.index)
+        .map(|v| &v.data)
+        .map(|v| (self.mapper)(MaybeDeltaRef::All(unsafe { std::mem::transmute(v) })).unwrap())
     }
   }
 }
@@ -224,86 +282,5 @@ impl<K, T> Stream for GroupSingleValueReceiver<K, T> {
     } else {
       Poll::Ready(None)
     }
-  }
-}
-
-pub struct DefaultSingleValueGroupChannel;
-
-impl<T: Send + Clone + Sync + 'static, K: Send + Sync + 'static>
-  ChannelLike<SingleValueGroupChange<AllocIdx<K>, T>> for DefaultSingleValueGroupChannel
-{
-  type Message = GroupSingleValueChangeBuffer<K, T>;
-
-  type Sender = GroupSingleValueSender<K, T>;
-
-  type Receiver = GroupSingleValueReceiver<K, T>;
-
-  fn build(&mut self) -> (Self::Sender, Self::Receiver) {
-    let receiver = GroupSingleValueReceiver {
-      inner: Arc::new(Mutex::new((Default::default(), None))),
-    };
-    let updater = GroupSingleValueSender {
-      inner: Arc::downgrade(&receiver.inner),
-    };
-    (updater, receiver)
-  }
-
-  fn send(sender: &Self::Sender, message: SingleValueGroupChange<AllocIdx<K>, T>) -> bool {
-    if let Some(inner) = sender.inner.upgrade() {
-      let mut inner = inner.lock().unwrap();
-
-      let mut should_remove = None;
-
-      use GroupSingleValueState as State;
-      use SingleValueGroupChange as Change;
-
-      let key = match message {
-        Change::Delta(k, _) => k,
-        Change::Remove(k, _) => k,
-      };
-
-      inner
-        .0
-        .inner
-        .entry(key)
-        .and_modify(|state| {
-          *state = match state {
-            State::NewInsert(_) => match &message {
-              Change::Delta(_, v) => State::NewInsert(v.clone()),
-              Change::Remove(k, _pn) => {
-                should_remove = Some(k);
-                return;
-              }
-            },
-            State::ChangeTo(_, p) => match &message {
-              Change::Delta(_, v) => State::ChangeTo(v.clone(), p.clone()),
-              Change::Remove(_, pn) => State::Remove(pn.clone()),
-            },
-            State::Remove(_) => match &message {
-              Change::Delta(_, v) => State::NewInsert(v.clone()),
-              Change::Remove(_, _) => unreachable!(),
-            },
-          }
-        })
-        .or_insert_with(|| match &message {
-          Change::Delta(_, v) => State::NewInsert(v.clone()),
-          Change::Remove(_, pn) => State::Remove(pn.clone()),
-        });
-
-      if let Some(remove) = should_remove {
-        inner.0.inner.remove(remove);
-      }
-
-      if let Some(waker) = &inner.1 {
-        waker.wake_by_ref()
-      }
-      true
-    } else {
-      false
-    }
-  }
-
-  fn is_closed(sender: &Self::Sender) -> bool {
-    sender.inner.upgrade().is_none()
   }
 }

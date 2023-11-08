@@ -5,12 +5,12 @@ use crate::*;
 pub fn std_model_att_mesh_ref_change(
 ) -> impl ReactiveCollection<AllocIdx<StandardModel>, AllocIdx<AttributesMesh>> {
   storage_of::<StandardModel>()
-    .single_listen_by_into_reactive_collection(|change, collector| {
-      field_of!(StandardModel => mesh)(change, &|mesh| {
+    .listen_to_reactive_collection(|change| {
+      field_of!(change, StandardModel => mesh).map(|mesh| {
         if let MeshEnum::AttributesMesh(mesh) = mesh {
-          collector(Some(AllocIdx::from(mesh.alloc_index())))
+          Some(AllocIdx::from(mesh.alloc_index()))
         } else {
-          collector(None)
+          None
         }
       })
     })
@@ -19,7 +19,7 @@ pub fn std_model_att_mesh_ref_change(
 
 pub fn attribute_boxes() -> impl ReactiveCollection<AllocIdx<AttributesMesh>, Box3<f32>> {
   storage_of::<AttributesMesh>()
-    .single_listen_by_into_reactive_collection(any_change)
+    .listen_to_reactive_collection(|_| Some(()))
     .collective_execute_map_by(|| {
       let box_compute = storage_of::<AttributesMesh>().create_key_mapper(|mesh| {
         mesh
@@ -45,12 +45,12 @@ pub fn model_boxes(
 pub fn scene_model_std_model_ref_change(
 ) -> impl ReactiveCollection<AllocIdx<SceneModelImpl>, AllocIdx<StandardModel>> {
   storage_of::<SceneModelImpl>()
-    .single_listen_by_into_reactive_collection(|change, collector| {
-      field_of!(SceneModelImpl => model)(change, &|mesh| {
-        if let ModelEnum::Standard(mesh) = mesh {
-          collector(Some(AllocIdx::from(mesh.alloc_index())))
+    .listen_to_reactive_collection(|change| {
+      field_of!(change, SceneModelImpl => model).map(|model| {
+        if let ModelEnum::Standard(model) = model {
+          Some(AllocIdx::from(model.alloc_index()))
         } else {
-          collector(None)
+          None
         }
       })
     })
@@ -67,8 +67,8 @@ pub fn scene_model_local_boxes(
 pub type NodeGUID = u64;
 pub fn scene_model_node_ref_change() -> impl ReactiveCollection<AllocIdx<SceneModelImpl>, NodeGUID>
 {
-  storage_of::<SceneModelImpl>().single_listen_by_into_reactive_collection(|change, collector| {
-    field_of!(SceneModelImpl => node)(change, &|node| collector(node.guid()))
+  storage_of::<SceneModelImpl>().listen_to_reactive_collection(|change| {
+    field_of!(change, SceneModelImpl => node).map(|node| node.guid())
   })
 }
 
