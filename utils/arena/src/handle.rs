@@ -78,11 +78,7 @@ impl<T> Handle<T> {
 // https://stackoverflow.com/questions/31371027/copy-trait-and-phantomdata-should-this-really-move
 impl<T> Clone for Handle<T> {
   fn clone(&self) -> Handle<T> {
-    Handle {
-      handle: self.handle,
-      generation: self.generation,
-      phantom: PhantomData,
-    }
+    *self
   }
 }
 

@@ -70,10 +70,7 @@ pub struct AllocIdx<T> {
 
 impl<T> Clone for AllocIdx<T> {
   fn clone(&self) -> Self {
-    Self {
-      index: self.index,
-      phantom: self.phantom,
-    }
+    *self
   }
 }
 impl<T> Copy for AllocIdx<T> {}

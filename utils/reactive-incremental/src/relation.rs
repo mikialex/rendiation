@@ -389,9 +389,7 @@ where
 
         // setup new relations
         if let Some(new_one) = new_one {
-          let new_one_refed_many = mapping
-            .entry(new_one.clone())
-            .or_insert_with(Default::default);
+          let new_one_refed_many = mapping.entry(new_one.clone()).or_default();
           new_one_refed_many.insert(many.clone());
         }
       }

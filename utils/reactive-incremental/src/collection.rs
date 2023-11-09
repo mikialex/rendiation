@@ -872,12 +872,12 @@ where
         > = FastHashMap::default();
         v1.for_each(|d| {
           let key = *d.key();
-          intersections.entry(key).or_insert_with(Default::default).0 = Some(d)
+          intersections.entry(key).or_default().0 = Some(d)
         });
 
         v2.for_each(|d| {
           let key = *d.key();
-          intersections.entry(key).or_insert_with(Default::default).1 = Some(d)
+          intersections.entry(key).or_default().1 = Some(d)
         });
 
         intersections

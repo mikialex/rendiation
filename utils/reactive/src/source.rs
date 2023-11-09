@@ -19,10 +19,7 @@ pub struct RemoveToken<T> {
 
 impl<T> Clone for RemoveToken<T> {
   fn clone(&self) -> Self {
-    Self {
-      handle: self.handle,
-      phantom: PhantomData,
-    }
+    *self
   }
 }
 impl<T> Copy for RemoveToken<T> {}

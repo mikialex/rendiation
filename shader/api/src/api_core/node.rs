@@ -8,10 +8,7 @@ pub struct Node<T: ?Sized> {
 
 impl<T: ?Sized> Clone for Node<T> {
   fn clone(&self) -> Self {
-    Self {
-      phantom: self.phantom,
-      handle: self.handle,
-    }
+    *self
   }
 }
 
