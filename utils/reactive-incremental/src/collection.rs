@@ -55,39 +55,36 @@ impl<K, V> CollectionDelta<K, V> {
 }
 
 pub trait VirtualCollection<K, V> {
-  fn iter_key(&self, skip_cache: bool) -> impl Iterator<Item = K> + '_;
+  fn iter_key(&self) -> impl Iterator<Item = K> + '_;
 
-  fn iter_key_value(&self, skip_cache: bool) -> impl Iterator<Item = (K, V)> + '_ {
-    let access = self.access(skip_cache);
-    self.iter_key(skip_cache).map(move |k| {
+  fn iter_key_value(&self) -> impl Iterator<Item = (K, V)> + '_ {
+    let access = self.access();
+    self.iter_key().map(move |k| {
       let v = access(&k).expect("iter_key_value provide key but not have valid value");
       (k, v)
     })
   }
 
-  /// Access the current value. we use this scoped api style for fast batch accessing(to avoid
-  /// internal fragmented locking). the returned V is passed by ownership because we may create data
-  /// on the fly.
+  /// Access the current value. we use this accessor like api style for fast batch accessing(to
+  /// avoid internal fragmented locking). the returned V is passed by ownership because we may
+  /// create data on the fly.
   ///
-  /// If the skip_cache is true, the implementation will not be incremental and will make sure the
-  /// access is up to date.
+  /// If the return value is None, it means the value does not exist in the table.
   ///
-  /// If the return is None, it means the value does not exist in the table.
-  ///
-  /// The implementation should guarantee it's ok to allow multiple accessor instances to exist at
-  /// the same time. (should only create read guard in underlayer)
-  fn access(&self, skip_cache: bool) -> impl Fn(&K) -> Option<V> + '_;
+  /// The implementation should guarantee that it's ok to allow multiple accessor instances coexists
+  /// at the same time. (should only create read guard in underlayer)
+  fn access(&self) -> impl Fn(&K) -> Option<V> + '_;
 }
 
 pub trait VirtualMultiCollection<K, V> {
-  fn iter_key_in_multi_collection(&self, skip_cache: bool) -> impl Iterator<Item = K> + '_;
-  fn access_multi(&self, skip_cache: bool) -> impl Fn(&K, &mut dyn FnMut(V)) + '_;
+  fn iter_key_in_multi_collection(&self) -> impl Iterator<Item = K> + '_;
+  fn access_multi(&self) -> impl Fn(&K, &mut dyn FnMut(V)) + '_;
 }
 
 /// An abstraction of reactive key-value like virtual container.
 ///
-/// You can imagine this is a data table with the K as the primary key and V as the row of the
-/// data(not containing K). In this table, besides getting data, you can also poll its partial
+/// You can imagine that this is a data table with the K as the primary key and V as the row of the
+/// data(not containing K). In this table, besides getting data, you can also poll it's partial
 /// changes.
 ///
 /// ## Implementation notes:
@@ -97,8 +94,8 @@ pub trait VirtualMultiCollection<K, V> {
 /// The first version of this trait is directly using the Stream as it's parent trait. But in
 /// practice, this cause a lot trouble. We are using many unstable feature like impl trait in return
 /// type, and impl trait in trait, our design require use to bound the stream's item with
-/// IntoIterator, it's hard to express this trait bound everywhere because rust can not auto infer
-/// it's bound requirement.
+/// IntoIterator, it's hard to express this trait bound everywhere because the current rust can not
+/// auto infer it's bound requirement.
 ///
 ///
 /// ### Extra design idea
@@ -115,14 +112,9 @@ pub trait VirtualMultiCollection<K, V> {
 ///
 /// ## Data Coherency
 ///
-/// The data maybe slate if we combine these two trait directly because the visitor maybe not
-/// directly access the original source data, but access the cache. This access abstract the
-/// internal cache mechanism. Note, even if the polling issued before access, you still can not
-/// guaranteed to access the "current" data due to the multi-threaded source mutation. Because of
-/// this limitation, user should make sure their downstream consuming logic is timeline insensitive.
-///
-/// In the future, maybe we could add new sub-trait to enforce the data access is consistent with
-/// the polling logic in tradeoff of the potential memory overhead.
+/// The implementation should guarantee that the data access in VirtualCollection trait should be
+/// coherent with the change polling. For example, if the change has not been polled, the accessor
+/// should access the slate data but not the current.
 pub trait ReactiveCollection<K, V>: VirtualCollection<K, V> + 'static {
   type Changes: Iterator<Item = CollectionDelta<K, V>> + Clone;
   fn poll_changes(&mut self, cx: &mut Context<'_>) -> Poll<Option<Self::Changes>>;
@@ -130,10 +122,10 @@ pub trait ReactiveCollection<K, V>: VirtualCollection<K, V> + 'static {
 
 /// it's useful to use () as the empty collection
 impl<K: 'static, V> VirtualCollection<K, V> for () {
-  fn iter_key(&self, _skip_cache: bool) -> impl Iterator<Item = K> + '_ {
+  fn iter_key(&self) -> impl Iterator<Item = K> + '_ {
     [].into_iter()
   }
-  fn access(&self, _skip_cache: bool) -> impl Fn(&K) -> Option<V> + '_ {
+  fn access(&self) -> impl Fn(&K) -> Option<V> + '_ {
     |_| None
   }
 }
@@ -161,19 +153,19 @@ impl<K: 'static, V> ReactiveCollection<K, V> for () {
 
 /// dynamic version of the above trait
 pub trait DynamicVirtualCollection<K, V> {
-  fn iter_key_boxed(&self, skip_cache: bool) -> Box<dyn Iterator<Item = K> + '_>;
-  fn access_boxed(&self, skip_cache: bool) -> Box<dyn Fn(&K) -> Option<V> + '_>;
+  fn iter_key_boxed(&self) -> Box<dyn Iterator<Item = K> + '_>;
+  fn access_boxed(&self) -> Box<dyn Fn(&K) -> Option<V> + '_>;
 }
 impl<K, V, T> DynamicVirtualCollection<K, V> for T
 where
   Self: VirtualCollection<K, V>,
 {
-  fn iter_key_boxed(&self, skip_cache: bool) -> Box<dyn Iterator<Item = K> + '_> {
-    Box::new(self.iter_key(skip_cache))
+  fn iter_key_boxed(&self) -> Box<dyn Iterator<Item = K> + '_> {
+    Box::new(self.iter_key())
   }
 
-  fn access_boxed(&self, skip_cache: bool) -> Box<dyn Fn(&K) -> Option<V> + '_> {
-    Box::new(self.access(skip_cache))
+  fn access_boxed(&self) -> Box<dyn Fn(&K) -> Option<V> + '_> {
+    Box::new(self.access())
   }
 }
 pub trait DynamicReactiveCollection<K, V>: ReactiveCollection<K, V> {
@@ -449,7 +441,7 @@ impl<K, V, Map> VirtualCollection<K, V> for ReactiveKVMapFork<Map, K, V>
 where
   Map: ReactiveCollection<K, V>,
 {
-  fn iter_key(&self, skip_cache: bool) -> impl Iterator<Item = K> + '_ {
+  fn iter_key(&self) -> impl Iterator<Item = K> + '_ {
     struct ReactiveKVMapForkRead<'a, Map, I> {
       _inner: RwLockReadGuard<'a, Map>,
       inner_iter: I,
@@ -465,15 +457,15 @@ where
 
     /// util to get collection's accessor type
     type IterOf<'a, M: VirtualCollection<K, V> + 'a, K, V> = impl Iterator<Item = K> + 'a;
-    fn get_iter<'a, K, V, M>(map: &M, skip_cache: bool) -> IterOf<M, K, V>
+    fn get_iter<'a, K, V, M>(map: &M) -> IterOf<M, K, V>
     where
       M: VirtualCollection<K, V> + 'a,
     {
-      map.iter_key(skip_cache)
+      map.iter_key()
     }
 
     let inner = self.inner.read();
-    let inner_iter = get_iter(inner.deref(), skip_cache);
+    let inner_iter = get_iter(inner.deref());
     // safety: read guard is hold by iter, acc's real reference is form the Map
     let inner_iter: IterOf<'static, Map, K, V> = unsafe { std::mem::transmute(inner_iter) };
     ReactiveKVMapForkRead {
@@ -482,19 +474,19 @@ where
     }
   }
 
-  fn access(&self, skip_cache: bool) -> impl Fn(&K) -> Option<V> + '_ {
+  fn access(&self) -> impl Fn(&K) -> Option<V> + '_ {
     let inner = self.inner.read();
 
     /// util to get collection's accessor type
     type AccessorOf<'a, M: VirtualCollection<K, V> + 'a, K, V> = impl Fn(&K) -> Option<V> + 'a;
-    fn get_accessor<'a, K, V, M>(map: &M, skip_cache: bool) -> AccessorOf<M, K, V>
+    fn get_accessor<'a, K, V, M>(map: &M) -> AccessorOf<M, K, V>
     where
       M: VirtualCollection<K, V> + 'a,
     {
-      map.access(skip_cache)
+      map.access()
     }
 
-    let acc: AccessorOf<Map, K, V> = get_accessor(inner.deref(), skip_cache);
+    let acc: AccessorOf<Map, K, V> = get_accessor(inner.deref());
     // safety: read guard is hold by closure, acc's real reference is form the Map
     let acc: AccessorOf<'static, Map, K, V> = unsafe { std::mem::transmute(acc) };
     move |key| {
@@ -544,22 +536,11 @@ where
   K: std::hash::Hash + Eq + Clone,
   V: Clone,
 {
-  fn iter_key(&self, skip_cache: bool) -> impl Iterator<Item = K> + '_ {
-    if skip_cache {
-      Box::new(self.inner.iter_key(skip_cache)) as Box<dyn Iterator<Item = K> + '_>
-    } else {
-      Box::new(self.cache.keys().cloned()) as Box<dyn Iterator<Item = K> + '_>
-    }
+  fn iter_key(&self) -> impl Iterator<Item = K> + '_ {
+    self.cache.keys().cloned()
   }
-  fn access(&self, skip_cache: bool) -> impl Fn(&K) -> Option<V> + '_ {
-    let inner = self.inner.access(skip_cache);
-    move |key| {
-      if skip_cache {
-        inner(key)
-      } else {
-        self.cache.get(key).cloned()
-      }
-    }
+  fn access(&self) -> impl Fn(&K) -> Option<V> + '_ {
+    move |key| self.cache.get(key).cloned()
   }
 }
 
@@ -602,23 +583,11 @@ where
   K: LinearIdentification + 'static,
   V: Clone,
 {
-  fn iter_key(&self, skip_cache: bool) -> impl Iterator<Item = K> + '_ {
-    if skip_cache {
-      Box::new(self.inner.iter_key(skip_cache)) as Box<dyn Iterator<Item = K> + '_>
-    } else {
-      Box::new(self.cache.iter().map(|(k, _)| K::from_alloc_index(k)))
-        as Box<dyn Iterator<Item = K> + '_>
-    }
+  fn iter_key(&self) -> impl Iterator<Item = K> + '_ {
+    self.cache.iter().map(|(k, _)| K::from_alloc_index(k))
   }
-  fn access(&self, skip_cache: bool) -> impl Fn(&K) -> Option<V> + '_ {
-    let inner = self.inner.access(skip_cache);
-    move |key| {
-      if skip_cache {
-        inner(key)
-      } else {
-        self.cache.try_get(key.alloc_index()).cloned()
-      }
-    }
+  fn access(&self) -> impl Fn(&K) -> Option<V> + '_ {
+    move |key| self.cache.try_get(key.alloc_index()).cloned()
   }
 }
 
@@ -660,11 +629,11 @@ where
   FF: Fn(&K, V) -> V2 + 'static,
   T: VirtualCollection<K, V>,
 {
-  fn iter_key(&self, skip_cache: bool) -> impl Iterator<Item = K> + '_ {
-    self.inner.iter_key(skip_cache)
+  fn iter_key(&self) -> impl Iterator<Item = K> + '_ {
+    self.inner.iter_key()
   }
-  fn access(&self, skip_cache: bool) -> impl Fn(&K) -> Option<V2> + '_ {
-    let inner_getter = self.inner.access(skip_cache);
+  fn access(&self) -> impl Fn(&K) -> Option<V2> + '_ {
+    let inner_getter = self.inner.access();
     let mapper = (self.map_creator)();
     move |key| inner_getter(key).map(|v| mapper(key, v))
   }
@@ -702,11 +671,11 @@ where
   F: Fn(V) -> V2 + Copy,
   T: VirtualCollection<K, V>,
 {
-  fn iter_key(&self, skip_cache: bool) -> impl Iterator<Item = K> + '_ {
-    self.inner.iter_key(skip_cache)
+  fn iter_key(&self) -> impl Iterator<Item = K> + '_ {
+    self.inner.iter_key()
   }
-  fn access(&self, skip_cache: bool) -> impl Fn(&K) -> Option<V2> + '_ {
-    let inner_getter = self.inner.access(skip_cache);
+  fn access(&self) -> impl Fn(&K) -> Option<V2> + '_ {
+    let inner_getter = self.inner.access();
     move |key| inner_getter(key).map(|v| (self.map)(v))
   }
 }
@@ -763,15 +732,15 @@ where
   F: Fn(V) -> Option<V2> + Copy,
   T: VirtualCollection<K, V>,
 {
-  fn iter_key(&self, skip_cache: bool) -> impl Iterator<Item = K> + '_ {
-    let inner_getter = self.inner.access(skip_cache);
-    self.inner.iter_key(skip_cache).filter(move |k| {
+  fn iter_key(&self) -> impl Iterator<Item = K> + '_ {
+    let inner_getter = self.inner.access();
+    self.inner.iter_key().filter(move |k| {
       let v = inner_getter(k).unwrap();
       (self.checker)(v).is_some()
     })
   }
-  fn access(&self, skip_cache: bool) -> impl Fn(&K) -> Option<V2> + '_ {
-    let inner_getter = self.inner.access(skip_cache);
+  fn access(&self) -> impl Fn(&K) -> Option<V2> + '_ {
+    let inner_getter = self.inner.access();
     move |key| inner_getter(key).and_then(|v| (self.checker)(v))
   }
 }
@@ -790,19 +759,19 @@ where
   T2: VirtualCollection<K, V2>,
 {
   /// we require the T1 T2 has the same key range
-  fn iter_key(&self, skip_cache: bool) -> impl Iterator<Item = K> + '_ {
+  fn iter_key(&self) -> impl Iterator<Item = K> + '_ {
     let mut keys = FastHashSet::<K>::default();
-    self.a.iter_key(skip_cache).for_each(|k| {
+    self.a.iter_key().for_each(|k| {
       keys.insert(k);
     });
-    self.b.iter_key(skip_cache).for_each(|k| {
+    self.b.iter_key().for_each(|k| {
       keys.insert(k);
     });
     keys.into_iter()
   }
-  fn access(&self, skip_cache: bool) -> impl Fn(&K) -> Option<(Option<V1>, Option<V2>)> + '_ {
-    let getter_a = self.a.access(skip_cache);
-    let getter_b = self.b.access(skip_cache);
+  fn access(&self) -> impl Fn(&K) -> Option<(Option<V1>, Option<V2>)> + '_ {
+    let getter_a = self.a.access();
+    let getter_b = self.b.access();
 
     move |key| Some((getter_a(key), getter_b(key)))
   }
@@ -889,8 +858,8 @@ where
     let t1 = self.a.poll_changes(cx);
     let t2 = self.b.poll_changes(cx);
 
-    let a_access = self.a.access(false);
-    let b_access = self.b.access(false);
+    let a_access = self.a.access();
+    let b_access = self.b.access();
 
     let r = match (t1, t2) {
       (Poll::Ready(Some(v1)), Poll::Ready(Some(v2))) => {

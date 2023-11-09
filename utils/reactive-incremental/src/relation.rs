@@ -10,8 +10,8 @@ use crate::*;
 /// we could use ReactiveCollection<A, B>+ ReactiveCollection<B, A> as parent bound but rust think
 /// it will impl conflict. and we also want avoid unnecessary stream fork
 pub trait ReactiveOneToOneRelationship<A, B>: ReactiveCollection<A, B> {
-  fn iter_by_value_one_one(&self, skip_cache: bool) -> impl Iterator<Item = B> + '_;
-  fn access_by_value_one_one(&self, skip_cache: bool) -> impl Fn(&B) -> Option<A> + '_;
+  fn iter_by_value_one_one(&self) -> impl Iterator<Item = B> + '_;
+  fn access_by_value_one_one(&self) -> impl Fn(&B) -> Option<A> + '_;
 }
 
 pub trait ReactiveOneToManyRelationship<O, M>:
@@ -130,7 +130,7 @@ where
 
     let mut output = FastHashMap::default(); // it's hard to predict capacity, should we compute it?
     if let Poll::Ready(Some(relational_changes)) = relational_changes {
-      let getter = self.upstream.access(false);
+      let getter = self.upstream.access();
       for change in relational_changes {
         match change {
           CollectionDelta::Delta(k, v, p) => {
@@ -149,7 +149,7 @@ where
         }
       }
     }
-    let inv_querier = self.relations.access_multi(false);
+    let inv_querier = self.relations.access_multi();
     if let Poll::Ready(Some(upstream_changes)) = upstream_changes {
       for delta in upstream_changes {
         match delta {
@@ -185,17 +185,17 @@ where
   Upstream: ReactiveCollection<O, X>,
   Relation: ReactiveOneToManyRelationship<O, M>,
 {
-  fn access(&self, skip_cache: bool) -> impl Fn(&M) -> Option<X> + '_ {
-    let upstream_getter = self.upstream.access(skip_cache);
-    let access = self.relations.access(skip_cache);
+  fn access(&self) -> impl Fn(&M) -> Option<X> + '_ {
+    let upstream_getter = self.upstream.access();
+    let access = self.relations.access();
     move |key| {
       let one = access(key)?;
       upstream_getter(&one)
     }
   }
 
-  fn iter_key(&self, skip_cache: bool) -> impl Iterator<Item = M> + '_ {
-    self.relations.iter_key(skip_cache)
+  fn iter_key(&self) -> impl Iterator<Item = M> + '_ {
+    self.relations.iter_key()
   }
 }
 
@@ -226,8 +226,8 @@ where
 
     let mut output = FastHashMap::default(); // it's hard to predict capacity, should we compute it?
 
-    let getter = self.upstream.access(false);
-    let one_acc = self.relations.access(false);
+    let getter = self.upstream.access();
+    let one_acc = self.relations.access();
 
     if let Poll::Ready(Some(relational_changes)) = relational_changes {
       for change in relational_changes {
@@ -311,11 +311,11 @@ where
   Relation: ReactiveCollection<M, O>,
   O: Clone + Eq + Hash,
 {
-  fn iter_key(&self, _skip_cache: bool) -> impl Iterator<Item = O> + '_ {
+  fn iter_key(&self) -> impl Iterator<Item = O> + '_ {
     self.ref_counting.keys().cloned()
   }
 
-  fn access(&self, _skip_cache: bool) -> impl Fn(&O) -> Option<()> + '_ {
+  fn access(&self) -> impl Fn(&O) -> Option<()> + '_ {
     move |k| self.ref_counting.get(k).map(|_| {})
   }
 }
@@ -329,12 +329,12 @@ impl<O, M, T> VirtualCollection<M, O> for OneToManyRefHashBookKeeping<O, M, T>
 where
   T: ReactiveCollection<M, O>,
 {
-  fn iter_key(&self, skip_cache: bool) -> impl Iterator<Item = M> + '_ {
-    self.upstream.iter_key(skip_cache)
+  fn iter_key(&self) -> impl Iterator<Item = M> + '_ {
+    self.upstream.iter_key()
   }
 
-  fn access(&self, skip_cache: bool) -> impl Fn(&M) -> Option<O> + '_ {
-    self.upstream.access(skip_cache)
+  fn access(&self) -> impl Fn(&M) -> Option<O> + '_ {
+    self.upstream.access()
   }
 }
 
@@ -343,11 +343,11 @@ where
   M: Hash + Eq + Clone + 'static,
   O: Hash + Eq + Clone + 'static,
 {
-  fn iter_key_in_multi_collection(&self, _skip_cache: bool) -> impl Iterator<Item = O> + '_ {
+  fn iter_key_in_multi_collection(&self) -> impl Iterator<Item = O> + '_ {
     self.mapping.keys().cloned()
   }
 
-  fn access_multi(&self, _skip_cache: bool) -> impl Fn(&O, &mut dyn FnMut(M)) + '_ {
+  fn access_multi(&self) -> impl Fn(&O, &mut dyn FnMut(M)) + '_ {
     move |o, visitor| {
       if let Some(set) = self.mapping.get(o) {
         for many in set.iter() {
@@ -412,12 +412,12 @@ impl<O, M, T> VirtualCollection<M, O> for OneToManyRefDenseBookKeeping<O, M, T>
 where
   T: ReactiveCollection<M, O>,
 {
-  fn iter_key(&self, skip_cache: bool) -> impl Iterator<Item = M> + '_ {
-    self.upstream.iter_key(skip_cache)
+  fn iter_key(&self) -> impl Iterator<Item = M> + '_ {
+    self.upstream.iter_key()
   }
 
-  fn access(&self, skip_cache: bool) -> impl Fn(&M) -> Option<O> + '_ {
-    self.upstream.access(skip_cache)
+  fn access(&self) -> impl Fn(&M) -> Option<O> + '_ {
+    self.upstream.access()
   }
 }
 
@@ -426,7 +426,7 @@ where
   M: LinearIdentification + Clone + 'static,
   O: LinearIdentification + Clone + 'static,
 {
-  fn iter_key_in_multi_collection(&self, _skip_cache: bool) -> impl Iterator<Item = O> + '_ {
+  fn iter_key_in_multi_collection(&self) -> impl Iterator<Item = O> + '_ {
     self
       .mapping
       .iter()
@@ -434,7 +434,7 @@ where
       .filter_map(|(i, list)| list.is_empty().then_some(O::from_alloc_index(i as u32)))
   }
 
-  fn access_multi(&self, _skip_cache: bool) -> impl Fn(&O, &mut dyn FnMut(M)) + '_ {
+  fn access_multi(&self) -> impl Fn(&O, &mut dyn FnMut(M)) + '_ {
     move |o, visitor| {
       if let Some(list) = self.mapping.get(o.alloc_index() as usize) {
         self.mapping_buffer.visit(list, |v, _| {

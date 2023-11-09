@@ -1,9 +1,8 @@
-use std::{
-  sync::{Arc, Mutex, Weak},
-  task::Waker,
-};
+use std::sync::{Arc, Weak};
 
 use fast_hash_collection::*;
+use futures::task::AtomicWaker;
+use parking_lot::RwLock;
 
 use crate::*;
 
@@ -16,8 +15,9 @@ impl<T: IncrementalBase> IncrementalSignalStorage<T> {
   where
     U: Clone + Send + Sync + 'static,
   {
+    let inner = Arc::new((Default::default(), AtomicWaker::new()));
     let receiver = GroupSingleValueReceiver {
-      inner: Arc::new(Mutex::new((Default::default(), None))),
+      inner: inner.clone(),
     };
     let sender = GroupSingleValueSender {
       inner: Arc::downgrade(&receiver.inner),
@@ -84,13 +84,30 @@ impl<T: IncrementalBase> IncrementalSignalStorage<T> {
     ReactiveCollectionForSingleValue::<T, _, U> {
       inner: source,
       original: self.clone(),
+      mutations: inner,
       mapper: mapper_c,
     }
   }
 }
 
 pub struct GroupSingleValueChangeBuffer<K, T> {
-  inner: FastHashMap<AllocIdx<K>, GroupSingleValueState<T>>,
+  inner: Arc<RwLock<FastHashMap<AllocIdx<K>, GroupSingleValueState<T>>>>,
+}
+
+impl<K, T> GroupSingleValueChangeBuffer<K, T> {
+  fn take(&self) -> Option<Self> {
+    let mut inner = self.inner.write();
+    let inner: &mut FastHashMap<AllocIdx<K>, GroupSingleValueState<T>> = &mut inner;
+    if inner.is_empty() {
+      None
+    } else {
+      let inner = std::mem::take(inner);
+      Self {
+        inner: Arc::new(RwLock::new(inner)),
+      }
+      .into()
+    }
+  }
 }
 
 impl<K, T: Clone> Clone for GroupSingleValueChangeBuffer<K, T> {
@@ -114,8 +131,9 @@ impl<K, T: Clone> IntoIterator for GroupSingleValueChangeBuffer<K, T> {
   type IntoIter = impl Iterator<Item = Self::Item> + Clone;
 
   fn into_iter(self) -> Self::IntoIter {
-    let buffer = self
-      .inner
+    let inner = self.inner.read_recursive();
+    let buffer = inner
+      .clone()
       .into_iter()
       .flat_map(|(id, state)| {
         let mut expand = smallvec::SmallVec::<[CollectionDelta<AllocIdx<K>, T>; 2]>::new();
@@ -134,23 +152,19 @@ impl<K, T: Clone> IntoIterator for GroupSingleValueChangeBuffer<K, T> {
 }
 
 pub struct GroupSingleValueSender<K, T> {
-  inner: Weak<Mutex<(GroupSingleValueChangeBuffer<K, T>, Option<Waker>)>>,
+  inner: Weak<(GroupSingleValueChangeBuffer<K, T>, AtomicWaker)>,
 }
 
 impl<K, T: Clone> GroupSingleValueSender<K, T> {
   fn send(&self, message: SingleValueGroupChange<AllocIdx<K>, T>) -> bool {
     if let Some(inner) = self.inner.upgrade() {
-      let mut inner = inner.lock().unwrap();
-
       let mut should_remove = None;
 
       use GroupSingleValueState as State;
 
       let key = message.key;
-
-      inner
-        .0
-        .inner
+      let mut mutations = inner.0.inner.write();
+      mutations
         .entry(key)
         .and_modify(|state| {
           *state = match state {
@@ -177,12 +191,10 @@ impl<K, T: Clone> GroupSingleValueSender<K, T> {
         .or_insert(message.change.clone()); // we should do some check here?
 
       if let Some(remove) = should_remove {
-        inner.0.inner.remove(&remove);
+        mutations.remove(&remove);
       }
 
-      if let Some(waker) = &inner.1 {
-        waker.wake_by_ref()
-      }
+      inner.1.wake();
       true
     } else {
       false
@@ -196,10 +208,7 @@ impl<K, T: Clone> GroupSingleValueSender<K, T> {
 impl<K, T> Drop for GroupSingleValueSender<K, T> {
   fn drop(&mut self) {
     if let Some(inner) = self.inner.upgrade() {
-      let inner = inner.lock().unwrap();
-      if let Some(waker) = &inner.1 {
-        waker.wake_by_ref()
-      }
+      inner.1.wake()
     }
   }
 }
@@ -218,31 +227,56 @@ pub struct SingleValueGroupChange<K, T> {
 }
 
 pub struct GroupSingleValueReceiver<K, T> {
-  inner: Arc<Mutex<(GroupSingleValueChangeBuffer<K, T>, Option<Waker>)>>,
+  inner: Arc<(GroupSingleValueChangeBuffer<K, T>, AtomicWaker)>,
 }
 
 struct ReactiveCollectionForSingleValue<T: IncrementalBase, S, U> {
   original: IncrementalSignalStorage<T>,
   inner: S,
+  mutations: Arc<(GroupSingleValueChangeBuffer<T, U>, AtomicWaker)>, // this is a little messy
   mapper: Box<dyn Fn(MaybeDeltaRef<T>) -> Option<U> + Send + Sync>,
 }
 
 impl<T: IncrementalBase, S, U> VirtualCollection<AllocIdx<T>, U>
   for ReactiveCollectionForSingleValue<T, S, U>
 {
-  fn iter_key(&self, _skip_cache: bool) -> impl Iterator<Item = AllocIdx<T>> + '_ {
-    let data = self.original.inner.data.read();
+  fn iter_key(&self) -> impl Iterator<Item = AllocIdx<T>> + '_ {
+    let data = self.original.inner.data.read_recursive();
+    let mutations = self.mutations.0.inner.read_recursive();
     // todo, use unsafe to avoid clone
-    let cloned_keys = data.iter().map(|v| v.0.into()).collect::<Vec<_>>();
+    let cloned_keys = data
+      .iter()
+      .map(|v| v.0.into())
+      .filter(|v| !mutations.contains_key(v))
+      .chain(mutations.keys().cloned()) // mutations contains removed but not polled key
+      .collect::<Vec<_>>();
+
     cloned_keys.into_iter()
   }
-  fn access(&self, _: bool) -> impl Fn(&AllocIdx<T>) -> Option<U> + '_ {
-    let data = self.original.inner.data.read();
+  fn access(&self) -> impl Fn(&AllocIdx<T>) -> Option<U> + '_ {
+    let data = self.original.inner.data.read_recursive();
+    let mutations = self.mutations.0.inner.read_recursive();
     move |key| {
-      data
-        .try_get(key.index)
-        .map(|v| &v.data)
-        .map(|v| (self.mapper)(MaybeDeltaRef::All(unsafe { std::mem::transmute(v) })).unwrap())
+      if let Some(m) = mutations.get(key) {
+        match m {
+          GroupSingleValueState::NewInsert(_) => None,
+          GroupSingleValueState::ChangeTo(_, old) => {
+            (self.mapper)(MaybeDeltaRef::All(unsafe { std::mem::transmute(old) }))
+              .unwrap()
+              .into()
+          }
+          GroupSingleValueState::Remove(old) => {
+            (self.mapper)(MaybeDeltaRef::All(unsafe { std::mem::transmute(old) }))
+              .unwrap()
+              .into()
+          }
+        }
+      } else {
+        data
+          .try_get(key.index)
+          .map(|v| &v.data)
+          .map(|v| (self.mapper)(MaybeDeltaRef::All(unsafe { std::mem::transmute(v) })).unwrap())
+      }
     }
   }
 }
@@ -267,20 +301,15 @@ impl<K, T> Stream for GroupSingleValueReceiver<K, T> {
   type Item = GroupSingleValueChangeBuffer<K, T>;
 
   fn poll_next(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Option<Self::Item>> {
-    if let Ok(mut inner) = self.inner.lock() {
-      inner.1 = cx.waker().clone().into();
-      // check is_some first to avoid unnecessary move
-      if !inner.0.inner.is_empty() {
-        let value = std::mem::take(&mut inner.0);
-        Poll::Ready(Some(value))
-        // check if sender has dropped
-      } else if Arc::weak_count(&self.inner) == 0 {
-        Poll::Ready(None)
-      } else {
-        Poll::Pending
-      }
-    } else {
+    self.inner.1.register(cx.waker());
+    // check is_some first to avoid unnecessary move
+    if let Some(change) = self.inner.0.take() {
+      Poll::Ready(Some(change))
+      // check if sender has dropped
+    } else if Arc::weak_count(&self.inner) == 0 {
       Poll::Ready(None)
+    } else {
+      Poll::Pending
     }
   }
 }
