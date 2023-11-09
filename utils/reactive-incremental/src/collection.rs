@@ -30,10 +30,18 @@ impl<K, V> CollectionDelta<K, V> {
     }
   }
 
-  pub fn new_value(self) -> Option<V> {
+  pub fn new_value(&self) -> Option<&V> {
     match self {
       Self::Delta(_, v, _) => Some(v),
       Self::Remove(_, _) => None,
+    }
+  }
+
+  pub fn old_value(&self) -> Option<&V> {
+    match self {
+      Self::Delta(_, _, Some(v)) => Some(v),
+      Self::Remove(_, v) => Some(v),
+      _ => None,
     }
   }
 

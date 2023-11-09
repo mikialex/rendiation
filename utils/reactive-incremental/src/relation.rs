@@ -34,7 +34,6 @@ pub trait ReactiveCollectionRelationExt<K, V>: Sized + 'static + ReactiveCollect
     OneToManyRefHashBookKeeping {
       upstream: self,
       mapping: Default::default(),
-      rev_mapping: Default::default(),
     }
   }
   fn into_one_to_many_by_idx(self) -> impl ReactiveOneToManyRelationship<V, K>
@@ -47,7 +46,6 @@ pub trait ReactiveCollectionRelationExt<K, V>: Sized + 'static + ReactiveCollect
       upstream: self,
       mapping_buffer: Default::default(),
       mapping: Default::default(),
-      rev_mapping: Default::default(),
       phantom: PhantomData,
     }
   }
@@ -297,8 +295,6 @@ where
 pub struct OneToManyRefHashBookKeeping<O, M, T> {
   upstream: T,
   mapping: FastHashMap<O, FastHashSet<M>>,
-  /// this could be removed if we redefine the collection change set with previous v
-  rev_mapping: FastHashMap<M, Option<O>>,
 }
 
 impl<O, M, T> VirtualCollection<M, O> for OneToManyRefHashBookKeeping<O, M, T>
@@ -351,9 +347,10 @@ where
         let mapping = &mut self.mapping;
         let many = change.key().clone();
         let new_one = change.new_value();
-        let old_refed_one = self.rev_mapping.get(&many);
+
+        let old_refed_one = change.old_value();
         // remove possible old relations
-        if let Some(Some(old_refed_one)) = old_refed_one {
+        if let Some(old_refed_one) = old_refed_one {
           let previous_one_refed_many = mapping.get_mut(old_refed_one).unwrap();
           previous_one_refed_many.remove(&many);
           if previous_one_refed_many.is_empty() {
@@ -363,14 +360,12 @@ where
         }
 
         // setup new relations
-        if let Some(new_one) = &new_one {
+        if let Some(new_one) = new_one {
           let new_one_refed_many = mapping
             .entry(new_one.clone())
             .or_insert_with(Default::default);
           new_one_refed_many.insert(many.clone());
         }
-
-        self.rev_mapping.insert(many.clone(), new_one);
       }
     }
 
@@ -382,7 +377,6 @@ pub struct OneToManyRefDenseBookKeeping<O, M, T> {
   upstream: T,
   mapping_buffer: LinkListPool<u32>,
   mapping: Vec<ListHandle>,
-  rev_mapping: Vec<u32>,
   phantom: PhantomData<(O, M)>,
 }
 
@@ -442,23 +436,23 @@ where
         let many = *change.key();
         let new_one = change.new_value();
 
-        let old_refed_one = self.rev_mapping.get(many.alloc_index() as usize);
+        let old_refed_one = change.old_value();
         // remove possible old relations
         if let Some(old_refed_one) = old_refed_one {
-          if *old_refed_one != u32::MAX {
-            let previous_one_refed_many = mapping.get_mut(*old_refed_one as usize).unwrap();
+          let previous_one_refed_many = mapping
+            .get_mut(old_refed_one.alloc_index() as usize)
+            .unwrap();
 
-            //  this is O(n), should we care about it?
-            self
-              .mapping_buffer
-              .visit_and_remove(previous_one_refed_many, |value, _| {
-                let should_remove = *value == many.alloc_index();
-                (should_remove, !should_remove)
-              });
+          //  this is O(n), should we care about it?
+          self
+            .mapping_buffer
+            .visit_and_remove(previous_one_refed_many, |value, _| {
+              let should_remove = *value == many.alloc_index();
+              (should_remove, !should_remove)
+            });
 
-            if previous_one_refed_many.is_empty() {
-              // todo tail shrink
-            }
+          if previous_one_refed_many.is_empty() {
+            // todo tail shrink
           }
         }
 
@@ -470,9 +464,6 @@ where
             new_one.alloc_index(),
           );
         }
-
-        self.rev_mapping[many.alloc_index() as usize] =
-          new_one.map(|v| v.alloc_index()).unwrap_or(u32::MAX)
       }
     }
 
