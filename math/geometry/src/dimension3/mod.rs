@@ -1,13 +1,13 @@
-pub mod bounding_impl;
-pub mod box3;
-pub mod frustum;
-pub mod intersection;
-pub mod line_segment;
-pub mod plane;
-pub mod ray3;
-pub mod sphere;
-pub mod spherical;
-pub mod triangle;
+mod bounding_impl;
+mod box3;
+mod frustum;
+mod intersection;
+mod line_segment;
+mod plane;
+mod ray3;
+mod sphere;
+mod spherical;
+mod triangle;
 
 pub use box3::*;
 pub use frustum::*;

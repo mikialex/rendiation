@@ -29,8 +29,7 @@ where
     //   |Dot(D,N)|*b2 = sign(Dot(D,N))*Dot(D,Cross(E1,Q))
     //   |Dot(D,N)|*t = -sign(Dot(D,N))*Dot(Q,N)
     let mut DdN = self.direction.dot(_normal);
-    #[allow(unused_assignments)]
-    let mut sign = T::zero();
+    let sign;
 
     if DdN > T::zero() {
       if backface_culling {
@@ -114,9 +113,7 @@ intersect_reverse!(Box3, OptionalNearest<HitPoint3D>, (), Ray3);
 impl IntersectAble<Box3, OptionalNearest<HitPoint3D>> for Ray3 {
   #[inline]
   fn intersect(&self, box3: &Box3, _: &()) -> OptionalNearest<HitPoint3D> {
-    #[allow(unused_assignments)]
-    let (mut t_max, mut t_min, mut ty_min, mut ty_max, mut tz_min, mut tz_max) =
-      (0.0, 0.0, 0.0, 0.0, 0.0, 0.0);
+    let (mut t_max, mut t_min, ty_min, ty_max, tz_min, tz_max);
 
     let inv_dir_x = 1. / self.direction.x;
     let inv_dir_y = 1. / self.direction.y;

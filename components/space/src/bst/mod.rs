@@ -5,8 +5,8 @@ use crate::{
   AbstractTreeNode,
 };
 
-pub mod apply;
-pub mod test;
+mod apply;
+mod test;
 pub use apply::*;
 use rendiation_geometry::ContainAble;
 

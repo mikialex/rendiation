@@ -1,9 +1,9 @@
 #![allow(clippy::collapsible_match)]
 #![allow(clippy::single_match)]
 
-pub mod orbit;
+mod orbit;
 pub use orbit::*;
-pub mod fps;
+mod fps;
 pub use fps::*;
 use rendiation_algebra::{Mat4, Vec2};
 

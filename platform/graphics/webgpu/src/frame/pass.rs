@@ -147,7 +147,6 @@ pub struct ActiveRenderPass<'p> {
 }
 
 impl<'p> ActiveRenderPass<'p> {
-  #[allow(clippy::return_self_not_must_use)]
   pub fn by(mut self, mut renderable: impl PassContent) -> Self {
     renderable.render(&mut self.pass);
     self

@@ -1,6 +1,6 @@
-pub mod d2;
+mod d2;
 pub use d2::*;
-pub mod cube;
+mod cube;
 pub use cube::*;
 
 use crate::*;

@@ -1,7 +1,7 @@
 use rendiation_algebra::*;
 use rendiation_geometry::*;
 
-pub mod builder;
+mod builder;
 pub use builder::*;
 
 pub enum Path2dType<T> {

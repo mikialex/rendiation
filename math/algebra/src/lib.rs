@@ -12,14 +12,14 @@
 #![allow(clippy::missing_safety_doc)]
 #![allow(clippy::from_over_into)]
 
-pub mod angle;
-pub mod euler;
-pub mod interpolation;
-pub mod mat;
-pub mod projection;
-pub mod quat;
-pub mod shader_aligned;
-pub mod vec;
+mod angle;
+mod euler;
+mod interpolation;
+mod mat;
+mod projection;
+mod quat;
+mod shader_aligned;
+mod vec;
 
 mod inc;
 
@@ -39,7 +39,7 @@ pub use vec::*;
 pub use self::quat::*;
 
 #[macro_use]
-pub mod macros;
+mod macros;
 
 pub trait Scalar = Float
   + FloatConst

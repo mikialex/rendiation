@@ -1,6 +1,6 @@
-pub mod gizmo;
+mod gizmo;
 pub use gizmo::*;
-pub mod interactive;
+mod interactive;
 pub use interactive::*;
-pub mod view;
+mod view;
 pub use view::*;

@@ -303,7 +303,6 @@ impl Iterator for Spacing {
       if self.n_children == 0 {
         self.extra
       } else {
-        #[allow(clippy::match_bool)]
         match self.alignment {
           MainAxisAlignment::Start => match self.index == self.n_children {
             true => self.extra,

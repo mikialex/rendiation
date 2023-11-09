@@ -6,11 +6,11 @@ use std::{marker::PhantomData, vec};
 
 use incremental::*;
 
-pub mod handle;
+mod handle;
 mod inc;
 pub use handle::*;
 pub use inc::*;
-pub mod iter;
+mod iter;
 pub use iter::*;
 
 /// The `Arena` allows inserting and removing elements that are referred to by

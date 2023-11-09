@@ -1,24 +1,24 @@
 #![allow(clippy::float_cmp)]
 
-pub mod address;
+mod address;
 use std::{
   num::NonZeroUsize,
   ops::{Deref, DerefMut},
 };
 
 pub use address::*;
-pub mod filter;
+mod filter;
 pub use filter::*;
-pub mod cube;
+mod cube;
 pub use cube::*;
-pub mod sampler;
+mod sampler;
 pub use sampler::*;
-pub mod iter;
+mod iter;
 pub use iter::*;
-pub mod util;
+mod util;
 pub use container::*;
 pub use util::*;
-pub mod container;
+mod container;
 pub use image::*;
 use incremental::*;
 use rendiation_algebra::{Lerp, Scalar, Vec2};

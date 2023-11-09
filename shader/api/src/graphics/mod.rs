@@ -1,10 +1,10 @@
 use crate::*;
 
-pub mod vertex;
+mod vertex;
 pub use vertex::*;
-pub mod fragment;
+mod fragment;
 pub use fragment::*;
-pub mod semantic;
+mod semantic;
 pub use semantic::*;
 
 #[derive(Copy, Clone)]

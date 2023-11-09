@@ -1,6 +1,6 @@
-pub mod circle;
-pub mod ellipse;
-pub mod rectangle;
+mod circle;
+mod ellipse;
+mod rectangle;
 pub use circle::*;
 pub use ellipse::*;
 pub use rectangle::*;

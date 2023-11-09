@@ -14,10 +14,10 @@ use std::alloc::System;
 use rendiation_scene_core::*;
 use rendiation_scene_webgpu::*;
 
-pub mod viewer;
+mod viewer;
 pub use viewer::*;
 
-pub mod app;
+mod app;
 pub use app::*;
 use heap_tools::*;
 use interphaser::{run_gui, WindowSelfState};

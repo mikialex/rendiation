@@ -182,14 +182,12 @@ pub enum MipLevelCount {
 }
 
 impl MipLevelCount {
-  #[allow(clippy::let_and_return)]
   pub fn get_level_count_wgpu(&self, size: Size) -> u32 {
-    let r = match *self {
-      MipLevelCount::BySize => size.mip_level_count(),
+    match *self {
+      MipLevelCount::BySize => size.mip_level_count() as u32,
       MipLevelCount::EmptyMipMap => 1,
       // todo should we do validation?
-      MipLevelCount::Fixed(s) => s,
-    } as u32;
-    r
+      MipLevelCount::Fixed(s) => s as u32,
+    }
   }
 }

@@ -21,4 +21,4 @@ mod presentation;
 pub use presentation::*;
 
 #[cfg(feature = "glyph_brush_impl")]
-pub mod impls;
+mod impls;

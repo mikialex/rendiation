@@ -89,8 +89,6 @@ impl GraphicsShaderProvider for TextureUIPipeline {
       Ok(())
     })?;
 
-    use container::*;
-
     builder.set_binding_slot(1);
 
     builder.fragment(|builder, binding| {

@@ -1,8 +1,8 @@
 use crate::*;
 
-pub mod perspective;
+mod perspective;
 pub use perspective::*;
-pub mod orth;
+mod orth;
 pub use orth::*;
 
 pub trait Projection<T: Scalar>: Send + Sync {

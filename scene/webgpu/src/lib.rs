@@ -9,17 +9,17 @@
 #![allow(clippy::field_reassign_with_default)]
 #![allow(incomplete_features)]
 
-pub mod background;
-pub mod camera;
-pub mod lights;
-pub mod materials;
-pub mod mesh;
-pub mod model;
-pub mod node;
-pub mod rendering;
-pub mod shading;
-pub mod texture;
-pub mod util;
+mod background;
+mod camera;
+mod lights;
+mod materials;
+mod mesh;
+mod model;
+mod node;
+mod rendering;
+mod shading;
+mod texture;
+mod util;
 
 mod system;
 use core::ops::Deref;

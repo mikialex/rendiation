@@ -5,10 +5,10 @@
 mod integrator;
 pub use integrator::*;
 
-pub mod background;
-pub mod light;
-pub mod model;
-pub mod shape;
+mod background;
+mod light;
+mod model;
+mod shape;
 
 pub use background::*;
 pub use light::*;

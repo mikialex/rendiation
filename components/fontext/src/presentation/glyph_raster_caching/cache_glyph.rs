@@ -50,7 +50,6 @@ impl GlyphCache {
     }
   }
 
-  #[allow(clippy::type_complexity)]
   pub fn get_cached_glyph_info(
     &self,
     glyph: FontGlyphId,

@@ -1,8 +1,8 @@
 #![allow(clippy::many_single_char_names)]
 
-pub mod hsl;
-pub mod rgb;
-pub mod ycocg;
+mod hsl;
+mod rgb;
+mod ycocg;
 
 use std::ops::{Deref, DerefMut, Mul};
 

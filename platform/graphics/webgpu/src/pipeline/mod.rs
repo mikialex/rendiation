@@ -1,10 +1,8 @@
 use __core::num::NonZeroU32;
-use rendiation_shader_api::*;
 use rendiation_shader_backend_naga::ShaderAPINagaImpl;
 
-use crate::*;
-pub mod container;
-pub use container as c;
+mod container;
+pub use container::*;
 
 pub type GPURenderPipeline = GPUPipeline<wgpu::RenderPipeline>;
 pub type GPUComputePipeline = GPUPipeline<wgpu::ComputePipeline>;

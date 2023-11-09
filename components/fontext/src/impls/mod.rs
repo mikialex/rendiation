@@ -44,8 +44,6 @@ impl FontManager {
   }
 }
 
-pub struct DefaultFontProvider;
-
 impl crate::Font for ab_glyph::FontArc {
   fn raster(&self, glyph_id: GlyphId, info: GlyphRasterInfo) -> Option<Texture2DBuffer<u8>> {
     let glyph_id = ab_glyph::GlyphId(glyph_id.0 as u16);

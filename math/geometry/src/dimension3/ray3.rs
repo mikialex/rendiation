@@ -74,8 +74,7 @@ impl<T: Scalar> Ray3<T> {
     // let s0, s1, sqrDist, extDet;
     let mut s0 = T::zero();
     let mut s1 = T::zero();
-    #[allow(unused_assignments)]
-    let mut sq_dist = T::zero();
+    let sq_dist;
 
     if det > T::zero() {
       // The ray and segment are not parallel.

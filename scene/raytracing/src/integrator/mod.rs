@@ -8,10 +8,10 @@ use rendiation_color::LinearRGBColor;
 use rendiation_geometry::{Ray3, RayCaster3};
 use rendiation_texture::{Texture2D, Texture2DBuffer};
 
-pub mod ao;
-pub mod intersection_stat;
-pub mod path_trace;
-pub mod pixel_sample_control;
+mod ao;
+mod intersection_stat;
+mod path_trace;
+mod pixel_sample_control;
 pub use ao::*;
 pub use intersection_stat::*;
 pub use path_trace::*;

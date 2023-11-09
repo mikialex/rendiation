@@ -1,13 +1,13 @@
-pub mod pass;
+mod pass;
 pub use pass::*;
 
-pub mod attachment;
+mod attachment;
 pub use attachment::*;
 
-pub mod quad;
+mod quad;
 pub use quad::*;
 
-pub mod pass_base;
+mod pass_base;
 pub use pass_base::*;
 
 use crate::*;

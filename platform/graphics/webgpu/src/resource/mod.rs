@@ -1,5 +1,5 @@
 pub use texture::*;
-pub mod texture;
+mod texture;
 
 mod buffer;
 pub use buffer::*;

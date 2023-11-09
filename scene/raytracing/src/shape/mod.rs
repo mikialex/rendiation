@@ -1,6 +1,6 @@
 use std::{any::Any, ops::AddAssign};
 
-pub mod mesh;
+mod mesh;
 pub use mesh::*;
 
 use crate::*;

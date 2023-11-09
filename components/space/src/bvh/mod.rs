@@ -2,14 +2,14 @@ mod apply;
 mod node;
 mod strategy;
 
-pub mod test;
-
+mod test;
 use std::iter::FromIterator;
 
 pub use node::*;
 use rendiation_abstract_tree::NextTraverseVisit;
 use rendiation_geometry::SolidEntity;
 pub use strategy::*;
+pub use test::*;
 
 use crate::{
   utils::{bounding_from_build_source, BuildPrimitive, CenterAblePrimitive, TreeBuildOption},

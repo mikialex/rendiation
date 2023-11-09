@@ -1,6 +1,6 @@
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use space_algorithm::{
-  bvh::test::bvh_build, bvh::BalanceTree, bvh::SAH, utils::generate_boxes_in_space,
+  bvh::bvh_build, bvh::BalanceTree, bvh::SAH, utils::generate_boxes_in_space,
   utils::TreeBuildOption,
 };
 

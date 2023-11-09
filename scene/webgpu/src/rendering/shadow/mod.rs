@@ -1,12 +1,12 @@
 use crate::*;
 
-pub mod allocator;
+mod allocator;
 pub use allocator::*;
 
-pub mod basic;
+mod basic;
 pub use basic::*;
 
-pub mod sampling;
+mod sampling;
 pub use sampling::*;
 
 pub struct ShadowMapSystem {

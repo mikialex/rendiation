@@ -10,7 +10,6 @@ use fast_hash_collection::*;
 pub use once_cell;
 pub use paste;
 
-#[allow(clippy::type_complexity)]
 pub struct DowncasterRegistry<T: ?Sized> {
   downcaster: RwLock<FastHashMap<TypeId, (fn(&dyn Any) -> &T, fn(&mut dyn Any) -> &mut T)>>,
 }

@@ -1,12 +1,12 @@
 use interphaser::*;
 
-pub mod widget;
+mod widget;
 pub use widget::*;
 
-pub mod terminal;
+mod terminal;
 pub use terminal::*;
 
-pub mod viewer_view;
+mod viewer_view;
 pub use viewer_view::*;
 
 pub fn create_app() -> impl View {

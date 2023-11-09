@@ -36,7 +36,6 @@ impl<T> Source<T> {
     self.storage.remove(token.handle);
   }
 
-  #[allow(unused_must_use)]
   pub fn emit(&mut self, event: &T) {
     self.storage.iter_remove_if(|f| f(event));
   }

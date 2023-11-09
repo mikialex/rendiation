@@ -1,6 +1,6 @@
 mod gpu_renderer;
 use gpu_renderer::*;
-pub mod gpu_cache;
+mod gpu_cache;
 pub use gpu_cache::*;
 use rendiation_algebra::Vec2;
 use rendiation_texture::{Size, Texture2DBuffer, TextureFormat};

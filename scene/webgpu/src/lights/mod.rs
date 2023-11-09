@@ -1,8 +1,8 @@
-pub mod directional;
+mod directional;
 pub use directional::*;
-pub mod point;
+mod point;
 pub use point::*;
-pub mod spot;
+mod spot;
 pub use spot::*;
 
 use crate::*;

@@ -1,10 +1,10 @@
-pub mod dimension;
-pub mod normalized;
-pub mod space_marker;
-pub mod swizzle;
-pub mod vec2;
-pub mod vec3;
-pub mod vec4;
+mod dimension;
+mod normalized;
+mod space_marker;
+mod swizzle;
+mod vec2;
+mod vec3;
+mod vec4;
 use std::ops::*;
 
 pub use dimension::*;

@@ -9,10 +9,10 @@ use rendiation_texture::Size;
 mod pipeline;
 use pipeline::*;
 
-pub mod text;
+mod text;
 pub use text::*;
 
-pub mod graphics;
+mod graphics;
 pub use graphics::*;
 
 use super::{Primitive, UIPresentation};

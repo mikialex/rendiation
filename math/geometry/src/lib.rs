@@ -9,22 +9,22 @@ use std::ops::{Deref, DerefMut};
 
 use rendiation_algebra::*;
 
-pub mod dimension3;
+mod dimension3;
 pub use dimension3::*;
-pub mod dimension2;
+mod dimension2;
 pub use dimension2::*;
 
-pub mod bezier_segment;
-pub mod hyper_aabb;
-pub mod hyper_ellipse;
-pub mod hyper_plane;
-pub mod hyper_ray;
-pub mod hyper_sphere;
-pub mod intersect_util;
-pub mod line_segment;
-pub mod point;
-pub mod space_line;
-pub mod triangle;
+mod bezier_segment;
+mod hyper_aabb;
+mod hyper_ellipse;
+mod hyper_plane;
+mod hyper_ray;
+mod hyper_sphere;
+mod intersect_util;
+mod line_segment;
+mod point;
+mod space_line;
+mod triangle;
 
 pub use bezier_segment::*;
 pub use hyper_aabb::*;
