@@ -62,7 +62,7 @@ pub trait ReactiveCollectionRelationExt<K, V>: Sized + 'static + ReactiveCollect
   fn one_to_many_fanout<MK, Relation>(self, relations: Relation) -> impl ReactiveCollection<MK, V>
   where
     V: Clone + 'static,
-    MK: Clone + 'static,
+    MK: Clone + Eq + Hash + 'static,
     K: Clone + 'static,
     Relation: ReactiveOneToManyRelationship<K, MK> + 'static,
   {
@@ -116,7 +116,7 @@ where
 impl<O, M, X, Upstream, Relation> ReactiveCollection<M, X>
   for OneToManyFanout<O, M, X, Upstream, Relation>
 where
-  M: Clone + 'static,
+  M: Clone + Eq + Hash + 'static,
   X: Clone + 'static,
   O: Clone + 'static,
   Upstream: ReactiveCollection<O, X>,
@@ -128,7 +128,7 @@ where
     let relational_changes = self.relations.poll_changes(cx);
     let upstream_changes = self.upstream.poll_changes(cx);
 
-    let mut output = Vec::new(); // it's hard to predict capacity, should we compute it?
+    let mut output = FastHashMap::default(); // it's hard to predict capacity, should we compute it?
     if let Poll::Ready(Some(relational_changes)) = relational_changes {
       let getter = self.upstream.access(false);
       for change in relational_changes {
@@ -136,14 +136,14 @@ where
           CollectionDelta::Delta(k, v, p) => {
             let p = p.and_then(|p| getter(&p));
             if let Some(v) = getter(&v) {
-              output.push(CollectionDelta::Delta(k, v, p));
+              output.insert(k.clone(), CollectionDelta::Delta(k, v, p));
             } else if let Some(p) = p {
-              output.push(CollectionDelta::Remove(k, p));
+              output.insert(k.clone(), CollectionDelta::Remove(k, p));
             }
           }
           CollectionDelta::Remove(k, p) => {
             if let Some(p) = getter(&p) {
-              output.push(CollectionDelta::Remove(k, p));
+              output.insert(k.clone(), CollectionDelta::Remove(k, p));
             }
           }
         }
@@ -154,21 +154,24 @@ where
       for delta in upstream_changes {
         match delta {
           CollectionDelta::Remove(one, p) => inv_querier(&one, &mut |many| {
-            output.push(CollectionDelta::Remove(many, p.clone()));
+            output.insert(many.clone(), CollectionDelta::Remove(many, p.clone()));
           }),
           CollectionDelta::Delta(one, change, p) => inv_querier(&one, &mut |many| {
-            output.push(CollectionDelta::Delta(many, change.clone(), p.clone()));
+            output.insert(
+              many.clone(),
+              CollectionDelta::Delta(many, change.clone(), p.clone()),
+            );
           }),
         }
       }
     }
 
-    // todo, check if two change set has overlap and fix delta coherency
-
     if output.is_empty() {
       Poll::Pending
     } else {
-      Poll::Ready(Some(output.into_iter()))
+      let collected = output.into_values().collect::<Vec<_>>();
+      Poll::Ready(Some(collected.into_iter()))
+      // Poll::Ready(Some(output.into_values())) // todo, avoid collect
     }
   }
 }
@@ -260,7 +263,6 @@ where
       }
     }
 
-    // let inv_querier = self.relations.access_multi(false);
     if let Poll::Ready(Some(upstream_changes)) = upstream_changes {
       for delta in upstream_changes {
         match delta {
