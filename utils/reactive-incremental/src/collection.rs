@@ -130,27 +130,6 @@ impl<K: 'static, V> VirtualCollection<K, V> for () {
   }
 }
 
-pub struct EmptyIter<K, V>(PhantomData<(K, V)>);
-impl<K, V> Clone for EmptyIter<K, V> {
-  fn clone(&self) -> Self {
-    Self(self.0)
-  }
-}
-impl<K, V> Iterator for EmptyIter<K, V> {
-  type Item = CollectionDelta<K, V>;
-
-  fn next(&mut self) -> Option<Self::Item> {
-    None
-  }
-}
-impl<K: 'static, V> ReactiveCollection<K, V> for () {
-  type Changes = EmptyIter<K, V>;
-
-  fn poll_changes(&mut self, _cx: &mut Context<'_>) -> Poll<Option<Self::Changes>> {
-    Poll::Pending
-  }
-}
-
 /// dynamic version of the above trait
 pub trait DynamicVirtualCollection<K, V> {
   fn iter_key_boxed(&self) -> Box<dyn Iterator<Item = K> + '_>;
@@ -168,7 +147,7 @@ where
     Box::new(self.access())
   }
 }
-pub trait DynamicReactiveCollection<K, V>: ReactiveCollection<K, V> {
+pub trait DynamicReactiveCollection<K, V>: DynamicVirtualCollection<K, V> {
   fn poll_changes_dyn(&mut self, _cx: &mut Context<'_>)
     -> Poll<Option<Vec<CollectionDelta<K, V>>>>;
 }
@@ -181,6 +160,27 @@ where
     self
       .poll_changes(cx)
       .map(|v| v.map(|v| v.collect::<Vec<_>>()))
+  }
+}
+
+impl<K, V> VirtualCollection<K, V> for Box<dyn DynamicReactiveCollection<K, V>> {
+  fn iter_key(&self) -> impl Iterator<Item = K> + '_ {
+    self.iter_key_boxed()
+  }
+
+  fn access(&self) -> impl Fn(&K) -> Option<V> + '_ {
+    self.access_boxed()
+  }
+}
+impl<K, V> ReactiveCollection<K, V> for Box<dyn DynamicReactiveCollection<K, V>>
+where
+  K: Clone + 'static,
+  V: Clone + 'static,
+{
+  type Changes = impl Iterator<Item = CollectionDelta<K, V>> + Clone;
+
+  fn poll_changes(&mut self, cx: &mut Context<'_>) -> Poll<Option<Self::Changes>> {
+    self.poll_changes_dyn(cx).map(|v| v.map(|v| v.into_iter()))
   }
 }
 
@@ -339,7 +339,7 @@ where
     self.collective_intersect(set).collective_map(|(v, _)| v)
   }
 
-  fn into_table_forker(self) -> ReactiveKVMapFork<Self, K, V> {
+  fn into_forker(self) -> ReactiveKVMapFork<Self, K, V> {
     let (sender, rev) = single_value_channel();
     let mut init = FastHashMap::default();
     let id = alloc_global_res_id();

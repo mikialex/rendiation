@@ -1,6 +1,7 @@
-use std::{hash::Hash, marker::PhantomData};
+use std::{hash::Hash, marker::PhantomData, sync::Arc};
 
 use fast_hash_collection::*;
+use parking_lot::RwLock;
 use storage::{LinkListPool, ListHandle};
 
 use crate::*;
@@ -44,7 +45,6 @@ pub trait ReactiveCollectionRelationExt<K, V>: Sized + 'static + ReactiveCollect
   {
     OneToManyRefDenseBookKeeping {
       upstream: self,
-      mapping_buffer: Default::default(),
       mapping: Default::default(),
       phantom: PhantomData,
     }
@@ -322,7 +322,16 @@ where
 
 pub struct OneToManyRefHashBookKeeping<O, M, T> {
   upstream: T,
-  mapping: FastHashMap<O, FastHashSet<M>>,
+  mapping: Arc<RwLock<FastHashMap<O, FastHashSet<M>>>>,
+}
+
+impl<O, M, T: Clone> Clone for OneToManyRefHashBookKeeping<O, M, T> {
+  fn clone(&self) -> Self {
+    Self {
+      upstream: self.upstream.clone(),
+      mapping: self.mapping.clone(),
+    }
+  }
 }
 
 impl<O, M, T> VirtualCollection<M, O> for OneToManyRefHashBookKeeping<O, M, T>
@@ -344,12 +353,20 @@ where
   O: Hash + Eq + Clone + 'static,
 {
   fn iter_key_in_multi_collection(&self) -> impl Iterator<Item = O> + '_ {
-    self.mapping.keys().cloned()
+    // todo, avoid clone
+    self
+      .mapping
+      .read_recursive()
+      .keys()
+      .cloned()
+      .collect::<Vec<_>>()
+      .into_iter()
   }
 
   fn access_multi(&self) -> impl Fn(&O, &mut dyn FnMut(M)) + '_ {
+    let mapping = self.mapping.read_recursive();
     move |o, visitor| {
-      if let Some(set) = self.mapping.get(o) {
+      if let Some(set) = mapping.get(o) {
         for many in set.iter() {
           visitor(many.clone())
         }
@@ -372,7 +389,7 @@ where
 
     if let Poll::Ready(Some(changes)) = r.clone() {
       for change in changes {
-        let mapping = &mut self.mapping;
+        let mut mapping = self.mapping.write();
         let many = change.key().clone();
         let new_one = change.new_value();
 
@@ -401,9 +418,14 @@ where
 
 pub struct OneToManyRefDenseBookKeeping<O, M, T> {
   upstream: T,
+  mapping: Arc<RwLock<Mapping>>,
+  phantom: PhantomData<(O, M)>,
+}
+
+#[derive(Default)]
+struct Mapping {
   mapping_buffer: LinkListPool<u32>,
   mapping: Vec<ListHandle>,
-  phantom: PhantomData<(O, M)>,
 }
 
 impl<O, M, T> VirtualCollection<M, O> for OneToManyRefDenseBookKeeping<O, M, T>
@@ -425,17 +447,23 @@ where
   O: LinearIdentification + Clone + 'static,
 {
   fn iter_key_in_multi_collection(&self) -> impl Iterator<Item = O> + '_ {
+    // todo, avoid clone
     self
+      .mapping
+      .read_recursive()
       .mapping
       .iter()
       .enumerate()
       .filter_map(|(i, list)| list.is_empty().then_some(O::from_alloc_index(i as u32)))
+      .collect::<Vec<_>>()
+      .into_iter()
   }
 
   fn access_multi(&self) -> impl Fn(&O, &mut dyn FnMut(M)) + '_ {
+    let mapping = self.mapping.read_recursive();
     move |o, visitor| {
-      if let Some(list) = self.mapping.get(o.alloc_index() as usize) {
-        self.mapping_buffer.visit(list, |v, _| {
+      if let Some(list) = mapping.mapping.get(o.alloc_index() as usize) {
+        mapping.mapping_buffer.visit(list, |v, _| {
           visitor(M::from_alloc_index(*v));
           true
         })
@@ -458,7 +486,8 @@ where
 
     if let Poll::Ready(Some(changes)) = r.clone() {
       for change in changes {
-        let mapping = &mut self.mapping;
+        let mut mapping = self.mapping.write();
+        let mapping: &mut Mapping = &mut mapping;
         let many = *change.key();
         let new_one = change.new_value();
 
@@ -466,11 +495,12 @@ where
         // remove possible old relations
         if let Some(old_refed_one) = old_refed_one {
           let previous_one_refed_many = mapping
+            .mapping
             .get_mut(old_refed_one.alloc_index() as usize)
             .unwrap();
 
           //  this is O(n), should we care about it?
-          self
+          mapping
             .mapping_buffer
             .visit_and_remove(previous_one_refed_many, |value, _| {
               let should_remove = *value == many.alloc_index();
@@ -484,9 +514,9 @@ where
 
         // setup new relations
         if let Some(new_one) = &new_one {
-          mapping[new_one.alloc_index() as usize] = ListHandle::default();
-          self.mapping_buffer.insert(
-            &mut mapping[new_one.alloc_index() as usize],
+          mapping.mapping[new_one.alloc_index() as usize] = ListHandle::default();
+          mapping.mapping_buffer.insert(
+            &mut mapping.mapping[new_one.alloc_index() as usize],
             new_one.alloc_index(),
           );
         }

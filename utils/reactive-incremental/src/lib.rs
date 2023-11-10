@@ -24,6 +24,9 @@ pub use single::*;
 mod single_shared;
 pub use single_shared::*;
 
+mod registry;
+pub use registry::*;
+
 mod group;
 pub use group::*;
 
