@@ -301,6 +301,18 @@ impl SceneImpl {
   }
 }
 
+/// compare to scene inner delta, this mixed delta support multi scene content mixing
+#[derive(Clone)]
+#[allow(non_camel_case_types)]
+pub enum MixSceneDelta {
+  background(DeltaOf<Option<SceneBackGround>>),
+  active_camera(DeltaOf<Option<SceneCamera>>),
+  cameras(ContainerRefRetainContentDelta<SceneCamera>),
+  lights(ContainerRefRetainContentDelta<SceneLight>),
+  models(ContainerRefRetainContentDelta<SceneModel>),
+  ext(DeltaOf<DynamicExtension>),
+}
+
 impl IncrementalBase for SceneImpl {
   type Delta = MixSceneDelta;
   fn expand(&self, mut cb: impl FnMut(Self::Delta)) {
