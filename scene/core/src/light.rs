@@ -19,20 +19,11 @@ pub struct SceneLightImpl {
   /// Note: Light properties are unaffected by node transforms by default
   /// — for example, range and intensity do not change with scale.
   pub node: SceneNode,
-  pub(crate) attach_index: Option<usize>,
 }
 
 impl SceneLightImpl {
   pub fn new(light: LightEnum, node: SceneNode) -> Self {
-    Self {
-      light,
-      node,
-      attach_index: None,
-    }
-  }
-
-  pub fn attach_index(&self) -> Option<usize> {
-    self.attach_index
+    Self { light, node }
   }
 }
 

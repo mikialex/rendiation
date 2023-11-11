@@ -6,20 +6,11 @@ pub type SceneModel = IncrementalSignalPtr<SceneModelImpl>;
 pub struct SceneModelImpl {
   pub model: ModelEnum,
   pub node: SceneNode,
-  pub(crate) attach_index: Option<usize>,
 }
 
 impl SceneModelImpl {
   pub fn new(model: ModelEnum, node: SceneNode) -> Self {
-    Self {
-      model,
-      node,
-      attach_index: None,
-    }
-  }
-
-  pub fn attach_index(&self) -> Option<usize> {
-    self.attach_index
+    Self { model, node }
   }
 }
 

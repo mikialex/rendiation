@@ -182,7 +182,6 @@ pub fn build_scene_model_gpu(
           // todo, handle node change
           RenderComponentDeltaFlag::ContentRef
         }
-        SceneModelImplDelta::attach_index(_) => RenderComponentDeltaFlag::empty(),
       }
       .into()
     })

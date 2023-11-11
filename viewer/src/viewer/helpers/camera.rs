@@ -121,7 +121,6 @@ fn create_reactive_camera_helper(camera: &SceneCamera) -> ReactiveCameraHelper {
               CameraHelper::from_node_and_project_matrix(c.node.clone(), c.compute_project_mat());
           }
         }
-        SceneCameraImplDelta::attach_index(_) => {}
       };
       Some(())
     })

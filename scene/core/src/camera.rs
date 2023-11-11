@@ -12,7 +12,6 @@ pub struct SceneCameraImpl {
   pub bounds: CameraViewBounds,
   pub projection: CameraProjectionEnum,
   pub node: SceneNode,
-  pub(crate) attach_index: Option<usize>,
 }
 
 impl SceneCameraImpl {
@@ -21,12 +20,7 @@ impl SceneCameraImpl {
       bounds: Default::default(),
       projection,
       node,
-      attach_index: None,
     }
-  }
-
-  pub fn attach_index(&self) -> Option<usize> {
-    self.attach_index
   }
 
   pub fn compute_project_mat(&self) -> Mat4<f32> {
