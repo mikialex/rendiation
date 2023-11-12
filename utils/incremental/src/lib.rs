@@ -125,4 +125,16 @@ pub trait IncrementalEditing: ApplicableIncremental {
 
 pub trait ReversibleIncremental: ApplicableIncremental {
   fn reverse_delta(&self, delta: &Self::Delta) -> Self::Delta;
+  fn make_reverse_delta_pair(&self, delta: Self::Delta) -> DeltaPair<Self> {
+    let inverse = self.reverse_delta(&delta);
+    DeltaPair {
+      forward: delta,
+      inverse,
+    }
+  }
+}
+
+pub struct DeltaPair<T: ReversibleIncremental> {
+  pub forward: T::Delta,
+  pub inverse: T::Delta,
 }

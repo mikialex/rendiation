@@ -18,7 +18,7 @@ pub trait ShareCoreTree {
   fn mutate_node_data<R>(&self, handle: Self::Handle, v: impl FnOnce(&mut Self::Node) -> R) -> R;
 
   fn create_node(&self, data: Self::Node) -> Self::Handle;
-  fn delete_node(&self, handle: Self::Handle);
+  fn delete_node(&self, handle: Self::Handle) -> Option<Self::Node>;
   fn node_add_child_by(
     &self,
     parent: Self::Handle,
@@ -56,7 +56,7 @@ impl<T: CoreTree> ShareCoreTree for RwLock<T> {
     self.write().unwrap().create_node(data)
   }
 
-  fn delete_node(&self, handle: Self::Handle) {
+  fn delete_node(&self, handle: Self::Handle) -> Option<Self::Node> {
     self.write().unwrap().delete_node(handle)
   }
 
@@ -92,7 +92,7 @@ impl<T: ShareCoreTree> Clone for NodeRef<T> {
 
 impl<T: ShareCoreTree> Drop for NodeRef<T> {
   fn drop(&mut self) {
-    self.nodes.delete_node(self.handle)
+    self.nodes.delete_node(self.handle);
   }
 }
 

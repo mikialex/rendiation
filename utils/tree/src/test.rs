@@ -13,6 +13,14 @@ struct TestNodeDerived {
   pub value_sum: usize,
 }
 
+impl ReversibleIncremental for TestNodeDerived {
+  fn reverse_delta(&self, delta: &Self::Delta) -> Self::Delta {
+    match delta {
+      TestNodeDerivedDelta::value_sum(_) => TestNodeDerivedDelta::value_sum(self.value_sum),
+    }
+  }
+}
+
 impl HierarchyDerived for TestNodeDerived {
   type Source = TestNode;
 
@@ -74,15 +82,15 @@ impl IncrementalHierarchyDerived for TestNodeDerived {
     self_source: &Self::Source,
     parent_derived: Option<&Self>,
     dirty: &Self::DirtyMark,
-    mut collect: impl FnMut(Self::Delta),
+    mut collect: impl FnMut(&mut Self, Self::Delta),
   ) {
     if dirty.0 {
       if let Some(parent) = parent_derived {
         self.value_sum = self_source.value + parent.value_sum;
-        collect(TestNodeDerivedDelta::value_sum(self.value_sum));
+        collect(self, TestNodeDerivedDelta::value_sum(self.value_sum));
       } else {
         self.value_sum = self_source.value;
-        collect(TestNodeDerivedDelta::value_sum(self.value_sum));
+        collect(self, TestNodeDerivedDelta::value_sum(self.value_sum));
       }
     }
   }

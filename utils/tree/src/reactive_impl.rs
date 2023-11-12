@@ -52,7 +52,7 @@ where
     handle
   }
 
-  fn delete_node(&mut self, handle: Self::Handle) {
+  fn delete_node(&mut self, handle: Self::Handle) -> Option<Self::Node> {
     // make sure the tree mutation and mutation record are synchronized
     let mut source = self.source.lock.lock().unwrap();
     source.emit(&TreeMutation::Delete(handle.index()));
@@ -127,7 +127,7 @@ where
     handle
   }
 
-  fn delete_node(&self, handle: Self::Handle) {
+  fn delete_node(&self, handle: Self::Handle) -> Option<Self::Node> {
     // make sure the tree mutation and mutation record are synchronized
     let mut source = self.source.lock.lock().unwrap();
     source.emit(&TreeMutation::Delete(handle.index()));

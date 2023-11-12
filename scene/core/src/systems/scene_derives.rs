@@ -58,7 +58,10 @@ impl SceneNodeDeriveSystem {
       .fork_stream()
       .flat_map(futures::stream::iter)
       // we don't care about deletions in this stream
-      .filter_map_sync(|d: (usize, Option<SceneNodeDerivedDataDelta>)| d.1.map(|d1| (d.0, d1)))
+      .filter_map_sync(|d| match d {
+        CollectionDelta::Delta(idx, d, _) => Some((idx, d)),
+        CollectionDelta::Remove(_, _) => None,
+      })
       .create_index_mapping_broadcaster();
 
     let indexed_stream_mapper = Arc::new(RwLock::new(indexed_stream_mapper));
@@ -70,23 +73,28 @@ impl SceneNodeDeriveSystem {
       .derived_stream
       .fork_stream()
       .flat_map(futures::stream::iter)
-      .fold_signal_state_stream(sub_broad_caster, move |(idx, delta), sub_broad_caster| {
-        if delta.is_none() {
-          sub_broad_caster.insert(idx, None)
-          // we check if is none first to avoid too much sub stream recreate
-        } else if sub_broad_caster.get(idx).is_none() {
-          sub_broad_caster.insert(
-            idx,
-            Some(
-              indexed_stream_mapper_c
-                .read()
-                .unwrap()
-                .create_sub_stream_by_index(idx)
-                .create_broad_caster(),
-            ),
-          )
-        }
-      });
+      .fold_signal_state_stream(
+        sub_broad_caster,
+        move |delta, sub_broad_caster| match delta {
+          CollectionDelta::Delta(idx, _, _) => {
+            if sub_broad_caster.get(idx).is_none() {
+              sub_broad_caster.insert(
+                idx,
+                Some(
+                  indexed_stream_mapper_c
+                    .read()
+                    .unwrap()
+                    .create_sub_stream_by_index(idx)
+                    .create_broad_caster(),
+                ),
+              )
+            }
+          }
+          CollectionDelta::Remove(idx, _) => {
+            sub_broad_caster.insert(idx, None);
+          }
+        },
+      );
 
     SceneNodeDeriveSystem {
       inner: inner_sys,

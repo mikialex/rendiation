@@ -1,6 +1,7 @@
 use futures::{Stream, StreamExt};
-use incremental::IncrementalBase;
+use incremental::{DeltaPair, ReversibleIncremental};
 use reactive::{SignalStreamExt, StreamForker};
+use reactive_incremental::CollectionDelta;
 
 use crate::*;
 
@@ -13,7 +14,7 @@ pub trait HierarchyDerivedBase: Clone {
 ///
 /// We not impose IncrementalHierarchyDerived extends HierarchyDerived
 /// because of simplicity.
-pub trait IncrementalHierarchyDerived: IncrementalBase + HierarchyDerivedBase {
+pub trait IncrementalHierarchyDerived: ReversibleIncremental + HierarchyDerivedBase {
   type DirtyMark: HierarchyDirtyMark;
 
   /// for any delta of source, check if it will have hierarchy effect.
@@ -27,7 +28,7 @@ pub trait IncrementalHierarchyDerived: IncrementalBase + HierarchyDerivedBase {
     self_source: &Self::Source,
     parent_derived: Option<&Self>,
     dirty: &Self::DirtyMark,
-    collect: impl FnMut(Self::Delta),
+    collect: impl FnMut(&mut Self, Self::Delta),
   );
 }
 
@@ -42,7 +43,9 @@ pub struct ParentTreeDirty<M> {
   sub_tree_dirty_mark_all: M,
 }
 
-pub trait IncrementalChildrenHierarchyDerived: IncrementalBase + HierarchyDerivedBase {
+pub trait IncrementalChildrenHierarchyDerived:
+  ReversibleIncremental + HierarchyDerivedBase
+{
   type DirtyMark: HierarchyDirtyMark;
 
   /// for any delta of source, check if it will have hierarchy effect
@@ -55,7 +58,7 @@ pub trait IncrementalChildrenHierarchyDerived: IncrementalBase + HierarchyDerive
     self_source: &Self::Source,
     children_visitor: impl FnMut(&dyn Fn(&Self)),
     dirty: &Self::DirtyMark,
-    collect: impl FnMut(Self::Delta),
+    collect: impl FnMut(&mut Self, Self::Delta),
   );
 }
 
@@ -74,13 +77,14 @@ pub struct DerivedData<T, M> {
   dirty: M,
 }
 
-pub struct TreeHierarchyDerivedSystem<T: IncrementalBase, Dirty> {
+pub struct TreeHierarchyDerivedSystem<T: ReversibleIncremental, Dirty> {
   derived_tree: Arc<RwLock<TreeCollection<DerivedData<T, Dirty>>>>,
   // we use boxed here to avoid another generic for tree delta input stream
-  pub derived_stream: StreamForker<Box<dyn Stream<Item = Vec<(usize, Option<T::Delta>)>> + Unpin>>,
+  pub derived_stream:
+    StreamForker<Box<dyn Stream<Item = Vec<CollectionDelta<usize, T::Delta>>> + Unpin>>,
 }
 
-impl<T: IncrementalBase, M> Clone for TreeHierarchyDerivedSystem<T, M> {
+impl<T: ReversibleIncremental, M> Clone for TreeHierarchyDerivedSystem<T, M> {
   fn clone(&self) -> Self {
     Self {
       derived_tree: self.derived_tree.clone(),
@@ -89,7 +93,7 @@ impl<T: IncrementalBase, M> Clone for TreeHierarchyDerivedSystem<T, M> {
   }
 }
 
-impl<T: IncrementalBase, Dirty> TreeHierarchyDerivedSystem<T, Dirty> {
+impl<T: ReversibleIncremental, Dirty> TreeHierarchyDerivedSystem<T, Dirty> {
   pub fn new<B, TREE, S, M>(
     tree_delta: impl Stream<Item = Vec<TreeMutation<S>>> + 'static,
     source_tree: &Arc<TREE>,
@@ -111,7 +115,7 @@ impl<T: IncrementalBase, Dirty> TreeHierarchyDerivedSystem<T, Dirty> {
 
     enum MarkingResult<T, Dirty> {
       UpdateRoot(TreeNodeHandle<DerivedData<T, Dirty>>),
-      Remove(usize),
+      Remove(usize, T),
       Create(usize, T),
     }
 
@@ -143,8 +147,8 @@ impl<T: IncrementalBase, Dirty> TreeHierarchyDerivedSystem<T, Dirty> {
             // do pair remove in derived tree
             TreeMutation::Delete(handle) => {
               let handle = derived_tree.recreate_handle(handle);
-              derived_tree.delete_node(handle);
-              marking_results.push(MarkingResult::Remove(handle.index()));
+              let removed = derived_tree.delete_node(handle).unwrap();
+              marking_results.push(MarkingResult::Remove(handle.index(), removed.data));
               continue;
             }
             // check if have any hierarchy effect, and do marking
@@ -198,26 +202,37 @@ impl<T: IncrementalBase, Dirty> TreeHierarchyDerivedSystem<T, Dirty> {
                   // still could get corrupt data. so we have to use a large lock
                   // here
                   tree.visit_core_tree(|tree| {
-                    B::update_derived(tree, &mut derived_tree, update_root, &mut |delta| {
-                      derived_deltas.push((delta.0, Some(delta.1)));
+                    B::update_derived(tree, &mut derived_tree, update_root, &mut |(idx, pair)| {
+                      derived_deltas.push(CollectionDelta::Delta(
+                        idx,
+                        pair.forward,
+                        Some(pair.inverse),
+                      ));
                     });
                   });
                 }
               }
             }
-            MarkingResult::Remove(idx) => derived_deltas.push((idx, None)),
+            MarkingResult::Remove(idx, removed) => {
+              removed.expand(|d| {
+                derived_deltas.push(CollectionDelta::Remove(idx, d));
+              });
+            }
             MarkingResult::Create(idx, created) => {
               // we can not use the derived tree data because the previous delta is buffered, and
               // the node at given index maybe removed by later message
-              created.expand(|d| derived_deltas.push((idx, Some(d))))
+              created.expand(|d| {
+                derived_deltas.push(CollectionDelta::Delta(idx, d, None));
+              });
             }
           }
         }
 
+        // todo, we should do some post processing to ensure the deltas coherency
         derived_deltas
       });
 
-    let boxed: Box<dyn Stream<Item = Vec<(usize, Option<T::Delta>)>> + Unpin> =
+    let boxed: Box<dyn Stream<Item = Vec<CollectionDelta<usize, T::Delta>>> + Unpin> =
       Box::new(Box::pin(derived_stream));
 
     Self {
@@ -234,7 +249,7 @@ impl<T: IncrementalBase, Dirty> TreeHierarchyDerivedSystem<T, Dirty> {
   }
 }
 
-pub trait TreeIncrementalDeriveBehavior<T: IncrementalBase, S: IncrementalBase, M, TREE> {
+pub trait TreeIncrementalDeriveBehavior<T: ReversibleIncremental, S: IncrementalBase, M, TREE> {
   type Dirty: Default;
   fn filter_hierarchy_change(change: &S::Delta) -> Option<M>;
 
@@ -248,13 +263,13 @@ pub trait TreeIncrementalDeriveBehavior<T: IncrementalBase, S: IncrementalBase, 
     source_tree: &TREE,
     derived_tree: &mut TreeCollection<DerivedData<T, Self::Dirty>>,
     update_root: TreeNodeHandle<DerivedData<T, Self::Dirty>>,
-    derived_delta_sender: &mut impl FnMut((usize, T::Delta)),
+    derived_delta_sender: &mut impl FnMut((usize, DeltaPair<T>)),
   );
 }
 
 pub struct ParentTree;
 
-impl<T: IncrementalBase, M, TREE> TreeIncrementalDeriveBehavior<T, T::Source, M, TREE>
+impl<T: ReversibleIncremental, M, TREE> TreeIncrementalDeriveBehavior<T, T::Source, M, TREE>
   for ParentTree
 where
   T: IncrementalHierarchyDerived<DirtyMark = M>,
@@ -317,7 +332,7 @@ where
     source_tree: &TREE,
     derived_tree: &mut TreeCollection<DerivedData<T, Self::Dirty>>,
     update_root: TreeNodeHandle<DerivedData<T, Self::Dirty>>,
-    derived_delta_sender: &mut impl FnMut((usize, T::Delta)),
+    derived_delta_sender: &mut impl FnMut((usize, DeltaPair<T>)),
   ) {
     derived_tree.traverse_mut_pair(update_root, |node, parent| {
       let node_index = node.handle().index();
@@ -334,7 +349,9 @@ where
             source_tree.get_node_data(source_node),
             parent,
             &derived.dirty.sub_tree_dirty_mark_all,
-            |delta| derived_delta_sender((node_index, delta)),
+            |derive, delta| {
+              derived_delta_sender((node_index, derive.make_reverse_delta_pair(delta)))
+            },
           );
         }
 
@@ -353,7 +370,7 @@ where
 
 pub struct ChildrenTree;
 
-impl<T: IncrementalBase, M, TREE> TreeIncrementalDeriveBehavior<T, T::Source, M, TREE>
+impl<T: ReversibleIncremental, M, TREE> TreeIncrementalDeriveBehavior<T, T::Source, M, TREE>
   for ChildrenTree
 where
   T: IncrementalChildrenHierarchyDerived<DirtyMark = M>,
@@ -390,7 +407,7 @@ where
     source_tree: &TREE,
     derived_tree: &mut TreeCollection<DerivedData<T, M>>,
     update_root: TreeNodeHandle<DerivedData<T, M>>,
-    derived_delta_sender: &mut impl FnMut((usize, <T as IncrementalBase>::Delta)),
+    derived_delta_sender: &mut impl FnMut((usize, DeltaPair<T>)),
   ) {
     let node_index = update_root.index();
     let mut node = derived_tree.create_node_mut_ptr(update_root);
@@ -422,7 +439,7 @@ where
           })
         },
         &node_data.dirty,
-        &mut |delta| derived_delta_sender((node_index, delta)),
+        |derive, delta| derived_delta_sender((node_index, derive.make_reverse_delta_pair(delta))),
       );
     }
   }

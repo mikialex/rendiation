@@ -42,7 +42,7 @@ pub trait CoreTree {
   fn get_node_data_mut(&mut self, handle: Self::Handle) -> &mut Self::Node;
 
   fn create_node(&mut self, data: Self::Node) -> Self::Handle;
-  fn delete_node(&mut self, handle: Self::Handle);
+  fn delete_node(&mut self, handle: Self::Handle) -> Option<Self::Node>;
   fn node_add_child_by(
     &mut self,
     parent: Self::Handle,
@@ -117,8 +117,8 @@ impl<T> CoreTree for TreeCollection<T> {
     })
   }
 
-  fn delete_node(&mut self, handle: TreeNodeHandle<T>) {
-    self.nodes.remove(handle);
+  fn delete_node(&mut self, handle: TreeNodeHandle<T>) -> Option<T> {
+    self.nodes.remove(handle).map(|n| n.data)
   }
 
   fn get_node_data(&self, handle: TreeNodeHandle<T>) -> &T {
