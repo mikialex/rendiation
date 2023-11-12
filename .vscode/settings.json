@@ -5,6 +5,7 @@
         "abst",
         "Animatable",
         "antialiasing",
+        "HenyeyGreenstein",
         "anymap",
         "artgl",
         "ATTRIBS",

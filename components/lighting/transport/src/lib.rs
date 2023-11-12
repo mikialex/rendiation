@@ -6,3 +6,6 @@ use rendiation_statistics::*;
 
 mod surface;
 pub use surface::*;
+
+mod volumetric;
+pub use volumetric::*;
