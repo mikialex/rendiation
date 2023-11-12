@@ -1,4 +1,35 @@
 use rendiation_algebra::*;
+use rendiation_geometry::*;
+use rendiation_lighting_core::*;
+
+pub trait Medium {
+  fn is_emissive(&self) -> bool;
+
+  /// returns information about the scattering and emission properties of the medium at a specified
+  /// rendering-space point in the form of a MediumProperties object.
+  fn sample_point(&self, position: Vec3<f32>) -> MediumProperties;
+  /// provides information about the medium’s majorant sigma_majorant along the ray’s extent.
+  fn sample_ray(&self, ray: Ray3, t_max: f32, lambda: &SampledWaveLengths) -> MajorantIterator;
+}
+
+pub struct MediumProperties {
+  pub sigma_a: SampledSpectrum,
+  pub sigma_s: SampledSpectrum,
+  pub phase: PhaseFunction,
+  pub le: SampledSpectrum,
+}
+
+pub struct RayMajorantSegment {
+  pub min: f32,
+  pub max: f32,
+  pub sigma_majorant: SampledSpectrum,
+}
+
+// todo
+pub type MajorantIterator = f32;
+
+// todo
+type PhaseFunction = f32;
 
 // todo
 type Spectrum = Vec3<f32>;
@@ -37,13 +68,13 @@ impl HenyeyGreenstein {
     let cos_theta = if self.g.abs() < 1e-3 {
       1.0 - 2.0 * u.x
     } else {
-      let sqr_term: f32 = (1.0 - self.g * self.g) / (1.0 + self.g - 2.0 * self.g * u.x);
+      let sqr_term = (1.0 - self.g * self.g) / (1.0 + self.g - 2.0 * self.g * u.x);
 
       -(1.0 + self.g * self.g - sqr_term * sqr_term) / (2.0 * self.g)
     };
     // compute direction _wi_ for HenyeyGreenstein sample
-    let sin_theta: f32 = 0.0.max(1.0 - cos_theta * cos_theta).sqrt();
-    let phi: f32 = 2.0 * f32::PI() * u.y;
+    let sin_theta = 0.0.max(1.0 - cos_theta * cos_theta).sqrt();
+    let phi = 2.0 * f32::PI() * u.y;
     let mut v1: Vec3<f32> = Vec3::default();
     let mut v2: Vec3<f32> = Vec3::default();
     vec3_coordinate_system(wo, &mut v1, &mut v2);

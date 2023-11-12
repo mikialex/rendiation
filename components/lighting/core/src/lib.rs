@@ -1,2 +1,2 @@
 mod spectrum;
-use spectrum::*;
+pub use spectrum::*;

@@ -29,6 +29,7 @@ members = [
   "components/texture/packer",
   "components/texture/gpu-system",
   "components/texture/generative",
+  "components/lighting/core",
   "components/lighting/ltc",
   "components/lighting/ibl/core",
   "components/lighting/ibl/cli",
@@ -60,7 +61,7 @@ resolver = "2"
 
 [workspace.dependencies]
 bitflags = "2.2"
-bytemuck = { version = "1.4.1", features = ["derive"] }
+bytemuck = {version = "1.4.1", features = ["derive"]}
 dyn-clone = "1.0.5"
 futures = "0.3.25"
 log = "0.4"
