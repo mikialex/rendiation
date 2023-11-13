@@ -209,7 +209,13 @@ impl GlobalIdentified for SceneNode {
   }
 }
 
+pub type NodeIdentity = (u64, usize);
+
 impl SceneNode {
+  pub fn scene_and_node_id(&self) -> NodeIdentity {
+    (self.scene_id, self.inner.raw_handle().index())
+  }
+
   pub(crate) fn create_new(
     nodes: SceneNodeCollectionImpl,
     data: SceneNodeData,

@@ -2,6 +2,9 @@ use rendiation_geometry::{Box3, SpaceBounding};
 
 use crate::*;
 
+pub type SceneModelWorldBoundingGetter<'a> =
+  &'a dyn Fn(&AllocIdx<SceneModelImpl>) -> Option<Box3<f32>>;
+
 pub fn std_model_att_mesh_ref_change(
 ) -> impl ReactiveCollection<AllocIdx<StandardModel>, AllocIdx<AttributesMesh>> {
   storage_of::<StandardModel>()

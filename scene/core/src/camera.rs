@@ -205,3 +205,20 @@ impl SimpleIncremental for CameraProjectionEnum {
     cb(CameraProjectorDelta::Type(self.clone()));
   }
 }
+
+pub fn camera_projections() -> impl ReactiveCollection<AllocIdx<SceneCameraImpl>, Mat4<f32>> {
+  storage_of::<SceneCameraImpl>()
+    // extract proj change flag
+    .listen_to_reactive_collection(|change| match change {
+      MaybeDeltaRef::Delta(delta) => match delta {
+        SceneCameraImplDelta::projection(_) => Some(()),
+        _ => None,
+      },
+      MaybeDeltaRef::All(_) => Some(()),
+    })
+    .collective_execute_map_by(|| {
+      let proj_compute = storage_of::<SceneCameraImpl>() //
+        .create_key_mapper(|camera| camera.compute_project_mat());
+      move |k, _| proj_compute(*k)
+    })
+}

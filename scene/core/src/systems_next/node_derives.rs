@@ -8,8 +8,21 @@ use crate::*;
 type ReactiveParentTree =
   TreeHierarchyDerivedSystem<SceneNodeDerivedData, ParentTreeDirty<SceneNodeDeriveDataDirtyFlag>>;
 
+pub type NodeWorldMatrixGetter<'a> = &'a dyn Fn(&NodeIdentity) -> Option<Mat4<f32>>;
+pub type NodeNetVisibleGetter<'a> = &'a dyn Fn(&NodeIdentity) -> Option<bool>;
+
 pub struct NodeIncrementalDeriveSystem {
-  pub world_mat: Box<dyn DynamicReactiveCollection<(u64, usize), Mat4<f32>>>,
+  world_mat: Box<dyn DynamicReactiveCollection<NodeIdentity, Mat4<f32>>>,
+  net_visible: Box<dyn DynamicReactiveCollection<NodeIdentity, bool>>,
+}
+
+impl NodeIncrementalDeriveSystem {
+  pub fn world_matrixes_getter(&self) -> impl Fn(&NodeIdentity) -> Option<Mat4<f32>> + '_ {
+    self.world_mat.access()
+  }
+  pub fn net_visible_getter(&self) -> impl Fn(&NodeIdentity) -> Option<bool> + '_ {
+    self.net_visible.access()
+  }
 }
 
 impl NodeIncrementalDeriveSystem {
@@ -32,8 +45,21 @@ impl NodeIncrementalDeriveSystem {
       phantom: PhantomData,
     };
 
+    let net_visible = TreeDeriveOutput {
+      inner: inner.clone(),
+      forked_change: Box::new(inner.derived_stream.fork_stream()),
+      scene_id: nodes.scene_guid,
+      downcast_delta: |d: SceneNodeDerivedDataDelta| match d {
+        SceneNodeDerivedDataDelta::net_visible(v) => Some(v),
+        _ => None,
+      },
+      getter: |derive: &SceneNodeDerivedData| derive.net_visible,
+      phantom: PhantomData,
+    };
+
     Self {
       world_mat: Box::new(world_mat),
+      net_visible: Box::new(net_visible),
     }
   }
 }
@@ -48,11 +74,11 @@ pub struct TreeDeriveOutput<FD, F, V> {
   phantom: PhantomData<V>,
 }
 
-impl<FD, F, V> VirtualCollection<(u64, usize), V> for TreeDeriveOutput<FD, F, V>
+impl<FD, F, V> VirtualCollection<NodeIdentity, V> for TreeDeriveOutput<FD, F, V>
 where
   F: Fn(&SceneNodeDerivedData) -> V,
 {
-  fn iter_key(&self) -> impl Iterator<Item = (u64, usize)> + '_ {
+  fn iter_key(&self) -> impl Iterator<Item = NodeIdentity> + '_ {
     // todo, avoid clone by unsafe
     let tree = self.inner.derived_tree.read().unwrap();
     tree
@@ -62,7 +88,7 @@ where
       .into_iter()
   }
 
-  fn access(&self) -> impl Fn(&(u64, usize)) -> Option<V> + '_ {
+  fn access(&self) -> impl Fn(&NodeIdentity) -> Option<V> + '_ {
     let tree = self.inner.derived_tree.read().unwrap();
     move |(s_id, idx)| {
       if *s_id == self.scene_id {
@@ -77,13 +103,13 @@ where
   }
 }
 
-impl<FD, F, V> ReactiveCollection<(u64, usize), V> for TreeDeriveOutput<FD, F, V>
+impl<FD, F, V> ReactiveCollection<NodeIdentity, V> for TreeDeriveOutput<FD, F, V>
 where
   V: Clone + 'static,
   F: Fn(&SceneNodeDerivedData) -> V + 'static,
   FD: Fn(SceneNodeDerivedDataDelta) -> Option<V> + 'static,
 {
-  type Changes = impl Iterator<Item = CollectionDelta<(u64, usize), V>> + Clone;
+  type Changes = impl Iterator<Item = CollectionDelta<NodeIdentity, V>> + Clone;
 
   fn poll_changes(
     &mut self,
