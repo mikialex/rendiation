@@ -148,6 +148,8 @@ where
   }
 }
 pub trait DynamicReactiveCollection<K, V>: DynamicVirtualCollection<K, V> {
+  // todo, we should use Box iter to avoid collect cost across dyn boundary, but we can not use
+  // clone
   fn poll_changes_dyn(&mut self, _cx: &mut Context<'_>)
     -> Poll<Option<Vec<CollectionDelta<K, V>>>>;
 }

@@ -78,7 +78,7 @@ pub struct DerivedData<T, M> {
 }
 
 pub struct TreeHierarchyDerivedSystem<T: ReversibleIncremental, Dirty> {
-  derived_tree: Arc<RwLock<TreeCollection<DerivedData<T, Dirty>>>>,
+  pub derived_tree: Arc<RwLock<TreeCollection<DerivedData<T, Dirty>>>>,
   // we use boxed here to avoid another generic for tree delta input stream
   pub derived_stream:
     StreamForker<Box<dyn Stream<Item = Vec<CollectionDelta<usize, T::Delta>>> + Unpin>>,

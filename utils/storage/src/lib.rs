@@ -38,8 +38,8 @@ pub trait HandlePredictableStorage<T>: StorageBehavior<T> {
   fn insert_with(&mut self, creator: impl FnOnce(Self::Handle) -> T) -> Self::Handle;
 }
 
-/// this is use for saving memory. u32 should be enough for most container size, and Option<u32>
-/// could be represent by u32 max.
+/// this is use for saving memory. u32max-1 should be enough for any container's max size, and
+/// Option<u32> could be represent by u32max.
 #[derive(Clone, Copy)]
 pub struct IndexPtr {
   index: u32,

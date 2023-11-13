@@ -268,4 +268,8 @@ impl<T> TreeCollection<T> {
         visitor(child)
       });
   }
+
+  pub fn iter_node_idx(&self) -> impl Iterator<Item = usize> + '_ {
+    self.nodes.iter().map(|(h, _)| h.index())
+  }
 }
