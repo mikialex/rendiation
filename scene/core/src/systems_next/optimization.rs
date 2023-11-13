@@ -82,17 +82,20 @@ pub fn instance_mapping(
     .into_one_to_many_by_hash()
 }
 
-// pub fn selected_scene() -> impl ReactiveCollection<AllocIdx<Scene>, ()> {
+pub fn selected_scene() -> impl ReactiveCollection<AllocIdx<Scene>, ()> {}
 
-// }
+pub fn selected_scene_models(
+  s_sm: impl ReactiveCollection<AllocIdx<SceneModelImpl>, AllocIdx<Scene>>,
+) -> impl ReactiveCollection<AllocIdx<SceneModelImpl>, ()> {
+  selected_scene().one_to_many_fanout(s_sm.into_one_to_many_by_idx())
+}
 
-// pub fn selected_scene_models() -> impl ReactiveCollection<AllocIdx<SceneModels>, ()> {
-
-// }
-
-// pub fn selected_scene_std_models() -> impl ReactiveCollection<AllocIdx<StandardModel>, ()> {
-
-// }
+pub fn selected_scene_std_models(
+  s_sm: impl ReactiveCollection<AllocIdx<SceneModelImpl>, AllocIdx<Scene>>,
+  sm_std: impl ReactiveCollection<AllocIdx<StandardModel>, AllocIdx<SceneModelImpl>>,
+) -> impl ReactiveCollection<AllocIdx<StandardModel>, ()> {
+  selected_scene_models(s_sm).one_to_many_fanout(sm_std.into_one_to_many_by_idx())
+}
 
 // pub fn selected_scene_std_models() -> impl ReactiveCollection<AllocIdx<StandardModel>, ()> {
 

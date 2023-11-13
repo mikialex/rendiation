@@ -292,6 +292,12 @@ pub enum MixSceneDelta {
   ext(DeltaOf<DynamicExtension>),
 }
 
+#[derive(Clone, Debug)]
+pub enum ContainerRefRetainContentDelta<T: PartialEq> {
+  Remove(T),
+  Insert(T),
+}
+
 impl IncrementalBase for SceneImpl {
   type Delta = MixSceneDelta;
   fn expand(&self, mut cb: impl FnMut(Self::Delta)) {

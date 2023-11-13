@@ -130,6 +130,28 @@ impl<K: 'static, V> VirtualCollection<K, V> for () {
   }
 }
 
+pub struct EmptyIter<T>(PhantomData<T>);
+
+impl<T> Clone for EmptyIter<T> {
+  fn clone(&self) -> Self {
+    Self(PhantomData)
+  }
+}
+impl<T> Iterator for EmptyIter<T> {
+  type Item = T;
+
+  fn next(&mut self) -> Option<Self::Item> {
+    None
+  }
+}
+impl<K: 'static, V> ReactiveCollection<K, V> for () {
+  type Changes = EmptyIter<CollectionDelta<K, V>>;
+
+  fn poll_changes(&mut self, _: &mut Context<'_>) -> Poll<Option<Self::Changes>> {
+    Poll::Pending
+  }
+}
+
 /// dynamic version of the above trait
 pub trait DynamicVirtualCollection<K, V> {
   fn iter_key_boxed(&self) -> Box<dyn Iterator<Item = K> + '_>;
