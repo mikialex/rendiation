@@ -1,6 +1,3 @@
-mod optimization;
-pub use optimization::*;
-
 mod bounding;
 pub use bounding::*;
 

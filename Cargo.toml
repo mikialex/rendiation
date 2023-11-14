@@ -45,6 +45,7 @@ members = [
   "shader/library",
   "scene/core",
   "scene/webgpu",
+  "scene/optimization",
   "scene/raytracing",
   "scene/interaction",
   "scene/io/obj/loader",

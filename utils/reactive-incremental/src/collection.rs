@@ -1043,10 +1043,9 @@ where
                     CollectionDelta::Delta(key, next, Some(current.clone())),
                   );
                 } else {
-                  outputs.insert(
-                    key.clone(),
-                    CollectionDelta::Delta(key, (self.defaulter)(), None),
-                  );
+                  let mut next = (self.defaulter)();
+                  (self.applier)(&mut next, change);
+                  outputs.insert(key.clone(), CollectionDelta::Delta(key, next, None));
                 }
               }
             }
