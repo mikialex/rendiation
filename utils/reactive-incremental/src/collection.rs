@@ -927,3 +927,126 @@ where
     Poll::Ready(Some(r.into_iter()))
   }
 }
+
+/// when we want to zip multiple kv, using deeply nested zipper is viable, however it's computation
+/// intensive during layer of layers consuming. This combinator provides the flattened version of
+/// multi zip, in trades of the performance overhead of dynamical fn call and internal cache(maybe
+/// user still require this so it's ok).
+pub struct MultiZipper<K, P, V> {
+  sources: Vec<Box<dyn DynamicReactiveCollection<K, P>>>,
+  current: FastHashMap<K, V>,
+  defaulter: Box<dyn Fn() -> V>,
+  applier: Box<dyn Fn(&mut V, P)>,
+}
+
+impl<K, P, V> MultiZipper<K, P, V> {
+  pub fn new(defaulter: impl Fn() -> V + 'static, applier: impl Fn(&mut V, P) + 'static) -> Self {
+    Self {
+      sources: Default::default(),
+      current: Default::default(),
+      defaulter: Box::new(defaulter),
+      applier: Box::new(applier),
+    }
+  }
+
+  pub fn zip_with(mut self, source: impl ReactiveCollection<K, P>) -> Self {
+    self.sources.push(Box::new(source));
+    self
+  }
+}
+
+impl<K, P, V> VirtualCollection<K, V> for MultiZipper<K, P, V>
+where
+  K: Clone + Eq + std::hash::Hash,
+  V: Clone,
+{
+  fn iter_key(&self) -> impl Iterator<Item = K> + '_ {
+    self.current.keys().cloned()
+  }
+
+  fn access(&self) -> impl Fn(&K) -> Option<V> + '_ {
+    |k| self.current.get(k).cloned()
+  }
+}
+
+impl<K, P, V> ReactiveCollection<K, V> for MultiZipper<K, P, V>
+where
+  K: Clone + Eq + std::hash::Hash + 'static,
+  V: Clone + 'static,
+  P: 'static,
+{
+  type Changes = impl Iterator<Item = CollectionDelta<K, V>> + Clone;
+
+  #[allow(clippy::collapsible_else_if)]
+  fn poll_changes(&mut self, cx: &mut Context<'_>) -> Poll<Option<Self::Changes>> {
+    if self.sources.is_empty() {
+      return Poll::Pending;
+    }
+
+    let mut outputs = FastHashMap::<K, CollectionDelta<K, V>>::default();
+
+    for source in &mut self.sources {
+      if let Poll::Ready(Some(source)) = source.poll_changes_dyn(cx) {
+        for change in source {
+          match change {
+            CollectionDelta::Delta(key, change, _) => {
+              if let Some(previous_new) = outputs.remove(&key) {
+                match previous_new {
+                  CollectionDelta::Delta(_, mut next, pre) => {
+                    (self.applier)(&mut next, change);
+                    outputs.insert(key.clone(), CollectionDelta::Delta(key.clone(), next, pre));
+                  }
+                  CollectionDelta::Remove(_, _) => unreachable!("unexpected zipper input"),
+                }
+                outputs.insert(
+                  key.clone(),
+                  CollectionDelta::Delta(key, (self.defaulter)(), None),
+                );
+              } else {
+                if let Some(current) = self.current.get(&key) {
+                  let mut next = current.clone();
+                  (self.applier)(&mut next, change);
+                  outputs.insert(
+                    key.clone(),
+                    CollectionDelta::Delta(key, next, Some(current.clone())),
+                  );
+                } else {
+                  outputs.insert(
+                    key.clone(),
+                    CollectionDelta::Delta(key, (self.defaulter)(), None),
+                  );
+                }
+              }
+            }
+            CollectionDelta::Remove(key, _) => {
+              outputs.insert(
+                key.clone(),
+                CollectionDelta::Remove(key.clone(), self.current.remove(&key).unwrap()),
+              );
+            }
+          }
+        }
+      }
+    }
+
+    if outputs.is_empty() {
+      return Poll::Pending;
+    }
+
+    for v in outputs.values() {
+      match v {
+        CollectionDelta::Delta(k, next, _) => {
+          self.current.insert(k.clone(), next.clone());
+        }
+        CollectionDelta::Remove(k, _) => {
+          self.current.remove(k);
+        }
+      }
+    }
+
+    // todo fix hashmap into values iter not impl clone
+    let outputs = outputs.into_values().collect::<Vec<_>>();
+
+    Poll::Ready(Some(outputs.into_iter()))
+  }
+}
