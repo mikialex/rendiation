@@ -737,6 +737,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "derivative"
+version = "2.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "fcc3dd5e9e9c0b295d6e1e4d811fb6f157d5ffd784b8d202fc62eac8035a770b"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 1.0.72",
+]
+
+[[package]]
 name = "dirs"
 version = "4.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2840,6 +2851,7 @@ dependencies = [
  "arena",
  "bitflags 2.4.0",
  "bytemuck",
+ "derivative",
  "dyn-clone",
  "dyn-downcast",
  "fast-hash-collection",

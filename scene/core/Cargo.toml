@@ -8,6 +8,7 @@ version = "0.1.0"
 anymap = "0.12.1"
 arena = { path = "../../utils/arena" }
 bitflags = { workspace = true }
+derivative = { workspace = true }
 bytemuck = { workspace = true, features = ["derive"] }
 dyn-clone = { workspace = true }
 dyn-downcast = { path = "../../utils/dyn-downcast" }

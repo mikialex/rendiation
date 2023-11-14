@@ -12,7 +12,7 @@ use crate::*;
 pub enum MeshEnum {
   AttributesMesh(IncrementalSignalPtr<AttributesMesh>),
   TransformInstanced(IncrementalSignalPtr<TransformInstancedSceneMesh>),
-  Foreign(Box<dyn AnyClone + Send + Sync>),
+  Foreign(ForeignObject),
 }
 
 clone_self_incremental!(MeshEnum);

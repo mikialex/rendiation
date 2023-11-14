@@ -120,7 +120,7 @@ pub enum CameraProjectionEnum {
   Perspective(PerspectiveProjection<f32>),
   ViewOrthographic(ViewFrustumOrthographicProjection<f32>),
   Orthographic(OrthographicProjection<f32>),
-  Foreign(Box<dyn AnyClone + Send + Sync>),
+  Foreign(ForeignObject),
 }
 
 pub trait CameraProjection: Sync + Send + DynIncremental {
