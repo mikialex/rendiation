@@ -169,21 +169,49 @@ where
     Box::new(self.access())
   }
 }
+
+pub type BoxedReactiveCollectionDeltaTy<K, V> = Box<dyn DynamicReactiveCollectionDelta<K, V>>;
+pub trait DynamicReactiveCollectionDelta<K, V>: Iterator<Item = CollectionDelta<K, V>> {
+  fn clone_dyn(&self) -> Box<dyn DynamicReactiveCollectionDelta<K, V>>;
+}
+impl<K, V, T> DynamicReactiveCollectionDelta<K, V> for T
+where
+  T: Iterator<Item = CollectionDelta<K, V>> + Clone + 'static,
+{
+  fn clone_dyn(&self) -> Box<dyn DynamicReactiveCollectionDelta<K, V>> {
+    Box::new(self.clone())
+  }
+}
+impl<K, V> Clone for BoxedReactiveCollectionDeltaTy<K, V>
+where
+  K: 'static,
+  V: 'static,
+{
+  fn clone(&self) -> Self {
+    self.clone_dyn()
+  }
+}
+
 pub trait DynamicReactiveCollection<K, V>: DynamicVirtualCollection<K, V> {
-  // todo, we should use Box iter to avoid collect cost across dyn boundary, but we can not use
-  // clone
-  fn poll_changes_dyn(&mut self, _cx: &mut Context<'_>)
-    -> Poll<Option<Vec<CollectionDelta<K, V>>>>;
+  fn poll_changes_dyn(
+    &mut self,
+    _cx: &mut Context<'_>,
+  ) -> Poll<Option<BoxedReactiveCollectionDeltaTy<K, V>>>;
 }
 
 impl<K, V, T> DynamicReactiveCollection<K, V> for T
 where
   T: ReactiveCollection<K, V>,
+  K: 'static,
+  V: 'static,
 {
-  fn poll_changes_dyn(&mut self, cx: &mut Context<'_>) -> Poll<Option<Vec<CollectionDelta<K, V>>>> {
+  fn poll_changes_dyn(
+    &mut self,
+    cx: &mut Context<'_>,
+  ) -> Poll<Option<BoxedReactiveCollectionDeltaTy<K, V>>> {
     self
       .poll_changes(cx)
-      .map(|v| v.map(|v| v.collect::<Vec<_>>()))
+      .map(|v| v.map(|v| Box::new(v) as BoxedReactiveCollectionDeltaTy<K, V>))
   }
 }
 
@@ -204,7 +232,7 @@ where
   type Changes = impl Iterator<Item = CollectionDelta<K, V>> + Clone;
 
   fn poll_changes(&mut self, cx: &mut Context<'_>) -> Poll<Option<Self::Changes>> {
-    self.poll_changes_dyn(cx).map(|v| v.map(|v| v.into_iter()))
+    self.poll_changes_dyn(cx)
   }
 }
 
@@ -949,7 +977,11 @@ impl<K, P, V> MultiZipper<K, P, V> {
     }
   }
 
-  pub fn zip_with(mut self, source: impl ReactiveCollection<K, P>) -> Self {
+  pub fn zip_with(mut self, source: impl ReactiveCollection<K, P>) -> Self
+  where
+    K: 'static,
+    P: 'static,
+  {
     self.sources.push(Box::new(source));
     self
   }
