@@ -2,70 +2,25 @@ use rendiation_texture::CubeTextureFace;
 
 use crate::*;
 
-pub struct ReactiveGPUCubeTextureSignal {
-  inner: EventSource<BindableGPUChange>,
-  gpu: GPUCubeTextureView,
-}
-
-pub type TextureCubeRenderComponentDeltaStream = impl Stream<Item = RenderComponentDeltaFlag>;
-
-pub type ReactiveGPUCubeTextureViewSource =
-  impl AsRef<ReactiveGPUCubeTextureSignal> + Stream<Item = BindableGPUChange>;
-
-impl ReactiveGPUCubeTextureSignal {
-  pub fn create_gpu_texture_stream(&self) -> impl Stream<Item = BindableGPUChange> {
-    let current = self.gpu.clone();
-    self.inner.single_listen_by(
-      |v| v.clone(),
-      |send| send(BindableGPUChange::ReferenceCube(current)),
-    )
-  }
-  pub fn create_gpu_texture_com_delta_stream(&self) -> TextureCubeRenderComponentDeltaStream {
-    self
-      .create_gpu_texture_stream()
-      .map(BindableGPUChange::into_render_component_delta)
-  }
-}
-
-impl ShareBindableResourceCtx {
-  // todo cube texture bindless support
-  pub fn get_or_create_reactive_gpu_texture_cube(
-    &self,
-    tex: &SceneTextureCube,
-  ) -> (impl Stream<Item = BindableGPUChange>, GPUCubeTextureView) {
-    let mut texture_cube = self.texture_cube.write().unwrap();
-    let cache = texture_cube.get_or_insert_with(tex.guid(), || {
-      let gpu_tex = self.gpu.create_gpu_texture_cube(tex);
-
-      let gpu_tex = ReactiveGPUCubeTextureSignal {
-        inner: Default::default(),
-        gpu: gpu_tex,
-      };
-
-      let gpu_clone: ResourceGPUCtx = self.gpu.clone();
-
-      tex
-        .unbound_listen_by(any_change_no_init)
-        .filter_map_sync(tex.defer_weak())
-        .fold_signal(gpu_tex, move |tex, gpu_tex| {
-          let recreated = gpu_clone.create_gpu_texture_cube(&tex);
-          gpu_tex.gpu = recreated.clone();
-          gpu_tex
-            .inner
-            .emit(&BindableGPUChange::ReferenceCube(gpu_tex.gpu.clone()));
-          BindableGPUChange::ReferenceCube(recreated).into()
-        })
-    });
-
-    let gpu = cache.as_ref().gpu.clone();
-    let changes = cache.as_ref().create_gpu_texture_stream();
-    (changes, gpu)
-  }
+pub fn gpu_texture_cubes(
+  cx: &ResourceGPUCtx,
+) -> impl ReactiveCollection<AllocIdx<SceneTextureCubeImpl>, GPUCubeTextureView> {
+  let cx = cx.clone();
+  storage_of::<SceneTextureCubeImpl>()
+    .listen_to_reactive_collection(|_| Some(()))
+    .collective_execute_map_by(move || {
+      let cx = cx.clone();
+      let creator = storage_of::<SceneTextureCubeImpl>().create_key_mapper(move |tex| {
+        let cx = cx.clone();
+        cx.create_gpu_texture_cube(tex)
+      });
+      move |k, _| creator(*k)
+    })
+    .materialize_linear()
 }
 
 impl ResourceGPUCtx {
-  fn create_gpu_texture_cube(&self, tex: &SceneTextureCube) -> GPUCubeTextureView {
-    let texture = tex.read();
+  fn create_gpu_texture_cube(&self, texture: &SceneTextureCubeImpl) -> GPUCubeTextureView {
     let first = as_2d_source(&texture.faces[0]);
 
     let view_desc = TextureViewDescriptor {

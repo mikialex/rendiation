@@ -1,166 +1,46 @@
 use crate::*;
 
-#[pin_project::pin_project]
-pub struct SceneCameraGPUSystem {
-  cameras: SceneCameraGPUStorage,
-}
+pub type CameraGPUGetter<'a> = &'a dyn Fn(&AllocIdx<SceneCameraImpl>) -> Option<CameraGPU>;
 
-impl FusedStream for SceneCameraGPUSystem {
-  fn is_terminated(&self) -> bool {
-    false
-  }
-}
-impl Stream for SceneCameraGPUSystem {
-  type Item = Vec<StreamMapDelta<u64, CameraGPUTransform>>;
-
-  fn poll_next(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Option<Self::Item>> {
-    let this = self.project();
-    let r = this.cameras.poll_next_unpin(cx);
-
-    r.map(|v| {
-      v.map(|vs| {
-        vs.into_iter()
-          .map(|v| {
-            v.map(|k, _| {
-              this
-                .cameras
-                .as_ref()
-                .get(k)
-                .unwrap()
-                .as_ref()
-                .inner
-                .ubo
-                .get()
-            })
-          })
-          .collect()
-      })
-    })
-  }
-}
-
-pub type ReactiveCameraGPU = impl Stream<Item = RenderComponentDeltaFlag>
-  + AsRef<RenderComponentCell<CameraGPU>>
-  + AsMut<RenderComponentCell<CameraGPU>>
-  + Unpin;
-
-pub type SceneCameraGPUStorage = impl AsRef<StreamMap<u64, ReactiveCameraGPU>>
-  + AsMut<StreamMap<u64, ReactiveCameraGPU>>
-  + Stream<Item = Vec<StreamMapDelta<u64, RenderComponentDeltaFlag>>>
-  + Unpin;
-
-enum CameraGPUDelta {
-  Proj(Mat4<f32>),
-  WorldMat(Mat4<f32>),
-}
-
-pub fn build_reactive_camera(
-  camera: SceneCamera,
-  derives: &SceneNodeDeriveSystem,
+pub fn camera_gpus(
+  projections: impl ReactiveCollection<AllocIdx<SceneCameraImpl>, Mat4<f32>>,
+  node_mats: impl ReactiveCollection<NodeIdentity, Mat4<f32>>,
+  camera_node_relations: impl ReactiveOneToManyRelationship<NodeIdentity, AllocIdx<SceneCameraImpl>>,
   cx: &ResourceGPUCtx,
-) -> ReactiveCameraGPU {
-  let cx = cx.clone();
-  let derives = derives.clone();
+) -> impl ReactiveCollection<AllocIdx<SceneCameraImpl>, CameraGPU> {
+  let camera_world_mat = node_mats.one_to_many_fanout(camera_node_relations);
 
-  let camera_world = camera
-    .single_listen_by(with_field!(SceneCameraImpl => node))
-    .filter_map_sync(move |node| derives.create_world_matrix_stream(&node))
-    .flatten_signal()
-    .map(CameraGPUDelta::WorldMat);
+  let uniforms = camera_world_mat
+    .collective_zip(projections)
+    .collective_map(|(world, proj)| {
+      let view = world.inverse_or_identity();
+      let view_projection = proj * view;
+      CameraGPUTransform {
+        world,
+        view,
+        rotation: world.extract_rotation_mat(),
 
-  let camera_proj = camera
-    .create_projection_mat_stream()
-    .map(CameraGPUDelta::Proj);
+        projection: proj,
+        projection_inv: proj.inverse_or_identity(),
+        view_projection,
+        view_projection_inv: view_projection.inverse_or_identity(),
 
-  let camera = CameraGPU::new(&cx.device);
-  let state = RenderComponentCell::new(camera);
-
-  futures::stream::select(camera_world, camera_proj).fold_signal(state, move |delta, state| {
-    let uniform = &mut state.inner.ubo;
-    uniform.mutate(|uniform| match delta {
-      CameraGPUDelta::Proj(proj) => {
-        uniform.projection = proj;
-        uniform.projection_inv = proj.inverse_or_identity();
-        uniform.view_projection = proj * uniform.view;
-        uniform.view_projection_inv = uniform.view_projection.inverse_or_identity();
-      }
-      CameraGPUDelta::WorldMat(world) => {
-        uniform.world = world;
-        uniform.view = world.inverse_or_identity();
-        uniform.rotation = world.extract_rotation_mat();
-        uniform.view_projection = uniform.projection * uniform.view;
-        uniform.view_projection_inv = uniform.view_projection.inverse_or_identity();
+        ..Zeroable::zeroed()
       }
     });
 
-    uniform.upload(&cx.queue);
-    RenderComponentDeltaFlag::Content.into()
+  let cx = cx.clone();
+  uniforms.collective_execute_map_by(move || {
+    let cx = cx.clone();
+    move |_, _| {
+      let gpu = CameraGPU::new(&cx.device);
+      // gpu.update
+      gpu
+    }
   })
 }
 
-impl SceneCameraGPUSystem {
-  pub fn get_camera_gpu(&self, camera: &SceneCamera) -> Option<&CameraGPU> {
-    self
-      .cameras
-      .as_ref()
-      .get(&camera.guid())
-      .map(|v| &v.as_ref().inner)
-  }
-
-  pub fn get_camera_gpu_mut(&mut self, camera: &SceneCamera) -> Option<&mut CameraGPU> {
-    self
-      .cameras
-      .as_mut()
-      .get_mut(&camera.guid())
-      .map(|v| &mut v.as_mut().inner)
-  }
-
-  pub fn get_or_insert(
-    &mut self,
-    camera: &SceneCamera,
-    derives: &SceneNodeDeriveSystem,
-    cx: &ResourceGPUCtx,
-  ) -> &mut ReactiveCameraGPU {
-    self.cameras.as_mut().get_or_insert_with(camera.guid(), || {
-      build_reactive_camera(camera.clone(), derives, cx)
-    })
-  }
-
-  pub fn new(scene: &SceneCore, derives: &SceneNodeDeriveSystem, cx: &ResourceGPUCtx) -> Self {
-    let derives = derives.clone();
-    let cx = cx.clone();
-
-    let mut index_mapper = FastHashMap::<SceneCameraHandle, u64>::default();
-
-    let cameras = scene
-      .unbound_listen_by(with_field_expand!(SceneCoreImpl => cameras))
-      .map(move |v: arena::ArenaDelta<SceneCamera>| match v {
-        arena::ArenaDelta::Mutate((camera, idx)) => {
-          index_mapper.remove(&idx).unwrap();
-          index_mapper.insert(idx, camera.guid());
-          (
-            camera.guid(),
-            build_reactive_camera(camera, &derives, &cx).into(),
-          )
-        }
-        arena::ArenaDelta::Insert((camera, idx)) => {
-          index_mapper.insert(idx, camera.guid());
-          (
-            camera.guid(),
-            build_reactive_camera(camera, &derives, &cx).into(),
-          )
-        }
-        arena::ArenaDelta::Remove(idx) => {
-          let id = index_mapper.remove(&idx).unwrap();
-          (id, None)
-        }
-      })
-      .flatten_into_map_stream_signal();
-
-    Self { cameras }
-  }
-}
-
+#[derive(Clone)]
 pub struct CameraGPU {
   pub ubo: UniformBufferDataView<CameraGPUTransform>,
 }

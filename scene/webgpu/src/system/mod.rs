@@ -6,9 +6,6 @@ pub use wrapper::*;
 mod content;
 pub use content::*;
 
-mod scene;
-pub use scene::*;
-
 mod global;
 pub use global::*;
 

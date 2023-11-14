@@ -1,5 +1,27 @@
 use crate::*;
 
+pub fn flat_material_gpus(
+  cx: &ResourceGPUCtx,
+) -> impl ReactiveCollection<AllocIdx<FlatMaterial>, FlatMaterialGPU> {
+  let cx = cx.clone();
+  storage_of::<FlatMaterial>()
+    .listen_to_reactive_collection(|_| Some(()))
+    .collective_execute_map_by(move || {
+      let cx = cx.clone();
+      let creator = storage_of::<FlatMaterial>().create_key_mapper(move |m| {
+        let cx = cx.clone();
+
+        let uniform = FlatMaterialUniform {
+          color: srgba_to_linear(m.color),
+          ..Zeroable::zeroed()
+        };
+        let uniform = create_uniform(uniform, &cx.device);
+        FlatMaterialGPU { uniform }
+      });
+      move |k, _| creator(*k)
+    })
+}
+
 #[repr(C)]
 #[std140_layout]
 #[derive(Clone, Copy, ShaderStruct)]
@@ -7,6 +29,7 @@ pub struct FlatMaterialUniform {
   pub color: Vec4<f32>,
 }
 
+#[derive(Clone)]
 pub struct FlatMaterialGPU {
   uniform: UniformBufferDataView<FlatMaterialUniform>,
 }
@@ -35,46 +58,6 @@ impl GraphicsShaderProvider for FlatMaterialGPU {
 impl ShaderPassBuilder for FlatMaterialGPU {
   fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
     ctx.binding.bind(&self.uniform);
-  }
-}
-
-impl ReactiveRenderComponentSource for FlatMaterialReactiveGPU {
-  fn as_reactive_component(&self) -> &dyn ReactiveRenderComponent {
-    self.as_ref() as &dyn ReactiveRenderComponent
-  }
-}
-
-type FlatMaterialReactiveGPU =
-  impl AsRef<RenderComponentCell<FlatMaterialGPU>> + Stream<Item = RenderComponentDeltaFlag>;
-
-impl WebGPUMaterial for FlatMaterial {
-  type ReactiveGPU = FlatMaterialReactiveGPU;
-
-  fn create_reactive_gpu(
-    source: &IncrementalSignalPtr<Self>,
-    ctx: &ShareBindableResourceCtx,
-  ) -> Self::ReactiveGPU {
-    let uniform = create_flat_material_uniform(&source.read());
-    let uniform = create_uniform(uniform, &ctx.gpu.device);
-
-    let gpu = FlatMaterialGPU { uniform };
-    let state = RenderComponentCell::new(gpu);
-
-    let ctx = ctx.clone();
-
-    source
-      .single_listen_by::<()>(any_change_no_init)
-      .filter_map_sync(source.defer_weak())
-      .fold_signal(state, move |m, state| {
-        let uniform = create_flat_material_uniform(&m.read());
-        state.inner.uniform.set(uniform);
-        state.inner.uniform.upload(&ctx.gpu.queue);
-        RenderComponentDeltaFlag::Content.into()
-      })
-  }
-
-  fn is_transparent(&self) -> bool {
-    false
   }
 }
 

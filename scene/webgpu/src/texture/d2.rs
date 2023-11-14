@@ -2,72 +2,25 @@ use rendiation_texture::GPUBufferImage;
 
 use crate::*;
 
-pub struct ReactiveGPU2DTextureSignal {
-  inner: EventSource<BindableGPUChange>,
-  handle: Texture2DHandle,
-  gpu: GPU2DTextureView,
-}
-
-pub type ReactiveGPU2DTextureViewSource =
-  impl AsRef<ReactiveGPU2DTextureSignal> + Stream<Item = BindableGPUChange>;
-
-impl ReactiveGPU2DTextureSignal {
-  pub fn create_gpu_texture_stream(&self) -> impl Stream<Item = BindableGPUChange> {
-    let current = self.gpu.clone();
-    let handle = self.handle;
-    self.inner.single_listen_by(
-      |v| v.clone(),
-      move |send| send(BindableGPUChange::Reference2D(current, handle)),
-    )
-  }
-}
-
-impl ShareBindableResourceCtx {
-  pub fn get_or_create_reactive_gpu_texture2d(
-    &self,
-    tex: &SceneTexture2D,
-  ) -> (impl Stream<Item = BindableGPUChange>, GPU2DTextureView) {
-    let mut texture_2d = self.texture_2d.write().unwrap();
-    let cache = texture_2d.get_or_insert_with(tex.guid(), || {
-      let gpu_tex = self.gpu.create_gpu_texture2d(tex);
-      let handle = self.binding_sys.register_texture(gpu_tex.clone());
-
-      let gpu_tex = ReactiveGPU2DTextureSignal {
-        inner: Default::default(),
-        gpu: gpu_tex,
-        handle,
-      };
-
-      let gpu_clone: ResourceGPUCtx = self.gpu.clone();
-      let bs = self.binding_sys.clone();
-
-      tex
-        .unbound_listen_by(any_change_no_init)
-        .filter_map_sync(tex.defer_weak())
-        .fold_signal(gpu_tex, move |tex, gpu_tex| {
-          let recreated = gpu_clone.create_gpu_texture2d(&tex);
-
-          gpu_tex.gpu = recreated.clone();
-          bs.deregister_texture(gpu_tex.handle);
-          gpu_tex.handle = bs.register_texture(gpu_tex.gpu.clone());
-
-          gpu_tex.inner.emit(&BindableGPUChange::Reference2D(
-            gpu_tex.gpu.clone(),
-            gpu_tex.handle,
-          ));
-          BindableGPUChange::Reference2D(recreated, gpu_tex.handle).into()
-        })
-    });
-
-    let gpu = cache.as_ref().gpu.clone();
-    let changes = cache.as_ref().create_gpu_texture_stream();
-    (changes, gpu)
-  }
+pub fn gpu_texture_2ds(
+  cx: &ResourceGPUCtx,
+) -> impl ReactiveCollection<AllocIdx<SceneTexture2DType>, GPU2DTextureView> {
+  let cx = cx.clone();
+  storage_of::<SceneTexture2DType>()
+    .listen_to_reactive_collection(|_| Some(()))
+    .collective_execute_map_by(move || {
+      let cx = cx.clone();
+      let creator = storage_of::<SceneTexture2DType>().create_key_mapper(move |tex| {
+        let cx = cx.clone();
+        cx.create_gpu_texture2d(tex)
+      });
+      move |k, _| creator(*k)
+    })
+    .materialize_linear()
 }
 
 impl ResourceGPUCtx {
-  fn create_gpu_texture2d(&self, tex: &SceneTexture2D) -> GPU2DTextureView {
-    let texture = &tex.read();
+  fn create_gpu_texture2d(&self, texture: &SceneTexture2DType) -> GPU2DTextureView {
     let texture = as_2d_source(texture);
 
     let gpu_texture = if let Some(texture) = texture {

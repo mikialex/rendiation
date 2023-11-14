@@ -48,7 +48,7 @@ pub trait SceneCameraExt {
   fn cast_world_ray(
     &self,
     normalized_position: Vec2<f32>,
-    d_sys: &SceneNodeDeriveSystem,
+    world_mat: NodeWorldMatrixGetter,
   ) -> Ray3<f32>;
 }
 
@@ -80,10 +80,10 @@ impl SceneCameraExt for SceneCamera {
   fn cast_world_ray(
     &self,
     normalized_position: Vec2<f32>,
-    d_sys: &SceneNodeDeriveSystem,
+    world_mat: NodeWorldMatrixGetter,
   ) -> Ray3<f32> {
     self.visit(|camera| {
-      let camera_world_mat = d_sys.get_world_matrix(&camera.node);
+      let camera_world_mat = world_mat(&camera.node.scene_and_node_id()).unwrap();
       camera
         .projection
         .cast_ray(normalized_position)

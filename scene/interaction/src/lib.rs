@@ -10,7 +10,9 @@ pub use agreement::*;
 pub struct SceneRayInteractiveCtx<'a> {
   pub world_ray: Ray3,
   pub conf: &'a MeshBufferIntersectConfig,
-  pub node_derives: &'a SceneNodeDeriveSystem,
+  pub world_mat_getter: NodeWorldMatrixGetter<'a>,
+  pub net_visible_getter: NodeNetVisibleGetter<'a>,
+  pub scene_model_bbox_getter: SceneModelWorldBoundingGetter<'a>,
   pub camera: &'a SceneCamera,
   pub camera_view_size: Size,
 }
@@ -28,7 +30,11 @@ impl SceneRayInteractive for SceneModel {
 
 impl SceneRayInteractive for SceneModelImpl {
   fn ray_pick_nearest(&self, ctx: &SceneRayInteractiveCtx) -> OptionalNearest<MeshBufferHitPoint> {
-    ray_pick_nearest_core(self, ctx, ctx.node_derives.get_world_matrix(&self.node))
+    ray_pick_nearest_core(
+      self,
+      ctx,
+      (ctx.world_mat_getter)(&self.node.scene_and_node_id()).unwrap(),
+    )
   }
 }
 
@@ -39,7 +45,7 @@ pub fn ray_pick_nearest_core(
 ) -> OptionalNearest<MeshBufferHitPoint> {
   match &m.model {
     ModelEnum::Standard(model) => {
-      let net_visible = ctx.node_derives.get_net_visible(&m.node);
+      let net_visible = (ctx.net_visible_getter)(&m.node.scene_and_node_id()).unwrap();
       if !net_visible {
         return OptionalNearest::none();
       }
@@ -80,51 +86,25 @@ pub fn ray_pick_nearest_core(
 }
 
 pub trait WebGPUScenePickingExt {
-  fn build_interactive_ctx<'a>(
-    &'a self,
-    normalized_position: Vec2<f32>,
-    camera_view_size: Size,
-    conf: &'a MeshBufferIntersectConfig,
-    node_derives: &'a SceneNodeDeriveSystem,
-  ) -> SceneRayInteractiveCtx<'a>;
-
   fn interaction_picking<'a>(
     &'a self,
     ctx: &SceneRayInteractiveCtx,
-    bounding_system: &mut SceneModelWorldBoundingSystem,
   ) -> Option<(&'a SceneModel, MeshBufferHitPoint)>;
 }
 
 use std::cmp::Ordering;
 
 impl WebGPUScenePickingExt for SceneCoreImpl {
-  fn build_interactive_ctx<'a>(
-    &'a self,
-    normalized_position: Vec2<f32>,
-    camera_view_size: Size,
-    conf: &'a MeshBufferIntersectConfig,
-    node_derives: &'a SceneNodeDeriveSystem,
-  ) -> SceneRayInteractiveCtx<'a> {
-    let camera = self.active_camera.as_ref().unwrap();
-    let world_ray = camera.cast_world_ray(normalized_position, node_derives);
-    SceneRayInteractiveCtx {
-      world_ray,
-      conf,
-      camera,
-      camera_view_size,
-      node_derives,
-    }
-  }
-
   fn interaction_picking<'a>(
     &'a self,
     ctx: &SceneRayInteractiveCtx,
-    bounding_system: &mut SceneModelWorldBoundingSystem,
   ) -> Option<(&'a SceneModel, MeshBufferHitPoint)> {
     interaction_picking(
-      self.models.iter().filter_map(|(handle, m)| {
-        if let Some(bounding) = bounding_system.get_model_bounding(handle) {
-          if ctx.world_ray.intersect(bounding, &()) {
+      self.models.iter().filter_map(|(_, m)| {
+        if let Some(bounding) =
+          (ctx.scene_model_bbox_getter)(&AllocIdx::from_alloc_index(m.alloc_index()))
+        {
+          if ctx.world_ray.intersect(&bounding, &()) {
             Some(m)
           } else {
             println!("culled");

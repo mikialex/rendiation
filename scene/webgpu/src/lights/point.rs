@@ -26,52 +26,41 @@ impl PunctualShaderLight for PointLightShaderInfo {
   }
 }
 
-impl WebGPULight for IncrementalSignalPtr<PointLight> {
-  type Uniform = PointLightShaderInfo;
+fn point_lights_position(
+  node_mats: impl ReactiveCollection<NodeIdentity, Mat4<f32>>,
+  light_node_relation: impl ReactiveOneToManyRelationship<NodeIdentity, AllocIdx<PointLight>>,
+) -> impl ReactiveCollection<AllocIdx<PointLight>, Vec3<f32>> {
+  // this is costly because the light count is always very small in a scene
+  node_mats
+    .one_to_many_fanout(light_node_relation)
+    .collective_map(|mat| mat.position())
+}
 
-  fn create_uniform_stream(
-    &self,
-    ctx: &LightResourceCtx,
-    node: Box<dyn Stream<Item = SceneNode> + Unpin>,
-  ) -> impl Stream<Item = Self::Uniform> {
-    enum ShaderInfoDelta {
-      Position(Vec3<f32>),
-      // Shadow(LightShadowAddressInfo),
-      Light(Vec3<f32>, f32),
-    }
-
-    let derives = ctx.derives.clone();
-    let direction = node
-      .filter_map_sync(move |node| derives.create_world_matrix_stream(&node))
-      .flatten_signal()
-      .map(|mat| mat.position())
-      .map(ShaderInfoDelta::Position);
-
-    let ill = self
-      .single_listen_by(any_change)
-      .filter_map_sync(self.defer_weak())
-      .map(|light| {
-        let light = light.read();
-        (
-          light.luminance_intensity * light.color_factor,
-          light.cutoff_distance,
-        )
-      })
-      .map(|(a, b)| ShaderInfoDelta::Light(a, b));
-
-    let delta = futures::stream_select!(direction, ill);
-
-    delta.fold_signal(PointLightShaderInfo::default(), |delta, info| {
-      match delta {
-        ShaderInfoDelta::Position(position) => info.position = position,
-        ShaderInfoDelta::Light(i, cutoff_distance) => {
-          info.luminance_intensity = i;
-          info.cutoff_distance = cutoff_distance;
-        }
-      };
-      Some(*info)
+fn point_lights_intensity() -> impl ReactiveCollection<AllocIdx<PointLight>, Vec3<f32>> {
+  storage_of::<PointLight>()
+    .listen_to_reactive_collection(|| Some(()))
+    .collective_execute_map_by(|| {
+      let compute = storage_of::<PointLight>()
+        .create_key_mapper(|light| light.illuminance * light.color_factor);
+      move |k, _| compute(*k)
     })
+}
+
+fn point_lights_uniform(
+  intensity: impl ReactiveCollection<AllocIdx<PointLight>, Vec3<f32>>,
+  directions: impl ReactiveCollection<AllocIdx<PointLight>, Vec3<f32>>,
+) -> impl ReactiveCollection<AllocIdx<PointLight>, SpotLightShaderInfo> {
+  enum ShaderInfoDelta {
+    Position(Vec3<f32>),
+    Ill(Vec3<f32>),
   }
+
+  MultiZipper::new(Default::default, |info, delta| match delta {
+    ShaderInfoDelta::Dir(dir) => info.direction = dir,
+    ShaderInfoDelta::Ill(i) => info.illuminance = i,
+  })
+  .zip_with(intensity.collective_map(ShaderInfoDelta::Ill))
+  .zip_with(directions.collective_map(ShaderInfoDelta::Dir))
 }
 
 /// based upon Frostbite 3 Moving to Physically-based Rendering

@@ -1,5 +1,25 @@
 use crate::*;
 
+pub fn physical_mr_material_gpus(
+  cx: &ResourceGPUCtx,
+) -> impl ReactiveCollection<
+  AllocIdx<PhysicalMetallicRoughnessMaterial>,
+  PhysicalMetallicRoughnessMaterialGPU,
+> {
+  let cx = cx.clone();
+  storage_of::<PhysicalMetallicRoughnessMaterial>()
+    .listen_to_reactive_collection(|_| Some(()))
+    .collective_execute_map_by(move || {
+      let cx = cx.clone();
+      let creator = storage_of::<PhysicalMetallicRoughnessMaterial>().create_key_mapper(move |m| {
+        let cx = cx.clone();
+
+        todo!()
+      });
+      move |k, _| creator(*k)
+    })
+}
+
 #[repr(C)]
 #[std140_layout]
 #[derive(Clone, Copy, ShaderStruct)]

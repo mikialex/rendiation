@@ -170,6 +170,23 @@ impl Viewer3dContent {
     {
       let s = self.scene.read();
       let scene = &s.core.read();
+      // fn build_interactive_ctx<'a>(
+      //   &'a self,
+      //   normalized_position: Vec2<f32>,
+      //   camera_view_size: Size,
+      //   conf: &'a MeshBufferIntersectConfig,
+      //   node_derives: &'a SceneNodeDeriveSystem,
+      // ) -> SceneRayInteractiveCtx<'a> {
+      //   let camera = self.active_camera.as_ref().unwrap();
+      //   let world_ray = camera.cast_world_ray(normalized_position, node_derives);
+      //   SceneRayInteractiveCtx {
+      //     world_ray,
+      //     conf,
+      //     camera,
+      //     camera_view_size,
+      //     node_derives,
+      //   }
+      // }
 
       let interactive_ctx = scene.build_interactive_ctx(
         normalized_screen_position,

@@ -60,59 +60,6 @@ fn cull_directional_shadow(shadow_position: Node<Vec3<f32>>) -> Node<bool> {
   left.and(right).and(top).and(bottom).and(far)
 }
 
-impl WebGPULight for IncrementalSignalPtr<DirectionalLight> {
-  type Uniform = DirectionalLightShaderInfo;
-
-  fn create_uniform_stream(
-    &self,
-    ctx: &LightResourceCtx,
-    node: Box<dyn Stream<Item = SceneNode> + Unpin>,
-  ) -> impl Stream<Item = Self::Uniform> {
-    enum ShaderInfoDelta {
-      Dir(Vec3<f32>),
-      Shadow(LightShadowAddressInfo),
-      Ill(Vec3<f32>),
-    }
-
-    let node = node.create_broad_caster();
-    let derives = ctx.derives.clone();
-    let direction = node
-      .fork_stream()
-      .filter_map_sync(move |node| derives.create_world_matrix_stream(&node))
-      .flatten_signal()
-      .map(|mat| mat.forward().reverse().normalize())
-      .map(ShaderInfoDelta::Dir);
-
-    let shadow = ctx
-      .shadow_system
-      .write()
-      .unwrap()
-      .create_shadow_info_stream(
-        self.guid(),
-        build_shadow_projection(self),
-        node.fork_stream(),
-      )
-      .map(ShaderInfoDelta::Shadow);
-
-    let ill = self
-      .single_listen_by(any_change)
-      .filter_map_sync(self.defer_weak())
-      .map(|light| light.read().illuminance * light.read().color_factor)
-      .map(ShaderInfoDelta::Ill);
-
-    let delta = futures::stream_select!(direction, shadow, ill);
-
-    delta.fold_signal(DirectionalLightShaderInfo::default(), |delta, info| {
-      match delta {
-        ShaderInfoDelta::Dir(dir) => info.direction = dir,
-        ShaderInfoDelta::Shadow(shadow) => info.shadow = shadow,
-        ShaderInfoDelta::Ill(i) => info.illuminance = i,
-      };
-      Some(*info)
-    })
-  }
-}
-
 #[derive(Copy, Clone)]
 pub struct DirectionalShadowMapExtraInfo {
   pub range: OrthographicProjection<f32>,
@@ -134,27 +81,75 @@ impl Default for DirectionalShadowMapExtraInfo {
   }
 }
 
-fn build_shadow_projection(
-  light: &IncrementalSignalPtr<DirectionalLight>,
-) -> impl Stream<Item = (CameraProjectionEnum, Size)> {
+fn build_dir_lights_shadow_projections(
+) -> impl ReactiveCollection<AllocIdx<DirectionalLight>, (CameraProjectionEnum, Size)> {
   get_dyn_trait_downcaster_static!(CameraProjection).register::<WorkAroundResizableOrth>();
-  light
-    .single_listen_by(any_change)
-    .filter_map_sync(light.defer_weak())
-    .map(|light| {
-      let light = light.read();
-      let shadow_info = light
-        .ext
-        .get::<DirectionalShadowMapExtraInfo>()
-        .cloned()
-        .unwrap_or_default();
-      let size = Size::from_u32_pair_min_one((512, 512)); // todo
-      let orth = WorkAroundResizableOrth {
-        orth: shadow_info.range,
-      };
-      let proj = CameraProjectionEnum::Foreign(Box::new(orth));
-      (proj, size)
+  storage_of::<DirectionalLight>()
+    .listen_to_reactive_collection(|| Some(()))
+    .collective_execute_map_by(|| {
+      let compute = storage_of::<DirectionalLight>().create_key_mapper(|light| {
+        let shadow_info = light
+          .ext
+          .get::<DirectionalShadowMapExtraInfo>()
+          .cloned()
+          .unwrap_or_default();
+        let size = Size::from_u32_pair_min_one((512, 512)); // todo
+        let orth = WorkAroundResizableOrth {
+          orth: shadow_info.range,
+        };
+        let proj = CameraProjectionEnum::Foreign(Box::new(orth));
+        (proj, size)
+      });
+      move |k, _| compute(*k)
     })
+}
+
+fn build_dir_lights_shadow_info(
+  shadow_sys: &SingleProjectShadowMapSystem,
+  shadows: impl ReactiveCollection<AllocIdx<DirectionalLight>, (CameraProjectionEnum, Size)>,
+) -> impl ReactiveCollection<AllocIdx<DirectionalLight>, LightShadowAddressInfo> {
+  // todo
+}
+
+fn dir_lights_directions(
+  node_mats: impl ReactiveCollection<NodeIdentity, Mat4<f32>>,
+  light_node_relation: impl ReactiveOneToManyRelationship<NodeIdentity, AllocIdx<DirectionalLight>>,
+) -> impl ReactiveCollection<AllocIdx<DirectionalLight>, Vec3<f32>> {
+  // this is costly because the light count is always very small in a scene
+  node_mats
+    .one_to_many_fanout(light_node_relation)
+    .collective_map(|mat| mat.forward().reverse().normalize())
+}
+
+fn dir_lights_intensity() -> impl ReactiveCollection<AllocIdx<DirectionalLight>, Vec3<f32>> {
+  storage_of::<DirectionalLight>()
+    .listen_to_reactive_collection(|| Some(()))
+    .collective_execute_map_by(|| {
+      let compute = storage_of::<DirectionalLight>()
+        .create_key_mapper(|light| light.illuminance * light.color_factor);
+      move |k, _| compute(*k)
+    })
+}
+
+fn dir_lights_uniform(
+  intensity: impl ReactiveCollection<AllocIdx<DirectionalLight>, Vec3<f32>>,
+  directions: impl ReactiveCollection<AllocIdx<DirectionalLight>, Vec3<f32>>,
+  shadow: impl ReactiveCollection<AllocIdx<DirectionalLight>, LightShadowAddressInfo>,
+) -> impl ReactiveCollection<AllocIdx<DirectionalLight>, DirectionalLightShaderInfo> {
+  enum ShaderInfoDelta {
+    Dir(Vec3<f32>),
+    Shadow(LightShadowAddressInfo),
+    Ill(Vec3<f32>),
+  }
+
+  MultiZipper::new(Default::default, |info, delta| match delta {
+    ShaderInfoDelta::Dir(dir) => info.direction = dir,
+    ShaderInfoDelta::Shadow(shadow) => info.shadow = shadow,
+    ShaderInfoDelta::Ill(i) => info.illuminance = i,
+  })
+  .zip_with(intensity.collective_map(ShaderInfoDelta::Ill))
+  .zip_with(directions.collective_map(ShaderInfoDelta::Dir))
+  .zip_with(shadow.collective_map(ShaderInfoDelta::Shadow))
 }
 
 #[derive(Clone, PartialEq)]
