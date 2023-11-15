@@ -1,6 +1,5 @@
 use crate::*;
 
-#[non_exhaustive]
 #[derive(Clone)]
 pub enum MaterialEnum {
   PhysicalSpecularGlossiness(IncrementalSignalPtr<PhysicalSpecularGlossinessMaterial>),

@@ -35,7 +35,6 @@ pub type Texture2DWithSamplingData = TextureWithSamplingData<SceneTexture2D>;
 
 pub type SceneTexture2D = IncrementalSignalPtr<SceneTexture2DType>;
 
-#[non_exhaustive]
 #[derive(Clone)]
 pub enum SceneTexture2DType {
   GPUBufferImage(GPUBufferImage),

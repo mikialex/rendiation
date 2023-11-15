@@ -14,7 +14,6 @@ impl SceneModelImpl {
   }
 }
 
-#[non_exhaustive]
 #[derive(Clone)]
 pub enum ModelEnum {
   Standard(IncrementalSignalPtr<StandardModel>),

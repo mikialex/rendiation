@@ -7,7 +7,6 @@ use rendiation_mesh_core::*;
 
 use crate::*;
 
-#[non_exhaustive]
 #[derive(Clone)]
 pub enum MeshEnum {
   AttributesMesh(IncrementalSignalPtr<AttributesMesh>),

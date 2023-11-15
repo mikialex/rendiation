@@ -1,6 +1,5 @@
 use crate::*;
 
-#[non_exhaustive]
 #[derive(Clone)]
 pub enum SceneBackGround {
   Solid(SolidBackground),

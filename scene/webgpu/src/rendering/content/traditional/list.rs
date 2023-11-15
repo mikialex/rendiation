@@ -195,7 +195,6 @@ impl AlphaBlendDecider for ModelEnum {
           false
         }
       }
-      _ => false,
     }
   }
 }
