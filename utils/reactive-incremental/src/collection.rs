@@ -81,6 +81,22 @@ pub trait VirtualMultiCollection<K, V> {
   fn access_multi(&self) -> impl Fn(&K, &mut dyn FnMut(V)) + '_;
 }
 
+pub trait DynamicVirtualMultiCollection<O, M> {
+  fn iter_key_in_multi_collection_boxed(&self) -> Box<dyn Iterator<Item = O> + '_>;
+  fn access_multi_boxed(&self) -> Box<dyn Fn(&O, &mut dyn FnMut(M)) + '_>;
+}
+impl<T, O, M> DynamicVirtualMultiCollection<O, M> for T
+where
+  T: VirtualMultiCollection<O, M>,
+{
+  fn iter_key_in_multi_collection_boxed(&self) -> Box<dyn Iterator<Item = O> + '_> {
+    Box::new(self.iter_key_in_multi_collection())
+  }
+  fn access_multi_boxed(&self) -> Box<dyn Fn(&O, &mut dyn FnMut(M)) + '_> {
+    Box::new(self.access_multi())
+  }
+}
+
 /// An abstraction of reactive key-value like virtual container.
 ///
 /// You can imagine that this is a data table with the K as the primary key and V as the row of the

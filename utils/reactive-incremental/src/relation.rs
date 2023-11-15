@@ -25,6 +25,15 @@ impl<T, O, M> ReactiveOneToManyRelationship<O, M> for T where
 {
 }
 
+pub trait DynamicReactiveOneToManyRelationship<O, M>:
+  DynamicVirtualMultiCollection<O, M> + DynamicReactiveCollection<M, O>
+{
+}
+impl<T, O, M> DynamicReactiveOneToManyRelationship<O, M> for T where
+  T: DynamicVirtualMultiCollection<O, M> + DynamicReactiveCollection<M, O>
+{
+}
+
 pub trait ReactiveCollectionRelationExt<K, V>: Sized + 'static + ReactiveCollection<K, V> {
   fn into_one_to_many_by_hash(self) -> impl ReactiveOneToManyRelationship<V, K>
   where
@@ -38,6 +47,19 @@ pub trait ReactiveCollectionRelationExt<K, V>: Sized + 'static + ReactiveCollect
     }
   }
   fn into_one_to_many_by_idx(self) -> impl ReactiveOneToManyRelationship<V, K>
+  where
+    Self::Changes: Clone,
+    K: LinearIdentification + Clone + 'static,
+    V: LinearIdentification + Clone + 'static,
+  {
+    OneToManyRefDenseBookKeeping {
+      upstream: self,
+      mapping: Default::default(),
+      phantom: PhantomData,
+    }
+  }
+
+  fn into_one_to_many_by_idx_expose_type(self) -> OneToManyRefDenseBookKeeping<V, K, Self>
   where
     Self::Changes: Clone,
     K: LinearIdentification + Clone + 'static,
@@ -420,6 +442,16 @@ pub struct OneToManyRefDenseBookKeeping<O, M, T> {
   upstream: T,
   mapping: Arc<RwLock<Mapping>>,
   phantom: PhantomData<(O, M)>,
+}
+
+impl<O, M, T: Clone> Clone for OneToManyRefDenseBookKeeping<O, M, T> {
+  fn clone(&self) -> Self {
+    Self {
+      upstream: self.upstream.clone(),
+      mapping: self.mapping.clone(),
+      phantom: PhantomData,
+    }
+  }
 }
 
 #[derive(Default)]
