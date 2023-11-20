@@ -11,21 +11,40 @@ type ReactiveParentTree =
 pub type NodeWorldMatrixGetter<'a> = &'a dyn Fn(&NodeIdentity) -> Option<Mat4<f32>>;
 pub type NodeNetVisibleGetter<'a> = &'a dyn Fn(&NodeIdentity) -> Option<bool>;
 
-pub struct NodeIncrementalDeriveSystem {
-  world_mat: Box<dyn DynamicReactiveCollection<NodeIdentity, Mat4<f32>>>,
-  net_visible: Box<dyn DynamicReactiveCollection<NodeIdentity, bool>>,
+#[derive(Clone)]
+pub struct NodeIncrementalDeriveCollections {
+  pub world_mat: RxCForker<NodeIdentity, Mat4<f32>>,
+  pub net_visible: RxCForker<NodeIdentity, bool>,
 }
 
-impl NodeIncrementalDeriveSystem {
+impl NodeIncrementalDeriveCollections {
   pub fn world_matrixes_getter(&self) -> impl Fn(&NodeIdentity) -> Option<Mat4<f32>> + '_ {
     self.world_mat.access()
   }
   pub fn net_visible_getter(&self) -> impl Fn(&NodeIdentity) -> Option<bool> + '_ {
     self.net_visible.access()
   }
+
+  pub fn filter_by_keysets(
+    &self,
+    range: impl ReactiveCollection<NodeIdentity, ()> + Clone,
+  ) -> Self {
+    let forked = self.clone();
+
+    let world_mat = forked.world_mat.filter_by_keyset(range.clone());
+    let net_visible = forked.net_visible.filter_by_keyset(range);
+
+    let world_mat = Box::new(world_mat) as Box<dyn DynamicReactiveCollection<_, _>>;
+    let net_visible = Box::new(net_visible) as Box<dyn DynamicReactiveCollection<_, _>>;
+
+    Self {
+      world_mat: world_mat.into_forker(),
+      net_visible: net_visible.into_forker(),
+    }
+  }
 }
 
-impl NodeIncrementalDeriveSystem {
+impl NodeIncrementalDeriveCollections {
   pub fn new(nodes: &SceneNodeCollection) -> Self {
     let stream = nodes.inner.source.batch_listen();
     let inner = TreeHierarchyDerivedSystem::<
@@ -33,33 +52,32 @@ impl NodeIncrementalDeriveSystem {
       ParentTreeDirty<SceneNodeDeriveDataDirtyFlag>,
     >::new::<ParentTree, _, _, _>(stream, &nodes.inner);
 
-    let world_mat = TreeDeriveOutput {
-      inner: inner.clone(),
-      forked_change: Box::new(inner.derived_stream.fork_stream()),
-      scene_id: nodes.scene_guid,
-      downcast_delta: |d: SceneNodeDerivedDataDelta| match d {
-        SceneNodeDerivedDataDelta::world_matrix(mat) => Some(mat),
+    let world_mat = TreeDeriveOutput::new(
+      &inner,
+      nodes.scene_guid,
+      |d| match d {
+        SceneNodeDerivedDataDelta::world_matrix(v) => Some(v),
         _ => None,
       },
-      getter: |derive: &SceneNodeDerivedData| derive.world_matrix,
-      phantom: PhantomData,
-    };
+      |derive: &SceneNodeDerivedData| derive.world_matrix,
+    );
 
-    let net_visible = TreeDeriveOutput {
-      inner: inner.clone(),
-      forked_change: Box::new(inner.derived_stream.fork_stream()),
-      scene_id: nodes.scene_guid,
-      downcast_delta: |d: SceneNodeDerivedDataDelta| match d {
+    let net_visible = TreeDeriveOutput::new(
+      &inner,
+      nodes.scene_guid,
+      |d| match d {
         SceneNodeDerivedDataDelta::net_visible(v) => Some(v),
         _ => None,
       },
-      getter: |derive: &SceneNodeDerivedData| derive.net_visible,
-      phantom: PhantomData,
-    };
+      |derive: &SceneNodeDerivedData| derive.net_visible,
+    );
+
+    let world_mat = Box::new(world_mat) as Box<dyn DynamicReactiveCollection<_, _>>;
+    let net_visible = Box::new(net_visible) as Box<dyn DynamicReactiveCollection<_, _>>;
 
     Self {
-      world_mat: Box::new(world_mat),
-      net_visible: Box::new(net_visible),
+      world_mat: world_mat.into_forker(),
+      net_visible: net_visible.into_forker(),
     }
   }
 }
@@ -72,6 +90,20 @@ pub struct TreeDeriveOutput<FD, F, V> {
   downcast_delta: FD,
   getter: F,
   phantom: PhantomData<V>,
+}
+
+impl<FD, F, V> TreeDeriveOutput<FD, F, V> {
+  pub fn new(inner: &ReactiveParentTree, scene_id: u64, downcast_delta: FD, getter: F) -> Self {
+    let forked_change = Box::new(inner.derived_stream.fork_stream());
+    Self {
+      inner: inner.clone(),
+      forked_change,
+      scene_id,
+      downcast_delta,
+      getter,
+      phantom: Default::default(),
+    }
+  }
 }
 
 impl<FD, F, V> VirtualCollection<NodeIdentity, V> for TreeDeriveOutput<FD, F, V>

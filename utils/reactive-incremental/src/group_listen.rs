@@ -91,21 +91,29 @@ impl<T: IncrementalBase> IncrementalSignalStorage<T> {
 }
 
 pub struct GroupSingleValueChangeBuffer<K, T> {
-  inner: Arc<RwLock<FastHashMap<AllocIdx<K>, GroupSingleValueState<T>>>>,
+  inner: Arc<RwLock<GroupSingleValueChangeBufferImpl<K, T>>>,
+}
+
+pub struct GroupSingleValueChangeBufferImpl<K, T> {
+  inner: FastHashMap<AllocIdx<K>, GroupSingleValueState<T>>,
+}
+
+impl<K, T> Default for GroupSingleValueChangeBufferImpl<K, T> {
+  fn default() -> Self {
+    Self {
+      inner: Default::default(),
+    }
+  }
 }
 
 impl<K, T> GroupSingleValueChangeBuffer<K, T> {
-  fn take(&self) -> Option<Self> {
+  fn take(&self) -> Option<GroupSingleValueChangeBufferImpl<K, T>> {
     let mut inner = self.inner.write();
-    let inner: &mut FastHashMap<AllocIdx<K>, GroupSingleValueState<T>> = &mut inner;
-    if inner.is_empty() {
+    let inner: &mut GroupSingleValueChangeBufferImpl<K, T> = &mut inner;
+    if inner.inner.is_empty() {
       None
     } else {
-      let inner = std::mem::take(inner);
-      Self {
-        inner: Arc::new(RwLock::new(inner)),
-      }
-      .into()
+      std::mem::take(inner).into()
     }
   }
 }
@@ -126,14 +134,13 @@ impl<K, T> Default for GroupSingleValueChangeBuffer<K, T> {
   }
 }
 
-impl<K, T: Clone> IntoIterator for GroupSingleValueChangeBuffer<K, T> {
+impl<K, T: Clone> IntoIterator for GroupSingleValueChangeBufferImpl<K, T> {
   type Item = CollectionDelta<AllocIdx<K>, T>;
   type IntoIter = impl Iterator<Item = Self::Item> + Clone;
 
   fn into_iter(self) -> Self::IntoIter {
-    let inner = self.inner.read_recursive();
-    let buffer = inner
-      .clone()
+    let buffer = self
+      .inner
       .into_iter()
       .flat_map(|(id, state)| {
         let mut expand = smallvec::SmallVec::<[CollectionDelta<AllocIdx<K>, T>; 2]>::new();
@@ -146,7 +153,7 @@ impl<K, T: Clone> IntoIterator for GroupSingleValueChangeBuffer<K, T> {
         }
         expand
       })
-      .collect::<Vec<_>>();
+      .collect::<Vec<_>>(); // todo, fix hashmap into_iter not impl clone
     buffer.into_iter()
   }
 }
@@ -165,6 +172,7 @@ impl<K, T: Clone> GroupSingleValueSender<K, T> {
       let key = message.key;
       let mut mutations = inner.0.inner.write();
       mutations
+        .inner
         .entry(key)
         .and_modify(|state| {
           *state = match state {
@@ -191,7 +199,7 @@ impl<K, T: Clone> GroupSingleValueSender<K, T> {
         .or_insert(message.change.clone()); // we should do some check here?
 
       if let Some(remove) = should_remove {
-        mutations.remove(&remove);
+        mutations.inner.remove(&remove);
       }
 
       inner.1.wake();
@@ -247,8 +255,8 @@ impl<T: IncrementalBase, S, U> VirtualCollection<AllocIdx<T>, U>
     let cloned_keys = data
       .iter()
       .map(|v| v.0.into())
-      .filter(|v| !mutations.contains_key(v))
-      .chain(mutations.keys().cloned()) // mutations contains removed but not polled key
+      .filter(|v| !mutations.inner.contains_key(v))
+      .chain(mutations.inner.keys().cloned()) // mutations contains removed but not polled key
       .collect::<Vec<_>>();
 
     cloned_keys.into_iter()
@@ -257,7 +265,7 @@ impl<T: IncrementalBase, S, U> VirtualCollection<AllocIdx<T>, U>
     let data = self.original.inner.data.read_recursive();
     let mutations = self.mutations.0.inner.read_recursive();
     move |key| {
-      if let Some(m) = mutations.get(key) {
+      if let Some(m) = mutations.inner.get(key) {
         match m {
           GroupSingleValueState::NewInsert(_) => None,
           GroupSingleValueState::ChangeTo(_, old) => {
@@ -285,7 +293,7 @@ impl<T, S, U> ReactiveCollection<AllocIdx<T>, U> for ReactiveCollectionForSingle
 where
   T: IncrementalBase,
   U: Clone + 'static,
-  S: Stream<Item = GroupSingleValueChangeBuffer<T, U>> + Unpin + 'static,
+  S: Stream<Item = GroupSingleValueChangeBufferImpl<T, U>> + Unpin + 'static,
 {
   type Changes = impl Iterator<Item = CollectionDelta<AllocIdx<T>, U>> + Clone;
 
@@ -298,7 +306,7 @@ where
 }
 
 impl<K, T> Stream for GroupSingleValueReceiver<K, T> {
-  type Item = GroupSingleValueChangeBuffer<K, T>;
+  type Item = GroupSingleValueChangeBufferImpl<K, T>;
 
   fn poll_next(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Option<Self::Item>> {
     self.inner.1.register(cx.waker());

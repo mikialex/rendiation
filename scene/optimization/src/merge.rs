@@ -1,22 +1,48 @@
-use std::{
-  hash::Hasher,
-  task::{Context, Poll},
-};
-
-use fast_hash_collection::*;
-use incremental::IncrementalBase;
-
 use crate::*;
 
-pub struct SceneIncrementalMergeSystem {
-  source_scene: Scene,
-  optimized_scene: Scene,
+pub struct SceneMergeSystem {
+  model: SceneModelMergeOptimization,
+  cameras: SceneCameraRebuilder,
+  lights: SceneLightsRebuilder,
+  target_scene: Scene,
+}
+
+impl SceneMergeSystem {
+  pub fn new(
+    scene: &Scene,
+    source_scene_derives: &NodeIncrementalDeriveCollections,
+  ) -> (Self, Scene) {
+    let target_scene = todo!();
+
+    // Self { model: , cameras: (), lights: () }
+    todo!()
+  }
+
+  pub fn poll_updates(&mut self, cx: &mut Context) {
+    todo!()
+  }
+}
+
+pub struct SceneModelMergeOptimization {
+  target_scene: Scene,
 
   merge_relation: Box<dyn DynamicReactiveOneToManyRelationship<MergeKey, AllocIdx<SceneModelImpl>>>,
   // use to update mesh's vertex, the visibility is expressed by all zero matrix value
   applied_matrix_table: Box<dyn DynamicReactiveCollection<AllocIdx<SceneModelImpl>, Mat4<f32>>>,
   // all merged models
   merged_model: FastHashMap<MergeKey, ModelMerger>,
+}
+
+impl SceneModelMergeOptimization {
+  pub fn new(
+    source_scene_id: u64,
+    source_scene_derives: &NodeIncrementalDeriveCollections,
+    target_scene: &Scene,
+  ) -> Self {
+    //
+
+    todo!()
+  }
 }
 
 #[derive(Default)]
@@ -38,7 +64,7 @@ impl ModelMerger {
   }
 }
 
-impl SceneIncrementalMergeSystem {
+impl SceneModelMergeOptimization {
   pub fn poll_update_merge(&mut self, cx: &mut Context) {
     let mut changed_key = FastHashSet::default();
 
@@ -91,7 +117,7 @@ impl SceneIncrementalMergeSystem {
     let accessor = self.merge_relation.access_multi_boxed();
     for key in &changed_key {
       let merged = self.merged_model.get_mut(key).unwrap();
-      let should_remove = merged.do_updates(&self.optimized_scene, &|f| {
+      let should_remove = merged.do_updates(&self.target_scene, &|f| {
         accessor(key, f);
       });
       if should_remove {
@@ -137,23 +163,15 @@ pub fn build_merge_relation(
   std_sm_relation: impl ReactiveOneToManyRelationship<AllocIdx<StandardModel>, AllocIdx<SceneModelImpl>>
     + Clone,
 ) -> impl ReactiveCollection<AllocIdx<SceneModelImpl>, MergeKey> {
-  // we only care about the given scene's scene models, to achieve this, simply check the scene id
-  // on node change, the node's scene id itself is immutable.
-  let node_checker = move |node: &SceneNode| {
-    if node.scene_and_node_id().0 == scene_id {
-      Some(Some(()))
-    } else {
-      Some(None)
-    }
-  };
+  let node_checker = create_scene_node_checker(scene_id);
 
   let referenced_sm = storage_of::<SceneModelImpl>()
     .listen_to_reactive_collection(move |change| match change {
       incremental::MaybeDeltaRef::Delta(delta) => match delta {
-        SceneModelImplDelta::node(node) => node_checker(node),
+        SceneModelImplDelta::node(node) => Some(node_checker(node)),
         _ => None,
       },
-      incremental::MaybeDeltaRef::All(sm) => node_checker(&sm.node),
+      incremental::MaybeDeltaRef::All(sm) => Some(node_checker(&sm.node)),
     })
     .collective_filter_map(|v| v);
 
@@ -267,4 +285,15 @@ fn std_mesh_key(
       (None, Some(all)) => MeshMergeType::Foreign(todo!()),
       _ => unreachable!(),
     })
+}
+
+fn build_applied_matrix_table(
+  source_scene_node_mat: impl ReactiveCollection<NodeIdentity, Mat4<f32>>,
+  source_scene_node_net_vis: impl ReactiveCollection<NodeIdentity, bool>,
+  sm_node_relation: impl ReactiveOneToManyRelationship<NodeIdentity, AllocIdx<SceneModelImpl>>,
+) -> impl ReactiveCollection<AllocIdx<SceneModelImpl>, Mat4<f32>> {
+  source_scene_node_mat
+    .collective_zip(source_scene_node_net_vis)
+    .collective_map(|(mat, vis)| (if !vis { Mat4::zero() } else { mat }))
+    .one_to_many_fanout(sm_node_relation)
 }

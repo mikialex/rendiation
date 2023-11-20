@@ -111,7 +111,7 @@ pub struct ListHandle {
 
 impl ListHandle {
   pub fn is_empty(&self) -> bool {
-    self.head != u32::MAX
+    self.head == u32::MAX
   }
 }
 
