@@ -83,6 +83,7 @@
         "linklist",
         "lookat",
         "Majorant",
+        "majorants",
         "memoffset",
         "Mesher",
         "meshlet",

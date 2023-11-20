@@ -1,6 +1,7 @@
 use rendiation_algebra::*;
 use rendiation_geometry::*;
 use rendiation_lighting_core::*;
+use rendiation_statistics::RngSampler;
 
 pub trait Medium {
   fn is_emissive(&self) -> bool;
@@ -8,8 +9,14 @@ pub trait Medium {
   /// returns information about the scattering and emission properties of the medium at a specified
   /// rendering-space point in the form of a MediumProperties object.
   fn sample_point(&self, position: Vec3<f32>) -> MediumProperties;
-  /// provides information about the medium’s majorant sigma_majorant along the ray’s extent.
-  fn sample_ray(&self, ray: Ray3, t_max: f32, lambda: &SampledWaveLengths) -> MajorantIterator;
+  /// provides information about the medium’s majorant sigma_majorant along the ray’s max_distance
+  /// extent.
+  fn sample_ray(
+    &self,
+    ray: Ray3,
+    max_distance: f32,
+    lambda: &SampledWaveLengths,
+  ) -> Box<MajorantIterator>; // todo, remove allocation
 }
 
 pub struct MediumProperties {
@@ -22,11 +29,60 @@ pub struct MediumProperties {
 pub struct RayMajorantSegment {
   pub min: f32,
   pub max: f32,
-  pub sigma_majorant: SampledSpectrum,
+  pub value: SampledSpectrum,
 }
 
-// todo
-pub type MajorantIterator = f32;
+impl RayMajorantSegment {
+  pub fn length(&self) -> f32 {
+    self.max - self.min
+  }
+}
+
+pub type MajorantIterator = dyn Iterator<Item = RayMajorantSegment>;
+
+pub fn sample_transmittance_majorants(
+  medium: &dyn Medium,
+  ray: Ray3,
+  rng: &RngSampler,
+  max_distance: f32,
+  lambda: &SampledWaveLengths,
+) -> SampledSpectrum {
+  let mut transmittance_majorants = SampledSpectrum::new_fill_with(1.0);
+  for majorant_segment in &mut medium.sample_ray(ray, max_distance, lambda) {
+    // Handle zero-valued majorant for current segment
+    if majorant_segment.value.is_all_zero() {
+      // transmittance_majorants *= ((-majorant_segment.length() * majorant_segment.value).exp());
+      continue;
+    }
+
+    // // Generate samples along current majorant segment
+    // let mut t_min = majorant_segment.min;
+    // loop {
+    //   // Try to generate sample along current majorant segment
+    //   let t = t_min + SampleExponential(rng.sample(), majorant_segment.value);
+    //   // u = rng.Uniform<Float>();
+    //   if t < seg.max {
+    //     // // Call callback function for sample within segment
+    //     // T_maj *= FastExp(-(t - tMin) * seg->sigma_maj);
+    //     // MediumProperties mp = medium->SamplePoint(ray(t), lambda);
+    //     // if (!callback(ray(t), mp, seg->sigma_maj, T_maj)) {
+    //     //     // Returning out of doubly-nested while loop is not as good perf. wise
+    //     //     // on the GPU vs using "done" here.
+    //     //     done = true;
+    //     //     break;
+    //     // }
+    //     // T_maj = SampledSpectrum(1.f);
+    //     // tMin = t;
+    //   } else {
+    //     // Handle sample past end of majorant segment
+    //     // transmittance_majorants *= ((-majorant_segment.length() *
+    // majorant_segment.value).exp());     break;
+    //   }
+    // }
+  }
+
+  transmittance_majorants
+}
 
 // todo
 type PhaseFunction = f32;

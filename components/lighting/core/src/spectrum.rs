@@ -57,11 +57,17 @@ pub struct SampledSpectrum {
 }
 
 impl SampledSpectrum {
+  pub fn new_fill_with(init: f32) -> Self {
+    Self {
+      samples: [init; SPECTRUM_SAMPLE_COUNT],
+    }
+  }
+
   /// It is often useful to know if all the values in a SampledSpectrum are zero. For example, if a
   /// surface has zero reflectance, then the light transport routines can avoid the computational
   /// cost of casting reflection rays that have contributions that would eventually be multiplied by
   /// zeros.
-  pub fn all_zero(&self) -> bool {
+  pub fn is_all_zero(&self) -> bool {
     for sample in self.samples {
       if sample != 0. {
         return false;
