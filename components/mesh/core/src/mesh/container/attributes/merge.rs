@@ -10,7 +10,7 @@ pub enum MergeError {
   AttributeDataAccessFailed,
 }
 
-pub fn merge(
+pub fn merge_attributes_meshes(
   inputs: &[&AttributesMesh],
   position_mapper: impl Fn(usize, &Vec3<f32>) -> Vec3<f32> + Copy,
   normal_mapper: impl Fn(usize, &Vec3<f32>) -> Vec3<f32> + Copy,

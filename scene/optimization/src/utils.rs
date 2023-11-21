@@ -34,12 +34,12 @@ impl NodeRebuilder {
       for change in changes {
         match change {
           CollectionDelta::Delta(key, new, _) => {
-            let node = self.node_mapping.entry(key).or_insert_with(|| {
-              // create new node on target scene
-              todo!()
-            });
+            let node = self
+              .node_mapping
+              .entry(key) // create new node on target scene
+              .or_insert_with(|| self.target_scene.create_root_child());
             // sync the node change
-            todo!();
+            node.set_local_matrix(new);
           }
           CollectionDelta::Remove(key, _) => {
             self.node_mapping.remove(&key);
@@ -50,9 +50,10 @@ impl NodeRebuilder {
     }
     if let Poll::Ready(Some(changes)) = self.node_source.net_visible.poll_changes(cx) {
       for change in changes {
+        // sync the node change, the add remove is handled above
         if let CollectionDelta::Delta(key, new, _) = change {
           let node = self.node_mapping.get(&key).unwrap();
-          // sync the node change, the add remove is handled above
+          node.set_visible(new)
         }
       }
     }
@@ -104,15 +105,49 @@ impl SceneCameraRebuilder {
   }
 
   pub fn poll_updates(&mut self, cx: &mut Context) {
+    self.nodes.poll_update(cx);
     if let Poll::Ready(Some(changes)) = self.camera_scope.poll_changes(cx) {
+      let cameras_storage = storage_of::<SceneCameraImpl>();
+      let cameras = cameras_storage.inner.data.read_recursive();
+
+      // copy the source by full delta
+      let mut to_sync_target = Vec::new();
+      let mut to_sync_delta = Vec::new();
       for change in changes {
         match change {
-          CollectionDelta::Delta(key, new, _) => {
-            //
+          CollectionDelta::Delta(key, _, _) => {
+            let camera = &cameras.get(key.index).data;
+
+            let offset = to_sync_delta.len();
+            camera.expand_push_into(&mut to_sync_delta);
+            let offset_2 = to_sync_delta.len();
+
+            to_sync_target.push((key, offset, offset_2));
           }
           CollectionDelta::Remove(key, _) => {
-            //
+            let in_target_scene = self.camera_mapping.remove(&key).unwrap();
+            self.target_scene.remove_camera(in_target_scene);
           }
+        }
+      }
+      drop(cameras);
+      drop(cameras_storage);
+
+      // sync the change
+      for (target, offset_start, offset_end) in to_sync_target {
+        let camera_handle = self.camera_mapping.entry(target).or_insert_with(|| {
+          // create default
+          let root = self.target_scene.root();
+          let perspective = CameraProjectionEnum::Perspective(Default::default());
+          let camera = SceneCameraImpl::new(perspective, root).into_ptr();
+          self.target_scene.insert_camera(camera)
+        });
+
+        let scene_c = self.target_scene.read();
+        let scene_cc = scene_c.core.read();
+        let camera = scene_cc.cameras.get(*camera_handle).unwrap();
+        for delta in to_sync_delta.get(offset_start..offset_end).unwrap() {
+          camera.mutate(|mut m| m.modify(delta.clone()))
         }
       }
     }
@@ -123,7 +158,7 @@ pub struct SceneLightsRebuilder {
   nodes: NodeRebuilder,
   light_scope: Box<dyn DynamicReactiveCollection<AllocIdx<SceneLightImpl>, ()>>,
   target_scene: Scene,
-  light_mapping: FastHashMap<AllocIdx<SceneLightImpl>, SceneCameraHandle>,
+  light_mapping: FastHashMap<AllocIdx<SceneLightImpl>, SceneLightHandle>,
 }
 
 impl SceneLightsRebuilder {
@@ -164,15 +199,49 @@ impl SceneLightsRebuilder {
   }
 
   pub fn poll_updates(&mut self, cx: &mut Context) {
+    self.nodes.poll_update(cx);
     if let Poll::Ready(Some(changes)) = self.light_scope.poll_changes(cx) {
+      let lights_storage = storage_of::<SceneLightImpl>();
+      let lights = lights_storage.inner.data.read_recursive();
+
+      // copy the source by full delta
+      let mut to_sync_target = Vec::new();
+      let mut to_sync_delta = Vec::new();
       for change in changes {
         match change {
-          CollectionDelta::Delta(key, new, _) => {
-            //
+          CollectionDelta::Delta(key, _, _) => {
+            let light = &lights.get(key.index).data;
+
+            let offset = to_sync_delta.len();
+            light.expand_push_into(&mut to_sync_delta);
+            let offset_2 = to_sync_delta.len();
+
+            to_sync_target.push((key, offset, offset_2));
           }
           CollectionDelta::Remove(key, _) => {
-            //
+            let in_target_scene = self.light_mapping.remove(&key).unwrap();
+            self.target_scene.remove_light(in_target_scene);
           }
+        }
+      }
+      drop(lights);
+      drop(lights_storage);
+
+      // sync the change
+      for (target, offset_start, offset_end) in to_sync_target {
+        let light_handle = self.light_mapping.entry(target).or_insert_with(|| {
+          // create default
+          let root = self.target_scene.root();
+          let perspective = LightEnum::Foreign(Box::new(()));
+          let light = SceneLightImpl::new(perspective, root).into_ptr();
+          self.target_scene.insert_light(light)
+        });
+
+        let scene_c = self.target_scene.read();
+        let scene_cc = scene_c.core.read();
+        let light = scene_cc.lights.get(*light_handle).unwrap();
+        for delta in to_sync_delta.get(offset_start..offset_end).unwrap() {
+          light.mutate(|mut m| m.modify(delta.clone()))
         }
       }
     }

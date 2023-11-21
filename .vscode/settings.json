@@ -82,6 +82,7 @@
         "linklist",
         "lookat",
         "memoffset",
+        "Mergeable",
         "Mesher",
         "meshlet",
         "meshlets",

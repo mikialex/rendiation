@@ -1,7 +1,10 @@
 use crate::*;
 
+mod merge_impl;
+use merge_impl::*;
+
 pub struct SceneMergeSystem {
-  model: SceneModelMergeOptimization,
+  models: SceneModelMergeOptimization,
   cameras: SceneCameraRebuilder,
   lights: SceneLightsRebuilder,
   target_scene: Scene,
@@ -14,12 +17,20 @@ impl SceneMergeSystem {
   ) -> (Self, Scene) {
     let target_scene = todo!();
 
+    let models =
+      SceneModelMergeOptimization::new(scene.guid(), source_scene_derives, &target_scene);
+    // let cameras = SceneCameraRebuilder::new(scene.guid(), (), source_scene_derives,
+    // &target_scene); let lights = SceneLightsRebuilder::new(scene.guid(), (),
+    // source_scene_derives, &target_scene);
+
     // Self { model: , cameras: (), lights: () }
     todo!()
   }
 
   pub fn poll_updates(&mut self, cx: &mut Context) {
-    todo!()
+    self.models.poll_update_merge(cx);
+    self.cameras.poll_updates(cx);
+    self.lights.poll_updates(cx);
   }
 }
 
@@ -31,6 +42,7 @@ pub struct SceneModelMergeOptimization {
   applied_matrix_table: Box<dyn DynamicReactiveCollection<AllocIdx<SceneModelImpl>, Mat4<f32>>>,
   // all merged models
   merged_model: FastHashMap<MergeKey, ModelMerger>,
+  merge_methods: MergeImplRegistry,
 }
 
 impl SceneModelMergeOptimization {
@@ -152,8 +164,10 @@ pub struct StandardMergeKey {
 
 #[derive(Clone, Copy, PartialEq, Eq, Hash)]
 pub enum MeshMergeType {
-  Attribute(u64),
-  Foreign(u64),
+  // (merge_typeid, source_id)
+  Mergeable(usize, u64),
+  // should using unique id
+  UnableToMerge(u64),
 }
 
 pub fn build_merge_relation(
@@ -206,8 +220,8 @@ pub fn build_merge_relation(
   std_key
     .collective_union(referenced_sm)
     .collective_map(|(keyed, all)| match (keyed, all) {
-      (Some(key), Some(all)) => MergeKey::Standard(key),
-      (None, Some(all)) => MergeKey::UnableToMerge(todo!()),
+      (Some(key), Some(_)) => MergeKey::Standard(key),
+      (None, Some(_)) => MergeKey::UnableToMerge(alloc_global_res_id()),
       _ => unreachable!(),
     })
 }
@@ -281,8 +295,8 @@ fn std_mesh_key(
     .one_to_many_fanout(relations)
     .collective_union(std_scope.clone())
     .collective_map(|(keyed, all)| match (keyed, all) {
-      (Some(key), Some(all)) => MeshMergeType::Attribute(key),
-      (None, Some(all)) => MeshMergeType::Foreign(todo!()),
+      (Some(key), Some(_)) => MeshMergeType::Mergeable(ATTRIBUTE_MERGE, key),
+      (None, Some(_)) => MeshMergeType::UnableToMerge(alloc_global_res_id()),
       _ => unreachable!(),
     })
 }
