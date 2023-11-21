@@ -2,7 +2,6 @@ use crate::*;
 
 mod merge_impl;
 use merge_impl::*;
-use smallvec::SmallVec;
 
 pub struct SceneMergeSystem {
   models: SceneModelMergeOptimization,

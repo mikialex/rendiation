@@ -33,15 +33,14 @@ pub fn global_collection_registry() -> CollectionRegistry {
 impl CollectionRegistry {
   pub fn fork_or_insert_with<K, V, R>(
     &self,
-    ty: impl Any,
-    inserter: impl FnOnce() -> R,
+    inserter: impl FnOnce() -> R + Any,
   ) -> impl ReactiveCollection<K, V>
   where
     K: Clone + 'static,
     V: Clone + 'static,
     R: ReactiveCollection<K, V>,
   {
-    self.fork_or_insert_with_inner(ty.type_id(), inserter)
+    self.fork_or_insert_with_inner(inserter.type_id(), inserter)
   }
 
   fn fork_or_insert_with_inner<K, V, R>(
@@ -77,8 +76,7 @@ impl CollectionRegistry {
 
   pub fn get_or_create_relation<O, M, R>(
     &self,
-    ty: impl Any,
-    inserter: impl FnOnce() -> R,
+    inserter: impl FnOnce() -> R + Any,
   ) -> impl ReactiveOneToManyRelationship<O, M>
   where
     O: LinearIdentification + Clone + 'static,
@@ -86,7 +84,7 @@ impl CollectionRegistry {
     R: ReactiveCollection<M, O>,
   {
     // note, we not using entry api because this call maybe be recursive and cause dead lock
-    let typeid = ty.type_id();
+    let typeid = inserter.type_id();
     let relations = self.relations.read_recursive();
     if let Some(collection) = relations.get(&typeid) {
       let collection = collection
@@ -95,7 +93,7 @@ impl CollectionRegistry {
       collection.clone()
     } else {
       drop(relations);
-      let upstream = self.fork_or_insert_with_inner(ty.type_id(), inserter);
+      let upstream = self.fork_or_insert_with_inner(typeid, inserter);
       let relation = upstream.into_one_to_many_by_idx_expose_type();
 
       let boxed = Box::new(relation) as Box<dyn Any>;

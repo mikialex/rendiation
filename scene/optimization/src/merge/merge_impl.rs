@@ -17,13 +17,14 @@ impl ModelMergeProxy {
 }
 
 impl ModelMergeProxy {
-  pub fn add_source(&mut self, source: AllocIdx<SceneModelImpl>) {
+  // in future we could exploit this fine grained change to make update more efficient.
+  pub fn add_source(&mut self, _: AllocIdx<SceneModelImpl>) {
     self.source_changed = true;
   }
-  pub fn remove_source(&mut self, source: AllocIdx<SceneModelImpl>) {
+  pub fn remove_source(&mut self, _: AllocIdx<SceneModelImpl>) {
     self.source_changed = true;
   }
-  pub fn notify_source_applied_matrix(&mut self, source: AllocIdx<SceneModelImpl>, mat: Mat4<f32>) {
+  pub fn notify_source_applied_matrix(&mut self, _: AllocIdx<SceneModelImpl>, _: Mat4<f32>) {
     self.mat_changed = true;
   }
 
