@@ -2,6 +2,7 @@ use crate::*;
 
 mod merge_impl;
 use merge_impl::*;
+use smallvec::SmallVec;
 
 pub struct SceneMergeSystem {
   models: SceneModelMergeOptimization,
@@ -41,7 +42,7 @@ pub struct SceneModelMergeOptimization {
   // use to update mesh's vertex, the visibility is expressed by all zero matrix value
   applied_matrix_table: Box<dyn DynamicReactiveCollection<AllocIdx<SceneModelImpl>, Mat4<f32>>>,
   // all merged models
-  merged_model: FastHashMap<MergeKey, ModelMerger>,
+  merged_model: FastHashMap<MergeKey, ModelMergeProxy>,
   merge_methods: MergeImplRegistry,
 }
 
@@ -54,25 +55,6 @@ impl SceneModelMergeOptimization {
     //
 
     todo!()
-  }
-}
-
-#[derive(Default)]
-struct ModelMerger {
-  //
-}
-impl ModelMerger {
-  fn add_source(&mut self, source: AllocIdx<SceneModelImpl>) {}
-  fn remove_source(&mut self, source: AllocIdx<SceneModelImpl>) {}
-  fn notify_source_applied_matrix(&mut self, source: AllocIdx<SceneModelImpl>, mat: Mat4<f32>) {}
-
-  /// return if has any active proxy exist after removal
-  fn do_updates(
-    &mut self,
-    target_scene: &Scene,
-    reverse_access: &dyn Fn(&mut dyn FnMut(AllocIdx<SceneModelImpl>)),
-  ) -> bool {
-    true
   }
 }
 
@@ -129,9 +111,15 @@ impl SceneModelMergeOptimization {
     let accessor = self.merge_relation.access_multi_boxed();
     for key in &changed_key {
       let merged = self.merged_model.get_mut(key).unwrap();
-      let should_remove = merged.do_updates(&self.target_scene, &|f| {
-        accessor(key, f);
-      });
+      let should_remove = merged.do_updates(
+        &self.target_scene,
+        key,
+        &self.merge_methods,
+        &|f| {
+          accessor(key, f);
+        },
+        &self.applied_matrix_table,
+      );
       if should_remove {
         self.merged_model.remove(key);
       }
@@ -145,7 +133,7 @@ pub type MaterialContentID = u64;
 #[derive(Clone, Copy, PartialEq, Eq, Hash)]
 pub enum MergeKey {
   // not std model
-  UnableToMerge(u64),
+  UnableToMergeNoneStandard(u64),
   Standard(StandardMergeKey),
 }
 
@@ -221,7 +209,7 @@ pub fn build_merge_relation(
     .collective_union(referenced_sm)
     .collective_map(|(keyed, all)| match (keyed, all) {
       (Some(key), Some(_)) => MergeKey::Standard(key),
-      (None, Some(_)) => MergeKey::UnableToMerge(alloc_global_res_id()),
+      (None, Some(_)) => MergeKey::UnableToMergeNoneStandard(alloc_global_res_id()),
       _ => unreachable!(),
     })
 }
