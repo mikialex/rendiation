@@ -173,3 +173,81 @@ fn only_named_struct_fields(
   };
   Ok(fields)
 }
+
+// note, this should split to another crate
+#[proc_macro_attribute]
+pub fn global_registered_collection(_args: TokenStream, input: TokenStream) -> TokenStream {
+  let input: syn::ItemFn = syn::parse2(input.into()).unwrap();
+
+  let mut original_fn = input;
+  let name = original_fn.sig.ident;
+  let new_name = format_ident!("{name}_inner");
+  let rt = &original_fn.sig.output;
+
+  original_fn.sig.ident = new_name.clone();
+
+  quote! {
+    pub fn #name() #rt {
+      reactive_incremental::global_collection_registry().fork_or_insert_with(#new_name)
+    }
+
+    #original_fn
+  }
+  .into()
+}
+#[proc_macro_attribute]
+pub fn global_registered_collection_and_many_one_relation(
+  _args: TokenStream,
+  input: TokenStream,
+) -> TokenStream {
+  let input: syn::ItemFn = syn::parse2(input.into()).unwrap();
+
+  let mut original_fn = input;
+  let name = original_fn.sig.ident;
+  let new_name = format_ident!("{name}_inner");
+  let rt = &original_fn.sig.output;
+
+  let trait_token = match rt {
+    syn::ReturnType::Type(_, ty) => match ty.as_ref() {
+      Type::ImplTrait(im) => {
+        let ty = &im.bounds[0];
+        match ty {
+          syn::TypeParamBound::Trait(t) => t.path.clone(),
+          _ => unreachable!(),
+        }
+      }
+      _ => unreachable!(),
+    },
+    _ => unreachable!(),
+  };
+  let trait_token = &trait_token.segments[0];
+  let p = match &trait_token.arguments {
+    syn::PathArguments::AngleBracketed(p) => p,
+    _ => unreachable!(),
+  };
+  let args_k = match &p.args[0] {
+    syn::GenericArgument::Type(ty) => ty.clone(),
+    _ => unreachable!(),
+  };
+  let args_v = match &p.args[1] {
+    syn::GenericArgument::Type(ty) => ty.clone(),
+    _ => unreachable!(),
+  };
+
+  original_fn.sig.ident = new_name.clone();
+
+  let relation_fn_name = format_ident!("{name}_many_one_relation");
+
+  quote! {
+    pub fn #name() #rt {
+      reactive_incremental::global_collection_registry().fork_or_insert_with(#new_name)
+    }
+
+    pub fn #relation_fn_name() -> impl ReactiveOneToManyRelationship<#args_v, #args_k> {
+      reactive_incremental::global_collection_registry().get_or_create_relation(#new_name)
+    }
+
+    #original_fn
+  }
+  .into()
+}

@@ -45,7 +45,7 @@ pub fn scene_model_material_ids(
   foreign_materials: impl ReactiveCollection<AllocIdx<StandardModel>, u64>,
 ) -> impl ReactiveCollection<AllocIdx<SceneModelImpl>, u64> {
   std_model_material_ids(foreign_materials)
-    .one_to_many_fanout(scene_model_std_model_ref_change().into_one_to_many_by_idx())
+    .one_to_many_fanout(scene_model_ref_std_model_many_one_relation())
 }
 
 pub fn optimizable_std_model() -> impl ReactiveCollection<AllocIdx<StandardModel>, ()> {
@@ -66,11 +66,11 @@ pub fn instance_mapping(
   node_merge_key: impl ReactiveCollection<NodeGUID, u64>,
   foreign_materials: impl ReactiveCollection<AllocIdx<StandardModel>, u64>,
 ) -> impl ReactiveOneToManyRelationship<InstanceKey, AllocIdx<SceneModelImpl>> {
-  let optimizable_scene_model = optimizable_std_model()
-    .one_to_many_fanout(scene_model_std_model_ref_change().into_one_to_many_by_idx()); // todo, fork relation
+  let optimizable_scene_model =
+    optimizable_std_model().one_to_many_fanout(scene_model_ref_std_model_many_one_relation());
 
   let scene_model_node_merge_key =
-    node_merge_key.one_to_many_fanout(scene_model_node_ref_change().into_one_to_many_by_hash());
+    node_merge_key.one_to_many_fanout(scene_model_ref_node().into_one_to_many_by_hash());
 
   optimizable_scene_model
     .collective_intersect(scene_model_node_merge_key)
