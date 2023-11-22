@@ -1,7 +1,7 @@
 use rendiation_algebra::*;
 use rendiation_geometry::*;
 use rendiation_lighting_core::*;
-use rendiation_statistics::RngSampler;
+use rendiation_statistics::{RngSampler, Sampler};
 
 pub trait Medium {
   fn is_emissive(&self) -> bool;
@@ -40,45 +40,69 @@ impl RayMajorantSegment {
 
 pub type MajorantIterator = dyn Iterator<Item = RayMajorantSegment>;
 
+/// https://pbr-book.org/4ed/Sampling_Algorithms/Sampling_1D_Functions#sec:exponential-sampling
+pub fn sample_exponential(sample: f32, a: f32) -> f32 {
+  -(1.0 - sample).ln() / a
+}
+
+/// https://pbr-book.org/4ed/Sampling_Algorithms/Sampling_1D_Functions#sec:exponential-sampling
+pub fn exponential_pdf(x: f32, a: f32) -> f32 {
+  a * (-a * x).exp()
+}
+
+pub struct MajorantsSampleResult {
+  pub position: Vec3<f32>,
+  pub medium_properties: MediumProperties,
+  pub current_segment_majorant: SampledSpectrum,
+  pub transmittance_majorants: SampledSpectrum,
+}
+
 pub fn sample_transmittance_majorants(
   medium: &dyn Medium,
   ray: Ray3,
-  rng: &RngSampler,
+  rng: &mut RngSampler,
   max_distance: f32,
   lambda: &SampledWaveLengths,
+  mut callback: impl FnMut(MajorantsSampleResult) -> bool,
 ) -> SampledSpectrum {
   let mut transmittance_majorants = SampledSpectrum::new_fill_with(1.0);
   for majorant_segment in &mut medium.sample_ray(ray, max_distance, lambda) {
-    // Handle zero-valued majorant for current segment
-    if majorant_segment.value.is_all_zero() {
-      // transmittance_majorants *= ((-majorant_segment.length() * majorant_segment.value).exp());
+    let majorant = majorant_segment.value;
+
+    // early exit zero-valued majorant for current segment
+    if majorant.is_all_zero() {
+      transmittance_majorants *= (-majorant * majorant_segment.length()).exp();
       continue;
     }
 
-    // // Generate samples along current majorant segment
-    // let mut t_min = majorant_segment.min;
-    // loop {
-    //   // Try to generate sample along current majorant segment
-    //   let t = t_min + SampleExponential(rng.sample(), majorant_segment.value);
-    //   // u = rng.Uniform<Float>();
-    //   if t < seg.max {
-    //     // // Call callback function for sample within segment
-    //     // T_maj *= FastExp(-(t - tMin) * seg->sigma_maj);
-    //     // MediumProperties mp = medium->SamplePoint(ray(t), lambda);
-    //     // if (!callback(ray(t), mp, seg->sigma_maj, T_maj)) {
-    //     //     // Returning out of doubly-nested while loop is not as good perf. wise
-    //     //     // on the GPU vs using "done" here.
-    //     //     done = true;
-    //     //     break;
-    //     // }
-    //     // T_maj = SampledSpectrum(1.f);
-    //     // tMin = t;
-    //   } else {
-    //     // Handle sample past end of majorant segment
-    //     // transmittance_majorants *= ((-majorant_segment.length() *
-    // majorant_segment.value).exp());     break;
-    //   }
-    // }
+    // Generate samples along current majorant segment
+    let mut t_min = majorant_segment.min;
+    loop {
+      // Try to generate sample along current majorant segment
+      let forward_distance = sample_exponential(rng.next(), majorant.samples[0]);
+      if forward_distance + t_min < majorant_segment.max {
+        transmittance_majorants *= (-majorant * forward_distance).exp();
+
+        let position = ray.at(t_min);
+        let re = MajorantsSampleResult {
+          position,
+          medium_properties: medium.sample_point(position), //  medium->SamplePoint(ray(t), lambda);
+          current_segment_majorant: majorant,
+          transmittance_majorants,
+        };
+        // Call callback function for sample within segment
+        if !callback(re) {
+          return SampledSpectrum::new_fill_with(1.0);
+        } else {
+          transmittance_majorants = SampledSpectrum::new_fill_with(1.0);
+          t_min += forward_distance;
+        }
+      } else {
+        // exceed the range, just pass this segment
+        transmittance_majorants *= (-majorant * majorant_segment.length()).exp();
+        break;
+      }
+    }
   }
 
   transmittance_majorants

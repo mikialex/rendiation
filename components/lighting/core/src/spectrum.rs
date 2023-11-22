@@ -52,8 +52,46 @@ pub struct BlackbodySpectrum {
 
 pub const SPECTRUM_SAMPLE_COUNT: usize = 4;
 /// represent values of the spectral distribution at discrete wavelengths
+///
+/// I should use other math lib to do this work
+#[derive(Debug, Copy, Clone)]
 pub struct SampledSpectrum {
   pub samples: [f32; SPECTRUM_SAMPLE_COUNT],
+}
+
+impl std::ops::Mul<f32> for SampledSpectrum {
+  type Output = Self;
+
+  fn mul(mut self, rhs: f32) -> Self::Output {
+    self.samples.iter_mut().for_each(|v| *v *= rhs);
+    self
+  }
+}
+
+impl std::ops::Mul<Self> for SampledSpectrum {
+  type Output = Self;
+
+  fn mul(mut self, rhs: Self) -> Self::Output {
+    self
+      .samples
+      .iter_mut()
+      .zip(rhs.samples.iter())
+      .for_each(|(v, rhs)| *v *= rhs);
+    self
+  }
+}
+impl std::ops::MulAssign for SampledSpectrum {
+  fn mul_assign(&mut self, rhs: Self) {
+    *self = *self * rhs
+  }
+}
+
+impl std::ops::Neg for SampledSpectrum {
+  type Output = Self;
+
+  fn neg(self) -> Self::Output {
+    self * (-1.)
+  }
 }
 
 impl SampledSpectrum {
@@ -61,6 +99,11 @@ impl SampledSpectrum {
     Self {
       samples: [init; SPECTRUM_SAMPLE_COUNT],
     }
+  }
+
+  pub fn exp(mut self) -> Self {
+    self.samples.iter_mut().for_each(|v| *v = v.exp());
+    self
   }
 
   /// It is often useful to know if all the values in a SampledSpectrum are zero. For example, if a
