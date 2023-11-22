@@ -11,6 +11,17 @@ impl<T> Default for IndexKeptVec<T> {
 }
 
 impl<T> IndexKeptVec<T> {
+  pub fn shrink_to_fit(&mut self) {
+    let tail_size = self
+      .storage
+      .iter()
+      .rev()
+      .take_while(|v| v.is_none())
+      .count();
+    self.storage.truncate(self.storage.len() - tail_size);
+    self.storage.shrink_to_fit()
+  }
+
   pub fn insert(&mut self, data: T, index: u32) {
     self
       .storage

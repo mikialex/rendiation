@@ -606,7 +606,6 @@ where
             self.cache.insert(k, v);
           }
           CollectionDelta::Remove(k, _) => {
-            // todo, shrink
             self.cache.remove(&k);
           }
         }
@@ -660,7 +659,6 @@ where
             self.cache.insert(v, k.alloc_index());
           }
           CollectionDelta::Remove(k, _) => {
-            // todo, shrink
             self.cache.remove(k.alloc_index());
           }
         }
@@ -672,10 +670,7 @@ where
   fn extra_request(&mut self, request: &mut ExtraCollectionOperation) {
     self.inner.extra_request(request);
     match request {
-      ExtraCollectionOperation::MemoryShrinkToFit => {
-        todo!()
-        // self.cache.shrink_to_fit()
-      }
+      ExtraCollectionOperation::MemoryShrinkToFit => self.cache.shrink_to_fit(),
     }
   }
 }

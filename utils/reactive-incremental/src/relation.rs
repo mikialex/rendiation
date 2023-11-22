@@ -33,6 +33,7 @@ pub trait ReactiveCollectionRelationExt<K, V>: Sized + 'static + ReactiveCollect
     V: Hash + Eq + Clone + 'static,
   {
     OneToManyRefHashBookKeeping {
+      current_generation: 0,
       upstream: self,
       mapping: Default::default(),
     }
@@ -45,6 +46,7 @@ pub trait ReactiveCollectionRelationExt<K, V>: Sized + 'static + ReactiveCollect
     V: Hash + Eq + Clone + 'static,
   {
     OneToManyRefHashBookKeeping {
+      current_generation: 0,
       upstream: self,
       mapping: Default::default(),
     }
@@ -57,6 +59,7 @@ pub trait ReactiveCollectionRelationExt<K, V>: Sized + 'static + ReactiveCollect
     V: LinearIdentification + Clone + 'static,
   {
     OneToManyRefDenseBookKeeping {
+      current_generation: 0,
       upstream: self,
       mapping: Default::default(),
       phantom: PhantomData,
@@ -70,6 +73,7 @@ pub trait ReactiveCollectionRelationExt<K, V>: Sized + 'static + ReactiveCollect
     V: LinearIdentification + Clone + 'static,
   {
     OneToManyRefDenseBookKeeping {
+      current_generation: 0,
       upstream: self,
       mapping: Default::default(),
       phantom: PhantomData,
@@ -353,12 +357,14 @@ where
 
 pub struct OneToManyRefHashBookKeeping<O, M, T> {
   upstream: T,
-  mapping: Arc<RwLock<FastHashMap<O, FastHashSet<M>>>>,
+  current_generation: u64,
+  mapping: Arc<RwLock<(FastHashMap<O, FastHashSet<M>>, u64)>>,
 }
 
 impl<O, M, T: Clone> Clone for OneToManyRefHashBookKeeping<O, M, T> {
   fn clone(&self) -> Self {
     Self {
+      current_generation: self.current_generation.clone(),
       upstream: self.upstream.clone(),
       mapping: self.mapping.clone(),
     }
@@ -388,6 +394,7 @@ where
     self
       .mapping
       .read_recursive()
+      .0
       .keys()
       .cloned()
       .collect::<Vec<_>>()
@@ -397,7 +404,7 @@ where
   fn access_multi(&self) -> impl Fn(&O, &mut dyn FnMut(M)) + '_ {
     let mapping = self.mapping.read_recursive();
     move |o, visitor| {
-      if let Some(set) = mapping.get(o) {
+      if let Some(set) = mapping.0.get(o) {
         for many in set.iter() {
           visitor(many.clone())
         }
@@ -417,28 +424,32 @@ where
 
   fn poll_changes(&mut self, cx: &mut Context<'_>) -> Poll<Option<Self::Changes>> {
     let r = self.upstream.poll_changes(cx);
+    self.current_generation += 1;
 
     if let Poll::Ready(Some(changes)) = r.clone() {
       for change in changes {
         let mut mapping = self.mapping.write();
-        let many = change.key().clone();
-        let new_one = change.new_value();
+        if mapping.1 < self.current_generation {
+          mapping.1 = self.current_generation;
 
-        let old_refed_one = change.old_value();
-        // remove possible old relations
-        if let Some(old_refed_one) = old_refed_one {
-          let previous_one_refed_many = mapping.get_mut(old_refed_one).unwrap();
-          previous_one_refed_many.remove(&many);
-          if previous_one_refed_many.is_empty() {
-            mapping.remove(old_refed_one);
-            // todo shrink
+          let many = change.key().clone();
+          let new_one = change.new_value();
+
+          let old_refed_one = change.old_value();
+          // remove possible old relations
+          if let Some(old_refed_one) = old_refed_one {
+            let previous_one_refed_many = mapping.0.get_mut(old_refed_one).unwrap();
+            previous_one_refed_many.remove(&many);
+            if previous_one_refed_many.is_empty() {
+              mapping.0.remove(old_refed_one);
+            }
           }
-        }
 
-        // setup new relations
-        if let Some(new_one) = new_one {
-          let new_one_refed_many = mapping.entry(new_one.clone()).or_default();
-          new_one_refed_many.insert(many.clone());
+          // setup new relations
+          if let Some(new_one) = new_one {
+            let new_one_refed_many = mapping.0.entry(new_one.clone()).or_default();
+            new_one_refed_many.insert(many.clone());
+          }
         }
       }
     }
@@ -449,13 +460,14 @@ where
   fn extra_request(&mut self, request: &mut ExtraCollectionOperation) {
     self.upstream.extra_request(request);
     match request {
-      ExtraCollectionOperation::MemoryShrinkToFit => self.mapping.write().shrink_to_fit(),
+      ExtraCollectionOperation::MemoryShrinkToFit => self.mapping.write().0.shrink_to_fit(),
     }
   }
 }
 
 pub struct OneToManyRefDenseBookKeeping<O, M, T> {
   upstream: T,
+  current_generation: u64,
   mapping: Arc<RwLock<Mapping>>,
   phantom: PhantomData<(O, M)>,
 }
@@ -463,6 +475,7 @@ pub struct OneToManyRefDenseBookKeeping<O, M, T> {
 impl<O, M, T: Clone> Clone for OneToManyRefDenseBookKeeping<O, M, T> {
   fn clone(&self) -> Self {
     Self {
+      current_generation: self.current_generation.clone(),
       upstream: self.upstream.clone(),
       mapping: self.mapping.clone(),
       phantom: PhantomData,
@@ -472,6 +485,7 @@ impl<O, M, T: Clone> Clone for OneToManyRefDenseBookKeeping<O, M, T> {
 
 #[derive(Default)]
 struct Mapping {
+  generation: u64,
   mapping_buffer: LinkListPool<u32>,
   mapping: Vec<ListHandle>,
 }
@@ -531,42 +545,42 @@ where
 
   fn poll_changes(&mut self, cx: &mut Context<'_>) -> Poll<Option<Self::Changes>> {
     let r = self.upstream.poll_changes(cx);
+    self.current_generation += 1;
 
     if let Poll::Ready(Some(changes)) = r.clone() {
       for change in changes {
         let mut mapping = self.mapping.write();
-        let mapping: &mut Mapping = &mut mapping;
-        let many = *change.key();
-        let new_one = change.new_value();
+        if mapping.generation < self.current_generation {
+          mapping.generation = self.current_generation;
+          let mapping: &mut Mapping = &mut mapping;
+          let many = *change.key();
+          let new_one = change.new_value();
 
-        let old_refed_one = change.old_value();
-        // remove possible old relations
-        if let Some(old_refed_one) = old_refed_one {
-          let previous_one_refed_many = mapping
-            .mapping
-            .get_mut(old_refed_one.alloc_index() as usize)
-            .unwrap();
+          let old_refed_one = change.old_value();
+          // remove possible old relations
+          if let Some(old_refed_one) = old_refed_one {
+            let previous_one_refed_many = mapping
+              .mapping
+              .get_mut(old_refed_one.alloc_index() as usize)
+              .unwrap();
 
-          //  this is O(n), should we care about it?
-          mapping
-            .mapping_buffer
-            .visit_and_remove(previous_one_refed_many, |value, _| {
-              let should_remove = *value == many.alloc_index();
-              (should_remove, !should_remove)
-            });
-
-          if previous_one_refed_many.is_empty() {
-            // todo tail shrink
+            //  this is O(n), should we care about it?
+            mapping
+              .mapping_buffer
+              .visit_and_remove(previous_one_refed_many, |value, _| {
+                let should_remove = *value == many.alloc_index();
+                (should_remove, !should_remove)
+              });
           }
-        }
 
-        // setup new relations
-        if let Some(new_one) = &new_one {
-          mapping.mapping[new_one.alloc_index() as usize] = ListHandle::default();
-          mapping.mapping_buffer.insert(
-            &mut mapping.mapping[new_one.alloc_index() as usize],
-            new_one.alloc_index(),
-          );
+          // setup new relations
+          if let Some(new_one) = &new_one {
+            mapping.mapping[new_one.alloc_index() as usize] = ListHandle::default();
+            mapping.mapping_buffer.insert(
+              &mut mapping.mapping[new_one.alloc_index() as usize],
+              new_one.alloc_index(),
+            );
+          }
         }
       }
     }
