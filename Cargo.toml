@@ -71,6 +71,9 @@ pin-project = "1.0.12"
 smallvec = "1.9.0"
 winit = "0.27.1"
 derivative = "2.2.0"
+proc-macro2 = "1.0.4"
+quote = "1.0.2"
+syn = { version = "1.0.11", features = ["full"] }
 
 # https://doc.rust-lang.org/cargo/reference/profiles.html
 

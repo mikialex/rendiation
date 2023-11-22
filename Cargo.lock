@@ -3426,6 +3426,7 @@ name = "storage"
 version = "0.0.1"
 dependencies = [
  "arena",
+ "fast-hash-collection",
 ]
 
 [[package]]

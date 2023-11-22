@@ -46,6 +46,19 @@ pub trait ReactiveCollectionRelationExt<K, V>: Sized + 'static + ReactiveCollect
       mapping: Default::default(),
     }
   }
+
+  fn into_one_to_many_by_hash_expose_type(self) -> OneToManyRefHashBookKeeping<V, K, Self>
+  where
+    Self::Changes: Clone,
+    K: Hash + Eq + Clone + 'static,
+    V: Hash + Eq + Clone + 'static,
+  {
+    OneToManyRefHashBookKeeping {
+      upstream: self,
+      mapping: Default::default(),
+    }
+  }
+
   fn into_one_to_many_by_idx(self) -> impl ReactiveOneToManyRelationship<V, K>
   where
     Self::Changes: Clone,
