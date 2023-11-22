@@ -38,13 +38,13 @@ pub fn scene_model_local_boxes(
 }
 
 pub fn scene_model_world(
-  node_world: impl ReactiveCollection<NodeGUID, Mat4<f32>>,
+  node_world: impl ReactiveCollection<NodeIdentity, Mat4<f32>>,
 ) -> impl ReactiveCollection<AllocIdx<SceneModelImpl>, Mat4<f32>> {
   node_world.one_to_many_fanout(scene_model_ref_node().into_one_to_many_by_hash())
 }
 
 pub fn scene_model_world_box(
-  node_world: impl ReactiveCollection<NodeGUID, Mat4<f32>>,
+  node_world: impl ReactiveCollection<NodeIdentity, Mat4<f32>>,
   foreign_mesh_local_box_support: impl ReactiveCollection<AllocIdx<StandardModel>, Box3<f32>>,
   foreign_model_local_box_support: impl ReactiveCollection<AllocIdx<SceneModelImpl>, Box3<f32>>,
 ) -> impl ReactiveCollection<AllocIdx<SceneModelImpl>, Box3<f32>> {

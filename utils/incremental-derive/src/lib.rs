@@ -235,15 +235,16 @@ pub fn global_registered_collection_and_many_one_relation(
   };
 
   original_fn.sig.ident = new_name.clone();
+  original_fn.vis = syn::Visibility::Inherited;
 
   let relation_fn_name = format_ident!("{name}_many_one_relation");
 
   quote! {
-    pub fn #name() #rt {
+    pub fn #name() #rt + Clone {
       reactive_incremental::global_collection_registry().fork_or_insert_with(#new_name)
     }
 
-    pub fn #relation_fn_name() -> impl ReactiveOneToManyRelationship<#args_v, #args_k> {
+    pub fn #relation_fn_name() -> impl ReactiveOneToManyRelationship<#args_v, #args_k> + Clone {
       reactive_incremental::global_collection_registry().get_or_create_relation(#new_name)
     }
 

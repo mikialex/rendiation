@@ -63,7 +63,7 @@ pub fn optimizable_std_model() -> impl ReactiveCollection<AllocIdx<StandardModel
 }
 
 pub fn instance_mapping(
-  node_merge_key: impl ReactiveCollection<NodeGUID, u64>,
+  node_merge_key: impl ReactiveCollection<NodeIdentity, u64>,
   foreign_materials: impl ReactiveCollection<AllocIdx<StandardModel>, u64>,
 ) -> impl ReactiveOneToManyRelationship<InstanceKey, AllocIdx<SceneModelImpl>> {
   let optimizable_scene_model =

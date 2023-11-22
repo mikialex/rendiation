@@ -34,7 +34,7 @@ impl CollectionRegistry {
   pub fn fork_or_insert_with<K, V, R>(
     &self,
     inserter: impl FnOnce() -> R + Any,
-  ) -> impl ReactiveCollection<K, V>
+  ) -> impl ReactiveCollection<K, V> + Clone
   where
     K: Clone + 'static,
     V: Clone + 'static,
@@ -77,7 +77,7 @@ impl CollectionRegistry {
   pub fn get_or_create_relation<O, M, R>(
     &self,
     inserter: impl FnOnce() -> R + Any,
-  ) -> impl ReactiveOneToManyRelationship<O, M>
+  ) -> impl ReactiveOneToManyRelationship<O, M> + Clone
   where
     O: LinearIdentification + Clone + 'static,
     M: LinearIdentification + Clone + 'static,

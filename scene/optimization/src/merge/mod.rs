@@ -157,14 +157,21 @@ pub enum MeshMergeType {
   UnableToMerge(u64),
 }
 
+pub type ForeignMergeKeySupport = dyn FnOnce(
+  Box<dyn DynamicReactiveCollection<AllocIdx<StandardModel>, ()>>,
+) -> (
+  Box<dyn DynamicReactiveCollection<AllocIdx<StandardModel>, MaterialContentID>>,
+  Box<dyn DynamicReactiveCollection<AllocIdx<StandardModel>, MeshMergeType>>,
+);
+
 pub fn build_merge_relation(
   scene_id: u64,
   source_scene_node_mat: impl ReactiveCollection<NodeIdentity, Mat4<f32>>,
-  sm_node_relation: impl ReactiveOneToManyRelationship<NodeIdentity, AllocIdx<SceneModelImpl>>,
-  std_sm_relation: impl ReactiveOneToManyRelationship<AllocIdx<StandardModel>, AllocIdx<SceneModelImpl>>
-    + Clone,
+  foreign: Box<ForeignMergeKeySupport>,
 ) -> impl ReactiveCollection<AllocIdx<SceneModelImpl>, MergeKey> {
   let node_checker = create_scene_node_checker(scene_id);
+  let std_sm_relation = scene_model_ref_std_model_many_one_relation();
+  let sm_node_relation = scene_model_ref_node().into_one_to_many_by_hash(); // todo share
 
   let referenced_sm = storage_of::<SceneModelImpl>()
     .listen_to_reactive_collection(move |change| match change {
@@ -182,10 +189,13 @@ pub fn build_merge_relation(
     .clone()
     .many_to_one_reduce_key(std_sm_relation.clone());
   let referenced_std_md = referenced_std_md.into_forker();
-  let mat_content_hash = sm_material_content_hash(&referenced_std_md);
+
+  let (foreign_mat, foreign_mesh) = foreign(Box::new(referenced_std_md.clone()));
+
+  let mat_content_hash = sm_material_content_hash(&referenced_std_md, foreign_mat);
   let mat_content_hash = mat_content_hash.one_to_many_fanout(std_sm_relation.clone());
 
-  let std_mesh_key = std_mesh_key(&referenced_std_md);
+  let std_mesh_key = std_mesh_key(&referenced_std_md, foreign_mesh);
   let sm_mesh_key = std_mesh_key.one_to_many_fanout(std_sm_relation);
 
   let sm_front_face = source_scene_node_mat
@@ -218,12 +228,7 @@ use std::hash::Hash;
 
 fn sm_material_content_hash(
   std_scope: &(impl ReactiveCollection<AllocIdx<StandardModel>, ()> + Clone),
-  // todo, foreign material type support
-  // foreign_materials_content_hash: impl FnOnce(
-  //   Box<dyn DynamicReactiveCollection<AllocIdx<StandardModel>, ()>>,
-  // ) -> Box<
-  //   dyn DynamicReactiveCollection<AllocIdx<StandardModel>, MaterialContentID>,
-  // >,
+  foreign: Box<dyn DynamicReactiveCollection<AllocIdx<StandardModel>, MaterialContentID>>,
 ) -> impl ReactiveCollection<AllocIdx<StandardModel>, MaterialContentID> {
   // let foreign_material_hash = foreign_materials_content_hash(todo!());
 
@@ -232,18 +237,18 @@ fn sm_material_content_hash(
   let pbr_sg = material_hash_impl::<PhysicalSpecularGlossinessMaterial>(std_scope);
 
   // todo, impl another efficient multi select.
-  flat.collective_select(pbr_mr).collective_select(pbr_sg)
-  // .collective_select(foreign_material_hash)
+  flat
+    .collective_select(pbr_mr)
+    .collective_select(pbr_sg)
+    .collective_select(foreign)
 }
 
-fn material_hash_impl<M: IncrementalBase + Hash>(
+fn material_hash_impl<M: DowncastFromMaterialEnum + Hash>(
   std_scope: &(impl ReactiveCollection<AllocIdx<StandardModel>, ()> + Clone),
 ) -> impl ReactiveCollection<AllocIdx<StandardModel>, MaterialContentID> {
-  // todo, create from global registry
-  let relations: OneManyRelationForker<AllocIdx<M>, AllocIdx<StandardModel>> = todo!();
-
+  let relations = global_material_relations::<M>();
   let referenced_mat = std_scope.clone().many_to_one_reduce_key(relations.clone());
-  //
+
   let material_hash = storage_of::<M>()
     .listen_to_reactive_collection(|_| Some(()))
     .filter_by_keyset(referenced_mat)
@@ -262,11 +267,11 @@ fn material_hash_impl<M: IncrementalBase + Hash>(
 // todo, foreign mesh support
 fn std_mesh_key(
   std_scope: &(impl ReactiveCollection<AllocIdx<StandardModel>, ()> + Clone),
+  foreign: Box<dyn DynamicReactiveCollection<AllocIdx<StandardModel>, MeshMergeType>>,
 ) -> impl ReactiveCollection<AllocIdx<StandardModel>, MeshMergeType> {
-  // todo, create from global registry
-  let relations: OneManyRelationForker<AllocIdx<AttributesMesh>, AllocIdx<StandardModel>> = todo!();
-
-  let referenced_attribute_mesh = std_scope.clone().many_to_one_reduce_key(relations.clone());
+  let referenced_attribute_mesh = std_scope
+    .clone()
+    .many_to_one_reduce_key(std_model_ref_att_mesh_many_one_relation());
 
   let attribute_key = storage_of::<AttributesMesh>()
     .listen_to_reactive_collection(|_| Some(()))
@@ -279,13 +284,14 @@ fn std_mesh_key(
       move |k, _| layout_key(*k)
     });
   attribute_key
-    .one_to_many_fanout(relations)
+    .one_to_many_fanout(std_model_ref_att_mesh_many_one_relation())
     .collective_union(std_scope.clone())
     .collective_map(|(keyed, all)| match (keyed, all) {
       (Some(key), Some(_)) => MeshMergeType::Mergeable(ATTRIBUTE_MERGE, key),
       (None, Some(_)) => MeshMergeType::UnableToMerge(alloc_global_res_id()),
       _ => unreachable!(),
     })
+    .collective_select(foreign)
 }
 
 fn build_applied_matrix_table(
