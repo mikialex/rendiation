@@ -18,6 +18,11 @@ impl<K, V> Default for MultiHash<K, V> {
 }
 
 impl<K: Eq + std::hash::Hash, V: Eq> MultiHash<K, V> {
+  pub fn shrink_to_fit(&mut self) {
+    self.keys.shrink_to_fit();
+    self.secondary.shrink_to_fit();
+  }
+
   pub fn insert(&mut self, k: K, v: V) {
     self.guid += 1;
     let keys = self.keys.entry(k).or_insert_with(|| (self.guid, 0));

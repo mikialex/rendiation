@@ -13,6 +13,18 @@ impl<T> Default for IndexReusedVec<T> {
 }
 
 impl<T> IndexReusedVec<T> {
+  pub fn shrink_to_fit(&mut self) {
+    self.empty_list.shrink_to_fit();
+    let tail_size = self
+      .storage
+      .iter()
+      .rev()
+      .take_while(|v| v.is_none())
+      .count();
+    self.storage.truncate(self.storage.len() - tail_size);
+    self.storage.shrink_to_fit()
+  }
+
   pub fn insert(&mut self, data: T) -> u32 {
     if let Some(empty) = self.empty_list.pop() {
       self.storage[empty as usize] = data.into();

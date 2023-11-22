@@ -6,15 +6,6 @@ use storage::{LinkListPool, ListHandle};
 
 use crate::*;
 
-/// Implementation should guarantee for each v -> k, have the bijection of k -> v;
-///
-/// we could use ReactiveCollection<A, B>+ ReactiveCollection<B, A> as parent bound but rust think
-/// it will impl conflict. and we also want avoid unnecessary stream fork
-pub trait ReactiveOneToOneRelationship<A, B>: ReactiveCollection<A, B> {
-  fn iter_by_value_one_one(&self) -> impl Iterator<Item = B> + '_;
-  fn access_by_value_one_one(&self) -> impl Fn(&B) -> Option<A> + '_;
-}
-
 pub trait ReactiveOneToManyRelationship<O, M>:
   VirtualMultiCollection<O, M> + ReactiveCollection<M, O>
 {
@@ -84,14 +75,6 @@ pub trait ReactiveCollectionRelationExt<K, V>: Sized + 'static + ReactiveCollect
       phantom: PhantomData,
     }
   }
-
-  // fn cast_into_one_to_one(self) -> impl ReactiveOneToOneRelationship<V, K>
-  // where
-  //   K: Eq,
-  //   V: Eq,
-  // {
-  //   todo!()
-  // }
 
   /// project map<O, V> -> map<M, V> when we have O - M one to many
   fn one_to_many_fanout<MK, Relation>(self, relations: Relation) -> impl ReactiveCollection<MK, V>
@@ -208,6 +191,11 @@ where
       Poll::Ready(Some(collected.into_iter()))
       // Poll::Ready(Some(output.into_values())) // todo, avoid collect
     }
+  }
+
+  fn extra_request(&mut self, request: &mut ExtraCollectionOperation) {
+    self.upstream.extra_request(request);
+    self.relations.extra_request(request);
   }
 }
 
@@ -337,6 +325,14 @@ where
       // Poll::Ready(Some(output.into_values())) // todo, avoid collect
     }
   }
+
+  fn extra_request(&mut self, request: &mut ExtraCollectionOperation) {
+    self.upstream.extra_request(request);
+    self.relations.extra_request(request);
+    match request {
+      ExtraCollectionOperation::MemoryShrinkToFit => self.ref_counting.shrink_to_fit(),
+    }
+  }
 }
 
 impl<O, M, Upstream, Relation> VirtualCollection<O, ()>
@@ -448,6 +444,13 @@ where
     }
 
     r
+  }
+
+  fn extra_request(&mut self, request: &mut ExtraCollectionOperation) {
+    self.upstream.extra_request(request);
+    match request {
+      ExtraCollectionOperation::MemoryShrinkToFit => self.mapping.write().shrink_to_fit(),
+    }
   }
 }
 
@@ -569,5 +572,16 @@ where
     }
 
     r
+  }
+
+  fn extra_request(&mut self, request: &mut ExtraCollectionOperation) {
+    self.upstream.extra_request(request);
+    match request {
+      ExtraCollectionOperation::MemoryShrinkToFit => {
+        let mut mapping = self.mapping.write();
+        mapping.mapping.shrink_to_fit();
+        mapping.mapping_buffer.shrink_to_fit();
+      }
+    }
   }
 }

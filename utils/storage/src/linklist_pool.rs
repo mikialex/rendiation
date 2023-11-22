@@ -13,6 +13,10 @@ impl<T> Default for LinkListPool<T> {
 }
 
 impl<T> LinkListPool<T> {
+  pub fn shrink_to_fit(&mut self) {
+    self.pool.shrink_to_fit()
+  }
+
   pub fn insert(&mut self, list: &mut ListHandle, data: T) -> u32 {
     let idx = self.pool.insert(LinkListNode {
       next: IndexPtr::new(None),

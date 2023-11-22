@@ -303,6 +303,10 @@ where
       .poll_next_unpin(cx)
       .map(|v| v.map(|v| v.into_iter()))
   }
+
+  fn extra_request(&mut self, _request: &mut ExtraCollectionOperation) {
+    // here are we not suppose to shrink the storage
+  }
 }
 
 impl<K, T> Stream for GroupSingleValueReceiver<K, T> {

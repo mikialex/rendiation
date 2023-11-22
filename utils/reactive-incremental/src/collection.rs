@@ -134,6 +134,12 @@ where
 pub trait ReactiveCollection<K, V>: VirtualCollection<K, V> + 'static {
   type Changes: Iterator<Item = CollectionDelta<K, V>> + Clone;
   fn poll_changes(&mut self, cx: &mut Context<'_>) -> Poll<Option<Self::Changes>>;
+
+  fn extra_request(&mut self, request: &mut ExtraCollectionOperation);
+}
+
+pub enum ExtraCollectionOperation {
+  MemoryShrinkToFit,
 }
 
 /// it's useful to use () as the empty collection
@@ -166,6 +172,7 @@ impl<K: 'static, V> ReactiveCollection<K, V> for () {
   fn poll_changes(&mut self, _: &mut Context<'_>) -> Poll<Option<Self::Changes>> {
     Poll::Pending
   }
+  fn extra_request(&mut self, _: &mut ExtraCollectionOperation) {}
 }
 
 /// dynamic version of the above trait
@@ -213,6 +220,7 @@ pub trait DynamicReactiveCollection<K, V>: DynamicVirtualCollection<K, V> {
     &mut self,
     _cx: &mut Context<'_>,
   ) -> Poll<Option<BoxedReactiveCollectionDeltaTy<K, V>>>;
+  fn extra_request_dyn(&mut self, request: &mut ExtraCollectionOperation);
 }
 
 impl<K, V, T> DynamicReactiveCollection<K, V> for T
@@ -228,6 +236,9 @@ where
     self
       .poll_changes(cx)
       .map(|v| v.map(|v| Box::new(v) as BoxedReactiveCollectionDeltaTy<K, V>))
+  }
+  fn extra_request_dyn(&mut self, request: &mut ExtraCollectionOperation) {
+    self.extra_request(request)
   }
 }
 
@@ -249,6 +260,9 @@ where
 
   fn poll_changes(&mut self, cx: &mut Context<'_>) -> Poll<Option<Self::Changes>> {
     self.poll_changes_dyn(cx)
+  }
+  fn extra_request(&mut self, request: &mut ExtraCollectionOperation) {
+    self.extra_request_dyn(request)
   }
 }
 
@@ -503,6 +517,10 @@ where
 
     self.poll_changes(cx)
   }
+
+  fn extra_request(&mut self, request: &mut ExtraCollectionOperation) {
+    self.inner.write().extra_request(request)
+  }
 }
 
 impl<K, V, Map> VirtualCollection<K, V> for ReactiveKVMapFork<Map, K, V>
@@ -596,6 +614,13 @@ where
     }
     r
   }
+
+  fn extra_request(&mut self, request: &mut ExtraCollectionOperation) {
+    self.inner.extra_request(request);
+    match request {
+      ExtraCollectionOperation::MemoryShrinkToFit => self.cache.shrink_to_fit(),
+    }
+  }
 }
 
 impl<K, V, Map> VirtualCollection<K, V> for UnorderedMaterializedReactiveCollection<Map, K, V>
@@ -643,6 +668,16 @@ where
     }
     r
   }
+
+  fn extra_request(&mut self, request: &mut ExtraCollectionOperation) {
+    self.inner.extra_request(request);
+    match request {
+      ExtraCollectionOperation::MemoryShrinkToFit => {
+        todo!()
+        // self.cache.shrink_to_fit()
+      }
+    }
+  }
 }
 
 impl<K, V, Map> VirtualCollection<K, V> for LinearMaterializedReactiveCollection<Map, V>
@@ -689,6 +724,10 @@ where
       })
     })
   }
+
+  fn extra_request(&mut self, request: &mut ExtraCollectionOperation) {
+    self.inner.extra_request(request)
+  }
 }
 
 impl<T, F, FF, K, V, V2> VirtualCollection<K, V2> for ReactiveKVExecuteMap<T, F, K, V>
@@ -731,6 +770,10 @@ where
           .map(move |delta| delta.map(|_, v| mapper(v)))
       })
     })
+  }
+
+  fn extra_request(&mut self, request: &mut ExtraCollectionOperation) {
+    self.inner.extra_request(request)
   }
 }
 
@@ -792,6 +835,10 @@ where
         })
       })
     })
+  }
+
+  fn extra_request(&mut self, request: &mut ExtraCollectionOperation) {
+    self.inner.extra_request(request)
   }
 }
 
@@ -970,6 +1017,10 @@ where
 
     Poll::Ready(Some(r.into_iter()))
   }
+  fn extra_request(&mut self, request: &mut ExtraCollectionOperation) {
+    self.a.extra_request(request);
+    self.b.extra_request(request);
+  }
 }
 
 /// when we want to zip multiple kv, using deeply nested zipper is viable, however it's computation
@@ -1095,5 +1146,15 @@ where
     let outputs = outputs.into_values().collect::<Vec<_>>();
 
     Poll::Ready(Some(outputs.into_iter()))
+  }
+
+  fn extra_request(&mut self, request: &mut ExtraCollectionOperation) {
+    self
+      .sources
+      .iter_mut()
+      .for_each(|s| s.extra_request_dyn(request));
+    match request {
+      ExtraCollectionOperation::MemoryShrinkToFit => self.current.shrink_to_fit(),
+    }
   }
 }
