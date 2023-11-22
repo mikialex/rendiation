@@ -1,6 +1,6 @@
 use crate::*;
 
-#[global_registered_collection_and_many_one_relation]
+#[global_registered_collection_and_many_one_idx_relation]
 pub fn scene_model_ref_std_model(
 ) -> impl ReactiveCollection<AllocIdx<SceneModelImpl>, AllocIdx<StandardModel>> {
   storage_of::<SceneModelImpl>()
@@ -16,7 +16,7 @@ pub fn scene_model_ref_std_model(
     .collective_filter_map(|v| v)
 }
 
-#[global_registered_collection_and_many_one_relation]
+#[global_registered_collection_and_many_one_idx_relation]
 pub fn std_model_ref_att_mesh(
 ) -> impl ReactiveCollection<AllocIdx<StandardModel>, AllocIdx<AttributesMesh>> {
   storage_of::<StandardModel>()
@@ -32,14 +32,21 @@ pub fn std_model_ref_att_mesh(
     .collective_filter_map(|v| v)
 }
 
-#[global_registered_collection]
+#[global_registered_collection_and_many_one_hash_relation]
 pub fn scene_model_ref_node() -> impl ReactiveCollection<AllocIdx<SceneModelImpl>, NodeIdentity> {
   storage_of::<SceneModelImpl>().listen_to_reactive_collection(|change| {
     field_of!(change, SceneModelImpl => node).map(|node| node.scene_and_node_id())
   })
 }
 
-#[global_registered_collection]
+#[global_registered_collection_and_many_one_hash_relation]
+pub fn scene_light_ref_node() -> impl ReactiveCollection<AllocIdx<SceneLightImpl>, NodeIdentity> {
+  storage_of::<SceneLightImpl>().listen_to_reactive_collection(|change| {
+    field_of!(change, SceneLightImpl => node).map(|node| node.scene_and_node_id())
+  })
+}
+
+#[global_registered_collection_and_many_one_hash_relation]
 pub fn scene_camera_ref_node() -> impl ReactiveCollection<AllocIdx<SceneCameraImpl>, NodeIdentity> {
   storage_of::<SceneCameraImpl>().listen_to_reactive_collection(|change| {
     field_of!(change, SceneCameraImpl => node).map(|node| node.scene_and_node_id())
@@ -80,10 +87,10 @@ fn global_std_model_ref_material_impl<M: DowncastFromMaterialEnum>(
 
 pub fn global_std_model_ref_material<M: DowncastFromMaterialEnum>(
 ) -> impl ReactiveCollection<AllocIdx<StandardModel>, AllocIdx<M>> + Clone {
-  global_collection_registry().get_or_create_relation(global_std_model_ref_material_impl)
+  global_collection_registry().get_or_create_relation_by_idx(global_std_model_ref_material_impl)
 }
 
 pub fn global_material_relations<M: DowncastFromMaterialEnum>(
 ) -> impl ReactiveOneToManyRelationship<AllocIdx<M>, AllocIdx<StandardModel>> + Clone {
-  global_collection_registry().get_or_create_relation(global_std_model_ref_material_impl)
+  global_collection_registry().get_or_create_relation_by_idx(global_std_model_ref_material_impl)
 }

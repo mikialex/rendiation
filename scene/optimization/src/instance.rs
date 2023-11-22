@@ -70,7 +70,7 @@ pub fn instance_mapping(
     optimizable_std_model().one_to_many_fanout(scene_model_ref_std_model_many_one_relation());
 
   let scene_model_node_merge_key =
-    node_merge_key.one_to_many_fanout(scene_model_ref_node().into_one_to_many_by_hash());
+    node_merge_key.one_to_many_fanout(scene_model_ref_node_many_one_relation());
 
   optimizable_scene_model
     .collective_intersect(scene_model_node_merge_key)

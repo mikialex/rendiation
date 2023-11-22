@@ -77,9 +77,21 @@ impl ModelMergeProxy {
       node.set_local_matrix(mat_access(&source[0].1).unwrap());
       results.push(SceneModelImpl::new(source[0].0.clone(), node));
     } else {
-      let meshes = todo!();
-      let transforms = todo!();
-      let ctx = MeshMergeCtx { meshes, transforms };
+      let meshes = source
+        .iter()
+        .map(|(m, _)| match m {
+          ModelEnum::Standard(m) => m.read().mesh.clone(),
+          ModelEnum::Foreign(_) => unreachable!(),
+        })
+        .collect::<Vec<_>>();
+      let transforms = source
+        .iter()
+        .map(|(_, idx)| mat_access(idx).unwrap())
+        .collect::<Vec<_>>();
+      let ctx = MeshMergeCtx {
+        meshes: &meshes,
+        transforms: &transforms,
+      };
       let merge_method = match key {
         MergeKey::Standard(std) => match std.mesh_layout_type {
           MeshMergeType::Mergeable(merge_type, _) => reg.get_merge_impl(merge_type).unwrap(),
@@ -89,7 +101,7 @@ impl ModelMergeProxy {
       };
 
       let merged_mesh = merge_method(&ctx);
-      let first_material = match source[0].0 {
+      let first_material = match &source[0].0 {
         ModelEnum::Standard(model) => model.read().material.clone(),
         _ => unreachable!(),
       };
@@ -112,7 +124,7 @@ impl ModelMergeProxy {
 }
 
 pub struct MeshMergeCtx<'a> {
-  pub meshes: &'a [&'a MeshEnum],
+  pub meshes: &'a [MeshEnum],
   pub transforms: &'a [Mat4<f32>],
 }
 

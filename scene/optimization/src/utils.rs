@@ -70,7 +70,6 @@ pub struct SceneCameraRebuilder {
 impl SceneCameraRebuilder {
   pub fn new(
     source_scene_id: u64,
-    camera_node_relation: impl ReactiveOneToManyRelationship<NodeIdentity, AllocIdx<SceneCameraImpl>>,
     source_scene_derives: &NodeIncrementalDeriveCollections,
     target_scene: &Scene,
   ) -> Self {
@@ -90,7 +89,7 @@ impl SceneCameraRebuilder {
 
     let referenced_nodes = referenced_camera
       .clone()
-      .many_to_one_reduce_key(camera_node_relation);
+      .many_to_one_reduce_key(scene_camera_ref_node_many_one_relation());
 
     let node_source = source_scene_derives.filter_by_keysets(referenced_nodes.into_forker());
 
@@ -164,7 +163,6 @@ pub struct SceneLightsRebuilder {
 impl SceneLightsRebuilder {
   pub fn new(
     source_scene_id: u64,
-    light_node_relation: impl ReactiveOneToManyRelationship<NodeIdentity, AllocIdx<SceneLightImpl>>,
     source_scene_derives: &NodeIncrementalDeriveCollections,
     target_scene: &Scene,
   ) -> Self {
@@ -184,7 +182,7 @@ impl SceneLightsRebuilder {
 
     let referenced_nodes = referenced_lights
       .clone()
-      .many_to_one_reduce_key(light_node_relation);
+      .many_to_one_reduce_key(scene_light_ref_node_many_one_relation());
 
     let node_source = source_scene_derives.filter_by_keysets(referenced_nodes.into_forker());
 

@@ -7,24 +7,38 @@ pub struct SceneMergeSystem {
   models: SceneModelMergeOptimization,
   cameras: SceneCameraRebuilder,
   lights: SceneLightsRebuilder,
-  target_scene: Scene,
+  target_scene: (Scene, SceneNodeDeriveSystem),
 }
 
 impl SceneMergeSystem {
   pub fn new(
     scene: &Scene,
     source_scene_derives: &NodeIncrementalDeriveCollections,
+    foreign_merge_support: Box<dyn FnOnce(&mut MergeImplRegistry)>,
+    foreign_key_support: Box<ForeignMergeKeySupport>,
   ) -> (Self, Scene) {
-    let target_scene = todo!();
+    let (target_scene, scene_derived) = SceneImpl::new();
 
-    let models =
-      SceneModelMergeOptimization::new(scene.guid(), source_scene_derives, &target_scene);
-    // let cameras = SceneCameraRebuilder::new(scene.guid(), (), source_scene_derives,
-    // &target_scene); let lights = SceneLightsRebuilder::new(scene.guid(), (),
-    // source_scene_derives, &target_scene);
+    let models = SceneModelMergeOptimization::new(
+      scene.guid(),
+      source_scene_derives,
+      &target_scene,
+      foreign_merge_support,
+      foreign_key_support,
+    );
 
-    // Self { model: , cameras: (), lights: () }
-    todo!()
+    let cameras = SceneCameraRebuilder::new(scene.guid(), source_scene_derives, &target_scene);
+    let lights = SceneLightsRebuilder::new(scene.guid(), source_scene_derives, &target_scene);
+
+    (
+      Self {
+        models,
+        cameras,
+        lights,
+        target_scene: (target_scene.clone(), scene_derived),
+      },
+      target_scene,
+    )
   }
 
   pub fn poll_updates(&mut self, cx: &mut Context) {
@@ -50,10 +64,32 @@ impl SceneModelMergeOptimization {
     source_scene_id: u64,
     source_scene_derives: &NodeIncrementalDeriveCollections,
     target_scene: &Scene,
+    foreign_merge_support: Box<dyn FnOnce(&mut MergeImplRegistry)>,
+    foreign_key_support: Box<ForeignMergeKeySupport>,
   ) -> Self {
-    //
+    let target_scene = target_scene.clone();
+    let source_scene_node_mat = (); // todo
+    let source_scene_node_net_vis = (); // todo
 
-    todo!()
+    let mut merge_methods = MergeImplRegistry::default();
+    foreign_merge_support(&mut merge_methods);
+
+    let merge_relation =
+      build_merge_relation(source_scene_id, source_scene_node_mat, foreign_key_support);
+
+    let applied_matrix_table = todo!();
+    // source_scene_node_mat
+    //   .collective_zip(source_scene_node_net_vis)
+    //   .collective_map(|(mat, vis)| (if !vis { Mat4::zero() } else { mat }))
+    //   .one_to_many_fanout(scene_model_ref_node_many_one_relation());
+
+    Self {
+      target_scene,
+      merge_relation: todo!(),
+      applied_matrix_table,
+      merged_model: Default::default(),
+      merge_methods,
+    }
   }
 }
 
@@ -171,7 +207,7 @@ pub fn build_merge_relation(
 ) -> impl ReactiveCollection<AllocIdx<SceneModelImpl>, MergeKey> {
   let node_checker = create_scene_node_checker(scene_id);
   let std_sm_relation = scene_model_ref_std_model_many_one_relation();
-  let sm_node_relation = scene_model_ref_node().into_one_to_many_by_hash(); // todo share
+  let sm_node_relation = scene_model_ref_node_many_one_relation();
 
   let referenced_sm = storage_of::<SceneModelImpl>()
     .listen_to_reactive_collection(move |change| match change {
@@ -264,7 +300,6 @@ fn material_hash_impl<M: DowncastFromMaterialEnum + Hash>(
   material_hash.one_to_many_fanout(relations)
 }
 
-// todo, foreign mesh support
 fn std_mesh_key(
   std_scope: &(impl ReactiveCollection<AllocIdx<StandardModel>, ()> + Clone),
   foreign: Box<dyn DynamicReactiveCollection<AllocIdx<StandardModel>, MeshMergeType>>,
@@ -279,6 +314,7 @@ fn std_mesh_key(
     .collective_execute_map_by(|| {
       let layout_key = storage_of::<AttributesMesh>().create_key_mapper(|mesh| {
         // todo, attribute layout key
+        compute_merge_key(&mesh);
         0
       });
       move |k, _| layout_key(*k)
@@ -292,15 +328,4 @@ fn std_mesh_key(
       _ => unreachable!(),
     })
     .collective_select(foreign)
-}
-
-fn build_applied_matrix_table(
-  source_scene_node_mat: impl ReactiveCollection<NodeIdentity, Mat4<f32>>,
-  source_scene_node_net_vis: impl ReactiveCollection<NodeIdentity, bool>,
-  sm_node_relation: impl ReactiveOneToManyRelationship<NodeIdentity, AllocIdx<SceneModelImpl>>,
-) -> impl ReactiveCollection<AllocIdx<SceneModelImpl>, Mat4<f32>> {
-  source_scene_node_mat
-    .collective_zip(source_scene_node_net_vis)
-    .collective_map(|(mat, vis)| (if !vis { Mat4::zero() } else { mat }))
-    .one_to_many_fanout(sm_node_relation)
 }

@@ -40,7 +40,7 @@ pub fn scene_model_local_boxes(
 pub fn scene_model_world(
   node_world: impl ReactiveCollection<NodeIdentity, Mat4<f32>>,
 ) -> impl ReactiveCollection<AllocIdx<SceneModelImpl>, Mat4<f32>> {
-  node_world.one_to_many_fanout(scene_model_ref_node().into_one_to_many_by_hash())
+  node_world.one_to_many_fanout(scene_model_ref_node_many_one_relation())
 }
 
 pub fn scene_model_world_box(

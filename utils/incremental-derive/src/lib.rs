@@ -195,18 +195,8 @@ pub fn global_registered_collection(_args: TokenStream, input: TokenStream) -> T
   }
   .into()
 }
-#[proc_macro_attribute]
-pub fn global_registered_collection_and_many_one_relation(
-  _args: TokenStream,
-  input: TokenStream,
-) -> TokenStream {
-  let input: syn::ItemFn = syn::parse2(input.into()).unwrap();
 
-  let mut original_fn = input;
-  let name = original_fn.sig.ident;
-  let new_name = format_ident!("{name}_inner");
-  let rt = &original_fn.sig.output;
-
+fn get_ty_name_pair(rt: &syn::ReturnType) -> (syn::Type, syn::Type) {
   let trait_token = match rt {
     syn::ReturnType::Type(_, ty) => match ty.as_ref() {
       Type::ImplTrait(im) => {
@@ -234,6 +224,22 @@ pub fn global_registered_collection_and_many_one_relation(
     _ => unreachable!(),
   };
 
+  (args_k, args_v)
+}
+
+#[proc_macro_attribute]
+pub fn global_registered_collection_and_many_one_idx_relation(
+  _args: TokenStream,
+  input: TokenStream,
+) -> TokenStream {
+  let input: syn::ItemFn = syn::parse2(input.into()).unwrap();
+
+  let mut original_fn = input;
+  let name = original_fn.sig.ident;
+  let new_name = format_ident!("{name}_inner");
+  let rt = &original_fn.sig.output;
+  let (args_k, args_v) = get_ty_name_pair(rt);
+
   original_fn.sig.ident = new_name.clone();
   original_fn.vis = syn::Visibility::Inherited;
 
@@ -245,7 +251,39 @@ pub fn global_registered_collection_and_many_one_relation(
     }
 
     pub fn #relation_fn_name() -> impl ReactiveOneToManyRelationship<#args_v, #args_k> + Clone {
-      reactive_incremental::global_collection_registry().get_or_create_relation(#new_name)
+      reactive_incremental::global_collection_registry().get_or_create_relation_by_idx(#new_name)
+    }
+
+    #original_fn
+  }
+  .into()
+}
+
+#[proc_macro_attribute]
+pub fn global_registered_collection_and_many_one_hash_relation(
+  _args: TokenStream,
+  input: TokenStream,
+) -> TokenStream {
+  let input: syn::ItemFn = syn::parse2(input.into()).unwrap();
+
+  let mut original_fn = input;
+  let name = original_fn.sig.ident;
+  let new_name = format_ident!("{name}_inner");
+  let rt = &original_fn.sig.output;
+  let (args_k, args_v) = get_ty_name_pair(rt);
+
+  original_fn.sig.ident = new_name.clone();
+  original_fn.vis = syn::Visibility::Inherited;
+
+  let relation_fn_name = format_ident!("{name}_many_one_relation");
+
+  quote! {
+    pub fn #name() #rt + Clone {
+      reactive_incremental::global_collection_registry().fork_or_insert_with(#new_name)
+    }
+
+    pub fn #relation_fn_name() -> impl ReactiveOneToManyRelationship<#args_v, #args_k> + Clone {
+      reactive_incremental::global_collection_registry().get_or_create_relation_by_hash(#new_name)
     }
 
     #original_fn

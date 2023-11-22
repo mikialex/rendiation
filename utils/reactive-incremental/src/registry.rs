@@ -9,7 +9,8 @@ use parking_lot::RwLock;
 use crate::*;
 
 pub type RxCForker<K, V> = ReactiveKVMapFork<Box<dyn DynamicReactiveCollection<K, V>>, K, V>;
-pub type OneManyRelationForker<O, M> = OneToManyRefDenseBookKeeping<O, M, RxCForker<M, O>>;
+pub type OneManyRelationIdxForker<O, M> = OneToManyRefDenseBookKeeping<O, M, RxCForker<M, O>>;
+pub type OneManyRelationHashForker<O, M> = OneToManyRefHashBookKeeping<O, M, RxCForker<M, O>>;
 
 #[derive(Default, Clone)]
 pub struct CollectionRegistry {
@@ -74,7 +75,7 @@ impl CollectionRegistry {
     }
   }
 
-  pub fn get_or_create_relation<O, M, R>(
+  pub fn get_or_create_relation_by_idx<O, M, R>(
     &self,
     inserter: impl FnOnce() -> R + Any,
   ) -> impl ReactiveOneToManyRelationship<O, M> + Clone
@@ -88,7 +89,7 @@ impl CollectionRegistry {
     let relations = self.relations.read_recursive();
     if let Some(collection) = relations.get(&typeid) {
       let collection = collection
-        .downcast_ref::<OneManyRelationForker<O, M>>()
+        .downcast_ref::<OneManyRelationIdxForker<O, M>>()
         .unwrap();
       collection.clone()
     } else {
@@ -102,7 +103,41 @@ impl CollectionRegistry {
 
       let relation = relations.get(&typeid).unwrap();
       let relation = relation
-        .downcast_ref::<OneManyRelationForker<O, M>>()
+        .downcast_ref::<OneManyRelationIdxForker<O, M>>()
+        .unwrap();
+      relation.clone()
+    }
+  }
+
+  pub fn get_or_create_relation_by_hash<O, M, R>(
+    &self,
+    inserter: impl FnOnce() -> R + Any,
+  ) -> impl ReactiveOneToManyRelationship<O, M> + Clone
+  where
+    O: std::hash::Hash + Eq + Clone + 'static,
+    M: std::hash::Hash + Eq + Clone + 'static,
+    R: ReactiveCollection<M, O>,
+  {
+    // note, we not using entry api because this call maybe be recursive and cause dead lock
+    let typeid = inserter.type_id();
+    let relations = self.relations.read_recursive();
+    if let Some(collection) = relations.get(&typeid) {
+      let collection = collection
+        .downcast_ref::<OneManyRelationHashForker<O, M>>()
+        .unwrap();
+      collection.clone()
+    } else {
+      drop(relations);
+      let upstream = self.fork_or_insert_with_inner(typeid, inserter);
+      let relation = upstream.into_one_to_many_by_hash_expose_type();
+
+      let boxed = Box::new(relation) as Box<dyn Any>;
+      let mut relations = self.relations.write();
+      relations.insert(typeid, boxed);
+
+      let relation = relations.get(&typeid).unwrap();
+      let relation = relation
+        .downcast_ref::<OneManyRelationHashForker<O, M>>()
         .unwrap();
       relation.clone()
     }
