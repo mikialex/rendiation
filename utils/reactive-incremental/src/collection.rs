@@ -211,7 +211,7 @@ where
   V: 'static,
 {
   fn clone(&self) -> Self {
-    self.clone_dyn()
+    self.deref().clone_dyn()
   }
 }
 
