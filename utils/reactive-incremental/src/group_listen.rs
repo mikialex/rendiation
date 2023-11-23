@@ -62,6 +62,13 @@ impl<T: IncrementalBase> IncrementalSignalStorage<T> {
               change: GroupSingleValueState::ChangeTo(mapped, mapped_before),
             };
             sender.send(change);
+          } else {
+            let mapped_before = mapper(MaybeDeltaRef::All(data_before_mutate)).unwrap();
+            let change = SingleValueGroupChange {
+              key: *index,
+              change: GroupSingleValueState::Remove(mapped_before),
+            };
+            sender.send(change);
           }
         }
         StorageGroupChange::Drop { index, data } => {

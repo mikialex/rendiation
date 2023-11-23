@@ -423,8 +423,8 @@ where
     self.current_generation += 1;
 
     if let Poll::Ready(Some(changes)) = r.clone() {
+      let mut mapping = self.mapping.write();
       for change in changes {
-        let mut mapping = self.mapping.write();
         if mapping.1 < self.current_generation {
           mapping.1 = self.current_generation;
 
@@ -546,8 +546,8 @@ where
     self.current_generation += 1;
 
     if let Poll::Ready(Some(changes)) = r.clone() {
+      let mut mapping = self.mapping.write();
       for change in changes {
-        let mut mapping = self.mapping.write();
         if mapping.generation < self.current_generation {
           mapping.generation = self.current_generation;
           let mapping: &mut Mapping = &mut mapping;
@@ -573,10 +573,14 @@ where
 
           // setup new relations
           if let Some(new_one) = &new_one {
-            mapping.mapping[new_one.alloc_index() as usize] = ListHandle::default();
+            let alloc_index = new_one.alloc_index() as usize;
+            mapping
+              .mapping
+              .resize(alloc_index + 1, ListHandle::default());
+
             mapping.mapping_buffer.insert(
               &mut mapping.mapping[new_one.alloc_index() as usize],
-              new_one.alloc_index(),
+              many.alloc_index(),
             );
           }
         } else {

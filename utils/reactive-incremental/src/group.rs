@@ -440,7 +440,10 @@ impl<T: IncrementalBase> Drop for IncrementalSignalPtr<T> {
       if data.guid == self.guid {
         data.ref_count -= 1;
         if data.ref_count == 0 {
-          inner.sub_watchers.write().drop_list(data.sub_event_handle);
+          inner
+            .sub_watchers
+            .write()
+            .drop_list(&mut data.sub_event_handle);
           let removed = storage.remove(self.index);
           inner.group_watchers.emit(&StorageGroupChange::Drop {
             index: self.index.into(),

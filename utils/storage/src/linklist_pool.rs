@@ -47,8 +47,8 @@ impl<T> LinkListPool<T> {
     self.visit_and_remove(list, |_, idx| (idx == to_remove_idx, idx != to_remove_idx))
   }
 
-  pub fn drop_list(&mut self, mut list: ListHandle) {
-    self.visit_and_remove(&mut list, |_, _| (true, true))
+  pub fn drop_list(&mut self, list: &mut ListHandle) {
+    self.visit_and_remove(list, |_, _| (true, true))
   }
 
   /// visitor (data, index) return (should remove, should continue)
@@ -161,5 +161,5 @@ fn test() {
 
   let _ = pool.insert(&mut list_b, 1);
   assert_eq!(pool.list_len(&mut list_b), 1);
-  pool.drop_list(list_b);
+  pool.drop_list(&mut list_b);
 }

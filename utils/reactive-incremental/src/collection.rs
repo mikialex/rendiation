@@ -1,4 +1,4 @@
-use std::{marker::PhantomData, sync::Arc};
+use std::{marker::PhantomData, ops::DerefMut, sync::Arc};
 
 use fast_hash_collection::{FastHashMap, FastHashSet};
 use parking_lot::{RwLock, RwLockReadGuard};
@@ -244,11 +244,11 @@ where
 
 impl<K, V> VirtualCollection<K, V> for Box<dyn DynamicReactiveCollection<K, V>> {
   fn iter_key(&self) -> impl Iterator<Item = K> + '_ {
-    self.iter_key_boxed()
+    self.deref().iter_key_boxed()
   }
 
   fn access(&self) -> impl Fn(&K) -> Option<V> + '_ {
-    self.access_boxed()
+    self.deref().access_boxed()
   }
 }
 impl<K, V> ReactiveCollection<K, V> for Box<dyn DynamicReactiveCollection<K, V>>
@@ -259,10 +259,10 @@ where
   type Changes = impl Iterator<Item = CollectionDelta<K, V>> + Clone;
 
   fn poll_changes(&mut self, cx: &mut Context<'_>) -> Poll<Option<Self::Changes>> {
-    self.poll_changes_dyn(cx)
+    self.deref_mut().poll_changes_dyn(cx)
   }
   fn extra_request(&mut self, request: &mut ExtraCollectionOperation) {
-    self.extra_request_dyn(request)
+    self.deref_mut().extra_request_dyn(request)
   }
 }
 
@@ -287,6 +287,10 @@ where
   V: Clone + 'static,
   K: 'static,
 {
+  fn into_boxed(self) -> Box<dyn DynamicReactiveCollection<K, V>> {
+    Box::new(self)
+  }
+
   fn into_change_stream(self) -> impl Stream<Item = Self::Changes>
   where
     Self: Unpin,
@@ -542,6 +546,8 @@ where
           downstream.unbounded_send(Box::new(v.clone())).ok();
         }
       }
+    } else {
+      return Poll::Pending;
     }
     drop(upstream);
 
