@@ -191,9 +191,7 @@ where
     if output.is_empty() {
       Poll::Pending
     } else {
-      let collected = output.into_values().collect::<Vec<_>>();
-      Poll::Ready(Some(collected.into_iter()))
-      // Poll::Ready(Some(output.into_values())) // todo, avoid collect
+      Poll::Ready(Some(HashMapIntoIter::new(output)))
     }
   }
 
@@ -324,9 +322,7 @@ where
     if output.is_empty() {
       Poll::Pending
     } else {
-      let collected = output.into_values().collect::<Vec<_>>();
-      Poll::Ready(Some(collected.into_iter()))
-      // Poll::Ready(Some(output.into_values())) // todo, avoid collect
+      Poll::Ready(Some(HashMapIntoIter::new(output)))
     }
   }
 
@@ -364,7 +360,7 @@ pub struct OneToManyRefHashBookKeeping<O, M, T> {
 impl<O, M, T: Clone> Clone for OneToManyRefHashBookKeeping<O, M, T> {
   fn clone(&self) -> Self {
     Self {
-      current_generation: self.current_generation.clone(),
+      current_generation: self.current_generation,
       upstream: self.upstream.clone(),
       mapping: self.mapping.clone(),
     }
@@ -475,7 +471,7 @@ pub struct OneToManyRefDenseBookKeeping<O, M, T> {
 impl<O, M, T: Clone> Clone for OneToManyRefDenseBookKeeping<O, M, T> {
   fn clone(&self) -> Self {
     Self {
-      current_generation: self.current_generation.clone(),
+      current_generation: self.current_generation,
       upstream: self.upstream.clone(),
       mapping: self.mapping.clone(),
       phantom: PhantomData,

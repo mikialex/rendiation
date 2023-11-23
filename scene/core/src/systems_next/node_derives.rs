@@ -169,4 +169,6 @@ where
       })
     })
   }
+
+  fn extra_request(&mut self, _: &mut ExtraCollectionOperation) {}
 }

@@ -1137,10 +1137,7 @@ where
       }
     }
 
-    // todo fix hashmap into values iter not impl clone
-    let outputs = outputs.into_values().collect::<Vec<_>>();
-
-    Poll::Ready(Some(outputs.into_iter()))
+    Poll::Ready(Some(HashMapIntoIter::new(outputs)))
   }
 
   fn extra_request(&mut self, request: &mut ExtraCollectionOperation) {
@@ -1150,6 +1147,44 @@ where
       .for_each(|s| s.extra_request_dyn(request));
     match request {
       ExtraCollectionOperation::MemoryShrinkToFit => self.current.shrink_to_fit(),
+    }
+  }
+}
+
+/// once hashmap into_values starts iterate, it's not able to clone again, so here i impl this to
+/// workaround: as long as the into_values not call, the iter could be cloned.
+
+pub(crate) enum HashMapIntoIter<K, V> {
+  NotIter(FastHashMap<K, V>),
+  Iter(std::collections::hash_map::IntoValues<K, V>),
+}
+
+impl<K, V> HashMapIntoIter<K, V> {
+  pub fn new(map: FastHashMap<K, V>) -> Self {
+    Self::NotIter(map)
+  }
+}
+
+impl<K: Clone, V: Clone> Clone for HashMapIntoIter<K, V> {
+  fn clone(&self) -> Self {
+    match self {
+      Self::NotIter(arg0) => Self::NotIter(arg0.clone()),
+      Self::Iter(_) => panic!("hashmap iter should be cloned before do any iter"),
+    }
+  }
+}
+
+impl<K, V> Iterator for HashMapIntoIter<K, V> {
+  type Item = V;
+
+  fn next(&mut self) -> Option<Self::Item> {
+    match self {
+      HashMapIntoIter::NotIter(map) => {
+        let map = std::mem::take(map);
+        *self = HashMapIntoIter::Iter(map.into_values());
+        self.next()
+      }
+      HashMapIntoIter::Iter(iter) => iter.next(),
     }
   }
 }
