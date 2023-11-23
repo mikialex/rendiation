@@ -191,7 +191,7 @@ where
     if output.is_empty() {
       Poll::Pending
     } else {
-      Poll::Ready(Some(HashMapIntoIter::new(output)))
+      Poll::Ready(Some(HashMapIntoValue::new(output)))
     }
   }
 
@@ -322,7 +322,7 @@ where
     if output.is_empty() {
       Poll::Pending
     } else {
-      Poll::Ready(Some(HashMapIntoIter::new(output)))
+      Poll::Ready(Some(HashMapIntoValue::new(output)))
     }
   }
 
@@ -446,6 +446,8 @@ where
             let new_one_refed_many = mapping.0.entry(new_one.clone()).or_default();
             new_one_refed_many.insert(many.clone());
           }
+        } else {
+          self.current_generation = mapping.1;
         }
       }
     }
@@ -577,6 +579,8 @@ where
               new_one.alloc_index(),
             );
           }
+        } else {
+          self.current_generation = mapping.generation;
         }
       }
     }

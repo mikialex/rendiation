@@ -422,12 +422,12 @@ where
   }
 
   fn into_forker(self) -> ReactiveKVMapFork<Self, K, V> {
-    let (sender, rev) = single_value_channel();
+    let (sender, rev) = futures::channel::mpsc::unbounded();
     let mut init = FastHashMap::default();
     let id = alloc_global_res_id();
     init.insert(id, sender);
     ReactiveKVMapFork {
-      inner: Arc::new(RwLock::new(self)),
+      upstream: Arc::new(RwLock::new(self)),
       downstream: Arc::new(RwLock::new(init)),
       rev,
       id,
@@ -456,10 +456,13 @@ where
 {
 }
 
+type Sender<T> = futures::channel::mpsc::UnboundedSender<T>;
+type Receiver<T> = futures::channel::mpsc::UnboundedReceiver<T>;
+
 pub struct ReactiveKVMapFork<Map: ReactiveCollection<K, V>, K, V> {
-  inner: Arc<RwLock<Map>>,
-  downstream: Arc<RwLock<FastHashMap<u64, reactive::SingleSender<Map::Changes>>>>,
-  rev: reactive::SingleReceiver<Map::Changes>,
+  upstream: Arc<RwLock<Map>>,
+  downstream: Arc<RwLock<FastHashMap<u64, Sender<BoxedReactiveCollectionDeltaTy<K, V>>>>>,
+  rev: Receiver<BoxedReactiveCollectionDeltaTy<K, V>>,
   id: u64,
   phantom: PhantomData<(K, V)>,
 }
@@ -474,10 +477,10 @@ impl<Map: ReactiveCollection<K, V>, K, V> Clone for ReactiveKVMapFork<Map, K, V>
     let mut downstream = self.downstream.write();
     let id = alloc_global_res_id();
     // we don't expect clone in real runtime so we don't care about wake
-    let (sender, rev) = single_value_channel();
+    let (sender, rev) = futures::channel::mpsc::unbounded();
     downstream.insert(id, sender);
     Self {
-      inner: self.inner.clone(),
+      upstream: self.upstream.clone(),
       downstream: self.downstream.clone(),
       id,
       phantom: PhantomData,
@@ -489,11 +492,10 @@ impl<Map: ReactiveCollection<K, V>, K, V> Clone for ReactiveKVMapFork<Map, K, V>
 impl<Map, K, V> ReactiveCollection<K, V> for ReactiveKVMapFork<Map, K, V>
 where
   Map: ReactiveCollection<K, V>,
-  Map::Changes: Clone,
-  K: 'static,
-  V: 'static,
+  K: Clone + 'static,
+  V: Clone + 'static,
 {
-  type Changes = Map::Changes;
+  type Changes = BoxedReactiveCollectionDeltaTy<K, V>;
 
   fn poll_changes(&mut self, cx: &mut Context<'_>) -> Poll<Option<Self::Changes>> {
     // these writes should not deadlock, because we not prefer the concurrency between the table
@@ -504,22 +506,50 @@ where
       return r;
     }
 
-    let mut inner = self.inner.write();
-    let r = inner.poll_changes(cx);
+    let mut upstream = self.upstream.write();
+    let r = upstream.poll_changes(cx);
 
     if let Poll::Ready(Some(v)) = r {
       let downstream = self.downstream.write();
-      for downstream in downstream.values() {
-        downstream.update(v.clone()).ok();
+      if Arc::strong_count(&self.upstream) >= 3 {
+        #[derive(Clone)]
+        struct CheapCloneVecIter<T> {
+          inner: Arc<Vec<T>>,
+          next: usize,
+        }
+        impl<T: Clone> Iterator for CheapCloneVecIter<T> {
+          type Item = T;
+          fn next(&mut self) -> Option<Self::Item> {
+            let v = self.inner.get(self.next).cloned();
+            self.next += 1;
+            v
+          }
+        }
+
+        let re_collect: Vec<_> = v.collect();
+        let cheap_clone = CheapCloneVecIter {
+          inner: Arc::new(re_collect),
+          next: 0,
+        };
+
+        for downstream in downstream.values() {
+          downstream
+            .unbounded_send(Box::new(cheap_clone.clone()))
+            .ok();
+        }
+      } else {
+        for downstream in downstream.values() {
+          downstream.unbounded_send(Box::new(v.clone())).ok();
+        }
       }
     }
-    drop(inner);
+    drop(upstream);
 
     self.poll_changes(cx)
   }
 
   fn extra_request(&mut self, request: &mut ExtraCollectionOperation) {
-    self.inner.write().extra_request(request)
+    self.upstream.write().extra_request(request)
   }
 }
 
@@ -550,7 +580,7 @@ where
       map.iter_key()
     }
 
-    let inner = self.inner.read();
+    let inner = self.upstream.read();
     let inner_iter = get_iter(inner.deref());
     // safety: read guard is hold by iter, acc's real reference is form the Map
     let inner_iter: IterOf<'static, Map, K, V> = unsafe { std::mem::transmute(inner_iter) };
@@ -561,7 +591,7 @@ where
   }
 
   fn access(&self) -> impl Fn(&K) -> Option<V> + '_ {
-    let inner = self.inner.read();
+    let inner = self.upstream.read();
 
     /// util to get collection's accessor type
     type AccessorOf<'a, M: VirtualCollection<K, V> + 'a, K, V> = impl Fn(&K) -> Option<V> + 'a;
@@ -1137,7 +1167,7 @@ where
       }
     }
 
-    Poll::Ready(Some(HashMapIntoIter::new(outputs)))
+    Poll::Ready(Some(HashMapIntoValue::new(outputs)))
   }
 
   fn extra_request(&mut self, request: &mut ExtraCollectionOperation) {
@@ -1151,12 +1181,12 @@ where
   }
 }
 
-/// once hashmap into_values starts iterate, it's not able to clone again, so here i impl this to
+/// once hashmap into_values start iterating, it's not able to clone again, so here i impl this to
 /// workaround: as long as the into_values not call, the iter could be cloned.
 
 pub(crate) enum HashMapIntoIter<K, V> {
   NotIter(FastHashMap<K, V>),
-  Iter(std::collections::hash_map::IntoValues<K, V>),
+  Iter(std::collections::hash_map::IntoIter<K, V>),
 }
 
 impl<K, V> HashMapIntoIter<K, V> {
@@ -1175,16 +1205,51 @@ impl<K: Clone, V: Clone> Clone for HashMapIntoIter<K, V> {
 }
 
 impl<K, V> Iterator for HashMapIntoIter<K, V> {
-  type Item = V;
+  type Item = (K, V);
 
   fn next(&mut self) -> Option<Self::Item> {
     match self {
       HashMapIntoIter::NotIter(map) => {
         let map = std::mem::take(map);
-        *self = HashMapIntoIter::Iter(map.into_values());
+        *self = HashMapIntoIter::Iter(map.into_iter());
         self.next()
       }
       HashMapIntoIter::Iter(iter) => iter.next(),
+    }
+  }
+}
+
+pub(crate) enum HashMapIntoValue<K, V> {
+  NotIter(FastHashMap<K, V>),
+  Iter(std::collections::hash_map::IntoValues<K, V>),
+}
+
+impl<K, V> HashMapIntoValue<K, V> {
+  pub fn new(map: FastHashMap<K, V>) -> Self {
+    Self::NotIter(map)
+  }
+}
+
+impl<K: Clone, V: Clone> Clone for HashMapIntoValue<K, V> {
+  fn clone(&self) -> Self {
+    match self {
+      Self::NotIter(arg0) => Self::NotIter(arg0.clone()),
+      Self::Iter(_) => panic!("hashmap iter should be cloned before do any iter"),
+    }
+  }
+}
+
+impl<K, V> Iterator for HashMapIntoValue<K, V> {
+  type Item = V;
+
+  fn next(&mut self) -> Option<Self::Item> {
+    match self {
+      HashMapIntoValue::NotIter(map) => {
+        let map = std::mem::take(map);
+        *self = HashMapIntoValue::Iter(map.into_values());
+        self.next()
+      }
+      HashMapIntoValue::Iter(iter) => iter.next(),
     }
   }
 }

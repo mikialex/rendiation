@@ -139,22 +139,17 @@ impl<K, T: Clone> IntoIterator for GroupSingleValueChangeBufferImpl<K, T> {
   type IntoIter = impl Iterator<Item = Self::Item> + Clone;
 
   fn into_iter(self) -> Self::IntoIter {
-    let buffer = self
-      .inner
-      .into_iter()
-      .flat_map(|(id, state)| {
-        let mut expand = smallvec::SmallVec::<[CollectionDelta<AllocIdx<K>, T>; 2]>::new();
-        match state {
-          GroupSingleValueState::NewInsert(v) => expand.push(CollectionDelta::Delta(id, v, None)),
-          GroupSingleValueState::ChangeTo(v, p) => {
-            expand.push(CollectionDelta::Delta(id, v, Some(p)));
-          }
-          GroupSingleValueState::Remove(p) => expand.push(CollectionDelta::Remove(id, p)),
+    HashMapIntoIter::new(self.inner).flat_map(|(id, state)| {
+      let mut expand = smallvec::SmallVec::<[CollectionDelta<AllocIdx<K>, T>; 2]>::new();
+      match state {
+        GroupSingleValueState::NewInsert(v) => expand.push(CollectionDelta::Delta(id, v, None)),
+        GroupSingleValueState::ChangeTo(v, p) => {
+          expand.push(CollectionDelta::Delta(id, v, Some(p)));
         }
-        expand
-      })
-      .collect::<Vec<_>>(); // todo, fix hashmap into_iter not impl clone
-    buffer.into_iter()
+        GroupSingleValueState::Remove(p) => expand.push(CollectionDelta::Remove(id, p)),
+      }
+      expand
+    })
   }
 }
 
