@@ -84,8 +84,12 @@ impl NodeIncrementalDeriveCollections {
 
 pub struct TreeDeriveOutput<FD, F, V> {
   inner: ReactiveParentTree,
-  forked_change:
-    Box<dyn Stream<Item = Vec<CollectionDelta<usize, DeltaOf<SceneNodeDerivedData>>>> + Unpin>,
+  forked_change: Box<
+    dyn Stream<Item = Vec<CollectionDelta<usize, DeltaOf<SceneNodeDerivedData>>>>
+      + Unpin
+      + Send
+      + Sync,
+  >,
   scene_id: u64,
   downcast_delta: FD,
   getter: F,
@@ -109,6 +113,9 @@ impl<FD, F, V> TreeDeriveOutput<FD, F, V> {
 impl<FD, F, V> VirtualCollection<NodeIdentity, V> for TreeDeriveOutput<FD, F, V>
 where
   F: Fn(&SceneNodeDerivedData) -> V,
+  FD: Sync,
+  F: Sync,
+  V: Sync,
 {
   fn iter_key(&self) -> impl Iterator<Item = NodeIdentity> + '_ {
     // todo, avoid clone by unsafe
@@ -120,7 +127,7 @@ where
       .into_iter()
   }
 
-  fn access(&self) -> impl Fn(&NodeIdentity) -> Option<V> + '_ {
+  fn access(&self) -> impl Fn(&NodeIdentity) -> Option<V> + Sync + '_ {
     let tree = self.inner.derived_tree.read().unwrap();
     move |(s_id, idx)| {
       if *s_id == self.scene_id {
@@ -137,11 +144,11 @@ where
 
 impl<FD, F, V> ReactiveCollection<NodeIdentity, V> for TreeDeriveOutput<FD, F, V>
 where
-  V: Clone + 'static,
-  F: Fn(&SceneNodeDerivedData) -> V + 'static,
-  FD: Fn(SceneNodeDerivedDataDelta) -> Option<V> + 'static,
+  V: Clone + Send + Sync + 'static,
+  F: Fn(&SceneNodeDerivedData) -> V + Send + Sync + 'static,
+  FD: Fn(SceneNodeDerivedDataDelta) -> Option<V> + Send + Sync + 'static,
 {
-  type Changes = impl Iterator<Item = CollectionDelta<NodeIdentity, V>> + Clone;
+  type Changes = impl CollectionChanges<NodeIdentity, V>;
 
   fn poll_changes(
     &mut self,
@@ -165,7 +172,7 @@ where
             }
           })
           .collect::<Vec<_>>()
-          .into_iter()
+          .into_par_iter()
       })
     })
   }

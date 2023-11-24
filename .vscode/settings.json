@@ -164,6 +164,7 @@
         "tonemap",
         "Uint",
         "unclipped",
+        "unindexed",
         "uninit",
         "unloop",
         "unmap",

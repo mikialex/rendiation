@@ -73,7 +73,7 @@ pub trait VirtualCollection<K, V> {
   ///
   /// The implementation should guarantee that it's ok to allow multiple accessor instances coexists
   /// at the same time. (should only create read guard in underlayer)
-  fn access(&self) -> impl Fn(&K) -> Option<V> + '_;
+  fn access(&self) -> impl Fn(&K) -> Option<V> + Sync + '_;
 }
 
 pub trait VirtualMultiCollection<K, V> {
@@ -131,11 +131,99 @@ where
 /// The implementation should guarantee that the data access in VirtualCollection trait should be
 /// coherent with the change polling. For example, if the change has not been polled, the accessor
 /// should access the slate data but not the current.
-pub trait ReactiveCollection<K, V>: VirtualCollection<K, V> + 'static {
-  type Changes: Iterator<Item = CollectionDelta<K, V>> + Clone;
+pub trait ReactiveCollection<K: Send, V: Send>:
+  VirtualCollection<K, V> + Sync + Send + 'static
+{
+  type Changes: CollectionChanges<K, V>;
   fn poll_changes(&mut self, cx: &mut Context<'_>) -> Poll<Option<Self::Changes>>;
 
   fn extra_request(&mut self, request: &mut ExtraCollectionOperation);
+}
+
+/// impl note: why not using IntoParallelIterator?
+///
+/// 1. rayon IntoParallelIterator's Iter associate type do not have sync bound
+/// 2. we use return-type-impl-trait extensively, and could not express the parent trait's associate
+/// type extra trait bound. maybe we could workaround this, but the code is awful. (that also the
+/// reason why we impose the clone bound here)
+pub trait CollectionChanges<K: Send, V: Send>:
+  ParallelIterator<Item = CollectionDelta<K, V>>
+  + MaybeFastCollect<CollectionDelta<K, V>>
+  + Clone
+  + Send
+  + Sync
+  + Sized
+{
+}
+pub trait MaybeFastCollect<T: Send>: ParallelIterator<Item = T> + Sized {
+  fn collect_into_pass_vec(self) -> FastPassingVec<T>;
+}
+
+impl<X: Send + Sync + Clone, T: ParallelIterator<Item = X>> MaybeFastCollect<X> for T {
+  default fn collect_into_pass_vec(self) -> FastPassingVec<X> {
+    let vec = self.collect::<Vec<_>>();
+    FastPassingVec { vec: Arc::new(vec) }
+  }
+}
+
+impl<K, V, T> CollectionChanges<K, V> for T
+where
+  K: Send,
+  V: Send,
+  T: ParallelIterator<Item = CollectionDelta<K, V>> + Send + Sync,
+  T: MaybeFastCollect<CollectionDelta<K, V>>,
+  T: Clone,
+{
+}
+
+#[derive(Clone)]
+pub struct FastPassingVec<T> {
+  vec: Arc<Vec<T>>,
+}
+
+impl<T: Clone> IntoIterator for FastPassingVec<T> {
+  type Item = T;
+  type IntoIter = impl Iterator<Item = T>;
+  fn into_iter(self) -> Self::IntoIter {
+    // avoid heap to heap clone
+    #[derive(Clone)]
+    struct CheapCloneVecIter<T> {
+      inner: Arc<Vec<T>>,
+      next: usize,
+    }
+    impl<T: Clone> Iterator for CheapCloneVecIter<T> {
+      type Item = T;
+      fn next(&mut self) -> Option<Self::Item> {
+        let v = self.inner.get(self.next).cloned();
+        self.next += 1;
+        v
+      }
+    }
+
+    CheapCloneVecIter {
+      inner: self.vec,
+      next: 0,
+    }
+  }
+}
+
+impl<T: Send + Sync + Clone> ParallelIterator for FastPassingVec<T> {
+  type Item = T;
+
+  fn drive_unindexed<C>(self, consumer: C) -> C::Result
+  where
+    C: rayon::iter::plumbing::UnindexedConsumer<Self::Item>,
+  {
+    // todo, how to avoid heap to heap clone?
+    let vec = Vec::from(self.vec.as_slice());
+    vec.into_par_iter().drive_unindexed(consumer)
+  }
+}
+impl<T: Send + Sync + Clone> MaybeFastCollect<T> for FastPassingVec<T> {
+  // when message type is already fast vec, collect is free of cost.
+  fn collect_into_pass_vec(self) -> FastPassingVec<T> {
+    self
+  }
 }
 
 pub enum ExtraCollectionOperation {
@@ -153,20 +241,36 @@ impl<K: 'static, V> VirtualCollection<K, V> for () {
 }
 
 pub struct EmptyIter<T>(PhantomData<T>);
+impl<T: Send + Sync + Clone> MaybeFastCollect<T> for EmptyIter<T> {
+  fn collect_into_pass_vec(self) -> FastPassingVec<T> {
+    FastPassingVec {
+      vec: Default::default(),
+    }
+  }
+}
+unsafe impl<T> Send for EmptyIter<T> {}
+unsafe impl<T> Sync for EmptyIter<T> {}
 
 impl<T> Clone for EmptyIter<T> {
   fn clone(&self) -> Self {
     Self(PhantomData)
   }
 }
-impl<T> Iterator for EmptyIter<T> {
+impl<T: Send> ParallelIterator for EmptyIter<T> {
   type Item = T;
 
-  fn next(&mut self) -> Option<Self::Item> {
-    None
+  fn drive_unindexed<C>(self, consumer: C) -> C::Result
+  where
+    C: rayon::iter::plumbing::UnindexedConsumer<Self::Item>,
+  {
+    [].into_par_iter().drive_unindexed(consumer)
   }
 }
-impl<K: 'static, V> ReactiveCollection<K, V> for () {
+impl<K, V> ReactiveCollection<K, V> for ()
+where
+  K: 'static + Send + Sync + Clone,
+  V: 'static + Send + Sync + Clone,
+{
   type Changes = EmptyIter<CollectionDelta<K, V>>;
 
   fn poll_changes(&mut self, _: &mut Context<'_>) -> Poll<Option<Self::Changes>> {
@@ -178,7 +282,7 @@ impl<K: 'static, V> ReactiveCollection<K, V> for () {
 /// dynamic version of the above trait
 pub trait DynamicVirtualCollection<K, V> {
   fn iter_key_boxed(&self) -> Box<dyn Iterator<Item = K> + '_>;
-  fn access_boxed(&self) -> Box<dyn Fn(&K) -> Option<V> + '_>;
+  fn access_boxed(&self) -> Box<dyn Fn(&K) -> Option<V> + Sync + '_>;
 }
 impl<K, V, T> DynamicVirtualCollection<K, V> for T
 where
@@ -188,54 +292,32 @@ where
     Box::new(self.iter_key())
   }
 
-  fn access_boxed(&self) -> Box<dyn Fn(&K) -> Option<V> + '_> {
+  fn access_boxed(&self) -> Box<dyn Fn(&K) -> Option<V> + Sync + '_> {
     Box::new(self.access())
   }
 }
 
-pub type BoxedReactiveCollectionDeltaTy<K, V> = Box<dyn DynamicReactiveCollectionDelta<K, V>>;
-pub trait DynamicReactiveCollectionDelta<K, V>: Iterator<Item = CollectionDelta<K, V>> {
-  fn clone_dyn(&self) -> Box<dyn DynamicReactiveCollectionDelta<K, V>>;
-}
-impl<K, V, T> DynamicReactiveCollectionDelta<K, V> for T
-where
-  T: Iterator<Item = CollectionDelta<K, V>> + Clone + 'static,
-{
-  fn clone_dyn(&self) -> Box<dyn DynamicReactiveCollectionDelta<K, V>> {
-    Box::new(self.clone())
-  }
-}
-impl<K, V> Clone for BoxedReactiveCollectionDeltaTy<K, V>
-where
-  K: 'static,
-  V: 'static,
-{
-  fn clone(&self) -> Self {
-    self.deref().clone_dyn()
-  }
-}
-
-pub trait DynamicReactiveCollection<K, V>: DynamicVirtualCollection<K, V> {
+pub trait DynamicReactiveCollection<K, V>: DynamicVirtualCollection<K, V> + Sync + Send {
   fn poll_changes_dyn(
     &mut self,
     _cx: &mut Context<'_>,
-  ) -> Poll<Option<BoxedReactiveCollectionDeltaTy<K, V>>>;
+  ) -> Poll<Option<FastPassingVec<CollectionDelta<K, V>>>>;
   fn extra_request_dyn(&mut self, request: &mut ExtraCollectionOperation);
 }
 
 impl<K, V, T> DynamicReactiveCollection<K, V> for T
 where
   T: ReactiveCollection<K, V>,
-  K: 'static,
-  V: 'static,
+  K: Send + 'static,
+  V: Send + 'static,
 {
   fn poll_changes_dyn(
     &mut self,
     cx: &mut Context<'_>,
-  ) -> Poll<Option<BoxedReactiveCollectionDeltaTy<K, V>>> {
+  ) -> Poll<Option<FastPassingVec<CollectionDelta<K, V>>>> {
     self
       .poll_changes(cx)
-      .map(|v| v.map(|v| Box::new(v) as BoxedReactiveCollectionDeltaTy<K, V>))
+      .map(|v| v.map(|v| v.collect_into_pass_vec()))
   }
   fn extra_request_dyn(&mut self, request: &mut ExtraCollectionOperation) {
     self.extra_request(request)
@@ -247,16 +329,16 @@ impl<K, V> VirtualCollection<K, V> for Box<dyn DynamicReactiveCollection<K, V>> 
     self.deref().iter_key_boxed()
   }
 
-  fn access(&self) -> impl Fn(&K) -> Option<V> + '_ {
+  fn access(&self) -> impl Fn(&K) -> Option<V> + Sync + '_ {
     self.deref().access_boxed()
   }
 }
 impl<K, V> ReactiveCollection<K, V> for Box<dyn DynamicReactiveCollection<K, V>>
 where
-  K: Clone + 'static,
-  V: Clone + 'static,
+  K: Clone + Send + Sync + 'static,
+  V: Clone + Send + Sync + 'static,
 {
-  type Changes = impl Iterator<Item = CollectionDelta<K, V>> + Clone;
+  type Changes = impl CollectionChanges<K, V>;
 
   fn poll_changes(&mut self, cx: &mut Context<'_>) -> Poll<Option<Self::Changes>> {
     self.deref_mut().poll_changes_dyn(cx)
@@ -273,7 +355,12 @@ struct ReactiveCollectionAsStream<T, K, V> {
   phantom: PhantomData<(K, V)>,
 }
 
-impl<K, V, T: ReactiveCollection<K, V> + Unpin> Stream for ReactiveCollectionAsStream<T, K, V> {
+impl<K, V, T> Stream for ReactiveCollectionAsStream<T, K, V>
+where
+  T: ReactiveCollection<K, V> + Unpin,
+  K: Send,
+  V: Send,
+{
   type Item = T::Changes;
 
   fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
@@ -284,8 +371,8 @@ impl<K, V, T: ReactiveCollection<K, V> + Unpin> Stream for ReactiveCollectionAsS
 
 pub trait ReactiveCollectionExt<K, V>: Sized + 'static + ReactiveCollection<K, V>
 where
-  V: Clone + 'static,
-  K: 'static,
+  V: Clone + Send + Sync + 'static,
+  K: Send + 'static,
 {
   fn into_boxed(self) -> Box<dyn DynamicReactiveCollection<K, V>> {
     Box::new(self)
@@ -304,7 +391,10 @@ where
   /// map map<k, v> to map<k, v2>
   fn collective_map<V2, F>(self, f: F) -> impl ReactiveCollection<K, V2>
   where
-    F: Fn(V) -> V2 + Copy + 'static,
+    F: Fn(V) -> V2 + Copy + Send + Sync + 'static,
+    V2: Send + Sync + Clone,
+    K: Sync + Clone,
+    Self: Sync,
   {
     ReactiveKVMap {
       inner: self,
@@ -316,10 +406,10 @@ where
   /// map map<k, v> to map<k, v2>
   fn collective_execute_map_by<V2, F, FF>(self, f: F) -> impl ReactiveCollection<K, V2>
   where
-    F: Fn() -> FF + 'static,
-    FF: Fn(&K, V) -> V2 + 'static,
-    K: Clone,
-    V2: Clone,
+    F: Fn() -> FF + Send + Sync + 'static,
+    FF: Fn(&K, V) -> V2 + Send + Sync + 'static,
+    K: Clone + Send + Sync,
+    V2: Send + Sync + Clone + 'static,
   {
     ReactiveKVExecuteMap {
       inner: self,
@@ -332,7 +422,9 @@ where
   fn collective_filter<F>(self, f: F) -> impl ReactiveCollection<K, V>
   where
     V: Copy,
-    F: Fn(V) -> bool + 'static + Copy,
+    F: Fn(V) -> bool + Copy + Send + Sync + 'static,
+    K: Sync + Clone,
+    Self: Sync,
   {
     ReactiveKVFilter {
       inner: self,
@@ -344,7 +436,10 @@ where
   /// filter map<k, v> by v
   fn collective_filter_map<V2, F>(self, f: F) -> impl ReactiveCollection<K, V2>
   where
-    F: Fn(V) -> Option<V2> + 'static + Copy,
+    F: Fn(V) -> Option<V2> + Copy + Send + Sync + 'static,
+    V2: Send + Sync + Clone,
+    K: Sync + Clone,
+    Self: Sync,
   {
     ReactiveKVFilter {
       inner: self,
@@ -359,8 +454,9 @@ where
   ) -> impl ReactiveCollection<K, (Option<V>, Option<V2>)>
   where
     Other: ReactiveCollection<K, V2>,
-    K: Copy + std::hash::Hash + Eq,
-    V2: Clone,
+    K: Copy + std::hash::Hash + Eq + Send + Sync,
+    V2: Clone + Send + Sync + 'static,
+    Self: Sync,
   {
     ReactiveKVUnion {
       a: self,
@@ -372,7 +468,7 @@ where
   /// K should not overlap
   fn collective_select<Other>(self, other: Other) -> impl ReactiveCollection<K, V>
   where
-    K: Copy + std::hash::Hash + Eq,
+    K: Copy + std::hash::Hash + Eq + Send + Sync + 'static,
     Other: ReactiveCollection<K, V>,
   {
     self
@@ -388,9 +484,9 @@ where
   /// K should fully overlap
   fn collective_zip<Other, V2>(self, other: Other) -> impl ReactiveCollection<K, (V, V2)>
   where
-    K: Copy + std::hash::Hash + Eq,
+    K: Copy + std::hash::Hash + Eq + Send + Sync + 'static,
     Other: ReactiveCollection<K, V2>,
-    V2: Clone + 'static,
+    V2: Clone + Send + Sync + 'static,
   {
     self
       .collective_union(other)
@@ -403,9 +499,9 @@ where
   /// only return overlapped part
   fn collective_intersect<Other, V2>(self, other: Other) -> impl ReactiveCollection<K, (V, V2)>
   where
-    K: Copy + std::hash::Hash + Eq + 'static,
+    K: Copy + std::hash::Hash + Eq + Send + Sync + 'static,
     Other: ReactiveCollection<K, V2>,
-    V2: Clone + 'static,
+    V2: Clone + Send + Sync + 'static,
   {
     self
       .collective_union(other)
@@ -419,7 +515,7 @@ where
   /// have to use box here to avoid complex type(could be improved)
   fn filter_by_keyset<S>(self, set: S) -> impl ReactiveCollection<K, V>
   where
-    K: Copy + std::hash::Hash + Eq,
+    K: Copy + std::hash::Hash + Eq + Send + Sync + 'static,
     S: ReactiveCollection<K, ()>,
   {
     self.collective_intersect(set).collective_map(|(v, _)| v)
@@ -455,28 +551,28 @@ where
 impl<T, K, V> ReactiveCollectionExt<K, V> for T
 where
   T: Sized + 'static + ReactiveCollection<K, V>,
-  V: Clone + 'static,
-  K: 'static,
+  V: Clone + Send + Sync + 'static,
+  K: Send + 'static,
 {
 }
 
 type Sender<T> = futures::channel::mpsc::UnboundedSender<T>;
 type Receiver<T> = futures::channel::mpsc::UnboundedReceiver<T>;
 
-pub struct ReactiveKVMapFork<Map: ReactiveCollection<K, V>, K, V> {
+pub struct ReactiveKVMapFork<Map: ReactiveCollection<K, V>, K: Send, V: Send> {
   upstream: Arc<RwLock<Map>>,
-  downstream: Arc<RwLock<FastHashMap<u64, Sender<BoxedReactiveCollectionDeltaTy<K, V>>>>>,
-  rev: Receiver<BoxedReactiveCollectionDeltaTy<K, V>>,
+  downstream: Arc<RwLock<FastHashMap<u64, Sender<FastPassingVec<CollectionDelta<K, V>>>>>>,
+  rev: Receiver<FastPassingVec<CollectionDelta<K, V>>>,
   id: u64,
   phantom: PhantomData<(K, V)>,
 }
 
-impl<Map: ReactiveCollection<K, V>, K, V> Drop for ReactiveKVMapFork<Map, K, V> {
+impl<Map: ReactiveCollection<K, V>, K: Send, V: Send> Drop for ReactiveKVMapFork<Map, K, V> {
   fn drop(&mut self) {
     self.downstream.write().remove(&self.id);
   }
 }
-impl<Map: ReactiveCollection<K, V>, K, V> Clone for ReactiveKVMapFork<Map, K, V> {
+impl<Map: ReactiveCollection<K, V>, K: Send, V: Send> Clone for ReactiveKVMapFork<Map, K, V> {
   fn clone(&self) -> Self {
     let mut downstream = self.downstream.write();
     let id = alloc_global_res_id();
@@ -496,10 +592,10 @@ impl<Map: ReactiveCollection<K, V>, K, V> Clone for ReactiveKVMapFork<Map, K, V>
 impl<Map, K, V> ReactiveCollection<K, V> for ReactiveKVMapFork<Map, K, V>
 where
   Map: ReactiveCollection<K, V>,
-  K: Clone + 'static,
-  V: Clone + 'static,
+  K: Clone + Send + Sync + 'static,
+  V: Clone + Send + Sync + 'static,
 {
-  type Changes = BoxedReactiveCollectionDeltaTy<K, V>;
+  type Changes = FastPassingVec<CollectionDelta<K, V>>;
 
   fn poll_changes(&mut self, cx: &mut Context<'_>) -> Poll<Option<Self::Changes>> {
     // these writes should not deadlock, because we not prefer the concurrency between the table
@@ -515,37 +611,11 @@ where
 
     if let Poll::Ready(Some(v)) = r {
       let downstream = self.downstream.write();
-      if Arc::strong_count(&self.upstream) >= 3 {
-        #[derive(Clone)]
-        struct CheapCloneVecIter<T> {
-          inner: Arc<Vec<T>>,
-          next: usize,
-        }
-        impl<T: Clone> Iterator for CheapCloneVecIter<T> {
-          type Item = T;
-          fn next(&mut self) -> Option<Self::Item> {
-            let v = self.inner.get(self.next).cloned();
-            self.next += 1;
-            v
-          }
-        }
-
-        let re_collect: Vec<_> = v.collect();
-        let cheap_clone = CheapCloneVecIter {
-          inner: Arc::new(re_collect),
-          next: 0,
-        };
-
-        for downstream in downstream.values() {
-          downstream
-            .unbounded_send(Box::new(cheap_clone.clone()))
-            .ok();
-        }
-      } else {
-        for downstream in downstream.values() {
-          downstream.unbounded_send(Box::new(v.clone())).ok();
-        }
+      let vec = v.collect_into_pass_vec();
+      for downstream in downstream.values() {
+        downstream.unbounded_send(vec.clone()).ok();
       }
+      // }
     } else {
       return Poll::Pending;
     }
@@ -562,6 +632,8 @@ where
 impl<K, V, Map> VirtualCollection<K, V> for ReactiveKVMapFork<Map, K, V>
 where
   Map: ReactiveCollection<K, V>,
+  K: Send,
+  V: Send,
 {
   fn iter_key(&self) -> impl Iterator<Item = K> + '_ {
     struct ReactiveKVMapForkRead<'a, Map, I> {
@@ -628,15 +700,16 @@ impl<Map, K, V> ReactiveCollection<K, V> for UnorderedMaterializedReactiveCollec
 where
   Map: ReactiveCollection<K, V>,
   Map::Changes: Clone,
-  K: std::hash::Hash + Eq + Clone + 'static,
-  V: Clone + 'static,
+  K: std::hash::Hash + Eq + Clone + Send + Sync + 'static,
+  V: Clone + Send + Sync + 'static,
 {
   type Changes = Map::Changes;
 
   fn poll_changes(&mut self, cx: &mut Context<'_>) -> Poll<Option<Self::Changes>> {
     let r = self.inner.poll_changes(cx);
     if let Poll::Ready(Some(changes)) = &r {
-      for change in changes.clone() {
+      let changes = changes.clone().collect_into_pass_vec();
+      for change in changes {
         match change {
           CollectionDelta::Delta(k, v, _) => {
             self.cache.insert(k, v);
@@ -660,14 +733,14 @@ where
 
 impl<K, V, Map> VirtualCollection<K, V> for UnorderedMaterializedReactiveCollection<Map, K, V>
 where
-  Map: VirtualCollection<K, V>,
-  K: std::hash::Hash + Eq + Clone,
-  V: Clone,
+  Map: VirtualCollection<K, V> + Sync,
+  K: std::hash::Hash + Eq + Clone + Sync,
+  V: Clone + Sync,
 {
   fn iter_key(&self) -> impl Iterator<Item = K> + '_ {
     self.cache.keys().cloned()
   }
-  fn access(&self) -> impl Fn(&K) -> Option<V> + '_ {
+  fn access(&self) -> impl Fn(&K) -> Option<V> + Sync + '_ {
     move |key| self.cache.get(key).cloned()
   }
 }
@@ -679,17 +752,17 @@ pub struct LinearMaterializedReactiveCollection<Map, V> {
 
 impl<Map, K, V> ReactiveCollection<K, V> for LinearMaterializedReactiveCollection<Map, V>
 where
-  Map: ReactiveCollection<K, V>,
+  Map: ReactiveCollection<K, V> + Sync,
   Map::Changes: Clone,
-  K: LinearIdentification + 'static,
-  V: Clone + 'static,
+  K: LinearIdentification + Send + 'static,
+  V: Clone + Send + Sync + 'static,
 {
   type Changes = Map::Changes;
 
   fn poll_changes(&mut self, cx: &mut Context<'_>) -> Poll<Option<Self::Changes>> {
     let r = self.inner.poll_changes(cx);
     if let Poll::Ready(Some(changes)) = &r {
-      for change in changes.clone() {
+      for change in changes.clone().collect_into_pass_vec() {
         match change {
           CollectionDelta::Delta(k, v, _) => {
             self.cache.insert(v, k.alloc_index());
@@ -713,14 +786,14 @@ where
 
 impl<K, V, Map> VirtualCollection<K, V> for LinearMaterializedReactiveCollection<Map, V>
 where
-  Map: VirtualCollection<K, V>,
+  Map: VirtualCollection<K, V> + Sync,
   K: LinearIdentification + 'static,
-  V: Clone,
+  V: Sync + Clone,
 {
   fn iter_key(&self) -> impl Iterator<Item = K> + '_ {
     self.cache.iter().map(|(k, _)| K::from_alloc_index(k))
   }
-  fn access(&self) -> impl Fn(&K) -> Option<V> + '_ {
+  fn access(&self) -> impl Fn(&K) -> Option<V> + Sync + '_ {
     move |key| self.cache.try_get(key.alloc_index()).cloned()
   }
 }
@@ -734,24 +807,22 @@ pub struct ReactiveKVExecuteMap<T, F, K, V> {
 
 impl<T, F, K, V, V2, FF> ReactiveCollection<K, V2> for ReactiveKVExecuteMap<T, F, K, V>
 where
-  V: 'static,
-  K: Clone + 'static,
-  F: Fn() -> FF + 'static,
-  FF: Fn(&K, V) -> V2 + 'static,
-  V2: Clone,
+  V: Sync + Send + 'static,
+  K: Clone + Send + Sync + 'static,
+  F: Fn() -> FF + Send + Sync + 'static,
+  FF: Fn(&K, V) -> V2 + Send + Sync + 'static,
+  V2: Clone + Send + Sync + 'static,
   T: ReactiveCollection<K, V>,
 {
-  type Changes = impl Iterator<Item = CollectionDelta<K, V2>> + Clone;
+  type Changes = impl CollectionChanges<K, V2>;
 
   fn poll_changes(&mut self, cx: &mut Context<'_>) -> Poll<Option<Self::Changes>> {
     self.inner.poll_changes(cx).map(move |r| {
       r.map(move |deltas| {
         let mapper = (self.map_creator)();
         deltas
-          .into_iter()
           .map(move |delta| delta.map(|k, v| mapper(k, v)))
-          .collect::<Vec<_>>()
-          .into_iter()
+          .collect_into_pass_vec()
       })
     })
   }
@@ -764,13 +835,13 @@ where
 impl<T, F, FF, K, V, V2> VirtualCollection<K, V2> for ReactiveKVExecuteMap<T, F, K, V>
 where
   F: Fn() -> FF + 'static,
-  FF: Fn(&K, V) -> V2 + 'static,
+  FF: Fn(&K, V) -> V2 + Sync + 'static,
   T: VirtualCollection<K, V>,
 {
   fn iter_key(&self) -> impl Iterator<Item = K> + '_ {
     self.inner.iter_key()
   }
-  fn access(&self) -> impl Fn(&K) -> Option<V2> + '_ {
+  fn access(&self) -> impl Fn(&K) -> Option<V2> + Sync + '_ {
     let inner_getter = self.inner.access();
     let mapper = (self.map_creator)();
     move |key| inner_getter(key).map(|v| mapper(key, v))
@@ -785,19 +856,20 @@ pub struct ReactiveKVMap<T, F, K, V> {
 
 impl<T, F, K, V, V2> ReactiveCollection<K, V2> for ReactiveKVMap<T, F, K, V>
 where
-  V: 'static,
-  K: 'static,
-  F: Fn(V) -> V2 + Copy + 'static,
-  T: ReactiveCollection<K, V>,
+  V: Send + Sync + Clone + 'static,
+  K: Send + Sync + Clone + 'static,
+  V2: Send + Sync + Clone,
+  F: Fn(V) -> V2 + Copy + Send + Sync + 'static,
+  T: ReactiveCollection<K, V> + Sync,
 {
-  type Changes = impl Iterator<Item = CollectionDelta<K, V2>> + Clone;
+  type Changes = impl CollectionChanges<K, V2>;
 
   fn poll_changes(&mut self, cx: &mut Context<'_>) -> Poll<Option<Self::Changes>> {
     let mapper = self.map;
     self.inner.poll_changes(cx).map(move |r| {
       r.map(move |deltas| {
         deltas
-          .into_iter()
+          .into_par_iter()
           .map(move |delta| delta.map(|_, v| mapper(v)))
       })
     })
@@ -810,13 +882,15 @@ where
 
 impl<T, F, K, V, V2> VirtualCollection<K, V2> for ReactiveKVMap<T, F, K, V>
 where
-  F: Fn(V) -> V2 + Copy,
-  T: VirtualCollection<K, V>,
+  F: Fn(V) -> V2 + Sync + Copy,
+  K: Sync,
+  T: VirtualCollection<K, V> + Sync,
+  V: Sync,
 {
   fn iter_key(&self) -> impl Iterator<Item = K> + '_ {
     self.inner.iter_key()
   }
-  fn access(&self) -> impl Fn(&K) -> Option<V2> + '_ {
+  fn access(&self) -> impl Fn(&K) -> Option<V2> + Sync + '_ {
     let inner_getter = self.inner.access();
     move |key| inner_getter(key).map(|v| (self.map)(v))
   }
@@ -830,18 +904,19 @@ pub struct ReactiveKVFilter<T, F, K, V> {
 
 impl<T, F, K, V, V2> ReactiveCollection<K, V2> for ReactiveKVFilter<T, F, K, V>
 where
-  F: Fn(V) -> Option<V2> + Copy + 'static,
-  T: ReactiveCollection<K, V>,
-  K: 'static,
-  V: 'static,
+  F: Fn(V) -> Option<V2> + Copy + Send + Sync + 'static,
+  T: ReactiveCollection<K, V> + Sync,
+  K: Send + Sync + Clone + 'static,
+  V: Send + Sync + Clone + 'static,
+  V2: Send + Sync + Clone,
 {
-  type Changes = impl Iterator<Item = CollectionDelta<K, V2>> + Clone;
+  type Changes = impl CollectionChanges<K, V2>;
 
   fn poll_changes(&mut self, cx: &mut Context<'_>) -> Poll<Option<Self::Changes>> {
     let checker = self.checker;
     self.inner.poll_changes(cx).map(move |r| {
       r.map(move |deltas| {
-        deltas.into_iter().filter_map(move |delta| {
+        deltas.into_par_iter().filter_map(move |delta| {
           match delta {
             CollectionDelta::Delta(k, v, pre_v) => {
               let new_map = checker(v);
@@ -875,8 +950,10 @@ where
 
 impl<T, F, K, V, V2> VirtualCollection<K, V2> for ReactiveKVFilter<T, F, K, V>
 where
-  F: Fn(V) -> Option<V2> + Copy,
-  T: VirtualCollection<K, V>,
+  F: Fn(V) -> Option<V2> + Sync + Copy,
+  T: VirtualCollection<K, V> + Sync,
+  K: Sync,
+  V: Sync,
 {
   fn iter_key(&self) -> impl Iterator<Item = K> + '_ {
     let inner_getter = self.inner.access();
@@ -885,7 +962,7 @@ where
       (self.checker)(v).is_some()
     })
   }
-  fn access(&self) -> impl Fn(&K) -> Option<V2> + '_ {
+  fn access(&self) -> impl Fn(&K) -> Option<V2> + Sync + '_ {
     let inner_getter = self.inner.access();
     move |key| inner_getter(key).and_then(|v| (self.checker)(v))
   }
@@ -919,7 +996,14 @@ where
     let getter_a = self.a.access();
     let getter_b = self.b.access();
 
-    move |key| Some((getter_a(key), getter_b(key)))
+    move |key| {
+      let (v1, v2) = (getter_a(key), getter_b(key));
+      if v1.is_none() && v2.is_none() {
+        None
+      } else {
+        Some((v1, v2))
+      }
+    }
   }
 }
 
@@ -992,13 +1076,13 @@ fn union<K: Clone, V1: Clone, V2: Clone>(
 impl<T1, T2, K, V1, V2> ReactiveCollection<K, (Option<V1>, Option<V2>)>
   for ReactiveKVUnion<T1, T2, K>
 where
-  K: Copy + std::hash::Hash + Eq + 'static,
+  K: Copy + std::hash::Hash + Eq + Send + Sync + 'static,
   T1: ReactiveCollection<K, V1>,
   T2: ReactiveCollection<K, V2>,
-  V1: Clone,
-  V2: Clone,
+  V1: Clone + Send + Sync + 'static,
+  V2: Clone + Send + Sync + 'static,
 {
-  type Changes = impl Iterator<Item = CollectionDelta<K, (Option<V1>, Option<V2>)>> + Clone;
+  type Changes = impl CollectionChanges<K, (Option<V1>, Option<V2>)>;
 
   fn poll_changes(&mut self, cx: &mut Context<'_>) -> Poll<Option<Self::Changes>> {
     let t1 = self.a.poll_changes(cx);
@@ -1016,12 +1100,12 @@ where
             Option<CollectionDelta<K, V2>>,
           ),
         > = FastHashMap::default();
-        v1.for_each(|d| {
+        v1.collect_into_pass_vec().into_iter().for_each(|d| {
           let key = *d.key();
           intersections.entry(key).or_default().0 = Some(d)
         });
 
-        v2.for_each(|d| {
+        v2.collect_into_pass_vec().into_iter().for_each(|d| {
           let key = *d.key();
           intersections.entry(key).or_default().1 = Some(d)
         });
@@ -1046,7 +1130,7 @@ where
       return Poll::Pending;
     }
 
-    Poll::Ready(Some(r.into_iter()))
+    Poll::Ready(Some(r.into_par_iter()))
   }
   fn extra_request(&mut self, request: &mut ExtraCollectionOperation) {
     self.a.extra_request(request);
@@ -1059,14 +1143,17 @@ where
 /// multi zip, in trades of the performance overhead of dynamical fn call and internal cache(maybe
 /// user still require this so it's ok).
 pub struct MultiZipper<K, P, V> {
-  sources: Vec<Box<dyn DynamicReactiveCollection<K, P>>>,
+  sources: Vec<Box<dyn DynamicReactiveCollection<K, P> + Sync>>,
   current: FastHashMap<K, V>,
-  defaulter: Box<dyn Fn() -> V>,
-  applier: Box<dyn Fn(&mut V, P)>,
+  defaulter: Box<dyn Fn() -> V + Sync + Send>,
+  applier: Box<dyn Fn(&mut V, P) + Sync + Send>,
 }
 
 impl<K, P, V> MultiZipper<K, P, V> {
-  pub fn new(defaulter: impl Fn() -> V + 'static, applier: impl Fn(&mut V, P) + 'static) -> Self {
+  pub fn new(
+    defaulter: impl Fn() -> V + Sync + Send + 'static,
+    applier: impl Fn(&mut V, P) + Sync + Send + 'static,
+  ) -> Self {
     Self {
       sources: Default::default(),
       current: Default::default(),
@@ -1075,10 +1162,10 @@ impl<K, P, V> MultiZipper<K, P, V> {
     }
   }
 
-  pub fn zip_with(mut self, source: impl ReactiveCollection<K, P>) -> Self
+  pub fn zip_with(mut self, source: impl ReactiveCollection<K, P> + Sync) -> Self
   where
-    K: 'static,
-    P: 'static,
+    K: Send + 'static,
+    P: Send + 'static,
   {
     self.sources.push(Box::new(source));
     self
@@ -1087,25 +1174,25 @@ impl<K, P, V> MultiZipper<K, P, V> {
 
 impl<K, P, V> VirtualCollection<K, V> for MultiZipper<K, P, V>
 where
-  K: Clone + Eq + std::hash::Hash,
-  V: Clone,
+  K: Clone + Eq + std::hash::Hash + Sync,
+  V: Clone + Sync,
 {
   fn iter_key(&self) -> impl Iterator<Item = K> + '_ {
     self.current.keys().cloned()
   }
 
-  fn access(&self) -> impl Fn(&K) -> Option<V> + '_ {
+  fn access(&self) -> impl Fn(&K) -> Option<V> + Sync + '_ {
     |k| self.current.get(k).cloned()
   }
 }
 
 impl<K, P, V> ReactiveCollection<K, V> for MultiZipper<K, P, V>
 where
-  K: Clone + Eq + std::hash::Hash + 'static,
-  V: Clone + 'static,
-  P: 'static,
+  K: Clone + Eq + std::hash::Hash + Send + Sync + 'static,
+  V: Clone + Send + Sync + 'static,
+  P: Clone + 'static,
 {
-  type Changes = impl Iterator<Item = CollectionDelta<K, V>> + Clone;
+  type Changes = impl CollectionChanges<K, V>;
 
   #[allow(clippy::collapsible_else_if)]
   fn poll_changes(&mut self, cx: &mut Context<'_>) -> Poll<Option<Self::Changes>> {
@@ -1187,75 +1274,41 @@ where
   }
 }
 
-/// once hashmap into_values start iterating, it's not able to clone again, so here i impl this to
-/// workaround: as long as the into_values not call, the iter could be cloned.
+/// workaround hashmap parallel iterator not impl clone
 
-pub(crate) enum HashMapIntoIter<K, V> {
-  NotIter(FastHashMap<K, V>),
-  Iter(std::collections::hash_map::IntoIter<K, V>),
-}
-
-impl<K, V> HashMapIntoIter<K, V> {
-  pub fn new(map: FastHashMap<K, V>) -> Self {
-    Self::NotIter(map)
-  }
-}
-
-impl<K: Clone, V: Clone> Clone for HashMapIntoIter<K, V> {
-  fn clone(&self) -> Self {
-    match self {
-      Self::NotIter(arg0) => Self::NotIter(arg0.clone()),
-      Self::Iter(_) => panic!("hashmap iter should be cloned before do any iter"),
-    }
-  }
-}
-
-impl<K, V> Iterator for HashMapIntoIter<K, V> {
-  type Item = (K, V);
-
-  fn next(&mut self) -> Option<Self::Item> {
-    match self {
-      HashMapIntoIter::NotIter(map) => {
-        let map = std::mem::take(map);
-        *self = HashMapIntoIter::Iter(map.into_iter());
-        self.next()
-      }
-      HashMapIntoIter::Iter(iter) => iter.next(),
-    }
-  }
-}
-
-pub(crate) enum HashMapIntoValue<K, V> {
-  NotIter(FastHashMap<K, V>),
-  Iter(std::collections::hash_map::IntoValues<K, V>),
+pub(crate) struct HashMapIntoValue<K, V> {
+  map: FastHashMap<K, V>,
 }
 
 impl<K, V> HashMapIntoValue<K, V> {
   pub fn new(map: FastHashMap<K, V>) -> Self {
-    Self::NotIter(map)
+    Self { map }
   }
 }
 
 impl<K: Clone, V: Clone> Clone for HashMapIntoValue<K, V> {
   fn clone(&self) -> Self {
-    match self {
-      Self::NotIter(arg0) => Self::NotIter(arg0.clone()),
-      Self::Iter(_) => panic!("hashmap iter should be cloned before do any iter"),
+    Self {
+      map: self.map.clone(),
     }
   }
 }
 
-impl<K, V> Iterator for HashMapIntoValue<K, V> {
+impl<K, V> ParallelIterator for HashMapIntoValue<K, V>
+where
+  K: Send + Eq + std::hash::Hash,
+  V: Send,
+{
   type Item = V;
 
-  fn next(&mut self) -> Option<Self::Item> {
-    match self {
-      HashMapIntoValue::NotIter(map) => {
-        let map = std::mem::take(map);
-        *self = HashMapIntoValue::Iter(map.into_values());
-        self.next()
-      }
-      HashMapIntoValue::Iter(iter) => iter.next(),
-    }
+  fn drive_unindexed<C>(self, consumer: C) -> C::Result
+  where
+    C: rayon::iter::plumbing::UnindexedConsumer<Self::Item>,
+  {
+    self
+      .map
+      .into_par_iter()
+      .map(|(_, v)| v)
+      .drive_unindexed(consumer)
   }
 }

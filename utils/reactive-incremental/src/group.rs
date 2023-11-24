@@ -178,7 +178,10 @@ impl<T: IncrementalBase> IncrementalSignalStorage<T> {
     }
   }
 
-  pub fn create_key_mapper<V>(&self, mapper: impl Fn(&T) -> V) -> impl Fn(AllocIdx<T>) -> V {
+  pub fn create_key_mapper<V>(
+    &self,
+    mapper: impl Fn(&T) -> V + Send + Sync,
+  ) -> impl Fn(AllocIdx<T>) -> V + Send + Sync {
     let data_holder = self.inner.clone();
     let guard = self.inner.data.read_recursive();
     let guard: RwLockReadGuard<'static, IndexReusedVec<SignalItem<T>>> =

@@ -4,6 +4,7 @@ name = "reactive-incremental"
 version = "0.0.1"
 
 [dependencies]
+rayon = { workspace = true }
 dyn-downcast = { path = "../dyn-downcast" }
 fast-hash-collection = { path = "../fast-hash-collection" }
 futures = { workspace = true }
@@ -16,4 +17,4 @@ smallvec = { workspace = true }
 
 
 # we use it's rwlock to avoid recursive read deadlock
-parking_lot = "0.12.1"
+parking_lot = { version = "0.12.1", features = ["send_guard"] }

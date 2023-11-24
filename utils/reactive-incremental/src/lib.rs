@@ -1,6 +1,7 @@
 #![feature(impl_trait_in_assoc_type)]
 #![feature(return_position_impl_trait_in_trait)]
 #![feature(type_alias_impl_trait)]
+#![feature(min_specialization)]
 #![feature(associated_type_bounds)]
 
 use core::{
@@ -16,6 +17,7 @@ use dyn_downcast::*;
 use futures::{Future, Stream, StreamExt};
 use heap_tools::Counted;
 use incremental::*;
+use rayon::prelude::*;
 use reactive::*;
 
 mod single;

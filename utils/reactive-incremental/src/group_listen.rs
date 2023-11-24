@@ -127,22 +127,29 @@ impl<K, T: Clone> Clone for MutationFolder<K, T> {
   }
 }
 
-impl<K, T: Clone> IntoIterator for MutationFolder<K, T> {
+impl<K: Send, T: Clone + Send> ParallelIterator for MutationFolder<K, T> {
   type Item = CollectionDelta<AllocIdx<K>, T>;
-  type IntoIter = impl Iterator<Item = Self::Item> + Clone;
 
-  fn into_iter(self) -> Self::IntoIter {
-    HashMapIntoIter::new(self.inner).flat_map(|(id, state)| {
-      let mut expand = smallvec::SmallVec::<[CollectionDelta<AllocIdx<K>, T>; 2]>::new();
-      match state {
-        MutationState::NewInsert(v) => expand.push(CollectionDelta::Delta(id, v, None)),
-        MutationState::ChangeTo(v, p) => {
-          expand.push(CollectionDelta::Delta(id, v, Some(p)));
+  fn drive_unindexed<C>(self, consumer: C) -> C::Result
+  where
+    C: rayon::iter::plumbing::UnindexedConsumer<Self::Item>,
+  {
+    self
+      .inner
+      .into_par_iter()
+      .flat_map_iter(|(id, state)| {
+        let mut expand = smallvec::SmallVec::<[CollectionDelta<AllocIdx<K>, T>; 2]>::new();
+        match state {
+          MutationState::NewInsert(v) => expand.push(CollectionDelta::Delta(id, v, None)),
+          MutationState::ChangeTo(v, p) => {
+            expand.push(CollectionDelta::Delta(id, v, Some(p)));
+          }
+          MutationState::Remove(p) => expand.push(CollectionDelta::Remove(id, p)),
         }
-        MutationState::Remove(p) => expand.push(CollectionDelta::Remove(id, p)),
-      }
-      expand
-    })
+        expand
+      })
+      .into_par_iter()
+      .drive_unindexed(consumer)
   }
 }
 
@@ -233,7 +240,7 @@ struct ReactiveCollectionFromGroupMutation<T: IncrementalBase, S, U> {
   mapper: Box<dyn Fn(MaybeDeltaRef<T>) -> Option<U> + Send + Sync>,
 }
 
-impl<T: IncrementalBase, S, U> VirtualCollection<AllocIdx<T>, U>
+impl<T: IncrementalBase, S: Sync, U: Sync + Send> VirtualCollection<AllocIdx<T>, U>
   for ReactiveCollectionFromGroupMutation<T, S, U>
 {
   fn iter_key(&self) -> impl Iterator<Item = AllocIdx<T>> + '_ {
@@ -249,7 +256,7 @@ impl<T: IncrementalBase, S, U> VirtualCollection<AllocIdx<T>, U>
 
     cloned_keys.into_iter()
   }
-  fn access(&self) -> impl Fn(&AllocIdx<T>) -> Option<U> + '_ {
+  fn access(&self) -> impl Fn(&AllocIdx<T>) -> Option<U> + Sync + '_ {
     let data = self.original.inner.data.read_recursive();
     let mutations = self.mutations.0.read_recursive();
     move |key| {
@@ -280,16 +287,13 @@ impl<T: IncrementalBase, S, U> VirtualCollection<AllocIdx<T>, U>
 impl<T, S, U> ReactiveCollection<AllocIdx<T>, U> for ReactiveCollectionFromGroupMutation<T, S, U>
 where
   T: IncrementalBase,
-  U: Clone + 'static,
-  S: Stream<Item = MutationFolder<T, U>> + Unpin + 'static,
+  U: Clone + Send + Sync + 'static,
+  S: Stream<Item = MutationFolder<T, U>> + Unpin + Send + Sync + 'static,
 {
-  type Changes = impl Iterator<Item = CollectionDelta<AllocIdx<T>, U>> + Clone;
+  type Changes = impl CollectionChanges<AllocIdx<T>, U>;
 
   fn poll_changes(&mut self, cx: &mut Context<'_>) -> Poll<Option<Self::Changes>> {
-    self
-      .inner
-      .poll_next_unpin(cx)
-      .map(|v| v.map(|v| v.into_iter()))
+    self.inner.poll_next_unpin(cx)
   }
 
   fn extra_request(&mut self, _request: &mut ExtraCollectionOperation) {

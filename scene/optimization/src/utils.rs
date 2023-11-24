@@ -112,7 +112,7 @@ impl SceneCameraRebuilder {
       // copy the source by full delta
       let mut to_sync_target = Vec::new();
       let mut to_sync_delta = Vec::new();
-      for change in changes {
+      for change in changes.collect_into_pass_vec() {
         match change {
           CollectionDelta::Delta(key, _, _) => {
             let camera = &cameras.get(key.index).data;
@@ -205,7 +205,7 @@ impl SceneLightsRebuilder {
       // copy the source by full delta
       let mut to_sync_target = Vec::new();
       let mut to_sync_delta = Vec::new();
-      for change in changes {
+      for change in changes.collect_into_pass_vec() {
         match change {
           CollectionDelta::Delta(key, _, _) => {
             let light = &lights.get(key.index).data;

@@ -37,8 +37,8 @@ impl CollectionRegistry {
     inserter: impl FnOnce() -> R + Any,
   ) -> impl ReactiveCollection<K, V> + Clone
   where
-    K: Clone + 'static,
-    V: Clone + 'static,
+    K: Clone + Send + Sync + 'static,
+    V: Clone + Send + Sync + 'static,
     R: ReactiveCollection<K, V>,
   {
     self.fork_or_insert_with_inner(inserter.type_id(), inserter)
@@ -50,8 +50,8 @@ impl CollectionRegistry {
     inserter: impl FnOnce() -> R,
   ) -> RxCForker<K, V>
   where
-    K: Clone + 'static,
-    V: Clone + 'static,
+    K: Clone + Send + Sync + 'static,
+    V: Clone + Send + Sync + 'static,
     R: ReactiveCollection<K, V>,
   {
     // note, we not using entry api because this call maybe be recursive and cause dead lock
@@ -80,8 +80,8 @@ impl CollectionRegistry {
     inserter: impl FnOnce() -> R + Any,
   ) -> impl ReactiveOneToManyRelationship<O, M> + Clone
   where
-    O: LinearIdentification + Clone + 'static,
-    M: LinearIdentification + Clone + 'static,
+    O: LinearIdentification + Clone + Send + Sync + 'static,
+    M: LinearIdentification + Clone + Send + Sync + 'static,
     R: ReactiveCollection<M, O>,
   {
     // note, we not using entry api because this call maybe be recursive and cause dead lock
@@ -114,8 +114,8 @@ impl CollectionRegistry {
     inserter: impl FnOnce() -> R + Any,
   ) -> impl ReactiveOneToManyRelationship<O, M> + Clone
   where
-    O: std::hash::Hash + Eq + Clone + 'static,
-    M: std::hash::Hash + Eq + Clone + 'static,
+    O: std::hash::Hash + Eq + Clone + Send + Sync + 'static,
+    M: std::hash::Hash + Eq + Clone + Send + Sync + 'static,
     R: ReactiveCollection<M, O>,
   {
     // note, we not using entry api because this call maybe be recursive and cause dead lock

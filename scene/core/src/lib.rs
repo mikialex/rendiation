@@ -12,6 +12,7 @@ pub use dyn_downcast::*;
 use fast_hash_collection::*;
 use futures::Stream;
 use incremental::*;
+use rayon::prelude::*;
 pub use reactive_incremental::*;
 use rendiation_algebra::*;
 pub use rendiation_mesh_core::*;
