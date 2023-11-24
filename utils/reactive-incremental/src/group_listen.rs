@@ -27,12 +27,13 @@ impl<T: IncrementalBase> IncrementalSignalStorage<T> {
       let data = self.inner.data.write();
 
       for (index, data) in data.iter() {
-        let mapped = mapper(MaybeDeltaRef::All(&data.data)).unwrap();
-        let change = KeyedMutationState {
-          key: index.into(),
-          change: MutationState::NewInsert(mapped),
-        };
-        sender.send(change);
+        if let Some(mapped) = mapper(MaybeDeltaRef::All(&data.data)) {
+          let change = KeyedMutationState {
+            key: index.into(),
+            change: MutationState::NewInsert(mapped),
+          };
+          sender.send(change);
+        }
       }
     }
 
@@ -55,15 +56,18 @@ impl<T: IncrementalBase> IncrementalSignalStorage<T> {
           delta,
           data_before_mutate,
         } => {
+          let mapped_before = mapper(MaybeDeltaRef::All(data_before_mutate));
           if let Some(mapped) = mapper(MaybeDeltaRef::Delta(delta)) {
-            let mapped_before = mapper(MaybeDeltaRef::All(data_before_mutate)).unwrap();
-            let change = KeyedMutationState {
-              key: *index,
-              change: MutationState::ChangeTo(mapped, mapped_before),
+            let change = if let Some(mapped_before) = mapped_before {
+              MutationState::ChangeTo(mapped, mapped_before)
+            } else {
+              MutationState::NewInsert(mapped)
             };
-            sender.send(change);
-          } else {
-            let mapped_before = mapper(MaybeDeltaRef::All(data_before_mutate)).unwrap();
+            sender.send(KeyedMutationState {
+              key: *index,
+              change,
+            });
+          } else if let Some(mapped_before) = mapped_before {
             let change = KeyedMutationState {
               key: *index,
               change: MutationState::Remove(mapped_before),
@@ -72,12 +76,13 @@ impl<T: IncrementalBase> IncrementalSignalStorage<T> {
           }
         }
         StorageGroupChange::Drop { index, data } => {
-          let mapped = mapper(MaybeDeltaRef::All(data)).unwrap();
-          let change = KeyedMutationState {
-            key: *index,
-            change: MutationState::Remove(mapped),
-          };
-          sender.send(change);
+          if let Some(mapped) = mapper(MaybeDeltaRef::All(data)) {
+            let change = KeyedMutationState {
+              key: *index,
+              change: MutationState::Remove(mapped),
+            };
+            sender.send(change);
+          }
         }
       }
 
@@ -240,7 +245,7 @@ struct ReactiveCollectionFromGroupMutation<T: IncrementalBase, S, U> {
   mapper: Box<dyn Fn(MaybeDeltaRef<T>) -> Option<U> + Send + Sync>,
 }
 
-impl<T: IncrementalBase, S: Sync, U: Sync + Send> VirtualCollection<AllocIdx<T>, U>
+impl<T: IncrementalBase, S: Sync, U: Sync + Send + Clone> VirtualCollection<AllocIdx<T>, U>
   for ReactiveCollectionFromGroupMutation<T, S, U>
 {
   fn iter_key(&self) -> impl Iterator<Item = AllocIdx<T>> + '_ {
@@ -263,22 +268,14 @@ impl<T: IncrementalBase, S: Sync, U: Sync + Send> VirtualCollection<AllocIdx<T>,
       if let Some(m) = mutations.inner.get(key) {
         match m {
           MutationState::NewInsert(_) => None,
-          MutationState::ChangeTo(_, old) => {
-            (self.mapper)(MaybeDeltaRef::All(unsafe { std::mem::transmute(old) }))
-              .unwrap()
-              .into()
-          }
-          MutationState::Remove(old) => {
-            (self.mapper)(MaybeDeltaRef::All(unsafe { std::mem::transmute(old) }))
-              .unwrap()
-              .into()
-          }
+          MutationState::ChangeTo(_, old) => old.clone().into(),
+          MutationState::Remove(old) => old.clone().into(),
         }
       } else {
         data
           .try_get(key.index)
           .map(|v| &v.data)
-          .map(|v| (self.mapper)(MaybeDeltaRef::All(unsafe { std::mem::transmute(v) })).unwrap())
+          .and_then(|v| (self.mapper)(MaybeDeltaRef::All(unsafe { std::mem::transmute(v) })))
       }
     }
   }

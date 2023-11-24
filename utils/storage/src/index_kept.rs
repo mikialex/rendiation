@@ -48,11 +48,11 @@ impl<T> IndexKeptVec<T> {
   }
 
   pub fn try_get_mut(&mut self, idx: u32) -> Option<&mut T> {
-    self.storage[idx as usize].as_mut()
+    self.storage.get_mut(idx as usize).and_then(|v| v.as_mut())
   }
 
   pub fn try_get(&self, idx: u32) -> Option<&T> {
-    self.storage[idx as usize].as_ref()
+    self.storage.get(idx as usize).and_then(|v| v.as_ref())
   }
 
   pub fn get_mut(&mut self, idx: u32) -> &mut T {
