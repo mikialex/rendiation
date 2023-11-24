@@ -448,37 +448,36 @@ where
     }
   }
 
-  fn collective_union<V2, Other>(
-    self,
-    other: Other,
-  ) -> impl ReactiveCollection<K, (Option<V>, Option<V2>)>
+  fn collective_union<V2, Other, F, O>(self, other: Other, f: F) -> impl ReactiveCollection<K, O>
   where
     Other: ReactiveCollection<K, V2>,
     K: Copy + std::hash::Hash + Eq + Send + Sync,
     V2: Clone + Send + Sync + 'static,
+    O: Send + Sync + Clone + 'static,
+    F: Fn((Option<V>, Option<V2>)) -> Option<O> + Send + Sync + Copy + 'static,
     Self: Sync,
   {
     ReactiveKVUnion {
       a: self,
       b: other,
-      k: PhantomData,
+      phantom: PhantomData,
+      f,
     }
   }
 
   /// K should not overlap
+  /// todo impl more efficient version
   fn collective_select<Other>(self, other: Other) -> impl ReactiveCollection<K, V>
   where
     K: Copy + std::hash::Hash + Eq + Send + Sync + 'static,
     Other: ReactiveCollection<K, V>,
   {
-    self
-      .collective_union(other)
-      .collective_map(|(a, b)| match (a, b) {
-        (Some(_), Some(_)) => unreachable!("key set should not overlap"),
-        (Some(a), None) => a,
-        (None, Some(b)) => b,
-        (None, None) => unreachable!("value not selected"),
-      })
+    self.collective_union(other, |(a, b)| match (a, b) {
+      (Some(_), Some(_)) => unreachable!("key set should not overlap"),
+      (Some(a), None) => a.into(),
+      (None, Some(b)) => b.into(),
+      (None, None) => unreachable!("value not selected"),
+    })
   }
 
   /// K should fully overlap
@@ -488,12 +487,10 @@ where
     Other: ReactiveCollection<K, V2>,
     V2: Clone + Send + Sync + 'static,
   {
-    self
-      .collective_union(other)
-      .collective_map(|(a, b)| match (a, b) {
-        (Some(a), Some(b)) => (a, b),
-        _ => unreachable!("value not zipped"),
-      })
+    self.collective_union(other, |(a, b)| match (a, b) {
+      (Some(a), Some(b)) => Some((a, b)),
+      _ => unreachable!("value not zipped"),
+    })
   }
 
   /// only return overlapped part
@@ -503,12 +500,10 @@ where
     Other: ReactiveCollection<K, V2>,
     V2: Clone + Send + Sync + 'static,
   {
-    self
-      .collective_union(other)
-      .collective_filter_map(|(a, b)| match (a, b) {
-        (Some(a), Some(b)) => Some((a, b)),
-        _ => None,
-      })
+    self.collective_union(other, |(a, b)| match (a, b) {
+      (Some(a), Some(b)) => Some((a, b)),
+      _ => None,
+    })
   }
 
   /// filter map<k, v> by reactive set<k>
@@ -902,6 +897,35 @@ pub struct ReactiveKVFilter<T, F, K, V> {
   k: PhantomData<(K, V)>,
 }
 
+fn make_checker<K, V, V2>(
+  checker: impl Fn(V) -> Option<V2> + Copy + Send + Sync + 'static,
+) -> impl Fn(CollectionDelta<K, V>) -> Option<CollectionDelta<K, V2>> + Copy + Send + Sync + 'static
+{
+  move |delta| {
+    match delta {
+      CollectionDelta::Delta(k, v, pre_v) => {
+        let new_map = checker(v);
+        let pre_map = pre_v.and_then(checker);
+        match (new_map, pre_map) {
+          (Some(v), Some(pre_v)) => CollectionDelta::Delta(k, v, Some(pre_v)),
+          (Some(v), None) => CollectionDelta::Delta(k, v, None),
+          (None, Some(pre_v)) => CollectionDelta::Remove(k, pre_v),
+          (None, None) => return None,
+        }
+        .into()
+      }
+      // the Remove variant maybe called many times for given k
+      CollectionDelta::Remove(k, pre_v) => {
+        let pre_map = checker(pre_v);
+        match pre_map {
+          Some(pre) => CollectionDelta::Remove(k, pre).into(),
+          None => None,
+        }
+      }
+    }
+  }
+}
+
 impl<T, F, K, V, V2> ReactiveCollection<K, V2> for ReactiveKVFilter<T, F, K, V>
 where
   F: Fn(V) -> Option<V2> + Copy + Send + Sync + 'static,
@@ -913,34 +937,11 @@ where
   type Changes = impl CollectionChanges<K, V2>;
 
   fn poll_changes(&mut self, cx: &mut Context<'_>) -> Poll<Option<Self::Changes>> {
-    let checker = self.checker;
-    self.inner.poll_changes(cx).map(move |r| {
-      r.map(move |deltas| {
-        deltas.into_par_iter().filter_map(move |delta| {
-          match delta {
-            CollectionDelta::Delta(k, v, pre_v) => {
-              let new_map = checker(v);
-              let pre_map = pre_v.and_then(checker);
-              match (new_map, pre_map) {
-                (Some(v), Some(pre_v)) => CollectionDelta::Delta(k, v, Some(pre_v)),
-                (Some(v), None) => CollectionDelta::Delta(k, v, None),
-                (None, Some(pre_v)) => CollectionDelta::Remove(k, pre_v),
-                (None, None) => return None,
-              }
-              .into()
-            }
-            // the Remove variant maybe called many times for given k
-            CollectionDelta::Remove(k, pre_v) => {
-              let pre_map = checker(pre_v);
-              match pre_map {
-                Some(pre) => CollectionDelta::Remove(k, pre).into(),
-                None => None,
-              }
-            }
-          }
-        })
-      })
-    })
+    let checker = make_checker(self.checker);
+    self
+      .inner
+      .poll_changes(cx)
+      .map(move |r| r.map(move |deltas| deltas.into_par_iter().filter_map(checker)))
   }
 
   fn extra_request(&mut self, request: &mut ExtraCollectionOperation) {
@@ -968,18 +969,22 @@ where
   }
 }
 
-pub struct ReactiveKVUnion<T1, T2, K> {
+pub struct ReactiveKVUnion<T1, T2, K, F, O, V1, V2> {
   a: T1,
   b: T2,
-  k: PhantomData<K>,
+  phantom: PhantomData<(K, O, V1, V2)>,
+  f: F,
 }
 
-impl<T1, T2, K, V1, V2> VirtualCollection<K, (Option<V1>, Option<V2>)>
-  for ReactiveKVUnion<T1, T2, K>
+impl<T1, T2, K, V1, V2, F, O> VirtualCollection<K, O> for ReactiveKVUnion<T1, T2, K, F, O, V1, V2>
 where
-  K: Copy + std::hash::Hash + Eq,
-  T1: VirtualCollection<K, V1>,
-  T2: VirtualCollection<K, V2>,
+  K: Copy + std::hash::Hash + Eq + Sync,
+  T1: VirtualCollection<K, V1> + Sync,
+  T2: VirtualCollection<K, V2> + Sync,
+  F: Fn((Option<V1>, Option<V2>)) -> Option<O> + Send + Sync + 'static,
+  O: Sync,
+  V1: Sync,
+  V2: Sync,
 {
   /// we require the T1 T2 has the same key range
   fn iter_key(&self) -> impl Iterator<Item = K> + '_ {
@@ -992,7 +997,7 @@ where
     });
     keys.into_iter()
   }
-  fn access(&self) -> impl Fn(&K) -> Option<(Option<V1>, Option<V2>)> + '_ {
+  fn access(&self) -> impl Fn(&K) -> Option<O> + Sync + '_ {
     let getter_a = self.a.access();
     let getter_b = self.b.access();
 
@@ -1001,7 +1006,7 @@ where
       if v1.is_none() && v2.is_none() {
         None
       } else {
-        Some((v1, v2))
+        (self.f)((v1, v2))
       }
     }
   }
@@ -1073,16 +1078,17 @@ fn union<K: Clone, V1: Clone, V2: Clone>(
   r.into()
 }
 
-impl<T1, T2, K, V1, V2> ReactiveCollection<K, (Option<V1>, Option<V2>)>
-  for ReactiveKVUnion<T1, T2, K>
+impl<T1, T2, K, V1, V2, F, O> ReactiveCollection<K, O> for ReactiveKVUnion<T1, T2, K, F, O, V1, V2>
 where
   K: Copy + std::hash::Hash + Eq + Send + Sync + 'static,
+  F: Fn((Option<V1>, Option<V2>)) -> Option<O> + Send + Sync + Copy + 'static,
+  O: Send + Sync + Clone + 'static,
   T1: ReactiveCollection<K, V1>,
   T2: ReactiveCollection<K, V2>,
   V1: Clone + Send + Sync + 'static,
   V2: Clone + Send + Sync + 'static,
 {
-  type Changes = impl CollectionChanges<K, (Option<V1>, Option<V2>)>;
+  type Changes = impl CollectionChanges<K, O>;
 
   fn poll_changes(&mut self, cx: &mut Context<'_>) -> Poll<Option<Self::Changes>> {
     let t1 = self.a.poll_changes(cx);
@@ -1090,6 +1096,8 @@ where
 
     let a_access = self.a.access();
     let b_access = self.b.access();
+
+    let checker = make_checker(self.f);
 
     let r = match (t1, t2) {
       (Poll::Ready(Some(v1)), Poll::Ready(Some(v2))) => {
@@ -1111,15 +1119,18 @@ where
         });
 
         intersections
-          .into_iter()
+          .into_par_iter()
           .filter_map(|(_, (d1, d2))| union(d1, d2, &a_access, &b_access))
+          .filter_map(checker)
           .collect::<Vec<_>>()
       }
       (Poll::Ready(Some(v1)), Poll::Pending) => v1
         .filter_map(|d1| union(Some(d1), None, &a_access, &b_access))
+        .filter_map(checker)
         .collect::<Vec<_>>(),
       (Poll::Pending, Poll::Ready(Some(v2))) => v2
         .filter_map(|d2| union(None, Some(d2), &a_access, &b_access))
+        .filter_map(checker)
         .collect::<Vec<_>>(),
 
       (Poll::Pending, Poll::Pending) => return Poll::Pending,

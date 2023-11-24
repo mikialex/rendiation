@@ -250,13 +250,11 @@ pub fn build_merge_relation(
       world_mat_is_front_side: face,
     });
 
-  std_key
-    .collective_union(referenced_sm)
-    .collective_map(|(keyed, all)| match (keyed, all) {
-      (Some(key), Some(_)) => MergeKey::Standard(key),
-      (None, Some(_)) => MergeKey::UnableToMergeNoneStandard(alloc_global_res_id()),
-      _ => unreachable!(),
-    })
+  std_key.collective_union(referenced_sm, |(keyed, all)| match (keyed, all) {
+    (Some(key), Some(_)) => MergeKey::Standard(key).into(),
+    (None, Some(_)) => MergeKey::UnableToMergeNoneStandard(alloc_global_res_id()).into(),
+    _ => unreachable!(),
+  })
 }
 
 pub type SceneModelGUID = u64;
@@ -321,10 +319,9 @@ fn std_mesh_key(
     });
   attribute_key
     .one_to_many_fanout(std_model_ref_att_mesh_many_one_relation())
-    .collective_union(std_scope.clone())
-    .collective_map(|(keyed, all)| match (keyed, all) {
-      (Some(key), Some(_)) => MeshMergeType::Mergeable(ATTRIBUTE_MERGE, key),
-      (None, Some(_)) => MeshMergeType::UnableToMerge(alloc_global_res_id()),
+    .collective_union(std_scope.clone(), |(keyed, all)| match (keyed, all) {
+      (Some(key), Some(_)) => MeshMergeType::Mergeable(ATTRIBUTE_MERGE, key).into(),
+      (None, Some(_)) => MeshMergeType::UnableToMerge(alloc_global_res_id()).into(),
       _ => unreachable!(),
     })
     .collective_select(foreign)

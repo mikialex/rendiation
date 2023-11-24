@@ -161,26 +161,32 @@ where
     let mut output = FastHashMap::default(); // it's hard to predict capacity, should we compute it?
     if let Poll::Ready(Some(relational_changes)) = relational_changes {
       let getter = self.upstream.access();
-      for change in relational_changes.collect_into_pass_vec() {
-        match change {
-          CollectionDelta::Delta(k, v, p) => {
-            let p = p.and_then(|p| getter(&p));
-            if let Some(v) = getter(&v) {
-              output.insert(k.clone(), CollectionDelta::Delta(k, v, p));
-            } else if let Some(p) = p {
-              output.insert(k.clone(), CollectionDelta::Remove(k, p));
-            }
-          }
-          CollectionDelta::Remove(k, p) => {
-            if let Some(p) = getter(&p) {
-              output.insert(k.clone(), CollectionDelta::Remove(k, p));
-            }
+      // maybe we could use dashmap to parallelize the insert part
+      output.par_extend(relational_changes.filter_map(|change| match change {
+        CollectionDelta::Delta(k, v, p) => {
+          let p = p.and_then(|p| getter(&p));
+          if let Some(v) = getter(&v) {
+            (k.clone(), CollectionDelta::Delta(k, v, p)).into()
+          } else if let Some(p) = p {
+            (k.clone(), CollectionDelta::Remove(k, p)).into()
+          } else {
+            None
           }
         }
-      }
+        CollectionDelta::Remove(k, p) => {
+          if let Some(p) = getter(&p) {
+            (k.clone(), CollectionDelta::Remove(k, p)).into()
+          } else {
+            None
+          }
+        }
+      }));
     }
     let inv_querier = self.relations.access_multi();
     if let Poll::Ready(Some(upstream_changes)) = upstream_changes {
+      // it's hard to parallelize this part efficiently
+      // output.par_extend(upstream_changes.filter_map(|change|{
+      // }))
       for delta in upstream_changes.collect_into_pass_vec() {
         match delta {
           CollectionDelta::Remove(one, p) => inv_querier(&one, &mut |many| {
