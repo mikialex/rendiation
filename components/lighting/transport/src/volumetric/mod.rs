@@ -80,10 +80,11 @@ pub fn sample_transmittance_majorants(
     loop {
       // Try to generate sample along current majorant segment
       let forward_distance = sample_exponential(rng.next(), majorant.samples[0]);
-      if forward_distance + t_min < majorant_segment.max {
+      let new_t = t_min + forward_distance;
+      if new_t < majorant_segment.max {
         transmittance_majorants *= (-majorant * forward_distance).exp();
 
-        let position = ray.at(t_min);
+        let position = ray.at(new_t);
         let re = MajorantsSampleResult {
           position,
           medium_properties: medium.sample_point(position), //  medium->SamplePoint(ray(t), lambda);
@@ -95,7 +96,7 @@ pub fn sample_transmittance_majorants(
           return SampledSpectrum::new_fill_with(1.0);
         } else {
           transmittance_majorants = SampledSpectrum::new_fill_with(1.0);
-          t_min += forward_distance;
+          t_min = new_t;
         }
       } else {
         // exceed the range, just pass this segment
