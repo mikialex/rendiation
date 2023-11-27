@@ -38,6 +38,7 @@
         "constness",
         "consts",
         "Controllee",
+        "dashmap",
         "dealloc",
         "Deque",
         "diffable",

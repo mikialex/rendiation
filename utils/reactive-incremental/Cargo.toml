@@ -14,6 +14,7 @@ incremental = { path = "../incremental" }
 reactive = { path = "../reactive" }
 storage = { path = "../storage" }
 smallvec = { workspace = true }
+dashmap = "5.5.3"
 
 
 # we use it's rwlock to avoid recursive read deadlock

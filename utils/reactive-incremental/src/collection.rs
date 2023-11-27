@@ -1,6 +1,7 @@
 use std::{marker::PhantomData, ops::DerefMut, sync::Arc};
 
-use fast_hash_collection::{FastHashMap, FastHashSet};
+use dashmap::*;
+use fast_hash_collection::*;
 use parking_lot::{RwLock, RwLockReadGuard};
 use storage::IndexKeptVec;
 
@@ -440,12 +441,13 @@ where
   where
     F: Fn() -> FF + Send + Sync + 'static,
     FF: Fn(&K, V) -> V2 + Send + Sync + 'static,
-    K: Clone + Send + Sync,
+    K: Eq + std::hash::Hash + Clone + Send + Sync,
     V2: Send + Sync + Clone + 'static,
   {
     ReactiveKVExecuteMap {
       inner: self,
       map_creator: f,
+      cache: Default::default(),
       phantom: PhantomData,
     }
   }
@@ -826,16 +828,17 @@ where
 }
 
 /// compare to ReactiveKVMap, this execute immediately and not impose too many bounds on mapper
-pub struct ReactiveKVExecuteMap<T, F, K, V> {
+pub struct ReactiveKVExecuteMap<T, F, K, V, V2> {
   inner: T,
   map_creator: F,
-  phantom: PhantomData<(K, V)>,
+  cache: DashMap<K, V2>,
+  phantom: PhantomData<(K, V, V2)>,
 }
 
-impl<T, F, K, V, V2, FF> ReactiveCollection<K, V2> for ReactiveKVExecuteMap<T, F, K, V>
+impl<T, F, K, V, V2, FF> ReactiveCollection<K, V2> for ReactiveKVExecuteMap<T, F, K, V, V2>
 where
   V: Sync + Send + 'static,
-  K: Clone + Send + Sync + 'static,
+  K: Eq + std::hash::Hash + Clone + Send + Sync + 'static,
   F: Fn() -> FF + Send + Sync + 'static,
   FF: Fn(&K, V) -> V2 + Send + Sync + 'static,
   V2: Clone + Send + Sync + 'static,
@@ -848,30 +851,44 @@ where
       r.map(move |deltas| {
         let mapper = (self.map_creator)();
         deltas
-          .map(move |delta| delta.map(|k, v| mapper(k, v)))
+          .map(move |delta| match delta {
+            CollectionDelta::Delta(k, d, _) => {
+              let previous_computed = self.cache.remove(&k).map(|(_, v)| v);
+              let new_value = mapper(&k, d);
+              CollectionDelta::Delta(k, new_value, previous_computed)
+            }
+            CollectionDelta::Remove(k, _) => {
+              let previous_computed = self.cache.remove(&k).unwrap().1;
+              CollectionDelta::Remove(k, previous_computed)
+            }
+          })
           .collect_into_pass_vec()
       })
     })
   }
 
   fn extra_request(&mut self, request: &mut ExtraCollectionOperation) {
+    match request {
+      ExtraCollectionOperation::MemoryShrinkToFit => self.cache.shrink_to_fit(),
+    }
     self.inner.extra_request(request)
   }
 }
 
-impl<T, F, FF, K, V, V2> VirtualCollection<K, V2> for ReactiveKVExecuteMap<T, F, K, V>
+impl<T, F, FF, K, V, V2> VirtualCollection<K, V2> for ReactiveKVExecuteMap<T, F, K, V, V2>
 where
-  F: Fn() -> FF + 'static,
+  F: Fn() -> FF + Sync + 'static,
   FF: Fn(&K, V) -> V2 + Sync + 'static,
-  T: VirtualCollection<K, V>,
+  T: VirtualCollection<K, V> + Sync,
+  K: Eq + std::hash::Hash + Sync + Send + Clone,
+  V: Sync,
+  V2: Clone + Sync + Send,
 {
   fn iter_key(&self) -> impl Iterator<Item = K> + '_ {
-    self.inner.iter_key()
+    self.cache.iter().map(|e| e.key().clone())
   }
   fn access(&self) -> impl Fn(&K) -> Option<V2> + Sync + '_ {
-    let inner_getter = self.inner.access();
-    let mapper = (self.map_creator)();
-    move |key| inner_getter(key).map(|v| mapper(key, v))
+    move |key| self.cache.get(key).map(|v| v.value().clone())
   }
 }
 
