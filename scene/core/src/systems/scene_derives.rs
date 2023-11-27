@@ -169,7 +169,7 @@ impl SceneNodeDeriveSystem {
     index: usize,
   ) -> Option<impl Stream<Item = SceneNodeDerivedDataDelta>> {
     let derived = self.visit_derived(index, |d| d.clone())?;
-    let init_deltas = expand_out(&derived);
+    let init_deltas = derived.expand_out();
     self
       .updater
       .read()

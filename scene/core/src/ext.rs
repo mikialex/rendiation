@@ -1,3 +1,4 @@
+use std::hash::{Hash, Hasher};
 use std::{
   any::{Any, TypeId},
   fmt::Debug,
@@ -6,15 +7,31 @@ use std::{
 use incremental::{AnyClone, DynIncremental, SimpleIncremental};
 use smallvec::SmallVec;
 
+pub trait DynHash {
+  fn dyn_hash(&self, state: &mut dyn Hasher);
+}
+
+impl<H: Hash + ?Sized> DynHash for H {
+  fn dyn_hash(&self, mut state: &mut dyn Hasher) {
+    self.hash(&mut state);
+  }
+}
+
 /// like any map, but clone able
-#[derive(Default, Clone)]
+#[derive(Default, Clone, Hash)]
 pub struct DynamicExtension {
   inner: SmallVec<[(std::any::TypeId, Box<dyn DynamicAnyCloneIncremental>); 2]>,
 }
 
-pub trait DynamicAnyCloneIncremental: DynIncremental + AnyClone {}
+pub trait DynamicAnyCloneIncremental: DynIncremental + AnyClone + DynHash {}
 dyn_clone::clone_trait_object!(DynamicAnyCloneIncremental);
-impl<T> DynamicAnyCloneIncremental for T where T: DynIncremental + AnyClone {}
+impl<T> DynamicAnyCloneIncremental for T where T: DynIncremental + AnyClone + DynHash {}
+
+impl Hash for dyn DynamicAnyCloneIncremental {
+  fn hash<H: Hasher>(&self, state: &mut H) {
+    self.dyn_hash(state);
+  }
+}
 
 #[derive(Clone)]
 pub enum DynamicExtensionDelta {

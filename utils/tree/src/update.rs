@@ -80,8 +80,9 @@ pub struct DerivedData<T, M> {
 pub struct TreeHierarchyDerivedSystem<T: ReversibleIncremental, Dirty> {
   pub derived_tree: Arc<RwLock<TreeCollection<DerivedData<T, Dirty>>>>,
   // we use boxed here to avoid another generic for tree delta input stream
-  pub derived_stream:
-    StreamForker<Box<dyn Stream<Item = Vec<CollectionDelta<usize, T::Delta>>> + Unpin>>,
+  pub derived_stream: StreamForker<
+    Box<dyn Stream<Item = Vec<CollectionDelta<usize, T::Delta>>> + Unpin + Send + Sync>,
+  >,
 }
 
 impl<T: ReversibleIncremental, M> Clone for TreeHierarchyDerivedSystem<T, M> {
@@ -95,16 +96,16 @@ impl<T: ReversibleIncremental, M> Clone for TreeHierarchyDerivedSystem<T, M> {
 
 impl<T: ReversibleIncremental, Dirty> TreeHierarchyDerivedSystem<T, Dirty> {
   pub fn new<B, TREE, S, M>(
-    tree_delta: impl Stream<Item = Vec<TreeMutation<S>>> + 'static,
+    tree_delta: impl Stream<Item = Vec<TreeMutation<S>>> + Send + Sync + 'static,
     source_tree: &Arc<TREE>,
   ) -> TreeHierarchyDerivedSystem<T, B::Dirty>
   where
     B: TreeIncrementalDeriveBehavior<T, S, M, TREE::Core, Dirty = Dirty>,
     S: IncrementalBase,
     T: HierarchyDerivedBase<Source = S>,
-    Dirty: Default + 'static,
+    Dirty: Default + Send + Sync + 'static,
     M: HierarchyDirtyMark,
-    TREE: ShareCoreTree + 'static,
+    TREE: ShareCoreTree + Send + Sync + 'static,
   {
     let derived_tree = Arc::new(RwLock::new(
       TreeCollection::<DerivedData<T, B::Dirty>>::default(),
@@ -232,7 +233,7 @@ impl<T: ReversibleIncremental, Dirty> TreeHierarchyDerivedSystem<T, Dirty> {
         derived_deltas
       });
 
-    let boxed: Box<dyn Stream<Item = Vec<CollectionDelta<usize, T::Delta>>> + Unpin> =
+    let boxed: Box<dyn Stream<Item = Vec<CollectionDelta<usize, T::Delta>>> + Unpin + Send + Sync> =
       Box::new(Box::pin(derived_stream));
 
     Self {

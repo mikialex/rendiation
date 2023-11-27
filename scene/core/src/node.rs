@@ -209,6 +209,7 @@ impl GlobalIdentified for SceneNode {
   }
 }
 
+/// (scene guid, alloc idx)
 pub type NodeIdentity = (u64, usize);
 
 impl SceneNode {

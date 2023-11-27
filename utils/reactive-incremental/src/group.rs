@@ -178,7 +178,10 @@ impl<T: IncrementalBase> IncrementalSignalStorage<T> {
     }
   }
 
-  pub fn create_key_mapper<V>(&self, mapper: impl Fn(&T) -> V) -> impl Fn(AllocIdx<T>) -> V {
+  pub fn create_key_mapper<V>(
+    &self,
+    mapper: impl Fn(&T) -> V + Send + Sync,
+  ) -> impl Fn(AllocIdx<T>) -> V + Send + Sync {
     let data_holder = self.inner.clone();
     let guard = self.inner.data.read_recursive();
     let guard: RwLockReadGuard<'static, IndexReusedVec<SignalItem<T>>> =
@@ -440,7 +443,10 @@ impl<T: IncrementalBase> Drop for IncrementalSignalPtr<T> {
       if data.guid == self.guid {
         data.ref_count -= 1;
         if data.ref_count == 0 {
-          inner.sub_watchers.write().drop_list(data.sub_event_handle);
+          inner
+            .sub_watchers
+            .write()
+            .drop_list(&mut data.sub_event_handle);
           let removed = storage.remove(self.index);
           inner.group_watchers.emit(&StorageGroupChange::Drop {
             index: self.index.into(),

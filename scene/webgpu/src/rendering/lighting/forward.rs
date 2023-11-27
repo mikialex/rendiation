@@ -16,7 +16,6 @@ pub fn get_main_pass_load_op(scene: &SceneCoreImpl) -> Operations<Color> {
           None
         }
       }
-      _ => None,
     } {
       LoadOp::Clear(clear_color)
     } else {

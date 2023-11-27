@@ -26,7 +26,6 @@ impl RayTracingBackground for SceneBackGround {
           Vec3::zero()
         }
       }
-      _ => Vec3::zero(),
     }
   }
   fn create_scene_background(&self) -> Option<SceneBackGround> {

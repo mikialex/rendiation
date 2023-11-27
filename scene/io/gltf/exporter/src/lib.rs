@@ -376,7 +376,6 @@ impl Ctx {
           }
           MeshEnum::TransformInstanced(_) => None,
           MeshEnum::Foreign(_) => None,
-          _ => None,
         }
       }
       _ => None,
@@ -438,7 +437,6 @@ impl Ctx {
       }
       MaterialEnum::Flat(_) => None,
       MaterialEnum::Foreign(_) => None,
-      _ => None,
     }
   }
 
@@ -472,7 +470,6 @@ impl Ctx {
           extras: Default::default(),
         }.into(),
         SceneTexture2DType::Foreign(_) => None,
-        _ =>  None,
       }
     })?;
 

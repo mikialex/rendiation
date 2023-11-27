@@ -1,47 +1,205 @@
-use std::any::{Any, TypeId};
+use std::{
+  any::{Any, TypeId},
+  sync::Arc,
+};
 
 use fast_hash_collection::FastHashMap;
 use parking_lot::RwLock;
 
 use crate::*;
 
-type Forker<K, V> = ReactiveKVMapFork<Box<dyn DynamicReactiveCollection<K, V>>, K, V>;
+pub type RxCForker<K, V> = ReactiveKVMapFork<Box<dyn DynamicReactiveCollection<K, V>>, K, V>;
+pub type OneManyRelationIdxForker<O, M> = OneToManyRefDenseBookKeeping<O, M, RxCForker<M, O>>;
+pub type OneManyRelationHashForker<O, M> = OneToManyRefHashBookKeeping<O, M, RxCForker<M, O>>;
 
-#[derive(Default)]
+pub(crate) trait ShrinkableReactiveSource: Any + Send + Sync {
+  fn as_any(&self) -> &dyn Any;
+  fn shrink_to_fit(&mut self);
+}
+
+impl<K, V> ShrinkableReactiveSource for RxCForker<K, V>
+where
+  K: Send + Sync + Clone + 'static,
+  V: Send + Sync + Clone + 'static,
+{
+  fn as_any(&self) -> &dyn Any {
+    self
+  }
+  fn shrink_to_fit(&mut self) {
+    self.extra_request(&mut ExtraCollectionOperation::MemoryShrinkToFit);
+  }
+}
+impl<O, M> ShrinkableReactiveSource for OneManyRelationIdxForker<O, M>
+where
+  O: Send + Sync + Clone + LinearIdentification + 'static,
+  M: Send + Sync + Clone + LinearIdentification + 'static,
+{
+  fn as_any(&self) -> &dyn Any {
+    self
+  }
+  fn shrink_to_fit(&mut self) {
+    self.extra_request(&mut ExtraCollectionOperation::MemoryShrinkToFit);
+  }
+}
+impl<O, M> ShrinkableReactiveSource for OneManyRelationHashForker<O, M>
+where
+  O: Send + Sync + Clone + 'static + Eq + std::hash::Hash,
+  M: Send + Sync + Clone + 'static + Eq + std::hash::Hash,
+{
+  fn as_any(&self) -> &dyn Any {
+    self
+  }
+  fn shrink_to_fit(&mut self) {
+    self.extra_request(&mut ExtraCollectionOperation::MemoryShrinkToFit);
+  }
+}
+
+#[derive(Default, Clone)]
 pub struct CollectionRegistry {
-  registry: RwLock<FastHashMap<TypeId, Box<dyn Any>>>,
+  registry: Arc<RwLock<FastHashMap<TypeId, Box<dyn ShrinkableReactiveSource>>>>,
+}
+
+static ACTIVE_REGISTRY: parking_lot::RwLock<Option<CollectionRegistry>> =
+  parking_lot::RwLock::new(None);
+pub fn setup_active_collection_registry(r: CollectionRegistry) -> Option<CollectionRegistry> {
+  ACTIVE_REGISTRY.write().replace(r)
+}
+pub fn global_collection_registry() -> CollectionRegistry {
+  ACTIVE_REGISTRY.read().clone().unwrap()
 }
 
 impl CollectionRegistry {
+  pub fn shrink_to_fit_all(&self) {
+    let mut registry = self.registry.write();
+    for v in registry.values_mut() {
+      v.shrink_to_fit();
+    }
+  }
+
   pub fn fork_or_insert_with<K, V, R>(
     &self,
-    ty: impl Any,
-    inserter: impl FnOnce() -> R,
-  ) -> impl ReactiveCollection<K, V>
+    inserter: impl FnOnce() -> R + Any,
+  ) -> impl ReactiveCollection<K, V> + Clone
   where
-    K: Clone + 'static,
-    V: Clone + 'static,
+    K: Clone + Send + Sync + 'static,
+    V: Clone + Send + Sync + 'static,
+    R: ReactiveCollection<K, V>,
+  {
+    self.fork_or_insert_with_inner(inserter.type_id(), inserter)
+  }
+
+  fn fork_or_insert_with_inner<K, V, R>(
+    &self,
+    typeid: TypeId,
+    inserter: impl FnOnce() -> R,
+  ) -> RxCForker<K, V>
+  where
+    K: Clone + Send + Sync + 'static,
+    V: Clone + Send + Sync + 'static,
     R: ReactiveCollection<K, V>,
   {
     // note, we not using entry api because this call maybe be recursive and cause dead lock
-    let type_id = ty.type_id();
-    let typeid = type_id;
     let registry = self.registry.read_recursive();
     if let Some(collection) = registry.get(&typeid) {
-      let collection = collection.downcast_ref::<Forker<K, V>>().unwrap();
+      let collection = collection
+        .as_ref()
+        .as_any()
+        .downcast_ref::<RxCForker<K, V>>()
+        .unwrap();
       collection.clone()
     } else {
       drop(registry);
       let collection = inserter();
       let boxed: Box<dyn DynamicReactiveCollection<K, V>> = Box::new(collection);
       let forker = boxed.into_forker();
-      let boxed = Box::new(forker) as Box<dyn Any>;
+
+      let boxed = Box::new(forker) as Box<dyn ShrinkableReactiveSource>;
       let mut registry = self.registry.write();
       registry.insert(typeid, boxed);
 
       let collection = registry.get(&typeid).unwrap();
-      let collection = collection.downcast_ref::<Forker<K, V>>().unwrap();
+      let collection = collection
+        .as_ref()
+        .as_any()
+        .downcast_ref::<RxCForker<K, V>>()
+        .unwrap();
       collection.clone()
+    }
+  }
+
+  pub fn get_or_create_relation_by_idx<O, M, R>(
+    &self,
+    inserter: impl FnOnce() -> R + Any,
+  ) -> impl ReactiveOneToManyRelationship<O, M> + Clone
+  where
+    O: LinearIdentification + Clone + Send + Sync + 'static,
+    M: LinearIdentification + Clone + Send + Sync + 'static,
+    R: ReactiveCollection<M, O>,
+  {
+    // note, we not using entry api because this call maybe be recursive and cause dead lock
+    let typeid = inserter.type_id();
+    let relations = self.registry.read_recursive();
+    if let Some(collection) = relations.get(&typeid) {
+      let collection = collection
+        .as_ref()
+        .as_any()
+        .downcast_ref::<OneManyRelationIdxForker<O, M>>()
+        .unwrap();
+      collection.clone()
+    } else {
+      drop(relations);
+      let upstream = self.fork_or_insert_with_inner(typeid, inserter);
+      let relation = upstream.into_one_to_many_by_idx_expose_type();
+
+      let boxed = Box::new(relation) as Box<dyn ShrinkableReactiveSource>;
+      let mut relations = self.registry.write();
+      relations.insert(typeid, boxed);
+
+      let relation = relations.get(&typeid).unwrap();
+      let relation = relation
+        .as_ref()
+        .as_any()
+        .downcast_ref::<OneManyRelationIdxForker<O, M>>()
+        .unwrap();
+      relation.clone()
+    }
+  }
+
+  pub fn get_or_create_relation_by_hash<O, M, R>(
+    &self,
+    inserter: impl FnOnce() -> R + Any,
+  ) -> impl ReactiveOneToManyRelationship<O, M> + Clone
+  where
+    O: std::hash::Hash + Eq + Clone + Send + Sync + 'static,
+    M: std::hash::Hash + Eq + Clone + Send + Sync + 'static,
+    R: ReactiveCollection<M, O>,
+  {
+    // note, we not using entry api because this call maybe be recursive and cause dead lock
+    let typeid = inserter.type_id();
+    let relations = self.registry.read_recursive();
+    if let Some(collection) = relations.get(&typeid) {
+      let collection = collection
+        .as_ref()
+        .as_any()
+        .downcast_ref::<OneManyRelationHashForker<O, M>>()
+        .unwrap();
+      collection.clone()
+    } else {
+      drop(relations);
+      let upstream = self.fork_or_insert_with_inner(typeid, inserter);
+      let relation = upstream.into_one_to_many_by_hash_expose_type();
+
+      let boxed = Box::new(relation) as Box<dyn ShrinkableReactiveSource>;
+      let mut relations = self.registry.write();
+      relations.insert(typeid, boxed);
+
+      let relation = relations.get(&typeid).unwrap();
+      let relation = relation
+        .as_ref()
+        .as_any()
+        .downcast_ref::<OneManyRelationHashForker<O, M>>()
+        .unwrap();
+      relation.clone()
     }
   }
 }

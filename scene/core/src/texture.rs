@@ -4,10 +4,19 @@ use rendiation_texture::{GPUBufferImage, TextureSampler};
 
 use crate::*;
 
-#[derive(Clone)]
+#[derive(Clone, Derivative)]
+#[derivative(Hash)]
 pub struct TextureWithSamplingData<T> {
   pub texture: T,
+  #[derivative(Hash(hash_with = "ptr_internal_hash"))]
   pub sampler: IncrementalSignalPtr<TextureSampler>,
+}
+
+fn ptr_internal_hash<T: IncrementalBase + Hash, H>(value: &IncrementalSignalPtr<T>, state: &mut H)
+where
+  H: std::hash::Hasher,
+{
+  value.read().hash(state)
 }
 
 impl<T: Clone + Send + Sync> SimpleIncremental for TextureWithSamplingData<T> {
@@ -26,11 +35,10 @@ pub type Texture2DWithSamplingData = TextureWithSamplingData<SceneTexture2D>;
 
 pub type SceneTexture2D = IncrementalSignalPtr<SceneTexture2DType>;
 
-#[non_exhaustive]
 #[derive(Clone)]
 pub enum SceneTexture2DType {
   GPUBufferImage(GPUBufferImage),
-  Foreign(Box<dyn AnyClone + Send + Sync>),
+  Foreign(ForeignObject),
 }
 
 clone_self_incremental!(SceneTexture2DType);
