@@ -109,6 +109,12 @@ impl ModelMergeProxy {
         let model = StandardModel::new(first_material.clone(), mesh.clone()).into_ptr();
         let model = ModelEnum::Standard(model);
         let node = target_scene.create_root_child();
+
+        let first_mat = mat_access(&source[0].1).unwrap();
+        if first_mat.to_mat3().det() < 0. {
+          node.set_local_matrix(Mat4::scale((-1.0, 1.0, 1.0)));
+        }
+
         results.push(SceneModelImpl::new(model, node));
       });
     }
@@ -177,6 +183,7 @@ fn merge_attribute_mesh(ctx: &MeshMergeCtx) -> Vec<MeshEnum> {
 
   // do merge
   let meshes = merge_attributes_meshes(
+    u32::MAX,
     &s,
     |idx, position| position.apply_matrix_into(ctx.transforms[idx]),
     |idx, normal| normal.apply_matrix_into(ctx.transforms[idx].to_normal_matrix().into()),

@@ -14,8 +14,7 @@ impl SceneMergeSystem {
   pub fn new(
     source_scene: &Scene,
     source_scene_derives: &NodeIncrementalDeriveCollections,
-    foreign_merge_support: Box<dyn FnOnce(&mut MergeImplRegistry)>,
-    foreign_key_support: Box<ForeignMergeKeySupport>,
+    foreign_merge_support: Box<dyn FnOnce(&mut MergeImplRegistry) -> Box<ForeignMergeKeySupport>>,
   ) -> (Self, Scene) {
     let (target_scene, _) = SceneImpl::new();
     let scene_derived =
@@ -28,7 +27,6 @@ impl SceneMergeSystem {
       source_scene_derives,
       &target_scene,
       foreign_merge_support,
-      foreign_key_support,
     );
 
     let cameras = SceneCameraRebuilder::new(source_id, source_scene_derives, &target_scene);
@@ -68,15 +66,14 @@ impl SceneModelMergeOptimization {
     source_scene_id: u64,
     source_scene_derives: &NodeIncrementalDeriveCollections,
     target_scene: &Scene,
-    foreign_merge_support: Box<dyn FnOnce(&mut MergeImplRegistry)>,
-    foreign_key_support: Box<ForeignMergeKeySupport>,
+    foreign_merge_support: Box<dyn FnOnce(&mut MergeImplRegistry) -> Box<ForeignMergeKeySupport>>,
   ) -> Self {
     let target_scene = target_scene.clone();
     let source_scene_node_mat = source_scene_derives.world_mat.clone();
     let source_scene_node_net_vis = source_scene_derives.net_visible.clone();
 
     let mut merge_methods = MergeImplRegistry::default();
-    foreign_merge_support(&mut merge_methods);
+    let foreign_key_support = foreign_merge_support(&mut merge_methods);
 
     let merge_relation = build_merge_relation(
       source_scene_id,
@@ -86,7 +83,18 @@ impl SceneModelMergeOptimization {
 
     let applied_matrix_table = source_scene_node_mat
       .collective_zip(source_scene_node_net_vis)
-      .collective_map(|(mat, vis)| (if !vis { Mat4::zero() } else { mat }))
+      .collective_map(|(mat, vis)| {
+        if !vis {
+          Mat4::zero()
+        } else {
+          // check if is front side
+          if mat.to_mat3().det().is_sign_positive() {
+            mat
+          } else {
+            Mat4::scale((-1.0, 1.0, 1.0)) * mat
+          }
+        }
+      })
       .one_to_many_fanout(scene_model_ref_node_many_one_relation());
 
     Self {
@@ -200,7 +208,7 @@ pub enum MeshMergeType {
 }
 
 pub type ForeignMergeKeySupport = dyn FnOnce(
-  Box<dyn DynamicReactiveCollection<AllocIdx<StandardModel>, ()>>,
+  RxCForker<AllocIdx<StandardModel>, ()>,
 ) -> (
   Box<dyn DynamicReactiveCollection<AllocIdx<StandardModel>, MaterialContentID>>,
   Box<dyn DynamicReactiveCollection<AllocIdx<StandardModel>, MeshMergeType>>,
@@ -230,9 +238,10 @@ pub fn build_merge_relation(
   let referenced_std_md = referenced_sm
     .clone()
     .many_to_one_reduce_key(std_sm_relation.clone());
+  let referenced_std_md = Box::new(referenced_std_md) as Box<dyn DynamicReactiveCollection<_, _>>;
   let referenced_std_md = referenced_std_md.into_forker();
 
-  let (foreign_mat, foreign_mesh) = foreign(Box::new(referenced_std_md.clone()));
+  let (foreign_mat, foreign_mesh) = foreign(referenced_std_md.clone());
 
   let mat_content_hash = sm_material_content_hash(&referenced_std_md, foreign_mat);
   let mat_content_hash = mat_content_hash.one_to_many_fanout(std_sm_relation.clone());
