@@ -5,25 +5,9 @@ name = "rendiation-scene-optimization"
 version = "0.1.0"
 
 [dependencies]
-anymap = "0.12.1"
-arena = { path = "../../utils/arena" }
-bitflags = { workspace = true }
-bytemuck = { workspace = true, features = ["derive"] }
-dyn-clone = { workspace = true }
-dyn-downcast = { path = "../../utils/dyn-downcast" }
 fast-hash-collection = { path = "../../utils/fast-hash-collection" }
-futures = { workspace = true }
 incremental = { path = "../../utils/incremental" }
-log = { workspace = true }
-once_cell = { workspace = true }
-pin-project = { workspace = true }
-reactive = { path = "../../utils/reactive" }
 reactive-incremental = { path = "../../utils/reactive-incremental" }
 rendiation-algebra = { path = "../../math/algebra" }
-rendiation-animation = { path = "../../components/animation" }
-rendiation-geometry = { path = "../../math/geometry" }
-rendiation-mesh-core = { path = "../../components/mesh/core" }
-rendiation-texture = { path = "../../components/texture/core" }
 rendiation-scene-core = { path = "../core" }
 smallvec = { workspace = true }
-tree = { path = "../../utils/tree" }

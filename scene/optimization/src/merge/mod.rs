@@ -7,28 +7,32 @@ pub struct SceneMergeSystem {
   models: SceneModelMergeOptimization,
   cameras: SceneCameraRebuilder,
   lights: SceneLightsRebuilder,
-  target_scene: (Scene, SceneNodeDeriveSystem),
+  pub target_scene: (Scene, NodeIncrementalDeriveCollections),
 }
 
 impl SceneMergeSystem {
   pub fn new(
-    scene: &Scene,
+    source_scene: &Scene,
     source_scene_derives: &NodeIncrementalDeriveCollections,
     foreign_merge_support: Box<dyn FnOnce(&mut MergeImplRegistry)>,
     foreign_key_support: Box<ForeignMergeKeySupport>,
   ) -> (Self, Scene) {
-    let (target_scene, scene_derived) = SceneImpl::new();
+    let (target_scene, _) = SceneImpl::new();
+    let scene_derived =
+      NodeIncrementalDeriveCollections::new(&target_scene.read().core.read().nodes);
+
+    let source_id = source_scene.guid();
 
     let models = SceneModelMergeOptimization::new(
-      scene.guid(),
+      source_id,
       source_scene_derives,
       &target_scene,
       foreign_merge_support,
       foreign_key_support,
     );
 
-    let cameras = SceneCameraRebuilder::new(scene.guid(), source_scene_derives, &target_scene);
-    let lights = SceneLightsRebuilder::new(scene.guid(), source_scene_derives, &target_scene);
+    let cameras = SceneCameraRebuilder::new(source_id, source_scene_derives, &target_scene);
+    let lights = SceneLightsRebuilder::new(source_id, source_scene_derives, &target_scene);
 
     (
       Self {
@@ -68,25 +72,27 @@ impl SceneModelMergeOptimization {
     foreign_key_support: Box<ForeignMergeKeySupport>,
   ) -> Self {
     let target_scene = target_scene.clone();
-    let source_scene_node_mat = (); // todo
-    let source_scene_node_net_vis = (); // todo
+    let source_scene_node_mat = source_scene_derives.world_mat.clone();
+    let source_scene_node_net_vis = source_scene_derives.net_visible.clone();
 
     let mut merge_methods = MergeImplRegistry::default();
     foreign_merge_support(&mut merge_methods);
 
-    let merge_relation =
-      build_merge_relation(source_scene_id, source_scene_node_mat, foreign_key_support);
+    let merge_relation = build_merge_relation(
+      source_scene_id,
+      source_scene_node_mat.clone(),
+      foreign_key_support,
+    );
 
-    let applied_matrix_table = todo!();
-    // source_scene_node_mat
-    //   .collective_zip(source_scene_node_net_vis)
-    //   .collective_map(|(mat, vis)| (if !vis { Mat4::zero() } else { mat }))
-    //   .one_to_many_fanout(scene_model_ref_node_many_one_relation());
+    let applied_matrix_table = source_scene_node_mat
+      .collective_zip(source_scene_node_net_vis)
+      .collective_map(|(mat, vis)| (if !vis { Mat4::zero() } else { mat }))
+      .one_to_many_fanout(scene_model_ref_node_many_one_relation());
 
     Self {
       target_scene,
-      merge_relation: todo!(),
-      applied_matrix_table,
+      merge_relation: Box::new(merge_relation.into_one_to_many_by_hash()),
+      applied_matrix_table: Box::new(applied_matrix_table),
       merged_model: Default::default(),
       merge_methods,
     }
@@ -311,7 +317,7 @@ fn std_mesh_key(
     .filter_by_keyset(referenced_attribute_mesh)
     .collective_execute_map_by(|| {
       let layout_key = storage_of::<AttributesMesh>().create_key_mapper(|mesh| {
-        // todo, attribute layout key
+        // todo, filter not valid attribute layout key
         compute_merge_key(&mesh);
         0
       });
