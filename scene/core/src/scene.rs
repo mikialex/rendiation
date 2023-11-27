@@ -42,12 +42,12 @@ impl SceneCoreImpl {
   pub fn root(&self) -> &SceneNode {
     &self.root
   }
-  fn new() -> (SceneCore, NodeIncrementalDeriveSystem) {
+  fn new() -> (SceneCore, NodeIncrementalDeriveCollections) {
     let nodes = SceneNodeCollection {
       inner: Default::default(),
       scene_guid: 0, // set later
     };
-    let system = NodeIncrementalDeriveSystem::new(&nodes);
+    let system = NodeIncrementalDeriveCollections::new(&nodes);
 
     let root = nodes.create_node(Default::default());
 
@@ -273,7 +273,7 @@ pub struct SceneImpl {
 }
 
 impl SceneImpl {
-  pub fn new() -> (Scene, NodeIncrementalDeriveSystem) {
+  pub fn new() -> (Scene, NodeIncrementalDeriveCollections) {
     let (scene, d) = SceneCoreImpl::new();
     let scene = SceneImpl { core: scene };
     (scene.into_ptr(), d)

@@ -6,13 +6,6 @@ pub struct TransformInstanceGPU {
   transforms_count: u32,
 }
 
-impl Stream for TransformInstanceGPU {
-  type Item = RenderComponentDeltaFlag;
-  fn poll_next(self: Pin<&mut Self>, _: &mut Context) -> Poll<Option<Self::Item>> {
-    Poll::Pending
-  }
-}
-
 only_vertex!(TransformInstanceMat, Mat4<f32>);
 
 #[repr(C)]

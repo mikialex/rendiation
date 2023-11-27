@@ -1,5 +1,3 @@
-use crate::*;
-
 mod cube;
 mod d2;
 mod mipmap_gen;

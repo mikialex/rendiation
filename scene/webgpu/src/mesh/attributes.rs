@@ -7,13 +7,6 @@ pub struct AttributesMeshGPU {
   draw: DrawCommand,
 }
 
-impl Stream for AttributesMeshGPU {
-  type Item = RenderComponentDeltaFlag;
-  fn poll_next(self: Pin<&mut Self>, _: &mut Context) -> Poll<Option<Self::Item>> {
-    Poll::Pending
-  }
-}
-
 impl ShaderPassBuilder for AttributesMeshGPU {
   fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
     for (_, b) in &self.attributes {
