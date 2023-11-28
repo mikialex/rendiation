@@ -747,6 +747,7 @@ dependencies = [
  "lock_api",
  "once_cell",
  "parking_lot_core",
+ "rayon",
 ]
 
 [[package]]
@@ -2960,8 +2961,10 @@ dependencies = [
 name = "rendiation-scene-optimization"
 version = "0.1.0"
 dependencies = [
+ "dashmap",
  "fast-hash-collection",
  "incremental",
+ "rayon",
  "reactive-incremental",
  "rendiation-algebra",
  "rendiation-scene-core",

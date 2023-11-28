@@ -11,3 +11,5 @@ reactive-incremental = { path = "../../utils/reactive-incremental" }
 rendiation-algebra = { path = "../../math/algebra" }
 rendiation-scene-core = { path = "../core" }
 smallvec = { workspace = true }
+rayon = { workspace = true }
+dashmap = { workspace = true }

@@ -79,12 +79,12 @@ pub trait VirtualCollection<K, V> {
 
 pub trait VirtualMultiCollection<K, V> {
   fn iter_key_in_multi_collection(&self) -> impl Iterator<Item = K> + '_;
-  fn access_multi(&self) -> impl Fn(&K, &mut dyn FnMut(V)) + '_;
+  fn access_multi(&self) -> impl Fn(&K, &mut dyn FnMut(V)) + Send + Sync + '_;
 }
 
 pub trait DynamicVirtualMultiCollection<O, M> {
   fn iter_key_in_multi_collection_boxed(&self) -> Box<dyn Iterator<Item = O> + '_>;
-  fn access_multi_boxed(&self) -> Box<dyn Fn(&O, &mut dyn FnMut(M)) + '_>;
+  fn access_multi_boxed(&self) -> Box<dyn Fn(&O, &mut dyn FnMut(M)) + Send + Sync + '_>;
 }
 impl<T, O, M> DynamicVirtualMultiCollection<O, M> for T
 where
@@ -93,7 +93,7 @@ where
   fn iter_key_in_multi_collection_boxed(&self) -> Box<dyn Iterator<Item = O> + '_> {
     Box::new(self.iter_key_in_multi_collection())
   }
-  fn access_multi_boxed(&self) -> Box<dyn Fn(&O, &mut dyn FnMut(M)) + '_> {
+  fn access_multi_boxed(&self) -> Box<dyn Fn(&O, &mut dyn FnMut(M)) + Send + Sync + '_> {
     Box::new(self.access_multi())
   }
 }
@@ -213,7 +213,7 @@ impl<T: Send + Sync + Clone> ParallelIterator for FastPassingVec<T> {
 
   fn drive_unindexed<C>(self, consumer: C) -> C::Result
   where
-    C: rayon::iter::plumbing::UnindexedConsumer<Self::Item>,
+    C: ::rayon::iter::plumbing::UnindexedConsumer<Self::Item>,
   {
     // todo, how to avoid heap to heap clone?
     let vec = Vec::from(self.vec.as_slice());
@@ -262,7 +262,7 @@ impl<T: Send> ParallelIterator for EmptyIter<T> {
 
   fn drive_unindexed<C>(self, consumer: C) -> C::Result
   where
-    C: rayon::iter::plumbing::UnindexedConsumer<Self::Item>,
+    C: ::rayon::iter::plumbing::UnindexedConsumer<Self::Item>,
   {
     [].into_par_iter().drive_unindexed(consumer)
   }
@@ -831,7 +831,7 @@ where
 pub struct ReactiveKVExecuteMap<T, F, K, V, V2> {
   inner: T,
   map_creator: F,
-  cache: DashMap<K, V2>,
+  cache: DashMap<K, V2, FastHasherBuilder>,
   phantom: PhantomData<(K, V, V2)>,
 }
 
@@ -1363,7 +1363,7 @@ where
 
   fn drive_unindexed<C>(self, consumer: C) -> C::Result
   where
-    C: rayon::iter::plumbing::UnindexedConsumer<Self::Item>,
+    C: ::rayon::iter::plumbing::UnindexedConsumer<Self::Item>,
   {
     self
       .map

@@ -401,8 +401,8 @@ where
 
 impl<O, M, T> VirtualMultiCollection<O, M> for OneToManyRefHashBookKeeping<O, M, T>
 where
-  M: Hash + Eq + Clone + 'static,
-  O: Hash + Eq + Clone + 'static,
+  M: Hash + Eq + Clone + Send + Sync + 'static,
+  O: Hash + Eq + Clone + Send + Sync + 'static,
 {
   fn iter_key_in_multi_collection(&self) -> impl Iterator<Item = O> + '_ {
     // todo, avoid clone
@@ -416,7 +416,7 @@ where
       .into_iter()
   }
 
-  fn access_multi(&self) -> impl Fn(&O, &mut dyn FnMut(M)) + '_ {
+  fn access_multi(&self) -> impl Fn(&O, &mut dyn FnMut(M)) + Send + Sync + '_ {
     let mapping = self.mapping.read_recursive();
     move |o, visitor| {
       if let Some(set) = mapping.0.get(o) {

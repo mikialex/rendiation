@@ -136,7 +136,7 @@ pub struct MeshMergeCtx<'a> {
 
 // impl MeshMergeSource for
 pub struct MergeImplRegistry {
-  implementation: Vec<Box<dyn Fn(&MeshMergeCtx) -> Vec<MeshEnum>>>,
+  implementation: Vec<Box<dyn Fn(&MeshMergeCtx) -> Vec<MeshEnum> + Send + Sync>>,
 }
 
 impl Default for MergeImplRegistry {
@@ -151,7 +151,10 @@ impl Default for MergeImplRegistry {
 }
 
 impl MergeImplRegistry {
-  pub fn register(&mut self, f: impl Fn(&MeshMergeCtx) -> Vec<MeshEnum> + 'static) -> usize {
+  pub fn register(
+    &mut self,
+    f: impl Fn(&MeshMergeCtx) -> Vec<MeshEnum> + Send + Sync + 'static,
+  ) -> usize {
     self.implementation.push(Box::new(f));
     self.implementation.len() - 1
   }

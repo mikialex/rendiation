@@ -3,6 +3,10 @@ use crate::*;
 mod merge_impl;
 use merge_impl::*;
 
+type FastDashMap<K, V> = dashmap::DashMap<K, V, FastHasherBuilder>;
+type FastDashSet<K> = dashmap::DashSet<K, FastHasherBuilder>;
+use rayon::prelude::*;
+
 pub struct SceneMergeSystem {
   models: SceneModelMergeOptimization,
   cameras: SceneCameraRebuilder,
@@ -57,7 +61,7 @@ pub struct SceneModelMergeOptimization {
   // use to update mesh's vertex, the visibility is expressed by all zero matrix value
   applied_matrix_table: Box<dyn DynamicReactiveCollection<AllocIdx<SceneModelImpl>, Mat4<f32>>>,
   // all merged models
-  merged_model: FastHashMap<MergeKey, ModelMergeProxy>,
+  merged_model: FastDashMap<MergeKey, ModelMergeProxy>,
   merge_methods: MergeImplRegistry,
 }
 
@@ -109,43 +113,41 @@ impl SceneModelMergeOptimization {
 
 impl SceneModelMergeOptimization {
   pub fn poll_update_merge(&mut self, cx: &mut Context) {
-    let mut changed_key = FastHashSet::default();
+    let changed_key = FastDashSet::default();
 
     if let Poll::Ready(Some(changes)) = self.merge_relation.poll_changes_dyn(cx) {
-      for change in changes {
-        match change {
-          CollectionDelta::Delta(source_idx, new_key, old_key) => {
+      changes.into_par_iter().for_each(|change| match change {
+        CollectionDelta::Delta(source_idx, new_key, old_key) => {
+          self
+            .merged_model
+            .entry(new_key)
+            .or_default()
+            .add_source(source_idx);
+          changed_key.insert(new_key);
+          if let Some(old_key) = old_key {
             self
               .merged_model
-              .entry(new_key)
-              .or_default()
-              .add_source(source_idx);
-            changed_key.insert(new_key);
-            if let Some(old_key) = old_key {
-              self
-                .merged_model
-                .get_mut(&old_key)
-                .unwrap()
-                .remove_source(source_idx);
-
-              changed_key.insert(old_key);
-            }
-          }
-          CollectionDelta::Remove(source_idx, key) => {
-            self
-              .merged_model
-              .get_mut(&key)
+              .get_mut(&old_key)
               .unwrap()
               .remove_source(source_idx);
-            changed_key.insert(key);
+
+            changed_key.insert(old_key);
           }
         }
-      }
+        CollectionDelta::Remove(source_idx, key) => {
+          self
+            .merged_model
+            .get_mut(&key)
+            .unwrap()
+            .remove_source(source_idx);
+          changed_key.insert(key);
+        }
+      })
     }
 
     let accessor = self.merge_relation.access_boxed();
     if let Poll::Ready(Some(changes)) = self.applied_matrix_table.poll_changes_dyn(cx) {
-      for change in changes {
+      changes.into_par_iter().for_each(|change| {
         if let CollectionDelta::Delta(source_idx, new_mat, _) = change {
           let merge_key = accessor(&source_idx).unwrap();
           self
@@ -154,25 +156,25 @@ impl SceneModelMergeOptimization {
             .unwrap()
             .notify_source_applied_matrix(source_idx, new_mat)
         }
-      }
+      })
     }
 
     let accessor = self.merge_relation.access_multi_boxed();
-    for key in &changed_key {
-      let merged = self.merged_model.get_mut(key).unwrap();
+    changed_key.into_par_iter().for_each(|key| {
+      let mut merged = self.merged_model.get_mut(&key).unwrap();
       let should_remove = merged.do_updates(
         &self.target_scene,
-        key,
+        &key,
         &self.merge_methods,
         &|f| {
-          accessor(key, f);
+          accessor(&key, f);
         },
         &self.applied_matrix_table,
       );
       if should_remove {
-        self.merged_model.remove(key);
+        self.merged_model.remove(&key);
       }
-    }
+    })
   }
 }
 
