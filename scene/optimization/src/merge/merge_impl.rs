@@ -1,3 +1,5 @@
+use std::any::Any;
+
 use smallvec::SmallVec;
 
 use crate::*;
@@ -14,6 +16,54 @@ impl ModelMergeProxy {
     self.source_changed = false;
     self.mat_changed = false;
   }
+
+  fn remove_all_models(&mut self, target_scene: &Scene) {
+    for m in self.merged_model.drain(..) {
+      target_scene.remove_model(m);
+    }
+  }
+}
+
+pub enum MergeUpdating {
+  MergeTargetRemoved,
+  SyncSingleModel {
+    source: AllocIdx<StandardModel>,
+    world_mat: Mat4<f32>,
+  },
+  DoUpdates(Box<dyn Any + Send + Sync>),
+}
+impl SceneModelMergeOptimization {
+  pub(crate) fn commit_all_updates(&self, updates: Vec<(MergeKey, MergeUpdating)>) {
+    updates.into_iter().for_each(|(key, update)| match update {
+      MergeUpdating::MergeTargetRemoved => {
+        self.merged_model.remove(&key);
+      }
+      MergeUpdating::SyncSingleModel { source, world_mat } => {
+        let mut merge_proxy = self.merged_model.get_mut(&key).unwrap();
+        merge_proxy.remove_all_models(&self.target_scene);
+
+        let node = self.target_scene.create_root_child();
+        node.set_local_matrix(world_mat);
+
+        let model = storage_of::<StandardModel>().clone_at_idx(source).unwrap();
+        let model = ModelEnum::Standard(model);
+        let model = SceneModelImpl::new(model, node);
+
+        merge_proxy
+          .merged_model
+          .push(self.target_scene.insert_model(model.into_ptr()));
+      }
+      MergeUpdating::DoUpdates(transaction) => {
+        let mut merge_proxy = self.merged_model.get_mut(&key).unwrap();
+        merge_proxy.remove_all_models(&self.target_scene);
+        self.merge_methods.get_merge_impl_by_key(&key).commit_dyn(
+          transaction,
+          &mut merge_proxy,
+          &self.target_scene,
+        )
+      }
+    })
+  }
 }
 
 impl ModelMergeProxy {
@@ -28,171 +78,213 @@ impl ModelMergeProxy {
     self.mat_changed = true;
   }
 
-  /// return if has any active proxy exist after removal
   pub fn do_updates(
     &mut self,
-    target_scene: &Scene,
     key: &MergeKey,
     reg: &MergeImplRegistry,
     reverse_access: &dyn Fn(&mut dyn FnMut(AllocIdx<SceneModelImpl>)),
     mat_access: &dyn DynamicReactiveCollection<AllocIdx<SceneModelImpl>, Mat4<f32>>,
-  ) -> bool {
+  ) -> MergeUpdating {
     // only matrix/vis change, go fast path
     if !self.source_changed && self.mat_changed {
       // do only matrix update
-      self.reset_state()
       // do early return
     }
+    self.reset_state();
 
-    // remove and drop all previous models
-    for m in self.merged_model.drain(..) {
-      target_scene.remove_model(m);
-    }
-
-    let scene_models = storage_of::<SceneModelImpl>();
-    let scene_models_data = scene_models.inner.data.read_recursive();
     let mut source = Vec::new();
     reverse_access(&mut |source_idx| {
-      let m = scene_models_data.get(source_idx.index).data.model.clone();
-      source.push((m, source_idx));
+      source.push(source_idx);
     });
-    drop(scene_models_data);
-    drop(scene_models);
 
     if source.is_empty() {
       self.reset_state();
-      return false;
+      return MergeUpdating::MergeTargetRemoved;
     }
 
-    let mut results = Vec::new();
     let mat_access = mat_access.access_boxed();
+
+    // todo reuse code
+    let sm_storage = storage_of::<SceneModelImpl>();
+    let sm_storage_data = sm_storage.inner.data.read();
+    let std_models = source
+      .iter()
+      .map(|sm| {
+        let sm_data = sm_storage_data.get(sm.index);
+        match &sm_data.data.model {
+          ModelEnum::Standard(m) => m.alloc_index().into(),
+          ModelEnum::Foreign(_) => unreachable!(),
+        }
+      })
+      .collect::<Vec<_>>();
+
     if source.len() == 1 {
       // for single output, we directly sync mat instead of apply the mat on mesh
-      let node = target_scene.create_root_child();
-      node.set_local_matrix(mat_access(&source[0].1).unwrap());
-      results.push(SceneModelImpl::new(source[0].0.clone(), node));
+      MergeUpdating::SyncSingleModel {
+        source: std_models[0],
+        world_mat: mat_access(&source[0]).unwrap(),
+      }
     } else {
-      let meshes = source
-        .iter()
-        .map(|(m, _)| match m {
-          ModelEnum::Standard(m) => m.read().mesh.clone(),
-          ModelEnum::Foreign(_) => unreachable!(),
-        })
-        .collect::<Vec<_>>();
       let transforms = source
         .iter()
-        .map(|(_, idx)| mat_access(idx).unwrap())
+        .map(|idx| mat_access(idx).unwrap())
         .collect::<Vec<_>>();
       let ctx = MeshMergeCtx {
-        meshes: &meshes,
+        models: &std_models,
         transforms: &transforms,
       };
-      let merge_method = match key {
-        MergeKey::Standard(std) => match std.mesh_layout_type {
-          MeshMergeType::Mergeable(merge_type, _) => reg.get_merge_impl(merge_type).unwrap(),
-          _ => unreachable!(),
-        },
-        _ => unreachable!(),
-      };
+      let merge_transaction = reg.get_merge_impl_by_key(key).prepare_dyn(&ctx);
 
-      let merged_mesh = merge_method(&ctx);
-      let first_material = match &source[0].0 {
-        ModelEnum::Standard(model) => model.read().material.clone(),
-        _ => unreachable!(),
-      };
-      merged_mesh.iter().for_each(|mesh| {
-        let model = StandardModel::new(first_material.clone(), mesh.clone()).into_ptr();
-        let model = ModelEnum::Standard(model);
-        let node = target_scene.create_root_child();
-
-        let first_mat = mat_access(&source[0].1).unwrap();
-        if first_mat.to_mat3().det() < 0. {
-          node.set_local_matrix(Mat4::scale((-1.0, 1.0, 1.0)));
-        }
-
-        results.push(SceneModelImpl::new(model, node));
-      });
+      MergeUpdating::DoUpdates(merge_transaction)
     }
-
-    self.merged_model = results
-      .into_iter()
-      .map(|model| target_scene.insert_model(model.into_ptr()))
-      .collect();
-
-    self.reset_state();
-    true
   }
 }
 
 pub struct MeshMergeCtx<'a> {
-  pub meshes: &'a [MeshEnum],
+  pub models: &'a [AllocIdx<StandardModel>],
   pub transforms: &'a [Mat4<f32>],
 }
 
 // impl MeshMergeSource for
 pub struct MergeImplRegistry {
-  implementation: Vec<Box<dyn Fn(&MeshMergeCtx) -> Vec<MeshEnum> + Send + Sync>>,
+  implementations: Vec<Box<dyn MergeImplementationBoxed>>,
 }
 
+pub trait MergeImplementation: Send + Sync {
+  type Transaction: Any + Send + Sync;
+  fn prepare(&self, ctx: &MeshMergeCtx) -> Self::Transaction;
+  fn commit(&self, trans: Self::Transaction, proxy: &mut ModelMergeProxy, target: &Scene);
+}
+
+pub trait MergeImplementationBoxed: Send + Sync {
+  fn prepare_dyn(&self, ctx: &MeshMergeCtx) -> Box<dyn Any + Send + Sync>;
+  fn commit_dyn(
+    &self,
+    trans: Box<dyn Any + Send + Sync>,
+    proxy: &mut ModelMergeProxy,
+    target: &Scene,
+  );
+}
+impl<T: MergeImplementation> MergeImplementationBoxed for T {
+  fn prepare_dyn(&self, ctx: &MeshMergeCtx) -> Box<dyn Any + Send + Sync> {
+    Box::new(self.prepare(ctx))
+  }
+  fn commit_dyn(
+    &self,
+    trans: Box<dyn Any + Send + Sync>,
+    proxy: &mut ModelMergeProxy,
+    target: &Scene,
+  ) {
+    self.commit(*trans.downcast::<T::Transaction>().unwrap(), proxy, target)
+  }
+}
+
+pub const ATTRIBUTE_MERGE: usize = 0;
 impl Default for MergeImplRegistry {
   fn default() -> Self {
     let mut s = Self {
-      implementation: Default::default(),
+      implementations: Default::default(),
     };
-    s.register(merge_attribute_mesh);
+    s.register(AttributesMeshMergeImpl);
 
     s
   }
 }
 
 impl MergeImplRegistry {
-  pub fn register(
-    &mut self,
-    f: impl Fn(&MeshMergeCtx) -> Vec<MeshEnum> + Send + Sync + 'static,
-  ) -> usize {
-    self.implementation.push(Box::new(f));
-    self.implementation.len() - 1
+  pub fn register(&mut self, implementation: impl MergeImplementation + 'static) -> usize {
+    self.implementations.push(Box::new(implementation));
+    self.implementations.len() - 1
   }
 
-  pub fn get_merge_impl(&self, id: usize) -> Option<&dyn Fn(&MeshMergeCtx) -> Vec<MeshEnum>> {
-    self
-      .implementation
-      .get(id)
-      .map(|f| f as &dyn Fn(&MeshMergeCtx) -> Vec<MeshEnum>)
+  pub fn get_merge_impl_by_key(&self, key: &MergeKey) -> &dyn MergeImplementationBoxed {
+    match key {
+      MergeKey::Standard(std) => match std.mesh_layout_type {
+        MeshMergeType::Mergeable(merge_type, _) => self
+          .get_merge_impl(merge_type)
+          .expect("merge method has not registered"),
+        _ => unreachable!("merge key is invalid when get merge impl"),
+      },
+      _ => unreachable!("merge key is invalid when get merge impl"),
+    }
+  }
+
+  pub fn get_merge_impl(&self, id: usize) -> Option<&dyn MergeImplementationBoxed> {
+    self.implementations.get(id).map(|v| v.as_ref())
   }
 }
 
-fn merge_attribute_mesh(ctx: &MeshMergeCtx) -> Vec<MeshEnum> {
-  // locks
-  let sources = ctx
-    .meshes
-    .iter()
-    .map(|m| match m {
-      MeshEnum::AttributesMesh(m) => m.read(),
-      _ => unreachable!(),
-    })
-    .collect::<Vec<_>>();
+struct AttributesMeshMergeImpl;
 
-  // refs
-  let s = sources
-    .iter()
-    .map(|m| m as &AttributesMesh)
-    .collect::<Vec<_>>();
-
-  // do merge
-  let meshes = merge_attributes_meshes(
-    u32::MAX,
-    &s,
-    |idx, position| position.apply_matrix_into(ctx.transforms[idx]),
-    |idx, normal| normal.apply_matrix_into(ctx.transforms[idx].to_normal_matrix().into()),
-  )
-  .unwrap();
-
-  // wrap results
-  meshes
-    .into_iter()
-    .map(|m| MeshEnum::AttributesMesh(m.into_ptr()))
-    .collect()
+struct AttributeMergeTransaction {
+  mesh_data: AttributeMeshData,
+  // this is used to sync material
+  first_source_model: AllocIdx<StandardModel>,
+  back_face: bool,
 }
 
-pub const ATTRIBUTE_MERGE: usize = 0;
+impl MergeImplementation for AttributesMeshMergeImpl {
+  type Transaction = Vec<AttributeMergeTransaction>;
+
+  fn prepare(&self, ctx: &MeshMergeCtx) -> Self::Transaction {
+    let std_storage = storage_of::<StandardModel>();
+    let std_storage_data = std_storage.inner.data.read();
+
+    let mesh_storage = storage_of::<AttributesMesh>();
+    let mesh_storage_data = mesh_storage.inner.data.read();
+
+    let back_face = ctx.transforms[0].to_mat3().det() < 0.;
+
+    // refs
+    let sources = ctx
+      .models
+      .iter()
+      .map(|m| {
+        let m = &std_storage_data.get(m.index).data;
+        match &m.mesh {
+          MeshEnum::AttributesMesh(mesh) => &mesh_storage_data.get(mesh.alloc_index()).data,
+          _ => unreachable!(),
+        }
+      })
+      .collect::<Vec<_>>();
+
+    // do merge
+    let meshes = merge_attributes_meshes(
+      u32::MAX,
+      &sources,
+      |idx, position| position.apply_matrix_into(ctx.transforms[idx]),
+      |idx, normal| normal.apply_matrix_into(ctx.transforms[idx].to_normal_matrix().into()),
+    )
+    .unwrap();
+
+    // wrap results
+    meshes
+      .into_iter()
+      .map(|m| AttributeMergeTransaction {
+        mesh_data: m,
+        first_source_model: ctx.models[0],
+        back_face,
+      })
+      .collect()
+  }
+
+  fn commit(&self, trans: Self::Transaction, proxy: &mut ModelMergeProxy, target_scene: &Scene) {
+    trans.into_iter().for_each(|tran| {
+      let model = storage_of::<StandardModel>()
+        .clone_at_idx(tran.first_source_model)
+        .unwrap();
+      let first_material = model.read().material.clone();
+      let mesh = tran.mesh_data.build();
+      let mesh = MeshEnum::AttributesMesh(mesh.into_ptr());
+      let model = StandardModel::new(first_material, mesh).into_ptr();
+      let model = ModelEnum::Standard(model);
+      let node = target_scene.create_root_child();
+      if tran.back_face {
+        node.set_local_matrix(Mat4::scale((-1.0, 1.0, 1.0)));
+      }
+      let model = SceneModelImpl::new(model, node).into_ptr();
+      let model = target_scene.insert_model(model);
+      proxy.merged_model.push(model)
+    });
+  }
+}

@@ -113,8 +113,12 @@ impl SceneModelMergeOptimization {
 
 impl SceneModelMergeOptimization {
   pub fn poll_update_merge(&mut self, cx: &mut Context) {
-    let changed_key = FastDashSet::default();
+    let updates = self.poll_prepare_merge(cx);
+    self.commit_all_updates(updates);
+  }
 
+  pub(crate) fn poll_prepare_merge(&mut self, cx: &mut Context) -> Vec<(MergeKey, MergeUpdating)> {
+    let changed_key = FastDashSet::default();
     if let Poll::Ready(Some(changes)) = self.merge_relation.poll_changes_dyn(cx) {
       changes.into_par_iter().for_each(|change| match change {
         CollectionDelta::Delta(source_idx, new_key, old_key) => {
@@ -160,21 +164,21 @@ impl SceneModelMergeOptimization {
     }
 
     let accessor = self.merge_relation.access_multi_boxed();
-    changed_key.into_par_iter().for_each(|key| {
-      let mut merged = self.merged_model.get_mut(&key).unwrap();
-      let should_remove = merged.do_updates(
-        &self.target_scene,
-        &key,
-        &self.merge_methods,
-        &|f| {
-          accessor(&key, f);
-        },
-        &self.applied_matrix_table,
-      );
-      if should_remove {
-        self.merged_model.remove(&key);
-      }
-    })
+    changed_key
+      .into_par_iter()
+      .map(|key| {
+        let mut merged = self.merged_model.get_mut(&key).unwrap();
+        let update = merged.do_updates(
+          &key,
+          &self.merge_methods,
+          &|f| {
+            accessor(&key, f);
+          },
+          &self.applied_matrix_table,
+        );
+        (key, update)
+      })
+      .collect()
   }
 }
 

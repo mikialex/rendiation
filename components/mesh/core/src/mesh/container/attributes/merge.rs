@@ -15,7 +15,7 @@ pub fn merge_attributes_meshes(
   inputs: &[&AttributesMesh],
   position_mapper: impl Fn(usize, &Vec3<f32>) -> Vec3<f32> + Copy,
   normal_mapper: impl Fn(usize, &Vec3<f32>) -> Vec3<f32> + Copy,
-) -> Result<Vec<AttributesMesh>, MergeError> {
+) -> Result<Vec<AttributeMeshData>, MergeError> {
   // check if inputs could merge together
   if !could_merge_together(inputs) {
     return Err(MergeError::CannotMergeDifferentTypes);
@@ -123,9 +123,8 @@ pub fn could_merge_together(inputs: &[&AttributesMesh]) -> bool {
 pub fn merge_attribute_accessor<T: bytemuck::Pod>(
   inputs: &[&AttributeAccessor],
   mut mapper: impl FnMut(usize, &T) -> T,
-) -> Option<AttributeAccessor> {
+) -> Option<Vec<u8>> {
   // todo stride support
-  let first = inputs[0];
   let count = inputs.iter().map(|v| v.count).sum();
 
   let mut merged = Vec::with_capacity(count);
@@ -134,15 +133,14 @@ pub fn merge_attribute_accessor<T: bytemuck::Pod>(
       merged.push(mapper(idx, v));
     })
   }
-
-  AttributeAccessor::create_owned(merged, first.item_byte_size).into()
+  bytemuck::cast_slice(&merged).to_owned().into()
 }
 
 fn merge_assume_all_suitable_and_fit(
   inputs: &[&AttributesMesh],
   position_mapper: impl Fn(usize, &Vec3<f32>) -> Vec3<f32> + Copy,
   normal_mapper: impl Fn(usize, &Vec3<f32>) -> Vec3<f32> + Copy,
-) -> Result<AttributesMesh, MergeError> {
+) -> Result<AttributeMeshData, MergeError> {
   let first = inputs[0];
 
   let merged_attributes = first
@@ -165,7 +163,7 @@ fn merge_assume_all_suitable_and_fit(
       .ok_or(MergeError::AttributeDataAccessFailed)?;
       Ok((key.clone(), att))
     })
-    .try_collect::<SmallVec<_>>()?;
+    .try_collect::<Vec<_>>()?;
 
   let vertex_counts = inputs.iter().map(|att| att.get_position().count);
   let vertex_prefix_offset: Vec<_> = prefix_scan::<UsizeSum>(vertex_counts.clone())
@@ -210,7 +208,7 @@ fn merge_assume_all_suitable_and_fit(
     groups: new_groups.collect(),
   };
 
-  Ok(AttributesMesh {
+  Ok(AttributeMeshData {
     attributes: merged_attributes,
     indices: merged_indices,
     mode: first.mode,

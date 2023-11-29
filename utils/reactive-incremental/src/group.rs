@@ -156,6 +156,18 @@ impl<T: IncrementalBase> Clone for IncrementalSignalStorage<T> {
 }
 
 impl<T: IncrementalBase> IncrementalSignalStorage<T> {
+  pub fn clone_at_idx(&self, idx: AllocIdx<T>) -> Option<IncrementalSignalPtr<T>> {
+    let mut i = self.inner.data.write();
+    i.try_get_mut(idx.index).map(|item| {
+      item.ref_count += 1;
+      IncrementalSignalPtr {
+        inner: Arc::downgrade(&self.inner),
+        index: idx.index,
+        guid: item.guid,
+      }
+    })
+  }
+
   pub fn alloc(&self, data: T) -> IncrementalSignalPtr<T> {
     let mut storage = self.inner.data.write();
     let guid = alloc_global_res_id();

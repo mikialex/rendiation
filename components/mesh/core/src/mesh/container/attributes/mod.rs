@@ -293,6 +293,15 @@ pub enum AttributeIndexFormat {
   Uint32 = 1,
 }
 
+impl AttributeIndexFormat {
+  pub fn byte_size(&self) -> usize {
+    match self {
+      AttributeIndexFormat::Uint16 => 2,
+      AttributeIndexFormat::Uint32 => 4,
+    }
+  }
+}
+
 clone_self_incremental!(AttributesMesh);
 
 pub const MOST_COMMON_ATTRIBUTE_COUNT: usize = 3;
