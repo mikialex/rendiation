@@ -7,7 +7,7 @@ pub type SceneModelWorldBoundingGetter<'a> =
 
 pub fn attribute_boxes() -> impl ReactiveCollection<AllocIdx<AttributesMesh>, Box3<f32>> {
   storage_of::<AttributesMesh>()
-    .listen_to_reactive_collection(|_| Some(()))
+    .listen_to_reactive_collection(|_| ChangeReaction::Care(Some(())))
     .collective_execute_map_by(|| {
       let box_compute = storage_of::<AttributesMesh>().create_key_mapper(|mesh| {
         mesh

@@ -229,15 +229,14 @@ pub fn build_merge_relation(
   let std_sm_relation = scene_model_ref_std_model_many_one_relation();
   let sm_node_relation = scene_model_ref_node_many_one_relation();
 
-  let referenced_sm = storage_of::<SceneModelImpl>()
-    .listen_to_reactive_collection(move |change| match change {
+  let referenced_sm =
+    storage_of::<SceneModelImpl>().listen_to_reactive_collection(move |change| match change {
       incremental::MaybeDeltaRef::Delta(delta) => match delta {
-        SceneModelImplDelta::node(node) => Some(node_checker(node)),
-        _ => None,
+        SceneModelImplDelta::node(node) => ChangeReaction::Care(node_checker(node)),
+        _ => ChangeReaction::NotCare,
       },
-      incremental::MaybeDeltaRef::All(sm) => Some(node_checker(&sm.node)),
-    })
-    .collective_filter_map(|v| v);
+      incremental::MaybeDeltaRef::All(sm) => ChangeReaction::Care(node_checker(&sm.node)),
+    });
 
   let referenced_sm = referenced_sm.into_forker();
 
@@ -305,7 +304,7 @@ fn material_hash_impl<M: DowncastFromMaterialEnum + Hash>(
   let referenced_mat = std_scope.clone().many_to_one_reduce_key(relations.clone());
 
   let material_hash = storage_of::<M>()
-    .listen_to_reactive_collection(|_| Some(()))
+    .listen_to_reactive_collection(|_| ChangeReaction::Care(Some(())))
     .filter_by_keyset(referenced_mat)
     .collective_execute_map_by(|| {
       let rehash = storage_of::<M>().create_key_mapper(|mat| {
@@ -328,7 +327,7 @@ fn std_mesh_key(
     .many_to_one_reduce_key(std_model_ref_att_mesh_many_one_relation());
 
   let attribute_key = storage_of::<AttributesMesh>()
-    .listen_to_reactive_collection(|_| Some(()))
+    .listen_to_reactive_collection(|_| ChangeReaction::Care(Some(())))
     .filter_by_keyset(referenced_attribute_mesh)
     .collective_execute_map_by(|| {
       let layout_key = storage_of::<AttributesMesh>().create_key_mapper(|mesh| {

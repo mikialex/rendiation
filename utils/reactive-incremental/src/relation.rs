@@ -611,9 +611,11 @@ where
         // setup new relations
         if let Some(new_one) = &new_one {
           let alloc_index = new_one.alloc_index() as usize;
-          mapping
-            .mapping
-            .resize(alloc_index + 1, ListHandle::default());
+          if alloc_index >= mapping.mapping.len() {
+            mapping
+              .mapping
+              .resize(alloc_index + 1, ListHandle::default());
+          }
 
           mapping.mapping_buffer.insert(
             &mut mapping.mapping[new_one.alloc_index() as usize],

@@ -75,15 +75,14 @@ impl SceneCameraRebuilder {
   ) -> Self {
     let node_checker = create_scene_node_checker(source_scene_id);
 
-    let referenced_camera = storage_of::<SceneCameraImpl>()
-      .listen_to_reactive_collection(move |change| match change {
+    let referenced_camera =
+      storage_of::<SceneCameraImpl>().listen_to_reactive_collection(move |change| match change {
         incremental::MaybeDeltaRef::Delta(delta) => match delta {
-          SceneCameraImplDelta::node(node) => Some(node_checker(node)),
-          _ => None,
+          SceneCameraImplDelta::node(node) => ChangeReaction::Care(node_checker(node)),
+          _ => ChangeReaction::NotCare,
         },
-        incremental::MaybeDeltaRef::All(sm) => Some(node_checker(&sm.node)),
-      })
-      .collective_filter_map(|v| v);
+        incremental::MaybeDeltaRef::All(sm) => ChangeReaction::Care(node_checker(&sm.node)),
+      });
 
     let referenced_camera = referenced_camera.into_forker();
 
@@ -168,15 +167,14 @@ impl SceneLightsRebuilder {
   ) -> Self {
     let node_checker = create_scene_node_checker(source_scene_id);
 
-    let referenced_lights = storage_of::<SceneLightImpl>()
-      .listen_to_reactive_collection(move |change| match change {
+    let referenced_lights =
+      storage_of::<SceneLightImpl>().listen_to_reactive_collection(move |change| match change {
         incremental::MaybeDeltaRef::Delta(delta) => match delta {
-          SceneLightImplDelta::node(node) => Some(node_checker(node)),
-          _ => None,
+          SceneLightImplDelta::node(node) => ChangeReaction::Care(node_checker(node)),
+          _ => ChangeReaction::NotCare,
         },
-        incremental::MaybeDeltaRef::All(sm) => Some(node_checker(&sm.node)),
-      })
-      .collective_filter_map(|v| v);
+        incremental::MaybeDeltaRef::All(sm) => ChangeReaction::Care(node_checker(&sm.node)),
+      });
 
     let referenced_lights = referenced_lights.into_forker();
 

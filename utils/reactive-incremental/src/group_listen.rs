@@ -6,11 +6,45 @@ use parking_lot::RwLock;
 
 use crate::*;
 
+pub enum ChangeReaction<T> {
+  Care(Option<T>),
+  NotCare,
+}
+
+impl<T> ChangeReaction<T> {
+  pub fn cared_then<T2>(self, f: impl FnOnce(T) -> Option<T2>) -> ChangeReaction<T2> {
+    match self {
+      ChangeReaction::Care(Some(v)) => ChangeReaction::Care(f(v)),
+      ChangeReaction::Care(None) => ChangeReaction::Care(None),
+      ChangeReaction::NotCare => ChangeReaction::NotCare,
+    }
+  }
+  pub fn cared_map<T2>(self, f: impl FnOnce(T) -> T2) -> ChangeReaction<T2> {
+    match self {
+      ChangeReaction::Care(Some(v)) => ChangeReaction::Care(Some(f(v))),
+      ChangeReaction::Care(None) => ChangeReaction::Care(None),
+      ChangeReaction::NotCare => ChangeReaction::NotCare,
+    }
+  }
+  pub fn expect_care(self) -> Option<T> {
+    match self {
+      ChangeReaction::Care(v) => v,
+      _ => unreachable!("expect cared result"),
+    }
+  }
+  pub fn flatten(self) -> Option<T> {
+    match self {
+      ChangeReaction::Care(Some(v)) => Some(v),
+      _ => None,
+    }
+  }
+}
+
 impl<T: IncrementalBase> IncrementalSignalStorage<T> {
-  // in mapper, if receive full, should not return none!
+  // in mapper, if receive full, should not return not care!
   pub fn listen_to_reactive_collection<U>(
     &self,
-    mapper: impl Fn(MaybeDeltaRef<T>) -> Option<U> + Copy + Send + Sync + 'static,
+    mapper: impl Fn(MaybeDeltaRef<T>) -> ChangeReaction<U> + Copy + Send + Sync + 'static,
   ) -> impl ReactiveCollection<AllocIdx<T>, U>
   where
     U: Clone + Send + Sync + 'static,
@@ -27,10 +61,10 @@ impl<T: IncrementalBase> IncrementalSignalStorage<T> {
       let data = self.inner.data.write();
 
       for (index, data) in data.iter() {
-        if let Some(mapped) = mapper(MaybeDeltaRef::All(&data.data)) {
+        if let Some(init) = mapper(MaybeDeltaRef::All(&data.data)).expect_care() {
           let change = KeyedMutationState {
             key: index.into(),
-            change: MutationState::NewInsert(mapped),
+            change: MutationState::NewInsert(init),
           };
           sender.send(change);
         }
@@ -43,7 +77,7 @@ impl<T: IncrementalBase> IncrementalSignalStorage<T> {
     let remove_token = s.on(move |v| {
       match v {
         StorageGroupChange::Create { index, data } => {
-          if let Some(mapped) = mapper(MaybeDeltaRef::All(data)) {
+          if let Some(mapped) = mapper(MaybeDeltaRef::All(data)).expect_care() {
             let change = KeyedMutationState {
               key: *index,
               change: MutationState::NewInsert(mapped),
@@ -56,27 +90,26 @@ impl<T: IncrementalBase> IncrementalSignalStorage<T> {
           delta,
           data_before_mutate,
         } => {
-          let mapped_before = mapper(MaybeDeltaRef::All(data_before_mutate));
-          if let Some(mapped) = mapper(MaybeDeltaRef::Delta(delta)) {
-            let change = if let Some(mapped_before) = mapped_before {
-              MutationState::ChangeTo(mapped, mapped_before)
-            } else {
-              MutationState::NewInsert(mapped)
+          if let ChangeReaction::Care(mapped) = mapper(MaybeDeltaRef::Delta(delta)) {
+            let mapped_before = mapper(MaybeDeltaRef::All(data_before_mutate)).expect_care();
+
+            let change = match (mapped, mapped_before) {
+              (None, None) => None,
+              (None, Some(pre)) => MutationState::Remove(pre).into(),
+              (Some(new), None) => MutationState::NewInsert(new).into(),
+              (Some(new), Some(pre)) => MutationState::ChangeTo(new, pre).into(),
             };
-            sender.send(KeyedMutationState {
-              key: *index,
-              change,
-            });
-          } else if let Some(mapped_before) = mapped_before {
-            let change = KeyedMutationState {
-              key: *index,
-              change: MutationState::Remove(mapped_before),
-            };
-            sender.send(change);
+
+            if let Some(change) = change {
+              sender.send(KeyedMutationState {
+                key: *index,
+                change,
+              });
+            }
           }
         }
         StorageGroupChange::Drop { index, data } => {
-          if let Some(mapped) = mapper(MaybeDeltaRef::All(data)) {
+          if let Some(mapped) = mapper(MaybeDeltaRef::All(data)).expect_care() {
             let change = KeyedMutationState {
               key: *index,
               change: MutationState::Remove(mapped),
@@ -242,7 +275,7 @@ struct ReactiveCollectionFromGroupMutation<T: IncrementalBase, S, U> {
   original: IncrementalSignalStorage<T>,
   inner: S,
   mutations: Arc<(RwLock<MutationFolder<T, U>>, AtomicWaker)>,
-  mapper: Box<dyn Fn(MaybeDeltaRef<T>) -> Option<U> + Send + Sync>,
+  mapper: Box<dyn Fn(MaybeDeltaRef<T>) -> ChangeReaction<U> + Send + Sync>,
 }
 
 impl<T: IncrementalBase, S: Sync, U: Sync + Send + Clone> VirtualCollection<AllocIdx<T>, U>
@@ -256,7 +289,9 @@ impl<T: IncrementalBase, S: Sync, U: Sync + Send + Clone> VirtualCollection<Allo
       .iter()
       .map(|(k, v)| (AllocIdx::from(k), &v.data))
       .filter_map(|(k, v)| {
-        (self.mapper)(MaybeDeltaRef::All(unsafe { std::mem::transmute(v) })).map(|_| k)
+        (self.mapper)(MaybeDeltaRef::All(unsafe { std::mem::transmute(v) }))
+          .flatten()
+          .map(|_| k)
       })
       .filter(|v| !mutations.inner.contains_key(v))
       .chain(mutations.inner.keys().cloned()) // mutations contains removed but not polled key
@@ -275,10 +310,9 @@ impl<T: IncrementalBase, S: Sync, U: Sync + Send + Clone> VirtualCollection<Allo
           MutationState::Remove(old) => old.clone().into(),
         }
       } else {
-        data
-          .try_get(key.index)
-          .map(|v| &v.data)
-          .and_then(|v| (self.mapper)(MaybeDeltaRef::All(unsafe { std::mem::transmute(v) })))
+        data.try_get(key.index).map(|v| &v.data).and_then(|v| {
+          (self.mapper)(MaybeDeltaRef::All(unsafe { std::mem::transmute(v) })).flatten()
+        })
       }
     }
   }
