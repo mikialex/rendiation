@@ -57,6 +57,10 @@ where
 #[derive(Default, Clone)]
 pub struct CollectionRegistry {
   registry: Arc<RwLock<FastHashMap<TypeId, Box<dyn ShrinkableReactiveSource>>>>,
+  // note, we can not merge these maps because their key is overlapping but the value is not
+  // actually same
+  index_relation: Arc<RwLock<FastHashMap<TypeId, Box<dyn ShrinkableReactiveSource>>>>,
+  hash_relation: Arc<RwLock<FastHashMap<TypeId, Box<dyn ShrinkableReactiveSource>>>>,
 }
 
 static ACTIVE_REGISTRY: parking_lot::RwLock<Option<CollectionRegistry>> =
@@ -71,6 +75,14 @@ pub fn global_collection_registry() -> CollectionRegistry {
 impl CollectionRegistry {
   pub fn shrink_to_fit_all(&self) {
     let mut registry = self.registry.write();
+    for v in registry.values_mut() {
+      v.shrink_to_fit();
+    }
+    let mut registry = self.hash_relation.write();
+    for v in registry.values_mut() {
+      v.shrink_to_fit();
+    }
+    let mut registry = self.index_relation.write();
     for v in registry.values_mut() {
       v.shrink_to_fit();
     }
@@ -138,7 +150,7 @@ impl CollectionRegistry {
   {
     // note, we not using entry api because this call maybe be recursive and cause dead lock
     let typeid = inserter.type_id();
-    let relations = self.registry.read_recursive();
+    let relations = self.index_relation.read_recursive();
     if let Some(collection) = relations.get(&typeid) {
       let collection = collection
         .as_ref()
@@ -152,7 +164,7 @@ impl CollectionRegistry {
       let relation = upstream.into_one_to_many_by_idx_expose_type();
 
       let boxed = Box::new(relation) as Box<dyn ShrinkableReactiveSource>;
-      let mut relations = self.registry.write();
+      let mut relations = self.index_relation.write();
       relations.insert(typeid, boxed);
 
       let relation = relations.get(&typeid).unwrap();
@@ -176,7 +188,7 @@ impl CollectionRegistry {
   {
     // note, we not using entry api because this call maybe be recursive and cause dead lock
     let typeid = inserter.type_id();
-    let relations = self.registry.read_recursive();
+    let relations = self.hash_relation.read_recursive();
     if let Some(collection) = relations.get(&typeid) {
       let collection = collection
         .as_ref()
@@ -190,7 +202,7 @@ impl CollectionRegistry {
       let relation = upstream.into_one_to_many_by_hash_expose_type();
 
       let boxed = Box::new(relation) as Box<dyn ShrinkableReactiveSource>;
-      let mut relations = self.registry.write();
+      let mut relations = self.hash_relation.write();
       relations.insert(typeid, boxed);
 
       let relation = relations.get(&typeid).unwrap();

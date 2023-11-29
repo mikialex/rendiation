@@ -162,8 +162,7 @@ pub trait MaybeFastCollect<T: Send>: ParallelIterator<Item = T> + Sized {
 
 impl<X: Send + Sync + Clone, T: ParallelIterator<Item = X>> MaybeFastCollect<X> for T {
   default fn collect_into_pass_vec(self) -> FastPassingVec<X> {
-    let vec = self.collect::<Vec<_>>();
-    FastPassingVec { vec: Arc::new(vec) }
+    FastPassingVec::from_vec(self.collect::<Vec<_>>())
   }
 }
 
@@ -180,6 +179,12 @@ where
 #[derive(Clone)]
 pub struct FastPassingVec<T> {
   vec: Arc<Vec<T>>,
+}
+
+impl<T> FastPassingVec<T> {
+  pub fn from_vec(vec: Vec<T>) -> Self {
+    Self { vec: Arc::new(vec) }
+  }
 }
 
 impl<T: Clone> IntoIterator for FastPassingVec<T> {
@@ -244,9 +249,7 @@ impl<K: 'static, V> VirtualCollection<K, V> for () {
 pub struct EmptyIter<T>(PhantomData<T>);
 impl<T: Send + Sync + Clone> MaybeFastCollect<T> for EmptyIter<T> {
   fn collect_into_pass_vec(self) -> FastPassingVec<T> {
-    FastPassingVec {
-      vec: Default::default(),
-    }
+    FastPassingVec::from_vec(Default::default())
   }
 }
 unsafe impl<T> Send for EmptyIter<T> {}
@@ -603,11 +606,25 @@ impl<Map: ReactiveCollection<K, V>, K: Send, V: Send> Drop for ReactiveKVMapFork
 }
 impl<Map: ReactiveCollection<K, V>, K: Send, V: Send> Clone for ReactiveKVMapFork<Map, K, V> {
   fn clone(&self) -> Self {
+    // when fork the collection, we should pass the current table as the init change
+    let upstream = self.upstream.read_recursive();
+    let keys = upstream.iter_key();
+    let access = upstream.access();
+    // todo, currently we not enforce that the access should be match the iter_key result so
+    // required to handle None case
+    let deltas = keys
+      .filter_map(|key| access(&key).map(|v| (key, v)))
+      .map(|(k, v)| CollectionDelta::Delta(k, v, None))
+      .collect::<Vec<_>>();
+    let deltas = FastPassingVec::from_vec(deltas);
+
     let mut downstream = self.downstream.write();
     let id = alloc_global_res_id();
     // we don't expect clone in real runtime so we don't care about wake
     let (sender, rev) = futures::channel::mpsc::unbounded();
+    sender.unbounded_send(deltas).ok();
     downstream.insert(id, sender);
+
     Self {
       upstream: self.upstream.clone(),
       downstream: self.downstream.clone(),
@@ -1007,10 +1024,10 @@ where
 {
   fn iter_key(&self) -> impl Iterator<Item = K> + '_ {
     let inner_getter = self.inner.access();
-    self.inner.iter_key().filter(move |k| {
-      let v = inner_getter(k).unwrap();
-      (self.checker)(v).is_some()
-    })
+    self
+      .inner
+      .iter_key()
+      .filter(move |k| inner_getter(k).and_then(|v| (self.checker)(v)).is_some())
   }
   fn access(&self) -> impl Fn(&K) -> Option<V2> + Sync + '_ {
     let inner_getter = self.inner.access();

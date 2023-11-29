@@ -49,16 +49,11 @@ impl ModelMergeProxy {
       target_scene.remove_model(m);
     }
 
-    let scene_models = storage_of::<SceneModel>();
+    let scene_models = storage_of::<SceneModelImpl>();
     let scene_models_data = scene_models.inner.data.read_recursive();
     let mut source = Vec::new();
     reverse_access(&mut |source_idx| {
-      let m = scene_models_data
-        .get(source_idx.index)
-        .data
-        .read()
-        .model
-        .clone();
+      let m = scene_models_data.get(source_idx.index).data.model.clone();
       source.push((m, source_idx));
     });
     drop(scene_models_data);

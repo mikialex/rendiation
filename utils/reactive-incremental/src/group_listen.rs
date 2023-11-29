@@ -254,7 +254,10 @@ impl<T: IncrementalBase, S: Sync, U: Sync + Send + Clone> VirtualCollection<Allo
     // todo, use unsafe to avoid clone
     let cloned_keys = data
       .iter()
-      .map(|v| v.0.into())
+      .map(|(k, v)| (AllocIdx::from(k), &v.data))
+      .filter_map(|(k, v)| {
+        (self.mapper)(MaybeDeltaRef::All(unsafe { std::mem::transmute(v) })).map(|_| k)
+      })
       .filter(|v| !mutations.inner.contains_key(v))
       .chain(mutations.inner.keys().cloned()) // mutations contains removed but not polled key
       .collect::<Vec<_>>();

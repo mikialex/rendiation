@@ -439,34 +439,40 @@ where
 
   fn poll_changes(&mut self, cx: &mut Context<'_>) -> Poll<Option<Self::Changes>> {
     let r = self.upstream.poll_changes(cx);
-    self.current_generation += 1;
+    // check generation
+    {
+      let mapping = self.mapping.read();
+      if mapping.1 > self.current_generation {
+        self.current_generation = mapping.1;
+        return r;
+      }
+    }
 
     if let Poll::Ready(Some(changes)) = r.clone() {
       let mut mapping = self.mapping.write();
+
+      // forward step generation
+      mapping.1 += 1;
+      self.current_generation += 1;
+
       for change in changes.collect_into_pass_vec() {
-        if mapping.1 < self.current_generation {
-          mapping.1 = self.current_generation;
+        let many = change.key().clone();
+        let new_one = change.new_value();
 
-          let many = change.key().clone();
-          let new_one = change.new_value();
-
-          let old_refed_one = change.old_value();
-          // remove possible old relations
-          if let Some(old_refed_one) = old_refed_one {
-            let previous_one_refed_many = mapping.0.get_mut(old_refed_one).unwrap();
-            previous_one_refed_many.remove(&many);
-            if previous_one_refed_many.is_empty() {
-              mapping.0.remove(old_refed_one);
-            }
+        let old_refed_one = change.old_value();
+        // remove possible old relations
+        if let Some(old_refed_one) = old_refed_one {
+          let previous_one_refed_many = mapping.0.get_mut(old_refed_one).unwrap();
+          previous_one_refed_many.remove(&many);
+          if previous_one_refed_many.is_empty() {
+            mapping.0.remove(old_refed_one);
           }
+        }
 
-          // setup new relations
-          if let Some(new_one) = new_one {
-            let new_one_refed_many = mapping.0.entry(new_one.clone()).or_default();
-            new_one_refed_many.insert(many.clone());
-          }
-        } else {
-          self.current_generation = mapping.1;
+        // setup new relations
+        if let Some(new_one) = new_one {
+          let new_one_refed_many = mapping.0.entry(new_one.clone()).or_default();
+          new_one_refed_many.insert(many.clone());
         }
       }
     }
@@ -564,48 +570,55 @@ where
 
   fn poll_changes(&mut self, cx: &mut Context<'_>) -> Poll<Option<Self::Changes>> {
     let r = self.upstream.poll_changes(cx);
-    self.current_generation += 1;
+    // check generation
+    {
+      let mapping = self.mapping.read();
+      if mapping.generation > self.current_generation {
+        self.current_generation = mapping.generation;
+        return r;
+      }
+    }
 
     if let Poll::Ready(Some(changes)) = r.clone() {
       let mut mapping = self.mapping.write();
+
+      // forward step generation
+      mapping.generation += 1;
+      self.current_generation += 1;
+
       for change in changes.collect_into_pass_vec() {
-        if mapping.generation < self.current_generation {
-          mapping.generation = self.current_generation;
-          let mapping: &mut Mapping = &mut mapping;
-          let many = *change.key();
-          let new_one = change.new_value();
+        let mapping: &mut Mapping = &mut mapping;
+        let many = *change.key();
+        let new_one = change.new_value();
 
-          let old_refed_one = change.old_value();
-          // remove possible old relations
-          if let Some(old_refed_one) = old_refed_one {
-            let previous_one_refed_many = mapping
-              .mapping
-              .get_mut(old_refed_one.alloc_index() as usize)
-              .unwrap();
+        let old_refed_one = change.old_value();
+        // remove possible old relations
+        if let Some(old_refed_one) = old_refed_one {
+          let previous_one_refed_many = mapping
+            .mapping
+            .get_mut(old_refed_one.alloc_index() as usize)
+            .unwrap();
 
-            //  this is O(n), should we care about it?
-            mapping
-              .mapping_buffer
-              .visit_and_remove(previous_one_refed_many, |value, _| {
-                let should_remove = *value == many.alloc_index();
-                (should_remove, !should_remove)
-              });
-          }
+          //  this is O(n), should we care about it?
+          mapping
+            .mapping_buffer
+            .visit_and_remove(previous_one_refed_many, |value, _| {
+              let should_remove = *value == many.alloc_index();
+              (should_remove, !should_remove)
+            });
+        }
 
-          // setup new relations
-          if let Some(new_one) = &new_one {
-            let alloc_index = new_one.alloc_index() as usize;
-            mapping
-              .mapping
-              .resize(alloc_index + 1, ListHandle::default());
+        // setup new relations
+        if let Some(new_one) = &new_one {
+          let alloc_index = new_one.alloc_index() as usize;
+          mapping
+            .mapping
+            .resize(alloc_index + 1, ListHandle::default());
 
-            mapping.mapping_buffer.insert(
-              &mut mapping.mapping[new_one.alloc_index() as usize],
-              many.alloc_index(),
-            );
-          }
-        } else {
-          self.current_generation = mapping.generation;
+          mapping.mapping_buffer.insert(
+            &mut mapping.mapping[new_one.alloc_index() as usize],
+            many.alloc_index(),
+          );
         }
       }
     }
