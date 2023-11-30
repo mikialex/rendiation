@@ -1,60 +1,12 @@
 use std::{
-  any::{Any, TypeId},
   marker::PhantomData,
   sync::{Arc, Weak},
 };
 
-use fast_hash_collection::FastHashMap;
 use parking_lot::RwLockReadGuard;
 use storage::*;
 
 use crate::*;
-
-/// https://en.wikipedia.org/wiki/Plane_(Dungeons_%26_Dragons)
-#[derive(Default)]
-pub struct PLANE {
-  storages: FastHashMap<TypeId, Box<dyn Any + Send + Sync>>,
-}
-
-static ACTIVE_PLANE: parking_lot::RwLock<Option<PLANE>> = parking_lot::RwLock::new(None);
-pub fn setup_active_plane(sg: PLANE) -> Option<PLANE> {
-  ACTIVE_PLANE.write().replace(sg)
-}
-
-pub fn access_storage_of<T: IncrementalBase, R>(
-  acc: impl FnOnce(&IncrementalSignalStorage<T>) -> R,
-) -> R {
-  let id = TypeId::of::<T>();
-
-  // not add write lock first if the storage exists
-  let try_read_storages = ACTIVE_PLANE.read();
-  let storages = try_read_storages
-    .as_ref()
-    .expect("global storage group not specified");
-  if let Some(storage) = storages.storages.get(&id) {
-    let storage = storage
-      .downcast_ref::<IncrementalSignalStorage<T>>()
-      .unwrap();
-    acc(storage)
-  } else {
-    drop(try_read_storages);
-    let mut storages = ACTIVE_PLANE.write();
-    let storages = storages
-      .as_mut()
-      .expect("global storage group not specified");
-    let storage = storages
-      .storages
-      .entry(id)
-      .or_insert_with(|| Box::<IncrementalSignalStorage<T>>::default());
-    let storage = storage
-      .downcast_ref::<IncrementalSignalStorage<T>>()
-      .unwrap();
-    acc(storage)
-  }
-}
-pub fn storage_of<T: IncrementalBase>() -> IncrementalSignalStorage<T> {
-  access_storage_of(|s| s.clone())
-}
 
 pub struct SignalItem<T> {
   pub data: T,
@@ -126,7 +78,7 @@ pub enum StorageGroupChange<'a, T: IncrementalBase> {
 
 pub struct IncrementalSignalGroupImpl<T: IncrementalBase> {
   pub data: parking_lot::RwLock<IndexReusedVec<SignalItem<T>>>,
-  sub_watchers: parking_lot::RwLock<LinkListPool<EventListener<T::Delta>>>,
+  pub(crate) sub_watchers: parking_lot::RwLock<LinkListPool<EventListener<T::Delta>>>,
   // note, it's fake static, as long as we expose the unique lifetime to user, it's safe to user
   // side.
   pub(crate) group_watchers: EventSource<StorageGroupChange<'static, T>>,
