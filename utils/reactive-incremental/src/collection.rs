@@ -167,9 +167,68 @@ pub trait ReactiveCollection<K: Send, V: Send>:
   VirtualCollection<K, V> + Sync + Send + 'static
 {
   type Changes: CollectionChanges<K, V>;
-  fn poll_changes(&mut self, cx: &mut Context<'_>) -> Poll<Option<Self::Changes>>;
+  fn poll_changes(&mut self, cx: &mut Context) -> Poll<Option<Self::Changes>>;
 
   fn extra_request(&mut self, request: &mut ExtraCollectionOperation);
+
+  fn poll_changes_and_merge_until_pending(
+    &mut self,
+    cx: &mut Context,
+  ) -> Poll<Option<FastPassingVec<CollectionDelta<K, V>>>>
+  where
+    K: Eq + std::hash::Hash + Clone,
+    V: Clone,
+  {
+    // we special check the first case to avoid merge cost if only has one yield
+    let first = self
+      .poll_changes(cx)
+      .map(|v| v.map(|v| v.collect_into_pass_vec()));
+
+    if let Poll::Ready(Some(r)) = self.poll_changes(cx) {
+      let r = r.collect_into_pass_vec();
+      let mut hash = FastHashMap::default();
+
+      if let Poll::Ready(Some(v)) = first {
+        deduplicate_collection_changes(&mut hash, v.vec.as_slice().iter().cloned());
+      }
+      deduplicate_collection_changes(&mut hash, r.vec.as_slice().iter().cloned());
+
+      while let Poll::Ready(Some(v)) = self.poll_changes(cx) {
+        let v = v.collect_into_pass_vec();
+        deduplicate_collection_changes(&mut hash, v.vec.as_slice().iter().cloned());
+      }
+
+      let vec: Vec<_> = hash.into_values().collect();
+      if vec.is_empty() {
+        Poll::Pending
+      } else {
+        Poll::Ready(Some(FastPassingVec::from_vec(vec)))
+      }
+    } else {
+      first
+    }
+  }
+}
+
+pub fn deduplicate_collection_changes<K, V>(
+  deduplicate: &mut FastHashMap<K, CollectionDelta<K, V>>,
+  deltas: impl Iterator<Item = CollectionDelta<K, V>>,
+) where
+  K: Eq + std::hash::Hash + Clone,
+  V: Clone,
+{
+  deltas.for_each(|d| {
+    let key = d.key().clone();
+    if let Some(current) = deduplicate.get_mut(&key) {
+      if let Some(merged) = current.clone().merge(d) {
+        *current = merged;
+      } else {
+        deduplicate.remove(&key);
+      }
+    } else {
+      deduplicate.insert(key, d);
+    }
+  })
 }
 
 /// impl note: why not using IntoParallelIterator?

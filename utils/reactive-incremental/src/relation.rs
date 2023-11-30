@@ -57,7 +57,7 @@ pub trait ReactiveCollectionRelationExt<K: Send, V: Send>:
   fn into_one_to_many_by_idx(self) -> impl ReactiveOneToManyRelationship<V, K>
   where
     Self::Changes: Clone,
-    K: LinearIdentification + Clone + Sync + 'static,
+    K: LinearIdentification + Eq + std::hash::Hash + Clone + Sync + 'static,
     V: LinearIdentification + Clone + Sync + 'static,
   {
     OneToManyRefDenseBookKeeping {
@@ -435,10 +435,10 @@ where
   M: Hash + Eq + Clone + Send + Sync + 'static,
   O: Hash + Eq + Clone + Send + Sync + 'static,
 {
-  type Changes = T::Changes;
+  type Changes = FastPassingVec<CollectionDelta<M, O>>;
 
   fn poll_changes(&mut self, cx: &mut Context<'_>) -> Poll<Option<Self::Changes>> {
-    let r = self.upstream.poll_changes(cx);
+    let r = self.upstream.poll_changes_and_merge_until_pending(cx);
     // check generation
     {
       let mapping = self.mapping.read();
@@ -563,13 +563,13 @@ impl<O, M, T> ReactiveCollection<M, O> for OneToManyRefDenseBookKeeping<O, M, T>
 where
   T: ReactiveCollection<M, O>,
   T::Changes: Clone,
-  M: LinearIdentification + Clone + Send + Sync + 'static,
+  M: LinearIdentification + Eq + std::hash::Hash + Clone + Send + Sync + 'static,
   O: LinearIdentification + Clone + Send + Sync + 'static,
 {
-  type Changes = T::Changes;
+  type Changes = FastPassingVec<CollectionDelta<M, O>>;
 
   fn poll_changes(&mut self, cx: &mut Context<'_>) -> Poll<Option<Self::Changes>> {
-    let r = self.upstream.poll_changes(cx);
+    let r = self.upstream.poll_changes_and_merge_until_pending(cx);
     // check generation
     {
       let mapping = self.mapping.read();

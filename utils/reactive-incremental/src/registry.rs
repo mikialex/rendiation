@@ -32,7 +32,7 @@ where
 impl<O, M> ShrinkableReactiveSource for OneManyRelationIdxForker<O, M>
 where
   O: Send + Sync + Clone + LinearIdentification + 'static,
-  M: Send + Sync + Clone + LinearIdentification + 'static,
+  M: Send + Sync + Clone + Eq + std::hash::Hash + LinearIdentification + 'static,
 {
   fn as_any(&self) -> &dyn Any {
     self
@@ -145,7 +145,7 @@ impl CollectionRegistry {
   ) -> impl ReactiveOneToManyRelationship<O, M> + Clone
   where
     O: LinearIdentification + Clone + Send + Sync + 'static,
-    M: LinearIdentification + Clone + Send + Sync + 'static,
+    M: LinearIdentification + Eq + std::hash::Hash + Clone + Send + Sync + 'static,
     R: ReactiveCollection<M, O>,
   {
     // note, we not using entry api because this call maybe be recursive and cause dead lock
