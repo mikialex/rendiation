@@ -158,6 +158,8 @@ where
     let changes = self.forked_change.poll_next_unpin(cx);
     let s_id = self.scene_id;
     changes.map(|v| {
+      let mut deduplicate =
+        FastHashMap::<NodeIdentity, CollectionDelta<NodeIdentity, V>>::default();
       v.map(|v| {
         v.into_iter()
           .filter_map(|delta| match delta {
@@ -171,6 +173,20 @@ where
               (self.downcast_delta)(d).map(|mat| CollectionDelta::Remove((s_id, idx), mat))
             }
           })
+          .for_each(|d| {
+            let key = *d.key();
+            if let Some(current) = deduplicate.get_mut(&key) {
+              if let Some(merged) = current.clone().merge(d) {
+                *current = merged;
+              } else {
+                deduplicate.remove(&key);
+              }
+            } else {
+              deduplicate.insert(key, d);
+            }
+          });
+        deduplicate
+          .into_values()
           .collect::<Vec<_>>()
           .into_par_iter()
       })

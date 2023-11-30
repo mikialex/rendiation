@@ -16,6 +16,37 @@ pub enum CollectionDelta<K, V> {
 }
 
 impl<K, V> CollectionDelta<K, V> {
+  pub fn merge(self, later: Self) -> Option<Self>
+  where
+    K: Eq,
+  {
+    use CollectionDelta::*;
+    if self.key() != later.key() {
+      panic!("only same key change could be merge");
+    }
+    match (self, later) {
+      (Delta(k, _d1, p1), Delta(_, d2, _p2)) => {
+        // we should check d1 = d2
+        Delta(k, d2, p1)
+      }
+      (Delta(k, _d1, p1), Remove(_, _p2)) => {
+        // we should check d1 = d2
+        if let Some(p1) = p1 {
+          Remove(k, p1)
+        } else {
+          return None;
+        }
+      }
+      (Remove(k, _), Delta(_, d1, p2)) => {
+        assert!(p2.is_none());
+        Delta(k, d1, None)
+      }
+      (Remove(_, _), Remove(_, _)) => {
+        unreachable!("same key with double remove is invalid")
+      }
+    }
+    .into()
+  }
   pub fn map<R>(self, mapper: impl Fn(&K, V) -> R) -> CollectionDelta<K, R> {
     type Rt<K, R> = CollectionDelta<K, R>;
     match self {
