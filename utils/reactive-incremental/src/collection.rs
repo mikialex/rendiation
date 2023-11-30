@@ -207,7 +207,7 @@ where
 {
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct FastPassingVec<T> {
   vec: Arc<Vec<T>>,
 }
@@ -610,6 +610,17 @@ where
       cache: Default::default(),
     }
   }
+
+  fn debug(self) -> impl ReactiveCollection<K, V>
+  where
+    K: std::fmt::Debug + Clone + Send + Sync + 'static,
+    V: std::fmt::Debug + Clone + Send + Sync + 'static,
+  {
+    ReactiveCollectionDebug {
+      inner: self,
+      phantom: PhantomData,
+    }
+  }
 }
 impl<T, K, V> ReactiveCollectionExt<K, V> for T
 where
@@ -985,6 +996,48 @@ where
   fn access(&self) -> impl Fn(&K) -> Option<V2> + Sync + '_ {
     let inner_getter = self.inner.access();
     move |key| inner_getter(key).map(|v| (self.map)(v))
+  }
+}
+
+pub struct ReactiveCollectionDebug<T, K, V> {
+  inner: T,
+  phantom: PhantomData<(K, V)>,
+}
+
+impl<T, K, V> ReactiveCollection<K, V> for ReactiveCollectionDebug<T, K, V>
+where
+  T: ReactiveCollection<K, V>,
+  K: std::fmt::Debug + Clone + Send + Sync + 'static,
+  V: std::fmt::Debug + Clone + Send + Sync + 'static,
+{
+  type Changes = impl CollectionChanges<K, V>;
+
+  fn poll_changes(&mut self, cx: &mut Context<'_>) -> Poll<Option<Self::Changes>> {
+    let r = self
+      .inner
+      .poll_changes(cx)
+      .map(|v| v.map(|v| v.collect_into_pass_vec()));
+    if let Poll::Ready(Some(v)) = &r {
+      println!("{:#?}", v);
+    }
+    r
+  }
+
+  fn extra_request(&mut self, request: &mut ExtraCollectionOperation) {
+    self.inner.extra_request(request)
+  }
+}
+
+impl<T, K, V> VirtualCollection<K, V> for ReactiveCollectionDebug<T, K, V>
+where
+  T: VirtualCollection<K, V>,
+{
+  fn iter_key(&self) -> impl Iterator<Item = K> + '_ {
+    self.inner.iter_key()
+  }
+
+  fn access(&self) -> impl Fn(&K) -> Option<V> + Sync + '_ {
+    self.inner.access()
   }
 }
 
