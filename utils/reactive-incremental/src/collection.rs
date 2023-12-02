@@ -664,6 +664,18 @@ where
     }
   }
 
+  fn filter_redundant_remove(self) -> impl ReactiveCollection<K, V>
+  where
+    K: std::fmt::Debug + Clone + Send + Sync + Eq + std::hash::Hash + 'static,
+    V: std::fmt::Debug + Clone + Send + Sync + 'static,
+  {
+    ReactiveCollectionMessageFilter {
+      inner: self,
+      state: Default::default(),
+      phantom: PhantomData,
+    }
+  }
+
   fn debug(self) -> impl ReactiveCollection<K, V>
   where
     K: std::fmt::Debug + Clone + Send + Sync + 'static,
@@ -967,6 +979,60 @@ where
   }
 }
 
+pub struct ReactiveCollectionMessageFilter<T, K, V> {
+  inner: T,
+  state: ActivationState<K>,
+  phantom: PhantomData<(K, V)>,
+}
+
+impl<T, K, V> VirtualCollection<K, V> for ReactiveCollectionMessageFilter<T, K, V>
+where
+  T: VirtualCollection<K, V>,
+{
+  fn iter_key(&self) -> impl Iterator<Item = K> + '_ {
+    self.inner.iter_key()
+  }
+
+  fn access(&self) -> impl Fn(&K) -> Option<V> + Sync + '_ {
+    self.inner.access()
+  }
+}
+
+impl<T, K, V> ReactiveCollection<K, V> for ReactiveCollectionMessageFilter<T, K, V>
+where
+  T: ReactiveCollection<K, V>,
+  K: std::fmt::Debug + Clone + Send + Sync + Eq + std::hash::Hash + 'static,
+  V: std::fmt::Debug + Clone + Send + Sync + 'static,
+{
+  type Changes = impl CollectionChanges<K, V>;
+
+  fn poll_changes(&mut self, cx: &mut Context) -> Poll<Option<Self::Changes>> {
+    let changes = self
+      .inner
+      .poll_changes(cx)
+      .map(|v| v.map(|v| v.collect_into_pass_vec()));
+
+    if let Poll::Ready(Some(changes)) = &changes {
+      let mut filtered = Vec::with_capacity(changes.vec.len());
+      for change in changes.vec.as_slice() {
+        if !self.state.update(change) {
+          filtered.push(change.clone())
+        }
+      }
+      return Poll::Ready(Some(FastPassingVec::from_vec(filtered)));
+    }
+
+    changes
+  }
+
+  fn extra_request(&mut self, request: &mut ExtraCollectionOperation) {
+    self.inner.extra_request(request);
+    match request {
+      ExtraCollectionOperation::MemoryShrinkToFit => self.state.inner.shrink_to_fit(),
+    }
+  }
+}
+
 pub struct ReactiveCollectionDebug<T, K, V> {
   inner: T,
   phantom: PhantomData<(K, V)>,
@@ -1017,13 +1083,18 @@ pub struct ReactiveKVFilter<T, F, K, V> {
 
 fn make_checker<K, V, V2>(
   checker: impl Fn(V) -> Option<V2> + Copy + Send + Sync + 'static,
-) -> impl Fn(CollectionDelta<K, V>) -> Option<CollectionDelta<K, V2>> + Copy + Send + Sync + 'static
-{
+) -> impl Fn(CollectionDelta<K, V>) -> CollectionDelta<K, V2> + Copy + Send + Sync + 'static {
   move |delta| {
     match delta {
-      CollectionDelta::Delta(k, v) => checker(v).map(|new_v| CollectionDelta::Delta(k, new_v)),
+      CollectionDelta::Delta(k, v) => {
+        if let Some(new_v) = checker(v) {
+          CollectionDelta::Delta(k, new_v)
+        } else {
+          CollectionDelta::Remove(k)
+        }
+      }
       // the Remove variant maybe called many times for given k
-      CollectionDelta::Remove(k) => CollectionDelta::Remove(k).into(),
+      CollectionDelta::Remove(k) => CollectionDelta::Remove(k),
     }
   }
 }
@@ -1043,7 +1114,7 @@ where
     self
       .inner
       .poll_changes(cx)
-      .map(move |r| r.map(move |deltas| deltas.into_par_iter().filter_map(checker)))
+      .map(move |r| r.map(move |deltas| deltas.into_par_iter().map(checker)))
   }
 
   fn extra_request(&mut self, request: &mut ExtraCollectionOperation) {
@@ -1213,16 +1284,16 @@ where
         intersections
           .into_par_iter()
           .filter_map(|(_, (d1, d2))| union(d1, d2, &a_access, &b_access))
-          .filter_map(checker)
+          .map(checker)
           .collect::<Vec<_>>()
       }
       (Poll::Ready(Some(v1)), Poll::Pending) => v1
         .filter_map(|d1| union(Some(d1), None, &a_access, &b_access))
-        .filter_map(checker)
+        .map(checker)
         .collect::<Vec<_>>(),
       (Poll::Pending, Poll::Ready(Some(v2))) => v2
         .filter_map(|d2| union(None, Some(d2), &a_access, &b_access))
-        .filter_map(checker)
+        .map(checker)
         .collect::<Vec<_>>(),
 
       (Poll::Pending, Poll::Pending) => return Poll::Pending,

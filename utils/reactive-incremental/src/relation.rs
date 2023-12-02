@@ -304,8 +304,8 @@ where
   }
 }
 
-struct ActivationState<K> {
-  inner: FastHashSet<K>,
+pub(crate) struct ActivationState<K> {
+  pub(crate) inner: FastHashSet<K>,
 }
 
 impl<K> Default for ActivationState<K> {
@@ -317,14 +317,14 @@ impl<K> Default for ActivationState<K> {
 }
 
 impl<K: Eq + Hash + Clone> ActivationState<K> {
-  pub fn update<V>(&mut self, delta: &CollectionDelta<K, V>) {
+  // return if the change(remove) is redundant
+  pub fn update<V>(&mut self, delta: &CollectionDelta<K, V>) -> bool {
     match delta {
       CollectionDelta::Delta(k, _) => {
         self.inner.insert(k.clone());
+        true
       }
-      CollectionDelta::Remove(k) => {
-        self.inner.remove(k);
-      }
+      CollectionDelta::Remove(k) => self.inner.remove(k),
     }
   }
 }
