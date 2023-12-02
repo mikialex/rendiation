@@ -2,17 +2,16 @@ use std::{marker::PhantomData, ops::DerefMut, sync::Arc};
 
 use dashmap::*;
 use fast_hash_collection::*;
-use parking_lot::{RwLock, RwLockReadGuard};
 use storage::IndexKeptVec;
 
 use crate::*;
 
 #[derive(Debug, Clone, Copy)]
 pub enum CollectionDelta<K, V> {
-  // k, new_v, pre_v
-  Delta(K, V, Option<V>),
-  // k, pre_v
-  Remove(K, V),
+  // k, new_v
+  Delta(K, V),
+  // k
+  Remove(K),
 }
 
 impl<K, V> CollectionDelta<K, V> {
@@ -25,63 +24,40 @@ impl<K, V> CollectionDelta<K, V> {
       panic!("only same key change could be merge");
     }
     match (self, later) {
-      (Delta(k, _d1, p1), Delta(_, d2, _p2)) => {
-        // we should check d1 = d2
-        Delta(k, d2, p1)
-      }
-      (Delta(k, _d1, p1), Remove(_, _p2)) => {
-        // we should check d1 = d2
-        if let Some(p1) = p1 {
-          Remove(k, p1)
-        } else {
-          return None;
-        }
-      }
-      (Remove(k, _), Delta(_, d1, p2)) => {
-        assert!(p2.is_none());
-        Delta(k, d1, None)
-      }
-      (Remove(_, _), Remove(_, _)) => {
-        unreachable!("same key with double remove is invalid")
-      }
+      // later override earlier
+      (Delta(k, _d1), Delta(_, d2)) => Delta(k, d2),
+      // later override earlier
+      // if init not exist, remove is still allowed to be multiple
+      (Delta(k, _d1), Remove(_)) => Remove(k),
+      // later override earlier
+      (Remove(k), Delta(_, d1)) => Delta(k, d1),
+      // remove is allowed to be multiple
+      (Remove(k), Remove(_)) => Remove(k),
     }
     .into()
   }
   pub fn map<R>(self, mapper: impl Fn(&K, V) -> R) -> CollectionDelta<K, R> {
     type Rt<K, R> = CollectionDelta<K, R>;
     match self {
-      Self::Remove(k, pre) => {
-        let mapped = mapper(&k, pre);
-        Rt::<K, R>::Remove(k, mapped)
-      }
-      Self::Delta(k, d, pre) => {
+      Self::Remove(k) => Rt::<K, R>::Remove(k),
+      Self::Delta(k, d) => {
         let mapped = mapper(&k, d);
-        let mapped_pre = pre.map(|d| mapper(&k, d));
-        Rt::<K, R>::Delta(k, mapped, mapped_pre)
+        Rt::<K, R>::Delta(k, mapped)
       }
     }
   }
 
   pub fn new_value(&self) -> Option<&V> {
     match self {
-      Self::Delta(_, v, _) => Some(v),
-      Self::Remove(_, _) => None,
+      Self::Delta(_, v) => Some(v),
+      Self::Remove(_) => None,
     }
   }
 
-  pub fn old_value(&self) -> Option<&V> {
-    match self {
-      Self::Delta(_, _, Some(v)) => Some(v),
-      Self::Remove(_, v) => Some(v),
-      _ => None,
-    }
-  }
-
-  // should we just use struct??
   pub fn key(&self) -> &K {
     match self {
-      Self::Remove(k, _) => k,
-      Self::Delta(k, _, _) => k,
+      Self::Remove(k) => k,
+      Self::Delta(k, _) => k,
     }
   }
 }
@@ -268,7 +244,7 @@ where
 
 #[derive(Clone, Debug)]
 pub struct FastPassingVec<T> {
-  vec: Arc<Vec<T>>,
+  pub vec: Arc<Vec<T>>,
 }
 
 impl<T> FastPassingVec<T> {
@@ -643,16 +619,21 @@ where
     self.collective_intersect(set).collective_map(|(v, _)| v)
   }
 
-  fn into_forker(self) -> ReactiveKVMapFork<Self, K, V> {
-    let (sender, rev) = futures::channel::mpsc::unbounded();
-    let mut init = FastHashMap::default();
-    let id = alloc_global_res_id();
-    init.insert(id, sender);
-    ReactiveKVMapFork {
-      upstream: Arc::new(RwLock::new(self)),
-      downstream: Arc::new(RwLock::new(init)),
-      rev,
-      id,
+  fn into_forker(self) -> ReactiveKVMapFork<Self, CollectionDelta<K, V>, K, V> {
+    ReactiveKVMapFork::new(self)
+  }
+
+  /// project map<O, V> -> map<M, V> when we have O - M one to many
+  fn one_to_many_fanout<MK, Relation>(self, relations: Relation) -> impl ReactiveCollection<MK, V>
+  where
+    V: Clone + Send + Sync + 'static,
+    MK: Clone + Eq + std::hash::Hash + Send + Sync + 'static,
+    K: Clone + Sync + 'static,
+    Relation: ReactiveOneToManyRelationship<K, MK> + 'static,
+  {
+    OneToManyFanout {
+      upstream: self,
+      relations,
       phantom: PhantomData,
     }
   }
@@ -667,6 +648,19 @@ where
     LinearMaterializedReactiveCollection {
       inner: self,
       cache: Default::default(),
+    }
+  }
+
+  fn into_collection_with_previous(self) -> impl ReactiveCollectionWithPrevious<K, V>
+  where
+    Self: Sized,
+    K: Send + Sync + 'static + Clone + Eq + std::hash::Hash,
+    V: Send + Sync + 'static + Clone,
+  {
+    IntoReactiveCollectionWithPrevious {
+      inner: self,
+      phantom: Default::default(),
+      current: Default::default(),
     }
   }
 
@@ -689,152 +683,67 @@ where
 {
 }
 
-type Sender<T> = futures::channel::mpsc::UnboundedSender<T>;
-type Receiver<T> = futures::channel::mpsc::UnboundedReceiver<T>;
-
-pub struct ReactiveKVMapFork<Map: ReactiveCollection<K, V>, K: Send, V: Send> {
-  upstream: Arc<RwLock<Map>>,
-  downstream: Arc<RwLock<FastHashMap<u64, Sender<FastPassingVec<CollectionDelta<K, V>>>>>>,
-  rev: Receiver<FastPassingVec<CollectionDelta<K, V>>>,
-  id: u64,
+struct IntoReactiveCollectionWithPrevious<T, K, V> {
+  inner: T,
   phantom: PhantomData<(K, V)>,
+  current: FastHashMap<K, V>,
 }
 
-impl<Map: ReactiveCollection<K, V>, K: Send, V: Send> Drop for ReactiveKVMapFork<Map, K, V> {
-  fn drop(&mut self) {
-    self.downstream.write().remove(&self.id);
-  }
-}
-impl<Map: ReactiveCollection<K, V>, K: Send, V: Send> Clone for ReactiveKVMapFork<Map, K, V> {
-  fn clone(&self) -> Self {
-    // when fork the collection, we should pass the current table as the init change
-    let upstream = self.upstream.read_recursive();
-    let keys = upstream.iter_key();
-    let access = upstream.access();
-    // todo, currently we not enforce that the access should be match the iter_key result so
-    // required to handle None case
-    let deltas = keys
-      .filter_map(|key| access(&key).map(|v| (key, v)))
-      .map(|(k, v)| CollectionDelta::Delta(k, v, None))
-      .collect::<Vec<_>>();
-    let deltas = FastPassingVec::from_vec(deltas);
-
-    let mut downstream = self.downstream.write();
-    let id = alloc_global_res_id();
-    // we don't expect clone in real runtime so we don't care about wake
-    let (sender, rev) = futures::channel::mpsc::unbounded();
-    sender.unbounded_send(deltas).ok();
-    downstream.insert(id, sender);
-
-    Self {
-      upstream: self.upstream.clone(),
-      downstream: self.downstream.clone(),
-      id,
-      phantom: PhantomData,
-      rev,
-    }
-  }
-}
-
-impl<Map, K, V> ReactiveCollection<K, V> for ReactiveKVMapFork<Map, K, V>
+impl<T, K, V> ReactiveCollectionWithPrevious<K, V> for IntoReactiveCollectionWithPrevious<T, K, V>
 where
-  Map: ReactiveCollection<K, V>,
-  K: Clone + Send + Sync + 'static,
-  V: Clone + Send + Sync + 'static,
+  T: ReactiveCollection<K, V>,
+  K: Send + Sync + Eq + std::hash::Hash + 'static + Clone,
+  V: Send + Sync + 'static + Clone,
 {
-  type Changes = FastPassingVec<CollectionDelta<K, V>>;
+  type Changes = impl CollectionChangesWithPrevious<K, V>;
 
-  fn poll_changes(&mut self, cx: &mut Context<'_>) -> Poll<Option<Self::Changes>> {
-    // these writes should not deadlock, because we not prefer the concurrency between the table
-    // updates. if we do allow it in the future, just change it to try write or yield pending.
+  fn poll_changes(&mut self, cx: &mut Context) -> Poll<Option<Self::Changes>> {
+    self.inner.poll_changes(cx).map(|v| {
+      v.map(|v| {
+        let v = v
+          .collect_into_pass_vec()
+          .vec
+          .iter()
+          .cloned()
+          .collect::<Vec<_>>();
 
-    let r = self.rev.poll_next_unpin(cx);
-    if r.is_ready() {
-      return r;
-    }
-
-    let mut upstream = self.upstream.write();
-    let r = upstream.poll_changes(cx);
-
-    if let Poll::Ready(Some(v)) = r {
-      let downstream = self.downstream.write();
-      let vec = v.collect_into_pass_vec();
-      for downstream in downstream.values() {
-        downstream.unbounded_send(vec.clone()).ok();
-      }
-      // }
-    } else {
-      return Poll::Pending;
-    }
-    drop(upstream);
-
-    self.poll_changes(cx)
+        v.into_par_iter()
+          .collect::<Vec<_>>()
+          .into_iter()
+          .filter_map(|v| match v {
+            CollectionDelta::Delta(k, v) => {
+              let pre = self.current.insert(k.clone(), v.clone());
+              CollectionDeltaWithPrevious::Delta(k, v, pre).into()
+            }
+            CollectionDelta::Remove(k) => {
+              if let Some(v) = self.current.remove(&k) {
+                CollectionDeltaWithPrevious::Remove(k, v).into()
+              } else {
+                None
+              }
+            }
+          })
+          .collect::<Vec<_>>()
+          .into_par_iter()
+      })
+    })
   }
 
   fn extra_request(&mut self, request: &mut ExtraCollectionOperation) {
-    self.upstream.write().extra_request(request)
+    self.inner.extra_request(request)
   }
 }
 
-impl<K, V, Map> VirtualCollection<K, V> for ReactiveKVMapFork<Map, K, V>
+impl<T, K, V> VirtualCollection<K, V> for IntoReactiveCollectionWithPrevious<T, K, V>
 where
-  Map: ReactiveCollection<K, V>,
-  K: Send,
-  V: Send,
+  T: VirtualCollection<K, V>,
 {
   fn iter_key(&self) -> impl Iterator<Item = K> + '_ {
-    struct ReactiveKVMapForkRead<'a, Map, I> {
-      _inner: RwLockReadGuard<'a, Map>,
-      inner_iter: I,
-    }
-
-    impl<'a, Map, I: Iterator> Iterator for ReactiveKVMapForkRead<'a, Map, I> {
-      type Item = I::Item;
-
-      fn next(&mut self) -> Option<Self::Item> {
-        self.inner_iter.next()
-      }
-    }
-
-    /// util to get collection's accessor type
-    type IterOf<'a, M: VirtualCollection<K, V> + 'a, K, V> = impl Iterator<Item = K> + 'a;
-    fn get_iter<'a, K, V, M>(map: &M) -> IterOf<M, K, V>
-    where
-      M: VirtualCollection<K, V> + 'a,
-    {
-      map.iter_key()
-    }
-
-    let inner = self.upstream.read();
-    let inner_iter = get_iter(inner.deref());
-    // safety: read guard is hold by iter, acc's real reference is form the Map
-    let inner_iter: IterOf<'static, Map, K, V> = unsafe { std::mem::transmute(inner_iter) };
-    ReactiveKVMapForkRead {
-      _inner: inner,
-      inner_iter,
-    }
+    self.inner.iter_key()
   }
 
-  fn access(&self) -> impl Fn(&K) -> Option<V> + '_ {
-    let inner = self.upstream.read();
-
-    /// util to get collection's accessor type
-    type AccessorOf<'a, M: VirtualCollection<K, V> + 'a, K, V> = impl Fn(&K) -> Option<V> + 'a;
-    fn get_accessor<'a, K, V, M>(map: &M) -> AccessorOf<M, K, V>
-    where
-      M: VirtualCollection<K, V> + 'a,
-    {
-      map.access()
-    }
-
-    let acc: AccessorOf<Map, K, V> = get_accessor(inner.deref());
-    // safety: read guard is hold by closure, acc's real reference is form the Map
-    let acc: AccessorOf<'static, Map, K, V> = unsafe { std::mem::transmute(acc) };
-    move |key| {
-      let _holder = &inner;
-      let acc = &acc;
-      acc(key)
-    }
+  fn access(&self) -> impl Fn(&K) -> Option<V> + Sync + '_ {
+    self.inner.access()
   }
 }
 
@@ -858,10 +767,10 @@ where
       let changes = changes.clone().collect_into_pass_vec();
       for change in changes {
         match change {
-          CollectionDelta::Delta(k, v, _) => {
+          CollectionDelta::Delta(k, v) => {
             self.cache.insert(k, v);
           }
-          CollectionDelta::Remove(k, _) => {
+          CollectionDelta::Remove(k) => {
             self.cache.remove(&k);
           }
         }
@@ -911,10 +820,10 @@ where
     if let Poll::Ready(Some(changes)) = &r {
       for change in changes.clone().collect_into_pass_vec() {
         match change {
-          CollectionDelta::Delta(k, v, _) => {
+          CollectionDelta::Delta(k, v) => {
             self.cache.insert(v, k.alloc_index());
           }
-          CollectionDelta::Remove(k, _) => {
+          CollectionDelta::Remove(k) => {
             self.cache.remove(k.alloc_index());
           }
         }
@@ -970,14 +879,14 @@ where
         let mapper = (self.map_creator)();
         deltas
           .map(move |delta| match delta {
-            CollectionDelta::Delta(k, d, _) => {
-              let previous_computed = self.cache.remove(&k).map(|(_, v)| v);
+            CollectionDelta::Delta(k, d) => {
               let new_value = mapper(&k, d);
-              CollectionDelta::Delta(k, new_value, previous_computed)
+              self.cache.insert(k.clone(), new_value.clone());
+              CollectionDelta::Delta(k, new_value)
             }
-            CollectionDelta::Remove(k, _) => {
-              let previous_computed = self.cache.remove(&k).unwrap().1;
-              CollectionDelta::Remove(k, previous_computed)
+            CollectionDelta::Remove(k) => {
+              self.cache.remove(&k);
+              CollectionDelta::Remove(k)
             }
           })
           .collect_into_pass_vec()
@@ -1112,25 +1021,9 @@ fn make_checker<K, V, V2>(
 {
   move |delta| {
     match delta {
-      CollectionDelta::Delta(k, v, pre_v) => {
-        let new_map = checker(v);
-        let pre_map = pre_v.and_then(checker);
-        match (new_map, pre_map) {
-          (Some(v), Some(pre_v)) => CollectionDelta::Delta(k, v, Some(pre_v)),
-          (Some(v), None) => CollectionDelta::Delta(k, v, None),
-          (None, Some(pre_v)) => CollectionDelta::Remove(k, pre_v),
-          (None, None) => return None,
-        }
-        .into()
-      }
+      CollectionDelta::Delta(k, v) => checker(v).map(|new_v| CollectionDelta::Delta(k, new_v)),
       // the Remove variant maybe called many times for given k
-      CollectionDelta::Remove(k, pre_v) => {
-        let pre_map = checker(pre_v);
-        match pre_map {
-          Some(pre) => CollectionDelta::Remove(k, pre).into(),
-          None => None,
-        }
-      }
+      CollectionDelta::Remove(k) => CollectionDelta::Remove(k).into(),
     }
   }
 }
@@ -1222,7 +1115,7 @@ where
 }
 
 /// we should manually impl zip, intersect, select, to avoid overhead
-fn union<K: Clone, V1: Clone, V2: Clone>(
+fn union<K: Clone, V1, V2>(
   change1: Option<CollectionDelta<K, V1>>,
   change2: Option<CollectionDelta<K, V2>>,
   v1_current: &impl Fn(&K) -> Option<V1>,
@@ -1231,57 +1124,47 @@ fn union<K: Clone, V1: Clone, V2: Clone>(
   let r = match (change1, change2) {
     (None, None) => return None,
     (None, Some(change2)) => match change2 {
-      CollectionDelta::Delta(k, v2, p2) => {
+      CollectionDelta::Delta(k, v2) => {
         let v1_current = v1_current(&k);
-        CollectionDelta::Delta(k, (v1_current.clone(), Some(v2)), Some((v1_current, p2)))
+        CollectionDelta::Delta(k, (v1_current, Some(v2)))
       }
-      CollectionDelta::Remove(k, p2) => {
+      CollectionDelta::Remove(k) => {
         if let Some(v1_current) = v1_current(&k) {
-          CollectionDelta::Delta(
-            k,
-            (Some(v1_current.clone()), None),
-            Some((Some(v1_current), Some(p2))),
-          )
+          CollectionDelta::Delta(k, (Some(v1_current), None))
         } else {
-          CollectionDelta::Remove(k, (None, Some(p2)))
+          CollectionDelta::Remove(k)
         }
       }
     },
     (Some(change1), None) => match change1 {
-      CollectionDelta::Delta(k, v1, p1) => {
+      CollectionDelta::Delta(k, v1) => {
         let v2_current = v2_current(&k);
-        CollectionDelta::Delta(k, (Some(v1), v2_current.clone()), Some((p1, v2_current)))
+        CollectionDelta::Delta(k, (Some(v1), v2_current))
       }
-      CollectionDelta::Remove(k, p1) => {
+      CollectionDelta::Remove(k) => {
         if let Some(v2_current) = v2_current(&k) {
-          CollectionDelta::Delta(
-            k,
-            (None, Some(v2_current.clone())),
-            Some((Some(p1), Some(v2_current))),
-          )
+          CollectionDelta::Delta(k, (None, Some(v2_current)))
         } else {
-          CollectionDelta::Remove(k, (Some(p1), None))
+          CollectionDelta::Remove(k)
         }
       }
     },
     (Some(change1), Some(change2)) => match (change1, change2) {
-      (CollectionDelta::Delta(k, v1, p1), CollectionDelta::Delta(_, v2, p2)) => {
-        CollectionDelta::Delta(k, (Some(v1), Some(v2)), Some((p1, p2)))
+      (CollectionDelta::Delta(k, v1), CollectionDelta::Delta(_, v2)) => {
+        CollectionDelta::Delta(k, (Some(v1), Some(v2)))
       }
-      (CollectionDelta::Delta(_, v1, p1), CollectionDelta::Remove(k, p2)) => {
-        CollectionDelta::Delta(k.clone(), (Some(v1), v2_current(&k)), Some((p1, Some(p2))))
+      (CollectionDelta::Delta(_, v1), CollectionDelta::Remove(k)) => {
+        CollectionDelta::Delta(k.clone(), (Some(v1), v2_current(&k)))
       }
-      (CollectionDelta::Remove(k, p1), CollectionDelta::Delta(_, v2, p2)) => {
-        CollectionDelta::Delta(k.clone(), (v1_current(&k), Some(v2)), Some((Some(p1), p2)))
+      (CollectionDelta::Remove(k), CollectionDelta::Delta(_, v2)) => {
+        CollectionDelta::Delta(k.clone(), (v1_current(&k), Some(v2)))
       }
-      (CollectionDelta::Remove(k, p1), CollectionDelta::Remove(_, p2)) => {
-        CollectionDelta::Remove(k, (Some(p1), Some(p2)))
-      }
+      (CollectionDelta::Remove(k), CollectionDelta::Remove(_)) => CollectionDelta::Remove(k),
     },
   };
 
-  if let CollectionDelta::Delta(k, new, Some((None, None))) = r {
-    return CollectionDelta::Delta(k, new, None).into();
+  if let CollectionDelta::Delta(k, new) = r {
+    return CollectionDelta::Delta(k, new).into();
   }
 
   r.into()
@@ -1358,141 +1241,141 @@ where
   }
 }
 
-/// when we want to zip multiple kv, using deeply nested zipper is viable, however it's computation
-/// intensive during layer of layers consuming. This combinator provides the flattened version of
-/// multi zip, in trades of the performance overhead of dynamical fn call and internal cache(maybe
-/// user still require this so it's ok).
-pub struct MultiZipper<K, P, V> {
-  sources: Vec<Box<dyn DynamicReactiveCollection<K, P> + Sync>>,
-  current: FastHashMap<K, V>,
-  defaulter: Box<dyn Fn() -> V + Sync + Send>,
-  applier: Box<dyn Fn(&mut V, P) + Sync + Send>,
-}
+// /// when we want to zip multiple kv, using deeply nested zipper is viable, however it's
+// computation /// intensive during layer of layers consuming. This combinator provides the
+// flattened version of /// multi zip, in trades of the performance overhead of dynamical fn call
+// and internal cache(maybe /// user still require this so it's ok).
+// pub struct MultiZipper<K, P, V> {
+//   sources: Vec<Box<dyn DynamicReactiveCollection<K, P> + Sync>>,
+//   current: FastHashMap<K, V>,
+//   defaulter: Box<dyn Fn() -> V + Sync + Send>,
+//   applier: Box<dyn Fn(&mut V, P) + Sync + Send>,
+// }
 
-impl<K, P, V> MultiZipper<K, P, V> {
-  pub fn new(
-    defaulter: impl Fn() -> V + Sync + Send + 'static,
-    applier: impl Fn(&mut V, P) + Sync + Send + 'static,
-  ) -> Self {
-    Self {
-      sources: Default::default(),
-      current: Default::default(),
-      defaulter: Box::new(defaulter),
-      applier: Box::new(applier),
-    }
-  }
+// impl<K, P, V> MultiZipper<K, P, V> {
+//   pub fn new(
+//     defaulter: impl Fn() -> V + Sync + Send + 'static,
+//     applier: impl Fn(&mut V, P) + Sync + Send + 'static,
+//   ) -> Self {
+//     Self {
+//       sources: Default::default(),
+//       current: Default::default(),
+//       defaulter: Box::new(defaulter),
+//       applier: Box::new(applier),
+//     }
+//   }
 
-  pub fn zip_with(mut self, source: impl ReactiveCollection<K, P> + Sync) -> Self
-  where
-    K: Send + 'static,
-    P: Send + 'static,
-  {
-    self.sources.push(Box::new(source));
-    self
-  }
-}
+//   pub fn zip_with(mut self, source: impl ReactiveCollection<K, P> + Sync) -> Self
+//   where
+//     K: Send + 'static,
+//     P: Send + 'static,
+//   {
+//     self.sources.push(Box::new(source));
+//     self
+//   }
+// }
 
-impl<K, P, V> VirtualCollection<K, V> for MultiZipper<K, P, V>
-where
-  K: Clone + Eq + std::hash::Hash + Sync,
-  V: Clone + Sync,
-{
-  fn iter_key(&self) -> impl Iterator<Item = K> + '_ {
-    self.current.keys().cloned()
-  }
+// impl<K, P, V> VirtualCollection<K, V> for MultiZipper<K, P, V>
+// where
+//   K: Clone + Eq + std::hash::Hash + Sync,
+//   V: Clone + Sync,
+// {
+//   fn iter_key(&self) -> impl Iterator<Item = K> + '_ {
+//     self.current.keys().cloned()
+//   }
 
-  fn access(&self) -> impl Fn(&K) -> Option<V> + Sync + '_ {
-    |k| self.current.get(k).cloned()
-  }
-}
+//   fn access(&self) -> impl Fn(&K) -> Option<V> + Sync + '_ {
+//     |k| self.current.get(k).cloned()
+//   }
+// }
 
-impl<K, P, V> ReactiveCollection<K, V> for MultiZipper<K, P, V>
-where
-  K: Clone + Eq + std::hash::Hash + Send + Sync + 'static,
-  V: Clone + Send + Sync + 'static,
-  P: Clone + 'static,
-{
-  type Changes = impl CollectionChanges<K, V>;
+// impl<K, P, V> ReactiveCollection<K, V> for MultiZipper<K, P, V>
+// where
+//   K: Clone + Eq + std::hash::Hash + Send + Sync + 'static,
+//   V: Clone + Send + Sync + 'static,
+//   P: Clone + 'static,
+// {
+//   type Changes = impl CollectionChanges<K, V>;
 
-  #[allow(clippy::collapsible_else_if)]
-  fn poll_changes(&mut self, cx: &mut Context<'_>) -> Poll<Option<Self::Changes>> {
-    if self.sources.is_empty() {
-      return Poll::Pending;
-    }
+//   #[allow(clippy::collapsible_else_if)]
+//   fn poll_changes(&mut self, cx: &mut Context<'_>) -> Poll<Option<Self::Changes>> {
+//     if self.sources.is_empty() {
+//       return Poll::Pending;
+//     }
 
-    let mut outputs = FastHashMap::<K, CollectionDelta<K, V>>::default();
+//     let mut outputs = FastHashMap::<K, CollectionDelta<K, V>>::default();
 
-    for source in &mut self.sources {
-      if let Poll::Ready(Some(source)) = source.poll_changes_dyn(cx) {
-        for change in source {
-          match change {
-            CollectionDelta::Delta(key, change, _) => {
-              if let Some(previous_new) = outputs.remove(&key) {
-                match previous_new {
-                  CollectionDelta::Delta(_, mut next, pre) => {
-                    (self.applier)(&mut next, change);
-                    outputs.insert(key.clone(), CollectionDelta::Delta(key.clone(), next, pre));
-                  }
-                  CollectionDelta::Remove(_, _) => unreachable!("unexpected zipper input"),
-                }
-                outputs.insert(
-                  key.clone(),
-                  CollectionDelta::Delta(key, (self.defaulter)(), None),
-                );
-              } else {
-                if let Some(current) = self.current.get(&key) {
-                  let mut next = current.clone();
-                  (self.applier)(&mut next, change);
-                  outputs.insert(
-                    key.clone(),
-                    CollectionDelta::Delta(key, next, Some(current.clone())),
-                  );
-                } else {
-                  let mut next = (self.defaulter)();
-                  (self.applier)(&mut next, change);
-                  outputs.insert(key.clone(), CollectionDelta::Delta(key, next, None));
-                }
-              }
-            }
-            CollectionDelta::Remove(key, _) => {
-              outputs.insert(
-                key.clone(),
-                CollectionDelta::Remove(key.clone(), self.current.remove(&key).unwrap()),
-              );
-            }
-          }
-        }
-      }
-    }
+//     for source in &mut self.sources {
+//       if let Poll::Ready(Some(source)) = source.poll_changes_dyn(cx) {
+//         for change in source {
+//           match change {
+//             CollectionDelta::Delta(key, change, ) => {
+//               if let Some(previous_new) = outputs.remove(&key) {
+//                 match previous_new {
+//                   CollectionDelta::Delta(_, mut next, ) => {
+//                     (self.applier)(&mut next, change);
+//                     outputs.insert(key.clone(), CollectionDelta::Delta(key.clone(), next, pre));
+//                   }
+//                   CollectionDelta::Remove(_, _) => unreachable!("unexpected zipper input"),
+//                 }
+//                 outputs.insert(
+//                   key.clone(),
+//                   CollectionDelta::Delta(key, (self.defaulter)(), None),
+//                 );
+//               } else {
+//                 if let Some(current) = self.current.get(&key) {
+//                   let mut next = current.clone();
+//                   (self.applier)(&mut next, change);
+//                   outputs.insert(
+//                     key.clone(),
+//                     CollectionDelta::Delta(key, next, Some(current.clone())),
+//                   );
+//                 } else {
+//                   let mut next = (self.defaulter)();
+//                   (self.applier)(&mut next, change);
+//                   outputs.insert(key.clone(), CollectionDelta::Delta(key, next, None));
+//                 }
+//               }
+//             }
+//             CollectionDelta::Remove(key, _) => {
+//               outputs.insert(
+//                 key.clone(),
+//                 CollectionDelta::Remove(key.clone(), self.current.remove(&key).unwrap()),
+//               );
+//             }
+//           }
+//         }
+//       }
+//     }
 
-    if outputs.is_empty() {
-      return Poll::Pending;
-    }
+//     if outputs.is_empty() {
+//       return Poll::Pending;
+//     }
 
-    for v in outputs.values() {
-      match v {
-        CollectionDelta::Delta(k, next, _) => {
-          self.current.insert(k.clone(), next.clone());
-        }
-        CollectionDelta::Remove(k, _) => {
-          self.current.remove(k);
-        }
-      }
-    }
+//     for v in outputs.values() {
+//       match v {
+//         CollectionDelta::Delta(k, next, _) => {
+//           self.current.insert(k.clone(), next.clone());
+//         }
+//         CollectionDelta::Remove(k, _) => {
+//           self.current.remove(k);
+//         }
+//       }
+//     }
 
-    Poll::Ready(Some(HashMapIntoValue::new(outputs)))
-  }
+//     Poll::Ready(Some(HashMapIntoValue::new(outputs)))
+//   }
 
-  fn extra_request(&mut self, request: &mut ExtraCollectionOperation) {
-    self
-      .sources
-      .iter_mut()
-      .for_each(|s| s.extra_request_dyn(request));
-    match request {
-      ExtraCollectionOperation::MemoryShrinkToFit => self.current.shrink_to_fit(),
-    }
-  }
-}
+//   fn extra_request(&mut self, request: &mut ExtraCollectionOperation) {
+//     self
+//       .sources
+//       .iter_mut()
+//       .for_each(|s| s.extra_request_dyn(request));
+//     match request {
+//       ExtraCollectionOperation::MemoryShrinkToFit => self.current.shrink_to_fit(),
+//     }
+//   }
+// }
 
 /// workaround hashmap parallel iterator not impl clone
 

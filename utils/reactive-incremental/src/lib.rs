@@ -32,6 +32,9 @@ pub use registry::*;
 mod group;
 pub use group::*;
 
+mod fork;
+pub use fork::*;
+
 mod group_listen;
 pub use group_listen::*;
 
@@ -40,6 +43,9 @@ pub use relation::*;
 
 mod collection;
 pub use collection::*;
+
+mod collection_with_previous;
+pub use collection_with_previous::*;
 
 mod listen_utils;
 pub use listen_utils::*;

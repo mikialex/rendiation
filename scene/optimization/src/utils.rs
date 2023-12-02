@@ -33,7 +33,7 @@ impl NodeRebuilder {
     if let Poll::Ready(Some(changes)) = self.node_source.world_mat.poll_changes(cx) {
       for change in changes {
         match change {
-          CollectionDelta::Delta(key, new, _) => {
+          CollectionDelta::Delta(key, new) => {
             let node = self
               .node_mapping
               .entry(key) // create new node on target scene
@@ -41,7 +41,7 @@ impl NodeRebuilder {
             // sync the node change
             node.set_local_matrix(new);
           }
-          CollectionDelta::Remove(key, _) => {
+          CollectionDelta::Remove(key) => {
             self.node_mapping.remove(&key);
             // remove node, raii drop from the target scene.
           }
@@ -51,7 +51,7 @@ impl NodeRebuilder {
     if let Poll::Ready(Some(changes)) = self.node_source.net_visible.poll_changes(cx) {
       for change in changes {
         // sync the node change, the add remove is handled above
-        if let CollectionDelta::Delta(key, new, _) = change {
+        if let CollectionDelta::Delta(key, new) = change {
           let node = self.node_mapping.get(&key).unwrap();
           node.set_visible(new)
         }
@@ -75,14 +75,15 @@ impl SceneCameraRebuilder {
   ) -> Self {
     let node_checker = create_scene_node_checker(source_scene_id);
 
-    let referenced_camera =
-      storage_of::<SceneCameraImpl>().listen_to_reactive_collection(move |change| match change {
+    let referenced_camera = storage_of::<SceneCameraImpl>()
+      .listen_to_reactive_collection(move |change| match change {
         incremental::MaybeDeltaRef::Delta(delta) => match delta {
           SceneCameraImplDelta::node(node) => ChangeReaction::Care(node_checker(node)),
           _ => ChangeReaction::NotCare,
         },
         incremental::MaybeDeltaRef::All(sm) => ChangeReaction::Care(node_checker(&sm.node)),
-      });
+      })
+      .into_collection();
 
     let referenced_camera = referenced_camera.into_forker();
 
@@ -113,7 +114,7 @@ impl SceneCameraRebuilder {
       let mut to_sync_delta = Vec::new();
       for change in changes.collect_into_pass_vec() {
         match change {
-          CollectionDelta::Delta(key, _, _) => {
+          CollectionDelta::Delta(key, _) => {
             let camera = &cameras.get(key.index).data;
 
             let offset = to_sync_delta.len();
@@ -122,7 +123,7 @@ impl SceneCameraRebuilder {
 
             to_sync_target.push((key, offset, offset_2));
           }
-          CollectionDelta::Remove(key, _) => {
+          CollectionDelta::Remove(key) => {
             let in_target_scene = self.camera_mapping.remove(&key).unwrap();
             self.target_scene.remove_camera(in_target_scene);
           }
@@ -167,14 +168,15 @@ impl SceneLightsRebuilder {
   ) -> Self {
     let node_checker = create_scene_node_checker(source_scene_id);
 
-    let referenced_lights =
-      storage_of::<SceneLightImpl>().listen_to_reactive_collection(move |change| match change {
+    let referenced_lights = storage_of::<SceneLightImpl>()
+      .listen_to_reactive_collection(move |change| match change {
         incremental::MaybeDeltaRef::Delta(delta) => match delta {
           SceneLightImplDelta::node(node) => ChangeReaction::Care(node_checker(node)),
           _ => ChangeReaction::NotCare,
         },
         incremental::MaybeDeltaRef::All(sm) => ChangeReaction::Care(node_checker(&sm.node)),
-      });
+      })
+      .into_collection();
 
     let referenced_lights = referenced_lights.into_forker();
 
@@ -205,7 +207,7 @@ impl SceneLightsRebuilder {
       let mut to_sync_delta = Vec::new();
       for change in changes.collect_into_pass_vec() {
         match change {
-          CollectionDelta::Delta(key, _, _) => {
+          CollectionDelta::Delta(key, _) => {
             let light = &lights.get(key.index).data;
 
             let offset = to_sync_delta.len();
@@ -214,7 +216,7 @@ impl SceneLightsRebuilder {
 
             to_sync_target.push((key, offset, offset_2));
           }
-          CollectionDelta::Remove(key, _) => {
+          CollectionDelta::Remove(key) => {
             let in_target_scene = self.light_mapping.remove(&key).unwrap();
             self.target_scene.remove_light(in_target_scene);
           }

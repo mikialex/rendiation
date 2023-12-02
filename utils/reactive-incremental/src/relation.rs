@@ -7,26 +7,26 @@ use storage::{LinkListPool, ListHandle};
 use crate::*;
 
 pub trait ReactiveOneToManyRelationship<O: Send, M: Send>:
-  VirtualMultiCollection<O, M> + ReactiveCollection<M, O>
+  VirtualMultiCollection<O, M> + ReactiveCollectionWithPrevious<M, O>
 {
 }
 
 impl<T, O: Send, M: Send> ReactiveOneToManyRelationship<O, M> for T where
-  T: VirtualMultiCollection<O, M> + ReactiveCollection<M, O>
+  T: VirtualMultiCollection<O, M> + ReactiveCollectionWithPrevious<M, O>
 {
 }
 
 pub trait DynamicReactiveOneToManyRelationship<O, M>:
-  DynamicVirtualMultiCollection<O, M> + DynamicReactiveCollection<M, O>
+  DynamicVirtualMultiCollection<O, M> + DynamicReactiveCollectionWithPrevious<M, O>
 {
 }
 impl<T, O, M> DynamicReactiveOneToManyRelationship<O, M> for T where
-  T: DynamicVirtualMultiCollection<O, M> + DynamicReactiveCollection<M, O>
+  T: DynamicVirtualMultiCollection<O, M> + DynamicReactiveCollectionWithPrevious<M, O>
 {
 }
 
 pub trait ReactiveCollectionRelationExt<K: Send, V: Send>:
-  Sized + 'static + ReactiveCollection<K, V>
+  Sized + 'static + ReactiveCollectionWithPrevious<K, V>
 {
   fn into_one_to_many_by_hash(self) -> impl ReactiveOneToManyRelationship<V, K>
   where
@@ -81,25 +81,10 @@ pub trait ReactiveCollectionRelationExt<K: Send, V: Send>:
       phantom: PhantomData,
     }
   }
-
-  /// project map<O, V> -> map<M, V> when we have O - M one to many
-  fn one_to_many_fanout<MK, Relation>(self, relations: Relation) -> impl ReactiveCollection<MK, V>
-  where
-    V: Clone + Send + Sync + 'static,
-    MK: Clone + Eq + Hash + Send + Sync + 'static,
-    K: Clone + Sync + 'static,
-    Relation: ReactiveOneToManyRelationship<K, MK> + 'static,
-  {
-    OneToManyFanout {
-      upstream: self,
-      relations,
-      phantom: PhantomData,
-    }
-  }
 }
 impl<T, K, V> ReactiveCollectionRelationExt<K, V> for T
 where
-  T: Sized + 'static + ReactiveCollection<K, V>,
+  T: Sized + 'static + ReactiveCollectionWithPrevious<K, V>,
   K: Send,
   V: Send,
 {
@@ -115,13 +100,13 @@ pub trait ReactiveCollectionRelationReduceExt<K: Send>:
   where
     SK: Clone + Eq + Hash + Send + Sync + 'static,
     K: Clone + Sync + 'static,
-    Relation: ReactiveCollection<K, SK> + 'static,
+    Relation: ReactiveCollectionWithPrevious<K, SK> + 'static,
   {
     ManyToOneReduce {
       upstream: self,
       relations,
-      ref_counting: Default::default(),
       phantom: PhantomData,
+      state: Default::default(),
     }
   }
 }
@@ -138,9 +123,9 @@ where
   O: Send,
   X: Send,
 {
-  upstream: Upstream,
-  relations: Relation,
-  phantom: PhantomData<(O, M, X)>,
+  pub(crate) upstream: Upstream,
+  pub(crate) relations: Relation,
+  pub(crate) phantom: PhantomData<(O, M, X)>,
 }
 
 impl<O, M, X, Upstream, Relation> ReactiveCollection<M, X>
@@ -163,22 +148,19 @@ where
       let getter = self.upstream.access();
       // maybe we could use dashmap to parallelize the insert part
       output.par_extend(relational_changes.filter_map(|change| match change {
-        CollectionDelta::Delta(k, v, p) => {
-          let p = p.and_then(|p| getter(&p));
+        CollectionDeltaWithPrevious::Delta(k, v, p) => {
           if let Some(v) = getter(&v) {
-            (k.clone(), CollectionDelta::Delta(k, v, p)).into()
-          } else if let Some(p) = p {
-            (k.clone(), CollectionDelta::Remove(k, p)).into()
+            (k.clone(), CollectionDelta::Delta(k, v)).into()
+          } else if p.is_some() {
+            // if we have the change then we could not do remove
+            (k.clone(), CollectionDelta::Remove(k)).into()
           } else {
             None
           }
         }
-        CollectionDelta::Remove(k, p) => {
-          if let Some(p) = getter(&p) {
-            (k.clone(), CollectionDelta::Remove(k, p)).into()
-          } else {
-            None
-          }
+        CollectionDeltaWithPrevious::Remove(k, _p) => {
+          // we do not check current upstream just to emit delta
+          (k.clone(), CollectionDelta::Remove(k)).into()
         }
       }));
     }
@@ -189,14 +171,11 @@ where
       // }))
       for delta in upstream_changes.collect_into_pass_vec() {
         match delta {
-          CollectionDelta::Remove(one, p) => inv_querier(&one, &mut |many| {
-            output.insert(many.clone(), CollectionDelta::Remove(many, p.clone()));
+          CollectionDelta::Remove(one) => inv_querier(&one, &mut |many| {
+            output.insert(many.clone(), CollectionDelta::Remove(many));
           }),
-          CollectionDelta::Delta(one, change, p) => inv_querier(&one, &mut |many| {
-            output.insert(
-              many.clone(),
-              CollectionDelta::Delta(many, change.clone(), p.clone()),
-            );
+          CollectionDelta::Delta(one, change) => inv_querier(&one, &mut |many| {
+            output.insert(many.clone(), CollectionDelta::Delta(many, change.clone()));
           }),
         }
       }
@@ -241,14 +220,14 @@ where
 pub struct ManyToOneReduce<O, M, Upstream, Relation>
 where
   Upstream: ReactiveCollection<M, ()>,
-  Relation: ReactiveCollection<M, O>,
+  Relation: ReactiveCollectionWithPrevious<M, O>,
   M: Send,
   O: Send,
 {
   upstream: Upstream,
   relations: Relation,
-  ref_counting: FastHashMap<O, u32>,
   phantom: PhantomData<(O, M)>,
+  state: ActivationState<O>,
 }
 
 impl<O, M, Upstream, Relation> ReactiveCollection<O, ()>
@@ -257,7 +236,7 @@ where
   M: Clone + Send + Sync + 'static,
   O: Clone + Eq + Hash + Send + Sync + 'static,
   Upstream: ReactiveCollection<M, ()>,
-  Relation: ReactiveCollection<M, O>,
+  Relation: ReactiveCollectionWithPrevious<M, O>,
 {
   type Changes = impl CollectionChanges<O, ()>;
 
@@ -277,28 +256,12 @@ where
         let new_value = change.new_value();
 
         if let Some(ov) = old_value {
-          if getter(key).is_some() {
-            let rc = self.ref_counting.get_mut(ov).unwrap();
-            *rc -= 1;
-            if *rc == 0 {
-              self.ref_counting.remove(ov);
-              output.insert(ov.clone(), CollectionDelta::Remove(ov.clone(), ()));
-            }
-          }
+          output.insert(ov.clone(), CollectionDelta::Remove(ov.clone()));
         }
 
         if let Some(nv) = new_value {
           if getter(key).is_some() {
-            let count = self.ref_counting.entry(nv.clone()).or_insert_with(|| {
-              if let Some(CollectionDelta::Remove(..)) = output.get(nv) {
-                // if contains remove, then cancel it
-                output.remove(nv);
-              } else {
-                output.insert(nv.clone(), CollectionDelta::Delta(nv.clone(), (), None));
-              }
-              0
-            });
-            *count += 1;
+            output.insert(nv.clone(), CollectionDelta::Delta(nv.clone(), ()));
           }
         }
       }
@@ -307,32 +270,22 @@ where
     if let Poll::Ready(Some(upstream_changes)) = upstream_changes {
       for delta in upstream_changes.collect_into_pass_vec() {
         match delta {
-          CollectionDelta::Remove(many, _) => {
+          CollectionDelta::Remove(many) => {
             if let Some(one) = one_acc(&many) {
-              let rc = self.ref_counting.get_mut(&one).unwrap();
-              *rc -= 1;
-              if *rc == 0 {
-                self.ref_counting.remove(&one);
-                output.insert(one.clone(), CollectionDelta::Remove(one.clone(), ()));
-              }
+              output.insert(one.clone(), CollectionDelta::Remove(one.clone()));
             }
           }
-          CollectionDelta::Delta(many, _, _) => {
+          CollectionDelta::Delta(many, _) => {
             if let Some(one) = one_acc(&many) {
-              let count = self.ref_counting.entry(one.clone()).or_insert_with(|| {
-                if let Some(CollectionDelta::Remove(..)) = output.get(&one) {
-                  // if contains remove, then cancel it
-                  output.remove(&one);
-                } else {
-                  output.insert(one.clone(), CollectionDelta::Delta(one.clone(), (), None));
-                }
-                0
-              });
-              *count += 1;
+              output.insert(one.clone(), CollectionDelta::Delta(one.clone(), ()));
             }
           }
         }
       }
+    }
+
+    for v in output.values() {
+      self.state.update(v);
     }
 
     if output.is_empty() {
@@ -346,7 +299,32 @@ where
     self.upstream.extra_request(request);
     self.relations.extra_request(request);
     match request {
-      ExtraCollectionOperation::MemoryShrinkToFit => self.ref_counting.shrink_to_fit(),
+      ExtraCollectionOperation::MemoryShrinkToFit => todo!(),
+    }
+  }
+}
+
+struct ActivationState<K> {
+  inner: FastHashSet<K>,
+}
+
+impl<K> Default for ActivationState<K> {
+  fn default() -> Self {
+    Self {
+      inner: Default::default(),
+    }
+  }
+}
+
+impl<K: Eq + Hash + Clone> ActivationState<K> {
+  pub fn update<V>(&mut self, delta: &CollectionDelta<K, V>) {
+    match delta {
+      CollectionDelta::Delta(k, _) => {
+        self.inner.insert(k.clone());
+      }
+      CollectionDelta::Remove(k) => {
+        self.inner.remove(k);
+      }
     }
   }
 }
@@ -355,16 +333,16 @@ impl<O, M, Upstream, Relation> VirtualCollection<O, ()>
   for ManyToOneReduce<O, M, Upstream, Relation>
 where
   Upstream: ReactiveCollection<M, ()>,
-  Relation: ReactiveCollection<M, O>,
+  Relation: ReactiveCollectionWithPrevious<M, O>,
   O: Clone + Eq + Hash + Send + Sync,
   M: Send + Sync,
 {
   fn iter_key(&self) -> impl Iterator<Item = O> + '_ {
-    self.ref_counting.keys().cloned()
+    self.state.inner.iter().cloned()
   }
 
   fn access(&self) -> impl Fn(&O) -> Option<()> + '_ {
-    move |k| self.ref_counting.get(k).map(|_| {})
+    move |k| self.state.inner.get(k).map(|_| {})
   }
 }
 
@@ -386,7 +364,7 @@ impl<O, M, T: Clone> Clone for OneToManyRefHashBookKeeping<O, M, T> {
 
 impl<O, M, T> VirtualCollection<M, O> for OneToManyRefHashBookKeeping<O, M, T>
 where
-  T: ReactiveCollection<M, O>,
+  T: VirtualCollection<M, O>,
   M: Send + Sync,
   O: Send + Sync,
 {
@@ -428,14 +406,14 @@ where
   }
 }
 
-impl<O, M, T> ReactiveCollection<M, O> for OneToManyRefHashBookKeeping<O, M, T>
+impl<O, M, T> ReactiveCollectionWithPrevious<M, O> for OneToManyRefHashBookKeeping<O, M, T>
 where
-  T: ReactiveCollection<M, O>,
+  T: ReactiveCollectionWithPrevious<M, O>,
   T::Changes: Clone,
   M: Hash + Eq + Clone + Send + Sync + 'static,
   O: Hash + Eq + Clone + Send + Sync + 'static,
 {
-  type Changes = FastPassingVec<CollectionDelta<M, O>>;
+  type Changes = FastPassingVec<CollectionDeltaWithPrevious<M, O>>;
 
   fn poll_changes(&mut self, cx: &mut Context<'_>) -> Poll<Option<Self::Changes>> {
     let r = self.upstream.poll_changes_and_merge_until_pending(cx);
@@ -515,7 +493,7 @@ struct Mapping {
 
 impl<O, M, T> VirtualCollection<M, O> for OneToManyRefDenseBookKeeping<O, M, T>
 where
-  T: ReactiveCollection<M, O>,
+  T: VirtualCollection<M, O>,
   M: Send + Sync,
   O: Send + Sync,
 {
@@ -559,14 +537,14 @@ where
   }
 }
 
-impl<O, M, T> ReactiveCollection<M, O> for OneToManyRefDenseBookKeeping<O, M, T>
+impl<O, M, T> ReactiveCollectionWithPrevious<M, O> for OneToManyRefDenseBookKeeping<O, M, T>
 where
-  T: ReactiveCollection<M, O>,
+  T: ReactiveCollectionWithPrevious<M, O>,
   T::Changes: Clone,
   M: LinearIdentification + Eq + std::hash::Hash + Clone + Send + Sync + 'static,
   O: LinearIdentification + Clone + Send + Sync + 'static,
 {
-  type Changes = FastPassingVec<CollectionDelta<M, O>>;
+  type Changes = FastPassingVec<CollectionDeltaWithPrevious<M, O>>;
 
   fn poll_changes(&mut self, cx: &mut Context<'_>) -> Poll<Option<Self::Changes>> {
     let r = self.upstream.poll_changes_and_merge_until_pending(cx);

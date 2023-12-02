@@ -85,7 +85,7 @@ impl NodeIncrementalDeriveCollections {
 pub struct TreeDeriveOutput<FD, F, V> {
   inner: ReactiveParentTree,
   forked_change: Box<
-    dyn Stream<Item = Vec<CollectionDelta<usize, DeltaOf<SceneNodeDerivedData>>>>
+    dyn Stream<Item = Vec<CollectionDeltaWithPrevious<usize, DeltaOf<SceneNodeDerivedData>>>>
       + Unpin
       + Send
       + Sync,
@@ -159,19 +159,18 @@ where
     let s_id = self.scene_id;
     changes.map(|v| {
       let mut deduplicate =
-        FastHashMap::<NodeIdentity, CollectionDelta<NodeIdentity, V>>::default();
+        FastHashMap::<NodeIdentity, CollectionDeltaWithPrevious<NodeIdentity, V>>::default();
       v.map(|v| {
         v.into_iter()
           .filter_map(|delta| match delta {
-            CollectionDelta::Delta(idx, d, pd) => {
+            CollectionDeltaWithPrevious::Delta(idx, d, pd) => {
               let d = (self.downcast_delta)(d);
               let pd = pd.and_then(|pd| (self.downcast_delta)(pd));
 
-              d.map(|d| CollectionDelta::Delta((s_id, idx), d, pd))
+              d.map(|d| CollectionDeltaWithPrevious::Delta((s_id, idx), d, pd))
             }
-            CollectionDelta::Remove(idx, d) => {
-              (self.downcast_delta)(d).map(|mat| CollectionDelta::Remove((s_id, idx), mat))
-            }
+            CollectionDeltaWithPrevious::Remove(idx, d) => (self.downcast_delta)(d)
+              .map(|mat| CollectionDeltaWithPrevious::Remove((s_id, idx), mat)),
           })
           .for_each(|d| {
             let key = *d.key();
@@ -187,6 +186,10 @@ where
           });
         deduplicate
           .into_values()
+          .map(|v| match v {
+            CollectionDeltaWithPrevious::Delta(k, v, _) => CollectionDelta::Delta(k, v),
+            CollectionDeltaWithPrevious::Remove(k, _) => CollectionDelta::Remove(k),
+          })
           .collect::<Vec<_>>()
           .into_par_iter()
       })

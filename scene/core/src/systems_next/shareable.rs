@@ -2,7 +2,7 @@ use crate::*;
 
 #[global_registered_collection_and_many_one_idx_relation]
 pub fn scene_model_ref_std_model(
-) -> impl ReactiveCollection<AllocIdx<SceneModelImpl>, AllocIdx<StandardModel>> {
+) -> impl ReactiveCollectionWithPrevious<AllocIdx<SceneModelImpl>, AllocIdx<StandardModel>> {
   storage_of::<SceneModelImpl>().listen_to_reactive_collection(|change| {
     field_of!(change, SceneModelImpl => model).cared_then(|model| {
       if let ModelEnum::Standard(model) = model {
@@ -16,7 +16,7 @@ pub fn scene_model_ref_std_model(
 
 #[global_registered_collection_and_many_one_idx_relation]
 pub fn std_model_ref_att_mesh(
-) -> impl ReactiveCollection<AllocIdx<StandardModel>, AllocIdx<AttributesMesh>> {
+) -> impl ReactiveCollectionWithPrevious<AllocIdx<StandardModel>, AllocIdx<AttributesMesh>> {
   storage_of::<StandardModel>().listen_to_reactive_collection(|change| {
     field_of!(change, StandardModel => mesh).cared_then(|mesh| {
       if let MeshEnum::AttributesMesh(mesh) = mesh {
@@ -29,21 +29,24 @@ pub fn std_model_ref_att_mesh(
 }
 
 #[global_registered_collection_and_many_one_hash_relation]
-pub fn scene_model_ref_node() -> impl ReactiveCollection<AllocIdx<SceneModelImpl>, NodeIdentity> {
+pub fn scene_model_ref_node(
+) -> impl ReactiveCollectionWithPrevious<AllocIdx<SceneModelImpl>, NodeIdentity> {
   storage_of::<SceneModelImpl>().listen_to_reactive_collection(|change| {
     field_of!(change, SceneModelImpl => node).cared_map(|node| node.scene_and_node_id())
   })
 }
 
 #[global_registered_collection_and_many_one_hash_relation]
-pub fn scene_light_ref_node() -> impl ReactiveCollection<AllocIdx<SceneLightImpl>, NodeIdentity> {
+pub fn scene_light_ref_node(
+) -> impl ReactiveCollectionWithPrevious<AllocIdx<SceneLightImpl>, NodeIdentity> {
   storage_of::<SceneLightImpl>().listen_to_reactive_collection(|change| {
     field_of!(change, SceneLightImpl => node).cared_map(|node| node.scene_and_node_id())
   })
 }
 
 #[global_registered_collection_and_many_one_hash_relation]
-pub fn scene_camera_ref_node() -> impl ReactiveCollection<AllocIdx<SceneCameraImpl>, NodeIdentity> {
+pub fn scene_camera_ref_node(
+) -> impl ReactiveCollectionWithPrevious<AllocIdx<SceneCameraImpl>, NodeIdentity> {
   storage_of::<SceneCameraImpl>().listen_to_reactive_collection(|change| {
     field_of!(change, SceneCameraImpl => node).cared_map(|node| node.scene_and_node_id())
   })
@@ -72,7 +75,7 @@ material_enum_cast!(
 );
 
 fn global_std_model_ref_material_impl<M: DowncastFromMaterialEnum>(
-) -> impl ReactiveCollection<AllocIdx<StandardModel>, AllocIdx<M>> {
+) -> impl ReactiveCollectionWithPrevious<AllocIdx<StandardModel>, AllocIdx<M>> {
   storage_of::<StandardModel>().listen_to_reactive_collection(|change| {
     field_of!(change, StandardModel => material).cared_then(|mat| {
       M::downcast_from_material_enum(mat).map(|m| AllocIdx::from(m.alloc_index()))
@@ -81,7 +84,7 @@ fn global_std_model_ref_material_impl<M: DowncastFromMaterialEnum>(
 }
 
 pub fn global_std_model_ref_material<M: DowncastFromMaterialEnum>(
-) -> impl ReactiveCollection<AllocIdx<StandardModel>, AllocIdx<M>> + Clone {
+) -> impl ReactiveCollectionWithPrevious<AllocIdx<StandardModel>, AllocIdx<M>> + Clone {
   global_collection_registry().get_or_create_relation_by_idx(global_std_model_ref_material_impl)
 }
 

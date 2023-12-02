@@ -45,7 +45,7 @@ impl<T: IncrementalBase> IncrementalSignalStorage<T> {
   pub fn listen_to_reactive_collection<U>(
     &self,
     mapper: impl Fn(MaybeDeltaRef<T>) -> ChangeReaction<U> + Copy + Send + Sync + 'static,
-  ) -> impl ReactiveCollection<AllocIdx<T>, U>
+  ) -> impl ReactiveCollectionWithPrevious<AllocIdx<T>, U>
   where
     U: Clone + Send + Sync + 'static,
   {
@@ -166,7 +166,7 @@ impl<K, T: Clone> Clone for MutationFolder<K, T> {
 }
 
 impl<K: Send, T: Clone + Send> ParallelIterator for MutationFolder<K, T> {
-  type Item = CollectionDelta<AllocIdx<K>, T>;
+  type Item = CollectionDeltaWithPrevious<AllocIdx<K>, T>;
 
   fn drive_unindexed<C>(self, consumer: C) -> C::Result
   where
@@ -176,13 +176,16 @@ impl<K: Send, T: Clone + Send> ParallelIterator for MutationFolder<K, T> {
       .inner
       .into_par_iter()
       .flat_map_iter(|(id, state)| {
-        let mut expand = smallvec::SmallVec::<[CollectionDelta<AllocIdx<K>, T>; 2]>::new();
+        let mut expand =
+          smallvec::SmallVec::<[CollectionDeltaWithPrevious<AllocIdx<K>, T>; 2]>::new();
         match state {
-          MutationState::NewInsert(v) => expand.push(CollectionDelta::Delta(id, v, None)),
-          MutationState::ChangeTo(v, p) => {
-            expand.push(CollectionDelta::Delta(id, v, Some(p)));
+          MutationState::NewInsert(v) => {
+            expand.push(CollectionDeltaWithPrevious::Delta(id, v, None))
           }
-          MutationState::Remove(p) => expand.push(CollectionDelta::Remove(id, p)),
+          MutationState::ChangeTo(v, p) => {
+            expand.push(CollectionDeltaWithPrevious::Delta(id, v, Some(p)));
+          }
+          MutationState::Remove(p) => expand.push(CollectionDeltaWithPrevious::Remove(id, p)),
         }
         expand
       })
@@ -318,13 +321,14 @@ impl<T: IncrementalBase, S: Sync, U: Sync + Send + Clone> VirtualCollection<Allo
   }
 }
 
-impl<T, S, U> ReactiveCollection<AllocIdx<T>, U> for ReactiveCollectionFromGroupMutation<T, S, U>
+impl<T, S, U> ReactiveCollectionWithPrevious<AllocIdx<T>, U>
+  for ReactiveCollectionFromGroupMutation<T, S, U>
 where
   T: IncrementalBase,
   U: Clone + Send + Sync + 'static,
   S: Stream<Item = MutationFolder<T, U>> + Unpin + Send + Sync + 'static,
 {
-  type Changes = impl CollectionChanges<AllocIdx<T>, U>;
+  type Changes = impl CollectionChangesWithPrevious<AllocIdx<T>, U>;
 
   fn poll_changes(&mut self, cx: &mut Context<'_>) -> Poll<Option<Self::Changes>> {
     self.inner.poll_next_unpin(cx)

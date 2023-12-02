@@ -83,7 +83,8 @@ impl SceneModelMergeOptimization {
       source_scene_id,
       source_scene_node_mat.clone(),
       foreign_key_support,
-    );
+    )
+    .into_collection_with_previous();
 
     let applied_matrix_table = source_scene_node_mat
       .collective_zip(source_scene_node_net_vis)
@@ -121,7 +122,7 @@ impl SceneModelMergeOptimization {
     let changed_key = FastDashSet::default();
     if let Poll::Ready(Some(changes)) = self.merge_relation.poll_changes_dyn(cx) {
       changes.into_par_iter().for_each(|change| match change {
-        CollectionDelta::Delta(source_idx, new_key, old_key) => {
+        CollectionDeltaWithPrevious::Delta(source_idx, new_key, old_key) => {
           self
             .merged_model
             .entry(new_key)
@@ -138,7 +139,7 @@ impl SceneModelMergeOptimization {
             changed_key.insert(old_key);
           }
         }
-        CollectionDelta::Remove(source_idx, key) => {
+        CollectionDeltaWithPrevious::Remove(source_idx, key) => {
           self
             .merged_model
             .get_mut(&key)
@@ -152,7 +153,7 @@ impl SceneModelMergeOptimization {
     let accessor = self.merge_relation.access_boxed();
     if let Poll::Ready(Some(changes)) = self.applied_matrix_table.poll_changes_dyn(cx) {
       changes.into_par_iter().for_each(|change| {
-        if let CollectionDelta::Delta(source_idx, new_mat, _) = change {
+        if let CollectionDelta::Delta(source_idx, new_mat) = change {
           let merge_key = accessor(&source_idx).unwrap();
           self
             .merged_model
@@ -240,9 +241,13 @@ pub fn build_merge_relation(
 
   let referenced_sm = referenced_sm.into_forker();
 
+  let referenced_sm_c = referenced_sm.clone().into_collection();
+
   let referenced_std_md = referenced_sm
     .clone()
+    .into_collection()
     .many_to_one_reduce_key(std_sm_relation.clone());
+
   let referenced_std_md = Box::new(referenced_std_md) as Box<dyn DynamicReactiveCollection<_, _>>;
   let referenced_std_md = referenced_std_md.into_forker();
 
@@ -270,7 +275,7 @@ pub fn build_merge_relation(
       world_mat_is_front_side: face,
     });
 
-  std_key.collective_union(referenced_sm, |(keyed, all)| match (keyed, all) {
+  std_key.collective_union(referenced_sm_c, |(keyed, all)| match (keyed, all) {
     (Some(key), Some(_)) => MergeKey::Standard(key).into(),
     (None, Some(_)) => MergeKey::UnableToMergeNoneStandard(alloc_global_res_id()).into(),
     _ => unreachable!(),
@@ -305,6 +310,7 @@ fn material_hash_impl<M: DowncastFromMaterialEnum + Hash>(
 
   let material_hash = storage_of::<M>()
     .listen_to_reactive_collection(|_| ChangeReaction::Care(Some(())))
+    .into_collection()
     .filter_by_keyset(referenced_mat)
     .collective_execute_map_by(|| {
       let rehash = storage_of::<M>().create_key_mapper(|mat| {
@@ -328,6 +334,7 @@ fn std_mesh_key(
 
   let attribute_key = storage_of::<AttributesMesh>()
     .listen_to_reactive_collection(|_| ChangeReaction::Care(Some(())))
+    .into_collection()
     .filter_by_keyset(referenced_attribute_mesh)
     .collective_execute_map_by(|| {
       let layout_key = storage_of::<AttributesMesh>().create_key_mapper(|mesh| {

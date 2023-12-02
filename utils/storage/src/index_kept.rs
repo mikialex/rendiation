@@ -41,10 +41,9 @@ impl<T> IndexKeptVec<T> {
       .filter_map(|(index, v)| Some((index as u32, v.as_ref()?)))
   }
 
-  pub fn remove(&mut self, idx: u32) -> T {
+  pub fn remove(&mut self, idx: u32) -> Option<T> {
     let idx = idx as usize;
-    assert!(self.storage[idx].is_some());
-    self.storage[idx].take().unwrap()
+    self.storage[idx].take()
   }
 
   pub fn try_get_mut(&mut self, idx: u32) -> Option<&mut T> {
