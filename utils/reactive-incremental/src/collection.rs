@@ -490,11 +490,26 @@ where
     }
   }
 
+  #[inline(always)]
+  fn workaround_box(self) -> impl ReactiveCollection<K, V>
+  where
+    K: Clone + Sync,
+  {
+    let r = self;
+    // this is a workaround that the compiler maybe generate huge outputs(like pdb file)  which lead
+    // to link error in debug build, as well as using huge memory
+    // see https://doc.rust-lang.org/reference/conditional-compilation.html#debug_assertions
+    #[cfg(debug_assertions)]
+    let r = r.into_boxed();
+
+    r
+  }
+
   /// map map<k, v> to map<k, v2>
   fn collective_map<V2, F>(self, f: F) -> impl ReactiveCollection<K, V2>
   where
     F: Fn(V) -> V2 + Copy + Send + Sync + 'static,
-    V2: Send + Sync + Clone,
+    V2: Send + Sync + Clone + 'static,
     K: Sync + Clone,
     Self: Sync,
   {
@@ -503,6 +518,7 @@ where
       map: f,
       phantom: PhantomData,
     }
+    .workaround_box()
   }
 
   /// map map<k, v> to map<k, v2>
@@ -519,6 +535,7 @@ where
       cache: Default::default(),
       phantom: PhantomData,
     }
+    .workaround_box()
   }
 
   /// filter map<k, v> by v
@@ -540,8 +557,8 @@ where
   fn collective_filter_map<V2, F>(self, f: F) -> impl ReactiveCollection<K, V2>
   where
     F: Fn(V) -> Option<V2> + Copy + Send + Sync + 'static,
-    V2: Send + Sync + Clone,
-    K: Sync + Clone,
+    V2: Send + Sync + Clone + 'static,
+    K: Sync + Clone + 'static,
     Self: Sync,
   {
     ReactiveKVFilter {
@@ -549,6 +566,7 @@ where
       checker: f,
       k: PhantomData,
     }
+    .workaround_box()
   }
 
   fn collective_union<V2, Other, F, O>(self, other: Other, f: F) -> impl ReactiveCollection<K, O>
@@ -560,20 +578,13 @@ where
     F: Fn((Option<V>, Option<V2>)) -> Option<O> + Send + Sync + Copy + 'static,
     Self: Sync,
   {
-    let r = ReactiveKVUnion {
+    ReactiveKVUnion {
       a: self,
       b: other,
       phantom: PhantomData,
       f,
-    };
-
-    // this is a workaround that the compiler maybe generate huge outputs(pdg file)  which lead to
-    // link error in debug build, as well as using huge memory
-    // see https://doc.rust-lang.org/reference/conditional-compilation.html#debug_assertions
-    #[cfg(debug_assertions)]
-    let r = r.into_boxed();
-
-    r
+    }
+    .workaround_box()
   }
 
   /// K should not overlap
@@ -644,19 +655,28 @@ where
       relations,
       phantom: PhantomData,
     }
+    .workaround_box()
   }
 
-  fn materialize_unordered(self) -> UnorderedMaterializedReactiveCollection<Self, K, V> {
+  fn materialize_unordered(self) -> impl ReactiveCollection<K, V>
+  where
+    K: Eq + std::hash::Hash + Clone + Sync,
+  {
     UnorderedMaterializedReactiveCollection {
       inner: self,
       cache: Default::default(),
     }
+    .workaround_box()
   }
-  fn materialize_linear(self) -> LinearMaterializedReactiveCollection<Self, V> {
+  fn materialize_linear(self) -> impl ReactiveCollection<K, V>
+  where
+    K: LinearIdentification + Sync,
+  {
     LinearMaterializedReactiveCollection {
       inner: self,
       cache: Default::default(),
     }
+    .workaround_box()
   }
 
   fn into_collection_with_previous(self) -> impl ReactiveCollectionWithPrevious<K, V>
@@ -683,6 +703,7 @@ where
       state: Default::default(),
       phantom: PhantomData,
     }
+    .workaround_box()
   }
 
   fn debug(self, label: &'static str) -> impl ReactiveCollection<K, V>
@@ -695,6 +716,7 @@ where
       phantom: PhantomData,
       label,
     }
+    .workaround_box()
   }
 
   fn debug_using_net_change(self, label: &'static str) -> impl ReactiveCollection<K, V>
