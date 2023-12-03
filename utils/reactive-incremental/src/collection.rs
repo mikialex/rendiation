@@ -748,14 +748,16 @@ where
 
 impl<T, K, V> VirtualCollection<K, V> for IntoReactiveCollectionWithPrevious<T, K, V>
 where
-  T: VirtualCollection<K, V>,
+  T: VirtualCollection<K, V> + Sync,
+  K: Clone + Sync + Eq + std::hash::Hash,
+  V: Clone + Sync,
 {
   fn iter_key(&self) -> impl Iterator<Item = K> + '_ {
-    self.inner.iter_key()
+    self.current.keys().cloned()
   }
 
   fn access(&self) -> impl Fn(&K) -> Option<V> + Sync + '_ {
-    self.inner.access()
+    |key| self.current.get(key).cloned()
   }
 }
 

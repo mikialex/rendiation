@@ -152,7 +152,7 @@ where
           if let Some(v) = getter(&v) {
             (k.clone(), CollectionDelta::Delta(k, v)).into()
           } else if p.is_some() {
-            // if we have the change then we could not do remove
+            // if we have the change then we could not do remove because their key is same
             (k.clone(), CollectionDelta::Remove(k)).into()
           } else {
             None
@@ -160,6 +160,7 @@ where
         }
         CollectionDeltaWithPrevious::Remove(k, _p) => {
           // we do not check current upstream just to emit delta
+          // todo, using a k set to do filtering
           (k.clone(), CollectionDelta::Remove(k)).into()
         }
       }));
@@ -170,6 +171,8 @@ where
       // output.par_extend(upstream_changes.filter_map(|change|{
       // }))
       for delta in upstream_changes.collect_into_pass_vec() {
+        // the inv_query is the current relation, the previous one's delta is emitted
+        // by the above relation change code
         match delta {
           CollectionDelta::Remove(one) => inv_querier(&one, &mut |many| {
             output.insert(many.clone(), CollectionDelta::Remove(many));
@@ -255,10 +258,17 @@ where
         let old_value = change.old_value();
         let new_value = change.new_value();
 
+        // no matter if the previous reference was or not covered by upstream, we
+        // always emit thr emit removal. it's ok to emit a none exist removal
+        //
+        // when the relation is removal and upstream is removal, the removal will be emit correctly
         if let Some(ov) = old_value {
           output.insert(ov.clone(), CollectionDelta::Remove(ov.clone()));
         }
 
+        // when we have a new reference, we simple emit a new change if the current upstream is
+        // covered this key, note that the value is () type, so the change is just a tick message
+        // todo, filter out unnecessary delta emit
         if let Some(nv) = new_value {
           if getter(key).is_some() {
             output.insert(nv.clone(), CollectionDelta::Delta(nv.clone(), ()));
@@ -271,11 +281,16 @@ where
       for delta in upstream_changes.collect_into_pass_vec() {
         match delta {
           CollectionDelta::Remove(many) => {
+            // if the previous mapped one's removal message will be emit by the above relational
+            // change code(using previous relation reference info).
             if let Some(one) = one_acc(&many) {
               output.insert(one.clone(), CollectionDelta::Remove(one.clone()));
             }
           }
           CollectionDelta::Delta(many, _) => {
+            // when we have multiple upstream changes lead to one downstream, the delta will be
+            // deduplicate by the hashmap to avoid multiple delta change for one key.
+            // when we have upstream change and relational add, the delta will also be deduplicated
             if let Some(one) = one_acc(&many) {
               output.insert(one.clone(), CollectionDelta::Delta(one.clone(), ()));
             }
@@ -284,14 +299,19 @@ where
       }
     }
 
-    for v in output.values() {
-      self.state.update(v);
+    let mut final_output = Vec::with_capacity(output.len());
+    // we directly maintain a k set for message filtering
+    // we have to do the filter because we need the k set to iter_keys
+    for v in output.into_values() {
+      if !self.state.update(&v) {
+        final_output.push(v);
+      }
     }
 
-    if output.is_empty() {
+    if final_output.is_empty() {
       Poll::Pending
     } else {
-      Poll::Ready(Some(HashMapIntoValue::new(output)))
+      Poll::Ready(Some(FastPassingVec::from_vec(final_output)))
     }
   }
 
@@ -317,7 +337,7 @@ impl<K> Default for ActivationState<K> {
 }
 
 impl<K: Eq + Hash + Clone> ActivationState<K> {
-  // return if the change(remove) is redundant
+  /// return if the change(remove) is redundant
   pub fn update<V>(&mut self, delta: &CollectionDelta<K, V>) -> bool {
     match delta {
       CollectionDelta::Delta(k, _) => {
