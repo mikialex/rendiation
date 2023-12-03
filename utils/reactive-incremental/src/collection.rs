@@ -560,12 +560,20 @@ where
     F: Fn((Option<V>, Option<V2>)) -> Option<O> + Send + Sync + Copy + 'static,
     Self: Sync,
   {
-    ReactiveKVUnion {
+    let r = ReactiveKVUnion {
       a: self,
       b: other,
       phantom: PhantomData,
       f,
-    }
+    };
+
+    // this is a workaround that the compiler maybe generate huge outputs(pdg file)  which lead to
+    // link error in debug build, as well as using huge memory
+    // see https://doc.rust-lang.org/reference/conditional-compilation.html#debug_assertions
+    #[cfg(debug_assertions)]
+    let r = r.into_boxed();
+
+    r
   }
 
   /// K should not overlap
@@ -664,6 +672,7 @@ where
     }
   }
 
+  // this maybe helpful to performance and has small memory overhead
   fn filter_redundant_remove(self) -> impl ReactiveCollection<K, V>
   where
     K: std::fmt::Debug + Clone + Send + Sync + Eq + std::hash::Hash + 'static,
@@ -676,7 +685,7 @@ where
     }
   }
 
-  fn debug(self) -> impl ReactiveCollection<K, V>
+  fn debug(self, label: &'static str) -> impl ReactiveCollection<K, V>
   where
     K: std::fmt::Debug + Clone + Send + Sync + 'static,
     V: std::fmt::Debug + Clone + Send + Sync + 'static,
@@ -684,7 +693,19 @@ where
     ReactiveCollectionDebug {
       inner: self,
       phantom: PhantomData,
+      label,
     }
+  }
+
+  fn debug_using_net_change(self, label: &'static str) -> impl ReactiveCollection<K, V>
+  where
+    K: std::fmt::Debug + Eq + std::hash::Hash + Clone + Send + Sync + 'static,
+    V: std::fmt::Debug + Clone + Send + Sync + PartialEq + 'static,
+  {
+    self
+      .into_collection_with_previous()
+      .debug(label)
+      .into_collection()
   }
 }
 impl<T, K, V> ReactiveCollectionExt<K, V> for T
@@ -710,7 +731,8 @@ where
   type Changes = impl CollectionChangesWithPrevious<K, V>;
 
   fn poll_changes(&mut self, cx: &mut Context) -> Poll<Option<Self::Changes>> {
-    self.inner.poll_changes(cx).map(|v| {
+    let mut is_empty = false;
+    let r = self.inner.poll_changes(cx).map(|v| {
       v.map(|v| {
         let v = v
           .collect_into_pass_vec()
@@ -719,7 +741,8 @@ where
           .cloned()
           .collect::<Vec<_>>();
 
-        v.into_par_iter()
+        let output = v
+          .into_par_iter()
           .collect::<Vec<_>>()
           .into_iter()
           .filter_map(|v| match v {
@@ -743,10 +766,21 @@ where
               }
             }
           })
-          .collect::<Vec<_>>()
-          .into_par_iter()
+          .collect::<Vec<_>>();
+
+        if output.is_empty() {
+          is_empty = true;
+        }
+
+        output.into_par_iter()
       })
-    })
+    });
+
+    if is_empty {
+      return Poll::Pending;
+    }
+
+    r
   }
 
   fn extra_request(&mut self, request: &mut ExtraCollectionOperation) {
@@ -1050,6 +1084,7 @@ where
 pub struct ReactiveCollectionDebug<T, K, V> {
   pub inner: T,
   pub phantom: PhantomData<(K, V)>,
+  pub label: &'static str,
 }
 
 impl<T, K, V> ReactiveCollectionWithPrevious<K, V> for ReactiveCollectionDebug<T, K, V>
@@ -1066,7 +1101,7 @@ where
       .poll_changes(cx)
       .map(|v| v.map(|v| v.collect_into_pass_vec()));
     if let Poll::Ready(Some(v)) = &r {
-      println!("{:#?}", v);
+      println!("{} {:#?}", self.label, v);
     }
     r
   }
