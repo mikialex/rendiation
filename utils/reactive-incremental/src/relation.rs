@@ -303,7 +303,7 @@ where
     // we directly maintain a k set for message filtering
     // we have to do the filter because we need the k set to iter_keys
     for v in output.into_values() {
-      if !self.state.update(&v) {
+      if self.state.update(&v) {
         final_output.push(v);
       }
     }
@@ -319,7 +319,7 @@ where
     self.upstream.extra_request(request);
     self.relations.extra_request(request);
     match request {
-      ExtraCollectionOperation::MemoryShrinkToFit => todo!(),
+      ExtraCollectionOperation::MemoryShrinkToFit => self.state.inner.shrink_to_fit(),
     }
   }
 }
@@ -337,14 +337,14 @@ impl<K> Default for ActivationState<K> {
 }
 
 impl<K: Eq + Hash + Clone> ActivationState<K> {
-  /// return if the change(remove) is redundant
+  /// return if the change(remove) is not redundant
   pub fn update<V>(&mut self, delta: &CollectionDelta<K, V>) -> bool {
     match delta {
       CollectionDelta::Delta(k, _) => {
         self.inner.insert(k.clone());
         true
       }
-      CollectionDelta::Remove(k) => self.inner.remove(k),
+      CollectionDelta::Remove(k) => !self.inner.remove(k),
     }
   }
 }

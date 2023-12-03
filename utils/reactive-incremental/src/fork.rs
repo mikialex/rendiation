@@ -51,13 +51,17 @@ impl<K, V, Map: VirtualCollection<K, V>> Clone
       .filter_map(|key| access(&key).map(|v| (key, v)))
       .map(|(k, v)| CollectionDelta::Delta(k, v))
       .collect::<Vec<_>>();
-    let deltas = FastPassingVec::from_vec(deltas);
 
     let mut downstream = self.downstream.write();
     let id = alloc_global_res_id();
     // we don't expect clone in real runtime so we don't care about wake
     let (sender, rev) = futures::channel::mpsc::unbounded();
-    sender.unbounded_send(deltas).ok();
+
+    if !deltas.is_empty() {
+      let deltas = FastPassingVec::from_vec(deltas);
+      sender.unbounded_send(deltas).ok();
+    }
+
     downstream.insert(id, sender);
 
     Self {
@@ -84,13 +88,17 @@ impl<K, V, Map: VirtualCollection<K, V>> Clone
       .filter_map(|key| access(&key).map(|v| (key, v)))
       .map(|(k, v)| CollectionDeltaWithPrevious::Delta(k, v, None))
       .collect::<Vec<_>>();
-    let deltas = FastPassingVec::from_vec(deltas);
 
     let mut downstream = self.downstream.write();
     let id = alloc_global_res_id();
     // we don't expect clone in real runtime so we don't care about wake
     let (sender, rev) = futures::channel::mpsc::unbounded();
-    sender.unbounded_send(deltas).ok();
+
+    if !deltas.is_empty() {
+      let deltas = FastPassingVec::from_vec(deltas);
+      sender.unbounded_send(deltas).ok();
+    }
+
     downstream.insert(id, sender);
 
     Self {
@@ -129,7 +137,6 @@ where
       for downstream in downstream.values() {
         downstream.unbounded_send(vec.clone()).ok();
       }
-      // }
     } else {
       return Poll::Pending;
     }

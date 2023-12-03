@@ -1017,11 +1017,15 @@ where
     if let Poll::Ready(Some(changes)) = &changes {
       let mut filtered = Vec::with_capacity(changes.vec.len());
       for change in changes.vec.as_slice() {
-        if !self.state.update(change) {
+        if self.state.update(change) {
           filtered.push(change.clone())
         }
       }
-      return Poll::Ready(Some(FastPassingVec::from_vec(filtered)));
+      if filtered.is_empty() {
+        return Poll::Pending;
+      } else {
+        return Poll::Ready(Some(FastPassingVec::from_vec(filtered)));
+      }
     }
 
     changes
