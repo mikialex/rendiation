@@ -84,6 +84,18 @@ pub trait ReactiveCollectionWithPrevious<K: Send, V: Send>:
     ReactiveKVMapFork::new(self)
   }
 
+  fn debug(self) -> impl ReactiveCollectionWithPrevious<K, V>
+  where
+    Self: Sized,
+    K: std::fmt::Debug + Clone + Send + Sync + 'static,
+    V: std::fmt::Debug + Clone + Send + Sync + 'static,
+  {
+    ReactiveCollectionDebug {
+      inner: self,
+      phantom: PhantomData,
+    }
+  }
+
   fn into_collection(self) -> impl ReactiveCollection<K, V>
   where
     Self: Sized,

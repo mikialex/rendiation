@@ -275,10 +275,15 @@ pub fn build_merge_relation(
       world_mat_is_front_side: face,
     });
 
-  std_key.collective_union(referenced_sm_c, |(keyed, all)| match (keyed, all) {
+  let referenced_sm_guid = referenced_sm_c.collective_execute_map_by(|| {
+    let guid_getter = storage_of::<SceneModelImpl>().create_key_mapper(|_, guid| guid);
+    move |k, _| guid_getter(*k)
+  });
+
+  std_key.collective_union(referenced_sm_guid, |(keyed, all)| match (keyed, all) {
     (Some(key), Some(_)) => MergeKey::Standard(key).into(),
-    (None, Some(_)) => MergeKey::UnableToMergeNoneStandard(alloc_global_res_id()).into(),
-    _ => unreachable!(),
+    (None, Some(guid)) => MergeKey::UnableToMergeNoneStandard(guid).into(),
+    _ => None,
   })
 }
 
@@ -313,7 +318,7 @@ fn material_hash_impl<M: DowncastFromMaterialEnum + Hash>(
     .into_collection()
     .filter_by_keyset(referenced_mat)
     .collective_execute_map_by(|| {
-      let rehash = storage_of::<M>().create_key_mapper(|mat| {
+      let rehash = storage_of::<M>().create_key_mapper(|mat, _| {
         let mut hasher = FastHasher::default();
         mat.hash(&mut hasher);
         hasher.finish()
@@ -337,19 +342,25 @@ fn std_mesh_key(
     .into_collection()
     .filter_by_keyset(referenced_attribute_mesh)
     .collective_execute_map_by(|| {
-      let layout_key = storage_of::<AttributesMesh>().create_key_mapper(|mesh| {
+      let layout_key = storage_of::<AttributesMesh>().create_key_mapper(|mesh, _| {
         // todo, filter not valid attribute layout key
         compute_merge_key(&mesh);
         0
       });
       move |k, _| layout_key(*k)
     });
+
+  let std_scope = std_scope.clone().collective_execute_map_by(|| {
+    let guid_getter = storage_of::<StandardModel>().create_key_mapper(|_, guid| guid);
+    move |k, _| guid_getter(*k)
+  });
+
   attribute_key
     .one_to_many_fanout(std_model_ref_att_mesh_many_one_relation())
-    .collective_union(std_scope.clone(), |(keyed, all)| match (keyed, all) {
+    .collective_union(std_scope, |(keyed, all)| match (keyed, all) {
       (Some(key), Some(_)) => MeshMergeType::Mergeable(ATTRIBUTE_MERGE, key).into(),
-      (None, Some(_)) => MeshMergeType::UnableToMerge(alloc_global_res_id()).into(),
-      _ => unreachable!(),
+      (None, Some(guid)) => MeshMergeType::UnableToMerge(guid).into(),
+      _ => None,
     })
     .collective_select(foreign)
 }

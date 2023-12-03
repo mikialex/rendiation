@@ -219,7 +219,7 @@ pub fn camera_projections() -> impl ReactiveCollection<AllocIdx<SceneCameraImpl>
     .into_collection()
     .collective_execute_map_by(|| {
       let proj_compute = storage_of::<SceneCameraImpl>() //
-        .create_key_mapper(|camera| camera.compute_project_mat());
+        .create_key_mapper(|camera, _| camera.compute_project_mat());
       move |k, _| proj_compute(*k)
     })
 }

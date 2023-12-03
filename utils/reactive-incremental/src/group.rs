@@ -12,7 +12,7 @@ pub struct SignalItem<T> {
   pub data: T,
   sub_event_handle: ListHandle,
   ref_count: u32,
-  guid: u64, // weak semantics is impl by the guid compare in data access
+  pub(crate) guid: u64, // weak semantics is impl by the guid compare in data access
 }
 
 pub struct AllocIdx<T> {
@@ -144,7 +144,7 @@ impl<T: IncrementalBase> IncrementalSignalStorage<T> {
 
   pub fn create_key_mapper<V>(
     &self,
-    mapper: impl Fn(&T) -> V + Send + Sync,
+    mapper: impl Fn(&T, u64) -> V + Send + Sync,
   ) -> impl Fn(AllocIdx<T>) -> V + Send + Sync {
     let data_holder = self.inner.clone();
     let guard = self.inner.data.read_recursive();
@@ -152,7 +152,8 @@ impl<T: IncrementalBase> IncrementalSignalStorage<T> {
       unsafe { std::mem::transmute(guard) };
     move |key| {
       let _ = data_holder;
-      mapper(&guard.get(key.index).data)
+      let item = guard.get(key.index);
+      mapper(&item.data, item.guid)
     }
   }
 
@@ -414,7 +415,7 @@ impl<T: IncrementalBase> Drop for IncrementalSignalPtr<T> {
           let removed = storage.remove(self.index);
           inner.group_watchers.emit(&StorageGroupChange::Drop {
             index: self.index.into(),
-            data: unsafe { std::mem::transmute(&removed) },
+            data: unsafe { std::mem::transmute(&removed.data) },
           });
 
           to_remove = removed.into();

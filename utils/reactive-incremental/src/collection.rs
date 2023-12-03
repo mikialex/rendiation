@@ -655,7 +655,7 @@ where
   where
     Self: Sized,
     K: Send + Sync + 'static + Clone + Eq + std::hash::Hash,
-    V: Send + Sync + 'static + Clone,
+    V: Send + Sync + 'static + Clone + PartialEq,
   {
     IntoReactiveCollectionWithPrevious {
       inner: self,
@@ -705,7 +705,7 @@ impl<T, K, V> ReactiveCollectionWithPrevious<K, V> for IntoReactiveCollectionWit
 where
   T: ReactiveCollection<K, V>,
   K: Send + Sync + Eq + std::hash::Hash + 'static + Clone,
-  V: Send + Sync + 'static + Clone,
+  V: Send + Sync + 'static + Clone + PartialEq,
 {
   type Changes = impl CollectionChangesWithPrevious<K, V>;
 
@@ -725,7 +725,15 @@ where
           .filter_map(|v| match v {
             CollectionDelta::Delta(k, v) => {
               let pre = self.current.insert(k.clone(), v.clone());
-              CollectionDeltaWithPrevious::Delta(k, v, pre).into()
+              if let Some(pre) = pre {
+                if pre != v {
+                  CollectionDeltaWithPrevious::Delta(k, v, Some(pre)).into()
+                } else {
+                  None
+                }
+              } else {
+                CollectionDeltaWithPrevious::Delta(k, v, pre).into()
+              }
             }
             CollectionDelta::Remove(k) => {
               if let Some(v) = self.current.remove(&k) {
@@ -1040,8 +1048,32 @@ where
 }
 
 pub struct ReactiveCollectionDebug<T, K, V> {
-  inner: T,
-  phantom: PhantomData<(K, V)>,
+  pub inner: T,
+  pub phantom: PhantomData<(K, V)>,
+}
+
+impl<T, K, V> ReactiveCollectionWithPrevious<K, V> for ReactiveCollectionDebug<T, K, V>
+where
+  T: ReactiveCollectionWithPrevious<K, V>,
+  K: std::fmt::Debug + Clone + Send + Sync + 'static,
+  V: std::fmt::Debug + Clone + Send + Sync + 'static,
+{
+  type Changes = impl CollectionChangesWithPrevious<K, V>;
+
+  fn poll_changes(&mut self, cx: &mut Context<'_>) -> Poll<Option<Self::Changes>> {
+    let r = self
+      .inner
+      .poll_changes(cx)
+      .map(|v| v.map(|v| v.collect_into_pass_vec()));
+    if let Poll::Ready(Some(v)) = &r {
+      println!("{:#?}", v);
+    }
+    r
+  }
+
+  fn extra_request(&mut self, request: &mut ExtraCollectionOperation) {
+    self.inner.extra_request(request)
+  }
 }
 
 impl<T, K, V> ReactiveCollection<K, V> for ReactiveCollectionDebug<T, K, V>
