@@ -99,7 +99,7 @@ pub trait ReactiveCollectionRelationReduceExt<K: Send>:
   ) -> impl ReactiveCollection<SK, ()>
   where
     SK: Clone + Eq + Hash + Send + Sync + 'static,
-    K: Clone + Sync + 'static,
+    K: Clone + Eq + Hash + Sync + 'static,
     Relation: ReactiveCollectionWithPrevious<K, SK> + 'static,
   {
     ManyToOneReduce {
@@ -107,6 +107,8 @@ pub trait ReactiveCollectionRelationReduceExt<K: Send>:
       relations,
       phantom: PhantomData,
       state: Default::default(),
+      state_upstream: Default::default(),
+      ref_count: Default::default(),
     }
   }
 }
@@ -231,12 +233,14 @@ where
   relations: Relation,
   phantom: PhantomData<(O, M)>,
   state: ActivationState<O>,
+  state_upstream: ActivationState<M>, // if the m is active
+  ref_count: FastHashMap<O, u32>,
 }
 
 impl<O, M, Upstream, Relation> ReactiveCollection<O, ()>
   for ManyToOneReduce<O, M, Upstream, Relation>
 where
-  M: Clone + Send + Sync + 'static,
+  M: Clone + Send + Eq + Hash + Sync + 'static,
   O: Clone + Eq + Hash + Send + Sync + 'static,
   Upstream: ReactiveCollection<M, ()>,
   Relation: ReactiveCollectionWithPrevious<M, O>,
@@ -252,47 +256,72 @@ where
     let getter = self.upstream.access();
     let one_acc = self.relations.access();
 
+    let mut relational_change_lookup = FastHashMap::default();
+
     if let Poll::Ready(Some(relational_changes)) = relational_changes {
       for change in relational_changes.collect_into_pass_vec() {
         let key = change.key();
         let old_value = change.old_value();
         let new_value = change.new_value();
 
-        // no matter if the previous reference was or not covered by upstream, we
-        // always emit thr emit removal. it's ok to emit a none exist removal
-        //
-        // when the relation is removal and upstream is removal, the removal will be emit correctly
         if let Some(ov) = old_value {
-          output.insert(ov.clone(), CollectionDelta::Remove(ov.clone()));
-        }
-
-        // when we have a new reference, we simple emit a new change if the current upstream is
-        // covered this key, note that the value is () type, so the change is just a tick message
-        // todo, filter out unnecessary delta emit
-        if let Some(nv) = new_value {
-          if getter(key).is_some() {
-            output.insert(nv.clone(), CollectionDelta::Delta(nv.clone(), ()));
+          if self.state_upstream.inner.contains(key) {
+            let ref_count = self.ref_count.get_mut(ov).unwrap();
+            *ref_count -= 1;
+            if *ref_count == 0 {
+              self.ref_count.remove(ov);
+              output.insert(ov.clone(), CollectionDelta::Remove(ov.clone()));
+            }
           }
         }
+
+        if let Some(nv) = new_value {
+          if getter(key).is_some() {
+            let ref_count = self.ref_count.entry(nv.clone()).or_insert_with(|| {
+              output.insert(nv.clone(), CollectionDelta::Delta(nv.clone(), ()));
+              0
+            });
+            *ref_count += 1;
+          }
+        }
+
+        relational_change_lookup.insert(key.clone(), change.clone());
       }
     }
 
+    let one_acc_pre = |many| {
+      if let Some(change) = relational_change_lookup.get(&many) {
+        match change {
+          CollectionDeltaWithPrevious::Remove(_, p) => Some(p.clone()),
+          CollectionDeltaWithPrevious::Delta(_, _, p) => p.clone(),
+        }
+      } else {
+        one_acc(&many)
+      }
+    };
+
     if let Poll::Ready(Some(upstream_changes)) = upstream_changes {
       for delta in upstream_changes.collect_into_pass_vec() {
+        // sync the upstream state;
+        self.state_upstream.update(&delta);
         match delta {
           CollectionDelta::Remove(many) => {
-            // if the previous mapped one's removal message will be emit by the above relational
-            // change code(using previous relation reference info).
-            if let Some(one) = one_acc(&many) {
-              output.insert(one.clone(), CollectionDelta::Remove(one.clone()));
+            if let Some(one) = one_acc_pre(many.clone()) {
+              let ref_count = self.ref_count.get_mut(&one).unwrap();
+              *ref_count -= 1;
+              if *ref_count == 0 {
+                self.ref_count.remove(&one);
+                output.insert(one.clone(), CollectionDelta::Remove(one.clone()));
+              }
             }
           }
           CollectionDelta::Delta(many, _) => {
-            // when we have multiple upstream changes lead to one downstream, the delta will be
-            // deduplicate by the hashmap to avoid multiple delta change for one key.
-            // when we have upstream change and relational add, the delta will also be deduplicated
             if let Some(one) = one_acc(&many) {
-              output.insert(one.clone(), CollectionDelta::Delta(one.clone(), ()));
+              let ref_count = self.ref_count.entry(one.clone()).or_insert_with(|| {
+                output.insert(one.clone(), CollectionDelta::Delta(one.clone(), ()));
+                0
+              });
+              *ref_count += 1;
             }
           }
         }
@@ -300,12 +329,10 @@ where
     }
 
     let mut final_output = Vec::with_capacity(output.len());
-    // we directly maintain a k set for message filtering
-    // we have to do the filter because we need the k set to iter_keys
+    // we  maintain a k set  because we need the k set to iter_keys
     for v in output.into_values() {
-      if self.state.update(&v) {
-        final_output.push(v);
-      }
+      self.state.update(&v);
+      final_output.push(v);
     }
 
     if final_output.is_empty() {
@@ -344,7 +371,7 @@ impl<K: Eq + Hash + Clone> ActivationState<K> {
         self.inner.insert(k.clone());
         true
       }
-      CollectionDelta::Remove(k) => !self.inner.remove(k),
+      CollectionDelta::Remove(k) => self.inner.remove(k),
     }
   }
 }
