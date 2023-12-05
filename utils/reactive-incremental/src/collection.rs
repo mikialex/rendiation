@@ -1,6 +1,7 @@
 use std::{marker::PhantomData, ops::DerefMut, sync::Arc};
 
 use dashmap::*;
+type FastDashMap<K, V> = dashmap::DashMap<K, V, FastHasherBuilder>;
 use fast_hash_collection::*;
 use storage::IndexKeptVec;
 
@@ -1334,19 +1335,19 @@ where
 
     let r = match (t1, t2) {
       (Poll::Ready(Some(v1)), Poll::Ready(Some(v2))) => {
-        let mut intersections: FastHashMap<
+        let intersections: FastDashMap<
           K,
           (
             Option<CollectionDelta<K, V1>>,
             Option<CollectionDelta<K, V2>>,
           ),
-        > = FastHashMap::default();
-        v1.collect_into_pass_vec().into_iter().for_each(|d| {
+        > = FastDashMap::default();
+        v1.for_each(|d| {
           let key = *d.key();
           intersections.entry(key).or_default().0 = Some(d)
         });
 
-        v2.collect_into_pass_vec().into_iter().for_each(|d| {
+        v2.for_each(|d| {
           let key = *d.key();
           intersections.entry(key).or_default().1 = Some(d)
         });
@@ -1374,7 +1375,7 @@ where
       return Poll::Pending;
     }
 
-    Poll::Ready(Some(r.into_par_iter()))
+    Poll::Ready(Some(FastPassingVec::from_vec(r)))
   }
   fn extra_request(&mut self, request: &mut ExtraCollectionOperation) {
     self.a.extra_request(request);
