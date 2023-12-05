@@ -110,35 +110,6 @@ where
 /// You can imagine that this is a data table with the K as the primary key and V as the row of the
 /// data(not containing K). In this table, besides getting data, you can also poll it's partial
 /// changes.
-///
-/// ## Implementation notes:
-///
-/// ### Compare to Stream
-///
-/// The first version of this trait is directly using the Stream as it's parent trait. But in
-/// practice, this cause a lot trouble. We are using many unstable feature like impl trait in return
-/// type, and impl trait in trait, our design require use to bound the stream's item with
-/// IntoIterator, it's hard to express this trait bound everywhere because the current rust can not
-/// auto infer it's bound requirement.
-///
-///
-/// ### Extra design idea
-///
-/// This trait maybe could generalize to SignalLike trait:
-/// ```rust
-/// pub trait Signal<T: IncrementalBase>: Stream<Item = T::Delta> {
-///   fn access(&self) -> T;
-/// }
-/// ```
-/// However, this idea has not baked enough. For example, how do we express efficient partial
-/// access for large T or container like T? Should we use some accessor associate trait or type as
-/// the accessor key? Should we link this type to the T like how we did in Incremental trait?
-///
-/// ## Data Coherency
-///
-/// The implementation should guarantee that the data access in VirtualCollection trait should be
-/// coherent with the change polling. For example, if the change has not been polled, the accessor
-/// should access the slate data but not the current.
 pub trait ReactiveCollection<K: Send, V: Send>:
   VirtualCollection<K, V> + Sync + Send + 'static
 {
@@ -635,7 +606,10 @@ where
     K: Copy + std::hash::Hash + Eq + Send + Sync + 'static,
     S: ReactiveCollection<K, ()>,
   {
-    self.collective_intersect(set).collective_map(|(v, _)| v)
+    self.collective_union(set, |(a, b)| match (a, b) {
+      (Some(a), Some(_)) => Some(a),
+      _ => None,
+    })
   }
 
   fn into_forker(self) -> ReactiveKVMapFork<Self, CollectionDelta<K, V>, K, V> {
@@ -656,6 +630,7 @@ where
       phantom: PhantomData,
     }
     .workaround_box()
+    .filter_redundant_remove()
   }
 
   fn materialize_unordered(self) -> impl ReactiveCollection<K, V>
@@ -695,8 +670,8 @@ where
   // this maybe helpful to performance and has small memory overhead
   fn filter_redundant_remove(self) -> impl ReactiveCollection<K, V>
   where
-    K: std::fmt::Debug + Clone + Send + Sync + Eq + std::hash::Hash + 'static,
-    V: std::fmt::Debug + Clone + Send + Sync + 'static,
+    K: Clone + Send + Sync + Eq + std::hash::Hash + 'static,
+    V: Clone + Send + Sync + 'static,
   {
     ReactiveCollectionMessageFilter {
       inner: self,
@@ -1067,8 +1042,8 @@ where
 impl<T, K, V> ReactiveCollection<K, V> for ReactiveCollectionMessageFilter<T, K, V>
 where
   T: ReactiveCollection<K, V>,
-  K: std::fmt::Debug + Clone + Send + Sync + Eq + std::hash::Hash + 'static,
-  V: std::fmt::Debug + Clone + Send + Sync + 'static,
+  K: Clone + Send + Sync + Eq + std::hash::Hash + 'static,
+  V: Clone + Send + Sync + 'static,
 {
   type Changes = impl CollectionChanges<K, V>;
 

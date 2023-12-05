@@ -110,6 +110,7 @@ pub trait ReactiveCollectionRelationReduceExt<K: Send>:
       state_upstream: Default::default(),
       ref_count: Default::default(),
     }
+    .filter_redundant_remove()
   }
 }
 impl<T, K: Send> ReactiveCollectionRelationReduceExt<K> for T where
