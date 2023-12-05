@@ -307,11 +307,12 @@ where
         match delta {
           CollectionDelta::Remove(many) => {
             if let Some(one) = one_acc_pre(many.clone()) {
-              let ref_count = self.ref_count.get_mut(&one).unwrap();
-              *ref_count -= 1;
-              if *ref_count == 0 {
-                self.ref_count.remove(&one);
-                output.insert(one.clone(), CollectionDelta::Remove(one.clone()));
+              if let Some(ref_count) = self.ref_count.get_mut(&one) {
+                *ref_count -= 1;
+                if *ref_count == 0 {
+                  self.ref_count.remove(&one);
+                  output.insert(one.clone(), CollectionDelta::Remove(one.clone()));
+                }
               }
             }
           }
@@ -346,7 +347,11 @@ where
     self.upstream.extra_request(request);
     self.relations.extra_request(request);
     match request {
-      ExtraCollectionOperation::MemoryShrinkToFit => self.state.inner.shrink_to_fit(),
+      ExtraCollectionOperation::MemoryShrinkToFit => {
+        self.state.inner.shrink_to_fit();
+        self.state_upstream.inner.shrink_to_fit();
+        self.ref_count.shrink_to_fit();
+      }
     }
   }
 }

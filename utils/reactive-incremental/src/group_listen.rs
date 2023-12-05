@@ -223,7 +223,7 @@ impl<K, T: Clone> GroupMutationSender<K, T> {
             State::ChangeTo(_current_new, old) => match &message.change {
               State::NewInsert(_new) => unreachable!(),
               State::ChangeTo(new, _current_new) => State::ChangeTo(new.clone(), old.clone()),
-              State::Remove(old) => State::Remove(old.clone()),
+              State::Remove(_) => State::Remove(old.clone()),
             },
             State::Remove(old) => match &message.change {
               State::NewInsert(new) => State::ChangeTo(new.clone(), old.clone()),
