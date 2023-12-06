@@ -36,7 +36,7 @@ pub trait ReactiveCollectionRelationExt<K: Send, V: Send>:
   {
     OneToManyRefHashBookKeeping {
       current_generation: 0,
-      upstream: self,
+      upstream: BufferedCollection::new(self),
       mapping: Default::default(),
     }
   }
@@ -49,7 +49,7 @@ pub trait ReactiveCollectionRelationExt<K: Send, V: Send>:
   {
     OneToManyRefHashBookKeeping {
       current_generation: 0,
-      upstream: self,
+      upstream: BufferedCollection::new(self),
       mapping: Default::default(),
     }
   }
@@ -62,7 +62,7 @@ pub trait ReactiveCollectionRelationExt<K: Send, V: Send>:
   {
     OneToManyRefDenseBookKeeping {
       current_generation: 0,
-      upstream: self,
+      upstream: BufferedCollection::new(self),
       mapping: Default::default(),
       phantom: PhantomData,
     }
@@ -76,7 +76,7 @@ pub trait ReactiveCollectionRelationExt<K: Send, V: Send>:
   {
     OneToManyRefDenseBookKeeping {
       current_generation: 0,
-      upstream: self,
+      upstream: BufferedCollection::new(self),
       mapping: Default::default(),
       phantom: PhantomData,
     }
@@ -394,12 +394,12 @@ where
 }
 
 pub struct OneToManyRefHashBookKeeping<O, M, T> {
-  upstream: T,
+  upstream: BufferedCollection<CollectionChangesWithPrevious<M, O>, T>,
   current_generation: u64,
   mapping: Arc<RwLock<(FastHashMap<O, FastHashSet<M>>, u64)>>,
 }
 
-impl<O, M, T: Clone> Clone for OneToManyRefHashBookKeeping<O, M, T> {
+impl<O: Clone, M: Clone, T: Clone> Clone for OneToManyRefHashBookKeeping<O, M, T> {
   fn clone(&self) -> Self {
     Self {
       current_generation: self.current_generation,
@@ -463,7 +463,7 @@ where
     &mut self,
     cx: &mut Context<'_>,
   ) -> Poll<Option<CollectionChangesWithPrevious<M, O>>> {
-    let r = self.upstream.poll_changes_and_merge_until_pending(cx);
+    let r = self.upstream.poll_changes(cx);
     // check generation
     {
       let mapping = self.mapping.read();
@@ -514,13 +514,13 @@ where
 }
 
 pub struct OneToManyRefDenseBookKeeping<O, M, T> {
-  upstream: T,
+  upstream: BufferedCollection<CollectionChangesWithPrevious<M, O>, T>,
   current_generation: u64,
   mapping: Arc<RwLock<Mapping>>,
   phantom: PhantomData<(O, M)>,
 }
 
-impl<O, M, T: Clone> Clone for OneToManyRefDenseBookKeeping<O, M, T> {
+impl<O: Clone, M: Clone, T: Clone> Clone for OneToManyRefDenseBookKeeping<O, M, T> {
   fn clone(&self) -> Self {
     Self {
       current_generation: self.current_generation,
@@ -594,7 +594,7 @@ where
     &mut self,
     cx: &mut Context<'_>,
   ) -> Poll<Option<CollectionChangesWithPrevious<M, O>>> {
-    let r = self.upstream.poll_changes_and_merge_until_pending(cx);
+    let r = self.upstream.poll_changes(cx);
     // check generation
     {
       let mapping = self.mapping.read();

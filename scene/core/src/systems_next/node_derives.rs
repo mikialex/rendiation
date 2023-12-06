@@ -173,9 +173,7 @@ where
           .for_each(|d| {
             let key = *d.key();
             if let Some(current) = deduplicate.get_mut(&key) {
-              if let Some(merged) = current.clone().merge(d) {
-                *current = merged;
-              } else {
+              if !current.merge(&d) {
                 deduplicate.remove(&key);
               }
             } else {

@@ -124,60 +124,6 @@ pub trait ReactiveCollection<K: Send, V: Send>:
   fn poll_changes(&mut self, cx: &mut Context) -> Poll<Option<CollectionChanges<K, V>>>;
 
   fn extra_request(&mut self, request: &mut ExtraCollectionOperation);
-
-  fn poll_changes_and_merge_until_pending(
-    &mut self,
-    cx: &mut Context,
-  ) -> Poll<Option<CollectionChanges<K, V>>>
-  where
-    K: Eq + std::hash::Hash + Clone,
-    V: Clone,
-  {
-    // we special check the first case to avoid merge cost if only has one yield
-    let first = self.poll_changes(cx);
-
-    if let Poll::Ready(Some(r)) = self.poll_changes(cx) {
-      let mut hash = FastHashMap::default();
-
-      if let Poll::Ready(Some(v)) = first {
-        deduplicate_collection_changes(&mut hash, v.into_values());
-      }
-      deduplicate_collection_changes(&mut hash, r.into_values());
-
-      while let Poll::Ready(Some(v)) = self.poll_changes(cx) {
-        deduplicate_collection_changes(&mut hash, v.into_values());
-      }
-
-      if hash.is_empty() {
-        Poll::Pending
-      } else {
-        Poll::Ready(Some(hash))
-      }
-    } else {
-      first
-    }
-  }
-}
-
-pub fn deduplicate_collection_changes<K, V>(
-  deduplicate: &mut FastHashMap<K, CollectionDelta<K, V>>,
-  deltas: impl Iterator<Item = CollectionDelta<K, V>>,
-) where
-  K: Eq + std::hash::Hash + Clone,
-  V: Clone,
-{
-  deltas.for_each(|d| {
-    let key = d.key().clone();
-    if let Some(current) = deduplicate.get_mut(&key) {
-      if let Some(merged) = current.clone().merge(d) {
-        *current = merged;
-      } else {
-        deduplicate.remove(&key);
-      }
-    } else {
-      deduplicate.insert(key, d);
-    }
-  })
 }
 
 pub type CollectionChanges<K, V> = FastHashMap<K, CollectionDelta<K, V>>;

@@ -29,6 +29,9 @@ pub use single_shared::*;
 mod registry;
 pub use registry::*;
 
+mod delta_merge;
+pub use delta_merge::*;
+
 mod group;
 pub use group::*;
 
