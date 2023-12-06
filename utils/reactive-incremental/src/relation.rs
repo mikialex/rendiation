@@ -103,8 +103,8 @@ pub trait ReactiveCollectionRelationReduceExt<K: Send>:
     Relation: ReactiveCollectionWithPrevious<K, SK> + 'static,
   {
     ManyToOneReduce {
-      upstream: self,
-      relations,
+      upstream: BufferedCollection::new(self),
+      relations: BufferedCollection::new(relations),
       phantom: PhantomData,
       state: Default::default(),
       state_upstream: Default::default(),
@@ -126,8 +126,8 @@ where
   O: Send,
   X: Send,
 {
-  pub(crate) upstream: Upstream,
-  pub(crate) relations: Relation,
+  pub(crate) upstream: BufferedCollection<CollectionChanges<O, X>, Upstream>,
+  pub(crate) relations: BufferedCollection<CollectionChangesWithPrevious<M, O>, Relation>,
   pub(crate) phantom: PhantomData<(O, M, X)>,
 }
 
@@ -136,16 +136,29 @@ impl<O, M, X, Upstream, Relation> ReactiveCollection<M, X>
 where
   M: Clone + Eq + Hash + Send + Sync + 'static,
   X: Clone + Send + Sync + 'static,
-  O: Clone + Send + Sync + 'static,
+  O: Clone + Eq + Hash + Send + Sync + 'static,
   Upstream: ReactiveCollection<O, X>,
   Relation: ReactiveOneToManyRelationship<O, M> + 'static,
 {
-  fn poll_changes(&mut self, cx: &mut Context<'_>) -> Poll<Option<CollectionChanges<M, X>>> {
+  fn poll_changes(&mut self, cx: &mut Context<'_>) -> CPoll<CollectionChanges<M, X>> {
     let relational_changes = self.relations.poll_changes(cx);
     let upstream_changes = self.upstream.poll_changes(cx);
 
+    if relational_changes.is_blocked() {
+      if let CPoll::Ready(v) = upstream_changes {
+        self.upstream.put_back_to_buffered(v);
+      }
+      return CPoll::Blocked;
+    }
+    if upstream_changes.is_blocked() {
+      if let CPoll::Ready(v) = relational_changes {
+        self.relations.put_back_to_buffered(v);
+      }
+      return CPoll::Blocked;
+    }
+
     let mut output = FastHashMap::default(); // it's hard to predict capacity, should we compute it?
-    if let Poll::Ready(Some(relational_changes)) = relational_changes {
+    if let CPoll::Ready(relational_changes) = relational_changes {
       let getter = self.upstream.access();
 
       relational_changes
@@ -167,7 +180,7 @@ where
         });
     }
     let inv_querier = self.relations.access_multi();
-    if let Poll::Ready(Some(upstream_changes)) = upstream_changes {
+    if let CPoll::Ready(upstream_changes) = upstream_changes {
       // it's hard to parallelize this part efficiently
       // output.par_extend(upstream_changes.filter_map(|change|{
       // }))
@@ -186,9 +199,9 @@ where
     }
 
     if output.is_empty() {
-      Poll::Pending
+      CPoll::Pending
     } else {
-      Poll::Ready(Some(output))
+      CPoll::Ready(output)
     }
   }
 
@@ -228,8 +241,8 @@ where
   M: Send,
   O: Send,
 {
-  upstream: Upstream,
-  relations: Relation,
+  upstream: BufferedCollection<CollectionChanges<M, ()>, Upstream>,
+  relations: BufferedCollection<CollectionChangesWithPrevious<M, O>, Relation>,
   phantom: PhantomData<(O, M)>,
   state: ActivationState<O>,
   state_upstream: ActivationState<M>, // if the m is active
@@ -244,9 +257,22 @@ where
   Upstream: ReactiveCollection<M, ()>,
   Relation: ReactiveCollectionWithPrevious<M, O>,
 {
-  fn poll_changes(&mut self, cx: &mut Context<'_>) -> Poll<Option<CollectionChanges<O, ()>>> {
+  fn poll_changes(&mut self, cx: &mut Context<'_>) -> CPoll<CollectionChanges<O, ()>> {
     let relational_changes = self.relations.poll_changes(cx);
     let upstream_changes = self.upstream.poll_changes(cx);
+
+    if relational_changes.is_blocked() {
+      if let CPoll::Ready(v) = upstream_changes {
+        self.upstream.put_back_to_buffered(v);
+      }
+      return CPoll::Blocked;
+    }
+    if upstream_changes.is_blocked() {
+      if let CPoll::Ready(v) = relational_changes {
+        self.relations.put_back_to_buffered(v);
+      }
+      return CPoll::Blocked;
+    }
 
     let mut output = FastHashMap::default(); // it's hard to predict capacity, should we compute it?
 
@@ -255,7 +281,7 @@ where
 
     let mut relational_change_lookup = FastHashMap::default();
 
-    if let Poll::Ready(Some(relational_changes)) = relational_changes {
+    if let CPoll::Ready(relational_changes) = relational_changes {
       for change in relational_changes.into_values() {
         let key = change.key();
         let old_value = change.old_value();
@@ -297,7 +323,7 @@ where
       }
     };
 
-    if let Poll::Ready(Some(upstream_changes)) = upstream_changes {
+    if let CPoll::Ready(upstream_changes) = upstream_changes {
       for delta in upstream_changes.into_values() {
         // sync the upstream state;
         self.state_upstream.update(&delta);
@@ -332,9 +358,9 @@ where
     }
 
     if output.is_empty() {
-      Poll::Pending
+      CPoll::Pending
     } else {
-      Poll::Ready(Some(output))
+      CPoll::Ready(output)
     }
   }
 
@@ -459,10 +485,7 @@ where
   M: Hash + Eq + Clone + Send + Sync + 'static,
   O: Hash + Eq + Clone + Send + Sync + 'static,
 {
-  fn poll_changes(
-    &mut self,
-    cx: &mut Context<'_>,
-  ) -> Poll<Option<CollectionChangesWithPrevious<M, O>>> {
+  fn poll_changes(&mut self, cx: &mut Context<'_>) -> CPoll<CollectionChangesWithPrevious<M, O>> {
     let r = self.upstream.poll_changes(cx);
     // check generation
     {
@@ -473,7 +496,7 @@ where
       }
     }
 
-    if let Poll::Ready(Some(changes)) = r.clone() {
+    if let CPoll::Ready(changes) = r.clone() {
       let mut mapping = self.mapping.write();
 
       // forward step generation
@@ -590,10 +613,7 @@ where
   M: LinearIdentification + Eq + std::hash::Hash + Clone + Send + Sync + 'static,
   O: LinearIdentification + Clone + Send + Sync + 'static,
 {
-  fn poll_changes(
-    &mut self,
-    cx: &mut Context<'_>,
-  ) -> Poll<Option<CollectionChangesWithPrevious<M, O>>> {
+  fn poll_changes(&mut self, cx: &mut Context<'_>) -> CPoll<CollectionChangesWithPrevious<M, O>> {
     let r = self.upstream.poll_changes(cx);
     // check generation
     {
@@ -604,7 +624,7 @@ where
       }
     }
 
-    if let Poll::Ready(Some(changes)) = r.clone() {
+    if let CPoll::Ready(changes) = r.clone() {
       let mut mapping = self.mapping.write();
 
       // forward step generation

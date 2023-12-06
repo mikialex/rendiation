@@ -17,8 +17,7 @@ pub type CollectionChangesWithPrevious<K, V> = FastHashMap<K, CollectionDeltaWit
 pub trait ReactiveCollectionWithPrevious<K: Send, V: Send>:
   VirtualCollection<K, V> + Sync + Send + 'static
 {
-  fn poll_changes(&mut self, cx: &mut Context)
-    -> Poll<Option<CollectionChangesWithPrevious<K, V>>>;
+  fn poll_changes(&mut self, cx: &mut Context) -> CPoll<CollectionChangesWithPrevious<K, V>>;
 
   fn extra_request(&mut self, request: &mut ExtraCollectionOperation);
 
@@ -61,7 +60,7 @@ pub trait DynamicReactiveCollectionWithPrevious<K, V>:
   fn poll_changes_dyn(
     &mut self,
     _cx: &mut Context<'_>,
-  ) -> Poll<Option<CollectionChangesWithPrevious<K, V>>>;
+  ) -> CPoll<CollectionChangesWithPrevious<K, V>>;
   fn extra_request_dyn(&mut self, request: &mut ExtraCollectionOperation);
 }
 
@@ -74,7 +73,7 @@ where
   fn poll_changes_dyn(
     &mut self,
     cx: &mut Context<'_>,
-  ) -> Poll<Option<CollectionChangesWithPrevious<K, V>>> {
+  ) -> CPoll<CollectionChangesWithPrevious<K, V>> {
     self.poll_changes(cx)
   }
   fn extra_request_dyn(&mut self, request: &mut ExtraCollectionOperation) {
@@ -97,10 +96,7 @@ where
   K: Clone + Send + Sync + 'static,
   V: Clone + Send + Sync + 'static,
 {
-  fn poll_changes(
-    &mut self,
-    cx: &mut Context<'_>,
-  ) -> Poll<Option<CollectionChangesWithPrevious<K, V>>> {
+  fn poll_changes(&mut self, cx: &mut Context<'_>) -> CPoll<CollectionChangesWithPrevious<K, V>> {
     self.deref_mut().poll_changes_dyn(cx)
   }
   fn extra_request(&mut self, request: &mut ExtraCollectionOperation) {
@@ -143,21 +139,19 @@ where
   K: Send + Sync + 'static + Clone + Eq + std::hash::Hash,
   V: Send + Sync + 'static + Clone,
 {
-  fn poll_changes(&mut self, cx: &mut Context) -> Poll<Option<CollectionChanges<K, V>>> {
+  fn poll_changes(&mut self, cx: &mut Context) -> CPoll<CollectionChanges<K, V>> {
     self.inner.poll_changes(cx).map(|v| {
-      v.map(|v| {
-        v.into_iter()
-          .map(|(k, v)| {
-            (
-              k,
-              match v {
-                CollectionDeltaWithPrevious::Delta(k, v, _) => CollectionDelta::Delta(k, v),
-                CollectionDeltaWithPrevious::Remove(k, _) => CollectionDelta::Remove(k),
-              },
-            )
-          })
-          .collect()
-      })
+      v.into_iter()
+        .map(|(k, v)| {
+          (
+            k,
+            match v {
+              CollectionDeltaWithPrevious::Delta(k, v, _) => CollectionDelta::Delta(k, v),
+              CollectionDeltaWithPrevious::Remove(k, _) => CollectionDelta::Remove(k),
+            },
+          )
+        })
+        .collect()
     })
   }
 

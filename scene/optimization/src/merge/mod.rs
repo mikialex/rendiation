@@ -120,7 +120,7 @@ impl SceneModelMergeOptimization {
 
   pub(crate) fn poll_prepare_merge(&mut self, cx: &mut Context) -> Vec<(MergeKey, MergeUpdating)> {
     let changed_key = FastDashSet::default();
-    if let Poll::Ready(Some(changes)) = self.merge_relation.poll_changes_dyn(cx) {
+    if let CPoll::Ready(changes) = self.merge_relation.poll_changes_dyn(cx) {
       changes.into_values().for_each(|change| match change {
         CollectionDeltaWithPrevious::Delta(source_idx, new_key, old_key) => {
           self
@@ -151,7 +151,7 @@ impl SceneModelMergeOptimization {
     }
 
     let accessor = self.merge_relation.access_boxed();
-    if let Poll::Ready(Some(changes)) = self.applied_matrix_table.poll_changes_dyn(cx) {
+    if let CPoll::Ready(changes) = self.applied_matrix_table.poll_changes_dyn(cx) {
       changes.into_values().for_each(|change| {
         if let CollectionDelta::Delta(source_idx, new_mat) = change {
           let merge_key = accessor(&source_idx).unwrap();

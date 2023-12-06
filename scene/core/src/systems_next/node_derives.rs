@@ -151,14 +151,15 @@ where
   fn poll_changes(
     &mut self,
     cx: &mut std::task::Context<'_>,
-  ) -> std::task::Poll<Option<CollectionChanges<NodeIdentity, V>>> {
+  ) -> CPoll<CollectionChanges<NodeIdentity, V>> {
     // todo, should use loop poll and delta compact to maintain data coherency
     let changes = self.forked_change.poll_next_unpin(cx);
     let s_id = self.scene_id;
-    changes.map(|v| {
-      let mut deduplicate =
-        FastHashMap::<NodeIdentity, CollectionDeltaWithPrevious<NodeIdentity, V>>::default();
-      v.map(|v| {
+    match changes {
+      std::task::Poll::Ready(Some(v)) => {
+        let mut deduplicate =
+          FastHashMap::<NodeIdentity, CollectionDeltaWithPrevious<NodeIdentity, V>>::default();
+
         v.into_iter()
           .filter_map(|delta| match delta {
             CollectionDeltaWithPrevious::Delta(idx, d, pd) => {
@@ -180,16 +181,20 @@ where
               deduplicate.insert(key, d);
             }
           });
-        deduplicate
-          .into_values()
-          .map(|v| match v {
-            CollectionDeltaWithPrevious::Delta(k, v, _) => CollectionDelta::Delta(k, v),
-            CollectionDeltaWithPrevious::Remove(k, _) => CollectionDelta::Remove(k),
-          })
-          .map(|v| (*v.key(), v))
-          .collect()
-      })
-    })
+        CPoll::Ready(
+          deduplicate
+            .into_values()
+            .map(|v| match v {
+              CollectionDeltaWithPrevious::Delta(k, v, _) => CollectionDelta::Delta(k, v),
+              CollectionDeltaWithPrevious::Remove(k, _) => CollectionDelta::Remove(k),
+            })
+            .map(|v| (*v.key(), v))
+            .collect(),
+        )
+      }
+
+      _ => CPoll::Pending,
+    }
   }
 
   fn extra_request(&mut self, _: &mut ExtraCollectionOperation) {}

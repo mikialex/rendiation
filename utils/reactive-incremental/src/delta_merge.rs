@@ -116,15 +116,28 @@ where
   }
 }
 
+impl<T, M, K, V> VirtualMultiCollection<K, V> for BufferedCollection<T, M>
+where
+  M: VirtualMultiCollection<K, V>,
+{
+  fn iter_key_in_multi_collection(&self) -> impl Iterator<Item = K> + '_ {
+    self.inner.iter_key_in_multi_collection()
+  }
+
+  fn access_multi(&self) -> impl Fn(&K, &mut dyn FnMut(V)) + Send + Sync + '_ {
+    self.inner.access_multi()
+  }
+}
+
 impl<M, K, V> ReactiveCollection<K, V> for BufferedCollection<CollectionChanges<K, V>, M>
 where
   M: ReactiveCollection<K, V>,
   V: Send + Sync + 'static + Clone,
   K: Send + Sync + 'static + Eq + std::hash::Hash + Clone,
 {
-  fn poll_changes(&mut self, cx: &mut Context) -> Poll<Option<CollectionChanges<K, V>>> {
+  fn poll_changes(&mut self, cx: &mut Context) -> CPoll<CollectionChanges<K, V>> {
     let mut buffered = self.buffered.take().unwrap_or(Default::default());
-    while let Poll::Ready(Some(change)) = self.inner.poll_changes(cx) {
+    while let CPoll::Ready(change) = self.inner.poll_changes(cx) {
       if buffered.is_empty() {
         buffered = change;
       } else {
@@ -132,9 +145,9 @@ where
       }
     }
     if buffered.is_empty() {
-      Poll::Pending
+      CPoll::Pending
     } else {
-      Poll::Ready(Some(buffered))
+      CPoll::Ready(buffered)
     }
   }
 
@@ -150,12 +163,9 @@ where
   V: Send + Sync + 'static + Clone,
   K: Send + Sync + 'static + Eq + std::hash::Hash + Clone,
 {
-  fn poll_changes(
-    &mut self,
-    cx: &mut Context,
-  ) -> Poll<Option<CollectionChangesWithPrevious<K, V>>> {
+  fn poll_changes(&mut self, cx: &mut Context) -> CPoll<CollectionChangesWithPrevious<K, V>> {
     let mut buffered = self.buffered.take().unwrap_or(Default::default());
-    while let Poll::Ready(Some(change)) = self.inner.poll_changes(cx) {
+    while let CPoll::Ready(change) = self.inner.poll_changes(cx) {
       if buffered.is_empty() {
         buffered = change;
       } else {
@@ -163,9 +173,9 @@ where
       }
     }
     if buffered.is_empty() {
-      Poll::Pending
+      CPoll::Pending
     } else {
-      Poll::Ready(Some(buffered))
+      CPoll::Ready(buffered)
     }
   }
 

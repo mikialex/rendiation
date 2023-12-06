@@ -5,6 +5,26 @@ use storage::IndexKeptVec;
 
 use crate::*;
 
+#[derive(Clone, Copy)]
+pub enum CPoll<T> {
+  Ready(T),
+  Pending,
+  Blocked,
+}
+
+impl<T> CPoll<T> {
+  pub fn is_blocked(&self) -> bool {
+    matches!(self, CPoll::Blocked)
+  }
+  pub fn map<T2>(self, f: impl FnOnce(T) -> T2) -> CPoll<T2> {
+    match self {
+      CPoll::Ready(v) => CPoll::Ready(f(v)),
+      CPoll::Pending => CPoll::Pending,
+      CPoll::Blocked => CPoll::Blocked,
+    }
+  }
+}
+
 #[derive(Debug, Clone, Copy)]
 pub enum CollectionDelta<K, V> {
   // k, new_v
@@ -121,7 +141,7 @@ where
 pub trait ReactiveCollection<K: Send, V: Send>:
   VirtualCollection<K, V> + Sync + Send + 'static
 {
-  fn poll_changes(&mut self, cx: &mut Context) -> Poll<Option<CollectionChanges<K, V>>>;
+  fn poll_changes(&mut self, cx: &mut Context) -> CPoll<CollectionChanges<K, V>>;
 
   fn extra_request(&mut self, request: &mut ExtraCollectionOperation);
 }
@@ -147,8 +167,8 @@ where
   K: 'static + Send + Sync + Clone,
   V: 'static + Send + Sync + Clone,
 {
-  fn poll_changes(&mut self, _: &mut Context<'_>) -> Poll<Option<CollectionChanges<K, V>>> {
-    Poll::Pending
+  fn poll_changes(&mut self, _: &mut Context<'_>) -> CPoll<CollectionChanges<K, V>> {
+    CPoll::Pending
   }
   fn extra_request(&mut self, _: &mut ExtraCollectionOperation) {}
 }
@@ -177,8 +197,8 @@ where
   K: 'static + Send + Sync + Clone,
   V: 'static + Send + Sync + Clone,
 {
-  fn poll_changes(&mut self, _: &mut Context<'_>) -> Poll<Option<CollectionChanges<K, V>>> {
-    Poll::Pending
+  fn poll_changes(&mut self, _: &mut Context<'_>) -> CPoll<CollectionChanges<K, V>> {
+    CPoll::Pending
   }
   fn extra_request(&mut self, _: &mut ExtraCollectionOperation) {}
 }
@@ -202,7 +222,7 @@ where
 }
 
 pub trait DynamicReactiveCollection<K, V>: DynamicVirtualCollection<K, V> + Sync + Send {
-  fn poll_changes_dyn(&mut self, _cx: &mut Context<'_>) -> Poll<Option<CollectionChanges<K, V>>>;
+  fn poll_changes_dyn(&mut self, _cx: &mut Context<'_>) -> CPoll<CollectionChanges<K, V>>;
   fn extra_request_dyn(&mut self, request: &mut ExtraCollectionOperation);
 }
 
@@ -212,7 +232,7 @@ where
   K: Send + 'static,
   V: Send + 'static,
 {
-  fn poll_changes_dyn(&mut self, cx: &mut Context<'_>) -> Poll<Option<CollectionChanges<K, V>>> {
+  fn poll_changes_dyn(&mut self, cx: &mut Context<'_>) -> CPoll<CollectionChanges<K, V>> {
     self.poll_changes(cx)
   }
   fn extra_request_dyn(&mut self, request: &mut ExtraCollectionOperation) {
@@ -234,7 +254,7 @@ where
   K: Clone + Send + Sync + 'static,
   V: Clone + Send + Sync + 'static,
 {
-  fn poll_changes(&mut self, cx: &mut Context<'_>) -> Poll<Option<CollectionChanges<K, V>>> {
+  fn poll_changes(&mut self, cx: &mut Context<'_>) -> CPoll<CollectionChanges<K, V>> {
     self.deref_mut().poll_changes_dyn(cx)
   }
   fn extra_request(&mut self, request: &mut ExtraCollectionOperation) {
@@ -259,7 +279,11 @@ where
 
   fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
     let mut this = self.project();
-    this.inner.poll_changes(cx)
+    match this.inner.poll_changes(cx) {
+      CPoll::Ready(r) => Poll::Ready(Some(r)),
+      CPoll::Pending => Poll::Pending,
+      CPoll::Blocked => Poll::Pending, // this is logically ok
+    }
   }
 }
 
@@ -371,8 +395,8 @@ where
     Self: Sync,
   {
     ReactiveKVUnion {
-      a: self,
-      b: other,
+      a: BufferedCollection::new(self),
+      b: BufferedCollection::new(other),
       phantom: PhantomData,
       f,
     }
@@ -442,12 +466,12 @@ where
   where
     V: Clone + Send + Sync + 'static,
     MK: Clone + Eq + std::hash::Hash + Send + Sync + 'static,
-    K: Clone + Sync + 'static,
+    K: Clone + Eq + std::hash::Hash + Sync + 'static,
     Relation: ReactiveOneToManyRelationship<K, MK> + 'static,
   {
     OneToManyFanout {
-      upstream: self,
-      relations,
+      upstream: BufferedCollection::new(self),
+      relations: BufferedCollection::new(relations),
       phantom: PhantomData,
     }
     .workaround_box()
@@ -546,52 +570,47 @@ where
   K: Send + Sync + Eq + std::hash::Hash + 'static + Clone,
   V: Send + Sync + 'static + Clone + PartialEq,
 {
-  fn poll_changes(
-    &mut self,
-    cx: &mut Context,
-  ) -> Poll<Option<CollectionChangesWithPrevious<K, V>>> {
+  fn poll_changes(&mut self, cx: &mut Context) -> CPoll<CollectionChangesWithPrevious<K, V>> {
     let mut is_empty = false;
     let r = self.inner.poll_changes(cx).map(|v| {
-      v.map(|v| {
-        let output: CollectionChangesWithPrevious<K, V> = v
-          .into_values()
-          .filter_map(|v| match v {
-            CollectionDelta::Delta(k, v) => {
-              let pre = self.current.insert(k.clone(), v.clone());
-              if let Some(pre) = pre {
-                if pre != v {
-                  (
-                    k.clone(),
-                    CollectionDeltaWithPrevious::Delta(k, v, Some(pre)),
-                  )
-                    .into()
-                } else {
-                  None
-                }
-              } else {
-                (k.clone(), CollectionDeltaWithPrevious::Delta(k, v, pre)).into()
-              }
-            }
-            CollectionDelta::Remove(k) => {
-              if let Some(v) = self.current.remove(&k) {
-                (k.clone(), CollectionDeltaWithPrevious::Remove(k, v)).into()
+      let output: CollectionChangesWithPrevious<K, V> = v
+        .into_values()
+        .filter_map(|v| match v {
+          CollectionDelta::Delta(k, v) => {
+            let pre = self.current.insert(k.clone(), v.clone());
+            if let Some(pre) = pre {
+              if pre != v {
+                (
+                  k.clone(),
+                  CollectionDeltaWithPrevious::Delta(k, v, Some(pre)),
+                )
+                  .into()
               } else {
                 None
               }
+            } else {
+              (k.clone(), CollectionDeltaWithPrevious::Delta(k, v, pre)).into()
             }
-          })
-          .collect();
+          }
+          CollectionDelta::Remove(k) => {
+            if let Some(v) = self.current.remove(&k) {
+              (k.clone(), CollectionDeltaWithPrevious::Remove(k, v)).into()
+            } else {
+              None
+            }
+          }
+        })
+        .collect();
 
-        if output.is_empty() {
-          is_empty = true;
-        }
+      if output.is_empty() {
+        is_empty = true;
+      }
 
-        output
-      })
+      output
     });
 
     if is_empty {
-      return Poll::Pending;
+      return CPoll::Pending;
     }
 
     r
@@ -628,9 +647,9 @@ where
   K: std::hash::Hash + Eq + Clone + Send + Sync + 'static,
   V: Clone + Send + Sync + 'static,
 {
-  fn poll_changes(&mut self, cx: &mut Context<'_>) -> Poll<Option<CollectionChanges<K, V>>> {
+  fn poll_changes(&mut self, cx: &mut Context<'_>) -> CPoll<CollectionChanges<K, V>> {
     let r = self.inner.poll_changes(cx);
-    if let Poll::Ready(Some(changes)) = &r {
+    if let CPoll::Ready(changes) = &r {
       for change in changes.values() {
         match change.clone() {
           CollectionDelta::Delta(k, v) => {
@@ -678,9 +697,9 @@ where
   K: LinearIdentification + Send + 'static,
   V: Clone + Send + Sync + 'static,
 {
-  fn poll_changes(&mut self, cx: &mut Context<'_>) -> Poll<Option<CollectionChanges<K, V>>> {
+  fn poll_changes(&mut self, cx: &mut Context<'_>) -> CPoll<CollectionChanges<K, V>> {
     let r = self.inner.poll_changes(cx);
-    if let Poll::Ready(Some(changes)) = &r {
+    if let CPoll::Ready(changes) = &r {
       for change in changes.values().cloned() {
         match change {
           CollectionDelta::Delta(k, v) => {
@@ -734,25 +753,23 @@ where
   V2: Clone + Send + Sync + 'static,
   T: ReactiveCollection<K, V>,
 {
-  fn poll_changes(&mut self, cx: &mut Context<'_>) -> Poll<Option<CollectionChanges<K, V2>>> {
-    self.inner.poll_changes(cx).map(move |r| {
-      r.map(move |deltas| {
-        let mapper = (self.map_creator)();
-        deltas
-          .into_values()
-          .map(|delta| match delta {
-            CollectionDelta::Delta(k, d) => {
-              let new_value = mapper(&k, d);
-              self.cache.insert(k.clone(), new_value.clone());
-              (k.clone(), CollectionDelta::Delta(k, new_value))
-            }
-            CollectionDelta::Remove(k) => {
-              self.cache.remove(&k);
-              (k.clone(), CollectionDelta::Remove(k))
-            }
-          })
-          .collect()
-      })
+  fn poll_changes(&mut self, cx: &mut Context<'_>) -> CPoll<CollectionChanges<K, V2>> {
+    self.inner.poll_changes(cx).map(move |deltas| {
+      let mapper = (self.map_creator)();
+      deltas
+        .into_values()
+        .map(|delta| match delta {
+          CollectionDelta::Delta(k, d) => {
+            let new_value = mapper(&k, d);
+            self.cache.insert(k.clone(), new_value.clone());
+            (k.clone(), CollectionDelta::Delta(k, new_value))
+          }
+          CollectionDelta::Remove(k) => {
+            self.cache.remove(&k);
+            (k.clone(), CollectionDelta::Remove(k))
+          }
+        })
+        .collect()
     })
   }
 
@@ -795,15 +812,13 @@ where
   F: Fn(V) -> V2 + Copy + Send + Sync + 'static,
   T: ReactiveCollection<K, V> + Sync,
 {
-  fn poll_changes(&mut self, cx: &mut Context<'_>) -> Poll<Option<CollectionChanges<K, V2>>> {
+  fn poll_changes(&mut self, cx: &mut Context<'_>) -> CPoll<CollectionChanges<K, V2>> {
     let mapper = self.map;
-    self.inner.poll_changes(cx).map(move |r| {
-      r.map(move |deltas| {
-        deltas
-          .into_iter()
-          .map(move |(k, delta)| (k, delta.map(|_, v| mapper(v))))
-          .collect()
-      })
+    self.inner.poll_changes(cx).map(move |deltas| {
+      deltas
+        .into_iter()
+        .map(move |(k, delta)| (k, delta.map(|_, v| mapper(v))))
+        .collect()
     })
   }
 
@@ -853,18 +868,18 @@ where
   K: Clone + Send + Sync + Eq + std::hash::Hash + 'static,
   V: Clone + Send + Sync + 'static,
 {
-  fn poll_changes(&mut self, cx: &mut Context) -> Poll<Option<CollectionChanges<K, V>>> {
+  fn poll_changes(&mut self, cx: &mut Context) -> CPoll<CollectionChanges<K, V>> {
     let changes = self.inner.poll_changes(cx);
 
-    if let Poll::Ready(Some(changes)) = changes {
+    if let CPoll::Ready(changes) = changes {
       let filtered: CollectionChanges<K, V> = changes
         .into_iter()
         .filter(|(_, v)| self.state.update(v))
         .collect();
       if filtered.is_empty() {
-        Poll::Pending
+        CPoll::Pending
       } else {
-        Poll::Ready(Some(filtered))
+        CPoll::Ready(filtered)
       }
     } else {
       changes
@@ -891,12 +906,9 @@ where
   K: std::fmt::Debug + Clone + Send + Sync + 'static,
   V: std::fmt::Debug + Clone + Send + Sync + 'static,
 {
-  fn poll_changes(
-    &mut self,
-    cx: &mut Context<'_>,
-  ) -> Poll<Option<CollectionChangesWithPrevious<K, V>>> {
+  fn poll_changes(&mut self, cx: &mut Context<'_>) -> CPoll<CollectionChangesWithPrevious<K, V>> {
     let r = self.inner.poll_changes(cx);
-    if let Poll::Ready(Some(v)) = &r {
+    if let CPoll::Ready(v) = &r {
       println!("{} {:#?}", self.label, v);
     }
     r
@@ -913,9 +925,9 @@ where
   K: std::fmt::Debug + Clone + Send + Sync + 'static,
   V: std::fmt::Debug + Clone + Send + Sync + 'static,
 {
-  fn poll_changes(&mut self, cx: &mut Context<'_>) -> Poll<Option<CollectionChanges<K, V>>> {
+  fn poll_changes(&mut self, cx: &mut Context<'_>) -> CPoll<CollectionChanges<K, V>> {
     let r = self.inner.poll_changes(cx);
-    if let Poll::Ready(Some(v)) = &r {
+    if let CPoll::Ready(v) = &r {
       let v = v.values().collect::<Vec<_>>();
       println!("{:#?}", v);
     }
@@ -972,12 +984,12 @@ where
   V: Send + Sync + Clone + 'static,
   V2: Send + Sync + Clone,
 {
-  fn poll_changes(&mut self, cx: &mut Context<'_>) -> Poll<Option<CollectionChanges<K, V2>>> {
+  fn poll_changes(&mut self, cx: &mut Context<'_>) -> CPoll<CollectionChanges<K, V2>> {
     let checker = make_checker(self.checker);
     self
       .inner
       .poll_changes(cx)
-      .map(move |r| r.map(|r| r.into_iter().map(|(k, v)| (k, checker(v))).collect()))
+      .map(move |r| r.into_iter().map(|(k, v)| (k, checker(v))).collect())
   }
 
   fn extra_request(&mut self, request: &mut ExtraCollectionOperation) {
@@ -1006,8 +1018,8 @@ where
 }
 
 pub struct ReactiveKVUnion<T1, T2, K, F, O, V1, V2> {
-  a: T1,
-  b: T2,
+  a: BufferedCollection<CollectionChanges<K, V1>, T1>,
+  b: BufferedCollection<CollectionChanges<K, V2>, T2>,
   phantom: PhantomData<(K, O, V1, V2)>,
   f: F,
 }
@@ -1114,7 +1126,7 @@ where
   V1: Clone + Send + Sync + 'static,
   V2: Clone + Send + Sync + 'static,
 {
-  fn poll_changes(&mut self, cx: &mut Context<'_>) -> Poll<Option<CollectionChanges<K, O>>> {
+  fn poll_changes(&mut self, cx: &mut Context<'_>) -> CPoll<CollectionChanges<K, O>> {
     let t1 = self.a.poll_changes(cx);
     let t2 = self.b.poll_changes(cx);
 
@@ -1124,7 +1136,7 @@ where
     let checker = make_checker(self.f);
 
     let r = match (t1, t2) {
-      (Poll::Ready(Some(v1)), Poll::Ready(Some(v2))) => {
+      (CPoll::Ready(v1), CPoll::Ready(v2)) => {
         let mut intersections: FastHashMap<
           K,
           (
@@ -1151,7 +1163,7 @@ where
           })
           .collect::<CollectionChanges<K, O>>()
       }
-      (Poll::Ready(Some(v1)), Poll::Pending) => v1
+      (CPoll::Ready(v1), CPoll::Pending) => v1
         .into_iter()
         .filter_map(|(k, d1)| {
           union(Some(d1), None, &a_access, &b_access)
@@ -1159,7 +1171,7 @@ where
             .map(|v| (k, v))
         })
         .collect::<CollectionChanges<K, O>>(),
-      (Poll::Pending, Poll::Ready(Some(v2))) => v2
+      (CPoll::Pending, CPoll::Ready(v2)) => v2
         .into_iter()
         .filter_map(|(k, d2)| {
           union(None, Some(d2), &a_access, &b_access)
@@ -1168,15 +1180,27 @@ where
         })
         .collect::<CollectionChanges<K, O>>(),
 
-      (Poll::Pending, Poll::Pending) => return Poll::Pending,
-      _ => return Poll::Ready(None),
+      (CPoll::Ready(v), CPoll::Blocked) => {
+        drop(a_access);
+        self.a.put_back_to_buffered(v);
+        return CPoll::Blocked;
+      }
+      (CPoll::Blocked, CPoll::Ready(v)) => {
+        drop(b_access);
+        self.b.put_back_to_buffered(v);
+        return CPoll::Blocked;
+      }
+      (CPoll::Pending, CPoll::Pending) => return CPoll::Pending,
+      (CPoll::Pending, CPoll::Blocked) => return CPoll::Blocked,
+      (CPoll::Blocked, CPoll::Pending) => return CPoll::Blocked,
+      (CPoll::Blocked, CPoll::Blocked) => return CPoll::Blocked,
     };
 
     if r.is_empty() {
-      return Poll::Pending;
+      return CPoll::Pending;
     }
 
-    Poll::Ready(Some(r))
+    CPoll::Ready(r)
   }
   fn extra_request(&mut self, request: &mut ExtraCollectionOperation) {
     self.a.extra_request(request);

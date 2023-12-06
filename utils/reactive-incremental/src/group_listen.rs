@@ -302,10 +302,10 @@ where
   fn poll_changes(
     &mut self,
     cx: &mut Context<'_>,
-  ) -> Poll<Option<CollectionChangesWithPrevious<AllocIdx<T>, U>>> {
-    self.inner.poll_next_unpin(cx).map(|v| {
-      v.map(|mutations| {
-        mutations
+  ) -> CPoll<CollectionChangesWithPrevious<AllocIdx<T>, U>> {
+    match self.inner.poll_next_unpin(cx) {
+      Poll::Ready(Some(mutations)) => {
+        let r = mutations
           .inner
           .into_iter()
           .flat_map(|(id, state)| {
@@ -325,9 +325,11 @@ where
             }
             expand
           })
-          .collect()
-      })
-    })
+          .collect();
+        CPoll::Ready(r)
+      }
+      _ => CPoll::Pending,
+    }
   }
 
   fn extra_request(&mut self, _request: &mut ExtraCollectionOperation) {

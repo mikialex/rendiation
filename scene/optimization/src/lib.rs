@@ -1,7 +1,4 @@
-use std::{
-  hash::Hasher,
-  task::{Context, Poll},
-};
+use std::{hash::Hasher, task::Context};
 
 use fast_hash_collection::*;
 use incremental::*;

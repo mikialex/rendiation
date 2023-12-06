@@ -106,28 +106,34 @@ where
   K: Clone + Send + Sync + 'static,
   V: Clone + Send + Sync + 'static,
 {
-  fn poll_changes(&mut self, cx: &mut Context<'_>) -> Poll<Option<CollectionChanges<K, V>>> {
+  fn poll_changes(&mut self, cx: &mut Context<'_>) -> CPoll<CollectionChanges<K, V>> {
     // these writes should not deadlock, because we not prefer the concurrency between the table
     // updates. if we do allow it in the future, just change it to try write or yield pending.
 
     let r = self.rev.poll_next_unpin(cx);
     if r.is_ready() {
-      return r;
+      return match r {
+        Poll::Ready(Some(v)) => CPoll::Ready(v),
+        _ => CPoll::Pending,
+      };
     }
 
-    let mut upstream = self.upstream.write();
-    let r = upstream.poll_changes(cx);
+    if let Some(mut upstream) = self.upstream.try_write() {
+      let r = upstream.poll_changes(cx);
 
-    if let Poll::Ready(Some(v)) = r {
-      let downstream = self.downstream.write();
-      for downstream in downstream.values() {
-        downstream.unbounded_send(v.clone()).ok();
+      if let CPoll::Ready(v) = r {
+        let downstream = self.downstream.write();
+        for downstream in downstream.values() {
+          downstream.unbounded_send(v.clone()).ok();
+        }
+        // }
+      } else {
+        return CPoll::Pending;
       }
+      drop(upstream);
     } else {
-      return Poll::Pending;
+      return CPoll::Blocked;
     }
-    drop(upstream);
-
     self.poll_changes(cx)
   }
 
@@ -143,32 +149,34 @@ where
   K: Clone + Send + Sync + 'static,
   V: Clone + Send + Sync + 'static,
 {
-  fn poll_changes(
-    &mut self,
-    cx: &mut Context<'_>,
-  ) -> Poll<Option<CollectionChangesWithPrevious<K, V>>> {
+  fn poll_changes(&mut self, cx: &mut Context<'_>) -> CPoll<CollectionChangesWithPrevious<K, V>> {
     // these writes should not deadlock, because we not prefer the concurrency between the table
     // updates. if we do allow it in the future, just change it to try write or yield pending.
 
     let r = self.rev.poll_next_unpin(cx);
     if r.is_ready() {
-      return r;
+      return match r {
+        Poll::Ready(Some(v)) => CPoll::Ready(v),
+        _ => CPoll::Pending,
+      };
     }
 
-    let mut upstream = self.upstream.write();
-    let r = upstream.poll_changes(cx);
+    if let Some(mut upstream) = self.upstream.try_write() {
+      let r = upstream.poll_changes(cx);
 
-    if let Poll::Ready(Some(v)) = r {
-      let downstream = self.downstream.write();
-      for downstream in downstream.values() {
-        downstream.unbounded_send(v.clone()).ok();
+      if let CPoll::Ready(v) = r {
+        let downstream = self.downstream.write();
+        for downstream in downstream.values() {
+          downstream.unbounded_send(v.clone()).ok();
+        }
+        // }
+      } else {
+        return CPoll::Pending;
       }
-      // }
+      drop(upstream);
     } else {
-      return Poll::Pending;
+      return CPoll::Blocked;
     }
-    drop(upstream);
-
     self.poll_changes(cx)
   }
 
