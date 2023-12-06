@@ -8,7 +8,10 @@ use crate::*;
 type Sender<T> = futures::channel::mpsc::UnboundedSender<T>;
 type Receiver<T> = futures::channel::mpsc::UnboundedReceiver<T>;
 
-pub struct ReactiveKVMapFork<Map, T, K, V> {
+pub type ReactiveKVMapFork<Map, T, K, V> =
+  BufferedCollection<T, ReactiveKVMapForkImpl<Map, T, K, V>>;
+
+pub struct ReactiveKVMapForkImpl<Map, T, K, V> {
   upstream: Arc<RwLock<Map>>,
   downstream: Arc<RwLock<FastHashMap<u64, Sender<T>>>>,
   rev: Receiver<T>,
@@ -16,13 +19,13 @@ pub struct ReactiveKVMapFork<Map, T, K, V> {
   phantom: PhantomData<(K, V)>,
 }
 
-impl<Map, T, K, V> ReactiveKVMapFork<Map, T, K, V> {
+impl<Map, T, K, V> ReactiveKVMapForkImpl<Map, T, K, V> {
   pub fn new(upstream: Map) -> Self {
     let (sender, rev) = futures::channel::mpsc::unbounded();
     let mut init = FastHashMap::default();
     let id = alloc_global_res_id();
     init.insert(id, sender);
-    ReactiveKVMapFork {
+    ReactiveKVMapForkImpl {
       upstream: Arc::new(RwLock::new(upstream)),
       downstream: Arc::new(RwLock::new(init)),
       rev,
@@ -32,7 +35,7 @@ impl<Map, T, K, V> ReactiveKVMapFork<Map, T, K, V> {
   }
 }
 
-impl<Map, T, K, V> Drop for ReactiveKVMapFork<Map, T, K, V> {
+impl<Map, T, K, V> Drop for ReactiveKVMapForkImpl<Map, T, K, V> {
   fn drop(&mut self) {
     self.downstream.write().remove(&self.id);
   }
@@ -66,7 +69,7 @@ impl<K: Clone + Eq + std::hash::Hash, V> RebuildTable<K, V>
 }
 
 impl<K, V, Map: VirtualCollection<K, V>, T: RebuildTable<K, V>> Clone
-  for ReactiveKVMapFork<Map, T, K, V>
+  for ReactiveKVMapForkImpl<Map, T, K, V>
 {
   fn clone(&self) -> Self {
     // when fork the collection, we should pass the current table as the init change
@@ -96,7 +99,8 @@ impl<K, V, Map: VirtualCollection<K, V>, T: RebuildTable<K, V>> Clone
   }
 }
 
-impl<Map, K, V> ReactiveCollection<K, V> for ReactiveKVMapFork<Map, CollectionChanges<K, V>, K, V>
+impl<Map, K, V> ReactiveCollection<K, V>
+  for ReactiveKVMapForkImpl<Map, CollectionChanges<K, V>, K, V>
 where
   Map: ReactiveCollection<K, V>,
   K: Clone + Send + Sync + 'static,
@@ -133,7 +137,7 @@ where
 }
 
 impl<Map, K, V> ReactiveCollectionWithPrevious<K, V>
-  for ReactiveKVMapFork<Map, CollectionChangesWithPrevious<K, V>, K, V>
+  for ReactiveKVMapForkImpl<Map, CollectionChangesWithPrevious<K, V>, K, V>
 where
   Map: ReactiveCollectionWithPrevious<K, V>,
   K: Clone + Send + Sync + 'static,
@@ -173,7 +177,7 @@ where
   }
 }
 
-impl<K, V, T, Map> VirtualCollection<K, V> for ReactiveKVMapFork<Map, T, K, V>
+impl<K, V, T, Map> VirtualCollection<K, V> for ReactiveKVMapForkImpl<Map, T, K, V>
 where
   Map: VirtualCollection<K, V> + 'static + Sync,
   K: Send,

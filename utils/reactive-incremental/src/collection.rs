@@ -434,7 +434,7 @@ where
   }
 
   fn into_forker(self) -> ReactiveKVMapFork<Self, CollectionChanges<K, V>, K, V> {
-    ReactiveKVMapFork::new(self)
+    BufferedCollection::new(ReactiveKVMapForkImpl::new(self))
   }
 
   /// project map<O, V> -> map<M, V> when we have O - M one to many

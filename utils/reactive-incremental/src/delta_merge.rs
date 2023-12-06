@@ -103,7 +103,6 @@ impl<T, M> BufferedCollection<T, M> {
   }
 }
 
-// todo, data coherence
 impl<T, M, K, V> VirtualCollection<K, V> for BufferedCollection<T, M>
 where
   M: VirtualCollection<K, V>,

@@ -26,7 +26,7 @@ pub trait ReactiveCollectionWithPrevious<K: Send, V: Send>:
   where
     Self: Sized,
   {
-    ReactiveKVMapFork::new(self)
+    BufferedCollection::new(ReactiveKVMapForkImpl::new(self))
   }
 
   fn debug(self, label: &'static str) -> impl ReactiveCollectionWithPrevious<K, V>
