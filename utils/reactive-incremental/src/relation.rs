@@ -30,7 +30,7 @@ pub trait ReactiveCollectionRelationExt<K: Send, V: Send>:
 {
   fn into_one_to_many_by_hash(self) -> impl ReactiveOneToManyRelationship<V, K>
   where
-    Self::Changes: Clone,
+    CollectionChanges<K, V>: Clone,
     K: Hash + Eq + Clone + Sync + 'static,
     V: Hash + Eq + Clone + Sync + 'static,
   {
@@ -43,7 +43,7 @@ pub trait ReactiveCollectionRelationExt<K: Send, V: Send>:
 
   fn into_one_to_many_by_hash_expose_type(self) -> OneToManyRefHashBookKeeping<V, K, Self>
   where
-    Self::Changes: Clone,
+    CollectionChanges<K, V>: Clone,
     K: Hash + Eq + Clone + 'static,
     V: Hash + Eq + Clone + 'static,
   {
@@ -56,7 +56,7 @@ pub trait ReactiveCollectionRelationExt<K: Send, V: Send>:
 
   fn into_one_to_many_by_idx(self) -> impl ReactiveOneToManyRelationship<V, K>
   where
-    Self::Changes: Clone,
+    CollectionChanges<K, V>: Clone,
     K: LinearIdentification + Eq + std::hash::Hash + Clone + Sync + 'static,
     V: LinearIdentification + Clone + Sync + 'static,
   {
@@ -70,7 +70,7 @@ pub trait ReactiveCollectionRelationExt<K: Send, V: Send>:
 
   fn into_one_to_many_by_idx_expose_type(self) -> OneToManyRefDenseBookKeeping<V, K, Self>
   where
-    Self::Changes: Clone,
+    CollectionChanges<K, V>: Clone,
     K: LinearIdentification + Clone + 'static,
     V: LinearIdentification + Clone + 'static,
   {
@@ -140,40 +140,38 @@ where
   Upstream: ReactiveCollection<O, X>,
   Relation: ReactiveOneToManyRelationship<O, M> + 'static,
 {
-  type Changes = impl CollectionChanges<M, X>;
-
-  fn poll_changes(&mut self, cx: &mut Context<'_>) -> Poll<Option<Self::Changes>> {
+  fn poll_changes(&mut self, cx: &mut Context<'_>) -> Poll<Option<CollectionChanges<M, X>>> {
     let relational_changes = self.relations.poll_changes(cx);
     let upstream_changes = self.upstream.poll_changes(cx);
 
     let mut output = FastHashMap::default(); // it's hard to predict capacity, should we compute it?
     if let Poll::Ready(Some(relational_changes)) = relational_changes {
       let getter = self.upstream.access();
-      // maybe we could use dashmap to parallelize the insert part
-      output.par_extend(relational_changes.filter_map(|change| match change {
-        CollectionDeltaWithPrevious::Delta(k, v, p) => {
-          if let Some(v) = getter(&v) {
-            (k.clone(), CollectionDelta::Delta(k, v)).into()
-          } else if p.is_some() {
-            // if we have the change then we could not do remove because their key is same
-            (k.clone(), CollectionDelta::Remove(k)).into()
-          } else {
-            None
+
+      relational_changes
+        .into_values()
+        .for_each(|change| match change {
+          CollectionDeltaWithPrevious::Delta(k, v, p) => {
+            if let Some(v) = getter(&v) {
+              output.insert(k.clone(), CollectionDelta::Delta(k, v));
+            } else if p.is_some() {
+              // if we have the change then we could not do remove because their key is same
+              output.insert(k.clone(), CollectionDelta::Remove(k));
+            }
           }
-        }
-        CollectionDeltaWithPrevious::Remove(k, _p) => {
-          // we do not check current upstream just to emit delta
-          // todo, using a k set to do filtering
-          (k.clone(), CollectionDelta::Remove(k)).into()
-        }
-      }));
+          CollectionDeltaWithPrevious::Remove(k, _p) => {
+            // we do not check current upstream just to emit delta
+            // todo, using a k set to do filtering
+            output.insert(k.clone(), CollectionDelta::Remove(k));
+          }
+        });
     }
     let inv_querier = self.relations.access_multi();
     if let Poll::Ready(Some(upstream_changes)) = upstream_changes {
       // it's hard to parallelize this part efficiently
       // output.par_extend(upstream_changes.filter_map(|change|{
       // }))
-      for delta in upstream_changes.collect_into_pass_vec() {
+      for delta in upstream_changes.into_values() {
         // the inv_query is the current relation, the previous one's delta is emitted
         // by the above relation change code
         match delta {
@@ -190,7 +188,7 @@ where
     if output.is_empty() {
       Poll::Pending
     } else {
-      Poll::Ready(Some(HashMapIntoValue::new(output)))
+      Poll::Ready(Some(output))
     }
   }
 
@@ -246,9 +244,7 @@ where
   Upstream: ReactiveCollection<M, ()>,
   Relation: ReactiveCollectionWithPrevious<M, O>,
 {
-  type Changes = impl CollectionChanges<O, ()>;
-
-  fn poll_changes(&mut self, cx: &mut Context<'_>) -> Poll<Option<Self::Changes>> {
+  fn poll_changes(&mut self, cx: &mut Context<'_>) -> Poll<Option<CollectionChanges<O, ()>>> {
     let relational_changes = self.relations.poll_changes(cx);
     let upstream_changes = self.upstream.poll_changes(cx);
 
@@ -260,7 +256,7 @@ where
     let mut relational_change_lookup = FastHashMap::default();
 
     if let Poll::Ready(Some(relational_changes)) = relational_changes {
-      for change in relational_changes.collect_into_pass_vec() {
+      for change in relational_changes.into_values() {
         let key = change.key();
         let old_value = change.old_value();
         let new_value = change.new_value();
@@ -302,7 +298,7 @@ where
     };
 
     if let Poll::Ready(Some(upstream_changes)) = upstream_changes {
-      for delta in upstream_changes.collect_into_pass_vec() {
+      for delta in upstream_changes.into_values() {
         // sync the upstream state;
         self.state_upstream.update(&delta);
         match delta {
@@ -330,17 +326,15 @@ where
       }
     }
 
-    let mut final_output = Vec::with_capacity(output.len());
     // we  maintain a k set  because we need the k set to iter_keys
-    for v in output.into_values() {
-      self.state.update(&v);
-      final_output.push(v);
+    for v in output.values() {
+      self.state.update(v);
     }
 
-    if final_output.is_empty() {
+    if output.is_empty() {
       Poll::Pending
     } else {
-      Poll::Ready(Some(FastPassingVec::from_vec(final_output)))
+      Poll::Ready(Some(output))
     }
   }
 
@@ -462,13 +456,13 @@ where
 impl<O, M, T> ReactiveCollectionWithPrevious<M, O> for OneToManyRefHashBookKeeping<O, M, T>
 where
   T: ReactiveCollectionWithPrevious<M, O>,
-  T::Changes: Clone,
   M: Hash + Eq + Clone + Send + Sync + 'static,
   O: Hash + Eq + Clone + Send + Sync + 'static,
 {
-  type Changes = FastPassingVec<CollectionDeltaWithPrevious<M, O>>;
-
-  fn poll_changes(&mut self, cx: &mut Context<'_>) -> Poll<Option<Self::Changes>> {
+  fn poll_changes(
+    &mut self,
+    cx: &mut Context<'_>,
+  ) -> Poll<Option<CollectionChangesWithPrevious<M, O>>> {
     let r = self.upstream.poll_changes_and_merge_until_pending(cx);
     // check generation
     {
@@ -486,7 +480,7 @@ where
       mapping.1 += 1;
       self.current_generation += 1;
 
-      for change in changes.collect_into_pass_vec() {
+      for change in changes.into_values() {
         let many = change.key().clone();
         let new_one = change.new_value();
 
@@ -593,13 +587,13 @@ where
 impl<O, M, T> ReactiveCollectionWithPrevious<M, O> for OneToManyRefDenseBookKeeping<O, M, T>
 where
   T: ReactiveCollectionWithPrevious<M, O>,
-  T::Changes: Clone,
   M: LinearIdentification + Eq + std::hash::Hash + Clone + Send + Sync + 'static,
   O: LinearIdentification + Clone + Send + Sync + 'static,
 {
-  type Changes = FastPassingVec<CollectionDeltaWithPrevious<M, O>>;
-
-  fn poll_changes(&mut self, cx: &mut Context<'_>) -> Poll<Option<Self::Changes>> {
+  fn poll_changes(
+    &mut self,
+    cx: &mut Context<'_>,
+  ) -> Poll<Option<CollectionChangesWithPrevious<M, O>>> {
     let r = self.upstream.poll_changes_and_merge_until_pending(cx);
     // check generation
     {
@@ -617,7 +611,7 @@ where
       mapping.generation += 1;
       self.current_generation += 1;
 
-      for change in changes.collect_into_pass_vec() {
+      for change in changes.into_values() {
         let mapping: &mut Mapping = &mut mapping;
         let many = *change.key();
         let new_one = change.new_value();

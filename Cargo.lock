@@ -2606,7 +2606,6 @@ dependencies = [
 name = "reactive-incremental"
 version = "0.0.1"
 dependencies = [
- "dashmap",
  "dyn-downcast",
  "fast-hash-collection",
  "futures",
@@ -2614,7 +2613,6 @@ dependencies = [
  "incremental",
  "parking_lot",
  "pin-project",
- "rayon",
  "reactive",
  "smallvec",
  "storage",

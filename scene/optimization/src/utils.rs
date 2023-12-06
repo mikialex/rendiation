@@ -31,7 +31,7 @@ impl NodeRebuilder {
 
   pub fn poll_update(&mut self, cx: &mut Context) {
     if let Poll::Ready(Some(changes)) = self.node_source.world_mat.poll_changes(cx) {
-      for change in changes {
+      for change in changes.into_values() {
         match change {
           CollectionDelta::Delta(key, new) => {
             let node = self
@@ -49,7 +49,7 @@ impl NodeRebuilder {
       }
     }
     if let Poll::Ready(Some(changes)) = self.node_source.net_visible.poll_changes(cx) {
-      for change in changes {
+      for change in changes.into_values() {
         // sync the node change, the add remove is handled above
         if let CollectionDelta::Delta(key, new) = change {
           let node = self.node_mapping.get(&key).unwrap();
@@ -112,7 +112,7 @@ impl SceneCameraRebuilder {
       // copy the source by full delta
       let mut to_sync_target = Vec::new();
       let mut to_sync_delta = Vec::new();
-      for change in changes.collect_into_pass_vec() {
+      for change in changes.into_values() {
         match change {
           CollectionDelta::Delta(key, _) => {
             let camera = &cameras.get(key.index).data;
@@ -205,7 +205,7 @@ impl SceneLightsRebuilder {
       // copy the source by full delta
       let mut to_sync_target = Vec::new();
       let mut to_sync_delta = Vec::new();
-      for change in changes.collect_into_pass_vec() {
+      for change in changes.into_values() {
         match change {
           CollectionDelta::Delta(key, _) => {
             let light = &lights.get(key.index).data;

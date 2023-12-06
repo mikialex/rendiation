@@ -12,72 +12,50 @@ pub enum CollectionDeltaWithPrevious<K, V> {
   Remove(K, V),
 }
 
-pub trait CollectionChangesWithPrevious<K: Send, V: Send>:
-  ParallelIterator<Item = CollectionDeltaWithPrevious<K, V>>
-  + MaybeFastCollect<CollectionDeltaWithPrevious<K, V>>
-  + Clone
-  + Send
-  + Sync
-  + Sized
-{
-}
-impl<K, V, T> CollectionChangesWithPrevious<K, V> for T
-where
-  K: Send,
-  V: Send,
-  T: ParallelIterator<Item = CollectionDeltaWithPrevious<K, V>> + Send + Sync,
-  T: MaybeFastCollect<CollectionDeltaWithPrevious<K, V>>,
-  T: Clone,
-{
-}
+pub type CollectionChangesWithPrevious<K, V> = FastHashMap<K, CollectionDeltaWithPrevious<K, V>>;
 
 pub trait ReactiveCollectionWithPrevious<K: Send, V: Send>:
   VirtualCollection<K, V> + Sync + Send + 'static
 {
-  type Changes: CollectionChangesWithPrevious<K, V>;
-  fn poll_changes(&mut self, cx: &mut Context) -> Poll<Option<Self::Changes>>;
+  fn poll_changes(&mut self, cx: &mut Context)
+    -> Poll<Option<CollectionChangesWithPrevious<K, V>>>;
 
   fn extra_request(&mut self, request: &mut ExtraCollectionOperation);
 
   fn poll_changes_and_merge_until_pending(
     &mut self,
     cx: &mut Context,
-  ) -> Poll<Option<FastPassingVec<CollectionDeltaWithPrevious<K, V>>>>
+  ) -> Poll<Option<CollectionChangesWithPrevious<K, V>>>
   where
     K: Eq + std::hash::Hash + Clone,
     V: Clone,
   {
     // we special check the first case to avoid merge cost if only has one yield
-    let first = self
-      .poll_changes(cx)
-      .map(|v| v.map(|v| v.collect_into_pass_vec()));
+    let first = self.poll_changes(cx);
 
     if let Poll::Ready(Some(r)) = self.poll_changes(cx) {
-      let r = r.collect_into_pass_vec();
       let mut hash = FastHashMap::default();
 
       if let Poll::Ready(Some(v)) = first {
-        deduplicate_collection_changes_previous(&mut hash, v.vec.as_slice().iter().cloned());
+        deduplicate_collection_changes_previous(&mut hash, v.into_values());
       }
-      deduplicate_collection_changes_previous(&mut hash, r.vec.as_slice().iter().cloned());
+      deduplicate_collection_changes_previous(&mut hash, r.into_values());
 
       while let Poll::Ready(Some(v)) = self.poll_changes(cx) {
-        let v = v.collect_into_pass_vec();
-        deduplicate_collection_changes_previous(&mut hash, v.vec.as_slice().iter().cloned());
+        deduplicate_collection_changes_previous(&mut hash, v.into_values());
       }
 
-      let vec: Vec<_> = hash.into_values().collect();
-      if vec.is_empty() {
+      if hash.is_empty() {
         Poll::Pending
       } else {
-        Poll::Ready(Some(FastPassingVec::from_vec(vec)))
+        Poll::Ready(Some(hash))
       }
     } else {
       first
     }
   }
 
-  fn into_forker(self) -> ReactiveKVMapFork<Self, CollectionDeltaWithPrevious<K, V>, K, V>
+  fn into_forker(self) -> ReactiveKVMapFork<Self, CollectionChangesWithPrevious<K, V>, K, V>
   where
     Self: Sized,
   {
@@ -100,7 +78,7 @@ pub trait ReactiveCollectionWithPrevious<K: Send, V: Send>:
   fn into_collection(self) -> impl ReactiveCollection<K, V>
   where
     Self: Sized,
-    K: Send + Sync + 'static + Clone,
+    K: Send + Sync + 'static + Clone + Eq + std::hash::Hash,
     V: Send + Sync + 'static + Clone,
   {
     IntoReactiveCollection {
@@ -116,7 +94,7 @@ pub trait DynamicReactiveCollectionWithPrevious<K, V>:
   fn poll_changes_dyn(
     &mut self,
     _cx: &mut Context<'_>,
-  ) -> Poll<Option<FastPassingVec<CollectionDeltaWithPrevious<K, V>>>>;
+  ) -> Poll<Option<CollectionChangesWithPrevious<K, V>>>;
   fn extra_request_dyn(&mut self, request: &mut ExtraCollectionOperation);
 }
 
@@ -129,10 +107,8 @@ where
   fn poll_changes_dyn(
     &mut self,
     cx: &mut Context<'_>,
-  ) -> Poll<Option<FastPassingVec<CollectionDeltaWithPrevious<K, V>>>> {
-    self
-      .poll_changes(cx)
-      .map(|v| v.map(|v| v.collect_into_pass_vec()))
+  ) -> Poll<Option<CollectionChangesWithPrevious<K, V>>> {
+    self.poll_changes(cx)
   }
   fn extra_request_dyn(&mut self, request: &mut ExtraCollectionOperation) {
     self.extra_request(request)
@@ -154,9 +130,10 @@ where
   K: Clone + Send + Sync + 'static,
   V: Clone + Send + Sync + 'static,
 {
-  type Changes = impl CollectionChangesWithPrevious<K, V>;
-
-  fn poll_changes(&mut self, cx: &mut Context<'_>) -> Poll<Option<Self::Changes>> {
+  fn poll_changes(
+    &mut self,
+    cx: &mut Context<'_>,
+  ) -> Poll<Option<CollectionChangesWithPrevious<K, V>>> {
     self.deref_mut().poll_changes_dyn(cx)
   }
   fn extra_request(&mut self, request: &mut ExtraCollectionOperation) {
@@ -249,24 +226,23 @@ struct IntoReactiveCollection<T, K, V> {
 impl<T, K, V> ReactiveCollection<K, V> for IntoReactiveCollection<T, K, V>
 where
   T: ReactiveCollectionWithPrevious<K, V>,
-  K: Send + Sync + 'static + Clone,
+  K: Send + Sync + 'static + Clone + Eq + std::hash::Hash,
   V: Send + Sync + 'static + Clone,
 {
-  type Changes = impl CollectionChanges<K, V>;
-
-  fn poll_changes(&mut self, cx: &mut Context) -> Poll<Option<Self::Changes>> {
+  fn poll_changes(&mut self, cx: &mut Context) -> Poll<Option<CollectionChanges<K, V>>> {
     self.inner.poll_changes(cx).map(|v| {
       v.map(|v| {
-        let v = v
-          .collect_into_pass_vec()
-          .vec
-          .iter()
-          .cloned()
-          .collect::<Vec<_>>();
-        v.into_par_iter().map(|v| match v {
-          CollectionDeltaWithPrevious::Delta(k, v, _) => CollectionDelta::Delta(k, v),
-          CollectionDeltaWithPrevious::Remove(k, _) => CollectionDelta::Remove(k),
-        })
+        v.into_iter()
+          .map(|(k, v)| {
+            (
+              k,
+              match v {
+                CollectionDeltaWithPrevious::Delta(k, v, _) => CollectionDelta::Delta(k, v),
+                CollectionDeltaWithPrevious::Remove(k, _) => CollectionDelta::Remove(k),
+              },
+            )
+          })
+          .collect()
       })
     })
   }

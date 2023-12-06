@@ -17,7 +17,7 @@ use dyn_downcast::*;
 use futures::{Future, Stream, StreamExt};
 use heap_tools::Counted;
 use incremental::*;
-use rayon::prelude::*;
+// use rayon::prelude::*;
 use reactive::*;
 
 mod single;

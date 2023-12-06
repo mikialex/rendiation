@@ -148,12 +148,10 @@ where
   F: Fn(&SceneNodeDerivedData) -> V + Send + Sync + 'static,
   FD: Fn(SceneNodeDerivedDataDelta) -> Option<V> + Send + Sync + 'static,
 {
-  type Changes = impl CollectionChanges<NodeIdentity, V>;
-
   fn poll_changes(
     &mut self,
     cx: &mut std::task::Context<'_>,
-  ) -> std::task::Poll<Option<Self::Changes>> {
+  ) -> std::task::Poll<Option<CollectionChanges<NodeIdentity, V>>> {
     // todo, should use loop poll and delta compact to maintain data coherency
     let changes = self.forked_change.poll_next_unpin(cx);
     let s_id = self.scene_id;
@@ -190,8 +188,8 @@ where
             CollectionDeltaWithPrevious::Delta(k, v, _) => CollectionDelta::Delta(k, v),
             CollectionDeltaWithPrevious::Remove(k, _) => CollectionDelta::Remove(k),
           })
-          .collect::<Vec<_>>()
-          .into_par_iter()
+          .map(|v| (*v.key(), v))
+          .collect()
       })
     })
   }

@@ -10,8 +10,8 @@ type Receiver<T> = futures::channel::mpsc::UnboundedReceiver<T>;
 
 pub struct ReactiveKVMapFork<Map, T, K, V> {
   upstream: Arc<RwLock<Map>>,
-  downstream: Arc<RwLock<FastHashMap<u64, Sender<FastPassingVec<T>>>>>,
-  rev: Receiver<FastPassingVec<T>>,
+  downstream: Arc<RwLock<FastHashMap<u64, Sender<T>>>>,
+  rev: Receiver<T>,
   id: u64,
   phantom: PhantomData<(K, V)>,
 }
@@ -37,29 +37,51 @@ impl<Map, T, K, V> Drop for ReactiveKVMapFork<Map, T, K, V> {
     self.downstream.write().remove(&self.id);
   }
 }
-impl<K, V, Map: VirtualCollection<K, V>> Clone
-  for ReactiveKVMapFork<Map, CollectionDelta<K, V>, K, V>
+
+trait RebuildTable<K, V>: Sized {
+  // None is empty case
+  fn from_table(c: &impl VirtualCollection<K, V>) -> Option<Self>;
+}
+
+impl<K: Clone + Eq + std::hash::Hash, V> RebuildTable<K, V> for CollectionChanges<K, V> {
+  fn from_table(c: &impl VirtualCollection<K, V>) -> Option<Self> {
+    let c = c
+      .iter_key_value_forgive()
+      .map(|(k, v)| (k.clone(), CollectionDelta::Delta(k, v)))
+      .collect::<Self>();
+    (!c.is_empty()).then_some(c)
+  }
+}
+
+impl<K: Clone + Eq + std::hash::Hash, V> RebuildTable<K, V>
+  for CollectionChangesWithPrevious<K, V>
+{
+  fn from_table(c: &impl VirtualCollection<K, V>) -> Option<Self> {
+    let c = c
+      .iter_key_value_forgive()
+      .map(|(k, v)| (k.clone(), CollectionDeltaWithPrevious::Delta(k, v, None)))
+      .collect::<Self>();
+    (!c.is_empty()).then_some(c)
+  }
+}
+
+impl<K, V, Map: VirtualCollection<K, V>, T: RebuildTable<K, V>> Clone
+  for ReactiveKVMapFork<Map, T, K, V>
 {
   fn clone(&self) -> Self {
     // when fork the collection, we should pass the current table as the init change
     let upstream = self.upstream.read_recursive();
-    let keys = upstream.iter_key();
-    let access = upstream.access();
-    // todo, currently we not enforce that the access should be match the iter_key result so
-    // required to handle None case
-    let deltas = keys
-      .filter_map(|key| access(&key).map(|v| (key, v)))
-      .map(|(k, v)| CollectionDelta::Delta(k, v))
-      .collect::<Vec<_>>();
+
+    let u: &Map = &upstream;
+    let current = T::from_table(u);
 
     let mut downstream = self.downstream.write();
     let id = alloc_global_res_id();
     // we don't expect clone in real runtime so we don't care about wake
     let (sender, rev) = futures::channel::mpsc::unbounded();
 
-    if !deltas.is_empty() {
-      let deltas = FastPassingVec::from_vec(deltas);
-      sender.unbounded_send(deltas).ok();
+    if let Some(current) = current {
+      sender.unbounded_send(current).ok();
     }
 
     downstream.insert(id, sender);
@@ -74,52 +96,13 @@ impl<K, V, Map: VirtualCollection<K, V>> Clone
   }
 }
 
-impl<K, V, Map: VirtualCollection<K, V>> Clone
-  for ReactiveKVMapFork<Map, CollectionDeltaWithPrevious<K, V>, K, V>
-{
-  fn clone(&self) -> Self {
-    // when fork the collection, we should pass the current table as the init change
-    let upstream = self.upstream.read_recursive();
-    let keys = upstream.iter_key();
-    let access = upstream.access();
-    // todo, currently we not enforce that the access should be match the iter_key result so
-    // required to handle None case
-    let deltas = keys
-      .filter_map(|key| access(&key).map(|v| (key, v)))
-      .map(|(k, v)| CollectionDeltaWithPrevious::Delta(k, v, None))
-      .collect::<Vec<_>>();
-
-    let mut downstream = self.downstream.write();
-    let id = alloc_global_res_id();
-    // we don't expect clone in real runtime so we don't care about wake
-    let (sender, rev) = futures::channel::mpsc::unbounded();
-
-    if !deltas.is_empty() {
-      let deltas = FastPassingVec::from_vec(deltas);
-      sender.unbounded_send(deltas).ok();
-    }
-
-    downstream.insert(id, sender);
-
-    Self {
-      upstream: self.upstream.clone(),
-      downstream: self.downstream.clone(),
-      id,
-      rev,
-      phantom: PhantomData,
-    }
-  }
-}
-
-impl<Map, K, V> ReactiveCollection<K, V> for ReactiveKVMapFork<Map, CollectionDelta<K, V>, K, V>
+impl<Map, K, V> ReactiveCollection<K, V> for ReactiveKVMapFork<Map, CollectionChanges<K, V>, K, V>
 where
   Map: ReactiveCollection<K, V>,
   K: Clone + Send + Sync + 'static,
   V: Clone + Send + Sync + 'static,
 {
-  type Changes = FastPassingVec<CollectionDelta<K, V>>;
-
-  fn poll_changes(&mut self, cx: &mut Context<'_>) -> Poll<Option<Self::Changes>> {
+  fn poll_changes(&mut self, cx: &mut Context<'_>) -> Poll<Option<CollectionChanges<K, V>>> {
     // these writes should not deadlock, because we not prefer the concurrency between the table
     // updates. if we do allow it in the future, just change it to try write or yield pending.
 
@@ -133,9 +116,8 @@ where
 
     if let Poll::Ready(Some(v)) = r {
       let downstream = self.downstream.write();
-      let vec = v.collect_into_pass_vec();
       for downstream in downstream.values() {
-        downstream.unbounded_send(vec.clone()).ok();
+        downstream.unbounded_send(v.clone()).ok();
       }
     } else {
       return Poll::Pending;
@@ -151,15 +133,16 @@ where
 }
 
 impl<Map, K, V> ReactiveCollectionWithPrevious<K, V>
-  for ReactiveKVMapFork<Map, CollectionDeltaWithPrevious<K, V>, K, V>
+  for ReactiveKVMapFork<Map, CollectionChangesWithPrevious<K, V>, K, V>
 where
   Map: ReactiveCollectionWithPrevious<K, V>,
   K: Clone + Send + Sync + 'static,
   V: Clone + Send + Sync + 'static,
 {
-  type Changes = FastPassingVec<CollectionDeltaWithPrevious<K, V>>;
-
-  fn poll_changes(&mut self, cx: &mut Context<'_>) -> Poll<Option<Self::Changes>> {
+  fn poll_changes(
+    &mut self,
+    cx: &mut Context<'_>,
+  ) -> Poll<Option<CollectionChangesWithPrevious<K, V>>> {
     // these writes should not deadlock, because we not prefer the concurrency between the table
     // updates. if we do allow it in the future, just change it to try write or yield pending.
 
@@ -173,9 +156,8 @@ where
 
     if let Poll::Ready(Some(v)) = r {
       let downstream = self.downstream.write();
-      let vec = v.collect_into_pass_vec();
       for downstream in downstream.values() {
-        downstream.unbounded_send(vec.clone()).ok();
+        downstream.unbounded_send(v.clone()).ok();
       }
       // }
     } else {

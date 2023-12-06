@@ -4,7 +4,6 @@ name = "reactive-incremental"
 version = "0.0.1"
 
 [dependencies]
-rayon = { workspace = true }
 dyn-downcast = { path = "../dyn-downcast" }
 fast-hash-collection = { path = "../fast-hash-collection" }
 futures = { workspace = true }
@@ -14,7 +13,8 @@ incremental = { path = "../incremental" }
 reactive = { path = "../reactive" }
 storage = { path = "../storage" }
 smallvec = { workspace = true }
-dashmap = { workspace = true }
+# rayon = { workspace = true }
+# dashmap = { workspace = true }
 
 
 # we use it's rwlock to avoid recursive read deadlock

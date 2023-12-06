@@ -165,35 +165,6 @@ impl<K, T: Clone> Clone for MutationFolder<K, T> {
   }
 }
 
-impl<K: Send, T: Clone + Send> ParallelIterator for MutationFolder<K, T> {
-  type Item = CollectionDeltaWithPrevious<AllocIdx<K>, T>;
-
-  fn drive_unindexed<C>(self, consumer: C) -> C::Result
-  where
-    C: rayon::iter::plumbing::UnindexedConsumer<Self::Item>,
-  {
-    self
-      .inner
-      .into_par_iter()
-      .flat_map_iter(|(id, state)| {
-        let mut expand =
-          smallvec::SmallVec::<[CollectionDeltaWithPrevious<AllocIdx<K>, T>; 2]>::new();
-        match state {
-          MutationState::NewInsert(v) => {
-            expand.push(CollectionDeltaWithPrevious::Delta(id, v, None))
-          }
-          MutationState::ChangeTo(v, p) => {
-            expand.push(CollectionDeltaWithPrevious::Delta(id, v, Some(p)));
-          }
-          MutationState::Remove(p) => expand.push(CollectionDeltaWithPrevious::Remove(id, p)),
-        }
-        expand
-      })
-      .into_par_iter()
-      .drive_unindexed(consumer)
-  }
-}
-
 pub struct GroupMutationSender<K, T> {
   inner: Weak<(RwLock<MutationFolder<K, T>>, AtomicWaker)>,
 }
@@ -328,10 +299,35 @@ where
   U: Clone + Send + Sync + 'static,
   S: Stream<Item = MutationFolder<T, U>> + Unpin + Send + Sync + 'static,
 {
-  type Changes = impl CollectionChangesWithPrevious<AllocIdx<T>, U>;
-
-  fn poll_changes(&mut self, cx: &mut Context<'_>) -> Poll<Option<Self::Changes>> {
-    self.inner.poll_next_unpin(cx)
+  fn poll_changes(
+    &mut self,
+    cx: &mut Context<'_>,
+  ) -> Poll<Option<CollectionChangesWithPrevious<AllocIdx<T>, U>>> {
+    self.inner.poll_next_unpin(cx).map(|v| {
+      v.map(|mutations| {
+        mutations
+          .inner
+          .into_iter()
+          .flat_map(|(id, state)| {
+            let mut expand = smallvec::SmallVec::<
+              [(AllocIdx<T>, CollectionDeltaWithPrevious<AllocIdx<T>, U>); 2],
+            >::new();
+            match state {
+              MutationState::NewInsert(v) => {
+                expand.push((id, CollectionDeltaWithPrevious::Delta(id, v, None)))
+              }
+              MutationState::ChangeTo(v, p) => {
+                expand.push((id, CollectionDeltaWithPrevious::Delta(id, v, Some(p))));
+              }
+              MutationState::Remove(p) => {
+                expand.push((id, CollectionDeltaWithPrevious::Remove(id, p)))
+              }
+            }
+            expand
+          })
+          .collect()
+      })
+    })
   }
 
   fn extra_request(&mut self, _request: &mut ExtraCollectionOperation) {

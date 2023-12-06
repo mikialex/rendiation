@@ -1,7 +1,5 @@
-use std::{marker::PhantomData, ops::DerefMut, sync::Arc};
+use std::{marker::PhantomData, ops::DerefMut};
 
-use dashmap::*;
-type FastDashMap<K, V> = dashmap::DashMap<K, V, FastHasherBuilder>;
 use fast_hash_collection::*;
 use storage::IndexKeptVec;
 
@@ -74,6 +72,15 @@ pub trait VirtualCollection<K, V> {
     })
   }
 
+  // todo, currently we not enforce that the access should be match the iter_key result so
+  // required to handle None case
+  fn iter_key_value_forgive(&self) -> impl Iterator<Item = (K, V)> + '_ {
+    let access = self.access();
+    self
+      .iter_key()
+      .filter_map(move |k| access(&k).map(|v| (k, v)))
+  }
+
   /// Access the current value. we use this accessor like api style for fast batch accessing(to
   /// avoid internal fragmented locking). the returned V is passed by ownership because we may
   /// create data on the fly.
@@ -114,43 +121,37 @@ where
 pub trait ReactiveCollection<K: Send, V: Send>:
   VirtualCollection<K, V> + Sync + Send + 'static
 {
-  type Changes: CollectionChanges<K, V>;
-  fn poll_changes(&mut self, cx: &mut Context) -> Poll<Option<Self::Changes>>;
+  fn poll_changes(&mut self, cx: &mut Context) -> Poll<Option<CollectionChanges<K, V>>>;
 
   fn extra_request(&mut self, request: &mut ExtraCollectionOperation);
 
   fn poll_changes_and_merge_until_pending(
     &mut self,
     cx: &mut Context,
-  ) -> Poll<Option<FastPassingVec<CollectionDelta<K, V>>>>
+  ) -> Poll<Option<CollectionChanges<K, V>>>
   where
     K: Eq + std::hash::Hash + Clone,
     V: Clone,
   {
     // we special check the first case to avoid merge cost if only has one yield
-    let first = self
-      .poll_changes(cx)
-      .map(|v| v.map(|v| v.collect_into_pass_vec()));
+    let first = self.poll_changes(cx);
 
     if let Poll::Ready(Some(r)) = self.poll_changes(cx) {
-      let r = r.collect_into_pass_vec();
       let mut hash = FastHashMap::default();
 
       if let Poll::Ready(Some(v)) = first {
-        deduplicate_collection_changes(&mut hash, v.vec.as_slice().iter().cloned());
+        deduplicate_collection_changes(&mut hash, v.into_values());
       }
-      deduplicate_collection_changes(&mut hash, r.vec.as_slice().iter().cloned());
+      deduplicate_collection_changes(&mut hash, r.into_values());
 
       while let Poll::Ready(Some(v)) = self.poll_changes(cx) {
-        let v = v.collect_into_pass_vec();
-        deduplicate_collection_changes(&mut hash, v.vec.as_slice().iter().cloned());
+        deduplicate_collection_changes(&mut hash, v.into_values());
       }
 
-      let vec: Vec<_> = hash.into_values().collect();
-      if vec.is_empty() {
+      if hash.is_empty() {
         Poll::Pending
       } else {
-        Poll::Ready(Some(FastPassingVec::from_vec(vec)))
+        Poll::Ready(Some(hash))
       }
     } else {
       first
@@ -179,96 +180,7 @@ pub fn deduplicate_collection_changes<K, V>(
   })
 }
 
-/// impl note: why not using IntoParallelIterator?
-///
-/// 1. rayon IntoParallelIterator's Iter associate type do not have sync bound
-/// 2. we use return-type-impl-trait extensively, and could not express the parent trait's associate
-/// type extra trait bound. maybe we could workaround this, but the code is awful. (that also the
-/// reason why we impose the clone bound here)
-pub trait CollectionChanges<K: Send, V: Send>:
-  ParallelIterator<Item = CollectionDelta<K, V>>
-  + MaybeFastCollect<CollectionDelta<K, V>>
-  + Clone
-  + Send
-  + Sync
-  + Sized
-{
-}
-pub trait MaybeFastCollect<T: Send>: ParallelIterator<Item = T> + Sized {
-  fn collect_into_pass_vec(self) -> FastPassingVec<T>;
-}
-
-impl<X: Send + Sync + Clone, T: ParallelIterator<Item = X>> MaybeFastCollect<X> for T {
-  default fn collect_into_pass_vec(self) -> FastPassingVec<X> {
-    FastPassingVec::from_vec(self.collect::<Vec<_>>())
-  }
-}
-
-impl<K, V, T> CollectionChanges<K, V> for T
-where
-  K: Send,
-  V: Send,
-  T: ParallelIterator<Item = CollectionDelta<K, V>> + Send + Sync,
-  T: MaybeFastCollect<CollectionDelta<K, V>>,
-  T: Clone,
-{
-}
-
-#[derive(Clone, Debug)]
-pub struct FastPassingVec<T> {
-  pub vec: Arc<Vec<T>>,
-}
-
-impl<T> FastPassingVec<T> {
-  pub fn from_vec(vec: Vec<T>) -> Self {
-    Self { vec: Arc::new(vec) }
-  }
-}
-
-impl<T: Clone> IntoIterator for FastPassingVec<T> {
-  type Item = T;
-  type IntoIter = impl Iterator<Item = T>;
-  fn into_iter(self) -> Self::IntoIter {
-    // avoid heap to heap clone
-    #[derive(Clone)]
-    struct CheapCloneVecIter<T> {
-      inner: Arc<Vec<T>>,
-      next: usize,
-    }
-    impl<T: Clone> Iterator for CheapCloneVecIter<T> {
-      type Item = T;
-      fn next(&mut self) -> Option<Self::Item> {
-        let v = self.inner.get(self.next).cloned();
-        self.next += 1;
-        v
-      }
-    }
-
-    CheapCloneVecIter {
-      inner: self.vec,
-      next: 0,
-    }
-  }
-}
-
-impl<T: Send + Sync + Clone> ParallelIterator for FastPassingVec<T> {
-  type Item = T;
-
-  fn drive_unindexed<C>(self, consumer: C) -> C::Result
-  where
-    C: ::rayon::iter::plumbing::UnindexedConsumer<Self::Item>,
-  {
-    // todo, how to avoid heap to heap clone?
-    let vec = Vec::from(self.vec.as_slice());
-    vec.into_par_iter().drive_unindexed(consumer)
-  }
-}
-impl<T: Send + Sync + Clone> MaybeFastCollect<T> for FastPassingVec<T> {
-  // when message type is already fast vec, collect is free of cost.
-  fn collect_into_pass_vec(self) -> FastPassingVec<T> {
-    self
-  }
-}
+pub type CollectionChanges<K, V> = FastHashMap<K, CollectionDelta<K, V>>;
 
 pub enum ExtraCollectionOperation {
   MemoryShrinkToFit,
@@ -284,38 +196,12 @@ impl<K: 'static, V> VirtualCollection<K, V> for () {
   }
 }
 
-pub struct EmptyIter<T>(PhantomData<T>);
-impl<T: Send + Sync + Clone> MaybeFastCollect<T> for EmptyIter<T> {
-  fn collect_into_pass_vec(self) -> FastPassingVec<T> {
-    FastPassingVec::from_vec(Default::default())
-  }
-}
-unsafe impl<T> Send for EmptyIter<T> {}
-unsafe impl<T> Sync for EmptyIter<T> {}
-
-impl<T> Clone for EmptyIter<T> {
-  fn clone(&self) -> Self {
-    Self(PhantomData)
-  }
-}
-impl<T: Send> ParallelIterator for EmptyIter<T> {
-  type Item = T;
-
-  fn drive_unindexed<C>(self, consumer: C) -> C::Result
-  where
-    C: ::rayon::iter::plumbing::UnindexedConsumer<Self::Item>,
-  {
-    [].into_par_iter().drive_unindexed(consumer)
-  }
-}
 impl<K, V> ReactiveCollection<K, V> for ()
 where
   K: 'static + Send + Sync + Clone,
   V: 'static + Send + Sync + Clone,
 {
-  type Changes = EmptyIter<CollectionDelta<K, V>>;
-
-  fn poll_changes(&mut self, _: &mut Context<'_>) -> Poll<Option<Self::Changes>> {
+  fn poll_changes(&mut self, _: &mut Context<'_>) -> Poll<Option<CollectionChanges<K, V>>> {
     Poll::Pending
   }
   fn extra_request(&mut self, _: &mut ExtraCollectionOperation) {}
@@ -345,9 +231,7 @@ where
   K: 'static + Send + Sync + Clone,
   V: 'static + Send + Sync + Clone,
 {
-  type Changes = EmptyIter<CollectionDelta<K, V>>;
-
-  fn poll_changes(&mut self, _: &mut Context<'_>) -> Poll<Option<Self::Changes>> {
+  fn poll_changes(&mut self, _: &mut Context<'_>) -> Poll<Option<CollectionChanges<K, V>>> {
     Poll::Pending
   }
   fn extra_request(&mut self, _: &mut ExtraCollectionOperation) {}
@@ -372,10 +256,7 @@ where
 }
 
 pub trait DynamicReactiveCollection<K, V>: DynamicVirtualCollection<K, V> + Sync + Send {
-  fn poll_changes_dyn(
-    &mut self,
-    _cx: &mut Context<'_>,
-  ) -> Poll<Option<FastPassingVec<CollectionDelta<K, V>>>>;
+  fn poll_changes_dyn(&mut self, _cx: &mut Context<'_>) -> Poll<Option<CollectionChanges<K, V>>>;
   fn extra_request_dyn(&mut self, request: &mut ExtraCollectionOperation);
 }
 
@@ -385,13 +266,8 @@ where
   K: Send + 'static,
   V: Send + 'static,
 {
-  fn poll_changes_dyn(
-    &mut self,
-    cx: &mut Context<'_>,
-  ) -> Poll<Option<FastPassingVec<CollectionDelta<K, V>>>> {
-    self
-      .poll_changes(cx)
-      .map(|v| v.map(|v| v.collect_into_pass_vec()))
+  fn poll_changes_dyn(&mut self, cx: &mut Context<'_>) -> Poll<Option<CollectionChanges<K, V>>> {
+    self.poll_changes(cx)
   }
   fn extra_request_dyn(&mut self, request: &mut ExtraCollectionOperation) {
     self.extra_request(request)
@@ -412,9 +288,7 @@ where
   K: Clone + Send + Sync + 'static,
   V: Clone + Send + Sync + 'static,
 {
-  type Changes = impl CollectionChanges<K, V>;
-
-  fn poll_changes(&mut self, cx: &mut Context<'_>) -> Poll<Option<Self::Changes>> {
+  fn poll_changes(&mut self, cx: &mut Context<'_>) -> Poll<Option<CollectionChanges<K, V>>> {
     self.deref_mut().poll_changes_dyn(cx)
   }
   fn extra_request(&mut self, request: &mut ExtraCollectionOperation) {
@@ -435,7 +309,7 @@ where
   K: Send,
   V: Send,
 {
-  type Item = T::Changes;
+  type Item = CollectionChanges<K, V>;
 
   fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
     let mut this = self.project();
@@ -452,7 +326,7 @@ where
     Box::new(self)
   }
 
-  fn into_change_stream(self) -> impl Stream<Item = Self::Changes>
+  fn into_change_stream(self) -> impl Stream<Item = CollectionChanges<K, V>>
   where
     Self: Unpin,
   {
@@ -482,7 +356,7 @@ where
   where
     F: Fn(V) -> V2 + Copy + Send + Sync + 'static,
     V2: Send + Sync + Clone + 'static,
-    K: Sync + Clone,
+    K: Sync + Clone + Eq + std::hash::Hash,
     Self: Sync,
   {
     ReactiveKVMap {
@@ -515,7 +389,7 @@ where
   where
     V: Copy,
     F: Fn(V) -> bool + Copy + Send + Sync + 'static,
-    K: Sync + Clone,
+    K: Sync + Clone + Eq + std::hash::Hash,
     Self: Sync,
   {
     ReactiveKVFilter {
@@ -530,7 +404,7 @@ where
   where
     F: Fn(V) -> Option<V2> + Copy + Send + Sync + 'static,
     V2: Send + Sync + Clone + 'static,
-    K: Sync + Clone + 'static,
+    K: Sync + Clone + 'static + Eq + std::hash::Hash,
     Self: Sync,
   {
     ReactiveKVFilter {
@@ -613,7 +487,7 @@ where
     })
   }
 
-  fn into_forker(self) -> ReactiveKVMapFork<Self, CollectionDelta<K, V>, K, V> {
+  fn into_forker(self) -> ReactiveKVMapFork<Self, CollectionChanges<K, V>, K, V> {
     ReactiveKVMapFork::new(self)
   }
 
@@ -726,51 +600,47 @@ where
   K: Send + Sync + Eq + std::hash::Hash + 'static + Clone,
   V: Send + Sync + 'static + Clone + PartialEq,
 {
-  type Changes = impl CollectionChangesWithPrevious<K, V>;
-
-  fn poll_changes(&mut self, cx: &mut Context) -> Poll<Option<Self::Changes>> {
+  fn poll_changes(
+    &mut self,
+    cx: &mut Context,
+  ) -> Poll<Option<CollectionChangesWithPrevious<K, V>>> {
     let mut is_empty = false;
     let r = self.inner.poll_changes(cx).map(|v| {
       v.map(|v| {
-        let v = v
-          .collect_into_pass_vec()
-          .vec
-          .iter()
-          .cloned()
-          .collect::<Vec<_>>();
-
-        let output = v
-          .into_par_iter()
-          .collect::<Vec<_>>()
-          .into_iter()
+        let output: CollectionChangesWithPrevious<K, V> = v
+          .into_values()
           .filter_map(|v| match v {
             CollectionDelta::Delta(k, v) => {
               let pre = self.current.insert(k.clone(), v.clone());
               if let Some(pre) = pre {
                 if pre != v {
-                  CollectionDeltaWithPrevious::Delta(k, v, Some(pre)).into()
+                  (
+                    k.clone(),
+                    CollectionDeltaWithPrevious::Delta(k, v, Some(pre)),
+                  )
+                    .into()
                 } else {
                   None
                 }
               } else {
-                CollectionDeltaWithPrevious::Delta(k, v, pre).into()
+                (k.clone(), CollectionDeltaWithPrevious::Delta(k, v, pre)).into()
               }
             }
             CollectionDelta::Remove(k) => {
               if let Some(v) = self.current.remove(&k) {
-                CollectionDeltaWithPrevious::Remove(k, v).into()
+                (k.clone(), CollectionDeltaWithPrevious::Remove(k, v)).into()
               } else {
                 None
               }
             }
           })
-          .collect::<Vec<_>>();
+          .collect();
 
         if output.is_empty() {
           is_empty = true;
         }
 
-        output.into_par_iter()
+        output
       })
     });
 
@@ -809,18 +679,14 @@ pub struct UnorderedMaterializedReactiveCollection<Map, K, V> {
 impl<Map, K, V> ReactiveCollection<K, V> for UnorderedMaterializedReactiveCollection<Map, K, V>
 where
   Map: ReactiveCollection<K, V>,
-  Map::Changes: Clone,
   K: std::hash::Hash + Eq + Clone + Send + Sync + 'static,
   V: Clone + Send + Sync + 'static,
 {
-  type Changes = Map::Changes;
-
-  fn poll_changes(&mut self, cx: &mut Context<'_>) -> Poll<Option<Self::Changes>> {
+  fn poll_changes(&mut self, cx: &mut Context<'_>) -> Poll<Option<CollectionChanges<K, V>>> {
     let r = self.inner.poll_changes(cx);
     if let Poll::Ready(Some(changes)) = &r {
-      let changes = changes.clone().collect_into_pass_vec();
-      for change in changes {
-        match change {
+      for change in changes.values() {
+        match change.clone() {
           CollectionDelta::Delta(k, v) => {
             self.cache.insert(k, v);
           }
@@ -863,16 +729,13 @@ pub struct LinearMaterializedReactiveCollection<Map, V> {
 impl<Map, K, V> ReactiveCollection<K, V> for LinearMaterializedReactiveCollection<Map, V>
 where
   Map: ReactiveCollection<K, V> + Sync,
-  Map::Changes: Clone,
   K: LinearIdentification + Send + 'static,
   V: Clone + Send + Sync + 'static,
 {
-  type Changes = Map::Changes;
-
-  fn poll_changes(&mut self, cx: &mut Context<'_>) -> Poll<Option<Self::Changes>> {
+  fn poll_changes(&mut self, cx: &mut Context<'_>) -> Poll<Option<CollectionChanges<K, V>>> {
     let r = self.inner.poll_changes(cx);
     if let Poll::Ready(Some(changes)) = &r {
-      for change in changes.clone().collect_into_pass_vec() {
+      for change in changes.values().cloned() {
         match change {
           CollectionDelta::Delta(k, v) => {
             self.cache.insert(v, k.alloc_index());
@@ -912,7 +775,7 @@ where
 pub struct ReactiveKVExecuteMap<T, F, K, V, V2> {
   inner: T,
   map_creator: F,
-  cache: DashMap<K, V2, FastHasherBuilder>,
+  cache: FastHashMap<K, V2>,
   phantom: PhantomData<(K, V, V2)>,
 }
 
@@ -925,25 +788,24 @@ where
   V2: Clone + Send + Sync + 'static,
   T: ReactiveCollection<K, V>,
 {
-  type Changes = impl CollectionChanges<K, V2>;
-
-  fn poll_changes(&mut self, cx: &mut Context<'_>) -> Poll<Option<Self::Changes>> {
+  fn poll_changes(&mut self, cx: &mut Context<'_>) -> Poll<Option<CollectionChanges<K, V2>>> {
     self.inner.poll_changes(cx).map(move |r| {
       r.map(move |deltas| {
         let mapper = (self.map_creator)();
         deltas
-          .map(move |delta| match delta {
+          .into_values()
+          .map(|delta| match delta {
             CollectionDelta::Delta(k, d) => {
               let new_value = mapper(&k, d);
               self.cache.insert(k.clone(), new_value.clone());
-              CollectionDelta::Delta(k, new_value)
+              (k.clone(), CollectionDelta::Delta(k, new_value))
             }
             CollectionDelta::Remove(k) => {
               self.cache.remove(&k);
-              CollectionDelta::Remove(k)
+              (k.clone(), CollectionDelta::Remove(k))
             }
           })
-          .collect_into_pass_vec()
+          .collect()
       })
     })
   }
@@ -966,10 +828,10 @@ where
   V2: Clone + Sync + Send,
 {
   fn iter_key(&self) -> impl Iterator<Item = K> + '_ {
-    self.cache.iter().map(|e| e.key().clone())
+    self.cache.keys().cloned()
   }
   fn access(&self) -> impl Fn(&K) -> Option<V2> + Sync + '_ {
-    move |key| self.cache.get(key).map(|v| v.value().clone())
+    move |key| self.cache.get(key).cloned()
   }
 }
 
@@ -982,20 +844,19 @@ pub struct ReactiveKVMap<T, F, K, V> {
 impl<T, F, K, V, V2> ReactiveCollection<K, V2> for ReactiveKVMap<T, F, K, V>
 where
   V: Send + Sync + Clone + 'static,
-  K: Send + Sync + Clone + 'static,
+  K: Send + Sync + Clone + Eq + std::hash::Hash + 'static,
   V2: Send + Sync + Clone,
   F: Fn(V) -> V2 + Copy + Send + Sync + 'static,
   T: ReactiveCollection<K, V> + Sync,
 {
-  type Changes = impl CollectionChanges<K, V2>;
-
-  fn poll_changes(&mut self, cx: &mut Context<'_>) -> Poll<Option<Self::Changes>> {
+  fn poll_changes(&mut self, cx: &mut Context<'_>) -> Poll<Option<CollectionChanges<K, V2>>> {
     let mapper = self.map;
     self.inner.poll_changes(cx).map(move |r| {
       r.map(move |deltas| {
         deltas
-          .into_par_iter()
-          .map(move |delta| delta.map(|_, v| mapper(v)))
+          .into_iter()
+          .map(move |(k, delta)| (k, delta.map(|_, v| mapper(v))))
+          .collect()
       })
     })
   }
@@ -1046,29 +907,22 @@ where
   K: Clone + Send + Sync + Eq + std::hash::Hash + 'static,
   V: Clone + Send + Sync + 'static,
 {
-  type Changes = impl CollectionChanges<K, V>;
+  fn poll_changes(&mut self, cx: &mut Context) -> Poll<Option<CollectionChanges<K, V>>> {
+    let changes = self.inner.poll_changes(cx);
 
-  fn poll_changes(&mut self, cx: &mut Context) -> Poll<Option<Self::Changes>> {
-    let changes = self
-      .inner
-      .poll_changes(cx)
-      .map(|v| v.map(|v| v.collect_into_pass_vec()));
-
-    if let Poll::Ready(Some(changes)) = &changes {
-      let mut filtered = Vec::with_capacity(changes.vec.len());
-      for change in changes.vec.as_slice() {
-        if self.state.update(change) {
-          filtered.push(change.clone())
-        }
-      }
+    if let Poll::Ready(Some(changes)) = changes {
+      let filtered: CollectionChanges<K, V> = changes
+        .into_iter()
+        .filter(|(_, v)| self.state.update(v))
+        .collect();
       if filtered.is_empty() {
-        return Poll::Pending;
+        Poll::Pending
       } else {
-        return Poll::Ready(Some(FastPassingVec::from_vec(filtered)));
+        Poll::Ready(Some(filtered))
       }
+    } else {
+      changes
     }
-
-    changes
   }
 
   fn extra_request(&mut self, request: &mut ExtraCollectionOperation) {
@@ -1091,13 +945,11 @@ where
   K: std::fmt::Debug + Clone + Send + Sync + 'static,
   V: std::fmt::Debug + Clone + Send + Sync + 'static,
 {
-  type Changes = impl CollectionChangesWithPrevious<K, V>;
-
-  fn poll_changes(&mut self, cx: &mut Context<'_>) -> Poll<Option<Self::Changes>> {
-    let r = self
-      .inner
-      .poll_changes(cx)
-      .map(|v| v.map(|v| v.collect_into_pass_vec()));
+  fn poll_changes(
+    &mut self,
+    cx: &mut Context<'_>,
+  ) -> Poll<Option<CollectionChangesWithPrevious<K, V>>> {
+    let r = self.inner.poll_changes(cx);
     if let Poll::Ready(Some(v)) = &r {
       println!("{} {:#?}", self.label, v);
     }
@@ -1115,14 +967,10 @@ where
   K: std::fmt::Debug + Clone + Send + Sync + 'static,
   V: std::fmt::Debug + Clone + Send + Sync + 'static,
 {
-  type Changes = impl CollectionChanges<K, V>;
-
-  fn poll_changes(&mut self, cx: &mut Context<'_>) -> Poll<Option<Self::Changes>> {
-    let r = self
-      .inner
-      .poll_changes(cx)
-      .map(|v| v.map(|v| v.collect_into_pass_vec()));
+  fn poll_changes(&mut self, cx: &mut Context<'_>) -> Poll<Option<CollectionChanges<K, V>>> {
+    let r = self.inner.poll_changes(cx);
     if let Poll::Ready(Some(v)) = &r {
+      let v = v.values().collect::<Vec<_>>();
       println!("{:#?}", v);
     }
     r
@@ -1174,18 +1022,16 @@ impl<T, F, K, V, V2> ReactiveCollection<K, V2> for ReactiveKVFilter<T, F, K, V>
 where
   F: Fn(V) -> Option<V2> + Copy + Send + Sync + 'static,
   T: ReactiveCollection<K, V> + Sync,
-  K: Send + Sync + Clone + 'static,
+  K: Send + Sync + Clone + Eq + std::hash::Hash + 'static,
   V: Send + Sync + Clone + 'static,
   V2: Send + Sync + Clone,
 {
-  type Changes = impl CollectionChanges<K, V2>;
-
-  fn poll_changes(&mut self, cx: &mut Context<'_>) -> Poll<Option<Self::Changes>> {
+  fn poll_changes(&mut self, cx: &mut Context<'_>) -> Poll<Option<CollectionChanges<K, V2>>> {
     let checker = make_checker(self.checker);
     self
       .inner
       .poll_changes(cx)
-      .map(move |r| r.map(move |deltas| deltas.into_par_iter().map(checker)))
+      .map(move |r| r.map(|r| r.into_iter().map(|(k, v)| (k, checker(v))).collect()))
   }
 
   fn extra_request(&mut self, request: &mut ExtraCollectionOperation) {
@@ -1322,9 +1168,7 @@ where
   V1: Clone + Send + Sync + 'static,
   V2: Clone + Send + Sync + 'static,
 {
-  type Changes = impl CollectionChanges<K, O>;
-
-  fn poll_changes(&mut self, cx: &mut Context<'_>) -> Poll<Option<Self::Changes>> {
+  fn poll_changes(&mut self, cx: &mut Context<'_>) -> Poll<Option<CollectionChanges<K, O>>> {
     let t1 = self.a.poll_changes(cx);
     let t2 = self.b.poll_changes(cx);
 
@@ -1335,37 +1179,48 @@ where
 
     let r = match (t1, t2) {
       (Poll::Ready(Some(v1)), Poll::Ready(Some(v2))) => {
-        let intersections: FastDashMap<
+        let mut intersections: FastHashMap<
           K,
           (
             Option<CollectionDelta<K, V1>>,
             Option<CollectionDelta<K, V2>>,
           ),
-        > = FastDashMap::default();
-        v1.for_each(|d| {
+        > = FastHashMap::default();
+        v1.into_values().for_each(|d| {
           let key = *d.key();
           intersections.entry(key).or_default().0 = Some(d)
         });
 
-        v2.for_each(|d| {
+        v2.into_values().for_each(|d| {
           let key = *d.key();
           intersections.entry(key).or_default().1 = Some(d)
         });
 
         intersections
-          .into_par_iter()
-          .filter_map(|(_, (d1, d2))| union(d1, d2, &a_access, &b_access))
-          .map(checker)
-          .collect::<Vec<_>>()
+          .into_iter()
+          .filter_map(|(k, (d1, d2))| {
+            union(d1, d2, &a_access, &b_access)
+              .map(checker)
+              .map(|v| (k, v))
+          })
+          .collect::<CollectionChanges<K, O>>()
       }
       (Poll::Ready(Some(v1)), Poll::Pending) => v1
-        .filter_map(|d1| union(Some(d1), None, &a_access, &b_access))
-        .map(checker)
-        .collect::<Vec<_>>(),
+        .into_iter()
+        .filter_map(|(k, d1)| {
+          union(Some(d1), None, &a_access, &b_access)
+            .map(checker)
+            .map(|v| (k, v))
+        })
+        .collect::<CollectionChanges<K, O>>(),
       (Poll::Pending, Poll::Ready(Some(v2))) => v2
-        .filter_map(|d2| union(None, Some(d2), &a_access, &b_access))
-        .map(checker)
-        .collect::<Vec<_>>(),
+        .into_iter()
+        .filter_map(|(k, d2)| {
+          union(None, Some(d2), &a_access, &b_access)
+            .map(checker)
+            .map(|v| (k, v))
+        })
+        .collect::<CollectionChanges<K, O>>(),
 
       (Poll::Pending, Poll::Pending) => return Poll::Pending,
       _ => return Poll::Ready(None),
@@ -1375,185 +1230,10 @@ where
       return Poll::Pending;
     }
 
-    Poll::Ready(Some(FastPassingVec::from_vec(r)))
+    Poll::Ready(Some(r))
   }
   fn extra_request(&mut self, request: &mut ExtraCollectionOperation) {
     self.a.extra_request(request);
     self.b.extra_request(request);
-  }
-}
-
-// /// when we want to zip multiple kv, using deeply nested zipper is viable, however it's
-// computation /// intensive during layer of layers consuming. This combinator provides the
-// flattened version of /// multi zip, in trades of the performance overhead of dynamical fn call
-// and internal cache(maybe /// user still require this so it's ok).
-// pub struct MultiZipper<K, P, V> {
-//   sources: Vec<Box<dyn DynamicReactiveCollection<K, P> + Sync>>,
-//   current: FastHashMap<K, V>,
-//   defaulter: Box<dyn Fn() -> V + Sync + Send>,
-//   applier: Box<dyn Fn(&mut V, P) + Sync + Send>,
-// }
-
-// impl<K, P, V> MultiZipper<K, P, V> {
-//   pub fn new(
-//     defaulter: impl Fn() -> V + Sync + Send + 'static,
-//     applier: impl Fn(&mut V, P) + Sync + Send + 'static,
-//   ) -> Self {
-//     Self {
-//       sources: Default::default(),
-//       current: Default::default(),
-//       defaulter: Box::new(defaulter),
-//       applier: Box::new(applier),
-//     }
-//   }
-
-//   pub fn zip_with(mut self, source: impl ReactiveCollection<K, P> + Sync) -> Self
-//   where
-//     K: Send + 'static,
-//     P: Send + 'static,
-//   {
-//     self.sources.push(Box::new(source));
-//     self
-//   }
-// }
-
-// impl<K, P, V> VirtualCollection<K, V> for MultiZipper<K, P, V>
-// where
-//   K: Clone + Eq + std::hash::Hash + Sync,
-//   V: Clone + Sync,
-// {
-//   fn iter_key(&self) -> impl Iterator<Item = K> + '_ {
-//     self.current.keys().cloned()
-//   }
-
-//   fn access(&self) -> impl Fn(&K) -> Option<V> + Sync + '_ {
-//     |k| self.current.get(k).cloned()
-//   }
-// }
-
-// impl<K, P, V> ReactiveCollection<K, V> for MultiZipper<K, P, V>
-// where
-//   K: Clone + Eq + std::hash::Hash + Send + Sync + 'static,
-//   V: Clone + Send + Sync + 'static,
-//   P: Clone + 'static,
-// {
-//   type Changes = impl CollectionChanges<K, V>;
-
-//   #[allow(clippy::collapsible_else_if)]
-//   fn poll_changes(&mut self, cx: &mut Context<'_>) -> Poll<Option<Self::Changes>> {
-//     if self.sources.is_empty() {
-//       return Poll::Pending;
-//     }
-
-//     let mut outputs = FastHashMap::<K, CollectionDelta<K, V>>::default();
-
-//     for source in &mut self.sources {
-//       if let Poll::Ready(Some(source)) = source.poll_changes_dyn(cx) {
-//         for change in source {
-//           match change {
-//             CollectionDelta::Delta(key, change, ) => {
-//               if let Some(previous_new) = outputs.remove(&key) {
-//                 match previous_new {
-//                   CollectionDelta::Delta(_, mut next, ) => {
-//                     (self.applier)(&mut next, change);
-//                     outputs.insert(key.clone(), CollectionDelta::Delta(key.clone(), next, pre));
-//                   }
-//                   CollectionDelta::Remove(_, _) => unreachable!("unexpected zipper input"),
-//                 }
-//                 outputs.insert(
-//                   key.clone(),
-//                   CollectionDelta::Delta(key, (self.defaulter)(), None),
-//                 );
-//               } else {
-//                 if let Some(current) = self.current.get(&key) {
-//                   let mut next = current.clone();
-//                   (self.applier)(&mut next, change);
-//                   outputs.insert(
-//                     key.clone(),
-//                     CollectionDelta::Delta(key, next, Some(current.clone())),
-//                   );
-//                 } else {
-//                   let mut next = (self.defaulter)();
-//                   (self.applier)(&mut next, change);
-//                   outputs.insert(key.clone(), CollectionDelta::Delta(key, next, None));
-//                 }
-//               }
-//             }
-//             CollectionDelta::Remove(key, _) => {
-//               outputs.insert(
-//                 key.clone(),
-//                 CollectionDelta::Remove(key.clone(), self.current.remove(&key).unwrap()),
-//               );
-//             }
-//           }
-//         }
-//       }
-//     }
-
-//     if outputs.is_empty() {
-//       return Poll::Pending;
-//     }
-
-//     for v in outputs.values() {
-//       match v {
-//         CollectionDelta::Delta(k, next, _) => {
-//           self.current.insert(k.clone(), next.clone());
-//         }
-//         CollectionDelta::Remove(k, _) => {
-//           self.current.remove(k);
-//         }
-//       }
-//     }
-
-//     Poll::Ready(Some(HashMapIntoValue::new(outputs)))
-//   }
-
-//   fn extra_request(&mut self, request: &mut ExtraCollectionOperation) {
-//     self
-//       .sources
-//       .iter_mut()
-//       .for_each(|s| s.extra_request_dyn(request));
-//     match request {
-//       ExtraCollectionOperation::MemoryShrinkToFit => self.current.shrink_to_fit(),
-//     }
-//   }
-// }
-
-/// workaround hashmap parallel iterator not impl clone
-
-pub(crate) struct HashMapIntoValue<K, V> {
-  map: FastHashMap<K, V>,
-}
-
-impl<K, V> HashMapIntoValue<K, V> {
-  pub fn new(map: FastHashMap<K, V>) -> Self {
-    Self { map }
-  }
-}
-
-impl<K: Clone, V: Clone> Clone for HashMapIntoValue<K, V> {
-  fn clone(&self) -> Self {
-    Self {
-      map: self.map.clone(),
-    }
-  }
-}
-
-impl<K, V> ParallelIterator for HashMapIntoValue<K, V>
-where
-  K: Send + Eq + std::hash::Hash,
-  V: Send,
-{
-  type Item = V;
-
-  fn drive_unindexed<C>(self, consumer: C) -> C::Result
-  where
-    C: ::rayon::iter::plumbing::UnindexedConsumer<Self::Item>,
-  {
-    self
-      .map
-      .into_par_iter()
-      .map(|(_, v)| v)
-      .drive_unindexed(consumer)
   }
 }

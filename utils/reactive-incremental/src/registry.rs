@@ -76,13 +76,13 @@ pub fn storage_of<T: IncrementalBase>() -> IncrementalSignalStorage<T> {
 
 pub type RxCForkerWithPrevious<K, V> = ReactiveKVMapFork<
   Box<dyn DynamicReactiveCollectionWithPrevious<K, V>>,
-  CollectionDeltaWithPrevious<K, V>,
+  CollectionChangesWithPrevious<K, V>,
   K,
   V,
 >;
 
 pub type RxCForker<K, V> =
-  ReactiveKVMapFork<Box<dyn DynamicReactiveCollection<K, V>>, CollectionDelta<K, V>, K, V>;
+  ReactiveKVMapFork<Box<dyn DynamicReactiveCollection<K, V>>, CollectionChanges<K, V>, K, V>;
 
 pub type OneManyRelationIdxForker<O, M> =
   OneToManyRefDenseBookKeeping<O, M, RxCForkerWithPrevious<M, O>>;
@@ -91,7 +91,7 @@ pub type OneManyRelationHashForker<O, M> =
 
 impl<K, V> ShrinkableAny for RxCForkerWithPrevious<K, V>
 where
-  K: Send + Sync + Clone + 'static,
+  K: Send + Sync + Clone + Eq + std::hash::Hash + 'static,
   V: Send + Sync + Clone + 'static,
 {
   fn as_any(&self) -> &dyn Any {
@@ -165,7 +165,7 @@ impl CollectionRegistry {
     inserter: impl FnOnce() -> R + Any,
   ) -> impl ReactiveCollectionWithPrevious<K, V> + Clone
   where
-    K: Clone + Send + Sync + 'static,
+    K: Clone + Send + Sync + Eq + std::hash::Hash + 'static,
     V: Clone + Send + Sync + 'static,
     R: ReactiveCollectionWithPrevious<K, V>,
   {
@@ -178,7 +178,7 @@ impl CollectionRegistry {
     inserter: impl FnOnce() -> R,
   ) -> RxCForkerWithPrevious<K, V>
   where
-    K: Clone + Send + Sync + 'static,
+    K: Clone + Send + Sync + Eq + std::hash::Hash + 'static,
     V: Clone + Send + Sync + 'static,
     R: ReactiveCollectionWithPrevious<K, V>,
   {
