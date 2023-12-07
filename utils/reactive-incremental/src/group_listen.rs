@@ -290,6 +290,12 @@ impl<T: IncrementalBase, S: Sync, U: Sync + Send + Clone> VirtualCollection<Allo
       }
     }
   }
+
+  fn try_access(&self) -> Option<Box<dyn Fn(&AllocIdx<T>) -> Option<U> + Sync + '_>> {
+    let acc = self.access();
+    let boxed = Box::new(acc) as Box<dyn Fn(&AllocIdx<T>) -> Option<U> + Sync + '_>;
+    boxed.into()
+  }
 }
 
 impl<T, S, U> ReactiveCollectionWithPrevious<AllocIdx<T>, U>

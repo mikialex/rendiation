@@ -140,6 +140,12 @@ where
       }
     }
   }
+
+  fn try_access(&self) -> Option<Box<dyn Fn(&NodeIdentity) -> Option<V> + Sync + '_>> {
+    let acc = self.access();
+    let boxed = Box::new(acc) as Box<dyn Fn(&NodeIdentity) -> Option<V> + Sync + '_>;
+    boxed.into()
+  }
 }
 
 impl<FD, F, V> ReactiveCollection<NodeIdentity, V> for TreeDeriveOutput<FD, F, V>

@@ -140,6 +140,7 @@ where
   Upstream: ReactiveCollection<O, X>,
   Relation: ReactiveOneToManyRelationship<O, M> + 'static,
 {
+  #[tracing::instrument(skip_all, name = "OneToManyFanout")]
   fn poll_changes(&mut self, cx: &mut Context<'_>) -> CPoll<CollectionChanges<M, X>> {
     let relational_changes = self.relations.poll_changes(cx);
     let upstream_changes = self.upstream.poll_changes(cx);
@@ -157,10 +158,25 @@ where
       return CPoll::Blocked;
     }
 
+    let getter = self.upstream.try_access();
+    let inv_querier = self.relations.try_access_multi();
+
+    if getter.is_none() || inv_querier.is_none() {
+      drop(getter);
+      drop(inv_querier);
+      if let CPoll::Ready(v) = relational_changes {
+        self.relations.put_back_to_buffered(v);
+      }
+      if let CPoll::Ready(v) = upstream_changes {
+        self.upstream.put_back_to_buffered(v);
+      }
+      return CPoll::Blocked;
+    };
+    let getter = getter.unwrap();
+    let inv_querier = inv_querier.unwrap();
+
     let mut output = FastHashMap::default(); // it's hard to predict capacity, should we compute it?
     if let CPoll::Ready(relational_changes) = relational_changes {
-      let getter = self.upstream.access();
-
       relational_changes
         .into_values()
         .for_each(|change| match change {
@@ -179,7 +195,6 @@ where
           }
         });
     }
-    let inv_querier = self.relations.access_multi();
     if let CPoll::Ready(upstream_changes) = upstream_changes {
       // it's hard to parallelize this part efficiently
       // output.par_extend(upstream_changes.filter_map(|change|{
@@ -228,6 +243,16 @@ where
       upstream_getter(&one)
     }
   }
+  fn try_access(&self) -> Option<Box<dyn Fn(&M) -> Option<X> + Sync + '_>> {
+    let upstream_getter = self.upstream.try_access()?;
+    let access = self.relations.try_access()?;
+    let acc = move |key: &_| {
+      let one = access(key)?;
+      upstream_getter(&one)
+    };
+    let boxed = Box::new(acc) as Box<dyn Fn(&M) -> Option<X> + Sync + '_>;
+    boxed.into()
+  }
 
   fn iter_key(&self) -> impl Iterator<Item = M> + '_ {
     self.relations.iter_key()
@@ -257,6 +282,7 @@ where
   Upstream: ReactiveCollection<M, ()>,
   Relation: ReactiveCollectionWithPrevious<M, O>,
 {
+  #[tracing::instrument(skip_all, name = "ManyToOneReduce")]
   fn poll_changes(&mut self, cx: &mut Context<'_>) -> CPoll<CollectionChanges<O, ()>> {
     let relational_changes = self.relations.poll_changes(cx);
     let upstream_changes = self.upstream.poll_changes(cx);
@@ -274,10 +300,24 @@ where
       return CPoll::Blocked;
     }
 
-    let mut output = FastHashMap::default(); // it's hard to predict capacity, should we compute it?
+    let getter = self.upstream.try_access();
+    let one_acc = self.relations.try_access();
 
-    let getter = self.upstream.access();
-    let one_acc = self.relations.access();
+    if getter.is_none() || one_acc.is_none() {
+      drop(getter);
+      drop(one_acc);
+      if let CPoll::Ready(v) = relational_changes {
+        self.relations.put_back_to_buffered(v);
+      }
+      if let CPoll::Ready(v) = upstream_changes {
+        self.upstream.put_back_to_buffered(v);
+      }
+      return CPoll::Blocked;
+    };
+    let getter = getter.unwrap();
+    let one_acc = one_acc.unwrap();
+
+    let mut output = FastHashMap::default(); // it's hard to predict capacity, should we compute it?
 
     let mut relational_change_lookup = FastHashMap::default();
 
@@ -417,6 +457,12 @@ where
   fn access(&self) -> impl Fn(&O) -> Option<()> + '_ {
     move |k| self.state.inner.get(k).map(|_| {})
   }
+
+  fn try_access(&self) -> Option<Box<dyn Fn(&O) -> Option<()> + Sync + '_>> {
+    let acc = self.access();
+    let boxed = Box::new(acc) as Box<dyn Fn(&O) -> Option<()> + Sync + '_>;
+    boxed.into()
+  }
 }
 
 pub struct OneToManyRefHashBookKeeping<O, M, T> {
@@ -448,6 +494,11 @@ where
   fn access(&self) -> impl Fn(&M) -> Option<O> + '_ {
     self.upstream.access()
   }
+  fn try_access(&self) -> Option<Box<dyn Fn(&M) -> Option<O> + Sync + '_>> {
+    let acc = self.access();
+    let boxed = Box::new(acc) as Box<dyn Fn(&M) -> Option<O> + Sync + '_>;
+    boxed.into()
+  }
 }
 
 impl<O, M, T> VirtualMultiCollection<O, M> for OneToManyRefHashBookKeeping<O, M, T>
@@ -477,6 +528,11 @@ where
       }
     }
   }
+  fn try_access_multi(&self) -> Option<Box<dyn Fn(&O, &mut dyn FnMut(M)) + Send + Sync + '_>> {
+    let acc = self.access_multi();
+    let boxed = Box::new(acc) as Box<dyn Fn(&O, &mut dyn FnMut(M)) + Send + Sync + '_>;
+    boxed.into()
+  }
 }
 
 impl<O, M, T> ReactiveCollectionWithPrevious<M, O> for OneToManyRefHashBookKeeping<O, M, T>
@@ -485,6 +541,7 @@ where
   M: Hash + Eq + Clone + Send + Sync + 'static,
   O: Hash + Eq + Clone + Send + Sync + 'static,
 {
+  #[tracing::instrument(skip_all, name = "OneToManyRefHashBookKeeping")]
   fn poll_changes(&mut self, cx: &mut Context<'_>) -> CPoll<CollectionChangesWithPrevious<M, O>> {
     let r = self.upstream.poll_changes(cx);
     // check generation
@@ -574,6 +631,11 @@ where
   fn access(&self) -> impl Fn(&M) -> Option<O> + '_ {
     self.upstream.access()
   }
+  fn try_access(&self) -> Option<Box<dyn Fn(&M) -> Option<O> + Sync + '_>> {
+    let acc = self.access();
+    let boxed = Box::new(acc) as Box<dyn Fn(&M) -> Option<O> + Sync + '_>;
+    boxed.into()
+  }
 }
 
 impl<O, M, T> VirtualMultiCollection<O, M> for OneToManyRefDenseBookKeeping<O, M, T>
@@ -605,6 +667,11 @@ where
       }
     }
   }
+  fn try_access_multi(&self) -> Option<Box<dyn Fn(&O, &mut dyn FnMut(M)) + Send + Sync + '_>> {
+    let acc = self.access_multi();
+    let boxed = Box::new(acc) as Box<dyn Fn(&O, &mut dyn FnMut(M)) + Send + Sync + '_>;
+    boxed.into()
+  }
 }
 
 impl<O, M, T> ReactiveCollectionWithPrevious<M, O> for OneToManyRefDenseBookKeeping<O, M, T>
@@ -613,6 +680,7 @@ where
   M: LinearIdentification + Eq + std::hash::Hash + Clone + Send + Sync + 'static,
   O: LinearIdentification + Clone + Send + Sync + 'static,
 {
+  #[tracing::instrument(skip_all, name = "OneToManyRefDenseBookKeeping")]
   fn poll_changes(&mut self, cx: &mut Context<'_>) -> CPoll<CollectionChangesWithPrevious<M, O>> {
     let r = self.upstream.poll_changes(cx);
     // check generation

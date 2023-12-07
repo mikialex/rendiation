@@ -21,6 +21,20 @@ pub trait ReactiveCollectionWithPrevious<K: Send, V: Send>:
 
   fn extra_request(&mut self, request: &mut ExtraCollectionOperation);
 
+  fn spin_poll_until_pending(
+    &mut self,
+    cx: &mut Context,
+    mut consumer: impl FnMut(CollectionChangesWithPrevious<K, V>),
+  ) {
+    loop {
+      match self.poll_changes(cx) {
+        CPoll::Ready(r) => consumer(r),
+        CPoll::Pending => return,
+        CPoll::Blocked => continue,
+      }
+    }
+  }
+
   fn into_forker(self) -> ReactiveKVMapFork<Self, CollectionChangesWithPrevious<K, V>, K, V>
   where
     Self: Sized,
@@ -88,6 +102,9 @@ impl<K, V> VirtualCollection<K, V> for Box<dyn DynamicReactiveCollectionWithPrev
 
   fn access(&self) -> impl Fn(&K) -> Option<V> + Sync + '_ {
     self.deref().access_boxed()
+  }
+  fn try_access(&self) -> Option<Box<dyn Fn(&K) -> Option<V> + Sync + '_>> {
+    self.deref().try_access_boxed()
   }
 }
 impl<K, V> ReactiveCollectionWithPrevious<K, V>
@@ -170,5 +187,9 @@ where
 
   fn access(&self) -> impl Fn(&K) -> Option<V> + Sync + '_ {
     self.inner.access()
+  }
+
+  fn try_access(&self) -> Option<Box<dyn Fn(&K) -> Option<V> + Sync + '_>> {
+    self.inner.try_access()
   }
 }

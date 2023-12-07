@@ -16,6 +16,9 @@ impl<T> CPoll<T> {
   pub fn is_blocked(&self) -> bool {
     matches!(self, CPoll::Blocked)
   }
+  pub fn is_pending(&self) -> bool {
+    matches!(self, CPoll::Pending)
+  }
   pub fn map<T2>(self, f: impl FnOnce(T) -> T2) -> CPoll<T2> {
     match self {
       CPoll::Ready(v) => CPoll::Ready(f(v)),
@@ -34,27 +37,6 @@ pub enum CollectionDelta<K, V> {
 }
 
 impl<K, V> CollectionDelta<K, V> {
-  pub fn merge(self, later: Self) -> Option<Self>
-  where
-    K: Eq,
-  {
-    use CollectionDelta::*;
-    if self.key() != later.key() {
-      panic!("only same key change could be merge");
-    }
-    match (self, later) {
-      // later override earlier
-      (Delta(k, _d1), Delta(_, d2)) => Delta(k, d2),
-      // later override earlier
-      // if init not exist, remove is still allowed to be multiple
-      (Delta(k, _d1), Remove(_)) => Remove(k),
-      // later override earlier
-      (Remove(k), Delta(_, d1)) => Delta(k, d1),
-      // remove is allowed to be multiple
-      (Remove(k), Remove(_)) => Remove(k),
-    }
-    .into()
-  }
   pub fn map<R>(self, mapper: impl Fn(&K, V) -> R) -> CollectionDelta<K, R> {
     type Rt<K, R> = CollectionDelta<K, R>;
     match self {
@@ -77,6 +59,13 @@ impl<K, V> CollectionDelta<K, V> {
     match self {
       Self::Remove(k) => k,
       Self::Delta(k, _) => k,
+    }
+  }
+
+  pub fn is_remove(&self) -> bool {
+    match self {
+      Self::Remove(_) => true,
+      Self::Delta(_, _) => false,
     }
   }
 }
@@ -110,11 +99,15 @@ pub trait VirtualCollection<K, V> {
   /// The implementation should guarantee that it's ok to allow multiple accessor instances coexists
   /// at the same time. (should only create read guard in underlayer)
   fn access(&self) -> impl Fn(&K) -> Option<V> + Sync + '_;
+
+  // todo, remove box
+  fn try_access(&self) -> Option<Box<dyn Fn(&K) -> Option<V> + Sync + '_>>;
 }
 
 pub trait VirtualMultiCollection<K, V> {
   fn iter_key_in_multi_collection(&self) -> impl Iterator<Item = K> + '_;
   fn access_multi(&self) -> impl Fn(&K, &mut dyn FnMut(V)) + Send + Sync + '_;
+  fn try_access_multi(&self) -> Option<Box<dyn Fn(&K, &mut dyn FnMut(V)) + Send + Sync + '_>>;
 }
 
 pub trait DynamicVirtualMultiCollection<O, M> {
@@ -144,6 +137,20 @@ pub trait ReactiveCollection<K: Send, V: Send>:
   fn poll_changes(&mut self, cx: &mut Context) -> CPoll<CollectionChanges<K, V>>;
 
   fn extra_request(&mut self, request: &mut ExtraCollectionOperation);
+
+  fn spin_poll_until_pending(
+    &mut self,
+    cx: &mut Context,
+    mut consumer: impl FnMut(CollectionChanges<K, V>),
+  ) {
+    loop {
+      match self.poll_changes(cx) {
+        CPoll::Ready(r) => consumer(r),
+        CPoll::Pending => return,
+        CPoll::Blocked => continue,
+      }
+    }
+  }
 }
 
 pub type CollectionChanges<K, V> = FastHashMap<K, CollectionDelta<K, V>>;
@@ -159,6 +166,12 @@ impl<K: 'static, V> VirtualCollection<K, V> for () {
   }
   fn access(&self) -> impl Fn(&K) -> Option<V> + '_ {
     |_| None
+  }
+
+  fn try_access(&self) -> Option<Box<dyn Fn(&K) -> Option<V> + Sync + '_>> {
+    let acc = self.access();
+    let boxed = Box::new(acc) as Box<dyn Fn(&K) -> Option<V> + Sync + '_>;
+    boxed.into()
   }
 }
 
@@ -191,6 +204,11 @@ impl<K: 'static, V> VirtualCollection<K, V> for ConstCollection<V> {
   fn access(&self) -> impl Fn(&K) -> Option<V> + '_ {
     |_| None
   }
+  fn try_access(&self) -> Option<Box<dyn Fn(&K) -> Option<V> + Sync + '_>> {
+    let acc = self.access();
+    let boxed = Box::new(acc) as Box<dyn Fn(&K) -> Option<V> + Sync + '_>;
+    boxed.into()
+  }
 }
 impl<K, V> ReactiveCollection<K, V> for ConstCollection<V>
 where
@@ -207,6 +225,7 @@ where
 pub trait DynamicVirtualCollection<K, V> {
   fn iter_key_boxed(&self) -> Box<dyn Iterator<Item = K> + '_>;
   fn access_boxed(&self) -> Box<dyn Fn(&K) -> Option<V> + Sync + '_>;
+  fn try_access_boxed(&self) -> Option<Box<dyn Fn(&K) -> Option<V> + Sync + '_>>;
 }
 impl<K, V, T> DynamicVirtualCollection<K, V> for T
 where
@@ -218,6 +237,9 @@ where
 
   fn access_boxed(&self) -> Box<dyn Fn(&K) -> Option<V> + Sync + '_> {
     Box::new(self.access())
+  }
+  fn try_access_boxed(&self) -> Option<Box<dyn Fn(&K) -> Option<V> + Sync + '_>> {
+    self.try_access()
   }
 }
 
@@ -247,6 +269,10 @@ impl<K, V> VirtualCollection<K, V> for Box<dyn DynamicReactiveCollection<K, V>> 
 
   fn access(&self) -> impl Fn(&K) -> Option<V> + Sync + '_ {
     self.deref().access_boxed()
+  }
+
+  fn try_access(&self) -> Option<Box<dyn Fn(&K) -> Option<V> + Sync + '_>> {
+    self.deref().try_access_boxed()
   }
 }
 impl<K, V> ReactiveCollection<K, V> for Box<dyn DynamicReactiveCollection<K, V>>
@@ -570,6 +596,7 @@ where
   K: Send + Sync + Eq + std::hash::Hash + 'static + Clone,
   V: Send + Sync + 'static + Clone + PartialEq,
 {
+  #[tracing::instrument(skip_all, name = "IntoReactiveCollectionWithPrevious")]
   fn poll_changes(&mut self, cx: &mut Context) -> CPoll<CollectionChangesWithPrevious<K, V>> {
     let mut is_empty = false;
     let r = self.inner.poll_changes(cx).map(|v| {
@@ -634,6 +661,11 @@ where
   fn access(&self) -> impl Fn(&K) -> Option<V> + Sync + '_ {
     |key| self.current.get(key).cloned()
   }
+  fn try_access(&self) -> Option<Box<dyn Fn(&K) -> Option<V> + Sync + '_>> {
+    let acc = self.access();
+    let boxed = Box::new(acc) as Box<dyn Fn(&K) -> Option<V> + Sync + '_>;
+    boxed.into()
+  }
 }
 
 pub struct UnorderedMaterializedReactiveCollection<Map, K, V> {
@@ -683,6 +715,11 @@ where
   }
   fn access(&self) -> impl Fn(&K) -> Option<V> + Sync + '_ {
     move |key| self.cache.get(key).cloned()
+  }
+  fn try_access(&self) -> Option<Box<dyn Fn(&K) -> Option<V> + Sync + '_>> {
+    let acc = self.access();
+    let boxed = Box::new(acc) as Box<dyn Fn(&K) -> Option<V> + Sync + '_>;
+    boxed.into()
   }
 }
 
@@ -734,6 +771,11 @@ where
   fn access(&self) -> impl Fn(&K) -> Option<V> + Sync + '_ {
     move |key| self.cache.try_get(key.alloc_index()).cloned()
   }
+  fn try_access(&self) -> Option<Box<dyn Fn(&K) -> Option<V> + Sync + '_>> {
+    let acc = self.access();
+    let boxed = Box::new(acc) as Box<dyn Fn(&K) -> Option<V> + Sync + '_>;
+    boxed.into()
+  }
 }
 
 /// compare to ReactiveKVMap, this execute immediately and not impose too many bounds on mapper
@@ -753,6 +795,7 @@ where
   V2: Clone + Send + Sync + 'static,
   T: ReactiveCollection<K, V>,
 {
+  #[tracing::instrument(skip_all, name = "ReactiveKVExecuteMap")]
   fn poll_changes(&mut self, cx: &mut Context<'_>) -> CPoll<CollectionChanges<K, V2>> {
     self.inner.poll_changes(cx).map(move |deltas| {
       let mapper = (self.map_creator)();
@@ -796,6 +839,11 @@ where
   fn access(&self) -> impl Fn(&K) -> Option<V2> + Sync + '_ {
     move |key| self.cache.get(key).cloned()
   }
+  fn try_access(&self) -> Option<Box<dyn Fn(&K) -> Option<V2> + Sync + '_>> {
+    let acc = self.access();
+    let boxed = Box::new(acc) as Box<dyn Fn(&K) -> Option<V2> + Sync + '_>;
+    boxed.into()
+  }
 }
 
 pub struct ReactiveKVMap<T, F, K, V> {
@@ -812,6 +860,7 @@ where
   F: Fn(V) -> V2 + Copy + Send + Sync + 'static,
   T: ReactiveCollection<K, V> + Sync,
 {
+  #[tracing::instrument(skip_all, name = "ReactiveKVMap")]
   fn poll_changes(&mut self, cx: &mut Context<'_>) -> CPoll<CollectionChanges<K, V2>> {
     let mapper = self.map;
     self.inner.poll_changes(cx).map(move |deltas| {
@@ -841,6 +890,13 @@ where
     let inner_getter = self.inner.access();
     move |key| inner_getter(key).map(|v| (self.map)(v))
   }
+
+  fn try_access(&self) -> Option<Box<dyn Fn(&K) -> Option<V2> + Sync + '_>> {
+    let inner_getter = self.inner.try_access()?;
+    let boxed = Box::new(move |key: &_| inner_getter(key).map(|v| (self.map)(v)))
+      as Box<dyn for<'a> Fn(&'a K) -> Option<V2> + Sync + '_>;
+    boxed.into()
+  }
 }
 
 pub struct ReactiveCollectionMessageFilter<T, K, V> {
@@ -860,6 +916,10 @@ where
   fn access(&self) -> impl Fn(&K) -> Option<V> + Sync + '_ {
     self.inner.access()
   }
+
+  fn try_access(&self) -> Option<Box<dyn Fn(&K) -> Option<V> + Sync + '_>> {
+    self.inner.try_access()
+  }
 }
 
 impl<T, K, V> ReactiveCollection<K, V> for ReactiveCollectionMessageFilter<T, K, V>
@@ -868,6 +928,7 @@ where
   K: Clone + Send + Sync + Eq + std::hash::Hash + 'static,
   V: Clone + Send + Sync + 'static,
 {
+  #[tracing::instrument(skip_all, name = "ReactiveCollectionMessageFilter")]
   fn poll_changes(&mut self, cx: &mut Context) -> CPoll<CollectionChanges<K, V>> {
     let changes = self.inner.poll_changes(cx);
 
@@ -950,6 +1011,9 @@ where
   fn access(&self) -> impl Fn(&K) -> Option<V> + Sync + '_ {
     self.inner.access()
   }
+  fn try_access(&self) -> Option<Box<dyn Fn(&K) -> Option<V> + Sync + '_>> {
+    self.inner.try_access()
+  }
 }
 
 pub struct ReactiveKVFilter<T, F, K, V> {
@@ -984,6 +1048,7 @@ where
   V: Send + Sync + Clone + 'static,
   V2: Send + Sync + Clone,
 {
+  #[tracing::instrument(skip_all, name = "ReactiveKVFilter")]
   fn poll_changes(&mut self, cx: &mut Context<'_>) -> CPoll<CollectionChanges<K, V2>> {
     let checker = make_checker(self.checker);
     self
@@ -1014,6 +1079,12 @@ where
   fn access(&self) -> impl Fn(&K) -> Option<V2> + Sync + '_ {
     let inner_getter = self.inner.access();
     move |key| inner_getter(key).and_then(|v| (self.checker)(v))
+  }
+  fn try_access(&self) -> Option<Box<dyn Fn(&K) -> Option<V2> + Sync + '_>> {
+    let inner_getter = self.inner.try_access()?;
+    let getter = move |key: &_| inner_getter(key).and_then(|v| (self.checker)(v));
+    let boxed: Box<dyn Fn(&K) -> Option<V2> + Sync + '_> = Box::new(getter);
+    boxed.into()
   }
 }
 
@@ -1057,6 +1128,22 @@ where
         (self.f)((v1, v2))
       }
     }
+  }
+
+  fn try_access(&self) -> Option<Box<dyn Fn(&K) -> Option<O> + Sync + '_>> {
+    let getter_a = self.a.try_access()?;
+    let getter_b = self.b.try_access()?;
+
+    let acc = move |key: &_| {
+      let (v1, v2) = (getter_a(key), getter_b(key));
+      if v1.is_none() && v2.is_none() {
+        None
+      } else {
+        (self.f)((v1, v2))
+      }
+    };
+    let boxed = Box::new(acc) as Box<dyn Fn(&K) -> Option<O> + Sync + '_>;
+    boxed.into()
   }
 }
 
@@ -1126,13 +1213,27 @@ where
   V1: Clone + Send + Sync + 'static,
   V2: Clone + Send + Sync + 'static,
 {
+  #[tracing::instrument(skip_all, name = "ReactiveKVUnion")]
   fn poll_changes(&mut self, cx: &mut Context<'_>) -> CPoll<CollectionChanges<K, O>> {
     let t1 = self.a.poll_changes(cx);
     let t2 = self.b.poll_changes(cx);
 
-    let a_access = self.a.access();
-    let b_access = self.b.access();
+    let a_access = self.a.try_access();
+    let b_access = self.b.try_access();
 
+    if a_access.is_none() || b_access.is_none() {
+      drop(a_access);
+      drop(b_access);
+      if let CPoll::Ready(v) = t1 {
+        self.a.put_back_to_buffered(v);
+      }
+      if let CPoll::Ready(v) = t2 {
+        self.b.put_back_to_buffered(v);
+      }
+      return CPoll::Blocked;
+    };
+    let a_access = a_access.unwrap();
+    let b_access = b_access.unwrap();
     let checker = make_checker(self.f);
 
     let r = match (t1, t2) {

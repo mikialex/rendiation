@@ -245,4 +245,21 @@ where
       acc(key)
     }
   }
+
+  fn try_access(&self) -> Option<Box<dyn Fn(&K) -> Option<V> + Sync + '_>> {
+    let inner = self.upstream.try_read()?;
+    let acc = inner.try_access()?;
+
+    // safety: read guard is hold by closure, acc's real reference is form the Map
+    let acc: Box<dyn Fn(&K) -> Option<V> + Sync + '_> = unsafe { std::mem::transmute(acc) };
+
+    let acc = move |key: &_| {
+      let _holder = &inner;
+      let acc = &acc;
+      acc(key)
+    };
+
+    let boxed = Box::new(acc) as Box<dyn Fn(&K) -> Option<V> + Sync + '_>;
+    boxed.into()
+  }
 }

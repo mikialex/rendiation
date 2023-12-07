@@ -114,6 +114,10 @@ where
   fn access(&self) -> impl Fn(&K) -> Option<V> + Sync + '_ {
     self.inner.access()
   }
+
+  fn try_access(&self) -> Option<Box<dyn Fn(&K) -> Option<V> + Sync + '_>> {
+    self.inner.try_access()
+  }
 }
 
 impl<T, M, K, V> VirtualMultiCollection<K, V> for BufferedCollection<T, M>
@@ -126,6 +130,10 @@ where
 
   fn access_multi(&self) -> impl Fn(&K, &mut dyn FnMut(V)) + Send + Sync + '_ {
     self.inner.access_multi()
+  }
+
+  fn try_access_multi(&self) -> Option<Box<dyn Fn(&K, &mut dyn FnMut(V)) + Send + Sync + '_>> {
+    self.inner.try_access_multi()
   }
 }
 
