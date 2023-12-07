@@ -5,17 +5,7 @@ use rayon::prelude::*;
 
 use crate::*;
 
-pub trait ReactiveUpdateLogic: Send {
-  fn poll_update(&mut self, cx: &mut Context) -> CPoll<()>;
-}
-
-impl<'a, K, V> ReactiveUpdateLogic for &'a mut dyn DynamicReactiveCollection<K, V> {
-  fn poll_update(&mut self, cx: &mut Context) -> CPoll<()> {
-    self.poll_changes_dyn(cx).map(|_| {})
-  }
-}
-
-pub fn multi_join_updates(tasks: Vec<&mut dyn ReactiveUpdateLogic>, cx: &mut Context) {
+pub fn multi_join_updates(tasks: Vec<Task>, cx: &mut Context) {
   let (retry_sender, rev) = futures::channel::mpsc::unbounded();
   for t in tasks {
     retry_sender.unbounded_send(t).ok();
@@ -25,28 +15,30 @@ pub fn multi_join_updates(tasks: Vec<&mut dyn ReactiveUpdateLogic>, cx: &mut Con
     retry_sender,
     waker: cx.waker().clone(),
   }
-  .map(|v| v.run())
-  .par_bridge();
+  .par_bridge()
+  .for_each(|v| v.run());
 }
 
+type Task<'a> = &'a mut (dyn FnMut(&mut Context) -> CPoll<()> + Send);
+
 struct TaskWrapper<'a> {
-  task: &'a mut dyn ReactiveUpdateLogic,
-  retry_sender: UnboundedSender<&'a mut dyn ReactiveUpdateLogic>,
+  task: Task<'a>,
+  retry_sender: UnboundedSender<Task<'a>>,
   waker: Waker,
 }
 
 impl<'a> TaskWrapper<'a> {
   fn run(self) {
     let mut cx = Context::from_waker(&self.waker);
-    if let CPoll::Blocked = self.task.poll_update(&mut cx) {
+    if let CPoll::Blocked = (self.task)(&mut cx) {
       self.retry_sender.unbounded_send(self.task).ok();
     }
   }
 }
 
 struct WorkingList<'a> {
-  rev: UnboundedReceiver<&'a mut dyn ReactiveUpdateLogic>,
-  retry_sender: UnboundedSender<&'a mut dyn ReactiveUpdateLogic>,
+  rev: UnboundedReceiver<Task<'a>>,
+  retry_sender: UnboundedSender<Task<'a>>,
   waker: Waker,
 }
 
