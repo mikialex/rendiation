@@ -17,11 +17,13 @@ use dyn_downcast::*;
 use futures::{Future, Stream, StreamExt};
 use heap_tools::Counted;
 use incremental::*;
-use rayon::prelude::*;
 use reactive::*;
 
 mod single;
 pub use single::*;
+
+mod multi_join;
+pub use multi_join::*;
 
 mod single_shared;
 pub use single_shared::*;
