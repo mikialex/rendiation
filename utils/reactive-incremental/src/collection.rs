@@ -186,41 +186,6 @@ where
   fn extra_request(&mut self, _: &mut ExtraCollectionOperation) {}
 }
 
-pub struct ConstCollection<T>(pub T);
-impl<K: 'static, V> VirtualCollection<K, V> for ConstCollection<V> {
-  fn iter_key(&self) -> impl Iterator<Item = K> + '_ {
-    struct FakeIter<T>(PhantomData<T>);
-    impl<T> Iterator for FakeIter<T> {
-      type Item = T;
-
-      fn next(&mut self) -> Option<Self::Item> {
-        None
-      }
-    }
-    panic!("not able to iter all possible K values");
-    #[allow(unreachable_code)]
-    FakeIter::<K>(Default::default())
-  }
-  fn access(&self) -> impl Fn(&K) -> Option<V> + '_ {
-    |_| None
-  }
-  fn try_access(&self) -> Option<Box<dyn Fn(&K) -> Option<V> + Sync + '_>> {
-    let acc = self.access();
-    let boxed = Box::new(acc) as Box<dyn Fn(&K) -> Option<V> + Sync + '_>;
-    boxed.into()
-  }
-}
-impl<K, V> ReactiveCollection<K, V> for ConstCollection<V>
-where
-  K: 'static + Send + Sync + Clone,
-  V: 'static + Send + Sync + Clone,
-{
-  fn poll_changes(&mut self, _: &mut Context<'_>) -> CPoll<CollectionChanges<K, V>> {
-    CPoll::Pending
-  }
-  fn extra_request(&mut self, _: &mut ExtraCollectionOperation) {}
-}
-
 /// dynamic version of the above trait
 pub trait DynamicVirtualCollection<K, V> {
   fn iter_key_boxed(&self) -> Box<dyn Iterator<Item = K> + '_>;

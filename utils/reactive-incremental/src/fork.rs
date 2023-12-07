@@ -126,7 +126,6 @@ where
         for downstream in downstream.values() {
           downstream.unbounded_send(v.clone()).ok();
         }
-        // }
       } else {
         return CPoll::Pending;
       }
