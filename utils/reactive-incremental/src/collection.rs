@@ -62,7 +62,7 @@ impl<K, V> CollectionDelta<K, V> {
     }
   }
 
-  pub fn is_remove(&self) -> bool {
+  pub fn is_removed(&self) -> bool {
     match self {
       Self::Remove(_) => true,
       Self::Delta(_, _) => false,
@@ -1215,8 +1215,17 @@ where
 {
   #[tracing::instrument(skip_all, name = "ReactiveKVUnion")]
   fn poll_changes(&mut self, cx: &mut Context<'_>) -> CPoll<CollectionChanges<K, O>> {
-    let t1 = self.a.poll_changes(cx);
-    let t2 = self.b.poll_changes(cx);
+    let waker = cx.waker().clone();
+    let (t1, t2) = rayon::join(
+      || {
+        let mut cx = Context::from_waker(&waker);
+        self.a.poll_changes(&mut cx)
+      },
+      || {
+        let mut cx = Context::from_waker(&waker);
+        self.b.poll_changes(&mut cx)
+      },
+    );
 
     let a_access = self.a.try_access();
     let b_access = self.b.try_access();

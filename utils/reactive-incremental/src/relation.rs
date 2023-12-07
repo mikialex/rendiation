@@ -142,8 +142,17 @@ where
 {
   #[tracing::instrument(skip_all, name = "OneToManyFanout")]
   fn poll_changes(&mut self, cx: &mut Context<'_>) -> CPoll<CollectionChanges<M, X>> {
-    let relational_changes = self.relations.poll_changes(cx);
-    let upstream_changes = self.upstream.poll_changes(cx);
+    let waker = cx.waker().clone();
+    let (relational_changes, upstream_changes) = rayon::join(
+      || {
+        let mut cx = Context::from_waker(&waker);
+        self.relations.poll_changes(&mut cx)
+      },
+      || {
+        let mut cx = Context::from_waker(&waker);
+        self.upstream.poll_changes(&mut cx)
+      },
+    );
 
     if relational_changes.is_blocked() {
       if let CPoll::Ready(v) = upstream_changes {
@@ -284,8 +293,17 @@ where
 {
   #[tracing::instrument(skip_all, name = "ManyToOneReduce")]
   fn poll_changes(&mut self, cx: &mut Context<'_>) -> CPoll<CollectionChanges<O, ()>> {
-    let relational_changes = self.relations.poll_changes(cx);
-    let upstream_changes = self.upstream.poll_changes(cx);
+    let waker = cx.waker().clone();
+    let (relational_changes, upstream_changes) = rayon::join(
+      || {
+        let mut cx = Context::from_waker(&waker);
+        self.relations.poll_changes(&mut cx)
+      },
+      || {
+        let mut cx = Context::from_waker(&waker);
+        self.upstream.poll_changes(&mut cx)
+      },
+    );
 
     if relational_changes.is_blocked() {
       if let CPoll::Ready(v) = upstream_changes {
