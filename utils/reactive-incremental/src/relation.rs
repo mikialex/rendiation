@@ -1,7 +1,6 @@
-use std::{hash::Hash, marker::PhantomData, sync::Arc};
+use std::{hash::Hash, marker::PhantomData, ops::DerefMut};
 
 use fast_hash_collection::*;
-use parking_lot::RwLock;
 use storage::{LinkListPool, ListHandle};
 
 use crate::*;
@@ -24,6 +23,45 @@ impl<T, O, M> DynamicReactiveOneToManyRelationship<O, M> for T where
   T: DynamicVirtualMultiCollection<O, M> + DynamicReactiveCollectionWithPrevious<M, O>
 {
 }
+impl<O, M> VirtualCollection<M, O> for Box<dyn DynamicReactiveOneToManyRelationship<O, M>> {
+  fn iter_key(&self) -> impl Iterator<Item = M> + '_ {
+    self.deref().iter_key_boxed()
+  }
+
+  fn access(&self) -> impl Fn(&M) -> Option<O> + Sync + '_ {
+    self.deref().access_boxed()
+  }
+
+  fn try_access(&self) -> Option<Box<dyn Fn(&M) -> Option<O> + Sync + '_>> {
+    self.deref().try_access_boxed()
+  }
+}
+impl<O, M> VirtualMultiCollection<O, M> for Box<dyn DynamicReactiveOneToManyRelationship<O, M>> {
+  fn iter_key_in_multi_collection(&self) -> impl Iterator<Item = O> + '_ {
+    self.deref().iter_key_in_multi_collection_boxed()
+  }
+
+  fn access_multi(&self) -> impl Fn(&O, &mut dyn FnMut(M)) + Send + Sync + '_ {
+    self.deref().access_multi_boxed()
+  }
+
+  fn try_access_multi(&self) -> Option<Box<dyn Fn(&O, &mut dyn FnMut(M)) + Send + Sync + '_>> {
+    self.deref().try_access_multi_boxed()
+  }
+}
+impl<O, M> ReactiveCollectionWithPrevious<M, O>
+  for Box<dyn DynamicReactiveOneToManyRelationship<O, M>>
+where
+  O: Clone + Send + Sync + 'static,
+  M: Clone + Send + Sync + 'static,
+{
+  fn poll_changes(&mut self, cx: &mut Context<'_>) -> CPoll<CollectionChangesWithPrevious<M, O>> {
+    self.deref_mut().poll_changes_dyn(cx)
+  }
+  fn extra_request(&mut self, request: &mut ExtraCollectionOperation) {
+    self.deref_mut().extra_request_dyn(request)
+  }
+}
 
 pub trait ReactiveCollectionRelationExt<K: Send, V: Send>:
   Sized + 'static + ReactiveCollectionWithPrevious<K, V>
@@ -35,7 +73,6 @@ pub trait ReactiveCollectionRelationExt<K: Send, V: Send>:
     V: Hash + Eq + Clone + Sync + 'static,
   {
     OneToManyRefHashBookKeeping {
-      current_generation: 0,
       upstream: BufferedCollection::new(self),
       mapping: Default::default(),
     }
@@ -48,7 +85,6 @@ pub trait ReactiveCollectionRelationExt<K: Send, V: Send>:
     V: Hash + Eq + Clone + 'static,
   {
     OneToManyRefHashBookKeeping {
-      current_generation: 0,
       upstream: BufferedCollection::new(self),
       mapping: Default::default(),
     }
@@ -61,7 +97,6 @@ pub trait ReactiveCollectionRelationExt<K: Send, V: Send>:
     V: LinearIdentification + Clone + Sync + 'static,
   {
     OneToManyRefDenseBookKeeping {
-      current_generation: 0,
       upstream: BufferedCollection::new(self),
       mapping: Default::default(),
       phantom: PhantomData,
@@ -75,8 +110,7 @@ pub trait ReactiveCollectionRelationExt<K: Send, V: Send>:
     V: LinearIdentification + Clone + 'static,
   {
     OneToManyRefDenseBookKeeping {
-      current_generation: 0,
-      upstream: BufferedCollection::new(self),
+      upstream: self,
       mapping: Default::default(),
       phantom: PhantomData,
     }
@@ -485,14 +519,12 @@ where
 
 pub struct OneToManyRefHashBookKeeping<O, M, T> {
   upstream: BufferedCollection<CollectionChangesWithPrevious<M, O>, T>,
-  current_generation: u64,
-  mapping: Arc<RwLock<(FastHashMap<O, FastHashSet<M>>, u64)>>,
+  mapping: FastHashMap<O, FastHashSet<M>>,
 }
 
 impl<O: Clone, M: Clone, T: Clone> Clone for OneToManyRefHashBookKeeping<O, M, T> {
   fn clone(&self) -> Self {
     Self {
-      current_generation: self.current_generation,
       upstream: self.upstream.clone(),
       mapping: self.mapping.clone(),
     }
@@ -523,23 +555,16 @@ impl<O, M, T> VirtualMultiCollection<O, M> for OneToManyRefHashBookKeeping<O, M,
 where
   M: Hash + Eq + Clone + Send + Sync + 'static,
   O: Hash + Eq + Clone + Send + Sync + 'static,
+  T: Sync,
 {
   fn iter_key_in_multi_collection(&self) -> impl Iterator<Item = O> + '_ {
     // todo, avoid clone
-    self
-      .mapping
-      .read_recursive()
-      .0
-      .keys()
-      .cloned()
-      .collect::<Vec<_>>()
-      .into_iter()
+    self.mapping.keys().cloned().collect::<Vec<_>>().into_iter()
   }
 
   fn access_multi(&self) -> impl Fn(&O, &mut dyn FnMut(M)) + Send + Sync + '_ {
-    let mapping = self.mapping.read_recursive();
     move |o, visitor| {
-      if let Some(set) = mapping.0.get(o) {
+      if let Some(set) = self.mapping.get(o) {
         for many in set.iter() {
           visitor(many.clone())
         }
@@ -562,21 +587,9 @@ where
   #[tracing::instrument(skip_all, name = "OneToManyRefHashBookKeeping")]
   fn poll_changes(&mut self, cx: &mut Context<'_>) -> CPoll<CollectionChangesWithPrevious<M, O>> {
     let r = self.upstream.poll_changes(cx);
-    // check generation
-    {
-      let mapping = self.mapping.read();
-      if mapping.1 > self.current_generation {
-        self.current_generation = mapping.1;
-        return r;
-      }
-    }
 
     if let CPoll::Ready(changes) = r.clone() {
-      let mut mapping = self.mapping.write();
-
-      // forward step generation
-      mapping.1 += 1;
-      self.current_generation += 1;
+      let mapping = &mut self.mapping;
 
       for change in changes.into_values() {
         let many = change.key().clone();
@@ -585,16 +598,16 @@ where
         let old_refed_one = change.old_value();
         // remove possible old relations
         if let Some(old_refed_one) = old_refed_one {
-          let previous_one_refed_many = mapping.0.get_mut(old_refed_one).unwrap();
+          let previous_one_refed_many = mapping.get_mut(old_refed_one).unwrap();
           previous_one_refed_many.remove(&many);
           if previous_one_refed_many.is_empty() {
-            mapping.0.remove(old_refed_one);
+            mapping.remove(old_refed_one);
           }
         }
 
         // setup new relations
         if let Some(new_one) = new_one {
-          let new_one_refed_many = mapping.0.entry(new_one.clone()).or_default();
+          let new_one_refed_many = mapping.entry(new_one.clone()).or_default();
           new_one_refed_many.insert(many.clone());
         }
       }
@@ -606,32 +619,19 @@ where
   fn extra_request(&mut self, request: &mut ExtraCollectionOperation) {
     self.upstream.extra_request(request);
     match request {
-      ExtraCollectionOperation::MemoryShrinkToFit => self.mapping.write().0.shrink_to_fit(),
+      ExtraCollectionOperation::MemoryShrinkToFit => self.mapping.shrink_to_fit(),
     }
   }
 }
 
 pub struct OneToManyRefDenseBookKeeping<O, M, T> {
-  upstream: BufferedCollection<CollectionChangesWithPrevious<M, O>, T>,
-  current_generation: u64,
-  mapping: Arc<RwLock<Mapping>>,
+  upstream: T,
+  mapping: Mapping,
   phantom: PhantomData<(O, M)>,
-}
-
-impl<O: Clone, M: Clone, T: Clone> Clone for OneToManyRefDenseBookKeeping<O, M, T> {
-  fn clone(&self) -> Self {
-    Self {
-      current_generation: self.current_generation,
-      upstream: self.upstream.clone(),
-      mapping: self.mapping.clone(),
-      phantom: PhantomData,
-    }
-  }
 }
 
 #[derive(Default)]
 struct Mapping {
-  generation: u64,
   mapping_buffer: LinkListPool<u32>,
   mapping: Vec<ListHandle>,
 }
@@ -665,7 +665,6 @@ where
     // todo, avoid clone
     self
       .mapping
-      .read_recursive()
       .mapping
       .iter()
       .enumerate()
@@ -675,7 +674,7 @@ where
   }
 
   fn access_multi(&self) -> impl Fn(&O, &mut dyn FnMut(M)) + '_ {
-    let mapping = self.mapping.read_recursive();
+    let mapping = &self.mapping;
     move |o, visitor| {
       if let Some(list) = mapping.mapping.get(o.alloc_index() as usize) {
         mapping.mapping_buffer.visit(list, |v, _| {
@@ -701,24 +700,10 @@ where
   #[tracing::instrument(skip_all, name = "OneToManyRefDenseBookKeeping")]
   fn poll_changes(&mut self, cx: &mut Context<'_>) -> CPoll<CollectionChangesWithPrevious<M, O>> {
     let r = self.upstream.poll_changes(cx);
-    // check generation
-    {
-      let mapping = self.mapping.read();
-      if mapping.generation > self.current_generation {
-        self.current_generation = mapping.generation;
-        return r;
-      }
-    }
 
     if let CPoll::Ready(changes) = r.clone() {
-      let mut mapping = self.mapping.write();
-
-      // forward step generation
-      mapping.generation += 1;
-      self.current_generation += 1;
-
       for change in changes.into_values() {
-        let mapping: &mut Mapping = &mut mapping;
+        let mapping: &mut Mapping = &mut self.mapping;
         let many = *change.key();
         let new_one = change.new_value();
 
@@ -763,7 +748,7 @@ where
     self.upstream.extra_request(request);
     match request {
       ExtraCollectionOperation::MemoryShrinkToFit => {
-        let mut mapping = self.mapping.write();
+        let mapping = &mut self.mapping;
         mapping.mapping.shrink_to_fit();
         mapping.mapping_buffer.shrink_to_fit();
       }

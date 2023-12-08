@@ -84,10 +84,12 @@ pub type RxCForkerWithPrevious<K, V> = ReactiveKVMapFork<
 pub type RxCForker<K, V> =
   ReactiveKVMapFork<Box<dyn DynamicReactiveCollection<K, V>>, CollectionChanges<K, V>, K, V>;
 
-pub type OneManyRelationIdxForker<O, M> =
-  OneToManyRefDenseBookKeeping<O, M, RxCForkerWithPrevious<M, O>>;
-pub type OneManyRelationHashForker<O, M> =
-  OneToManyRefHashBookKeeping<O, M, RxCForkerWithPrevious<M, O>>;
+pub type OneManyRelationForker<O, M> = ReactiveKVMapFork<
+  Box<dyn DynamicReactiveOneToManyRelationship<O, M>>,
+  CollectionChangesWithPrevious<M, O>,
+  M,
+  O,
+>;
 
 impl<K, V> ShrinkableAny for RxCForkerWithPrevious<K, V>
 where
@@ -101,22 +103,10 @@ where
     self.extra_request(&mut ExtraCollectionOperation::MemoryShrinkToFit);
   }
 }
-impl<O, M> ShrinkableAny for OneManyRelationIdxForker<O, M>
+impl<O, M> ShrinkableAny for OneManyRelationForker<O, M>
 where
-  O: Send + Sync + Clone + LinearIdentification + 'static,
-  M: Send + Sync + Clone + Eq + std::hash::Hash + LinearIdentification + 'static,
-{
-  fn as_any(&self) -> &dyn Any {
-    self
-  }
-  fn shrink_to_fit(&mut self) {
-    self.extra_request(&mut ExtraCollectionOperation::MemoryShrinkToFit);
-  }
-}
-impl<O, M> ShrinkableAny for OneManyRelationHashForker<O, M>
-where
-  O: Send + Sync + Clone + 'static + Eq + std::hash::Hash,
-  M: Send + Sync + Clone + 'static + Eq + std::hash::Hash,
+  O: Send + Sync + Clone + 'static,
+  M: Send + Sync + Clone + Eq + std::hash::Hash + 'static,
 {
   fn as_any(&self) -> &dyn Any {
     self
@@ -227,13 +217,15 @@ impl CollectionRegistry {
       let collection = collection
         .as_ref()
         .as_any()
-        .downcast_ref::<OneManyRelationIdxForker<O, M>>()
+        .downcast_ref::<OneManyRelationForker<O, M>>()
         .unwrap();
       collection.clone()
     } else {
       drop(relations);
       let upstream = self.fork_or_insert_with_inner(typeid, inserter);
       let relation = upstream.into_one_to_many_by_idx_expose_type();
+      let relation = Box::new(relation) as Box<dyn DynamicReactiveOneToManyRelationship<O, M>>;
+      let relation = BufferedCollection::new(ReactiveKVMapForkImpl::new(relation));
 
       let boxed = Box::new(relation) as Box<dyn ShrinkableAny>;
       let mut relations = self.index_relation.write();
@@ -243,7 +235,7 @@ impl CollectionRegistry {
       let relation = relation
         .as_ref()
         .as_any()
-        .downcast_ref::<OneManyRelationIdxForker<O, M>>()
+        .downcast_ref::<OneManyRelationForker<O, M>>()
         .unwrap();
       relation.clone()
     }
@@ -265,13 +257,15 @@ impl CollectionRegistry {
       let collection = collection
         .as_ref()
         .as_any()
-        .downcast_ref::<OneManyRelationHashForker<O, M>>()
+        .downcast_ref::<OneManyRelationForker<O, M>>()
         .unwrap();
       collection.clone()
     } else {
       drop(relations);
       let upstream = self.fork_or_insert_with_inner(typeid, inserter);
       let relation = upstream.into_one_to_many_by_hash_expose_type();
+      let relation = Box::new(relation) as Box<dyn DynamicReactiveOneToManyRelationship<O, M>>;
+      let relation = BufferedCollection::new(ReactiveKVMapForkImpl::new(relation));
 
       let boxed = Box::new(relation) as Box<dyn ShrinkableAny>;
       let mut relations = self.hash_relation.write();
@@ -281,7 +275,7 @@ impl CollectionRegistry {
       let relation = relation
         .as_ref()
         .as_any()
-        .downcast_ref::<OneManyRelationHashForker<O, M>>()
+        .downcast_ref::<OneManyRelationForker<O, M>>()
         .unwrap();
       relation.clone()
     }

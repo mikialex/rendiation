@@ -262,3 +262,55 @@ where
     boxed.into()
   }
 }
+
+impl<K, V, T, Map> VirtualMultiCollection<K, V> for ReactiveKVMapForkImpl<Map, T, V, K>
+where
+  Map: VirtualMultiCollection<K, V> + Sync + Send,
+{
+  fn iter_key_in_multi_collection(&self) -> impl Iterator<Item = K> + '_ {
+    // todo avoid clone
+    self
+      .upstream
+      .read()
+      .iter_key_in_multi_collection()
+      .collect::<Vec<_>>()
+      .into_iter()
+  }
+
+  // todo remove box
+  fn access_multi(&self) -> impl Fn(&K, &mut dyn FnMut(V)) + Send + Sync + '_ {
+    let inner = self.upstream.read();
+    let acc = inner.access_multi();
+
+    let acc = Box::new(acc) as Box<dyn Fn(&K, &mut dyn FnMut(V)) + Send + Sync + '_>;
+
+    // safety: read guard is hold by closure, acc's real reference is form the Map
+    let acc: Box<dyn Fn(&K, &mut dyn FnMut(V)) + Send + Sync + '_> =
+      unsafe { std::mem::transmute(acc) };
+
+    move |key: &_, f| {
+      let _holder = &inner;
+      let acc = &acc;
+      acc(key, f)
+    }
+  }
+
+  // todo remove box
+  fn try_access_multi(&self) -> Option<Box<dyn Fn(&K, &mut dyn FnMut(V)) + Send + Sync + '_>> {
+    let inner = self.upstream.try_read()?;
+    let acc = inner.try_access_multi()?;
+
+    // safety: read guard is hold by closure, acc's real reference is form the Map
+    let acc: Box<dyn Fn(&K, &mut dyn FnMut(V)) + Send + Sync + '_> =
+      unsafe { std::mem::transmute(acc) };
+
+    let acc = move |key: &_, f: &mut dyn FnMut(V)| {
+      let _holder = &inner;
+      let acc = &acc;
+      acc(key, f)
+    };
+
+    let boxed = Box::new(acc) as Box<dyn Fn(&K, &mut dyn FnMut(V)) + Send + Sync + '_>;
+    boxed.into()
+  }
+}

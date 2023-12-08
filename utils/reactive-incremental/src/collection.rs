@@ -113,6 +113,8 @@ pub trait VirtualMultiCollection<K, V> {
 pub trait DynamicVirtualMultiCollection<O, M> {
   fn iter_key_in_multi_collection_boxed(&self) -> Box<dyn Iterator<Item = O> + '_>;
   fn access_multi_boxed(&self) -> Box<dyn Fn(&O, &mut dyn FnMut(M)) + Send + Sync + '_>;
+  fn try_access_multi_boxed(&self)
+    -> Option<Box<dyn Fn(&O, &mut dyn FnMut(M)) + Send + Sync + '_>>;
 }
 impl<T, O, M> DynamicVirtualMultiCollection<O, M> for T
 where
@@ -123,6 +125,12 @@ where
   }
   fn access_multi_boxed(&self) -> Box<dyn Fn(&O, &mut dyn FnMut(M)) + Send + Sync + '_> {
     Box::new(self.access_multi())
+  }
+
+  fn try_access_multi_boxed(
+    &self,
+  ) -> Option<Box<dyn Fn(&O, &mut dyn FnMut(M)) + Send + Sync + '_>> {
+    self.try_access_multi()
   }
 }
 
