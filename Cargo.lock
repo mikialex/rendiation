@@ -2606,6 +2606,7 @@ dependencies = [
 name = "reactive-incremental"
 version = "0.0.1"
 dependencies = [
+ "dashmap",
  "dyn-downcast",
  "fast-hash-collection",
  "futures",

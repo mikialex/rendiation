@@ -755,7 +755,7 @@ where
 pub struct ReactiveKVExecuteMap<T, F, K, V, V2> {
   inner: T,
   map_creator: F,
-  cache: FastHashMap<K, V2>,
+  cache: dashmap::DashMap<K, V2, FastHasherBuilder>,
   phantom: PhantomData<(K, V, V2)>,
 }
 
@@ -773,8 +773,8 @@ where
     self.inner.poll_changes(cx).map(move |deltas| {
       let mapper = (self.map_creator)();
       deltas
-        .into_values()
-        .map(|delta| match delta {
+        .into_par_iter()
+        .map(|(_, delta)| match delta {
           CollectionDelta::Delta(k, d) => {
             let new_value = mapper(&k, d);
             self.cache.insert(k.clone(), new_value.clone());
@@ -807,10 +807,10 @@ where
   V2: Clone + Sync + Send,
 {
   fn iter_key(&self) -> impl Iterator<Item = K> + '_ {
-    self.cache.keys().cloned()
+    self.cache.iter().map(|v| v.key().clone())
   }
   fn access(&self) -> impl Fn(&K) -> Option<V2> + Sync + '_ {
-    move |key| self.cache.get(key).cloned()
+    move |key| self.cache.get(key).map(|v| v.value().clone())
   }
   fn try_access(&self) -> Option<Box<dyn Fn(&K) -> Option<V2> + Sync + '_>> {
     let acc = self.access();

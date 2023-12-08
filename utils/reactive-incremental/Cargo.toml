@@ -15,7 +15,7 @@ storage = { path = "../storage" }
 smallvec = { workspace = true }
 tracing = { workspace = true }
 rayon = { workspace = true }
-# dashmap = { workspace = true }
+dashmap = { workspace = true }
 
 
 # we use it's rwlock to avoid recursive read deadlock
