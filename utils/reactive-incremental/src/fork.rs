@@ -127,9 +127,8 @@ where
           downstream.unbounded_send(v.clone()).ok();
         }
       } else {
-        return CPoll::Pending;
+        return r;
       }
-      drop(upstream);
     } else {
       return CPoll::Blocked;
     }
@@ -168,11 +167,9 @@ where
         for downstream in downstream.values() {
           downstream.unbounded_send(v.clone()).ok();
         }
-        // }
       } else {
-        return CPoll::Pending;
+        return r;
       }
-      drop(upstream);
     } else {
       return CPoll::Blocked;
     }

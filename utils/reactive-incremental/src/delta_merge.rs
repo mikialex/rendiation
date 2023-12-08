@@ -88,6 +88,8 @@ where
   }
 }
 
+/// for some reason such as using the unbound channel to broadcast message, it's important to merge
+/// the history message together to meet the message integrity or to avoid performance overhead
 #[derive(Clone)]
 pub struct BufferedCollection<T, M> {
   inner: M,
@@ -145,11 +147,20 @@ where
 {
   fn poll_changes(&mut self, cx: &mut Context) -> CPoll<CollectionChanges<K, V>> {
     let mut buffered = self.buffered.take().unwrap_or(Default::default());
-    while let CPoll::Ready(change) = self.inner.poll_changes(cx) {
-      if buffered.is_empty() {
-        buffered = change;
-      } else {
-        buffered.merge(&change);
+    loop {
+      match self.inner.poll_changes(cx) {
+        CPoll::Ready(new_change) => {
+          if buffered.is_empty() {
+            buffered = new_change;
+          } else {
+            buffered.merge(&new_change);
+          }
+        }
+        CPoll::Pending => break,
+        CPoll::Blocked => {
+          self.buffered = buffered.into();
+          return CPoll::Blocked;
+        }
       }
     }
     if buffered.is_empty() {
@@ -173,11 +184,20 @@ where
 {
   fn poll_changes(&mut self, cx: &mut Context) -> CPoll<CollectionChangesWithPrevious<K, V>> {
     let mut buffered = self.buffered.take().unwrap_or(Default::default());
-    while let CPoll::Ready(change) = self.inner.poll_changes(cx) {
-      if buffered.is_empty() {
-        buffered = change;
-      } else {
-        buffered.merge(&change);
+    loop {
+      match self.inner.poll_changes(cx) {
+        CPoll::Ready(new_change) => {
+          if buffered.is_empty() {
+            buffered = new_change;
+          } else {
+            buffered.merge(&new_change);
+          }
+        }
+        CPoll::Pending => break,
+        CPoll::Blocked => {
+          self.buffered = buffered.into();
+          return CPoll::Blocked;
+        }
       }
     }
     if buffered.is_empty() {
