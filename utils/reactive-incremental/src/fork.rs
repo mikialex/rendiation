@@ -1,6 +1,7 @@
 use std::{marker::PhantomData, sync::Arc};
 
 use fast_hash_collection::FastHashMap;
+use futures::task::AtomicWaker;
 use parking_lot::{RwLock, RwLockReadGuard};
 
 use crate::*;
@@ -13,9 +14,10 @@ pub type ReactiveKVMapFork<Map, T, K, V> =
 
 pub struct ReactiveKVMapForkImpl<Map, T, K, V> {
   upstream: Arc<RwLock<Map>>,
-  downstream: Arc<RwLock<FastHashMap<u64, Sender<T>>>>,
+  downstream: Arc<RwLock<FastHashMap<u64, (Arc<AtomicWaker>, Sender<T>)>>>,
   rev: Receiver<T>,
   id: u64,
+  waker: Arc<AtomicWaker>,
   phantom: PhantomData<(K, V)>,
 }
 
@@ -24,12 +26,14 @@ impl<Map, T, K, V> ReactiveKVMapForkImpl<Map, T, K, V> {
     let (sender, rev) = futures::channel::mpsc::unbounded();
     let mut init = FastHashMap::default();
     let id = alloc_global_res_id();
-    init.insert(id, sender);
+    let waker: Arc<AtomicWaker> = Default::default();
+    init.insert(id, (waker.clone(), sender));
     ReactiveKVMapForkImpl {
       upstream: Arc::new(RwLock::new(upstream)),
       downstream: Arc::new(RwLock::new(init)),
       rev,
       id,
+      waker,
       phantom: Default::default(),
     }
   }
@@ -80,20 +84,21 @@ impl<K, V, Map: VirtualCollection<K, V>, T: RebuildTable<K, V>> Clone
 
     let mut downstream = self.downstream.write();
     let id = alloc_global_res_id();
-    // we don't expect clone in real runtime so we don't care about wake
     let (sender, rev) = futures::channel::mpsc::unbounded();
 
     if let Some(current) = current {
       sender.unbounded_send(current).ok();
     }
 
-    downstream.insert(id, sender);
+    let waker: Arc<AtomicWaker> = Default::default();
+    downstream.insert(id, (waker.clone(), sender));
 
     Self {
       upstream: self.upstream.clone(),
       downstream: self.downstream.clone(),
       id,
       rev,
+      waker,
       phantom: PhantomData,
     }
   }
@@ -107,8 +112,12 @@ where
   V: Clone + Send + Sync + 'static,
 {
   fn poll_changes(&mut self, cx: &mut Context<'_>) -> CPoll<CollectionChanges<K, V>> {
-    // these writes should not deadlock, because we not prefer the concurrency between the table
-    // updates. if we do allow it in the future, just change it to try write or yield pending.
+    if self.waker.take().is_some() {
+      self.waker.register(cx.waker());
+      // the previous waker not waked, nothing changes, return
+      return CPoll::Pending;
+    }
+    self.waker.register(cx.waker());
 
     let r = self.rev.poll_next_unpin(cx);
     if r.is_ready() {
@@ -119,12 +128,17 @@ where
     }
 
     if let Some(mut upstream) = self.upstream.try_write() {
-      let r = upstream.poll_changes(cx);
+      let waker = Arc::new(BroadCast {
+        inner: self.downstream.clone(),
+      });
+      let waker = futures::task::waker_ref(&waker);
+      let mut cx_2 = Context::from_waker(&waker);
+      let r = upstream.poll_changes(&mut cx_2);
 
       if let CPoll::Ready(v) = r {
         let downstream = self.downstream.write();
         for downstream in downstream.values() {
-          downstream.unbounded_send(v.clone()).ok();
+          downstream.1.unbounded_send(v.clone()).ok();
         }
       } else {
         return r;
@@ -140,6 +154,20 @@ where
   }
 }
 
+/// notify all downstream proactively
+struct BroadCast<T> {
+  inner: Arc<RwLock<FastHashMap<u64, (Arc<AtomicWaker>, Sender<T>)>>>,
+}
+
+impl<T: Send + Sync + Clone> futures::task::ArcWake for BroadCast<T> {
+  fn wake_by_ref(arc_self: &Arc<Self>) {
+    let all = arc_self.inner.write();
+    for v in all.values() {
+      v.0.wake();
+    }
+  }
+}
+
 impl<Map, K, V> ReactiveCollectionWithPrevious<K, V>
   for ReactiveKVMapForkImpl<Map, CollectionChangesWithPrevious<K, V>, K, V>
 where
@@ -148,8 +176,12 @@ where
   V: Clone + Send + Sync + 'static,
 {
   fn poll_changes(&mut self, cx: &mut Context<'_>) -> CPoll<CollectionChangesWithPrevious<K, V>> {
-    // these writes should not deadlock, because we not prefer the concurrency between the table
-    // updates. if we do allow it in the future, just change it to try write or yield pending.
+    if self.waker.take().is_some() {
+      self.waker.register(cx.waker());
+      // the previous waker not waked, nothing changes, return
+      return CPoll::Pending;
+    }
+    self.waker.register(cx.waker());
 
     let r = self.rev.poll_next_unpin(cx);
     if r.is_ready() {
@@ -160,12 +192,17 @@ where
     }
 
     if let Some(mut upstream) = self.upstream.try_write() {
-      let r = upstream.poll_changes(cx);
+      let waker = Arc::new(BroadCast {
+        inner: self.downstream.clone(),
+      });
+      let waker = futures::task::waker_ref(&waker);
+      let mut cx_2 = Context::from_waker(&waker);
+      let r = upstream.poll_changes(&mut cx_2);
 
       if let CPoll::Ready(v) = r {
         let downstream = self.downstream.write();
         for downstream in downstream.values() {
-          downstream.unbounded_send(v.clone()).ok();
+          downstream.1.unbounded_send(v.clone()).ok();
         }
       } else {
         return r;
