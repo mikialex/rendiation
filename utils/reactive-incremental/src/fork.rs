@@ -121,9 +121,10 @@ where
 
     let r = self.rev.poll_next_unpin(cx);
     if r.is_ready() {
+      self.waker.wake();
       return match r {
         Poll::Ready(Some(v)) => CPoll::Ready(v),
-        _ => CPoll::Pending,
+        _ => unreachable!(),
       };
     }
 
@@ -135,18 +136,29 @@ where
       let mut cx_2 = Context::from_waker(&waker);
       let r = upstream.poll_changes(&mut cx_2);
 
-      if let CPoll::Ready(v) = r {
-        let downstream = self.downstream.write();
-        for downstream in downstream.values() {
-          downstream.1.unbounded_send(v.clone()).ok();
+      match r {
+        CPoll::Ready(v) => {
+          let downstream = self.downstream.write();
+          for downstream in downstream.values() {
+            downstream.1.unbounded_send(v.clone()).ok();
+          }
+          drop(downstream);
+          waker.clone().wake();
+          match self.rev.poll_next_unpin(cx) {
+            Poll::Ready(Some(v)) => CPoll::Ready(v),
+            _ => unreachable!(),
+          }
         }
-      } else {
-        return r;
+        CPoll::Pending => CPoll::Pending,
+        CPoll::Blocked => {
+          waker.clone().wake();
+          CPoll::Blocked
+        }
       }
     } else {
-      return CPoll::Blocked;
+      self.waker.wake();
+      CPoll::Blocked
     }
-    self.poll_changes(cx)
   }
 
   fn extra_request(&mut self, request: &mut ExtraCollectionOperation) {
@@ -185,9 +197,10 @@ where
 
     let r = self.rev.poll_next_unpin(cx);
     if r.is_ready() {
+      self.waker.wake();
       return match r {
         Poll::Ready(Some(v)) => CPoll::Ready(v),
-        _ => CPoll::Pending,
+        _ => unreachable!(),
       };
     }
 
@@ -199,18 +212,29 @@ where
       let mut cx_2 = Context::from_waker(&waker);
       let r = upstream.poll_changes(&mut cx_2);
 
-      if let CPoll::Ready(v) = r {
-        let downstream = self.downstream.write();
-        for downstream in downstream.values() {
-          downstream.1.unbounded_send(v.clone()).ok();
+      match r {
+        CPoll::Ready(v) => {
+          let downstream = self.downstream.write();
+          for downstream in downstream.values() {
+            downstream.1.unbounded_send(v.clone()).ok();
+          }
+          drop(downstream);
+          waker.clone().wake();
+          match self.rev.poll_next_unpin(cx) {
+            Poll::Ready(Some(v)) => CPoll::Ready(v),
+            _ => unreachable!(),
+          }
         }
-      } else {
-        return r;
+        CPoll::Pending => CPoll::Pending,
+        CPoll::Blocked => {
+          waker.clone().wake();
+          CPoll::Blocked
+        }
       }
     } else {
-      return CPoll::Blocked;
+      self.waker.wake();
+      CPoll::Blocked
     }
-    self.poll_changes(cx)
   }
 
   fn extra_request(&mut self, request: &mut ExtraCollectionOperation) {
