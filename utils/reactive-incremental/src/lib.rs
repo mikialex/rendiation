@@ -20,6 +20,9 @@ use incremental::*;
 use rayon::prelude::*;
 use reactive::*;
 
+mod table;
+pub use table::*;
+
 mod single;
 pub use single::*;
 

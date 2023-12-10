@@ -197,6 +197,7 @@ where
 /// dynamic version of the above trait
 pub trait DynamicVirtualCollection<K, V> {
   fn iter_key_boxed(&self) -> Box<dyn Iterator<Item = K> + '_>;
+  fn iter_key_value_boxed(&self) -> Box<dyn Iterator<Item = (K, V)> + '_>;
   fn access_boxed(&self) -> Box<dyn Fn(&K) -> Option<V> + Sync + '_>;
   fn try_access_boxed(&self) -> Option<Box<dyn Fn(&K) -> Option<V> + Sync + '_>>;
 }
@@ -206,6 +207,9 @@ where
 {
   fn iter_key_boxed(&self) -> Box<dyn Iterator<Item = K> + '_> {
     Box::new(self.iter_key())
+  }
+  fn iter_key_value_boxed(&self) -> Box<dyn Iterator<Item = (K, V)> + '_> {
+    Box::new(self.iter_key_value())
   }
 
   fn access_boxed(&self) -> Box<dyn Fn(&K) -> Option<V> + Sync + '_> {
