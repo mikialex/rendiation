@@ -1,12 +1,45 @@
+use rayon::iter::plumbing::{bridge_unindexed, Folder, UnindexedConsumer, UnindexedProducer};
+
 use crate::*;
 
-pub trait VirtualTable<K, V> {
+pub trait VirtualTable<K, V>: Send + Sync {
   /// O(1) cost
   fn get_value(&self, key: &K) -> Option<V>;
   fn contains(&self, key: &K) -> bool {
     self.get_value(key).is_some()
   }
   fn iter(&self) -> Box<dyn Iterator<Item = (K, V)> + '_>;
+  fn split_table(&self) -> Option<(Box<dyn VirtualTable<K, V>>, Box<dyn VirtualTable<K, V>>)>;
+}
+
+impl<K: Send + Sync, V: Send + Sync> ParallelIterator for Box<dyn VirtualTable<K, V>> {
+  type Item = (K, V);
+
+  fn drive_unindexed<C>(self, consumer: C) -> C::Result
+  where
+    C: UnindexedConsumer<Self::Item>,
+  {
+    bridge_unindexed(self, consumer)
+  }
+}
+
+impl<K, V> UnindexedProducer for Box<dyn VirtualTable<K, V>> {
+  type Item = (K, V);
+
+  fn split(self) -> (Self, Option<Self>) {
+    if let Some((left, right)) = self.split_table() {
+      (left, Some(right))
+    } else {
+      (self, None)
+    }
+  }
+
+  fn fold_with<F>(self, folder: F) -> F
+  where
+    F: Folder<Self::Item>,
+  {
+    folder.consume_iter(self.iter())
+  }
 }
 
 pub enum TableValueChange<T> {
@@ -63,6 +96,11 @@ impl<'a, 'b, K, V: Clone> VirtualTable<K, V> for TablePreviousView<'a, 'b, K, V>
       .filter_map(|(k, v)| v.into_previous().map(|v| (k, v)));
 
     Box::new(current_not_changed.chain(current_changed))
+  }
+
+  fn split_table(&self) -> Option<(Box<dyn VirtualTable<K, V>>, Box<dyn VirtualTable<K, V>>)> {
+    // self.change_and_source.split();
+    todo!()
   }
 }
 
