@@ -391,7 +391,7 @@ where
         }
 
         if let Some(nv) = new_value {
-          if getter(key).is_some() {
+          if self.state_upstream.inner.contains(key) && getter(key).is_some() {
             let ref_count = self.ref_count.entry(nv.clone()).or_insert_with(|| {
               output.insert(nv.clone(), CollectionDelta::Delta(nv.clone(), ()));
               0
@@ -418,15 +418,17 @@ where
     if let CPoll::Ready(upstream_changes) = upstream_changes {
       for delta in upstream_changes.into_values() {
         // sync the upstream state;
-        self.state_upstream.update(&delta);
+        let is_effective = self.state_upstream.update(&delta);
         match delta {
           CollectionDelta::Remove(many) => {
-            if let Some(one) = one_acc_pre(many.clone()) {
-              if let Some(ref_count) = self.ref_count.get_mut(&one) {
-                *ref_count -= 1;
-                if *ref_count == 0 {
-                  self.ref_count.remove(&one);
-                  output.insert(one.clone(), CollectionDelta::Remove(one.clone()));
+            if is_effective {
+              if let Some(one) = one_acc_pre(many.clone()) {
+                if let Some(ref_count) = self.ref_count.get_mut(&one) {
+                  *ref_count -= 1;
+                  if *ref_count == 0 {
+                    self.ref_count.remove(&one);
+                    output.insert(one.clone(), CollectionDelta::Remove(one.clone()));
+                  }
                 }
               }
             }
