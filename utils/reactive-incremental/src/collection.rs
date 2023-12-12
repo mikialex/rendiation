@@ -870,14 +870,22 @@ where
 {
   fn poll_changes(&mut self, cx: &mut Context<'_>) -> CPoll<CollectionChanges<K, V>> {
     let r = self.inner.poll_changes(cx);
-    r.map(|v| {
+    let r = r.map(|v| {
       v.into_iter()
         .filter(|(_, v)| match v {
           CollectionDelta::Delta(_, n, Some(p)) => n != p,
           _ => true,
         })
-        .collect()
-    })
+        .collect::<CollectionChanges<K, V>>()
+    });
+
+    if let CPoll::Ready(map) = &r {
+      if map.is_empty() {
+        return CPoll::Pending;
+      }
+    }
+
+    r
   }
 
   fn extra_request(&mut self, request: &mut ExtraCollectionOperation) {

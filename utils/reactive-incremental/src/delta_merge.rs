@@ -30,9 +30,9 @@ where
           return false;
         }
       }
-      (Remove(k, _), Delta(_, d1, p2)) => {
+      (Remove(k, p), Delta(_, d1, p2)) => {
         assert!(p2.is_none());
-        Delta(k, d1, None)
+        Delta(k, d1, Some(p))
       }
       (Remove(_, _), Remove(_, _)) => {
         unreachable!("same key with double remove is invalid")

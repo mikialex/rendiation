@@ -390,7 +390,12 @@ where
         if let Some(nv) = new_value {
           if getter_previous(key).is_some() {
             let ref_count = self.ref_count.entry(nv.clone()).or_insert_with(|| {
-              output.insert(nv.clone(), CollectionDelta::Delta(nv.clone(), (), None));
+              if let Some(CollectionDelta::Remove(_, _)) = output.get(nv) {
+                // cancel out
+                output.remove(nv);
+              } else {
+                output.insert(nv.clone(), CollectionDelta::Delta(nv.clone(), (), None));
+              }
               0
             });
             *ref_count += 1;
