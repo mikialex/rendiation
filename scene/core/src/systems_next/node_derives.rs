@@ -85,7 +85,7 @@ impl NodeIncrementalDeriveCollections {
 pub struct TreeDeriveOutput<FD, F, V> {
   inner: ReactiveParentTree,
   forked_change: Box<
-    dyn Stream<Item = Vec<CollectionDeltaWithPrevious<usize, DeltaOf<SceneNodeDerivedData>>>>
+    dyn Stream<Item = Vec<CollectionDelta<usize, DeltaOf<SceneNodeDerivedData>>>>
       + Unpin
       + Send
       + Sync,
@@ -164,18 +164,19 @@ where
     match changes {
       std::task::Poll::Ready(Some(v)) => {
         let mut deduplicate =
-          FastHashMap::<NodeIdentity, CollectionDeltaWithPrevious<NodeIdentity, V>>::default();
+          FastHashMap::<NodeIdentity, CollectionDelta<NodeIdentity, V>>::default();
 
         v.into_iter()
           .filter_map(|delta| match delta {
-            CollectionDeltaWithPrevious::Delta(idx, d, pd) => {
+            CollectionDelta::Delta(idx, d, pd) => {
               let d = (self.downcast_delta)(d);
               let pd = pd.and_then(|pd| (self.downcast_delta)(pd));
 
-              d.map(|d| CollectionDeltaWithPrevious::Delta((s_id, idx), d, pd))
+              d.map(|d| CollectionDelta::Delta((s_id, idx), d, pd))
             }
-            CollectionDeltaWithPrevious::Remove(idx, d) => (self.downcast_delta)(d)
-              .map(|mat| CollectionDeltaWithPrevious::Remove((s_id, idx), mat)),
+            CollectionDelta::Remove(idx, d) => {
+              (self.downcast_delta)(d).map(|mat| CollectionDelta::Remove((s_id, idx), mat))
+            }
           })
           .for_each(|d| {
             let key = *d.key();
@@ -187,16 +188,7 @@ where
               deduplicate.insert(key, d);
             }
           });
-        CPoll::Ready(
-          deduplicate
-            .into_values()
-            .map(|v| match v {
-              CollectionDeltaWithPrevious::Delta(k, v, _) => CollectionDelta::Delta(k, v),
-              CollectionDeltaWithPrevious::Remove(k, _) => CollectionDelta::Remove(k),
-            })
-            .map(|v| (*v.key(), v))
-            .collect(),
-        )
+        CPoll::Ready(deduplicate.into_values().map(|v| (*v.key(), v)).collect())
       }
 
       _ => CPoll::Pending,

@@ -54,19 +54,7 @@ impl<K: Clone + Eq + std::hash::Hash, V> RebuildTable<K, V> for CollectionChange
   fn from_table(c: &impl VirtualCollection<K, V>) -> Option<Self> {
     let c = c
       .iter_key_value_forgive()
-      .map(|(k, v)| (k.clone(), CollectionDelta::Delta(k, v)))
-      .collect::<Self>();
-    (!c.is_empty()).then_some(c)
-  }
-}
-
-impl<K: Clone + Eq + std::hash::Hash, V> RebuildTable<K, V>
-  for CollectionChangesWithPrevious<K, V>
-{
-  fn from_table(c: &impl VirtualCollection<K, V>) -> Option<Self> {
-    let c = c
-      .iter_key_value_forgive()
-      .map(|(k, v)| (k.clone(), CollectionDeltaWithPrevious::Delta(k, v, None)))
+      .map(|(k, v)| (k.clone(), CollectionDelta::Delta(k, v, None)))
       .collect::<Self>();
     (!c.is_empty()).then_some(c)
   }
@@ -177,68 +165,6 @@ impl<T: Send + Sync + Clone> futures::task::ArcWake for BroadCast<T> {
     for v in all.values() {
       v.0.wake();
     }
-  }
-}
-
-impl<Map, K, V> ReactiveCollectionWithPrevious<K, V>
-  for ReactiveKVMapForkImpl<Map, CollectionChangesWithPrevious<K, V>, K, V>
-where
-  Map: ReactiveCollectionWithPrevious<K, V>,
-  K: Clone + Send + Sync + 'static,
-  V: Clone + Send + Sync + 'static,
-{
-  fn poll_changes(&mut self, cx: &mut Context<'_>) -> CPoll<CollectionChangesWithPrevious<K, V>> {
-    if self.waker.take().is_some() {
-      self.waker.register(cx.waker());
-      // the previous waker not waked, nothing changes, return
-      return CPoll::Pending;
-    }
-    self.waker.register(cx.waker());
-
-    let r = self.rev.poll_next_unpin(cx);
-    if r.is_ready() {
-      self.waker.wake();
-      return match r {
-        Poll::Ready(Some(v)) => CPoll::Ready(v),
-        _ => unreachable!(),
-      };
-    }
-
-    if let Some(mut upstream) = self.upstream.try_write() {
-      let waker = Arc::new(BroadCast {
-        inner: self.downstream.clone(),
-      });
-      let waker = futures::task::waker_ref(&waker);
-      let mut cx_2 = Context::from_waker(&waker);
-      let r = upstream.poll_changes(&mut cx_2);
-
-      match r {
-        CPoll::Ready(v) => {
-          let downstream = self.downstream.write();
-          for downstream in downstream.values() {
-            downstream.1.unbounded_send(v.clone()).ok();
-          }
-          drop(downstream);
-          waker.clone().wake();
-          match self.rev.poll_next_unpin(cx) {
-            Poll::Ready(Some(v)) => CPoll::Ready(v),
-            _ => unreachable!(),
-          }
-        }
-        CPoll::Pending => CPoll::Pending,
-        CPoll::Blocked => {
-          waker.clone().wake();
-          CPoll::Blocked
-        }
-      }
-    } else {
-      self.waker.wake();
-      CPoll::Blocked
-    }
-  }
-
-  fn extra_request(&mut self, request: &mut ExtraCollectionOperation) {
-    self.upstream.write().extra_request(request)
   }
 }
 

@@ -30,42 +30,53 @@ impl<T> CPoll<T> {
 
 #[derive(Debug, Clone, Copy)]
 pub enum CollectionDelta<K, V> {
-  // k, new_v
-  Delta(K, V),
-  // k
-  Remove(K),
+  // k, new_v, pre_v
+  Delta(K, V, Option<V>),
+  // k, pre_v
+  Remove(K, V),
 }
 
 impl<K, V> CollectionDelta<K, V> {
   pub fn map<R>(self, mapper: impl Fn(&K, V) -> R) -> CollectionDelta<K, R> {
     type Rt<K, R> = CollectionDelta<K, R>;
     match self {
-      Self::Remove(k) => Rt::<K, R>::Remove(k),
-      Self::Delta(k, d) => {
-        let mapped = mapper(&k, d);
-        Rt::<K, R>::Delta(k, mapped)
+      Self::Remove(k, pre) => {
+        let mapped = mapper(&k, pre);
+        Rt::<K, R>::Remove(k, mapped)
       }
-    }
-  }
-
-  pub fn new_value(&self) -> Option<&V> {
-    match self {
-      Self::Delta(_, v) => Some(v),
-      Self::Remove(_) => None,
+      Self::Delta(k, d, pre) => {
+        let mapped = mapper(&k, d);
+        let mapped_pre = pre.map(|d| mapper(&k, d));
+        Rt::<K, R>::Delta(k, mapped, mapped_pre)
+      }
     }
   }
 
   pub fn key(&self) -> &K {
     match self {
-      Self::Remove(k) => k,
-      Self::Delta(k, _) => k,
+      Self::Remove(k, _) => k,
+      Self::Delta(k, _, _) => k,
     }
   }
 
+  pub fn new_value(&self) -> Option<&V> {
+    match self {
+      Self::Delta(_, v, _) => Some(v),
+      Self::Remove(_, _) => None,
+    }
+  }
+
+  pub fn old_value(&self) -> Option<&V> {
+    match self {
+      Self::Delta(_, _, Some(v)) => Some(v),
+      Self::Remove(_, v) => Some(v),
+      _ => None,
+    }
+  }
   pub fn is_removed(&self) -> bool {
     match self {
-      Self::Remove(_) => true,
-      Self::Delta(_, _) => false,
+      Self::Remove(_, _) => true,
+      Self::Delta(_, _, _) => false,
     }
   }
 }
@@ -162,6 +173,26 @@ pub trait ReactiveCollection<K: Send, V: Send>:
 }
 
 pub type CollectionChanges<K, V> = FastHashMap<K, CollectionDelta<K, V>>;
+
+pub fn make_previous<'a, K: Eq + std::hash::Hash, V: Clone>(
+  changes: &'a CPoll<CollectionChanges<K, V>>,
+  acc: &'a (impl Fn(&K) -> Option<V> + 'a),
+) -> impl Fn(&K) -> Option<V> + 'a {
+  move |key| {
+    if let CPoll::Ready(changes) = &changes {
+      if let Some(change) = changes.get(key) {
+        match change {
+          CollectionDelta::Remove(_, p) => Some(p.clone()),
+          CollectionDelta::Delta(_, _, p) => p.clone(),
+        }
+      } else {
+        acc(key)
+      }
+    } else {
+      acc(key)
+    }
+  }
+}
 
 pub enum ExtraCollectionOperation {
   MemoryShrinkToFit,
@@ -478,7 +509,6 @@ where
       phantom: PhantomData,
     }
     .workaround_box()
-    .filter_redundant_remove()
   }
 
   fn materialize_unordered(self) -> impl ReactiveCollection<K, V>
@@ -502,55 +532,17 @@ where
     .workaround_box()
   }
 
-  fn into_collection_with_previous(self) -> impl ReactiveCollectionWithPrevious<K, V>
-  where
-    Self: Sized,
-    K: Send + Sync + 'static + Clone + Eq + std::hash::Hash,
-    V: Send + Sync + 'static + Clone + PartialEq,
-  {
-    IntoReactiveCollectionWithPrevious {
-      inner: self,
-      phantom: Default::default(),
-      current: Default::default(),
-    }
-  }
-
-  // this maybe helpful to performance and has small memory overhead
-  fn filter_redundant_remove(self) -> impl ReactiveCollection<K, V>
-  where
-    K: Clone + Send + Sync + Eq + std::hash::Hash + 'static,
-    V: Clone + Send + Sync + 'static,
-  {
-    ReactiveCollectionMessageFilter {
-      inner: self,
-      state: Default::default(),
-      phantom: PhantomData,
-    }
-    .workaround_box()
-  }
-
   fn debug(self, label: &'static str) -> impl ReactiveCollection<K, V>
   where
-    K: std::fmt::Debug + Clone + Send + Sync + 'static,
-    V: std::fmt::Debug + Clone + Send + Sync + 'static,
+    K: std::fmt::Debug + Clone + Send + Sync + Eq + std::hash::Hash + 'static,
+    V: std::fmt::Debug + Clone + Send + Sync + PartialEq + 'static,
   {
     ReactiveCollectionDebug {
       inner: self,
-      phantom: PhantomData,
+      state: Default::default(),
       label,
     }
     .workaround_box()
-  }
-
-  fn debug_using_net_change(self, label: &'static str) -> impl ReactiveCollection<K, V>
-  where
-    K: std::fmt::Debug + Eq + std::hash::Hash + Clone + Send + Sync + 'static,
-    V: std::fmt::Debug + Clone + Send + Sync + PartialEq + 'static,
-  {
-    self
-      .into_collection_with_previous()
-      .debug(label)
-      .into_collection()
   }
 }
 impl<T, K, V> ReactiveCollectionExt<K, V> for T
@@ -559,90 +551,6 @@ where
   V: Clone + Send + Sync + 'static,
   K: Send + 'static,
 {
-}
-
-struct IntoReactiveCollectionWithPrevious<T, K, V> {
-  inner: T,
-  phantom: PhantomData<(K, V)>,
-  current: FastHashMap<K, V>,
-}
-
-impl<T, K, V> ReactiveCollectionWithPrevious<K, V> for IntoReactiveCollectionWithPrevious<T, K, V>
-where
-  T: ReactiveCollection<K, V>,
-  K: Send + Sync + Eq + std::hash::Hash + 'static + Clone,
-  V: Send + Sync + 'static + Clone + PartialEq,
-{
-  #[tracing::instrument(skip_all, name = "IntoReactiveCollectionWithPrevious")]
-  fn poll_changes(&mut self, cx: &mut Context) -> CPoll<CollectionChangesWithPrevious<K, V>> {
-    let mut is_empty = false;
-    let r = self.inner.poll_changes(cx).map(|v| {
-      let output: CollectionChangesWithPrevious<K, V> = v
-        .into_values()
-        .filter_map(|v| match v {
-          CollectionDelta::Delta(k, v) => {
-            let pre = self.current.insert(k.clone(), v.clone());
-            if let Some(pre) = pre {
-              if pre != v {
-                (
-                  k.clone(),
-                  CollectionDeltaWithPrevious::Delta(k, v, Some(pre)),
-                )
-                  .into()
-              } else {
-                None
-              }
-            } else {
-              (k.clone(), CollectionDeltaWithPrevious::Delta(k, v, pre)).into()
-            }
-          }
-          CollectionDelta::Remove(k) => {
-            if let Some(v) = self.current.remove(&k) {
-              (k.clone(), CollectionDeltaWithPrevious::Remove(k, v)).into()
-            } else {
-              None
-            }
-          }
-        })
-        .collect();
-
-      if output.is_empty() {
-        is_empty = true;
-      }
-
-      output
-    });
-
-    if is_empty {
-      return CPoll::Pending;
-    }
-
-    r
-  }
-
-  fn extra_request(&mut self, request: &mut ExtraCollectionOperation) {
-    self.inner.extra_request(request)
-  }
-}
-
-impl<T, K, V> VirtualCollection<K, V> for IntoReactiveCollectionWithPrevious<T, K, V>
-where
-  T: VirtualCollection<K, V> + Sync,
-  K: Clone + Sync + Eq + std::hash::Hash,
-  V: Clone + Sync,
-{
-  fn iter_key(&self) -> impl Iterator<Item = K> + '_ {
-    self.current.keys().cloned()
-  }
-
-  fn access(&self) -> impl Fn(&K) -> Option<V> + Sync + '_ {
-    |key| self.current.get(key).cloned()
-  }
-  fn try_access(&self) -> Option<Box<dyn Fn(&K) -> Option<V> + Sync + '_>> {
-    let acc = self.access();
-    let boxed = Box::new(acc) as Box<dyn Fn(&K) -> Option<V> + Sync + '_>;
-    boxed.into()
-  }
 }
 
 pub struct UnorderedMaterializedReactiveCollection<Map, K, V> {
@@ -661,10 +569,10 @@ where
     if let CPoll::Ready(changes) = &r {
       for change in changes.values() {
         match change.clone() {
-          CollectionDelta::Delta(k, v) => {
+          CollectionDelta::Delta(k, v, _) => {
             self.cache.insert(k, v);
           }
-          CollectionDelta::Remove(k) => {
+          CollectionDelta::Remove(k, _) => {
             self.cache.remove(&k);
           }
         }
@@ -716,10 +624,10 @@ where
     if let CPoll::Ready(changes) = &r {
       for change in changes.values().cloned() {
         match change {
-          CollectionDelta::Delta(k, v) => {
+          CollectionDelta::Delta(k, v, _) => {
             self.cache.insert(v, k.alloc_index());
           }
-          CollectionDelta::Remove(k) => {
+          CollectionDelta::Remove(k, _) => {
             self.cache.remove(k.alloc_index());
           }
         }
@@ -779,14 +687,14 @@ where
       deltas
         .into_par_iter()
         .map(|(_, delta)| match delta {
-          CollectionDelta::Delta(k, d) => {
+          CollectionDelta::Delta(k, d, _p) => {
             let new_value = mapper(&k, d);
-            self.cache.insert(k.clone(), new_value.clone());
-            (k.clone(), CollectionDelta::Delta(k, new_value))
+            let p = self.cache.insert(k.clone(), new_value.clone());
+            (k.clone(), CollectionDelta::Delta(k, new_value, p))
           }
-          CollectionDelta::Remove(k) => {
-            self.cache.remove(&k);
-            (k.clone(), CollectionDelta::Remove(k))
+          CollectionDelta::Remove(k, _p) => {
+            let (_, p) = self.cache.remove(&k).unwrap();
+            (k.clone(), CollectionDelta::Remove(k, p))
           }
         })
         .collect()
@@ -876,98 +784,42 @@ where
   }
 }
 
-pub struct ReactiveCollectionMessageFilter<T, K, V> {
-  inner: T,
-  state: ActivationState<K>,
-  phantom: PhantomData<(K, V)>,
-}
-
-impl<T, K, V> VirtualCollection<K, V> for ReactiveCollectionMessageFilter<T, K, V>
-where
-  T: VirtualCollection<K, V>,
-{
-  fn iter_key(&self) -> impl Iterator<Item = K> + '_ {
-    self.inner.iter_key()
-  }
-
-  fn access(&self) -> impl Fn(&K) -> Option<V> + Sync + '_ {
-    self.inner.access()
-  }
-
-  fn try_access(&self) -> Option<Box<dyn Fn(&K) -> Option<V> + Sync + '_>> {
-    self.inner.try_access()
-  }
-}
-
-impl<T, K, V> ReactiveCollection<K, V> for ReactiveCollectionMessageFilter<T, K, V>
-where
-  T: ReactiveCollection<K, V>,
-  K: Clone + Send + Sync + Eq + std::hash::Hash + 'static,
-  V: Clone + Send + Sync + 'static,
-{
-  #[tracing::instrument(skip_all, name = "ReactiveCollectionMessageFilter")]
-  fn poll_changes(&mut self, cx: &mut Context) -> CPoll<CollectionChanges<K, V>> {
-    let changes = self.inner.poll_changes(cx);
-
-    if let CPoll::Ready(changes) = changes {
-      let filtered: CollectionChanges<K, V> = changes
-        .into_iter()
-        .filter(|(_, v)| self.state.update(v))
-        .collect();
-      if filtered.is_empty() {
-        CPoll::Pending
-      } else {
-        CPoll::Ready(filtered)
-      }
-    } else {
-      changes
-    }
-  }
-
-  fn extra_request(&mut self, request: &mut ExtraCollectionOperation) {
-    self.inner.extra_request(request);
-    match request {
-      ExtraCollectionOperation::MemoryShrinkToFit => self.state.inner.shrink_to_fit(),
-    }
-  }
-}
-
 pub struct ReactiveCollectionDebug<T, K, V> {
   pub inner: T,
-  pub phantom: PhantomData<(K, V)>,
+  pub state: FastHashMap<K, V>,
   pub label: &'static str,
-}
-
-impl<T, K, V> ReactiveCollectionWithPrevious<K, V> for ReactiveCollectionDebug<T, K, V>
-where
-  T: ReactiveCollectionWithPrevious<K, V>,
-  K: std::fmt::Debug + Clone + Send + Sync + 'static,
-  V: std::fmt::Debug + Clone + Send + Sync + 'static,
-{
-  fn poll_changes(&mut self, cx: &mut Context<'_>) -> CPoll<CollectionChangesWithPrevious<K, V>> {
-    let r = self.inner.poll_changes(cx);
-    if let CPoll::Ready(v) = &r {
-      println!("{} {:#?}", self.label, v);
-    }
-    r
-  }
-
-  fn extra_request(&mut self, request: &mut ExtraCollectionOperation) {
-    self.inner.extra_request(request)
-  }
 }
 
 impl<T, K, V> ReactiveCollection<K, V> for ReactiveCollectionDebug<T, K, V>
 where
   T: ReactiveCollection<K, V>,
-  K: std::fmt::Debug + Clone + Send + Sync + 'static,
-  V: std::fmt::Debug + Clone + Send + Sync + 'static,
+  K: std::fmt::Debug + Clone + Send + Sync + Eq + std::hash::Hash + 'static,
+  V: std::fmt::Debug + Clone + Send + Sync + PartialEq + 'static,
 {
   fn poll_changes(&mut self, cx: &mut Context<'_>) -> CPoll<CollectionChanges<K, V>> {
     let r = self.inner.poll_changes(cx);
+
+    // validation
+    if let CPoll::Ready(changes) = &r {
+      for (k, change) in changes {
+        match change {
+          CollectionDelta::Delta(_, n, p) => {
+            if let Some(removed) = self.state.remove(k) {
+              let p = p.as_ref().expect("previous value should exist");
+              assert_eq!(&removed, p);
+            }
+            self.state.insert(k.clone(), n.clone());
+          }
+          CollectionDelta::Remove(_, p) => {
+            let removed = self.state.remove(k).expect("remove none exist value");
+            assert_eq!(&removed, p);
+          }
+        }
+      }
+    }
+
     if let CPoll::Ready(v) = &r {
-      let v = v.values().collect::<Vec<_>>();
-      println!("{:#?}", v);
+      println!("{} {:#?}", self.label, v);
     }
     r
   }
@@ -1001,18 +853,29 @@ pub struct ReactiveKVFilter<T, F, K, V> {
 
 fn make_checker<K, V, V2>(
   checker: impl Fn(V) -> Option<V2> + Copy + Send + Sync + 'static,
-) -> impl Fn(CollectionDelta<K, V>) -> CollectionDelta<K, V2> + Copy + Send + Sync + 'static {
+) -> impl Fn(CollectionDelta<K, V>) -> Option<CollectionDelta<K, V2>> + Copy + Send + Sync + 'static
+{
   move |delta| {
     match delta {
-      CollectionDelta::Delta(k, v) => {
-        if let Some(new_v) = checker(v) {
-          CollectionDelta::Delta(k, new_v)
-        } else {
-          CollectionDelta::Remove(k)
+      CollectionDelta::Delta(k, v, pre_v) => {
+        let new_map = checker(v);
+        let pre_map = pre_v.and_then(checker);
+        match (new_map, pre_map) {
+          (Some(v), Some(pre_v)) => CollectionDelta::Delta(k, v, Some(pre_v)),
+          (Some(v), None) => CollectionDelta::Delta(k, v, None),
+          (None, Some(pre_v)) => CollectionDelta::Remove(k, pre_v),
+          (None, None) => return None,
         }
+        .into()
       }
       // the Remove variant maybe called many times for given k
-      CollectionDelta::Remove(k) => CollectionDelta::Remove(k),
+      CollectionDelta::Remove(k, pre_v) => {
+        let pre_map = checker(pre_v);
+        match pre_map {
+          Some(pre) => CollectionDelta::Remove(k, pre).into(),
+          None => None,
+        }
+      }
     }
   }
 }
@@ -1028,10 +891,11 @@ where
   #[tracing::instrument(skip_all, name = "ReactiveKVFilter")]
   fn poll_changes(&mut self, cx: &mut Context<'_>) -> CPoll<CollectionChanges<K, V2>> {
     let checker = make_checker(self.checker);
-    self
-      .inner
-      .poll_changes(cx)
-      .map(move |r| r.into_iter().map(|(k, v)| (k, checker(v))).collect())
+    self.inner.poll_changes(cx).map(move |r| {
+      r.into_iter()
+        .filter_map(|(k, v)| checker(v).map(|v| (k, v)))
+        .collect()
+    })
   }
 
   fn extra_request(&mut self, request: &mut ExtraCollectionOperation) {
@@ -1124,8 +988,7 @@ where
   }
 }
 
-/// we should manually impl zip, intersect, select, to avoid overhead
-fn union<K: Clone, V1, V2>(
+fn union<K: Clone, V1: Clone, V2: Clone>(
   change1: Option<CollectionDelta<K, V1>>,
   change2: Option<CollectionDelta<K, V2>>,
   v1_current: &impl Fn(&K) -> Option<V1>,
@@ -1134,47 +997,57 @@ fn union<K: Clone, V1, V2>(
   let r = match (change1, change2) {
     (None, None) => return None,
     (None, Some(change2)) => match change2 {
-      CollectionDelta::Delta(k, v2) => {
+      CollectionDelta::Delta(k, v2, p2) => {
         let v1_current = v1_current(&k);
-        CollectionDelta::Delta(k, (v1_current, Some(v2)))
+        CollectionDelta::Delta(k, (v1_current.clone(), Some(v2)), Some((v1_current, p2)))
       }
-      CollectionDelta::Remove(k) => {
+      CollectionDelta::Remove(k, p2) => {
         if let Some(v1_current) = v1_current(&k) {
-          CollectionDelta::Delta(k, (Some(v1_current), None))
+          CollectionDelta::Delta(
+            k,
+            (Some(v1_current.clone()), None),
+            Some((Some(v1_current), Some(p2))),
+          )
         } else {
-          CollectionDelta::Remove(k)
+          CollectionDelta::Remove(k, (None, Some(p2)))
         }
       }
     },
     (Some(change1), None) => match change1 {
-      CollectionDelta::Delta(k, v1) => {
+      CollectionDelta::Delta(k, v1, p1) => {
         let v2_current = v2_current(&k);
-        CollectionDelta::Delta(k, (Some(v1), v2_current))
+        CollectionDelta::Delta(k, (Some(v1), v2_current.clone()), Some((p1, v2_current)))
       }
-      CollectionDelta::Remove(k) => {
+      CollectionDelta::Remove(k, p1) => {
         if let Some(v2_current) = v2_current(&k) {
-          CollectionDelta::Delta(k, (None, Some(v2_current)))
+          CollectionDelta::Delta(
+            k,
+            (None, Some(v2_current.clone())),
+            Some((Some(p1), Some(v2_current))),
+          )
         } else {
-          CollectionDelta::Remove(k)
+          CollectionDelta::Remove(k, (Some(p1), None))
         }
       }
     },
     (Some(change1), Some(change2)) => match (change1, change2) {
-      (CollectionDelta::Delta(k, v1), CollectionDelta::Delta(_, v2)) => {
-        CollectionDelta::Delta(k, (Some(v1), Some(v2)))
+      (CollectionDelta::Delta(k, v1, p1), CollectionDelta::Delta(_, v2, p2)) => {
+        CollectionDelta::Delta(k, (Some(v1), Some(v2)), Some((p1, p2)))
       }
-      (CollectionDelta::Delta(_, v1), CollectionDelta::Remove(k)) => {
-        CollectionDelta::Delta(k.clone(), (Some(v1), v2_current(&k)))
+      (CollectionDelta::Delta(_, v1, p1), CollectionDelta::Remove(k, p2)) => {
+        CollectionDelta::Delta(k.clone(), (Some(v1), v2_current(&k)), Some((p1, Some(p2))))
       }
-      (CollectionDelta::Remove(k), CollectionDelta::Delta(_, v2)) => {
-        CollectionDelta::Delta(k.clone(), (v1_current(&k), Some(v2)))
+      (CollectionDelta::Remove(k, p1), CollectionDelta::Delta(_, v2, p2)) => {
+        CollectionDelta::Delta(k.clone(), (v1_current(&k), Some(v2)), Some((Some(p1), p2)))
       }
-      (CollectionDelta::Remove(k), CollectionDelta::Remove(_)) => CollectionDelta::Remove(k),
+      (CollectionDelta::Remove(k, p1), CollectionDelta::Remove(_, p2)) => {
+        CollectionDelta::Remove(k, (Some(p1), Some(p2)))
+      }
     },
   };
 
-  if let CollectionDelta::Delta(k, new) = r {
-    return CollectionDelta::Delta(k, new).into();
+  if let CollectionDelta::Delta(k, new, Some((None, None))) = r {
+    return CollectionDelta::Delta(k, new, None).into();
   }
 
   r.into()
@@ -1245,7 +1118,7 @@ where
           .into_iter()
           .filter_map(|(k, (d1, d2))| {
             union(d1, d2, &a_access, &b_access)
-              .map(checker)
+              .and_then(checker)
               .map(|v| (k, v))
           })
           .collect::<CollectionChanges<K, O>>()
@@ -1254,7 +1127,7 @@ where
         .into_iter()
         .filter_map(|(k, d1)| {
           union(Some(d1), None, &a_access, &b_access)
-            .map(checker)
+            .and_then(checker)
             .map(|v| (k, v))
         })
         .collect::<CollectionChanges<K, O>>(),
@@ -1262,7 +1135,7 @@ where
         .into_iter()
         .filter_map(|(k, d2)| {
           union(None, Some(d2), &a_access, &b_access)
-            .map(checker)
+            .and_then(checker)
             .map(|v| (k, v))
         })
         .collect::<CollectionChanges<K, O>>(),

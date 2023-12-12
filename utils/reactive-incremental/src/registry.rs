@@ -74,19 +74,15 @@ pub fn storage_of<T: IncrementalBase>() -> IncrementalSignalStorage<T> {
   access_storage_of(|s| s.clone())
 }
 
-pub type RxCForkerWithPrevious<K, V> = ReactiveKVMapFork<
-  Box<dyn DynamicReactiveCollectionWithPrevious<K, V>>,
-  CollectionChangesWithPrevious<K, V>,
-  K,
-  V,
->;
+pub type RxCForkerWithPrevious<K, V> =
+  ReactiveKVMapFork<Box<dyn DynamicReactiveCollection<K, V>>, CollectionChanges<K, V>, K, V>;
 
 pub type RxCForker<K, V> =
   ReactiveKVMapFork<Box<dyn DynamicReactiveCollection<K, V>>, CollectionChanges<K, V>, K, V>;
 
 pub type OneManyRelationForker<O, M> = ReactiveKVMapFork<
   Box<dyn DynamicReactiveOneToManyRelationship<O, M>>,
-  CollectionChangesWithPrevious<M, O>,
+  CollectionChanges<M, O>,
   M,
   O,
 >;
@@ -153,11 +149,11 @@ impl CollectionRegistry {
   pub fn fork_or_insert_with<K, V, R>(
     &self,
     inserter: impl FnOnce() -> R + Any,
-  ) -> impl ReactiveCollectionWithPrevious<K, V> + Clone
+  ) -> impl ReactiveCollection<K, V> + Clone
   where
     K: Clone + Send + Sync + Eq + std::hash::Hash + 'static,
     V: Clone + Send + Sync + 'static,
-    R: ReactiveCollectionWithPrevious<K, V>,
+    R: ReactiveCollection<K, V>,
   {
     self.fork_or_insert_with_inner(inserter.type_id(), inserter)
   }
@@ -170,7 +166,7 @@ impl CollectionRegistry {
   where
     K: Clone + Send + Sync + Eq + std::hash::Hash + 'static,
     V: Clone + Send + Sync + 'static,
-    R: ReactiveCollectionWithPrevious<K, V>,
+    R: ReactiveCollection<K, V>,
   {
     // note, we not using entry api because this call maybe be recursive and cause dead lock
     let registry = self.registry.read_recursive();
@@ -184,7 +180,7 @@ impl CollectionRegistry {
     } else {
       drop(registry);
       let collection = inserter();
-      let boxed: Box<dyn DynamicReactiveCollectionWithPrevious<K, V>> = Box::new(collection);
+      let boxed: Box<dyn DynamicReactiveCollection<K, V>> = Box::new(collection);
       let forker = boxed.into_forker();
 
       let boxed = Box::new(forker) as Box<dyn ShrinkableAny>;
@@ -208,7 +204,7 @@ impl CollectionRegistry {
   where
     O: LinearIdentification + Clone + Send + Sync + 'static,
     M: LinearIdentification + Eq + std::hash::Hash + Clone + Send + Sync + 'static,
-    R: ReactiveCollectionWithPrevious<M, O>,
+    R: ReactiveCollection<M, O>,
   {
     // note, we not using entry api because this call maybe be recursive and cause dead lock
     let typeid = inserter.type_id();
@@ -248,7 +244,7 @@ impl CollectionRegistry {
   where
     O: std::hash::Hash + Eq + Clone + Send + Sync + 'static,
     M: std::hash::Hash + Eq + Clone + Send + Sync + 'static,
-    R: ReactiveCollectionWithPrevious<M, O>,
+    R: ReactiveCollection<M, O>,
   {
     // note, we not using entry api because this call maybe be recursive and cause dead lock
     let typeid = inserter.type_id();

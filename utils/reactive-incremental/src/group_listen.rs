@@ -45,7 +45,7 @@ impl<T: IncrementalBase> IncrementalSignalStorage<T> {
   pub fn listen_to_reactive_collection<U>(
     &self,
     mapper: impl Fn(MaybeDeltaRef<T>) -> ChangeReaction<U> + Copy + Send + Sync + 'static,
-  ) -> impl ReactiveCollectionWithPrevious<AllocIdx<T>, U>
+  ) -> impl ReactiveCollection<AllocIdx<T>, U>
   where
     U: Clone + Send + Sync + 'static,
   {
@@ -298,36 +298,27 @@ impl<T: IncrementalBase, S: Sync, U: Sync + Send + Clone> VirtualCollection<Allo
   }
 }
 
-impl<T, S, U> ReactiveCollectionWithPrevious<AllocIdx<T>, U>
-  for ReactiveCollectionFromGroupMutation<T, S, U>
+impl<T, S, U> ReactiveCollection<AllocIdx<T>, U> for ReactiveCollectionFromGroupMutation<T, S, U>
 where
   T: IncrementalBase,
   U: Clone + Send + Sync + 'static,
   S: Stream<Item = MutationFolder<T, U>> + Unpin + Send + Sync + 'static,
 {
-  fn poll_changes(
-    &mut self,
-    cx: &mut Context<'_>,
-  ) -> CPoll<CollectionChangesWithPrevious<AllocIdx<T>, U>> {
+  fn poll_changes(&mut self, cx: &mut Context<'_>) -> CPoll<CollectionChanges<AllocIdx<T>, U>> {
     match self.inner.poll_next_unpin(cx) {
       Poll::Ready(Some(mutations)) => {
         let r = mutations
           .inner
           .into_iter()
           .flat_map(|(id, state)| {
-            let mut expand = smallvec::SmallVec::<
-              [(AllocIdx<T>, CollectionDeltaWithPrevious<AllocIdx<T>, U>); 2],
-            >::new();
+            let mut expand =
+              smallvec::SmallVec::<[(AllocIdx<T>, CollectionDelta<AllocIdx<T>, U>); 2]>::new();
             match state {
-              MutationState::NewInsert(v) => {
-                expand.push((id, CollectionDeltaWithPrevious::Delta(id, v, None)))
-              }
+              MutationState::NewInsert(v) => expand.push((id, CollectionDelta::Delta(id, v, None))),
               MutationState::ChangeTo(v, p) => {
-                expand.push((id, CollectionDeltaWithPrevious::Delta(id, v, Some(p))));
+                expand.push((id, CollectionDelta::Delta(id, v, Some(p))));
               }
-              MutationState::Remove(p) => {
-                expand.push((id, CollectionDeltaWithPrevious::Remove(id, p)))
-              }
+              MutationState::Remove(p) => expand.push((id, CollectionDelta::Remove(id, p))),
             }
             expand
           })

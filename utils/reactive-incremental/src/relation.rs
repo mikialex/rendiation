@@ -6,21 +6,21 @@ use storage::{LinkListPool, ListHandle};
 use crate::*;
 
 pub trait ReactiveOneToManyRelationship<O: Send, M: Send>:
-  VirtualMultiCollection<O, M> + ReactiveCollectionWithPrevious<M, O>
+  VirtualMultiCollection<O, M> + ReactiveCollection<M, O>
 {
 }
 
 impl<T, O: Send, M: Send> ReactiveOneToManyRelationship<O, M> for T where
-  T: VirtualMultiCollection<O, M> + ReactiveCollectionWithPrevious<M, O>
+  T: VirtualMultiCollection<O, M> + ReactiveCollection<M, O>
 {
 }
 
 pub trait DynamicReactiveOneToManyRelationship<O, M>:
-  DynamicVirtualMultiCollection<O, M> + DynamicReactiveCollectionWithPrevious<M, O>
+  DynamicVirtualMultiCollection<O, M> + DynamicReactiveCollection<M, O>
 {
 }
 impl<T, O, M> DynamicReactiveOneToManyRelationship<O, M> for T where
-  T: DynamicVirtualMultiCollection<O, M> + DynamicReactiveCollectionWithPrevious<M, O>
+  T: DynamicVirtualMultiCollection<O, M> + DynamicReactiveCollection<M, O>
 {
 }
 impl<O, M> VirtualCollection<M, O> for Box<dyn DynamicReactiveOneToManyRelationship<O, M>> {
@@ -49,13 +49,12 @@ impl<O, M> VirtualMultiCollection<O, M> for Box<dyn DynamicReactiveOneToManyRela
     self.deref().try_access_multi_boxed()
   }
 }
-impl<O, M> ReactiveCollectionWithPrevious<M, O>
-  for Box<dyn DynamicReactiveOneToManyRelationship<O, M>>
+impl<O, M> ReactiveCollection<M, O> for Box<dyn DynamicReactiveOneToManyRelationship<O, M>>
 where
   O: Clone + Send + Sync + 'static,
   M: Clone + Send + Sync + 'static,
 {
-  fn poll_changes(&mut self, cx: &mut Context<'_>) -> CPoll<CollectionChangesWithPrevious<M, O>> {
+  fn poll_changes(&mut self, cx: &mut Context<'_>) -> CPoll<CollectionChanges<M, O>> {
     self.deref_mut().poll_changes_dyn(cx)
   }
   fn extra_request(&mut self, request: &mut ExtraCollectionOperation) {
@@ -64,7 +63,7 @@ where
 }
 
 pub trait ReactiveCollectionRelationExt<K: Send, V: Send>:
-  Sized + 'static + ReactiveCollectionWithPrevious<K, V>
+  Sized + 'static + ReactiveCollection<K, V>
 {
   fn into_one_to_many_by_hash(self) -> impl ReactiveOneToManyRelationship<V, K>
   where
@@ -118,7 +117,7 @@ pub trait ReactiveCollectionRelationExt<K: Send, V: Send>:
 }
 impl<T, K, V> ReactiveCollectionRelationExt<K, V> for T
 where
-  T: Sized + 'static + ReactiveCollectionWithPrevious<K, V>,
+  T: Sized + 'static + ReactiveCollection<K, V>,
   K: Send,
   V: Send,
 {
@@ -134,17 +133,14 @@ pub trait ReactiveCollectionRelationReduceExt<K: Send>:
   where
     SK: Clone + Eq + Hash + Send + Sync + 'static,
     K: Clone + Eq + Hash + Sync + 'static,
-    Relation: ReactiveCollectionWithPrevious<K, SK> + 'static,
+    Relation: ReactiveCollection<K, SK> + 'static,
   {
     ManyToOneReduce {
       upstream: BufferedCollection::new(self),
       relations: BufferedCollection::new(relations),
       phantom: PhantomData,
-      state: Default::default(),
-      state_upstream: Default::default(),
       ref_count: Default::default(),
     }
-    .filter_redundant_remove()
   }
 }
 impl<T, K: Send> ReactiveCollectionRelationReduceExt<K> for T where
@@ -161,7 +157,7 @@ where
   X: Send,
 {
   pub(crate) upstream: BufferedCollection<CollectionChanges<O, X>, Upstream>,
-  pub(crate) relations: BufferedCollection<CollectionChangesWithPrevious<M, O>, Relation>,
+  pub(crate) relations: BufferedCollection<CollectionChanges<M, O>, Relation>,
   pub(crate) phantom: PhantomData<(O, M, X)>,
 }
 
@@ -218,39 +214,42 @@ where
     let getter = getter.unwrap();
     let inv_querier = inv_querier.unwrap();
 
-    let mut output = FastHashMap::default(); // it's hard to predict capacity, should we compute it?
+    let getter_previous = make_previous(&upstream_changes, &getter);
+
+    let mut output = FastHashMap::default();
     if let CPoll::Ready(relational_changes) = relational_changes {
       relational_changes
         .into_values()
         .for_each(|change| match change {
-          CollectionDeltaWithPrevious::Delta(k, v, p) => {
+          CollectionDelta::Delta(k, v, p) => {
+            // to get the real previous X, we need the previous o->x mapping
+            let p = p.and_then(|p| getter_previous(&p));
             if let Some(v) = getter(&v) {
-              output.insert(k.clone(), CollectionDelta::Delta(k, v));
-            } else if p.is_some() {
-              // if we have the change then we could not do remove because their key is same
-              output.insert(k.clone(), CollectionDelta::Remove(k));
+              output.insert(k.clone(), CollectionDelta::Delta(k, v, p));
+            } else if let Some(p) = p {
+              output.insert(k.clone(), CollectionDelta::Remove(k, p));
             }
           }
-          CollectionDeltaWithPrevious::Remove(k, _p) => {
-            // we do not check current upstream just to emit delta
-            // todo, using a k set to do filtering
-            output.insert(k.clone(), CollectionDelta::Remove(k));
+          CollectionDelta::Remove(k, p) => {
+            if let Some(p) = getter_previous(&p) {
+              output.insert(k.clone(), CollectionDelta::Remove(k, p));
+            }
           }
         });
     }
-    if let CPoll::Ready(upstream_changes) = upstream_changes {
-      // it's hard to parallelize this part efficiently
-      // output.par_extend(upstream_changes.filter_map(|change|{
-      // }))
-      for delta in upstream_changes.into_values() {
+    if let CPoll::Ready(upstream_changes) = &upstream_changes {
+      for delta in upstream_changes.values() {
         // the inv_query is the current relation, the previous one's delta is emitted
         // by the above relation change code
         match delta {
-          CollectionDelta::Remove(one) => inv_querier(&one, &mut |many| {
-            output.insert(many.clone(), CollectionDelta::Remove(many));
+          CollectionDelta::Remove(one, p) => inv_querier(one, &mut |many| {
+            output.insert(many.clone(), CollectionDelta::Remove(many, p.clone()));
           }),
-          CollectionDelta::Delta(one, change) => inv_querier(&one, &mut |many| {
-            output.insert(many.clone(), CollectionDelta::Delta(many, change.clone()));
+          CollectionDelta::Delta(one, change, p) => inv_querier(one, &mut |many| {
+            output.insert(
+              many.clone(),
+              CollectionDelta::Delta(many, change.clone(), p.clone()),
+            );
           }),
         }
       }
@@ -305,15 +304,13 @@ where
 pub struct ManyToOneReduce<O, M, Upstream, Relation>
 where
   Upstream: ReactiveCollection<M, ()>,
-  Relation: ReactiveCollectionWithPrevious<M, O>,
+  Relation: ReactiveCollection<M, O>,
   M: Send,
   O: Send,
 {
   upstream: BufferedCollection<CollectionChanges<M, ()>, Upstream>,
-  relations: BufferedCollection<CollectionChangesWithPrevious<M, O>, Relation>,
+  relations: BufferedCollection<CollectionChanges<M, O>, Relation>,
   phantom: PhantomData<(O, M)>,
-  state: ActivationState<O>,
-  state_upstream: ActivationState<M>, // if the m is active
   ref_count: FastHashMap<O, u32>,
 }
 
@@ -323,7 +320,7 @@ where
   M: Clone + Send + Eq + Hash + Sync + 'static,
   O: Clone + Eq + Hash + Send + Sync + 'static,
   Upstream: ReactiveCollection<M, ()>,
-  Relation: ReactiveCollectionWithPrevious<M, O>,
+  Relation: ReactiveCollection<M, O>,
 {
   #[tracing::instrument(skip_all, name = "ManyToOneReduce")]
   fn poll_changes(&mut self, cx: &mut Context<'_>) -> CPoll<CollectionChanges<O, ()>> {
@@ -369,86 +366,84 @@ where
     let getter = getter.unwrap();
     let one_acc = one_acc.unwrap();
 
-    let mut output = FastHashMap::default(); // it's hard to predict capacity, should we compute it?
+    let getter_previous = make_previous(&upstream_changes, &getter);
 
-    let mut relational_change_lookup = FastHashMap::default();
+    let mut output = FastHashMap::default();
 
-    if let CPoll::Ready(relational_changes) = relational_changes {
-      for change in relational_changes.into_values() {
+    if let CPoll::Ready(relational_changes) = &relational_changes {
+      for change in relational_changes.values() {
         let key = change.key();
         let old_value = change.old_value();
         let new_value = change.new_value();
 
         if let Some(ov) = old_value {
-          if self.state_upstream.inner.contains(key) {
+          if getter_previous(key).is_some() {
             let ref_count = self.ref_count.get_mut(ov).unwrap();
             *ref_count -= 1;
             if *ref_count == 0 {
               self.ref_count.remove(ov);
-              output.insert(ov.clone(), CollectionDelta::Remove(ov.clone()));
+              output.insert(ov.clone(), CollectionDelta::Remove(ov.clone(), ()));
             }
           }
         }
 
         if let Some(nv) = new_value {
-          if self.state_upstream.inner.contains(key) && getter(key).is_some() {
+          if getter_previous(key).is_some() {
             let ref_count = self.ref_count.entry(nv.clone()).or_insert_with(|| {
-              output.insert(nv.clone(), CollectionDelta::Delta(nv.clone(), ()));
+              output.insert(nv.clone(), CollectionDelta::Delta(nv.clone(), (), None));
               0
             });
             *ref_count += 1;
           }
         }
-
-        relational_change_lookup.insert(key.clone(), change.clone());
       }
     }
 
-    let one_acc_pre = |many| {
-      if let Some(change) = relational_change_lookup.get(&many) {
-        match change {
-          CollectionDeltaWithPrevious::Remove(_, p) => Some(p.clone()),
-          CollectionDeltaWithPrevious::Delta(_, _, p) => p.clone(),
-        }
-      } else {
-        one_acc(&many)
-      }
-    };
-
-    if let CPoll::Ready(upstream_changes) = upstream_changes {
-      for delta in upstream_changes.into_values() {
-        // sync the upstream state;
-        let is_effective = self.state_upstream.update(&delta);
+    if let CPoll::Ready(upstream_changes) = &upstream_changes {
+      for delta in upstream_changes.values() {
         match delta {
-          CollectionDelta::Remove(many) => {
-            if is_effective {
-              if let Some(one) = one_acc_pre(many.clone()) {
-                if let Some(ref_count) = self.ref_count.get_mut(&one) {
-                  *ref_count -= 1;
-                  if *ref_count == 0 {
-                    self.ref_count.remove(&one);
-                    output.insert(one.clone(), CollectionDelta::Remove(one.clone()));
+          CollectionDelta::Remove(many, _) => {
+            // we should remove from the new old relation
+            if let Some(one) = one_acc(many) {
+              if let Some(ref_count) = self.ref_count.get_mut(&one) {
+                *ref_count -= 1;
+                if *ref_count == 0 {
+                  self.ref_count.remove(&one);
+
+                  if let Some(CollectionDelta::Delta(_, _, _)) = output.get(&one) {
+                    // cancel out
+                    output.remove(&one);
+                  } else {
+                    output.insert(one.clone(), CollectionDelta::Remove(one.clone(), ()));
                   }
                 }
               }
             }
           }
-          CollectionDelta::Delta(many, _) => {
-            if let Some(one) = one_acc(&many) {
-              let ref_count = self.ref_count.entry(one.clone()).or_insert_with(|| {
-                output.insert(one.clone(), CollectionDelta::Delta(one.clone(), ()));
-                0
-              });
-              *ref_count += 1;
+          CollectionDelta::Delta(many, _, p) => {
+            if p.is_none() {
+              // should check if it is insert
+              // we should insert into the new directed relation
+              if let Some(one) = one_acc(many) {
+                // if we have already increased by relation, then we skip
+                if getter_previous(many).is_none() && getter(many).is_some() {
+                  continue;
+                }
+                let ref_count = self.ref_count.entry(one.clone()).or_insert_with(|| {
+                  if let Some(CollectionDelta::Remove(_, _)) = output.get(&one) {
+                    // cancel out
+                    output.remove(&one);
+                  } else {
+                    output.insert(one.clone(), CollectionDelta::Delta(one.clone(), (), None));
+                  }
+                  0
+                });
+                *ref_count += 1;
+              }
             }
           }
         }
       }
-    }
-
-    // we  maintain a k set  because we need the k set to iter_keys
-    for v in output.values() {
-      self.state.update(v);
     }
 
     if output.is_empty() {
@@ -463,35 +458,8 @@ where
     self.relations.extra_request(request);
     match request {
       ExtraCollectionOperation::MemoryShrinkToFit => {
-        self.state.inner.shrink_to_fit();
-        self.state_upstream.inner.shrink_to_fit();
         self.ref_count.shrink_to_fit();
       }
-    }
-  }
-}
-
-pub(crate) struct ActivationState<K> {
-  pub(crate) inner: FastHashSet<K>,
-}
-
-impl<K> Default for ActivationState<K> {
-  fn default() -> Self {
-    Self {
-      inner: Default::default(),
-    }
-  }
-}
-
-impl<K: Eq + Hash + Clone> ActivationState<K> {
-  /// return if the change(remove) is not redundant
-  pub fn update<V>(&mut self, delta: &CollectionDelta<K, V>) -> bool {
-    match delta {
-      CollectionDelta::Delta(k, _) => {
-        self.inner.insert(k.clone());
-        true
-      }
-      CollectionDelta::Remove(k) => self.inner.remove(k),
     }
   }
 }
@@ -500,16 +468,16 @@ impl<O, M, Upstream, Relation> VirtualCollection<O, ()>
   for ManyToOneReduce<O, M, Upstream, Relation>
 where
   Upstream: ReactiveCollection<M, ()>,
-  Relation: ReactiveCollectionWithPrevious<M, O>,
+  Relation: ReactiveCollection<M, O>,
   O: Clone + Eq + Hash + Send + Sync,
   M: Send + Sync,
 {
   fn iter_key(&self) -> impl Iterator<Item = O> + '_ {
-    self.state.inner.iter().cloned()
+    self.ref_count.keys().cloned()
   }
 
   fn access(&self) -> impl Fn(&O) -> Option<()> + '_ {
-    move |k| self.state.inner.get(k).map(|_| {})
+    move |k| self.ref_count.get(k).map(|_| {})
   }
 
   fn try_access(&self) -> Option<Box<dyn Fn(&O) -> Option<()> + Sync + '_>> {
@@ -520,7 +488,7 @@ where
 }
 
 pub struct OneToManyRefHashBookKeeping<O, M, T> {
-  upstream: BufferedCollection<CollectionChangesWithPrevious<M, O>, T>,
+  upstream: BufferedCollection<CollectionChanges<M, O>, T>,
   mapping: FastHashMap<O, FastHashSet<M>>,
 }
 
@@ -580,14 +548,14 @@ where
   }
 }
 
-impl<O, M, T> ReactiveCollectionWithPrevious<M, O> for OneToManyRefHashBookKeeping<O, M, T>
+impl<O, M, T> ReactiveCollection<M, O> for OneToManyRefHashBookKeeping<O, M, T>
 where
-  T: ReactiveCollectionWithPrevious<M, O>,
+  T: ReactiveCollection<M, O>,
   M: Hash + Eq + Clone + Send + Sync + 'static,
   O: Hash + Eq + Clone + Send + Sync + 'static,
 {
   #[tracing::instrument(skip_all, name = "OneToManyRefHashBookKeeping")]
-  fn poll_changes(&mut self, cx: &mut Context<'_>) -> CPoll<CollectionChangesWithPrevious<M, O>> {
+  fn poll_changes(&mut self, cx: &mut Context<'_>) -> CPoll<CollectionChanges<M, O>> {
     let r = self.upstream.poll_changes(cx);
 
     if let CPoll::Ready(changes) = r.clone() {
@@ -693,14 +661,14 @@ where
   }
 }
 
-impl<O, M, T> ReactiveCollectionWithPrevious<M, O> for OneToManyRefDenseBookKeeping<O, M, T>
+impl<O, M, T> ReactiveCollection<M, O> for OneToManyRefDenseBookKeeping<O, M, T>
 where
-  T: ReactiveCollectionWithPrevious<M, O>,
+  T: ReactiveCollection<M, O>,
   M: LinearIdentification + Eq + std::hash::Hash + Clone + Send + Sync + 'static,
   O: LinearIdentification + Clone + Send + Sync + 'static,
 {
   #[tracing::instrument(skip_all, name = "OneToManyRefDenseBookKeeping")]
-  fn poll_changes(&mut self, cx: &mut Context<'_>) -> CPoll<CollectionChangesWithPrevious<M, O>> {
+  fn poll_changes(&mut self, cx: &mut Context<'_>) -> CPoll<CollectionChanges<M, O>> {
     let r = self.upstream.poll_changes(cx);
 
     if let CPoll::Ready(changes) = r.clone() {

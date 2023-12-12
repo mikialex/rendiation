@@ -18,31 +18,6 @@ where
       panic!("only same key change could be merge");
     }
     *self = match (self.clone(), new.clone()) {
-      // later override earlier
-      (Delta(k, _d1), Delta(_, d2)) => Delta(k, d2),
-      // later override earlier
-      // if init not exist, remove is still allowed to be multiple
-      (Delta(k, _d1), Remove(_)) => Remove(k),
-      // later override earlier
-      (Remove(k), Delta(_, d1)) => Delta(k, d1),
-      // remove is allowed to be multiple
-      (Remove(k), Remove(_)) => Remove(k),
-    };
-    true
-  }
-}
-
-impl<K, V> ChangeMerge for CollectionDeltaWithPrevious<K, V>
-where
-  K: PartialEq + Clone,
-  V: Clone,
-{
-  fn merge(&mut self, new: &Self) -> bool {
-    use CollectionDeltaWithPrevious::*;
-    if self.key() != new.key() {
-      panic!("only same key change could be merge");
-    }
-    *self = match (self.clone(), new.clone()) {
       (Delta(k, _d1, p1), Delta(_, d2, _p2)) => {
         // we should check d1 = d2
         Delta(k, d2, p1)
@@ -146,43 +121,6 @@ where
   K: Send + Sync + 'static + Eq + std::hash::Hash + Clone,
 {
   fn poll_changes(&mut self, cx: &mut Context) -> CPoll<CollectionChanges<K, V>> {
-    let mut buffered = self.buffered.take().unwrap_or(Default::default());
-    loop {
-      match self.inner.poll_changes(cx) {
-        CPoll::Ready(new_change) => {
-          if buffered.is_empty() {
-            buffered = new_change;
-          } else {
-            buffered.merge(&new_change);
-          }
-        }
-        CPoll::Pending => break,
-        CPoll::Blocked => {
-          self.buffered = buffered.into();
-          return CPoll::Blocked;
-        }
-      }
-    }
-    if buffered.is_empty() {
-      CPoll::Pending
-    } else {
-      CPoll::Ready(buffered)
-    }
-  }
-
-  fn extra_request(&mut self, request: &mut ExtraCollectionOperation) {
-    self.inner.extra_request(request)
-  }
-}
-
-impl<M, K, V> ReactiveCollectionWithPrevious<K, V>
-  for BufferedCollection<CollectionChangesWithPrevious<K, V>, M>
-where
-  M: ReactiveCollectionWithPrevious<K, V>,
-  V: Send + Sync + 'static + Clone,
-  K: Send + Sync + 'static + Eq + std::hash::Hash + Clone,
-{
-  fn poll_changes(&mut self, cx: &mut Context) -> CPoll<CollectionChangesWithPrevious<K, V>> {
     let mut buffered = self.buffered.take().unwrap_or(Default::default());
     loop {
       match self.inner.poll_changes(cx) {
