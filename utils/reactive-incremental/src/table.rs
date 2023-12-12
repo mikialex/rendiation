@@ -104,7 +104,6 @@ impl<'a, 'b, K, V: Clone> VirtualTable<K, V> for TablePreviousView<'a, 'b, K, V>
   }
 }
 
-// add pre to all message
 // merge access and poll changes lock acquire
 // abstract over delta table using the same abstraction for original table and delta table
 // not loop from the root

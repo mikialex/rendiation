@@ -819,6 +819,8 @@ where
             if let Some(removed) = self.state.remove(k) {
               let p = p.as_ref().expect("previous value should exist");
               assert_eq!(&removed, p);
+            } else {
+              assert!(p.is_some());
             }
             self.state.insert(k.clone(), n.clone());
           }
