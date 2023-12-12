@@ -1,4 +1,4 @@
-use std::{marker::PhantomData, ops::DerefMut};
+use std::{hash::Hash, marker::PhantomData, ops::DerefMut};
 
 use fast_hash_collection::*;
 use storage::IndexKeptVec;
@@ -532,6 +532,18 @@ where
     .workaround_box()
   }
 
+  fn diff_change(self) -> impl ReactiveCollection<K, V>
+  where
+    K: std::fmt::Debug + Clone + Send + Sync + Eq + std::hash::Hash + 'static,
+    V: std::fmt::Debug + Clone + Send + Sync + PartialEq + 'static,
+  {
+    ReactiveCollectionDiff {
+      inner: self,
+      phantom: Default::default(),
+    }
+    .workaround_box()
+  }
+
   fn debug(self, label: &'static str) -> impl ReactiveCollection<K, V>
   where
     K: std::fmt::Debug + Clone + Send + Sync + Eq + std::hash::Hash + 'static,
@@ -830,6 +842,50 @@ where
 }
 
 impl<T, K, V> VirtualCollection<K, V> for ReactiveCollectionDebug<T, K, V>
+where
+  T: VirtualCollection<K, V>,
+{
+  fn iter_key(&self) -> impl Iterator<Item = K> + '_ {
+    self.inner.iter_key()
+  }
+
+  fn access(&self) -> impl Fn(&K) -> Option<V> + Sync + '_ {
+    self.inner.access()
+  }
+  fn try_access(&self) -> Option<Box<dyn Fn(&K) -> Option<V> + Sync + '_>> {
+    self.inner.try_access()
+  }
+}
+
+pub struct ReactiveCollectionDiff<T, K, V> {
+  pub inner: T,
+  phantom: PhantomData<(K, V)>,
+}
+
+impl<T, K, V> ReactiveCollection<K, V> for ReactiveCollectionDiff<T, K, V>
+where
+  T: ReactiveCollection<K, V>,
+  K: Clone + Send + Sync + Eq + Hash + 'static,
+  V: Clone + Send + Sync + PartialEq + 'static,
+{
+  fn poll_changes(&mut self, cx: &mut Context<'_>) -> CPoll<CollectionChanges<K, V>> {
+    let r = self.inner.poll_changes(cx);
+    r.map(|v| {
+      v.into_iter()
+        .filter(|(_, v)| match v {
+          CollectionDelta::Delta(_, n, Some(p)) => n != p,
+          _ => true,
+        })
+        .collect()
+    })
+  }
+
+  fn extra_request(&mut self, request: &mut ExtraCollectionOperation) {
+    self.inner.extra_request(request);
+  }
+}
+
+impl<T, K, V> VirtualCollection<K, V> for ReactiveCollectionDiff<T, K, V>
 where
   T: VirtualCollection<K, V>,
 {

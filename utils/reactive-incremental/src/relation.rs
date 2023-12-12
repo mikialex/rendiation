@@ -425,10 +425,6 @@ where
               // should check if it is insert
               // we should insert into the new directed relation
               if let Some(one) = one_acc(many) {
-                // if we have already increased by relation, then we skip
-                if getter_previous(many).is_none() && getter(many).is_some() {
-                  continue;
-                }
                 let ref_count = self.ref_count.entry(one.clone()).or_insert_with(|| {
                   if let Some(CollectionDelta::Remove(_, _)) = output.get(&one) {
                     // cancel out
