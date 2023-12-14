@@ -34,9 +34,9 @@ where
   K: CKey,
   V: CValue,
 {
-  type Item = Arc<FastHashMap<K, CollectionDelta<K, V>>>;
+  type Item = Arc<FastHashMap<K, ValueChange<V>>>;
 
-  fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+  fn poll_next(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Option<Self::Item>> {
     let this = self.project();
     let r = this.inner.poll_changes(cx);
     loop {
@@ -57,7 +57,7 @@ where
     Box::new(self)
   }
 
-  fn into_change_stream(self) -> impl Stream<Item = Arc<FastHashMap<K, CollectionDelta<K, V>>>>
+  fn into_change_stream(self) -> impl Stream<Item = Arc<FastHashMap<K, ValueChange<V>>>>
   where
     Self: Unpin,
   {

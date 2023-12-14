@@ -33,7 +33,7 @@ impl NodeRebuilder {
     if let CPoll::Ready(changes) = self.node_source.world_mat.poll_changes(cx) {
       for change in changes.into_values() {
         match change {
-          CollectionDelta::Delta(key, new, _) => {
+          ValueChange::Delta(key, new, _) => {
             let node = self
               .node_mapping
               .entry(key) // create new node on target scene
@@ -41,7 +41,7 @@ impl NodeRebuilder {
             // sync the node change
             node.set_local_matrix(new);
           }
-          CollectionDelta::Remove(key, _) => {
+          ValueChange::Remove(key, _) => {
             self.node_mapping.remove(&key);
             // remove node, raii drop from the target scene.
           }
@@ -51,7 +51,7 @@ impl NodeRebuilder {
     if let CPoll::Ready(changes) = self.node_source.net_visible.poll_changes(cx) {
       for change in changes.into_values() {
         // sync the node change, the add remove is handled above
-        if let CollectionDelta::Delta(key, new, _) = change {
+        if let ValueChange::Delta(key, new, _) = change {
           let node = self.node_mapping.get(&key).unwrap();
           node.set_visible(new)
         }
@@ -113,7 +113,7 @@ impl SceneCameraRebuilder {
       let mut to_sync_delta = Vec::new();
       for change in changes.into_values() {
         match change {
-          CollectionDelta::Delta(key, _, _) => {
+          ValueChange::Delta(key, _, _) => {
             let camera = &cameras.get(key.index).data;
 
             let offset = to_sync_delta.len();
@@ -122,7 +122,7 @@ impl SceneCameraRebuilder {
 
             to_sync_target.push((key, offset, offset_2));
           }
-          CollectionDelta::Remove(key, _) => {
+          ValueChange::Remove(key, _) => {
             let in_target_scene = self.camera_mapping.remove(&key).unwrap();
             self.target_scene.remove_camera(in_target_scene);
           }
@@ -205,7 +205,7 @@ impl SceneLightsRebuilder {
       let mut to_sync_delta = Vec::new();
       for change in changes.into_values() {
         match change {
-          CollectionDelta::Delta(key, _, _) => {
+          ValueChange::Delta(key, _, _) => {
             let light = &lights.get(key.index).data;
 
             let offset = to_sync_delta.len();
@@ -214,7 +214,7 @@ impl SceneLightsRebuilder {
 
             to_sync_target.push((key, offset, offset_2));
           }
-          CollectionDelta::Remove(key, _) => {
+          ValueChange::Remove(key, _) => {
             let in_target_scene = self.light_mapping.remove(&key).unwrap();
             self.target_scene.remove_light(in_target_scene);
           }

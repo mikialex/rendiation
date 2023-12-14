@@ -1,7 +1,7 @@
 use futures::{Stream, StreamExt};
 use incremental::{DeltaPair, ReversibleIncremental};
 use reactive::{SignalStreamExt, StreamForker};
-use reactive_incremental::CollectionDelta;
+use reactive_incremental::ValueChange;
 
 use crate::*;
 
@@ -80,9 +80,8 @@ pub struct DerivedData<T, M> {
 pub struct TreeHierarchyDerivedSystem<T: ReversibleIncremental, Dirty> {
   pub derived_tree: Arc<RwLock<TreeCollection<DerivedData<T, Dirty>>>>,
   // we use boxed here to avoid another generic for tree delta input stream
-  pub derived_stream: StreamForker<
-    Box<dyn Stream<Item = Vec<CollectionDelta<usize, T::Delta>>> + Unpin + Send + Sync>,
-  >,
+  pub derived_stream:
+    StreamForker<Box<dyn Stream<Item = Vec<(usize, ValueChange<T::Delta>)>> + Unpin + Send + Sync>>,
 }
 
 impl<T: ReversibleIncremental, M> Clone for TreeHierarchyDerivedSystem<T, M> {
@@ -204,11 +203,8 @@ impl<T: ReversibleIncremental, Dirty> TreeHierarchyDerivedSystem<T, Dirty> {
                   // here
                   tree.visit_core_tree(|tree| {
                     B::update_derived(tree, &mut derived_tree, update_root, &mut |(idx, pair)| {
-                      derived_deltas.push(CollectionDelta::Delta(
-                        idx,
-                        pair.forward,
-                        Some(pair.inverse),
-                      ));
+                      derived_deltas
+                        .push((idx, ValueChange::Delta(pair.forward, Some(pair.inverse))));
                     });
                   });
                 }
@@ -216,14 +212,14 @@ impl<T: ReversibleIncremental, Dirty> TreeHierarchyDerivedSystem<T, Dirty> {
             }
             MarkingResult::Remove(idx, removed) => {
               removed.expand(|d| {
-                derived_deltas.push(CollectionDelta::Remove(idx, d));
+                derived_deltas.push((idx, ValueChange::Remove(d)));
               });
             }
             MarkingResult::Create(idx, created) => {
               // we can not use the derived tree data because the previous delta is buffered, and
               // the node at given index maybe removed by later message
               created.expand(|d| {
-                derived_deltas.push(CollectionDelta::Delta(idx, d, None));
+                derived_deltas.push((idx, ValueChange::Delta(d, None)));
               });
             }
           }
@@ -233,7 +229,7 @@ impl<T: ReversibleIncremental, Dirty> TreeHierarchyDerivedSystem<T, Dirty> {
         derived_deltas
       });
 
-    let boxed: Box<dyn Stream<Item = Vec<CollectionDelta<usize, T::Delta>>> + Unpin + Send + Sync> =
+    let boxed: Box<dyn Stream<Item = Vec<(usize, ValueChange<T::Delta>)>> + Unpin + Send + Sync> =
       Box::new(Box::pin(derived_stream));
 
     Self {

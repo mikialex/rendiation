@@ -85,10 +85,7 @@ impl NodeIncrementalDeriveCollections {
 pub struct TreeDeriveOutput<FD, F, V> {
   inner: ReactiveParentTree,
   forked_change: Box<
-    dyn Stream<Item = Vec<CollectionDelta<usize, DeltaOf<SceneNodeDerivedData>>>>
-      + Unpin
-      + Send
-      + Sync,
+    dyn Stream<Item = Vec<ValueChange<usize, DeltaOf<SceneNodeDerivedData>>>> + Unpin + Send + Sync,
   >,
   scene_id: u64,
   downcast_delta: FD,
@@ -163,19 +160,18 @@ where
     let s_id = self.scene_id;
     match changes {
       std::task::Poll::Ready(Some(v)) => {
-        let mut deduplicate =
-          FastHashMap::<NodeIdentity, CollectionDelta<NodeIdentity, V>>::default();
+        let mut deduplicate = FastHashMap::<NodeIdentity, ValueChange<NodeIdentity, V>>::default();
 
         v.into_iter()
           .filter_map(|delta| match delta {
-            CollectionDelta::Delta(idx, d, pd) => {
+            ValueChange::Delta(idx, d, pd) => {
               let d = (self.downcast_delta)(d);
               let pd = pd.and_then(|pd| (self.downcast_delta)(pd));
 
-              d.map(|d| CollectionDelta::Delta((s_id, idx), d, pd))
+              d.map(|d| ValueChange::Delta((s_id, idx), d, pd))
             }
-            CollectionDelta::Remove(idx, d) => {
-              (self.downcast_delta)(d).map(|mat| CollectionDelta::Remove((s_id, idx), mat))
+            ValueChange::Remove(idx, d) => {
+              (self.downcast_delta)(d).map(|mat| ValueChange::Remove((s_id, idx), mat))
             }
           })
           .for_each(|d| {

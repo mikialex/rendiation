@@ -48,9 +48,9 @@ pub trait VirtualCollectionExt<K: CKey, V: CValue>: VirtualCollection<K, V> {
     Box::new(self)
   }
 
-  fn values(&self) -> impl Iterator<Item = V> + '_ {
-    self.iter_key_value().map(|(_, v)| v)
-  }
+  // fn values(&self) -> impl Iterator<Item = V> + '_ {
+  //   self.iter_key_value().map(|(_, v)| v)
+  // }
 }
 impl<T: ?Sized, K: CKey, V: CValue> VirtualCollectionExt<K, V> for T where
   Self: VirtualCollection<K, V>

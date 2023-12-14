@@ -8,7 +8,7 @@ pub use projection::*;
 
 use crate::*;
 
-pub trait ReactiveOneToManyRelationship<O: Send, M: Send>: ReactiveCollection<M, O> {
+pub trait ReactiveOneToManyRelationship<O: CKey, M: CKey>: ReactiveCollection<M, O> {
   fn multi_access(&self) -> CPoll<Box<dyn VirtualMultiCollection<O, M> + '_>>;
 }
 
@@ -17,7 +17,7 @@ where
   O: CKey,
   M: CKey,
 {
-  fn poll_changes(&self, cx: &mut Context<'_>) -> PollCollectionChanges<M, O> {
+  fn poll_changes(&self, cx: &mut Context) -> PollCollectionChanges<M, O> {
     self.deref().poll_changes(cx)
   }
   fn access(&self) -> PollCollectionCurrent<M, O> {
@@ -38,7 +38,7 @@ where
   }
 }
 
-pub trait ReactiveCollectionRelationExt<K: Send, V: Send>:
+pub trait ReactiveCollectionRelationExt<K: CKey, V: CKey>:
   Sized + 'static + ReactiveCollection<K, V>
 {
   fn into_one_to_many_by_hash(self) -> impl ReactiveOneToManyRelationship<V, K>
@@ -90,12 +90,12 @@ pub trait ReactiveCollectionRelationExt<K: Send, V: Send>:
 impl<T, K, V> ReactiveCollectionRelationExt<K, V> for T
 where
   T: Sized + 'static + ReactiveCollection<K, V>,
-  K: Send,
-  V: Send,
+  K: CKey,
+  V: CKey,
 {
 }
 
-pub trait ReactiveCollectionRelationReduceExt<K: Send>:
+pub trait ReactiveCollectionRelationReduceExt<K: CKey>:
   Sized + 'static + ReactiveCollection<K, ()>
 {
   fn many_to_one_reduce_key<SK, Relation>(
@@ -115,7 +115,7 @@ pub trait ReactiveCollectionRelationReduceExt<K: Send>:
     }
   }
 }
-impl<T, K: Send> ReactiveCollectionRelationReduceExt<K> for T where
+impl<T, K: CKey> ReactiveCollectionRelationReduceExt<K> for T where
   T: Sized + 'static + ReactiveCollection<K, ()>
 {
 }

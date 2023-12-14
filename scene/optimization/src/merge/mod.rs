@@ -121,7 +121,7 @@ impl SceneModelMergeOptimization {
     let changed_key = FastDashSet::default();
     if let CPoll::Ready(changes) = self.merge_relation.poll_changes_dyn(cx) {
       changes.into_values().for_each(|change| match change {
-        CollectionDelta::Delta(source_idx, new_key, old_key) => {
+        ValueChange::Delta(source_idx, new_key, old_key) => {
           self
             .merged_model
             .entry(new_key)
@@ -138,7 +138,7 @@ impl SceneModelMergeOptimization {
             changed_key.insert(old_key);
           }
         }
-        CollectionDelta::Remove(source_idx, key) => {
+        ValueChange::Remove(source_idx, key) => {
           self
             .merged_model
             .get_mut(&key)
@@ -152,7 +152,7 @@ impl SceneModelMergeOptimization {
     let accessor = self.merge_relation.access_boxed();
     if let CPoll::Ready(changes) = self.applied_matrix_table.poll_changes_dyn(cx) {
       changes.into_values().for_each(|change| {
-        if let CollectionDelta::Delta(source_idx, new_mat, _) = change {
+        if let ValueChange::Delta(source_idx, new_mat, _) = change {
           let merge_key = accessor(&source_idx).unwrap();
           self
             .merged_model

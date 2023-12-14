@@ -12,7 +12,7 @@ where
   K: std::fmt::Debug + CKey,
   V: std::fmt::Debug + CValue + PartialEq,
 {
-  fn poll_changes(&self, cx: &mut Context<'_>) -> PollCollectionChanges<K, V> {
+  fn poll_changes(&self, cx: &mut Context) -> PollCollectionChanges<K, V> {
     let r = self.inner.poll_changes(cx);
 
     // validation
@@ -21,7 +21,7 @@ where
       let mut state = self.state.write();
       for (k, change) in changes.iter() {
         match change {
-          CollectionDelta::Delta(_, n, p) => {
+          ValueChange::Delta(n, p) => {
             if let Some(removed) = state.remove(k) {
               let p = p.as_ref().expect("previous value should exist");
               assert_eq!(&removed, p);
@@ -30,7 +30,7 @@ where
             }
             state.insert(k.clone(), n.clone());
           }
-          CollectionDelta::Remove(_, p) => {
+          ValueChange::Remove(p) => {
             let removed = state.remove(k).expect("remove none exist value");
             assert_eq!(&removed, p);
           }
@@ -58,10 +58,10 @@ pub struct ReactiveCollectionDiff<T, K, V> {
 impl<T, K, V> ReactiveCollection<K, V> for ReactiveCollectionDiff<T, K, V>
 where
   T: ReactiveCollection<K, V>,
-  K: Clone + Send + Sync + Eq + Hash + 'static,
-  V: Clone + Send + Sync + PartialEq + 'static,
+  K: CKey,
+  V: CValue + PartialEq,
 {
-  fn poll_changes(&self, cx: &mut Context<'_>) -> PollCollectionChanges<K, V> {
+  fn poll_changes(&self, cx: &mut Context) -> PollCollectionChanges<K, V> {
     let mut is_empty = false;
     let r = self.inner.poll_changes(cx).map(|r| {
       r.map(|v| {
@@ -69,7 +69,7 @@ where
         let map = map
           .into_iter()
           .filter(|(_, v)| match v {
-            CollectionDelta::Delta(_, n, Some(p)) => n != p,
+            ValueChange::Delta(n, Some(p)) => n != p,
             _ => true,
           })
           .collect::<FastHashMap<_, _>>();
@@ -78,7 +78,7 @@ where
           is_empty = true;
         }
 
-        Box::new(Arc::new(map)) as Box<dyn VirtualCollection<K, CollectionDelta<K, V>>>
+        Box::new(Arc::new(map)) as Box<dyn VirtualCollection<K, ValueChange<V>>>
       })
     });
 

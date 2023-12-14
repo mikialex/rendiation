@@ -6,10 +6,9 @@ use parking_lot::RwLockReadGuard;
 
 use crate::*;
 
-type Sender<K, V> =
-  futures::channel::mpsc::UnboundedSender<Arc<FastHashMap<K, CollectionDelta<K, V>>>>;
+type Sender<K, V> = futures::channel::mpsc::UnboundedSender<Arc<FastHashMap<K, ValueChange<V>>>>;
 type Receiver<K, V> =
-  futures::channel::mpsc::UnboundedReceiver<Arc<FastHashMap<K, CollectionDelta<K, V>>>>;
+  futures::channel::mpsc::UnboundedReceiver<Arc<FastHashMap<K, ValueChange<V>>>>;
 
 pub type ReactiveKVMapFork<Map, K, V> = BufferedCollection<ReactiveKVMapForkImpl<Map, K, V>, K, V>;
 
@@ -60,7 +59,7 @@ where
     let current = u.spin_get_current();
     let current = current
       .iter_key_value()
-      .map(|(k, v)| (k.clone(), CollectionDelta::Delta(k, v, None)))
+      .map(|(k, v)| (k, ValueChange::Delta(v, None)))
       .collect::<FastHashMap<_, _>>();
     let current = Arc::new(current);
 
@@ -92,7 +91,7 @@ where
   K: CKey,
   V: CValue,
 {
-  fn poll_changes(&self, cx: &mut Context<'_>) -> PollCollectionChanges<K, V> {
+  fn poll_changes(&self, cx: &mut Context) -> PollCollectionChanges<K, V> {
     if self.waker.take().is_some() {
       self.waker.register(cx.waker());
       // the previous waker not waked, nothing changes, return

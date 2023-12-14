@@ -15,13 +15,13 @@ where
   T: ReactiveCollection<K, V>,
 {
   #[tracing::instrument(skip_all, name = "ReactiveKVMap")]
-  fn poll_changes(&self, cx: &mut Context<'_>) -> PollCollectionChanges<K, V2> {
+  fn poll_changes(&self, cx: &mut Context) -> PollCollectionChanges<K, V2> {
     self.inner.poll_changes(cx).map(|delta| {
       delta.map(|delta| {
-        Box::new(MappedCollectionDelta {
+        Box::new(MappedValueChange {
           base: delta,
           mapper: self.map,
-        }) as Box<dyn VirtualCollection<K, CollectionDelta<K, V2>>>
+        }) as Box<dyn VirtualCollection<K, ValueChange<V2>>>
       })
     })
   }
@@ -68,20 +68,19 @@ where
 }
 
 #[derive(Clone)]
-struct MappedCollectionDelta<'a, K, V, F> {
-  base: Box<dyn VirtualCollection<K, CollectionDelta<K, V>> + 'a>,
+struct MappedValueChange<'a, K, V, F> {
+  base: Box<dyn VirtualCollection<K, ValueChange<V>> + 'a>,
   mapper: F,
 }
 
-impl<'a, K, V, V2, F> VirtualCollection<K, CollectionDelta<K, V2>>
-  for MappedCollectionDelta<'a, K, V, F>
+impl<'a, K, V, V2, F> VirtualCollection<K, ValueChange<V2>> for MappedValueChange<'a, K, V, F>
 where
   K: CKey,
   V: CValue,
   V2: CValue,
   F: Fn(V) -> V2 + Copy + Send + Sync + 'static,
 {
-  fn iter_key_value(&self) -> Box<dyn Iterator<Item = (K, CollectionDelta<K, V2>)> + '_> {
+  fn iter_key_value(&self) -> Box<dyn Iterator<Item = (K, ValueChange<V2>)> + '_> {
     Box::new(
       self
         .base
@@ -90,7 +89,7 @@ where
     )
   }
 
-  fn access(&self, key: &K) -> Option<CollectionDelta<K, V2>> {
+  fn access(&self, key: &K) -> Option<ValueChange<V2>> {
     self.base.access(key).map(|delta| delta.map(self.mapper))
   }
 }
@@ -113,27 +112,27 @@ where
   T: ReactiveCollection<K, V>,
 {
   #[tracing::instrument(skip_all, name = "ReactiveKVExecuteMap")]
-  fn poll_changes(&self, cx: &mut Context<'_>) -> PollCollectionChanges<K, V2> {
+  fn poll_changes(&self, cx: &mut Context) -> PollCollectionChanges<K, V2> {
     self.inner.poll_changes(cx).map(move |deltas| {
       deltas.map(|deltas| {
         let mapper = (self.map_creator)();
         let materialized = deltas.iter_key_value().collect::<Vec<_>>();
-        let materialized: FastHashMap<K, CollectionDelta<K, V2>> = materialized
+        let materialized: FastHashMap<K, ValueChange<V2>> = materialized
           .into_par_iter()
-          .map(|(_, delta)| match delta {
-            CollectionDelta::Delta(k, d, _p) => {
+          .map(|(k, delta)| match delta {
+            ValueChange::Delta(d, _p) => {
               let new_value = mapper(&k, d);
               let p = self.cache.insert(k.clone(), new_value.clone());
-              (k.clone(), CollectionDelta::Delta(k, new_value, p))
+              (k, ValueChange::Delta(new_value, p))
             }
-            CollectionDelta::Remove(k, _p) => {
+            ValueChange::Remove(_p) => {
               let (_, p) = self.cache.remove(&k).unwrap();
-              (k.clone(), CollectionDelta::Remove(k, p))
+              (k, ValueChange::Remove(p))
             }
           })
           .collect();
 
-        Box::new(Arc::new(materialized)) as Box<dyn VirtualCollection<K, CollectionDelta<K, V2>>>
+        Box::new(Arc::new(materialized)) as Box<dyn VirtualCollection<K, ValueChange<V2>>>
       })
     })
   }

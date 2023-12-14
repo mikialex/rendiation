@@ -1,54 +1,47 @@
 use crate::*;
 
 #[derive(Debug, Clone, Copy)]
-pub enum CollectionDelta<K, V> {
+pub enum ValueChange<V> {
   // k, new_v, pre_v
-  Delta(K, V, Option<V>),
+  Delta(V, Option<V>),
   // k, pre_v
-  Remove(K, V),
+  Remove(V),
 }
 
-impl<K, V> CollectionDelta<K, V> {
-  pub fn map<R>(self, mapper: impl Fn(V) -> R) -> CollectionDelta<K, R> {
-    type Rt<K, R> = CollectionDelta<K, R>;
+impl<V> ValueChange<V> {
+  pub fn map<R>(self, mapper: impl Fn(V) -> R) -> ValueChange<R> {
+    type Rt<R> = ValueChange<R>;
     match self {
-      Self::Remove(k, pre) => {
+      Self::Remove(pre) => {
         let mapped = mapper(pre);
-        Rt::<K, R>::Remove(k, mapped)
+        Rt::<R>::Remove(mapped)
       }
-      Self::Delta(k, d, pre) => {
+      Self::Delta(d, pre) => {
         let mapped = mapper(d);
         let mapped_pre = pre.map(mapper);
-        Rt::<K, R>::Delta(k, mapped, mapped_pre)
+        Rt::<R>::Delta(mapped, mapped_pre)
       }
-    }
-  }
-
-  pub fn key(&self) -> &K {
-    match self {
-      Self::Remove(k, _) => k,
-      Self::Delta(k, _, _) => k,
     }
   }
 
   pub fn new_value(&self) -> Option<&V> {
     match self {
-      Self::Delta(_, v, _) => Some(v),
-      Self::Remove(_, _) => None,
+      Self::Delta(v, _) => Some(v),
+      Self::Remove(_) => None,
     }
   }
 
   pub fn old_value(&self) -> Option<&V> {
     match self {
-      Self::Delta(_, _, Some(v)) => Some(v),
-      Self::Remove(_, v) => Some(v),
+      Self::Delta(_, Some(v)) => Some(v),
+      Self::Remove(v) => Some(v),
       _ => None,
     }
   }
   pub fn is_removed(&self) -> bool {
     match self {
-      Self::Remove(_, _) => true,
-      Self::Delta(_, _, _) => false,
+      Self::Remove(_) => true,
+      Self::Delta(_, _) => false,
     }
   }
 }
@@ -58,34 +51,30 @@ pub trait ChangeMerge {
   fn merge(&mut self, new: &Self) -> bool;
 }
 
-impl<K, V> ChangeMerge for CollectionDelta<K, V>
+impl<V> ChangeMerge for ValueChange<V>
 where
-  K: PartialEq + Clone,
   V: Clone,
 {
   fn merge(&mut self, new: &Self) -> bool {
-    use CollectionDelta::*;
-    if self.key() != new.key() {
-      panic!("only same key change could be merge");
-    }
+    use ValueChange::*;
     *self = match (self.clone(), new.clone()) {
-      (Delta(k, _d1, p1), Delta(_, d2, _p2)) => {
+      (Delta(_d1, p1), Delta(d2, _p2)) => {
         // we should check d1 = d2
-        Delta(k, d2, p1)
+        Delta(d2, p1)
       }
-      (Delta(k, _d1, p1), Remove(_, _p2)) => {
+      (Delta(_d1, p1), Remove(_p2)) => {
         // we should check d1 = d2
         if let Some(p1) = p1 {
-          Remove(k, p1)
+          Remove(p1)
         } else {
           return false;
         }
       }
-      (Remove(k, p), Delta(_, d1, p2)) => {
+      (Remove(p), Delta(d1, p2)) => {
         assert!(p2.is_none());
-        Delta(k, d1, Some(p))
+        Delta(d1, Some(p))
       }
-      (Remove(_, _), Remove(_, _)) => {
+      (Remove(_), Remove(_)) => {
         unreachable!("same key with double remove is invalid")
       }
     };

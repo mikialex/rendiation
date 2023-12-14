@@ -299,21 +299,20 @@ where
   U: Clone + Send + Sync + 'static,
   S: Stream<Item = MutationFolder<T, U>> + Unpin + Send + Sync + 'static,
 {
-  fn poll_changes(&self, cx: &mut Context<'_>) -> PollCollectionChanges<AllocIdx<T>, U> {
+  fn poll_changes(&self, cx: &mut Context) -> PollCollectionChanges<AllocIdx<T>, U> {
     match self.inner.write().poll_next_unpin(cx) {
       Poll::Ready(Some(mutations)) => {
         let r = mutations
           .inner
           .into_iter()
           .flat_map(|(id, state)| {
-            let mut expand =
-              smallvec::SmallVec::<[(AllocIdx<T>, CollectionDelta<AllocIdx<T>, U>); 2]>::new();
+            let mut expand = smallvec::SmallVec::<[(AllocIdx<T>, ValueChange<U>); 2]>::new();
             match state {
-              MutationState::NewInsert(v) => expand.push((id, CollectionDelta::Delta(id, v, None))),
+              MutationState::NewInsert(v) => expand.push((id, ValueChange::Delta(v, None))),
               MutationState::ChangeTo(v, p) => {
-                expand.push((id, CollectionDelta::Delta(id, v, Some(p))));
+                expand.push((id, ValueChange::Delta(v, Some(p))));
               }
-              MutationState::Remove(p) => expand.push((id, CollectionDelta::Remove(id, p))),
+              MutationState::Remove(p) => expand.push((id, ValueChange::Remove(p))),
             }
             expand
           })
@@ -322,10 +321,7 @@ where
         let r = if r.is_empty() {
           Poll::Pending
         } else {
-          Poll::Ready(Box::new(r)
-            as Box<
-              dyn VirtualCollection<AllocIdx<T>, CollectionDelta<AllocIdx<T>, U>>,
-            >)
+          Poll::Ready(Box::new(r) as Box<dyn VirtualCollection<AllocIdx<T>, ValueChange<U>>>)
         };
 
         CPoll::Ready(r)

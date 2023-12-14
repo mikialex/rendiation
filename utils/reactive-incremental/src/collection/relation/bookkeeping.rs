@@ -72,14 +72,13 @@ where
   O: CKey,
 {
   //   #[tracing::instrument(skip_all, name = "OneToManyRefHashBookKeeping")]
-  fn poll_changes(&self, cx: &mut Context<'_>) -> PollCollectionChanges<M, O> {
+  fn poll_changes(&self, cx: &mut Context) -> PollCollectionChanges<M, O> {
     let r = self.upstream.poll_changes(cx);
 
     if let CPoll::Ready(Poll::Ready(changes)) = r.clone() {
       let mut mapping = self.mapping.write();
 
-      for change in changes.values() {
-        let many = change.key().clone();
+      for (many, change) in changes.iter_key_value() {
         let new_one = change.new_value();
 
         let old_refed_one = change.old_value();
@@ -209,14 +208,13 @@ where
   O: LinearIdentification + CKey,
 {
   #[tracing::instrument(skip_all, name = "OneToManyRefDenseBookKeeping")]
-  fn poll_changes(&self, cx: &mut Context<'_>) -> PollCollectionChanges<M, O> {
+  fn poll_changes(&self, cx: &mut Context) -> PollCollectionChanges<M, O> {
     let r = self.upstream.poll_changes(cx);
 
     if let CPoll::Ready(Poll::Ready(changes)) = r.clone() {
-      for change in changes.values() {
+      for (many, change) in changes.iter_key_value() {
         let mut mapping = self.mapping.write();
         let mapping: &mut Mapping = &mut mapping;
-        let many = *change.key();
         let new_one = change.new_value();
 
         let old_refed_one = change.old_value();

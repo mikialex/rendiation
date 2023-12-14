@@ -59,8 +59,8 @@ impl SceneNodeDeriveSystem {
       .flat_map(futures::stream::iter)
       // we don't care about deletions in this stream
       .filter_map_sync(|d| match d {
-        CollectionDelta::Delta(idx, d, _) => Some((idx, d)),
-        CollectionDelta::Remove(_, _) => None,
+        ValueChange::Delta(idx, d, _) => Some((idx, d)),
+        ValueChange::Remove(_, _) => None,
       })
       .create_index_mapping_broadcaster();
 
@@ -76,7 +76,7 @@ impl SceneNodeDeriveSystem {
       .fold_signal_state_stream(
         sub_broad_caster,
         move |delta, sub_broad_caster| match delta {
-          CollectionDelta::Delta(idx, _, _) => {
+          ValueChange::Delta(idx, _, _) => {
             if sub_broad_caster.get(idx).is_none() {
               sub_broad_caster.insert(
                 idx,
@@ -90,7 +90,7 @@ impl SceneNodeDeriveSystem {
               )
             }
           }
-          CollectionDelta::Remove(idx, _) => {
+          ValueChange::Remove(idx, _) => {
             sub_broad_caster.insert(idx, None);
           }
         },

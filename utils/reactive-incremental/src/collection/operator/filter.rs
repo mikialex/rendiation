@@ -1,27 +1,26 @@
 use crate::*;
 
-pub fn make_checker<K, V, V2>(
+pub fn make_checker<V, V2>(
   checker: impl Fn(V) -> Option<V2> + Copy + Send + Sync + 'static,
-) -> impl Fn(CollectionDelta<K, V>) -> Option<CollectionDelta<K, V2>> + Copy + Send + Sync + 'static
-{
+) -> impl Fn(ValueChange<V>) -> Option<ValueChange<V2>> + Copy + Send + Sync + 'static {
   move |delta| {
     match delta {
-      CollectionDelta::Delta(k, v, pre_v) => {
+      ValueChange::Delta(v, pre_v) => {
         let new_map = checker(v);
         let pre_map = pre_v.and_then(checker);
         match (new_map, pre_map) {
-          (Some(v), Some(pre_v)) => CollectionDelta::Delta(k, v, Some(pre_v)),
-          (Some(v), None) => CollectionDelta::Delta(k, v, None),
-          (None, Some(pre_v)) => CollectionDelta::Remove(k, pre_v),
+          (Some(v), Some(pre_v)) => ValueChange::Delta(v, Some(pre_v)),
+          (Some(v), None) => ValueChange::Delta(v, None),
+          (None, Some(pre_v)) => ValueChange::Remove(pre_v),
           (None, None) => return None,
         }
         .into()
       }
       // the Remove variant maybe called many times for given k
-      CollectionDelta::Remove(k, pre_v) => {
+      ValueChange::Remove(pre_v) => {
         let pre_map = checker(pre_v);
         match pre_map {
-          Some(pre) => CollectionDelta::Remove(k, pre).into(),
+          Some(pre) => ValueChange::Remove(pre).into(),
           None => None,
         }
       }
@@ -44,13 +43,13 @@ where
   V2: CValue,
 {
   #[tracing::instrument(skip_all, name = "ReactiveKVFilter")]
-  fn poll_changes(&self, cx: &mut Context<'_>) -> PollCollectionChanges<K, V2> {
+  fn poll_changes(&self, cx: &mut Context) -> PollCollectionChanges<K, V2> {
     self.inner.poll_changes(cx).map(|delta| {
       delta.map(|delta| {
-        Box::new(CollectionDeltaFilter {
+        Box::new(ValueChangeFilter {
           base: delta,
           mapper: self.checker,
-        }) as Box<dyn VirtualCollection<K, CollectionDelta<K, V2>>>
+        }) as Box<dyn VirtualCollection<K, ValueChange<V2>>>
       })
     })
   }
@@ -98,20 +97,19 @@ where
 }
 
 #[derive(Clone)]
-struct CollectionDeltaFilter<'a, K, V, F> {
-  base: Box<dyn VirtualCollection<K, CollectionDelta<K, V>> + 'a>,
+struct ValueChangeFilter<'a, K, V, F> {
+  base: Box<dyn VirtualCollection<K, ValueChange<V>> + 'a>,
   mapper: F,
 }
 
-impl<'a, K, V, F, V2> VirtualCollection<K, CollectionDelta<K, V2>>
-  for CollectionDeltaFilter<'a, K, V, F>
+impl<'a, K, V, F, V2> VirtualCollection<K, ValueChange<V2>> for ValueChangeFilter<'a, K, V, F>
 where
   F: Fn(V) -> Option<V2> + Sync + Send + Copy + 'static,
   K: CKey,
   V: CValue,
   V2: CValue,
 {
-  fn iter_key_value(&self) -> Box<dyn Iterator<Item = (K, CollectionDelta<K, V2>)> + '_> {
+  fn iter_key_value(&self) -> Box<dyn Iterator<Item = (K, ValueChange<V2>)> + '_> {
     let checker = make_checker(self.mapper);
     Box::new(
       self
@@ -121,7 +119,7 @@ where
     )
   }
 
-  fn access(&self, key: &K) -> Option<CollectionDelta<K, V2>> {
+  fn access(&self, key: &K) -> Option<ValueChange<V2>> {
     let checker = make_checker(self.mapper);
     let base = self.base.access(key)?;
     checker(base)

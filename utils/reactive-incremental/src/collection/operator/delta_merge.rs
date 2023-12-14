@@ -8,7 +8,7 @@ use crate::*;
 /// the history message together to meet the message integrity or to avoid performance overhead
 pub struct BufferedCollection<M, K, V> {
   inner: M,
-  buffered: RwLock<Option<FastHashMap<K, CollectionDelta<K, V>>>>,
+  buffered: RwLock<Option<FastHashMap<K, ValueChange<V>>>>,
 }
 
 impl<M: Clone, K, V> Clone for BufferedCollection<M, K, V> {
@@ -74,7 +74,7 @@ where
 }
 
 impl<M, K: Clone, V: Clone> BufferedCollection<M, K, V> {
-  pub fn put_back_to_buffered(&self, buffered: Arc<FastHashMap<K, CollectionDelta<K, V>>>) {
+  pub fn put_back_to_buffered(&self, buffered: Arc<FastHashMap<K, ValueChange<V>>>) {
     let buffered = Arc::try_unwrap(buffered).unwrap_or_else(|buffered| buffered.deref().clone());
     *self.buffered.write() = buffered.into();
   }
@@ -84,7 +84,7 @@ impl<M, K, V> ReactiveOneToManyRelationship<V, K> for BufferedCollection<M, K, V
 where
   M: ReactiveOneToManyRelationship<V, K>,
   K: CKey,
-  V: CValue,
+  V: CKey,
 {
   fn multi_access(&self) -> CPoll<Box<dyn VirtualMultiCollection<V, K> + '_>> {
     self.inner.multi_access()

@@ -31,12 +31,12 @@ pub enum ExtraCollectionOperation {
   MemoryShrinkToFit,
 }
 
-pub type CollectionChanges<'a, K, V> = Box<dyn VirtualCollection<K, CollectionDelta<K, V>> + 'a>;
+pub type CollectionChanges<'a, K, V> = Box<dyn VirtualCollection<K, ValueChange<V>> + 'a>;
 pub type PollCollectionChanges<'a, K, V> = CPoll<Poll<CollectionChanges<'a, K, V>>>;
 pub type CollectionView<'a, K, V> = Box<dyn VirtualCollection<K, V> + 'a>;
 pub type PollCollectionCurrent<'a, K, V> = CPoll<CollectionView<'a, K, V>>;
 
-pub trait ReactiveCollection<K: Send, V: Send>: Sync + Send + 'static {
+pub trait ReactiveCollection<K: CKey, V: CValue>: Sync + Send + 'static {
   fn poll_changes(&self, cx: &mut Context) -> PollCollectionChanges<K, V>;
 
   fn access(&self) -> PollCollectionCurrent<K, V>;
@@ -55,7 +55,7 @@ pub trait ReactiveCollection<K: Send, V: Send>: Sync + Send + 'static {
   fn spin_poll_until_pending(
     &mut self,
     cx: &mut Context,
-    consumer: &mut dyn FnMut(&dyn VirtualCollection<K, CollectionDelta<K, V>>),
+    consumer: &mut dyn FnMut(&dyn VirtualCollection<K, ValueChange<V>>),
   ) {
     loop {
       match self.poll_changes(cx) {
@@ -73,11 +73,11 @@ pub trait ReactiveCollection<K: Send, V: Send>: Sync + Send + 'static {
 #[derive(Clone)]
 pub struct CollectionPreviousView<'a, K, V> {
   current: &'a dyn VirtualCollection<K, V>,
-  delta: Option<&'a dyn VirtualCollection<K, CollectionDelta<K, V>>>,
+  delta: Option<&'a dyn VirtualCollection<K, ValueChange<V>>>,
 }
 pub fn make_previous<'a, K, V>(
   current: &'a dyn VirtualCollection<K, V>,
-  delta: &'a Poll<Box<dyn VirtualCollection<K, CollectionDelta<K, V>> + 'a>>,
+  delta: &'a Poll<Box<dyn VirtualCollection<K, ValueChange<V>> + 'a>>,
 ) -> CollectionPreviousView<'a, K, V> {
   let delta = match delta {
     Poll::Ready(v) => Some(v.as_ref()),
@@ -121,7 +121,7 @@ impl<'a, K: CKey, V: CValue> VirtualCollection<K, V> for CollectionPreviousView<
 }
 
 impl<K: CKey, V: CValue> ReactiveCollection<K, V> for () {
-  fn poll_changes(&self, _: &mut Context<'_>) -> PollCollectionChanges<K, V> {
+  fn poll_changes(&self, _: &mut Context) -> PollCollectionChanges<K, V> {
     CPoll::Ready(Poll::Pending)
   }
   fn extra_request(&mut self, _: &mut ExtraCollectionOperation) {}
@@ -132,7 +132,7 @@ impl<K: CKey, V: CValue> ReactiveCollection<K, V> for () {
 }
 
 impl<K: CKey, V: CValue> ReactiveCollection<K, V> for Box<dyn ReactiveCollection<K, V>> {
-  fn poll_changes(&self, cx: &mut Context<'_>) -> PollCollectionChanges<K, V> {
+  fn poll_changes(&self, cx: &mut Context) -> PollCollectionChanges<K, V> {
     self.deref().poll_changes(cx)
   }
   fn extra_request(&mut self, request: &mut ExtraCollectionOperation) {

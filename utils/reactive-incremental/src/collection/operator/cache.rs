@@ -13,16 +13,16 @@ where
   K: CKey,
   V: CValue,
 {
-  fn poll_changes(&self, cx: &mut Context<'_>) -> PollCollectionChanges<K, V> {
+  fn poll_changes(&self, cx: &mut Context) -> PollCollectionChanges<K, V> {
     self.inner.poll_changes(cx).map(|delta| {
       if let Poll::Ready(changes) = &delta {
         let mut cache = self.cache.write();
-        for change in changes.values() {
+        for (k, change) in changes.iter_key_value() {
           match change.clone() {
-            CollectionDelta::Delta(k, v, _) => {
+            ValueChange::Delta(v, _) => {
               cache.insert(k, v);
             }
-            CollectionDelta::Remove(k, _) => {
+            ValueChange::Remove(_) => {
               cache.remove(&k);
             }
           }
@@ -54,16 +54,16 @@ where
   K: LinearIdentification + CKey,
   V: CValue,
 {
-  fn poll_changes(&self, cx: &mut Context<'_>) -> PollCollectionChanges<K, V> {
+  fn poll_changes(&self, cx: &mut Context) -> PollCollectionChanges<K, V> {
     self.inner.poll_changes(cx).map(|delta| {
       let mut cache = self.cache.write();
       if let Poll::Ready(changes) = &delta {
-        for change in changes.values() {
+        for (k, change) in changes.iter_key_value() {
           match change {
-            CollectionDelta::Delta(k, v, _) => {
+            ValueChange::Delta(v, _) => {
               cache.insert(v, k.alloc_index());
             }
-            CollectionDelta::Remove(k, _) => {
+            ValueChange::Remove(_) => {
               cache.remove(k.alloc_index());
             }
           }
