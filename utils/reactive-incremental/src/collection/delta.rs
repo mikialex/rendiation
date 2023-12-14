@@ -44,6 +44,9 @@ impl<V> ValueChange<V> {
       Self::Delta(_, _) => false,
     }
   }
+  pub fn is_new_insert(&self) -> bool {
+    matches!(self, Self::Delta(_, None))
+  }
 }
 
 pub trait ChangeMerge {

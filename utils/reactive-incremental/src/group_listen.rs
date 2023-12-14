@@ -63,11 +63,7 @@ impl<T: IncrementalBase> IncrementalSignalStorage<T> {
 
       for (index, data) in data.iter() {
         if let Some(init) = mapper(MaybeDeltaRef::All(&data.data)).expect_care() {
-          let change = KeyedMutationState {
-            key: index.into(),
-            change: MutationState::NewInsert(init),
-          };
-          sender.send(change);
+          sender.send(index.into(), ValueChange::Delta(init, None));
         }
       }
     }
@@ -79,11 +75,7 @@ impl<T: IncrementalBase> IncrementalSignalStorage<T> {
       match v {
         StorageGroupChange::Create { index, data } => {
           if let Some(mapped) = mapper(MaybeDeltaRef::All(data)).expect_care() {
-            let change = KeyedMutationState {
-              key: *index,
-              change: MutationState::NewInsert(mapped),
-            };
-            sender.send(change);
+            sender.send(*index, ValueChange::Delta(mapped, None));
           }
         }
         StorageGroupChange::Mutate {
@@ -96,26 +88,19 @@ impl<T: IncrementalBase> IncrementalSignalStorage<T> {
 
             let change = match (mapped, mapped_before) {
               (None, None) => None,
-              (None, Some(pre)) => MutationState::Remove(pre).into(),
-              (Some(new), None) => MutationState::NewInsert(new).into(),
-              (Some(new), Some(pre)) => MutationState::ChangeTo(new, pre).into(),
+              (None, Some(pre)) => ValueChange::Remove(pre).into(),
+              (Some(new), None) => ValueChange::Delta(new, None).into(),
+              (Some(new), Some(pre)) => ValueChange::Delta(new, Some(pre)).into(),
             };
 
             if let Some(change) = change {
-              sender.send(KeyedMutationState {
-                key: *index,
-                change,
-              });
+              sender.send(*index, change);
             }
           }
         }
         StorageGroupChange::Drop { index, data } => {
           if let Some(mapped) = mapper(MaybeDeltaRef::All(data)).expect_care() {
-            let change = KeyedMutationState {
-              key: *index,
-              change: MutationState::Remove(mapped),
-            };
-            sender.send(change);
+            sender.send(*index, ValueChange::Remove(mapped));
           }
         }
       }
@@ -136,78 +121,24 @@ impl<T: IncrementalBase> IncrementalSignalStorage<T> {
   }
 }
 
-pub struct MutationFolder<K, T> {
-  inner: FastHashMap<AllocIdx<K>, MutationState<T>>,
-}
-
-impl<K, T> Default for MutationFolder<K, T> {
-  fn default() -> Self {
-    Self {
-      inner: Default::default(),
-    }
-  }
-}
-
-impl<K, T> MutationFolder<K, T> {
-  fn take(&mut self) -> Option<MutationFolder<K, T>> {
-    if self.inner.is_empty() {
-      None
-    } else {
-      std::mem::take(self).into()
-    }
-  }
-}
-
-impl<K, T: Clone> Clone for MutationFolder<K, T> {
-  fn clone(&self) -> Self {
-    Self {
-      inner: self.inner.clone(),
-    }
-  }
-}
-
 pub struct GroupMutationSender<K, T> {
-  inner: Weak<(RwLock<MutationFolder<K, T>>, AtomicWaker)>,
+  inner: Weak<(
+    RwLock<FastHashMap<AllocIdx<K>, ValueChange<T>>>,
+    AtomicWaker,
+  )>,
 }
 
 impl<K, T: Clone> GroupMutationSender<K, T> {
-  fn send(&self, message: KeyedMutationState<AllocIdx<K>, T>) -> bool {
+  fn send(&self, idx: AllocIdx<K>, change: ValueChange<T>) -> bool {
     if let Some(inner) = self.inner.upgrade() {
-      let mut should_remove = false;
-
-      use MutationState as State;
-
-      let key = message.key;
       let mut mutations = inner.0.write();
-      mutations
-        .inner
-        .entry(key)
-        .and_modify(|state| {
-          *state = match state {
-            State::NewInsert(_) => match &message.change {
-              State::NewInsert(_new) => unreachable!(),
-              State::ChangeTo(new, _old) => State::NewInsert(new.clone()),
-              State::Remove(_old) => {
-                should_remove = true;
-                return;
-              }
-            },
-            State::ChangeTo(_current_new, old) => match &message.change {
-              State::NewInsert(_new) => unreachable!(),
-              State::ChangeTo(new, _current_new) => State::ChangeTo(new.clone(), old.clone()),
-              State::Remove(_) => State::Remove(old.clone()),
-            },
-            State::Remove(old) => match &message.change {
-              State::NewInsert(new) => State::ChangeTo(new.clone(), old.clone()),
-              State::ChangeTo(_new, _current_new) => unreachable!(),
-              State::Remove(_old) => unreachable!(),
-            },
-          }
-        })
-        .or_insert(message.change.clone()); // we should do some check here?
-
-      if should_remove {
-        mutations.inner.remove(&key);
+      if let Some(old_change) = mutations.get_mut(&idx) {
+        if !old_change.merge(&change) {
+          mutations.remove(&idx);
+        }
+      } else {
+        assert!(change.is_new_insert());
+        mutations.insert(idx, change);
       }
 
       inner.1.wake();
@@ -229,27 +160,20 @@ impl<K, T> Drop for GroupMutationSender<K, T> {
   }
 }
 
-#[derive(Clone)]
-pub enum MutationState<T> {
-  NewInsert(T),
-  // new, old
-  ChangeTo(T, T),
-  Remove(T),
-}
-
-pub struct KeyedMutationState<K, T> {
-  key: K,
-  change: MutationState<T>,
-}
-
 pub struct GroupMutationReceiver<K, T> {
-  inner: Arc<(RwLock<MutationFolder<K, T>>, AtomicWaker)>,
+  inner: Arc<(
+    RwLock<FastHashMap<AllocIdx<K>, ValueChange<T>>>,
+    AtomicWaker,
+  )>,
 }
 
 struct ReactiveCollectionFromGroupMutation<T: IncrementalBase, S, U> {
   original: IncrementalSignalStorage<T>,
   inner: RwLock<S>,
-  _mutations: Arc<(RwLock<MutationFolder<T, U>>, AtomicWaker)>,
+  _mutations: Arc<(
+    RwLock<FastHashMap<AllocIdx<T>, ValueChange<U>>>,
+    AtomicWaker,
+  )>,
   mapper: Arc<dyn Fn(MaybeDeltaRef<T>) -> ChangeReaction<U> + Send + Sync>,
 }
 
@@ -297,27 +221,11 @@ impl<T, S, U> ReactiveCollection<AllocIdx<T>, U> for ReactiveCollectionFromGroup
 where
   T: IncrementalBase,
   U: Clone + Send + Sync + 'static,
-  S: Stream<Item = MutationFolder<T, U>> + Unpin + Send + Sync + 'static,
+  S: Stream<Item = FastHashMap<AllocIdx<T>, ValueChange<U>>> + Unpin + Send + Sync + 'static,
 {
   fn poll_changes(&self, cx: &mut Context) -> PollCollectionChanges<AllocIdx<T>, U> {
     match self.inner.write().poll_next_unpin(cx) {
-      Poll::Ready(Some(mutations)) => {
-        let r = mutations
-          .inner
-          .into_iter()
-          .flat_map(|(id, state)| {
-            let mut expand = smallvec::SmallVec::<[(AllocIdx<T>, ValueChange<U>); 2]>::new();
-            match state {
-              MutationState::NewInsert(v) => expand.push((id, ValueChange::Delta(v, None))),
-              MutationState::ChangeTo(v, p) => {
-                expand.push((id, ValueChange::Delta(v, Some(p))));
-              }
-              MutationState::Remove(p) => expand.push((id, ValueChange::Remove(p))),
-            }
-            expand
-          })
-          .collect::<FastHashMap<_, _>>();
-
+      Poll::Ready(Some(r)) => {
         let r = if r.is_empty() {
           Poll::Pending
         } else {
@@ -345,13 +253,16 @@ where
 }
 
 impl<K, T> Stream for GroupMutationReceiver<K, T> {
-  type Item = MutationFolder<K, T>;
+  type Item = FastHashMap<AllocIdx<K>, ValueChange<T>>;
 
   fn poll_next(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Option<Self::Item>> {
     self.inner.1.register(cx.waker());
-    // check is_some first to avoid unnecessary move
-    if let Some(change) = self.inner.0.write().take() {
-      Poll::Ready(Some(change))
+    let mut changes = self.inner.0.write();
+    let changes: &mut FastHashMap<AllocIdx<K>, ValueChange<T>> = &mut changes;
+
+    let changes = std::mem::take(changes);
+    if !changes.is_empty() {
+      Poll::Ready(Some(changes))
       // check if sender has dropped
     } else if Arc::weak_count(&self.inner) == 0 {
       Poll::Ready(None)

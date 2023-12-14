@@ -1,14 +1,14 @@
 use std::{marker::PhantomData, sync::Arc};
 
 use fast_hash_collection::FastHashMap;
+use futures::channel::mpsc::*;
 use futures::task::AtomicWaker;
 use parking_lot::RwLockReadGuard;
 
 use crate::*;
 
-type Sender<K, V> = futures::channel::mpsc::UnboundedSender<Arc<FastHashMap<K, ValueChange<V>>>>;
-type Receiver<K, V> =
-  futures::channel::mpsc::UnboundedReceiver<Arc<FastHashMap<K, ValueChange<V>>>>;
+type Sender<K, V> = UnboundedSender<Arc<FastHashMap<K, ValueChange<V>>>>;
+type Receiver<K, V> = UnboundedReceiver<Arc<FastHashMap<K, ValueChange<V>>>>;
 
 pub type ReactiveKVMapFork<Map, K, V> = BufferedCollection<ReactiveKVMapForkImpl<Map, K, V>, K, V>;
 
@@ -23,7 +23,7 @@ pub struct ReactiveKVMapForkImpl<Map, K, V> {
 
 impl<Map, K, V> ReactiveKVMapForkImpl<Map, K, V> {
   pub fn new(upstream: Map) -> Self {
-    let (sender, rev) = futures::channel::mpsc::unbounded();
+    let (sender, rev) = unbounded();
     let mut init = FastHashMap::default();
     let id = alloc_global_res_id();
     let waker: Arc<AtomicWaker> = Default::default();
@@ -65,7 +65,7 @@ where
 
     let mut downstream = self.downstream.write();
     let id = alloc_global_res_id();
-    let (sender, rev) = futures::channel::mpsc::unbounded();
+    let (sender, rev) = unbounded();
 
     if !current.is_empty() {
       sender.unbounded_send(current).ok();
