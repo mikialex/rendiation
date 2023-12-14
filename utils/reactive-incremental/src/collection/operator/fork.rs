@@ -201,54 +201,40 @@ impl<K: CKey, V: CValue, T: Send + Sync> VirtualCollection<K, V> for ForkedAcces
   }
 }
 
-// impl<K, V, T, Map> VirtualMultiCollection<K, V> for ReactiveKVMapForkImpl<Map, T, V, K>
-// where
-//   Map: VirtualMultiCollection<K, V> + Sync + Send,
-// {
-//   fn iter_key_in_multi_collection(&self) -> impl Iterator<Item = K> + '_ {
-//     // todo avoid clone
-//     self
-//       .upstream
-//       .read()
-//       .iter_key_in_multi_collection()
-//       .collect::<Vec<_>>()
-//       .into_iter()
-//   }
+impl<Map, K, V> ReactiveOneToManyRelationship<V, K> for ReactiveKVMapForkImpl<Map, K, V>
+where
+  Map: ReactiveOneToManyRelationship<V, K>,
+  Map: ReactiveCollection<K, V>,
+  K: CKey,
+  V: CKey,
+{
+  fn multi_access(&self) -> CPoll<Box<dyn VirtualMultiCollection<V, K>>> {
+    if let Some(upstream) = self.upstream.try_read() {
+      let view = upstream.access();
+      let view = ForkedMultiAccessView::<RwLockReadGuard<'static, Map>, V, K> {
+        view: unsafe { std::mem::transmute(view) },
+        _lock: unsafe { std::mem::transmute(upstream) },
+      };
+      CPoll::Ready(Box::new(view) as Box<dyn VirtualMultiCollection<V, K>>)
+    } else {
+      CPoll::Blocked
+    }
+  }
+}
 
-//   // todo remove box
-//   fn access_multi(&self) -> impl Fn(&K, &mut dyn FnMut(V)) + Send + Sync + '_ {
-//     let inner = self.upstream.read();
-//     let acc = inner.access_multi();
+struct ForkedMultiAccessView<T: 'static, K, V> {
+  _lock: Arc<RwLockReadGuard<'static, T>>,
+  view: Box<dyn VirtualMultiCollection<K, V>>,
+}
 
-//     let acc = Box::new(acc) as Box<dyn Fn(&K, &mut dyn FnMut(V)) + Send + Sync + '_>;
+impl<K: CKey, V: CValue, T: Send + Sync> VirtualMultiCollection<K, V>
+  for ForkedMultiAccessView<T, K, V>
+{
+  fn iter_key_in_multi_collection(&self) -> Box<dyn Iterator<Item = K> + '_> {
+    self.view.iter_key_in_multi_collection()
+  }
 
-//     // safety: read guard is hold by closure, acc's real reference is form the Map
-//     let acc: Box<dyn Fn(&K, &mut dyn FnMut(V)) + Send + Sync + '_> =
-//       unsafe { std::mem::transmute(acc) };
-
-//     move |key: &_, f| {
-//       let _holder = &inner;
-//       let acc = &acc;
-//       acc(key, f)
-//     }
-//   }
-
-//   // todo remove box
-//   fn try_access_multi(&self) -> Option<Box<dyn Fn(&K, &mut dyn FnMut(V)) + Send + Sync + '_>> {
-//     let inner = self.upstream.try_read()?;
-//     let acc = inner.try_access_multi()?;
-
-//     // safety: read guard is hold by closure, acc's real reference is form the Map
-//     let acc: Box<dyn Fn(&K, &mut dyn FnMut(V)) + Send + Sync + '_> =
-//       unsafe { std::mem::transmute(acc) };
-
-//     let acc = move |key: &_, f: &mut dyn FnMut(V)| {
-//       let _holder = &inner;
-//       let acc = &acc;
-//       acc(key, f)
-//     };
-
-//     let boxed = Box::new(acc) as Box<dyn Fn(&K, &mut dyn FnMut(V)) + Send + Sync + '_>;
-//     boxed.into()
-//   }
-// }
+  fn access_multi(&self, key: &K, visitor: &mut dyn FnMut(V)) {
+    self.view.access_multi(key, visitor)
+  }
+}

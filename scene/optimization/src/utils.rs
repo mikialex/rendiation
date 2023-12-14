@@ -62,7 +62,7 @@ impl NodeRebuilder {
 
 pub struct SceneCameraRebuilder {
   nodes: NodeRebuilder,
-  camera_scope: Box<dyn DynamicReactiveCollection<AllocIdx<SceneCameraImpl>, ()>>,
+  camera_scope: Box<dyn ReactiveCollection<AllocIdx<SceneCameraImpl>, ()>>,
   target_scene: Scene,
   camera_mapping: FastHashMap<AllocIdx<SceneCameraImpl>, SceneCameraHandle>,
 }
@@ -154,7 +154,7 @@ impl SceneCameraRebuilder {
 
 pub struct SceneLightsRebuilder {
   nodes: NodeRebuilder,
-  light_scope: Box<dyn DynamicReactiveCollection<AllocIdx<SceneLightImpl>, ()>>,
+  light_scope: Box<dyn ReactiveCollection<AllocIdx<SceneLightImpl>, ()>>,
   target_scene: Scene,
   light_mapping: FastHashMap<AllocIdx<SceneLightImpl>, SceneLightHandle>,
 }

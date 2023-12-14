@@ -83,7 +83,7 @@ impl ModelMergeProxy {
     key: &MergeKey,
     reg: &MergeImplRegistry,
     reverse_access: &dyn Fn(&mut dyn FnMut(AllocIdx<SceneModelImpl>)),
-    mat_access: &dyn DynamicReactiveCollection<AllocIdx<SceneModelImpl>, Mat4<f32>>,
+    mat_access: &dyn ReactiveCollection<AllocIdx<SceneModelImpl>, Mat4<f32>>,
   ) -> MergeUpdating {
     // only matrix/vis change, go fast path
     if !self.source_changed && self.mat_changed {

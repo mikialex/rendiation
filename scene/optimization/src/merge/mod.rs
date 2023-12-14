@@ -59,7 +59,7 @@ pub struct SceneModelMergeOptimization {
 
   merge_relation: Box<dyn DynamicReactiveOneToManyRelationship<MergeKey, AllocIdx<SceneModelImpl>>>,
   // use to update mesh's vertex, the visibility is expressed by all zero matrix value
-  applied_matrix_table: Box<dyn DynamicReactiveCollection<AllocIdx<SceneModelImpl>, Mat4<f32>>>,
+  applied_matrix_table: Box<dyn ReactiveCollection<AllocIdx<SceneModelImpl>, Mat4<f32>>>,
   // all merged models
   merged_model: FastDashMap<MergeKey, ModelMergeProxy>,
   merge_methods: MergeImplRegistry,
@@ -216,8 +216,8 @@ pub enum MeshMergeType {
 pub type ForeignMergeKeySupport = dyn FnOnce(
   RxCForker<AllocIdx<StandardModel>, ()>,
 ) -> (
-  Box<dyn DynamicReactiveCollection<AllocIdx<StandardModel>, MaterialContentID>>,
-  Box<dyn DynamicReactiveCollection<AllocIdx<StandardModel>, MeshMergeType>>,
+  Box<dyn ReactiveCollection<AllocIdx<StandardModel>, MaterialContentID>>,
+  Box<dyn ReactiveCollection<AllocIdx<StandardModel>, MeshMergeType>>,
 );
 
 pub fn build_merge_relation(
@@ -246,7 +246,7 @@ pub fn build_merge_relation(
     .clone()
     .many_to_one_reduce_key(std_sm_relation.clone());
 
-  let referenced_std_md = Box::new(referenced_std_md) as Box<dyn DynamicReactiveCollection<_, _>>;
+  let referenced_std_md = Box::new(referenced_std_md) as Box<dyn ReactiveCollection<_, _>>;
   let referenced_std_md = referenced_std_md.into_forker();
 
   let (foreign_mat, foreign_mesh) = foreign(referenced_std_md.clone());
@@ -290,7 +290,7 @@ use std::hash::Hash;
 
 fn sm_material_content_hash(
   std_scope: &(impl ReactiveCollection<AllocIdx<StandardModel>, ()> + Clone),
-  foreign: Box<dyn DynamicReactiveCollection<AllocIdx<StandardModel>, MaterialContentID>>,
+  foreign: Box<dyn ReactiveCollection<AllocIdx<StandardModel>, MaterialContentID>>,
 ) -> impl ReactiveCollection<AllocIdx<StandardModel>, MaterialContentID> {
   // let foreign_material_hash = foreign_materials_content_hash(todo!());
 
@@ -328,7 +328,7 @@ fn material_hash_impl<M: DowncastFromMaterialEnum + Hash>(
 
 fn std_mesh_key(
   std_scope: &(impl ReactiveCollection<AllocIdx<StandardModel>, ()> + Clone),
-  foreign: Box<dyn DynamicReactiveCollection<AllocIdx<StandardModel>, MeshMergeType>>,
+  foreign: Box<dyn ReactiveCollection<AllocIdx<StandardModel>, MeshMergeType>>,
 ) -> impl ReactiveCollection<AllocIdx<StandardModel>, MeshMergeType> {
   let referenced_attribute_mesh = std_scope
     .clone()

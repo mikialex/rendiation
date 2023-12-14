@@ -34,8 +34,8 @@ impl NodeIncrementalDeriveCollections {
     let world_mat = forked.world_mat.filter_by_keyset(range.clone());
     let net_visible = forked.net_visible.filter_by_keyset(range);
 
-    let world_mat = Box::new(world_mat) as Box<dyn DynamicReactiveCollection<_, _>>;
-    let net_visible = Box::new(net_visible) as Box<dyn DynamicReactiveCollection<_, _>>;
+    let world_mat = Box::new(world_mat) as Box<dyn ReactiveCollection<_, _>>;
+    let net_visible = Box::new(net_visible) as Box<dyn ReactiveCollection<_, _>>;
 
     Self {
       world_mat: world_mat.into_forker(),
@@ -72,8 +72,8 @@ impl NodeIncrementalDeriveCollections {
       |derive: &SceneNodeDerivedData| derive.net_visible,
     );
 
-    let world_mat = Box::new(world_mat) as Box<dyn DynamicReactiveCollection<_, _>>;
-    let net_visible = Box::new(net_visible) as Box<dyn DynamicReactiveCollection<_, _>>;
+    let world_mat = Box::new(world_mat) as Box<dyn ReactiveCollection<_, _>>;
+    let net_visible = Box::new(net_visible) as Box<dyn ReactiveCollection<_, _>>;
 
     Self {
       world_mat: world_mat.into_forker(),

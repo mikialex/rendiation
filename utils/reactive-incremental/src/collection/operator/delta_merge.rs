@@ -86,7 +86,7 @@ where
   K: CKey,
   V: CValue,
 {
-  fn multi_access(&self) -> CPoll<Box<dyn VirtualMultiCollection<V, K>>> {
+  fn multi_access(&self) -> CPoll<Box<dyn VirtualMultiCollection<V, K> + '_>> {
     self.inner.multi_access()
   }
 }

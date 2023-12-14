@@ -3,8 +3,8 @@ use storage::{LinkListPool, ListHandle};
 use crate::*;
 
 pub struct OneToManyRefHashBookKeeping<O, M, T> {
-  upstream: BufferedCollection<T, M, O>,
-  mapping: RwLock<FastHashMap<O, FastHashSet<M>>>,
+  pub upstream: BufferedCollection<T, M, O>,
+  pub mapping: RwLock<FastHashMap<O, FastHashSet<M>>>,
 }
 
 #[derive(Clone)]
@@ -43,6 +43,25 @@ where
         visitor(many.clone())
       }
     }
+  }
+}
+
+impl<O, M, T> ReactiveOneToManyRelationship<O, M> for OneToManyRefHashBookKeeping<O, M, T>
+where
+  T: ReactiveCollection<M, O>,
+  M: CKey,
+  O: CKey,
+{
+  fn multi_access(&self) -> CPoll<Box<dyn VirtualMultiCollection<O, M> + '_>> {
+    let upstream = if let CPoll::Ready(upstream) = self.upstream.access() {
+      upstream
+    } else {
+      return CPoll::Blocked;
+    };
+    CPoll::Ready(Box::new(OneToManyRefHashBookKeepingCurrentView {
+      upstream,
+      mapping: self.mapping.make_lock_holder_raw(),
+    }))
   }
 }
 
@@ -104,13 +123,13 @@ where
 }
 
 pub struct OneToManyRefDenseBookKeeping<O, M, T> {
-  upstream: BufferedCollection<T, M, O>,
-  mapping: RwLock<Mapping>,
-  phantom: PhantomData<(O, M)>,
+  pub upstream: BufferedCollection<T, M, O>,
+  pub mapping: RwLock<Mapping>,
+  pub phantom: PhantomData<(O, M)>,
 }
 
 #[derive(Default)]
-struct Mapping {
+pub struct Mapping {
   mapping_buffer: LinkListPool<u32>,
   mapping: Vec<ListHandle>,
 }
@@ -161,6 +180,25 @@ where
         true
       })
     }
+  }
+}
+
+impl<O, M, T> ReactiveOneToManyRelationship<O, M> for OneToManyRefDenseBookKeeping<O, M, T>
+where
+  T: ReactiveCollection<M, O>,
+  M: LinearIdentification + CKey,
+  O: LinearIdentification + CKey,
+{
+  fn multi_access(&self) -> CPoll<Box<dyn VirtualMultiCollection<O, M> + '_>> {
+    let upstream = if let CPoll::Ready(upstream) = self.upstream.access() {
+      upstream
+    } else {
+      return CPoll::Blocked;
+    };
+    CPoll::Ready(Box::new(OneToManyRefDenseBookKeepingCurrentView {
+      upstream,
+      mapping: self.mapping.make_lock_holder_raw(),
+    }))
   }
 }
 
