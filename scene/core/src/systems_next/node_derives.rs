@@ -157,7 +157,7 @@ where
   fn poll_changes(
     &mut self,
     cx: &mut std::task::Context<'_>,
-  ) -> CPoll<CollectionChanges<NodeIdentity, V>> {
+  ) -> CPoll<CollectionTransaction<NodeIdentity, V>> {
     // todo, should use loop poll and delta compact to maintain data coherency
     let changes = self.forked_change.poll_next_unpin(cx);
     let s_id = self.scene_id;

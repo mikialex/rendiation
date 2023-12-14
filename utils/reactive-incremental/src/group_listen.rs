@@ -3,6 +3,7 @@ use std::sync::{Arc, Weak};
 use fast_hash_collection::*;
 use futures::task::AtomicWaker;
 use parking_lot::RwLock;
+use storage::IndexReusedVec;
 
 use crate::*;
 
@@ -125,11 +126,11 @@ impl<T: IncrementalBase> IncrementalSignalStorage<T> {
     let dropper = EventSourceDropper::new(remove_token, self.inner.group_watchers.make_weak());
     let source = DropperAttachedStream::new(dropper, receiver);
 
-    let mapper_c = Box::new(mapper);
+    let mapper_c = Arc::new(mapper);
     ReactiveCollectionFromGroupMutation::<T, _, U> {
-      inner: source,
+      inner: RwLock::new(source),
       original: self.clone(),
-      mutations: inner,
+      _mutations: inner,
       mapper: mapper_c,
     }
   }
@@ -247,54 +248,48 @@ pub struct GroupMutationReceiver<K, T> {
 
 struct ReactiveCollectionFromGroupMutation<T: IncrementalBase, S, U> {
   original: IncrementalSignalStorage<T>,
-  inner: S,
-  mutations: Arc<(RwLock<MutationFolder<T, U>>, AtomicWaker)>,
-  mapper: Box<dyn Fn(MaybeDeltaRef<T>) -> ChangeReaction<U> + Send + Sync>,
+  inner: RwLock<S>,
+  _mutations: Arc<(RwLock<MutationFolder<T, U>>, AtomicWaker)>,
+  mapper: Arc<dyn Fn(MaybeDeltaRef<T>) -> ChangeReaction<U> + Send + Sync>,
 }
 
-impl<T: IncrementalBase, S: Sync, U: Sync + Send + Clone> VirtualCollection<AllocIdx<T>, U>
-  for ReactiveCollectionFromGroupMutation<T, S, U>
-{
-  fn iter_key(&self) -> impl Iterator<Item = AllocIdx<T>> + '_ {
-    let data = self.original.inner.data.read_recursive();
-    let mutations = self.mutations.0.read_recursive();
-    // todo, use unsafe to avoid clone
-    let cloned_keys = data
-      .iter()
-      .map(|(k, v)| (AllocIdx::from(k), &v.data))
-      .filter_map(|(k, v)| {
-        (self.mapper)(MaybeDeltaRef::All(unsafe { std::mem::transmute(v) }))
-          .flatten()
-          .map(|_| k)
-      })
-      .filter(|v| !mutations.inner.contains_key(v))
-      .chain(mutations.inner.keys().cloned()) // mutations contains removed but not polled key
-      .collect::<Vec<_>>();
+struct ReactiveCollectionFromGroupMutationCurrentView<T: IncrementalBase, U> {
+  data: LockResultHolder<IndexReusedVec<SignalItem<T>>>,
+  mapper: Arc<dyn Fn(MaybeDeltaRef<T>) -> ChangeReaction<U> + Send + Sync>,
+}
 
-    cloned_keys.into_iter()
-  }
-  fn access(&self) -> impl Fn(&AllocIdx<T>) -> Option<U> + Sync + '_ {
-    let data = self.original.inner.data.read_recursive();
-    let mutations = self.mutations.0.read_recursive();
-    move |key| {
-      if let Some(m) = mutations.inner.get(key) {
-        match m {
-          MutationState::NewInsert(_) => None,
-          MutationState::ChangeTo(_, old) => old.clone().into(),
-          MutationState::Remove(old) => old.clone().into(),
-        }
-      } else {
-        data.try_get(key.index).map(|v| &v.data).and_then(|v| {
-          (self.mapper)(MaybeDeltaRef::All(unsafe { std::mem::transmute(v) })).flatten()
-        })
-      }
+impl<T: IncrementalBase, U> Clone for ReactiveCollectionFromGroupMutationCurrentView<T, U> {
+  fn clone(&self) -> Self {
+    Self {
+      data: self.data.clone(),
+      mapper: self.mapper.clone(),
     }
   }
+}
 
-  fn try_access(&self) -> Option<Box<dyn Fn(&AllocIdx<T>) -> Option<U> + Sync + '_>> {
-    let acc = self.access();
-    let boxed = Box::new(acc) as Box<dyn Fn(&AllocIdx<T>) -> Option<U> + Sync + '_>;
-    boxed.into()
+impl<T: IncrementalBase, U: CValue> VirtualCollection<AllocIdx<T>, U>
+  for ReactiveCollectionFromGroupMutationCurrentView<T, U>
+{
+  fn iter_key_value(&self) -> Box<dyn Iterator<Item = (AllocIdx<T>, U)> + '_> {
+    Box::new(
+      self
+        .data
+        .iter()
+        .map(|(k, v)| (AllocIdx::from(k), &v.data))
+        .filter_map(|(k, v)| {
+          ((self.mapper)(MaybeDeltaRef::All(unsafe { std::mem::transmute(v) })))
+            .flatten()
+            .map(|v| (k, v))
+        }),
+    )
+  }
+
+  fn access(&self, key: &AllocIdx<T>) -> Option<U> {
+    self
+      .data
+      .try_get(key.index)
+      .map(|v| &v.data)
+      .and_then(|v| (self.mapper)(MaybeDeltaRef::All(unsafe { std::mem::transmute(v) })).flatten())
   }
 }
 
@@ -304,8 +299,8 @@ where
   U: Clone + Send + Sync + 'static,
   S: Stream<Item = MutationFolder<T, U>> + Unpin + Send + Sync + 'static,
 {
-  fn poll_changes(&mut self, cx: &mut Context<'_>) -> CPoll<CollectionChanges<AllocIdx<T>, U>> {
-    match self.inner.poll_next_unpin(cx) {
+  fn poll_changes(&self, cx: &mut Context<'_>) -> PollCollectionChanges<AllocIdx<T>, U> {
+    match self.inner.write().poll_next_unpin(cx) {
       Poll::Ready(Some(mutations)) => {
         let r = mutations
           .inner
@@ -322,15 +317,34 @@ where
             }
             expand
           })
-          .collect();
+          .collect::<FastHashMap<_, _>>();
+
+        let r = if r.is_empty() {
+          Poll::Pending
+        } else {
+          Poll::Ready(Box::new(r)
+            as Box<
+              dyn VirtualCollection<AllocIdx<T>, CollectionDelta<AllocIdx<T>, U>>,
+            >)
+        };
+
         CPoll::Ready(r)
       }
-      _ => CPoll::Pending,
+      _ => CPoll::Ready(Poll::Pending),
     }
   }
 
   fn extra_request(&mut self, _request: &mut ExtraCollectionOperation) {
     // here are we not suppose to shrink the storage
+  }
+
+  fn access(&self) -> PollCollectionCurrent<AllocIdx<T>, U> {
+    let view = ReactiveCollectionFromGroupMutationCurrentView {
+      data: self.original.inner.data.make_lock_holder_raw(),
+      mapper: self.mapper.clone(),
+    };
+
+    CPoll::Ready(Box::new(view))
   }
 }
 
