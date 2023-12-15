@@ -102,7 +102,7 @@ impl ModelMergeProxy {
       return MergeUpdating::MergeTargetRemoved;
     }
 
-    let mat_access = mat_access.access_boxed();
+    let mat_access = mat_access.make_accessor();
 
     // todo reuse code
     let sm_storage = storage_of::<SceneModelImpl>();

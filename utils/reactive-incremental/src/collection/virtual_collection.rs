@@ -57,7 +57,7 @@ impl<T: ?Sized, K: CKey, V: CValue> VirtualCollectionExt<K, V> for T where
 {
 }
 
-pub trait VirtualMultiCollection<K, V> {
+pub trait VirtualMultiCollection<K, V>: Send + Sync {
   fn iter_key_in_multi_collection(&self) -> Box<dyn Iterator<Item = K> + '_>;
   fn access_multi(&self, key: &K, visitor: &mut dyn FnMut(V));
 }
@@ -163,5 +163,35 @@ impl<K: CKey, V: CValue, T: VirtualCollection<K, V>> VirtualCollection<K, V>
 
   fn access(&self, key: &K) -> Option<V> {
     self.guard.access(key)
+  }
+}
+
+#[derive(Clone)]
+pub struct GeneralVirtualCollection<'a, K, V> {
+  pub access: Arc<dyn Fn(&K) -> Option<V> + 'a + Send + Sync>,
+  pub make_iter: Arc<dyn Fn() -> Box<dyn Iterator<Item = (K, V)> + 'a> + Send + Sync + 'a>,
+}
+
+// pub fn impl_virtual_collection<'a, K: CKey, V: CValue>(
+//   access: impl Fn(&K) -> Option<V> + Send + Sync + 'a,
+//   make_iter: impl Fn() -> Box<dyn Iterator<Item = (K, V)>> + Send + Sync + 'a,
+// ) -> Box<dyn VirtualCollection<K, V> + 'a> {
+//   Box::new(GeneralVirtualCollection {
+//     access: Arc::new(access),
+//     make_iter: Arc::new(make_iter),
+//   })
+// }
+
+impl<'a, K, V> VirtualCollection<K, V> for GeneralVirtualCollection<'a, K, V>
+where
+  K: CKey,
+  V: CValue,
+{
+  fn iter_key_value(&self) -> Box<dyn Iterator<Item = (K, V)> + '_> {
+    (self.make_iter)()
+  }
+
+  fn access(&self, key: &K) -> Option<V> {
+    (self.access)(key)
   }
 }

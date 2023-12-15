@@ -48,12 +48,34 @@ where
   }
 }
 
-pub trait ReactiveCollectionExt<K, V>: Sized + 'static + ReactiveCollection<K, V>
+pub trait ReactiveCollectionExtForAcc<K, V>: ReactiveCollection<K, V>
 where
   V: CValue,
   K: CKey,
 {
-  fn into_boxed(self) -> Box<dyn ReactiveCollection<K, V>> {
+  fn make_accessor(&self) -> impl Fn(&K) -> Option<V> + '_ {
+    let view = self.spin_get_current();
+    move |k| view.access(k)
+  }
+}
+impl<T, K, V> ReactiveCollectionExtForAcc<K, V> for T
+where
+  T: ReactiveCollection<K, V> + ?Sized,
+  V: CValue,
+  K: CKey,
+{
+}
+
+pub trait ReactiveCollectionExt<K, V>: ReactiveCollection<K, V>
+where
+  V: CValue,
+  K: CKey,
+  Self: Sized + 'static,
+{
+  fn into_boxed(self) -> Box<dyn ReactiveCollection<K, V>>
+  where
+    Self: Sized + 'static,
+  {
     Box::new(self)
   }
 
@@ -98,7 +120,7 @@ where
   where
     F: Fn() -> FF + Send + Sync + 'static,
     FF: Fn(&K, V) -> V2 + Send + Sync + 'static,
-    V2: CKey,
+    V2: CValue,
   {
     ReactiveKVExecuteMap {
       inner: self,
@@ -209,7 +231,7 @@ where
   fn one_to_many_fanout<MK, Relation>(self, relations: Relation) -> impl ReactiveCollection<MK, V>
   where
     MK: CKey,
-    Relation: ReactiveOneToManyRelationship<K, MK>,
+    Relation: ReactiveOneToManyRelationship<K, MK> + 'static,
   {
     OneToManyFanout {
       upstream: BufferedCollection::new(self),
@@ -221,7 +243,7 @@ where
 
   fn materialize_unordered(self) -> impl ReactiveCollection<K, V>
   where
-    K: Eq + std::hash::Hash + Clone + Sync,
+    K: CKey,
   {
     UnorderedMaterializedReactiveCollection {
       inner: self,
@@ -231,7 +253,7 @@ where
   }
   fn materialize_linear(self) -> impl ReactiveCollection<K, V>
   where
-    K: LinearIdentification + Sync,
+    K: LinearIdentification + CKey,
   {
     LinearMaterializedReactiveCollection {
       inner: self,
@@ -267,7 +289,7 @@ where
 }
 impl<T, K, V> ReactiveCollectionExt<K, V> for T
 where
-  T: Sized + 'static + ReactiveCollection<K, V>,
+  T: ReactiveCollection<K, V> + Sized + 'static,
   V: CValue,
   K: CKey,
 {

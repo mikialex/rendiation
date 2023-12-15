@@ -133,7 +133,7 @@ impl SceneCoreExt for SceneCore {
 
   fn compute_full_derived(&self) -> ComputedDerivedTree<SceneNodeDerivedData> {
     self.visit(|t| {
-      let tree = t.nodes.inner.inner.read().unwrap();
+      let tree = t.nodes.inner.inner.read();
       ComputedDerivedTree::compute_from(&tree)
     })
   }
@@ -408,7 +408,7 @@ pub struct SceneNodeCollection {
   pub scene_guid: u64,
 }
 pub type SceneNodeCollectionImpl =
-  Arc<ReactiveTreeCollection<RwLock<TreeCollection<SceneNodeData>>, SceneNodeData>>;
+  Arc<ReactiveTreeCollection<parking_lot::RwLock<TreeCollection<SceneNodeData>>, SceneNodeData>>;
 
 impl SceneNodeCollection {
   pub fn create_node(&self, data: SceneNodeData) -> SceneNode {
@@ -420,7 +420,7 @@ impl IncrementalBase for SceneNodeCollection {
   type Delta = TreeMutation<SceneNodeData>;
 
   fn expand(&self, mut cb: impl FnMut(Self::Delta)) {
-    let tree = self.inner.inner.read().unwrap();
+    let tree = self.inner.inner.read();
     tree.expand_with_mapping(|node| node.clone(), |d| cb(d.into()));
   }
 }

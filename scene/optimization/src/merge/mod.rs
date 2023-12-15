@@ -57,7 +57,7 @@ impl SceneMergeSystem {
 pub struct SceneModelMergeOptimization {
   target_scene: Scene,
 
-  merge_relation: Box<dyn DynamicReactiveOneToManyRelationship<MergeKey, AllocIdx<SceneModelImpl>>>,
+  merge_relation: Box<dyn ReactiveOneToManyRelationship<MergeKey, AllocIdx<SceneModelImpl>>>,
   // use to update mesh's vertex, the visibility is expressed by all zero matrix value
   applied_matrix_table: Box<dyn ReactiveCollection<AllocIdx<SceneModelImpl>, Mat4<f32>>>,
   // all merged models
@@ -119,40 +119,42 @@ impl SceneModelMergeOptimization {
 
   pub(crate) fn poll_prepare_merge(&mut self, cx: &mut Context) -> Vec<(MergeKey, MergeUpdating)> {
     let changed_key = FastDashSet::default();
-    if let CPoll::Ready(changes) = self.merge_relation.poll_changes_dyn(cx) {
-      changes.into_values().for_each(|change| match change {
-        ValueChange::Delta(source_idx, new_key, old_key) => {
-          self
-            .merged_model
-            .entry(new_key)
-            .or_default()
-            .add_source(source_idx);
-          changed_key.insert(new_key);
-          if let Some(old_key) = old_key {
+    if let CPoll::Ready(Poll::Ready(changes)) = self.merge_relation.poll_changes(cx) {
+      changes
+        .iter_key_value()
+        .for_each(|(source_idx, change)| match change {
+          ValueChange::Delta(new_key, old_key) => {
             self
               .merged_model
-              .get_mut(&old_key)
+              .entry(new_key)
+              .or_default()
+              .add_source(source_idx);
+            changed_key.insert(new_key);
+            if let Some(old_key) = old_key {
+              self
+                .merged_model
+                .get_mut(&old_key)
+                .unwrap()
+                .remove_source(source_idx);
+
+              changed_key.insert(old_key);
+            }
+          }
+          ValueChange::Remove(key) => {
+            self
+              .merged_model
+              .get_mut(&key)
               .unwrap()
               .remove_source(source_idx);
-
-            changed_key.insert(old_key);
+            changed_key.insert(key);
           }
-        }
-        ValueChange::Remove(source_idx, key) => {
-          self
-            .merged_model
-            .get_mut(&key)
-            .unwrap()
-            .remove_source(source_idx);
-          changed_key.insert(key);
-        }
-      })
+        })
     }
 
-    let accessor = self.merge_relation.access_boxed();
-    if let CPoll::Ready(changes) = self.applied_matrix_table.poll_changes_dyn(cx) {
-      changes.into_values().for_each(|change| {
-        if let ValueChange::Delta(source_idx, new_mat, _) = change {
+    let accessor = self.merge_relation.make_accessor();
+    if let CPoll::Ready(Poll::Ready(changes)) = self.applied_matrix_table.poll_changes(cx) {
+      changes.iter_key_value().for_each(|(source_idx, change)| {
+        if let ValueChange::Delta(new_mat, _) = change {
           let merge_key = accessor(&source_idx).unwrap();
           self
             .merged_model
@@ -163,7 +165,7 @@ impl SceneModelMergeOptimization {
       })
     }
 
-    let accessor = self.merge_relation.access_multi_boxed();
+    let accessor = self.merge_relation.make_multi_accessor();
     changed_key
       .into_par_iter()
       .map(|key| {
@@ -286,7 +288,7 @@ pub fn build_merge_relation(
 }
 
 pub type SceneModelGUID = u64;
-use std::hash::Hash;
+use std::{hash::Hash, task::Poll};
 
 fn sm_material_content_hash(
   std_scope: &(impl ReactiveCollection<AllocIdx<StandardModel>, ()> + Clone),

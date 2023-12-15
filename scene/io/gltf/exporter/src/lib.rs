@@ -34,7 +34,7 @@ pub fn build_scene_to_gltf(
 
   let scene_core = scene.get_scene_core();
   let scene = scene_core.read();
-  let tree = scene.nodes.inner.inner.read().unwrap();
+  let tree = scene.nodes.inner.inner.read();
   tree.expand_with_mapping(
     |node| (node.deref().clone(), node.guid()),
     |d| match d {

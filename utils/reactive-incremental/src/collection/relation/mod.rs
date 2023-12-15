@@ -10,6 +10,28 @@ use crate::*;
 
 pub trait ReactiveOneToManyRelationship<O: CKey, M: CKey>: ReactiveCollection<M, O> {
   fn multi_access(&self) -> CPoll<Box<dyn VirtualMultiCollection<O, M> + '_>>;
+
+  fn spin_get_multi_current(&self) -> Box<dyn VirtualMultiCollection<O, M> + '_> {
+    loop {
+      match self.multi_access() {
+        CPoll::Ready(r) => return r,
+        CPoll::Blocked => continue,
+      }
+    }
+  }
+}
+
+pub trait ReactiveOneToManyRelationshipExt<O: CKey, M: CKey>:
+  ReactiveOneToManyRelationship<O, M>
+{
+  fn make_multi_accessor(&self) -> impl Fn(&O, &mut dyn FnMut(M)) + Send + Sync + '_ {
+    let view = self.spin_get_multi_current();
+    move |k, visitor| view.access_multi(k, visitor)
+  }
+}
+impl<O: CKey, M: CKey, T: ReactiveOneToManyRelationship<O, M>>
+  ReactiveOneToManyRelationshipExt<O, M> for T
+{
 }
 
 impl<O, M> ReactiveCollection<M, O> for Box<dyn ReactiveOneToManyRelationship<O, M>>
@@ -39,7 +61,7 @@ where
 }
 
 pub trait ReactiveCollectionRelationExt<K: CKey, V: CKey>:
-  Sized + 'static + ReactiveCollection<K, V>
+  Sized + ReactiveCollection<K, V>
 {
   fn into_one_to_many_by_hash(self) -> impl ReactiveOneToManyRelationship<V, K>
   where
@@ -89,15 +111,13 @@ pub trait ReactiveCollectionRelationExt<K: CKey, V: CKey>:
 }
 impl<T, K, V> ReactiveCollectionRelationExt<K, V> for T
 where
-  T: Sized + 'static + ReactiveCollection<K, V>,
+  T: Sized + ReactiveCollection<K, V>,
   K: CKey,
   V: CKey,
 {
 }
 
-pub trait ReactiveCollectionRelationReduceExt<K: CKey>:
-  Sized + 'static + ReactiveCollection<K, ()>
-{
+pub trait ReactiveCollectionRelationReduceExt<K: CKey>: Sized + ReactiveCollection<K, ()> {
   fn many_to_one_reduce_key<SK, Relation>(
     self,
     relations: Relation,

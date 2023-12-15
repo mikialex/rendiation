@@ -126,7 +126,7 @@ impl<T: ReversibleIncremental, Dirty> TreeHierarchyDerivedSystem<T, Dirty> {
       .map(move |(source_tree, deltas)| {
         let mut marking_results = Vec::with_capacity(deltas.len()); // should be upper bound
         let mut derived_deltas = Vec::with_capacity(deltas.len()); // just estimation
-        let mut derived_tree = derived_tree_c.write().unwrap();
+        let mut derived_tree = derived_tree_c.write();
 
         // mark stage
         // do dirty marking, return if should trigger hierarchy change, and the update root
@@ -242,7 +242,7 @@ impl<T: ReversibleIncremental, Dirty> TreeHierarchyDerivedSystem<T, Dirty> {
     &self,
     v: impl FnOnce(&TreeCollection<DerivedData<T, Dirty>>) -> R,
   ) -> R {
-    v(&self.derived_tree.read().unwrap())
+    v(&self.derived_tree.read())
   }
 }
 

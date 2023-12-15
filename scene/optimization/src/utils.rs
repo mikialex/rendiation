@@ -1,4 +1,4 @@
-use std::task::Context;
+use std::task::{Context, Poll};
 
 use crate::*;
 
@@ -30,10 +30,10 @@ impl NodeRebuilder {
   }
 
   pub fn poll_update(&mut self, cx: &mut Context) {
-    if let CPoll::Ready(changes) = self.node_source.world_mat.poll_changes(cx) {
-      for change in changes.into_values() {
+    if let CPoll::Ready(Poll::Ready(changes)) = self.node_source.world_mat.poll_changes(cx) {
+      for (key, change) in changes.iter_key_value() {
         match change {
-          ValueChange::Delta(key, new, _) => {
+          ValueChange::Delta(new, _) => {
             let node = self
               .node_mapping
               .entry(key) // create new node on target scene
@@ -41,17 +41,17 @@ impl NodeRebuilder {
             // sync the node change
             node.set_local_matrix(new);
           }
-          ValueChange::Remove(key, _) => {
+          ValueChange::Remove(_) => {
             self.node_mapping.remove(&key);
             // remove node, raii drop from the target scene.
           }
         }
       }
     }
-    if let CPoll::Ready(changes) = self.node_source.net_visible.poll_changes(cx) {
-      for change in changes.into_values() {
+    if let CPoll::Ready(Poll::Ready(changes)) = self.node_source.net_visible.poll_changes(cx) {
+      for (key, change) in changes.iter_key_value() {
         // sync the node change, the add remove is handled above
-        if let ValueChange::Delta(key, new, _) = change {
+        if let ValueChange::Delta(new, _) = change {
           let node = self.node_mapping.get(&key).unwrap();
           node.set_visible(new)
         }
@@ -104,16 +104,16 @@ impl SceneCameraRebuilder {
 
   pub fn poll_updates(&mut self, cx: &mut Context) {
     self.nodes.poll_update(cx);
-    if let CPoll::Ready(changes) = self.camera_scope.poll_changes(cx) {
+    if let CPoll::Ready(Poll::Ready(changes)) = self.camera_scope.poll_changes(cx) {
       let cameras_storage = storage_of::<SceneCameraImpl>();
       let cameras = cameras_storage.inner.data.read_recursive();
 
       // copy the source by full delta
       let mut to_sync_target = Vec::new();
       let mut to_sync_delta = Vec::new();
-      for change in changes.into_values() {
+      for (key, change) in changes.iter_key_value() {
         match change {
-          ValueChange::Delta(key, _, _) => {
+          ValueChange::Delta(_, _) => {
             let camera = &cameras.get(key.index).data;
 
             let offset = to_sync_delta.len();
@@ -122,7 +122,7 @@ impl SceneCameraRebuilder {
 
             to_sync_target.push((key, offset, offset_2));
           }
-          ValueChange::Remove(key, _) => {
+          ValueChange::Remove(_) => {
             let in_target_scene = self.camera_mapping.remove(&key).unwrap();
             self.target_scene.remove_camera(in_target_scene);
           }
@@ -196,16 +196,16 @@ impl SceneLightsRebuilder {
 
   pub fn poll_updates(&mut self, cx: &mut Context) {
     self.nodes.poll_update(cx);
-    if let CPoll::Ready(changes) = self.light_scope.poll_changes(cx) {
+    if let CPoll::Ready(Poll::Ready(changes)) = self.light_scope.poll_changes(cx) {
       let lights_storage = storage_of::<SceneLightImpl>();
       let lights = lights_storage.inner.data.read_recursive();
 
       // copy the source by full delta
       let mut to_sync_target = Vec::new();
       let mut to_sync_delta = Vec::new();
-      for change in changes.into_values() {
+      for (key, change) in changes.iter_key_value() {
         match change {
-          ValueChange::Delta(key, _, _) => {
+          ValueChange::Delta(_, _) => {
             let light = &lights.get(key.index).data;
 
             let offset = to_sync_delta.len();
@@ -214,7 +214,7 @@ impl SceneLightsRebuilder {
 
             to_sync_target.push((key, offset, offset_2));
           }
-          ValueChange::Remove(key, _) => {
+          ValueChange::Remove(_) => {
             let in_target_scene = self.light_mapping.remove(&key).unwrap();
             self.target_scene.remove_light(in_target_scene);
           }

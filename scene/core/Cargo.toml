@@ -28,3 +28,4 @@ rendiation-mesh-core = { path = "../../components/mesh/core" }
 rendiation-texture = { path = "../../components/texture/core" }
 smallvec = { workspace = true }
 tree = { path = "../../utils/tree" }
+parking_lot = { version = "0.12.1", features = ["send_guard"] }

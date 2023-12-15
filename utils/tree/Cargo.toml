@@ -10,3 +10,4 @@ reactive = { path = "../reactive" }
 reactive-incremental = { path = "../reactive-incremental" }
 rendiation-abstract-tree = { path = "../abstract-tree" }
 storage = { path = "../storage" }
+parking_lot = { version = "0.12.1", features = ["send_guard"] }

@@ -2892,6 +2892,7 @@ dependencies = [
  "incremental",
  "log",
  "once_cell",
+ "parking_lot",
  "pin-project",
  "rayon",
  "reactive",
@@ -3678,6 +3679,7 @@ version = "0.0.1"
 dependencies = [
  "futures",
  "incremental",
+ "parking_lot",
  "reactive",
  "reactive-incremental",
  "rendiation-abstract-tree",
