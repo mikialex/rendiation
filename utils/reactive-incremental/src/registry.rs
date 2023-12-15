@@ -34,6 +34,12 @@ static ACTIVE_PLANE: parking_lot::RwLock<Option<PLANE>> = parking_lot::RwLock::n
 pub fn setup_active_plane(sg: PLANE) -> Option<PLANE> {
   ACTIVE_PLANE.write().replace(sg)
 }
+pub fn shrink_active_plane() {
+  let mut plane = ACTIVE_PLANE.write();
+  if let Some(plane) = plane.as_mut() {
+    plane.storages.values_mut().for_each(|s| s.shrink_to_fit())
+  }
+}
 
 pub fn access_storage_of<T: IncrementalBase, R>(
   acc: impl FnOnce(&IncrementalSignalStorage<T>) -> R,
