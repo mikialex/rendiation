@@ -47,6 +47,22 @@ impl<V> ValueChange<V> {
   pub fn is_new_insert(&self) -> bool {
     matches!(self, Self::Delta(_, None))
   }
+
+  pub fn is_redundant(&self) -> bool
+  where
+    V: PartialEq,
+  {
+    match self {
+      ValueChange::Delta(v, pv) => {
+        if let Some(pv) = pv {
+          v == pv
+        } else {
+          false
+        }
+      }
+      ValueChange::Remove(_) => false,
+    }
+  }
 }
 
 pub trait ChangeMerge {

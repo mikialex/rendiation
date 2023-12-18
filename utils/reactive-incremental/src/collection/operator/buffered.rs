@@ -4,8 +4,6 @@ use fast_hash_collection::*;
 
 use crate::*;
 
-/// for some reason such as using the unbound channel to broadcast message, it's important to merge
-/// the history message together to meet the message integrity or to avoid performance overhead
 pub struct BufferedCollection<M, K, V> {
   inner: M,
   buffered: RwLock<Option<FastHashMap<K, ValueChange<V>>>>,

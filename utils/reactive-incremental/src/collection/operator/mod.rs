@@ -4,8 +4,8 @@ pub use fork::*;
 mod union;
 pub use union::*;
 
-mod delta_merge;
-pub use delta_merge::*;
+mod buffered;
+pub use buffered::*;
 
 mod cache;
 pub use cache::*;
@@ -20,33 +20,6 @@ mod utils;
 pub use utils::*;
 
 use crate::*;
-
-#[pin_project::pin_project]
-struct ReactiveCollectionAsStream<T, K, V> {
-  #[pin]
-  inner: T,
-  phantom: PhantomData<(K, V)>,
-}
-
-impl<K, V, T> Stream for ReactiveCollectionAsStream<T, K, V>
-where
-  T: ReactiveCollection<K, V> + Unpin,
-  K: CKey,
-  V: CValue,
-{
-  type Item = Arc<FastHashMap<K, ValueChange<V>>>;
-
-  fn poll_next(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Option<Self::Item>> {
-    let this = self.project();
-    let r = this.inner.poll_changes(cx);
-    loop {
-      match r {
-        CPoll::Ready(r) => return r.map(|delta| Some(delta.materialize())),
-        CPoll::Blocked => continue,
-      }
-    }
-  }
-}
 
 pub trait ReactiveCollectionExtForAcc<K, V>: ReactiveCollection<K, V>
 where
@@ -264,8 +237,8 @@ where
 
   fn diff_change(self) -> impl ReactiveCollection<K, V>
   where
-    K: std::fmt::Debug + CKey,
-    V: std::fmt::Debug + CValue + PartialEq,
+    K: CKey,
+    V: CValue + PartialEq,
   {
     ReactiveCollectionDiff {
       inner: self,

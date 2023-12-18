@@ -55,6 +55,35 @@ pub struct ReactiveCollectionDiff<T, K, V> {
   pub phantom: PhantomData<(K, V)>,
 }
 
+#[derive(Clone)]
+pub struct DiffChangedView<'a, K, V> {
+  inner: CollectionChanges<'a, K, V>,
+}
+
+impl<'a, K, V> VirtualCollection<K, ValueChange<V>> for DiffChangedView<'a, K, V>
+where
+  K: CKey,
+  V: CValue + PartialEq,
+{
+  fn iter_key_value(&self) -> Box<dyn Iterator<Item = (K, ValueChange<V>)> + '_> {
+    Box::new(
+      self
+        .inner
+        .iter_key_value()
+        .filter(|(_, v)| !v.is_redundant()),
+    )
+  }
+
+  fn access(&self, key: &K) -> Option<ValueChange<V>> {
+    let change = self.inner.access(key)?;
+    if change.is_redundant() {
+      None
+    } else {
+      Some(change)
+    }
+  }
+}
+
 impl<T, K, V> ReactiveCollection<K, V> for ReactiveCollectionDiff<T, K, V>
 where
   T: ReactiveCollection<K, V>,
@@ -62,31 +91,10 @@ where
   V: CValue + PartialEq,
 {
   fn poll_changes(&self, cx: &mut Context) -> PollCollectionChanges<K, V> {
-    let mut is_empty = false;
-    let r = self.inner.poll_changes(cx).map(|r| {
-      r.map(|v| {
-        let map = v.materialize_hashmap_maybe_cloned();
-        let map = map
-          .into_iter()
-          .filter(|(_, v)| match v {
-            ValueChange::Delta(n, Some(p)) => n != p,
-            _ => true,
-          })
-          .collect::<FastHashMap<_, _>>();
-
-        if map.is_empty() {
-          is_empty = true;
-        }
-
-        Box::new(Arc::new(map)) as Box<dyn VirtualCollection<K, ValueChange<V>>>
-      })
-    });
-
-    if is_empty {
-      return CPoll::Ready(Poll::Pending);
-    }
-
-    r
+    self
+      .inner
+      .poll_changes(cx)
+      .map(|r| r.map(|v| Box::new(DiffChangedView { inner: v }) as CollectionChanges<K, V>))
   }
 
   fn extra_request(&mut self, request: &mut ExtraCollectionOperation) {
@@ -95,5 +103,32 @@ where
 
   fn access(&self) -> PollCollectionCurrent<K, V> {
     self.inner.access()
+  }
+}
+
+#[pin_project::pin_project]
+pub struct ReactiveCollectionAsStream<T, K, V> {
+  #[pin]
+  pub inner: T,
+  pub phantom: PhantomData<(K, V)>,
+}
+
+impl<K, V, T> Stream for ReactiveCollectionAsStream<T, K, V>
+where
+  T: ReactiveCollection<K, V> + Unpin,
+  K: CKey,
+  V: CValue,
+{
+  type Item = Arc<FastHashMap<K, ValueChange<V>>>;
+
+  fn poll_next(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Option<Self::Item>> {
+    let this = self.project();
+    let r = this.inner.poll_changes(cx);
+    loop {
+      match r {
+        CPoll::Ready(r) => return r.map(|delta| Some(delta.materialize())),
+        CPoll::Blocked => continue,
+      }
+    }
   }
 }
