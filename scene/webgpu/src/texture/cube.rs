@@ -4,10 +4,12 @@ use crate::*;
 
 pub fn gpu_texture_cubes(
   cx: &ResourceGPUCtx,
+  scope: impl ReactiveCollection<AllocIdx<SceneTextureCubeImpl>, ()>,
 ) -> impl ReactiveCollection<AllocIdx<SceneTextureCubeImpl>, GPUCubeTextureView> {
   let cx = cx.clone();
   storage_of::<SceneTextureCubeImpl>()
     .listen_to_reactive_collection(|_| Some(()))
+    .filter_by_keyset(scope)
     .collective_execute_map_by(move || {
       let cx = cx.clone();
       let creator = storage_of::<SceneTextureCubeImpl>().create_key_mapper(move |tex| {

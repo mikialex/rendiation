@@ -34,14 +34,6 @@ pub struct FlatMaterialGPU {
   uniform: UniformBufferDataView<FlatMaterialUniform>,
 }
 
-impl Stream for FlatMaterialGPU {
-  type Item = RenderComponentDeltaFlag;
-
-  fn poll_next(self: Pin<&mut Self>, _: &mut Context) -> Poll<Option<Self::Item>> {
-    Poll::Pending
-  }
-}
-
 impl ShaderHashProvider for FlatMaterialGPU {}
 
 impl GraphicsShaderProvider for FlatMaterialGPU {

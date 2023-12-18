@@ -1,13 +1,7 @@
 use crate::*;
 
-mod wrapper;
-pub use wrapper::*;
-
 mod content;
 pub use content::*;
-
-mod global;
-pub use global::*;
 
 #[derive(Clone)]
 pub struct ResourceGPUCtx {

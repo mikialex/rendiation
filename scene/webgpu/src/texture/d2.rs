@@ -4,10 +4,12 @@ use crate::*;
 
 pub fn gpu_texture_2ds(
   cx: &ResourceGPUCtx,
+  scope: impl ReactiveCollection<AllocIdx<SceneTexture2DType>, ()>,
 ) -> impl ReactiveCollection<AllocIdx<SceneTexture2DType>, GPU2DTextureView> {
   let cx = cx.clone();
   storage_of::<SceneTexture2DType>()
     .listen_to_reactive_collection(|_| Some(()))
+    .filter_by_keyset(scope)
     .collective_execute_map_by(move || {
       let cx = cx.clone();
       let creator = storage_of::<SceneTexture2DType>().create_key_mapper(move |tex| {

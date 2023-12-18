@@ -36,25 +36,6 @@ pub struct PhysicalSpecularGlossinessMaterialGPU {
   gpu: ResourceGPUCtx,
 }
 
-impl Stream for PhysicalSpecularGlossinessMaterialGPU {
-  type Item = RenderComponentDeltaFlag;
-
-  fn poll_next(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Option<Self::Item>> {
-    let this = self.project();
-    let mut r = RenderComponentDeltaFlag::default();
-    let mut c = false;
-    poll_update_texture_handle_uniform!(this, albedo_texture, cx, r, c);
-    poll_update_texture_handle_uniform!(this, specular_texture, cx, r, c);
-    poll_update_texture_handle_uniform!(this, glossiness_texture, cx, r, c);
-    poll_update_texture_handle_uniform!(this, emissive_texture, cx, r, c);
-    poll_update_texture_handle_uniform!(this, normal_texture, cx, r, c);
-    if c {
-      this.uniform.upload(&this.gpu.queue)
-    }
-    r.into_poll()
-  }
-}
-
 impl ShaderPassBuilder for PhysicalSpecularGlossinessMaterialGPU {
   fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
     ctx.binding.bind(&self.uniform);

@@ -4,7 +4,7 @@ pub fn physical_mr_material_gpus(
   cx: &ResourceGPUCtx,
 ) -> impl ReactiveCollection<
   AllocIdx<PhysicalMetallicRoughnessMaterial>,
-  PhysicalMetallicRoughnessMaterialGPU,
+  PhysicalMetallicRoughnessMaterialUniform,
 > {
   let cx = cx.clone();
   storage_of::<PhysicalMetallicRoughnessMaterial>()
@@ -38,42 +38,19 @@ pub struct PhysicalMetallicRoughnessMaterialUniform {
   pub alpha: f32,
 }
 
-impl ShaderHashProvider for PhysicalMetallicRoughnessMaterialGPU {
+pub struct PhysicalMetallicRoughnessMaterialGPU<'a> {
+  uniform: &'a UniformBufferDataView<PhysicalMetallicRoughnessMaterialUniform>,
+  source: &'a PhysicalMetallicRoughnessMaterial,
+  textures: &'a TextureGetter,
+}
+
+impl<'a> ShaderHashProvider for PhysicalMetallicRoughnessMaterialGPU<'a> {
   fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
-    self.alpha_mode.hash(hasher);
+    self.source.alpha_mode.hash(hasher);
   }
 }
 
-#[pin_project::pin_project]
-pub struct PhysicalMetallicRoughnessMaterialGPU {
-  uniform: UniformBufferDataView<PhysicalMetallicRoughnessMaterialUniform>,
-  base_color_texture: ReactiveGPUTextureSamplerPair,
-  metallic_roughness_texture: ReactiveGPUTextureSamplerPair,
-  emissive_texture: ReactiveGPUTextureSamplerPair,
-  normal_texture: ReactiveGPUTextureSamplerPair,
-  alpha_mode: AlphaMode,
-  gpu: ResourceGPUCtx,
-}
-
-impl Stream for PhysicalMetallicRoughnessMaterialGPU {
-  type Item = RenderComponentDeltaFlag;
-
-  fn poll_next(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Option<Self::Item>> {
-    let this = self.project();
-    let mut r = RenderComponentDeltaFlag::default();
-    let mut c = false;
-    poll_update_texture_handle_uniform!(this, base_color_texture, cx, r, c);
-    poll_update_texture_handle_uniform!(this, metallic_roughness_texture, cx, r, c);
-    poll_update_texture_handle_uniform!(this, emissive_texture, cx, r, c);
-    poll_update_texture_handle_uniform!(this, normal_texture, cx, r, c);
-    if c {
-      this.uniform.upload(&this.gpu.queue)
-    }
-    r.into_poll()
-  }
-}
-
-impl ShaderPassBuilder for PhysicalMetallicRoughnessMaterialGPU {
+impl<'a> ShaderPassBuilder for PhysicalMetallicRoughnessMaterialGPU<'a> {
   fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
     ctx.binding.bind(&self.uniform);
     self.base_color_texture.setup_pass(ctx);
@@ -83,7 +60,7 @@ impl ShaderPassBuilder for PhysicalMetallicRoughnessMaterialGPU {
   }
 }
 
-impl GraphicsShaderProvider for PhysicalMetallicRoughnessMaterialGPU {
+impl<'a> GraphicsShaderProvider for PhysicalMetallicRoughnessMaterialGPU<'a> {
   fn build(&self, builder: &mut ShaderRenderPipelineBuilder) -> Result<(), ShaderBuildError> {
     builder.context.insert(
       ShadingSelection.type_id(),
@@ -165,15 +142,6 @@ impl GraphicsShaderProvider for PhysicalMetallicRoughnessMaterialGPU {
     })
   }
 }
-
-impl ReactiveRenderComponentSource for PhysicalMetallicRoughnessMaterialReactiveGPU {
-  fn as_reactive_component(&self) -> &dyn ReactiveRenderComponent {
-    self.as_ref() as &dyn ReactiveRenderComponent
-  }
-}
-
-type PhysicalMetallicRoughnessMaterialReactiveGPU = impl AsRef<RenderComponentCell<PhysicalMetallicRoughnessMaterialGPU>>
-  + Stream<Item = RenderComponentDeltaFlag>;
 
 use PhysicalMetallicRoughnessMaterialDelta as PD;
 
