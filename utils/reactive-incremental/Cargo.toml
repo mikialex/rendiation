@@ -13,7 +13,11 @@ incremental = { path = "../incremental" }
 reactive = { path = "../reactive" }
 storage = { path = "../storage" }
 smallvec = { workspace = true }
+tracing = { workspace = true }
+rayon = { workspace = true }
+dashmap = { workspace = true }
+dyn-clone = { workspace = true }
 
 
 # we use it's rwlock to avoid recursive read deadlock
-parking_lot = "0.12.1"
+parking_lot = { version = "0.12.1", features = ["send_guard"] }

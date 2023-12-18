@@ -1,66 +1,18 @@
 use std::{
-  any::{Any, TypeId},
   marker::PhantomData,
   sync::{Arc, Weak},
 };
 
-use fast_hash_collection::FastHashMap;
 use parking_lot::RwLockReadGuard;
 use storage::*;
 
 use crate::*;
 
-/// https://en.wikipedia.org/wiki/Plane_(Dungeons_%26_Dragons)
-#[derive(Default)]
-pub struct PLANE {
-  storages: FastHashMap<TypeId, Box<dyn Any + Send + Sync>>,
-}
-
-static ACTIVE_PLANE: parking_lot::RwLock<Option<PLANE>> = parking_lot::RwLock::new(None);
-pub fn setup_active_plane(sg: PLANE) -> Option<PLANE> {
-  ACTIVE_PLANE.write().replace(sg)
-}
-
-pub fn access_storage_of<T: IncrementalBase, R>(
-  acc: impl FnOnce(&IncrementalSignalStorage<T>) -> R,
-) -> R {
-  let id = TypeId::of::<T>();
-
-  // not add write lock first if the storage exists
-  let try_read_storages = ACTIVE_PLANE.read();
-  let storages = try_read_storages
-    .as_ref()
-    .expect("global storage group not specified");
-  if let Some(storage) = storages.storages.get(&id) {
-    let storage = storage
-      .downcast_ref::<IncrementalSignalStorage<T>>()
-      .unwrap();
-    acc(storage)
-  } else {
-    drop(try_read_storages);
-    let mut storages = ACTIVE_PLANE.write();
-    let storages = storages
-      .as_mut()
-      .expect("global storage group not specified");
-    let storage = storages
-      .storages
-      .entry(id)
-      .or_insert_with(|| Box::<IncrementalSignalStorage<T>>::default());
-    let storage = storage
-      .downcast_ref::<IncrementalSignalStorage<T>>()
-      .unwrap();
-    acc(storage)
-  }
-}
-pub fn storage_of<T: IncrementalBase>() -> IncrementalSignalStorage<T> {
-  access_storage_of(|s| s.clone())
-}
-
 pub struct SignalItem<T> {
   pub data: T,
   sub_event_handle: ListHandle,
   ref_count: u32,
-  guid: u64, // weak semantics is impl by the guid compare in data access
+  pub(crate) guid: u64, // weak semantics is impl by the guid compare in data access
 }
 
 pub struct AllocIdx<T> {
@@ -126,7 +78,7 @@ pub enum StorageGroupChange<'a, T: IncrementalBase> {
 
 pub struct IncrementalSignalGroupImpl<T: IncrementalBase> {
   pub data: parking_lot::RwLock<IndexReusedVec<SignalItem<T>>>,
-  sub_watchers: parking_lot::RwLock<LinkListPool<EventListener<T::Delta>>>,
+  pub(crate) sub_watchers: parking_lot::RwLock<LinkListPool<EventListener<T::Delta>>>,
   // note, it's fake static, as long as we expose the unique lifetime to user, it's safe to user
   // side.
   pub(crate) group_watchers: EventSource<StorageGroupChange<'static, T>>,
@@ -156,6 +108,18 @@ impl<T: IncrementalBase> Clone for IncrementalSignalStorage<T> {
 }
 
 impl<T: IncrementalBase> IncrementalSignalStorage<T> {
+  pub fn clone_at_idx(&self, idx: AllocIdx<T>) -> Option<IncrementalSignalPtr<T>> {
+    let mut i = self.inner.data.write();
+    i.try_get_mut(idx.index).map(|item| {
+      item.ref_count += 1;
+      IncrementalSignalPtr {
+        inner: Arc::downgrade(&self.inner),
+        index: idx.index,
+        guid: item.guid,
+      }
+    })
+  }
+
   pub fn alloc(&self, data: T) -> IncrementalSignalPtr<T> {
     let mut storage = self.inner.data.write();
     let guid = alloc_global_res_id();
@@ -178,14 +142,18 @@ impl<T: IncrementalBase> IncrementalSignalStorage<T> {
     }
   }
 
-  pub fn create_key_mapper<V>(&self, mapper: impl Fn(&T) -> V) -> impl Fn(AllocIdx<T>) -> V {
+  pub fn create_key_mapper<V>(
+    &self,
+    mapper: impl Fn(&T, u64) -> V + Send + Sync,
+  ) -> impl Fn(AllocIdx<T>) -> V + Send + Sync {
     let data_holder = self.inner.clone();
     let guard = self.inner.data.read_recursive();
     let guard: RwLockReadGuard<'static, IndexReusedVec<SignalItem<T>>> =
       unsafe { std::mem::transmute(guard) };
     move |key| {
       let _ = data_holder;
-      mapper(&guard.get(key.index).data)
+      let item = guard.get(key.index);
+      mapper(&item.data, item.guid)
     }
   }
 
@@ -440,11 +408,14 @@ impl<T: IncrementalBase> Drop for IncrementalSignalPtr<T> {
       if data.guid == self.guid {
         data.ref_count -= 1;
         if data.ref_count == 0 {
-          inner.sub_watchers.write().drop_list(data.sub_event_handle);
+          inner
+            .sub_watchers
+            .write()
+            .drop_list(&mut data.sub_event_handle);
           let removed = storage.remove(self.index);
           inner.group_watchers.emit(&StorageGroupChange::Drop {
             index: self.index.into(),
-            data: unsafe { std::mem::transmute(&removed) },
+            data: unsafe { std::mem::transmute(&removed.data) },
           });
 
           to_remove = removed.into();

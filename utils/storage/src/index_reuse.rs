@@ -13,6 +13,28 @@ impl<T> Default for IndexReusedVec<T> {
 }
 
 impl<T> IndexReusedVec<T> {
+  pub fn shrink_to_fit(&mut self) {
+    let tail_size = self
+      .storage
+      .iter()
+      .rev()
+      .take_while(|v| v.is_none())
+      .count();
+    self.storage.truncate(self.storage.len() - tail_size);
+    self.storage.shrink_to_fit();
+
+    let new_len = self.storage.len();
+
+    let new_empty = self
+      .empty_list
+      .iter()
+      .cloned()
+      .filter(|v| *v < new_len as u32)
+      .collect();
+    self.empty_list = new_empty;
+    self.empty_list.shrink_to_fit();
+  }
+
   pub fn insert(&mut self, data: T) -> u32 {
     if let Some(empty) = self.empty_list.pop() {
       self.storage[empty as usize] = data.into();
@@ -39,11 +61,11 @@ impl<T> IndexReusedVec<T> {
   }
 
   pub fn try_get_mut(&mut self, idx: u32) -> Option<&mut T> {
-    self.storage[idx as usize].as_mut()
+    self.storage.get_mut(idx as usize).and_then(|v| v.as_mut())
   }
 
   pub fn try_get(&self, idx: u32) -> Option<&T> {
-    self.storage[idx as usize].as_ref()
+    self.storage.get(idx as usize).and_then(|v| v.as_ref())
   }
 
   pub fn get_mut(&mut self, idx: u32) -> &mut T {

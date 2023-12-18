@@ -1,9 +1,10 @@
 #![feature(type_alias_impl_trait)]
 
-use std::sync::{Arc, RwLock};
+use std::sync::Arc;
 
 use abst::TreeNodeMutPtr;
 use incremental::IncrementalBase;
+use parking_lot::RwLock;
 pub use rendiation_abstract_tree::*;
 use storage::*;
 

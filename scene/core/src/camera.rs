@@ -120,7 +120,7 @@ pub enum CameraProjectionEnum {
   Perspective(PerspectiveProjection<f32>),
   ViewOrthographic(ViewFrustumOrthographicProjection<f32>),
   Orthographic(OrthographicProjection<f32>),
-  Foreign(Box<dyn AnyClone + Send + Sync>),
+  Foreign(ForeignObject),
 }
 
 pub trait CameraProjection: Sync + Send + DynIncremental {
@@ -211,14 +211,14 @@ pub fn camera_projections() -> impl ReactiveCollection<AllocIdx<SceneCameraImpl>
     // extract proj change flag
     .listen_to_reactive_collection(|change| match change {
       MaybeDeltaRef::Delta(delta) => match delta {
-        SceneCameraImplDelta::projection(_) => Some(()),
-        _ => None,
+        SceneCameraImplDelta::projection(_) => ChangeReaction::Care(Some(())),
+        _ => ChangeReaction::NotCare,
       },
-      MaybeDeltaRef::All(_) => Some(()),
+      MaybeDeltaRef::All(_) => ChangeReaction::Care(Some(())),
     })
     .collective_execute_map_by(|| {
       let proj_compute = storage_of::<SceneCameraImpl>() //
-        .create_key_mapper(|camera| camera.compute_project_mat());
+        .create_key_mapper(|camera, _| camera.compute_project_mat());
       move |k, _| proj_compute(*k)
     })
 }

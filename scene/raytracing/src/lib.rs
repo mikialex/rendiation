@@ -193,7 +193,6 @@ impl RayTracingSceneExt for Scene {
             result.env = Some(dyn_clone::clone_box(&**retraceable_bg));
           }
         }
-        _ => {}
       }
     }
 

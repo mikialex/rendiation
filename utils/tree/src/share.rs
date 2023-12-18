@@ -1,6 +1,4 @@
-use std::sync::{Arc, RwLock};
-
-use crate::{CoreTree, TreeMutationError};
+use crate::*;
 
 // todo add a trait extract the common part of core tree and share core tree
 pub trait ShareCoreTree {
@@ -33,31 +31,31 @@ impl<T: CoreTree> ShareCoreTree for RwLock<T> {
   type Core = T;
 
   fn visit_core_tree<R>(&self, v: impl FnOnce(&Self::Core) -> R) -> R {
-    v(&self.read().unwrap())
+    v(&self.read())
   }
 
   fn recreate_handle(&self, index: usize) -> Self::Handle {
-    self.read().unwrap().recreate_handle(index)
+    self.read().recreate_handle(index)
   }
 
   fn node_has_parent(&self, handle: Self::Handle) -> bool {
-    self.read().unwrap().node_has_parent(handle)
+    self.read().node_has_parent(handle)
   }
 
   fn visit_node_data<R>(&self, handle: Self::Handle, v: impl FnOnce(&Self::Node) -> R) -> R {
-    v(self.read().unwrap().get_node_data(handle))
+    v(self.read().get_node_data(handle))
   }
 
   fn mutate_node_data<R>(&self, handle: Self::Handle, v: impl FnOnce(&mut Self::Node) -> R) -> R {
-    v(self.write().unwrap().get_node_data_mut(handle))
+    v(self.write().get_node_data_mut(handle))
   }
 
   fn create_node(&self, data: Self::Node) -> Self::Handle {
-    self.write().unwrap().create_node(data)
+    self.write().create_node(data)
   }
 
   fn delete_node(&self, handle: Self::Handle) -> Option<Self::Node> {
-    self.write().unwrap().delete_node(handle)
+    self.write().delete_node(handle)
   }
 
   fn node_add_child_by(
@@ -65,14 +63,11 @@ impl<T: CoreTree> ShareCoreTree for RwLock<T> {
     parent: Self::Handle,
     child_to_attach: Self::Handle,
   ) -> Result<(), TreeMutationError> {
-    self
-      .write()
-      .unwrap()
-      .node_add_child_by(parent, child_to_attach)
+    self.write().node_add_child_by(parent, child_to_attach)
   }
 
   fn node_detach_parent(&self, child_to_detach: Self::Handle) -> Result<(), TreeMutationError> {
-    self.write().unwrap().node_detach_parent(child_to_detach)
+    self.write().node_detach_parent(child_to_detach)
   }
 }
 
@@ -154,33 +149,33 @@ impl<T: ShareCoreTree> ShareTreeNode<T> {
   }
 
   pub fn get_node_collection(&self) -> Arc<T> {
-    self.inner.read().unwrap().inner.nodes.clone()
+    self.inner.read().inner.nodes.clone()
   }
 
   pub fn raw_handle(&self) -> T::Handle {
-    self.inner.read().unwrap().inner.handle
+    self.inner.read().inner.handle
   }
 
   pub fn parent(&self) -> Option<Self> {
-    self.inner.read().unwrap().parent.clone()
+    self.inner.read().parent.clone()
   }
 
   pub fn raw_handle_parent(&self) -> Option<T::Handle> {
-    let inner = self.inner.read().unwrap();
+    let inner = self.inner.read();
     inner.parent.as_ref().map(|p| p.raw_handle())
   }
 
   pub fn visit_raw_storage<F: FnOnce(&T) -> R, R>(&self, v: F) -> R {
-    let inner = self.inner.read().unwrap();
+    let inner = self.inner.read();
     v(&inner.nodes)
   }
 
   pub fn detach_from_parent(&self) -> Result<(), TreeMutationError> {
-    self.inner.write().unwrap().detach_from_parent()
+    self.inner.write().detach_from_parent()
   }
 
   pub fn attach_to(&self, parent: &Self) -> Result<(), TreeMutationError> {
-    let mut inner = self.inner.write().unwrap();
+    let mut inner = self.inner.write();
 
     inner
       .nodes
@@ -193,7 +188,7 @@ impl<T: ShareCoreTree> ShareTreeNode<T> {
 
   #[must_use]
   pub fn create_child(&self, n: T::Node) -> Self {
-    let inner = self.inner.read().unwrap();
+    let inner = self.inner.read();
 
     let child = NodeImpl::new(NodeRef {
       nodes: inner.nodes.clone(),
@@ -218,17 +213,17 @@ impl<T: ShareCoreTree> ShareTreeNode<T> {
   }
 
   pub fn mutate<F: FnOnce(&mut T::Node) -> R, R>(&self, f: F) -> R {
-    let inner = self.inner.read().unwrap();
+    let inner = self.inner.read();
     inner.nodes.mutate_node_data(inner.inner.handle, f)
   }
 
   pub fn visit<F: FnOnce(&T::Node) -> R, R>(&self, f: F) -> R {
-    let inner = self.inner.read().unwrap();
+    let inner = self.inner.read();
     inner.nodes.visit_node_data(inner.inner.handle, f)
   }
 
   pub fn visit_parent<F: FnOnce(&T::Node) -> R, R>(&self, f: F) -> Option<R> {
-    let inner = self.inner.read().unwrap();
+    let inner = self.inner.read();
     if let Some(parent) = &inner.parent {
       inner.nodes.visit_node_data(parent.raw_handle(), f).into()
     } else {

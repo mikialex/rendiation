@@ -81,7 +81,6 @@ pub fn ray_pick_nearest_core(
         OptionalNearest::none()
       }
     }
-    _ => OptionalNearest::none(),
   }
 }
 

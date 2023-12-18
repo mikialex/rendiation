@@ -4,14 +4,16 @@ mod generational_shrinkable;
 mod index_kept;
 mod index_reuse;
 mod linklist_pool;
+mod multi_hash;
 
 pub use deduplication::*;
+use fast_hash_collection::*;
 pub use generational::*;
 pub use generational_shrinkable::*;
 pub use index_kept::*;
 pub use index_reuse::*;
 pub use linklist_pool::*;
-
+pub use multi_hash::*;
 pub type Handle<T, S> = <S as StorageBehavior<T>>::Handle;
 
 pub trait StorageBehavior<T>: Sized + Default {

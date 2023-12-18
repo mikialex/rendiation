@@ -14,7 +14,6 @@ impl PassContentWithSceneAndCamera for BackGroundRendering {
         SceneBackGround::Solid(bg) => bg.render(pass, &default_dispatcher(pass), camera, scene),
         SceneBackGround::Env(bg) => bg.render(pass, &default_dispatcher(pass), camera, scene),
         SceneBackGround::Foreign(_) => {}
-        _ => {}
       }
     }
   }

@@ -14,11 +14,10 @@ impl SceneModelImpl {
   }
 }
 
-#[non_exhaustive]
 #[derive(Clone)]
 pub enum ModelEnum {
   Standard(IncrementalSignalPtr<StandardModel>),
-  Foreign(Box<dyn AnyClone + Send + Sync>),
+  Foreign(ForeignObject),
 }
 
 clone_self_incremental!(ModelEnum);

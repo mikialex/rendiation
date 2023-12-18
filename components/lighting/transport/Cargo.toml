@@ -5,7 +5,9 @@ name = "rendiation-lighting-transport"
 version = "0.1.0"
 
 [dependencies]
-rendiation-algebra = { path = "../../../math/algebra" }
-rendiation-statistics = { path = "../../../math/statistics" }
-rendiation-shader-api = { path = "../../../shader/api" }
-rendiation-shader-library = { path = "../../../shader/library" }
+rendiation-algebra = {path = "../../../math/algebra"}
+rendiation-geometry = {path = "../../../math/geometry"}
+rendiation-lighting-core = {path = "../core"}
+rendiation-shader-api = {path = "../../../shader/api"}
+rendiation-shader-library = {path = "../../../shader/library"}
+rendiation-statistics = {path = "../../../math/statistics"}

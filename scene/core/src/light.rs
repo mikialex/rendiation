@@ -1,12 +1,11 @@
 use crate::*;
 
-#[non_exhaustive]
 #[derive(Clone)]
 pub enum LightEnum {
   PointLight(IncrementalSignalPtr<PointLight>),
   SpotLight(IncrementalSignalPtr<SpotLight>),
   DirectionalLight(IncrementalSignalPtr<DirectionalLight>),
-  Foreign(Box<dyn AnyClone + Send + Sync>),
+  Foreign(ForeignObject),
 }
 
 clone_self_incremental!(LightEnum);

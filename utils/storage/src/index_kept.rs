@@ -1,3 +1,4 @@
+#[derive(Clone)]
 pub struct IndexKeptVec<T> {
   storage: Vec<Option<T>>,
 }
@@ -11,6 +12,17 @@ impl<T> Default for IndexKeptVec<T> {
 }
 
 impl<T> IndexKeptVec<T> {
+  pub fn shrink_to_fit(&mut self) {
+    let tail_size = self
+      .storage
+      .iter()
+      .rev()
+      .take_while(|v| v.is_none())
+      .count();
+    self.storage.truncate(self.storage.len() - tail_size);
+    self.storage.shrink_to_fit()
+  }
+
   pub fn insert(&mut self, data: T, index: u32) {
     self
       .storage
@@ -30,18 +42,17 @@ impl<T> IndexKeptVec<T> {
       .filter_map(|(index, v)| Some((index as u32, v.as_ref()?)))
   }
 
-  pub fn remove(&mut self, idx: u32) -> T {
+  pub fn remove(&mut self, idx: u32) -> Option<T> {
     let idx = idx as usize;
-    assert!(self.storage[idx].is_some());
-    self.storage[idx].take().unwrap()
+    self.storage[idx].take()
   }
 
   pub fn try_get_mut(&mut self, idx: u32) -> Option<&mut T> {
-    self.storage[idx as usize].as_mut()
+    self.storage.get_mut(idx as usize).and_then(|v| v.as_mut())
   }
 
   pub fn try_get(&self, idx: u32) -> Option<&T> {
-    self.storage[idx as usize].as_ref()
+    self.storage.get(idx as usize).and_then(|v| v.as_ref())
   }
 
   pub fn get_mut(&mut self, idx: u32) -> &mut T {
