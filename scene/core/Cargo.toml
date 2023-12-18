@@ -8,6 +8,8 @@ version = "0.1.0"
 anymap = "0.12.1"
 arena = { path = "../../utils/arena" }
 bitflags = { workspace = true }
+derivative = { workspace = true }
+rayon = { workspace = true }
 bytemuck = { workspace = true, features = ["derive"] }
 dyn-clone = { workspace = true }
 dyn-downcast = { path = "../../utils/dyn-downcast" }
@@ -26,3 +28,4 @@ rendiation-mesh-core = { path = "../../components/mesh/core" }
 rendiation-texture = { path = "../../components/texture/core" }
 smallvec = { workspace = true }
 tree = { path = "../../utils/tree" }
+parking_lot = { version = "0.12.1", features = ["send_guard"] }

@@ -67,6 +67,17 @@ pub struct SceneNodeDerivedData {
   pub net_visible: bool,
 }
 
+impl ReversibleIncremental for SceneNodeDerivedData {
+  fn reverse_delta(&self, delta: &Self::Delta) -> Self::Delta {
+    use SceneNodeDerivedDataDelta as D;
+    match delta {
+      D::world_matrix(_) => D::world_matrix(self.world_matrix),
+      D::world_matrix_inverse(_) => D::world_matrix_inverse(self.world_matrix_inverse),
+      D::net_visible(_) => D::net_visible(self.net_visible),
+    }
+  }
+}
+
 impl HierarchyDerived for SceneNodeDerivedData {
   type Source = SceneNodeData;
 
@@ -137,7 +148,7 @@ impl IncrementalHierarchyDerived for SceneNodeDerivedData {
     self_source: &Self::Source,
     parent_derived: Option<&Self>,
     dirty: &Self::DirtyMark,
-    mut collect: impl FnMut(Self::Delta),
+    mut collect: impl FnMut(&mut Self, Self::Delta),
   ) {
     if let Some(parent) = parent_derived {
       if dirty.intersects(SceneNodeDeriveDataDirtyFlag::WorldMatrix) {
@@ -145,28 +156,29 @@ impl IncrementalHierarchyDerived for SceneNodeDerivedData {
         if new_world != self.world_matrix {
           self.world_matrix = new_world;
           self.world_matrix_inverse = new_world.inverse_or_identity();
-          collect(SceneNodeDerivedDataDelta::world_matrix(new_world));
-          collect(SceneNodeDerivedDataDelta::world_matrix_inverse(
-            self.world_matrix_inverse,
-          ))
+          collect(self, SceneNodeDerivedDataDelta::world_matrix(new_world));
+          collect(
+            self,
+            SceneNodeDerivedDataDelta::world_matrix_inverse(self.world_matrix_inverse),
+          )
         }
       }
       // too cheap, don't check flag
       let net_visible = parent.net_visible || self_source.visible;
       if net_visible != self.net_visible {
         self.net_visible = net_visible;
-        collect(SceneNodeDerivedDataDelta::net_visible(net_visible))
+        collect(self, SceneNodeDerivedDataDelta::net_visible(net_visible))
       }
     } else {
       let new_world = self_source.local_matrix;
       if new_world != self.world_matrix {
         self.world_matrix = new_world;
-        collect(SceneNodeDerivedDataDelta::world_matrix(new_world))
+        collect(self, SceneNodeDerivedDataDelta::world_matrix(new_world))
       }
       let net_visible = self_source.visible;
       if net_visible != self.net_visible {
         self.net_visible = net_visible;
-        collect(SceneNodeDerivedDataDelta::net_visible(net_visible))
+        collect(self, SceneNodeDerivedDataDelta::net_visible(net_visible))
       }
     }
   }
@@ -185,8 +197,9 @@ impl Default for SceneNodeDataImpl {
 pub struct SceneNode {
   pub(crate) guid: u64,
   pub(crate) scene_id: u64,
-  pub(crate) inner:
-    ShareTreeNode<ReactiveTreeCollection<RwLock<TreeCollection<SceneNodeData>>, SceneNodeData>>,
+  pub(crate) inner: ShareTreeNode<
+    ReactiveTreeCollection<parking_lot::RwLock<TreeCollection<SceneNodeData>>, SceneNodeData>,
+  >,
 }
 
 clone_self_incremental!(SceneNode);
@@ -197,7 +210,14 @@ impl GlobalIdentified for SceneNode {
   }
 }
 
+/// (scene guid, alloc idx)
+pub type NodeIdentity = (u64, usize);
+
 impl SceneNode {
+  pub fn scene_and_node_id(&self) -> NodeIdentity {
+    (self.scene_id, self.inner.raw_handle().index())
+  }
+
   pub(crate) fn create_new(
     nodes: SceneNodeCollectionImpl,
     data: SceneNodeData,

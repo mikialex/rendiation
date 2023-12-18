@@ -4,14 +4,16 @@ mod generational_shrinkable;
 mod index_kept;
 mod index_reuse;
 mod linklist_pool;
+mod multi_hash;
 
 pub use deduplication::*;
+use fast_hash_collection::*;
 pub use generational::*;
 pub use generational_shrinkable::*;
 pub use index_kept::*;
 pub use index_reuse::*;
 pub use linklist_pool::*;
-
+pub use multi_hash::*;
 pub type Handle<T, S> = <S as StorageBehavior<T>>::Handle;
 
 pub trait StorageBehavior<T>: Sized + Default {
@@ -38,8 +40,8 @@ pub trait HandlePredictableStorage<T>: StorageBehavior<T> {
   fn insert_with(&mut self, creator: impl FnOnce(Self::Handle) -> T) -> Self::Handle;
 }
 
-/// this is use for saving memory. u32 should be enough for most container size, and Option<u32>
-/// could be represent by u32 max.
+/// this is use for saving memory. u32max-1 should be enough for any container's max size, and
+/// Option<u32> could be represent by u32max.
 #[derive(Clone, Copy)]
 pub struct IndexPtr {
   index: u32,

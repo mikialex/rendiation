@@ -1,25 +1,35 @@
 #![feature(impl_trait_in_assoc_type)]
 #![feature(return_position_impl_trait_in_trait)]
 #![feature(type_alias_impl_trait)]
+#![feature(min_specialization)]
 #![feature(associated_type_bounds)]
 
 use core::{
   pin::Pin,
   task::{Context, Poll},
 };
+use std::hash::Hash;
+use std::sync::Arc;
 use std::{
+  marker::PhantomData,
   ops::Deref,
   sync::atomic::{AtomicU64, Ordering},
 };
 
 use dyn_downcast::*;
+use fast_hash_collection::*;
 use futures::{Future, Stream, StreamExt};
 use heap_tools::Counted;
 use incremental::*;
+use parking_lot::RwLock;
+use rayon::prelude::*;
 use reactive::*;
 
 mod single;
 pub use single::*;
+
+mod multi_join;
+pub use multi_join::*;
 
 mod single_shared;
 pub use single_shared::*;
@@ -32,9 +42,6 @@ pub use group::*;
 
 mod group_listen;
 pub use group_listen::*;
-
-mod relation;
-pub use relation::*;
 
 mod collection;
 pub use collection::*;
@@ -82,6 +89,7 @@ pub trait LinearIdentified {
   fn alloc_index(&self) -> u32;
 }
 define_dyn_trait_downcaster_static!(LinearIdentified);
+
 pub trait LinearIdentification: LinearIdentified + Copy {
   fn from_alloc_index(idx: u32) -> Self;
 }

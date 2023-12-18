@@ -1,9 +1,10 @@
 #![feature(type_alias_impl_trait)]
 
-use std::sync::{Arc, RwLock};
+use std::sync::Arc;
 
 use abst::TreeNodeMutPtr;
 use incremental::IncrementalBase;
+use parking_lot::RwLock;
 pub use rendiation_abstract_tree::*;
 use storage::*;
 
@@ -42,7 +43,7 @@ pub trait CoreTree {
   fn get_node_data_mut(&mut self, handle: Self::Handle) -> &mut Self::Node;
 
   fn create_node(&mut self, data: Self::Node) -> Self::Handle;
-  fn delete_node(&mut self, handle: Self::Handle);
+  fn delete_node(&mut self, handle: Self::Handle) -> Option<Self::Node>;
   fn node_add_child_by(
     &mut self,
     parent: Self::Handle,
@@ -117,8 +118,8 @@ impl<T> CoreTree for TreeCollection<T> {
     })
   }
 
-  fn delete_node(&mut self, handle: TreeNodeHandle<T>) {
-    self.nodes.remove(handle);
+  fn delete_node(&mut self, handle: TreeNodeHandle<T>) -> Option<T> {
+    self.nodes.remove(handle).map(|n| n.data)
   }
 
   fn get_node_data(&self, handle: TreeNodeHandle<T>) -> &T {
@@ -267,5 +268,9 @@ impl<T> TreeCollection<T> {
         let child = unsafe { &mut (*child.node) };
         visitor(child)
       });
+  }
+
+  pub fn iter_node_idx(&self) -> impl Iterator<Item = usize> + '_ {
+    self.nodes.iter().map(|(h, _)| h.index())
   }
 }

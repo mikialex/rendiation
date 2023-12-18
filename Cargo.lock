@@ -737,6 +737,31 @@ dependencies = [
 ]
 
 [[package]]
+name = "dashmap"
+version = "5.5.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "978747c1d849a7d2ee5e8adc0159961c48fb7e5db2f06af6723b80123bb53856"
+dependencies = [
+ "cfg-if",
+ "hashbrown 0.14.3",
+ "lock_api",
+ "once_cell",
+ "parking_lot_core",
+ "rayon",
+]
+
+[[package]]
+name = "derivative"
+version = "2.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "fcc3dd5e9e9c0b295d6e1e4d811fb6f157d5ffd784b8d202fc62eac8035a770b"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 1.0.72",
+]
+
+[[package]]
 name = "dirs"
 version = "4.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1405,6 +1430,12 @@ name = "hashbrown"
 version = "0.12.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8a9ee70c43aaf417c914396645a0fa852624801b24ebb7ae78fe8272889ac888"
+
+[[package]]
+name = "hashbrown"
+version = "0.14.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "290f1a1d9242c78d09ce40a5e87e7554ee637af1351968159f4952f028f75604"
 
 [[package]]
 name = "hassle-rs"
@@ -2204,9 +2235,9 @@ checksum = "1a5b3dd1c072ee7963717671d1ca129f1048fda25edea6b752bfc71ac8854170"
 
 [[package]]
 name = "once_cell"
-version = "1.15.0"
+version = "1.18.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e82dad04139b71a90c080c8463fe0dc7902db5192d939bd0950f074d014339e1"
+checksum = "dd8b5dd2ae5ed71462c540258bedcb51965123ad7e7ccf4b9a8cafaa4a63576d"
 
 [[package]]
 name = "oorandom"
@@ -2262,15 +2293,15 @@ dependencies = [
 
 [[package]]
 name = "parking_lot_core"
-version = "0.9.3"
+version = "0.9.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "09a279cbf25cb0757810394fbc1e359949b59e348145c643a939a525692e6929"
+checksum = "4c42a9226546d68acdd9c0a280d17ce19bfe27a46bf68784e4066115788d008e"
 dependencies = [
  "cfg-if",
  "libc",
- "redox_syscall",
+ "redox_syscall 0.4.1",
  "smallvec",
- "windows-sys 0.36.1",
+ "windows-targets 0.48.0",
 ]
 
 [[package]]
@@ -2575,6 +2606,8 @@ dependencies = [
 name = "reactive-incremental"
 version = "0.0.1"
 dependencies = [
+ "dashmap",
+ "dyn-clone",
  "dyn-downcast",
  "fast-hash-collection",
  "futures",
@@ -2582,9 +2615,11 @@ dependencies = [
  "incremental",
  "parking_lot",
  "pin-project",
+ "rayon",
  "reactive",
  "smallvec",
  "storage",
+ "tracing",
 ]
 
 [[package]]
@@ -2597,13 +2632,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "redox_syscall"
+version = "0.4.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4722d768eff46b75989dd134e5c353f0d6296e5aaa3132e776cbdb56be7731aa"
+dependencies = [
+ "bitflags 1.2.1",
+]
+
+[[package]]
 name = "redox_users"
 version = "0.4.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b033d837a7cf162d7993aded9304e30a83213c648b6e389db233191f891e5c2b"
 dependencies = [
  "getrandom 0.2.10",
- "redox_syscall",
+ "redox_syscall 0.2.16",
  "thiserror",
 ]
 
@@ -2850,6 +2894,7 @@ dependencies = [
  "arena",
  "bitflags 2.4.0",
  "bytemuck",
+ "derivative",
  "dyn-clone",
  "dyn-downcast",
  "fast-hash-collection",
@@ -2857,7 +2902,9 @@ dependencies = [
  "incremental",
  "log",
  "once_cell",
+ "parking_lot",
  "pin-project",
+ "rayon",
  "reactive",
  "reactive-incremental",
  "rendiation-algebra",
@@ -2921,6 +2968,20 @@ dependencies = [
  "smallvec",
  "thiserror",
  "tobj 4.0.0",
+]
+
+[[package]]
+name = "rendiation-scene-optimization"
+version = "0.1.0"
+dependencies = [
+ "dashmap",
+ "fast-hash-collection",
+ "incremental",
+ "rayon",
+ "reactive-incremental",
+ "rendiation-algebra",
+ "rendiation-scene-core",
+ "smallvec",
 ]
 
 [[package]]
@@ -3396,6 +3457,7 @@ name = "storage"
 version = "0.0.1"
 dependencies = [
  "arena",
+ "fast-hash-collection",
 ]
 
 [[package]]
@@ -3590,12 +3652,46 @@ dependencies = [
 ]
 
 [[package]]
+name = "tracing"
+version = "0.1.35"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a400e31aa60b9d44a52a8ee0343b5b18566b03a8321e0d321f695cf56e940160"
+dependencies = [
+ "cfg-if",
+ "pin-project-lite",
+ "tracing-attributes",
+ "tracing-core",
+]
+
+[[package]]
+name = "tracing-attributes"
+version = "0.1.27"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "34704c8d6ebcbc939824180af020566b01a7c01f80641264eba0999f6c2b6be7"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.26",
+]
+
+[[package]]
+name = "tracing-core"
+version = "0.1.32"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c06d3da6113f116aaee68e4d601191614c9053067f9ab7f6edbcb161237daa54"
+dependencies = [
+ "once_cell",
+]
+
+[[package]]
 name = "tree"
 version = "0.0.1"
 dependencies = [
  "futures",
  "incremental",
+ "parking_lot",
  "reactive",
+ "reactive-incremental",
  "rendiation-abstract-tree",
  "storage",
 ]

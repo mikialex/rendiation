@@ -139,7 +139,6 @@ impl WebGPUSceneModel for ModelEnum {
       Self::Foreign(m) => get_dyn_trait_downcaster_static!(WebGPUSceneModel)
         .downcast_ref(m.as_ref().as_any())?
         .create_scene_reactive_gpu(ctx)?,
-      _ => return None,
     }
     .into()
   }
@@ -182,7 +181,6 @@ pub fn build_scene_model_gpu(
           // todo, handle node change
           RenderComponentDeltaFlag::ContentRef
         }
-        SceneModelImplDelta::attach_index(_) => RenderComponentDeltaFlag::empty(),
       }
       .into()
     })

@@ -58,7 +58,13 @@ impl SceneNodeDeriveSystem {
       .fork_stream()
       .flat_map(futures::stream::iter)
       // we don't care about deletions in this stream
-      .filter_map_sync(|d: (usize, Option<SceneNodeDerivedDataDelta>)| d.1.map(|d1| (d.0, d1)))
+      .filter_map_sync(|(idx, d)| {
+        match d {
+          ValueChange::Delta(d, _) => Some(d),
+          ValueChange::Remove(_) => None,
+        }
+        .map(|d| (idx, d))
+      })
       .create_index_mapping_broadcaster();
 
     let indexed_stream_mapper = Arc::new(RwLock::new(indexed_stream_mapper));
@@ -70,23 +76,28 @@ impl SceneNodeDeriveSystem {
       .derived_stream
       .fork_stream()
       .flat_map(futures::stream::iter)
-      .fold_signal_state_stream(sub_broad_caster, move |(idx, delta), sub_broad_caster| {
-        if delta.is_none() {
-          sub_broad_caster.insert(idx, None)
-          // we check if is none first to avoid too much sub stream recreate
-        } else if sub_broad_caster.get(idx).is_none() {
-          sub_broad_caster.insert(
-            idx,
-            Some(
-              indexed_stream_mapper_c
-                .read()
-                .unwrap()
-                .create_sub_stream_by_index(idx)
-                .create_broad_caster(),
-            ),
-          )
-        }
-      });
+      .fold_signal_state_stream(
+        sub_broad_caster,
+        move |(idx, delta), sub_broad_caster| match delta {
+          ValueChange::Delta(_, _) => {
+            if sub_broad_caster.get(idx).is_none() {
+              sub_broad_caster.insert(
+                idx,
+                Some(
+                  indexed_stream_mapper_c
+                    .read()
+                    .unwrap()
+                    .create_sub_stream_by_index(idx)
+                    .create_broad_caster(),
+                ),
+              )
+            }
+          }
+          ValueChange::Remove(_) => {
+            sub_broad_caster.insert(idx, None);
+          }
+        },
+      );
 
     SceneNodeDeriveSystem {
       inner: inner_sys,
@@ -161,7 +172,7 @@ impl SceneNodeDeriveSystem {
     index: usize,
   ) -> Option<impl Stream<Item = SceneNodeDerivedDataDelta>> {
     let derived = self.visit_derived(index, |d| d.clone())?;
-    let init_deltas = expand_out(&derived);
+    let init_deltas = derived.expand_out();
     self
       .updater
       .read()

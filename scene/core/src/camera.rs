@@ -12,7 +12,6 @@ pub struct SceneCameraImpl {
   pub bounds: CameraViewBounds,
   pub projection: CameraProjectionEnum,
   pub node: SceneNode,
-  pub(crate) attach_index: Option<usize>,
 }
 
 impl SceneCameraImpl {
@@ -21,12 +20,7 @@ impl SceneCameraImpl {
       bounds: Default::default(),
       projection,
       node,
-      attach_index: None,
     }
-  }
-
-  pub fn attach_index(&self) -> Option<usize> {
-    self.attach_index
   }
 
   pub fn compute_project_mat(&self) -> Mat4<f32> {
@@ -126,7 +120,7 @@ pub enum CameraProjectionEnum {
   Perspective(PerspectiveProjection<f32>),
   ViewOrthographic(ViewFrustumOrthographicProjection<f32>),
   Orthographic(OrthographicProjection<f32>),
-  Foreign(Box<dyn AnyClone + Send + Sync>),
+  Foreign(ForeignObject),
 }
 
 pub trait CameraProjection: Sync + Send + DynIncremental {
@@ -210,4 +204,21 @@ impl SimpleIncremental for CameraProjectionEnum {
   fn s_expand(&self, mut cb: impl FnMut(Self::Delta)) {
     cb(CameraProjectorDelta::Type(self.clone()));
   }
+}
+
+pub fn camera_projections() -> impl ReactiveCollection<AllocIdx<SceneCameraImpl>, Mat4<f32>> {
+  storage_of::<SceneCameraImpl>()
+    // extract proj change flag
+    .listen_to_reactive_collection(|change| match change {
+      MaybeDeltaRef::Delta(delta) => match delta {
+        SceneCameraImplDelta::projection(_) => ChangeReaction::Care(Some(())),
+        _ => ChangeReaction::NotCare,
+      },
+      MaybeDeltaRef::All(_) => ChangeReaction::Care(Some(())),
+    })
+    .collective_execute_map_by(|| {
+      let proj_compute = storage_of::<SceneCameraImpl>() //
+        .create_key_mapper(|camera, _| camera.compute_project_mat());
+      move |k, _| proj_compute(*k)
+    })
 }

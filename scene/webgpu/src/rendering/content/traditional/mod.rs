@@ -93,7 +93,6 @@ pub fn setup_pass_core(
       //   model.render(pass, dispatcher, camera, resources)
       // }
     }
-    _ => {}
   };
 }
 

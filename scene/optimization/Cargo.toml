@@ -1,0 +1,15 @@
+[package]
+authors = ["MikiAlex <18516340862@163.com>"]
+edition = "2021"
+name = "rendiation-scene-optimization"
+version = "0.1.0"
+
+[dependencies]
+fast-hash-collection = { path = "../../utils/fast-hash-collection" }
+incremental = { path = "../../utils/incremental" }
+reactive-incremental = { path = "../../utils/reactive-incremental" }
+rendiation-algebra = { path = "../../math/algebra" }
+rendiation-scene-core = { path = "../core" }
+smallvec = { workspace = true }
+rayon = { workspace = true }
+dashmap = { workspace = true }

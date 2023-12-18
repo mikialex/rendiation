@@ -123,8 +123,6 @@ pub fn as_2d_source(tex: &SceneTexture2DType) -> Option<impl WebGPU2DTextureSour
     SceneTexture2DType::Foreign(tex) => get_dyn_trait_downcaster_static!(WebGPU2DTextureSource)
       .downcast_ref(tex.as_ref().as_any())
       .map(|t| SceneTexture2DSourceImpl::Foreign(t)),
-
-    _ => None,
   }
 }
 

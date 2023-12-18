@@ -31,7 +31,6 @@ impl PickingConventionAgreement for MaterialEnum {
           false
         }
       }
-      _ => false,
     }
   }
 }

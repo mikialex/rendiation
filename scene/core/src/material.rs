@@ -1,12 +1,11 @@
 use crate::*;
 
-#[non_exhaustive]
 #[derive(Clone)]
 pub enum MaterialEnum {
   PhysicalSpecularGlossiness(IncrementalSignalPtr<PhysicalSpecularGlossinessMaterial>),
   PhysicalMetallicRoughness(IncrementalSignalPtr<PhysicalMetallicRoughnessMaterial>),
   Flat(IncrementalSignalPtr<FlatMaterial>),
-  Foreign(Box<dyn AnyClone + Send + Sync>),
+  Foreign(ForeignObject),
 }
 
 impl MaterialEnum {
@@ -54,13 +53,20 @@ impl Default for AlphaMode {
   }
 }
 
-#[derive(Clone, Incremental)]
+#[derive(Clone, Incremental, Derivative)]
+#[derivative(Hash)]
 pub struct PhysicalSpecularGlossinessMaterial {
+  #[derivative(Hash(hash_with = "byte_hash"))]
   pub albedo: Vec3<f32>,
+  #[derivative(Hash(hash_with = "byte_hash"))]
   pub specular: Vec3<f32>,
+  #[derivative(Hash(hash_with = "byte_hash"))]
   pub glossiness: f32,
+  #[derivative(Hash(hash_with = "byte_hash"))]
   pub emissive: Vec3<f32>,
+  #[derivative(Hash(hash_with = "byte_hash"))]
   pub alpha: f32,
+  #[derivative(Hash(hash_with = "byte_hash"))]
   pub alpha_cutoff: f32,
   pub alpha_mode: AlphaMode,
   pub albedo_texture: Option<Texture2DWithSamplingData>,
@@ -71,9 +77,11 @@ pub struct PhysicalSpecularGlossinessMaterial {
   pub ext: DynamicExtension,
 }
 
-#[derive(Clone, Incremental)]
+#[derive(Clone, Incremental, Derivative)]
+#[derivative(Hash)]
 pub struct NormalMapping {
   pub content: Texture2DWithSamplingData,
+  #[derivative(Hash(hash_with = "byte_hash"))]
   pub scale: f32,
 }
 
@@ -97,17 +105,25 @@ impl Default for PhysicalSpecularGlossinessMaterial {
   }
 }
 
-#[derive(Clone, Incremental)]
+#[derive(Clone, Incremental, Derivative)]
+#[derivative(Hash)]
 pub struct PhysicalMetallicRoughnessMaterial {
   /// in conductor case will act as specular color,
   /// in dielectric case will act as diffuse color,
   /// which is decided by metallic property
+  #[derivative(Hash(hash_with = "byte_hash"))]
   pub base_color: Vec3<f32>,
+  #[derivative(Hash(hash_with = "byte_hash"))]
   pub roughness: f32,
+  #[derivative(Hash(hash_with = "byte_hash"))]
   pub metallic: f32,
+  #[derivative(Hash(hash_with = "byte_hash"))]
   pub reflectance: f32,
+  #[derivative(Hash(hash_with = "byte_hash"))]
   pub emissive: Vec3<f32>,
+  #[derivative(Hash(hash_with = "byte_hash"))]
   pub alpha: f32,
+  #[derivative(Hash(hash_with = "byte_hash"))]
   pub alpha_cutoff: f32,
   pub alpha_mode: AlphaMode,
   pub base_color_texture: Option<Texture2DWithSamplingData>,
@@ -137,8 +153,10 @@ impl Default for PhysicalMetallicRoughnessMaterial {
   }
 }
 
-#[derive(Clone, Incremental)]
+#[derive(Clone, Incremental, Derivative)]
+#[derivative(Hash)]
 pub struct FlatMaterial {
+  #[derivative(Hash(hash_with = "byte_hash"))]
   pub color: Vec4<f32>,
   pub ext: DynamicExtension,
 }

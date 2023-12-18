@@ -7,6 +7,7 @@
 use std::hash::Hash;
 use std::sync::{Arc, RwLock};
 
+use derivative::Derivative;
 pub use dyn_downcast::*;
 use fast_hash_collection::*;
 use futures::Stream;
@@ -53,3 +54,12 @@ pub use systems::*;
 
 mod systems_next;
 pub use systems_next::*;
+
+pub type ForeignObject = Box<dyn AnyClone + Send + Sync>;
+
+fn byte_hash<T: bytemuck::Pod, H>(value: &T, state: &mut H)
+where
+  H: std::hash::Hasher,
+{
+  bytemuck::bytes_of(value).hash(state)
+}

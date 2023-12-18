@@ -109,6 +109,7 @@ where
     };
 
     let indices: Vec<u32> = iter.flat_map(|p| p.into_iter()).map(push_v).collect();
+    let indices: Vec<u8> = bytemuck::cast_slice(&indices).to_owned();
 
     let attributes = buffers
       .unwrap()
@@ -119,7 +120,7 @@ where
 
     AttributeMeshData {
       attributes,
-      indices: Some(indices),
+      indices: Some((AttributeIndexFormat::Uint32, indices)),
       mode: P::TOPOLOGY,
       groups: Default::default(),
     }
@@ -128,7 +129,7 @@ where
 
 pub struct AttributeMeshData {
   pub attributes: Vec<(AttributeSemantic, Vec<u8>)>,
-  pub indices: Option<Vec<u32>>,
+  pub indices: Option<(AttributeIndexFormat, Vec<u8>)>,
   pub mode: PrimitiveTopology,
   pub groups: MeshGroupsInfo,
 }
@@ -146,9 +147,9 @@ impl AttributeMeshData {
 
     AttributesMesh {
       attributes,
-      indices: self.indices.map(|buffer| {
-        let buffer = AttributeAccessor::create_owned(buffer, 4);
-        (AttributeIndexFormat::Uint32, buffer)
+      indices: self.indices.map(|(fmt, buffer)| {
+        let buffer = AttributeAccessor::create_owned(buffer, fmt.byte_size());
+        (fmt, buffer)
       }),
       mode: self.mode,
       groups: self.groups,

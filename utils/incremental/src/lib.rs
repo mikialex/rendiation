@@ -27,12 +27,16 @@ pub trait IncrementalBase: Sized + Send + Sync + 'static {
   fn expand_size(&self) -> Option<usize> {
     None
   }
-}
 
-pub fn expand_out<T: IncrementalBase>(item: &T) -> Vec<T::Delta> {
-  let mut r = Vec::with_capacity(item.expand_size().unwrap_or(1));
-  item.expand(|d| r.push(d));
-  r
+  fn expand_out(&self) -> Vec<Self::Delta> {
+    let mut r = Vec::with_capacity(self.expand_size().unwrap_or(1));
+    self.expand(|d| r.push(d));
+    r
+  }
+  fn expand_push_into(&self, r: &mut Vec<Self::Delta>) {
+    r.reserve(self.expand_size().unwrap_or(1));
+    self.expand(|d| r.push(d));
+  }
 }
 
 pub type DeltaOf<T> = <T as IncrementalBase>::Delta;
@@ -125,4 +129,16 @@ pub trait IncrementalEditing: ApplicableIncremental {
 
 pub trait ReversibleIncremental: ApplicableIncremental {
   fn reverse_delta(&self, delta: &Self::Delta) -> Self::Delta;
+  fn make_reverse_delta_pair(&self, delta: Self::Delta) -> DeltaPair<Self> {
+    let inverse = self.reverse_delta(&delta);
+    DeltaPair {
+      forward: delta,
+      inverse,
+    }
+  }
+}
+
+pub struct DeltaPair<T: ReversibleIncremental> {
+  pub forward: T::Delta,
+  pub inverse: T::Delta,
 }
