@@ -14,7 +14,6 @@ impl<T> Default for IndexReusedVec<T> {
 
 impl<T> IndexReusedVec<T> {
   pub fn shrink_to_fit(&mut self) {
-    self.empty_list.shrink_to_fit();
     let tail_size = self
       .storage
       .iter()
@@ -22,7 +21,18 @@ impl<T> IndexReusedVec<T> {
       .take_while(|v| v.is_none())
       .count();
     self.storage.truncate(self.storage.len() - tail_size);
-    self.storage.shrink_to_fit()
+    self.storage.shrink_to_fit();
+
+    let new_len = self.storage.len();
+
+    let new_empty = self
+      .empty_list
+      .iter()
+      .cloned()
+      .filter(|v| *v < new_len as u32)
+      .collect();
+    self.empty_list = new_empty;
+    self.empty_list.shrink_to_fit();
   }
 
   pub fn insert(&mut self, data: T) -> u32 {

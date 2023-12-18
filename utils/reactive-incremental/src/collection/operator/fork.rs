@@ -85,6 +85,28 @@ where
   }
 }
 
+pub fn poll_and_merge_all<K: CKey, V: CValue>(
+  cx: &mut Context,
+  source: &mut (impl Stream<Item = FastHashMap<K, ValueChange<V>>> + Unpin),
+) -> Poll<CollectionChanges<'static, K, V>> {
+  let mut buffered: Option<FastHashMap<K, ValueChange<V>>> = None;
+
+  while let Poll::Ready(Some(changes)) = source.poll_next_unpin(cx) {
+    if let Some(output) = &mut buffered {
+      output.merge(&changes);
+    } else {
+      buffered = changes.into();
+    }
+  }
+  if let Some(buffered) = buffered {
+    if !buffered.is_empty() {
+      return Poll::Ready(Box::new(Arc::new(buffered)));
+    }
+  }
+
+  Poll::Pending
+}
+
 impl<Map, K, V> ReactiveCollection<K, V> for ReactiveKVMapForkImpl<Map, K, V>
 where
   Map: ReactiveCollection<K, V>,
