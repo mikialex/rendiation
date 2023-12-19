@@ -169,9 +169,12 @@ where
   fn access(&self) -> PollCollectionCurrent<K, V> {
     if let Some(upstream) = self.upstream.try_read() {
       let view = upstream.access();
+      if view.is_blocked() {
+        return CPoll::Blocked;
+      }
       let view = ForkedAccessView::<RwLockReadGuard<'static, Map>, K, V> {
-        view: unsafe { std::mem::transmute(view) },
-        lock: unsafe { std::mem::transmute(upstream) },
+        view: unsafe { std::mem::transmute(view.unwrap()) },
+        lock: Arc::new(unsafe { std::mem::transmute(upstream) }),
       };
       CPoll::Ready(Box::new(view) as Box<dyn VirtualCollection<K, V>>)
     } else {
@@ -231,10 +234,13 @@ where
 {
   fn multi_access(&self) -> CPoll<Box<dyn VirtualMultiCollection<V, K>>> {
     if let Some(upstream) = self.upstream.try_read() {
-      let view = upstream.access();
+      let view = upstream.multi_access();
+      if view.is_blocked() {
+        return CPoll::Blocked;
+      }
       let view = ForkedMultiAccessView::<RwLockReadGuard<'static, Map>, V, K> {
-        view: unsafe { std::mem::transmute(view) },
-        _lock: unsafe { std::mem::transmute(upstream) },
+        view: unsafe { std::mem::transmute(view.unwrap()) },
+        _lock: Arc::new(unsafe { std::mem::transmute(upstream) }),
       };
       CPoll::Ready(Box::new(view) as Box<dyn VirtualMultiCollection<V, K>>)
     } else {

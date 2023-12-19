@@ -48,7 +48,7 @@ impl<T: IncrementalBase> IncrementalSignalStorage<T> {
     mapper: impl Fn(MaybeDeltaRef<T>) -> ChangeReaction<U> + Copy + Send + Sync + 'static,
   ) -> impl ReactiveCollection<AllocIdx<T>, U>
   where
-    U: Clone + Send + Sync + 'static,
+    U: CValue,
   {
     let inner = Arc::new((Default::default(), AtomicWaker::new()));
     let receiver = GroupMutationReceiver {
@@ -137,7 +137,6 @@ impl<K, T: Clone> GroupMutationSender<K, T> {
           mutations.remove(&idx);
         }
       } else {
-        assert!(change.is_new_insert());
         mutations.insert(idx, change);
       }
 
@@ -220,7 +219,7 @@ impl<T: IncrementalBase, U: CValue> VirtualCollection<AllocIdx<T>, U>
 impl<T, S, U> ReactiveCollection<AllocIdx<T>, U> for ReactiveCollectionFromGroupMutation<T, S, U>
 where
   T: IncrementalBase,
-  U: Clone + Send + Sync + 'static,
+  U: CValue,
   S: Stream<Item = FastHashMap<AllocIdx<T>, ValueChange<U>>> + Unpin + Send + Sync + 'static,
 {
   fn poll_changes(&self, cx: &mut Context) -> PollCollectionChanges<AllocIdx<T>, U> {

@@ -4,7 +4,7 @@ use crate::*;
 
 pub struct UnorderedMaterializedReactiveCollection<Map, K, V> {
   pub inner: Map,
-  pub cache: RwLock<FastHashMap<K, V>>,
+  pub cache: Arc<RwLock<FastHashMap<K, V>>>,
 }
 
 impl<Map, K, V> ReactiveCollection<K, V> for UnorderedMaterializedReactiveCollection<Map, K, V>
@@ -45,7 +45,7 @@ where
 
 pub struct LinearMaterializedReactiveCollection<Map, V> {
   pub inner: Map,
-  pub cache: RwLock<IndexKeptVec<V>>,
+  pub cache: Arc<RwLock<IndexKeptVec<V>>>,
 }
 
 impl<Map, K, V> ReactiveCollection<K, V> for LinearMaterializedReactiveCollection<Map, V>

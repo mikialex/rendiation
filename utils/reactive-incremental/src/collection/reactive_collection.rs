@@ -62,6 +62,8 @@ pub trait ReactiveCollection<K: CKey, V: CValue>: Sync + Send + 'static {
         CPoll::Ready(r) => {
           if let Poll::Ready(change) = r {
             consumer(change.as_ref())
+          } else {
+            return;
           }
         }
         CPoll::Blocked => continue,

@@ -187,14 +187,14 @@ impl SceneModelMergeOptimization {
 pub type MaterialGUID = u64;
 pub type MaterialContentID = u64;
 
-#[derive(Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub enum MergeKey {
   // not std model
   UnableToMergeNoneStandard(u64),
   Standard(StandardMergeKey),
 }
 
-#[derive(Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub struct StandardMergeKey {
   /// only same material could be merged together, here we not using material guid, instead, using
   /// another id to identify the same material content even if the material reference is
@@ -207,7 +207,7 @@ pub struct StandardMergeKey {
   pub world_mat_is_front_side: bool,
 }
 
-#[derive(Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub enum MeshMergeType {
   // (merge_typeid, source_id)
   Mergeable(usize, u64),

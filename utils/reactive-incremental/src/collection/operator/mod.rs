@@ -156,7 +156,7 @@ where
       (Some(_), Some(_)) => unreachable!("key set should not overlap"),
       (Some(a), None) => a.into(),
       (None, Some(b)) => b.into(),
-      (None, None) => unreachable!("value not selected"),
+      (None, None) => None,
     })
   }
 
@@ -168,7 +168,9 @@ where
   {
     self.collective_union(other, |(a, b)| match (a, b) {
       (Some(a), Some(b)) => Some((a, b)),
-      _ => unreachable!("value not zipped"),
+      (None, None) => None,
+      (None, Some(_)) => unreachable!("zip missing left side"),
+      (Some(_), None) => unreachable!("zip missing right side"),
     })
   }
 

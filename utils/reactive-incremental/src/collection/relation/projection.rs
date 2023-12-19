@@ -354,7 +354,7 @@ where
 
 #[derive(Clone)]
 struct ManyToOneReduceCurrentView<O: CKey> {
-  ref_count: Arc<RwLockReadGuard<'static, FastHashMap<O, usize>>>,
+  ref_count: Arc<RwLockReadGuard<'static, FastHashMap<O, u32>>>,
 }
 
 impl<O: CKey> VirtualCollection<O, ()> for ManyToOneReduceCurrentView<O> {

@@ -7,8 +7,8 @@ use crate::*;
 
 pub trait CKey: Eq + Hash + CValue {}
 impl<T> CKey for T where T: Eq + Hash + CValue {}
-pub trait CValue: Clone + Send + Sync + 'static {}
-impl<T> CValue for T where T: Clone + Send + Sync + 'static {}
+pub trait CValue: Clone + Send + Sync + std::fmt::Debug + PartialEq + 'static {}
+impl<T> CValue for T where T: Clone + Send + Sync + std::fmt::Debug + PartialEq + 'static {}
 
 pub trait VirtualCollection<K: CKey, V: CValue>: Send + Sync + DynClone {
   fn iter_key_value(&self) -> Box<dyn Iterator<Item = (K, V)> + '_>;
@@ -111,7 +111,7 @@ pub(crate) trait MakeLockResultHolder<K, V>: Sized {
   fn make_lock_holder_collection(&self) -> Box<dyn VirtualCollection<K, V>>;
 }
 
-impl<T, K: CKey, V: CValue> MakeLockResultHolder<K, V> for RwLock<T>
+impl<T, K: CKey, V: CValue> MakeLockResultHolder<K, V> for Arc<RwLock<T>>
 where
   T: VirtualCollection<K, V> + 'static,
 {
@@ -124,17 +124,19 @@ pub(crate) trait MakeLockResultHolderRaw<T>: Sized {
   /// note, this method should be considered as the unsafe
   fn make_lock_holder_raw(&self) -> LockResultHolder<T>;
 }
-impl<T> MakeLockResultHolderRaw<T> for RwLock<T> {
+impl<T> MakeLockResultHolderRaw<T> for Arc<RwLock<T>> {
   fn make_lock_holder_raw(&self) -> LockResultHolder<T> {
     let lock = self.read_recursive();
     let lock: RwLockReadGuard<'static, T> = unsafe { std::mem::transmute(lock) };
     LockResultHolder {
+      holder: self.clone(),
       guard: Arc::new(lock),
     }
   }
 }
 
 pub(crate) struct LockResultHolder<T: 'static> {
+  holder: Arc<RwLock<T>>,
   guard: Arc<RwLockReadGuard<'static, T>>,
 }
 
@@ -150,6 +152,7 @@ impl<T: 'static> Clone for LockResultHolder<T> {
   fn clone(&self) -> Self {
     Self {
       guard: self.guard.clone(),
+      holder: self.holder.clone(),
     }
   }
 }

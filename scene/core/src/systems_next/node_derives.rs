@@ -114,7 +114,7 @@ impl<FD, F, V> TreeDeriveOutput<FD, F, V> {
 
 impl<FD, F, V> ReactiveCollection<NodeIdentity, V> for TreeDeriveOutput<FD, F, V>
 where
-  V: Clone + Send + Sync + 'static,
+  V: CValue,
   F: Fn(&SceneNodeDerivedData) -> V + Send + Sync + 'static,
   FD: Fn(SceneNodeDerivedDataDelta) -> Option<V> + Send + Sync + 'static,
 {

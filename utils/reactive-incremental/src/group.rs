@@ -1,4 +1,5 @@
 use std::{
+  fmt::Debug,
   marker::PhantomData,
   sync::{Arc, Weak},
 };
@@ -18,6 +19,12 @@ pub struct SignalItem<T> {
 pub struct AllocIdx<T> {
   pub index: u32,
   phantom: PhantomData<T>,
+}
+
+impl<T> Debug for AllocIdx<T> {
+  fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    f.debug_tuple("AllocIdx").field(&self.index).finish()
+  }
 }
 
 impl<T> Clone for AllocIdx<T> {
@@ -77,7 +84,7 @@ pub enum StorageGroupChange<'a, T: IncrementalBase> {
 }
 
 pub struct IncrementalSignalGroupImpl<T: IncrementalBase> {
-  pub data: parking_lot::RwLock<IndexReusedVec<SignalItem<T>>>,
+  pub data: Arc<parking_lot::RwLock<IndexReusedVec<SignalItem<T>>>>,
   pub(crate) sub_watchers: parking_lot::RwLock<LinkListPool<EventListener<T::Delta>>>,
   // note, it's fake static, as long as we expose the unique lifetime to user, it's safe to user
   // side.

@@ -1,6 +1,6 @@
 use crate::*;
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum ValueChange<V> {
   // k, new_v, pre_v
   Delta(V, Option<V>),
