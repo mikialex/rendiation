@@ -35,29 +35,30 @@ where
 {
   fn poll_changes(&self, cx: &mut Context) -> PollCollectionChanges<K, V> {
     let mut buffered = self.buffered.write().take().unwrap_or(Default::default());
-    loop {
-      match self.inner.poll_changes(cx) {
-        CPoll::Ready(delta) => match delta {
-          Poll::Ready(delta) => {
-            let delta = delta.materialize_hashmap_maybe_cloned();
-            if buffered.is_empty() {
-              buffered = delta;
-            } else {
-              buffered.merge(&delta);
-            }
+
+    match self.inner.poll_changes(cx) {
+      CPoll::Ready(delta) => match delta {
+        Poll::Ready(delta) => {
+          if buffered.is_empty() {
+            // if previous is not buffered, we just emit the upstream and avoid materialize
+            CPoll::Ready(Poll::Ready(delta))
+          } else {
+            merge_into_hashmap(&mut buffered, delta.iter_key_value());
+            CPoll::Ready(Poll::Ready(Arc::new(buffered).into_boxed()))
           }
-          Poll::Pending => {
-            return CPoll::Ready(if buffered.is_empty() {
-              Poll::Pending
-            } else {
-              Poll::Ready(Arc::new(buffered).into_boxed())
-            })
-          }
-        },
-        CPoll::Blocked => {
-          *self.buffered.write() = buffered.into();
-          return CPoll::Blocked;
         }
+        Poll::Pending => {
+          return CPoll::Ready(if buffered.is_empty() {
+            Poll::Pending
+          } else {
+            // if previous is buffered, we should emit the buffered change
+            Poll::Ready(Arc::new(buffered).into_boxed())
+          });
+        }
+      },
+      CPoll::Blocked => {
+        *self.buffered.write() = buffered.into();
+        CPoll::Blocked
       }
     }
   }

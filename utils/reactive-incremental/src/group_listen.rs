@@ -128,7 +128,7 @@ pub struct GroupMutationSender<K, T> {
   )>,
 }
 
-impl<K, T: Clone> GroupMutationSender<K, T> {
+impl<K, T: CValue> GroupMutationSender<K, T> {
   fn send(&self, idx: AllocIdx<K>, change: ValueChange<T>) -> bool {
     if let Some(inner) = self.inner.upgrade() {
       let mut mutations = inner.0.write();

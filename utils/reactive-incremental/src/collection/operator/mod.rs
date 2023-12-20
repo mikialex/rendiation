@@ -199,7 +199,7 @@ where
   }
 
   fn into_forker(self) -> ReactiveKVMapFork<Self, K, V> {
-    BufferedCollection::new(ReactiveKVMapForkImpl::new(self))
+    ReactiveKVMapFork::new(self)
   }
 
   /// project map<O, V> -> map<M, V> when we have O - M one to many

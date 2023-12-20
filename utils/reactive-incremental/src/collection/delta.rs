@@ -8,7 +8,7 @@ pub enum ValueChange<V> {
   Remove(V),
 }
 
-impl<V> ValueChange<V> {
+impl<V: CValue> ValueChange<V> {
   pub fn map<R>(self, mapper: impl Fn(V) -> R) -> ValueChange<R> {
     type Rt<R> = ValueChange<R>;
     match self {
@@ -63,18 +63,9 @@ impl<V> ValueChange<V> {
       ValueChange::Remove(_) => false,
     }
   }
-}
 
-pub trait ChangeMerge {
   /// return if exist after merge
-  fn merge(&mut self, new: &Self) -> bool;
-}
-
-impl<V> ChangeMerge for ValueChange<V>
-where
-  V: Clone,
-{
-  fn merge(&mut self, new: &Self) -> bool {
+  pub fn merge(&mut self, new: &Self) -> bool {
     use ValueChange::*;
     *self = match (self.clone(), new.clone()) {
       (Delta(_d1, p1), Delta(d2, _p2)) => {
@@ -102,22 +93,17 @@ where
   }
 }
 
-impl<K, V> ChangeMerge for FastHashMap<K, V>
-where
-  K: Eq + std::hash::Hash + Clone,
-  V: Clone + ChangeMerge,
-{
-  fn merge(&mut self, new: &Self) -> bool {
-    new.iter().for_each(|(k, d)| {
-      let key = k.clone();
-      if let Some(current) = self.get_mut(&key) {
-        if !current.merge(d) {
-          self.remove(&key);
-        }
-      } else {
-        self.insert(key, d.clone());
+pub(crate) fn merge_into_hashmap<K: CKey, V: CValue>(
+  map: &mut FastHashMap<K, ValueChange<V>>,
+  iter: impl Iterator<Item = (K, ValueChange<V>)>,
+) {
+  iter.for_each(|(k, v)| {
+    if let Some(current) = map.get_mut(&k) {
+      if !current.merge(&v) {
+        map.remove(&k);
       }
-    });
-    !self.is_empty()
-  }
+    } else {
+      map.insert(k, v.clone());
+    }
+  })
 }

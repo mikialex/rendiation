@@ -1,3 +1,4 @@
+use std::ops::DerefMut;
 use std::{marker::PhantomData, sync::Arc};
 
 use fast_hash_collection::FastHashMap;
@@ -7,45 +8,47 @@ use parking_lot::RwLockReadGuard;
 
 use crate::*;
 
-type Sender<K, V> = UnboundedSender<Arc<FastHashMap<K, ValueChange<V>>>>;
-type Receiver<K, V> = UnboundedReceiver<Arc<FastHashMap<K, ValueChange<V>>>>;
+type ForkMessage<K, V> = FastHashMap<K, ValueChange<V>>;
 
-pub type ReactiveKVMapFork<Map, K, V> = BufferedCollection<ReactiveKVMapForkImpl<Map, K, V>, K, V>;
+type Sender<K, V> = UnboundedSender<ForkMessage<K, V>>;
+type Receiver<K, V> = UnboundedReceiver<ForkMessage<K, V>>;
 
-pub struct ReactiveKVMapForkImpl<Map, K, V> {
+pub struct ReactiveKVMapFork<Map, K, V> {
   upstream: Arc<RwLock<Map>>,
   downstream: Arc<RwLock<FastHashMap<u64, (Arc<AtomicWaker>, Sender<K, V>)>>>,
+  buffered: RwLock<ForkMessage<K, V>>,
   rev: RwLock<Receiver<K, V>>,
   id: u64,
   waker: Arc<AtomicWaker>,
   phantom: PhantomData<(K, V)>,
 }
 
-impl<Map, K, V> ReactiveKVMapForkImpl<Map, K, V> {
+impl<Map, K, V> ReactiveKVMapFork<Map, K, V> {
   pub fn new(upstream: Map) -> Self {
     let (sender, rev) = unbounded();
     let mut init = FastHashMap::default();
     let id = alloc_global_res_id();
     let waker: Arc<AtomicWaker> = Default::default();
     init.insert(id, (waker.clone(), sender));
-    ReactiveKVMapForkImpl {
+    ReactiveKVMapFork {
       upstream: Arc::new(RwLock::new(upstream)),
       downstream: Arc::new(RwLock::new(init)),
       rev: RwLock::new(rev),
       id,
       waker,
       phantom: Default::default(),
+      buffered: Default::default(),
     }
   }
 }
 
-impl<Map, K, V> Drop for ReactiveKVMapForkImpl<Map, K, V> {
+impl<Map, K, V> Drop for ReactiveKVMapFork<Map, K, V> {
   fn drop(&mut self) {
     self.downstream.write().remove(&self.id);
   }
 }
 
-impl<K, V, Map> Clone for ReactiveKVMapForkImpl<Map, K, V>
+impl<K, V, Map> Clone for ReactiveKVMapFork<Map, K, V>
 where
   Map: ReactiveCollection<K, V>,
   K: CKey,
@@ -61,7 +64,6 @@ where
       .iter_key_value()
       .map(|(k, v)| (k, ValueChange::Delta(v, None)))
       .collect::<FastHashMap<_, _>>();
-    let current = Arc::new(current);
 
     let mut downstream = self.downstream.write();
     let id = alloc_global_res_id();
@@ -81,33 +83,25 @@ where
       rev: RwLock::new(rev),
       waker,
       phantom: PhantomData,
+      buffered: Default::default(),
     }
   }
 }
 
 pub fn poll_and_merge_all<K: CKey, V: CValue>(
   cx: &mut Context,
-  source: &mut (impl Stream<Item = FastHashMap<K, ValueChange<V>>> + Unpin),
-) -> Poll<CollectionChanges<'static, K, V>> {
-  let mut buffered: Option<FastHashMap<K, ValueChange<V>>> = None;
+  source: &mut (impl Stream<Item = ForkMessage<K, V>> + Unpin),
+) -> FastHashMap<K, ValueChange<V>> {
+  let mut buffered: FastHashMap<K, ValueChange<V>> = Default::default();
 
   while let Poll::Ready(Some(changes)) = source.poll_next_unpin(cx) {
-    if let Some(output) = &mut buffered {
-      output.merge(&changes);
-    } else {
-      buffered = changes.into();
-    }
-  }
-  if let Some(buffered) = buffered {
-    if !buffered.is_empty() {
-      return Poll::Ready(Box::new(Arc::new(buffered)));
-    }
+    merge_into_hashmap(&mut buffered, changes.into_iter())
   }
 
-  Poll::Pending
+  buffered
 }
 
-impl<Map, K, V> ReactiveCollection<K, V> for ReactiveKVMapForkImpl<Map, K, V>
+impl<Map, K, V> ReactiveCollection<K, V> for ReactiveKVMapFork<Map, K, V>
 where
   Map: ReactiveCollection<K, V>,
   K: CKey,
@@ -116,20 +110,20 @@ where
   fn poll_changes(&self, cx: &mut Context) -> PollCollectionChanges<K, V> {
     if self.waker.take().is_some() {
       self.waker.register(cx.waker());
-      // the previous waker not waked, nothing changes, return
+      // the previous installed waker not waked, nothing changes, directly return
       return CPoll::Ready(Poll::Pending);
     }
+    // install new waker
     self.waker.register(cx.waker());
 
-    let r = self.rev.write().poll_next_unpin(cx);
-    if r.is_ready() {
-      self.waker.wake();
-      return match r {
-        Poll::Ready(Some(v)) => CPoll::Ready(Poll::Ready(Box::new(v))),
-        _ => unreachable!(),
-      };
+    // read and merge all possible forked buffered messages from channel
+    let mut buffered = std::mem::take(self.buffered.write().deref_mut());
+
+    while let Poll::Ready(Some(changes)) = self.rev.write().poll_next_unpin(cx) {
+      merge_into_hashmap(&mut buffered, changes.into_iter())
     }
 
+    // we have to also check the upstream no matter if we have message in channel or not
     if let Some(upstream) = self.upstream.try_write() {
       let waker = Arc::new(BroadCast {
         inner: self.downstream.clone(),
@@ -142,25 +136,43 @@ where
         CPoll::Ready(v) => match v {
           Poll::Ready(v) => {
             let downstream = self.downstream.write();
-            let c = v.materialize(); // todo improve
-            for downstream in downstream.values() {
-              downstream.1.unbounded_send(c.clone()).ok();
+            let c = v.materialize_hashmap_maybe_cloned();
+            if !c.is_empty() {
+              // broad cast to others
+              // we are not required to call broadcast waker because it will be waked by others
+              // receivers
+              for (id, downstream) in downstream.iter() {
+                if *id != self.id {
+                  downstream.1.unbounded_send(c.clone()).ok();
+                }
+              }
+
+              merge_into_hashmap(&mut buffered, c.into_iter())
             }
             drop(downstream);
-            waker.clone().wake();
-            match self.rev.write().poll_next_unpin(cx) {
-              Poll::Ready(Some(v)) => CPoll::Ready(Poll::Ready(Box::new(v))),
-              _ => unreachable!(),
+
+            if buffered.is_empty() {
+              CPoll::Ready(Poll::Pending)
+            } else {
+              CPoll::Ready(Poll::Ready(Arc::new(buffered).into_boxed()))
             }
           }
-          Poll::Pending => CPoll::Ready(Poll::Pending),
+          Poll::Pending => {
+            if buffered.is_empty() {
+              CPoll::Ready(Poll::Pending)
+            } else {
+              CPoll::Ready(Poll::Ready(Arc::new(buffered).into_boxed()))
+            }
+          }
         },
         CPoll::Blocked => {
+          *self.buffered.write() = buffered;
           waker.clone().wake();
           CPoll::Blocked
         }
       }
     } else {
+      *self.buffered.write() = buffered;
       self.waker.wake();
       CPoll::Blocked
     }
@@ -225,7 +237,7 @@ impl<K: CKey, V: CValue, T: Send + Sync> VirtualCollection<K, V> for ForkedAcces
   }
 }
 
-impl<Map, K, V> ReactiveOneToManyRelationship<V, K> for ReactiveKVMapForkImpl<Map, K, V>
+impl<Map, K, V> ReactiveOneToManyRelationship<V, K> for ReactiveKVMapFork<Map, K, V>
 where
   Map: ReactiveOneToManyRelationship<V, K>,
   Map: ReactiveCollection<K, V>,

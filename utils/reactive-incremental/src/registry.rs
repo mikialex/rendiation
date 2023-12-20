@@ -219,7 +219,7 @@ impl CollectionRegistry {
       let upstream = self.fork_or_insert_with_inner(typeid, inserter);
       let relation = upstream.into_one_to_many_by_idx_expose_type();
       let relation = Box::new(relation) as Box<dyn ReactiveOneToManyRelationship<O, M>>;
-      let relation = BufferedCollection::new(ReactiveKVMapForkImpl::new(relation));
+      let relation = ReactiveKVMapFork::new(relation);
 
       let boxed = Box::new(relation) as Box<dyn ShrinkableAny>;
       let mut relations = self.index_relation.write();
@@ -259,7 +259,7 @@ impl CollectionRegistry {
       let upstream = self.fork_or_insert_with_inner(typeid, inserter);
       let relation = upstream.into_one_to_many_by_hash_expose_type();
       let relation = Box::new(relation) as Box<dyn ReactiveOneToManyRelationship<O, M>>;
-      let relation = BufferedCollection::new(ReactiveKVMapForkImpl::new(relation));
+      let relation = ReactiveKVMapFork::new(relation);
 
       let boxed = Box::new(relation) as Box<dyn ShrinkableAny>;
       let mut relations = self.hash_relation.write();
