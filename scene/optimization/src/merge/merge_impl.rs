@@ -132,6 +132,7 @@ impl ModelMergeProxy {
       let ctx = MeshMergeCtx {
         models: &std_models,
         transforms: &transforms,
+        key,
       };
       let merge_transaction = reg.get_merge_impl_by_key(key).prepare_dyn(&ctx);
 
@@ -143,6 +144,7 @@ impl ModelMergeProxy {
 pub struct MeshMergeCtx<'a> {
   pub models: &'a [AllocIdx<StandardModel>],
   pub transforms: &'a [Mat4<f32>],
+  pub key: &'a MergeKey,
 }
 
 // impl MeshMergeSource for
@@ -233,7 +235,10 @@ impl MergeImplementation for AttributesMeshMergeImpl {
     let mesh_storage = storage_of::<AttributesMesh>();
     let mesh_storage_data = mesh_storage.inner.data.read();
 
-    let back_face = ctx.transforms[0].to_mat3().det() < 0.;
+    let back_face = match ctx.key {
+      MergeKey::UnableToMergeNoneStandard(_) => false,
+      MergeKey::Standard(key) => !key.world_mat_is_front_side,
+    };
 
     // refs
     let sources = ctx
@@ -248,12 +253,31 @@ impl MergeImplementation for AttributesMeshMergeImpl {
       })
       .collect::<Vec<_>>();
 
+    // we should compute it first to avoid recompute for every vertex
+    let position_mats = ctx
+      .transforms
+      .iter()
+      .map(|mat| {
+        if back_face {
+          Mat4::scale((-1.0, 1., 1.)) * *mat
+        } else {
+          *mat
+        }
+      })
+      .collect::<Vec<_>>();
+
+    let normal_mats = ctx
+      .transforms
+      .iter()
+      .map(|mat| mat.to_normal_matrix())
+      .collect::<Vec<_>>();
+
     // do merge
     let meshes = merge_attributes_meshes(
       u32::MAX,
       &sources,
-      |idx, position| position.apply_matrix_into(ctx.transforms[idx]),
-      |idx, normal| normal.apply_matrix_into(ctx.transforms[idx].to_normal_matrix().into()),
+      |idx, position| position_mats[idx] * *position,
+      |idx, normal| normal_mats[idx] * *normal,
     )
     .unwrap();
 
