@@ -8,7 +8,7 @@ use parking_lot::RwLockReadGuard;
 
 use crate::*;
 
-type ForkMessage<K, V> = FastHashMap<K, ValueChange<V>>;
+type ForkMessage<K, V> = Arc<FastHashMap<K, ValueChange<V>>>;
 
 type Sender<K, V> = UnboundedSender<ForkMessage<K, V>>;
 type Receiver<K, V> = UnboundedReceiver<ForkMessage<K, V>>;
@@ -16,7 +16,7 @@ type Receiver<K, V> = UnboundedReceiver<ForkMessage<K, V>>;
 pub struct ReactiveKVMapFork<Map, K, V> {
   upstream: Arc<RwLock<Map>>,
   downstream: Arc<RwLock<FastHashMap<u64, (Arc<AtomicWaker>, Sender<K, V>)>>>,
-  buffered: RwLock<ForkMessage<K, V>>,
+  buffered: RwLock<Vec<ForkMessage<K, V>>>,
   rev: RwLock<Receiver<K, V>>,
   id: u64,
   waker: Arc<AtomicWaker>,
@@ -64,6 +64,7 @@ where
       .iter_key_value()
       .map(|(k, v)| (k, ValueChange::Delta(v, None)))
       .collect::<FastHashMap<_, _>>();
+    let current = Arc::new(current);
 
     let mut downstream = self.downstream.write();
     let id = alloc_global_res_id();
@@ -88,17 +89,33 @@ where
   }
 }
 
-pub fn poll_and_merge_all<K: CKey, V: CValue>(
-  cx: &mut Context,
-  source: &mut (impl Stream<Item = ForkMessage<K, V>> + Unpin),
-) -> FastHashMap<K, ValueChange<V>> {
-  let mut buffered: FastHashMap<K, ValueChange<V>> = Default::default();
-
-  while let Poll::Ready(Some(changes)) = source.poll_next_unpin(cx) {
-    merge_into_hashmap(&mut buffered, changes.into_iter())
+fn finalize_buffered_changes<K: CKey, V: CValue>(
+  mut changes: Vec<ForkMessage<K, V>>,
+) -> PollCollectionChanges<'static, K, V> {
+  if changes.is_empty() {
+    return CPoll::Ready(Poll::Pending);
   }
 
-  buffered
+  if changes.len() == 1 {
+    let first = changes.pop().unwrap();
+    if first.is_empty() {
+      return CPoll::Ready(Poll::Pending);
+    } else {
+      return CPoll::Ready(Poll::Ready(Box::new(first)));
+    }
+  }
+
+  let mut target = FastHashMap::default();
+
+  for c in changes {
+    merge_into_hashmap(&mut target, c.iter().map(|(k, v)| (k.clone(), v.clone())));
+  }
+
+  if target.is_empty() {
+    CPoll::Ready(Poll::Pending)
+  } else {
+    CPoll::Ready(Poll::Ready(Box::new(target)))
+  }
 }
 
 impl<Map, K, V> ReactiveCollection<K, V> for ReactiveKVMapFork<Map, K, V>
@@ -120,7 +137,7 @@ where
     let mut buffered = std::mem::take(self.buffered.write().deref_mut());
 
     while let Poll::Ready(Some(changes)) = self.rev.write().poll_next_unpin(cx) {
-      merge_into_hashmap(&mut buffered, changes.into_iter())
+      buffered.push(changes);
     }
 
     // we have to also check the upstream no matter if we have message in channel or not
@@ -136,7 +153,7 @@ where
         CPoll::Ready(v) => match v {
           Poll::Ready(v) => {
             let downstream = self.downstream.write();
-            let c = v.materialize_hashmap_maybe_cloned();
+            let c = v.materialize();
             if !c.is_empty() {
               // broad cast to others
               // we are not required to call broadcast waker because it will be waked by others
@@ -147,23 +164,13 @@ where
                 }
               }
 
-              merge_into_hashmap(&mut buffered, c.into_iter())
+              buffered.push(c);
             }
             drop(downstream);
 
-            if buffered.is_empty() {
-              CPoll::Ready(Poll::Pending)
-            } else {
-              CPoll::Ready(Poll::Ready(Arc::new(buffered).into_boxed()))
-            }
+            finalize_buffered_changes(buffered)
           }
-          Poll::Pending => {
-            if buffered.is_empty() {
-              CPoll::Ready(Poll::Pending)
-            } else {
-              CPoll::Ready(Poll::Ready(Arc::new(buffered).into_boxed()))
-            }
-          }
+          Poll::Pending => finalize_buffered_changes(buffered),
         },
         CPoll::Blocked => {
           *self.buffered.write() = buffered;
@@ -184,7 +191,7 @@ where
       if view.is_blocked() {
         return CPoll::Blocked;
       }
-      let view = ForkedAccessView::<RwLockReadGuard<'static, Map>, K, V> {
+      let view = ForkedAccessView::<Map, K, V> {
         view: unsafe { std::mem::transmute(view.unwrap()) },
         lock: Arc::new(unsafe { std::mem::transmute(upstream) }),
       };
@@ -250,7 +257,7 @@ where
       if view.is_blocked() {
         return CPoll::Blocked;
       }
-      let view = ForkedMultiAccessView::<RwLockReadGuard<'static, Map>, V, K> {
+      let view = ForkedMultiAccessView::<Map, V, K> {
         view: unsafe { std::mem::transmute(view.unwrap()) },
         _lock: Arc::new(unsafe { std::mem::transmute(upstream) }),
       };
