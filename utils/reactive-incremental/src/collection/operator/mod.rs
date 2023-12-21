@@ -202,7 +202,11 @@ where
   }
 
   fn into_forker(self) -> ReactiveKVMapFork<Self, K, V> {
-    ReactiveKVMapFork::new(self)
+    ReactiveKVMapFork::new(self, false)
+  }
+
+  fn into_static_forker(self) -> ReactiveKVMapFork<Self, K, V> {
+    ReactiveKVMapFork::new(self, true)
   }
 
   /// project map<O, V> -> map<M, V> when we have O - M one to many

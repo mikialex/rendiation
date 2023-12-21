@@ -13,9 +13,17 @@ type ForkMessage<K, V> = Arc<FastHashMap<K, ValueChange<V>>>;
 type Sender<K, V> = UnboundedSender<ForkMessage<K, V>>;
 type Receiver<K, V> = UnboundedReceiver<ForkMessage<K, V>>;
 
+struct DownStreamInfo<K, V> {
+  waker: Arc<AtomicWaker>,
+  sender: Sender<K, V>,
+  /// some fork never receive message just act as a static forker, in this case the message should
+  /// not send to it to avoid memory leak.
+  should_send: bool,
+}
+
 pub struct ReactiveKVMapFork<Map, K, V> {
   upstream: Arc<RwLock<Map>>,
-  downstream: Arc<RwLock<FastHashMap<u64, (Arc<AtomicWaker>, Sender<K, V>)>>>,
+  downstream: Arc<RwLock<FastHashMap<u64, DownStreamInfo<K, V>>>>,
   buffered: RwLock<Vec<ForkMessage<K, V>>>,
   rev: RwLock<Receiver<K, V>>,
   id: u64,
@@ -24,12 +32,17 @@ pub struct ReactiveKVMapFork<Map, K, V> {
 }
 
 impl<Map, K, V> ReactiveKVMapFork<Map, K, V> {
-  pub fn new(upstream: Map) -> Self {
+  pub fn new(upstream: Map, as_static_forker: bool) -> Self {
     let (sender, rev) = unbounded();
     let mut init = FastHashMap::default();
     let id = alloc_global_res_id();
     let waker: Arc<AtomicWaker> = Default::default();
-    init.insert(id, (waker.clone(), sender));
+    let info = DownStreamInfo {
+      waker: waker.clone(),
+      sender,
+      should_send: !as_static_forker,
+    };
+    init.insert(id, info);
     ReactiveKVMapFork {
       upstream: Arc::new(RwLock::new(upstream)),
       downstream: Arc::new(RwLock::new(init)),
@@ -75,7 +88,13 @@ where
     }
 
     let waker: Arc<AtomicWaker> = Default::default();
-    downstream.insert(id, (waker.clone(), sender));
+    let info = DownStreamInfo {
+      waker: waker.clone(),
+      sender,
+      should_send: true,
+    };
+
+    downstream.insert(id, info);
 
     Self {
       upstream: self.upstream.clone(),
@@ -159,8 +178,8 @@ where
               // we are not required to call broadcast waker because it will be waked by others
               // receivers
               for (id, downstream) in downstream.iter() {
-                if *id != self.id {
-                  downstream.1.unbounded_send(c.clone()).ok();
+                if *id != self.id && downstream.should_send {
+                  downstream.sender.unbounded_send(c.clone()).ok();
                 }
               }
 
@@ -208,14 +227,14 @@ where
 
 /// notify all downstream proactively
 struct BroadCast<K, V> {
-  inner: Arc<RwLock<FastHashMap<u64, (Arc<AtomicWaker>, Sender<K, V>)>>>,
+  inner: Arc<RwLock<FastHashMap<u64, DownStreamInfo<K, V>>>>,
 }
 
 impl<K: CKey, V: CValue> futures::task::ArcWake for BroadCast<K, V> {
   fn wake_by_ref(arc_self: &Arc<Self>) {
     let all = arc_self.inner.write();
     for v in all.values() {
-      v.0.wake();
+      v.waker.wake();
     }
   }
 }
