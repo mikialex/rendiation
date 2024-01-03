@@ -66,7 +66,7 @@ impl<T: IncrementalBase> IncrementalListenBy<T> for IncrementalSignal<T> {
     &self,
     mut mapper: impl FnMut(MaybeDeltaRef<T>, &dyn Fn(U)) + Send + Sync + 'static,
     channel_builder: &mut C,
-  ) -> impl Stream<Item = N> + Unpin
+  ) -> Box<dyn Stream<Item = N> + Unpin>
   where
     U: Send + Sync + 'static,
     C: ChannelLike<U, Message = N>,
@@ -85,7 +85,7 @@ impl<T: IncrementalBase> IncrementalListenBy<T> for IncrementalSignal<T> {
     });
 
     let dropper = EventSourceDropper::new(remove_token, self.delta_source.make_weak());
-    DropperAttachedStream::new(dropper, receiver)
+    Box::new(DropperAttachedStream::new(dropper, receiver))
   }
 }
 

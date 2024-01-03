@@ -71,7 +71,7 @@ impl WebGPULight for IncrementalSignalPtr<SpotLight> {
     &self,
     ctx: &LightResourceCtx,
     node: Box<dyn Stream<Item = SceneNode> + Unpin>,
-  ) -> impl Stream<Item = Self::Uniform> {
+  ) -> Box<dyn Stream<Item = Self::Uniform> + Unpin> {
     enum ShaderInfoDelta {
       DirPosition(Vec3<f32>, Vec3<f32>),
       Shadow(LightShadowAddressInfo),
@@ -121,22 +121,24 @@ impl WebGPULight for IncrementalSignalPtr<SpotLight> {
 
     let delta = futures::stream_select!(direction, shadow, light);
 
-    delta.fold_signal(SpotLightShaderInfo::default(), |delta, info| {
-      match delta {
-        ShaderInfoDelta::DirPosition(dir, pos) => {
-          info.direction = dir;
-          info.position = pos;
-        }
-        ShaderInfoDelta::Shadow(shadow) => info.shadow = shadow,
-        ShaderInfoDelta::Light(l) => {
-          info.luminance_intensity = l.luminance_intensity;
-          info.cutoff_distance = l.cutoff_distance;
-          info.half_penumbra_cos = l.half_penumbra_cos;
-          info.half_cone_cos = l.half_cone_cos;
-        }
-      };
-      Some(*info)
-    })
+    Box::new(
+      delta.fold_signal(SpotLightShaderInfo::default(), |delta, info| {
+        match delta {
+          ShaderInfoDelta::DirPosition(dir, pos) => {
+            info.direction = dir;
+            info.position = pos;
+          }
+          ShaderInfoDelta::Shadow(shadow) => info.shadow = shadow,
+          ShaderInfoDelta::Light(l) => {
+            info.luminance_intensity = l.luminance_intensity;
+            info.cutoff_distance = l.cutoff_distance;
+            info.half_penumbra_cos = l.half_penumbra_cos;
+            info.half_cone_cos = l.half_cone_cos;
+          }
+        };
+        Some(*info)
+      }),
+    )
   }
 }
 

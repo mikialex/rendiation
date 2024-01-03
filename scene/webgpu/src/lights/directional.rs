@@ -67,7 +67,7 @@ impl WebGPULight for IncrementalSignalPtr<DirectionalLight> {
     &self,
     ctx: &LightResourceCtx,
     node: Box<dyn Stream<Item = SceneNode> + Unpin>,
-  ) -> impl Stream<Item = Self::Uniform> {
+  ) -> Box<dyn Stream<Item = Self::Uniform> + Unpin> {
     enum ShaderInfoDelta {
       Dir(Vec3<f32>),
       Shadow(LightShadowAddressInfo),
@@ -102,14 +102,16 @@ impl WebGPULight for IncrementalSignalPtr<DirectionalLight> {
 
     let delta = futures::stream_select!(direction, shadow, ill);
 
-    delta.fold_signal(DirectionalLightShaderInfo::default(), |delta, info| {
-      match delta {
-        ShaderInfoDelta::Dir(dir) => info.direction = dir,
-        ShaderInfoDelta::Shadow(shadow) => info.shadow = shadow,
-        ShaderInfoDelta::Ill(i) => info.illuminance = i,
-      };
-      Some(*info)
-    })
+    Box::new(
+      delta.fold_signal(DirectionalLightShaderInfo::default(), |delta, info| {
+        match delta {
+          ShaderInfoDelta::Dir(dir) => info.direction = dir,
+          ShaderInfoDelta::Shadow(shadow) => info.shadow = shadow,
+          ShaderInfoDelta::Ill(i) => info.illuminance = i,
+        };
+        Some(*info)
+      }),
+    )
   }
 }
 

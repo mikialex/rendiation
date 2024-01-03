@@ -204,7 +204,7 @@ pub fn support_bindless(
   None
 }
 
-type AttributesMeshGPUReactive = impl AsRef<RenderComponentCell<MaybeBindlessMesh<AttributesMeshGPU>>>
+pub type AttributesMeshGPUReactive = impl AsRef<RenderComponentCell<MaybeBindlessMesh<AttributesMeshGPU>>>
   + Stream<Item = RenderComponentDeltaFlag>;
 
 impl WebGPUMesh for AttributesMesh {
@@ -220,7 +220,9 @@ impl WebGPUMesh for AttributesMesh {
       let m = mesh.read();
       let gpu = &ctx.gpu;
       let m = unsafe { std::mem::transmute(&m.read()) }; // todo why?
-      if let Some(sys) = &ctx.bindless_mesh && let Some(mesh) = support_bindless(m , sys,&gpu.device, &gpu.queue){
+      if let Some(sys) = &ctx.bindless_mesh
+        && let Some(mesh) = support_bindless(m, sys, &gpu.device, &gpu.queue)
+      {
         MaybeBindlessMesh::Bindless(mesh)
       } else {
         let mut custom_storage = ctx.custom_storage.write().unwrap();

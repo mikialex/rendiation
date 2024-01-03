@@ -155,7 +155,7 @@ impl ReactiveRenderComponentSource for PhysicalSpecularGlossinessMaterialReactiv
   }
 }
 
-type PhysicalSpecularGlossinessMaterialReactiveGPU = impl AsRef<RenderComponentCell<PhysicalSpecularGlossinessMaterialGPU>>
+pub type PhysicalSpecularGlossinessMaterialReactiveGPU = impl AsRef<RenderComponentCell<PhysicalSpecularGlossinessMaterialGPU>>
   + Stream<Item = RenderComponentDeltaFlag>;
 
 impl WebGPUMaterial for PhysicalSpecularGlossinessMaterial {

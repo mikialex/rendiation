@@ -33,7 +33,7 @@ impl WebGPULight for IncrementalSignalPtr<PointLight> {
     &self,
     ctx: &LightResourceCtx,
     node: Box<dyn Stream<Item = SceneNode> + Unpin>,
-  ) -> impl Stream<Item = Self::Uniform> {
+  ) -> Box<dyn Stream<Item = Self::Uniform> + Unpin> {
     enum ShaderInfoDelta {
       Position(Vec3<f32>),
       // Shadow(LightShadowAddressInfo),
@@ -61,16 +61,18 @@ impl WebGPULight for IncrementalSignalPtr<PointLight> {
 
     let delta = futures::stream_select!(direction, ill);
 
-    delta.fold_signal(PointLightShaderInfo::default(), |delta, info| {
-      match delta {
-        ShaderInfoDelta::Position(position) => info.position = position,
-        ShaderInfoDelta::Light(i, cutoff_distance) => {
-          info.luminance_intensity = i;
-          info.cutoff_distance = cutoff_distance;
-        }
-      };
-      Some(*info)
-    })
+    Box::new(
+      delta.fold_signal(PointLightShaderInfo::default(), |delta, info| {
+        match delta {
+          ShaderInfoDelta::Position(position) => info.position = position,
+          ShaderInfoDelta::Light(i, cutoff_distance) => {
+            info.luminance_intensity = i;
+            info.cutoff_distance = cutoff_distance;
+          }
+        };
+        Some(*info)
+      }),
+    )
   }
 }
 

@@ -227,6 +227,36 @@ pub fn build_merge_relation(
   source_scene_node_mat: impl ReactiveCollection<NodeIdentity, Mat4<f32>>,
   foreign: Box<ForeignMergeKeySupport>,
 ) -> impl ReactiveCollection<AllocIdx<SceneModelImpl>, MergeKey> {
+  // ()
+
+  // ().collective_select(())
+  //   .collective_select(())
+  //   .collective_select(())
+  //   .collective_select(())
+  //   .collective_select(())
+  //   .collective_select(())
+  //   .collective_select(())
+  //   .collective_select(())
+
+  // ().collective_map(|_: usize| 1)
+  //   .collective_map(|_: usize| 2)
+  //   .collective_map(|_: usize| 3)
+  //   .collective_map(|_: usize| 4)
+  //   .collective_map(|_: usize| 5)
+  //   .collective_map(|_: usize| 6)
+  //   .collective_map(|_: usize| 7)
+  //   .collective_map(|_: usize| todo!())
+
+  // ().collective_union((), |_: (Option<()>, Option<()>)| Some(()))
+  //   .collective_union((), |_: (Option<()>, Option<()>)| Some(()))
+  //   .collective_union((), |_: (Option<()>, Option<()>)| Some(()))
+  //   .collective_union((), |_: (Option<()>, Option<()>)| Some(()))
+  //   .collective_union((), |_: (Option<()>, Option<()>)| Some(()))
+  //   .collective_union((), |_: (Option<()>, Option<()>)| Some(()))
+  //   .collective_union((), |_: (Option<()>, Option<()>)| Some(()))
+  //   .collective_union((), |_: (Option<()>, Option<()>)| Some(()))
+  //   .collective_map(|_: ()| todo!())
+
   let node_checker = create_scene_node_checker(scene_id);
   let std_sm_relation = scene_model_ref_std_model_many_one_relation();
   let sm_node_relation = scene_model_ref_node_many_one_relation();

@@ -86,7 +86,7 @@ impl MeshDrawcallEmitter for TransformInstanceGPUReactive {
   }
 }
 
-type TransformInstanceGPUReactive =
+pub type TransformInstanceGPUReactive =
   impl AsRef<RenderComponentCell<TransformInstanceGPU>> + Stream<Item = RenderComponentDeltaFlag>;
 
 impl WebGPUMesh for TransformInstancedSceneMesh {

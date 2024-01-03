@@ -1,5 +1,3 @@
-mod typed;
-pub use typed::*;
 mod transform_instance;
 pub use transform_instance::*;
 mod attributes;
