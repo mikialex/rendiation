@@ -2,6 +2,7 @@ mod precomputed;
 mod sobol;
 pub use precomputed::*;
 use rand::Rng;
+use rendiation_algebra::{Lerp, Vec2};
 pub use sobol::*;
 
 /// https://www.pbr-book.org/3ed-2018/Sampling_and_Reconstruction/Sampling_Interface#fragment-SamplerInterface-2
@@ -29,11 +30,10 @@ pub trait Sampler {
   }
 }
 
-use rendiation_algebra::{Lerp, Vec2};
-
 pub trait SampleType: Copy {}
 
 impl SampleType for f32 {}
+impl SampleType for usize {}
 impl<T: SampleType> SampleType for Vec2<T> {}
 
 pub trait SampleRegionType: Copy {
