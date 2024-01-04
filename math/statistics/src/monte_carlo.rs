@@ -1,12 +1,4 @@
-pub trait SampleType: Copy {
-  type Scope: SampleRegionType;
-}
-
-pub trait SampleRegionType: Copy {
-  type Value: SampleType;
-
-  fn sample_uniformly(&self) -> Self::Value;
-}
+use crate::*;
 
 /// not required to be normalized
 pub trait Distribution {
@@ -16,29 +8,44 @@ pub trait Distribution {
 
 /// https://pbr-book.org/4ed/Monte_Carlo_Integration/Monte_Carlo_Basics#TheMonteCarloEstimator
 pub trait MonteCarloEstimator<D: Distribution> {
-  fn estimate(&self, distribution: &D, region: &impl SampleRegionType<Value = D::Sample>) -> f32;
+  /// single estimation the integral of (distribution, region)
+  fn estimate(
+    &self,
+    distribution: &D,
+    region: &impl SampleRegionType<Value = D::Sample>,
+    sampler: &mut impl Sampler,
+  ) -> f32;
 
+  /// using the single estimation to compute integral by given sample_count
   fn integrate(
     &self,
     distribution: &D,
     region: &impl SampleRegionType<Value = D::Sample>,
     sample_count: usize,
+    sampler: &mut impl Sampler,
   ) -> f32 {
     let mut sum = 0.;
-    for _ in 0..sample_count {
-      sum += self.estimate(distribution, region);
+    for next_sampling_index in 0..sample_count {
+      sampler.reset(next_sampling_index);
+      sum += self.estimate(distribution, region, sampler);
     }
     sum / (sample_count as f32)
   }
 }
 
+/// The most naive estimator
 pub struct BasicEstimator;
 impl<D> MonteCarloEstimator<D> for BasicEstimator
 where
   D: Distribution,
 {
-  fn estimate(&self, distribution: &D, region: &impl SampleRegionType<Value = D::Sample>) -> f32 {
-    distribution.eval(region.sample_uniformly())
+  fn estimate(
+    &self,
+    distribution: &D,
+    region: &impl SampleRegionType<Value = D::Sample>,
+    sampler: &mut impl Sampler,
+  ) -> f32 {
+    distribution.eval(region.sample_uniformly(sampler))
   }
 }
 
@@ -53,8 +60,13 @@ impl<D> MonteCarloEstimator<D> for ImportanceEstimator
 where
   D: ImportanceSampledDistribution,
 {
-  fn estimate(&self, distribution: &D, region: &impl SampleRegionType<Value = D::Sample>) -> f32 {
-    let importance_sample = distribution.importance_sample(region.sample_uniformly());
+  fn estimate(
+    &self,
+    distribution: &D,
+    region: &impl SampleRegionType<Value = D::Sample>,
+    sampler: &mut impl Sampler,
+  ) -> f32 {
+    let importance_sample = distribution.importance_sample(region.sample_uniformly(sampler));
     let pdf = distribution.pdf(importance_sample);
     let value = distribution.eval(importance_sample);
     value / pdf
@@ -94,8 +106,9 @@ where
     &self,
     distribution: &DistributionMultiply<A, B>,
     region: &impl SampleRegionType<Value = A::Sample>,
+    sampler: &mut impl Sampler,
   ) -> f32 {
-    let uniform = region.sample_uniformly();
+    let uniform = region.sample_uniformly(sampler);
     let sample_a = distribution.dist_a.importance_sample(uniform);
     let sample_b = distribution.dist_b.importance_sample(uniform);
 
@@ -122,9 +135,14 @@ where
   D: Distribution,
   E: MonteCarloEstimator<D>,
 {
-  fn estimate(&self, distribution: &D, region: &impl SampleRegionType<Value = D::Sample>) -> f32 {
+  fn estimate(
+    &self,
+    distribution: &D,
+    region: &impl SampleRegionType<Value = D::Sample>,
+    sampler: &mut impl Sampler,
+  ) -> f32 {
     if rand::random::<f32>() > self.threshold {
-      (self.estimator.estimate(distribution, region) - self.threshold * self.constant)
+      (self.estimator.estimate(distribution, region, sampler) - self.threshold * self.constant)
         / (1.0 - self.threshold)
     } else {
       self.constant
