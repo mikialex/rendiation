@@ -32,6 +32,12 @@ pub trait Sampler {
 
 pub trait SampleType: Copy {}
 
+#[derive(Default)]
+pub struct SampleWithResult<T> {
+  pub sample_at: T,
+  pub sample_result: f32,
+}
+
 impl SampleType for f32 {}
 impl SampleType for usize {}
 impl<T: SampleType> SampleType for Vec2<T> {}

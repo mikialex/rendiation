@@ -8,6 +8,8 @@ mod mis;
 pub use mis::*;
 mod ris;
 pub use ris::*;
+mod wrs;
+pub use wrs::*;
 
 /// not required to be normalized
 pub trait Distribution {

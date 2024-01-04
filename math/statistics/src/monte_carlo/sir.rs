@@ -14,7 +14,7 @@ pub struct SamplingImportanceResampling<D: Distribution, PD> {
 
 pub struct SamplingImportanceResamplingResult<'a, D: Distribution, PD> {
   _source: &'a SamplingImportanceResampling<D, PD>,
-  pre_sample_samples: Vec<ResampledSample<D::Sample>>,
+  pre_sample_samples: Vec<SampleWithResult<D::Sample>>,
   weights: Vec<f32>,
   weight_average_inv: f32,
 }
@@ -25,16 +25,31 @@ impl<'a, D: Distribution, PD> SamplingImportanceResamplingResult<'a, D, PD> {
   }
 }
 
-struct ResampledSample<T> {
-  pub sample_at: T,
-  pub sample_result: f32,
-}
-
 impl<D, PD> SamplingImportanceResampling<D, PD>
 where
   D: Distribution,
   PD: ImportanceSampledDistribution<Sample = D::Sample> + NormalizedDistribution,
 {
+  pub fn pre_sample_iter<'a>(
+    &'a self,
+    sampler: &'a mut impl Sampler,
+    region: impl SampleRegionType<Value = D::Sample> + 'a,
+  ) -> impl Iterator<Item = (SampleWithResult<D::Sample>, f32)> + 'a {
+    (0..self.proposed_count).map(move |_| {
+      let uniform = region.sample_uniformly(sampler);
+      let sample_at = self.proposed_distribution.importance_sample(uniform);
+      let sample_result = self.proposed_distribution.eval(sample_at);
+      let weight = self.target_distribution.eval(sample_at) / sample_result;
+
+      let sample = SampleWithResult {
+        sample_at,
+        sample_result,
+      };
+
+      (sample, weight)
+    })
+  }
+
   pub fn pre_sample(
     &self,
     sampler: &mut impl Sampler,
@@ -43,16 +58,8 @@ where
     let mut pre_sample_samples = Vec::with_capacity(self.proposed_count);
     let mut weights = Vec::with_capacity(self.proposed_count);
     let mut weight_sum = 0.;
-    for _ in 0..self.proposed_count {
-      let uniform = region.sample_uniformly(sampler);
-      let sample_at = self.proposed_distribution.importance_sample(uniform);
-      let sample_result = self.proposed_distribution.eval(sample_at);
-      let weight = self.target_distribution.eval(sample_at) / sample_result;
+    for (sample, weight) in self.pre_sample_iter(sampler, region) {
       weight_sum += weight;
-      let sample = ResampledSample {
-        sample_at,
-        sample_result,
-      };
       pre_sample_samples.push(sample);
       weights.push(weight);
     }
