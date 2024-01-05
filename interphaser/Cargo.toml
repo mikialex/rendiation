@@ -22,6 +22,7 @@ rendiation-shader-api = { path = "../shader/api" }
 rendiation-shader-backend-naga = { path = "../shader/backends/naga" }
 rendiation-texture = { path = "../components/texture/core" }
 rendiation-webgpu = { path = "../platform/graphics/webgpu" }
+fast-hash-collection = { path = "../utils/fast-hash-collection" }
 winit = { workspace = true }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]

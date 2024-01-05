@@ -101,4 +101,15 @@ inherits = "release"
 
 # https://github.com/rust-lang/rfcs/blob/master/text/3389-manifest-lint.md
 [workspace.lints.clippy]
+
+# we don't care the performance win if the Arc could be replaced by Rc
 arc_with_non_send_sync = "allow"
+type_complexity = "allow"
+too_many_arguments = "allow"
+# we may copy code from f64 codebase to f32 type, f32 may upgrate to f64 in future
+excessive_precision = "allow"
+
+
+[workspace.lints.rust]
+# we trust incomplete rust feature than unsafe workaround
+incomplete_features = "allow"

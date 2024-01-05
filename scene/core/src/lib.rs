@@ -1,5 +1,4 @@
 #![feature(type_alias_impl_trait)]
-#![allow(incomplete_features)]
 #![feature(impl_trait_in_assoc_type)]
 #![feature(let_chains)]
 

@@ -156,7 +156,6 @@ impl GraphicsShaderProvider for WidenedLineMaterialGPU {
   }
 }
 
-#[allow(clippy::too_many_arguments)]
 fn widened_line_vertex(
   projection: Node<Mat4<f32>>,
   view: Node<Mat4<f32>>,

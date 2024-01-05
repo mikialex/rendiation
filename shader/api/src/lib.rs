@@ -1,5 +1,4 @@
 #![feature(const_type_name)]
-#![allow(incomplete_features)]
 
 mod api_core;
 mod binding;

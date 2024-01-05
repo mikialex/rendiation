@@ -162,7 +162,6 @@ impl GPUTextureBindingSystem {
   // Even if the bindless is enabled, the user could mixed the usage with the binding and bindless
   // freely. We could expose the underlayer indirect method for user side to solve the reuse and
   // downgrade in future.
-  #[allow(clippy::too_many_arguments)]
   pub fn maybe_sample_texture2d_indirect_and_bind_shader(
     &self,
     binding: &mut ShaderBindGroupDirectBuilder,

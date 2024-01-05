@@ -1576,6 +1576,7 @@ dependencies = [
  "arena",
  "bytemuck",
  "console_error_panic_hook",
+ "fast-hash-collection",
  "fontext",
  "futures",
  "image",

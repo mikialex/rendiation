@@ -4,8 +4,6 @@
 #![feature(stmt_expr_attributes)]
 #![feature(type_alias_impl_trait)]
 #![feature(impl_trait_in_assoc_type)]
-#![allow(clippy::field_reassign_with_default)]
-#![allow(incomplete_features)]
 
 mod background;
 mod camera;

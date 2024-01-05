@@ -4,7 +4,6 @@
 #![feature(const_option)]
 #![allow(clippy::collapsible_match)]
 #![allow(clippy::single_match)]
-#![allow(clippy::disallowed_types)]
 
 use std::time::Duration;
 #[cfg(not(target_arch = "wasm32"))]
@@ -41,6 +40,7 @@ use ::core::{
   task::{Context, Poll, Waker},
 };
 pub use app::*;
+use fast_hash_collection::*;
 pub use fontext::*;
 use futures::stream::FusedStream;
 use futures::Stream;

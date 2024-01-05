@@ -1,5 +1,3 @@
-#![allow(clippy::excessive_precision)]
-
 pub fn blackbody(lambda: &[f32], n: usize, t: f32, le: &mut Vec<f32>) {
   if t <= 0.0 {
     for _i in 0..n {

@@ -1,4 +1,3 @@
-#![allow(clippy::too_many_arguments)]
 #![allow(non_snake_case)]
 
 use crate::*;

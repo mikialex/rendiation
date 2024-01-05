@@ -157,28 +157,21 @@ pub enum GPUxUIPrimitive {
   Text(TextHash),
 }
 
-#[allow(clippy::vec_init_then_push)]
 fn build_quad(
   device: &Device,
   quad: &crate::RectangleShape,
   color: DisplayColor,
 ) -> (Buffer, Buffer) {
-  let mut vertices = Vec::new();
+  let mut vertices = Vec::with_capacity(4);
 
   #[rustfmt::skip]
   {
-  vertices.push(vertex((quad.x, quad.y), (0., 0.), color.into()));
-  vertices.push(vertex((quad.x, quad.y + quad.height), (0., 1.), color.into()));
-  vertices.push(vertex((quad.x + quad.width, quad.y), (1., 0.), color.into()));
-  vertices.push(vertex((quad.x + quad.width, quad.y + quad.height), (1., 1.), color.into()));
+    vertices.push(vertex((quad.x, quad.y), (0., 0.), color.into()));
+    vertices.push(vertex((quad.x, quad.y + quad.height), (0., 1.), color.into()));
+    vertices.push(vertex((quad.x + quad.width, quad.y), (1., 0.), color.into()));
+    vertices.push(vertex((quad.x + quad.width, quad.y + quad.height), (1., 1.), color.into()));
   }
-  let mut index = Vec::<u32>::new();
-  index.push(0);
-  index.push(1);
-  index.push(2);
-  index.push(2);
-  index.push(1);
-  index.push(3);
+  let index: Vec<u32> = vec![0, 1, 2, 2, 1, 3];
 
   let vertex = bytemuck::cast_slice(vertices.as_slice());
   let vertex_buffer = device.create_buffer_init(&util::BufferInitDescriptor {
