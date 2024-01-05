@@ -25,7 +25,10 @@ pub fn get_main_pass_load_op(scene: &SceneCoreImpl) -> Operations<Color> {
     LoadOp::Load
   };
 
-  Operations { load, store: true }
+  Operations {
+    load,
+    store: StoreOp::Store,
+  }
 }
 
 pub struct ForwardScene<'a> {

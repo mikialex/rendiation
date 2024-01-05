@@ -41,7 +41,7 @@ pub use gpu::{
   BufferAsyncError, Color, CompareFunction, CreateSurfaceError, Device, FilterMode, FragmentState,
   IndexFormat, Limits, LoadOp, Operations, PipelineLayoutDescriptor, PowerPreference, Queue,
   RenderPipeline, RenderPipelineDescriptor, RequestDeviceError, Sampler, SamplerBorderColor,
-  SamplerDescriptor, ShaderModuleDescriptor, ShaderSource, ShaderStages, TextureView,
+  SamplerDescriptor, ShaderModuleDescriptor, ShaderSource, ShaderStages, StoreOp, TextureView,
   TextureViewDescriptor, VertexBufferLayout, VertexState,
 };
 pub use pass::*;
@@ -123,6 +123,8 @@ impl GPU {
     let _instance = gpu::Instance::new(gpu::InstanceDescriptor {
       backends: config.backends,
       dx12_shader_compiler: Default::default(),
+      flags: Default::default(),
+      gles_minor_version: Default::default(),
     });
     let power_preference = gpu::PowerPreference::HighPerformance;
 

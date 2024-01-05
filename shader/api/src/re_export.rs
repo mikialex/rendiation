@@ -47,6 +47,10 @@ pub fn blend_com_into_readable(blend: BlendComponent, for_alpha: bool) -> String
       BlendFactor::SrcAlphaSaturated => "min(source_alpha, (1. - dest_alpha))".to_owned(),
       BlendFactor::Constant => "blend_const".to_owned(),
       BlendFactor::OneMinusConstant => "(1.0 - blend_const)".to_owned(),
+      BlendFactor::Src1 => panic!("dual source blending not supported"),
+      BlendFactor::OneMinusSrc1 => panic!("dual source blending not supported"),
+      BlendFactor::Src1Alpha => panic!("dual source blending not supported"),
+      BlendFactor::OneMinusSrc1Alpha => panic!("dual source blending not supported"),
     };
 
     if !for_alpha && matches!(factor, BlendFactor::SrcAlphaSaturated) {

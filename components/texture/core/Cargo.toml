@@ -11,7 +11,7 @@ fast-hash-collection = { path = "../../../utils/fast-hash-collection" }
 rendiation-algebra = { path = "../../../math/algebra" }
 rendiation-geometry = { path = "../../../math/geometry" }
 rendiation-texture-types = { path = "../types" }
-wgpu-types = "0.17"
+wgpu-types = "0.18"
 
 [lints]
 workspace = true

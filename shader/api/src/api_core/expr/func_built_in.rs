@@ -11,7 +11,6 @@ pub enum ShaderBuiltInFunction {
   IsNan,
   IsInf,
   IsFinite,
-  IsNormal,
   // comparison
   Abs,
   Min,

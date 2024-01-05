@@ -77,7 +77,7 @@ impl UIPresenter for WebGpuUIPresenter {
       decs.channels.push((
         Operations {
           load: LoadOp::Clear(rendiation_webgpu::Color::WHITE),
-          store: true,
+          store: StoreOp::Store,
         },
         view,
       ));

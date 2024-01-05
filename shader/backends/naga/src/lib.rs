@@ -390,6 +390,7 @@ impl ShaderAPI for ShaderAPINagaImpl {
             location: location as u32,
             interpolation: naga::Interpolation::Perspective.into(),
             sampling: None,
+            second_blend_source: false,
           }
           .into(),
         })
@@ -606,13 +607,7 @@ impl ShaderAPI for ShaderAPINagaImpl {
                 }
                 ShaderBuiltInFunction::IsFinite => {
                   break naga::Expression::Relational {
-                    fun: naga::RelationalFunction::IsFinite,
-                    argument: self.get_expression(parameters[0]),
-                  }
-                }
-                ShaderBuiltInFunction::IsNormal => {
-                  break naga::Expression::Relational {
-                    fun: naga::RelationalFunction::IsNormal,
+                    fun: naga::RelationalFunction::IsInf,
                     argument: self.get_expression(parameters[0]),
                   }
                 }
@@ -817,7 +812,7 @@ impl ShaderAPI for ShaderAPINagaImpl {
         ShaderNodeExpr::Operator(op) => match op {
           OperatorNode::Unary { one, operator } => {
             let op = match operator {
-              UnaryOperator::LogicalNot => naga::UnaryOperator::Not,
+              UnaryOperator::LogicalNot => naga::UnaryOperator::LogicalNot,
               UnaryOperator::Neg => naga::UnaryOperator::Negate,
             };
             naga::Expression::Unary {
@@ -1345,6 +1340,7 @@ fn struct_member(
         location: location as u32,
         interpolation: naga::Interpolation::Perspective.into(),
         sampling: None,
+        second_blend_source: false,
       },
     });
 

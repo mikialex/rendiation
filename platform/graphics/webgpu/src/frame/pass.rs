@@ -180,13 +180,13 @@ pub fn color_same(r: f64) -> gpu::Color {
 pub fn clear<V>(v: V) -> gpu::Operations<V> {
   gpu::Operations {
     load: gpu::LoadOp::Clear(v),
-    store: true,
+    store: gpu::StoreOp::Store,
   }
 }
 
 pub fn load<V>() -> gpu::Operations<V> {
   gpu::Operations {
     load: gpu::LoadOp::Load,
-    store: true,
+    store: gpu::StoreOp::Store,
   }
 }
