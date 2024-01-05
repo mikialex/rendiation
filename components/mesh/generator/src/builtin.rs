@@ -136,7 +136,7 @@ impl Default for CylinderMeshParameter {
   }
 }
 
-type CylinderSurface = impl ParametricSurface;
+pub type CylinderSurface = impl ParametricSurface;
 impl CylinderMeshParameter {
   pub fn body_surface(&self) -> CylinderSurface {
     let Self {
