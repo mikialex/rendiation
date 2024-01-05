@@ -83,7 +83,7 @@ impl MeshGPUInstance {
   pub fn get_bindless(&self) -> Option<MeshSystemMeshHandle> {
     match self {
       MeshGPUInstance::Attributes(mesh) => {
-        let mesh: &RenderComponentCell<MaybeBindlessMesh<AttributesMeshGPU>> = mesh.as_ref();
+        let mesh: &RenderComponentCell<MaybeBindlessMesh<AttributesMeshGPU>> = mesh.inner.as_ref();
         match &mesh.inner {
           MaybeBindlessMesh::Bindless(m) => Some(m.mesh_handle()),
           _ => None,
@@ -128,10 +128,12 @@ impl ReactiveRenderComponent for MeshGPUInstance {
     &self,
   ) -> Pin<Box<dyn Stream<Item = RenderComponentDeltaFlag>>> {
     match self {
-      Self::Attributes(m) => Box::pin(m.as_ref().create_render_component_delta_stream())
+      Self::Attributes(m) => Box::pin(m.inner.as_ref().create_render_component_delta_stream())
         as Pin<Box<dyn Stream<Item = RenderComponentDeltaFlag>>>,
-      Self::TransformInstanced(m) => Box::pin(m.as_ref().create_render_component_delta_stream())
-        as Pin<Box<dyn Stream<Item = RenderComponentDeltaFlag>>>,
+      Self::TransformInstanced(m) => {
+        Box::pin(m.inner.as_ref().create_render_component_delta_stream())
+          as Pin<Box<dyn Stream<Item = RenderComponentDeltaFlag>>>
+      }
       Self::Foreign(m) => m
         .as_reactive_component()
         .create_render_component_delta_stream(),

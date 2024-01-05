@@ -130,7 +130,7 @@ impl ReactiveRenderComponent for MaterialGPUInstance {
           as Pin<Box<dyn Stream<Item = RenderComponentDeltaFlag>>>
       }
       Self::PhysicalSpecularGlossiness(m) => {
-        Box::pin(m.as_ref().create_render_component_delta_stream())
+        Box::pin(m.inner.as_ref().create_render_component_delta_stream())
           as Pin<Box<dyn Stream<Item = RenderComponentDeltaFlag>>>
       }
       Self::Flat(m) => Box::pin(m.inner.as_ref().create_render_component_delta_stream())

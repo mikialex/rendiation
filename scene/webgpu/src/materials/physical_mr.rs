@@ -167,7 +167,7 @@ impl Stream for PhysicalMetallicRoughnessMaterialReactiveGPU {
   }
 }
 
-type PhysicalMetallicRoughnessMaterialInner = impl AsRef<RenderComponentCell<PhysicalMetallicRoughnessMaterialGPUImpl>>
+pub type PhysicalMetallicRoughnessMaterialInner = impl AsRef<RenderComponentCell<PhysicalMetallicRoughnessMaterialGPUImpl>>
   + Stream<Item = RenderComponentDeltaFlag>;
 
 use PhysicalMetallicRoughnessMaterialDelta as PD;

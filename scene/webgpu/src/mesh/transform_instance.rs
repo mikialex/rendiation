@@ -59,13 +59,13 @@ impl ShaderPassBuilder for TransformInstanceGPU {
 
 impl ReactiveRenderComponentSource for TransformInstanceGPUReactive {
   fn as_reactive_component(&self) -> &dyn ReactiveRenderComponent {
-    self.as_ref() as &dyn ReactiveRenderComponent
+    self.inner.as_ref() as &dyn ReactiveRenderComponent
   }
 }
 
 impl MeshDrawcallEmitter for TransformInstanceGPUReactive {
   fn draw_command(&self, group: MeshDrawGroup) -> DrawCommand {
-    let inner: &TransformInstanceGPU = self.as_ref();
+    let inner: &TransformInstanceGPU = self.inner.as_ref();
     let mut c = inner.mesh_gpu.draw_command(group);
 
     match &mut c {
@@ -86,7 +86,22 @@ impl MeshDrawcallEmitter for TransformInstanceGPUReactive {
   }
 }
 
-pub type TransformInstanceGPUReactive =
+#[pin_project::pin_project]
+pub struct TransformInstanceGPUReactive {
+  #[pin]
+  pub inner: TransformInstanceGPUReactiveInner,
+}
+
+impl Stream for TransformInstanceGPUReactive {
+  type Item = RenderComponentDeltaFlag;
+
+  fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+    let this = self.project();
+    this.inner.poll_next(cx)
+  }
+}
+
+pub type TransformInstanceGPUReactiveInner =
   impl AsRef<RenderComponentCell<TransformInstanceGPU>> + Stream<Item = RenderComponentDeltaFlag>;
 
 impl WebGPUMesh for TransformInstancedSceneMesh {
@@ -122,12 +137,14 @@ impl WebGPUMesh for TransformInstancedSceneMesh {
 
     let state = RenderComponentCell::new(create(source));
 
-    source
+    let inner = source
       .single_listen_by::<()>(any_change_no_init)
       .filter_map_sync(source.defer_weak())
       .fold_signal(state, move |mesh, state| {
         state.inner = create(&mesh);
         RenderComponentDeltaFlag::all().into()
-      })
+      });
+
+    TransformInstanceGPUReactive { inner }
   }
 }
