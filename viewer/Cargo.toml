@@ -46,3 +46,6 @@ wasm-bindgen-futures = "0.4.28"
 [features]
 heap-debug = ["heap-tools/enabled"]
 webgl = ["webgpu/webgl"]
+
+[lints]
+workspace = true

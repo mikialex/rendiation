@@ -77,19 +77,19 @@ impl Viewer3dContent {
     let camera = scene.active_camera.clone().unwrap();
 
     // get the bounding box of all selection
-    let mut bbox = Box3::empty();
-    for model in self.selections.iter_selected() {
-      // let handle = model.read().attach_index().unwrap();
-      // let handle = scene_inner.core.read().models.get_handle(handle).unwrap();
-      // if let Some(b) = self.scene_bounding.get_model_bounding(handle) {
-      //   bbox.expand_by_other(*b);
-      // } else {
-      //   // for unbound model, we should include the it's coord's center point
-      //   // todo, add a trait to support logically better center point
-      //   let world = self.scene_derived.get_world_matrix(&model.read().node);
-      //   bbox.expand_by_point(world.position());
-      // }
-    }
+    let bbox = Box3::empty();
+    // for model in self.selections.iter_selected() {
+    //   let handle = model.read().attach_index().unwrap();
+    //   let handle = scene_inner.core.read().models.get_handle(handle).unwrap();
+    //   if let Some(b) = self.scene_bounding.get_model_bounding(handle) {
+    //     bbox.expand_by_other(*b);
+    //   } else {
+    //     // for unbound model, we should include the it's coord's center point
+    //     // todo, add a trait to support logically better center point
+    //     let world = self.scene_derived.get_world_matrix(&model.read().node);
+    //     bbox.expand_by_point(world.position());
+    //   }
+    // }
 
     if bbox.is_empty() {
       println!("not select any thing");

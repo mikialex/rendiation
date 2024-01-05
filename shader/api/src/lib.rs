@@ -1,8 +1,5 @@
 #![feature(const_type_name)]
-#![feature(type_name_of_val)]
-#![feature(return_position_impl_trait_in_trait)]
 #![allow(incomplete_features)]
-#![feature(local_key_cell_methods)]
 
 mod api_core;
 mod binding;

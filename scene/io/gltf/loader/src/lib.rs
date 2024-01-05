@@ -1,4 +1,3 @@
-#![feature(local_key_cell_methods)]
 #![feature(const_float_bits_conv)]
 
 use core::num::NonZeroU64;

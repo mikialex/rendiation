@@ -6,3 +6,6 @@ version = "0.1.0"
 
 [dependencies]
 rendiation-algebra = { path = "../../math/algebra" }
+
+[lints]
+workspace = true

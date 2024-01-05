@@ -9,3 +9,6 @@ rendiation-texture = { path = "../core" }
 
 [dev-dependencies]
 image = "*"
+
+[lints]
+workspace = true

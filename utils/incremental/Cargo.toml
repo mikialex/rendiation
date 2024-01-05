@@ -6,3 +6,6 @@ version = "0.0.1"
 [dependencies]
 dyn-clone = { workspace = true }
 incremental_derives = { path = "../incremental-derive" }
+
+[lints]
+workspace = true

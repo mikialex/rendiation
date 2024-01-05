@@ -19,3 +19,6 @@ rendiation-geometry = { path = "../../math/geometry" }
 
 log = { workspace = true }
 rand = "0.8.5"
+
+[lints]
+workspace = true

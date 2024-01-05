@@ -169,7 +169,7 @@ pub fn support_bindless(
   device: &GPUDevice,
   queue: &GPUQueue,
 ) -> Option<MeshSystemMeshInstance> {
-  if PrimitiveTopology::TriangleList != mesh.mode {
+  if rendiation_mesh_core::PrimitiveTopology::TriangleList != mesh.mode {
     return None;
   }
 

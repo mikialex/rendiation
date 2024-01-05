@@ -9,13 +9,17 @@ use crate::*;
 
 pub type ReactiveMeshGPUOf<T> = <T as WebGPUMesh>::ReactiveGPU;
 
-pub fn map_topology(pt: PrimitiveTopology) -> rendiation_webgpu::PrimitiveTopology {
+pub fn map_topology(
+  pt: rendiation_mesh_core::PrimitiveTopology,
+) -> rendiation_webgpu::PrimitiveTopology {
+  use rendiation_mesh_core::PrimitiveTopology as Enum;
+  use rendiation_webgpu::PrimitiveTopology as GPUEnum;
   match pt {
-    PrimitiveTopology::PointList => rendiation_webgpu::PrimitiveTopology::PointList,
-    PrimitiveTopology::LineList => rendiation_webgpu::PrimitiveTopology::LineList,
-    PrimitiveTopology::LineStrip => rendiation_webgpu::PrimitiveTopology::LineStrip,
-    PrimitiveTopology::TriangleList => rendiation_webgpu::PrimitiveTopology::TriangleList,
-    PrimitiveTopology::TriangleStrip => rendiation_webgpu::PrimitiveTopology::TriangleStrip,
+    Enum::PointList => GPUEnum::PointList,
+    Enum::LineList => GPUEnum::LineList,
+    Enum::LineStrip => GPUEnum::LineStrip,
+    Enum::TriangleList => GPUEnum::TriangleList,
+    Enum::TriangleStrip => GPUEnum::TriangleStrip,
   }
 }
 

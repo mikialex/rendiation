@@ -20,3 +20,6 @@ glyph_brush = { version = "0.7", optional = true }
 [features]
 default = ["glyph_brush_impl"]
 glyph_brush_impl = ["glyph_brush"]
+
+[lints]
+workspace = true

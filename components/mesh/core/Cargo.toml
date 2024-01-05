@@ -19,3 +19,6 @@ incremental = { path = "../../../utils/incremental" }
 reactive-incremental = { path = "../../../utils/reactive-incremental" }
 rendiation-shader-api = { path = "../../../shader/api" }
 smallvec = { workspace = true }
+
+[lints]
+workspace = true

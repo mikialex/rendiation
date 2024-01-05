@@ -13,3 +13,6 @@ rendiation-texture = { path = "../../../../components/texture/core" }
 smallvec = { workspace = true }
 thiserror = "1.0.43"
 tobj = "4.0.0"
+
+[lints]
+workspace = true

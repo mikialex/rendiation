@@ -24,3 +24,6 @@ rendiation-statistics = { path = "../../math/statistics" }
 rendiation-texture = { path = "../../components/texture/core" }
 space-algorithm = { path = "../../components/space" }
 tree = { path = "../../utils/tree" }
+
+[lints]
+workspace = true

@@ -96,7 +96,7 @@ fn build_debug_line_in_camera_space(project_mat: Mat4<f32>) -> HelperLineMesh {
   HelperLineMesh::new(lines)
 }
 
-type ReactiveCameraHelper = impl Stream<Item = ()> + AsRef<CameraHelper> + Unpin;
+pub type ReactiveCameraHelper = impl Stream<Item = ()> + AsRef<CameraHelper> + Unpin;
 
 fn create_reactive_camera_helper(camera: &SceneCamera) -> ReactiveCameraHelper {
   let c = camera.read();

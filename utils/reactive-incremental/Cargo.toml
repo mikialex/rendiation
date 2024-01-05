@@ -21,3 +21,6 @@ dyn-clone = { workspace = true }
 
 # we use it's rwlock to avoid recursive read deadlock
 parking_lot = { version = "0.12.1", features = ["send_guard"] }
+
+[lints]
+workspace = true

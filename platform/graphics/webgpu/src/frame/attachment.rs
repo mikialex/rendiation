@@ -100,7 +100,7 @@ impl Drop for Attachment {
       let pool = pool
         .attachments
         .entry(self.key) // maybe not exist when entire pool cleared when resize
-        .or_insert_with(Default::default);
+        .or_default();
       pool.cached.push(self.texture.clone())
     }
   }
@@ -220,10 +220,7 @@ impl AttachmentDescriptor {
     };
 
     let mut resource = ctx.pool.inner.write().unwrap();
-    let cached = resource
-      .attachments
-      .entry(key)
-      .or_insert_with(Default::default);
+    let cached = resource.attachments.entry(key).or_default();
 
     let texture = cached.cached.pop().unwrap_or_else(|| {
       GPUTexture::create(

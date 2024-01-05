@@ -23,3 +23,6 @@ winit = { workspace = true }
 
 [features]
 webgl = ["wgpu/webgl"]
+
+[lints]
+workspace = true

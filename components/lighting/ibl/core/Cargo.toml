@@ -10,3 +10,6 @@ rendiation-shader-api = { path = "../../../../shader/api" }
 rendiation-shader-library = { path = "../../../../shader/library" }
 rendiation-texture = { path = "../../../texture/core" }
 rendiation-lighting-transport = { path = "../../../lighting/transport" }
+
+[lints]
+workspace = true

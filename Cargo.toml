@@ -60,10 +60,11 @@ members = [
 # https://doc.rust-lang.org/nightly/cargo/reference/features.html#feature-resolver-version-2
 resolver = "2"
 
+# https://rust-lang.github.io/rfcs/2906-cargo-workspace-deduplicate.html
 [workspace.dependencies]
 rayon = "1.7.0"
 bitflags = "2.2"
-bytemuck = {version = "1.4.1", features = ["derive"]}
+bytemuck = { version = "1.4.1", features = ["derive"] }
 dyn-clone = "1.0.5"
 dashmap = { version = "5.5.3", features = ["rayon"] }
 futures = "0.3.25"
@@ -97,3 +98,7 @@ inherits = "release"
 
 # [patch.crates-io]
 # naga = { path = "../references/naga" }
+
+# https://github.com/rust-lang/rfcs/blob/master/text/3389-manifest-lint.md
+[workspace.lints.clippy]
+arc_with_non_send_sync = "allow"
