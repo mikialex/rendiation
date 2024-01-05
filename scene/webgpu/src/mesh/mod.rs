@@ -1,21 +1,25 @@
-mod typed;
-pub use typed::*;
 mod transform_instance;
 pub use transform_instance::*;
 mod attributes;
 pub use attributes::*;
+mod utils;
+pub use utils::*;
 
 use crate::*;
 
 pub type ReactiveMeshGPUOf<T> = <T as WebGPUMesh>::ReactiveGPU;
 
-pub fn map_topology(pt: PrimitiveTopology) -> rendiation_webgpu::PrimitiveTopology {
+pub fn map_topology(
+  pt: rendiation_mesh_core::PrimitiveTopology,
+) -> rendiation_webgpu::PrimitiveTopology {
+  use rendiation_mesh_core::PrimitiveTopology as Enum;
+  use rendiation_webgpu::PrimitiveTopology as GPUEnum;
   match pt {
-    PrimitiveTopology::PointList => rendiation_webgpu::PrimitiveTopology::PointList,
-    PrimitiveTopology::LineList => rendiation_webgpu::PrimitiveTopology::LineList,
-    PrimitiveTopology::LineStrip => rendiation_webgpu::PrimitiveTopology::LineStrip,
-    PrimitiveTopology::TriangleList => rendiation_webgpu::PrimitiveTopology::TriangleList,
-    PrimitiveTopology::TriangleStrip => rendiation_webgpu::PrimitiveTopology::TriangleStrip,
+    Enum::PointList => GPUEnum::PointList,
+    Enum::LineList => GPUEnum::LineList,
+    Enum::LineStrip => GPUEnum::LineStrip,
+    Enum::TriangleList => GPUEnum::TriangleList,
+    Enum::TriangleStrip => GPUEnum::TriangleStrip,
   }
 }
 
@@ -85,7 +89,7 @@ impl MeshGPUInstance {
   pub fn get_bindless(&self) -> Option<MeshSystemMeshHandle> {
     match self {
       MeshGPUInstance::Attributes(mesh) => {
-        let mesh: &RenderComponentCell<MaybeBindlessMesh<AttributesMeshGPU>> = mesh.as_ref();
+        let mesh: &RenderComponentCell<MaybeBindlessMesh<AttributesMeshGPU>> = mesh.inner.as_ref();
         match &mesh.inner {
           MaybeBindlessMesh::Bindless(m) => Some(m.mesh_handle()),
           _ => None,
@@ -130,10 +134,12 @@ impl ReactiveRenderComponent for MeshGPUInstance {
     &self,
   ) -> Pin<Box<dyn Stream<Item = RenderComponentDeltaFlag>>> {
     match self {
-      Self::Attributes(m) => Box::pin(m.as_ref().create_render_component_delta_stream())
+      Self::Attributes(m) => Box::pin(m.inner.as_ref().create_render_component_delta_stream())
         as Pin<Box<dyn Stream<Item = RenderComponentDeltaFlag>>>,
-      Self::TransformInstanced(m) => Box::pin(m.as_ref().create_render_component_delta_stream())
-        as Pin<Box<dyn Stream<Item = RenderComponentDeltaFlag>>>,
+      Self::TransformInstanced(m) => {
+        Box::pin(m.inner.as_ref().create_render_component_delta_stream())
+          as Pin<Box<dyn Stream<Item = RenderComponentDeltaFlag>>>
+      }
       Self::Foreign(m) => m
         .as_reactive_component()
         .create_render_component_delta_stream(),

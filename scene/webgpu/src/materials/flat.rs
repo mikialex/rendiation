@@ -38,13 +38,28 @@ impl ShaderPassBuilder for FlatMaterialGPU {
   }
 }
 
-impl ReactiveRenderComponentSource for FlatMaterialReactiveGPU {
-  fn as_reactive_component(&self) -> &dyn ReactiveRenderComponent {
-    self.as_ref() as &dyn ReactiveRenderComponent
+#[pin_project::pin_project]
+pub struct FlatMaterialReactiveGPU {
+  #[pin]
+  pub inner: FlatMaterialReactiveGPUImpl,
+}
+
+impl Stream for FlatMaterialReactiveGPU {
+  type Item = RenderComponentDeltaFlag;
+
+  fn poll_next(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Option<Self::Item>> {
+    let this = self.project();
+    this.inner.poll_next(cx)
   }
 }
 
-type FlatMaterialReactiveGPU =
+impl ReactiveRenderComponentSource for FlatMaterialReactiveGPU {
+  fn as_reactive_component(&self) -> &dyn ReactiveRenderComponent {
+    self.inner.as_ref() as &dyn ReactiveRenderComponent
+  }
+}
+
+pub type FlatMaterialReactiveGPUImpl =
   impl AsRef<RenderComponentCell<FlatMaterialGPU>> + Stream<Item = RenderComponentDeltaFlag>;
 
 impl WebGPUMaterial for FlatMaterial {
@@ -62,7 +77,7 @@ impl WebGPUMaterial for FlatMaterial {
 
     let ctx = ctx.clone();
 
-    source
+    let inner = source
       .single_listen_by::<()>(any_change_no_init)
       .filter_map_sync(source.defer_weak())
       .fold_signal(state, move |m, state| {
@@ -70,7 +85,9 @@ impl WebGPUMaterial for FlatMaterial {
         state.inner.uniform.set(uniform);
         state.inner.uniform.upload(&ctx.gpu.queue);
         RenderComponentDeltaFlag::Content.into()
-      })
+      });
+
+    FlatMaterialReactiveGPU { inner }
   }
 
   fn is_transparent(&self) -> bool {

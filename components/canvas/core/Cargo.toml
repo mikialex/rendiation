@@ -10,3 +10,6 @@ fontext = { path = "../../fontext" }
 rendiation-algebra = { path = "../../../math/algebra" }
 rendiation-color = { path = "../../color" }
 rendiation-geometry = { path = "../../../math/geometry" }
+
+[lints]
+workspace = true

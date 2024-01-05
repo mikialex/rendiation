@@ -345,7 +345,7 @@ impl<T: IncrementalBase> IncrementalListenBy<T> for IncrementalSignalPtr<T> {
     &self,
     mut mapper: impl FnMut(MaybeDeltaRef<T>, &dyn Fn(U)) + Send + Sync + 'static,
     channel_builder: &mut C,
-  ) -> impl Stream<Item = N> + Unpin
+  ) -> Box<dyn Stream<Item = N> + Unpin>
   where
     U: Send + Sync + 'static,
     C: ChannelLike<U, Message = N>,
@@ -372,7 +372,7 @@ impl<T: IncrementalBase> IncrementalListenBy<T> for IncrementalSignalPtr<T> {
       remove_token,
       weak: self.downgrade(),
     };
-    DropperAttachedStream::new(dropper, receiver)
+    Box::new(DropperAttachedStream::new(dropper, receiver))
   }
 }
 
@@ -575,7 +575,7 @@ where
   Self: GlobalIdReactiveMapping<M>,
 {
   type ChangeStream = <Self as GlobalIdReactiveMapping<M>>::ChangeStream;
-  type DropFuture = impl Future<Output = ()> + Unpin;
+  type DropFuture = impl Future<Output = ()> + Unpin + 'static;
   type Ctx<'a> = <Self as GlobalIdReactiveMapping<M>>::Ctx<'a>;
 
   fn key(&self) -> u64 {

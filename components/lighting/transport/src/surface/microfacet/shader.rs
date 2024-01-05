@@ -66,10 +66,9 @@ pub fn evaluate_brdf_specular(
   d * g * f
 }
 
-//// for ibl
-
 use rendiation_shader_library::sampling::hammersley_2d_fn;
 
+/// for ibl
 pub fn integrate_brdf(
   roughness: Node<f32>, // perceptual roughness
   n_dot_v: Node<f32>,

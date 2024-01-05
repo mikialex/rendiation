@@ -44,12 +44,12 @@ impl OrbitController {
       pan_factor: 0.0002,
       zoom_factor: 0.3,
 
-      /// restriction over how down you can look,
-      /// should strictly less than Pi and greater than [`min_polar_angle`]
+      // restriction over how down you can look,
+      // should strictly less than Pi and greater than [`min_polar_angle`]
       max_polar_angle: std::f32::consts::PI - 0.001,
 
-      /// restriction over how up you can look,
-      /// should strictly greater than 0 and less than [`max_polar_angle`]
+      // restriction over how up you can look,
+      // should strictly greater than 0 and less than [`max_polar_angle`]
       min_polar_angle: 0.001,
 
       // damping

@@ -1,5 +1,3 @@
-#![allow(clippy::field_reassign_with_default)]
-
 use __core::num::NonZeroU32;
 use fast_hash_collection::*;
 use naga::{Span, StorageAccess};
@@ -1170,12 +1168,14 @@ impl ShaderAPI for ShaderAPINagaImpl {
       "function redefinition"
     );
 
-    let mut f = naga::Function::default();
-    f.result = return_ty.map(|ty| naga::FunctionResult {
-      ty: self.register_ty_impl(ty, None),
-      binding: None,
-    });
-    f.name = name;
+    let f = naga::Function {
+      result: return_ty.map(|ty| naga::FunctionResult {
+        ty: self.register_ty_impl(ty, None),
+        binding: None,
+      }),
+      name,
+      ..Default::default()
+    };
 
     self.building_fn.push(f);
     self

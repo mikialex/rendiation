@@ -109,7 +109,7 @@ impl TriangleMesh<IndexedMesh<TriangleList, Vec<Vertex>, Vec<u32>>> {
     let mut need_compute_vertex_normal = false;
 
     // we simply merge all groups in obj into one mesh
-    for (_i, m) in models.iter().enumerate() {
+    for m in &models {
       let mesh = &m.mesh;
 
       let mut next_face = 0;

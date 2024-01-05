@@ -14,3 +14,6 @@ rendiation-mesh-core = { path = "../../../../components/mesh/core" }
 rendiation-scene-core = { path = "../../../core" }
 rendiation-shader-api = { path = "../../../../shader/api" }
 rendiation-texture = { path = "../../../../components/texture/core" }
+
+[lints]
+workspace = true

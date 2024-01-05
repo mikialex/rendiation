@@ -22,10 +22,7 @@ pub struct ValueID<T> {
 
 impl<T> Clone for ValueID<T> {
   fn clone(&self) -> Self {
-    Self {
-      value: self.value,
-      ty: self.ty,
-    }
+    *self
   }
 }
 

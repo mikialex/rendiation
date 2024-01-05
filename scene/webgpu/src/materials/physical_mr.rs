@@ -18,14 +18,14 @@ pub struct PhysicalMetallicRoughnessMaterialUniform {
   pub alpha: f32,
 }
 
-impl ShaderHashProvider for PhysicalMetallicRoughnessMaterialGPU {
+impl ShaderHashProvider for PhysicalMetallicRoughnessMaterialGPUImpl {
   fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
     self.alpha_mode.hash(hasher);
   }
 }
 
 #[pin_project::pin_project]
-pub struct PhysicalMetallicRoughnessMaterialGPU {
+pub struct PhysicalMetallicRoughnessMaterialGPUImpl {
   uniform: UniformBufferDataView<PhysicalMetallicRoughnessMaterialUniform>,
   base_color_texture: ReactiveGPUTextureSamplerPair,
   metallic_roughness_texture: ReactiveGPUTextureSamplerPair,
@@ -35,7 +35,7 @@ pub struct PhysicalMetallicRoughnessMaterialGPU {
   gpu: ResourceGPUCtx,
 }
 
-impl Stream for PhysicalMetallicRoughnessMaterialGPU {
+impl Stream for PhysicalMetallicRoughnessMaterialGPUImpl {
   type Item = RenderComponentDeltaFlag;
 
   fn poll_next(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Option<Self::Item>> {
@@ -53,7 +53,7 @@ impl Stream for PhysicalMetallicRoughnessMaterialGPU {
   }
 }
 
-impl ShaderPassBuilder for PhysicalMetallicRoughnessMaterialGPU {
+impl ShaderPassBuilder for PhysicalMetallicRoughnessMaterialGPUImpl {
   fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
     ctx.binding.bind(&self.uniform);
     self.base_color_texture.setup_pass(ctx);
@@ -63,7 +63,7 @@ impl ShaderPassBuilder for PhysicalMetallicRoughnessMaterialGPU {
   }
 }
 
-impl GraphicsShaderProvider for PhysicalMetallicRoughnessMaterialGPU {
+impl GraphicsShaderProvider for PhysicalMetallicRoughnessMaterialGPUImpl {
   fn build(&self, builder: &mut ShaderRenderPipelineBuilder) -> Result<(), ShaderBuildError> {
     builder.context.insert(
       ShadingSelection.type_id(),
@@ -148,11 +148,26 @@ impl GraphicsShaderProvider for PhysicalMetallicRoughnessMaterialGPU {
 
 impl ReactiveRenderComponentSource for PhysicalMetallicRoughnessMaterialReactiveGPU {
   fn as_reactive_component(&self) -> &dyn ReactiveRenderComponent {
-    self.as_ref() as &dyn ReactiveRenderComponent
+    self.inner.as_ref() as &dyn ReactiveRenderComponent
   }
 }
 
-type PhysicalMetallicRoughnessMaterialReactiveGPU = impl AsRef<RenderComponentCell<PhysicalMetallicRoughnessMaterialGPU>>
+#[pin_project::pin_project]
+pub struct PhysicalMetallicRoughnessMaterialReactiveGPU {
+  #[pin]
+  pub inner: PhysicalMetallicRoughnessMaterialInner,
+}
+
+impl Stream for PhysicalMetallicRoughnessMaterialReactiveGPU {
+  type Item = RenderComponentDeltaFlag;
+
+  fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+    let this = self.project();
+    this.inner.poll_next(cx)
+  }
+}
+
+pub type PhysicalMetallicRoughnessMaterialInner = impl AsRef<RenderComponentCell<PhysicalMetallicRoughnessMaterialGPUImpl>>
   + Stream<Item = RenderComponentDeltaFlag>;
 
 use PhysicalMetallicRoughnessMaterialDelta as PD;
@@ -176,7 +191,7 @@ impl WebGPUMaterial for PhysicalMetallicRoughnessMaterial {
     let normal_texture =
       ctx.build_reactive_texture_sampler_pair(m.normal_texture.as_ref().map(|t| &t.content));
 
-    let gpu = PhysicalMetallicRoughnessMaterialGPU {
+    let gpu = PhysicalMetallicRoughnessMaterialGPUImpl {
       uniform,
       base_color_texture,
       metallic_roughness_texture,
@@ -199,7 +214,7 @@ impl WebGPUMaterial for PhysicalMetallicRoughnessMaterial {
       .unbound_listen_by(all_delta_no_init)
       .map(UniformChangePicked::Origin);
 
-    futures::stream::select(uniform_any_change, all).fold_signal_flatten(
+    let inner = futures::stream::select(uniform_any_change, all).fold_signal_flatten(
       state,
       move |delta, state| match delta {
         UniformChangePicked::UniformChange => {
@@ -224,7 +239,9 @@ impl WebGPUMaterial for PhysicalMetallicRoughnessMaterial {
         }
         .into(),
       },
-    )
+    );
+
+    PhysicalMetallicRoughnessMaterialReactiveGPU { inner }
   }
 
   fn is_transparent(&self) -> bool {

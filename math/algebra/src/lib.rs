@@ -1,15 +1,8 @@
-#![feature(adt_const_params)]
 #![feature(trait_alias)]
 #![feature(stmt_expr_attributes)]
-#![allow(incomplete_features)]
-#![allow(clippy::many_single_char_names)]
 #![allow(clippy::transmute_ptr_to_ptr)]
-#![allow(clippy::too_many_arguments)]
-#![allow(clippy::type_complexity)]
 #![allow(clippy::or_fun_call)]
-#![allow(clippy::suspicious_operation_groupings)]
 #![allow(clippy::float_cmp)]
-#![allow(clippy::missing_safety_doc)]
 #![allow(clippy::from_over_into)]
 
 mod angle;

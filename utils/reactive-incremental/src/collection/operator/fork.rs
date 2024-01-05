@@ -193,7 +193,7 @@ where
         },
         CPoll::Blocked => {
           *self.buffered.write() = buffered;
-          waker.clone().wake();
+          waker.wake_by_ref();
           CPoll::Blocked
         }
       }

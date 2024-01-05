@@ -34,7 +34,7 @@ where
   K: CKey,
 {
   fn poll_changes(&self, cx: &mut Context) -> PollCollectionChanges<K, V> {
-    let buffered = self.buffered.write().take().unwrap_or(Default::default());
+    let buffered = self.buffered.write().take().unwrap_or_default();
 
     match self.inner.poll_changes(cx) {
       CPoll::Ready(delta) => match delta {
@@ -50,12 +50,12 @@ where
           }
         }
         Poll::Pending => {
-          return CPoll::Ready(if buffered.is_empty() {
+          CPoll::Ready(if buffered.is_empty() {
             Poll::Pending
           } else {
             // if previous is buffered, we should emit the buffered change
             Poll::Ready(buffered.into_boxed())
-          });
+          })
         }
       },
       CPoll::Blocked => {

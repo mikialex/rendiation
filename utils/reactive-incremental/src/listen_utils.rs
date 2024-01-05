@@ -99,19 +99,21 @@ pub fn all_delta_with<T: IncrementalBase, X>(
 }
 
 pub trait IncrementalListenBy<T: IncrementalBase> {
+  // todo remove box when compiler fixed
   fn listen_by<N, C, U>(
     &self,
     mapper: impl FnMut(MaybeDeltaRef<T>, &dyn Fn(U)) + Send + Sync + 'static,
     channel_builder: &mut C,
-  ) -> impl Stream<Item = N> + Unpin
+  ) -> Box<dyn Stream<Item = N> + Unpin>
   where
     U: Send + Sync + 'static,
+    N: 'static,
     C: ChannelLike<U, Message = N>;
 
   fn unbound_listen_by<U>(
     &self,
     mapper: impl FnMut(MaybeDeltaRef<T>, &dyn Fn(U)) + Send + Sync + 'static,
-  ) -> impl Stream<Item = U> + Unpin
+  ) -> Box<dyn Stream<Item = U> + Unpin>
   where
     U: Send + Sync + 'static,
   {
@@ -121,7 +123,7 @@ pub trait IncrementalListenBy<T: IncrementalBase> {
   fn single_listen_by<U>(
     &self,
     mapper: impl FnMut(MaybeDeltaRef<T>, &dyn Fn(U)) + Send + Sync + 'static,
-  ) -> impl Stream<Item = U> + Unpin
+  ) -> Box<dyn Stream<Item = U> + Unpin>
   where
     U: Send + Sync + 'static,
     U: IncrementalBase<Delta = U>,
@@ -129,15 +131,18 @@ pub trait IncrementalListenBy<T: IncrementalBase> {
     self.listen_by::<U, _, _>(mapper, &mut DefaultSingleValueChannel)
   }
 
-  fn create_drop(&self) -> impl Future<Output = ()> {
+  // todo remove box when compiler fixed
+  fn create_drop(&self) -> Box<dyn Future<Output = ()> + Unpin> {
     let mut s = self.single_listen_by(no_change);
 
-    Box::pin(async move {
+    let r = Box::pin(async move {
       loop {
         if s.next().await.is_none() {
           break;
         }
       }
-    })
+    });
+
+    Box::new(r)
   }
 }

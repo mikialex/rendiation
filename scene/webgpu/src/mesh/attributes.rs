@@ -128,13 +128,13 @@ fn get_update_buffer<'a>(
 
 impl ReactiveRenderComponentSource for AttributesMeshGPUReactive {
   fn as_reactive_component(&self) -> &dyn ReactiveRenderComponent {
-    self.as_ref() as &dyn ReactiveRenderComponent
+    self.inner.as_ref() as &dyn ReactiveRenderComponent
   }
 }
 
 impl MeshDrawcallEmitter for AttributesMeshGPUReactive {
   fn draw_command(&self, _group: MeshDrawGroup) -> DrawCommand {
-    let inner: &MaybeBindlessMesh<AttributesMeshGPU> = self.as_ref();
+    let inner: &MaybeBindlessMesh<AttributesMeshGPU> = self.inner.as_ref();
     match inner {
       MaybeBindlessMesh::Traditional(inner) => inner.draw.clone(),
       MaybeBindlessMesh::Bindless(_) => DrawCommand::Skip,
@@ -169,7 +169,7 @@ pub fn support_bindless(
   device: &GPUDevice,
   queue: &GPUQueue,
 ) -> Option<MeshSystemMeshInstance> {
-  if PrimitiveTopology::TriangleList != mesh.mode {
+  if rendiation_mesh_core::PrimitiveTopology::TriangleList != mesh.mode {
     return None;
   }
 
@@ -204,7 +204,22 @@ pub fn support_bindless(
   None
 }
 
-type AttributesMeshGPUReactive = impl AsRef<RenderComponentCell<MaybeBindlessMesh<AttributesMeshGPU>>>
+#[pin_project::pin_project]
+pub struct AttributesMeshGPUReactive {
+  #[pin]
+  pub inner: AttributesMeshGPUReactiveInner,
+}
+
+impl Stream for AttributesMeshGPUReactive {
+  type Item = RenderComponentDeltaFlag;
+
+  fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+    let this = self.project();
+    this.inner.poll_next(cx)
+  }
+}
+
+pub type AttributesMeshGPUReactiveInner = impl AsRef<RenderComponentCell<MaybeBindlessMesh<AttributesMeshGPU>>>
   + Stream<Item = RenderComponentDeltaFlag>;
 
 impl WebGPUMesh for AttributesMesh {
@@ -220,7 +235,9 @@ impl WebGPUMesh for AttributesMesh {
       let m = mesh.read();
       let gpu = &ctx.gpu;
       let m = unsafe { std::mem::transmute(&m.read()) }; // todo why?
-      if let Some(sys) = &ctx.bindless_mesh && let Some(mesh) = support_bindless(m , sys,&gpu.device, &gpu.queue){
+      if let Some(sys) = &ctx.bindless_mesh
+        && let Some(mesh) = support_bindless(m, sys, &gpu.device, &gpu.queue)
+      {
         MaybeBindlessMesh::Bindless(mesh)
       } else {
         let mut custom_storage = ctx.custom_storage.write().unwrap();
@@ -252,13 +269,15 @@ impl WebGPUMesh for AttributesMesh {
 
     let state = RenderComponentCell::new(create(source));
 
-    source
+    let inner = source
       .single_listen_by::<()>(any_change_no_init)
       .filter_map_sync(source.defer_weak())
       .fold_signal(state, move |mesh, state| {
         state.inner = create(&mesh);
         RenderComponentDeltaFlag::all().into()
-      })
+      });
+
+    AttributesMeshGPUReactive { inner }
   }
 }
 

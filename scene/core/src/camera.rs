@@ -40,7 +40,7 @@ impl SceneCameraImpl {
 }
 
 pub trait SceneCameraExt {
-  fn create_projection_mat_stream(&self) -> impl Stream<Item = Mat4<f32>>;
+  fn create_projection_mat_stream(&self) -> Box<dyn Stream<Item = Mat4<f32>> + Unpin>;
 
   fn resize(&self, size: (f32, f32));
 
@@ -53,10 +53,11 @@ pub trait SceneCameraExt {
 }
 
 impl SceneCameraExt for SceneCamera {
-  fn create_projection_mat_stream(&self) -> impl Stream<Item = Mat4<f32>> {
+  // todo remove box
+  fn create_projection_mat_stream(&self) -> Box<dyn Stream<Item = Mat4<f32>> + Unpin> {
     // note, here we have to write like this because we do not have projector change in camera
     // deltas
-    self
+    let s = self
       .single_listen_by(|view, send| match view {
         MaybeDeltaRef::Delta(delta) => match delta {
           SceneCameraImplDelta::projection(_) => send(()),
@@ -66,7 +67,9 @@ impl SceneCameraExt for SceneCamera {
         MaybeDeltaRef::All(_) => send(()),
       })
       .filter_map_sync(self.defer_weak())
-      .map(|camera| camera.read().compute_project_mat())
+      .map(|camera| camera.read().compute_project_mat());
+
+    Box::new(s)
   }
 
   fn resize(&self, size: (f32, f32)) {

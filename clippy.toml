@@ -1,6 +1,4 @@
-
-# suppress the clippy warnings
-type-complexity-threshold = 999
+# we have to keep this file, because this can not configured in workspace Cargo.toml
 
 disallowed-types = [
     { path = "std::collections::BTreeMap", reason = "should use fast hashmap if possible for better performance" },

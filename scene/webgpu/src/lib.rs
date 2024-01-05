@@ -1,16 +1,13 @@
 #![feature(specialization)]
 #![feature(let_chains)]
 #![feature(hash_raw_entry)]
-#![feature(type_name_of_val)]
 #![feature(stmt_expr_attributes)]
 #![feature(type_alias_impl_trait)]
-#![feature(return_position_impl_trait_in_trait)]
 #![feature(impl_trait_in_assoc_type)]
-#![allow(clippy::field_reassign_with_default)]
-#![allow(incomplete_features)]
 
 mod background;
 mod camera;
+
 mod lights;
 mod materials;
 mod mesh;

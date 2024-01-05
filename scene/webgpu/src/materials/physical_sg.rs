@@ -147,15 +147,30 @@ impl GraphicsShaderProvider for PhysicalSpecularGlossinessMaterialGPU {
   }
 }
 
+#[pin_project::pin_project]
+pub struct PhysicalSpecularGlossinessMaterialReactiveGPU {
+  #[pin]
+  pub inner: PhysicalSpecularGlossinessMaterialInner,
+}
+
+impl Stream for PhysicalSpecularGlossinessMaterialReactiveGPU {
+  type Item = RenderComponentDeltaFlag;
+
+  fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+    let this = self.project();
+    this.inner.poll_next(cx)
+  }
+}
+
 use PhysicalSpecularGlossinessMaterialDelta as PD;
 
 impl ReactiveRenderComponentSource for PhysicalSpecularGlossinessMaterialReactiveGPU {
   fn as_reactive_component(&self) -> &dyn ReactiveRenderComponent {
-    self.as_ref() as &dyn ReactiveRenderComponent
+    self.inner.as_ref() as &dyn ReactiveRenderComponent
   }
 }
 
-type PhysicalSpecularGlossinessMaterialReactiveGPU = impl AsRef<RenderComponentCell<PhysicalSpecularGlossinessMaterialGPU>>
+pub type PhysicalSpecularGlossinessMaterialInner = impl AsRef<RenderComponentCell<PhysicalSpecularGlossinessMaterialGPU>>
   + Stream<Item = RenderComponentDeltaFlag>;
 
 impl WebGPUMaterial for PhysicalSpecularGlossinessMaterial {
@@ -203,7 +218,7 @@ impl WebGPUMaterial for PhysicalSpecularGlossinessMaterial {
       .unbound_listen_by(all_delta_no_init)
       .map(UniformChangePicked::Origin);
 
-    futures::stream::select(uniform_any_change, all).fold_signal_flatten(
+    let inner = futures::stream::select(uniform_any_change, all).fold_signal_flatten(
       state,
       move |delta, state| match delta {
         UniformChangePicked::UniformChange => {
@@ -227,7 +242,9 @@ impl WebGPUMaterial for PhysicalSpecularGlossinessMaterial {
         }
         .into(),
       },
-    )
+    );
+
+    PhysicalSpecularGlossinessMaterialReactiveGPU { inner }
   }
 
   fn is_transparent(&self) -> bool {

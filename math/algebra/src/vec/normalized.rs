@@ -17,6 +17,9 @@ pub trait IntoNormalizedVector<T, V> {
   #[must_use]
   fn into_normalized(self) -> NormalizedVector<T, V>;
 
+  /// # Safety
+  ///
+  /// self must be normalized
   #[must_use]
   unsafe fn into_normalized_unchecked(self) -> NormalizedVector<T, V>;
 }
@@ -33,6 +36,9 @@ impl<T: Scalar, V: InnerProductSpace<T>> IntoNormalizedVector<T, V> for V {
 }
 
 impl<T, V> NormalizedVector<T, V> {
+  /// # Safety
+  ///
+  /// self must be normalized
   #[inline(always)]
   pub unsafe fn wrap(v: V) -> Self {
     Self {

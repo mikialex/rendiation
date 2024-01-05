@@ -1,5 +1,3 @@
-use std::collections::HashMap;
-
 use rendiation_texture::{Size, TextureRange};
 
 use crate::*;
@@ -73,7 +71,7 @@ impl WebGPUTextureCache {
 
 #[derive(Default)]
 pub struct WebGPUTextCache {
-  cached: HashMap<TextHash, WebGPUxTextPrimitive>,
+  cached: FastHashMap<TextHash, WebGPUxTextPrimitive>,
 }
 
 impl WebGPUTextCache {

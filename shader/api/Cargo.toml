@@ -12,3 +12,6 @@ paste = { workspace = true }
 rendiation-algebra = { path = "../../math/algebra" }
 rendiation-shader-derives = { path = "../derive" }
 wgpu-types = "0.17"
+
+[lints]
+workspace = true

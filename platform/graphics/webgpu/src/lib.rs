@@ -1,8 +1,6 @@
 #![feature(specialization)]
 #![feature(hash_raw_entry)]
 #![feature(type_alias_impl_trait)]
-#![allow(incomplete_features)]
-#![allow(clippy::field_reassign_with_default)]
 
 mod binding;
 mod device;
@@ -41,10 +39,10 @@ pub use gpu::{
   util, util::DeviceExt, vertex_attr_array, AddressMode, Backends, BindGroup, BindGroupDescriptor,
   BindGroupEntry, BindGroupLayout, BindGroupLayoutDescriptor, BindingResource, Buffer,
   BufferAsyncError, Color, CompareFunction, CreateSurfaceError, Device, FilterMode, FragmentState,
-  IndexFormat, Limits, LoadOp, Operations, PipelineLayoutDescriptor, PowerPreference,
-  PrimitiveTopology, Queue, RenderPipeline, RenderPipelineDescriptor, RequestDeviceError, Sampler,
-  SamplerBorderColor, SamplerDescriptor, ShaderModuleDescriptor, ShaderSource, ShaderStages,
-  TextureView, TextureViewDescriptor, VertexBufferLayout, VertexState,
+  IndexFormat, Limits, LoadOp, Operations, PipelineLayoutDescriptor, PowerPreference, Queue,
+  RenderPipeline, RenderPipelineDescriptor, RequestDeviceError, Sampler, SamplerBorderColor,
+  SamplerDescriptor, ShaderModuleDescriptor, ShaderSource, ShaderStages, TextureView,
+  TextureViewDescriptor, VertexBufferLayout, VertexState,
 };
 pub use pass::*;
 pub use pipeline::*;

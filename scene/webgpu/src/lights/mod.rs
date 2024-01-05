@@ -15,11 +15,12 @@ pub struct LightResourceCtx {
 
 pub trait WebGPULight: Any {
   type Uniform: Std140 + Any;
+  // todo remove box
   fn create_uniform_stream(
     &self,
     ctx: &LightResourceCtx,
     node: Box<dyn Stream<Item = SceneNode> + Unpin>,
-  ) -> impl Stream<Item = Self::Uniform> + Unpin;
+  ) -> Box<dyn Stream<Item = Self::Uniform> + Unpin>;
 }
 
 pub trait DynamicLightUniform: Any {

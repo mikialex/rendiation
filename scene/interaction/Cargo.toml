@@ -10,3 +10,6 @@ rendiation-algebra = { path = "../../math/algebra" }
 rendiation-geometry = { path = "../../math/geometry" }
 rendiation-mesh-core = { path = "../../components/mesh/core" }
 rendiation-scene-core = { path = "../core" }
+
+[lints]
+workspace = true

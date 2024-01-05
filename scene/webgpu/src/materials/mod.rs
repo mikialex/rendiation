@@ -126,14 +126,14 @@ impl ReactiveRenderComponent for MaterialGPUInstance {
   ) -> Pin<Box<dyn Stream<Item = RenderComponentDeltaFlag>>> {
     match self {
       Self::PhysicalMetallicRoughness(m) => {
-        Box::pin(m.as_ref().create_render_component_delta_stream())
+        Box::pin(m.inner.as_ref().create_render_component_delta_stream())
           as Pin<Box<dyn Stream<Item = RenderComponentDeltaFlag>>>
       }
       Self::PhysicalSpecularGlossiness(m) => {
-        Box::pin(m.as_ref().create_render_component_delta_stream())
+        Box::pin(m.inner.as_ref().create_render_component_delta_stream())
           as Pin<Box<dyn Stream<Item = RenderComponentDeltaFlag>>>
       }
-      Self::Flat(m) => Box::pin(m.as_ref().create_render_component_delta_stream())
+      Self::Flat(m) => Box::pin(m.inner.as_ref().create_render_component_delta_stream())
         as Pin<Box<dyn Stream<Item = RenderComponentDeltaFlag>>>,
       Self::Foreign(m) => m
         .as_reactive_component()
