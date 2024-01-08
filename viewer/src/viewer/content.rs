@@ -176,6 +176,7 @@ impl Viewer3dContent {
         camera_view_size,
         &self.pick_config,
         &self.scene_derived,
+        &self.scene_bounding,
       );
 
       let mut ctx = EventCtx3D::new(
@@ -190,9 +191,7 @@ impl Viewer3dContent {
       let keep_target_for_gizmo = gizmo.event(&mut ctx);
 
       if let Some((MouseButton::Left, ElementState::Pressed)) = mouse(event) {
-        if let Some((nearest, _)) =
-          scene.interaction_picking(&interactive_ctx, &mut self.scene_bounding)
-        {
+        if let Some((nearest, _)) = scene.pick_nearest_model(&interactive_ctx) {
           self.selections.clear();
           self.selections.select(nearest);
 

@@ -4,11 +4,21 @@ use std::{
 };
 
 use futures::{Stream, StreamExt};
-use reactive::EventSource;
+
+use crate::EventSource;
 
 pub struct StateCell<T> {
   state: Arc<RwLock<T>>,
   events: EventSource<T>,
+}
+
+impl<T> Clone for StateCell<T> {
+  fn clone(&self) -> Self {
+    Self {
+      state: self.state.clone(),
+      events: self.events.clone(),
+    }
+  }
 }
 
 impl<T> Deref for StateCell<T> {
@@ -90,15 +100,6 @@ impl<T: 'static> StateCell<T> {
       } else {
         true
       }
-    }
-  }
-}
-
-impl<T> Clone for StateCell<T> {
-  fn clone(&self) -> Self {
-    Self {
-      state: self.state.clone(),
-      events: self.events.clone(),
     }
   }
 }

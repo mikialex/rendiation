@@ -1,10 +1,12 @@
 use std::{cell::RefCell, rc::Rc};
 
+use futures::Stream;
 use incremental::*;
 use interphaser::{
   mouse, mouse_move,
   winit::event::{ElementState, MouseButton},
 };
+use reactive::StateCreator;
 use rendiation_algebra::*;
 use rendiation_geometry::{IntersectAble, OptionalNearest, Plane, Ray3};
 use rendiation_mesh_generator::*;
@@ -23,9 +25,25 @@ pub struct Gizmo {
   states: GizmoState,
   root: SceneNode,
   target: Option<SceneNode>,
-  deltas: Vec<DeltaOf<GizmoState>>,
   to_update_target: Option<Mat4<f32>>,
-  view: Component3DCollection<GizmoState, ()>,
+  view: ViewGroup3D,
+}
+
+impl Stream for Gizmo {
+  type Item = ();
+
+  fn poll_next(
+    self: std::pin::Pin<&mut Self>,
+    cx: &mut std::task::Context<'_>,
+  ) -> std::task::Poll<Option<Self::Item>> {
+    todo!()
+  }
+}
+
+fn gizmo() -> impl View3D {
+  let translate_active = AxisActiveState::use_state();
+  let rotate_active = AxisActiveState::use_state();
+  let scale_active = AxisActiveState::use_state();
 }
 
 impl Gizmo {
@@ -157,7 +175,6 @@ impl Gizmo {
       root: root.clone(),
       view,
       target: None,
-      deltas: Default::default(),
       to_update_target: None,
     };
 
@@ -635,13 +652,6 @@ struct GizmoState {
   target_state: Option<TargetState>,
 }
 
-#[derive(Default, Incremental)]
-struct GizmoActiveState {
-  pub translate: AxisActiveState,
-  pub rotation: AxisActiveState,
-  pub scale: AxisActiveState,
-}
-
 #[derive(Copy, Clone)]
 struct TargetState {
   target_local_mat: Mat4<f32>,
@@ -728,6 +738,13 @@ impl GizmoState {
     let state = &self.active;
     state.translate.has_active() || state.rotation.has_active() || state.scale.has_active()
   }
+}
+
+#[derive(Default, Incremental)]
+struct GizmoActiveState {
+  pub translate: AxisActiveState,
+  pub rotation: AxisActiveState,
+  pub scale: AxisActiveState,
 }
 
 #[derive(Copy, Clone, Default, Debug, Incremental)]

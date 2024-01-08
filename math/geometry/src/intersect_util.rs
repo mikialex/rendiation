@@ -32,7 +32,7 @@ impl<T: Scalar, V: VectorSpace<T>> HyperRay<T, V> {
 pub type HitPoint3D<T = f32> = HitPoint<T, Vec3<T>>;
 
 #[repr(transparent)]
-#[derive(Default, Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug)]
 pub struct OptionalNearest<T>(pub Option<T>);
 impl<T> OptionalNearest<T>
 where
@@ -76,6 +76,12 @@ where
   #[inline(always)]
   pub fn or(self, other: Self) -> Self {
     Self(self.0.or(other.0))
+  }
+}
+
+impl<T> Default for OptionalNearest<T> {
+  fn default() -> Self {
+    Self(None)
   }
 }
 

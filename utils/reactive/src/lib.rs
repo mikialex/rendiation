@@ -18,6 +18,9 @@ use pin_project::pin_project;
 mod signal_stream;
 pub use signal_stream::*;
 
+mod state;
+pub use state::*;
+
 mod vec;
 pub use vec::*;
 

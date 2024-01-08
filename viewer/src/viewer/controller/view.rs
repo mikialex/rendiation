@@ -1,9 +1,12 @@
-use incremental::{ApplicableIncremental, DeltaOf};
+use futures::Stream;
+use incremental::ApplicableIncremental;
 use interphaser::{
   mouse, mouse_move,
   winit::event::{ElementState, Event, MouseButton},
   CanvasWindowPositionInfo, WindowState,
 };
+use rendiation_algebra::Vec3;
+use rendiation_geometry::OptionalNearest;
 use rendiation_mesh_core::MeshBufferHitPoint;
 use rendiation_scene_interaction::*;
 use webgpu::{FrameRenderPass, RenderComponentAny};
@@ -17,33 +20,29 @@ pub enum ViewReaction<V, T: ApplicableIncremental> {
   StateDelta(T::Delta),
 }
 
-/// View type could generic over any state T, as long as the T could provide
-/// given logic for view type
-pub trait ViewBase<T>
-where
-  T: ApplicableIncremental,
-{
-  /// View type's own event type
-  type Event;
+#[derive(Clone, Copy)]
+pub enum Event3D {
+  MouseDown { world_position: Vec3<f32> },
+  MouseMove { world_position: Vec3<f32> },
+  MouseUp { world_position: Vec3<f32> },
+}
 
-  /// In event loop handling, the view type received platform event such as mouse move keyboard
-  /// events, and decide should reactive to it or not, if so, mutate the model or emit
-  /// the self::Event for further outer side handling. see ViewDelta.
-  ///
-  /// all mutation to the model should record delta by call cb passed from caller.
-  ///
-  /// In View hierarchy, event's mutation to state will pop up to the root, wrap the mutation to
-  /// parent state's delta type. and in update logic, consumed from the root
-  fn event(
-    &mut self,
-    model: &mut T,
-    event: &mut EventCtx3D,
-    cb: &mut dyn FnMut(ViewReaction<Self::Event, T>),
-  );
+pub enum ViewRequest3D<'a, 'b, 'c> {
+  Event(&'a mut EventCtx3D<'b>),
+  Render {
+    pass: &'a mut FrameRenderPass<'b, 'c>,
+    dispatcher: &'a dyn RenderComponentAny,
+    camera: &'a SceneCamera,
+    scene: &'a SceneRenderResourceGroup<'b>,
+  },
+  HitTest {
+    ctx: &'a SceneRayInteractiveCtx<'a>,
+    hit_world_position: &'a mut OptionalNearest<MeshBufferHitPoint>,
+  },
+}
 
-  /// update is responsible for map the state delta to to view property change
-  /// the model here is the unmodified.
-  fn update(&mut self, model: &T, delta: &T::Delta);
+pub trait View3D: Stream<Item = ()> + Unpin {
+  fn request(&mut self, detail: &mut ViewRequest3D);
 }
 
 pub struct EventCtx3D<'a> {
@@ -52,7 +51,6 @@ pub struct EventCtx3D<'a> {
   pub info: &'a CanvasWindowPositionInfo,
   pub scene: &'a SceneCoreImpl,
 
-  pub event_3d: Option<Event3D>,
   pub node_sys: &'a SceneNodeDeriveSystem,
   pub interactive_ctx: &'a SceneRayInteractiveCtx<'a>,
 }
@@ -71,74 +69,86 @@ impl<'a> EventCtx3D<'a> {
       raw_event,
       info,
       scene,
-      event_3d: None,
       interactive_ctx,
       node_sys,
     }
   }
 }
 
-pub struct Component3DCollection<T, E> {
-  collection: Vec<Box<dyn View3D<T, Event = E>>>,
+pub struct ViewGroup3D {
+  collection: Vec<Box<dyn View3D>>,
 }
 
-pub trait View3D<T: ApplicableIncremental>:
-  ViewBase<T> + SceneRayInteractive + SceneRenderable
-{
-  fn as_mut_interactive(&mut self) -> &mut dyn SceneRayInteractive;
-  fn as_interactive(&self) -> &dyn SceneRayInteractive;
-}
-impl<T: ApplicableIncremental, X: ViewBase<T> + SceneRayInteractive + SceneRenderable> View3D<T>
-  for X
-{
-  fn as_mut_interactive(&mut self) -> &mut dyn SceneRayInteractive {
-    self
-  }
-  fn as_interactive(&self) -> &dyn SceneRayInteractive {
-    self
-  }
-}
-
-impl<T: ApplicableIncremental, E> Component3DCollection<T, E> {
+impl ViewGroup3D {
   #[must_use]
-  pub fn with(mut self, item: impl View3D<T, Event = E> + 'static) -> Self {
+  pub fn with(mut self, item: impl View3D + 'static) -> Self {
     self.collection.push(Box::new(item));
     self
   }
 }
 
-pub fn collection3d<T, E>() -> Component3DCollection<T, E> {
-  Component3DCollection {
+pub fn collection3d() -> ViewGroup3D {
+  ViewGroup3D {
     collection: Default::default(),
   }
 }
 
-impl<T: ApplicableIncremental, E> ViewBase<T> for Component3DCollection<T, E> {
-  type Event = E;
+impl Stream for ViewGroup3D {
+  type Item = ();
 
-  fn event(
-    &mut self,
-    model: &mut T,
-    event: &mut EventCtx3D,
-    cb: &mut dyn FnMut(ViewReaction<Self::Event, T>),
-  ) {
-    interaction_picking_mut(
-      self.collection.iter_mut().map(|v| v.as_mut()),
-      event.interactive_ctx,
-      |view, hit| match hit {
-        HitReaction::Nearest(hit) => {
-          event.event_3d = map_3d_event(hit, event.raw_event);
-          view.event(model, event, cb);
-          event.event_3d = None;
-        }
-        HitReaction::None => view.event(model, event, cb),
-      },
-    )
+  fn poll_next(
+    self: std::pin::Pin<&mut Self>,
+    cx: &mut std::task::Context<'_>,
+  ) -> std::task::Poll<Option<Self::Item>> {
+    todo!()
   }
+}
 
-  fn update(&mut self, model: &T, delta: &DeltaOf<T>) {
-    for view in &mut self.collection {
-      view.update(model, delta);
+impl SceneRayInteractive for dyn View3D {
+  fn ray_pick_nearest(&self, ctx: &SceneRayInteractiveCtx) -> OptionalNearest<MeshBufferHitPoint> {
+    let mut r = Default::default();
+    self.request(&mut ViewRequest3D::HitTest {
+      ctx,
+      hit_world_position: &mut r,
+    });
+    r
+  }
+}
+
+impl View3D for ViewGroup3D {
+  fn request(&mut self, detail: &mut ViewRequest3D) {
+    match detail {
+      ViewRequest3D::Event(e) => {
+        for c in &self.collection {
+          c.request(detail)
+        }
+      }
+      ViewRequest3D::Render {
+        pass,
+        dispatcher,
+        camera,
+        scene,
+      } => {
+        for c in &self.collection {
+          c.request(&mut ViewRequest3D::Render {
+            pass,
+            dispatcher,
+            camera,
+            scene,
+          });
+        }
+      }
+      ViewRequest3D::HitTest {
+        ctx,
+        hit_world_position,
+      } => {
+        for c in &self.collection {
+          c.request(&mut ViewRequest3D::HitTest {
+            ctx,
+            hit_world_position,
+          })
+        }
+      }
     }
   }
 }
@@ -165,19 +175,5 @@ pub fn map_3d_event(hit: MeshBufferHitPoint, event: &Event<()>) -> Option<Event3
     }
   } else {
     None
-  }
-}
-
-impl<T, E> SceneRenderable for Component3DCollection<T, E> {
-  fn render(
-    &self,
-    pass: &mut FrameRenderPass,
-    dispatcher: &dyn RenderComponentAny,
-    camera: &SceneCamera,
-    scene: &SceneRenderResourceGroup,
-  ) {
-    for c in &self.collection {
-      c.render(pass, dispatcher, camera, scene)
-    }
   }
 }

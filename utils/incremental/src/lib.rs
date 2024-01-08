@@ -2,10 +2,7 @@ use std::{any::Any, fmt::Debug};
 
 pub use incremental_derives::*;
 
-mod lens;
 mod ty;
-
-pub use lens::*;
 pub use ty::*;
 
 pub trait IncrementalBase: Sized + Send + Sync + 'static {

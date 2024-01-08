@@ -11,6 +11,7 @@ pub struct SceneRayInteractiveCtx<'a> {
   pub world_ray: Ray3,
   pub conf: &'a MeshBufferIntersectConfig,
   pub node_derives: &'a SceneNodeDeriveSystem,
+  pub bounding_system: &'a SceneModelWorldBoundingSystem,
   pub camera: &'a SceneCamera,
   pub camera_view_size: Size,
 }
@@ -85,12 +86,12 @@ pub trait WebGPUScenePickingExt {
     camera_view_size: Size,
     conf: &'a MeshBufferIntersectConfig,
     node_derives: &'a SceneNodeDeriveSystem,
+    bounding_system: &'a SceneModelWorldBoundingSystem,
   ) -> SceneRayInteractiveCtx<'a>;
 
-  fn interaction_picking<'a>(
+  fn pick_nearest_model<'a>(
     &'a self,
     ctx: &SceneRayInteractiveCtx,
-    bounding_system: &mut SceneModelWorldBoundingSystem,
   ) -> Option<(&'a SceneModel, MeshBufferHitPoint)>;
 }
 
@@ -103,6 +104,7 @@ impl WebGPUScenePickingExt for SceneCoreImpl {
     camera_view_size: Size,
     conf: &'a MeshBufferIntersectConfig,
     node_derives: &'a SceneNodeDeriveSystem,
+    bounding_system: &'a SceneModelWorldBoundingSystem,
   ) -> SceneRayInteractiveCtx<'a> {
     let camera = self.active_camera.as_ref().unwrap();
     let world_ray = camera.cast_world_ray(normalized_position, node_derives);
@@ -112,37 +114,49 @@ impl WebGPUScenePickingExt for SceneCoreImpl {
       camera,
       camera_view_size,
       node_derives,
+      bounding_system,
     }
   }
 
-  fn interaction_picking<'a>(
+  fn pick_nearest_model<'a>(
     &'a self,
     ctx: &SceneRayInteractiveCtx,
-    bounding_system: &mut SceneModelWorldBoundingSystem,
   ) -> Option<(&'a SceneModel, MeshBufferHitPoint)> {
-    interaction_picking(
-      self.models.iter().filter_map(|(handle, m)| {
-        if let Some(bounding) = bounding_system.get_model_bounding(handle) {
-          if ctx.world_ray.intersect(bounding, &()) {
-            Some(m)
-          } else {
-            println!("culled");
-            None
-          }
-        } else {
-          // unbound model
+    let culled_models = self.models.iter().filter_map(|(handle, m)| {
+      if let Some(bounding) = ctx.bounding_system.get_model_bounding(handle) {
+        if ctx.world_ray.intersect(bounding, &()) {
           Some(m)
+        } else {
+          println!("culled");
+          None
         }
-      }),
-      ctx,
-    )
+      } else {
+        // unbound model
+        Some(m)
+      }
+    });
+
+    interaction_picking_list(culled_models, ctx)
+      .into_iter()
+      .next()
   }
 }
 
-pub fn interaction_picking<'a, T: IntoIterator<Item = &'a SceneModel>>(
+impl SceneRayInteractive for SceneCoreImpl {
+  fn ray_pick_nearest(&self, ctx: &SceneRayInteractiveCtx) -> OptionalNearest<MeshBufferHitPoint> {
+    OptionalNearest(self.pick_nearest_model(ctx).map(|(_, p)| p))
+  }
+}
+
+// return sorted from nearest
+pub fn interaction_picking_list<'a, T, M>(
   content: T,
   ctx: &SceneRayInteractiveCtx,
-) -> Option<(&'a SceneModel, MeshBufferHitPoint)> {
+) -> Vec<(&'a M, MeshBufferHitPoint)>
+where
+  M: SceneRayInteractive,
+  T: IntoIterator<Item = &'a M>,
+{
   let mut result = Vec::new();
 
   for m in content {
@@ -158,43 +172,5 @@ pub fn interaction_picking<'a, T: IntoIterator<Item = &'a SceneModel>>(
       .unwrap_or(Ordering::Less)
   });
 
-  result.into_iter().next()
-}
-
-pub enum HitReaction {
-  // AnyHit(MeshBufferHitPoint),
-  Nearest(MeshBufferHitPoint),
-  None,
-}
-
-pub fn interaction_picking_mut<
-  'a,
-  X: SceneRayInteractive + ?Sized + 'a,
-  T: IntoIterator<Item = &'a mut X>,
->(
-  content: T,
-  ctx: &SceneRayInteractiveCtx,
-  mut cb: impl FnMut(&'a mut X, HitReaction),
-) {
-  let mut result = Vec::new();
-
-  for m in content {
-    if let OptionalNearest(Some(r)) = m.ray_pick_nearest(ctx) {
-      // cb(m, HitReaction::AnyHit(r));
-      result.push((m, r));
-    } else {
-      cb(m, HitReaction::None);
-    }
-  }
-
-  result.sort_by(|(_, a), (_, b)| {
-    a.hit
-      .distance
-      .partial_cmp(&b.hit.distance)
-      .unwrap_or(Ordering::Less)
-  });
-
-  if let Some((m, r)) = result.into_iter().next() {
-    cb(m, HitReaction::Nearest(r));
-  }
+  result
 }
