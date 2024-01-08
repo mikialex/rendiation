@@ -13,9 +13,6 @@ pub use cache::*;
 mod map;
 pub use map::*;
 
-// mod subset;
-// pub use subset::*;
-
 mod filter;
 pub use filter::*;
 
@@ -69,7 +66,7 @@ where
   fn workaround_box(self) -> impl ReactiveCollection<K, V> {
     let r = self;
     // this is a workaround that the compiler maybe generate huge outputs(like pdb file)  which lead
-    // to link error in debug build, as well as using huge memory
+    // to link error in debug build, and consume huge memory when compiling in release mode
     // see https://doc.rust-lang.org/reference/conditional-compilation.html#debug_assertions
     #[cfg(debug_assertions)]
     let r = r.into_boxed();
