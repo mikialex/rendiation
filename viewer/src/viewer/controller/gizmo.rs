@@ -1,12 +1,13 @@
 use std::{cell::RefCell, rc::Rc};
 
-use futures::Stream;
+use futures::{Stream, StreamExt};
 use incremental::*;
 use interphaser::{
-  mouse, mouse_move,
+  mouse, mouse_move, trivial_stream_impl,
   winit::event::{ElementState, MouseButton},
+  ReactiveUpdateNesterStreamExt,
 };
-use reactive::StateCreator;
+use reactive::{SignalStreamExt, StateCell, StateCreator};
 use rendiation_algebra::*;
 use rendiation_geometry::{IntersectAble, OptionalNearest, Plane, Ray3};
 use rendiation_mesh_generator::*;
@@ -29,16 +30,7 @@ pub struct Gizmo {
   view: ViewGroup3D,
 }
 
-impl Stream for Gizmo {
-  type Item = ();
-
-  fn poll_next(
-    self: std::pin::Pin<&mut Self>,
-    cx: &mut std::task::Context<'_>,
-  ) -> std::task::Poll<Option<Self::Item>> {
-    todo!()
-  }
-}
+trivial_stream_impl!(Gizmo);
 
 fn gizmo() -> impl View3D {
   let translate_active = AxisActiveState::use_state();
@@ -55,68 +47,53 @@ impl Gizmo {
     };
     let auto_scale = &Rc::new(RefCell::new(auto_scale));
 
-    let x_lens = lens_d!(AxisActiveState, x);
-    let y_lens = lens_d!(AxisActiveState, y);
-    let z_lens = lens_d!(AxisActiveState, z);
+    let x_s = ItemState::use_state();
+    let y_s = ItemState::use_state();
+    let z_s = ItemState::use_state();
 
-    let active_lens = lens_d!(GizmoState, active);
-    let translate = lens_d!(GizmoActiveState, translate);
+    let any_active = x_s
+      .single_listen()
+      .zip_signal(y_s.single_listen())
+      .zip_signal(z_s.single_listen())
+      .map(|((a, b), c)| a.active || b.active || c.active);
 
-    let active_translate_x = x_lens.chain(translate).chain(active_lens);
-    let active_translate_y = y_lens.chain(translate).chain(active_lens);
-    let active_translate_z = z_lens.chain(translate).chain(active_lens);
+    fn or(a: &StateCell<ItemState>, b: &StateCell<ItemState>) -> impl Stream<Item = ItemState> {
+      a.single_listen()
+        .zip_signal(b.single_listen())
+        .map(|(a, b)| ItemState {
+          hovering: a.hovering || b.hovering,
+          active: a.active || b.active,
+        })
+    }
+
+    fn color(
+      active: impl Stream<Item = ItemState>,
+      color: Vec3<f32>,
+    ) -> impl Stream<Item = Vec4<f32>> {
+      active.map(move |state| map_color(color, state).expand_with(1.))
+    }
+
+    let xy_active = or(&x_s, &y_s);
+    let yz_active = or(&y_s, &z_s);
+    let xz_active = or(&x_s, &z_s);
 
     let x = Arrow::new(root, auto_scale)
       .toward_x()
-      .eventable()
-      .update(update_arrow(active_translate_x, RED))
+      .react(color(x_s, RED).bind(Arrow::set_color))
+      .react(x_s.bind(Arrow::set_visible))
       .on(active(active_translate_x));
 
     let y = Arrow::new(root, auto_scale)
       .toward_y()
-      .eventable()
-      .update(update_arrow(active_translate_y, BLUE))
+      .react(color(x_s, BLUE).bind(Arrow::set_color))
+      .react(x_s.bind(Arrow::set_visible))
       .on(active(active_translate_y));
 
     let z = Arrow::new(root, auto_scale)
       .toward_z()
-      .eventable()
-      .update(update_arrow(active_translate_z, GREEN))
+      .react(color(x_s, GREEN).bind(Arrow::set_color))
+      .react(x_s.bind(Arrow::set_visible))
       .on(active(active_translate_z));
-
-    macro_rules! duel {
-      ($a:tt, $b:tt) => {
-        FieldDelta::new::<AxisActiveState, ItemState>(
-          |inner_d, cb| {
-            // just board cast same change, one changed to all changed.
-            cb(DeltaOf::<AxisActiveState>::$a(inner_d.clone()));
-            cb(DeltaOf::<AxisActiveState>::$b(inner_d));
-          },
-          |v, cb| {
-            // any source change, compute middle state immediately
-            // and expand middle to trigger all change
-            if let DeltaOf::<AxisActiveState>::$a(_) | DeltaOf::<AxisActiveState>::$b(_) = v.delta {
-              let s = v.data;
-              let both = ItemState {
-                hovering: s.$a.hovering && s.$b.hovering,
-                active: s.$a.active && s.$b.active,
-              };
-
-              both.expand(|d| {
-                cb(DeltaView {
-                  data: &both,
-                  delta: &d,
-                })
-              })
-            }
-          },
-        )
-      };
-    }
-
-    let xy_lens = duel!(x, y).chain(translate).chain(active_lens);
-    let yz_lens = duel!(y, z).chain(translate).chain(active_lens);
-    let xz_lens = duel!(x, z).chain(translate).chain(active_lens);
 
     let plane_scale = Mat4::scale(Vec3::splat(0.4));
     let plane_move = Vec3::splat(1.3);
@@ -125,41 +102,41 @@ impl Gizmo {
     let xy_t = Vec3::new(1., 1., 0.);
     let xy_t = Mat4::translate(xy_t * plane_move) * plane_scale;
     let xy = build_plane(root, auto_scale, xy_t)
-      .eventable::<GizmoState>()
-      .update(update_plane(xy_lens, GREEN))
+      .react(color(xy_active, GREEN).bind(Arrow::set_color))
+      .react(xy_active.bind(Arrow::set_visible))
       .on(active(xy_lens));
 
     let yz_t = Vec3::new(0., 1., 1.);
     let yz_t = Mat4::translate(yz_t * plane_move) * Mat4::rotate_y(degree_90) * plane_scale;
     let yz = build_plane(root, auto_scale, yz_t)
-      .eventable::<GizmoState>()
-      .update(update_plane(yz_lens, RED))
+      .react(color(yz_active, RED).bind(Arrow::set_color))
+      .react(yz_active.bind(Arrow::set_visible))
       .on(active(yz_lens));
 
     let xz_t = Vec3::new(1., 0., 1.);
     let xz_t = Mat4::translate(xz_t * plane_move) * Mat4::rotate_x(-degree_90) * plane_scale;
     let xz = build_plane(root, auto_scale, xz_t)
-      .eventable::<GizmoState>()
-      .update(update_plane(xz_lens, BLUE))
+      .react(color(xz_active, BLUE).bind(Arrow::set_color))
+      .react(xz_active.bind(Arrow::set_visible))
       .on(active(xz_lens));
 
-    let rotation = lens_d!(GizmoActiveState, rotation);
-
-    let rotation_x = x_lens.chain(rotation).chain(active_lens);
-    let rotation_y = y_lens.chain(rotation).chain(active_lens);
-    let rotation_z = z_lens.chain(rotation).chain(active_lens);
+    let rotation_x_s = ItemState::use_state();
+    let rotation_y_s = ItemState::use_state();
+    let rotation_z_s = ItemState::use_state();
 
     let rotator_z = build_rotator(root, auto_scale, Mat4::identity())
-      .eventable::<GizmoState>()
-      .update(update_torus(rotation_z, GREEN))
+      .react(color(rotation_z_s, GREEN).bind(Arrow::set_color))
+      .react(rotation_z_s.bind(Arrow::set_visible))
       .on(active(rotation_z));
+
     let rotator_y = build_rotator(root, auto_scale, Mat4::rotate_x(degree_90))
-      .eventable::<GizmoState>()
-      .update(update_torus(rotation_y, BLUE))
+      .react(color(rotation_y_s, BLUE).bind(Arrow::set_color))
+      .react(rotation_y_s.bind(Arrow::set_visible))
       .on(active(rotation_y));
+
     let rotator_x = build_rotator(root, auto_scale, Mat4::rotate_y(degree_90))
-      .eventable::<GizmoState>()
-      .update(update_torus(rotation_x, RED))
+      .react(color(rotation_x_s, RED).bind(Arrow::set_color))
+      .react(rotation_x_s.bind(Arrow::set_visible))
       .on(active(rotation_x));
 
     #[rustfmt::skip]
@@ -336,23 +313,23 @@ fn is_3d_hovering() -> impl FnMut(&EventCtx3D) -> Option<bool> {
   }
 }
 
-fn active(
-  active: impl DeltaLens<GizmoState, ItemState> + 'static,
-) -> impl FnMut(&mut GizmoState, &EventCtx3D, &mut dyn FnMut(DeltaOf<GizmoState>)) + 'static {
-  let mut is_hovering = is_3d_hovering();
-  move |_, event, cb| {
-    if let Some(event3d) = &event.event_3d {
-      if let Event3D::MouseDown { world_position } = event3d {
-        active.map_delta(DeltaOf::<ItemState>::active(true), cb);
-        cb(GizmoStateDelta::StartDrag(*world_position));
-      }
-    }
+// fn active(
+//   active: impl DeltaLens<GizmoState, ItemState> + 'static,
+// ) -> impl FnMut(&mut GizmoState, &EventCtx3D, &mut dyn FnMut(DeltaOf<GizmoState>)) + 'static {
+//   let mut is_hovering = is_3d_hovering();
+//   move |_, event, cb| {
+//     if let Some(event3d) = &event.event_3d {
+//       if let Event3D::MouseDown { world_position } = event3d {
+//         active.map_delta(DeltaOf::<ItemState>::active(true), cb);
+//         cb(GizmoStateDelta::StartDrag(*world_position));
+//       }
+//     }
 
-    if let Some(hovering) = is_hovering(event) {
-      active.map_delta(DeltaOf::<ItemState>::hovering(hovering), cb);
-    }
-  }
-}
+//     if let Some(hovering) = is_hovering(event) {
+//       active.map_delta(DeltaOf::<ItemState>::hovering(hovering), cb);
+//     }
+//   }
+// }
 
 fn map_color(color: Vec3<f32>, state: ItemState) -> Vec3<f32> {
   if state.hovering && !state.active {
@@ -364,66 +341,66 @@ fn map_color(color: Vec3<f32>, state: ItemState) -> Vec3<f32> {
   }
 }
 
-fn update_arrow(
-  active: impl DeltaLens<GizmoState, ItemState> + 'static,
-  color: Vec3<f32>,
-) -> impl FnMut(DeltaView<GizmoState>, &mut Arrow) + 'static {
-  let mut self_active = false;
-  move |state, arrow| {
-    let s = state.data;
-    if let GizmoStateDelta::active(_) = state.delta {
-      let show = !s.active.translate.has_active() || self_active;
-      arrow.root.set_visible(show);
-    }
+// fn update_arrow(
+//   active: impl DeltaLens<GizmoState, ItemState> + 'static,
+//   color: Vec3<f32>,
+// ) -> impl FnMut(DeltaView<GizmoState>, &mut Arrow) + 'static {
+//   let mut self_active = false;
+//   move |state, arrow| {
+//     let s = state.data;
+//     if let GizmoStateDelta::active(_) = state.delta {
+//       let show = !s.active.translate.has_active() || self_active;
+//       arrow.root.set_visible(show);
+//     }
 
-    active.check_delta(state, &mut |axis_state| {
-      self_active = axis_state.data.active;
-      arrow.set_color(map_color(color, *axis_state.data));
-    });
-  }
-}
+//     active.check_delta(state, &mut |axis_state| {
+//       self_active = axis_state.data.active;
+//       arrow.set_color(map_color(color, *axis_state.data));
+//     });
+//   }
+// }
 
-fn update_plane(
-  active: impl DeltaLens<GizmoState, ItemState>,
-  color: Vec3<f32>,
-) -> impl FnMut(DeltaView<GizmoState>, &mut HelperMesh) {
-  let mut self_active = false;
-  move |state, plane| {
-    let s = state.data;
-    if let GizmoStateDelta::active(_) = state.delta {
-      let show = !s.active.translate.has_active() || self_active;
-      plane.model.node.set_visible(show);
-    }
-    active.check_delta(state, &mut |axis_state| {
-      self_active = axis_state.data.active;
-      map_color(color, *axis_state.data)
-        .expand_with(1.)
-        .wrap(FlatMaterialDelta::color)
-        .apply_modify(&plane.material);
-    });
-  }
-}
+// fn update_plane(
+//   active: impl DeltaLens<GizmoState, ItemState>,
+//   color: Vec3<f32>,
+// ) -> impl FnMut(DeltaView<GizmoState>, &mut HelperMesh) {
+//   let mut self_active = false;
+//   move |state, plane| {
+//     let s = state.data;
+//     if let GizmoStateDelta::active(_) = state.delta {
+//       let show = !s.active.translate.has_active() || self_active;
+//       plane.model.node.set_visible(show);
+//     }
+//     active.check_delta(state, &mut |axis_state| {
+//       self_active = axis_state.data.active;
+//       map_color(color, *axis_state.data)
+//         .expand_with(1.)
+//         .wrap(FlatMaterialDelta::color)
+//         .apply_modify(&plane.material);
+//     });
+//   }
+// }
 
-fn update_torus(
-  active: impl DeltaLens<GizmoState, ItemState>,
-  color: Vec3<f32>,
-) -> impl FnMut(DeltaView<GizmoState>, &mut HelperMesh) {
-  let mut self_active = false;
-  move |state, torus| {
-    let s = state.data;
-    if let GizmoStateDelta::active(_) = state.delta {
-      let show = !s.active.translate.has_active() || self_active;
-      torus.model.node.set_visible(show);
-    }
-    active.check_delta(state, &mut |axis_state| {
-      self_active = axis_state.data.active;
-      map_color(color, *axis_state.data)
-        .expand_with(1.)
-        .wrap(FlatMaterialDelta::color)
-        .apply_modify(&torus.material);
-    });
-  }
-}
+// fn update_torus(
+//   active: impl DeltaLens<GizmoState, ItemState>,
+//   color: Vec3<f32>,
+// ) -> impl FnMut(DeltaView<GizmoState>, &mut HelperMesh) {
+//   let mut self_active = false;
+//   move |state, torus| {
+//     let s = state.data;
+//     if let GizmoStateDelta::active(_) = state.delta {
+//       let show = !s.active.translate.has_active() || self_active;
+//       torus.model.node.set_visible(show);
+//     }
+//     active.check_delta(state, &mut |axis_state| {
+//       self_active = axis_state.data.active;
+//       map_color(color, *axis_state.data)
+//         .expand_with(1.)
+//         .wrap(FlatMaterialDelta::color)
+//         .apply_modify(&torus.material);
+//     });
+//   }
+// }
 
 impl PassContentWithSceneAndCamera for &mut Gizmo {
   fn render(
@@ -787,6 +764,14 @@ impl AxisActiveState {
 struct HelperMesh {
   material: IncrementalSignalPtr<FlatMaterial>,
   model: OverridableMeshModelImpl,
+}
+
+impl HelperMesh {
+  pub fn set_color(&self, color: Vec4<f32>) {
+    color
+      .wrap(FlatMaterialDelta::color)
+      .apply_modify(&self.material);
+  }
 }
 
 impl SceneRenderable for HelperMesh {

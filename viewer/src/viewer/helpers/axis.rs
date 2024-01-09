@@ -169,6 +169,10 @@ impl Arrow {
       .apply_modify(&self.material);
   }
 
+  pub fn set_visible(&self, show: bool) {
+    self.root.set_visible(show)
+  }
+
   pub fn with_transform(self, m: Mat4<f32>) -> Self {
     self.root.set_local_matrix(m);
     self
