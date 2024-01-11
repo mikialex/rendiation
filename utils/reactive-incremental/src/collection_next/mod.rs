@@ -22,11 +22,18 @@ pub struct ReactiveKVMapFork2<Map, K, V> {
   rev: RwLock<Receiver<K, V>>,
   id: u64,
   waker: Arc<AtomicWaker>,
-  pending_upstream: Weak<MapPollFuture>,
+  pending_upstream: RwLock<Weak<MapPollFutureImpl<K, V>>>,
 }
 
 impl<Map, K, V> ReactiveKVMapFork2<Map, K, V> {
-  // pub fn get_or_create_upstream_work(&self) -> impl Stream<Item = ()>;
+  pub fn get_or_create_upstream_work(&self, cx: &mut Context) -> MapPollFuture<K, V> {
+    let pending_upstream = self.pending_upstream.write();
+    if let Some(upstream_future) = pending_upstream.upgrade() {
+      //
+    } else {
+      *pending_upstream = self.upstream.poll_changes(cx);
+    }
+  }
 }
 
 pub enum MaybeResolved<F: Future> {
@@ -35,13 +42,26 @@ pub enum MaybeResolved<F: Future> {
 }
 
 #[derive(Clone)]
-struct MapPollFuture<K, V> {
+struct MapPollFutureImpl<K, V> {
   upstream: MaybeResolved<CollectionTransactionFuture<'static, K, V>>,
-  all_downstream: Weak<RwLock<FastHashMap<u64, DownStreamInfo2<K, V>>>>,
+  sended: Weak<RwLock<FastHashSet<u64>>>,
+  all_downstream: Arc<RwLock<FastHashMap<u64, DownStreamInfo2<K, V>>>>,
 }
 
-impl<K, V> Future for Arc<MapPollFuture<K, V>> {
-  type Output = ();
+impl<K, V> Drop for MapPollFutureImpl<K, V> {
+  fn drop(&mut self) {
+    // todo
+    // send all not sended to downstream channels
+  }
+}
+
+struct MapPollFuture<K, V> {
+  inner: Arc<MapPollFutureImpl<K, V>>,
+  id: u64,
+}
+
+impl<K, V> Future for MapPollFuture<K, V> {
+  type Output = Box<dyn VirtualCollection<K, V>>;
 
   fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
     todo!()
@@ -56,13 +76,11 @@ where
 {
   fn poll_changes(&self, cx: &mut Context) -> CollectionTransactionFuture<K, V> {
     async {
-      // previous buffered
-      self.rev.next().await;
+      let view = self.get_or_create_upstream_task().await;
 
-      // new upstream
-      self.rev.next().await;
+      let delta = self.all_buffered_changes().await;
 
-      // merge
+      CollectionTransaction { view, delta }
     };
     todo!()
   }
