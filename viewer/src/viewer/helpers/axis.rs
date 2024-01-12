@@ -162,14 +162,14 @@ impl Arrow {
     (cylinder_mesh, tip_mesh)
   }
 
-  pub fn set_color(&self, color: Vec3<f32>) {
+  pub fn set_color(&mut self, color: Vec3<f32>) {
     color
       .expand_with_one()
       .wrap(FlatMaterialDelta::color)
       .apply_modify(&self.material);
   }
 
-  pub fn set_visible(&self, show: bool) {
+  pub fn set_visible(&mut self, show: bool) {
     self.root.set_visible(show)
   }
 

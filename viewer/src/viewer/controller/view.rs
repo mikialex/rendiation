@@ -1,3 +1,8 @@
+use std::{
+  pin::Pin,
+  task::{Context, Poll},
+};
+
 use futures::Stream;
 use incremental::ApplicableIncremental;
 use interphaser::{
@@ -104,6 +109,40 @@ impl Stream for ViewGroup3D {
   }
 }
 
+pub struct View3dEventWrap<T, F> {
+  inner: T,
+  f: F,
+}
+impl<T, F> Stream for View3dEventWrap<T, F>
+where
+  T: Unpin,
+  T: Stream<Item = ()>,
+  T: Unpin,
+{
+  type Item = ();
+
+  fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+    Pin::new(&mut self.inner).poll_next(cx)
+  }
+}
+impl<T: View3D, F> View3D for View3dEventWrap<T, F>
+where
+  Self: Stream<Item = ()> + Unpin,
+{
+  fn request(&mut self, detail: &mut ViewRequest3D) {
+    self.inner.request(detail)
+  }
+}
+
+impl<C: View3D, X> View3D for interphaser::ReactiveNestedView<C, X>
+where
+  Self: Stream<Item = ()> + Unpin,
+{
+  fn request(&mut self, detail: &mut ViewRequest3D) {
+    self.inner.request(detail)
+  }
+}
+
 impl SceneRayInteractive for dyn View3D {
   fn ray_pick_nearest(&self, ctx: &SceneRayInteractiveCtx) -> OptionalNearest<MeshBufferHitPoint> {
     let mut r = Default::default();
@@ -112,6 +151,23 @@ impl SceneRayInteractive for dyn View3D {
       hit_world_position: &mut r,
     });
     r
+  }
+}
+
+impl SceneRenderable for dyn View3D {
+  fn render(
+    &self,
+    pass: &mut FrameRenderPass,
+    dispatcher: &dyn RenderComponentAny,
+    camera: &SceneCamera,
+    scene: &SceneRenderResourceGroup,
+  ) {
+    self.request(&mut ViewRequest3D::Render {
+      pass,
+      dispatcher,
+      camera,
+      scene,
+    })
   }
 }
 

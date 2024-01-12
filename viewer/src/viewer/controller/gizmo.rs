@@ -7,6 +7,7 @@ use interphaser::{
   winit::event::{ElementState, MouseButton},
   ReactiveUpdateNesterStreamExt,
 };
+use interphaser::{ReactiveUpdaterGroup, ViewReactExt};
 use reactive::{SignalStreamExt, StateCell, StateCreator};
 use rendiation_algebra::*;
 use rendiation_geometry::{IntersectAble, OptionalNearest, Plane, Ray3};
@@ -79,20 +80,20 @@ impl Gizmo {
 
     let x = Arrow::new(root, auto_scale)
       .toward_x()
-      .react(color(x_s, RED).bind(Arrow::set_color))
-      .react(x_s.bind(Arrow::set_visible))
+      .react(color(x_s.single_listen(), RED).bind(Arrow::set_color))
+      .react(x_s.single_listen().bind(Arrow::set_visible))
       .on(active(active_translate_x));
 
     let y = Arrow::new(root, auto_scale)
       .toward_y()
-      .react(color(x_s, BLUE).bind(Arrow::set_color))
-      .react(x_s.bind(Arrow::set_visible))
+      .react(color(x_s.single_listen(), BLUE).bind(Arrow::set_color))
+      .react(x_s.single_listen().bind(Arrow::set_visible))
       .on(active(active_translate_y));
 
     let z = Arrow::new(root, auto_scale)
       .toward_z()
-      .react(color(x_s, GREEN).bind(Arrow::set_color))
-      .react(x_s.bind(Arrow::set_visible))
+      .react(color(x_s.single_listen(), GREEN).bind(Arrow::set_color))
+      .react(x_s.single_listen().bind(Arrow::set_visible))
       .on(active(active_translate_z));
 
     let plane_scale = Mat4::scale(Vec3::splat(0.4));
@@ -102,21 +103,21 @@ impl Gizmo {
     let xy_t = Vec3::new(1., 1., 0.);
     let xy_t = Mat4::translate(xy_t * plane_move) * plane_scale;
     let xy = build_plane(root, auto_scale, xy_t)
-      .react(color(xy_active, GREEN).bind(Arrow::set_color))
+      .react(color(xy_active, GREEN).bind(HelperMesh::set_color))
       .react(xy_active.bind(Arrow::set_visible))
       .on(active(xy_lens));
 
     let yz_t = Vec3::new(0., 1., 1.);
     let yz_t = Mat4::translate(yz_t * plane_move) * Mat4::rotate_y(degree_90) * plane_scale;
     let yz = build_plane(root, auto_scale, yz_t)
-      .react(color(yz_active, RED).bind(Arrow::set_color))
+      .react(color(yz_active, RED).bind(HelperMesh::set_color))
       .react(yz_active.bind(Arrow::set_visible))
       .on(active(yz_lens));
 
     let xz_t = Vec3::new(1., 0., 1.);
     let xz_t = Mat4::translate(xz_t * plane_move) * Mat4::rotate_x(-degree_90) * plane_scale;
     let xz = build_plane(root, auto_scale, xz_t)
-      .react(color(xz_active, BLUE).bind(Arrow::set_color))
+      .react(color(xz_active, BLUE).bind(HelperMesh::set_color))
       .react(xz_active.bind(Arrow::set_visible))
       .on(active(xz_lens));
 
@@ -124,19 +125,22 @@ impl Gizmo {
     let rotation_y_s = ItemState::use_state();
     let rotation_z_s = ItemState::use_state();
 
+    let rotate_view_update = |s: &StateCell<ItemState>| {
+      ReactiveUpdaterGroup::default()
+        .with(color(s.single_listen(), GREEN).bind(HelperMesh::set_color))
+      // .with(s.single_listen().bind(HelperMesh::set_visible))
+    };
+
     let rotator_z = build_rotator(root, auto_scale, Mat4::identity())
-      .react(color(rotation_z_s, GREEN).bind(Arrow::set_color))
-      .react(rotation_z_s.bind(Arrow::set_visible))
+      .react(rotate_view_update(&rotation_z_s))
       .on(active(rotation_z));
 
     let rotator_y = build_rotator(root, auto_scale, Mat4::rotate_x(degree_90))
-      .react(color(rotation_y_s, BLUE).bind(Arrow::set_color))
-      .react(rotation_y_s.bind(Arrow::set_visible))
+      .react(rotate_view_update(&rotation_y_s))
       .on(active(rotation_y));
 
     let rotator_x = build_rotator(root, auto_scale, Mat4::rotate_y(degree_90))
-      .react(color(rotation_x_s, RED).bind(Arrow::set_color))
-      .react(rotation_x_s.bind(Arrow::set_visible))
+      .react(rotate_view_update(&rotation_x_s))
       .on(active(rotation_x));
 
     #[rustfmt::skip]
@@ -310,6 +314,25 @@ fn is_3d_hovering() -> impl FnMut(&EventCtx3D) -> Option<bool> {
     }
 
     delta
+  }
+}
+
+fn active2(state: &StateCell<ItemState>) -> impl FnMut(&mut EventCtx3D, &dyn View3D) + 'static {
+  let mut is_hovering = is_3d_hovering();
+  move |event, inner| {
+    if let Some((btn, state)) = mouse(event.raw_event) {
+      if let Some(position) = inner.hit_test() {}
+    }
+    if let Some(event3d) = &event.event_3d {
+      if let Event3D::MouseDown { world_position } = event3d {
+        active.map_delta(DeltaOf::<ItemState>::active(true), cb);
+        cb(GizmoStateDelta::StartDrag(*world_position));
+      }
+    }
+
+    if let Some(hovering) = is_hovering(event) {
+      active.map_delta(DeltaOf::<ItemState>::hovering(hovering), cb);
+    }
   }
 }
 
@@ -733,8 +756,8 @@ pub struct AxisActiveState {
 
 #[derive(Copy, Clone, Default, Debug, Incremental)]
 pub struct ItemState {
-  pub hovering: bool,
-  pub active: bool,
+  pub hovering: StateCell<bool>,
+  pub active: StateCell<bool>,
 }
 
 impl AxisActiveState {
@@ -766,11 +789,17 @@ struct HelperMesh {
   model: OverridableMeshModelImpl,
 }
 
+trivial_stream_impl!(HelperMesh);
+
 impl HelperMesh {
-  pub fn set_color(&self, color: Vec4<f32>) {
+  pub fn set_color(&mut self, color: Vec4<f32>) {
     color
       .wrap(FlatMaterialDelta::color)
       .apply_modify(&self.material);
+  }
+
+  pub fn set_visible(&mut self, show: bool) {
+    self.model.node.set_visible(show)
   }
 }
 

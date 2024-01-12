@@ -32,7 +32,7 @@ pub trait ViewReactExt: Sized {
     }
   }
 }
-impl<X> ViewReactExt for X where X: View {}
+impl<X> ViewReactExt for X {}
 
 impl<C, X> Stream for ReactiveNestedView<C, X>
 where

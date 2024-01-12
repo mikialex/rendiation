@@ -8,8 +8,11 @@ macro_rules! trivial_stream_impl {
   ($Type: ty) => {
     impl Stream for $Type {
       type Item = ();
-      fn poll_next(self: Pin<&mut Self>, _: &mut Context<'_>) -> Poll<Option<Self::Item>> {
-        Poll::Pending
+      fn poll_next(
+        self: ::core::pin::Pin<&mut Self>,
+        _: &mut ::core::task::Context<'_>,
+      ) -> ::core::task::Poll<Option<Self::Item>> {
+        ::core::task::Poll::Pending
       }
     }
   };
