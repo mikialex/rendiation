@@ -1,0 +1,16 @@
+[package]
+authors = ["MikiAlex <18516340862@163.com>"]
+edition = "2021"
+name = "rendiation-texture-gpu-process"
+version = "0.1.0"
+
+[dependencies]
+rendiation-algebra = { path = "../../../math/algebra" }
+rendiation-texture = { path = "../core" }
+rendiation-shader-api = { path = "../../../shader/api" }
+rendiation-shader-library = { path = "../../../shader/library" }
+rendiation-webgpu = { path = "../../../platform/graphics/webgpu" }
+rand = { workspace = true }
+
+[lints]
+workspace = true

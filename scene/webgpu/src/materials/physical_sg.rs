@@ -162,6 +162,7 @@ impl Stream for PhysicalSpecularGlossinessMaterialReactiveGPU {
   }
 }
 
+use rendiation_shader_library::normal_mapping::apply_normal_mapping_conditional;
 use PhysicalSpecularGlossinessMaterialDelta as PD;
 
 impl ReactiveRenderComponentSource for PhysicalSpecularGlossinessMaterialReactiveGPU {

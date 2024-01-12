@@ -27,6 +27,7 @@ members = [
   "components/texture/core",
   "components/texture/types",
   "components/texture/packer",
+  "components/texture/gpu-process",
   "components/texture/gpu-system",
   "components/texture/generative",
   "components/lighting/core",
@@ -79,6 +80,7 @@ proc-macro2 = "1.0.4"
 quote = "1.0.2"
 syn = { version = "1.0.11", features = ["full"] }
 tracing = "0.1"
+rand = "0.8.5"
 
 # https://doc.rust-lang.org/cargo/reference/profiles.html
 

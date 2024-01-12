@@ -245,28 +245,6 @@ pub struct CameraGPUTransform {
   pub jitter_normalized: Vec2<f32>,
 }
 
-pub fn shader_uv_space_to_world_space(
-  camera: &ENode<CameraGPUTransform>,
-  uv: Node<Vec2<f32>>,
-  ndc_depth: Node<f32>,
-) -> Node<Vec3<f32>> {
-  let xy = uv * val(2.) - val(Vec2::one());
-  let xy = xy * val(Vec2::new(1., -1.));
-  let ndc = (xy, ndc_depth, val(1.)).into();
-  let world = camera.view_projection_inv * ndc;
-  world.xyz() / world.w().splat()
-}
-
-pub fn shader_world_space_to_uv_space(
-  camera: &ENode<CameraGPUTransform>,
-  world: Node<Vec3<f32>>,
-) -> (Node<Vec2<f32>>, Node<f32>) {
-  let clip = camera.view_projection * (world, val(1.)).into();
-  let ndc = clip.xyz() / clip.w().splat();
-  let uv = ndc.xy() * val(Vec2::new(0.5, -0.5)) + val(Vec2::splat(0.5));
-  (uv, ndc.z())
-}
-
 pub fn setup_viewport(cb: &CameraViewBounds, pass: &mut GPURenderPass, buffer_size: Size) {
   let width: usize = buffer_size.width.into();
   let width = width as f32;

@@ -18,7 +18,6 @@ linked-hash-map = "0.5.4"
 log = { workspace = true }
 once_cell = { workspace = true }
 pin-project = { workspace = true }
-rand = "0.7.3"
 rendiation-algebra = { path = "../../math/algebra" }
 rendiation-color = { path = "../../components/color" }
 rendiation-geometry = { path = "../../math/geometry" }
@@ -31,6 +30,7 @@ rendiation-shader-api = { path = "../../shader/api" }
 rendiation-shader-library = { path = "../../shader/library" }
 rendiation-texture = { path = "../../components/texture/core" }
 rendiation-texture-gpu-system = { path = "../../components/texture/gpu-system" }
+rendiation-texture-gpu-process = { path = "../../components/texture/gpu-process" }
 tree = { path = "../../utils/tree" }
 
 reactive = { path = "../../utils/reactive" }

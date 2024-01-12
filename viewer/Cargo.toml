@@ -25,6 +25,7 @@ reactive-incremental = { path = "../utils/reactive-incremental" }
 rendiation-algebra = { path = "../math/algebra" }
 rendiation-controller = { path = "../components/controller" }
 rendiation-generative-texture = { path = "../components/texture/generative" }
+rendiation-texture-gpu-process = { path = "../components/texture/gpu-process" }
 rendiation-geometry = { path = "../math/geometry" }
 rendiation-mesh-core = { path = "../components/mesh/core" }
 rendiation-mesh-generator = { path = "../components/mesh/generator" }

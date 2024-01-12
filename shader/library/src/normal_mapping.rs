@@ -28,6 +28,24 @@ pub fn perturb_normal_2_arb(
   (t * (map_norm.x() * scale) + b * (map_norm.y() * scale) + n * map_norm.z()).normalize()
 }
 
+pub trait BuilderNormalExt {
+  fn get_or_compute_fragment_normal(&mut self) -> Node<Vec3<f32>>;
+}
+
+impl<'a> BuilderNormalExt for ShaderFragmentBuilderView<'a> {
+  fn get_or_compute_fragment_normal(&mut self) -> Node<Vec3<f32>> {
+    // check first and avoid unnecessary renormalize
+    if let Ok(normal) = self.query::<FragmentWorldNormal>() {
+      normal
+    } else {
+      let normal = self.query_or_interpolate_by::<FragmentWorldNormal, WorldVertexNormal>();
+      let normal = normal.normalize(); // renormalize
+      self.register::<FragmentWorldNormal>(normal);
+      normal
+    }
+  }
+}
+
 pub fn apply_normal_mapping(
   builder: &mut ShaderFragmentBuilderView,
   normal_map_sample: Node<Vec3<f32>>,

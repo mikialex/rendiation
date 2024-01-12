@@ -6,7 +6,7 @@ version = "0.1.0"
 
 [dependencies]
 rendiation-algebra = { path = "../algebra" }
-rand = "0.7.3"
+rand = { workspace = true }
 
 [lints]
 workspace = true

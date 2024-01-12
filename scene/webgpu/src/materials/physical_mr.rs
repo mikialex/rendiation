@@ -170,6 +170,7 @@ impl Stream for PhysicalMetallicRoughnessMaterialReactiveGPU {
 pub type PhysicalMetallicRoughnessMaterialInner = impl AsRef<RenderComponentCell<PhysicalMetallicRoughnessMaterialGPUImpl>>
   + Stream<Item = RenderComponentDeltaFlag>;
 
+use rendiation_shader_library::normal_mapping::apply_normal_mapping_conditional;
 use PhysicalMetallicRoughnessMaterialDelta as PD;
 
 impl WebGPUMaterial for PhysicalMetallicRoughnessMaterial {

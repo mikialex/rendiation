@@ -22,7 +22,7 @@ pub fn gaussian(kernel_radius: usize) -> (Shader140Array<Vec4<f32>, 32>, u32) {
   let size = 2. * kernel_radius as f32 + 1.;
   let sigma = (size + 1.) / 6.;
   let two_sigma_square = 2.0 * sigma * sigma;
-  let sigma_root = (two_sigma_square * f32::PI()).sqrt();
+  let sigma_root = (two_sigma_square * std::f32::consts::PI).sqrt();
 
   let mut weights: Vec<Vec4<f32>> = Vec::new();
   let mut total = Vec4::zero();

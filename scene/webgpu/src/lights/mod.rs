@@ -66,9 +66,6 @@ pub struct ShaderIncidentLight {
   pub direction: Vec3<f32>,
 }
 
-only_fragment!(HDRLightResult, Vec3<f32>);
-only_fragment!(LDRLightResult, Vec3<f32>);
-
 #[derive(Copy, Clone, ShaderStruct, Default)]
 pub struct ShaderLightingResult {
   pub diffuse: Vec3<f32>,

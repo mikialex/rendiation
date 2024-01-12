@@ -1,29 +1,13 @@
-mod copy_frame;
-pub use copy_frame::*;
-mod highlight;
-pub use highlight::*;
 mod background;
 pub use background::*;
-mod blur;
-pub use blur::*;
-mod tonemap;
-pub use tonemap::*;
 mod debug_channels;
 pub use debug_channels::*;
-mod taa;
-pub use taa::*;
-mod ssao;
-pub use ssao::*;
-mod lighting;
-pub use lighting::*;
-mod chromatic_aberration;
-pub use chromatic_aberration::*;
-mod vignette;
-pub use vignette::*;
 mod shadow;
 pub use shadow::*;
 mod content;
 pub use content::*;
+mod lighting;
+pub use lighting::*;
 
 use crate::*;
 

@@ -6,8 +6,6 @@ mod physical_sg;
 pub use physical_sg::*;
 mod physical_mr;
 pub use physical_mr::*;
-mod normal_mapping;
-pub use normal_mapping::*;
 mod utils;
 pub use utils::*;
 
