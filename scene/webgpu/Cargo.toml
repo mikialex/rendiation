@@ -31,6 +31,7 @@ rendiation-shader-library = { path = "../../shader/library" }
 rendiation-texture = { path = "../../components/texture/core" }
 rendiation-texture-gpu-system = { path = "../../components/texture/gpu-system" }
 rendiation-texture-gpu-process = { path = "../../components/texture/gpu-process" }
+rendiation-texture-gpu-base = { path = "../../components/texture/gpu-base" }
 tree = { path = "../../utils/tree" }
 
 reactive = { path = "../../utils/reactive" }

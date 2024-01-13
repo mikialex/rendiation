@@ -55,6 +55,7 @@ use rendiation_mesh_gpu_system::*;
 use rendiation_scene_core::*;
 use rendiation_shader_api::*;
 use rendiation_texture::TextureSampler;
+use rendiation_texture_gpu_base::*;
 use rendiation_texture_gpu_system::*;
 use rendiation_webgpu::*;
 pub use shading::*;

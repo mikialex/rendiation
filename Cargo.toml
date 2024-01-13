@@ -27,6 +27,7 @@ members = [
   "components/texture/core",
   "components/texture/types",
   "components/texture/packer",
+  "components/texture/gpu-base",
   "components/texture/gpu-process",
   "components/texture/gpu-system",
   "components/texture/generative",

@@ -3056,6 +3056,7 @@ dependencies = [
  "rendiation-shader-api",
  "rendiation-shader-library",
  "rendiation-texture",
+ "rendiation-texture-gpu-base",
  "rendiation-texture-gpu-process",
  "rendiation-texture-gpu-system",
  "rendiation-webgpu",
@@ -3123,6 +3124,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "rendiation-texture-gpu-base"
+version = "0.1.0"
+dependencies = [
+ "rendiation-algebra",
+ "rendiation-shader-api",
+ "rendiation-texture",
+ "rendiation-webgpu",
+]
+
+[[package]]
 name = "rendiation-texture-gpu-process"
 version = "0.1.0"
 dependencies = [
@@ -3131,6 +3142,7 @@ dependencies = [
  "rendiation-shader-api",
  "rendiation-shader-library",
  "rendiation-texture",
+ "rendiation-texture-gpu-base",
  "rendiation-webgpu",
 ]
 
