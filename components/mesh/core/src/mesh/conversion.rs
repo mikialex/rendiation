@@ -72,7 +72,7 @@ where
     mut merger: impl FnMut(&U::Output, &U::Output) -> bool,
   ) -> Result<IndexedMesh<T, Vec<U::Output>, IU>, IU::Error> {
     let data = &self.vertex;
-    let mut resorted: Vec<_> = data.into_iter().enumerate().map(|(i, v)| (i, v)).collect();
+    let mut resorted: Vec<_> = data.into_iter().enumerate().collect();
     let mut merge_data = Vec::with_capacity(resorted.len());
     let mut deduplicate_map = Vec::with_capacity(self.index.len());
     resorted.sort_unstable_by(|a, b| sorter(a.1, b.1));

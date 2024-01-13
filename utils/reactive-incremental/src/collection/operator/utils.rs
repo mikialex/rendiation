@@ -9,8 +9,8 @@ pub struct ReactiveCollectionDebug<T, K, V> {
 impl<T, K, V> ReactiveCollection<K, V> for ReactiveCollectionDebug<T, K, V>
 where
   T: ReactiveCollection<K, V>,
-  K: std::fmt::Debug + CKey,
-  V: std::fmt::Debug + CValue + PartialEq,
+  K: CKey,
+  V: CValue,
 {
   fn poll_changes(&self, cx: &mut Context) -> PollCollectionChanges<K, V> {
     let r = self.inner.poll_changes(cx);
@@ -26,7 +26,7 @@ where
               let p = p.as_ref().expect("previous value should exist");
               assert_eq!(&removed, p);
             } else {
-              assert!(p.is_some());
+              assert!(p.is_none());
             }
             state.insert(k.clone(), n.clone());
           }
@@ -63,7 +63,7 @@ pub struct DiffChangedView<'a, K, V> {
 impl<'a, K, V> VirtualCollection<K, ValueChange<V>> for DiffChangedView<'a, K, V>
 where
   K: CKey,
-  V: CValue + PartialEq,
+  V: CValue,
 {
   fn iter_key_value(&self) -> Box<dyn Iterator<Item = (K, ValueChange<V>)> + '_> {
     Box::new(

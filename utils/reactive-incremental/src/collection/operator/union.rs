@@ -50,6 +50,10 @@ where
     let t1 = t1.unwrap();
     let t2 = t2.unwrap();
 
+    if t1.is_pending() && t2.is_pending() {
+      return CPoll::Ready(Poll::Pending);
+    }
+
     CPoll::Ready(Poll::Ready(Box::new(UnionValueChange {
       a: match t1 {
         Poll::Ready(delta) => delta,

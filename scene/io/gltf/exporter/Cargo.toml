@@ -11,3 +11,6 @@ rendiation-scene-core = { path = "../../../core" }
 rendiation-texture = { path = "../../../../components/texture/core" }
 tree = { path = "../../../../utils/tree" }
 fast-hash-collection = { path = "../../../../utils/fast-hash-collection" }
+
+[lints]
+workspace = true

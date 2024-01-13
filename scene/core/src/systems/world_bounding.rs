@@ -20,7 +20,7 @@ impl SceneModelWorldBoundingSystem {
     fn build_world_box_stream(
       model: &SceneModel,
       d_sys: &SceneNodeDeriveSystem,
-    ) -> impl Stream<Item = Option<Box3>> + Unpin {
+    ) -> impl Stream<Item = Option<Box3>> + Unpin + 'static {
       let d_sys = d_sys.clone();
       let world_mat_stream = model
         .unbound_listen_by(with_field!(SceneModelImpl => node))

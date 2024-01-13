@@ -6,19 +6,12 @@ mod widened_line;
 pub use widened_line::*;
 mod model_overrides;
 pub use model_overrides::*;
-use rendiation_mesh_core::{
-  vertex::Vertex, DynIndexContainer, GroupedMesh, IndexedMesh, IntersectAbleGroupedMesh,
-  TriangleList,
-};
 
 pub fn register_viewer_extra_scene_features() {
   register_material::<IncrementalSignalPtr<WidenedLineMaterial>>();
 
   register_mesh::<IncrementalSignalPtr<SolidLinedMesh>>();
   register_mesh::<IncrementalSignalPtr<WidenedLineMesh>>();
-  register_mesh::<
-    IncrementalSignalPtr<GroupedMesh<IndexedMesh<TriangleList, Vec<Vertex>, DynIndexContainer>>>,
-  >();
 }
 
 fn register_mesh<T>()

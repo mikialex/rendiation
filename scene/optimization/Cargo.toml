@@ -13,3 +13,6 @@ rendiation-scene-core = { path = "../core" }
 smallvec = { workspace = true }
 rayon = { workspace = true }
 dashmap = { workspace = true }
+
+[lints]
+workspace = true

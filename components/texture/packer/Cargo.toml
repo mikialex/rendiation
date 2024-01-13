@@ -9,3 +9,6 @@ fast-hash-collection = { path = "../../../utils/fast-hash-collection" }
 rendiation-texture = { path = "../core" }
 linked-hash-map = "0.5.4"
 etagere = "0.2.6"
+
+[lints]
+workspace = true

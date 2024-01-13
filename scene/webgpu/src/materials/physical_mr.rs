@@ -164,7 +164,7 @@ impl WebGPUMaterial for PhysicalMetallicRoughnessMaterial {
     let normal_texture =
       ctx.build_reactive_texture_sampler_pair(m.normal_texture.as_ref().map(|t| &t.content));
 
-    let gpu = PhysicalMetallicRoughnessMaterialGPU {
+    let gpu = PhysicalMetallicRoughnessMaterialGPUImpl {
       uniform,
       base_color_texture,
       metallic_roughness_texture,
@@ -187,7 +187,7 @@ impl WebGPUMaterial for PhysicalMetallicRoughnessMaterial {
       .unbound_listen_by(all_delta_no_init)
       .map(UniformChangePicked::Origin);
 
-    futures::stream::select(uniform_any_change, all).fold_signal_flatten(
+    let inner = futures::stream::select(uniform_any_change, all).fold_signal_flatten(
       state,
       move |delta, state| match delta {
         UniformChangePicked::UniformChange => {
@@ -212,7 +212,9 @@ impl WebGPUMaterial for PhysicalMetallicRoughnessMaterial {
         }
         .into(),
       },
-    )
+    );
+
+    PhysicalMetallicRoughnessMaterialReactiveGPU { inner }
   }
 
   fn is_transparent(&self) -> bool {

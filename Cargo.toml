@@ -27,6 +27,8 @@ members = [
   "components/texture/core",
   "components/texture/types",
   "components/texture/packer",
+  "components/texture/gpu-base",
+  "components/texture/gpu-process",
   "components/texture/gpu-system",
   "components/texture/generative",
   "components/lighting/core",
@@ -60,10 +62,11 @@ members = [
 # https://doc.rust-lang.org/nightly/cargo/reference/features.html#feature-resolver-version-2
 resolver = "2"
 
+# https://rust-lang.github.io/rfcs/2906-cargo-workspace-deduplicate.html
 [workspace.dependencies]
 rayon = "1.7.0"
 bitflags = "2.2"
-bytemuck = {version = "1.4.1", features = ["derive"]}
+bytemuck = { version = "1.4.1", features = ["derive"] }
 dyn-clone = "1.0.5"
 dashmap = { version = "5.5.3", features = ["rayon"] }
 futures = "0.3.25"
@@ -78,6 +81,7 @@ proc-macro2 = "1.0.4"
 quote = "1.0.2"
 syn = { version = "1.0.11", features = ["full"] }
 tracing = "0.1"
+rand = "0.8.5"
 
 # https://doc.rust-lang.org/cargo/reference/profiles.html
 
@@ -97,3 +101,18 @@ inherits = "release"
 
 # [patch.crates-io]
 # naga = { path = "../references/naga" }
+
+# https://github.com/rust-lang/rfcs/blob/master/text/3389-manifest-lint.md
+[workspace.lints.clippy]
+
+# we don't care the performance win if the Arc could be replaced by Rc
+arc_with_non_send_sync = "allow"
+type_complexity = "allow"
+too_many_arguments = "allow"
+# we may copy code from f64 codebase to f32 type, f32 may upgrate to f64 in future
+excessive_precision = "allow"
+
+
+[workspace.lints.rust]
+# we trust incomplete rust feature than unsafe workaround
+incomplete_features = "allow"

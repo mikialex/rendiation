@@ -11,3 +11,6 @@ rendiation-mesh-core = { path = "../core" }
 
 [dev-dependencies]
 tobj = "4.0.0"
+
+[lints]
+workspace = true

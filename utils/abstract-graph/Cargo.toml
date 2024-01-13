@@ -5,3 +5,6 @@ version = "0.0.1"
 
 [dependencies]
 fast-hash-collection = { path = "../fast-hash-collection" }
+
+[lints]
+workspace = true

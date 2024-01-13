@@ -22,6 +22,7 @@ rendiation-shader-api = { path = "../shader/api" }
 rendiation-shader-backend-naga = { path = "../shader/backends/naga" }
 rendiation-texture = { path = "../components/texture/core" }
 rendiation-webgpu = { path = "../platform/graphics/webgpu" }
+fast-hash-collection = { path = "../utils/fast-hash-collection" }
 winit = { workspace = true }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
@@ -29,3 +30,6 @@ console_error_panic_hook = "0.1.6"
 instant = "0.1.12"
 wasm-bindgen-futures = "0.4.28"
 web-sys = { version = "0.3.53" }
+
+[lints]
+workspace = true

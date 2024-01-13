@@ -1,5 +1,4 @@
 #![feature(option_get_or_insert_default)]
-#![allow(clippy::type_complexity)]
 
 pub mod bsp;
 pub mod bst;

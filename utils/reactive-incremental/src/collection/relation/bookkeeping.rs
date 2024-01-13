@@ -4,7 +4,7 @@ use crate::*;
 
 pub struct OneToManyRefHashBookKeeping<O, M, T> {
   pub upstream: BufferedCollection<T, M, O>,
-  pub mapping: RwLock<FastHashMap<O, FastHashSet<M>>>,
+  pub mapping: Arc<RwLock<FastHashMap<O, FastHashSet<M>>>>,
 }
 
 #[derive(Clone)]
@@ -123,7 +123,7 @@ where
 
 pub struct OneToManyRefDenseBookKeeping<O, M, T> {
   pub upstream: BufferedCollection<T, M, O>,
-  pub mapping: RwLock<Mapping>,
+  pub mapping: Arc<RwLock<Mapping>>,
   pub phantom: PhantomData<(O, M)>,
 }
 
@@ -166,7 +166,7 @@ where
         .mapping
         .iter()
         .enumerate()
-        .filter_map(|(i, list)| list.is_empty().then_some(O::from_alloc_index(i as u32)))
+        .filter_map(|(i, list)| (!list.is_empty()).then_some(O::from_alloc_index(i as u32)))
         .collect::<Vec<_>>()
         .into_iter(),
     )

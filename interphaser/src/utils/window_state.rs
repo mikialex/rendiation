@@ -1,8 +1,6 @@
-use std::collections::HashSet;
-
 use winit::event::*;
 
-use crate::{UIPosition, UISize};
+use crate::*;
 
 pub struct WindowState {
   pub size: UISize,
@@ -11,7 +9,7 @@ pub struct WindowState {
   pub is_left_mouse_down: bool,
   pub is_right_mouse_down: bool,
   pub mouse_wheel_delta: (f32, f32),
-  pub pressed_key: HashSet<VirtualKeyCode>,
+  pub pressed_key: FastHashSet<VirtualKeyCode>,
   pub device_pixel_ratio: f32,
 }
 
@@ -24,7 +22,7 @@ impl WindowState {
       is_left_mouse_down: false,
       is_right_mouse_down: false,
       mouse_wheel_delta: (0.0, 0.0),
-      pressed_key: HashSet::new(),
+      pressed_key: Default::default(),
       device_pixel_ratio,
     }
   }

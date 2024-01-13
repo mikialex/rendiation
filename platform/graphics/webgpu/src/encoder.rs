@@ -58,7 +58,7 @@ impl GPUCommandEncoder {
     des.channels.iter_mut().for_each(|c| {
       c.0 = gpu::Operations {
         load: gpu::LoadOp::Clear(gpu::Color::WHITE),
-        store: false,
+        store: gpu::StoreOp::Store,
       }
     });
     self.begin_render_pass(des);
@@ -97,6 +97,8 @@ impl GPUCommandEncoder {
       label: des.name.as_str().into(),
       color_attachments: color_attachments.as_slice(),
       depth_stencil_attachment,
+      timestamp_writes: None,
+      occlusion_query_set: None,
     };
 
     let formats = RenderTargetFormatsInfo {

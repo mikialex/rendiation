@@ -22,3 +22,6 @@ anyhow = "1.0"
 log = { workspace = true }
 simple_logger = "4.0"
 thiserror = "1.0"
+
+[lints]
+workspace = true

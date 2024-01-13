@@ -1,5 +1,4 @@
 #![feature(specialization)]
-#![allow(incomplete_features)]
 
 use std::sync::{Arc, RwLock, Weak};
 

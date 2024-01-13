@@ -64,19 +64,6 @@ pub fn build_scene_mesh(f: impl FnOnce(&mut SceneMeshBuilder)) -> MeshEnum {
   let mut builder = SceneMeshBuilder::default();
   f(&mut builder);
   let mesh = builder.finish();
-  // could use to test foreign mesh rendering?
-  MeshEnum::Foreign(Box::new(mesh.into_ptr()))
-  // let mut attribute: AttributesMesh = mesh.mesh.primitive_iter().collect();
-  // attribute.groups = mesh.groups;
-  // MeshEnum::AttributesMesh(attribute.into_ptr())
-}
-
-pub fn build_scene_mesh2(f: impl FnOnce(&mut SceneMeshBuilder)) -> MeshEnum {
-  let mut builder = SceneMeshBuilder::default();
-  f(&mut builder);
-  let mesh = builder.finish();
-  // could use to test foreign mesh rendering?
-  // return MeshEnum::Foreign(Box::new(mesh.into_ptr()))
   let mut attribute: AttributeMeshData = mesh.mesh.primitive_iter().collect();
   attribute.groups = mesh.groups;
   MeshEnum::AttributesMesh(attribute.build().into_ptr())
@@ -285,7 +272,7 @@ pub fn stress_test(scene: &Scene) {
           height: 0.2,
           depth: 0.2,
         };
-        let mesh = build_scene_mesh2(|builder| {
+        let mesh = build_scene_mesh(|builder| {
           for face in cube.make_faces() {
             builder.triangulate_parametric(&face, TessellationConfig { u: 2, v: 3 }, true);
           }
@@ -321,7 +308,7 @@ pub fn stress_test2(scene: &Scene) {
           height: 0.2,
           depth: 0.2,
         };
-        let mesh = build_scene_mesh2(|builder| {
+        let mesh = build_scene_mesh(|builder| {
           for face in cube.make_faces() {
             builder.triangulate_parametric(
               &face.transform_by(Mat4::translate((i as f32, k as f32, j as f32))),

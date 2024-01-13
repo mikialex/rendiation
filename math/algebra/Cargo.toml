@@ -12,3 +12,6 @@ incremental = { path = "../../utils/incremental" }
 
 [dev-dependencies]
 cgmath = "0.18.0"
+
+[lints]
+workspace = true

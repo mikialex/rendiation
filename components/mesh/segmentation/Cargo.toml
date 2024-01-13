@@ -12,3 +12,6 @@ space-algorithm = { path = "../../space" }
 
 [dev-dependencies]
 tobj = "4.0.0"
+
+[lints]
+workspace = true

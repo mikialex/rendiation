@@ -18,8 +18,10 @@ pub struct ShadowMapSystem {
 impl ShadowMapSystem {
   pub fn new(gpu: ResourceGPUCtx, derives: SceneNodeDeriveSystem) -> Self {
     let maps = ShadowMapAllocator::new(gpu.clone());
-    let mut sampler = SamplerDescriptor::default();
-    sampler.compare = CompareFunction::Less.into();
+    let sampler = SamplerDescriptor {
+      compare: CompareFunction::Less.into(),
+      ..Default::default()
+    };
     let single_proj_sys = SingleProjectShadowMapSystem::new(gpu.clone(), maps.clone(), derives);
     Self {
       single_proj_sys: Arc::new(RwLock::new(single_proj_sys)),

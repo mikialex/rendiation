@@ -3,3 +3,6 @@ authors = ["MikiAlex <18516340862@163.com>"]
 edition = "2021"
 name = "rendiation-texture-types"
 version = "0.1.0"
+
+[lints]
+workspace = true

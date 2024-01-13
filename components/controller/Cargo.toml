@@ -8,3 +8,6 @@ version = "0.1.0"
 rendiation-algebra = { path = "../../math/algebra" }
 rendiation-geometry = { path = "../../math/geometry" }
 winit = { workspace = true }
+
+[lints]
+workspace = true

@@ -44,7 +44,7 @@ fn radical_inverse_vdc(bits: Node<u32>) -> Node<f32> {
 /// map the distribution from the unit square to sphere uniformly
 #[shader_fn]
 pub fn sample_hemisphere_uniform(uv: Node<Vec2<f32>>) -> Node<Vec3<f32>> {
-  let phi = val(2.0 * f32::PI()) * uv.y();
+  let phi = val(2.0 * std::f32::consts::PI) * uv.y();
   let cos_theta = val(1.0) - uv.x();
   let sin_theta = (val(1.0) - cos_theta * cos_theta).sqrt();
   (phi.cos() * sin_theta, phi.sin() * sin_theta, cos_theta).into()
@@ -53,7 +53,7 @@ pub fn sample_hemisphere_uniform(uv: Node<Vec2<f32>>) -> Node<Vec3<f32>> {
 /// map the distribution from the unit square to sphere by cos weight
 #[shader_fn]
 pub fn sample_hemisphere_cos(uv: Node<Vec2<f32>>) -> Node<Vec3<f32>> {
-  let phi = val(2.0 * f32::PI()) * uv.y();
+  let phi = val(2.0 * std::f32::consts::PI) * uv.y();
   let cos_theta = (val(1.0) - uv.x()).sqrt();
   let sin_theta = (val(1.0) - cos_theta * cos_theta).sqrt();
   (phi.cos() * sin_theta, phi.sin() * sin_theta, cos_theta).into()

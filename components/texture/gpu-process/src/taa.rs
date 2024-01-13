@@ -1,6 +1,8 @@
 // https://www.elopezr.com/temporal-aa-and-the-quest-for-the-holy-trail/#more-3285
 // https://sugulee.wordpress.com/2021/06/21/temporal-anti-aliasingtaa-tutorial/
 
+use rendiation_shader_library::{shader_uv_space_to_world_space, shader_world_space_to_uv_space};
+
 use crate::*;
 
 const SAMPLE_COUNT: usize = 32;
@@ -9,9 +11,6 @@ pub struct TAA {
   frame_index: usize,
   jitters: Vec<Vec2<f32>>,
   history: Option<Attachment>,
-  /// these two camera is owned and only used in reproject in resolve
-  current_camera: CameraGPU,
-  previous_camera: CameraGPU,
 }
 
 pub struct NewTAAFrameSample {
@@ -19,57 +18,35 @@ pub struct NewTAAFrameSample {
   pub new_depth: Attachment,
 }
 
+pub trait TAAContent {
+  fn set_jitter(&mut self, next_jitter: Vec2<f32>);
+  // the reproject info maybe useful in
+  fn render(self, ctx: &mut FrameCtx) -> NewTAAFrameSample;
+}
+
 impl TAA {
-  pub fn new(gpu: &GPU) -> Self {
+  pub fn new() -> Self {
     Self {
       frame_index: 0,
       jitters: (0..SAMPLE_COUNT).map(halton23).collect(),
       history: None,
-      current_camera: CameraGPU::new(&gpu.device),
-      previous_camera: CameraGPU::new(&gpu.device),
     }
   }
 
   pub fn render_aa_content(
     &mut self,
-    camera: &SceneCamera,
-    scene: &SceneRenderResourceGroup,
+    mut content: impl TAAContent,
     ctx: &mut FrameCtx,
-    render: impl FnOnce(&mut FrameCtx) -> NewTAAFrameSample,
+    reproject: &GPUReprojectInfo,
   ) -> &Attachment {
-    let mut cameras = scene.scene_resources.cameras.write().unwrap();
-    let camera_gpu = cameras.get_camera_gpu_mut(camera).unwrap();
-
-    let next_jitter = self.next_jitter();
-    camera_gpu
-      .ubo
-      .mutate(|uniform| uniform.jitter_normalized = next_jitter)
-      .upload(&ctx.gpu.queue);
-
-    // todo improve? i think we could try copy buffer to buffer here.
-    self
-      .previous_camera
-      .ubo
-      .copy_cpu(&self.current_camera.ubo)
-      .upload(&ctx.gpu.queue);
-
-    self
-      .current_camera
-      .ubo
-      .copy_cpu(&camera_gpu.ubo)
-      .upload(&ctx.gpu.queue);
-
-    drop(cameras);
-
-    // flush buffer writes;
-    ctx.make_submit();
+    content.set_jitter(self.next_jitter());
 
     let NewTAAFrameSample {
       new_color,
       new_depth,
-    } = render(ctx);
+    } = content.render(ctx);
 
-    self.resolve(&new_color, &new_depth, ctx)
+    self.resolve(&new_color, &new_depth, ctx, reproject)
   }
 
   fn next_jitter(&mut self) -> Vec2<f32> {
@@ -83,6 +60,7 @@ impl TAA {
     new_color: &Attachment,
     new_depth: &Attachment,
     ctx: &mut FrameCtx,
+    reproject: &GPUReprojectInfo,
   ) -> &Attachment {
     let mut resolve_target = attachment()
       .format(TextureFormat::Rgba8UnormSrgb)
@@ -102,8 +80,7 @@ impl TAA {
           history: history.read(),
           new_color: new_color.read(),
           new_depth: new_depth.read(),
-          current_camera: &self.current_camera,
-          previous_camera: &self.previous_camera,
+          reproject,
         }
         .draw_quad(),
       );
@@ -116,12 +93,17 @@ impl TAA {
   }
 }
 
+impl Default for TAA {
+  fn default() -> Self {
+    Self::new()
+  }
+}
+
 struct TAAResolver<'a> {
   history: AttachmentView<&'a Attachment>,
   new_color: AttachmentView<&'a Attachment>,
   new_depth: AttachmentView<&'a Attachment>,
-  current_camera: &'a CameraGPU,
-  previous_camera: &'a CameraGPU,
+  reproject: &'a GPUReprojectInfo,
 }
 
 impl<'a> GraphicsShaderProvider for TAAResolver<'a> {
@@ -133,16 +115,16 @@ impl<'a> GraphicsShaderProvider for TAAResolver<'a> {
       let new = binding.bind_by(&self.new_color);
       let new_depth = binding.bind_by(&DisableFiltering(&self.new_depth));
 
-      let current_camera = binding.bind_by(&self.current_camera.ubo).load().expand();
-
-      let previous_camera = binding.bind_by(&self.previous_camera.ubo).load().expand();
+      let reproject = binding.bind_by(&self.reproject.reproject).load().expand();
 
       let uv = builder.query::<FragmentUv>()?;
 
       let depth = new_depth.sample(sampler, uv).x();
 
-      let world_position = shader_uv_space_to_world_space(&current_camera, uv, depth);
-      let (reproject_uv, _) = shader_world_space_to_uv_space(&previous_camera, world_position);
+      let world_position =
+        shader_uv_space_to_world_space(reproject.current_camera_view_projection_inv, uv, depth);
+      let (reproject_uv, _) =
+        shader_world_space_to_uv_space(reproject.previous_camera_view_projection, world_position);
 
       let previous = history.sample(color_sampler, reproject_uv);
 
@@ -197,8 +179,7 @@ impl<'a> ShaderPassBuilder for TAAResolver<'a> {
     ctx.binding.bind(&self.history);
     ctx.binding.bind(&self.new_color);
     ctx.binding.bind(&self.new_depth);
-    ctx.binding.bind(&self.current_camera.ubo);
-    ctx.binding.bind(&self.previous_camera.ubo);
+    ctx.binding.bind(&self.reproject.reproject);
   }
 }
 impl<'a> ShaderHashProvider for TAAResolver<'a> {}

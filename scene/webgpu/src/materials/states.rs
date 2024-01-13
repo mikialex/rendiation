@@ -29,11 +29,12 @@ impl Default for MaterialStates {
 
 impl MaterialStates {
   pub fn helper_like() -> Self {
-    let mut states = Self::default();
-    states.depth_write_enabled = false;
-    states.depth_compare = CompareFunction::Always;
-    states.cull_mode = None;
-    states
+    Self {
+      depth_write_enabled: false,
+      depth_compare: CompareFunction::Always,
+      cull_mode: None,
+      ..Default::default()
+    }
   }
 }
 

@@ -40,15 +40,8 @@ impl HighLighter {
     .draw_quad()
   }
 
-  pub fn draw<T>(
-    &self,
-    objects: T,
-    ctx: &mut FrameCtx,
-    scene: &SceneRenderResourceGroup,
-  ) -> impl PassContent + '_
-  where
-    T: Iterator<Item = SceneModel>,
-  {
+  /// scene should masked by `HighLightMaskDispatcher`
+  pub fn draw(&self, ctx: &mut FrameCtx, content: impl PassContent) -> impl PassContent + '_ {
     let mut selected_mask = attachment()
       .format(HIGH_LIGHT_MASK_TARGET_FORMAT)
       .request(ctx);
@@ -56,7 +49,7 @@ impl HighLighter {
     pass("highlight-selected-mask")
       .with_color(selected_mask.write(), clear(color_same(0.)))
       .render_ctx(ctx)
-      .by(scene.by_main_camera_and_self(highlight(objects)));
+      .by(content);
 
     self.draw_result(selected_mask.read_into())
   }
@@ -127,17 +120,7 @@ fn edge_intensity(
   val(1.0) - val(2.0) * (all / val(4.) - val(0.5)).abs()
 }
 
-pub struct HighLightDrawMaskTask<T> {
-  objects: Option<T>,
-}
-
-pub fn highlight<T>(objects: T) -> HighLightDrawMaskTask<T> {
-  HighLightDrawMaskTask {
-    objects: Some(objects),
-  }
-}
-
-struct HighLightMaskDispatcher;
+pub struct HighLightMaskDispatcher;
 
 pub const HIGH_LIGHT_MASK_TARGET_FORMAT: TextureFormat = TextureFormat::R8Unorm;
 
@@ -154,24 +137,5 @@ impl GraphicsShaderProvider for HighLightMaskDispatcher {
 
   fn post_build(&self, builder: &mut ShaderRenderPipelineBuilder) -> Result<(), ShaderBuildError> {
     builder.fragment(|builder, _| builder.store_fragment_out(0, val(Vec4::one())))
-  }
-}
-
-impl<T> PassContentWithSceneAndCamera for HighLightDrawMaskTask<T>
-where
-  T: Iterator<Item = SceneModel>,
-{
-  fn render(
-    &mut self,
-    pass: &mut FrameRenderPass,
-    scene: &SceneRenderResourceGroup,
-    camera: &SceneCamera,
-  ) {
-    if let Some(objects) = self.objects.take() {
-      let mut list = RenderList::default();
-      list.collect_from_scene_objects(scene, objects, camera, false);
-      let list = MaybeBindlessMeshRenderList::from_list(list, scene);
-      list.setup_pass(pass, &HighLightMaskDispatcher, camera, scene)
-    }
   }
 }

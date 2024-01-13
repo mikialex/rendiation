@@ -11,7 +11,6 @@ mod triangle;
 
 pub use box3::*;
 pub use frustum::*;
-pub use intersection::*;
 pub use line_segment::*;
 pub use plane::*;
 pub use ray3::*;

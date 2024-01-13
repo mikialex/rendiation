@@ -6,3 +6,6 @@ version = "0.1.0"
 [dependencies]
 bytemuck = { workspace = true, features = ["derive"] }
 rendiation-algebra = { path = "../algebra" }
+
+[lints]
+workspace = true

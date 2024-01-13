@@ -66,7 +66,7 @@ where
   fn workaround_box(self) -> impl ReactiveCollection<K, V> {
     let r = self;
     // this is a workaround that the compiler maybe generate huge outputs(like pdb file)  which lead
-    // to link error in debug build, as well as using huge memory
+    // to link error in debug build, and consume huge memory when compiling in release mode
     // see https://doc.rust-lang.org/reference/conditional-compilation.html#debug_assertions
     #[cfg(debug_assertions)]
     let r = r.into_boxed();
@@ -156,7 +156,7 @@ where
       (Some(_), Some(_)) => unreachable!("key set should not overlap"),
       (Some(a), None) => a.into(),
       (None, Some(b)) => b.into(),
-      (None, None) => unreachable!("value not selected"),
+      (None, None) => None,
     })
   }
 
@@ -168,7 +168,9 @@ where
   {
     self.collective_union(other, |(a, b)| match (a, b) {
       (Some(a), Some(b)) => Some((a, b)),
-      _ => unreachable!("value not zipped"),
+      (None, None) => None,
+      (None, Some(_)) => unreachable!("zip missing left side"),
+      (Some(_), None) => unreachable!("zip missing right side"),
     })
   }
 
@@ -197,7 +199,11 @@ where
   }
 
   fn into_forker(self) -> ReactiveKVMapFork<Self, K, V> {
-    BufferedCollection::new(ReactiveKVMapForkImpl::new(self))
+    ReactiveKVMapFork::new(self, false)
+  }
+
+  fn into_static_forker(self) -> ReactiveKVMapFork<Self, K, V> {
+    ReactiveKVMapFork::new(self, true)
   }
 
   /// project map<O, V> -> map<M, V> when we have O - M one to many

@@ -27,7 +27,7 @@ impl Viewer3dRenderingCtx {
       &gpu,
       BindableResourceConfig {
         prefer_bindless_texture: true,
-        prefer_bindless_mesh: true,
+        prefer_bindless_mesh: false,
       },
     );
     Self {

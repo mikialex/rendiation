@@ -1,3 +1,6 @@
+use rendiation_shader_library::normal_mapping::BuilderNormalExt;
+use rendiation_texture_gpu_process::ToneMap;
+
 use crate::*;
 
 pub struct MaterialDeferPassResult {

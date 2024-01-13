@@ -1,7 +1,5 @@
 #![feature(type_alias_impl_trait)]
-#![allow(incomplete_features)]
 #![feature(impl_trait_in_assoc_type)]
-#![feature(return_position_impl_trait_in_trait)]
 #![feature(let_chains)]
 
 use std::hash::Hash;

@@ -1,4 +1,5 @@
 use std::{
+  fmt::Debug,
   marker::PhantomData,
   sync::{Arc, Weak},
 };
@@ -18,6 +19,12 @@ pub struct SignalItem<T> {
 pub struct AllocIdx<T> {
   pub index: u32,
   phantom: PhantomData<T>,
+}
+
+impl<T> Debug for AllocIdx<T> {
+  fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    f.debug_tuple("AllocIdx").field(&self.index).finish()
+  }
 }
 
 impl<T> Clone for AllocIdx<T> {
@@ -77,7 +84,7 @@ pub enum StorageGroupChange<'a, T: IncrementalBase> {
 }
 
 pub struct IncrementalSignalGroupImpl<T: IncrementalBase> {
-  pub data: parking_lot::RwLock<IndexReusedVec<SignalItem<T>>>,
+  pub data: Arc<parking_lot::RwLock<IndexReusedVec<SignalItem<T>>>>,
   pub(crate) sub_watchers: parking_lot::RwLock<LinkListPool<EventListener<T::Delta>>>,
   // note, it's fake static, as long as we expose the unique lifetime to user, it's safe to user
   // side.
@@ -338,7 +345,7 @@ impl<T: IncrementalBase> IncrementalListenBy<T> for IncrementalSignalPtr<T> {
     &self,
     mut mapper: impl FnMut(MaybeDeltaRef<T>, &dyn Fn(U)) + Send + Sync + 'static,
     channel_builder: &mut C,
-  ) -> impl Stream<Item = N> + Unpin
+  ) -> Box<dyn Stream<Item = N> + Unpin>
   where
     U: Send + Sync + 'static,
     C: ChannelLike<U, Message = N>,
@@ -365,7 +372,7 @@ impl<T: IncrementalBase> IncrementalListenBy<T> for IncrementalSignalPtr<T> {
       remove_token,
       weak: self.downgrade(),
     };
-    DropperAttachedStream::new(dropper, receiver)
+    Box::new(DropperAttachedStream::new(dropper, receiver))
   }
 }
 
@@ -568,7 +575,7 @@ where
   Self: GlobalIdReactiveMapping<M>,
 {
   type ChangeStream = <Self as GlobalIdReactiveMapping<M>>::ChangeStream;
-  type DropFuture = impl Future<Output = ()> + Unpin;
+  type DropFuture = impl Future<Output = ()> + Unpin + 'static;
   type Ctx<'a> = <Self as GlobalIdReactiveMapping<M>>::Ctx<'a>;
 
   fn key(&self) -> u64 {

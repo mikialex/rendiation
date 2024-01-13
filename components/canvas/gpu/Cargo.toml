@@ -14,3 +14,6 @@ rendiation-color = { path = "../../color" }
 rendiation-geometry = { path = "../../../math/geometry" }
 rendiation-shader-api = { path = "../../../shader/api" }
 rendiation-webgpu = { path = "../../../platform/graphics/webgpu" }
+
+[lints]
+workspace = true

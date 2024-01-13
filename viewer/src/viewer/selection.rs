@@ -21,7 +21,7 @@ impl<'a> IntoIterator for &'a SelectionSet {
   }
 }
 
-type SelectionSetIterType<'a> = impl Iterator<Item = &'a SceneModel>;
+pub type SelectionSetIterType<'a> = impl Iterator<Item = &'a SceneModel>;
 
 fn iter(map: &FastHashSet<SceneModel>) -> SelectionSetIterType {
   map.iter()

@@ -1,4 +1,7 @@
-use rendiation_shader_library::sampling::*;
+use rendiation_shader_library::{
+  normal_mapping::compute_normal_by_dxdy, sampling::*, shader_uv_space_to_world_space,
+  shader_world_space_to_uv_space,
+};
 
 use crate::*;
 
@@ -77,7 +80,7 @@ impl Default for SSAOParameter {
 pub struct AOComputer<'a> {
   depth: AttachmentView<&'a Attachment>,
   parameter: &'a SSAO,
-  source_camera_gpu: &'a UniformBufferDataView<CameraGPUTransform>,
+  reproject: &'a UniformBufferDataView<ReprojectInfo>,
 }
 
 impl<'a> ShaderHashProvider for AOComputer<'a> {}
@@ -93,7 +96,7 @@ impl<'a> ShaderPassBuilder for AOComputer<'a> {
     ctx.binding.bind(&self.parameter.parameters);
     ctx.binding.bind(&self.parameter.samples);
     ctx.bind_immediate_sampler(&TextureSampler::default().into_gpu());
-    ctx.binding.bind(self.source_camera_gpu);
+    ctx.binding.bind(self.reproject);
   }
 }
 impl<'a> GraphicsShaderProvider for AOComputer<'a> {
@@ -104,14 +107,15 @@ impl<'a> GraphicsShaderProvider for AOComputer<'a> {
       let samples = binding.bind_by(&self.parameter.samples);
       let sampler = binding.binding::<DisableFiltering<GPUSamplerView>>();
 
-      let camera = binding.bind_by(self.source_camera_gpu).load().expand();
+      let reproject = binding.bind_by(self.reproject).load().expand();
 
       let uv = builder.query::<FragmentUv>()?;
 
       let sample_count_f = parameter.sample_count.into_f32();
 
       let depth = depth_tex.sample(sampler, uv).x();
-      let position_world = shader_uv_space_to_world_space(&camera, uv, depth);
+      let position_world =
+        shader_uv_space_to_world_space(reproject.current_camera_view_projection_inv, uv, depth);
 
       let normal = compute_normal_by_dxdy(position_world); // wrong, but i do not want pay cost to use normal texture input
 
@@ -127,7 +131,10 @@ impl<'a> GraphicsShaderProvider for AOComputer<'a> {
           let sample_position_offset = tbn * sample.load().xyz();
           let sample_position_world = position_world + sample_position_offset * parameter.radius;
 
-          let (s_uv, s_depth) = shader_world_space_to_uv_space(&camera, sample_position_world);
+          let (s_uv, s_depth) = shader_world_space_to_uv_space(
+            reproject.current_camera_view_projection,
+            sample_position_world,
+          );
           // I think the naga's shader uniformity analysis is bugged if we use sample call here.
           let sample_position_depth = depth_tex.sample_level(sampler, s_uv, val(0.)).x();
 
@@ -157,7 +164,7 @@ impl SSAO {
     &self,
     ctx: &mut FrameCtx,
     depth: &Attachment,
-    source_camera_gpu: &CameraGPU,
+    reproject: &UniformBufferDataView<ReprojectInfo>,
   ) -> Attachment {
     self.parameters.mutate(|p| p.noise_jit = rand());
     self.parameters.upload(&ctx.gpu.queue);
@@ -172,7 +179,7 @@ impl SSAO {
       .render_ctx(ctx)
       .by(
         AOComputer {
-          source_camera_gpu: &source_camera_gpu.ubo,
+          reproject,
           depth: depth.read(),
           parameter: self,
         }

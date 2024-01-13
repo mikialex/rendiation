@@ -6,7 +6,7 @@ use crate::*;
 
 pub struct BufferedCollection<M, K, V> {
   inner: M,
-  buffered: RwLock<Option<FastHashMap<K, ValueChange<V>>>>,
+  buffered: RwLock<Option<Arc<FastHashMap<K, ValueChange<V>>>>>,
 }
 
 impl<M: Clone, K, V> Clone for BufferedCollection<M, K, V> {
@@ -34,30 +34,33 @@ where
   K: CKey,
 {
   fn poll_changes(&self, cx: &mut Context) -> PollCollectionChanges<K, V> {
-    let mut buffered = self.buffered.write().take().unwrap_or(Default::default());
-    loop {
-      match self.inner.poll_changes(cx) {
-        CPoll::Ready(delta) => match delta {
-          Poll::Ready(delta) => {
-            let delta = delta.materialize_hashmap_maybe_cloned();
-            if buffered.is_empty() {
-              buffered = delta;
-            } else {
-              buffered.merge(&delta);
-            }
+    let buffered = self.buffered.write().take().unwrap_or_default();
+
+    match self.inner.poll_changes(cx) {
+      CPoll::Ready(delta) => match delta {
+        Poll::Ready(delta) => {
+          if buffered.is_empty() {
+            // if previous is not buffered, we just emit the upstream and avoid materialize
+            CPoll::Ready(Poll::Ready(delta))
+          } else {
+            let mut buffered =
+              Arc::try_unwrap(buffered).unwrap_or_else(|buffered| buffered.deref().clone());
+            merge_into_hashmap(&mut buffered, delta.iter_key_value());
+            CPoll::Ready(Poll::Ready(Arc::new(buffered).into_boxed()))
           }
-          Poll::Pending => {
-            return CPoll::Ready(if buffered.is_empty() {
-              Poll::Pending
-            } else {
-              Poll::Ready(Arc::new(buffered).into_boxed())
-            })
-          }
-        },
-        CPoll::Blocked => {
-          *self.buffered.write() = buffered.into();
-          return CPoll::Blocked;
         }
+        Poll::Pending => {
+          CPoll::Ready(if buffered.is_empty() {
+            Poll::Pending
+          } else {
+            // if previous is buffered, we should emit the buffered change
+            Poll::Ready(buffered.into_boxed())
+          })
+        }
+      },
+      CPoll::Blocked => {
+        *self.buffered.write() = buffered.into();
+        CPoll::Blocked
       }
     }
   }
@@ -73,7 +76,6 @@ where
 
 impl<M, K: Clone, V: Clone> BufferedCollection<M, K, V> {
   pub fn put_back_to_buffered(&self, buffered: Arc<FastHashMap<K, ValueChange<V>>>) {
-    let buffered = Arc::try_unwrap(buffered).unwrap_or_else(|buffered| buffered.deref().clone());
     *self.buffered.write() = buffered.into();
   }
 }

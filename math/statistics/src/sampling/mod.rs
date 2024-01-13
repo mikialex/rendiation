@@ -1,9 +1,8 @@
-use crate::*;
-
 mod precomputed;
 mod sobol;
 pub use precomputed::*;
 use rand::Rng;
+use rendiation_algebra::{Lerp, Vec2};
 pub use sobol::*;
 
 /// https://www.pbr-book.org/3ed-2018/Sampling_and_Reconstruction/Sampling_Interface#fragment-SamplerInterface-2
@@ -28,6 +27,55 @@ pub trait Sampler {
   }
   fn next_vec2(&mut self) -> Vec2<f32> {
     Vec2::from(self.next_2d())
+  }
+}
+
+pub trait SampleType: Copy {}
+
+#[derive(Default)]
+pub struct SampleWithResult<T> {
+  pub sample_at: T,
+  pub sample_result: f32,
+}
+
+impl SampleType for f32 {}
+impl SampleType for usize {}
+impl<T: SampleType> SampleType for Vec2<T> {}
+
+pub trait SampleRegionType: Copy {
+  type Value: SampleType;
+
+  fn sample_uniformly(&self, sampler: &mut impl Sampler) -> Self::Value;
+}
+
+#[derive(Clone, Copy)]
+pub struct OneDimensionContinuesRegion<T> {
+  pub start: T,
+  pub end: T,
+}
+
+impl SampleRegionType for OneDimensionContinuesRegion<f32> {
+  type Value = f32;
+
+  fn sample_uniformly(&self, sampler: &mut impl Sampler) -> Self::Value {
+    self.start.lerp(self.end, sampler.next())
+  }
+}
+
+#[derive(Clone, Copy)]
+pub struct TwoDimensionContinuesRegion<T> {
+  pub x: OneDimensionContinuesRegion<T>,
+  pub y: OneDimensionContinuesRegion<T>,
+}
+
+impl SampleRegionType for TwoDimensionContinuesRegion<f32> {
+  type Value = Vec2<f32>;
+
+  fn sample_uniformly(&self, sampler: &mut impl Sampler) -> Self::Value {
+    Vec2::new(
+      self.x.sample_uniformly(sampler),
+      self.y.sample_uniformly(sampler),
+    )
   }
 }
 

@@ -1,5 +1,4 @@
 #![feature(impl_trait_in_assoc_type)]
-#![feature(return_position_impl_trait_in_trait)]
 #![feature(type_alias_impl_trait)]
 #![feature(min_specialization)]
 #![feature(associated_type_bounds)]
@@ -140,7 +139,7 @@ impl<'a, T: IncrementalBase> Mutating<'a, T> {
 }
 
 pub trait GlobalIdReactiveMapping<M> {
-  type ChangeStream: Stream + Unpin;
+  type ChangeStream: Stream + Unpin + 'static;
   type Ctx<'a>;
 
   fn build(&self, ctx: &Self::Ctx<'_>) -> (M, Self::ChangeStream);
@@ -149,7 +148,7 @@ pub trait GlobalIdReactiveMapping<M> {
 }
 
 pub trait GlobalIdReactiveSimpleMapping<M> {
-  type ChangeStream: Stream + Unpin;
+  type ChangeStream: Stream + Unpin + 'static;
   type Ctx<'a>;
 
   fn build(&self, ctx: &Self::Ctx<'_>) -> (M, Self::ChangeStream);

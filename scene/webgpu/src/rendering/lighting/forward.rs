@@ -1,4 +1,6 @@
 use futures::stream::FusedStream;
+use rendiation_shader_library::normal_mapping::BuilderNormalExt;
+use rendiation_texture_gpu_process::ToneMap;
 
 use crate::*;
 
@@ -25,7 +27,10 @@ pub fn get_main_pass_load_op(scene: &SceneCoreImpl) -> Operations<Color> {
     LoadOp::Load
   };
 
-  Operations { load, store: true }
+  Operations {
+    load,
+    store: StoreOp::Store,
+  }
 }
 
 pub struct ForwardScene<'a> {

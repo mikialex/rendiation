@@ -55,7 +55,7 @@ impl Mesh {
     let mut vertices = Vec::new();
     let mut indices = Vec::new();
 
-    for (_, model) in models.iter().enumerate() {
+    for model in &models {
       let mesh = &model.mesh;
       assert!(mesh.positions.len() % 3 == 0);
 

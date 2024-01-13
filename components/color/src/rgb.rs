@@ -94,7 +94,6 @@ impl<T: Scalar> std::ops::Mul<T> for SRGBColor<T> {
   }
 }
 
-#[allow(clippy::excessive_precision)]
 impl From<SRGBColor<f32>> for LinearRGBColor<f32> {
   fn from(color: SRGBColor<f32>) -> Self {
     fn convert(c: f32) -> f32 {

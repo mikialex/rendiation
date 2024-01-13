@@ -244,9 +244,10 @@ impl<T: IncrementalBase> IncrementalListenBy<T> for SharedIncrementalSignal<T> {
     &self,
     mapper: impl FnMut(MaybeDeltaRef<T>, &dyn Fn(U)) + Send + Sync + 'static,
     channel_builder: &mut C,
-  ) -> impl Stream<Item = N> + Unpin
+  ) -> Box<dyn Stream<Item = N> + Unpin>
   where
     U: Send + Sync + 'static,
+    N: 'static,
     C: ChannelLike<U, Message = N>,
   {
     let inner = self.read();

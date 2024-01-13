@@ -123,9 +123,9 @@ pub trait ReactiveCollectionRelationReduceExt<K: CKey>: Sized + ReactiveCollecti
     relations: Relation,
   ) -> impl ReactiveCollection<SK, ()>
   where
-    SK: Clone + Eq + Hash + Send + Sync + 'static,
-    K: Clone + Eq + Hash + Sync + 'static,
-    Relation: ReactiveCollection<K, SK> + 'static,
+    SK: CKey,
+    K: CKey,
+    Relation: ReactiveCollection<K, SK>,
   {
     ManyToOneReduce {
       upstream: BufferedCollection::new(self),
@@ -136,6 +136,6 @@ pub trait ReactiveCollectionRelationReduceExt<K: CKey>: Sized + ReactiveCollecti
   }
 }
 impl<T, K: CKey> ReactiveCollectionRelationReduceExt<K> for T where
-  T: Sized + 'static + ReactiveCollection<K, ()>
+  T: Sized + ReactiveCollection<K, ()>
 {
 }
