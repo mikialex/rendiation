@@ -50,17 +50,13 @@ fn point_lights_uniform(
   intensity: impl ReactiveCollection<AllocIdx<PointLight>, Vec3<f32>>,
   directions: impl ReactiveCollection<AllocIdx<PointLight>, Vec3<f32>>,
 ) -> impl ReactiveCollection<AllocIdx<PointLight>, SpotLightShaderInfo> {
-  enum ShaderInfoDelta {
-    Position(Vec3<f32>),
-    Ill(Vec3<f32>),
-  }
-
-  MultiZipper::new(Default::default, |info, delta| match delta {
-    ShaderInfoDelta::Dir(dir) => info.direction = dir,
-    ShaderInfoDelta::Ill(i) => info.illuminance = i,
-  })
-  .zip_with(intensity.collective_map(ShaderInfoDelta::Ill))
-  .zip_with(directions.collective_map(ShaderInfoDelta::Dir))
+  intensity
+    .collective_zip(directions)
+    .collective_map(|(intensity, direction)| SpotLightShaderInfo {
+      luminance_intensity: intensity,
+      direction,
+      ..Default::default()
+    })
 }
 
 /// based upon Frostbite 3 Moving to Physically-based Rendering

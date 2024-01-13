@@ -20,6 +20,12 @@ pub fn physical_mr_material_gpus(
     })
 }
 
+fn base_color_texture_tex_sample_handle(
+) -> impl ReactiveCollection<AllocIdx<PhysicalMetallicRoughnessMaterial>, TextureSamplerHandlePair>
+{
+  storage_of::<PhysicalMetallicRoughnessMaterial>().listen_to_reactive_collection(|_| Some(()))
+}
+
 #[repr(C)]
 #[std140_layout]
 #[derive(Clone, Copy, ShaderStruct)]

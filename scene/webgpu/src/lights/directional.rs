@@ -136,20 +136,17 @@ fn dir_lights_uniform(
   directions: impl ReactiveCollection<AllocIdx<DirectionalLight>, Vec3<f32>>,
   shadow: impl ReactiveCollection<AllocIdx<DirectionalLight>, LightShadowAddressInfo>,
 ) -> impl ReactiveCollection<AllocIdx<DirectionalLight>, DirectionalLightShaderInfo> {
-  enum ShaderInfoDelta {
-    Dir(Vec3<f32>),
-    Shadow(LightShadowAddressInfo),
-    Ill(Vec3<f32>),
-  }
-
-  MultiZipper::new(Default::default, |info, delta| match delta {
-    ShaderInfoDelta::Dir(dir) => info.direction = dir,
-    ShaderInfoDelta::Shadow(shadow) => info.shadow = shadow,
-    ShaderInfoDelta::Ill(i) => info.illuminance = i,
-  })
-  .zip_with(intensity.collective_map(ShaderInfoDelta::Ill))
-  .zip_with(directions.collective_map(ShaderInfoDelta::Dir))
-  .zip_with(shadow.collective_map(ShaderInfoDelta::Shadow))
+  intensity
+    .collective_zip(directions)
+    .collective_zip(shadow)
+    .collective_map(
+      |((intensity, direction), shadow)| DirectionalLightShaderInfo {
+        illuminance: intensity,
+        direction,
+        shadow,
+        ..Default::default()
+      },
+    );
 }
 
 #[derive(Clone, PartialEq)]

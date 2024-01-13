@@ -126,26 +126,17 @@ fn spot_lights_uniform(
   dp: impl ReactiveCollection<AllocIdx<SpotLight>, (Vec3<f32>, Vec3<f32>)>,
   shadow: impl ReactiveCollection<AllocIdx<SpotLight>, LightShadowAddressInfo>,
 ) -> impl ReactiveCollection<AllocIdx<SpotLight>, SpotLightShaderInfo> {
-  enum ShaderInfoDelta {
-    DirPosition(Vec3<f32>, Vec3<f32>),
-    Shadow(LightShadowAddressInfo),
-    Light(SpotLightShaderInfoPart),
-  }
-
-  MultiZipper::new(Default::default, |info, delta| match delta {
-    ShaderInfoDelta::DirPosition(dir, pos) => {
-      info.direction = dir;
-      info.position = pos;
-    }
-    ShaderInfoDelta::Shadow(shadow) => info.shadow = shadow,
-    ShaderInfoDelta::Light(l) => {
-      info.luminance_intensity = l.luminance_intensity;
-      info.cutoff_distance = l.cutoff_distance;
-      info.half_penumbra_cos = l.half_penumbra_cos;
-      info.half_cone_cos = l.half_cone_cos;
-    }
-  })
-  .zip_with(info.collective_map(ShaderInfoDelta::Light))
-  .zip_with(dp.collective_map(ShaderInfoDelta::DirPosition))
-  .zip_with(shadow.collective_map(ShaderInfoDelta::Shadow))
+  info
+    .collective_zip(dp)
+    .collective_zip(shadow)
+    .collective_map(|((info, dp), shadow)| SpotLightShaderInfo {
+      luminance_intensity: info.luminance_intensity,
+      cutoff_distance: info.cutoff_distance,
+      half_penumbra_cos: info.half_penumbra_cos,
+      half_cone_cos: info.half_cone_cos,
+      direction: dp.0,
+      position: dp.1,
+      shadow,
+      ..Default::default()
+    })
 }
