@@ -21,6 +21,7 @@ pub fn physical_mr_material_gpus(
 }
 
 fn base_color_texture_tex_sample_handle(
+  checker: impl Fn(DeltaOf<PhysicalMetallicRoughnessMaterial>) -> Option<AllocIdx<SceneTexture2DType>>,
 ) -> impl ReactiveCollection<AllocIdx<PhysicalMetallicRoughnessMaterial>, TextureSamplerHandlePair>
 {
   storage_of::<PhysicalMetallicRoughnessMaterial>().listen_to_reactive_collection(|_| Some(()))

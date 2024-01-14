@@ -116,9 +116,9 @@ pub struct ShareBindableResourceCtx {
   pub binding_sys: GPUTextureBindingSystem,
   pub default_sampler: IncrementalSignalPtr<TextureSampler>,
   pub default_texture_2d: SceneTexture2D,
-  pub sampler: Arc<RwLock<StreamMap<u64, ReactiveGPUSamplerViewSource>>>,
-  pub texture_2d: Arc<RwLock<StreamMap<u64, ReactiveGPU2DTextureViewSource>>>,
-  pub texture_cube: Arc<RwLock<StreamMap<u64, ReactiveGPUCubeTextureViewSource>>>,
+  pub sampler: Box<dyn ReactiveCollection<AllocIdx<TextureSampler>, GPUSamplerView>>,
+  pub texture_2d: Box<dyn ReactiveCollection<AllocIdx<SceneTexture2DType>, GPU2DTextureView>>,
+  pub texture_cube: Box<dyn ReactiveCollection<AllocIdx<SceneTextureCubeImpl>, GPUCubeTextureView>>,
   // share uniform buffers
   // share storage buffers
   // share vertex buffers

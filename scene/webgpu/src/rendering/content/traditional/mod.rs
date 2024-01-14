@@ -115,3 +115,42 @@ pub fn dispatch_model_draw_with_preferred_binding_frequency(
 
   RenderEmitter::new(components.as_slice()).render(pass, draw_command);
 }
+
+struct ModelSetupPassCtx {
+  scene_models: ReadView<SceneModelImpl>,
+  std_models: ReadView<StandardModel>,
+  mesh: MeshPassBindCtx,
+  material: MaterialPassBindCtx,
+}
+
+struct MaterialPassBindCtx {
+  material: ReadView<MaterialEnum>,
+
+  material_a: PhysicalMetallicRoughnessMaterialBindCtx,
+  material_b: ReadView<usize>,
+  material_dyn: FastHashMap<TypeId, Box<dyn Any>>,
+}
+
+struct PhysicalMetallicRoughnessMaterialBindCtx {
+  material: ReadView<PhysicalMetallicRoughnessMaterial>,
+  uniform: Box<dyn ReactiveCollection<AllocIdx<PhysicalMetallicRoughnessMaterial>, Uniform>>,
+  // share_bindable
+}
+
+struct MeshPassBindCtx {
+  mesh: ReadView<usize>,
+
+  mesh_a: ReadView<usize>,
+  mesh_b: ReadView<usize>,
+  mesh_dyn: FastHashMap<TypeId, Box<dyn Any>>,
+}
+
+pub fn setup_pass(
+  to_render: impl ReactiveCollection<AllocIdx<SceneModel>, RenderInfo>,
+  model_content_changes: impl ReactiveCollection<AllocIdx<SceneModel>, ()>,
+  model_binding_changes: impl ReactiveCollection<AllocIdx<SceneModel>, ()>,
+  ctx: ModelSetupPassCtx,
+  pass: &mut GPURenderPassCtx,
+) {
+  //
+}
