@@ -1,14 +1,69 @@
+use rendiation_shader_library::normal_mapping::apply_normal_mapping_conditional;
+use PhysicalMetallicRoughnessMaterialDelta as PD;
+
 use crate::*;
 
-pub fn physical_mr_material_gpus(
+#[repr(C)]
+#[std140_layout]
+#[derive(Clone, Copy, ShaderStruct)]
+pub struct PhysicalMetallicRoughnessMaterialUniform {
+  pub base_color: Vec3<f32>,
+  pub emissive: Vec3<f32>,
+  pub roughness: f32,
+  pub metallic: f32,
+  pub reflectance: f32,
+  pub normal_mapping_scale: f32,
+  pub alpha_cutoff: f32,
+  pub alpha: f32,
+}
+
+pub fn physical_mr_material_uniforms(
   cx: &ResourceGPUCtx,
+  scope: impl ReactiveCollection<AllocIdx<PhysicalMetallicRoughnessMaterial>, ()>,
 ) -> impl ReactiveCollection<
   AllocIdx<PhysicalMetallicRoughnessMaterial>,
   PhysicalMetallicRoughnessMaterialUniform,
 > {
+  fn build_shader_uniform(
+    m: &PhysicalMetallicRoughnessMaterial,
+  ) -> PhysicalMetallicRoughnessMaterialUniform {
+    let mut r = PhysicalMetallicRoughnessMaterialUniform {
+      base_color: m.base_color,
+      roughness: m.roughness,
+      emissive: m.emissive,
+      metallic: m.metallic,
+      reflectance: m.reflectance,
+      normal_mapping_scale: 1.,
+      alpha_cutoff: m.alpha_cutoff,
+      alpha: m.alpha,
+      ..Zeroable::zeroed()
+    };
+
+    if let Some(normal_texture) = &m.normal_texture {
+      r.normal_mapping_scale = normal_texture.scale;
+    };
+
+    r
+  }
+
+  fn is_uniform_changed(d: DeltaOf<PhysicalMetallicRoughnessMaterial>) -> bool {
+    matches!(
+      d,
+      PD::base_color(_)
+        | PD::roughness(_)
+        | PD::metallic(_)
+        | PD::reflectance(_)
+        | PD::emissive(_)
+        | PD::alpha(_)
+        | PD::alpha_cutoff(_)
+        | PD::normal_texture(_) // normal map scale
+    )
+  }
+
   let cx = cx.clone();
   storage_of::<PhysicalMetallicRoughnessMaterial>()
     .listen_to_reactive_collection(|_| Some(()))
+    .filter_by_keyset(scope)
     .collective_execute_map_by(move || {
       let cx = cx.clone();
       let creator = storage_of::<PhysicalMetallicRoughnessMaterial>().create_key_mapper(move |m| {
@@ -20,35 +75,30 @@ pub fn physical_mr_material_gpus(
     })
 }
 
-fn base_color_texture_tex_sample_handle(
-  checker: impl Fn(DeltaOf<PhysicalMetallicRoughnessMaterial>) -> Option<AllocIdx<SceneTexture2DType>>,
-) -> impl ReactiveCollection<AllocIdx<PhysicalMetallicRoughnessMaterial>, TextureSamplerHandlePair>
-{
-  storage_of::<PhysicalMetallicRoughnessMaterial>().listen_to_reactive_collection(|_| Some(()))
-}
-
 #[repr(C)]
 #[std140_layout]
 #[derive(Clone, Copy, ShaderStruct)]
-pub struct PhysicalMetallicRoughnessMaterialUniform {
-  pub base_color: Vec3<f32>,
+pub struct PhysicalMetallicRoughnessMaterialTextureHandlesUniform {
   pub base_color_texture: TextureSamplerHandlePair,
-  pub emissive: Vec3<f32>,
   pub emissive_texture: TextureSamplerHandlePair,
-  pub roughness: f32,
-  pub metallic: f32,
   pub metallic_roughness_texture: TextureSamplerHandlePair,
-  pub reflectance: f32,
-  pub normal_mapping_scale: f32,
   pub normal_texture: TextureSamplerHandlePair,
-  pub alpha_cutoff: f32,
-  pub alpha: f32,
+}
+
+pub fn physical_mr_material_texture_handle_uniforms(
+  cx: &ResourceGPUCtx,
+  scope: impl ReactiveCollection<AllocIdx<PhysicalMetallicRoughnessMaterial>, ()>,
+) -> impl ReactiveCollection<
+  AllocIdx<PhysicalMetallicRoughnessMaterial>,
+  PhysicalMetallicRoughnessMaterialTextureHandlesUniform,
+> {
+  // tex_sample_handle_of_material().zip(..).zip(..).map(..)
 }
 
 pub struct PhysicalMetallicRoughnessMaterialGPU<'a> {
   uniform: &'a UniformBufferDataView<PhysicalMetallicRoughnessMaterialUniform>,
   source: &'a PhysicalMetallicRoughnessMaterial,
-  textures: &'a TextureGetter,
+  // textures: &'a TextureGetter,
 }
 
 impl<'a> ShaderHashProvider for PhysicalMetallicRoughnessMaterialGPU<'a> {
@@ -148,119 +198,4 @@ impl<'a> GraphicsShaderProvider for PhysicalMetallicRoughnessMaterialGPU<'a> {
       Ok(())
     })
   }
-}
-
-use PhysicalMetallicRoughnessMaterialDelta as PD;
-
-impl WebGPUMaterial for PhysicalMetallicRoughnessMaterial {
-  type ReactiveGPU = PhysicalMetallicRoughnessMaterialReactiveGPU;
-  fn create_reactive_gpu(
-    source: &IncrementalSignalPtr<Self>,
-    ctx: &ShareBindableResourceCtx,
-  ) -> Self::ReactiveGPU {
-    let m = source.read();
-
-    let uniform = build_shader_uniform(&m);
-    let uniform = create_uniform(uniform, &ctx.gpu.device);
-
-    let base_color_texture = ctx.build_reactive_texture_sampler_pair(m.base_color_texture.as_ref());
-    let metallic_roughness_texture =
-      ctx.build_reactive_texture_sampler_pair(m.metallic_roughness_texture.as_ref());
-    let emissive_texture = ctx.build_reactive_texture_sampler_pair(m.emissive_texture.as_ref());
-
-    let normal_texture =
-      ctx.build_reactive_texture_sampler_pair(m.normal_texture.as_ref().map(|t| &t.content));
-
-    let gpu = PhysicalMetallicRoughnessMaterialGPUImpl {
-      uniform,
-      base_color_texture,
-      metallic_roughness_texture,
-      emissive_texture,
-      normal_texture,
-      alpha_mode: m.alpha_mode,
-      gpu: ctx.gpu.clone(),
-    };
-
-    let state = RenderComponentCell::new(gpu);
-
-    let weak_material = source.downgrade();
-    let ctx = ctx.clone();
-
-    let uniform_any_change = source
-      .single_listen_by::<()>(all_delta_with(false, then_some(is_uniform_changed)))
-      .map(|_| UniformChangePicked::UniformChange);
-
-    let all = source
-      .unbound_listen_by(all_delta_no_init)
-      .map(UniformChangePicked::Origin);
-
-    let inner = futures::stream::select(uniform_any_change, all).fold_signal_flatten(
-      state,
-      move |delta, state| match delta {
-        UniformChangePicked::UniformChange => {
-          if let Some(m) = weak_material.upgrade() {
-            state.uniform.set(build_shader_uniform(&m.read()));
-            state.uniform.upload(&ctx.gpu.queue)
-          }
-          RenderComponentDeltaFlag::ContentRef.into()
-        }
-        UniformChangePicked::Origin(delta) => match delta {
-          PD::alpha_mode(mode) => {
-            state.alpha_mode = mode;
-            RenderComponentDeltaFlag::ShaderHash
-          }
-          PD::base_color_texture(t) => apply_tex_pair_delta(t, &mut state.base_color_texture, &ctx),
-          PD::metallic_roughness_texture(t) => {
-            apply_tex_pair_delta(t, &mut state.metallic_roughness_texture, &ctx)
-          }
-          PD::emissive_texture(t) => apply_tex_pair_delta(t, &mut state.emissive_texture, &ctx),
-          PD::normal_texture(t) => apply_normal_map_delta(t, &mut state.normal_texture, &ctx),
-          _ => RenderComponentDeltaFlag::Content, // handled in uniform
-        }
-        .into(),
-      },
-    );
-
-    PhysicalMetallicRoughnessMaterialReactiveGPU { inner }
-  }
-
-  fn is_transparent(&self) -> bool {
-    matches!(self.alpha_mode, AlphaMode::Blend)
-  }
-}
-
-fn build_shader_uniform(
-  m: &PhysicalMetallicRoughnessMaterial,
-) -> PhysicalMetallicRoughnessMaterialUniform {
-  let mut r = PhysicalMetallicRoughnessMaterialUniform {
-    base_color: m.base_color,
-    roughness: m.roughness,
-    emissive: m.emissive,
-    metallic: m.metallic,
-    reflectance: m.reflectance,
-    normal_mapping_scale: 1.,
-    alpha_cutoff: m.alpha_cutoff,
-    alpha: m.alpha,
-    ..Zeroable::zeroed()
-  };
-
-  if let Some(normal_texture) = &m.normal_texture {
-    r.normal_mapping_scale = normal_texture.scale;
-  };
-
-  r
-}
-
-fn is_uniform_changed(d: DeltaOf<PhysicalMetallicRoughnessMaterial>) -> bool {
-  matches!(
-    d,
-    PD::base_color(_)
-      | PD::roughness(_)
-      | PD::metallic(_)
-      | PD::reflectance(_)
-      | PD::emissive(_)
-      | PD::alpha(_)
-      | PD::alpha_cutoff(_)
-      | PD::normal_texture(_) // normal map scale
-  )
 }

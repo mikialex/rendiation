@@ -2,10 +2,12 @@ use crate::*;
 
 pub fn flat_material_gpus(
   cx: &ResourceGPUCtx,
-) -> impl ReactiveCollection<AllocIdx<FlatMaterial>, FlatMaterialGPU> {
+  scope: impl ReactiveCollection<AllocIdx<FlatMaterial>, ()>,
+) -> impl ReactiveCollection<AllocIdx<FlatMaterial>, UniformBufferDataView<FlatMaterialUniform>> {
   let cx = cx.clone();
   storage_of::<FlatMaterial>()
     .listen_to_reactive_collection(|_| Some(()))
+    .filter_by_keyset(scope)
     .collective_execute_map_by(move || {
       let cx = cx.clone();
       let creator = storage_of::<FlatMaterial>().create_key_mapper(move |m| {
@@ -15,8 +17,7 @@ pub fn flat_material_gpus(
           color: srgba_to_linear(m.color),
           ..Zeroable::zeroed()
         };
-        let uniform = create_uniform(uniform, &cx.device);
-        FlatMaterialGPU { uniform }
+        create_uniform(uniform, &cx.device)
       });
       move |k, _| creator(*k)
     })
@@ -30,13 +31,13 @@ pub struct FlatMaterialUniform {
 }
 
 #[derive(Clone)]
-pub struct FlatMaterialGPU {
-  uniform: UniformBufferDataView<FlatMaterialUniform>,
+pub struct FlatMaterialGPU<'a> {
+  uniform: &'a UniformBufferDataView<FlatMaterialUniform>,
 }
 
-impl ShaderHashProvider for FlatMaterialGPU {}
+impl<'a> ShaderHashProvider for FlatMaterialGPU<'a> {}
 
-impl GraphicsShaderProvider for FlatMaterialGPU {
+impl<'a> GraphicsShaderProvider for FlatMaterialGPU<'a> {
   fn build(&self, builder: &mut ShaderRenderPipelineBuilder) -> Result<(), ShaderBuildError> {
     builder.fragment(|builder, binding| {
       let uniform = binding.bind_by(&self.uniform).load().expand();
@@ -47,7 +48,7 @@ impl GraphicsShaderProvider for FlatMaterialGPU {
   }
 }
 
-impl ShaderPassBuilder for FlatMaterialGPU {
+impl<'a> ShaderPassBuilder for FlatMaterialGPU<'a> {
   fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
     ctx.binding.bind(&self.uniform);
   }

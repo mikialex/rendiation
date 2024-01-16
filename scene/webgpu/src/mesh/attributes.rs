@@ -119,12 +119,6 @@ fn get_update_buffer<'a>(
   &cache.get_with_update(source, gpu).inner
 }
 
-impl ReactiveRenderComponentSource for AttributesMeshGPUReactive {
-  fn as_reactive_component(&self) -> &dyn ReactiveRenderComponent {
-    self.inner.as_ref() as &dyn ReactiveRenderComponent
-  }
-}
-
 impl MeshDrawcallEmitter for AttributesMeshGPUReactive {
   fn draw_command(&self, _group: MeshDrawGroup) -> DrawCommand {
     let inner: &MaybeBindlessMesh<AttributesMeshGPU> = self.inner.as_ref();

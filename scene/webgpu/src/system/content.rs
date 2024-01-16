@@ -3,11 +3,6 @@ use rendiation_texture::GPUBufferImage;
 
 use crate::*;
 
-/// The actual gpu data
-///
-/// we could customize the stream trait's context to avoid too much arc clone in update logic
-#[pin_project::pin_project]
-#[derive(Clone)]
 pub struct ContentGPUSystem {
   pub(crate) gpu: ResourceGPUCtx,
   pub model_ctx: GPUModelResourceCtx,
@@ -15,8 +10,6 @@ pub struct ContentGPUSystem {
   pub models: Arc<RwLock<StreamMap<u64, ReactiveModelGPUType>>>,
   pub custom_storage: Arc<RefCell<AnyMap>>,
 }
-
-pub type ReactiveModelRenderComponentDeltaSource = impl Stream<Item = RenderComponentDeltaFlag>;
 
 impl ContentGPUSystem {
   pub fn new(gpu: &GPU, config: BindableResourceConfig) -> Self {
@@ -36,21 +29,6 @@ impl ContentGPUSystem {
       models: Default::default(),
       custom_storage: Arc::new(RefCell::new(AnyMap::new())),
     }
-  }
-
-  pub fn get_or_create_reactive_model_render_component_delta_source(
-    &self,
-    model: &ModelEnum,
-  ) -> Option<ReactiveModelRenderComponentDeltaSource> {
-    self
-      .models
-      .write()
-      .unwrap()
-      .get_or_insert_with(model.guid()?, || {
-        model.create_scene_reactive_gpu(&self.model_ctx).unwrap()
-      })
-      .create_render_component_delta_stream()
-      .into()
   }
 }
 
@@ -76,41 +54,7 @@ impl Stream for ContentGPUSystem {
   }
 }
 
-#[derive(Clone)]
-#[pin_project::pin_project]
-pub struct GPUModelResourceCtx {
-  pub shared: ShareBindableResourceCtx,
-  pub materials: Arc<RwLock<StreamMap<u64, MaterialGPUInstance>>>,
-  pub meshes: Arc<RwLock<StreamMap<u64, MeshGPUInstance>>>,
-}
-
-impl Stream for GPUModelResourceCtx {
-  type Item = ();
-
-  #[rustfmt::skip]
-  fn poll_next(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Option<Self::Item>> {
-    let this = self.project();
-
-    this.shared.poll_until_pending_not_care_result(cx);
-
-    this.materials.write().unwrap().poll_until_pending_not_care_result(cx);
-    this.meshes.write().unwrap().poll_until_pending_not_care_result(cx);
-
-    Poll::Pending
-  }
-}
-impl FusedStream for GPUModelResourceCtx {
-  fn is_terminated(&self) -> bool {
-    false
-  }
-}
-
-#[derive(Clone)]
-#[pin_project::pin_project]
 pub struct ShareBindableResourceCtx {
-  pub gpu: ResourceGPUCtx,
-  pub custom_storage: Arc<RwLock<AnyMap>>,
-
   pub bindless_mesh: Option<GPUBindlessMeshSystem>,
 
   pub binding_sys: GPUTextureBindingSystem,
@@ -119,34 +63,6 @@ pub struct ShareBindableResourceCtx {
   pub sampler: Box<dyn ReactiveCollection<AllocIdx<TextureSampler>, GPUSamplerView>>,
   pub texture_2d: Box<dyn ReactiveCollection<AllocIdx<SceneTexture2DType>, GPU2DTextureView>>,
   pub texture_cube: Box<dyn ReactiveCollection<AllocIdx<SceneTextureCubeImpl>, GPUCubeTextureView>>,
-  // share uniform buffers
-  // share storage buffers
-  // share vertex buffers
-}
-
-impl Stream for ShareBindableResourceCtx {
-  type Item = ();
-
-  #[rustfmt::skip]
-  fn poll_next(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Option<Self::Item>> {
-    let this = self.project();
-    this.sampler.write().unwrap().poll_until_pending_not_care_result(cx);
-    this.texture_2d.write().unwrap().poll_until_pending_not_care_result(cx);
-    this.texture_cube.write().unwrap().poll_until_pending_not_care_result(cx);
-
-    this.binding_sys.poll_until_pending_not_care_result(cx);
-
-    if let Some(bindless_mesh) = this.bindless_mesh {
-      bindless_mesh.maintain();
-    }
-
-    Poll::Pending
-  }
-}
-impl FusedStream for ShareBindableResourceCtx {
-  fn is_terminated(&self) -> bool {
-    false
-  }
 }
 
 #[derive(Clone, Copy, Debug)]
