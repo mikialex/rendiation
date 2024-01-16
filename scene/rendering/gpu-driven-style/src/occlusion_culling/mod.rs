@@ -16,7 +16,7 @@ pub trait DeviceOcclusionCullingContent: SceneRenderingAdaptor {
   ) -> Self::DrawTask;
 
   // this two things mixed together is to enable the implementor could use a single dispatch
-  fn compute_current_all_visibility_and_draw_current_rest_of_current_visible(
+  fn compute_current_all_visibility_and_draw_rest_of_current_visible(
     &self,
     ctx: &mut FrameCtx,
     camera: &SceneCamera,
@@ -59,7 +59,7 @@ impl DeviceOcclusionCulling {
     let h_depth = generate_h_depth(frame);
 
     let this_frame_new_visible_draw_task = content
-      .compute_current_all_visibility_and_draw_current_rest_of_current_visible(
+      .compute_current_all_visibility_and_draw_rest_of_current_visible(
         ctx,
         &self.last_frame_visibility,
       );

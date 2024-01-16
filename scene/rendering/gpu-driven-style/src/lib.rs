@@ -11,6 +11,8 @@ pub struct DeviceSceneRepresentation<T> {
   common_mesh: StorageBuffer<DrawIndexedIndirect>,
 }
 
+impl<T: SceneRasterRenderingAdaptor> SceneRasterRenderingAdaptor for DeviceSceneRepresentation<T> {}
+
 // maintained by cpu side
 pub struct ShaderSceneModelInfo {
   pub material_idx: u32,

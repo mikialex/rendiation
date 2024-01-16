@@ -1,9 +1,11 @@
-pub trait SceneRenderingAdaptor {
-  type DrawTask;
-
+pub trait SceneRenderingAdaptorBase {
   /// self will react to scene change, and update by polling api
   fn build(scene: Scene) -> Self;
   fn poll_update(&mut self, cx: &mut Context);
+}
+
+pub trait SceneRasterRenderingAdaptor: SceneRenderingAdaptorBase {
+  type DrawTask;
 
   /// should contains frustum culling and lod select
   fn create_task(camera: &SceneCamera) -> Self::DrawTask;
