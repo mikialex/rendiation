@@ -7,7 +7,6 @@ version = "0.1.0"
 [dependencies]
 anymap = "0.12.1"
 arena = { path = "../../utils/arena" }
-interning = { path = "../../utils/interning" }
 arena-graph = { path = "../../utils/arena-graph" }
 bitflags = { workspace = true }
 bytemuck = { workspace = true, features = ["derive"] }

@@ -13,8 +13,8 @@ pub struct ValueInterning<T> {
 #[macro_export]
 macro_rules! define_static_id_generator {
   ($Name: tt, $Type: ty) => {
-    static $Name: once_cell::sync::Lazy<Mutex<ValueInterning<$Type>>> =
-      once_cell::sync::Lazy::new(|| Mutex::new(ValueInterning::default()));
+    static $Name: once_cell::sync::Lazy<std::sync::Mutex<ValueInterning<$Type>>> =
+      once_cell::sync::Lazy::new(|| std::sync::Mutex::new(ValueInterning::default()));
   };
 }
 

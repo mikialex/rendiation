@@ -20,10 +20,10 @@ mod system;
 use core::ops::Deref;
 use std::{
   any::{Any, TypeId},
-  cell::{Cell, RefCell},
+  cell::RefCell,
   hash::Hash,
   rc::Rc,
-  sync::{Arc, Mutex, RwLock},
+  sync::{Arc, RwLock},
 };
 
 use __core::{
@@ -38,7 +38,6 @@ use fast_hash_collection::*;
 use futures::stream::FusedStream;
 use futures::*;
 use incremental::*;
-use interning::*;
 pub use lights::*;
 pub use materials::*;
 pub use mesh::*;

@@ -6,11 +6,11 @@ use reactive_incremental::IncrementalListenBy;
 use rendiation_scene_core::{
   any_change, GlobalIdReactiveSimpleMapping, IncrementalSignalPtr, IntoIncrementalSignalPtr,
 };
-use rendiation_scene_webgpu::{
-  CameraGPU, MaterialStates, PassContentWithSceneAndCamera, SceneRenderResourceGroup,
-};
+use rendiation_scene_webgpu::{CameraGPU, PassContentWithSceneAndCamera, SceneRenderResourceGroup};
 use rendiation_shader_api::*;
 use webgpu::*;
+
+use crate::MaterialStates;
 
 pub struct GridGround {
   grid_config: IncrementalSignalPtr<GridGroundConfig>,

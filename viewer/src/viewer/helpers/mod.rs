@@ -4,7 +4,7 @@ use rendiation_scene_webgpu::*;
 use rendiation_shader_api::*;
 use webgpu::*;
 
-use crate::{WidenedLineMaterial, WidenedLineMesh};
+use crate::{MaterialStates, WidenedLineMaterial, WidenedLineMesh};
 
 mod axis;
 mod camera;
