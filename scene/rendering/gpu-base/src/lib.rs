@@ -17,3 +17,19 @@ pub trait SceneRasterRenderingAdaptor: SceneRenderingAdaptorBase {
 
   fn render_task_on_frame(&self, ctx: &mut FrameCtx, task: Self::DrawTask, target: &Attachment);
 }
+
+/// Null adaptor is used to disable or partially disable the rendering.
+/// for example disable the fallback behavior in gpu driven rendering in development case.
+pub struct NullSceneRenderingAdaptor;
+
+impl SceneRenderingAdaptorBase for NullSceneRenderingAdaptor {
+  fn build(_: Scene) -> Self {
+    Self
+  }
+  fn poll_update(&mut self, _: &mut Context) {}
+}
+impl SceneRasterRenderingAdaptor for NullSceneRenderingAdaptor {
+  type DrawTask = ();
+  fn create_task(_: &SceneCamera) -> Self::DrawTask {}
+  fn render_task_on_frame(&self, _: &mut FrameCtx, _: Self::DrawTask, _: &Attachment) {}
+}

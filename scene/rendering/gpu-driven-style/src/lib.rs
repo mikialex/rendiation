@@ -1,11 +1,16 @@
 #![allow(dead_code)]
 #![allow(unused_variables)]
+#![allow(unused_imports)]
 
 use std::marker::PhantomData;
 
+use __core::task::Context;
 use rendiation_algebra::*;
+use rendiation_mesh_gpu_system::{DrawIndexedIndirect, GPUBindlessMeshSystem};
+use rendiation_scene_core::*;
 use rendiation_scene_gpu_base::{SceneRasterRenderingAdaptor, SceneRenderingAdaptorBase};
-use rendiation_webgpu::util::DrawIndexedIndirect;
+use rendiation_shader_api::*;
+use rendiation_texture_gpu_system::AbstractIndirectGPUTextureSystem;
 
 mod lod_selection;
 use lod_selection::*;
@@ -13,30 +18,37 @@ use lod_selection::*;
 mod frustum_culling;
 use frustum_culling::*;
 
-struct StorageBuffer<T>(T);
-struct StorageArrayHandle<T>(PhantomData<T>);
+mod occlusion_culling;
+use occlusion_culling::*;
+use rendiation_webgpu::{Attachment, FrameCtx};
+
+struct StorageBuffer<T: ?Sized>(Box<T>);
+struct StorageArrayHandle<T>(PhantomData<T>, u32);
 type MaterialA = usize;
 type MaterialB = usize;
 
 pub struct DeviceSceneRepresentation<T> {
   adaptor: T,
-  models: StorageBuffer<ShaderSceneModelInfo>,
-  nodes: StorageBuffer<ShaderNodeInfo>,
-  meshes: StorageBuffer<DrawIndexedIndirect>,
+  models: StorageBuffer<[ShaderSceneModelInfo]>,
+  nodes: StorageBuffer<[ShaderNodeInfo]>,
+  meshes: StorageBuffer<[DrawIndexedIndirect]>,
 
-  material_a: StorageBuffer<MaterialA>,
-  material_b: StorageBuffer<MaterialB>,
+  material_a: StorageBuffer<[MaterialA]>,
+  material_b: StorageBuffer<[MaterialB]>,
 
-  lod_mesh: StorageBuffer<LODMetaData>,
-  common_mesh: StorageBuffer<DrawIndexedIndirect>,
+  lod_mesh: StorageBuffer<[LODMetaData]>,
+  common_mesh: StorageBuffer<[DrawIndexedIndirect]>,
+
+  mesh: GPUBindlessMeshSystem,
+  textures: Box<dyn AbstractIndirectGPUTextureSystem>,
 }
 
 impl<T: SceneRasterRenderingAdaptor> SceneRenderingAdaptorBase for DeviceSceneRepresentation<T> {
-  fn build(scene: rendiation_scene_core::Scene) -> Self {
+  fn build(scene: Scene) -> Self {
     todo!()
   }
 
-  fn poll_update(&mut self, cx: &mut std::task::Context) {
+  fn poll_update(&mut self, cx: &mut Context) {
     todo!()
   }
 }
@@ -44,21 +56,19 @@ impl<T: SceneRasterRenderingAdaptor> SceneRenderingAdaptorBase for DeviceSceneRe
 impl<T: SceneRasterRenderingAdaptor> SceneRasterRenderingAdaptor for DeviceSceneRepresentation<T> {
   type DrawTask = usize;
 
-  fn create_task(camera: &rendiation_scene_core::SceneCamera) -> Self::DrawTask {
+  fn create_task(camera: &SceneCamera) -> Self::DrawTask {
     todo!()
   }
 
-  fn render_task_on_frame(
-    &self,
-    ctx: &mut rendiation_webgpu::FrameCtx,
-    task: Self::DrawTask,
-    target: &rendiation_webgpu::Attachment,
-  ) {
+  fn render_task_on_frame(&self, ctx: &mut FrameCtx, task: Self::DrawTask, target: &Attachment) {
     todo!()
   }
 }
 
 // maintained by cpu side
+#[repr(C)]
+// #[std430_layout]
+// #[derive(Clone, Copy, ShaderStruct, Debug)]
 struct ShaderSceneModelInfo {
   pub material_idx: u32,
   pub material_type_idx: u32,
@@ -69,6 +79,9 @@ struct ShaderSceneModelInfo {
 }
 
 // maintained by cpu side
+#[repr(C)]
+#[std430_layout]
+#[derive(Clone, Copy, ShaderStruct, Debug)]
 pub struct ShaderNodeInfo {
   pub world_mat: Mat4<f32>,
   pub filter_flags: u32,
