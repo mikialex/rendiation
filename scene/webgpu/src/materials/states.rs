@@ -106,11 +106,10 @@ impl MaterialStates {
 }
 
 pub struct StateGPUImpl {
-  state_id: Cell<ValueID<MaterialStates>>,
+  state_id: Cell<InternedValue<MaterialStates>>,
 }
 
-static STATE_ID: once_cell::sync::Lazy<Mutex<ValueIDGenerator<MaterialStates>>> =
-  once_cell::sync::Lazy::new(|| Mutex::new(ValueIDGenerator::default()));
+define_static_id_generator!(STATE_ID, MaterialStates);
 
 impl StateGPUImpl {
   pub fn new(states: &MaterialStates) -> Self {

@@ -44,3 +44,22 @@ fn convert_filter(mode: rendiation_texture::FilterMode) -> rendiation_webgpu::Fi
     rendiation_texture::FilterMode::Linear => rendiation_webgpu::FilterMode::Linear,
   }
 }
+
+/// impl foreign WebGPU2DTextureSource for foreign GPUBufferImage
+pub struct GPUBufferImageForeignImpl<'a> {
+  pub inner: &'a GPUBufferImage,
+}
+
+impl<'a> WebGPU2DTextureSource for GPUBufferImageForeignImpl<'a> {
+  fn format(&self) -> TextureFormat {
+    self.inner.format
+  }
+
+  fn as_bytes(&self) -> &[u8] {
+    &self.inner.data
+  }
+
+  fn size(&self) -> Size {
+    self.inner.size
+  }
+}

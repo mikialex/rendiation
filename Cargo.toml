@@ -15,6 +15,7 @@ members = [
   "utils/abstract-tree",
   "utils/abstract-graph",
   "utils/heap-tools",
+  "utils/interning",
   "utils/fast-hash-collection",
   "components/animation",
   "components/color",

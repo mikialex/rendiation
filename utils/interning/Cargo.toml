@@ -1,0 +1,10 @@
+[package]
+edition = "2021"
+name = "interning"
+version = "0.0.1"
+
+[dependencies]
+fast-hash-collection = { path = "../fast-hash-collection" }
+
+[lints]
+workspace = true
