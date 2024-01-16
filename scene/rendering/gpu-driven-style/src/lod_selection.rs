@@ -1,9 +1,11 @@
+use crate::*;
+
 pub struct LODMetaData {
-  first_level: StorageArrayHandle<LODLevelInfo>,
+  pub first_level: StorageArrayHandle<LODLevelInfo>,
 }
 
 pub struct LODLevelInfo {
-  info: usize,
-  reference_mesh: StorageArrayHandle<DrawIndexedIndirect>,
-  next_level: StorageArrayHandle<Self>,
+  pub info: usize,
+  pub reference_mesh: StorageArrayHandle<DrawIndexedIndirect>,
+  pub next_level: StorageArrayHandle<Self>,
 }

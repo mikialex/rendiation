@@ -1,3 +1,8 @@
+use std::task::Context;
+
+use rendiation_scene_core::*;
+use rendiation_webgpu::*;
+
 pub trait SceneRenderingAdaptorBase {
   /// self will react to scene change, and update by polling api
   fn build(scene: Scene) -> Self;

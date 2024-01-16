@@ -1,10 +1,12 @@
+use crate::*;
+
 pub struct ShaderFrustum {
-  plane: [ShaderPlane; 6],
+  pub plane: [ShaderPlane; 6],
 }
 
 pub struct ShaderPlane {
-  normal: Vec3<f32>,
-  constant: f32,
+  pub normal: Vec3<f32>,
+  pub constant: f32,
 }
 
 pub struct ShaderAABB {
