@@ -2965,6 +2965,37 @@ dependencies = [
 ]
 
 [[package]]
+name = "rendiation-scene-gpu-base"
+version = "0.0.1"
+dependencies = [
+ "rendiation-scene-core",
+ "rendiation-webgpu",
+]
+
+[[package]]
+name = "rendiation-scene-gpu-driven-style"
+version = "0.0.1"
+dependencies = [
+ "rendiation-algebra",
+ "rendiation-mesh-gpu-system",
+ "rendiation-scene-core",
+ "rendiation-scene-gpu-base",
+ "rendiation-shader-api",
+ "rendiation-texture-gpu-system",
+ "rendiation-webgpu",
+]
+
+[[package]]
+name = "rendiation-scene-gpu-gles-style"
+version = "0.0.1"
+dependencies = [
+ "rendiation-algebra",
+ "rendiation-scene-core",
+ "rendiation-scene-gpu-base",
+ "rendiation-webgpu",
+]
+
+[[package]]
 name = "rendiation-scene-interaction"
 version = "0.1.0"
 dependencies = [

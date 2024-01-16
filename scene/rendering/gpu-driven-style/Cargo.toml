@@ -1,0 +1,16 @@
+[package]
+edition = "2021"
+name = "rendiation-scene-gpu-driven-style"
+version = "0.0.1"
+
+[dependencies]
+rendiation-algebra = { path = "../../../math/algebra" }
+rendiation-scene-core = { path = "../../core" }
+rendiation-scene-gpu-base = { path = "../gpu-base" }
+rendiation-webgpu = { path = "../../../platform/graphics/webgpu" }
+rendiation-texture-gpu-system = { path = "../../../components/texture/gpu-system" }
+rendiation-mesh-gpu-system = { path = "../../../components/mesh/gpu-system" }
+rendiation-shader-api = { path = "../../../shader/api" }
+
+[lints]
+workspace = true
