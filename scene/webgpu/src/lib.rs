@@ -1,6 +1,5 @@
 #![feature(specialization)]
 #![feature(let_chains)]
-#![feature(hash_raw_entry)]
 #![feature(stmt_expr_attributes)]
 #![feature(type_alias_impl_trait)]
 #![feature(impl_trait_in_assoc_type)]
@@ -16,7 +15,6 @@ mod node;
 mod rendering;
 mod shading;
 mod texture;
-mod util;
 
 mod system;
 use core::ops::Deref;
@@ -24,7 +22,6 @@ use std::{
   any::{Any, TypeId},
   cell::{Cell, RefCell},
   hash::Hash,
-  marker::PhantomData,
   rc::Rc,
   sync::{Arc, Mutex, RwLock},
 };
@@ -41,6 +38,7 @@ use fast_hash_collection::*;
 use futures::stream::FusedStream;
 use futures::*;
 use incremental::*;
+use interning::*;
 pub use lights::*;
 pub use materials::*;
 pub use mesh::*;
@@ -61,7 +59,6 @@ use rendiation_webgpu::*;
 pub use shading::*;
 pub use system::*;
 pub use texture::*;
-pub use util::*;
 
 pub trait SceneRenderable {
   fn render(

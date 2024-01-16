@@ -1608,6 +1608,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "interning"
+version = "0.0.1"
+dependencies = [
+ "fast-hash-collection",
+]
+
+[[package]]
 name = "interphaser"
 version = "0.1.0"
 dependencies = [
@@ -3040,6 +3047,7 @@ dependencies = [
  "fast-hash-collection",
  "futures",
  "incremental",
+ "interning",
  "linked-hash-map",
  "log",
  "once_cell",
