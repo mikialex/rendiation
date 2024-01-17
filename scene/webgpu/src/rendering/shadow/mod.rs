@@ -12,20 +12,14 @@ pub use sampling::*;
 pub struct ShadowMapSystem {
   pub single_proj_sys: Arc<RwLock<SingleProjectShadowMapSystem>>,
   pub maps: ShadowMapAllocator,
-  pub sampler: RawSampler,
 }
 
 impl ShadowMapSystem {
   pub fn new(gpu: ResourceGPUCtx, derives: SceneNodeDeriveSystem) -> Self {
     let maps = ShadowMapAllocator::new(gpu.clone());
-    let sampler = SamplerDescriptor {
-      compare: CompareFunction::Less.into(),
-      ..Default::default()
-    };
     let single_proj_sys = SingleProjectShadowMapSystem::new(gpu.clone(), maps.clone(), derives);
     Self {
       single_proj_sys: Arc::new(RwLock::new(single_proj_sys)),
-      sampler: gpu.device.create_and_cache_sampler(sampler),
       maps,
     }
   }

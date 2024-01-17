@@ -107,7 +107,7 @@ impl GraphicsShaderProvider for ShadowMapAllocator {
   }
 }
 
-pub struct ShadowMapAllocatorImpl {
+struct ShadowMapAllocatorImpl {
   id: usize,
   gpu: ResourceGPUCtx,
   map: GPU2DArrayDepthTextureView,

@@ -1,5 +1,3 @@
-use rendiation_geometry::{HyperRayCaster, Ray3};
-
 use crate::*;
 
 #[repr(C)]
@@ -82,8 +80,7 @@ impl Default for DirectionalShadowMapExtraInfo {
 }
 
 fn build_dir_lights_shadow_projections(
-) -> impl ReactiveCollection<AllocIdx<DirectionalLight>, (CameraProjectionEnum, Size)> {
-  get_dyn_trait_downcaster_static!(CameraProjection).register::<WorkAroundResizableOrth>();
+) -> impl ReactiveCollection<AllocIdx<DirectionalLight>, (Mat4<f32>, Size)> {
   storage_of::<DirectionalLight>()
     .listen_to_reactive_collection(|| Some(()))
     .collective_execute_map_by(|| {
@@ -94,11 +91,8 @@ fn build_dir_lights_shadow_projections(
           .cloned()
           .unwrap_or_default();
         let size = Size::from_u32_pair_min_one((512, 512)); // todo
-        let orth = WorkAroundResizableOrth {
-          orth: shadow_info.range,
-        };
-        let proj = CameraProjectionEnum::Foreign(Box::new(orth));
-        (proj, size)
+
+        (shadow_info.range.compute_projection_mat::<WebGPU>(), size)
       });
       move |k, _| compute(*k)
     })
@@ -106,7 +100,7 @@ fn build_dir_lights_shadow_projections(
 
 fn build_dir_lights_shadow_info(
   shadow_sys: &SingleProjectShadowMapSystem,
-  shadows: impl ReactiveCollection<AllocIdx<DirectionalLight>, (CameraProjectionEnum, Size)>,
+  shadows: impl ReactiveCollection<AllocIdx<DirectionalLight>, (Mat4<f32>, Size)>,
 ) -> impl ReactiveCollection<AllocIdx<DirectionalLight>, LightShadowAddressInfo> {
   // todo
 }
@@ -147,29 +141,4 @@ fn dir_lights_uniform(
         ..Default::default()
       },
     );
-}
-
-#[derive(Clone, PartialEq)]
-struct WorkAroundResizableOrth {
-  orth: OrthographicProjection<f32>,
-}
-clone_self_diffable_incremental!(WorkAroundResizableOrth);
-type_as_dyn_trait!(WorkAroundResizableOrth, CameraProjection);
-
-impl CameraProjection for WorkAroundResizableOrth {
-  fn compute_projection_mat(&self) -> Mat4<f32> {
-    self.orth.compute_projection_mat::<WebGPU>()
-  }
-
-  fn resize(&mut self, _: (f32, f32)) {
-    // nothing!
-  }
-
-  fn pixels_per_unit(&self, distance: f32, view_height: f32) -> f32 {
-    self.orth.pixels_per_unit(distance, view_height)
-  }
-
-  fn cast_ray(&self, normalized_position: Vec2<f32>) -> Ray3<f32> {
-    self.orth.cast_ray(normalized_position)
-  }
 }

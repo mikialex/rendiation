@@ -1,13 +1,44 @@
 use crate::*;
 
-pub struct AttributesMeshGPU {
-  attributes: Vec<(AttributeSemantic, GPUBufferResourceView)>,
-  indices: Option<(GPUBufferResourceView, IndexFormat)>,
-  topology: rendiation_webgpu::PrimitiveTopology,
-  draw: DrawCommand,
+pub fn vertex_attribute_buffers_scope(
+  scope: impl ReactiveCollection<AllocIdx<AttributesMesh>, ()>,
+) -> impl ReactiveCollection<AllocIdx<AttributeAccessor>, ()> {
+
+  //
 }
 
-impl ShaderPassBuilder for AttributesMeshGPU {
+pub fn index_attribute_buffers_scope(
+  scope: impl ReactiveCollection<AllocIdx<AttributesMesh>, ()>,
+) -> impl ReactiveCollection<AllocIdx<AttributeAccessor>, ()> {
+  //
+}
+
+pub fn gpu_attribute_vertex_buffers(
+  scope: impl ReactiveCollection<AllocIdx<AttributeAccessor>, ()>,
+) -> impl ReactiveCollection<AllocIdx<AttributeAccessor>, GPUBufferResourceView> {
+  storage_of::<AttributeAccessor>()
+  //
+}
+
+pub fn gpu_attribute_index_buffers(
+  scope: impl ReactiveCollection<AllocIdx<AttributeAccessor>, ()>,
+) -> impl ReactiveCollection<AllocIdx<AttributeAccessor>, GPUBufferResourceView> {
+  storage_of::<AttributeAccessor>()
+  //
+}
+
+pub struct AttributesMeshGPU<'a> {
+  attributes: &'a AttributesMesh,
+  // vertex_buffer_getter:
+  // index_buffer_getter:
+
+  // attributes: Vec<(AttributeSemantic, GPUBufferResourceView)>,
+  // indices: Option<(GPUBufferResourceView, IndexFormat)>,
+  // topology: rendiation_webgpu::PrimitiveTopology,
+  // draw: DrawCommand,
+}
+
+impl<'a> ShaderPassBuilder for AttributesMeshGPU<'a> {
   fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
     for (_, b) in &self.attributes {
       ctx.set_vertex_buffer_owned_next(b);
@@ -23,7 +54,7 @@ pub trait CustomAttributeKeyGPU {
 }
 define_dyn_trait_downcaster_static!(CustomAttributeKeyGPU);
 
-impl ShaderHashProvider for AttributesMeshGPU {
+impl<'a> ShaderHashProvider for AttributesMeshGPU<'a> {
   fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
     for (s, _) in &self.attributes {
       s.hash(hasher)
@@ -38,7 +69,7 @@ impl ShaderHashProvider for AttributesMeshGPU {
     }
   }
 }
-impl GraphicsShaderProvider for AttributesMeshGPU {
+impl<'a> GraphicsShaderProvider for AttributesMeshGPU<'a> {
   fn build(&self, builder: &mut ShaderRenderPipelineBuilder) -> Result<(), ShaderBuildError> {
     let mode = VertexStepMode::Vertex;
     builder.vertex(|builder, _| {
@@ -119,15 +150,15 @@ fn get_update_buffer<'a>(
   &cache.get_with_update(source, gpu).inner
 }
 
-impl MeshDrawcallEmitter for AttributesMeshGPUReactive {
-  fn draw_command(&self, _group: MeshDrawGroup) -> DrawCommand {
-    let inner: &MaybeBindlessMesh<AttributesMeshGPU> = self.inner.as_ref();
-    match inner {
-      MaybeBindlessMesh::Traditional(inner) => inner.draw.clone(),
-      MaybeBindlessMesh::Bindless(_) => DrawCommand::Skip,
-    }
-  }
-}
+// impl MeshDrawcallEmitter for AttributesMeshGPUReactive {
+//   fn draw_command(&self, _group: MeshDrawGroup) -> DrawCommand {
+//     let inner: &MaybeBindlessMesh<AttributesMeshGPU> = self.inner.as_ref();
+//     match inner {
+//       MaybeBindlessMesh::Traditional(inner) => inner.draw.clone(),
+//       MaybeBindlessMesh::Bindless(_) => DrawCommand::Skip,
+//     }
+//   }
+// }
 /// the current represent do not have meaningful mesh draw group concept
 fn draw_command(mesh: &AttributesMesh) -> DrawCommand {
   if let Some((_, indices)) = &mesh.indices {
@@ -145,139 +176,140 @@ fn draw_command(mesh: &AttributesMesh) -> DrawCommand {
   }
 }
 
-fn to_vec4(vec3: &[Vec3<f32>]) -> Vec<Vec4<f32>> {
-  vec3.iter().map(|v| Vec4::new(v.x, v.y, v.z, 0.0)).collect()
-}
+// fn to_vec4(vec3: &[Vec3<f32>]) -> Vec<Vec4<f32>> {
+//   vec3.iter().map(|v| Vec4::new(v.x, v.y, v.z, 0.0)).collect()
+// }
 
-#[allow(clippy::collapsible_match)]
-pub fn support_bindless(
-  mesh: &AttributeMeshReadView,
-  sys: &GPUBindlessMeshSystem,
-  device: &GPUDevice,
-  queue: &GPUQueue,
-) -> Option<MeshSystemMeshInstance> {
-  if rendiation_mesh_core::PrimitiveTopology::TriangleList != mesh.mode {
-    return None;
-  }
+// #[allow(clippy::collapsible_match)]
+// pub fn support_bindless(
+//   mesh: &AttributeMeshReadView,
+//   sys: &GPUBindlessMeshSystem,
+//   device: &GPUDevice,
+//   queue: &GPUQueue,
+// ) -> Option<MeshSystemMeshInstance> {
+//   if rendiation_mesh_core::PrimitiveTopology::TriangleList != mesh.mode {
+//     return None;
+//   }
 
-  if let Some((fmt, index)) = &mesh.indices {
-    if let AttributeIndexFormat::Uint32 = fmt {
-      if mesh.attributes.len() != 3 {
-        return None;
-      }
-      let position = mesh.get_position();
-      let position = to_vec4(position);
-      if let Some(normal) = mesh.get_attribute(&AttributeSemantic::Normals) {
-        let normal = to_vec4(normal.visit_slice::<Vec3<f32>>()?);
-        if let Some(uv) = mesh.get_attribute(&AttributeSemantic::TexCoords(0)) {
-          return Some(
-            sys
-              .create_mesh_instance(
-                BindlessMeshSource {
-                  index: index.visit_slice()?,
-                  position: &position,
-                  normal: &normal,
-                  uv: uv.visit_slice()?,
-                },
-                device,
-                queue,
-              )
-              .unwrap(),
-          );
-        }
-      }
-    }
-  }
-  None
-}
+//   if let Some((fmt, index)) = &mesh.indices {
+//     if let AttributeIndexFormat::Uint32 = fmt {
+//       if mesh.attributes.len() != 3 {
+//         return None;
+//       }
+//       let position = mesh.get_position();
+//       let position = to_vec4(position);
+//       if let Some(normal) = mesh.get_attribute(&AttributeSemantic::Normals) {
+//         let normal = to_vec4(normal.visit_slice::<Vec3<f32>>()?);
+//         if let Some(uv) = mesh.get_attribute(&AttributeSemantic::TexCoords(0)) {
+//           return Some(
+//             sys
+//               .create_mesh_instance(
+//                 BindlessMeshSource {
+//                   index: index.visit_slice()?,
+//                   position: &position,
+//                   normal: &normal,
+//                   uv: uv.visit_slice()?,
+//                 },
+//                 device,
+//                 queue,
+//               )
+//               .unwrap(),
+//           );
+//         }
+//       }
+//     }
+//   }
+//   None
+// }
 
-#[pin_project::pin_project]
-pub struct AttributesMeshGPUReactive {
-  #[pin]
-  pub inner: AttributesMeshGPUReactiveInner,
-}
+// #[pin_project::pin_project]
+// pub struct AttributesMeshGPUReactive {
+//   #[pin]
+//   pub inner: AttributesMeshGPUReactiveInner,
+// }
 
-impl Stream for AttributesMeshGPUReactive {
-  type Item = RenderComponentDeltaFlag;
+// impl Stream for AttributesMeshGPUReactive {
+//   type Item = RenderComponentDeltaFlag;
 
-  fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
-    let this = self.project();
-    this.inner.poll_next(cx)
-  }
-}
+//   fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+//     let this = self.project();
+//     this.inner.poll_next(cx)
+//   }
+// }
 
-pub type AttributesMeshGPUReactiveInner = impl AsRef<RenderComponentCell<MaybeBindlessMesh<AttributesMeshGPU>>>
-  + Stream<Item = RenderComponentDeltaFlag>;
+// pub type AttributesMeshGPUReactiveInner = impl
+// AsRef<RenderComponentCell<MaybeBindlessMesh<AttributesMeshGPU>>>
+//   + Stream<Item = RenderComponentDeltaFlag>;
 
-impl WebGPUMesh for AttributesMesh {
-  type ReactiveGPU = AttributesMeshGPUReactive;
+// impl WebGPUMesh for AttributesMesh {
+//   type ReactiveGPU = AttributesMeshGPUReactive;
 
-  fn create_reactive_gpu(
-    source: &IncrementalSignalPtr<Self>,
-    ctx: &ShareBindableResourceCtx,
-  ) -> Self::ReactiveGPU {
-    let ctx = ctx.clone();
+//   fn create_reactive_gpu(
+//     source: &IncrementalSignalPtr<Self>,
+//     ctx: &ShareBindableResourceCtx,
+//   ) -> Self::ReactiveGPU {
+//     let ctx = ctx.clone();
 
-    let create = move |mesh: &IncrementalSignalPtr<AttributesMesh>| {
-      let m = mesh.read();
-      let gpu = &ctx.gpu;
-      let m = unsafe { std::mem::transmute(&m.read()) }; // todo why?
-      if let Some(sys) = &ctx.bindless_mesh
-        && let Some(mesh) = support_bindless(m, sys, &gpu.device, &gpu.queue)
-      {
-        MaybeBindlessMesh::Bindless(mesh)
-      } else {
-        let mut custom_storage = ctx.custom_storage.write().unwrap();
-        let mesh = mesh.read();
-        let attributes = mesh
-          .attributes
-          .iter()
-          .map(|(s, vertices)| {
-            let buffer = get_update_buffer(&mut custom_storage, &vertices.view.buffer, &ctx.gpu);
-            let buffer_view = buffer.create_view(map_view(vertices.compute_gpu_buffer_range()));
-            (s.clone(), buffer_view)
-          })
-          .collect();
+//     let create = move |mesh: &IncrementalSignalPtr<AttributesMesh>| {
+//       let m = mesh.read();
+//       let gpu = &ctx.gpu;
+//       let m = unsafe { std::mem::transmute(&m.read()) }; // todo why?
+//       if let Some(sys) = &ctx.bindless_mesh
+//         && let Some(mesh) = support_bindless(m, sys, &gpu.device, &gpu.queue)
+//       {
+//         MaybeBindlessMesh::Bindless(mesh)
+//       } else {
+//         let mut custom_storage = ctx.custom_storage.write().unwrap();
+//         let mesh = mesh.read();
+//         let attributes = mesh
+//           .attributes
+//           .iter()
+//           .map(|(s, vertices)| {
+//             let buffer = get_update_buffer(&mut custom_storage, &vertices.view.buffer, &ctx.gpu);
+//             let buffer_view = buffer.create_view(map_view(vertices.compute_gpu_buffer_range()));
+//             (s.clone(), buffer_view)
+//           })
+//           .collect();
 
-        let indices = mesh.indices.as_ref().map(|(format, i)| {
-          let buffer = get_update_buffer(&mut custom_storage, &i.view.buffer, &ctx.gpu);
-          let buffer_view = buffer.create_view(map_view(i.compute_gpu_buffer_range()));
-          (buffer_view, map_index(*format))
-        });
+//         let indices = mesh.indices.as_ref().map(|(format, i)| {
+//           let buffer = get_update_buffer(&mut custom_storage, &i.view.buffer, &ctx.gpu);
+//           let buffer_view = buffer.create_view(map_view(i.compute_gpu_buffer_range()));
+//           (buffer_view, map_index(*format))
+//         });
 
-        MaybeBindlessMesh::Traditional(AttributesMeshGPU {
-          attributes,
-          indices,
-          topology: map_topology(mesh.mode),
-          draw: draw_command(&mesh),
-        })
-      }
-    };
+//         MaybeBindlessMesh::Traditional(AttributesMeshGPU {
+//           attributes,
+//           indices,
+//           topology: map_topology(mesh.mode),
+//           draw: draw_command(&mesh),
+//         })
+//       }
+//     };
 
-    let state = RenderComponentCell::new(create(source));
+//     let state = RenderComponentCell::new(create(source));
 
-    let inner = source
-      .single_listen_by::<()>(any_change_no_init)
-      .filter_map_sync(source.defer_weak())
-      .fold_signal(state, move |mesh, state| {
-        state.inner = create(&mesh);
-        RenderComponentDeltaFlag::all().into()
-      });
+//     let inner = source
+//       .single_listen_by::<()>(any_change_no_init)
+//       .filter_map_sync(source.defer_weak())
+//       .fold_signal(state, move |mesh, state| {
+//         state.inner = create(&mesh);
+//         RenderComponentDeltaFlag::all().into()
+//       });
 
-    AttributesMeshGPUReactive { inner }
-  }
-}
+//     AttributesMeshGPUReactive { inner }
+//   }
+// }
 
-fn map_view(view: BufferViewRange) -> GPUBufferViewRange {
-  GPUBufferViewRange {
-    offset: view.offset,
-    size: view.size,
-  }
-}
+// fn map_view(view: BufferViewRange) -> GPUBufferViewRange {
+//   GPUBufferViewRange {
+//     offset: view.offset,
+//     size: view.size,
+//   }
+// }
 
-fn map_index(index: AttributeIndexFormat) -> IndexFormat {
-  match index {
-    AttributeIndexFormat::Uint16 => IndexFormat::Uint16,
-    AttributeIndexFormat::Uint32 => IndexFormat::Uint32,
-  }
-}
+// fn map_index(index: AttributeIndexFormat) -> IndexFormat {
+//   match index {
+//     AttributeIndexFormat::Uint16 => IndexFormat::Uint16,
+//     AttributeIndexFormat::Uint32 => IndexFormat::Uint32,
+//   }
+// }

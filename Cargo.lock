@@ -3069,7 +3069,6 @@ dependencies = [
 name = "rendiation-scene-webgpu"
 version = "0.1.0"
 dependencies = [
- "anymap",
  "arena",
  "arena-graph",
  "bitflags 2.4.0",

@@ -91,7 +91,6 @@ impl ShareBindableResourceCtx {
       binding_sys: GPUTextureBindingSystem::new(gpu, config.prefer_bindless_texture),
       default_texture_2d,
       default_sampler: Default::default(),
-      custom_storage: Arc::new(RwLock::new(AnyMap::new())),
       gpu: ResourceGPUCtx::new(gpu, Default::default()),
       sampler: Default::default(),
       texture_2d: Default::default(),

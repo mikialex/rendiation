@@ -65,7 +65,7 @@ impl PunctualShaderLight for SpotLightShaderInfo {
 }
 
 fn build_spot_lights_shadow_projections(
-) -> impl ReactiveCollection<AllocIdx<SpotLight>, (CameraProjectionEnum, Size)> {
+) -> impl ReactiveCollection<AllocIdx<SpotLight>, (Mat4<f32>, Size)> {
   storage_of::<SpotLight>()
     .listen_to_reactive_collection(|| Some(()))
     .collective_execute_map_by(|| {
@@ -76,7 +76,6 @@ fn build_spot_lights_shadow_projections(
           fov: Deg::from_rad(light.read().half_cone_angle * 2.),
           aspect: 1.,
         };
-        let proj = CameraProjectionEnum::Perspective(proj);
         let size = Size::from_u32_pair_min_one((512, 512));
         (proj, size)
       });
@@ -86,7 +85,7 @@ fn build_spot_lights_shadow_projections(
 
 fn build_spot_lights_shadow_info(
   shadow_sys: &SingleProjectShadowMapSystem,
-  shadows: impl ReactiveCollection<AllocIdx<SpotLight>, (CameraProjectionEnum, Size)>,
+  shadows: impl ReactiveCollection<AllocIdx<SpotLight>, (Mat4<f32>, Size)>,
 ) -> impl ReactiveCollection<AllocIdx<SpotLight>, LightShadowAddressInfo> {
   // todo
 }

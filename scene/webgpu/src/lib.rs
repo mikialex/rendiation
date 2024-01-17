@@ -29,7 +29,6 @@ use __core::{
   pin::Pin,
   task::{Context, Poll},
 };
-use anymap::AnyMap;
 pub use background::*;
 use bytemuck::*;
 pub use camera::*;

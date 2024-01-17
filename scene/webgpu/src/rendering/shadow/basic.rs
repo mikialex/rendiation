@@ -11,14 +11,14 @@ pub struct SingleProjectShadowMapSystem {
   maps: ShadowMapAllocator,
   pub list: BasicShadowMapInfoList,
   gpu: ResourceGPUCtx,
-  derives: SceneNodeDeriveSystem,
+  world_mat: Box<dyn ReactiveCollection<NodeIdentity, Mat4<f32>>>,
 }
 
 impl SingleProjectShadowMapSystem {
   pub fn new(
     gpu: ResourceGPUCtx,
     maps: ShadowMapAllocator,
-    derives: SceneNodeDeriveSystem,
+    world_mat: Box<dyn ReactiveCollection<NodeIdentity, Mat4<f32>>>,
   ) -> Self {
     Self {
       cameras_source: Default::default(),
@@ -28,7 +28,7 @@ impl SingleProjectShadowMapSystem {
       maps,
       list: Default::default(),
       gpu,
-      derives,
+      world_mat,
     }
   }
 
