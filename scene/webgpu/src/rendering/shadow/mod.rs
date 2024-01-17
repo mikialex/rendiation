@@ -10,25 +10,17 @@ mod sampling;
 pub use sampling::*;
 
 pub struct ShadowMapSystem {
-  pub single_proj_sys: Arc<RwLock<SingleProjectShadowMapSystem>>,
+  pub single_proj_sys: SingleProjectShadowMapSystem,
   pub maps: ShadowMapAllocator,
 }
 
 impl ShadowMapSystem {
-  pub fn new(gpu: ResourceGPUCtx, derives: SceneNodeDeriveSystem) -> Self {
-    let maps = ShadowMapAllocator::new(gpu.clone());
-    let single_proj_sys = SingleProjectShadowMapSystem::new(gpu.clone(), maps.clone(), derives);
-    Self {
-      single_proj_sys: Arc::new(RwLock::new(single_proj_sys)),
-      maps,
-    }
-  }
-  pub fn maintain(&mut self, gpu_cameras: &mut SceneCameraGPUSystem, cx: &mut Context) {
-    self
-      .single_proj_sys
-      .write()
-      .unwrap()
-      .poll_updates(gpu_cameras, cx)
+  pub fn poll_updates(&mut self, cx: &mut Context) {
+    // self
+    //   .single_proj_sys
+    //   .write()
+    //   .unwrap()
+    //   .poll_updates(gpu_cameras, cx)
   }
 }
 
@@ -60,31 +52,6 @@ impl GraphicsShaderProvider for ShadowMapSystem {
 
 pub const SHADOW_MAX: usize = 8;
 pub type ShadowList<T> = ClampedUniformList<T, SHADOW_MAX>;
-
-#[derive(Default)]
-pub struct BasicShadowMapInfoList {
-  pub list: ShadowList<BasicShadowMapInfo>,
-}
-
-impl GraphicsShaderProvider for BasicShadowMapInfoList {
-  fn build(&self, builder: &mut ShaderRenderPipelineBuilder) -> Result<(), ShaderBuildError> {
-    builder.fragment(|builder, binding| {
-      let list = binding.bind_by(self.list.gpu.as_ref().unwrap());
-      builder.register::<BasicShadowMapInfoGroup>(list);
-      Ok(())
-    })
-  }
-}
-impl ShaderHashProvider for BasicShadowMapInfoList {
-  fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
-    self.list.hash_pipeline(hasher)
-  }
-}
-impl ShaderPassBuilder for BasicShadowMapInfoList {
-  fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
-    self.list.setup_pass(ctx)
-  }
-}
 
 #[repr(C)]
 #[std140_layout]

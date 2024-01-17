@@ -160,79 +160,79 @@ impl ForwardLightingSystem {
     let mut mapping_length_idx = FastHashMap::default();
     let mut lights_insert_order = Vec::default();
 
-    fn register_light_ty<T>(
-      lights_collections: &mut StreamMap<TypeId, Box<dyn ReactiveLightCollectionCompute>>,
-      mapping_length_idx: &mut FastHashMap<TypeId, usize>,
-      lights_insert_order: &mut Vec<TypeId>,
-      gpu: &ResourceGPUCtx,
-      res: &LightResourceCtx,
-      upstream: impl Stream<Item = (u64, Option<SceneLight>)> + Unpin + 'static,
-      downcaster: impl Fn(LightEnum) -> Option<T> + Copy + 'static,
-    ) where
-      T: WebGPULight,
-      T::Uniform: ShaderLight,
-    {
-      let res = res.clone();
-      let light_impl = upstream
-        .map(move |(light_id, light)| {
-          let light_stream = light.map(|light| {
-            let light_weak = light.downgrade();
-            let res = res.clone();
-            light
-              .single_listen_by(with_field!(SceneLightImpl => light))
-              .map(downcaster)
-              .map(move |l| {
-                light_weak.upgrade().zip(l).map(|(light, light_ty)| {
-                  light_ty.create_uniform_stream(
-                    &res,
-                    Box::new(light.single_listen_by(with_field!(SceneLightImpl => node))),
-                  )
-                })
-              })
-              .flatten_option_outer()
-          });
-          (light_id, light_stream)
-        })
-        .flatten_into_map_stream_signal()
-        .map(|updates| {
-          updates
-            .into_iter()
-            .filter_map(|update| match update {
-              StreamMapDelta::Insert(_) => None,
-              StreamMapDelta::Remove(id) => Some((id, None)),
-              StreamMapDelta::Delta(id, v) => Some((id, v)),
-            })
-            .collect()
-        })
-        .merge_into_light_list(gpu.clone());
+    // fn register_light_ty<T>(
+    //   lights_collections: &mut StreamMap<TypeId, Box<dyn ReactiveLightCollectionCompute>>,
+    //   mapping_length_idx: &mut FastHashMap<TypeId, usize>,
+    //   lights_insert_order: &mut Vec<TypeId>,
+    //   gpu: &ResourceGPUCtx,
+    //   res: &LightResourceCtx,
+    //   upstream: impl Stream<Item = (u64, Option<SceneLight>)> + Unpin + 'static,
+    //   downcaster: impl Fn(LightEnum) -> Option<T> + Copy + 'static,
+    // ) where
+    //   T: WebGPULight,
+    //   T::Uniform: ShaderLight,
+    // {
+    //   let res = res.clone();
+    //   let light_impl = upstream
+    //     .map(move |(light_id, light)| {
+    //       let light_stream = light.map(|light| {
+    //         let light_weak = light.downgrade();
+    //         let res = res.clone();
+    //         light
+    //           .single_listen_by(with_field!(SceneLightImpl => light))
+    //           .map(downcaster)
+    //           .map(move |l| {
+    //             light_weak.upgrade().zip(l).map(|(light, light_ty)| {
+    //               light_ty.create_uniform_stream(
+    //                 &res,
+    //                 Box::new(light.single_listen_by(with_field!(SceneLightImpl => node))),
+    //               )
+    //             })
+    //           })
+    //           .flatten_option_outer()
+    //       });
+    //       (light_id, light_stream)
+    //     })
+    //     .flatten_into_map_stream_signal()
+    //     .map(|updates| {
+    //       updates
+    //         .into_iter()
+    //         .filter_map(|update| match update {
+    //           StreamMapDelta::Insert(_) => None,
+    //           StreamMapDelta::Remove(id) => Some((id, None)),
+    //           StreamMapDelta::Delta(id, v) => Some((id, v)),
+    //         })
+    //         .collect()
+    //     })
+    //     .merge_into_light_list(gpu.clone());
 
-      let tid = TypeId::of::<T>();
-      let li = Box::new(light_impl) as Box<dyn ReactiveLightCollectionCompute>;
-      lights_collections.insert(tid, li);
-      mapping_length_idx.insert(tid, mapping_length_idx.len());
-      lights_insert_order.push(tid);
-    }
+    //   let tid = TypeId::of::<T>();
+    //   let li = Box::new(light_impl) as Box<dyn ReactiveLightCollectionCompute>;
+    //   lights_collections.insert(tid, li);
+    //   mapping_length_idx.insert(tid, mapping_length_idx.len());
+    //   lights_insert_order.push(tid);
+    // }
 
-    macro_rules! register_light_ty {
-      ($Type: tt) => {
-        register_light_ty(
-          &mut lights_collections,
-          &mut mapping_length_idx,
-          &mut lights_insert_order,
-          &gpu,
-          &res,
-          scene_light_change.fork_stream(),
-          |l| match l {
-            LightEnum::$Type(l) => Some(l),
-            _ => None,
-          },
-        );
-      };
-    }
+    // macro_rules! register_light_ty {
+    //   ($Type: tt) => {
+    //     register_light_ty(
+    //       &mut lights_collections,
+    //       &mut mapping_length_idx,
+    //       &mut lights_insert_order,
+    //       &gpu,
+    //       &res,
+    //       scene_light_change.fork_stream(),
+    //       |l| match l {
+    //         LightEnum::$Type(l) => Some(l),
+    //         _ => None,
+    //       },
+    //     );
+    //   };
+    // }
 
-    register_light_ty!(SpotLight);
-    register_light_ty!(DirectionalLight);
-    register_light_ty!(PointLight);
+    // register_light_ty!(SpotLight);
+    // register_light_ty!(DirectionalLight);
+    // register_light_ty!(PointLight);
 
     let lengths = create_uniform(Default::default(), &gpu.device);
 

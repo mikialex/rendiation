@@ -140,15 +140,15 @@ impl GlobalIdReactiveSimpleMapping<GPUAttributesBuffer> for GeometryBuffer {
   }
 }
 
-fn get_update_buffer<'a>(
-  storage: &'a mut AnyMap,
-  source: &GeometryBuffer,
-  gpu: &ResourceGPUCtx,
-) -> &'a GPUBufferResource {
-  let cache: &mut ReactiveMap<GeometryBuffer, GPUAttributesBuffer> =
-    storage.entry().or_insert_with(Default::default);
-  &cache.get_with_update(source, gpu).inner
-}
+// fn get_update_buffer<'a>(
+//   storage: &'a mut AnyMap,
+//   source: &GeometryBuffer,
+//   gpu: &ResourceGPUCtx,
+// ) -> &'a GPUBufferResource {
+//   let cache: &mut ReactiveMap<GeometryBuffer, GPUAttributesBuffer> =
+//     storage.entry().or_insert_with(Default::default);
+//   &cache.get_with_update(source, gpu).inner
+// }
 
 // impl MeshDrawcallEmitter for AttributesMeshGPUReactive {
 //   fn draw_command(&self, _group: MeshDrawGroup) -> DrawCommand {

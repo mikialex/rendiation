@@ -1,89 +1,103 @@
 use crate::*;
 
-#[pin_project::pin_project]
 pub struct SingleProjectShadowMapSystem {
-  #[pin]
-  cameras_source: StreamMap<u64, ReactiveBasicShadowSceneCamera>,
-  cameras: FastHashMap<u64, SceneCamera>,
-  cameras_id_map_light_id: FastHashMap<u64, u64>,
-  #[pin]
-  shadow_maps: StreamMap<u64, ShadowMap>,
-  maps: ShadowMapAllocator,
-  pub list: BasicShadowMapInfoList,
+  data_source: Box<dyn ReactiveCollection<(TypeId, u32), ShadowCameraProjInfo>>,
+
+  mapping: Box<dyn ReactiveCollection<(TypeId, u32), u32>>,
+  inv_mapping: Box<dyn ReactiveCollection<u32, (TypeId, u32)>>,
+
+  list: ClampedUniformList<BasicShadowMapInfo, SHADOW_MAX>,
+  maps: Box<dyn ReactiveCollection<(TypeId, u32), ShadowMap>>,
+
+  camera: CameraGPU,
+
+  allocator: ShadowMapAllocator,
   gpu: ResourceGPUCtx,
-  world_mat: Box<dyn ReactiveCollection<NodeIdentity, Mat4<f32>>>,
+}
+
+struct ShadowCameraProjInfo {
+  pub world_mat: Mat4<f32>,
+  pub projection: Mat4<f32>,
+  pub view_size: Size,
 }
 
 impl SingleProjectShadowMapSystem {
   pub fn new(
     gpu: ResourceGPUCtx,
-    maps: ShadowMapAllocator,
-    world_mat: Box<dyn ReactiveCollection<NodeIdentity, Mat4<f32>>>,
+    allocator: ShadowMapAllocator,
+    data_source: Box<dyn ReactiveCollection<(TypeId, u32), ShadowCameraProjInfo>>,
   ) -> Self {
     Self {
-      cameras_source: Default::default(),
-      shadow_maps: Default::default(),
-      cameras: Default::default(),
-      cameras_id_map_light_id: Default::default(),
-      maps,
+      data_source,
+      mapping: todo!(),
+      inv_mapping: todo!(),
+      maps: todo!(),
+      allocator,
       list: Default::default(),
       gpu,
-      world_mat,
+      camera: CameraGPU::new(&gpu.device),
     }
   }
 
-  pub fn create_shadow_info_stream(
-    &mut self,
-    light_id: u64,
-    proj: impl Stream<Item = (CameraProjectionEnum, Size)> + Unpin + 'static,
-    node_delta: impl Stream<Item = SceneNode> + Unpin + 'static,
-  ) -> impl Stream<Item = LightShadowAddressInfo> {
-    let camera_stream = basic_shadow_camera(Box::new(proj), Box::new(node_delta));
-    self.cameras_source.insert(light_id, camera_stream);
-    self.list.allocate(light_id)
+  pub fn create_shadow_address_infos<T>(
+    &self,
+  ) -> impl ReactiveCollection<AllocIdx<T>, LightShadowAddressInfo> {
+    // info.collective_key_duel_map()
+    //
   }
 
-  pub fn poll_updates(&mut self, gpu_cameras: &mut SceneCameraGPUSystem, cx: &mut Context) {
-    self.cameras_source.poll_until_pending(cx, |updates| {
-      for update in updates {
-        match update {
-          StreamMapDelta::Delta(idx, (camera, size)) => {
-            self.shadow_maps.remove(idx); // deallocate map
-            self.shadow_maps.insert(idx, self.maps.allocate(size));
-            // create the gpu camera
-            gpu_cameras.get_or_insert(&camera, &self.derives, &self.gpu);
-            self.cameras_id_map_light_id.insert(camera.guid(), idx);
-            self.cameras.insert(idx, camera);
-          }
-          StreamMapDelta::Remove(idx) => {
-            self.list.deallocate(idx);
-            let camera = self.cameras.remove(&idx).unwrap();
-            self.cameras_id_map_light_id.remove(&camera.guid());
-          }
-          _ => {}
-        }
-      }
-    });
+  // pub fn create_shadow_info_stream(
+  //   &mut self,
+  //   light_id: u64,
+  //   proj: impl Stream<Item = (CameraProjectionEnum, Size)> + Unpin + 'static,
+  //   node_delta: impl Stream<Item = SceneNode> + Unpin + 'static,
+  // ) -> impl Stream<Item = LightShadowAddressInfo> {
+  //   let camera_stream = basic_shadow_camera(Box::new(proj), Box::new(node_delta));
+  //   self.cameras_source.insert(light_id, camera_stream);
+  //   self.list.allocate(light_id)
+  // }
 
-    gpu_cameras.poll_until_pending(cx, |updates| {
-      for update in updates {
-        if let StreamMapDelta::Delta(camera_id, shadow_camera) = update {
-          let light_id = self.cameras_id_map_light_id.get(&camera_id).unwrap();
-          self.list.get_mut_data(*light_id).shadow_camera = shadow_camera;
-        }
-      }
-    });
+  // pub fn poll_updates(&mut self, gpu_cameras: &mut SceneCameraGPUSystem, cx: &mut Context) {
+  //   self.cameras_source.poll_until_pending(cx, |updates| {
+  //     for update in updates {
+  //       match update {
+  //         StreamMapDelta::Delta(idx, (camera, size)) => {
+  //           self.shadow_maps.remove(idx); // deallocate map
+  //           self.shadow_maps.insert(idx, self.maps.allocate(size));
+  //           // create the gpu camera
+  //           gpu_cameras.get_or_insert(&camera, &self.derives, &self.gpu);
+  //           self.cameras_id_map_light_id.insert(camera.guid(), idx);
+  //           self.cameras.insert(idx, camera);
+  //         }
+  //         StreamMapDelta::Remove(idx) => {
+  //           self.list.deallocate(idx);
+  //           let camera = self.cameras.remove(&idx).unwrap();
+  //           self.cameras_id_map_light_id.remove(&camera.guid());
+  //         }
+  //         _ => {}
+  //       }
+  //     }
+  //   });
 
-    self.shadow_maps.poll_until_pending(cx, |updates| {
-      for update in updates {
-        if let StreamMapDelta::Delta(idx, delta) = update {
-          self.list.get_mut_data(idx).map_info = delta;
-        }
-      }
-    });
+  //   gpu_cameras.poll_until_pending(cx, |updates| {
+  //     for update in updates {
+  //       if let StreamMapDelta::Delta(camera_id, shadow_camera) = update {
+  //         let light_id = self.cameras_id_map_light_id.get(&camera_id).unwrap();
+  //         self.list.get_mut_data(*light_id).shadow_camera = shadow_camera;
+  //       }
+  //     }
+  //   });
 
-    self.list.list.update_gpu(&self.gpu.device);
-  }
+  //   self.shadow_maps.poll_until_pending(cx, |updates| {
+  //     for update in updates {
+  //       if let StreamMapDelta::Delta(idx, delta) = update {
+  //         self.list.get_mut_data(idx).map_info = delta;
+  //       }
+  //     }
+  //   });
+
+  //   self.list.list.update_gpu(&self.gpu.device);
+  // }
 
   pub fn update_depth_maps(&mut self, ctx: &mut FrameCtx, scene: &SceneRenderResourceGroup) {
     assert_eq!(self.cameras_source.len(), self.shadow_maps.len());
@@ -123,18 +137,6 @@ impl SingleProjectShadowMapSystem {
         });
     }
   }
-}
-
-type ReactiveBasicShadowSceneCamera = impl Stream<Item = (SceneCamera, Size)> + Unpin;
-
-// todo remove box
-fn basic_shadow_camera(
-  proj: Box<dyn Stream<Item = (CameraProjectionEnum, Size)> + Unpin>,
-  node_delta: Box<dyn Stream<Item = SceneNode> + Unpin>,
-) -> ReactiveBasicShadowSceneCamera {
-  proj
-    .zip(node_delta)
-    .map(|((p, size), node)| (SceneCameraImpl::new(p, node).into_ptr(), size))
 }
 
 const SHADOW_MAX: usize = 8;
