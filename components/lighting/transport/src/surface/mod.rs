@@ -3,6 +3,9 @@ use crate::*;
 mod microfacet;
 pub use microfacet::*;
 
+mod gpu;
+pub use gpu::*;
+
 pub struct ImportanceSampled<T, U> {
   pub sample: T,
   pub pdf: f32,

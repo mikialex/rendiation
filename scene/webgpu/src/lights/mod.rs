@@ -59,40 +59,6 @@ where
   }
 }
 
-#[derive(Copy, Clone, ShaderStruct)]
-pub struct ShaderIncidentLight {
-  pub color: Vec3<f32>,
-  /// from light source to surface
-  pub direction: Vec3<f32>,
-}
-
-#[derive(Copy, Clone, ShaderStruct, Default)]
-pub struct ShaderLightingResult {
-  pub diffuse: Vec3<f32>,
-  pub specular: Vec3<f32>,
-}
-
-// note, we have to use the real name but not the ENode<ShaderAPIInstance> or we can not pass the
-// rust orphan rules
-impl core::ops::Add for ShaderLightingResultShaderAPIInstance {
-  type Output = Self;
-
-  fn add(self, rhs: Self) -> Self::Output {
-    Self {
-      diffuse: self.diffuse + rhs.diffuse,
-      specular: self.specular + rhs.specular,
-    }
-  }
-}
-
-#[derive(Copy, Clone, ShaderStruct)]
-pub struct ShaderLightingGeometricCtx {
-  pub position: Vec3<f32>,
-  pub normal: Vec3<f32>,
-  /// from surface to the camera
-  pub view_dir: Vec3<f32>,
-}
-
 pub trait ShaderLight:
   ShaderStructuralNodeType + ShaderSizedValueNodeType + Std140 + Sized + Default
 {
