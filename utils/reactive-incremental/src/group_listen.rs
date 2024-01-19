@@ -42,6 +42,11 @@ impl<T> ChangeReaction<T> {
 }
 
 impl<T: IncrementalBase> IncrementalSignalStorage<T> {
+  // todo, share all set for same T
+  pub fn listen_all_instance_changed_set(&self) -> impl ReactiveCollection<AllocIdx<T>, ()> {
+    self.listen_to_reactive_collection(|_| ChangeReaction::Care(Some(())))
+  }
+
   // in mapper, if receive full, should not return not care!
   pub fn listen_to_reactive_collection<U>(
     &self,

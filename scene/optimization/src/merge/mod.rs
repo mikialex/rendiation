@@ -344,7 +344,7 @@ fn material_hash_impl<M: DowncastFromMaterialEnum + Hash>(
   let referenced_mat = std_scope.clone().many_to_one_reduce_key(relations.clone());
 
   let material_hash = storage_of::<M>()
-    .listen_to_reactive_collection(|_| ChangeReaction::Care(Some(())))
+    .listen_all_instance_changed_set()
     .filter_by_keyset(referenced_mat)
     .collective_execute_map_by(|| {
       let rehash = storage_of::<M>().create_key_mapper(|mat, _| {
@@ -367,7 +367,7 @@ fn std_mesh_key(
     .many_to_one_reduce_key(std_model_ref_att_mesh_many_one_relation());
 
   let attribute_key = storage_of::<AttributesMesh>()
-    .listen_to_reactive_collection(|_| ChangeReaction::Care(Some(())))
+    .listen_all_instance_changed_set()
     .filter_by_keyset(referenced_attribute_mesh)
     .collective_execute_map_by(|| {
       let layout_key = storage_of::<AttributesMesh>().create_key_mapper(|mesh, _| {

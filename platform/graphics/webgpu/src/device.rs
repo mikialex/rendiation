@@ -213,6 +213,12 @@ pub struct DebugHasher<T> {
   hasher: T,
 }
 
+impl<T> DebugHasher<T> {
+  pub fn debug_print_previous_hash_stacks(&self) {
+    println!("{:#?}", self.hash_history);
+  }
+}
+
 impl<T: std::hash::Hasher> std::hash::Hasher for DebugHasher<T> {
   fn finish(&self) -> u64 {
     self.hasher.finish()
@@ -229,6 +235,15 @@ impl<T: std::hash::Hasher> std::hash::Hasher for DebugHasher<T> {
 #[derive(Default)]
 pub struct PipelineHasher<T = FastHasher> {
   hasher: T,
+}
+
+impl<T> PipelineHasher<T> {
+  pub fn into_debugger(self) -> DebugHasher<Self> {
+    DebugHasher {
+      hasher: self,
+      hash_history: Default::default(),
+    }
+  }
 }
 
 impl std::hash::Hasher for PipelineHasher {
