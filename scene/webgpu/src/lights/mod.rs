@@ -7,38 +7,56 @@ pub use spot::*;
 
 use crate::*;
 
-#[derive(Copy, Clone, ShaderStruct)]
-pub struct ShaderIncidentLight {
-  pub color: Vec3<f32>,
-  /// from light source to surface
-  pub direction: Vec3<f32>,
+#[derive(Clone)]
+pub struct LightResourceCtx {
+  pub shadow_system: Arc<RwLock<SingleProjectShadowMapSystem>>,
+  pub derives: SceneNodeDeriveSystem,
 }
 
-#[derive(Copy, Clone, ShaderStruct, Default)]
-pub struct ShaderLightingResult {
-  pub diffuse: Vec3<f32>,
-  pub specular: Vec3<f32>,
+pub trait WebGPULight: Any {
+  type Uniform: Std140 + Any;
+  // todo remove box
+  fn create_uniform_stream(
+    &self,
+    ctx: &LightResourceCtx,
+    node: Box<dyn Stream<Item = SceneNode> + Unpin>,
+  ) -> Box<dyn Stream<Item = Self::Uniform> + Unpin>;
 }
 
-// note, we have to use the real name but not the ENode<ShaderAPIInstance> or we can not pass the
-// rust orphan rules
-impl core::ops::Add for ShaderLightingResultShaderAPIInstance {
-  type Output = Self;
+pub trait DynamicLightUniform: Any {
+  fn as_bytes(&self) -> &[u8];
+}
 
-  fn add(self, rhs: Self) -> Self::Output {
-    Self {
-      diffuse: self.diffuse + rhs.diffuse,
-      specular: self.specular + rhs.specular,
-    }
+impl<T: Std140 + Any> DynamicLightUniform for T {
+  fn as_bytes(&self) -> &[u8] {
+    self.as_bytes()
   }
 }
 
-#[derive(Copy, Clone, ShaderStruct)]
-pub struct ShaderLightingGeometricCtx {
-  pub position: Vec3<f32>,
-  pub normal: Vec3<f32>,
-  /// from surface to the camera
-  pub view_dir: Vec3<f32>,
+pub trait WebGPUSceneLight {
+  fn create_uniform(
+    &self,
+    ctx: &mut LightResourceCtx,
+    node: Box<dyn Stream<Item = SceneNode> + Unpin>,
+  ) -> Box<dyn Stream<Item = Box<dyn DynamicLightUniform>>>;
+}
+
+impl<T> WebGPUSceneLight for IncrementalSignalPtr<T>
+where
+  Self: WebGPULight,
+  T: IncrementalBase,
+{
+  fn create_uniform(
+    &self,
+    ctx: &mut LightResourceCtx,
+    node: Box<dyn Stream<Item = SceneNode> + Unpin>,
+  ) -> Box<dyn Stream<Item = Box<dyn DynamicLightUniform>>> {
+    Box::new(
+      self
+        .create_uniform_stream(ctx, node)
+        .map(|uni| Box::new(uni) as Box<dyn DynamicLightUniform>),
+    )
+  }
 }
 
 pub trait ShaderLight:

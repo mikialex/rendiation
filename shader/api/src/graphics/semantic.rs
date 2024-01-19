@@ -141,5 +141,7 @@ both!(FragmentColorAndAlpha, Vec4<f32>); // todo remove
 both!(RenderBufferSize, Vec2<f32>);
 both!(TexelSize, Vec2<f32>);
 
+both!(ColorChannel, Vec3<f32>);
+
 only_fragment!(HDRLightResult, Vec3<f32>);
 only_fragment!(LDRLightResult, Vec3<f32>);
