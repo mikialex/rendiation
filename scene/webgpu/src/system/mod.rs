@@ -7,15 +7,13 @@ pub use content::*;
 pub struct ResourceGPUCtx {
   pub device: GPUDevice,
   pub queue: GPUQueue,
-  pub mipmap_gen: Rc<RefCell<MipMapTaskManager>>,
 }
 
 impl ResourceGPUCtx {
-  pub fn new(gpu: &GPU, mipmap_gen: Rc<RefCell<MipMapTaskManager>>) -> Self {
+  pub fn new(gpu: &GPU) -> Self {
     Self {
       device: gpu.device.clone(),
       queue: gpu.queue.clone(),
-      mipmap_gen,
     }
   }
 }

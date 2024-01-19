@@ -2,6 +2,7 @@ use crate::*;
 
 pub struct SingleProjectShadowMapSystem {
   data_source: Box<dyn ReactiveCollection<(TypeId, u32), ShadowCameraProjInfo>>,
+  output: RxCForker<(TypeId, u32), LightShadowAddressInfo>,
 
   mapping: Box<dyn ReactiveCollection<(TypeId, u32), u32>>,
   inv_mapping: Box<dyn ReactiveCollection<u32, (TypeId, u32)>>,
@@ -29,6 +30,7 @@ impl SingleProjectShadowMapSystem {
   ) -> Self {
     Self {
       data_source,
+      output: todo!(),
       mapping: todo!(),
       inv_mapping: todo!(),
       maps: todo!(),
@@ -39,11 +41,10 @@ impl SingleProjectShadowMapSystem {
     }
   }
 
-  pub fn create_shadow_address_infos<T>(
+  pub fn create_shadow_address_infos<T: CKey>(
     &self,
   ) -> impl ReactiveCollection<AllocIdx<T>, LightShadowAddressInfo> {
-    // info.collective_key_duel_map()
-    //
+    // self.output.clone().collective_filter_key(||)
   }
 
   // pub fn create_shadow_info_stream(

@@ -40,7 +40,7 @@ pub fn camera_gpus(
   })
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct CameraGPU {
   pub ubo: UniformBufferDataView<CameraGPUTransform>,
 }
@@ -107,7 +107,7 @@ impl GraphicsShaderProvider for CameraGPU {
 
 #[repr(C)]
 #[std140_layout]
-#[derive(Clone, Copy, Default, ShaderStruct, Debug)]
+#[derive(Clone, Copy, Default, ShaderStruct, Debug, PartialEq)]
 pub struct CameraGPUTransform {
   pub projection: Mat4<f32>,
   pub projection_inv: Mat4<f32>,

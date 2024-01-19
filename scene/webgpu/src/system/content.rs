@@ -8,7 +8,6 @@ pub struct ContentGPUSystem {
   pub model_ctx: GPUModelResourceCtx,
   pub bindable_ctx: ShareBindableResourceCtx,
   pub models: Arc<RwLock<StreamMap<u64, ReactiveModelGPUType>>>,
-  pub custom_storage: Arc<RefCell<AnyMap>>,
 }
 
 impl ContentGPUSystem {
@@ -91,7 +90,6 @@ impl ShareBindableResourceCtx {
       binding_sys: GPUTextureBindingSystem::new(gpu, config.prefer_bindless_texture),
       default_texture_2d,
       default_sampler: Default::default(),
-      gpu: ResourceGPUCtx::new(gpu, Default::default()),
       sampler: Default::default(),
       texture_2d: Default::default(),
       texture_cube: Default::default(),

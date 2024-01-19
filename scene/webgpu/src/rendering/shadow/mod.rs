@@ -82,7 +82,7 @@ impl ShadowBias {
 
 #[repr(C)]
 #[std140_layout]
-#[derive(Clone, Copy, Default, ShaderStruct, Debug)]
+#[derive(Clone, Copy, Default, ShaderStruct, Debug, PartialEq)]
 pub struct ShadowMapAddressInfo {
   pub layer_index: i32,
   pub size: Vec2<f32>,
@@ -91,7 +91,7 @@ pub struct ShadowMapAddressInfo {
 
 #[repr(C)]
 #[std140_layout]
-#[derive(Copy, Clone, ShaderStruct, Default)]
+#[derive(Copy, Clone, ShaderStruct, Default, Debug, PartialEq)]
 pub struct LightShadowAddressInfo {
   pub index: u32,
   pub enabled: u32,

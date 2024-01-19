@@ -36,16 +36,16 @@ impl BindableResourceView for gpu::TextureView {
   }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct GPU1DTexture(pub GPUTexture);
 
-#[derive(Clone)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct GPU2DTexture(pub GPUTexture);
 
-#[derive(Clone)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct GPU3DTexture(pub GPUTexture);
 
-#[derive(Clone)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct GPUCubeTexture(pub GPUTexture);
 
 macro_rules! texture_inner {
@@ -106,26 +106,26 @@ texture_downcast!(
   "raw texture not a cube"
 );
 
-#[derive(Clone)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct GPU1DTextureView(pub GPUTextureView);
-#[derive(Clone)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct GPU2DTextureView(pub GPUTextureView);
-#[derive(Clone)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct GPU2DArrayTextureView(pub GPUTextureView);
-#[derive(Clone)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct GPUCubeTextureView(pub GPUTextureView);
-#[derive(Clone)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct GPUCubeArrayTextureView(pub GPUTextureView);
-#[derive(Clone)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct GPU3DTextureView(pub GPUTextureView);
 
-#[derive(Clone)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct GPU2DDepthTextureView(pub GPUTextureView);
-#[derive(Clone)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct GPU2DArrayDepthTextureView(pub GPUTextureView);
-#[derive(Clone)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct GPUCubeDepthTextureView(pub GPUTextureView);
-#[derive(Clone)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct GPUCubeArrayDepthTextureView(pub GPUTextureView);
 
 macro_rules! texture_view_inner {

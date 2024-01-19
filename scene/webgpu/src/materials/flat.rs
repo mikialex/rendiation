@@ -6,11 +6,11 @@ pub fn flat_material_gpus(
 ) -> impl ReactiveCollection<AllocIdx<FlatMaterial>, UniformBufferDataView<FlatMaterialUniform>> {
   let cx = cx.clone();
   storage_of::<FlatMaterial>()
-    .listen_to_reactive_collection(|_| Some(()))
+    .listen_all_instance_changed_set()
     .filter_by_keyset(scope)
     .collective_execute_map_by(move || {
       let cx = cx.clone();
-      let creator = storage_of::<FlatMaterial>().create_key_mapper(move |m| {
+      let creator = storage_of::<FlatMaterial>().create_key_mapper(move |m, _| {
         let cx = cx.clone();
 
         let uniform = FlatMaterialUniform {

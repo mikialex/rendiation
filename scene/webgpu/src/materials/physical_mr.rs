@@ -5,7 +5,7 @@ use crate::*;
 
 #[repr(C)]
 #[std140_layout]
-#[derive(Clone, Copy, ShaderStruct)]
+#[derive(Clone, Copy, ShaderStruct, Debug, PartialEq)]
 pub struct PhysicalMetallicRoughnessMaterialUniform {
   pub base_color: Vec3<f32>,
   pub emissive: Vec3<f32>,
@@ -62,22 +62,23 @@ pub fn physical_mr_material_uniforms(
 
   let cx = cx.clone();
   storage_of::<PhysicalMetallicRoughnessMaterial>()
-    .listen_to_reactive_collection(|_| Some(()))
+    .listen_all_instance_changed_set()
     .filter_by_keyset(scope)
     .collective_execute_map_by(move || {
       let cx = cx.clone();
-      let creator = storage_of::<PhysicalMetallicRoughnessMaterial>().create_key_mapper(move |m| {
-        let cx = cx.clone();
+      let creator =
+        storage_of::<PhysicalMetallicRoughnessMaterial>().create_key_mapper(move |m, _| {
+          let cx = cx.clone();
 
-        todo!()
-      });
+          todo!()
+        });
       move |k, _| creator(*k)
     })
 }
 
 #[repr(C)]
 #[std140_layout]
-#[derive(Clone, Copy, ShaderStruct)]
+#[derive(Clone, Copy, ShaderStruct, Debug, PartialEq)]
 pub struct PhysicalMetallicRoughnessMaterialTextureHandlesUniform {
   pub base_color_texture: TextureSamplerHandlePair,
   pub emissive_texture: TextureSamplerHandlePair,

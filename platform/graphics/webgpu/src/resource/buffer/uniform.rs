@@ -9,6 +9,18 @@ pub struct UniformBufferDataView<T: Std140> {
   diff: Arc<RwLock<DiffState<T>>>,
 }
 
+impl<T: Std140> std::fmt::Debug for UniformBufferDataView<T> {
+  fn fmt(&self, f: &mut __core::fmt::Formatter<'_>) -> __core::fmt::Result {
+    f.debug_struct("UniformBufferDataView").finish()
+  }
+}
+
+impl<T: Std140> PartialEq for UniformBufferDataView<T> {
+  fn eq(&self, other: &Self) -> bool {
+    self.gpu == other.gpu
+  }
+}
+
 /// just short convenient method
 pub fn create_uniform<T: Std140>(
   data: T,

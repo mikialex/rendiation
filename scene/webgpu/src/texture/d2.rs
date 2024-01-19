@@ -6,17 +6,17 @@ pub fn gpu_texture_2ds(
 ) -> impl ReactiveCollection<AllocIdx<SceneTexture2DType>, GPU2DTextureView> {
   let cx = cx.clone();
   storage_of::<SceneTexture2DType>()
-    .listen_to_reactive_collection(|_| Some(()))
+    .listen_all_instance_changed_set()
     .filter_by_keyset(scope)
     .collective_execute_map_by(move || {
       let cx = cx.clone();
-      let creator = storage_of::<SceneTexture2DType>().create_key_mapper(move |tex| {
+      let creator = storage_of::<SceneTexture2DType>().create_key_mapper(move |tex, _| {
         let cx = cx.clone();
         cx.create_gpu_texture2d(tex)
       });
       move |k, _| creator(*k)
     })
-    .materialize_linear()
+    .materialize_unordered()
 }
 
 impl ResourceGPUCtx {

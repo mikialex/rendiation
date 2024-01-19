@@ -2,7 +2,7 @@ use crate::*;
 
 #[repr(C)]
 #[std140_layout]
-#[derive(Copy, Clone, ShaderStruct, Default)]
+#[derive(Copy, Clone, ShaderStruct, Default, PartialEq, Debug)]
 pub struct DirectionalLightShaderInfo {
   /// in lx
   pub illuminance: Vec3<f32>,
@@ -82,9 +82,9 @@ impl Default for DirectionalShadowMapExtraInfo {
 fn build_dir_lights_shadow_projections(
 ) -> impl ReactiveCollection<AllocIdx<DirectionalLight>, (Mat4<f32>, Size)> {
   storage_of::<DirectionalLight>()
-    .listen_to_reactive_collection(|| Some(()))
+    .listen_all_instance_changed_set()
     .collective_execute_map_by(|| {
-      let compute = storage_of::<DirectionalLight>().create_key_mapper(|light| {
+      let compute = storage_of::<DirectionalLight>().create_key_mapper(|light, _| {
         let shadow_info = light
           .ext
           .get::<DirectionalShadowMapExtraInfo>()
@@ -119,10 +119,10 @@ fn dir_lights_directions(
 
 fn dir_lights_intensity() -> impl ReactiveCollection<AllocIdx<DirectionalLight>, Vec3<f32>> {
   storage_of::<DirectionalLight>()
-    .listen_to_reactive_collection(|| Some(()))
+    .listen_all_instance_changed_set()
     .collective_execute_map_by(|| {
       let compute = storage_of::<DirectionalLight>()
-        .create_key_mapper(|light| light.illuminance * light.color_factor);
+        .create_key_mapper(|light, _| light.illuminance * light.color_factor);
       move |k, _| compute(*k)
     })
 }

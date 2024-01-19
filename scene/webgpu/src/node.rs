@@ -26,6 +26,18 @@ pub struct NodeGPU {
   pub ubo: UniformBufferDataView<TransformGPUData>,
 }
 
+impl PartialEq for NodeGPU {
+  fn eq(&self, other: &Self) -> bool {
+    false
+  }
+}
+
+impl std::fmt::Debug for NodeGPU {
+  fn fmt(&self, f: &mut __core::fmt::Formatter<'_>) -> __core::fmt::Result {
+    f.debug_struct("NodeGPU").finish()
+  }
+}
+
 impl NodeGPU {
   pub fn update(&mut self, queue: &GPUQueue, world_mat: Mat4<f32>) -> &mut Self {
     self.ubo.set(TransformGPUData::from_world_mat(world_mat));
@@ -54,7 +66,7 @@ impl NodeGPU {
 
 #[repr(C)]
 #[std140_layout]
-#[derive(Clone, Copy, Default, PartialEq, ShaderStruct)]
+#[derive(Clone, Copy, Default, PartialEq, ShaderStruct, Debug)]
 pub struct TransformGPUData {
   pub world_matrix: Mat4<f32>,
   pub normal_matrix: Shader16PaddedMat3,

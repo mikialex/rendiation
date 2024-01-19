@@ -101,6 +101,18 @@ pub struct ResourceRc<T: Resource> {
   inner: Arc<ResourceContainer<T>>,
 }
 
+impl<T: Resource> std::fmt::Debug for ResourceRc<T> {
+  fn fmt(&self, f: &mut __core::fmt::Formatter<'_>) -> __core::fmt::Result {
+    f.debug_struct("ResourceViewRc").finish()
+  }
+}
+
+impl<T: Resource> PartialEq for ResourceRc<T> {
+  fn eq(&self, other: &Self) -> bool {
+    Arc::ptr_eq(&self.inner, &other.inner)
+  }
+}
+
 impl<T: Resource> std::ops::Deref for ResourceRc<T> {
   type Target = ResourceContainer<T>;
 
@@ -119,6 +131,18 @@ impl<T: Resource> Clone for ResourceRc<T> {
 
 pub struct ResourceViewRc<T: Resource> {
   inner: Arc<ResourceViewContainer<T>>,
+}
+
+impl<T: Resource> std::fmt::Debug for ResourceViewRc<T> {
+  fn fmt(&self, f: &mut __core::fmt::Formatter<'_>) -> __core::fmt::Result {
+    f.debug_struct("ResourceViewRc").finish()
+  }
+}
+
+impl<T: Resource> PartialEq for ResourceViewRc<T> {
+  fn eq(&self, other: &Self) -> bool {
+    Arc::ptr_eq(&self.inner, &other.inner)
+  }
 }
 
 impl<T: Resource> std::ops::Deref for ResourceViewRc<T> {

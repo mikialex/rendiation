@@ -5,7 +5,7 @@ use crate::*;
 
 #[repr(C)]
 #[std140_layout]
-#[derive(Clone, Copy, ShaderStruct)]
+#[derive(Clone, Copy, ShaderStruct, Debug, PartialEq)]
 pub struct PhysicalSpecularGlossinessMaterialUniform {
   pub albedo: Vec3<f32>,
   pub specular: Vec3<f32>,
@@ -59,12 +59,12 @@ pub fn physical_sg_material_uniforms(
 
   let cx = cx.clone();
   storage_of::<PhysicalSpecularGlossinessMaterial>()
-    .listen_to_reactive_collection(|_| Some(()))
+    .listen_all_instance_changed_set()
     .filter_by_keyset(scope)
     .collective_execute_map_by(move || {
       let cx = cx.clone();
       let creator =
-        storage_of::<PhysicalSpecularGlossinessMaterial>().create_key_mapper(move |m| {
+        storage_of::<PhysicalSpecularGlossinessMaterial>().create_key_mapper(move |m, _| {
           let cx = cx.clone();
 
           todo!()
@@ -75,7 +75,7 @@ pub fn physical_sg_material_uniforms(
 
 #[repr(C)]
 #[std140_layout]
-#[derive(Clone, Copy, ShaderStruct)]
+#[derive(Clone, Copy, ShaderStruct, Debug, PartialEq)]
 pub struct PhysicalSpecularGlossinessMaterialTextureHandlesUniform {
   pub albedo_texture: TextureSamplerHandlePair,
   pub specular_texture: TextureSamplerHandlePair,

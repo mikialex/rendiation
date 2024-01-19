@@ -8,17 +8,17 @@ pub fn gpu_texture_cubes(
 ) -> impl ReactiveCollection<AllocIdx<SceneTextureCubeImpl>, GPUCubeTextureView> {
   let cx = cx.clone();
   storage_of::<SceneTextureCubeImpl>()
-    .listen_to_reactive_collection(|_| Some(()))
+    .listen_all_instance_changed_set()
     .filter_by_keyset(scope)
     .collective_execute_map_by(move || {
       let cx = cx.clone();
-      let creator = storage_of::<SceneTextureCubeImpl>().create_key_mapper(move |tex| {
+      let creator = storage_of::<SceneTextureCubeImpl>().create_key_mapper(move |tex, _| {
         let cx = cx.clone();
         cx.create_gpu_texture_cube(tex)
       });
       move |k, _| creator(*k)
     })
-    .materialize_linear()
+    .materialize_unordered()
 }
 
 impl ResourceGPUCtx {
