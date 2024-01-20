@@ -54,7 +54,7 @@ impl GPUTextureSamplerPair {
 
 #[repr(C)]
 #[std140_layout]
-#[derive(Clone, Copy, Incremental, ShaderStruct, Default, Debug)]
+#[derive(Clone, Copy, Incremental, ShaderStruct, Default, Debug, PartialEq)]
 pub struct TextureSamplerHandlePair {
   pub texture_handle: u32,
   pub sampler_handle: u32,

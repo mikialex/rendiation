@@ -101,6 +101,13 @@ pub struct PhysicalMetallicRoughnessMaterialGPU<'a> {
   source: &'a PhysicalMetallicRoughnessMaterial,
   // textures: &'a TextureGetter,
 }
+impl<'a> Deref for PhysicalMetallicRoughnessMaterialGPU<'a> {
+  type Target = PhysicalMetallicRoughnessMaterial;
+
+  fn deref(&self) -> &Self::Target {
+    self.source
+  }
+}
 
 impl<'a> ShaderHashProvider for PhysicalMetallicRoughnessMaterialGPU<'a> {
   fn hash_pipeline(&self, hasher: &mut PipelineHasher) {

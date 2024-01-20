@@ -32,10 +32,6 @@ impl ResourceGPUCtx {
       create_fallback_empty_texture(&self.device)
     };
 
-    self
-      .mipmap_gen
-      .borrow_mut()
-      .request_mipmap_gen(&gpu_texture);
     gpu_texture.create_default_view().try_into().unwrap()
   }
 }

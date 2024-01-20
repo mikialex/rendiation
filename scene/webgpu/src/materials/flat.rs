@@ -50,7 +50,7 @@ impl<'a> GraphicsShaderProvider for FlatMaterialGPU<'a> {
 
 impl<'a> ShaderPassBuilder for FlatMaterialGPU<'a> {
   fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
-    ctx.binding.bind(&self.uniform);
+    ctx.binding.bind(self.uniform);
   }
 }
 

@@ -7,58 +7,6 @@ pub use spot::*;
 
 use crate::*;
 
-#[derive(Clone)]
-pub struct LightResourceCtx {
-  pub shadow_system: Arc<RwLock<SingleProjectShadowMapSystem>>,
-  pub derives: SceneNodeDeriveSystem,
-}
-
-pub trait WebGPULight: Any {
-  type Uniform: Std140 + Any;
-  // todo remove box
-  fn create_uniform_stream(
-    &self,
-    ctx: &LightResourceCtx,
-    node: Box<dyn Stream<Item = SceneNode> + Unpin>,
-  ) -> Box<dyn Stream<Item = Self::Uniform> + Unpin>;
-}
-
-pub trait DynamicLightUniform: Any {
-  fn as_bytes(&self) -> &[u8];
-}
-
-impl<T: Std140 + Any> DynamicLightUniform for T {
-  fn as_bytes(&self) -> &[u8] {
-    self.as_bytes()
-  }
-}
-
-pub trait WebGPUSceneLight {
-  fn create_uniform(
-    &self,
-    ctx: &mut LightResourceCtx,
-    node: Box<dyn Stream<Item = SceneNode> + Unpin>,
-  ) -> Box<dyn Stream<Item = Box<dyn DynamicLightUniform>>>;
-}
-
-impl<T> WebGPUSceneLight for IncrementalSignalPtr<T>
-where
-  Self: WebGPULight,
-  T: IncrementalBase,
-{
-  fn create_uniform(
-    &self,
-    ctx: &mut LightResourceCtx,
-    node: Box<dyn Stream<Item = SceneNode> + Unpin>,
-  ) -> Box<dyn Stream<Item = Box<dyn DynamicLightUniform>>> {
-    Box::new(
-      self
-        .create_uniform_stream(ctx, node)
-        .map(|uni| Box::new(uni) as Box<dyn DynamicLightUniform>),
-    )
-  }
-}
-
 pub trait ShaderLight:
   ShaderStructuralNodeType + ShaderSizedValueNodeType + Std140 + Sized + Default
 {

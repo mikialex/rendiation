@@ -5,29 +5,15 @@ use crate::*;
 
 pub struct ContentGPUSystem {
   pub(crate) gpu: ResourceGPUCtx,
-  pub model_ctx: GPUModelResourceCtx,
   pub bindable_ctx: ShareBindableResourceCtx,
-  pub models: Arc<RwLock<StreamMap<u64, ReactiveModelGPUType>>>,
 }
 
 impl ContentGPUSystem {
   pub fn new(gpu: &GPU, config: BindableResourceConfig) -> Self {
     let bindable_ctx = ShareBindableResourceCtx::new(gpu, config);
-    let gpu = ResourceGPUCtx::new(gpu, Default::default());
+    let gpu = ResourceGPUCtx::new(gpu);
 
-    let model_ctx = GPUModelResourceCtx {
-      shared: bindable_ctx.clone(),
-      materials: Default::default(),
-      meshes: Default::default(),
-    };
-
-    Self {
-      gpu,
-      bindable_ctx,
-      model_ctx,
-      models: Default::default(),
-      custom_storage: Arc::new(RefCell::new(AnyMap::new())),
-    }
+    Self { gpu, bindable_ctx }
   }
 }
 

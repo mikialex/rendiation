@@ -71,105 +71,83 @@ impl RenderList {
     resource: &SceneRenderResourceGroup,
     skip_opaque: bool,
   ) {
-    let resource_view = ModelGPURenderResourceView::new(resource);
-    let camera_gpu = resource_view.cameras.get_camera_gpu(camera).unwrap();
+    //   let resource_view = ModelGPURenderResourceView::new(resource);
+    //   let camera_gpu = resource_view.cameras.get_camera_gpu(camera).unwrap();
 
-    if !skip_opaque {
-      self.opaque.iter().for_each(|(model, _)| {
-        scene_model_setup_pass_core(
-          gpu_pass,
-          model.guid(),
-          camera_gpu,
-          &resource_view,
-          dispatcher,
-        );
-      });
-    }
+    //   if !skip_opaque {
+    //     self.opaque.iter().for_each(|(model, _)| {
+    //       scene_model_setup_pass_core(
+    //         gpu_pass,
+    //         model.guid(),
+    //         camera_gpu,
+    //         &resource_view,
+    //         dispatcher,
+    //       );
+    //     });
+    //   }
 
-    self.transparent.iter().for_each(|(model, _)| {
-      scene_model_setup_pass_core(
-        gpu_pass,
-        model.guid(),
-        camera_gpu,
-        &resource_view,
-        dispatcher,
-      );
-    });
+    //   self.transparent.iter().for_each(|(model, _)| {
+    //     scene_model_setup_pass_core(
+    //       gpu_pass,
+    //       model.guid(),
+    //       camera_gpu,
+    //       &resource_view,
+    //       dispatcher,
+    //     );
+    //   });
   }
 }
 
-pub(crate) struct ModelGPURenderResourceView<'a> {
-  pub(crate) nodes: &'a SceneNodeGPUSystem,
-  pub(crate) cameras: RwLockReadGuard<'a, SceneCameraGPUSystem>,
-  pub(crate) scene_models: RwLockReadGuard<'a, StreamMap<u64, ReactiveSceneModelGPUInstance>>,
-  pub(crate) models: RwLockReadGuard<'a, StreamMap<u64, ReactiveModelGPUType>>,
-  pub(crate) materials: RwLockReadGuard<'a, StreamMap<u64, MaterialGPUInstance>>,
-  pub(crate) meshes: RwLockReadGuard<'a, StreamMap<u64, MeshGPUInstance>>,
-}
+// pub(crate) fn scene_model_setup_pass_core(
+//   gpu_pass: &mut FrameRenderPass,
+//   model_guid: u64,
+//   camera_gpu: &CameraGPU,
+//   resource_view: &ModelGPURenderResourceView,
+//   dispatcher: &dyn RenderComponentAny,
+// ) {
+//   let scene_model = resource_view.scene_models.get(&model_guid).unwrap();
+//   let scene_model = scene_model.as_ref();
 
-impl<'a> ModelGPURenderResourceView<'a> {
-  pub fn new(pass: &SceneRenderResourceGroup<'a>) -> Self {
-    Self {
-      nodes: &pass.scene_resources.nodes,
-      cameras: pass.scene_resources.cameras.read().unwrap(),
-      scene_models: pass.scene_resources.models.read().unwrap(),
-      models: pass.resources.models.read().unwrap(),
-      materials: pass.resources.model_ctx.materials.read().unwrap(),
-      meshes: pass.resources.model_ctx.meshes.read().unwrap(),
-    }
-  }
-}
+//   let model_id = scene_model.model_id.unwrap();
+//   let model_gpu = resource_view.models.get(&model_id).unwrap();
+//   let node_gpu = resource_view.nodes.get_by_raw(scene_model.node_id).unwrap();
 
-pub(crate) fn scene_model_setup_pass_core(
-  gpu_pass: &mut FrameRenderPass,
-  model_guid: u64,
-  camera_gpu: &CameraGPU,
-  resource_view: &ModelGPURenderResourceView,
-  dispatcher: &dyn RenderComponentAny,
-) {
-  let scene_model = resource_view.scene_models.get(&model_guid).unwrap();
-  let scene_model = scene_model.as_ref();
+//   if let ReactiveModelGPUType::Standard(m_gpu) = model_gpu {
+//     model_setup_pass_core(
+//       gpu_pass,
+//       m_gpu.as_ref(),
+//       camera_gpu,
+//       node_gpu,
+//       resource_view,
+//       dispatcher,
+//     );
+//   }
+// }
 
-  let model_id = scene_model.model_id.unwrap();
-  let model_gpu = resource_view.models.get(&model_id).unwrap();
-  let node_gpu = resource_view.nodes.get_by_raw(scene_model.node_id).unwrap();
+// fn model_setup_pass_core(
+//   pass: &mut FrameRenderPass,
+//   model_gpu: &StandardModelGPU,
+//   camera_gpu: &CameraGPU,
+//   node_gpu: &NodeGPU,
+//   ctx: &ModelGPURenderResourceView,
+//   dispatcher: &dyn RenderComponentAny,
+// ) {
+//   let material_gpu = ctx.materials.get(&model_gpu.material_id.unwrap()).unwrap();
+//   let mesh_gpu = ctx.meshes.get(&model_gpu.mesh_id.unwrap()).unwrap();
+//   let pass_gpu = dispatcher;
 
-  if let ReactiveModelGPUType::Standard(m_gpu) = model_gpu {
-    model_setup_pass_core(
-      gpu_pass,
-      m_gpu.as_ref(),
-      camera_gpu,
-      node_gpu,
-      resource_view,
-      dispatcher,
-    );
-  }
-}
+//   let draw_command = mesh_gpu.draw_command(model_gpu.group);
 
-fn model_setup_pass_core(
-  pass: &mut FrameRenderPass,
-  model_gpu: &StandardModelGPU,
-  camera_gpu: &CameraGPU,
-  node_gpu: &NodeGPU,
-  ctx: &ModelGPURenderResourceView,
-  dispatcher: &dyn RenderComponentAny,
-) {
-  let material_gpu = ctx.materials.get(&model_gpu.material_id.unwrap()).unwrap();
-  let mesh_gpu = ctx.meshes.get(&model_gpu.mesh_id.unwrap()).unwrap();
-  let pass_gpu = dispatcher;
-
-  let draw_command = mesh_gpu.draw_command(model_gpu.group);
-
-  dispatch_model_draw_with_preferred_binding_frequency(
-    pass_gpu,
-    mesh_gpu,
-    node_gpu,
-    camera_gpu,
-    material_gpu,
-    draw_command,
-    &mut pass.ctx,
-  )
-}
+//   dispatch_model_draw_with_preferred_binding_frequency(
+//     pass_gpu,
+//     mesh_gpu,
+//     node_gpu,
+//     camera_gpu,
+//     material_gpu,
+//     draw_command,
+//     &mut pass.ctx,
+//   )
+// }
 
 pub trait AlphaBlendDecider {
   fn should_use_alpha_blend(&self) -> bool;

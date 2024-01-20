@@ -16,19 +16,19 @@ pub fn index_attribute_buffers_scope(
 pub fn gpu_attribute_vertex_buffers(
   scope: impl ReactiveCollection<AllocIdx<AttributeAccessor>, ()>,
 ) -> impl ReactiveCollection<AllocIdx<AttributeAccessor>, GPUBufferResourceView> {
-  storage_of::<AttributeAccessor>()
+  // storage_of::<AttributeAccessor>()
   //
 }
 
 pub fn gpu_attribute_index_buffers(
   scope: impl ReactiveCollection<AllocIdx<AttributeAccessor>, ()>,
 ) -> impl ReactiveCollection<AllocIdx<AttributeAccessor>, GPUBufferResourceView> {
-  storage_of::<AttributeAccessor>()
+  // storage_of::<AttributeAccessor>()
   //
 }
 
 pub struct AttributesMeshGPU<'a> {
-  attributes: &'a AttributesMesh,
+  mesh: &'a AttributesMesh,
   // vertex_buffer_getter:
   // index_buffer_getter:
 
@@ -40,10 +40,10 @@ pub struct AttributesMeshGPU<'a> {
 
 impl<'a> ShaderPassBuilder for AttributesMeshGPU<'a> {
   fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
-    for (_, b) in &self.attributes {
+    for (_, b) in &self.mesh.attributes {
       ctx.set_vertex_buffer_owned_next(b);
     }
-    if let Some((buffer, index_format)) = &self.indices {
+    if let Some((buffer, index_format)) = &self.mesh.indices {
       ctx.pass.set_index_buffer_owned(buffer, *index_format)
     }
   }
@@ -56,13 +56,13 @@ define_dyn_trait_downcaster_static!(CustomAttributeKeyGPU);
 
 impl<'a> ShaderHashProvider for AttributesMeshGPU<'a> {
   fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
-    for (s, _) in &self.attributes {
+    for (s, _) in &self.mesh.attributes {
       s.hash(hasher)
     }
-    self.topology.hash(hasher);
-    if let Some((_, f)) = &self.indices {
-      if rendiation_webgpu::PrimitiveTopology::LineStrip == self.topology
-        || rendiation_webgpu::PrimitiveTopology::TriangleStrip == self.topology
+    self.mesh.mode.hash(hasher);
+    if let Some((f, _)) = &self.mesh.indices {
+      if rendiation_mesh_core::PrimitiveTopology::LineStrip == self.mesh.mode
+        || rendiation_mesh_core::PrimitiveTopology::TriangleStrip == self.mesh.mode
       {
         f.hash(hasher)
       }
@@ -73,7 +73,7 @@ impl<'a> GraphicsShaderProvider for AttributesMeshGPU<'a> {
   fn build(&self, builder: &mut ShaderRenderPipelineBuilder) -> Result<(), ShaderBuildError> {
     let mode = VertexStepMode::Vertex;
     builder.vertex(|builder, _| {
-      for (s, _) in &self.attributes {
+      for (s, _) in &self.mesh.attributes {
         match s {
           AttributeSemantic::Positions => {
             builder.push_single_vertex_layout::<GeometryPosition>(mode)
@@ -112,7 +112,7 @@ impl<'a> GraphicsShaderProvider for AttributesMeshGPU<'a> {
           }
         }
       }
-      builder.primitive_state.topology = self.topology;
+      builder.primitive_state.topology = map_topology(self.mesh.mode);
       Ok(())
     })
   }

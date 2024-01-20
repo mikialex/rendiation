@@ -143,7 +143,7 @@ impl FusedStream for ForwardLightingSystem {
 }
 
 impl ForwardLightingSystem {
-  pub fn new(scene: &Scene, gpu: ResourceGPUCtx, res: LightResourceCtx) -> Self {
+  pub fn new(scene: &Scene, gpu: ResourceGPUCtx) -> Self {
     let scene_light_change = scene
       .unbound_listen_by(all_delta)
       .filter_map_sync(|d| match d {

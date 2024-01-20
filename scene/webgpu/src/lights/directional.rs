@@ -103,7 +103,7 @@ fn build_dir_lights_shadow_info(
   world_mats: impl ReactiveCollection<NodeIdentity, Mat4<f32>>,
   shadows: impl ReactiveCollection<AllocIdx<DirectionalLight>, (Mat4<f32>, Size)>,
 ) -> impl ReactiveCollection<AllocIdx<DirectionalLight>, LightShadowAddressInfo> {
-  shadow_sys.create_shadow_address_infos()
+  // shadow_sys.create_shadow_address_infos()
   // todo
 }
 
