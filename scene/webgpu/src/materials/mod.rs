@@ -9,6 +9,29 @@ pub use utils::*;
 
 use crate::*;
 
+pub trait ReactiveCollectionNewExt<K: CKey, V: CValue>: ReactiveCollection<K, V> + Sized {
+  // todo, this actually requires one to many.
+  // when self changed, just propagate changes, when mapping changed, also require propagate
+  // to upstream. we should also impl one to one relation to optimize when necessary
+  fn collective_remap_value<V2>(
+    self,
+    value_map: impl ReactiveCollection<V, V2>,
+  ) -> impl ReactiveCollection<K, V2>
+  where
+    V: CKey,
+    V2: CValue;
+}
+
+// pub trait ReactiveRelationNewExt<K: CKey, V: CKey>: ReactiveOneToManyRelationship<K, V> {
+//   fn collective_remap_value<V2>(
+//     self,
+//     value_map: impl ReactiveCollection<V, V2>,
+//   ) -> impl ReactiveCollection<K, V2>
+//   where
+//     V: CKey,
+//     V2: CValue;
+// }
+
 fn tex_sample_handle_of_material<M: MaterialReferenceTexture>(
   scope: impl ReactiveCollection<AllocIdx<M>, ()>,
   texture2ds: impl ReactiveCollection<AllocIdx<SceneTexture2DType>, TextureSamplerHandlePair>,
