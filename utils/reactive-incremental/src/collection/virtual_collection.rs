@@ -135,9 +135,10 @@ impl<T> MakeLockResultHolderRaw<T> for Arc<RwLock<T>> {
   }
 }
 
+/// Note, the field(drop) order is important
 pub(crate) struct LockResultHolder<T: 'static> {
-  holder: Arc<RwLock<T>>,
   guard: Arc<RwLockReadGuard<'static, T>>,
+  holder: Arc<RwLock<T>>,
 }
 
 impl<T: 'static> Deref for LockResultHolder<T> {
