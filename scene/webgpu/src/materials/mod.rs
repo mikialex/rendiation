@@ -10,45 +10,46 @@ pub use utils::*;
 use crate::*;
 
 pub trait ReactiveCollectionNewExt<K: CKey, V: CValue>: ReactiveCollection<K, V> + Sized {
-  // todo, this actually requires one to many.
-  // when self changed, just propagate changes, when mapping changed, also require propagate
-  // to upstream. we should also impl one to one relation to optimize when necessary
-  fn collective_remap_value<V2>(
+  fn collective_key_map_filter<K2: CKey>(
     self,
-    value_map: impl ReactiveCollection<V, V2>,
-  ) -> impl ReactiveCollection<K, V2>
+    filter: impl Fn(K) -> Option<K2>,
+  ) -> impl ReactiveCollection<K2, V> {
+  }
+
+  fn collective_key_lifting<K2: CKey>(
+    self,
+    lift: impl Fn(K) -> K2,
+    un_lift: impl Fn(K2) -> Option<K>,
+  ) -> impl ReactiveCollection<K2, V> {
+  }
+}
+impl<K: CKey, V: CValue, T: ReactiveCollection<K, V>> ReactiveCollectionNewExt<K, V> for T {}
+
+pub trait ReactiveRelationNewExt<O: CKey, M: CKey>:
+  ReactiveOneToManyRelationship<O, M> + Sized
+{
+  fn collective_remap_value<X>(
+    self,
+    value_map: impl ReactiveCollection<O, X>,
+  ) -> impl ReactiveCollection<M, X>
   where
-    V: CKey,
-    V2: CValue;
+    X: CValue,
+  {
+  }
 }
 
-// pub trait ReactiveRelationNewExt<K: CKey, V: CKey>: ReactiveOneToManyRelationship<K, V> {
-//   fn collective_remap_value<V2>(
-//     self,
-//     value_map: impl ReactiveCollection<V, V2>,
-//   ) -> impl ReactiveCollection<K, V2>
-//   where
-//     V: CKey,
-//     V2: CValue;
-// }
+impl<O: CKey, M: CKey, T: ReactiveOneToManyRelationship<O, M>> ReactiveRelationNewExt<O, M> for T {}
 
-fn tex_sample_handle_of_material<M: MaterialReferenceTexture>(
-  scope: impl ReactiveCollection<AllocIdx<M>, ()>,
-  texture2ds: impl ReactiveCollection<AllocIdx<SceneTexture2DType>, TextureSamplerHandlePair>,
-) -> impl ReactiveCollection<(u8, AllocIdx<M>), TextureSamplerHandlePair> {
-  // storage_of::<M>().listen_to_reactive_collection(M::check_change);
-  //   .filter_by_keyset(scope)
-}
-
-fn material_referenced_textures<M: MaterialReferenceTexture>(
-  scope: impl ReactiveCollection<AllocIdx<M>, ()>,
-) -> impl ReactiveCollection<(u8, AllocIdx<M>), AllocIdx<SceneTexture2DType>> {
-  // storage_of::<M>().listen_to_reactive_collection(M::check_change);
-  //   .filter_by_keyset(scope)
+#[derive(Clone, Copy, Hash, Eq, PartialEq, Debug)]
+pub struct MaterialTextureAddress {
+  pub material_type_id: TypeId,
+  pub material_alloc_id: u32,
+  pub material_texture_id: u32,
 }
 
 pub trait MaterialReferenceTexture: IncrementalBase {
   type TextureType: CKey + Into<u8>;
+  type TextureUniform: CValue;
 
   fn get_texture(&self, ty: Self::TextureType) -> &SceneTexture2D;
   fn check_change(
@@ -56,42 +57,69 @@ pub trait MaterialReferenceTexture: IncrementalBase {
   ) -> ChangeReaction<(Self::TextureType, AllocIdx<SceneTexture2DType>)>;
 
   fn expand_self(&self, change: &mut dyn Fn((Self::TextureType, AllocIdx<SceneTexture2DType>)));
+
+  fn create_reference_collection(
+    scope: impl ReactiveCollection<AllocIdx<Self>, ()>,
+  ) -> impl ReactiveCollection<(u8, AllocIdx<Self>), AllocIdx<SceneTexture2DType>> {
+    // todo, custom listen to
+  }
+
+  fn create_reference_relation(
+    reference_collection: impl ReactiveCollection<(u8, AllocIdx<Self>), AllocIdx<SceneTexture2DType>>,
+  ) -> impl ReactiveOneToManyRelationship<AllocIdx<SceneTexture2DType>, (u8, AllocIdx<Self>)> {
+    reference_collection.into_one_to_many_by_hash()
+  }
+
+  // fn create_texture_uniforms(
+  //   scope: impl ReactiveCollection<AllocIdx<Self>, ()>,
+  //   texture2ds: impl ReactiveCollection<AllocIdx<SceneTexture2DType>, TextureSamplerHandlePair>,
+  // ) -> impl ReactiveCollection<AllocIdx<Self>, Self::TextureUniform> {
+  //   // M::create_reference_relation(scope).collective_remap_value(texture2ds)
+  // }
 }
 
-#[repr(u8)]
-#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
-pub enum PhysicalMetallicRoughnessMaterialTextureType {
-  BaseColor,
-  MetallicRoughness,
-  Emissive,
-  Normal,
+pub fn material_textures<M: MaterialReferenceTexture>(
+  scope: impl ReactiveCollection<AllocIdx<StandardModel>, ()>,
+) -> (
+  RxCForker<(u8, AllocIdx<M>), AllocIdx<SceneTexture2DType>>,
+  impl ReactiveCollection<MaterialTextureAddress, AllocIdx<SceneTexture2DType>>,
+) {
+  let m_scope = storage_of::<StandardModel>()
+    .listen_all_instance_changed_set()
+    .filter_by_keyset(scope);
+
+  let m_referenced_textures = M::create_reference_collection(())
+    .into_boxed()
+    .into_forker();
+
+  // let lift_referenced_textures = m_referenced_textures.clone().collective_key_lifting(|v| {},
+  // un_lift); todo
+  let lift_referenced_textures = ();
+
+  (m_referenced_textures, lift_referenced_textures)
 }
 
-impl Into<u8> for PhysicalMetallicRoughnessMaterialTextureType {
-  fn into(self) -> u8 {
-    self as u8
-  }
+pub struct SceneTextureMaterialsRelations {
+  mr_mat:
+    RxCForker<(u8, AllocIdx<PhysicalMetallicRoughnessMaterial>), AllocIdx<SceneTexture2DType>>,
+  // sg_mat: RxCForker<(u8, AllocIdx<PhysicalSpecularGlossinessMaterial>),
+  // AllocIdx<SceneTexture2DType>>,
 }
 
-impl MaterialReferenceTexture for PhysicalMetallicRoughnessMaterial {
-  type TextureType = PhysicalMetallicRoughnessMaterialTextureType;
+pub fn all_std_model_materials_textures(
+  scope: impl ReactiveCollection<AllocIdx<StandardModel>, ()> + Clone,
+  foreign: impl ReactiveCollection<MaterialTextureAddress, AllocIdx<SceneTexture2DType>>,
+) -> (
+  SceneTextureMaterialsRelations,
+  impl ReactiveCollection<MaterialTextureAddress, AllocIdx<SceneTexture2DType>>,
+) {
+  let (mr_mat, mr_lifted) = material_textures::<PhysicalMetallicRoughnessMaterial>(scope.clone());
+  // let (sg_mat, sg_lifted) =
+  // material_textures::<PhysicalMetallicRoughnessMaterial>(scope.clone());
 
-  fn get_texture(&self, ty: Self::TextureType) -> &SceneTexture2D {
-    match ty {
-      PhysicalMetallicRoughnessMaterialTextureType::BaseColor => todo!(),
-      PhysicalMetallicRoughnessMaterialTextureType::MetallicRoughness => todo!(),
-      PhysicalMetallicRoughnessMaterialTextureType::Emissive => todo!(),
-      PhysicalMetallicRoughnessMaterialTextureType::Normal => todo!(),
-    }
-  }
+  let forker = SceneTextureMaterialsRelations { mr_mat };
 
-  fn check_change(
-    change: Self::Delta,
-  ) -> ChangeReaction<(Self::TextureType, AllocIdx<SceneTexture2DType>)> {
-    todo!()
-  }
+  let all_texture = mr_lifted.collective_select(foreign);
 
-  fn expand_self(&self, change: &mut dyn Fn((Self::TextureType, AllocIdx<SceneTexture2DType>))) {
-    todo!()
-  }
+  (forker, all_texture)
 }

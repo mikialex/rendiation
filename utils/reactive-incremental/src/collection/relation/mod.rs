@@ -21,6 +21,12 @@ pub trait ReactiveOneToManyRelationship<O: CKey, M: CKey>: ReactiveCollection<M,
   }
 }
 
+impl<O: CKey, M: CKey> ReactiveOneToManyRelationship<O, M> for () {
+  fn multi_access(&self) -> CPoll<Box<dyn VirtualMultiCollection<O, M> + '_>> {
+    CPoll::Blocked
+  }
+}
+
 pub trait ReactiveOneToManyRelationshipExt<O: CKey, M: CKey>:
   ReactiveOneToManyRelationship<O, M>
 {

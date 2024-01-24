@@ -78,7 +78,7 @@ pub fn physical_mr_material_uniforms(
 
 #[repr(C)]
 #[std140_layout]
-#[derive(Clone, Copy, ShaderStruct, Debug, PartialEq)]
+#[derive(Clone, Copy, ShaderStruct, Debug, PartialEq, Default)]
 pub struct PhysicalMetallicRoughnessMaterialTextureHandlesUniform {
   pub base_color_texture: TextureSamplerHandlePair,
   pub emissive_texture: TextureSamplerHandlePair,
@@ -86,20 +86,51 @@ pub struct PhysicalMetallicRoughnessMaterialTextureHandlesUniform {
   pub normal_texture: TextureSamplerHandlePair,
 }
 
-pub fn physical_mr_material_texture_handle_uniforms(
-  cx: &ResourceGPUCtx,
-  scope: impl ReactiveCollection<AllocIdx<PhysicalMetallicRoughnessMaterial>, ()>,
-) -> impl ReactiveCollection<
-  AllocIdx<PhysicalMetallicRoughnessMaterial>,
-  PhysicalMetallicRoughnessMaterialTextureHandlesUniform,
-> {
-  // tex_sample_handle_of_material().zip(..).zip(..).map(..)
+#[repr(u8)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+pub enum PhysicalMetallicRoughnessMaterialTextureType {
+  BaseColor,
+  MetallicRoughness,
+  Emissive,
+  Normal,
+}
+
+impl Into<u8> for PhysicalMetallicRoughnessMaterialTextureType {
+  fn into(self) -> u8 {
+    self as u8
+  }
+}
+
+impl MaterialReferenceTexture for PhysicalMetallicRoughnessMaterial {
+  type TextureType = PhysicalMetallicRoughnessMaterialTextureType;
+  type TextureUniform = PhysicalMetallicRoughnessMaterialTextureHandlesUniform;
+
+  fn get_texture(&self, ty: Self::TextureType) -> &SceneTexture2D {
+    match ty {
+      PhysicalMetallicRoughnessMaterialTextureType::BaseColor => todo!(),
+      PhysicalMetallicRoughnessMaterialTextureType::MetallicRoughness => todo!(),
+      PhysicalMetallicRoughnessMaterialTextureType::Emissive => todo!(),
+      PhysicalMetallicRoughnessMaterialTextureType::Normal => todo!(),
+    }
+  }
+
+  fn check_change(
+    change: Self::Delta,
+  ) -> ChangeReaction<(Self::TextureType, AllocIdx<SceneTexture2DType>)> {
+    todo!()
+  }
+
+  fn expand_self(&self, change: &mut dyn Fn((Self::TextureType, AllocIdx<SceneTexture2DType>))) {
+    todo!()
+  }
 }
 
 pub struct PhysicalMetallicRoughnessMaterialGPU<'a> {
   uniform: &'a UniformBufferDataView<PhysicalMetallicRoughnessMaterialUniform>,
+  texture_uniforms:
+    &'a UniformBufferDataView<PhysicalMetallicRoughnessMaterialTextureHandlesUniform>,
   source: &'a PhysicalMetallicRoughnessMaterial,
-  // textures: &'a TextureGetter,
+  textures: &'a GPUTextureResourceGetter,
 }
 impl<'a> Deref for PhysicalMetallicRoughnessMaterialGPU<'a> {
   type Target = PhysicalMetallicRoughnessMaterial;
