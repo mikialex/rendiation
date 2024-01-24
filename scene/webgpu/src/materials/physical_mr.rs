@@ -94,23 +94,26 @@ pub enum PhysicalMetallicRoughnessMaterialTextureType {
   Emissive,
   Normal,
 }
+use PhysicalMetallicRoughnessMaterialTextureType as TextureType;
 
-impl Into<u8> for PhysicalMetallicRoughnessMaterialTextureType {
+impl Into<u8> for TextureType {
   fn into(self) -> u8 {
     self as u8
   }
 }
 
 impl MaterialReferenceTexture for PhysicalMetallicRoughnessMaterial {
-  type TextureType = PhysicalMetallicRoughnessMaterialTextureType;
+  type TextureType = TextureType;
   type TextureUniform = PhysicalMetallicRoughnessMaterialTextureHandlesUniform;
 
-  fn get_texture(&self, ty: Self::TextureType) -> &SceneTexture2D {
+  fn get_texture(&self, ty: Self::TextureType) -> Option<&SceneTexture2D> {
     match ty {
-      PhysicalMetallicRoughnessMaterialTextureType::BaseColor => todo!(),
-      PhysicalMetallicRoughnessMaterialTextureType::MetallicRoughness => todo!(),
-      PhysicalMetallicRoughnessMaterialTextureType::Emissive => todo!(),
-      PhysicalMetallicRoughnessMaterialTextureType::Normal => todo!(),
+      TextureType::BaseColor => self.base_color_texture.as_ref().map(|t| &t.texture),
+      TextureType::MetallicRoughness => {
+        self.metallic_roughness_texture.as_ref().map(|t| &t.texture)
+      }
+      TextureType::Emissive => self.emissive_texture.as_ref().map(|t| &t.texture),
+      TextureType::Normal => self.normal_texture.as_ref().map(|t| &t.content.texture),
     }
   }
 
@@ -130,7 +133,7 @@ pub struct PhysicalMetallicRoughnessMaterialGPU<'a> {
   texture_uniforms:
     &'a UniformBufferDataView<PhysicalMetallicRoughnessMaterialTextureHandlesUniform>,
   source: &'a PhysicalMetallicRoughnessMaterial,
-  textures: &'a GPUTextureResourceGetter,
+  binding_sys: &'a GPUTextureBindingSystem,
 }
 impl<'a> Deref for PhysicalMetallicRoughnessMaterialGPU<'a> {
   type Target = PhysicalMetallicRoughnessMaterial;
@@ -142,17 +145,18 @@ impl<'a> Deref for PhysicalMetallicRoughnessMaterialGPU<'a> {
 
 impl<'a> ShaderHashProvider for PhysicalMetallicRoughnessMaterialGPU<'a> {
   fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
-    self.source.alpha_mode.hash(hasher);
+    self.alpha_mode.hash(hasher);
   }
 }
 
 impl<'a> ShaderPassBuilder for PhysicalMetallicRoughnessMaterialGPU<'a> {
   fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
-    ctx.binding.bind(&self.uniform);
-    self.base_color_texture.setup_pass(ctx);
-    self.metallic_roughness_texture.setup_pass(ctx);
-    self.emissive_texture.setup_pass(ctx);
-    self.normal_texture.setup_pass(ctx);
+    ctx.binding.bind(self.uniform);
+    ctx.binding.bind(self.texture_uniforms);
+    setup_tex(ctx, self.binding_sys, &self.base_color_texture);
+    setup_tex(ctx, self.binding_sys, &self.metallic_roughness_texture);
+    setup_tex(ctx, self.binding_sys, &self.emissive_texture);
+    setup_normal_tex(ctx, self.binding_sys, &self.normal_texture);
   }
 }
 
@@ -165,16 +169,20 @@ impl<'a> GraphicsShaderProvider for PhysicalMetallicRoughnessMaterialGPU<'a> {
 
     builder.fragment(|builder, binding| {
       let uniform = binding.bind_by(&self.uniform).load().expand();
+      let tex_uniform = binding.bind_by(&self.texture_uniforms).load().expand();
+
       let uv = builder.query_or_interpolate_by::<FragmentUv, GeometryUV>();
 
       let mut alpha = uniform.alpha;
       let mut base_color = uniform.base_color;
 
-      let base_color_tex = self.base_color_texture.bind_and_sample(
+      let base_color_tex = bind_and_sample(
         binding,
         builder.registry(),
-        uniform.base_color_texture,
+        &self.base_color_texture,
+        tex_uniform.base_color_texture,
         uv,
+        val(Vec4::one()),
       );
       alpha *= base_color_tex.w();
       base_color *= base_color_tex.xyz();
@@ -182,27 +190,36 @@ impl<'a> GraphicsShaderProvider for PhysicalMetallicRoughnessMaterialGPU<'a> {
       let mut metallic = uniform.metallic;
       let mut roughness = uniform.roughness;
 
-      let metallic_roughness_tex = self.metallic_roughness_texture.bind_and_sample(
+      let metallic_roughness_tex = bind_and_sample(
         binding,
         builder.registry(),
-        uniform.metallic_roughness_texture,
+        &self.metallic_roughness_texture,
+        tex_uniform.metallic_roughness_texture,
         uv,
+        val(Vec4::one()),
       );
 
       metallic *= metallic_roughness_tex.x();
       roughness *= metallic_roughness_tex.y();
 
       let mut emissive = uniform.emissive;
-      emissive *= self
-        .emissive_texture
-        .bind_and_sample(binding, builder.registry(), uniform.emissive_texture, uv)
-        .xyz();
-
-      let (normal_sample, enabled) = self.normal_texture.bind_and_sample_enabled(
+      emissive *= bind_and_sample(
         binding,
         builder.registry(),
-        uniform.normal_texture,
+        &self.emissive_texture,
+        tex_uniform.emissive_texture,
         uv,
+        val(Vec4::one()),
+      )
+      .xyz();
+
+      let (normal_sample, enabled) = bind_and_sample_enabled(
+        binding,
+        builder.registry(),
+        &self.normal_texture.as_ref().map(|m| m.content),
+        tex_uniform.normal_texture,
+        uv,
+        val(Vec4::one()),
       );
 
       apply_normal_mapping_conditional(

@@ -51,7 +51,7 @@ pub trait MaterialReferenceTexture: IncrementalBase {
   type TextureType: CKey + Into<u8>;
   type TextureUniform: CValue;
 
-  fn get_texture(&self, ty: Self::TextureType) -> &SceneTexture2D;
+  fn get_texture(&self, ty: Self::TextureType) -> Option<&SceneTexture2D>;
   fn check_change(
     change: Self::Delta,
   ) -> ChangeReaction<(Self::TextureType, AllocIdx<SceneTexture2DType>)>;
@@ -71,55 +71,88 @@ pub trait MaterialReferenceTexture: IncrementalBase {
   }
 
   // fn create_texture_uniforms(
-  //   scope: impl ReactiveCollection<AllocIdx<Self>, ()>,
-  //   texture2ds: impl ReactiveCollection<AllocIdx<SceneTexture2DType>, TextureSamplerHandlePair>,
-  // ) -> impl ReactiveCollection<AllocIdx<Self>, Self::TextureUniform> {
-  //   // M::create_reference_relation(scope).collective_remap_value(texture2ds)
+  //   reference_collection: impl ReactiveCollection<(u8, AllocIdx<Self>),
+  // AllocIdx<SceneTexture2DType>>,   texture2ds: impl
+  // ReactiveCollection<AllocIdx<SceneTexture2DType>, TextureSamplerHandlePair>,
+  // ) -> impl ReactiveCollection<(u8, AllocIdx<Self>), Self::TextureUniform> {
+  //   reference_collection
+  //     .into_one_to_many_by_hash()
+  //     .collective_remap_value(texture2ds)
   // }
 }
 
-pub fn material_textures<M: MaterialReferenceTexture>(
-  scope: impl ReactiveCollection<AllocIdx<StandardModel>, ()>,
-) -> (
-  RxCForker<(u8, AllocIdx<M>), AllocIdx<SceneTexture2DType>>,
-  impl ReactiveCollection<MaterialTextureAddress, AllocIdx<SceneTexture2DType>>,
-) {
-  let m_scope = storage_of::<StandardModel>()
-    .listen_all_instance_changed_set()
-    .filter_by_keyset(scope);
+pub fn material_textures<M: MaterialReferenceTexture + DowncastFromMaterialEnum>(
+  std_scope: impl ReactiveCollection<AllocIdx<StandardModel>, ()> + Clone,
+) -> RxCForker<(u8, AllocIdx<M>), AllocIdx<SceneTexture2DType>> {
+  let relations = global_material_relations::<M>();
+  let referenced_mat = std_scope.clone().many_to_one_reduce_key(relations.clone());
 
-  let m_referenced_textures = M::create_reference_collection(())
+  M::create_reference_collection(referenced_mat)
     .into_boxed()
-    .into_forker();
-
-  // let lift_referenced_textures = m_referenced_textures.clone().collective_key_lifting(|v| {},
-  // un_lift); todo
-  let lift_referenced_textures = ();
-
-  (m_referenced_textures, lift_referenced_textures)
+    .into_forker()
 }
 
+pub type TextureMaterialReferenceFork<M> =
+  RxCForker<(u8, AllocIdx<M>), AllocIdx<SceneTexture2DType>>;
+
 pub struct SceneTextureMaterialsRelations {
-  mr_mat:
-    RxCForker<(u8, AllocIdx<PhysicalMetallicRoughnessMaterial>), AllocIdx<SceneTexture2DType>>,
-  // sg_mat: RxCForker<(u8, AllocIdx<PhysicalSpecularGlossinessMaterial>),
-  // AllocIdx<SceneTexture2DType>>,
+  mr: TextureMaterialReferenceFork<PhysicalMetallicRoughnessMaterial>,
+  sg: TextureMaterialReferenceFork<PhysicalSpecularGlossinessMaterial>,
 }
 
 pub fn all_std_model_materials_textures(
   scope: impl ReactiveCollection<AllocIdx<StandardModel>, ()> + Clone,
-  foreign: impl ReactiveCollection<MaterialTextureAddress, AllocIdx<SceneTexture2DType>>,
-) -> (
-  SceneTextureMaterialsRelations,
-  impl ReactiveCollection<MaterialTextureAddress, AllocIdx<SceneTexture2DType>>,
+) -> SceneTextureMaterialsRelations {
+  SceneTextureMaterialsRelations {
+    mr: material_textures::<PhysicalMetallicRoughnessMaterial>(scope.clone()),
+    sg: material_textures::<PhysicalSpecularGlossinessMaterial>(scope.clone()),
+  }
+}
+
+pub(super) fn setup_tex(
+  ctx: &mut GPURenderPassCtx,
+  binding_sys: &GPUTextureBindingSystem,
+  tex: &Option<Texture2DWithSamplingData>,
 ) {
-  let (mr_mat, mr_lifted) = material_textures::<PhysicalMetallicRoughnessMaterial>(scope.clone());
-  // let (sg_mat, sg_lifted) =
-  // material_textures::<PhysicalMetallicRoughnessMaterial>(scope.clone());
+  if let Some(tex) = tex {
+    todo!()
+  }
+}
 
-  let forker = SceneTextureMaterialsRelations { mr_mat };
+pub(super) fn bind_and_sample(
+  binding: &mut ShaderBindGroupDirectBuilder,
+  reg: &SemanticRegistry,
+  tex: &Option<Texture2DWithSamplingData>,
+  handles: Node<TextureSamplerHandlePair>,
+  uv: Node<Vec2<f32>>,
+  default_value: Node<Vec4<f32>>,
+) -> Node<Vec4<f32>> {
+  // let texture = binding.binding::<GPU2DTextureView>();
+  // let sampler = binding.binding::<GPUSamplerView>();
+  // texture.sample(sampler, uv)
+  todo!()
+}
 
-  let all_texture = mr_lifted.collective_select(foreign);
+pub(super) fn bind_and_sample_enabled(
+  binding: &mut ShaderBindGroupDirectBuilder,
+  reg: &SemanticRegistry,
+  tex: &Option<Texture2DWithSamplingData>,
+  handles: Node<TextureSamplerHandlePair>,
+  uv: Node<Vec2<f32>>,
+  default_value: Node<Vec4<f32>>,
+) -> (Node<Vec4<f32>>, Node<bool>) {
+  // let texture = binding.binding::<GPU2DTextureView>();
+  // let sampler = binding.binding::<GPUSamplerView>();
+  // texture.sample(sampler, uv)
+  todo!()
+}
 
-  (forker, all_texture)
+pub(super) fn setup_normal_tex(
+  ctx: &mut GPURenderPassCtx,
+  binding_sys: &GPUTextureBindingSystem,
+  norm: &Option<NormalMapping>,
+) {
+  if let Some(norm) = norm {
+    todo!()
+  }
 }

@@ -1,5 +1,7 @@
 use crate::*;
 
+/// not need to hash the sampler to reduce the gpu sampler count, in device we have deduplicated
+/// already, and we also not need to do materialize, in device we have cached all sample created
 pub fn sampler_gpus(
   cx: &ResourceGPUCtx,
 ) -> impl ReactiveCollection<AllocIdx<TextureSampler>, GPUSamplerView> {
@@ -15,5 +17,4 @@ pub fn sampler_gpus(
       });
       move |k, _| creator(*k)
     })
-  // not need materialize, in device we have cached all sample create
 }

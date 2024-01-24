@@ -84,6 +84,48 @@ pub struct PhysicalSpecularGlossinessMaterialTextureHandlesUniform {
   pub normal_texture: TextureSamplerHandlePair,
 }
 
+#[repr(u8)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+pub enum PhysicalSpecularGlossinessMaterialTextureType {
+  Albedo,
+  Specular,
+  Emissive,
+  Glossiness,
+  Normal,
+}
+use PhysicalSpecularGlossinessMaterialTextureType as TextureType;
+
+impl Into<u8> for TextureType {
+  fn into(self) -> u8 {
+    self as u8
+  }
+}
+
+impl MaterialReferenceTexture for PhysicalSpecularGlossinessMaterial {
+  type TextureType = TextureType;
+  type TextureUniform = PhysicalSpecularGlossinessMaterialTextureHandlesUniform;
+
+  fn get_texture(&self, ty: Self::TextureType) -> Option<&SceneTexture2D> {
+    match ty {
+      TextureType::Albedo => self.emissive_texture.as_ref().map(|t| &t.texture),
+      TextureType::Specular => self.specular_texture.as_ref().map(|t| &t.texture),
+      TextureType::Glossiness => self.glossiness_texture.as_ref().map(|t| &t.texture),
+      TextureType::Emissive => self.emissive_texture.as_ref().map(|t| &t.texture),
+      TextureType::Normal => self.normal_texture.as_ref().map(|t| &t.content.texture),
+    }
+  }
+
+  fn check_change(
+    change: Self::Delta,
+  ) -> ChangeReaction<(Self::TextureType, AllocIdx<SceneTexture2DType>)> {
+    todo!()
+  }
+
+  fn expand_self(&self, change: &mut dyn Fn((Self::TextureType, AllocIdx<SceneTexture2DType>))) {
+    todo!()
+  }
+}
+
 pub fn physical_sg_material_texture_handle_uniforms(
   cx: &ResourceGPUCtx,
   scope: impl ReactiveCollection<AllocIdx<PhysicalSpecularGlossinessMaterial>, ()>,
@@ -94,11 +136,19 @@ pub fn physical_sg_material_texture_handle_uniforms(
   // tex_sample_handle_of_material().zip(..).zip(..).map(..)
 }
 
-#[pin_project::pin_project]
 pub struct PhysicalSpecularGlossinessMaterialGPU<'a> {
   uniform: &'a UniformBufferDataView<PhysicalSpecularGlossinessMaterialUniform>,
+  tex_uniform: &'a UniformBufferDataView<PhysicalSpecularGlossinessMaterialTextureHandlesUniform>,
   source: &'a PhysicalSpecularGlossinessMaterial,
-  // textures: &'a TextureGetter,
+  binding_sys: &'a GPUTextureBindingSystem,
+}
+
+impl<'a> Deref for PhysicalSpecularGlossinessMaterialGPU<'a> {
+  type Target = PhysicalSpecularGlossinessMaterial;
+
+  fn deref(&self) -> &Self::Target {
+    self.source
+  }
 }
 
 impl<'a> ShaderHashProvider for PhysicalSpecularGlossinessMaterialGPU<'a> {
@@ -109,12 +159,13 @@ impl<'a> ShaderHashProvider for PhysicalSpecularGlossinessMaterialGPU<'a> {
 
 impl<'a> ShaderPassBuilder for PhysicalSpecularGlossinessMaterialGPU<'a> {
   fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
-    ctx.binding.bind(&self.uniform);
-    self.albedo_texture.setup_pass(ctx);
-    self.specular_texture.setup_pass(ctx);
-    self.glossiness_texture.setup_pass(ctx);
-    self.emissive_texture.setup_pass(ctx);
-    self.normal_texture.setup_pass(ctx);
+    ctx.binding.bind(self.uniform);
+    ctx.binding.bind(self.tex_uniform);
+    setup_tex(ctx, self.binding_sys, &self.albedo_texture);
+    setup_tex(ctx, self.binding_sys, &self.specular_texture);
+    setup_tex(ctx, self.binding_sys, &self.glossiness_texture);
+    setup_tex(ctx, self.binding_sys, &self.emissive_texture);
+    setup_normal_tex(ctx, self.binding_sys, &self.normal_texture);
   }
 }
 
@@ -127,44 +178,65 @@ impl<'a> GraphicsShaderProvider for PhysicalSpecularGlossinessMaterialGPU<'a> {
 
     builder.fragment(|builder, binding| {
       let uniform = binding.bind_by(&self.uniform).load().expand();
+      let tex_uniform = binding.bind_by(&self.tex_uniform).load().expand();
       let uv = builder.query_or_interpolate_by::<FragmentUv, GeometryUV>();
 
       let mut alpha = uniform.alpha;
 
       let mut albedo = uniform.albedo;
-      let albedo_tex = self.albedo_texture.bind_and_sample(
+      let albedo_tex = bind_and_sample(
         binding,
         builder.registry(),
-        uniform.albedo_texture,
+        &self.albedo_texture,
+        tex_uniform.albedo_texture,
         uv,
+        val(Vec4::one()),
       );
       alpha *= albedo_tex.w();
       albedo *= albedo_tex.xyz();
 
       let mut specular = uniform.specular;
-      specular *= self
-        .specular_texture
-        .bind_and_sample(binding, builder.registry(), uniform.specular_texture, uv)
-        .xyz();
-
-      let mut glossiness = uniform.glossiness;
-      glossiness *= self
-        .specular_texture
-        .bind_and_sample(binding, builder.registry(), uniform.glossiness_texture, uv)
-        .x();
-
-      let mut emissive = uniform.emissive;
-      emissive *= self
-        .emissive_texture
-        .bind_and_sample(binding, builder.registry(), uniform.emissive_texture, uv)
-        .xyz();
-
-      let (normal_sample, enabled) = self.normal_texture.bind_and_sample_enabled(
+      specular *= bind_and_sample(
         binding,
         builder.registry(),
-        uniform.normal_texture,
+        &self.specular_texture,
+        tex_uniform.specular_texture,
         uv,
+        val(Vec4::one()),
+      )
+      .xyz();
+
+      let mut glossiness = uniform.glossiness;
+      glossiness *= bind_and_sample(
+        binding,
+        builder.registry(),
+        &self.specular_texture,
+        tex_uniform.glossiness_texture,
+        uv,
+        val(Vec4::one()),
+      )
+      .x();
+
+      let mut emissive = uniform.emissive;
+      emissive *= bind_and_sample(
+        binding,
+        builder.registry(),
+        &self.emissive_texture,
+        tex_uniform.emissive_texture,
+        uv,
+        val(Vec4::one()),
+      )
+      .xyz();
+
+      let (normal_sample, enabled) = bind_and_sample_enabled(
+        binding,
+        builder.registry(),
+        &self.normal_texture.as_ref().map(|m| m.content),
+        tex_uniform.normal_texture,
+        uv,
+        val(Vec4::one()),
       );
+
       apply_normal_mapping_conditional(
         builder,
         normal_sample.xyz(),
