@@ -19,6 +19,19 @@ pub fn gpu_texture_2ds(
     .materialize_unordered()
 }
 
+pub fn gpu_texture_2d_handles(
+  cx: &ResourceGPUCtx,
+  scope: impl ReactiveCollection<AllocIdx<SceneTexture2DType>, ()>,
+  binding: GPUTextureBindingSystem,
+) -> impl ReactiveCollection<AllocIdx<SceneTexture2DType>, Texture2DHandle> {
+  gpu_texture_2ds(cx, scope)
+    .collective_execute_map_by(move || {
+      let binding = binding.clone();
+      move |_, v| binding.register_texture(v)
+    })
+    .materialize_unordered()
+}
+
 impl ResourceGPUCtx {
   fn create_gpu_texture2d(&self, texture: &SceneTexture2DType) -> GPU2DTextureView {
     let texture = as_2d_source(texture);

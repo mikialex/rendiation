@@ -1,6 +1,9 @@
 mod bookkeeping;
 pub use bookkeeping::*;
 
+mod filter;
+pub use filter::*;
+
 mod projection;
 use std::ops::DerefMut;
 
@@ -33,6 +36,18 @@ pub trait ReactiveOneToManyRelationshipExt<O: CKey, M: CKey>:
   fn make_multi_accessor(&self) -> impl Fn(&O, &mut dyn FnMut(M)) + Send + Sync + '_ {
     let view = self.spin_get_multi_current();
     move |k, visitor| view.access_multi(k, visitor)
+  }
+
+  fn filter_by_o_set(
+    self,
+    o: impl ReactiveCollection<O, ()>,
+  ) -> impl ReactiveOneToManyRelationship<O, M>
+  where
+    Self: Sized,
+  {
+    // if m->o change, filter by o
+    // if o set change, add or remove referenced all m as changes
+    //
   }
 }
 impl<O: CKey, M: CKey, T: ReactiveOneToManyRelationship<O, M>>

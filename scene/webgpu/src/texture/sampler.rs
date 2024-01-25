@@ -18,3 +18,17 @@ pub fn sampler_gpus(
       move |k, _| creator(*k)
     })
 }
+
+// todo, samplers should be deduplicate here, or should we impl this in binding system register
+// logic?
+pub fn sampler_gpus_handles(
+  cx: &ResourceGPUCtx,
+  binding: GPUTextureBindingSystem,
+) -> impl ReactiveCollection<AllocIdx<TextureSampler>, SamplerHandle> {
+  sampler_gpus(cx)
+    .collective_execute_map_by(move || {
+      let binding = binding.clone();
+      move |_, v| binding.register_sampler(v)
+    })
+    .materialize_unordered()
+}
