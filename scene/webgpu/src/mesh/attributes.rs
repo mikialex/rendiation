@@ -29,22 +29,20 @@ pub fn gpu_attribute_index_buffers(
 
 pub struct AttributesMeshGPU<'a> {
   mesh: &'a AttributesMesh,
-  // vertex_buffer_getter:
-  // index_buffer_getter:
-
-  // attributes: Vec<(AttributeSemantic, GPUBufferResourceView)>,
-  // indices: Option<(GPUBufferResourceView, IndexFormat)>,
-  // topology: rendiation_webgpu::PrimitiveTopology,
-  // draw: DrawCommand,
+  vertex_buffer_ctx: &'a MeshVertexBufferManager,
+  index_buffer_ctx: &'a MeshIndexBufferManager,
 }
 
 impl<'a> ShaderPassBuilder for AttributesMeshGPU<'a> {
   fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
     for (_, b) in &self.mesh.attributes {
-      ctx.set_vertex_buffer_owned_next(b);
+      ctx.set_vertex_buffer_owned_next(self.vertex_buffer_ctx.get_gpu_vertex(b));
     }
-    if let Some((buffer, index_format)) = &self.mesh.indices {
-      ctx.pass.set_index_buffer_owned(buffer, *index_format)
+    if let Some((index_format, buffer)) = &self.mesh.indices {
+      ctx.pass.set_index_buffer_owned(
+        self.index_buffer_ctx.get_gpu_index(buffer),
+        map_index(*index_format),
+      )
     }
   }
 }
@@ -304,12 +302,5 @@ fn draw_command(mesh: &AttributesMesh) -> DrawCommand {
 //   GPUBufferViewRange {
 //     offset: view.offset,
 //     size: view.size,
-//   }
-// }
-
-// fn map_index(index: AttributeIndexFormat) -> IndexFormat {
-//   match index {
-//     AttributeIndexFormat::Uint16 => IndexFormat::Uint16,
-//     AttributeIndexFormat::Uint32 => IndexFormat::Uint32,
 //   }
 // }

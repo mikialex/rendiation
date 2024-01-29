@@ -22,7 +22,7 @@ pub fn physical_mr_material_uniforms(
   scope: impl ReactiveCollection<AllocIdx<PhysicalMetallicRoughnessMaterial>, ()>,
 ) -> impl ReactiveCollection<
   AllocIdx<PhysicalMetallicRoughnessMaterial>,
-  PhysicalMetallicRoughnessMaterialUniform,
+  UniformBufferDataView<PhysicalMetallicRoughnessMaterialUniform>,
 > {
   fn build_shader_uniform(
     m: &PhysicalMetallicRoughnessMaterial,
@@ -124,6 +124,9 @@ impl MaterialReferenceTexture for PhysicalMetallicRoughnessMaterial {
   }
 
   fn expand_self(&self, change: &mut dyn Fn((Self::TextureType, AllocIdx<SceneTexture2DType>))) {
+    todo!()
+  }
+  fn update_texture_uniform(ty: Self::TextureType, handle: u32, target: &mut Self::TextureUniform) {
     todo!()
   }
 }

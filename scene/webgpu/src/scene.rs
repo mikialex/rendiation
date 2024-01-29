@@ -49,10 +49,29 @@ struct SceneShareContentGPUResource {
 }
 
 fn create_scene_share_content_gpu_resource(
+  cx: &ResourceGPUCtx,
   scene_models: impl ReactiveCollection<AllocIdx<SceneModelImpl>, ()>,
 ) -> SceneShareContentGPUResource {
-  let referenced_std_md =
-    scene_models.many_to_one_reduce_key(scene_model_ref_std_model_many_one_relation());
+  let referenced_std_md = scene_models
+    .many_to_one_reduce_key(scene_model_ref_std_model_many_one_relation())
+    .into_forker();
+
+  let texture_material_references = all_std_model_materials_textures(referenced_std_md.clone());
+
+  let normalized_material_tex_reference: Box<
+    dyn ReactiveCollection<(TypeId, u8, u32), AllocIdx<SceneTexture2DType>>,
+  > = Box::new(()); // todo
+
+  let normalized_material_tex_reference_m =
+    normalized_material_tex_reference.collective_map(|_| ());
+
+  let tex_all_mat_relation =
+    normalized_material_tex_reference_m.many_to_one_reduce_key(normalized_material_tex_reference);
+
+  let texture2ds = gpu_texture_2ds(cx, tex_all_mat_relation)
+    .collective_map(|_| todo!())
+    .into_boxed()
+    .into_forker();
 
   let referenced_attribute_mesh =
     referenced_std_md.many_to_one_reduce_key(std_model_ref_att_mesh());
@@ -62,30 +81,80 @@ fn create_scene_share_content_gpu_resource(
 
   let referenced_flat_material =
     referenced_std_md.many_to_one_reduce_key(global_material_relations::<FlatMaterial>());
+  let flat_material_uniforms = flat_material_gpus(cx, referenced_flat_material).into_boxed();
+
+  let referenced_mr_material = referenced_std_md
+    .many_to_one_reduce_key(global_material_relations::<PhysicalMetallicRoughnessMaterial>());
+  let mr_material_uniforms = physical_mr_material_uniforms(cx, referenced_mr_material).into_boxed();
+  let mr_material_tex_uniforms = PhysicalMetallicRoughnessMaterial::create_texture_uniforms(
+    texture_material_references.mr.clone(),
+    (), // todo
+  )
+  .into_boxed();
+
+  let referenced_sg_material =
+    referenced_std_md.many_to_one_reduce_key(global_material_relations::<
+      PhysicalSpecularGlossinessMaterial,
+    >());
+  let sg_material_uniforms = physical_sg_material_uniforms(cx, referenced_sg_material).into_boxed();
+  let sg_material_tex_uniforms = PhysicalSpecularGlossinessMaterial::create_texture_uniforms(
+    texture_material_references.sg.clone(),
+    (), // todo
+  )
+  .into_boxed();
+
+  let vertex_buffers = vertex_attribute_buffers_scope(referenced_attribute_mesh);
+  let vertex_buffers = gpu_attribute_vertex_buffers(vertex_buffers).into_boxed();
+
+  let index_buffers = vertex_attribute_buffers_scope(referenced_attribute_mesh);
+  let index_buffers = gpu_attribute_index_buffers(index_buffers).into_boxed();
 
   SceneShareContentGPUResource {
-    meshes: MeshGPUResource {},
-    materials: MaterialGPUResource {},
-    textures: todo!(),
+    meshes: MeshGPUResource {
+      vertex_buffers,
+      index_buffers,
+    },
+    materials: MaterialGPUResource {
+      flat_material_uniforms,
+      mr_material_uniforms,
+      mr_material_tex_uniforms,
+      sg_material_uniforms,
+      sg_material_tex_uniforms,
+    },
+    textures: TextureGPUResource {
+      texture2ds,
+      samplers: sampler_gpus_handles(cx, todo!()).into_boxed().into_forker(),
+    },
   }
 }
 
-struct MeshGPUResource {}
+struct MeshGPUResource {
+  vertex_buffers: Box<dyn ReactiveCollection<AllocIdx<AttributeAccessor>, GPUBufferResourceView>>,
+  index_buffers: Box<dyn ReactiveCollection<AllocIdx<AttributeAccessor>, GPUBufferResourceView>>,
+}
+
+type UniformCollection<K, V> = Box<dyn ReactiveCollection<AllocIdx<K>, UniformBufferDataView<V>>>;
 
 struct MaterialGPUResource {
   flat_material_uniforms:
     Box<dyn ReactiveCollection<AllocIdx<FlatMaterial>, UniformBufferDataView<FlatMaterialUniform>>>,
-  mr_material_uniforms: Box<
-    dyn ReactiveCollection<
-      AllocIdx<PhysicalMetallicRoughnessMaterial>,
-      UniformBufferDataView<PhysicalMetallicRoughnessMaterialUniform>,
-    >,
+
+  mr_material_uniforms:
+    UniformCollection<PhysicalMetallicRoughnessMaterial, PhysicalMetallicRoughnessMaterialUniform>,
+
+  mr_material_tex_uniforms: UniformCollection<
+    PhysicalMetallicRoughnessMaterial,
+    PhysicalMetallicRoughnessMaterialTextureHandlesUniform,
   >,
-  mr_material_tex_uniforms: Box<
-    dyn ReactiveCollection<
-      AllocIdx<PhysicalMetallicRoughnessMaterial>,
-      UniformBufferDataView<PhysicalMetallicRoughnessMaterialTextureHandlesUniform>,
-    >,
+
+  sg_material_uniforms: UniformCollection<
+    PhysicalSpecularGlossinessMaterial,
+    PhysicalSpecularGlossinessMaterialUniform,
+  >,
+
+  sg_material_tex_uniforms: UniformCollection<
+    PhysicalSpecularGlossinessMaterial,
+    PhysicalSpecularGlossinessMaterialTextureHandlesUniform,
   >,
 }
 

@@ -1,5 +1,7 @@
 mod physical;
 pub use physical::*;
+mod debug_channels;
+pub use debug_channels::*;
 
 use crate::*;
 

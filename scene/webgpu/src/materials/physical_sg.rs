@@ -21,7 +21,7 @@ pub fn physical_sg_material_uniforms(
   scope: impl ReactiveCollection<AllocIdx<PhysicalSpecularGlossinessMaterial>, ()>,
 ) -> impl ReactiveCollection<
   AllocIdx<PhysicalSpecularGlossinessMaterial>,
-  PhysicalSpecularGlossinessMaterialUniform,
+  UniformBufferDataView<PhysicalSpecularGlossinessMaterialUniform>,
 > {
   fn build_shader_uniform(
     m: &PhysicalSpecularGlossinessMaterial,
@@ -75,7 +75,7 @@ pub fn physical_sg_material_uniforms(
 
 #[repr(C)]
 #[std140_layout]
-#[derive(Clone, Copy, ShaderStruct, Debug, PartialEq)]
+#[derive(Clone, Copy, ShaderStruct, Debug, PartialEq, Default)]
 pub struct PhysicalSpecularGlossinessMaterialTextureHandlesUniform {
   pub albedo_texture: TextureSamplerHandlePair,
   pub specular_texture: TextureSamplerHandlePair,
@@ -122,6 +122,9 @@ impl MaterialReferenceTexture for PhysicalSpecularGlossinessMaterial {
   }
 
   fn expand_self(&self, change: &mut dyn Fn((Self::TextureType, AllocIdx<SceneTexture2DType>))) {
+    todo!()
+  }
+  fn update_texture_uniform(ty: Self::TextureType, handle: u32, target: &mut Self::TextureUniform) {
     todo!()
   }
 }

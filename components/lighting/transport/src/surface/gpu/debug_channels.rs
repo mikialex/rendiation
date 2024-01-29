@@ -1,3 +1,7 @@
+use std::hash::Hash;
+
+use rendiation_webgpu::*;
+
 use crate::*;
 
 #[derive(Default)]

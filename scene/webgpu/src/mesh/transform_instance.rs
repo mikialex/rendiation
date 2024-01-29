@@ -26,6 +26,8 @@ pub fn transform_instance_buffer(
 
 pub struct TransformInstanceGPU<'a> {
   instance: &'a TransformInstancedSceneMesh,
+  inner_gpu: &'a dyn RenderComponent,
+  instance_buffer: &'a GPUBufferResourceView,
 }
 
 only_vertex!(TransformInstanceMat, Mat4<f32>);
@@ -39,7 +41,7 @@ pub struct ShaderMat4VertexInput {
 
 impl<'a> GraphicsShaderProvider for TransformInstanceGPU<'a> {
   fn build(&self, builder: &mut ShaderRenderPipelineBuilder) -> Result<(), ShaderBuildError> {
-    self.mesh_gpu.build(builder)?;
+    self.inner_gpu.build(builder)?;
     builder.vertex(|builder, _| {
       builder.register_vertex::<ShaderMat4VertexInput>(VertexStepMode::Instance);
 
@@ -61,14 +63,14 @@ impl<'a> GraphicsShaderProvider for TransformInstanceGPU<'a> {
 
 impl<'a> ShaderHashProvider for TransformInstanceGPU<'a> {
   fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
-    self.mesh_gpu.hash_pipeline(hasher)
+    self.inner_gpu.hash_pipeline(hasher)
   }
 }
 
 impl<'a> ShaderPassBuilder for TransformInstanceGPU<'a> {
   fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
-    self.mesh_gpu.setup_pass(ctx);
-    ctx.set_vertex_buffer_owned_next(&self.instance_gpu);
+    self.inner_gpu.setup_pass(ctx);
+    ctx.set_vertex_buffer_owned_next(&self.instance_buffer);
   }
 }
 

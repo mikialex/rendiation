@@ -49,7 +49,7 @@ pub struct MaterialTextureAddress {
 
 pub trait MaterialReferenceTexture: IncrementalBase {
   type TextureType: CKey + Into<u8>;
-  type TextureUniform: CValue;
+  type TextureUniform: CValue + Default + Std140;
 
   fn get_texture(&self, ty: Self::TextureType) -> Option<&SceneTexture2D>;
   fn check_change(
@@ -57,6 +57,7 @@ pub trait MaterialReferenceTexture: IncrementalBase {
   ) -> ChangeReaction<(Self::TextureType, AllocIdx<SceneTexture2DType>)>;
 
   fn expand_self(&self, change: &mut dyn Fn((Self::TextureType, AllocIdx<SceneTexture2DType>)));
+  fn update_texture_uniform(ty: Self::TextureType, handle: u32, target: &mut Self::TextureUniform);
 
   fn create_reference_collection(
     scope: impl ReactiveCollection<AllocIdx<Self>, ()>,
@@ -70,15 +71,14 @@ pub trait MaterialReferenceTexture: IncrementalBase {
     reference_collection.into_one_to_many_by_hash()
   }
 
-  // fn create_texture_uniforms(
-  //   reference_collection: impl ReactiveCollection<(u8, AllocIdx<Self>),
-  // AllocIdx<SceneTexture2DType>>,   texture2ds: impl
-  // ReactiveCollection<AllocIdx<SceneTexture2DType>, TextureSamplerHandlePair>,
-  // ) -> impl ReactiveCollection<(u8, AllocIdx<Self>), Self::TextureUniform> {
-  //   reference_collection
-  //     .into_one_to_many_by_hash()
-  //     .collective_remap_value(texture2ds)
-  // }
+  fn create_texture_uniforms(
+    reference_collection: impl ReactiveCollection<(u8, AllocIdx<Self>), AllocIdx<SceneTexture2DType>>,
+    texture2ds: impl ReactiveCollection<AllocIdx<SceneTexture2DType>, TextureSamplerHandlePair>,
+  ) -> impl ReactiveCollection<AllocIdx<Self>, UniformBufferDataView<Self::TextureUniform>> {
+    // reference_collection
+    //   .into_one_to_many_by_hash()
+    //   .collective_remap_value(texture2ds)
+  }
 }
 
 pub fn material_textures<M: MaterialReferenceTexture + DowncastFromMaterialEnum>(
@@ -96,8 +96,8 @@ pub type TextureMaterialReferenceFork<M> =
   RxCForker<(u8, AllocIdx<M>), AllocIdx<SceneTexture2DType>>;
 
 pub struct SceneTextureMaterialsRelations {
-  mr: TextureMaterialReferenceFork<PhysicalMetallicRoughnessMaterial>,
-  sg: TextureMaterialReferenceFork<PhysicalSpecularGlossinessMaterial>,
+  pub mr: TextureMaterialReferenceFork<PhysicalMetallicRoughnessMaterial>,
+  pub sg: TextureMaterialReferenceFork<PhysicalSpecularGlossinessMaterial>,
 }
 
 pub fn all_std_model_materials_textures(

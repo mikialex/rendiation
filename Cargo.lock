@@ -2849,6 +2849,7 @@ dependencies = [
  "rendiation-shader-api",
  "rendiation-shader-library",
  "rendiation-statistics",
+ "rendiation-webgpu",
 ]
 
 [[package]]
