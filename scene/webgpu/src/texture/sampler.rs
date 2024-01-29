@@ -8,14 +8,9 @@ pub fn sampler_gpus(
   let cx = cx.clone();
   storage_of::<TextureSampler>()
     .listen_all_instance_changed_set()
-    .collective_execute_map_by(move || {
-      let cx = cx.clone();
-      let creator = storage_of::<TextureSampler>().create_key_mapper(move |source, _| {
-        let cx = cx.clone();
-        let gpu_sampler = GPUSampler::create(source.into_gpu(), &cx.device);
-        gpu_sampler.create_default_view()
-      });
-      move |k, _| creator(*k)
+    .collective_execute_gpu_map(cx, |s, cx| {
+      let gpu_sampler = GPUSampler::create(s.into_gpu(), &cx.device);
+      gpu_sampler.create_default_view()
     })
 }
 

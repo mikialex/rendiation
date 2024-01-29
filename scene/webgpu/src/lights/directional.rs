@@ -83,18 +83,15 @@ fn build_dir_lights_shadow_projections(
 ) -> impl ReactiveCollection<AllocIdx<DirectionalLight>, (Mat4<f32>, Size)> {
   storage_of::<DirectionalLight>()
     .listen_all_instance_changed_set()
-    .collective_execute_map_by(|| {
-      let compute = storage_of::<DirectionalLight>().create_key_mapper(|light, _| {
-        let shadow_info = light
-          .ext
-          .get::<DirectionalShadowMapExtraInfo>()
-          .cloned()
-          .unwrap_or_default();
-        let size = Size::from_u32_pair_min_one((512, 512)); // todo
+    .collective_execute_simple_map(|light| {
+      let shadow_info = light
+        .ext
+        .get::<DirectionalShadowMapExtraInfo>()
+        .cloned()
+        .unwrap_or_default();
+      let size = Size::from_u32_pair_min_one((512, 512)); // todo
 
-        (shadow_info.range.compute_projection_mat::<WebGPU>(), size)
-      });
-      move |k, _| compute(*k)
+      (shadow_info.range.compute_projection_mat::<WebGPU>(), size)
     })
 }
 
@@ -120,11 +117,7 @@ fn dir_lights_directions(
 fn dir_lights_intensity() -> impl ReactiveCollection<AllocIdx<DirectionalLight>, Vec3<f32>> {
   storage_of::<DirectionalLight>()
     .listen_all_instance_changed_set()
-    .collective_execute_map_by(|| {
-      let compute = storage_of::<DirectionalLight>()
-        .create_key_mapper(|light, _| light.illuminance * light.color_factor);
-      move |k, _| compute(*k)
-    })
+    .collective_execute_simple_map(|light| light.illuminance * light.color_factor)
 }
 
 fn dir_lights_uniform(

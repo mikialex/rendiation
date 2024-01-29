@@ -3,21 +3,13 @@ use rendiation_texture::CubeTextureFace;
 use crate::*;
 
 pub fn gpu_texture_cubes(
-  cx: &ResourceGPUCtx,
+  cx: ResourceGPUCtx,
   scope: impl ReactiveCollection<AllocIdx<SceneTextureCubeImpl>, ()>,
 ) -> impl ReactiveCollection<AllocIdx<SceneTextureCubeImpl>, GPUCubeTextureView> {
-  let cx = cx.clone();
   storage_of::<SceneTextureCubeImpl>()
     .listen_all_instance_changed_set()
     .filter_by_keyset(scope)
-    .collective_execute_map_by(move || {
-      let cx = cx.clone();
-      let creator = storage_of::<SceneTextureCubeImpl>().create_key_mapper(move |tex, _| {
-        let cx = cx.clone();
-        cx.create_gpu_texture_cube(tex)
-      });
-      move |k, _| creator(*k)
-    })
+    .collective_execute_gpu_map(cx, |tex, cx| cx.create_gpu_texture_cube(tex))
     .materialize_unordered()
 }
 

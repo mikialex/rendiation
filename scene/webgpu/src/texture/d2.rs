@@ -8,15 +8,7 @@ pub fn gpu_texture_2ds(
   storage_of::<SceneTexture2DType>()
     .listen_all_instance_changed_set()
     .filter_by_keyset(scope)
-    .collective_execute_map_by(move || {
-      let cx = cx.clone();
-      let creator = storage_of::<SceneTexture2DType>().create_key_mapper(move |tex, _| {
-        let cx = cx.clone();
-        cx.create_gpu_texture2d(tex)
-      });
-      move |k, _| creator(*k)
-    })
-    .materialize_unordered()
+    .collective_execute_gpu_map(cx, |tex, cx| cx.create_gpu_texture2d(tex))
 }
 
 pub fn gpu_texture_2d_handles(

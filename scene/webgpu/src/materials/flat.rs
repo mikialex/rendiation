@@ -1,25 +1,15 @@
 use crate::*;
 
 pub fn flat_material_gpus(
-  cx: &ResourceGPUCtx,
+  cx: ResourceGPUCtx,
   scope: impl ReactiveCollection<AllocIdx<FlatMaterial>, ()>,
 ) -> impl ReactiveCollection<AllocIdx<FlatMaterial>, UniformBufferDataView<FlatMaterialUniform>> {
-  let cx = cx.clone();
   storage_of::<FlatMaterial>()
     .listen_all_instance_changed_set()
     .filter_by_keyset(scope)
-    .collective_execute_map_by(move || {
-      let cx = cx.clone();
-      let creator = storage_of::<FlatMaterial>().create_key_mapper(move |m, _| {
-        let cx = cx.clone();
-
-        let uniform = FlatMaterialUniform {
-          color: srgba_to_linear(m.color),
-          ..Zeroable::zeroed()
-        };
-        create_uniform(uniform, &cx.device)
-      });
-      move |k, _| creator(*k)
+    .collective_create_uniforms(cx, |m| FlatMaterialUniform {
+      color: srgba_to_linear(m.color),
+      ..Zeroable::zeroed()
     })
 }
 

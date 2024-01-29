@@ -68,18 +68,15 @@ fn build_spot_lights_shadow_projections(
 ) -> impl ReactiveCollection<AllocIdx<SpotLight>, (Mat4<f32>, Size)> {
   storage_of::<SpotLight>()
     .listen_all_instance_changed_set()
-    .collective_execute_map_by(|| {
-      let compute = storage_of::<SpotLight>().create_key_mapper(|light, _| {
-        let proj = PerspectiveProjection {
-          near: 0.1,
-          far: 2000.,
-          fov: Deg::from_rad(light.half_cone_angle * 2.),
-          aspect: 1.,
-        };
-        let size = Size::from_u32_pair_min_one((512, 512));
-        (proj.compute_projection_mat::<WebGPU>(), size)
-      });
-      move |k, _| compute(*k)
+    .collective_execute_simple_map(|light| {
+      let proj = PerspectiveProjection {
+        near: 0.1,
+        far: 2000.,
+        fov: Deg::from_rad(light.half_cone_angle * 2.),
+        aspect: 1.,
+      };
+      let size = Size::from_u32_pair_min_one((512, 512));
+      (proj.compute_projection_mat::<WebGPU>(), size)
     })
 }
 
@@ -110,15 +107,11 @@ struct SpotLightShaderInfoPart {
 fn dir_spots_ill() -> impl ReactiveCollection<AllocIdx<SpotLight>, SpotLightShaderInfoPart> {
   storage_of::<SpotLight>()
     .listen_all_instance_changed_set()
-    .collective_execute_map_by(|| {
-      let compute =
-        storage_of::<SpotLight>().create_key_mapper(|light, _| SpotLightShaderInfoPart {
-          luminance_intensity: light.luminance_intensity * light.color_factor,
-          cutoff_distance: light.cutoff_distance,
-          half_cone_cos: light.half_cone_angle.cos(),
-          half_penumbra_cos: light.half_penumbra_angle.cos(),
-        });
-      move |k, _| compute(*k)
+    .collective_execute_simple_map(|light| SpotLightShaderInfoPart {
+      luminance_intensity: light.luminance_intensity * light.color_factor,
+      cutoff_distance: light.cutoff_distance,
+      half_cone_cos: light.half_cone_angle.cos(),
+      half_penumbra_cos: light.half_penumbra_angle.cos(),
     })
 }
 

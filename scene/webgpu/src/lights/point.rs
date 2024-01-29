@@ -39,11 +39,7 @@ fn point_lights_position(
 fn point_lights_intensity() -> impl ReactiveCollection<AllocIdx<PointLight>, Vec3<f32>> {
   storage_of::<PointLight>()
     .listen_all_instance_changed_set()
-    .collective_execute_map_by(|| {
-      let compute = storage_of::<PointLight>()
-        .create_key_mapper(|light, _| light.luminance_intensity * light.color_factor);
-      move |k, _| compute(*k)
-    })
+    .collective_execute_simple_map(|light| light.luminance_intensity * light.color_factor)
 }
 
 fn point_lights_uniform(

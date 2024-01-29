@@ -40,6 +40,61 @@ pub trait ReactiveRelationNewExt<O: CKey, M: CKey>:
 
 impl<O: CKey, M: CKey, T: ReactiveOneToManyRelationship<O, M>> ReactiveRelationNewExt<O, M> for T {}
 
+pub trait AllocIdCollectionGPUExt<K: 'static> {
+  // todo, remove parallel?
+  fn collective_execute_gpu_map<V>(
+    self,
+    gpu: ResourceGPUCtx,
+    mapper: impl Fn(&K, &ResourceGPUCtx) -> V + 'static + Send + Sync + Copy,
+  ) -> impl ReactiveCollection<AllocIdx<K>, V>
+  where
+    V: CValue;
+
+  fn collective_create_uniforms<V>(
+    self,
+    gpu: ResourceGPUCtx,
+    mapper: impl Fn(&K) -> V + 'static + Send + Sync + Copy,
+  ) -> impl ReactiveCollection<AllocIdx<K>, UniformBufferDataView<V>>
+  where
+    V: Std140 + Send + Sync;
+}
+
+impl<K, T> AllocIdCollectionGPUExt<K> for T
+where
+  T: ReactiveCollection<AllocIdx<K>, ()>,
+  K: IncrementalBase,
+{
+  fn collective_execute_gpu_map<V>(
+    self,
+    gpu: ResourceGPUCtx,
+    mapper: impl Fn(&K, &ResourceGPUCtx) -> V + 'static + Send + Sync + Copy,
+  ) -> impl ReactiveCollection<AllocIdx<K>, V>
+  where
+    V: CValue,
+  {
+    let gpu = gpu.clone();
+    self.collective_execute_map_by(move || {
+      let gpu = gpu.clone();
+      let creator = storage_of::<K>().create_key_mapper(move |m, _| mapper(m, &gpu));
+      move |k, _| creator(*k)
+    })
+  }
+
+  fn collective_create_uniforms<V>(
+    self,
+    gpu: ResourceGPUCtx,
+    mapper: impl Fn(&K) -> V + 'static + Send + Sync + Copy,
+  ) -> impl ReactiveCollection<AllocIdx<K>, UniformBufferDataView<V>>
+  where
+    V: Std140 + Send + Sync,
+  {
+    self.collective_execute_gpu_map(gpu, move |k, gpu| {
+      let uniform = mapper(k);
+      create_uniform(uniform, &gpu.device)
+    })
+  }
+}
+
 #[derive(Clone, Copy, Hash, Eq, PartialEq, Debug)]
 pub struct MaterialTextureAddress {
   pub material_type_id: TypeId,

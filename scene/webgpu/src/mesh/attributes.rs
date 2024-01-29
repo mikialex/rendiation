@@ -27,6 +27,11 @@ pub fn gpu_attribute_index_buffers(
   //
 }
 
+pub fn attribute_mesh_shader_keys(
+  scope: impl ReactiveCollection<AllocIdx<AttributesMesh>, ()>,
+) -> impl ReactiveCollection<AllocIdx<AttributeAccessor>, u64> {
+}
+
 pub struct AttributesMeshGPU<'a> {
   mesh: &'a AttributesMesh,
   vertex_buffer_ctx: &'a MeshVertexBufferManager,

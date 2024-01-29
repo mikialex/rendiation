@@ -18,34 +18,13 @@ pub struct PhysicalMetallicRoughnessMaterialUniform {
 }
 
 pub fn physical_mr_material_uniforms(
-  cx: &ResourceGPUCtx,
+  cx: ResourceGPUCtx,
   scope: impl ReactiveCollection<AllocIdx<PhysicalMetallicRoughnessMaterial>, ()>,
 ) -> impl ReactiveCollection<
   AllocIdx<PhysicalMetallicRoughnessMaterial>,
   UniformBufferDataView<PhysicalMetallicRoughnessMaterialUniform>,
 > {
-  fn build_shader_uniform(
-    m: &PhysicalMetallicRoughnessMaterial,
-  ) -> PhysicalMetallicRoughnessMaterialUniform {
-    let mut r = PhysicalMetallicRoughnessMaterialUniform {
-      base_color: m.base_color,
-      roughness: m.roughness,
-      emissive: m.emissive,
-      metallic: m.metallic,
-      reflectance: m.reflectance,
-      normal_mapping_scale: 1.,
-      alpha_cutoff: m.alpha_cutoff,
-      alpha: m.alpha,
-      ..Zeroable::zeroed()
-    };
-
-    if let Some(normal_texture) = &m.normal_texture {
-      r.normal_mapping_scale = normal_texture.scale;
-    };
-
-    r
-  }
-
+  // todo
   fn is_uniform_changed(d: DeltaOf<PhysicalMetallicRoughnessMaterial>) -> bool {
     matches!(
       d,
@@ -60,19 +39,27 @@ pub fn physical_mr_material_uniforms(
     )
   }
 
-  let cx = cx.clone();
   storage_of::<PhysicalMetallicRoughnessMaterial>()
     .listen_all_instance_changed_set()
     .filter_by_keyset(scope)
-    .collective_execute_map_by(move || {
-      let cx = cx.clone();
-      let creator =
-        storage_of::<PhysicalMetallicRoughnessMaterial>().create_key_mapper(move |m, _| {
-          let cx = cx.clone();
+    .collective_create_uniforms(cx, |m| {
+      let mut r = PhysicalMetallicRoughnessMaterialUniform {
+        base_color: m.base_color,
+        roughness: m.roughness,
+        emissive: m.emissive,
+        metallic: m.metallic,
+        reflectance: m.reflectance,
+        normal_mapping_scale: 1.,
+        alpha_cutoff: m.alpha_cutoff,
+        alpha: m.alpha,
+        ..Zeroable::zeroed()
+      };
 
-          todo!()
-        });
-      move |k, _| creator(*k)
+      if let Some(normal_texture) = &m.normal_texture {
+        r.normal_mapping_scale = normal_texture.scale;
+      };
+
+      r
     })
 }
 

@@ -17,33 +17,12 @@ pub struct PhysicalSpecularGlossinessMaterialUniform {
 }
 
 pub fn physical_sg_material_uniforms(
-  cx: &ResourceGPUCtx,
+  cx: ResourceGPUCtx,
   scope: impl ReactiveCollection<AllocIdx<PhysicalSpecularGlossinessMaterial>, ()>,
 ) -> impl ReactiveCollection<
   AllocIdx<PhysicalSpecularGlossinessMaterial>,
   UniformBufferDataView<PhysicalSpecularGlossinessMaterialUniform>,
 > {
-  fn build_shader_uniform(
-    m: &PhysicalSpecularGlossinessMaterial,
-  ) -> PhysicalSpecularGlossinessMaterialUniform {
-    let mut r = PhysicalSpecularGlossinessMaterialUniform {
-      albedo: m.albedo,
-      specular: m.specular,
-      emissive: m.emissive,
-      glossiness: m.glossiness,
-      normal_mapping_scale: 1.,
-      alpha_cutoff: m.alpha_cutoff,
-      alpha: m.alpha,
-      ..Zeroable::zeroed()
-    };
-
-    if let Some(normal_texture) = &m.normal_texture {
-      r.normal_mapping_scale = normal_texture.scale;
-    };
-
-    r
-  }
-
   fn is_uniform_changed(d: DeltaOf<PhysicalSpecularGlossinessMaterial>) -> bool {
     matches!(
       d,
@@ -57,19 +36,26 @@ pub fn physical_sg_material_uniforms(
     )
   }
 
-  let cx = cx.clone();
   storage_of::<PhysicalSpecularGlossinessMaterial>()
     .listen_all_instance_changed_set()
     .filter_by_keyset(scope)
-    .collective_execute_map_by(move || {
-      let cx = cx.clone();
-      let creator =
-        storage_of::<PhysicalSpecularGlossinessMaterial>().create_key_mapper(move |m, _| {
-          let cx = cx.clone();
+    .collective_create_uniforms(cx, |m| {
+      let mut r = PhysicalSpecularGlossinessMaterialUniform {
+        albedo: m.albedo,
+        specular: m.specular,
+        emissive: m.emissive,
+        glossiness: m.glossiness,
+        normal_mapping_scale: 1.,
+        alpha_cutoff: m.alpha_cutoff,
+        alpha: m.alpha,
+        ..Zeroable::zeroed()
+      };
 
-          todo!()
-        });
-      move |k, _| creator(*k)
+      if let Some(normal_texture) = &m.normal_texture {
+        r.normal_mapping_scale = normal_texture.scale;
+      };
+
+      r
     })
 }
 
