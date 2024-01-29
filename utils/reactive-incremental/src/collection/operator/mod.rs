@@ -273,3 +273,31 @@ where
   K: CKey,
 {
 }
+
+pub trait AllocIdCollectionExt<K: 'static> {
+  fn collective_execute_simple_map<V>(
+    self,
+    mapper: impl Fn(&K) -> V + 'static + Send + Sync + Copy,
+  ) -> impl ReactiveCollection<AllocIdx<K>, V>
+  where
+    V: CValue;
+}
+
+impl<K, T> AllocIdCollectionExt<K> for T
+where
+  T: ReactiveCollection<AllocIdx<K>, ()>,
+  K: IncrementalBase,
+{
+  fn collective_execute_simple_map<V>(
+    self,
+    mapper: impl Fn(&K) -> V + 'static + Send + Sync + Copy,
+  ) -> impl ReactiveCollection<AllocIdx<K>, V>
+  where
+    V: CValue,
+  {
+    self.collective_execute_map_by(move || {
+      let creator = storage_of::<K>().create_key_mapper(move |m, _| mapper(m));
+      move |k, _| creator(*k)
+    })
+  }
+}

@@ -21,6 +21,9 @@ pub struct AllocIdx<T> {
   phantom: PhantomData<T>,
 }
 
+unsafe impl<T> Send for AllocIdx<T> {}
+unsafe impl<T> Sync for AllocIdx<T> {}
+
 impl<T> Debug for AllocIdx<T> {
   fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
     f.debug_tuple("AllocIdx").field(&self.index).finish()

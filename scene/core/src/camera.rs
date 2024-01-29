@@ -219,9 +219,5 @@ pub fn camera_projections() -> impl ReactiveCollection<AllocIdx<SceneCameraImpl>
       },
       MaybeDeltaRef::All(_) => ChangeReaction::Care(Some(())),
     })
-    .collective_execute_map_by(|| {
-      let proj_compute = storage_of::<SceneCameraImpl>() //
-        .create_key_mapper(|camera, _| camera.compute_project_mat());
-      move |k, _| proj_compute(*k)
-    })
+    .collective_execute_simple_map(|camera| camera.compute_project_mat())
 }

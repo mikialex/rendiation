@@ -346,13 +346,10 @@ fn material_hash_impl<M: DowncastFromMaterialEnum + Hash>(
   let material_hash = storage_of::<M>()
     .listen_all_instance_changed_set()
     .filter_by_keyset(referenced_mat)
-    .collective_execute_map_by(|| {
-      let rehash = storage_of::<M>().create_key_mapper(|mat, _| {
-        let mut hasher = FastHasher::default();
-        mat.hash(&mut hasher);
-        hasher.finish()
-      });
-      move |k, _| rehash(*k)
+    .collective_execute_simple_map(|mat| {
+      let mut hasher = FastHasher::default();
+      mat.hash(&mut hasher);
+      hasher.finish()
     });
 
   material_hash.one_to_many_fanout(relations)
