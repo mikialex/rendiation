@@ -1,26 +1,20 @@
 use crate::*;
 
 pub fn transform_instance_buffer(
-  cx: &ResourceGPUCtx,
+  cx: ResourceGPUCtx,
   scope: impl ReactiveCollection<AllocIdx<TransformInstancedSceneMesh>, ()>,
 ) -> impl ReactiveCollection<AllocIdx<TransformInstancedSceneMesh>, GPUBufferResourceView> {
   let cx = cx.clone();
   storage_of::<TransformInstancedSceneMesh>()
     .listen_all_instance_changed_set()
     .filter_by_keyset(scope)
-    .collective_execute_map_by(move || {
-      let cx = cx.clone();
-      let create_instance_buffer =
-        storage_of::<TransformInstancedSceneMesh>().create_key_mapper(move |mesh, _| {
-          let cx = cx.clone();
-          create_gpu_buffer(
-            bytemuck::cast_slice(mesh.transforms.as_slice()),
-            BufferUsages::VERTEX,
-            &cx.device,
-          )
-          .create_default_view()
-        });
-      move |k, _| create_instance_buffer(*k)
+    .collective_execute_gpu_map(cx, |mesh, cx| {
+      create_gpu_buffer(
+        bytemuck::cast_slice(mesh.transforms.as_slice()),
+        BufferUsages::VERTEX,
+        &cx.device,
+      )
+      .create_default_view()
     })
 }
 

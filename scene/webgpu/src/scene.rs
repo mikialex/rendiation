@@ -48,11 +48,16 @@ struct SceneShareContentGPUResource {
   textures: TextureGPUResource,
 }
 
+fn create_scene_model_pipeline_hash(
+  scene_sm_scope: impl ReactiveCollection<AllocIdx<SceneModelImpl>, ()>,
+) -> impl ReactiveCollection<AllocIdx<SceneModelImpl>, u64> {
+}
+
 fn create_scene_share_content_gpu_resource(
   cx: &ResourceGPUCtx,
-  scene_models: impl ReactiveCollection<AllocIdx<SceneModelImpl>, ()>,
+  all_scene_sm_scope: impl ReactiveCollection<AllocIdx<SceneModelImpl>, ()>,
 ) -> SceneShareContentGPUResource {
-  let referenced_std_md = scene_models
+  let referenced_std_md = all_scene_sm_scope
     .many_to_one_reduce_key(scene_model_ref_std_model_many_one_relation())
     .into_forker();
 
@@ -81,11 +86,13 @@ fn create_scene_share_content_gpu_resource(
 
   let referenced_flat_material =
     referenced_std_md.many_to_one_reduce_key(global_material_relations::<FlatMaterial>());
-  let flat_material_uniforms = flat_material_gpus(cx, referenced_flat_material).into_boxed();
+  let flat_material_uniforms =
+    flat_material_gpus(cx.clone(), referenced_flat_material).into_boxed();
 
   let referenced_mr_material = referenced_std_md
     .many_to_one_reduce_key(global_material_relations::<PhysicalMetallicRoughnessMaterial>());
-  let mr_material_uniforms = physical_mr_material_uniforms(cx, referenced_mr_material).into_boxed();
+  let mr_material_uniforms =
+    physical_mr_material_uniforms(cx.clone(), referenced_mr_material).into_boxed();
   let mr_material_tex_uniforms = PhysicalMetallicRoughnessMaterial::create_texture_uniforms(
     texture_material_references.mr.clone(),
     (), // todo
@@ -96,7 +103,8 @@ fn create_scene_share_content_gpu_resource(
     referenced_std_md.many_to_one_reduce_key(global_material_relations::<
       PhysicalSpecularGlossinessMaterial,
     >());
-  let sg_material_uniforms = physical_sg_material_uniforms(cx, referenced_sg_material).into_boxed();
+  let sg_material_uniforms =
+    physical_sg_material_uniforms(cx.clone(), referenced_sg_material).into_boxed();
   let sg_material_tex_uniforms = PhysicalSpecularGlossinessMaterial::create_texture_uniforms(
     texture_material_references.sg.clone(),
     (), // todo
@@ -104,10 +112,10 @@ fn create_scene_share_content_gpu_resource(
   .into_boxed();
 
   let vertex_buffers = vertex_attribute_buffers_scope(referenced_attribute_mesh);
-  let vertex_buffers = gpu_attribute_vertex_buffers(vertex_buffers).into_boxed();
+  let vertex_buffers = gpu_attribute_vertex_buffers(cx, vertex_buffers).into_boxed();
 
   let index_buffers = vertex_attribute_buffers_scope(referenced_attribute_mesh);
-  let index_buffers = gpu_attribute_index_buffers(index_buffers).into_boxed();
+  let index_buffers = gpu_attribute_index_buffers(cx, index_buffers).into_boxed();
 
   SceneShareContentGPUResource {
     meshes: MeshGPUResource {
@@ -129,8 +137,8 @@ fn create_scene_share_content_gpu_resource(
 }
 
 struct MeshGPUResource {
-  vertex_buffers: Box<dyn ReactiveCollection<AllocIdx<AttributeAccessor>, GPUBufferResourceView>>,
-  index_buffers: Box<dyn ReactiveCollection<AllocIdx<AttributeAccessor>, GPUBufferResourceView>>,
+  vertex_buffers: Box<dyn ReactiveCollection<AttributeAccessKey, GPUBufferResourceView>>,
+  index_buffers: Box<dyn ReactiveCollection<AttributeAccessKey, GPUBufferResourceView>>,
 }
 
 type UniformCollection<K, V> = Box<dyn ReactiveCollection<AllocIdx<K>, UniformBufferDataView<V>>>;

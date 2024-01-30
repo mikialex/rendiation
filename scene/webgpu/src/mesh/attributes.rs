@@ -1,35 +1,76 @@
 use crate::*;
 
+/// like AttributeAccessor, but for CKey usage.
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+pub struct AttributeAccessKey {
+  pub view: AllocIdx<GeometryBufferImpl>,
+  pub range: BufferViewRange,
+  /// offset relative to the view
+  pub byte_offset: usize,
+  pub count: usize,
+  /// corespondent to the data type
+  /// for example: vec3<f32> => 3 * 4
+  pub item_byte_size: usize,
+}
+
+pub fn global_normalized_att_sematic_set(
+) -> impl ReactiveCollection<(AllocIdx<AttributesMesh>, AttributeSemantic), ()> {
+}
+
+pub fn global_normalized_att_acc_keys(
+) -> impl ReactiveCollection<(AllocIdx<AttributesMesh>, AttributeSemantic), AttributeAccessKey> {
+}
+
+pub fn global_acc_keys_set() -> impl ReactiveCollection<AttributeAccessKey, ()> {
+  global_normalized_att_sematic_set().many_to_one_reduce_key(global_normalized_att_acc_keys())
+}
+
+// used for positional related compute
+pub fn position_attributes(
+  scope: impl ReactiveCollection<AllocIdx<AttributesMesh>, ()>,
+) -> impl ReactiveCollection<AttributeAccessKey, ()> {
+  // global_normalized_att_sematic_set filter out position key
+  // reduce by global_normalized_att_acc_keys
+  // remapping
+}
+
 pub fn vertex_attribute_buffers_scope(
   scope: impl ReactiveCollection<AllocIdx<AttributesMesh>, ()>,
-) -> impl ReactiveCollection<AllocIdx<AttributeAccessor>, ()> {
+) -> impl ReactiveCollection<AttributeAccessKey, ()> {
 
   //
 }
 
 pub fn index_attribute_buffers_scope(
   scope: impl ReactiveCollection<AllocIdx<AttributesMesh>, ()>,
-) -> impl ReactiveCollection<AllocIdx<AttributeAccessor>, ()> {
+) -> impl ReactiveCollection<AttributeAccessKey, ()> {
   //
 }
 
 pub fn gpu_attribute_vertex_buffers(
-  scope: impl ReactiveCollection<AllocIdx<AttributeAccessor>, ()>,
-) -> impl ReactiveCollection<AllocIdx<AttributeAccessor>, GPUBufferResourceView> {
+  gpu: &ResourceGPUCtx,
+  scope: impl ReactiveCollection<AttributeAccessKey, ()>,
+) -> impl ReactiveCollection<AttributeAccessKey, GPUBufferResourceView> {
+  // scope.collective_execute_map_by(move || {
+  //   let gpu = gpu.clone();
+  //   let creator = storage_of::<GeometryBufferImpl>().create_key_mapper(move |m, _| mapper(m,
+  // &gpu));   move |k, _| creator(*k)
+  // })
   // storage_of::<AttributeAccessor>()
   //
 }
 
 pub fn gpu_attribute_index_buffers(
-  scope: impl ReactiveCollection<AllocIdx<AttributeAccessor>, ()>,
-) -> impl ReactiveCollection<AllocIdx<AttributeAccessor>, GPUBufferResourceView> {
+  cx: &ResourceGPUCtx,
+  scope: impl ReactiveCollection<AttributeAccessKey, ()>,
+) -> impl ReactiveCollection<AttributeAccessKey, GPUBufferResourceView> {
   // storage_of::<AttributeAccessor>()
   //
 }
 
 pub fn attribute_mesh_shader_keys(
   scope: impl ReactiveCollection<AllocIdx<AttributesMesh>, ()>,
-) -> impl ReactiveCollection<AllocIdx<AttributeAccessor>, u64> {
+) -> impl ReactiveCollection<AttributeAccessKey, u64> {
 }
 
 pub struct AttributesMeshGPU<'a> {
