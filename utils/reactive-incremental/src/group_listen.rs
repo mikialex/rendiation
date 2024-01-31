@@ -41,10 +41,20 @@ impl<T> ChangeReaction<T> {
   }
 }
 
+#[derive(Clone, Copy, Debug)]
+pub struct AnyChanging;
+impl PartialEq for AnyChanging {
+  fn eq(&self, _: &Self) -> bool {
+    false
+  }
+}
+
 impl<T: IncrementalBase> IncrementalSignalStorage<T> {
   // todo, share all set for same T
-  pub fn listen_all_instance_changed_set(&self) -> impl ReactiveCollection<AllocIdx<T>, ()> {
-    self.listen_to_reactive_collection(|_| ChangeReaction::Care(Some(())))
+  pub fn listen_all_instance_changed_set(
+    &self,
+  ) -> impl ReactiveCollection<AllocIdx<T>, AnyChanging> {
+    self.listen_to_reactive_collection(|_| ChangeReaction::Care(Some(AnyChanging)))
   }
 
   // in mapper, if receive full, should not return not care!

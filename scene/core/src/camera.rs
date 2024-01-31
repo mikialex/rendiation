@@ -214,10 +214,10 @@ pub fn camera_projections() -> impl ReactiveCollection<AllocIdx<SceneCameraImpl>
     // extract proj change flag
     .listen_to_reactive_collection(|change| match change {
       MaybeDeltaRef::Delta(delta) => match delta {
-        SceneCameraImplDelta::projection(_) => ChangeReaction::Care(Some(())),
+        SceneCameraImplDelta::projection(_) => ChangeReaction::Care(Some(AnyChanging)),
         _ => ChangeReaction::NotCare,
       },
-      MaybeDeltaRef::All(_) => ChangeReaction::Care(Some(())),
+      MaybeDeltaRef::All(_) => ChangeReaction::Care(Some(AnyChanging)),
     })
     .collective_execute_simple_map(|camera| camera.compute_project_mat())
 }
