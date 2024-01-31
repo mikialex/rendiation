@@ -274,7 +274,7 @@ where
 {
 }
 
-pub trait AllocIdCollectionExt<K: 'static> {
+pub trait AllocIdCollectionExt<K: 'static, X> {
   fn collective_execute_simple_map<V>(
     self,
     mapper: impl Fn(&K) -> V + 'static + Send + Sync + Copy,
@@ -283,10 +283,11 @@ pub trait AllocIdCollectionExt<K: 'static> {
     V: CValue;
 }
 
-impl<K, T> AllocIdCollectionExt<K> for T
+impl<K, T, X> AllocIdCollectionExt<K, X> for T
 where
-  T: ReactiveCollection<AllocIdx<K>, ()>,
+  T: ReactiveCollection<AllocIdx<K>, X>,
   K: IncrementalBase,
+  X: CValue,
 {
   fn collective_execute_simple_map<V>(
     self,
