@@ -61,7 +61,7 @@ pub trait AllocIdCollectionGPUExt<K: 'static> {
 
 impl<K, T> AllocIdCollectionGPUExt<K> for T
 where
-  T: ReactiveCollection<AllocIdx<K>, ()>,
+  T: ReactiveCollection<AllocIdx<K>, AnyChanging>,
   K: IncrementalBase,
 {
   fn collective_execute_gpu_map<V>(

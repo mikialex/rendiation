@@ -3,100 +3,126 @@ use std::sync::RwLockReadGuard;
 
 use crate::*;
 
-#[derive(Default)]
-pub struct RenderList {
-  pub(crate) opaque: Vec<(SceneModel, f32)>,
-  pub(crate) transparent: Vec<(SceneModel, f32)>,
+pub type ShaderHash = u64;
+
+pub struct RenderListNormalizationSystem {
+  // should use stream map
+  list: FastHashMap<SceneCamera, OneManyRelationForker<ShaderHash, AllocIdx<SceneModelImpl>>>,
+}
+impl RenderListNormalizationSystem {
+  pub fn new(scene: &Scene) -> Self {
+    // reactive to all camera in the scene
+    todo!()
+  }
 }
 
-impl RenderList {
-  pub fn collect_from_scene_objects(
-    &mut self,
-    scene: &SceneRenderResourceGroup,
-    iter: impl Iterator<Item = SceneModel>,
-    camera: &SceneCamera,
-    blend: bool,
-  ) {
-    if scene.scene.active_camera.is_none() {
-      return;
-    }
-
-    let camera_mat = camera.visit(|camera| scene.node_derives.get_world_matrix(&camera.node));
-    let camera_pos = camera_mat.position();
-    let camera_forward = camera_mat.forward().reverse();
-
-    self.opaque.clear();
-    self.transparent.clear();
-
-    for m in iter {
-      let model_pos = scene
-        .node_derives
-        .get_world_matrix(&m.read().node)
-        .position();
-      let depth = (model_pos - camera_pos).dot(camera_forward);
-
-      if blend && m.read().model.should_use_alpha_blend() {
-        self.transparent.push((m.clone(), depth));
-      } else {
-        self.opaque.push((m.clone(), depth));
-      }
-    }
-
-    self
-      .opaque
-      .sort_by(|a, b| a.1.partial_cmp(&b.1).unwrap_or(Equal));
-    self
-      .transparent
-      .sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(Equal));
-  }
-  pub fn collect_from_scene(
-    &mut self,
-    scene: &SceneRenderResourceGroup,
-    camera: &SceneCamera,
-    blend: bool,
-  ) {
-    self.collect_from_scene_objects(
-      scene,
-      scene.scene.models.iter().map(|(_, m)| m.clone()),
-      camera,
-      blend,
-    )
-  }
-
-  pub fn setup_pass(
-    &self,
-    gpu_pass: &mut FrameRenderPass,
-    dispatcher: &dyn RenderComponentAny,
-    camera: &SceneCamera,
-    resource: &SceneRenderResourceGroup,
-    skip_opaque: bool,
-  ) {
-    //   let resource_view = ModelGPURenderResourceView::new(resource);
-    //   let camera_gpu = resource_view.cameras.get_camera_gpu(camera).unwrap();
-
-    //   if !skip_opaque {
-    //     self.opaque.iter().for_each(|(model, _)| {
-    //       scene_model_setup_pass_core(
-    //         gpu_pass,
-    //         model.guid(),
-    //         camera_gpu,
-    //         &resource_view,
-    //         dispatcher,
-    //       );
-    //     });
-    //   }
-
-    //   self.transparent.iter().for_each(|(model, _)| {
-    //     scene_model_setup_pass_core(
-    //       gpu_pass,
-    //       model.guid(),
-    //       camera_gpu,
-    //       &resource_view,
-    //       dispatcher,
-    //     );
-    //   });
+pub struct RenderListGLESSystem {
+  // should use stream map
+  base: RenderListNormalizationSystem, // we should keep base to lookup the shaderhash one to many
+  // the transparent is auto implicitly separate by shader hash
+  // gles always require cpu side sort(for transparent, and for opaque performance)
+  distances: FastHashMap<SceneCamera, RxCForker<AllocIdx<SceneModelImpl>, f32>>,
+}
+impl RenderListGLESSystem {
+  pub fn new(upstream: &RenderListNormalizationSystem) -> Self {
+    todo!()
   }
 }
+
+// #[derive(Default)]
+// pub struct RenderList {
+//   pub(crate) opaque: Vec<(SceneModel, f32)>,
+//   pub(crate) transparent: Vec<(SceneModel, f32)>,
+// }
+
+// impl RenderList {
+//   pub fn collect_from_scene_objects(
+//     &mut self,
+//     scene: &SceneRenderResourceGroup,
+//     iter: impl Iterator<Item = SceneModel>,
+//     camera: &SceneCamera,
+//     blend: bool,
+//   ) {
+//     if scene.scene.active_camera.is_none() {
+//       return;
+//     }
+
+//     let camera_mat = camera.visit(|camera| scene.node_derives.get_world_matrix(&camera.node));
+//     let camera_pos = camera_mat.position();
+//     let camera_forward = camera_mat.forward().reverse();
+
+//     self.opaque.clear();
+//     self.transparent.clear();
+
+//     for m in iter {
+//       let model_pos = scene
+//         .node_derives
+//         .get_world_matrix(&m.read().node)
+//         .position();
+//       let depth = (model_pos - camera_pos).dot(camera_forward);
+
+//       if blend && m.read().model.should_use_alpha_blend() {
+//         self.transparent.push((m.clone(), depth));
+//       } else {
+//         self.opaque.push((m.clone(), depth));
+//       }
+//     }
+
+//     self
+//       .opaque
+//       .sort_by(|a, b| a.1.partial_cmp(&b.1).unwrap_or(Equal));
+//     self
+//       .transparent
+//       .sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(Equal));
+//   }
+//   pub fn collect_from_scene(
+//     &mut self,
+//     scene: &SceneRenderResourceGroup,
+//     camera: &SceneCamera,
+//     blend: bool,
+//   ) {
+//     self.collect_from_scene_objects(
+//       scene,
+//       scene.scene.models.iter().map(|(_, m)| m.clone()),
+//       camera,
+//       blend,
+//     )
+//   }
+
+//   pub fn setup_pass(
+//     &self,
+//     gpu_pass: &mut FrameRenderPass,
+//     dispatcher: &dyn RenderComponentAny,
+//     camera: &SceneCamera,
+//     resource: &SceneRenderResourceGroup,
+//     skip_opaque: bool,
+//   ) {
+//     //   let resource_view = ModelGPURenderResourceView::new(resource);
+//     //   let camera_gpu = resource_view.cameras.get_camera_gpu(camera).unwrap();
+
+//     //   if !skip_opaque {
+//     //     self.opaque.iter().for_each(|(model, _)| {
+//     //       scene_model_setup_pass_core(
+//     //         gpu_pass,
+//     //         model.guid(),
+//     //         camera_gpu,
+//     //         &resource_view,
+//     //         dispatcher,
+//     //       );
+//     //     });
+//     //   }
+
+//     //   self.transparent.iter().for_each(|(model, _)| {
+//     //     scene_model_setup_pass_core(
+//     //       gpu_pass,
+//     //       model.guid(),
+//     //       camera_gpu,
+//     //       &resource_view,
+//     //       dispatcher,
+//     //     );
+//     //   });
+//   }
+// }
 
 // pub(crate) fn scene_model_setup_pass_core(
 //   gpu_pass: &mut FrameRenderPass,
@@ -149,30 +175,30 @@ impl RenderList {
 //   )
 // }
 
-pub trait AlphaBlendDecider {
-  fn should_use_alpha_blend(&self) -> bool;
-}
-define_dyn_trait_downcaster_static!(AlphaBlendDecider);
+// pub trait AlphaBlendDecider {
+//   fn should_use_alpha_blend(&self) -> bool;
+// }
+// define_dyn_trait_downcaster_static!(AlphaBlendDecider);
 
-impl AlphaBlendDecider for IncrementalSignalPtr<StandardModel> {
-  fn should_use_alpha_blend(&self) -> bool {
-    self.read().material.is_transparent()
-  }
-}
+// impl AlphaBlendDecider for IncrementalSignalPtr<StandardModel> {
+//   fn should_use_alpha_blend(&self) -> bool {
+//     self.read().material.is_transparent()
+//   }
+// }
 
-impl AlphaBlendDecider for ModelEnum {
-  fn should_use_alpha_blend(&self) -> bool {
-    match self {
-      ModelEnum::Standard(model) => model.should_use_alpha_blend(),
-      ModelEnum::Foreign(any) => {
-        if let Some(any) =
-          get_dyn_trait_downcaster_static!(AlphaBlendDecider).downcast_ref(any.as_ref().as_any())
-        {
-          any.should_use_alpha_blend()
-        } else {
-          false
-        }
-      }
-    }
-  }
-}
+// impl AlphaBlendDecider for ModelEnum {
+//   fn should_use_alpha_blend(&self) -> bool {
+//     match self {
+//       ModelEnum::Standard(model) => model.should_use_alpha_blend(),
+//       ModelEnum::Foreign(any) => {
+//         if let Some(any) =
+//           get_dyn_trait_downcaster_static!(AlphaBlendDecider).downcast_ref(any.as_ref().as_any())
+//         {
+//           any.should_use_alpha_blend()
+//         } else {
+//           false
+//         }
+//       }
+//     }
+//   }
+// }
