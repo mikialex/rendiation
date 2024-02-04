@@ -7,7 +7,7 @@
 mod background;
 mod camera;
 
-mod lights;
+// mod lights;
 mod materials;
 mod mesh;
 mod node;
@@ -36,7 +36,7 @@ use fast_hash_collection::*;
 use futures::stream::FusedStream;
 use futures::*;
 use incremental::*;
-pub use lights::*;
+// pub use lights::*;
 pub use materials::*;
 pub use mesh::*;
 pub use node::*;

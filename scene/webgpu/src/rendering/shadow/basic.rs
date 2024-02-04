@@ -118,7 +118,7 @@ impl SingleProjectShadowMapSystem {
 
         // we could just use default, because the color channel not exist at all
         let base = default_dispatcher(pass);
-        let base = &scene.extend_bindless_resource_provider(&base) as &dyn RenderComponentAny;
+        let base = &scene.with_scene_resource_ctx(&base) as &dyn RenderComponentAny;
 
         render_list.setup_pass(pass, &base, camera, scene);
       }

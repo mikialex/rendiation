@@ -1,29 +1,31 @@
 mod background;
 pub use background::*;
-mod shadow;
-pub use shadow::*;
-mod content;
-pub use content::*;
-mod lighting;
-pub use lighting::*;
 
+// mod shadow;
+// pub use shadow::*;
+// mod content;
+// pub use content::*;
+
+// mod lighting;
+// pub use lighting::*;
 use crate::*;
 
 pub struct SceneRenderResourceGroup<'a> {
   pub scene: &'a SceneCoreImpl,
-  pub resources: &'a ContentGPUSystem,
-  // pub scene_resources: &'a SceneGPUSystem,
-  // pub node_derives: &'a SceneNodeDeriveSystem,
+  pub texture_gpu: &'a GPUTextureBindingSystem,
+
+  pub resources: &'a SceneShareContentGPUResource,
+  pub scene_resources: &'a SceneGPUResource,
 }
 
 impl<'a> SceneRenderResourceGroup<'a> {
-  pub fn extend_bindless_resource_provider<T>(
+  pub fn with_scene_resource_ctx<T>(
     &'a self,
     dispatcher: &'a T,
   ) -> BindlessResourceProvider<'a, T> {
     BindlessResourceProvider {
       base: dispatcher,
-      texture_system: &self.resources.bindable_ctx.binding_sys,
+      texture_system: &self.texture_gpu,
     }
   }
 }

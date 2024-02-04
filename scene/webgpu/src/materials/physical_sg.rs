@@ -220,7 +220,7 @@ impl<'a> GraphicsShaderProvider for PhysicalSpecularGlossinessMaterialGPU<'a> {
       let (normal_sample, enabled) = bind_and_sample_enabled(
         binding,
         builder.registry(),
-        &self.normal_texture.as_ref().map(|m| m.content),
+        self.normal_texture.as_ref().map(|m| &m.content),
         tex_uniform.normal_texture,
         uv,
         val(Vec4::one()),

@@ -4,35 +4,6 @@ use rendiation_texture_gpu_process::ToneMap;
 
 use crate::*;
 
-pub fn get_main_pass_load_op(scene: &SceneCoreImpl) -> Operations<Color> {
-  let load = if let Some(bg) = &scene.background {
-    if let Some(clear_color) = match bg {
-      SceneBackGround::Solid(bg) => bg.require_pass_clear(),
-      SceneBackGround::Env(bg) => bg.require_pass_clear(),
-      SceneBackGround::Foreign(bg) => {
-        if let Some(bg) =
-          get_dyn_trait_downcaster_static!(WebGPUBackground).downcast_ref(bg.as_ref().as_any())
-        {
-          bg.require_pass_clear()
-        } else {
-          None
-        }
-      }
-    } {
-      LoadOp::Clear(clear_color)
-    } else {
-      LoadOp::Load
-    }
-  } else {
-    LoadOp::Load
-  };
-
-  Operations {
-    load,
-    store: StoreOp::Store,
-  }
-}
-
 pub struct ForwardScene<'a> {
   pub tonemap: &'a ToneMap,
   pub debugger: Option<&'a ScreenChannelDebugger>,
@@ -58,8 +29,7 @@ impl<'a> PassContentWithSceneAndCamera for ForwardScene<'a> {
       lights: &scene.scene_resources.lights,
       shadows: &scene.scene_resources.shadows,
     };
-    let dispatcher =
-      &scene.extend_bindless_resource_provider(&dispatcher) as &dyn RenderComponentAny;
+    let dispatcher = &scene.with_scene_resource_ctx(&dispatcher) as &dyn RenderComponentAny;
 
     render_list.setup_pass(pass, &dispatcher, camera, scene);
   }

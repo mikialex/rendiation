@@ -1,5 +1,34 @@
 use crate::*;
 
+pub fn get_main_pass_load_op(scene: &SceneCoreImpl) -> Operations<Color> {
+  let load = if let Some(bg) = &scene.background {
+    if let Some(clear_color) = match bg {
+      SceneBackGround::Solid(bg) => bg.require_pass_clear(),
+      SceneBackGround::Env(bg) => bg.require_pass_clear(),
+      SceneBackGround::Foreign(bg) => {
+        if let Some(bg) =
+          get_dyn_trait_downcaster_static!(WebGPUBackground).downcast_ref(bg.as_ref().as_any())
+        {
+          bg.require_pass_clear()
+        } else {
+          None
+        }
+      }
+    } {
+      LoadOp::Clear(clear_color)
+    } else {
+      LoadOp::Load
+    }
+  } else {
+    LoadOp::Load
+  };
+
+  Operations {
+    load,
+    store: StoreOp::Store,
+  }
+}
+
 pub trait WebGPUBackground: 'static + SceneRenderable {
   fn require_pass_clear(&self) -> Option<Color>;
 }
@@ -42,33 +71,30 @@ impl SceneRenderable for EnvMapBackground {
     camera: &SceneCamera,
     scene: &SceneRenderResourceGroup,
   ) {
-    let (_, texture) = scene
-      .resources
-      .bindable_ctx
-      .get_or_create_reactive_gpu_texture_cube(&self.texture);
+    if let Some(texture) = &scene.scene_resources.cube_env {
+      // let camera_gpu = scene.resources.cameras.get().unwrap();
+      let camera_gpu = todo!();
 
-    let cameras = scene.scene_resources.cameras.read().unwrap();
-    let camera_gpu = cameras.get_camera_gpu(camera).unwrap();
+      // should we cache it?
+      let content = EnvMapBackgroundGPU { texture };
+      let content = ShadingBackgroundTask {
+        content,
+        camera_gpu,
+      };
 
-    // should we cache it?
-    let content = EnvMapBackgroundGPU { texture };
-    let content = ShadingBackgroundTask {
-      content,
-      camera_gpu,
-    };
+      let components: [&dyn RenderComponentAny; 3] = [&base, &FullScreenQuad::default(), &content];
 
-    let components: [&dyn RenderComponentAny; 3] = [&base, &FullScreenQuad::default(), &content];
-
-    RenderEmitter::new(components.as_slice()).render(&mut pass.ctx, QUAD_DRAW_CMD);
+      RenderEmitter::new(components.as_slice()).render(&mut pass.ctx, QUAD_DRAW_CMD);
+    }
   }
 }
 
-struct EnvMapBackgroundGPU {
-  texture: GPUCubeTextureView,
+struct EnvMapBackgroundGPU<'a> {
+  texture: &'a GPUCubeTextureView,
 }
 
-impl ShaderHashProvider for EnvMapBackgroundGPU {}
-impl ShadingBackground for EnvMapBackgroundGPU {
+impl<'a> ShaderHashProvider for EnvMapBackgroundGPU<'a> {}
+impl<'a> ShadingBackground for EnvMapBackgroundGPU<'a> {
   fn shading(
     &self,
     builder: &mut ShaderFragmentBuilderView,
@@ -83,9 +109,9 @@ impl ShadingBackground for EnvMapBackgroundGPU {
   }
 }
 
-impl ShaderPassBuilder for EnvMapBackgroundGPU {
+impl<'a> ShaderPassBuilder for EnvMapBackgroundGPU<'a> {
   fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
-    ctx.binding.bind(&self.texture);
+    ctx.binding.bind(self.texture);
     ctx.bind_immediate_sampler(&TextureSampler::default().with_double_linear().into_gpu());
   }
 }

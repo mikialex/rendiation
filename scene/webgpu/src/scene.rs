@@ -3,7 +3,7 @@ use crate::*;
 #[derive(Clone)]
 pub struct SceneGPUResource {
   // exist if scene is env background
-  cube_env: Option<GPUCubeTextureView>,
+  pub(crate) cube_env: Option<GPUCubeTextureView>,
   nodes: Arc<dyn ReactiveCollection<NodeIdentity, NodeGPU>>,
 }
 
@@ -42,7 +42,8 @@ impl SceneGPUResource {
 //   storage_of::<SceneModel>()
 // }
 
-struct SceneShareContentGPUResource {
+pub struct SceneShareContentGPUResource {
+  cameras: Box<dyn ReactiveCollection<SceneCameraImpl, CameraGPU>>,
   meshes: MeshGPUResource,
   materials: MaterialGPUResource,
   textures: TextureGPUResource,
@@ -63,9 +64,10 @@ fn create_scene_share_content_gpu_resource(
 
   let texture_material_references = all_std_model_materials_textures(referenced_std_md.clone());
 
-  let normalized_material_tex_reference: Box<
-    dyn ReactiveCollection<(TypeId, u8, u32), AllocIdx<SceneTexture2DType>>,
-  > = Box::new(()); // todo
+  let normalized_material_tex_reference: RxCForker<
+    (TypeId, u8, u32),
+    AllocIdx<SceneTexture2DType>,
+  > = todo!(); // todo
 
   let normalized_material_tex_reference_m =
     normalized_material_tex_reference.collective_map(|_| ());
@@ -78,18 +80,23 @@ fn create_scene_share_content_gpu_resource(
     .into_boxed()
     .into_forker();
 
-  let referenced_attribute_mesh =
-    referenced_std_md.many_to_one_reduce_key(std_model_ref_att_mesh());
+  let referenced_attribute_mesh = referenced_std_md
+    .clone()
+    .many_to_one_reduce_key(std_model_ref_att_mesh());
 
-  let referenced_attribute_mesh =
-    referenced_std_md.many_to_one_reduce_key(std_model_ref_att_mesh());
+  let referenced_attribute_mesh = referenced_std_md
+    .clone()
+    .many_to_one_reduce_key(std_model_ref_att_mesh())
+    .into_forker();
 
-  let referenced_flat_material =
-    referenced_std_md.many_to_one_reduce_key(global_material_relations::<FlatMaterial>());
+  let referenced_flat_material = referenced_std_md
+    .clone()
+    .many_to_one_reduce_key(global_material_relations::<FlatMaterial>());
   let flat_material_uniforms =
     flat_material_gpus(cx.clone(), referenced_flat_material).into_boxed();
 
   let referenced_mr_material = referenced_std_md
+    .clone()
     .many_to_one_reduce_key(global_material_relations::<PhysicalMetallicRoughnessMaterial>());
   let mr_material_uniforms =
     physical_mr_material_uniforms(cx.clone(), referenced_mr_material).into_boxed();
@@ -100,9 +107,11 @@ fn create_scene_share_content_gpu_resource(
   .into_boxed();
 
   let referenced_sg_material =
-    referenced_std_md.many_to_one_reduce_key(global_material_relations::<
-      PhysicalSpecularGlossinessMaterial,
-    >());
+    referenced_std_md
+      .clone()
+      .many_to_one_reduce_key(global_material_relations::<
+        PhysicalSpecularGlossinessMaterial,
+      >());
   let sg_material_uniforms =
     physical_sg_material_uniforms(cx.clone(), referenced_sg_material).into_boxed();
   let sg_material_tex_uniforms = PhysicalSpecularGlossinessMaterial::create_texture_uniforms(
@@ -111,7 +120,7 @@ fn create_scene_share_content_gpu_resource(
   )
   .into_boxed();
 
-  let vertex_buffers = vertex_attribute_buffers_scope(referenced_attribute_mesh);
+  let vertex_buffers = vertex_attribute_buffers_scope(referenced_attribute_mesh.clone());
   let vertex_buffers = gpu_attribute_vertex_buffers(cx, vertex_buffers).into_boxed();
 
   let index_buffers = vertex_attribute_buffers_scope(referenced_attribute_mesh);
@@ -133,6 +142,7 @@ fn create_scene_share_content_gpu_resource(
       texture2ds,
       samplers: sampler_gpus_handles(cx, todo!()).into_boxed().into_forker(),
     },
+    cameras: todo!(),
   }
 }
 

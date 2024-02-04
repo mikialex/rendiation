@@ -191,7 +191,7 @@ pub(super) fn bind_and_sample(
 pub(super) fn bind_and_sample_enabled(
   binding: &mut ShaderBindGroupDirectBuilder,
   reg: &SemanticRegistry,
-  tex: &Option<Texture2DWithSamplingData>,
+  tex: Option<&Texture2DWithSamplingData>,
   handles: Node<TextureSamplerHandlePair>,
   uv: Node<Vec2<f32>>,
   default_value: Node<Vec4<f32>>,
