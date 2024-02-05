@@ -120,7 +120,7 @@ where
   }
 }
 
-pub(crate) trait MakeLockResultHolderRaw<T>: Sized {
+pub trait MakeLockResultHolderRaw<T>: Sized {
   /// note, this method should be considered as the unsafe
   fn make_lock_holder_raw(&self) -> LockResultHolder<T>;
 }
@@ -136,7 +136,7 @@ impl<T> MakeLockResultHolderRaw<T> for Arc<RwLock<T>> {
 }
 
 /// Note, the field(drop) order is important
-pub(crate) struct LockResultHolder<T: 'static> {
+pub struct LockResultHolder<T: 'static> {
   guard: Arc<RwLockReadGuard<'static, T>>,
   holder: Arc<RwLock<T>>,
 }

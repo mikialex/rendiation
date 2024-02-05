@@ -2619,19 +2619,6 @@ dependencies = [
 name = "reactive"
 version = "0.0.1"
 dependencies = [
- "criterion",
- "crossbeam-queue",
- "fast-hash-collection",
- "futures",
- "pin-project",
- "slab",
- "storage",
-]
-
-[[package]]
-name = "reactive-incremental"
-version = "0.0.1"
-dependencies = [
  "dashmap",
  "dyn-clone",
  "dyn-downcast",
@@ -2641,11 +2628,41 @@ dependencies = [
  "incremental",
  "parking_lot",
  "pin-project",
- "rayon",
- "reactive",
+ "reactive-collection",
+ "reactive-stream",
  "smallvec",
  "storage",
  "tracing",
+]
+
+[[package]]
+name = "reactive-collection"
+version = "0.0.1"
+dependencies = [
+ "dashmap",
+ "dyn-clone",
+ "dyn-downcast",
+ "fast-hash-collection",
+ "futures",
+ "heap-tools",
+ "parking_lot",
+ "pin-project",
+ "smallvec",
+ "storage",
+ "tracing",
+]
+
+[[package]]
+name = "reactive-stream"
+version = "0.0.1"
+dependencies = [
+ "criterion",
+ "crossbeam-queue",
+ "fast-hash-collection",
+ "futures",
+ "pin-project",
+ "slab",
+ "storage",
 ]
 
 [[package]]
@@ -2860,7 +2877,7 @@ dependencies = [
  "dyn-downcast",
  "fast-hash-collection",
  "incremental",
- "reactive-incremental",
+ "reactive",
  "rendiation-algebra",
  "rendiation-geometry",
  "rendiation-shader-api",
@@ -2933,7 +2950,6 @@ dependencies = [
  "pin-project",
  "rayon",
  "reactive",
- "reactive-incremental",
  "rendiation-algebra",
  "rendiation-animation",
  "rendiation-geometry",
@@ -3036,7 +3052,7 @@ dependencies = [
  "fast-hash-collection",
  "incremental",
  "rayon",
- "reactive-incremental",
+ "reactive",
  "rendiation-algebra",
  "rendiation-scene-core",
  "smallvec",
@@ -3772,7 +3788,6 @@ dependencies = [
  "incremental",
  "parking_lot",
  "reactive",
- "reactive-incremental",
  "rendiation-abstract-tree",
  "storage",
 ]
@@ -3877,7 +3892,6 @@ dependencies = [
  "png",
  "rayon",
  "reactive",
- "reactive-incremental",
  "rendiation-algebra",
  "rendiation-controller",
  "rendiation-generative-texture",

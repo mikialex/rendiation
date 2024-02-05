@@ -188,7 +188,7 @@ pub fn global_registered_collection(_args: TokenStream, input: TokenStream) -> T
 
   quote! {
     pub fn #name() #rt {
-      reactive_incremental::global_collection_registry().fork_or_insert_with(#new_name)
+      reactive::global_collection_registry().fork_or_insert_with(#new_name)
     }
 
     #original_fn
@@ -247,11 +247,11 @@ pub fn global_registered_collection_and_many_one_idx_relation(
 
   quote! {
     pub fn #name() #rt + Clone {
-      reactive_incremental::global_collection_registry().fork_or_insert_with(#new_name)
+      reactive::global_collection_registry().fork_or_insert_with(#new_name)
     }
 
     pub fn #relation_fn_name() -> impl ReactiveOneToManyRelationship<#args_v, #args_k> + Clone {
-      reactive_incremental::global_collection_registry().get_or_create_relation_by_idx(#new_name)
+      reactive::global_collection_registry().get_or_create_relation_by_idx(#new_name)
     }
 
     #original_fn
@@ -279,11 +279,11 @@ pub fn global_registered_collection_and_many_one_hash_relation(
 
   quote! {
     pub fn #name() #rt + Clone {
-      reactive_incremental::global_collection_registry().fork_or_insert_with(#new_name)
+      reactive::global_collection_registry().fork_or_insert_with(#new_name)
     }
 
     pub fn #relation_fn_name() -> impl ReactiveOneToManyRelationship<#args_v, #args_k> + Clone {
-      reactive_incremental::global_collection_registry().get_or_create_relation_by_hash(#new_name)
+      reactive::global_collection_registry().get_or_create_relation_by_hash(#new_name)
     }
 
     #original_fn

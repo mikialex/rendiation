@@ -4,9 +4,6 @@ pub use fork::*;
 mod union;
 pub use union::*;
 
-mod buffered;
-pub use buffered::*;
-
 mod cache;
 pub use cache::*;
 
@@ -27,7 +24,7 @@ where
   K: CKey,
 {
   fn make_accessor(&self) -> impl Fn(&K) -> Option<V> + '_ {
-    let view = self.spin_get_current();
+    let view = self.access();
     move |k| view.access(k)
   }
 }
@@ -52,7 +49,7 @@ where
     Box::new(self)
   }
 
-  fn into_change_stream(self) -> impl Stream<Item = Arc<FastHashMap<K, ValueChange<V>>>>
+  fn into_change_stream(self) -> impl futures::Stream<Item = Arc<FastHashMap<K, ValueChange<V>>>>
   where
     Self: Unpin,
   {
@@ -139,8 +136,8 @@ where
     F: Fn((Option<V>, Option<V2>)) -> Option<O> + Send + Sync + Copy + 'static,
   {
     ReactiveKVUnion {
-      a: BufferedCollection::new(self),
-      b: BufferedCollection::new(other),
+      a: self,
+      b: other,
       phantom: PhantomData,
       f,
     }
@@ -213,8 +210,8 @@ where
     Relation: ReactiveOneToManyRelationship<K, MK> + 'static,
   {
     OneToManyFanout {
-      upstream: BufferedCollection::new(self),
-      relations: BufferedCollection::new(relations),
+      upstream: self,
+      relations,
       phantom: PhantomData,
     }
     .workaround_box()
@@ -272,33 +269,4 @@ where
   V: CValue,
   K: CKey,
 {
-}
-
-pub trait AllocIdCollectionExt<K: 'static, X> {
-  fn collective_execute_simple_map<V>(
-    self,
-    mapper: impl Fn(&K) -> V + 'static + Send + Sync + Copy,
-  ) -> impl ReactiveCollection<AllocIdx<K>, V>
-  where
-    V: CValue;
-}
-
-impl<K, T, X> AllocIdCollectionExt<K, X> for T
-where
-  T: ReactiveCollection<AllocIdx<K>, X>,
-  K: IncrementalBase,
-  X: CValue,
-{
-  fn collective_execute_simple_map<V>(
-    self,
-    mapper: impl Fn(&K) -> V + 'static + Send + Sync + Copy,
-  ) -> impl ReactiveCollection<AllocIdx<K>, V>
-  where
-    V: CValue,
-  {
-    self.collective_execute_map_by(move || {
-      let creator = storage_of::<K>().create_key_mapper(move |m, _| mapper(m));
-      move |k, _| creator(*k)
-    })
-  }
 }

@@ -12,21 +12,13 @@ pub use projection::*;
 use crate::*;
 
 pub trait ReactiveOneToManyRelationship<O: CKey, M: CKey>: ReactiveCollection<M, O> {
-  fn multi_access(&self) -> CPoll<Box<dyn VirtualMultiCollection<O, M> + '_>>;
-
-  fn spin_get_multi_current(&self) -> Box<dyn VirtualMultiCollection<O, M> + '_> {
-    loop {
-      match self.multi_access() {
-        CPoll::Ready(r) => return r,
-        CPoll::Blocked => continue,
-      }
-    }
-  }
+  fn multi_access(&self) -> Box<dyn VirtualMultiCollection<O, M> + '_>;
 }
 
 impl<O: CKey, M: CKey> ReactiveOneToManyRelationship<O, M> for () {
-  fn multi_access(&self) -> CPoll<Box<dyn VirtualMultiCollection<O, M> + '_>> {
-    CPoll::Blocked
+  fn multi_access(&self) -> Box<dyn VirtualMultiCollection<O, M> + '_> {
+    todo!()
+    // Box::new(())
   }
 }
 
@@ -34,7 +26,7 @@ pub trait ReactiveOneToManyRelationshipExt<O: CKey, M: CKey>:
   ReactiveOneToManyRelationship<O, M>
 {
   fn make_multi_accessor(&self) -> impl Fn(&O, &mut dyn FnMut(M)) + Send + Sync + '_ {
-    let view = self.spin_get_multi_current();
+    let view = self.multi_access();
     move |k, visitor| view.access_multi(k, visitor)
   }
 
@@ -76,7 +68,7 @@ where
   O: CKey,
   M: CKey,
 {
-  fn multi_access(&self) -> CPoll<Box<dyn VirtualMultiCollection<O, M> + '_>> {
+  fn multi_access(&self) -> Box<dyn VirtualMultiCollection<O, M> + '_> {
     self.deref().multi_access()
   }
 }
@@ -90,7 +82,7 @@ pub trait ReactiveCollectionRelationExt<K: CKey, V: CKey>:
     V: CKey,
   {
     OneToManyRefHashBookKeeping {
-      upstream: BufferedCollection::new(self),
+      upstream: self,
       mapping: Default::default(),
     }
   }
@@ -101,7 +93,7 @@ pub trait ReactiveCollectionRelationExt<K: CKey, V: CKey>:
     V: CKey,
   {
     OneToManyRefHashBookKeeping {
-      upstream: BufferedCollection::new(self),
+      upstream: self,
       mapping: Default::default(),
     }
   }
@@ -112,7 +104,7 @@ pub trait ReactiveCollectionRelationExt<K: CKey, V: CKey>:
     V: CKey + LinearIdentification,
   {
     OneToManyRefDenseBookKeeping {
-      upstream: BufferedCollection::new(self),
+      upstream: self,
       mapping: Default::default(),
       phantom: PhantomData,
     }
@@ -124,7 +116,7 @@ pub trait ReactiveCollectionRelationExt<K: CKey, V: CKey>:
     V: CKey + LinearIdentification,
   {
     OneToManyRefDenseBookKeeping {
-      upstream: BufferedCollection::new(self),
+      upstream: self,
       mapping: Default::default(),
       phantom: PhantomData,
     }
@@ -149,8 +141,8 @@ pub trait ReactiveCollectionRelationReduceExt<K: CKey>: Sized + ReactiveCollecti
     Relation: ReactiveCollection<K, SK>,
   {
     ManyToOneReduce {
-      upstream: BufferedCollection::new(self),
-      relations: BufferedCollection::new(relations),
+      upstream: self,
+      relations,
       phantom: PhantomData,
       ref_count: Default::default(),
     }

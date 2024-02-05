@@ -240,15 +240,13 @@ where
   fn poll_changes(&self, cx: &mut Context) -> PollCollectionChanges<AllocIdx<T>, U> {
     match self.inner.write().poll_next_unpin(cx) {
       Poll::Ready(Some(r)) => {
-        let r = if r.is_empty() {
+        if r.is_empty() {
           Poll::Pending
         } else {
           Poll::Ready(Box::new(r) as Box<dyn VirtualCollection<AllocIdx<T>, ValueChange<U>>>)
-        };
-
-        CPoll::Ready(r)
+        }
       }
-      _ => CPoll::Ready(Poll::Pending),
+      _ => Poll::Pending,
     }
   }
 
@@ -262,7 +260,7 @@ where
       mapper: self.mapper.clone(),
     };
 
-    CPoll::Ready(Box::new(view))
+    Box::new(view)
   }
 }
 

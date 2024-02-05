@@ -7,7 +7,7 @@ version = "0.1.0"
 [dependencies]
 fast-hash-collection = { path = "../../utils/fast-hash-collection" }
 incremental = { path = "../../utils/incremental" }
-reactive-incremental = { path = "../../utils/reactive-incremental" }
+reactive = { path = "../../utils/reactive" }
 rendiation-algebra = { path = "../../math/algebra" }
 rendiation-scene-core = { path = "../core" }
 smallvec = { workspace = true }

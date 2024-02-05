@@ -14,25 +14,23 @@ where
   V: CValue,
 {
   fn poll_changes(&self, cx: &mut Context) -> PollCollectionChanges<K, V> {
-    self.inner.poll_changes(cx).map(|delta| {
-      if let Poll::Ready(changes) = &delta {
-        let mut cache = self.cache.write();
-        for (k, change) in changes.iter_key_value() {
-          match change.clone() {
-            ValueChange::Delta(v, _) => {
-              cache.insert(k, v);
-            }
-            ValueChange::Remove(_) => {
-              cache.remove(&k);
-            }
+    self.inner.poll_changes(cx).map(|changes| {
+      let mut cache = self.cache.write();
+      for (k, change) in changes.iter_key_value() {
+        match change.clone() {
+          ValueChange::Delta(v, _) => {
+            cache.insert(k, v);
+          }
+          ValueChange::Remove(_) => {
+            cache.remove(&k);
           }
         }
       }
-      delta
+      changes
     })
   }
   fn access(&self) -> PollCollectionCurrent<K, V> {
-    CPoll::Ready(self.cache.make_lock_holder_collection())
+    self.cache.make_lock_holder_collection()
   }
 
   fn extra_request(&mut self, request: &mut ExtraCollectionOperation) {
@@ -55,21 +53,19 @@ where
   V: CValue,
 {
   fn poll_changes(&self, cx: &mut Context) -> PollCollectionChanges<K, V> {
-    self.inner.poll_changes(cx).map(|delta| {
+    self.inner.poll_changes(cx).map(|changes| {
       let mut cache = self.cache.write();
-      if let Poll::Ready(changes) = &delta {
-        for (k, change) in changes.iter_key_value() {
-          match change {
-            ValueChange::Delta(v, _) => {
-              cache.insert(v, k.alloc_index());
-            }
-            ValueChange::Remove(_) => {
-              cache.remove(k.alloc_index());
-            }
+      for (k, change) in changes.iter_key_value() {
+        match change {
+          ValueChange::Delta(v, _) => {
+            cache.insert(v, k.alloc_index());
+          }
+          ValueChange::Remove(_) => {
+            cache.remove(k.alloc_index());
           }
         }
       }
-      delta
+      changes
     })
   }
 
@@ -81,7 +77,7 @@ where
   }
 
   fn access(&self) -> PollCollectionCurrent<K, V> {
-    CPoll::Ready(self.cache.make_lock_holder_collection())
+    self.cache.make_lock_holder_collection()
   }
 }
 

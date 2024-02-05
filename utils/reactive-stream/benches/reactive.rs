@@ -1,5 +1,5 @@
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
-use reactive::do_updates;
+use reactive_stream::do_updates;
 
 /// this mainly measure the overhead of channel
 fn criterion_benchmark(c: &mut Criterion) {

@@ -1,8 +1,8 @@
 use __core::{any::Any, hash::Hash};
 use futures::Stream;
 use incremental::*;
+use reactive::IncrementalListenBy;
 use reactive::ReactiveMap;
-use reactive_incremental::IncrementalListenBy;
 use rendiation_scene_core::{
   any_change, GlobalIdReactiveSimpleMapping, IncrementalSignalPtr, IntoIncrementalSignalPtr,
 };

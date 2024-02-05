@@ -45,22 +45,20 @@ where
   #[tracing::instrument(skip_all, name = "ReactiveKVFilter")]
   fn poll_changes(&self, cx: &mut Context) -> PollCollectionChanges<K, V2> {
     self.inner.poll_changes(cx).map(|delta| {
-      delta.map(|delta| {
-        Box::new(ValueChangeFilter {
-          base: delta,
-          mapper: self.checker,
-        }) as Box<dyn VirtualCollection<K, ValueChange<V2>>>
-      })
+      Box::new(ValueChangeFilter {
+        base: delta,
+        mapper: self.checker,
+      }) as Box<dyn VirtualCollection<K, ValueChange<V2>>>
     })
   }
 
   fn access(&self) -> PollCollectionCurrent<K, V2> {
-    self.inner.access().map(|current| {
-      Box::new(CollectionFilter {
-        base: current,
-        mapper: self.checker,
-      })
-    } as Box<dyn VirtualCollection<K, V2>>)
+    let current = self.inner.access();
+
+    Box::new(CollectionFilter {
+      base: current,
+      mapper: self.checker,
+    }) as Box<dyn VirtualCollection<K, V2>>
   }
 
   fn extra_request(&mut self, request: &mut ExtraCollectionOperation) {

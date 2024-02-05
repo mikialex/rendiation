@@ -30,7 +30,7 @@ impl NodeRebuilder {
   }
 
   pub fn poll_update(&mut self, cx: &mut Context) {
-    if let CPoll::Ready(Poll::Ready(changes)) = self.node_source.world_mat.poll_changes(cx) {
+    if let Poll::Ready(changes) = self.node_source.world_mat.poll_changes(cx) {
       for (key, change) in changes.iter_key_value() {
         match change {
           ValueChange::Delta(new, _) => {
@@ -48,7 +48,7 @@ impl NodeRebuilder {
         }
       }
     }
-    if let CPoll::Ready(Poll::Ready(changes)) = self.node_source.net_visible.poll_changes(cx) {
+    if let Poll::Ready(changes) = self.node_source.net_visible.poll_changes(cx) {
       for (key, change) in changes.iter_key_value() {
         // sync the node change, the add remove is handled above
         if let ValueChange::Delta(new, _) = change {
@@ -104,7 +104,7 @@ impl SceneCameraRebuilder {
 
   pub fn poll_updates(&mut self, cx: &mut Context) {
     self.nodes.poll_update(cx);
-    if let CPoll::Ready(Poll::Ready(changes)) = self.camera_scope.poll_changes(cx) {
+    if let Poll::Ready(changes) = self.camera_scope.poll_changes(cx) {
       let cameras_storage = storage_of::<SceneCameraImpl>();
       let cameras = cameras_storage.inner.data.read_recursive();
 
@@ -196,7 +196,7 @@ impl SceneLightsRebuilder {
 
   pub fn poll_updates(&mut self, cx: &mut Context) {
     self.nodes.poll_update(cx);
-    if let CPoll::Ready(Poll::Ready(changes)) = self.light_scope.poll_changes(cx) {
+    if let Poll::Ready(changes) = self.light_scope.poll_changes(cx) {
       let lights_storage = storage_of::<SceneLightImpl>();
       let lights = lights_storage.inner.data.read_recursive();
 

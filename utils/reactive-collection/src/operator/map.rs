@@ -17,22 +17,18 @@ where
   #[tracing::instrument(skip_all, name = "ReactiveKVMap")]
   fn poll_changes(&self, cx: &mut Context) -> PollCollectionChanges<K, V2> {
     self.inner.poll_changes(cx).map(|delta| {
-      delta.map(|delta| {
-        Box::new(MappedValueChange {
-          base: delta,
-          mapper: self.map,
-        }) as Box<dyn VirtualCollection<K, ValueChange<V2>>>
-      })
+      Box::new(MappedValueChange {
+        base: delta,
+        mapper: self.map,
+      }) as Box<dyn VirtualCollection<K, ValueChange<V2>>>
     })
   }
 
   fn access(&self) -> PollCollectionCurrent<K, V2> {
-    self.inner.access().map(|current| {
-      Box::new(MappedCollection {
-        base: current,
-        mapper: self.map,
-      })
-    } as Box<dyn VirtualCollection<K, V2>>)
+    Box::new(MappedCollection {
+      base: self.inner.access(),
+      mapper: self.map,
+    }) as Box<dyn VirtualCollection<K, V2>>
   }
 
   fn extra_request(&mut self, request: &mut ExtraCollectionOperation) {
@@ -114,26 +110,24 @@ where
   #[tracing::instrument(skip_all, name = "ReactiveKVExecuteMap")]
   fn poll_changes(&self, cx: &mut Context) -> PollCollectionChanges<K, V2> {
     self.inner.poll_changes(cx).map(move |deltas| {
-      deltas.map(|deltas| {
-        let mapper = (self.map_creator)();
-        let materialized = deltas.iter_key_value().collect::<Vec<_>>();
-        let materialized: FastHashMap<K, ValueChange<V2>> = materialized
-          .into_par_iter()
-          .map(|(k, delta)| match delta {
-            ValueChange::Delta(d, _p) => {
-              let new_value = mapper(&k, d);
-              let p = self.cache.insert(k.clone(), new_value.clone());
-              (k, ValueChange::Delta(new_value, p))
-            }
-            ValueChange::Remove(_p) => {
-              let (_, p) = self.cache.remove(&k).unwrap();
-              (k, ValueChange::Remove(p))
-            }
-          })
-          .collect();
+      let mapper = (self.map_creator)();
+      let materialized = deltas.iter_key_value().collect::<Vec<_>>();
+      let materialized: FastHashMap<K, ValueChange<V2>> = materialized
+        .into_iter()
+        .map(|(k, delta)| match delta {
+          ValueChange::Delta(d, _p) => {
+            let new_value = mapper(&k, d);
+            let p = self.cache.insert(k.clone(), new_value.clone());
+            (k, ValueChange::Delta(new_value, p))
+          }
+          ValueChange::Remove(_p) => {
+            let (_, p) = self.cache.remove(&k).unwrap();
+            (k, ValueChange::Remove(p))
+          }
+        })
+        .collect();
 
-        Box::new(Arc::new(materialized)) as Box<dyn VirtualCollection<K, ValueChange<V2>>>
-      })
+      Box::new(Arc::new(materialized)) as Box<dyn VirtualCollection<K, ValueChange<V2>>>
     })
   }
 
@@ -145,6 +139,6 @@ where
   }
 
   fn access(&self) -> PollCollectionCurrent<K, V2> {
-    CPoll::Ready(Box::new(&self.cache as &dyn VirtualCollection<K, V2>))
+    Box::new(&self.cache as &dyn VirtualCollection<K, V2>)
   }
 }

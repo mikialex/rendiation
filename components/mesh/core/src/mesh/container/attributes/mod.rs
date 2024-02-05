@@ -2,7 +2,7 @@ use std::{any::TypeId, hash::Hash, num::NonZeroU64};
 
 use dyn_downcast::*;
 use incremental::*;
-use reactive_incremental::*;
+use reactive::*;
 use rendiation_algebra::Vec3;
 use smallvec::SmallVec;
 

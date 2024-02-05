@@ -6,7 +6,7 @@ use std::{
 
 use futures::{Future, Stream};
 use incremental::IncrementalBase;
-use reactive::{do_updates, ReactiveMapping};
+use reactive_stream::{do_updates, ReactiveMapping};
 
 use crate::IncrementalSignal;
 use crate::*;

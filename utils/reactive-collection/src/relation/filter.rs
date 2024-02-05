@@ -29,7 +29,7 @@ where
   R: ReactiveOneToManyRelationship<O, M>,
   OF: ReactiveCollection<O, ()>,
 {
-  fn multi_access(&self) -> CPoll<Box<dyn VirtualMultiCollection<O, M> + '_>> {
+  fn multi_access(&self) -> Box<dyn VirtualMultiCollection<O, M> + '_> {
     // check if o is in the o set or skip
     todo!()
   }

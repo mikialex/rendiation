@@ -1,8 +1,4 @@
-use std::{
-  fmt::Debug,
-  marker::PhantomData,
-  sync::{Arc, Weak},
-};
+use std::sync::{Arc, Weak};
 
 use parking_lot::RwLockReadGuard;
 use storage::*;
@@ -14,58 +10,6 @@ pub struct SignalItem<T> {
   sub_event_handle: ListHandle,
   ref_count: u32,
   pub(crate) guid: u64, // weak semantics is impl by the guid compare in data access
-}
-
-pub struct AllocIdx<T> {
-  pub index: u32,
-  phantom: PhantomData<T>,
-}
-
-unsafe impl<T> Send for AllocIdx<T> {}
-unsafe impl<T> Sync for AllocIdx<T> {}
-
-impl<T> Debug for AllocIdx<T> {
-  fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-    f.debug_tuple("AllocIdx").field(&self.index).finish()
-  }
-}
-
-impl<T> Clone for AllocIdx<T> {
-  fn clone(&self) -> Self {
-    *self
-  }
-}
-impl<T> Copy for AllocIdx<T> {}
-impl<T> PartialEq for AllocIdx<T> {
-  fn eq(&self, other: &Self) -> bool {
-    self.index == other.index
-  }
-}
-impl<T> Eq for AllocIdx<T> {}
-impl<T> std::hash::Hash for AllocIdx<T> {
-  fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-    self.index.hash(state);
-  }
-}
-
-impl<T> LinearIdentified for AllocIdx<T> {
-  fn alloc_index(&self) -> u32 {
-    self.index
-  }
-}
-impl<T> LinearIdentification for AllocIdx<T> {
-  fn from_alloc_index(idx: u32) -> Self {
-    Self::from(idx)
-  }
-}
-
-impl<T> From<u32> for AllocIdx<T> {
-  fn from(value: u32) -> Self {
-    Self {
-      index: value,
-      phantom: PhantomData,
-    }
-  }
 }
 
 pub enum StorageGroupChange<'a, T: IncrementalBase> {
