@@ -20,7 +20,6 @@ log = { workspace = true }
 once_cell = { workspace = true }
 pin-project = { workspace = true }
 reactive = { path = "../../utils/reactive" }
-reactive-incremental = { path = "../../utils/reactive-incremental" }
 rendiation-algebra = { path = "../../math/algebra" }
 rendiation-animation = { path = "../../components/animation" }
 rendiation-geometry = { path = "../../math/geometry" }

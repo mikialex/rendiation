@@ -4,6 +4,7 @@ use std::{marker::PhantomData, sync::Arc};
 use fast_hash_collection::FastHashMap;
 use futures::channel::mpsc::*;
 use futures::task::AtomicWaker;
+use futures::StreamExt;
 use parking_lot::RwLockReadGuard;
 
 use crate::*;

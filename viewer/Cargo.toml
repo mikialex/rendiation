@@ -21,7 +21,6 @@ log = { workspace = true }
 pin-project = { workspace = true }
 rayon = { workspace = true }
 reactive = { path = "../utils/reactive" }
-reactive-incremental = { path = "../utils/reactive-incremental" }
 rendiation-algebra = { path = "../math/algebra" }
 rendiation-controller = { path = "../components/controller" }
 rendiation-generative-texture = { path = "../components/texture/generative" }

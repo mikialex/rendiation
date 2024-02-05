@@ -113,7 +113,7 @@ pub struct ReactiveCollectionAsStream<T, K, V> {
   pub phantom: PhantomData<(K, V)>,
 }
 
-impl<K, V, T> Stream for ReactiveCollectionAsStream<T, K, V>
+impl<K, V, T> futures::Stream for ReactiveCollectionAsStream<T, K, V>
 where
   T: ReactiveCollection<K, V> + Unpin,
   K: CKey,

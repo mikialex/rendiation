@@ -1,7 +1,7 @@
 use std::ops::Deref;
 
 use incremental::*;
-use reactive_incremental::*;
+use reactive::*;
 use rendiation_algebra::*;
 use rendiation_geometry::*;
 

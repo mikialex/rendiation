@@ -1,7 +1,7 @@
 use futures::{Stream, StreamExt};
 use incremental::{DeltaPair, ReversibleIncremental};
+use reactive::ValueChange;
 use reactive::{SignalStreamExt, StreamForker};
-use reactive_incremental::ValueChange;
 
 use crate::*;
 
