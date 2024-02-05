@@ -72,8 +72,8 @@ where
     let upstream = self.upstream.read_recursive();
 
     let u: &Map = &upstream;
-    let current = u.spin_get_current();
-    let current = current
+    let current = u
+      .access()
       .iter_key_value()
       .map(|(k, v)| (k, ValueChange::Delta(v, None)))
       .collect::<FastHashMap<_, _>>();
@@ -112,15 +112,15 @@ fn finalize_buffered_changes<K: CKey, V: CValue>(
   mut changes: Vec<ForkMessage<K, V>>,
 ) -> PollCollectionChanges<'static, K, V> {
   if changes.is_empty() {
-    return CPoll::Ready(Poll::Pending);
+    return Poll::Pending;
   }
 
   if changes.len() == 1 {
     let first = changes.pop().unwrap();
     if first.is_empty() {
-      return CPoll::Ready(Poll::Pending);
+      return Poll::Pending;
     } else {
-      return CPoll::Ready(Poll::Ready(Box::new(first)));
+      return Poll::Ready(Box::new(first));
     }
   }
 
@@ -131,9 +131,9 @@ fn finalize_buffered_changes<K: CKey, V: CValue>(
   }
 
   if target.is_empty() {
-    CPoll::Ready(Poll::Pending)
+    Poll::Pending
   } else {
-    CPoll::Ready(Poll::Ready(Box::new(target)))
+    Poll::Ready(Box::new(target))
   }
 }
 
@@ -147,7 +147,7 @@ where
     if self.waker.take().is_some() {
       self.waker.register(cx.waker());
       // the previous installed waker not waked, nothing changes, directly return
-      return CPoll::Ready(Poll::Pending);
+      return Poll::Pending;
     }
     // install new waker
     self.waker.register(cx.waker());
@@ -160,64 +160,46 @@ where
     }
 
     // we have to also check the upstream no matter if we have message in channel or not
-    if let Some(upstream) = self.upstream.try_write() {
-      let waker = Arc::new(BroadCast {
-        inner: self.downstream.clone(),
-      });
-      let waker = futures::task::waker_ref(&waker);
-      let mut cx_2 = Context::from_waker(&waker);
-      let r = upstream.poll_changes(&mut cx_2);
+    let upstream = self.upstream.write();
+    let waker = Arc::new(BroadCast {
+      inner: self.downstream.clone(),
+    });
+    let waker = futures::task::waker_ref(&waker);
+    let mut cx_2 = Context::from_waker(&waker);
+    let r = upstream.poll_changes(&mut cx_2);
 
-      match r {
-        CPoll::Ready(v) => match v {
-          Poll::Ready(v) => {
-            let downstream = self.downstream.write();
-            let c = v.materialize();
-            if !c.is_empty() {
-              // broad cast to others
-              // we are not required to call broadcast waker because it will be waked by others
-              // receivers
-              for (id, downstream) in downstream.iter() {
-                if *id != self.id && downstream.should_send {
-                  downstream.sender.unbounded_send(c.clone()).ok();
-                }
-              }
-
-              buffered.push(c);
+    match r {
+      Poll::Ready(v) => {
+        let downstream = self.downstream.write();
+        let c = v.materialize();
+        if !c.is_empty() {
+          // broad cast to others
+          // we are not required to call broadcast waker because it will be waked by others
+          // receivers
+          for (id, downstream) in downstream.iter() {
+            if *id != self.id && downstream.should_send {
+              downstream.sender.unbounded_send(c.clone()).ok();
             }
-            drop(downstream);
-
-            finalize_buffered_changes(buffered)
           }
-          Poll::Pending => finalize_buffered_changes(buffered),
-        },
-        CPoll::Blocked => {
-          *self.buffered.write() = buffered;
-          waker.wake_by_ref();
-          CPoll::Blocked
+
+          buffered.push(c);
         }
+        drop(downstream);
+
+        finalize_buffered_changes(buffered)
       }
-    } else {
-      *self.buffered.write() = buffered;
-      self.waker.wake();
-      CPoll::Blocked
+      Poll::Pending => finalize_buffered_changes(buffered),
     }
   }
 
   fn access(&self) -> PollCollectionCurrent<K, V> {
-    if let Some(upstream) = self.upstream.try_read() {
-      let view = upstream.access();
-      if view.is_blocked() {
-        return CPoll::Blocked;
-      }
-      let view = ForkedAccessView::<Map, K, V> {
-        view: unsafe { std::mem::transmute(view.unwrap()) },
-        lock: Arc::new(unsafe { std::mem::transmute(upstream) }),
-      };
-      CPoll::Ready(Box::new(view) as Box<dyn VirtualCollection<K, V>>)
-    } else {
-      CPoll::Blocked
-    }
+    let upstream = self.upstream.read();
+    let view = upstream.access();
+    let view = ForkedAccessView::<Map, K, V> {
+      view: unsafe { std::mem::transmute(view) },
+      lock: Arc::new(unsafe { std::mem::transmute(upstream) }),
+    };
+    Box::new(view) as Box<dyn VirtualCollection<K, V>>
   }
 
   fn extra_request(&mut self, request: &mut ExtraCollectionOperation) {
@@ -270,20 +252,14 @@ where
   K: CKey,
   V: CKey,
 {
-  fn multi_access(&self) -> CPoll<Box<dyn VirtualMultiCollection<V, K>>> {
-    if let Some(upstream) = self.upstream.try_read() {
-      let view = upstream.multi_access();
-      if view.is_blocked() {
-        return CPoll::Blocked;
-      }
-      let view = ForkedMultiAccessView::<Map, V, K> {
-        view: unsafe { std::mem::transmute(view.unwrap()) },
-        _lock: Arc::new(unsafe { std::mem::transmute(upstream) }),
-      };
-      CPoll::Ready(Box::new(view) as Box<dyn VirtualMultiCollection<V, K>>)
-    } else {
-      CPoll::Blocked
-    }
+  fn multi_access(&self) -> Box<dyn VirtualMultiCollection<V, K>> {
+    let upstream = self.upstream.read();
+    let view = upstream.multi_access();
+    let view = ForkedMultiAccessView::<Map, V, K> {
+      view: unsafe { std::mem::transmute(view) },
+      _lock: Arc::new(unsafe { std::mem::transmute(upstream) }),
+    };
+    Box::new(view) as Box<dyn VirtualMultiCollection<V, K>>
   }
 }
 

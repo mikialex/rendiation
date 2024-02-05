@@ -2,39 +2,14 @@ use std::ops::DerefMut;
 
 use crate::*;
 
-#[derive(Clone, Copy)]
-pub enum CPoll<T> {
-  Ready(T),
-  Blocked,
-}
-
-impl<T> CPoll<T> {
-  pub fn is_blocked(&self) -> bool {
-    matches!(self, CPoll::Blocked)
-  }
-  pub fn map<T2>(self, f: impl FnOnce(T) -> T2) -> CPoll<T2> {
-    match self {
-      CPoll::Ready(v) => CPoll::Ready(f(v)),
-      CPoll::Blocked => CPoll::Blocked,
-    }
-  }
-
-  pub fn unwrap(self) -> T {
-    match self {
-      CPoll::Ready(v) => v,
-      CPoll::Blocked => panic!("failed to unwrap c poll"),
-    }
-  }
-}
-
 pub enum ExtraCollectionOperation {
   MemoryShrinkToFit,
 }
 
 pub type CollectionChanges<'a, K, V> = Box<dyn VirtualCollection<K, ValueChange<V>> + 'a>;
-pub type PollCollectionChanges<'a, K, V> = CPoll<Poll<CollectionChanges<'a, K, V>>>;
+pub type PollCollectionChanges<'a, K, V> = Poll<CollectionChanges<'a, K, V>>;
 pub type CollectionView<'a, K, V> = Box<dyn VirtualCollection<K, V> + 'a>;
-pub type PollCollectionCurrent<'a, K, V> = CPoll<CollectionView<'a, K, V>>;
+pub type PollCollectionCurrent<'a, K, V> = CollectionView<'a, K, V>;
 
 pub trait ReactiveCollection<K: CKey, V: CValue>: Sync + Send + 'static {
   fn poll_changes(&self, cx: &mut Context) -> PollCollectionChanges<K, V>;
@@ -43,30 +18,17 @@ pub trait ReactiveCollection<K: CKey, V: CValue>: Sync + Send + 'static {
 
   fn extra_request(&mut self, request: &mut ExtraCollectionOperation);
 
-  fn spin_get_current(&self) -> Box<dyn VirtualCollection<K, V> + '_> {
-    loop {
-      match self.access() {
-        CPoll::Ready(r) => return r,
-        CPoll::Blocked => continue,
-      }
-    }
-  }
-
   fn spin_poll_until_pending(
     &mut self,
     cx: &mut Context,
     consumer: &mut dyn FnMut(&dyn VirtualCollection<K, ValueChange<V>>),
   ) {
     loop {
-      match self.poll_changes(cx) {
-        CPoll::Ready(r) => {
-          if let Poll::Ready(change) = r {
-            consumer(change.as_ref())
-          } else {
-            return;
-          }
-        }
-        CPoll::Blocked => continue,
+      let r = self.poll_changes(cx);
+      if let Poll::Ready(change) = r {
+        consumer(change.as_ref())
+      } else {
+        return;
       }
     }
   }
@@ -124,12 +86,12 @@ impl<'a, K: CKey, V: CValue> VirtualCollection<K, V> for CollectionPreviousView<
 
 impl<K: CKey, V: CValue> ReactiveCollection<K, V> for () {
   fn poll_changes(&self, _: &mut Context) -> PollCollectionChanges<K, V> {
-    CPoll::Ready(Poll::Pending)
+    Poll::Pending
   }
   fn extra_request(&mut self, _: &mut ExtraCollectionOperation) {}
 
   fn access(&self) -> PollCollectionCurrent<K, V> {
-    CPoll::Ready(Box::new(()))
+    Box::new(())
   }
 }
 

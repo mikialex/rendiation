@@ -16,7 +16,7 @@ where
     let r = self.inner.poll_changes(cx);
 
     // validation
-    if let CPoll::Ready(Poll::Ready(changes)) = &r {
+    if let Poll::Ready(changes) = &r {
       let changes = changes.materialize();
       let mut state = self.state.write();
       for (k, change) in changes.iter() {
@@ -94,7 +94,7 @@ where
     self
       .inner
       .poll_changes(cx)
-      .map(|r| r.map(|v| Box::new(DiffChangedView { inner: v }) as CollectionChanges<K, V>))
+      .map(|v| Box::new(DiffChangedView { inner: v }) as CollectionChanges<K, V>)
   }
 
   fn extra_request(&mut self, request: &mut ExtraCollectionOperation) {
@@ -123,12 +123,9 @@ where
 
   fn poll_next(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Option<Self::Item>> {
     let this = self.project();
-    let r = this.inner.poll_changes(cx);
-    loop {
-      match r {
-        CPoll::Ready(r) => return r.map(|delta| Some(delta.materialize())),
-        CPoll::Blocked => continue,
-      }
-    }
+    this
+      .inner
+      .poll_changes(cx)
+      .map(|delta| Some(delta.materialize()))
   }
 }

@@ -3,7 +3,7 @@ use storage::{LinkListPool, ListHandle};
 use crate::*;
 
 pub struct OneToManyRefHashBookKeeping<O, M, T> {
-  pub upstream: BufferedCollection<T, M, O>,
+  pub upstream: T,
   pub mapping: Arc<RwLock<FastHashMap<O, FastHashSet<M>>>>,
 }
 
@@ -52,16 +52,11 @@ where
   M: CKey,
   O: CKey,
 {
-  fn multi_access(&self) -> CPoll<Box<dyn VirtualMultiCollection<O, M> + '_>> {
-    let upstream = if let CPoll::Ready(upstream) = self.upstream.access() {
-      upstream
-    } else {
-      return CPoll::Blocked;
-    };
-    CPoll::Ready(Box::new(OneToManyRefHashBookKeepingCurrentView {
-      upstream,
+  fn multi_access(&self) -> Box<dyn VirtualMultiCollection<O, M> + '_> {
+    Box::new(OneToManyRefHashBookKeepingCurrentView {
+      upstream: self.upstream.access(),
       mapping: self.mapping.make_lock_holder_raw(),
-    }))
+    })
   }
 }
 
@@ -75,7 +70,7 @@ where
   fn poll_changes(&self, cx: &mut Context) -> PollCollectionChanges<M, O> {
     let r = self.upstream.poll_changes(cx);
 
-    if let CPoll::Ready(Poll::Ready(changes)) = r.clone() {
+    if let Poll::Ready(changes) = r.clone() {
       let mut mapping = self.mapping.write();
 
       for (many, change) in changes.iter_key_value() {
@@ -102,15 +97,10 @@ where
     r
   }
   fn access(&self) -> PollCollectionCurrent<M, O> {
-    let upstream = if let CPoll::Ready(upstream) = self.upstream.access() {
-      upstream
-    } else {
-      return CPoll::Blocked;
-    };
-    CPoll::Ready(Box::new(OneToManyRefHashBookKeepingCurrentView {
-      upstream,
+    Box::new(OneToManyRefHashBookKeepingCurrentView {
+      upstream: self.upstream.access(),
       mapping: self.mapping.make_lock_holder_raw(),
-    }))
+    })
   }
 
   fn extra_request(&mut self, request: &mut ExtraCollectionOperation) {
@@ -122,7 +112,7 @@ where
 }
 
 pub struct OneToManyRefDenseBookKeeping<O, M, T> {
-  pub upstream: BufferedCollection<T, M, O>,
+  pub upstream: T,
   pub mapping: Arc<RwLock<Mapping>>,
   pub phantom: PhantomData<(O, M)>,
 }
@@ -188,16 +178,11 @@ where
   M: LinearIdentification + CKey,
   O: LinearIdentification + CKey,
 {
-  fn multi_access(&self) -> CPoll<Box<dyn VirtualMultiCollection<O, M> + '_>> {
-    let upstream = if let CPoll::Ready(upstream) = self.upstream.access() {
-      upstream
-    } else {
-      return CPoll::Blocked;
-    };
-    CPoll::Ready(Box::new(OneToManyRefDenseBookKeepingCurrentView {
-      upstream,
+  fn multi_access(&self) -> Box<dyn VirtualMultiCollection<O, M> + '_> {
+    Box::new(OneToManyRefDenseBookKeepingCurrentView {
+      upstream: self.upstream.access(),
       mapping: self.mapping.make_lock_holder_raw(),
-    }))
+    })
   }
 }
 
@@ -211,7 +196,7 @@ where
   fn poll_changes(&self, cx: &mut Context) -> PollCollectionChanges<M, O> {
     let r = self.upstream.poll_changes(cx);
 
-    if let CPoll::Ready(Poll::Ready(changes)) = r.clone() {
+    if let Poll::Ready(changes) = r.clone() {
       for (many, change) in changes.iter_key_value() {
         let mut mapping = self.mapping.write();
         let mapping: &mut Mapping = &mut mapping;
@@ -255,15 +240,10 @@ where
   }
 
   fn access(&self) -> PollCollectionCurrent<M, O> {
-    let upstream = if let CPoll::Ready(upstream) = self.upstream.access() {
-      upstream
-    } else {
-      return CPoll::Blocked;
-    };
-    CPoll::Ready(Box::new(OneToManyRefDenseBookKeepingCurrentView {
-      upstream,
+    Box::new(OneToManyRefDenseBookKeepingCurrentView {
+      upstream: self.upstream.access(),
       mapping: self.mapping.make_lock_holder_raw(),
-    }))
+    })
   }
 
   fn extra_request(&mut self, request: &mut ExtraCollectionOperation) {

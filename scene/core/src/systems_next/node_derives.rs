@@ -154,10 +154,10 @@ where
             }
           });
 
-        CPoll::Ready(Poll::Ready(Box::new(deduplicate)))
+        Poll::Ready(Box::new(deduplicate))
       }
 
-      _ => CPoll::Ready(Poll::Pending),
+      _ => Poll::Pending,
     }
   }
 
@@ -196,6 +196,6 @@ where
       make_iter: Arc::new(make_iter),
     };
 
-    CPoll::Ready(Box::new(c))
+    Box::new(c)
   }
 }

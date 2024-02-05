@@ -14,7 +14,6 @@ reactive = { path = "../reactive" }
 storage = { path = "../storage" }
 smallvec = { workspace = true }
 tracing = { workspace = true }
-rayon = { workspace = true }
 dashmap = { workspace = true }
 dyn-clone = { workspace = true }
 

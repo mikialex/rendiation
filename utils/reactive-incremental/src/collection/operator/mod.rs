@@ -4,9 +4,6 @@ pub use fork::*;
 mod union;
 pub use union::*;
 
-mod buffered;
-pub use buffered::*;
-
 mod cache;
 pub use cache::*;
 
@@ -27,7 +24,7 @@ where
   K: CKey,
 {
   fn make_accessor(&self) -> impl Fn(&K) -> Option<V> + '_ {
-    let view = self.spin_get_current();
+    let view = self.access();
     move |k| view.access(k)
   }
 }
@@ -139,8 +136,8 @@ where
     F: Fn((Option<V>, Option<V2>)) -> Option<O> + Send + Sync + Copy + 'static,
   {
     ReactiveKVUnion {
-      a: BufferedCollection::new(self),
-      b: BufferedCollection::new(other),
+      a: self,
+      b: other,
       phantom: PhantomData,
       f,
     }
@@ -213,8 +210,8 @@ where
     Relation: ReactiveOneToManyRelationship<K, MK> + 'static,
   {
     OneToManyFanout {
-      upstream: BufferedCollection::new(self),
-      relations: BufferedCollection::new(relations),
+      upstream: self,
+      relations,
       phantom: PhantomData,
     }
     .workaround_box()

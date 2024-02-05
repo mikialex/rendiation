@@ -2641,7 +2641,6 @@ dependencies = [
  "incremental",
  "parking_lot",
  "pin-project",
- "rayon",
  "reactive",
  "smallvec",
  "storage",

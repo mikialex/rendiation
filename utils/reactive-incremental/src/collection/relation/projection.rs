@@ -10,8 +10,8 @@ where
   O: CKey,
   X: CValue,
 {
-  pub upstream: BufferedCollection<Upstream, O, X>,
-  pub relations: BufferedCollection<Relation, M, O>,
+  pub upstream: Upstream,
+  pub relations: Relation,
   pub phantom: PhantomData<(O, M, X)>,
 }
 
@@ -27,43 +27,12 @@ where
   #[tracing::instrument(skip_all, name = "OneToManyFanout")]
   #[allow(clippy::collapsible_else_if)]
   fn poll_changes(&self, cx: &mut Context) -> PollCollectionChanges<M, X> {
-    let waker = cx.waker().clone();
-    let (relational_changes, upstream_changes) = rayon::join(
-      || {
-        let mut cx = Context::from_waker(&waker);
-        self.relations.poll_changes(&mut cx)
-      },
-      || {
-        let mut cx = Context::from_waker(&waker);
-        self.upstream.poll_changes(&mut cx)
-      },
-    );
+    let relational_changes = self.relations.poll_changes(cx);
+    let upstream_changes = self.upstream.poll_changes(cx);
 
     let getter = self.upstream.access();
     let inv_querier = self.relations.multi_access();
     let one_acc = self.relations.access();
-
-    if relational_changes.is_blocked()
-      || upstream_changes.is_blocked()
-      || getter.is_blocked()
-      || inv_querier.is_blocked()
-      || one_acc.is_blocked()
-    {
-      if let CPoll::Ready(Poll::Ready(v)) = upstream_changes {
-        self.upstream.put_back_to_buffered(v.materialize());
-      }
-      if let CPoll::Ready(Poll::Ready(v)) = relational_changes {
-        self.relations.put_back_to_buffered(v.materialize());
-      }
-      return CPoll::Blocked;
-    }
-
-    let getter = getter.unwrap();
-    let inv_querier = inv_querier.unwrap();
-    let one_acc = one_acc.unwrap();
-
-    let relational_changes = relational_changes.unwrap();
-    let upstream_changes = upstream_changes.unwrap();
 
     let getter_previous = make_previous(getter.deref(), &upstream_changes);
     let one_acc_previous = make_previous(one_acc.deref(), &relational_changes);
@@ -131,26 +100,17 @@ where
     }
 
     if output.is_empty() {
-      CPoll::Ready(Poll::Pending)
+      Poll::Pending
     } else {
-      CPoll::Ready(Poll::Ready(Box::new(Arc::new(output))))
+      Poll::Ready(Box::new(Arc::new(output)))
     }
   }
 
   fn access(&self) -> PollCollectionCurrent<M, X> {
-    let upstream = if let CPoll::Ready(r) = self.upstream.access() {
-      r
-    } else {
-      return CPoll::Blocked;
-    };
+    let upstream = self.upstream.access();
+    let relation = self.relations.access();
 
-    let relation = if let CPoll::Ready(r) = self.relations.access() {
-      r
-    } else {
-      return CPoll::Blocked;
-    };
-
-    CPoll::Ready(Box::new(OneToManyFanoutCurrentView { upstream, relation }))
+    Box::new(OneToManyFanoutCurrentView { upstream, relation })
   }
 
   fn extra_request(&mut self, request: &mut ExtraCollectionOperation) {
@@ -194,8 +154,8 @@ where
   M: CKey,
   O: CKey,
 {
-  pub upstream: BufferedCollection<Upstream, M, ()>,
-  pub relations: BufferedCollection<Relation, M, O>,
+  pub upstream: Upstream,
+  pub relations: Relation,
   pub phantom: PhantomData<(O, M)>,
   pub ref_count: RwLock<FastHashMap<O, u32>>,
 }
@@ -210,39 +170,11 @@ where
 {
   #[tracing::instrument(skip_all, name = "ManyToOneReduce")]
   fn poll_changes(&self, cx: &mut Context) -> PollCollectionChanges<O, ()> {
-    let waker = cx.waker().clone();
-    let (relational_changes, upstream_changes) = rayon::join(
-      || {
-        let mut cx = Context::from_waker(&waker);
-        self.relations.poll_changes(&mut cx)
-      },
-      || {
-        let mut cx = Context::from_waker(&waker);
-        self.upstream.poll_changes(&mut cx)
-      },
-    );
+    let relational_changes = self.relations.poll_changes(cx);
+    let upstream_changes = self.upstream.poll_changes(cx);
 
     let getter = self.upstream.access();
     let one_acc = self.relations.access();
-
-    if relational_changes.is_blocked()
-      || upstream_changes.is_blocked()
-      || getter.is_blocked()
-      || one_acc.is_blocked()
-    {
-      if let CPoll::Ready(Poll::Ready(v)) = upstream_changes {
-        self.upstream.put_back_to_buffered(v.materialize());
-      }
-      if let CPoll::Ready(Poll::Ready(v)) = relational_changes {
-        self.relations.put_back_to_buffered(v.materialize());
-      }
-      return CPoll::Blocked;
-    }
-
-    let getter = getter.unwrap();
-    let one_acc = one_acc.unwrap();
-    let relational_changes = relational_changes.unwrap();
-    let upstream_changes = upstream_changes.unwrap();
 
     let getter_previous = make_previous(getter.deref(), &upstream_changes);
 
@@ -328,17 +260,17 @@ where
     }
 
     if output.is_empty() {
-      CPoll::Ready(Poll::Pending)
+      Poll::Pending
     } else {
-      CPoll::Ready(Poll::Ready(Box::new(Arc::new(output))))
+      Poll::Ready(Box::new(Arc::new(output)))
     }
   }
 
   fn access(&self) -> PollCollectionCurrent<O, ()> {
     let guard = unsafe { std::mem::transmute(self.ref_count.read()) };
-    CPoll::Ready(Box::new(ManyToOneReduceCurrentView {
+    Box::new(ManyToOneReduceCurrentView {
       ref_count: Arc::new(guard),
-    }))
+    })
   }
 
   fn extra_request(&mut self, request: &mut ExtraCollectionOperation) {

@@ -1,8 +1,8 @@
 use crate::*;
 
 pub struct ReactiveKVUnion<T1, T2, K, F, O, V1, V2> {
-  pub a: BufferedCollection<T1, K, V1>,
-  pub b: BufferedCollection<T2, K, V2>,
+  pub a: T1,
+  pub b: T2,
   pub phantom: PhantomData<(K, O, V1, V2)>,
   pub f: F,
 }
@@ -18,43 +18,17 @@ where
   V2: CValue,
 {
   fn poll_changes(&self, cx: &mut Context) -> PollCollectionChanges<K, O> {
-    let waker = cx.waker().clone();
-    let (t1, t2) = rayon::join(
-      || {
-        let mut cx = Context::from_waker(&waker);
-        self.a.poll_changes(&mut cx)
-      },
-      || {
-        let mut cx = Context::from_waker(&waker);
-        self.b.poll_changes(&mut cx)
-      },
-    );
+    let t1 = self.a.poll_changes(cx);
+    let t2 = self.b.poll_changes(cx);
 
     let a_access = self.a.access();
     let b_access = self.b.access();
 
-    if a_access.is_blocked() || b_access.is_blocked() || t1.is_blocked() || t2.is_blocked() {
-      drop(a_access);
-      drop(b_access);
-      if let CPoll::Ready(Poll::Ready(v)) = t1 {
-        self.a.put_back_to_buffered(v.materialize());
-      }
-      if let CPoll::Ready(Poll::Ready(v)) = t2 {
-        self.b.put_back_to_buffered(v.materialize());
-      }
-      return CPoll::Blocked;
-    };
-
-    let a_access = a_access.unwrap();
-    let b_access = b_access.unwrap();
-    let t1 = t1.unwrap();
-    let t2 = t2.unwrap();
-
     if t1.is_pending() && t2.is_pending() {
-      return CPoll::Ready(Poll::Pending);
+      return Poll::Pending;
     }
 
-    CPoll::Ready(Poll::Ready(Box::new(UnionValueChange {
+    Poll::Ready(Box::new(UnionValueChange {
       a: match t1 {
         Poll::Ready(delta) => delta,
         Poll::Pending => Box::new(()),
@@ -66,7 +40,7 @@ where
       f: self.f,
       a_current: a_access,
       b_current: b_access,
-    })))
+    }))
   }
 
   fn extra_request(&mut self, request: &mut ExtraCollectionOperation) {
@@ -75,19 +49,11 @@ where
   }
 
   fn access(&self) -> PollCollectionCurrent<K, O> {
-    let access_a = match self.a.access() {
-      CPoll::Ready(v) => v,
-      CPoll::Blocked => return CPoll::Blocked,
-    };
-    let access_b = match self.b.access() {
-      CPoll::Ready(v) => v,
-      CPoll::Blocked => return CPoll::Blocked,
-    };
-    CPoll::Ready(Box::new(UnionCollection {
-      a: access_a,
-      b: access_b,
+    Box::new(UnionCollection {
+      a: self.a.access(),
+      b: self.b.access(),
       f: self.f,
-    }))
+    })
   }
 }
 
