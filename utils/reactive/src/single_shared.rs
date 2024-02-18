@@ -4,9 +4,8 @@ use std::{
   sync::{RwLockReadGuard, RwLockWriteGuard, Weak},
 };
 
-use futures::{Future, Stream};
+use futures::Stream;
 use incremental::IncrementalBase;
-use reactive_stream::{do_updates, ReactiveMapping};
 
 use crate::IncrementalSignal;
 use crate::*;
@@ -190,54 +189,6 @@ pub trait IntoSharedIncrementalSignal: Sized + IncrementalBase {
 }
 
 impl<T: IncrementalBase> IntoSharedIncrementalSignal for T {}
-
-impl<M, T> ReactiveMapping<M> for SharedIncrementalSignal<T>
-where
-  T: IncrementalBase + Send + Sync + 'static,
-  Self: GlobalIdReactiveMapping<M>,
-{
-  type ChangeStream = <Self as GlobalIdReactiveMapping<M>>::ChangeStream;
-  type DropFuture = impl Future<Output = ()> + Unpin;
-  type Ctx<'a> = <Self as GlobalIdReactiveMapping<M>>::Ctx<'a>;
-
-  fn key(&self) -> u64 {
-    self.read().guid()
-  }
-
-  fn build(&self, ctx: &Self::Ctx<'_>) -> (M, Self::ChangeStream, Self::DropFuture) {
-    let drop = self.create_drop();
-    let (mapped, change) = GlobalIdReactiveMapping::build(self, ctx);
-    (mapped, change, drop)
-  }
-
-  fn update(&self, mapped: &mut M, change: &mut Self::ChangeStream, ctx: &Self::Ctx<'_>) {
-    GlobalIdReactiveMapping::update(self, mapped, change, ctx)
-  }
-}
-
-impl<M, T> GlobalIdReactiveMapping<M> for SharedIncrementalSignal<T>
-where
-  T: IncrementalBase + Send + Sync + 'static,
-  Self: GlobalIdReactiveSimpleMapping<M>,
-{
-  type ChangeStream = <Self as GlobalIdReactiveSimpleMapping<M>>::ChangeStream;
-  type Ctx<'a> = <Self as GlobalIdReactiveSimpleMapping<M>>::Ctx<'a>;
-
-  fn build(&self, ctx: &Self::Ctx<'_>) -> (M, Self::ChangeStream) {
-    GlobalIdReactiveSimpleMapping::build(self, ctx)
-  }
-
-  fn update(&self, mapped: &mut M, change: &mut Self::ChangeStream, ctx: &Self::Ctx<'_>) {
-    let mut pair = None;
-    do_updates(change, |_| {
-      pair = GlobalIdReactiveMapping::build(self, ctx).into();
-    });
-    if let Some((new_mapped, new_change)) = pair {
-      *mapped = new_mapped;
-      *change = new_change;
-    }
-  }
-}
 
 impl<T: IncrementalBase> IncrementalListenBy<T> for SharedIncrementalSignal<T> {
   fn listen_by<N, C, U>(

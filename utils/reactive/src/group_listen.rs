@@ -65,13 +65,7 @@ impl<T: IncrementalBase> IncrementalSignalStorage<T> {
   where
     U: CValue,
   {
-    let inner = Arc::new((Default::default(), AtomicWaker::new()));
-    let receiver = GroupMutationReceiver {
-      inner: inner.clone(),
-    };
-    let sender = GroupMutationSender {
-      inner: Arc::downgrade(&receiver.inner),
-    };
+    let (sender, receiver) = group_mutation();
 
     {
       let data = self.inner.data.write();
@@ -83,10 +77,7 @@ impl<T: IncrementalBase> IncrementalSignalStorage<T> {
       }
     }
 
-    // could we try another way to workaround this??
-    let s: &'static Self = unsafe { std::mem::transmute(self) };
-
-    let remove_token = s.on(move |v| {
+    let dropper = self.on(move |v| {
       match v {
         StorageGroupChange::Create { index, data } => {
           if let Some(mapped) = mapper(MaybeDeltaRef::All(data)).expect_care() {
@@ -123,14 +114,12 @@ impl<T: IncrementalBase> IncrementalSignalStorage<T> {
       sender.is_closed()
     });
 
-    let dropper = EventSourceDropper::new(remove_token, self.inner.group_watchers.make_weak());
     let source = DropperAttachedStream::new(dropper, receiver);
 
     let mapper_c = Arc::new(mapper);
     ReactiveCollectionFromGroupMutation::<T, _, U> {
       inner: RwLock::new(source),
       original: self.clone(),
-      _mutations: inner,
       mapper: mapper_c,
     }
   }
@@ -181,13 +170,20 @@ pub struct GroupMutationReceiver<K, T> {
   )>,
 }
 
+pub fn group_mutation<K, T>() -> (GroupMutationSender<K, T>, GroupMutationReceiver<K, T>) {
+  let inner = Arc::new((Default::default(), AtomicWaker::new()));
+  let receiver = GroupMutationReceiver {
+    inner: inner.clone(),
+  };
+  let sender = GroupMutationSender {
+    inner: Arc::downgrade(&receiver.inner),
+  };
+  (sender, receiver)
+}
+
 struct ReactiveCollectionFromGroupMutation<T: IncrementalBase, S, U> {
   original: IncrementalSignalStorage<T>,
   inner: RwLock<S>,
-  _mutations: Arc<(
-    RwLock<FastHashMap<AllocIdx<T>, ValueChange<U>>>,
-    AtomicWaker,
-  )>,
   mapper: Arc<dyn Fn(MaybeDeltaRef<T>) -> ChangeReaction<U> + Send + Sync>,
 }
 

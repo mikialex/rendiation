@@ -43,10 +43,3 @@ impl<'a> ShaderPassBuilder for FlatMaterialGPU<'a> {
     ctx.binding.bind(self.uniform);
   }
 }
-
-fn create_flat_material_uniform(m: &FlatMaterial) -> FlatMaterialUniform {
-  FlatMaterialUniform {
-    color: srgba_to_linear(m.color),
-    ..Zeroable::zeroed()
-  }
-}

@@ -115,8 +115,9 @@ impl<T: IncrementalBase> IncrementalSignalStorage<T> {
   pub fn on(
     &self,
     f: impl FnMut(&StorageGroupChange<T>) -> bool + Send + Sync + 'static,
-  ) -> RemoveToken<group::StorageGroupChange<T>> {
-    self.inner.group_watchers.on(f)
+  ) -> EventSourceDropper<group::StorageGroupChange<'static, T>> {
+    let token = self.inner.group_watchers.on(f);
+    EventSourceDropper::new(token, self.inner.group_watchers.make_weak())
   }
 
   pub fn off(&self, token: RemoveToken<group::StorageGroupChange<T>>) {
@@ -513,54 +514,6 @@ impl<'a, T: IncrementalBase> Deref for SignalPtrGuard<'a, T> {
   fn deref(&self) -> &Self::Target {
     let inner = self.inner.deref();
     &inner.get(self.index).data
-  }
-}
-
-impl<M, T> ReactiveMapping<M> for IncrementalSignalPtr<T>
-where
-  T: IncrementalBase + Send + Sync + 'static,
-  Self: GlobalIdReactiveMapping<M>,
-{
-  type ChangeStream = <Self as GlobalIdReactiveMapping<M>>::ChangeStream;
-  type DropFuture = impl Future<Output = ()> + Unpin + 'static;
-  type Ctx<'a> = <Self as GlobalIdReactiveMapping<M>>::Ctx<'a>;
-
-  fn key(&self) -> u64 {
-    self.read().guid()
-  }
-
-  fn build(&self, ctx: &Self::Ctx<'_>) -> (M, Self::ChangeStream, Self::DropFuture) {
-    let drop = self.create_drop();
-    let (mapped, change) = GlobalIdReactiveMapping::build(self, ctx);
-    (mapped, change, drop)
-  }
-
-  fn update(&self, mapped: &mut M, change: &mut Self::ChangeStream, ctx: &Self::Ctx<'_>) {
-    GlobalIdReactiveMapping::update(self, mapped, change, ctx)
-  }
-}
-
-impl<M, T> GlobalIdReactiveMapping<M> for IncrementalSignalPtr<T>
-where
-  T: IncrementalBase + Send + Sync + 'static,
-  Self: GlobalIdReactiveSimpleMapping<M>,
-{
-  type ChangeStream = <Self as GlobalIdReactiveSimpleMapping<M>>::ChangeStream;
-  type Ctx<'a> = <Self as GlobalIdReactiveSimpleMapping<M>>::Ctx<'a>;
-
-  fn build(&self, ctx: &Self::Ctx<'_>) -> (M, Self::ChangeStream) {
-    GlobalIdReactiveSimpleMapping::build(self, ctx)
-  }
-
-  fn update(&self, mapped: &mut M, change: &mut Self::ChangeStream, ctx: &Self::Ctx<'_>) {
-    let mut pair = None;
-    do_updates(change, |_| {
-      pair = GlobalIdReactiveMapping::build(self, ctx).into();
-    });
-    if let Some((new_mapped, new_change)) = pair {
-      *mapped = new_mapped;
-      *change = new_change;
-    }
   }
 }
 

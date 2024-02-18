@@ -24,8 +24,7 @@ pub fn physical_mr_material_uniforms(
   AllocIdx<PhysicalMetallicRoughnessMaterial>,
   UniformBufferDataView<PhysicalMetallicRoughnessMaterialUniform>,
 > {
-  // todo
-  fn is_uniform_changed(d: DeltaOf<PhysicalMetallicRoughnessMaterial>) -> bool {
+  fn is_uniform_changed(d: &DeltaOf<PhysicalMetallicRoughnessMaterial>) -> bool {
     matches!(
       d,
       PD::base_color(_)
@@ -40,7 +39,16 @@ pub fn physical_mr_material_uniforms(
   }
 
   storage_of::<PhysicalMetallicRoughnessMaterial>()
-    .listen_all_instance_changed_set()
+    .listen_to_reactive_collection(|delta| match delta {
+      MaybeDeltaRef::Delta(d) => {
+        if is_uniform_changed(d) {
+          ChangeReaction::Care(Some(AnyChanging))
+        } else {
+          ChangeReaction::NotCare
+        }
+      }
+      MaybeDeltaRef::All(_) => ChangeReaction::Care(Some(AnyChanging)),
+    })
     .filter_by_keyset(scope)
     .collective_create_uniforms(cx, |m| {
       let mut r = PhysicalMetallicRoughnessMaterialUniform {

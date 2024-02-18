@@ -117,6 +117,11 @@ pub trait MaterialReferenceTexture: IncrementalBase {
   fn create_reference_collection(
     scope: impl ReactiveCollection<AllocIdx<Self>, ()>,
   ) -> impl ReactiveCollection<(u8, AllocIdx<Self>), AllocIdx<SceneTexture2DType>> {
+    // storage_of::<Self>().listen_to_reactive_collection(|c|{
+    //   match c{
+
+    //   }
+    // })
     // todo, custom listen to
   }
 

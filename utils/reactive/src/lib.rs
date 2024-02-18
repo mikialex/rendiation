@@ -96,15 +96,6 @@ impl<'a, T: IncrementalBase> Mutating<'a, T> {
   }
 }
 
-pub trait GlobalIdReactiveMapping<M> {
-  type ChangeStream: Stream + Unpin + 'static;
-  type Ctx<'a>;
-
-  fn build(&self, ctx: &Self::Ctx<'_>) -> (M, Self::ChangeStream);
-
-  fn update(&self, mapped: &mut M, change: &mut Self::ChangeStream, ctx: &Self::Ctx<'_>);
-}
-
 pub trait GlobalIdReactiveSimpleMapping<M> {
   type ChangeStream: Stream + Unpin + 'static;
   type Ctx<'a>;

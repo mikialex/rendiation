@@ -23,7 +23,7 @@ pub fn physical_sg_material_uniforms(
   AllocIdx<PhysicalSpecularGlossinessMaterial>,
   UniformBufferDataView<PhysicalSpecularGlossinessMaterialUniform>,
 > {
-  fn is_uniform_changed(d: DeltaOf<PhysicalSpecularGlossinessMaterial>) -> bool {
+  fn is_uniform_changed(d: &DeltaOf<PhysicalSpecularGlossinessMaterial>) -> bool {
     matches!(
       d,
       PD::albedo(_)
@@ -37,7 +37,16 @@ pub fn physical_sg_material_uniforms(
   }
 
   storage_of::<PhysicalSpecularGlossinessMaterial>()
-    .listen_all_instance_changed_set()
+    .listen_to_reactive_collection(|delta| match delta {
+      MaybeDeltaRef::Delta(d) => {
+        if is_uniform_changed(d) {
+          ChangeReaction::Care(Some(AnyChanging))
+        } else {
+          ChangeReaction::NotCare
+        }
+      }
+      MaybeDeltaRef::All(_) => ChangeReaction::Care(Some(AnyChanging)),
+    })
     .filter_by_keyset(scope)
     .collective_create_uniforms(cx, |m| {
       let mut r = PhysicalSpecularGlossinessMaterialUniform {
@@ -81,9 +90,9 @@ pub enum PhysicalSpecularGlossinessMaterialTextureType {
 }
 use PhysicalSpecularGlossinessMaterialTextureType as TextureType;
 
-impl Into<u8> for TextureType {
-  fn into(self) -> u8 {
-    self as u8
+impl From<TextureType> for u8 {
+  fn from(val: TextureType) -> Self {
+    val as u8
   }
 }
 
@@ -104,7 +113,21 @@ impl MaterialReferenceTexture for PhysicalSpecularGlossinessMaterial {
   fn check_change(
     change: Self::Delta,
   ) -> ChangeReaction<(Self::TextureType, AllocIdx<SceneTexture2DType>)> {
-    todo!()
+    match change {
+      PhysicalSpecularGlossinessMaterialDelta::albedo(_) => todo!(),
+      PhysicalSpecularGlossinessMaterialDelta::specular(_) => todo!(),
+      PhysicalSpecularGlossinessMaterialDelta::glossiness(_) => todo!(),
+      PhysicalSpecularGlossinessMaterialDelta::emissive(_) => todo!(),
+      PhysicalSpecularGlossinessMaterialDelta::alpha(_) => todo!(),
+      PhysicalSpecularGlossinessMaterialDelta::alpha_cutoff(_) => todo!(),
+      PhysicalSpecularGlossinessMaterialDelta::alpha_mode(_) => todo!(),
+      PhysicalSpecularGlossinessMaterialDelta::albedo_texture(_) => todo!(),
+      PhysicalSpecularGlossinessMaterialDelta::specular_texture(_) => todo!(),
+      PhysicalSpecularGlossinessMaterialDelta::glossiness_texture(_) => todo!(),
+      PhysicalSpecularGlossinessMaterialDelta::emissive_texture(_) => todo!(),
+      PhysicalSpecularGlossinessMaterialDelta::normal_texture(_) => todo!(),
+      PhysicalSpecularGlossinessMaterialDelta::ext(_) => todo!(),
+    }
   }
 
   fn expand_self(&self, change: &mut dyn Fn((Self::TextureType, AllocIdx<SceneTexture2DType>))) {
