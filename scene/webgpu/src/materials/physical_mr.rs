@@ -118,6 +118,24 @@ impl MaterialReferenceTexture for PhysicalMetallicRoughnessMaterial {
     todo!()
   }
 
+  fn extract_same_change(change: Self::Delta, full: &Self) -> Self::Delta {
+    match change {
+      PD::base_color(_) => todo!(),
+      PD::roughness(_) => todo!(),
+      PD::metallic(_) => todo!(),
+      PD::reflectance(_) => todo!(),
+      PD::emissive(_) => todo!(),
+      PD::alpha(_) => todo!(),
+      PD::alpha_cutoff(_) => todo!(),
+      PD::alpha_mode(_) => todo!(),
+      PD::base_color_texture(_) => todo!(),
+      PD::metallic_roughness_texture(_) => todo!(),
+      PD::emissive_texture(_) => todo!(),
+      PD::normal_texture(_) => todo!(),
+      PD::ext(_) => todo!(),
+    }
+  }
+
   fn update_texture_uniform(ty: Self::TextureType, handle: u32, target: &mut Self::TextureUniform) {
     todo!()
   }

@@ -114,21 +114,40 @@ impl MaterialReferenceTexture for PhysicalSpecularGlossinessMaterial {
     change: Self::Delta,
   ) -> Option<(Self::TextureType, AllocIdx<SceneTexture2DType>)> {
     match change {
-      PhysicalSpecularGlossinessMaterialDelta::albedo(_) => todo!(),
-      PhysicalSpecularGlossinessMaterialDelta::specular(_) => todo!(),
-      PhysicalSpecularGlossinessMaterialDelta::glossiness(_) => todo!(),
-      PhysicalSpecularGlossinessMaterialDelta::emissive(_) => todo!(),
-      PhysicalSpecularGlossinessMaterialDelta::alpha(_) => todo!(),
-      PhysicalSpecularGlossinessMaterialDelta::alpha_cutoff(_) => todo!(),
-      PhysicalSpecularGlossinessMaterialDelta::alpha_mode(_) => todo!(),
-      PhysicalSpecularGlossinessMaterialDelta::albedo_texture(_) => todo!(),
-      PhysicalSpecularGlossinessMaterialDelta::specular_texture(_) => todo!(),
-      PhysicalSpecularGlossinessMaterialDelta::glossiness_texture(_) => todo!(),
-      PhysicalSpecularGlossinessMaterialDelta::emissive_texture(_) => todo!(),
-      PhysicalSpecularGlossinessMaterialDelta::normal_texture(_) => todo!(),
-      PhysicalSpecularGlossinessMaterialDelta::ext(_) => todo!(),
+      PD::albedo(_) => todo!(),
+      PD::specular(_) => todo!(),
+      PD::glossiness(_) => todo!(),
+      PD::emissive(_) => todo!(),
+      PD::alpha(_) => todo!(),
+      PD::alpha_cutoff(_) => todo!(),
+      PD::alpha_mode(_) => todo!(),
+      PD::albedo_texture(_) => todo!(),
+      PD::specular_texture(_) => todo!(),
+      PD::glossiness_texture(_) => todo!(),
+      PD::emissive_texture(_) => todo!(),
+      PD::normal_texture(_) => todo!(),
+      PD::ext(_) => todo!(),
     }
   }
+
+  fn extract_same_change(change: Self::Delta, full: &Self) -> Self::Delta {
+    match change {
+      PD::albedo(_) => todo!(),
+      PD::specular(_) => todo!(),
+      PD::glossiness(_) => todo!(),
+      PD::emissive(_) => todo!(),
+      PD::alpha(_) => todo!(),
+      PD::alpha_cutoff(_) => todo!(),
+      PD::alpha_mode(_) => todo!(),
+      PD::albedo_texture(_) => todo!(),
+      PD::specular_texture(_) => todo!(),
+      PD::glossiness_texture(_) => todo!(),
+      PD::emissive_texture(_) => todo!(),
+      PD::normal_texture(_) => todo!(),
+      PD::ext(_) => todo!(),
+    }
+  }
+
   fn update_texture_uniform(ty: Self::TextureType, handle: u32, target: &mut Self::TextureUniform) {
     todo!()
   }

@@ -1,8 +1,4 @@
-use std::task::Poll;
-
-use __core::{pin::Pin, task::Context};
 use bytemuck::Zeroable;
-use futures::Stream;
 use incremental::*;
 use reactive::*;
 use rendiation_shader_api::*;
@@ -31,30 +27,6 @@ impl WidenedLineMaterial {
 #[derive(Clone, Copy, ShaderStruct)]
 pub struct WidenedLineMaterialUniform {
   pub width: f32,
-}
-
-type ReactiveWidenedLineMaterialGPUImpl =
-  impl AsRef<RenderComponentCell<WidenedLineMaterialGPU>> + Stream<Item = RenderComponentDeltaFlag>;
-
-#[pin_project::pin_project]
-pub struct ReactiveWidenedLineMaterialGPU {
-  #[pin]
-  inner: ReactiveWidenedLineMaterialGPUImpl,
-}
-
-impl Stream for ReactiveWidenedLineMaterialGPU {
-  type Item = RenderComponentDeltaFlag;
-
-  fn poll_next(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Option<Self::Item>> {
-    let this = self.project();
-    this.inner.poll_next(cx)
-  }
-}
-
-impl ReactiveRenderComponentSource for ReactiveWidenedLineMaterialGPU {
-  fn as_reactive_component(&self) -> &dyn ReactiveRenderComponent {
-    self.inner.as_ref() as &dyn ReactiveRenderComponent
-  }
 }
 
 impl WebGPUMaterial for WidenedLineMaterial {
@@ -100,14 +72,6 @@ impl WebGPUMaterial for WidenedLineMaterial {
 
 pub struct WidenedLineMaterialGPU {
   uniform: UniformBufferDataView<WidenedLineMaterialUniform>,
-}
-
-impl Stream for WidenedLineMaterialGPU {
-  type Item = RenderComponentDeltaFlag;
-
-  fn poll_next(self: Pin<&mut Self>, _: &mut Context) -> Poll<Option<Self::Item>> {
-    Poll::Pending
-  }
 }
 
 impl ShaderHashProvider for WidenedLineMaterialGPU {}

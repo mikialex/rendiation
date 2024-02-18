@@ -109,6 +109,8 @@ pub trait MaterialReferenceTexture: IncrementalBase {
   fn get_texture(&self, ty: Self::TextureType) -> Option<&SceneTexture2D>;
   fn check_change(change: Self::Delta)
     -> Option<(Self::TextureType, AllocIdx<SceneTexture2DType>)>;
+  /// note, this should move into foundation libs
+  fn extract_same_change(change: Self::Delta, full: &Self) -> Self::Delta;
 
   fn update_texture_uniform(ty: Self::TextureType, handle: u32, target: &mut Self::TextureUniform);
 
@@ -117,8 +119,7 @@ pub trait MaterialReferenceTexture: IncrementalBase {
   ) -> impl ReactiveCollection<(u8, AllocIdx<Self>), AllocIdx<SceneTexture2DType>> {
     let storage = storage_of::<Self>();
 
-    let (sender, receiver) =
-      group_mutation::<Self, (Self::TextureType, AllocIdx<SceneTexture2DType>)>();
+    let (sender, receiver) = group_mutation();
 
     {
       let data = storage.inner.data.write();
@@ -144,7 +145,20 @@ pub trait MaterialReferenceTexture: IncrementalBase {
           delta,
           data_before_mutate,
         } => {
-          //
+          let delta_before = Self::extract_same_change(delta.clone(), data_before_mutate);
+          let mapped_before = Self::check_change(delta_before);
+          let mapped = Self::check_change(delta.clone());
+
+          let change = match (mapped, mapped_before) {
+            (None, None) => None,
+            (None, Some(pre)) => ValueChange::Remove(pre).into(),
+            (Some(new), None) => ValueChange::Delta(new, None).into(),
+            (Some(new), Some(pre)) => ValueChange::Delta(new, Some(pre)).into(),
+          };
+
+          if let Some(change) = change {
+            sender.send(*index, change);
+          }
         }
         StorageGroupChange::Drop { index, data } => data.expand(|delta| {
           if let Some(texture_change) = Self::check_change(delta) {
