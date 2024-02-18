@@ -133,7 +133,7 @@ pub struct GroupMutationSender<K, T> {
 }
 
 impl<K, T: CValue> GroupMutationSender<K, T> {
-  fn send(&self, idx: AllocIdx<K>, change: ValueChange<T>) -> bool {
+  pub fn send(&self, idx: AllocIdx<K>, change: ValueChange<T>) -> bool {
     if let Some(inner) = self.inner.upgrade() {
       let mut mutations = inner.0.write();
       if let Some(old_change) = mutations.get_mut(&idx) {

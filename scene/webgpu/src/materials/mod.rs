@@ -107,21 +107,56 @@ pub trait MaterialReferenceTexture: IncrementalBase {
   type TextureUniform: CValue + Default + Std140;
 
   fn get_texture(&self, ty: Self::TextureType) -> Option<&SceneTexture2D>;
-  fn check_change(
-    change: Self::Delta,
-  ) -> ChangeReaction<(Self::TextureType, AllocIdx<SceneTexture2DType>)>;
+  fn check_change(change: Self::Delta)
+    -> Option<(Self::TextureType, AllocIdx<SceneTexture2DType>)>;
 
-  fn expand_self(&self, change: &mut dyn Fn((Self::TextureType, AllocIdx<SceneTexture2DType>)));
   fn update_texture_uniform(ty: Self::TextureType, handle: u32, target: &mut Self::TextureUniform);
 
   fn create_reference_collection(
     scope: impl ReactiveCollection<AllocIdx<Self>, ()>,
   ) -> impl ReactiveCollection<(u8, AllocIdx<Self>), AllocIdx<SceneTexture2DType>> {
-    // storage_of::<Self>().listen_to_reactive_collection(|c|{
-    //   match c{
+    let storage = storage_of::<Self>();
 
-    //   }
-    // })
+    let (sender, receiver) =
+      group_mutation::<Self, (Self::TextureType, AllocIdx<SceneTexture2DType>)>();
+
+    {
+      let data = storage.inner.data.write();
+
+      for (index, data) in data.iter() {
+        data.data.expand(|delta| {
+          if let Some(texture_change) = Self::check_change(delta) {
+            sender.send(index.into(), ValueChange::Delta(texture_change, None));
+          }
+        })
+      }
+    }
+
+    let dropper = storage.on(move |change| {
+      match change {
+        StorageGroupChange::Create { index, data } => data.expand(|delta| {
+          if let Some(texture_change) = Self::check_change(delta) {
+            sender.send(*index, ValueChange::Delta(texture_change, None));
+          }
+        }),
+        StorageGroupChange::Mutate {
+          index,
+          delta,
+          data_before_mutate,
+        } => {
+          //
+        }
+        StorageGroupChange::Drop { index, data } => data.expand(|delta| {
+          if let Some(texture_change) = Self::check_change(delta) {
+            sender.send(*index, ValueChange::Remove(texture_change));
+          }
+        }),
+      };
+      false
+    });
+
+    let source = DropperAttachedStream::new(dropper, receiver);
+
     // todo, custom listen to
   }
 

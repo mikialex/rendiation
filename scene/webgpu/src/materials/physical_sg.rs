@@ -112,7 +112,7 @@ impl MaterialReferenceTexture for PhysicalSpecularGlossinessMaterial {
 
   fn check_change(
     change: Self::Delta,
-  ) -> ChangeReaction<(Self::TextureType, AllocIdx<SceneTexture2DType>)> {
+  ) -> Option<(Self::TextureType, AllocIdx<SceneTexture2DType>)> {
     match change {
       PhysicalSpecularGlossinessMaterialDelta::albedo(_) => todo!(),
       PhysicalSpecularGlossinessMaterialDelta::specular(_) => todo!(),
@@ -128,10 +128,6 @@ impl MaterialReferenceTexture for PhysicalSpecularGlossinessMaterial {
       PhysicalSpecularGlossinessMaterialDelta::normal_texture(_) => todo!(),
       PhysicalSpecularGlossinessMaterialDelta::ext(_) => todo!(),
     }
-  }
-
-  fn expand_self(&self, change: &mut dyn Fn((Self::TextureType, AllocIdx<SceneTexture2DType>))) {
-    todo!()
   }
   fn update_texture_uniform(ty: Self::TextureType, handle: u32, target: &mut Self::TextureUniform) {
     todo!()
