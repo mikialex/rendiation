@@ -166,23 +166,23 @@ struct GPUAttributesBuffer {
   inner: GPUBufferResource,
 }
 
-impl GlobalIdReactiveSimpleMapping<GPUAttributesBuffer> for GeometryBuffer {
-  type ChangeStream = impl Stream<Item = ()> + Unpin;
-  type Ctx<'a> = ResourceGPUCtx;
+// impl GlobalIdReactiveSimpleMapping<GPUAttributesBuffer> for GeometryBuffer {
+//   type ChangeStream = impl Stream<Item = ()> + Unpin;
+//   type Ctx<'a> = ResourceGPUCtx;
 
-  fn build(&self, gpu: &Self::Ctx<'_>) -> (GPUAttributesBuffer, Self::ChangeStream) {
-    let gpu_buffer = create_gpu_buffer(
-      self.read().buffer.as_slice(),
-      BufferUsages::INDEX | BufferUsages::VERTEX,
-      &gpu.device,
-    );
+//   fn build(&self, gpu: &Self::Ctx<'_>) -> (GPUAttributesBuffer, Self::ChangeStream) {
+//     let gpu_buffer = create_gpu_buffer(
+//       self.read().buffer.as_slice(),
+//       BufferUsages::INDEX | BufferUsages::VERTEX,
+//       &gpu.device,
+//     );
 
-    let gpu_buffer = GPUAttributesBuffer { inner: gpu_buffer };
+//     let gpu_buffer = GPUAttributesBuffer { inner: gpu_buffer };
 
-    let change = self.unbound_listen_by(any_change);
-    (gpu_buffer, change)
-  }
-}
+//     let change = self.unbound_listen_by(any_change);
+//     (gpu_buffer, change)
+//   }
+// }
 
 // fn get_update_buffer<'a>(
 //   storage: &'a mut AnyMap,

@@ -114,19 +114,12 @@ impl MaterialReferenceTexture for PhysicalSpecularGlossinessMaterial {
     change: Self::Delta,
   ) -> Option<(Self::TextureType, AllocIdx<SceneTexture2DType>)> {
     match change {
-      PD::albedo(_) => todo!(),
-      PD::specular(_) => todo!(),
-      PD::glossiness(_) => todo!(),
-      PD::emissive(_) => todo!(),
-      PD::alpha(_) => todo!(),
-      PD::alpha_cutoff(_) => todo!(),
-      PD::alpha_mode(_) => todo!(),
       PD::albedo_texture(_) => todo!(),
       PD::specular_texture(_) => todo!(),
       PD::glossiness_texture(_) => todo!(),
       PD::emissive_texture(_) => todo!(),
       PD::normal_texture(_) => todo!(),
-      PD::ext(_) => todo!(),
+      _ => None,
     }
   }
 

@@ -126,14 +126,11 @@ impl<T: IncrementalBase> IncrementalSignalStorage<T> {
 }
 
 pub struct GroupMutationSender<K, T> {
-  inner: Weak<(
-    RwLock<FastHashMap<AllocIdx<K>, ValueChange<T>>>,
-    AtomicWaker,
-  )>,
+  inner: Weak<(RwLock<FastHashMap<K, ValueChange<T>>>, AtomicWaker)>,
 }
 
-impl<K, T: CValue> GroupMutationSender<K, T> {
-  pub fn send(&self, idx: AllocIdx<K>, change: ValueChange<T>) -> bool {
+impl<K: CKey, T: CValue> GroupMutationSender<K, T> {
+  pub fn send(&self, idx: K, change: ValueChange<T>) -> bool {
     if let Some(inner) = self.inner.upgrade() {
       let mut mutations = inner.0.write();
       if let Some(old_change) = mutations.get_mut(&idx) {
@@ -164,10 +161,7 @@ impl<K, T> Drop for GroupMutationSender<K, T> {
 }
 
 pub struct GroupMutationReceiver<K, T> {
-  inner: Arc<(
-    RwLock<FastHashMap<AllocIdx<K>, ValueChange<T>>>,
-    AtomicWaker,
-  )>,
+  inner: Arc<(RwLock<FastHashMap<K, ValueChange<T>>>, AtomicWaker)>,
 }
 
 pub fn group_mutation<K, T>() -> (GroupMutationSender<K, T>, GroupMutationReceiver<K, T>) {
@@ -261,12 +255,12 @@ where
 }
 
 impl<K, T> Stream for GroupMutationReceiver<K, T> {
-  type Item = FastHashMap<AllocIdx<K>, ValueChange<T>>;
+  type Item = FastHashMap<K, ValueChange<T>>;
 
   fn poll_next(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Option<Self::Item>> {
     self.inner.1.register(cx.waker());
     let mut changes = self.inner.0.write();
-    let changes: &mut FastHashMap<AllocIdx<K>, ValueChange<T>> = &mut changes;
+    let changes: &mut FastHashMap<K, ValueChange<T>> = &mut changes;
 
     let changes = std::mem::take(changes);
     if !changes.is_empty() {

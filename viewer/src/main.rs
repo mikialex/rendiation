@@ -23,7 +23,7 @@ static GLOBAL_ALLOCATOR: PreciseAllocationHook<System> = PreciseAllocationHook::
 
 fn main() {
   setup_active_plane(Default::default());
-  register_viewer_extra_scene_features();
+  // register_viewer_extra_scene_features();
 
   let window_init_config = WindowSelfState {
     size: (1200., 800.).into(),
