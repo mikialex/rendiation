@@ -2,6 +2,7 @@ use crate::*;
 
 pub type CameraGPUGetter<'a> = &'a dyn Fn(&AllocIdx<SceneCameraImpl>) -> Option<CameraGPU>;
 
+// todo, update not recreate
 pub fn camera_gpus(
   projections: impl ReactiveCollection<AllocIdx<SceneCameraImpl>, Mat4<f32>>,
   node_mats: impl ReactiveCollection<NodeIdentity, Mat4<f32>>,
@@ -10,7 +11,7 @@ pub fn camera_gpus(
 ) -> impl ReactiveCollection<AllocIdx<SceneCameraImpl>, CameraGPU> {
   let camera_world_mat = node_mats.one_to_many_fanout(camera_node_relations);
 
-  let uniforms = camera_world_mat
+  camera_world_mat
     .collective_zip(projections)
     .collective_map(|(world, proj)| {
       let view = world.inverse_or_identity();
@@ -27,17 +28,9 @@ pub fn camera_gpus(
 
         ..Zeroable::zeroed()
       }
-    });
-
-  let cx = cx.clone();
-  uniforms.collective_execute_map_by(move || {
-    let cx = cx.clone();
-    move |_, _| {
-      let gpu = CameraGPU::new(&cx.device);
-      // gpu.update
-      gpu
-    }
-  })
+    })
+    .collective_create_uniforms(cx.clone())
+    .collective_map(|ubo| CameraGPU { ubo })
 }
 
 #[derive(Clone, Debug, PartialEq)]

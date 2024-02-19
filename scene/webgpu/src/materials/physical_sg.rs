@@ -48,7 +48,7 @@ pub fn physical_sg_material_uniforms(
       MaybeDeltaRef::All(_) => ChangeReaction::Care(Some(AnyChanging)),
     })
     .filter_by_keyset(scope)
-    .collective_create_uniforms(cx, |m| {
+    .collective_create_uniforms_by_key(cx, |m| {
       let mut r = PhysicalSpecularGlossinessMaterialUniform {
         albedo: m.albedo,
         specular: m.specular,

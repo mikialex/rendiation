@@ -50,7 +50,7 @@ pub trait AllocIdCollectionGPUExt<K: 'static> {
   where
     V: CValue;
 
-  fn collective_create_uniforms<V>(
+  fn collective_create_uniforms_by_key<V>(
     self,
     gpu: ResourceGPUCtx,
     mapper: impl Fn(&K) -> V + 'static + Send + Sync + Copy,
@@ -80,7 +80,7 @@ where
     })
   }
 
-  fn collective_create_uniforms<V>(
+  fn collective_create_uniforms_by_key<V>(
     self,
     gpu: ResourceGPUCtx,
     mapper: impl Fn(&K) -> V + 'static + Send + Sync + Copy,
@@ -91,6 +91,33 @@ where
     self.collective_execute_gpu_map(gpu, move |k, gpu| {
       let uniform = mapper(k);
       create_uniform(uniform, &gpu.device)
+    })
+  }
+}
+
+pub trait CollectionGPUExt<K: CKey, V: CValue> {
+  fn collective_create_uniforms(
+    self,
+    gpu: ResourceGPUCtx,
+  ) -> impl ReactiveCollection<K, UniformBufferDataView<V>>
+  where
+    V: Std140 + Send + Sync;
+}
+impl<K: CKey, V: CValue, T> CollectionGPUExt<K, V> for T
+where
+  T: ReactiveCollection<K, V>,
+{
+  fn collective_create_uniforms(
+    self,
+    gpu: ResourceGPUCtx,
+  ) -> impl ReactiveCollection<K, UniformBufferDataView<V>>
+  where
+    V: Std140 + Send + Sync,
+  {
+    let gpu = gpu.clone();
+    self.collective_execute_map_by(move || {
+      let gpu = gpu.clone();
+      move |_, uniform| create_uniform(uniform, &gpu.device)
     })
   }
 }
@@ -174,16 +201,15 @@ pub trait MaterialReferenceTexture: IncrementalBase {
     // todo, custom listen to
   }
 
-  fn create_reference_relation(
-    reference_collection: impl ReactiveCollection<(u8, AllocIdx<Self>), AllocIdx<SceneTexture2DType>>,
-  ) -> impl ReactiveOneToManyRelationship<AllocIdx<SceneTexture2DType>, (u8, AllocIdx<Self>)> {
-    reference_collection.into_one_to_many_by_hash()
-  }
-
   fn create_texture_uniforms(
+    // scope: impl ReactiveCollection<AllocIdx<Self>, ()>,
     reference_collection: impl ReactiveCollection<(u8, AllocIdx<Self>), AllocIdx<SceneTexture2DType>>,
     texture2ds: impl ReactiveCollection<AllocIdx<SceneTexture2DType>, TextureSamplerHandlePair>,
   ) -> impl ReactiveCollection<AllocIdx<Self>, UniformBufferDataView<Self::TextureUniform>> {
+    // scope.collective_map(|_| Self::TextureUniform::default());
+
+    // todo, should we impl custom collection here?
+
     // reference_collection
     //   .into_one_to_many_by_hash()
     //   .collective_remap_value(texture2ds)

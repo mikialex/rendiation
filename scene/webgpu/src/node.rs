@@ -1,41 +1,23 @@
 use crate::*;
 
+// todo, update not recreate
 pub fn node_gpus(
   node_mats: impl ReactiveCollection<NodeIdentity, Mat4<f32>>,
   cx: &ResourceGPUCtx,
 ) -> impl ReactiveCollection<NodeIdentity, NodeGPU> {
-  let uniforms = node_mats.collective_map(|mat| TransformGPUData {
-    world_matrix: mat,
-    normal_matrix: mat.to_normal_matrix().into(),
-    ..Zeroable::zeroed()
-  });
-
-  let cx = cx.clone();
-  uniforms.collective_execute_map_by(move || {
-    let cx = cx.clone();
-    move |_, _| {
-      let gpu = NodeGPU::new(&cx.device);
-      // gpu.update
-      gpu
-    }
-  })
+  node_mats
+    .collective_map(|mat| TransformGPUData {
+      world_matrix: mat,
+      normal_matrix: mat.to_normal_matrix().into(),
+      ..Zeroable::zeroed()
+    })
+    .collective_create_uniforms(cx.clone())
+    .collective_map(|ubo| NodeGPU { ubo })
 }
 
-#[derive(Clone)]
+#[derive(Clone, PartialEq, Debug)]
 pub struct NodeGPU {
   pub ubo: UniformBufferDataView<TransformGPUData>,
-}
-
-impl PartialEq for NodeGPU {
-  fn eq(&self, other: &Self) -> bool {
-    false
-  }
-}
-
-impl std::fmt::Debug for NodeGPU {
-  fn fmt(&self, f: &mut __core::fmt::Formatter<'_>) -> __core::fmt::Result {
-    f.debug_struct("NodeGPU").finish()
-  }
 }
 
 impl NodeGPU {

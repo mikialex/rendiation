@@ -50,7 +50,7 @@ pub fn physical_mr_material_uniforms(
       MaybeDeltaRef::All(_) => ChangeReaction::Care(Some(AnyChanging)),
     })
     .filter_by_keyset(scope)
-    .collective_create_uniforms(cx, |m| {
+    .collective_create_uniforms_by_key(cx, |m| {
       let mut r = PhysicalMetallicRoughnessMaterialUniform {
         base_color: m.base_color,
         roughness: m.roughness,
@@ -91,9 +91,9 @@ pub enum PhysicalMetallicRoughnessMaterialTextureType {
 }
 use PhysicalMetallicRoughnessMaterialTextureType as TextureType;
 
-impl Into<u8> for TextureType {
-  fn into(self) -> u8 {
-    self as u8
+impl From<TextureType> for u8 {
+  fn from(val: TextureType) -> Self {
+    val as u8
   }
 }
 

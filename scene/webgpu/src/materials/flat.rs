@@ -7,7 +7,7 @@ pub fn flat_material_gpus(
   storage_of::<FlatMaterial>()
     .listen_all_instance_changed_set()
     .filter_by_keyset(scope)
-    .collective_create_uniforms(cx, |m| FlatMaterialUniform {
+    .collective_create_uniforms_by_key(cx, |m| FlatMaterialUniform {
       color: srgba_to_linear(m.color),
       ..Zeroable::zeroed()
     })
