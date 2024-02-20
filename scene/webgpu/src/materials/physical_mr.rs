@@ -109,11 +109,9 @@ impl MaterialReferenceTexture for PhysicalMetallicRoughnessMaterial {
 
   fn get_texture(&self, ty: Self::TextureType) -> Option<&SceneTexture2D> {
     match ty {
-      TextureType::BaseColor => self.base_color_texture.as_ref().map(|t| &t.texture),
-      TextureType::MetallicRoughness => {
-        self.metallic_roughness_texture.as_ref().map(|t| &t.texture)
-      }
-      TextureType::Emissive => self.emissive_texture.as_ref().map(|t| &t.texture),
+      TextureType::BaseColor => pick_tex(&self.base_color_texture),
+      TextureType::MetallicRoughness => pick_tex(&self.metallic_roughness_texture),
+      TextureType::Emissive => pick_tex(&self.emissive_texture),
       TextureType::Normal => self.normal_texture.as_ref().map(|t| &t.content.texture),
     }
   }
@@ -123,23 +121,25 @@ impl MaterialReferenceTexture for PhysicalMetallicRoughnessMaterial {
     delta: &Self::Delta,
     callback: &dyn Fn(Self::TextureType, Option<AllocIdx<SceneTexture2DType>>),
   ) {
-    let t = match delta {
-      PD::base_color_texture(_) => TextureType::BaseColor,
-      PD::metallic_roughness_texture(_) => TextureType::MetallicRoughness,
-      PD::emissive_texture(_) => TextureType::Emissive,
-      PD::normal_texture(_) => TextureType::Normal,
+    let (t, d) = match delta {
+      PD::base_color_texture(t) => (TextureType::BaseColor, pick_tex_d(t)),
+      PD::metallic_roughness_texture(t) => (TextureType::MetallicRoughness, pick_tex_d(t)),
+      PD::emissive_texture(t) => (TextureType::Emissive, pick_tex_d(t)),
+      PD::normal_texture(t) => (TextureType::Normal, pick_normal_tex_d(t)),
       _ => return,
     };
-    callback(t, todo!())
+    callback(t, d)
   }
 
   fn create_iter(&self) -> impl Iterator<Item = (Self::TextureType, AllocIdx<SceneTexture2DType>)> {
-    [self
-      .base_color_texture
-      .as_ref()
-      .map(|t| (TextureType::BaseColor, t.texture.alloc_index().into()))]
+    [
+      pick_tex_id(&self.base_color_texture).map(|id| (TextureType::BaseColor, id)),
+      pick_tex_id(&self.metallic_roughness_texture).map(|id| (TextureType::MetallicRoughness, id)),
+      pick_tex_id(&self.emissive_texture).map(|id| (TextureType::Emissive, id)),
+      // pick_tex_id(&self.normal_texture).map(|id| (TextureType::BaseColor, id)),
+    ]
     .into_iter()
-    .filter_map(|v| v)
+    .flatten()
   }
 
   fn update_texture_uniform(ty: Self::TextureType, handle: u32, target: &mut Self::TextureUniform) {

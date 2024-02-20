@@ -130,22 +130,39 @@ pub struct MaterialTextureAddress {
   pub material_texture_id: u32,
 }
 
+#[derive(Derivative)]
+#[derivative(Clone(bound = ""))]
+#[derivative(Copy(bound = ""))]
 pub struct MaterialTextureChangeProcessor<M> {
   m_type: PhantomData<M>,
 }
 
-impl<M> Copy for MaterialTextureChangeProcessor<M> {}
+pub(super) fn pick_tex(t: &Option<Texture2DWithSamplingData>) -> Option<&SceneTexture2D> {
+  t.as_ref().map(|t| &t.texture)
+}
 
-impl<M> Clone for MaterialTextureChangeProcessor<M> {
-  fn clone(&self) -> Self {
-    Self {
-      m_type: self.m_type.clone(),
-    }
-  }
+pub(super) fn pick_tex_id(
+  t: &Option<Texture2DWithSamplingData>,
+) -> Option<AllocIdx<SceneTexture2DType>> {
+  pick_tex(t).map(|t| t.alloc_index().into())
+}
+
+pub(super) fn pick_tex_d(
+  t: &DeltaOf<Option<Texture2DWithSamplingData>>,
+) -> Option<AllocIdx<SceneTexture2DType>> {
+  t.as_ref()
+    .map(merge_maybe_ref)
+    .map(|t| t.texture.alloc_index().into())
+}
+
+pub(super) fn pick_normal_tex_d(
+  t: &DeltaOf<Option<NormalMapping>>,
+) -> Option<AllocIdx<SceneTexture2DType>> {
+  // Some(merge_maybe(t?).texture.alloc_index().into())
+  todo!()
 }
 
 use derivative::Derivative;
-// #[derive(Clone, Copy, Debug, Hash, PartialEq, Eq)]
 #[derive(Derivative)]
 #[derivative(Clone(bound = ""))]
 #[derivative(Copy(bound = ""))]

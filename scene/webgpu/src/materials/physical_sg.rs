@@ -108,10 +108,10 @@ impl MaterialReferenceTexture for PhysicalSpecularGlossinessMaterial {
 
   fn get_texture(&self, ty: Self::TextureType) -> Option<&SceneTexture2D> {
     match ty {
-      TextureType::Albedo => self.emissive_texture.as_ref().map(|t| &t.texture),
-      TextureType::Specular => self.specular_texture.as_ref().map(|t| &t.texture),
-      TextureType::Glossiness => self.glossiness_texture.as_ref().map(|t| &t.texture),
-      TextureType::Emissive => self.emissive_texture.as_ref().map(|t| &t.texture),
+      TextureType::Albedo => pick_tex(&self.emissive_texture),
+      TextureType::Specular => pick_tex(&self.specular_texture),
+      TextureType::Glossiness => pick_tex(&self.glossiness_texture),
+      TextureType::Emissive => pick_tex(&self.emissive_texture),
       TextureType::Normal => self.normal_texture.as_ref().map(|t| &t.content.texture),
     }
   }
@@ -121,15 +121,15 @@ impl MaterialReferenceTexture for PhysicalSpecularGlossinessMaterial {
     delta: &Self::Delta,
     callback: &dyn Fn(Self::TextureType, Option<AllocIdx<SceneTexture2DType>>),
   ) {
-    let t = match delta {
-      PD::albedo_texture(_) => TextureType::Albedo,
-      PD::specular_texture(_) => TextureType::Specular,
-      PD::glossiness_texture(_) => TextureType::Glossiness,
-      PD::emissive_texture(_) => TextureType::Emissive,
-      PD::normal_texture(_) => TextureType::Normal,
+    let (t, d) = match delta {
+      PD::albedo_texture(t) => (TextureType::Albedo, pick_tex_d(t)),
+      PD::specular_texture(t) => (TextureType::Specular, pick_tex_d(t)),
+      PD::glossiness_texture(t) => (TextureType::Glossiness, pick_tex_d(t)),
+      PD::emissive_texture(t) => (TextureType::Emissive, pick_tex_d(t)),
+      PD::normal_texture(t) => (TextureType::Normal, pick_normal_tex_d(t)),
       _ => return,
     };
-    callback(t, todo!())
+    callback(t, d)
   }
 
   fn update_texture_uniform(ty: Self::TextureType, handle: u32, target: &mut Self::TextureUniform) {
@@ -137,7 +137,15 @@ impl MaterialReferenceTexture for PhysicalSpecularGlossinessMaterial {
   }
 
   fn create_iter(&self) -> impl Iterator<Item = (Self::TextureType, AllocIdx<SceneTexture2DType>)> {
-    [].into_iter()
+    [
+      pick_tex_id(&self.albedo_texture).map(|id| (TextureType::Albedo, id)),
+      pick_tex_id(&self.glossiness_texture).map(|id| (TextureType::Glossiness, id)),
+      pick_tex_id(&self.specular_texture).map(|id| (TextureType::Specular, id)),
+      pick_tex_id(&self.emissive_texture).map(|id| (TextureType::Emissive, id)),
+      // pick_tex_id(&self.normal_texture).map(|id| (TextureType::BaseColor, id)),
+    ]
+    .into_iter()
+    .flatten()
   }
 }
 
