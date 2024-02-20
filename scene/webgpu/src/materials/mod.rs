@@ -230,7 +230,7 @@ impl<M: MaterialReferenceTexture>
     })
   }
 
-  fn access(&self, v: &M, k: MaterialRefTextureId<M>) -> Option<AllocIdx<SceneTexture2DType>> {
+  fn access(&self, v: &M, k: &MaterialRefTextureId<M>) -> Option<AllocIdx<SceneTexture2DType>> {
     let ty = M::TextureType::from(k.texture_variant);
     v.get_texture(ty).map(|t| t.alloc_index().into())
   }

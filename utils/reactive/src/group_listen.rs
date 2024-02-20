@@ -57,7 +57,7 @@ pub trait ChangeProcessor<T: IncrementalBase, K, U>: Copy + Send + Sync + 'stati
     callback: &dyn Fn(K, ValueChange<U>),
   );
   fn create_iter(&self, v: &T, idx: AllocIdx<T>) -> impl Iterator<Item = (K, U)>;
-  fn access(&self, v: &T, k: K) -> Option<U>;
+  fn access(&self, v: &T, k: &K) -> Option<U>;
 }
 
 #[derive(Clone, Copy)]
@@ -93,10 +93,10 @@ where
   }
 
   fn create_iter(&self, v: &T, idx: AllocIdx<T>) -> impl Iterator<Item = (AllocIdx<T>, U)> {
-    self.access(v, idx).map(|v| (idx, v)).into_iter()
+    self.access(v, &idx).map(|v| (idx, v)).into_iter()
   }
 
-  fn access(&self, v: &T, _k: AllocIdx<T>) -> Option<U> {
+  fn access(&self, v: &T, _k: &AllocIdx<T>) -> Option<U> {
     (self.f)(MaybeDeltaRef::All(v)).expect_care()
   }
 }
@@ -263,7 +263,7 @@ where
       .data
       .try_get(key.alloc_index())
       .map(|v| &v.data)
-      .and_then(|v| self.watcher.access(v, key.clone()))
+      .and_then(|v| self.watcher.access(v, key))
   }
 }
 

@@ -1,5 +1,62 @@
 use crate::*;
 
+#[derive(Clone, Copy)]
+struct AttributeWatcher;
+
+#[derive(Clone, Eq, PartialEq, Hash, Debug)]
+pub struct AttributeMeshAccessAttribute {
+  pub mesh: AllocIdx<AttributesMesh>,
+  pub semantic: AttributeSemantic,
+}
+
+impl LinearIdentified for AttributeMeshAccessAttribute {
+  fn alloc_index(&self) -> u32 {
+    self.mesh.index
+  }
+}
+
+impl ChangeProcessor<AttributesMesh, AttributeMeshAccessAttribute, AttributeAccessKey>
+  for AttributeWatcher
+{
+  fn react_change(
+    &self,
+    (new, old): (&AttributesMesh, &AttributesMesh),
+    idx: AllocIdx<AttributesMesh>,
+    callback: &dyn Fn(AttributeMeshAccessAttribute, ValueChange<AttributeAccessKey>),
+  ) {
+    for (k, v) in self.create_iter(old, idx) {
+      callback(k, ValueChange::Remove(v));
+    }
+    for (k, v) in self.create_iter(new, idx) {
+      callback(k, ValueChange::Delta(v, None));
+    }
+  }
+
+  fn create_iter(
+    &self,
+    v: &AttributesMesh,
+    idx: AllocIdx<AttributesMesh>,
+  ) -> impl Iterator<Item = (AttributeMeshAccessAttribute, AttributeAccessKey)> {
+    v.attributes.iter().map(move |(s, acc)| {
+      (
+        AttributeMeshAccessAttribute {
+          mesh: idx,
+          semantic: s.clone(),
+        },
+        AttributeAccessKey::new(acc),
+      )
+    })
+  }
+
+  fn access(
+    &self,
+    v: &AttributesMesh,
+    k: &AttributeMeshAccessAttribute,
+  ) -> Option<AttributeAccessKey> {
+    v.get_attribute(&k.semantic).map(AttributeAccessKey::new)
+  }
+}
+
 /// like AttributeAccessor, but for CKey usage.
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct AttributeAccessKey {
@@ -13,12 +70,26 @@ pub struct AttributeAccessKey {
   pub item_byte_size: usize,
 }
 
+impl AttributeAccessKey {
+  fn new(acc: &AttributeAccessor) -> Self {
+    AttributeAccessKey {
+      view: acc.view.buffer.alloc_index().into(),
+      range: acc.view.range,
+      byte_offset: acc.byte_offset,
+      count: acc.count,
+      item_byte_size: acc.item_byte_size,
+    }
+  }
+}
+
 pub fn global_normalized_att_sematic_set(
-) -> impl ReactiveCollection<(AllocIdx<AttributesMesh>, AttributeSemantic), ()> {
+) -> impl ReactiveCollection<AttributeMeshAccessAttribute, ()> {
+  global_normalized_att_acc_keys().collective_map(|_| ())
 }
 
 pub fn global_normalized_att_acc_keys(
-) -> impl ReactiveCollection<(AllocIdx<AttributesMesh>, AttributeSemantic), AttributeAccessKey> {
+) -> impl ReactiveCollection<AttributeMeshAccessAttribute, AttributeAccessKey> {
+  storage_of::<AttributesMesh>().listen_to_reactive_collection_custom(AttributeWatcher)
 }
 
 pub fn global_acc_keys_set() -> impl ReactiveCollection<AttributeAccessKey, ()> {
@@ -28,10 +99,9 @@ pub fn global_acc_keys_set() -> impl ReactiveCollection<AttributeAccessKey, ()> 
 // used for positional related compute
 pub fn position_attributes(
   scope: impl ReactiveCollection<AllocIdx<AttributesMesh>, ()>,
-) -> impl ReactiveCollection<AttributeAccessKey, ()> {
-  // global_normalized_att_sematic_set filter out position key
-  // reduce by global_normalized_att_acc_keys
-  // remapping
+) -> impl ReactiveCollection<AttributeAccessKey, AttributeAccessKey> {
+  // global_normalized_att_acc_keys().collective_filter_key(is_position_semantic)
+  // .many_to_one_reduce(global_normalized_att_acc_keys())
 }
 
 pub fn vertex_attribute_buffers_scope(
