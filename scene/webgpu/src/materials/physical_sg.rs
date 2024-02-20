@@ -96,6 +96,12 @@ impl From<TextureType> for u8 {
   }
 }
 
+impl From<u8> for TextureType {
+  fn from(val: u8) -> Self {
+    todo!()
+  }
+}
+
 impl MaterialReferenceTexture for PhysicalSpecularGlossinessMaterial {
   type TextureType = TextureType;
   type TextureUniform = PhysicalSpecularGlossinessMaterialTextureHandlesUniform;
@@ -110,39 +116,28 @@ impl MaterialReferenceTexture for PhysicalSpecularGlossinessMaterial {
     }
   }
 
-  fn check_change(
-    change: Self::Delta,
-  ) -> Option<(Self::TextureType, AllocIdx<SceneTexture2DType>)> {
-    match change {
-      PD::albedo_texture(_) => todo!(),
-      PD::specular_texture(_) => todo!(),
-      PD::glossiness_texture(_) => todo!(),
-      PD::emissive_texture(_) => todo!(),
-      PD::normal_texture(_) => todo!(),
-      _ => None,
-    }
-  }
-
-  fn extract_same_change(change: Self::Delta, full: &Self) -> Self::Delta {
-    match change {
-      PD::albedo(_) => todo!(),
-      PD::specular(_) => todo!(),
-      PD::glossiness(_) => todo!(),
-      PD::emissive(_) => todo!(),
-      PD::alpha(_) => todo!(),
-      PD::alpha_cutoff(_) => todo!(),
-      PD::alpha_mode(_) => todo!(),
-      PD::albedo_texture(_) => todo!(),
-      PD::specular_texture(_) => todo!(),
-      PD::glossiness_texture(_) => todo!(),
-      PD::emissive_texture(_) => todo!(),
-      PD::normal_texture(_) => todo!(),
-      PD::ext(_) => todo!(),
-    }
+  fn react_change(
+    &self,
+    delta: &Self::Delta,
+    callback: &dyn Fn(Self::TextureType, Option<AllocIdx<SceneTexture2DType>>),
+  ) {
+    let t = match delta {
+      PD::albedo_texture(_) => TextureType::Albedo,
+      PD::specular_texture(_) => TextureType::Specular,
+      PD::glossiness_texture(_) => TextureType::Glossiness,
+      PD::emissive_texture(_) => TextureType::Emissive,
+      PD::normal_texture(_) => TextureType::Normal,
+      _ => return,
+    };
+    callback(t, todo!())
   }
 
   fn update_texture_uniform(ty: Self::TextureType, handle: u32, target: &mut Self::TextureUniform) {
     todo!()
+  }
+
+  fn create_iter(&self) -> impl Iterator<Item = (Self::TextureType, AllocIdx<SceneTexture2DType>)> {
+    [].into_iter()
   }
 }
 

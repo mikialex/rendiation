@@ -3090,6 +3090,7 @@ dependencies = [
  "arena-graph",
  "bitflags 2.4.0",
  "bytemuck",
+ "derivative",
  "dyn-clone",
  "fast-hash-collection",
  "futures",

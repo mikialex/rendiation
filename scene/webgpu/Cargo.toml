@@ -32,6 +32,7 @@ rendiation-texture-gpu-system = { path = "../../components/texture/gpu-system" }
 rendiation-texture-gpu-process = { path = "../../components/texture/gpu-process" }
 rendiation-texture-gpu-base = { path = "../../components/texture/gpu-base" }
 tree = { path = "../../utils/tree" }
+derivative = { workspace = true }
 
 reactive = { path = "../../utils/reactive" }
 rendiation-webgpu = { path = "../../platform/graphics/webgpu" }

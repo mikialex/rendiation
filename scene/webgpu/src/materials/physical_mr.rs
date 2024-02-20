@@ -97,6 +97,12 @@ impl From<TextureType> for u8 {
   }
 }
 
+impl From<u8> for TextureType {
+  fn from(val: u8) -> Self {
+    todo!()
+  }
+}
+
 impl MaterialReferenceTexture for PhysicalMetallicRoughnessMaterial {
   type TextureType = TextureType;
   type TextureUniform = PhysicalMetallicRoughnessMaterialTextureHandlesUniform;
@@ -112,28 +118,28 @@ impl MaterialReferenceTexture for PhysicalMetallicRoughnessMaterial {
     }
   }
 
-  fn check_change(
-    change: Self::Delta,
-  ) -> Option<(Self::TextureType, AllocIdx<SceneTexture2DType>)> {
-    todo!()
+  fn react_change(
+    &self,
+    delta: &Self::Delta,
+    callback: &dyn Fn(Self::TextureType, Option<AllocIdx<SceneTexture2DType>>),
+  ) {
+    let t = match delta {
+      PD::base_color_texture(_) => TextureType::BaseColor,
+      PD::metallic_roughness_texture(_) => TextureType::MetallicRoughness,
+      PD::emissive_texture(_) => TextureType::Emissive,
+      PD::normal_texture(_) => TextureType::Normal,
+      _ => return,
+    };
+    callback(t, todo!())
   }
 
-  fn extract_same_change(change: Self::Delta, full: &Self) -> Self::Delta {
-    match change {
-      PD::base_color(_) => todo!(),
-      PD::roughness(_) => todo!(),
-      PD::metallic(_) => todo!(),
-      PD::reflectance(_) => todo!(),
-      PD::emissive(_) => todo!(),
-      PD::alpha(_) => todo!(),
-      PD::alpha_cutoff(_) => todo!(),
-      PD::alpha_mode(_) => todo!(),
-      PD::base_color_texture(_) => todo!(),
-      PD::metallic_roughness_texture(_) => todo!(),
-      PD::emissive_texture(_) => todo!(),
-      PD::normal_texture(_) => todo!(),
-      PD::ext(_) => todo!(),
-    }
+  fn create_iter(&self) -> impl Iterator<Item = (Self::TextureType, AllocIdx<SceneTexture2DType>)> {
+    [self
+      .base_color_texture
+      .as_ref()
+      .map(|t| (TextureType::BaseColor, t.texture.alloc_index().into()))]
+    .into_iter()
+    .filter_map(|v| v)
   }
 
   fn update_texture_uniform(ty: Self::TextureType, handle: u32, target: &mut Self::TextureUniform) {

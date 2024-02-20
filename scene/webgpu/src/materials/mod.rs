@@ -1,4 +1,5 @@
 mod flat;
+use __core::marker::PhantomData;
 pub use flat::*;
 mod physical_sg;
 pub use physical_sg::*;
@@ -129,81 +130,125 @@ pub struct MaterialTextureAddress {
   pub material_texture_id: u32,
 }
 
+pub struct MaterialTextureChangeProcessor<M> {
+  m_type: PhantomData<M>,
+}
+
+impl<M> Copy for MaterialTextureChangeProcessor<M> {}
+
+impl<M> Clone for MaterialTextureChangeProcessor<M> {
+  fn clone(&self) -> Self {
+    Self {
+      m_type: self.m_type.clone(),
+    }
+  }
+}
+
+use derivative::Derivative;
+// #[derive(Clone, Copy, Debug, Hash, PartialEq, Eq)]
+#[derive(Derivative)]
+#[derivative(Clone(bound = ""))]
+#[derivative(Copy(bound = ""))]
+#[derivative(Eq(bound = ""))]
+#[derivative(PartialEq(bound = ""))]
+#[derivative(Hash(bound = ""))]
+#[derivative(Debug(bound = ""))]
+pub struct MaterialRefTextureId<M> {
+  pub material: AllocIdx<M>,
+  pub texture_variant: u8,
+}
+
+impl<M> LinearIdentified for MaterialRefTextureId<M> {
+  fn alloc_index(&self) -> u32 {
+    self.material.alloc_index()
+  }
+}
+
+impl<M: MaterialReferenceTexture>
+  ChangeProcessor<M, MaterialRefTextureId<M>, AllocIdx<SceneTexture2DType>>
+  for MaterialTextureChangeProcessor<M>
+{
+  fn react_change(
+    &self,
+    change: (&M::Delta, &M),
+    idx: AllocIdx<M>,
+    callback: &dyn Fn(MaterialRefTextureId<M>, ValueChange<AllocIdx<SceneTexture2DType>>),
+  ) {
+    let m = change.1;
+    m.react_change(change.0, &|t_type, new_tex| {
+      let previous = m.get_texture(t_type).map(|v| v.alloc_index().into());
+
+      let change = match (new_tex, previous) {
+        (None, None) => None,
+        (None, Some(pre)) => ValueChange::Remove(pre).into(),
+        (Some(new), None) => ValueChange::Delta(new, None).into(),
+        (Some(new), Some(pre)) => ValueChange::Delta(new, Some(pre)).into(),
+      };
+
+      if let Some(change) = change {
+        callback(
+          MaterialRefTextureId {
+            material: idx,
+            texture_variant: t_type.into(),
+          },
+          change,
+        );
+      }
+    });
+  }
+
+  fn create_iter(
+    &self,
+    v: &M,
+    idx: AllocIdx<M>,
+  ) -> impl Iterator<Item = (MaterialRefTextureId<M>, AllocIdx<SceneTexture2DType>)> {
+    v.create_iter().map(move |(t_id, t)| {
+      (
+        MaterialRefTextureId {
+          material: idx,
+          texture_variant: t_id.into(),
+        },
+        t,
+      )
+    })
+  }
+
+  fn access(&self, v: &M, k: MaterialRefTextureId<M>) -> Option<AllocIdx<SceneTexture2DType>> {
+    let ty = M::TextureType::from(k.texture_variant);
+    v.get_texture(ty).map(|t| t.alloc_index().into())
+  }
+}
+
 pub trait MaterialReferenceTexture: IncrementalBase {
-  type TextureType: CKey + Into<u8>;
+  type TextureType: CKey + Copy + From<u8> + Into<u8>;
   type TextureUniform: CValue + Default + Std140;
 
   fn get_texture(&self, ty: Self::TextureType) -> Option<&SceneTexture2D>;
-  fn check_change(change: Self::Delta)
-    -> Option<(Self::TextureType, AllocIdx<SceneTexture2DType>)>;
-  /// note, this should move into foundation libs
-  fn extract_same_change(change: Self::Delta, full: &Self) -> Self::Delta;
+
+  fn react_change(
+    &self,
+    delta: &Self::Delta,
+    callback: &dyn Fn(Self::TextureType, Option<AllocIdx<SceneTexture2DType>>),
+  );
+
+  fn create_iter(&self) -> impl Iterator<Item = (Self::TextureType, AllocIdx<SceneTexture2DType>)>;
 
   fn update_texture_uniform(ty: Self::TextureType, handle: u32, target: &mut Self::TextureUniform);
 
   fn create_reference_collection(
     scope: impl ReactiveCollection<AllocIdx<Self>, ()>,
-  ) -> impl ReactiveCollection<(u8, AllocIdx<Self>), AllocIdx<SceneTexture2DType>> {
-    let storage = storage_of::<Self>();
-
-    let (sender, receiver) = group_mutation();
-
-    {
-      let data = storage.inner.data.write();
-
-      for (index, data) in data.iter() {
-        data.data.expand(|delta| {
-          if let Some(texture_change) = Self::check_change(delta) {
-            sender.send(index.into(), ValueChange::Delta(texture_change, None));
-          }
-        })
-      }
-    }
-
-    let dropper = storage.on(move |change| {
-      match change {
-        StorageGroupChange::Create { index, data } => data.expand(|delta| {
-          if let Some(texture_change) = Self::check_change(delta) {
-            sender.send(*index, ValueChange::Delta(texture_change, None));
-          }
-        }),
-        StorageGroupChange::Mutate {
-          index,
-          delta,
-          data_before_mutate,
-        } => {
-          let delta_before = Self::extract_same_change(delta.clone(), data_before_mutate);
-          let mapped_before = Self::check_change(delta_before);
-          let mapped = Self::check_change(delta.clone());
-
-          let change = match (mapped, mapped_before) {
-            (None, None) => None,
-            (None, Some(pre)) => ValueChange::Remove(pre).into(),
-            (Some(new), None) => ValueChange::Delta(new, None).into(),
-            (Some(new), Some(pre)) => ValueChange::Delta(new, Some(pre)).into(),
-          };
-
-          if let Some(change) = change {
-            sender.send(*index, change);
-          }
-        }
-        StorageGroupChange::Drop { index, data } => data.expand(|delta| {
-          if let Some(texture_change) = Self::check_change(delta) {
-            sender.send(*index, ValueChange::Remove(texture_change));
-          }
-        }),
-      };
-      false
-    });
-
-    let source = DropperAttachedStream::new(dropper, receiver);
-
-    // todo, custom listen to
+  ) -> impl ReactiveCollection<MaterialRefTextureId<Self>, AllocIdx<SceneTexture2DType>> {
+    storage_of::<Self>().listen_to_reactive_collection_custom(MaterialTextureChangeProcessor {
+      m_type: PhantomData,
+    })
   }
 
   fn create_texture_uniforms(
     // scope: impl ReactiveCollection<AllocIdx<Self>, ()>,
-    reference_collection: impl ReactiveCollection<(u8, AllocIdx<Self>), AllocIdx<SceneTexture2DType>>,
+    reference_collection: impl ReactiveCollection<
+      MaterialRefTextureId<Self>,
+      AllocIdx<SceneTexture2DType>,
+    >,
     texture2ds: impl ReactiveCollection<AllocIdx<SceneTexture2DType>, TextureSamplerHandlePair>,
   ) -> impl ReactiveCollection<AllocIdx<Self>, UniformBufferDataView<Self::TextureUniform>> {
     // scope.collective_map(|_| Self::TextureUniform::default());
@@ -218,7 +263,7 @@ pub trait MaterialReferenceTexture: IncrementalBase {
 
 pub fn material_textures<M: MaterialReferenceTexture + DowncastFromMaterialEnum>(
   std_scope: impl ReactiveCollection<AllocIdx<StandardModel>, ()> + Clone,
-) -> RxCForker<(u8, AllocIdx<M>), AllocIdx<SceneTexture2DType>> {
+) -> RxCForker<MaterialRefTextureId<M>, AllocIdx<SceneTexture2DType>> {
   let relations = global_material_relations::<M>();
   let referenced_mat = std_scope.clone().many_to_one_reduce_key(relations.clone());
 
@@ -228,7 +273,7 @@ pub fn material_textures<M: MaterialReferenceTexture + DowncastFromMaterialEnum>
 }
 
 pub type TextureMaterialReferenceFork<M> =
-  RxCForker<(u8, AllocIdx<M>), AllocIdx<SceneTexture2DType>>;
+  RxCForker<MaterialRefTextureId<M>, AllocIdx<SceneTexture2DType>>;
 
 pub struct SceneTextureMaterialsRelations {
   pub mr: TextureMaterialReferenceFork<PhysicalMetallicRoughnessMaterial>,

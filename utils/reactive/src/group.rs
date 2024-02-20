@@ -21,7 +21,7 @@ pub enum StorageGroupChange<'a, T: IncrementalBase> {
   },
   Mutate {
     index: AllocIdx<T>,
-    delta: T::Delta,
+    delta: &'a T::Delta,
     data_before_mutate: &'a T,
   },
   Drop {
@@ -247,7 +247,7 @@ impl<T: IncrementalBase> IncrementalSignalPtr<T> {
       sub_watcher.visit_and_remove(&mut data.sub_event_handle, |f, _| (f(delta), true));
       inner.group_watchers.emit(&StorageGroupChange::Mutate {
         index: self.index.into(),
-        delta: delta.clone(),
+        delta: std::mem::transmute(&delta),
         data_before_mutate: std::mem::transmute(&data.data),
       });
     });
@@ -264,7 +264,7 @@ impl<T: IncrementalBase> IncrementalSignalPtr<T> {
           sub_watcher.visit_and_remove(&mut data.sub_event_handle, |f, _| (f(delta), true));
           inner.group_watchers.emit(&StorageGroupChange::Mutate {
             index: self.index.into(),
-            delta: delta.clone(),
+            delta: unsafe { std::mem::transmute(&delta) },
             data_before_mutate: unsafe { std::mem::transmute(raw_data) },
           });
         },

@@ -49,6 +49,58 @@ impl PartialEq for AnyChanging {
   }
 }
 
+pub trait ChangeProcessor<T: IncrementalBase, K, U>: Copy + Send + Sync + 'static {
+  fn react_change(
+    &self,
+    change: (&T::Delta, &T),
+    idx: AllocIdx<T>,
+    callback: &dyn Fn(K, ValueChange<U>),
+  );
+  fn create_iter(&self, v: &T, idx: AllocIdx<T>) -> impl Iterator<Item = (K, U)>;
+  fn access(&self, v: &T, k: K) -> Option<U>;
+}
+
+#[derive(Clone, Copy)]
+struct SimpleProcessor<F> {
+  f: F,
+}
+
+impl<F, T, U> ChangeProcessor<T, AllocIdx<T>, U> for SimpleProcessor<F>
+where
+  F: Fn(MaybeDeltaRef<T>) -> ChangeReaction<U> + Copy + Send + Sync + 'static,
+  T: IncrementalBase,
+{
+  fn react_change(
+    &self,
+    change: (&<T as IncrementalBase>::Delta, &T),
+    index: AllocIdx<T>,
+    callback: &dyn Fn(AllocIdx<T>, ValueChange<U>),
+  ) {
+    if let ChangeReaction::Care(mapped) = (self.f)(MaybeDeltaRef::Delta(change.0)) {
+      let mapped_before = (self.f)(MaybeDeltaRef::All(change.1)).expect_care();
+
+      let change = match (mapped, mapped_before) {
+        (None, None) => None,
+        (None, Some(pre)) => ValueChange::Remove(pre).into(),
+        (Some(new), None) => ValueChange::Delta(new, None).into(),
+        (Some(new), Some(pre)) => ValueChange::Delta(new, Some(pre)).into(),
+      };
+
+      if let Some(change) = change {
+        callback(index, change);
+      }
+    }
+  }
+
+  fn create_iter(&self, v: &T, idx: AllocIdx<T>) -> impl Iterator<Item = (AllocIdx<T>, U)> {
+    self.access(v, idx).map(|v| (idx, v)).into_iter()
+  }
+
+  fn access(&self, v: &T, _k: AllocIdx<T>) -> Option<U> {
+    (self.f)(MaybeDeltaRef::All(v)).expect_care()
+  }
+}
+
 impl<T: IncrementalBase> IncrementalSignalStorage<T> {
   // todo, share all set for same T
   pub fn listen_all_instance_changed_set(
@@ -58,21 +110,29 @@ impl<T: IncrementalBase> IncrementalSignalStorage<T> {
   }
 
   // in mapper, if receive full, should not return not care!
-  pub fn listen_to_reactive_collection<U>(
+  pub fn listen_to_reactive_collection<U: CValue>(
     &self,
-    mapper: impl Fn(MaybeDeltaRef<T>) -> ChangeReaction<U> + Copy + Send + Sync + 'static,
-  ) -> impl ReactiveCollection<AllocIdx<T>, U>
+    logic: impl Fn(MaybeDeltaRef<T>) -> ChangeReaction<U> + Copy + Send + Sync + 'static,
+  ) -> impl ReactiveCollection<AllocIdx<T>, U> {
+    self.listen_to_reactive_collection_custom(SimpleProcessor { f: logic })
+  }
+
+  // in mapper, if receive full, should not return not care!
+  pub fn listen_to_reactive_collection_custom<K, U, P: ChangeProcessor<T, K, U>>(
+    &self,
+    watcher: P,
+  ) -> impl ReactiveCollection<K, U>
   where
     U: CValue,
+    K: CKey + LinearIdentified,
   {
     let (sender, receiver) = group_mutation();
 
     {
       let data = self.inner.data.write();
-
       for (index, data) in data.iter() {
-        if let Some(init) = mapper(MaybeDeltaRef::All(&data.data)).expect_care() {
-          sender.send(index.into(), ValueChange::Delta(init, None));
+        for (k, v) in watcher.create_iter(&data.data, index.into()) {
+          sender.send(k, ValueChange::Delta(v, None));
         }
       }
     }
@@ -80,33 +140,20 @@ impl<T: IncrementalBase> IncrementalSignalStorage<T> {
     let dropper = self.on(move |v| {
       match v {
         StorageGroupChange::Create { index, data } => {
-          if let Some(mapped) = mapper(MaybeDeltaRef::All(data)).expect_care() {
-            sender.send(*index, ValueChange::Delta(mapped, None));
+          for (k, v) in watcher.create_iter(data, *index) {
+            sender.send(k, ValueChange::Delta(v, None));
           }
         }
         StorageGroupChange::Mutate {
           index,
           delta,
           data_before_mutate,
-        } => {
-          if let ChangeReaction::Care(mapped) = mapper(MaybeDeltaRef::Delta(delta)) {
-            let mapped_before = mapper(MaybeDeltaRef::All(data_before_mutate)).expect_care();
-
-            let change = match (mapped, mapped_before) {
-              (None, None) => None,
-              (None, Some(pre)) => ValueChange::Remove(pre).into(),
-              (Some(new), None) => ValueChange::Delta(new, None).into(),
-              (Some(new), Some(pre)) => ValueChange::Delta(new, Some(pre)).into(),
-            };
-
-            if let Some(change) = change {
-              sender.send(*index, change);
-            }
-          }
-        }
+        } => watcher.react_change((delta, data_before_mutate), *index, &|k, v| {
+          sender.send(k, v);
+        }),
         StorageGroupChange::Drop { index, data } => {
-          if let Some(mapped) = mapper(MaybeDeltaRef::All(data)).expect_care() {
-            sender.send(*index, ValueChange::Remove(mapped));
+          for (k, v) in watcher.create_iter(data, *index) {
+            sender.send(k, ValueChange::Remove(v));
           }
         }
       }
@@ -116,11 +163,10 @@ impl<T: IncrementalBase> IncrementalSignalStorage<T> {
 
     let source = DropperAttachedStream::new(dropper, receiver);
 
-    let mapper_c = Arc::new(mapper);
-    ReactiveCollectionFromGroupMutation::<T, _, U> {
+    ReactiveCollectionFromGroupMutation::<T, _, P> {
       inner: RwLock::new(source),
       original: self.clone(),
-      mapper: mapper_c,
+      watcher,
     }
   }
 }
@@ -175,65 +221,67 @@ pub fn group_mutation<K, T>() -> (GroupMutationSender<K, T>, GroupMutationReceiv
   (sender, receiver)
 }
 
-struct ReactiveCollectionFromGroupMutation<T: IncrementalBase, S, U> {
+struct ReactiveCollectionFromGroupMutation<T: IncrementalBase, S, P> {
   original: IncrementalSignalStorage<T>,
   inner: RwLock<S>,
-  mapper: Arc<dyn Fn(MaybeDeltaRef<T>) -> ChangeReaction<U> + Send + Sync>,
+  watcher: P,
 }
 
-struct ReactiveCollectionFromGroupMutationCurrentView<T: IncrementalBase, U> {
+struct ReactiveCollectionFromGroupMutationCurrentView<T: IncrementalBase, P> {
   data: LockResultHolder<IndexReusedVec<SignalItem<T>>>,
-  mapper: Arc<dyn Fn(MaybeDeltaRef<T>) -> ChangeReaction<U> + Send + Sync>,
+  watcher: P,
 }
 
-impl<T: IncrementalBase, U> Clone for ReactiveCollectionFromGroupMutationCurrentView<T, U> {
+impl<T: IncrementalBase, P: Clone> Clone for ReactiveCollectionFromGroupMutationCurrentView<T, P> {
   fn clone(&self) -> Self {
     Self {
       data: self.data.clone(),
-      mapper: self.mapper.clone(),
+      watcher: self.watcher.clone(),
     }
   }
 }
 
-impl<T: IncrementalBase, U: CValue> VirtualCollection<AllocIdx<T>, U>
-  for ReactiveCollectionFromGroupMutationCurrentView<T, U>
+impl<T, K, U, P> VirtualCollection<K, U> for ReactiveCollectionFromGroupMutationCurrentView<T, P>
+where
+  T: IncrementalBase,
+  K: CKey + LinearIdentified,
+  U: CValue,
+  P: ChangeProcessor<T, K, U>,
 {
-  fn iter_key_value(&self) -> Box<dyn Iterator<Item = (AllocIdx<T>, U)> + '_> {
+  fn iter_key_value(&self) -> Box<dyn Iterator<Item = (K, U)> + '_> {
     Box::new(
       self
         .data
         .iter()
         .map(|(k, v)| (AllocIdx::from(k), &v.data))
-        .filter_map(|(k, v)| {
-          ((self.mapper)(MaybeDeltaRef::All(unsafe { std::mem::transmute(v) })))
-            .flatten()
-            .map(|v| (k, v))
-        }),
+        .flat_map(|(k, v)| self.watcher.create_iter(v, k)),
     )
   }
 
-  fn access(&self, key: &AllocIdx<T>) -> Option<U> {
+  fn access(&self, key: &K) -> Option<U> {
     self
       .data
-      .try_get(key.index)
+      .try_get(key.alloc_index())
       .map(|v| &v.data)
-      .and_then(|v| (self.mapper)(MaybeDeltaRef::All(unsafe { std::mem::transmute(v) })).flatten())
+      .and_then(|v| self.watcher.access(v, key.clone()))
   }
 }
 
-impl<T, S, U> ReactiveCollection<AllocIdx<T>, U> for ReactiveCollectionFromGroupMutation<T, S, U>
+impl<T, S, K, U, P> ReactiveCollection<K, U> for ReactiveCollectionFromGroupMutation<T, S, P>
 where
   T: IncrementalBase,
   U: CValue,
-  S: Stream<Item = FastHashMap<AllocIdx<T>, ValueChange<U>>> + Unpin + Send + Sync + 'static,
+  K: CKey + LinearIdentified,
+  S: Stream<Item = FastHashMap<K, ValueChange<U>>> + Unpin + Send + Sync + 'static,
+  P: ChangeProcessor<T, K, U>,
 {
-  fn poll_changes(&self, cx: &mut Context) -> PollCollectionChanges<AllocIdx<T>, U> {
+  fn poll_changes(&self, cx: &mut Context) -> PollCollectionChanges<K, U> {
     match self.inner.write().poll_next_unpin(cx) {
       Poll::Ready(Some(r)) => {
         if r.is_empty() {
           Poll::Pending
         } else {
-          Poll::Ready(Box::new(r) as Box<dyn VirtualCollection<AllocIdx<T>, ValueChange<U>>>)
+          Poll::Ready(Box::new(r) as Box<dyn VirtualCollection<K, ValueChange<U>>>)
         }
       }
       _ => Poll::Pending,
@@ -244,10 +292,10 @@ where
     // here are we not suppose to shrink the storage
   }
 
-  fn access(&self) -> PollCollectionCurrent<AllocIdx<T>, U> {
+  fn access(&self) -> PollCollectionCurrent<K, U> {
     let view = ReactiveCollectionFromGroupMutationCurrentView {
       data: self.original.inner.data.make_lock_holder_raw(),
-      mapper: self.mapper.clone(),
+      watcher: self.watcher,
     };
 
     Box::new(view)
