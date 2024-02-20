@@ -64,7 +64,7 @@ impl<'a> ShaderHashProvider for TransformInstanceGPU<'a> {
 impl<'a> ShaderPassBuilder for TransformInstanceGPU<'a> {
   fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
     self.inner_gpu.setup_pass(ctx);
-    ctx.set_vertex_buffer_owned_next(&self.instance_buffer);
+    ctx.set_vertex_buffer_owned_next(self.instance_buffer);
   }
 }
 

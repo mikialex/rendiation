@@ -96,7 +96,7 @@ pub fn global_acc_keys_set() -> impl ReactiveCollection<AttributeAccessKey, ()> 
   global_normalized_att_sematic_set().many_to_one_reduce_key(global_normalized_att_acc_keys())
 }
 
-// used for positional related compute
+// used for positional related compute(local bounding maintain)
 pub fn position_attributes(
   scope: impl ReactiveCollection<AllocIdx<AttributesMesh>, ()>,
 ) -> impl ReactiveCollection<AttributeAccessKey, AttributeAccessKey> {
@@ -121,6 +121,7 @@ pub fn gpu_attribute_vertex_buffers(
   gpu: &ResourceGPUCtx,
   scope: impl ReactiveCollection<AttributeAccessKey, ()>,
 ) -> impl ReactiveCollection<AttributeAccessKey, GPUBufferResourceView> {
+
   // scope.collective_execute_map_by(move || {
   //   let gpu = gpu.clone();
   //   let creator = storage_of::<GeometryBufferImpl>().create_key_mapper(move |m, _| mapper(m,

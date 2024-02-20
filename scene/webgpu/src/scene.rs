@@ -64,25 +64,21 @@ fn create_scene_share_content_gpu_resource(
 
   let texture_material_references = all_std_model_materials_textures(referenced_std_md.clone());
 
-  let normalized_material_tex_reference: RxCForker<
-    (TypeId, u8, u32),
-    AllocIdx<SceneTexture2DType>,
-  > = todo!(); // todo
+  let all_material_tex_ref_path = texture_material_references.normalized_path().into_forker();
 
-  let normalized_material_tex_reference_m =
-    normalized_material_tex_reference.collective_map(|_| ());
+  // todo, this looks awful, could we fix the one to many relation directly?
+  let all_material_reference_tex_set = all_material_tex_ref_path
+    .clone()
+    .collective_map(|_| ())
+    .many_to_one_reduce_key(all_material_tex_ref_path);
 
-  let tex_all_mat_relation =
-    normalized_material_tex_reference_m.many_to_one_reduce_key(normalized_material_tex_reference);
-
-  let texture2ds = gpu_texture_2ds(cx, tex_all_mat_relation)
+  let texture2ds = gpu_texture_2ds(cx, all_material_reference_tex_set)
     .collective_map(|_| todo!())
     .into_boxed()
     .into_forker();
 
-  let referenced_attribute_mesh = referenced_std_md
-    .clone()
-    .many_to_one_reduce_key(std_model_ref_att_mesh());
+  let bindless_texture2ds: RxCForker<AllocIdx<SceneTexture2DType>, TextureSamplerHandlePair> =
+    todo!();
 
   let referenced_attribute_mesh = referenced_std_md
     .clone()
@@ -102,7 +98,7 @@ fn create_scene_share_content_gpu_resource(
     physical_mr_material_uniforms(cx.clone(), referenced_mr_material).into_boxed();
   let mr_material_tex_uniforms = PhysicalMetallicRoughnessMaterial::create_texture_uniforms(
     texture_material_references.mr.clone(),
-    (), // todo
+    bindless_texture2ds.clone(),
   )
   .into_boxed();
 
@@ -116,7 +112,7 @@ fn create_scene_share_content_gpu_resource(
     physical_sg_material_uniforms(cx.clone(), referenced_sg_material).into_boxed();
   let sg_material_tex_uniforms = PhysicalSpecularGlossinessMaterial::create_texture_uniforms(
     texture_material_references.sg.clone(),
-    (), // todo
+    bindless_texture2ds,
   )
   .into_boxed();
 

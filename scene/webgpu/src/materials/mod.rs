@@ -297,6 +297,24 @@ pub struct SceneTextureMaterialsRelations {
   pub sg: TextureMaterialReferenceFork<PhysicalSpecularGlossinessMaterial>,
 }
 
+impl SceneTextureMaterialsRelations {
+  pub fn normalized_path(
+    &self,
+  ) -> impl ReactiveCollection<(TypeId, u8, u32), AllocIdx<SceneTexture2DType>> {
+    let mr = self
+      .mr
+      .clone()
+      .collective_key_lifting(|key| todo!(), |w_key| todo!());
+
+    let sg = self
+      .sg
+      .clone()
+      .collective_key_lifting(|key| todo!(), |w_key| todo!());
+
+    mr.collective_select(sg)
+  }
+}
+
 pub fn all_std_model_materials_textures(
   scope: impl ReactiveCollection<AllocIdx<StandardModel>, ()> + Clone,
 ) -> SceneTextureMaterialsRelations {
