@@ -19,8 +19,7 @@ pub trait ReactiveCollectionNewExt<K: CKey, V: CValue>: ReactiveCollection<K, V>
 
   fn collective_key_lifting<K2: CKey>(
     self,
-    lift: impl Fn(K) -> K2,
-    un_lift: impl Fn(K2) -> Option<K>,
+    lift_pair: (impl Fn(K) -> K2, impl Fn(K2) -> Option<K>),
   ) -> impl ReactiveCollection<K2, V> {
   }
 }
@@ -175,6 +174,24 @@ pub struct MaterialRefTextureId<M> {
   pub texture_variant: u8,
 }
 
+pub fn lift_pair<M: Any>() -> (
+  impl Fn(MaterialRefTextureId<M>) -> (TypeId, u32, u8),
+  impl Fn((TypeId, u32, u8)) -> Option<MaterialRefTextureId<M>>,
+) {
+  let lift = |v: MaterialRefTextureId<M>| (TypeId::of::<M>(), v.material.index, v.texture_variant);
+  let un_lift = |v: (TypeId, u32, u8)| {
+    if v.0 == TypeId::of::<M>() {
+      Some(MaterialRefTextureId::<M> {
+        material: v.1.into(),
+        texture_variant: v.2,
+      })
+    } else {
+      None
+    }
+  };
+  (lift, un_lift)
+}
+
 impl<M> LinearIdentified for MaterialRefTextureId<M> {
   fn alloc_index(&self) -> u32 {
     self.material.alloc_index()
@@ -300,16 +317,10 @@ pub struct SceneTextureMaterialsRelations {
 impl SceneTextureMaterialsRelations {
   pub fn normalized_path(
     &self,
-  ) -> impl ReactiveCollection<(TypeId, u8, u32), AllocIdx<SceneTexture2DType>> {
-    let mr = self
-      .mr
-      .clone()
-      .collective_key_lifting(|key| todo!(), |w_key| todo!());
+  ) -> impl ReactiveCollection<(TypeId, u32, u8), AllocIdx<SceneTexture2DType>> {
+    let mr = self.mr.clone().collective_key_lifting(lift_pair());
 
-    let sg = self
-      .sg
-      .clone()
-      .collective_key_lifting(|key| todo!(), |w_key| todo!());
+    let sg = self.sg.clone().collective_key_lifting(lift_pair());
 
     mr.collective_select(sg)
   }

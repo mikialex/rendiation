@@ -44,7 +44,7 @@ impl SceneGPUResource {
 
 pub struct SceneShareContentGPUResource {
   cameras: Box<dyn ReactiveCollection<SceneCameraImpl, CameraGPU>>,
-  meshes: MeshGPUResource,
+  attributes_meshes: AttributesMeshGPUResource,
   materials: MaterialGPUResource,
   textures: TextureGPUResource,
 }
@@ -123,7 +123,7 @@ fn create_scene_share_content_gpu_resource(
   let index_buffers = gpu_attribute_index_buffers(cx, index_buffers).into_boxed();
 
   SceneShareContentGPUResource {
-    meshes: MeshGPUResource {
+    attributes_meshes: AttributesMeshGPUResource {
       vertex_buffers,
       index_buffers,
     },
@@ -142,7 +142,7 @@ fn create_scene_share_content_gpu_resource(
   }
 }
 
-struct MeshGPUResource {
+struct AttributesMeshGPUResource {
   vertex_buffers: Box<dyn ReactiveCollection<AttributeAccessKey, GPUBufferResourceView>>,
   index_buffers: Box<dyn ReactiveCollection<AttributeAccessKey, GPUBufferResourceView>>,
 }
