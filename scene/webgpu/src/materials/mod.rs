@@ -295,6 +295,32 @@ pub trait MaterialReferenceTexture: IncrementalBase {
   }
 }
 
+// struct MaterialTextureUniform<M: MaterialReferenceTexture> {
+//   upstream_range: S,
+//   textures_source: TS,
+//   uniforms: FastHashMap<AllocIdx<M>, UniformBufferDataView<M::TextureUniform>>,
+// }
+
+// impl<M: MaterialReferenceTexture>
+//   ReactiveCollection<AllocIdx<M>, UniformBufferDataView<M::TextureUniform>>
+//   for MaterialTextureUniform<M>
+// {
+//   fn poll_changes(
+//     &self,
+//     cx: &mut Context,
+//   ) -> PollCollectionChanges<AllocIdx<M>, UniformBufferDataView<M::TextureUniform>> {
+//     todo!()
+//   }
+
+//   fn access(&self) -> PollCollectionCurrent<AllocIdx<M>,
+// UniformBufferDataView<M::TextureUniform>> {     todo!()
+//   }
+
+//   fn extra_request(&mut self, request: &mut ExtraCollectionOperation) {
+//     todo!()
+//   }
+// }
+
 pub fn material_textures<M: MaterialReferenceTexture + DowncastFromMaterialEnum>(
   std_scope: impl ReactiveCollection<AllocIdx<StandardModel>, ()> + Clone,
 ) -> RxCForker<MaterialRefTextureId<M>, AllocIdx<SceneTexture2DType>> {
@@ -319,9 +345,7 @@ impl SceneTextureMaterialsRelations {
     &self,
   ) -> impl ReactiveCollection<(TypeId, u32, u8), AllocIdx<SceneTexture2DType>> {
     let mr = self.mr.clone().collective_key_lifting(lift_pair());
-
     let sg = self.sg.clone().collective_key_lifting(lift_pair());
-
     mr.collective_select(sg)
   }
 }

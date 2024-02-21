@@ -85,6 +85,10 @@ where
     .workaround_box()
   }
 
+  fn only_key(self) -> impl ReactiveCollection<K, ()> {
+    self.collective_map(|_| ())
+  }
+
   /// map map<k, v> to map<k, v2>
   fn collective_execute_map_by<V2, F, FF>(self, f: F) -> impl ReactiveCollection<K, V2>
   where
@@ -99,6 +103,13 @@ where
       phantom: PhantomData,
     }
     .workaround_box()
+  }
+
+  fn collective_effect_by<F, FF>(self, f: F) -> impl ReactiveCollection<K, V>
+  where
+    F: Fn() -> FF + Send + Sync + 'static,
+    FF: Fn(&K, &ValueChange<V>) + Send + Sync + 'static,
+  {
   }
 
   /// filter map<k, v> by v
@@ -126,6 +137,12 @@ where
       k: PhantomData,
     }
     .workaround_box()
+  }
+
+  fn collective_filter_key<F>(self, f: F) -> impl ReactiveCollection<K, V>
+  where
+    F: Fn(K) -> bool + Copy + Send + Sync + 'static,
+  {
   }
 
   fn collective_union<V2, Other, F, O>(self, other: Other, f: F) -> impl ReactiveCollection<K, O>

@@ -57,6 +57,7 @@ fn create_scene_model_pipeline_hash(
 fn create_scene_share_content_gpu_resource(
   cx: &ResourceGPUCtx,
   all_scene_sm_scope: impl ReactiveCollection<AllocIdx<SceneModelImpl>, ()>,
+  gpu_tex_sys: GPUTextureBindingSystem,
 ) -> SceneShareContentGPUResource {
   let referenced_std_md = all_scene_sm_scope
     .many_to_one_reduce_key(scene_model_ref_std_model_many_one_relation())
@@ -69,16 +70,31 @@ fn create_scene_share_content_gpu_resource(
   // todo, this looks awful, could we fix the one to many relation directly?
   let all_material_reference_tex_set = all_material_tex_ref_path
     .clone()
-    .collective_map(|_| ())
+    .only_key()
     .many_to_one_reduce_key(all_material_tex_ref_path);
 
+  let gpu_tex_sys2 = gpu_tex_sys.clone();
   let texture2ds = gpu_texture_2ds(cx, all_material_reference_tex_set)
-    .collective_map(|_| todo!())
+    .collective_execute_map_by(move || {
+      let gpu_tex_sys = gpu_tex_sys.clone(); // todo avoid lock access
+      move |_, v| gpu_tex_sys.register_texture(v)
+    })
+    .collective_effect_by(move || {
+      let gpu_tex_sys = gpu_tex_sys2.clone(); // todo avoid lock access
+      move |_, v| {
+        if let Some(old) = v.old_value() {
+          gpu_tex_sys.deregister_texture(*old)
+        }
+      }
+    })
     .into_boxed()
     .into_forker();
 
-  let bindless_texture2ds: RxCForker<AllocIdx<SceneTexture2DType>, TextureSamplerHandlePair> =
-    todo!();
+  let bindless_texture2ds = texture2ds
+    .clone()
+    .collective_map(|_| todo!())
+    .into_boxed()
+    .into_forker();
 
   let referenced_attribute_mesh = referenced_std_md
     .clone()
@@ -116,11 +132,11 @@ fn create_scene_share_content_gpu_resource(
   )
   .into_boxed();
 
-  let vertex_buffers = vertex_attribute_buffers_scope(referenced_attribute_mesh.clone());
-  let vertex_buffers = gpu_attribute_vertex_buffers(cx, vertex_buffers).into_boxed();
+  let vertex_buffers =
+    gpu_attribute_vertex_buffers(cx.clone(), referenced_attribute_mesh.clone()).into_boxed();
 
-  let index_buffers = vertex_attribute_buffers_scope(referenced_attribute_mesh);
-  let index_buffers = gpu_attribute_index_buffers(cx, index_buffers).into_boxed();
+  let index_buffers =
+    gpu_attribute_index_buffers(cx.clone(), referenced_attribute_mesh.clone()).into_boxed();
 
   SceneShareContentGPUResource {
     attributes_meshes: AttributesMeshGPUResource {
@@ -144,7 +160,7 @@ fn create_scene_share_content_gpu_resource(
 
 struct AttributesMeshGPUResource {
   vertex_buffers: Box<dyn ReactiveCollection<AttributeAccessKey, GPUBufferResourceView>>,
-  index_buffers: Box<dyn ReactiveCollection<AttributeAccessKey, GPUBufferResourceView>>,
+  index_buffers: Box<dyn ReactiveCollection<AllocIdx<AttributesMesh>, GPUBufferResourceView>>,
 }
 
 type UniformCollection<K, V> = Box<dyn ReactiveCollection<AllocIdx<K>, UniformBufferDataView<V>>>;

@@ -84,7 +84,7 @@ impl AttributeAccessKey {
 
 pub fn global_normalized_att_sematic_set(
 ) -> impl ReactiveCollection<AttributeMeshAccessAttribute, ()> {
-  global_normalized_att_acc_keys().collective_map(|_| ())
+  global_normalized_att_acc_keys().only_key()
 }
 
 pub fn global_normalized_att_acc_keys(
@@ -96,47 +96,72 @@ pub fn global_acc_keys_set() -> impl ReactiveCollection<AttributeAccessKey, ()> 
   global_normalized_att_sematic_set().many_to_one_reduce_key(global_normalized_att_acc_keys())
 }
 
-// used for positional related compute(local bounding maintain)
-pub fn position_attributes(
-  scope: impl ReactiveCollection<AllocIdx<AttributesMesh>, ()>,
-) -> impl ReactiveCollection<AttributeAccessKey, AttributeAccessKey> {
-  // global_normalized_att_acc_keys().collective_filter_key(is_position_semantic)
-  // .many_to_one_reduce(global_normalized_att_acc_keys())
+pub fn make_semantic_filter(
+  s: &'static AttributeSemantic,
+) -> impl Fn(AttributeMeshAccessAttribute) -> bool + Copy {
+  |att| att.semantic == *s
 }
 
-pub fn vertex_attribute_buffers_scope(
-  scope: impl ReactiveCollection<AllocIdx<AttributesMesh>, ()>,
-) -> impl ReactiveCollection<AttributeAccessKey, ()> {
-
-  //
+// used for positional related compute(local bounding maintain)
+pub fn global_position_attributes_set() -> impl ReactiveCollection<AttributeAccessKey, ()> {
+  global_normalized_att_acc_keys()
+    .collective_filter_key(make_semantic_filter(&AttributeSemantic::Positions))
+    .only_key()
+    .many_to_one_reduce_key(global_normalized_att_acc_keys())
 }
 
 pub fn index_attribute_buffers_scope(
   scope: impl ReactiveCollection<AllocIdx<AttributesMesh>, ()>,
-) -> impl ReactiveCollection<AttributeAccessKey, ()> {
-  //
+) -> impl ReactiveCollection<AllocIdx<AttributesMesh>, AllocIdx<GeometryBufferImpl>> {
+  storage_of::<AttributesMesh>().listen_to_reactive_collection(|d| match d {
+    MaybeDeltaRef::Delta(d) => ChangeReaction::Care(
+      d.indices
+        .as_ref()
+        .map(|v| v.1.view.buffer.alloc_index().into()),
+    ),
+    MaybeDeltaRef::All(all) => ChangeReaction::Care(
+      all
+        .indices
+        .as_ref()
+        .map(|v| v.1.view.buffer.alloc_index().into()),
+    ),
+  })
 }
 
 pub fn gpu_attribute_vertex_buffers(
-  gpu: &ResourceGPUCtx,
-  scope: impl ReactiveCollection<AttributeAccessKey, ()>,
+  gpu: ResourceGPUCtx,
+  scope: impl ReactiveCollection<AllocIdx<AttributesMesh>, ()>,
 ) -> impl ReactiveCollection<AttributeAccessKey, GPUBufferResourceView> {
-
-  // scope.collective_execute_map_by(move || {
-  //   let gpu = gpu.clone();
-  //   let creator = storage_of::<GeometryBufferImpl>().create_key_mapper(move |m, _| mapper(m,
-  // &gpu));   move |k, _| creator(*k)
-  // })
-  // storage_of::<AttributeAccessor>()
-  //
+  global_acc_keys_set().collective_execute_map_by(move || {
+    let gpu = gpu.clone();
+    let creator = storage_of::<GeometryBufferImpl>().create_key_mapper(move |buffer, _| {
+      create_gpu_buffer(
+        buffer.buffer.as_slice(), // todo sub range
+        BufferUsages::VERTEX,
+        &gpu.device,
+      )
+      .create_default_view()
+    });
+    move |k, _| creator(k.view)
+  })
 }
 
 pub fn gpu_attribute_index_buffers(
-  cx: &ResourceGPUCtx,
-  scope: impl ReactiveCollection<AttributeAccessKey, ()>,
-) -> impl ReactiveCollection<AttributeAccessKey, GPUBufferResourceView> {
-  // storage_of::<AttributeAccessor>()
-  //
+  gpu: ResourceGPUCtx,
+  scope: impl ReactiveCollection<AllocIdx<AttributesMesh>, ()>,
+) -> impl ReactiveCollection<AllocIdx<AttributesMesh>, GPUBufferResourceView> {
+  index_attribute_buffers_scope(scope).collective_execute_map_by(move || {
+    let gpu = gpu.clone();
+    let creator = storage_of::<GeometryBufferImpl>().create_key_mapper(move |buffer, _| {
+      create_gpu_buffer(
+        buffer.buffer.as_slice(), // todo sub range
+        BufferUsages::INDEX,
+        &gpu.device,
+      )
+      .create_default_view()
+    });
+    move |_, v| creator(v)
+  })
 }
 
 pub fn attribute_mesh_shader_keys(
