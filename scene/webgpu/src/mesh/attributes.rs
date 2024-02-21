@@ -1,8 +1,5 @@
 use crate::*;
 
-#[derive(Clone, Copy)]
-struct AttributeWatcher;
-
 #[derive(Clone, Eq, PartialEq, Hash, Debug)]
 pub struct AttributeMeshAccessAttribute {
   pub mesh: AllocIdx<AttributesMesh>,
@@ -14,6 +11,9 @@ impl LinearIdentified for AttributeMeshAccessAttribute {
     self.mesh.index
   }
 }
+
+#[derive(Clone, Copy)]
+struct AttributeWatcher;
 
 impl ChangeProcessor<AttributesMesh, AttributeMeshAccessAttribute, AttributeAccessKey>
   for AttributeWatcher
@@ -284,51 +284,50 @@ fn draw_command(mesh: &AttributesMesh) -> DrawCommand {
   }
 }
 
-// fn to_vec4(vec3: &[Vec3<f32>]) -> Vec<Vec4<f32>> {
-//   vec3.iter().map(|v| Vec4::new(v.x, v.y, v.z, 0.0)).collect()
-// }
+fn to_vec4(vec3: &[Vec3<f32>]) -> Vec<Vec4<f32>> {
+  vec3.iter().map(|v| Vec4::new(v.x, v.y, v.z, 0.0)).collect()
+}
 
-// #[allow(clippy::collapsible_match)]
-// pub fn support_bindless(
-//   mesh: &AttributeMeshReadView,
-//   sys: &GPUBindlessMeshSystem,
-//   device: &GPUDevice,
-//   queue: &GPUQueue,
-// ) -> Option<MeshSystemMeshInstance> {
-//   if rendiation_mesh_core::PrimitiveTopology::TriangleList != mesh.mode {
-//     return None;
-//   }
+#[allow(clippy::collapsible_match)]
+pub fn create_bindless(
+  mesh: &AttributeMeshReadView,
+  sys: &GPUBindlessMeshSystem,
+  gpu: ResourceGPUCtx,
+) -> Option<MeshSystemMeshInstance> {
+  if rendiation_mesh_core::PrimitiveTopology::TriangleList != mesh.mode {
+    return None;
+  }
 
-//   if let Some((fmt, index)) = &mesh.indices {
-//     if let AttributeIndexFormat::Uint32 = fmt {
-//       if mesh.attributes.len() != 3 {
-//         return None;
-//       }
-//       let position = mesh.get_position();
-//       let position = to_vec4(position);
-//       if let Some(normal) = mesh.get_attribute(&AttributeSemantic::Normals) {
-//         let normal = to_vec4(normal.visit_slice::<Vec3<f32>>()?);
-//         if let Some(uv) = mesh.get_attribute(&AttributeSemantic::TexCoords(0)) {
-//           return Some(
-//             sys
-//               .create_mesh_instance(
-//                 BindlessMeshSource {
-//                   index: index.visit_slice()?,
-//                   position: &position,
-//                   normal: &normal,
-//                   uv: uv.visit_slice()?,
-//                 },
-//                 device,
-//                 queue,
-//               )
-//               .unwrap(),
-//           );
-//         }
-//       }
-//     }
-//   }
-//   None
-// }
+  if let Some((fmt, index)) = &mesh.indices {
+    if let AttributeIndexFormat::Uint32 = fmt {
+      if mesh.attributes.len() != 3 {
+        return None;
+      }
+      let position = mesh.get_position();
+      let position = to_vec4(position);
+      if let Some(normal) = mesh.get_attribute(&AttributeSemantic::Normals) {
+        let normal = to_vec4(normal.visit_slice::<Vec3<f32>>()?);
+        if let Some(uv) = mesh.get_attribute(&AttributeSemantic::TexCoords(0)) {
+          return Some(
+            sys
+              .create_mesh_instance(
+                BindlessMeshSource {
+                  index: index.visit_slice()?,
+                  position: &position,
+                  normal: &normal,
+                  uv: uv.visit_slice()?,
+                },
+                &gpu.device,
+                &gpu.queue,
+              )
+              .unwrap(),
+          );
+        }
+      }
+    }
+  }
+  None
+}
 
 // #[pin_project::pin_project]
 // pub struct AttributesMeshGPUReactive {

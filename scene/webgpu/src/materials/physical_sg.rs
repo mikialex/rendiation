@@ -79,8 +79,9 @@ pub struct PhysicalSpecularGlossinessMaterialTextureHandlesUniform {
   pub normal_texture: TextureSamplerHandlePair,
 }
 
+use num_derive::*;
 #[repr(u8)]
-#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, FromPrimitive, ToPrimitive)]
 pub enum PhysicalSpecularGlossinessMaterialTextureType {
   Albedo,
   Specular,
@@ -89,18 +90,6 @@ pub enum PhysicalSpecularGlossinessMaterialTextureType {
   Normal,
 }
 use PhysicalSpecularGlossinessMaterialTextureType as TextureType;
-
-impl From<TextureType> for u8 {
-  fn from(val: TextureType) -> Self {
-    val as u8
-  }
-}
-
-impl From<u8> for TextureType {
-  fn from(val: u8) -> Self {
-    todo!()
-  }
-}
 
 impl MaterialReferenceTexture for PhysicalSpecularGlossinessMaterial {
   type TextureType = TextureType;
@@ -131,11 +120,6 @@ impl MaterialReferenceTexture for PhysicalSpecularGlossinessMaterial {
     };
     callback(t, d)
   }
-
-  fn update_texture_uniform(ty: Self::TextureType, handle: u32, target: &mut Self::TextureUniform) {
-    todo!()
-  }
-
   fn create_iter(&self) -> impl Iterator<Item = (Self::TextureType, AllocIdx<SceneTexture2DType>)> {
     [
       pick_tex_id(&self.albedo_texture).map(|id| (TextureType::Albedo, id)),
@@ -147,16 +131,16 @@ impl MaterialReferenceTexture for PhysicalSpecularGlossinessMaterial {
     .into_iter()
     .flatten()
   }
-}
 
-pub fn physical_sg_material_texture_handle_uniforms(
-  cx: &ResourceGPUCtx,
-  scope: impl ReactiveCollection<AllocIdx<PhysicalSpecularGlossinessMaterial>, ()>,
-) -> impl ReactiveCollection<
-  AllocIdx<PhysicalSpecularGlossinessMaterial>,
-  PhysicalSpecularGlossinessMaterialTextureHandlesUniform,
-> {
-  // tex_sample_handle_of_material().zip(..).zip(..).map(..)
+  fn update_texture_uniform(ty: Self::TextureType, handle: u32, target: &mut Self::TextureUniform) {
+    match ty {
+      TextureType::Albedo => target.albedo_texture.texture_handle = handle,
+      TextureType::Specular => target.specular_texture.texture_handle = handle,
+      TextureType::Emissive => target.emissive_texture.texture_handle = handle,
+      TextureType::Glossiness => target.glossiness_texture.texture_handle = handle,
+      TextureType::Normal => target.normal_texture.texture_handle = handle,
+    }
+  }
 }
 
 pub struct PhysicalSpecularGlossinessMaterialGPU<'a> {

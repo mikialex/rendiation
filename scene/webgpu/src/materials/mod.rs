@@ -220,10 +220,11 @@ impl<M: MaterialReferenceTexture>
       };
 
       if let Some(change) = change {
+        use num_traits::ToPrimitive;
         callback(
           MaterialRefTextureId {
             material: idx,
-            texture_variant: t_type.into(),
+            texture_variant: t_type.to_u8().unwrap(),
           },
           change,
         );
@@ -237,10 +238,11 @@ impl<M: MaterialReferenceTexture>
     idx: AllocIdx<M>,
   ) -> impl Iterator<Item = (MaterialRefTextureId<M>, AllocIdx<SceneTexture2DType>)> {
     v.create_iter().map(move |(t_id, t)| {
+      use num_traits::ToPrimitive;
       (
         MaterialRefTextureId {
           material: idx,
-          texture_variant: t_id.into(),
+          texture_variant: t_id.to_u8().unwrap(),
         },
         t,
       )
@@ -248,13 +250,14 @@ impl<M: MaterialReferenceTexture>
   }
 
   fn access(&self, v: &M, k: &MaterialRefTextureId<M>) -> Option<AllocIdx<SceneTexture2DType>> {
-    let ty = M::TextureType::from(k.texture_variant);
+    use num_traits::FromPrimitive;
+    let ty = M::TextureType::from_u8(k.texture_variant).unwrap();
     v.get_texture(ty).map(|t| t.alloc_index().into())
   }
 }
 
 pub trait MaterialReferenceTexture: IncrementalBase {
-  type TextureType: CKey + Copy + From<u8> + Into<u8>;
+  type TextureType: CKey + Copy + num_traits::FromPrimitive + num_traits::ToPrimitive;
   type TextureUniform: CValue + Default + Std140;
 
   fn get_texture(&self, ty: Self::TextureType) -> Option<&SceneTexture2D>;

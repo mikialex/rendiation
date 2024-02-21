@@ -5,6 +5,9 @@ name = "rendiation-scene-webgpu"
 version = "0.1.0"
 
 [dependencies]
+
+num-traits = "0.2"
+num-derive = "0.4.2"
 arena = { path = "../../utils/arena" }
 arena-graph = { path = "../../utils/arena-graph" }
 bitflags = { workspace = true }
