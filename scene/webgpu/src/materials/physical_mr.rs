@@ -20,7 +20,7 @@ pub struct PhysicalMetallicRoughnessMaterialUniform {
 pub fn physical_mr_material_uniforms(
   cx: ResourceGPUCtx,
   scope: impl ReactiveCollection<AllocIdx<PhysicalMetallicRoughnessMaterial>, ()>,
-) -> impl ReactiveCollection<
+) -> impl ReactiveCollectionSelfContained<
   AllocIdx<PhysicalMetallicRoughnessMaterial>,
   UniformBufferDataView<PhysicalMetallicRoughnessMaterialUniform>,
 > {

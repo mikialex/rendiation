@@ -3,7 +3,10 @@ use crate::*;
 pub fn flat_material_gpus(
   cx: ResourceGPUCtx,
   scope: impl ReactiveCollection<AllocIdx<FlatMaterial>, ()>,
-) -> impl ReactiveCollection<AllocIdx<FlatMaterial>, UniformBufferDataView<FlatMaterialUniform>> {
+) -> impl ReactiveCollectionSelfContained<
+  AllocIdx<FlatMaterial>,
+  UniformBufferDataView<FlatMaterialUniform>,
+> {
   storage_of::<FlatMaterial>()
     .listen_all_instance_changed_set()
     .filter_by_keyset(scope)

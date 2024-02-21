@@ -46,7 +46,7 @@ pub trait AllocIdCollectionGPUExt<K: 'static> {
     self,
     gpu: ResourceGPUCtx,
     mapper: impl Fn(&K, &ResourceGPUCtx) -> V + 'static + Send + Sync + Copy,
-  ) -> impl ReactiveCollection<AllocIdx<K>, V>
+  ) -> impl ReactiveCollectionSelfContained<AllocIdx<K>, V>
   where
     V: CValue;
 
@@ -54,7 +54,7 @@ pub trait AllocIdCollectionGPUExt<K: 'static> {
     self,
     gpu: ResourceGPUCtx,
     mapper: impl Fn(&K) -> V + 'static + Send + Sync + Copy,
-  ) -> impl ReactiveCollection<AllocIdx<K>, UniformBufferDataView<V>>
+  ) -> impl ReactiveCollectionSelfContained<AllocIdx<K>, UniformBufferDataView<V>>
   where
     V: Std140 + Send + Sync;
 }
@@ -68,7 +68,7 @@ where
     self,
     gpu: ResourceGPUCtx,
     mapper: impl Fn(&K, &ResourceGPUCtx) -> V + 'static + Send + Sync + Copy,
-  ) -> impl ReactiveCollection<AllocIdx<K>, V>
+  ) -> impl ReactiveCollectionSelfContained<AllocIdx<K>, V>
   where
     V: CValue,
   {
@@ -84,7 +84,7 @@ where
     self,
     gpu: ResourceGPUCtx,
     mapper: impl Fn(&K) -> V + 'static + Send + Sync + Copy,
-  ) -> impl ReactiveCollection<AllocIdx<K>, UniformBufferDataView<V>>
+  ) -> impl ReactiveCollectionSelfContained<AllocIdx<K>, UniformBufferDataView<V>>
   where
     V: Std140 + Send + Sync,
   {
@@ -284,7 +284,8 @@ pub trait MaterialReferenceTexture: IncrementalBase {
       AllocIdx<SceneTexture2DType>,
     >,
     texture2ds: impl ReactiveCollection<AllocIdx<SceneTexture2DType>, TextureSamplerHandlePair>,
-  ) -> impl ReactiveCollection<AllocIdx<Self>, UniformBufferDataView<Self::TextureUniform>> {
+  ) -> impl ReactiveCollectionSelfContained<AllocIdx<Self>, UniformBufferDataView<Self::TextureUniform>>
+  {
     // scope.collective_map(|_| Self::TextureUniform::default());
 
     // todo, should we impl custom collection here?

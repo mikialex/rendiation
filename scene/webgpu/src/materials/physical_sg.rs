@@ -19,7 +19,7 @@ pub struct PhysicalSpecularGlossinessMaterialUniform {
 pub fn physical_sg_material_uniforms(
   cx: ResourceGPUCtx,
   scope: impl ReactiveCollection<AllocIdx<PhysicalSpecularGlossinessMaterial>, ()>,
-) -> impl ReactiveCollection<
+) -> impl ReactiveCollectionSelfContained<
   AllocIdx<PhysicalSpecularGlossinessMaterial>,
   UniformBufferDataView<PhysicalSpecularGlossinessMaterialUniform>,
 > {

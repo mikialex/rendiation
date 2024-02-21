@@ -90,7 +90,7 @@ where
   }
 
   /// map map<k, v> to map<k, v2>
-  fn collective_execute_map_by<V2, F, FF>(self, f: F) -> impl ReactiveCollection<K, V2>
+  fn collective_execute_map_by<V2, F, FF>(self, f: F) -> impl ReactiveCollectionSelfContained<K, V2>
   where
     F: Fn() -> FF + Send + Sync + 'static,
     FF: Fn(&K, V) -> V2 + Send + Sync + 'static,
@@ -102,7 +102,6 @@ where
       cache: Default::default(),
       phantom: PhantomData,
     }
-    .workaround_box()
   }
 
   fn collective_effect_by<F, FF>(self, f: F) -> impl ReactiveCollection<K, V>
