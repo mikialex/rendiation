@@ -105,8 +105,7 @@ impl SceneCameraRebuilder {
   pub fn poll_updates(&mut self, cx: &mut Context) {
     self.nodes.poll_update(cx);
     if let Poll::Ready(changes) = self.camera_scope.poll_changes(cx) {
-      let cameras_storage = storage_of::<SceneCameraImpl>();
-      let cameras = cameras_storage.inner.data.read_recursive();
+      let cameras_storage = storage_of::<SceneCameraImpl>().read();
 
       // copy the source by full delta
       let mut to_sync_target = Vec::new();
@@ -114,7 +113,7 @@ impl SceneCameraRebuilder {
       for (key, change) in changes.iter_key_value() {
         match change {
           ValueChange::Delta(_, _) => {
-            let camera = &cameras.get(key.index).data;
+            let camera = &cameras_storage.get(key).unwrap();
 
             let offset = to_sync_delta.len();
             camera.expand_push_into(&mut to_sync_delta);
@@ -128,7 +127,6 @@ impl SceneCameraRebuilder {
           }
         }
       }
-      drop(cameras);
       drop(cameras_storage);
 
       // sync the change
@@ -197,8 +195,7 @@ impl SceneLightsRebuilder {
   pub fn poll_updates(&mut self, cx: &mut Context) {
     self.nodes.poll_update(cx);
     if let Poll::Ready(changes) = self.light_scope.poll_changes(cx) {
-      let lights_storage = storage_of::<SceneLightImpl>();
-      let lights = lights_storage.inner.data.read_recursive();
+      let lights_storage = storage_of::<SceneLightImpl>().read();
 
       // copy the source by full delta
       let mut to_sync_target = Vec::new();
@@ -206,7 +203,7 @@ impl SceneLightsRebuilder {
       for (key, change) in changes.iter_key_value() {
         match change {
           ValueChange::Delta(_, _) => {
-            let light = &lights.get(key.index).data;
+            let light = lights_storage.get(key).unwrap();
 
             let offset = to_sync_delta.len();
             light.expand_push_into(&mut to_sync_delta);
@@ -220,7 +217,6 @@ impl SceneLightsRebuilder {
           }
         }
       }
-      drop(lights);
       drop(lights_storage);
 
       // sync the change

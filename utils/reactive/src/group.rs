@@ -61,6 +61,44 @@ impl<T: IncrementalBase> Clone for IncrementalSignalStorage<T> {
   }
 }
 
+pub struct StorageReadView<T: IncrementalBase> {
+  inner: LockResultHolder<IndexReusedVec<SignalItem<T>>>,
+}
+
+impl<T: IncrementalBase> Clone for StorageReadView<T> {
+  fn clone(&self) -> Self {
+    Self {
+      inner: self.inner.clone(),
+    }
+  }
+}
+
+impl<T: IncrementalBase> StorageReadView<T> {
+  pub fn get(&self, index: AllocIdx<T>) -> Option<&T> {
+    self.inner.try_get(index.index).map(|v| &v.data)
+  }
+
+  pub fn iter(&self) -> impl Iterator<Item = (AllocIdx<T>, &T)> {
+    struct StorageReadViewIter<'a, T: IncrementalBase> {
+      inner_iter: IndexReusedVecIter<'a, SignalItem<T>>,
+      _holder: StorageReadView<T>,
+    }
+
+    impl<'a, T: IncrementalBase> Iterator for StorageReadViewIter<'a, T> {
+      type Item = (AllocIdx<T>, &'a T);
+
+      fn next(&mut self) -> Option<Self::Item> {
+        self.inner_iter.next().map(|(idx, v)| (idx.into(), &v.data))
+      }
+    }
+
+    StorageReadViewIter {
+      inner_iter: self.inner.iter(),
+      _holder: self.clone(),
+    }
+  }
+}
+
 impl<T: IncrementalBase> IncrementalSignalStorage<T> {
   pub fn clone_at_idx(&self, idx: AllocIdx<T>) -> Option<IncrementalSignalPtr<T>> {
     let mut i = self.inner.data.write();
@@ -72,6 +110,12 @@ impl<T: IncrementalBase> IncrementalSignalStorage<T> {
         guid: item.guid,
       }
     })
+  }
+
+  pub fn read(&self) -> StorageReadView<T> {
+    StorageReadView {
+      inner: self.inner.data.make_lock_holder_raw(),
+    }
   }
 
   pub fn alloc(&self, data: T) -> IncrementalSignalPtr<T> {

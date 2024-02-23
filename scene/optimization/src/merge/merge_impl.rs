@@ -104,17 +104,12 @@ impl ModelMergeProxy {
 
     let mat_access = mat_access.make_accessor();
 
-    // todo reuse code
-    let sm_storage = storage_of::<SceneModelImpl>();
-    let sm_storage_data = sm_storage.inner.data.read();
-    let std_models = source
+    let std_models = storage_of::<SceneModelImpl>()
+      .read()
       .iter()
-      .map(|sm| {
-        let sm_data = sm_storage_data.get(sm.index);
-        match &sm_data.data.model {
-          ModelEnum::Standard(m) => m.alloc_index().into(),
-          ModelEnum::Foreign(_) => unreachable!(),
-        }
+      .map(|(_, sm)| match &sm.model {
+        ModelEnum::Standard(m) => m.alloc_index().into(),
+        ModelEnum::Foreign(_) => unreachable!(),
       })
       .collect::<Vec<_>>();
 
@@ -229,11 +224,8 @@ impl MergeImplementation for AttributesMeshMergeImpl {
   type Transaction = Vec<AttributeMergeTransaction>;
 
   fn prepare(&self, ctx: &MeshMergeCtx) -> Self::Transaction {
-    let std_storage = storage_of::<StandardModel>();
-    let std_storage_data = std_storage.inner.data.read();
-
-    let mesh_storage = storage_of::<AttributesMesh>();
-    let mesh_storage_data = mesh_storage.inner.data.read();
+    let std_storage = storage_of::<StandardModel>().read();
+    let mesh_storage = storage_of::<AttributesMesh>().read();
 
     let back_face = match ctx.key {
       MergeKey::UnableToMergeNoneStandard(_) => false,
@@ -245,9 +237,9 @@ impl MergeImplementation for AttributesMeshMergeImpl {
       .models
       .iter()
       .map(|m| {
-        let m = &std_storage_data.get(m.index).data;
+        let m = &std_storage.get(*m).unwrap();
         match &m.mesh {
-          MeshEnum::AttributesMesh(mesh) => &mesh_storage_data.get(mesh.alloc_index()).data,
+          MeshEnum::AttributesMesh(mesh) => mesh_storage.get(mesh.alloc_index().into()).unwrap(),
           _ => unreachable!(),
         }
       })

@@ -71,7 +71,7 @@ pub struct AttributeAccessKey {
 }
 
 impl AttributeAccessKey {
-  fn new(acc: &AttributeAccessor) -> Self {
+  pub fn new(acc: &AttributeAccessor) -> Self {
     AttributeAccessKey {
       view: acc.view.buffer.alloc_index().into(),
       range: acc.view.range,
@@ -171,18 +171,18 @@ pub fn attribute_mesh_shader_keys(
 
 pub struct AttributesMeshGPU<'a> {
   mesh: &'a AttributesMesh,
-  vertex_buffer_ctx: &'a MeshVertexBufferManager,
-  index_buffer_ctx: &'a MeshIndexBufferManager,
+  mesh_id: AllocIdx<AttributesMesh>,
+  resource_ctx: &'a AttributeMeshPassBindCtx<'a>,
 }
 
 impl<'a> ShaderPassBuilder for AttributesMeshGPU<'a> {
   fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
     for (_, b) in &self.mesh.attributes {
-      ctx.set_vertex_buffer_owned_next(self.vertex_buffer_ctx.get_gpu_vertex(b));
+      ctx.set_vertex_buffer_owned_next(self.resource_ctx.get_gpu_vertex(b));
     }
-    if let Some((index_format, buffer)) = &self.mesh.indices {
+    if let Some((index_format, _)) = &self.mesh.indices {
       ctx.pass.set_index_buffer_owned(
-        self.index_buffer_ctx.get_gpu_index(buffer),
+        self.resource_ctx.get_gpu_index(self.mesh_id),
         map_index(*index_format),
       )
     }

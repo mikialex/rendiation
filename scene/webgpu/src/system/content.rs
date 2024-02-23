@@ -14,14 +14,14 @@ use crate::*;
 //   pub texture_cube: Box<dyn ReactiveCollection<AllocIdx<SceneTextureCubeImpl>,
 // GPUCubeTextureView>>, }
 
-// #[derive(Clone, Copy, Debug)]
-// pub struct BindableResourceConfig {
-//   /// decide if should enable texture bindless support if platform hardware supported
-//   pub prefer_bindless_texture: bool,
-//   /// decide if should enable mesh bindless (multi indirect draw) support if platform hardware
-//   /// supported
-//   pub prefer_bindless_mesh: bool,
-// }
+#[derive(Clone, Copy, Debug)]
+pub struct BindableResourceConfig {
+  /// decide if should enable texture bindless support if platform hardware supported
+  pub prefer_bindless_texture: bool,
+  /// decide if should enable mesh bindless (multi indirect draw) support if platform hardware
+  /// supported
+  pub prefer_bindless_mesh: bool,
+}
 
 // impl ShareBindableResourceCtx {
 //   pub fn new(gpu: &GPU, config: BindableResourceConfig) -> Self {

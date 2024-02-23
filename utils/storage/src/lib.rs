@@ -1,3 +1,5 @@
+#![feature(type_alias_impl_trait)]
+
 mod deduplication;
 mod generational;
 mod generational_shrinkable;

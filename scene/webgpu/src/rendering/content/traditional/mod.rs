@@ -131,12 +131,6 @@ pub fn setup_pass_core(
 //   material_dyn: FastHashMap<TypeId, Box<dyn Any>>,
 // }
 
-// struct PhysicalMetallicRoughnessMaterialBindCtx {
-//   material: ReadView<PhysicalMetallicRoughnessMaterial>,
-//   uniform: Box<dyn ReactiveCollection<AllocIdx<PhysicalMetallicRoughnessMaterial>, Uniform>>,
-//   // share_bindable
-// }
-
 // struct MeshPassBindCtx {
 //   mesh: ReadView<usize>,
 

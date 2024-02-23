@@ -1,5 +1,7 @@
 mod transform_instance;
 pub use transform_instance::*;
+
+use crate::*;
 mod attributes;
 pub use attributes::*;
 use rendiation_mesh_core::{AttributeAccessor, AttributeIndexFormat, MeshDrawGroup};
@@ -30,17 +32,17 @@ pub trait MeshDrawcallEmitter {
   fn draw_command(&self, group: MeshDrawGroup) -> DrawCommand;
 }
 
-pub struct MeshVertexBufferManager {}
-
-impl MeshVertexBufferManager {
-  pub fn get_gpu_vertex(&self, acc: &AttributeAccessor) -> &GPUBufferResourceView {
-    todo!()
-  }
+pub struct AttributeMeshPassBindCtx<'a> {
+  vertex: &'a dyn VirtualCollectionSelfContained<AttributeAccessKey, GPUBufferResourceView>,
+  index: &'a dyn VirtualCollectionSelfContained<AllocIdx<AttributesMesh>, GPUBufferResourceView>,
 }
-pub struct MeshIndexBufferManager {}
 
-impl MeshIndexBufferManager {
-  pub fn get_gpu_index(&self, acc: &AttributeAccessor) -> &GPUBufferResourceView {
-    todo!()
+impl<'a> AttributeMeshPassBindCtx<'a> {
+  pub fn get_gpu_vertex(&self, acc: &AttributeAccessor) -> &GPUBufferResourceView {
+    let key = AttributeAccessKey::new(acc);
+    self.vertex.access_ref(&key).unwrap()
+  }
+  pub fn get_gpu_index(&self, mesh: AllocIdx<AttributesMesh>) -> &GPUBufferResourceView {
+    self.index.access_ref(&mesh).unwrap()
   }
 }

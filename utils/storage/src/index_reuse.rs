@@ -12,6 +12,8 @@ impl<T> Default for IndexReusedVec<T> {
   }
 }
 
+pub type IndexReusedVecIter<'a, T: 'static> = impl Iterator<Item = (u32, &'a T)>;
+
 impl<T> IndexReusedVec<T> {
   pub fn shrink_to_fit(&mut self) {
     let tail_size = self
@@ -45,7 +47,7 @@ impl<T> IndexReusedVec<T> {
     }
   }
 
-  pub fn iter(&self) -> impl Iterator<Item = (u32, &T)> {
+  pub fn iter(&self) -> IndexReusedVecIter<T> {
     self
       .storage
       .iter()
