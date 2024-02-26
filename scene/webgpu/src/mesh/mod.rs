@@ -32,17 +32,37 @@ pub trait MeshDrawcallEmitter {
   fn draw_command(&self, group: MeshDrawGroup) -> DrawCommand;
 }
 
-pub struct AttributeMeshPassBindCtx<'a> {
-  vertex: &'a dyn VirtualCollectionSelfContained<AttributeAccessKey, GPUBufferResourceView>,
-  index: &'a dyn VirtualCollectionSelfContained<AllocIdx<AttributesMesh>, GPUBufferResourceView>,
+pub struct MeshGPUResource {
+  att: StorageReadView<AttributesMesh>,
+  attributes: AttributeMeshGPUResource,
 }
 
-impl<'a> AttributeMeshPassBindCtx<'a> {
-  pub fn get_gpu_vertex(&self, acc: &AttributeAccessor) -> &GPUBufferResourceView {
-    let key = AttributeAccessKey::new(acc);
-    self.vertex.access_ref(&key).unwrap()
+pub enum SceneMeshRenderComponent<'a> {
+  Att(AttributesMeshGPU<'a>),
+}
+
+impl<'a> MeshDrawcallEmitter for SceneMeshRenderComponent<'a> {
+  fn draw_command(&self, group: MeshDrawGroup) -> DrawCommand {
+    match self {
+      SceneMeshRenderComponent::Att(mesh) => mesh.draw_command(group),
+    }
   }
-  pub fn get_gpu_index(&self, mesh: AllocIdx<AttributesMesh>) -> &GPUBufferResourceView {
-    self.index.access_ref(&mesh).unwrap()
+}
+
+impl MeshGPUResource {
+  pub fn prepare_render(&self, mesh: &MeshEnum) -> SceneMeshRenderComponent {
+    match mesh {
+      MeshEnum::AttributesMesh(m) => {
+        let id = m.alloc_index().into();
+        let mesh = self.att.get(id).unwrap();
+        let mesh = AttributesMeshGPU {
+          mesh,
+          mesh_id: id,
+          resource_ctx: &self.attributes,
+        };
+        SceneMeshRenderComponent::Att(mesh)
+      }
+      _ => todo!(),
+    }
   }
 }

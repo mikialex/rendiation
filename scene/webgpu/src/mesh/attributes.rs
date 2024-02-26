@@ -164,15 +164,26 @@ pub fn gpu_attribute_index_buffers(
   })
 }
 
-pub fn attribute_mesh_shader_keys(
-  scope: impl ReactiveCollection<AllocIdx<AttributesMesh>, ()>,
-) -> impl ReactiveCollection<AttributeAccessKey, u64> {
+pub struct AttributeMeshGPUResource {
+  // attributes: StorageReadView<AttributesMesh>,
+  vertex: Box<dyn VirtualCollectionSelfContained<AttributeAccessKey, GPUBufferResourceView>>,
+  index: Box<dyn VirtualCollectionSelfContained<AllocIdx<AttributesMesh>, GPUBufferResourceView>>,
+}
+
+impl AttributeMeshGPUResource {
+  pub fn get_gpu_vertex(&self, acc: &AttributeAccessor) -> &GPUBufferResourceView {
+    let key = AttributeAccessKey::new(acc);
+    self.vertex.access_ref(&key).unwrap()
+  }
+  pub fn get_gpu_index(&self, mesh: AllocIdx<AttributesMesh>) -> &GPUBufferResourceView {
+    self.index.access_ref(&mesh).unwrap()
+  }
 }
 
 pub struct AttributesMeshGPU<'a> {
-  mesh: &'a AttributesMesh,
-  mesh_id: AllocIdx<AttributesMesh>,
-  resource_ctx: &'a AttributeMeshPassBindCtx<'a>,
+  pub mesh: &'a AttributesMesh,
+  pub mesh_id: AllocIdx<AttributesMesh>,
+  pub resource_ctx: &'a AttributeMeshGPUResource,
 }
 
 impl<'a> ShaderPassBuilder for AttributesMeshGPU<'a> {
@@ -258,28 +269,22 @@ impl<'a> GraphicsShaderProvider for AttributesMeshGPU<'a> {
   }
 }
 
-// impl MeshDrawcallEmitter for AttributesMeshGPUReactive {
-//   fn draw_command(&self, _group: MeshDrawGroup) -> DrawCommand {
-//     let inner: &MaybeBindlessMesh<AttributesMeshGPU> = self.inner.as_ref();
-//     match inner {
-//       MaybeBindlessMesh::Traditional(inner) => inner.draw.clone(),
-//       MaybeBindlessMesh::Bindless(_) => DrawCommand::Skip,
-//     }
-//   }
-// }
-/// the current represent do not have meaningful mesh draw group concept
-fn draw_command(mesh: &AttributesMesh) -> DrawCommand {
-  if let Some((_, indices)) = &mesh.indices {
-    DrawCommand::Indexed {
-      base_vertex: 0,
-      indices: 0..indices.count as u32,
-      instances: 0..1,
-    }
-  } else {
-    let attribute = &mesh.attributes.last().unwrap().1;
-    DrawCommand::Array {
-      vertices: 0..attribute.count as u32,
-      instances: 0..1,
+impl<'a> MeshDrawcallEmitter for AttributesMeshGPU<'a> {
+  fn draw_command(&self, _group: MeshDrawGroup) -> DrawCommand {
+    // todo group
+    let mesh = self.mesh;
+    if let Some((_, indices)) = &mesh.indices {
+      DrawCommand::Indexed {
+        base_vertex: 0,
+        indices: 0..indices.count as u32,
+        instances: 0..1,
+      }
+    } else {
+      let attribute = &mesh.attributes.last().unwrap().1;
+      DrawCommand::Array {
+        vertices: 0..attribute.count as u32,
+        instances: 0..1,
+      }
     }
   }
 }

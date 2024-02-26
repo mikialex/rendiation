@@ -46,3 +46,18 @@ impl<'a> ShaderPassBuilder for FlatMaterialGPU<'a> {
     ctx.binding.bind(self.uniform);
   }
 }
+
+pub type UniformGetter<K, V> =
+  Box<dyn VirtualCollectionSelfContained<AllocIdx<K>, UniformBufferDataView<V>>>;
+
+pub struct FlatMaterialGPUResource {
+  uniforms: UniformGetter<FlatMaterial, FlatMaterialUniform>,
+}
+
+impl FlatMaterialGPUResource {
+  pub fn prepare_render(&self, flat: AllocIdx<FlatMaterial>) -> FlatMaterialGPU {
+    FlatMaterialGPU {
+      uniform: self.uniforms.access_ref(&flat).unwrap(),
+    }
+  }
+}

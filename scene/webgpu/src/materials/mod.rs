@@ -410,3 +410,34 @@ pub(super) fn setup_normal_tex(
     todo!()
   }
 }
+
+pub struct MaterialsGPUResource {
+  flat: FlatMaterialGPUResource,
+  //..
+}
+
+impl MaterialsGPUResource {
+  pub fn prepare_render(&self, mat: &MaterialEnum) -> SceneMaterialRenderComponent {
+    match mat {
+      MaterialEnum::Flat(mat) => {
+        SceneMaterialRenderComponent::Flat(self.flat.prepare_render(mat.alloc_index().into()))
+      }
+      _ => todo!(),
+    }
+  }
+}
+
+pub enum SceneMaterialRenderComponent<'a> {
+  Flat(FlatMaterialGPU<'a>),
+}
+
+impl<'a> ShaderHashProvider for SceneMaterialRenderComponent<'a> {
+  fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
+    std::mem::discriminant(self).hash(hasher);
+    // match self {}
+    todo!()
+  }
+}
+// todo
+impl<'a> GraphicsShaderProvider for SceneMaterialRenderComponent<'a> {}
+impl<'a> ShaderPassBuilder for SceneMaterialRenderComponent<'a> {}
