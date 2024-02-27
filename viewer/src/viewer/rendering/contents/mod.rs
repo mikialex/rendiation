@@ -20,8 +20,6 @@ fn register_mesh<T>()
 where
   T: AsRef<dyn GlobalIdentified>
     + AsMut<dyn GlobalIdentified>
-    + AsRef<dyn WebGPUSceneMesh>
-    + AsMut<dyn WebGPUSceneMesh>
     + AsRef<dyn IntersectAbleGroupedMesh>
     + AsMut<dyn IntersectAbleGroupedMesh>
     // + AsRef<dyn WatchableSceneMeshLocalBounding>
@@ -29,17 +27,13 @@ where
     + 'static,
 {
   register_core_mesh_features::<T>();
-  register_webgpu_mesh_features::<T>();
+  // register_webgpu_mesh_features::<T>();
 }
 
 fn register_material<T>()
 where
-  T: AsRef<dyn GlobalIdentified>
-    + AsMut<dyn GlobalIdentified>
-    + AsRef<dyn WebGPUSceneMaterial>
-    + AsMut<dyn WebGPUSceneMaterial>
-    + 'static,
+  T: AsRef<dyn GlobalIdentified> + AsMut<dyn GlobalIdentified> + 'static,
 {
   register_core_material_features::<T>();
-  register_webgpu_material_features::<T>();
+  // register_webgpu_material_features::<T>();
 }

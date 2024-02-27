@@ -11,13 +11,15 @@ type ReactiveParentTree =
 pub type NodeWorldMatrixGetter<'a> = &'a dyn Fn(&NodeIdentity) -> Option<Mat4<f32>>;
 pub type NodeNetVisibleGetter<'a> = &'a dyn Fn(&NodeIdentity) -> Option<bool>;
 
+pub struct SceneNodeDeriveSystem;
+
 #[derive(Clone)]
-pub struct NodeIncrementalDeriveCollections {
+pub struct NodeDeriveCollections {
   pub world_mat: RxCForker<NodeIdentity, Mat4<f32>>,
   pub net_visible: RxCForker<NodeIdentity, bool>,
 }
 
-impl NodeIncrementalDeriveCollections {
+impl NodeDeriveCollections {
   pub fn world_matrixes_getter(&self) -> impl Fn(&NodeIdentity) -> Option<Mat4<f32>> + '_ {
     self.world_mat.make_accessor()
   }
@@ -44,7 +46,7 @@ impl NodeIncrementalDeriveCollections {
   }
 }
 
-impl NodeIncrementalDeriveCollections {
+impl NodeDeriveCollections {
   pub fn new(nodes: &SceneNodeCollection) -> Self {
     let stream = nodes.inner.source.batch_listen();
     let inner = TreeHierarchyDerivedSystem::<

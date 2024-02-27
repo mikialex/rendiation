@@ -46,30 +46,6 @@ impl IntersectAbleGroupedMesh for WidenedLineMesh {
   }
 }
 
-type ReactiveWidenedLineGPUImpl =
-  impl AsRef<RenderComponentCell<WidenedLineMeshGPU>> + Stream<Item = RenderComponentDeltaFlag>;
-
-#[pin_project::pin_project]
-pub struct ReactiveWidenedLineGPU {
-  #[pin]
-  inner: ReactiveWidenedLineGPUImpl,
-}
-
-impl Stream for ReactiveWidenedLineGPU {
-  type Item = RenderComponentDeltaFlag;
-
-  fn poll_next(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Option<Self::Item>> {
-    let this = self.project();
-    this.inner.poll_next(cx)
-  }
-}
-
-impl ReactiveRenderComponentSource for ReactiveWidenedLineGPU {
-  fn as_reactive_component(&self) -> &dyn ReactiveRenderComponent {
-    self.inner.as_ref() as &dyn ReactiveRenderComponent
-  }
-}
-
 impl MeshDrawcallEmitter for ReactiveWidenedLineGPU {
   fn draw_command(&self, _group: MeshDrawGroup) -> DrawCommand {
     let range = self.inner.as_ref().inner.range_full;

@@ -1,12 +1,5 @@
-use std::{
-  pin::Pin,
-  task::{Context, Poll},
-};
-
 use __core::hash::{Hash, Hasher};
-use futures::Stream;
 use incremental::*;
-use reactive::SignalStreamExt;
 use rendiation_algebra::Vec3;
 use rendiation_geometry::{OptionalNearest, Ray3, Triangle};
 use rendiation_shader_api::*;
@@ -22,14 +15,13 @@ use crate::*;
 /// https://tchayen.github.io/posts/wireframes-with-barycentric-coordinates
 #[derive(Clone)]
 pub struct SolidLinedMesh {
-  /// note, user should make sure the mesh not shared with others
-  /// todo, impl runtime ownership checking
-  mesh: MeshEnum,
+  mesh: IncrementalSignalPtr<AttributesMesh>,
 }
 
 impl SolidLinedMesh {
-  pub fn new(mesh: MeshEnum) -> Self {
-    Self { mesh }
+  pub fn new(mesh: AttributesMesh) -> Option<Self> {
+    let mesh = generate_barycentric_buffer_and_expanded_mesh(&mesh)?;
+    Self { mesh }.into()
   }
 }
 clone_self_incremental!(SolidLinedMesh);
@@ -57,80 +49,13 @@ impl IntersectAbleGroupedMesh for SolidLinedMesh {
 }
 
 /// we do need a new gpu type to inject the mesh line shading logic, not only the resource part
-pub struct SolidLinedMeshGPU {
-  mesh_gpu: MeshGPUInstance,
+pub struct SolidLinedMeshGPU<'a> {
+  mesh_gpu: AttributesMeshGPU<'a>,
 }
 
-type ReactiveSolidLinedMeshGPUImpl =
-  impl AsRef<RenderComponentCell<SolidLinedMeshGPU>> + Stream<Item = RenderComponentDeltaFlag>;
-
-#[pin_project::pin_project]
-pub struct ReactiveSolidLinedMeshGPU {
-  #[pin]
-  inner: ReactiveSolidLinedMeshGPUImpl,
-}
-
-impl Stream for ReactiveSolidLinedMeshGPU {
-  type Item = RenderComponentDeltaFlag;
-
-  fn poll_next(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Option<Self::Item>> {
-    let this = self.project();
-    this.inner.poll_next(cx)
-  }
-}
-
-impl ReactiveRenderComponentSource for ReactiveSolidLinedMeshGPU {
-  fn as_reactive_component(&self) -> &dyn ReactiveRenderComponent {
-    self.inner.as_ref() as &dyn ReactiveRenderComponent
-  }
-}
-
-impl MeshDrawcallEmitter for ReactiveSolidLinedMeshGPU {
+impl<'a> MeshDrawcallEmitter for SolidLinedMeshGPU<'a> {
   fn draw_command(&self, group: MeshDrawGroup) -> DrawCommand {
-    let gpu = self.inner.as_ref();
-    gpu.mesh_gpu.draw_command(group)
-  }
-}
-
-impl WebGPUMesh for SolidLinedMesh {
-  type ReactiveGPU = ReactiveSolidLinedMeshGPU;
-
-  fn create_reactive_gpu(
-    source: &IncrementalSignalPtr<Self>,
-    ctx: &ShareBindableResourceCtx,
-  ) -> Self::ReactiveGPU {
-    let weak = source.downgrade();
-    let ctx = ctx.clone();
-
-    let create = move || {
-      if let Some(m) = weak.upgrade() {
-        if let Some(mesh) = generate_barycentric_buffer_and_expanded_mesh(&m) {
-          let mesh_gpu = mesh.create_scene_reactive_gpu(&ctx).unwrap();
-
-          SolidLinedMeshGPU { mesh_gpu }.into()
-        } else {
-          None
-        }
-      } else {
-        None
-      }
-    };
-
-    let gpu = create().unwrap();
-    let state = RenderComponentCell::new(gpu);
-
-    let inner = source
-      .single_listen_by::<()>(any_change_no_init)
-      .fold_signal(state, move |_, state| {
-        if let Some(gpu) = create() {
-          state.inner = gpu;
-          RenderComponentDeltaFlag::all().into()
-        } else {
-          None
-        }
-      });
-
-    ReactiveSolidLinedMeshGPU { inner }
+    self.mesh_gpu.draw_command(group)
   }
 }
 
@@ -182,12 +107,9 @@ fn generate_barycentric_buffer_and_expanded_mesh(
   mesh: &IncrementalSignalPtr<SolidLinedMesh>,
 ) -> Option<MeshEnum> {
   let mesh = mesh.read();
-  let mesh = match &mesh.mesh {
-    MeshEnum::AttributesMesh(mesh) => mesh,
-    _ => return None,
-  };
 
   let mesh: AttributeMeshData = mesh
+    .mesh
     .read()
     .read_full()
     .primitive_iter()
@@ -237,7 +159,7 @@ impl CustomAttributeKeyGPU for BarycentricCoordAttributeKey {
 
 both!(BarycentricCoord, Vec3<f32>);
 
-impl GraphicsShaderProvider for SolidLinedMeshGPU {
+impl<'a> GraphicsShaderProvider for SolidLinedMeshGPU<'a> {
   fn build(&self, builder: &mut ShaderRenderPipelineBuilder) -> Result<(), ShaderBuildError> {
     self.mesh_gpu.build(builder)?;
     builder.vertex(|builder, _| {
@@ -270,16 +192,9 @@ impl GraphicsShaderProvider for SolidLinedMeshGPU {
   }
 }
 
-impl ShaderHashProvider for SolidLinedMeshGPU {}
-impl ShaderPassBuilder for SolidLinedMeshGPU {
+impl<'a> ShaderHashProvider for SolidLinedMeshGPU<'a> {}
+impl<'a> ShaderPassBuilder for SolidLinedMeshGPU<'a> {
   fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
     self.mesh_gpu.setup_pass(ctx);
-  }
-}
-
-impl Stream for SolidLinedMeshGPU {
-  type Item = RenderComponentDeltaFlag;
-  fn poll_next(self: Pin<&mut Self>, _: &mut Context) -> Poll<Option<Self::Item>> {
-    Poll::Pending
   }
 }

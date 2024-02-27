@@ -11,12 +11,6 @@ pub use utils::*;
 use crate::*;
 
 pub trait ReactiveCollectionNewExt<K: CKey, V: CValue>: ReactiveCollection<K, V> + Sized {
-  fn collective_key_map_filter<K2: CKey>(
-    self,
-    filter: impl Fn(K) -> Option<K2>,
-  ) -> impl ReactiveCollection<K2, V> {
-  }
-
   fn collective_key_lifting<K2: CKey>(
     self,
     lift_pair: (impl Fn(K) -> K2, impl Fn(K2) -> Option<K>),

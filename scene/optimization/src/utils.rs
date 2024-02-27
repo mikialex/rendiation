@@ -15,13 +15,13 @@ pub fn create_scene_node_checker(scene_id: u64) -> impl Fn(&SceneNode) -> Option
 }
 
 pub struct NodeRebuilder {
-  node_source: NodeIncrementalDeriveCollections,
+  node_source: NodeDeriveCollections,
   node_mapping: FastHashMap<NodeIdentity, SceneNode>,
   target_scene: Scene,
 }
 
 impl NodeRebuilder {
-  pub fn new(node_source: NodeIncrementalDeriveCollections, target: &Scene) -> Self {
+  pub fn new(node_source: NodeDeriveCollections, target: &Scene) -> Self {
     Self {
       node_source,
       node_mapping: Default::default(),
@@ -70,7 +70,7 @@ pub struct SceneCameraRebuilder {
 impl SceneCameraRebuilder {
   pub fn new(
     source_scene_id: u64,
-    source_scene_derives: &NodeIncrementalDeriveCollections,
+    source_scene_derives: &NodeDeriveCollections,
     target_scene: &Scene,
   ) -> Self {
     let node_checker = create_scene_node_checker(source_scene_id);
@@ -160,7 +160,7 @@ pub struct SceneLightsRebuilder {
 impl SceneLightsRebuilder {
   pub fn new(
     source_scene_id: u64,
-    source_scene_derives: &NodeIncrementalDeriveCollections,
+    source_scene_derives: &NodeDeriveCollections,
     target_scene: &Scene,
   ) -> Self {
     let node_checker = create_scene_node_checker(source_scene_id);

@@ -47,11 +47,8 @@ pub use camera::*;
 mod animation;
 pub use animation::*;
 
-// mod systems;
-// pub use systems::*;
-
-mod systems_next;
-pub use systems_next::*;
+mod system;
+pub use system::*;
 
 pub type ForeignObject = Box<dyn AnyClone + Send + Sync>;
 

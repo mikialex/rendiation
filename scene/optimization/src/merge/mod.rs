@@ -11,18 +11,17 @@ pub struct SceneMergeSystem {
   models: SceneModelMergeOptimization,
   cameras: SceneCameraRebuilder,
   lights: SceneLightsRebuilder,
-  pub target_scene: (Scene, NodeIncrementalDeriveCollections),
+  pub target_scene: (Scene, NodeDeriveCollections),
 }
 
 impl SceneMergeSystem {
   pub fn new(
     source_scene: &Scene,
-    source_scene_derives: &NodeIncrementalDeriveCollections,
+    source_scene_derives: &NodeDeriveCollections,
     foreign_merge_support: Box<dyn FnOnce(&mut MergeImplRegistry) -> Box<ForeignMergeKeySupport>>,
   ) -> (Self, Scene) {
     let (target_scene, _) = SceneImpl::new();
-    let scene_derived =
-      NodeIncrementalDeriveCollections::new(&target_scene.read().core.read().nodes);
+    let scene_derived = NodeDeriveCollections::new(&target_scene.read().core.read().nodes);
 
     let source_id = source_scene.guid();
 
@@ -68,7 +67,7 @@ pub struct SceneModelMergeOptimization {
 impl SceneModelMergeOptimization {
   pub fn new(
     source_scene_id: u64,
-    source_scene_derives: &NodeIncrementalDeriveCollections,
+    source_scene_derives: &NodeDeriveCollections,
     target_scene: &Scene,
     foreign_merge_support: Box<dyn FnOnce(&mut MergeImplRegistry) -> Box<ForeignMergeKeySupport>>,
   ) -> Self {

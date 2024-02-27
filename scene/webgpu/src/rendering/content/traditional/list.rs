@@ -174,31 +174,3 @@ impl RenderListGLESSystem {
 //     &mut pass.ctx,
 //   )
 // }
-
-// pub trait AlphaBlendDecider {
-//   fn should_use_alpha_blend(&self) -> bool;
-// }
-// define_dyn_trait_downcaster_static!(AlphaBlendDecider);
-
-// impl AlphaBlendDecider for IncrementalSignalPtr<StandardModel> {
-//   fn should_use_alpha_blend(&self) -> bool {
-//     self.read().material.is_transparent()
-//   }
-// }
-
-// impl AlphaBlendDecider for ModelEnum {
-//   fn should_use_alpha_blend(&self) -> bool {
-//     match self {
-//       ModelEnum::Standard(model) => model.should_use_alpha_blend(),
-//       ModelEnum::Foreign(any) => {
-//         if let Some(any) =
-//           get_dyn_trait_downcaster_static!(AlphaBlendDecider).downcast_ref(any.as_ref().as_any())
-//         {
-//           any.should_use_alpha_blend()
-//         } else {
-//           false
-//         }
-//       }
-//     }
-//   }
-// }

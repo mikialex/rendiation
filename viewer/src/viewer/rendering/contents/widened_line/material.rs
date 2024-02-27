@@ -29,60 +29,35 @@ pub struct WidenedLineMaterialUniform {
   pub width: f32,
 }
 
-impl WebGPUMaterial for WidenedLineMaterial {
-  type ReactiveGPU = ReactiveWidenedLineMaterialGPU;
-
-  fn create_reactive_gpu(
-    source: &IncrementalSignalPtr<Self>,
-    ctx: &ShareBindableResourceCtx,
-  ) -> Self::ReactiveGPU {
-    let uniform = WidenedLineMaterialUniform {
-      width: source.read().width,
+pub fn widen_line_material_gpus(
+  cx: ResourceGPUCtx,
+  scope: impl ReactiveCollection<AllocIdx<WidenedLineMaterial>, ()>,
+) -> impl ReactiveCollectionSelfContained<
+  AllocIdx<FlatMaterial>,
+  UniformBufferDataView<WidenedLineMaterialUniform>,
+> {
+  storage_of::<WidenedLineMaterial>()
+    .listen_all_instance_changed_set()
+    .filter_by_keyset(scope)
+    .collective_create_uniforms_by_key(cx, |m| WidenedLineMaterialUniform {
+      width: m.width,
       ..Zeroable::zeroed()
-    };
-    let uniform = create_uniform(uniform, &ctx.gpu.device);
-
-    let gpu = WidenedLineMaterialGPU { uniform };
-    let state = RenderComponentCell::new(gpu);
-
-    let weak_material = source.downgrade();
-    let ctx = ctx.clone();
-
-    let inner = source
-      .single_listen_by::<()>(any_change_no_init)
-      .fold_signal(state, move |_, state| {
-        if let Some(m) = weak_material.upgrade() {
-          let uniform = WidenedLineMaterialUniform {
-            width: m.read().width,
-            ..Zeroable::zeroed()
-          };
-          state.inner.uniform.set(uniform);
-          state.inner.uniform.upload(&ctx.gpu.queue);
-        }
-        RenderComponentDeltaFlag::Content.into()
-      });
-
-    ReactiveWidenedLineMaterialGPU { inner }
-  }
-
-  fn is_transparent(&self) -> bool {
-    false
-  }
+    })
 }
 
-pub struct WidenedLineMaterialGPU {
-  uniform: UniformBufferDataView<WidenedLineMaterialUniform>,
+pub struct WidenedLineMaterialGPU<'a> {
+  uniform: &'a UniformBufferDataView<WidenedLineMaterialUniform>,
 }
 
-impl ShaderHashProvider for WidenedLineMaterialGPU {}
+impl<'a> ShaderHashProvider for WidenedLineMaterialGPU<'a> {}
 
-impl ShaderPassBuilder for WidenedLineMaterialGPU {
+impl<'a> ShaderPassBuilder for WidenedLineMaterialGPU<'a> {
   fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
     ctx.binding.bind(&self.uniform);
   }
 }
 
-impl GraphicsShaderProvider for WidenedLineMaterialGPU {
+impl<'a> GraphicsShaderProvider for WidenedLineMaterialGPU<'a> {
   fn build(&self, builder: &mut ShaderRenderPipelineBuilder) -> Result<(), ShaderBuildError> {
     builder.vertex(|builder, binding| {
       let uv = builder.query::<GeometryUV>()?;
