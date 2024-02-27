@@ -432,6 +432,11 @@ impl<'a> ShaderHashProvider for SceneMaterialRenderComponent<'a> {
     todo!()
   }
 }
+impl<'a> ShaderHashProviderAny for SceneMaterialRenderComponent<'a> {
+  fn hash_pipeline_with_type_info(&self, hasher: &mut PipelineHasher) {
+    todo!()
+  }
+}
 // todo
 impl<'a> GraphicsShaderProvider for SceneMaterialRenderComponent<'a> {}
 impl<'a> ShaderPassBuilder for SceneMaterialRenderComponent<'a> {}

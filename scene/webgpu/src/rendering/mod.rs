@@ -16,6 +16,7 @@ pub struct SceneRenderResourceGroup<'a> {
 
   pub resources: &'a SceneShareContentGPUResource,
   pub scene_resources: &'a SceneGPUResource,
+  pub node_derives: &'a SceneNodeDeriveSystem,
 }
 
 impl<'a> SceneRenderResourceGroup<'a> {

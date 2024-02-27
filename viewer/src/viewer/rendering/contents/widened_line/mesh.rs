@@ -145,13 +145,6 @@ pub struct WidenedLineMeshGPU {
   range_full: MeshGroup,
 }
 
-impl Stream for WidenedLineMeshGPU {
-  type Item = RenderComponentDeltaFlag;
-  fn poll_next(self: Pin<&mut Self>, _: &mut Context) -> Poll<Option<Self::Item>> {
-    Poll::Pending
-  }
-}
-
 use bytemuck::{Pod, Zeroable};
 
 #[repr(C)]

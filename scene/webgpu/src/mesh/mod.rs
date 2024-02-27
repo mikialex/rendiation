@@ -41,6 +41,22 @@ pub enum SceneMeshRenderComponent<'a> {
   Att(AttributesMeshGPU<'a>),
 }
 
+impl<'a> ShaderHashProvider for SceneMeshRenderComponent<'a> {
+  fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
+    std::mem::discriminant(self).hash(hasher);
+    // match self {}
+    todo!()
+  }
+}
+impl<'a> ShaderHashProviderAny for SceneMeshRenderComponent<'a> {
+  fn hash_pipeline_with_type_info(&self, hasher: &mut PipelineHasher) {
+    todo!()
+  }
+}
+// todo
+impl<'a> GraphicsShaderProvider for SceneMeshRenderComponent<'a> {}
+impl<'a> ShaderPassBuilder for SceneMeshRenderComponent<'a> {}
+
 impl<'a> MeshDrawcallEmitter for SceneMeshRenderComponent<'a> {
   fn draw_command(&self, group: MeshDrawGroup) -> DrawCommand {
     match self {

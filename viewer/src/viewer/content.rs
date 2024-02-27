@@ -18,8 +18,8 @@ use crate::*;
 
 pub struct Viewer3dContent {
   pub scene: Scene,
-  pub scene_derived: SceneNodeDeriveSystem,
-  pub scene_bounding: SceneModelWorldBoundingSystem,
+  pub scene_derived: NodeDeriveCollections,
+  pub scene_bounding: Box<dyn ReactiveCollection<AllocIdx<SceneModelImpl>, Box3<f32>>>,
   pub pick_config: MeshBufferIntersectConfig,
   pub selections: SelectionSet,
   pub controller: ControllerWinitAdapter<OrbitController>,
@@ -33,7 +33,7 @@ impl Viewer3dContent {
 
     let scene_core = scene.get_scene_core();
 
-    let scene_bounding = SceneModelWorldBoundingSystem::new(&scene_core, &scene_derived);
+    let scene_bounding = scene_model_world_box(scene_derived.world_mat.clone(), (), ());
 
     load_default_scene(&scene);
 
@@ -207,9 +207,7 @@ impl Viewer3dContent {
       let keep_target_for_gizmo = gizmo.event(&mut ctx);
 
       if let Some((MouseButton::Left, ElementState::Pressed)) = mouse(event) {
-        if let Some((nearest, _)) =
-          scene.interaction_picking(&interactive_ctx, &mut self.scene_bounding)
-        {
+        if let Some((nearest, _)) = scene.interaction_picking(&interactive_ctx) {
           self.selections.clear();
           self.selections.select(nearest);
 
