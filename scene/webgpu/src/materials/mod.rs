@@ -423,20 +423,58 @@ impl MaterialsGPUResource {
 
 pub enum SceneMaterialRenderComponent<'a> {
   Flat(FlatMaterialGPU<'a>),
+  PbrMR(PhysicalMetallicRoughnessMaterialGPU<'a>),
+  PbrSG(PhysicalSpecularGlossinessMaterialGPU<'a>),
 }
 
 impl<'a> ShaderHashProvider for SceneMaterialRenderComponent<'a> {
   fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
     std::mem::discriminant(self).hash(hasher);
-    // match self {}
-    todo!()
+    match self {
+      Self::Flat(m) => m.hash_pipeline(hasher),
+      Self::PbrMR(m) => m.hash_pipeline(hasher),
+      Self::PbrSG(m) => m.hash_pipeline(hasher),
+    }
   }
 }
 impl<'a> ShaderHashProviderAny for SceneMaterialRenderComponent<'a> {
   fn hash_pipeline_with_type_info(&self, hasher: &mut PipelineHasher) {
-    todo!()
+    struct Marker;
+    Marker.type_id().hash(hasher);
+    self.hash_pipeline(hasher);
   }
 }
-// todo
-impl<'a> GraphicsShaderProvider for SceneMaterialRenderComponent<'a> {}
-impl<'a> ShaderPassBuilder for SceneMaterialRenderComponent<'a> {}
+impl<'a> GraphicsShaderProvider for SceneMaterialRenderComponent<'a> {
+  fn build(&self, builder: &mut ShaderRenderPipelineBuilder) -> Result<(), ShaderBuildError> {
+    match self {
+      Self::Flat(m) => m.build(builder),
+      Self::PbrMR(m) => m.build(builder),
+      Self::PbrSG(m) => m.build(builder),
+    }
+  }
+
+  fn post_build(&self, builder: &mut ShaderRenderPipelineBuilder) -> Result<(), ShaderBuildError> {
+    match self {
+      Self::Flat(m) => m.post_build(builder),
+      Self::PbrMR(m) => m.post_build(builder),
+      Self::PbrSG(m) => m.post_build(builder),
+    }
+  }
+}
+impl<'a> ShaderPassBuilder for SceneMaterialRenderComponent<'a> {
+  fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
+    match self {
+      Self::Flat(m) => m.setup_pass(ctx),
+      Self::PbrMR(m) => m.setup_pass(ctx),
+      Self::PbrSG(m) => m.setup_pass(ctx),
+    }
+  }
+
+  fn post_setup_pass(&self, ctx: &mut GPURenderPassCtx) {
+    match self {
+      Self::Flat(m) => m.post_setup_pass(ctx),
+      Self::PbrMR(m) => m.post_setup_pass(ctx),
+      Self::PbrSG(m) => m.post_setup_pass(ctx),
+    }
+  }
+}
