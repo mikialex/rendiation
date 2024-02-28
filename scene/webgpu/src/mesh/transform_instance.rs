@@ -20,14 +20,14 @@ pub fn transform_instance_buffer(
 
 pub struct TransformInstanceGPU<'a> {
   instance: &'a TransformInstancedSceneMesh,
-  inner_gpu: &'a dyn RenderComponent,
+  inner_gpu: &'a SceneMeshRenderComponent<'a>,
   instance_buffer: &'a GPUBufferResourceView,
 }
 
 only_vertex!(TransformInstanceMat, Mat4<f32>);
 
 #[repr(C)]
-#[derive(Clone, Copy, rendiation_shader_api::ShaderVertex)]
+#[derive(Clone, Copy, ShaderVertex)]
 pub struct ShaderMat4VertexInput {
   #[semantic(TransformInstanceMat)]
   mat: Mat4<f32>,
@@ -70,25 +70,24 @@ impl<'a> ShaderPassBuilder for TransformInstanceGPU<'a> {
 
 impl<'a> MeshDrawcallEmitter for TransformInstanceGPU<'a> {
   fn draw_command(&self, group: MeshDrawGroup) -> DrawCommand {
-    // let mut c = self.instance.mesh.draw_command(group);
+    let mut c = self.inner_gpu.draw_command(group);
 
-    // let instance_count = self.instance.transforms.len();
+    let instance_count = self.instance.transforms.len() as u32;
 
-    // match &mut c {
-    //   DrawCommand::Indexed { instances, .. } => {
-    //     assert_eq!(*instances, 0..1);
-    //     *instances = 0..instance_count
-    //   }
-    //   DrawCommand::Array { instances, .. } => {
-    //     assert_eq!(*instances, 0..1);
-    //     *instances = 0..instance_count
-    //   }
-    //   DrawCommand::Skip => {}
-    //   DrawCommand::MultiIndirect { .. } => {
-    //     panic!("indirect draw is impossible in the transform instance")
-    //   }
-    // }
-    // c
-    todo!()
+    match &mut c {
+      DrawCommand::Indexed { instances, .. } => {
+        assert_eq!(*instances, 0..1);
+        *instances = 0..instance_count
+      }
+      DrawCommand::Array { instances, .. } => {
+        assert_eq!(*instances, 0..1);
+        *instances = 0..instance_count
+      }
+      DrawCommand::Skip => {}
+      DrawCommand::MultiIndirect { .. } => {
+        panic!("indirect draw is impossible in the transform instance")
+      }
+    }
+    c
   }
 }

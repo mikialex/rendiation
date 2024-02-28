@@ -80,19 +80,32 @@ impl AttributeAccessKey {
       item_byte_size: acc.item_byte_size,
     }
   }
+  pub fn compute_gpu_buffer_range(&self) -> BufferViewRange {
+    let inner_offset = self.range.offset;
+    BufferViewRange {
+      offset: inner_offset + self.byte_offset as u64,
+      size: std::num::NonZeroU64::new((self.count * self.item_byte_size) as u64)
+        .unwrap() // safe
+        .into(),
+    }
+  }
 }
 
+#[global_registered_collection]
 pub fn global_normalized_att_sematic_set(
 ) -> impl ReactiveCollection<AttributeMeshAccessAttribute, ()> {
   global_normalized_att_acc_keys().only_key()
 }
 
+#[global_registered_collection]
 pub fn global_normalized_att_acc_keys(
 ) -> impl ReactiveCollection<AttributeMeshAccessAttribute, AttributeAccessKey> {
   storage_of::<AttributesMesh>().listen_to_reactive_collection_custom(AttributeWatcher)
 }
 
+#[global_registered_collection]
 pub fn global_acc_keys_set() -> impl ReactiveCollection<AttributeAccessKey, ()> {
+  // this should be improved
   global_normalized_att_sematic_set().many_to_one_reduce_key(global_normalized_att_acc_keys())
 }
 
@@ -103,6 +116,7 @@ pub fn make_semantic_filter(
 }
 
 // used for positional related compute(local bounding maintain)
+#[global_registered_collection]
 pub fn global_position_attributes_set() -> impl ReactiveCollection<AttributeAccessKey, ()> {
   global_normalized_att_acc_keys()
     .collective_filter_key(make_semantic_filter(&AttributeSemantic::Positions))
@@ -134,15 +148,12 @@ pub fn gpu_attribute_vertex_buffers(
 ) -> impl ReactiveCollection<AttributeAccessKey, GPUBufferResourceView> {
   global_acc_keys_set().collective_execute_map_by(move || {
     let gpu = gpu.clone();
-    let creator = storage_of::<GeometryBufferImpl>().create_key_mapper(move |buffer, _| {
-      create_gpu_buffer(
-        buffer.buffer.as_slice(), // todo sub range
-        BufferUsages::VERTEX,
-        &gpu.device,
-      )
-      .create_default_view()
-    });
-    move |k, _| creator(k.view)
+    let read_view = storage_of::<GeometryBufferImpl>().read();
+    move |key, _| {
+      let buffer = read_view.get(key.view).unwrap();
+      create_gpu_buffer(buffer.buffer.as_slice(), BufferUsages::VERTEX, &gpu.device)
+        .create_view(map_view(key.compute_gpu_buffer_range()))
+    }
   })
 }
 
@@ -334,90 +345,12 @@ pub fn create_bindless(
   None
 }
 
-// #[pin_project::pin_project]
-// pub struct AttributesMeshGPUReactive {
-//   #[pin]
-//   pub inner: AttributesMeshGPUReactiveInner,
-// }
-
-// impl Stream for AttributesMeshGPUReactive {
-//   type Item = RenderComponentDeltaFlag;
-
-//   fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
-//     let this = self.project();
-//     this.inner.poll_next(cx)
-//   }
-// }
-
-// pub type AttributesMeshGPUReactiveInner = impl
-// AsRef<RenderComponentCell<MaybeBindlessMesh<AttributesMeshGPU>>>
-//   + Stream<Item = RenderComponentDeltaFlag>;
-
-// impl WebGPUMesh for AttributesMesh {
-//   type ReactiveGPU = AttributesMeshGPUReactive;
-
-//   fn create_reactive_gpu(
-//     source: &IncrementalSignalPtr<Self>,
-//     ctx: &ShareBindableResourceCtx,
-//   ) -> Self::ReactiveGPU {
-//     let ctx = ctx.clone();
-
-//     let create = move |mesh: &IncrementalSignalPtr<AttributesMesh>| {
-//       let m = mesh.read();
-//       let gpu = &ctx.gpu;
-//       let m = unsafe { std::mem::transmute(&m.read()) }; // todo why?
-//       if let Some(sys) = &ctx.bindless_mesh
-//         && let Some(mesh) = support_bindless(m, sys, &gpu.device, &gpu.queue)
-//       {
-//         MaybeBindlessMesh::Bindless(mesh)
-//       } else {
-//         let mut custom_storage = ctx.custom_storage.write().unwrap();
-//         let mesh = mesh.read();
-//         let attributes = mesh
-//           .attributes
-//           .iter()
-//           .map(|(s, vertices)| {
-//             let buffer = get_update_buffer(&mut custom_storage, &vertices.view.buffer, &ctx.gpu);
-//             let buffer_view = buffer.create_view(map_view(vertices.compute_gpu_buffer_range()));
-//             (s.clone(), buffer_view)
-//           })
-//           .collect();
-
-//         let indices = mesh.indices.as_ref().map(|(format, i)| {
-//           let buffer = get_update_buffer(&mut custom_storage, &i.view.buffer, &ctx.gpu);
-//           let buffer_view = buffer.create_view(map_view(i.compute_gpu_buffer_range()));
-//           (buffer_view, map_index(*format))
-//         });
-
-//         MaybeBindlessMesh::Traditional(AttributesMeshGPU {
-//           attributes,
-//           indices,
-//           topology: map_topology(mesh.mode),
-//           draw: draw_command(&mesh),
-//         })
-//       }
-//     };
-
-//     let state = RenderComponentCell::new(create(source));
-
-//     let inner = source
-//       .single_listen_by::<()>(any_change_no_init)
-//       .filter_map_sync(source.defer_weak())
-//       .fold_signal(state, move |mesh, state| {
-//         state.inner = create(&mesh);
-//         RenderComponentDeltaFlag::all().into()
-//       });
-
-//     AttributesMeshGPUReactive { inner }
-//   }
-// }
-
-// fn map_view(view: BufferViewRange) -> GPUBufferViewRange {
-//   GPUBufferViewRange {
-//     offset: view.offset,
-//     size: view.size,
-//   }
-// }
+fn map_view(view: BufferViewRange) -> GPUBufferViewRange {
+  GPUBufferViewRange {
+    offset: view.offset,
+    size: view.size,
+  }
+}
 
 pub fn map_topology(
   pt: rendiation_mesh_core::PrimitiveTopology,

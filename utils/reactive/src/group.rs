@@ -1,6 +1,5 @@
 use std::sync::{Arc, Weak};
 
-use parking_lot::RwLockReadGuard;
 use storage::*;
 
 use crate::*;
@@ -74,8 +73,11 @@ impl<T: IncrementalBase> Clone for StorageReadView<T> {
 }
 
 impl<T: IncrementalBase> StorageReadView<T> {
+  pub fn get_raw(&self, index: AllocIdx<T>) -> Option<&SignalItem<T>> {
+    self.inner.try_get(index.index)
+  }
   pub fn get(&self, index: AllocIdx<T>) -> Option<&T> {
-    self.inner.try_get(index.index).map(|v| &v.data)
+    self.get_raw(index).map(|v| &v.data)
   }
 
   pub fn iter(&self) -> impl Iterator<Item = (AllocIdx<T>, &T)> {
@@ -144,13 +146,9 @@ impl<T: IncrementalBase> IncrementalSignalStorage<T> {
     &self,
     mapper: impl Fn(&T, u64) -> V + Send + Sync,
   ) -> impl Fn(AllocIdx<T>) -> V + Send + Sync {
-    let data_holder = self.inner.clone();
-    let guard = self.inner.data.read_recursive();
-    let guard: RwLockReadGuard<'static, IndexReusedVec<SignalItem<T>>> =
-      unsafe { std::mem::transmute(guard) };
+    let read_view = self.read();
     move |key| {
-      let _ = data_holder;
-      let item = guard.get(key.index);
+      let item = read_view.get_raw(key).unwrap();
       mapper(&item.data, item.guid)
     }
   }
