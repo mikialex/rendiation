@@ -32,13 +32,16 @@ impl<'a> SceneRenderResourceGroup<'a> {
 }
 
 pub struct CameraRef<'a, T> {
-  camera: &'a SceneCamera,
+  camera: &'a SceneRenderCameraCtx<'a>,
   inner: T,
 }
 
 impl<'a, T> CameraRef<'a, T> {
   pub fn with(camera: &'a SceneCamera, inner: T) -> Self {
-    CameraRef { camera, inner }
+    CameraRef {
+      camera: todo!(),
+      inner,
+    }
   }
 }
 
@@ -50,14 +53,14 @@ pub trait WebGPUScenePipelineHelper {
 impl<'a> WebGPUScenePipelineHelper for SceneRenderResourceGroup<'a> {
   fn by_main_camera<T>(&self, inner: T) -> CameraRef<T> {
     CameraRef {
-      camera: self.scene.active_camera.as_ref().unwrap(),
+      camera: todo!(),
       inner,
     }
   }
 
   fn by_main_camera_and_self<T>(&self, inner: T) -> CameraSceneRef<T> {
     CameraSceneRef {
-      camera: self.scene.active_camera.as_ref().unwrap(),
+      camera: todo!(),
       scene: self,
       inner,
     }
@@ -71,7 +74,7 @@ impl<'a, T: PassContentWithCamera> PassContent for CameraRef<'a, T> {
 }
 
 pub trait PassContentWithCamera {
-  fn render(&mut self, pass: &mut FrameRenderPass, camera: &SceneCamera);
+  fn render(&mut self, pass: &mut FrameRenderPass, camera: &SceneRenderCameraCtx);
 }
 
 pub trait PassContentWithSceneAndCamera {
@@ -79,12 +82,12 @@ pub trait PassContentWithSceneAndCamera {
     &mut self,
     pass: &mut FrameRenderPass,
     scene: &SceneRenderResourceGroup,
-    camera: &SceneCamera,
+    camera: &SceneRenderCameraCtx,
   );
 }
 
 pub struct CameraSceneRef<'a, T> {
-  pub camera: &'a SceneCamera,
+  pub camera: &'a SceneRenderCameraCtx<'a>,
   pub scene: &'a SceneRenderResourceGroup<'a>,
   pub inner: T,
 }

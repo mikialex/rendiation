@@ -16,6 +16,45 @@ pub struct SceneModelGPUResource {
   std_model: StandardModelGPUResource,
 }
 
+pub struct SceneModelRender<'a> {
+  pub model: &'a SceneModelImpl,
+  pub res: &'a SceneModelGPUResource,
+  pub override_node: Option<&'a NodeGPU>,
+}
+
+impl<'a> SceneRenderable for SceneModelRender<'a> {
+  fn render(
+    &self,
+    pass: &mut FrameRenderPass,
+    dispatcher: &dyn RenderComponentAny,
+    camera: &SceneRenderCameraCtx,
+  ) {
+    let sm = self.model;
+    let node = self.override_node.unwrap_or_else(|| {
+      self
+        .res
+        .nodes
+        .access_ref(&sm.node.scene_and_node_id())
+        .unwrap()
+    });
+    match &sm.model {
+      ModelEnum::Standard(std) => {
+        let (mat, mesh, draw_command) = self.res.std_model.prepare_render(std.alloc_index().into());
+        dispatch_model_draw_with_preferred_binding_frequency(
+          dispatcher,
+          mesh,
+          node,
+          camera.gpu,
+          mat,
+          draw_command,
+          &mut pass.ctx,
+        )
+      }
+      ModelEnum::Foreign(_) => todo!(),
+    }
+  }
+}
+
 impl SceneModelGPUResource {
   pub fn render_scene_model_gles_style(
     &self,

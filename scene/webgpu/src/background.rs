@@ -51,8 +51,7 @@ impl SceneRenderable for SolidBackground {
     &self,
     _pass: &mut FrameRenderPass,
     _dispatcher: &dyn RenderComponentAny,
-    _camera: &SceneCamera,
-    _scene: &SceneRenderResourceGroup,
+    _camera: &SceneRenderCameraCtx,
   ) {
   }
 }
@@ -68,24 +67,24 @@ impl SceneRenderable for EnvMapBackground {
     &self,
     pass: &mut FrameRenderPass,
     base: &dyn RenderComponentAny,
-    camera: &SceneCamera,
-    scene: &SceneRenderResourceGroup,
+    camera: &SceneRenderCameraCtx,
   ) {
-    if let Some(texture) = &scene.scene_resources.cube_env {
-      // let camera_gpu = scene.resources.cameras.get().unwrap();
-      let camera_gpu = todo!();
+    // if let Some(texture) = &scene.scene_resources.cube_env {
+    //   // let camera_gpu = scene.resources.cameras.get().unwrap();
+    //   let camera_gpu = todo!();
 
-      // should we cache it?
-      let content = EnvMapBackgroundGPU { texture };
-      let content = ShadingBackgroundTask {
-        content,
-        camera_gpu,
-      };
+    //   // should we cache it?
+    //   let content = EnvMapBackgroundGPU { texture };
+    //   let content = ShadingBackgroundTask {
+    //     content,
+    //     camera_gpu,
+    //   };
 
-      let components: [&dyn RenderComponentAny; 3] = [&base, &FullScreenQuad::default(), &content];
+    //   let components: [&dyn RenderComponentAny; 3] = [&base, &FullScreenQuad::default(),
+    // &content];
 
-      RenderEmitter::new(components.as_slice()).render(&mut pass.ctx, QUAD_DRAW_CMD);
-    }
+    //   RenderEmitter::new(components.as_slice()).render(&mut pass.ctx, QUAD_DRAW_CMD);
+    // }
   }
 }
 

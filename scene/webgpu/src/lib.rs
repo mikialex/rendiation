@@ -19,22 +19,13 @@ mod system;
 use core::ops::Deref;
 use std::{
   any::{Any, TypeId},
-  cell::RefCell,
   hash::Hash,
-  rc::Rc,
-  sync::{Arc, RwLock},
+  sync::Arc,
 };
 
-use __core::{
-  pin::Pin,
-  task::{Context, Poll},
-};
 pub use background::*;
 use bytemuck::*;
 pub use camera::*;
-use fast_hash_collection::*;
-use futures::stream::FusedStream;
-use futures::*;
 use incremental::*;
 // pub use lights::*;
 pub use materials::*;
@@ -61,7 +52,11 @@ pub trait SceneRenderable {
     &self,
     pass: &mut FrameRenderPass,
     dispatcher: &dyn RenderComponentAny,
-    camera: &SceneCamera,
-    scene: &SceneRenderResourceGroup,
+    camera: &SceneRenderCameraCtx,
   );
+}
+
+pub struct SceneRenderCameraCtx<'a> {
+  pub camera: &'a SceneCameraImpl,
+  pub gpu: &'a CameraGPU,
 }
