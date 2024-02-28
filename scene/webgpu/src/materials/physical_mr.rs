@@ -114,7 +114,10 @@ impl MaterialReferenceTexture for PhysicalMetallicRoughnessMaterial {
       PD::base_color_texture(t) => (TextureType::BaseColor, pick_tex_d(t)),
       PD::metallic_roughness_texture(t) => (TextureType::MetallicRoughness, pick_tex_d(t)),
       PD::emissive_texture(t) => (TextureType::Emissive, pick_tex_d(t)),
-      PD::normal_texture(t) => (TextureType::Normal, pick_normal_tex_d(t)),
+      PD::normal_texture(t) => match pick_normal_tex_d(t) {
+        ChangeReaction::Care(t) => (TextureType::Normal, t),
+        ChangeReaction::NotCare => return,
+      },
       _ => return,
     };
     callback(t, d)

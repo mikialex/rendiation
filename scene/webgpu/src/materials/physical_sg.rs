@@ -115,7 +115,10 @@ impl MaterialReferenceTexture for PhysicalSpecularGlossinessMaterial {
       PD::specular_texture(t) => (TextureType::Specular, pick_tex_d(t)),
       PD::glossiness_texture(t) => (TextureType::Glossiness, pick_tex_d(t)),
       PD::emissive_texture(t) => (TextureType::Emissive, pick_tex_d(t)),
-      PD::normal_texture(t) => (TextureType::Normal, pick_normal_tex_d(t)),
+      PD::normal_texture(t) => match pick_normal_tex_d(t) {
+        ChangeReaction::Care(t) => (TextureType::Normal, t),
+        ChangeReaction::NotCare => return,
+      },
       _ => return,
     };
     callback(t, d)

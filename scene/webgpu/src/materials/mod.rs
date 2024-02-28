@@ -150,9 +150,19 @@ pub(super) fn pick_tex_d(
 
 pub(super) fn pick_normal_tex_d(
   t: &DeltaOf<Option<NormalMapping>>,
-) -> Option<AllocIdx<SceneTexture2DType>> {
-  // Some(merge_maybe(t?).texture.alloc_index().into())
-  todo!()
+) -> ChangeReaction<AllocIdx<SceneTexture2DType>> {
+  match t {
+    Some(change) => match change {
+      MaybeDelta::Delta(d) => match d {
+        NormalMappingDelta::content(content) => {
+          ChangeReaction::Care(Some(content.texture.alloc_index().into()))
+        }
+        NormalMappingDelta::scale(_) => ChangeReaction::NotCare,
+      },
+      MaybeDelta::All(np) => ChangeReaction::Care(Some(np.content.texture.alloc_index().into())),
+    },
+    None => ChangeReaction::Care(None),
+  }
 }
 
 use derivative::Derivative;
