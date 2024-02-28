@@ -8,10 +8,14 @@ pub fn sampler_gpus(
   let cx = cx.clone();
   storage_of::<TextureSampler>()
     .listen_all_instance_changed_set()
-    .collective_execute_gpu_map(cx, |s, cx| {
-      let gpu_sampler = GPUSampler::create(s.into_gpu(), &cx.device);
-      gpu_sampler.create_default_view()
-    })
+    .collective_execute_gpu_map(cx, |s, cx| cx.create_gpu_sampler(s))
+}
+
+impl ResourceGPUCtx {
+  pub fn create_gpu_sampler(&self, s: &TextureSampler) -> GPUSamplerView {
+    let gpu_sampler = GPUSampler::create(s.into_gpu(), &self.device);
+    gpu_sampler.create_default_view()
+  }
 }
 
 // todo, samplers should be deduplicate here, or should we impl this in binding system register

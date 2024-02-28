@@ -3,37 +3,38 @@ use std::sync::RwLockReadGuard;
 
 use crate::*;
 
-pub type ShaderHash = u64;
+// pub type ShaderHash = u64;
 
-pub struct RenderListNormalizationSystem {
-  // should use stream map
-  list: FastHashMap<SceneCamera, OneManyRelationForker<ShaderHash, AllocIdx<SceneModelImpl>>>,
-}
-impl RenderListNormalizationSystem {
-  pub fn new(scene: &Scene) -> Self {
-    // reactive to all camera in the scene
-    todo!()
-  }
-}
-
-pub struct RenderListGLESSystem {
-  // should use stream map
-  base: RenderListNormalizationSystem, // we should keep base to lookup the shaderhash one to many
-  // the transparent is auto implicitly separate by shader hash
-  // gles always require cpu side sort(for transparent, and for opaque performance)
-  distances: FastHashMap<SceneCamera, RxCForker<AllocIdx<SceneModelImpl>, f32>>,
-}
-impl RenderListGLESSystem {
-  pub fn new(upstream: &RenderListNormalizationSystem) -> Self {
-    todo!()
-  }
-}
-
-// #[derive(Default)]
-// pub struct RenderList {
-//   pub(crate) opaque: Vec<(SceneModel, f32)>,
-//   pub(crate) transparent: Vec<(SceneModel, f32)>,
+// pub struct RenderListNormalizationSystem {
+//   // should use stream map
+//   list: FastHashMap<SceneCamera, OneManyRelationForker<ShaderHash, AllocIdx<SceneModelImpl>>>,
 // }
+// impl RenderListNormalizationSystem {
+//   pub fn new(scene: &Scene) -> Self {
+//     // reactive to all camera in the scene
+//     todo!()
+//   }
+// }
+
+// pub struct RenderListGLESSystem {
+//   // should use stream map
+//   base: RenderListNormalizationSystem, // we should keep base to lookup the shaderhash one to
+// many   // the transparent is auto implicitly separate by shader hash
+//   // gles always require cpu side sort(for transparent, and for opaque performance)
+//   distances: FastHashMap<SceneCamera, RxCForker<AllocIdx<SceneModelImpl>, f32>>,
+// }
+// impl RenderListGLESSystem {
+//   pub fn new(upstream: &RenderListNormalizationSystem) -> Self {
+//     todo!()
+//   }
+// }
+
+pub struct RenderList {
+  // hold this view to make sure the alloc idx is valid
+  sm: StorageReadView<SceneModelImpl>,
+  pub(crate) opaque: Vec<(AllocIdx<SceneModel>, f32)>,
+  pub(crate) transparent: Vec<(AllocIdx<SceneModel>, f32)>,
+}
 
 // impl RenderList {
 //   pub fn collect_from_scene_objects(

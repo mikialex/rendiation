@@ -12,7 +12,7 @@ pub fn gpu_texture_2ds(
 }
 
 impl ResourceGPUCtx {
-  fn create_gpu_texture2d(&self, texture: &SceneTexture2DType) -> GPU2DTextureView {
+  pub fn create_gpu_texture2d(&self, texture: &SceneTexture2DType) -> GPU2DTextureView {
     let texture = as_2d_source(texture);
 
     let gpu_texture = if let Some(texture) = texture {

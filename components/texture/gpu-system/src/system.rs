@@ -16,8 +16,21 @@ pub struct GPUTextureBindingSystem {
   inner: Arc<RwLock<BindlessTextureSystem>>,
 }
 
+/// make sure the binding sys has correct default value as the first element inserted
+/// this is essential, because under wgpu, even if we enabled partial bind, we require have at
+/// least one element in bind array, and we also rely on check the handle equals zero to decides
+/// if the item actually exist in shader
+pub struct GPUTextureBindingSystemDefaultResource {
+  pub texture: GPU2DTextureView,
+  pub sampler: GPUSamplerView,
+}
+
 impl GPUTextureBindingSystem {
-  pub fn new(gpu: &GPU, prefer_enable_bindless: bool) -> Self {
+  pub fn new(
+    gpu: &GPU,
+    prefer_enable_bindless: bool,
+    defaults: GPUTextureBindingSystemDefaultResource,
+  ) -> Self {
     let info = gpu.info();
     let mut bindless_effectively_supported = info
       .supported_features
@@ -41,10 +54,14 @@ impl GPUTextureBindingSystem {
 
     let bindless_enabled = prefer_enable_bindless && bindless_effectively_supported;
 
-    Self {
+    let sys = Self {
       bindless_enabled,
       inner: Arc::new(RwLock::new(BindlessTextureSystem::new(bindless_enabled))),
-    }
+    };
+    sys.register_texture(defaults.texture);
+    sys.register_sampler(defaults.sampler);
+
+    sys
   }
 }
 

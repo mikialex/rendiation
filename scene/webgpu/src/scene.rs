@@ -5,6 +5,7 @@ pub struct SceneGPUResource {
   // exist if scene is env background
   pub(crate) cube_env: Option<GPUCubeTextureView>,
   nodes: Arc<dyn ReactiveCollection<NodeIdentity, NodeGPU>>,
+  cameras: Arc<dyn ReactiveCollection<SceneCameraImpl, CameraGPU>>,
 }
 
 impl std::fmt::Debug for SceneGPUResource {
@@ -43,7 +44,6 @@ impl SceneGPUResource {
 // }
 
 pub struct SceneShareContentGPUResource {
-  cameras: Box<dyn ReactiveCollection<SceneCameraImpl, CameraGPU>>,
   attributes_meshes: AttributesMeshGPUResource,
   materials: MaterialGPUResource,
   textures: TextureGPUResource,
@@ -55,10 +55,14 @@ fn create_scene_model_pipeline_hash(
 }
 
 fn create_scene_share_content_gpu_resource(
-  cx: &ResourceGPUCtx,
+  gpu: &GPU,
   all_scene_sm_scope: impl ReactiveCollection<AllocIdx<SceneModelImpl>, ()>,
-  gpu_tex_sys: GPUTextureBindingSystem,
+  prefer_enable_bindless: bool,
 ) -> SceneShareContentGPUResource {
+  let cx = ResourceGPUCtx::new(gpu);
+  let defaults = make_texture_gpu_sys_default(&cx);
+  let gpu_tex_sys = GPUTextureBindingSystem::new(gpu, prefer_enable_bindless, defaults);
+
   let referenced_std_md = all_scene_sm_scope
     .many_to_one_reduce_key(scene_model_ref_std_model_many_one_relation())
     .into_forker();
@@ -74,7 +78,8 @@ fn create_scene_share_content_gpu_resource(
     .many_to_one_reduce_key(all_material_tex_ref_path);
 
   let gpu_tex_sys2 = gpu_tex_sys.clone();
-  let texture2ds = gpu_texture_2ds(cx, all_material_reference_tex_set)
+  let gpu_tex_sys3 = gpu_tex_sys.clone();
+  let texture2ds = gpu_texture_2ds(&cx, all_material_reference_tex_set)
     .collective_execute_map_by(move || {
       let gpu_tex_sys = gpu_tex_sys.clone(); // todo avoid lock access
       move |_, v| gpu_tex_sys.register_texture(v)
@@ -124,6 +129,7 @@ fn create_scene_share_content_gpu_resource(
       .many_to_one_reduce_key(global_material_relations::<
         PhysicalSpecularGlossinessMaterial,
       >());
+
   let sg_material_uniforms =
     physical_sg_material_uniforms(cx.clone(), referenced_sg_material).self_contain_into_boxed();
   let sg_material_tex_uniforms = PhysicalSpecularGlossinessMaterial::create_texture_uniforms(
@@ -152,9 +158,10 @@ fn create_scene_share_content_gpu_resource(
     },
     textures: TextureGPUResource {
       texture2ds,
-      samplers: sampler_gpus_handles(cx, todo!()).into_boxed().into_forker(),
+      samplers: sampler_gpus_handles(&cx, gpu_tex_sys3)
+        .into_boxed()
+        .into_forker(),
     },
-    cameras: todo!(),
   }
 }
 

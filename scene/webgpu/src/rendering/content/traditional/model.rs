@@ -23,9 +23,11 @@ impl SceneModelGPUResource {
     base: &dyn RenderComponentAny,
     camera: &CameraGPU,
     pass: &mut GPURenderPassCtx,
+    override_node: Option<&NodeGPU>,
   ) {
     let sm = self.sm.get(sm.alloc_index().into()).unwrap();
-    let node = self.nodes.access_ref(&sm.node.scene_and_node_id()).unwrap();
+    let node =
+      override_node.unwrap_or_else(|| self.nodes.access_ref(&sm.node.scene_and_node_id()).unwrap());
     match &sm.model {
       ModelEnum::Standard(std) => {
         let (mat, mesh, draw_command) = self.std_model.prepare_render(std.alloc_index().into());
