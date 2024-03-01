@@ -751,6 +751,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "database"
+version = "0.0.1"
+dependencies = [
+ "fast-hash-collection",
+ "futures",
+ "parking_lot",
+ "reactive",
+ "storage",
+]
+
+[[package]]
 name = "derivative"
 version = "2.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2619,7 +2630,6 @@ dependencies = [
 name = "reactive"
 version = "0.0.1"
 dependencies = [
- "dashmap",
  "dyn-clone",
  "dyn-downcast",
  "fast-hash-collection",
@@ -2632,7 +2642,6 @@ dependencies = [
  "reactive-stream",
  "smallvec",
  "storage",
- "tracing",
 ]
 
 [[package]]

@@ -14,8 +14,6 @@ reactive-stream = { path = "../reactive-stream" }
 reactive-collection = { path = "../reactive-collection" }
 storage = { path = "../storage" }
 smallvec = { workspace = true }
-tracing = { workspace = true }
-dashmap = { workspace = true }
 dyn-clone = { workspace = true }
 
 

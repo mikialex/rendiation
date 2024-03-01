@@ -3,6 +3,7 @@ members = [
   "math/algebra",
   "math/geometry",
   "math/statistics",
+  "utils/database",
   "utils/incremental",
   "utils/incremental-derive",
   "utils/reactive",
