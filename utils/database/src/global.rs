@@ -11,7 +11,7 @@ pub fn global_database() -> Database {
   GLOBAL_DATABASE.read().as_ref().unwrap().clone()
 }
 
-pub fn global_entity_of<E>() -> EntityComponentGroup {
+pub fn global_entity_of<E>() -> EntityComponentGroup<E> {
   // global_database().
   todo!()
 }

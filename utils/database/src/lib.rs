@@ -15,21 +15,19 @@ pub use global::*;
 #[derive(Default, Clone)]
 pub struct Database {
   /// ecg forms a DAG
-  pub(crate) ecg_tables: Arc<RwLock<FastHashMap<TypeId, EntityComponentGroup>>>,
-  pub(crate) entity_meta_watcher: EventSource<EntityComponentGroup>,
+  pub(crate) ecg_tables: Arc<RwLock<FastHashMap<TypeId, Box<dyn Any + Send + Sync>>>>,
+  pub(crate) entity_meta_watcher: EventSource<Box<dyn Any + Send + Sync>>,
 }
 
 impl Database {
-  pub fn declare_entity<E: Any>(&self) -> EntityComponentGroup {
-    self.declare_entity_dyn(TypeId::of::<E>())
-  }
-
-  pub fn declare_entity_dyn(&self, type_id: TypeId) -> EntityComponentGroup {
+  pub fn declare_entity<E: Any>(&self) -> EntityComponentGroup<E> {
+    let type_id = TypeId::of::<E>();
     let mut tables = self.ecg_tables.write();
     let ecg = EntityComponentGroup::new(type_id);
-    let previous = tables.insert(type_id, ecg.clone());
+    let boxed: Box<dyn Any + Send + Sync> = Box::new(ecg.clone());
+    self.entity_meta_watcher.emit(&boxed);
+    let previous = tables.insert(type_id, boxed);
     assert!(previous.is_none());
-    self.entity_meta_watcher.emit(&ecg);
     ecg
   }
 
@@ -37,6 +35,9 @@ impl Database {
     let e_id = TypeId::of::<C::Entity>();
     let tables = self.ecg_tables.read_recursive();
     let ecg = tables.get(&e_id).unwrap();
+    let ecg = ecg
+      .downcast_ref::<EntityComponentGroup<C::Entity>>()
+      .unwrap();
     ecg.get_component::<C>().read()
   }
   pub fn write<C: ComponentSemantic>(&self) {
@@ -69,12 +70,20 @@ pub trait ComponentSemantic: Any {
   type Entity: Any;
 }
 
-#[derive(Clone)]
-pub struct EntityComponentGroup {
-  inner: Arc<EntityComponentGroupImpl>,
+pub struct EntityComponentGroup<E> {
+  inner: Arc<EntityComponentGroupImpl<E>>,
 }
 
-pub struct EntityComponentGroupImpl {
+impl<E> Clone for EntityComponentGroup<E> {
+  fn clone(&self) -> Self {
+    Self {
+      inner: self.inner.clone(),
+    }
+  }
+}
+
+pub struct EntityComponentGroupImpl<E> {
+  phantom: PhantomData<E>,
   pub(crate) entity_type_id: TypeId,
   //   pub(crate) next_id: u64,
   //   pub(crate) ids: Vec<u64>,
@@ -89,10 +98,14 @@ pub struct EntityComponentGroupImpl {
   pub(crate) foreign_key_meta_watchers: EventSource<Box<dyn Any + Send + Sync>>,
 }
 
-impl EntityComponentGroupImpl {
-  pub fn new(type_id: TypeId) -> Self {
+unsafe impl<E> Send for EntityComponentGroupImpl<E> {}
+unsafe impl<E> Sync for EntityComponentGroupImpl<E> {}
+
+impl<E: 'static> EntityComponentGroupImpl<E> {
+  pub fn new() -> Self {
     Self {
-      entity_type_id: type_id,
+      phantom: PhantomData,
+      entity_type_id: TypeId::of::<E>(),
       components: Default::default(),
       foreign_keys: Default::default(),
       ref_counts: Default::default(),
@@ -102,10 +115,10 @@ impl EntityComponentGroupImpl {
   }
 }
 
-impl EntityComponentGroup {
+impl<E: 'static> EntityComponentGroup<E> {
   pub fn new(type_id: TypeId) -> Self {
     Self {
-      inner: Arc::new(EntityComponentGroupImpl::new(type_id)),
+      inner: Arc::new(EntityComponentGroupImpl::new()),
     }
   }
   pub fn declare_component<S: ComponentSemantic>(self) -> Self {
@@ -119,9 +132,9 @@ impl EntityComponentGroup {
     let previous = components.insert(semantic, com);
     assert!(previous.is_none());
   }
-  pub fn declare_foreign_key<E: Any>(self) -> Self {
-    let com = ComponentCollection::<AllocIdx<E>>::default();
-    self.declare_foreign_key_dyn(TypeId::of::<E>(), Box::new(com.clone()));
+  pub fn declare_foreign_key<FE: Any>(self) -> Self {
+    let com = ComponentCollection::<AllocIdx<FE>>::default();
+    self.declare_foreign_key_dyn(TypeId::of::<FE>(), Box::new(com.clone()));
     self
   }
   pub fn declare_foreign_key_dyn(&self, entity_type_id: TypeId, com: Box<dyn Any + Send + Sync>) {
@@ -131,8 +144,8 @@ impl EntityComponentGroup {
     assert!(previous.is_none())
   }
 
-  pub fn entity_writer(&self) -> EntityWriter {
-    //
+  pub fn entity_writer(&self) -> EntityWriter<E> {
+    todo!()
   }
 
   pub fn get_component<S: ComponentSemantic>(&self) -> ComponentCollection<S::Data> {
@@ -148,13 +161,13 @@ impl EntityComponentGroup {
 }
 
 /// Holder the all components write lock, optimized for batch entity creation and modification
-pub struct EntityWriter {
-  //
+pub struct EntityWriter<E> {
+  phantom: PhantomData<E>, //
 }
 
-impl EntityWriter {
-  pub fn new_entity() {
-    //
+impl<E> EntityWriter<E> {
+  pub fn new_entity() -> EntityHandle<E> {
+    todo!()
   }
 
   /// note, the referential integrity is not guaranteed and should be guaranteed by the upper level
@@ -249,12 +262,12 @@ fn demo() {
   //     .declare_component::<TestEntity2FieldA, bool>()
   //     .declare_foreign_key::<MyTestEntity>();
 
-  let ptr = global_entity_of::<MyTestEntity>().new_entity(|c| {
-    c.write_component::<TestEntityFieldA>(todo!());
-    c.write_component::<TestEntityFieldB>(todo!());
-    c.write_component::<TestEntityFieldA>(todo!());
-    // not covered component has written by it's default
-  });
+  //   let ptr = global_entity_of::<MyTestEntity>().new_entity(|c| {
+  //     c.write_component::<TestEntityFieldA>(todo!());
+  //     c.write_component::<TestEntityFieldB>(todo!());
+  //     c.write_component::<TestEntityFieldA>(todo!());
+  //     // not covered component has written by it's default
+  //   });
 
   //   let ptr = global_entity_of::<MyTestEntity2>().new_entity(|c| {
   //     c.write_foreign_key::<MyTestEntity>(ptr);
