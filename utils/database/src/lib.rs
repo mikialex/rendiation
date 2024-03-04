@@ -9,8 +9,11 @@ use parking_lot::RwLock;
 use reactive::*;
 use storage::LinkListPool;
 
+mod global;
+use global::*;
+
 pub struct Database {
-  /// each ecg forms a DAG
+  /// ecg forms a DAG
   pub(crate) ecg_tables: Arc<RwLock<FastHashMap<TypeId, EntityComponentGroup>>>,
   pub(crate) entity_meta_watcher: EventSource<EntityComponentGroup>,
 }
@@ -29,11 +32,20 @@ impl Database {
     ecg
   }
 
-  pub fn read<C: ComponentSemantic>(&self) {
+  pub fn read<C: ComponentSemantic>(&self) -> ComponentReadView<C::Data> {
+    let c_id = TypeId::of::<C::Data>();
+    let e_id = TypeId::of::<C::Entity>();
+    let tables = self.ecg_tables.read_recursive();
+    let ecg = tables.get(&e_id).unwrap();
+    todo!()
     // todo
   }
   pub fn write<C: ComponentSemantic>(&self) {
-    // todo
+    let c_id = TypeId::of::<C::Data>();
+    let e_id = TypeId::of::<C::Entity>();
+    let tables = self.ecg_tables.read_recursive();
+    let ecg = tables.get(&e_id).unwrap();
+    todo!()
   }
 
   pub fn add_entity<E: Any>(&self) -> EntityHandle<E> {
@@ -63,14 +75,14 @@ pub struct EntityComponentGroupImpl {
   //   pub(crate) next_id: u64,
   //   pub(crate) ids: Vec<u64>,
   /// the components of entity
-  pub(crate) components: RwLock<FastHashMap<TypeId, Box<dyn Any>>>,
+  pub(crate) components: RwLock<FastHashMap<TypeId, Box<dyn Any + Send + Sync>>>,
   /// the foreign keys of entity, each foreign key express the one to many relation with other ECG.
-  /// each foreign key is dependency between the different ECG
-  pub(crate) foreign_keys: RwLock<FastHashMap<TypeId, Box<dyn Any>>>,
+  /// each foreign key is a dependency between different ECG
+  pub(crate) foreign_keys: RwLock<FastHashMap<TypeId, Box<dyn Any + Send + Sync>>>,
   pub(crate) ref_counts: RwLock<Vec<usize>>,
 
-  pub(crate) components_meta_watchers: EventSource<Box<dyn Any>>,
-  pub(crate) foreign_key_meta_watchers: EventSource<Box<dyn Any>>,
+  pub(crate) components_meta_watchers: EventSource<Box<dyn Any + Send + Sync>>,
+  pub(crate) foreign_key_meta_watchers: EventSource<Box<dyn Any + Send + Sync>>,
 }
 
 impl EntityComponentGroupImpl {
@@ -97,7 +109,7 @@ impl EntityComponentGroup {
     self.declare_component_dyn(TypeId::of::<S>(), Box::new(com));
     self
   }
-  pub fn declare_component_dyn(&self, semantic: TypeId, com: Box<dyn Any>) {
+  pub fn declare_component_dyn(&self, semantic: TypeId, com: Box<dyn Any + Send + Sync>) {
     let mut components = self.inner.components.write();
     self.inner.components_meta_watchers.emit(&com);
     let previous = components.insert(semantic, com);
@@ -108,7 +120,7 @@ impl EntityComponentGroup {
     self.declare_foreign_key_dyn(TypeId::of::<E>(), Box::new(com.clone()));
     self
   }
-  pub fn declare_foreign_key_dyn(&self, entity_type_id: TypeId, com: Box<dyn Any>) {
+  pub fn declare_foreign_key_dyn(&self, entity_type_id: TypeId, com: Box<dyn Any + Send + Sync>) {
     let mut foreign_keys = self.inner.foreign_keys.write();
     self.inner.foreign_key_meta_watchers.emit(&com);
     let previous = foreign_keys.insert(entity_type_id, com);
@@ -125,6 +137,14 @@ pub struct ComponentCollection<T> {
   pub(crate) group_watchers: EventSource<(u32, T)>,
 }
 
+impl<T> ComponentCollection<T> {
+  pub fn read(&self) -> ComponentReadView<T> {
+    ComponentReadView {
+      data: self.data.make_lock_holder_raw(),
+    }
+  }
+}
+
 impl<T> Default for ComponentCollection<T> {
   fn default() -> Self {
     Self {
@@ -133,6 +153,10 @@ impl<T> Default for ComponentCollection<T> {
       group_watchers: Default::default(),
     }
   }
+}
+
+pub struct ComponentReadView<T: 'static> {
+  data: LockResultHolder<Vec<T>>,
 }
 
 // fn demo() {
