@@ -10,8 +10,9 @@ use reactive::*;
 use storage::LinkListPool;
 
 mod global;
-use global::*;
+pub use global::*;
 
+#[derive(Default, Clone)]
 pub struct Database {
   /// ecg forms a DAG
   pub(crate) ecg_tables: Arc<RwLock<FastHashMap<TypeId, EntityComponentGroup>>>,
@@ -33,12 +34,10 @@ impl Database {
   }
 
   pub fn read<C: ComponentSemantic>(&self) -> ComponentReadView<C::Data> {
-    let c_id = TypeId::of::<C::Data>();
     let e_id = TypeId::of::<C::Entity>();
     let tables = self.ecg_tables.read_recursive();
     let ecg = tables.get(&e_id).unwrap();
-    todo!()
-    // todo
+    ecg.get_component::<C>().read()
   }
   pub fn write<C: ComponentSemantic>(&self) {
     let c_id = TypeId::of::<C::Data>();
@@ -54,10 +53,15 @@ impl Database {
   pub fn remove_entity<E: Any>(&self, handle: EntityHandle<E>) {
     // todo
   }
+
+  pub fn check_integrity(&self) {
+    //
+  }
 }
 
 pub struct EntityHandle<T> {
   handle: PhantomData<T>,
+  alloc_index: u32,
 }
 
 pub trait ComponentSemantic: Any {
@@ -126,6 +130,38 @@ impl EntityComponentGroup {
     let previous = foreign_keys.insert(entity_type_id, com);
     assert!(previous.is_none())
   }
+
+  pub fn entity_writer(&self) -> EntityWriter {
+    //
+  }
+
+  pub fn get_component<S: ComponentSemantic>(&self) -> ComponentCollection<S::Data> {
+    let c_id = TypeId::of::<S::Data>();
+    let components = self.inner.components.read();
+    components
+      .get(&c_id)
+      .unwrap()
+      .downcast_ref::<ComponentCollection<S::Data>>()
+      .unwrap()
+      .clone()
+  }
+}
+
+/// Holder the all components write lock, optimized for batch entity creation and modification
+pub struct EntityWriter {
+  //
+}
+
+impl EntityWriter {
+  pub fn new_entity() {
+    //
+  }
+
+  /// note, the referential integrity is not guaranteed and should be guaranteed by the upper level
+  /// implementations
+  pub fn delete_entity() {
+    //
+  }
 }
 
 #[derive(Clone)]
@@ -140,6 +176,11 @@ pub struct ComponentCollection<T> {
 impl<T> ComponentCollection<T> {
   pub fn read(&self) -> ComponentReadView<T> {
     ComponentReadView {
+      data: self.data.make_lock_holder_raw(),
+    }
+  }
+  pub fn write(&self) -> ComponentWriteView<T> {
+    ComponentWriteView {
       data: self.data.make_lock_holder_raw(),
     }
   }
@@ -159,44 +200,79 @@ pub struct ComponentReadView<T: 'static> {
   data: LockResultHolder<Vec<T>>,
 }
 
-// fn demo() {
-//   init_global_database(Default::default());
+impl<T: 'static> ComponentReadView<T> {
+  pub fn get(&self, idx: AllocIdx<T>) -> &T {
+    self.data.get(idx.index as usize).unwrap()
+  }
+}
 
-//   global_database()
-//     .declare_entity::<MyTestEntity>()
-//     .declare_component::<TestEntityFieldA, Mat4<f32>>()
-//     .declare_component::<TestEntityFieldB, u32>()
-//     .declare_component::<TestEntityFieldC, u32>();
+pub struct ComponentWriteView<T: 'static> {
+  data: LockResultHolder<Vec<T>>,
+}
 
-//   global_database()
-//     .declare_entity::<MyTestEntity2>()
-//     .declare_component::<TestEntity2FieldA, bool>()
-//     .declare_foreign_key::<MyTestEntity>();
+impl<T: 'static> ComponentWriteView<T> {
+  pub fn mutate(&self, idx: AllocIdx<T>, new: T) {
+    // self.data.get(idx.index as usize).unwrap()
 
-//   let ptr = global_entity_of::<MyTestEntity>().new_entity(|c| {
-//     c.write_component::<TestEntityFieldA>(todo!());
-//     c.write_component::<TestEntityFieldB>(todo!());
-//     c.write_component::<TestEntityFieldA>(todo!());
-//     // not covered component has written by it's default
-//   });
+    todo!()
+  }
+}
 
-//   let ptr = global_entity_of::<MyTestEntity2>().new_entity(|c| {
-//     c.write_foreign_key::<MyTestEntity>(ptr);
-//   });
+#[macro_export]
+macro_rules! declare_component {
+  ($Type: tt, $EntityTy: ty, $DataTy: ty) => {
+    pub struct $Type;
+    impl ComponentSemantic for $Type {
+      type Data = $DataTy;
+      type Entity = $EntityTy;
+    }
+  };
+}
 
-//   let single_com_read = ptr.read().read_component::<TestEntity2FieldA>();
-//   ptr.write().write_component::<TestEntity2FieldA>(false); // single write
+#[test]
+fn demo() {
+  setup_global_database(Default::default());
 
-//   // batch read
-//   let read_view = global_entity_of::<MyTestEntity>()
-//     .read()
-//     .read_component::<TestEntity2FieldA>();
-//   read_view.get(ptr.idx()).unwrap();
-//   read_view.get(another_ptr.idx()).unwrap();
+  pub struct MyTestEntity;
+  declare_component!(TestEntityFieldA, MyTestEntity, (f32, f32));
+  declare_component!(TestEntityFieldB, MyTestEntity, f32);
+  declare_component!(TestEntityFieldC, MyTestEntity, f32);
 
-//   // batch write
-//   let write_view = global_entity_of::<MyTestEntity>()
-//     .write()
-//     .write_component::<TestEntity2FieldA>();
-//   *write_view.get_mut(ptr.idx()).unwrap() = false;
-// }
+  global_database()
+    .declare_entity::<MyTestEntity>()
+    .declare_component::<TestEntityFieldA>()
+    .declare_component::<TestEntityFieldB>()
+    .declare_component::<TestEntityFieldC>();
+
+  //   global_database()
+  //     .declare_entity::<MyTestEntity2>()
+  //     .declare_component::<TestEntity2FieldA, bool>()
+  //     .declare_foreign_key::<MyTestEntity>();
+
+  let ptr = global_entity_of::<MyTestEntity>().new_entity(|c| {
+    c.write_component::<TestEntityFieldA>(todo!());
+    c.write_component::<TestEntityFieldB>(todo!());
+    c.write_component::<TestEntityFieldA>(todo!());
+    // not covered component has written by it's default
+  });
+
+  //   let ptr = global_entity_of::<MyTestEntity2>().new_entity(|c| {
+  //     c.write_foreign_key::<MyTestEntity>(ptr);
+  //   });
+
+  //   let single_com_read = ptr.read().read_component::<TestEntity2FieldA>();
+  //   ptr.write().write_component::<TestEntity2FieldA>(false); // single write
+
+  //   // batch read
+  //   let read_view = global_entity_of::<MyTestEntity>()
+  //     .read()
+  //     .read_component::<TestEntity2FieldA>();
+  //   read_view.get(ptr.idx()).unwrap();
+  //   read_view.get(another_ptr.idx()).unwrap();
+
+  //   // batch write
+  //   let write_view = global_entity_of::<MyTestEntity>()
+  //     .write()
+  //     .write_component::<TestEntity2FieldA>();
+  //   *write_view.get_mut(ptr.idx()).unwrap() = false;
+}
