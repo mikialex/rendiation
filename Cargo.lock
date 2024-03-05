@@ -754,6 +754,7 @@ dependencies = [
 name = "database"
 version = "0.0.1"
 dependencies = [
+ "arena",
  "fast-hash-collection",
  "futures",
  "parking_lot",

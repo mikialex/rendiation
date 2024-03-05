@@ -4,6 +4,7 @@ use std::{
   sync::Arc,
 };
 
+use arena::*;
 use fast_hash_collection::*;
 use parking_lot::RwLock;
 use reactive::*;
@@ -21,7 +22,7 @@ pub struct Database {
 impl Database {
   pub fn declare_entity<E: Any>(&self) -> EntityComponentGroup<E> {
     let mut tables = self.ecg_tables.write();
-    let ecg = EntityComponentGroup::new();
+    let ecg = EntityComponentGroup::default();
     let boxed: Box<dyn Any + Send + Sync> = Box::new(ecg.clone());
     self.entity_meta_watcher.emit(&boxed);
     let previous = tables.insert(TypeId::of::<E>(), boxed);
@@ -29,28 +30,23 @@ impl Database {
     ecg
   }
 
-  pub fn read<C: ComponentSemantic>(&self) -> ComponentReadView<C::Data> {
-    let e_id = TypeId::of::<C::Entity>();
+  fn access_ecg<E: Any, R>(&self, f: impl FnOnce(&EntityComponentGroup<E>) -> R) -> R {
+    let e_id = TypeId::of::<E>();
     let tables = self.ecg_tables.read_recursive();
     let ecg = tables.get(&e_id).unwrap();
-    let ecg = ecg
-      .downcast_ref::<EntityComponentGroup<C::Entity>>()
-      .unwrap();
-    ecg.get_component::<C>().read()
-  }
-  pub fn write<C: ComponentSemantic>(&self) -> ComponentWriteView<C::Data> {
-    let c_id = TypeId::of::<C::Data>();
-    let e_id = TypeId::of::<C::Entity>();
-    let tables = self.ecg_tables.read_recursive();
-    let ecg = tables.get(&e_id).unwrap();
-    todo!()
+    let ecg = ecg.downcast_ref::<EntityComponentGroup<E>>().unwrap();
+    f(ecg)
   }
 
-  pub fn add_entity<E: Any>(&self) -> EntityHandle<E> {
-    todo!()
+  pub fn read<C: ComponentSemantic>(&self) -> ComponentReadView<C::Data> {
+    self.access_ecg::<C::Entity, _>(|e| e.access_component::<C, _>(|c| c.read()))
   }
-  pub fn remove_entity<E: Any>(&self, handle: EntityHandle<E>) {
-    // todo
+  pub fn write<C: ComponentSemantic>(&self) -> ComponentWriteView<C::Data> {
+    self.access_ecg::<C::Entity, _>(|e| e.access_component::<C, _>(|c| c.write()))
+  }
+
+  pub fn entity_writer<E: Any>(&self) -> EntityWriter<E> {
+    self.access_ecg::<E, _>(|e| e.entity_writer())
   }
 
   pub fn check_integrity(&self) {
@@ -59,12 +55,12 @@ impl Database {
 }
 
 pub struct EntityHandle<T> {
-  handle: PhantomData<T>,
-  alloc_index: u32,
+  ty: PhantomData<T>,
+  handle: Handle<()>,
 }
 
 pub trait ComponentSemantic: Any {
-  type Data: CValue;
+  type Data: CValue + Default;
   type Entity: Any;
 }
 
@@ -82,30 +78,34 @@ impl<E> Clone for EntityComponentGroup<E> {
 
 pub struct EntityComponentGroupImpl<E> {
   phantom: PhantomData<E>,
-  pub(crate) entity_type_id: TypeId,
-  //   pub(crate) next_id: u64,
-  //   pub(crate) ids: Vec<u64>,
+  pub(crate) allocator: Arc<RwLock<Arena<()>>>,
   /// the components of entity
-  pub(crate) components: RwLock<FastHashMap<TypeId, Box<dyn Any + Send + Sync>>>,
+  pub(crate) components: RwLock<FastHashMap<TypeId, Box<dyn DynamicComponent>>>,
   /// the foreign keys of entity, each foreign key express the one to many relation with other ECG.
   /// each foreign key is a dependency between different ECG
-  pub(crate) foreign_keys: RwLock<FastHashMap<TypeId, Box<dyn Any + Send + Sync>>>,
-  pub(crate) ref_counts: RwLock<Vec<usize>>,
+  pub(crate) foreign_keys: RwLock<FastHashMap<TypeId, Box<dyn DynamicComponent>>>,
 
-  pub(crate) components_meta_watchers: EventSource<Box<dyn Any + Send + Sync>>,
-  pub(crate) foreign_key_meta_watchers: EventSource<Box<dyn Any + Send + Sync>>,
+  pub(crate) components_meta_watchers: EventSource<Box<dyn DynamicComponent>>,
+  pub(crate) foreign_key_meta_watchers: EventSource<Box<dyn DynamicComponent>>,
 }
 
 impl<E: Any> Default for EntityComponentGroupImpl<E> {
   fn default() -> Self {
     Self {
       phantom: Default::default(),
-      entity_type_id: TypeId::of::<E>(),
+      allocator: Default::default(),
       components: Default::default(),
       foreign_keys: Default::default(),
-      ref_counts: Default::default(),
       components_meta_watchers: Default::default(),
       foreign_key_meta_watchers: Default::default(),
+    }
+  }
+}
+
+impl<E: Any> Default for EntityComponentGroup<E> {
+  fn default() -> Self {
+    Self {
+      inner: Default::default(),
     }
   }
 }
@@ -114,28 +114,23 @@ unsafe impl<E> Send for EntityComponentGroupImpl<E> {}
 unsafe impl<E> Sync for EntityComponentGroupImpl<E> {}
 
 impl<E: 'static> EntityComponentGroup<E> {
-  pub fn new() -> Self {
-    Self {
-      inner: Arc::new(EntityComponentGroupImpl::default()),
-    }
-  }
   pub fn declare_component<S: ComponentSemantic>(self) -> Self {
     let com = ComponentCollection::<S::Data>::default();
     self.declare_component_dyn(TypeId::of::<S>(), Box::new(com));
     self
   }
-  pub fn declare_component_dyn(&self, semantic: TypeId, com: Box<dyn Any + Send + Sync>) {
+  pub fn declare_component_dyn(&self, semantic: TypeId, com: Box<dyn DynamicComponent>) {
     let mut components = self.inner.components.write();
     self.inner.components_meta_watchers.emit(&com);
     let previous = components.insert(semantic, com);
     assert!(previous.is_none());
   }
   pub fn declare_foreign_key<FE: Any>(self) -> Self {
-    let com = ComponentCollection::<AllocIdx<FE>>::default();
+    let com = ComponentCollection::<Option<AllocIdx<FE>>>::default();
     self.declare_foreign_key_dyn(TypeId::of::<FE>(), Box::new(com.clone()));
     self
   }
-  pub fn declare_foreign_key_dyn(&self, entity_type_id: TypeId, com: Box<dyn Any + Send + Sync>) {
+  pub fn declare_foreign_key_dyn(&self, entity_type_id: TypeId, com: Box<dyn DynamicComponent>) {
     let mut foreign_keys = self.inner.foreign_keys.write();
     self.inner.foreign_key_meta_watchers.emit(&com);
     let previous = foreign_keys.insert(entity_type_id, com);
@@ -143,37 +138,148 @@ impl<E: 'static> EntityComponentGroup<E> {
   }
 
   pub fn entity_writer(&self) -> EntityWriter<E> {
-    todo!()
+    let components = self.inner.components.read_recursive();
+    let components = components
+      .iter()
+      .map(|(id, c)| (*id, c.create_dyn_writer_default()))
+      .collect();
+    let foreign_keys = self.inner.foreign_keys.read_recursive();
+    let foreign_keys = foreign_keys
+      .iter()
+      .map(|(id, c)| (*id, c.create_dyn_writer_default()))
+      .collect();
+    EntityWriter {
+      phantom: PhantomData,
+      components,
+      foreign_keys,
+      allocator: self.inner.allocator.make_write_holder(),
+    }
   }
 
-  pub fn get_component<S: ComponentSemantic>(&self) -> ComponentCollection<S::Data> {
-    let c_id = TypeId::of::<S::Data>();
+  pub fn access_component<S: ComponentSemantic, R>(
+    &self,
+    f: impl FnOnce(&ComponentCollection<S::Data>) -> R,
+  ) -> R {
     let components = self.inner.components.read();
-    components
-      .get(&c_id)
+    f(components
+      .get(&TypeId::of::<S>())
       .unwrap()
-      .downcast_ref::<ComponentCollection<S::Data>>()
+      .as_any()
+      .downcast_ref()
+      .unwrap())
+  }
+}
+
+pub trait EntityComponentWriter {
+  fn write_init_component_value(&mut self, idx: u32);
+  fn delete_component(&mut self, idx: u32);
+  fn take_write_view(&mut self) -> Box<dyn Any>;
+}
+
+pub struct EntityComponentWriterImpl<T: 'static, F> {
+  component: Option<ComponentWriteView<T>>,
+  default_value: F,
+}
+
+impl<T: CValue + Default, F: FnMut() -> T> EntityComponentWriter
+  for EntityComponentWriterImpl<T, F>
+{
+  fn write_init_component_value(&mut self, idx: u32) {
+    self
+      .component
+      .as_mut()
       .unwrap()
-      .clone()
+      .write(idx.into(), (self.default_value)());
+  }
+  fn delete_component(&mut self, idx: u32) {
+    self.component.as_mut().unwrap().delete(idx.into())
+  }
+  fn take_write_view(&mut self) -> Box<dyn Any> {
+    Box::new(self.component.take().unwrap())
+  }
+}
+
+pub trait DynamicComponent: Any + Send + Sync {
+  fn create_dyn_writer_default(&self) -> Box<dyn EntityComponentWriter>;
+  fn as_any(&self) -> &dyn Any;
+}
+
+impl<T: CValue + Default> DynamicComponent for ComponentCollection<T> {
+  fn create_dyn_writer_default(&self) -> Box<dyn EntityComponentWriter> {
+    Box::new(EntityComponentWriterImpl {
+      component: Some(self.write()),
+      default_value: T::default,
+    })
+  }
+
+  fn as_any(&self) -> &dyn Any {
+    self
   }
 }
 
 /// Holder the all components write lock, optimized for batch entity creation and modification
 pub struct EntityWriter<E> {
   phantom: PhantomData<E>, //
-  components: Vec<(TypeId, Box<dyn Any>)>,
-  foreign_keys: Vec<(TypeId, Box<dyn Any>)>,
+  // todo smallvec
+  allocator: LockWriteGuardHolder<Arena<()>>,
+  components: Vec<(TypeId, Box<dyn EntityComponentWriter>)>,
+  foreign_keys: Vec<(TypeId, Box<dyn EntityComponentWriter>)>,
 }
 
 impl<E> EntityWriter<E> {
+  pub fn with_component_writer<C: ComponentSemantic, W: EntityComponentWriter + 'static>(
+    &mut self,
+    writer_maker: impl FnOnce(ComponentWriteView<C>) -> W,
+  ) {
+    for (id, view) in &mut self.components {
+      if *id == TypeId::of::<C>() {
+        let v = view.take_write_view();
+        let v = v.downcast::<ComponentWriteView<C>>().unwrap();
+        *view = Box::new(writer_maker(*v));
+        return;
+      }
+    }
+  }
+
+  pub fn with_entity_writer<FE: Any, W: EntityComponentWriter + 'static>(
+    &mut self,
+    writer_maker: impl FnOnce(ComponentWriteView<FE>) -> W,
+  ) {
+    for (id, view) in &mut self.foreign_keys {
+      if *id == TypeId::of::<FE>() {
+        let v = view.take_write_view();
+        let v = v.downcast::<ComponentWriteView<FE>>().unwrap();
+        *view = Box::new(writer_maker(*v));
+        return;
+      }
+    }
+  }
+
   pub fn new_entity(&mut self) -> EntityHandle<E> {
-    todo!()
+    let handle = self.allocator.insert(());
+    for com in &mut self.components {
+      com.1.write_init_component_value(handle.index() as u32)
+    }
+    for fk in &mut self.foreign_keys {
+      fk.1.write_init_component_value(handle.index() as u32)
+    }
+    EntityHandle {
+      handle,
+      ty: PhantomData,
+    }
   }
 
   /// note, the referential integrity is not guaranteed and should be guaranteed by the upper level
   /// implementations
   pub fn delete_entity(&mut self, handle: EntityHandle<E>) {
-    //
+    let handle = handle.handle;
+    self.allocator.remove(handle).unwrap();
+    for com in &mut self.components {
+      com.1.write_init_component_value(handle.index() as u32)
+    }
+    for fk in &mut self.foreign_keys {
+      fk.1.write_init_component_value(handle.index() as u32)
+    }
   }
 }
 
@@ -228,7 +334,8 @@ pub struct ComponentWriteView<T: 'static> {
 }
 
 impl<T: CValue + Default> ComponentWriteView<T> {
-  pub fn mutate(&mut self, idx: AllocIdx<T>, new: T) {
+  /// todo, add another write method for user
+  fn write(&mut self, idx: AllocIdx<T>, new: T) {
     if self.data.len() <= idx.index as usize {
       self.data.resize(idx.index as usize + 1, T::default());
     }
@@ -241,10 +348,14 @@ impl<T: CValue + Default> ComponentWriteView<T> {
 
     let change = ValueChange::Delta(new, Some(previous));
     self.events.emit(&IndexValueChange { idx, change });
+  }
 
-    // self.data.get(idx.index as usize).unwrap()
+  fn delete(&mut self, idx: AllocIdx<T>) {
+    let com = self.data.get_mut(idx.index as usize).unwrap();
+    let previous = std::mem::take(com);
 
-    todo!()
+    let change = ValueChange::Remove(previous);
+    self.events.emit(&IndexValueChange { idx, change });
   }
 }
 
