@@ -59,6 +59,20 @@ pub struct EntityHandle<T> {
   handle: Handle<()>,
 }
 
+impl<T> Copy for EntityHandle<T> {}
+
+impl<T> Clone for EntityHandle<T> {
+  fn clone(&self) -> Self {
+    *self
+  }
+}
+
+impl<T> EntityHandle<T> {
+  pub fn alloc_idx(&self) -> AllocIdx<T> {
+    (self.handle.index() as u32).into()
+  }
+}
+
 pub trait ComponentSemantic: Any {
   type Data: CValue + Default;
   type Entity: Any;
@@ -206,10 +220,7 @@ pub trait DynamicComponent: Any + Send + Sync {
 
 impl<T: CValue + Default> DynamicComponent for ComponentCollection<T> {
   fn create_dyn_writer_default(&self) -> Box<dyn EntityComponentWriter> {
-    Box::new(EntityComponentWriterImpl {
-      component: Some(self.write()),
-      default_value: T::default,
-    })
+    Box::new(self.write().with_writer(T::default))
   }
 
   fn as_any(&self) -> &dyn Any {
@@ -228,31 +239,35 @@ pub struct EntityWriter<E> {
 
 impl<E> EntityWriter<E> {
   pub fn with_component_writer<C: ComponentSemantic, W: EntityComponentWriter + 'static>(
-    &mut self,
-    writer_maker: impl FnOnce(ComponentWriteView<C>) -> W,
-  ) {
+    mut self,
+    writer_maker: impl FnOnce(ComponentWriteView<C::Data>) -> W,
+  ) -> Self {
     for (id, view) in &mut self.components {
       if *id == TypeId::of::<C>() {
         let v = view.take_write_view();
-        let v = v.downcast::<ComponentWriteView<C>>().unwrap();
+        let v = v.downcast::<ComponentWriteView<C::Data>>().unwrap();
         *view = Box::new(writer_maker(*v));
-        return;
+        return self;
       }
     }
+    self
   }
 
-  pub fn with_entity_writer<FE: Any, W: EntityComponentWriter + 'static>(
-    &mut self,
-    writer_maker: impl FnOnce(ComponentWriteView<FE>) -> W,
-  ) {
+  pub fn with_foreign_key_writer<FE: Any, W: EntityComponentWriter + 'static>(
+    mut self,
+    writer_maker: impl FnOnce(ComponentWriteView<Option<AllocIdx<FE>>>) -> W,
+  ) -> Self {
     for (id, view) in &mut self.foreign_keys {
       if *id == TypeId::of::<FE>() {
         let v = view.take_write_view();
-        let v = v.downcast::<ComponentWriteView<FE>>().unwrap();
+        let v = v
+          .downcast::<ComponentWriteView<Option<AllocIdx<FE>>>>()
+          .unwrap();
         *view = Box::new(writer_maker(*v));
-        return;
+        return self;
       }
     }
+    self
   }
 
   pub fn new_entity(&mut self) -> EntityHandle<E> {
@@ -334,6 +349,13 @@ pub struct ComponentWriteView<T: 'static> {
 }
 
 impl<T: CValue + Default> ComponentWriteView<T> {
+  pub fn with_writer(self, f: impl FnMut() -> T + 'static) -> impl EntityComponentWriter {
+    EntityComponentWriterImpl {
+      component: Some(self),
+      default_value: f,
+    }
+  }
+
   /// todo, add another write method for user
   fn write(&mut self, idx: AllocIdx<T>, new: T) {
     if self.data.len() <= idx.index as usize {
@@ -385,35 +407,34 @@ fn demo() {
     .declare_component::<TestEntityFieldB>()
     .declare_component::<TestEntityFieldC>();
 
-  //   global_database()
-  //     .declare_entity::<MyTestEntity2>()
-  //     .declare_component::<TestEntity2FieldA, bool>()
-  //     .declare_foreign_key::<MyTestEntity>();
+  pub struct MyTestEntity2;
+  declare_component!(TestEntity2FieldA, MyTestEntity, u32);
 
-  //   let ptr = global_entity_of::<MyTestEntity>().new_entity(|c| {
-  //     c.write_component::<TestEntityFieldA>(todo!());
-  //     c.write_component::<TestEntityFieldB>(todo!());
-  //     c.write_component::<TestEntityFieldA>(todo!());
-  //     // not covered component has written by it's default
-  //   });
+  global_database()
+    .declare_entity::<MyTestEntity2>()
+    .declare_component::<TestEntity2FieldA>()
+    .declare_foreign_key::<MyTestEntity>();
 
-  //   let ptr = global_entity_of::<MyTestEntity2>().new_entity(|c| {
-  //     c.write_foreign_key::<MyTestEntity>(ptr);
-  //   });
+  let ptr = global_entity_of::<MyTestEntity>()
+    .entity_writer()
+    .with_component_writer::<TestEntityFieldB, _>(|w| w.with_writer(|| 1.))
+    .new_entity();
+
+  let ptr = global_entity_of::<MyTestEntity2>()
+    .entity_writer()
+    .with_foreign_key_writer::<MyTestEntity, _>(move |w| {
+      w.with_writer(move || Some(ptr.alloc_idx()))
+    })
+    .new_entity();
 
   //   let single_com_read = ptr.read().read_component::<TestEntity2FieldA>();
   //   ptr.write().write_component::<TestEntity2FieldA>(false); // single write
 
-  //   // batch read
-  //   let read_view = global_entity_of::<MyTestEntity>()
-  //     .read()
-  //     .read_component::<TestEntity2FieldA>();
-  //   read_view.get(ptr.idx()).unwrap();
-  //   read_view.get(another_ptr.idx()).unwrap();
+  // batch read
+  let read_view = global_entity_component_of::<TestEntity2FieldA>().read();
+  read_view.get(ptr.alloc_idx().index.into());
+  read_view.get(ptr.alloc_idx().index.into());
 
-  //   // batch write
-  //   let write_view = global_entity_of::<MyTestEntity>()
-  //     .write()
-  //     .write_component::<TestEntity2FieldA>();
-  //   *write_view.get_mut(ptr.idx()).unwrap() = false;
+  // batch write
+  // let write_view =  global_entity_component_of::<TestEntityFieldA>().write().write(idx, new)
 }
