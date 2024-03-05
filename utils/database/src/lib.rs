@@ -7,7 +7,6 @@ use std::{
 use fast_hash_collection::*;
 use parking_lot::RwLock;
 use reactive::*;
-use storage::LinkListPool;
 
 mod global;
 pub use global::*;
@@ -21,12 +20,11 @@ pub struct Database {
 
 impl Database {
   pub fn declare_entity<E: Any>(&self) -> EntityComponentGroup<E> {
-    let type_id = TypeId::of::<E>();
     let mut tables = self.ecg_tables.write();
-    let ecg = EntityComponentGroup::new(type_id);
+    let ecg = EntityComponentGroup::new();
     let boxed: Box<dyn Any + Send + Sync> = Box::new(ecg.clone());
     self.entity_meta_watcher.emit(&boxed);
-    let previous = tables.insert(type_id, boxed);
+    let previous = tables.insert(TypeId::of::<E>(), boxed);
     assert!(previous.is_none());
     ecg
   }
@@ -40,7 +38,7 @@ impl Database {
       .unwrap();
     ecg.get_component::<C>().read()
   }
-  pub fn write<C: ComponentSemantic>(&self) {
+  pub fn write<C: ComponentSemantic>(&self) -> ComponentWriteView<C::Data> {
     let c_id = TypeId::of::<C::Data>();
     let e_id = TypeId::of::<C::Entity>();
     let tables = self.ecg_tables.read_recursive();
@@ -98,13 +96,10 @@ pub struct EntityComponentGroupImpl<E> {
   pub(crate) foreign_key_meta_watchers: EventSource<Box<dyn Any + Send + Sync>>,
 }
 
-unsafe impl<E> Send for EntityComponentGroupImpl<E> {}
-unsafe impl<E> Sync for EntityComponentGroupImpl<E> {}
-
-impl<E: 'static> EntityComponentGroupImpl<E> {
-  pub fn new() -> Self {
+impl<E: Any> Default for EntityComponentGroupImpl<E> {
+  fn default() -> Self {
     Self {
-      phantom: PhantomData,
+      phantom: Default::default(),
       entity_type_id: TypeId::of::<E>(),
       components: Default::default(),
       foreign_keys: Default::default(),
@@ -115,10 +110,13 @@ impl<E: 'static> EntityComponentGroupImpl<E> {
   }
 }
 
+unsafe impl<E> Send for EntityComponentGroupImpl<E> {}
+unsafe impl<E> Sync for EntityComponentGroupImpl<E> {}
+
 impl<E: 'static> EntityComponentGroup<E> {
-  pub fn new(type_id: TypeId) -> Self {
+  pub fn new() -> Self {
     Self {
-      inner: Arc::new(EntityComponentGroupImpl::new()),
+      inner: Arc::new(EntityComponentGroupImpl::default()),
     }
   }
   pub fn declare_component<S: ComponentSemantic>(self) -> Self {
@@ -163,38 +161,44 @@ impl<E: 'static> EntityComponentGroup<E> {
 /// Holder the all components write lock, optimized for batch entity creation and modification
 pub struct EntityWriter<E> {
   phantom: PhantomData<E>, //
+  components: Vec<(TypeId, Box<dyn Any>)>,
+  foreign_keys: Vec<(TypeId, Box<dyn Any>)>,
 }
 
 impl<E> EntityWriter<E> {
-  pub fn new_entity() -> EntityHandle<E> {
+  pub fn new_entity(&mut self) -> EntityHandle<E> {
     todo!()
   }
 
   /// note, the referential integrity is not guaranteed and should be guaranteed by the upper level
   /// implementations
-  pub fn delete_entity() {
+  pub fn delete_entity(&mut self, handle: EntityHandle<E>) {
     //
   }
+}
+
+pub struct IndexValueChange<T> {
+  pub idx: AllocIdx<T>,
+  pub change: ValueChange<T>,
 }
 
 #[derive(Clone)]
 pub struct ComponentCollection<T> {
   pub(crate) data: Arc<RwLock<Vec<T>>>,
-  /// watch this component change with given idx
-  pub(crate) entity_watchers: Arc<RwLock<LinkListPool<EventListener<T>>>>,
   /// watch this component all change with idx
-  pub(crate) group_watchers: EventSource<(u32, T)>,
+  pub(crate) group_watchers: EventSource<IndexValueChange<T>>,
 }
 
 impl<T> ComponentCollection<T> {
   pub fn read(&self) -> ComponentReadView<T> {
     ComponentReadView {
-      data: self.data.make_lock_holder_raw(),
+      data: self.data.make_read_holder(),
     }
   }
   pub fn write(&self) -> ComponentWriteView<T> {
     ComponentWriteView {
-      data: self.data.make_lock_holder_raw(),
+      data: self.data.make_write_holder(),
+      events: self.group_watchers.lock.make_mutex_write_holder(),
     }
   }
 }
@@ -203,14 +207,13 @@ impl<T> Default for ComponentCollection<T> {
   fn default() -> Self {
     Self {
       data: Default::default(),
-      entity_watchers: Default::default(),
       group_watchers: Default::default(),
     }
   }
 }
 
 pub struct ComponentReadView<T: 'static> {
-  data: LockResultHolder<Vec<T>>,
+  data: LockReadGuardHolder<Vec<T>>,
 }
 
 impl<T: 'static> ComponentReadView<T> {
@@ -220,11 +223,25 @@ impl<T: 'static> ComponentReadView<T> {
 }
 
 pub struct ComponentWriteView<T: 'static> {
-  data: LockResultHolder<Vec<T>>,
+  data: LockWriteGuardHolder<Vec<T>>,
+  events: MutexGuardHolder<Source<IndexValueChange<T>>>,
 }
 
-impl<T: 'static> ComponentWriteView<T> {
-  pub fn mutate(&self, idx: AllocIdx<T>, new: T) {
+impl<T: CValue + Default> ComponentWriteView<T> {
+  pub fn mutate(&mut self, idx: AllocIdx<T>, new: T) {
+    if self.data.len() <= idx.index as usize {
+      self.data.resize(idx.index as usize + 1, T::default());
+    }
+    let com = self.data.get_mut(idx.index as usize).unwrap();
+    let previous = std::mem::replace(com, new.clone());
+
+    if previous == new {
+      return;
+    }
+
+    let change = ValueChange::Delta(new, Some(previous));
+    self.events.emit(&IndexValueChange { idx, change });
+
     // self.data.get(idx.index as usize).unwrap()
 
     todo!()
