@@ -1,6 +1,7 @@
 use std::{
   any::{Any, TypeId},
   marker::PhantomData,
+  ops::Deref,
   sync::Arc,
 };
 
@@ -11,6 +12,9 @@ use reactive::*;
 
 mod global;
 pub use global::*;
+
+mod interleave;
+pub use interleave::*;
 
 #[derive(Default, Clone)]
 pub struct Database {
@@ -203,7 +207,7 @@ impl<T: CValue + Default, F: FnMut() -> T> EntityComponentWriter
       .component
       .as_mut()
       .unwrap()
-      .write(idx.into(), (self.default_value)());
+      .write(idx.into(), (self.default_value)(), true);
   }
   fn delete_component(&mut self, idx: u32) {
     self.component.as_mut().unwrap().delete(idx.into())
@@ -290,10 +294,10 @@ impl<E> EntityWriter<E> {
     let handle = handle.handle;
     self.allocator.remove(handle).unwrap();
     for com in &mut self.components {
-      com.1.write_init_component_value(handle.index() as u32)
+      com.1.delete_component(handle.index() as u32)
     }
     for fk in &mut self.foreign_keys {
-      fk.1.write_init_component_value(handle.index() as u32)
+      fk.1.delete_component(handle.index() as u32)
     }
   }
 }
@@ -303,9 +307,53 @@ pub struct IndexValueChange<T> {
   pub change: ValueChange<T>,
 }
 
+pub trait ComponentStorage<T>: Send + Sync {
+  fn create_read_view(&self) -> Box<dyn ComponentStorageReadView<T>>;
+  fn create_read_write_view(&self) -> Box<dyn ComponentStorageReadWriteView<T>>;
+}
+
+pub trait ComponentStorageReadView<T> {
+  fn get(&self, idx: usize) -> Option<&T>;
+}
+pub trait ComponentStorageReadWriteView<T>: ComponentStorageReadView<T> {
+  fn get_mut(&mut self, idx: usize) -> Option<&mut T>;
+}
+
+impl<T: CValue + Default> ComponentStorage<T> for Arc<RwLock<Vec<T>>> {
+  fn create_read_view(&self) -> Box<dyn ComponentStorageReadView<T>> {
+    Box::new(self.make_read_holder())
+  }
+
+  fn create_read_write_view(&self) -> Box<dyn ComponentStorageReadWriteView<T>> {
+    Box::new(self.make_write_holder())
+  }
+}
+
+impl<T> ComponentStorageReadView<T> for LockReadGuardHolder<Vec<T>> {
+  fn get(&self, idx: usize) -> Option<&T> {
+    self.deref().get(idx)
+  }
+}
+impl<T> ComponentStorageReadView<T> for LockWriteGuardHolder<Vec<T>> {
+  fn get(&self, idx: usize) -> Option<&T> {
+    self.deref().get(idx)
+  }
+}
+impl<T: Clone + Default> ComponentStorageReadWriteView<T> for LockWriteGuardHolder<Vec<T>> {
+  fn get_mut(&mut self, idx: usize) -> Option<&mut T> {
+    let data: &mut Vec<T> = self;
+    if data.len() <= idx {
+      data.resize(idx + 1, T::default());
+    }
+    data.get_mut(idx)
+  }
+}
+
 #[derive(Clone)]
 pub struct ComponentCollection<T> {
-  pub(crate) data: Arc<RwLock<Vec<T>>>,
+  // todo make this optional static dispatch for better performance
+  // todo remove arc
+  pub(crate) data: Arc<dyn ComponentStorage<T>>,
   /// watch this component all change with idx
   pub(crate) group_watchers: EventSource<IndexValueChange<T>>,
 }
@@ -313,28 +361,29 @@ pub struct ComponentCollection<T> {
 impl<T> ComponentCollection<T> {
   pub fn read(&self) -> ComponentReadView<T> {
     ComponentReadView {
-      data: self.data.make_read_holder(),
+      data: self.data.create_read_view(),
     }
   }
   pub fn write(&self) -> ComponentWriteView<T> {
     ComponentWriteView {
-      data: self.data.make_write_holder(),
+      data: self.data.create_read_write_view(),
       events: self.group_watchers.lock.make_mutex_write_holder(),
     }
   }
 }
 
-impl<T> Default for ComponentCollection<T> {
+impl<T: CValue + Default> Default for ComponentCollection<T> {
   fn default() -> Self {
+    let data: Arc<RwLock<Vec<T>>> = Default::default();
     Self {
-      data: Default::default(),
+      data: Arc::new(data),
       group_watchers: Default::default(),
     }
   }
 }
 
 pub struct ComponentReadView<T: 'static> {
-  data: LockReadGuardHolder<Vec<T>>,
+  data: Box<dyn ComponentStorageReadView<T>>,
 }
 
 impl<T: 'static> ComponentReadView<T> {
@@ -344,7 +393,7 @@ impl<T: 'static> ComponentReadView<T> {
 }
 
 pub struct ComponentWriteView<T: 'static> {
-  data: LockWriteGuardHolder<Vec<T>>,
+  data: Box<dyn ComponentStorageReadWriteView<T>>,
   events: MutexGuardHolder<Source<IndexValueChange<T>>>,
 }
 
@@ -356,13 +405,17 @@ impl<T: CValue + Default> ComponentWriteView<T> {
     }
   }
 
+  // todo, new create message
   /// todo, add another write method for user
-  fn write(&mut self, idx: AllocIdx<T>, new: T) {
-    if self.data.len() <= idx.index as usize {
-      self.data.resize(idx.index as usize + 1, T::default());
-    }
+  fn write(&mut self, idx: AllocIdx<T>, new: T, is_create: bool) {
     let com = self.data.get_mut(idx.index as usize).unwrap();
     let previous = std::mem::replace(com, new.clone());
+
+    if is_create {
+      let change = ValueChange::Delta(new, None);
+      self.events.emit(&IndexValueChange { idx, change });
+      return;
+    }
 
     if previous == new {
       return;
@@ -406,6 +459,12 @@ fn demo() {
     .declare_component::<TestEntityFieldA>()
     .declare_component::<TestEntityFieldB>()
     .declare_component::<TestEntityFieldC>();
+
+  // global_database().interleave_component_storage([
+  //   TypeId::of::<TestEntityFieldA>(),
+  //   TypeId::of::<TestEntityFieldB>(),
+  //   TypeId::of::<TestEntityFieldC>(),
+  // ]);
 
   pub struct MyTestEntity2;
   declare_component!(TestEntity2FieldA, MyTestEntity, u32);
