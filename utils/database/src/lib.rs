@@ -13,8 +13,8 @@ use reactive::*;
 mod global;
 pub use global::*;
 
-mod interleave;
-pub use interleave::*;
+mod storage;
+pub use storage::*;
 
 #[derive(Default, Clone)]
 pub struct Database {
@@ -307,48 +307,6 @@ pub struct IndexValueChange<T> {
   pub change: ValueChange<T>,
 }
 
-pub trait ComponentStorage<T>: Send + Sync {
-  fn create_read_view(&self) -> Box<dyn ComponentStorageReadView<T>>;
-  fn create_read_write_view(&self) -> Box<dyn ComponentStorageReadWriteView<T>>;
-}
-
-pub trait ComponentStorageReadView<T> {
-  fn get(&self, idx: usize) -> Option<&T>;
-}
-pub trait ComponentStorageReadWriteView<T>: ComponentStorageReadView<T> {
-  fn get_mut(&mut self, idx: usize) -> Option<&mut T>;
-}
-
-impl<T: CValue + Default> ComponentStorage<T> for Arc<RwLock<Vec<T>>> {
-  fn create_read_view(&self) -> Box<dyn ComponentStorageReadView<T>> {
-    Box::new(self.make_read_holder())
-  }
-
-  fn create_read_write_view(&self) -> Box<dyn ComponentStorageReadWriteView<T>> {
-    Box::new(self.make_write_holder())
-  }
-}
-
-impl<T> ComponentStorageReadView<T> for LockReadGuardHolder<Vec<T>> {
-  fn get(&self, idx: usize) -> Option<&T> {
-    self.deref().get(idx)
-  }
-}
-impl<T> ComponentStorageReadView<T> for LockWriteGuardHolder<Vec<T>> {
-  fn get(&self, idx: usize) -> Option<&T> {
-    self.deref().get(idx)
-  }
-}
-impl<T: Clone + Default> ComponentStorageReadWriteView<T> for LockWriteGuardHolder<Vec<T>> {
-  fn get_mut(&mut self, idx: usize) -> Option<&mut T> {
-    let data: &mut Vec<T> = self;
-    if data.len() <= idx {
-      data.resize(idx + 1, T::default());
-    }
-    data.get_mut(idx)
-  }
-}
-
 #[derive(Clone)]
 pub struct ComponentCollection<T> {
   // todo make this optional static dispatch for better performance
@@ -405,7 +363,6 @@ impl<T: CValue + Default> ComponentWriteView<T> {
     }
   }
 
-  // todo, new create message
   /// todo, add another write method for user
   fn write(&mut self, idx: AllocIdx<T>, new: T, is_create: bool) {
     let com = self.data.get_mut(idx.index as usize).unwrap();
@@ -460,11 +417,11 @@ fn demo() {
     .declare_component::<TestEntityFieldB>()
     .declare_component::<TestEntityFieldC>();
 
-  // global_database().interleave_component_storage([
-  //   TypeId::of::<TestEntityFieldA>(),
-  //   TypeId::of::<TestEntityFieldB>(),
-  //   TypeId::of::<TestEntityFieldC>(),
-  // ]);
+  global_database().interleave_component_storages([
+    TypeId::of::<TestEntityFieldA>(),
+    TypeId::of::<TestEntityFieldB>(),
+    TypeId::of::<TestEntityFieldC>(),
+  ]);
 
   pub struct MyTestEntity2;
   declare_component!(TestEntity2FieldA, MyTestEntity, u32);
