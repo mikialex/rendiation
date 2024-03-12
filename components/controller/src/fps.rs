@@ -113,25 +113,25 @@ impl Controller for FPSController {
   }
 }
 
-use winit::event::*;
+use winit::{event::*, keyboard::KeyCode};
 impl ControllerWinitEventSupport for FPSController {
   type State = ();
   fn event<T>(&mut self, _: &mut Self::State, event: &winit::event::Event<T>, _bound: InputBound) {
     match event {
       Event::WindowEvent { event, .. } => match event {
-        WindowEvent::KeyboardInput { input, .. } => {
-          if let KeyboardInput {
-            virtual_keycode: Some(virtual_keycode),
+        WindowEvent::KeyboardInput { event, .. } => {
+          if let KeyEvent {
+            physical_key: winit::keyboard::PhysicalKey::Code(physical_key),
             state,
             ..
-          } = input
+          } = event
           {
             let pressed = *state == ElementState::Pressed;
-            match virtual_keycode {
-              VirtualKeyCode::W => self.forward_active = pressed,
-              VirtualKeyCode::A => self.leftward_active = pressed,
-              VirtualKeyCode::S => self.backward_active = pressed,
-              VirtualKeyCode::D => self.rightward_active = pressed,
+            match physical_key {
+              KeyCode::KeyW => self.forward_active = pressed,
+              KeyCode::KeyA => self.leftward_active = pressed,
+              KeyCode::KeyS => self.backward_active = pressed,
+              KeyCode::KeyD => self.rightward_active = pressed,
               _ => {}
             }
           }

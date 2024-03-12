@@ -11,7 +11,7 @@ once_cell = { workspace = true }
 paste = { workspace = true }
 rendiation-algebra = { path = "../../math/algebra" }
 rendiation-shader-derives = { path = "../derive" }
-wgpu-types = "0.18"
+wgpu-types = "0.19"
 
 [lints]
 workspace = true

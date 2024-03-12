@@ -1,12 +1,18 @@
 use crate::*;
 
 pub trait SurfaceProvider {
-  fn create_surface(&self, instance: &gpu::Instance) -> Result<gpu::Surface, CreateSurfaceError>;
+  fn create_surface<'a>(
+    &'a self,
+    instance: &gpu::Instance,
+  ) -> Result<gpu::Surface<'a>, CreateSurfaceError>;
   fn size(&self) -> Size;
 }
 
 impl SurfaceProvider for winit::window::Window {
-  fn create_surface(&self, instance: &gpu::Instance) -> Result<gpu::Surface, CreateSurfaceError> {
+  fn create_surface<'a>(
+    &'a self,
+    instance: &gpu::Instance,
+  ) -> Result<gpu::Surface<'a>, CreateSurfaceError> {
     unsafe { instance.create_surface(self) }
   }
 
@@ -16,19 +22,19 @@ impl SurfaceProvider for winit::window::Window {
   }
 }
 
-pub struct GPUSurface {
-  pub surface: gpu::Surface,
+pub struct GPUSurface<'a> {
+  pub surface: gpu::Surface<'a>,
   pub config: gpu::SurfaceConfiguration,
   pub capabilities: gpu::SurfaceCapabilities,
   pub size: Size,
 }
 
-impl GPUSurface {
+impl<'a> GPUSurface<'a> {
   #[allow(clippy::or_fun_call)]
   pub(crate) fn new(
     adapter: &gpu::Adapter,
     device: &GPUDevice,
-    surface: gpu::Surface,
+    surface: gpu::Surface<'a>,
     init_resolution: Size,
   ) -> Self {
     let capabilities = surface.get_capabilities(adapter);
@@ -47,6 +53,7 @@ impl GPUSurface {
       height: Into::<usize>::into(init_resolution.height) as u32,
       present_mode: gpu::PresentMode::AutoVsync,
       alpha_mode: gpu::CompositeAlphaMode::Auto,
+      desired_maximum_frame_latency: 2,
     };
 
     surface.configure(device, &config);
