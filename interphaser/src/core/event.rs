@@ -1,9 +1,9 @@
 use crate::*;
 
-pub type PlatformEvent<'a> = winit::event::Event<'a, ()>;
+pub type PlatformEvent = winit::event::Event<()>;
 
 pub struct EventCtx<'a> {
-  pub event: &'a PlatformEvent<'a>,
+  pub event: &'a PlatformEvent,
   pub states: &'a WindowState,
   pub fonts: &'a FontManager,
   pub texts: &'a mut TextCache,

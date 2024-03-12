@@ -1,6 +1,9 @@
 use std::ops::Deref;
 
-use winit::event::*;
+use winit::{
+  event::*,
+  keyboard::{KeyCode, PhysicalKey},
+};
 
 use crate::*;
 
@@ -278,7 +281,7 @@ impl<C: View> EventHandlerImpl<C> for MouseOut {
 // impl details so they are public and export, we should consider warp them in a namespace in the
 // future to prevent potential name collisions
 
-pub fn window_event<'a>(event: &'a Event<()>) -> Option<&'a WindowEvent<'a>> {
+pub fn window_event<'a>(event: &'a Event<()>) -> Option<&'a WindowEvent> {
   match event {
     Event::WindowEvent { event, .. } => Some(event),
     _ => None,
@@ -292,9 +295,17 @@ pub fn mouse(event: &Event<()>) -> Option<(MouseButton, ElementState)> {
   })
 }
 
-pub fn keyboard(event: &Event<()>) -> Option<(Option<VirtualKeyCode>, ElementState)> {
+pub fn keyboard(event: &Event<()>) -> Option<(Option<KeyCode>, ElementState)> {
   window_event(event).and_then(|e| match e {
-    WindowEvent::KeyboardInput { input, .. } => Some((input.virtual_keycode, input.state)),
+    WindowEvent::KeyboardInput {
+      event:
+        KeyEvent {
+          physical_key: PhysicalKey::Code(code),
+          state,
+          ..
+        },
+      ..
+    } => Some((code, state)),
     _ => None,
   })
 }

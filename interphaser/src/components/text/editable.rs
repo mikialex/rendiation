@@ -1,14 +1,14 @@
 use std::time::Duration;
 
 use futures::Stream;
-use winit::event::VirtualKeyCode;
+use winit::keyboard::KeyCode;
 
 use crate::*;
 
 #[derive(Clone)]
 pub enum TextEditMessage {
   ContentChange(String),
-  KeyboardInput(VirtualKeyCode),
+  KeyboardInput(KeyCode),
 }
 
 pub type EditableText = NestedView<impl View + AsMut<Text>, TextEditing>;
@@ -126,8 +126,7 @@ impl TextEditing {
     }
   }
 
-  fn handle_input(&mut self, key: winit::event::VirtualKeyCode) {
-    use winit::event::VirtualKeyCode::*;
+  fn handle_input(&mut self, key: KeyCode) {
     match key {
       Left => self.move_cursor(CursorMove::Left),
       Up => self.move_cursor(CursorMove::Up),
@@ -180,13 +179,11 @@ impl TextEditing {
 
     match ctx.event {
       Event::WindowEvent { event, .. } => match event {
-        WindowEvent::KeyboardInput { input, .. } => {
-          if let Some(virtual_keycode) = input.virtual_keycode {
-            if input.state == ElementState::Pressed {
-              self.handle_input(virtual_keycode);
-              self
-                .events
-                .emit(&TextEditMessage::KeyboardInput(virtual_keycode));
+        WindowEvent::KeyboardInput { event, .. } => {
+          if let winit::keyboard::PhysicalKey::Code(code) = event.physical_key {
+            if event.state == ElementState::Pressed {
+              self.handle_input(code);
+              self.events.emit(&TextEditMessage::KeyboardInput(code));
             }
           }
         }

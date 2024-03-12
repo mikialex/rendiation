@@ -18,10 +18,10 @@ impl WindowSelfState {
       x: self.position.x as f64,
       y: self.position.y as f64,
     }));
-    window.set_inner_size(winit::dpi::LogicalSize {
-      width: self.size.width as f64,
-      height: self.size.height as f64,
-    })
+    // window.set_inner_size(winit::dpi::LogicalSize {
+    //   width: self.size.width as f64,
+    //   height: self.size.height as f64,
+    // })
   }
 }
 
