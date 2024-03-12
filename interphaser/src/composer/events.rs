@@ -298,14 +298,19 @@ pub fn mouse(event: &Event<()>) -> Option<(MouseButton, ElementState)> {
 pub fn keyboard(event: &Event<()>) -> Option<(Option<KeyCode>, ElementState)> {
   window_event(event).and_then(|e| match e {
     WindowEvent::KeyboardInput {
-      event:
-        KeyEvent {
-          physical_key: PhysicalKey::Code(code),
-          state,
-          ..
-        },
+      event: KeyEvent {
+        physical_key,
+        state,
+        ..
+      },
       ..
-    } => Some((code, state)),
+    } => Some((
+      match physical_key {
+        PhysicalKey::Code(code) => Some(*code),
+        _ => None,
+      },
+      *state,
+    )),
     _ => None,
   })
 }

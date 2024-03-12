@@ -11,7 +11,7 @@ pub(crate) const TEXT_CACHE_INIT_SIZE: Size = Size {
 };
 
 pub async fn run_gui(ui: impl View + 'static, init_state: WindowSelfState) {
-  let event_loop = EventLoop::new();
+  let event_loop = EventLoop::new().unwrap();
 
   let mut window = Window::new(&event_loop, init_state.into(), futures::stream::pending());
 
@@ -19,8 +19,8 @@ pub async fn run_gui(ui: impl View + 'static, init_state: WindowSelfState) {
 
   let mut app = Application::new(ui);
 
-  event_loop.run(move |event, _, control_flow| {
-    *control_flow = window.event(&event);
+  event_loop.run(move |event, window_target| {
+    window_target.set_control_flow(window.event(&event));
 
     app.event(&event, renderer.gpu.clone(), &window.window_states);
     // todo window.poll_next_unpin(cx)
@@ -33,7 +33,10 @@ pub async fn run_gui(ui: impl View + 'static, init_state: WindowSelfState) {
         let size = Size::from_u32_pair_min_one((size.width, size.height));
         renderer.resize(size);
       }
-      Event::RedrawRequested(_) => {
+      Event::WindowEvent {
+        event: WindowEvent::RedrawRequested,
+        ..
+      } => {
         let presentation = app.encode_presentation(window.window_states.size);
         renderer.render(&presentation, &app.fonts, &mut app.texts);
       }
