@@ -1,3 +1,5 @@
+#![feature(alloc_layout_extra)]
+
 use std::{
   any::{Any, TypeId},
   marker::PhantomData,
@@ -155,6 +157,27 @@ impl<E: 'static> EntityComponentGroup<E> {
     assert!(previous.is_none())
   }
 
+  pub fn iter_entity_idx(&self) -> impl Iterator<Item = u32> {
+    let inner = self.inner.allocator.make_read_holder();
+    struct Iter {
+      iter: arena::Iter<'static, ()>,
+      _holder: LockReadGuardHolder<Arena<()>>,
+    }
+
+    impl Iterator for Iter {
+      type Item = u32;
+
+      fn next(&mut self) -> Option<Self::Item> {
+        self.iter.next().map(|(idx, _)| idx.index() as u32)
+      }
+    }
+
+    Iter {
+      iter: unsafe { std::mem::transmute(inner.iter()) },
+      _holder: inner,
+    }
+  }
+
   pub fn entity_writer(&self) -> EntityWriter<E> {
     let components = self.inner.components.read_recursive();
     let components = components
@@ -203,11 +226,11 @@ impl<T: CValue + Default, F: FnMut() -> T> EntityComponentWriter
   for EntityComponentWriterImpl<T, F>
 {
   fn write_init_component_value(&mut self, idx: u32) {
-    self
-      .component
-      .as_mut()
-      .unwrap()
-      .write(idx.into(), (self.default_value)(), true);
+    let com = self.component.as_mut().unwrap();
+
+    com.data.grow_at_least(idx as usize);
+
+    com.write_impl(idx.into(), (self.default_value)(), true);
   }
   fn delete_component(&mut self, idx: u32) {
     self.component.as_mut().unwrap().delete(idx.into())
@@ -363,8 +386,11 @@ impl<T: CValue + Default> ComponentWriteView<T> {
     }
   }
 
-  /// todo, add another write method for user
-  fn write(&mut self, idx: AllocIdx<T>, new: T, is_create: bool) {
+  pub fn write(&mut self, idx: AllocIdx<T>, new: T) {
+    self.write_impl(idx, new, false);
+  }
+
+  fn write_impl(&mut self, idx: AllocIdx<T>, new: T, is_create: bool) {
     let com = self.data.get_mut(idx.index as usize).unwrap();
     let previous = std::mem::replace(com, new.clone());
 
@@ -417,11 +443,12 @@ fn demo() {
     .declare_component::<TestEntityFieldB>()
     .declare_component::<TestEntityFieldC>();
 
-  global_database().interleave_component_storages([
-    TypeId::of::<TestEntityFieldA>(),
-    TypeId::of::<TestEntityFieldB>(),
-    TypeId::of::<TestEntityFieldC>(),
-  ]);
+  global_database().interleave_component_storages(|builder| {
+    builder
+      .with_type::<TestEntityFieldA>()
+      .with_type::<TestEntityFieldB>()
+      .with_type::<TestEntityFieldC>()
+  });
 
   pub struct MyTestEntity2;
   declare_component!(TestEntity2FieldA, MyTestEntity, u32);

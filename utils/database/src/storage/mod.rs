@@ -11,5 +11,6 @@ pub trait ComponentStorageReadView<T> {
   fn get(&self, idx: usize) -> Option<&T>;
 }
 pub trait ComponentStorageReadWriteView<T>: ComponentStorageReadView<T> {
+  fn grow_at_least(&mut self, max: usize);
   fn get_mut(&mut self, idx: usize) -> Option<&mut T>;
 }

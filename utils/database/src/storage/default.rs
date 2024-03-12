@@ -23,9 +23,13 @@ impl<T> ComponentStorageReadView<T> for LockWriteGuardHolder<Vec<T>> {
 impl<T: Clone + Default> ComponentStorageReadWriteView<T> for LockWriteGuardHolder<Vec<T>> {
   fn get_mut(&mut self, idx: usize) -> Option<&mut T> {
     let data: &mut Vec<T> = self;
-    if data.len() <= idx {
-      data.resize(idx + 1, T::default());
-    }
     data.get_mut(idx)
+  }
+
+  fn grow_at_least(&mut self, max: usize) {
+    let data: &mut Vec<T> = self;
+    if data.len() <= max {
+      data.resize(max + 1, T::default());
+    }
   }
 }
