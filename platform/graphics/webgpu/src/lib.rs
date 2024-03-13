@@ -38,11 +38,12 @@ pub use gpu::Features;
 pub use gpu::{
   util, util::DeviceExt, vertex_attr_array, AddressMode, Backends, BindGroup, BindGroupDescriptor,
   BindGroupEntry, BindGroupLayout, BindGroupLayoutDescriptor, BindingResource, Buffer,
-  BufferAsyncError, Color, CompareFunction, CreateSurfaceError, Device, FilterMode, FragmentState,
-  IndexFormat, Limits, LoadOp, Operations, PipelineLayoutDescriptor, PowerPreference, Queue,
-  RenderPipeline, RenderPipelineDescriptor, RequestDeviceError, Sampler, SamplerBorderColor,
-  SamplerDescriptor, ShaderModuleDescriptor, ShaderSource, ShaderStages, StoreOp, TextureView,
-  TextureViewDescriptor, VertexBufferLayout, VertexState,
+  BufferAsyncError, Color, CommandEncoder, CompareFunction, CreateSurfaceError, Device, FilterMode,
+  FragmentState, IndexFormat, Limits, LoadOp, Operations, PipelineLayoutDescriptor,
+  PowerPreference, Queue, RenderPassColorAttachment, RenderPassDescriptor, RenderPipeline,
+  RenderPipelineDescriptor, RequestDeviceError, Sampler, SamplerBorderColor, SamplerDescriptor,
+  ShaderModuleDescriptor, ShaderSource, ShaderStages, StoreOp, TextureView, TextureViewDescriptor,
+  VertexBufferLayout, VertexState,
 };
 pub use pass::*;
 pub use pipeline::*;

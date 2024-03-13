@@ -20,7 +20,6 @@ members = [
   "utility/fast-hash-collection",
   "content/animation",
   "content/color",
-  "content/controller",
   "content/mesh/core",
   "content/mesh/generator",
   "content/mesh/simplification",
@@ -55,6 +54,7 @@ members = [
   "scene/io/gltf/loader",
   "scene/io/gltf/exporter",
   "platform/graphics/webgpu",
+  "application/viewer",
 ]
 
 # https://doc.rust-lang.org/nightly/cargo/reference/features.html#feature-resolver-version-2
@@ -84,7 +84,7 @@ rand = "0.8.5"
 # https://doc.rust-lang.org/cargo/reference/profiles.html
 
 # currently our implementation not provide panic safety and panic recovery
-# and also enable unwind is bad for performance
+# and also, enable unwinding support is bad for performance and binary size
 
 [profile.dev]
 panic = "abort"

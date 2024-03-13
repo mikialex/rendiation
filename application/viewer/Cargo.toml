@@ -1,0 +1,54 @@
+[package]
+authors = ["MikiAlex <18516340862@163.com>"]
+edition = "2021"
+name = "viewer"
+version = "0.1.0"
+
+[dependencies]
+bytemuck = { workspace = true, features = ["derive"] }
+env_logger = "0.8.4"
+futures = { workspace = true, features = ["thread-pool"] }
+
+dirs = "4.0.0"
+image = "*"
+png = "*"      # for better control over writing
+
+fast-hash-collection = { path = "../../utility/fast-hash-collection" }
+heap-tools = { path = "../../utility/heap-tools" }
+incremental = { path = "../../utility/incremental" }
+log = { workspace = true }
+pin-project = { workspace = true }
+rayon = { workspace = true }
+reactive = { path = "../../utility/reactive" }
+rendiation-algebra = { path = "../../math/algebra" }
+rendiation-generative-texture = { path = "../../content/texture/generative" }
+rendiation-texture-gpu-process = { path = "../../content/texture/gpu-process" }
+rendiation-geometry = { path = "../../math/geometry" }
+rendiation-mesh-core = { path = "../../content/mesh/core" }
+rendiation-mesh-generator = { path = "../../content/mesh/generator" }
+rendiation-scene-core = { path = "../../scene/core" }
+rendiation-scene-gltf-exporter = { path = "../../scene/io/gltf/exporter" }
+rendiation-scene-gltf-loader = { path = "../../scene/io/gltf/loader" }
+rendiation-scene-interaction = { path = "../../scene/interaction" }
+rendiation-scene-obj-loader = { path = "../../scene/io/obj/loader" }
+rendiation-scene-webgpu = { path = "../../scene/webgpu" }
+rendiation-shader-api = { path = "../../shader/api" }
+rendiation-texture = { path = "../../content/texture/core" }
+interning = { path = "../../utility/interning" }
+webgpu = { package = "rendiation-webgpu", path = "../../platform/graphics/webgpu" }
+
+egui = "0.26"
+egui-wgpu = "0.26.0"
+egui-winit = "0.26.0"
+winit = { workspace = true }
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+console_error_panic_hook = "0.1.6"
+wasm-bindgen-futures = "0.4.28"
+
+[features]
+heap-debug = ["heap-tools/enabled"]
+webgl = ["webgpu/webgl"]
+
+[lints]
+workspace = true
