@@ -93,7 +93,10 @@ impl GPUCanvas {
     };
 
     match event.event {
-      Event::RedrawRequested(_) => {
+      Event::WindowEvent {
+        event: winit::event::WindowEvent::RedrawRequested,
+        ..
+      } => {
         let new_size = self.drawer.update_render_size(self.layout.size.into());
         if new_size != self.current_render_buffer_size {
           self.content = None;

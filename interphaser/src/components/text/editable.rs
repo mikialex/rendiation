@@ -186,14 +186,14 @@ impl TextEditing {
               self.events.emit(&TextEditMessage::KeyboardInput(code));
             }
           }
+          if let Some(text) = event.text {
+            self.insert_at_cursor(text.chars().next().unwrap());
+          }
         }
         WindowEvent::MouseInput { state, button, .. } => {
           if let (MouseButton::Left, ElementState::Pressed) = (button, state) {
             self.update_cursor_by_click(ctx.states.mouse_position, ctx.fonts, ctx.texts, text);
           }
-        }
-        WindowEvent::ReceivedCharacter(char) => {
-          self.insert_at_cursor(*char);
         }
         _ => {}
       },

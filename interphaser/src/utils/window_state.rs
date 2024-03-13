@@ -1,4 +1,4 @@
-use winit::event::*;
+use winit::{event::*, keyboard::KeyCode};
 
 use crate::*;
 
@@ -9,7 +9,7 @@ pub struct WindowState {
   pub is_left_mouse_down: bool,
   pub is_right_mouse_down: bool,
   pub mouse_wheel_delta: (f32, f32),
-  pub pressed_key: FastHashSet<VirtualKeyCode>,
+  pub pressed_key: FastHashSet<KeyCode>,
   pub device_pixel_ratio: f32,
 }
 
@@ -47,11 +47,7 @@ impl WindowState {
         WindowEvent::Resized(size) => {
           self.update_size(size);
         }
-        WindowEvent::ScaleFactorChanged {
-          scale_factor,
-          new_inner_size,
-        } => {
-          self.update_size(new_inner_size);
+        WindowEvent::ScaleFactorChanged { scale_factor, .. } => {
           self.device_pixel_ratio = *scale_factor as f32;
         }
         WindowEvent::MouseInput { button, state, .. } => match button {
@@ -74,9 +70,9 @@ impl WindowState {
           self.mouse_move_to(position);
         }
         WindowEvent::KeyboardInput {
-          input:
-            KeyboardInput {
-              virtual_keycode: Some(virtual_keycode),
+          event:
+            KeyEvent {
+              physical_key: winit::keyboard::PhysicalKey::Code(virtual_keycode),
               state,
               ..
             },
