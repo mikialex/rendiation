@@ -13,7 +13,6 @@ use egui_winit::winit::{
   window::WindowBuilder,
 };
 use rendiation_scene_core::*;
-use rendiation_scene_webgpu::*;
 
 mod ui;
 // mod viewer;
@@ -35,15 +34,16 @@ fn main() {
   futures::executor::block_on(run())
 }
 
+#[allow(clippy::single_match)]
 pub async fn run() {
   let event_loop = EventLoop::new().unwrap();
   let window = WindowBuilder::new().build(&event_loop).unwrap();
+  window.set_title("viewer");
 
-  let mut minimal_required_features = webgpu::Features::all_webgpu_mask();
+  let minimal_required_features = webgpu::Features::all_webgpu_mask();
   // minimal_required_features.insert(Features::TEXTURE_BINDING_ARRAY);
   // minimal_required_features.insert(Features::BUFFER_BINDING_ARRAY);
   // minimal_required_features.insert(Features::PARTIALLY_BOUND_BINDING_ARRAY);
-  minimal_required_features.remove(webgpu::Features::TIMESTAMP_QUERY); // note: on macos we currently do not have this
 
   let config = GPUCreateConfig {
     surface_for_compatible_check_init: Some((&window, Size::from_usize_pair_min_one((300, 200)))),
@@ -58,13 +58,15 @@ pub async fn run() {
   // let viewer = Viewer::new();
   let mut egui_renderer = EguiRenderer::new(&gpu.device, surface.config.format, None, 1, &window);
 
-  let _ = event_loop.run(move |event, ewlt| match event {
+  let _ = event_loop.run(move |event, target| match event {
     Event::WindowEvent { ref event, .. } => {
       // viewer.event(event, states, position_info);
-      window.request_redraw();
       egui_renderer.handle_input(&window, event);
 
       match event {
+        WindowEvent::CloseRequested => {
+          target.exit();
+        }
         WindowEvent::Resized(physical_size) => {
           // viewer.update_render_size(physical_size);
           surface.resize(
@@ -94,7 +96,7 @@ pub async fn run() {
             });
 
           let screen_descriptor = egui_wgpu::ScreenDescriptor {
-            size_in_pixels: [300, 200],
+            size_in_pixels: [window.inner_size().width, window.inner_size().height],
             pixels_per_point: window.scale_factor() as f32,
           };
 
@@ -105,11 +107,12 @@ pub async fn run() {
             &window,
             &view,
             screen_descriptor,
-            |ui| ui_logic(ui),
+            ui_logic,
           );
 
           gpu.queue.submit(std::iter::once(encoder.finish()));
           output.present();
+          window.request_redraw();
         }
 
         _ => {}
@@ -121,7 +124,7 @@ pub async fn run() {
 
 pub fn ui_logic(ui: &egui::Context) {
   egui::Window::new("Test Viewer")
-    // .vscroll(true)
+    .vscroll(true)
     .default_open(true)
     .max_width(1000.0)
     .max_height(800.0)
