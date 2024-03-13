@@ -13,7 +13,7 @@ impl SurfaceProvider for winit::window::Window {
     &'a self,
     instance: &gpu::Instance,
   ) -> Result<gpu::Surface<'a>, CreateSurfaceError> {
-    unsafe { instance.create_surface(self) }
+    instance.create_surface(self)
   }
 
   fn size(&self) -> Size {

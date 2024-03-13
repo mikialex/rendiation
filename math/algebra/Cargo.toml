@@ -8,7 +8,7 @@ bytemuck = { workspace = true, features = ["derive"] }
 num-traits = "0.2"
 paste = { workspace = true }
 
-incremental = { path = "../../utils/incremental" }
+incremental = { path = "../../utility/incremental" }
 
 [dev-dependencies]
 cgmath = "0.18.0"

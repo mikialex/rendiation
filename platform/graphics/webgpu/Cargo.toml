@@ -6,15 +6,15 @@ version = "0.1.0"
 
 [dependencies]
 bytemuck = { workspace = true, features = ["derive"] }
-dyn-downcast = { path = "../../../utils/dyn-downcast" }
-fast-hash-collection = { path = "../../../utils/fast-hash-collection" }
+dyn-downcast = { path = "../../../utility/dyn-downcast" }
+fast-hash-collection = { path = "../../../utility/fast-hash-collection" }
 futures = { workspace = true }
 naga = { version = "0.19.0", features = ["wgsl-out"] }
-reactive = { path = "../../../utils/reactive" }
+reactive = { path = "../../../utility/reactive" }
 rendiation-algebra = { path = "../../../math/algebra" }
 rendiation-shader-api = { path = "../../../shader/api" }
 rendiation-shader-backend-naga = { path = "../../../shader/backends/naga" }
-rendiation-texture-types = { path = "../../../components/texture/types" }
+rendiation-texture-types = { path = "../../../content/texture/types" }
 thiserror = "1.0.43"
 typed-arena = "2.0.1"
 wgpu = { version = "0.19", features = ["naga-ir"] }

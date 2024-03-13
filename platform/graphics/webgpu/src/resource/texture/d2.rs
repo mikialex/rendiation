@@ -77,7 +77,7 @@ pub trait WebGPU2DTextureSource: Send + Sync {
   fn as_bytes(&self) -> &[u8];
   fn size(&self) -> Size;
   fn bytes_per_pixel(&self) -> usize {
-    self.format().block_size(None).unwrap() as usize
+    self.format().block_copy_size(None).unwrap() as usize
   }
 
   fn bytes_per_row_usize(&self) -> usize {
