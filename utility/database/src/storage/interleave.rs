@@ -2,7 +2,11 @@ use std::{alloc::Layout, cell::UnsafeCell};
 
 use crate::*;
 
-/// improve the cache locality of given combination of components
+/// improve the cache locality of given combination of components. This is as known as
+/// the AOS (array of struct) storage type.
+///
+/// The access performance is not as good as static AOS because the memory access offset is computed
+/// dynamically.
 pub struct InterleavedDataContainer {
   pub inner: Arc<InterleavedDataContainerInner>,
   pub idx: usize,
@@ -16,6 +20,7 @@ pub struct InterleavedDataContainerInner {
   pub locks: Vec<Arc<RwLock<()>>>,
 }
 
+/// The actual untyped storage buffer
 struct DynBuffer {
   ptr: *mut u8,
   capacity: usize,
@@ -90,6 +95,7 @@ impl<T: 'static> ComponentStorage<T> for InterleavedDataContainer {
       offset: self.inner.offsets[self.idx],
       stride: self.inner.stride,
       data: self.inner.clone(),
+      id: self.idx,
       _guard: self.inner.locks[self.idx].make_write_holder(),
     })
   }
@@ -121,6 +127,7 @@ pub struct InterleavedDataContainerReadWriteView<T> {
   phantom: PhantomData<T>,
   offset: usize,
   stride: usize,
+  id: usize,
   data: Arc<InterleavedDataContainerInner>,
   _guard: LockWriteGuardHolder<()>,
 }
@@ -139,10 +146,26 @@ impl<T> ComponentStorageReadWriteView<T> for InterleavedDataContainerReadWriteVi
 
   fn grow_at_least(&mut self, max: usize) {
     unsafe {
+      /// note, we only allow one write view to do resize. and when resizing, we need make sure
+      /// the other component is nether write nor read, or it will cause a deadlock.
+      use parking_lot::lock_api::RawRwLock;
+      for (id, lock) in self.data.locks.iter().enumerate() {
+        let lock = lock.raw();
+        if id != self.id {
+          lock.lock_exclusive()
+        }
+      }
+
       let vec = self.data.data.get();
 
       if (*vec).len <= max * self.stride {
         (*vec).resize((max + 1) * self.stride);
+      }
+
+      for (id, lock) in self.data.locks.iter().enumerate() {
+        if id != self.id {
+          lock.raw().unlock_exclusive();
+        }
       }
     }
   }
@@ -162,16 +185,33 @@ impl<T> ComponentStorageReadView<T> for InterleavedDataContainerReadWriteView<T>
   }
 }
 
-#[derive(Default)]
-pub struct InterleavedDataContainerBuilder {
+/// All interleave component has same allocation layout, so the must in same entity(E);
+
+pub struct InterleavedDataContainerBuilder<E> {
+  phantom: PhantomData<E>,
   layout: Option<Layout>,
   layouts: Vec<Layout>,
   offsets: Vec<usize>,
   ids: Vec<TypeId>,
 }
 
-impl InterleavedDataContainerBuilder {
-  pub fn with_type<T: Any>(&mut self) -> &mut Self {
+impl<E> Default for InterleavedDataContainerBuilder<E> {
+  fn default() -> Self {
+    Self {
+      phantom: Default::default(),
+      layout: Default::default(),
+      layouts: Default::default(),
+      offsets: Default::default(),
+      ids: Default::default(),
+    }
+  }
+}
+
+impl<E> InterleavedDataContainerBuilder<E> {
+  pub fn with_type<T>(&mut self) -> &mut Self
+  where
+    T: ComponentSemantic<Entity = E>,
+  {
     self.with_type_impl(TypeId::of::<T>(), Layout::new::<T>())
   }
   pub fn with_type_impl(&mut self, id: TypeId, new_layout: Layout) -> &mut Self {
@@ -196,18 +236,48 @@ impl InterleavedDataContainerBuilder {
 }
 
 impl Database {
-  /// currently, we assume all storage is converted from the default storage type.
-  pub fn interleave_component_storages(
+  /// currently, we assume all storage is converted from the default storage type and no data
+  /// exists.
+  pub fn interleave_component_storages<E: Any>(
     self,
-    builder: impl FnOnce(&mut InterleavedDataContainerBuilder) -> &mut InterleavedDataContainerBuilder,
+    build: impl FnOnce(
+      &mut InterleavedDataContainerBuilder<E>,
+    ) -> &mut InterleavedDataContainerBuilder<E>,
   ) -> Self {
-    // let inner = self
-    //   .component_storage
-    //   .get(&ids[0])
-    //   .unwrap()
-    //   .create_read_write_view()
-    //   .downcast::<InterleavedDataContainerInner>()
+    // collect the components that requires interleave
+    let mut builder = InterleavedDataContainerBuilder::default();
+    build(&mut builder);
 
+    let combined_layout = builder.layout.unwrap();
+    let stride = combined_layout.size();
+
+    // create the underlayer storage
+    let data = DynBuffer::with_capacity(0, combined_layout.align(), stride);
+    let buffer = InterleavedDataContainerInner {
+      data: UnsafeCell::new(data),
+      offsets: builder.offsets,
+      stride,
+      locks: std::iter::repeat(Arc::new(RwLock::new(())))
+        .take(builder.layouts.len())
+        .collect(),
+    };
+    let buffer = Arc::new(buffer);
+
+    // convert the old storage
+    // todo check entity has any data
+    self.access_ecg::<E, _>(|ecg| {
+      let mut components = ecg.inner.components.write();
+      for (idx, id) in builder.ids.iter().enumerate() {
+        let previous_storage = components.get_mut(id).unwrap();
+        // todo check com type
+
+        let data = InterleavedDataContainer {
+          inner: buffer.clone(),
+          idx,
+        };
+        previous_storage.setup_new_storage(Box::new(Arc::new(data)));
+      }
+    });
     self
   }
 }

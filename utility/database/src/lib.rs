@@ -85,7 +85,7 @@ pub trait ComponentSemantic: Any {
 }
 
 pub struct EntityComponentGroup<E> {
-  inner: Arc<EntityComponentGroupImpl<E>>,
+  pub(crate) inner: Arc<EntityComponentGroupImpl<E>>,
 }
 
 impl<E> Clone for EntityComponentGroup<E> {
@@ -201,7 +201,7 @@ impl<E: 'static> EntityComponentGroup<E> {
     &self,
     f: impl FnOnce(&ComponentCollection<S::Data>) -> R,
   ) -> R {
-    let components = self.inner.components.read();
+    let components = self.inner.components.read_recursive();
     f(components
       .get(&TypeId::of::<S>())
       .unwrap()
@@ -242,12 +242,16 @@ impl<T: CValue + Default, F: FnMut() -> T> EntityComponentWriter
 
 pub trait DynamicComponent: Any + Send + Sync {
   fn create_dyn_writer_default(&self) -> Box<dyn EntityComponentWriter>;
+  fn setup_new_storage(&mut self, storage: Box<dyn Any>);
   fn as_any(&self) -> &dyn Any;
 }
 
 impl<T: CValue + Default> DynamicComponent for ComponentCollection<T> {
   fn create_dyn_writer_default(&self) -> Box<dyn EntityComponentWriter> {
     Box::new(self.write().with_writer(T::default))
+  }
+  fn setup_new_storage(&mut self, storage: Box<dyn Any>) {
+    self.data = *storage.downcast::<Arc<dyn ComponentStorage<T>>>().unwrap();
   }
 
   fn as_any(&self) -> &dyn Any {
