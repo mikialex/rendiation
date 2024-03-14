@@ -8,6 +8,13 @@ impl<T: CValue + Default> ComponentStorage<T> for Arc<RwLock<Vec<T>>> {
   fn create_read_write_view(&self) -> Box<dyn ComponentStorageReadWriteView<T>> {
     Box::new(self.make_write_holder())
   }
+
+  fn as_any(&self) -> &dyn Any {
+    self
+  }
+  fn as_any_mut(&mut self) -> &mut dyn Any {
+    self
+  }
 }
 
 impl<T> ComponentStorageReadView<T> for LockReadGuardHolder<Vec<T>> {

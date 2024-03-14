@@ -147,14 +147,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "arena-graph"
-version = "0.0.1"
-dependencies = [
- "arena",
- "fast-hash-collection",
-]
-
-[[package]]
 name = "arrayref"
 version = "0.3.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2979,7 +2971,6 @@ version = "0.1.0"
 dependencies = [
  "anymap",
  "arena",
- "arena-graph",
  "bitflags 2.4.0",
  "bytemuck",
  "dyn-clone",

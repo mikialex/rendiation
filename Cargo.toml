@@ -10,7 +10,6 @@ members = [
   "utility/reactive-collection",
   "utility/arena",
   "utility/dyn-downcast",
-  "utility/arena-graph",
   "utility/tree",
   "utility/storage",
   "utility/abstract-tree",
