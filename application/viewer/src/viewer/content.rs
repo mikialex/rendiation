@@ -307,7 +307,7 @@ impl CanvasWindowPositionInfo {
   }
 }
 
-pub fn window_event<'a>(event: &'a Event<()>) -> Option<&'a WindowEvent> {
+pub fn window_event(event: &Event<()>) -> Option<&WindowEvent> {
   match event {
     Event::WindowEvent { event, .. } => Some(event),
     _ => None,
@@ -356,14 +356,6 @@ pub struct WindowState {
 }
 
 impl WindowState {
-  pub fn new() -> Self {
-    Self {
-      size: (0.0, 0.0),
-      mouse_position: (0.0, 0.0),
-      is_left_mouse_down: false,
-      is_right_mouse_down: false,
-    }
-  }
   pub fn update_size(&mut self, size: &winit::dpi::PhysicalSize<u32>) {
     self.size.0 = size.width as f32;
     self.size.1 = size.height as f32;
@@ -374,11 +366,12 @@ impl WindowState {
     self.mouse_position.1 = position.y as f32;
   }
 
+  #[allow(clippy::single_match)]
   pub fn event(&mut self, event: &winit::event::Event<()>) {
     match event {
       winit::event::Event::WindowEvent { event, .. } => match event {
         WindowEvent::Resized(size) => {
-          self.update_size(&size);
+          self.update_size(size);
         }
         WindowEvent::MouseInput { button, state, .. } => match button {
           MouseButton::Left => match state {
@@ -392,11 +385,22 @@ impl WindowState {
           _ => {}
         },
         WindowEvent::CursorMoved { position, .. } => {
-          self.mouse_move_to(&position);
+          self.mouse_move_to(position);
         }
         _ => (),
       },
       _ => {}
+    }
+  }
+}
+
+impl Default for WindowState {
+  fn default() -> Self {
+    Self {
+      size: (0.0, 0.0),
+      mouse_position: (0.0, 0.0),
+      is_left_mouse_down: false,
+      is_right_mouse_down: false,
     }
   }
 }

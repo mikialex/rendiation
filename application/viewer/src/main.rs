@@ -57,8 +57,8 @@ pub async fn run() {
 
   let mut surface: GPUSurface<'static> = unsafe { std::mem::transmute(surface.unwrap()) };
 
-  let mut viewer = Viewer::new();
-  let mut window_state = WindowState::new();
+  let mut viewer = Viewer::default();
+  let mut window_state = WindowState::default();
   let mut egui_renderer = EguiRenderer::new(&gpu.device, surface.config.format, None, 1, &window);
 
   let _ = event_loop.run(move |event, target| {
@@ -141,7 +141,7 @@ pub fn ui_logic(ui: &egui::Context) {
     .default_width(800.0)
     .resizable(true)
     .anchor(egui::Align2::LEFT_TOP, [0.0, 0.0])
-    .show(&ui, |mut ui| {
+    .show(ui, |ui| {
       if ui.add(egui::Button::new("Click me")).clicked() {
         println!("PRESSED")
       }

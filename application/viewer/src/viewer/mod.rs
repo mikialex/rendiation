@@ -19,8 +19,6 @@ pub use helpers::*;
 use rendiation_texture::Size;
 use webgpu::*;
 
-use crate::*;
-
 pub struct Viewer {
   content: Viewer3dContent,
   ctx: Option<Viewer3dRenderingCtx>,
@@ -31,8 +29,8 @@ pub struct Viewer {
   pub on_demand_draw: NotifyScope,
 }
 
-impl Viewer {
-  pub fn new() -> Self {
+impl Default for Viewer {
+  fn default() -> Self {
     let io_executor = futures::executor::ThreadPool::builder()
       .name_prefix("rendiation_io_threads")
       .pool_size(2)
@@ -44,7 +42,7 @@ impl Viewer {
       .build()
       .unwrap();
 
-    let mut viewer = Self {
+    Self {
       content: Viewer3dContent::new(),
       size: Size::from_u32_pair_min_one((100, 100)),
       // terminal: Terminal::new(terminal_inputs),
@@ -52,13 +50,11 @@ impl Viewer {
       io_executor,
       compute_executor,
       on_demand_draw: Default::default(),
-    };
-
-    // register_default_commands(&mut viewer.terminal);
-
-    viewer
+    }
   }
+}
 
+impl Viewer {
   pub fn draw_canvas(&mut self, gpu: &Arc<GPU>, canvas: RenderTargetView) {
     self.on_demand_draw.notify_by(|cx| {
       self.content.poll_update(cx);
