@@ -1,4 +1,4 @@
-## WebGPU encapsulation layer
+# WebGPU encapsulation layer
 
 Contents and Responsibility:
 

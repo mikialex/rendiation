@@ -6,8 +6,8 @@ version = "0.1.0"
 
 [dependencies]
 rendiation-shader-api = { path = "../../api" }
-naga = { version = "0.14.0" }
-fast-hash-collection = { path = "../../../utils/fast-hash-collection" }
+naga = { version = "0.19.0" }
+fast-hash-collection = { path = "../../../utility/fast-hash-collection" }
 
 [lints]
 workspace = true
