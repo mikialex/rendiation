@@ -5,7 +5,7 @@
 #![feature(hash_raw_entry)]
 #![allow(clippy::collapsible_match)]
 
-use std::alloc::System;
+use std::{alloc::System, sync::Arc};
 
 use egui_winit::winit::{
   event::{Event, WindowEvent},
@@ -15,11 +15,12 @@ use egui_winit::winit::{
 use rendiation_scene_core::*;
 
 mod ui;
-// mod viewer;
+mod viewer;
 
 use heap_tools::*;
+use rendiation_scene_webgpu::*;
 use ui::EguiRenderer;
-// pub use viewer::*;
+pub use viewer::*;
 use webgpu::{GPUCreateConfig, GPUSurface, GPU};
 
 #[global_allocator]
@@ -27,7 +28,7 @@ static GLOBAL_ALLOCATOR: PreciseAllocationHook<System> = PreciseAllocationHook::
 
 fn main() {
   setup_active_plane(Default::default());
-  // register_viewer_extra_scene_features();
+  register_viewer_extra_scene_features();
 
   env_logger::builder().init();
 
@@ -52,73 +53,82 @@ pub async fn run() {
   };
 
   let (gpu, surface) = GPU::new(config).await.unwrap();
+  let gpu = Arc::new(gpu);
 
   let mut surface: GPUSurface<'static> = unsafe { std::mem::transmute(surface.unwrap()) };
 
-  // let viewer = Viewer::new();
+  let mut viewer = Viewer::new();
+  let mut window_state = WindowState::new();
   let mut egui_renderer = EguiRenderer::new(&gpu.device, surface.config.format, None, 1, &window);
 
-  let _ = event_loop.run(move |event, target| match event {
-    Event::WindowEvent { ref event, .. } => {
-      // viewer.event(event, states, position_info);
-      egui_renderer.handle_input(&window, event);
+  let _ = event_loop.run(move |event, target| {
+    window_state.event(&event);
+    let position_info = CanvasWindowPositionInfo::full_window(window_state.size);
+    viewer.event(&event, &window_state, position_info);
 
-      match event {
-        WindowEvent::CloseRequested => {
-          target.exit();
-        }
-        WindowEvent::Resized(physical_size) => {
-          // viewer.update_render_size(physical_size);
-          surface.resize(
-            Size::from_u32_pair_min_one((physical_size.width, physical_size.height)),
-            &gpu.device,
-          )
-        }
-        WindowEvent::RedrawRequested => {
-          // viewer.draw_canvas(gpu, canvas);
+    match event {
+      Event::WindowEvent { ref event, .. } => {
+        egui_renderer.handle_input(&window, event);
 
-          let output = surface.get_current_frame().unwrap();
-          let view = output.texture.create_view(&webgpu::TextureViewDescriptor {
-            label: None,
-            format: None,
-            dimension: None,
-            aspect: webgpu::TextureAspect::All,
-            base_mip_level: 0,
-            mip_level_count: None,
-            base_array_layer: 0,
-            array_layer_count: None,
-          });
-
-          let mut encoder = gpu
-            .device
-            .create_command_encoder(&webgpu::CommandEncoderDescriptor {
-              label: Some("Render Encoder"),
+        match event {
+          WindowEvent::CloseRequested => {
+            target.exit();
+          }
+          WindowEvent::Resized(physical_size) => {
+            // should we put this in viewer's event handler?
+            viewer.update_render_size(window_state.size);
+            surface.resize(
+              Size::from_u32_pair_min_one((physical_size.width, physical_size.height)),
+              &gpu.device,
+            )
+          }
+          WindowEvent::RedrawRequested => {
+            let (output, canvas) = surface.get_current_frame_with_render_target_view().unwrap();
+            let view = output.texture.create_view(&webgpu::TextureViewDescriptor {
+              label: None,
+              format: None,
+              dimension: None,
+              aspect: webgpu::TextureAspect::All,
+              base_mip_level: 0,
+              mip_level_count: None,
+              base_array_layer: 0,
+              array_layer_count: None,
             });
 
-          let screen_descriptor = egui_wgpu::ScreenDescriptor {
-            size_in_pixels: [window.inner_size().width, window.inner_size().height],
-            pixels_per_point: window.scale_factor() as f32,
-          };
+            viewer.draw_canvas(&gpu, canvas);
 
-          egui_renderer.draw(
-            &gpu.device,
-            &gpu.queue,
-            &mut encoder,
-            &window,
-            &view,
-            screen_descriptor,
-            ui_logic,
-          );
+            let mut encoder =
+              gpu
+                .device
+                .create_command_encoder(&webgpu::CommandEncoderDescriptor {
+                  label: Some("Render Encoder"),
+                });
 
-          gpu.queue.submit(std::iter::once(encoder.finish()));
-          output.present();
-          window.request_redraw();
-        }
+            let screen_descriptor = egui_wgpu::ScreenDescriptor {
+              size_in_pixels: [window.inner_size().width, window.inner_size().height],
+              pixels_per_point: window.scale_factor() as f32,
+            };
 
-        _ => {}
-      };
+            egui_renderer.draw(
+              &gpu.device,
+              &gpu.queue,
+              &mut encoder,
+              &window,
+              &view,
+              screen_descriptor,
+              ui_logic,
+            );
+
+            gpu.queue.submit(std::iter::once(encoder.finish()));
+            output.present();
+            window.request_redraw();
+          }
+
+          _ => {}
+        };
+      }
+      _ => {}
     }
-    _ => {}
   });
 }
 

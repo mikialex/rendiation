@@ -143,7 +143,7 @@ impl Viewer3dContent {
         position_info.absolute_position.y,
       )
         .into(),
-      size: (position_info.size.width, position_info.size.height).into(),
+      size: (position_info.size.x, position_info.size.y).into(),
     };
 
     let normalized_screen_position = position_info
@@ -151,10 +151,8 @@ impl Viewer3dContent {
       .into();
 
     // todo, get correct size from render ctx side
-    let camera_view_size = Size::from_usize_pair_min_one((
-      position_info.size.width as usize,
-      position_info.size.height as usize,
-    ));
+    let camera_view_size =
+      Size::from_usize_pair_min_one((position_info.size.x as usize, position_info.size.y as usize));
 
     let widgets = self.widgets.get_mut();
     let gizmo = &mut widgets.gizmo;
@@ -286,16 +284,25 @@ pub struct CanvasWindowPositionInfo {
 }
 
 impl CanvasWindowPositionInfo {
+  pub fn full_window(window_size: (f32, f32)) -> Self {
+    Self {
+      absolute_position: Vec2::new(0., 0.),
+      size: Vec2::new(window_size.0, window_size.1),
+    }
+  }
+}
+
+impl CanvasWindowPositionInfo {
   pub fn compute_normalized_position_in_canvas_coordinate(
     &self,
     states: &WindowState,
   ) -> (f32, f32) {
-    let canvas_x = states.mouse_position.x - self.absolute_position.x;
-    let canvas_y = states.mouse_position.y - self.absolute_position.y;
+    let canvas_x = states.mouse_position.0 - self.absolute_position.x;
+    let canvas_y = states.mouse_position.1 - self.absolute_position.y;
 
     (
-      canvas_x / self.size.width * 2. - 1.,
-      -(canvas_y / self.size.height * 2. - 1.),
+      canvas_x / self.size.x * 2. - 1.,
+      -(canvas_y / self.size.y * 2. - 1.),
     )
   }
 }

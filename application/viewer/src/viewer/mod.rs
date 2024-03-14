@@ -59,7 +59,7 @@ impl Viewer {
     viewer
   }
 
-  pub fn draw_canvas(&mut self, gpu: &Arc<GPU>, canvas: GPU2DTextureView) {
+  pub fn draw_canvas(&mut self, gpu: &Arc<GPU>, canvas: RenderTargetView) {
     self.on_demand_draw.notify_by(|cx| {
       self.content.poll_update(cx);
       self.content.per_frame_update();
@@ -69,12 +69,14 @@ impl Viewer {
       self.content.poll_update(cx);
     });
 
+    self.on_demand_draw.wake(); // todo, we current disable the on demand draw
+                                // because we not cache the rendering result yet
     self.on_demand_draw.update_once(|cx| {
-      println!("draw");
+      // println!("draw");
       self
         .ctx
         .get_or_insert_with(|| Viewer3dRenderingCtx::new(gpu.clone()))
-        .render(RenderTargetView::Texture(canvas), &mut self.content, cx)
+        .render(canvas, &mut self.content, cx)
     });
   }
 

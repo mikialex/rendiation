@@ -57,7 +57,7 @@ pub struct EventCtx3D<'a> {
 impl<'a> EventCtx3D<'a> {
   pub fn new(
     window_states: &'a WindowState,
-    raw_event: &'a Event<'a, ()>,
+    raw_event: &'a Event<()>,
     info: &'a CanvasWindowPositionInfo,
     scene: &'a SceneCoreImpl,
     interactive_ctx: &'a SceneRayInteractiveCtx<'a>,

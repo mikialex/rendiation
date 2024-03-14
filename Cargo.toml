@@ -54,6 +54,7 @@ members = [
   "scene/io/gltf/loader",
   "scene/io/gltf/exporter",
   "platform/graphics/webgpu",
+  "extension/controller",
   "application/viewer",
 ]
 

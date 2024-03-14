@@ -2703,6 +2703,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "rendiation-controller"
+version = "0.1.0"
+dependencies = [
+ "rendiation-algebra",
+ "rendiation-geometry",
+ "winit",
+]
+
+[[package]]
 name = "rendiation-generative-texture"
 version = "0.0.1"
 dependencies = [
@@ -3742,6 +3751,7 @@ dependencies = [
  "rayon",
  "reactive",
  "rendiation-algebra",
+ "rendiation-controller",
  "rendiation-generative-texture",
  "rendiation-geometry",
  "rendiation-mesh-core",

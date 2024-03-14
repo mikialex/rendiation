@@ -26,6 +26,7 @@ rendiation-texture-gpu-process = { path = "../../content/texture/gpu-process" }
 rendiation-geometry = { path = "../../math/geometry" }
 rendiation-mesh-core = { path = "../../content/mesh/core" }
 rendiation-mesh-generator = { path = "../../content/mesh/generator" }
+rendiation-controller = { path = "../../extension/controller" }
 rendiation-scene-core = { path = "../../scene/core" }
 rendiation-scene-gltf-exporter = { path = "../../scene/io/gltf/exporter" }
 rendiation-scene-gltf-loader = { path = "../../scene/io/gltf/loader" }
