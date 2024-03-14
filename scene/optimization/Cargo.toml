@@ -5,9 +5,9 @@ name = "rendiation-scene-optimization"
 version = "0.1.0"
 
 [dependencies]
-fast-hash-collection = { path = "../../utils/fast-hash-collection" }
-incremental = { path = "../../utils/incremental" }
-reactive = { path = "../../utils/reactive" }
+fast-hash-collection = { path = "../../utility/fast-hash-collection" }
+incremental = { path = "../../utility/incremental" }
+reactive = { path = "../../utility/reactive" }
 rendiation-algebra = { path = "../../math/algebra" }
 rendiation-scene-core = { path = "../core" }
 smallvec = { workspace = true }

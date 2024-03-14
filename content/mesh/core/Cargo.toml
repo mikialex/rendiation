@@ -1,0 +1,24 @@
+[package]
+authors = ["mikialex <18516340862@163.com>"]
+edition = "2021"
+name = "rendiation-mesh-core"
+version = "0.1.0"
+
+[dependencies]
+bytemuck = { workspace = true, features = ["derive"] }
+soa_derive = "0.8.1"
+
+rendiation-algebra = { path = "../../../math/algebra" }
+rendiation-geometry = { path = "../../../math/geometry" }
+
+space-algorithm = { path = "../../space" }
+
+dyn-downcast = { path = "../../../utility/dyn-downcast" }
+fast-hash-collection = { path = "../../../utility/fast-hash-collection" }
+incremental = { path = "../../../utility/incremental" }
+reactive = { path = "../../../utility/reactive" }
+rendiation-shader-api = { path = "../../../shader/api" }
+smallvec = { workspace = true }
+
+[lints]
+workspace = true
