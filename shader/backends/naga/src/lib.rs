@@ -128,7 +128,7 @@ impl ShaderAPINagaImpl {
     let naga_ty = match ty {
       ShaderValueType::Single(v) => match v {
         ShaderValueSingleType::Sized(f) => match f {
-          ShaderSizedValueType::Atomic(t) => naga::TypeInner::Atomic {
+          ShaderSizedValueType::Atomic(t) => naga::TypeInner::Atomic(naga::Scalar {
             kind: match t {
               ShaderAtomicValueType::I32 => naga::ScalarKind::Sint,
               ShaderAtomicValueType::U32 => naga::ScalarKind::Uint,
@@ -137,7 +137,7 @@ impl ShaderAPINagaImpl {
               ShaderAtomicValueType::I32 => 4,
               ShaderAtomicValueType::U32 => 4,
             },
-          },
+          }),
           ShaderSizedValueType::Primitive(p) => map_primitive_type(p),
           ShaderSizedValueType::Struct(st) => {
             name = st.name.to_owned().into();
@@ -275,58 +275,70 @@ impl ShaderAPI for ShaderAPINagaImpl {
         let bt = match_built_in(ty);
 
         let ty = match ty {
-          ShaderBuiltInDecorator::VertexIndex => naga::TypeInner::Scalar {
+          ShaderBuiltInDecorator::VertexIndex => naga::TypeInner::Scalar(naga::Scalar {
             kind: naga::ScalarKind::Uint,
             width: 4,
-          },
-          ShaderBuiltInDecorator::VertexInstanceIndex => naga::TypeInner::Scalar {
+          }),
+          ShaderBuiltInDecorator::VertexInstanceIndex => naga::TypeInner::Scalar(naga::Scalar {
             kind: naga::ScalarKind::Uint,
             width: 4,
-          },
-          ShaderBuiltInDecorator::FragFrontFacing => naga::TypeInner::Scalar {
+          }),
+          ShaderBuiltInDecorator::FragFrontFacing => naga::TypeInner::Scalar(naga::Scalar {
             kind: naga::ScalarKind::Bool,
             width: naga::BOOL_WIDTH,
-          },
-          ShaderBuiltInDecorator::FragSampleIndex => naga::TypeInner::Scalar {
+          }),
+          ShaderBuiltInDecorator::FragSampleIndex => naga::TypeInner::Scalar(naga::Scalar {
             kind: naga::ScalarKind::Uint,
             width: 4,
-          },
-          ShaderBuiltInDecorator::FragSampleMask => naga::TypeInner::Scalar {
+          }),
+          ShaderBuiltInDecorator::FragSampleMask => naga::TypeInner::Scalar(naga::Scalar {
             kind: naga::ScalarKind::Uint,
             width: 4,
-          },
+          }),
           ShaderBuiltInDecorator::FragPositionIn => naga::TypeInner::Vector {
             size: naga::VectorSize::Quad,
-            kind: naga::ScalarKind::Float,
-            width: 4,
+            scalar: naga::Scalar {
+              kind: naga::ScalarKind::Float,
+              width: 4,
+            },
           },
           ShaderBuiltInDecorator::VertexPositionOut => naga::TypeInner::Vector {
             size: naga::VectorSize::Quad,
+            scalar: naga::Scalar {
+              kind: naga::ScalarKind::Float,
+              width: 4,
+            },
+          },
+          ShaderBuiltInDecorator::FragDepth => naga::TypeInner::Scalar(naga::Scalar {
             kind: naga::ScalarKind::Float,
             width: 4,
-          },
-          ShaderBuiltInDecorator::FragDepth => naga::TypeInner::Scalar {
-            kind: naga::ScalarKind::Float,
-            width: 4,
-          },
+          }),
           ShaderBuiltInDecorator::CompLocalInvocationId => naga::TypeInner::Vector {
             size: naga::VectorSize::Tri,
-            kind: naga::ScalarKind::Uint,
-            width: 4,
+            scalar: naga::Scalar {
+              kind: naga::ScalarKind::Uint,
+              width: 4,
+            },
           },
           ShaderBuiltInDecorator::CompGlobalInvocationId => naga::TypeInner::Vector {
             size: naga::VectorSize::Tri,
-            kind: naga::ScalarKind::Uint,
-            width: 4,
+            scalar: naga::Scalar {
+              kind: naga::ScalarKind::Uint,
+              width: 4,
+            },
           },
-          ShaderBuiltInDecorator::CompLocalInvocationIndex => naga::TypeInner::Scalar {
-            kind: naga::ScalarKind::Uint,
-            width: 4,
-          },
+          ShaderBuiltInDecorator::CompLocalInvocationIndex => {
+            naga::TypeInner::Scalar(naga::Scalar {
+              kind: naga::ScalarKind::Uint,
+              width: 4,
+            })
+          }
           ShaderBuiltInDecorator::CompWorkgroupId => naga::TypeInner::Vector {
             size: naga::VectorSize::Tri,
-            kind: naga::ScalarKind::Uint,
-            width: 4,
+            scalar: naga::Scalar {
+              kind: naga::ScalarKind::Uint,
+              width: 4,
+            },
           },
         };
         let ty = naga::Type {
@@ -1237,22 +1249,22 @@ fn map_primitive_type(t: PrimitiveShaderValueType) -> naga::TypeInner {
   use naga::VectorSize::*;
 
   match t {
-    PrimitiveShaderValueType::Bool => Scalar { kind: naga::ScalarKind::Bool, width: naga::BOOL_WIDTH },
-    Int32 => Scalar { kind: Sint, width: 4 },
-    Uint32 => Scalar { kind: Uint, width: 4 },
-    Float32 => Scalar { kind: Float, width: 4 },
-    Vec2Float32 => Vector { size: Bi, kind:  Float, width: 4 },
-    Vec3Float32 => Vector { size: Tri, kind:  Float, width: 4 },
-    Vec4Float32 => Vector { size: Quad, kind:  Float, width: 4 },
-    Vec2Uint32 => Vector { size: Bi, kind:  Uint, width: 4 },
-    Vec3Uint32 => Vector { size: Tri, kind:  Uint, width: 4 },
-    Vec4Uint32 => Vector { size: Quad, kind:  Uint, width: 4 },
-    Vec2Int32 => Vector { size: Bi, kind:  Sint, width: 4 },
-    Vec3Int32 => Vector { size: Tri, kind:  Sint, width: 4 },
-    Vec4Int32 => Vector { size: Quad, kind:  Sint, width: 4 },
-    Mat2Float32 => Matrix { columns: Bi, rows: Bi, width: 4 },
-    Mat3Float32 => Matrix { columns: Tri, rows: Tri, width: 4 },
-    Mat4Float32 => Matrix { columns: Quad, rows: Quad, width: 4 },
+    PrimitiveShaderValueType::Bool => Scalar(naga::Scalar { kind: naga::ScalarKind::Bool, width: naga::BOOL_WIDTH }),
+    Int32 => Scalar(naga::Scalar { kind: Sint, width: 4 }),
+    Uint32 => Scalar(naga::Scalar { kind: Uint, width: 4 }),
+    Float32 => Scalar(naga::Scalar { kind: Float, width: 4 }),
+    Vec2Float32 => Vector { size: Bi, scalar: naga::Scalar{kind:  Float, width: 4 }},
+    Vec3Float32 => Vector { size: Tri, scalar: naga::Scalar{kind:  Float, width: 4 }},
+    Vec4Float32 => Vector { size: Quad, scalar: naga::Scalar{kind:  Float, width: 4 }},
+    Vec2Uint32 => Vector { size: Bi, scalar: naga::Scalar{kind:  Uint, width: 4 }},
+    Vec3Uint32 => Vector { size: Tri, scalar: naga::Scalar{kind:  Uint, width: 4 }},
+    Vec4Uint32 => Vector { size: Quad, scalar: naga::Scalar{kind:  Uint, width: 4 }},
+    Vec2Int32 => Vector { size: Bi, scalar: naga::Scalar{kind:  Sint, width: 4 }},
+    Vec3Int32 => Vector { size: Tri, scalar: naga::Scalar{kind:  Sint, width: 4 }},
+    Vec4Int32 => Vector { size: Quad, scalar: naga::Scalar{kind:  Sint, width: 4 }},
+    Mat2Float32 => Matrix { columns: Bi, rows: Bi, scalar: naga::Scalar{kind:  Float, width: 4 } },
+    Mat3Float32 => Matrix { columns: Tri, rows: Tri, scalar: naga::Scalar{kind:  Float, width: 4 } },
+    Mat4Float32 => Matrix { columns: Quad, rows: Quad, scalar: naga::Scalar{kind:  Float, width: 4 } },
   }
 }
 

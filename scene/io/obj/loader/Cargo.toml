@@ -7,9 +7,9 @@ version = "0.1.0"
 [dependencies]
 image = "*"
 rendiation-algebra = { path = "../../../../math/algebra" }
-rendiation-mesh-core = { path = "../../../../components/mesh/core" }
+rendiation-mesh-core = { path = "../../../../content/mesh/core" }
 rendiation-scene-core = { path = "../../../core" }
-rendiation-texture = { path = "../../../../components/texture/core" }
+rendiation-texture = { path = "../../../../content/texture/core" }
 smallvec = { workspace = true }
 thiserror = "1.0.43"
 tobj = "4.0.0"

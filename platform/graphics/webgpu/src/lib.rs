@@ -38,11 +38,12 @@ pub use gpu::Features;
 pub use gpu::{
   util, util::DeviceExt, vertex_attr_array, AddressMode, Backends, BindGroup, BindGroupDescriptor,
   BindGroupEntry, BindGroupLayout, BindGroupLayoutDescriptor, BindingResource, Buffer,
-  BufferAsyncError, Color, CompareFunction, CreateSurfaceError, Device, FilterMode, FragmentState,
-  IndexFormat, Limits, LoadOp, Operations, PipelineLayoutDescriptor, PowerPreference, Queue,
-  RenderPipeline, RenderPipelineDescriptor, RequestDeviceError, Sampler, SamplerBorderColor,
-  SamplerDescriptor, ShaderModuleDescriptor, ShaderSource, ShaderStages, StoreOp, TextureView,
-  TextureViewDescriptor, VertexBufferLayout, VertexState,
+  BufferAsyncError, Color, CommandEncoder, CompareFunction, CreateSurfaceError, Device, FilterMode,
+  FragmentState, IndexFormat, Limits, LoadOp, Operations, PipelineLayoutDescriptor,
+  PowerPreference, Queue, RenderPassColorAttachment, RenderPassDescriptor, RenderPipeline,
+  RenderPipelineDescriptor, RequestDeviceError, Sampler, SamplerBorderColor, SamplerDescriptor,
+  ShaderModuleDescriptor, ShaderSource, ShaderStages, StoreOp, TextureView, TextureViewDescriptor,
+  VertexBufferLayout, VertexState,
 };
 pub use pass::*;
 pub use pipeline::*;
@@ -69,7 +70,7 @@ pub struct GPU {
 pub struct GPUCreateConfig<'a> {
   pub backends: Backends,
   pub power_preference: PowerPreference,
-  pub surface_for_compatible_check_init: Option<(&'a dyn SurfaceProvider, Size)>,
+  pub surface_for_compatible_check_init: Option<(&'a (dyn SurfaceProvider + 'a), Size)>,
   pub minimal_required_features: Features,
   pub minimal_required_limits: Limits,
 }
@@ -164,8 +165,8 @@ impl GPU {
       .request_device(
         &gpu::DeviceDescriptor {
           label: None,
-          features: supported_features,
-          limits: supported_limits.clone(),
+          required_features: supported_features,
+          required_limits: supported_limits.clone(),
         },
         None,
       )
@@ -215,11 +216,11 @@ impl GPU {
     self.device.clear_resource_cache();
   }
 
-  pub fn create_another_surface(
+  pub fn create_another_surface<'a>(
     &self,
-    provider: &dyn SurfaceProvider,
+    provider: &'a dyn SurfaceProvider,
     init_resolution: Size,
-  ) -> Result<GPUSurface, CreateSurfaceError> {
+  ) -> Result<GPUSurface<'a>, CreateSurfaceError> {
     let surface = provider.create_surface(&self._instance)?;
     Ok(GPUSurface::new(
       &self._adaptor,

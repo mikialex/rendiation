@@ -1,0 +1,15 @@
+[package]
+edition = "2021"
+name = "database"
+version = "0.0.1"
+
+[dependencies]
+fast-hash-collection = { path = "../fast-hash-collection" }
+reactive = { path = "../reactive" }
+arena = { path = "../arena" }
+futures = { workspace = true }
+storage = { path = "../storage" }
+parking_lot = { version = "0.12.1", features = ["send_guard"] }
+
+[lints]
+workspace = true

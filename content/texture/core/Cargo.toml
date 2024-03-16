@@ -1,0 +1,17 @@
+[package]
+authors = ["MikiAlex <18516340862@163.com>"]
+edition = "2021"
+name = "rendiation-texture"
+version = "0.1.0"
+
+[dependencies]
+image = "*"
+incremental = { path = "../../../utility/incremental" }
+fast-hash-collection = { path = "../../../utility/fast-hash-collection" }
+rendiation-algebra = { path = "../../../math/algebra" }
+rendiation-geometry = { path = "../../../math/geometry" }
+rendiation-texture-types = { path = "../types" }
+wgpu-types = "0.19"
+
+[lints]
+workspace = true

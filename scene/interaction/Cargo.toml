@@ -5,10 +5,10 @@ name = "rendiation-scene-interaction"
 version = "0.1.0"
 
 [dependencies]
-incremental = { path = "../../utils/incremental" }
+incremental = { path = "../../utility/incremental" }
 rendiation-algebra = { path = "../../math/algebra" }
 rendiation-geometry = { path = "../../math/geometry" }
-rendiation-mesh-core = { path = "../../components/mesh/core" }
+rendiation-mesh-core = { path = "../../content/mesh/core" }
 rendiation-scene-core = { path = "../core" }
 
 [lints]
