@@ -3,10 +3,13 @@ use std::sync::Arc;
 mod content;
 pub use content::*;
 
+mod terminal;
+pub use terminal::*;
+
 mod default_scene;
 pub use default_scene::*;
 mod rendering;
-use reactive::NotifyScope;
+use reactive::{EventSource, NotifyScope};
 pub use rendering::*;
 
 mod controller;
@@ -23,7 +26,8 @@ pub struct Viewer {
   content: Viewer3dContent,
   ctx: Option<Viewer3dRenderingCtx>,
   size: Size,
-  // pub terminal: Terminal,
+  pub terminal: Terminal,
+  pub terminal_input: EventSource<String>,
   pub io_executor: futures::executor::ThreadPool,
   pub compute_executor: rayon::ThreadPool,
   pub on_demand_draw: NotifyScope,
@@ -42,10 +46,14 @@ impl Default for Viewer {
       .build()
       .unwrap();
 
+    let terminal_input = EventSource::<String>::default();
+    let command_stream = terminal_input.unbound_listen();
+
     Self {
       content: Viewer3dContent::new(),
       size: Size::from_u32_pair_min_one((100, 100)),
-      // terminal: Terminal::new(terminal_inputs),
+      terminal_input,
+      terminal: Terminal::new(command_stream),
       ctx: None,
       io_executor,
       compute_executor,
@@ -83,13 +91,13 @@ impl Viewer {
     position_info: CanvasWindowPositionInfo,
   ) {
     self.on_demand_draw.notify_by(|cx| {
-      // let mut ctx = CommandCtx {
-      //   scene: &self.content.scene,
-      //   rendering: self.ctx.as_mut(),
-      //   selection_set: &self.content.selections,
-      // };
+      let mut ctx = CommandCtx {
+        scene: &self.content.scene,
+        rendering: self.ctx.as_mut(),
+        selection_set: &self.content.selections,
+      };
 
-      // self.terminal.check_execute(&mut ctx, cx);
+      self.terminal.check_execute(&mut ctx, cx, &self.io_executor);
       self.content.poll_update(cx);
       self.content.per_event_update(event, states, position_info)
     });

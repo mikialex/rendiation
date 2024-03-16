@@ -66,7 +66,6 @@ impl EguiRenderer {
     screen_descriptor: ScreenDescriptor,
     run_ui: impl FnOnce(&Context),
   ) {
-    // self.state.set_pixels_per_point(window.scale_factor() as f32);
     let raw_input = self.state.take_egui_input(window);
     let full_output = self.context.run(raw_input, |_ui| {
       run_ui(&self.context);
@@ -74,7 +73,7 @@ impl EguiRenderer {
 
     self
       .state
-      .handle_platform_output(&window, full_output.platform_output);
+      .handle_platform_output(window, full_output.platform_output);
 
     let tris = self
       .context
@@ -82,14 +81,14 @@ impl EguiRenderer {
     for (id, image_delta) in &full_output.textures_delta.set {
       self
         .renderer
-        .update_texture(&device, &queue, *id, &image_delta);
+        .update_texture(device, queue, *id, image_delta);
     }
     self
       .renderer
-      .update_buffers(&device, &queue, encoder, &tris, &screen_descriptor);
+      .update_buffers(device, queue, encoder, &tris, &screen_descriptor);
     let mut rpass = encoder.begin_render_pass(&webgpu::RenderPassDescriptor {
       color_attachments: &[Some(webgpu::RenderPassColorAttachment {
-        view: &window_surface_view,
+        view: window_surface_view,
         resolve_target: None,
         ops: webgpu::Operations {
           load: webgpu::LoadOp::Load,

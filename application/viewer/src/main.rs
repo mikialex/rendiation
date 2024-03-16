@@ -60,6 +60,7 @@ pub async fn run() {
   let mut viewer = Viewer::default();
   let mut window_state = WindowState::default();
   let mut egui_renderer = EguiRenderer::new(&gpu.device, surface.config.format, None, 1, &window);
+  let mut ui_state = ViewerUIState::default();
 
   let _ = event_loop.run(move |event, target| {
     window_state.event(&event);
@@ -116,7 +117,7 @@ pub async fn run() {
               &window,
               &view,
               screen_descriptor,
-              ui_logic,
+              |ctx| ui_logic(ctx, &mut ui_state, &mut viewer),
             );
 
             gpu.queue.submit(std::iter::once(encoder.finish()));
@@ -132,24 +133,32 @@ pub async fn run() {
   });
 }
 
-pub fn ui_logic(ui: &egui::Context) {
-  egui::Window::new("Test Viewer")
+#[derive(Default)]
+struct ViewerUIState {
+  command_input: String,
+}
+
+fn ui_logic(ui: &egui::Context, states: &mut ViewerUIState, viewer: &mut Viewer) {
+  egui::Window::new("Viewer")
     .vscroll(true)
     .default_open(true)
     .max_width(1000.0)
     .max_height(800.0)
     .default_width(800.0)
     .resizable(true)
-    .anchor(egui::Align2::LEFT_TOP, [0.0, 0.0])
+    .movable(true)
+    .anchor(egui::Align2::LEFT_TOP, [3.0, 3.0])
     .show(ui, |ui| {
       if ui.add(egui::Button::new("Click me")).clicked() {
         println!("PRESSED")
       }
 
-      ui.label("Slider");
-      // ui.add(egui::Slider::new(_, 0..=120).text("age"));
+      ui.label("terminal");
+      let re = ui.text_edit_singleline(&mut states.command_input);
+      if re.lost_focus() && re.ctx.input(|i| i.key_pressed(egui::Key::Enter)) {
+        viewer.terminal_input.emit(&states.command_input);
+        states.command_input = "".to_string();
+      }
       ui.end_row();
-
-      // proto_scene.egui(ui);
     });
 }

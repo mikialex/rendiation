@@ -1,8 +1,8 @@
 use std::{io::Write, path::Path, task::Context};
 
 use fast_hash_collection::FastHashMap;
-use futures::{executor::ThreadPool, Future, Stream, StreamExt};
-use reactive::{single_value_channel, PollUtils};
+use futures::{executor::ThreadPool, stream::FusedStream, Future, Stream, StreamExt};
+use reactive::PollUtils;
 use rendiation_scene_core::{IntoIncrementalSignalPtr, MeshEnum, Scene, StandardModelDelta};
 use webgpu::ReadableTextureBuffer;
 
@@ -11,8 +11,7 @@ use crate::{SelectionSet, SolidLinedMesh, Viewer3dRenderingCtx};
 pub struct Terminal {
   pub command_history: Vec<String>,
   pub commands: FastHashMap<String, TerminalCommandCb>,
-  pub executor: ThreadPool, // todo should passed in
-  pub command_source: BoxedUnpinFusedStream<String>,
+  pub command_source: Box<dyn FusedStream<Item = String> + Unpin>,
 }
 
 pub struct CommandCtx<'a> {
@@ -26,12 +25,9 @@ type TerminalCommandCb =
 
 impl Terminal {
   pub fn new(command_source: impl Stream<Item = String> + Unpin + 'static) -> Self {
-    let executor = ThreadPool::builder().pool_size(1).create().unwrap();
-
     Self {
       command_history: Default::default(),
       commands: Default::default(),
-      executor,
       command_source: Box::new(command_source.fuse()),
     }
   }
@@ -48,7 +44,7 @@ impl Terminal {
     self
   }
 
-  pub fn check_execute(&mut self, ctx: &mut CommandCtx, cx: &mut Context) {
+  pub fn check_execute(&mut self, ctx: &mut CommandCtx, cx: &mut Context, executor: &ThreadPool) {
     self.command_source.poll_until_pending(cx, |command| {
       let parameters: Vec<String> = command
         .split_ascii_whitespace()
@@ -60,7 +56,7 @@ impl Terminal {
           println!("execute: {command}");
 
           let task = exe(ctx, &parameters);
-          self.executor.spawn_ok(task);
+          executor.spawn_ok(task);
         } else {
           println!("unknown command {command_name}")
         }
