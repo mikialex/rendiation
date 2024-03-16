@@ -54,10 +54,6 @@ impl Database {
   pub fn entity_writer<E: Any>(&self) -> EntityWriter<E> {
     self.access_ecg::<E, _>(|e| e.entity_writer())
   }
-
-  pub fn check_integrity(&self) {
-    //
-  }
 }
 
 pub struct EntityHandle<T> {
