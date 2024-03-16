@@ -134,7 +134,7 @@ unsafe impl<E> Send for EntityComponentGroupImpl<E> {}
 unsafe impl<E> Sync for EntityComponentGroupImpl<E> {}
 
 impl<E: 'static> EntityComponentGroup<E> {
-  pub fn declare_component<S: ComponentSemantic>(self) -> Self {
+  pub fn declare_component<S: ComponentSemantic<Entity = E>>(self) -> Self {
     let com = ComponentCollection::<S::Data>::default();
     self.declare_component_dyn(TypeId::of::<S>(), Box::new(com));
     self
@@ -447,15 +447,15 @@ fn demo() {
     .declare_component::<TestEntityFieldB>()
     .declare_component::<TestEntityFieldC>();
 
-  global_database().interleave_component_storages(|builder| {
-    builder
-      .with_type::<TestEntityFieldA>()
-      .with_type::<TestEntityFieldB>()
-      .with_type::<TestEntityFieldC>()
-  });
+  // global_database().interleave_component_storages(|builder| {
+  //   builder
+  //     .with_type::<TestEntityFieldA>()
+  //     .with_type::<TestEntityFieldB>()
+  //     .with_type::<TestEntityFieldC>()
+  // });
 
   pub struct MyTestEntity2;
-  declare_component!(TestEntity2FieldA, MyTestEntity, u32);
+  declare_component!(TestEntity2FieldA, MyTestEntity2, u32);
 
   global_database()
     .declare_entity::<MyTestEntity2>()
