@@ -192,7 +192,7 @@ struct ReactiveCollectionFromGroupMutation<T: IncrementalBase, S, U> {
 }
 
 struct ReactiveCollectionFromGroupMutationCurrentView<T: IncrementalBase, U> {
-  data: LockResultHolder<IndexReusedVec<SignalItem<T>>>,
+  data: LockReadGuardHolder<IndexReusedVec<SignalItem<T>>>,
   mapper: Arc<dyn Fn(MaybeDeltaRef<T>) -> ChangeReaction<U> + Send + Sync>,
 }
 
@@ -256,7 +256,7 @@ where
 
   fn access(&self) -> PollCollectionCurrent<AllocIdx<T>, U> {
     let view = ReactiveCollectionFromGroupMutationCurrentView {
-      data: self.original.inner.data.make_lock_holder_raw(),
+      data: self.original.inner.data.make_read_holder(),
       mapper: self.mapper.clone(),
     };
 

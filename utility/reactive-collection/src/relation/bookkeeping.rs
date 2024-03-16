@@ -10,7 +10,7 @@ pub struct OneToManyRefHashBookKeeping<O, M, T> {
 #[derive(Clone)]
 pub struct OneToManyRefHashBookKeepingCurrentView<'a, M: CKey, O: CKey> {
   upstream: Box<dyn VirtualCollection<M, O> + 'a>,
-  mapping: LockResultHolder<FastHashMap<O, FastHashSet<M>>>,
+  mapping: LockReadGuardHolder<FastHashMap<O, FastHashSet<M>>>,
 }
 
 impl<'a, O, M> VirtualCollection<M, O> for OneToManyRefHashBookKeepingCurrentView<'a, M, O>
@@ -55,7 +55,7 @@ where
   fn multi_access(&self) -> Box<dyn VirtualMultiCollection<O, M> + '_> {
     Box::new(OneToManyRefHashBookKeepingCurrentView {
       upstream: self.upstream.access(),
-      mapping: self.mapping.make_lock_holder_raw(),
+      mapping: self.mapping.make_read_holder(),
     })
   }
 }
@@ -99,7 +99,7 @@ where
   fn access(&self) -> PollCollectionCurrent<M, O> {
     Box::new(OneToManyRefHashBookKeepingCurrentView {
       upstream: self.upstream.access(),
-      mapping: self.mapping.make_lock_holder_raw(),
+      mapping: self.mapping.make_read_holder(),
     })
   }
 
@@ -126,7 +126,7 @@ pub struct Mapping {
 #[derive(Clone)]
 pub struct OneToManyRefDenseBookKeepingCurrentView<'a, M: CKey, O: CKey> {
   upstream: Box<dyn VirtualCollection<M, O> + 'a>,
-  mapping: LockResultHolder<Mapping>,
+  mapping: LockReadGuardHolder<Mapping>,
 }
 
 impl<'a, O, M> VirtualCollection<M, O> for OneToManyRefDenseBookKeepingCurrentView<'a, M, O>
@@ -181,7 +181,7 @@ where
   fn multi_access(&self) -> Box<dyn VirtualMultiCollection<O, M> + '_> {
     Box::new(OneToManyRefDenseBookKeepingCurrentView {
       upstream: self.upstream.access(),
-      mapping: self.mapping.make_lock_holder_raw(),
+      mapping: self.mapping.make_read_holder(),
     })
   }
 }
@@ -242,7 +242,7 @@ where
   fn access(&self) -> PollCollectionCurrent<M, O> {
     Box::new(OneToManyRefDenseBookKeepingCurrentView {
       upstream: self.upstream.access(),
-      mapping: self.mapping.make_lock_holder_raw(),
+      mapping: self.mapping.make_read_holder(),
     })
   }
 

@@ -1,6 +1,6 @@
 # Rendiation Rendering Framework
 
-RRF is a structured and comprehensive graphics sdk. "Rendiation" represents the concept of "rendering innovation".
+RRF is a structured and comprehensive graphics framework. "Rendiation" represents the concept of "rendering innovation".
 
 The center of the framework consists of a gltf like scene api and a shader EDSL implementation. Several innovative rendering engine architecture design ideas are explored and applied. For example, the composability of complex effects or optimization behaviors, the parallel reactive incremental systems, and the extensibility of the scene content representation.
 

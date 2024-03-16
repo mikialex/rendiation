@@ -68,7 +68,7 @@ impl EguiRenderer {
   ) {
     // self.state.set_pixels_per_point(window.scale_factor() as f32);
     let raw_input = self.state.take_egui_input(window);
-    let full_output = self.context.run(raw_input, |ui| {
+    let full_output = self.context.run(raw_input, |_ui| {
       run_ui(&self.context);
     });
 
