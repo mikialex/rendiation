@@ -39,7 +39,7 @@ impl Database {
 }
 
 #[test]
-fn demo() {
+fn demo_how_to_use_database_generally() {
   setup_global_database(Default::default());
 
   pub struct MyTestEntity;
@@ -62,11 +62,12 @@ fn demo() {
 
   pub struct MyTestEntity2;
   declare_component!(TestEntity2FieldA, MyTestEntity2, u32);
+  declare_foreign_key!(TestEntity2ReferenceEntity1, MyTestEntity2, MyTestEntity);
 
   global_database()
     .declare_entity::<MyTestEntity2>()
     .declare_component::<TestEntity2FieldA>()
-    .declare_foreign_key::<MyTestEntity>();
+    .declare_foreign_key::<TestEntity2ReferenceEntity1>();
 
   let ptr = global_entity_of::<MyTestEntity>()
     .entity_writer()

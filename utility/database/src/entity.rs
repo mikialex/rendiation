@@ -38,7 +38,7 @@ pub struct EntityComponentGroupImpl<E> {
   pub(crate) components: RwLock<FastHashMap<TypeId, Box<dyn DynamicComponent>>>,
   /// the foreign keys of entity, each foreign key express the one-to-many relation with other ECG.
   /// each foreign key is a dependency between different ECG
-  pub(crate) foreign_keys: RwLock<FastHashMap<TypeId, Box<dyn DynamicComponent>>>,
+  pub(crate) foreign_keys: RwLock<FastHashMap<TypeId, (TypeId, Box<dyn DynamicComponent>)>>,
 
   pub(crate) components_meta_watchers: EventSource<Box<dyn DynamicComponent>>,
   pub(crate) foreign_key_meta_watchers: EventSource<Box<dyn DynamicComponent>>,
@@ -80,15 +80,24 @@ impl<E: 'static> EntityComponentGroup<E> {
     let previous = components.insert(semantic, com);
     assert!(previous.is_none());
   }
-  pub fn declare_foreign_key<FE: Any>(self) -> Self {
-    let com = ComponentCollection::<Option<AllocIdx<FE>>>::default();
-    self.declare_foreign_key_dyn(TypeId::of::<FE>(), Box::new(com.clone()));
+  pub fn declare_foreign_key<S: ForeignKeySemantic>(self) -> Self {
+    let com = ComponentCollection::<Option<AllocIdx<S::ForeignEntity>>>::default();
+    self.declare_foreign_key_dyn(
+      TypeId::of::<S>(),
+      TypeId::of::<S::ForeignEntity>(),
+      Box::new(com.clone()),
+    );
     self
   }
-  pub fn declare_foreign_key_dyn(&self, entity_type_id: TypeId, com: Box<dyn DynamicComponent>) {
+  pub fn declare_foreign_key_dyn(
+    &self,
+    semantic: TypeId,
+    foreign_entity_type_id: TypeId,
+    com: Box<dyn DynamicComponent>,
+  ) {
     let mut foreign_keys = self.inner.foreign_keys.write();
     self.inner.foreign_key_meta_watchers.emit(&com);
-    let previous = foreign_keys.insert(entity_type_id, com);
+    let previous = foreign_keys.insert(foreign_entity_type_id, (semantic, com));
     assert!(previous.is_none())
   }
 
@@ -122,7 +131,7 @@ impl<E: 'static> EntityComponentGroup<E> {
     let foreign_keys = self.inner.foreign_keys.read_recursive();
     let foreign_keys = foreign_keys
       .iter()
-      .map(|(id, c)| (*id, c.create_dyn_writer_default()))
+      .map(|(id, (_, c))| (*id, c.create_dyn_writer_default()))
       .collect();
     EntityWriter {
       phantom: PhantomData,
