@@ -108,7 +108,6 @@ impl<T: 'static> ComponentStorage<T> for InterleavedDataContainer {
       offset: inner.offsets[self.idx],
       stride: inner.stride,
       data: self.inner.clone(),
-      id: self.idx,
       _guard: inner.locks[self.idx].make_write_holder(),
     })
   }
@@ -146,7 +145,6 @@ pub struct InterleavedDataContainerReadWriteView<T> {
   phantom: PhantomData<T>,
   offset: usize,
   stride: usize,
-  id: usize,
   data: Arc<RwLock<InterleavedDataContainerInner>>,
   _guard: LockWriteGuardHolder<()>,
 }
@@ -163,30 +161,11 @@ impl<T> ComponentStorageReadWriteView<T> for InterleavedDataContainerReadWriteVi
     }
   }
 
-  fn grow_at_least(&mut self, max: usize) {
-    unsafe {
-      /// note, we only allow one write view to do resize. and when resizing, we need make sure
-      /// the other component is nether write nor read, or it will cause a deadlock.
-      use parking_lot::lock_api::RawRwLock;
-      let data = self.data.read();
-      for (id, lock) in data.locks.iter().enumerate() {
-        let lock = lock.raw();
-        if id != self.id {
-          lock.lock_exclusive()
-        }
-      }
+  unsafe fn grow_at_least(&mut self, max: usize) {
+    let vec = (*self.data.data_ptr()).data.get();
 
-      let vec = data.data.get();
-
-      if (*vec).len <= max * self.stride {
-        (*vec).resize((max + 1) * self.stride);
-      }
-
-      for (id, lock) in data.locks.iter().enumerate() {
-        if id != self.id {
-          lock.raw().unlock_exclusive();
-        }
-      }
+    if (*vec).len <= max * self.stride {
+      (*vec).resize((max + 1) * self.stride);
     }
   }
 }

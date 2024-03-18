@@ -224,7 +224,9 @@ impl<T: CValue + Default, F: FnMut() -> T> EntityComponentWriter
   fn write_init_component_value(&mut self, idx: u32) {
     let com = self.component.as_mut().unwrap();
 
-    com.data.grow_at_least(idx as usize);
+    unsafe {
+      com.data.grow_at_least(idx as usize);
+    }
 
     com.write_impl(idx.into(), (self.default_value)(), true);
   }
