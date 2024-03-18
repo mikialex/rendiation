@@ -61,7 +61,7 @@ impl<T: IncrementalBase> Clone for IncrementalSignalStorage<T> {
 }
 
 pub struct StorageReadView<T: IncrementalBase> {
-  inner: LockResultHolder<IndexReusedVec<SignalItem<T>>>,
+  inner: LockReadGuardHolder<IndexReusedVec<SignalItem<T>>>,
 }
 
 impl<T: IncrementalBase> Clone for StorageReadView<T> {
@@ -116,7 +116,7 @@ impl<T: IncrementalBase> IncrementalSignalStorage<T> {
 
   pub fn read(&self) -> StorageReadView<T> {
     StorageReadView {
-      inner: self.inner.data.make_lock_holder_raw(),
+      inner: self.inner.data.make_read_holder(),
     }
   }
 

@@ -140,7 +140,7 @@ where
   }
 
   fn access(&self) -> PollCollectionCurrent<K, V2> {
-    Box::new(self.cache.make_lock_holder_raw())
+    Box::new(self.cache.make_read_holder())
   }
 }
 
@@ -155,6 +155,6 @@ where
   T: ReactiveCollection<K, V>,
 {
   fn access_ref_collection(&self) -> Box<dyn VirtualCollectionSelfContained<K, V2> + '_> {
-    Box::new(self.cache.make_lock_holder_raw())
+    Box::new(self.cache.make_read_holder())
   }
 }

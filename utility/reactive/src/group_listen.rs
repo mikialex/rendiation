@@ -228,7 +228,7 @@ struct ReactiveCollectionFromGroupMutation<T: IncrementalBase, S, P> {
 }
 
 struct ReactiveCollectionFromGroupMutationCurrentView<T: IncrementalBase, P> {
-  data: LockResultHolder<IndexReusedVec<SignalItem<T>>>,
+  data: LockReadGuardHolder<IndexReusedVec<SignalItem<T>>>,
   watcher: P,
 }
 
@@ -294,7 +294,7 @@ where
 
   fn access(&self) -> PollCollectionCurrent<K, U> {
     let view = ReactiveCollectionFromGroupMutationCurrentView {
-      data: self.original.inner.data.make_lock_holder_raw(),
+      data: self.original.inner.data.make_read_holder(),
       watcher: self.watcher,
     };
 

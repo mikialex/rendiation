@@ -54,7 +54,7 @@ impl<K: CKey, V: CValue> VirtualCollectionSelfContained<K, V> for FastHashMap<K,
 }
 
 impl<K: CKey, V: CValue, T: VirtualCollectionSelfContained<K, V>>
-  VirtualCollectionSelfContained<K, V> for LockResultHolder<T>
+  VirtualCollectionSelfContained<K, V> for LockReadGuardHolder<T>
 {
   fn access_ref(&self, key: &K) -> Option<&V> {
     self.deref().access_ref(key)

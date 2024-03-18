@@ -56,7 +56,6 @@ members = [
   "scene/rendering/gpu-base",
   "scene/rendering/gpu-driven-style",
   "scene/rendering/gpu-gles-style",
-  "viewer",
   "platform/graphics/webgpu",
   "extension/controller",
   "application/viewer",
