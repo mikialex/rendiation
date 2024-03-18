@@ -182,7 +182,7 @@ impl GPUSubAllocateBuffer {
       } else {
         let grow_planed = ((current_size as f32) * 1.5) as u32;
         let real_grow_size = grow_planed
-          .max(required_size + current_size)
+          .max(required_size + current_size as u32)
           .min(alloc.max_size as u32);
         alloc.grow(real_grow_size - current_size as u32, device, queue)
       }

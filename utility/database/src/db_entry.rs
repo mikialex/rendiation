@@ -18,7 +18,7 @@ impl Database {
     ecg
   }
 
-  fn access_ecg<E: Any, R>(&self, f: impl FnOnce(&EntityComponentGroup<E>) -> R) -> R {
+  pub fn access_ecg<E: Any, R>(&self, f: impl FnOnce(&EntityComponentGroup<E>) -> R) -> R {
     let e_id = TypeId::of::<E>();
     let tables = self.ecg_tables.read_recursive();
     let ecg = tables.get(&e_id).unwrap();
