@@ -445,12 +445,12 @@ fn demo() {
     .declare_component::<TestEntityFieldB>()
     .declare_component::<TestEntityFieldC>();
 
-  // global_database().interleave_component_storages(|builder| {
-  //   builder
-  //     .with_type::<TestEntityFieldA>()
-  //     .with_type::<TestEntityFieldB>()
-  //     .with_type::<TestEntityFieldC>()
-  // });
+  global_database().interleave_component_storages(|builder| {
+    builder
+      .with_type::<TestEntityFieldA>()
+      .with_type::<TestEntityFieldB>()
+      .with_type::<TestEntityFieldC>()
+  });
 
   pub struct MyTestEntity2;
   declare_component!(TestEntity2FieldA, MyTestEntity2, u32);

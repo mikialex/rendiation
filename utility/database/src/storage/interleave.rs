@@ -80,8 +80,9 @@ impl DynBuffer {
       return;
     }
 
-    let new = Self::with_capacity((self.capacity * 2).max(new_len), self.align, self.stride);
+    let mut new = Self::with_capacity((self.capacity * 2).max(new_len), self.align, self.stride);
     unsafe { std::ptr::copy_nonoverlapping(self.ptr, new.ptr, self.len * self.stride) }
+    new.len = new_len;
     *self = new;
   }
 }
@@ -267,7 +268,7 @@ impl Database {
       data: UnsafeCell::new(data),
       offsets: builder.offsets,
       stride,
-      locks: std::iter::repeat(Arc::new(RwLock::new(())))
+      locks: std::iter::repeat_with(|| Arc::new(RwLock::new(())))
         .take(builder.layouts.len())
         .collect(),
     };
