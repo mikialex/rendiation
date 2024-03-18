@@ -19,7 +19,7 @@ pub use wrap::*;
 mod draw;
 pub use draw::*;
 
-// todo, support runtime size by query client limitation
+// todo, support runtime dynamic size by query client limitation
 pub const MAX_STORAGE_BINDING_ARRAY_LENGTH: usize = 8192;
 
 pub type MeshSystemMeshHandle = u32;

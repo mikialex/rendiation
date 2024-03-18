@@ -26,6 +26,7 @@ struct GPUSubAllocateBufferImpl {
   buffer: GPUBufferResourceView,
   usage: BufferUsages,
   max_size: usize,
+  /// the reason we allocate by item instead of bytes is that allocation have to be aligned to type
   item_byte_size: usize,
   relocate_callback: Option<Box<dyn Fn(RelocationMessage)>>,
 }
@@ -180,7 +181,9 @@ impl GPUSubAllocateBuffer {
         break None;
       } else {
         let grow_planed = ((current_size as f32) * 1.5) as u32;
-        let real_grow_size = grow_planed.max(required_size).min(alloc.max_size as u32);
+        let real_grow_size = grow_planed
+          .max(required_size + current_size)
+          .min(alloc.max_size as u32);
         alloc.grow(real_grow_size - current_size as u32, device, queue)
       }
     }
