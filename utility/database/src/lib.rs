@@ -18,11 +18,13 @@ pub use global::*;
 mod component;
 mod db_entry;
 mod entity;
+mod feature;
 mod semantic;
 mod storage;
 
 pub use component::*;
 pub use db_entry::*;
 pub use entity::*;
+pub use feature::*;
 pub use semantic::*;
 pub use storage::*;
