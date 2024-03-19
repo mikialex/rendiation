@@ -6,16 +6,17 @@ pub struct ComponentCollection<T> {
   // todo remove arc
   pub(crate) data: Arc<dyn ComponentStorage<T>>,
   /// watch this component all change with idx
-  pub(crate) group_watchers: EventSource<IndexValueChange<T>>,
+  pub(crate) group_watchers: EventSource<ComponentValueChange<T>>,
 }
 
-impl<T> ComponentCollection<T> {
+impl<T: CValue> ComponentCollection<T> {
   pub fn read(&self) -> ComponentReadView<T> {
     ComponentReadView {
       data: self.data.create_read_view(),
     }
   }
   pub fn write(&self) -> ComponentWriteView<T> {
+    self.group_watchers.emit(&ComponentValueChange::StartWrite);
     ComponentWriteView {
       data: self.data.create_read_write_view(),
       events: self.group_watchers.lock.make_mutex_write_holder(),
@@ -37,10 +38,35 @@ pub struct ComponentReadView<T: 'static> {
   data: Box<dyn ComponentStorageReadView<T>>,
 }
 
-impl<T: 'static> ComponentReadView<T> {
-  pub fn get(&self, idx: AllocIdx<T>) -> &T {
-    self.data.get(idx.index as usize).unwrap()
+// impl<T: 'static> Clone for ComponentReadView<T> {
+//   fn clone(&self) -> Self {
+//     Self {
+//       data: self.data.clone(),
+//     }
+//   }
+// }
+
+// impl<E: Any, T: CValue> VirtualCollection<AllocIdx<E>, T> for ComponentReadView<T> {
+//   fn iter_key_value(&self) -> Box<dyn Iterator<Item = (AllocIdx<E>, T)> + '_> {
+//     todo!()
+//   }
+
+//   fn access(&self, key: &AllocIdx<E>) -> Option<T> {
+//     // self.get()
+//     todo!()
+//   }
+// }
+
+impl<T: CValue> ComponentReadView<T> {
+  pub fn get(&self, idx: u32) -> &T {
+    self.data.get(idx as usize).unwrap()
   }
+}
+
+pub enum ComponentValueChange<T> {
+  StartWrite,
+  EndWrite,
+  Write(IndexValueChange<T>),
 }
 
 pub struct IndexValueChange<T> {
@@ -50,7 +76,13 @@ pub struct IndexValueChange<T> {
 
 pub struct ComponentWriteView<T: 'static> {
   pub(crate) data: Box<dyn ComponentStorageReadWriteView<T>>,
-  pub(crate) events: MutexGuardHolder<Source<IndexValueChange<T>>>,
+  pub(crate) events: MutexGuardHolder<Source<ComponentValueChange<T>>>,
+}
+
+impl<T> Drop for ComponentWriteView<T> {
+  fn drop(&mut self) {
+    self.events.emit(&ComponentValueChange::EndWrite)
+  }
 }
 
 impl<T: CValue + Default> ComponentWriteView<T> {
@@ -71,7 +103,8 @@ impl<T: CValue + Default> ComponentWriteView<T> {
 
     if is_create {
       let change = ValueChange::Delta(new, None);
-      self.events.emit(&IndexValueChange { idx, change });
+      let change = IndexValueChange { idx, change };
+      self.events.emit(&ComponentValueChange::Write(change));
       return;
     }
 
@@ -80,7 +113,8 @@ impl<T: CValue + Default> ComponentWriteView<T> {
     }
 
     let change = ValueChange::Delta(new, Some(previous));
-    self.events.emit(&IndexValueChange { idx, change });
+    let change = IndexValueChange { idx, change };
+    self.events.emit(&ComponentValueChange::Write(change));
   }
 
   pub(crate) fn delete(&mut self, idx: AllocIdx<T>) {
@@ -88,7 +122,8 @@ impl<T: CValue + Default> ComponentWriteView<T> {
     let previous = std::mem::take(com);
 
     let change = ValueChange::Remove(previous);
-    self.events.emit(&IndexValueChange { idx, change });
+    let change = IndexValueChange { idx, change };
+    self.events.emit(&ComponentValueChange::Write(change));
   }
 }
 

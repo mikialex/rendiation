@@ -87,10 +87,10 @@ impl DynBuffer {
   }
 }
 
-unsafe impl Send for InterleavedDataContainer {}
-unsafe impl Sync for InterleavedDataContainer {}
+unsafe impl Send for InterleavedDataContainerInner {}
+unsafe impl Sync for InterleavedDataContainerInner {}
 
-impl<T: 'static> ComponentStorage<T> for InterleavedDataContainer {
+impl<T: CValue> ComponentStorage<T> for InterleavedDataContainer {
   fn create_read_view(&self) -> Box<dyn ComponentStorageReadView<T>> {
     let inner = self.inner.read();
     Box::new(InterleavedDataContainerReadView {
@@ -128,7 +128,7 @@ pub struct InterleavedDataContainerReadView<T> {
   _guard: LockReadGuardHolder<()>,
 }
 
-impl<T> ComponentStorageReadView<T> for InterleavedDataContainerReadView<T> {
+impl<T: CValue> ComponentStorageReadView<T> for InterleavedDataContainerReadView<T> {
   fn get(&self, idx: usize) -> Option<&T> {
     unsafe {
       let vec = (*self.data.data_ptr()).data.get();
@@ -150,7 +150,7 @@ pub struct InterleavedDataContainerReadWriteView<T> {
   _guard: LockWriteGuardHolder<()>,
 }
 
-impl<T> ComponentStorageReadWriteView<T> for InterleavedDataContainerReadWriteView<T> {
+impl<T: CValue> ComponentStorageReadWriteView<T> for InterleavedDataContainerReadWriteView<T> {
   fn get_mut(&mut self, idx: usize) -> Option<&mut T> {
     unsafe {
       let vec = (*self.data.data_ptr()).data.get();
@@ -171,7 +171,7 @@ impl<T> ComponentStorageReadWriteView<T> for InterleavedDataContainerReadWriteVi
   }
 }
 
-impl<T> ComponentStorageReadView<T> for InterleavedDataContainerReadWriteView<T> {
+impl<T: CValue> ComponentStorageReadView<T> for InterleavedDataContainerReadWriteView<T> {
   fn get(&self, idx: usize) -> Option<&T> {
     unsafe {
       let vec = (*self.data.data_ptr()).data.get();

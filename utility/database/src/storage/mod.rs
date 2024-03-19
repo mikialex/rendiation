@@ -11,7 +11,7 @@ pub trait ComponentStorage<T>: Send + Sync {
   fn as_any_mut(&mut self) -> &mut dyn Any;
 }
 
-pub trait ComponentStorageReadView<T> {
+pub trait ComponentStorageReadView<T>: Send + Sync {
   fn get(&self, idx: usize) -> Option<&T>;
 }
 pub trait ComponentStorageReadWriteView<T>: ComponentStorageReadView<T> {
