@@ -26,13 +26,13 @@ impl DatabaseMutationWatch {
     let type_id = TypeId::of::<C>();
     if let Some(watcher) = self.component_changes.read().get(&type_id) {
       let watcher = watcher
-        .downcast_ref::<ComponentMutationWatcher<C>>()
+        .downcast_ref::<RxCForker<AllocIdx<C::Entity>, C::Data>>()
         .unwrap();
-      return watcher.forker.clone();
+      return watcher.clone();
     }
 
-    let (sender, receiver) = channel();
-    self.db.access_ecg::<C::Entity, _>(move |e| {
+    let (sender, receiver) = channel::<C::Entity, C::Data>();
+    let original = self.db.access_ecg::<C::Entity, _>(move |e| {
       e.access_component::<C, _>(move |c| {
         c.group_watchers.on(move |change| unsafe {
           match change {
@@ -45,24 +45,29 @@ impl DatabaseMutationWatch {
               sender.is_closed()
             }
             ComponentValueChange::Write(write) => {
-              sender.send(write.idx, write.change.clone());
+              sender.send(write.idx.into(), write.change.clone());
               false
             }
           }
-        })
+        });
+        c.clone()
       })
     });
 
-    self.component_changes.write().insert(type_id, todo!());
+    let rxc = ReactiveCollectionFromComponentMutation {
+      ecg: self.db.access_ecg::<C::Entity, _>(|ecg| ecg.clone()),
+      original,
+      mutation: RwLock::new(receiver),
+    }
+    .into_static_forker();
+
+    self
+      .component_changes
+      .write()
+      .insert(type_id, Box::new(rxc));
 
     self.watch::<C>()
   }
-}
-
-struct ComponentMutationWatcher<C: ComponentSemantic> {
-  // todo, remove watcher if all forked has been dropped
-  watcher_handle: RemoveToken<IndexValueChange<C::Data>>,
-  forker: RxCForker<AllocIdx<C::Entity>, C::Data>,
 }
 
 type MutationData<K, T> = FastHashMap<AllocIdx<K>, ValueChange<T>>;
@@ -142,6 +147,7 @@ impl<K, T> Stream for ComponentMutationReceiver<K, T> {
 }
 
 struct ReactiveCollectionFromComponentMutation<K, T> {
+  ecg: EntityComponentGroup<K>,
   original: ComponentCollection<T>,
   mutation: RwLock<ComponentMutationReceiver<K, T>>,
 }
@@ -162,11 +168,13 @@ impl<K: Any, T: CValue> ReactiveCollection<AllocIdx<K>, T>
   }
 
   fn access(&self) -> PollCollectionCurrent<AllocIdx<K>, T> {
-    // Box::new(self.original.read())
-    todo!()
+    Box::new(IterableComponentReadView {
+      ecg: self.ecg.clone(),
+      read_view: self.original.data.create_read_view(),
+    }) as PollCollectionCurrent<AllocIdx<K>, T>
   }
 
-  fn extra_request(&mut self, request: &mut ExtraCollectionOperation) {
+  fn extra_request(&mut self, _request: &mut ExtraCollectionOperation) {
     // component storage should not shrink here
   }
 }

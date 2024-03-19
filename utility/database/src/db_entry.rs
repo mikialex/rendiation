@@ -86,8 +86,8 @@ fn demo_how_to_use_database_generally() {
 
   // batch read
   let read_view = global_entity_component_of::<TestEntity2FieldA>().read();
-  read_view.get(ptr.alloc_idx().index.into());
-  read_view.get(ptr.alloc_idx().index.into());
+  read_view.get(ptr.alloc_idx().index);
+  read_view.get(ptr.alloc_idx().index);
 
   // batch write
   // let write_view =  global_entity_component_of::<TestEntityFieldA>().write().write(idx, new)

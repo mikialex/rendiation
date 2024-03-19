@@ -35,31 +35,50 @@ impl<T: CValue + Default> Default for ComponentCollection<T> {
 }
 
 pub struct ComponentReadView<T: 'static> {
-  data: Box<dyn ComponentStorageReadView<T>>,
+  data: Arc<dyn ComponentStorageReadView<T>>,
 }
 
-// impl<T: 'static> Clone for ComponentReadView<T> {
-//   fn clone(&self) -> Self {
-//     Self {
-//       data: self.data.clone(),
-//     }
-//   }
-// }
+impl<T: 'static> Clone for ComponentReadView<T> {
+  fn clone(&self) -> Self {
+    Self {
+      data: self.data.clone(),
+    }
+  }
+}
 
-// impl<E: Any, T: CValue> VirtualCollection<AllocIdx<E>, T> for ComponentReadView<T> {
-//   fn iter_key_value(&self) -> Box<dyn Iterator<Item = (AllocIdx<E>, T)> + '_> {
-//     todo!()
-//   }
+pub struct IterableComponentReadView<T: 'static, E> {
+  pub ecg: EntityComponentGroup<E>,
+  pub read_view: Arc<dyn ComponentStorageReadView<T>>,
+}
 
-//   fn access(&self, key: &AllocIdx<E>) -> Option<T> {
-//     // self.get()
-//     todo!()
-//   }
-// }
+impl<T: 'static, E> Clone for IterableComponentReadView<T, E> {
+  fn clone(&self) -> Self {
+    Self {
+      ecg: self.ecg.clone(),
+      read_view: self.read_view.clone(),
+    }
+  }
+}
+
+// todo fix E constraint
+impl<E: Any, T: CValue> VirtualCollection<AllocIdx<E>, T> for IterableComponentReadView<T, E> {
+  fn iter_key_value(&self) -> Box<dyn Iterator<Item = (AllocIdx<E>, T)> + '_> {
+    Box::new(
+      self
+        .ecg
+        .iter_entity_idx()
+        .map(|id| (id.into(), self.read_view.get(id as usize).cloned().unwrap())),
+    )
+  }
+
+  fn access(&self, key: &AllocIdx<E>) -> Option<T> {
+    self.read_view.get(key.index as usize).cloned()
+  }
+}
 
 impl<T: CValue> ComponentReadView<T> {
-  pub fn get(&self, idx: u32) -> &T {
-    self.data.get(idx as usize).unwrap()
+  pub fn get(&self, idx: u32) -> Option<&T> {
+    self.data.get(idx as usize)
   }
 }
 
@@ -70,7 +89,7 @@ pub enum ComponentValueChange<T> {
 }
 
 pub struct IndexValueChange<T> {
-  pub idx: AllocIdx<T>,
+  pub idx: u32,
   pub change: ValueChange<T>,
 }
 
@@ -93,12 +112,12 @@ impl<T: CValue + Default> ComponentWriteView<T> {
     }
   }
 
-  pub fn write(&mut self, idx: AllocIdx<T>, new: T) {
+  pub fn write(&mut self, idx: u32, new: T) {
     self.write_impl(idx, new, false);
   }
 
-  pub(crate) fn write_impl(&mut self, idx: AllocIdx<T>, new: T, is_create: bool) {
-    let com = self.data.get_mut(idx.index as usize).unwrap();
+  pub(crate) fn write_impl(&mut self, idx: u32, new: T, is_create: bool) {
+    let com = self.data.get_mut(idx as usize).unwrap();
     let previous = std::mem::replace(com, new.clone());
 
     if is_create {
@@ -117,8 +136,8 @@ impl<T: CValue + Default> ComponentWriteView<T> {
     self.events.emit(&ComponentValueChange::Write(change));
   }
 
-  pub(crate) fn delete(&mut self, idx: AllocIdx<T>) {
-    let com = self.data.get_mut(idx.index as usize).unwrap();
+  pub(crate) fn delete(&mut self, idx: u32) {
+    let com = self.data.get_mut(idx as usize).unwrap();
     let previous = std::mem::take(com);
 
     let change = ValueChange::Remove(previous);

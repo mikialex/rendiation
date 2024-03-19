@@ -246,10 +246,10 @@ impl<T: CValue + Default, F: FnMut() -> T> EntityComponentWriter
       com.data.grow_at_least(idx as usize);
     }
 
-    com.write_impl(idx.into(), (self.default_value)(), true);
+    com.write_impl(idx, (self.default_value)(), true);
   }
   fn delete_component(&mut self, idx: u32) {
-    self.component.as_mut().unwrap().delete(idx.into())
+    self.component.as_mut().unwrap().delete(idx)
   }
   fn take_write_view(&mut self) -> Box<dyn Any> {
     Box::new(self.component.take().unwrap())

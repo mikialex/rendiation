@@ -91,9 +91,9 @@ unsafe impl Send for InterleavedDataContainerInner {}
 unsafe impl Sync for InterleavedDataContainerInner {}
 
 impl<T: CValue> ComponentStorage<T> for InterleavedDataContainer {
-  fn create_read_view(&self) -> Box<dyn ComponentStorageReadView<T>> {
+  fn create_read_view(&self) -> Arc<dyn ComponentStorageReadView<T>> {
     let inner = self.inner.read();
-    Box::new(InterleavedDataContainerReadView {
+    Arc::new(InterleavedDataContainerReadView {
       phantom: PhantomData,
       offset: inner.offsets[self.idx],
       stride: inner.stride,
