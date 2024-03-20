@@ -107,3 +107,71 @@ pub(crate) fn merge_into_hashmap<K: CKey, V: CValue>(
     }
   })
 }
+
+pub trait MutableCollection<K, V> {
+  fn set_value(&mut self, k: K, v: V) -> Option<V>;
+  fn remove(&mut self, k: K) -> Option<V>;
+}
+
+impl<K: CKey, V: CValue> MutableCollection<K, V> for FastHashMap<K, V> {
+  fn set_value(&mut self, k: K, v: V) -> Option<V> {
+    self.insert(k, v)
+  }
+
+  fn remove(&mut self, k: K) -> Option<V> {
+    self.remove(&k)
+  }
+}
+impl<'a, K: CKey, V: CValue> MutableCollection<K, V> for &'a mut FastHashMap<K, V> {
+  fn set_value(&mut self, k: K, v: V) -> Option<V> {
+    self.insert(k, v)
+  }
+
+  fn remove(&mut self, k: K) -> Option<V> {
+    (*self).remove(&k)
+  }
+}
+
+pub struct CollectionMutationCollector<D, T> {
+  pub delta: D,
+  pub target: T,
+}
+
+impl<K, V, D, T> MutableCollection<K, V> for CollectionMutationCollector<D, T>
+where
+  D: MutableCollection<K, ValueChange<V>>,
+  T: MutableCollection<K, V>,
+  K: CKey,
+  V: CValue,
+{
+  fn set_value(&mut self, k: K, v: V) -> Option<V> {
+    let previous = self.target.set_value(k.clone(), v.clone());
+    let mut previous_delta = self.delta.remove(k.clone());
+    let new_delta = ValueChange::Delta(v, previous.clone());
+
+    if let Some(previous_delta) = &mut previous_delta {
+      if previous_delta.merge(&new_delta) {
+        self.delta.set_value(k, previous_delta.clone());
+      }
+    }
+
+    previous
+  }
+
+  fn remove(&mut self, k: K) -> Option<V> {
+    let previous = self.target.remove(k.clone());
+
+    if let Some(previous) = previous.clone() {
+      let mut previous_delta = self.delta.remove(k.clone());
+      let new_delta = ValueChange::Remove(previous);
+
+      if let Some(previous_delta) = &mut previous_delta {
+        if previous_delta.merge(&new_delta) {
+          self.delta.set_value(k, previous_delta.clone());
+        }
+      }
+    }
+
+    previous
+  }
+}
