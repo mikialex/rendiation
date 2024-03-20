@@ -12,31 +12,38 @@ use crate::*;
 pub struct DatabaseEntityRefCounting {
   entity_ref_counts: Arc<RwLock<StreamMap<TypeId, EntityRefCount>>>,
   cleanup_waker: Arc<AtomicWaker>,
-  db: Database,
 }
 
 impl DatabaseEntityRefCounting {
-  pub fn new(db: &Database, mutation_watcher: DatabaseMutationWatch) -> Self {
+  pub fn new(db: Database, mutation_watcher: DatabaseMutationWatch) -> Self {
     // todo, we should do loop check in dep graph to warn if there is a circular dep
 
     let entity_ref_counts: Arc<RwLock<StreamMap<TypeId, EntityRefCount>>> = Default::default();
     let entity_ref_counts_ = entity_ref_counts.clone();
 
-    db.entity_meta_watcher.on(move |ecg| {
-      let entity_ref_counts = entity_ref_counts.write();
+    let db_c = db.clone();
+
+    db_c.entity_meta_watcher.on(move |ecg| {
+      let erc = entity_ref_counts.clone();
+      let mut entity_ref_counts = entity_ref_counts.write();
+
+      let e_id = ecg.inner.type_id;
 
       let ref_data = EntityRefCount {
         outer_refs: Default::default(),
-        inner_refs: todo!(),
-        db: todo!(),
-        id: todo!(),
+        inner_refs: Default::default(),
+        db: db.clone(),
+        id: e_id,
       };
 
-      entity_ref_counts.insert(ecg.inner.type_id, ref_data);
+      entity_ref_counts.insert(e_id, ref_data);
       drop(entity_ref_counts);
 
-      ecg.inner.foreign_key_meta_watchers.on(|com| {
-        //
+      ecg.inner.foreign_key_meta_watchers.on(move |com| {
+        let entity_ref_counts = erc.read();
+        let ref_data = entity_ref_counts.get(&e_id).unwrap();
+        // mutation_watcher.watch()
+        ref_data.inner_refs.add_source(todo!());
         false
       });
 
@@ -46,7 +53,6 @@ impl DatabaseEntityRefCounting {
     Self {
       entity_ref_counts: entity_ref_counts_,
       cleanup_waker: Default::default(),
-      db: db.clone(),
     }
   }
   pub fn cleanup_none_referenced_entities(&self) {
@@ -84,13 +90,25 @@ impl Stream for EntityRefCount {
   type Item = ();
 
   fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+    let mut outer_count = self.outer_refs.write();
+    let outer_count: &mut ExternalDataRefs = &mut outer_count;
+
     if let Poll::Ready(change) = self.inner_refs.poll_changes(cx) {
-      let outer_count = self.outer_refs.read();
       let mut entity_writer = self.db.entity_writer_untyped_dyn(self.id);
 
       for (k, change) in change.iter_key_value() {
-        if change.is_removed() && *outer_count.ref_counts.get(k) != 0 {
+        if change.is_removed() && outer_count.ref_counts.try_get(k).is_none() {
           entity_writer.delete_entity(k);
+        }
+      }
+    }
+
+    let inner_count = self.inner_refs.access();
+    if !outer_count.clean_up_check_queue.is_empty() {
+      let mut entity_writer = self.db.entity_writer_untyped_dyn(self.id);
+      for idx in outer_count.clean_up_check_queue.drain(..) {
+        if !inner_count.contains(&idx) && outer_count.ref_counts.try_get(idx).is_none() {
+          entity_writer.delete_entity(idx);
         }
       }
     }
@@ -103,6 +121,7 @@ impl Stream for EntityRefCount {
 struct ExternalDataRefs {
   entity_checker: Arc<RwLock<Arena<()>>>,
   ref_counts: IndexKeptVec<u32>,
+  clean_up_check_queue: Vec<u32>,
   waker: AtomicWaker,
 }
 
@@ -118,10 +137,10 @@ impl<T> DataRefPtrWriteView<T> {
       panic!("handle is invalid")
     }
 
-    *self
+    self
       .ref_data
       .ref_counts
-      .get_mut(handle.handle.index() as u32) += 1;
+      .insert(1, handle.handle.index() as u32);
 
     DataRefPtr {
       inner: handle,
@@ -130,11 +149,13 @@ impl<T> DataRefPtrWriteView<T> {
   }
   /// batch version of the drop logic of data ref ptr
   pub fn drop_ptr(&mut self, handle: DataRefPtr<T>) {
-    *self
-      .ref_data
-      .ref_counts
-      .get_mut(handle.handle.index() as u32) -= 1;
-    // todo, check inner rc and do remove
+    let idx = handle.handle.index() as u32;
+    *self.ref_data.ref_counts.get_mut(idx) -= 1;
+    if *self.ref_data.ref_counts.get_mut(idx) == 0 {
+      self.ref_data.ref_counts.remove(idx);
+    }
+    self.ref_data.waker.wake();
+    self.ref_data.clean_up_check_queue.push(idx);
     let _ = ManuallyDrop::new(handle);
   }
   /// batch version of the clone logic of data ref ptr
@@ -174,10 +195,15 @@ impl<T> Deref for DataRefPtr<T> {
 impl<T> Drop for DataRefPtr<T> {
   fn drop(&mut self) {
     let mut refs = self.ref_count_storage.write();
-    let ref_count = refs.ref_counts.get_mut(self.inner.alloc_idx().index);
+    let idx = self.inner.alloc_idx().index;
+    let ref_count = refs.ref_counts.get_mut(idx);
     assert!(*ref_count >= 1);
     *ref_count -= 1;
-    // todo check inner rc and do remove
+    if *ref_count == 0 {
+      refs.ref_counts.remove(idx);
+    }
+    refs.clean_up_check_queue.push(idx);
+    refs.waker.wake()
   }
 }
 

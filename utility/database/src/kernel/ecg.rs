@@ -55,13 +55,13 @@ pub(crate) struct EntityComponentGroupImpl {
   pub(crate) type_id: TypeId,
   pub(crate) allocator: Arc<RwLock<Arena<()>>>,
   /// the components of entity
-  pub(crate) components: RwLock<FastHashMap<TypeId, Box<dyn DynamicComponent>>>,
+  pub(crate) components: RwLock<FastHashMap<TypeId, ComponentCollectionUntyped>>,
   /// the foreign keys of entity, each foreign key express the one-to-many relation with other ECG.
   /// each foreign key is a dependency between different ECG
-  pub(crate) foreign_keys: RwLock<FastHashMap<TypeId, (TypeId, Box<dyn DynamicComponent>)>>,
+  pub(crate) foreign_keys: RwLock<FastHashMap<TypeId, (TypeId, ComponentCollectionUntyped)>>,
 
-  pub(crate) components_meta_watchers: EventSource<Box<dyn DynamicComponent>>,
-  pub(crate) foreign_key_meta_watchers: EventSource<Box<dyn DynamicComponent>>,
+  pub(crate) components_meta_watchers: EventSource<ComponentCollectionUntyped>,
+  pub(crate) foreign_key_meta_watchers: EventSource<ComponentCollectionUntyped>,
 }
 
 impl EntityComponentGroupImpl {
@@ -89,24 +89,32 @@ impl<E: 'static> EntityComponentGroupTyped<E> {
   }
 
   pub fn declare_component<S: ComponentSemantic<Entity = E>>(self) -> Self {
-    let com = ComponentCollection::<S::Data>::default();
-    self
-      .inner
-      .declare_component_dyn(TypeId::of::<S>(), Box::new(com));
+    let com = ComponentCollection::<S>::default();
+    let com = ComponentCollectionUntyped {
+      inner: Box::new(com),
+      data_typeid: TypeId::of::<S::Data>(),
+      entity_type_id: TypeId::of::<S::Entity>(),
+      component_type_id: TypeId::of::<S>(),
+    };
+    self.inner.declare_component_dyn(TypeId::of::<S>(), com);
     self
   }
   pub fn declare_foreign_key<S: ForeignKeySemantic>(self) -> Self {
-    let com = ComponentCollection::<Option<AllocIdx<S::ForeignEntity>>>::default();
-    self.inner.declare_foreign_key_dyn(
-      TypeId::of::<S>(),
-      TypeId::of::<S::ForeignEntity>(),
-      Box::new(com.clone()),
-    );
+    let com = ComponentCollection::<S>::default();
+    let com = ComponentCollectionUntyped {
+      inner: Box::new(com),
+      data_typeid: TypeId::of::<S::Data>(),
+      entity_type_id: TypeId::of::<S::Entity>(),
+      component_type_id: TypeId::of::<S>(),
+    };
+    self
+      .inner
+      .declare_foreign_key_dyn(TypeId::of::<S>(), TypeId::of::<S::ForeignEntity>(), com);
     self
   }
   pub fn access_component<S: ComponentSemantic, R>(
     &self,
-    f: impl FnOnce(&ComponentCollection<S::Data>) -> R,
+    f: impl FnOnce(&ComponentCollection<S>) -> R,
   ) -> R {
     self.inner.access_component(TypeId::of::<S>(), f)
   }
@@ -119,7 +127,7 @@ impl EntityComponentGroup {
     }
   }
 
-  pub fn declare_component_dyn(&self, semantic: TypeId, com: Box<dyn DynamicComponent>) {
+  pub fn declare_component_dyn(&self, semantic: TypeId, com: ComponentCollectionUntyped) {
     let mut components = self.inner.components.write();
     self.inner.components_meta_watchers.emit(&com);
     let previous = components.insert(semantic, com);
@@ -130,7 +138,7 @@ impl EntityComponentGroup {
     &self,
     semantic: TypeId,
     foreign_entity_type_id: TypeId,
-    com: Box<dyn DynamicComponent>,
+    com: ComponentCollectionUntyped,
   ) {
     let mut foreign_keys = self.inner.foreign_keys.write();
     self.inner.foreign_key_meta_watchers.emit(&com);
@@ -159,7 +167,7 @@ impl EntityComponentGroup {
     }
   }
 
-  pub fn access_component<R, D: 'static>(
+  pub fn access_component<R, D: ComponentSemantic>(
     &self,
     c_id: TypeId,
     f: impl FnOnce(&ComponentCollection<D>) -> R,
@@ -168,6 +176,7 @@ impl EntityComponentGroup {
     f(components
       .get(&c_id)
       .unwrap()
+      .inner
       .as_any()
       .downcast_ref()
       .unwrap())

@@ -17,12 +17,12 @@ impl EntityComponentGroup {
     let components = self.inner.components.read_recursive();
     let components = components
       .iter()
-      .map(|(id, c)| (*id, c.create_dyn_writer_default()))
+      .map(|(id, c)| (*id, c.inner.create_dyn_writer_default()))
       .collect();
     let foreign_keys = self.inner.foreign_keys.read_recursive();
     let foreign_keys = foreign_keys
       .iter()
-      .map(|(id, (_, c))| (*id, c.create_dyn_writer_default()))
+      .map(|(id, (_, c))| (*id, c.inner.create_dyn_writer_default()))
       .collect();
 
     EntityWriterUntyped {
@@ -40,12 +40,12 @@ impl<E> EntityWriter<E> {
   }
   pub fn with_component_writer<C: ComponentSemantic, W: EntityComponentWriter + 'static>(
     mut self,
-    writer_maker: impl FnOnce(ComponentWriteView<C::Data>) -> W,
+    writer_maker: impl FnOnce(ComponentWriteView<C>) -> W,
   ) -> Self {
     for (id, view) in &mut self.inner.components {
       if *id == TypeId::of::<C>() {
         let v = view.take_write_view();
-        let v = v.downcast::<ComponentWriteView<C::Data>>().unwrap();
+        let v = v.downcast::<ComponentWriteView<C>>().unwrap();
         *view = Box::new(writer_maker(*v));
         return self;
       }
@@ -53,16 +53,14 @@ impl<E> EntityWriter<E> {
     self
   }
 
-  pub fn with_foreign_key_writer<FE: Any, W: EntityComponentWriter + 'static>(
+  pub fn with_foreign_key_writer<FE: ForeignKeySemantic, W: EntityComponentWriter + 'static>(
     mut self,
-    writer_maker: impl FnOnce(ComponentWriteView<Option<AllocIdx<FE>>>) -> W,
+    writer_maker: impl FnOnce(ComponentWriteView<FE>) -> W,
   ) -> Self {
     for (id, view) in &mut self.inner.foreign_keys {
       if *id == TypeId::of::<FE>() {
         let v = view.take_write_view();
-        let v = v
-          .downcast::<ComponentWriteView<Option<AllocIdx<FE>>>>()
-          .unwrap();
+        let v = v.downcast::<ComponentWriteView<FE>>().unwrap();
         *view = Box::new(writer_maker(*v));
         return self;
       }
@@ -135,12 +133,12 @@ pub trait EntityComponentWriter {
   fn take_write_view(&mut self) -> Box<dyn Any>;
 }
 
-pub struct EntityComponentWriterImpl<T: 'static, F> {
+pub struct EntityComponentWriterImpl<T: ComponentSemantic, F> {
   pub(crate) component: Option<ComponentWriteView<T>>,
   pub(crate) default_value: F,
 }
 
-impl<T: CValue + Default, F: FnMut() -> T> EntityComponentWriter
+impl<T: ComponentSemantic, F: FnMut() -> T::Data> EntityComponentWriter
   for EntityComponentWriterImpl<T, F>
 {
   fn write_init_component_value(&mut self, idx: u32) {

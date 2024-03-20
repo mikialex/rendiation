@@ -283,7 +283,7 @@ impl Database {
         let previous_storage = components.get_mut(&type_id).unwrap();
         // todo check com type
 
-        previous_storage.setup_new_storage(container);
+        previous_storage.inner.setup_new_storage(container);
       }
     });
     self

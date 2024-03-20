@@ -1,21 +1,38 @@
 use crate::*;
 
-#[derive(Clone)]
-pub struct ComponentCollection<T> {
-  // todo make this optional static dispatch for better performance
-  // todo remove arc
-  pub(crate) data: Arc<dyn ComponentStorage<T>>,
-  /// watch this component all change with idx
-  pub(crate) group_watchers: EventSource<ComponentValueChange<T>>,
+pub struct ComponentCollectionUntyped {
+  pub inner: Box<dyn DynamicComponent>, // should be some type of ComponentCollection<T>
+  pub data_typeid: TypeId,
+  pub entity_type_id: TypeId,
+  pub component_type_id: TypeId,
 }
 
-impl<T: CValue> ComponentCollection<T> {
-  pub fn read(&self) -> ComponentReadView<T> {
+pub struct ComponentCollection<C: ComponentSemantic> {
+  phantom: PhantomData<C>,
+  // todo make this optional static dispatch for better performance
+  // todo remove arc
+  pub(crate) data: Arc<dyn ComponentStorage<C::Data>>,
+  /// watch this component all change with idx
+  pub(crate) group_watchers: EventSource<ComponentValueChange<C::Data>>,
+}
+
+impl<C: ComponentSemantic> Clone for ComponentCollection<C> {
+  fn clone(&self) -> Self {
+    Self {
+      phantom: self.phantom,
+      data: self.data.clone(),
+      group_watchers: self.group_watchers.clone(),
+    }
+  }
+}
+
+impl<C: ComponentSemantic> ComponentCollection<C> {
+  pub fn read(&self) -> ComponentReadView<C> {
     ComponentReadView {
       data: self.data.create_read_view(),
     }
   }
-  pub fn write(&self) -> ComponentWriteView<T> {
+  pub fn write(&self) -> ComponentWriteView<C> {
     self.group_watchers.emit(&ComponentValueChange::StartWrite);
     ComponentWriteView {
       data: self.data.create_read_write_view(),
@@ -24,21 +41,22 @@ impl<T: CValue> ComponentCollection<T> {
   }
 }
 
-impl<T: CValue + Default> Default for ComponentCollection<T> {
+impl<C: ComponentSemantic> Default for ComponentCollection<C> {
   fn default() -> Self {
-    let data: Arc<RwLock<Vec<T>>> = Default::default();
+    let data: Arc<RwLock<Vec<C::Data>>> = Default::default();
     Self {
+      phantom: PhantomData,
       data: Arc::new(data),
       group_watchers: Default::default(),
     }
   }
 }
 
-pub struct ComponentReadView<T: 'static> {
-  data: Arc<dyn ComponentStorageReadView<T>>,
+pub struct ComponentReadView<T: ComponentSemantic> {
+  data: Arc<dyn ComponentStorageReadView<T::Data>>,
 }
 
-impl<T: 'static> Clone for ComponentReadView<T> {
+impl<T: ComponentSemantic> Clone for ComponentReadView<T> {
   fn clone(&self) -> Self {
     Self {
       data: self.data.clone(),
@@ -46,12 +64,12 @@ impl<T: 'static> Clone for ComponentReadView<T> {
   }
 }
 
-pub struct IterableComponentReadView<T: 'static> {
+pub struct IterableComponentReadView<T: ComponentSemantic> {
   pub ecg: EntityComponentGroup,
-  pub read_view: Arc<dyn ComponentStorageReadView<T>>,
+  pub read_view: Arc<dyn ComponentStorageReadView<T::Data>>,
 }
 
-impl<T: 'static> Clone for IterableComponentReadView<T> {
+impl<T: ComponentSemantic> Clone for IterableComponentReadView<T> {
   fn clone(&self) -> Self {
     Self {
       ecg: self.ecg.clone(),
@@ -61,8 +79,10 @@ impl<T: 'static> Clone for IterableComponentReadView<T> {
 }
 
 // todo fix E constraint
-impl<E: Any, T: CValue> VirtualCollection<AllocIdx<E>, T> for IterableComponentReadView<T> {
-  fn iter_key_value(&self) -> Box<dyn Iterator<Item = (AllocIdx<E>, T)> + '_> {
+impl<E: Any, T: ComponentSemantic> VirtualCollection<AllocIdx<E>, T::Data>
+  for IterableComponentReadView<T>
+{
+  fn iter_key_value(&self) -> Box<dyn Iterator<Item = (AllocIdx<E>, T::Data)> + '_> {
     Box::new(
       self
         .ecg
@@ -71,13 +91,13 @@ impl<E: Any, T: CValue> VirtualCollection<AllocIdx<E>, T> for IterableComponentR
     )
   }
 
-  fn access(&self, key: &AllocIdx<E>) -> Option<T> {
+  fn access(&self, key: &AllocIdx<E>) -> Option<T::Data> {
     self.read_view.get(key.index as usize).cloned()
   }
 }
 
-impl<T: CValue> ComponentReadView<T> {
-  pub fn get(&self, idx: u32) -> Option<&T> {
+impl<T: ComponentSemantic> ComponentReadView<T> {
+  pub fn get(&self, idx: u32) -> Option<&T::Data> {
     self.data.get(idx as usize)
   }
 }
@@ -93,30 +113,30 @@ pub struct IndexValueChange<T> {
   pub change: ValueChange<T>,
 }
 
-pub struct ComponentWriteView<T: 'static> {
-  pub(crate) data: Box<dyn ComponentStorageReadWriteView<T>>,
-  pub(crate) events: MutexGuardHolder<Source<ComponentValueChange<T>>>,
+pub struct ComponentWriteView<T: ComponentSemantic> {
+  pub(crate) data: Box<dyn ComponentStorageReadWriteView<T::Data>>,
+  pub(crate) events: MutexGuardHolder<Source<ComponentValueChange<T::Data>>>,
 }
 
-impl<T> Drop for ComponentWriteView<T> {
+impl<T: ComponentSemantic> Drop for ComponentWriteView<T> {
   fn drop(&mut self) {
     self.events.emit(&ComponentValueChange::EndWrite)
   }
 }
 
-impl<T: CValue + Default> ComponentWriteView<T> {
-  pub fn with_writer(self, f: impl FnMut() -> T + 'static) -> impl EntityComponentWriter {
+impl<T: ComponentSemantic> ComponentWriteView<T> {
+  pub fn with_writer(self, f: impl FnMut() -> T::Data + 'static) -> impl EntityComponentWriter {
     EntityComponentWriterImpl {
       component: Some(self),
       default_value: f,
     }
   }
 
-  pub fn write(&mut self, idx: u32, new: T) {
+  pub fn write(&mut self, idx: u32, new: T::Data) {
     self.write_impl(idx, new, false);
   }
 
-  pub(crate) fn write_impl(&mut self, idx: u32, new: T, is_create: bool) {
+  pub(crate) fn write_impl(&mut self, idx: u32, new: T::Data, is_create: bool) {
     let com = self.data.get_mut(idx as usize).unwrap();
     let previous = std::mem::replace(com, new.clone());
 
@@ -152,12 +172,14 @@ pub trait DynamicComponent: Any + Send + Sync {
   fn as_any(&self) -> &dyn Any;
 }
 
-impl<T: CValue + Default> DynamicComponent for ComponentCollection<T> {
+impl<T: ComponentSemantic> DynamicComponent for ComponentCollection<T> {
   fn create_dyn_writer_default(&self) -> Box<dyn EntityComponentWriter> {
-    Box::new(self.write().with_writer(T::default))
+    Box::new(self.write().with_writer(T::Data::default))
   }
   fn setup_new_storage(&mut self, storage: Box<dyn Any>) {
-    self.data = *storage.downcast::<Arc<dyn ComponentStorage<T>>>().unwrap();
+    self.data = *storage
+      .downcast::<Arc<dyn ComponentStorage<T::Data>>>()
+      .unwrap();
   }
 
   fn as_any(&self) -> &dyn Any {

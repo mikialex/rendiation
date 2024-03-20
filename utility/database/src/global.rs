@@ -15,6 +15,8 @@ pub fn global_entity_of<E: Any>() -> EntityComponentGroupTyped<E> {
   global_database().access_ecg(|ecg| ecg.clone())
 }
 
-pub fn global_entity_component_of<S: ComponentSemantic>() -> ComponentCollection<S::Data> {
-  global_entity_of::<S::Entity>().access_component::<S, _>(|c| c.clone())
+pub fn global_entity_component_of<S: ComponentSemantic>() -> ComponentCollection<S> {
+  global_entity_of::<S::Entity>()
+    .access_component::<S, _>(|c| c.clone())
+    .clone()
 }

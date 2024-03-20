@@ -146,32 +146,32 @@ impl<K, T> Stream for ComponentMutationReceiver<K, T> {
   }
 }
 
-struct ReactiveCollectionFromComponentMutation<K, T> {
+struct ReactiveCollectionFromComponentMutation<K, T: ComponentSemantic> {
   ecg: EntityComponentGroupTyped<K>,
   original: ComponentCollection<T>,
-  mutation: RwLock<ComponentMutationReceiver<K, T>>,
+  mutation: RwLock<ComponentMutationReceiver<K, T::Data>>,
 }
-impl<K: Any, T: CValue> ReactiveCollection<AllocIdx<K>, T>
+impl<K: Any, T: ComponentSemantic> ReactiveCollection<AllocIdx<K>, T::Data>
   for ReactiveCollectionFromComponentMutation<K, T>
 {
-  fn poll_changes(&self, cx: &mut Context) -> PollCollectionChanges<AllocIdx<K>, T> {
+  fn poll_changes(&self, cx: &mut Context) -> PollCollectionChanges<AllocIdx<K>, T::Data> {
     match self.mutation.write().poll_next_unpin(cx) {
       Poll::Ready(Some(r)) => {
         if r.is_empty() {
           Poll::Pending
         } else {
-          Poll::Ready(Box::new(r) as Box<dyn VirtualCollection<AllocIdx<K>, ValueChange<T>>>)
+          Poll::Ready(Box::new(r) as Box<dyn VirtualCollection<AllocIdx<K>, ValueChange<T::Data>>>)
         }
       }
       _ => Poll::Pending,
     }
   }
 
-  fn access(&self) -> PollCollectionCurrent<AllocIdx<K>, T> {
-    Box::new(IterableComponentReadView {
+  fn access(&self) -> PollCollectionCurrent<AllocIdx<K>, T::Data> {
+    Box::new(IterableComponentReadView::<T> {
       ecg: self.ecg.clone().into_untyped(),
       read_view: self.original.data.create_read_view(),
-    }) as PollCollectionCurrent<AllocIdx<K>, T>
+    }) as PollCollectionCurrent<AllocIdx<K>, T::Data>
   }
 
   fn extra_request(&mut self, _request: &mut ExtraCollectionOperation) {

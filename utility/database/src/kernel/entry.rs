@@ -32,10 +32,10 @@ impl Database {
     self.access_ecg_dyn(TypeId::of::<E>(), |c| f(&c.clone().into_typed().unwrap()))
   }
 
-  pub fn read<C: ComponentSemantic>(&self) -> ComponentReadView<C::Data> {
+  pub fn read<C: ComponentSemantic>(&self) -> ComponentReadView<C> {
     self.access_ecg::<C::Entity, _>(|e| e.access_component::<C, _>(|c| c.read()))
   }
-  pub fn write<C: ComponentSemantic>(&self) -> ComponentWriteView<C::Data> {
+  pub fn write<C: ComponentSemantic>(&self) -> ComponentWriteView<C> {
     self.access_ecg::<C::Entity, _>(|e| e.access_component::<C, _>(|c| c.write()))
   }
 
@@ -88,7 +88,7 @@ fn demo_how_to_use_database_generally() {
 
   let ptr = global_entity_of::<MyTestEntity2>()
     .entity_writer()
-    .with_foreign_key_writer::<MyTestEntity, _>(move |w| {
+    .with_foreign_key_writer::<TestEntity2ReferenceEntity1, _>(move |w| {
       w.with_writer(move || Some(ptr.alloc_idx()))
     })
     .new_entity();

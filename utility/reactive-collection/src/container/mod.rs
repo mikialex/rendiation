@@ -11,6 +11,16 @@ pub struct CollectionSetsRefcount<T> {
   ref_count: Arc<RwLock<FastHashMap<T, u32>>>,
 }
 
+impl<T> Default for CollectionSetsRefcount<T> {
+  fn default() -> Self {
+    Self {
+      source_sets: Default::default(),
+      wake_for_new_source: Default::default(),
+      ref_count: Default::default(),
+    }
+  }
+}
+
 impl<T> CollectionSetsRefcount<T> {
   pub fn add_source(&self, source: Box<dyn ReactiveCollection<T, ()>>) {
     self.source_sets.write().push(source);
