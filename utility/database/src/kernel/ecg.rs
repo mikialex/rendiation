@@ -58,10 +58,10 @@ pub(crate) struct EntityComponentGroupImpl {
   pub(crate) components: RwLock<FastHashMap<TypeId, ComponentCollectionUntyped>>,
   /// the foreign keys of entity, each foreign key express the one-to-many relation with other ECG.
   /// each foreign key is a dependency between different ECG
-  pub(crate) foreign_keys: RwLock<FastHashMap<TypeId, (TypeId, ComponentCollectionUntyped)>>,
+  pub(crate) foreign_keys: RwLock<FastHashSet<TypeId>>,
 
   pub(crate) components_meta_watchers: EventSource<ComponentCollectionUntyped>,
-  pub(crate) foreign_key_meta_watchers: EventSource<ComponentCollectionUntyped>,
+  pub(crate) foreign_key_meta_watchers: EventSource<TypeId>,
 }
 
 impl EntityComponentGroupImpl {
@@ -99,24 +99,20 @@ impl<E: 'static> EntityComponentGroupTyped<E> {
     self.inner.declare_component_dyn(TypeId::of::<S>(), com);
     self
   }
-  pub fn declare_foreign_key<S: ForeignKeySemantic>(self) -> Self {
-    let com = ComponentCollection::<S>::default();
-    let com = ComponentCollectionUntyped {
-      inner: Box::new(com),
-      data_typeid: TypeId::of::<S::Data>(),
-      entity_type_id: TypeId::of::<S::Entity>(),
-      component_type_id: TypeId::of::<S>(),
-    };
+  pub fn declare_foreign_key<S: ForeignKeySemantic<Entity = E>>(mut self) -> Self {
+    self = self.declare_component::<S>();
     self
       .inner
-      .declare_foreign_key_dyn(TypeId::of::<S>(), TypeId::of::<S::ForeignEntity>(), com);
+      .declare_foreign_key_dyn(TypeId::of::<S::ForeignEntity>());
     self
   }
   pub fn access_component<S: ComponentSemantic, R>(
     &self,
     f: impl FnOnce(&ComponentCollection<S>) -> R,
   ) -> R {
-    self.inner.access_component(TypeId::of::<S>(), f)
+    self.inner.access_component(TypeId::of::<S>(), |c| {
+      f(c.inner.as_any().downcast_ref().unwrap())
+    })
   }
 }
 
@@ -134,16 +130,14 @@ impl EntityComponentGroup {
     assert!(previous.is_none());
   }
 
-  pub fn declare_foreign_key_dyn(
-    &self,
-    semantic: TypeId,
-    foreign_entity_type_id: TypeId,
-    com: ComponentCollectionUntyped,
-  ) {
+  pub fn declare_foreign_key_dyn(&self, foreign_entity_type_id: TypeId) {
     let mut foreign_keys = self.inner.foreign_keys.write();
-    self.inner.foreign_key_meta_watchers.emit(&com);
-    let previous = foreign_keys.insert(foreign_entity_type_id, (semantic, com));
-    assert!(previous.is_none())
+    self
+      .inner
+      .foreign_key_meta_watchers
+      .emit(&foreign_entity_type_id);
+    let previous = foreign_keys.insert(foreign_entity_type_id);
+    assert!(!previous)
   }
 
   pub fn iter_entity_idx(&self) -> impl Iterator<Item = u32> {
@@ -167,18 +161,12 @@ impl EntityComponentGroup {
     }
   }
 
-  pub fn access_component<R, D: ComponentSemantic>(
+  pub fn access_component<R>(
     &self,
     c_id: TypeId,
-    f: impl FnOnce(&ComponentCollection<D>) -> R,
+    f: impl FnOnce(&ComponentCollectionUntyped) -> R,
   ) -> R {
     let components = self.inner.components.read_recursive();
-    f(components
-      .get(&c_id)
-      .unwrap()
-      .inner
-      .as_any()
-      .downcast_ref()
-      .unwrap())
+    f(components.get(&c_id).unwrap())
   }
 }

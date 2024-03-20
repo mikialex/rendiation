@@ -1,5 +1,6 @@
 use crate::*;
 
+// #[derive(Clone)]
 pub struct ComponentCollectionUntyped {
   pub inner: Box<dyn DynamicComponent>, // should be some type of ComponentCollection<T>
   pub data_typeid: TypeId,
@@ -64,12 +65,12 @@ impl<T: ComponentSemantic> Clone for ComponentReadView<T> {
   }
 }
 
-pub struct IterableComponentReadView<T: ComponentSemantic> {
+pub struct IterableComponentReadView<T> {
   pub ecg: EntityComponentGroup,
-  pub read_view: Arc<dyn ComponentStorageReadView<T::Data>>,
+  pub read_view: Arc<dyn ComponentStorageReadView<T>>,
 }
 
-impl<T: ComponentSemantic> Clone for IterableComponentReadView<T> {
+impl<T> Clone for IterableComponentReadView<T> {
   fn clone(&self) -> Self {
     Self {
       ecg: self.ecg.clone(),
@@ -78,21 +79,18 @@ impl<T: ComponentSemantic> Clone for IterableComponentReadView<T> {
   }
 }
 
-// todo fix E constraint
-impl<E: Any, T: ComponentSemantic> VirtualCollection<AllocIdx<E>, T::Data>
-  for IterableComponentReadView<T>
-{
-  fn iter_key_value(&self) -> Box<dyn Iterator<Item = (AllocIdx<E>, T::Data)> + '_> {
+impl<T: CValue> VirtualCollection<u32, T> for IterableComponentReadView<T> {
+  fn iter_key_value(&self) -> Box<dyn Iterator<Item = (u32, T)> + '_> {
     Box::new(
       self
         .ecg
         .iter_entity_idx()
-        .map(|id| (id.into(), self.read_view.get(id as usize).cloned().unwrap())),
+        .map(|id| (id, self.read_view.get(id as usize).cloned().unwrap())),
     )
   }
 
-  fn access(&self, key: &AllocIdx<E>) -> Option<T::Data> {
-    self.read_view.get(key.index as usize).cloned()
+  fn access(&self, key: &u32) -> Option<T> {
+    self.read_view.get(*key as usize).cloned()
   }
 }
 
@@ -169,6 +167,8 @@ impl<T: ComponentSemantic> ComponentWriteView<T> {
 pub trait DynamicComponent: Any + Send + Sync {
   fn create_dyn_writer_default(&self) -> Box<dyn EntityComponentWriter>;
   fn setup_new_storage(&mut self, storage: Box<dyn Any>);
+  fn get_data(&self) -> Box<dyn Any>;
+  fn get_event_source(&self) -> Box<dyn Any>;
   fn as_any(&self) -> &dyn Any;
 }
 
@@ -180,6 +180,12 @@ impl<T: ComponentSemantic> DynamicComponent for ComponentCollection<T> {
     self.data = *storage
       .downcast::<Arc<dyn ComponentStorage<T::Data>>>()
       .unwrap();
+  }
+  fn get_data(&self) -> Box<dyn Any> {
+    Box::new(self.data.clone())
+  }
+  fn get_event_source(&self) -> Box<dyn Any> {
+    Box::new(self.group_watchers.clone())
   }
 
   fn as_any(&self) -> &dyn Any {

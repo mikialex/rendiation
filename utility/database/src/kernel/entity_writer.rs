@@ -19,16 +19,10 @@ impl EntityComponentGroup {
       .iter()
       .map(|(id, c)| (*id, c.inner.create_dyn_writer_default()))
       .collect();
-    let foreign_keys = self.inner.foreign_keys.read_recursive();
-    let foreign_keys = foreign_keys
-      .iter()
-      .map(|(id, (_, c))| (*id, c.inner.create_dyn_writer_default()))
-      .collect();
 
     EntityWriterUntyped {
       type_id: self.inner.type_id,
       components,
-      foreign_keys,
       allocator: self.inner.allocator.make_write_holder(),
     }
   }
@@ -46,21 +40,6 @@ impl<E> EntityWriter<E> {
       if *id == TypeId::of::<C>() {
         let v = view.take_write_view();
         let v = v.downcast::<ComponentWriteView<C>>().unwrap();
-        *view = Box::new(writer_maker(*v));
-        return self;
-      }
-    }
-    self
-  }
-
-  pub fn with_foreign_key_writer<FE: ForeignKeySemantic, W: EntityComponentWriter + 'static>(
-    mut self,
-    writer_maker: impl FnOnce(ComponentWriteView<FE>) -> W,
-  ) -> Self {
-    for (id, view) in &mut self.inner.foreign_keys {
-      if *id == TypeId::of::<FE>() {
-        let v = view.take_write_view();
-        let v = v.downcast::<ComponentWriteView<FE>>().unwrap();
         *view = Box::new(writer_maker(*v));
         return self;
       }
@@ -87,7 +66,6 @@ pub struct EntityWriterUntyped {
   allocator: LockWriteGuardHolder<Arena<()>>,
   // todo smallvec
   components: Vec<(TypeId, Box<dyn EntityComponentWriter>)>,
-  foreign_keys: Vec<(TypeId, Box<dyn EntityComponentWriter>)>,
 }
 
 impl EntityWriterUntyped {
@@ -107,9 +85,6 @@ impl EntityWriterUntyped {
     for com in &mut self.components {
       com.1.write_init_component_value(handle.index() as u32)
     }
-    for fk in &mut self.foreign_keys {
-      fk.1.write_init_component_value(handle.index() as u32)
-    }
     handle
   }
 
@@ -120,9 +95,6 @@ impl EntityWriterUntyped {
     self.allocator.remove(h).unwrap();
     for com in &mut self.components {
       com.1.delete_component(handle)
-    }
-    for fk in &mut self.foreign_keys {
-      fk.1.delete_component(handle)
     }
   }
 }

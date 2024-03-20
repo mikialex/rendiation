@@ -20,42 +20,60 @@ impl DatabaseMutationWatch {
     }
   }
 
-  pub fn watch<C: ComponentSemantic>(
+  pub fn watch<C: ComponentSemantic>(&self) -> impl ReactiveCollection<u32, C::Data> {
+    self.watch_dyn::<C::Data>(TypeId::of::<C>(), TypeId::of::<C::Entity>())
+  }
+
+  pub fn watch_dyn_foreign_key(
     &self,
-  ) -> impl ReactiveCollection<AllocIdx<C::Entity>, C::Data> {
-    let type_id = TypeId::of::<C>();
+    type_id: TypeId,
+    entity_id: TypeId,
+  ) -> impl ReactiveCollection<u32, u32> {
+    self.watch_dyn::<u32>(type_id, entity_id)
+  }
+
+  pub fn watch_dyn<T: CValue>(
+    &self,
+    type_id: TypeId,
+    entity_id: TypeId,
+  ) -> impl ReactiveCollection<u32, T> {
     if let Some(watcher) = self.component_changes.read().get(&type_id) {
-      let watcher = watcher
-        .downcast_ref::<RxCForker<AllocIdx<C::Entity>, C::Data>>()
-        .unwrap();
+      let watcher = watcher.downcast_ref::<RxCForker<u32, T>>().unwrap();
       return watcher.clone();
     }
 
-    let (sender, receiver) = channel::<C::Entity, C::Data>();
-    let original = self.db.access_ecg::<C::Entity, _>(move |e| {
-      e.access_component::<C, _>(move |c| {
-        c.group_watchers.on(move |change| unsafe {
-          match change {
-            ComponentValueChange::StartWrite => {
-              sender.lock();
-              false
+    let (sender, receiver) = channel::<T>();
+    let original = self.db.access_ecg_dyn(entity_id, move |e| {
+      e.access_component(type_id, move |c| {
+        c.inner
+          .get_event_source()
+          .downcast::<EventSource<ComponentValueChange<T>>>()
+          .unwrap()
+          .on(move |change| unsafe {
+            match change {
+              ComponentValueChange::StartWrite => {
+                sender.lock();
+                false
+              }
+              ComponentValueChange::EndWrite => {
+                sender.unlock();
+                sender.is_closed()
+              }
+              ComponentValueChange::Write(write) => {
+                sender.send(write.idx, write.change.clone());
+                false
+              }
             }
-            ComponentValueChange::EndWrite => {
-              sender.unlock();
-              sender.is_closed()
-            }
-            ComponentValueChange::Write(write) => {
-              sender.send(write.idx.into(), write.change.clone());
-              false
-            }
-          }
-        });
-        c.clone()
+          });
+        *c.inner
+          .get_data()
+          .downcast::<Arc<dyn ComponentStorage<T>>>()
+          .unwrap()
       })
     });
 
     let rxc = ReactiveCollectionFromComponentMutation {
-      ecg: self.db.access_ecg::<C::Entity, _>(|ecg| ecg.clone()),
+      ecg: self.db.access_ecg_dyn(entity_id, |ecg| ecg.clone()),
       original,
       mutation: RwLock::new(receiver),
     }
@@ -66,17 +84,14 @@ impl DatabaseMutationWatch {
       .write()
       .insert(type_id, Box::new(rxc));
 
-    self.watch::<C>()
+    self.watch_dyn::<T>(type_id, entity_id)
   }
 }
 
-type MutationData<K, T> = FastHashMap<AllocIdx<K>, ValueChange<T>>;
+type MutationData<T> = FastHashMap<u32, ValueChange<T>>;
 
-fn channel<K, T>() -> (
-  ComponentMutationSender<K, T>,
-  ComponentMutationReceiver<K, T>,
-) {
-  let inner: Arc<(RwLock<MutationData<K, T>>, AtomicWaker)> = Default::default();
+fn channel<T>() -> (ComponentMutationSender<T>, ComponentMutationReceiver<T>) {
+  let inner: Arc<(RwLock<MutationData<T>>, AtomicWaker)> = Default::default();
   let sender = ComponentMutationSender {
     inner: inner.clone(),
   };
@@ -85,11 +100,11 @@ fn channel<K, T>() -> (
   (sender, receiver)
 }
 
-struct ComponentMutationSender<K, T> {
-  inner: Arc<(RwLock<MutationData<K, T>>, AtomicWaker)>,
+struct ComponentMutationSender<T> {
+  inner: Arc<(RwLock<MutationData<T>>, AtomicWaker)>,
 }
 
-impl<K, T: CValue> ComponentMutationSender<K, T> {
+impl<T: CValue> ComponentMutationSender<T> {
   unsafe fn lock(&self) {
     self.inner.0.raw().lock_exclusive()
   }
@@ -98,7 +113,7 @@ impl<K, T: CValue> ComponentMutationSender<K, T> {
     self.inner.1.wake();
     self.inner.0.raw().unlock_exclusive()
   }
-  unsafe fn send(&self, idx: AllocIdx<K>, change: ValueChange<T>) {
+  unsafe fn send(&self, idx: u32, change: ValueChange<T>) {
     let mutations = &mut *self.inner.0.data_ptr();
     if let Some(old_change) = mutations.get_mut(&idx) {
       if !old_change.merge(&change) {
@@ -116,23 +131,23 @@ impl<K, T: CValue> ComponentMutationSender<K, T> {
 }
 
 /// this is not likely to be triggered because component type is not get removed in any time
-impl<K, T> Drop for ComponentMutationSender<K, T> {
+impl<T> Drop for ComponentMutationSender<T> {
   fn drop(&mut self) {
     self.inner.1.wake()
   }
 }
 
-pub struct ComponentMutationReceiver<K, T> {
-  inner: Arc<(RwLock<MutationData<K, T>>, AtomicWaker)>,
+pub struct ComponentMutationReceiver<T> {
+  inner: Arc<(RwLock<MutationData<T>>, AtomicWaker)>,
 }
 
-impl<K, T> Stream for ComponentMutationReceiver<K, T> {
-  type Item = MutationData<K, T>;
+impl<T> Stream for ComponentMutationReceiver<T> {
+  type Item = MutationData<T>;
 
   fn poll_next(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Option<Self::Item>> {
     self.inner.1.register(cx.waker());
     let mut changes = self.inner.0.write();
-    let changes: &mut MutationData<K, T> = &mut changes;
+    let changes: &mut MutationData<T> = &mut changes;
 
     let changes = std::mem::take(changes);
     if !changes.is_empty() {
@@ -146,32 +161,30 @@ impl<K, T> Stream for ComponentMutationReceiver<K, T> {
   }
 }
 
-struct ReactiveCollectionFromComponentMutation<K, T: ComponentSemantic> {
-  ecg: EntityComponentGroupTyped<K>,
-  original: ComponentCollection<T>,
-  mutation: RwLock<ComponentMutationReceiver<K, T::Data>>,
+struct ReactiveCollectionFromComponentMutation<T> {
+  ecg: EntityComponentGroup,
+  original: Arc<dyn ComponentStorage<T>>,
+  mutation: RwLock<ComponentMutationReceiver<T>>,
 }
-impl<K: Any, T: ComponentSemantic> ReactiveCollection<AllocIdx<K>, T::Data>
-  for ReactiveCollectionFromComponentMutation<K, T>
-{
-  fn poll_changes(&self, cx: &mut Context) -> PollCollectionChanges<AllocIdx<K>, T::Data> {
+impl<T: CValue> ReactiveCollection<u32, T> for ReactiveCollectionFromComponentMutation<T> {
+  fn poll_changes(&self, cx: &mut Context) -> PollCollectionChanges<u32, T> {
     match self.mutation.write().poll_next_unpin(cx) {
       Poll::Ready(Some(r)) => {
         if r.is_empty() {
           Poll::Pending
         } else {
-          Poll::Ready(Box::new(r) as Box<dyn VirtualCollection<AllocIdx<K>, ValueChange<T::Data>>>)
+          Poll::Ready(Box::new(r) as Box<dyn VirtualCollection<u32, ValueChange<T>>>)
         }
       }
       _ => Poll::Pending,
     }
   }
 
-  fn access(&self) -> PollCollectionCurrent<AllocIdx<K>, T::Data> {
+  fn access(&self) -> PollCollectionCurrent<u32, T> {
     Box::new(IterableComponentReadView::<T> {
-      ecg: self.ecg.clone().into_untyped(),
-      read_view: self.original.data.create_read_view(),
-    }) as PollCollectionCurrent<AllocIdx<K>, T::Data>
+      ecg: self.ecg.clone(),
+      read_view: self.original.create_read_view(),
+    }) as PollCollectionCurrent<u32, T>
   }
 
   fn extra_request(&mut self, _request: &mut ExtraCollectionOperation) {
