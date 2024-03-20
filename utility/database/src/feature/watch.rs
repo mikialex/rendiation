@@ -147,7 +147,7 @@ impl<K, T> Stream for ComponentMutationReceiver<K, T> {
 }
 
 struct ReactiveCollectionFromComponentMutation<K, T> {
-  ecg: EntityComponentGroup<K>,
+  ecg: EntityComponentGroupTyped<K>,
   original: ComponentCollection<T>,
   mutation: RwLock<ComponentMutationReceiver<K, T>>,
 }
@@ -169,7 +169,7 @@ impl<K: Any, T: CValue> ReactiveCollection<AllocIdx<K>, T>
 
   fn access(&self) -> PollCollectionCurrent<AllocIdx<K>, T> {
     Box::new(IterableComponentReadView {
-      ecg: self.ecg.clone(),
+      ecg: self.ecg.clone().into_untyped(),
       read_view: self.original.data.create_read_view(),
     }) as PollCollectionCurrent<AllocIdx<K>, T>
   }

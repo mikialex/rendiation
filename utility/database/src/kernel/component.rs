@@ -46,12 +46,12 @@ impl<T: 'static> Clone for ComponentReadView<T> {
   }
 }
 
-pub struct IterableComponentReadView<T: 'static, E> {
-  pub ecg: EntityComponentGroup<E>,
+pub struct IterableComponentReadView<T: 'static> {
+  pub ecg: EntityComponentGroup,
   pub read_view: Arc<dyn ComponentStorageReadView<T>>,
 }
 
-impl<T: 'static, E> Clone for IterableComponentReadView<T, E> {
+impl<T: 'static> Clone for IterableComponentReadView<T> {
   fn clone(&self) -> Self {
     Self {
       ecg: self.ecg.clone(),
@@ -61,7 +61,7 @@ impl<T: 'static, E> Clone for IterableComponentReadView<T, E> {
 }
 
 // todo fix E constraint
-impl<E: Any, T: CValue> VirtualCollection<AllocIdx<E>, T> for IterableComponentReadView<T, E> {
+impl<E: Any, T: CValue> VirtualCollection<AllocIdx<E>, T> for IterableComponentReadView<T> {
   fn iter_key_value(&self) -> Box<dyn Iterator<Item = (AllocIdx<E>, T)> + '_> {
     Box::new(
       self

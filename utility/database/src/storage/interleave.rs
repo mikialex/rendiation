@@ -277,7 +277,7 @@ impl Database {
     // convert the old storage
     // todo check entity has any data
     self.access_ecg::<E, _>(|ecg| {
-      let mut components = ecg.inner.components.write();
+      let mut components = ecg.inner.inner.components.write();
       for (idx, container) in builder.containers.into_iter().enumerate() {
         let type_id = builder.ids[idx];
         let previous_storage = components.get_mut(&type_id).unwrap();

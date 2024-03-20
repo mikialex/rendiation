@@ -3,27 +3,33 @@ use crate::*;
 #[derive(Default, Clone)]
 pub struct Database {
   /// ecg forms a DAG
-  pub(crate) ecg_tables: Arc<RwLock<FastHashMap<TypeId, Box<dyn Any + Send + Sync>>>>,
-  pub(crate) entity_meta_watcher: EventSource<Box<dyn Any + Send + Sync>>,
+  pub(crate) ecg_tables: Arc<RwLock<FastHashMap<TypeId, EntityComponentGroup>>>,
+  pub(crate) entity_meta_watcher: EventSource<EntityComponentGroup>,
 }
 
 impl Database {
-  pub fn declare_entity<E: Any>(&self) -> EntityComponentGroup<E> {
+  pub fn declare_entity<E: Any>(&self) -> EntityComponentGroupTyped<E> {
+    self
+      .declare_entity_dyn(TypeId::of::<E>())
+      .into_typed()
+      .unwrap()
+  }
+  pub fn declare_entity_dyn(&self, e_id: TypeId) -> EntityComponentGroup {
     let mut tables = self.ecg_tables.write();
-    let ecg = EntityComponentGroup::default();
-    let boxed: Box<dyn Any + Send + Sync> = Box::new(ecg.clone());
-    self.entity_meta_watcher.emit(&boxed);
-    let previous = tables.insert(TypeId::of::<E>(), boxed);
+    let ecg = EntityComponentGroup::new(e_id);
+    self.entity_meta_watcher.emit(&ecg);
+    let previous = tables.insert(e_id, ecg.clone());
     assert!(previous.is_none());
     ecg
   }
 
-  pub fn access_ecg<E: Any, R>(&self, f: impl FnOnce(&EntityComponentGroup<E>) -> R) -> R {
-    let e_id = TypeId::of::<E>();
+  pub fn access_ecg_dyn<R>(&self, e_id: TypeId, f: impl FnOnce(&EntityComponentGroup) -> R) -> R {
     let tables = self.ecg_tables.read_recursive();
     let ecg = tables.get(&e_id).unwrap();
-    let ecg = ecg.downcast_ref::<EntityComponentGroup<E>>().unwrap();
     f(ecg)
+  }
+  pub fn access_ecg<E: Any, R>(&self, f: impl FnOnce(&EntityComponentGroupTyped<E>) -> R) -> R {
+    self.access_ecg_dyn(TypeId::of::<E>(), |c| f(&c.clone().into_typed().unwrap()))
   }
 
   pub fn read<C: ComponentSemantic>(&self) -> ComponentReadView<C::Data> {
@@ -35,6 +41,12 @@ impl Database {
 
   pub fn entity_writer<E: Any>(&self) -> EntityWriter<E> {
     self.access_ecg::<E, _>(|e| e.entity_writer())
+  }
+  pub fn entity_writer_untyped<E: Any>(&self) -> EntityWriterUntyped {
+    self.access_ecg::<E, _>(|e| e.entity_writer().into_untyped())
+  }
+  pub fn entity_writer_untyped_dyn(&self, e_id: TypeId) -> EntityWriterUntyped {
+    self.access_ecg_dyn(e_id, |e| e.entity_writer_dyn())
   }
 }
 
