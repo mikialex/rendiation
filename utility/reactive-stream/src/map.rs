@@ -280,7 +280,7 @@ where
       }
     }
 
-    // the vec will never terminated
+    // the vec will never be terminated
     if let Poll::Ready(Some(d)) = this.map.poll_next(cx) {
       return Poll::Ready(Some(d));
     }

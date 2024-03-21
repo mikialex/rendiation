@@ -30,6 +30,9 @@ pub use reactive_collection::*;
 mod operator;
 pub use operator::*;
 
+mod container;
+pub use container::*;
+
 mod relation;
 pub use relation::*;
 

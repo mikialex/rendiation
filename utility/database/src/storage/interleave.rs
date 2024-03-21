@@ -87,13 +87,13 @@ impl DynBuffer {
   }
 }
 
-unsafe impl Send for InterleavedDataContainer {}
-unsafe impl Sync for InterleavedDataContainer {}
+unsafe impl Send for InterleavedDataContainerInner {}
+unsafe impl Sync for InterleavedDataContainerInner {}
 
-impl<T: 'static> ComponentStorage<T> for InterleavedDataContainer {
-  fn create_read_view(&self) -> Box<dyn ComponentStorageReadView<T>> {
+impl<T: CValue> ComponentStorage<T> for InterleavedDataContainer {
+  fn create_read_view(&self) -> Arc<dyn ComponentStorageReadView<T>> {
     let inner = self.inner.read();
-    Box::new(InterleavedDataContainerReadView {
+    Arc::new(InterleavedDataContainerReadView {
       phantom: PhantomData,
       offset: inner.offsets[self.idx],
       stride: inner.stride,
@@ -128,7 +128,7 @@ pub struct InterleavedDataContainerReadView<T> {
   _guard: LockReadGuardHolder<()>,
 }
 
-impl<T> ComponentStorageReadView<T> for InterleavedDataContainerReadView<T> {
+impl<T: CValue> ComponentStorageReadView<T> for InterleavedDataContainerReadView<T> {
   fn get(&self, idx: usize) -> Option<&T> {
     unsafe {
       let vec = (*self.data.data_ptr()).data.get();
@@ -150,7 +150,7 @@ pub struct InterleavedDataContainerReadWriteView<T> {
   _guard: LockWriteGuardHolder<()>,
 }
 
-impl<T> ComponentStorageReadWriteView<T> for InterleavedDataContainerReadWriteView<T> {
+impl<T: CValue> ComponentStorageReadWriteView<T> for InterleavedDataContainerReadWriteView<T> {
   fn get_mut(&mut self, idx: usize) -> Option<&mut T> {
     unsafe {
       let vec = (*self.data.data_ptr()).data.get();
@@ -171,7 +171,7 @@ impl<T> ComponentStorageReadWriteView<T> for InterleavedDataContainerReadWriteVi
   }
 }
 
-impl<T> ComponentStorageReadView<T> for InterleavedDataContainerReadWriteView<T> {
+impl<T: CValue> ComponentStorageReadView<T> for InterleavedDataContainerReadWriteView<T> {
   fn get(&self, idx: usize) -> Option<&T> {
     unsafe {
       let vec = (*self.data.data_ptr()).data.get();
@@ -277,13 +277,13 @@ impl Database {
     // convert the old storage
     // todo check entity has any data
     self.access_ecg::<E, _>(|ecg| {
-      let mut components = ecg.inner.components.write();
+      let mut components = ecg.inner.inner.components.write();
       for (idx, container) in builder.containers.into_iter().enumerate() {
         let type_id = builder.ids[idx];
         let previous_storage = components.get_mut(&type_id).unwrap();
         // todo check com type
 
-        previous_storage.setup_new_storage(container);
+        previous_storage.inner.setup_new_storage(container);
       }
     });
     self

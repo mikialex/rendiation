@@ -138,7 +138,7 @@ impl<T> MakeLockResultHolderRaw<T> for Arc<RwLock<T>> {
     let lock = self.write();
     let lock: RwLockWriteGuard<'static, T> = unsafe { std::mem::transmute(lock) };
     LockWriteGuardHolder {
-      _holder: self.clone(),
+      holder: self.clone(),
       guard: lock,
     }
   }
@@ -185,6 +185,12 @@ pub struct LockReadGuardHolder<T: 'static> {
   holder: Arc<RwLock<T>>,
 }
 
+impl<T: 'static> LockReadGuardHolder<T> {
+  pub fn get_lock(&self) -> Arc<RwLock<T>> {
+    self.holder.clone()
+  }
+}
+
 impl<T: 'static> Deref for LockReadGuardHolder<T> {
   type Target = T;
 
@@ -205,7 +211,13 @@ impl<T: 'static> Clone for LockReadGuardHolder<T> {
 /// Note, the field(drop) order is important
 pub struct LockWriteGuardHolder<T: 'static> {
   guard: RwLockWriteGuard<'static, T>,
-  _holder: Arc<RwLock<T>>,
+  holder: Arc<RwLock<T>>,
+}
+
+impl<T: 'static> LockWriteGuardHolder<T> {
+  pub fn get_lock(&self) -> Arc<RwLock<T>> {
+    self.holder.clone()
+  }
 }
 
 impl<T: 'static> Deref for LockWriteGuardHolder<T> {
