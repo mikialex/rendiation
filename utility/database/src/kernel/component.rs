@@ -168,6 +168,8 @@ pub trait DynamicComponent: Any + Send + Sync {
   fn create_dyn_writer_default(&self) -> Box<dyn EntityComponentWriter>;
   fn setup_new_storage(&mut self, storage: Box<dyn Any>);
   fn get_data(&self) -> Box<dyn Any>;
+  fn create_read_holder(&self) -> Box<dyn Any>;
+  fn create_write_holder(&self) -> Box<dyn Any>;
   fn get_event_source(&self) -> Box<dyn Any>;
   fn as_any(&self) -> &dyn Any;
 }
@@ -183,6 +185,12 @@ impl<T: ComponentSemantic> DynamicComponent for ComponentCollection<T> {
   }
   fn get_data(&self) -> Box<dyn Any> {
     Box::new(self.data.clone())
+  }
+  fn create_read_holder(&self) -> Box<dyn Any> {
+    Box::new(self.read())
+  }
+  fn create_write_holder(&self) -> Box<dyn Any> {
+    Box::new(self.write())
   }
   fn get_event_source(&self) -> Box<dyn Any> {
     Box::new(self.group_watchers.clone())

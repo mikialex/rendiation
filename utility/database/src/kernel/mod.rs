@@ -2,6 +2,7 @@ mod component;
 mod ecg;
 mod entity_writer;
 mod entry;
+mod lock;
 
 use std::marker::PhantomData;
 
@@ -9,6 +10,7 @@ pub use component::*;
 pub use ecg::*;
 pub use entity_writer::*;
 pub use entry::*;
+pub use lock::*;
 
 pub struct SendSyncPhantomData<T> {
   phantom: PhantomData<T>,
