@@ -11,7 +11,7 @@ pub fn global_database() -> Database {
   GLOBAL_DATABASE.read().as_ref().unwrap().clone()
 }
 
-pub fn global_entity_of<E: Any>() -> EntityComponentGroupTyped<E> {
+pub fn global_entity_of<E: EntitySemantic>() -> EntityComponentGroupTyped<E> {
   global_database().access_ecg(|ecg| ecg.clone())
 }
 

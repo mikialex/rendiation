@@ -10,7 +10,7 @@ use crate::*;
 
 #[derive(Clone)]
 pub struct DatabaseEntityRefCounting {
-  entity_ref_counts: Arc<RwLock<StreamMap<TypeId, EntityRefCount>>>,
+  entity_ref_counts: Arc<RwLock<StreamMap<EntityId, EntityRefCount>>>,
   cleanup_waker: Arc<AtomicWaker>,
 }
 
@@ -18,7 +18,7 @@ impl DatabaseEntityRefCounting {
   pub fn new(db: Database, mutation_watcher: DatabaseMutationWatch) -> Self {
     // todo, we should do loop check in dep graph to warn if there is a circular dep
 
-    let entity_ref_counts: Arc<RwLock<StreamMap<TypeId, EntityRefCount>>> = Default::default();
+    let entity_ref_counts: Arc<RwLock<StreamMap<EntityId, EntityRefCount>>> = Default::default();
     let entity_ref_counts_ = entity_ref_counts.clone();
 
     let db_c = db.clone();
@@ -70,9 +70,9 @@ impl DatabaseEntityRefCounting {
     entity_ref_counts.poll_until_pending_not_care_result(&mut cx);
   }
 
-  pub fn data_ref_ptr_creator<E: 'static>(&self) -> DataRefPtrWriteView<E> {
+  pub fn data_ref_ptr_creator<E: EntitySemantic>(&self) -> DataRefPtrWriteView<E> {
     let entity_ref_counts = self.entity_ref_counts.read();
-    let entity_ref_count = entity_ref_counts.get(&TypeId::of::<E>()).unwrap();
+    let entity_ref_count = entity_ref_counts.get(&E::entity_id()).unwrap();
     let entity_checker = entity_ref_count
       .outer_refs
       .read()
@@ -90,7 +90,7 @@ pub struct EntityRefCount {
   outer_refs: Arc<RwLock<ExternalDataRefs>>,
   inner_refs: CollectionSetsRefcount<u32, u32>,
   db: Database,
-  id: TypeId,
+  id: EntityId,
 }
 
 impl Stream for EntityRefCount {

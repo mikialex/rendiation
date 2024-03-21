@@ -9,7 +9,7 @@ use crate::*;
 
 #[derive(Clone)]
 pub struct DatabaseMutationWatch {
-  component_changes: Arc<RwLock<FastHashMap<TypeId, Box<dyn Any + Send + Sync>>>>,
+  component_changes: Arc<RwLock<FastHashMap<ComponentId, Box<dyn Any + Send + Sync>>>>,
   db: Database,
 }
 
@@ -22,21 +22,21 @@ impl DatabaseMutationWatch {
   }
 
   pub fn watch<C: ComponentSemantic>(&self) -> impl ReactiveCollection<u32, C::Data> {
-    self.watch_dyn::<C::Data>(TypeId::of::<C>(), TypeId::of::<C::Entity>())
+    self.watch_dyn::<C::Data>(C::component_id(), C::Entity::entity_id())
   }
 
   pub fn watch_dyn_foreign_key(
     &self,
-    component_id: TypeId,
-    entity_id: TypeId,
+    component_id: ComponentId,
+    entity_id: EntityId,
   ) -> impl ReactiveCollection<u32, ForeignKeyComponentData> {
     self.watch_dyn::<ForeignKeyComponentData>(component_id, entity_id)
   }
 
   pub fn watch_dyn<T: CValue>(
     &self,
-    component_id: TypeId,
-    entity_id: TypeId,
+    component_id: ComponentId,
+    entity_id: EntityId,
   ) -> impl ReactiveCollection<u32, T> {
     if let Some(watcher) = self.component_changes.read().get(&component_id) {
       let watcher = watcher.downcast_ref::<RxCForker<u32, T>>().unwrap();

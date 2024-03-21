@@ -4,8 +4,8 @@ use crate::*;
 pub struct ComponentCollectionUntyped {
   pub inner: Box<dyn DynamicComponent>, // should be some type of ComponentCollection<T>
   pub data_typeid: TypeId,
-  pub entity_type_id: TypeId,
-  pub component_type_id: TypeId,
+  pub entity_type_id: EntityId,
+  pub component_type_id: ComponentId,
 }
 
 pub struct ComponentCollection<C: ComponentSemantic> {

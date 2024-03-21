@@ -3,18 +3,18 @@ use crate::*;
 #[derive(Default, Clone)]
 pub struct Database {
   /// ecg forms a DAG
-  pub(crate) ecg_tables: Arc<RwLock<FastHashMap<TypeId, EntityComponentGroup>>>,
+  pub(crate) ecg_tables: Arc<RwLock<FastHashMap<EntityId, EntityComponentGroup>>>,
   pub(crate) entity_meta_watcher: EventSource<EntityComponentGroup>,
 }
 
 impl Database {
-  pub fn declare_entity<E: Any>(&self) -> EntityComponentGroupTyped<E> {
+  pub fn declare_entity<E: EntitySemantic>(&self) -> EntityComponentGroupTyped<E> {
     self
-      .declare_entity_dyn(TypeId::of::<E>())
+      .declare_entity_dyn(E::entity_id())
       .into_typed()
       .unwrap()
   }
-  pub fn declare_entity_dyn(&self, e_id: TypeId) -> EntityComponentGroup {
+  pub fn declare_entity_dyn(&self, e_id: EntityId) -> EntityComponentGroup {
     let mut tables = self.ecg_tables.write();
     let ecg = EntityComponentGroup::new(e_id);
     self.entity_meta_watcher.emit(&ecg);
@@ -23,13 +23,16 @@ impl Database {
     ecg
   }
 
-  pub fn access_ecg_dyn<R>(&self, e_id: TypeId, f: impl FnOnce(&EntityComponentGroup) -> R) -> R {
+  pub fn access_ecg_dyn<R>(&self, e_id: EntityId, f: impl FnOnce(&EntityComponentGroup) -> R) -> R {
     let tables = self.ecg_tables.read_recursive();
     let ecg = tables.get(&e_id).unwrap();
     f(ecg)
   }
-  pub fn access_ecg<E: Any, R>(&self, f: impl FnOnce(&EntityComponentGroupTyped<E>) -> R) -> R {
-    self.access_ecg_dyn(TypeId::of::<E>(), |c| f(&c.clone().into_typed().unwrap()))
+  pub fn access_ecg<E: EntitySemantic, R>(
+    &self,
+    f: impl FnOnce(&EntityComponentGroupTyped<E>) -> R,
+  ) -> R {
+    self.access_ecg_dyn(E::entity_id(), |c| f(&c.clone().into_typed().unwrap()))
   }
 
   pub fn read<C: ComponentSemantic>(&self) -> ComponentReadView<C> {
@@ -39,13 +42,13 @@ impl Database {
     self.access_ecg::<C::Entity, _>(|e| e.access_component::<C, _>(|c| c.write()))
   }
 
-  pub fn entity_writer<E: Any>(&self) -> EntityWriter<E> {
+  pub fn entity_writer<E: EntitySemantic>(&self) -> EntityWriter<E> {
     self.access_ecg::<E, _>(|e| e.entity_writer())
   }
-  pub fn entity_writer_untyped<E: Any>(&self) -> EntityWriterUntyped {
+  pub fn entity_writer_untyped<E: EntitySemantic>(&self) -> EntityWriterUntyped {
     self.access_ecg::<E, _>(|e| e.entity_writer().into_untyped())
   }
-  pub fn entity_writer_untyped_dyn(&self, e_id: TypeId) -> EntityWriterUntyped {
+  pub fn entity_writer_untyped_dyn(&self, e_id: EntityId) -> EntityWriterUntyped {
     self.access_ecg_dyn(e_id, |e| e.entity_writer_dyn())
   }
 }
@@ -54,7 +57,7 @@ impl Database {
 fn demo_how_to_use_database_generally() {
   setup_global_database(Default::default());
 
-  pub struct MyTestEntity;
+  declare_entity!(MyTestEntity);
   declare_component!(TestEntityFieldA, MyTestEntity, (f32, f32));
   declare_component!(TestEntityFieldB, MyTestEntity, f32);
   declare_component!(TestEntityFieldC, MyTestEntity, f32);
@@ -72,7 +75,7 @@ fn demo_how_to_use_database_generally() {
       .with_type::<TestEntityFieldC>()
   });
 
-  pub struct MyTestEntity2;
+  declare_entity!(MyTestEntity2);
   declare_component!(TestEntity2FieldA, MyTestEntity2, u32);
   declare_foreign_key!(TestEntity2ReferenceEntity1, MyTestEntity2, MyTestEntity);
 

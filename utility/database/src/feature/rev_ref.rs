@@ -2,7 +2,7 @@ use crate::*;
 
 pub struct DatabaseEntityReverseReference {
   mutation_watcher: DatabaseMutationWatch,
-  entity_rev_refs: Arc<RwLock<StreamMap<TypeId, Box<dyn Any + Send + Sync>>>>,
+  entity_rev_refs: Arc<RwLock<StreamMap<ComponentId, Box<dyn Any + Send + Sync>>>>,
 }
 
 impl DatabaseEntityReverseReference {
@@ -16,7 +16,7 @@ impl DatabaseEntityReverseReference {
   pub fn watch_inv_ref<S: ForeignKeySemantic>(
     &self,
   ) -> Box<dyn ReactiveOneToManyRelationship<u32, u32>> {
-    let semantic_id = TypeId::of::<S>();
+    let semantic_id = S::component_id();
     if let Some(refs) = self.entity_rev_refs.read().get(&semantic_id) {
       return Box::new(
         refs

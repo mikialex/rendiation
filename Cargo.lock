@@ -964,6 +964,7 @@ dependencies = [
  "futures",
  "parking_lot",
  "reactive",
+ "smallvec",
  "storage",
 ]
 

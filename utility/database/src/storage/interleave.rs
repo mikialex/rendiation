@@ -192,7 +192,7 @@ pub struct InterleavedDataContainerBuilder<E> {
   layout: Option<Layout>,
   layouts: Vec<Layout>,
   offsets: Vec<usize>,
-  ids: Vec<TypeId>,
+  ids: Vec<ComponentId>,
   shared: Arc<RwLock<InterleavedDataContainerInner>>,
   containers: Vec<Box<dyn Any>>,
 }
@@ -223,9 +223,9 @@ impl<E> InterleavedDataContainerBuilder<E> {
     self.containers.push(Box::new(
       Arc::new(data) as Arc<dyn ComponentStorage<T::Data>>
     ));
-    self.with_type_impl(TypeId::of::<T>(), Layout::new::<T::Data>())
+    self.with_type_impl(T::component_id(), Layout::new::<T::Data>())
   }
-  pub fn with_type_impl(&mut self, id: TypeId, new_layout: Layout) -> &mut Self {
+  pub fn with_type_impl(&mut self, id: ComponentId, new_layout: Layout) -> &mut Self {
     // todo,  zst supports
     if new_layout.size() == 0 {
       panic!("zst not supported")
@@ -249,7 +249,7 @@ impl<E> InterleavedDataContainerBuilder<E> {
 impl Database {
   /// currently, we assume all storage is converted from the default storage type and no data
   /// exists.
-  pub fn interleave_component_storages<E: Any>(
+  pub fn interleave_component_storages<E: EntitySemantic>(
     self,
     build: impl FnOnce(
       &mut InterleavedDataContainerBuilder<E>,

@@ -1,14 +1,35 @@
 use crate::*;
 
+pub trait EntitySemantic: Any + Send + Sync {
+  fn entity_id() -> EntityId {
+    EntityId(TypeId::of::<Self>())
+  }
+}
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct EntityId(pub TypeId);
+
 /// Statically associate entity semantic, component semantic and component type
 pub trait ComponentSemantic: Any + Send + Sync {
   type Data: CValue + Default;
-  type Entity: Any;
+  type Entity: EntitySemantic;
+  fn component_id() -> ComponentId {
+    ComponentId(TypeId::of::<Self>())
+  }
 }
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct ComponentId(pub TypeId);
 
 pub type ForeignKeyComponentData = Option<u32>;
 pub trait ForeignKeySemantic: ComponentSemantic<Data = ForeignKeyComponentData> {
-  type ForeignEntity: Any;
+  type ForeignEntity: EntitySemantic;
+}
+
+#[macro_export]
+macro_rules! declare_entity {
+  ($Type: tt) => {
+    pub struct $Type;
+    impl EntitySemantic for $Type {}
+  };
 }
 
 #[macro_export]

@@ -1,12 +1,12 @@
 use crate::*;
 
 /// Holder the all components write lock, optimized for batch entity creation and modification
-pub struct EntityWriter<E> {
+pub struct EntityWriter<E: EntitySemantic> {
   _phantom: SendSyncPhantomData<E>, //
   inner: EntityWriterUntyped,
 }
 
-impl<E: 'static> EntityComponentGroupTyped<E> {
+impl<E: EntitySemantic> EntityComponentGroupTyped<E> {
   pub fn entity_writer(&self) -> EntityWriter<E> {
     self.inner.entity_writer_dyn().into_typed().unwrap()
   }
@@ -28,7 +28,7 @@ impl EntityComponentGroup {
   }
 }
 
-impl<E> EntityWriter<E> {
+impl<E: EntitySemantic> EntityWriter<E> {
   pub fn into_untyped(self) -> EntityWriterUntyped {
     self.inner
   }
@@ -37,7 +37,7 @@ impl<E> EntityWriter<E> {
     writer_maker: impl FnOnce(ComponentWriteView<C>) -> W,
   ) -> Self {
     for (id, view) in &mut self.inner.components {
-      if *id == TypeId::of::<C>() {
+      if *id == C::component_id() {
         let v = view.take_write_view();
         let v = v.downcast::<ComponentWriteView<C>>().unwrap();
         *view = Box::new(writer_maker(*v));
@@ -62,15 +62,14 @@ impl<E> EntityWriter<E> {
 }
 
 pub struct EntityWriterUntyped {
-  type_id: TypeId,
+  type_id: EntityId,
   allocator: LockWriteGuardHolder<Arena<()>>,
-  // todo smallvec
-  components: Vec<(TypeId, Box<dyn EntityComponentWriter>)>,
+  components: smallvec::SmallVec<[(ComponentId, Box<dyn EntityComponentWriter>); 6]>,
 }
 
 impl EntityWriterUntyped {
-  pub fn into_typed<E: 'static>(self) -> Option<EntityWriter<E>> {
-    if self.type_id != TypeId::of::<E>() {
+  pub fn into_typed<E: EntitySemantic>(self) -> Option<EntityWriter<E>> {
+    if self.type_id != E::entity_id() {
       return None;
     }
     EntityWriter {
@@ -88,6 +87,17 @@ impl EntityWriterUntyped {
     handle
   }
 
+  pub fn clone_entity(&mut self, src: Handle<()>) -> Handle<()> {
+    let handle = self.allocator.insert(());
+    assert!(self.allocator.contains(src));
+    for com in &mut self.components {
+      com
+        .1
+        .clone_component_value(src.index() as u32, handle.index() as u32)
+    }
+    handle
+  }
+
   /// note, the referential integrity is not guaranteed and should be guaranteed by the upper level
   /// implementations
   pub fn delete_entity(&mut self, handle: u32) {
@@ -101,6 +111,7 @@ impl EntityWriterUntyped {
 
 pub trait EntityComponentWriter {
   fn write_init_component_value(&mut self, idx: u32);
+  fn clone_component_value(&mut self, src: u32, dst: u32);
   fn delete_component(&mut self, idx: u32);
   fn take_write_view(&mut self) -> Box<dyn Any>;
 }
@@ -122,6 +133,17 @@ impl<T: ComponentSemantic, F: FnMut() -> T::Data> EntityComponentWriter
 
     com.write_impl(idx, (self.default_value)(), true);
   }
+  fn clone_component_value(&mut self, src: u32, dst: u32) {
+    let com = self.component.as_mut().unwrap();
+
+    unsafe {
+      com.data.grow_at_least(dst as usize);
+    }
+
+    let src_com = com.data.get(src as usize).unwrap().clone();
+    com.write_impl(dst, src_com, true)
+  }
+
   fn delete_component(&mut self, idx: u32) {
     self.component.as_mut().unwrap().delete(idx)
   }
