@@ -5,13 +5,13 @@ use futures::task::AtomicWaker;
 use crate::*;
 
 #[derive(Clone)]
-pub struct CollectionSetsRefcount<T> {
-  source_sets: Arc<RwLock<Vec<Box<dyn ReactiveCollection<T, ()>>>>>,
+pub struct CollectionSetsRefcount<T, K> {
+  source_sets: Arc<RwLock<Vec<Box<dyn ReactiveCollection<T, K>>>>>,
   wake_for_new_source: Arc<AtomicWaker>,
-  ref_count: Arc<RwLock<FastHashMap<T, u32>>>,
+  ref_count: Arc<RwLock<FastHashMap<K, u32>>>,
 }
 
-impl<T> Default for CollectionSetsRefcount<T> {
+impl<T, K> Default for CollectionSetsRefcount<T, K> {
   fn default() -> Self {
     Self {
       source_sets: Default::default(),
@@ -21,21 +21,21 @@ impl<T> Default for CollectionSetsRefcount<T> {
   }
 }
 
-impl<T> CollectionSetsRefcount<T> {
-  pub fn add_source(&self, source: Box<dyn ReactiveCollection<T, ()>>) {
+impl<T, K> CollectionSetsRefcount<T, K> {
+  pub fn add_source(&self, source: Box<dyn ReactiveCollection<T, K>>) {
     self.source_sets.write().push(source);
     self.wake_for_new_source.wake();
   }
 }
 
-impl<T: CKey> ReactiveCollection<T, u32> for CollectionSetsRefcount<T> {
-  fn poll_changes(&self, cx: &mut Context) -> PollCollectionChanges<T, u32> {
+impl<T: CKey, K: CKey> ReactiveCollection<K, u32> for CollectionSetsRefcount<T, K> {
+  fn poll_changes(&self, cx: &mut Context) -> PollCollectionChanges<K, u32> {
     self.wake_for_new_source.register(cx.waker());
 
     let mut ref_count = self.ref_count.write();
     let sources = self.source_sets.read();
 
-    let mut mutations = FastHashMap::<T, ValueChange<u32>>::default();
+    let mut mutations = FastHashMap::<K, ValueChange<u32>>::default();
     let mut mutator = CollectionMutationCollector {
       delta: &mut mutations,
       target: ref_count.deref_mut(),
@@ -43,10 +43,10 @@ impl<T: CKey> ReactiveCollection<T, u32> for CollectionSetsRefcount<T> {
 
     for source in sources.iter() {
       if let Poll::Ready(deltas) = source.poll_changes(cx) {
-        for (k, delta) in deltas.iter_key_value() {
+        for (_, delta) in deltas.iter_key_value() {
           match delta {
-            ValueChange::Delta(_, p) => {
-              if p.is_none() {
+            ValueChange::Delta(k, pk) => {
+              if pk.is_none() {
                 if let Some(pre_rc) = mutator.remove(k.clone()) {
                   mutator.set_value(k.clone(), pre_rc + 1);
                 } else {
@@ -54,7 +54,7 @@ impl<T: CKey> ReactiveCollection<T, u32> for CollectionSetsRefcount<T> {
                 }
               }
             }
-            ValueChange::Remove(_) => {
+            ValueChange::Remove(k) => {
               let pre_rc = mutator.remove(k.clone()).unwrap();
               if pre_rc - 1 > 0 {
                 mutator.set_value(k.clone(), pre_rc - 1);
@@ -72,7 +72,7 @@ impl<T: CKey> ReactiveCollection<T, u32> for CollectionSetsRefcount<T> {
     }
   }
 
-  fn access(&self) -> PollCollectionCurrent<T, u32> {
+  fn access(&self) -> PollCollectionCurrent<K, u32> {
     Box::new(self.ref_count.make_read_holder())
   }
 

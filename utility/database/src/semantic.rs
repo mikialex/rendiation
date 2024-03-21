@@ -6,7 +6,8 @@ pub trait ComponentSemantic: Any + Send + Sync {
   type Entity: Any;
 }
 
-pub trait ForeignKeySemantic: ComponentSemantic<Data = Option<u32>> {
+pub type ForeignKeyComponentData = Option<u32>;
+pub trait ForeignKeySemantic: ComponentSemantic<Data = ForeignKeyComponentData> {
   type ForeignEntity: Any;
 }
 
@@ -26,7 +27,7 @@ macro_rules! declare_foreign_key {
   ($Type: tt,  $EntityTy: ty, $ForeignEntityTy: ty) => {
     pub struct $Type;
     impl ComponentSemantic for $Type {
-      type Data = Option<u32>;
+      type Data = ForeignKeyComponentData;
       type Entity = $EntityTy;
     }
     impl ForeignKeySemantic for $Type {

@@ -7,8 +7,9 @@ use parking_lot::lock_api::RawRwLock;
 
 use crate::*;
 
+#[derive(Clone)]
 pub struct DatabaseMutationWatch {
-  component_changes: RwLock<FastHashMap<TypeId, Box<dyn Any>>>,
+  component_changes: Arc<RwLock<FastHashMap<TypeId, Box<dyn Any + Send + Sync>>>>,
   db: Database,
 }
 
@@ -26,25 +27,25 @@ impl DatabaseMutationWatch {
 
   pub fn watch_dyn_foreign_key(
     &self,
-    type_id: TypeId,
+    component_id: TypeId,
     entity_id: TypeId,
-  ) -> impl ReactiveCollection<u32, u32> {
-    self.watch_dyn::<u32>(type_id, entity_id)
+  ) -> impl ReactiveCollection<u32, ForeignKeyComponentData> {
+    self.watch_dyn::<ForeignKeyComponentData>(component_id, entity_id)
   }
 
   pub fn watch_dyn<T: CValue>(
     &self,
-    type_id: TypeId,
+    component_id: TypeId,
     entity_id: TypeId,
   ) -> impl ReactiveCollection<u32, T> {
-    if let Some(watcher) = self.component_changes.read().get(&type_id) {
+    if let Some(watcher) = self.component_changes.read().get(&component_id) {
       let watcher = watcher.downcast_ref::<RxCForker<u32, T>>().unwrap();
       return watcher.clone();
     }
 
     let (sender, receiver) = channel::<T>();
     let original = self.db.access_ecg_dyn(entity_id, move |e| {
-      e.access_component(type_id, move |c| {
+      e.access_component(component_id, move |c| {
         c.inner
           .get_event_source()
           .downcast::<EventSource<ComponentValueChange<T>>>()
@@ -82,9 +83,9 @@ impl DatabaseMutationWatch {
     self
       .component_changes
       .write()
-      .insert(type_id, Box::new(rxc));
+      .insert(component_id, Box::new(rxc));
 
-    self.watch_dyn::<T>(type_id, entity_id)
+    self.watch_dyn::<T>(component_id, entity_id)
   }
 }
 

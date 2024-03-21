@@ -39,13 +39,20 @@ impl DatabaseEntityRefCounting {
       entity_ref_counts.insert(e_id, ref_data);
       drop(entity_ref_counts);
 
-      ecg.inner.foreign_key_meta_watchers.on(move |com| {
-        let entity_ref_counts = erc.read();
-        let ref_data = entity_ref_counts.get(&e_id).unwrap();
-        // mutation_watcher.watch_dyn_foreign_key(com.)
-        ref_data.inner_refs.add_source(todo!());
-        false
-      });
+      let mutation_watcher = mutation_watcher.clone();
+
+      ecg
+        .inner
+        .foreign_key_meta_watchers
+        .on(move |(s_id, f_e_id)| {
+          let entity_ref_counts = erc.read();
+          let ref_data = entity_ref_counts.get(f_e_id).unwrap();
+          let changes = mutation_watcher
+            .watch_dyn_foreign_key(*s_id, *f_e_id)
+            .collective_filter_map(|v| v);
+          ref_data.inner_refs.add_source(Box::new(changes));
+          false
+        });
 
       false
     });
@@ -81,7 +88,7 @@ impl DatabaseEntityRefCounting {
 
 pub struct EntityRefCount {
   outer_refs: Arc<RwLock<ExternalDataRefs>>,
-  inner_refs: CollectionSetsRefcount<u32>,
+  inner_refs: CollectionSetsRefcount<u32, u32>,
   db: Database,
   id: TypeId,
 }

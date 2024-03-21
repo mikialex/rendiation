@@ -58,10 +58,12 @@ pub(crate) struct EntityComponentGroupImpl {
   pub(crate) components: RwLock<FastHashMap<TypeId, ComponentCollectionUntyped>>,
   /// the foreign keys of entity, each foreign key express the one-to-many relation with other ECG.
   /// each foreign key is a dependency between different ECG
-  pub(crate) foreign_keys: RwLock<FastHashSet<TypeId>>,
+  ///
+  /// components id => foreign id
+  pub(crate) foreign_keys: RwLock<FastHashMap<TypeId, TypeId>>,
 
   pub(crate) components_meta_watchers: EventSource<ComponentCollectionUntyped>,
-  pub(crate) foreign_key_meta_watchers: EventSource<TypeId>,
+  pub(crate) foreign_key_meta_watchers: EventSource<(TypeId, TypeId)>,
 }
 
 impl EntityComponentGroupImpl {
@@ -103,7 +105,7 @@ impl<E: 'static> EntityComponentGroupTyped<E> {
     self = self.declare_component::<S>();
     self
       .inner
-      .declare_foreign_key_dyn(TypeId::of::<S::ForeignEntity>());
+      .declare_foreign_key_dyn(TypeId::of::<S>(), TypeId::of::<S::ForeignEntity>());
     self
   }
   pub fn access_component<S: ComponentSemantic, R>(
@@ -130,14 +132,14 @@ impl EntityComponentGroup {
     assert!(previous.is_none());
   }
 
-  pub fn declare_foreign_key_dyn(&self, foreign_entity_type_id: TypeId) {
+  pub fn declare_foreign_key_dyn(&self, semantic: TypeId, foreign_entity_type_id: TypeId) {
     let mut foreign_keys = self.inner.foreign_keys.write();
     self
       .inner
       .foreign_key_meta_watchers
-      .emit(&foreign_entity_type_id);
-    let previous = foreign_keys.insert(foreign_entity_type_id);
-    assert!(!previous)
+      .emit(&(semantic, foreign_entity_type_id));
+    let previous = foreign_keys.insert(semantic, foreign_entity_type_id);
+    assert!(previous.is_none())
   }
 
   pub fn iter_entity_idx(&self) -> impl Iterator<Item = u32> {
