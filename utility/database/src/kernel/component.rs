@@ -14,7 +14,7 @@ pub struct ComponentCollection<C: ComponentSemantic> {
   // todo remove arc
   pub(crate) data: Arc<dyn ComponentStorage<C::Data>>,
   /// watch this component all change with idx
-  pub(crate) group_watchers: EventSource<ComponentValueChange<C::Data>>,
+  pub(crate) group_watchers: EventSource<ScopedValueChange<C::Data>>,
 }
 
 impl<C: ComponentSemantic> Clone for ComponentCollection<C> {
@@ -34,7 +34,7 @@ impl<C: ComponentSemantic> ComponentCollection<C> {
     }
   }
   pub fn write(&self) -> ComponentWriteView<C> {
-    self.group_watchers.emit(&ComponentValueChange::StartWrite);
+    self.group_watchers.emit(&ScopedMessage::Start);
     ComponentWriteView {
       data: self.data.create_read_write_view(),
       events: self.group_watchers.lock.make_mutex_write_holder(),
@@ -100,25 +100,14 @@ impl<T: ComponentSemantic> ComponentReadView<T> {
   }
 }
 
-pub enum ComponentValueChange<T> {
-  StartWrite,
-  EndWrite,
-  Write(IndexValueChange<T>),
-}
-
-pub struct IndexValueChange<T> {
-  pub idx: u32,
-  pub change: ValueChange<T>,
-}
-
 pub struct ComponentWriteView<T: ComponentSemantic> {
   pub(crate) data: Box<dyn ComponentStorageReadWriteView<T::Data>>,
-  pub(crate) events: MutexGuardHolder<Source<ComponentValueChange<T::Data>>>,
+  pub(crate) events: MutexGuardHolder<Source<ScopedValueChange<T::Data>>>,
 }
 
 impl<T: ComponentSemantic> Drop for ComponentWriteView<T> {
   fn drop(&mut self) {
-    self.events.emit(&ComponentValueChange::EndWrite)
+    self.events.emit(&ScopedValueChange::End)
   }
 }
 
@@ -141,7 +130,7 @@ impl<T: ComponentSemantic> ComponentWriteView<T> {
     if is_create {
       let change = ValueChange::Delta(new, None);
       let change = IndexValueChange { idx, change };
-      self.events.emit(&ComponentValueChange::Write(change));
+      self.events.emit(&ScopedMessage::Message(change));
       return;
     }
 
@@ -151,7 +140,7 @@ impl<T: ComponentSemantic> ComponentWriteView<T> {
 
     let change = ValueChange::Delta(new, Some(previous));
     let change = IndexValueChange { idx, change };
-    self.events.emit(&ComponentValueChange::Write(change));
+    self.events.emit(&ScopedMessage::Message(change));
   }
 
   pub(crate) fn delete(&mut self, idx: u32) {
@@ -160,7 +149,7 @@ impl<T: ComponentSemantic> ComponentWriteView<T> {
 
     let change = ValueChange::Remove(previous);
     let change = IndexValueChange { idx, change };
-    self.events.emit(&ComponentValueChange::Write(change));
+    self.events.emit(&ScopedMessage::Message(change));
   }
 }
 

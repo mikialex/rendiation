@@ -20,9 +20,12 @@ impl EntityComponentGroup {
       .map(|(id, c)| (*id, c.inner.create_dyn_writer_default()))
       .collect();
 
+    self.inner.entity_watchers.emit(&ScopedMessage::Start);
+
     EntityWriterUntyped {
       type_id: self.inner.type_id,
       components,
+      entity_watchers: self.inner.entity_watchers.clone(),
       allocator: self.inner.allocator.make_write_holder(),
     }
   }
@@ -64,7 +67,14 @@ impl<E: EntitySemantic> EntityWriter<E> {
 pub struct EntityWriterUntyped {
   type_id: EntityId,
   allocator: LockWriteGuardHolder<Arena<()>>,
+  entity_watchers: EventSource<EntityRangeChange>,
   components: smallvec::SmallVec<[(ComponentId, Box<dyn EntityComponentWriter>); 6]>,
+}
+
+impl Drop for EntityWriterUntyped {
+  fn drop(&mut self) {
+    self.entity_watchers.emit(&ScopedMessage::End)
+  }
 }
 
 impl EntityWriterUntyped {
@@ -84,6 +94,11 @@ impl EntityWriterUntyped {
     for com in &mut self.components {
       com.1.write_init_component_value(handle.index() as u32)
     }
+    let change = IndexValueChange {
+      idx: handle.index() as u32,
+      change: ValueChange::Delta((), None),
+    };
+    self.entity_watchers.emit(&ScopedMessage::Message(change));
     handle
   }
 
@@ -95,6 +110,11 @@ impl EntityWriterUntyped {
         .1
         .clone_component_value(src.index() as u32, handle.index() as u32)
     }
+    let change = IndexValueChange {
+      idx: handle.index() as u32,
+      change: ValueChange::Delta((), None),
+    };
+    self.entity_watchers.emit(&ScopedMessage::Message(change));
     handle
   }
 
@@ -106,6 +126,11 @@ impl EntityWriterUntyped {
     for com in &mut self.components {
       com.1.delete_component(handle)
     }
+    let change = IndexValueChange {
+      idx: handle,
+      change: ValueChange::Remove(()),
+    };
+    self.entity_watchers.emit(&ScopedMessage::Message(change));
   }
 }
 

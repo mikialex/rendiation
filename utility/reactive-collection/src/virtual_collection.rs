@@ -2,6 +2,7 @@ use std::{ops::DerefMut, sync::Arc};
 
 use dyn_clone::DynClone;
 use parking_lot::{RwLockReadGuard, RwLockWriteGuard};
+use storage::Arena;
 
 use crate::*;
 
@@ -273,5 +274,16 @@ where
 
   fn access(&self, key: &K) -> Option<V> {
     (self.access)(key)
+  }
+}
+
+impl<V: CValue> VirtualCollection<u32, V> for Arena<V> {
+  fn iter_key_value(&self) -> Box<dyn Iterator<Item = (u32, V)> + '_> {
+    Box::new(self.iter().map(|(h, v)| (h.index() as u32, v.clone())))
+  }
+
+  fn access(&self, key: &u32) -> Option<V> {
+    let handle = self.get_handle(*key as usize).unwrap();
+    self.get(handle).cloned()
   }
 }

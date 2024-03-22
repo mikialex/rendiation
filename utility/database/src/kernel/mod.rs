@@ -11,6 +11,7 @@ pub use ecg::*;
 pub use entity_writer::*;
 pub use entry::*;
 pub use lock::*;
+use reactive::ValueChange;
 
 pub struct SendSyncPhantomData<T> {
   phantom: PhantomData<T>,
@@ -30,4 +31,18 @@ impl<T> Default for SendSyncPhantomData<T> {
       phantom: Default::default(),
     }
   }
+}
+
+pub enum ScopedMessage<T> {
+  Start,
+  End,
+  Message(T),
+}
+
+pub type ScopedValueChange<T> = ScopedMessage<IndexValueChange<T>>;
+pub type EntityRangeChange = ScopedValueChange<()>;
+
+pub struct IndexValueChange<T> {
+  pub idx: u32,
+  pub change: ValueChange<T>,
 }

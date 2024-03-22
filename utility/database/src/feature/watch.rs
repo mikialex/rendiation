@@ -10,6 +10,7 @@ use crate::*;
 #[derive(Clone)]
 pub struct DatabaseMutationWatch {
   component_changes: Arc<RwLock<FastHashMap<ComponentId, Box<dyn Any + Send + Sync>>>>,
+  entity_set_changes: Arc<RwLock<FastHashMap<EntityId, Box<dyn Any + Send + Sync>>>>,
   db: Database,
 }
 
@@ -17,8 +18,35 @@ impl DatabaseMutationWatch {
   pub fn new(db: &Database) -> Self {
     Self {
       component_changes: Default::default(),
+      entity_set_changes: Default::default(),
       db: db.clone(),
     }
+  }
+
+  pub fn watch_entity_set<E: EntitySemantic>(&self) -> impl ReactiveCollection<u32, ()> {
+    self.watch_entity_set_dyn(E::entity_id())
+  }
+
+  pub fn watch_entity_set_dyn(&self, e_id: EntityId) -> impl ReactiveCollection<u32, ()> {
+    if let Some(watcher) = self.entity_set_changes.read().get(&e_id) {
+      let watcher = watcher.downcast_ref::<RxCForker<u32, ()>>().unwrap();
+      return watcher.clone();
+    }
+
+    let (rev, full) = self.db.access_ecg_dyn(e_id, move |e| {
+      let rev = add_listen(&e.inner.entity_watchers);
+      let full = e.inner.allocator.clone();
+      (rev, full)
+    });
+
+    let rxc = ReactiveCollectionFromComponentMutation {
+      full: Box::new(full),
+      mutation: RwLock::new(rev),
+    };
+
+    self.entity_set_changes.write().insert(e_id, Box::new(rxc));
+
+    self.watch_entity_set_dyn(e_id)
   }
 
   pub fn watch<C: ComponentSemantic>(&self) -> impl ReactiveCollection<u32, C::Data> {
@@ -43,39 +71,30 @@ impl DatabaseMutationWatch {
       return watcher.clone();
     }
 
-    let (sender, receiver) = channel::<T>();
-    let original = self.db.access_ecg_dyn(entity_id, move |e| {
+    let (original, receiver) = self.db.access_ecg_dyn(entity_id, move |e| {
       e.access_component(component_id, move |c| {
-        c.inner
+        let event_source = c
+          .inner
           .get_event_source()
-          .downcast::<EventSource<ComponentValueChange<T>>>()
-          .unwrap()
-          .on(move |change| unsafe {
-            match change {
-              ComponentValueChange::StartWrite => {
-                sender.lock();
-                false
-              }
-              ComponentValueChange::EndWrite => {
-                sender.unlock();
-                sender.is_closed()
-              }
-              ComponentValueChange::Write(write) => {
-                sender.send(write.idx, write.change.clone());
-                false
-              }
-            }
-          });
-        *c.inner
+          .downcast::<EventSource<ScopedValueChange<T>>>()
+          .unwrap();
+        let rev = add_listen(&event_source);
+
+        let original = *c
+          .inner
           .get_data()
           .downcast::<Arc<dyn ComponentStorage<T>>>()
-          .unwrap()
+          .unwrap();
+
+        (original, rev)
       })
     });
 
     let rxc = ReactiveCollectionFromComponentMutation {
-      ecg: self.db.access_ecg_dyn(entity_id, |ecg| ecg.clone()),
-      original,
+      full: Box::new(ComponentAccess {
+        ecg: self.db.access_ecg_dyn(entity_id, |ecg| ecg.clone()),
+        original,
+      }),
       mutation: RwLock::new(receiver),
     }
     .into_static_forker();
@@ -87,6 +106,29 @@ impl DatabaseMutationWatch {
 
     self.watch_dyn::<T>(component_id, entity_id)
   }
+}
+
+fn add_listen<T: CValue>(
+  source: &EventSource<ScopedValueChange<T>>,
+) -> ComponentMutationReceiver<T> {
+  let (sender, receiver) = channel::<T>();
+  source.on(move |change| unsafe {
+    match change {
+      ScopedMessage::Start => {
+        sender.lock();
+        false
+      }
+      ScopedMessage::End => {
+        sender.unlock();
+        sender.is_closed()
+      }
+      ScopedMessage::Message(write) => {
+        sender.send(write.idx, write.change.clone());
+        false
+      }
+    }
+  });
+  receiver
 }
 
 type MutationData<T> = FastHashMap<u32, ValueChange<T>>;
@@ -138,12 +180,12 @@ impl<T> Drop for ComponentMutationSender<T> {
   }
 }
 
-pub struct ComponentMutationReceiver<T> {
+struct ComponentMutationReceiver<T> {
   inner: Arc<(RwLock<MutationData<T>>, AtomicWaker)>,
 }
 
-impl<T> Stream for ComponentMutationReceiver<T> {
-  type Item = MutationData<T>;
+impl<T: CValue> Stream for ComponentMutationReceiver<T> {
+  type Item = Box<dyn VirtualCollection<u32, ValueChange<T>>>;
 
   fn poll_next(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Option<Self::Item>> {
     self.inner.1.register(cx.waker());
@@ -152,7 +194,7 @@ impl<T> Stream for ComponentMutationReceiver<T> {
 
     let changes = std::mem::take(changes);
     if !changes.is_empty() {
-      Poll::Ready(Some(changes))
+      Poll::Ready(Some(Box::new(changes)))
       // check if the sender has been dropped
     } else if Arc::strong_count(&self.inner) == 1 {
       Poll::Ready(None)
@@ -162,30 +204,47 @@ impl<T> Stream for ComponentMutationReceiver<T> {
   }
 }
 
-struct ReactiveCollectionFromComponentMutation<T> {
+// this trait could be lift into upper stream
+pub trait VirtualCollectionAccess<K, V>: Send + Sync {
+  fn access(&self) -> CollectionView<K, V>;
+}
+
+impl<K: CKey, V: CValue, T: VirtualCollection<K, V>> VirtualCollectionAccess<K, V>
+  for Arc<RwLock<T>>
+{
+  fn access(&self) -> CollectionView<K, V> {
+    Box::new(self.make_read_holder())
+  }
+}
+
+struct ComponentAccess<T> {
   ecg: EntityComponentGroup,
   original: Arc<dyn ComponentStorage<T>>,
+}
+
+impl<T: CValue> VirtualCollectionAccess<u32, T> for ComponentAccess<T> {
+  fn access(&self) -> CollectionView<u32, T> {
+    Box::new(IterableComponentReadView::<T> {
+      ecg: self.ecg.clone(),
+      read_view: self.original.create_read_view(),
+    }) as PollCollectionCurrent<u32, T>
+  }
+}
+
+struct ReactiveCollectionFromComponentMutation<T> {
+  full: Box<dyn VirtualCollectionAccess<u32, T>>,
   mutation: RwLock<ComponentMutationReceiver<T>>,
 }
 impl<T: CValue> ReactiveCollection<u32, T> for ReactiveCollectionFromComponentMutation<T> {
   fn poll_changes(&self, cx: &mut Context) -> PollCollectionChanges<u32, T> {
     match self.mutation.write().poll_next_unpin(cx) {
-      Poll::Ready(Some(r)) => {
-        if r.is_empty() {
-          Poll::Pending
-        } else {
-          Poll::Ready(Box::new(r) as Box<dyn VirtualCollection<u32, ValueChange<T>>>)
-        }
-      }
+      Poll::Ready(Some(r)) => Poll::Ready(r),
       _ => Poll::Pending,
     }
   }
 
   fn access(&self) -> PollCollectionCurrent<u32, T> {
-    Box::new(IterableComponentReadView::<T> {
-      ecg: self.ecg.clone(),
-      read_view: self.original.create_read_view(),
-    }) as PollCollectionCurrent<u32, T>
+    self.full.access()
   }
 
   fn extra_request(&mut self, _request: &mut ExtraCollectionOperation) {

@@ -65,6 +65,8 @@ pub(crate) struct EntityComponentGroupImpl {
 
   pub(crate) components_meta_watchers: EventSource<ComponentCollectionUntyped>,
   pub(crate) foreign_key_meta_watchers: EventSource<(ComponentId, EntityId)>,
+
+  pub(crate) entity_watchers: EventSource<EntityRangeChange>,
 }
 
 impl EntityComponentGroupImpl {
@@ -76,6 +78,7 @@ impl EntityComponentGroupImpl {
       foreign_keys: Default::default(),
       components_meta_watchers: Default::default(),
       foreign_key_meta_watchers: Default::default(),
+      entity_watchers: Default::default(),
     }
   }
 }
