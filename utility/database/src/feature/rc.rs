@@ -11,15 +11,23 @@ use crate::*;
 #[derive(Clone)]
 pub struct DatabaseEntityRefCounting {
   entity_ref_counts: Arc<RwLock<StreamMap<EntityId, EntityRefCount>>>,
+  /// map from entity id to foreign entity id, means this foreign entity owns multiple main entity.
+  reverse_ownership: Arc<RwLock<FastHashMap<EntityId, EntityId>>>,
   cleanup_waker: Arc<AtomicWaker>,
 }
 
 impl DatabaseEntityRefCounting {
-  pub fn new(db: Database, mutation_watcher: DatabaseMutationWatch) -> Self {
+  pub fn new(
+    db: Database,
+    mutation_watcher: DatabaseMutationWatch,
+    rev_ref: DatabaseEntityReverseReference,
+  ) -> Self {
     // todo, we should do loop check in dep graph to warn if there is a circular dep
 
     let entity_ref_counts: Arc<RwLock<StreamMap<EntityId, EntityRefCount>>> = Default::default();
     let entity_ref_counts_ = entity_ref_counts.clone();
+    let reverse_ownership: Arc<RwLock<FastHashMap<EntityId, EntityId>>> = Default::default();
+    let r_o = reverse_ownership.clone();
 
     let db_c = db.clone();
 
@@ -29,9 +37,13 @@ impl DatabaseEntityRefCounting {
 
       let e_id = ecg.inner.type_id;
 
+      let watched_foreign_keys: Arc<RwLock<FastHashSet<ComponentId>>> = Default::default();
+      let w_f_k = watched_foreign_keys.clone();
+
       let ref_data = EntityRefCount {
         outer_refs: Default::default(),
         inner_refs: Default::default(),
+        watched_foreign_keys: w_f_k,
         db: db.clone(),
         id: e_id,
       };
@@ -40,17 +52,33 @@ impl DatabaseEntityRefCounting {
       drop(entity_ref_counts);
 
       let mutation_watcher = mutation_watcher.clone();
+      let reverse_ownership = reverse_ownership.clone();
+      let rev_ref = rev_ref.clone();
 
       ecg
         .inner
         .foreign_key_meta_watchers
         .on(move |(s_id, f_e_id)| {
           let entity_ref_counts = erc.read();
-          let ref_data = entity_ref_counts.get(f_e_id).unwrap();
-          let changes = mutation_watcher
-            .watch_dyn_foreign_key(*s_id, *f_e_id)
-            .collective_filter_map(|v| v);
-          ref_data.inner_refs.add_source(Box::new(changes));
+          watched_foreign_keys.write().insert(*s_id);
+
+          if reverse_ownership.read().contains(&e_id) {
+            let ref_data = entity_ref_counts.get(&e_id).unwrap();
+            let changes = mutation_watcher
+              .watch_entity_set_dyn(*f_e_id)
+              .one_to_many_fanout(rev_ref.watch_inv_ref_dyn(*s_id, *f_e_id))
+              .key_as_value();
+            let changes = Box::new(changes);
+            ref_data.inner_refs.add_source(changes);
+          } else {
+            let ref_data = entity_ref_counts.get(f_e_id).unwrap();
+            let changes = mutation_watcher
+              .watch_dyn_foreign_key(*s_id, *f_e_id)
+              .collective_filter_map(|v| v);
+            let changes = Box::new(changes);
+            ref_data.inner_refs.add_source(changes);
+          };
+
           false
         });
 
@@ -60,8 +88,29 @@ impl DatabaseEntityRefCounting {
     Self {
       entity_ref_counts: entity_ref_counts_,
       cleanup_waker: Default::default(),
+      reverse_ownership: r_o,
     }
   }
+
+  // this function should be called before the database side foreign key declare.
+  pub fn declare_foreign_key_reverse_ownership<C: ForeignKeySemantic>(self) -> Self {
+    let refs = self.entity_ref_counts.read();
+    if let Some(ref_data) = refs.get(&C::ForeignEntity::entity_id()) {
+      let watched_foreign_keys = ref_data.watched_foreign_keys.read();
+      assert!(!watched_foreign_keys.contains(&C::component_id()));
+
+      // we add this info under the above guards
+      self
+        .reverse_ownership
+        .write()
+        .insert(C::Entity::entity_id(), C::ForeignEntity::entity_id());
+    }
+    assert!(refs.get(&C::ForeignEntity::entity_id()).is_none());
+    drop(refs);
+
+    self
+  }
+
   pub fn cleanup_none_referenced_entities(&self) {
     let waker = self.cleanup_waker.take().unwrap_or(noop_waker());
     self.cleanup_waker.register(&waker);
@@ -88,7 +137,9 @@ impl DatabaseEntityRefCounting {
 
 pub struct EntityRefCount {
   outer_refs: Arc<RwLock<ExternalDataRefs>>,
+  // input multiple(any addressable idx => target entity idx)  -> target entity idx -> refcount
   inner_refs: CollectionSetsRefcount<u32, u32>,
+  watched_foreign_keys: Arc<RwLock<FastHashSet<ComponentId>>>,
   db: Database,
   id: EntityId,
 }
