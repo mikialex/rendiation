@@ -209,7 +209,7 @@ pub trait VirtualCollectionAccess<K, V>: Send + Sync {
   fn access(&self) -> CollectionView<K, V>;
 }
 
-impl<K: CKey, V: CValue, T: VirtualCollection<K, V>> VirtualCollectionAccess<K, V>
+impl<K: CKey, V: CValue, T: VirtualCollection<K, V> + 'static> VirtualCollectionAccess<K, V>
   for Arc<RwLock<T>>
 {
   fn access(&self) -> CollectionView<K, V> {

@@ -140,7 +140,10 @@ pub struct DataRefPtrWriteView<T> {
 
 impl<T> DataRefPtrWriteView<T> {
   pub fn create_ptr(&mut self, handle: EntityHandle<T>) -> DataRefPtr<T> {
-    if !self.entity_checker.contains(handle.handle) {
+    if !self
+      .entity_checker
+      .contains(&(handle.handle.index() as u32))
+    {
       panic!("handle is invalid")
     }
 
