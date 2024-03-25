@@ -1,3 +1,5 @@
+use storage::IndexKeptVec;
+
 use crate::*;
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -113,6 +115,16 @@ pub trait MutableCollection<K, V> {
   fn remove(&mut self, k: K) -> Option<V>;
 }
 
+impl<'a, K: CKey, V: CValue, T: MutableCollection<K, V>> MutableCollection<K, V> for &'a mut T {
+  fn set_value(&mut self, k: K, v: V) -> Option<V> {
+    (*self).set_value(k, v)
+  }
+
+  fn remove(&mut self, k: K) -> Option<V> {
+    (*self).remove(k)
+  }
+}
+
 impl<K: CKey, V: CValue> MutableCollection<K, V> for FastHashMap<K, V> {
   fn set_value(&mut self, k: K, v: V) -> Option<V> {
     self.insert(k, v)
@@ -122,13 +134,15 @@ impl<K: CKey, V: CValue> MutableCollection<K, V> for FastHashMap<K, V> {
     self.remove(&k)
   }
 }
-impl<'a, K: CKey, V: CValue> MutableCollection<K, V> for &'a mut FastHashMap<K, V> {
-  fn set_value(&mut self, k: K, v: V) -> Option<V> {
-    self.insert(k, v)
+impl<T: CValue> MutableCollection<u32, T> for IndexKeptVec<T> {
+  fn set_value(&mut self, k: u32, v: T) -> Option<T> {
+    let previous = self.try_get(k).cloned();
+    self.insert(v, k);
+    previous
   }
 
-  fn remove(&mut self, k: K) -> Option<V> {
-    (*self).remove(&k)
+  fn remove(&mut self, k: u32) -> Option<T> {
+    IndexKeptVec::remove(self, k)
   }
 }
 

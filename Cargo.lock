@@ -2974,6 +2974,7 @@ dependencies = [
  "heap-tools",
  "parking_lot",
  "pin-project",
+ "rendiation-abstract-tree",
  "smallvec",
  "storage",
  "tracing",

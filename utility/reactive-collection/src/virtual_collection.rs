@@ -2,7 +2,7 @@ use std::{ops::DerefMut, sync::Arc};
 
 use dyn_clone::DynClone;
 use parking_lot::{RwLockReadGuard, RwLockWriteGuard};
-use storage::Arena;
+use storage::{Arena, IndexReusedVec};
 
 use crate::*;
 
@@ -285,5 +285,15 @@ impl<V: CValue> VirtualCollection<u32, V> for Arena<V> {
   fn access(&self, key: &u32) -> Option<V> {
     let handle = self.get_handle(*key as usize).unwrap();
     self.get(handle).cloned()
+  }
+}
+
+impl<V: CValue> VirtualCollection<u32, V> for IndexReusedVec<V> {
+  fn iter_key_value(&self) -> Box<dyn Iterator<Item = (u32, V)> + '_> {
+    Box::new(self.iter().map(|(k, v)| (k, v.clone())))
+  }
+
+  fn access(&self, key: &u32) -> Option<V> {
+    self.try_get(*key).cloned()
   }
 }

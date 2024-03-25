@@ -14,6 +14,7 @@ smallvec = { workspace = true }
 tracing = { workspace = true }
 dashmap = { workspace = true }
 dyn-clone = { workspace = true }
+rendiation-abstract-tree = { path = "../abstract-tree" }
 
 
 # we use it's rwlock to avoid recursive read deadlock
