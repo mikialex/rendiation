@@ -359,6 +359,26 @@ impl<S, T: ShaderLight> AsRef<dyn LightCollectionCompute> for ReactiveLightList<
   }
 }
 
+impl<T, S> Stream for ReactiveLightList<S, T>
+where
+  T: ShaderLight,
+  S: Stream<Item = Vec<(u64, Option<T>)>>,
+{
+  type Item = usize;
+
+  fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+    let this = self.project();
+    if let Poll::Ready(Some(updates)) = this.input.poll_next(cx) {
+      for (light_id, light) in updates {
+        this.list.update(light_id, light);
+      }
+      Poll::Ready(this.list.maintain().into())
+    } else {
+      Poll::Pending
+    }
+  }
+}
+
 trait StreamForLightExt: Sized + Stream {
   fn flatten_option_outer<SS: Stream>(self) -> FlattenOptionOuter<Self, SS>
   where
@@ -432,26 +452,6 @@ where
       } else {
         return Poll::Pending;
       }
-    }
-  }
-}
-
-impl<T, S> Stream for ReactiveLightList<S, T>
-where
-  T: ShaderLight,
-  S: Stream<Item = Vec<(u64, Option<T>)>>,
-{
-  type Item = usize;
-
-  fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
-    let this = self.project();
-    if let Poll::Ready(Some(updates)) = this.input.poll_next(cx) {
-      for (light_id, light) in updates {
-        this.list.update(light_id, light);
-      }
-      Poll::Ready(this.list.maintain().into())
-    } else {
-      Poll::Pending
     }
   }
 }

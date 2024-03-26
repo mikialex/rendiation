@@ -1,14 +1,16 @@
 use crate::*;
 
+type LightId = u32;
+type UniformIndex = u32;
 pub struct SingleProjectShadowMapSystem {
-  data_source: Box<dyn ReactiveCollection<(TypeId, u32), ShadowCameraProjInfo>>,
-  output: RxCForker<(TypeId, u32), LightShadowAddressInfo>,
+  data_source: Box<dyn ReactiveCollection<(TypeId, LightId), ShadowCameraProjInfo>>,
+  output: RxCForker<(TypeId, LightId), LightShadowAddressInfo>,
 
-  mapping: Box<dyn ReactiveCollection<(TypeId, u32), u32>>,
-  inv_mapping: Box<dyn ReactiveCollection<u32, (TypeId, u32)>>,
+  mapping: Box<dyn ReactiveCollection<(TypeId, LightId), UniformIndex>>,
+  inv_mapping: Box<dyn ReactiveCollection<UniformIndex, (TypeId, LightId)>>,
 
   list: ClampedUniformList<BasicShadowMapInfo, SHADOW_MAX>,
-  maps: Box<dyn ReactiveCollection<(TypeId, u32), ShadowMap>>,
+  maps: Box<dyn ReactiveCollection<(TypeId, LightId), ShadowMap>>,
 
   camera: CameraGPU,
 

@@ -6,9 +6,11 @@
 
 mod background;
 mod camera;
+mod reactive_gpu_collection;
+pub use reactive_gpu_collection::*;
 
-// mod lights;
 mod global;
+mod lights;
 mod materials;
 mod mesh;
 mod node;
@@ -26,9 +28,10 @@ use std::{
 pub use background::*;
 use bytemuck::*;
 pub use camera::*;
+use fast_hash_collection::*;
 pub use global::*;
 use incremental::*;
-// pub use lights::*;
+pub use lights::*;
 pub use materials::*;
 pub use mesh::*;
 pub use node::*;

@@ -4,10 +4,11 @@ pub use background::*;
 mod content;
 pub use content::*;
 
-// mod shadow;
-// pub use shadow::*;
-// mod lighting;
-// pub use lighting::*;
+mod shadow;
+pub use shadow::*;
+mod lighting;
+pub use lighting::*;
+
 use crate::*;
 
 pub struct SceneRenderResourceGroup<'a> {

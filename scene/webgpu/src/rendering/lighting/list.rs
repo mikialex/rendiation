@@ -38,6 +38,7 @@ impl<T: ShaderLight> LightList<T> {
     }
   }
 
+  /// return real size
   pub fn maintain(&mut self) -> usize {
     let empty_size = self.empty_list.len();
 
