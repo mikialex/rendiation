@@ -153,6 +153,10 @@ fn ui_logic(ui: &egui::Context, states: &mut ViewerUIState, viewer: &mut Viewer)
         println!("PRESSED")
       }
 
+      if let Some(ctx) = &mut viewer.ctx {
+        ui_render_config(ui, &mut ctx.pipeline)
+      }
+
       ui.label("terminal");
       let re = ui.text_edit_singleline(&mut states.command_input);
       if re.lost_focus() && re.ctx.input(|i| i.key_pressed(egui::Key::Enter)) {
@@ -161,4 +165,9 @@ fn ui_logic(ui: &egui::Context, states: &mut ViewerUIState, viewer: &mut Viewer)
       }
       ui.end_row();
     });
+}
+
+fn ui_render_config(ui: &mut egui::Ui, config: &mut ViewerPipeline) {
+  ui.checkbox(&mut config.enable_ssao, "enable ssao");
+  ui.checkbox(&mut config.enable_channel_debugger, "enable channel debug");
 }

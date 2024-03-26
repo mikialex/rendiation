@@ -10,10 +10,10 @@ pub struct ViewerPipeline {
   highlight: HighLighter,
   reproject: GPUReprojectInfo,
   taa: TAA,
-  enable_ssao: bool,
+  pub enable_ssao: bool,
   ssao: SSAO,
   _blur: CrossBlurData,
-  enable_channel_debugger: bool,
+  pub enable_channel_debugger: bool,
   channel_debugger: ScreenChannelDebugger,
   tonemap: ToneMap,
 }

@@ -24,7 +24,7 @@ use webgpu::*;
 
 pub struct Viewer {
   content: Viewer3dContent,
-  ctx: Option<Viewer3dRenderingCtx>,
+  pub(crate) ctx: Option<Viewer3dRenderingCtx>,
   size: Size,
   pub terminal: Terminal,
   pub terminal_input: EventSource<String>,
