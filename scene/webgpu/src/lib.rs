@@ -8,11 +8,11 @@ mod background;
 mod camera;
 
 // mod lights;
+mod global;
 mod materials;
 mod mesh;
 mod node;
 mod rendering;
-mod scene;
 mod texture;
 
 mod system;
@@ -26,6 +26,7 @@ use std::{
 pub use background::*;
 use bytemuck::*;
 pub use camera::*;
+pub use global::*;
 use incremental::*;
 // pub use lights::*;
 pub use materials::*;
@@ -43,7 +44,6 @@ use rendiation_texture::TextureSampler;
 use rendiation_texture_gpu_base::*;
 use rendiation_texture_gpu_system::*;
 use rendiation_webgpu::*;
-pub use scene::*;
 pub use system::*;
 pub use texture::*;
 

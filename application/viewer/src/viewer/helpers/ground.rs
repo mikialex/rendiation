@@ -3,9 +3,7 @@ use futures::Stream;
 use incremental::*;
 use reactive::IncrementalListenBy;
 use reactive::ReactiveMap;
-use rendiation_scene_core::{
-  any_change, GlobalIdReactiveSimpleMapping, IncrementalSignalPtr, IntoIncrementalSignalPtr,
-};
+use rendiation_scene_core::{any_change, IncrementalSignalPtr, IntoIncrementalSignalPtr};
 use rendiation_scene_webgpu::{CameraGPU, PassContentWithSceneAndCamera, SceneRenderResourceGroup};
 use rendiation_shader_api::*;
 use webgpu::*;

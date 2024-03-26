@@ -13,9 +13,7 @@ use crate::*;
 pub struct SceneRenderResourceGroup<'a> {
   pub scene: &'a SceneCoreImpl,
   pub texture_gpu: &'a GPUTextureBindingSystem,
-
-  pub resources: &'a SceneShareContentGPUResource,
-  pub scene_resources: &'a SceneGPUResource,
+  pub resources: &'a GlobalResourceManager,
   pub node_derives: &'a SceneNodeDeriveSystem,
 }
 
@@ -26,7 +24,7 @@ impl<'a> SceneRenderResourceGroup<'a> {
   ) -> BindlessResourceProvider<'a, T> {
     BindlessResourceProvider {
       base: dispatcher,
-      texture_system: &self.texture_gpu,
+      texture_system: self.texture_gpu,
     }
   }
 }

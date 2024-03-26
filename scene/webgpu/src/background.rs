@@ -7,7 +7,7 @@ pub fn get_main_pass_load_op(scene: &SceneCoreImpl) -> Operations<Color> {
       SceneBackGround::Env(bg) => bg.require_pass_clear(),
       SceneBackGround::Foreign(bg) => {
         if let Some(bg) =
-          get_dyn_trait_downcaster_static!(WebGPUBackground).downcast_ref(bg.as_ref().as_any())
+          get_dyn_trait_downcaster_static!(WebGPUBackgroundClear).downcast_ref(bg.as_ref().as_any())
         {
           bg.require_pass_clear()
         } else {
@@ -29,12 +29,12 @@ pub fn get_main_pass_load_op(scene: &SceneCoreImpl) -> Operations<Color> {
   }
 }
 
-pub trait WebGPUBackground: 'static + SceneRenderable {
+pub trait WebGPUBackgroundClear {
   fn require_pass_clear(&self) -> Option<Color>;
 }
-define_dyn_trait_downcaster_static!(WebGPUBackground);
+define_dyn_trait_downcaster_static!(WebGPUBackgroundClear);
 
-impl WebGPUBackground for SolidBackground {
+impl WebGPUBackgroundClear for SolidBackground {
   fn require_pass_clear(&self) -> Option<Color> {
     Color {
       r: self.intensity.r() as f64,
@@ -46,45 +46,27 @@ impl WebGPUBackground for SolidBackground {
   }
 }
 
-impl SceneRenderable for SolidBackground {
-  fn render<'a>(
-    &self,
-    _pass: &mut FrameRenderPass,
-    _dispatcher: &dyn RenderComponentAny,
-    _camera: &SceneRenderCameraCtx,
-  ) {
-  }
-}
-
-impl WebGPUBackground for EnvMapBackground {
+impl WebGPUBackgroundClear for EnvMapBackground {
   fn require_pass_clear(&self) -> Option<Color> {
     None
   }
 }
 
-impl SceneRenderable for EnvMapBackground {
-  fn render<'a>(
+impl<'a> SceneRenderable for EnvMapBackgroundGPU<'a> {
+  fn render(
     &self,
     pass: &mut FrameRenderPass,
     base: &dyn RenderComponentAny,
     camera: &SceneRenderCameraCtx,
   ) {
-    // if let Some(texture) = &scene.scene_resources.cube_env {
-    //   // let camera_gpu = scene.resources.cameras.get().unwrap();
-    //   let camera_gpu = todo!();
+    let content = ShadingBackgroundTask {
+      content: self,
+      camera_gpu: camera.gpu,
+    };
 
-    //   // should we cache it?
-    //   let content = EnvMapBackgroundGPU { texture };
-    //   let content = ShadingBackgroundTask {
-    //     content,
-    //     camera_gpu,
-    //   };
+    let components: [&dyn RenderComponentAny; 3] = [&base, &FullScreenQuad::default(), &content];
 
-    //   let components: [&dyn RenderComponentAny; 3] = [&base, &FullScreenQuad::default(),
-    // &content];
-
-    //   RenderEmitter::new(components.as_slice()).render(&mut pass.ctx, QUAD_DRAW_CMD);
-    // }
+    RenderEmitter::new(components.as_slice()).render(&mut pass.ctx, QUAD_DRAW_CMD);
   }
 }
 
@@ -93,6 +75,12 @@ struct EnvMapBackgroundGPU<'a> {
 }
 
 impl<'a> ShaderHashProvider for EnvMapBackgroundGPU<'a> {}
+impl<'a> ShaderHashProviderAny for EnvMapBackgroundGPU<'a> {
+  fn hash_pipeline_with_type_info(&self, hasher: &mut PipelineHasher) {
+    struct Mark;
+    Mark.type_id().hash(hasher)
+  }
+}
 impl<'a> ShadingBackground for EnvMapBackgroundGPU<'a> {
   fn shading(
     &self,
@@ -116,7 +104,7 @@ impl<'a> ShaderPassBuilder for EnvMapBackgroundGPU<'a> {
 }
 
 struct ShadingBackgroundTask<'a, T> {
-  content: T,
+  content: &'a T,
   camera_gpu: &'a CameraGPU,
 }
 
@@ -141,11 +129,11 @@ impl<'a, T: ShaderHashProvider> ShaderHashProvider for ShadingBackgroundTask<'a,
     self.content.hash_pipeline(hasher)
   }
 }
-impl<'a, T: ShaderHashProvider + Any> ShaderHashProviderAny for ShadingBackgroundTask<'a, T> {
+impl<'a, T: ShaderHashProviderAny> ShaderHashProviderAny for ShadingBackgroundTask<'a, T> {
   fn hash_pipeline_with_type_info(&self, hasher: &mut PipelineHasher) {
     struct Mark;
     Mark.type_id().hash(hasher);
-    self.content.type_id().hash(hasher);
+    self.content.hash_pipeline_with_type_info(hasher);
   }
 }
 
