@@ -74,6 +74,16 @@ impl<T> LinearIdentification for AllocIdx<T> {
     Self::from(idx)
   }
 }
+impl LinearIdentified for u32 {
+  fn alloc_index(&self) -> u32 {
+    *self
+  }
+}
+impl LinearIdentification for u32 {
+  fn from_alloc_index(idx: u32) -> Self {
+    idx
+  }
+}
 
 impl<T> From<u32> for AllocIdx<T> {
   fn from(value: u32) -> Self {

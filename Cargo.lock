@@ -964,6 +964,7 @@ dependencies = [
  "futures",
  "parking_lot",
  "reactive",
+ "smallvec",
  "storage",
 ]
 
@@ -2984,6 +2985,7 @@ dependencies = [
  "heap-tools",
  "parking_lot",
  "pin-project",
+ "rendiation-abstract-tree",
  "smallvec",
  "storage",
  "tracing",

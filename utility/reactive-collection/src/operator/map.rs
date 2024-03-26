@@ -11,7 +11,7 @@ where
   V: CValue,
   K: CKey,
   V2: CValue,
-  F: Fn(V) -> V2 + Copy + Send + Sync + 'static,
+  F: Fn(&K, V) -> V2 + Copy + Send + Sync + 'static,
   T: ReactiveCollection<K, V>,
 {
   #[tracing::instrument(skip_all, name = "ReactiveKVMap")]
@@ -47,19 +47,17 @@ where
   K: CKey,
   V: CValue,
   V2: CValue,
-  F: Fn(V) -> V2 + Copy + Send + Sync + 'static,
+  F: Fn(&K, V) -> V2 + Copy + Send + Sync + 'static,
 {
   fn iter_key_value(&self) -> Box<dyn Iterator<Item = (K, V2)> + '_> {
-    Box::new(
-      self
-        .base
-        .iter_key_value()
-        .map(|(k, v)| (k, (self.mapper)(v))),
-    )
+    Box::new(self.base.iter_key_value().map(|(k, v)| {
+      let v = (self.mapper)(&k, v);
+      (k, v)
+    }))
   }
 
   fn access(&self, key: &K) -> Option<V2> {
-    self.base.access(key).map(self.mapper)
+    self.base.access(key).map(|v| (self.mapper)(key, v))
   }
 }
 
@@ -74,19 +72,20 @@ where
   K: CKey,
   V: CValue,
   V2: CValue,
-  F: Fn(V) -> V2 + Copy + Send + Sync + 'static,
+  F: Fn(&K, V) -> V2 + Copy + Send + Sync + 'static,
 {
   fn iter_key_value(&self) -> Box<dyn Iterator<Item = (K, ValueChange<V2>)> + '_> {
-    Box::new(
-      self
-        .base
-        .iter_key_value()
-        .map(|(k, delta)| (k, delta.map(self.mapper))),
-    )
+    Box::new(self.base.iter_key_value().map(|(k, delta)| {
+      let delta = delta.map(|v| (self.mapper)(&k, v));
+      (k, delta)
+    }))
   }
 
   fn access(&self, key: &K) -> Option<ValueChange<V2>> {
-    self.base.access(key).map(|delta| delta.map(self.mapper))
+    self
+      .base
+      .access(key)
+      .map(|delta| delta.map(|v| (self.mapper)(key, v)))
   }
 }
 

@@ -1,3 +1,4 @@
+#[derive(Clone)]
 pub struct IndexReusedVec<T> {
   storage: Vec<Option<T>>,
   empty_list: Vec<u32>,

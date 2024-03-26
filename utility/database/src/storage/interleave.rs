@@ -80,19 +80,20 @@ impl DynBuffer {
       return;
     }
 
-    let new = Self::with_capacity((self.capacity * 2).max(new_len), self.align, self.stride);
+    let mut new = Self::with_capacity((self.capacity * 2).max(new_len), self.align, self.stride);
     unsafe { std::ptr::copy_nonoverlapping(self.ptr, new.ptr, self.len * self.stride) }
+    new.len = new_len;
     *self = new;
   }
 }
 
-unsafe impl Send for InterleavedDataContainer {}
-unsafe impl Sync for InterleavedDataContainer {}
+unsafe impl Send for InterleavedDataContainerInner {}
+unsafe impl Sync for InterleavedDataContainerInner {}
 
-impl<T: 'static> ComponentStorage<T> for InterleavedDataContainer {
-  fn create_read_view(&self) -> Box<dyn ComponentStorageReadView<T>> {
+impl<T: CValue> ComponentStorage<T> for InterleavedDataContainer {
+  fn create_read_view(&self) -> Arc<dyn ComponentStorageReadView<T>> {
     let inner = self.inner.read();
-    Box::new(InterleavedDataContainerReadView {
+    Arc::new(InterleavedDataContainerReadView {
       phantom: PhantomData,
       offset: inner.offsets[self.idx],
       stride: inner.stride,
@@ -108,7 +109,6 @@ impl<T: 'static> ComponentStorage<T> for InterleavedDataContainer {
       offset: inner.offsets[self.idx],
       stride: inner.stride,
       data: self.inner.clone(),
-      id: self.idx,
       _guard: inner.locks[self.idx].make_write_holder(),
     })
   }
@@ -128,7 +128,7 @@ pub struct InterleavedDataContainerReadView<T> {
   _guard: LockReadGuardHolder<()>,
 }
 
-impl<T> ComponentStorageReadView<T> for InterleavedDataContainerReadView<T> {
+impl<T: CValue> ComponentStorageReadView<T> for InterleavedDataContainerReadView<T> {
   fn get(&self, idx: usize) -> Option<&T> {
     unsafe {
       let vec = (*self.data.data_ptr()).data.get();
@@ -146,12 +146,11 @@ pub struct InterleavedDataContainerReadWriteView<T> {
   phantom: PhantomData<T>,
   offset: usize,
   stride: usize,
-  id: usize,
   data: Arc<RwLock<InterleavedDataContainerInner>>,
   _guard: LockWriteGuardHolder<()>,
 }
 
-impl<T> ComponentStorageReadWriteView<T> for InterleavedDataContainerReadWriteView<T> {
+impl<T: CValue> ComponentStorageReadWriteView<T> for InterleavedDataContainerReadWriteView<T> {
   fn get_mut(&mut self, idx: usize) -> Option<&mut T> {
     unsafe {
       let vec = (*self.data.data_ptr()).data.get();
@@ -163,35 +162,16 @@ impl<T> ComponentStorageReadWriteView<T> for InterleavedDataContainerReadWriteVi
     }
   }
 
-  fn grow_at_least(&mut self, max: usize) {
-    unsafe {
-      /// note, we only allow one write view to do resize. and when resizing, we need make sure
-      /// the other component is nether write nor read, or it will cause a deadlock.
-      use parking_lot::lock_api::RawRwLock;
-      let data = self.data.read();
-      for (id, lock) in data.locks.iter().enumerate() {
-        let lock = lock.raw();
-        if id != self.id {
-          lock.lock_exclusive()
-        }
-      }
+  unsafe fn grow_at_least(&mut self, max: usize) {
+    let vec = (*self.data.data_ptr()).data.get();
 
-      let vec = data.data.get();
-
-      if (*vec).len <= max * self.stride {
-        (*vec).resize((max + 1) * self.stride);
-      }
-
-      for (id, lock) in data.locks.iter().enumerate() {
-        if id != self.id {
-          lock.raw().unlock_exclusive();
-        }
-      }
+    if (*vec).len <= max * self.stride {
+      (*vec).resize((max + 1) * self.stride);
     }
   }
 }
 
-impl<T> ComponentStorageReadView<T> for InterleavedDataContainerReadWriteView<T> {
+impl<T: CValue> ComponentStorageReadView<T> for InterleavedDataContainerReadWriteView<T> {
   fn get(&self, idx: usize) -> Option<&T> {
     unsafe {
       let vec = (*self.data.data_ptr()).data.get();
@@ -212,7 +192,7 @@ pub struct InterleavedDataContainerBuilder<E> {
   layout: Option<Layout>,
   layouts: Vec<Layout>,
   offsets: Vec<usize>,
-  ids: Vec<TypeId>,
+  ids: Vec<ComponentId>,
   shared: Arc<RwLock<InterleavedDataContainerInner>>,
   containers: Vec<Box<dyn Any>>,
 }
@@ -243,9 +223,9 @@ impl<E> InterleavedDataContainerBuilder<E> {
     self.containers.push(Box::new(
       Arc::new(data) as Arc<dyn ComponentStorage<T::Data>>
     ));
-    self.with_type_impl(TypeId::of::<T>(), Layout::new::<T::Data>())
+    self.with_type_impl(T::component_id(), Layout::new::<T::Data>())
   }
-  pub fn with_type_impl(&mut self, id: TypeId, new_layout: Layout) -> &mut Self {
+  pub fn with_type_impl(&mut self, id: ComponentId, new_layout: Layout) -> &mut Self {
     // todo,  zst supports
     if new_layout.size() == 0 {
       panic!("zst not supported")
@@ -269,7 +249,7 @@ impl<E> InterleavedDataContainerBuilder<E> {
 impl Database {
   /// currently, we assume all storage is converted from the default storage type and no data
   /// exists.
-  pub fn interleave_component_storages<E: Any>(
+  pub fn interleave_component_storages<E: EntitySemantic>(
     self,
     build: impl FnOnce(
       &mut InterleavedDataContainerBuilder<E>,
@@ -288,7 +268,7 @@ impl Database {
       data: UnsafeCell::new(data),
       offsets: builder.offsets,
       stride,
-      locks: std::iter::repeat(Arc::new(RwLock::new(())))
+      locks: std::iter::repeat_with(|| Arc::new(RwLock::new(())))
         .take(builder.layouts.len())
         .collect(),
     };
@@ -297,13 +277,13 @@ impl Database {
     // convert the old storage
     // todo check entity has any data
     self.access_ecg::<E, _>(|ecg| {
-      let mut components = ecg.inner.components.write();
+      let mut components = ecg.inner.inner.components.write();
       for (idx, container) in builder.containers.into_iter().enumerate() {
         let type_id = builder.ids[idx];
         let previous_storage = components.get_mut(&type_id).unwrap();
         // todo check com type
 
-        previous_storage.setup_new_storage(container);
+        previous_storage.inner.setup_new_storage(container);
       }
     });
     self

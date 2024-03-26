@@ -71,6 +71,23 @@ where
     r
   }
 
+  fn key_as_value(self) -> impl ReactiveCollection<K, K> {
+    self.collective_kv_map(|k, _| k.clone())
+  }
+
+  /// map map<k, v> to map<k, v2>
+  fn collective_kv_map<V2, F>(self, f: F) -> impl ReactiveCollection<K, V2>
+  where
+    F: Fn(&K, V) -> V2 + Copy + Send + Sync + 'static,
+    V2: CValue,
+  {
+    ReactiveKVMap {
+      inner: self,
+      map: f,
+      phantom: PhantomData,
+    }
+  }
+
   /// map map<k, v> to map<k, v2>
   fn collective_map<V2, F>(self, f: F) -> impl ReactiveCollection<K, V2>
   where
@@ -79,7 +96,7 @@ where
   {
     ReactiveKVMap {
       inner: self,
-      map: f,
+      map: move |_: &_, v| f(v),
       phantom: PhantomData,
     }
     .workaround_box()

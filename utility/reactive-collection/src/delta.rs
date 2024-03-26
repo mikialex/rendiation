@@ -1,3 +1,5 @@
+use storage::IndexKeptVec;
+
 use crate::*;
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -106,4 +108,84 @@ pub(crate) fn merge_into_hashmap<K: CKey, V: CValue>(
       map.insert(k, v.clone());
     }
   })
+}
+
+pub trait MutableCollection<K, V> {
+  fn set_value(&mut self, k: K, v: V) -> Option<V>;
+  fn remove(&mut self, k: K) -> Option<V>;
+}
+
+impl<'a, K: CKey, V: CValue, T: MutableCollection<K, V>> MutableCollection<K, V> for &'a mut T {
+  fn set_value(&mut self, k: K, v: V) -> Option<V> {
+    (*self).set_value(k, v)
+  }
+
+  fn remove(&mut self, k: K) -> Option<V> {
+    (*self).remove(k)
+  }
+}
+
+impl<K: CKey, V: CValue> MutableCollection<K, V> for FastHashMap<K, V> {
+  fn set_value(&mut self, k: K, v: V) -> Option<V> {
+    self.insert(k, v)
+  }
+
+  fn remove(&mut self, k: K) -> Option<V> {
+    self.remove(&k)
+  }
+}
+impl<T: CValue> MutableCollection<u32, T> for IndexKeptVec<T> {
+  fn set_value(&mut self, k: u32, v: T) -> Option<T> {
+    let previous = self.try_get(k).cloned();
+    self.insert(v, k);
+    previous
+  }
+
+  fn remove(&mut self, k: u32) -> Option<T> {
+    IndexKeptVec::remove(self, k)
+  }
+}
+
+pub struct CollectionMutationCollector<D, T> {
+  pub delta: D,
+  pub target: T,
+}
+
+impl<K, V, D, T> MutableCollection<K, V> for CollectionMutationCollector<D, T>
+where
+  D: MutableCollection<K, ValueChange<V>>,
+  T: MutableCollection<K, V>,
+  K: CKey,
+  V: CValue,
+{
+  fn set_value(&mut self, k: K, v: V) -> Option<V> {
+    let previous = self.target.set_value(k.clone(), v.clone());
+    let mut previous_delta = self.delta.remove(k.clone());
+    let new_delta = ValueChange::Delta(v, previous.clone());
+
+    if let Some(previous_delta) = &mut previous_delta {
+      if previous_delta.merge(&new_delta) {
+        self.delta.set_value(k, previous_delta.clone());
+      }
+    }
+
+    previous
+  }
+
+  fn remove(&mut self, k: K) -> Option<V> {
+    let previous = self.target.remove(k.clone());
+
+    if let Some(previous) = previous.clone() {
+      let mut previous_delta = self.delta.remove(k.clone());
+      let new_delta = ValueChange::Remove(previous);
+
+      if let Some(previous_delta) = &mut previous_delta {
+        if previous_delta.merge(&new_delta) {
+          self.delta.set_value(k, previous_delta.clone());
+        }
+      }
+    }
+
+    previous
+  }
 }

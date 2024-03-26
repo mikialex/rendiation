@@ -9,12 +9,12 @@ mod pipeline;
 use std::task::Context;
 
 use futures::Future;
-use pipeline::*;
+pub use pipeline::*;
 use reactive::{EventSource, PollUtils};
 use webgpu::*;
 
 pub struct Viewer3dRenderingCtx {
-  pipeline: ViewerPipeline,
+  pub(crate) pipeline: ViewerPipeline,
   pool: AttachmentPool,
   resources: GlobalGPUSystem,
   gpu: Arc<GPU>,
