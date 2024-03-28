@@ -27,6 +27,9 @@ pub use virtual_collection::*;
 mod reactive_collection;
 pub use reactive_collection::*;
 
+mod self_contain;
+pub use self_contain::*;
+
 mod operator;
 pub use operator::*;
 

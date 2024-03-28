@@ -93,7 +93,7 @@ where
 pub struct ReactiveKVExecuteMap<T, F, K, V, V2> {
   pub inner: T,
   pub map_creator: F,
-  pub cache: dashmap::DashMap<K, V2, FastHasherBuilder>,
+  pub cache: Arc<RwLock<FastHashMap<K, V2>>>,
   pub phantom: PhantomData<(K, V, V2)>,
 }
 
@@ -111,16 +111,17 @@ where
     self.inner.poll_changes(cx).map(move |deltas| {
       let mapper = (self.map_creator)();
       let materialized = deltas.iter_key_value().collect::<Vec<_>>();
+      let mut cache = self.cache.write();
       let materialized: FastHashMap<K, ValueChange<V2>> = materialized
         .into_iter()
         .map(|(k, delta)| match delta {
           ValueChange::Delta(d, _p) => {
             let new_value = mapper(&k, d);
-            let p = self.cache.insert(k.clone(), new_value.clone());
+            let p = cache.insert(k.clone(), new_value.clone());
             (k, ValueChange::Delta(new_value, p))
           }
           ValueChange::Remove(_p) => {
-            let (_, p) = self.cache.remove(&k).unwrap();
+            let p = cache.remove(&k).unwrap();
             (k, ValueChange::Remove(p))
           }
         })
@@ -132,12 +133,27 @@ where
 
   fn extra_request(&mut self, request: &mut ExtraCollectionOperation) {
     match request {
-      ExtraCollectionOperation::MemoryShrinkToFit => self.cache.shrink_to_fit(),
+      ExtraCollectionOperation::MemoryShrinkToFit => self.cache.write().shrink_to_fit(),
     }
     self.inner.extra_request(request)
   }
 
   fn access(&self) -> PollCollectionCurrent<K, V2> {
-    Box::new(&self.cache as &dyn VirtualCollection<K, V2>)
+    Box::new(self.cache.make_read_holder())
+  }
+}
+
+impl<T, F, K, V, V2, FF> ReactiveCollectionSelfContained<K, V2>
+  for ReactiveKVExecuteMap<T, F, K, V, V2>
+where
+  V: CValue,
+  K: CKey,
+  F: Fn() -> FF + Send + Sync + 'static,
+  FF: Fn(&K, V) -> V2 + Send + Sync + 'static,
+  V2: CValue,
+  T: ReactiveCollection<K, V>,
+{
+  fn access_ref_collection(&self) -> Box<dyn VirtualCollectionSelfContained<K, V2> + '_> {
+    Box::new(self.cache.make_read_holder())
   }
 }
