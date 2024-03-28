@@ -19,11 +19,11 @@ impl<'a, K: CKey, V: CValue> VirtualCollection<K, V>
   for &'a dyn VirtualCollectionSelfContained<K, V>
 {
   fn iter_key_value(&self) -> Box<dyn Iterator<Item = (K, V)> + '_> {
-    self.deref().iter_key_value()
+    (**self).iter_key_value()
   }
 
   fn access(&self, key: &K) -> Option<V> {
-    self.deref().access(key)
+    (**self).access(key)
   }
 }
 
@@ -31,7 +31,7 @@ impl<'a, K: CKey, V: CValue> VirtualCollectionSelfContained<K, V>
   for &'a dyn VirtualCollectionSelfContained<K, V>
 {
   fn access_ref(&self, key: &K) -> Option<&V> {
-    self.deref().access_ref(key)
+    (**self).access_ref(key)
   }
 }
 
