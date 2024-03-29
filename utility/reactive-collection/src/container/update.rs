@@ -69,7 +69,7 @@ pub trait CollectionUpdate<T: ?Sized> {
 
 /// this struct is to support merge multiple collection updates into one target
 pub struct MultiUpdateContainer<T> {
-  target: T,
+  pub target: T,
   source: Vec<Box<dyn CollectionUpdate<T>>>,
   waker: Arc<AtomicWaker>,
 }

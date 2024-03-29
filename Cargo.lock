@@ -3549,7 +3549,7 @@ name = "rendiation-webgpu-reactive-utils"
 version = "0.1.0"
 dependencies = [
  "fast-hash-collection",
- "reactive-collection",
+ "reactive",
  "rendiation-shader-api",
  "rendiation-webgpu",
 ]

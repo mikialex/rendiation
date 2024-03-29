@@ -3,7 +3,7 @@ use std::{
   task::{Context, Poll},
 };
 
-use reactive_collection::*;
+use reactive::*;
 use rendiation_shader_api::*;
 use rendiation_webgpu::*;
 

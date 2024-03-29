@@ -9,7 +9,7 @@ use core::{
 };
 use std::ops::Deref;
 
-use futures::{Future, Stream, StreamExt};
+pub use futures::{Future, Stream, StreamExt};
 use heap_tools::Counted;
 use incremental::*;
 pub use reactive_collection::*;
