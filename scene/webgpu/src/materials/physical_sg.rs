@@ -26,7 +26,7 @@ impl ShaderHashProvider for PhysicalSpecularGlossinessMaterialGPU {
 
 #[pin_project::pin_project]
 pub struct PhysicalSpecularGlossinessMaterialGPU {
-  uniform: UniformBufferDataView<PhysicalSpecularGlossinessMaterialUniform>,
+  uniform: UniformBufferCachedDataView<PhysicalSpecularGlossinessMaterialUniform>,
   albedo_texture: ReactiveGPUTextureSamplerPair,
   specular_texture: ReactiveGPUTextureSamplerPair,
   glossiness_texture: ReactiveGPUTextureSamplerPair,
@@ -184,7 +184,7 @@ impl WebGPUMaterial for PhysicalSpecularGlossinessMaterial {
     let m = source.read();
 
     let uniform = build_shader_uniform(&m);
-    let uniform = create_uniform(uniform, &ctx.gpu.device);
+    let uniform = create_uniform_with_cache(uniform, &ctx.gpu.device);
 
     let albedo_texture = ctx.build_reactive_texture_sampler_pair(m.albedo_texture.as_ref());
     let glossiness_texture = ctx.build_reactive_texture_sampler_pair(m.glossiness_texture.as_ref());

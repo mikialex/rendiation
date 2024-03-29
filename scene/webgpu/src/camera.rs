@@ -162,7 +162,7 @@ impl SceneCameraGPUSystem {
 }
 
 pub struct CameraGPU {
-  pub ubo: UniformBufferDataView<CameraGPUTransform>,
+  pub ubo: UniformBufferCachedDataView<CameraGPUTransform>,
 }
 
 impl CameraGPU {
@@ -187,7 +187,7 @@ impl CameraGPU {
 
   pub fn new(device: &GPUDevice) -> Self {
     Self {
-      ubo: create_uniform(CameraGPUTransform::default(), device),
+      ubo: create_uniform_with_cache(CameraGPUTransform::default(), device),
     }
   }
 }

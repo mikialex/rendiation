@@ -100,7 +100,7 @@ pub struct ForwardLightingSystem {
 
   /// note todo!, we don't support correct codegen for primitive wrapper array type
   /// so we use vec4<u32> instead of u32
-  pub lengths: UniformBufferDataView<Shader140Array<Vec4<u32>, MAX_SUPPORT_LIGHT_KIND_COUNT>>,
+  pub lengths: UniformBufferCachedDataView<Shader140Array<Vec4<u32>, MAX_SUPPORT_LIGHT_KIND_COUNT>>,
 
   light_hash_cache: u64,
 }
@@ -234,7 +234,7 @@ impl ForwardLightingSystem {
     register_light_ty!(DirectionalLight);
     register_light_ty!(PointLight);
 
-    let lengths = create_uniform(Default::default(), &gpu.device);
+    let lengths = create_uniform_with_cache(Default::default(), &gpu.device);
 
     Self {
       gpu,

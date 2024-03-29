@@ -8,7 +8,7 @@ pub struct FlatMaterialUniform {
 }
 
 pub struct FlatMaterialGPU {
-  uniform: UniformBufferDataView<FlatMaterialUniform>,
+  uniform: UniformBufferCachedDataView<FlatMaterialUniform>,
 }
 
 impl Stream for FlatMaterialGPU {
@@ -70,7 +70,7 @@ impl WebGPUMaterial for FlatMaterial {
     ctx: &ShareBindableResourceCtx,
   ) -> Self::ReactiveGPU {
     let uniform = create_flat_material_uniform(&source.read());
-    let uniform = create_uniform(uniform, &ctx.gpu.device);
+    let uniform = create_uniform_with_cache(uniform, &ctx.gpu.device);
 
     let gpu = FlatMaterialGPU { uniform };
     let state = RenderComponentCell::new(gpu);

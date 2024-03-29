@@ -60,7 +60,7 @@ impl GlobalIdReactiveSimpleMapping<InfinityShaderPlane> for IncrementalSignalPtr
 
 fn create_grid_gpu(source: GridGroundConfig, gpu: &GPU) -> InfinityShaderPlane {
   InfinityShaderPlane {
-    plane: create_uniform(
+    plane: create_uniform_with_cache(
       ShaderPlane {
         normal: Vec3::new(0., 1., 0.),
         constant: 0.,
@@ -69,7 +69,7 @@ fn create_grid_gpu(source: GridGroundConfig, gpu: &GPU) -> InfinityShaderPlane {
       gpu,
     ),
     shading: Box::new(GridGroundShading {
-      shading: create_uniform(source, gpu),
+      shading: create_uniform_with_cache(source, gpu),
     }),
   }
 }
@@ -96,7 +96,7 @@ pub struct GridGroundConfig {
 }
 
 pub struct GridGroundShading {
-  shading: UniformBufferDataView<GridGroundConfig>,
+  shading: UniformBufferCachedDataView<GridGroundConfig>,
 }
 impl ShaderHashProvider for GridGroundShading {}
 impl ShaderPassBuilder for GridGroundShading {
@@ -128,7 +128,7 @@ fn grid(position: Node<Vec3<f32>>, config: Node<GridGroundConfig>) -> Node<Vec4<
 }
 
 pub struct InfinityShaderPlane {
-  plane: UniformBufferDataView<ShaderPlane>,
+  plane: UniformBufferCachedDataView<ShaderPlane>,
   shading: Box<dyn RenderComponentAny>,
 }
 
@@ -141,7 +141,7 @@ pub struct ShaderPlane {
 }
 
 pub struct InfinityShaderPlaneEffect<'a> {
-  plane: &'a UniformBufferDataView<ShaderPlane>,
+  plane: &'a UniformBufferCachedDataView<ShaderPlane>,
   camera: &'a CameraGPU,
 }
 

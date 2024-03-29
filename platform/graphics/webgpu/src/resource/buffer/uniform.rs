@@ -1,20 +1,37 @@
+use std::marker::PhantomData;
+
 use rendiation_shader_api::{Shader140Array, ShaderSizedValueNodeType, Std140};
 
 use crate::*;
 
-/// Typed uniform buffer with cpu data cache, which could being diffed when updating
 #[derive(Clone)]
 pub struct UniformBufferDataView<T: Std140> {
   gpu: GPUBufferResourceView,
-  diff: Arc<RwLock<DiffState<T>>>,
+  phantom: PhantomData<T>,
 }
 
-/// just short convenient method
-pub fn create_uniform<T: Std140>(
-  data: T,
-  device: impl AsRef<GPUDevice>,
-) -> UniformBufferDataView<T> {
-  UniformBufferDataView::create(device.as_ref(), data)
+impl<T: Std140> UniformBufferDataView<T> {
+  pub fn create_default(device: &GPUDevice) -> Self
+  where
+    T: Default,
+  {
+    Self::create(device, T::default())
+  }
+
+  pub fn create(device: &GPUDevice, data: T) -> Self {
+    let usage = gpu::BufferUsages::UNIFORM | gpu::BufferUsages::COPY_DST;
+    let gpu = GPUBuffer::create(device, BufferInit::WithInit(data.as_bytes()), usage);
+    let gpu = GPUBufferResource::create_with_raw(gpu, usage).create_default_view();
+
+    Self {
+      gpu,
+      phantom: PhantomData,
+    }
+  }
+
+  pub fn write_at<D: Pod>(&self, queue: &gpu::Queue, data: &D, offset: u64) {
+    queue.write_buffer(&self.gpu.resource.gpu, offset, bytemuck::bytes_of(data));
+  }
 }
 
 impl<T: Std140> BindableResourceProvider for UniformBufferDataView<T> {
@@ -33,7 +50,46 @@ impl<T: Std140> BindableResourceView for UniformBufferDataView<T> {
   }
 }
 
-impl<T: Std140> UniformBufferDataView<T> {
+/// just short convenient method
+pub fn create_uniform<T: Std140>(
+  data: T,
+  device: impl AsRef<GPUDevice>,
+) -> UniformBufferDataView<T> {
+  UniformBufferDataView::create(device.as_ref(), data)
+}
+
+/// Typed uniform buffer with cpu data cache, which could being diffed when updating to gpu
+#[derive(Clone)]
+pub struct UniformBufferCachedDataView<T: Std140> {
+  gpu: UniformBufferDataView<T>,
+  diff: Arc<RwLock<DiffState<T>>>,
+}
+
+/// just short convenient method
+pub fn create_uniform_with_cache<T: Std140>(
+  data: T,
+  device: impl AsRef<GPUDevice>,
+) -> UniformBufferCachedDataView<T> {
+  UniformBufferCachedDataView::create(device.as_ref(), data)
+}
+
+impl<T: Std140> BindableResourceProvider for UniformBufferCachedDataView<T> {
+  fn get_bindable(&self) -> BindingResourceOwned {
+    self.gpu.get_bindable()
+  }
+}
+impl<T: Std140> CacheAbleBindingSource for UniformBufferCachedDataView<T> {
+  fn get_binding_build_source(&self) -> CacheAbleBindingBuildSource {
+    self.gpu.get_binding_build_source()
+  }
+}
+impl<T: Std140> BindableResourceView for UniformBufferCachedDataView<T> {
+  fn as_bindable(&self) -> gpu::BindingResource {
+    self.gpu.as_bindable()
+  }
+}
+
+impl<T: Std140> UniformBufferCachedDataView<T> {
   pub fn create_default(device: &GPUDevice) -> Self
   where
     T: Default,
@@ -42,12 +98,8 @@ impl<T: Std140> UniformBufferDataView<T> {
   }
 
   pub fn create(device: &GPUDevice, data: T) -> Self {
-    let usage = gpu::BufferUsages::UNIFORM | gpu::BufferUsages::COPY_DST;
-    let gpu = GPUBuffer::create(device, BufferInit::WithInit(data.as_bytes()), usage);
-    let gpu = GPUBufferResource::create_with_raw(gpu, usage).create_default_view();
-
     Self {
-      gpu,
+      gpu: UniformBufferDataView::create(device, data),
       diff: Arc::new(RwLock::new(DiffState::new(data))),
     }
   }
@@ -55,13 +107,6 @@ impl<T: Std140> UniformBufferDataView<T> {
   pub fn mutate(&self, f: impl FnOnce(&mut T)) -> &Self {
     let mut state = self.diff.write().unwrap();
     f(&mut state.data);
-    state.changed = true;
-    self
-  }
-
-  pub fn copy_cpu(&self, other: &Self) -> &Self {
-    let mut state = self.diff.write().unwrap();
-    state.data = other.get();
     state.changed = true;
     self
   }
@@ -80,7 +125,7 @@ impl<T: Std140> UniformBufferDataView<T> {
     let mut state = self.diff.write().unwrap();
     if state.changed {
       let data = state.data;
-      queue.write_buffer(&self.gpu.resource.gpu, 0, bytemuck::cast_slice(&[data]));
+      queue.write_buffer(&self.gpu.gpu.resource.gpu, 0, bytemuck::cast_slice(&[data]));
       state.changed = false;
       state.last = Some(data);
     }
@@ -104,7 +149,7 @@ impl<T: Std140> UniformBufferDataView<T> {
       }
 
       if should_update {
-        queue.write_buffer(&self.gpu.resource.gpu, 0, bytemuck::cast_slice(&[data]))
+        queue.write_buffer(&self.gpu.gpu.resource.gpu, 0, bytemuck::cast_slice(&[data]))
       }
 
       state.changed = false;
@@ -130,7 +175,7 @@ impl<T> DiffState<T> {
 
 pub struct ClampedUniformList<T: Std140, const N: usize> {
   pub source: Vec<T>,
-  pub gpu: Option<UniformBufferDataView<Shader140Array<T, N>>>,
+  pub gpu: Option<UniformBufferCachedDataView<Shader140Array<T, N>>>,
 }
 
 impl<T: Std140, const N: usize> Default for ClampedUniformList<T, N> {
@@ -157,7 +202,7 @@ impl<T: Std140 + Default, const N: usize> ClampedUniformList<T, N> {
       source[i] = *light;
     }
     let source = source.try_into().unwrap();
-    let lights_gpu = create_uniform(source, gpu);
+    let lights_gpu = create_uniform_with_cache(source, gpu);
     self.gpu = lights_gpu.into();
     self.source.len()
   }

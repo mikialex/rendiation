@@ -2,14 +2,14 @@ use crate::*;
 
 pub struct ToneMap {
   ty: ToneMapType,
-  exposure: UniformBufferDataView<f32>,
+  exposure: UniformBufferCachedDataView<f32>,
 }
 
 impl ToneMap {
   pub fn new(gpu: &GPU) -> Self {
     Self {
       ty: ToneMapType::Linear,
-      exposure: create_uniform(1., gpu),
+      exposure: create_uniform_with_cache(1., gpu),
     }
   }
 }

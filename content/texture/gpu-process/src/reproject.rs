@@ -1,13 +1,13 @@
 use crate::*;
 
 pub struct GPUReprojectInfo {
-  pub reproject: UniformBufferDataView<ReprojectInfo>,
+  pub reproject: UniformBufferCachedDataView<ReprojectInfo>,
 }
 
 impl GPUReprojectInfo {
   pub fn new(gpu: &GPU) -> Self {
     Self {
-      reproject: UniformBufferDataView::create_default(&gpu.device),
+      reproject: UniformBufferCachedDataView::create_default(&gpu.device),
     }
   }
   pub fn update(&self, ctx: &mut FrameCtx, current_mvp_inv: Mat4<f32>) {

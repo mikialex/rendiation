@@ -68,7 +68,7 @@ impl WebGPUMaterial for WidenedLineMaterial {
       width: source.read().width,
       ..Zeroable::zeroed()
     };
-    let uniform = create_uniform(uniform, &ctx.gpu.device);
+    let uniform = create_uniform_with_cache(uniform, &ctx.gpu.device);
 
     let gpu = WidenedLineMaterialGPU { uniform };
     let state = RenderComponentCell::new(gpu);
@@ -99,7 +99,7 @@ impl WebGPUMaterial for WidenedLineMaterial {
 }
 
 pub struct WidenedLineMaterialGPU {
-  uniform: UniformBufferDataView<WidenedLineMaterialUniform>,
+  uniform: UniformBufferCachedDataView<WidenedLineMaterialUniform>,
 }
 
 impl Stream for WidenedLineMaterialGPU {

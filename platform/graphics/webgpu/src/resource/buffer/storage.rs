@@ -53,6 +53,10 @@ impl<T: Std430MaybeUnsized + ?Sized> StorageBufferReadOnlyDataView<T> {
       phantom: PhantomData,
     }
   }
+
+  pub fn write_at(&self, offset: u64, data: &[u8], queue: &GPUQueue) {
+    queue.write_buffer(&self.gpu.buffer.gpu, offset, data);
+  }
 }
 
 /// just short convenient method

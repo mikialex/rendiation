@@ -26,7 +26,7 @@ impl ShaderHashProvider for PhysicalMetallicRoughnessMaterialGPUImpl {
 
 #[pin_project::pin_project]
 pub struct PhysicalMetallicRoughnessMaterialGPUImpl {
-  uniform: UniformBufferDataView<PhysicalMetallicRoughnessMaterialUniform>,
+  uniform: UniformBufferCachedDataView<PhysicalMetallicRoughnessMaterialUniform>,
   base_color_texture: ReactiveGPUTextureSamplerPair,
   metallic_roughness_texture: ReactiveGPUTextureSamplerPair,
   emissive_texture: ReactiveGPUTextureSamplerPair,
@@ -182,7 +182,7 @@ impl WebGPUMaterial for PhysicalMetallicRoughnessMaterial {
     let m = source.read();
 
     let uniform = build_shader_uniform(&m);
-    let uniform = create_uniform(uniform, &ctx.gpu.device);
+    let uniform = create_uniform_with_cache(uniform, &ctx.gpu.device);
 
     let base_color_texture = ctx.build_reactive_texture_sampler_pair(m.base_color_texture.as_ref());
     let metallic_roughness_texture =

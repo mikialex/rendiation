@@ -1,6 +1,8 @@
 pub use crate::*;
 
-impl<T: ShaderSizedValueNodeType + Std140> ShaderBindingProvider for UniformBufferDataView<T> {
+impl<T: ShaderSizedValueNodeType + Std140> ShaderBindingProvider
+  for UniformBufferCachedDataView<T>
+{
   type Node = ShaderUniformPtr<T>;
 }
 
