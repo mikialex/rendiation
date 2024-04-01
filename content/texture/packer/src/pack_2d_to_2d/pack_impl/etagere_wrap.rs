@@ -1,6 +1,6 @@
 use etagere::{size2, AllocId, AtlasAllocator};
 
-use crate::*;
+use super::super::*;
 
 pub struct EtagerePacker {
   config: PackerConfig,
@@ -9,7 +9,7 @@ pub struct EtagerePacker {
 
 impl EtagerePacker {
   pub fn new(config: PackerConfig) -> Self {
-    let (width, height) = config.init_size.into_usize();
+    let (width, height) = config.full_size.into_usize();
     let inner = AtlasAllocator::new(size2(width as i32, height as i32));
     Self { config, inner }
   }

@@ -99,8 +99,6 @@ where
 
         match v {
           ValueChange::Delta(v, _) => {
-            // here we should do sophisticated optimization to merge the adjacent writes.
-            // todo resize
             target.write_at(offset as u64, bytes_of(&v), &self.gpu_ctx.queue);
           }
           ValueChange::Remove(_) => {

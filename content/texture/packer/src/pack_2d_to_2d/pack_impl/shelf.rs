@@ -1,7 +1,7 @@
 use fast_hash_collection::*;
 use rendiation_texture::TextureRange;
 
-use crate::*;
+use super::super::*;
 
 pub struct ShelfPacker {
   config: PackerConfig,
@@ -18,7 +18,7 @@ impl Default for ShelfPacker {
 
 impl ShelfPacker {
   pub fn new(config: PackerConfig) -> Self {
-    let (width, height) = config.init_size.into_usize();
+    let (width, height) = config.full_size.into_usize();
     ShelfPacker {
       config,
       packed: Default::default(),
@@ -36,7 +36,7 @@ impl ShelfPacker {
   }
 
   fn shelf_creator(&self) -> impl FnOnce(Section) -> Shelf + Copy {
-    let width = self.config.init_size.width_usize();
+    let width = self.config.full_size.width_usize();
     move |sec: Section| -> Shelf {
       Shelf::new(
         sec,

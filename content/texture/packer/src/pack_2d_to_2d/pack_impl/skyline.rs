@@ -2,7 +2,7 @@
 
 use rendiation_texture::Size;
 
-use crate::*;
+use super::super::*;
 
 /// Defines a rectangle in pixels with the origin at the top-left of the texture atlas.
 #[derive(Copy, Clone, Debug)]
@@ -87,7 +87,7 @@ impl SkylinePacker {
     let skylines = vec![Skyline {
       x: 0,
       y: 0,
-      w: config.init_size.width.into(),
+      w: config.full_size.width.into(),
     }];
 
     SkylinePacker {
@@ -95,8 +95,8 @@ impl SkylinePacker {
       border: Rect::new(
         0,
         0,
-        config.init_size.width.into(),
-        config.init_size.height.into(),
+        config.full_size.width.into(),
+        config.full_size.height.into(),
       ),
       skylines,
     }

@@ -3516,6 +3516,7 @@ dependencies = [
  "etagere",
  "fast-hash-collection",
  "linked-hash-map",
+ "reactive",
  "rendiation-texture",
 ]
 

@@ -6,6 +6,7 @@ version = "0.1.0"
 
 [dependencies]
 fast-hash-collection = { path = "../../../utility/fast-hash-collection" }
+reactive = { path = "../../../utility/reactive" }
 rendiation-texture = { path = "../core" }
 linked-hash-map = "0.5.4"
 etagere = "0.2.6"

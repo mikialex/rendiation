@@ -9,7 +9,7 @@ impl GlyphPacker {
   pub fn init(init_size: Size, mut packer: impl RePackablePacker + 'static) -> Self {
     packer.config(PackerConfig {
       allow_90_rotation: false,
-      init_size,
+      full_size: init_size,
     });
     Self {
       packer: Box::new(packer),
@@ -20,7 +20,7 @@ impl GlyphPacker {
   pub fn re_init(&mut self, init_size: Size) {
     self.packer.config(PackerConfig {
       allow_90_rotation: false,
-      init_size,
+      full_size: init_size,
     });
     self.pack_info = Default::default();
   }
