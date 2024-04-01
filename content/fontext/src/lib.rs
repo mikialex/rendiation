@@ -11,8 +11,6 @@ use rendiation_algebra::*;
 use rendiation_color::*;
 use rendiation_geometry::*;
 use rendiation_texture::{Size, Texture2D, Texture2DBuffer, TextureRange};
-use rendiation_texture_packer::pack_2d_to_2d::pack_impl::etagere_wrap::EtagerePacker;
-use rendiation_texture_packer::pack_2d_to_2d::{PackError, PackId, PackerConfig, RePackablePacker};
 
 mod concepts;
 pub use concepts::*;

@@ -3,15 +3,14 @@ use etagere::{size2, AllocId, AtlasAllocator};
 use super::super::*;
 
 pub struct EtagerePacker {
-  config: PackerConfig,
   inner: AtlasAllocator,
 }
 
 impl EtagerePacker {
-  pub fn new(config: PackerConfig) -> Self {
+  pub fn new(config: PackerConfig2d) -> Self {
     let (width, height) = config.full_size.into_usize();
     let inner = AtlasAllocator::new(size2(width as i32, height as i32));
-    Self { config, inner }
+    Self { inner }
   }
 }
 
@@ -21,19 +20,19 @@ impl Default for EtagerePacker {
   }
 }
 
-impl BaseTexturePacker for EtagerePacker {
-  fn config(&mut self, config: PackerConfig) {
-    self.config = config;
-    self.reset();
-  }
+impl TexturePackerInit for EtagerePacker {
+  type Config = PackerConfig2d;
 
-  fn reset(&mut self) {
-    *self = Self::new(self.config)
+  fn init_by_config(config: Self::Config) -> Self {
+    Self::new(config)
   }
 }
 
 impl RePackablePacker for EtagerePacker {
-  fn pack_with_id(&mut self, input: Size) -> Result<PackResultWithId, PackError> {
+  type Input = Size;
+  type PackOutput = PackResult2d;
+
+  fn pack_with_id(&mut self, input: Size) -> Result<PackResultWithId<PackResult2d>, PackError> {
     let result = self
       .inner
       .allocate(size2(
@@ -43,7 +42,7 @@ impl RePackablePacker for EtagerePacker {
       .ok_or(PackError::SpaceNotEnough)?;
 
     Ok(PackResultWithId {
-      result: PackResult {
+      result: PackResult2d {
         range: TextureRange {
           origin: (
             result.rectangle.min.x as usize,

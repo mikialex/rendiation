@@ -75,7 +75,7 @@ impl Skyline {
 }
 
 pub struct SkylinePacker {
-  config: PackerConfig,
+  config: PackerConfig2d,
   border: Rect,
 
   // the skylines are sorted by their `x` position
@@ -83,7 +83,7 @@ pub struct SkylinePacker {
 }
 
 impl SkylinePacker {
-  pub fn new(config: PackerConfig) -> Self {
+  pub fn new(config: PackerConfig2d) -> Self {
     let skylines = vec![Skyline {
       x: 0,
       y: 0,
@@ -201,7 +201,9 @@ impl SkylinePacker {
 }
 
 impl TexturePacker for SkylinePacker {
-  fn pack(&mut self, input: Size) -> Result<PackResult, PackError> {
+  type Input = Size;
+  type PackOutput = PackResult2d;
+  fn pack(&mut self, input: Size) -> Result<PackResult2d, PackError> {
     if let Some((i, rect)) = self.find_skyline(input) {
       self.split(i, &rect);
       self.merge();
@@ -209,7 +211,7 @@ impl TexturePacker for SkylinePacker {
       let width: usize = input.width.into();
       let rotated = width != rect.w;
 
-      Ok(PackResult {
+      Ok(PackResult2d {
         range: TextureRange {
           origin: (rect.x, rect.y).into(),
           size: Size::from_usize_pair_min_one((rect.w, rect.h)),
@@ -222,14 +224,11 @@ impl TexturePacker for SkylinePacker {
   }
 }
 
-impl BaseTexturePacker for SkylinePacker {
-  fn config(&mut self, config: PackerConfig) {
-    self.config = config;
-    self.reset();
-  }
+impl TexturePackerInit for SkylinePacker {
+  type Config = PackerConfig2d;
 
-  fn reset(&mut self) {
-    *self = Self::new(self.config)
+  fn init_by_config(config: Self::Config) -> Self {
+    Self::new(config)
   }
 }
 

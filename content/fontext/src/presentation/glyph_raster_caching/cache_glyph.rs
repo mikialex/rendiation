@@ -40,7 +40,7 @@ impl GlyphCache {
   pub fn new(
     init_size: Size,
     tolerance: GlyphRasterTolerance,
-    packer: impl RePackablePacker + 'static,
+    packer: impl GlyphPackerImpl,
   ) -> Self {
     Self {
       packer: GlyphPacker::init(init_size, packer),

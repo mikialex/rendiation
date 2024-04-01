@@ -3,6 +3,7 @@ use glyph_brush::ab_glyph::Font;
 use glyph_brush::*;
 use glyph_brush::{ab_glyph, FontId};
 use rendiation_texture::Texture2dInitAble;
+use rendiation_texture_packer::pack_2d_to_2d::pack_impl::etagere_wrap::EtagerePacker;
 
 use crate::*;
 
