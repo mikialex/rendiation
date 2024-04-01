@@ -12,11 +12,13 @@ pub struct MultiLayerTexturePacker<P> {
   id_remap: FastHashMap<PackId, (usize, PackId)>,
 }
 
-impl<P> MultiLayerTexturePacker<P>
+impl<P> TexturePackerInit for MultiLayerTexturePacker<P>
 where
   P: RePackablePacker + TexturePackerInit<Config = PackerConfig2d> + Default,
 {
-  pub fn new(config: SizeWithDepth) -> Self {
+  type Config = SizeWithDepth;
+
+  fn init_by_config(config: Self::Config) -> Self {
     let single_config = PackerConfig2d {
       allow_90_rotation: false,
       full_size: config.size,

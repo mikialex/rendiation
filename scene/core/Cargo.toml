@@ -27,6 +27,7 @@ rendiation-mesh-core = { path = "../../content/mesh/core" }
 rendiation-texture = { path = "../../content/texture/core" }
 smallvec = { workspace = true }
 tree = { path = "../../utility/tree" }
+database = { path = "../../utility/database" }
 parking_lot = { version = "0.12.1", features = ["send_guard"] }
 
 [lints]

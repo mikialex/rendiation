@@ -48,7 +48,6 @@ where
         self.result.insert(r.id, (input.clone(), r.result));
       } else if let Some(new_config) = (self.on_grow)(self.current_config.clone()) {
         // todo, should we expose the current allocation info to avoid loop grow?
-        // self.current_config
         self.packer = P::init_by_config(new_config);
 
         // do repack previous all packed

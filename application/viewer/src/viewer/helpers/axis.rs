@@ -188,7 +188,7 @@ impl Arrow {
 pub fn solid_material(color: impl Into<Vec3<f32>>) -> ArrowMaterial {
   FlatMaterial {
     color: color.into().expand_with_one(),
-    ext: DynamicExtension::default().with_insert(MaterialStates::helper_like()),
+    // ext: DynamicExtension::default().with_insert(MaterialStates::helper_like()),
   }
 }
 

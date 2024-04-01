@@ -232,7 +232,7 @@ impl TexturePackerInit for SkylinePacker {
   }
 }
 
-impl PackableChecker for SkylinePacker {
+impl CheckablePacker for SkylinePacker {
   fn can_pack(&self, input: Size) -> bool {
     if let Some((_, rect)) = self.find_skyline(input) {
       let skyline = Skyline {

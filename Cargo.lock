@@ -3268,6 +3268,7 @@ dependencies = [
  "arena",
  "bitflags 2.4.0",
  "bytemuck",
+ "database",
  "derivative",
  "dyn-clone",
  "dyn-downcast",
@@ -4257,6 +4258,7 @@ version = "0.1.0"
 dependencies = [
  "bytemuck",
  "console_error_panic_hook",
+ "database",
  "dirs",
  "egui",
  "egui-wgpu",

@@ -143,13 +143,8 @@ fn build_shadow_projection(
   light
     .single_listen_by(any_change)
     .filter_map_sync(light.defer_weak())
-    .map(|light| {
-      let light = light.read();
-      let shadow_info = light
-        .ext
-        .get::<DirectionalShadowMapExtraInfo>()
-        .cloned()
-        .unwrap_or_default();
+    .map(|_| {
+      let shadow_info = DirectionalShadowMapExtraInfo::default();
       let size = Size::from_u32_pair_min_one((512, 512)); // todo
       let orth = WorkAroundResizableOrth {
         orth: shadow_info.range,

@@ -19,9 +19,6 @@ pub use scene::*;
 mod node;
 pub use node::*;
 
-mod ext;
-pub use ext::*;
-
 mod mesh;
 pub use mesh::*;
 

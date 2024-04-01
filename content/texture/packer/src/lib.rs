@@ -15,7 +15,7 @@ pub trait TexturePacker {
   fn pack(&mut self, input: Self::Input) -> Result<Self::PackOutput, PackError>;
 }
 
-pub trait PackableChecker: TexturePacker {
+pub trait CheckablePacker: TexturePacker {
   /// this should have lower cost than pack, and not request mutable self
   fn can_pack(&self, input: Self::Input) -> bool;
 }
