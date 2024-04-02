@@ -15,6 +15,10 @@ pub trait EntityAssociateSemantic: Any + Send + Sync {
 /// Statically associate entity semantic, component semantic and component type
 pub trait ComponentSemantic: EntityAssociateSemantic {
   type Data: CValue + Default;
+  fn default_override() -> Self::Data {
+    Self::Data::default()
+  }
+
   fn component_id() -> ComponentId {
     ComponentId(TypeId::of::<Self>())
   }
@@ -54,6 +58,19 @@ macro_rules! declare_component {
     }
     impl ComponentSemantic for $Type {
       type Data = $DataTy;
+    }
+  };
+
+  ($Type: tt, $EntityTy: ty, $DataTy: ty, $DefaultOverride: expr) => {
+    pub struct $Type;
+    impl EntityAssociateSemantic for $Type {
+      type Entity = $EntityTy;
+    }
+    impl ComponentSemantic for $Type {
+      type Data = $DataTy;
+      fn default_override() -> Self::Data {
+        $DefaultOverride
+      }
     }
   };
 }

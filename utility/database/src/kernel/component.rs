@@ -165,7 +165,7 @@ pub trait DynamicComponent: Any + Send + Sync {
 
 impl<T: ComponentSemantic> DynamicComponent for ComponentCollection<T> {
   fn create_dyn_writer_default(&self) -> Box<dyn EntityComponentWriter> {
-    Box::new(self.write().with_writer(T::Data::default))
+    Box::new(self.write().with_writer(T::default_override))
   }
   fn setup_new_storage(&mut self, storage: Box<dyn Any>) {
     self.data = *storage

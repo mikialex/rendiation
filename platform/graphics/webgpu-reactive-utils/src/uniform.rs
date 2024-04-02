@@ -12,6 +12,31 @@ pub struct UniformCollectionUpdate<T, K, V> {
   gpu_ctx: GPUResourceCtx,
 }
 
+pub trait UniformCollectionUpdateExt<K, V>: Sized {
+  fn into_uniform_collection_update(
+    self,
+    field_offset: u32,
+    gpu_ctx: GPUResourceCtx,
+  ) -> UniformCollectionUpdate<Self, K, V>;
+}
+impl<T> UniformCollectionUpdateExt<(), ()> for T
+where
+  T: ReactiveCollection<(), ()>,
+{
+  fn into_uniform_collection_update(
+    self,
+    field_offset: u32,
+    gpu_ctx: GPUResourceCtx,
+  ) -> UniformCollectionUpdate<Self, (), ()> {
+    UniformCollectionUpdate {
+      field_offset,
+      upstream: self,
+      phantom: PhantomData,
+      gpu_ctx,
+    }
+  }
+}
+
 impl<T, C, K, V> CollectionUpdate<FastHashMap<K, UniformBufferDataView<T>>>
   for UniformCollectionUpdate<C, K, V>
 where
