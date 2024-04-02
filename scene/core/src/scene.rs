@@ -9,13 +9,6 @@ pub type SceneCameraHandle = Handle<SceneCamera>;
 
 pub type SceneCore = IncrementalSignalPtr<SceneCoreImpl>;
 
-// pub struct SceneContent{
-//   scene_instance: usize,
-//   cameras: Vec<SceneCamera>,
-//   lights: Vec<SceneLight>,
-//   models: Vec<SceneModel>,
-// }
-
 pub struct SceneCoreImpl {
   /// scene environment config, mainly decide background effect.
   pub background: Option<SceneBackGround>,

@@ -3291,6 +3291,29 @@ dependencies = [
 ]
 
 [[package]]
+name = "rendiation-scene-core-next"
+version = "0.1.0"
+dependencies = [
+ "bytemuck",
+ "database",
+ "dyn-clone",
+ "dyn-downcast",
+ "fast-hash-collection",
+ "futures",
+ "log",
+ "once_cell",
+ "parking_lot",
+ "pin-project",
+ "reactive",
+ "rendiation-algebra",
+ "rendiation-animation",
+ "rendiation-geometry",
+ "rendiation-mesh-core",
+ "rendiation-texture",
+ "smallvec",
+]
+
+[[package]]
 name = "rendiation-scene-gltf-exporter"
 version = "0.0.1"
 dependencies = [

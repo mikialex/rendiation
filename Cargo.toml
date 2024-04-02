@@ -46,6 +46,7 @@ members = [
   "shader/backends/naga",
   "shader/library",
   "scene/core",
+  "scene/core-next",
   "scene/webgpu",
   "scene/optimization",
   "scene/raytracing",
