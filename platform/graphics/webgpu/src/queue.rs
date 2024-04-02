@@ -20,3 +20,9 @@ impl Deref for GPUQueue {
     &self.inner
   }
 }
+
+#[derive(Clone)]
+pub struct GPUResourceCtx {
+  pub device: GPUDevice,
+  pub queue: GPUQueue,
+}

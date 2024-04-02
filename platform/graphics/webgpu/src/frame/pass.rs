@@ -6,7 +6,7 @@ use crate::*;
 
 pub struct FrameRenderPass<'encoder, 'b> {
   pub ctx: GPURenderPassCtx<'encoder, 'b>,
-  pub pass_info: UniformBufferDataView<RenderPassGPUInfoData>,
+  pub pass_info: UniformBufferCachedDataView<RenderPassGPUInfoData>,
 }
 
 impl<'a, 'b> std::ops::Deref for FrameRenderPass<'a, 'b> {
@@ -118,7 +118,7 @@ impl<'a> PassDescriptor<'a> {
       buffer_size,
       ..Zeroable::zeroed()
     };
-    let pass_info = create_uniform(pass_info, gpu);
+    let pass_info = create_uniform_with_cache(pass_info, gpu);
 
     let c = GPURenderPassCtx::new(pass, gpu);
 

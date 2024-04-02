@@ -11,9 +11,9 @@ pub struct LinearBlurConfig {
 pub struct ShaderSamplingWeights {
   /// we max support 32 weight, but maybe not used them all.
   /// this array is just used as a fixed size container.
-  pub weights: UniformBufferDataView<Shader140Array<Vec4<f32>, 32>>,
+  pub weights: UniformBufferCachedDataView<Shader140Array<Vec4<f32>, 32>>,
   /// the actually sample count we used.
-  pub weight_count: UniformBufferDataView<u32>,
+  pub weight_count: UniformBufferCachedDataView<u32>,
 }
 
 /// radius: 0-16
@@ -46,7 +46,7 @@ pub fn gaussian(kernel_radius: usize) -> (Shader140Array<Vec4<f32>, 32>, u32) {
 
 pub struct LinearBlurTask<'a, T> {
   input: AttachmentView<T>,
-  config: &'a UniformBufferDataView<LinearBlurConfig>,
+  config: &'a UniformBufferCachedDataView<LinearBlurConfig>,
   weights: &'a ShaderSamplingWeights,
 }
 
@@ -106,8 +106,8 @@ pub fn draw_cross_blur<T: AsRef<Attachment>>(
 }
 
 pub struct CrossBlurData {
-  x: UniformBufferDataView<LinearBlurConfig>,
-  y: UniformBufferDataView<LinearBlurConfig>,
+  x: UniformBufferCachedDataView<LinearBlurConfig>,
+  y: UniformBufferCachedDataView<LinearBlurConfig>,
   weights: ShaderSamplingWeights,
 }
 
@@ -121,12 +121,12 @@ impl CrossBlurData {
       direction: Vec2::new(0., 1.),
       ..Zeroable::zeroed()
     };
-    let x = create_uniform(x, gpu);
-    let y = create_uniform(y, gpu);
+    let x = create_uniform_with_cache(x, gpu);
+    let y = create_uniform_with_cache(y, gpu);
 
     let (weights, count) = gaussian(32);
-    let weights = create_uniform(weights, gpu);
-    let weight_count = create_uniform(count, gpu);
+    let weights = create_uniform_with_cache(weights, gpu);
+    let weight_count = create_uniform_with_cache(count, gpu);
 
     Self {
       x,
@@ -140,7 +140,7 @@ impl CrossBlurData {
 }
 
 pub fn draw_linear_blur<'a, T: AsRef<Attachment> + 'a>(
-  config: &'a UniformBufferDataView<LinearBlurConfig>,
+  config: &'a UniformBufferCachedDataView<LinearBlurConfig>,
   weights: &'a ShaderSamplingWeights,
   input: AttachmentView<T>,
   ctx: &mut FrameCtx,

@@ -193,7 +193,7 @@ pub trait VisitLightCollectionCompute {
 
 pub struct DeferLightList<T: ShaderLight> {
   pub lights: Vec<T>,
-  pub lights_gpu: Vec<UniformBufferDataView<T>>,
+  pub lights_gpu: Vec<UniformBufferCachedDataView<T>>,
 }
 
 impl<T: ShaderLight> VisitLightCollectionCompute for DeferLightList<T> {
@@ -206,7 +206,7 @@ impl<T: ShaderLight> VisitLightCollectionCompute for DeferLightList<T> {
 }
 
 struct SingleLight<'a, T: Std140> {
-  light: &'a UniformBufferDataView<T>,
+  light: &'a UniformBufferCachedDataView<T>,
 }
 
 impl<'a, T: Std140 + ShaderSizedValueNodeType> ShaderPassBuilder for SingleLight<'a, T> {

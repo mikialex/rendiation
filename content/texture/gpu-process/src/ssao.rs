@@ -10,8 +10,8 @@ use crate::*;
 const MAX_SAMPLE: usize = 64;
 
 pub struct SSAO {
-  parameters: UniformBufferDataView<SSAOParameter>,
-  samples: UniformBufferDataView<Shader140Array<Vec4<f32>, MAX_SAMPLE>>,
+  parameters: UniformBufferCachedDataView<SSAOParameter>,
+  samples: UniformBufferCachedDataView<Shader140Array<Vec4<f32>, MAX_SAMPLE>>,
 }
 
 fn rand() -> f32 {
@@ -38,9 +38,9 @@ impl SSAO {
       })
       .collect();
     let samples = samples.try_into().unwrap();
-    let samples = create_uniform(samples, gpu);
+    let samples = create_uniform_with_cache(samples, gpu);
 
-    let parameters = create_uniform(parameters, gpu);
+    let parameters = create_uniform_with_cache(parameters, gpu);
 
     Self {
       parameters,
@@ -80,7 +80,7 @@ impl Default for SSAOParameter {
 pub struct AOComputer<'a> {
   depth: AttachmentView<&'a Attachment>,
   parameter: &'a SSAO,
-  reproject: &'a UniformBufferDataView<ReprojectInfo>,
+  reproject: &'a UniformBufferCachedDataView<ReprojectInfo>,
 }
 
 impl<'a> ShaderHashProvider for AOComputer<'a> {}
@@ -164,7 +164,7 @@ impl SSAO {
     &self,
     ctx: &mut FrameCtx,
     depth: &Attachment,
-    reproject: &UniformBufferDataView<ReprojectInfo>,
+    reproject: &UniformBufferCachedDataView<ReprojectInfo>,
   ) -> Attachment {
     self.parameters.mutate(|p| p.noise_jit = rand());
     self.parameters.upload(&ctx.gpu.queue);

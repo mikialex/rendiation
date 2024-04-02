@@ -1,15 +1,44 @@
+use rendiation_texture_packer::pack_2d_to_2d::{PackResult2d, PackerConfig2d};
+use rendiation_texture_packer::{PackError, TexturePackerInit, UnpackError};
+use rendiation_texture_packer::{PackId, PackResultWithId, RePackablePacker};
+
 use crate::*;
 
+pub trait GlyphPackerImpl: 'static {
+  fn config(&mut self, config: PackerConfig2d);
+  fn pack_with_id(&mut self, input: Size) -> Result<PackResultWithId<PackResult2d>, PackError>;
+  fn unpack(&mut self, id: PackId) -> Result<(), UnpackError>;
+}
+
+impl<T> GlyphPackerImpl for T
+where
+  T: RePackablePacker<Input = Size, PackOutput = PackResult2d>
+    + TexturePackerInit<Config = PackerConfig2d>
+    + 'static,
+{
+  fn config(&mut self, config: PackerConfig2d) {
+    *self = Self::init_by_config(config);
+  }
+
+  fn pack_with_id(&mut self, id: Size) -> Result<PackResultWithId<PackResult2d>, PackError> {
+    (*self).pack_with_id(id)
+  }
+
+  fn unpack(&mut self, id: PackId) -> Result<(), UnpackError> {
+    (*self).unpack(id)
+  }
+}
+
 pub struct GlyphPacker {
-  packer: Box<dyn RePackablePacker>,
+  packer: Box<dyn GlyphPackerImpl>,
   pack_info: LinkedHashMap<(FontGlyphId, NormalizedGlyphRasterInfo), (PackId, TextureRange)>,
 }
 
 impl GlyphPacker {
-  pub fn init(init_size: Size, mut packer: impl RePackablePacker + 'static) -> Self {
-    packer.config(PackerConfig {
+  pub fn init(init_size: Size, mut packer: impl GlyphPackerImpl + 'static) -> Self {
+    packer.config(PackerConfig2d {
       allow_90_rotation: false,
-      init_size,
+      full_size: init_size,
     });
     Self {
       packer: Box::new(packer),
@@ -18,9 +47,9 @@ impl GlyphPacker {
   }
 
   pub fn re_init(&mut self, init_size: Size) {
-    self.packer.config(PackerConfig {
+    self.packer.config(PackerConfig2d {
       allow_90_rotation: false,
-      init_size,
+      full_size: init_size,
     });
     self.pack_info = Default::default();
   }

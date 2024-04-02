@@ -3280,6 +3280,7 @@ dependencies = [
  "arena",
  "bitflags 2.4.0",
  "bytemuck",
+ "database",
  "derivative",
  "dyn-clone",
  "dyn-downcast",
@@ -3299,6 +3300,29 @@ dependencies = [
  "rendiation-texture",
  "smallvec",
  "tree",
+]
+
+[[package]]
+name = "rendiation-scene-core-next"
+version = "0.1.0"
+dependencies = [
+ "bytemuck",
+ "database",
+ "dyn-clone",
+ "dyn-downcast",
+ "fast-hash-collection",
+ "futures",
+ "log",
+ "once_cell",
+ "parking_lot",
+ "pin-project",
+ "reactive",
+ "rendiation-algebra",
+ "rendiation-animation",
+ "rendiation-geometry",
+ "rendiation-mesh-core",
+ "rendiation-texture",
+ "smallvec",
 ]
 
 [[package]]
@@ -3562,6 +3586,7 @@ dependencies = [
  "etagere",
  "fast-hash-collection",
  "linked-hash-map",
+ "reactive",
  "rendiation-texture",
 ]
 
@@ -3588,6 +3613,16 @@ dependencies = [
  "wgpu",
  "wgpu-types",
  "winit",
+]
+
+[[package]]
+name = "rendiation-webgpu-reactive-utils"
+version = "0.1.0"
+dependencies = [
+ "fast-hash-collection",
+ "reactive",
+ "rendiation-shader-api",
+ "rendiation-webgpu",
 ]
 
 [[package]]
@@ -4292,6 +4327,7 @@ version = "0.1.0"
 dependencies = [
  "bytemuck",
  "console_error_panic_hook",
+ "database",
  "dirs",
  "egui",
  "egui-wgpu",

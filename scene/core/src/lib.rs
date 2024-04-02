@@ -8,7 +8,6 @@ use std::sync::{Arc, RwLock};
 use derivative::Derivative;
 pub use dyn_downcast::*;
 use fast_hash_collection::*;
-use futures::Stream;
 use incremental::*;
 pub use reactive::*;
 use rendiation_algebra::*;
@@ -19,9 +18,6 @@ pub use scene::*;
 
 mod node;
 pub use node::*;
-
-mod ext;
-pub use ext::*;
 
 mod mesh;
 pub use mesh::*;

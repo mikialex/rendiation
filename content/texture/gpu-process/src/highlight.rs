@@ -1,7 +1,7 @@
 use crate::*;
 
 pub struct HighLighter {
-  pub data: UniformBufferDataView<HighLightData>,
+  pub data: UniformBufferCachedDataView<HighLightData>,
 }
 
 #[repr(C)]
@@ -25,7 +25,7 @@ impl Default for HighLightData {
 impl HighLighter {
   pub fn new(gpu: &GPU) -> Self {
     Self {
-      data: create_uniform(Default::default(), gpu),
+      data: create_uniform_with_cache(Default::default(), gpu),
     }
   }
 }

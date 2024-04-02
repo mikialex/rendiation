@@ -7,6 +7,7 @@
 
 use std::{alloc::System, sync::Arc};
 
+use database::*;
 use egui_winit::winit::{
   event::{Event, WindowEvent},
   event_loop::EventLoop,
@@ -27,6 +28,7 @@ use webgpu::{GPUCreateConfig, GPUSurface, GPU};
 static GLOBAL_ALLOCATOR: PreciseAllocationHook<System> = PreciseAllocationHook::new(System);
 
 fn main() {
+  setup_global_database(Default::default());
   setup_active_plane(Default::default());
   register_viewer_extra_scene_features();
 

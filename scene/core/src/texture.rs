@@ -51,7 +51,7 @@ impl Debug for SceneTexture2DType {
 
 pub type SceneTextureCube = IncrementalSignalPtr<SceneTextureCubeImpl>;
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct SceneTextureCubeImpl {
   /// in: px, nx, py, ny, pz, nz order
   pub faces: [SceneTexture2DType; 6],

@@ -11,7 +11,7 @@ pub fn default_dispatcher(pass: &FrameRenderPass) -> DefaultPassDispatcher {
 pub struct DefaultPassDispatcher {
   pub formats: RenderTargetFormatsInfo,
   pub auto_write: bool,
-  pub pass_info: UniformBufferDataView<RenderPassGPUInfoData>,
+  pub pass_info: UniformBufferCachedDataView<RenderPassGPUInfoData>,
 }
 
 impl ShaderHashProvider for DefaultPassDispatcher {

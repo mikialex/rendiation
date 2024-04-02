@@ -17,7 +17,7 @@ pub fn node_gpus(
 
 #[derive(Clone, PartialEq, Debug)]
 pub struct NodeGPU {
-  pub ubo: UniformBufferDataView<TransformGPUData>,
+  pub ubo: UniformBufferCachedDataView<TransformGPUData>,
 }
 
 impl NodeGPU {
@@ -28,7 +28,7 @@ impl NodeGPU {
   }
 
   pub fn new(device: &GPUDevice) -> Self {
-    let ubo = create_uniform(TransformGPUData::default(), device);
+    let ubo = create_uniform_with_cache(TransformGPUData::default(), device);
     Self { ubo }
   }
 

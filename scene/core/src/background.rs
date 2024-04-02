@@ -9,7 +9,7 @@ pub enum SceneBackGround {
 
 clone_self_incremental!(SceneBackGround);
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, PartialEq, Debug)]
 pub struct SolidBackground {
   pub intensity: Vec3<f32>,
 }
@@ -30,7 +30,7 @@ impl SolidBackground {
   }
 }
 
-#[derive(Clone)]
+#[derive(Clone, PartialEq)]
 pub struct EnvMapBackground {
   pub texture: SceneTextureCube,
 }

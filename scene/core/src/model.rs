@@ -73,7 +73,8 @@ impl SkeletonImpl {
 
     self.joints.iter().for_each(|joint| {
       let bone_local = if let Some(parent_id) = joint.node.visit_parent(|p| p.guid())
-        && let Some(parent_index) = id_map.get(&parent_id) {
+        && let Some(parent_index) = id_map.get(&parent_id)
+      {
         let parent_bind_inverse = &self.joints[*parent_index].bind_inverse;
         *parent_bind_inverse * joint.bind_inverse.inverse_or_identity()
       } else {

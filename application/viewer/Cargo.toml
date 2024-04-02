@@ -36,6 +36,7 @@ rendiation-scene-webgpu = { path = "../../scene/webgpu" }
 rendiation-shader-api = { path = "../../shader/api" }
 rendiation-texture = { path = "../../content/texture/core" }
 interning = { path = "../../utility/interning" }
+database = { path = "../../utility/database" }
 webgpu = { package = "rendiation-webgpu", path = "../../platform/graphics/webgpu" }
 
 egui = "0.26"

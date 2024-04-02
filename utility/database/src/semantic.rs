@@ -8,10 +8,13 @@ pub trait EntitySemantic: Any + Send + Sync {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct EntityId(pub TypeId);
 
-/// Statically associate entity semantic, component semantic and component type
-pub trait ComponentSemantic: Any + Send + Sync {
-  type Data: CValue + Default;
+pub trait EntityAssociateSemantic: Any + Send + Sync {
   type Entity: EntitySemantic;
+}
+
+/// Statically associate entity semantic, component semantic and component type
+pub trait ComponentSemantic: EntityAssociateSemantic {
+  type Data: CValue + Default;
   fn component_id() -> ComponentId {
     ComponentId(TypeId::of::<Self>())
   }
@@ -33,12 +36,24 @@ macro_rules! declare_entity {
 }
 
 #[macro_export]
+macro_rules! declare_entity_associated {
+  ($Type: tt, $EntityTy: ty) => {
+    pub struct $Type;
+    impl EntityAssociateSemantic for $Type {
+      type Entity = $EntityTy;
+    }
+  };
+}
+
+#[macro_export]
 macro_rules! declare_component {
   ($Type: tt, $EntityTy: ty, $DataTy: ty) => {
     pub struct $Type;
+    impl EntityAssociateSemantic for $Type {
+      type Entity = $EntityTy;
+    }
     impl ComponentSemantic for $Type {
       type Data = $DataTy;
-      type Entity = $EntityTy;
     }
   };
 }
@@ -47,9 +62,11 @@ macro_rules! declare_component {
 macro_rules! declare_foreign_key {
   ($Type: tt,  $EntityTy: ty, $ForeignEntityTy: ty) => {
     pub struct $Type;
+    impl EntityAssociateSemantic for $Type {
+      type Entity = $EntityTy;
+    }
     impl ComponentSemantic for $Type {
       type Data = ForeignKeyComponentData;
-      type Entity = $EntityTy;
     }
     impl ForeignKeySemantic for $Type {
       type ForeignEntity = $ForeignEntityTy;

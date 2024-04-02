@@ -200,7 +200,6 @@ pub fn load_default_scene(scene: &Scene) {
   let directional_light = DirectionalLight {
     illuminance: 5.,
     color_factor: Vec3::one(),
-    ext: Default::default(),
   };
   let directional_light = LightEnum::DirectionalLight(directional_light.into());
   let directional_light = SceneLightImpl::new(directional_light, directional_light_node);
@@ -215,7 +214,6 @@ pub fn load_default_scene(scene: &Scene) {
   let directional_light = DirectionalLight {
     illuminance: 5.,
     color_factor: Vec3::new(5., 3., 2.) / Vec3::splat(5.),
-    ext: Default::default(),
   };
   let directional_light = LightEnum::DirectionalLight(directional_light.into());
   let directional_light = SceneLightImpl::new(directional_light, directional_light_node);
@@ -227,7 +225,6 @@ pub fn load_default_scene(scene: &Scene) {
     color_factor: Vec3::new(5., 3., 2.) / Vec3::splat(5.),
     luminance_intensity: 5.,
     cutoff_distance: 40.,
-    ext: Default::default(),
   };
   let point_light = LightEnum::PointLight(point_light.into());
   let point_light = SceneLightImpl::new(point_light, point_light_node);
@@ -241,7 +238,6 @@ pub fn load_default_scene(scene: &Scene) {
     cutoff_distance: 40.,
     half_cone_angle: Deg::by(5. / 2.).to_rad(),
     half_penumbra_angle: Deg::by(5. / 2.).to_rad(),
-    ext: Default::default(),
   };
   let spot_light = LightEnum::SpotLight(spot_light.into());
   let spot_light = SceneLightImpl::new(spot_light, spot_light_node);

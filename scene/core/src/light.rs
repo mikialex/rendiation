@@ -33,7 +33,6 @@ pub struct PointLight {
   pub luminance_intensity: f32,
   /// in meter
   pub cutoff_distance: f32,
-  pub ext: DynamicExtension,
 }
 
 impl PointLight {
@@ -61,7 +60,6 @@ pub struct SpotLight {
   pub half_cone_angle: f32,
   /// should less equal to half_cont_angle,large equal to zero
   pub half_penumbra_angle: f32,
-  pub ext: DynamicExtension,
 }
 
 impl SpotLight {
@@ -87,5 +85,4 @@ pub struct DirectionalLight {
   /// for reference, the sun is 90000 ~ 130000 lux
   pub illuminance: f32,
   pub color_factor: Vec3<f32>,
-  pub ext: DynamicExtension,
 }

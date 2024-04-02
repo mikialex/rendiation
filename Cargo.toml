@@ -46,6 +46,7 @@ members = [
   "shader/backends/naga",
   "shader/library",
   "scene/core",
+  "scene/core-next",
   "scene/webgpu",
   "scene/optimization",
   "scene/raytracing",
@@ -57,6 +58,7 @@ members = [
   "scene/rendering/gpu-driven-style",
   "scene/rendering/gpu-gles-style",
   "platform/graphics/webgpu",
+  "platform/graphics/webgpu-reactive-utils",
   "extension/controller",
   "application/viewer",
 ]

@@ -26,9 +26,6 @@ pub struct SceneCoreImpl {
   /// scene tree
   pub nodes: SceneNodeCollection,
   root: SceneNode,
-
-  /// scene level dynamic extension port
-  pub ext: DynamicExtension,
 }
 
 impl SceneCoreImpl {
@@ -52,7 +49,6 @@ impl SceneCoreImpl {
       lights: Arena::new(),
       models: Arena::new(),
       active_camera: None,
-      ext: Default::default(),
     }
     .into_ptr();
 
@@ -115,7 +111,6 @@ pub trait SceneCoreExt {
   fn remove_camera(&self, camera: SceneCameraHandle);
   fn set_active_camera(&self, camera: Option<SceneCamera>);
   fn set_background(&self, background: Option<SceneBackGround>);
-  fn update_ext(&self, delta: DeltaOf<DynamicExtension>);
 }
 
 impl SceneCoreExt for SceneCore {
@@ -206,14 +201,6 @@ impl SceneCoreExt for SceneCore {
       scene.trigger_change_but_not_apply(delta);
     })
   }
-
-  fn update_ext(&self, delta: DeltaOf<DynamicExtension>) {
-    self.mutate(|mut scene| unsafe {
-      let s = scene.get_mut_ref();
-      s.ext.apply(delta.clone()).unwrap();
-      scene.trigger_change_but_not_apply(delta.wrap(SceneInternalDelta::ext));
-    })
-  }
 }
 
 #[allow(non_camel_case_types)]
@@ -225,7 +212,6 @@ pub enum SceneInternalDelta {
   cameras(DeltaOf<Arena<SceneCamera>>),
   lights(DeltaOf<Arena<SceneLight>>),
   models(DeltaOf<Arena<SceneModel>>),
-  ext(DeltaOf<DynamicExtension>),
   nodes(DeltaOf<SceneNodeCollection>),
 }
 
@@ -238,7 +224,6 @@ impl std::fmt::Debug for SceneInternalDelta {
       Self::cameras(_) => f.debug_tuple("cameras").finish(),
       Self::lights(_) => f.debug_tuple("lights").finish(),
       Self::models(_) => f.debug_tuple("models").finish(),
-      Self::ext(_) => f.debug_tuple("ext").finish(),
       Self::nodes(_) => f.debug_tuple("nodes").finish(),
     }
   }
@@ -255,7 +240,6 @@ impl IncrementalBase for SceneCoreImpl {
     self.cameras.expand(|d| cb(cameras(d)));
     self.lights.expand(|d| cb(lights(d)));
     self.models.expand(|d| cb(models(d)));
-    self.ext.expand(|d| cb(ext(d)));
   }
 }
 
@@ -282,7 +266,6 @@ pub enum MixSceneDelta {
   cameras(ContainerRefRetainContentDelta<SceneCamera>),
   lights(ContainerRefRetainContentDelta<SceneLight>),
   models(ContainerRefRetainContentDelta<SceneModel>),
-  ext(DeltaOf<DynamicExtension>),
 }
 
 #[derive(Clone, Debug)]
@@ -301,7 +284,6 @@ impl IncrementalBase for SceneImpl {
     cb(MixSceneDelta::active_camera(
       core.active_camera.clone().map(MaybeDelta::All),
     ));
-    core.ext.expand(|d| cb(MixSceneDelta::ext(d)));
     core.cameras.iter().for_each(|(_, v)| {
       cb(MixSceneDelta::cameras(
         ContainerRefRetainContentDelta::Insert(v.clone()),
@@ -333,7 +315,6 @@ pub trait SceneExt {
   fn remove_camera(&self, camera: SceneCameraHandle);
   fn set_active_camera(&self, camera: Option<SceneCamera>);
   fn set_background(&self, background: Option<SceneBackGround>);
-  fn update_ext(&self, delta: DeltaOf<DynamicExtension>);
 }
 
 impl SceneExt for Scene {
@@ -380,10 +361,6 @@ impl SceneExt for Scene {
 
   fn set_background(&self, background: Option<SceneBackGround>) {
     self.read().core.set_background(background);
-  }
-
-  fn update_ext(&self, delta: DeltaOf<DynamicExtension>) {
-    self.read().core.update_ext(delta)
   }
 }
 
