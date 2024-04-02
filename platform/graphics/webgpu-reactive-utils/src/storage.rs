@@ -71,7 +71,7 @@ impl<T: Std430> ReactiveStorageBufferContainer<T> {
       gpu_ctx: self.gpu_ctx.clone(),
     };
 
-    self.inner.add_source(Box::new(updater));
+    self.inner.add_source(updater);
   }
 }
 

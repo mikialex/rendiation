@@ -3,6 +3,9 @@ use rendiation_shader_api::Std140;
 
 use crate::*;
 
+pub type UniformUpdateContainer<K, V> =
+  MultiUpdateContainer<FastHashMap<AllocIdx<K>, UniformBufferDataView<V>>>;
+
 /// group of(Rxc<id, T fieldChange>) =maintain=> group of(uniform buffer <T>)
 /// todo, we should support single buffer
 pub struct UniformCollectionUpdate<T, K, V> {
@@ -15,21 +18,23 @@ pub struct UniformCollectionUpdate<T, K, V> {
 pub trait UniformCollectionUpdateExt<K, V>: Sized {
   fn into_uniform_collection_update(
     self,
-    field_offset: u32,
+    field_offset: usize,
     gpu_ctx: GPUResourceCtx,
   ) -> UniformCollectionUpdate<Self, K, V>;
 }
-impl<T> UniformCollectionUpdateExt<(), ()> for T
+impl<K, V, T> UniformCollectionUpdateExt<K, V> for T
 where
-  T: ReactiveCollection<(), ()>,
+  T: ReactiveCollection<K, V>,
+  K: CKey,
+  V: CValue,
 {
   fn into_uniform_collection_update(
     self,
-    field_offset: u32,
+    field_offset: usize,
     gpu_ctx: GPUResourceCtx,
-  ) -> UniformCollectionUpdate<Self, (), ()> {
+  ) -> UniformCollectionUpdate<Self, K, V> {
     UniformCollectionUpdate {
-      field_offset,
+      field_offset: field_offset as u32,
       upstream: self,
       phantom: PhantomData,
       gpu_ctx,

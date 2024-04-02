@@ -6,6 +6,10 @@ impl<T: ShaderSizedValueNodeType + Std140> ShaderBindingProvider
   type Node = ShaderUniformPtr<T>;
 }
 
+impl<T: ShaderSizedValueNodeType + Std140> ShaderBindingProvider for UniformBufferDataView<T> {
+  type Node = ShaderUniformPtr<T>;
+}
+
 impl<T> ShaderBindingProvider for StorageBufferReadOnlyDataView<T>
 where
   T: ShaderMaybeUnsizedValueNodeType + Std430MaybeUnsized + ?Sized,

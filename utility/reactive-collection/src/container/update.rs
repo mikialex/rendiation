@@ -68,6 +68,7 @@ pub trait CollectionUpdate<T: ?Sized> {
 }
 
 /// this struct is to support merge multiple collection updates into one target
+#[derive(Default)]
 pub struct MultiUpdateContainer<T> {
   pub target: T,
   source: Vec<Box<dyn CollectionUpdate<T>>>,
@@ -98,9 +99,15 @@ impl<T> MultiUpdateContainer<T> {
       waker: Default::default(),
     }
   }
-  pub fn add_source(&mut self, source: Box<dyn CollectionUpdate<T>>) {
-    self.source.push(source);
+  pub fn add_source(&mut self, source: impl CollectionUpdate<T> + 'static) {
+    self.source.push(Box::new(source));
     self.waker.wake();
+  }
+
+  pub fn with_source(mut self, source: impl CollectionUpdate<T> + 'static) -> Self {
+    self.source.push(Box::new(source));
+    self.waker.wake();
+    self
   }
 }
 
