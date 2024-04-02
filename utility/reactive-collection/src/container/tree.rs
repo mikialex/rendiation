@@ -3,35 +3,38 @@ use storage::IndexKeptVec;
 
 use crate::*;
 
-pub trait ParentDecideChildren: Sized + Default {
-  fn update(self_source: &Self, parent_derive: Option<Self>) -> Self;
-}
-
 pub type ReactiveTreeConnectivity = Box<dyn ReactiveOneToManyRelationship<u32, u32>>;
 pub type ReactiveTreePayload<T> = Box<dyn ReactiveCollection<u32, T>>;
 
 pub fn tree_payload_derive_by_parent_decide_children<T>(
   connectivity: ReactiveTreeConnectivity,
   payload: ReactiveTreePayload<T>,
+  derive_logic: impl Fn(&T, Option<&T>) -> T + Send + Sync + 'static + Copy,
 ) -> impl ReactiveCollection<u32, T>
 where
-  T: CValue + ParentDecideChildren,
+  T: CValue,
 {
   TreeDerivedData {
     data: Default::default(),
     payload_source: payload,
     connectivity_source: connectivity,
+    derive_logic,
   }
 }
 
-struct TreeDerivedData<T> {
+struct TreeDerivedData<T, F> {
   /// where the actually derived data stored
   data: Arc<RwLock<IndexKeptVec<T>>>,
   payload_source: ReactiveTreePayload<T>,
   connectivity_source: ReactiveTreeConnectivity,
+  derive_logic: F,
 }
 
-impl<T: CValue + ParentDecideChildren> ReactiveCollection<u32, T> for TreeDerivedData<T> {
+impl<T, F> ReactiveCollection<u32, T> for TreeDerivedData<T, F>
+where
+  T: CValue,
+  F: Fn(&T, Option<&T>) -> T + Send + Sync + 'static + Copy,
+{
   fn poll_changes(&self, cx: &mut Context) -> PollCollectionChanges<u32, T> {
     let payload_change = self.payload_source.poll_changes(cx);
     let connectivity_change = self.connectivity_source.poll_changes(cx);
@@ -103,6 +106,7 @@ impl<T: CValue + ParentDecideChildren> ReactiveCollection<u32, T> for TreeDerive
       source: current_source.as_ref(),
       connectivity: current_inv_connectivity.as_ref(),
       parent_connectivity: current_connectivity.as_ref(),
+      derive_logic: self.derive_logic,
     };
     for root in update_roots {
       let mut root = TreeMutNode {
@@ -143,8 +147,8 @@ struct CollectionMutationCollectorPtr<T> {
 }
 
 impl<T: CValue> CollectionMutationCollectorPtr<T> {
-  pub fn get_derive(&self, key: u32) -> Option<T> {
-    unsafe { (*self.target).try_get(key).cloned() }
+  pub fn get_derive(&self, key: u32) -> Option<&T> {
+    unsafe { (*self.target).try_get(key) }
   }
   pub fn as_mutable(&self) -> impl MutableCollection<u32, T> {
     unsafe {
@@ -166,24 +170,26 @@ impl<T> Clone for CollectionMutationCollectorPtr<T> {
 }
 
 #[derive(Clone)]
-struct TreeMutNode<'a, T> {
+struct TreeMutNode<'a, T, F> {
   phantom: PhantomData<T>,
   idx: u32,
-  ctx: &'a Ctx<'a, T>,
+  ctx: &'a Ctx<'a, T, F>,
 }
 
-struct Ctx<'a, T> {
+struct Ctx<'a, T, F> {
   derive: CollectionMutationCollectorPtr<T>,
   source: &'a dyn VirtualCollection<u32, T>,
   connectivity: &'a dyn VirtualMultiCollection<u32, u32>,
   parent_connectivity: &'a dyn VirtualCollection<u32, u32>,
+  derive_logic: F,
 }
 
-impl<'a, T> TreeMutNode<'a, T>
+impl<'a, T, F> TreeMutNode<'a, T, F>
 where
-  T: ParentDecideChildren + CValue,
+  T: CValue,
+  F: Fn(&T, Option<&T>) -> T + Send + Sync + 'static + Copy,
 {
-  pub fn get_derive(&self) -> T {
+  pub fn get_derive(&self) -> &T {
     self.ctx.derive.get_derive(self.idx).unwrap()
   }
   /// return has actually changed
@@ -199,11 +205,11 @@ where
   pub fn update(&mut self, parent: Option<&Self>) -> bool {
     let parent_derive = parent.map(|parent| parent.get_derive());
     let self_source = self.ctx.source.access(&self.idx).unwrap();
-    self.set_derive(ParentDecideChildren::update(&self_source, parent_derive))
+    self.set_derive((self.ctx.derive_logic)(&self_source, parent_derive))
   }
 }
 
-impl<'a, T> AbstractTreeMutNode for TreeMutNode<'a, T> {
+impl<'a, T, F> AbstractTreeMutNode for TreeMutNode<'a, T, F> {
   fn visit_children_mut(&mut self, mut visitor: impl FnMut(&mut Self)) {
     self.ctx.connectivity.access_multi(&self.idx, &mut |idx| {
       visitor(&mut TreeMutNode {
@@ -215,7 +221,7 @@ impl<'a, T> AbstractTreeMutNode for TreeMutNode<'a, T> {
   }
 }
 
-impl<'a, T> AbstractParentAddressableMutTreeNode for TreeMutNode<'a, T> {
+impl<'a, T, F> AbstractParentAddressableMutTreeNode for TreeMutNode<'a, T, F> {
   fn get_parent_mut(&mut self) -> Option<Self> {
     self
       .ctx

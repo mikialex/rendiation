@@ -48,6 +48,10 @@ impl<T: AtomicityShaderNodeType> ShaderNodeType for Atomic<T> {
   ));
 }
 
+impl<T: AtomicityShaderNodeType> ShaderSizedValueNodeType for Atomic<T> {
+  const MEMBER_TYPE: ShaderSizedValueType = ShaderSizedValueType::Atomic(T::ATOM);
+}
+
 pub struct ShaderLocalPtr<T: ?Sized>(PhantomData<T>);
 pub struct ShaderPrivatePtr<T: ?Sized>(PhantomData<T>);
 pub struct ShaderHandlePtr<T: ?Sized>(PhantomData<T>);
@@ -185,6 +189,12 @@ pub trait PrimitiveShaderNodeType: ShaderNodeType + Default {
 
 pub trait AtomicityShaderNodeType: ShaderNodeType {
   const ATOM: ShaderAtomicValueType;
+}
+impl AtomicityShaderNodeType for u32 {
+  const ATOM: ShaderAtomicValueType = ShaderAtomicValueType::U32;
+}
+impl AtomicityShaderNodeType for i32 {
+  const ATOM: ShaderAtomicValueType = ShaderAtomicValueType::I32;
 }
 
 pub trait ShaderStructuralNodeType: ShaderNodeType + Sized {
