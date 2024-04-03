@@ -46,3 +46,28 @@ pub struct IndexValueChange<T> {
   pub idx: u32,
   pub change: ValueChange<T>,
 }
+
+use std::sync::Arc;
+pub struct ExternalRefPtr<T> {
+  pub ptr: Arc<T>,
+}
+
+impl<T> Clone for ExternalRefPtr<T> {
+  fn clone(&self) -> Self {
+    Self {
+      ptr: self.ptr.clone(),
+    }
+  }
+}
+impl<T> PartialEq for ExternalRefPtr<T> {
+  fn eq(&self, other: &Self) -> bool {
+    Arc::ptr_eq(&self.ptr, &other.ptr)
+  }
+}
+impl<T> std::fmt::Debug for ExternalRefPtr<T> {
+  fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    f.debug_struct("ExternalRefPtr")
+      .field("ptr", &(Arc::as_ptr(&self.ptr) as *const u8))
+      .finish()
+  }
+}

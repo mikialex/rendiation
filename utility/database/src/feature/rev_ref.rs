@@ -14,6 +14,13 @@ impl DatabaseEntityReverseReference {
     }
   }
 
+  pub fn watch_inv_ref_typed<S: ForeignKeySemantic>(
+    &self,
+  ) -> Box<dyn ReactiveOneToManyRelationship<AllocIdx<S::ForeignEntity>, AllocIdx<S::Entity>>> {
+    // self.watch_inv_ref_dyn(S::component_id(), S::Entity::entity_id())
+    todo!()
+  }
+
   pub fn watch_inv_ref<S: ForeignKeySemantic>(
     &self,
   ) -> Box<dyn ReactiveOneToManyRelationship<u32, u32>> {

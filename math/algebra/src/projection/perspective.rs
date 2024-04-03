@@ -1,6 +1,6 @@
 use crate::*;
 
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, PartialEq)]
 pub struct PerspectiveProjection<T> {
   pub near: T,
   pub far: T,

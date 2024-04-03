@@ -132,7 +132,7 @@ pub trait PrimitiveTopologyMeta: 'static {
 
 /// Primitive type the input mesh is composed of.
 #[repr(C)]
-#[derive(Copy, Clone, Debug, Hash, Eq, PartialEq)]
+#[derive(Copy, Clone, Debug, Hash, Eq, PartialEq, Default)]
 pub enum PrimitiveTopology {
   /// Vertex data is a list of points. Each vertex is a new point.
   PointList = 0,
@@ -147,6 +147,7 @@ pub enum PrimitiveTopology {
   /// Vertex data is a list of triangles. Each set of 3 vertices composes a new triangle.
   ///
   /// Vertices `0 1 2 3 4 5` create two triangles `0 1 2` and `3 4 5`
+  #[default]
   TriangleList = 3,
   /// Vertex data is a triangle strip. Each set of three adjacent vertices form a triangle.
   ///

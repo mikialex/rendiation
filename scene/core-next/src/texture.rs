@@ -1,6 +1,14 @@
+use rendiation_texture::GPUBufferImage;
+
 use crate::*;
 
 declare_entity!(SceneTexture2dEntity);
+declare_component!(
+  SceneTexture2dEntityDirectContent,
+  SceneTexture2dEntity,
+  Option<ExternalRefPtr<GPUBufferImage>>
+);
+
 pub fn register_scene_texture2d_data_model() {
   global_database().declare_entity::<SceneTexture2dEntity>();
 }

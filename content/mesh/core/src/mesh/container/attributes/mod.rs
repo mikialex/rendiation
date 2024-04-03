@@ -17,9 +17,10 @@ pub use picking::*;
 /// Vertex attribute semantic name.
 ///
 /// https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#meshes
-#[derive(Clone, Debug, Eq, Hash, PartialEq, PartialOrd, Ord)]
+#[derive(Clone, Debug, Eq, Hash, PartialEq, PartialOrd, Ord, Default)]
 pub enum AttributeSemantic {
   /// XYZ vertex positions.
+  #[default]
   Positions,
 
   /// XYZ vertex normals.

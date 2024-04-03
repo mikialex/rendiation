@@ -1,30 +1,46 @@
 use database::*;
 use rendiation_algebra::*;
 
+mod camera;
+mod light;
 mod material;
 mod mesh;
 mod texture;
+
+pub use camera::*;
+pub use light::*;
 pub use material::*;
 pub use mesh::*;
 pub use texture::*;
 
 pub fn register_scene_core_data_model() {
-  register_scene_data_model();
+  register_scene_self_data_model();
+  register_scene_node_data_model();
+
   register_scene_texture2d_data_model();
   register_scene_sampler_data_model();
 
-  register_mesh_data_model();
+  register_camera_data_model();
+
+  register_light_data_model();
+  register_directional_light_data_model();
+  register_point_light_data_model();
+  register_spot_light_data_model();
+
+  register_std_model_data_model();
+
+  register_attribute_mesh_data_model();
+  register_instance_mesh_data_model();
+
   register_flat_material_data_model();
   register_pbr_sg_material_data_model();
   register_pbr_mr_material_data_model();
-  register_std_model_data_model();
-  register_scene_node_data_model();
 }
 
 declare_entity!(SceneEntity);
 declare_component!(SceneSolidBackground, SceneEntity, Option<Vec3<f32>>);
 
-pub fn register_scene_data_model() {
+pub fn register_scene_self_data_model() {
   global_database()
     .declare_entity::<SceneEntity>()
     .declare_component::<SceneSolidBackground>();
