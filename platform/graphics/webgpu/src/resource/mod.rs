@@ -121,6 +121,13 @@ pub struct ResourceViewRc<T: Resource> {
   inner: Arc<ResourceViewContainer<T>>,
 }
 
+impl<T: Resource> std::fmt::Debug for ResourceViewRc<T> {
+  fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    // todo
+    f.debug_struct("ResourceViewRc").finish()
+  }
+}
+
 impl<T: Resource> std::ops::Deref for ResourceViewRc<T> {
   type Target = ResourceViewContainer<T>;
 

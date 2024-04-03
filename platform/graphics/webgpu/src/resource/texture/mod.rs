@@ -106,26 +106,26 @@ texture_downcast!(
   "raw texture not a cube"
 );
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct GPU1DTextureView(pub GPUTextureView);
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct GPU2DTextureView(pub GPUTextureView);
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct GPU2DArrayTextureView(pub GPUTextureView);
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct GPUCubeTextureView(pub GPUTextureView);
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct GPUCubeArrayTextureView(pub GPUTextureView);
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct GPU3DTextureView(pub GPUTextureView);
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct GPU2DDepthTextureView(pub GPUTextureView);
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct GPU2DArrayDepthTextureView(pub GPUTextureView);
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct GPUCubeDepthTextureView(pub GPUTextureView);
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct GPUCubeArrayDepthTextureView(pub GPUTextureView);
 
 macro_rules! texture_view_inner {

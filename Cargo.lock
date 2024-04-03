@@ -3552,6 +3552,7 @@ name = "rendiation-texture-gpu-system"
 version = "0.1.0"
 dependencies = [
  "futures",
+ "reactive",
  "rendiation-shader-api",
  "rendiation-webgpu",
  "slab",
