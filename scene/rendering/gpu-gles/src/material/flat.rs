@@ -2,12 +2,12 @@ use crate::*;
 
 pub type FlatMaterialUniforms = UniformUpdateContainer<FlatMaterialEntity, FlatMaterialUniform>;
 
-pub fn flat_material_gpus(cx: GPUResourceCtx) -> FlatMaterialUniforms {
-  let source = global_watch()
+pub fn flat_material_uniforms(cx: &GPUResourceCtx) -> FlatMaterialUniforms {
+  let color = global_watch()
     .watch_typed_key::<FlatMaterialDisplayColorComponent>()
     .into_uniform_collection_update(offset_of!(FlatMaterialUniform, color), cx);
 
-  FlatMaterialUniforms::default().with_source(source)
+  FlatMaterialUniforms::default().with_source(color)
 }
 
 #[repr(C)]

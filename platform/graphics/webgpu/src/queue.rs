@@ -21,6 +21,7 @@ impl Deref for GPUQueue {
   }
 }
 
+/// group device and queue for general resource maintain requirements
 #[derive(Clone)]
 pub struct GPUResourceCtx {
   pub device: GPUDevice,
