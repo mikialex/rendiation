@@ -7,6 +7,8 @@ use rendiation_webgpu_reactive_utils::*;
 
 mod material;
 pub use material::*;
+mod mesh;
+pub use mesh::*;
 mod camera;
 pub use camera::*;
 mod node;

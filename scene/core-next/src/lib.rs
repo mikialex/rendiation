@@ -46,6 +46,9 @@ pub fn register_scene_self_data_model() {
     .declare_component::<SceneSolidBackground>();
 }
 
+declare_entity!(BufferEntity);
+declare_component!(BufferEntityData, BufferEntity, ExternalRefPtr<Vec<u8>>);
+
 declare_entity!(SceneModelEntity);
 declare_foreign_key!(SceneModelBelongsToScene, SceneModelEntity, SceneEntity);
 declare_foreign_key!(

@@ -48,8 +48,17 @@ pub struct IndexValueChange<T> {
 }
 
 use std::sync::Arc;
+#[derive(Default)]
 pub struct ExternalRefPtr<T> {
   pub ptr: Arc<T>,
+}
+
+impl<T> std::ops::Deref for ExternalRefPtr<T> {
+  type Target = T;
+
+  fn deref(&self) -> &Self::Target {
+    self.ptr.deref()
+  }
 }
 
 impl<T> Clone for ExternalRefPtr<T> {

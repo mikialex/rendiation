@@ -15,13 +15,6 @@ declare_component!(
   Option<BufferViewRange>
 );
 
-declare_entity!(BufferEntity);
-declare_component!(
-  BufferEntityData,
-  BufferEntity,
-  Option<ExternalRefPtr<Vec<u8>>>
-);
-
 declare_entity!(AttributeMeshVertexBufferRelation);
 declare_component!(
   AttributeMeshVertexBufferRange,
