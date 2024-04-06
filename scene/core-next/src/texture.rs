@@ -1,4 +1,4 @@
-use rendiation_texture::GPUBufferImage;
+use rendiation_texture::{GPUBufferImage, TextureSampler};
 
 use crate::*;
 
@@ -8,13 +8,30 @@ declare_component!(
   SceneTexture2dEntity,
   Option<ExternalRefPtr<GPUBufferImage>>
 );
-
 pub fn register_scene_texture2d_data_model() {
-  global_database().declare_entity::<SceneTexture2dEntity>();
+  global_database()
+    .declare_entity::<SceneTexture2dEntity>()
+    .declare_component::<SceneTexture2dEntityDirectContent>();
 }
+
+declare_entity!(SceneTextureCubeEntity);
+declare_component!(
+  SceneTextureCubeEntityDirectContent,
+  SceneTextureCubeEntity,
+  Option<ExternalRefPtr<GPUBufferImage>>
+);
+pub fn register_scene_texture_cube_data_model() {
+  global_database()
+    .declare_entity::<SceneTextureCubeEntity>()
+    .declare_component::<SceneTextureCubeEntityDirectContent>();
+}
+
 declare_entity!(SceneSamplerEntity);
+declare_component!(SceneSamplerInfo, SceneSamplerEntity, TextureSampler);
 pub fn register_scene_sampler_data_model() {
-  global_database().declare_entity::<SceneSamplerEntity>();
+  global_database()
+    .declare_entity::<SceneSamplerEntity>()
+    .declare_component::<SceneSamplerInfo>();
 }
 
 pub trait TextureWithSamplingForeignKeys: EntityAssociateSemantic {}

@@ -2,7 +2,6 @@ use crate::*;
 
 pub type SceneNodeUniforms = UniformUpdateContainer<SceneNodeEntity, TransformGPUData>;
 
-// todo, update not recreate
 pub fn node_gpus(
   node_mats: impl ReactiveCollection<AllocIdx<SceneNodeEntity>, Mat4<f32>>,
   cx: &GPUResourceCtx,

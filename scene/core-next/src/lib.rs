@@ -1,12 +1,14 @@
 use database::*;
 use rendiation_algebra::*;
 
+mod animation;
 mod camera;
 mod light;
 mod material;
 mod mesh;
 mod texture;
 
+pub use animation::*;
 pub use camera::*;
 pub use light::*;
 pub use material::*;
@@ -89,7 +91,7 @@ pub fn register_std_model_data_model() {
 }
 
 declare_entity!(SceneNodeEntity);
-declare_component!(SceneNodeParentIdx, SceneNodeEntity, u32);
+declare_component!(SceneNodeParentIdx, SceneNodeEntity, u32); // should we add generation?
 declare_component!(SceneNodeLocalMatrixComponent, SceneNodeEntity, Mat4<f32>);
 declare_component!(SceneNodeVisibleComponent, SceneNodeEntity, bool, true);
 pub fn register_scene_node_data_model() {

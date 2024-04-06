@@ -65,6 +65,7 @@ where
 
 pub trait CollectionUpdate<T: ?Sized> {
   fn update_target(&mut self, target: &mut T, cx: &mut Context);
+  fn flush(&mut self) {}
 }
 
 /// this struct is to support merge multiple collection updates into one target
