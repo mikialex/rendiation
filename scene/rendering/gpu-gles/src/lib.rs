@@ -19,6 +19,8 @@ mod camera;
 pub use camera::*;
 mod node;
 pub use node::*;
+mod light;
+pub use light::*;
 
 pub fn global_watch() -> DatabaseMutationWatch {
   todo!()
