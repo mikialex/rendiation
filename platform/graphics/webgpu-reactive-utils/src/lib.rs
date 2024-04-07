@@ -11,3 +11,5 @@ mod storage;
 pub use storage::*;
 mod uniform;
 pub use uniform::*;
+mod cube_map;
+pub use cube_map::*;

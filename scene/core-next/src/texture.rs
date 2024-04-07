@@ -15,15 +15,46 @@ pub fn register_scene_texture2d_data_model() {
 }
 
 declare_entity!(SceneTextureCubeEntity);
-declare_component!(
-  SceneTextureCubeEntityDirectContent,
+declare_foreign_key!(
+  SceneTextureCubeXPositiveFace,
   SceneTextureCubeEntity,
-  Option<ExternalRefPtr<GPUBufferImage>>
+  SceneTexture2dEntity
 );
+declare_foreign_key!(
+  SceneTextureCubeYPositiveFace,
+  SceneTextureCubeEntity,
+  SceneTexture2dEntity
+);
+declare_foreign_key!(
+  SceneTextureCubeZPositiveFace,
+  SceneTextureCubeEntity,
+  SceneTexture2dEntity
+);
+declare_foreign_key!(
+  SceneTextureCubeXNegativeFace,
+  SceneTextureCubeEntity,
+  SceneTexture2dEntity
+);
+declare_foreign_key!(
+  SceneTextureCubeYNegativeFace,
+  SceneTextureCubeEntity,
+  SceneTexture2dEntity
+);
+declare_foreign_key!(
+  SceneTextureCubeZNegativeFace,
+  SceneTextureCubeEntity,
+  SceneTexture2dEntity
+);
+
 pub fn register_scene_texture_cube_data_model() {
   global_database()
     .declare_entity::<SceneTextureCubeEntity>()
-    .declare_component::<SceneTextureCubeEntityDirectContent>();
+    .declare_foreign_key::<SceneTextureCubeXPositiveFace>()
+    .declare_foreign_key::<SceneTextureCubeYPositiveFace>()
+    .declare_foreign_key::<SceneTextureCubeZPositiveFace>()
+    .declare_foreign_key::<SceneTextureCubeXNegativeFace>()
+    .declare_foreign_key::<SceneTextureCubeYNegativeFace>()
+    .declare_foreign_key::<SceneTextureCubeZNegativeFace>();
 }
 
 declare_entity!(SceneSamplerEntity);
