@@ -24,6 +24,7 @@ rendiation-texture-gpu-base = { path = "../../../content/texture/gpu-base" }
 reactive = { path = "../../../utility/reactive" }
 rendiation-webgpu = { path = "../../../platform/graphics/webgpu" }
 rendiation-webgpu-reactive-utils = { path = "../../../platform/graphics/webgpu-reactive-utils" }
+rendiation-lighting-transport = { path = "../../../content/lighting/transport" }
 
 [lints]
 workspace = true

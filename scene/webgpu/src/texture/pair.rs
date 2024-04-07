@@ -23,10 +23,8 @@ impl GPUTextureSamplerPair {
     self.sys.maybe_sample_texture2d_indirect_and_bind_shader(
       binding,
       reg,
-      self.texture,
-      handles.texture_handle,
-      self.sampler,
-      handles.sampler_handle,
+      (self.texture, self.sampler),
+      (handles.texture_handle, handles.sampler_handle),
       uv,
     )
   }
@@ -42,10 +40,8 @@ impl GPUTextureSamplerPair {
     let r = self.sys.maybe_sample_texture2d_indirect_and_bind_shader(
       binding,
       reg,
-      self.texture,
-      handles.texture_handle,
-      self.sampler,
-      handles.sampler_handle,
+      (self.texture, self.sampler),
+      (handles.texture_handle, handles.sampler_handle),
       uv,
     );
     (r, handles.texture_handle.equals(val(0)))

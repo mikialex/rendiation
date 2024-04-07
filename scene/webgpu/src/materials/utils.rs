@@ -48,8 +48,6 @@ pub enum UniformChangePicked<T> {
   Origin(T),
 }
 
-pub struct ShadingSelection;
-
 pub fn srgba_to_linear(color: Vec4<f32>) -> Vec4<f32> {
   let alpha = color.a();
   let color = srgb_to_linear(color.rgb());

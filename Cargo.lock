@@ -3416,6 +3416,7 @@ dependencies = [
  "rendiation-algebra",
  "rendiation-color",
  "rendiation-geometry",
+ "rendiation-lighting-transport",
  "rendiation-mesh-core",
  "rendiation-mesh-gpu-system",
  "rendiation-scene-core-next",

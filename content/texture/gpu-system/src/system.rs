@@ -166,10 +166,8 @@ impl GPUTextureBindingSystem {
     &self,
     binding: &mut ShaderBindGroupDirectBuilder,
     reg: &SemanticRegistry,
-    texture_handle: Texture2DHandle,
-    shader_texture_handle: Node<Texture2DHandle>,
-    sample_handle: SamplerHandle,
-    shader_sampler_handle: Node<SamplerHandle>,
+    host_handles: (Texture2DHandle, SamplerHandle),
+    device_handles: (Node<Texture2DHandle>, Node<SamplerHandle>),
     uv: Node<Vec2<f32>>,
   ) -> Node<Vec4<f32>> {
     if self.bindless_enabled {
@@ -181,13 +179,13 @@ impl GPUTextureBindingSystem {
         .query_typed_both_stage::<BindlessSamplersInShader>()
         .unwrap();
 
-      let texture = textures.index(shader_texture_handle);
-      let sampler = samplers.index(shader_sampler_handle);
+      let texture = textures.index(device_handles.0);
+      let sampler = samplers.index(device_handles.1);
+      // todo currently mipmap is not supported
       texture.sample_level(sampler, uv, val(0.))
     } else {
-      let texture = self.shader_bind_texture(binding, texture_handle);
-      let sampler = self.shader_bind_sampler(binding, sample_handle);
-      // todo currently mipmap is not supported
+      let texture = self.shader_bind_texture(binding, host_handles.0);
+      let sampler = self.shader_bind_sampler(binding, host_handles.1);
       texture.sample(sampler, uv)
     }
   }

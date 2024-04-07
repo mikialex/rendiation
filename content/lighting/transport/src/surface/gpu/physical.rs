@@ -14,6 +14,7 @@ both!(GlossinessChannel, f32);
 both!(ReflectanceChannel, f32);
 
 pub struct PhysicalShading;
+pub struct ShadingSelection;
 
 pub fn compute_dielectric_f0(reflectance: Node<f32>) -> Node<f32> {
   val(0.16) * reflectance * reflectance

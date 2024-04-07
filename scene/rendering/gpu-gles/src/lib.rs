@@ -1,5 +1,7 @@
 #![feature(stmt_expr_attributes)]
 
+use std::hash::Hash;
+
 use database::*;
 use reactive::*;
 use rendiation_scene_core_next::*;
