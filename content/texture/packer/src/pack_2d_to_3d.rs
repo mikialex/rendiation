@@ -1,7 +1,7 @@
-use std::{iter, num::NonZeroU32};
+use std::iter;
 
 use fast_hash_collection::FastHashMap;
-use rendiation_texture::Size;
+use rendiation_texture::{Size, SizeWithDepth};
 
 use crate::pack_2d_to_2d::*;
 use crate::*;
@@ -88,10 +88,4 @@ pub struct PackResult2dWithDepth {
 pub struct MultiLayerTexturePackerConfig {
   pub max_size: SizeWithDepth,
   pub init_size: SizeWithDepth,
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct SizeWithDepth {
-  pub depth: NonZeroU32,
-  pub size: Size,
 }

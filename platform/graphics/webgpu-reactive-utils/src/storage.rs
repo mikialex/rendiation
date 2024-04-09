@@ -6,7 +6,8 @@ use crate::*;
 pub struct ReactiveStorageBufferContainer<T: Std430> {
   inner: MultiUpdateContainer<StorageBufferReadOnlyDataView<[T]>>,
   current_size: u32,
-  max_idx: Box<dyn Stream<Item = u32> + Unpin>,
+  // resize is fully decided by user, and it's user's responsibility to avoid frequently resizing
+  resizer: Box<dyn Stream<Item = u32> + Unpin>,
   gpu_ctx: GPUResourceCtx,
 }
 
@@ -27,14 +28,15 @@ impl<T: Std430> ReactiveStorageBufferContainer<T> {
     Self {
       inner,
       current_size: init_capacity as u32,
-      max_idx: Box::new(max),
+      resizer: Box::new(max),
       gpu_ctx,
     }
   }
 
   pub fn poll_update(&mut self, cx: &mut Context) {
-    if let Poll::Ready(Some(max_idx)) = self.max_idx.poll_next_unpin(cx) {
+    if let Poll::Ready(Some(max_idx)) = self.resizer.poll_next_unpin(cx) {
       // resize target
+      // todo shrink check?
       if max_idx > self.current_size {
         let previous_size = self.current_size;
         self.current_size = max_idx;

@@ -6,15 +6,15 @@ pub struct GrowablePacker<P: RePackablePacker + TexturePackerInit> {
   packer: P,
   current_config: P::Config,
   result: FastHashMap<PackId, (P::Input, P::PackOutput)>,
-  on_grow: Box<dyn FnMut(P::Config) -> Option<P::Config>>,
-  relocation_callback: Box<dyn FnMut(PackResultRelocation<P::PackOutput>)>,
+  on_grow: Box<dyn FnMut(P::Config) -> Option<P::Config> + Send + Sync>,
+  relocation_callback: Box<dyn FnMut(PackResultRelocation<P::PackOutput>) + Send + Sync>,
 }
 
 impl<P: RePackablePacker + TexturePackerInit> GrowablePacker<P> {
   pub fn new(
     init: P::Config,
-    grow: impl FnMut(P::Config) -> Option<P::Config> + 'static,
-    relocation: impl FnMut(PackResultRelocation<P::PackOutput>) + 'static,
+    grow: impl FnMut(P::Config) -> Option<P::Config> + 'static + Send + Sync,
+    relocation: impl FnMut(PackResultRelocation<P::PackOutput>) + 'static + Send + Sync,
   ) -> Self {
     Self {
       packer: P::init_by_config(init.clone()),

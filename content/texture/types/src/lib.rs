@@ -1,4 +1,7 @@
-use std::{num::NonZeroUsize, ops::Mul};
+use std::{
+  num::{NonZeroU32, NonZeroUsize},
+  ops::Mul,
+};
 
 /// Represent a none zero size(width/height)
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
@@ -115,5 +118,11 @@ impl From<(usize, usize)> for TextureOrigin {
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
 pub struct TextureRange {
   pub origin: TextureOrigin,
+  pub size: Size,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct SizeWithDepth {
+  pub depth: NonZeroU32,
   pub size: Size,
 }

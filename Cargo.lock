@@ -3431,6 +3431,24 @@ dependencies = [
 ]
 
 [[package]]
+name = "rendiation-scene-shadow-map"
+version = "0.1.0"
+dependencies = [
+ "database",
+ "fast-hash-collection",
+ "parking_lot",
+ "reactive",
+ "rendiation-algebra",
+ "rendiation-scene-core-next",
+ "rendiation-shader-api",
+ "rendiation-shader-library",
+ "rendiation-texture",
+ "rendiation-texture-packer",
+ "rendiation-webgpu",
+ "rendiation-webgpu-reactive-utils",
+]
+
+[[package]]
 name = "rendiation-scene-webgpu"
 version = "0.1.0"
 dependencies = [
@@ -3565,7 +3583,6 @@ dependencies = [
  "etagere",
  "fast-hash-collection",
  "linked-hash-map",
- "reactive",
  "rendiation-texture",
 ]
 

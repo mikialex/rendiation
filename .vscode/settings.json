@@ -136,6 +136,7 @@
         "renormalize",
         "repr",
         "reproject",
+        "resizer",
         "rgba",
         "rustfmt",
         "rwlock",

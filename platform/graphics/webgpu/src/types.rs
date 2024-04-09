@@ -1,3 +1,5 @@
+use std::num::NonZeroU32;
+
 use crate::*;
 
 pub trait GPUTextureSize {
@@ -17,6 +19,25 @@ impl GPUTextureSize for Size {
     Size {
       width: NonZeroUsize::new(size.width as usize).unwrap(),
       height: NonZeroUsize::new(size.height as usize).unwrap(),
+    }
+  }
+}
+
+impl GPUTextureSize for SizeWithDepth {
+  fn into_gpu_size(self) -> gpu::Extent3d {
+    gpu::Extent3d {
+      width: usize::from(self.size.width) as u32,
+      height: usize::from(self.size.height) as u32,
+      depth_or_array_layers: self.depth.into(),
+    }
+  }
+  fn from_gpu_size(size: gpu::Extent3d) -> Self {
+    SizeWithDepth {
+      size: Size {
+        width: NonZeroUsize::new(size.width as usize).unwrap(),
+        height: NonZeroUsize::new(size.height as usize).unwrap(),
+      },
+      depth: NonZeroU32::new(size.depth_or_array_layers).unwrap(),
     }
   }
 }
