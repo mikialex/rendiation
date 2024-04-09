@@ -21,6 +21,9 @@ pub use collection_ext::*;
 mod single;
 pub use single::*;
 
+mod collection_channel;
+pub use collection_channel::*;
+
 mod single_shared;
 pub use single_shared::*;
 

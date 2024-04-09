@@ -1,10 +1,3 @@
-use std::pin::Pin;
-use std::task::{Context, Poll};
-
-use futures::task::AtomicWaker;
-use futures::{Stream, StreamExt};
-use parking_lot::lock_api::RawRwLock;
-
 use crate::*;
 
 #[derive(Clone)]
@@ -39,7 +32,7 @@ impl DatabaseMutationWatch {
       (rev, full)
     });
 
-    let rxc = ReactiveCollectionFromComponentMutation {
+    let rxc = ReactiveCollectionFromCollectiveMutation {
       full: Box::new(full),
       mutation: RwLock::new(rev),
     };
@@ -97,7 +90,7 @@ impl DatabaseMutationWatch {
       })
     });
 
-    let rxc = ReactiveCollectionFromComponentMutation {
+    let rxc = ReactiveCollectionFromCollectiveMutation {
       full: Box::new(ComponentAccess {
         ecg: self.db.access_ecg_dyn(entity_id, |ecg| ecg.clone()),
         original,
@@ -117,8 +110,8 @@ impl DatabaseMutationWatch {
 
 fn add_listen<T: CValue>(
   source: &EventSource<ScopedValueChange<T>>,
-) -> ComponentMutationReceiver<T> {
-  let (sender, receiver) = channel::<T>();
+) -> CollectiveMutationReceiver<T> {
+  let (sender, receiver) = collective_channel::<T>();
   source.on(move |change| unsafe {
     match change {
       ScopedMessage::Start => {
@@ -138,92 +131,6 @@ fn add_listen<T: CValue>(
   receiver
 }
 
-type MutationData<T> = FastHashMap<u32, ValueChange<T>>;
-
-fn channel<T>() -> (ComponentMutationSender<T>, ComponentMutationReceiver<T>) {
-  let inner: Arc<(RwLock<MutationData<T>>, AtomicWaker)> = Default::default();
-  let sender = ComponentMutationSender {
-    inner: inner.clone(),
-  };
-  let receiver = ComponentMutationReceiver { inner };
-
-  (sender, receiver)
-}
-
-struct ComponentMutationSender<T> {
-  inner: Arc<(RwLock<MutationData<T>>, AtomicWaker)>,
-}
-
-impl<T: CValue> ComponentMutationSender<T> {
-  unsafe fn lock(&self) {
-    self.inner.0.raw().lock_exclusive()
-  }
-
-  unsafe fn unlock(&self) {
-    self.inner.1.wake();
-    self.inner.0.raw().unlock_exclusive()
-  }
-  unsafe fn send(&self, idx: u32, change: ValueChange<T>) {
-    let mutations = &mut *self.inner.0.data_ptr();
-    if let Some(old_change) = mutations.get_mut(&idx) {
-      if !old_change.merge(&change) {
-        mutations.remove(&idx);
-      }
-    } else {
-      mutations.insert(idx, change);
-    }
-  }
-  fn is_closed(&self) -> bool {
-    // self inner is shared between sender and receiver, if not shared anymore it must be
-    // receiver not exist anymore, so the channel is closed.
-    Arc::strong_count(&self.inner) == 1
-  }
-}
-
-/// this is not likely to be triggered because component type is not get removed in any time
-impl<T> Drop for ComponentMutationSender<T> {
-  fn drop(&mut self) {
-    self.inner.1.wake()
-  }
-}
-
-struct ComponentMutationReceiver<T> {
-  inner: Arc<(RwLock<MutationData<T>>, AtomicWaker)>,
-}
-
-impl<T: CValue> Stream for ComponentMutationReceiver<T> {
-  type Item = Box<dyn VirtualCollection<u32, ValueChange<T>>>;
-
-  fn poll_next(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Option<Self::Item>> {
-    self.inner.1.register(cx.waker());
-    let mut changes = self.inner.0.write();
-    let changes: &mut MutationData<T> = &mut changes;
-
-    let changes = std::mem::take(changes);
-    if !changes.is_empty() {
-      Poll::Ready(Some(Box::new(changes)))
-      // check if the sender has been dropped
-    } else if Arc::strong_count(&self.inner) == 1 {
-      Poll::Ready(None)
-    } else {
-      Poll::Pending
-    }
-  }
-}
-
-// this trait could be lift into upper stream
-pub trait VirtualCollectionAccess<K, V>: Send + Sync {
-  fn access(&self) -> CollectionView<K, V>;
-}
-
-impl<K: CKey, V: CValue, T: VirtualCollection<K, V> + 'static> VirtualCollectionAccess<K, V>
-  for Arc<RwLock<T>>
-{
-  fn access(&self) -> CollectionView<K, V> {
-    Box::new(self.make_read_holder())
-  }
-}
-
 struct ComponentAccess<T> {
   ecg: EntityComponentGroup,
   original: Arc<dyn ComponentStorage<T>>,
@@ -235,26 +142,5 @@ impl<T: CValue> VirtualCollectionAccess<u32, T> for ComponentAccess<T> {
       ecg: self.ecg.clone(),
       read_view: self.original.create_read_view(),
     }) as PollCollectionCurrent<u32, T>
-  }
-}
-
-struct ReactiveCollectionFromComponentMutation<T> {
-  full: Box<dyn VirtualCollectionAccess<u32, T>>,
-  mutation: RwLock<ComponentMutationReceiver<T>>,
-}
-impl<T: CValue> ReactiveCollection<u32, T> for ReactiveCollectionFromComponentMutation<T> {
-  fn poll_changes(&self, cx: &mut Context) -> PollCollectionChanges<u32, T> {
-    match self.mutation.write().poll_next_unpin(cx) {
-      Poll::Ready(Some(r)) => Poll::Ready(r),
-      _ => Poll::Pending,
-    }
-  }
-
-  fn access(&self) -> PollCollectionCurrent<u32, T> {
-    self.full.access()
-  }
-
-  fn extra_request(&mut self, _request: &mut ExtraCollectionOperation) {
-    // component storage should not shrink here
   }
 }
