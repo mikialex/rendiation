@@ -1,17 +1,15 @@
 #![feature(offset_of)]
 
-use std::{
-  num::NonZeroU32,
-  task::{Context, Poll},
-};
+use std::task::{Context, Poll};
 
 use reactive::*;
 use rendiation_algebra::*;
 use rendiation_shader_api::*;
 use rendiation_texture::*;
 use rendiation_texture_packer::{
-  growable::GrowablePacker, pack_2d_to_2d::pack_impl::etagere_wrap::EtagerePacker,
-  pack_2d_to_3d::MultiLayerTexturePacker,
+  growable::GrowablePacker,
+  pack_2d_to_2d::pack_impl::etagere_wrap::EtagerePacker,
+  pack_2d_to_3d::{MultiLayerTexturePacker, PackResult2dWithDepth},
 };
 use rendiation_webgpu::*;
 use rendiation_webgpu_reactive_utils::*;
@@ -107,7 +105,7 @@ impl BasicShadowMapSystem {
     size: Box<dyn ReactiveCollection<u32, Size>>,
   ) -> (Self, Box<dyn ReactiveCollection<u32, ShadowMapAddressInfo>>) {
     let (packing, atlas_resize) = reactive_pack_2d_to_3d(config, size);
-    let packing = packing.into_forker();
+    let packing = packing.collective_map(convert_pack_result).into_forker();
 
     let shadow_map_gpu = GPUTexture::create(
       TextureDescriptor {
@@ -163,6 +161,21 @@ impl BasicShadowMapSystem {
         .unwrap();
       // let viewport = todo
     }
+  }
+}
+
+fn convert_pack_result(r: PackResult2dWithDepth) -> ShadowMapAddressInfo {
+  ShadowMapAddressInfo {
+    layer_index: r.depth as i32,
+    size: Vec2::new(
+      usize::from(r.result.range.size.width) as f32,
+      usize::from(r.result.range.size.height) as f32,
+    ),
+    offset: Vec2::new(
+      r.result.range.origin.x as f32,
+      r.result.range.origin.y as f32,
+    ),
+    ..Default::default()
   }
 }
 
