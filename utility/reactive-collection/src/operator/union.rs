@@ -114,7 +114,8 @@ where
     let checker = make_checker(self.f);
 
     let a_side = self.a.iter_key_value().filter_map(move |(k, v1)| {
-      checker(union(
+      checker(join_change(
+        &k,
         &k,
         Some(v1),
         self.b.access(&k),
@@ -129,7 +130,8 @@ where
       .iter_key_value()
       .filter(|(k, _)| self.a.access(k).is_none()) // remove the a_side part
       .filter_map(move |(k, v2)| {
-        checker(union(
+        checker(join_change(
+          &k,
           &k,
           self.a.access(&k),
           Some(v2),
@@ -145,7 +147,8 @@ where
   fn access(&self, key: &K) -> Option<ValueChange<O>> {
     let checker = make_checker(self.f);
 
-    checker(union(
+    checker(join_change(
+      key,
       key,
       self.a.access(key),
       self.b.access(key),
@@ -153,68 +156,4 @@ where
       &|k| self.b_current.access(k),
     )?)
   }
-}
-
-fn union<K: Clone, V1: Clone, V2: Clone>(
-  k: &K,
-  change1: Option<ValueChange<V1>>,
-  change2: Option<ValueChange<V2>>,
-  v1_current: &impl Fn(&K) -> Option<V1>,
-  v2_current: &impl Fn(&K) -> Option<V2>,
-) -> Option<ValueChange<(Option<V1>, Option<V2>)>> {
-  let r = match (change1, change2) {
-    (None, None) => return None,
-    (None, Some(change2)) => match change2 {
-      ValueChange::Delta(v2, p2) => {
-        let v1_current = v1_current(k);
-        ValueChange::Delta((v1_current.clone(), Some(v2)), Some((v1_current, p2)))
-      }
-      ValueChange::Remove(p2) => {
-        if let Some(v1_current) = v1_current(k) {
-          ValueChange::Delta(
-            (Some(v1_current.clone()), None),
-            Some((Some(v1_current), Some(p2))),
-          )
-        } else {
-          ValueChange::Remove((None, Some(p2)))
-        }
-      }
-    },
-    (Some(change1), None) => match change1 {
-      ValueChange::Delta(v1, p1) => {
-        let v2_current = v2_current(k);
-        ValueChange::Delta((Some(v1), v2_current.clone()), Some((p1, v2_current)))
-      }
-      ValueChange::Remove(p1) => {
-        if let Some(v2_current) = v2_current(k) {
-          ValueChange::Delta(
-            (None, Some(v2_current.clone())),
-            Some((Some(p1), Some(v2_current))),
-          )
-        } else {
-          ValueChange::Remove((Some(p1), None))
-        }
-      }
-    },
-    (Some(change1), Some(change2)) => match (change1, change2) {
-      (ValueChange::Delta(v1, p1), ValueChange::Delta(v2, p2)) => {
-        ValueChange::Delta((Some(v1), Some(v2)), Some((p1, p2)))
-      }
-      (ValueChange::Delta(v1, p1), ValueChange::Remove(p2)) => {
-        ValueChange::Delta((Some(v1), v2_current(k)), Some((p1, Some(p2))))
-      }
-      (ValueChange::Remove(p1), ValueChange::Delta(v2, p2)) => {
-        ValueChange::Delta((v1_current(k), Some(v2)), Some((Some(p1), p2)))
-      }
-      (ValueChange::Remove(p1), ValueChange::Remove(p2)) => {
-        ValueChange::Remove((Some(p1), Some(p2)))
-      }
-    },
-  };
-
-  if let ValueChange::Delta(new, Some((None, None))) = r {
-    return ValueChange::Delta(new, None).into();
-  }
-
-  r.into()
 }

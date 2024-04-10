@@ -13,6 +13,9 @@ pub use map::*;
 mod filter;
 pub use filter::*;
 
+mod join;
+pub use join::*;
+
 mod utils;
 pub use utils::*;
 
@@ -141,6 +144,22 @@ where
       inner: self,
       checker: f,
       k: PhantomData,
+    }
+    .workaround_box()
+  }
+
+  fn collective_cross_join<K2, V2>(
+    self,
+    other: impl ReactiveCollection<K2, V2>,
+  ) -> impl ReactiveCollection<(K, K2), (V, V2)>
+  where
+    K2: CKey,
+    V2: CValue,
+  {
+    ReactiveCrossJoin {
+      a: self,
+      b: other,
+      phantom: PhantomData,
     }
     .workaround_box()
   }
