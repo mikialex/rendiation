@@ -3591,6 +3591,17 @@ name = "rendiation-texture-types"
 version = "0.1.0"
 
 [[package]]
+name = "rendiation-view-override-model"
+version = "0.1.0"
+dependencies = [
+ "database",
+ "reactive",
+ "rendiation-algebra",
+ "rendiation-scene-core-next",
+ "rendiation-webgpu",
+]
+
+[[package]]
 name = "rendiation-webgpu"
 version = "0.1.0"
 dependencies = [

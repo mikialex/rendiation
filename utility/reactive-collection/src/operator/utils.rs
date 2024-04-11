@@ -56,11 +56,11 @@ pub struct ReactiveCollectionDiff<T, K, V> {
 }
 
 #[derive(Clone)]
-pub struct DiffChangedView<'a, K, V> {
-  inner: CollectionChanges<'a, K, V>,
+pub struct DiffChangedView<K, V> {
+  inner: CollectionChanges<K, V>,
 }
 
-impl<'a, K, V> VirtualCollection<K, ValueChange<V>> for DiffChangedView<'a, K, V>
+impl<K, V> VirtualCollection<K, ValueChange<V>> for DiffChangedView<K, V>
 where
   K: CKey,
   V: CValue,

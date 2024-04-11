@@ -1,4 +1,5 @@
 use database::*;
+use reactive::*;
 use rendiation_algebra::*;
 
 mod animation;
@@ -24,7 +25,6 @@ pub fn register_scene_core_data_model() {
 
   register_camera_data_model();
 
-  register_light_data_model();
   register_directional_light_data_model();
   register_point_light_data_model();
   register_spot_light_data_model();
@@ -100,4 +100,35 @@ pub fn register_scene_node_data_model() {
     .declare_component::<SceneNodeParentIdx>()
     .declare_component::<SceneNodeLocalMatrixComponent>()
     .declare_component::<SceneNodeVisibleComponent>();
+}
+
+// todo reuse
+pub fn scene_node_connectivity() -> Box<dyn ReactiveOneToManyRelationship<u32, u32>> {
+  Box::new(
+    global_watch()
+      .watch::<SceneNodeParentIdx>()
+      .into_one_to_many_by_idx(),
+  )
+}
+
+// todo reuse
+pub fn scene_node_derive_visible() -> impl ReactiveCollection<u32, bool> {
+  tree_payload_derive_by_parent_decide_children(
+    scene_node_connectivity(),
+    global_watch()
+      .watch::<SceneNodeVisibleComponent>()
+      .into_boxed(), // todo avoid extra boxing
+    |this, parent| parent.map(|p| *p && *this).unwrap_or(*this),
+  )
+}
+
+// todo reuse
+pub fn scene_node_derive_world_mat() -> impl ReactiveCollection<u32, Mat4<f32>> {
+  tree_payload_derive_by_parent_decide_children(
+    scene_node_connectivity(),
+    global_watch()
+      .watch::<SceneNodeLocalMatrixComponent>()
+      .into_boxed(), // todo avoid extra boxing
+    |this, parent| parent.map(|p| *p * *this).unwrap_or(*this),
+  )
 }

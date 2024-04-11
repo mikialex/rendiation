@@ -1,0 +1,15 @@
+[package]
+authors = ["mikialex <18516340862@163.com>"]
+edition = "2021"
+name = "rendiation-view-override-model"
+version = "0.1.0"
+
+[dependencies]
+rendiation-algebra = { path = "../../math/algebra" }
+rendiation-scene-core-next = { path = "../../scene/core-next" }
+database = { path = "../../utility/database" }
+reactive = { path = "../../utility/reactive" }
+webgpu = { package = "rendiation-webgpu", path = "../../platform/graphics/webgpu" }
+
+[lints]
+workspace = true

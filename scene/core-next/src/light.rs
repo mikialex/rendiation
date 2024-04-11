@@ -1,28 +1,8 @@
 use crate::*;
 
-declare_entity!(SceneLightEntity);
-declare_foreign_key!(SceneLightBelongsToScene, SceneLightEntity, SceneEntity);
-declare_foreign_key!(SceneLightNode, SceneLightEntity, SceneNodeEntity);
-
-declare_foreign_key!(SceneLightPointLight, SceneLightEntity, PointLightEntity);
-declare_foreign_key!(SceneLightSpotLight, SceneLightEntity, SpotLightEntity);
-declare_foreign_key!(
-  SceneLightDirectionalLight,
-  SceneLightEntity,
-  DirectionalLightEntity
-);
-
-pub fn register_light_data_model() {
-  global_database()
-    .declare_entity::<SceneLightEntity>()
-    .declare_foreign_key::<SceneLightBelongsToScene>()
-    .declare_foreign_key::<SceneLightNode>()
-    .declare_foreign_key::<SceneLightPointLight>()
-    .declare_foreign_key::<SceneLightSpotLight>()
-    .declare_foreign_key::<SceneLightDirectionalLight>();
-}
-
 declare_entity!(PointLightEntity);
+declare_foreign_key!(PointLightRefScene, PointLightEntity, SceneEntity);
+declare_foreign_key!(PointLightRefNode, PointLightEntity, SceneNodeEntity);
 declare_component!(PointLightCutOffDistance, PointLightEntity, f32, 10.); // in meter
 declare_component!(
   PointLightIntensity,
@@ -35,10 +15,14 @@ pub fn register_point_light_data_model() {
   global_database()
     .declare_entity::<PointLightEntity>()
     .declare_component::<PointLightCutOffDistance>()
-    .declare_component::<PointLightIntensity>();
+    .declare_component::<PointLightIntensity>()
+    .declare_foreign_key::<PointLightRefScene>()
+    .declare_foreign_key::<PointLightRefNode>();
 }
 
 declare_entity!(SpotLightEntity);
+declare_foreign_key!(SpotLightRefScene, SpotLightEntity, SceneEntity);
+declare_foreign_key!(SpotLightRefNode, SpotLightEntity, SceneNodeEntity);
 declare_component!(SpotLightCutOffDistance, SpotLightEntity, f32, 10.); // in meter
 declare_component!(SpotLightHalfConeAngle, SpotLightEntity, f32, 0.5); // in rad
 declare_component!(SpotLightHalfPenumbraAngle, SpotLightEntity, f32, 0.5); // in rad
@@ -55,11 +39,14 @@ pub fn register_spot_light_data_model() {
     .declare_component::<SpotLightCutOffDistance>()
     .declare_component::<SpotLightHalfConeAngle>()
     .declare_component::<SpotLightHalfPenumbraAngle>()
-    .declare_component::<SplitLightIntensity>();
+    .declare_component::<SplitLightIntensity>()
+    .declare_foreign_key::<SpotLightRefScene>()
+    .declare_foreign_key::<SpotLightRefNode>();
 }
 
 declare_entity!(DirectionalLightEntity);
-
+declare_foreign_key!(DirectionalRefScene, DirectionalLightEntity, SceneEntity);
+declare_foreign_key!(DirectionalRefNode, DirectionalLightEntity, SceneNodeEntity);
 declare_component!(
   DirectionalLightIlluminance,
   DirectionalLightEntity,
@@ -70,5 +57,7 @@ declare_component!(
 pub fn register_directional_light_data_model() {
   global_database()
     .declare_entity::<DirectionalLightEntity>()
-    .declare_component::<DirectionalLightIlluminance>();
+    .declare_component::<DirectionalLightIlluminance>()
+    .declare_foreign_key::<DirectionalRefScene>()
+    .declare_foreign_key::<DirectionalRefNode>();
 }

@@ -2,11 +2,8 @@ use crate::*;
 
 pub type SceneNodeUniforms = UniformUpdateContainer<SceneNodeEntity, TransformGPUData>;
 
-pub fn node_gpus(
-  node_mats: impl ReactiveCollection<AllocIdx<SceneNodeEntity>, Mat4<f32>>,
-  cx: &GPUResourceCtx,
-) -> SceneNodeUniforms {
-  let source = node_mats
+pub fn node_gpus(cx: &GPUResourceCtx) -> SceneNodeUniforms {
+  let source = scene_node_derive_world_mat()
     .collective_map(|mat| TransformGPUData {
       world_matrix: mat,
       normal_matrix: mat.to_normal_matrix().into(),
@@ -14,7 +11,8 @@ pub fn node_gpus(
     })
     .into_uniform_collection_update(0, cx);
 
-  SceneNodeUniforms::default().with_source(source)
+  // SceneNodeUniforms::default().with_source(source)
+  todo!()
 }
 
 pub struct NodeGPU<'a> {

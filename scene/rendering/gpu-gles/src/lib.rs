@@ -21,11 +21,5 @@ mod node;
 pub use node::*;
 mod light;
 pub use light::*;
-
-pub fn global_watch() -> DatabaseMutationWatch {
-  todo!()
-}
-
-pub fn global_rev_ref() -> DatabaseEntityReverseReference {
-  todo!()
-}
+mod rendering;
+pub use rendering::*;

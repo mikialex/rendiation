@@ -59,6 +59,7 @@ members = [
   "platform/graphics/webgpu",
   "platform/graphics/webgpu-reactive-utils",
   "extension/controller",
+  "extension/view-override-model",
   "application/viewer",
 ]
 

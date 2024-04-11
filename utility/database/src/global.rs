@@ -20,3 +20,11 @@ pub fn global_entity_component_of<S: ComponentSemantic>() -> ComponentCollection
     .access_component::<S, _>(|c| c.clone())
     .clone()
 }
+
+pub fn global_watch() -> DatabaseMutationWatch {
+  todo!()
+}
+
+pub fn global_rev_ref() -> DatabaseEntityReverseReference {
+  todo!()
+}

@@ -111,7 +111,7 @@ where
 
 fn finalize_buffered_changes<K: CKey, V: CValue>(
   mut changes: Vec<ForkMessage<K, V>>,
-) -> PollCollectionChanges<'static, K, V> {
+) -> PollCollectionChanges<K, V> {
   if changes.is_empty() {
     return Poll::Pending;
   }
@@ -224,7 +224,7 @@ impl<K: CKey, V: CValue> futures::task::ArcWake for BroadCast<K, V> {
 
 struct ForkedAccessView<T: 'static, K, V> {
   lock: Arc<RwLockReadGuard<'static, T>>,
-  view: CollectionView<'static, K, V>,
+  view: CollectionView<K, V>,
 }
 
 impl<T: 'static, K, V> Clone for ForkedAccessView<T, K, V> {

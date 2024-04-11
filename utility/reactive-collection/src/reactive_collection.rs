@@ -6,10 +6,10 @@ pub enum ExtraCollectionOperation {
   MemoryShrinkToFit,
 }
 
-pub type CollectionChanges<'a, K, V> = Box<dyn VirtualCollection<K, ValueChange<V>> + 'a>;
-pub type PollCollectionChanges<'a, K, V> = Poll<CollectionChanges<'a, K, V>>;
-pub type CollectionView<'a, K, V> = Box<dyn VirtualCollection<K, V> + 'a>;
-pub type PollCollectionCurrent<'a, K, V> = CollectionView<'a, K, V>;
+pub type CollectionChanges<K, V> = Box<dyn VirtualCollection<K, ValueChange<V>>>;
+pub type PollCollectionChanges<K, V> = Poll<CollectionChanges<K, V>>;
+pub type CollectionView<K, V> = Box<dyn VirtualCollection<K, V>>;
+pub type PollCollectionCurrent<K, V> = CollectionView<K, V>;
 
 pub trait ReactiveCollection<K: CKey, V: CValue>: Sync + Send + 'static {
   fn poll_changes(&self, cx: &mut Context) -> PollCollectionChanges<K, V>;
