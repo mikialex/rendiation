@@ -95,8 +95,8 @@ impl<T: CValue> VirtualCollection<u32, T> for IterableComponentReadView<T> {
 }
 
 impl<T: ComponentSemantic> ComponentReadView<T> {
-  pub fn get(&self, idx: u32) -> Option<&T::Data> {
-    self.data.get(idx as usize)
+  pub fn get(&self, idx: AllocIdx<T::Entity>) -> Option<&T::Data> {
+    self.data.get(idx.alloc_index() as usize)
   }
 }
 

@@ -3406,6 +3406,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "rendiation-scene-rendering-gpu-base"
+version = "0.1.0"
+dependencies = [
+ "fast-hash-collection",
+ "reactive",
+ "rendiation-scene-core-next",
+ "rendiation-webgpu",
+]
+
+[[package]]
 name = "rendiation-scene-rendering-gpu-gles"
 version = "0.1.0"
 dependencies = [
@@ -3420,6 +3430,7 @@ dependencies = [
  "rendiation-mesh-core",
  "rendiation-mesh-gpu-system",
  "rendiation-scene-core-next",
+ "rendiation-scene-rendering-gpu-base",
  "rendiation-shader-api",
  "rendiation-shader-library",
  "rendiation-texture",

@@ -48,6 +48,7 @@ members = [
   "scene/core",
   "scene/core-next",
   "scene/webgpu",
+  "scene/rendering/gpu-base",
   "scene/rendering/gpu-gles",
   "scene/rendering/shadow-map",
   "scene/optimization",

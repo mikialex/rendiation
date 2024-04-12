@@ -41,3 +41,7 @@ impl<'a> FrameCtx<'a> {
     self.gpu.submit_encoder(self.encoder)
   }
 }
+
+pub trait FrameContent {
+  fn render(&mut self, pass: &mut FrameCtx);
+}

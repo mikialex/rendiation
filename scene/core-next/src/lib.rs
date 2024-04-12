@@ -19,6 +19,7 @@ pub use texture::*;
 pub fn register_scene_core_data_model() {
   register_scene_self_data_model();
   register_scene_node_data_model();
+  register_scene_model_data_model();
 
   register_scene_texture2d_data_model();
   register_scene_sampler_data_model();
@@ -53,11 +54,18 @@ declare_component!(BufferEntityData, BufferEntity, ExternalRefPtr<Vec<u8>>);
 
 declare_entity!(SceneModelEntity);
 declare_foreign_key!(SceneModelBelongsToScene, SceneModelEntity, SceneEntity);
+declare_foreign_key!(SceneModelRefNode, SceneModelEntity, SceneNodeEntity);
 declare_foreign_key!(
   SceneModelStdModelRenderPayload,
   SceneModelEntity,
   StandardModelEntity
 );
+pub fn register_scene_model_data_model() {
+  global_database()
+    .declare_entity::<SceneModelEntity>()
+    .declare_foreign_key::<SceneModelBelongsToScene>()
+    .declare_foreign_key::<SceneModelStdModelRenderPayload>();
+}
 
 declare_entity!(StandardModelEntity);
 declare_foreign_key!(
