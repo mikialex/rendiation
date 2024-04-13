@@ -1,8 +1,13 @@
 #![feature(const_type_name)]
+#![feature(const_trait_impl)]
+#![feature(const_hash)]
+#![feature(effects)]
+#![feature(const_mut_refs)]
+#![allow(clippy::disallowed_types)]
 
 use std::{
   any::{Any, TypeId},
-  hash::{Hash, Hasher},
+  hash::{DefaultHasher, Hash, Hasher},
   ops::{Deref, DerefMut},
 };
 
@@ -30,21 +35,14 @@ impl<T> DerefMut for TypeHashProvideByTypeName<T> {
 
 impl<T> TypeIdentityHash for TypeHashProvideByTypeName<T> {
   fn hash_type_identity(&self, mut hasher: &mut dyn Hasher) {
-    if is_type_name_too_long::<T>() {
-      println!(
-        "warning: type name too long: {}",
-        std::any::type_name::<T>()
-      )
-    }
-    std::any::type_name::<T>().hash(&mut (hasher));
+    hash_type_name::<T>().hash(&mut (hasher));
   }
 }
 
-/// util to check type name in const fn, too long type name is bad for hashing performance, and in
-/// some case it's possible for user to construct super long type name and we should emit compile
-/// warnings for this case
-const fn is_type_name_too_long<T>() -> bool {
-  std::any::type_name::<T>().len() > 64
+const fn hash_type_name<T>() -> u64 {
+  let mut hasher = DefaultHasher::new();
+  std::any::type_name::<T>().hash(&mut hasher);
+  hasher.finish()
 }
 
 #[repr(transparent)]
