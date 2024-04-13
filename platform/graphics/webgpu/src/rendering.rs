@@ -73,7 +73,7 @@ impl<T: ShaderPassBuilder> ShaderPassBuilder for TypeHashProvideByTypeId<T> {
 pub trait DynTypedRenderComponent: RenderComponent + TypeIdentityHash {
   fn hash_pipeline_with_type_info(&self, hasher: &mut PipelineHasher) {
     self.hash_pipeline(hasher);
-    self.hash_render_component_type(hasher);
+    self.hash_type_identity(hasher);
   }
 }
 impl<T> DynTypedRenderComponent for T where T: RenderComponent + TypeIdentityHash {}
@@ -84,8 +84,8 @@ impl<'a> ShaderHashProvider for &'a dyn DynTypedRenderComponent {
   }
 }
 impl<'a> TypeIdentityHash for &'a dyn DynTypedRenderComponent {
-  fn hash_render_component_type(&self, hasher: &mut dyn Hasher) {
-    (*self).hash_render_component_type(hasher)
+  fn hash_type_identity(&self, hasher: &mut dyn Hasher) {
+    (*self).hash_type_identity(hasher)
   }
 }
 impl<'a> ShaderPassBuilder for &'a dyn DynTypedRenderComponent {
@@ -175,8 +175,8 @@ impl<'a, T: ShaderHashProvider> ShaderHashProvider for BindingController<'a, T> 
   }
 }
 impl<'a, T: TypeIdentityHash> TypeIdentityHash for BindingController<'a, T> {
-  fn hash_render_component_type(&self, hasher: &mut dyn Hasher) {
-    self.inner.hash_render_component_type(hasher)
+  fn hash_type_identity(&self, hasher: &mut dyn Hasher) {
+    self.inner.hash_type_identity(hasher)
   }
 }
 impl<'a, T: ShaderPassBuilder> ShaderPassBuilder for BindingController<'a, T> {

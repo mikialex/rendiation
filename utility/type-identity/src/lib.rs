@@ -6,8 +6,9 @@ use std::{
   ops::{Deref, DerefMut},
 };
 
+/// This trait is to workaround the limitation that Any only implemented for static types
 pub trait TypeIdentityHash {
-  fn hash_render_component_type(&self, _hasher: &mut dyn Hasher);
+  fn hash_type_identity(&self, _hasher: &mut dyn Hasher);
 }
 
 #[repr(transparent)]
@@ -28,7 +29,7 @@ impl<T> DerefMut for TypeHashProvideByTypeName<T> {
 }
 
 impl<T> TypeIdentityHash for TypeHashProvideByTypeName<T> {
-  fn hash_render_component_type(&self, mut hasher: &mut dyn Hasher) {
+  fn hash_type_identity(&self, mut hasher: &mut dyn Hasher) {
     if is_type_name_too_long::<T>() {
       println!(
         "warning: type name too long: {}",
@@ -67,7 +68,7 @@ impl<T> TypeIdentityHash for TypeHashProvideByTypeId<T>
 where
   T: Any,
 {
-  fn hash_render_component_type(&self, mut hasher: &mut dyn Hasher) {
+  fn hash_type_identity(&self, mut hasher: &mut dyn Hasher) {
     TypeId::of::<T>().hash(&mut (hasher));
   }
 }

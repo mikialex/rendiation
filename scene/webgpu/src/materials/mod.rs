@@ -117,7 +117,7 @@ pub enum MaterialGPUInstance {
 }
 
 impl TypeIdentityHash for MaterialGPUInstance {
-  fn hash_render_component_type(&self, mut hasher: &mut dyn std::hash::Hasher) {
+  fn hash_type_identity(&self, mut hasher: &mut dyn std::hash::Hasher) {
     TypeId::of::<Self>().hash(&mut (hasher))
   }
 }

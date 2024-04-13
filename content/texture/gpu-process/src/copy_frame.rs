@@ -4,7 +4,6 @@ pub struct CopyFrame<T> {
   sampler: ImmediateSampler,
   source: AttachmentView<T>,
 }
-struct CopyFrameTypeMark;
 impl<T> ShaderHashProvider for CopyFrame<T> {
   fn hash_pipeline(&self, _: &mut PipelineHasher) {}
 }

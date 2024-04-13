@@ -83,8 +83,8 @@ pub struct RenderComponentCell<T> {
 }
 
 impl<T: 'static> TypeIdentityHash for RenderComponentCell<T> {
-  fn hash_render_component_type(&self, hasher: &mut dyn std::hash::Hasher) {
-    self.inner.hash_render_component_type(hasher)
+  fn hash_type_identity(&self, hasher: &mut dyn std::hash::Hasher) {
+    self.inner.hash_type_identity(hasher)
   }
 }
 
