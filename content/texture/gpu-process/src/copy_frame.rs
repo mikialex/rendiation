@@ -9,17 +9,12 @@ impl<T> ShaderHashProvider for CopyFrame<T> {
   fn hash_pipeline(&self, _: &mut PipelineHasher) {}
 }
 
-impl<T> ShaderHashProviderAny for CopyFrame<T> {
-  fn hash_pipeline_with_type_info(&self, hasher: &mut PipelineHasher) {
-    CopyFrameTypeMark.type_id().hash(hasher);
-  }
-}
-
 pub fn copy_frame<T>(source: AttachmentView<T>, blend: Option<BlendState>) -> impl PassContent {
   CopyFrame {
     source,
     sampler: Default::default(),
   }
+  .type_hash_by_type_name()
   .draw_quad_with_blend(blend)
 }
 

@@ -1,4 +1,3 @@
-#![feature(specialization)]
 #![feature(hash_raw_entry)]
 #![feature(type_alias_impl_trait)]
 
@@ -16,7 +15,6 @@ mod surface;
 mod types;
 
 use std::{
-  any::*,
   borrow::Cow,
   hash::{Hash, Hasher},
   ops::{Deref, DerefMut, Range},
@@ -54,6 +52,7 @@ use rendiation_shader_api::*;
 use rendiation_texture_types::*;
 pub use resource::*;
 pub use surface::*;
+pub use type_identity::*;
 use typed_arena::Arena;
 pub use types::*;
 use wgpu as gpu;

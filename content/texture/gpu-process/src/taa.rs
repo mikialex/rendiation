@@ -82,6 +82,7 @@ impl TAA {
           new_depth: new_depth.read(),
           reproject,
         }
+        .type_hash_by_type_name()
         .draw_quad(),
       );
 
@@ -183,12 +184,6 @@ impl<'a> ShaderPassBuilder for TAAResolver<'a> {
   }
 }
 impl<'a> ShaderHashProvider for TAAResolver<'a> {}
-impl<'a> ShaderHashProviderAny for TAAResolver<'a> {
-  fn hash_pipeline_with_type_info(&self, hasher: &mut PipelineHasher) {
-    struct Marker;
-    Marker.type_id().hash(hasher)
-  }
-}
 
 fn halton(index: usize, base: usize) -> f32 {
   let mut f = 1.;

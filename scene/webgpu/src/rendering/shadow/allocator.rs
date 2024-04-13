@@ -174,12 +174,10 @@ impl ShadowMapAllocatorImpl {
   }
 }
 
-#[pin_project::pin_project]
 pub struct ShadowMap {
   id: usize,
   size: Size,
   current: ShadowMapAddressInfo,
-  #[pin]
   deltas: Box<dyn Stream<Item = ShadowMapAddressInfo> + Unpin>,
   inner: Rc<RefCell<ShadowMapAllocatorImpl>>,
 }

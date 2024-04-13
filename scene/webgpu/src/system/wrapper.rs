@@ -4,7 +4,7 @@ use core::ops::DerefMut;
 
 use crate::*;
 
-pub trait ReactiveRenderComponent: RenderComponentAny {
+pub trait ReactiveRenderComponent: DynTypedRenderComponent {
   // we could remove this box in future
   fn create_render_component_delta_stream(
     &self,
@@ -79,7 +79,13 @@ impl<T: PollOr> PollResultUtil<T> for Option<Poll<Option<T>>> {
 pub struct RenderComponentCell<T> {
   source: EventSource<RenderComponentDeltaFlag>,
   #[pin]
-  pub inner: T,
+  pub inner: TypeHashProvideByTypeId<T>,
+}
+
+impl<T> TypeIdentityHash for RenderComponentCell<T> {
+  fn hash_render_component_type(&self, hasher: &mut dyn std::hash::Hasher) {
+    self.inner.hash_render_component_type(hasher)
+  }
 }
 
 impl<T> ReactiveRenderComponent for RenderComponentCell<T>
@@ -121,13 +127,13 @@ impl<T> Deref for RenderComponentCell<T> {
   type Target = T;
 
   fn deref(&self) -> &Self::Target {
-    &self.inner
+    &self.inner.0
   }
 }
 
 impl<T> DerefMut for RenderComponentCell<T> {
   fn deref_mut(&mut self) -> &mut Self::Target {
-    &mut self.inner
+    &mut self.inner.0
   }
 }
 
@@ -136,7 +142,8 @@ impl<T: Stream> Stream for RenderComponentCell<T> {
 
   fn poll_next(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Option<Self::Item>> {
     let this = self.project();
-    this.inner.poll_next(cx)
+    let mut pinned = std::pin::pin!(this.inner.0);
+    pinned.as_mut().poll_next(cx)
   }
 }
 
@@ -144,7 +151,7 @@ impl<T> RenderComponentCell<T> {
   pub fn new(gpu: T) -> Self {
     RenderComponentCell {
       source: Default::default(),
-      inner: gpu,
+      inner: gpu.type_hash_by_type_id(),
     }
   }
 

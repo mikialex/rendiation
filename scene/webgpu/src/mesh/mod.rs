@@ -90,7 +90,7 @@ impl MeshGPUInstance {
     match self {
       MeshGPUInstance::Attributes(mesh) => {
         let mesh: &RenderComponentCell<MaybeBindlessMesh<AttributesMeshGPU>> = mesh.inner.as_ref();
-        match &mesh.inner {
+        match &mesh.inner.0 {
           MaybeBindlessMesh::Bindless(m) => Some(m.mesh_handle()),
           _ => None,
         }
@@ -126,6 +126,11 @@ impl Stream for MeshGPUInstance {
       MeshGPUInstanceProj::TransformInstanced(m) => m.poll_next_unpin(cx),
       MeshGPUInstanceProj::Foreign(m) => m.poll_next_unpin(cx),
     }
+  }
+}
+impl TypeIdentityHash for MeshGPUInstance {
+  fn hash_render_component_type(&self, mut hasher: &mut dyn std::hash::Hasher) {
+    TypeId::of::<Self>().hash(&mut (hasher))
   }
 }
 

@@ -72,7 +72,7 @@ impl SceneNodeGPUSystem {
   }
 
   pub fn get_by_raw(&self, index: usize) -> Option<&NodeGPU> {
-    self.nodes.as_ref().get(index).map(|v| &v.as_ref().inner)
+    self.nodes.as_ref().get(index).map(|v| &v.as_ref().inner.0)
   }
 }
 

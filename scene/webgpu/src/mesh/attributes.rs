@@ -273,7 +273,7 @@ impl WebGPUMesh for AttributesMesh {
       .single_listen_by::<()>(any_change_no_init)
       .filter_map_sync(source.defer_weak())
       .fold_signal(state, move |mesh, state| {
-        state.inner = create(&mesh);
+        state.inner.0 = create(&mesh);
         RenderComponentDeltaFlag::all().into()
       });
 

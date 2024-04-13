@@ -4,7 +4,7 @@ pub trait GLESNodeRenderImpl {
   fn make_component(
     &self,
     idx: AllocIdx<SceneNodeEntity>,
-  ) -> Option<Box<dyn RenderComponentAny + '_>>;
+  ) -> Option<Box<dyn DynTypedRenderComponent + '_>>;
 }
 
 pub struct DefaultGLESNodeRenderImplProvider;
@@ -26,7 +26,7 @@ impl GLESNodeRenderImpl for DefaultGLESNodeRenderImpl {
   fn make_component(
     &self,
     idx: AllocIdx<SceneNodeEntity>,
-  ) -> Option<Box<dyn RenderComponentAny + '_>> {
+  ) -> Option<Box<dyn DynTypedRenderComponent + '_>> {
     let node = NodeGPU {
       ubo: self.node_gpu.get(&idx)?,
     };

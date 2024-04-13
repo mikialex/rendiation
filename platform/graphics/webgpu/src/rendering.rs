@@ -1,5 +1,6 @@
 use rendiation_shader_api::*;
 use rendiation_shader_backend_naga::ShaderAPINagaImpl;
+use type_identity::*;
 
 use crate::*;
 
@@ -39,20 +40,55 @@ impl<T> RenderComponent for T where
 {
 }
 
-pub trait RenderComponentAny: RenderComponent + ShaderHashProviderAny {}
-impl<T> RenderComponentAny for T where T: RenderComponent + ShaderHashProviderAny {}
+impl<T: ShaderHashProvider> ShaderHashProvider for TypeHashProvideByTypeName<T> {
+  fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
+    self.0.hash_pipeline(hasher)
+  }
+}
+impl<T: ShaderPassBuilder> ShaderPassBuilder for TypeHashProvideByTypeName<T> {
+  fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
+    self.0.setup_pass(ctx)
+  }
 
-impl<'a> ShaderHashProvider for &'a dyn RenderComponentAny {
+  fn post_setup_pass(&self, ctx: &mut GPURenderPassCtx) {
+    self.0.post_setup_pass(ctx)
+  }
+}
+
+impl<T: ShaderHashProvider> ShaderHashProvider for TypeHashProvideByTypeId<T> {
+  fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
+    self.0.hash_pipeline(hasher)
+  }
+}
+impl<T: ShaderPassBuilder> ShaderPassBuilder for TypeHashProvideByTypeId<T> {
+  fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
+    self.0.setup_pass(ctx)
+  }
+
+  fn post_setup_pass(&self, ctx: &mut GPURenderPassCtx) {
+    self.0.post_setup_pass(ctx)
+  }
+}
+
+pub trait DynTypedRenderComponent: RenderComponent + TypeIdentityHash {
+  fn hash_pipeline_with_type_info(&self, hasher: &mut PipelineHasher) {
+    self.hash_pipeline(hasher);
+    self.hash_render_component_type(hasher);
+  }
+}
+impl<T> DynTypedRenderComponent for T where T: RenderComponent + TypeIdentityHash {}
+
+impl<'a> ShaderHashProvider for &'a dyn DynTypedRenderComponent {
   fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
     (*self).hash_pipeline(hasher)
   }
 }
-impl<'a> ShaderHashProviderAny for &'a dyn RenderComponentAny {
-  fn hash_pipeline_with_type_info(&self, hasher: &mut PipelineHasher) {
-    (*self).hash_pipeline_with_type_info(hasher)
+impl<'a> TypeIdentityHash for &'a dyn DynTypedRenderComponent {
+  fn hash_render_component_type(&self, hasher: &mut dyn Hasher) {
+    (*self).hash_render_component_type(hasher)
   }
 }
-impl<'a> ShaderPassBuilder for &'a dyn RenderComponentAny {
+impl<'a> ShaderPassBuilder for &'a dyn DynTypedRenderComponent {
   fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
     (*self).setup_pass(ctx);
   }
@@ -61,7 +97,7 @@ impl<'a> ShaderPassBuilder for &'a dyn RenderComponentAny {
     (*self).post_setup_pass(ctx);
   }
 }
-impl<'a> GraphicsShaderProvider for &'a dyn RenderComponentAny {
+impl<'a> GraphicsShaderProvider for &'a dyn DynTypedRenderComponent {
   fn build(&self, builder: &mut ShaderRenderPipelineBuilder) -> Result<(), ShaderBuildError> {
     (*self).build(builder)
   }
@@ -72,11 +108,11 @@ impl<'a> GraphicsShaderProvider for &'a dyn RenderComponentAny {
 }
 
 pub struct RenderEmitter<'a, 'b> {
-  contents: &'a [&'b dyn RenderComponentAny],
+  contents: &'a [&'b dyn DynTypedRenderComponent],
 }
 
 impl<'a, 'b> RenderEmitter<'a, 'b> {
-  pub fn new(contents: &'a [&'b dyn RenderComponentAny]) -> Self {
+  pub fn new(contents: &'a [&'b dyn DynTypedRenderComponent]) -> Self {
     Self { contents }
   }
 }
@@ -138,10 +174,9 @@ impl<'a, T: ShaderHashProvider> ShaderHashProvider for BindingController<'a, T> 
     self.inner.hash_pipeline(hasher)
   }
 }
-impl<'a, T: ShaderHashProviderAny> ShaderHashProviderAny for BindingController<'a, T> {
-  fn hash_pipeline_with_type_info(&self, hasher: &mut PipelineHasher) {
-    self.inner.hash_pipeline_with_type_info(hasher)
-    // note, the binding info should hashed by binding grouper if necessary
+impl<'a, T: TypeIdentityHash> TypeIdentityHash for BindingController<'a, T> {
+  fn hash_render_component_type(&self, hasher: &mut dyn Hasher) {
+    self.inner.hash_render_component_type(hasher)
   }
 }
 impl<'a, T: ShaderPassBuilder> ShaderPassBuilder for BindingController<'a, T> {

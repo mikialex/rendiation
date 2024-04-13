@@ -8,7 +8,7 @@ pub trait GLESSceneModelRenderImpl {
     &self,
     idx: AllocIdx<SceneModelEntity>,
     camera: AllocIdx<SceneCameraEntity>,
-    pass: &dyn RenderComponentAny,
+    pass: &dyn DynTypedRenderComponent,
   ) -> Option<Box<dyn RenderComponent>>;
 }
 
@@ -48,7 +48,7 @@ impl GLESSceneModelRenderImpl for GLESPreferredComOrderRenderer {
     &self,
     idx: AllocIdx<SceneModelEntity>,
     camera: AllocIdx<SceneCameraEntity>,
-    pass: &dyn RenderComponentAny,
+    pass: &dyn DynTypedRenderComponent,
   ) -> Option<Box<dyn RenderComponent>> {
     let node = self.node.get(idx)?;
     let node = (*node)?;
@@ -59,7 +59,7 @@ impl GLESSceneModelRenderImpl for GLESPreferredComOrderRenderer {
     let mesh = self.model_impl.material_renderable(idx)?;
     let material = self.model_impl.material_renderable(idx)?;
 
-    let components: [&dyn RenderComponentAny; 5] = [
+    let components: [&dyn DynTypedRenderComponent; 5] = [
       &pass.assign_binding_index(0),
       &(&*mesh).assign_binding_index(2),
       &(&*node).assign_binding_index(2),

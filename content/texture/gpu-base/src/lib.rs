@@ -1,5 +1,3 @@
-#![feature(specialization)]
-
 use std::any::Any;
 use std::hash::Hash;
 

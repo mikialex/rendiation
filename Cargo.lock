@@ -3504,6 +3504,7 @@ dependencies = [
  "paste",
  "rendiation-algebra",
  "rendiation-shader-derives",
+ "type-identity",
  "wgpu-types",
 ]
 
@@ -3627,6 +3628,7 @@ dependencies = [
  "rendiation-shader-backend-naga",
  "rendiation-texture-types",
  "thiserror",
+ "type-identity",
  "typed-arena",
  "wgpu",
  "wgpu-types",
@@ -4236,6 +4238,10 @@ dependencies = [
  "rand",
  "static_assertions",
 ]
+
+[[package]]
+name = "type-identity"
+version = "0.0.1"
 
 [[package]]
 name = "type-map"

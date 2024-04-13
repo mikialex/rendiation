@@ -1,4 +1,3 @@
-#![feature(specialization)]
 #![feature(let_chains)]
 #![feature(stmt_expr_attributes)]
 #![feature(type_alias_impl_trait)]
@@ -61,7 +60,7 @@ pub trait SceneRenderable {
   fn render(
     &self,
     pass: &mut FrameRenderPass,
-    dispatcher: &dyn RenderComponentAny,
+    dispatcher: &dyn DynTypedRenderComponent,
     camera: &SceneCamera,
     scene: &SceneRenderResourceGroup,
   );

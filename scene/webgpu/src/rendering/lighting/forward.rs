@@ -59,7 +59,7 @@ impl<'a> PassContentWithSceneAndCamera for ForwardScene<'a> {
       shadows: &scene.scene_resources.shadows,
     };
     let dispatcher =
-      &scene.extend_bindless_resource_provider(&dispatcher) as &dyn RenderComponentAny;
+      &scene.extend_bindless_resource_provider(&dispatcher) as &dyn DynTypedRenderComponent;
 
     render_list.setup_pass(pass, &dispatcher, camera, scene);
   }
@@ -275,13 +275,6 @@ impl<'a> ShaderHashProvider for ForwardSceneLightingDispatcher<'a> {
     }
 
     self.override_shading.type_id().hash(hasher);
-  }
-}
-
-impl<'a> ShaderHashProviderAny for ForwardSceneLightingDispatcher<'a> {
-  fn hash_pipeline_with_type_info(&self, hasher: &mut PipelineHasher) {
-    self.hash_pipeline(hasher);
-    // this is so special(I think) that id could skip
   }
 }
 

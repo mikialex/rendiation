@@ -190,23 +190,6 @@ pub trait ShaderHashProvider {
 
 impl ShaderHashProvider for () {}
 
-/// Some type is not 'static, which is not impl Any, but we still require shader hash
-/// impl with itself's type identity info. In this case, the user should impl this trait
-/// manually.
-pub trait ShaderHashProviderAny: ShaderHashProvider {
-  fn hash_pipeline_with_type_info(&self, hasher: &mut PipelineHasher);
-}
-
-impl<T> ShaderHashProviderAny for T
-where
-  T: ShaderHashProvider + Any,
-{
-  default fn hash_pipeline_with_type_info(&self, hasher: &mut PipelineHasher) {
-    self.type_id().hash(hasher);
-    self.hash_pipeline(hasher);
-  }
-}
-
 /// User could use this to debug if the hashing logic issue
 pub struct DebugHasher<T> {
   hash_history: Vec<(Vec<u8>, std::backtrace::Backtrace)>,

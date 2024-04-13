@@ -5,11 +5,11 @@ pub trait GLESModelRenderImpl {
   fn shape_renderable(
     &self,
     idx: AllocIdx<SceneModelEntity>,
-  ) -> Option<Box<dyn RenderComponentAny>>;
+  ) -> Option<Box<dyn DynTypedRenderComponent>>;
   fn material_renderable(
     &self,
     idx: AllocIdx<SceneModelEntity>,
-  ) -> Option<Box<dyn RenderComponentAny>>;
+  ) -> Option<Box<dyn DynTypedRenderComponent>>;
 }
 
 impl GLESModelRenderImpl for Vec<Box<dyn GLESModelRenderImpl>> {
@@ -25,7 +25,7 @@ impl GLESModelRenderImpl for Vec<Box<dyn GLESModelRenderImpl>> {
   fn shape_renderable(
     &self,
     idx: AllocIdx<SceneModelEntity>,
-  ) -> Option<Box<dyn RenderComponentAny>> {
+  ) -> Option<Box<dyn DynTypedRenderComponent>> {
     for provider in self {
       if let Some(v) = provider.shape_renderable(idx) {
         return Some(v);
@@ -37,7 +37,7 @@ impl GLESModelRenderImpl for Vec<Box<dyn GLESModelRenderImpl>> {
   fn material_renderable(
     &self,
     idx: AllocIdx<SceneModelEntity>,
-  ) -> Option<Box<dyn RenderComponentAny>> {
+  ) -> Option<Box<dyn DynTypedRenderComponent>> {
     for provider in self {
       if let Some(v) = provider.shape_renderable(idx) {
         return Some(v);
@@ -59,14 +59,14 @@ impl GLESModelRenderImpl for SceneStdModelRenderer {
   fn shape_renderable(
     &self,
     idx: AllocIdx<SceneModelEntity>,
-  ) -> Option<Box<dyn RenderComponentAny>> {
+  ) -> Option<Box<dyn DynTypedRenderComponent>> {
     todo!()
   }
 
   fn material_renderable(
     &self,
     idx: AllocIdx<SceneModelEntity>,
-  ) -> Option<Box<dyn RenderComponentAny>> {
+  ) -> Option<Box<dyn DynTypedRenderComponent>> {
     todo!()
   }
 }

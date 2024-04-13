@@ -298,15 +298,6 @@ impl<'a, D, S, R> ShaderHashProvider for DrawDefer<'a, D, S, R> {
   fn hash_pipeline(&self, _: &mut PipelineHasher) {}
 }
 
-impl<'a, D: Any, S: Any, R: Any> ShaderHashProviderAny for DrawDefer<'a, D, S, R> {
-  fn hash_pipeline_with_type_info(&self, hasher: &mut PipelineHasher) {
-    TypeId::of::<D>().hash(hasher);
-    TypeId::of::<S>().hash(hasher);
-    TypeId::of::<R>().hash(hasher);
-    self.light.hash_pipeline(hasher);
-  }
-}
-
 impl<'a, D: ShaderPassBuilder, S, R> ShaderPassBuilder for DrawDefer<'a, D, S, R> {
   fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
     self.defer.setup_pass(ctx);

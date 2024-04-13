@@ -1,0 +1,8 @@
+[package]
+edition = "2021"
+name = "type-identity"
+version = "0.0.1"
+
+
+[lints]
+workspace = true

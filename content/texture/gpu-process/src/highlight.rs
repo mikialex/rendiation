@@ -37,6 +37,7 @@ impl HighLighter {
       mask,
       lighter: self,
     }
+    .type_hash_by_type_name()
     .draw_quad()
   }
 
@@ -70,12 +71,6 @@ impl<'a, T> ShaderPassBuilder for HighLightComposeTask<'a, T> {
 
 impl<'a, T> ShaderHashProvider for HighLightComposeTask<'a, T> {
   fn hash_pipeline(&self, _: &mut PipelineHasher) {}
-}
-
-impl<'a, T> ShaderHashProviderAny for HighLightComposeTask<'a, T> {
-  fn hash_pipeline_with_type_info(&self, hasher: &mut PipelineHasher) {
-    self.lighter.type_id().hash(hasher);
-  }
 }
 
 impl<'a, T> GraphicsShaderProvider for HighLightComposeTask<'a, T> {

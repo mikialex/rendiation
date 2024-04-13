@@ -18,7 +18,7 @@ pub fn generate_brdf_lut(ctx: &mut FrameCtx, target: GPU2DTextureView) {
   pass("brdf lut generate")
     .with_color(target, load())
     .render_ctx(ctx)
-    .by(BrdfLUTGenerator.draw_quad());
+    .by(BrdfLUTGenerator.type_hash_by_type_id().draw_quad());
 }
 
 // pub struct PrefilteredCubeMapPair {

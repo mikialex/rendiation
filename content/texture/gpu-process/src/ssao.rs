@@ -84,12 +84,7 @@ pub struct AOComputer<'a> {
 }
 
 impl<'a> ShaderHashProvider for AOComputer<'a> {}
-impl<'a> ShaderHashProviderAny for AOComputer<'a> {
-  fn hash_pipeline_with_type_info(&self, hasher: &mut PipelineHasher) {
-    struct Mark;
-    Mark.type_id().hash(hasher)
-  }
-}
+
 impl<'a> ShaderPassBuilder for AOComputer<'a> {
   fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
     ctx.binding.bind(&self.depth);
@@ -183,6 +178,7 @@ impl SSAO {
           depth: depth.read(),
           parameter: self,
         }
+        .type_hash_by_type_name()
         .draw_quad(),
       );
 

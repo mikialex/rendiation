@@ -11,8 +11,18 @@ impl PassContentWithSceneAndCamera for BackGroundRendering {
   ) {
     if let Some(bg) = &scene.scene.background {
       match bg {
-        SceneBackGround::Solid(bg) => bg.render(pass, &default_dispatcher(pass), camera, scene),
-        SceneBackGround::Env(bg) => bg.render(pass, &default_dispatcher(pass), camera, scene),
+        SceneBackGround::Solid(bg) => bg.render(
+          pass,
+          &default_dispatcher(pass).type_hash_by_type_id(),
+          camera,
+          scene,
+        ),
+        SceneBackGround::Env(bg) => bg.render(
+          pass,
+          &default_dispatcher(pass).type_hash_by_type_id(),
+          camera,
+          scene,
+        ),
         SceneBackGround::Foreign(_) => {}
       }
     }

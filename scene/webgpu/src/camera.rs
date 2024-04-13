@@ -104,7 +104,7 @@ impl SceneCameraGPUSystem {
       .cameras
       .as_ref()
       .get(&camera.guid())
-      .map(|v| &v.as_ref().inner)
+      .map(|v| &v.as_ref().inner.0)
   }
 
   pub fn get_camera_gpu_mut(&mut self, camera: &SceneCamera) -> Option<&mut CameraGPU> {
@@ -112,7 +112,7 @@ impl SceneCameraGPUSystem {
       .cameras
       .as_mut()
       .get_mut(&camera.guid())
-      .map(|v| &mut v.as_mut().inner)
+      .map(|v| &mut v.as_mut().inner.0)
   }
 
   pub fn get_or_insert(

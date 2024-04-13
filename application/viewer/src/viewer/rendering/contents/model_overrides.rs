@@ -72,7 +72,7 @@ impl SceneRenderable for OverridableMeshModelImpl {
   fn render(
     &self,
     pass: &mut FrameRenderPass,
-    dispatcher: &dyn RenderComponentAny,
+    dispatcher: &dyn DynTypedRenderComponent,
     camera: &SceneCamera,
     scene: &SceneRenderResourceGroup,
   ) {

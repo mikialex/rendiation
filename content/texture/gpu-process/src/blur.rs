@@ -51,11 +51,6 @@ pub struct LinearBlurTask<'a, T> {
 }
 
 impl<'a, T> ShaderHashProvider for LinearBlurTask<'a, T> {}
-impl<'a, T> ShaderHashProviderAny for LinearBlurTask<'a, T> {
-  fn hash_pipeline_with_type_info(&self, hasher: &mut PipelineHasher) {
-    self.config.type_id().hash(hasher);
-  }
-}
 impl<'a, T> GraphicsShaderProvider for LinearBlurTask<'a, T> {
   fn build(&self, builder: &mut ShaderRenderPipelineBuilder) -> Result<(), ShaderBuildError> {
     builder.fragment(|builder, binding| {
@@ -156,7 +151,7 @@ pub fn draw_linear_blur<'a, T: AsRef<Attachment> + 'a>(
   pass("blur")
     .with_color(dst.write(), load())
     .render_ctx(ctx)
-    .by(task.draw_quad());
+    .by(task.type_hash_by_type_name().draw_quad());
 
   dst
 }

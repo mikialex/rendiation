@@ -1,3 +1,5 @@
+use type_identity::*;
+
 use crate::*;
 
 #[derive(Copy, Clone, ShaderStruct, Default)]
@@ -40,6 +42,7 @@ pub fn generate_quad(vertex_index: Node<u32>, depth: f32) -> Node<QuadVertexOut>
   .construct()
 }
 
+#[derive(Debug, Copy, Clone)]
 pub struct FullScreenQuad {
   blend: Option<BlendState>,
 }
@@ -117,12 +120,16 @@ impl<T> UseQuadDraw for T {}
 
 impl<T> PassContent for QuadDraw<T>
 where
-  T: RenderComponentAny,
+  T: DynTypedRenderComponent,
 {
   fn render(&mut self, pass: &mut FrameRenderPass) {
     let mut base = default_dispatcher(pass);
     base.auto_write = false;
-    let components: [&dyn RenderComponentAny; 3] = [&base, &self.quad, &self.content];
+    let components: [&dyn DynTypedRenderComponent; 3] = [
+      &base.type_hash_by_type_id(),
+      &self.quad.type_hash_by_type_name(),
+      &self.content,
+    ];
 
     RenderEmitter::new(components.as_slice()).render(&mut pass.ctx, QUAD_DRAW_CMD);
   }

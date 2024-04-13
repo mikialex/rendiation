@@ -116,6 +116,12 @@ pub enum MaterialGPUInstance {
   Foreign(Box<dyn ReactiveRenderComponentSource>),
 }
 
+impl TypeIdentityHash for MaterialGPUInstance {
+  fn hash_render_component_type(&self, mut hasher: &mut dyn std::hash::Hasher) {
+    TypeId::of::<Self>().hash(&mut (hasher))
+  }
+}
+
 impl ReactiveRenderComponent for MaterialGPUInstance {
   fn create_render_component_delta_stream(
     &self,

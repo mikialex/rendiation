@@ -16,7 +16,9 @@ impl ToneMap {
 
 impl ToneMap {
   pub fn tonemap<'a, T: 'a>(&'a self, hdr: AttachmentView<T>) -> impl PassContent + 'a {
-    ToneMapTask { hdr, config: self }.draw_quad()
+    ToneMapTask { hdr, config: self }
+      .type_hash_by_type_name()
+      .draw_quad()
   }
 }
 
@@ -125,12 +127,6 @@ struct ToneMapTask<'a, T> {
   config: &'a ToneMap,
 }
 
-impl<'a, T> ShaderHashProviderAny for ToneMapTask<'a, T> {
-  fn hash_pipeline_with_type_info(&self, hasher: &mut PipelineHasher) {
-    self.config.type_id().hash(hasher);
-    self.hash_pipeline(hasher);
-  }
-}
 impl<'a, T> ShaderHashProvider for ToneMapTask<'a, T> {
   fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
     self.config.hash_pipeline(hasher)

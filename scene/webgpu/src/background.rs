@@ -21,7 +21,7 @@ impl SceneRenderable for SolidBackground {
   fn render<'a>(
     &self,
     _pass: &mut FrameRenderPass,
-    _dispatcher: &dyn RenderComponentAny,
+    _dispatcher: &dyn DynTypedRenderComponent,
     _camera: &SceneCamera,
     _scene: &SceneRenderResourceGroup,
   ) {
@@ -38,7 +38,7 @@ impl SceneRenderable for EnvMapBackground {
   fn render<'a>(
     &self,
     pass: &mut FrameRenderPass,
-    base: &dyn RenderComponentAny,
+    base: &dyn DynTypedRenderComponent,
     camera: &SceneCamera,
     scene: &SceneRenderResourceGroup,
   ) {
@@ -57,7 +57,11 @@ impl SceneRenderable for EnvMapBackground {
       camera_gpu,
     };
 
-    let components: [&dyn RenderComponentAny; 3] = [&base, &FullScreenQuad::default(), &content];
+    let components: [&dyn DynTypedRenderComponent; 3] = [
+      &base,
+      &FullScreenQuad::default().type_hash_by_type_id(),
+      &content.type_hash_by_type_name(),
+    ];
 
     RenderEmitter::new(components.as_slice()).render(&mut pass.ctx, QUAD_DRAW_CMD);
   }
@@ -114,13 +118,6 @@ impl<'a, T: ShaderPassBuilder> ShaderPassBuilder for ShadingBackgroundTask<'a, T
 impl<'a, T: ShaderHashProvider> ShaderHashProvider for ShadingBackgroundTask<'a, T> {
   fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
     self.content.hash_pipeline(hasher)
-  }
-}
-impl<'a, T: ShaderHashProvider + Any> ShaderHashProviderAny for ShadingBackgroundTask<'a, T> {
-  fn hash_pipeline_with_type_info(&self, hasher: &mut PipelineHasher) {
-    struct Mark;
-    Mark.type_id().hash(hasher);
-    self.content.type_id().hash(hasher);
   }
 }
 

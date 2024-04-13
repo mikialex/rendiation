@@ -1,5 +1,3 @@
-#![feature(specialization)]
-
 use std::sync::{Arc, RwLock, Weak};
 
 use __core::{
