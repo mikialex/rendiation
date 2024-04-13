@@ -41,7 +41,7 @@ impl PassContentWithSceneAndCamera for &mut GridHelper {
 
     self.mesh.inner.render(
       pass,
-      &WidgetDispatcher::new(default_dispatcher(pass)),
+      &WidgetDispatcher::new(default_dispatcher(pass)).type_hash_by_type_id(),
       camera,
       scene,
     )

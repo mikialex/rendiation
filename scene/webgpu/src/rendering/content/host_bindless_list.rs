@@ -92,7 +92,8 @@ impl MaybeBindlessMeshRenderList {
             &BindlessMeshProvider {
               base: &dispatcher,
               system,
-            },
+            }
+            .type_hash_by_type_name(),
           );
           gpu_pass.draw_by_command(system.draw_command());
         }

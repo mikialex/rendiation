@@ -6,7 +6,7 @@ use rendiation_geometry::OptionalNearest;
 use rendiation_mesh_core::MeshBufferHitPoint;
 use rendiation_mesh_generator::*;
 use rendiation_scene_interaction::{SceneRayInteractive, SceneRayInteractiveCtx};
-use webgpu::{default_dispatcher, DynTypedRenderComponent, FrameRenderPass};
+use webgpu::{default_dispatcher, DynTypedRenderComponent, FrameRenderPass, TypeHashWrapperExt};
 
 use super::WidgetDispatcher;
 use crate::*;
@@ -89,7 +89,7 @@ impl PassContentWithSceneAndCamera for Arrow {
     scene: &SceneRenderResourceGroup,
     camera: &SceneCamera,
   ) {
-    let dispatcher = &WidgetDispatcher::new(default_dispatcher(pass));
+    let dispatcher = &WidgetDispatcher::new(default_dispatcher(pass)).type_hash_by_type_id();
     SceneRenderable::render(self, pass, dispatcher, camera, scene);
   }
 }

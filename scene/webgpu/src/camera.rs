@@ -193,6 +193,11 @@ impl CameraGPU {
 }
 
 impl ShaderHashProvider for CameraGPU {}
+impl TypeIdentityHash for CameraGPU {
+  fn hash_render_component_type(&self, mut hasher: &mut dyn std::hash::Hasher) {
+    TypeId::of::<Self>().hash(&mut (hasher))
+  }
+}
 
 impl ShaderPassBuilder for CameraGPU {
   fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {

@@ -182,7 +182,12 @@ where
       let mut list = RenderList::default();
       list.collect_from_scene_objects(scene, objects, camera, false);
       let list = MaybeBindlessMeshRenderList::from_list(list, scene);
-      list.setup_pass(pass, &HighLightMaskDispatcher, camera, scene)
+      list.setup_pass(
+        pass,
+        &HighLightMaskDispatcher.type_hash_by_type_id(),
+        camera,
+        scene,
+      )
     }
   }
 }

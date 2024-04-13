@@ -74,9 +74,11 @@ impl ShadowMapAllocator {
     inner.allocations.insert(id, allocation);
 
     ShadowMap {
-      id,
       size: size_requirement,
-      inner: self.inner.clone(),
+      inner: ShadowMapDrop {
+        inner: self.inner.clone(),
+        id,
+      },
       current,
       deltas: Box::new(receiver),
     }
@@ -174,15 +176,21 @@ impl ShadowMapAllocatorImpl {
   }
 }
 
+#[pin_project::pin_project]
 pub struct ShadowMap {
-  id: usize,
   size: Size,
   current: ShadowMapAddressInfo,
+  #[pin]
   deltas: Box<dyn Stream<Item = ShadowMapAddressInfo> + Unpin>,
+  inner: ShadowMapDrop,
+}
+
+struct ShadowMapDrop {
+  id: usize,
   inner: Rc<RefCell<ShadowMapAllocatorImpl>>,
 }
 
-impl Drop for ShadowMap {
+impl Drop for ShadowMapDrop {
   fn drop(&mut self) {
     let mut inner = self.inner.borrow_mut();
     inner.allocations.remove(&self.id);
@@ -207,8 +215,8 @@ impl Stream for ShadowMap {
 
 impl ShadowMap {
   pub fn get_write_view(&self) -> (GPU2DTextureView, ShadowMapAddressInfo) {
-    let inner = self.inner.borrow();
-    let allocation = inner.allocations.get(&self.id).unwrap();
+    let inner = self.inner.inner.borrow();
+    let allocation = inner.allocations.get(&self.inner.id).unwrap();
     (
       inner
         .map

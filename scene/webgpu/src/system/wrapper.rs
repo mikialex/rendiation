@@ -27,7 +27,7 @@ bitflags::bitflags! {
   }
 }
 
-pub type RenderComponentDeltaStream<T> = impl Stream<Item = RenderComponentDeltaFlag>;
+pub type RenderComponentDeltaStream<T: 'static> = impl Stream<Item = RenderComponentDeltaFlag>;
 
 impl RenderComponentDeltaFlag {
   pub fn into_poll(self) -> Poll<Option<Self>> {
@@ -82,7 +82,7 @@ pub struct RenderComponentCell<T> {
   pub inner: TypeHashProvideByTypeId<T>,
 }
 
-impl<T> TypeIdentityHash for RenderComponentCell<T> {
+impl<T: 'static> TypeIdentityHash for RenderComponentCell<T> {
   fn hash_render_component_type(&self, hasher: &mut dyn std::hash::Hasher) {
     self.inner.hash_render_component_type(hasher)
   }
@@ -137,17 +137,16 @@ impl<T> DerefMut for RenderComponentCell<T> {
   }
 }
 
-impl<T: Stream> Stream for RenderComponentCell<T> {
+impl<T: Stream + Unpin> Stream for RenderComponentCell<T> {
   type Item = T::Item;
 
   fn poll_next(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Option<Self::Item>> {
-    let this = self.project();
-    let mut pinned = std::pin::pin!(this.inner.0);
-    pinned.as_mut().poll_next(cx)
+    let mut this = self.project();
+    this.inner.0.poll_next_unpin(cx)
   }
 }
 
-impl<T> RenderComponentCell<T> {
+impl<T: 'static> RenderComponentCell<T> {
   pub fn new(gpu: T) -> Self {
     RenderComponentCell {
       source: Default::default(),

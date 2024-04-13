@@ -1,11 +1,11 @@
-use std::{cell::RefCell, rc::Rc};
+use std::{any::Any, cell::RefCell, rc::Rc};
 
 use incremental::*;
 use rendiation_algebra::*;
 use rendiation_geometry::{IntersectAble, OptionalNearest, Plane, Ray3};
 use rendiation_mesh_generator::*;
 use rendiation_scene_interaction::*;
-use webgpu::{default_dispatcher, DynTypedRenderComponent, FrameRenderPass};
+use webgpu::{default_dispatcher, DynTypedRenderComponent, FrameRenderPass, TypeHashWrapperExt};
 use winit::event::{ElementState, MouseButton};
 
 use crate::*;
@@ -416,7 +416,7 @@ impl PassContentWithSceneAndCamera for &mut Gizmo {
       return;
     }
 
-    let dispatcher = &WidgetDispatcher::new(default_dispatcher(pass));
+    let dispatcher = &WidgetDispatcher::new(default_dispatcher(pass)).type_hash_by_type_id();
     self.view.render(pass, dispatcher, camera, scene)
   }
 }

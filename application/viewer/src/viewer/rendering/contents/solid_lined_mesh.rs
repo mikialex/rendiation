@@ -123,7 +123,7 @@ impl WebGPUMesh for SolidLinedMesh {
       .single_listen_by::<()>(any_change_no_init)
       .fold_signal(state, move |_, state| {
         if let Some(gpu) = create() {
-          state.inner = gpu;
+          state.inner.0 = gpu;
           RenderComponentDeltaFlag::all().into()
         } else {
           None

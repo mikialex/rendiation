@@ -89,7 +89,12 @@ where
     camera: &SceneCamera,
   ) {
     for model in self.objects {
-      model.render(pass, &GBufferEncodeTaskDispatcher, camera, scene)
+      model.render(
+        pass,
+        &GBufferEncodeTaskDispatcher.type_hash_by_type_name(),
+        camera,
+        scene,
+      )
     }
   }
 }
@@ -166,6 +171,7 @@ where
         shading: &PhysicalShading,
         target: &SimpleLightSchema,
       }
+      .type_hash_by_type_name()
       .draw_quad();
 
       pass("light_pass")

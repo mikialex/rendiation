@@ -126,6 +126,12 @@ impl TransformGPUData {
 
 impl ShaderHashProvider for NodeGPU {}
 
+impl TypeIdentityHash for NodeGPU {
+  fn hash_render_component_type(&self, mut hasher: &mut dyn std::hash::Hasher) {
+    TypeId::of::<Self>().hash(&mut (hasher))
+  }
+}
+
 impl GraphicsShaderProvider for NodeGPU {
   fn build(&self, builder: &mut ShaderRenderPipelineBuilder) -> Result<(), ShaderBuildError> {
     builder.vertex(|builder, binding| {

@@ -1,4 +1,3 @@
-use __core::{any::Any, hash::Hash};
 use futures::Stream;
 use incremental::*;
 use reactive::IncrementalListenBy;
@@ -23,7 +22,7 @@ impl PassContentWithSceneAndCamera for &mut GridGround {
     scene: &SceneRenderResourceGroup,
     camera: &rendiation_scene_core::SceneCamera,
   ) {
-    let base = default_dispatcher(pass);
+    let base = default_dispatcher(pass).type_hash_by_type_id();
 
     let mut custom_storage = scene.resources.custom_storage.borrow_mut();
     let gpus: &mut ReactiveMap<IncrementalSignalPtr<GridGroundConfig>, InfinityShaderPlane> =
@@ -37,7 +36,8 @@ impl PassContentWithSceneAndCamera for &mut GridGround {
     let effect = InfinityShaderPlaneEffect {
       plane: &grid_gpu.plane,
       camera: camera_gpu,
-    };
+    }
+    .type_hash_by_type_name();
 
     let components: [&dyn DynTypedRenderComponent; 3] = [&base, &effect, grid_gpu.shading.as_ref()];
     RenderEmitter::new(components.as_slice()).render(&mut pass.ctx, QUAD_DRAW_CMD);
@@ -68,9 +68,12 @@ fn create_grid_gpu(source: GridGroundConfig, gpu: &GPU) -> InfinityShaderPlane {
       },
       gpu,
     ),
-    shading: Box::new(GridGroundShading {
-      shading: create_uniform_with_cache(source, gpu),
-    }),
+    shading: Box::new(
+      GridGroundShading {
+        shading: create_uniform_with_cache(source, gpu),
+      }
+      .type_hash_by_type_id(),
+    ),
   }
 }
 
@@ -146,11 +149,7 @@ pub struct InfinityShaderPlaneEffect<'a> {
 }
 
 impl<'a> ShaderHashProvider for InfinityShaderPlaneEffect<'a> {}
-impl<'a> ShaderHashProviderAny for InfinityShaderPlaneEffect<'a> {
-  fn hash_pipeline_with_type_info(&self, hasher: &mut webgpu::PipelineHasher) {
-    self.plane.type_id().hash(hasher)
-  }
-}
+
 impl<'a> ShaderPassBuilder for InfinityShaderPlaneEffect<'a> {
   fn setup_pass(&self, ctx: &mut webgpu::GPURenderPassCtx) {
     self.camera.setup_pass(ctx);

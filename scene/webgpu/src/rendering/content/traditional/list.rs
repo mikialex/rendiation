@@ -123,7 +123,7 @@ impl<'a> ModelGPURenderResourceView<'a> {
 pub(crate) fn scene_model_setup_pass_core(
   gpu_pass: &mut FrameRenderPass,
   model_guid: u64,
-  camera_gpu: &CameraGPU,
+  camera_gpu: &dyn DynTypedRenderComponent,
   resource_view: &ModelGPURenderResourceView,
   dispatcher: &dyn DynTypedRenderComponent,
 ) {
@@ -149,8 +149,8 @@ pub(crate) fn scene_model_setup_pass_core(
 fn model_setup_pass_core(
   pass: &mut FrameRenderPass,
   model_gpu: &StandardModelGPU,
-  camera_gpu: &CameraGPU,
-  node_gpu: &NodeGPU,
+  camera_gpu: &dyn DynTypedRenderComponent,
+  node_gpu: &dyn DynTypedRenderComponent,
   ctx: &ModelGPURenderResourceView,
   dispatcher: &dyn DynTypedRenderComponent,
 ) {
