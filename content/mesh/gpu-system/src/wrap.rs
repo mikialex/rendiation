@@ -24,6 +24,12 @@ impl<T: ShaderHashProvider> ShaderHashProvider for MaybeBindlessMesh<T> {
       MaybeBindlessMesh::Bindless(t) => t.type_id().hash(hasher),
     }
   }
+  fn hash_self_type_identity(&self, hasher: &mut PipelineHasher) {
+    if let MaybeBindlessMesh::Traditional(base) = self {
+      base.hash_self_type_identity(hasher);
+    }
+    std::any::TypeId::of::<MaybeBindlessMesh<()>>().hash(hasher);
+  }
 }
 impl<T: GraphicsShaderProvider> GraphicsShaderProvider for MaybeBindlessMesh<T> {
   fn build(&self, builder: &mut ShaderRenderPipelineBuilder) -> Result<(), ShaderBuildError> {
@@ -87,6 +93,11 @@ impl<'a, T: ShaderHashProvider> ShaderHashProvider for BindlessMeshProvider<'a, 
   fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
     self.base.hash_pipeline(hasher);
     self.system.hash_pipeline(hasher)
+  }
+
+  fn hash_self_type_identity(&self, hasher: &mut PipelineHasher) {
+    self.base.hash_self_type_identity(hasher);
+    std::any::TypeId::of::<BindlessMeshProvider<'static, ()>>().hash(hasher);
   }
 }
 impl<'a, T: GraphicsShaderProvider> GraphicsShaderProvider for BindlessMeshProvider<'a, T> {

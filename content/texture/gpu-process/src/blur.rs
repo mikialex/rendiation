@@ -50,7 +50,11 @@ pub struct LinearBlurTask<'a, T> {
   weights: &'a ShaderSamplingWeights,
 }
 
-impl<'a, T> ShaderHashProvider for LinearBlurTask<'a, T> {}
+impl<'a, T> ShaderHashProvider for LinearBlurTask<'a, T> {
+  fn hash_self_type_identity(&self, hasher: &mut PipelineHasher) {
+    todo!()
+  }
+}
 impl<'a, T> GraphicsShaderProvider for LinearBlurTask<'a, T> {
   fn build(&self, builder: &mut ShaderRenderPipelineBuilder) -> Result<(), ShaderBuildError> {
     builder.fragment(|builder, binding| {

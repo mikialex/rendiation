@@ -1,3 +1,5 @@
+use std::hash::Hash;
+
 use crate::*;
 
 pub struct MipMapTaskManager {
@@ -74,7 +76,6 @@ impl Mipmap2DGenerator {
         view: read_view,
         reducer: self.reducer.as_ref(),
       }
-      .type_hash_by_type_name()
       .draw_quad();
 
       pass("mip-gen-2d")
@@ -116,7 +117,6 @@ impl Mipmap2DGenerator {
           view: read_view,
           reducer: self.reducer.as_ref(),
         }
-        .type_hash_by_type_name()
         .draw_quad();
 
         pass("mip-gen-cube-face")
@@ -184,7 +184,11 @@ impl<'a> ShaderPassBuilder for Mipmap2DGeneratorTask<'a> {
   }
 }
 
-impl<'a> ShaderHashProvider for Mipmap2DGeneratorTask<'a> {}
+impl<'a> ShaderHashProvider for Mipmap2DGeneratorTask<'a> {
+  fn hash_self_type_identity(&self, hasher: &mut PipelineHasher) {
+    std::any::TypeId::of::<Mipmap2DGeneratorTask<'static>>().hash(hasher)
+  }
+}
 
 impl<'a> GraphicsShaderProvider for Mipmap2DGeneratorTask<'a> {
   fn build(&self, builder: &mut ShaderRenderPipelineBuilder) -> Result<(), ShaderBuildError> {

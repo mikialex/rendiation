@@ -58,7 +58,11 @@ impl BindlessMeshDispatcher {
   }
 }
 
-impl ShaderHashProvider for BindlessMeshDispatcher {}
+impl ShaderHashProvider for BindlessMeshDispatcher {
+  fn hash_self_type_identity(&self, hasher: &mut PipelineHasher) {
+    std::any::TypeId::of::<Self>().hash(hasher)
+  }
+}
 
 impl ShaderPassBuilder for BindlessMeshDispatcher {
   fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {

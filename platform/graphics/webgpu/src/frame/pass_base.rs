@@ -19,6 +19,10 @@ impl ShaderHashProvider for DefaultPassDispatcher {
     self.formats.hash(hasher);
     self.auto_write.hash(hasher);
   }
+
+  fn hash_self_type_identity(&self, hasher: &mut PipelineHasher) {
+    std::any::TypeId::of::<Self>().hash(hasher)
+  }
 }
 impl ShaderPassBuilder for DefaultPassDispatcher {
   fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {

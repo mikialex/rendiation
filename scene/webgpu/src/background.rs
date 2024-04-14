@@ -21,7 +21,7 @@ impl SceneRenderable for SolidBackground {
   fn render<'a>(
     &self,
     _pass: &mut FrameRenderPass,
-    _dispatcher: &dyn DynTypedRenderComponent,
+    _dispatcher: &dyn RenderComponent,
     _camera: &SceneCamera,
     _scene: &SceneRenderResourceGroup,
   ) {
@@ -38,7 +38,7 @@ impl SceneRenderable for EnvMapBackground {
   fn render<'a>(
     &self,
     pass: &mut FrameRenderPass,
-    base: &dyn DynTypedRenderComponent,
+    base: &dyn RenderComponent,
     camera: &SceneCamera,
     scene: &SceneRenderResourceGroup,
   ) {
@@ -57,7 +57,7 @@ impl SceneRenderable for EnvMapBackground {
       camera_gpu,
     };
 
-    let components: [&dyn DynTypedRenderComponent; 3] = [
+    let components: [&dyn RenderComponent; 3] = [
       &base,
       &FullScreenQuad::default().type_hash_by_type_id(),
       &content.type_hash_by_type_name(),

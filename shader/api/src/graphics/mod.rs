@@ -6,7 +6,6 @@ mod fragment;
 pub use fragment::*;
 mod semantic;
 pub use semantic::*;
-mod extra;
 
 #[derive(Copy, Clone)]
 pub enum ShaderVaryingInterpolation {

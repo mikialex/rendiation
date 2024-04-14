@@ -66,7 +66,7 @@ impl RenderList {
   pub fn setup_pass(
     &self,
     gpu_pass: &mut FrameRenderPass,
-    dispatcher: &dyn DynTypedRenderComponent,
+    dispatcher: &dyn RenderComponent,
     camera: &SceneCamera,
     resource: &SceneRenderResourceGroup,
     skip_opaque: bool,
@@ -123,9 +123,9 @@ impl<'a> ModelGPURenderResourceView<'a> {
 pub(crate) fn scene_model_setup_pass_core(
   gpu_pass: &mut FrameRenderPass,
   model_guid: u64,
-  camera_gpu: &dyn DynTypedRenderComponent,
+  camera_gpu: &dyn RenderComponent,
   resource_view: &ModelGPURenderResourceView,
-  dispatcher: &dyn DynTypedRenderComponent,
+  dispatcher: &dyn RenderComponent,
 ) {
   let scene_model = resource_view.scene_models.get(&model_guid).unwrap();
   let scene_model = scene_model.as_ref();
@@ -149,10 +149,10 @@ pub(crate) fn scene_model_setup_pass_core(
 fn model_setup_pass_core(
   pass: &mut FrameRenderPass,
   model_gpu: &StandardModelGPU,
-  camera_gpu: &dyn DynTypedRenderComponent,
-  node_gpu: &dyn DynTypedRenderComponent,
+  camera_gpu: &dyn RenderComponent,
+  node_gpu: &dyn RenderComponent,
   ctx: &ModelGPURenderResourceView,
-  dispatcher: &dyn DynTypedRenderComponent,
+  dispatcher: &dyn RenderComponent,
 ) {
   let material_gpu = ctx.materials.get(&model_gpu.material_id.unwrap()).unwrap();
   let mesh_gpu = ctx.meshes.get(&model_gpu.mesh_id.unwrap()).unwrap();

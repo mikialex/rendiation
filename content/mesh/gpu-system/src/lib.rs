@@ -1,3 +1,4 @@
+use std::hash::Hash;
 use std::sync::{Arc, RwLock, Weak};
 
 use __core::{

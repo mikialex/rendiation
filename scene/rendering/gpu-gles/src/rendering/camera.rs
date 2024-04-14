@@ -1,10 +1,7 @@
 use crate::*;
 
 pub trait GLESCameraRenderImpl {
-  fn make_component(
-    &self,
-    idx: AllocIdx<SceneCameraEntity>,
-  ) -> Option<Box<dyn DynTypedRenderComponent>>;
+  fn make_component(&self, idx: AllocIdx<SceneCameraEntity>) -> Option<Box<dyn RenderComponent>>;
 }
 
 pub struct DefaultGLESCameraRenderImplProvider;
@@ -23,10 +20,7 @@ impl RenderImplProvider<Box<dyn GLESCameraRenderImpl>> for DefaultGLESCameraRend
 }
 
 impl GLESCameraRenderImpl for DefaultGLESCameraRenderImpl {
-  fn make_component(
-    &self,
-    idx: AllocIdx<SceneCameraEntity>,
-  ) -> Option<Box<dyn DynTypedRenderComponent>> {
+  fn make_component(&self, idx: AllocIdx<SceneCameraEntity>) -> Option<Box<dyn RenderComponent>> {
     let node = CameraGPU {
       ubo: self.uniforms.get(&idx)?,
     };

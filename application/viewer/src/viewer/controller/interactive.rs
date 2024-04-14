@@ -3,7 +3,7 @@ use rendiation_algebra::*;
 use rendiation_geometry::OptionalNearest;
 use rendiation_mesh_core::MeshBufferHitPoint;
 use rendiation_scene_interaction::*;
-use webgpu::{DynTypedRenderComponent, FrameRenderPass};
+use webgpu::{FrameRenderPass, RenderComponent};
 
 use crate::*;
 
@@ -75,7 +75,7 @@ impl<T: SceneRenderable, S: ApplicableIncremental> SceneRenderable for Interacti
   fn render(
     &self,
     pass: &mut FrameRenderPass,
-    dispatcher: &dyn DynTypedRenderComponent,
+    dispatcher: &dyn RenderComponent,
     camera: &SceneCamera,
     scene: &SceneRenderResourceGroup,
   ) {

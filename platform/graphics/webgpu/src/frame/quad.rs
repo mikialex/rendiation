@@ -1,5 +1,3 @@
-use type_identity::*;
-
 use crate::*;
 
 #[derive(Copy, Clone, ShaderStruct, Default)]
@@ -59,6 +57,10 @@ impl ShaderPassBuilder for FullScreenQuad {}
 impl ShaderHashProvider for FullScreenQuad {
   fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
     self.blend.hash(hasher)
+  }
+
+  fn hash_self_type_identity(&self, hasher: &mut PipelineHasher) {
+    std::any::TypeId::of::<Self>().hash(hasher)
   }
 }
 impl GraphicsShaderProvider for FullScreenQuad {
@@ -120,16 +122,12 @@ impl<T> UseQuadDraw for T {}
 
 impl<T> PassContent for QuadDraw<T>
 where
-  T: DynTypedRenderComponent,
+  T: RenderComponent,
 {
   fn render(&mut self, pass: &mut FrameRenderPass) {
     let mut base = default_dispatcher(pass);
     base.auto_write = false;
-    let components: [&dyn DynTypedRenderComponent; 3] = [
-      &base.type_hash_by_type_id(),
-      &self.quad.type_hash_by_type_name(),
-      &self.content,
-    ];
+    let components: [&dyn RenderComponent; 3] = [&base, &self.quad, &self.content];
 
     RenderEmitter::new(components.as_slice()).render(&mut pass.ctx, QUAD_DRAW_CMD);
   }

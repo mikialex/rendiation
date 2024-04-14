@@ -1,6 +1,5 @@
 use rendiation_shader_api::*;
 use rendiation_shader_backend_naga::ShaderAPINagaImpl;
-use type_identity::*;
 
 use crate::*;
 
@@ -40,55 +39,16 @@ impl<T> RenderComponent for T where
 {
 }
 
-impl<T: ShaderHashProvider> ShaderHashProvider for TypeHashProvideByTypeName<T> {
-  fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
-    self.0.hash_pipeline(hasher)
-  }
-}
-impl<T: ShaderPassBuilder> ShaderPassBuilder for TypeHashProvideByTypeName<T> {
-  fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
-    self.0.setup_pass(ctx)
-  }
-
-  fn post_setup_pass(&self, ctx: &mut GPURenderPassCtx) {
-    self.0.post_setup_pass(ctx)
-  }
-}
-
-impl<T: ShaderHashProvider> ShaderHashProvider for TypeHashProvideByTypeId<T> {
-  fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
-    self.0.hash_pipeline(hasher)
-  }
-}
-impl<T: ShaderPassBuilder> ShaderPassBuilder for TypeHashProvideByTypeId<T> {
-  fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
-    self.0.setup_pass(ctx)
-  }
-
-  fn post_setup_pass(&self, ctx: &mut GPURenderPassCtx) {
-    self.0.post_setup_pass(ctx)
-  }
-}
-
-pub trait DynTypedRenderComponent: RenderComponent + TypeIdentityHash {
-  fn hash_pipeline_with_type_info(&self, hasher: &mut PipelineHasher) {
-    self.hash_pipeline(hasher);
-    self.hash_type_identity(hasher);
-  }
-}
-impl<T> DynTypedRenderComponent for T where T: RenderComponent + TypeIdentityHash {}
-
-impl<'a> ShaderHashProvider for &'a dyn DynTypedRenderComponent {
+impl<'a> ShaderHashProvider for &'a dyn RenderComponent {
   fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
     (*self).hash_pipeline(hasher)
   }
-}
-impl<'a> TypeIdentityHash for &'a dyn DynTypedRenderComponent {
-  fn hash_type_identity(&self, hasher: &mut dyn Hasher) {
-    (*self).hash_type_identity(hasher)
+  fn hash_self_type_identity(&self, hasher: &mut PipelineHasher) {
+    std::any::TypeId::of::<&'static dyn RenderComponent>().hash(hasher)
   }
 }
-impl<'a> ShaderPassBuilder for &'a dyn DynTypedRenderComponent {
+
+impl<'a> ShaderPassBuilder for &'a dyn RenderComponent {
   fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
     (*self).setup_pass(ctx);
   }
@@ -97,7 +57,7 @@ impl<'a> ShaderPassBuilder for &'a dyn DynTypedRenderComponent {
     (*self).post_setup_pass(ctx);
   }
 }
-impl<'a> GraphicsShaderProvider for &'a dyn DynTypedRenderComponent {
+impl<'a> GraphicsShaderProvider for &'a dyn RenderComponent {
   fn build(&self, builder: &mut ShaderRenderPipelineBuilder) -> Result<(), ShaderBuildError> {
     (*self).build(builder)
   }
@@ -108,11 +68,11 @@ impl<'a> GraphicsShaderProvider for &'a dyn DynTypedRenderComponent {
 }
 
 pub struct RenderEmitter<'a, 'b> {
-  contents: &'a [&'b dyn DynTypedRenderComponent],
+  contents: &'a [&'b dyn RenderComponent],
 }
 
 impl<'a, 'b> RenderEmitter<'a, 'b> {
-  pub fn new(contents: &'a [&'b dyn DynTypedRenderComponent]) -> Self {
+  pub fn new(contents: &'a [&'b dyn RenderComponent]) -> Self {
     Self { contents }
   }
 }
@@ -136,6 +96,10 @@ impl<'a, 'b> ShaderHashProvider for RenderEmitter<'a, 'b> {
       .contents
       .iter()
       .for_each(|com| com.hash_pipeline_with_type_info(hasher))
+  }
+
+  fn hash_self_type_identity(&self, hasher: &mut PipelineHasher) {
+    std::any::TypeId::of::<RenderEmitter<'static, 'static>>().hash(hasher)
   }
 }
 
@@ -173,12 +137,13 @@ impl<'a, T: ShaderHashProvider> ShaderHashProvider for BindingController<'a, T> 
   fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
     self.inner.hash_pipeline(hasher)
   }
-}
-impl<'a, T: TypeIdentityHash> TypeIdentityHash for BindingController<'a, T> {
-  fn hash_type_identity(&self, hasher: &mut dyn Hasher) {
-    self.inner.hash_type_identity(hasher)
+
+  fn hash_self_type_identity(&self, hasher: &mut PipelineHasher) {
+    self.inner.hash_self_type_identity(hasher);
+    std::any::TypeId::of::<BindingController<'static, ()>>().hash(hasher)
   }
 }
+
 impl<'a, T: ShaderPassBuilder> ShaderPassBuilder for BindingController<'a, T> {
   fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
     let before = ctx.binding.set_binding_slot(self.target);

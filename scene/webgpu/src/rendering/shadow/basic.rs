@@ -105,7 +105,7 @@ impl SingleProjectShadowMapSystem {
         let base = default_dispatcher(pass);
         let base = &scene
           .extend_bindless_resource_provider(&base)
-          .type_hash_by_type_name() as &dyn DynTypedRenderComponent;
+          .type_hash_by_type_name() as &dyn RenderComponent;
 
         render_list.setup_pass(pass, &base, camera, scene);
       }

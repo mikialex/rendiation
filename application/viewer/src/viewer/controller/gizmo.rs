@@ -5,7 +5,7 @@ use rendiation_algebra::*;
 use rendiation_geometry::{IntersectAble, OptionalNearest, Plane, Ray3};
 use rendiation_mesh_generator::*;
 use rendiation_scene_interaction::*;
-use webgpu::{default_dispatcher, DynTypedRenderComponent, FrameRenderPass, TypeHashWrapperExt};
+use webgpu::{default_dispatcher, FrameRenderPass, RenderComponent, TypeHashWrapperExt};
 use winit::event::{ElementState, MouseButton};
 
 use crate::*;
@@ -773,7 +773,7 @@ impl SceneRenderable for HelperMesh {
   fn render(
     &self,
     pass: &mut FrameRenderPass,
-    dispatcher: &dyn DynTypedRenderComponent,
+    dispatcher: &dyn RenderComponent,
     camera: &SceneCamera,
     scene: &SceneRenderResourceGroup,
   ) {

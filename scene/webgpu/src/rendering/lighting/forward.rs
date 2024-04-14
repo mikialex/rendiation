@@ -60,7 +60,7 @@ impl<'a> PassContentWithSceneAndCamera for ForwardScene<'a> {
     };
     let dispatcher = &scene
       .extend_bindless_resource_provider(&dispatcher)
-      .type_hash_by_type_name() as &dyn DynTypedRenderComponent;
+      .type_hash_by_type_name() as &dyn RenderComponent;
 
     render_list.setup_pass(pass, &dispatcher, camera, scene);
   }

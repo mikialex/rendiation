@@ -83,7 +83,11 @@ pub struct AOComputer<'a> {
   reproject: &'a UniformBufferCachedDataView<ReprojectInfo>,
 }
 
-impl<'a> ShaderHashProvider for AOComputer<'a> {}
+impl<'a> ShaderHashProvider for AOComputer<'a> {
+  fn hash_self_type_identity(&self, hasher: &mut PipelineHasher) {
+    std::any::TypeId::of::<AOComputer<'static>>().hash(hasher)
+  }
+}
 
 impl<'a> ShaderPassBuilder for AOComputer<'a> {
   fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
@@ -178,7 +182,6 @@ impl SSAO {
           depth: depth.read(),
           parameter: self,
         }
-        .type_hash_by_type_name()
         .draw_quad(),
       );
 

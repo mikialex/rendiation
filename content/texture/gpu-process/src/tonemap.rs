@@ -16,9 +16,7 @@ impl ToneMap {
 
 impl ToneMap {
   pub fn tonemap<'a, T: 'a>(&'a self, hdr: AttachmentView<T>) -> impl PassContent + 'a {
-    ToneMapTask { hdr, config: self }
-      .type_hash_by_type_name()
-      .draw_quad()
+    ToneMapTask { hdr, config: self }.draw_quad()
   }
 }
 
@@ -31,6 +29,9 @@ pub enum ToneMapType {
 impl ShaderHashProvider for ToneMap {
   fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
     std::mem::discriminant(&self.ty).hash(hasher)
+  }
+  fn hash_self_type_identity(&self, hasher: &mut PipelineHasher) {
+    std::any::TypeId::of::<Self>().hash(hasher)
   }
 }
 impl ShaderPassBuilder for ToneMap {
@@ -130,6 +131,9 @@ struct ToneMapTask<'a, T> {
 impl<'a, T> ShaderHashProvider for ToneMapTask<'a, T> {
   fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
     self.config.hash_pipeline(hasher)
+  }
+  fn hash_self_type_identity(&self, hasher: &mut PipelineHasher) {
+    std::any::TypeId::of::<ToneMapTask<'static>>().hash(hasher)
   }
 }
 impl<'a, T> ShaderPassBuilder for ToneMapTask<'a, T> {

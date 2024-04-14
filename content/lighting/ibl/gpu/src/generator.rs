@@ -1,8 +1,14 @@
+use std::hash::Hash;
+
 use crate::*;
 
 struct BrdfLUTGenerator;
 impl ShaderPassBuilder for BrdfLUTGenerator {}
-impl ShaderHashProvider for BrdfLUTGenerator {}
+impl ShaderHashProvider for BrdfLUTGenerator {
+  fn hash_self_type_identity(&self, hasher: &mut PipelineHasher) {
+    std::any::TypeId::of::<Self>().hash(hasher)
+  }
+}
 impl GraphicsShaderProvider for BrdfLUTGenerator {
   fn build(&self, builder: &mut ShaderRenderPipelineBuilder) -> Result<(), ShaderBuildError> {
     builder.fragment(|builder, _| {
@@ -18,7 +24,7 @@ pub fn generate_brdf_lut(ctx: &mut FrameCtx, target: GPU2DTextureView) {
   pass("brdf lut generate")
     .with_color(target, load())
     .render_ctx(ctx)
-    .by(BrdfLUTGenerator.type_hash_by_type_id().draw_quad());
+    .by(BrdfLUTGenerator.draw_quad());
 }
 
 // pub struct PrefilteredCubeMapPair {

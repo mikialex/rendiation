@@ -60,7 +60,7 @@ pub trait SceneRenderable {
   fn render(
     &self,
     pass: &mut FrameRenderPass,
-    dispatcher: &dyn DynTypedRenderComponent,
+    dispatcher: &dyn RenderComponent,
     camera: &SceneCamera,
     scene: &SceneRenderResourceGroup,
   );

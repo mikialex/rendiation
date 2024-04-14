@@ -2,14 +2,11 @@ use crate::*;
 
 pub trait GLESModelRenderImpl {
   fn draw_command(&self, idx: AllocIdx<SceneModelEntity>) -> Option<DrawCommand>;
-  fn shape_renderable(
-    &self,
-    idx: AllocIdx<SceneModelEntity>,
-  ) -> Option<Box<dyn DynTypedRenderComponent>>;
+  fn shape_renderable(&self, idx: AllocIdx<SceneModelEntity>) -> Option<Box<dyn RenderComponent>>;
   fn material_renderable(
     &self,
     idx: AllocIdx<SceneModelEntity>,
-  ) -> Option<Box<dyn DynTypedRenderComponent>>;
+  ) -> Option<Box<dyn RenderComponent>>;
 }
 
 impl GLESModelRenderImpl for Vec<Box<dyn GLESModelRenderImpl>> {
@@ -22,10 +19,7 @@ impl GLESModelRenderImpl for Vec<Box<dyn GLESModelRenderImpl>> {
     None
   }
 
-  fn shape_renderable(
-    &self,
-    idx: AllocIdx<SceneModelEntity>,
-  ) -> Option<Box<dyn DynTypedRenderComponent>> {
+  fn shape_renderable(&self, idx: AllocIdx<SceneModelEntity>) -> Option<Box<dyn RenderComponent>> {
     for provider in self {
       if let Some(v) = provider.shape_renderable(idx) {
         return Some(v);
@@ -37,7 +31,7 @@ impl GLESModelRenderImpl for Vec<Box<dyn GLESModelRenderImpl>> {
   fn material_renderable(
     &self,
     idx: AllocIdx<SceneModelEntity>,
-  ) -> Option<Box<dyn DynTypedRenderComponent>> {
+  ) -> Option<Box<dyn RenderComponent>> {
     for provider in self {
       if let Some(v) = provider.shape_renderable(idx) {
         return Some(v);
@@ -56,17 +50,14 @@ impl GLESModelRenderImpl for SceneStdModelRenderer {
     todo!()
   }
 
-  fn shape_renderable(
-    &self,
-    idx: AllocIdx<SceneModelEntity>,
-  ) -> Option<Box<dyn DynTypedRenderComponent>> {
+  fn shape_renderable(&self, idx: AllocIdx<SceneModelEntity>) -> Option<Box<dyn RenderComponent>> {
     todo!()
   }
 
   fn material_renderable(
     &self,
     idx: AllocIdx<SceneModelEntity>,
-  ) -> Option<Box<dyn DynTypedRenderComponent>> {
+  ) -> Option<Box<dyn RenderComponent>> {
     todo!()
   }
 }

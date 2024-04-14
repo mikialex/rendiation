@@ -39,7 +39,7 @@ impl PassContentWithSceneAndCamera for &mut GridGround {
     }
     .type_hash_by_type_name();
 
-    let components: [&dyn DynTypedRenderComponent; 3] = [&base, &effect, grid_gpu.shading.as_ref()];
+    let components: [&dyn RenderComponent; 3] = [&base, &effect, grid_gpu.shading.as_ref()];
     RenderEmitter::new(components.as_slice()).render(&mut pass.ctx, QUAD_DRAW_CMD);
   }
 }
@@ -132,7 +132,7 @@ fn grid(position: Node<Vec3<f32>>, config: Node<GridGroundConfig>) -> Node<Vec4<
 
 pub struct InfinityShaderPlane {
   plane: UniformBufferCachedDataView<ShaderPlane>,
-  shading: Box<dyn DynTypedRenderComponent>,
+  shading: Box<dyn RenderComponent>,
 }
 
 #[repr(C)]

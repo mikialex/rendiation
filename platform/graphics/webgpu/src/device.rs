@@ -186,9 +186,23 @@ pub struct RenderPipelineCache {
 /// allocation
 pub trait ShaderHashProvider {
   fn hash_pipeline(&self, _hasher: &mut PipelineHasher) {}
+  /// note, same as the type id hash, only hash self type, the self type's dynamistic should be
+  /// hashed in hash_pipeline
+  ///
+  /// we could use specialization to implement this, however this feature is doomed
+  fn hash_self_type_identity(&self, hasher: &mut PipelineHasher);
+
+  fn hash_pipeline_with_type_info(&self, hasher: &mut PipelineHasher) {
+    self.hash_pipeline(hasher);
+    self.hash_self_type_identity(hasher);
+  }
 }
 
-impl ShaderHashProvider for () {}
+impl ShaderHashProvider for () {
+  fn hash_self_type_identity(&self, hasher: &mut PipelineHasher) {
+    std::any::TypeId::of::<Self>().hash(hasher)
+  }
+}
 
 /// User could use this to debug if the hashing logic issue
 pub struct DebugHasher<T> {

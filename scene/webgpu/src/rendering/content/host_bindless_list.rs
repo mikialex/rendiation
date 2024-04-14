@@ -65,7 +65,7 @@ impl MaybeBindlessMeshRenderList {
   pub fn setup_pass(
     &self,
     gpu_pass: &mut FrameRenderPass,
-    dispatcher: &dyn DynTypedRenderComponent,
+    dispatcher: &dyn RenderComponent,
     camera: &SceneCamera,
     resource: &SceneRenderResourceGroup,
   ) {

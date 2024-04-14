@@ -1,10 +1,8 @@
 use crate::*;
 
 pub trait GLESNodeRenderImpl {
-  fn make_component(
-    &self,
-    idx: AllocIdx<SceneNodeEntity>,
-  ) -> Option<Box<dyn DynTypedRenderComponent + '_>>;
+  fn make_component(&self, idx: AllocIdx<SceneNodeEntity>)
+    -> Option<Box<dyn RenderComponent + '_>>;
 }
 
 pub struct DefaultGLESNodeRenderImplProvider;
@@ -26,7 +24,7 @@ impl GLESNodeRenderImpl for DefaultGLESNodeRenderImpl {
   fn make_component(
     &self,
     idx: AllocIdx<SceneNodeEntity>,
-  ) -> Option<Box<dyn DynTypedRenderComponent + '_>> {
+  ) -> Option<Box<dyn RenderComponent + '_>> {
     let node = NodeGPU {
       ubo: self.node_gpu.get(&idx)?,
     };

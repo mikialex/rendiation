@@ -6,7 +6,7 @@ use rendiation_geometry::OptionalNearest;
 use rendiation_mesh_core::MeshBufferHitPoint;
 use rendiation_mesh_generator::*;
 use rendiation_scene_interaction::{SceneRayInteractive, SceneRayInteractiveCtx};
-use webgpu::{default_dispatcher, DynTypedRenderComponent, FrameRenderPass, TypeHashWrapperExt};
+use webgpu::{default_dispatcher, FrameRenderPass, RenderComponent, TypeHashWrapperExt};
 
 use super::WidgetDispatcher;
 use crate::*;
@@ -73,7 +73,7 @@ impl SceneRenderable for Arrow {
   fn render(
     &self,
     pass: &mut FrameRenderPass,
-    dispatcher: &dyn DynTypedRenderComponent,
+    dispatcher: &dyn RenderComponent,
     camera: &SceneCamera,
     scene: &SceneRenderResourceGroup,
   ) {

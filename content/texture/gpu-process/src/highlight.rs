@@ -119,7 +119,11 @@ pub struct HighLightMaskDispatcher;
 
 pub const HIGH_LIGHT_MASK_TARGET_FORMAT: TextureFormat = TextureFormat::R8Unorm;
 
-impl ShaderHashProvider for HighLightMaskDispatcher {}
+impl ShaderHashProvider for HighLightMaskDispatcher {
+  fn hash_self_type_identity(&self, hasher: &mut PipelineHasher) {
+    std::any::TypeId::of::<Self>().hash(hasher)
+  }
+}
 impl ShaderPassBuilder for HighLightMaskDispatcher {}
 
 impl GraphicsShaderProvider for HighLightMaskDispatcher {

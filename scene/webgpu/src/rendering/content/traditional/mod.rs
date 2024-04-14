@@ -7,7 +7,7 @@ impl SceneRenderable for SceneModel {
   fn render(
     &self,
     pass: &mut FrameRenderPass,
-    dispatcher: &dyn DynTypedRenderComponent,
+    dispatcher: &dyn RenderComponent,
     camera: &SceneCamera,
     scene: &SceneRenderResourceGroup,
   ) {
@@ -19,7 +19,7 @@ impl SceneRenderable for SceneModelImpl {
   fn render(
     &self,
     pass: &mut FrameRenderPass,
-    dispatcher: &dyn DynTypedRenderComponent,
+    dispatcher: &dyn RenderComponent,
     camera: &SceneCamera,
     scene: &SceneRenderResourceGroup,
   ) {
@@ -32,7 +32,7 @@ pub fn setup_pass_core(
   pass: &mut FrameRenderPass,
   camera: &SceneCamera,
   override_node: Option<&NodeGPU>,
-  dispatcher: &dyn DynTypedRenderComponent,
+  dispatcher: &dyn RenderComponent,
   resources: &SceneRenderResourceGroup,
 ) {
   match &model_input.model {
@@ -97,15 +97,15 @@ pub fn setup_pass_core(
 }
 
 pub fn dispatch_model_draw_with_preferred_binding_frequency(
-  base: &dyn DynTypedRenderComponent,
-  mesh: &dyn DynTypedRenderComponent,
-  node: &dyn DynTypedRenderComponent,
-  camera: &dyn DynTypedRenderComponent,
-  material: &dyn DynTypedRenderComponent,
+  base: &dyn RenderComponent,
+  mesh: &dyn RenderComponent,
+  node: &dyn RenderComponent,
+  camera: &dyn RenderComponent,
+  material: &dyn RenderComponent,
   draw_command: DrawCommand,
   pass: &mut GPURenderPassCtx,
 ) {
-  let components: [&dyn DynTypedRenderComponent; 5] = [
+  let components: [&dyn RenderComponent; 5] = [
     &base.assign_binding_index(0),
     &mesh.assign_binding_index(2),
     &node.assign_binding_index(2),

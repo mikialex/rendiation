@@ -4,7 +4,7 @@ use core::ops::DerefMut;
 
 use crate::*;
 
-pub trait ReactiveRenderComponent: DynTypedRenderComponent {
+pub trait ReactiveRenderComponent: RenderComponent {
   // we could remove this box in future
   fn create_render_component_delta_stream(
     &self,
