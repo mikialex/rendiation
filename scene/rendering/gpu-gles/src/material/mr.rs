@@ -96,18 +96,18 @@ pub fn pbr_mr_material_pipeline_hash(
 }
 
 pub struct PhysicalMetallicRoughnessMaterialGPU<'a> {
-  uniform: &'a UniformBufferDataView<PhysicalMetallicRoughnessMaterialUniform>,
-  alpha_mode: AlphaMode,
+  pub uniform: &'a UniformBufferDataView<PhysicalMetallicRoughnessMaterialUniform>,
+  pub alpha_mode: AlphaMode,
   // these idx is only useful in per object binding mode
-  base_color_tex_sampler: (u32, u32),
-  mr_tex_sampler: (u32, u32),
-  emissive_tex_sampler: (u32, u32),
-  normal_tex_sampler: (u32, u32),
+  pub base_color_tex_sampler: (u32, u32),
+  pub mr_tex_sampler: (u32, u32),
+  pub emissive_tex_sampler: (u32, u32),
+  pub normal_tex_sampler: (u32, u32),
   // no matter if we using indirect texture binding, this uniform is required for checking the
   // texture if is exist in shader
-  texture_uniforms:
+  pub texture_uniforms:
     &'a UniformBufferDataView<PhysicalMetallicRoughnessMaterialTextureHandlesUniform>,
-  binding_sys: &'a GPUTextureBindingSystem,
+  pub binding_sys: &'a GPUTextureBindingSystem,
 }
 
 impl<'a> ShaderHashProvider for PhysicalMetallicRoughnessMaterialGPU<'a> {

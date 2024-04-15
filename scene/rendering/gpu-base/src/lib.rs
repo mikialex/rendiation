@@ -36,7 +36,14 @@ pub trait RenderImplProvider<T> {
 }
 
 pub trait SceneRenderer {
-  fn render(&self, scene: AllocIdx<SceneEntity>) -> Box<dyn FrameContent>;
+  fn render(
+    &self,
+    scene: AllocIdx<SceneEntity>,
+    camera: AllocIdx<SceneCameraEntity>,
+    pass: &dyn RenderComponentAny,
+    ctx: &mut FrameCtx,
+    target: RenderPassDescriptorOwned,
+  );
 }
 
 pub trait PassContentWithCamera {
@@ -46,20 +53,41 @@ pub trait PassContentWithCamera {
 type BoxedFutureStream = Box<dyn Stream<Item = BoxedAnyFuture>>;
 type BoxedAnyFuture = Box<dyn Future<Output = Box<dyn Any>>>;
 
-#[derive(Default)]
 pub struct ReactiveResourceManager {
-  resource: Vec<BoxedFutureStream>,
-  // waker: AtomicWaker,
+  resource: FastHashMap<TypeId, BoxedFutureStream>,
+  cx: GPUResourceCtx,
 }
 
 impl ReactiveResourceManager {
-  pub fn add_source_raw(&mut self, s: BoxedFutureStream) {
-    self.resource.push(s);
-    // self.waker.wake(); todo
+  pub fn cx(&self) -> &GPUResourceCtx {
+    &self.cx
+  }
+
+  pub fn register_source_raw(&mut self, id: TypeId, s: BoxedFutureStream) {
+    self.resource.insert(id, s);
+  }
+
+  pub fn register_multi_updater<T: 'static>(&mut self, updater: MultiUpdateContainer<T>) {
+    let updater = Box::new(SharedMultiUpdateContainer::new(updater)) as BoxedFutureStream;
+    self.register_source_raw(TypeId::of::<MultiUpdateContainer<T>>(), updater);
   }
 }
 
-pub type ResourceUpdateResult = FastHashMap<TypeId, Box<dyn Any>>;
+pub struct ResourceUpdateResult {
+  inner: FastHashMap<TypeId, Box<dyn Any>>,
+}
+
+impl ResourceUpdateResult {
+  pub fn get_multi_updater<T>(&self) -> Option<LockReadGuardHolder<MultiUpdateContainer<T>>> {
+    let t = TypeId::of::<MultiUpdateContainer<T>>();
+    self
+      .inner
+      .get(&t)?
+      .downcast_ref::<LockReadGuardHolder<MultiUpdateContainer<T>>>()?
+      .clone()
+      .into()
+  }
+}
 
 impl Stream for ReactiveResourceManager {
   type Item = ResourceUpdateResult;
@@ -68,6 +96,13 @@ impl Stream for ReactiveResourceManager {
     self: std::pin::Pin<&mut Self>,
     cx: &mut Context<'_>,
   ) -> std::task::Poll<Option<Self::Item>> {
+    // join_all(
+    //   self
+    //     .get_mut()
+    //     .resource
+    //     .values_mut()
+    //     .map(|v| v.poll_next(cx)),
+    // );
     todo!()
   }
 }

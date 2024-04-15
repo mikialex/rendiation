@@ -9,16 +9,19 @@ pub trait GLESNodeRenderImpl {
 
 pub struct DefaultGLESNodeRenderImplProvider;
 pub struct DefaultGLESNodeRenderImpl {
-  node_gpu: SceneNodeUniforms,
+  node_gpu: LockReadGuardHolder<SceneNodeUniforms>,
 }
 
 impl RenderImplProvider<Box<dyn GLESNodeRenderImpl>> for DefaultGLESNodeRenderImplProvider {
   fn register_resource(&self, res: &mut ReactiveResourceManager) {
-    todo!()
+    let uniforms = node_gpus(res.cx());
+    res.register_multi_updater(uniforms);
   }
 
   fn create_impl(&self, res: &ResourceUpdateResult) -> Box<dyn GLESNodeRenderImpl> {
-    Box::new(DefaultGLESNodeRenderImpl { node_gpu: todo!() })
+    Box::new(DefaultGLESNodeRenderImpl {
+      node_gpu: res.get_multi_updater().unwrap(),
+    })
   }
 }
 
@@ -30,8 +33,6 @@ impl GLESNodeRenderImpl for DefaultGLESNodeRenderImpl {
     let node = NodeGPU {
       ubo: self.node_gpu.get(&idx)?,
     };
-
-    // Some(Box::new(node))
-    todo!()
+    Some(Box::new(node))
   }
 }

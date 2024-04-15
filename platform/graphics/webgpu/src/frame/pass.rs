@@ -25,10 +25,20 @@ impl<'a, 'b> std::ops::DerefMut for FrameRenderPass<'a, 'b> {
 
 #[repr(C)]
 #[std140_layout]
-#[derive(Copy, Clone, PartialEq, ShaderStruct)]
+#[derive(Copy, Clone, PartialEq, ShaderStruct, Default)]
 pub struct RenderPassGPUInfoData {
   pub texel_size: Vec2<f32>,
   pub buffer_size: Vec2<f32>,
+}
+
+impl RenderPassGPUInfoData {
+  pub fn new(texel_size: Vec2<f32>, buffer_size: Vec2<f32>) -> Self {
+    Self {
+      texel_size,
+      buffer_size,
+      ..Default::default()
+    }
+  }
 }
 
 /// Create a pass descriptor with given name. The provide name is used for debug purpose, not
@@ -83,14 +93,7 @@ impl<'a> PassDescriptor<'a> {
   }
 
   fn buffer_size(&self) -> Vec2<f32> {
-    self
-      .desc
-      .channels
-      .first()
-      .map(|c| &c.1)
-      .or_else(|| self.desc.depth_stencil_target.as_ref().map(|c| &c.1))
-      .map(|c| Vec2::from(c.size().into_usize()).map(|v| v as f32))
-      .unwrap_or_else(Vec2::zero)
+    self.desc.buffer_size()
   }
 
   #[must_use]
@@ -110,19 +113,7 @@ impl<'a> PassDescriptor<'a> {
     encoder: &'x mut GPUCommandEncoder,
     gpu: &'x GPU,
   ) -> ActiveRenderPass<'x> {
-    let pass = encoder.begin_render_pass(self.desc.clone());
-
-    let buffer_size = self.buffer_size();
-    let pass_info = RenderPassGPUInfoData {
-      texel_size: buffer_size.map(|v| 1.0 / v),
-      buffer_size,
-      ..Zeroable::zeroed()
-    };
-    let pass_info = create_uniform_with_cache(pass_info, gpu);
-
-    let c = GPURenderPassCtx::new(pass, gpu);
-
-    let pass = FrameRenderPass { ctx: c, pass_info };
+    let pass = encoder.begin_render_pass_with_info(self.desc.clone(), gpu);
 
     ActiveRenderPass {
       desc: self.desc,

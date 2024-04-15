@@ -4,37 +4,70 @@ use crate::*;
 /// command;
 pub trait GLESSceneModelRenderImpl {
   fn draw_command(&self, idx: AllocIdx<SceneModelEntity>) -> Option<DrawCommand>;
-  fn make_component(
-    &self,
+  fn make_component<'a>(
+    &'a self,
     idx: AllocIdx<SceneModelEntity>,
     camera: AllocIdx<SceneCameraEntity>,
-    pass: &dyn RenderComponentAny,
-  ) -> Option<Box<dyn RenderComponent>>;
+    pass: &'a dyn RenderComponentAny,
+  ) -> Option<Box<dyn RenderComponent + 'a>>;
+}
+
+impl GLESSceneModelRenderImpl for Vec<Box<dyn GLESSceneModelRenderImpl>> {
+  fn draw_command(&self, idx: AllocIdx<SceneModelEntity>) -> Option<DrawCommand> {
+    for provider in self {
+      if let Some(command) = provider.draw_command(idx) {
+        return Some(command);
+      }
+    }
+    None
+  }
+
+  fn make_component<'a>(
+    &'a self,
+    idx: AllocIdx<SceneModelEntity>,
+    camera: AllocIdx<SceneCameraEntity>,
+    pass: &'a dyn RenderComponentAny,
+  ) -> Option<Box<dyn RenderComponent + 'a>> {
+    for provider in self {
+      if let Some(com) = provider.make_component(idx, camera, pass) {
+        return Some(com);
+      }
+    }
+    None
+  }
 }
 
 pub struct GLESPreferredComOrderRendererProvider {
   pub node: Box<dyn RenderImplProvider<Box<dyn GLESNodeRenderImpl>>>,
-}
-
-impl GLESPreferredComOrderRendererProvider {
-  //
+  pub camera: Box<dyn RenderImplProvider<Box<dyn GLESCameraRenderImpl>>>,
+  pub model_impl: Vec<Box<dyn RenderImplProvider<Box<dyn GLESModelRenderImpl>>>>,
 }
 
 impl RenderImplProvider<Box<dyn GLESSceneModelRenderImpl>>
   for GLESPreferredComOrderRendererProvider
 {
   fn register_resource(&self, res: &mut ReactiveResourceManager) {
-    todo!()
+    self.node.register_resource(res);
+    self.camera.register_resource(res);
+    self
+      .model_impl
+      .iter()
+      .for_each(|i| i.register_resource(res));
   }
 
   fn create_impl(&self, res: &ResourceUpdateResult) -> Box<dyn GLESSceneModelRenderImpl> {
-    todo!()
+    Box::new(GLESPreferredComOrderRenderer {
+      model_impl: self.model_impl.iter().map(|i| i.create_impl(res)).collect(),
+      node: global_entity_component_of::<SceneModelRefNode>().read(),
+      node_render: self.node.create_impl(res),
+      camera_gpu: self.camera.create_impl(res),
+    })
   }
 }
 
 pub struct GLESPreferredComOrderRenderer {
   model_impl: Vec<Box<dyn GLESModelRenderImpl>>,
-  node_gpu: Box<dyn GLESNodeRenderImpl>,
+  node_render: Box<dyn GLESNodeRenderImpl>,
   node: ComponentReadView<SceneModelRefNode>,
   camera_gpu: Box<dyn GLESCameraRenderImpl>,
 }
@@ -52,7 +85,7 @@ impl GLESSceneModelRenderImpl for GLESPreferredComOrderRenderer {
   ) -> Option<Box<dyn RenderComponent>> {
     let node = self.node.get(idx)?;
     let node = (*node)?;
-    let node = self.node_gpu.make_component(node.into())?;
+    let node = self.node_render.make_component(node.into())?;
 
     let camera = self.camera_gpu.make_component(camera)?;
 

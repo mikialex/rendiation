@@ -1,6 +1,7 @@
-use std::ops::DerefMut;
+use std::{any::Any, ops::DerefMut};
 
-use futures::task::AtomicWaker;
+use futures::{future, task::AtomicWaker, Stream};
+use parking_lot::RwLock;
 
 use crate::*;
 
@@ -118,5 +119,28 @@ impl<T> MultiUpdateContainer<T> {
     for source in &mut self.source {
       source.update_target(&mut self.target, cx)
     }
+  }
+}
+
+pub struct SharedMultiUpdateContainer<T> {
+  inner: Arc<RwLock<MultiUpdateContainer<T>>>,
+}
+
+impl<T> SharedMultiUpdateContainer<T> {
+  pub fn new(inner: MultiUpdateContainer<T>) -> Self {
+    Self {
+      inner: Arc::new(RwLock::new(inner)),
+    }
+  }
+}
+
+impl<T: 'static> Stream for SharedMultiUpdateContainer<T> {
+  type Item = Box<dyn futures::Future<Output = Box<dyn Any>>>;
+
+  fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+    self.inner.write().poll_update(cx);
+    let result = Box::new(self.inner.make_read_holder()) as Box<dyn Any>;
+    let future = Box::new(future::ready(result)) as Box<dyn futures::Future<Output = Box<dyn Any>>>;
+    Poll::Ready(Some(future))
   }
 }

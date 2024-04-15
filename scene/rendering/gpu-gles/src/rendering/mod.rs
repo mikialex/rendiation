@@ -17,3 +17,9 @@ pub use node::*;
 
 mod camera;
 pub use camera::*;
+
+mod material;
+pub use material::*;
+
+mod shape;
+pub use shape::*;

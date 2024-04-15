@@ -5,11 +5,11 @@ pub trait GLESModelRenderImpl {
   fn shape_renderable(
     &self,
     idx: AllocIdx<SceneModelEntity>,
-  ) -> Option<Box<dyn RenderComponentAny>>;
+  ) -> Option<Box<dyn RenderComponentAny + '_>>;
   fn material_renderable(
     &self,
     idx: AllocIdx<SceneModelEntity>,
-  ) -> Option<Box<dyn RenderComponentAny>>;
+  ) -> Option<Box<dyn RenderComponentAny + '_>>;
 }
 
 impl GLESModelRenderImpl for Vec<Box<dyn GLESModelRenderImpl>> {
@@ -25,7 +25,7 @@ impl GLESModelRenderImpl for Vec<Box<dyn GLESModelRenderImpl>> {
   fn shape_renderable(
     &self,
     idx: AllocIdx<SceneModelEntity>,
-  ) -> Option<Box<dyn RenderComponentAny>> {
+  ) -> Option<Box<dyn RenderComponentAny + '_>> {
     for provider in self {
       if let Some(v) = provider.shape_renderable(idx) {
         return Some(v);
@@ -37,7 +37,7 @@ impl GLESModelRenderImpl for Vec<Box<dyn GLESModelRenderImpl>> {
   fn material_renderable(
     &self,
     idx: AllocIdx<SceneModelEntity>,
-  ) -> Option<Box<dyn RenderComponentAny>> {
+  ) -> Option<Box<dyn RenderComponentAny + '_>> {
     for provider in self {
       if let Some(v) = provider.shape_renderable(idx) {
         return Some(v);
@@ -46,27 +46,53 @@ impl GLESModelRenderImpl for Vec<Box<dyn GLESModelRenderImpl>> {
     None
   }
 }
+pub struct DefaultSceneStdModelRendererProvider {
+  pub materials: Vec<Box<dyn RenderImplProvider<Box<dyn GLESModelMaterialRenderImpl>>>>,
+  pub shapes: Vec<Box<dyn RenderImplProvider<Box<dyn GLESModelShapeRenderImpl>>>>,
+}
 
+impl RenderImplProvider<Box<dyn GLESModelRenderImpl>> for DefaultSceneStdModelRendererProvider {
+  fn register_resource(&self, res: &mut ReactiveResourceManager) {
+    self.materials.iter().for_each(|p| p.register_resource(res));
+    self.shapes.iter().for_each(|p| p.register_resource(res));
+  }
+
+  fn create_impl(&self, res: &ResourceUpdateResult) -> Box<dyn GLESModelRenderImpl> {
+    Box::new(SceneStdModelRenderer {
+      model: global_entity_component_of::<SceneModelStdModelRenderPayload>().read(),
+      materials: self.materials.iter().map(|v| v.create_impl(res)).collect(),
+      shapes: self.shapes.iter().map(|v| v.create_impl(res)).collect(),
+    })
+  }
+}
 struct SceneStdModelRenderer {
   model: ComponentReadView<SceneModelStdModelRenderPayload>,
+  materials: Vec<Box<dyn GLESModelMaterialRenderImpl>>,
+  shapes: Vec<Box<dyn GLESModelShapeRenderImpl>>,
 }
 
 impl GLESModelRenderImpl for SceneStdModelRenderer {
   fn draw_command(&self, idx: AllocIdx<SceneModelEntity>) -> Option<DrawCommand> {
-    todo!()
+    let model = self.model.get(idx)?;
+    let idx = (*model)?;
+    self.shapes.draw_command(idx.into())
   }
 
   fn shape_renderable(
     &self,
     idx: AllocIdx<SceneModelEntity>,
-  ) -> Option<Box<dyn RenderComponentAny>> {
-    todo!()
+  ) -> Option<Box<dyn RenderComponentAny + '_>> {
+    let model = self.model.get(idx)?;
+    let idx = (*model)?;
+    self.shapes.make_component(idx.into())
   }
 
   fn material_renderable(
     &self,
     idx: AllocIdx<SceneModelEntity>,
-  ) -> Option<Box<dyn RenderComponentAny>> {
-    todo!()
+  ) -> Option<Box<dyn RenderComponentAny + '_>> {
+    let model = self.model.get(idx)?;
+    let idx = (*model)?;
+    self.materials.make_component(idx.into())
   }
 }

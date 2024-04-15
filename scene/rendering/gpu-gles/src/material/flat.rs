@@ -19,10 +19,16 @@ pub struct FlatMaterialUniform {
 
 #[derive(Clone)]
 pub struct FlatMaterialGPU<'a> {
-  uniform: &'a UniformBufferDataView<FlatMaterialUniform>,
+  pub uniform: &'a UniformBufferDataView<FlatMaterialUniform>,
 }
 
 impl<'a> ShaderHashProvider for FlatMaterialGPU<'a> {}
+impl<'a> ShaderHashProviderAny for FlatMaterialGPU<'a> {
+  fn hash_pipeline_with_type_info(&self, hasher: &mut PipelineHasher) {
+    self.hash_pipeline(hasher);
+    std::any::TypeId::of::<FlatMaterialGPU<'static>>().hash(hasher)
+  }
+}
 
 impl<'a> GraphicsShaderProvider for FlatMaterialGPU<'a> {
   fn build(&self, builder: &mut ShaderRenderPipelineBuilder) -> Result<(), ShaderBuildError> {

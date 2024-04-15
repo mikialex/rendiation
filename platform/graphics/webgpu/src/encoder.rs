@@ -64,6 +64,22 @@ impl GPUCommandEncoder {
     self.begin_render_pass(des);
   }
 
+  pub fn begin_render_pass_with_info<'a, 'b>(
+    &'a mut self,
+    des: RenderPassDescriptorOwned,
+    gpu: &'b GPU,
+  ) -> FrameRenderPass<'a, 'b> {
+    let buffer_size = des.buffer_size();
+    let ctx = self.begin_render_pass(des);
+
+    let pass_info = RenderPassGPUInfoData::new(buffer_size.map(|v| 1.0 / v), buffer_size);
+    let pass_info = create_uniform_with_cache(pass_info, gpu);
+
+    let c = GPURenderPassCtx::new(ctx, gpu);
+
+    FrameRenderPass { ctx: c, pass_info }
+  }
+
   pub fn begin_render_pass(&mut self, des: RenderPassDescriptorOwned) -> GPURenderPass {
     self.active_pass_target_holder.replace(des);
     let des = self.active_pass_target_holder.as_ref().unwrap();

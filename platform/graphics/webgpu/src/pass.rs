@@ -130,6 +130,18 @@ pub struct RenderPassDescriptorOwned {
   pub resolve_target: Option<RenderTargetView>,
 }
 
+impl RenderPassDescriptorOwned {
+  pub fn buffer_size(&self) -> Vec2<f32> {
+    self
+      .channels
+      .first()
+      .map(|c| &c.1)
+      .or_else(|| self.depth_stencil_target.as_ref().map(|c| &c.1))
+      .map(|c| Vec2::from(c.size().into_usize()).map(|v| v as f32))
+      .unwrap_or_else(Vec2::zero)
+  }
+}
+
 #[derive(Clone, Hash)]
 pub struct RenderTargetFormatsInfo {
   pub color_formats: Vec<wgpu::TextureFormat>,
