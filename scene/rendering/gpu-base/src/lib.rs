@@ -71,6 +71,14 @@ impl ReactiveResourceManager {
     let updater = Box::new(SharedMultiUpdateContainer::new(updater)) as BoxedFutureStream;
     self.register_source_raw(TypeId::of::<MultiUpdateContainer<T>>(), updater);
   }
+
+  pub fn register_reactive_collection(&mut self) {
+    //
+  }
+
+  pub fn register_reactive_multi_collection(&mut self) {
+    //
+  }
 }
 
 pub struct ResourceUpdateResult {
@@ -86,6 +94,13 @@ impl ResourceUpdateResult {
       .downcast_ref::<LockReadGuardHolder<MultiUpdateContainer<T>>>()?
       .clone()
       .into()
+  }
+
+  pub fn get_reactive_collection_result(&mut self) {
+    //
+  }
+  pub fn get_reactive_multi_collection_result(&mut self) {
+    //
   }
 }
 

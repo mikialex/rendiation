@@ -1,13 +1,14 @@
 [package]
-authors = ["mikialex <18516340862@163.com>"]
+authors = ["MikiAlex <18516340862@163.com>"]
 edition = "2021"
-name = "rendiation-widened-line"
+name = "rendiation-scene-geometry-query"
 version = "0.1.0"
 
 [dependencies]
 rendiation-algebra = { path = "../../math/algebra" }
 rendiation-geometry = { path = "../../math/geometry" }
-winit = { workspace = true }
+rendiation-mesh-core = { path = "../../content/mesh/core" }
+rendiation-scene-core = { path = "../core" }
 
 [lints]
 workspace = true

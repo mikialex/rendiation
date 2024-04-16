@@ -51,9 +51,10 @@ members = [
   "scene/rendering/gpu-base",
   "scene/rendering/gpu-gles",
   "scene/rendering/shadow-map",
+  "scene/rendering/cpu-raytracing",
   "scene/optimization",
-  "scene/raytracing",
   "scene/interaction",
+  "scene/geometry-query",
   "scene/io/obj/loader",
   "scene/io/gltf/loader",
   "scene/io/gltf/exporter",
@@ -61,6 +62,8 @@ members = [
   "platform/graphics/webgpu-reactive-utils",
   "extension/controller",
   "extension/view-override-model",
+  "extension/barycentric-solid-line",
+  "extension/state-override",
   "application/viewer",
 ]
 

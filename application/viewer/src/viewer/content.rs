@@ -40,14 +40,12 @@ impl Viewer3dContent {
     let controller = ControllerWinitAdapter::new(controller);
 
     let axis_helper = AxisHelper::new(&scene.root());
-    let grid_helper = GridHelper::new(&scene.root(), Default::default());
 
     let gizmo = Gizmo::new(&scene.root(), &scene_derived);
 
     let widgets = WidgetContent {
       ground: Default::default(),
       axis_helper,
-      grid_helper,
       camera_helpers: CameraHelpers::new(&scene),
       gizmo,
     };
@@ -272,7 +270,6 @@ impl Default for Viewer3dContent {
 pub struct WidgetContent {
   pub ground: GridGround,
   pub axis_helper: AxisHelper,
-  pub grid_helper: GridHelper,
   pub camera_helpers: CameraHelpers,
   pub gizmo: Gizmo,
 }

@@ -92,7 +92,7 @@ impl<'a> PassDescriptor<'a> {
     self
   }
 
-  fn buffer_size(&self) -> Vec2<f32> {
+  pub fn buffer_size(&self) -> Vec2<f32> {
     self.desc.buffer_size()
   }
 

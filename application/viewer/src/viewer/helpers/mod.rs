@@ -8,11 +8,9 @@ use crate::{MaterialStates, WidenedLineMaterial, WidenedLineMesh};
 
 mod axis;
 mod camera;
-mod grid;
 mod ground;
 pub use axis::*;
 pub use camera::*;
-pub use grid::*;
 pub use ground::*;
 
 pub type HelperLineMesh = WidenedLineMesh;

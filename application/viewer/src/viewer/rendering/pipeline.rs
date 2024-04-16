@@ -70,7 +70,6 @@ impl ViewerPipeline {
       .resolve_to(widgets_result.write())
       .render_ctx(ctx)
       .by(scene.by_main_camera_and_self(&mut widgets.axis_helper))
-      .by(scene.by_main_camera_and_self(&mut widgets.grid_helper))
       .by(scene.by_main_camera_and_self(&mut widgets.gizmo))
       .by(scene.by_main_camera_and_self(&mut widgets.camera_helpers));
 

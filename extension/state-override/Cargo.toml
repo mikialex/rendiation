@@ -1,0 +1,18 @@
+[package]
+authors = ["mikialex <18516340862@163.com>"]
+edition = "2021"
+name = "rendiation-state-override"
+version = "0.1.0"
+
+[dependencies]
+rendiation-algebra = { path = "../../math/algebra" }
+rendiation-scene-core-next = { path = "../../scene/core-next" }
+rendiation-shader-api = { path = "../../shader/api" }
+database = { path = "../../utility/database" }
+reactive = { path = "../../utility/reactive" }
+interning = { path = "../../utility/interning" }
+once_cell = { workspace = true }
+rendiation-webgpu = { path = "../../platform/graphics/webgpu" }
+
+[lints]
+workspace = true

@@ -1,0 +1,29 @@
+[package]
+authors = ["MikiAlex <18516340862@163.com>"]
+edition = "2021"
+name = "rendiation-scene-raytracing"
+version = "0.1.0"
+
+[dependencies]
+dyn-clone = { workspace = true }
+image = "*"
+indicatif = "0.15"
+rand = { workspace = true }
+rayon = { workspace = true }
+statrs = "0.16.0"
+tobj = "2.0.3"
+
+arena = { path = "../../../utility/arena" }
+rendiation-algebra = { path = "../../../math/algebra" }
+rendiation-color = { path = "../../../content/color" }
+rendiation-geometry = { path = "../../../math/geometry" }
+rendiation-lighting-transport = { path = "../../../content/lighting/transport" }
+rendiation-mesh-core = { path = "../../../content/mesh/core" }
+rendiation-scene-core = { path = "../../core" }
+rendiation-statistics = { path = "../../../math/statistics" }
+rendiation-texture = { path = "../../../content/texture/core" }
+space-algorithm = { path = "../../../content/space" }
+tree = { path = "../../../utility/tree" }
+
+[lints]
+workspace = true
