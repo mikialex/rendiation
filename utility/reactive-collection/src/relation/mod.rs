@@ -9,7 +9,7 @@ pub use projection::*;
 use crate::*;
 
 pub trait ReactiveOneToManyRelationship<O: CKey, M: CKey>: ReactiveCollection<M, O> {
-  fn multi_access(&self) -> Box<dyn VirtualMultiCollection<O, M> + '_>;
+  fn multi_access(&self) -> Box<dyn VirtualMultiCollection<O, M>>;
 }
 
 pub trait ReactiveOneToManyRelationshipExt<O: CKey, M: CKey>:
@@ -17,7 +17,7 @@ pub trait ReactiveOneToManyRelationshipExt<O: CKey, M: CKey>:
 {
   fn make_multi_accessor(&self) -> impl Fn(&O, &mut dyn FnMut(M)) + Send + Sync + '_ {
     let view = self.multi_access();
-    move |k, visitor| view.access_multi(k, visitor)
+    move |k, visitor| view.access_multi_visitor(k, visitor)
   }
 }
 impl<O: CKey, M: CKey, T: ReactiveOneToManyRelationship<O, M>>
@@ -46,7 +46,7 @@ where
   O: CKey,
   M: CKey,
 {
-  fn multi_access(&self) -> Box<dyn VirtualMultiCollection<O, M> + '_> {
+  fn multi_access(&self) -> Box<dyn VirtualMultiCollection<O, M>> {
     self.deref().multi_access()
   }
 }

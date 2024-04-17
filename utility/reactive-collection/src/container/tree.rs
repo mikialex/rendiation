@@ -211,13 +211,13 @@ where
 
 impl<'a, T, F> AbstractTreeMutNode for TreeMutNode<'a, T, F> {
   fn visit_children_mut(&mut self, mut visitor: impl FnMut(&mut Self)) {
-    self.ctx.connectivity.access_multi(&self.idx, &mut |idx| {
+    for idx in self.ctx.connectivity.access_multi(&self.idx).unwrap() {
       visitor(&mut TreeMutNode {
         phantom: PhantomData,
         idx,
         ctx: self.ctx,
       });
-    });
+    }
   }
 }
 

@@ -1,4 +1,4 @@
-use rendiation_mesh_core::{AttributeSemantic, BufferViewRange, PrimitiveTopology};
+use rendiation_mesh_core::{AttributeSemantic, PrimitiveTopology};
 
 use crate::*;
 
@@ -8,19 +8,13 @@ declare_component!(
   AttributeMeshEntity,
   PrimitiveTopology
 );
-declare_foreign_key!(AttributeMeshIndex, AttributeMeshEntity, BufferEntity);
-declare_component!(
-  AttributeMeshIndexBufferRange,
-  AttributeMeshEntity,
-  Option<BufferViewRange>
-);
+declare_entity_associated!(AttributeIndexRef, AttributeMeshEntity);
+impl SceneBufferView for AttributeIndexRef {}
 
 declare_entity!(AttributeMeshVertexBufferRelation);
-declare_component!(
-  AttributeMeshVertexBufferRange,
-  AttributeMeshVertexBufferRelation,
-  BufferViewRange
-);
+declare_entity_associated!(AttributeVertexRef, AttributeMeshVertexBufferRelation);
+impl SceneBufferView for AttributeVertexRef {}
+
 declare_component!(
   AttributeMeshVertexBufferSemantic,
   AttributeMeshVertexBufferRelation,
@@ -32,29 +26,24 @@ declare_foreign_key!(
   AttributeMeshVertexBufferRelation,
   AttributeMeshEntity
 );
-declare_foreign_key!(
-  AttributeMeshVertexBufferRelationRefVertexBuffer,
-  AttributeMeshVertexBufferRelation,
-  BufferEntity
-);
 
 pub fn register_attribute_mesh_data_model() {
-  global_database()
+  let ecg = global_database()
     .declare_entity::<AttributeMeshEntity>()
-    .declare_component::<AttributeMeshTopology>()
-    .declare_foreign_key::<AttributeMeshIndex>()
-    .declare_component::<AttributeMeshIndexBufferRange>();
+    .declare_component::<AttributeMeshTopology>();
+
+  register_scene_buffer_view::<AttributeIndexRef>(ecg);
 
   global_database()
     .declare_entity::<BufferEntity>()
     .declare_component::<BufferEntityData>();
 
-  global_database()
+  let ecg = global_database()
     .declare_entity::<AttributeMeshVertexBufferRelation>()
-    .declare_component::<AttributeMeshVertexBufferRange>()
     .declare_component::<AttributeMeshVertexBufferSemantic>()
-    .declare_foreign_key::<AttributeMeshVertexBufferRelationRefAttributeMesh>()
-    .declare_foreign_key::<AttributeMeshVertexBufferRelationRefVertexBuffer>();
+    .declare_foreign_key::<AttributeMeshVertexBufferRelationRefAttributeMesh>();
+
+  register_scene_buffer_view::<AttributeVertexRef>(ecg);
 }
 
 declare_entity!(InstanceMeshInstanceEntity);

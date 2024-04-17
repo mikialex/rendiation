@@ -3,6 +3,7 @@ use reactive::*;
 use rendiation_algebra::*;
 
 mod animation;
+mod buffer;
 mod camera;
 mod light;
 mod material;
@@ -10,6 +11,7 @@ mod mesh;
 mod texture;
 
 pub use animation::*;
+pub use buffer::*;
 pub use camera::*;
 pub use light::*;
 pub use material::*;
@@ -48,9 +50,6 @@ pub fn register_scene_self_data_model() {
     .declare_entity::<SceneEntity>()
     .declare_component::<SceneSolidBackground>();
 }
-
-declare_entity!(BufferEntity);
-declare_component!(BufferEntityData, BufferEntity, ExternalRefPtr<Vec<u8>>);
 
 declare_entity!(SceneModelEntity);
 declare_foreign_key!(SceneModelBelongsToScene, SceneModelEntity, SceneEntity);

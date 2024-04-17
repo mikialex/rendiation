@@ -71,11 +71,11 @@ impl RenderImplProvider<Box<dyn GLESModelMaterialRenderImpl>>
       material_access: todo!(),
       uniforms: todo!(),
       tex_uniforms: todo!(),
-      alpha_mode: todo!(),
-      base_color_tex_sampler: todo!(),
-      mr_tex_sampler: todo!(),
-      emissive_tex_sampler: todo!(),
-      normal_tex_sampler: todo!(),
+      alpha_mode: global_entity_component_of().read(),
+      base_color_tex_sampler: TextureSamplerIdView::read_from_global(),
+      mr_tex_sampler: TextureSamplerIdView::read_from_global(),
+      emissive_tex_sampler: TextureSamplerIdView::read_from_global(),
+      normal_tex_sampler: TextureSamplerIdView::read_from_global(),
       binding_sys: todo!(),
     })
   }
@@ -86,11 +86,33 @@ struct PbrMRMaterialDefaultRenderImpl {
   uniforms: PbrMRMaterialUniforms,
   tex_uniforms: PbrMRMaterialTexUniforms,
   alpha_mode: ComponentReadView<PbrMRMaterialAlphaModeComponent>,
-  base_color_tex_sampler: ComponentReadView<PbrMRMaterialAlphaModeComponent>,
-  mr_tex_sampler: ComponentReadView<PbrMRMaterialAlphaModeComponent>,
-  emissive_tex_sampler: ComponentReadView<PbrMRMaterialAlphaModeComponent>,
-  normal_tex_sampler: ComponentReadView<PbrMRMaterialAlphaModeComponent>,
+  base_color_tex_sampler: TextureSamplerIdView<PbrMRMaterialBaseColorTex>,
+  mr_tex_sampler: TextureSamplerIdView<PbrMRMaterialMetallicRoughnessTex>,
+  emissive_tex_sampler: TextureSamplerIdView<PbrMRMaterialEmissiveTex>,
+  normal_tex_sampler: TextureSamplerIdView<NormalTexSamplerOf<PbrMRMaterialNormalInfo>>,
   binding_sys: GPUTextureBindingSystem,
+}
+
+pub struct TextureSamplerIdView<T: TextureWithSamplingForeignKeys> {
+  pub texture: ComponentReadView<SceneTexture2dRefOf<T>>,
+  pub sampler: ComponentReadView<SceneSamplerRefOf<T>>,
+}
+
+impl<T: TextureWithSamplingForeignKeys> TextureSamplerIdView<T> {
+  pub fn read_from_global() -> Self {
+    Self {
+      texture: global_entity_component_of().read(),
+      sampler: global_entity_component_of().read(),
+    }
+  }
+
+  pub fn get_pair(&self, id: u32) -> Option<(u32, u32)> {
+    let tex = self.texture.get(id.into())?;
+    let tex = (*tex)?;
+    let sampler = self.sampler.get(id.into())?;
+    let sampler = (*sampler)?;
+    Some((tex, sampler))
+  }
 }
 
 impl GLESModelMaterialRenderImpl for PbrMRMaterialDefaultRenderImpl {
@@ -103,10 +125,10 @@ impl GLESModelMaterialRenderImpl for PbrMRMaterialDefaultRenderImpl {
     PhysicalMetallicRoughnessMaterialGPU {
       uniform: self.uniforms.get(&idx.into())?,
       alpha_mode: todo!(),
-      base_color_tex_sampler: todo!(),
-      mr_tex_sampler: todo!(),
-      emissive_tex_sampler: todo!(),
-      normal_tex_sampler: todo!(),
+      base_color_tex_sampler: self.base_color_tex_sampler.get_pair(idx)?,
+      mr_tex_sampler: self.mr_tex_sampler.get_pair(idx)?,
+      emissive_tex_sampler: self.emissive_tex_sampler.get_pair(idx)?,
+      normal_tex_sampler: self.normal_tex_sampler.get_pair(idx)?,
       texture_uniforms: self.tex_uniforms.get(&idx.into())?,
       binding_sys: &self.binding_sys,
     };

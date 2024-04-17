@@ -3442,6 +3442,7 @@ name = "rendiation-scene-rendering-gpu-gles"
 version = "0.1.0"
 dependencies = [
  "database",
+ "dyn-downcast",
  "fast-hash-collection",
  "log",
  "reactive",

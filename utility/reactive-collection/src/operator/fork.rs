@@ -276,7 +276,7 @@ impl<K: CKey, V: CValue, T: Send + Sync> VirtualMultiCollection<K, V>
     self.view.iter_key_in_multi_collection()
   }
 
-  fn access_multi(&self, key: &K, visitor: &mut dyn FnMut(V)) {
-    self.view.access_multi(key, visitor)
+  fn access_multi(&self, key: &K) -> Option<Box<dyn Iterator<Item = V> + '_>> {
+    self.view.access_multi(key)
   }
 }

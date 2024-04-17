@@ -92,18 +92,29 @@ impl<T> LinkListPool<T> {
   }
 
   /// visitor (data, index) return should continue
-  pub fn visit(&self, list: &ListHandle, mut visitor: impl FnMut(&T, u32) -> bool) {
-    let mut next_to_visit = IndexPtr::new((list.head != u32::MAX).then_some(list.head as usize));
-    while let Some(to_visit) = next_to_visit.get() {
-      let to_visit = to_visit as u32;
-      let data = self.pool.get(to_visit);
-      next_to_visit = data.next;
-      let should_continue = visitor(&data.data, to_visit);
-
-      if !should_continue {
-        return;
-      }
+  pub fn iter_list(&self, list: &ListHandle) -> LinkListPoolIter<T> {
+    let next_to_visit = IndexPtr::new((list.head != u32::MAX).then_some(list.head as usize));
+    LinkListPoolIter {
+      list: self,
+      next_to_visit,
     }
+  }
+}
+
+pub struct LinkListPoolIter<'a, T> {
+  list: &'a LinkListPool<T>,
+  next_to_visit: IndexPtr,
+}
+
+impl<'a, T> Iterator for LinkListPoolIter<'a, T> {
+  type Item = (&'a T, u32);
+
+  fn next(&mut self) -> Option<Self::Item> {
+    let to_visit = self.next_to_visit.get()?;
+    let to_visit = to_visit as u32;
+    let data = self.list.pool.get(to_visit);
+    self.next_to_visit = data.next;
+    Some((&data.data, to_visit))
   }
 }
 

@@ -153,6 +153,10 @@
 //   }
 // }
 
+// struct SolidLinedMeshGPU {
+//   //
+// }
+
 // both!(BarycentricCoord, Vec3<f32>);
 
 // impl GraphicsShaderProvider for SolidLinedMeshGPU {

@@ -4,7 +4,7 @@ pub struct GLESRenderSystem {
   pub scene_model_impl: Vec<Box<dyn RenderImplProvider<Box<dyn GLESSceneModelRenderImpl>>>>,
 }
 
-pub fn build_default_gles_renderer_system() -> GLESRenderSystem {
+pub fn build_default_gles_render_system() -> GLESRenderSystem {
   GLESRenderSystem {
     scene_model_impl: vec![Box::new(GLESPreferredComOrderRendererProvider {
       node: Box::new(DefaultGLESNodeRenderImplProvider),
@@ -54,7 +54,7 @@ impl SceneRenderer for GLESSceneRenderer {
     target: RenderPassDescriptorOwned,
   ) {
     let mut ctx = ctx.encoder.begin_render_pass_with_info(target, ctx.gpu);
-    self.model_lookup.access_multi(&scene, &mut |idx| {
+    for idx in self.model_lookup.access_multi_value(&scene) {
       let com = self.scene_model_renderer.make_component(idx, camera, pass);
       let command = self.scene_model_renderer.draw_command(idx);
       if let Some(com) = com {
@@ -62,6 +62,6 @@ impl SceneRenderer for GLESSceneRenderer {
           com.render(&mut ctx.ctx, command)
         }
       }
-    });
+    }
   }
 }

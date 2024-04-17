@@ -65,7 +65,7 @@ where
         // the inv_query is the current relation, the previous one's delta is emitted
         // by the above relation change code
         match delta {
-          ValueChange::Remove(_p) => inv_querier.access_multi(one, &mut |many| {
+          ValueChange::Remove(_p) => inv_querier.access_multi_visitor(one, &mut |many| {
             if let Some(pre_one) = one_acc_previous.access(&many) {
               if let Some(pre_x) = getter_previous.access(&pre_one) {
                 if let Some(ValueChange::Delta(_, _)) = output.get(&many) {
@@ -77,7 +77,7 @@ where
               }
             }
           }),
-          ValueChange::Delta(change, _p) => inv_querier.access_multi(one, &mut |many| {
+          ValueChange::Delta(change, _p) => inv_querier.access_multi_visitor(one, &mut |many| {
             if let Some(pre_one) = one_acc_previous.access(&many) {
               let pre_x = getter_previous.access(&pre_one);
               if let Some(ValueChange::Remove(_)) = output.get(&many) {

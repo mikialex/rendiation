@@ -58,9 +58,24 @@ impl<T: ?Sized, K: CKey, V: CValue> VirtualCollectionExt<K, V> for T where
 {
 }
 
-pub trait VirtualMultiCollection<K, V>: Send + Sync {
+pub trait VirtualMultiCollection<K, V: CValue>: Send + Sync {
   fn iter_key_in_multi_collection(&self) -> Box<dyn Iterator<Item = K> + '_>;
-  fn access_multi(&self, key: &K, visitor: &mut dyn FnMut(V));
+  /// if k is not in the collection at all, return None.
+  /// if k is in the collection but map to none of v, return empty iterator
+  fn access_multi(&self, key: &K) -> Option<Box<dyn Iterator<Item = V> + '_>>;
+  fn access_multi_value(&self, key: &K) -> Box<dyn Iterator<Item = V> + '_> {
+    self
+      .access_multi(key)
+      .unwrap_or_else(|| Box::new(std::iter::empty()))
+  }
+
+  fn access_multi_visitor(&self, key: &K, visitor: &mut dyn FnMut(V)) {
+    if let Some(v) = self.access_multi(key) {
+      for v in v {
+        visitor(v);
+      }
+    }
+  }
 }
 
 /// it's useful to use () as the empty collection
