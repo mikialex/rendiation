@@ -3145,6 +3145,8 @@ dependencies = [
 name = "rendiation-device-parallel-compute"
 version = "0.1.0"
 dependencies = [
+ "fast-hash-collection",
+ "num-traits",
  "rendiation-algebra",
  "rendiation-shader-api",
  "rendiation-shader-derives",

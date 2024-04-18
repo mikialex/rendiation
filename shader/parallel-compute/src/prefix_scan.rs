@@ -1,38 +1,123 @@
+use std::{hash::Hash, marker::PhantomData, ops::Add};
+
+use num_traits::One;
+
 use crate::*;
 
-// struct WorkGroupPrefixSum<V> {
-//   upstream: Box<dyn DeviceParallelCompute<Node<V>>>,
-//   workgroup_usage: Node<ShaderWorkGroupPtr<[V; 128]>>,
-// }
+pub trait DeviceMonoidLogic {
+  type Data: ShaderSizedValueNodeType;
+  fn identity() -> Node<Self::Data>;
+  fn combine(a: Node<Self::Data>, b: Node<Self::Data>) -> Node<Self::Data>;
+}
 
-// impl<K, V> GPUParallelComputation<K, Node<V>> for WorkGroupPrefixSum<K, V>
-// where
-//   V: ShaderNodeType + DeviceMonoid,
-// {
-//   fn thread_logic(&self , key: K) -> Node<V> {
-//     let input = self.upstream.thread_logic(key);
-//     let shared = self.workgroup_usage;
+#[derive(Default)]
+pub struct AdditionMonoid<T>(PhantomData<T>);
 
-//     let local_id = local_invocation_id().x();
+impl<T> DeviceMonoidLogic for AdditionMonoid<T>
+where
+  T: PrimitiveShaderNodeType + ShaderSizedValueNodeType,
+  Node<T>: Add<Node<T>, Output = Node<T>>,
+  T: One,
+{
+  type Data = T;
+  fn identity() -> Node<T> {
+    val(T::one())
+  }
 
-//     let value = input.make_local_var();
+  fn combine(a: Node<T>, b: Node<T>) -> Node<T> {
+    a + b
+  }
+}
 
-//     shared.index(local_id).store(value.load());
+struct WorkGroupPrefixScanCompute<T, S> {
+  workgroup_size: u32,
+  scan_logic: PhantomData<S>,
+  upstream: Box<dyn DeviceInvocationBuilder<T>>,
+}
 
-//     128.ilog2().into_shader_iter().for_each(|i, _| {
-//       workgroup_barrier();
+impl<T, S> ShaderHashProvider for WorkGroupPrefixScanCompute<T, S> {
+  fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
+    self.workgroup_size.hash(hasher);
+    self.upstream.hash_pipeline_with_type_info(hasher)
+  }
+}
 
-//       if_by(local_id.greater_equal_than(val(1) << i), || {
-//         let a = value.load();
-//         let b = shared.index(local_id - (val(1) << i)).load();
-//         let combined = V::combine(a, b);
-//         value.store(combined)
-//       });
+impl<T, S> DeviceInvocationBuilder<T> for WorkGroupPrefixScanCompute<T, S>
+where
+  T: ShaderSizedValueNodeType,
+  S: DeviceMonoidLogic<Data = T> + 'static,
+{
+  fn build_shader(
+    &self,
+    builder: &mut ShaderComputePipelineBuilder,
+  ) -> Box<dyn DeviceInvocation<T>> {
+    let source = self.upstream.build_shader(builder);
 
-//       workgroup_barrier();
-//       shared.index(local_id).store(value.load())
-//     });
+    let (result, valid) = builder.entry_by(|cx| {
+      let (input, valid) = source.invocation_logic(cx);
 
-//     value.load()
-//   }
-// }
+      let input = valid.select(input, S::identity());
+
+      let shared = cx.define_workgroup_shared_var_host_size_array::<T>(self.workgroup_size);
+
+      let local_id = cx.local_invocation_id().x();
+
+      let value = input.make_local_var();
+
+      shared.index(local_id).store(value.load());
+
+      self
+        .workgroup_size
+        .ilog2()
+        .into_shader_iter()
+        .for_each(|i, _| {
+          cx.workgroup_barrier();
+
+          if_by(local_id.greater_equal_than(val(1) << i), || {
+            let a = value.load();
+            let b = shared.index(local_id - (val(1) << i)).load();
+            let combined = S::combine(a, b);
+            value.store(combined)
+          });
+
+          cx.workgroup_barrier();
+          shared.index(local_id).store(value.load())
+        });
+
+      (value.load(), valid)
+    });
+
+    Box::new(AdhocInvocationResult(result, valid))
+  }
+
+  fn bind_input(&self, builder: &mut BindingBuilder) {
+    self.upstream.bind_input(builder)
+  }
+}
+
+pub struct WorkGroupPrefixScan<T, S> {
+  pub workgroup_size: u32,
+  pub scan_logic: PhantomData<S>,
+  pub upstream: Box<dyn DeviceParallelCompute<T>>,
+}
+
+impl<T, S> DeviceParallelCompute<T> for WorkGroupPrefixScan<T, S>
+where
+  T: ShaderSizedValueNodeType,
+  S: DeviceMonoidLogic<Data = T> + 'static,
+{
+  fn compute_result(
+    &self,
+    cx: &mut DeviceParallelComputeCtx,
+  ) -> Box<dyn DeviceInvocationBuilder<T>> {
+    Box::new(WorkGroupPrefixScanCompute::<T, S> {
+      workgroup_size: self.workgroup_size,
+      upstream: self.upstream.compute_result(cx),
+      scan_logic: Default::default(),
+    })
+  }
+
+  fn work_size(&self) -> u32 {
+    self.upstream.work_size()
+  }
+}

@@ -35,9 +35,13 @@ impl IntoWorkgroupSize for (u32, u32, u32) {
   }
 }
 
-pub struct ComputeCx<'a>(&'a mut ShaderComputePipelineBuilder);
+pub struct ComputeCx<'a>(pub &'a mut ShaderComputePipelineBuilder);
 
 impl<'a> ComputeCx<'a> {
+  pub fn config_work_group_size(&self, size: impl IntoWorkgroupSize) {
+    call_shader_api(|api| api.set_workgroup_size(size.into_size()));
+  }
+
   pub fn storage_barrier(&self) {
     call_shader_api(|api| api.barrier(BarrierScope::Storage))
   }
