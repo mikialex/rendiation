@@ -64,7 +64,7 @@ impl<'a, T> GraphicsShaderProvider for LinearBlurTask<'a, T> {
       let weight_count = binding.bind_by(&self.weights.weight_count).load();
 
       let input: HandleNode<_> = binding.bind_by(&self.input);
-      let sampler = binding.binding::<GPUSamplerView>();
+      let sampler = binding.bind_by(&ImmediateGPUSamplerViewBind);
 
       let uv = builder.query::<FragmentUv>()?;
       let size = builder.query::<TexelSize>()?;

@@ -109,8 +109,8 @@ struct TAAResolver<'a> {
 impl<'a> GraphicsShaderProvider for TAAResolver<'a> {
   fn build(&self, builder: &mut ShaderRenderPipelineBuilder) -> Result<(), ShaderBuildError> {
     builder.fragment(|builder, binding| {
-      let sampler = binding.binding::<DisableFiltering<GPUSamplerView>>();
-      let color_sampler = binding.binding::<GPUSamplerView>();
+      let sampler = binding.bind_by(&DisableFiltering(ImmediateGPUSamplerViewBind));
+      let color_sampler = binding.bind_by(&ImmediateGPUSamplerViewBind);
       let history = binding.bind_by(&self.history);
       let new = binding.bind_by(&self.new_color);
       let new_depth = binding.bind_by(&DisableFiltering(&self.new_depth));

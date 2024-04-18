@@ -148,7 +148,7 @@ impl<'a, T> GraphicsShaderProvider for ToneMapTask<'a, T> {
   fn build(&self, builder: &mut ShaderRenderPipelineBuilder) -> Result<(), ShaderBuildError> {
     builder.fragment(|builder, binding| {
       let hdr = binding.bind_by(&self.hdr);
-      let sampler = binding.binding::<GPUSamplerView>();
+      let sampler = binding.bind_by(&ImmediateGPUSamplerViewBind);
 
       let uv = builder.query::<FragmentUv>()?;
       let hdr = hdr.sample(sampler, uv).xyz();

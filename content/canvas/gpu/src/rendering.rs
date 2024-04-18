@@ -81,14 +81,14 @@ impl GraphicsShaderProvider for UIPrimitivesGPU {
       let uv = uv * metadata.uv_scale + metadata.uv_offset;
       //
       Ok(())
-    })?;
-
-    builder.fragment(|builder, binding| {
-      let uv = builder.query::<FragmentUv>()?;
-      let texture = binding.binding::<GPU2DTextureView>();
-      let sampler = binding.binding::<GPUSamplerView>();
-
-      builder.store_fragment_out(0, texture.sample(sampler, uv))
     })
+
+    // builder.fragment(|builder, binding| {
+    //   let uv = builder.query::<FragmentUv>()?;
+    //   let texture = binding.binding::<GPU2DTextureView>();
+    //   let sampler = binding.binding::<GPUSamplerView>();
+
+    //   builder.store_fragment_out(0, texture.sample(sampler, uv))
+    // })
   }
 }

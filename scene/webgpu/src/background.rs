@@ -76,7 +76,7 @@ impl ShadingBackground for EnvMapBackgroundGPU {
     direction: Node<Vec3<f32>>,
   ) -> Result<(), ShaderBuildError> {
     let cube = binding.bind_by(&self.texture);
-    let sampler = binding.binding::<GPUSamplerView>();
+    let sampler = binding.bind_by(&ImmediateGPUSamplerViewBind);
     cube.sample(sampler, direction);
     builder.register::<DefaultDisplay>(cube.sample(sampler, direction));
     Ok(())

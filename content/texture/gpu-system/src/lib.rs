@@ -12,10 +12,6 @@ use std::sync::Arc;
 
 pub use system::*;
 
-// todo, support runtime size by query client limitation
-pub const MAX_TEXTURE_BINDING_ARRAY_LENGTH: usize = 8192;
-pub const MAX_SAMPLER_BINDING_ARRAY_LENGTH: usize = 8192;
-
 pub trait AbstractGPUTextureSystemBase {
   fn register_texture(&mut self, t: GPU2DTextureView) -> Texture2DHandle;
   fn deregister_texture(&mut self, t: Texture2DHandle);
@@ -108,8 +104,8 @@ impl AbstractTraditionalTextureSystem for TraditionalPerDrawBindingSystem {
 
 pub struct BindlessTextureSystem {
   inner: TraditionalPerDrawBindingSystem,
-  texture_binding_array: BindingResourceArray<GPU2DTextureView, MAX_TEXTURE_BINDING_ARRAY_LENGTH>,
-  sampler_binding_array: BindingResourceArray<GPUSamplerView, MAX_SAMPLER_BINDING_ARRAY_LENGTH>,
+  texture_binding_array: BindingResourceArray<GPU2DTextureView>,
+  sampler_binding_array: BindingResourceArray<GPUSamplerView>,
   any_changed: bool, // should we add change mark to per type?
   enable_bindless: bool,
 }
@@ -168,16 +164,10 @@ impl AbstractGPUTextureSystemBase for BindlessTextureSystem {
     }
 
     let source = slab_to_vec(&self.inner.samplers);
-    self.sampler_binding_array = BindingResourceArray::<
-      GPUSamplerView,
-      MAX_TEXTURE_BINDING_ARRAY_LENGTH,
-    >::new(Arc::new(source));
+    self.sampler_binding_array = BindingResourceArray::<GPUSamplerView>::new(Arc::new(source));
 
     let source = slab_to_vec(&self.inner.textures);
-    self.texture_binding_array = BindingResourceArray::<
-      GPU2DTextureView,
-      MAX_TEXTURE_BINDING_ARRAY_LENGTH,
-    >::new(Arc::new(source));
+    self.texture_binding_array = BindingResourceArray::<GPU2DTextureView>::new(Arc::new(source));
   }
 }
 
@@ -208,11 +198,11 @@ impl AbstractTraditionalTextureSystem for BindlessTextureSystem {
 }
 both!(
   BindlessTexturesInShader,
-  ShaderHandlePtr<BindingArray<ShaderHandlePtr<ShaderTexture2D>, MAX_TEXTURE_BINDING_ARRAY_LENGTH>>
+  ShaderHandlePtr<BindingArray<ShaderHandlePtr<ShaderTexture2D>>>
 );
 both!(
   BindlessSamplersInShader,
-  ShaderHandlePtr<BindingArray<ShaderHandlePtr<ShaderSampler>, MAX_SAMPLER_BINDING_ARRAY_LENGTH>>
+  ShaderHandlePtr<BindingArray<ShaderHandlePtr<ShaderSampler>>>
 );
 
 impl AbstractIndirectGPUTextureSystem for BindlessTextureSystem {

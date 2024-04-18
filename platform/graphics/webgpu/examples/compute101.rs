@@ -4,17 +4,17 @@ use rendiation_webgpu::*;
 pub async fn test_prefix_sum() {
   let (gpu, _) = GPU::new(Default::default()).await.unwrap();
 
-  const WORK_GROUP_SIZE: u32 = 64;
+  let workgroup_size: u32 = 64;
 
-  let input_data = vec![1_u32; WORK_GROUP_SIZE as usize]; // here we only demo workgroup case..
+  let input_data = vec![1_u32; workgroup_size as usize]; // here we only demo workgroup case..
   let input = create_gpu_readonly_storage(input_data.as_slice(), &gpu);
   let output = create_gpu_read_write_storage::<[u32]>(input_data.len(), &gpu);
 
   let pipeline = compute_shader_builder()
-    .config_work_group_size(WORK_GROUP_SIZE)
+    .config_work_group_size(workgroup_size)
     // .log_shader()
     .entry(|cx| {
-      let shared = cx.define_workgroup_shared_var::<[u32; WORK_GROUP_SIZE as usize]>();
+      let shared = cx.define_workgroup_shared_var_host_size_array::<u32>(workgroup_size);
       let input = cx.bind_by(&input);
       let output = cx.bind_by(&output);
 
@@ -25,7 +25,7 @@ pub async fn test_prefix_sum() {
 
       shared.index(local_id).store(value.load());
 
-      WORK_GROUP_SIZE.ilog2().into_shader_iter().for_each(|i, _| {
+      workgroup_size.ilog2().into_shader_iter().for_each(|i, _| {
         cx.workgroup_barrier();
 
         if_by(local_id.greater_equal_than(val(1) << i), || {

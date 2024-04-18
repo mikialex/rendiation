@@ -172,7 +172,7 @@ impl ShareBindableResourceCtx {
         .prefer_bindless_mesh
         .then(|| GPUBindlessMeshSystem::new(gpu))
         .flatten(),
-      binding_sys: GPUTextureBindingSystem::new(gpu, config.prefer_bindless_texture),
+      binding_sys: GPUTextureBindingSystem::new(gpu, config.prefer_bindless_texture, 8192),
       default_texture_2d,
       default_sampler: Default::default(),
       custom_storage: Arc::new(RwLock::new(AnyMap::new())),

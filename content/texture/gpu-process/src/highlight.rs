@@ -84,7 +84,7 @@ impl<'a, T> GraphicsShaderProvider for HighLightComposeTask<'a, T> {
       let highlighter = binding.bind_by(&self.lighter.data).load().expand();
 
       let mask = binding.bind_by(&self.mask);
-      let sampler = binding.binding::<GPUSamplerView>();
+      let sampler = binding.bind_by(&ImmediateGPUSamplerViewBind);
 
       let uv = builder.query::<FragmentUv>()?;
       let size = builder.query::<RenderBufferSize>()?;

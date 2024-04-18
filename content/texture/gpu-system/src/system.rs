@@ -17,7 +17,11 @@ pub struct GPUTextureBindingSystem {
 }
 
 impl GPUTextureBindingSystem {
-  pub fn new(gpu: &GPU, prefer_enable_bindless: bool) -> Self {
+  pub fn new(
+    gpu: &GPU,
+    prefer_enable_bindless: bool,
+    bindless_minimal_effective_count: usize,
+  ) -> Self {
     let info = gpu.info();
     let mut bindless_effectively_supported = info
       .supported_features
@@ -32,9 +36,9 @@ impl GPUTextureBindingSystem {
     // we estimate that the texture used except under the binding system will not exceed 128 per
     // shader stage
     if info.supported_limits.max_sampled_textures_per_shader_stage
-      >= MAX_TEXTURE_BINDING_ARRAY_LENGTH as u32 + 128
+      <= bindless_minimal_effective_count as u32 + 128
       || info.supported_limits.max_samplers_per_shader_stage
-        >= MAX_SAMPLER_BINDING_ARRAY_LENGTH as u32 + 128
+        <= bindless_minimal_effective_count as u32 + 128
     {
       bindless_effectively_supported = false;
     }

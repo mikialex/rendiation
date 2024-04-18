@@ -105,7 +105,7 @@ impl<'a> GraphicsShaderProvider for AOComputer<'a> {
       let depth_tex = binding.bind_by(&DisableFiltering(&self.depth));
       let parameter = binding.bind_by(&self.parameter.parameters).load().expand();
       let samples = binding.bind_by(&self.parameter.samples);
-      let sampler = binding.binding::<DisableFiltering<GPUSamplerView>>();
+      let sampler = binding.bind_by(&DisableFiltering(ImmediateGPUSamplerViewBind));
 
       let reproject = binding.bind_by(self.reproject).load().expand();
 

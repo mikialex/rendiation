@@ -59,7 +59,7 @@ pub struct ShaderBindEntry {
 /// should impl by user's container ty
 pub trait ShaderBindingProvider {
   type Node: ShaderNodeType + ?Sized;
-  fn binding_desc() -> ShaderBindingDescriptor {
+  fn binding_desc(&self) -> ShaderBindingDescriptor {
     ShaderBindingDescriptor {
       should_as_storage_buffer_if_is_buffer_like: false,
       writeable_if_storage: false,
@@ -102,19 +102,20 @@ impl ShaderBindingDescriptor {
 impl<'a, T: ShaderBindingProvider> ShaderBindingProvider for &'a T {
   type Node = T::Node;
 
-  fn binding_desc() -> ShaderBindingDescriptor {
-    T::binding_desc()
+  fn binding_desc(&self) -> ShaderBindingDescriptor {
+    (*self).binding_desc()
   }
 }
 
 /// https://www.w3.org/TR/webgpu/#texture-format-caps
 /// not all format could be filtered, use this to override
+/// todo, check runtime support and dynamically decide downgrade behavior
 pub struct DisableFiltering<T>(pub T);
 
 impl<T: ShaderBindingProvider> ShaderBindingProvider for DisableFiltering<T> {
   type Node = T::Node;
-  fn binding_desc() -> ShaderBindingDescriptor {
-    let mut ty = T::binding_desc();
+  fn binding_desc(&self) -> ShaderBindingDescriptor {
+    let mut ty = self.0.binding_desc();
     ty.ty.mutate_single(|ty| {
       if let ShaderValueSingleType::Texture {
         sample_type: TextureSampleType::Float { filterable },

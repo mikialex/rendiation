@@ -34,7 +34,7 @@ impl DeferGBufferSchema<PhysicalShading> for MaterialDeferPassResult {
     let material1 = binding.bind_by(&self.material1.read());
     let material2 = binding.bind_by(&self.material2.read());
 
-    let sampler = binding.binding::<GPUSamplerView>();
+    let sampler = binding.bind_by(&ImmediateGPUSamplerViewBind);
 
     let uv = builder.query::<FragmentUv>()?;
 

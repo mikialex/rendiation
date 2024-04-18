@@ -154,7 +154,7 @@ impl BindGroupBuilder<CacheAbleBindingBuildSource> {
     self.bind_raw(
       item.get_binding_build_source(),
       map_shader_value_ty_to_binding_layout_type(
-        T::binding_desc(),
+        item.binding_desc(),
         self.items.len(),
         self.is_compute,
       ),

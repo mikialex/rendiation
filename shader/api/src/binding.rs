@@ -58,12 +58,15 @@ impl ShaderBindGroupBuilder {
     std::mem::replace(&mut self.current_index, new)
   }
 
-  pub(crate) fn binding_ty_inner<T: ShaderBindingProvider>(&mut self) -> BindingPreparer<T::Node> {
+  pub(crate) fn binding_ty_inner<T: ShaderBindingProvider>(
+    &mut self,
+    binding_provider: &T,
+  ) -> BindingPreparer<T::Node> {
     let bindgroup_index = self.current_index;
     let bindgroup = &mut self.bindings[bindgroup_index];
 
     let entry_index = bindgroup.bindings.len();
-    let desc = T::binding_desc();
+    let desc = binding_provider.binding_desc();
 
     let node = ShaderInputNode::Binding {
       desc,
@@ -99,12 +102,8 @@ impl ShaderBindGroupBuilder {
     }
   }
 
-  pub fn binding<T: ShaderBindingProvider>(&mut self) -> BindingPreparer<T::Node> {
-    self.binding_ty_inner::<T>()
-  }
-
-  pub fn bind_by<T: ShaderBindingProvider>(&mut self, _instance: &T) -> BindingPreparer<T::Node> {
-    self.binding::<T>()
+  pub fn bind_by<T: ShaderBindingProvider>(&mut self, instance: &T) -> BindingPreparer<T::Node> {
+    self.binding_ty_inner(instance)
   }
 
   pub(crate) fn wrap(&mut self) -> ShaderBindGroupDirectBuilder {
@@ -117,11 +116,7 @@ pub struct ShaderBindGroupDirectBuilder<'a> {
 }
 
 impl<'a> ShaderBindGroupDirectBuilder<'a> {
-  pub fn binding<T: ShaderBindingProvider>(&mut self) -> Node<T::Node> {
-    self.builder.binding_ty_inner::<T>().using()
-  }
-
-  pub fn bind_by<T: ShaderBindingProvider>(&mut self, _instance: &T) -> Node<T::Node> {
-    self.binding::<T>()
+  pub fn bind_by<T: ShaderBindingProvider>(&mut self, instance: &T) -> Node<T::Node> {
+    self.builder.binding_ty_inner(instance).using()
   }
 }

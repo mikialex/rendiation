@@ -381,8 +381,33 @@ sized_array_like_index!(StorageNode);
 sized_array_like_index!(ReadOnlyStorageNode);
 sized_array_like_index!(WorkGroupSharedNode);
 
+macro_rules! host_dyn_sized_array_like_index {
+  ($NodeType: tt) => {
+    impl<T> $NodeType<HostDynSizeArray<T>>
+    where
+      T: ShaderNodeType,
+    {
+      pub fn index(&self, node: impl Into<Node<u32>>) -> $NodeType<T> {
+        OperatorNode::Index {
+          array: self.handle(),
+          entry: node.into().handle(),
+        }
+        .insert_api()
+      }
+    }
+  };
+}
+
+host_dyn_sized_array_like_index!(LocalVarNode);
+host_dyn_sized_array_like_index!(GlobalVarNode);
+host_dyn_sized_array_like_index!(UniformNode);
+host_dyn_sized_array_like_index!(HandleNode);
+host_dyn_sized_array_like_index!(StorageNode);
+host_dyn_sized_array_like_index!(ReadOnlyStorageNode);
+host_dyn_sized_array_like_index!(WorkGroupSharedNode);
+
 // this is a bit special
-impl<T, const U: usize> HandleNode<BindingArray<T, U>>
+impl<T> HandleNode<BindingArray<T>>
 where
   T: ShaderNodeType,
 {

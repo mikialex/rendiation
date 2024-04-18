@@ -151,3 +151,9 @@ impl<'a> From<gpu::SamplerDescriptor<'a>> for GPUSamplerDescriptor {
     }
   }
 }
+
+pub struct ImmediateGPUSamplerViewBind;
+
+impl ShaderBindingProvider for ImmediateGPUSamplerViewBind {
+  type Node = <GPUSamplerView as ShaderBindingProvider>::Node;
+}

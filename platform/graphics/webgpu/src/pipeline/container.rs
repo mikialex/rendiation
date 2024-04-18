@@ -16,7 +16,7 @@ where
 {
   type Node = ShaderReadOnlyStoragePtr<T>;
 
-  fn binding_desc() -> ShaderBindingDescriptor {
+  fn binding_desc(&self) -> ShaderBindingDescriptor {
     ShaderBindingDescriptor {
       should_as_storage_buffer_if_is_buffer_like: true,
       writeable_if_storage: false,
@@ -31,7 +31,7 @@ where
 {
   type Node = ShaderStoragePtr<T>;
 
-  fn binding_desc() -> ShaderBindingDescriptor {
+  fn binding_desc(&self) -> ShaderBindingDescriptor {
     ShaderBindingDescriptor {
       should_as_storage_buffer_if_is_buffer_like: true,
       writeable_if_storage: true,

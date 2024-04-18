@@ -91,7 +91,11 @@ pub type ReadOnlyStorageNode<T> = Node<ShaderReadOnlyStoragePtr<T>>;
 pub type StorageNode<T> = Node<ShaderStoragePtr<T>>;
 
 #[derive(Clone, Copy)]
-pub struct BindingArray<T: ?Sized, const N: usize>(PhantomData<T>);
+pub struct BindingArray<T: ?Sized>(PhantomData<T>);
+
+/// fixed size array in shader compile time, but dyn size in host runtime
+#[derive(Clone, Copy)]
+pub struct HostDynSizeArray<T>(PhantomData<T>);
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug, Hash)]
 pub enum ShaderAtomicValueType {
@@ -254,28 +258,24 @@ impl<T: ShaderSizedValueNodeType, const N: usize> ShaderSizedValueNodeType
     ShaderSizedValueType::FixedSizeArray((&T::MEMBER_TYPE, N));
 }
 
-impl<T: ShaderNodeSingleType + ?Sized, const N: usize> ShaderNodeType
-  for BindingArray<ShaderHandlePtr<T>, N>
-{
+impl<T: ShaderNodeSingleType + ?Sized> ShaderNodeType for BindingArray<ShaderHandlePtr<T>> {
   const TYPE: ShaderValueType = ShaderValueType::BindingArray {
     ty: T::SINGLE_TYPE,
-    count: N,
+    count: 0,
   };
 }
-impl<T: ShaderNodeSingleType + ?Sized, const N: usize> ShaderNodeType
-  for BindingArray<ShaderStoragePtr<T>, N>
-{
+impl<T: ShaderNodeSingleType + ?Sized> ShaderNodeType for BindingArray<ShaderStoragePtr<T>> {
   const TYPE: ShaderValueType = ShaderValueType::BindingArray {
     ty: T::SINGLE_TYPE,
-    count: N,
+    count: 0,
   };
 }
-impl<T: ShaderNodeSingleType + ?Sized, const N: usize> ShaderNodeType
-  for BindingArray<ShaderReadOnlyStoragePtr<T>, N>
+impl<T: ShaderNodeSingleType + ?Sized> ShaderNodeType
+  for BindingArray<ShaderReadOnlyStoragePtr<T>>
 {
   const TYPE: ShaderValueType = ShaderValueType::BindingArray {
     ty: T::SINGLE_TYPE,
-    count: N,
+    count: 0,
   };
 }
 
@@ -295,4 +295,13 @@ impl<T: ShaderSizedValueNodeType> ShaderUnsizedValueNodeType for [T] {
 impl<T: ShaderSizedValueNodeType> ShaderMaybeUnsizedValueNodeType for [T] {
   const MAYBE_UNSIZED_TYPE: MaybeUnsizedValueType =
     MaybeUnsizedValueType::Unsized(Self::UNSIZED_TYPE);
+}
+
+impl<T: ShaderSizedValueNodeType> ShaderNodeType for HostDynSizeArray<T> {
+  const TYPE: ShaderValueType = ShaderValueType::Single(Self::SINGLE_TYPE);
+}
+
+impl<T: ShaderSizedValueNodeType> ShaderNodeSingleType for HostDynSizeArray<T> {
+  const SINGLE_TYPE: ShaderValueSingleType =
+    ShaderValueSingleType::Sized(ShaderSizedValueType::FixedSizeArray((&T::MEMBER_TYPE, 0)));
 }

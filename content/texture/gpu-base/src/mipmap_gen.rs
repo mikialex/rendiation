@@ -197,7 +197,7 @@ impl<'a> GraphicsShaderProvider for Mipmap2DGeneratorTask<'a> {
       let buffer_size = builder.query::<RenderBufferSize>()?;
       let texel_size = builder.query::<TexelSize>()? * val(0.5);
       let previous_level = binding.bind_by(&self.view);
-      let sampler = binding.binding::<GPUSamplerView>();
+      let sampler = binding.bind_by(&ImmediateGPUSamplerViewBind);
 
       let result = self
         .reducer
