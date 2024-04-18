@@ -45,6 +45,7 @@ members = [
   "shader/derive",
   "shader/backends/naga",
   "shader/library",
+  "shader/parallel-compute",
   "scene/core",
   "scene/core-next",
   "scene/webgpu",

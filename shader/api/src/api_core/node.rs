@@ -124,6 +124,22 @@ macro_rules! atomic_impls {
 atomic_impls!(WorkGroupSharedNode);
 atomic_impls!(StorageNode);
 
+// todo restrict type
+pub fn make_local_var<T: ShaderNodeType>() -> LocalVarNode<T> {
+  call_shader_api(|g| unsafe {
+    let v = g.make_local_var(T::TYPE);
+    v.into_node()
+  })
+}
+
+// todo restrict type
+pub fn zero_shader_value<T: ShaderNodeType>() -> Node<T> {
+  call_shader_api(|g| unsafe {
+    let v = g.make_zero_val(T::TYPE);
+    v.into_node()
+  })
+}
+
 // todo restrict type to referable?
 impl<T: ShaderNodeType> Node<T> {
   pub fn make_local_var(&self) -> LocalVarNode<T> {

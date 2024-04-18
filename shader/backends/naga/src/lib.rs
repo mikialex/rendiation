@@ -623,6 +623,9 @@ impl ShaderAPI for ShaderAPINagaImpl {
                     argument: self.get_expression(parameters[0]),
                   }
                 }
+                ShaderBuiltInFunction::ArrayLength => {
+                  break naga::Expression::ArrayLength(self.get_expression(parameters[0]))
+                }
                 ShaderBuiltInFunction::Cos => naga::MathFunction::Cos,
                 ShaderBuiltInFunction::Cosh => naga::MathFunction::Cosh,
                 ShaderBuiltInFunction::Sin => naga::MathFunction::Sin,
@@ -946,6 +949,11 @@ impl ShaderAPI for ShaderAPINagaImpl {
     };
 
     self.make_expression_inner(expr)
+  }
+
+  fn make_zero_val(&mut self, ty: ShaderValueType) -> ShaderNodeRawHandle {
+    let ty = self.register_ty_impl(ty, None);
+    self.make_expression_inner(naga::Expression::ZeroValue(ty))
   }
 
   fn make_local_var(&mut self, ty: ShaderValueType) -> ShaderNodeRawHandle {

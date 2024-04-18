@@ -5,7 +5,6 @@ mod binding;
 mod compute;
 mod graphics;
 mod layout;
-mod parallel_compute;
 mod re_export;
 mod type_workaround;
 
@@ -24,7 +23,6 @@ pub use compute::*;
 use fast_hash_collection::*;
 pub use graphics::*;
 pub use layout::*;
-pub use parallel_compute::*;
 pub use re_export::*;
 pub use rendiation_algebra::*;
 pub use rendiation_shader_derives::*;
@@ -51,6 +49,7 @@ pub trait ShaderAPI {
 
   fn make_expression(&mut self, expr: ShaderNodeExpr) -> ShaderNodeRawHandle;
   fn make_local_var(&mut self, ty: ShaderValueType) -> ShaderNodeRawHandle;
+  fn make_zero_val(&mut self, ty: ShaderValueType) -> ShaderNodeRawHandle;
   fn store(&mut self, source: ShaderNodeRawHandle, target: ShaderNodeRawHandle);
   fn load(&mut self, source: ShaderNodeRawHandle) -> ShaderNodeRawHandle;
 

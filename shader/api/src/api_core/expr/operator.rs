@@ -406,6 +406,21 @@ host_dyn_sized_array_like_index!(StorageNode);
 host_dyn_sized_array_like_index!(ReadOnlyStorageNode);
 host_dyn_sized_array_like_index!(WorkGroupSharedNode);
 
+macro_rules! storage_array_size {
+  ($NodeType: tt) => {
+    impl<T> $NodeType<[T]>
+    where
+      T: ShaderNodeType,
+    {
+      pub fn array_length(&self) -> Node<u32> {
+        make_builtin_call(ShaderBuiltInFunction::ArrayLength, [self.handle()])
+      }
+    }
+  };
+}
+storage_array_size!(StorageNode);
+storage_array_size!(ReadOnlyStorageNode);
+
 // this is a bit special
 impl<T> HandleNode<BindingArray<T>>
 where

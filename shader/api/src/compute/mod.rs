@@ -108,6 +108,10 @@ impl ShaderComputePipelineBuilder {
     self
   }
 
+  pub fn entry_by<R>(&mut self, f: impl FnOnce(&mut ComputeCx) -> R) -> R {
+    f(&mut ComputeCx(self))
+  }
+
   pub fn config_work_group_size(self, size: impl IntoWorkgroupSize) -> Self {
     call_shader_api(|api| api.set_workgroup_size(size.into_size()));
     self

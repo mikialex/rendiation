@@ -3142,6 +3142,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "rendiation-device-parallel-compute"
+version = "0.1.0"
+dependencies = [
+ "rendiation-algebra",
+ "rendiation-shader-api",
+ "rendiation-shader-derives",
+ "rendiation-webgpu",
+]
+
+[[package]]
 name = "rendiation-generative-texture"
 version = "0.0.1"
 dependencies = [

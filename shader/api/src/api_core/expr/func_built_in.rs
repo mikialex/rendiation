@@ -90,6 +90,8 @@ pub enum ShaderBuiltInFunction {
   Unpack2x16snorm,
   Unpack2x16unorm,
   Unpack2x16float,
+  // array extra
+  ArrayLength,
 }
 
 pub fn make_builtin_call<T: ShaderNodeType>(
