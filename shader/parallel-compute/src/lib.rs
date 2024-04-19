@@ -57,11 +57,40 @@ pub trait DeviceParallelCompute<T> {
   fn work_size(&self) -> u32;
 }
 
+/// This trait is to avoid all possible redundant storage buffer materialize but not requires
+/// specialization. if the type impls DeviceParallelCompute<Node<T>>, it should impl this trait as
+/// well.
+pub trait DeviceParallelComputeIO<T>: DeviceParallelCompute<Node<T>> {
+  // if the implementation already has materialized storage buffer, should provide it directly to
+  // avoid re-materialize cost
+  fn materialize_storage_buffer(
+    &self,
+    cx: &mut DeviceParallelComputeCtx,
+  ) -> StorageBufferDataView<[T]>
+  where
+    T: Std430 + ShaderSizedValueNodeType,
+  {
+    do_write_into_storage_buffer(self, cx)
+  }
+}
+
 impl<T> DeviceParallelCompute<T> for Box<dyn DeviceParallelCompute<T>> {
   fn compute_result(
     &self,
     cx: &mut DeviceParallelComputeCtx,
   ) -> Box<dyn DeviceInvocationBuilder<T>> {
+    (**self).compute_result(cx)
+  }
+
+  fn work_size(&self) -> u32 {
+    (**self).work_size()
+  }
+}
+impl<T> DeviceParallelCompute<Node<T>> for Box<dyn DeviceParallelComputeIO<T>> {
+  fn compute_result(
+    &self,
+    cx: &mut DeviceParallelComputeCtx,
+  ) -> Box<dyn DeviceInvocationBuilder<Node<T>>> {
     (**self).compute_result(cx)
   }
 
@@ -75,14 +104,17 @@ where
   Self: 'static,
   T: 'static,
 {
-  fn stride_access_result(self, stride: impl Into<Vec3<u32>>) -> impl DeviceParallelCompute<T> {
+  fn stride_access_result(
+    self,
+    stride: impl Into<Vec3<u32>>,
+  ) -> DeviceParallelComputeStrideRead<T> {
     DeviceParallelComputeStrideRead {
       source: Box::new(self),
       stride: stride.into(),
     }
   }
 
-  fn map<O: Copy + 'static>(self, mapper: fn(T) -> O) -> impl DeviceParallelCompute<O> {
+  fn map<O: Copy + 'static>(self, mapper: fn(T) -> O) -> DeviceMap<T, O> {
     DeviceMap {
       mapper,
       upstream: Box::new(self),
@@ -92,7 +124,7 @@ where
   fn zip<B: 'static>(
     self,
     other: impl DeviceParallelCompute<B> + 'static,
-  ) -> impl DeviceParallelCompute<(T, B)> {
+  ) -> DeviceParallelComputeZip<T, B> {
     DeviceParallelComputeZip {
       source_a: Box::new(self),
       source_b: Box::new(other),
@@ -107,23 +139,12 @@ where
 {
 }
 
-pub trait DeviceParallelComputeNodeExt<T>: Sized + DeviceParallelCompute<Node<T>>
+pub trait DeviceParallelComputeIOExt<T>: Sized + DeviceParallelComputeIO<T>
 where
   T: ShaderSizedValueNodeType,
   Self: 'static,
 {
-  fn write_into_storage_buffer(
-    &self,
-    cx: &mut DeviceParallelComputeCtx,
-  ) -> StorageBufferDataView<[T]>
-  where
-    Self: Sized,
-    T: Std430 + ShaderSizedValueNodeType,
-  {
-    write_into_storage_buffer(self, cx)
-  }
-
-  fn materialize_storage_buffer(self) -> impl DeviceParallelCompute<Node<T>>
+  fn internal_materialize_storage_buffer(self) -> impl DeviceParallelComputeIO<T>
   where
     T: Std430 + ShaderSizedValueNodeType,
   {
@@ -148,7 +169,7 @@ where
   fn workgroup_scope_prefix_scan_kogge_stone<S>(
     self,
     workgroup_size: u32,
-  ) -> impl DeviceParallelCompute<Node<T>>
+  ) -> impl DeviceParallelComputeIO<T>
   where
     S: DeviceMonoidLogic<Data = T> + 'static,
     T: Std430 + ShaderSizedValueNodeType,
@@ -158,19 +179,20 @@ where
       scan_logic: Default::default(),
       upstream: Box::new(self),
     }
-    .materialize_storage_buffer()
+    .internal_materialize_storage_buffer()
   }
 
-  /// the total_work_size should not exceed first_stage_workgroup_size * 1024
+  /// the total_work_size should not exceed first_stage_workgroup_size * second_stage_workgroup_size
   fn segmented_prefix_scan_kogge_stone<S>(
     self,
     first_stage_workgroup_size: u32,
-  ) -> impl DeviceParallelCompute<Node<T>>
+    second_stage_workgroup_size: u32,
+  ) -> impl DeviceParallelComputeIO<T>
   where
     S: DeviceMonoidLogic<Data = T> + 'static,
     T: Std430,
   {
-    assert!(self.work_size() <= first_stage_workgroup_size * 1024);
+    assert!(self.work_size() <= first_stage_workgroup_size * second_stage_workgroup_size);
 
     let per_workgroup_scanned = self
       .workgroup_scope_prefix_scan_kogge_stone::<S>(first_stage_workgroup_size)
@@ -179,7 +201,7 @@ where
     let block_wise_scanned = per_workgroup_scanned
       .clone()
       .stride_access_result((first_stage_workgroup_size, 1, 1))
-      .workgroup_scope_prefix_scan_kogge_stone::<S>(1024); // should this be configurable?
+      .workgroup_scope_prefix_scan_kogge_stone::<S>(second_stage_workgroup_size);
 
     block_wise_scanned
       .zip(per_workgroup_scanned)
@@ -187,9 +209,9 @@ where
   }
 }
 
-impl<X, T> DeviceParallelComputeNodeExt<T> for X
+impl<X, T> DeviceParallelComputeIOExt<T> for X
 where
-  X: Sized + DeviceParallelCompute<Node<T>> + 'static,
+  X: Sized + DeviceParallelComputeIO<T> + 'static,
   T: ShaderSizedValueNodeType,
 {
 }

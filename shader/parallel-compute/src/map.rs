@@ -55,3 +55,4 @@ impl<I: 'static, O: Copy + 'static> DeviceParallelCompute<O> for DeviceMap<I, O>
     self.upstream.work_size()
   }
 }
+impl<I: 'static, O: Copy + 'static> DeviceParallelComputeIO<O> for DeviceMap<I, Node<O>> {}

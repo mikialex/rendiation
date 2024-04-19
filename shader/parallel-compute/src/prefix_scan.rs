@@ -98,7 +98,7 @@ where
 pub struct WorkGroupPrefixScanKoggeStone<T, S> {
   pub workgroup_size: u32,
   pub scan_logic: PhantomData<S>,
-  pub upstream: Box<dyn DeviceParallelCompute<Node<T>>>,
+  pub upstream: Box<dyn DeviceParallelComputeIO<T>>,
 }
 
 impl<T, S> DeviceParallelCompute<Node<T>> for WorkGroupPrefixScanKoggeStone<T, S>
@@ -120,4 +120,10 @@ where
   fn work_size(&self) -> u32 {
     self.upstream.work_size()
   }
+}
+impl<T, S> DeviceParallelComputeIO<T> for WorkGroupPrefixScanKoggeStone<T, S>
+where
+  T: ShaderSizedValueNodeType,
+  S: DeviceMonoidLogic<Data = T> + 'static,
+{
 }

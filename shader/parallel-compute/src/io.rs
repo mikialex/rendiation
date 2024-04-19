@@ -29,6 +29,21 @@ where
     count as u32
   }
 }
+impl<T> DeviceParallelComputeIO<T> for StorageBufferReadOnlyDataView<[T]>
+where
+  T: Std430 + ShaderSizedValueNodeType,
+{
+  fn materialize_storage_buffer(
+    &self,
+    _: &mut DeviceParallelComputeCtx,
+  ) -> StorageBufferDataView<[T]>
+  where
+    Self: Sized,
+    T: Std430 + ShaderSizedValueNodeType,
+  {
+    self.clone().into_rw_view()
+  }
+}
 
 struct StorageBufferReadOnlyDataViewReadIntoShader<T: Std430>(StorageBufferReadOnlyDataView<[T]>);
 
@@ -50,8 +65,10 @@ where
 }
 impl<T: Std430> ShaderHashProvider for StorageBufferReadOnlyDataViewReadIntoShader<T> {}
 
-pub(crate) fn write_into_storage_buffer<T: Std430 + ShaderSizedValueNodeType>(
-  source: &impl DeviceParallelCompute<Node<T>>,
+/// this call do the real materialization, that you can see this only requires
+/// DeviceParallelCompute<Node<T> and should be used in minimal cases
+pub(crate) fn do_write_into_storage_buffer<T: Std430 + ShaderSizedValueNodeType>(
+  source: &(impl DeviceParallelCompute<Node<T>> + ?Sized),
   cx: &mut DeviceParallelComputeCtx,
 ) -> StorageBufferDataView<[T]> {
   let group_size = 256;
@@ -86,7 +103,7 @@ pub(crate) fn write_into_storage_buffer<T: Std430 + ShaderSizedValueNodeType>(
 }
 
 pub struct WriteStorageReadBack<T> {
-  pub inner: Box<dyn DeviceParallelCompute<Node<T>>>,
+  pub inner: Box<dyn DeviceParallelComputeIO<T>>,
 }
 
 impl<T: ShaderSizedValueNodeType + Std430> DeviceParallelCompute<Node<T>>
@@ -96,25 +113,25 @@ impl<T: ShaderSizedValueNodeType + Std430> DeviceParallelCompute<Node<T>>
     &self,
     cx: &mut DeviceParallelComputeCtx,
   ) -> Box<dyn DeviceInvocationBuilder<Node<T>>> {
-    let temp_result = write_into_storage_buffer(&self.inner, cx).into_readonly_view();
+    let temp_result = self.materialize_storage_buffer(cx).into_readonly_view();
     Box::new(StorageBufferReadOnlyDataViewReadIntoShader(temp_result))
   }
-
-  // // faster path, avoid extra read back
-  // fn write_into_storage_buffer(
-  //   &self,
-  //   cx: &mut DeviceParallelComputeCtx,
-  // ) -> StorageBufferDataView<[T]> {
-  //   write_into_storage_buffer(&self.inner, cx)
-  // }
 
   fn work_size(&self) -> u32 {
     self.inner.work_size()
   }
 }
+impl<T: ShaderSizedValueNodeType + Std430> DeviceParallelComputeIO<T> for WriteStorageReadBack<T> {
+  fn materialize_storage_buffer(
+    &self,
+    cx: &mut DeviceParallelComputeCtx,
+  ) -> StorageBufferDataView<[T]> {
+    self.inner.materialize_storage_buffer(cx)
+  }
+}
 
 pub struct ComputeResultForker<T: Std430> {
-  pub inner: Box<dyn DeviceParallelCompute<Node<T>>>,
+  pub inner: Box<dyn DeviceParallelComputeIO<T>>,
   pub children: RwLock<Vec<ComputeResultForkerInstance<T>>>,
 }
 
@@ -144,7 +161,7 @@ where
       return Box::new(StorageBufferReadOnlyDataViewReadIntoShader(result));
     }
 
-    let result = self.upstream.inner.write_into_storage_buffer(cx);
+    let result = self.upstream.inner.materialize_storage_buffer(cx);
     let children = self.upstream.children.read();
     for c in children.iter() {
       let result = result.clone().into_readonly_view();
@@ -158,5 +175,25 @@ where
 
   fn work_size(&self) -> u32 {
     self.upstream.inner.work_size()
+  }
+}
+
+impl<T> DeviceParallelComputeIO<T> for ComputeResultForkerInstance<T>
+where
+  T: Std430 + ShaderSizedValueNodeType,
+{
+  fn materialize_storage_buffer(
+    &self,
+    cx: &mut DeviceParallelComputeCtx,
+  ) -> StorageBufferDataView<[T]>
+  where
+    Self: Sized,
+    T: Std430 + ShaderSizedValueNodeType,
+  {
+    if let Some(result) = self.result.write().take() {
+      result.into_rw_view()
+    } else {
+      do_write_into_storage_buffer(self, cx)
+    }
   }
 }

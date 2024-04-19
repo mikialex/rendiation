@@ -32,7 +32,9 @@ impl<T: 'static> DeviceInvocationBuilder<T> for Builder<T> {
     ))
   }
 
-  fn bind_input(&self, _: &mut BindingBuilder) {}
+  fn bind_input(&self, builder: &mut BindingBuilder) {
+    self.source.bind_input(builder);
+  }
 }
 
 pub struct DeviceParallelComputeStrideRead<T> {
@@ -55,3 +57,4 @@ impl<T: 'static> DeviceParallelCompute<T> for DeviceParallelComputeStrideRead<T>
     self.source.work_size() / (self.stride.x + self.stride.y + self.stride.z)
   }
 }
+impl<T: 'static> DeviceParallelComputeIO<T> for DeviceParallelComputeStrideRead<Node<T>> {}
