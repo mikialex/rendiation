@@ -8,8 +8,9 @@ impl<T: ShaderNodeType> DeviceInvocation<T> for Node<ShaderReadOnlyStoragePtr<[T
   }
 }
 
-impl<T: Std430 + ShaderSizedValueNodeType> DeviceParallelCompute<T>
-  for StorageBufferReadOnlyDataView<[T]>
+impl<T> DeviceParallelCompute<T> for StorageBufferReadOnlyDataView<[T]>
+where
+  T: Std430 + ShaderSizedValueNodeType,
 {
   fn compute_result(
     &self,
@@ -19,7 +20,9 @@ impl<T: Std430 + ShaderSizedValueNodeType> DeviceParallelCompute<T>
   }
 
   fn work_size(&self) -> u32 {
-    todo!()
+    let size: u64 = self.view_byte_size().into();
+    let count = size / std::mem::size_of::<T>() as u64;
+    count as u32
   }
 }
 
@@ -87,9 +90,8 @@ impl<T: ShaderSizedValueNodeType + Std430> DeviceParallelCompute<T> for WriteSto
     &self,
     cx: &mut DeviceParallelComputeCtx,
   ) -> Box<dyn DeviceInvocationBuilder<T>> {
-    // let temp_result = write_into_storage_buffer(&self.inner, cx);
-
-    Box::new(StorageBufferReadOnlyDataViewReadIntoShader(todo!()))
+    let temp_result = write_into_storage_buffer(&self.inner, cx).into_readonly_view();
+    Box::new(StorageBufferReadOnlyDataViewReadIntoShader(temp_result))
   }
 
   fn work_size(&self) -> u32 {

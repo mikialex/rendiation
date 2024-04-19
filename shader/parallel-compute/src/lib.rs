@@ -49,6 +49,19 @@ pub trait DeviceParallelCompute<T>: 'static {
   fn work_size(&self) -> u32;
 }
 
+impl<T: ShaderSizedValueNodeType> DeviceParallelCompute<T> for Box<dyn DeviceParallelCompute<T>> {
+  fn compute_result(
+    &self,
+    cx: &mut DeviceParallelComputeCtx,
+  ) -> Box<dyn DeviceInvocationBuilder<T>> {
+    (**self).compute_result(cx)
+  }
+
+  fn work_size(&self) -> u32 {
+    (**self).work_size()
+  }
+}
+
 pub trait DeviceParallelComputeExt<T>: Sized + DeviceParallelCompute<T>
 where
   T: ShaderSizedValueNodeType,
