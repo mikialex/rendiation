@@ -76,6 +76,7 @@
         "impls",
         "interphaser",
         "intrinsics",
+        "kogge",
         "Lambertian",
         "lanczos",
         "layouted",

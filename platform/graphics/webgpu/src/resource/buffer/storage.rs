@@ -88,10 +88,18 @@ pub fn create_gpu_readonly_storage<T: Std430MaybeUnsized + ?Sized>(
   StorageBufferReadOnlyDataView::create(device.as_ref(), data)
 }
 
-#[derive(Clone)]
 pub struct StorageBufferDataView<T: Std430MaybeUnsized + ?Sized> {
   pub(crate) gpu: GPUBufferResourceView,
   phantom: PhantomData<T>,
+}
+
+impl<T: Std430MaybeUnsized + ?Sized> Clone for StorageBufferDataView<T> {
+  fn clone(&self) -> Self {
+    Self {
+      gpu: self.gpu.clone(),
+      phantom: Default::default(),
+    }
+  }
 }
 
 impl<T: Std430MaybeUnsized + ?Sized> StorageBufferDataView<T> {

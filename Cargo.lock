@@ -3147,6 +3147,7 @@ version = "0.1.0"
 dependencies = [
  "fast-hash-collection",
  "num-traits",
+ "parking_lot",
  "rendiation-algebra",
  "rendiation-shader-api",
  "rendiation-shader-derives",

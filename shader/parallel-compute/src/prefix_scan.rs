@@ -1,4 +1,4 @@
-use std::{hash::Hash, marker::PhantomData, ops::Add};
+use std::{marker::PhantomData, ops::Add};
 
 use num_traits::One;
 
@@ -29,20 +29,20 @@ where
   }
 }
 
-struct WorkGroupPrefixScanCompute<T, S> {
+struct WorkGroupPrefixScanKoggeStoneCompute<T, S> {
   workgroup_size: u32,
   scan_logic: PhantomData<S>,
-  upstream: Box<dyn DeviceInvocationBuilder<T>>,
+  upstream: Box<dyn DeviceInvocationBuilder<Node<T>>>,
 }
 
-impl<T, S> ShaderHashProvider for WorkGroupPrefixScanCompute<T, S> {
+impl<T, S> ShaderHashProvider for WorkGroupPrefixScanKoggeStoneCompute<T, S> {
   fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
     self.workgroup_size.hash(hasher);
     self.upstream.hash_pipeline_with_type_info(hasher)
   }
 }
 
-impl<T, S> DeviceInvocationBuilder<T> for WorkGroupPrefixScanCompute<T, S>
+impl<T, S> DeviceInvocationBuilder<Node<T>> for WorkGroupPrefixScanKoggeStoneCompute<T, S>
 where
   T: ShaderSizedValueNodeType,
   S: DeviceMonoidLogic<Data = T> + 'static,
@@ -50,11 +50,11 @@ where
   fn build_shader(
     &self,
     builder: &mut ShaderComputePipelineBuilder,
-  ) -> Box<dyn DeviceInvocation<T>> {
+  ) -> Box<dyn DeviceInvocation<Node<T>>> {
     let source = self.upstream.build_shader(builder);
 
     let (result, valid) = builder.entry_by(|cx| {
-      let (input, valid) = source.invocation_logic(cx);
+      let (input, valid) = source.invocation_logic(cx.global_invocation_id());
 
       let input = valid.select(input, S::identity());
 
@@ -95,13 +95,13 @@ where
   }
 }
 
-pub struct WorkGroupPrefixScan<T, S> {
+pub struct WorkGroupPrefixScanKoggeStone<T, S> {
   pub workgroup_size: u32,
   pub scan_logic: PhantomData<S>,
-  pub upstream: Box<dyn DeviceParallelCompute<T>>,
+  pub upstream: Box<dyn DeviceParallelCompute<Node<T>>>,
 }
 
-impl<T, S> DeviceParallelCompute<T> for WorkGroupPrefixScan<T, S>
+impl<T, S> DeviceParallelCompute<Node<T>> for WorkGroupPrefixScanKoggeStone<T, S>
 where
   T: ShaderSizedValueNodeType,
   S: DeviceMonoidLogic<Data = T> + 'static,
@@ -109,8 +109,8 @@ where
   fn compute_result(
     &self,
     cx: &mut DeviceParallelComputeCtx,
-  ) -> Box<dyn DeviceInvocationBuilder<T>> {
-    Box::new(WorkGroupPrefixScanCompute::<T, S> {
+  ) -> Box<dyn DeviceInvocationBuilder<Node<T>>> {
+    Box::new(WorkGroupPrefixScanKoggeStoneCompute::<T, S> {
       workgroup_size: self.workgroup_size,
       upstream: self.upstream.compute_result(cx),
       scan_logic: Default::default(),
