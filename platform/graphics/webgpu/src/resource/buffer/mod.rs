@@ -11,7 +11,7 @@ pub type GPUBufferResource = ResourceRc<GPUBuffer>;
 pub type GPUBufferResourceView = ResourceViewRc<GPUBuffer>;
 
 impl Resource for GPUBuffer {
-  type Descriptor = gpu::BufferUsages;
+  type Descriptor = GPUBufferDescriptor;
   type View = GPUBufferView;
   type ViewDescriptor = GPUBufferViewRange;
 
@@ -23,6 +23,11 @@ impl Resource for GPUBuffer {
   }
 }
 
+pub struct GPUBufferDescriptor {
+  pub usage: gpu::BufferUsages,
+  pub size: std::num::NonZeroU64,
+}
+
 impl BindableResourceProvider for GPUBufferResourceView {
   fn get_bindable(&self) -> BindingResourceOwned {
     BindingResourceOwned::Buffer(self.clone())
@@ -32,12 +37,20 @@ impl BindableResourceProvider for GPUBufferResourceView {
 #[derive(Clone)]
 pub struct GPUBuffer {
   pub(crate) gpu: Arc<gpu::Buffer>,
-  pub(crate) size: std::num::NonZeroU64,
 }
 
 pub enum BufferInit<'a> {
   WithInit(&'a [u8]),
   Zeroed(std::num::NonZeroU64),
+}
+
+impl<'a> BufferInit<'a> {
+  pub fn size(&self) -> NonZeroU64 {
+    match self {
+      BufferInit::WithInit(bytes) => std::num::NonZeroU64::new(bytes.len() as u64).unwrap(),
+      BufferInit::Zeroed(size) => *size,
+    }
+  }
 }
 
 impl GPUBuffer {
@@ -55,18 +68,7 @@ impl GPUBuffer {
         mapped_at_creation: false,
       }),
     };
-    let size = match init {
-      BufferInit::WithInit(bytes) => std::num::NonZeroU64::new(bytes.len() as u64).unwrap(),
-      BufferInit::Zeroed(size) => size,
-    };
-    Self {
-      gpu: Arc::new(gpu),
-      size,
-    }
-  }
-
-  pub fn size(&self) -> NonZeroU64 {
-    self.size
+    Self { gpu: Arc::new(gpu) }
   }
 
   pub fn update(&self, queue: &gpu::Queue, bytes: &[u8]) {
@@ -98,13 +100,17 @@ pub struct GPUBufferView {
   pub range: GPUBufferViewRange,
 }
 
-impl GPUBufferView {
+impl GPUBufferResourceView {
   pub fn view_byte_size(&self) -> NonZeroU64 {
     if let Some(size) = self.range.size {
       size
     } else {
-      self.buffer.size
+      self.entire_buffer_size()
     }
+  }
+
+  pub fn entire_buffer_size(&self) -> NonZeroU64 {
+    self.resource.desc.size
   }
 }
 
@@ -126,7 +132,10 @@ pub fn create_gpu_buffer(
 ) -> GPUBufferResource {
   GPUBufferResource::create_with_raw(
     GPUBuffer::create(device, BufferInit::WithInit(data), usage),
-    usage, // todo, not good
+    GPUBufferDescriptor {
+      usage,
+      size: NonZeroU64::new(data.len() as u64).unwrap(),
+    },
   )
 }
 
@@ -142,6 +151,9 @@ pub fn create_gpu_buffer_zeroed(
       BufferInit::Zeroed(NonZeroU64::new(byte_size).unwrap()),
       usage,
     ),
-    usage, // todo, not good
+    GPUBufferDescriptor {
+      usage,
+      size: NonZeroU64::new(byte_size).unwrap(),
+    },
   )
 }

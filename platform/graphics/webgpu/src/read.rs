@@ -110,7 +110,7 @@ impl GPUCommandEncoder {
   pub fn read_buffer(
     &mut self,
     device: &GPUDevice,
-    buffer: &GPUBufferView,
+    buffer: &GPUBufferResourceView,
   ) -> ReadBufferFromStagingBuffer {
     let size = buffer.view_byte_size().into();
 

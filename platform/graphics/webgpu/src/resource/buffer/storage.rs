@@ -8,6 +8,15 @@ pub struct StorageBufferReadOnlyDataView<T: Std430MaybeUnsized + ?Sized> {
   phantom: PhantomData<T>,
 }
 
+impl<T: Std430MaybeUnsized + ?Sized> StorageBufferReadOnlyDataView<T> {
+  pub fn into_rw_view(self) -> StorageBufferDataView<T> {
+    StorageBufferDataView {
+      gpu: self.gpu.clone(),
+      phantom: PhantomData,
+    }
+  }
+}
+
 impl<T: Std430MaybeUnsized + ?Sized> Clone for StorageBufferReadOnlyDataView<T> {
   fn clone(&self) -> Self {
     Self {
@@ -50,8 +59,14 @@ impl<T: Std430MaybeUnsized + ?Sized> StorageBufferReadOnlyDataView<T> {
     let usage =
       gpu::BufferUsages::STORAGE | gpu::BufferUsages::COPY_DST | gpu::BufferUsages::COPY_SRC;
 
-    let gpu = GPUBuffer::create(device, source.into_buffer_init(), usage);
-    let gpu = GPUBufferResource::create_with_raw(gpu, usage).create_default_view();
+    let init = source.into_buffer_init();
+    let desc = GPUBufferDescriptor {
+      size: init.size(),
+      usage,
+    };
+    let gpu = GPUBuffer::create(device, init, usage);
+
+    let gpu = GPUBufferResource::create_with_raw(gpu, desc).create_default_view();
 
     Self {
       gpu,
@@ -77,6 +92,15 @@ pub fn create_gpu_readonly_storage<T: Std430MaybeUnsized + ?Sized>(
 pub struct StorageBufferDataView<T: Std430MaybeUnsized + ?Sized> {
   pub(crate) gpu: GPUBufferResourceView,
   phantom: PhantomData<T>,
+}
+
+impl<T: Std430MaybeUnsized + ?Sized> StorageBufferDataView<T> {
+  pub fn into_readonly_view(self) -> StorageBufferReadOnlyDataView<T> {
+    StorageBufferReadOnlyDataView {
+      gpu: self.gpu.clone(),
+      phantom: PhantomData,
+    }
+  }
 }
 
 impl<T: Std430MaybeUnsized + ?Sized> Deref for StorageBufferDataView<T> {
@@ -147,8 +171,14 @@ impl<T: Std430MaybeUnsized + ?Sized> StorageBufferDataView<T> {
     let usage =
       gpu::BufferUsages::STORAGE | gpu::BufferUsages::COPY_DST | gpu::BufferUsages::COPY_SRC;
 
-    let gpu = GPUBuffer::create(device, source.into_buffer_init(), usage);
-    let gpu = GPUBufferResource::create_with_raw(gpu, usage).create_default_view();
+    let init = source.into_buffer_init();
+    let desc = GPUBufferDescriptor {
+      size: init.size(),
+      usage,
+    };
+
+    let gpu = GPUBuffer::create(device, init, usage);
+    let gpu = GPUBufferResource::create_with_raw(gpu, desc).create_default_view();
 
     Self {
       gpu,

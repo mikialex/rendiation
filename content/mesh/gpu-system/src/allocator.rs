@@ -38,7 +38,7 @@ pub struct RelocationMessage {
 
 impl GPUSubAllocateBufferImpl {
   fn grow(&mut self, grow_size: u32, device: &GPUDevice, queue: &GPUQueue) {
-    let current_size: u64 = self.buffer.resource.size().into();
+    let current_size: u64 = self.buffer.resource.desc.size.into();
     let current_size = current_size / self.item_byte_size as u64;
     let new_size = current_size + grow_size as u64;
 
@@ -150,7 +150,7 @@ impl GPUSubAllocateBuffer {
     queue: &GPUQueue,
   ) -> Option<(GPUSubAllocateBufferToken, u32)> {
     let mut alloc = self.inner.write().unwrap();
-    let current_size: u64 = alloc.buffer.resource.size().into();
+    let current_size: u64 = alloc.buffer.resource.desc.size.into();
     let current_size = current_size / alloc.item_byte_size as u64;
     assert!(!content.is_empty());
     assert!(content.len() % alloc.item_byte_size == 0);

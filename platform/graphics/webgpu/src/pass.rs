@@ -266,7 +266,10 @@ impl<'a> GPURenderPass<'a> {
         indirect_offset,
         count,
       } => {
-        let buffer = self.holder.buffers.alloc(indirect_buffer.gpu);
+        let buffer = self
+          .holder
+          .buffers
+          .alloc(indirect_buffer.resource.gpu.clone());
         if indexed {
           self.multi_draw_indexed_indirect(buffer, indirect_offset, count)
         } else {
@@ -290,7 +293,7 @@ pub enum DrawCommand {
   },
   MultiIndirect {
     indexed: bool,
-    indirect_buffer: GPUBuffer,
+    indirect_buffer: GPUBufferResourceView,
     indirect_offset: BufferAddress,
     count: u32,
   },

@@ -7,11 +7,9 @@ impl GPUBindlessMeshSystem {
     device: &GPUDevice,
   ) -> BindlessMeshDispatcher {
     let (draw, draw_info): (Vec<_>, Vec<_>) = self.map_draw_command_buffer_in_host(iter).unzip();
-    let draw_indirect_buffer = GPUBuffer::create(
-      device,
-      BufferInit::WithInit(bytemuck::cast_slice(&draw)),
-      BufferUsages::INDIRECT,
-    );
+    let draw_indirect_buffer =
+      create_gpu_buffer(bytemuck::cast_slice(&draw), BufferUsages::INDIRECT, device)
+        .create_default_view();
     let vertex_address_buffer =
       StorageBufferReadOnlyDataView::create(device, bytemuck::cast_slice(&draw_info));
     BindlessMeshDispatcher {
@@ -41,14 +39,14 @@ impl GPUBindlessMeshSystem {
 }
 
 pub struct BindlessMeshDispatcher {
-  draw_indirect_buffer: GPUBuffer,
+  draw_indirect_buffer: GPUBufferResourceView,
   vertex_address_buffer: StorageBufferReadOnlyDataView<[DrawVertexIndirectInfo]>,
   system: GPUBindlessMeshSystem,
 }
 
 impl BindlessMeshDispatcher {
   pub fn draw_command(&self) -> DrawCommand {
-    let size: u64 = self.draw_indirect_buffer.size().into();
+    let size: u64 = self.draw_indirect_buffer.view_byte_size().into();
     DrawCommand::MultiIndirect {
       indirect_buffer: self.draw_indirect_buffer.clone(),
       indexed: true,

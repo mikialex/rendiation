@@ -20,8 +20,15 @@ impl<T: Std140> UniformBufferDataView<T> {
 
   pub fn create(device: &GPUDevice, data: T) -> Self {
     let usage = gpu::BufferUsages::UNIFORM | gpu::BufferUsages::COPY_DST;
-    let gpu = GPUBuffer::create(device, BufferInit::WithInit(data.as_bytes()), usage);
-    let gpu = GPUBufferResource::create_with_raw(gpu, usage).create_default_view();
+
+    let init = BufferInit::WithInit(data.as_bytes());
+    let desc = GPUBufferDescriptor {
+      size: init.size(),
+      usage,
+    };
+
+    let gpu = GPUBuffer::create(device, init, usage);
+    let gpu = GPUBufferResource::create_with_raw(gpu, desc).create_default_view();
 
     Self {
       gpu,
