@@ -84,7 +84,8 @@ pub(crate) fn do_write_into_storage_buffer<T: Std430 + ShaderSizedValueNodeType>
     let (r, valid) = invocation_source.invocation_logic(invocation_id);
 
     if_by(valid, || {
-      output.index(invocation_id.x()).store(r);
+      let target_idx = source.result_write_idx(invocation_id.x());
+      output.index(target_idx).store(r);
     });
   });
 

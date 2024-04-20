@@ -101,4 +101,8 @@ where
   fn result_size(&self) -> u32 {
     self.work_size() / self.workgroup_size
   }
+
+  fn result_write_idx(&self, global_id: Node<u32>) -> Node<u32> {
+    global_id / val(self.workgroup_size) // todo, we should expose local_id to avoid divide
+  }
 }

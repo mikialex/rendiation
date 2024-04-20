@@ -69,6 +69,11 @@ pub trait DeviceParallelComputeIO<T>: DeviceParallelCompute<Node<T>> {
   fn result_size(&self) -> u32 {
     self.work_size()
   }
+
+  fn result_write_idx(&self, global_id: Node<u32>) -> Node<u32> {
+    global_id
+  }
+
   /// if the implementation already has materialized storage buffer, should provide it directly to
   /// avoid re-materialize cost
   fn materialize_storage_buffer(
