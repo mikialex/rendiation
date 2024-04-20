@@ -2,6 +2,7 @@
 
 use std::hash::Hash;
 use std::hash::Hasher;
+use std::marker::PhantomData;
 use std::sync::Arc;
 
 use fast_hash_collection::*;
@@ -16,6 +17,8 @@ mod zip;
 pub use zip::*;
 mod prefix_scan;
 pub use prefix_scan::*;
+mod reduction;
+pub use reduction::*;
 mod stride_read;
 pub use stride_read::*;
 
@@ -61,8 +64,13 @@ pub trait DeviceParallelCompute<T> {
 /// specialization. if the type impls DeviceParallelCompute<Node<T>>, it should impl this trait as
 /// well.
 pub trait DeviceParallelComputeIO<T>: DeviceParallelCompute<Node<T>> {
-  // if the implementation already has materialized storage buffer, should provide it directly to
-  // avoid re-materialize cost
+  /// if the material output size is different from work size(for example reduction), custom impl is
+  /// required
+  fn result_size(&self) -> u32 {
+    self.work_size()
+  }
+  /// if the implementation already has materialized storage buffer, should provide it directly to
+  /// avoid re-materialize cost
   fn materialize_storage_buffer(
     &self,
     cx: &mut DeviceParallelComputeCtx,
@@ -70,7 +78,7 @@ pub trait DeviceParallelComputeIO<T>: DeviceParallelCompute<Node<T>> {
   where
     T: Std430 + ShaderSizedValueNodeType,
   {
-    do_write_into_storage_buffer(self, cx)
+    do_write_into_storage_buffer(self, cx, 256)
   }
 }
 
@@ -144,12 +152,16 @@ where
   T: ShaderSizedValueNodeType,
   Self: 'static,
 {
-  fn internal_materialize_storage_buffer(self) -> impl DeviceParallelComputeIO<T>
+  fn internal_materialize_storage_buffer(
+    self,
+    workgroup_size: u32,
+  ) -> impl DeviceParallelComputeIO<T>
   where
     T: Std430 + ShaderSizedValueNodeType,
   {
     WriteStorageReadBack {
       inner: Box::new(self),
+      workgroup_size,
     }
   }
 
@@ -179,7 +191,7 @@ where
       scan_logic: Default::default(),
       upstream: Box::new(self),
     }
-    .internal_materialize_storage_buffer()
+    .internal_materialize_storage_buffer(workgroup_size)
   }
 
   /// the total_work_size should not exceed first_stage_workgroup_size * second_stage_workgroup_size

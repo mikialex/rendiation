@@ -4,7 +4,7 @@ struct DeviceInvocationStride<T>(Box<dyn DeviceInvocation<T>>, Vec3<u32>);
 
 impl<T> DeviceInvocation<T> for DeviceInvocationStride<T> {
   fn invocation_logic(&self, logic_global_id: Node<Vec3<u32>>) -> (T, Node<bool>) {
-    let logic_global_id = logic_global_id / val(self.1);
+    let logic_global_id = logic_global_id * val(self.1);
     self.0.invocation_logic(logic_global_id)
   }
 }

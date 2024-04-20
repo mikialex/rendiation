@@ -65,26 +65,26 @@ where
 }
 impl<T: Std430> ShaderHashProvider for StorageBufferReadOnlyDataViewReadIntoShader<T> {}
 
-/// this call do the real materialization, that you can see this only requires
-/// DeviceParallelCompute<Node<T> and should be used in minimal cases
+/// this call do the real materialization and should be used in minimal cases
 pub(crate) fn do_write_into_storage_buffer<T: Std430 + ShaderSizedValueNodeType>(
-  source: &(impl DeviceParallelCompute<Node<T>> + ?Sized),
+  source: &(impl DeviceParallelComputeIO<T> + ?Sized),
   cx: &mut DeviceParallelComputeCtx,
+  group_size: u32,
 ) -> StorageBufferDataView<[T]> {
-  let group_size = 256;
   let input_source = source.compute_result(cx);
 
-  let output = create_gpu_read_write_storage::<[T]>(source.work_size() as usize, &cx.gpu);
+  let output = create_gpu_read_write_storage::<[T]>(source.result_size() as usize, &cx.gpu);
 
   let pipeline = cx.get_or_create_compute_pipeline(&input_source, |cx| {
     cx.config_work_group_size(group_size);
-    let source = input_source.build_shader(cx.0);
+    let invocation_source = input_source.build_shader(cx.0);
     let output = cx.bind_by(&output);
 
-    let (r, valid) = source.invocation_logic(cx.global_invocation_id());
+    let invocation_id = cx.local_invocation_id();
+    let (r, valid) = invocation_source.invocation_logic(invocation_id);
 
     if_by(valid, || {
-      output.index(cx.global_invocation_id().x()).store(r);
+      output.index(invocation_id.x()).store(r);
     });
   });
 
@@ -103,6 +103,7 @@ pub(crate) fn do_write_into_storage_buffer<T: Std430 + ShaderSizedValueNodeType>
 }
 
 pub struct WriteStorageReadBack<T> {
+  pub workgroup_size: u32,
   pub inner: Box<dyn DeviceParallelComputeIO<T>>,
 }
 
@@ -121,12 +122,15 @@ impl<T: ShaderSizedValueNodeType + Std430> DeviceParallelCompute<Node<T>>
     self.inner.work_size()
   }
 }
+
+/// this impl should not call internal materialization or default implementation, because we have
+/// configured the workgroup size
 impl<T: ShaderSizedValueNodeType + Std430> DeviceParallelComputeIO<T> for WriteStorageReadBack<T> {
   fn materialize_storage_buffer(
     &self,
     cx: &mut DeviceParallelComputeCtx,
   ) -> StorageBufferDataView<[T]> {
-    self.inner.materialize_storage_buffer(cx)
+    do_write_into_storage_buffer(self, cx, self.workgroup_size)
   }
 }
 
@@ -191,9 +195,18 @@ where
     T: Std430 + ShaderSizedValueNodeType,
   {
     if let Some(result) = self.result.write().take() {
-      result.into_rw_view()
-    } else {
-      do_write_into_storage_buffer(self, cx)
+      return result.into_rw_view();
     }
+
+    let result = self.upstream.inner.materialize_storage_buffer(cx);
+    let children = self.upstream.children.read();
+    for c in children.iter() {
+      let result = result.clone().into_readonly_view();
+      if c.result.write().replace(result).is_some() {
+        panic!("all forked result must be consumed")
+      }
+    }
+
+    self.materialize_storage_buffer(cx)
   }
 }

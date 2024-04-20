@@ -1,4 +1,4 @@
-use std::{marker::PhantomData, ops::Add};
+use std::ops::Add;
 
 use num_traits::One;
 
@@ -84,7 +84,7 @@ where
           shared.index(local_id).store(value.load())
         });
 
-      (value.load(), valid)
+      (value.load(), val(true))
     });
 
     Box::new(AdhocInvocationResult(result, valid))
