@@ -183,6 +183,19 @@ where
     }
   }
 
+  fn workgroup_scope_reduction<S>(self, workgroup_size: u32) -> impl DeviceParallelComputeIO<T>
+  where
+    S: DeviceMonoidLogic<Data = T> + 'static,
+    T: Std430 + ShaderSizedValueNodeType,
+  {
+    WorkGroupReduction::<T, S> {
+      workgroup_size,
+      reduction_logic: Default::default(),
+      upstream: Box::new(self),
+    }
+    .internal_materialize_storage_buffer(workgroup_size)
+  }
+
   fn workgroup_scope_prefix_scan_kogge_stone<S>(
     self,
     workgroup_size: u32,
