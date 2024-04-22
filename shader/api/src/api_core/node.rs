@@ -43,7 +43,7 @@ where
 
 macro_rules! atomic_impls {
   ($NodeType: tt) => {
-    impl<T: AtomicityShaderNodeType> $NodeType<Atomic<T>> {
+    impl<T: AtomicityShaderNodeType> $NodeType<DeviceAtomic<T>> {
       pub fn atomic_add(&self, v: Node<T>) -> Node<T> {
         ShaderNodeExpr::AtomicCall {
           ty: T::ATOM,

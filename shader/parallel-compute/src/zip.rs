@@ -1,6 +1,9 @@
 use crate::*;
 
-pub struct DeviceInvocationZip<A, B>(Box<dyn DeviceInvocation<A>>, Box<dyn DeviceInvocation<B>>);
+pub struct DeviceInvocationZip<A, B>(
+  pub Box<dyn DeviceInvocation<A>>,
+  pub Box<dyn DeviceInvocation<B>>,
+);
 
 impl<A, B> DeviceInvocation<(A, B)> for DeviceInvocationZip<A, B> {
   fn invocation_logic(&self, logic_global_id: Node<Vec3<u32>>) -> ((A, B), Node<bool>) {

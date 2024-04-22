@@ -1,7 +1,7 @@
 use crate::*;
 
 struct DeviceMapCompute<I, O> {
-  mapper: fn(I) -> O,
+  mapper: Arc<dyn Fn(I) -> O>,
   upstream: Box<dyn DeviceInvocationComponent<I>>,
 }
 
@@ -36,7 +36,7 @@ impl<I: 'static, O: 'static + Copy> DeviceInvocationComponent<O> for DeviceMapCo
 }
 
 pub struct DeviceMap<I, O> {
-  pub mapper: fn(I) -> O,
+  pub mapper: Arc<dyn Fn(I) -> O>,
   pub upstream: Box<dyn DeviceParallelCompute<I>>,
 }
 
@@ -46,7 +46,7 @@ impl<I: 'static, O: Copy + 'static> DeviceParallelCompute<O> for DeviceMap<I, O>
     cx: &mut DeviceParallelComputeCtx,
   ) -> Box<dyn DeviceInvocationComponent<O>> {
     Box::new(DeviceMapCompute {
-      mapper: self.mapper,
+      mapper: self.mapper.clone(),
       upstream: self.upstream.execute_and_expose(cx),
     })
   }

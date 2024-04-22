@@ -34,7 +34,7 @@ where
     let result = self.upstream.inner.materialize_storage_buffer(cx);
     let children = self.upstream.children.read();
     for c in children.iter() {
-      let result = result.clone().into_readonly_view();
+      let result = result.clone();
       if c.result.write().replace(result).is_some() {
         panic!("all forked result must be consumed")
       }
@@ -55,19 +55,19 @@ where
   fn materialize_storage_buffer(
     &self,
     cx: &mut DeviceParallelComputeCtx,
-  ) -> StorageBufferDataView<[T]>
+  ) -> StorageBufferReadOnlyDataView<[T]>
   where
     Self: Sized,
     T: Std430 + ShaderSizedValueNodeType,
   {
     if let Some(result) = self.result.write().take() {
-      return result.into_rw_view();
+      return result;
     }
 
     let result = self.upstream.inner.materialize_storage_buffer(cx);
     let children = self.upstream.children.read();
     for c in children.iter() {
-      let result = result.clone().into_readonly_view();
+      let result = result.clone();
       if c.result.write().replace(result).is_some() {
         panic!("all forked result must be consumed")
       }

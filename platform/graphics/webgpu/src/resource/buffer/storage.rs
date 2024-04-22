@@ -111,6 +111,34 @@ impl<T: Std430MaybeUnsized + ?Sized> StorageBufferDataView<T> {
   }
 }
 
+/// we are not suppose to transmute u32 atomic_u32 in host side, instead we transmute to marker
+/// type,because the u32 atomic_u32 transmutation is not guaranteed to work on all platform due to
+/// alignment difference. see: https://github.com/rust-lang/rust/issues/76314
+///
+/// todo, if other forms of transmutation is needed, we can add a unsafe escape for that.
+impl<T> StorageBufferDataView<[T]>
+where
+  T: Std430 + AtomicityShaderNodeType,
+{
+  pub fn into_device_atomic_array(self) -> StorageBufferDataView<[DeviceAtomic<T>]> {
+    StorageBufferDataView {
+      gpu: self.gpu.clone(),
+      phantom: PhantomData,
+    }
+  }
+}
+impl<T> StorageBufferDataView<[DeviceAtomic<T>]>
+where
+  T: Std430 + AtomicityShaderNodeType,
+{
+  pub fn into_host_nonatomic_array(self) -> StorageBufferDataView<[T]> {
+    StorageBufferDataView {
+      gpu: self.gpu.clone(),
+      phantom: PhantomData,
+    }
+  }
+}
+
 impl<T: Std430MaybeUnsized + ?Sized> Deref for StorageBufferDataView<T> {
   type Target = GPUBufferResourceView;
 

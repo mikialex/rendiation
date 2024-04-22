@@ -16,6 +16,8 @@ mod fork;
 pub use fork::*;
 mod radix_sort;
 pub use radix_sort::*;
+mod shuffle_move;
+pub use shuffle_move::*;
 mod map;
 pub use map::*;
 mod zip;
@@ -39,6 +41,22 @@ pub trait DeviceCollection<K, T> {
 pub trait DeviceInvocation<T> {
   fn invocation_logic(&self, logic_global_id: Node<Vec3<u32>>) -> (T, Node<bool>);
 }
+
+impl<T> DeviceInvocation<T> for Box<dyn DeviceInvocation<T>> {
+  fn invocation_logic(&self, logic_global_id: Node<Vec3<u32>>) -> (T, Node<bool>) {
+    (**self).invocation_logic(logic_global_id)
+  }
+}
+
+pub trait DeviceInvocationExt<T>: DeviceInvocation<T> + 'static + Sized {
+  fn into_boxed(self) -> Box<dyn DeviceInvocation<T>> {
+    Box::new(self)
+  }
+  fn zip<U>(self, other: impl DeviceInvocation<U> + 'static) -> impl DeviceInvocation<(T, U)> {
+    DeviceInvocationZip(self.into_boxed(), other.into_boxed())
+  }
+}
+impl<T, X> DeviceInvocationExt<T> for X where X: DeviceInvocation<T> + 'static + Sized {}
 
 pub struct AdhocInvocationResult<T>(pub T, pub Node<bool>);
 
@@ -81,6 +99,18 @@ pub trait DeviceInvocationComponent<T>: ShaderHashProviderAny {
   }
 }
 
+pub trait DeviceInvocationComponentExt<T>: DeviceInvocationComponent<T> {
+  fn into_boxed(self) -> Box<dyn DeviceInvocationComponent<T>>;
+}
+impl<T, X> DeviceInvocationComponentExt<T> for X
+where
+  X: DeviceInvocationComponent<T> + 'static,
+{
+  fn into_boxed(self) -> Box<dyn DeviceInvocationComponent<T>> {
+    Box::new(self)
+  }
+}
+
 pub trait DeviceParallelCompute<T> {
   fn execute_and_expose(
     &self,
@@ -101,16 +131,12 @@ pub trait DeviceParallelComputeIO<T>: DeviceParallelCompute<Node<T>> {
     self.work_size()
   }
 
-  fn result_write_idx(&self) -> Box<dyn Fn(Node<u32>) -> Node<u32>> {
-    Box::new(|global_id| global_id)
-  }
-
   /// if the implementation already has materialized storage buffer, should provide it directly to
   /// avoid re-materialize cost
   fn materialize_storage_buffer(
     &self,
     cx: &mut DeviceParallelComputeCtx,
-  ) -> StorageBufferDataView<[T]>
+  ) -> StorageBufferReadOnlyDataView<[T]>
   where
     T: Std430 + ShaderSizedValueNodeType,
   {
@@ -142,6 +168,21 @@ impl<T> DeviceParallelCompute<Node<T>> for Box<dyn DeviceParallelComputeIO<T>> {
     (**self).work_size()
   }
 }
+impl<T> DeviceParallelComputeIO<T> for Box<dyn DeviceParallelComputeIO<T>> {
+  fn result_size(&self) -> u32 {
+    (**self).work_size()
+  }
+
+  fn materialize_storage_buffer(
+    &self,
+    cx: &mut DeviceParallelComputeCtx,
+  ) -> StorageBufferReadOnlyDataView<[T]>
+  where
+    T: Std430 + ShaderSizedValueNodeType,
+  {
+    (**self).materialize_storage_buffer(cx)
+  }
+}
 
 pub trait DeviceParallelComputeExt<T>: Sized + DeviceParallelCompute<T>
 where
@@ -158,9 +199,9 @@ where
     }
   }
 
-  fn map<O: Copy + 'static>(self, mapper: fn(T) -> O) -> DeviceMap<T, O> {
+  fn map<O: Copy + 'static>(self, mapper: impl Fn(T) -> O + 'static) -> DeviceMap<T, O> {
     DeviceMap {
-      mapper,
+      mapper: Arc::new(mapper),
       upstream: Box::new(self),
     }
   }
@@ -207,6 +248,18 @@ where
         children: Default::default(),
       }),
       result: Default::default(),
+    }
+  }
+
+  fn shuffle_move(
+    self,
+    shuffle_idx: impl DeviceParallelCompute<Node<u32>> + 'static,
+  ) -> impl DeviceParallelComputeIO<T>
+  where
+    T: Std430 + ShaderSizedValueNodeType,
+  {
+    DataShuffleMovement {
+      source: Box::new(self.zip(shuffle_idx)),
     }
   }
 
@@ -317,6 +370,22 @@ where
     block_wise_scanned
       .zip(per_workgroup_scanned)
       .map(|(block_scan, workgroup_scan)| S::combine(block_scan, workgroup_scan))
+  }
+
+  fn device_radix_sort_naive<S>(
+    self,
+    per_pass_first_stage_workgroup_size: u32,
+    per_pass_second_stage_workgroup_size: u32,
+  ) -> impl DeviceParallelComputeIO<T>
+  where
+    S: DeviceRadixSortKeyLogic<Data = T>,
+    T: ShaderSizedValueNodeType + Std430,
+  {
+    device_radix_sort_naive::<T, S>(
+      self,
+      per_pass_first_stage_workgroup_size,
+      per_pass_second_stage_workgroup_size,
+    )
   }
 }
 

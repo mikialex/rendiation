@@ -43,7 +43,7 @@ where
       let (input, valid) = source.invocation_logic(cx.global_invocation_id());
 
       let shared =
-        cx.define_workgroup_shared_var_host_size_array::<Atomic<u32>>(self.workgroup_size);
+        cx.define_workgroup_shared_var_host_size_array::<DeviceAtomic<u32>>(self.workgroup_size);
 
       if_by(valid, || {
         let target = S::map(input);
@@ -115,9 +115,15 @@ where
     self.work_size() / self.workgroup_size * S::MAX
   }
 
-  fn result_write_idx(&self) -> Box<dyn Fn(Node<u32>) -> Node<u32>> {
+  fn materialize_storage_buffer(
+    &self,
+    cx: &mut DeviceParallelComputeCtx,
+  ) -> StorageBufferReadOnlyDataView<[u32]>
+  where
+    u32: Std430 + ShaderSizedValueNodeType,
+  {
     let workgroup_size = self.workgroup_size;
-    Box::new(move |global_id| {
+    custom_write_into_storage_buffer(self, cx, move |global_id| {
       global_id / val(workgroup_size * S::MAX) + global_id % val(workgroup_size)
     })
   }
@@ -125,7 +131,7 @@ where
 
 pub struct DeviceHistogramCompute<T, S> {
   workgroup_level: WorkGroupHistogramCompute<T, S>,
-  result: StorageBufferDataView<[u32]>,
+  result: StorageBufferDataView<[DeviceAtomic<u32>]>,
 }
 
 impl<T, S> ShaderHashProvider for DeviceHistogramCompute<T, S>
@@ -142,6 +148,9 @@ where
   T: ShaderSizedValueNodeType,
   S: DeviceHistogramMappingLogic<Data = T> + 'static,
 {
+  fn requested_workgroup_size(&self) -> Option<u32> {
+    self.workgroup_level.requested_workgroup_size()
+  }
   fn build_shader(
     &self,
     builder: &mut ShaderComputePipelineBuilder,
@@ -154,9 +163,9 @@ where
         computed_workgroup_level.invocation_logic(cx.global_invocation_id());
       let histogram_idx = cx.local_invocation_id().x();
 
-      result
-        .index(histogram_idx)
-        .store(workgroup_level_histogram.0);
+      // result
+      //   .index(histogram_idx)
+      //   .store(workgroup_level_histogram.0);
 
       workgroup_level_histogram
     });
@@ -222,12 +231,15 @@ where
   fn materialize_storage_buffer(
     &self,
     cx: &mut DeviceParallelComputeCtx,
-  ) -> StorageBufferDataView<[u32]>
+  ) -> StorageBufferReadOnlyDataView<[u32]>
   where
     u32: Std430 + ShaderSizedValueNodeType,
   {
     let compute_instance = self.create_compute_instance_impl(cx);
     compute_instance.dispatch_compute(self.work_size(), cx);
-    compute_instance.result
+    compute_instance
+      .result
+      .into_host_nonatomic_array()
+      .into_readonly_view()
   }
 }

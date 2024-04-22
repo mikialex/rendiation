@@ -106,8 +106,14 @@ where
     self.work_size() / self.workgroup_size
   }
 
-  fn result_write_idx(&self) -> Box<dyn Fn(Node<u32>) -> Node<u32>> {
+  fn materialize_storage_buffer(
+    &self,
+    cx: &mut DeviceParallelComputeCtx,
+  ) -> StorageBufferReadOnlyDataView<[T]>
+  where
+    T: Std430 + ShaderSizedValueNodeType,
+  {
     let workgroup_size = self.workgroup_size;
-    Box::new(move |global_id| global_id / val(workgroup_size))
+    custom_write_into_storage_buffer(self, cx, move |global_id| global_id / val(workgroup_size))
   }
 }

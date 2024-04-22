@@ -40,15 +40,20 @@ impl AddressSpace {
   }
 }
 
-pub struct Atomic<T>(PhantomData<T>);
+#[repr(transparent)]
+#[derive(Clone, Copy, Zeroable, Pod)]
+pub struct DeviceAtomic<T>(T);
+unsafe impl<T: Std430> Std430 for DeviceAtomic<T> {
+  const ALIGNMENT: usize = T::ALIGNMENT;
+}
 
-impl<T: AtomicityShaderNodeType> ShaderNodeType for Atomic<T> {
+impl<T: AtomicityShaderNodeType> ShaderNodeType for DeviceAtomic<T> {
   const TYPE: ShaderValueType = ShaderValueType::Single(ShaderValueSingleType::Sized(
     ShaderSizedValueType::Atomic(T::ATOM),
   ));
 }
 
-impl<T: AtomicityShaderNodeType> ShaderSizedValueNodeType for Atomic<T> {
+impl<T: AtomicityShaderNodeType> ShaderSizedValueNodeType for DeviceAtomic<T> {
   const MEMBER_TYPE: ShaderSizedValueType = ShaderSizedValueType::Atomic(T::ATOM);
 }
 
