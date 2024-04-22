@@ -1,7 +1,3 @@
-use std::sync::Arc;
-
-use parking_lot::RwLock;
-
 use crate::*;
 
 impl<T: ShaderNodeType> DeviceInvocation<Node<T>> for Node<ShaderReadOnlyStoragePtr<[T]>> {
@@ -16,10 +12,10 @@ impl<T> DeviceParallelCompute<Node<T>> for StorageBufferReadOnlyDataView<[T]>
 where
   T: Std430 + ShaderSizedValueNodeType,
 {
-  fn compute_result(
+  fn execute_and_expose(
     &self,
     _cx: &mut DeviceParallelComputeCtx,
-  ) -> Box<dyn DeviceInvocationBuilder<Node<T>>> {
+  ) -> Box<dyn DeviceInvocationComponent<Node<T>>> {
     Box::new(StorageBufferReadOnlyDataViewReadIntoShader(self.clone()))
   }
 
@@ -45,9 +41,11 @@ where
   }
 }
 
-struct StorageBufferReadOnlyDataViewReadIntoShader<T: Std430>(StorageBufferReadOnlyDataView<[T]>);
+pub struct StorageBufferReadOnlyDataViewReadIntoShader<T: Std430>(
+  pub StorageBufferReadOnlyDataView<[T]>,
+);
 
-impl<T> DeviceInvocationBuilder<Node<T>> for StorageBufferReadOnlyDataViewReadIntoShader<T>
+impl<T> DeviceInvocationComponent<Node<T>> for StorageBufferReadOnlyDataViewReadIntoShader<T>
 where
   T: Std430 + ShaderSizedValueNodeType,
 {
@@ -65,56 +63,79 @@ where
 }
 impl<T: Std430> ShaderHashProvider for StorageBufferReadOnlyDataViewReadIntoShader<T> {}
 
+pub struct WriteIntoStorageWriter<T: Std430> {
+  pub inner: Box<dyn DeviceInvocationComponent<Node<T>>>,
+  pub result_write_idx: Box<dyn Fn(Node<u32>) -> Node<u32>>,
+  pub output: StorageBufferDataView<[T]>,
+}
+
+impl<T: Std430> ShaderHashProvider for WriteIntoStorageWriter<T> {
+  fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
+    self.inner.hash_pipeline_with_type_info(hasher)
+  }
+}
+
+impl<T> DeviceInvocationComponent<Node<T>> for WriteIntoStorageWriter<T>
+where
+  T: Std430 + ShaderSizedValueNodeType,
+{
+  fn build_shader(
+    &self,
+    builder: &mut ShaderComputePipelineBuilder,
+  ) -> Box<dyn DeviceInvocation<Node<T>>> {
+    let invocation_source = self.inner.build_shader(builder);
+
+    let r = builder.entry_by(|cx| {
+      let invocation_id = cx.local_invocation_id();
+      let output = cx.bind_by(&self.output);
+      let (r, valid) = invocation_source.invocation_logic(invocation_id);
+
+      if_by(valid, || {
+        let target_idx = (self.result_write_idx)(invocation_id.x());
+        output.index(target_idx).store(r);
+      });
+
+      (r, valid)
+    });
+    Box::new(AdhocInvocationResult(r.0, r.1))
+  }
+
+  fn bind_input(&self, builder: &mut BindingBuilder) {
+    self.inner.bind_input(builder);
+    builder.bind(&self.output);
+  }
+}
+
 /// this call do the real materialization and should be used in minimal cases
 pub(crate) fn do_write_into_storage_buffer<T: Std430 + ShaderSizedValueNodeType>(
   source: &(impl DeviceParallelComputeIO<T> + ?Sized),
   cx: &mut DeviceParallelComputeCtx,
-  group_size: u32,
 ) -> StorageBufferDataView<[T]> {
-  let input_source = source.compute_result(cx);
-
+  let input_source = source.execute_and_expose(cx);
   let output = create_gpu_read_write_storage::<[T]>(source.result_size() as usize, &cx.gpu);
 
-  let pipeline = cx.get_or_create_compute_pipeline(&input_source, |cx| {
-    cx.config_work_group_size(group_size);
-    let invocation_source = input_source.build_shader(cx.0);
-    let output = cx.bind_by(&output);
+  let write = WriteIntoStorageWriter {
+    inner: input_source,
+    result_write_idx: source.result_write_idx(),
+    output,
+  };
 
-    let invocation_id = cx.local_invocation_id();
-    let (r, valid) = invocation_source.invocation_logic(invocation_id);
+  write.dispatch_compute(source.work_size(), cx);
 
-    if_by(valid, || {
-      let target_idx = source.result_write_idx(invocation_id.x());
-      output.index(target_idx).store(r);
-    });
-  });
-
-  let encoder = cx.gpu.create_encoder().compute_pass_scoped(|mut pass| {
-    let mut bb = BindingBuilder::new_as_compute();
-    input_source.bind_input(&mut bb);
-
-    bb.bind(&output)
-      .setup_compute_pass(&mut pass, &cx.gpu.device, &pipeline);
-    pass.dispatch_workgroups((source.work_size() + group_size - 1) / group_size, 1, 1);
-  });
-
-  cx.gpu.submit_encoder(encoder);
-
-  output
+  write.output
 }
 
-pub struct WriteStorageReadBack<T> {
-  pub workgroup_size: u32,
+pub struct WriteIntoStorageReadBackToDevice<T> {
   pub inner: Box<dyn DeviceParallelComputeIO<T>>,
 }
 
 impl<T: ShaderSizedValueNodeType + Std430> DeviceParallelCompute<Node<T>>
-  for WriteStorageReadBack<T>
+  for WriteIntoStorageReadBackToDevice<T>
 {
-  fn compute_result(
+  fn execute_and_expose(
     &self,
     cx: &mut DeviceParallelComputeCtx,
-  ) -> Box<dyn DeviceInvocationBuilder<Node<T>>> {
+  ) -> Box<dyn DeviceInvocationComponent<Node<T>>> {
     let temp_result = self.materialize_storage_buffer(cx).into_readonly_view();
     Box::new(StorageBufferReadOnlyDataViewReadIntoShader(temp_result))
   }
@@ -126,88 +147,13 @@ impl<T: ShaderSizedValueNodeType + Std430> DeviceParallelCompute<Node<T>>
 
 /// this impl should not call internal materialization or default implementation, because we have
 /// configured the workgroup size
-impl<T: ShaderSizedValueNodeType + Std430> DeviceParallelComputeIO<T> for WriteStorageReadBack<T> {
+impl<T: ShaderSizedValueNodeType + Std430> DeviceParallelComputeIO<T>
+  for WriteIntoStorageReadBackToDevice<T>
+{
   fn materialize_storage_buffer(
     &self,
     cx: &mut DeviceParallelComputeCtx,
   ) -> StorageBufferDataView<[T]> {
-    do_write_into_storage_buffer(self, cx, self.workgroup_size)
-  }
-}
-
-pub struct ComputeResultForker<T: Std430> {
-  pub inner: Box<dyn DeviceParallelComputeIO<T>>,
-  pub children: RwLock<Vec<ComputeResultForkerInstance<T>>>,
-}
-
-pub struct ComputeResultForkerInstance<T: Std430> {
-  pub upstream: Arc<ComputeResultForker<T>>,
-  pub result: Arc<RwLock<Option<StorageBufferReadOnlyDataView<[T]>>>>,
-}
-
-impl<T: Std430> Clone for ComputeResultForkerInstance<T> {
-  fn clone(&self) -> Self {
-    Self {
-      upstream: self.upstream.clone(),
-      result: self.result.clone(),
-    }
-  }
-}
-
-impl<T> DeviceParallelCompute<Node<T>> for ComputeResultForkerInstance<T>
-where
-  T: Std430 + ShaderSizedValueNodeType,
-{
-  fn compute_result(
-    &self,
-    cx: &mut DeviceParallelComputeCtx,
-  ) -> Box<dyn DeviceInvocationBuilder<Node<T>>> {
-    if let Some(result) = self.result.write().take() {
-      return Box::new(StorageBufferReadOnlyDataViewReadIntoShader(result));
-    }
-
-    let result = self.upstream.inner.materialize_storage_buffer(cx);
-    let children = self.upstream.children.read();
-    for c in children.iter() {
-      let result = result.clone().into_readonly_view();
-      if c.result.write().replace(result).is_some() {
-        panic!("all forked result must be consumed")
-      }
-    }
-
-    self.compute_result(cx)
-  }
-
-  fn work_size(&self) -> u32 {
-    self.upstream.inner.work_size()
-  }
-}
-
-impl<T> DeviceParallelComputeIO<T> for ComputeResultForkerInstance<T>
-where
-  T: Std430 + ShaderSizedValueNodeType,
-{
-  fn materialize_storage_buffer(
-    &self,
-    cx: &mut DeviceParallelComputeCtx,
-  ) -> StorageBufferDataView<[T]>
-  where
-    Self: Sized,
-    T: Std430 + ShaderSizedValueNodeType,
-  {
-    if let Some(result) = self.result.write().take() {
-      return result.into_rw_view();
-    }
-
-    let result = self.upstream.inner.materialize_storage_buffer(cx);
-    let children = self.upstream.children.read();
-    for c in children.iter() {
-      let result = result.clone().into_readonly_view();
-      if c.result.write().replace(result).is_some() {
-        panic!("all forked result must be consumed")
-      }
-    }
-
-    self.materialize_storage_buffer(cx)
+    do_write_into_storage_buffer(self, cx)
   }
 }

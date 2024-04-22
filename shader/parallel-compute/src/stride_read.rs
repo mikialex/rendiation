@@ -10,7 +10,7 @@ impl<T> DeviceInvocation<T> for DeviceInvocationStride<T> {
 }
 
 struct Builder<T> {
-  pub source: Box<dyn DeviceInvocationBuilder<T>>,
+  pub source: Box<dyn DeviceInvocationComponent<T>>,
   pub stride: Vec3<u32>,
 }
 
@@ -21,7 +21,7 @@ impl<T> ShaderHashProvider for Builder<T> {
   }
 }
 
-impl<T: 'static> DeviceInvocationBuilder<T> for Builder<T> {
+impl<T: 'static> DeviceInvocationComponent<T> for Builder<T> {
   fn build_shader(
     &self,
     builder: &mut ShaderComputePipelineBuilder,
@@ -43,12 +43,12 @@ pub struct DeviceParallelComputeStrideRead<T> {
 }
 
 impl<T: 'static> DeviceParallelCompute<T> for DeviceParallelComputeStrideRead<T> {
-  fn compute_result(
+  fn execute_and_expose(
     &self,
     cx: &mut DeviceParallelComputeCtx,
-  ) -> Box<dyn DeviceInvocationBuilder<T>> {
+  ) -> Box<dyn DeviceInvocationComponent<T>> {
     Box::new(Builder {
-      source: self.source.compute_result(cx),
+      source: self.source.execute_and_expose(cx),
       stride: self.stride,
     })
   }

@@ -6,11 +6,16 @@ use std::marker::PhantomData;
 use std::sync::Arc;
 
 use fast_hash_collection::*;
+use parking_lot::RwLock;
 use rendiation_shader_api::*;
 use rendiation_webgpu::*;
 
 mod io;
 use io::*;
+mod fork;
+pub use fork::*;
+mod radix_sort;
+pub use radix_sort::*;
 mod map;
 pub use map::*;
 mod zip;
@@ -19,6 +24,8 @@ mod prefix_scan;
 pub use prefix_scan::*;
 mod reduction;
 pub use reduction::*;
+mod histogram;
+pub use histogram::*;
 mod stride_read;
 pub use stride_read::*;
 
@@ -41,20 +48,44 @@ impl<T: Copy> DeviceInvocation<T> for AdhocInvocationResult<T> {
   }
 }
 
-pub trait DeviceInvocationBuilder<T>: ShaderHashProviderAny {
+pub trait DeviceInvocationComponent<T>: ShaderHashProviderAny {
   fn build_shader(
     &self,
     builder: &mut ShaderComputePipelineBuilder,
   ) -> Box<dyn DeviceInvocation<T>>;
 
   fn bind_input(&self, builder: &mut BindingBuilder);
+
+  fn requested_workgroup_size(&self) -> Option<u32> {
+    None
+  }
+
+  fn dispatch_compute(&self, work_size: u32, cx: &mut DeviceParallelComputeCtx) {
+    let workgroup_size = self.requested_workgroup_size().unwrap_or(256);
+    let pipeline = cx.get_or_create_compute_pipeline(self, |cx| {
+      cx.config_work_group_size(workgroup_size);
+      let invocation_source = self.build_shader(cx.0);
+
+      let invocation_id = cx.local_invocation_id();
+      let _ = invocation_source.invocation_logic(invocation_id);
+    });
+
+    let encoder = cx.gpu.create_encoder().compute_pass_scoped(|mut pass| {
+      let mut bb = BindingBuilder::new_as_compute();
+      self.bind_input(&mut bb);
+      bb.setup_compute_pass(&mut pass, &cx.gpu.device, &pipeline);
+      pass.dispatch_workgroups((work_size + workgroup_size - 1) / workgroup_size, 1, 1);
+    });
+
+    cx.gpu.submit_encoder(encoder);
+  }
 }
 
 pub trait DeviceParallelCompute<T> {
-  fn compute_result(
+  fn execute_and_expose(
     &self,
     cx: &mut DeviceParallelComputeCtx,
-  ) -> Box<dyn DeviceInvocationBuilder<T>>;
+  ) -> Box<dyn DeviceInvocationComponent<T>>;
 
   // the total invocation count, this is useful to get linear results back
   fn work_size(&self) -> u32;
@@ -70,8 +101,8 @@ pub trait DeviceParallelComputeIO<T>: DeviceParallelCompute<Node<T>> {
     self.work_size()
   }
 
-  fn result_write_idx(&self, global_id: Node<u32>) -> Node<u32> {
-    global_id
+  fn result_write_idx(&self) -> Box<dyn Fn(Node<u32>) -> Node<u32>> {
+    Box::new(|global_id| global_id)
   }
 
   /// if the implementation already has materialized storage buffer, should provide it directly to
@@ -83,16 +114,16 @@ pub trait DeviceParallelComputeIO<T>: DeviceParallelCompute<Node<T>> {
   where
     T: Std430 + ShaderSizedValueNodeType,
   {
-    do_write_into_storage_buffer(self, cx, 256)
+    do_write_into_storage_buffer(self, cx)
   }
 }
 
 impl<T> DeviceParallelCompute<T> for Box<dyn DeviceParallelCompute<T>> {
-  fn compute_result(
+  fn execute_and_expose(
     &self,
     cx: &mut DeviceParallelComputeCtx,
-  ) -> Box<dyn DeviceInvocationBuilder<T>> {
-    (**self).compute_result(cx)
+  ) -> Box<dyn DeviceInvocationComponent<T>> {
+    (**self).execute_and_expose(cx)
   }
 
   fn work_size(&self) -> u32 {
@@ -100,11 +131,11 @@ impl<T> DeviceParallelCompute<T> for Box<dyn DeviceParallelCompute<T>> {
   }
 }
 impl<T> DeviceParallelCompute<Node<T>> for Box<dyn DeviceParallelComputeIO<T>> {
-  fn compute_result(
+  fn execute_and_expose(
     &self,
     cx: &mut DeviceParallelComputeCtx,
-  ) -> Box<dyn DeviceInvocationBuilder<Node<T>>> {
-    (**self).compute_result(cx)
+  ) -> Box<dyn DeviceInvocationComponent<Node<T>>> {
+    (**self).execute_and_expose(cx)
   }
 
   fn work_size(&self) -> u32 {
@@ -157,16 +188,12 @@ where
   T: ShaderSizedValueNodeType,
   Self: 'static,
 {
-  fn internal_materialize_storage_buffer(
-    self,
-    workgroup_size: u32,
-  ) -> impl DeviceParallelComputeIO<T>
+  fn internal_materialize_storage_buffer(self) -> impl DeviceParallelComputeIO<T>
   where
     T: Std430 + ShaderSizedValueNodeType,
   {
-    WriteStorageReadBack {
+    WriteIntoStorageReadBackToDevice {
       inner: Box::new(self),
-      workgroup_size,
     }
   }
 
@@ -193,7 +220,61 @@ where
       reduction_logic: Default::default(),
       upstream: Box::new(self),
     }
-    .internal_materialize_storage_buffer(workgroup_size)
+    .internal_materialize_storage_buffer()
+  }
+
+  /// the total_work_size should not exceed first_stage_workgroup_size * second_stage_workgroup_size
+  fn segmented_reduction<S>(
+    self,
+    first_stage_workgroup_size: u32,
+    second_stage_workgroup_size: u32,
+  ) -> impl DeviceParallelComputeIO<T>
+  where
+    S: DeviceMonoidLogic<Data = T> + 'static,
+    T: Std430,
+  {
+    assert!(self.work_size() <= first_stage_workgroup_size * second_stage_workgroup_size);
+
+    self
+      .workgroup_scope_reduction::<S>(first_stage_workgroup_size)
+      .workgroup_scope_reduction::<S>(second_stage_workgroup_size)
+  }
+
+  /// perform workgroup scope histogram compute by workgroup level atomic array
+  ///
+  /// the entire histogram should be able to hold in workgroup
+  /// workgroup_size should larger than histogram max
+  fn workgroup_histogram<S>(self, workgroup_size: u32) -> impl DeviceParallelComputeIO<u32>
+  where
+    S: DeviceHistogramMappingLogic<Data = T> + 'static,
+    T: Std430 + ShaderSizedValueNodeType,
+  {
+    WorkGroupHistogram::<T, S> {
+      workgroup_size,
+      logic: Default::default(),
+      upstream: Box::new(self),
+    }
+    .internal_materialize_storage_buffer()
+  }
+
+  /// perform device scope histogram compute by workgroup level atomic array and global atomic array
+  ///
+  /// the entire work size should not exceed workgroup_privatization * 1024
+  ///
+  /// the entire histogram should be able to hold in workgroup
+  /// workgroup_size should larger than histogram max
+  fn histogram<S>(self, workgroup_privatization: u32) -> impl DeviceParallelComputeIO<u32>
+  where
+    S: DeviceHistogramMappingLogic<Data = T> + 'static,
+    T: Std430 + ShaderSizedValueNodeType,
+  {
+    DeviceHistogram::<T, S> {
+      workgroup_level: WorkGroupHistogram {
+        workgroup_size: workgroup_privatization,
+        logic: Default::default(),
+        upstream: Box::new(self),
+      },
+    }
   }
 
   fn workgroup_scope_prefix_scan_kogge_stone<S>(
@@ -209,7 +290,7 @@ where
       scan_logic: Default::default(),
       upstream: Box::new(self),
     }
-    .internal_materialize_storage_buffer(workgroup_size)
+    .internal_materialize_storage_buffer()
   }
 
   /// the total_work_size should not exceed first_stage_workgroup_size * second_stage_workgroup_size
@@ -254,7 +335,7 @@ pub struct DeviceParallelComputeCtx<'a> {
 impl<'a> DeviceParallelComputeCtx<'a> {
   pub fn get_or_create_compute_pipeline(
     &mut self,
-    source: &impl ShaderHashProviderAny,
+    source: &(impl ShaderHashProviderAny + ?Sized),
     creator: impl FnOnce(&mut ComputeCx),
   ) -> GPUComputePipeline {
     let mut hasher = PipelineHasher::default();
@@ -276,13 +357,13 @@ impl<'a> DeviceParallelComputeCtx<'a> {
   }
 }
 
-impl<T> ShaderHashProvider for Box<dyn DeviceInvocationBuilder<T>> {
+impl<T> ShaderHashProvider for Box<dyn DeviceInvocationComponent<T>> {
   fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
     (**self).hash_pipeline(hasher)
   }
 }
 
-impl<T> ShaderHashProviderAny for Box<dyn DeviceInvocationBuilder<T>> {
+impl<T> ShaderHashProviderAny for Box<dyn DeviceInvocationComponent<T>> {
   fn hash_pipeline_with_type_info(&self, hasher: &mut PipelineHasher) {
     (**self).hash_pipeline_with_type_info(hasher)
   }

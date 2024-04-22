@@ -11,8 +11,8 @@ impl<A, B> DeviceInvocation<(A, B)> for DeviceInvocationZip<A, B> {
 }
 
 struct Builder<A, B> {
-  pub source_a: Box<dyn DeviceInvocationBuilder<A>>,
-  pub source_b: Box<dyn DeviceInvocationBuilder<B>>,
+  pub source_a: Box<dyn DeviceInvocationComponent<A>>,
+  pub source_b: Box<dyn DeviceInvocationComponent<B>>,
 }
 
 impl<A, B> ShaderHashProvider for Builder<A, B> {
@@ -22,7 +22,7 @@ impl<A, B> ShaderHashProvider for Builder<A, B> {
   }
 }
 
-impl<A: 'static, B: 'static> DeviceInvocationBuilder<(A, B)> for Builder<A, B> {
+impl<A: 'static, B: 'static> DeviceInvocationComponent<(A, B)> for Builder<A, B> {
   fn build_shader(
     &self,
     builder: &mut ShaderComputePipelineBuilder,
@@ -45,13 +45,13 @@ pub struct DeviceParallelComputeZip<A, B> {
 }
 
 impl<A: 'static, B: 'static> DeviceParallelCompute<(A, B)> for DeviceParallelComputeZip<A, B> {
-  fn compute_result(
+  fn execute_and_expose(
     &self,
     cx: &mut DeviceParallelComputeCtx,
-  ) -> Box<dyn DeviceInvocationBuilder<(A, B)>> {
+  ) -> Box<dyn DeviceInvocationComponent<(A, B)>> {
     Box::new(Builder {
-      source_a: self.source_a.compute_result(cx),
-      source_b: self.source_b.compute_result(cx),
+      source_a: self.source_a.execute_and_expose(cx),
+      source_b: self.source_b.execute_and_expose(cx),
     })
   }
 

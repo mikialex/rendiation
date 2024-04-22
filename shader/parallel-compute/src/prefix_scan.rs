@@ -32,7 +32,7 @@ where
 struct WorkGroupPrefixScanKoggeStoneCompute<T, S> {
   workgroup_size: u32,
   scan_logic: PhantomData<S>,
-  upstream: Box<dyn DeviceInvocationBuilder<Node<T>>>,
+  upstream: Box<dyn DeviceInvocationComponent<Node<T>>>,
 }
 
 impl<T, S> ShaderHashProvider for WorkGroupPrefixScanKoggeStoneCompute<T, S> {
@@ -42,11 +42,14 @@ impl<T, S> ShaderHashProvider for WorkGroupPrefixScanKoggeStoneCompute<T, S> {
   }
 }
 
-impl<T, S> DeviceInvocationBuilder<Node<T>> for WorkGroupPrefixScanKoggeStoneCompute<T, S>
+impl<T, S> DeviceInvocationComponent<Node<T>> for WorkGroupPrefixScanKoggeStoneCompute<T, S>
 where
   T: ShaderSizedValueNodeType,
   S: DeviceMonoidLogic<Data = T> + 'static,
 {
+  fn requested_workgroup_size(&self) -> Option<u32> {
+    Some(self.workgroup_size)
+  }
   fn build_shader(
     &self,
     builder: &mut ShaderComputePipelineBuilder,
@@ -106,13 +109,13 @@ where
   T: ShaderSizedValueNodeType,
   S: DeviceMonoidLogic<Data = T> + 'static,
 {
-  fn compute_result(
+  fn execute_and_expose(
     &self,
     cx: &mut DeviceParallelComputeCtx,
-  ) -> Box<dyn DeviceInvocationBuilder<Node<T>>> {
+  ) -> Box<dyn DeviceInvocationComponent<Node<T>>> {
     Box::new(WorkGroupPrefixScanKoggeStoneCompute::<T, S> {
       workgroup_size: self.workgroup_size,
-      upstream: self.upstream.compute_result(cx),
+      upstream: self.upstream.execute_and_expose(cx),
       scan_logic: Default::default(),
     })
   }

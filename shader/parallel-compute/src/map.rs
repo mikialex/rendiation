@@ -2,7 +2,7 @@ use crate::*;
 
 struct DeviceMapCompute<I, O> {
   mapper: fn(I) -> O,
-  upstream: Box<dyn DeviceInvocationBuilder<I>>,
+  upstream: Box<dyn DeviceInvocationComponent<I>>,
 }
 
 impl<I, O> ShaderHashProvider for DeviceMapCompute<I, O> {
@@ -12,7 +12,7 @@ impl<I, O> ShaderHashProvider for DeviceMapCompute<I, O> {
   }
 }
 
-impl<I: 'static, O: 'static + Copy> DeviceInvocationBuilder<O> for DeviceMapCompute<I, O> {
+impl<I: 'static, O: 'static + Copy> DeviceInvocationComponent<O> for DeviceMapCompute<I, O> {
   fn build_shader(
     &self,
     builder: &mut ShaderComputePipelineBuilder,
@@ -41,13 +41,13 @@ pub struct DeviceMap<I, O> {
 }
 
 impl<I: 'static, O: Copy + 'static> DeviceParallelCompute<O> for DeviceMap<I, O> {
-  fn compute_result(
+  fn execute_and_expose(
     &self,
     cx: &mut DeviceParallelComputeCtx,
-  ) -> Box<dyn DeviceInvocationBuilder<O>> {
+  ) -> Box<dyn DeviceInvocationComponent<O>> {
     Box::new(DeviceMapCompute {
       mapper: self.mapper,
-      upstream: self.upstream.compute_result(cx),
+      upstream: self.upstream.execute_and_expose(cx),
     })
   }
 

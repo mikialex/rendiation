@@ -3,7 +3,7 @@ use crate::*;
 struct WorkGroupReductionCompute<T, S> {
   workgroup_size: u32,
   reduction_logic: PhantomData<S>,
-  upstream: Box<dyn DeviceInvocationBuilder<Node<T>>>,
+  upstream: Box<dyn DeviceInvocationComponent<Node<T>>>,
 }
 
 impl<T, S> ShaderHashProvider for WorkGroupReductionCompute<T, S> {
@@ -13,11 +13,15 @@ impl<T, S> ShaderHashProvider for WorkGroupReductionCompute<T, S> {
   }
 }
 
-impl<T, S> DeviceInvocationBuilder<Node<T>> for WorkGroupReductionCompute<T, S>
+impl<T, S> DeviceInvocationComponent<Node<T>> for WorkGroupReductionCompute<T, S>
 where
   T: ShaderSizedValueNodeType,
   S: DeviceMonoidLogic<Data = T> + 'static,
 {
+  fn requested_workgroup_size(&self) -> Option<u32> {
+    Some(self.workgroup_size)
+  }
+
   fn build_shader(
     &self,
     builder: &mut ShaderComputePipelineBuilder,
@@ -78,13 +82,13 @@ where
   T: ShaderSizedValueNodeType,
   S: DeviceMonoidLogic<Data = T> + 'static,
 {
-  fn compute_result(
+  fn execute_and_expose(
     &self,
     cx: &mut DeviceParallelComputeCtx,
-  ) -> Box<dyn DeviceInvocationBuilder<Node<T>>> {
+  ) -> Box<dyn DeviceInvocationComponent<Node<T>>> {
     Box::new(WorkGroupReductionCompute::<T, S> {
       workgroup_size: self.workgroup_size,
-      upstream: self.upstream.compute_result(cx),
+      upstream: self.upstream.execute_and_expose(cx),
       reduction_logic: Default::default(),
     })
   }
@@ -102,7 +106,8 @@ where
     self.work_size() / self.workgroup_size
   }
 
-  fn result_write_idx(&self, global_id: Node<u32>) -> Node<u32> {
-    global_id / val(self.workgroup_size) // todo, we should expose local_id to avoid divide
+  fn result_write_idx(&self) -> Box<dyn Fn(Node<u32>) -> Node<u32>> {
+    let workgroup_size = self.workgroup_size;
+    Box::new(move |global_id| global_id / val(workgroup_size))
   }
 }
