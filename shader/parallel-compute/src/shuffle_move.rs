@@ -109,7 +109,7 @@ where
 
       let (read_idx, valid) = shuffle_idx.invocation_logic(invocation_id);
 
-      let r = valid.select(input.index(read_idx).load(), zero_shader_value());
+      let r = valid.select(input.index(read_idx).load(), zeroed_val());
 
       (r, valid)
     });

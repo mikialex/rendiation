@@ -1,10 +1,12 @@
 use crate::*;
 
-impl<T: ShaderNodeType> DeviceInvocation<Node<T>> for Node<ShaderReadOnlyStoragePtr<[T]>> {
+impl<T: ShaderSizedValueNodeType> DeviceInvocation<Node<T>>
+  for Node<ShaderReadOnlyStoragePtr<[T]>>
+{
   fn invocation_logic(&self, logic_global_id: Node<Vec3<u32>>) -> (Node<T>, Node<bool>) {
     let idx = logic_global_id.x();
     let r = idx.less_than(self.array_length());
-    (r.select(self.index(idx).load(), zero_shader_value()), r)
+    (r.select(self.index(idx).load(), zeroed_val()), r)
   }
 }
 
