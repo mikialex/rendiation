@@ -37,6 +37,8 @@ impl<T: 'static> DeviceInvocationComponent<T> for Builder<T> {
   }
 }
 
+#[derive(Derivative)]
+#[derivative(Clone(bound = ""))]
 pub struct DeviceParallelComputeStrideRead<T> {
   pub source: Box<dyn DeviceParallelCompute<T>>,
   pub stride: Vec3<u32>,

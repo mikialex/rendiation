@@ -71,6 +71,8 @@ where
   }
 }
 
+#[derive(Derivative)]
+#[derivative(Clone(bound = ""))]
 pub struct WorkGroupReduction<T, S> {
   pub workgroup_size: u32,
   pub reduction_logic: PhantomData<S>,
@@ -97,6 +99,7 @@ where
     self.upstream.work_size()
   }
 }
+
 impl<T, S> DeviceParallelComputeIO<T> for WorkGroupReduction<T, S>
 where
   T: ShaderSizedValueNodeType,

@@ -5,6 +5,8 @@ use std::hash::Hasher;
 use std::marker::PhantomData;
 use std::sync::Arc;
 
+use derivative::Derivative;
+use dyn_clone::DynClone;
 use fast_hash_collection::*;
 use parking_lot::RwLock;
 use rendiation_shader_api::*;
@@ -111,13 +113,20 @@ where
   }
 }
 
-pub trait DeviceParallelCompute<T> {
+/// The top level composable trait for parallel compute.
+///
+/// Note that the clone is implemented by duplicating upstream work, if you want to reuse the work
+/// by materialize and share the result, you should using the fork operator, instead of call clone
+/// after internal_materialize_storage_buffer
+pub trait DeviceParallelCompute<T>: DynClone {
+  /// The main logic is expressed in this fn call. The implementation could do multiple dispatch in
+  /// this function, just to prepare all the necessary data the final exposing step required
   fn execute_and_expose(
     &self,
     cx: &mut DeviceParallelComputeCtx,
   ) -> Box<dyn DeviceInvocationComponent<T>>;
 
-  // the total invocation count, this is useful to get linear results back
+  // the total invocation count in this work
   fn work_size(&self) -> u32;
 }
 
@@ -156,6 +165,11 @@ impl<T> DeviceParallelCompute<T> for Box<dyn DeviceParallelCompute<T>> {
     (**self).work_size()
   }
 }
+impl<T> Clone for Box<dyn DeviceParallelCompute<T>> {
+  fn clone(&self) -> Self {
+    dyn_clone::clone_box(&**self)
+  }
+}
 impl<T> DeviceParallelCompute<Node<T>> for Box<dyn DeviceParallelComputeIO<T>> {
   fn execute_and_expose(
     &self,
@@ -166,6 +180,11 @@ impl<T> DeviceParallelCompute<Node<T>> for Box<dyn DeviceParallelComputeIO<T>> {
 
   fn work_size(&self) -> u32 {
     (**self).work_size()
+  }
+}
+impl<T> Clone for Box<dyn DeviceParallelComputeIO<T>> {
+  fn clone(&self) -> Self {
+    dyn_clone::clone_box(&**self)
   }
 }
 impl<T> DeviceParallelComputeIO<T> for Box<dyn DeviceParallelComputeIO<T>> {

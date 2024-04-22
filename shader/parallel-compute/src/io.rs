@@ -134,6 +134,8 @@ pub fn do_write_into_storage_buffer<T: Std430 + ShaderSizedValueNodeType>(
   custom_write_into_storage_buffer(source, cx, |x| x)
 }
 
+#[derive(Derivative)]
+#[derivative(Clone(bound = ""))]
 pub struct WriteIntoStorageReadBackToDevice<T> {
   pub inner: Box<dyn DeviceParallelComputeIO<T>>,
 }

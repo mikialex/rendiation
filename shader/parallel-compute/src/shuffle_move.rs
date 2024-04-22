@@ -1,5 +1,7 @@
 use crate::*;
 
+#[derive(Derivative)]
+#[derivative(Clone(bound = ""))]
 pub struct DataShuffleMovement<T> {
   pub source: Box<dyn DeviceParallelCompute<(Node<T>, Node<u32>)>>,
 }

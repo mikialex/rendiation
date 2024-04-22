@@ -35,6 +35,8 @@ impl<I: 'static, O: 'static + Copy> DeviceInvocationComponent<O> for DeviceMapCo
   }
 }
 
+#[derive(Derivative)]
+#[derivative(Clone(bound = ""))]
 pub struct DeviceMap<I, O> {
   pub mapper: Arc<dyn Fn(I) -> O>,
   pub upstream: Box<dyn DeviceParallelCompute<I>>,

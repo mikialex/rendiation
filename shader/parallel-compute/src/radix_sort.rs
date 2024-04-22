@@ -28,19 +28,19 @@ where
 {
   let mut result: Box<dyn DeviceParallelComputeIO<T>> = Box::new(input);
   for iter in 0..S::MAX_BITS {
-    let iter_input = result.into_forker(); // todo avoid materialize
+    let iter_input = result.clone();
 
-    let ones_before = iter_input
+    let is_one = iter_input
       .clone()
-      .map(move |data| S::is_one(data, val(iter)).select(val(1), val(0)))
+      .map(move |data| S::is_one(data, val(iter)));
+
+    let ones_before = is_one
+      .clone()
+      .map(move |is_one| is_one.select(val(1), val(0)))
       .segmented_prefix_scan_kogge_stone::<AdditionMonoid<u32>>(
         per_pass_first_stage_workgroup_size,
         per_pass_second_stage_workgroup_size,
       );
-
-    let is_one = iter_input // todo code reuse
-      .clone()
-      .map(move |data| S::is_one(data, val(iter)));
 
     let shuffle_idx = RadixShuffleMove {
       ones_before: Box::new(ones_before),
@@ -52,6 +52,8 @@ where
   result
 }
 
+#[derive(Derivative)]
+#[derivative(Clone(bound = ""))]
 struct RadixShuffleMove {
   ones_before: Box<dyn DeviceParallelComputeIO<u32>>,
   is_one: Box<dyn DeviceParallelComputeIO<bool>>,

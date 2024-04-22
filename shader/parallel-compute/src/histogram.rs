@@ -66,6 +66,8 @@ where
   }
 }
 
+#[derive(Derivative)]
+#[derivative(Clone(bound = ""))]
 pub struct WorkGroupHistogram<T, S> {
   pub workgroup_size: u32,
   pub logic: PhantomData<S>,
@@ -177,6 +179,8 @@ where
   }
 }
 
+#[derive(Derivative)]
+#[derivative(Clone(bound = ""))]
 pub struct DeviceHistogram<T, S> {
   pub workgroup_level: WorkGroupHistogram<T, S>,
 }

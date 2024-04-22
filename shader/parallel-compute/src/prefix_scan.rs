@@ -98,6 +98,8 @@ where
   }
 }
 
+#[derive(Derivative)]
+#[derivative(Clone(bound = ""))]
 pub struct WorkGroupPrefixScanKoggeStone<T, S> {
   pub workgroup_size: u32,
   pub scan_logic: PhantomData<S>,

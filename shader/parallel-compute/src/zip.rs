@@ -42,6 +42,8 @@ impl<A: 'static, B: 'static> DeviceInvocationComponent<(A, B)> for Builder<A, B>
   }
 }
 
+#[derive(Derivative)]
+#[derivative(Clone(bound = ""))]
 pub struct DeviceParallelComputeZip<A, B> {
   pub source_a: Box<dyn DeviceParallelCompute<A>>,
   pub source_b: Box<dyn DeviceParallelCompute<B>>,
