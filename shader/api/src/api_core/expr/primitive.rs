@@ -20,6 +20,18 @@ pub enum PrimitiveShaderValueType {
   Mat4Float32,
 }
 
+impl PrimitiveShaderValueType {
+  pub fn vertex_out_could_interpolated(self) -> bool {
+    matches!(
+      self,
+      PrimitiveShaderValueType::Float32
+        | PrimitiveShaderValueType::Vec2Float32
+        | PrimitiveShaderValueType::Vec3Float32
+        | PrimitiveShaderValueType::Vec4Float32
+    )
+  }
+}
+
 pub enum PrimitiveScalarShaderType {
   Int32,
   Uint32,

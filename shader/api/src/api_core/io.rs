@@ -41,6 +41,7 @@ pub enum ShaderBuiltInDecorator {
   CompGlobalInvocationId,
   CompLocalInvocationIndex,
   CompWorkgroupId,
+  CompNumWorkgroup,
 }
 
 #[derive(Default, Clone)]

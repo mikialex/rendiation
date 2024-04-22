@@ -10,6 +10,7 @@ pub struct ShaderComputePipelineBuilder {
   local_invocation_id: Node<Vec3<u32>>,
   local_invocation_index: Node<u32>,
   workgroup_id: Node<Vec3<u32>>,
+  workgroup_count: Node<Vec3<u32>>,
   pub log_result: bool,
 }
 
@@ -103,6 +104,7 @@ impl ShaderComputePipelineBuilder {
       local_invocation_id: ShaderInputNode::BuiltIn(CompLocalInvocationId).insert_api(),
       local_invocation_index: ShaderInputNode::BuiltIn(CompLocalInvocationIndex).insert_api(),
       workgroup_id: ShaderInputNode::BuiltIn(CompWorkgroupId).insert_api(),
+      workgroup_count: ShaderInputNode::BuiltIn(CompNumWorkgroup).insert_api(),
       log_result: false,
     }
   }

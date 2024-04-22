@@ -43,7 +43,11 @@ pub trait ShaderAPI {
 
   fn define_module_input(&mut self, input: ShaderInputNode) -> ShaderNodeRawHandle;
   fn define_next_frag_out(&mut self) -> ShaderNodeRawHandle;
-  fn define_next_vertex_output(&mut self, ty: PrimitiveShaderValueType) -> ShaderNodeRawHandle;
+  fn define_next_vertex_output(
+    &mut self,
+    ty: PrimitiveShaderValueType,
+    interpolation: Option<ShaderInterpolation>,
+  ) -> ShaderNodeRawHandle;
   fn define_vertex_position_output(&mut self) -> ShaderNodeRawHandle;
   fn define_frag_depth_output(&mut self) -> ShaderNodeRawHandle;
 

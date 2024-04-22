@@ -54,9 +54,16 @@ impl Hash for ShaderStructMetaInfo {
 }
 
 #[derive(Debug, Copy, Clone)]
+pub enum ShaderInterpolation {
+  Perspective,
+  Linear,
+  Flat,
+}
+
+#[derive(Debug, Copy, Clone)]
 pub enum ShaderFieldDecorator {
   BuiltIn(ShaderBuiltInDecorator),
-  Location(usize),
+  Location(usize, Option<ShaderInterpolation>),
 }
 
 /// This trait is to mapping the real struct ty into the rendiation_shader_api node ty.

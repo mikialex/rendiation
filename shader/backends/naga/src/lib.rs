@@ -340,6 +340,13 @@ impl ShaderAPI for ShaderAPINagaImpl {
               width: 4,
             },
           },
+          ShaderBuiltInDecorator::CompNumWorkgroup => naga::TypeInner::Vector {
+            size: naga::VectorSize::Tri,
+            scalar: naga::Scalar {
+              kind: naga::ScalarKind::Uint,
+              width: 4,
+            },
+          },
         };
         let ty = naga::Type {
           name: None,
@@ -456,7 +463,7 @@ impl ShaderAPI for ShaderAPINagaImpl {
     self.outputs_define.push(ShaderStructFieldMetaInfoOwned {
       name: format!("frag_out_{}", self.outputs_define.len()),
       ty,
-      ty_deco: ShaderFieldDecorator::Location(self.outputs.len()).into(),
+      ty_deco: ShaderFieldDecorator::Location(self.outputs.len(), None).into(),
     });
 
     let ty = ShaderValueType::Single(ShaderValueSingleType::Sized(ty));
@@ -466,11 +473,15 @@ impl ShaderAPI for ShaderAPINagaImpl {
     r
   }
 
-  fn define_next_vertex_output(&mut self, ty: PrimitiveShaderValueType) -> ShaderNodeRawHandle {
+  fn define_next_vertex_output(
+    &mut self,
+    ty: PrimitiveShaderValueType,
+    interpolation: Option<ShaderInterpolation>,
+  ) -> ShaderNodeRawHandle {
     self.define_out(
       ty,
       format!("vertex_out_{}", self.outputs_define.len()),
-      ShaderFieldDecorator::Location(self.outputs.len()),
+      ShaderFieldDecorator::Location(self.outputs.len(), interpolation),
     )
   }
 
@@ -521,10 +532,15 @@ impl ShaderAPI for ShaderAPINagaImpl {
             },
           };
 
+          let primitive = match ty {
+            ShaderAtomicValueType::I32 => PrimitiveShaderValueType::Int32,
+            ShaderAtomicValueType::U32 => PrimitiveShaderValueType::Uint32,
+          };
+
           let ty = self.register_ty_impl(
-            ShaderValueType::Single(ShaderValueSingleType::Sized(ShaderSizedValueType::Atomic(
-              ty,
-            ))),
+            ShaderValueType::Single(ShaderValueSingleType::Sized(
+              ShaderSizedValueType::Primitive(primitive),
+            )),
             None,
           );
 
@@ -1356,9 +1372,13 @@ fn struct_member(
 
     let binding = ty_deco.map(|deco| match deco {
       ShaderFieldDecorator::BuiltIn(bt) => naga::Binding::BuiltIn(match_built_in(bt)),
-      ShaderFieldDecorator::Location(location) => naga::Binding::Location {
+      ShaderFieldDecorator::Location(location, interpolation) => naga::Binding::Location {
         location: location as u32,
-        interpolation: naga::Interpolation::Perspective.into(),
+        interpolation: interpolation.map(|interpolation| match interpolation {
+          ShaderInterpolation::Perspective => naga::Interpolation::Perspective,
+          ShaderInterpolation::Linear => naga::Interpolation::Linear,
+          ShaderInterpolation::Flat => naga::Interpolation::Flat,
+        }),
         sampling: None,
         second_blend_source: false,
       },
@@ -1418,5 +1438,6 @@ fn match_built_in(bt: ShaderBuiltInDecorator) -> naga::BuiltIn {
     ShaderBuiltInDecorator::CompGlobalInvocationId => naga::BuiltIn::GlobalInvocationId,
     ShaderBuiltInDecorator::CompLocalInvocationIndex => naga::BuiltIn::LocalInvocationIndex,
     ShaderBuiltInDecorator::CompWorkgroupId => naga::BuiltIn::WorkGroupId,
+    ShaderBuiltInDecorator::CompNumWorkgroup => naga::BuiltIn::NumWorkGroups,
   }
 }

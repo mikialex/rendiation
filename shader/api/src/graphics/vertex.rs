@@ -171,7 +171,10 @@ impl ShaderVertexBuilder {
       .entry(id)
       .or_insert_with(|| {
         let ty = T::ValueType::PRIMITIVE_TYPE;
-        let node = call_shader_api(|api| api.define_next_vertex_output(ty));
+        let interpolation_override = ty
+          .vertex_out_could_interpolated()
+          .then_some(ShaderInterpolation::Flat);
+        let node = call_shader_api(|api| api.define_next_vertex_output(ty, interpolation_override));
 
         VertexIOInfo { node, ty, location }
       })

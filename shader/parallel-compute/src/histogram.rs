@@ -54,8 +54,7 @@ where
 
       let local_x = cx.local_invocation_id().x();
       let output_valid = local_x.less_than(S::MAX);
-      //   let result = output_valid.select_branched(|| shared.index(local_x).load(), || val(0));
-      let result = todo!();
+      let result = output_valid.select_branched(|| shared.index(local_x).atomic_load(), || val(0));
       (result, output_valid)
     });
 
@@ -163,9 +162,9 @@ where
         computed_workgroup_level.invocation_logic(cx.global_invocation_id());
       let histogram_idx = cx.local_invocation_id().x();
 
-      // result
-      //   .index(histogram_idx)
-      //   .store(workgroup_level_histogram.0);
+      result
+        .index(histogram_idx)
+        .atomic_store(workgroup_level_histogram.0);
 
       workgroup_level_histogram
     });

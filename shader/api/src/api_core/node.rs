@@ -44,6 +44,13 @@ where
 macro_rules! atomic_impls {
   ($NodeType: tt) => {
     impl<T: AtomicityShaderNodeType> $NodeType<DeviceAtomic<T>> {
+      pub fn atomic_load(&self) -> Node<T> {
+        call_shader_api(|g| unsafe { g.load(self.handle()).into_node() })
+      }
+      pub fn atomic_store(&self, v: Node<T>) {
+        call_shader_api(|g| g.store(v.handle(), self.handle()))
+      }
+
       pub fn atomic_add(&self, v: Node<T>) -> Node<T> {
         ShaderNodeExpr::AtomicCall {
           ty: T::ATOM,
