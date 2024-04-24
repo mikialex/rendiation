@@ -11,6 +11,8 @@ rendiation-shader-api = { path = "../../shader/api" }
 database = { path = "../../utility/database" }
 reactive = { path = "../../utility/reactive" }
 rendiation-webgpu = { path = "../../platform/graphics/webgpu" }
+rendiation-scene-rendering-gpu-gles = { path = "../../scene/rendering/gpu-gles" }
+rendiation-state-override = { path = "../state-override" }
 
 [lints]
 workspace = true

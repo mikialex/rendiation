@@ -68,6 +68,10 @@ impl<'a> ComputeCx<'a> {
     self.0.workgroup_id
   }
 
+  pub fn workgroup_count(&self) -> Node<Vec3<u32>> {
+    self.0.workgroup_count
+  }
+
   pub fn define_workgroup_shared_var<T: ShaderSizedValueNodeType>(&self) -> WorkGroupSharedNode<T> {
     ShaderInputNode::WorkGroupShared { ty: T::MEMBER_TYPE }.insert_api()
   }

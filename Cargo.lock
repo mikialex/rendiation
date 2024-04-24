@@ -3090,9 +3090,12 @@ dependencies = [
 name = "rendiation-barycentric-solid-line"
 version = "0.1.0"
 dependencies = [
+ "bytemuck",
+ "dyn-downcast",
  "rendiation-algebra",
  "rendiation-geometry",
  "rendiation-mesh-core",
+ "rendiation-scene-rendering-gpu-gles",
  "rendiation-shader-api",
  "rendiation-webgpu",
  "winit",
@@ -3171,6 +3174,20 @@ version = "0.1.0"
 dependencies = [
  "bytemuck",
  "rendiation-algebra",
+]
+
+[[package]]
+name = "rendiation-infinity-plane"
+version = "0.1.0"
+dependencies = [
+ "database",
+ "reactive",
+ "rendiation-algebra",
+ "rendiation-scene-core-next",
+ "rendiation-scene-rendering-gpu-gles",
+ "rendiation-shader-api",
+ "rendiation-state-override",
+ "rendiation-webgpu",
 ]
 
 [[package]]

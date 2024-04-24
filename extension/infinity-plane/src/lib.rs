@@ -1,102 +1,39 @@
+#![feature(specialization)]
+
 use __core::{any::Any, hash::Hash};
+use rendiation_scene_rendering_gpu_gles::CameraGPU;
 use rendiation_shader_api::*;
-use webgpu::*;
-
-use crate::MaterialStates;
-
-pub struct GridGround {
-  grid_config: IncrementalSignalPtr<GridGroundConfig>,
-}
-
-impl PassContentWithSceneAndCamera for &mut GridGround {
-  fn render(
-    &mut self,
-    pass: &mut webgpu::FrameRenderPass,
-    scene: &SceneRenderResourceGroup,
-    camera: &rendiation_scene_core::SceneCamera,
-  ) {
-    let base = default_dispatcher(pass);
-
-    let mut custom_storage = scene.resources.custom_storage.borrow_mut();
-    let gpus: &mut ReactiveMap<IncrementalSignalPtr<GridGroundConfig>, InfinityShaderPlane> =
-      custom_storage.entry().or_insert_with(Default::default);
-
-    let grid_gpu = gpus.get_with_update(&self.grid_config, pass.ctx.gpu);
-
-    let cameras = scene.scene_resources.cameras.read().unwrap();
-    let camera_gpu = cameras.get_camera_gpu(camera).unwrap();
-
-    let effect = InfinityShaderPlaneEffect {
-      plane: &grid_gpu.plane,
-      camera: camera_gpu,
-    };
-
-    let components: [&dyn RenderComponentAny; 3] = [&base, &effect, grid_gpu.shading.as_ref()];
-    RenderEmitter::new(components.as_slice()).render(&mut pass.ctx, QUAD_DRAW_CMD);
-  }
-}
-
-impl GlobalIdReactiveSimpleMapping<InfinityShaderPlane> for IncrementalSignalPtr<GridGroundConfig> {
-  type ChangeStream = impl Stream<Item = ()> + Unpin;
-  type Ctx<'a> = GPU;
-
-  fn build(&self, ctx: &Self::Ctx<'_>) -> (InfinityShaderPlane, Self::ChangeStream) {
-    let source = self.read();
-    let grid_gpu = create_grid_gpu(*source, ctx);
-    drop(source);
-
-    let change = self.unbound_listen_by(any_change);
-    (grid_gpu, change)
-  }
-}
-
-fn create_grid_gpu(source: GridGroundConfig, gpu: &GPU) -> InfinityShaderPlane {
-  InfinityShaderPlane {
-    plane: create_uniform_with_cache(
-      ShaderPlane {
-        normal: Vec3::new(0., 1., 0.),
-        constant: 0.,
-        ..Zeroable::zeroed()
-      },
-      gpu,
-    ),
-    shading: Box::new(GridGroundShading {
-      shading: create_uniform_with_cache(source, gpu),
-    }),
-  }
-}
-
-impl Default for GridGround {
-  fn default() -> Self {
-    Self {
-      grid_config: GridGroundConfig {
-        scale: Vec2::one(),
-        color: Vec4::splat(1.),
-        ..Zeroable::zeroed()
-      }
-      .into_ptr(),
-    }
-  }
-}
+use rendiation_state_override::MaterialStates;
+use rendiation_webgpu::*;
 
 #[repr(C)]
 #[std140_layout]
-#[derive(Copy, Clone, ShaderStruct, Incremental)]
+#[derive(Copy, Clone, ShaderStruct)]
 pub struct GridGroundConfig {
   pub scale: Vec2<f32>,
   pub color: Vec4<f32>,
 }
 
-pub struct GridGroundShading {
-  shading: UniformBufferCachedDataView<GridGroundConfig>,
-}
-impl ShaderHashProvider for GridGroundShading {}
-impl ShaderPassBuilder for GridGroundShading {
-  fn setup_pass(&self, ctx: &mut webgpu::GPURenderPassCtx) {
-    ctx.binding.bind(&self.shading);
+impl Default for GridGroundConfig {
+  fn default() -> Self {
+    Self {
+      scale: Vec2::one(),
+      color: Vec4::splat(1.),
+      ..Zeroable::zeroed()
+    }
   }
 }
-impl GraphicsShaderProvider for GridGroundShading {
+
+pub struct GridGroundShading<'a> {
+  shading: &'a UniformBufferDataView<GridGroundConfig>,
+}
+impl<'a> ShaderHashProvider for GridGroundShading<'a> {}
+impl<'a> ShaderPassBuilder for GridGroundShading<'a> {
+  fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
+    ctx.binding.bind(self.shading);
+  }
+}
+impl<'a> GraphicsShaderProvider for GridGroundShading<'a> {
   fn build(&self, builder: &mut ShaderRenderPipelineBuilder) -> Result<(), ShaderBuildError> {
     builder.fragment(|builder, binding| {
       let shading = binding.bind_by(&self.shading).load();
@@ -119,11 +56,6 @@ fn grid(position: Node<Vec3<f32>>, config: Node<GridGroundConfig>) -> Node<Vec4<
   (val(0.2), val(0.2), val(0.2), val(1.1) - lined.min(val(1.0))).into()
 }
 
-pub struct InfinityShaderPlane {
-  plane: UniformBufferCachedDataView<ShaderPlane>,
-  shading: Box<dyn RenderComponentAny>,
-}
-
 #[repr(C)]
 #[std140_layout]
 #[derive(Copy, Clone, ShaderStruct)]
@@ -132,19 +64,29 @@ pub struct ShaderPlane {
   pub constant: f32,
 }
 
+impl ShaderPlane {
+  pub fn ground_like() -> Self {
+    ShaderPlane {
+      normal: Vec3::new(0., 1., 0.),
+      constant: 0.,
+      ..Zeroable::zeroed()
+    }
+  }
+}
+
 pub struct InfinityShaderPlaneEffect<'a> {
-  plane: &'a UniformBufferCachedDataView<ShaderPlane>,
-  camera: &'a CameraGPU,
+  plane: &'a UniformBufferDataView<ShaderPlane>,
+  camera: &'a CameraGPU<'a>,
 }
 
 impl<'a> ShaderHashProvider for InfinityShaderPlaneEffect<'a> {}
 impl<'a> ShaderHashProviderAny for InfinityShaderPlaneEffect<'a> {
-  fn hash_pipeline_with_type_info(&self, hasher: &mut webgpu::PipelineHasher) {
+  fn hash_pipeline_with_type_info(&self, hasher: &mut PipelineHasher) {
     self.plane.type_id().hash(hasher)
   }
 }
 impl<'a> ShaderPassBuilder for InfinityShaderPlaneEffect<'a> {
-  fn setup_pass(&self, ctx: &mut webgpu::GPURenderPassCtx) {
+  fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
     self.camera.setup_pass(ctx);
     ctx.binding.bind(self.plane);
   }
@@ -159,9 +101,9 @@ impl<'a> GraphicsShaderProvider for InfinityShaderPlaneEffect<'a> {
       builder.set_vertex_out::<FragmentUv>(out.uv);
       builder.register::<ClipPosition>((out.position.xyz(), val(1.)));
 
-      builder.primitive_state = webgpu::PrimitiveState {
-        topology: webgpu::PrimitiveTopology::TriangleStrip,
-        front_face: webgpu::FrontFace::Cw,
+      builder.primitive_state = PrimitiveState {
+        topology: PrimitiveTopology::TriangleStrip,
+        front_face: FrontFace::Cw,
         ..Default::default()
       };
 
@@ -214,9 +156,9 @@ impl<'a> GraphicsShaderProvider for InfinityShaderPlaneEffect<'a> {
       ));
 
       MaterialStates {
-        blend: webgpu::BlendState::ALPHA_BLENDING.into(),
+        blend: BlendState::ALPHA_BLENDING.into(),
         depth_write_enabled: false,
-        depth_compare: webgpu::CompareFunction::LessEqual,
+        depth_compare: CompareFunction::LessEqual,
         ..Default::default()
       }
       .apply_pipeline_builder(builder);

@@ -1,199 +1,150 @@
-// use core::hash::{Hash, Hasher};
+use core::hash::{Hash, Hasher};
 
-// use rendiation_algebra::*;
-// use rendiation_geometry::*;
-// use rendiation_mesh_core::*;
-// use rendiation_shader_api::*;
-// use rendiation_webgpu::*;
+use dyn_downcast::*;
+use rendiation_algebra::*;
+use rendiation_geometry::*;
+use rendiation_mesh_core::*;
+use rendiation_scene_rendering_gpu_gles::*;
+use rendiation_shader_api::*;
+use rendiation_webgpu::*;
 
-// /// solid lined mesh is a way to draw on mesh edge line.
-// ///
-// /// ## references
-// ///
-// /// https://catlikecoding.com/unity/tutorials/advanced-rendering/flat-and-wireframe-shading/
-// /// https://tchayen.github.io/posts/wireframes-with-barycentric-coordinates
+/// solid lined mesh is a way to draw on mesh edge line.
+///
+/// ## references
+///
+/// https://catlikecoding.com/unity/tutorials/advanced-rendering/flat-and-wireframe-shading/
+/// https://tchayen.github.io/posts/wireframes-with-barycentric-coordinates
 
-// impl MeshDrawcallEmitter for ReactiveSolidLinedMeshGPU {
-//   fn draw_command(&self, group: MeshDrawGroup) -> DrawCommand {
-//     let gpu = self.inner.as_ref();
-//     gpu.mesh_gpu.draw_command(group)
-//   }
-// }
+#[derive(Clone, Copy)]
+struct FullReaderReadWithBarycentric<'a> {
+  inner: FullReaderRead<'a>,
+  barycentric: Vec3<f32>,
+}
 
-// impl WebGPUMesh for SolidLinedMesh {
-//   type ReactiveGPU = ReactiveSolidLinedMeshGPU;
+impl<'a> Eq for FullReaderReadWithBarycentric<'a> {}
+impl<'a> PartialEq for FullReaderReadWithBarycentric<'a> {
+  fn eq(&self, other: &Self) -> bool {
+    self.inner == other.inner && self.barycentric == other.barycentric
+  }
+}
 
-//   fn create_reactive_gpu(
-//     source: &IncrementalSignalPtr<Self>,
-//     ctx: &ShareBindableResourceCtx,
-//   ) -> Self::ReactiveGPU {
-//     let weak = source.downgrade();
-//     let ctx = ctx.clone();
+impl<'a> Hash for FullReaderReadWithBarycentric<'a> {
+  fn hash<H: Hasher>(&self, state: &mut H) {
+    self.inner.hash(state);
+    self.barycentric.map(|f| f.to_bits()).hash(state);
+  }
+}
 
-//     let create = move || {
-//       if let Some(m) = weak.upgrade() {
-//         if let Some(mesh) = generate_barycentric_buffer_and_expanded_mesh(&m) {
-//           let mesh_gpu = mesh.create_scene_reactive_gpu(&ctx).unwrap();
+impl<'a> AttributeVertex for FullReaderReadWithBarycentric<'a> {
+  fn layout(&self) -> Vec<AttributeSemantic> {
+    let mut inner = self.inner.layout();
 
-//           SolidLinedMeshGPU { mesh_gpu }.into()
-//         } else {
-//           None
-//         }
-//       } else {
-//         None
-//       }
-//     };
+    get_dyn_trait_downcaster_static!(CustomAttributeKeyGPU)
+      .register::<BarycentricCoordAttributeKey>();
 
-//     let gpu = create().unwrap();
-//     let state = RenderComponentCell::new(gpu);
+    inner.push(AttributeSemantic::Foreign(ForeignAttributeKey::new(
+      BarycentricCoordAttributeKey,
+    )));
+    inner
+  }
 
-//     let inner = source
-//       .single_listen_by::<()>(any_change_no_init)
-//       .fold_signal(state, move |_, state| {
-//         if let Some(gpu) = create() {
-//           state.inner = gpu;
-//           RenderComponentDeltaFlag::all().into()
-//         } else {
-//           None
-//         }
-//       });
+  fn write(self, target: &mut [Vec<u8>]) {
+    self
+      .inner
+      .write(target.get_mut(0..target.len() - 1).unwrap());
+    target
+      .last_mut()
+      .unwrap()
+      .extend_from_slice(bytemuck::bytes_of(&self.barycentric))
+  }
+}
 
-//     ReactiveSolidLinedMeshGPU { inner }
-//   }
-// }
+pub fn generate_barycentric_buffer_and_expanded_mesh(mesh: AttributesMesh) -> AttributeMeshData {
+  mesh
+    .read()
+    .read_full()
+    .primitive_iter()
+    .filter_map(|p| match p {
+      AttributeDynPrimitive::Triangle(t) => Some(t),
+      _ => None,
+    })
+    .map(|tri| {
+      Triangle::new(
+        FullReaderReadWithBarycentric {
+          inner: tri.a,
+          barycentric: Vec3::new(1., 0., 0.),
+        },
+        FullReaderReadWithBarycentric {
+          inner: tri.b,
+          barycentric: Vec3::new(0., 1., 0.),
+        },
+        FullReaderReadWithBarycentric {
+          inner: tri.c,
+          barycentric: Vec3::new(0., 0., 1.),
+        },
+      )
+    })
+    .collect()
+}
 
-// #[derive(Clone, Copy)]
-// struct FullReaderReadWithBarycentric<'a> {
-//   inner: FullReaderRead<'a>,
-//   barycentric: Vec3<f32>,
-// }
+#[derive(Clone, Copy)]
+struct BarycentricCoordAttributeKey;
 
-// impl<'a> Eq for FullReaderReadWithBarycentric<'a> {}
-// impl<'a> PartialEq for FullReaderReadWithBarycentric<'a> {
-//   fn eq(&self, other: &Self) -> bool {
-//     self.inner == other.inner && self.barycentric == other.barycentric
-//   }
-// }
+type_as_dyn_trait!(BarycentricCoordAttributeKey, AttributeReadSchema);
+impl AttributeReadSchema for BarycentricCoordAttributeKey {
+  fn item_byte_size(&self) -> usize {
+    3 * 4
+  }
+}
 
-// impl<'a> Hash for FullReaderReadWithBarycentric<'a> {
-//   fn hash<H: Hasher>(&self, state: &mut H) {
-//     self.inner.hash(state);
-//     self.barycentric.map(|f| f.to_bits()).hash(state);
-//   }
-// }
+type_as_dyn_trait!(BarycentricCoordAttributeKey, CustomAttributeKeyGPU);
+impl CustomAttributeKeyGPU for BarycentricCoordAttributeKey {
+  fn inject_shader(&self, builder: &mut ShaderVertexBuilder) {
+    builder.push_single_vertex_layout::<BarycentricCoord>(VertexStepMode::Vertex);
+  }
+}
 
-// impl<'a> AttributeVertex for FullReaderReadWithBarycentric<'a> {
-//   fn layout(&self) -> Vec<AttributeSemantic> {
-//     let mut inner = self.inner.layout();
+struct SolidLinedMeshGPU<'a> {
+  inner: AttributesMeshGPU<'a>,
+}
 
-//     get_dyn_trait_downcaster_static!(CustomAttributeKeyGPU)
-//       .register::<BarycentricCoordAttributeKey>();
+both!(BarycentricCoord, Vec3<f32>);
 
-//     inner.push(AttributeSemantic::Foreign(ForeignAttributeKey::new(
-//       BarycentricCoordAttributeKey,
-//     )));
-//     inner
-//   }
+impl<'a> GraphicsShaderProvider for SolidLinedMeshGPU<'a> {
+  fn build(&self, builder: &mut ShaderRenderPipelineBuilder) -> Result<(), ShaderBuildError> {
+    self.inner.build(builder)?;
+    builder.vertex(|builder, _| {
+      builder.set_vertex_out::<BarycentricCoord>(builder.query::<BarycentricCoord>().unwrap());
+      Ok(())
+    })
+  }
 
-//   fn write(self, target: &mut [Vec<u8>]) {
-//     self
-//       .inner
-//       .write(target.get_mut(0..target.len() - 1).unwrap());
-//     target
-//       .last_mut()
-//       .unwrap()
-//       .extend_from_slice(bytemuck::bytes_of(&self.barycentric))
-//   }
-// }
+  fn post_build(&self, builder: &mut ShaderRenderPipelineBuilder) -> Result<(), ShaderBuildError> {
+    builder.fragment(|builder, _| {
+      let barycentric = builder.query::<BarycentricCoord>().unwrap();
 
-// fn generate_barycentric_buffer_and_expanded_mesh(
-//   mesh: AllocIdx<AttributeMeshEntity>,
-// ) -> AttributeMeshData {
-//   mesh
-//     .read()
-//     .read_full()
-//     .primitive_iter()
-//     .filter_map(|p| match p {
-//       AttributeDynPrimitive::Triangle(t) => Some(t),
-//       _ => None,
-//     })
-//     .map(|tri| {
-//       Triangle::new(
-//         FullReaderReadWithBarycentric {
-//           inner: tri.a,
-//           barycentric: Vec3::new(1., 0., 0.),
-//         },
-//         FullReaderReadWithBarycentric {
-//           inner: tri.b,
-//           barycentric: Vec3::new(0., 1., 0.),
-//         },
-//         FullReaderReadWithBarycentric {
-//           inner: tri.c,
-//           barycentric: Vec3::new(0., 0., 1.),
-//         },
-//       )
-//     })
-//     .collect()
-// }
+      let line_color = val(Vec3::zero());
+      let smoothing = val(1.);
+      let thickness = val(1.);
 
-// #[derive(Clone, Copy)]
-// struct BarycentricCoordAttributeKey;
+      let deltas = barycentric.fwidth();
+      let smoothing = deltas * smoothing;
+      let thickness = deltas * thickness;
+      let ratio = barycentric.smoothstep(thickness, thickness + smoothing);
+      let ratio = ratio.x().min(ratio.y()).min(ratio.z());
 
-// type_as_dyn_trait!(BarycentricCoordAttributeKey, AttributeReadSchema);
-// impl AttributeReadSchema for BarycentricCoordAttributeKey {
-//   fn item_byte_size(&self) -> usize {
-//     3 * 4
-//   }
-// }
+      if let Ok(color) = builder.query::<ColorChannel>() {
+        builder.register::<ColorChannel>(ratio.mix(line_color, color));
+      }
 
-// type_as_dyn_trait!(BarycentricCoordAttributeKey, CustomAttributeKeyGPU);
-// impl CustomAttributeKeyGPU for BarycentricCoordAttributeKey {
-//   fn inject_shader(&self, builder: &mut ShaderVertexBuilder) {
-//     builder.push_single_vertex_layout::<BarycentricCoord>(VertexStepMode::Vertex);
-//   }
-// }
+      Ok(())
+    })
+  }
+}
 
-// struct SolidLinedMeshGPU {
-//   //
-// }
-
-// both!(BarycentricCoord, Vec3<f32>);
-
-// impl GraphicsShaderProvider for SolidLinedMeshGPU {
-//   fn build(&self, builder: &mut ShaderRenderPipelineBuilder) -> Result<(), ShaderBuildError> {
-//     self.mesh_gpu.build(builder)?;
-//     builder.vertex(|builder, _| {
-//       builder.set_vertex_out::<BarycentricCoord>(builder.query::<BarycentricCoord>().unwrap());
-//       Ok(())
-//     })
-//   }
-
-//   fn post_build(&self, builder: &mut ShaderRenderPipelineBuilder) -> Result<(), ShaderBuildError>
-// {     builder.fragment(|builder, _| {
-//       let barycentric = builder.query::<BarycentricCoord>().unwrap();
-
-//       let line_color = val(Vec3::zero());
-//       let smoothing = val(1.);
-//       let thickness = val(1.);
-
-//       let deltas = barycentric.fwidth();
-//       let smoothing = deltas * smoothing;
-//       let thickness = deltas * thickness;
-//       let ratio = barycentric.smoothstep(thickness, thickness + smoothing);
-//       let ratio = ratio.x().min(ratio.y()).min(ratio.z());
-
-//       if let Ok(color) = builder.query::<ColorChannel>() {
-//         builder.register::<ColorChannel>(ratio.mix(line_color, color));
-//       }
-
-//       Ok(())
-//     })
-//   }
-// }
-
-// impl ShaderHashProvider for SolidLinedMeshGPU {}
-// impl ShaderPassBuilder for SolidLinedMeshGPU {
-//   fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
-//     self.mesh_gpu.setup_pass(ctx);
-//   }
-// }
+impl<'a> ShaderHashProvider for SolidLinedMeshGPU<'a> {}
+impl<'a> ShaderPassBuilder for SolidLinedMeshGPU<'a> {
+  fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
+    self.inner.setup_pass(ctx);
+  }
+}

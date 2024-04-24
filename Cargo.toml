@@ -65,6 +65,7 @@ members = [
   "extension/view-override-model",
   "extension/barycentric-solid-line",
   "extension/state-override",
+  "extension/infinity-plane",
   "application/viewer",
 ]
 
