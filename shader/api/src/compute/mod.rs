@@ -127,7 +127,11 @@ impl ShaderComputePipelineBuilder {
     self
   }
 
-  pub fn log_shader(mut self) -> Self {
+  pub fn with_log_shader(mut self) -> Self {
+    self.log_result = true;
+    self
+  }
+  pub fn enable_log_shader(&mut self) -> &mut Self {
     self.log_result = true;
     self
   }

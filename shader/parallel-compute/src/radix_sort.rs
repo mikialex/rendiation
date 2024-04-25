@@ -24,7 +24,7 @@ pub fn device_radix_sort_naive<T, S>(
 ) -> Box<dyn DeviceParallelComputeIO<T>>
 where
   S: DeviceRadixSortKeyLogic<Data = T>,
-  T: ShaderSizedValueNodeType + Std430,
+  T: ShaderSizedValueNodeType + Std430 + Debug,
 {
   let mut result: Box<dyn DeviceParallelComputeIO<T>> = Box::new(input);
   for iter in 0..S::MAX_BITS {
@@ -87,6 +87,9 @@ impl ShaderHashProvider for RadixShuffleMoveCompute {
   }
 }
 impl DeviceInvocationComponent<Node<u32>> for RadixShuffleMoveCompute {
+  fn requested_workgroup_size(&self) -> Option<u32> {
+    self.is_one.requested_workgroup_size()
+  }
   fn build_shader(
     &self,
     builder: &mut ShaderComputePipelineBuilder,

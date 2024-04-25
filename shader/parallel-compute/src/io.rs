@@ -1,3 +1,5 @@
+use std::fmt::Debug;
+
 use crate::*;
 
 impl<T: ShaderSizedValueNodeType> DeviceInvocation<Node<T>>
@@ -6,7 +8,8 @@ impl<T: ShaderSizedValueNodeType> DeviceInvocation<Node<T>>
   fn invocation_logic(&self, logic_global_id: Node<Vec3<u32>>) -> (Node<T>, Node<bool>) {
     let idx = logic_global_id.x();
     let r = idx.less_than(self.array_length());
-    (r.select(self.index(idx).load(), zeroed_val()), r)
+    let result = r.select_branched(|| self.index(idx).load(), || zeroed_val());
+    (result, r)
   }
 }
 
@@ -43,6 +46,46 @@ where
   }
 }
 
+impl<T> DeviceParallelCompute<Node<T>> for Vec<T>
+where
+  T: Std430 + ShaderSizedValueNodeType,
+{
+  fn execute_and_expose(
+    &self,
+    cx: &mut DeviceParallelComputeCtx,
+  ) -> Box<dyn DeviceInvocationComponent<Node<T>>> {
+    let gpu_buffer = self.materialize_storage_buffer(cx);
+    Box::new(StorageBufferReadOnlyDataViewReadIntoShader(gpu_buffer))
+  }
+
+  fn work_size(&self) -> u32 {
+    self.len() as u32
+  }
+}
+impl<T> DeviceParallelComputeIO<T> for Vec<T>
+where
+  T: Std430 + ShaderSizedValueNodeType,
+{
+  fn materialize_storage_buffer(
+    &self,
+    cx: &mut DeviceParallelComputeCtx,
+  ) -> StorageBufferReadOnlyDataView<[T]>
+  where
+    Self: Sized,
+    T: Std430 + ShaderSizedValueNodeType,
+  {
+    create_gpu_readonly_storage(self.as_slice(), cx.gpu)
+  }
+}
+
+#[pollster::test]
+async fn test_storage_buffer() {
+  let input = vec![1_u32; 70];
+  let expect = input.clone();
+
+  input.single_run_test(&expect).await
+}
+
 pub struct StorageBufferReadOnlyDataViewReadIntoShader<T: Std430>(
   pub StorageBufferReadOnlyDataView<[T]>,
 );
@@ -51,6 +94,9 @@ impl<T> DeviceInvocationComponent<Node<T>> for StorageBufferReadOnlyDataViewRead
 where
   T: Std430 + ShaderSizedValueNodeType,
 {
+  fn requested_workgroup_size(&self) -> Option<u32> {
+    None
+  }
   fn build_shader(
     &self,
     builder: &mut ShaderComputePipelineBuilder,
@@ -81,6 +127,10 @@ impl<T> DeviceInvocationComponent<Node<T>> for WriteIntoStorageWriter<T>
 where
   T: Std430 + ShaderSizedValueNodeType,
 {
+  fn requested_workgroup_size(&self) -> Option<u32> {
+    self.inner.requested_workgroup_size()
+  }
+
   fn build_shader(
     &self,
     builder: &mut ShaderComputePipelineBuilder,
@@ -156,8 +206,6 @@ impl<T: ShaderSizedValueNodeType + Std430> DeviceParallelCompute<Node<T>>
   }
 }
 
-/// this impl should not call internal materialization or default implementation, because we have
-/// configured the workgroup size
 impl<T: ShaderSizedValueNodeType + Std430> DeviceParallelComputeIO<T>
   for WriteIntoStorageReadBackToDevice<T>
 {
@@ -165,6 +213,44 @@ impl<T: ShaderSizedValueNodeType + Std430> DeviceParallelComputeIO<T>
     &self,
     cx: &mut DeviceParallelComputeCtx,
   ) -> StorageBufferReadOnlyDataView<[T]> {
-    do_write_into_storage_buffer(self, cx)
+    do_write_into_storage_buffer(&self.inner, cx)
+  }
+}
+
+#[derive(Derivative)]
+#[derivative(Clone(bound = ""))]
+pub struct DeviceParallelComputeIODebug<T> {
+  pub inner: Box<dyn DeviceParallelComputeIO<T>>,
+}
+
+impl<T: ShaderSizedValueNodeType + Std430 + Debug> DeviceParallelCompute<Node<T>>
+  for DeviceParallelComputeIODebug<T>
+{
+  fn execute_and_expose(
+    &self,
+    cx: &mut DeviceParallelComputeCtx,
+  ) -> Box<dyn DeviceInvocationComponent<Node<T>>> {
+    let (device_result, host_result) = pollster::block_on(self.read_back_host(cx)).unwrap();
+
+    println!("{:?}", host_result);
+
+    Box::new(StorageBufferReadOnlyDataViewReadIntoShader(device_result))
+  }
+
+  fn work_size(&self) -> u32 {
+    self.inner.work_size()
+  }
+}
+
+/// this impl should not call internal materialization or default implementation, because we have
+/// configured the workgroup size
+impl<T: ShaderSizedValueNodeType + Std430 + Debug> DeviceParallelComputeIO<T>
+  for DeviceParallelComputeIODebug<T>
+{
+  fn materialize_storage_buffer(
+    &self,
+    cx: &mut DeviceParallelComputeCtx,
+  ) -> StorageBufferReadOnlyDataView<[T]> {
+    do_write_into_storage_buffer(&self.inner, cx)
   }
 }

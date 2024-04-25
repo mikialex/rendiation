@@ -56,6 +56,9 @@ impl<T> DeviceInvocationComponent<Node<T>> for ShuffleWrite<T>
 where
   T: Std430 + ShaderSizedValueNodeType,
 {
+  fn requested_workgroup_size(&self) -> Option<u32> {
+    self.input.requested_workgroup_size()
+  }
   fn build_shader(
     &self,
     builder: &mut ShaderComputePipelineBuilder,
@@ -99,6 +102,9 @@ impl<T> DeviceInvocationComponent<Node<T>> for ShuffleAccess<T>
 where
   T: Std430 + ShaderSizedValueNodeType,
 {
+  fn requested_workgroup_size(&self) -> Option<u32> {
+    self.shuffle_idx.requested_workgroup_size()
+  }
   fn build_shader(
     &self,
     builder: &mut ShaderComputePipelineBuilder,

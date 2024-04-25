@@ -40,6 +40,13 @@ impl<A: 'static, B: 'static> DeviceInvocationComponent<(A, B)> for Builder<A, B>
     self.source_a.bind_input(builder);
     self.source_b.bind_input(builder);
   }
+  fn requested_workgroup_size(&self) -> Option<u32> {
+    assert_eq!(
+      self.source_a.requested_workgroup_size(),
+      self.source_b.requested_workgroup_size()
+    );
+    self.source_a.requested_workgroup_size()
+  }
 }
 
 #[derive(Derivative)]
@@ -61,7 +68,21 @@ impl<A: 'static, B: 'static> DeviceParallelCompute<(A, B)> for DeviceParallelCom
   }
 
   fn work_size(&self) -> u32 {
-    // i think this is actually intersection?
-    self.source_a.work_size().min(self.source_b.work_size())
+    assert_eq!(self.source_a.work_size(), self.source_b.work_size());
+    self.source_a.work_size()
   }
+}
+
+#[pollster::test]
+async fn test() {
+  let input = vec![1_u32; 70];
+  let input2 = vec![1_u32; 70];
+
+  let expect = vec![2_u32; 70];
+
+  input
+    .zip(input2)
+    .map(|(a, b)| a + b)
+    .single_run_test(&expect)
+    .await
 }

@@ -12,7 +12,7 @@ pub async fn test_prefix_sum() {
 
   let pipeline = compute_shader_builder()
     .config_work_group_size(workgroup_size)
-    // .log_shader()
+    // .with_log_shader()
     .entry(|cx| {
       let shared = cx.define_workgroup_shared_var_host_size_array::<u32>(workgroup_size);
       let input = cx.bind_by(&input);

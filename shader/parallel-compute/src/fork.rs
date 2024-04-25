@@ -5,17 +5,45 @@ pub struct ComputeResultForker<T: Std430> {
   pub children: RwLock<Vec<ComputeResultForkerInstance<T>>>,
 }
 
+// todo mem leak
 pub struct ComputeResultForkerInstance<T: Std430> {
   pub upstream: Arc<ComputeResultForker<T>>,
   pub result: Arc<RwLock<Option<StorageBufferReadOnlyDataView<[T]>>>>,
 }
 
-impl<T: Std430> Clone for ComputeResultForkerInstance<T> {
-  fn clone(&self) -> Self {
+impl<T: Std430> ComputeResultForkerInstance<T> {
+  pub fn from_upstream(upstream: Box<dyn DeviceParallelComputeIO<T>>) -> Self {
+    let forker = ComputeResultForker {
+      inner: upstream,
+      children: Default::default(),
+    };
+    let r = Self {
+      upstream: Arc::new(forker),
+      result: Default::default(),
+    };
+
+    r.upstream.children.write().push(r.link_clone());
+    r
+  }
+
+  fn link_clone(&self) -> Self {
     Self {
       upstream: self.upstream.clone(),
       result: self.result.clone(),
     }
+  }
+}
+
+impl<T: Std430> Clone for ComputeResultForkerInstance<T> {
+  fn clone(&self) -> Self {
+    let r = Self {
+      upstream: self.upstream.clone(),
+      result: Default::default(),
+    };
+
+    self.upstream.children.write().push(r.link_clone());
+
+    r
   }
 }
 
@@ -27,20 +55,7 @@ where
     &self,
     cx: &mut DeviceParallelComputeCtx,
   ) -> Box<dyn DeviceInvocationComponent<Node<T>>> {
-    if let Some(result) = self.result.write().take() {
-      return Box::new(StorageBufferReadOnlyDataViewReadIntoShader(result));
-    }
-
-    let result = self.upstream.inner.materialize_storage_buffer(cx);
-    let children = self.upstream.children.read();
-    for c in children.iter() {
-      let result = result.clone();
-      if c.result.write().replace(result).is_some() {
-        panic!("all forked result must be consumed")
-      }
-    }
-
-    self.execute_and_expose(cx)
+    self.materialize_storage_buffer(cx).execute_and_expose(cx)
   }
 
   fn work_size(&self) -> u32 {
@@ -75,4 +90,33 @@ where
 
     self.materialize_storage_buffer(cx)
   }
+}
+
+#[should_panic]
+#[pollster::test]
+async fn test_not_full_consume() {
+  let input = vec![1_u32; 70];
+  let expect = input.clone();
+
+  let input = input.into_forker();
+  let input2 = input.clone();
+
+  input.single_run_test(&expect).await;
+  input2.single_run_test(&expect).await;
+}
+
+#[pollster::test]
+async fn test() {
+  let input = vec![1_u32; 70];
+
+  let expect = vec![2_u32; 70];
+
+  let input = input.into_forker();
+  let input2 = input.clone();
+
+  input
+    .zip(input2)
+    .map(|(a, b)| a + b)
+    .single_run_test(&expect)
+    .await
 }

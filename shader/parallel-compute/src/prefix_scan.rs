@@ -1,7 +1,5 @@
 use std::ops::Add;
 
-use num_traits::One;
-
 use crate::*;
 
 pub trait DeviceMonoidLogic {
@@ -17,11 +15,11 @@ impl<T> DeviceMonoidLogic for AdditionMonoid<T>
 where
   T: PrimitiveShaderNodeType + ShaderSizedValueNodeType,
   Node<T>: Add<Node<T>, Output = Node<T>>,
-  T: One,
+  T: Zero,
 {
   type Data = T;
   fn identity() -> Node<T> {
-    val(T::one())
+    val(T::zero())
   }
 
   fn combine(a: Node<T>, b: Node<T>) -> Node<T> {
@@ -87,7 +85,7 @@ where
           shared.index(local_id).store(value.load())
         });
 
-      (value.load(), val(true))
+      (value.load(), valid)
     });
 
     Box::new(AdhocInvocationResult(result, valid))
@@ -131,4 +129,52 @@ where
   T: ShaderSizedValueNodeType,
   S: DeviceMonoidLogic<Data = T> + 'static,
 {
+}
+
+#[pollster::test]
+async fn test_workgroup_prefix_sum_kogge_stone() {
+  let input = vec![1_u32; 70];
+
+  let workgroup_size = 32;
+
+  let mut expect = Vec::new();
+
+  let mut local_idx = 0;
+  let mut sum = 0;
+  for i in input.clone() {
+    if local_idx >= workgroup_size {
+      local_idx = 0;
+      sum = 0;
+    }
+
+    sum += i;
+    expect.push(sum);
+
+    local_idx += 1;
+  }
+
+  input
+    .workgroup_scope_prefix_scan_kogge_stone::<AdditionMonoid<_>>(workgroup_size)
+    .single_run_test(&expect)
+    .await
+}
+
+#[pollster::test]
+async fn test_prefix_sum_kogge_stone() {
+  let input = vec![1_u32; 70];
+
+  let workgroup_size = 32;
+
+  let mut expect = Vec::new();
+
+  let mut sum = 0;
+  for i in input.clone() {
+    sum += i;
+    expect.push(sum);
+  }
+
+  input
+    .segmented_prefix_scan_kogge_stone::<AdditionMonoid<_>>(workgroup_size, workgroup_size)
+    .single_run_test(&expect)
+    .await
 }

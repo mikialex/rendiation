@@ -1,6 +1,6 @@
 #![feature(specialization)]
 
-use std::future::Future;
+use std::fmt::Debug;
 use std::hash::Hash;
 use std::hash::Hasher;
 use std::marker::PhantomData;
@@ -27,6 +27,8 @@ mod map;
 pub use map::*;
 mod zip;
 pub use zip::*;
+mod zip_partial;
+pub use zip_partial::*;
 mod prefix_scan;
 pub use prefix_scan::*;
 mod reduction;
@@ -44,6 +46,7 @@ pub trait DeviceCollection<K, T> {
 
 /// degenerated DeviceCollection, K is the global invocation id in compute ctx
 pub trait DeviceInvocation<T> {
+  // todo, we should separate check and access in different fn to avoid unnecessary check;
   fn invocation_logic(&self, logic_global_id: Node<Vec3<u32>>) -> (T, Node<bool>);
 }
 
@@ -79,9 +82,7 @@ pub trait DeviceInvocationComponent<T>: ShaderHashProviderAny {
 
   fn bind_input(&self, builder: &mut BindingBuilder);
 
-  fn requested_workgroup_size(&self) -> Option<u32> {
-    None
-  }
+  fn requested_workgroup_size(&self) -> Option<u32>;
 
   fn dispatch_compute(&self, work_size: u32, cx: &mut DeviceParallelComputeCtx) {
     let workgroup_size = self.requested_workgroup_size().unwrap_or(256);
@@ -209,13 +210,30 @@ where
   Self: 'static,
   T: 'static,
 {
+  /// offset should smaller than stride
+  fn stride_reduce_result(self, stride: u32, offset: u32) -> DeviceParallelComputeStrideRead<T> {
+    self.stride_access_result(stride, offset, true)
+  }
+
+  /// offset should smaller than stride
+  fn stride_expand_result(self, stride: u32, offset: u32) -> DeviceParallelComputeStrideRead<T> {
+    self.stride_access_result(stride, offset, false)
+  }
+
+  /// offset should smaller than stride
   fn stride_access_result(
     self,
-    stride: impl Into<Vec3<u32>>,
+    stride: u32,
+    offset: u32,
+    reduce: bool,
   ) -> DeviceParallelComputeStrideRead<T> {
+    assert!(offset < stride);
+    assert!(stride > 0);
     DeviceParallelComputeStrideRead {
       source: Box::new(self),
-      stride: stride.into(),
+      stride,
+      offset,
+      reduce,
     }
   }
 
@@ -235,6 +253,22 @@ where
       source_b: Box::new(other),
     }
   }
+
+  fn zip_partial<U, F>(
+    self,
+    other: impl DeviceParallelComputeIO<U> + 'static,
+    b_fn: F,
+  ) -> impl DeviceParallelCompute<(T, Node<U>)>
+  where
+    F: Clone + Fn() -> Node<U> + 'static,
+    U: ShaderNodeType,
+  {
+    DeviceParallelComputeZipPartial {
+      source_a: Box::new(self),
+      source_b: Box::new(other),
+      b_fn,
+    }
+  }
 }
 
 impl<X, T> DeviceParallelComputeExt<T> for X
@@ -244,54 +278,67 @@ where
 {
 }
 
+#[allow(async_fn_in_trait)]
 pub trait DeviceParallelComputeIOExt<T>: Sized + DeviceParallelComputeIO<T>
 where
-  T: ShaderSizedValueNodeType,
+  T: ShaderSizedValueNodeType + Std430 + std::fmt::Debug,
   Self: 'static,
 {
-  fn read_back_host(
-    self,
-    cx: &mut DeviceParallelComputeCtx,
-  ) -> impl Future<Output = Result<Vec<T>, BufferAsyncError>>
+  async fn single_run_test(&self, expect: &Vec<T>)
   where
-    T: Std430,
+    T: std::fmt::Debug + PartialEq,
   {
-    use futures::FutureExt;
+    let (gpu, _) = GPU::new(Default::default()).await.unwrap();
+    let mut cx = DeviceParallelComputeCtx::new(&gpu);
+    let (_, result) = self.read_back_host(&mut cx).await.unwrap();
+    if expect != &result {
+      panic!(
+        "wrong result:  {:?} \n != \nexpect result: {:?}",
+        result, expect
+      )
+    }
+  }
+
+  async fn read_back_host(
+    &self,
+    cx: &mut DeviceParallelComputeCtx<'_>,
+  ) -> Result<(StorageBufferReadOnlyDataView<[T]>, Vec<T>), BufferAsyncError> {
     let output = self.materialize_storage_buffer(cx);
     let result = cx.encoder.read_buffer(&cx.gpu.device, &output);
     cx.submit_recorded_work_and_continue();
-    result.map(|r| r.map(|r| <[T]>::from_bytes_into_boxed(&r.read_raw()).into_vec()))
+    let result = result.await;
+
+    result.map(|r| {
+      (
+        output,
+        <[T]>::from_bytes_into_boxed(&r.read_raw()).into_vec(),
+      )
+    })
   }
 
-  fn internal_materialize_storage_buffer(self) -> impl DeviceParallelComputeIO<T>
+  fn debug_log(self) -> impl DeviceParallelComputeIO<T>
   where
-    T: Std430 + ShaderSizedValueNodeType,
+    T: std::fmt::Debug,
   {
+    DeviceParallelComputeIODebug {
+      inner: Box::new(self),
+    }
+  }
+
+  fn internal_materialize_storage_buffer(self) -> impl DeviceParallelComputeIO<T> {
     WriteIntoStorageReadBackToDevice {
       inner: Box::new(self),
     }
   }
 
-  fn into_forker(self) -> ComputeResultForkerInstance<T>
-  where
-    T: Std430,
-  {
-    ComputeResultForkerInstance {
-      upstream: Arc::new(ComputeResultForker {
-        inner: Box::new(self),
-        children: Default::default(),
-      }),
-      result: Default::default(),
-    }
+  fn into_forker(self) -> ComputeResultForkerInstance<T> {
+    ComputeResultForkerInstance::from_upstream(Box::new(self))
   }
 
   fn shuffle_move(
     self,
     shuffle_idx: impl DeviceParallelCompute<Node<u32>> + 'static,
-  ) -> impl DeviceParallelComputeIO<T>
-  where
-    T: Std430 + ShaderSizedValueNodeType,
-  {
+  ) -> impl DeviceParallelComputeIO<T> {
     DataShuffleMovement {
       source: Box::new(self.zip(shuffle_idx)),
     }
@@ -300,7 +347,6 @@ where
   fn workgroup_scope_reduction<S>(self, workgroup_size: u32) -> impl DeviceParallelComputeIO<T>
   where
     S: DeviceMonoidLogic<Data = T> + 'static,
-    T: Std430 + ShaderSizedValueNodeType,
   {
     WorkGroupReduction::<T, S> {
       workgroup_size,
@@ -318,7 +364,6 @@ where
   ) -> impl DeviceParallelComputeIO<T>
   where
     S: DeviceMonoidLogic<Data = T> + 'static,
-    T: Std430,
   {
     assert!(self.work_size() <= first_stage_workgroup_size * second_stage_workgroup_size);
 
@@ -334,7 +379,6 @@ where
   fn workgroup_histogram<S>(self, workgroup_size: u32) -> impl DeviceParallelComputeIO<u32>
   where
     S: DeviceHistogramMappingLogic<Data = T> + 'static,
-    T: Std430 + ShaderSizedValueNodeType,
   {
     WorkGroupHistogram::<T, S> {
       workgroup_size,
@@ -353,7 +397,6 @@ where
   fn histogram<S>(self, workgroup_privatization: u32) -> impl DeviceParallelComputeIO<u32>
   where
     S: DeviceHistogramMappingLogic<Data = T> + 'static,
-    T: Std430 + ShaderSizedValueNodeType,
   {
     DeviceHistogram::<T, S> {
       workgroup_level: WorkGroupHistogram {
@@ -370,7 +413,6 @@ where
   ) -> impl DeviceParallelComputeIO<T>
   where
     S: DeviceMonoidLogic<Data = T> + 'static,
-    T: Std430 + ShaderSizedValueNodeType,
   {
     WorkGroupPrefixScanKoggeStone::<T, S> {
       workgroup_size,
@@ -388,7 +430,6 @@ where
   ) -> impl DeviceParallelComputeIO<T>
   where
     S: DeviceMonoidLogic<Data = T> + 'static,
-    T: Std430,
   {
     assert!(self.work_size() <= first_stage_workgroup_size * second_stage_workgroup_size);
 
@@ -398,11 +439,12 @@ where
 
     let block_wise_scanned = per_workgroup_scanned
       .clone()
-      .stride_access_result((first_stage_workgroup_size, 1, 1))
-      .workgroup_scope_prefix_scan_kogge_stone::<S>(second_stage_workgroup_size);
+      .stride_reduce_result(first_stage_workgroup_size, first_stage_workgroup_size - 1)
+      .workgroup_scope_prefix_scan_kogge_stone::<S>(second_stage_workgroup_size)
+      .stride_expand_result(first_stage_workgroup_size, 0);
 
     block_wise_scanned
-      .zip(per_workgroup_scanned)
+      .zip_partial(per_workgroup_scanned, || S::identity())
       .map(|(block_scan, workgroup_scan)| S::combine(block_scan, workgroup_scan))
   }
 
@@ -413,7 +455,6 @@ where
   ) -> impl DeviceParallelComputeIO<T>
   where
     S: DeviceRadixSortKeyLogic<Data = T>,
-    T: ShaderSizedValueNodeType + Std430,
   {
     device_radix_sort_naive::<T, S>(
       self,
@@ -426,7 +467,7 @@ where
 impl<X, T> DeviceParallelComputeIOExt<T> for X
 where
   X: Sized + DeviceParallelComputeIO<T> + 'static,
-  T: ShaderSizedValueNodeType,
+  T: ShaderSizedValueNodeType + Std430 + Debug,
 {
 }
 
@@ -437,6 +478,15 @@ pub struct DeviceParallelComputeCtx<'a> {
 }
 
 impl<'a> DeviceParallelComputeCtx<'a> {
+  pub fn new(gpu: &'a GPU) -> Self {
+    let encoder = gpu.create_encoder();
+    Self {
+      gpu,
+      encoder,
+      compute_pipeline_cache: Default::default(),
+    }
+  }
+
   pub fn submit_recorded_work_and_continue(&mut self) {
     let new_encoder = self.gpu.create_encoder();
     let current_encoder = std::mem::replace(&mut self.encoder, new_encoder);

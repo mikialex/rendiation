@@ -33,6 +33,10 @@ impl<I: 'static, O: 'static + Copy> DeviceInvocationComponent<O> for DeviceMapCo
   fn bind_input(&self, builder: &mut BindingBuilder) {
     self.upstream.bind_input(builder);
   }
+
+  fn requested_workgroup_size(&self) -> Option<u32> {
+    self.upstream.requested_workgroup_size()
+  }
 }
 
 #[derive(Derivative)]
@@ -58,3 +62,12 @@ impl<I: 'static, O: Copy + 'static> DeviceParallelCompute<O> for DeviceMap<I, O>
   }
 }
 impl<I: 'static, O: Copy + 'static> DeviceParallelComputeIO<O> for DeviceMap<I, Node<O>> {}
+
+#[pollster::test]
+async fn test() {
+  let input = vec![1_u32; 70];
+
+  let expect = input.iter().map(|v| v + 1).collect();
+
+  input.map(|v| v + val(1)).single_run_test(&expect).await
+}

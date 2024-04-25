@@ -92,6 +92,7 @@ quote = "1.0.2"
 syn = { version = "1.0.11", features = ["full"] }
 tracing = "0.1"
 rand = "0.8.5"
+pollster = { version = "0.3.0", features = ["macro"] }
 
 # https://doc.rust-lang.org/cargo/reference/profiles.html
 

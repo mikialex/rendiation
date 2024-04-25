@@ -1,22 +1,31 @@
 use crate::*;
 
-struct DeviceInvocationStride<T>(Box<dyn DeviceInvocation<T>>, Vec3<u32>);
+struct DeviceInvocationStride<T>(Box<dyn DeviceInvocation<T>>, u32, u32, bool);
 
 impl<T> DeviceInvocation<T> for DeviceInvocationStride<T> {
   fn invocation_logic(&self, logic_global_id: Node<Vec3<u32>>) -> (T, Node<bool>) {
-    let logic_global_id = logic_global_id * val(self.1);
+    let target = if self.3 {
+      logic_global_id * val(Vec3::splat(self.1))
+    } else {
+      logic_global_id / val(Vec3::splat(self.1))
+    };
+    let logic_global_id = target + val(Vec3::splat(self.2)); // todo we should add another operator to do offset
     self.0.invocation_logic(logic_global_id)
   }
 }
 
 struct Builder<T> {
   pub source: Box<dyn DeviceInvocationComponent<T>>,
-  pub stride: Vec3<u32>,
+  pub stride: u32,
+  pub offset: u32,
+  pub reduce: bool,
 }
 
 impl<T> ShaderHashProvider for Builder<T> {
   fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
     self.stride.hash(hasher);
+    self.offset.hash(hasher);
+    self.reduce.hash(hasher);
     self.source.hash_pipeline_with_type_info(hasher)
   }
 }
@@ -29,11 +38,16 @@ impl<T: 'static> DeviceInvocationComponent<T> for Builder<T> {
     Box::new(DeviceInvocationStride(
       self.source.build_shader(builder),
       self.stride,
+      self.offset,
+      self.reduce,
     ))
   }
 
   fn bind_input(&self, builder: &mut BindingBuilder) {
     self.source.bind_input(builder);
+  }
+  fn requested_workgroup_size(&self) -> Option<u32> {
+    self.source.requested_workgroup_size()
   }
 }
 
@@ -41,7 +55,9 @@ impl<T: 'static> DeviceInvocationComponent<T> for Builder<T> {
 #[derivative(Clone(bound = ""))]
 pub struct DeviceParallelComputeStrideRead<T> {
   pub source: Box<dyn DeviceParallelCompute<T>>,
-  pub stride: Vec3<u32>,
+  pub stride: u32,
+  pub offset: u32,
+  pub reduce: bool,
 }
 
 impl<T: 'static> DeviceParallelCompute<T> for DeviceParallelComputeStrideRead<T> {
@@ -52,11 +68,39 @@ impl<T: 'static> DeviceParallelCompute<T> for DeviceParallelComputeStrideRead<T>
     Box::new(Builder {
       source: self.source.execute_and_expose(cx),
       stride: self.stride,
+      offset: self.offset,
+      reduce: self.reduce,
     })
   }
 
   fn work_size(&self) -> u32 {
-    self.source.work_size() / (self.stride.x + self.stride.y + self.stride.z)
+    if self.reduce {
+      (self.source.work_size() + self.stride - 1) / self.stride
+    } else {
+      self.source.work_size() * self.stride
+    }
   }
 }
 impl<T: 'static> DeviceParallelComputeIO<T> for DeviceParallelComputeStrideRead<Node<T>> {}
+
+#[pollster::test]
+async fn test_reduce() {
+  let input: Vec<_> = (0..6).flat_map(|_| (0..6)).collect();
+  let expect = vec![5; 6];
+
+  input
+    .stride_reduce_result(6, 5)
+    .single_run_test(&expect)
+    .await
+}
+
+#[pollster::test]
+async fn test_expand() {
+  let input: Vec<_> = (0..6).collect();
+  let expect = (0..6).flat_map(|v| iter::repeat(v).take(6)).collect();
+
+  input
+    .stride_expand_result(6, 0)
+    .single_run_test(&expect)
+    .await
+}

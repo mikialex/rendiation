@@ -15,6 +15,7 @@ num-traits = "0.2"
 dyn-clone = { workspace = true }
 derivative = { workspace = true }
 futures = { workspace = true }
+pollster = { workspace = true }
 
 [lints]
 workspace = true
