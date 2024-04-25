@@ -41,7 +41,12 @@ impl GPUCommandEncoder {
     gpu
   }
 
-  pub fn compute_pass_scoped(mut self, f: impl Fn(GPUComputePass)) -> Self {
+  pub fn with_compute_pass_scoped(mut self, f: impl Fn(GPUComputePass)) -> Self {
+    f(self.begin_compute_pass());
+    self
+  }
+
+  pub fn compute_pass_scoped(&mut self, f: impl Fn(GPUComputePass)) -> &mut Self {
     f(self.begin_compute_pass());
     self
   }

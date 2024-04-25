@@ -1,5 +1,6 @@
 #![feature(specialization)]
 
+use std::future::Future;
 use std::hash::Hash;
 use std::hash::Hasher;
 use std::marker::PhantomData;
@@ -92,14 +93,12 @@ pub trait DeviceInvocationComponent<T>: ShaderHashProviderAny {
       let _ = invocation_source.invocation_logic(invocation_id);
     });
 
-    let encoder = cx.gpu.create_encoder().compute_pass_scoped(|mut pass| {
+    cx.encoder.compute_pass_scoped(|mut pass| {
       let mut bb = BindingBuilder::new_as_compute();
       self.bind_input(&mut bb);
       bb.setup_compute_pass(&mut pass, &cx.gpu.device, &pipeline);
       pass.dispatch_workgroups((work_size + workgroup_size - 1) / workgroup_size, 1, 1);
     });
-
-    cx.gpu.submit_encoder(encoder);
   }
 }
 
@@ -250,6 +249,20 @@ where
   T: ShaderSizedValueNodeType,
   Self: 'static,
 {
+  fn read_back_host(
+    self,
+    cx: &mut DeviceParallelComputeCtx,
+  ) -> impl Future<Output = Result<Vec<T>, BufferAsyncError>>
+  where
+    T: Std430,
+  {
+    use futures::FutureExt;
+    let output = self.materialize_storage_buffer(cx);
+    let result = cx.encoder.read_buffer(&cx.gpu.device, &output);
+    cx.submit_recorded_work_and_continue();
+    result.map(|r| r.map(|r| <[T]>::from_bytes_into_boxed(&r.read_raw()).into_vec()))
+  }
+
   fn internal_materialize_storage_buffer(self) -> impl DeviceParallelComputeIO<T>
   where
     T: Std430 + ShaderSizedValueNodeType,
@@ -419,10 +432,17 @@ where
 
 pub struct DeviceParallelComputeCtx<'a> {
   pub gpu: &'a GPU,
+  pub encoder: GPUCommandEncoder,
   pub compute_pipeline_cache: FastHashMap<u64, GPUComputePipeline>,
 }
 
 impl<'a> DeviceParallelComputeCtx<'a> {
+  pub fn submit_recorded_work_and_continue(&mut self) {
+    let new_encoder = self.gpu.create_encoder();
+    let current_encoder = std::mem::replace(&mut self.encoder, new_encoder);
+    self.gpu.submit_encoder(current_encoder);
+  }
+
   pub fn get_or_create_compute_pipeline(
     &mut self,
     source: &(impl ShaderHashProviderAny + ?Sized),

@@ -41,7 +41,7 @@ pub async fn test_prefix_sum() {
     .create_compute_pipeline(&gpu)
     .unwrap();
 
-  let mut encoder = gpu.create_encoder().compute_pass_scoped(|mut pass| {
+  let mut encoder = gpu.create_encoder().with_compute_pass_scoped(|mut pass| {
     let mut bb = BindingBuilder::new_as_compute();
     bb.bind(&input)
       .bind(&output)
