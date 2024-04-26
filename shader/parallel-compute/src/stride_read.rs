@@ -1,30 +1,30 @@
 use crate::*;
 
-struct DeviceInvocationStride<T>(Box<dyn DeviceInvocation<T>>, u32, u32, bool);
+struct DeviceInvocationStride<T>(Box<dyn DeviceInvocation<T>>, u32, bool);
 
 impl<T> DeviceInvocation<T> for DeviceInvocationStride<T> {
   fn invocation_logic(&self, logic_global_id: Node<Vec3<u32>>) -> (T, Node<bool>) {
-    let target = if self.3 {
+    let target = if self.2 {
       logic_global_id * val(Vec3::splat(self.1))
     } else {
       logic_global_id / val(Vec3::splat(self.1))
     };
-    let logic_global_id = target + val(Vec3::splat(self.2)); // todo we should add another operator to do offset
-    self.0.invocation_logic(logic_global_id)
+    self.0.invocation_logic(target)
+  }
+  fn invocation_size(&self) -> Node<Vec3<u32>> {
+    self.0.invocation_size()
   }
 }
 
 struct Builder<T> {
   pub source: Box<dyn DeviceInvocationComponent<T>>,
   pub stride: u32,
-  pub offset: u32,
   pub reduce: bool,
 }
 
 impl<T> ShaderHashProvider for Builder<T> {
   fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
     self.stride.hash(hasher);
-    self.offset.hash(hasher);
     self.reduce.hash(hasher);
     self.source.hash_pipeline_with_type_info(hasher)
   }
@@ -38,7 +38,6 @@ impl<T: 'static> DeviceInvocationComponent<T> for Builder<T> {
     Box::new(DeviceInvocationStride(
       self.source.build_shader(builder),
       self.stride,
-      self.offset,
       self.reduce,
     ))
   }
@@ -56,7 +55,6 @@ impl<T: 'static> DeviceInvocationComponent<T> for Builder<T> {
 pub struct DeviceParallelComputeStrideRead<T> {
   pub source: Box<dyn DeviceParallelCompute<T>>,
   pub stride: u32,
-  pub offset: u32,
   pub reduce: bool,
 }
 
@@ -68,7 +66,6 @@ impl<T: 'static> DeviceParallelCompute<T> for DeviceParallelComputeStrideRead<T>
     Box::new(Builder {
       source: self.source.execute_and_expose(cx),
       stride: self.stride,
-      offset: self.offset,
       reduce: self.reduce,
     })
   }
@@ -86,21 +83,16 @@ impl<T: 'static> DeviceParallelComputeIO<T> for DeviceParallelComputeStrideRead<
 #[pollster::test]
 async fn test_reduce() {
   let input: Vec<_> = (0..6).flat_map(|_| (0..6)).collect();
-  let expect = vec![5; 6];
+  let expect = vec![0; 6];
 
-  input
-    .stride_reduce_result(6, 5)
-    .single_run_test(&expect)
-    .await
+  input.stride_reduce_result(6).single_run_test(&expect).await
 }
 
 #[pollster::test]
 async fn test_expand() {
+  use std::iter;
   let input: Vec<_> = (0..6).collect();
   let expect = (0..6).flat_map(|v| iter::repeat(v).take(6)).collect();
 
-  input
-    .stride_expand_result(6, 0)
-    .single_run_test(&expect)
-    .await
+  input.stride_expand_result(6).single_run_test(&expect).await
 }

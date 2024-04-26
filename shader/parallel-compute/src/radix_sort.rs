@@ -40,6 +40,7 @@ where
       .segmented_prefix_scan_kogge_stone::<AdditionMonoid<u32>>(
         per_pass_first_stage_workgroup_size,
         per_pass_second_stage_workgroup_size,
+        // todo true,
       );
 
     let shuffle_idx = RadixShuffleMove {
@@ -95,7 +96,8 @@ impl DeviceInvocationComponent<Node<u32>> for RadixShuffleMoveCompute {
     builder: &mut ShaderComputePipelineBuilder,
   ) -> Box<dyn DeviceInvocation<Node<u32>>> {
     let is_one = self.is_one.build_shader(builder);
-    let (r, valid) = builder.entry_by(|cx| {
+    let invocation_size = is_one.invocation_size();
+    let r = builder.entry_by(|cx| {
       let ones_before_arr = cx.bind_by(&self.ones_before);
 
       let zip = ones_before_arr.zip(is_one);
@@ -114,7 +116,7 @@ impl DeviceInvocationComponent<Node<u32>> for RadixShuffleMoveCompute {
       (r, valid)
     });
 
-    Box::new(AdhocInvocationResult(r, valid))
+    AdhocInvocationResult(invocation_size, r.0, r.1).into_boxed()
   }
 
   fn bind_input(&self, builder: &mut BindingBuilder) {

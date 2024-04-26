@@ -11,6 +11,10 @@ impl<A, B> DeviceInvocation<(A, B)> for DeviceInvocationZip<A, B> {
     let right = self.1.invocation_logic(logic_global_id);
     ((left.0, right.0), left.1.and(right.1))
   }
+
+  fn invocation_size(&self) -> Node<Vec3<u32>> {
+    self.0.invocation_size()
+  }
 }
 
 struct Builder<A, B> {
@@ -68,8 +72,7 @@ impl<A: 'static, B: 'static> DeviceParallelCompute<(A, B)> for DeviceParallelCom
   }
 
   fn work_size(&self) -> u32 {
-    assert_eq!(self.source_a.work_size(), self.source_b.work_size());
-    self.source_a.work_size()
+    self.source_a.work_size().min(self.source_b.work_size())
   }
 }
 

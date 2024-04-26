@@ -25,10 +25,10 @@ mod shuffle_move;
 pub use shuffle_move::*;
 mod map;
 pub use map::*;
+mod offset_access;
+pub use offset_access::*;
 mod zip;
 pub use zip::*;
-mod zip_partial;
-pub use zip_partial::*;
 mod prefix_scan;
 pub use prefix_scan::*;
 mod reduction;
@@ -48,11 +48,21 @@ pub trait DeviceCollection<K, T> {
 pub trait DeviceInvocation<T> {
   // todo, we should separate check and access in different fn to avoid unnecessary check;
   fn invocation_logic(&self, logic_global_id: Node<Vec3<u32>>) -> (T, Node<bool>);
+
+  fn invocation_size(&self) -> Node<Vec3<u32>>;
+
+  fn border(&self) -> T {
+    let clamp_target = self.invocation_size() - val(Vec3::one());
+    self.invocation_logic(clamp_target).0
+  }
 }
 
 impl<T> DeviceInvocation<T> for Box<dyn DeviceInvocation<T>> {
   fn invocation_logic(&self, logic_global_id: Node<Vec3<u32>>) -> (T, Node<bool>) {
     (**self).invocation_logic(logic_global_id)
+  }
+  fn invocation_size(&self) -> Node<Vec3<u32>> {
+    (**self).invocation_size()
   }
 }
 
@@ -63,14 +73,23 @@ pub trait DeviceInvocationExt<T>: DeviceInvocation<T> + 'static + Sized {
   fn zip<U>(self, other: impl DeviceInvocation<U> + 'static) -> impl DeviceInvocation<(T, U)> {
     DeviceInvocationZip(self.into_boxed(), other.into_boxed())
   }
+  fn get_size_into_adhoc<R>(self, r: (R, Node<bool>)) -> impl DeviceInvocation<R>
+  where
+    R: Copy,
+  {
+    AdhocInvocationResult(self.invocation_size(), r.0, r.1)
+  }
 }
 impl<T, X> DeviceInvocationExt<T> for X where X: DeviceInvocation<T> + 'static + Sized {}
 
-pub struct AdhocInvocationResult<T>(pub T, pub Node<bool>);
+pub struct AdhocInvocationResult<T>(pub Node<Vec3<u32>>, pub T, pub Node<bool>);
 
 impl<T: Copy> DeviceInvocation<T> for AdhocInvocationResult<T> {
   fn invocation_logic(&self, _: Node<Vec3<u32>>) -> (T, Node<bool>) {
-    (self.0, self.1)
+    (self.1, self.2)
+  }
+  fn invocation_size(&self) -> Node<Vec3<u32>> {
+    self.0
   }
 }
 
@@ -136,8 +155,8 @@ pub trait DeviceParallelCompute<T>: DynClone {
 /// specialization. if the type impls DeviceParallelCompute<Node<T>>, it should impl this trait as
 /// well.
 pub trait DeviceParallelComputeIO<T>: DeviceParallelCompute<Node<T>> {
-  /// if the material output size is different from work size(for example reduction), custom impl is
-  /// required
+  /// if the material output size is different from work size(for example reduction), custom impl
+  /// and multi dispatch is required
   fn result_size(&self) -> u32 {
     self.work_size()
   }
@@ -211,28 +230,21 @@ where
   T: 'static,
 {
   /// offset should smaller than stride
-  fn stride_reduce_result(self, stride: u32, offset: u32) -> DeviceParallelComputeStrideRead<T> {
-    self.stride_access_result(stride, offset, true)
+  fn stride_reduce_result(self, stride: u32) -> DeviceParallelComputeStrideRead<T> {
+    self.stride_access_result(stride, true)
   }
 
   /// offset should smaller than stride
-  fn stride_expand_result(self, stride: u32, offset: u32) -> DeviceParallelComputeStrideRead<T> {
-    self.stride_access_result(stride, offset, false)
+  fn stride_expand_result(self, stride: u32) -> DeviceParallelComputeStrideRead<T> {
+    self.stride_access_result(stride, false)
   }
 
   /// offset should smaller than stride
-  fn stride_access_result(
-    self,
-    stride: u32,
-    offset: u32,
-    reduce: bool,
-  ) -> DeviceParallelComputeStrideRead<T> {
-    assert!(offset < stride);
+  fn stride_access_result(self, stride: u32, reduce: bool) -> DeviceParallelComputeStrideRead<T> {
     assert!(stride > 0);
     DeviceParallelComputeStrideRead {
       source: Box::new(self),
       stride,
-      offset,
       reduce,
     }
   }
@@ -251,22 +263,6 @@ where
     DeviceParallelComputeZip {
       source_a: Box::new(self),
       source_b: Box::new(other),
-    }
-  }
-
-  fn zip_partial<U, F>(
-    self,
-    other: impl DeviceParallelComputeIO<U> + 'static,
-    b_fn: F,
-  ) -> impl DeviceParallelCompute<(T, Node<U>)>
-  where
-    F: Clone + Fn() -> Node<U> + 'static,
-    U: ShaderNodeType,
-  {
-    DeviceParallelComputeZipPartial {
-      source_a: Box::new(self),
-      source_b: Box::new(other),
-      b_fn,
     }
   }
 }
@@ -398,6 +394,7 @@ where
   where
     S: DeviceHistogramMappingLogic<Data = T> + 'static,
   {
+    assert!(S::MAX <= workgroup_privatization);
     DeviceHistogram::<T, S> {
       workgroup_level: WorkGroupHistogram {
         workgroup_size: workgroup_privatization,
@@ -407,21 +404,39 @@ where
     }
   }
 
+  fn offset_access(self, offset: u32) -> impl DeviceParallelComputeIO<T> {
+    DeviceParallelComputeOffsetRead {
+      source: Box::new(self),
+      offset,
+    }
+  }
+
+  // fn stream_compaction(
+  //   self,
+  //   filter: impl DeviceParallelCompute<Node<bool>>,
+  // ) -> impl DeviceParallelComputeIO<T> {
+  //   //
+  // }
+
+  /// note, do not use exclusive in middle stage, or data in last element of workgroup will be lost
   fn workgroup_scope_prefix_scan_kogge_stone<S>(
     self,
     workgroup_size: u32,
+    exclusive: bool,
   ) -> impl DeviceParallelComputeIO<T>
   where
     S: DeviceMonoidLogic<Data = T> + 'static,
   {
     WorkGroupPrefixScanKoggeStone::<T, S> {
       workgroup_size,
+      exclusive,
       scan_logic: Default::default(),
       upstream: Box::new(self),
     }
     .internal_materialize_storage_buffer()
   }
 
+  /// todo, support exclusive
   /// the total_work_size should not exceed first_stage_workgroup_size * second_stage_workgroup_size
   fn segmented_prefix_scan_kogge_stone<S>(
     self,
@@ -434,17 +449,18 @@ where
     assert!(self.work_size() <= first_stage_workgroup_size * second_stage_workgroup_size);
 
     let per_workgroup_scanned = self
-      .workgroup_scope_prefix_scan_kogge_stone::<S>(first_stage_workgroup_size)
+      .workgroup_scope_prefix_scan_kogge_stone::<S>(first_stage_workgroup_size, false)
       .into_forker();
 
     let block_wise_scanned = per_workgroup_scanned
       .clone()
-      .stride_reduce_result(first_stage_workgroup_size, first_stage_workgroup_size - 1)
-      .workgroup_scope_prefix_scan_kogge_stone::<S>(second_stage_workgroup_size)
-      .stride_expand_result(first_stage_workgroup_size, 0);
+      .offset_access(first_stage_workgroup_size - 1)
+      .stride_reduce_result(first_stage_workgroup_size)
+      .workgroup_scope_prefix_scan_kogge_stone::<S>(second_stage_workgroup_size, true)
+      .stride_expand_result(first_stage_workgroup_size);
 
-    block_wise_scanned
-      .zip_partial(per_workgroup_scanned, || S::identity())
+    per_workgroup_scanned
+      .zip(block_wise_scanned)
       .map(|(block_scan, workgroup_scan)| S::combine(block_scan, workgroup_scan))
   }
 

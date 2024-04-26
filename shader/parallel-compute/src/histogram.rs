@@ -39,7 +39,7 @@ where
   ) -> Box<dyn DeviceInvocation<Node<u32>>> {
     let source = self.upstream.build_shader(builder);
 
-    let (result, valid) = builder.entry_by(|cx| {
+    let r = builder.entry_by(|cx| {
       let (input, valid) = source.invocation_logic(cx.global_invocation_id());
 
       let shared =
@@ -58,7 +58,7 @@ where
       (result, output_valid)
     });
 
-    Box::new(AdhocInvocationResult(result, valid))
+    source.get_size_into_adhoc(r).into_boxed()
   }
 
   fn bind_input(&self, builder: &mut BindingBuilder) {
@@ -170,7 +170,8 @@ where
 
       workgroup_level_histogram
     });
-    Box::new(AdhocInvocationResult(r.0, r.1))
+
+    computed_workgroup_level.get_size_into_adhoc(r).into_boxed()
   }
 
   fn bind_input(&self, builder: &mut BindingBuilder) {

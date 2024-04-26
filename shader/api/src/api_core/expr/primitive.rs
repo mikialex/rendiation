@@ -342,7 +342,7 @@ macro_rules! impl_from {
   }
 }
 
-macro_rules! compose_all {
+macro_rules! compose_all_vec {
   ($t: ty) => {
     impl_from!({ A: $t, B: $t, C: $t, D: $t }, Vec4<$t>);
     impl_from!({ A: Vec2<$t>, B: $t, C: $t }, Vec4<$t>);
@@ -358,6 +358,11 @@ macro_rules! compose_all {
 
     impl_from!({ A: $t, B: $t }, Vec2<$t>);
 
+  }
+}
+
+macro_rules! compose_all_mat {
+  ($t: ty) => {
     impl_from!({ A: Vec4<$t>, B: Vec4<$t>, C: Vec4<$t>, D:Vec4<$t> }, Mat4<$t>);
     impl_from!({ A: Vec3<$t>, B: Vec3<$t>, C: Vec3<$t> }, Mat3<$t>);
     impl_from!({ A: Vec2<$t>, B: Vec2<$t> }, Mat2<$t>);
@@ -383,7 +388,10 @@ pub fn mat4_node<T>(x: impl Into<Node<Mat4<T>>>) -> Node<Mat4<T>> {
   x.into()
 }
 
-compose_all!(f32);
+compose_all_vec!(f32);
+compose_all_vec!(u32);
+compose_all_vec!(i32);
+compose_all_mat!(f32);
 
 impl Node<Mat4<f32>> {
   pub fn shrink_to_3(self) -> Node<Mat3<f32>> {

@@ -29,6 +29,7 @@ where
 
 struct WorkGroupPrefixScanKoggeStoneCompute<T, S> {
   workgroup_size: u32,
+  exclusive: bool,
   scan_logic: PhantomData<S>,
   upstream: Box<dyn DeviceInvocationComponent<Node<T>>>,
 }
@@ -36,6 +37,7 @@ struct WorkGroupPrefixScanKoggeStoneCompute<T, S> {
 impl<T, S> ShaderHashProvider for WorkGroupPrefixScanKoggeStoneCompute<T, S> {
   fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
     self.workgroup_size.hash(hasher);
+    self.exclusive.hash(hasher);
     self.upstream.hash_pipeline_with_type_info(hasher)
   }
 }
@@ -54,14 +56,28 @@ where
   ) -> Box<dyn DeviceInvocation<Node<T>>> {
     let source = self.upstream.build_shader(builder);
 
-    let (result, valid) = builder.entry_by(|cx| {
-      let (input, valid) = source.invocation_logic(cx.global_invocation_id());
+    let r = builder.entry_by(|cx| {
+      let global_id = cx.global_invocation_id();
+      let local_id = cx.local_invocation_id().x();
 
-      let input = valid.select(input, S::identity());
+      let (input, valid) = if self.exclusive {
+        let r_valid = val(true).make_local_var();
+        let r_v = local_id.equals(0).select_branched(
+          || S::identity(),
+          || {
+            let (input, valid) = source.invocation_logic(global_id - val(Vec3::new(1, 0, 0)));
+            r_valid.store(valid);
+            valid.select(input, S::identity())
+          },
+        );
+
+        (r_v, r_valid.load())
+      } else {
+        let (input, valid) = source.invocation_logic(global_id);
+        (valid.select(input, S::identity()), valid)
+      };
 
       let shared = cx.define_workgroup_shared_var_host_size_array::<T>(self.workgroup_size);
-
-      let local_id = cx.local_invocation_id().x();
 
       let value = input.make_local_var();
 
@@ -88,7 +104,7 @@ where
       (value.load(), valid)
     });
 
-    Box::new(AdhocInvocationResult(result, valid))
+    source.get_size_into_adhoc(r).into_boxed()
   }
 
   fn bind_input(&self, builder: &mut BindingBuilder) {
@@ -100,6 +116,7 @@ where
 #[derivative(Clone(bound = ""))]
 pub struct WorkGroupPrefixScanKoggeStone<T, S> {
   pub workgroup_size: u32,
+  pub exclusive: bool,
   pub scan_logic: PhantomData<S>,
   pub upstream: Box<dyn DeviceParallelComputeIO<T>>,
 }
@@ -115,6 +132,7 @@ where
   ) -> Box<dyn DeviceInvocationComponent<Node<T>>> {
     Box::new(WorkGroupPrefixScanKoggeStoneCompute::<T, S> {
       workgroup_size: self.workgroup_size,
+      exclusive: self.exclusive,
       upstream: self.upstream.execute_and_expose(cx),
       scan_logic: Default::default(),
     })
@@ -154,7 +172,7 @@ async fn test_workgroup_prefix_sum_kogge_stone() {
   }
 
   input
-    .workgroup_scope_prefix_scan_kogge_stone::<AdditionMonoid<_>>(workgroup_size)
+    .workgroup_scope_prefix_scan_kogge_stone::<AdditionMonoid<_>>(workgroup_size, false)
     .single_run_test(&expect)
     .await
 }

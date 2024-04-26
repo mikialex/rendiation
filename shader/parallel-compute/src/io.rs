@@ -11,6 +11,10 @@ impl<T: ShaderSizedValueNodeType> DeviceInvocation<Node<T>>
     let result = r.select_branched(|| self.index(idx).load(), || zeroed_val());
     (result, r)
   }
+
+  fn invocation_size(&self) -> Node<Vec3<u32>> {
+    (self.array_length(), val(0), val(0)).into()
+  }
 }
 
 impl<T> DeviceParallelCompute<Node<T>> for StorageBufferReadOnlyDataView<[T]>
@@ -149,7 +153,8 @@ where
 
       (r, valid)
     });
-    Box::new(AdhocInvocationResult(r.0, r.1))
+
+    invocation_source.get_size_into_adhoc(r).into_boxed()
   }
 
   fn bind_input(&self, builder: &mut BindingBuilder) {

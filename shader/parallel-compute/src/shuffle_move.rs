@@ -77,7 +77,8 @@ where
 
       (data, valid)
     });
-    Box::new(AdhocInvocationResult(r.0, r.1))
+
+    input.get_size_into_adhoc(r).into_boxed()
   }
 
   fn bind_input(&self, builder: &mut BindingBuilder) {
@@ -121,7 +122,8 @@ where
 
       (r, valid)
     });
-    Box::new(AdhocInvocationResult(r.0, r.1))
+
+    shuffle_idx.get_size_into_adhoc(r).into_boxed()
   }
 
   fn bind_input(&self, builder: &mut BindingBuilder) {
