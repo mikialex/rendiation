@@ -197,7 +197,7 @@ where
   ) -> DeviceHistogramCompute<T, S> {
     let workgroup_level = self.workgroup_level.compute_result_typed(cx);
 
-    let size = NonZeroU64::new(S::MAX as u64).unwrap();
+    let size = NonZeroU64::new(S::MAX as u64 * std::mem::size_of::<T>() as u64).unwrap();
     let result = create_gpu_read_write_storage(StorageBufferInit::Zeroed(size), &cx.gpu.device);
 
     DeviceHistogramCompute::<T, S> {
@@ -246,4 +246,26 @@ where
       .into_host_nonatomic_array()
       .into_readonly_view()
   }
+}
+
+#[pollster::test]
+async fn test() {
+  struct TestRangedU32;
+  impl DeviceHistogramMappingLogic for TestRangedU32 {
+    type Data = u32;
+
+    const MAX: u32 = 6;
+
+    fn map(data: Node<Self::Data>) -> Node<u32> {
+      data
+    }
+  }
+
+  let input = [0, 0, 1, 2, 3, 4, 5].to_vec();
+  let expect = [2, 1, 1, 1, 1, 1].to_vec();
+
+  input
+    .histogram::<TestRangedU32>(32)
+    .single_run_test(&expect)
+    .await
 }

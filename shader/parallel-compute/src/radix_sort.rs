@@ -40,8 +40,11 @@ where
       .segmented_prefix_scan_kogge_stone::<AdditionMonoid<u32>>(
         per_pass_first_stage_workgroup_size,
         per_pass_second_stage_workgroup_size,
-        // todo true,
-      );
+      )
+      .offset_access(
+        -1,
+        OutBoundsBehavior::from_const(AdditionMonoid::<u32>::identity),
+      ); // convert to exclusive
 
     let shuffle_idx = RadixShuffleMove {
       ones_before: Box::new(ones_before),

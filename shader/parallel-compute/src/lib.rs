@@ -25,8 +25,8 @@ mod shuffle_move;
 pub use shuffle_move::*;
 mod map;
 pub use map::*;
-mod offset_access;
-pub use offset_access::*;
+mod access_behavior;
+pub use access_behavior::*;
 mod zip;
 pub use zip::*;
 mod prefix_scan;
@@ -51,9 +51,13 @@ pub trait DeviceInvocation<T> {
 
   fn invocation_size(&self) -> Node<Vec3<u32>>;
 
-  fn border(&self) -> T {
+  fn end_point(&self) -> T {
     let clamp_target = self.invocation_size() - val(Vec3::one());
     self.invocation_logic(clamp_target).0
+  }
+
+  fn start_point(&self) -> T {
+    self.invocation_logic(val(Vec3::zero())).0
   }
 }
 
@@ -404,10 +408,20 @@ where
     }
   }
 
-  fn offset_access(self, offset: u32) -> impl DeviceParallelComputeIO<T> {
-    DeviceParallelComputeOffsetRead {
+  fn custom_access(
+    self,
+    behavior: impl InvocationAccessBehavior<T> + 'static + Clone + Hash,
+  ) -> impl DeviceParallelComputeIO<T> {
+    DeviceParallelComputeCustomInvocationBehavior {
       source: Box::new(self),
-      offset,
+      behavior,
+    }
+  }
+
+  fn offset_access(self, offset: i32, ob: OutBoundsBehavior<T>) -> impl DeviceParallelComputeIO<T> {
+    DeviceParallelComputeCustomInvocationBehavior {
+      source: Box::new(self),
+      behavior: DeviceInvocationOffset { offset, ob },
     }
   }
 
@@ -418,18 +432,15 @@ where
   //   //
   // }
 
-  /// note, do not use exclusive in middle stage, or data in last element of workgroup will be lost
   fn workgroup_scope_prefix_scan_kogge_stone<S>(
     self,
     workgroup_size: u32,
-    exclusive: bool,
   ) -> impl DeviceParallelComputeIO<T>
   where
     S: DeviceMonoidLogic<Data = T> + 'static,
   {
     WorkGroupPrefixScanKoggeStone::<T, S> {
       workgroup_size,
-      exclusive,
       scan_logic: Default::default(),
       upstream: Box::new(self),
     }
@@ -449,14 +460,18 @@ where
     assert!(self.work_size() <= first_stage_workgroup_size * second_stage_workgroup_size);
 
     let per_workgroup_scanned = self
-      .workgroup_scope_prefix_scan_kogge_stone::<S>(first_stage_workgroup_size, false)
+      .workgroup_scope_prefix_scan_kogge_stone::<S>(first_stage_workgroup_size)
       .into_forker();
 
     let block_wise_scanned = per_workgroup_scanned
       .clone()
-      .offset_access(first_stage_workgroup_size - 1)
+      .offset_access(
+        first_stage_workgroup_size as i32 - 1,
+        OutBoundsBehavior::ClampBorder,
+      )
       .stride_reduce_result(first_stage_workgroup_size)
-      .workgroup_scope_prefix_scan_kogge_stone::<S>(second_stage_workgroup_size, true)
+      .workgroup_scope_prefix_scan_kogge_stone::<S>(second_stage_workgroup_size)
+      .offset_access(-1, OutBoundsBehavior::from_const(|| S::identity())) // convert to exclusive
       .stride_expand_result(first_stage_workgroup_size);
 
     per_workgroup_scanned
