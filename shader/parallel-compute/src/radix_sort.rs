@@ -51,7 +51,7 @@ where
       is_one: Box::new(is_one),
     };
 
-    result = Box::new(iter_input.shuffle_move(shuffle_idx))
+    result = Box::new(iter_input.shuffle_move(shuffle_idx.map(|v| (v, val(true)))))
   }
   result
 }
@@ -126,4 +126,27 @@ impl DeviceInvocationComponent<Node<u32>> for RadixShuffleMoveCompute {
     self.is_one.bind_input(builder);
     builder.bind(&self.ones_before);
   }
+}
+
+pub struct U32RadixSort;
+impl DeviceRadixSortKeyLogic for U32RadixSort {
+  const MAX_BITS: u32 = 32;
+
+  type Data = u32;
+
+  fn is_one(value: Node<Self::Data>, bit_position: Node<u32>) -> Node<bool> {
+    (value & (val(1) << bit_position)).not_equals(val(0))
+  }
+}
+
+// todo fix
+#[pollster::test]
+async fn test() {
+  let input = [3, 1, 4, 6, 5, 2].to_vec();
+  let expect = [1, 2, 3, 4, 5, 6].to_vec();
+
+  input
+    .device_radix_sort_naive::<U32RadixSort>(64, 64)
+    .single_run_test(&expect)
+    .await
 }

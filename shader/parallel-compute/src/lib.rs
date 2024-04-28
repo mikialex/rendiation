@@ -337,10 +337,14 @@ where
 
   fn shuffle_move(
     self,
-    shuffle_idx: impl DeviceParallelCompute<Node<u32>> + 'static,
+    shuffle_idx: impl DeviceParallelCompute<(Node<u32>, Node<bool>)> + 'static,
   ) -> impl DeviceParallelComputeIO<T> {
     DataShuffleMovement {
-      source: Box::new(self.zip(shuffle_idx)),
+      source: Box::new(
+        self
+          .zip(shuffle_idx)
+          .map(|(v, (id, should))| (v, id, should)),
+      ),
     }
   }
 
@@ -425,12 +429,18 @@ where
     }
   }
 
-  // fn stream_compaction(
-  //   self,
-  //   filter: impl DeviceParallelCompute<Node<bool>>,
-  // ) -> impl DeviceParallelComputeIO<T> {
-  //   //
-  // }
+  fn stream_compaction(
+    self,
+    filter: impl DeviceParallelComputeIO<bool> + 'static,
+  ) -> impl DeviceParallelComputeIO<T> {
+    let filter: Box<dyn DeviceParallelComputeIO<bool>> = Box::new(filter);
+    let write_target_positions = filter
+      .clone()
+      .map(|v| v.select(1_u32, 0))
+      .segmented_prefix_scan_kogge_stone::<AdditionMonoid<u32>>(64, 64);
+
+    self.shuffle_move(write_target_positions.zip(filter))
+  }
 
   fn workgroup_scope_prefix_scan_kogge_stone<S>(
     self,

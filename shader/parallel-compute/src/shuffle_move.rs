@@ -3,7 +3,7 @@ use crate::*;
 #[derive(Derivative)]
 #[derivative(Clone(bound = ""))]
 pub struct DataShuffleMovement<T> {
-  pub source: Box<dyn DeviceParallelCompute<(Node<T>, Node<u32>)>>,
+  pub source: Box<dyn DeviceParallelCompute<(Node<T>, Node<u32>, Node<bool>)>>,
 }
 
 impl<T: Std430 + ShaderSizedValueNodeType> DeviceParallelCompute<Node<T>>
@@ -41,7 +41,7 @@ impl<T: Std430 + ShaderSizedValueNodeType> DeviceParallelComputeIO<T> for DataSh
 }
 
 pub struct ShuffleWrite<T: Std430> {
-  pub input: Box<dyn DeviceInvocationComponent<(Node<T>, Node<u32>)>>,
+  pub input: Box<dyn DeviceInvocationComponent<(Node<T>, Node<u32>, Node<bool>)>>,
   /// shuffle access require reading any position, so we need fully materialized result here
   pub output: StorageBufferDataView<[T]>,
 }
@@ -69,9 +69,9 @@ where
       let invocation_id = cx.local_invocation_id();
       let output = cx.bind_by(&self.output);
 
-      let ((data, write_idx), valid) = input.invocation_logic(invocation_id);
+      let ((data, write_idx, should_write), valid) = input.invocation_logic(invocation_id);
 
-      if_by(valid, || {
+      if_by(valid.and(should_write), || {
         output.index(write_idx).store(data);
       });
 
@@ -130,4 +130,16 @@ where
     self.shuffle_idx.bind_input(builder);
     builder.bind(&self.source);
   }
+}
+
+#[pollster::test]
+async fn test() {
+  let input = [0, 1, 2, 3, 4, 5].to_vec();
+  let move_target = [5, 4, 3, 2, 1, 0].to_vec();
+  let expect = [5, 4, 3, 2, 1, 0].to_vec();
+
+  input
+    .shuffle_move(move_target.map(|v| (v, val(true))))
+    .single_run_test(&expect)
+    .await
 }
