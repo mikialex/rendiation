@@ -53,7 +53,6 @@ members = [
   "scene/rendering/gpu-gles",
   "scene/rendering/shadow-map",
   "scene/rendering/cpu-raytracing",
-  "scene/optimization",
   "scene/interaction",
   "scene/geometry-query",
   "scene/io/obj/loader",

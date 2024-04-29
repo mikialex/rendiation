@@ -30,7 +30,6 @@ static GLOBAL_ALLOCATOR: PreciseAllocationHook<System> = PreciseAllocationHook::
 fn main() {
   setup_global_database(Default::default());
   setup_active_plane(Default::default());
-  register_viewer_extra_scene_features();
 
   env_logger::builder().init();
 

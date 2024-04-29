@@ -47,8 +47,6 @@ impl ViewerPipeline {
     final_target: &RenderTargetView,
     scene: &SceneRenderResourceGroup,
   ) {
-    let mut widgets = content.widgets.borrow_mut();
-
     let mut mip_gen = scene.resources.bindable_ctx.gpu.mipmap_gen.borrow_mut();
     mip_gen.flush_mipmap_gen_request(ctx);
     let mut single_proj_sys = scene
@@ -64,14 +62,11 @@ impl ViewerPipeline {
     let mut msaa_depth = depth_attachment().sample_count(4).request(ctx);
     let mut widgets_result = attachment().request(ctx);
 
-    pass("scene-widgets")
+    let _ = pass("scene-widgets")
       .with_color(msaa_color.write(), clear(all_zero()))
       .with_depth(msaa_depth.write(), clear(1.))
       .resolve_to(widgets_result.write())
-      .render_ctx(ctx)
-      .by(scene.by_main_camera_and_self(&mut widgets.axis_helper))
-      .by(scene.by_main_camera_and_self(&mut widgets.gizmo))
-      .by(scene.by_main_camera_and_self(&mut widgets.camera_helpers));
+      .render_ctx(ctx);
 
     let highlight_compose = (!content.selections.is_empty()).then(|| {
       let masked_content = highlight(content.selections.iter_selected().cloned());
@@ -127,7 +122,8 @@ impl ViewerPipeline {
                 .then_some(&self.channel_debugger),
             }),
           )
-          .by(scene.by_main_camera_and_self(&mut widgets.ground)) // transparent, should go after opaque
+          // .by(scene.by_main_camera_and_self(&mut s.ground)) // transparent, should go after
+          // opaque
           .by(ao);
 
         NewTAAFrameSample {

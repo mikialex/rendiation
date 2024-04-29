@@ -29,7 +29,7 @@ pub trait Canvas2DPathBuilder {
 }
 
 // pub struct Path2dBuilder {
-//   path: Vec<Path2dSegment<f32>>,
+//   path: Vec<Path2dSegments>,
 //   current_point: Vec2<f32>,
 // }
 
@@ -46,7 +46,7 @@ pub trait Canvas2DPathBuilder {
 //   pub fn line_to(&mut self, point: impl Into<Vec2<f32>>) -> &mut Self {
 //     let point = point.into();
 //     let curve = LineSegment::line_segment(self.current_point, point);
-//     self.path.push(Path2dSegment::Line(curve));
+//     self.path.push(Path2dSegments::Line(curve));
 //     self.current_point = point;
 //     self
 //   }
@@ -69,16 +69,16 @@ pub trait Canvas2DPathBuilder {
 //     if start != end {
 //       self
 //         .path
-//         .push(Path2dSegment::Line(LineSegment::line_segment(end, start)));
+//         .push(Path2dSegments::Line(LineSegment::line_segment(end, start)));
 //     }
 //   }
 
-//   pub fn build(mut self, close_path: bool) -> Path2D<f32> {
+//   pub fn build(mut self, close_path: bool) -> Path2dSegments<f32> {
 //     if close_path {
 //       self.close_path();
 //     }
 
-//     Path2D {
+//     Path2dSegments {
 //       segments: self.path,
 //     }
 //   }

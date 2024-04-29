@@ -3,10 +3,10 @@ use std::{io::Write, path::Path, task::Context};
 use fast_hash_collection::FastHashMap;
 use futures::{executor::ThreadPool, stream::FusedStream, Future, Stream, StreamExt};
 use reactive::PollUtils;
-use rendiation_scene_core::{IntoIncrementalSignalPtr, MeshEnum, Scene, StandardModelDelta};
+use rendiation_scene_core::Scene;
 use webgpu::ReadableTextureBuffer;
 
-use crate::{SelectionSet, SolidLinedMesh, Viewer3dRenderingCtx};
+use crate::{SelectionSet, Viewer3dRenderingCtx};
 
 pub struct Terminal {
   pub command_history: Vec<String>,
@@ -149,19 +149,19 @@ pub fn register_default_commands(terminal: &mut Terminal) {
     })
   });
 
-  terminal.register_command("into-solid-line-mesh", |ctx, _parameters| {
-    for model in ctx.selection_set.iter_selected() {
-      let model = model.read();
-      if let rendiation_scene_core::ModelEnum::Standard(model) = &model.model {
-        let mesh = model.read().mesh.clone();
-        let lined_mesh = SolidLinedMesh::new(mesh);
-        let mesh = MeshEnum::Foreign(Box::new(lined_mesh.into_ptr()));
-        model.mutate(|mut model| model.modify(StandardModelDelta::mesh(mesh)));
-      }
-    }
+  // terminal.register_command("into-solid-line-mesh", |ctx, _parameters| {
+  //   for model in ctx.selection_set.iter_selected() {
+  //     let model = model.read();
+  //     if let rendiation_scene_core::ModelEnum::Standard(model) = &model.model {
+  //       let mesh = model.read().mesh.clone();
+  //       let lined_mesh = SolidLinedMesh::new(mesh);
+  //       let mesh = MeshEnum::Foreign(Box::new(lined_mesh.into_ptr()));
+  //       model.mutate(|mut model| model.modify(StandardModelDelta::mesh(mesh)));
+  //     }
+  //   }
 
-    Box::pin(async move {})
-  });
+  //   Box::pin(async move {})
+  // });
 
   #[cfg(feature = "heap-debug")]
   {

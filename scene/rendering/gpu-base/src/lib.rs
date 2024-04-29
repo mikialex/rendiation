@@ -46,6 +46,18 @@ pub trait SceneRenderer {
   );
 }
 
+pub trait SceneRasterRenderingAdaptor {
+  type DrawTask;
+
+  /// should contains frustum culling and lod select
+  fn create_task(
+    camera: AllocIdx<SceneCameraEntity>,
+    scene: AllocIdx<SceneEntity>,
+  ) -> Self::DrawTask;
+
+  fn render_task_on_frame(&self, ctx: &mut FrameCtx, task: Self::DrawTask, target: &Attachment);
+}
+
 pub trait PassContentWithCamera {
   fn render(&mut self, pass: &mut FrameRenderPass, camera: AllocIdx<SceneCameraEntity>);
 }

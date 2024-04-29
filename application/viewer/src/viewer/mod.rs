@@ -12,14 +12,13 @@ mod rendering;
 use reactive::{EventSource, NotifyScope};
 pub use rendering::*;
 
-mod controller;
-pub use controller::*;
+// mod controller;
+// pub use controller::*;
 mod selection;
-pub use selection::*;
-
-mod helpers;
-pub use helpers::*;
+// mod helpers;
+// pub use helpers::*;
 use rendiation_texture::Size;
+pub use selection::*;
 use webgpu::*;
 
 pub struct Viewer {

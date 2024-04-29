@@ -3438,20 +3438,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "rendiation-scene-optimization"
-version = "0.1.0"
-dependencies = [
- "dashmap",
- "fast-hash-collection",
- "incremental",
- "rayon",
- "reactive",
- "rendiation-algebra",
- "rendiation-scene-core",
- "smallvec",
-]
-
-[[package]]
 name = "rendiation-scene-raytracing"
 version = "0.1.0"
 dependencies = [
