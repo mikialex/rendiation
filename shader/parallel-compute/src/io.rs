@@ -224,6 +224,7 @@ impl<T: ShaderSizedValueNodeType + Std430> DeviceParallelComputeIO<T>
 #[derivative(Clone(bound = ""))]
 pub struct DeviceParallelComputeIODebug<T> {
   pub inner: Box<dyn DeviceParallelComputeIO<T>>,
+  pub label: &'static str,
 }
 
 impl<T: ShaderSizedValueNodeType + Std430 + Debug> DeviceParallelCompute<Node<T>>
@@ -233,9 +234,9 @@ impl<T: ShaderSizedValueNodeType + Std430 + Debug> DeviceParallelCompute<Node<T>
     &self,
     cx: &mut DeviceParallelComputeCtx,
   ) -> Box<dyn DeviceInvocationComponent<Node<T>>> {
-    let (device_result, host_result) = pollster::block_on(self.read_back_host(cx)).unwrap();
+    let (device_result, host_result) = pollster::block_on(self.inner.read_back_host(cx)).unwrap();
 
-    println!("{:?}", host_result);
+    println!("{}: {:?}", self.label, host_result);
 
     Box::new(StorageBufferReadOnlyDataViewReadIntoShader(device_result))
   }
@@ -250,10 +251,4 @@ impl<T: ShaderSizedValueNodeType + Std430 + Debug> DeviceParallelCompute<Node<T>
 impl<T: ShaderSizedValueNodeType + Std430 + Debug> DeviceParallelComputeIO<T>
   for DeviceParallelComputeIODebug<T>
 {
-  fn materialize_storage_buffer(
-    &self,
-    cx: &mut DeviceParallelComputeCtx,
-  ) -> StorageBufferReadOnlyDataView<[T]> {
-    do_write_into_storage_buffer(&self.inner, cx)
-  }
 }

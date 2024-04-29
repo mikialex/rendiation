@@ -13,7 +13,7 @@ impl<A, B> DeviceInvocation<(A, B)> for DeviceInvocationZip<A, B> {
   }
 
   fn invocation_size(&self) -> Node<Vec3<u32>> {
-    self.0.invocation_size()
+    self.0.invocation_size().min(self.1.invocation_size())
   }
 }
 
@@ -58,6 +58,8 @@ impl<A: 'static, B: 'static> DeviceInvocationComponent<(A, B)> for Builder<A, B>
 pub struct DeviceParallelComputeZip<A, B> {
   pub source_a: Box<dyn DeviceParallelCompute<A>>,
   pub source_b: Box<dyn DeviceParallelCompute<B>>,
+  /// if we not add cache here, maybe work_size() will have exponential cost!
+  pub work_size_cache: u32,
 }
 
 impl<A: 'static, B: 'static> DeviceParallelCompute<(A, B)> for DeviceParallelComputeZip<A, B> {
@@ -72,7 +74,7 @@ impl<A: 'static, B: 'static> DeviceParallelCompute<(A, B)> for DeviceParallelCom
   }
 
   fn work_size(&self) -> u32 {
-    self.source_a.work_size().min(self.source_b.work_size())
+    self.work_size_cache
   }
 }
 

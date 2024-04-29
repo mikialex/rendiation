@@ -8,6 +8,12 @@ pub trait InvocationAccessBehavior<T>: Clone {
     source: &dyn DeviceInvocation<Node<T>>,
     current: Node<Vec3<u32>>,
   ) -> (Node<T>, Node<bool>);
+  fn resize_scope(&self, size: Node<Vec3<u32>>) -> Node<Vec3<u32>> {
+    size
+  }
+  fn resize_work_size(&self, size: u32) -> u32 {
+    size
+  }
 }
 
 #[derive(Derivative)]
@@ -47,6 +53,7 @@ impl<T> OutBoundsBehavior<T> {
 pub struct DeviceInvocationOffset<T> {
   pub offset: i32,
   pub ob: OutBoundsBehavior<T>,
+  pub size_expand: u32,
 }
 
 impl<T> InvocationAccessBehavior<T> for DeviceInvocationOffset<T>
@@ -63,8 +70,6 @@ where
     let current = current.x(); // todo three dimension
     let current = current.into_i32(); // todo overflow check
     let target = current + val(self.offset);
-    let _target = target.into_u32(); // todo overflow check
-    let _target: Node<Vec3<u32>> = (_target, val(0), val(0)).into();
 
     let output = zeroed_val().make_local_var();
     if_by(target.less_than(val(0)), || {
@@ -73,10 +78,21 @@ where
     .else_if(target.greater_equal_than(size), || {
       output.store(self.ob.sample(source.end_point()));
     })
-    .else_by(|| output.store(source.invocation_logic(_target).0));
+    .else_by(|| {
+      let _target = target.into_u32(); // todo overflow check
+      let _target: Node<Vec3<u32>> = (_target, val(0), val(0)).into();
+      output.store(source.invocation_logic(_target).0)
+    });
 
     // todo, should return inner valid
     (output.load(), val(true))
+  }
+
+  fn resize_scope(&self, size: Node<Vec3<u32>>) -> Node<Vec3<u32>> {
+    size + val(Vec3::new(self.size_expand, 0, 0))
+  }
+  fn resize_work_size(&self, size: u32) -> u32 {
+    size + self.size_expand
   }
 }
 
@@ -92,7 +108,7 @@ where
   }
 
   fn invocation_size(&self) -> Node<Vec3<u32>> {
-    self.0.invocation_size()
+    self.1.resize_scope(self.0.invocation_size())
   }
 }
 
@@ -154,7 +170,7 @@ where
   }
 
   fn work_size(&self) -> u32 {
-    self.source.work_size()
+    self.behavior.resize_work_size(self.source.work_size())
   }
 }
 impl<T, F> DeviceParallelComputeIO<T> for DeviceParallelComputeCustomInvocationBehavior<T, F>
@@ -170,7 +186,7 @@ async fn test1() {
   let expect = [3, 4, 5, 5, 5, 5].to_vec();
 
   input
-    .offset_access(3, OutBoundsBehavior::ClampBorder)
+    .offset_access(3, OutBoundsBehavior::ClampBorder, 0)
     .single_run_test(&expect)
     .await
 }
@@ -178,10 +194,10 @@ async fn test1() {
 #[pollster::test]
 async fn test2() {
   let input = [0, 1, 2, 3, 4, 5].to_vec();
-  let expect = [0, 0, 0, 1, 2, 3].to_vec();
+  let expect = [0, 0, 0, 1, 2, 3, 4].to_vec();
 
   input
-    .offset_access(-2, OutBoundsBehavior::ClampBorder)
+    .offset_access(-2, OutBoundsBehavior::ClampBorder, 1)
     .single_run_test(&expect)
     .await
 }
@@ -192,7 +208,7 @@ async fn test3() {
   let expect = [6, 6, 0, 1, 2, 3].to_vec();
 
   input
-    .offset_access(-2, OutBoundsBehavior::from_const(|| val(6)))
+    .offset_access(-2, OutBoundsBehavior::from_const(|| val(6)), 0)
     .single_run_test(&expect)
     .await
 }

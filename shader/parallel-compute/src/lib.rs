@@ -257,6 +257,20 @@ where
     DeviceMap {
       mapper: Arc::new(mapper),
       upstream: Box::new(self),
+      mapper_extra_hasher: Arc::new(()),
+    }
+  }
+
+  /// if map closure capture values, values should be hashed by hasher
+  fn map_with_id_provided<O: Copy + 'static>(
+    self,
+    mapper: impl Fn(T) -> O + 'static,
+    hasher: impl ShaderHashProviderAny + 'static,
+  ) -> DeviceMap<T, O> {
+    DeviceMap {
+      mapper: Arc::new(mapper),
+      upstream: Box::new(self),
+      mapper_extra_hasher: Arc::new(hasher),
     }
   }
 
@@ -264,9 +278,11 @@ where
     self,
     other: impl DeviceParallelCompute<B> + 'static,
   ) -> DeviceParallelComputeZip<T, B> {
+    let work_size_cache = self.work_size().min(other.work_size());
     DeviceParallelComputeZip {
       source_a: Box::new(self),
       source_b: Box::new(other),
+      work_size_cache,
     }
   }
 }
@@ -316,12 +332,13 @@ where
     })
   }
 
-  fn debug_log(self) -> impl DeviceParallelComputeIO<T>
+  fn debug_log(self, label: &'static str) -> impl DeviceParallelComputeIO<T>
   where
     T: std::fmt::Debug,
   {
     DeviceParallelComputeIODebug {
       inner: Box::new(self),
+      label,
     }
   }
 
@@ -422,10 +439,19 @@ where
     }
   }
 
-  fn offset_access(self, offset: i32, ob: OutBoundsBehavior<T>) -> impl DeviceParallelComputeIO<T> {
+  fn offset_access(
+    self,
+    offset: i32,
+    ob: OutBoundsBehavior<T>,
+    size_expand: u32,
+  ) -> impl DeviceParallelComputeIO<T> {
     DeviceParallelComputeCustomInvocationBehavior {
       source: Box::new(self),
-      behavior: DeviceInvocationOffset { offset, ob },
+      behavior: DeviceInvocationOffset {
+        offset,
+        ob,
+        size_expand,
+      },
     }
   }
 
@@ -478,15 +504,25 @@ where
       .offset_access(
         first_stage_workgroup_size as i32 - 1,
         OutBoundsBehavior::ClampBorder,
+        0,
       )
       .stride_reduce_result(first_stage_workgroup_size)
       .workgroup_scope_prefix_scan_kogge_stone::<S>(second_stage_workgroup_size)
-      .offset_access(-1, OutBoundsBehavior::from_const(|| S::identity())) // convert to exclusive
+      .make_global_scan_exclusive::<S>()
       .stride_expand_result(first_stage_workgroup_size);
 
     per_workgroup_scanned
       .zip(block_wise_scanned)
       .map(|(block_scan, workgroup_scan)| S::combine(block_scan, workgroup_scan))
+      .internal_materialize_storage_buffer() // todo,remove and  fix compatibility issue
+  }
+
+  /// should logically used after global inclusive scan
+  fn make_global_scan_exclusive<S>(self) -> impl DeviceParallelComputeIO<T>
+  where
+    S: DeviceMonoidLogic<Data = T> + 'static,
+  {
+    self.offset_access(-1, OutBoundsBehavior::from_const(|| S::identity()), 1)
   }
 
   fn device_radix_sort_naive<S>(

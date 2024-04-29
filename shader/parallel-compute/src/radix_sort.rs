@@ -16,6 +16,14 @@ impl DeviceRadixSortKeyLogic for IntBitOrderRadixSortLogic<u32> {
   }
 }
 
+struct IterIndexHasher(u32);
+
+impl ShaderHashProvider for IterIndexHasher {
+  fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
+    self.0.hash(hasher)
+  }
+}
+
 // todo, impl memory coalesced version for better performance
 pub fn device_radix_sort_naive<T, S>(
   input: impl DeviceParallelComputeIO<T> + 'static,
@@ -30,9 +38,10 @@ where
   for iter in 0..S::MAX_BITS {
     let iter_input = result.clone();
 
-    let is_one = iter_input
-      .clone()
-      .map(move |data| S::is_one(data, val(iter)));
+    let is_one = iter_input.clone().map_with_id_provided(
+      move |data| S::is_one(data, val(iter)),
+      IterIndexHasher(iter),
+    );
 
     let ones_before = is_one
       .clone()
@@ -41,17 +50,18 @@ where
         per_pass_first_stage_workgroup_size,
         per_pass_second_stage_workgroup_size,
       )
-      .offset_access(
-        -1,
-        OutBoundsBehavior::from_const(AdditionMonoid::<u32>::identity),
-      ); // convert to exclusive
+      .make_global_scan_exclusive::<AdditionMonoid<u32>>();
 
     let shuffle_idx = RadixShuffleMove {
       ones_before: Box::new(ones_before),
       is_one: Box::new(is_one),
     };
 
-    result = Box::new(iter_input.shuffle_move(shuffle_idx.map(|v| (v, val(true)))))
+    let r = iter_input
+      .shuffle_move(shuffle_idx.map(|v| (v, val(true))))
+      .into_forker();
+
+    result = Box::new(r)
   }
   result
 }
@@ -75,7 +85,7 @@ impl DeviceParallelCompute<Node<u32>> for RadixShuffleMove {
   }
 
   fn work_size(&self) -> u32 {
-    self.ones_before.work_size()
+    self.is_one.work_size()
   }
 }
 impl DeviceParallelComputeIO<u32> for RadixShuffleMove {}
@@ -109,8 +119,9 @@ impl DeviceInvocationComponent<Node<u32>> for RadixShuffleMoveCompute {
 
       let r = is_one.select_branched(
         || {
-          let input_size = ones_before_arr.array_length();
-          let ones_in_total = ones_before_arr.index(input_size).load();
+          let input_size = ones_before_arr.array_length() - val(1);
+          let last_ones_before_arr = input_size;
+          let ones_in_total = ones_before_arr.index(last_ones_before_arr).load();
           input_size - ones_in_total + ones_before
         },
         || cx.global_invocation_id().x() - ones_before,
@@ -139,7 +150,6 @@ impl DeviceRadixSortKeyLogic for U32RadixSort {
   }
 }
 
-// todo fix
 #[pollster::test]
 async fn test() {
   let input = [3, 1, 4, 6, 5, 2].to_vec();
