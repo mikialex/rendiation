@@ -44,11 +44,11 @@ where
       iter.into_shader_iter().for_each(|i, _| {
         cx.workgroup_barrier();
 
-        let stride = val(1) << (val(iter) - i);
+        let stride = val(1) << (val(iter) - i - val(1));
 
         if_by(local_id.less_than(stride), || {
           let a = shared.index(local_id).load();
-          let b = shared.index(local_id - (val(1) << i)).load();
+          let b = shared.index(local_id + stride).load();
           let combined = S::combine(a, b);
           shared.index(local_id).store(combined);
         });
@@ -106,7 +106,7 @@ where
   S: DeviceMonoidLogic<Data = T> + 'static,
 {
   fn result_size(&self) -> u32 {
-    self.work_size() / self.workgroup_size
+    self.work_size()
   }
 
   fn materialize_storage_buffer(
@@ -119,4 +119,32 @@ where
     let workgroup_size = self.workgroup_size;
     custom_write_into_storage_buffer(self, cx, move |global_id| global_id / val(workgroup_size))
   }
+}
+
+#[pollster::test]
+async fn test1() {
+  let input = vec![1_u32; 8];
+
+  let expect = vec![4, 0, 0, 0, 4, 0, 0, 0];
+
+  let workgroup_size = 4;
+
+  input
+    .workgroup_scope_reduction::<AdditionMonoid<_>>(workgroup_size)
+    .single_run_test(&expect)
+    .await
+}
+
+#[pollster::test]
+async fn test2() {
+  let input = vec![1_u32; 70];
+
+  let expect = vec![70];
+
+  let workgroup_size = 32;
+
+  input
+    .segmented_reduction::<AdditionMonoid<_>>(workgroup_size, workgroup_size)
+    .single_run_test(&expect)
+    .await
 }

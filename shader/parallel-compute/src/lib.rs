@@ -390,7 +390,9 @@ where
 
     self
       .workgroup_scope_reduction::<S>(first_stage_workgroup_size)
+      .stride_reduce_result(first_stage_workgroup_size)
       .workgroup_scope_reduction::<S>(second_stage_workgroup_size)
+      .stride_reduce_result(second_stage_workgroup_size)
   }
 
   /// perform workgroup scope histogram compute by workgroup level atomic array

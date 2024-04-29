@@ -238,6 +238,8 @@ impl<T: ShaderSizedValueNodeType + Std430 + Debug> DeviceParallelCompute<Node<T>
 
     println!("{}: {:?}", self.label, host_result);
 
+    // todo, log should not has any side effect, but we can not return the inner execute_and_expose
+    // because forker expect the execute_and_expose is consumed once
     Box::new(StorageBufferReadOnlyDataViewReadIntoShader(device_result))
   }
 
