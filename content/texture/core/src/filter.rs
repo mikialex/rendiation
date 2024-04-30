@@ -1,4 +1,3 @@
-use incremental::*;
 use rendiation_algebra::{Lerp, Scalar};
 
 /// Texel mixing mode when sampling between texels.
@@ -12,8 +11,6 @@ pub enum FilterMode {
   Nearest,
   Linear,
 }
-
-clone_self_incremental!(FilterMode);
 
 impl FilterMode {
   pub fn interpolate<T, P>(&self, t: T, one: P, other: P) -> P

@@ -18,7 +18,6 @@ use crate::*;
 pub struct WidenedLineMesh {
   inner: GroupedMesh<NoneIndexedMesh<LineList, Vec<WidenedLineVertex>>>,
 }
-clone_self_incremental!(WidenedLineMesh);
 
 impl WidenedLineMesh {
   pub fn new(inner: GroupedMesh<NoneIndexedMesh<LineList, Vec<WidenedLineVertex>>>) -> Self {

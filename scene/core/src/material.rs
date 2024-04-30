@@ -15,6 +15,23 @@ mod flat_material {
       .declare_entity::<FlatMaterialEntity>()
       .declare_component::<FlatMaterialDisplayColorComponent>();
   }
+
+  pub struct FlatMaterialDataView {
+    pub color: Vec4<f32>,
+  }
+  impl EntityCustomWrite<FlatMaterialEntity> for FlatMaterialDataView {
+    type Writer = EntityWriter<FlatMaterialEntity>;
+
+    fn create_writer() -> Self::Writer {
+      global_entity_of::<FlatMaterialEntity>().entity_writer()
+    }
+
+    fn write(self, writer: &mut Self::Writer) -> EntityHandle<FlatMaterialEntity> {
+      writer
+        .component_value_writer::<FlatMaterialDisplayColorComponent>(self.color)
+        .new_entity()
+    }
+  }
 }
 
 pub use sg_material::*;

@@ -1,6 +1,6 @@
 use crate::*;
 
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, Incremental)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 pub struct TextureSampler {
   pub address_mode_u: AddressMode,
   pub address_mode_v: AddressMode,

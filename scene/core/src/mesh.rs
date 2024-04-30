@@ -1,4 +1,4 @@
-use rendiation_mesh_core::{AttributeSemantic, PrimitiveTopology};
+use rendiation_mesh_core::{AttributeMeshData, AttributeSemantic, PrimitiveTopology};
 
 use crate::*;
 
@@ -26,6 +26,61 @@ declare_foreign_key!(
   AttributeMeshVertexBufferRelation,
   AttributeMeshEntity
 );
+
+pub struct AttributeMeshEntityFromAttributeMeshDataWriter {
+  buffer: EntityWriter<BufferEntity>,
+  relation: EntityWriter<AttributeMeshVertexBufferRelation>,
+  mesh: EntityWriter<AttributeMeshEntity>,
+}
+
+impl EntityCustomWrite<AttributeMeshEntity> for AttributeMeshData {
+  type Writer = AttributeMeshEntityFromAttributeMeshDataWriter;
+
+  fn create_writer() -> Self::Writer {
+    AttributeMeshEntityFromAttributeMeshDataWriter {
+      buffer: global_entity_of::<BufferEntity>().entity_writer(),
+      relation: global_entity_of::<AttributeMeshVertexBufferRelation>().entity_writer(),
+      mesh: global_entity_of::<AttributeMeshEntity>().entity_writer(),
+    }
+  }
+
+  fn write(self, writer: &mut Self::Writer) -> EntityHandle<AttributeMeshEntity> {
+    let index = self.indices.map(|(_, data)| data.write(&mut writer.buffer));
+
+    let index = SceneBufferViewDataView {
+      data: index,
+      range: None,
+      stride: None,
+    };
+
+    let mesh = writer
+      .mesh
+      .component_value_writer::<AttributeMeshTopology>(self.mode)
+      .write_scene_buffer::<AttributeIndexRef>(index)
+      .new_entity();
+
+    for (semantic, vertex) in self.attributes {
+      let vertex = vertex.write(&mut writer.buffer);
+
+      let vertex = SceneBufferViewDataView {
+        data: Some(vertex),
+        range: None,
+        stride: None,
+      };
+
+      writer
+        .relation
+        .write_scene_buffer::<AttributeVertexRef>(vertex)
+        .component_value_writer::<AttributeMeshVertexBufferRelationRefAttributeMesh>(Some(
+          mesh.alloc_idx().alloc_index(),
+        ))
+        .component_value_writer::<AttributeMeshVertexBufferSemantic>(semantic)
+        .new_entity();
+    }
+
+    mesh
+  }
+}
 
 pub fn register_attribute_mesh_data_model() {
   let ecg = global_database()

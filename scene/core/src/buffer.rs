@@ -5,7 +5,51 @@ use crate::*;
 declare_entity!(BufferEntity);
 declare_component!(BufferEntityData, BufferEntity, ExternalRefPtr<Vec<u8>>);
 
+impl EntityCustomWrite<BufferEntity> for Vec<u8> {
+  type Writer = EntityWriter<BufferEntity>;
+
+  fn create_writer() -> Self::Writer {
+    global_entity_of::<BufferEntity>().entity_writer()
+  }
+
+  fn write(self, writer: &mut Self::Writer) -> EntityHandle<BufferEntity> {
+    writer
+      .component_value_writer::<BufferEntityData>(ExternalRefPtr::new(self))
+      .new_entity()
+  }
+}
+
 pub trait SceneBufferView: EntityAssociateSemantic {}
+
+pub struct SceneBufferViewDataView {
+  pub data: Option<EntityHandle<BufferEntity>>,
+  pub range: Option<BufferViewRange>,
+  pub stride: Option<u32>,
+}
+
+pub trait SceneBufferViewDataViewWriter<E> {
+  fn write_scene_buffer<C>(&mut self, data: SceneBufferViewDataView) -> &mut Self
+  where
+    C: SceneBufferView,
+    C: EntityAssociateSemantic<Entity = E>;
+}
+impl<E> SceneBufferViewDataViewWriter<E> for EntityWriter<E>
+where
+  E: EntitySemantic,
+{
+  fn write_scene_buffer<C>(&mut self, data: SceneBufferViewDataView) -> &mut Self
+  where
+    C: SceneBufferView,
+    C: EntityAssociateSemantic<Entity = E>,
+  {
+    self
+      .component_value_writer::<SceneBufferViewBufferId<C>>(
+        data.data.map(|v| v.alloc_idx().alloc_index()),
+      )
+      .component_value_writer::<SceneBufferViewBufferRange<C>>(data.range)
+      .component_value_writer::<SceneBufferViewBufferItemCount<C>>(data.stride)
+  }
+}
 
 pub fn register_scene_buffer_view<T: SceneBufferView>(
   ecg: EntityComponentGroupTyped<T::Entity>,

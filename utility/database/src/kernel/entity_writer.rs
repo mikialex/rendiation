@@ -1,5 +1,11 @@
 use crate::*;
 
+pub trait EntityCustomWrite<E: EntitySemantic> {
+  type Writer;
+  fn create_writer() -> Self::Writer;
+  fn write(self, writer: &mut Self::Writer) -> EntityHandle<E>;
+}
+
 /// Holder the all components write lock, optimized for batch entity creation and modification
 pub struct EntityWriter<E: EntitySemantic> {
   _phantom: SendSyncPhantomData<E>, //
@@ -36,22 +42,41 @@ impl<E: EntitySemantic> EntityWriter<E> {
     self.inner
   }
 
-  pub fn with_component_value_writer<C: ComponentSemantic>(mut self, value: C::Data) -> Self {
-    for (id, view) in &mut self.inner.components {
-      if *id == C::component_id() {
-        let v = view.take_write_view();
-        let v = v.downcast::<ComponentWriteView<C>>().unwrap();
-        *view = Box::new(v.with_write_value(value));
-        return self;
-      }
-    }
+  pub fn with_component_value_writer<C>(mut self, value: C::Data) -> Self
+  where
+    C: ComponentSemantic<Entity = E>,
+  {
+    self.component_value_writer::<C>(value);
     self
   }
 
-  pub fn with_component_writer<C: ComponentSemantic, W: EntityComponentWriter + 'static>(
+  pub fn component_value_writer<C>(&mut self, value: C::Data) -> &mut Self
+  where
+    C: ComponentSemantic<Entity = E>,
+  {
+    self.component_writer::<C, _>(|v| v.with_write_value(value))
+  }
+
+  pub fn with_component_writer<C, W>(
     mut self,
     writer_maker: impl FnOnce(ComponentWriteView<C>) -> W,
-  ) -> Self {
+  ) -> Self
+  where
+    C: ComponentSemantic<Entity = E>,
+    W: EntityComponentWriter + 'static,
+  {
+    self.component_writer::<C, W>(writer_maker);
+    self
+  }
+
+  pub fn component_writer<C, W>(
+    &mut self,
+    writer_maker: impl FnOnce(ComponentWriteView<C>) -> W,
+  ) -> &mut Self
+  where
+    C: ComponentSemantic<Entity = E>,
+    W: EntityComponentWriter + 'static,
+  {
     for (id, view) in &mut self.inner.components {
       if *id == C::component_id() {
         let v = view.take_write_view();

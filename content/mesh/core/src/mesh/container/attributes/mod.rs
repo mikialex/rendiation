@@ -303,8 +303,6 @@ impl AttributeIndexFormat {
   }
 }
 
-clone_self_incremental!(AttributesMesh);
-
 pub const MOST_COMMON_ATTRIBUTE_COUNT: usize = 3;
 
 #[derive(Clone)]

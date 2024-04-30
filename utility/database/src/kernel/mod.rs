@@ -53,6 +53,14 @@ pub struct ExternalRefPtr<T> {
   pub ptr: Arc<T>,
 }
 
+impl<T> ExternalRefPtr<T> {
+  pub fn new(data: T) -> Self {
+    Self {
+      ptr: Arc::new(data),
+    }
+  }
+}
+
 impl<T> std::ops::Deref for ExternalRefPtr<T> {
   type Target = T;
 
