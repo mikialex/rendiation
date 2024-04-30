@@ -1,88 +1,63 @@
 use crate::*;
 
-#[derive(Clone)]
-pub enum LightEnum {
-  PointLight(IncrementalSignalPtr<PointLight>),
-  SpotLight(IncrementalSignalPtr<SpotLight>),
-  DirectionalLight(IncrementalSignalPtr<DirectionalLight>),
-  Foreign(ForeignObject),
+declare_entity!(PointLightEntity);
+declare_foreign_key!(PointLightRefScene, PointLightEntity, SceneEntity);
+declare_foreign_key!(PointLightRefNode, PointLightEntity, SceneNodeEntity);
+declare_component!(PointLightCutOffDistance, PointLightEntity, f32, 10.); // in meter
+declare_component!(
+  PointLightIntensity,
+  PointLightEntity,
+  Vec3<f32>,
+  Vec3::splat(100.)
+); // in cd
+
+pub fn register_point_light_data_model() {
+  global_database()
+    .declare_entity::<PointLightEntity>()
+    .declare_component::<PointLightCutOffDistance>()
+    .declare_component::<PointLightIntensity>()
+    .declare_foreign_key::<PointLightRefScene>()
+    .declare_foreign_key::<PointLightRefNode>();
 }
 
-clone_self_incremental!(LightEnum);
+declare_entity!(SpotLightEntity);
+declare_foreign_key!(SpotLightRefScene, SpotLightEntity, SceneEntity);
+declare_foreign_key!(SpotLightRefNode, SpotLightEntity, SceneNodeEntity);
+declare_component!(SpotLightCutOffDistance, SpotLightEntity, f32, 10.); // in meter
+declare_component!(SpotLightHalfConeAngle, SpotLightEntity, f32, 0.5); // in rad
+declare_component!(SpotLightHalfPenumbraAngle, SpotLightEntity, f32, 0.5); // in rad
+declare_component!(
+  SplitLightIntensity,
+  SpotLightEntity,
+  Vec3<f32>,
+  Vec3::splat(100.)
+); // in cd
 
-pub type SceneLight = IncrementalSignalPtr<SceneLightImpl>;
-
-#[derive(Incremental)]
-pub struct SceneLightImpl {
-  pub light: LightEnum,
-  /// Note: Light properties are unaffected by node transforms by default
-  /// — for example, range and intensity do not change with scale.
-  pub node: SceneNode,
+pub fn register_spot_light_data_model() {
+  global_database()
+    .declare_entity::<SpotLightEntity>()
+    .declare_component::<SpotLightCutOffDistance>()
+    .declare_component::<SpotLightHalfConeAngle>()
+    .declare_component::<SpotLightHalfPenumbraAngle>()
+    .declare_component::<SplitLightIntensity>()
+    .declare_foreign_key::<SpotLightRefScene>()
+    .declare_foreign_key::<SpotLightRefNode>();
 }
 
-impl SceneLightImpl {
-  pub fn new(light: LightEnum, node: SceneNode) -> Self {
-    Self { light, node }
-  }
-}
+declare_entity!(DirectionalLightEntity);
+declare_foreign_key!(DirectionalRefScene, DirectionalLightEntity, SceneEntity);
+declare_foreign_key!(DirectionalRefNode, DirectionalLightEntity, SceneNodeEntity);
+declare_component!(
+  DirectionalLightIlluminance,
+  DirectionalLightEntity,
+  Vec3<f32>,
+  Vec3::splat(100.)
+); // in lux
 
-#[derive(Debug, Clone, Incremental)]
-pub struct PointLight {
-  pub color_factor: Vec3<f32>,
-  /// in cd
-  pub luminance_intensity: f32,
-  /// in meter
-  pub cutoff_distance: f32,
-}
-
-impl PointLight {
-  /// The luminous power of a point light is calculated by integrating
-  /// the luminous intensity over the light's solid angle
-  ///
-  /// return in watt
-  pub fn compute_luminous_power(&self) -> f32 {
-    f32::PI() * 4. * self.luminance_intensity
-  }
-  // in watts
-  pub fn set_luminous_intensity_by_luminous_power(&mut self, luminous_power: f32) -> &mut Self {
-    self.luminance_intensity = luminous_power / f32::PI() * 4.;
-    self
-  }
-}
-
-#[derive(Debug, Clone, Incremental)]
-pub struct SpotLight {
-  pub color_factor: Vec3<f32>,
-  /// in cd
-  pub luminance_intensity: f32,
-  /// in meter
-  pub cutoff_distance: f32,
-  pub half_cone_angle: f32,
-  /// should less equal to half_cont_angle,large equal to zero
-  pub half_penumbra_angle: f32,
-}
-
-impl SpotLight {
-  /// luminous power of a spot light can be calculated in a similar fashion to
-  /// point lights, using θ outer the outer angle of the spot light's cone in the range [0..π].
-  ///
-  /// return in watt
-  pub fn compute_luminous_power(&self) -> f32 {
-    f32::PI() * 2. * (1. - self.half_cone_angle.cos()) * self.luminance_intensity
-  }
-  // in watts
-  pub fn set_luminous_intensity_by_luminous_power(&mut self, luminous_power: f32) -> &mut Self {
-    self.luminance_intensity =
-      luminous_power / (f32::PI() * 2. * (1. - self.half_cone_angle.cos()));
-    self
-  }
-}
-
-#[derive(Debug, Clone, Incremental)]
-pub struct DirectionalLight {
-  /// in lux
-  ///
-  /// for reference, the sun is 90000 ~ 130000 lux
-  pub illuminance: f32,
-  pub color_factor: Vec3<f32>,
+pub fn register_directional_light_data_model() {
+  global_database()
+    .declare_entity::<DirectionalLightEntity>()
+    .declare_component::<DirectionalLightIlluminance>()
+    .declare_foreign_key::<DirectionalRefScene>()
+    .declare_foreign_key::<DirectionalRefNode>();
 }

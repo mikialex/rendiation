@@ -3,7 +3,7 @@ use egui::{Context, Visuals};
 use egui_wgpu::Renderer;
 use egui_wgpu::ScreenDescriptor;
 use egui_winit::State;
-use webgpu::{CommandEncoder, Device, Queue, TextureFormat, TextureView};
+use rendiation_webgpu::{CommandEncoder, Device, Queue, TextureFormat, TextureView};
 use winit::event::WindowEvent;
 use winit::window::Window;
 
@@ -86,13 +86,13 @@ impl EguiRenderer {
     self
       .renderer
       .update_buffers(device, queue, encoder, &tris, &screen_descriptor);
-    let mut rpass = encoder.begin_render_pass(&webgpu::RenderPassDescriptor {
-      color_attachments: &[Some(webgpu::RenderPassColorAttachment {
+    let mut rpass = encoder.begin_render_pass(&rendiation_webgpu::RenderPassDescriptor {
+      color_attachments: &[Some(rendiation_webgpu::RenderPassColorAttachment {
         view: window_surface_view,
         resolve_target: None,
-        ops: webgpu::Operations {
-          load: webgpu::LoadOp::Load,
-          store: webgpu::StoreOp::Store,
+        ops: rendiation_webgpu::Operations {
+          load: rendiation_webgpu::LoadOp::Load,
+          store: rendiation_webgpu::StoreOp::Store,
         },
       })],
       depth_stencil_attachment: None,

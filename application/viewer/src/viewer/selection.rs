@@ -2,17 +2,17 @@ use std::task::Context;
 
 use fast_hash_collection::FastHashSet;
 use futures::task::AtomicWaker;
-
-use crate::*;
+use reactive::AllocIdx;
+use rendiation_scene_core::SceneModelEntity;
 
 #[derive(Default)]
 pub struct SelectionSet {
-  selected: FastHashSet<SceneModel>,
+  selected: FastHashSet<AllocIdx<SceneModelEntity>>,
   changed: AtomicWaker,
 }
 
 impl<'a> IntoIterator for &'a SelectionSet {
-  type Item = &'a SceneModel;
+  type Item = &'a AllocIdx<SceneModelEntity>;
 
   type IntoIter = SelectionSetIterType<'a>;
 
@@ -21,9 +21,9 @@ impl<'a> IntoIterator for &'a SelectionSet {
   }
 }
 
-pub type SelectionSetIterType<'a> = impl Iterator<Item = &'a SceneModel>;
+pub type SelectionSetIterType<'a> = impl Iterator<Item = &'a AllocIdx<SceneModelEntity>>;
 
-fn iter(map: &FastHashSet<SceneModel>) -> SelectionSetIterType {
+fn iter(map: &FastHashSet<AllocIdx<SceneModelEntity>>) -> SelectionSetIterType {
   map.iter()
 }
 
@@ -36,14 +36,14 @@ impl SelectionSet {
     self.selected.is_empty()
   }
 
-  pub fn select(&mut self, model: &SceneModel) {
+  pub fn select(&mut self, model: AllocIdx<SceneModelEntity>) {
     self.changed.wake();
-    self.selected.insert(model.clone());
+    self.selected.insert(model);
   }
 
-  pub fn deselect(&mut self, model: &SceneModel) {
+  pub fn deselect(&mut self, model: AllocIdx<SceneModelEntity>) {
     self.changed.wake();
-    self.selected.remove(model);
+    self.selected.remove(&model);
   }
 
   pub fn clear(&mut self) {
@@ -51,11 +51,7 @@ impl SelectionSet {
     self.selected.clear();
   }
 
-  pub fn iter_selected(&self) -> impl Iterator<Item = &SceneModel> {
+  pub fn iter_selected(&self) -> impl Iterator<Item = &AllocIdx<SceneModelEntity>> {
     self.selected.iter()
-  }
-
-  pub fn iter_renderables(&self) -> impl Iterator<Item = &dyn SceneRenderable> {
-    self.selected.iter().map(|m| m as &dyn SceneRenderable)
   }
 }

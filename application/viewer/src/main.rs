@@ -4,6 +4,9 @@
 #![feature(type_alias_impl_trait)]
 #![feature(hash_raw_entry)]
 #![allow(clippy::collapsible_match)]
+#![allow(unused_imports)]
+#![allow(dead_code)]
+#![allow(unused_variables)]
 
 use std::{alloc::System, sync::Arc};
 
@@ -13,23 +16,21 @@ use egui_winit::winit::{
   event_loop::EventLoop,
   window::WindowBuilder,
 };
-use rendiation_scene_core::*;
 
 mod ui;
 mod viewer;
 
 use heap_tools::*;
-use rendiation_scene_webgpu::*;
+use rendiation_texture::Size;
+use rendiation_webgpu::{GPUCreateConfig, GPUSurface, GPU};
 use ui::EguiRenderer;
 pub use viewer::*;
-use webgpu::{GPUCreateConfig, GPUSurface, GPU};
 
 #[global_allocator]
 static GLOBAL_ALLOCATOR: PreciseAllocationHook<System> = PreciseAllocationHook::new(System);
 
 fn main() {
   setup_global_database(Default::default());
-  setup_active_plane(Default::default());
 
   env_logger::builder().init();
 
@@ -42,7 +43,7 @@ pub async fn run() {
   let window = WindowBuilder::new().build(&event_loop).unwrap();
   window.set_title("viewer");
 
-  let minimal_required_features = webgpu::Features::all_webgpu_mask();
+  let minimal_required_features = rendiation_webgpu::Features::all_webgpu_mask();
   // minimal_required_features.insert(Features::TEXTURE_BINDING_ARRAY);
   // minimal_required_features.insert(Features::BUFFER_BINDING_ARRAY);
   // minimal_required_features.insert(Features::PARTIALLY_BOUND_BINDING_ARRAY);
@@ -86,23 +87,25 @@ pub async fn run() {
           }
           WindowEvent::RedrawRequested => {
             let (output, canvas) = surface.get_current_frame_with_render_target_view().unwrap();
-            let view = output.texture.create_view(&webgpu::TextureViewDescriptor {
-              label: None,
-              format: None,
-              dimension: None,
-              aspect: webgpu::TextureAspect::All,
-              base_mip_level: 0,
-              mip_level_count: None,
-              base_array_layer: 0,
-              array_layer_count: None,
-            });
+            let view = output
+              .texture
+              .create_view(&rendiation_webgpu::TextureViewDescriptor {
+                label: None,
+                format: None,
+                dimension: None,
+                aspect: rendiation_webgpu::TextureAspect::All,
+                base_mip_level: 0,
+                mip_level_count: None,
+                base_array_layer: 0,
+                array_layer_count: None,
+              });
 
             viewer.draw_canvas(&gpu, canvas);
 
             let mut encoder =
               gpu
                 .device
-                .create_command_encoder(&webgpu::CommandEncoderDescriptor {
+                .create_command_encoder(&rendiation_webgpu::CommandEncoderDescriptor {
                   label: Some("Render Encoder"),
                 });
 

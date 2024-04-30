@@ -1,60 +1,98 @@
-use std::fmt::Debug;
-
 use rendiation_texture::{GPUBufferImage, TextureSampler};
 
 use crate::*;
 
-#[derive(Clone, Derivative)]
-#[derivative(Hash)]
-pub struct TextureWithSamplingData<T> {
-  pub texture: T,
-  #[derivative(Hash(hash_with = "ptr_internal_hash"))]
-  pub sampler: IncrementalSignalPtr<TextureSampler>,
+declare_entity!(SceneTexture2dEntity);
+declare_component!(
+  SceneTexture2dEntityDirectContent,
+  SceneTexture2dEntity,
+  Option<ExternalRefPtr<GPUBufferImage>>
+);
+pub fn register_scene_texture2d_data_model() {
+  global_database()
+    .declare_entity::<SceneTexture2dEntity>()
+    .declare_component::<SceneTexture2dEntityDirectContent>();
 }
 
-fn ptr_internal_hash<T: IncrementalBase + Hash, H>(value: &IncrementalSignalPtr<T>, state: &mut H)
-where
-  H: std::hash::Hasher,
-{
-  value.read().hash(state)
+declare_entity!(SceneTextureCubeEntity);
+declare_foreign_key!(
+  SceneTextureCubeXPositiveFace,
+  SceneTextureCubeEntity,
+  SceneTexture2dEntity
+);
+declare_foreign_key!(
+  SceneTextureCubeYPositiveFace,
+  SceneTextureCubeEntity,
+  SceneTexture2dEntity
+);
+declare_foreign_key!(
+  SceneTextureCubeZPositiveFace,
+  SceneTextureCubeEntity,
+  SceneTexture2dEntity
+);
+declare_foreign_key!(
+  SceneTextureCubeXNegativeFace,
+  SceneTextureCubeEntity,
+  SceneTexture2dEntity
+);
+declare_foreign_key!(
+  SceneTextureCubeYNegativeFace,
+  SceneTextureCubeEntity,
+  SceneTexture2dEntity
+);
+declare_foreign_key!(
+  SceneTextureCubeZNegativeFace,
+  SceneTextureCubeEntity,
+  SceneTexture2dEntity
+);
+
+pub fn register_scene_texture_cube_data_model() {
+  global_database()
+    .declare_entity::<SceneTextureCubeEntity>()
+    .declare_foreign_key::<SceneTextureCubeXPositiveFace>()
+    .declare_foreign_key::<SceneTextureCubeYPositiveFace>()
+    .declare_foreign_key::<SceneTextureCubeZPositiveFace>()
+    .declare_foreign_key::<SceneTextureCubeXNegativeFace>()
+    .declare_foreign_key::<SceneTextureCubeYNegativeFace>()
+    .declare_foreign_key::<SceneTextureCubeZNegativeFace>();
 }
 
-impl<T: Clone + Send + Sync> SimpleIncremental for TextureWithSamplingData<T> {
-  type Delta = Self;
-
-  fn s_apply(&mut self, delta: Self::Delta) {
-    *self = delta
-  }
-
-  fn s_expand(&self, mut cb: impl FnMut(Self::Delta)) {
-    cb(self.clone())
-  }
+declare_entity!(SceneSamplerEntity);
+declare_component!(SceneSamplerInfo, SceneSamplerEntity, TextureSampler);
+pub fn register_scene_sampler_data_model() {
+  global_database()
+    .declare_entity::<SceneSamplerEntity>()
+    .declare_component::<SceneSamplerInfo>();
 }
 
-pub type Texture2DWithSamplingData = TextureWithSamplingData<SceneTexture2D>;
+pub trait TextureWithSamplingForeignKeys: EntityAssociateSemantic {}
 
-pub type SceneTexture2D = IncrementalSignalPtr<SceneTexture2DType>;
-
-#[derive(Clone)]
-pub enum SceneTexture2DType {
-  GPUBufferImage(GPUBufferImage),
-  Foreign(ForeignObject),
+pub struct SceneTexture2dRefOf<T>(T);
+impl<T: TextureWithSamplingForeignKeys> EntityAssociateSemantic for SceneTexture2dRefOf<T> {
+  type Entity = T::Entity;
+}
+impl<T: TextureWithSamplingForeignKeys> ComponentSemantic for SceneTexture2dRefOf<T> {
+  type Data = Option<u32>;
+}
+impl<T: TextureWithSamplingForeignKeys> ForeignKeySemantic for SceneTexture2dRefOf<T> {
+  type ForeignEntity = SceneTexture2dEntity;
 }
 
-clone_self_incremental!(SceneTexture2DType);
-
-impl Debug for SceneTexture2DType {
-  fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-    f.write_str("SceneTexture2DType")
-  }
+pub struct SceneSamplerRefOf<T>(T);
+impl<T: TextureWithSamplingForeignKeys> EntityAssociateSemantic for SceneSamplerRefOf<T> {
+  type Entity = T::Entity;
+}
+impl<T: TextureWithSamplingForeignKeys> ComponentSemantic for SceneSamplerRefOf<T> {
+  type Data = Option<u32>;
+}
+impl<T: TextureWithSamplingForeignKeys> ForeignKeySemantic for SceneSamplerRefOf<T> {
+  type ForeignEntity = SceneSamplerEntity;
 }
 
-pub type SceneTextureCube = IncrementalSignalPtr<SceneTextureCubeImpl>;
-
-#[derive(Clone, Debug)]
-pub struct SceneTextureCubeImpl {
-  /// in: px, nx, py, ny, pz, nz order
-  pub faces: [SceneTexture2DType; 6],
+pub fn register_texture_with_sampling<T: TextureWithSamplingForeignKeys>(
+  ecg: EntityComponentGroupTyped<T::Entity>,
+) -> EntityComponentGroupTyped<T::Entity> {
+  ecg
+    .declare_foreign_key::<SceneTexture2dRefOf<T>>()
+    .declare_foreign_key::<SceneSamplerRefOf<T>>()
 }
-
-clone_self_incremental!(SceneTextureCubeImpl);

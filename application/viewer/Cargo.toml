@@ -11,7 +11,7 @@ futures = { workspace = true, features = ["thread-pool"] }
 
 dirs = "4.0.0"
 image = "*"
-png = "*"                                                                           # for better control over writing
+png = "*"                                                                       # for better control over writing
 rfd = "0.14.0"
 fast-hash-collection = { path = "../../utility/fast-hash-collection" }
 heap-tools = { path = "../../utility/heap-tools" }
@@ -28,16 +28,10 @@ rendiation-mesh-core = { path = "../../content/mesh/core" }
 rendiation-mesh-generator = { path = "../../content/mesh/generator" }
 rendiation-controller = { path = "../../extension/controller" }
 rendiation-scene-core = { path = "../../scene/core" }
-rendiation-scene-gltf-exporter = { path = "../../scene/io/gltf/exporter" }
-rendiation-scene-gltf-loader = { path = "../../scene/io/gltf/loader" }
-rendiation-scene-interaction = { path = "../../scene/interaction" }
-rendiation-scene-obj-loader = { path = "../../scene/io/obj/loader" }
-rendiation-scene-webgpu = { path = "../../scene/webgpu" }
 rendiation-shader-api = { path = "../../shader/api" }
 rendiation-texture = { path = "../../content/texture/core" }
-interning = { path = "../../utility/interning" }
 database = { path = "../../utility/database" }
-webgpu = { package = "rendiation-webgpu", path = "../../platform/graphics/webgpu" }
+rendiation-webgpu = { path = "../../platform/graphics/webgpu" }
 
 egui = "0.26"
 egui-wgpu = "0.26.0"
@@ -50,7 +44,7 @@ wasm-bindgen-futures = "0.4.28"
 
 [features]
 heap-debug = ["heap-tools/enabled"]
-webgl = ["webgpu/webgl"]
+webgl = ["rendiation-webgpu/webgl"]
 
 [lints]
 workspace = true

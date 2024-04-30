@@ -5,17 +5,11 @@ name = "rendiation-scene-core"
 version = "0.1.0"
 
 [dependencies]
-anymap = "0.12.1"
-arena = { path = "../../utility/arena" }
-bitflags = { workspace = true }
-derivative = { workspace = true }
-rayon = { workspace = true }
 bytemuck = { workspace = true, features = ["derive"] }
 dyn-clone = { workspace = true }
 dyn-downcast = { path = "../../utility/dyn-downcast" }
 fast-hash-collection = { path = "../../utility/fast-hash-collection" }
 futures = { workspace = true }
-incremental = { path = "../../utility/incremental" }
 log = { workspace = true }
 once_cell = { workspace = true }
 pin-project = { workspace = true }
@@ -26,7 +20,6 @@ rendiation-geometry = { path = "../../math/geometry" }
 rendiation-mesh-core = { path = "../../content/mesh/core" }
 rendiation-texture = { path = "../../content/texture/core" }
 smallvec = { workspace = true }
-tree = { path = "../../utility/tree" }
 database = { path = "../../utility/database" }
 parking_lot = { version = "0.12.1", features = ["send_guard"] }
 

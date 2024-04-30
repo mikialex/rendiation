@@ -7,19 +7,15 @@ mod terminal;
 pub use terminal::*;
 
 mod default_scene;
-pub use default_scene::*;
+// pub use default_scene::*;
 mod rendering;
 use reactive::{EventSource, NotifyScope};
 pub use rendering::*;
 
-// mod controller;
-// pub use controller::*;
 mod selection;
-// mod helpers;
-// pub use helpers::*;
 use rendiation_texture::Size;
+use rendiation_webgpu::*;
 pub use selection::*;
-use webgpu::*;
 
 pub struct Viewer {
   content: Viewer3dContent,
@@ -91,7 +87,6 @@ impl Viewer {
   ) {
     self.on_demand_draw.notify_by(|cx| {
       let mut ctx = CommandCtx {
-        scene: &self.content.scene,
         rendering: self.ctx.as_mut(),
         selection_set: &self.content.selections,
       };

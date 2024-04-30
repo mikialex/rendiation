@@ -8,29 +8,20 @@ use std::task::Context;
 use futures::Future;
 pub use pipeline::*;
 use reactive::{EventSource, PollUtils};
-use webgpu::*;
+use rendiation_webgpu::*;
 
 pub struct Viewer3dRenderingCtx {
   pub(crate) pipeline: ViewerPipeline,
   pool: AttachmentPool,
-  resources: GlobalGPUSystem,
   gpu: Arc<GPU>,
   on_encoding_finished: EventSource<ViewRenderedState>,
 }
 
 impl Viewer3dRenderingCtx {
   pub fn new(gpu: Arc<GPU>) -> Self {
-    let gpu_resources = GlobalGPUSystem::new(
-      &gpu,
-      BindableResourceConfig {
-        prefer_bindless_texture: true,
-        prefer_bindless_mesh: false,
-      },
-    );
     Self {
       pipeline: ViewerPipeline::new(gpu.as_ref()),
       gpu,
-      resources: gpu_resources,
       pool: Default::default(),
       on_encoding_finished: Default::default(),
     }
@@ -38,7 +29,7 @@ impl Viewer3dRenderingCtx {
 
   /// some effect maybe take continuously draw in next frames to finish
   pub fn setup_render_waker(&self, cx: &mut Context) {
-    self.pipeline.setup_render_waker(cx)
+    // self.pipeline.setup_render_waker(cx)
   }
 
   pub fn gpu(&self) -> &GPU {
@@ -67,33 +58,33 @@ impl Viewer3dRenderingCtx {
     content: &mut Viewer3dContent,
     cx: &mut std::task::Context,
   ) {
-    self.resources.poll_until_pending_not_care_result(cx);
+    // self.resources.poll_until_pending_not_care_result(cx);
 
-    let (scene_resource, content_res) = self.resources.get_or_create_scene_sys_with_content(
-      &content.scene,
-      &content.scene_derived,
-      cx,
-    );
-    let resource = content_res.read().unwrap();
+    // let (scene_resource, content_res) = self.resources.get_or_create_scene_sys_with_content(
+    //   &content.scene,
+    //   &content.scene_derived,
+    //   cx,
+    // );
+    // let resource = content_res.read().unwrap();
 
-    let scene = content.scene.read();
+    // let scene = content.scene.read();
 
-    let mut ctx = FrameCtx::new(&self.gpu, target.size(), &self.pool);
-    let scene_res = SceneRenderResourceGroup {
-      scene: &scene.core.read(),
-      resources: &resource,
-      scene_resources: scene_resource,
-      node_derives: &content.scene_derived,
-    };
+    // let mut ctx = FrameCtx::new(&self.gpu, target.size(), &self.pool);
+    // let scene_res = SceneRenderResourceGroup {
+    //   scene: &scene.core.read(),
+    //   resources: &resource,
+    //   scene_resources: scene_resource,
+    //   node_derives: &content.scene_derived,
+    // };
 
-    self.pipeline.render(&mut ctx, content, &target, &scene_res);
-    ctx.final_submit();
+    // self.pipeline.render(&mut ctx, content, &target, &scene_res);
+    // ctx.final_submit();
 
-    self.on_encoding_finished.emit(&ViewRenderedState {
-      target,
-      device: self.gpu.device.clone(),
-      queue: self.gpu.queue.clone(),
-    })
+    // self.on_encoding_finished.emit(&ViewRenderedState {
+    //   target,
+    //   device: self.gpu.device.clone(),
+    //   queue: self.gpu.queue.clone(),
+    // })
   }
 }
 
@@ -106,7 +97,7 @@ struct ViewRenderedState {
 
 #[derive(Debug)]
 pub enum ViewerRenderResultReadBackErr {
-  GPU(webgpu::BufferAsyncError),
+  GPU(rendiation_webgpu::BufferAsyncError),
   UnableToReadSurfaceTexture,
 }
 

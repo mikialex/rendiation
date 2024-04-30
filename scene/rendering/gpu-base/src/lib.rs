@@ -27,7 +27,7 @@ use std::{
 
 use fast_hash_collection::FastHashMap;
 use reactive::*;
-use rendiation_scene_core_next::*;
+use rendiation_scene_core::*;
 use rendiation_webgpu::*;
 
 pub trait RenderImplProvider<T> {

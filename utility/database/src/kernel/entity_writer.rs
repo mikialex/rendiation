@@ -35,6 +35,19 @@ impl<E: EntitySemantic> EntityWriter<E> {
   pub fn into_untyped(self) -> EntityWriterUntyped {
     self.inner
   }
+
+  pub fn with_component_value_writer<C: ComponentSemantic>(mut self, value: C::Data) -> Self {
+    for (id, view) in &mut self.inner.components {
+      if *id == C::component_id() {
+        let v = view.take_write_view();
+        let v = v.downcast::<ComponentWriteView<C>>().unwrap();
+        *view = Box::new(v.with_write_value(value));
+        return self;
+      }
+    }
+    self
+  }
+
   pub fn with_component_writer<C: ComponentSemantic, W: EntityComponentWriter + 'static>(
     mut self,
     writer_maker: impl FnOnce(ComponentWriteView<C>) -> W,

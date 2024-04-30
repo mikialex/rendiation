@@ -100,12 +100,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4b46cbb362ab8752921c97e041f5e366ee6297bd428a31275b9fcf1e380f7299"
 
 [[package]]
-name = "anymap"
-version = "0.12.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "33954243bd79057c2de7338850b85983a44588021f8a5fee574a8888c6de4344"
-
-[[package]]
 name = "approx"
 version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -377,12 +371,6 @@ name = "autocfg"
 version = "1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d468802bab17cbc0cc575e9b053f41e72aa36bfa6b7f55e3529ffa43161b97fa"
-
-[[package]]
-name = "base64"
-version = "0.13.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9e1b586273c5702936fe7b7d6896644d8be71e6314cfe09d3167c95f712589e8"
 
 [[package]]
 name = "bit-set"
@@ -704,21 +692,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d16048cd947b08fa32c24458a22f5dc5e835264f689f4f5653210c69fd107363"
 dependencies = [
  "crossbeam-utils",
-]
-
-[[package]]
-name = "console"
-version = "0.14.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7cc80946b3480f421c2f17ed1cb841753a371c7c5104f51d507e13f532c856aa"
-dependencies = [
- "encode_unicode",
- "lazy_static",
- "libc",
- "regex",
- "terminal_size",
- "unicode-width",
- "winapi",
 ]
 
 [[package]]
@@ -1122,12 +1095,6 @@ checksum = "6916301ecf80448f786cdf3eb51d9dbdd831538732229d49119e2d4312eaaf09"
 dependencies = [
  "bytemuck",
 ]
-
-[[package]]
-name = "encode_unicode"
-version = "0.3.6"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a357d28ed41a50f9c765dbfe56cbc04a64e53e5fc58ba79fbc34c10ef3df831f"
 
 [[package]]
 name = "endi"
@@ -1615,44 +1582,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "gltf"
-version = "1.2.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f4fe8d5192923fbd783c15e74627de8e27c97e1e3dec22bf54515a407249febf"
-dependencies = [
- "base64",
- "byteorder",
- "gltf-json",
- "image",
- "lazy_static",
- "urlencoding",
-]
-
-[[package]]
-name = "gltf-derive"
-version = "1.2.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ec223c88f017861193ae128239aff8fbc4478f38a036d9d7b2ce10a52b46b1f2"
-dependencies = [
- "inflections",
- "proc-macro2",
- "quote",
- "syn 2.0.52",
-]
-
-[[package]]
-name = "gltf-json"
-version = "1.2.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3b1ba7523fcf32541f4aec96e13024c255d928eab3223f99ab945045f2a6de18"
-dependencies = [
- "gltf-derive",
- "serde",
- "serde_derive",
- "serde_json",
-]
-
-[[package]]
 name = "glutin_wgl_sys"
 version = "0.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1925,24 +1854,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "indicatif"
-version = "0.15.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7baab56125e25686df467fe470785512329883aab42696d661247aca2a2896e4"
-dependencies = [
- "console",
- "lazy_static",
- "number_prefix",
- "regex",
-]
-
-[[package]]
-name = "inflections"
-version = "1.1.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a257582fdcde896fd96463bf2d40eefea0580021c0712a0e2b028b60b47a837a"
-
-[[package]]
 name = "interning"
 version = "0.0.1"
 dependencies = [
@@ -2192,15 +2103,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "matrixmultiply"
-version = "0.3.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "add85d4dd35074e6fedc608f8c8f513a3548619a9024b751949ef0e8e45a4d84"
-dependencies = [
- "rawpointer",
-]
-
-[[package]]
 name = "memchr"
 version = "2.7.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2288,35 +2190,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "nalgebra"
-version = "0.29.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d506eb7e08d6329505faa8a3a00a5dcc6de9f76e0c77e4b75763ae3c770831ff"
-dependencies = [
- "approx 0.5.1",
- "matrixmultiply",
- "nalgebra-macros",
- "num-complex 0.4.1",
- "num-rational 0.4.0",
- "num-traits",
- "rand",
- "rand_distr",
- "simba",
- "typenum",
-]
-
-[[package]]
-name = "nalgebra-macros"
-version = "0.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "01fcc0b8149b4632adc89ac3b7b31a12fb6099a0317a4eb2ebff574ef7de7218"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn 1.0.109",
-]
-
-[[package]]
 name = "nanorand"
 version = "0.6.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2391,7 +2264,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8b7a8e9be5e039e2ff869df49155f1c06bd01ade2117ec783e56ab0932b67a8f"
 dependencies = [
  "num-bigint",
- "num-complex 0.3.1",
+ "num-complex",
  "num-integer",
  "num-iter",
  "num-rational 0.3.2",
@@ -2414,15 +2287,6 @@ name = "num-complex"
 version = "0.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "747d632c0c558b87dbabbe6a82f3b4ae03720d0646ac5b7b4dae89394be5f2c5"
-dependencies = [
- "num-traits",
-]
-
-[[package]]
-name = "num-complex"
-version = "0.4.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "97fbc387afefefd5e9e39493299f3069e14a140dd34dc19b4c1c1a8fddb6a790"
 dependencies = [
  "num-traits",
 ]
@@ -2511,12 +2375,6 @@ dependencies = [
  "quote",
  "syn 2.0.52",
 ]
-
-[[package]]
-name = "number_prefix"
-version = "0.3.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "17b02fc0ff9a9e4b35b3342880f48e896ebf69f2967921fe8646bf5b7125956a"
 
 [[package]]
 name = "objc"
@@ -2903,16 +2761,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "rand_distr"
-version = "0.4.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "32cb0b9bc82b0a0876c2dd994a7e7a2683d3e7390ca40e6886785ef0c7e3ee31"
-dependencies = [
- "num-traits",
- "rand",
-]
-
-[[package]]
 name = "range-alloc"
 version = "0.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2929,12 +2777,6 @@ name = "raw-window-handle"
 version = "0.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "42a9830a0e1b9fb145ebb365b8bc4ccd75f290f98c0247deafbbe2c75cefb544"
-
-[[package]]
-name = "rawpointer"
-version = "0.2.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "60a357793950651c4ed0f3f52338f53b2f809f32d83a07f72909fa13e4c6c1e3"
 
 [[package]]
 name = "rayon"
@@ -3199,7 +3041,7 @@ dependencies = [
  "database",
  "reactive",
  "rendiation-algebra",
- "rendiation-scene-core-next",
+ "rendiation-scene-core",
  "rendiation-scene-rendering-gpu-gles",
  "rendiation-shader-api",
  "rendiation-state-override",
@@ -3307,7 +3149,7 @@ dependencies = [
  "rendiation-geometry",
  "rendiation-mesh-core",
  "space-algorithm",
- "tobj 4.0.0",
+ "tobj",
 ]
 
 [[package]]
@@ -3317,41 +3159,11 @@ dependencies = [
  "rendiation-algebra",
  "rendiation-geometry",
  "rendiation-mesh-core",
- "tobj 4.0.0",
+ "tobj",
 ]
 
 [[package]]
 name = "rendiation-scene-core"
-version = "0.1.0"
-dependencies = [
- "anymap",
- "arena",
- "bitflags 2.4.0",
- "bytemuck",
- "database",
- "derivative",
- "dyn-clone",
- "dyn-downcast",
- "fast-hash-collection",
- "futures",
- "incremental",
- "log",
- "once_cell",
- "parking_lot",
- "pin-project",
- "rayon",
- "reactive",
- "rendiation-algebra",
- "rendiation-animation",
- "rendiation-geometry",
- "rendiation-mesh-core",
- "rendiation-texture",
- "smallvec",
- "tree",
-]
-
-[[package]]
-name = "rendiation-scene-core-next"
 version = "0.1.0"
 dependencies = [
  "bytemuck",
@@ -3384,90 +3196,12 @@ dependencies = [
 ]
 
 [[package]]
-name = "rendiation-scene-gltf-exporter"
-version = "0.0.1"
-dependencies = [
- "fast-hash-collection",
- "gltf",
- "gltf-json",
- "rendiation-mesh-core",
- "rendiation-scene-core",
- "rendiation-texture",
- "tree",
-]
-
-[[package]]
-name = "rendiation-scene-gltf-loader"
-version = "0.0.1"
-dependencies = [
- "bytemuck",
- "fast-hash-collection",
- "gltf",
- "half 2.2.1",
- "rendiation-algebra",
- "rendiation-geometry",
- "rendiation-mesh-core",
- "rendiation-scene-core",
- "rendiation-shader-api",
- "rendiation-texture",
-]
-
-[[package]]
-name = "rendiation-scene-interaction"
-version = "0.1.0"
-dependencies = [
- "incremental",
- "rendiation-algebra",
- "rendiation-geometry",
- "rendiation-mesh-core",
- "rendiation-scene-core",
-]
-
-[[package]]
-name = "rendiation-scene-obj-loader"
-version = "0.1.0"
-dependencies = [
- "image",
- "rendiation-algebra",
- "rendiation-mesh-core",
- "rendiation-scene-core",
- "rendiation-texture",
- "smallvec",
- "thiserror",
- "tobj 4.0.0",
-]
-
-[[package]]
-name = "rendiation-scene-raytracing"
-version = "0.1.0"
-dependencies = [
- "arena",
- "dyn-clone",
- "image",
- "indicatif",
- "rand",
- "rayon",
- "rendiation-algebra",
- "rendiation-color",
- "rendiation-geometry",
- "rendiation-lighting-transport",
- "rendiation-mesh-core",
- "rendiation-scene-core",
- "rendiation-statistics",
- "rendiation-texture",
- "space-algorithm",
- "statrs",
- "tobj 2.0.4",
- "tree",
-]
-
-[[package]]
 name = "rendiation-scene-rendering-gpu-base"
 version = "0.1.0"
 dependencies = [
  "fast-hash-collection",
  "reactive",
- "rendiation-scene-core-next",
+ "rendiation-scene-core",
  "rendiation-webgpu",
 ]
 
@@ -3486,7 +3220,7 @@ dependencies = [
  "rendiation-lighting-transport",
  "rendiation-mesh-core",
  "rendiation-mesh-gpu-system",
- "rendiation-scene-core-next",
+ "rendiation-scene-core",
  "rendiation-scene-rendering-gpu-base",
  "rendiation-shader-api",
  "rendiation-shader-library",
@@ -3507,48 +3241,13 @@ dependencies = [
  "parking_lot",
  "reactive",
  "rendiation-algebra",
- "rendiation-scene-core-next",
+ "rendiation-scene-core",
  "rendiation-shader-api",
  "rendiation-shader-library",
  "rendiation-texture",
  "rendiation-texture-packer",
  "rendiation-webgpu",
  "rendiation-webgpu-reactive-utils",
-]
-
-[[package]]
-name = "rendiation-scene-webgpu"
-version = "0.1.0"
-dependencies = [
- "anymap",
- "arena",
- "bitflags 2.4.0",
- "bytemuck",
- "dyn-clone",
- "fast-hash-collection",
- "futures",
- "incremental",
- "linked-hash-map",
- "log",
- "once_cell",
- "pin-project",
- "reactive",
- "rendiation-algebra",
- "rendiation-color",
- "rendiation-geometry",
- "rendiation-lighting-ibl-core",
- "rendiation-lighting-transport",
- "rendiation-mesh-core",
- "rendiation-mesh-gpu-system",
- "rendiation-scene-core",
- "rendiation-shader-api",
- "rendiation-shader-library",
- "rendiation-texture",
- "rendiation-texture-gpu-base",
- "rendiation-texture-gpu-process",
- "rendiation-texture-gpu-system",
- "rendiation-webgpu",
- "tree",
 ]
 
 [[package]]
@@ -3599,7 +3298,7 @@ dependencies = [
  "once_cell",
  "reactive",
  "rendiation-algebra",
- "rendiation-scene-core-next",
+ "rendiation-scene-core",
  "rendiation-shader-api",
  "rendiation-webgpu",
 ]
@@ -3679,7 +3378,7 @@ dependencies = [
  "database",
  "reactive",
  "rendiation-algebra",
- "rendiation-scene-core-next",
+ "rendiation-scene-core",
  "rendiation-webgpu",
 ]
 
@@ -3763,15 +3462,6 @@ name = "ryu"
 version = "1.0.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "71d301d4193d031abdd79ff7e3dd721168a9572ef3fe51a1517aba235bd8f86e"
-
-[[package]]
-name = "safe_arch"
-version = "0.7.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "62a7484307bd40f8f7ccbacccac730108f2cae119a3b11c74485b48aa9ea650f"
-dependencies = [
- "bytemuck",
-]
 
 [[package]]
 name = "same-file"
@@ -3888,19 +3578,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d8229b473baa5980ac72ef434c4415e70c4b5e71b423043adb4ba059f89c99a1"
 dependencies = [
  "libc",
-]
-
-[[package]]
-name = "simba"
-version = "0.6.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f0b7840f121a46d63066ee7a99fc81dcabbc6105e437cae43528cea199b5a05f"
-dependencies = [
- "approx 0.5.1",
- "num-complex 0.4.1",
- "num-traits",
- "paste",
- "wide",
 ]
 
 [[package]]
@@ -4035,19 +3712,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a2eb9349b6444b326872e140eb1cf5e7c522154d69e7a0ffb0fb81c06b37543f"
 
 [[package]]
-name = "statrs"
-version = "0.16.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2d08e5e1748192713cc281da8b16924fb46be7b0c2431854eadc785823e5696e"
-dependencies = [
- "approx 0.5.1",
- "lazy_static",
- "nalgebra",
- "num-traits",
- "rand",
-]
-
-[[package]]
 name = "storage"
 version = "0.0.1"
 dependencies = [
@@ -4108,16 +3772,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "06794f8f6c5c898b3275aebefa6b8a1cb24cd2c6c79397ab15774837a0bc5755"
 dependencies = [
  "winapi-util",
-]
-
-[[package]]
-name = "terminal_size"
-version = "0.1.16"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "86ca8ced750734db02076f44132d802af0b33b09942331f4459dde8636fd2406"
-dependencies = [
- "libc",
- "winapi",
 ]
 
 [[package]]
@@ -4209,12 +3863,6 @@ checksum = "1f3ccbac311fea05f86f61904b462b55fb3df8837a366dfc601a0161d0532f20"
 
 [[package]]
 name = "tobj"
-version = "2.0.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2468f55be8e59cf7219f1685cf1af4eb00ef2314823a7941a41c8d69538f881b"
-
-[[package]]
-name = "tobj"
 version = "4.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b450e3ba06251ec4fc76917dafeaf55805ffb26dbf7d5500bfb9511ce63a0d1f"
@@ -4277,18 +3925,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c06d3da6113f116aaee68e4d601191614c9053067f9ab7f6edbcb161237daa54"
 dependencies = [
  "once_cell",
-]
-
-[[package]]
-name = "tree"
-version = "0.0.1"
-dependencies = [
- "futures",
- "incremental",
- "parking_lot",
- "reactive",
- "rendiation-abstract-tree",
- "storage",
 ]
 
 [[package]]
@@ -4429,7 +4065,6 @@ dependencies = [
  "heap-tools",
  "image",
  "incremental",
- "interning",
  "log",
  "pin-project",
  "png",
@@ -4442,11 +4077,6 @@ dependencies = [
  "rendiation-mesh-core",
  "rendiation-mesh-generator",
  "rendiation-scene-core",
- "rendiation-scene-gltf-exporter",
- "rendiation-scene-gltf-loader",
- "rendiation-scene-interaction",
- "rendiation-scene-obj-loader",
- "rendiation-scene-webgpu",
  "rendiation-shader-api",
  "rendiation-texture",
  "rendiation-texture-gpu-process",
@@ -4802,16 +4432,6 @@ dependencies = [
  "bitflags 2.4.0",
  "js-sys",
  "web-sys",
-]
-
-[[package]]
-name = "wide"
-version = "0.7.10"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "40018623e2dba2602a9790faba8d33f2ebdebf4b86561b83928db735f8784728"
-dependencies = [
- "bytemuck",
- "safe_arch",
 ]
 
 [[package]]

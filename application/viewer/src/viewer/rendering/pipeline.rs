@@ -2,7 +2,7 @@ use std::task::Context;
 
 use rendiation_algebra::*;
 use rendiation_texture_gpu_process::*;
-use webgpu::*;
+use rendiation_webgpu::*;
 
 use crate::*;
 
@@ -14,7 +14,7 @@ pub struct ViewerPipeline {
   ssao: SSAO,
   _blur: CrossBlurData,
   pub enable_channel_debugger: bool,
-  channel_debugger: ScreenChannelDebugger,
+  // channel_debugger: ScreenChannelDebugger,
   tonemap: ToneMap,
 }
 
@@ -28,182 +28,183 @@ impl ViewerPipeline {
       enable_ssao: true,
       ssao: SSAO::new(gpu),
       enable_channel_debugger: false,
-      channel_debugger: ScreenChannelDebugger::default_useful(),
+      // channel_debugger: ScreenChannelDebugger::default_useful(),
       tonemap: ToneMap::new(gpu),
     }
   }
-
-  /// some effect maybe take continuously draw in next frames to finish
-  pub fn setup_render_waker(&self, _cx: &mut Context) {
-    // todo
-  }
 }
 
-impl ViewerPipeline {
-  pub fn render(
-    &mut self,
-    ctx: &mut FrameCtx,
-    content: &Viewer3dContent,
-    final_target: &RenderTargetView,
-    scene: &SceneRenderResourceGroup,
-  ) {
-    let mut mip_gen = scene.resources.bindable_ctx.gpu.mipmap_gen.borrow_mut();
-    mip_gen.flush_mipmap_gen_request(ctx);
-    let mut single_proj_sys = scene
-      .scene_resources
-      .shadows
-      .single_proj_sys
-      .write()
-      .unwrap();
-    single_proj_sys.update_depth_maps(ctx, scene);
-    drop(single_proj_sys);
+//   /// some effect maybe take continuously draw in next frames to finish
+//   pub fn setup_render_waker(&self, _cx: &mut Context) {
+//     // todo
+//   }
+// }
 
-    let mut msaa_color = attachment().sample_count(4).request(ctx);
-    let mut msaa_depth = depth_attachment().sample_count(4).request(ctx);
-    let mut widgets_result = attachment().request(ctx);
+// impl ViewerPipeline {
+//   pub fn render(
+//     &mut self,
+//     ctx: &mut FrameCtx,
+//     content: &Viewer3dContent,
+//     final_target: &RenderTargetView,
+//     scene: &SceneRenderResourceGroup,
+//   ) {
+//     let mut mip_gen = scene.resources.bindable_ctx.gpu.mipmap_gen.borrow_mut();
+//     mip_gen.flush_mipmap_gen_request(ctx);
+//     let mut single_proj_sys = scene
+//       .scene_resources
+//       .shadows
+//       .single_proj_sys
+//       .write()
+//       .unwrap();
+//     single_proj_sys.update_depth_maps(ctx, scene);
+//     drop(single_proj_sys);
 
-    let _ = pass("scene-widgets")
-      .with_color(msaa_color.write(), clear(all_zero()))
-      .with_depth(msaa_depth.write(), clear(1.))
-      .resolve_to(widgets_result.write())
-      .render_ctx(ctx);
+//     let mut msaa_color = attachment().sample_count(4).request(ctx);
+//     let mut msaa_depth = depth_attachment().sample_count(4).request(ctx);
+//     let mut widgets_result = attachment().request(ctx);
 
-    let highlight_compose = (!content.selections.is_empty()).then(|| {
-      let masked_content = highlight(content.selections.iter_selected().cloned());
-      let masked_content = scene.by_main_camera_and_self(masked_content);
-      self.highlight.draw(ctx, masked_content)
-    });
+//     let _ = pass("scene-widgets")
+//       .with_color(msaa_color.write(), clear(all_zero()))
+//       .with_depth(msaa_depth.write(), clear(1.))
+//       .resolve_to(widgets_result.write())
+//       .render_ctx(ctx);
 
-    let taa_content = SceneCameraTAAContent {
-      gpu: ctx.gpu,
-      camera: scene.scene.get_active_camera(),
-      scene,
-      f: |ctx: &mut FrameCtx| {
-        let mut scene_result = attachment().request(ctx);
-        let mut scene_depth = depth_attachment().request(ctx);
+//     let highlight_compose = (!content.selections.is_empty()).then(|| {
+//       let masked_content = highlight(content.selections.iter_selected().cloned());
+//       let masked_content = scene.by_main_camera_and_self(masked_content);
+//       self.highlight.draw(ctx, masked_content)
+//     });
 
-        let mut cameras = scene.scene_resources.cameras.write().unwrap();
-        let camera_gpu = cameras
-          .get_camera_gpu_mut(scene.scene.get_active_camera())
-          .unwrap();
+//     let taa_content = SceneCameraTAAContent {
+//       gpu: ctx.gpu,
+//       camera: scene.scene.get_active_camera(),
+//       scene,
+//       f: |ctx: &mut FrameCtx| {
+//         let mut scene_result = attachment().request(ctx);
+//         let mut scene_depth = depth_attachment().request(ctx);
 
-        self
-          .reproject
-          .update(ctx, camera_gpu.ubo.get().view_projection_inv);
+//         let mut cameras = scene.scene_resources.cameras.write().unwrap();
+//         let camera_gpu = cameras
+//           .get_camera_gpu_mut(scene.scene.get_active_camera())
+//           .unwrap();
 
-        let ao = self.enable_ssao.then(|| {
-          let ao = self.ssao.draw(ctx, &scene_depth, &self.reproject.reproject);
-          copy_frame(
-            ao.read_into(),
-            BlendState {
-              color: BlendComponent {
-                src_factor: BlendFactor::Dst,
-                dst_factor: BlendFactor::One,
-                operation: BlendOperation::Add,
-              },
-              alpha: BlendComponent::REPLACE,
-            }
-            .into(),
-          )
-        });
-        drop(cameras);
+//         self
+//           .reproject
+//           .update(ctx, camera_gpu.ubo.get().view_projection_inv);
 
-        // these pass will get correct gpu camera?
-        pass("scene")
-          .with_color(scene_result.write(), get_main_pass_load_op(scene.scene))
-          .with_depth(scene_depth.write(), clear(1.))
-          .render_ctx(ctx)
-          .by(scene.by_main_camera_and_self(BackGroundRendering))
-          .by(
-            scene.by_main_camera_and_self(ForwardScene {
-              tonemap: &self.tonemap,
-              debugger: self
-                .enable_channel_debugger
-                .then_some(&self.channel_debugger),
-            }),
-          )
-          // .by(scene.by_main_camera_and_self(&mut s.ground)) // transparent, should go after
-          // opaque
-          .by(ao);
+//         let ao = self.enable_ssao.then(|| {
+//           let ao = self.ssao.draw(ctx, &scene_depth, &self.reproject.reproject);
+//           copy_frame(
+//             ao.read_into(),
+//             BlendState {
+//               color: BlendComponent {
+//                 src_factor: BlendFactor::Dst,
+//                 dst_factor: BlendFactor::One,
+//                 operation: BlendOperation::Add,
+//               },
+//               alpha: BlendComponent::REPLACE,
+//             }
+//             .into(),
+//           )
+//         });
+//         drop(cameras);
 
-        NewTAAFrameSample {
-          new_color: scene_result,
-          new_depth: scene_depth,
-        }
-      },
-    };
+//         // these pass will get correct gpu camera?
+//         pass("scene")
+//           .with_color(scene_result.write(), get_main_pass_load_op(scene.scene))
+//           .with_depth(scene_depth.write(), clear(1.))
+//           .render_ctx(ctx)
+//           .by(scene.by_main_camera_and_self(BackGroundRendering))
+//           .by(
+//             scene.by_main_camera_and_self(ForwardScene {
+//               tonemap: &self.tonemap,
+//               debugger: self
+//                 .enable_channel_debugger
+//                 .then_some(&self.channel_debugger),
+//             }),
+//           )
+//           // .by(scene.by_main_camera_and_self(&mut s.ground)) // transparent, should go after
+//           // opaque
+//           .by(ao);
 
-    let taa_result = self
-      .taa
-      .render_aa_content(taa_content, ctx, &self.reproject);
+//         NewTAAFrameSample {
+//           new_color: scene_result,
+//           new_depth: scene_depth,
+//         }
+//       },
+//     };
 
-    let main_scene_content = copy_frame(taa_result.read(), None);
+//     let taa_result = self
+//       .taa
+//       .render_aa_content(taa_content, ctx, &self.reproject);
 
-    let scene_msaa_widgets = copy_frame(
-      widgets_result.read_into(),
-      BlendState::PREMULTIPLIED_ALPHA_BLENDING.into(),
-    );
+//     let main_scene_content = copy_frame(taa_result.read(), None);
 
-    pass("compose-all")
-      .with_color(final_target.clone(), load())
-      .render_ctx(ctx)
-      .by(main_scene_content)
-      .by(highlight_compose)
-      .by(scene_msaa_widgets);
-  }
-}
+//     let scene_msaa_widgets = copy_frame(
+//       widgets_result.read_into(),
+//       BlendState::PREMULTIPLIED_ALPHA_BLENDING.into(),
+//     );
 
-pub struct HighLightDrawMaskTask<T> {
-  objects: Option<T>,
-}
+//     pass("compose-all")
+//       .with_color(final_target.clone(), load())
+//       .render_ctx(ctx)
+//       .by(main_scene_content)
+//       .by(highlight_compose)
+//       .by(scene_msaa_widgets);
+//   }
+// }
 
-pub fn highlight<T>(objects: T) -> HighLightDrawMaskTask<T> {
-  HighLightDrawMaskTask {
-    objects: Some(objects),
-  }
-}
+// pub struct HighLightDrawMaskTask<T> {
+//   objects: Option<T>,
+// }
 
-impl<T> PassContentWithSceneAndCamera for HighLightDrawMaskTask<T>
-where
-  T: Iterator<Item = SceneModel>,
-{
-  fn render(
-    &mut self,
-    pass: &mut FrameRenderPass,
-    scene: &SceneRenderResourceGroup,
-    camera: &SceneCamera,
-  ) {
-    if let Some(objects) = self.objects.take() {
-      let mut list = RenderList::default();
-      list.collect_from_scene_objects(scene, objects, camera, false);
-      let list = MaybeBindlessMeshRenderList::from_list(list, scene);
-      list.setup_pass(pass, &HighLightMaskDispatcher, camera, scene)
-    }
-  }
-}
+// pub fn highlight<T>(objects: T) -> HighLightDrawMaskTask<T> {
+//   HighLightDrawMaskTask {
+//     objects: Some(objects),
+//   }
+// }
 
-struct SceneCameraTAAContent<'a, F> {
-  gpu: &'a GPU,
-  camera: &'a SceneCamera,
-  scene: &'a SceneRenderResourceGroup<'a>,
-  f: F,
-}
+// impl<T> PassContentWithSceneAndCamera for HighLightDrawMaskTask<T>
+// where
+//   T: Iterator<Item = SceneModel>,
+// {
+//   fn render(
+//     &mut self,
+//     pass: &mut FrameRenderPass,
+//     scene: &SceneRenderResourceGroup,
+//     camera: &SceneCamera,
+//   ) {
+//     if let Some(objects) = self.objects.take() {
+//       let mut list = RenderList::default();
+//       list.collect_from_scene_objects(scene, objects, camera, false);
+//       let list = MaybeBindlessMeshRenderList::from_list(list, scene);
+//       list.setup_pass(pass, &HighLightMaskDispatcher, camera, scene)
+//     }
+//   }
+// }
 
-impl<'a, F> TAAContent for SceneCameraTAAContent<'a, F>
-where
-  F: FnOnce(&mut FrameCtx) -> NewTAAFrameSample,
-{
-  fn set_jitter(&mut self, next_jitter: Vec2<f32>) {
-    let mut cameras = self.scene.scene_resources.cameras.write().unwrap();
-    let camera_gpu = cameras.get_camera_gpu_mut(self.camera).unwrap();
+// struct SceneCameraTAAContent<'a, F> {
+//   gpu: &'a GPU,
+//   camera: &'a SceneCamera,
+//   scene: &'a SceneRenderResourceGroup<'a>,
+//   f: F,
+// }
 
-    camera_gpu
-      .ubo
-      .mutate(|uniform| uniform.jitter_normalized = next_jitter)
-      .upload(&self.gpu.queue);
-  }
+// impl<'a, F> TAAContent for SceneCameraTAAContent<'a, F>
+// where
+//   F: FnOnce(&mut FrameCtx) -> NewTAAFrameSample,
+// {
+//   fn set_jitter(&mut self, next_jitter: Vec2<f32>) {
+//     let mut cameras = self.scene.scene_resources.cameras.write().unwrap();
+//     let camera_gpu = cameras.get_camera_gpu_mut(self.camera).unwrap();
 
-  fn render(self, ctx: &mut FrameCtx) -> NewTAAFrameSample {
-    (self.f)(ctx)
-  }
-}
+//     camera_gpu
+//       .ubo
+//       .mutate(|uniform| uniform.jitter_normalized = next_jitter)
+//       .upload(&self.gpu.queue);
+//   }
+
+//   fn render(self, ctx: &mut FrameCtx) -> NewTAAFrameSample {
+//     (self.f)(ctx)
+//   }
+// }

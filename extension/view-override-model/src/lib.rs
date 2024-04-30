@@ -1,7 +1,7 @@
 use database::*;
 use reactive::*;
 use rendiation_algebra::*;
-use rendiation_scene_core_next::*;
+use rendiation_scene_core::*;
 
 type CameraViewSceneModelAccess = (AllocIdx<SceneModelEntity>, AllocIdx<SceneCameraEntity>);
 

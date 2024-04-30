@@ -86,7 +86,7 @@ fn demo_how_to_use_database_generally() {
 
   let ptr = global_entity_of::<MyTestEntity>()
     .entity_writer()
-    .with_component_writer::<TestEntityFieldB, _>(|w| w.with_writer(|| 1.))
+    .with_component_value_writer::<TestEntityFieldB>(1.)
     .new_entity();
 
   let ptr = global_entity_of::<MyTestEntity2>()
