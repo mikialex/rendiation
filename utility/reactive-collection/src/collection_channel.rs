@@ -2,6 +2,7 @@ use std::sync::Arc;
 
 use fast_hash_collection::FastHashMap;
 use futures::task::AtomicWaker;
+use futures::{Stream, StreamExt};
 use parking_lot::lock_api::RawRwLock;
 use parking_lot::RwLock;
 

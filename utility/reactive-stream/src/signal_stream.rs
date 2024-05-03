@@ -54,10 +54,6 @@ pub trait SignalStreamExt: Stream {
   where
     Self: Sized + Stream;
 
-  fn create_batch_index_mapping_broadcaster<X>(self) -> StreamBatchIndexer<Self, X>
-  where
-    Self: Sized + Stream<Item = Vec<(usize, X)>>;
-
   fn fold_signal<State, F, X>(self, state: State, f: F) -> SignalFold<State, Self, F>
   where
     Self: Sized,
@@ -164,13 +160,6 @@ impl<T: Stream> SignalStreamExt for T {
     Self: Sized,
   {
     StreamBroadcaster::new(self, IndexMapping)
-  }
-
-  fn create_batch_index_mapping_broadcaster<X>(self) -> StreamBatchIndexer<Self, X>
-  where
-    Self: Sized + Stream<Item = Vec<(usize, X)>>,
-  {
-    StreamBatchIndexer::new(self)
   }
 
   fn fold_signal<State, F, X>(self, state: State, f: F) -> SignalFold<State, Self, F>

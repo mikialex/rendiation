@@ -13,7 +13,7 @@ where
   type Item = I;
 
   fn poll_next(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Option<Self::Item>> {
-    let mut inner = self.inner.write().unwrap();
+    let mut inner = self.inner.write();
     let inner: &mut StreamBroadcasterImpl<_, _, _> = &mut inner;
     let inner = Pin::new(inner);
     inner.poll_next(cx)
@@ -93,7 +93,7 @@ where
 
   fn poll_next(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Option<Self::Item>> {
     let outer_this = self.project();
-    let mut inner = outer_this.source.write().unwrap();
+    let mut inner = outer_this.source.write();
     let inner: &mut StreamBroadcasterImpl<_, _, _> = &mut inner;
     let inner = Pin::new(inner);
     let mut this = inner.project();
@@ -119,7 +119,7 @@ where
     &self,
     init: impl IntoIterator<Item = D>,
   ) -> BroadcastedStream<S, D, FanOut> {
-    let mut inner = self.inner.write().unwrap();
+    let mut inner = self.inner.write();
     let index = inner
       .distributer
       .iter()
@@ -150,7 +150,7 @@ where
   S: Stream<Item = (usize, D)> + Unpin,
 {
   pub fn create_sub_stream_by_index(&self, index: usize) -> BroadcastedStream<S, D, IndexMapping> {
-    let mut inner = self.inner.write().unwrap();
+    let mut inner = self.inner.write();
     // todo shrink logic?
     while inner.distributer.len() <= index {
       inner.distributer.push(None);

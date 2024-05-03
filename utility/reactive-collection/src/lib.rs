@@ -41,3 +41,9 @@ pub use relation::*;
 
 mod id;
 pub use id::*;
+
+mod collection_channel;
+pub use collection_channel::*;
+
+mod registry;
+pub use registry::*;

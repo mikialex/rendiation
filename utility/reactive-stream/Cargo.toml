@@ -6,6 +6,7 @@ version = "0.0.1"
 [dependencies]
 crossbeam-queue = "0.3.8"
 fast-hash-collection = { path = "../fast-hash-collection" }
+parking_lot = { version = "0.12.1", features = ["send_guard"] }
 futures = { workspace = true }
 pin-project = { workspace = true }
 slab = "0.4.8"

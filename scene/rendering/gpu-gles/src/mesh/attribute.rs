@@ -155,7 +155,7 @@ impl<'a> GraphicsShaderProvider for AttributesMeshGPU<'a> {
           },
           AttributeSemantic::Foreign(key) => {
             get_dyn_trait_downcaster_static!(CustomAttributeKeyGPU)
-              .downcast_ref(key.implementation.as_ref().as_any())
+              .downcast_ref(key.implementation.as_ref())
               .ok_or(ShaderBuildError::SemanticNotSupported)?
               .inject_shader(builder)
           }

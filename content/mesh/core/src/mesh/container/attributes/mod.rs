@@ -1,8 +1,11 @@
-use std::{any::TypeId, hash::Hash, num::NonZeroU64};
+use std::{
+  any::{Any, TypeId},
+  hash::Hash,
+  num::NonZeroU64,
+  sync::Arc,
+};
 
 use dyn_downcast::*;
-use incremental::*;
-use reactive::*;
 use rendiation_algebra::Vec3;
 use smallvec::SmallVec;
 
@@ -61,7 +64,7 @@ impl AttributeReadSchema for AttributeSemantic {
       AttributeSemantic::Joints(_) => 4 * 2,
       AttributeSemantic::Weights(_) => 4 * 4,
       AttributeSemantic::Foreign(key) => get_dyn_trait_downcaster_static!(AttributeReadSchema)
-        .downcast_ref(key.implementation.as_ref().as_any())
+        .downcast_ref(key.implementation.as_ref())
         .unwrap() // this is safe to unwrap, because it's bounded in ForeignAttributeKey new method
         .item_byte_size(),
     }
@@ -71,7 +74,7 @@ impl AttributeReadSchema for AttributeSemantic {
 #[derive(Clone)]
 pub struct ForeignAttributeKey {
   id: TypeId,
-  pub implementation: Box<dyn AnyClone + Send + Sync>,
+  pub implementation: Arc<dyn Any + Send + Sync>,
 }
 
 impl ForeignAttributeKey {
@@ -87,7 +90,7 @@ impl ForeignAttributeKey {
     get_dyn_trait_downcaster_static!(AttributeReadSchema).register::<T>();
     Self {
       id: implementation.type_id(),
-      implementation: Box::new(implementation),
+      implementation: Arc::new(implementation),
     }
   }
 }
@@ -129,9 +132,7 @@ pub struct GeometryBufferImpl {
   pub buffer: Vec<u8>,
 }
 
-clone_self_incremental!(GeometryBufferImpl);
-
-pub type GeometryBuffer = IncrementalSignalPtr<GeometryBufferImpl>;
+pub type GeometryBuffer = Arc<GeometryBufferImpl>;
 
 #[derive(Debug, Copy, Clone, Default, PartialEq, Eq, Hash)]
 pub struct BufferViewRange {
@@ -152,14 +153,14 @@ pub struct UnTypedBufferView {
 impl UnTypedBufferView {
   pub fn read(&self) -> UnTypedBufferViewReadView {
     UnTypedBufferViewReadView {
-      buffer: self.buffer.read(),
+      buffer: &self.buffer,
       view: self,
     }
   }
 }
 
 pub struct UnTypedBufferViewReadView<'a> {
-  buffer: SignalPtrGuard<'a, GeometryBufferImpl>,
+  buffer: &'a GeometryBufferImpl,
   view: &'a UnTypedBufferView,
 }
 
@@ -224,7 +225,7 @@ impl AttributeAccessor {
     let count = buffer.len() / item_byte_size;
 
     let buffer = GeometryBufferImpl { buffer };
-    let buffer = buffer.into_ptr();
+    let buffer = Arc::new(buffer);
     let view = UnTypedBufferView {
       buffer,
       range: Default::default(),
