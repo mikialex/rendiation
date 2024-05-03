@@ -1,4 +1,3 @@
-use incremental::{ApplicableIncremental, DeltaOf};
 use rendiation_mesh_core::MeshBufferHitPoint;
 use rendiation_scene_interaction::*;
 use webgpu::{FrameRenderPass, RenderComponentAny};

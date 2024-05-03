@@ -1,6 +1,5 @@
 use std::{cell::RefCell, rc::Rc};
 
-use incremental::*;
 use rendiation_algebra::*;
 use rendiation_geometry::{IntersectAble, OptionalNearest, Plane, Ray3};
 use rendiation_mesh_generator::*;

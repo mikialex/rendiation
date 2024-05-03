@@ -175,21 +175,6 @@ pub struct IndexedMesh<T, U, IU> {
   _phantom: PhantomData<T>,
 }
 
-impl<T, U, IU> incremental::SimpleIncremental for IndexedMesh<T, U, IU>
-where
-  Self: Clone + Send + Sync,
-{
-  type Delta = Self;
-
-  fn s_apply(&mut self, delta: Self::Delta) {
-    *self = delta
-  }
-
-  fn s_expand(&self, mut cb: impl FnMut(Self::Delta)) {
-    cb(self.clone())
-  }
-}
-
 impl<T, U, IU> From<(U, IU)> for IndexedMesh<T, U, IU> {
   fn from(item: (U, IU)) -> Self {
     IndexedMesh::new(item.0, item.1)

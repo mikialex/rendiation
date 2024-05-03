@@ -3,7 +3,6 @@ use std::task::Poll;
 use __core::{pin::Pin, task::Context};
 use bytemuck::Zeroable;
 use futures::Stream;
-use incremental::*;
 use reactive::*;
 use rendiation_shader_api::*;
 use webgpu::*;
@@ -11,18 +10,14 @@ use webgpu::*;
 use crate::*;
 
 #[repr(C)]
-#[derive(Clone, Incremental)]
+#[derive(Clone)]
 pub struct WidenedLineMaterial {
   pub width: f32,
-  pub state: MaterialStates,
 }
 
 impl WidenedLineMaterial {
   pub fn new(width: f32) -> Self {
-    Self {
-      width,
-      state: MaterialStates::helper_like(),
-    }
+    Self { width }
   }
 }
 

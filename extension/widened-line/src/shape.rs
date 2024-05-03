@@ -5,7 +5,6 @@ use __core::{
   task::{Context, Poll},
 };
 use futures::Stream;
-use incremental::*;
 use reactive::*;
 use rendiation_geometry::*;
 use rendiation_mesh_core::{vertex::Vertex, *};
@@ -22,50 +21,6 @@ pub struct WidenedLineMesh {
 impl WidenedLineMesh {
   pub fn new(inner: GroupedMesh<NoneIndexedMesh<LineList, Vec<WidenedLineVertex>>>) -> Self {
     Self { inner }
-  }
-}
-
-impl IntersectAbleGroupedMesh for WidenedLineMesh {
-  fn intersect_list_by_group(
-    &self,
-    _ray: Ray3,
-    _conf: &MeshBufferIntersectConfig,
-    _result: &mut MeshBufferHitList,
-    _group: MeshDrawGroup,
-  ) {
-  }
-
-  fn intersect_nearest_by_group(
-    &self,
-    _ray: Ray3,
-    _conf: &MeshBufferIntersectConfig,
-    _group: MeshDrawGroup,
-  ) -> OptionalNearest<MeshBufferHitPoint> {
-    OptionalNearest::none()
-  }
-}
-
-type ReactiveWidenedLineGPUImpl =
-  impl AsRef<RenderComponentCell<WidenedLineMeshGPU>> + Stream<Item = RenderComponentDeltaFlag>;
-
-#[pin_project::pin_project]
-pub struct ReactiveWidenedLineGPU {
-  #[pin]
-  inner: ReactiveWidenedLineGPUImpl,
-}
-
-impl Stream for ReactiveWidenedLineGPU {
-  type Item = RenderComponentDeltaFlag;
-
-  fn poll_next(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Option<Self::Item>> {
-    let this = self.project();
-    this.inner.poll_next(cx)
-  }
-}
-
-impl ReactiveRenderComponentSource for ReactiveWidenedLineGPU {
-  fn as_reactive_component(&self) -> &dyn ReactiveRenderComponent {
-    self.inner.as_ref() as &dyn ReactiveRenderComponent
   }
 }
 

@@ -1,6 +1,5 @@
 use std::{cell::RefCell, rc::Rc};
 
-use incremental::EnumWrap;
 use rendiation_algebra::*;
 use rendiation_geometry::OptionalNearest;
 use rendiation_mesh_core::MeshBufferHitPoint;

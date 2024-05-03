@@ -11,11 +11,10 @@ futures = { workspace = true, features = ["thread-pool"] }
 
 dirs = "4.0.0"
 image = "*"
-png = "*"                                                                       # for better control over writing
+png = "*"
 rfd = "0.14.0"
 fast-hash-collection = { path = "../../utility/fast-hash-collection" }
 heap-tools = { path = "../../utility/heap-tools" }
-incremental = { path = "../../utility/incremental" }
 log = { workspace = true }
 pin-project = { workspace = true }
 rayon = { workspace = true }

@@ -9,18 +9,6 @@ pub struct PerspectiveProjection<T> {
   pub aspect: T,
 }
 
-impl<T: Clone + Send + Sync> SimpleIncremental for PerspectiveProjection<T> {
-  type Delta = Self;
-
-  fn s_apply(&mut self, delta: Self::Delta) {
-    *self = delta;
-  }
-
-  fn s_expand(&self, mut cb: impl FnMut(Self::Delta)) {
-    cb(self.clone())
-  }
-}
-
 impl<T: Scalar> Default for PerspectiveProjection<T> {
   fn default() -> Self {
     Self {

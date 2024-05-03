@@ -14,13 +14,10 @@ mod quat;
 mod shader_aligned;
 mod vec;
 
-mod inc;
-
 use std::ops::{AddAssign, DivAssign, MulAssign, SubAssign};
 
 pub use angle::*;
 pub use euler::*;
-use incremental::*;
 pub use interpolation::*;
 pub use mat::*;
 pub use num_traits::Zero;

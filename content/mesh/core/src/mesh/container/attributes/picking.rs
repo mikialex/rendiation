@@ -1,50 +1,9 @@
 use std::ops::Deref;
 
-use incremental::*;
-use reactive::*;
 use rendiation_algebra::*;
 use rendiation_geometry::*;
 
 use crate::*;
-
-impl<T: IntersectAbleGroupedMesh + IncrementalBase> IntersectAbleGroupedMesh
-  for IncrementalSignalPtr<T>
-{
-  fn intersect_list_by_group(
-    &self,
-    ray: Ray3,
-    conf: &MeshBufferIntersectConfig,
-    result: &mut MeshBufferHitList,
-    group: MeshDrawGroup,
-  ) {
-    self
-      .read()
-      .intersect_list_by_group(ray, conf, result, group)
-  }
-
-  fn intersect_nearest_by_group(
-    &self,
-    ray: Ray3,
-    conf: &MeshBufferIntersectConfig,
-    group: MeshDrawGroup,
-  ) -> OptionalNearest<MeshBufferHitPoint> {
-    self.read().intersect_nearest_by_group(ray, conf, group)
-  }
-}
-impl<T: IntersectAbleGroupedMesh + IncrementalBase> AsRef<dyn IntersectAbleGroupedMesh>
-  for IncrementalSignalPtr<T>
-{
-  fn as_ref(&self) -> &(dyn IntersectAbleGroupedMesh + 'static) {
-    self
-  }
-}
-impl<T: IntersectAbleGroupedMesh + IncrementalBase> AsMut<dyn IntersectAbleGroupedMesh>
-  for IncrementalSignalPtr<T>
-{
-  fn as_mut(&mut self) -> &mut (dyn IntersectAbleGroupedMesh + 'static) {
-    self
-  }
-}
 
 pub enum AttributeDynPrimitive<T = Vec3<f32>> {
   Points(Point<T>),

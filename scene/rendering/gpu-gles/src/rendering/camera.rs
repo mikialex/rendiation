@@ -14,6 +14,8 @@ pub struct DefaultGLESCameraRenderImpl {
 
 impl RenderImplProvider<Box<dyn GLESCameraRenderImpl>> for DefaultGLESCameraRenderImplProvider {
   fn register_resource(&self, res: &mut ReactiveResourceManager) {
+    // let projection = global_watch()
+
     // let uniforms = camera_gpus(res.cx());
     // res.register_multi_updater(uniforms);
   }

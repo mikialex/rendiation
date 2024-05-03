@@ -4,12 +4,8 @@ use core::ops;
 use core::slice;
 use std::{marker::PhantomData, vec};
 
-use incremental::*;
-
 mod handle;
-mod inc;
 pub use handle::*;
-pub use inc::*;
 mod iter;
 pub use iter::*;
 

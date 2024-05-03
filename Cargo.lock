@@ -136,9 +136,6 @@ dependencies = [
 [[package]]
 name = "arena"
 version = "0.0.1"
-dependencies = [
- "incremental",
-]
 
 [[package]]
 name = "arrayref"
@@ -2930,7 +2927,6 @@ version = "0.1.0"
 dependencies = [
  "bytemuck",
  "cgmath",
- "incremental",
  "num-traits",
  "paste",
 ]
@@ -3317,7 +3313,6 @@ version = "0.1.0"
 dependencies = [
  "fast-hash-collection",
  "image",
- "incremental",
  "rendiation-algebra",
  "rendiation-geometry",
  "rendiation-texture-types",
@@ -4064,7 +4059,6 @@ dependencies = [
  "futures",
  "heap-tools",
  "image",
- "incremental",
  "log",
  "pin-project",
  "png",

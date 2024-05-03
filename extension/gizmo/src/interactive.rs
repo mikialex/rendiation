@@ -1,4 +1,3 @@
-use incremental::*;
 use rendiation_algebra::*;
 use rendiation_geometry::OptionalNearest;
 use rendiation_mesh_core::MeshBufferHitPoint;
