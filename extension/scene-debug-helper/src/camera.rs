@@ -6,7 +6,7 @@ use rendiation_algebra::*;
 use rendiation_mesh_core::{GroupedMesh, NoneIndexedMesh};
 
 use super::*;
-use crate::WidenedLineVertex;
+use crate::WideLineVertex;
 
 pub struct CameraHelper {
   projection_cache: Mat4<f32>,
@@ -16,10 +16,10 @@ pub struct CameraHelper {
 impl CameraHelper {
   pub fn from_node_and_project_matrix(node: SceneNode, project_mat: Mat4<f32>) -> Self {
     let camera_mesh = build_debug_line_in_camera_space(project_mat.inverse_or_identity());
-    let widened_line_mat = WidenedLineMaterial::new(3.);
-    let widened_line = HelperLineModel::new(widened_line_mat, camera_mesh, &node);
+    let wide_line_mat = WideLineMaterial::new(3.);
+    let wide_line = HelperLineModel::new(wide_line_mat, camera_mesh, &node);
     Self {
-      model: widened_line,
+      model: wide_line,
       projection_cache: project_mat,
     }
   }
@@ -84,7 +84,7 @@ fn build_debug_line_in_camera_space(project_mat: Mat4<f32>) -> HelperLineMesh {
 
   let lines = line_box(min, max)
     .into_iter()
-    .map(|[start, end]| WidenedLineVertex {
+    .map(|[start, end]| WideLineVertex {
       color: Vec4::new(1., 1., 1., 1.),
       start: project_mat * start,
       end: project_mat * end,

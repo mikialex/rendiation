@@ -1,7 +1,7 @@
 [package]
 authors = ["mikialex <18516340862@163.com>"]
 edition = "2021"
-name = "rendiation-barycentric-solid-line"
+name = "rendiation-wide-line"
 version = "0.1.0"
 
 [dependencies]
@@ -10,9 +10,7 @@ rendiation-geometry = { path = "../../math/geometry" }
 rendiation-webgpu = { path = "../../platform/graphics/webgpu" }
 rendiation-shader-api = { path = "../../shader/api" }
 rendiation-mesh-core = { path = "../../content/mesh/core" }
-rendiation-scene-rendering-gpu-gles = { path = "../../scene/rendering/gpu-gles" }
 bytemuck = { workspace = true, features = ["derive"] }
-dyn-downcast = { path = "../../utility/dyn-downcast" }
 
 [lints]
 workspace = true

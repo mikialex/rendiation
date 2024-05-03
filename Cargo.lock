@@ -1814,23 +1814,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "incremental"
-version = "0.0.1"
-dependencies = [
- "dyn-clone",
- "incremental_derives",
-]
-
-[[package]]
-name = "incremental_derives"
-version = "0.1.0"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn 1.0.109",
-]
-
-[[package]]
 name = "indexmap"
 version = "1.9.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2833,6 +2816,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "reactive-derive"
+version = "0.1.0"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 1.0.109",
+]
+
+[[package]]
 name = "reactive-stream"
 version = "0.0.1"
 dependencies = [
@@ -2950,7 +2942,6 @@ dependencies = [
  "rendiation-scene-rendering-gpu-gles",
  "rendiation-shader-api",
  "rendiation-webgpu",
- "winit",
 ]
 
 [[package]]
@@ -3406,6 +3397,18 @@ dependencies = [
  "rendiation-shader-api",
  "rendiation-texture",
  "rendiation-texture-gpu-base",
+ "rendiation-webgpu",
+]
+
+[[package]]
+name = "rendiation-wide-line"
+version = "0.1.0"
+dependencies = [
+ "bytemuck",
+ "rendiation-algebra",
+ "rendiation-geometry",
+ "rendiation-mesh-core",
+ "rendiation-shader-api",
  "rendiation-webgpu",
 ]
 
