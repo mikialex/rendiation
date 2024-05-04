@@ -1,4 +1,5 @@
-use __core::marker::PhantomData;
+use core::marker::PhantomData;
+
 use rendiation_algebra::*;
 use rendiation_shader_api::{std140_layout, ShaderStruct};
 

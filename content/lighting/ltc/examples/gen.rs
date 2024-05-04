@@ -2,7 +2,7 @@ use std::path::Path;
 
 use rendiation_algebra::Vec4;
 use rendiation_lighting_ltc::*;
-use rendiation_texture::*;
+use rendiation_texture_core::*;
 
 pub fn main() {
   let ltc_map = fit(GGX, &LtcFitConfig::default());

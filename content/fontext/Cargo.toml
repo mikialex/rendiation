@@ -12,7 +12,7 @@ linked-hash-map = "0.5.4"
 rendiation-algebra = { path = "../../math/algebra" }
 rendiation-color = { path = "../color" }
 rendiation-geometry = { path = "../../math/geometry" }
-rendiation-texture = { path = "../texture/core" }
+rendiation-texture-core = { path = "../texture/core" }
 rendiation-texture-packer = { path = "../texture/packer" }
 
 glyph_brush = { version = "0.7", optional = true }

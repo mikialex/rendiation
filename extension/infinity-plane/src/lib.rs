@@ -1,6 +1,7 @@
 #![feature(specialization)]
 
-use __core::{any::Any, hash::Hash};
+use core::{any::Any, hash::Hash};
+
 use rendiation_scene_rendering_gpu_gles::CameraGPU;
 use rendiation_shader_api::*;
 use rendiation_state_override::MaterialStates;

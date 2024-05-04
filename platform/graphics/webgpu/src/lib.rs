@@ -15,6 +15,8 @@ mod resource;
 mod surface;
 mod types;
 
+use core::fmt::Debug;
+use core::num::NonZeroUsize;
 use std::{
   any::*,
   borrow::Cow,
@@ -24,8 +26,6 @@ use std::{
   sync::{Arc, RwLock},
 };
 
-use __core::fmt::Debug;
-use __core::num::NonZeroUsize;
 pub use binding::*;
 use bytemuck::*;
 pub use device::*;
@@ -34,7 +34,7 @@ pub use encoder::*;
 use fast_hash_collection::*;
 pub use frame::*;
 pub use gpu::Features;
-// note: we can not just use * because it cause __core conflict
+// note: we can not just use * because it cause core conflict
 pub use gpu::{
   util, util::DeviceExt, vertex_attr_array, AddressMode, Backends, BindGroup, BindGroupDescriptor,
   BindGroupEntry, BindGroupLayout, BindGroupLayoutDescriptor, BindingResource, Buffer,

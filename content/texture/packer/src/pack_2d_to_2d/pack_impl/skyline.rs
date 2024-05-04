@@ -1,6 +1,6 @@
 // https://github.com/PistonDevelopers/texture_packer/blob/master/src/packer/skyline_packer.rs
 
-use rendiation_texture::Size;
+use rendiation_texture_core::Size;
 
 use super::super::*;
 

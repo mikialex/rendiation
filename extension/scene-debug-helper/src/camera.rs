@@ -168,21 +168,21 @@ impl Stream for CameraHelpers {
   type Item = ();
 
   fn poll_next(
-    mut self: __core::pin::Pin<&mut Self>,
-    cx: &mut __core::task::Context<'_>,
-  ) -> __core::task::Poll<Option<Self::Item>> {
+    mut self: core::pin::Pin<&mut Self>,
+    cx: &mut core::task::Context<'_>,
+  ) -> core::task::Poll<Option<Self::Item>> {
     if self
       .updater
       .poll_until_pending_or_terminate_not_care_result(cx)
     {
-      return __core::task::Poll::Ready(None);
+      return core::task::Poll::Ready(None);
     }
     self
       .helpers
       .write()
       .unwrap()
       .poll_until_pending_not_care_result(cx);
-    __core::task::Poll::Pending
+    core::task::Poll::Pending
   }
 }
 

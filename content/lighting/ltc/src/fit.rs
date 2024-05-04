@@ -1,4 +1,4 @@
-use rendiation_texture::Size;
+use rendiation_texture_core::Size;
 
 use crate::{
   brdf::{Brdf, BrdfEval},

@@ -6,7 +6,7 @@ version = "0.1.0"
 
 [dependencies]
 rendiation-algebra = { path = "../../../math/algebra" }
-rendiation-texture = { path = "../core" }
+rendiation-texture-core = { path = "../core" }
 rendiation-texture-gpu-base = { path = "../gpu-base" }
 rendiation-shader-api = { path = "../../../shader/api" }
 rendiation-shader-library = { path = "../../../shader/library" }

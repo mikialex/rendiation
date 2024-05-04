@@ -1,7 +1,7 @@
 use std::ops::Deref;
 
 use fast_hash_collection::FastHashMap;
-use rendiation_texture::{CubeTextureFace, GPUBufferImage};
+use rendiation_texture_core::{CubeTextureFace, GPUBufferImage};
 use rendiation_texture_gpu_base::GPUBufferImageForeignImpl;
 
 use crate::*;

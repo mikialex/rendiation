@@ -1,53 +1,26 @@
 use crate::*;
 
-pub struct MipMapTaskManager {
-  pub generator: Mipmap2DGenerator,
-  tasks: Vec<GPU2DTexture>,
-}
-
-impl MipMapTaskManager {
-  pub fn request_mipmap_gen(&mut self, texture: &GPU2DTexture) {
-    self.tasks.push(texture.clone())
-  }
-
-  pub fn cancel_mipmap_gen(&mut self, texture: &GPU2DTexture) {
-    if let Some(i) = self.tasks.iter().position(|t| t.0.guid == texture.0.guid) {
-      self.tasks.remove(i);
-    }
-  }
-
-  pub fn flush_mipmap_gen_request(&mut self, ctx: &mut FrameCtx) {
-    for tex in self.tasks.drain(..) {
-      self.generator.generate(ctx, &tex)
-    }
-  }
-}
-
-impl Default for MipMapTaskManager {
-  fn default() -> Self {
-    Self {
-      generator: Mipmap2DGenerator::new(DefaultMipmapReducer),
-      tasks: Default::default(),
-    }
-  }
-}
-
 // https://github.com/BabylonJS/Babylon.js/blob/d25bc29091/packages/dev/core/src/Engines/WebGPU/webgpuTextureHelper.ts
 
 /// Mipmap generation is not supported in webgpu api for now, at least in mvp as far as i known.
 /// It's also useful to provide customizable reducer / gen method for proper usage.
-pub struct Mipmap2DGenerator {
-  pub reducer: Box<dyn Mipmap2dReducer>,
+///
+/// layer reduce logic, layer by layer.
+/// input previous layer, generate next layer.
+/// `current` is the layer's current writing pixel coordinate, range from 0. to 1.
+pub trait Mipmap2dReducer: Send + Sync {
+  fn reduce(
+    &self,
+    previous_level: HandleNode<ShaderTexture2D>,
+    sampler: HandleNode<ShaderSampler>,
+    current: Node<Vec2<f32>>,
+    texel_size: Node<Vec2<f32>>,
+  ) -> Node<Vec4<f32>>;
 }
 
-impl Mipmap2DGenerator {
-  pub fn new(reducer: impl Mipmap2dReducer + 'static) -> Self {
-    Self {
-      reducer: Box::new(reducer),
-    }
-  }
-
-  pub fn generate(&self, ctx: &mut FrameCtx, texture: &GPU2DTexture) {
+impl<T: Mipmap2dReducer> Mipmap2dReducerImpl for T {}
+pub trait Mipmap2dReducerImpl: Mipmap2dReducer + Sized {
+  fn generate(&self, ctx: &mut FrameCtx, texture: &GPU2DTexture) {
     for write_level in 1..texture.desc.mip_level_count {
       let write_view: GPU2DTextureView = texture
         .create_view(TextureViewDescriptor {
@@ -72,7 +45,7 @@ impl Mipmap2DGenerator {
 
       let task = Mipmap2DGeneratorTask {
         view: read_view,
-        reducer: self.reducer.as_ref(),
+        reducer: self,
       }
       .draw_quad();
 
@@ -85,7 +58,7 @@ impl Mipmap2DGenerator {
 
   /// It's useful to generate cube faces use same method like 2d.
   /// even it's not correct from perspective of spherical filtering.
-  pub fn generate_cube_faces(&self, ctx: &mut FrameCtx, texture: &GPUCubeTexture) {
+  fn generate_cube_faces(&self, ctx: &mut FrameCtx, texture: &GPUCubeTexture) {
     for write_level in 1..texture.desc.mip_level_count {
       for face in 0..texture.desc.size.depth_or_array_layers {
         let write_view: GPU2DTextureView = texture
@@ -113,7 +86,7 @@ impl Mipmap2DGenerator {
 
         let task = Mipmap2DGeneratorTask {
           view: read_view,
-          reducer: self.reducer.as_ref(),
+          reducer: self,
         }
         .draw_quad();
 
@@ -124,31 +97,6 @@ impl Mipmap2DGenerator {
       }
     }
   }
-}
-
-/// layer reduce logic, layer by layer.
-/// input previous layer, generate next layer.
-/// `current` is the layer's current writing pixel coordinate, range from 0. to 1.
-pub trait Mipmap2dReducer: Send + Sync {
-  fn reduce(
-    &self,
-    previous_level: HandleNode<ShaderTexture2D>,
-    sampler: HandleNode<ShaderSampler>,
-    current: Node<Vec2<f32>>,
-    texel_size: Node<Vec2<f32>>,
-  ) -> Node<Vec4<f32>>;
-}
-
-pub trait MipmapCubeReducer: Send + Sync {
-  fn reduce(
-    &self,
-    previous_level: HandleNode<ShaderTextureCube>,
-    sampler: HandleNode<ShaderSampler>,
-    current_uv: Node<Vec2<f32>>,
-    current_face_index: u8,
-    current_world_direction: Node<Vec3<f32>>,
-    texel_size: Node<Vec2<f32>>,
-  );
 }
 
 struct DefaultMipmapReducer;

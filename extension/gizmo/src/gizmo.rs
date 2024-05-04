@@ -631,7 +631,7 @@ struct GizmoState {
   target_state: Option<TargetState>,
 }
 
-#[derive(Default, Incremental)]
+#[derive(Default)]
 struct GizmoActiveState {
   pub translate: AxisActiveState,
   pub rotation: AxisActiveState,
@@ -726,14 +726,14 @@ impl GizmoState {
   }
 }
 
-#[derive(Copy, Clone, Default, Debug, Incremental)]
+#[derive(Copy, Clone, Default, Debug)]
 pub struct AxisActiveState {
   pub x: ItemState,
   pub y: ItemState,
   pub z: ItemState,
 }
 
-#[derive(Copy, Clone, Default, Debug, Incremental)]
+#[derive(Copy, Clone, Default, Debug)]
 pub struct ItemState {
   pub hovering: bool,
   pub active: bool,

@@ -13,35 +13,6 @@ pub enum ViewReaction<V, T: ApplicableIncremental> {
   StateDelta(T::Delta),
 }
 
-/// View type could generic over any state T, as long as the T could provide
-/// given logic for view type
-pub trait ViewBase<T>
-where
-  T: ApplicableIncremental,
-{
-  /// View type's own event type
-  type Event;
-
-  /// In event loop handling, the view type received platform event such as mouse move keyboard
-  /// events, and decide should reactive to it or not, if so, mutate the model or emit
-  /// the self::Event for further outer side handling. see ViewDelta.
-  ///
-  /// all mutation to the model should record delta by call cb passed from caller.
-  ///
-  /// In View hierarchy, event's mutation to state will pop up to the root, wrap the mutation to
-  /// parent state's delta type. and in update logic, consumed from the root
-  fn event(
-    &mut self,
-    model: &mut T,
-    event: &mut EventCtx3D,
-    cb: &mut dyn FnMut(ViewReaction<Self::Event, T>),
-  );
-
-  /// update is responsible for map the state delta to to view property change
-  /// the model here is the unmodified.
-  fn update(&mut self, model: &T, delta: &T::Delta);
-}
-
 pub struct EventCtx3D<'a> {
   pub window_states: &'a WindowState,
   pub raw_event: &'a Event<()>,
@@ -76,23 +47,6 @@ impl<'a> EventCtx3D<'a> {
 
 pub struct Component3DCollection<T, E> {
   collection: Vec<Box<dyn View3D<T, Event = E>>>,
-}
-
-pub trait View3D<T: ApplicableIncremental>:
-  ViewBase<T> + SceneRayInteractive + SceneRenderable
-{
-  fn as_mut_interactive(&mut self) -> &mut dyn SceneRayInteractive;
-  fn as_interactive(&self) -> &dyn SceneRayInteractive;
-}
-impl<T: ApplicableIncremental, X: ViewBase<T> + SceneRayInteractive + SceneRenderable> View3D<T>
-  for X
-{
-  fn as_mut_interactive(&mut self) -> &mut dyn SceneRayInteractive {
-    self
-  }
-  fn as_interactive(&self) -> &dyn SceneRayInteractive {
-    self
-  }
 }
 
 impl<T: ApplicableIncremental, E> Component3DCollection<T, E> {

@@ -1,5 +1,6 @@
 mod uniform;
-use __core::num::NonZeroU64;
+use core::num::NonZeroU64;
+
 pub use uniform::*;
 
 mod storage;

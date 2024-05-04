@@ -102,7 +102,7 @@ pub struct ResourceRc<T: Resource> {
 }
 
 impl<T: Resource> std::fmt::Debug for ResourceRc<T> {
-  fn fmt(&self, f: &mut __core::fmt::Formatter<'_>) -> __core::fmt::Result {
+  fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
     f.debug_struct("ResourceViewRc").finish()
   }
 }
@@ -134,7 +134,7 @@ pub struct ResourceViewRc<T: Resource> {
 }
 
 impl<T: Resource> std::fmt::Debug for ResourceViewRc<T> {
-  fn fmt(&self, f: &mut __core::fmt::Formatter<'_>) -> __core::fmt::Result {
+  fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
     f.debug_struct("ResourceViewRc").finish()
   }
 }

@@ -1,4 +1,4 @@
-use rendiation_texture::GPUBufferImage;
+use rendiation_texture_core::GPUBufferImage;
 use rendiation_texture_gpu_base::GPUBufferImageForeignImpl;
 
 use crate::*;

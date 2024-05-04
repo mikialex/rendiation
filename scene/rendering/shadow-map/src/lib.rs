@@ -5,7 +5,7 @@ use std::task::{Context, Poll};
 use reactive::*;
 use rendiation_algebra::*;
 use rendiation_shader_api::*;
-use rendiation_texture::*;
+use rendiation_texture_core::*;
 use rendiation_texture_packer::{
   growable::GrowablePacker,
   pack_2d_to_2d::pack_impl::etagere_wrap::EtagerePacker,

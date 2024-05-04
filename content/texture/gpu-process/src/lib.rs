@@ -5,7 +5,7 @@ use std::hash::Hash;
 
 use rendiation_algebra::*;
 use rendiation_shader_api::*;
-use rendiation_texture::*;
+use rendiation_texture_core::*;
 use rendiation_texture_gpu_base::*;
 use rendiation_webgpu::*;
 

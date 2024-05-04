@@ -59,7 +59,7 @@ pub struct BindGroupBuilder<T> {
 }
 
 impl<T> std::fmt::Debug for BindGroupBuilder<T> {
-  fn fmt(&self, f: &mut __core::fmt::Formatter<'_>) -> __core::fmt::Result {
+  fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
     f.debug_struct("BindGroupBuilder")
       .field("is_compute", &self.is_compute)
       .finish()

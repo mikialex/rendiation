@@ -1,4 +1,4 @@
-use rendiation_texture::TextureSampler;
+use rendiation_texture_core::TextureSampler;
 use rendiation_texture_gpu_base::SamplerConvertExt;
 
 use crate::*;

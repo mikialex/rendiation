@@ -21,7 +21,7 @@ mod ui;
 mod viewer;
 
 use heap_tools::*;
-use rendiation_texture::Size;
+use rendiation_texture_core::Size;
 use rendiation_webgpu::{GPUCreateConfig, GPUSurface, GPU};
 use ui::EguiRenderer;
 pub use viewer::*;

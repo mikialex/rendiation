@@ -170,8 +170,8 @@ impl<'a> ShaderPassBuilder for TAAResolver<'a> {
     ctx.bind_immediate_sampler(&TextureSampler::default().into_gpu());
     ctx.bind_immediate_sampler(
       &TextureSampler {
-        min_filter: rendiation_texture::FilterMode::Linear,
-        mag_filter: rendiation_texture::FilterMode::Linear,
+        min_filter: rendiation_texture_core::FilterMode::Linear,
+        mag_filter: rendiation_texture_core::FilterMode::Linear,
         ..Default::default()
       }
       .into_gpu(),

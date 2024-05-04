@@ -10,7 +10,7 @@ rendiation-algebra = { path = "../../../../math/algebra" }
 rendiation-shader-api = { path = "../../../../shader/api" }
 rendiation-shader-library = { path = "../../../../shader/library" }
 rendiation-lighting-transport = { path = "../../../lighting/transport" }
-rendiation-texture = { path = "../../../texture/core" }
+rendiation-texture-core = { path = "../../../texture/core" }
 
 [lints]
 workspace = true

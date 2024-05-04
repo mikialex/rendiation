@@ -13,7 +13,7 @@ use reactive::{EventSource, NotifyScope};
 pub use rendering::*;
 
 mod selection;
-use rendiation_texture::Size;
+use rendiation_texture_core::Size;
 use rendiation_webgpu::*;
 pub use selection::*;
 

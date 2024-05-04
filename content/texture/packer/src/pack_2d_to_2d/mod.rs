@@ -1,6 +1,6 @@
 pub mod pack_impl;
 
-use rendiation_texture::{Size, TextureRange};
+use rendiation_texture_core::{Size, TextureRange};
 
 use crate::*;
 

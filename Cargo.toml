@@ -57,6 +57,7 @@ members = [
   "extension/state-override",
   "extension/infinity-plane",
   "extension/wide-line",
+  "extension/gizmo",
   "application/viewer",
 ]
 

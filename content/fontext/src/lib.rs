@@ -10,7 +10,7 @@ use linked_hash_map::LinkedHashMap;
 use rendiation_algebra::*;
 use rendiation_color::*;
 use rendiation_geometry::*;
-use rendiation_texture::{Size, Texture2D, Texture2DBuffer, TextureRange};
+use rendiation_texture_core::{Size, Texture2D, Texture2DBuffer, TextureRange};
 
 mod concepts;
 pub use concepts::*;

@@ -1,4 +1,5 @@
-use __core::{marker::PhantomData, num::NonZeroU64};
+use core::{marker::PhantomData, num::NonZeroU64};
+
 use rendiation_shader_api::{Std430, Std430MaybeUnsized};
 
 use crate::*;

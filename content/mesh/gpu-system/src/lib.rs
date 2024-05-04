@@ -1,11 +1,11 @@
 #![feature(specialization)]
 
-use std::sync::{Arc, RwLock, Weak};
-
-use __core::{
+use core::{
   marker::PhantomData,
   ops::{Deref, DerefMut},
 };
+use std::sync::{Arc, RwLock, Weak};
+
 use rendiation_shader_api::*;
 use rendiation_webgpu::*;
 use slab::Slab;

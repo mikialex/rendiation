@@ -5,17 +5,17 @@ use std::hash::Hash;
 
 use rendiation_algebra::*;
 use rendiation_shader_api::*;
-use rendiation_texture::*;
+use rendiation_texture_core::*;
 use rendiation_webgpu::*;
 
-mod mipmap_gen;
-pub use mipmap_gen::*;
+mod mipmap_gen_2d;
+pub use mipmap_gen_2d::*;
 
 pub trait SamplerConvertExt<'a> {
   fn into_gpu(self) -> SamplerDescriptor<'a>;
 }
 
-impl<'a> SamplerConvertExt<'a> for rendiation_texture::TextureSampler {
+impl<'a> SamplerConvertExt<'a> for rendiation_texture_core::TextureSampler {
   fn into_gpu(self) -> SamplerDescriptor<'a> {
     SamplerDescriptor {
       label: None,
@@ -30,18 +30,22 @@ impl<'a> SamplerConvertExt<'a> for rendiation_texture::TextureSampler {
   }
 }
 
-fn convert_wrap(mode: rendiation_texture::AddressMode) -> rendiation_webgpu::AddressMode {
+fn convert_wrap(mode: rendiation_texture_core::AddressMode) -> rendiation_webgpu::AddressMode {
   match mode {
-    rendiation_texture::AddressMode::ClampToEdge => rendiation_webgpu::AddressMode::ClampToEdge,
-    rendiation_texture::AddressMode::Repeat => rendiation_webgpu::AddressMode::Repeat,
-    rendiation_texture::AddressMode::MirrorRepeat => rendiation_webgpu::AddressMode::MirrorRepeat,
+    rendiation_texture_core::AddressMode::ClampToEdge => {
+      rendiation_webgpu::AddressMode::ClampToEdge
+    }
+    rendiation_texture_core::AddressMode::Repeat => rendiation_webgpu::AddressMode::Repeat,
+    rendiation_texture_core::AddressMode::MirrorRepeat => {
+      rendiation_webgpu::AddressMode::MirrorRepeat
+    }
   }
 }
 
-fn convert_filter(mode: rendiation_texture::FilterMode) -> rendiation_webgpu::FilterMode {
+fn convert_filter(mode: rendiation_texture_core::FilterMode) -> rendiation_webgpu::FilterMode {
   match mode {
-    rendiation_texture::FilterMode::Nearest => rendiation_webgpu::FilterMode::Nearest,
-    rendiation_texture::FilterMode::Linear => rendiation_webgpu::FilterMode::Linear,
+    rendiation_texture_core::FilterMode::Nearest => rendiation_webgpu::FilterMode::Nearest,
+    rendiation_texture_core::FilterMode::Linear => rendiation_webgpu::FilterMode::Linear,
   }
 }
 

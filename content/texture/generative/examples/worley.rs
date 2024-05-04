@@ -1,6 +1,6 @@
 use rendiation_algebra::*;
 use rendiation_generative_texture::{worley::*, TextureGenerator};
-use rendiation_texture::*;
+use rendiation_texture_core::*;
 
 fn main() {
   let width = 800;

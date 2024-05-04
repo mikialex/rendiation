@@ -2,7 +2,7 @@ use std::sync::Arc;
 use std::sync::RwLock;
 use std::sync::Weak;
 
-use __core::ops::Range;
+use core::ops::Range;
 use fast_hash_collection::*;
 use rendiation_webgpu::*;
 

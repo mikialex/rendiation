@@ -3,7 +3,7 @@
 // use rendiation_mesh_generator::{
 //   CubeMeshParameter, IndexedMeshBuilder, IntoTransformed3D, SphereMeshParameter,
 // TessellationConfig, };
-// use rendiation_texture::{
+// use rendiation_texture_core::{
 //   create_padding_buffer, GPUBufferImage, Texture2D, TextureFormat, TextureSampler,
 // };
 

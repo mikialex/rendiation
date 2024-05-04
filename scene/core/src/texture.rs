@@ -1,4 +1,4 @@
-use rendiation_texture::{GPUBufferImage, TextureSampler};
+use rendiation_texture_core::{GPUBufferImage, TextureSampler};
 
 use crate::*;
 

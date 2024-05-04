@@ -1343,7 +1343,7 @@ dependencies = [
  "rendiation-algebra",
  "rendiation-color",
  "rendiation-geometry",
- "rendiation-texture",
+ "rendiation-texture-core",
  "rendiation-texture-packer",
 ]
 
@@ -3010,7 +3010,7 @@ version = "0.0.1"
 dependencies = [
  "image",
  "rendiation-algebra",
- "rendiation-texture",
+ "rendiation-texture-core",
 ]
 
 [[package]]
@@ -3019,6 +3019,21 @@ version = "0.1.0"
 dependencies = [
  "bytemuck",
  "rendiation-algebra",
+]
+
+[[package]]
+name = "rendiation-gizmo"
+version = "0.1.0"
+dependencies = [
+ "database",
+ "reactive",
+ "rendiation-algebra",
+ "rendiation-scene-core",
+ "rendiation-scene-rendering-gpu-gles",
+ "rendiation-shader-api",
+ "rendiation-state-override",
+ "rendiation-webgpu",
+ "winit",
 ]
 
 [[package]]
@@ -3051,7 +3066,7 @@ dependencies = [
  "rendiation-lighting-transport",
  "rendiation-shader-api",
  "rendiation-shader-library",
- "rendiation-texture",
+ "rendiation-texture-core",
 ]
 
 [[package]]
@@ -3062,7 +3077,7 @@ dependencies = [
  "rendiation-lighting-transport",
  "rendiation-shader-api",
  "rendiation-shader-library",
- "rendiation-texture",
+ "rendiation-texture-core",
  "rendiation-webgpu",
 ]
 
@@ -3073,7 +3088,7 @@ dependencies = [
  "image",
  "rendiation-algebra",
  "rendiation-shader-api",
- "rendiation-texture",
+ "rendiation-texture-core",
 ]
 
 [[package]]
@@ -3167,7 +3182,7 @@ dependencies = [
  "rendiation-animation",
  "rendiation-geometry",
  "rendiation-mesh-core",
- "rendiation-texture",
+ "rendiation-texture-core",
  "smallvec",
 ]
 
@@ -3175,10 +3190,12 @@ dependencies = [
 name = "rendiation-scene-geometry-query"
 version = "0.1.0"
 dependencies = [
+ "reactive",
  "rendiation-algebra",
  "rendiation-geometry",
  "rendiation-mesh-core",
  "rendiation-scene-core",
+ "rendiation-texture-core",
 ]
 
 [[package]]
@@ -3210,7 +3227,7 @@ dependencies = [
  "rendiation-scene-rendering-gpu-base",
  "rendiation-shader-api",
  "rendiation-shader-library",
- "rendiation-texture",
+ "rendiation-texture-core",
  "rendiation-texture-gpu-base",
  "rendiation-texture-gpu-process",
  "rendiation-texture-gpu-system",
@@ -3230,7 +3247,7 @@ dependencies = [
  "rendiation-scene-core",
  "rendiation-shader-api",
  "rendiation-shader-library",
- "rendiation-texture",
+ "rendiation-texture-core",
  "rendiation-texture-packer",
  "rendiation-webgpu",
  "rendiation-webgpu-reactive-utils",
@@ -3298,7 +3315,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "rendiation-texture"
+name = "rendiation-texture-core"
 version = "0.1.0"
 dependencies = [
  "fast-hash-collection",
@@ -3315,7 +3332,7 @@ version = "0.1.0"
 dependencies = [
  "rendiation-algebra",
  "rendiation-shader-api",
- "rendiation-texture",
+ "rendiation-texture-core",
  "rendiation-webgpu",
 ]
 
@@ -3327,7 +3344,7 @@ dependencies = [
  "rendiation-algebra",
  "rendiation-shader-api",
  "rendiation-shader-library",
- "rendiation-texture",
+ "rendiation-texture-core",
  "rendiation-texture-gpu-base",
  "rendiation-webgpu",
 ]
@@ -3349,7 +3366,7 @@ dependencies = [
  "etagere",
  "fast-hash-collection",
  "linked-hash-map",
- "rendiation-texture",
+ "rendiation-texture-core",
 ]
 
 [[package]]
@@ -3395,7 +3412,7 @@ dependencies = [
  "fast-hash-collection",
  "reactive",
  "rendiation-shader-api",
- "rendiation-texture",
+ "rendiation-texture-core",
  "rendiation-texture-gpu-base",
  "rendiation-webgpu",
 ]
@@ -4074,7 +4091,7 @@ dependencies = [
  "rendiation-mesh-generator",
  "rendiation-scene-core",
  "rendiation-shader-api",
- "rendiation-texture",
+ "rendiation-texture-core",
  "rendiation-texture-gpu-process",
  "rendiation-webgpu",
  "rfd",

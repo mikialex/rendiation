@@ -8,7 +8,9 @@ version = "0.1.0"
 rendiation-algebra = { path = "../../math/algebra" }
 rendiation-geometry = { path = "../../math/geometry" }
 rendiation-mesh-core = { path = "../../content/mesh/core" }
+rendiation-texture-core = { path = "../../content/texture/core" }
 rendiation-scene-core = { path = "../core" }
+reactive = { path = "../../utility/reactive" }
 
 [lints]
 workspace = true

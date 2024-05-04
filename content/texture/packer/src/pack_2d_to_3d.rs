@@ -1,7 +1,7 @@
 use std::iter;
 
 use fast_hash_collection::FastHashMap;
-use rendiation_texture::{Size, SizeWithDepth};
+use rendiation_texture_core::{Size, SizeWithDepth};
 
 use crate::pack_2d_to_2d::*;
 use crate::*;

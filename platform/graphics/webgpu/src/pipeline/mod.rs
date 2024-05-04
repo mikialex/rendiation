@@ -1,4 +1,5 @@
-use __core::num::NonZeroU32;
+use core::num::NonZeroU32;
+
 use rendiation_shader_backend_naga::ShaderAPINagaImpl;
 
 mod container;

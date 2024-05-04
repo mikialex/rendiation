@@ -1,10 +1,10 @@
-use std::sync::{Arc, RwLock};
-
-use __core::{
+use core::{
   hash::Hash,
   pin::Pin,
   task::{Context, Poll},
 };
+use std::sync::{Arc, RwLock};
+
 use futures::{stream::FusedStream, Stream};
 use rendiation_webgpu::*;
 

@@ -1,4 +1,5 @@
-use __core::num::NonZeroU32;
+use core::num::NonZeroU32;
+
 use fast_hash_collection::*;
 use naga::{Span, StorageAccess};
 use rendiation_shader_api::*;
