@@ -11,8 +11,7 @@ pub fn node_gpus(cx: &GPUResourceCtx) -> SceneNodeUniforms {
     })
     .into_uniform_collection_update(0, cx);
 
-  // SceneNodeUniforms::default().with_source(source)
-  todo!()
+  SceneNodeUniforms::default().with_source(source)
 }
 
 pub struct NodeGPU<'a> {

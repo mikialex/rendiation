@@ -20,7 +20,7 @@ pub fn point_uniform_array(gpu: &GPUResourceCtx) -> UniformArrayUpdateContainer<
     .watch_typed_key::<PointLightCutOffDistance>()
     .into_uniform_array_collection_update(offset_of!(PointLightUniform, cutoff_distance), gpu);
 
-  let position = scene_node_derive_world_mat()
+  let position = raw_scene_node_derive_world_mat()
     .one_to_many_fanout(global_rev_ref().watch_inv_ref::<PointLightRefNode>())
     .collective_map(|mat| mat.position())
     .into_uniform_array_collection_update(offset_of!(PointLightUniform, position), gpu);

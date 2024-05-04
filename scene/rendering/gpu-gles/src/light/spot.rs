@@ -33,7 +33,7 @@ pub fn spot_uniform_array(gpu: &GPUResourceCtx) -> UniformArrayUpdateContainer<S
     .collective_map(|rad| rad.cos())
     .into_uniform_array_collection_update(offset_of!(SpotLightUniform, half_penumbra_cos), gpu);
 
-  let world = scene_node_derive_world_mat()
+  let world = raw_scene_node_derive_world_mat()
     .one_to_many_fanout(global_rev_ref().watch_inv_ref::<SpotLightRefNode>())
     .into_forker();
 

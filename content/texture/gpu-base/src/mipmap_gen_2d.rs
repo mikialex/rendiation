@@ -11,7 +11,7 @@ use crate::*;
 pub trait Mipmap2dReducer: Send + Sync {
   fn reduce(
     &self,
-    previous_level: HandleNode<ShaderTexture2D>,
+    source: HandleNode<ShaderTexture2D>,
     sampler: HandleNode<ShaderSampler>,
     current: Node<Vec2<f32>>,
     texel_size: Node<Vec2<f32>>,
@@ -105,15 +105,15 @@ impl Mipmap2dReducer for DefaultMipmapReducer {
   #[rustfmt::skip]
   fn reduce(
     &self,
-    previous_level: HandleNode<ShaderTexture2D>,
+    source: HandleNode<ShaderTexture2D>,
     sampler: HandleNode<ShaderSampler>,
     current: Node<Vec2<f32>>,
     texel_size: Node<Vec2<f32>>,
   ) -> Node<Vec4<f32>> {
-    let mut r = previous_level.sample_level(sampler, current + texel_size * val(Vec2::new( 0.5,  0.5)), val(0.));
-    r        += previous_level.sample_level(sampler, current + texel_size * val(Vec2::new(-0.5, -0.5)), val(0.));
-    r        += previous_level.sample_level(sampler, current + texel_size * val(Vec2::new(-0.5,  0.5)), val(0.));
-    r        += previous_level.sample_level(sampler, current + texel_size * val(Vec2::new( 0.5, -0.5)), val(0.));
+    let mut r = source.sample_level(sampler, current + texel_size * val(Vec2::new( 0.5,  0.5)), val(0.));
+    r        += source.sample_level(sampler, current + texel_size * val(Vec2::new(-0.5, -0.5)), val(0.));
+    r        += source.sample_level(sampler, current + texel_size * val(Vec2::new(-0.5,  0.5)), val(0.));
+    r        += source.sample_level(sampler, current + texel_size * val(Vec2::new( 0.5, -0.5)), val(0.));
     r / val(4.).splat()
   }
 }
@@ -144,12 +144,12 @@ impl<'a> GraphicsShaderProvider for Mipmap2DGeneratorTask<'a> {
       let position = builder.query::<FragmentPosition>()?.xy();
       let buffer_size = builder.query::<RenderBufferSize>()?;
       let texel_size = builder.query::<TexelSize>()? * val(0.5);
-      let previous_level = binding.bind_by(&self.view);
+      let source = binding.bind_by(&self.view);
       let sampler = binding.bind_by(&ImmediateGPUSamplerViewBind);
 
       let result = self
         .reducer
-        .reduce(previous_level, sampler, position / buffer_size, texel_size);
+        .reduce(source, sampler, position / buffer_size, texel_size);
 
       builder.store_fragment_out(0, result)
     })

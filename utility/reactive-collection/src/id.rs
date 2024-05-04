@@ -29,6 +29,9 @@ pub trait LinearIdentified {
 define_dyn_trait_downcaster_static!(LinearIdentified);
 
 pub trait LinearIdentification: LinearIdentified + Copy {
+  fn into_alloc_index(self) -> u32 {
+    self.alloc_index()
+  }
   fn from_alloc_index(idx: u32) -> Self;
 }
 

@@ -3,7 +3,7 @@ use crate::*;
 pub trait MipmapCubeReducer: Send + Sync {
   fn reduce(
     &self,
-    previous_level: HandleNode<ShaderTextureCube>,
+    source: HandleNode<ShaderTextureCube>,
     sampler: HandleNode<ShaderSampler>,
     current_uv: Node<Vec2<f32>>,
     current_face_index: u8,

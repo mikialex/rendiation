@@ -54,6 +54,7 @@ members = [
   "extension/controller",
   "extension/view-override-model",
   "extension/barycentric-solid-line",
+  "extension/scene-debug-helper",
   "extension/state-override",
   "extension/infinity-plane",
   "extension/wide-line",

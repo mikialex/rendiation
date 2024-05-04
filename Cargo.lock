@@ -3178,12 +3178,28 @@ dependencies = [
  "parking_lot",
  "pin-project",
  "reactive",
+ "reactive-derive",
  "rendiation-algebra",
  "rendiation-animation",
  "rendiation-geometry",
  "rendiation-mesh-core",
  "rendiation-texture-core",
  "smallvec",
+]
+
+[[package]]
+name = "rendiation-scene-debug-helper"
+version = "0.1.0"
+dependencies = [
+ "database",
+ "reactive",
+ "rendiation-algebra",
+ "rendiation-scene-core",
+ "rendiation-scene-rendering-gpu-gles",
+ "rendiation-shader-api",
+ "rendiation-state-override",
+ "rendiation-webgpu",
+ "winit",
 ]
 
 [[package]]

@@ -65,8 +65,8 @@ where
   #[inline(always)]
   fn workaround_box(self) -> impl ReactiveCollection<K, V> {
     let r = self;
-    // this is a workaround that the compiler maybe generate huge outputs(like pdb file)  which lead
-    // to link error in debug build, and consume huge memory when compiling in release mode
+    // this is a workaround that the compiler maybe generate huge outputs(or pdb file)  which lead
+    // to link error in debug build
     // see https://doc.rust-lang.org/reference/conditional-compilation.html#debug_assertions
     #[cfg(debug_assertions)]
     let r = r.into_boxed();
@@ -76,6 +76,14 @@ where
 
   fn key_as_value(self) -> impl ReactiveCollection<K, K> {
     self.collective_kv_map(|k, _| k.clone())
+  }
+
+  fn collective_key_convert<K2: CKey>(
+    self,
+    f: impl Fn(K) -> K2 + Copy + 'static + Send + Sync,
+    f2: impl Fn(K2) -> K + Copy + 'static + Send + Sync,
+  ) -> impl ReactiveCollection<K2, V> {
+    todo!()
   }
 
   /// map map<k, v> to map<k, v2>
