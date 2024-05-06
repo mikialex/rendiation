@@ -5,8 +5,8 @@ use crate::*;
 /// improve the cache locality of given combination of components. This is as known as
 /// the AOS (array of struct) storage type.
 ///
-/// The access performance is not as good as static AOS because the memory access offset is computed
-/// dynamically.
+/// The access performance may not as good as static AOS because the memory access offset is
+/// computed dynamically.
 pub struct InterleavedDataContainer {
   pub inner: Arc<RwLock<InterleavedDataContainerInner>>,
   pub idx: usize,

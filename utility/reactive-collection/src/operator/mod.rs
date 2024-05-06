@@ -13,6 +13,9 @@ pub use map::*;
 mod filter;
 pub use filter::*;
 
+mod key_convert;
+pub use key_convert::*;
+
 mod join;
 pub use join::*;
 
@@ -83,7 +86,12 @@ where
     f: impl Fn(K) -> K2 + Copy + 'static + Send + Sync,
     f2: impl Fn(K2) -> K + Copy + 'static + Send + Sync,
   ) -> impl ReactiveCollection<K2, V> {
-    todo!()
+    ReactiveKeyConvert {
+      f1: f,
+      f2,
+      inner: self,
+      phantom: PhantomData,
+    }
   }
 
   /// map map<k, v> to map<k, v2>
