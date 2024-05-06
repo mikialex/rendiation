@@ -98,6 +98,9 @@ impl<T: ComponentSemantic> ComponentReadView<T> {
   pub fn get(&self, idx: AllocIdx<T::Entity>) -> Option<&T::Data> {
     self.data.get(idx.alloc_index() as usize)
   }
+  pub fn get_value(&self, idx: AllocIdx<T::Entity>) -> Option<T::Data> {
+    self.data.get(idx.alloc_index() as usize).cloned()
+  }
 }
 
 pub struct ComponentWriteView<T: ComponentSemantic> {

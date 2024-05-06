@@ -75,7 +75,7 @@ pub struct AttributesMeshGPU<'a> {
   pub mode: rendiation_mesh_core::PrimitiveTopology,
   pub index: Option<(AttributeIndexFormat, BufferViewRange, u32)>,
   pub index_buffer:
-    Box<dyn VirtualCollectionSelfContained<AllocIdx<AttributeMeshEntity>, GPUBufferResourceView>>,
+    &'a dyn VirtualCollectionSelfContained<AllocIdx<AttributeMeshEntity>, GPUBufferResourceView>,
   pub mesh_id: AllocIdx<AttributeMeshEntity>,
   pub vertex: &'a AttributeMeshVertexAccessView,
 }
@@ -168,8 +168,7 @@ impl<'a> GraphicsShaderProvider for AttributesMeshGPU<'a> {
 }
 
 impl<'a> AttributesMeshGPU<'a> {
-  pub fn draw_command(&self, _group: MeshDrawGroup) -> DrawCommand {
-    // todo group
+  pub fn draw_command(&self) -> DrawCommand {
     if let Some((_, _, count)) = &self.index {
       DrawCommand::Indexed {
         base_vertex: 0,

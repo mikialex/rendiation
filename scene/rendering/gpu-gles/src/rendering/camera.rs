@@ -7,22 +7,26 @@ pub trait GLESCameraRenderImpl {
   ) -> Option<Box<dyn RenderComponentAny + '_>>;
 }
 
-pub struct DefaultGLESCameraRenderImplProvider;
+#[derive(Default)]
+pub struct DefaultGLESCameraRenderImplProvider {
+  uniforms: UpdateResultToken,
+}
 pub struct DefaultGLESCameraRenderImpl {
   uniforms: LockReadGuardHolder<CameraUniforms>,
 }
 
 impl RenderImplProvider<Box<dyn GLESCameraRenderImpl>> for DefaultGLESCameraRenderImplProvider {
-  fn register_resource(&self, res: &mut ReactiveResourceManager) {
-    // let projection = global_watch()
+  fn register_resource(&mut self, source: &mut ConcurrentStreamContainer, cx: &GPUResourceCtx) {
+    let projection = camera_project_matrix();
+    let node_mats = scene_node_derive_world_mat();
 
-    // let uniforms = camera_gpus(res.cx());
-    // res.register_multi_updater(uniforms);
+    let uniforms = camera_gpus(projection, node_mats, cx);
+    self.uniforms = source.register_multi_updater(uniforms);
   }
 
-  fn create_impl(&self, res: &ResourceUpdateResult) -> Box<dyn GLESCameraRenderImpl> {
+  fn create_impl(&self, res: &ConcurrentStreamUpdateResult) -> Box<dyn GLESCameraRenderImpl> {
     Box::new(DefaultGLESCameraRenderImpl {
-      uniforms: res.get_multi_updater().unwrap(),
+      uniforms: res.get_multi_updater(self.uniforms).unwrap(),
     })
   }
 }

@@ -23,19 +23,25 @@ impl GLESModelMaterialRenderImpl for Vec<Box<dyn GLESModelMaterialRenderImpl>> {
   }
 }
 
-pub struct FlatMaterialDefaultRenderImplProvider;
+#[derive(Default)]
+pub struct FlatMaterialDefaultRenderImplProvider {
+  uniforms: UpdateResultToken,
+}
 impl RenderImplProvider<Box<dyn GLESModelMaterialRenderImpl>>
   for FlatMaterialDefaultRenderImplProvider
 {
-  fn register_resource(&self, res: &mut ReactiveResourceManager) {
-    let updater = flat_material_uniforms(res.cx());
-    res.register_multi_updater(updater);
+  fn register_resource(&mut self, source: &mut ConcurrentStreamContainer, cx: &GPUResourceCtx) {
+    let updater = flat_material_uniforms(cx);
+    self.uniforms = source.register_multi_updater(updater);
   }
 
-  fn create_impl(&self, res: &ResourceUpdateResult) -> Box<dyn GLESModelMaterialRenderImpl> {
+  fn create_impl(
+    &self,
+    res: &ConcurrentStreamUpdateResult,
+  ) -> Box<dyn GLESModelMaterialRenderImpl> {
     Box::new(FlatMaterialDefaultRenderImpl {
       material_access: global_entity_component_of::<StandardModelRefFlatMaterial>().read(),
-      uniforms: res.get_multi_updater().unwrap(),
+      uniforms: res.get_multi_updater(self.uniforms).unwrap(),
     })
   }
 }
@@ -62,11 +68,14 @@ pub struct PbrMRMaterialDefaultRenderImplProvider;
 impl RenderImplProvider<Box<dyn GLESModelMaterialRenderImpl>>
   for PbrMRMaterialDefaultRenderImplProvider
 {
-  fn register_resource(&self, res: &mut ReactiveResourceManager) {
+  fn register_resource(&mut self, source: &mut ConcurrentStreamContainer, cx: &GPUResourceCtx) {
     todo!()
   }
 
-  fn create_impl(&self, res: &ResourceUpdateResult) -> Box<dyn GLESModelMaterialRenderImpl> {
+  fn create_impl(
+    &self,
+    res: &ConcurrentStreamUpdateResult,
+  ) -> Box<dyn GLESModelMaterialRenderImpl> {
     Box::new(PbrMRMaterialDefaultRenderImpl {
       material_access: todo!(),
       uniforms: todo!(),

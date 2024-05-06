@@ -70,18 +70,46 @@ impl<'a> GraphicsShaderProvider for &'a dyn RenderComponentAny {
     (*self).post_build(builder)
   }
 }
+impl ShaderHashProvider for Box<dyn RenderComponentAny> {
+  fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
+    (**self).hash_pipeline(hasher)
+  }
+}
+impl ShaderHashProviderAny for Box<dyn RenderComponentAny> {
+  fn hash_pipeline_with_type_info(&self, hasher: &mut PipelineHasher) {
+    (**self).hash_pipeline_with_type_info(hasher)
+  }
+}
+impl ShaderPassBuilder for Box<dyn RenderComponentAny> {
+  fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
+    (**self).setup_pass(ctx);
+  }
 
-pub struct RenderEmitter<'a, 'b> {
-  contents: &'a [&'b dyn RenderComponentAny],
+  fn post_setup_pass(&self, ctx: &mut GPURenderPassCtx) {
+    (**self).post_setup_pass(ctx);
+  }
+}
+impl GraphicsShaderProvider for Box<dyn RenderComponentAny> {
+  fn build(&self, builder: &mut ShaderRenderPipelineBuilder) -> Result<(), ShaderBuildError> {
+    (**self).build(builder)
+  }
+
+  fn post_build(&self, builder: &mut ShaderRenderPipelineBuilder) -> Result<(), ShaderBuildError> {
+    (**self).post_build(builder)
+  }
 }
 
-impl<'a, 'b> RenderEmitter<'a, 'b> {
-  pub fn new(contents: &'a [&'b dyn RenderComponentAny]) -> Self {
+pub struct RenderSlice<'a, T> {
+  contents: &'a [T],
+}
+
+impl<'a, T> RenderSlice<'a, T> {
+  pub fn new(contents: &'a [T]) -> Self {
     Self { contents }
   }
 }
 
-impl<'a, 'b> ShaderPassBuilder for RenderEmitter<'a, 'b> {
+impl<'a, T: RenderComponentAny> ShaderPassBuilder for RenderSlice<'a, T> {
   fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
     self.contents.iter().for_each(|c| c.setup_pass(ctx));
   }
@@ -94,7 +122,7 @@ impl<'a, 'b> ShaderPassBuilder for RenderEmitter<'a, 'b> {
   }
 }
 
-impl<'a, 'b> ShaderHashProvider for RenderEmitter<'a, 'b> {
+impl<'a, T: RenderComponentAny> ShaderHashProvider for RenderSlice<'a, T> {
   fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
     self
       .contents
@@ -103,7 +131,7 @@ impl<'a, 'b> ShaderHashProvider for RenderEmitter<'a, 'b> {
   }
 }
 
-impl<'a, 'b> GraphicsShaderProvider for RenderEmitter<'a, 'b> {
+impl<'a, T: RenderComponentAny> GraphicsShaderProvider for RenderSlice<'a, T> {
   fn build(&self, builder: &mut ShaderRenderPipelineBuilder) -> Result<(), ShaderBuildError> {
     for c in self.contents {
       c.build(builder)?;
@@ -119,12 +147,55 @@ impl<'a, 'b> GraphicsShaderProvider for RenderEmitter<'a, 'b> {
   }
 }
 
-pub struct BindingController<'a, T> {
-  inner: &'a T,
+pub struct RenderArray<const N: usize, T> {
+  pub contents: [T; N],
+}
+
+impl<const N: usize, T: RenderComponentAny> RenderArray<N, T> {
+  pub fn as_slice(&self) -> impl RenderComponent + '_ {
+    RenderSlice {
+      contents: self.contents.as_slice(),
+    }
+  }
+}
+
+impl<const N: usize, T: RenderComponentAny> ShaderPassBuilder for RenderArray<N, T> {
+  fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
+    self.as_slice().setup_pass(ctx)
+  }
+  fn post_setup_pass(&self, ctx: &mut GPURenderPassCtx) {
+    self.as_slice().setup_pass(ctx)
+  }
+}
+
+impl<const N: usize, T: RenderComponentAny> ShaderHashProvider for RenderArray<N, T> {
+  fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
+    self.as_slice().hash_pipeline(hasher)
+  }
+}
+
+impl<const N: usize, T: RenderComponentAny> GraphicsShaderProvider for RenderArray<N, T> {
+  fn build(&self, builder: &mut ShaderRenderPipelineBuilder) -> Result<(), ShaderBuildError> {
+    self.as_slice().build(builder)
+  }
+
+  fn post_build(&self, builder: &mut ShaderRenderPipelineBuilder) -> Result<(), ShaderBuildError> {
+    self.as_slice().post_build(builder)
+  }
+}
+
+pub struct BindingController<T> {
+  inner: T,
   target: usize,
 }
 pub trait BindingSlotAssign: Sized {
-  fn assign_binding_index(&self, index: usize) -> BindingController<Self> {
+  fn assign_binding_index(&self, index: usize) -> BindingController<&Self> {
+    BindingController {
+      inner: self,
+      target: index,
+    }
+  }
+  fn into_assign_binding_index(self, index: usize) -> BindingController<Self> {
     BindingController {
       inner: self,
       target: index,
@@ -133,18 +204,18 @@ pub trait BindingSlotAssign: Sized {
 }
 impl<T> BindingSlotAssign for T {}
 
-impl<'a, T: ShaderHashProvider> ShaderHashProvider for BindingController<'a, T> {
+impl<T: ShaderHashProvider> ShaderHashProvider for BindingController<T> {
   fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
     self.inner.hash_pipeline(hasher)
   }
 }
-impl<'a, T: ShaderHashProviderAny> ShaderHashProviderAny for BindingController<'a, T> {
+impl<T: ShaderHashProviderAny> ShaderHashProviderAny for BindingController<T> {
   fn hash_pipeline_with_type_info(&self, hasher: &mut PipelineHasher) {
     self.inner.hash_pipeline_with_type_info(hasher)
     // note, the binding info should hashed by binding grouper if necessary
   }
 }
-impl<'a, T: ShaderPassBuilder> ShaderPassBuilder for BindingController<'a, T> {
+impl<T: ShaderPassBuilder> ShaderPassBuilder for BindingController<T> {
   fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
     let before = ctx.binding.set_binding_slot(self.target);
     self.inner.setup_pass(ctx);
@@ -157,7 +228,7 @@ impl<'a, T: ShaderPassBuilder> ShaderPassBuilder for BindingController<'a, T> {
     ctx.binding.set_binding_slot(before);
   }
 }
-impl<'a, T: GraphicsShaderProvider> GraphicsShaderProvider for BindingController<'a, T> {
+impl<T: GraphicsShaderProvider> GraphicsShaderProvider for BindingController<T> {
   fn build(&self, builder: &mut ShaderRenderPipelineBuilder) -> Result<(), ShaderBuildError> {
     let before = builder.set_binding_slot(self.target);
     let r = self.inner.build(builder);

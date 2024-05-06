@@ -1,11 +1,10 @@
 use crate::*;
 
 pub trait GLESModelRenderImpl {
-  fn draw_command(&self, idx: AllocIdx<SceneModelEntity>) -> Option<DrawCommand>;
   fn shape_renderable(
     &self,
     idx: AllocIdx<SceneModelEntity>,
-  ) -> Option<Box<dyn RenderComponentAny + '_>>;
+  ) -> Option<(Box<dyn RenderComponentAny + '_>, DrawCommand)>;
   fn material_renderable(
     &self,
     idx: AllocIdx<SceneModelEntity>,
@@ -13,19 +12,10 @@ pub trait GLESModelRenderImpl {
 }
 
 impl GLESModelRenderImpl for Vec<Box<dyn GLESModelRenderImpl>> {
-  fn draw_command(&self, idx: AllocIdx<SceneModelEntity>) -> Option<DrawCommand> {
-    for provider in self {
-      if let Some(command) = provider.draw_command(idx) {
-        return Some(command);
-      }
-    }
-    None
-  }
-
   fn shape_renderable(
     &self,
     idx: AllocIdx<SceneModelEntity>,
-  ) -> Option<Box<dyn RenderComponentAny + '_>> {
+  ) -> Option<(Box<dyn RenderComponentAny + '_>, DrawCommand)> {
     for provider in self {
       if let Some(v) = provider.shape_renderable(idx) {
         return Some(v);
@@ -39,7 +29,7 @@ impl GLESModelRenderImpl for Vec<Box<dyn GLESModelRenderImpl>> {
     idx: AllocIdx<SceneModelEntity>,
   ) -> Option<Box<dyn RenderComponentAny + '_>> {
     for provider in self {
-      if let Some(v) = provider.shape_renderable(idx) {
+      if let Some(v) = provider.material_renderable(idx) {
         return Some(v);
       }
     }
@@ -52,12 +42,18 @@ pub struct DefaultSceneStdModelRendererProvider {
 }
 
 impl RenderImplProvider<Box<dyn GLESModelRenderImpl>> for DefaultSceneStdModelRendererProvider {
-  fn register_resource(&self, res: &mut ReactiveResourceManager) {
-    self.materials.iter().for_each(|p| p.register_resource(res));
-    self.shapes.iter().for_each(|p| p.register_resource(res));
+  fn register_resource(&mut self, source: &mut ConcurrentStreamContainer, cx: &GPUResourceCtx) {
+    self
+      .materials
+      .iter_mut()
+      .for_each(|p| p.register_resource(source, cx));
+    self
+      .shapes
+      .iter_mut()
+      .for_each(|p| p.register_resource(source, cx));
   }
 
-  fn create_impl(&self, res: &ResourceUpdateResult) -> Box<dyn GLESModelRenderImpl> {
+  fn create_impl(&self, res: &ConcurrentStreamUpdateResult) -> Box<dyn GLESModelRenderImpl> {
     Box::new(SceneStdModelRenderer {
       model: global_entity_component_of::<SceneModelStdModelRenderPayload>().read(),
       materials: self.materials.iter().map(|v| v.create_impl(res)).collect(),
@@ -72,16 +68,10 @@ struct SceneStdModelRenderer {
 }
 
 impl GLESModelRenderImpl for SceneStdModelRenderer {
-  fn draw_command(&self, idx: AllocIdx<SceneModelEntity>) -> Option<DrawCommand> {
-    let model = self.model.get(idx)?;
-    let idx = (*model)?;
-    self.shapes.draw_command(idx.into())
-  }
-
   fn shape_renderable(
     &self,
     idx: AllocIdx<SceneModelEntity>,
-  ) -> Option<Box<dyn RenderComponentAny + '_>> {
+  ) -> Option<(Box<dyn RenderComponentAny + '_>, DrawCommand)> {
     let model = self.model.get(idx)?;
     let idx = (*model)?;
     self.shapes.make_component(idx.into())

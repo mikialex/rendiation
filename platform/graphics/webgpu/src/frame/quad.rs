@@ -124,6 +124,6 @@ where
     base.auto_write = false;
     let components: [&dyn RenderComponentAny; 3] = [&base, &self.quad, &self.content];
 
-    RenderEmitter::new(components.as_slice()).render(&mut pass.ctx, QUAD_DRAW_CMD);
+    RenderSlice::new(components.as_slice()).render(&mut pass.ctx, QUAD_DRAW_CMD);
   }
 }

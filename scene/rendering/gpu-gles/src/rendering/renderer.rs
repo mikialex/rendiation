@@ -7,12 +7,12 @@ pub struct GLESRenderSystem {
 pub fn build_default_gles_render_system() -> GLESRenderSystem {
   GLESRenderSystem {
     scene_model_impl: vec![Box::new(GLESPreferredComOrderRendererProvider {
-      node: Box::new(DefaultGLESNodeRenderImplProvider),
-      camera: Box::new(DefaultGLESCameraRenderImplProvider),
+      node: Box::new(DefaultGLESNodeRenderImplProvider::default()),
+      camera: Box::new(DefaultGLESCameraRenderImplProvider::default()),
       model_impl: vec![Box::new(DefaultSceneStdModelRendererProvider {
         materials: vec![
           Box::new(PbrMRMaterialDefaultRenderImplProvider),
-          Box::new(FlatMaterialDefaultRenderImplProvider),
+          Box::new(FlatMaterialDefaultRenderImplProvider::default()),
         ],
         shapes: vec![Box::new(AttributeMeshDefaultRenderImplProvider)],
       })],
@@ -21,13 +21,14 @@ pub fn build_default_gles_render_system() -> GLESRenderSystem {
 }
 
 impl RenderImplProvider<Box<dyn SceneRenderer>> for GLESRenderSystem {
-  fn register_resource(&self, res: &mut ReactiveResourceManager) {
-    for imp in &self.scene_model_impl {
-      imp.register_resource(res);
+  fn register_resource(&mut self, source: &mut ConcurrentStreamContainer, cx: &GPUResourceCtx) {
+    let model_lookup = global_rev_ref().watch_inv_ref_typed::<SceneModelBelongsToScene>();
+    for imp in &mut self.scene_model_impl {
+      imp.register_resource(source, cx);
     }
   }
 
-  fn create_impl(&self, res: &ResourceUpdateResult) -> Box<dyn SceneRenderer> {
+  fn create_impl(&self, res: &ConcurrentStreamUpdateResult) -> Box<dyn SceneRenderer> {
     Box::new(GLESSceneRenderer {
       scene_model_renderer: self
         .scene_model_impl
@@ -56,11 +57,8 @@ impl SceneRenderer for GLESSceneRenderer {
     let mut ctx = ctx.encoder.begin_render_pass_with_info(target, ctx.gpu);
     for idx in self.model_lookup.access_multi_value(&scene) {
       let com = self.scene_model_renderer.make_component(idx, camera, pass);
-      let command = self.scene_model_renderer.draw_command(idx);
-      if let Some(com) = com {
-        if let Some(command) = command {
-          com.render(&mut ctx.ctx, command)
-        }
+      if let Some((com, command)) = com {
+        com.render(&mut ctx.ctx, command)
       }
     }
   }

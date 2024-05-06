@@ -7,20 +7,23 @@ pub trait GLESNodeRenderImpl {
   ) -> Option<Box<dyn RenderComponentAny + '_>>;
 }
 
-pub struct DefaultGLESNodeRenderImplProvider;
+#[derive(Default)]
+pub struct DefaultGLESNodeRenderImplProvider {
+  uniforms: UpdateResultToken,
+}
 pub struct DefaultGLESNodeRenderImpl {
   node_gpu: LockReadGuardHolder<SceneNodeUniforms>,
 }
 
 impl RenderImplProvider<Box<dyn GLESNodeRenderImpl>> for DefaultGLESNodeRenderImplProvider {
-  fn register_resource(&self, res: &mut ReactiveResourceManager) {
-    let uniforms = node_gpus(res.cx());
-    res.register_multi_updater(uniforms);
+  fn register_resource(&mut self, source: &mut ConcurrentStreamContainer, cx: &GPUResourceCtx) {
+    let uniforms = node_gpus(cx);
+    self.uniforms = source.register_multi_updater(uniforms);
   }
 
-  fn create_impl(&self, res: &ResourceUpdateResult) -> Box<dyn GLESNodeRenderImpl> {
+  fn create_impl(&self, res: &ConcurrentStreamUpdateResult) -> Box<dyn GLESNodeRenderImpl> {
     Box::new(DefaultGLESNodeRenderImpl {
-      node_gpu: res.get_multi_updater().unwrap(),
+      node_gpu: res.get_multi_updater(self.uniforms).unwrap(),
     })
   }
 }

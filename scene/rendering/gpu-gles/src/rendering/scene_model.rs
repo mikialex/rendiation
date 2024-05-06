@@ -1,33 +1,23 @@
 use crate::*;
 
-/// in gles  rendering, for each scene model, we need to create a render component and a draw
+/// in gles rendering, for each scene model, we need to create a render component and a draw
 /// command;
 pub trait GLESSceneModelRenderImpl {
-  fn draw_command(&self, idx: AllocIdx<SceneModelEntity>) -> Option<DrawCommand>;
   fn make_component<'a>(
     &'a self,
     idx: AllocIdx<SceneModelEntity>,
     camera: AllocIdx<SceneCameraEntity>,
     pass: &'a dyn RenderComponentAny,
-  ) -> Option<Box<dyn RenderComponent + 'a>>;
+  ) -> Option<(Box<dyn RenderComponent + 'a>, DrawCommand)>;
 }
 
 impl GLESSceneModelRenderImpl for Vec<Box<dyn GLESSceneModelRenderImpl>> {
-  fn draw_command(&self, idx: AllocIdx<SceneModelEntity>) -> Option<DrawCommand> {
-    for provider in self {
-      if let Some(command) = provider.draw_command(idx) {
-        return Some(command);
-      }
-    }
-    None
-  }
-
   fn make_component<'a>(
     &'a self,
     idx: AllocIdx<SceneModelEntity>,
     camera: AllocIdx<SceneCameraEntity>,
     pass: &'a dyn RenderComponentAny,
-  ) -> Option<Box<dyn RenderComponent + 'a>> {
+  ) -> Option<(Box<dyn RenderComponent + 'a>, DrawCommand)> {
     for provider in self {
       if let Some(com) = provider.make_component(idx, camera, pass) {
         return Some(com);
@@ -46,16 +36,16 @@ pub struct GLESPreferredComOrderRendererProvider {
 impl RenderImplProvider<Box<dyn GLESSceneModelRenderImpl>>
   for GLESPreferredComOrderRendererProvider
 {
-  fn register_resource(&self, res: &mut ReactiveResourceManager) {
-    self.node.register_resource(res);
-    self.camera.register_resource(res);
+  fn register_resource(&mut self, source: &mut ConcurrentStreamContainer, cx: &GPUResourceCtx) {
+    self.node.register_resource(source, cx);
+    self.camera.register_resource(source, cx);
     self
       .model_impl
-      .iter()
-      .for_each(|i| i.register_resource(res));
+      .iter_mut()
+      .for_each(|i| i.register_resource(source, cx));
   }
 
-  fn create_impl(&self, res: &ResourceUpdateResult) -> Box<dyn GLESSceneModelRenderImpl> {
+  fn create_impl(&self, res: &ConcurrentStreamUpdateResult) -> Box<dyn GLESSceneModelRenderImpl> {
     Box::new(GLESPreferredComOrderRenderer {
       model_impl: self.model_impl.iter().map(|i| i.create_impl(res)).collect(),
       node: global_entity_component_of::<SceneModelRefNode>().read(),
@@ -73,33 +63,35 @@ pub struct GLESPreferredComOrderRenderer {
 }
 
 impl GLESSceneModelRenderImpl for GLESPreferredComOrderRenderer {
-  fn draw_command(&self, idx: AllocIdx<SceneModelEntity>) -> Option<DrawCommand> {
-    self.model_impl.draw_command(idx)
-  }
-
-  fn make_component(
-    &self,
+  fn make_component<'a>(
+    &'a self,
     idx: AllocIdx<SceneModelEntity>,
     camera: AllocIdx<SceneCameraEntity>,
-    pass: &dyn RenderComponentAny,
-  ) -> Option<Box<dyn RenderComponent>> {
+    pass: &'a dyn RenderComponentAny,
+  ) -> Option<(Box<dyn RenderComponent + 'a>, DrawCommand)> {
     let node = self.node.get(idx)?;
     let node = (*node)?;
     let node = self.node_render.make_component(node.into())?;
 
     let camera = self.camera_gpu.make_component(camera)?;
 
-    let mesh = self.model_impl.material_renderable(idx)?;
+    let (shape, draw) = self.model_impl.shape_renderable(idx)?;
     let material = self.model_impl.material_renderable(idx)?;
 
-    let components: [&dyn RenderComponentAny; 5] = [
-      &pass.assign_binding_index(0),
-      &(&*mesh).assign_binding_index(2),
-      &(&*node).assign_binding_index(2),
-      &(&*camera).assign_binding_index(1),
-      &(&*material).assign_binding_index(2),
+    let pass = Box::new(pass) as Box<dyn RenderComponentAny + 'a>;
+
+    let contents: [BindingController<Box<dyn RenderComponentAny + 'a>>; 5] = [
+      pass.into_assign_binding_index(0),
+      shape.into_assign_binding_index(2),
+      node.into_assign_binding_index(2),
+      camera.into_assign_binding_index(1),
+      material.into_assign_binding_index(2),
     ];
-    // Some(Box::new(components))
-    todo!()
+    // todo to fix this, fix render component any 'static require first.
+    let contents: [BindingController<Box<dyn RenderComponentAny + 'static>>; 5] =
+      unsafe { std::mem::transmute(contents) };
+
+    let render = Box::new(RenderArray { contents }) as Box<dyn RenderComponent>;
+    Some((render, draw))
   }
 }
