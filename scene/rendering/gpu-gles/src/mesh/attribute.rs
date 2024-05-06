@@ -5,7 +5,7 @@ use crate::*;
 
 pub fn attribute_mesh_index_buffers(
   cx: &GPUResourceCtx,
-) -> impl ReactiveCollection<AllocIdx<AttributeMeshEntity>, GPUBufferResourceView> {
+) -> impl ReactiveCollectionSelfContained<AllocIdx<AttributeMeshEntity>, GPUBufferResourceView> {
   let cx = cx.clone();
   let attribute_mesh_index_buffers = global_watch()
     .watch_typed_key::<SceneBufferViewBufferId<AttributeIndexRef>>()
@@ -23,11 +23,15 @@ pub fn attribute_mesh_index_buffers(
       global_watch().watch_typed_key::<SceneBufferViewBufferRange<AttributeIndexRef>>(),
     )
     .collective_map(|(buffer, range)| buffer.create_view(map_view(range.unwrap())))
+    .into_self_contained()
 }
 
 pub fn attribute_mesh_vertex_buffer_views(
   cx: &GPUResourceCtx,
-) -> impl ReactiveCollection<AllocIdx<AttributeMeshVertexBufferRelation>, GPUBufferResourceView> {
+) -> impl ReactiveCollectionSelfContained<
+  AllocIdx<AttributeMeshVertexBufferRelation>,
+  GPUBufferResourceView,
+> {
   let cx = cx.clone();
   let attribute_mesh_vertex_buffers = global_watch()
     .watch_typed_key::<SceneBufferViewBufferId<AttributeVertexRef>>()
@@ -45,6 +49,7 @@ pub fn attribute_mesh_vertex_buffer_views(
       global_watch().watch_typed_key::<SceneBufferViewBufferRange<AttributeVertexRef>>(),
     )
     .collective_map(|(buffer, range)| buffer.create_view(map_view(range.unwrap())))
+    .into_self_contained()
 }
 
 fn map_view(view: rendiation_mesh_core::BufferViewRange) -> GPUBufferViewRange {
@@ -73,7 +78,8 @@ pub struct AttributeMeshVertexAccessView {
 
 pub struct AttributesMeshGPU<'a> {
   pub mode: rendiation_mesh_core::PrimitiveTopology,
-  pub index: Option<(AttributeIndexFormat, BufferViewRange, u32)>,
+  // fmt, count
+  pub index: Option<(AttributeIndexFormat, u32)>,
   pub index_buffer:
     &'a dyn VirtualCollectionSelfContained<AllocIdx<AttributeMeshEntity>, GPUBufferResourceView>,
   pub mesh_id: AllocIdx<AttributeMeshEntity>,
@@ -86,7 +92,7 @@ impl<'a> ShaderPassBuilder for AttributesMeshGPU<'a> {
       let gpu_buffer = self.vertex.vertex.access_ref(&vertex_info_id).unwrap();
       ctx.set_vertex_buffer_owned_next(gpu_buffer);
     }
-    if let Some((index_format, _, _)) = &self.index {
+    if let Some((index_format, _)) = &self.index {
       let gpu_buffer = self.index_buffer.access_ref(&self.mesh_id).unwrap();
       ctx
         .pass
@@ -107,11 +113,11 @@ impl<'a> ShaderHashProvider for AttributesMeshGPU<'a> {
       semantic.hash(hasher)
     }
     self.mode.hash(hasher);
-    if let Some((_, f, _)) = &self.index {
+    if let Some((index_format, _)) = &self.index {
       if rendiation_mesh_core::PrimitiveTopology::LineStrip == self.mode
         || rendiation_mesh_core::PrimitiveTopology::TriangleStrip == self.mode
       {
-        f.hash(hasher)
+        index_format.hash(hasher)
       }
     }
   }
@@ -169,7 +175,7 @@ impl<'a> GraphicsShaderProvider for AttributesMeshGPU<'a> {
 
 impl<'a> AttributesMeshGPU<'a> {
   pub fn draw_command(&self) -> DrawCommand {
-    if let Some((_, _, count)) = &self.index {
+    if let Some((_, count)) = &self.index {
       DrawCommand::Indexed {
         base_vertex: 0,
         indices: 0..*count,

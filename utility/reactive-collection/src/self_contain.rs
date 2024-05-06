@@ -11,6 +11,21 @@ pub trait ReactiveCollectionSelfContained<K: CKey, V: CValue>: ReactiveCollectio
   }
 }
 
+pub trait IntoReactiveCollectionSelfContainedExt<K: CKey, V: CValue>:
+  ReactiveCollection<K, V>
+{
+  fn into_self_contained(self) -> impl ReactiveCollectionSelfContained<K, V>;
+}
+
+impl<T, K: CKey, V: CValue> IntoReactiveCollectionSelfContainedExt<K, V> for T
+where
+  T: ReactiveCollection<K, V>,
+{
+  fn into_self_contained(self) -> impl ReactiveCollectionSelfContained<K, V> {
+    todo!()
+  }
+}
+
 pub trait VirtualCollectionSelfContained<K: CKey, V: CValue>: VirtualCollection<K, V> {
   fn access_ref(&self, key: &K) -> Option<&V>;
 }

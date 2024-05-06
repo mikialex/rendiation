@@ -51,6 +51,18 @@ impl ConcurrentStreamContainer {
     todo!()
   }
 
+  pub fn register_self_contained_reactive_collection<C, K, V>(&mut self, c: C) -> UpdateResultToken
+  where
+    K: CKey,
+    V: CValue,
+    C: ReactiveCollectionSelfContained<K, V>,
+  {
+    // let c = Box::new(c);
+    // let c = todo!();
+    // self.register_source_raw(TypeId::of::<C>(), c);
+    todo!()
+  }
+
   pub fn register_reactive_multi_collection<C, K, V>(&mut self, c: C) -> UpdateResultToken
   where
     C: ReactiveOneToManyRelationship<K, V>,
@@ -90,21 +102,27 @@ pub struct ConcurrentStreamUpdateResult {
 }
 
 impl ConcurrentStreamUpdateResult {
-  pub fn get_result(&mut self, token: UpdateResultToken) -> Option<Box<dyn Any>> {
+  pub fn get_result(&self, token: UpdateResultToken) -> Option<Box<dyn Any>> {
     todo!()
   }
 
   pub fn get_reactive_collection_updated<K, V>(
-    &mut self,
+    &self,
     token: UpdateResultToken,
   ) -> Option<Box<dyn VirtualCollection<K, V>>> {
     todo!()
   }
 
   pub fn get_multi_reactive_collection_updated<K, V>(
-    &mut self,
+    &self,
     token: UpdateResultToken,
   ) -> Option<Box<dyn VirtualMultiCollection<K, V>>> {
+    todo!()
+  }
+  pub fn get_self_contained_reactive_collection_updated<K, V>(
+    &self,
+    token: UpdateResultToken,
+  ) -> Option<Box<dyn VirtualCollectionSelfContained<K, V>>> {
     todo!()
   }
 

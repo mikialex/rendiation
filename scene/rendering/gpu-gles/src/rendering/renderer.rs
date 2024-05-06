@@ -1,17 +1,22 @@
+use rendiation_texture_gpu_system::GPUTextureBindingSystem;
+
 use crate::*;
 
 pub struct GLESRenderSystem {
+  pub model_lookup: UpdateResultToken,
   pub scene_model_impl: Vec<Box<dyn RenderImplProvider<Box<dyn GLESSceneModelRenderImpl>>>>,
 }
 
-pub fn build_default_gles_render_system() -> GLESRenderSystem {
+pub fn build_default_gles_render_system(cx: &GPU) -> GLESRenderSystem {
+  let texture_system = GPUTextureBindingSystem::new(cx, true, 8192);
   GLESRenderSystem {
+    model_lookup: Default::default(),
     scene_model_impl: vec![Box::new(GLESPreferredComOrderRendererProvider {
       node: Box::new(DefaultGLESNodeRenderImplProvider::default()),
       camera: Box::new(DefaultGLESCameraRenderImplProvider::default()),
       model_impl: vec![Box::new(DefaultSceneStdModelRendererProvider {
         materials: vec![
-          Box::new(PbrMRMaterialDefaultRenderImplProvider),
+          Box::new(PbrMRMaterialDefaultRenderImplProvider::new(texture_system)),
           Box::new(FlatMaterialDefaultRenderImplProvider::default()),
         ],
         shapes: vec![Box::new(AttributeMeshDefaultRenderImplProvider::default())],
@@ -23,6 +28,7 @@ pub fn build_default_gles_render_system() -> GLESRenderSystem {
 impl RenderImplProvider<Box<dyn SceneRenderer>> for GLESRenderSystem {
   fn register_resource(&mut self, source: &mut ConcurrentStreamContainer, cx: &GPUResourceCtx) {
     let model_lookup = global_rev_ref().watch_inv_ref_typed::<SceneModelBelongsToScene>();
+    self.model_lookup = source.register_reactive_multi_collection(model_lookup);
     for imp in &mut self.scene_model_impl {
       imp.register_resource(source, cx);
     }
@@ -35,7 +41,9 @@ impl RenderImplProvider<Box<dyn SceneRenderer>> for GLESRenderSystem {
         .iter()
         .map(|imp| imp.create_impl(res))
         .collect(),
-      model_lookup: todo!(),
+      model_lookup: res
+        .get_multi_reactive_collection_updated(self.model_lookup)
+        .unwrap(),
     })
   }
 }

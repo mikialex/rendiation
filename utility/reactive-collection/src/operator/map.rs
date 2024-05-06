@@ -142,18 +142,3 @@ where
     Box::new(self.cache.make_read_holder())
   }
 }
-
-impl<T, F, K, V, V2, FF> ReactiveCollectionSelfContained<K, V2>
-  for ReactiveKVExecuteMap<T, F, K, V, V2>
-where
-  V: CValue,
-  K: CKey,
-  F: Fn() -> FF + Send + Sync + 'static,
-  FF: Fn(&K, V) -> V2 + Send + Sync + 'static,
-  V2: CValue,
-  T: ReactiveCollection<K, V>,
-{
-  fn access_ref_collection(&self) -> Box<dyn VirtualCollectionSelfContained<K, V2> + '_> {
-    Box::new(self.cache.make_read_holder())
-  }
-}

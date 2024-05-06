@@ -64,12 +64,27 @@ impl GLESModelMaterialRenderImpl for FlatMaterialDefaultRenderImpl {
   }
 }
 
-pub struct PbrMRMaterialDefaultRenderImplProvider;
+pub struct PbrMRMaterialDefaultRenderImplProvider {
+  uniforms: UpdateResultToken,
+  tex_uniforms: UpdateResultToken,
+  binding_sys: GPUTextureBindingSystem,
+}
+
+impl PbrMRMaterialDefaultRenderImplProvider {
+  pub fn new(binding_sys: GPUTextureBindingSystem) -> Self {
+    Self {
+      uniforms: UpdateResultToken::default(),
+      tex_uniforms: UpdateResultToken::default(),
+      binding_sys,
+    }
+  }
+}
 impl RenderImplProvider<Box<dyn GLESModelMaterialRenderImpl>>
   for PbrMRMaterialDefaultRenderImplProvider
 {
   fn register_resource(&mut self, source: &mut ConcurrentStreamContainer, cx: &GPUResourceCtx) {
-    todo!()
+    self.uniforms = source.register_multi_updater(pbr_mr_material_uniforms(cx));
+    self.tex_uniforms = source.register_multi_updater(pbr_mr_material_tex_uniforms(cx));
   }
 
   fn create_impl(
@@ -77,23 +92,23 @@ impl RenderImplProvider<Box<dyn GLESModelMaterialRenderImpl>>
     res: &ConcurrentStreamUpdateResult,
   ) -> Box<dyn GLESModelMaterialRenderImpl> {
     Box::new(PbrMRMaterialDefaultRenderImpl {
-      material_access: todo!(),
-      uniforms: todo!(),
-      tex_uniforms: todo!(),
+      material_access: global_entity_component_of::<StandardModelRefPbrMRMaterial>().read(),
+      uniforms: res.get_multi_updater(self.uniforms).unwrap(),
+      tex_uniforms: res.get_multi_updater(self.tex_uniforms).unwrap(),
       alpha_mode: global_entity_component_of().read(),
       base_color_tex_sampler: TextureSamplerIdView::read_from_global(),
       mr_tex_sampler: TextureSamplerIdView::read_from_global(),
       emissive_tex_sampler: TextureSamplerIdView::read_from_global(),
       normal_tex_sampler: TextureSamplerIdView::read_from_global(),
-      binding_sys: todo!(),
+      binding_sys: self.binding_sys.clone(),
     })
   }
 }
 
 struct PbrMRMaterialDefaultRenderImpl {
   material_access: ComponentReadView<StandardModelRefPbrMRMaterial>,
-  uniforms: PbrMRMaterialUniforms,
-  tex_uniforms: PbrMRMaterialTexUniforms,
+  uniforms: LockReadGuardHolder<PbrMRMaterialUniforms>,
+  tex_uniforms: LockReadGuardHolder<PbrMRMaterialTexUniforms>,
   alpha_mode: ComponentReadView<PbrMRMaterialAlphaModeComponent>,
   base_color_tex_sampler: TextureSamplerIdView<PbrMRMaterialBaseColorTex>,
   mr_tex_sampler: TextureSamplerIdView<PbrMRMaterialMetallicRoughnessTex>,
@@ -128,12 +143,12 @@ impl GLESModelMaterialRenderImpl for PbrMRMaterialDefaultRenderImpl {
   fn make_component(
     &self,
     idx: AllocIdx<StandardModelEntity>,
-  ) -> Option<Box<dyn RenderComponentAny>> {
+  ) -> Option<Box<dyn RenderComponentAny + '_>> {
     let idx = self.material_access.get(idx)?;
     let idx = (*idx)?;
-    PhysicalMetallicRoughnessMaterialGPU {
+    let r = PhysicalMetallicRoughnessMaterialGPU {
       uniform: self.uniforms.get(&idx.into())?,
-      alpha_mode: todo!(),
+      alpha_mode: self.alpha_mode.get_value(idx.into())?,
       base_color_tex_sampler: self.base_color_tex_sampler.get_pair(idx)?,
       mr_tex_sampler: self.mr_tex_sampler.get_pair(idx)?,
       emissive_tex_sampler: self.emissive_tex_sampler.get_pair(idx)?,
@@ -141,6 +156,8 @@ impl GLESModelMaterialRenderImpl for PbrMRMaterialDefaultRenderImpl {
       texture_uniforms: self.tex_uniforms.get(&idx.into())?,
       binding_sys: &self.binding_sys,
     };
-    None
+    // let r = Box::new(r) as Box<dyn RenderComponentAny + 'static>;
+    let r = todo!();
+    Some(r)
   }
 }
