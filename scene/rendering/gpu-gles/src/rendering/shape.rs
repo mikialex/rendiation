@@ -21,22 +21,33 @@ impl GLESModelShapeRenderImpl for Vec<Box<dyn GLESModelShapeRenderImpl>> {
   }
 }
 
-pub struct AttributeMeshDefaultRenderImplProvider;
+#[derive(Default)]
+pub struct AttributeMeshDefaultRenderImplProvider {
+  multi_access: UpdateResultToken,
+}
 
 impl RenderImplProvider<Box<dyn GLESModelShapeRenderImpl>>
   for AttributeMeshDefaultRenderImplProvider
 {
   fn register_resource(&mut self, source: &mut ConcurrentStreamContainer, cx: &GPUResourceCtx) {
-    let mesh_access = global_rev_ref().watch_inv_ref_typed::<StandardModelRefAttributeMesh>();
-    todo!()
+    let multi_access =
+      global_rev_ref().watch_inv_ref_typed::<AttributeMeshVertexBufferRelationRefAttributeMesh>();
+    self.multi_access = source.register_reactive_multi_collection(multi_access);
   }
 
   fn create_impl(&self, res: &ConcurrentStreamUpdateResult) -> Box<dyn GLESModelShapeRenderImpl> {
     Box::new(AttributeMeshDefaultRenderImpl {
-      mesh_access: todo!(),
-      mode: todo!(),
+      mesh_access: global_entity_component_of::<StandardModelRefAttributeMesh>().read(),
+      mode: global_entity_component_of::<AttributeMeshTopology>().read(),
       index: todo!(),
-      vertex: todo!(),
+      vertex: AttributeMeshVertexAccessView {
+        semantics: todo!(),
+        count: todo!(),
+        multi_access: res
+          .get_multi_reactive_collection_updated(self.multi_access)
+          .unwrap(),
+        vertex: todo!(),
+      },
     })
   }
 }

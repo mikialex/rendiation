@@ -94,6 +94,20 @@ impl ConcurrentStreamUpdateResult {
     todo!()
   }
 
+  pub fn get_reactive_collection_updated<K, V>(
+    &mut self,
+    token: UpdateResultToken,
+  ) -> Option<Box<dyn VirtualCollection<K, V>>> {
+    todo!()
+  }
+
+  pub fn get_multi_reactive_collection_updated<K, V>(
+    &mut self,
+    token: UpdateResultToken,
+  ) -> Option<Box<dyn VirtualMultiCollection<K, V>>> {
+    todo!()
+  }
+
   pub fn get_multi_updater<T>(
     &self,
     token: UpdateResultToken,
