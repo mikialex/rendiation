@@ -48,6 +48,8 @@ members = [
   "scene/rendering/gpu-base",
   "scene/rendering/gpu-gles",
   "scene/rendering/shadow-map",
+  "scene/io/obj/loader",
+  "scene/io/texture/loader",
   "scene/geometry-query",
   "platform/graphics/webgpu",
   "platform/graphics/webgpu-reactive-utils",

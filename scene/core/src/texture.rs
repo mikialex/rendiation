@@ -96,3 +96,25 @@ pub fn register_texture_with_sampling<T: TextureWithSamplingForeignKeys>(
     .declare_foreign_key::<SceneTexture2dRefOf<T>>()
     .declare_foreign_key::<SceneSamplerRefOf<T>>()
 }
+
+pub struct Texture2DWithSamplingDataView {
+  pub texture: EntityHandle<SceneTexture2dEntity>,
+  pub sampler: EntityHandle<SceneSamplerEntity>,
+}
+
+impl Texture2DWithSamplingDataView {
+  pub fn write<C, E>(self, writer: &mut EntityWriter<E>)
+  where
+    E: EntitySemantic,
+    C: TextureWithSamplingForeignKeys,
+    C: EntityAssociateSemantic<Entity = E>,
+  {
+    writer
+      .component_value_writer::<SceneTexture2dRefOf<C>>(
+        self.texture.alloc_idx().alloc_index().into(),
+      )
+      .component_value_writer::<SceneSamplerRefOf<C>>(
+        self.sampler.alloc_idx().alloc_index().into(),
+      );
+  }
+}

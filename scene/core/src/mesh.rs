@@ -59,11 +59,10 @@ impl EntityCustomWrite<AttributeMeshEntity> for AttributeMeshData {
       count,
     };
 
-    let mesh = writer
-      .mesh
-      .component_value_writer::<AttributeMeshTopology>(self.mode)
-      .write_scene_buffer::<AttributeIndexRef>(index)
-      .new_entity();
+    let mesh_writer = &mut writer.mesh;
+    index.write::<AttributeIndexRef, _>(mesh_writer);
+    mesh_writer.component_value_writer::<AttributeMeshTopology>(self.mode);
+    let mesh = mesh_writer.new_entity();
 
     for (semantic, vertex) in self.attributes {
       let count = vertex.len() / semantic.item_byte_size();
@@ -75,9 +74,9 @@ impl EntityCustomWrite<AttributeMeshEntity> for AttributeMeshData {
         count: Some(count as u32),
       };
 
-      writer
-        .relation
-        .write_scene_buffer::<AttributeVertexRef>(vertex)
+      let relation_writer = &mut writer.relation;
+      vertex.write::<AttributeVertexRef, _>(relation_writer);
+      relation_writer
         .component_value_writer::<AttributeMeshVertexBufferRelationRefAttributeMesh>(Some(
           mesh.alloc_idx().alloc_index(),
         ))

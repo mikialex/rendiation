@@ -27,27 +27,19 @@ pub struct SceneBufferViewDataView {
   pub count: Option<u32>,
 }
 
-pub trait SceneBufferViewDataViewWriter<E> {
-  fn write_scene_buffer<C>(&mut self, data: SceneBufferViewDataView) -> &mut Self
+impl SceneBufferViewDataView {
+  pub fn write<C, E>(self, writer: &mut EntityWriter<E>)
   where
-    C: SceneBufferView,
-    C: EntityAssociateSemantic<Entity = E>;
-}
-impl<E> SceneBufferViewDataViewWriter<E> for EntityWriter<E>
-where
-  E: EntitySemantic,
-{
-  fn write_scene_buffer<C>(&mut self, data: SceneBufferViewDataView) -> &mut Self
-  where
+    E: EntitySemantic,
     C: SceneBufferView,
     C: EntityAssociateSemantic<Entity = E>,
   {
-    self
+    writer
       .component_value_writer::<SceneBufferViewBufferId<C>>(
-        data.data.map(|v| v.alloc_idx().alloc_index()),
+        self.data.map(|v| v.alloc_idx().alloc_index()),
       )
-      .component_value_writer::<SceneBufferViewBufferRange<C>>(data.range)
-      .component_value_writer::<SceneBufferViewBufferItemCount<C>>(data.count)
+      .component_value_writer::<SceneBufferViewBufferRange<C>>(self.range)
+      .component_value_writer::<SceneBufferViewBufferItemCount<C>>(self.count);
   }
 }
 

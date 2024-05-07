@@ -3215,6 +3215,37 @@ dependencies = [
 ]
 
 [[package]]
+name = "rendiation-scene-io-texture-loader"
+version = "0.1.0"
+dependencies = [
+ "database",
+ "image",
+ "reactive",
+ "rendiation-scene-core",
+ "rendiation-texture-core",
+ "smallvec",
+ "thiserror",
+ "tobj",
+]
+
+[[package]]
+name = "rendiation-scene-obj-loader"
+version = "0.1.0"
+dependencies = [
+ "database",
+ "image",
+ "reactive",
+ "rendiation-algebra",
+ "rendiation-mesh-core",
+ "rendiation-scene-core",
+ "rendiation-scene-io-texture-loader",
+ "rendiation-texture-core",
+ "smallvec",
+ "thiserror",
+ "tobj",
+]
+
+[[package]]
 name = "rendiation-scene-rendering-gpu-base"
 version = "0.1.0"
 dependencies = [
