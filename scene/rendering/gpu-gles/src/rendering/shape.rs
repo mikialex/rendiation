@@ -1,3 +1,5 @@
+use rendiation_mesh_core::AttributeIndexFormat;
+
 use crate::*;
 
 pub trait GLESModelShapeRenderImpl {
@@ -61,6 +63,8 @@ impl RenderImplProvider<Box<dyn GLESModelShapeRenderImpl>>
           .get_self_contained_reactive_collection_updated(self.vertex)
           .unwrap(),
       },
+      count: global_entity_component_of::<SceneBufferViewBufferItemCount<AttributeIndexRef>>()
+        .read(),
     })
   }
 }
@@ -68,6 +72,7 @@ impl RenderImplProvider<Box<dyn GLESModelShapeRenderImpl>>
 pub struct AttributeMeshDefaultRenderImpl {
   mesh_access: ComponentReadView<StandardModelRefAttributeMesh>,
   mode: ComponentReadView<AttributeMeshTopology>,
+  count: ComponentReadView<SceneBufferViewBufferItemCount<AttributeIndexRef>>,
   index:
     Box<dyn VirtualCollectionSelfContained<AllocIdx<AttributeMeshEntity>, GPUBufferResourceView>>,
   vertex: AttributeMeshVertexAccessView,
@@ -81,14 +86,29 @@ impl GLESModelShapeRenderImpl for AttributeMeshDefaultRenderImpl {
     let idx = self.mesh_access.get(idx)?;
     let mesh_id = AllocIdx::from_alloc_index((*idx)?);
 
+    let index_buffer = self.index.access_ref(&mesh_id)?;
+
+    let count = self.count.get_value(mesh_id)?;
+    let index_info = count.map(|count| {
+      let stride = u64::from(index_buffer.view_byte_size()) / count as u64;
+      let fmt = match stride {
+        8 => AttributeIndexFormat::Uint32,
+        4 => AttributeIndexFormat::Uint16,
+        _ => unreachable!("invalid index format"),
+      };
+      (fmt, count)
+    });
+
     let gpu = AttributesMeshGPU {
       mode: self.mode.get_value(mesh_id)?,
-      index: todo!(),
-      index_buffer: &*self.index,
+      index: index_info,
+      index_buffer,
       mesh_id,
       vertex: &self.vertex,
     };
 
-    Some((Box::new(gpu), gpu.draw_command()))
+    let cmd = gpu.draw_command();
+
+    Some((Box::new(gpu), cmd))
   }
 }

@@ -24,7 +24,7 @@ pub trait SceneBufferView: EntityAssociateSemantic {}
 pub struct SceneBufferViewDataView {
   pub data: Option<EntityHandle<BufferEntity>>,
   pub range: Option<BufferViewRange>,
-  pub stride: Option<u32>,
+  pub count: Option<u32>,
 }
 
 pub trait SceneBufferViewDataViewWriter<E> {
@@ -47,7 +47,7 @@ where
         data.data.map(|v| v.alloc_idx().alloc_index()),
       )
       .component_value_writer::<SceneBufferViewBufferRange<C>>(data.range)
-      .component_value_writer::<SceneBufferViewBufferItemCount<C>>(data.stride)
+      .component_value_writer::<SceneBufferViewBufferItemCount<C>>(data.count)
   }
 }
 
@@ -71,6 +71,7 @@ impl<T: SceneBufferView> ForeignKeySemantic for SceneBufferViewBufferId<T> {
   type ForeignEntity = BufferEntity;
 }
 
+/// if range is none, it means the whole buffer
 pub struct SceneBufferViewBufferRange<T>(T);
 impl<T: SceneBufferView> EntityAssociateSemantic for SceneBufferViewBufferRange<T> {
   type Entity = T::Entity;

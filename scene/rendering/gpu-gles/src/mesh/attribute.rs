@@ -80,8 +80,7 @@ pub struct AttributesMeshGPU<'a> {
   pub mode: rendiation_mesh_core::PrimitiveTopology,
   // fmt, count
   pub index: Option<(AttributeIndexFormat, u32)>,
-  pub index_buffer:
-    &'a dyn VirtualCollectionSelfContained<AllocIdx<AttributeMeshEntity>, GPUBufferResourceView>,
+  pub index_buffer: &'a GPUBufferResourceView,
   pub mesh_id: AllocIdx<AttributeMeshEntity>,
   pub vertex: &'a AttributeMeshVertexAccessView,
 }
@@ -93,10 +92,9 @@ impl<'a> ShaderPassBuilder for AttributesMeshGPU<'a> {
       ctx.set_vertex_buffer_owned_next(gpu_buffer);
     }
     if let Some((index_format, _)) = &self.index {
-      let gpu_buffer = self.index_buffer.access_ref(&self.mesh_id).unwrap();
       ctx
         .pass
-        .set_index_buffer_owned(gpu_buffer, map_index(*index_format))
+        .set_index_buffer_owned(self.index_buffer, map_index(*index_format))
     }
   }
 }

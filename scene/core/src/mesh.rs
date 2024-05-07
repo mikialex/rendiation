@@ -1,4 +1,6 @@
-use rendiation_mesh_core::{AttributeMeshData, AttributeSemantic, PrimitiveTopology};
+use rendiation_mesh_core::{
+  AttributeMeshData, AttributeReadSchema, AttributeSemantic, PrimitiveTopology,
+};
 
 use crate::*;
 
@@ -45,12 +47,16 @@ impl EntityCustomWrite<AttributeMeshEntity> for AttributeMeshData {
   }
 
   fn write(self, writer: &mut Self::Writer) -> EntityHandle<AttributeMeshEntity> {
+    let count = self.indices.as_ref().map(|(fmt, data)| match fmt {
+      rendiation_mesh_core::AttributeIndexFormat::Uint16 => data.len() / 4,
+      rendiation_mesh_core::AttributeIndexFormat::Uint32 => data.len() / 8,
+    } as u32);
     let index = self.indices.map(|(_, data)| data.write(&mut writer.buffer));
 
     let index = SceneBufferViewDataView {
       data: index,
       range: None,
-      stride: None,
+      count,
     };
 
     let mesh = writer
@@ -60,12 +66,13 @@ impl EntityCustomWrite<AttributeMeshEntity> for AttributeMeshData {
       .new_entity();
 
     for (semantic, vertex) in self.attributes {
+      let count = vertex.len() / semantic.item_byte_size();
       let vertex = vertex.write(&mut writer.buffer);
 
       let vertex = SceneBufferViewDataView {
         data: Some(vertex),
         range: None,
-        stride: None,
+        count: Some(count as u32),
       };
 
       writer
