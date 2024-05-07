@@ -1,6 +1,6 @@
 use rendiation_mesh_core::MeshBufferHitPoint;
 use rendiation_scene_interaction::*;
-use webgpu::{FrameRenderPass, RenderComponentAny};
+use webgpu::{FrameRenderPass, RenderComponent};
 use winit::event::{ElementState, Event, MouseButton};
 
 use crate::*;
@@ -122,7 +122,7 @@ impl<T, E> SceneRenderable for Component3DCollection<T, E> {
   fn render(
     &self,
     pass: &mut FrameRenderPass,
-    dispatcher: &dyn RenderComponentAny,
+    dispatcher: &dyn RenderComponent,
     camera: &SceneCamera,
     scene: &SceneRenderResourceGroup,
   ) {

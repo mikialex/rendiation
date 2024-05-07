@@ -124,6 +124,7 @@ impl ShaderHashProvider for StateGPUImpl {
   fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
     self.state_id.hash(hasher)
   }
+  shader_hash_type_id! {}
 }
 
 impl GraphicsShaderProvider for StateGPUImpl {

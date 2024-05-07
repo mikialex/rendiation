@@ -111,7 +111,9 @@ where
     builder.bind(&self.0);
   }
 }
-impl<T: Std430> ShaderHashProvider for StorageBufferReadOnlyDataViewReadIntoShader<T> {}
+impl<T: Std430> ShaderHashProvider for StorageBufferReadOnlyDataViewReadIntoShader<T> {
+  shader_hash_type_id! {}
+}
 
 pub struct WriteIntoStorageWriter<T: Std430> {
   pub inner: Box<dyn DeviceInvocationComponent<Node<T>>>,
@@ -123,6 +125,7 @@ impl<T: Std430> ShaderHashProvider for WriteIntoStorageWriter<T> {
   fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
     self.inner.hash_pipeline_with_type_info(hasher)
   }
+  shader_hash_type_id! {}
 }
 
 impl<T> DeviceInvocationComponent<Node<T>> for WriteIntoStorageWriter<T>

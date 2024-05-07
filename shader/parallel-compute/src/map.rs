@@ -2,11 +2,11 @@ use crate::*;
 
 struct DeviceMapCompute<I, O> {
   mapper: Arc<dyn Fn(I) -> O>,
-  mapper_extra_hasher: Arc<dyn ShaderHashProviderAny>,
+  mapper_extra_hasher: Arc<dyn ShaderHashProvider>,
   upstream: Box<dyn DeviceInvocationComponent<I>>,
 }
 
-impl<I, O> ShaderHashProvider for DeviceMapCompute<I, O> {
+impl<I: 'static, O: 'static> ShaderHashProvider for DeviceMapCompute<I, O> {
   fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
     std::any::type_name_of_val(&self.mapper).hash(hasher);
     self
@@ -14,6 +14,7 @@ impl<I, O> ShaderHashProvider for DeviceMapCompute<I, O> {
       .hash_pipeline_with_type_info(hasher);
     self.upstream.hash_pipeline_with_type_info(hasher)
   }
+  shader_hash_type_id! {}
 }
 
 impl<I: 'static, O: 'static + Copy> DeviceInvocationComponent<O> for DeviceMapCompute<I, O> {
@@ -47,7 +48,7 @@ impl<I: 'static, O: 'static + Copy> DeviceInvocationComponent<O> for DeviceMapCo
 #[derivative(Clone(bound = ""))]
 pub struct DeviceMap<I, O> {
   pub mapper: Arc<dyn Fn(I) -> O>,
-  pub mapper_extra_hasher: Arc<dyn ShaderHashProviderAny>,
+  pub mapper_extra_hasher: Arc<dyn ShaderHashProvider>,
   pub upstream: Box<dyn DeviceParallelCompute<I>>,
 }
 

@@ -4,7 +4,7 @@ pub trait GLESCameraRenderImpl {
   fn make_component(
     &self,
     idx: AllocIdx<SceneCameraEntity>,
-  ) -> Option<Box<dyn RenderComponentAny + '_>>;
+  ) -> Option<Box<dyn RenderComponent + '_>>;
 }
 
 #[derive(Default)]
@@ -35,7 +35,7 @@ impl GLESCameraRenderImpl for DefaultGLESCameraRenderImpl {
   fn make_component(
     &self,
     idx: AllocIdx<SceneCameraEntity>,
-  ) -> Option<Box<dyn RenderComponentAny + '_>> {
+  ) -> Option<Box<dyn RenderComponent + '_>> {
     let node = CameraGPU {
       ubo: self.uniforms.get(&idx)?,
     };

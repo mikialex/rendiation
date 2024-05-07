@@ -14,7 +14,7 @@ struct WorkGroupHistogramCompute<T, S> {
   upstream: Box<dyn DeviceInvocationComponent<Node<T>>>,
 }
 
-impl<T, S> ShaderHashProvider for WorkGroupHistogramCompute<T, S>
+impl<T: 'static, S: 'static> ShaderHashProvider for WorkGroupHistogramCompute<T, S>
 where
   S: DeviceHistogramMappingLogic<Data = T>,
 {
@@ -23,6 +23,7 @@ where
     S::MAX.hash(hasher);
     self.upstream.hash_pipeline_with_type_info(hasher)
   }
+  shader_hash_type_id! {}
 }
 
 impl<T, S> DeviceInvocationComponent<Node<u32>> for WorkGroupHistogramCompute<T, S>
@@ -135,13 +136,14 @@ pub struct DeviceHistogramCompute<T, S> {
   result: StorageBufferDataView<[DeviceAtomic<u32>]>,
 }
 
-impl<T, S> ShaderHashProvider for DeviceHistogramCompute<T, S>
+impl<T: 'static, S> ShaderHashProvider for DeviceHistogramCompute<T, S>
 where
-  S: DeviceHistogramMappingLogic<Data = T>,
+  S: DeviceHistogramMappingLogic<Data = T> + 'static,
 {
   fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
     self.workgroup_level.hash_pipeline(hasher)
   }
+  shader_hash_type_id! {}
 }
 
 impl<T, S> DeviceInvocationComponent<Node<u32>> for DeviceHistogramCompute<T, S>

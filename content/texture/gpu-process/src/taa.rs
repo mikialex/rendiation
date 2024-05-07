@@ -182,12 +182,8 @@ impl<'a> ShaderPassBuilder for TAAResolver<'a> {
     ctx.binding.bind(&self.reproject.reproject);
   }
 }
-impl<'a> ShaderHashProvider for TAAResolver<'a> {}
-impl<'a> ShaderHashProviderAny for TAAResolver<'a> {
-  fn hash_pipeline_with_type_info(&self, hasher: &mut PipelineHasher) {
-    struct Marker;
-    Marker.type_id().hash(hasher)
-  }
+impl<'a> ShaderHashProvider for TAAResolver<'a> {
+  shader_hash_type_id! {TAAResolver<'static>}
 }
 
 fn halton(index: usize, base: usize) -> f32 {

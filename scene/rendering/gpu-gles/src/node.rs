@@ -51,12 +51,8 @@ impl TransformGPUData {
   }
 }
 
-impl<'a> ShaderHashProvider for NodeGPU<'a> {}
-impl<'a> ShaderHashProviderAny for NodeGPU<'a> {
-  fn hash_pipeline_with_type_info(&self, hasher: &mut PipelineHasher) {
-    self.hash_pipeline(hasher);
-    std::any::TypeId::of::<NodeGPU<'static>>().hash(hasher)
-  }
+impl<'a> ShaderHashProvider for NodeGPU<'a> {
+  shader_hash_type_id! {NodeGPU<'static>}
 }
 
 impl<'a> GraphicsShaderProvider for NodeGPU<'a> {

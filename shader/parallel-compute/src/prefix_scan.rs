@@ -33,11 +33,12 @@ struct WorkGroupPrefixScanKoggeStoneCompute<T, S> {
   upstream: Box<dyn DeviceInvocationComponent<Node<T>>>,
 }
 
-impl<T, S> ShaderHashProvider for WorkGroupPrefixScanKoggeStoneCompute<T, S> {
+impl<T: 'static, S: 'static> ShaderHashProvider for WorkGroupPrefixScanKoggeStoneCompute<T, S> {
   fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
     self.workgroup_size.hash(hasher);
     self.upstream.hash_pipeline_with_type_info(hasher)
   }
+  shader_hash_type_id! {}
 }
 
 impl<T, S> DeviceInvocationComponent<Node<T>> for WorkGroupPrefixScanKoggeStoneCompute<T, S>

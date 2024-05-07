@@ -22,11 +22,12 @@ struct Builder<A, B> {
   pub source_b: Box<dyn DeviceInvocationComponent<B>>,
 }
 
-impl<A, B> ShaderHashProvider for Builder<A, B> {
+impl<A: 'static, B: 'static> ShaderHashProvider for Builder<A, B> {
   fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
     self.source_a.hash_pipeline_with_type_info(hasher);
     self.source_b.hash_pipeline_with_type_info(hasher)
   }
+  shader_hash_type_id! {}
 }
 
 impl<A: 'static, B: 'static> DeviceInvocationComponent<(A, B)> for Builder<A, B> {

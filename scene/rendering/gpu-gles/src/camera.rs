@@ -58,12 +58,8 @@ impl<'a> CameraGPU<'a> {
   }
 }
 
-impl<'a> ShaderHashProvider for CameraGPU<'a> {}
-impl<'a> ShaderHashProviderAny for CameraGPU<'a> {
-  fn hash_pipeline_with_type_info(&self, hasher: &mut PipelineHasher) {
-    self.hash_pipeline(hasher);
-    std::any::TypeId::of::<CameraGPU<'static>>().hash(hasher)
-  }
+impl<'a> ShaderHashProvider for CameraGPU<'a> {
+  shader_hash_type_id! {CameraGPU<'static>}
 }
 
 impl<'a> ShaderPassBuilder for CameraGPU<'a> {

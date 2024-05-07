@@ -35,7 +35,7 @@ pub trait SceneRenderer {
     &self,
     scene: AllocIdx<SceneEntity>,
     camera: AllocIdx<SceneCameraEntity>,
-    pass: &dyn RenderComponentAny,
+    pass: &dyn RenderComponent,
     ctx: &mut FrameCtx,
     target: RenderPassDescriptorOwned,
   );

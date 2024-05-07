@@ -69,13 +69,7 @@ impl<'a, T> ShaderPassBuilder for HighLightComposeTask<'a, T> {
 }
 
 impl<'a, T> ShaderHashProvider for HighLightComposeTask<'a, T> {
-  fn hash_pipeline(&self, _: &mut PipelineHasher) {}
-}
-
-impl<'a, T> ShaderHashProviderAny for HighLightComposeTask<'a, T> {
-  fn hash_pipeline_with_type_info(&self, hasher: &mut PipelineHasher) {
-    self.lighter.type_id().hash(hasher);
-  }
+  shader_hash_type_id! {HighLighter}
 }
 
 impl<'a, T> GraphicsShaderProvider for HighLightComposeTask<'a, T> {
@@ -124,7 +118,9 @@ pub struct HighLightMaskDispatcher;
 
 pub const HIGH_LIGHT_MASK_TARGET_FORMAT: TextureFormat = TextureFormat::R8Unorm;
 
-impl ShaderHashProvider for HighLightMaskDispatcher {}
+impl ShaderHashProvider for HighLightMaskDispatcher {
+  shader_hash_type_id! {}
+}
 impl ShaderPassBuilder for HighLightMaskDispatcher {}
 
 impl GraphicsShaderProvider for HighLightMaskDispatcher {

@@ -1,6 +1,3 @@
-#![feature(specialization)]
-
-use std::any::Any;
 use std::hash::Hash;
 
 use rendiation_algebra::*;

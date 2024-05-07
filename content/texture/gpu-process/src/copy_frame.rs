@@ -6,13 +6,7 @@ pub struct CopyFrame<T> {
 }
 struct CopyFrameTypeMark;
 impl<T> ShaderHashProvider for CopyFrame<T> {
-  fn hash_pipeline(&self, _: &mut PipelineHasher) {}
-}
-
-impl<T> ShaderHashProviderAny for CopyFrame<T> {
-  fn hash_pipeline_with_type_info(&self, hasher: &mut PipelineHasher) {
-    CopyFrameTypeMark.type_id().hash(hasher);
-  }
+  shader_hash_type_id! {CopyFrameTypeMark}
 }
 
 pub fn copy_frame<T>(source: AttachmentView<T>, blend: Option<BlendState>) -> impl PassContent {

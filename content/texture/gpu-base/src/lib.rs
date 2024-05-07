@@ -1,8 +1,3 @@
-#![feature(specialization)]
-
-use std::any::Any;
-use std::hash::Hash;
-
 use rendiation_algebra::*;
 use rendiation_shader_api::*;
 use rendiation_texture_core::*;

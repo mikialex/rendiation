@@ -4,14 +4,14 @@ pub trait GLESModelShapeRenderImpl {
   fn make_component(
     &self,
     idx: AllocIdx<StandardModelEntity>,
-  ) -> Option<(Box<dyn RenderComponentAny + '_>, DrawCommand)>;
+  ) -> Option<(Box<dyn RenderComponent + '_>, DrawCommand)>;
 }
 
 impl GLESModelShapeRenderImpl for Vec<Box<dyn GLESModelShapeRenderImpl>> {
   fn make_component(
     &self,
     idx: AllocIdx<StandardModelEntity>,
-  ) -> Option<(Box<dyn RenderComponentAny + '_>, DrawCommand)> {
+  ) -> Option<(Box<dyn RenderComponent + '_>, DrawCommand)> {
     for provider in self {
       if let Some(com) = provider.make_component(idx) {
         return Some(com);
@@ -77,7 +77,7 @@ impl GLESModelShapeRenderImpl for AttributeMeshDefaultRenderImpl {
   fn make_component(
     &self,
     idx: AllocIdx<StandardModelEntity>,
-  ) -> Option<(Box<dyn RenderComponentAny + '_>, DrawCommand)> {
+  ) -> Option<(Box<dyn RenderComponent + '_>, DrawCommand)> {
     let idx = self.mesh_access.get(idx)?;
     let mesh_id = AllocIdx::from_alloc_index((*idx)?);
 

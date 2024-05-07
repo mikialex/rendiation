@@ -83,13 +83,10 @@ pub struct AOComputer<'a> {
   reproject: &'a UniformBufferCachedDataView<ReprojectInfo>,
 }
 
-impl<'a> ShaderHashProvider for AOComputer<'a> {}
-impl<'a> ShaderHashProviderAny for AOComputer<'a> {
-  fn hash_pipeline_with_type_info(&self, hasher: &mut PipelineHasher) {
-    struct Mark;
-    Mark.type_id().hash(hasher)
-  }
+impl<'a> ShaderHashProvider for AOComputer<'a> {
+  shader_hash_type_id! {AOComputer<'static>}
 }
+
 impl<'a> ShaderPassBuilder for AOComputer<'a> {
   fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
     ctx.binding.bind(&self.depth);

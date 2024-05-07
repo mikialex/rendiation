@@ -57,6 +57,7 @@ impl ShaderHashProvider for FullScreenQuad {
   fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
     self.blend.hash(hasher)
   }
+  shader_hash_type_id! {}
 }
 impl GraphicsShaderProvider for FullScreenQuad {
   fn build(&self, builder: &mut ShaderRenderPipelineBuilder) -> Result<(), ShaderBuildError> {
@@ -117,12 +118,12 @@ impl<T> UseQuadDraw for T {}
 
 impl<T> PassContent for QuadDraw<T>
 where
-  T: RenderComponentAny,
+  T: RenderComponent,
 {
   fn render(&mut self, pass: &mut FrameRenderPass) {
     let mut base = default_dispatcher(pass);
     base.auto_write = false;
-    let components: [&dyn RenderComponentAny; 3] = [&base, &self.quad, &self.content];
+    let components: [&dyn RenderComponent; 3] = [&base, &self.quad, &self.content];
 
     RenderSlice::new(components.as_slice()).render(&mut pass.ctx, QUAD_DRAW_CMD);
   }

@@ -1,5 +1,3 @@
-#![feature(specialization)]
-
 use std::fmt::Debug;
 use std::hash::Hash;
 use std::hash::Hasher;
@@ -97,7 +95,7 @@ impl<T: Copy> DeviceInvocation<T> for AdhocInvocationResult<T> {
   }
 }
 
-pub trait DeviceInvocationComponent<T>: ShaderHashProviderAny {
+pub trait DeviceInvocationComponent<T>: ShaderHashProvider {
   fn build_shader(
     &self,
     builder: &mut ShaderComputePipelineBuilder,
@@ -265,7 +263,7 @@ where
   fn map_with_id_provided<O: Copy + 'static>(
     self,
     mapper: impl Fn(T) -> O + 'static,
-    hasher: impl ShaderHashProviderAny + 'static,
+    hasher: impl ShaderHashProvider + 'static,
   ) -> DeviceMap<T, O> {
     DeviceMap {
       mapper: Arc::new(mapper),
@@ -574,7 +572,7 @@ impl<'a> DeviceParallelComputeCtx<'a> {
 
   pub fn get_or_create_compute_pipeline(
     &mut self,
-    source: &(impl ShaderHashProviderAny + ?Sized),
+    source: &(impl ShaderHashProvider + ?Sized),
     creator: impl FnOnce(&mut ComputeCx),
   ) -> GPUComputePipeline {
     let mut hasher = PipelineHasher::default();
@@ -596,14 +594,10 @@ impl<'a> DeviceParallelComputeCtx<'a> {
   }
 }
 
-impl<T> ShaderHashProvider for Box<dyn DeviceInvocationComponent<T>> {
+impl<T: 'static> ShaderHashProvider for Box<dyn DeviceInvocationComponent<T>> {
   fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
-    (**self).hash_pipeline(hasher)
-  }
-}
-
-impl<T> ShaderHashProviderAny for Box<dyn DeviceInvocationComponent<T>> {
-  fn hash_pipeline_with_type_info(&self, hasher: &mut PipelineHasher) {
     (**self).hash_pipeline_with_type_info(hasher)
   }
+
+  shader_hash_type_id! {}
 }

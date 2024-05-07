@@ -1,7 +1,3 @@
-#![feature(specialization)]
-
-use core::{any::Any, hash::Hash};
-
 use rendiation_scene_rendering_gpu_gles::CameraGPU;
 use rendiation_shader_api::*;
 use rendiation_state_override::MaterialStates;
@@ -28,7 +24,9 @@ impl Default for GridGroundConfig {
 pub struct GridGroundShading<'a> {
   shading: &'a UniformBufferDataView<GridGroundConfig>,
 }
-impl<'a> ShaderHashProvider for GridGroundShading<'a> {}
+impl<'a> ShaderHashProvider for GridGroundShading<'a> {
+  shader_hash_type_id! {GridGroundShading<'static>}
+}
 impl<'a> ShaderPassBuilder for GridGroundShading<'a> {
   fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
     ctx.binding.bind(self.shading);
@@ -80,11 +78,8 @@ pub struct InfinityShaderPlaneEffect<'a> {
   camera: &'a CameraGPU<'a>,
 }
 
-impl<'a> ShaderHashProvider for InfinityShaderPlaneEffect<'a> {}
-impl<'a> ShaderHashProviderAny for InfinityShaderPlaneEffect<'a> {
-  fn hash_pipeline_with_type_info(&self, hasher: &mut PipelineHasher) {
-    self.plane.type_id().hash(hasher)
-  }
+impl<'a> ShaderHashProvider for InfinityShaderPlaneEffect<'a> {
+  shader_hash_type_id! {InfinityShaderPlaneEffect<'static>}
 }
 impl<'a> ShaderPassBuilder for InfinityShaderPlaneEffect<'a> {
   fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {

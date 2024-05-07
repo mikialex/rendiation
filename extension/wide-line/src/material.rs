@@ -23,7 +23,9 @@ pub struct WideLineMaterialGPU<'a> {
   uniform: &'a UniformBufferDataView<WideLineMaterialUniform>,
 }
 
-impl<'a> ShaderHashProvider for WideLineMaterialGPU<'a> {}
+impl<'a> ShaderHashProvider for WideLineMaterialGPU<'a> {
+  shader_hash_type_id! {WideLineMaterialGPU<'static>}
+}
 
 impl<'a> ShaderPassBuilder for WideLineMaterialGPU<'a> {
   fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {

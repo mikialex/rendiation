@@ -78,6 +78,7 @@ impl ShaderHashProvider for GPUTextureBindingSystem {
   fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
     self.bindless_enabled.hash(hasher)
   }
+  shader_hash_type_id! {}
 }
 impl GraphicsShaderProvider for GPUTextureBindingSystem {
   fn build(&self, builder: &mut ShaderRenderPipelineBuilder) -> Result<(), ShaderBuildError> {

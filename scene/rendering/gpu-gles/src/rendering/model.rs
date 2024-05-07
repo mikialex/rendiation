@@ -4,18 +4,18 @@ pub trait GLESModelRenderImpl {
   fn shape_renderable(
     &self,
     idx: AllocIdx<SceneModelEntity>,
-  ) -> Option<(Box<dyn RenderComponentAny + '_>, DrawCommand)>;
+  ) -> Option<(Box<dyn RenderComponent + '_>, DrawCommand)>;
   fn material_renderable(
     &self,
     idx: AllocIdx<SceneModelEntity>,
-  ) -> Option<Box<dyn RenderComponentAny + '_>>;
+  ) -> Option<Box<dyn RenderComponent + '_>>;
 }
 
 impl GLESModelRenderImpl for Vec<Box<dyn GLESModelRenderImpl>> {
   fn shape_renderable(
     &self,
     idx: AllocIdx<SceneModelEntity>,
-  ) -> Option<(Box<dyn RenderComponentAny + '_>, DrawCommand)> {
+  ) -> Option<(Box<dyn RenderComponent + '_>, DrawCommand)> {
     for provider in self {
       if let Some(v) = provider.shape_renderable(idx) {
         return Some(v);
@@ -27,7 +27,7 @@ impl GLESModelRenderImpl for Vec<Box<dyn GLESModelRenderImpl>> {
   fn material_renderable(
     &self,
     idx: AllocIdx<SceneModelEntity>,
-  ) -> Option<Box<dyn RenderComponentAny + '_>> {
+  ) -> Option<Box<dyn RenderComponent + '_>> {
     for provider in self {
       if let Some(v) = provider.material_renderable(idx) {
         return Some(v);
@@ -71,7 +71,7 @@ impl GLESModelRenderImpl for SceneStdModelRenderer {
   fn shape_renderable(
     &self,
     idx: AllocIdx<SceneModelEntity>,
-  ) -> Option<(Box<dyn RenderComponentAny + '_>, DrawCommand)> {
+  ) -> Option<(Box<dyn RenderComponent + '_>, DrawCommand)> {
     let model = self.model.get(idx)?;
     let idx = (*model)?;
     self.shapes.make_component(idx.into())
@@ -80,7 +80,7 @@ impl GLESModelRenderImpl for SceneStdModelRenderer {
   fn material_renderable(
     &self,
     idx: AllocIdx<SceneModelEntity>,
-  ) -> Option<Box<dyn RenderComponentAny + '_>> {
+  ) -> Option<Box<dyn RenderComponent + '_>> {
     let model = self.model.get(idx)?;
     let idx = (*model)?;
     self.materials.make_component(idx.into())

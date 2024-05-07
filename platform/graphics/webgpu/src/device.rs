@@ -186,25 +186,48 @@ pub struct RenderPipelineCache {
 /// allocation
 pub trait ShaderHashProvider {
   fn hash_pipeline(&self, _hasher: &mut PipelineHasher) {}
-}
 
-impl ShaderHashProvider for () {}
+  // if the type contains dynamic ShaderHashProvider, it's dynamic type info should be expressed in
+  // hash pipeline, not in this fn
+  fn hash_type_info(&self, hasher: &mut PipelineHasher);
 
-/// Some type is not 'static, which is not impl Any, but we still require shader hash
-/// impl with itself's type identity info. In this case, the user should impl this trait
-/// manually.
-pub trait ShaderHashProviderAny: ShaderHashProvider {
-  fn hash_pipeline_with_type_info(&self, hasher: &mut PipelineHasher);
-}
-
-impl<T> ShaderHashProviderAny for T
-where
-  T: ShaderHashProvider + Any,
-{
-  default fn hash_pipeline_with_type_info(&self, hasher: &mut PipelineHasher) {
-    self.type_id().hash(hasher);
+  fn hash_pipeline_with_type_info(&self, hasher: &mut PipelineHasher) {
+    self.hash_type_info(hasher);
     self.hash_pipeline(hasher);
   }
+}
+
+// pub trait ShaderVariantKeyProvider {
+//   type VariantKey: Eq + Hash + Any;
+//   fn create_variant_key(&self) -> Self::VariantKey;
+// }
+// impl<T: ShaderVariantKeyProvider> ShaderHashProvider for T {
+//   fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
+//     self.create_variant_key().hash(hasher);
+//   }
+//   fn hash_pipeline_with_type_info(&self, hasher: &mut PipelineHasher) {
+//     TypeId::of::<T::VariantKey>().hash(hasher)
+//   }
+// }
+
+#[macro_export]
+macro_rules! shader_hash_type_id {
+  () => {
+    fn hash_type_info(&self, hasher: &mut PipelineHasher) {
+      use std::hash::Hash;
+      std::any::TypeId::of::<Self>().hash(hasher);
+    }
+  };
+  {$ty:ty} => {
+    fn hash_type_info(&self, hasher: &mut PipelineHasher) {
+      use std::hash::Hash;
+      std::any::TypeId::of::<$ty>().hash(hasher);
+    }
+  };
+}
+
+impl ShaderHashProvider for () {
+  shader_hash_type_id! {}
 }
 
 /// User could use this to debug if the hashing logic issue

@@ -142,7 +142,9 @@ impl<'a> GraphicsShaderProvider for SolidLinedMeshGPU<'a> {
   }
 }
 
-impl<'a> ShaderHashProvider for SolidLinedMeshGPU<'a> {}
+impl<'a> ShaderHashProvider for SolidLinedMeshGPU<'a> {
+  shader_hash_type_id! {SolidLinedMeshGPU<'static>}
+}
 impl<'a> ShaderPassBuilder for SolidLinedMeshGPU<'a> {
   fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
     self.inner.setup_pass(ctx);

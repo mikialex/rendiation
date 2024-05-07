@@ -58,7 +58,9 @@ impl GraphicsShaderProvider for WideLineMeshGPU {
   }
 }
 
-impl ShaderHashProvider for WideLineMeshGPU {}
+impl ShaderHashProvider for WideLineMeshGPU {
+  shader_hash_type_id! {}
+}
 
 impl ShaderPassBuilder for WideLineMeshGPU {
   fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {

@@ -107,6 +107,7 @@ pub trait CustomAttributeKeyGPU {
 define_dyn_trait_downcaster_static!(CustomAttributeKeyGPU);
 
 impl<'a> ShaderHashProvider for AttributesMeshGPU<'a> {
+  shader_hash_type_id! {AttributesMeshGPU<'static>}
   fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
     for vertex_info_id in self.vertex.multi_access.access_multi_value(&self.mesh_id) {
       let semantic = self.vertex.semantics.get(vertex_info_id).unwrap();

@@ -226,4 +226,5 @@ where
 
 impl<T: Std140, const N: usize> ShaderHashProvider for ClampedUniformList<T, N> {
   fn hash_pipeline(&self, _hasher: &mut PipelineHasher) {}
+  shader_hash_type_id! {}
 }

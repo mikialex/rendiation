@@ -6,14 +6,14 @@ pub trait GLESModelMaterialRenderImpl {
   fn make_component(
     &self,
     idx: AllocIdx<StandardModelEntity>,
-  ) -> Option<Box<dyn RenderComponentAny + '_>>;
+  ) -> Option<Box<dyn RenderComponent + '_>>;
 }
 
 impl GLESModelMaterialRenderImpl for Vec<Box<dyn GLESModelMaterialRenderImpl>> {
   fn make_component(
     &self,
     idx: AllocIdx<StandardModelEntity>,
-  ) -> Option<Box<dyn RenderComponentAny + '_>> {
+  ) -> Option<Box<dyn RenderComponent + '_>> {
     for provider in self {
       if let Some(com) = provider.make_component(idx) {
         return Some(com);
@@ -55,7 +55,7 @@ impl GLESModelMaterialRenderImpl for FlatMaterialDefaultRenderImpl {
   fn make_component(
     &self,
     idx: AllocIdx<StandardModelEntity>,
-  ) -> Option<Box<dyn RenderComponentAny + '_>> {
+  ) -> Option<Box<dyn RenderComponent + '_>> {
     let idx = self.material_access.get(idx)?;
     let idx = (*idx)?;
     Some(Box::new(FlatMaterialGPU {
@@ -143,7 +143,7 @@ impl GLESModelMaterialRenderImpl for PbrMRMaterialDefaultRenderImpl {
   fn make_component(
     &self,
     idx: AllocIdx<StandardModelEntity>,
-  ) -> Option<Box<dyn RenderComponentAny + '_>> {
+  ) -> Option<Box<dyn RenderComponent + '_>> {
     let idx = self.material_access.get(idx)?;
     let idx = (*idx)?;
     let r = PhysicalMetallicRoughnessMaterialGPU {
@@ -156,8 +156,7 @@ impl GLESModelMaterialRenderImpl for PbrMRMaterialDefaultRenderImpl {
       texture_uniforms: self.tex_uniforms.get(&idx.into())?,
       binding_sys: &self.binding_sys,
     };
-    // let r = Box::new(r) as Box<dyn RenderComponentAny + 'static>;
-    let r = todo!();
+    let r = Box::new(r) as Box<dyn RenderComponent + '_>;
     Some(r)
   }
 }

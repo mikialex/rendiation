@@ -117,11 +117,12 @@ struct Builder<T, F> {
   pub behavior: F,
 }
 
-impl<T, F: Hash> ShaderHashProvider for Builder<T, F> {
+impl<T: 'static, F: Hash + 'static> ShaderHashProvider for Builder<T, F> {
   fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
     self.behavior.hash(hasher);
     self.source.hash_pipeline_with_type_info(hasher)
   }
+  shader_hash_type_id! {}
 }
 
 impl<T, F> DeviceInvocationComponent<Node<T>> for Builder<T, F>

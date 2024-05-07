@@ -19,6 +19,7 @@ impl ShaderHashProvider for DefaultPassDispatcher {
     self.formats.hash(hasher);
     self.auto_write.hash(hasher);
   }
+  shader_hash_type_id! {}
 }
 impl ShaderPassBuilder for DefaultPassDispatcher {
   fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {

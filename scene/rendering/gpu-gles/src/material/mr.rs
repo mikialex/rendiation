@@ -114,6 +114,7 @@ impl<'a> ShaderHashProvider for PhysicalMetallicRoughnessMaterialGPU<'a> {
   fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
     self.alpha_mode.hash(hasher);
   }
+  shader_hash_type_id! {PhysicalMetallicRoughnessMaterialGPU<'static>}
 }
 
 impl<'a> ShaderPassBuilder for PhysicalMetallicRoughnessMaterialGPU<'a> {

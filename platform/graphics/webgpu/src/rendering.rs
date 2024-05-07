@@ -39,20 +39,15 @@ impl<T> RenderComponent for T where
 {
 }
 
-pub trait RenderComponentAny: RenderComponent + ShaderHashProviderAny {}
-impl<T> RenderComponentAny for T where T: RenderComponent + ShaderHashProviderAny {}
-
-impl<'a> ShaderHashProvider for &'a dyn RenderComponentAny {
+impl<'a> ShaderHashProvider for &'a dyn RenderComponent {
   fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
-    (*self).hash_pipeline(hasher)
-  }
-}
-impl<'a> ShaderHashProviderAny for &'a dyn RenderComponentAny {
-  fn hash_pipeline_with_type_info(&self, hasher: &mut PipelineHasher) {
     (*self).hash_pipeline_with_type_info(hasher)
   }
+
+  shader_hash_type_id! {&'static dyn RenderComponent}
 }
-impl<'a> ShaderPassBuilder for &'a dyn RenderComponentAny {
+
+impl<'a> ShaderPassBuilder for &'a dyn RenderComponent {
   fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
     (*self).setup_pass(ctx);
   }
@@ -61,7 +56,7 @@ impl<'a> ShaderPassBuilder for &'a dyn RenderComponentAny {
     (*self).post_setup_pass(ctx);
   }
 }
-impl<'a> GraphicsShaderProvider for &'a dyn RenderComponentAny {
+impl<'a> GraphicsShaderProvider for &'a dyn RenderComponent {
   fn build(&self, builder: &mut ShaderRenderPipelineBuilder) -> Result<(), ShaderBuildError> {
     (*self).build(builder)
   }
@@ -70,17 +65,13 @@ impl<'a> GraphicsShaderProvider for &'a dyn RenderComponentAny {
     (*self).post_build(builder)
   }
 }
-impl ShaderHashProvider for Box<dyn RenderComponentAny> {
+impl<'a> ShaderHashProvider for Box<dyn RenderComponent + 'a> {
   fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
-    (**self).hash_pipeline(hasher)
+    (**self).hash_pipeline_with_type_info(hasher);
   }
+  shader_hash_type_id! {Box<dyn RenderComponent>}
 }
-impl ShaderHashProviderAny for Box<dyn RenderComponentAny> {
-  fn hash_pipeline_with_type_info(&self, hasher: &mut PipelineHasher) {
-    (**self).hash_pipeline_with_type_info(hasher)
-  }
-}
-impl ShaderPassBuilder for Box<dyn RenderComponentAny> {
+impl<'a> ShaderPassBuilder for Box<dyn RenderComponent + 'a> {
   fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
     (**self).setup_pass(ctx);
   }
@@ -89,7 +80,7 @@ impl ShaderPassBuilder for Box<dyn RenderComponentAny> {
     (**self).post_setup_pass(ctx);
   }
 }
-impl GraphicsShaderProvider for Box<dyn RenderComponentAny> {
+impl<'a> GraphicsShaderProvider for Box<dyn RenderComponent + 'a> {
   fn build(&self, builder: &mut ShaderRenderPipelineBuilder) -> Result<(), ShaderBuildError> {
     (**self).build(builder)
   }
@@ -109,7 +100,7 @@ impl<'a, T> RenderSlice<'a, T> {
   }
 }
 
-impl<'a, T: RenderComponentAny> ShaderPassBuilder for RenderSlice<'a, T> {
+impl<'a, T: RenderComponent> ShaderPassBuilder for RenderSlice<'a, T> {
   fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
     self.contents.iter().for_each(|c| c.setup_pass(ctx));
   }
@@ -122,16 +113,24 @@ impl<'a, T: RenderComponentAny> ShaderPassBuilder for RenderSlice<'a, T> {
   }
 }
 
-impl<'a, T: RenderComponentAny> ShaderHashProvider for RenderSlice<'a, T> {
+impl<'a, T: RenderComponent> ShaderHashProvider for RenderSlice<'a, T> {
   fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
     self
       .contents
       .iter()
       .for_each(|com| com.hash_pipeline_with_type_info(hasher))
   }
+
+  fn hash_type_info(&self, hasher: &mut PipelineHasher) {
+    TypeId::of::<RenderSlice<'static, ()>>().hash(hasher);
+    // is it ok??
+    if let Some(com) = self.contents.last() {
+      com.hash_type_info(hasher);
+    }
+  }
 }
 
-impl<'a, T: RenderComponentAny> GraphicsShaderProvider for RenderSlice<'a, T> {
+impl<'a, T: RenderComponent> GraphicsShaderProvider for RenderSlice<'a, T> {
   fn build(&self, builder: &mut ShaderRenderPipelineBuilder) -> Result<(), ShaderBuildError> {
     for c in self.contents {
       c.build(builder)?;
@@ -151,7 +150,7 @@ pub struct RenderArray<const N: usize, T> {
   pub contents: [T; N],
 }
 
-impl<const N: usize, T: RenderComponentAny> RenderArray<N, T> {
+impl<const N: usize, T: RenderComponent> RenderArray<N, T> {
   pub fn as_slice(&self) -> impl RenderComponent + '_ {
     RenderSlice {
       contents: self.contents.as_slice(),
@@ -159,7 +158,7 @@ impl<const N: usize, T: RenderComponentAny> RenderArray<N, T> {
   }
 }
 
-impl<const N: usize, T: RenderComponentAny> ShaderPassBuilder for RenderArray<N, T> {
+impl<const N: usize, T: RenderComponent> ShaderPassBuilder for RenderArray<N, T> {
   fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
     self.as_slice().setup_pass(ctx)
   }
@@ -168,13 +167,16 @@ impl<const N: usize, T: RenderComponentAny> ShaderPassBuilder for RenderArray<N,
   }
 }
 
-impl<const N: usize, T: RenderComponentAny> ShaderHashProvider for RenderArray<N, T> {
+impl<const N: usize, T: RenderComponent> ShaderHashProvider for RenderArray<N, T> {
   fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
     self.as_slice().hash_pipeline(hasher)
   }
+  fn hash_type_info(&self, hasher: &mut PipelineHasher) {
+    self.as_slice().hash_type_info(hasher)
+  }
 }
 
-impl<const N: usize, T: RenderComponentAny> GraphicsShaderProvider for RenderArray<N, T> {
+impl<const N: usize, T: RenderComponent> GraphicsShaderProvider for RenderArray<N, T> {
   fn build(&self, builder: &mut ShaderRenderPipelineBuilder) -> Result<(), ShaderBuildError> {
     self.as_slice().build(builder)
   }
@@ -208,11 +210,10 @@ impl<T: ShaderHashProvider> ShaderHashProvider for BindingController<T> {
   fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
     self.inner.hash_pipeline(hasher)
   }
-}
-impl<T: ShaderHashProviderAny> ShaderHashProviderAny for BindingController<T> {
-  fn hash_pipeline_with_type_info(&self, hasher: &mut PipelineHasher) {
-    self.inner.hash_pipeline_with_type_info(hasher)
-    // note, the binding info should hashed by binding grouper if necessary
+
+  fn hash_type_info(&self, hasher: &mut PipelineHasher) {
+    TypeId::of::<BindingController<()>>().hash(hasher);
+    self.inner.hash_type_info(hasher)
   }
 }
 impl<T: ShaderPassBuilder> ShaderPassBuilder for BindingController<T> {

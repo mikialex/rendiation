@@ -30,6 +30,7 @@ impl ShaderHashProvider for ToneMap {
   fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
     std::mem::discriminant(&self.ty).hash(hasher)
   }
+  shader_hash_type_id! {}
 }
 impl ShaderPassBuilder for ToneMap {
   fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
@@ -125,16 +126,11 @@ struct ToneMapTask<'a, T> {
   config: &'a ToneMap,
 }
 
-impl<'a, T> ShaderHashProviderAny for ToneMapTask<'a, T> {
-  fn hash_pipeline_with_type_info(&self, hasher: &mut PipelineHasher) {
-    self.config.type_id().hash(hasher);
-    self.hash_pipeline(hasher);
-  }
-}
 impl<'a, T> ShaderHashProvider for ToneMapTask<'a, T> {
   fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
     self.config.hash_pipeline(hasher)
   }
+  shader_hash_type_id! {ToneMapTask<'static, ()>}
 }
 impl<'a, T> ShaderPassBuilder for ToneMapTask<'a, T> {
   fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {

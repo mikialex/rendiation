@@ -50,6 +50,7 @@ impl<T: Std430> ShaderHashProvider for ShuffleWrite<T> {
   fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
     self.input.hash_pipeline_with_type_info(hasher);
   }
+  shader_hash_type_id! {}
 }
 
 impl<T> DeviceInvocationComponent<Node<T>> for ShuffleWrite<T>
@@ -97,6 +98,7 @@ impl<T: Std430> ShaderHashProvider for ShuffleAccess<T> {
   fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
     self.shuffle_idx.hash_pipeline_with_type_info(hasher);
   }
+  shader_hash_type_id! {}
 }
 
 impl<T> DeviceInvocationComponent<Node<T>> for ShuffleAccess<T>

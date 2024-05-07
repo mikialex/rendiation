@@ -130,12 +130,8 @@ impl<'a> ShaderPassBuilder for Mipmap2DGeneratorTask<'a> {
   }
 }
 
-impl<'a> ShaderHashProvider for Mipmap2DGeneratorTask<'a> {}
-impl<'a> ShaderHashProviderAny for Mipmap2DGeneratorTask<'a> {
-  fn hash_pipeline_with_type_info(&self, hasher: &mut PipelineHasher) {
-    struct Mark;
-    Mark.type_id().hash(hasher)
-  }
+impl<'a> ShaderHashProvider for Mipmap2DGeneratorTask<'a> {
+  shader_hash_type_id! {Mipmap2DGeneratorTask<'static>}
 }
 
 impl<'a> GraphicsShaderProvider for Mipmap2DGeneratorTask<'a> {

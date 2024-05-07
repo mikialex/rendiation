@@ -56,7 +56,9 @@ impl BindlessMeshDispatcher {
   }
 }
 
-impl ShaderHashProvider for BindlessMeshDispatcher {}
+impl ShaderHashProvider for BindlessMeshDispatcher {
+  shader_hash_type_id! {}
+}
 
 impl ShaderPassBuilder for BindlessMeshDispatcher {
   fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {

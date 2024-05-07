@@ -58,14 +58,13 @@ impl SceneRenderer for GLESSceneRenderer {
     &self,
     scene: AllocIdx<SceneEntity>,
     camera: AllocIdx<SceneCameraEntity>,
-    pass: &dyn RenderComponentAny,
+    pass: &dyn RenderComponent,
     ctx: &mut FrameCtx,
     target: RenderPassDescriptorOwned,
   ) {
     let mut ctx = ctx.encoder.begin_render_pass_with_info(target, ctx.gpu);
     for idx in self.model_lookup.access_multi_value(&scene) {
-      let com = self.scene_model_renderer.make_component(idx, camera, pass);
-      if let Some((com, command)) = com {
+      if let Some((com, command)) = self.scene_model_renderer.make_component(idx, camera, pass) {
         com.render(&mut ctx.ctx, command)
       }
     }

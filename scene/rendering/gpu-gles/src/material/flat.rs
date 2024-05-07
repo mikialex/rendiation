@@ -22,12 +22,8 @@ pub struct FlatMaterialGPU<'a> {
   pub uniform: &'a UniformBufferDataView<FlatMaterialUniform>,
 }
 
-impl<'a> ShaderHashProvider for FlatMaterialGPU<'a> {}
-impl<'a> ShaderHashProviderAny for FlatMaterialGPU<'a> {
-  fn hash_pipeline_with_type_info(&self, hasher: &mut PipelineHasher) {
-    self.hash_pipeline(hasher);
-    std::any::TypeId::of::<FlatMaterialGPU<'static>>().hash(hasher)
-  }
+impl<'a> ShaderHashProvider for FlatMaterialGPU<'a> {
+  shader_hash_type_id! {FlatMaterialGPU<'static>}
 }
 
 impl<'a> GraphicsShaderProvider for FlatMaterialGPU<'a> {

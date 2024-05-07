@@ -2,7 +2,9 @@ use crate::*;
 
 struct BrdfLUTGenerator;
 impl ShaderPassBuilder for BrdfLUTGenerator {}
-impl ShaderHashProvider for BrdfLUTGenerator {}
+impl ShaderHashProvider for BrdfLUTGenerator {
+  shader_hash_type_id! {}
+}
 impl GraphicsShaderProvider for BrdfLUTGenerator {
   fn build(&self, builder: &mut ShaderRenderPipelineBuilder) -> Result<(), ShaderBuildError> {
     builder.fragment(|builder, _| {

@@ -22,6 +22,7 @@ impl ShaderHashProvider for IterIndexHasher {
   fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
     self.0.hash(hasher)
   }
+  shader_hash_type_id! {}
 }
 
 // todo, impl memory coalesced version for better performance
@@ -99,6 +100,7 @@ impl ShaderHashProvider for RadixShuffleMoveCompute {
   fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
     self.is_one.hash_pipeline_with_type_info(hasher)
   }
+  shader_hash_type_id! {}
 }
 impl DeviceInvocationComponent<Node<u32>> for RadixShuffleMoveCompute {
   fn requested_workgroup_size(&self) -> Option<u32> {

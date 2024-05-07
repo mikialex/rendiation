@@ -1,5 +1,4 @@
 #![feature(stmt_expr_attributes)]
-#![feature(specialization)]
 
 use std::hash::Hash;
 

@@ -1,5 +1,3 @@
-#![feature(specialization)]
-
 use core::{
   marker::PhantomData,
   ops::{Deref, DerefMut},
@@ -12,9 +10,6 @@ use slab::Slab;
 
 mod allocator;
 use allocator::*;
-
-mod wrap;
-pub use wrap::*;
 
 mod draw;
 pub use draw::*;
