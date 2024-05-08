@@ -1,4 +1,4 @@
-use rendiation_mesh_core::vertex::Vertex;
+use rendiation_mesh_core::CommonVertex;
 
 use crate::*;
 
@@ -50,7 +50,7 @@ pub trait GroupBuildingContainer {
   fn extend_last(&mut self, count: usize);
 }
 
-impl VertexBuilding for Vertex {
+impl VertexBuilding for CommonVertex {
   fn from_surface(surface: &impl ParametricSurface, uv: Vec2<f32>) -> Self {
     Self {
       position: surface.position(uv),
@@ -128,7 +128,7 @@ fn triangulate() {
     CollectionSize, DynIndexContainer, GroupedMesh, IndexedMesh, TriangleList,
   };
   let mut builder = IndexedMeshBuilder::<
-    GroupedMesh<IndexedMesh<TriangleList, Vec<Vertex>, DynIndexContainer>>,
+    GroupedMesh<IndexedMesh<TriangleList, Vec<CommonVertex>, DynIndexContainer>>,
   >::default();
   builder.triangulate_parametric(&ParametricPlane, TessellationConfig { u: 1, v: 1 }, true);
   let mesh = builder.building_mesh();

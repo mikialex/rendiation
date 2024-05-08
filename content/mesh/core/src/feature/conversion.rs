@@ -1,7 +1,3 @@
-use fast_hash_collection::*;
-use rendiation_algebra::*;
-use rendiation_geometry::*;
-
 use crate::*;
 
 /// from a triangle iter to create a line list iter, the line shared in different adjacent triangle

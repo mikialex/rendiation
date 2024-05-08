@@ -1,11 +1,6 @@
-use rendiation_algebra::Vec3;
-use rendiation_geometry::*;
 use space_algorithm::{bvh::*, utils::TreeBuildOption};
 
-use super::{
-  AbstractMesh, LineList, MeshBufferHitList, MeshBufferHitPoint, MeshBufferIntersectConfig,
-  NoneIndexedMesh,
-};
+use crate::*;
 
 pub trait BVHExtendedBuildAbstractMesh<B: BVHBounding, S: BVHBuildStrategy<B>> {
   fn build_bvh(&self, strategy: &mut S, option: &TreeBuildOption) -> FlattenBVH<B>;

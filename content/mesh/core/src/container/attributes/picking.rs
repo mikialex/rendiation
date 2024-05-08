@@ -1,8 +1,3 @@
-use std::ops::Deref;
-
-use rendiation_algebra::*;
-use rendiation_geometry::*;
-
 use crate::*;
 
 pub enum AttributeDynPrimitive<T = Vec3<f32>> {

@@ -1,34 +1,4 @@
-use fast_hash_collection::FastHashMap;
-use rendiation_geometry::{LineSegment, Point, Triangle};
-
 use crate::*;
-
-// we should consider merge it with other similar trait
-pub trait Simplex: IntoIterator<Item = Self::Vertex> {
-  type Vertex;
-  type Topology;
-  const TOPOLOGY: PrimitiveTopology;
-  const DIMENSION: usize;
-}
-
-impl<V> Simplex for Point<V> {
-  type Vertex = V;
-  type Topology = PointList;
-  const TOPOLOGY: PrimitiveTopology = PrimitiveTopology::PointList;
-  const DIMENSION: usize = 1;
-}
-impl<V> Simplex for LineSegment<V> {
-  type Vertex = V;
-  type Topology = LineList;
-  const TOPOLOGY: PrimitiveTopology = PrimitiveTopology::LineList;
-  const DIMENSION: usize = 2;
-}
-impl<V> Simplex for Triangle<V> {
-  type Vertex = V;
-  type Topology = TriangleList;
-  const TOPOLOGY: PrimitiveTopology = PrimitiveTopology::TriangleList;
-  const DIMENSION: usize = 3;
-}
 
 impl<P: Simplex> FromIterator<P> for NoneIndexedMesh<P::Topology, Vec<P::Vertex>> {
   fn from_iter<T: IntoIterator<Item = P>>(iter: T) -> Self {
@@ -78,7 +48,7 @@ impl<'a> AttributeVertex for FullReaderRead<'a> {
   }
 }
 
-impl<P: Simplex> FromIterator<P> for AttributeMeshData
+impl<P: Simplex> FromIterator<P> for AttributesMeshData
 where
   P::Vertex: std::hash::Hash + Eq + Copy + AttributeVertex,
 {
@@ -118,41 +88,11 @@ where
       .map(|(buffer, s)| (s, buffer))
       .collect();
 
-    AttributeMeshData {
+    AttributesMeshData {
       attributes,
       indices: Some((AttributeIndexFormat::Uint32, indices)),
       mode: P::TOPOLOGY,
       groups: Default::default(),
-    }
-  }
-}
-
-pub struct AttributeMeshData {
-  pub attributes: Vec<(AttributeSemantic, Vec<u8>)>,
-  pub indices: Option<(AttributeIndexFormat, Vec<u8>)>,
-  pub mode: PrimitiveTopology,
-  pub groups: MeshGroupsInfo,
-}
-
-impl AttributeMeshData {
-  pub fn build(self) -> AttributesMesh {
-    let attributes = self
-      .attributes
-      .into_iter()
-      .map(|(s, buffer)| {
-        let buffer = AttributeAccessor::create_owned(buffer, s.item_byte_size());
-        (s, buffer)
-      })
-      .collect();
-
-    AttributesMesh {
-      attributes,
-      indices: self.indices.map(|(fmt, buffer)| {
-        let buffer = AttributeAccessor::create_owned(buffer, fmt.byte_size());
-        (fmt, buffer)
-      }),
-      mode: self.mode,
-      groups: self.groups,
     }
   }
 }

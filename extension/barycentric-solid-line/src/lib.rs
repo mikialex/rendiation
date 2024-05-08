@@ -59,7 +59,7 @@ impl<'a> AttributeVertex for FullReaderReadWithBarycentric<'a> {
   }
 }
 
-pub fn generate_barycentric_buffer_and_expanded_mesh(mesh: AttributesMesh) -> AttributeMeshData {
+pub fn generate_barycentric_buffer_and_expanded_mesh(mesh: AttributesMesh) -> AttributesMeshData {
   mesh
     .read()
     .read_full()

@@ -3115,7 +3115,6 @@ dependencies = [
  "rendiation-geometry",
  "rendiation-shader-api",
  "smallvec",
- "soa_derive",
  "space-algorithm",
 ]
 
@@ -3714,26 +3713,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e6845563ada680337a52d43bb0b29f396f2d911616f6573012645b9e3d048a49"
 dependencies = [
  "serde",
-]
-
-[[package]]
-name = "soa_derive"
-version = "0.8.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ebaaa769873a165635809ce887fb69700342081f8cd4b097810be53b4754bf3e"
-dependencies = [
- "soa_derive_internal",
-]
-
-[[package]]
-name = "soa_derive_internal"
-version = "0.9.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "321678e5996cc263cc798220bb332f1c768fb2e5e699e795df0c107141631be9"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn 1.0.109",
 ]
 
 [[package]]

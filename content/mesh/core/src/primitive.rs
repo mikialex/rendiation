@@ -1,8 +1,31 @@
-use rendiation_geometry::LineSegment;
-use rendiation_geometry::Point;
-use rendiation_geometry::Triangle;
-
 use crate::*;
+
+// we should consider merge it with other similar trait
+pub trait Simplex: IntoIterator<Item = Self::Vertex> {
+  type Vertex;
+  type Topology;
+  const TOPOLOGY: PrimitiveTopology;
+  const DIMENSION: usize;
+}
+
+impl<V> Simplex for Point<V> {
+  type Vertex = V;
+  type Topology = PointList;
+  const TOPOLOGY: PrimitiveTopology = PrimitiveTopology::PointList;
+  const DIMENSION: usize = 1;
+}
+impl<V> Simplex for LineSegment<V> {
+  type Vertex = V;
+  type Topology = LineList;
+  const TOPOLOGY: PrimitiveTopology = PrimitiveTopology::LineList;
+  const DIMENSION: usize = 2;
+}
+impl<V> Simplex for Triangle<V> {
+  type Vertex = V;
+  type Topology = TriangleList;
+  const TOPOLOGY: PrimitiveTopology = PrimitiveTopology::TriangleList;
+  const DIMENSION: usize = 3;
+}
 
 pub trait PrimitiveData<U>: Sized {
   fn from_data(data: &U, offset: usize) -> Option<Self>;

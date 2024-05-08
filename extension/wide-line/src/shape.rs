@@ -49,7 +49,7 @@ impl WideLineMeshGPU {
 impl GraphicsShaderProvider for WideLineMeshGPU {
   fn build(&self, builder: &mut ShaderRenderPipelineBuilder) -> Result<(), ShaderBuildError> {
     builder.vertex(|builder, _| {
-      builder.register_vertex::<Vertex>(VertexStepMode::Vertex);
+      builder.register_vertex::<CommonVertex>(VertexStepMode::Vertex);
       builder.register_vertex::<WideLineVertex>(VertexStepMode::Instance);
       builder.primitive_state.topology = rendiation_webgpu::PrimitiveTopology::TriangleList;
       builder.primitive_state.cull_mode = None;
@@ -70,7 +70,7 @@ impl ShaderPassBuilder for WideLineMeshGPU {
 }
 
 use bytemuck::{Pod, Zeroable};
-use rendiation_mesh_core::{vertex::Vertex, NoneIndexedMesh};
+use rendiation_mesh_core::{CommonVertex, NoneIndexedMesh};
 
 #[repr(C)]
 #[derive(Copy, Clone, Zeroable, Pod, ShaderVertex)]
@@ -90,7 +90,7 @@ pub struct WideLineQuadInstance {
   // data: Rc<MeshGPU>,
 }
 
-fn create_wide_line_quad() -> IndexedMesh<TriangleList, Vec<Vertex>, Vec<u16>> {
+fn create_wide_line_quad() -> IndexedMesh<TriangleList, Vec<CommonVertex>, Vec<u16>> {
   #[rustfmt::skip]
   let positions: Vec<isize> = vec![- 1, 2, 0, 1, 2, 0, - 1, 1, 0, 1, 1, 0, - 1, 0, 0, 1, 0, 0, - 1, - 1, 0, 1, - 1, 0];
   let positions: &[Vec3<isize>] = bytemuck::cast_slice(positions.as_slice());
@@ -100,7 +100,7 @@ fn create_wide_line_quad() -> IndexedMesh<TriangleList, Vec<Vertex>, Vec<u16>> {
   let data: Vec<_> = positions
     .iter()
     .zip(uvs)
-    .map(|(position, uv)| Vertex {
+    .map(|(position, uv)| CommonVertex {
       position: position.map(|v| v as f32),
       normal: Vec3::new(0., 0., 1.),
       uv: uv.map(|v| v as f32),
@@ -112,7 +112,7 @@ fn create_wide_line_quad() -> IndexedMesh<TriangleList, Vec<Vertex>, Vec<u16>> {
 }
 
 thread_local! {
-  static LINE_SEG_INSTANCE: IndexedMesh<TriangleList, Vec<Vertex>, Vec<u16>> = create_wide_line_quad()
+  static LINE_SEG_INSTANCE: IndexedMesh<TriangleList, Vec<CommonVertex>, Vec<u16>> = create_wide_line_quad()
 }
 
 // fn create_wide_line_quad_gpu(device: &GPUDevice) -> WideLineQuadInstance {

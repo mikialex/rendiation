@@ -6,35 +6,22 @@ use rendiation_geometry::Positioned;
 use crate::{AttributeSemantic, AttributeVertex};
 
 #[repr(C)]
-#[derive(
-  Clone,
-  Copy,
-  soa_derive::StructOfArray,
-  Debug,
-  rendiation_shader_api::ShaderVertex,
-  PartialEq,
-  Default,
-)]
-// #[cfg_attr(feature = "shader", derive(rendiation_shader_api::ShaderVertex))] // todo, figure out
-// how to use with feature gate
-pub struct Vertex {
-  // #[cfg_attr(feature = "shader", semantic(GeometryPosition))]
+#[derive(Clone, Copy, Debug, rendiation_shader_api::ShaderVertex, PartialEq, Default)]
+pub struct CommonVertex {
   #[semantic(GeometryPosition)]
   pub position: Vec3<f32>,
 
-  // #[cfg_attr(feature = "shader", semantic(GeometryNormal))]
   #[semantic(GeometryNormal)]
   pub normal: Vec3<f32>,
 
-  // #[cfg_attr(feature = "shader", semantic(GeometryUV))]
   #[semantic(GeometryUV)]
   pub uv: Vec2<f32>,
 }
 
-unsafe impl bytemuck::Zeroable for Vertex {}
-unsafe impl bytemuck::Pod for Vertex {}
+unsafe impl bytemuck::Zeroable for CommonVertex {}
+unsafe impl bytemuck::Pod for CommonVertex {}
 
-impl AttributeVertex for Vertex {
+impl AttributeVertex for CommonVertex {
   fn layout(&self) -> Vec<AttributeSemantic> {
     vec![
       AttributeSemantic::Positions,
@@ -50,7 +37,7 @@ impl AttributeVertex for Vertex {
   }
 }
 
-impl Hash for Vertex {
+impl Hash for CommonVertex {
   fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
     self.position.x.to_bits().hash(state);
     self.position.y.to_bits().hash(state);
@@ -62,9 +49,9 @@ impl Hash for Vertex {
     self.uv.y.to_bits().hash(state);
   }
 }
-impl Eq for Vertex {}
+impl Eq for CommonVertex {}
 
-impl Positioned for Vertex {
+impl Positioned for CommonVertex {
   type Position = Vec3<f32>;
 
   fn position(&self) -> Self::Position {
@@ -75,9 +62,9 @@ impl Positioned for Vertex {
   }
 }
 
-impl Vertex {
+impl CommonVertex {
   pub fn new(position: Vec3<f32>, normal: Vec3<f32>, uv: Vec2<f32>) -> Self {
-    Vertex {
+    CommonVertex {
       position,
       normal,
       uv,
@@ -85,8 +72,8 @@ impl Vertex {
   }
 }
 
-pub fn vertex(pos: [f32; 3], _: [f32; 3], tc: [f32; 2]) -> Vertex {
-  Vertex {
+pub fn vertex(pos: [f32; 3], _: [f32; 3], tc: [f32; 2]) -> CommonVertex {
+  CommonVertex {
     position: Vec3::new(pos[0], pos[1], pos[2]),
     normal: Vec3::new(0.0, 1.0, 0.0),
     uv: Vec2::new(tc[0], tc[1]),

@@ -2,7 +2,7 @@ use std::path::Path;
 use std::{fmt::Debug, time::Instant};
 
 use rendiation_algebra::{Vec2, Vec3};
-use rendiation_mesh_core::vertex::Vertex;
+use rendiation_mesh_core::CommonVertex;
 use rendiation_mesh_simplification::*;
 
 fn main() {
@@ -35,7 +35,7 @@ fn main() {
 
 #[derive(Clone, Default)]
 struct Mesh {
-  vertices: Vec<Vertex>,
+  vertices: Vec<CommonVertex>,
   indices: Vec<u32>,
 }
 
@@ -84,7 +84,7 @@ impl Mesh {
           Vec2::new(0., 0.)
         };
 
-        vertices.push(Vertex {
+        vertices.push(CommonVertex {
           position,
           normal,
           uv,
@@ -101,7 +101,9 @@ impl Mesh {
 
     result.indices = remap;
 
-    result.vertices.resize(total_vertices, Vertex::default());
+    result
+      .vertices
+      .resize(total_vertices, CommonVertex::default());
     remap_vertex_buffer(&mut result.vertices, &vertices, &result.indices);
 
     println!(

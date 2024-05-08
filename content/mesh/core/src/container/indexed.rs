@@ -1,6 +1,3 @@
-use core::marker::PhantomData;
-use std::hash::Hash;
-
 use crate::*;
 
 /// We don't use TryInto<usize, Error: Debug> to express

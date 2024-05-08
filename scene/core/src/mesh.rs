@@ -1,5 +1,5 @@
 use rendiation_mesh_core::{
-  AttributeMeshData, AttributeReadSchema, AttributeSemantic, PrimitiveTopology,
+  AttributeReadSchema, AttributeSemantic, AttributesMeshData, PrimitiveTopology,
 };
 
 use crate::*;
@@ -35,7 +35,7 @@ pub struct AttributeMeshEntityFromAttributeMeshDataWriter {
   mesh: EntityWriter<AttributeMeshEntity>,
 }
 
-impl EntityCustomWrite<AttributeMeshEntity> for AttributeMeshData {
+impl EntityCustomWrite<AttributeMeshEntity> for AttributesMeshData {
   type Writer = AttributeMeshEntityFromAttributeMeshDataWriter;
 
   fn create_writer() -> Self::Writer {

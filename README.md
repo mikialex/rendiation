@@ -12,7 +12,7 @@ By leveraging these crates, users can build, assemble and customize their own fe
 
 Install the default Rust toolchain, and everything should works fine.
 
-RRF uses language features such as const generics and specialization, the nightly compiler is required. The Cargo will automatically switch to the correct nightly version.
+RRF uses nightly language features, the Cargo will automatically switch to the correct nightly version.
 
 ## Project Structure
 

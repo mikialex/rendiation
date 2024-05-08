@@ -1,6 +1,3 @@
-use rendiation_algebra::*;
-use smallvec::SmallVec;
-
 use crate::*;
 
 #[derive(Debug)]
@@ -15,7 +12,7 @@ pub fn merge_attributes_meshes(
   inputs: &[&AttributesMesh],
   position_mapper: impl Fn(usize, &Vec3<f32>) -> Vec3<f32> + Copy,
   normal_mapper: impl Fn(usize, &Vec3<f32>) -> Vec3<f32> + Copy,
-) -> Result<Vec<AttributeMeshData>, MergeError> {
+) -> Result<Vec<AttributesMeshData>, MergeError> {
   // check if inputs could merge together
   if !could_merge_together(inputs) {
     return Err(MergeError::CannotMergeDifferentTypes);
@@ -140,7 +137,7 @@ fn merge_assume_all_suitable_and_fit(
   inputs: &[&AttributesMesh],
   position_mapper: impl Fn(usize, &Vec3<f32>) -> Vec3<f32> + Copy,
   normal_mapper: impl Fn(usize, &Vec3<f32>) -> Vec3<f32> + Copy,
-) -> Result<AttributeMeshData, MergeError> {
+) -> Result<AttributesMeshData, MergeError> {
   let first = inputs[0];
 
   let merged_attributes = first
@@ -208,7 +205,7 @@ fn merge_assume_all_suitable_and_fit(
     groups: new_groups.collect(),
   };
 
-  Ok(AttributeMeshData {
+  Ok(AttributesMeshData {
     attributes: merged_attributes,
     indices: merged_indices,
     mode: first.mode,

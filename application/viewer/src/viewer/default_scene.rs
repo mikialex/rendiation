@@ -1,5 +1,5 @@
 use rendiation_algebra::*;
-use rendiation_mesh_core::vertex::Vertex;
+use rendiation_mesh_core::CommonVertex;
 use rendiation_mesh_core::*;
 use rendiation_mesh_generator::{
   CubeMeshParameter, IndexedMeshBuilder, IntoTransformed3D, SphereMeshParameter, TessellationConfig,
@@ -39,7 +39,7 @@ use crate::*;
 // }
 
 type SceneMeshBuilder =
-  IndexedMeshBuilder<GroupedMesh<IndexedMesh<TriangleList, Vec<Vertex>, DynIndexContainer>>>;
+  IndexedMeshBuilder<GroupedMesh<IndexedMesh<TriangleList, Vec<CommonVertex>, DynIndexContainer>>>;
 
 pub fn build_scene_mesh(
   f: impl FnOnce(&mut SceneMeshBuilder),
@@ -47,10 +47,10 @@ pub fn build_scene_mesh(
   let mut builder = SceneMeshBuilder::default();
   f(&mut builder);
   let mesh = builder.finish();
-  let mut attribute: AttributeMeshData = mesh.mesh.primitive_iter().collect();
+  let mut attribute: AttributesMeshData = mesh.mesh.primitive_iter().collect();
   attribute.groups = mesh.groups;
 
-  let mut writer = AttributeMeshData::create_writer();
+  let mut writer = AttributesMeshData::create_writer();
 
   attribute.write(&mut writer)
 }
