@@ -91,6 +91,7 @@ mod sg_material {
     let ecg = global_database()
       .declare_entity::<PbrSGMaterialEntity>()
       .declare_component::<PbrSGMaterialAlbedoComponent>()
+      .declare_component::<PbrSGMaterialSpecularComponent>()
       .declare_component::<PbrSGMaterialGlossinessComponent>()
       .declare_component::<PbrSGMaterialEmissiveComponent>()
       .declare_component::<PbrSGMaterialAlphaComponent>();
@@ -142,7 +143,33 @@ mod sg_material {
       self,
       writer: &mut EntityWriter<PbrSGMaterialEntity>,
     ) -> EntityHandle<PbrSGMaterialEntity> {
-      todo!()
+      writer
+        .component_value_writer::<PbrSGMaterialAlbedoComponent>(self.albedo)
+        .component_value_writer::<PbrSGMaterialAlphaModeComponent>(self.alpha_mode)
+        .component_value_writer::<PbrSGMaterialSpecularComponent>(self.specular)
+        .component_value_writer::<PbrSGMaterialGlossinessComponent>(self.glossiness)
+        .component_value_writer::<PbrSGMaterialEmissiveComponent>(self.emissive)
+        .component_value_writer::<PbrSGMaterialAlphaComponent>(self.alpha);
+
+      if let Some(t) = self.albedo_texture {
+        t.write::<PbrSGMaterialAlbedoTex, _>(writer)
+      }
+
+      if let Some(t) = self.specular_texture {
+        t.write::<PbrSGMaterialSpecularTex, _>(writer)
+      }
+
+      if let Some(t) = self.glossiness_texture {
+        t.write::<PbrSGMaterialGlossinessTex, _>(writer)
+      }
+
+      if let Some(t) = self.emissive_texture {
+        t.write::<PbrSGMaterialEmissiveTex, _>(writer)
+      }
+
+      // todo normal map
+
+      writer.new_entity()
     }
   }
 }
@@ -194,6 +221,7 @@ mod mr_material {
   pub fn register_pbr_mr_material_data_model() {
     let ecg = global_database()
       .declare_entity::<PbrMRMaterialEntity>()
+      .declare_component::<PbrMRMaterialBaseColorComponent>()
       .declare_component::<PbrMRMaterialRoughnessComponent>()
       .declare_component::<PbrMRMaterialMetallicComponent>()
       .declare_component::<PbrMRMaterialEmissiveComponent>()
@@ -248,7 +276,28 @@ mod mr_material {
       self,
       writer: &mut EntityWriter<PbrMRMaterialEntity>,
     ) -> EntityHandle<PbrMRMaterialEntity> {
-      todo!()
+      writer
+        .component_value_writer::<PbrMRMaterialBaseColorComponent>(self.base_color)
+        .component_value_writer::<PbrMRMaterialRoughnessComponent>(self.roughness)
+        .component_value_writer::<PbrMRMaterialMetallicComponent>(self.metallic)
+        .component_value_writer::<PbrMRMaterialEmissiveComponent>(self.emissive)
+        .component_value_writer::<PbrMRMaterialAlphaComponent>(self.alpha);
+
+      if let Some(t) = self.base_color_texture {
+        t.write::<PbrMRMaterialBaseColorTex, _>(writer)
+      }
+
+      if let Some(t) = self.metallic_roughness_texture {
+        t.write::<PbrMRMaterialMetallicRoughnessTex, _>(writer)
+      }
+
+      if let Some(t) = self.emissive_texture {
+        t.write::<PbrMRMaterialEmissiveTex, _>(writer)
+      }
+
+      // todo normal map
+
+      writer.new_entity()
     }
   }
 }

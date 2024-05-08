@@ -12,7 +12,6 @@ rendiation-algebra = { path = "../../../../math/algebra" }
 rendiation-mesh-core = { path = "../../../../content/mesh/core" }
 rendiation-scene-core = { path = "../../../core" }
 rendiation-scene-io-texture-loader = { path = "../../texture/loader" }
-rendiation-texture-core = { path = "../../../../content/texture/core" }
 smallvec = { workspace = true }
 thiserror = "1.0.43"
 tobj = "4.0.0"

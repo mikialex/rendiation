@@ -3238,7 +3238,6 @@ dependencies = [
  "rendiation-mesh-core",
  "rendiation-scene-core",
  "rendiation-scene-io-texture-loader",
- "rendiation-texture-core",
  "smallvec",
  "thiserror",
  "tobj",

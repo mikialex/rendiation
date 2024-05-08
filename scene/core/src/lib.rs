@@ -2,6 +2,7 @@ use database::*;
 use reactive::*;
 use reactive_derive::*;
 use rendiation_algebra::*;
+use rendiation_mesh_core::*;
 
 mod animation;
 mod buffer;
@@ -64,7 +65,31 @@ pub fn register_scene_model_data_model() {
   global_database()
     .declare_entity::<SceneModelEntity>()
     .declare_foreign_key::<SceneModelBelongsToScene>()
+    .declare_foreign_key::<SceneModelRefNode>()
     .declare_foreign_key::<SceneModelStdModelRenderPayload>();
+}
+
+pub struct SceneModelDataModel {
+  pub model: EntityHandle<StandardModelEntity>,
+  pub scene: EntityHandle<SceneEntity>,
+  pub node: EntityHandle<SceneNodeEntity>,
+}
+
+impl SceneModelDataModel {
+  pub fn write(
+    &self,
+    writer: &mut EntityWriter<SceneModelEntity>,
+  ) -> EntityHandle<SceneModelEntity> {
+    writer
+      .component_value_writer::<SceneModelStdModelRenderPayload>(Some(
+        self.model.alloc_idx().alloc_index(),
+      ))
+      .component_value_writer::<SceneModelBelongsToScene>(Some(
+        self.scene.alloc_idx().alloc_index(),
+      ))
+      .component_value_writer::<SceneModelRefNode>(Some(self.node.alloc_idx().alloc_index()))
+      .new_entity()
+  }
 }
 
 declare_entity!(StandardModelEntity);
@@ -103,6 +128,36 @@ pub struct StandardModelDataView {
   pub mesh: EntityHandle<AttributeMeshEntity>,
 }
 
+impl StandardModelDataView {
+  pub fn write(
+    self,
+    writer: &mut EntityWriter<StandardModelEntity>,
+  ) -> EntityHandle<StandardModelEntity> {
+    match self.material {
+      SceneMaterialDataView::FlatMaterial(m) => {
+        writer.component_value_writer::<StandardModelRefFlatMaterial>(Some(
+          m.alloc_idx().alloc_index(),
+        ));
+      }
+      SceneMaterialDataView::PbrSGMaterial(m) => {
+        writer.component_value_writer::<StandardModelRefPbrSGMaterial>(Some(
+          m.alloc_idx().alloc_index(),
+        ));
+      }
+      SceneMaterialDataView::PbrMRMaterial(m) => {
+        writer.component_value_writer::<StandardModelRefPbrMRMaterial>(Some(
+          m.alloc_idx().alloc_index(),
+        ));
+      }
+    }
+    writer.component_value_writer::<StandardModelRefAttributeMesh>(Some(
+      self.mesh.alloc_idx().alloc_index(),
+    ));
+
+    writer.new_entity()
+  }
+}
+
 declare_entity!(SceneNodeEntity);
 declare_component!(SceneNodeParentIdx, SceneNodeEntity, Option<u32>); // should we add generation?
 declare_component!(SceneNodeLocalMatrixComponent, SceneNodeEntity, Mat4<f32>);
@@ -113,6 +168,22 @@ pub fn register_scene_node_data_model() {
     .declare_component::<SceneNodeParentIdx>()
     .declare_component::<SceneNodeLocalMatrixComponent>()
     .declare_component::<SceneNodeVisibleComponent>();
+}
+
+pub struct SceneNodeDataView {
+  pub visible: bool,
+  pub local_matrix: Mat4<f32>,
+  pub parent: Option<u32>,
+}
+
+impl SceneNodeDataView {
+  pub fn write(self, writer: &mut EntityWriter<SceneNodeEntity>) -> EntityHandle<SceneNodeEntity> {
+    writer
+      .component_value_writer::<SceneNodeVisibleComponent>(self.visible)
+      .component_value_writer::<SceneNodeLocalMatrixComponent>(self.local_matrix)
+      .component_value_writer::<SceneNodeParentIdx>(self.parent)
+      .new_entity()
+  }
 }
 
 #[global_registered_collection_and_many_one_idx_relation]

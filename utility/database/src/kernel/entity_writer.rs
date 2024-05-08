@@ -50,11 +50,25 @@ impl<E: EntitySemantic> EntityWriter<E> {
     self
   }
 
+  pub fn with_component_value_persist_writer<C>(mut self, value: C::Data) -> Self
+  where
+    C: ComponentSemantic<Entity = E>,
+  {
+    todo!()
+  }
+
   pub fn component_value_writer<C>(&mut self, value: C::Data) -> &mut Self
   where
     C: ComponentSemantic<Entity = E>,
   {
     self.component_writer::<C, _>(|v| v.with_write_value(value))
+  }
+
+  pub fn component_value_persist_writer<C>(&mut self, value: C::Data) -> &mut Self
+  where
+    C: ComponentSemantic<Entity = E>,
+  {
+    todo!()
   }
 
   pub fn with_component_writer<C, W>(

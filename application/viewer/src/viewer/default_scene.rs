@@ -50,9 +50,9 @@ pub fn build_scene_mesh(
   let mut attribute: AttributesMeshData = mesh.mesh.primitive_iter().collect();
   attribute.groups = mesh.groups;
 
-  let mut writer = AttributesMeshData::create_writer();
+  let mut writer = AttributesMesh::create_writer();
 
-  attribute.write(&mut writer)
+  attribute.build().write(&mut writer)
 }
 
 // pub fn load_default_scene(scene: &Scene) {

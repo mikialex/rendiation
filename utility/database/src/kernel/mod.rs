@@ -59,6 +59,9 @@ impl<T> ExternalRefPtr<T> {
       ptr: Arc::new(data),
     }
   }
+  pub fn new_shared(data: Arc<T>) -> Self {
+    Self { ptr: data }
+  }
 }
 
 impl<T> std::ops::Deref for ExternalRefPtr<T> {

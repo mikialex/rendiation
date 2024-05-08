@@ -19,6 +19,20 @@ impl EntityCustomWrite<BufferEntity> for Vec<u8> {
   }
 }
 
+impl EntityCustomWrite<BufferEntity> for AttributeAccessor {
+  type Writer = EntityWriter<BufferEntity>;
+
+  fn create_writer() -> Self::Writer {
+    global_entity_of::<BufferEntity>().entity_writer()
+  }
+
+  fn write(self, writer: &mut Self::Writer) -> EntityHandle<BufferEntity> {
+    writer
+      .component_value_writer::<BufferEntityData>(ExternalRefPtr::new_shared(self.view.buffer))
+      .new_entity()
+  }
+}
+
 pub trait SceneBufferView: EntityAssociateSemantic {}
 
 pub struct SceneBufferViewDataView {

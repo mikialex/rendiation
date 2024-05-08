@@ -1,7 +1,3 @@
-use rendiation_mesh_core::{
-  AttributeReadSchema, AttributeSemantic, AttributesMeshData, PrimitiveTopology,
-};
-
 use crate::*;
 
 declare_entity!(AttributeMeshEntity);
@@ -35,7 +31,7 @@ pub struct AttributeMeshEntityFromAttributeMeshDataWriter {
   mesh: EntityWriter<AttributeMeshEntity>,
 }
 
-impl EntityCustomWrite<AttributeMeshEntity> for AttributesMeshData {
+impl EntityCustomWrite<AttributeMeshEntity> for AttributesMesh {
   type Writer = AttributeMeshEntityFromAttributeMeshDataWriter;
 
   fn create_writer() -> Self::Writer {
@@ -47,10 +43,7 @@ impl EntityCustomWrite<AttributeMeshEntity> for AttributesMeshData {
   }
 
   fn write(self, writer: &mut Self::Writer) -> EntityHandle<AttributeMeshEntity> {
-    let count = self.indices.as_ref().map(|(fmt, data)| match fmt {
-      rendiation_mesh_core::AttributeIndexFormat::Uint16 => data.len() / 4,
-      rendiation_mesh_core::AttributeIndexFormat::Uint32 => data.len() / 8,
-    } as u32);
+    let count = self.indices.as_ref().map(|(_, data)| data.count as u32);
     let index = self.indices.map(|(_, data)| data.write(&mut writer.buffer));
 
     let index = SceneBufferViewDataView {
@@ -65,7 +58,7 @@ impl EntityCustomWrite<AttributeMeshEntity> for AttributesMeshData {
     let mesh = mesh_writer.new_entity();
 
     for (semantic, vertex) in self.attributes {
-      let count = vertex.len() / semantic.item_byte_size();
+      let count = vertex.count;
       let vertex = vertex.write(&mut writer.buffer);
 
       let vertex = SceneBufferViewDataView {
