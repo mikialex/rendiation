@@ -4,25 +4,33 @@ use database::*;
 use rendiation_scene_core::*;
 use rendiation_texture_core::*;
 
-pub fn load_texture_sampler_pair<E, C>(
+pub struct TexSamplerWriter {
+  pub tex_writer: EntityWriter<SceneTexture2dEntity>,
+  pub sampler_writer: EntityWriter<SceneSamplerEntity>,
+}
+
+impl Default for TexSamplerWriter {
+  fn default() -> Self {
+    Self {
+      tex_writer: global_entity_of().entity_writer(),
+      sampler_writer: global_entity_of().entity_writer(),
+    }
+  }
+}
+
+pub fn load_texture_sampler_pair(
   path: impl AsRef<Path>,
-  writer: &mut EntityWriter<E>,
-  tex_writer: &mut EntityWriter<SceneTexture2dEntity>,
-  sampler_writer: &mut EntityWriter<SceneSamplerEntity>,
-) where
-  C: TextureWithSamplingForeignKeys,
-  C: EntityAssociateSemantic<Entity = E>,
-  E: EntitySemantic,
-{
-  let sampler = sampler_writer
+  tex_writer: &mut TexSamplerWriter,
+) -> Texture2DWithSamplingDataView {
+  let sampler = tex_writer
+    .sampler_writer
     .component_value_writer::<SceneSamplerInfo>(TextureSampler::tri_linear_repeat())
     .new_entity();
 
   Texture2DWithSamplingDataView {
-    texture: load_tex(path, tex_writer),
+    texture: load_tex(path, &mut tex_writer.tex_writer),
     sampler,
   }
-  .write::<C, E>(writer)
 }
 
 // todo texture loader should passed in and config ability freely

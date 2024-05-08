@@ -1,6 +1,13 @@
 pub use flat_material::*;
 
 use crate::*;
+
+pub enum SceneMaterialDataView {
+  FlatMaterial(EntityHandle<FlatMaterialEntity>),
+  PbrSGMaterial(EntityHandle<PbrSGMaterialEntity>),
+  PbrMRMaterial(EntityHandle<PbrMRMaterialEntity>),
+}
+
 mod flat_material {
   use crate::*;
   declare_entity!(FlatMaterialEntity);
@@ -94,6 +101,50 @@ mod sg_material {
     let ecg = register_texture_with_sampling::<PbrSGMaterialEmissiveTex>(ecg);
     register_normal::<PbrSGMaterialNormalInfo>(ecg);
   }
+
+  #[derive(Clone)]
+  pub struct PhysicalSpecularGlossinessMaterialDataView {
+    pub albedo: Vec3<f32>,
+    pub specular: Vec3<f32>,
+    pub glossiness: f32,
+    pub emissive: Vec3<f32>,
+    pub alpha: f32,
+    pub alpha_cutoff: f32,
+    pub alpha_mode: AlphaMode,
+    pub albedo_texture: Option<Texture2DWithSamplingDataView>,
+    pub specular_texture: Option<Texture2DWithSamplingDataView>,
+    pub glossiness_texture: Option<Texture2DWithSamplingDataView>,
+    pub emissive_texture: Option<Texture2DWithSamplingDataView>,
+    pub normal_texture: Option<NormalMappingDataView>,
+  }
+
+  impl Default for PhysicalSpecularGlossinessMaterialDataView {
+    fn default() -> Self {
+      Self {
+        albedo: Vec3::one(),
+        specular: Vec3::zero(),
+        glossiness: 0.5,
+        emissive: Vec3::zero(),
+        alpha: 1.0,
+        alpha_cutoff: 1.0,
+        alpha_mode: Default::default(),
+        albedo_texture: None,
+        specular_texture: None,
+        glossiness_texture: None,
+        emissive_texture: None,
+        normal_texture: None,
+      }
+    }
+  }
+
+  impl PhysicalSpecularGlossinessMaterialDataView {
+    pub fn write(
+      self,
+      writer: &mut EntityWriter<PbrSGMaterialEntity>,
+    ) -> EntityHandle<PbrSGMaterialEntity> {
+      todo!()
+    }
+  }
 }
 
 pub use mr_material::*;
@@ -153,6 +204,53 @@ mod mr_material {
     let ecg = register_texture_with_sampling::<PbrMRMaterialEmissiveTex>(ecg);
     register_normal::<PbrMRMaterialNormalInfo>(ecg);
   }
+
+  #[derive(Clone)]
+  pub struct PhysicalMetallicRoughnessMaterialDataView {
+    /// in conductor case will act as specular color,
+    /// in dielectric case will act as diffuse color,
+    /// which is decided by metallic property
+    pub base_color: Vec3<f32>,
+    pub roughness: f32,
+    pub metallic: f32,
+    pub reflectance: f32,
+    pub emissive: Vec3<f32>,
+    pub alpha: f32,
+    pub alpha_cutoff: f32,
+    pub alpha_mode: AlphaMode,
+    pub base_color_texture: Option<Texture2DWithSamplingDataView>,
+    pub metallic_roughness_texture: Option<Texture2DWithSamplingDataView>,
+    pub emissive_texture: Option<Texture2DWithSamplingDataView>,
+    pub normal_texture: Option<NormalMappingDataView>,
+  }
+
+  impl Default for PhysicalMetallicRoughnessMaterialDataView {
+    fn default() -> Self {
+      Self {
+        base_color: Vec3::one(),
+        roughness: 0.5,
+        metallic: 0.0,
+        alpha: 1.0,
+        alpha_cutoff: 1.0,
+        alpha_mode: Default::default(),
+        emissive: Vec3::zero(),
+        base_color_texture: None,
+        metallic_roughness_texture: None,
+        emissive_texture: None,
+        reflectance: 0.5,
+        normal_texture: None,
+      }
+    }
+  }
+
+  impl PhysicalMetallicRoughnessMaterialDataView {
+    pub fn write(
+      self,
+      writer: &mut EntityWriter<PbrMRMaterialEntity>,
+    ) -> EntityHandle<PbrMRMaterialEntity> {
+      todo!()
+    }
+  }
 }
 
 /// The alpha rendering mode of a material.
@@ -200,4 +298,10 @@ pub fn register_normal<T: NormalInfoSemantic>(
 ) -> EntityComponentGroupTyped<T::Entity> {
   let ecg = register_texture_with_sampling::<NormalTexSamplerOf<T>>(ecg);
   ecg.declare_component::<NormalScaleOf<T>>()
+}
+
+#[derive(Clone)]
+pub struct NormalMappingDataView {
+  pub content: Texture2DWithSamplingDataView,
+  pub scale: f32,
 }

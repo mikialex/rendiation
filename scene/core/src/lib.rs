@@ -98,6 +98,11 @@ pub fn register_std_model_data_model() {
     .declare_foreign_key::<StandardModelRefPbrMRMaterial>();
 }
 
+pub struct StandardModelDataView {
+  pub material: SceneMaterialDataView,
+  pub mesh: EntityHandle<AttributeMeshEntity>,
+}
+
 declare_entity!(SceneNodeEntity);
 declare_component!(SceneNodeParentIdx, SceneNodeEntity, Option<u32>); // should we add generation?
 declare_component!(SceneNodeLocalMatrixComponent, SceneNodeEntity, Mat4<f32>);

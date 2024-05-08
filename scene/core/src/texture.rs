@@ -97,6 +97,7 @@ pub fn register_texture_with_sampling<T: TextureWithSamplingForeignKeys>(
     .declare_foreign_key::<SceneSamplerRefOf<T>>()
 }
 
+#[derive(Clone)]
 pub struct Texture2DWithSamplingDataView {
   pub texture: EntityHandle<SceneTexture2dEntity>,
   pub sampler: EntityHandle<SceneSamplerEntity>,

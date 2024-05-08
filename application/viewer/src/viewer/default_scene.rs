@@ -1,34 +1,15 @@
-// use rendiation_algebra::*;
-// use rendiation_mesh_core::{vertex::Vertex, TriangleList};
-// use rendiation_mesh_generator::{
-//   CubeMeshParameter, IndexedMeshBuilder, IntoTransformed3D, SphereMeshParameter,
-// TessellationConfig, };
-// use rendiation_texture_core::{
-//   create_padding_buffer, GPUBufferImage, Texture2D, TextureFormat, TextureSampler,
-// };
+use rendiation_algebra::*;
+use rendiation_mesh_core::vertex::Vertex;
+use rendiation_mesh_core::*;
+use rendiation_mesh_generator::{
+  CubeMeshParameter, IndexedMeshBuilder, IntoTransformed3D, SphereMeshParameter, TessellationConfig,
+};
+use rendiation_scene_core::AttributeMeshEntity;
+use rendiation_texture_core::{
+  create_padding_buffer, GPUBufferImage, Texture2D, TextureFormat, TextureSampler,
+};
 
-// use crate::*;
-
-// pub fn load_tex(path: &str) -> SceneTexture2DType {
-//   use image::io::Reader as ImageReader;
-//   let img = ImageReader::open(path).unwrap().decode().unwrap();
-//   let tex = match img {
-//     image::DynamicImage::ImageRgba8(img) => {
-//       let size = img.size();
-//       let format = TextureFormat::Rgba8UnormSrgb;
-//       let data = img.into_raw();
-//       GPUBufferImage { data, format, size }
-//     }
-//     image::DynamicImage::ImageRgb8(img) => {
-//       let size = img.size();
-//       let format = TextureFormat::Rgba8UnormSrgb;
-//       let data = create_padding_buffer(img.as_raw(), 3, &[255]);
-//       GPUBufferImage { data, format, size }
-//     }
-//     _ => panic!("unsupported texture type"),
-//   };
-//   SceneTexture2DType::GPUBufferImage(tex)
-// }
+use crate::*;
 
 // pub fn load_img_cube() -> SceneTextureCube {
 //   let path = if cfg!(windows) {
@@ -57,17 +38,22 @@
 //   .into()
 // }
 
-// type SceneMeshBuilder =
-//   IndexedMeshBuilder<GroupedMesh<IndexedMesh<TriangleList, Vec<Vertex>, DynIndexContainer>>>;
+type SceneMeshBuilder =
+  IndexedMeshBuilder<GroupedMesh<IndexedMesh<TriangleList, Vec<Vertex>, DynIndexContainer>>>;
 
-// pub fn build_scene_mesh(f: impl FnOnce(&mut SceneMeshBuilder)) -> MeshEnum {
-//   let mut builder = SceneMeshBuilder::default();
-//   f(&mut builder);
-//   let mesh = builder.finish();
-//   let mut attribute: AttributeMeshData = mesh.mesh.primitive_iter().collect();
-//   attribute.groups = mesh.groups;
-//   MeshEnum::AttributesMesh(attribute.build().into_ptr())
-// }
+pub fn build_scene_mesh(
+  f: impl FnOnce(&mut SceneMeshBuilder),
+) -> EntityHandle<AttributeMeshEntity> {
+  let mut builder = SceneMeshBuilder::default();
+  f(&mut builder);
+  let mesh = builder.finish();
+  let mut attribute: AttributeMeshData = mesh.mesh.primitive_iter().collect();
+  attribute.groups = mesh.groups;
+
+  let mut writer = AttributeMeshData::create_writer();
+
+  attribute.write(&mut writer)
+}
 
 // pub fn load_default_scene(scene: &Scene) {
 //   let path = if cfg!(windows) {
