@@ -5,7 +5,7 @@ use futures::{executor::ThreadPool, stream::FusedStream, Future, Stream, StreamE
 use reactive::PollUtils;
 use rendiation_webgpu::ReadableTextureBuffer;
 
-use crate::{SelectionSet, Viewer3dRenderingCtx};
+use crate::Viewer3dRenderingCtx;
 
 pub struct Terminal {
   pub command_history: Vec<String>,
@@ -15,7 +15,6 @@ pub struct Terminal {
 
 pub struct CommandCtx<'a> {
   pub rendering: Option<&'a mut Viewer3dRenderingCtx>,
-  pub selection_set: &'a SelectionSet,
 }
 
 type TerminalCommandCb =

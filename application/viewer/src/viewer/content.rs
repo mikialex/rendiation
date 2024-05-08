@@ -14,7 +14,6 @@ use crate::*;
 
 pub struct Viewer3dContent {
   pub pick_config: MeshBufferIntersectConfig,
-  pub selections: SelectionSet,
   pub controller: ControllerWinitAdapter<OrbitController>,
 }
 
@@ -26,7 +25,6 @@ impl Viewer3dContent {
     Self {
       controller,
       pick_config: Default::default(),
-      selections: Default::default(),
     }
   }
 
@@ -193,7 +191,6 @@ impl Viewer3dContent {
 
   pub fn poll_update(&mut self, cx: &mut std::task::Context) {
     self.poll_update_3d_view(cx);
-    self.selections.setup_waker(cx);
   }
 }
 

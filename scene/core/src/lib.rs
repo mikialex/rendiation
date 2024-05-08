@@ -99,7 +99,7 @@ pub fn register_std_model_data_model() {
 }
 
 declare_entity!(SceneNodeEntity);
-declare_component!(SceneNodeParentIdx, SceneNodeEntity, u32); // should we add generation?
+declare_component!(SceneNodeParentIdx, SceneNodeEntity, Option<u32>); // should we add generation?
 declare_component!(SceneNodeLocalMatrixComponent, SceneNodeEntity, Mat4<f32>);
 declare_component!(SceneNodeVisibleComponent, SceneNodeEntity, bool, true);
 pub fn register_scene_node_data_model() {
@@ -112,7 +112,9 @@ pub fn register_scene_node_data_model() {
 
 #[global_registered_collection_and_many_one_idx_relation]
 pub fn scene_node_connectivity() -> impl ReactiveCollection<u32, u32> {
-  global_watch().watch::<SceneNodeParentIdx>()
+  global_watch()
+    .watch::<SceneNodeParentIdx>()
+    .collective_filter_map(|v| v)
 }
 
 #[global_registered_collection]
@@ -121,7 +123,7 @@ pub fn raw_scene_node_derive_visible() -> impl ReactiveCollection<u32, bool> {
     Box::new(scene_node_connectivity_many_one_relation()),
     global_watch()
       .watch::<SceneNodeVisibleComponent>()
-      .into_boxed(), // todo avoid extra boxing
+      .into_boxed(),
     |this, parent| parent.map(|p| *p && *this).unwrap_or(*this),
   )
 }
@@ -137,7 +139,7 @@ pub fn raw_scene_node_derive_world_mat() -> impl ReactiveCollection<u32, Mat4<f3
     Box::new(scene_node_connectivity_many_one_relation()),
     global_watch()
       .watch::<SceneNodeLocalMatrixComponent>()
-      .into_boxed(), // todo avoid extra boxing
+      .into_boxed(),
     |this, parent| parent.map(|p| *p * *this).unwrap_or(*this),
   )
 }

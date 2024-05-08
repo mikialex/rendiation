@@ -11,11 +11,8 @@ mod default_scene;
 mod rendering;
 use reactive::{EventSource, NotifyScope};
 pub use rendering::*;
-
-mod selection;
 use rendiation_texture_core::Size;
 use rendiation_webgpu::*;
-pub use selection::*;
 
 pub struct Viewer {
   content: Viewer3dContent,
@@ -31,13 +28,13 @@ pub struct Viewer {
 impl Default for Viewer {
   fn default() -> Self {
     let io_executor = futures::executor::ThreadPool::builder()
-      .name_prefix("rendiation_io_threads")
+      .name_prefix("viewer_io_threads")
       .pool_size(2)
       .create()
       .unwrap();
 
     let compute_executor = rayon::ThreadPoolBuilder::new()
-      .thread_name(|i| format!("rendiation_compute_threads-{i}"))
+      .thread_name(|i| format!("viewer_compute_threads-{i}"))
       .build()
       .unwrap();
 
@@ -88,7 +85,6 @@ impl Viewer {
     self.on_demand_draw.notify_by(|cx| {
       let mut ctx = CommandCtx {
         rendering: self.ctx.as_mut(),
-        selection_set: &self.content.selections,
       };
 
       self.terminal.check_execute(&mut ctx, cx, &self.io_executor);
@@ -109,4 +105,9 @@ impl Viewer {
     self.size = new_size;
     new_size
   }
+}
+
+pub trait ViewerFeature {
+  fn setup(&self, viewer: &mut Viewer);
+  fn dispose(&mut self, viewer: &mut Viewer);
 }
