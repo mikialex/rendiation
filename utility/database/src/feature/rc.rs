@@ -74,7 +74,7 @@ impl DatabaseEntityRefCounting {
             let ref_data = entity_ref_counts.get(f_e_id).unwrap();
             let changes = mutation_watcher
               .watch_dyn_foreign_key(*s_id, *f_e_id)
-              .collective_filter_map(|v| v);
+              .collective_filter_map(|v| v.map(|v| v.index()));
             let changes = Box::new(changes);
             ref_data.inner_refs.add_source(changes);
           };
@@ -156,7 +156,7 @@ impl Stream for EntityRefCount {
 
       for (k, change) in change.iter_key_value() {
         if change.is_removed() && outer_count.ref_counts.try_get(k).is_none() {
-          entity_writer.delete_entity(k);
+          entity_writer.uncheck_handle_delete_entity(k);
         }
       }
     }
@@ -166,7 +166,7 @@ impl Stream for EntityRefCount {
       let mut entity_writer = self.db.entity_writer_untyped_dyn(self.id);
       for idx in outer_count.clean_up_check_queue.drain(..) {
         if !inner_count.contains(&idx) && outer_count.ref_counts.try_get(idx).is_none() {
-          entity_writer.delete_entity(idx);
+          entity_writer.uncheck_handle_delete_entity(idx);
         }
       }
     }
@@ -191,17 +191,11 @@ pub struct DataRefPtrWriteView<T> {
 
 impl<T> DataRefPtrWriteView<T> {
   pub fn create_ptr(&mut self, handle: EntityHandle<T>) -> DataRefPtr<T> {
-    if !self
-      .entity_checker
-      .contains(&(handle.handle.index() as u32))
-    {
+    if !self.entity_checker.contains(&(handle.handle.index())) {
       panic!("handle is invalid")
     }
 
-    self
-      .ref_data
-      .ref_counts
-      .insert(1, handle.handle.index() as u32);
+    self.ref_data.ref_counts.insert(1, handle.handle.index());
 
     DataRefPtr {
       inner: handle,
@@ -210,7 +204,7 @@ impl<T> DataRefPtrWriteView<T> {
   }
   /// batch version of the drop logic of data ref ptr
   pub fn drop_ptr(&mut self, handle: DataRefPtr<T>) {
-    let idx = handle.handle.index() as u32;
+    let idx = handle.handle.index();
     *self.ref_data.ref_counts.get_mut(idx) -= 1;
     if *self.ref_data.ref_counts.get_mut(idx) == 0 {
       self.ref_data.ref_counts.remove(idx);
@@ -221,10 +215,7 @@ impl<T> DataRefPtrWriteView<T> {
   }
   /// batch version of the clone logic of data ref ptr
   pub fn clone_ptr(&mut self, handle: &DataRefPtr<T>) -> DataRefPtr<T> {
-    *self
-      .ref_data
-      .ref_counts
-      .get_mut(handle.handle.index() as u32) += 1;
+    *self.ref_data.ref_counts.get_mut(handle.handle.index()) += 1;
     DataRefPtr {
       inner: handle.inner,
       ref_count_storage: handle.ref_count_storage.clone(),
@@ -256,7 +247,7 @@ impl<T> Deref for DataRefPtr<T> {
 impl<T> Drop for DataRefPtr<T> {
   fn drop(&mut self) {
     let mut refs = self.ref_count_storage.write();
-    let idx = self.inner.alloc_idx().index;
+    let idx = self.inner.handle.index();
     let ref_count = refs.ref_counts.get_mut(idx);
     assert!(*ref_count >= 1);
     *ref_count -= 1;
@@ -271,7 +262,7 @@ impl<T> Drop for DataRefPtr<T> {
 impl<T> Clone for DataRefPtr<T> {
   fn clone(&self) -> Self {
     let mut refs = self.ref_count_storage.write();
-    let ref_count = refs.ref_counts.get_mut(self.inner.alloc_idx().index);
+    let ref_count = refs.ref_counts.get_mut(self.inner.handle.index());
     *ref_count += 1;
 
     Self {

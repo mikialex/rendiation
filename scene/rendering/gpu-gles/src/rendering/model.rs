@@ -73,7 +73,7 @@ impl GLESModelRenderImpl for SceneStdModelRenderer {
     idx: AllocIdx<SceneModelEntity>,
   ) -> Option<(Box<dyn RenderComponent + '_>, DrawCommand)> {
     let model = self.model.get(idx)?;
-    let idx = (*model)?;
+    let idx = (*model)?.index();
     self.shapes.make_component(idx.into())
   }
 
@@ -82,7 +82,7 @@ impl GLESModelRenderImpl for SceneStdModelRenderer {
     idx: AllocIdx<SceneModelEntity>,
   ) -> Option<Box<dyn RenderComponent + '_>> {
     let model = self.model.get(idx)?;
-    let idx = (*model)?;
+    let idx = (*model)?.index();
     self.materials.make_component(idx.into())
   }
 }

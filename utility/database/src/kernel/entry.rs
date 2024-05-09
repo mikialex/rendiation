@@ -92,7 +92,7 @@ fn demo_how_to_use_database_generally() {
   let ptr = global_entity_of::<MyTestEntity2>()
     .entity_writer()
     .with_component_writer::<TestEntity2ReferenceEntity1, _>(move |w| {
-      w.with_writer(move || Some(ptr.alloc_idx().index))
+      w.with_writer(move || Some(ptr.into()))
     })
     .new_entity();
 

@@ -48,6 +48,15 @@ impl DatabaseMutationWatch {
   pub fn watch_typed_key<C: ComponentSemantic>(
     &self,
   ) -> impl ReactiveCollection<AllocIdx<C::Entity>, C::Data> {
+    self
+      .watch::<C>()
+      .collective_key_convert(AllocIdx::from, AllocIdx::into_alloc_index)
+  }
+
+  pub fn watch_typed_foreign_key<C: ForeignKeySemantic>(
+    &self,
+  ) -> impl ReactiveCollection<AllocIdx<C::Entity>, Option<EntityHandle<C::ForeignEntity>>> {
+    todo!();
     // self
     //   .watch()
     //   .collective_key_map(|k| AllocIdx::from(k), |k| k.index())

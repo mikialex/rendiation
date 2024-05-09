@@ -26,7 +26,7 @@ pub trait ComponentSemantic: EntityAssociateSemantic {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct ComponentId(pub TypeId);
 
-pub type ForeignKeyComponentData = Option<u32>;
+pub type ForeignKeyComponentData = Option<RawEntityHandle>;
 pub trait ForeignKeySemantic: ComponentSemantic<Data = ForeignKeyComponentData> {
   type ForeignEntity: EntitySemantic;
 }

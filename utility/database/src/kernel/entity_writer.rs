@@ -54,7 +54,8 @@ impl<E: EntitySemantic> EntityWriter<E> {
   where
     C: ComponentSemantic<Entity = E>,
   {
-    todo!()
+    self.component_value_persist_writer::<C>(value);
+    self
   }
 
   pub fn component_value_writer<C>(&mut self, value: C::Data) -> &mut Self
@@ -68,7 +69,7 @@ impl<E: EntitySemantic> EntityWriter<E> {
   where
     C: ComponentSemantic<Entity = E>,
   {
-    todo!()
+    self.component_writer::<C, _>(|v| v.with_write_value_persist(value))
   }
 
   pub fn with_component_writer<C, W>(
@@ -112,7 +113,7 @@ impl<E: EntitySemantic> EntityWriter<E> {
   /// note, the referential integrity is not guaranteed and should be guaranteed by the upper level
   /// implementations
   pub fn delete_entity(&mut self, handle: EntityHandle<E>) {
-    self.inner.delete_entity(handle.handle.index() as u32)
+    self.inner.delete_entity(handle.handle)
   }
 }
 
@@ -141,7 +142,7 @@ impl EntityWriterUntyped {
     .into()
   }
 
-  pub fn new_entity(&mut self) -> Handle<()> {
+  pub fn new_entity(&mut self) -> RawEntityHandle {
     let handle = self.allocator.insert(());
     for com in &mut self.components {
       com.1.write_init_component_value(handle.index() as u32)
@@ -151,7 +152,7 @@ impl EntityWriterUntyped {
       change: ValueChange::Delta((), None),
     };
     self.entity_watchers.emit(&ScopedMessage::Message(change));
-    handle
+    RawEntityHandle(handle)
   }
 
   pub fn clone_entity(&mut self, src: Handle<()>) -> Handle<()> {
@@ -172,17 +173,23 @@ impl EntityWriterUntyped {
 
   /// note, the referential integrity is not guaranteed and should be guaranteed by the upper level
   /// implementations
-  pub fn delete_entity(&mut self, handle: u32) {
-    let h = self.allocator.get_handle(handle as usize).unwrap();
-    self.allocator.remove(h).unwrap();
+  pub fn delete_entity(&mut self, handle: RawEntityHandle) {
+    self.allocator.remove(handle.0).unwrap();
     for com in &mut self.components {
-      com.1.delete_component(handle)
+      com.1.delete_component(handle.index())
     }
     let change = IndexValueChange {
-      idx: handle,
+      idx: handle.index(),
       change: ValueChange::Remove(()),
     };
     self.entity_watchers.emit(&ScopedMessage::Message(change));
+  }
+
+  /// note, the referential integrity is not guaranteed and should be guaranteed by the upper level
+  /// implementations
+  pub fn uncheck_handle_delete_entity(&mut self, handle: u32) {
+    let handle = self.allocator.get_handle(handle as usize).unwrap();
+    self.delete_entity(RawEntityHandle(handle));
   }
 }
 

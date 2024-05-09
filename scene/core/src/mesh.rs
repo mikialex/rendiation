@@ -70,9 +70,9 @@ impl EntityCustomWrite<AttributeMeshEntity> for AttributesMesh {
       let relation_writer = &mut writer.relation;
       vertex.write::<AttributeVertexRef, _>(relation_writer);
       relation_writer
-        .component_value_writer::<AttributeMeshVertexBufferRelationRefAttributeMesh>(Some(
-          mesh.alloc_idx().alloc_index(),
-        ))
+        .component_value_writer::<AttributeMeshVertexBufferRelationRefAttributeMesh>(
+          mesh.some_handle(),
+        )
         .component_value_writer::<AttributeMeshVertexBufferSemantic>(semantic)
         .new_entity();
     }

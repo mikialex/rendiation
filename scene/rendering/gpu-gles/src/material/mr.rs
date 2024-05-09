@@ -77,12 +77,12 @@ pub fn pbr_mr_material_tex_uniforms(cx: &GPUResourceCtx) -> PbrMRMaterialTexUnif
 
   let base_color_texture = global_watch()
     .watch_typed_key::<SceneTexture2dRefOf<PbrMRMaterialBaseColorTex>>()
-    .collective_map(|id| id.unwrap_or(0))
+    .collective_map(|id| id.map(|v| v.index()).unwrap_or(0))
     .into_uniform_collection_update(offset_of!(TexUniform, base_color_texture) + tex_offset, cx);
 
   let base_color_sampler = global_watch()
     .watch_typed_key::<SceneSamplerRefOf<PbrMRMaterialBaseColorTex>>()
-    .collective_map(|id| id.unwrap_or(0))
+    .collective_map(|id| id.map(|v| v.index()).unwrap_or(0))
     .into_uniform_collection_update(offset_of!(TexUniform, base_color_texture) + sam_offset, cx);
 
   PbrMRMaterialTexUniforms::default()

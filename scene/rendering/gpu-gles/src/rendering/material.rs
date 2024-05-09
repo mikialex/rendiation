@@ -57,7 +57,7 @@ impl GLESModelMaterialRenderImpl for FlatMaterialDefaultRenderImpl {
     idx: AllocIdx<StandardModelEntity>,
   ) -> Option<Box<dyn RenderComponent + '_>> {
     let idx = self.material_access.get(idx)?;
-    let idx = (*idx)?;
+    let idx = (*idx)?.index();
     Some(Box::new(FlatMaterialGPU {
       uniform: self.uniforms.get(&idx.into())?,
     }))
@@ -132,9 +132,9 @@ impl<T: TextureWithSamplingForeignKeys> TextureSamplerIdView<T> {
 
   pub fn get_pair(&self, id: u32) -> Option<(u32, u32)> {
     let tex = self.texture.get(id.into())?;
-    let tex = (*tex)?;
+    let tex = (*tex)?.index();
     let sampler = self.sampler.get(id.into())?;
-    let sampler = (*sampler)?;
+    let sampler = (*sampler)?.index();
     Some((tex, sampler))
   }
 }
@@ -145,7 +145,7 @@ impl GLESModelMaterialRenderImpl for PbrMRMaterialDefaultRenderImpl {
     idx: AllocIdx<StandardModelEntity>,
   ) -> Option<Box<dyn RenderComponent + '_>> {
     let idx = self.material_access.get(idx)?;
-    let idx = (*idx)?;
+    let idx = (*idx)?.index();
     let r = PhysicalMetallicRoughnessMaterialGPU {
       uniform: self.uniforms.get(&idx.into())?,
       alpha_mode: self.alpha_mode.get_value(idx.into())?,

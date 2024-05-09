@@ -81,13 +81,9 @@ impl SceneModelDataModel {
     writer: &mut EntityWriter<SceneModelEntity>,
   ) -> EntityHandle<SceneModelEntity> {
     writer
-      .component_value_writer::<SceneModelStdModelRenderPayload>(Some(
-        self.model.alloc_idx().alloc_index(),
-      ))
-      .component_value_writer::<SceneModelBelongsToScene>(Some(
-        self.scene.alloc_idx().alloc_index(),
-      ))
-      .component_value_writer::<SceneModelRefNode>(Some(self.node.alloc_idx().alloc_index()))
+      .component_value_writer::<SceneModelStdModelRenderPayload>(self.model.some_handle())
+      .component_value_writer::<SceneModelBelongsToScene>(self.scene.some_handle())
+      .component_value_writer::<SceneModelRefNode>(self.node.some_handle())
       .new_entity()
   }
 }
@@ -135,24 +131,16 @@ impl StandardModelDataView {
   ) -> EntityHandle<StandardModelEntity> {
     match self.material {
       SceneMaterialDataView::FlatMaterial(m) => {
-        writer.component_value_writer::<StandardModelRefFlatMaterial>(Some(
-          m.alloc_idx().alloc_index(),
-        ));
+        writer.component_value_writer::<StandardModelRefFlatMaterial>(m.some_handle());
       }
       SceneMaterialDataView::PbrSGMaterial(m) => {
-        writer.component_value_writer::<StandardModelRefPbrSGMaterial>(Some(
-          m.alloc_idx().alloc_index(),
-        ));
+        writer.component_value_writer::<StandardModelRefPbrSGMaterial>(m.some_handle());
       }
       SceneMaterialDataView::PbrMRMaterial(m) => {
-        writer.component_value_writer::<StandardModelRefPbrMRMaterial>(Some(
-          m.alloc_idx().alloc_index(),
-        ));
+        writer.component_value_writer::<StandardModelRefPbrMRMaterial>(m.some_handle());
       }
     }
-    writer.component_value_writer::<StandardModelRefAttributeMesh>(Some(
-      self.mesh.alloc_idx().alloc_index(),
-    ));
+    writer.component_value_writer::<StandardModelRefAttributeMesh>(self.mesh.some_handle());
 
     writer.new_entity()
   }

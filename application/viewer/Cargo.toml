@@ -20,7 +20,6 @@ pin-project = { workspace = true }
 rayon = { workspace = true }
 reactive = { path = "../../utility/reactive" }
 rendiation-algebra = { path = "../../math/algebra" }
-rendiation-generative-texture = { path = "../../content/texture/generative" }
 rendiation-texture-gpu-process = { path = "../../content/texture/gpu-process" }
 rendiation-geometry = { path = "../../math/geometry" }
 rendiation-mesh-core = { path = "../../content/mesh/core" }

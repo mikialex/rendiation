@@ -2,7 +2,19 @@ use crate::*;
 
 pub struct EntityHandle<T> {
   pub(crate) ty: PhantomData<T>,
-  pub(crate) handle: Handle<()>,
+  pub(crate) handle: RawEntityHandle,
+}
+
+impl<T> EntityHandle<T> {
+  pub fn some_handle(&self) -> Option<RawEntityHandle> {
+    Some(self.handle)
+  }
+}
+
+impl<T> From<EntityHandle<T>> for AllocIdx<T> {
+  fn from(val: EntityHandle<T>) -> Self {
+    val.handle.index().into()
+  }
 }
 
 impl<T> Copy for EntityHandle<T> {}
@@ -12,10 +24,45 @@ impl<T> Clone for EntityHandle<T> {
     *self
   }
 }
+impl<T> PartialEq for EntityHandle<T> {
+  fn eq(&self, other: &Self) -> bool {
+    self.handle == other.handle
+  }
+}
+impl<T> Eq for EntityHandle<T> {}
+impl<T> Hash for EntityHandle<T> {
+  fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+    self.ty.hash(state);
+    self.handle.hash(state);
+  }
+}
+impl<T> std::fmt::Debug for EntityHandle<T> {
+  fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    f.debug_struct("EntityHandle")
+      .field("ty", &self.ty)
+      .field("handle", &self.handle)
+      .finish()
+  }
+}
 
 impl<T> EntityHandle<T> {
   pub fn alloc_idx(&self) -> AllocIdx<T> {
-    (self.handle.index() as u32).into()
+    (self.handle.index()).into()
+  }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct RawEntityHandle(pub Handle<()>);
+
+impl RawEntityHandle {
+  pub fn index(&self) -> u32 {
+    self.0.index() as u32
+  }
+}
+
+impl<T> From<EntityHandle<T>> for RawEntityHandle {
+  fn from(val: EntityHandle<T>) -> Self {
+    val.handle
   }
 }
 

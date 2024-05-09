@@ -72,7 +72,7 @@ impl<T: TextureWithSamplingForeignKeys> EntityAssociateSemantic for SceneTexture
   type Entity = T::Entity;
 }
 impl<T: TextureWithSamplingForeignKeys> ComponentSemantic for SceneTexture2dRefOf<T> {
-  type Data = Option<u32>;
+  type Data = ForeignKeyComponentData;
 }
 impl<T: TextureWithSamplingForeignKeys> ForeignKeySemantic for SceneTexture2dRefOf<T> {
   type ForeignEntity = SceneTexture2dEntity;
@@ -83,7 +83,7 @@ impl<T: TextureWithSamplingForeignKeys> EntityAssociateSemantic for SceneSampler
   type Entity = T::Entity;
 }
 impl<T: TextureWithSamplingForeignKeys> ComponentSemantic for SceneSamplerRefOf<T> {
-  type Data = Option<u32>;
+  type Data = ForeignKeyComponentData;
 }
 impl<T: TextureWithSamplingForeignKeys> ForeignKeySemantic for SceneSamplerRefOf<T> {
   type ForeignEntity = SceneSamplerEntity;
@@ -111,11 +111,7 @@ impl Texture2DWithSamplingDataView {
     C: EntityAssociateSemantic<Entity = E>,
   {
     writer
-      .component_value_writer::<SceneTexture2dRefOf<C>>(
-        self.texture.alloc_idx().alloc_index().into(),
-      )
-      .component_value_writer::<SceneSamplerRefOf<C>>(
-        self.sampler.alloc_idx().alloc_index().into(),
-      );
+      .component_value_writer::<SceneTexture2dRefOf<C>>(self.texture.some_handle())
+      .component_value_writer::<SceneSamplerRefOf<C>>(self.sampler.some_handle());
   }
 }

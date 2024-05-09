@@ -70,7 +70,7 @@ impl GLESSceneModelRenderImpl for GLESPreferredComOrderRenderer {
     pass: &'a (dyn RenderComponent + 'a),
   ) -> Option<(Box<dyn RenderComponent + 'a>, DrawCommand)> {
     let node = self.node.get(idx)?;
-    let node = (*node)?;
+    let node = (*node)?.index();
     let node = self.node_render.make_component(node.into())?;
 
     let camera = self.camera_gpu.make_component(camera)?;

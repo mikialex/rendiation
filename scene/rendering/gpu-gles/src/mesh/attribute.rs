@@ -13,7 +13,7 @@ pub fn attribute_mesh_index_buffers(
       let cx = cx.clone();
       let read_view = global_entity_component_of::<BufferEntityData>().read();
       move |_, buffer_idx| {
-        let buffer = read_view.get(buffer_idx.unwrap().into()).unwrap();
+        let buffer = read_view.get(buffer_idx.unwrap().index().into()).unwrap();
         create_gpu_buffer(buffer.as_slice(), BufferUsages::INDEX, &cx.device)
       }
     });
@@ -39,7 +39,7 @@ pub fn attribute_mesh_vertex_buffer_views(
       let cx = cx.clone();
       let read_view = global_entity_component_of::<BufferEntityData>().read();
       move |_, buffer_idx| {
-        let buffer = read_view.get(buffer_idx.unwrap().into()).unwrap();
+        let buffer = read_view.get(buffer_idx.unwrap().index().into()).unwrap();
         create_gpu_buffer(buffer.as_slice(), BufferUsages::VERTEX, &cx.device)
       }
     });

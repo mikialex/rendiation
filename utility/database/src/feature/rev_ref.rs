@@ -44,7 +44,7 @@ impl DatabaseEntityReverseReference {
     let watcher = self
       .mutation_watcher
       .watch_dyn_foreign_key(semantic_id, entity_id)
-      .collective_filter_map(|v| v)
+      .collective_filter_map(|v| v.map(|v| v.index()))
       .into_boxed()
       .into_one_to_many_by_idx_expose_type()
       .into_static_forker();

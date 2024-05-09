@@ -29,7 +29,6 @@ members = [
   "content/texture/gpu-base",
   "content/texture/gpu-process",
   "content/texture/gpu-system",
-  "content/texture/generative",
   "content/lighting/core",
   "content/lighting/ltc",
   "content/lighting/ibl/core",

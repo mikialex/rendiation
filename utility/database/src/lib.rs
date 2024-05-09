@@ -1,5 +1,6 @@
 #![feature(alloc_layout_extra)]
 
+use std::hash::Hash;
 use std::{
   any::{Any, TypeId},
   marker::PhantomData,

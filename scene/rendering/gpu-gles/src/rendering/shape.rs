@@ -84,7 +84,7 @@ impl GLESModelShapeRenderImpl for AttributeMeshDefaultRenderImpl {
     idx: AllocIdx<StandardModelEntity>,
   ) -> Option<(Box<dyn RenderComponent + '_>, DrawCommand)> {
     let idx = self.mesh_access.get(idx)?;
-    let mesh_id = AllocIdx::from_alloc_index((*idx)?);
+    let mesh_id = AllocIdx::from_alloc_index((*idx)?.index());
 
     let index_buffer = self.index.access_ref(&mesh_id)?;
 

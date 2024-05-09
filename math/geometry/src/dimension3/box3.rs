@@ -92,6 +92,7 @@ impl<T: Scalar> Box3<T> {
     (self.min + self.max) * T::half()
   }
 
+  /// return the corner is the farthest point along the given direction
   #[rustfmt::skip]
   #[inline(always)]
   pub fn max_corner(&self, direction: Vec3<T>) -> Vec3<T> {

@@ -49,9 +49,7 @@ impl SceneBufferViewDataView {
     C: EntityAssociateSemantic<Entity = E>,
   {
     writer
-      .component_value_writer::<SceneBufferViewBufferId<C>>(
-        self.data.map(|v| v.alloc_idx().alloc_index()),
-      )
+      .component_value_writer::<SceneBufferViewBufferId<C>>(self.data.and_then(|v| v.some_handle()))
       .component_value_writer::<SceneBufferViewBufferRange<C>>(self.range)
       .component_value_writer::<SceneBufferViewBufferItemCount<C>>(self.count);
   }
@@ -71,7 +69,7 @@ impl<T: SceneBufferView> EntityAssociateSemantic for SceneBufferViewBufferId<T> 
   type Entity = T::Entity;
 }
 impl<T: SceneBufferView> ComponentSemantic for SceneBufferViewBufferId<T> {
-  type Data = Option<u32>;
+  type Data = ForeignKeyComponentData;
 }
 impl<T: SceneBufferView> ForeignKeySemantic for SceneBufferViewBufferId<T> {
   type ForeignEntity = BufferEntity;
