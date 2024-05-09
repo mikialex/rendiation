@@ -67,15 +67,6 @@ pub fn basic_shadow_map_uniform(
   (sys, uniforms)
 }
 
-// pub fn basic_shadow_map_storage(
-//   inputs: BasicShadowMapSystemInputs,
-// ) -> (
-//   AllocatedShadowMap,
-//   ReactiveStorageBufferContainer<BasicShadowMapInfo>,
-// ) {
-//   todo!()
-// }
-
 pub struct BasicShadowMapSystem {
   shadow_map_gpu: GPUTexture,
   packing: Box<dyn ReactiveCollection<u32, ShadowMapAddressInfo>>,

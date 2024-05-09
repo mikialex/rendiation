@@ -173,12 +173,6 @@ pub struct ShaderUnSizedStructMetaInfo {
   pub last_dynamic_array_field: (&'static str, &'static ShaderSizedValueType),
 }
 
-impl ShaderUnSizedStructMetaInfo {
-  pub fn layout_430_min_size(&self) -> usize {
-    todo!()
-  }
-}
-
 impl PartialEq for ShaderUnSizedStructMetaInfo {
   fn eq(&self, other: &Self) -> bool {
     self.name == other.name

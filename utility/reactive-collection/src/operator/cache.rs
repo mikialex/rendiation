@@ -7,6 +7,18 @@ pub struct UnorderedMaterializedReactiveCollection<Map, K, V> {
   pub cache: Arc<RwLock<FastHashMap<K, V>>>,
 }
 
+impl<Map, K, V> ReactiveCollectionSelfContained<K, V>
+  for UnorderedMaterializedReactiveCollection<Map, K, V>
+where
+  Map: ReactiveCollection<K, V>,
+  K: CKey,
+  V: CValue,
+{
+  fn access_ref_collection(&self) -> Box<dyn VirtualCollectionSelfContained<K, V> + '_> {
+    Box::new(self.cache.make_read_holder())
+  }
+}
+
 impl<Map, K, V> ReactiveCollection<K, V> for UnorderedMaterializedReactiveCollection<Map, K, V>
 where
   Map: ReactiveCollection<K, V>,
@@ -46,6 +58,18 @@ pub struct LinearMaterializedReactiveCollection<Map, V> {
   pub cache: Arc<RwLock<IndexKeptVec<V>>>,
 }
 
+impl<Map, K, V> ReactiveCollectionSelfContained<K, V>
+  for LinearMaterializedReactiveCollection<Map, V>
+where
+  Map: ReactiveCollection<K, V>,
+  K: LinearIdentification + CKey,
+  V: CValue,
+{
+  fn access_ref_collection(&self) -> Box<dyn VirtualCollectionSelfContained<K, V> + '_> {
+    Box::new(self.cache.make_read_holder())
+  }
+}
+
 impl<Map, K, V> ReactiveCollection<K, V> for LinearMaterializedReactiveCollection<Map, V>
 where
   Map: ReactiveCollection<K, V> + Sync,
@@ -78,6 +102,14 @@ where
 
   fn access(&self) -> PollCollectionCurrent<K, V> {
     self.cache.make_lock_holder_collection()
+  }
+}
+
+impl<K: CKey + LinearIdentification, V: CValue> VirtualCollectionSelfContained<K, V>
+  for IndexKeptVec<V>
+{
+  fn access_ref(&self, key: &K) -> Option<&V> {
+    self.try_get(key.alloc_index())
   }
 }
 

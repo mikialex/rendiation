@@ -23,7 +23,7 @@ pub fn attribute_mesh_index_buffers(
       global_watch().watch_typed_key::<SceneBufferViewBufferRange<AttributeIndexRef>>(),
     )
     .collective_map(|(buffer, range)| buffer.create_view(map_view(range.unwrap())))
-    .into_self_contained()
+    .materialize_linear()
 }
 
 pub fn attribute_mesh_vertex_buffer_views(
@@ -49,7 +49,7 @@ pub fn attribute_mesh_vertex_buffer_views(
       global_watch().watch_typed_key::<SceneBufferViewBufferRange<AttributeVertexRef>>(),
     )
     .collective_map(|(buffer, range)| buffer.create_view(map_view(range.unwrap())))
-    .into_self_contained()
+    .materialize_linear()
 }
 
 fn map_view(view: rendiation_mesh_core::BufferViewRange) -> GPUBufferViewRange {

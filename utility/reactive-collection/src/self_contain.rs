@@ -3,26 +3,11 @@ use crate::*;
 pub trait ReactiveCollectionSelfContained<K: CKey, V: CValue>: ReactiveCollection<K, V> {
   fn access_ref_collection(&self) -> Box<dyn VirtualCollectionSelfContained<K, V> + '_>;
 
-  fn self_contain_into_boxed(self) -> Box<dyn ReactiveCollectionSelfContained<K, V>>
+  fn into_boxed_self_contain(self) -> Box<dyn ReactiveCollectionSelfContained<K, V>>
   where
     Self: Sized + 'static,
   {
     Box::new(self)
-  }
-}
-
-pub trait IntoReactiveCollectionSelfContainedExt<K: CKey, V: CValue>:
-  ReactiveCollection<K, V>
-{
-  fn into_self_contained(self) -> impl ReactiveCollectionSelfContained<K, V>;
-}
-
-impl<T, K: CKey, V: CValue> IntoReactiveCollectionSelfContainedExt<K, V> for T
-where
-  T: ReactiveCollection<K, V>,
-{
-  fn into_self_contained(self) -> impl ReactiveCollectionSelfContained<K, V> {
-    todo!()
   }
 }
 

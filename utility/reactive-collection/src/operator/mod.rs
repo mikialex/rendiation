@@ -269,7 +269,7 @@ where
     .workaround_box()
   }
 
-  fn materialize_unordered(self) -> impl ReactiveCollection<K, V>
+  fn materialize_unordered(self) -> UnorderedMaterializedReactiveCollection<Self, K, V>
   where
     K: CKey,
   {
@@ -277,9 +277,8 @@ where
       inner: self,
       cache: Default::default(),
     }
-    .workaround_box()
   }
-  fn materialize_linear(self) -> impl ReactiveCollection<K, V>
+  fn materialize_linear(self) -> LinearMaterializedReactiveCollection<Self, V>
   where
     K: LinearIdentification + CKey,
   {
@@ -287,7 +286,6 @@ where
       inner: self,
       cache: Default::default(),
     }
-    .workaround_box()
   }
 
   fn diff_change(self) -> impl ReactiveCollection<K, V>
