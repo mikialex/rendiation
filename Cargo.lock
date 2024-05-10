@@ -3019,12 +3019,30 @@ dependencies = [
  "database",
  "reactive",
  "rendiation-algebra",
+ "rendiation-geometry",
+ "rendiation-gui-3d",
+ "rendiation-mesh-generator",
  "rendiation-scene-core",
  "rendiation-scene-rendering-gpu-gles",
  "rendiation-shader-api",
  "rendiation-state-override",
  "rendiation-webgpu",
  "winit",
+]
+
+[[package]]
+name = "rendiation-gui-3d"
+version = "0.1.0"
+dependencies = [
+ "database",
+ "reactive",
+ "rendiation-algebra",
+ "rendiation-geometry",
+ "rendiation-mesh-core",
+ "rendiation-mesh-generator",
+ "rendiation-scene-core",
+ "rendiation-shader-api",
+ "rendiation-state-override",
 ]
 
 [[package]]

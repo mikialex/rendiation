@@ -1,7 +1,7 @@
 [package]
 authors = ["mikialex <18516340862@163.com>"]
 edition = "2021"
-name = "rendiation-gizmo"
+name = "rendiation-gui-3d"
 version = "0.1.0"
 
 [dependencies]
@@ -9,14 +9,11 @@ rendiation-algebra = { path = "../../math/algebra" }
 rendiation-geometry = { path = "../../math/geometry" }
 rendiation-scene-core = { path = "../../scene/core" }
 rendiation-shader-api = { path = "../../shader/api" }
-rendiation-gui-3d = { path = "../gui-3d" }
+rendiation-mesh-core = { path = "../../content/mesh/core" }
 rendiation-mesh-generator = { path = "../../content/mesh/generator" }
 database = { path = "../../utility/database" }
 reactive = { path = "../../utility/reactive" }
-rendiation-webgpu = { path = "../../platform/graphics/webgpu" }
-rendiation-scene-rendering-gpu-gles = { path = "../../scene/rendering/gpu-gles" }
 rendiation-state-override = { path = "../state-override" }
-winit = { workspace = true }
 
 [lints]
 workspace = true
