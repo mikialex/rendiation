@@ -16,7 +16,7 @@ pub struct UIModel {
   material: AllocIdx<FlatMaterialEntity>,
   mesh: AllocIdx<AttributeMeshEntity>,
 
-  view_update: Option<Box<dyn FnMut(&mut Self, &mut ViewStateStore)>>,
+  view_update: Option<Box<dyn FnMut(&mut Self, &mut StateReadStore)>>,
 }
 
 impl Default for UIModel {
@@ -26,7 +26,7 @@ impl Default for UIModel {
 }
 
 impl View for UIModel {
-  fn update_view(&mut self, model: &mut ViewStateStore) {
+  fn update_view(&mut self, model: &mut StateReadStore) {
     // if let Some(update) = self.view_update {
     //   // update(self, model)
     // }
@@ -50,7 +50,7 @@ impl UIModel {
 
   pub fn with_view_update(
     mut self,
-    f: impl FnMut(&mut Self, &mut ViewStateStore) + 'static,
+    f: impl FnMut(&mut Self, &mut StateReadStore) + 'static,
   ) -> Self {
     self.view_update = Some(Box::new(f));
     self

@@ -13,7 +13,7 @@ impl UIGroup {
 }
 
 impl View for UIGroup {
-  fn update_view(&mut self, model: &mut ViewStateStore) {
+  fn update_view(&mut self, model: &mut StateReadStore) {
     for c in &mut self.children {
       c.update_view(model)
     }
