@@ -1,39 +1,27 @@
 use crate::*;
 
-fn arrow() -> UIModel {
-  UIModel::default().with_shape(ArrowShape::default().build())
+fn arrow(axis: AxisType) -> impl View {
+  UIModel::default()
+    .with_shape(ArrowShape::default().build())
+    .with_matrix(axis.mat())
+    .with_view_update(arrow_update(AxisType::X))
+    .with_on_mouse_down(arrow_mouse_down())
+    .with_state_pick(axis_lens(axis))
 }
 
 pub fn translation_gizmo_view() -> impl View {
-  let x_dir = Mat4::rotate_z(-f32::PI() / 2.);
-  let x_arrow = arrow()
-    .with_matrix(x_dir)
-    .with_view_update(arrow_update(AxisType::X))
-    .with_on_mouse_down(arrow_mouse_down());
-
-  let y_dir = Mat4::identity();
-  let y_arrow = arrow().with_matrix(y_dir);
-
-  let z_dir = Mat4::rotate_x(f32::PI() / 2.);
-  let z_arrow = arrow().with_matrix(z_dir);
-
-  // let (axises_view, active_state) = AxisActiveState::state_provider();
-
-  // let (axis_view, x_state) = axises_view.sub_state_provider(active_state);
-
   UIGroup::default()
-    .with_child(x_arrow)
-    .with_child(y_arrow)
-    .with_child(z_arrow)
+    .with_child(arrow(AxisType::X))
+    .with_child(arrow(AxisType::Y))
+    .with_child(arrow(AxisType::Z))
+    .with_local_state_inject(AxisActiveState::default())
 }
 
-fn arrow_update(axis: AxisType) -> impl FnMut(&mut UIModel, &mut StateReadStore) + 'static {
-  let gizmo = StateTag::<AxisActiveState>::default();
-  let global_style = StateTag::<GlobalUIStyle>::default();
+fn arrow_update(axis: AxisType) -> impl FnMut(&mut UIModel, &mut StateStore) + 'static {
   move |arrow, model| {
-    let color = model.state(&global_style, |style| style.get_axis_primary_color(axis));
+    let color = model.state_get::<GlobalUIStyle, _>(|style| style.get_axis_primary_color(axis));
 
-    model.state(&gizmo, |gizmo| {
+    model.state::<AxisActiveState>(|gizmo| {
       let axis_state = *gizmo.get_axis(axis);
       let self_active = axis_state.active;
       arrow.set_visible(!gizmo.has_any_active() || self_active);
@@ -43,9 +31,8 @@ fn arrow_update(axis: AxisType) -> impl FnMut(&mut UIModel, &mut StateReadStore)
 }
 
 fn arrow_mouse_down() -> impl FnMut(&mut View3dStateUpdateCtx, Vec3<f32>) + 'static {
-  let state = StateTag::<ItemState>::default();
   move |cx, pick_position| {
-    cx.state.state(&state, |state| state.active = true);
+    cx.state.state_mut::<ItemState>(|state| state.active = true);
   }
 }
 

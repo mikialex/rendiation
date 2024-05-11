@@ -24,3 +24,23 @@ impl View for UIGroup {
     }
   }
 }
+
+pub struct UIArray<T> {
+  children: Vec<Box<dyn View>>,
+  marker: std::marker::PhantomData<T>,
+}
+
+impl<T> View for UIArray<T> {
+  fn update_view(&mut self, cx: &mut View3dViewUpdateCtx) {
+    // cx.state
+    // cx.state.register_state(v)
+    for c in &mut self.children {
+      c.update_view(cx)
+    }
+  }
+  fn update_state(&mut self, cx: &mut View3dStateUpdateCtx) {
+    for c in &mut self.children {
+      c.update_state(cx)
+    }
+  }
+}

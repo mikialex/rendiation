@@ -3035,6 +3035,7 @@ name = "rendiation-gui-3d"
 version = "0.1.0"
 dependencies = [
  "database",
+ "fast-hash-collection",
  "reactive",
  "rendiation-algebra",
  "rendiation-geometry",

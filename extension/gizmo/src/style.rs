@@ -7,6 +7,24 @@ pub enum AxisType {
   Z,
 }
 
+impl AxisType {
+  pub fn mat(&self) -> Mat4<f32> {
+    match self {
+      AxisType::X => Mat4::rotate_z(-f32::PI() / 2.),
+      AxisType::Y => Mat4::identity(),
+      AxisType::Z => Mat4::rotate_x(f32::PI() / 2.),
+    }
+  }
+}
+
+pub fn axis_lens(axis: AxisType) -> impl Fn(&mut AxisActiveState) -> &mut ItemState {
+  move |s| match axis {
+    AxisType::X => &mut s.x,
+    AxisType::Y => &mut s.y,
+    AxisType::Z => &mut s.z,
+  }
+}
+
 pub struct GlobalUIStyle {
   pub x_color: Vec3<f32>,
   pub y_color: Vec3<f32>,
