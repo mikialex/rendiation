@@ -1,6 +1,6 @@
 use crate::*;
 
-pub struct UIModel {
+pub struct UIWidgetModel {
   /// indicate if this widget is interactive to mouse event
   mouse_interactive: bool,
 
@@ -11,21 +11,22 @@ pub struct UIModel {
   on_mouse_hovering: Option<Box<dyn FnMut(&mut View3dStateUpdateCtx, Vec3<f32>)>>,
   on_mouse_down: Option<Box<dyn FnMut(&mut View3dStateUpdateCtx, Vec3<f32>)>>,
 
+  parent: Option<AllocIdx<SceneNodeEntity>>,
   model: AllocIdx<SceneModelEntity>,
-  nodes: AllocIdx<SceneNodeEntity>,
+  node: AllocIdx<SceneNodeEntity>,
   material: AllocIdx<FlatMaterialEntity>,
   mesh: AllocIdx<AttributeMeshEntity>,
 
   view_update: Option<Box<dyn FnMut(&mut Self, &mut StateStore)>>,
 }
 
-impl Default for UIModel {
+impl Default for UIWidgetModel {
   fn default() -> Self {
     todo!()
   }
 }
 
-impl View for UIModel {
+impl View for UIWidgetModel {
   fn update_view(&mut self, cx: &mut View3dViewUpdateCtx) {
     // if let Some(update) = self.view_update {
     //   // update(self, model)
@@ -41,7 +42,7 @@ impl View for UIModel {
   }
 }
 
-impl UIModel {
+impl UIWidgetModel {
   fn has_any_mouse_event(&self) -> bool {
     self.on_mouse_click.is_some()
       || self.on_mouse_hovering.is_some()
@@ -100,6 +101,10 @@ impl UIModel {
   }
 
   pub fn with_shape(mut self, shape: AttributesMeshData) -> Self {
+    self
+  }
+
+  pub fn with_parent(mut self, parent: AllocIdx<SceneNodeEntity>) -> Self {
     self
   }
 }

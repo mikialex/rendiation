@@ -1,7 +1,8 @@
 use crate::*;
 
-fn arrow(axis: AxisType) -> impl View {
-  UIModel::default()
+fn arrow(axis: AxisType, parent: AllocIdx<SceneNodeEntity>) -> impl View {
+  UIWidgetModel::default()
+    .with_parent(parent)
     .with_shape(ArrowShape::default().build())
     .with_matrix(axis.mat())
     .with_view_update(arrow_update(AxisType::X))
@@ -9,15 +10,62 @@ fn arrow(axis: AxisType) -> impl View {
     .with_state_pick(axis_lens(axis))
 }
 
-pub fn translation_gizmo_view() -> impl View {
+fn plane(axis: AxisType, parent: AllocIdx<SceneNodeEntity>) -> impl View {
+  // fn build_plane(root: &SceneNode, auto_scale: &AutoScale, mat: Mat4<f32>) -> HelperMesh {
+  let mesh = build_attributes_mesh(|builder| {
+    builder.triangulate_parametric(
+      &ParametricPlane.transform_by(Mat4::translate((-0.5, -0.5, 0.))),
+      TessellationConfig { u: 1, v: 1 },
+      true,
+    );
+  });
+
+  fn plane_update(axis: AxisType) -> impl FnMut(&mut UIWidgetModel, &mut StateStore) + 'static {
+    move |plane, model| {
+      let color = model.state_get::<GlobalUIStyle, _>(|style| style.get_axis_primary_color(axis));
+
+      model.state::<AxisActiveState>(|gizmo| {
+        // let axis_state = *gizmo.get_axis(axis);
+        // let self_active = axis_state.active;
+        // arrow.set_visible(!gizmo.has_any_active() || self_active);
+        // arrow.set_color(map_color(color, axis_state));
+      });
+    }
+  }
+
+  let plane_scale = Mat4::scale(Vec3::splat(0.4));
+  let plane_move = Vec3::splat(1.3);
+  let degree_90 = f32::PI() / 2.;
+
+  let move_dir = Vec3::one() - axis.dir();
+  let move_mat = Mat4::translate(move_dir * plane_move);
+  let rotate = match axis {
+    AxisType::X => Mat4::rotate_y(degree_90),
+    AxisType::Y => Mat4::rotate_x(-degree_90),
+    AxisType::Z => Mat4::identity(),
+  };
+  let mat = move_mat * rotate * plane_scale;
+
+  UIWidgetModel::default()
+    .with_shape(mesh)
+    .with_parent(parent)
+    .with_matrix(mat)
+    .with_view_update(plane_update(AxisType::X))
+    .with_state_pick(axis_lens(axis))
+}
+
+pub fn translation_gizmo_view(parent: AllocIdx<SceneNodeEntity>) -> impl View {
   UIGroup::default()
-    .with_child(arrow(AxisType::X))
-    .with_child(arrow(AxisType::Y))
-    .with_child(arrow(AxisType::Z))
+    .with_child(arrow(AxisType::X, parent))
+    .with_child(arrow(AxisType::Y, parent))
+    .with_child(arrow(AxisType::Z, parent))
+    .with_child(plane(AxisType::X, parent))
+    .with_child(plane(AxisType::Y, parent))
+    .with_child(plane(AxisType::Z, parent))
     .with_local_state_inject(AxisActiveState::default())
 }
 
-fn arrow_update(axis: AxisType) -> impl FnMut(&mut UIModel, &mut StateStore) + 'static {
+fn arrow_update(axis: AxisType) -> impl FnMut(&mut UIWidgetModel, &mut StateStore) + 'static {
   move |arrow, model| {
     let color = model.state_get::<GlobalUIStyle, _>(|style| style.get_axis_primary_color(axis));
 
@@ -88,30 +136,27 @@ fn handle_translating(
 
   let local_ray = action.world_ray.apply_matrix_into(back_to_local);
 
-  //   // if we don't get any hit, we skip update.  Keeping last updated result is a reasonable
-  // behavior.   if let OptionalNearest(Some(new_hit)) = local_ray.intersect(&plane, &()) {
-  //     let new_hit = (new_hit.position - plane_point) * constraint + plane_point;
-  //     let new_hit_world = target.target_world_mat * new_hit;
+  // if we don't get any hit, we skip update.  Keeping last updated result is a reasonable behavior.
+  if let OptionalNearest(Some(new_hit)) = local_ray.intersect(&plane, &()) {
+    let new_hit = (new_hit.position - plane_point) * constraint + plane_point;
+    let new_hit_world = target.target_world_mat * new_hit;
 
-  //     #[rustfmt::skip]
-  //     // new_hit_world = M(parent) * M(new_local_translate) * M(local_rotate) * M(local_scale) *
-  // start_hit_local_position =>     // M-1(parent) * new_hit_world = new_local_translate +
-  // M(local_rotate) * M(local_scale) * start_hit_local_position  =>     // new_local_translate =
-  // M-1(parent) * new_hit_world - M(local_rotate) * M(local_scale) * start_hit_local_position
+    // new_hit_world = M(parent) * M(new_local_translate) * M(local_rotate) * M(local_scale) *
+    // start_hit_local_position => M-1(parent) * new_hit_world = new_local_translate +
+    // M(local_rotate) * M(local_scale) * start_hit_local_position  => new_local_translate =
+    // M-1(parent) * new_hit_world - M(local_rotate) * M(local_scale) * start_hit_local_position
 
-  //     let new_local_translate = states.start_parent_world_mat.inverse()? * new_hit_world
-  //       - Mat4::from(states.start_local_quaternion)
-  //         * Mat4::scale(states.start_local_scale)
-  //         * states.start_hit_local_position;
+    let new_local_translate = states.start_parent_world_mat.inverse()? * new_hit_world
+      - Mat4::from(states.start_local_quaternion)
+        * Mat4::scale(states.start_local_scale)
+        * states.start_hit_local_position;
 
-  //     let new_local = Mat4::translate(new_local_translate)
-  //       * Mat4::from(states.start_local_quaternion)
-  //       * Mat4::scale(states.start_local_scale);
+    let new_local = Mat4::translate(new_local_translate)
+      * Mat4::from(states.start_local_quaternion)
+      * Mat4::scale(states.start_local_scale);
 
-  //     Some(new_local)
-  //   } else {
-  //     None
-  //   }
-
-  todo!()
+    Some(new_local)
+  } else {
+    None
+  }
 }

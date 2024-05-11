@@ -25,22 +25,36 @@ impl View for UIGroup {
   }
 }
 
-pub struct UIArray<T> {
+pub struct UINode {
+  node: AllocIdx<SceneNodeEntity>,
   children: Vec<Box<dyn View>>,
-  marker: std::marker::PhantomData<T>,
 }
 
-impl<T> View for UIArray<T> {
-  fn update_view(&mut self, cx: &mut View3dViewUpdateCtx) {
-    // cx.state
-    // cx.state.register_state(v)
-    for c in &mut self.children {
-      c.update_view(cx)
-    }
+impl UINode {
+  pub fn node(&self) -> AllocIdx<SceneNodeEntity> {
+    self.node
   }
+  pub fn with_child<V: View + 'static>(
+    mut self,
+    child: impl FnOnce(AllocIdx<SceneNodeEntity>) -> V,
+  ) -> Self {
+    self.children.push(Box::new(child(self.node)));
+    self
+  }
+}
+
+impl Default for UINode {
+  fn default() -> Self {
+    todo!()
+  }
+}
+
+impl View for UINode {
+  fn update_view(&mut self, cx: &mut View3dViewUpdateCtx) {
+    todo!()
+  }
+
   fn update_state(&mut self, cx: &mut View3dStateUpdateCtx) {
-    for c in &mut self.children {
-      c.update_state(cx)
-    }
+    todo!()
   }
 }
