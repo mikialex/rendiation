@@ -9,6 +9,8 @@ pub struct UIWidgetModel {
 
   on_mouse_click: Option<Box<dyn FnMut(&mut View3dStateUpdateCtx, Vec3<f32>)>>,
   on_mouse_hovering: Option<Box<dyn FnMut(&mut View3dStateUpdateCtx, Vec3<f32>)>>,
+  on_mouse_in: Option<Box<dyn FnMut(&mut View3dStateUpdateCtx, Vec3<f32>)>>,
+  on_mouse_out: Option<Box<dyn FnMut(&mut View3dStateUpdateCtx, Vec3<f32>)>>,
   on_mouse_down: Option<Box<dyn FnMut(&mut View3dStateUpdateCtx, Vec3<f32>)>>,
 
   parent: Option<AllocIdx<SceneNodeEntity>>,
@@ -68,6 +70,20 @@ impl UIWidgetModel {
     f: impl FnMut(&mut View3dStateUpdateCtx, Vec3<f32>) + 'static,
   ) -> Self {
     self.on_mouse_click = Some(Box::new(f));
+    self
+  }
+  pub fn with_on_mouse_in(
+    mut self,
+    f: impl FnMut(&mut View3dStateUpdateCtx, Vec3<f32>) + 'static,
+  ) -> Self {
+    self.on_mouse_in = Some(Box::new(f));
+    self
+  }
+  pub fn with_on_mouse_out(
+    mut self,
+    f: impl FnMut(&mut View3dStateUpdateCtx, Vec3<f32>) + 'static,
+  ) -> Self {
+    self.on_mouse_out = Some(Box::new(f));
     self
   }
   pub fn with_on_mouse_hovering(

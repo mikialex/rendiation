@@ -2,6 +2,20 @@ use crate::*;
 
 pub fn rotation_gizmo_view(parent: AllocIdx<SceneNodeEntity>) -> impl View {
   UIGroup::default()
+    .with_child(build_rotator(AxisType::X, parent))
+    .with_child(build_rotator(AxisType::Y, parent))
+    .with_child(build_rotator(AxisType::Z, parent))
+    // .with_state_update_logic(|cx, inner| {
+    //   inner.update_state();
+    //   if cx.mouse_move && cx.take_action::<DragTargetAction>() {
+    //     if let Some(target_mat) = handle_rotating(states, target, rotate_state, rotate_view,
+    // action)     {
+    //       cx.emit_action()
+    //     }
+    //   }
+    // })
+    .with_local_state_inject(AxisActiveState::default())
+    .with_local_state_inject(Option::<RotateState>::default())
 }
 
 pub fn build_rotator(axis: AxisType, parent: AllocIdx<SceneNodeEntity>) -> impl View {
@@ -28,7 +42,7 @@ pub fn build_rotator(axis: AxisType, parent: AllocIdx<SceneNodeEntity>) -> impl 
     .with_shape(mesh)
     .with_parent(parent)
     .with_matrix(mat)
-    // .with_view_update(plane_update(AxisType::X))
+    .with_view_update(update_per_axis_model(axis))
     .with_state_pick(axis_lens(axis))
 }
 
@@ -38,21 +52,21 @@ struct RotateState {
 }
 
 fn handle_rotating(
-  states: &StartState,
-  target: &TargetState,
+  states: &DragStartState,
+  target: &mut GizmoControlTargetState,
   rotate_state: &mut Option<RotateState>,
   rotate_view: &AxisActiveState,
   action: DragTargetAction,
-) -> Option<Mat4<f32>> {
+) -> Option<()> {
   #[rustfmt::skip]
-    // // new_hit_world = M(parent) * M(local_translate) * M(new_local_rotate) * M(local_scale) * start_hit_local_position =>
-    // //  M-1(local_translate) * M-1(parent) * new_hit_world =  M(new_local_rotate) * M(local_scale) * start_hit_local_position
-    // should we support world space point align like above? but the question is, we have to also modify scale, because
-    // it's maybe impossible to rotate one point to the other if your rotation center is origin.
+  // new_hit_world = M(parent) * M(local_translate) * M(new_local_rotate) * M(local_scale) * start_hit_local_position =>
+  // M-1(local_translate) * M-1(parent) * new_hit_world =  M(new_local_rotate) * M(local_scale) * start_hit_local_position
+  // should we support world space point align like above? but the question is, we have to also modify scale, because
+  // it's maybe impossible to rotate one point to the other if your rotation center is origin.
 
-    // here we use simple screen space rotation match local space to see the effects.
+  // here we use simple screen space rotation match local space to see the effects.
 
-    let vp = action.camera_projection * action.camera_world.inverse()?;
+  let vp = action.camera_projection * action.camera_world.inverse()?;
 
   let start_hit_screen_position = (vp * states.start_hit_world_position).xy();
   let pivot_center_screen_position = (vp * target.target_world_mat.position()).xy();
@@ -104,5 +118,7 @@ fn handle_rotating(
     * Mat4::from(quat)
     * Mat4::scale(states.start_local_scale);
 
-  Some(new_local)
+  target.update_target_local_mat(new_local);
+
+  Some(())
 }

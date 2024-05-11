@@ -8,6 +8,8 @@ use rendiation_mesh_core::*;
 use rendiation_mesh_generator::*;
 use rendiation_scene_core::*;
 
+mod ty;
+pub use ty::*;
 mod state;
 pub use state::*;
 mod group;

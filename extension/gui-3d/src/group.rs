@@ -27,7 +27,7 @@ impl View for UIGroup {
 
 pub struct UINode {
   node: AllocIdx<SceneNodeEntity>,
-  children: Vec<Box<dyn View>>,
+  children: UIGroup,
 }
 
 impl UINode {
@@ -38,7 +38,7 @@ impl UINode {
     mut self,
     child: impl FnOnce(AllocIdx<SceneNodeEntity>) -> V,
   ) -> Self {
-    self.children.push(Box::new(child(self.node)));
+    self.children = self.children.with_child(child(self.node));
     self
   }
 }
@@ -51,10 +51,10 @@ impl Default for UINode {
 
 impl View for UINode {
   fn update_view(&mut self, cx: &mut View3dViewUpdateCtx) {
-    todo!()
+    self.children.update_view(cx)
   }
 
   fn update_state(&mut self, cx: &mut View3dStateUpdateCtx) {
-    todo!()
+    self.children.update_state(cx)
   }
 }

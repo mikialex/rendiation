@@ -1,17 +1,33 @@
 use crate::*;
 
+pub fn translation_gizmo_view(parent: AllocIdx<SceneNodeEntity>) -> impl View {
+  UIGroup::default()
+    .with_child(arrow(AxisType::X, parent))
+    .with_child(arrow(AxisType::Y, parent))
+    .with_child(arrow(AxisType::Z, parent))
+    .with_child(plane(AxisType::X, parent))
+    .with_child(plane(AxisType::Y, parent))
+    .with_child(plane(AxisType::Z, parent))
+    // .with_state_update_logic(|cx, inner| {
+    //   inner.update_state();
+    //   if cx.mouse_move && cx.take_action::<DragTargetAction>() {
+    //      handle_rotating(states, target, rotate_state, rotate_view,action)
+    //   }
+    // })
+    .with_local_state_inject(AxisActiveState::default())
+}
+
 fn arrow(axis: AxisType, parent: AllocIdx<SceneNodeEntity>) -> impl View {
   UIWidgetModel::default()
     .with_parent(parent)
     .with_shape(ArrowShape::default().build())
     .with_matrix(axis.mat())
-    .with_view_update(arrow_update(AxisType::X))
+    .with_view_update(update_per_axis_model(AxisType::X))
     .with_on_mouse_down(arrow_mouse_down())
     .with_state_pick(axis_lens(axis))
 }
 
 fn plane(axis: AxisType, parent: AllocIdx<SceneNodeEntity>) -> impl View {
-  // fn build_plane(root: &SceneNode, auto_scale: &AutoScale, mat: Mat4<f32>) -> HelperMesh {
   let mesh = build_attributes_mesh(|builder| {
     builder.triangulate_parametric(
       &ParametricPlane.transform_by(Mat4::translate((-0.5, -0.5, 0.))),
@@ -25,10 +41,14 @@ fn plane(axis: AxisType, parent: AllocIdx<SceneNodeEntity>) -> impl View {
       let color = model.state_get::<GlobalUIStyle, _>(|style| style.get_axis_primary_color(axis));
 
       model.state::<AxisActiveState>(|gizmo| {
-        // let axis_state = *gizmo.get_axis(axis);
-        // let self_active = axis_state.active;
-        // arrow.set_visible(!gizmo.has_any_active() || self_active);
-        // arrow.set_color(map_color(color, axis_state));
+        let (a, b) = gizmo.get_rest_axis(axis);
+        let axis_state = ItemState {
+          hovering: a.hovering && b.hovering,
+          active: a.active && b.active,
+        };
+        let self_active = axis_state.active;
+        plane.set_visible(!gizmo.has_any_active() || self_active);
+        plane.set_color(map_color(color, axis_state));
       });
     }
   }
@@ -54,30 +74,6 @@ fn plane(axis: AxisType, parent: AllocIdx<SceneNodeEntity>) -> impl View {
     .with_state_pick(axis_lens(axis))
 }
 
-pub fn translation_gizmo_view(parent: AllocIdx<SceneNodeEntity>) -> impl View {
-  UIGroup::default()
-    .with_child(arrow(AxisType::X, parent))
-    .with_child(arrow(AxisType::Y, parent))
-    .with_child(arrow(AxisType::Z, parent))
-    .with_child(plane(AxisType::X, parent))
-    .with_child(plane(AxisType::Y, parent))
-    .with_child(plane(AxisType::Z, parent))
-    .with_local_state_inject(AxisActiveState::default())
-}
-
-fn arrow_update(axis: AxisType) -> impl FnMut(&mut UIWidgetModel, &mut StateStore) + 'static {
-  move |arrow, model| {
-    let color = model.state_get::<GlobalUIStyle, _>(|style| style.get_axis_primary_color(axis));
-
-    model.state::<AxisActiveState>(|gizmo| {
-      let axis_state = *gizmo.get_axis(axis);
-      let self_active = axis_state.active;
-      arrow.set_visible(!gizmo.has_any_active() || self_active);
-      arrow.set_color(map_color(color, axis_state));
-    });
-  }
-}
-
 fn arrow_mouse_down() -> impl FnMut(&mut View3dStateUpdateCtx, Vec3<f32>) + 'static {
   move |cx, pick_position| {
     cx.state.state_mut::<ItemState>(|state| state.active = true);
@@ -85,11 +81,11 @@ fn arrow_mouse_down() -> impl FnMut(&mut View3dStateUpdateCtx, Vec3<f32>) + 'sta
 }
 
 fn handle_translating(
-  states: &StartState,
-  target: &TargetState,
+  target: &mut GizmoControlTargetState,
+  states: &DragStartState,
   active: &AxisActiveState,
   action: DragTargetAction,
-) -> Option<Mat4<f32>> {
+) -> Option<()> {
   let camera_world_position = action.camera_world.position();
 
   let back_to_local = target.target_world_mat.inverse()?;
@@ -155,8 +151,8 @@ fn handle_translating(
       * Mat4::from(states.start_local_quaternion)
       * Mat4::scale(states.start_local_scale);
 
-    Some(new_local)
-  } else {
-    None
+    target.update_target_local_mat(new_local)
   }
+
+  Some(())
 }

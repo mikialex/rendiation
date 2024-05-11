@@ -13,8 +13,10 @@ pub use translation::*;
 pub fn gizmo() -> impl View {
   UINode::default()
     .with_child(translation_gizmo_view)
-    .with_child(translation_gizmo_view)
     .with_child(rotation_gizmo_view)
+    .with_local_state_inject(Option::<DragStartState>::default())
+    .with_local_state_inject(Option::<GizmoControlTargetState>::default())
+    .with_local_state_inject(GlobalUIStyle::default())
 }
 
 #[derive(Copy, Clone, Default, Debug)]
@@ -31,6 +33,37 @@ impl AxisActiveState {
       AxisType::Y => &self.y,
       AxisType::Z => &self.z,
     }
+  }
+
+  pub fn get_rest_axis(&self, axis: AxisType) -> (&ItemState, &ItemState) {
+    match axis {
+      AxisType::X => (&self.y, &self.z),
+      AxisType::Y => (&self.x, &self.z),
+      AxisType::Z => (&self.x, &self.y),
+    }
+  }
+
+  pub fn get_rest_axis_mut(&mut self, axis: AxisType) -> (&mut ItemState, &mut ItemState) {
+    match axis {
+      AxisType::X => (&mut self.y, &mut self.z),
+      AxisType::Y => (&mut self.x, &mut self.z),
+      AxisType::Z => (&mut self.x, &mut self.y),
+    }
+  }
+}
+
+pub fn update_per_axis_model(
+  axis: AxisType,
+) -> impl FnMut(&mut UIWidgetModel, &mut StateStore) + 'static {
+  move |view, model| {
+    let color = model.state_get::<GlobalUIStyle, _>(|style| style.get_axis_primary_color(axis));
+
+    model.state::<AxisActiveState>(|gizmo| {
+      let axis_state = *gizmo.get_axis(axis);
+      let self_active = axis_state.active;
+      view.set_visible(!gizmo.has_any_active() || self_active);
+      view.set_color(map_color(color, axis_state));
+    });
   }
 }
 
@@ -74,7 +107,7 @@ fn map_color(color: Vec3<f32>, state: ItemState) -> Vec3<f32> {
   }
 }
 
-struct StartState {
+struct DragStartState {
   start_parent_world_mat: Mat4<f32>,
   start_local_position: Vec3<f32>,
   start_local_quaternion: Quat<f32>,
@@ -84,10 +117,29 @@ struct StartState {
 }
 
 #[derive(Copy, Clone)]
-struct TargetState {
+struct GizmoControlTargetState {
   target_local_mat: Mat4<f32>,
   target_parent_world_mat: Mat4<f32>,
   target_world_mat: Mat4<f32>,
+  target_node: AllocIdx<SceneNodeEntity>,
+}
+
+impl GizmoControlTargetState {
+  pub fn update_target_local_mat(&mut self, target_local: Mat4<f32>) {
+    todo!()
+  }
+  pub fn start_drag(&self, start_hit_world_position: Vec3<f32>) -> DragStartState {
+    let (t, r, s) = self.target_local_mat.decompose();
+    DragStartState {
+      start_parent_world_mat: self.target_parent_world_mat,
+      start_local_position: t,
+      start_local_quaternion: r,
+      start_local_scale: s,
+      start_hit_local_position: self.target_world_mat.inverse_or_identity()
+        * start_hit_world_position,
+      start_hit_world_position,
+    }
+  }
 }
 
 #[derive(Clone, Copy)]
@@ -98,63 +150,10 @@ struct DragTargetAction {
   screen_position: Vec2<f32>,
 }
 
-#[derive(Clone, Copy)]
-pub enum AxisType {
-  X,
-  Y,
-  Z,
-}
-
-impl AxisType {
-  pub fn dir(&self) -> Vec3<f32> {
-    match self {
-      AxisType::X => Vec3::new(1., 0., 0.),
-      AxisType::Y => Vec3::new(0., 1., 0.),
-      AxisType::Z => Vec3::new(0., 0., 1.),
-    }
-  }
-  pub fn mat(&self) -> Mat4<f32> {
-    match self {
-      AxisType::X => Mat4::rotate_z(-f32::PI() / 2.),
-      AxisType::Y => Mat4::identity(),
-      AxisType::Z => Mat4::rotate_x(f32::PI() / 2.),
-    }
-  }
-}
-
 pub fn axis_lens(axis: AxisType) -> impl Fn(&mut AxisActiveState) -> &mut ItemState {
   move |s| match axis {
     AxisType::X => &mut s.x,
     AxisType::Y => &mut s.y,
     AxisType::Z => &mut s.z,
-  }
-}
-
-pub struct GlobalUIStyle {
-  pub x_color: Vec3<f32>,
-  pub y_color: Vec3<f32>,
-  pub z_color: Vec3<f32>,
-}
-
-const RED: Vec3<f32> = Vec3::new(0.8, 0.3, 0.3);
-const GREEN: Vec3<f32> = Vec3::new(0.3, 0.8, 0.3);
-const BLUE: Vec3<f32> = Vec3::new(0.3, 0.3, 0.8);
-impl Default for GlobalUIStyle {
-  fn default() -> Self {
-    Self {
-      x_color: RED,
-      y_color: GREEN,
-      z_color: BLUE,
-    }
-  }
-}
-
-impl GlobalUIStyle {
-  pub fn get_axis_primary_color(&self, axis: AxisType) -> Vec3<f32> {
-    match axis {
-      AxisType::X => self.x_color,
-      AxisType::Y => self.y_color,
-      AxisType::Z => self.z_color,
-    }
   }
 }
