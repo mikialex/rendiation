@@ -15,8 +15,8 @@ mod shape_helper;
 pub use shape_helper::*;
 
 pub trait View {
-  fn update_view(&mut self, model: &mut StateReadStore);
-  fn update_state(&mut self, cx: &mut View3dCtx);
+  fn update_view(&mut self, cx: &mut View3dViewUpdateCtx);
+  fn update_state(&mut self, cx: &mut View3dStateUpdateCtx);
 }
 
 pub struct StateReadStore {
@@ -24,11 +24,15 @@ pub struct StateReadStore {
 }
 
 impl StateReadStore {
-  pub fn state<T, R>(&mut self, access: &StateTag<T>, f: impl FnOnce(&T, &mut Self) -> R) -> R {
+  pub fn state<T, R>(&mut self, tag: &StateTag<T>, f: impl FnOnce(&T) -> R) -> R {
     todo!()
   }
 
-  pub fn register_state<T>(&mut self, v: &T, f: impl FnOnce(&mut Self)) {
+  pub unsafe fn register_state<T>(&mut self, tag: &mut StateTag<T>, v: &mut T) {
+    //
+  }
+
+  pub unsafe fn unregister_state<T>(&mut self, tag: &mut StateTag<T>) {
     //
   }
 }
@@ -38,11 +42,15 @@ pub struct StateWriteStore {
 }
 
 impl StateWriteStore {
-  pub fn state<T>(&mut self, access: &StateTag<T>, f: impl FnOnce(&mut T, &mut Self)) {
+  pub fn state<T, R>(&mut self, access: &StateTag<T>, f: impl FnOnce(&mut T) -> R) -> R {
+    todo!()
+  }
+
+  pub unsafe fn register_state<T>(&mut self, tag: &StateTag<T>, v: &T) {
     //
   }
 
-  pub fn register_state<T>(&mut self, v: &mut T, f: impl FnOnce(&mut Self)) {
+  pub unsafe fn unregister_state<T>(&mut self, tag: &StateTag<T>) {
     //
   }
 }
@@ -72,7 +80,11 @@ impl<T> Default for StateTag<T> {
   }
 }
 
-pub struct View3dCtx<'a> {
+pub struct View3dViewUpdateCtx<'a> {
+  pub state: &'a mut StateReadStore,
+}
+
+pub struct View3dStateUpdateCtx<'a> {
   pub picker: &'a dyn Picker3d,
   pub mouse_world_ray: Ray3,
   pub is_mouse_left_down: bool,
@@ -87,18 +99,26 @@ pub trait Picker3d {
   ) -> Option<Vec3<f32>>;
 }
 
-pub struct StateCtxModify<T> {
-  inner: T,
-  v: usize,
+pub struct StateCtxInject<T, V> {
+  view: V,
+  state: T,
+  tag: StateTag<T>,
 }
 
-impl<T> View for StateCtxModify<T> {
-  fn update_view(&mut self, model: &mut StateReadStore) {
-    todo!()
+impl<T, V: View> View for StateCtxInject<T, V> {
+  fn update_view(&mut self, cx: &mut View3dViewUpdateCtx) {
+    unsafe {
+      cx.state.register_state(&mut self.tag, &mut self.state);
+      self.view.update_view(cx);
+      cx.state.unregister_state(&mut self.tag)
+    }
   }
 
-  fn update_state(&mut self, cx: &mut View3dCtx) {
-    // cx.state
-    //   .state(access, |s, scx| scx.register_state(v, |scx| {}))
+  fn update_state(&mut self, cx: &mut View3dStateUpdateCtx) {
+    unsafe {
+      cx.state.register_state(&mut self.tag, &self.state);
+      self.view.update_state(cx);
+      cx.state.unregister_state(&mut self.tag)
+    }
   }
 }
