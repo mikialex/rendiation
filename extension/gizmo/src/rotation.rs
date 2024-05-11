@@ -10,7 +10,8 @@ pub fn rotation_gizmo_view(parent: AllocIdx<SceneNodeEntity>) -> impl View {
         state_mut_access!(cx.state, rotate_state, Option::<RotateState>);
         state_mut_access!(cx.state, target, Option::<GizmoControlTargetState>);
         state_access!(cx.state, rotate_view, AxisActiveState);
-        state_access!(cx.state, start_states, DragStartState);
+        state_access!(cx.state, start_states, Option::<DragStartState>);
+        let start_states = start_states.as_ref().unwrap();
 
         if let Some(target) = target {
           handle_rotating(start_states, target, rotate_state, rotate_view, drag_action);
@@ -45,6 +46,9 @@ pub fn build_rotator(axis: AxisType, parent: AllocIdx<SceneNodeEntity>) -> impl 
     .with_shape(mesh)
     .with_parent(parent)
     .with_matrix(mat)
+    .with_on_mouse_down(start_drag)
+    .with_on_mouse_hovering(hovering)
+    .with_on_mouse_out(stop_hovering)
     .with_view_update(update_per_axis_model(axis))
     .with_state_pick(axis_lens(axis))
 }

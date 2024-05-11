@@ -107,6 +107,27 @@ fn map_color(color: Vec3<f32>, state: ItemState) -> Vec3<f32> {
   }
 }
 
+fn start_drag(cx: &mut View3dStateUpdateCtx, pick_position: Vec3<f32>) {
+  state_mut_access!(cx.state, state, ItemState);
+  state.active = true;
+
+  state_mut_access!(cx.state, drag_start, Option::<DragStartState>);
+  state_access!(cx.state, target, Option::<GizmoControlTargetState>);
+  if let Some(target) = target {
+    *drag_start = Some(target.start_drag(pick_position))
+  }
+}
+
+fn hovering(cx: &mut View3dStateUpdateCtx, _: Vec3<f32>) {
+  state_mut_access!(cx.state, state, ItemState);
+  state.hovering = true;
+}
+
+fn stop_hovering(cx: &mut View3dStateUpdateCtx, _: Vec3<f32>) {
+  state_mut_access!(cx.state, state, ItemState);
+  state.hovering = false;
+}
+
 struct DragStartState {
   start_parent_world_mat: Mat4<f32>,
   start_local_position: Vec3<f32>,

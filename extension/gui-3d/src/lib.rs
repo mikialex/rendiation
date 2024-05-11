@@ -32,7 +32,8 @@ pub struct View3dViewUpdateCtx<'a> {
 pub struct View3dStateUpdateCtx<'a> {
   pub picker: &'a dyn Picker3d,
   pub mouse_world_ray: Ray3,
-  pub is_mouse_left_down: bool,
+  pub is_mouse_left_pressing: bool,
+  pub is_mouse_left_releasing: bool,
   pub state: &'a mut StateStore,
   pub messages: MessageStore,
 }

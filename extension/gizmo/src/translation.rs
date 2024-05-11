@@ -9,13 +9,19 @@ pub fn translation_gizmo_view(parent: AllocIdx<SceneNodeEntity>) -> impl View {
     .with_child(plane(AxisType::Y, parent))
     .with_child(plane(AxisType::Z, parent))
     .with_state_post_update(|cx| {
+      state_mut_access!(cx.state, start_states, Option::<DragStartState>);
+      if cx.is_mouse_left_releasing {
+        *start_states = None;
+      }
+
       if let Some(drag_action) = cx.messages.take::<DragTargetAction>() {
         state_mut_access!(cx.state, target, Option::<GizmoControlTargetState>);
         state_access!(cx.state, axis, AxisActiveState);
-        state_access!(cx.state, start_states, DragStartState);
 
-        if let Some(target) = target {
-          handle_translating(start_states, target, axis, drag_action);
+        if let Some(start_states) = start_states {
+          if let Some(target) = target {
+            handle_translating(start_states, target, axis, drag_action);
+          }
         }
       }
     })
@@ -27,7 +33,9 @@ fn arrow(axis: AxisType, parent: AllocIdx<SceneNodeEntity>) -> impl View {
     .with_parent(parent)
     .with_shape(ArrowShape::default().build())
     .with_matrix(axis.mat())
-    .with_on_mouse_down(arrow_mouse_down())
+    .with_on_mouse_down(start_drag)
+    .with_on_mouse_hovering(hovering)
+    .with_on_mouse_out(stop_hovering)
     .with_view_update(update_per_axis_model(AxisType::X))
     .with_state_pick(axis_lens(axis))
 }
@@ -79,13 +87,6 @@ fn plane(axis: AxisType, parent: AllocIdx<SceneNodeEntity>) -> impl View {
     .with_matrix(mat)
     .with_view_update(plane_update(AxisType::X))
     .with_state_pick(axis_lens(axis))
-}
-
-fn arrow_mouse_down() -> impl FnMut(&mut View3dStateUpdateCtx, Vec3<f32>) + 'static {
-  move |cx, pick_position| {
-    state_mut_access!(cx.state, state, ItemState);
-    state.active = true;
-  }
 }
 
 fn handle_translating(
