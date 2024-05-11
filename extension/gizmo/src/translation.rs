@@ -8,12 +8,17 @@ pub fn translation_gizmo_view(parent: AllocIdx<SceneNodeEntity>) -> impl View {
     .with_child(plane(AxisType::X, parent))
     .with_child(plane(AxisType::Y, parent))
     .with_child(plane(AxisType::Z, parent))
-    // .with_state_update_logic(|cx, inner| {
-    //   inner.update_state();
-    //   if cx.mouse_move && cx.take_action::<DragTargetAction>() {
-    //      handle_rotating(states, target, rotate_state, rotate_view,action)
-    //   }
-    // })
+    .with_state_post_update(|cx| {
+      if let Some(drag_action) = cx.messages.take::<DragTargetAction>() {
+        state_mut_access!(cx.state, target, Option::<GizmoControlTargetState>);
+        state_access!(cx.state, axis, AxisActiveState);
+        state_access!(cx.state, start_states, DragStartState);
+
+        if let Some(target) = target {
+          handle_translating(start_states, target, axis, drag_action);
+        }
+      }
+    })
     .with_local_state_inject(AxisActiveState::default())
 }
 
@@ -22,8 +27,8 @@ fn arrow(axis: AxisType, parent: AllocIdx<SceneNodeEntity>) -> impl View {
     .with_parent(parent)
     .with_shape(ArrowShape::default().build())
     .with_matrix(axis.mat())
-    .with_view_update(update_per_axis_model(AxisType::X))
     .with_on_mouse_down(arrow_mouse_down())
+    .with_view_update(update_per_axis_model(AxisType::X))
     .with_state_pick(axis_lens(axis))
 }
 
@@ -36,20 +41,22 @@ fn plane(axis: AxisType, parent: AllocIdx<SceneNodeEntity>) -> impl View {
     );
   });
 
-  fn plane_update(axis: AxisType) -> impl FnMut(&mut UIWidgetModel, &mut StateStore) + 'static {
-    move |plane, model| {
-      let color = model.state_get::<GlobalUIStyle, _>(|style| style.get_axis_primary_color(axis));
+  fn plane_update(
+    axis: AxisType,
+  ) -> impl FnMut(&mut UIWidgetModel, &mut View3dViewUpdateCtx) + 'static {
+    move |plane, cx| {
+      state_access!(cx.state, style, GlobalUIStyle);
+      let color = style.get_axis_primary_color(axis);
 
-      model.state::<AxisActiveState>(|gizmo| {
-        let (a, b) = gizmo.get_rest_axis(axis);
-        let axis_state = ItemState {
-          hovering: a.hovering && b.hovering,
-          active: a.active && b.active,
-        };
-        let self_active = axis_state.active;
-        plane.set_visible(!gizmo.has_any_active() || self_active);
-        plane.set_color(map_color(color, axis_state));
-      });
+      state_access!(cx.state, gizmo, AxisActiveState);
+      let (a, b) = gizmo.get_rest_axis(axis);
+      let axis_state = ItemState {
+        hovering: a.hovering && b.hovering,
+        active: a.active && b.active,
+      };
+      let self_active = axis_state.active;
+      plane.set_visible(!gizmo.has_any_active() || self_active);
+      plane.set_color(map_color(color, axis_state));
     }
   }
 
@@ -76,14 +83,15 @@ fn plane(axis: AxisType, parent: AllocIdx<SceneNodeEntity>) -> impl View {
 
 fn arrow_mouse_down() -> impl FnMut(&mut View3dStateUpdateCtx, Vec3<f32>) + 'static {
   move |cx, pick_position| {
-    cx.state.state_mut::<ItemState>(|state| state.active = true);
+    state_mut_access!(cx.state, state, ItemState);
+    state.active = true;
   }
 }
 
 fn handle_translating(
-  target: &mut GizmoControlTargetState,
   states: &DragStartState,
-  active: &AxisActiveState,
+  target: &mut GizmoControlTargetState,
+  axis: &AxisActiveState,
   action: DragTargetAction,
 ) -> Option<()> {
   let camera_world_position = action.camera_world.position();
@@ -95,11 +103,11 @@ fn handle_translating(
   let plane_point = states.start_hit_local_position;
 
   // build world space constraint abstract interactive plane
-  let (plane, constraint) = if active.only_x_active() {
+  let (plane, constraint) = if axis.only_x_active() {
     Some((1., 0., 0.).into())
-  } else if active.only_y_active() {
+  } else if axis.only_y_active() {
     Some((0., 1., 0.).into())
-  } else if active.only_z_active() {
+  } else if axis.only_z_active() {
     Some((0., 0., 1.).into())
   } else {
     None
@@ -113,11 +121,11 @@ fn handle_translating(
     )
   })
   .or_else(|| {
-    if active.only_xy_active() {
+    if axis.only_xy_active() {
       Some((0., 0., 1.).into())
-    } else if active.only_yz_active() {
+    } else if axis.only_yz_active() {
       Some((1., 0., 0.).into())
-    } else if active.only_xz_active() {
+    } else if axis.only_xz_active() {
       Some((0., 1., 0.).into())
     } else {
       None

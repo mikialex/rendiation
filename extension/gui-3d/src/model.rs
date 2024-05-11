@@ -18,8 +18,6 @@ pub struct UIWidgetModel {
   node: AllocIdx<SceneNodeEntity>,
   material: AllocIdx<FlatMaterialEntity>,
   mesh: AllocIdx<AttributeMeshEntity>,
-
-  view_update: Option<Box<dyn FnMut(&mut Self, &mut StateStore)>>,
 }
 
 impl Default for UIWidgetModel {
@@ -49,11 +47,6 @@ impl UIWidgetModel {
     self.on_mouse_click.is_some()
       || self.on_mouse_hovering.is_some()
       || self.on_mouse_down.is_some()
-  }
-
-  pub fn with_view_update(mut self, f: impl FnMut(&mut Self, &mut StateStore) + 'static) -> Self {
-    self.view_update = Some(Box::new(f));
-    self
   }
 
   pub fn set_mouse_interactive(&mut self, v: bool) -> &mut Self {

@@ -1,22 +1,84 @@
 #![allow(clippy::missing_safety_doc)]
 
+use std::ops::{Deref, DerefMut};
+
 use crate::*;
+
+pub struct MessageStore {
+  messages: FastHashMap<TypeId, Box<dyn Any>>,
+}
+
+impl MessageStore {
+  pub fn put(&mut self, msg: impl Any) {
+    //
+  }
+  pub fn take<T>(&mut self) -> Option<T> {
+    todo!()
+  }
+}
 
 pub struct StateStore {
   states: FastHashMap<TypeId, Vec<*mut ()>>,
 }
 
-impl StateStore {
-  pub fn state<T: 'static>(&mut self, f: impl FnOnce(&T)) {
-    unsafe { f(self.get_state_raw()) }
-  }
-  pub fn state_mut<T: 'static>(&mut self, f: impl FnOnce(&mut T)) {
-    unsafe { f(self.get_state_raw()) }
-  }
-  pub fn state_get<T: 'static, R>(&mut self, f: impl FnOnce(&T) -> R) -> R {
-    unsafe { f(self.get_state_raw()) }
-  }
+pub struct StateGuard<'a, T> {
+  pub _unique_life: &'a (),
+  pub ptr: *mut T,
+}
 
+impl<'a, T> Deref for StateGuard<'a, T> {
+  type Target = T;
+
+  fn deref(&self) -> &Self::Target {
+    unsafe { self.ptr.as_ref().unwrap() }
+  }
+}
+
+#[macro_export]
+macro_rules! state_access {
+  ($store: expr, $name: tt, $type: ty) => {
+    let $name = unsafe { $store.get_state_ptr::<$type>() };
+    #[allow(unused_variables)]
+    let $name = StateGuard {
+      _unique_life: &(),
+      ptr: $name,
+    };
+    let $name: &$type = &$name;
+  };
+}
+
+pub struct StateMutGuard<'a, T> {
+  pub _unique_life: &'a mut (),
+  pub ptr: *mut T,
+}
+
+impl<'a, T> Deref for StateMutGuard<'a, T> {
+  type Target = T;
+
+  fn deref(&self) -> &Self::Target {
+    unsafe { self.ptr.as_ref().unwrap() }
+  }
+}
+impl<'a, T> DerefMut for StateMutGuard<'a, T> {
+  fn deref_mut(&mut self) -> &mut Self::Target {
+    unsafe { self.ptr.as_mut().unwrap() }
+  }
+}
+
+#[macro_export]
+macro_rules! state_mut_access {
+  ($store: expr, $name: tt, $type: ty) => {
+    let $name = unsafe { $store.get_state_ptr::<$type>() };
+    #[allow(unused_variables)]
+    let mut $name = StateMutGuard {
+      _unique_life: &mut (),
+      ptr: $name,
+    };
+    let $name: &mut $type = &mut $name;
+  };
+}
+
+impl StateStore {
   pub unsafe fn get_state_raw<T: 'static>(&mut self) -> &mut T {
     self.get_state_ptr::<T>().as_mut().unwrap()
   }
@@ -52,8 +114,8 @@ impl StateStore {
 }
 
 pub struct StateCtxInject<T, V> {
-  view: V,
-  state: T,
+  pub view: V,
+  pub state: T,
 }
 
 impl<T: 'static, V: View> View for StateCtxInject<T, V> {
@@ -75,9 +137,9 @@ impl<T: 'static, V: View> View for StateCtxInject<T, V> {
 }
 
 pub struct StateCtxPick<V, F, T1, T2> {
-  view: V,
-  pick: F,
-  phantom: PhantomData<(T1, T2)>,
+  pub view: V,
+  pub pick: F,
+  pub phantom: PhantomData<(T1, T2)>,
 }
 
 impl<T1: 'static, T2: 'static, F: Fn(&mut T1) -> &mut T2, V: View> View
@@ -102,28 +164,6 @@ impl<T1: 'static, T2: 'static, F: Fn(&mut T1) -> &mut T2, V: View> View
       cx.state.register_state(picked);
       self.view.update_state(cx);
       cx.state.unregister_state::<T2>()
-    }
-  }
-}
-
-pub trait ViewExt: View {
-  fn with_local_state_inject<X: 'static>(self, state: X) -> impl View;
-  fn with_state_pick<T1: 'static, T2: 'static>(self, len: impl Fn(&mut T1) -> &mut T2)
-    -> impl View;
-}
-
-impl<T: View> ViewExt for T {
-  fn with_local_state_inject<X: 'static>(self, state: X) -> impl View {
-    StateCtxInject { view: self, state }
-  }
-  fn with_state_pick<T1: 'static, T2: 'static>(
-    self,
-    len: impl Fn(&mut T1) -> &mut T2,
-  ) -> impl View {
-    StateCtxPick {
-      view: self,
-      pick: len,
-      phantom: PhantomData,
     }
   }
 }

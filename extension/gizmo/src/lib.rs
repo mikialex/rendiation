@@ -54,16 +54,16 @@ impl AxisActiveState {
 
 pub fn update_per_axis_model(
   axis: AxisType,
-) -> impl FnMut(&mut UIWidgetModel, &mut StateStore) + 'static {
-  move |view, model| {
-    let color = model.state_get::<GlobalUIStyle, _>(|style| style.get_axis_primary_color(axis));
+) -> impl FnMut(&mut UIWidgetModel, &mut View3dViewUpdateCtx) + 'static {
+  move |view, cx| {
+    state_access!(cx.state, style, GlobalUIStyle);
+    let color = style.get_axis_primary_color(axis);
 
-    model.state::<AxisActiveState>(|gizmo| {
-      let axis_state = *gizmo.get_axis(axis);
-      let self_active = axis_state.active;
-      view.set_visible(!gizmo.has_any_active() || self_active);
-      view.set_color(map_color(color, axis_state));
-    });
+    state_access!(cx.state, gizmo, AxisActiveState);
+    let axis_state = *gizmo.get_axis(axis);
+    let self_active = axis_state.active;
+    view.set_visible(!gizmo.has_any_active() || self_active);
+    view.set_color(map_color(color, axis_state));
   }
 }
 

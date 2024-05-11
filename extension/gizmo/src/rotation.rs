@@ -5,15 +5,18 @@ pub fn rotation_gizmo_view(parent: AllocIdx<SceneNodeEntity>) -> impl View {
     .with_child(build_rotator(AxisType::X, parent))
     .with_child(build_rotator(AxisType::Y, parent))
     .with_child(build_rotator(AxisType::Z, parent))
-    // .with_state_update_logic(|cx, inner| {
-    //   inner.update_state();
-    //   if cx.mouse_move && cx.take_action::<DragTargetAction>() {
-    //     if let Some(target_mat) = handle_rotating(states, target, rotate_state, rotate_view,
-    // action)     {
-    //       cx.emit_action()
-    //     }
-    //   }
-    // })
+    .with_state_post_update(|cx| {
+      if let Some(drag_action) = cx.messages.take::<DragTargetAction>() {
+        state_mut_access!(cx.state, rotate_state, Option::<RotateState>);
+        state_mut_access!(cx.state, target, Option::<GizmoControlTargetState>);
+        state_access!(cx.state, rotate_view, AxisActiveState);
+        state_access!(cx.state, start_states, DragStartState);
+
+        if let Some(target) = target {
+          handle_rotating(start_states, target, rotate_state, rotate_view, drag_action);
+        }
+      }
+    })
     .with_local_state_inject(AxisActiveState::default())
     .with_local_state_inject(Option::<RotateState>::default())
 }
@@ -55,7 +58,7 @@ fn handle_rotating(
   states: &DragStartState,
   target: &mut GizmoControlTargetState,
   rotate_state: &mut Option<RotateState>,
-  rotate_view: &AxisActiveState,
+  axis: &AxisActiveState,
   action: DragTargetAction,
 ) -> Option<()> {
   #[rustfmt::skip]
@@ -91,11 +94,11 @@ fn handle_rotating(
   *current_angle_all += angle_delta;
   *last_dir = new_dir;
 
-  let axis = if rotate_view.only_x_active() {
+  let axis = if axis.only_x_active() {
     Vec3::new(1., 0., 0.)
-  } else if rotate_view.only_y_active() {
+  } else if axis.only_y_active() {
     Vec3::new(0., 1., 0.)
-  } else if rotate_view.only_z_active() {
+  } else if axis.only_z_active() {
     Vec3::new(0., 0., 1.)
   } else {
     return None;
