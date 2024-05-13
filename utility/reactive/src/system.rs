@@ -7,19 +7,6 @@ use crate::*;
 pub type BoxedFutureStream = Box<dyn Stream<Item = BoxedAnyFuture>>;
 pub type BoxedAnyFuture = Box<dyn Future<Output = Box<dyn Any>>>;
 
-/// ordered update logic, will be updated in order
-///
-/// this will be to top level structure to contain frame logic for any application
-pub struct OrderedStreamContainer {
-  update_logic: Vec<Box<dyn Stream<Item = ()>>>,
-}
-
-impl OrderedStreamContainer {
-  pub fn poll_update(&mut self, cx: &mut Context) {
-    //
-  }
-}
-
 pub struct ConcurrentStreamContainer {
   update_logic: FastHashMap<u32, BoxedFutureStream>,
   next: u32,

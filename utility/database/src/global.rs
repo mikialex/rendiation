@@ -1,14 +1,21 @@
 use crate::*;
 
-pub static GLOBAL_DATABASE: parking_lot::RwLock<Option<Database>> = parking_lot::RwLock::new(None);
+#[derive(Default)]
+pub struct DataBaseWithFeatures {
+  pub database: Database,
+  pub features: DataBaseFeatureGroup,
+}
+
+pub static GLOBAL_DATABASE: parking_lot::RwLock<Option<DataBaseWithFeatures>> =
+  parking_lot::RwLock::new(None);
 
 /// return the previous global database
-pub fn setup_global_database(sg: Database) -> Option<Database> {
+pub fn setup_global_database(sg: DataBaseWithFeatures) -> Option<DataBaseWithFeatures> {
   GLOBAL_DATABASE.write().replace(sg)
 }
 
 pub fn global_database() -> Database {
-  GLOBAL_DATABASE.read().as_ref().unwrap().clone()
+  GLOBAL_DATABASE.read().as_ref().unwrap().database.clone()
 }
 
 pub fn global_entity_of<E: EntitySemantic>() -> EntityComponentGroupTyped<E> {
@@ -22,9 +29,21 @@ pub fn global_entity_component_of<S: ComponentSemantic>() -> ComponentCollection
 }
 
 pub fn global_watch() -> DatabaseMutationWatch {
-  todo!()
+  GLOBAL_DATABASE
+    .read()
+    .as_ref()
+    .unwrap()
+    .features
+    .get_feature::<DatabaseMutationWatch>()
+    .clone()
 }
 
 pub fn global_rev_ref() -> DatabaseEntityReverseReference {
-  todo!()
+  GLOBAL_DATABASE
+    .read()
+    .as_ref()
+    .unwrap()
+    .features
+    .get_feature::<DatabaseEntityReverseReference>()
+    .clone()
 }

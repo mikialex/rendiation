@@ -24,7 +24,9 @@ impl View for UIGroup {
     }
   }
   fn clean_up(&mut self, cx: &mut StateStore) {
-    //
+    for child in &mut self.children{
+      child.clean_up(cx)
+    }
   }
 }
 
@@ -60,6 +62,7 @@ impl View for UINode {
   }
 
   fn clean_up(&mut self, cx: &mut StateStore) {
-    //
+    todo!();
+    self.children.clean_up(cx)
   }
 }
