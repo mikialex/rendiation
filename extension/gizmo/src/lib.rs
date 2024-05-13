@@ -10,12 +10,14 @@ use rendiation_scene_core::*;
 pub use rotation::*;
 pub use translation::*;
 
-pub fn gizmo() -> impl View {
-  UINode::default()
-    .with_child(translation_gizmo_view)
-    .with_child(rotation_gizmo_view)
+/// the user should provide Option::<GizmoControlTargetState> for target selecting,
+/// and should apply change GizmoUpdateTargetLocal to source object, the applied change should sync
+/// back to GizmoControlTargetState
+pub fn gizmo(v: &mut View3dProvider) -> impl View {
+  UINode::new(v)
+    .with_child(v, translation_gizmo_view)
+    .with_child(v, rotation_gizmo_view)
     .with_local_state_inject(Option::<DragStartState>::default())
-    .with_local_state_inject(Option::<GizmoControlTargetState>::default())
     .with_local_state_inject(GlobalUIStyle::default())
 }
 
@@ -56,14 +58,15 @@ pub fn update_per_axis_model(
   axis: AxisType,
 ) -> impl FnMut(&mut UIWidgetModel, &mut View3dViewUpdateCtx) + 'static {
   move |view, cx| {
+    state_mut_access!(cx.state, cx3d, View3dProvider);
     state_access!(cx.state, style, GlobalUIStyle);
     let color = style.get_axis_primary_color(axis);
 
     state_access!(cx.state, gizmo, AxisActiveState);
     let axis_state = *gizmo.get_axis(axis);
     let self_active = axis_state.active;
-    view.set_visible(!gizmo.has_any_active() || self_active);
-    view.set_color(map_color(color, axis_state));
+    view.set_visible(cx3d, !gizmo.has_any_active() || self_active);
+    view.set_color(cx3d, map_color(color, axis_state));
   }
 }
 
@@ -138,18 +141,16 @@ struct DragStartState {
 }
 
 #[derive(Copy, Clone)]
-struct GizmoControlTargetState {
-  target_local_mat: Mat4<f32>,
-  target_parent_world_mat: Mat4<f32>,
-  target_world_mat: Mat4<f32>,
-  target_node: AllocIdx<SceneNodeEntity>,
+pub struct GizmoControlTargetState {
+  pub target_local_mat: Mat4<f32>,
+  pub target_parent_world_mat: Mat4<f32>,
+  pub target_world_mat: Mat4<f32>,
 }
 
+pub struct GizmoUpdateTargetLocal(pub Mat4<f32>);
+
 impl GizmoControlTargetState {
-  pub fn update_target_local_mat(&mut self, target_local: Mat4<f32>) {
-    todo!()
-  }
-  pub fn start_drag(&self, start_hit_world_position: Vec3<f32>) -> DragStartState {
+  fn start_drag(&self, start_hit_world_position: Vec3<f32>) -> DragStartState {
     let (t, r, s) = self.target_local_mat.decompose();
     DragStartState {
       start_parent_world_mat: self.target_parent_world_mat,

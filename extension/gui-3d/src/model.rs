@@ -20,12 +20,6 @@ pub struct UIWidgetModel {
   mesh: AllocIdx<AttributeMeshEntity>,
 }
 
-impl Default for UIWidgetModel {
-  fn default() -> Self {
-    todo!()
-  }
-}
-
 impl View for UIWidgetModel {
   fn update_view(&mut self, cx: &mut View3dViewUpdateCtx) {
     // if let Some(update) = self.view_update {
@@ -40,9 +34,16 @@ impl View for UIWidgetModel {
     }
     //
   }
+  fn clean_up(&mut self, cx: &mut StateStore) {
+    todo!();
+  }
 }
 
 impl UIWidgetModel {
+  pub fn new(v: &mut View3dProvider) -> Self {
+    todo!()
+  }
+
   fn has_any_mouse_event(&self) -> bool {
     self.on_mouse_click.is_some()
       || self.on_mouse_hovering.is_some()
@@ -94,26 +95,34 @@ impl UIWidgetModel {
     self
   }
 
-  pub fn set_color(&mut self, color: Vec3<f32>) -> &mut Self {
+  pub fn set_color(&mut self, cx3d: &mut View3dProvider, color: Vec3<f32>) -> &mut Self {
+    global_entity_component_of::<FlatMaterialDisplayColorComponent>()
+      .write()
+      .write(self.material.index, color.expand_with_one());
     self
   }
-  pub fn set_visible(&mut self, v: bool) -> &mut Self {
+  pub fn set_visible(&mut self, cx3d: &mut View3dProvider, v: bool) -> &mut Self {
     self
   }
 
-  pub fn set_matrix(&mut self, mat: Mat4<f32>) -> &mut Self {
+  pub fn set_matrix(&mut self, cx3d: &mut View3dProvider, mat: Mat4<f32>) -> &mut Self {
     self
   }
   /// find a macro to do this!
-  pub fn with_matrix(mut self, mat: Mat4<f32>) -> Self {
+  pub fn with_matrix(mut self, cx3d: &mut View3dProvider, mat: Mat4<f32>) -> Self {
+    self.set_matrix(cx3d, mat);
     self
   }
 
-  pub fn with_shape(mut self, shape: AttributesMeshData) -> Self {
+  pub fn with_shape(mut self, cx3d: &mut View3dProvider, shape: AttributesMeshData) -> Self {
     self
   }
 
-  pub fn with_parent(mut self, parent: AllocIdx<SceneNodeEntity>) -> Self {
+  pub fn with_parent(
+    mut self,
+    cx3d: &mut View3dProvider,
+    parent: AllocIdx<SceneNodeEntity>,
+  ) -> Self {
     self
   }
 }

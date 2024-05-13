@@ -1,10 +1,10 @@
 use crate::*;
 
-pub fn rotation_gizmo_view(parent: AllocIdx<SceneNodeEntity>) -> impl View {
+pub fn rotation_gizmo_view(parent: AllocIdx<SceneNodeEntity>, v: &mut View3dProvider) -> impl View {
   UIGroup::default()
-    .with_child(build_rotator(AxisType::X, parent))
-    .with_child(build_rotator(AxisType::Y, parent))
-    .with_child(build_rotator(AxisType::Z, parent))
+    .with_child(build_rotator(v, AxisType::X, parent))
+    .with_child(build_rotator(v, AxisType::Y, parent))
+    .with_child(build_rotator(v, AxisType::Z, parent))
     .with_state_post_update(|cx| {
       if let Some(drag_action) = cx.messages.take::<DragTargetAction>() {
         state_mut_access!(cx.state, rotate_state, Option::<RotateState>);
@@ -14,7 +14,11 @@ pub fn rotation_gizmo_view(parent: AllocIdx<SceneNodeEntity>) -> impl View {
         let start_states = start_states.as_ref().unwrap();
 
         if let Some(target) = target {
-          handle_rotating(start_states, target, rotate_state, rotate_view, drag_action);
+          if let Some(action) =
+            handle_rotating(start_states, target, rotate_state, rotate_view, drag_action)
+          {
+            cx.messages.put(GizmoUpdateTargetLocal(action))
+          }
         }
       }
     })
@@ -22,7 +26,11 @@ pub fn rotation_gizmo_view(parent: AllocIdx<SceneNodeEntity>) -> impl View {
     .with_local_state_inject(Option::<RotateState>::default())
 }
 
-pub fn build_rotator(axis: AxisType, parent: AllocIdx<SceneNodeEntity>) -> impl View {
+pub fn build_rotator(
+  v: &mut View3dProvider,
+  axis: AxisType,
+  parent: AllocIdx<SceneNodeEntity>,
+) -> impl View {
   let mesh = build_attributes_mesh(|builder| {
     builder.triangulate_parametric(
       &TorusMeshParameter {
@@ -42,10 +50,10 @@ pub fn build_rotator(axis: AxisType, parent: AllocIdx<SceneNodeEntity>) -> impl 
     AxisType::Z => Mat4::identity(),
   };
 
-  UIWidgetModel::default()
-    .with_shape(mesh)
-    .with_parent(parent)
-    .with_matrix(mat)
+  UIWidgetModel::new(v)
+    .with_shape(v, mesh)
+    .with_parent(v, parent)
+    .with_matrix(v, mat)
     .with_on_mouse_down(start_drag)
     .with_on_mouse_hovering(hovering)
     .with_on_mouse_out(stop_hovering)
@@ -64,7 +72,7 @@ fn handle_rotating(
   rotate_state: &mut Option<RotateState>,
   axis: &AxisActiveState,
   action: DragTargetAction,
-) -> Option<()> {
+) -> Option<Mat4<f32>> {
   #[rustfmt::skip]
   // new_hit_world = M(parent) * M(local_translate) * M(new_local_rotate) * M(local_scale) * start_hit_local_position =>
   // M-1(local_translate) * M-1(parent) * new_hit_world =  M(new_local_rotate) * M(local_scale) * start_hit_local_position
@@ -125,7 +133,5 @@ fn handle_rotating(
     * Mat4::from(quat)
     * Mat4::scale(states.start_local_scale);
 
-  target.update_target_local_mat(new_local);
-
-  Some(())
+  Some(new_local)
 }

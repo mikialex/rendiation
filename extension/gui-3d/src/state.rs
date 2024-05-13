@@ -10,10 +10,13 @@ pub struct MessageStore {
 
 impl MessageStore {
   pub fn put(&mut self, msg: impl Any) {
-    //
+    self.messages.insert(msg.type_id(), Box::new(msg));
   }
-  pub fn take<T>(&mut self) -> Option<T> {
-    todo!()
+  pub fn take<T: Any>(&mut self) -> Option<T> {
+    self
+      .messages
+      .remove(&TypeId::of::<T>())
+      .map(|v| *v.downcast::<T>().unwrap())
   }
 }
 
@@ -134,6 +137,9 @@ impl<T: 'static, V: View> View for StateCtxInject<T, V> {
       cx.state.unregister_state::<T>()
     }
   }
+  fn clean_up(&mut self, cx: &mut StateStore) {
+    self.view.clean_up(cx)
+  }
 }
 
 pub struct StateCtxPick<V, F, T1, T2> {
@@ -165,5 +171,8 @@ impl<T1: 'static, T2: 'static, F: Fn(&mut T1) -> &mut T2, V: View> View
       self.view.update_state(cx);
       cx.state.unregister_state::<T2>()
     }
+  }
+  fn clean_up(&mut self, cx: &mut StateStore) {
+    self.view.clean_up(cx)
   }
 }

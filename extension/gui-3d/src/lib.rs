@@ -1,6 +1,7 @@
 use std::any::Any;
 use std::{any::TypeId, marker::PhantomData};
 
+use database::*;
 use fast_hash_collection::*;
 use reactive::AllocIdx;
 use rendiation_algebra::*;
@@ -20,9 +21,12 @@ pub use model::*;
 mod shape_helper;
 pub use shape_helper::*;
 
+pub struct View3dProvider {}
+
 pub trait View {
   fn update_view(&mut self, cx: &mut View3dViewUpdateCtx);
   fn update_state(&mut self, cx: &mut View3dStateUpdateCtx);
+  fn clean_up(&mut self, cx: &mut StateStore);
 }
 
 pub struct View3dViewUpdateCtx<'a> {
@@ -101,6 +105,9 @@ impl<T: View, F: FnMut(&mut T, &mut View3dViewUpdateCtx)> View for ViewUpdate<T,
   fn update_state(&mut self, cx: &mut View3dStateUpdateCtx) {
     self.inner.update_state(cx)
   }
+  fn clean_up(&mut self, cx: &mut StateStore) {
+    self.inner.clean_up(cx)
+  }
 }
 
 pub struct StateUpdate<T, F> {
@@ -121,5 +128,8 @@ impl<T: View, F: FnMut(&mut View3dStateUpdateCtx)> View for StateUpdate<T, F> {
       (self.f)(cx);
       self.inner.update_state(cx);
     }
+  }
+  fn clean_up(&mut self, cx: &mut StateStore) {
+    self.inner.clean_up(cx)
   }
 }

@@ -1,13 +1,16 @@
 use crate::*;
 
-pub fn translation_gizmo_view(parent: AllocIdx<SceneNodeEntity>) -> impl View {
+pub fn translation_gizmo_view(
+  parent: AllocIdx<SceneNodeEntity>,
+  v: &mut View3dProvider,
+) -> impl View {
   UIGroup::default()
-    .with_child(arrow(AxisType::X, parent))
-    .with_child(arrow(AxisType::Y, parent))
-    .with_child(arrow(AxisType::Z, parent))
-    .with_child(plane(AxisType::X, parent))
-    .with_child(plane(AxisType::Y, parent))
-    .with_child(plane(AxisType::Z, parent))
+    .with_child(arrow(v, AxisType::X, parent))
+    .with_child(arrow(v, AxisType::Y, parent))
+    .with_child(arrow(v, AxisType::Z, parent))
+    .with_child(plane(v, AxisType::X, parent))
+    .with_child(plane(v, AxisType::Y, parent))
+    .with_child(plane(v, AxisType::Z, parent))
     .with_state_post_update(|cx| {
       state_mut_access!(cx.state, start_states, Option::<DragStartState>);
       if cx.is_mouse_left_releasing {
@@ -20,7 +23,9 @@ pub fn translation_gizmo_view(parent: AllocIdx<SceneNodeEntity>) -> impl View {
 
         if let Some(start_states) = start_states {
           if let Some(target) = target {
-            handle_translating(start_states, target, axis, drag_action);
+            if let Some(action) = handle_translating(start_states, target, axis, drag_action) {
+              cx.messages.put(GizmoUpdateTargetLocal(action))
+            }
           }
         }
       }
@@ -28,11 +33,11 @@ pub fn translation_gizmo_view(parent: AllocIdx<SceneNodeEntity>) -> impl View {
     .with_local_state_inject(AxisActiveState::default())
 }
 
-fn arrow(axis: AxisType, parent: AllocIdx<SceneNodeEntity>) -> impl View {
-  UIWidgetModel::default()
-    .with_parent(parent)
-    .with_shape(ArrowShape::default().build())
-    .with_matrix(axis.mat())
+fn arrow(v: &mut View3dProvider, axis: AxisType, parent: AllocIdx<SceneNodeEntity>) -> impl View {
+  UIWidgetModel::new(v)
+    .with_parent(v, parent)
+    .with_shape(v, ArrowShape::default().build())
+    .with_matrix(v, axis.mat())
     .with_on_mouse_down(start_drag)
     .with_on_mouse_hovering(hovering)
     .with_on_mouse_out(stop_hovering)
@@ -40,7 +45,7 @@ fn arrow(axis: AxisType, parent: AllocIdx<SceneNodeEntity>) -> impl View {
     .with_state_pick(axis_lens(axis))
 }
 
-fn plane(axis: AxisType, parent: AllocIdx<SceneNodeEntity>) -> impl View {
+fn plane(v: &mut View3dProvider, axis: AxisType, parent: AllocIdx<SceneNodeEntity>) -> impl View {
   let mesh = build_attributes_mesh(|builder| {
     builder.triangulate_parametric(
       &ParametricPlane.transform_by(Mat4::translate((-0.5, -0.5, 0.))),
@@ -53,6 +58,7 @@ fn plane(axis: AxisType, parent: AllocIdx<SceneNodeEntity>) -> impl View {
     axis: AxisType,
   ) -> impl FnMut(&mut UIWidgetModel, &mut View3dViewUpdateCtx) + 'static {
     move |plane, cx| {
+      state_mut_access!(cx.state, cx3d, View3dProvider);
       state_access!(cx.state, style, GlobalUIStyle);
       let color = style.get_axis_primary_color(axis);
 
@@ -63,8 +69,8 @@ fn plane(axis: AxisType, parent: AllocIdx<SceneNodeEntity>) -> impl View {
         active: a.active && b.active,
       };
       let self_active = axis_state.active;
-      plane.set_visible(!gizmo.has_any_active() || self_active);
-      plane.set_color(map_color(color, axis_state));
+      plane.set_visible(cx3d, !gizmo.has_any_active() || self_active);
+      plane.set_color(cx3d, map_color(color, axis_state));
     }
   }
 
@@ -81,10 +87,10 @@ fn plane(axis: AxisType, parent: AllocIdx<SceneNodeEntity>) -> impl View {
   };
   let mat = move_mat * rotate * plane_scale;
 
-  UIWidgetModel::default()
-    .with_shape(mesh)
-    .with_parent(parent)
-    .with_matrix(mat)
+  UIWidgetModel::new(v)
+    .with_shape(v, mesh)
+    .with_parent(v, parent)
+    .with_matrix(v, mat)
     .with_view_update(plane_update(AxisType::X))
     .with_state_pick(axis_lens(axis))
 }
@@ -94,7 +100,7 @@ fn handle_translating(
   target: &mut GizmoControlTargetState,
   axis: &AxisActiveState,
   action: DragTargetAction,
-) -> Option<()> {
+) -> Option<Mat4<f32>> {
   let camera_world_position = action.camera_world.position();
 
   let back_to_local = target.target_world_mat.inverse()?;
@@ -160,8 +166,8 @@ fn handle_translating(
       * Mat4::from(states.start_local_quaternion)
       * Mat4::scale(states.start_local_scale);
 
-    target.update_target_local_mat(new_local)
+    Some(new_local)
+  } else {
+    None
   }
-
-  Some(())
 }

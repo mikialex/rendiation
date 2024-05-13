@@ -23,6 +23,9 @@ impl View for UIGroup {
       c.update_state(cx)
     }
   }
+  fn clean_up(&mut self, cx: &mut StateStore) {
+    //
+  }
 }
 
 pub struct UINode {
@@ -31,21 +34,19 @@ pub struct UINode {
 }
 
 impl UINode {
+  pub fn new(v: &mut View3dProvider) -> Self {
+    todo!()
+  }
   pub fn node(&self) -> AllocIdx<SceneNodeEntity> {
     self.node
   }
   pub fn with_child<V: View + 'static>(
     mut self,
-    child: impl FnOnce(AllocIdx<SceneNodeEntity>) -> V,
+    v: &mut View3dProvider,
+    child: impl FnOnce(AllocIdx<SceneNodeEntity>, &mut View3dProvider) -> V,
   ) -> Self {
-    self.children = self.children.with_child(child(self.node));
+    self.children = self.children.with_child(child(self.node, v));
     self
-  }
-}
-
-impl Default for UINode {
-  fn default() -> Self {
-    todo!()
   }
 }
 
@@ -56,5 +57,9 @@ impl View for UINode {
 
   fn update_state(&mut self, cx: &mut View3dStateUpdateCtx) {
     self.children.update_state(cx)
+  }
+
+  fn clean_up(&mut self, cx: &mut StateStore) {
+    //
   }
 }
