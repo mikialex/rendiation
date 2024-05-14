@@ -1,23 +1,30 @@
 use crate::*;
 
-pub fn rotation_gizmo_view(parent: AllocIdx<SceneNodeEntity>, v: &mut View3dProvider) -> impl View {
+pub fn rotation_gizmo_view(
+  parent: AllocIdx<SceneNodeEntity>,
+  v: &mut View3dProvider,
+) -> impl View3d {
+  let mut rotate_state = Option::<RotateState>::default();
   UIGroup::default()
     .with_child(build_rotator(v, AxisType::X, parent))
     .with_child(build_rotator(v, AxisType::Y, parent))
     .with_child(build_rotator(v, AxisType::Z, parent))
-    .with_state_post_update(|cx| {
-      if let Some(drag_action) = cx.messages.take::<DragTargetAction>() {
-        state_mut_access!(cx.state, rotate_state, Option::<RotateState>);
-        state_mut_access!(cx.state, target, Option::<GizmoControlTargetState>);
-        state_access!(cx.state, rotate_view, AxisActiveState);
-        state_access!(cx.state, start_states, Option::<DragStartState>);
+    .with_state_post_update(move |cx| {
+      if let Some(drag_action) = cx.message.take::<DragTargetAction>() {
+        state_access!(cx, target, Option::<GizmoControlTargetState>);
+        state_access!(cx, rotate_view, AxisActiveState);
+        state_access!(cx, start_states, Option::<DragStartState>);
         let start_states = start_states.as_ref().unwrap();
 
         if let Some(target) = target {
-          if let Some(action) =
-            handle_rotating(start_states, target, rotate_state, rotate_view, drag_action)
-          {
-            cx.messages.put(GizmoUpdateTargetLocal(action))
+          if let Some(action) = handle_rotating(
+            start_states,
+            target,
+            &mut rotate_state,
+            rotate_view,
+            drag_action,
+          ) {
+            cx.message.put(GizmoUpdateTargetLocal(action))
           }
         }
       }
@@ -30,7 +37,7 @@ pub fn build_rotator(
   v: &mut View3dProvider,
   axis: AxisType,
   parent: AllocIdx<SceneNodeEntity>,
-) -> impl View {
+) -> impl View3d {
   let mesh = build_attributes_mesh(|builder| {
     builder.triangulate_parametric(
       &TorusMeshParameter {
@@ -68,7 +75,7 @@ struct RotateState {
 
 fn handle_rotating(
   states: &DragStartState,
-  target: &mut GizmoControlTargetState,
+  target: &GizmoControlTargetState,
   rotate_state: &mut Option<RotateState>,
   axis: &AxisActiveState,
   action: DragTargetAction,

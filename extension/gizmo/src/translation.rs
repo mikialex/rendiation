@@ -3,7 +3,7 @@ use crate::*;
 pub fn translation_gizmo_view(
   parent: AllocIdx<SceneNodeEntity>,
   v: &mut View3dProvider,
-) -> impl View {
+) -> impl View3d {
   UIGroup::default()
     .with_child(arrow(v, AxisType::X, parent))
     .with_child(arrow(v, AxisType::Y, parent))
@@ -12,19 +12,21 @@ pub fn translation_gizmo_view(
     .with_child(plane(v, AxisType::Y, parent))
     .with_child(plane(v, AxisType::Z, parent))
     .with_state_post_update(|cx| {
-      state_mut_access!(cx.state, start_states, Option::<DragStartState>);
-      if cx.is_mouse_left_releasing {
+      state_access!(cx, interaction_cx, InteractionState3d);
+      if interaction_cx.is_mouse_left_releasing {
+        state_mut_access!(cx, start_states, Option::<DragStartState>);
         *start_states = None;
       }
 
-      if let Some(drag_action) = cx.messages.take::<DragTargetAction>() {
-        state_mut_access!(cx.state, target, Option::<GizmoControlTargetState>);
-        state_access!(cx.state, axis, AxisActiveState);
+      if let Some(drag_action) = cx.message.take::<DragTargetAction>() {
+        state_access!(cx, target, Option::<GizmoControlTargetState>);
+        state_access!(cx, axis, AxisActiveState);
+        state_access!(cx, start_states, Option::<DragStartState>);
 
         if let Some(start_states) = start_states {
           if let Some(target) = target {
             if let Some(action) = handle_translating(start_states, target, axis, drag_action) {
-              cx.messages.put(GizmoUpdateTargetLocal(action))
+              cx.message.put(GizmoUpdateTargetLocal(action))
             }
           }
         }
@@ -33,7 +35,7 @@ pub fn translation_gizmo_view(
     .with_local_state_inject(AxisActiveState::default())
 }
 
-fn arrow(v: &mut View3dProvider, axis: AxisType, parent: AllocIdx<SceneNodeEntity>) -> impl View {
+fn arrow(v: &mut View3dProvider, axis: AxisType, parent: AllocIdx<SceneNodeEntity>) -> impl View3d {
   UIWidgetModel::new(v)
     .with_parent(v, parent)
     .with_shape(v, ArrowShape::default().build())
@@ -45,7 +47,7 @@ fn arrow(v: &mut View3dProvider, axis: AxisType, parent: AllocIdx<SceneNodeEntit
     .with_state_pick(axis_lens(axis))
 }
 
-fn plane(v: &mut View3dProvider, axis: AxisType, parent: AllocIdx<SceneNodeEntity>) -> impl View {
+fn plane(v: &mut View3dProvider, axis: AxisType, parent: AllocIdx<SceneNodeEntity>) -> impl View3d {
   let mesh = build_attributes_mesh(|builder| {
     builder.triangulate_parametric(
       &ParametricPlane.transform_by(Mat4::translate((-0.5, -0.5, 0.))),
@@ -54,23 +56,23 @@ fn plane(v: &mut View3dProvider, axis: AxisType, parent: AllocIdx<SceneNodeEntit
     );
   });
 
-  fn plane_update(
-    axis: AxisType,
-  ) -> impl FnMut(&mut UIWidgetModel, &mut View3dViewUpdateCtx) + 'static {
+  fn plane_update(axis: AxisType) -> impl FnMut(&mut UIWidgetModel, &mut StateCx) + 'static {
     move |plane, cx| {
-      state_mut_access!(cx.state, cx3d, View3dProvider);
-      state_access!(cx.state, style, GlobalUIStyle);
+      state_access!(cx, style, GlobalUIStyle);
       let color = style.get_axis_primary_color(axis);
 
-      state_access!(cx.state, gizmo, AxisActiveState);
+      state_access!(cx, gizmo, AxisActiveState);
       let (a, b) = gizmo.get_rest_axis(axis);
       let axis_state = ItemState {
         hovering: a.hovering && b.hovering,
         active: a.active && b.active,
       };
       let self_active = axis_state.active;
-      plane.set_visible(cx3d, !gizmo.has_any_active() || self_active);
-      plane.set_color(cx3d, map_color(color, axis_state));
+      let visible = !gizmo.has_any_active() || self_active;
+      let color = map_color(color, axis_state);
+      state_mut_access!(cx, cx3d, View3dProvider);
+      plane.set_visible(cx3d, visible);
+      plane.set_color(cx3d, color);
     }
   }
 
@@ -97,7 +99,7 @@ fn plane(v: &mut View3dProvider, axis: AxisType, parent: AllocIdx<SceneNodeEntit
 
 fn handle_translating(
   states: &DragStartState,
-  target: &mut GizmoControlTargetState,
+  target: &GizmoControlTargetState,
   axis: &AxisActiveState,
   action: DragTargetAction,
 ) -> Option<Mat4<f32>> {

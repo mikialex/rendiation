@@ -20,77 +20,73 @@ impl MessageStore {
   }
 }
 
-pub struct StateStore {
+pub struct StateCx {
+  pub message: MessageStore,
   states: FastHashMap<TypeId, Vec<*mut ()>>,
 }
 
 pub struct StateGuard<'a, T> {
-  pub _unique_life: &'a (),
-  pub ptr: *mut T,
+  pub ptr: &'a T,
 }
 
 impl<'a, T> Deref for StateGuard<'a, T> {
   type Target = T;
 
   fn deref(&self) -> &Self::Target {
-    unsafe { self.ptr.as_ref().unwrap() }
+    self.ptr
   }
 }
 
 #[macro_export]
 macro_rules! state_access {
   ($store: expr, $name: tt, $type: ty) => {
-    let $name = unsafe { $store.get_state_ptr::<$type>() };
+    let $name = unsafe { $store.get_state_ref::<$type>() };
     #[allow(unused_variables)]
-    let $name = StateGuard {
-      _unique_life: &(),
-      ptr: $name,
-    };
+    let $name = StateGuard { ptr: $name };
     let $name: &$type = &$name;
   };
 }
 
 pub struct StateMutGuard<'a, T> {
-  pub _unique_life: &'a mut (),
-  pub ptr: *mut T,
+  pub ptr: &'a mut T,
 }
 
 impl<'a, T> Deref for StateMutGuard<'a, T> {
   type Target = T;
 
   fn deref(&self) -> &Self::Target {
-    unsafe { self.ptr.as_ref().unwrap() }
+    self.ptr
   }
 }
 impl<'a, T> DerefMut for StateMutGuard<'a, T> {
   fn deref_mut(&mut self) -> &mut Self::Target {
-    unsafe { self.ptr.as_mut().unwrap() }
+    self.ptr
   }
 }
 
 #[macro_export]
 macro_rules! state_mut_access {
   ($store: expr, $name: tt, $type: ty) => {
-    let $name = unsafe { $store.get_state_ptr::<$type>() };
+    let $name = unsafe { $store.get_state_mut::<$type>() };
     #[allow(unused_variables)]
-    let mut $name = StateMutGuard {
-      _unique_life: &mut (),
-      ptr: $name,
-    };
+    let mut $name = StateMutGuard { ptr: $name };
     let $name: &mut $type = &mut $name;
   };
 }
 
-impl StateStore {
-  pub unsafe fn get_state_raw<T: 'static>(&mut self) -> &mut T {
+impl StateCx {
+  pub unsafe fn get_state_ref<T: 'static>(&self) -> &T {
+    self.get_state_ptr::<T>().as_ref().unwrap()
+  }
+  pub unsafe fn get_state_mut<T: 'static>(&mut self) -> &mut T {
     self.get_state_ptr::<T>().as_mut().unwrap()
   }
 
-  pub unsafe fn get_state_ptr<T: 'static>(&mut self) -> *mut T {
+  pub unsafe fn get_state_ptr<T: 'static>(&self) -> *mut T {
     let last_ptr = self
       .states
-      .entry(TypeId::of::<T>())
-      .or_default()
+      .get(&TypeId::of::<T>())
+      .unwrap()
       .last()
       .cloned()
       .unwrap();
@@ -121,23 +117,23 @@ pub struct StateCtxInject<T, V> {
   pub state: T,
 }
 
-impl<T: 'static, V: View> View for StateCtxInject<T, V> {
-  fn update_view(&mut self, cx: &mut View3dViewUpdateCtx) {
+impl<T: 'static, V: View3d> View3d for StateCtxInject<T, V> {
+  fn update_view(&mut self, cx: &mut StateCx) {
     unsafe {
-      cx.state.register_state(&mut self.state);
+      cx.register_state(&mut self.state);
       self.view.update_view(cx);
-      cx.state.unregister_state::<T>()
+      cx.unregister_state::<T>()
     }
   }
 
-  fn update_state(&mut self, cx: &mut View3dStateUpdateCtx) {
+  fn update_state(&mut self, cx: &mut StateCx) {
     unsafe {
-      cx.state.register_state(&mut self.state);
+      cx.register_state(&mut self.state);
       self.view.update_state(cx);
-      cx.state.unregister_state::<T>()
+      cx.unregister_state::<T>()
     }
   }
-  fn clean_up(&mut self, cx: &mut StateStore) {
+  fn clean_up(&mut self, cx: &mut StateCx) {
     self.view.clean_up(cx)
   }
 }
@@ -148,31 +144,31 @@ pub struct StateCtxPick<V, F, T1, T2> {
   pub phantom: PhantomData<(T1, T2)>,
 }
 
-impl<T1: 'static, T2: 'static, F: Fn(&mut T1) -> &mut T2, V: View> View
+impl<T1: 'static, T2: 'static, F: Fn(&mut T1) -> &mut T2, V: View3d> View3d
   for StateCtxPick<V, F, T1, T2>
 {
-  fn update_view(&mut self, cx: &mut View3dViewUpdateCtx) {
+  fn update_view(&mut self, cx: &mut StateCx) {
     unsafe {
-      let s = cx.state.get_state_ptr::<T1>();
+      let s = cx.get_state_ptr::<T1>();
       let picked = (self.pick)(s.as_mut().unwrap());
 
-      cx.state.register_state(picked);
+      cx.register_state(picked);
       self.view.update_view(cx);
-      cx.state.unregister_state::<T2>()
+      cx.unregister_state::<T2>()
     }
   }
 
-  fn update_state(&mut self, cx: &mut View3dStateUpdateCtx) {
+  fn update_state(&mut self, cx: &mut StateCx) {
     unsafe {
-      let s = cx.state.get_state_ptr::<T1>();
+      let s = cx.get_state_ptr::<T1>();
       let picked = (self.pick)(s.as_mut().unwrap());
 
-      cx.state.register_state(picked);
+      cx.register_state(picked);
       self.view.update_state(cx);
-      cx.state.unregister_state::<T2>()
+      cx.unregister_state::<T2>()
     }
   }
-  fn clean_up(&mut self, cx: &mut StateStore) {
+  fn clean_up(&mut self, cx: &mut StateCx) {
     self.view.clean_up(cx)
   }
 }

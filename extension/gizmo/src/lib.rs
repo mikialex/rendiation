@@ -13,7 +13,7 @@ pub use translation::*;
 /// the user should provide Option::<GizmoControlTargetState> for target selecting,
 /// and should apply change GizmoUpdateTargetLocal to source object, the applied change should sync
 /// back to GizmoControlTargetState
-pub fn gizmo(v: &mut View3dProvider) -> impl View {
+pub fn gizmo(v: &mut View3dProvider) -> impl View3d {
   UINode::new(v)
     .with_child(v, translation_gizmo_view)
     .with_child(v, rotation_gizmo_view)
@@ -56,17 +56,20 @@ impl AxisActiveState {
 
 pub fn update_per_axis_model(
   axis: AxisType,
-) -> impl FnMut(&mut UIWidgetModel, &mut View3dViewUpdateCtx) + 'static {
+) -> impl FnMut(&mut UIWidgetModel, &mut StateCx) + 'static {
   move |view, cx| {
-    state_mut_access!(cx.state, cx3d, View3dProvider);
-    state_access!(cx.state, style, GlobalUIStyle);
+    state_access!(cx, style, GlobalUIStyle);
     let color = style.get_axis_primary_color(axis);
 
-    state_access!(cx.state, gizmo, AxisActiveState);
+    state_access!(cx, gizmo, AxisActiveState);
     let axis_state = *gizmo.get_axis(axis);
     let self_active = axis_state.active;
-    view.set_visible(cx3d, !gizmo.has_any_active() || self_active);
-    view.set_color(cx3d, map_color(color, axis_state));
+    let visible = !gizmo.has_any_active() || self_active;
+    let color = map_color(color, axis_state);
+
+    state_mut_access!(cx, cx3d, View3dProvider);
+    view.set_visible(cx3d, visible);
+    view.set_color(cx3d, color);
   }
 }
 
@@ -110,24 +113,25 @@ fn map_color(color: Vec3<f32>, state: ItemState) -> Vec3<f32> {
   }
 }
 
-fn start_drag(cx: &mut View3dStateUpdateCtx, pick_position: Vec3<f32>) {
-  state_mut_access!(cx.state, state, ItemState);
+fn start_drag(cx: &mut StateCx, pick_position: Vec3<f32>) {
+  state_mut_access!(cx, state, ItemState);
   state.active = true;
 
-  state_mut_access!(cx.state, drag_start, Option::<DragStartState>);
-  state_access!(cx.state, target, Option::<GizmoControlTargetState>);
+  state_access!(cx, target, Option::<GizmoControlTargetState>);
   if let Some(target) = target {
-    *drag_start = Some(target.start_drag(pick_position))
+    let drag_start_info = target.start_drag(pick_position);
+    state_mut_access!(cx, drag_start, Option::<DragStartState>);
+    *drag_start = Some(drag_start_info)
   }
 }
 
-fn hovering(cx: &mut View3dStateUpdateCtx, _: Vec3<f32>) {
-  state_mut_access!(cx.state, state, ItemState);
+fn hovering(cx: &mut StateCx, _: Vec3<f32>) {
+  state_mut_access!(cx, state, ItemState);
   state.hovering = true;
 }
 
-fn stop_hovering(cx: &mut View3dStateUpdateCtx, _: Vec3<f32>) {
-  state_mut_access!(cx.state, state, ItemState);
+fn stop_hovering(cx: &mut StateCx, _: Vec3<f32>) {
+  state_mut_access!(cx, state, ItemState);
   state.hovering = false;
 }
 
