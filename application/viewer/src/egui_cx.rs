@@ -1,27 +1,27 @@
 use egui::epaint::Shadow;
-use egui::{Context, Visuals};
-use egui_wgpu::Renderer;
+use egui::Visuals;
 use egui_wgpu::ScreenDescriptor;
 use egui_winit::State;
-use rendiation_webgpu::{CommandEncoder, Device, Queue, TextureFormat, TextureView};
 use winit::event::WindowEvent;
 use winit::window::Window;
 
-pub struct EguiRenderer {
-  pub context: Context,
-  state: State,
-  renderer: Renderer,
+use crate::*;
+
+pub struct EguiContext {
+  context: egui::Context,
+  state: egui_winit::State,
+  renderer: egui_wgpu::Renderer,
 }
 
-impl EguiRenderer {
+impl EguiContext {
   pub fn new(
     device: &Device,
     output_color_format: TextureFormat,
     output_depth_format: Option<TextureFormat>,
     msaa_samples: u32,
     window: &Window,
-  ) -> EguiRenderer {
-    let egui_context = Context::default();
+  ) -> EguiContext {
+    let egui_context = egui::Context::default();
     let id = egui_context.viewport_id();
 
     const BORDER_RADIUS: f32 = 2.0;
@@ -36,7 +36,6 @@ impl EguiRenderer {
 
     let egui_state = egui_winit::State::new(egui_context.clone(), id, &window, None, None);
 
-    // egui_state.set_pixels_per_point(window.scale_factor() as f32);
     let egui_renderer = egui_wgpu::Renderer::new(
       device,
       output_color_format,
@@ -44,7 +43,7 @@ impl EguiRenderer {
       msaa_samples,
     );
 
-    EguiRenderer {
+    EguiContext {
       context: egui_context,
       state: egui_state,
       renderer: egui_renderer,
@@ -55,20 +54,18 @@ impl EguiRenderer {
     let _ = self.state.on_window_event(window, event);
   }
 
-  pub fn draw(
-    &mut self,
-    device: &Device,
-    queue: &Queue,
-    encoder: &mut CommandEncoder,
-    window: &Window,
-    window_surface_view: &TextureView,
-    screen_descriptor: ScreenDescriptor,
-    run_ui: impl FnOnce(&Context),
-  ) {
-    let raw_input = self.state.take_egui_input(window);
-    let full_output = self.context.run(raw_input, |_ui| {
-      run_ui(&self.context);
-    });
+  pub fn cx(&self) -> &egui::Context {
+    &self.context
+  }
+
+  pub fn begin_frame(&mut self, window: &Window) {
+    self.context.begin_frame(self.state.take_egui_input(window));
+  }
+
+  pub fn end_frame_and_draw(&mut self, gpu: &GPU, window: &Window, target: &RenderTargetView) {
+    let view = target.as_view();
+
+    let full_output = self.context.end_frame();
 
     self
       .state
@@ -77,17 +74,36 @@ impl EguiRenderer {
     let tris = self
       .context
       .tessellate(full_output.shapes, full_output.pixels_per_point);
+
     for (id, image_delta) in &full_output.textures_delta.set {
       self
         .renderer
-        .update_texture(device, queue, *id, image_delta);
+        .update_texture(&gpu.device, &gpu.queue, *id, image_delta);
     }
-    self
-      .renderer
-      .update_buffers(device, queue, encoder, &tris, &screen_descriptor);
+
+    let screen_descriptor = egui_wgpu::ScreenDescriptor {
+      size_in_pixels: [window.inner_size().width, window.inner_size().height],
+      pixels_per_point: window.scale_factor() as f32,
+    };
+
+    let mut encoder =
+      gpu
+        .device
+        .create_command_encoder(&rendiation_webgpu::CommandEncoderDescriptor {
+          label: Some("GUI encoder"),
+        });
+
+    self.renderer.update_buffers(
+      &gpu.device,
+      &gpu.queue,
+      &mut encoder,
+      &tris,
+      &screen_descriptor,
+    );
+
     let mut rpass = encoder.begin_render_pass(&rendiation_webgpu::RenderPassDescriptor {
       color_attachments: &[Some(rendiation_webgpu::RenderPassColorAttachment {
-        view: window_surface_view,
+        view,
         resolve_target: None,
         ops: rendiation_webgpu::Operations {
           load: rendiation_webgpu::LoadOp::Load,
@@ -101,6 +117,9 @@ impl EguiRenderer {
     });
     self.renderer.render(&mut rpass, &tris, &screen_descriptor);
     drop(rpass);
+
+    gpu.queue.submit(std::iter::once(encoder.finish()));
+
     for x in &full_output.textures_delta.free {
       self.renderer.free_texture(x)
     }

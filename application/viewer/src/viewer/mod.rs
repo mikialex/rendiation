@@ -45,7 +45,7 @@ impl Default for Viewer {
       content: Viewer3dContent::new(),
       size: Size::from_u32_pair_min_one((100, 100)),
       terminal_input,
-      terminal: Terminal::new(command_stream),
+      terminal: Default::default(),
       ctx: None,
       io_executor,
       compute_executor,
@@ -55,14 +55,9 @@ impl Default for Viewer {
 }
 
 impl Viewer {
-  pub fn draw_canvas(&mut self, gpu: &Arc<GPU>, canvas: RenderTargetView) {
+  pub fn draw_canvas(&mut self, gpu: &Arc<GPU>, canvas: &RenderTargetView) {
     self.on_demand_draw.notify_by(|cx| {
-      self.content.poll_update(cx);
       self.content.per_frame_update();
-      if let Some(ctx) = &mut self.ctx {
-        ctx.setup_render_waker(cx);
-      }
-      self.content.poll_update(cx);
     });
 
     self.on_demand_draw.wake(); // todo, we current disable the on demand draw
@@ -72,7 +67,7 @@ impl Viewer {
       self
         .ctx
         .get_or_insert_with(|| Viewer3dRenderingCtx::new(gpu.clone()))
-        .render(canvas, &mut self.content, cx)
+        .render(canvas.clone(), &mut self.content, cx)
     });
   }
 
@@ -82,15 +77,9 @@ impl Viewer {
     states: &WindowState,
     position_info: CanvasWindowPositionInfo,
   ) {
-    self.on_demand_draw.notify_by(|cx| {
-      let mut ctx = CommandCtx {
-        rendering: self.ctx.as_mut(),
-      };
-
-      self.terminal.check_execute(&mut ctx, cx, &self.io_executor);
-      self.content.poll_update(cx);
-      self.content.per_event_update(event, states, position_info)
-    });
+    self
+      .on_demand_draw
+      .notify_by(|cx| self.content.per_event_update(event, states, position_info));
   }
 
   pub fn update_render_size(&mut self, layout_size: (f32, f32)) -> Size {
@@ -105,9 +94,4 @@ impl Viewer {
     self.size = new_size;
     new_size
   }
-}
-
-pub trait ViewerFeature {
-  fn setup(&self, viewer: &mut Viewer);
-  fn dispose(&mut self, viewer: &mut Viewer);
 }

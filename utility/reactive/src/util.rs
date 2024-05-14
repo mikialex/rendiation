@@ -2,12 +2,12 @@ use crate::*;
 
 pub type BoxedAnyReactiveState = Box<dyn ReactiveState<State = Box<dyn Any>>>;
 
-pub struct ConcurrentStreamContainer {
+pub struct ReactiveStateJoinUpdater {
   update_logic: FastHashMap<u32, BoxedAnyReactiveState>,
   next: u32,
 }
 
-impl ConcurrentStreamContainer {
+impl ReactiveStateJoinUpdater {
   pub fn register(&mut self, update: BoxedAnyReactiveState) -> UpdateResultToken {
     self.update_logic.insert(self.next, update);
     let token = self.next;

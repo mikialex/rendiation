@@ -36,7 +36,7 @@ pub struct GLESPreferredComOrderRendererProvider {
 impl RenderImplProvider<Box<dyn GLESSceneModelRenderImpl>>
   for GLESPreferredComOrderRendererProvider
 {
-  fn register_resource(&mut self, source: &mut ConcurrentStreamContainer, cx: &GPUResourceCtx) {
+  fn register_resource(&mut self, source: &mut ReactiveStateJoinUpdater, cx: &GPUResourceCtx) {
     self.node.register_resource(source, cx);
     self.camera.register_resource(source, cx);
     self
@@ -45,7 +45,10 @@ impl RenderImplProvider<Box<dyn GLESSceneModelRenderImpl>>
       .for_each(|i| i.register_resource(source, cx));
   }
 
-  fn create_impl(&self, res: &mut ConcurrentStreamUpdateResult) -> Box<dyn GLESSceneModelRenderImpl> {
+  fn create_impl(
+    &self,
+    res: &mut ConcurrentStreamUpdateResult,
+  ) -> Box<dyn GLESSceneModelRenderImpl> {
     Box::new(GLESPreferredComOrderRenderer {
       model_impl: self.model_impl.iter().map(|i| i.create_impl(res)).collect(),
       node: global_entity_component_of::<SceneModelRefNode>().read(),

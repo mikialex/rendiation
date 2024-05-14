@@ -26,7 +26,7 @@ pub fn build_default_gles_render_system(cx: &GPU) -> GLESRenderSystem {
 }
 
 impl RenderImplProvider<Box<dyn SceneRenderer>> for GLESRenderSystem {
-  fn register_resource(&mut self, source: &mut ConcurrentStreamContainer, cx: &GPUResourceCtx) {
+  fn register_resource(&mut self, source: &mut ReactiveStateJoinUpdater, cx: &GPUResourceCtx) {
     let model_lookup = global_rev_ref().watch_inv_ref_typed::<SceneModelBelongsToScene>();
     self.model_lookup = source.register_reactive_multi_collection(model_lookup);
     for imp in &mut self.scene_model_impl {

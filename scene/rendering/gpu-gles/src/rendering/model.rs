@@ -42,7 +42,7 @@ pub struct DefaultSceneStdModelRendererProvider {
 }
 
 impl RenderImplProvider<Box<dyn GLESModelRenderImpl>> for DefaultSceneStdModelRendererProvider {
-  fn register_resource(&mut self, source: &mut ConcurrentStreamContainer, cx: &GPUResourceCtx) {
+  fn register_resource(&mut self, source: &mut ReactiveStateJoinUpdater, cx: &GPUResourceCtx) {
     self
       .materials
       .iter_mut()

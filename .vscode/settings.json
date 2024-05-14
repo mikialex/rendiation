@@ -51,6 +51,7 @@
         "Drawcall",
         "drawcalls",
         "dxdy",
+        "Egui",
         "Encodable",
         "eval",
         "evaluatable",

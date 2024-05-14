@@ -30,7 +30,7 @@ pub struct FlatMaterialDefaultRenderImplProvider {
 impl RenderImplProvider<Box<dyn GLESModelMaterialRenderImpl>>
   for FlatMaterialDefaultRenderImplProvider
 {
-  fn register_resource(&mut self, source: &mut ConcurrentStreamContainer, cx: &GPUResourceCtx) {
+  fn register_resource(&mut self, source: &mut ReactiveStateJoinUpdater, cx: &GPUResourceCtx) {
     let updater = flat_material_uniforms(cx);
     self.uniforms = source.register_multi_updater(updater);
   }
@@ -82,7 +82,7 @@ impl PbrMRMaterialDefaultRenderImplProvider {
 impl RenderImplProvider<Box<dyn GLESModelMaterialRenderImpl>>
   for PbrMRMaterialDefaultRenderImplProvider
 {
-  fn register_resource(&mut self, source: &mut ConcurrentStreamContainer, cx: &GPUResourceCtx) {
+  fn register_resource(&mut self, source: &mut ReactiveStateJoinUpdater, cx: &GPUResourceCtx) {
     self.uniforms = source.register_multi_updater(pbr_mr_material_uniforms(cx));
     self.tex_uniforms = source.register_multi_updater(pbr_mr_material_tex_uniforms(cx));
   }

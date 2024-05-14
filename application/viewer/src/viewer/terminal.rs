@@ -1,16 +1,18 @@
 use std::{io::Write, path::Path, task::Context};
 
+use egui::TextBuffer;
 use fast_hash_collection::FastHashMap;
-use futures::{executor::ThreadPool, stream::FusedStream, Future, Stream, StreamExt};
+use futures::{executor::ThreadPool, Future};
 use reactive::PollUtils;
 use rendiation_webgpu::ReadableTextureBuffer;
 
-use crate::Viewer3dRenderingCtx;
+use crate::*;
 
+#[derive(Default)]
 pub struct Terminal {
+  pub current_input: String,
   pub command_history: Vec<String>,
-  pub commands: FastHashMap<String, TerminalCommandCb>,
-  pub command_source: Box<dyn FusedStream<Item = String> + Unpin>,
+  pub command_registry: FastHashMap<String, TerminalCommandCb>,
 }
 
 pub struct CommandCtx<'a> {
@@ -21,12 +23,19 @@ type TerminalCommandCb =
   Box<dyn Fn(&mut CommandCtx, &Vec<String>) -> Box<dyn Future<Output = ()> + Send + Unpin>>;
 
 impl Terminal {
-  pub fn new(command_source: impl Stream<Item = String> + Unpin + 'static) -> Self {
-    Self {
-      command_history: Default::default(),
-      commands: Default::default(),
-      command_source: Box::new(command_source.fuse()),
+  pub fn egui(
+    &mut self,
+    ui: &mut egui::Ui,
+    rendering: Option<&mut Viewer3dRenderingCtx>,
+    io_executor: &ThreadPool,
+  ) {
+    ui.label("terminal");
+    let re = ui.text_edit_singleline(&mut self.current_input);
+    if re.lost_focus() && re.ctx.input(|i| i.key_pressed(egui::Key::Enter)) {
+      let mut cx = CommandCtx { rendering };
+      self.execute_current(&mut cx, io_executor);
     }
+    ui.end_row();
   }
 
   pub fn register_command<F, FR>(&mut self, name: impl AsRef<str>, f: F) -> &mut Self
@@ -34,32 +43,31 @@ impl Terminal {
     FR: Future<Output = ()> + Send + Unpin + 'static,
     F: Fn(&mut CommandCtx, &Vec<String>) -> FR + 'static,
   {
-    self.commands.insert(
+    self.command_registry.insert(
       name.as_ref().to_owned(),
       Box::new(move |c, p| Box::new(f(c, p))),
     );
     self
   }
 
-  pub fn check_execute(&mut self, ctx: &mut CommandCtx, cx: &mut Context, executor: &ThreadPool) {
-    self.command_source.poll_until_pending(cx, |command| {
-      let parameters: Vec<String> = command
-        .split_ascii_whitespace()
-        .map(|s| s.to_owned())
-        .collect();
+  pub fn execute_current(&mut self, ctx: &mut CommandCtx, executor: &ThreadPool) {
+    let command = self.current_input.take();
+    let parameters: Vec<String> = command
+      .split_ascii_whitespace()
+      .map(|s| s.to_owned())
+      .collect();
 
-      if let Some(command_name) = parameters.first() {
-        if let Some(exe) = self.commands.get(command_name) {
-          println!("execute: {command}");
+    if let Some(command_name) = parameters.first() {
+      if let Some(exe) = self.command_registry.get(command_name) {
+        println!("execute: {command}");
 
-          let task = exe(ctx, &parameters);
-          executor.spawn_ok(task);
-        } else {
-          println!("unknown command {command_name}")
-        }
-        self.command_history.push(command);
+        let task = exe(ctx, &parameters);
+        executor.spawn_ok(task);
+      } else {
+        println!("unknown command {command_name}")
       }
-    });
+      self.command_history.push(command);
+    }
   }
 }
 

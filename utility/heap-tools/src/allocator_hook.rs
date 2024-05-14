@@ -21,13 +21,13 @@ pub struct PreciseAllocationStat {
   pub allocation_instance_count: CounterRecordReport<u64>,
 }
 
-pub struct PreciseAllocationHook<T> {
+pub struct PreciseAllocationStatistics<T> {
   pub allocator: T,
   allocation_real_bytes_count: CounterRecord,
   allocation_instance_count: CounterRecord,
 }
 
-impl<T> PreciseAllocationHook<T> {
+impl<T> PreciseAllocationStatistics<T> {
   pub const fn new(allocator: T) -> Self {
     Self {
       allocator,
@@ -56,7 +56,7 @@ impl<T> PreciseAllocationHook<T> {
   }
 }
 
-unsafe impl<T: GlobalAlloc> GlobalAlloc for PreciseAllocationHook<T> {
+unsafe impl<T: GlobalAlloc> GlobalAlloc for PreciseAllocationStatistics<T> {
   unsafe fn alloc(&self, layout: std::alloc::Layout) -> *mut u8 {
     #[cfg(feature = "enabled")]
     {

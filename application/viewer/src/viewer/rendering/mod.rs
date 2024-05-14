@@ -27,11 +27,6 @@ impl Viewer3dRenderingCtx {
     }
   }
 
-  /// some effect maybe take continuously draw in next frames to finish
-  pub fn setup_render_waker(&self, cx: &mut Context) {
-    // self.pipeline.setup_render_waker(cx)
-  }
-
   pub fn gpu(&self) -> &GPU {
     &self.gpu
   }

@@ -16,22 +16,25 @@ use egui_winit::winit::{
   window::WindowBuilder,
 };
 
-mod ui;
+mod egui_cx;
 mod viewer;
 
+use egui_cx::EguiContext;
 use heap_tools::*;
+use rendiation_scene_core::*;
 use rendiation_texture_core::Size;
-use rendiation_webgpu::{GPUCreateConfig, GPUSurface, GPU};
-use ui::EguiRenderer;
-pub use viewer::*;
+use rendiation_webgpu::*;
+use viewer::*;
 
 #[global_allocator]
-static GLOBAL_ALLOCATOR: PreciseAllocationHook<System> = PreciseAllocationHook::new(System);
+static GLOBAL_ALLOCATOR: PreciseAllocationStatistics<System> =
+  PreciseAllocationStatistics::new(System);
 
 fn main() {
-  setup_global_database(Default::default());
-
   env_logger::builder().init();
+
+  setup_global_database(Default::default());
+  register_scene_core_data_model();
 
   futures::executor::block_on(run())
 }
@@ -60,8 +63,7 @@ pub async fn run() {
 
   let mut viewer = Viewer::default();
   let mut window_state = WindowState::default();
-  let mut egui_renderer = EguiRenderer::new(&gpu.device, surface.config.format, None, 1, &window);
-  let mut ui_state = ViewerUIState::default();
+  let mut egui_cx = EguiContext::new(&gpu.device, surface.config.format, None, 1, &window);
 
   let _ = event_loop.run(move |event, target| {
     window_state.event(&event);
@@ -70,7 +72,7 @@ pub async fn run() {
 
     match event {
       Event::WindowEvent { ref event, .. } => {
-        egui_renderer.handle_input(&window, event);
+        egui_cx.handle_input(&window, event);
 
         match event {
           WindowEvent::CloseRequested => {
@@ -86,44 +88,15 @@ pub async fn run() {
           }
           WindowEvent::RedrawRequested => {
             let (output, canvas) = surface.get_current_frame_with_render_target_view().unwrap();
-            let view = output
-              .texture
-              .create_view(&rendiation_webgpu::TextureViewDescriptor {
-                label: None,
-                format: None,
-                dimension: None,
-                aspect: rendiation_webgpu::TextureAspect::All,
-                base_mip_level: 0,
-                mip_level_count: None,
-                base_array_layer: 0,
-                array_layer_count: None,
-              });
 
-            viewer.draw_canvas(&gpu, canvas);
+            viewer.draw_canvas(&gpu, &canvas);
 
-            let mut encoder =
-              gpu
-                .device
-                .create_command_encoder(&rendiation_webgpu::CommandEncoderDescriptor {
-                  label: Some("Render Encoder"),
-                });
+            egui_cx.begin_frame(&window);
 
-            let screen_descriptor = egui_wgpu::ScreenDescriptor {
-              size_in_pixels: [window.inner_size().width, window.inner_size().height],
-              pixels_per_point: window.scale_factor() as f32,
-            };
+            ui_logic(egui_cx.cx(), &mut viewer);
 
-            egui_renderer.draw(
-              &gpu.device,
-              &gpu.queue,
-              &mut encoder,
-              &window,
-              &view,
-              screen_descriptor,
-              |ctx| ui_logic(ctx, &mut ui_state, &mut viewer),
-            );
+            egui_cx.end_frame_and_draw(&gpu, &window, &canvas);
 
-            gpu.queue.submit(std::iter::once(encoder.finish()));
             output.present();
             window.request_redraw();
           }
@@ -136,12 +109,7 @@ pub async fn run() {
   });
 }
 
-#[derive(Default)]
-struct ViewerUIState {
-  command_input: String,
-}
-
-fn ui_logic(ui: &egui::Context, states: &mut ViewerUIState, viewer: &mut Viewer) {
+fn ui_logic(ui: &egui::Context, viewer: &mut Viewer) {
   egui::Window::new("Viewer")
     .vscroll(true)
     .default_open(true)
@@ -160,13 +128,9 @@ fn ui_logic(ui: &egui::Context, states: &mut ViewerUIState, viewer: &mut Viewer)
         ui_render_config(ui, &mut ctx.pipeline)
       }
 
-      ui.label("terminal");
-      let re = ui.text_edit_singleline(&mut states.command_input);
-      if re.lost_focus() && re.ctx.input(|i| i.key_pressed(egui::Key::Enter)) {
-        viewer.terminal_input.emit(&states.command_input);
-        states.command_input = "".to_string();
-      }
-      ui.end_row();
+      viewer
+        .terminal
+        .egui(ui, viewer.ctx.as_mut(), &viewer.io_executor);
     });
 }
 

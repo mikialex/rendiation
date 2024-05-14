@@ -26,7 +26,7 @@ use rendiation_webgpu::*;
 
 pub trait RenderImplProvider<T> {
   /// this will be called once when application init
-  fn register_resource(&mut self, source: &mut ConcurrentStreamContainer, cx: &GPUResourceCtx);
+  fn register_resource(&mut self, source: &mut ReactiveStateJoinUpdater, cx: &GPUResourceCtx);
   fn create_impl(&self, res: &mut ConcurrentStreamUpdateResult) -> T;
 }
 

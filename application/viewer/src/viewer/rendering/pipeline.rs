@@ -34,12 +34,6 @@ impl ViewerPipeline {
   }
 }
 
-//   /// some effect maybe take continuously draw in next frames to finish
-//   pub fn setup_render_waker(&self, _cx: &mut Context) {
-//     // todo
-//   }
-// }
-
 // impl ViewerPipeline {
 //   pub fn render(
 //     &mut self,

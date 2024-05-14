@@ -1,4 +1,4 @@
-use reactive::PollUtils;
+use reactive::{AllocIdx, PollUtils};
 use rendiation_algebra::{InnerProductSpace, Mat4, Vec2, Vec3};
 use rendiation_controller::{
   ControllerWinitAdapter, InputBound, OrbitController, Transformed3DControllee,
@@ -13,6 +13,8 @@ use winit::{
 use crate::*;
 
 pub struct Viewer3dContent {
+  pub main_camera: AllocIdx<SceneCameraEntity>,
+  pub scene: AllocIdx<SceneEntity>,
   pub pick_config: MeshBufferIntersectConfig,
   pub controller: ControllerWinitAdapter<OrbitController>,
 }
@@ -23,6 +25,8 @@ impl Viewer3dContent {
     let controller = ControllerWinitAdapter::new(controller);
 
     Self {
+      main_camera: todo!(),
+      scene: todo!(),
       controller,
       pick_config: Default::default(),
     }
@@ -178,19 +182,6 @@ impl Viewer3dContent {
     //     controllee: &camera.read().node,
     //   });
     // }
-  }
-
-  fn poll_update_3d_view(&mut self, cx: &mut std::task::Context) {
-    // let _ = self
-    //   .scene_derived
-    //   .poll_until_pending_or_terminate_not_care_result(cx);
-    // let _ = self
-    //   .scene_bounding
-    //   .poll_until_pending_or_terminate_not_care_result(cx);
-  }
-
-  pub fn poll_update(&mut self, cx: &mut std::task::Context) {
-    self.poll_update_3d_view(cx);
   }
 }
 
