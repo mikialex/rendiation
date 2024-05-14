@@ -139,7 +139,7 @@ pub struct MeshWorldObjectTransform {
 }
 
 /// mainly used in missing stage
-trait RayBaseShaderStageCtx {
+pub trait RayBaseShaderStageCtx {
   fn world_ray(&self) -> ShaderRay;
   // in world semantic
   fn ray_range(&self) -> ShaderRayRange;
@@ -147,7 +147,7 @@ trait RayBaseShaderStageCtx {
   fn ray_flags(&self) -> Node<u32>;
 }
 
-trait RayIntersectionShaderStageCtx: RayBaseShaderStageCtx {
+pub trait RayIntersectionShaderStageCtx: RayBaseShaderStageCtx {
   fn local_ray(&self) -> ShaderRay;
 
   fn world_hit_info(&self) -> WorldHitInfo;
@@ -155,7 +155,7 @@ trait RayIntersectionShaderStageCtx: RayBaseShaderStageCtx {
 }
 
 /// used as closest or any hit
-trait RayHitShaderStageCtx: RayIntersectionShaderStageCtx {
+pub trait RayHitShaderStageCtx: RayIntersectionShaderStageCtx {
   fn ray_hit_distance(&self) -> Node<f32>;
   /// https://github.com/KhronosGroup/GLSL/blob/main/extensions/ext/GLSL_EXT_ray_tracing.txt#L796
   fn hit_kind(&self) -> Node<u32>;

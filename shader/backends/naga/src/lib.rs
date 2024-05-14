@@ -1196,7 +1196,7 @@ impl ShaderAPI for ShaderAPINagaImpl {
     }
 
     assert!(
-      self.fn_mapping.get(name.as_ref().unwrap()).is_none(),
+      !self.fn_mapping.contains_key(name.as_ref().unwrap()),
       "function redefinition"
     );
 

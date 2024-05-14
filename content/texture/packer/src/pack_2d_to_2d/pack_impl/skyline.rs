@@ -125,8 +125,8 @@ impl SkylinePacker {
     let w: usize = size.width.into();
     let h: usize = size.height.into();
 
-    let mut bottom = std::usize::MAX;
-    let mut width = std::usize::MAX;
+    let mut bottom = usize::MAX;
+    let mut width = usize::MAX;
     let mut index = None;
     let mut rect = Rect::new(0, 0, 0, 0);
 

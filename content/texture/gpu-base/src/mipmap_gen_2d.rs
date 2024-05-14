@@ -99,7 +99,7 @@ pub trait Mipmap2dReducerImpl: Mipmap2dReducer + Sized {
   }
 }
 
-struct DefaultMipmapReducer;
+pub struct DefaultMipmapReducer;
 
 impl Mipmap2dReducer for DefaultMipmapReducer {
   #[rustfmt::skip]

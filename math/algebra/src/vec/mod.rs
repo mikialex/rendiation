@@ -1,6 +1,5 @@
 mod dimension;
 mod normalized;
-mod space_marker;
 mod swizzle;
 mod vec2;
 mod vec3;
@@ -9,7 +8,6 @@ use std::ops::*;
 
 pub use dimension::*;
 pub use normalized::*;
-pub use space_marker::*;
 pub use vec2::*;
 pub use vec3::*;
 pub use vec4::*;

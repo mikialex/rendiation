@@ -118,6 +118,8 @@ box_default = "allow"
 too_many_arguments = "allow"
 # we may copy code from f64 codebase to f32 type, f32 may upgrate to f64 in future
 excessive_precision = "allow"
+# i know it's bad but..
+missing_transmute_annotations = "allow"
 
 
 [workspace.lints.rust]

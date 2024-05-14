@@ -1,5 +1,4 @@
 #![feature(type_alias_impl_trait)]
-#![feature(slice_group_by)]
 
 use core::{
   pin::Pin,

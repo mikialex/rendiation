@@ -1,5 +1,3 @@
-#![feature(offset_of)]
-
 use std::task::{Context, Poll};
 
 use reactive::*;

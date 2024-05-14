@@ -104,7 +104,7 @@ impl CustomAttributeKeyGPU for BarycentricCoordAttributeKey {
   }
 }
 
-struct SolidLinedMeshGPU<'a> {
+pub struct SolidLinedMeshGPU<'a> {
   inner: AttributesMeshGPU<'a>,
 }
 

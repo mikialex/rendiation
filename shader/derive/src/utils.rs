@@ -1,5 +1,6 @@
 use syn::{punctuated::Punctuated, spanned::Spanned, Data, Field, Ident, Type, Visibility};
 
+#[allow(dead_code)]
 pub struct StructInfo {
   pub struct_name: Ident,
   pub fields_info: Vec<(Ident, Type)>,

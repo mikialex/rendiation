@@ -1,4 +1,3 @@
-#![feature(associated_type_bounds)]
 #![feature(stmt_expr_attributes)]
 #![feature(iterator_try_collect)]
 

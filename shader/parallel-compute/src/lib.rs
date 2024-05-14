@@ -431,7 +431,7 @@ where
 
   fn custom_access(
     self,
-    behavior: impl InvocationAccessBehavior<T> + 'static + Clone + Hash,
+    behavior: impl InvocationAccessBehavior<T> + 'static + Hash,
   ) -> impl DeviceParallelComputeIO<T> {
     DeviceParallelComputeCustomInvocationBehavior {
       source: Box::new(self),

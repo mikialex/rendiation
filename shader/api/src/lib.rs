@@ -89,7 +89,7 @@ pub(crate) struct ShaderBuildingCtx {
 }
 
 thread_local! {
-  static IN_BUILDING_SHADER_API: RefCell<Option<ShaderBuildingCtx>> = RefCell::new(None);
+  static IN_BUILDING_SHADER_API: RefCell<Option<ShaderBuildingCtx>> = const { RefCell::new(None) };
 }
 
 pub(crate) fn call_shader_api<T>(
