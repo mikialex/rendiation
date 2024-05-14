@@ -1,6 +1,6 @@
 use std::{any::Any, ops::DerefMut};
 
-use futures::{future, task::AtomicWaker, Stream};
+use futures::task::AtomicWaker;
 use parking_lot::RwLock;
 
 use crate::*;
@@ -134,13 +134,11 @@ impl<T> SharedMultiUpdateContainer<T> {
   }
 }
 
-impl<T: 'static> Stream for SharedMultiUpdateContainer<T> {
-  type Item = Box<dyn futures::Future<Output = Box<dyn Any>>>;
+impl<T: 'static> ReactiveState for SharedMultiUpdateContainer<T> {
+  type State = Box<dyn Any>;
 
-  fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+  fn poll_current(&self, cx: &mut Context) -> Self::State {
     self.inner.write().poll_update(cx);
-    let result = Box::new(self.inner.make_read_holder()) as Box<dyn Any>;
-    let future = Box::new(future::ready(result)) as Box<dyn futures::Future<Output = Box<dyn Any>>>;
-    Poll::Ready(Some(future))
+    Box::new(self.inner.make_read_holder())
   }
 }

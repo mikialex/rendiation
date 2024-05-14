@@ -45,22 +45,25 @@ impl RenderImplProvider<Box<dyn GLESModelShapeRenderImpl>>
     self.vertex = source.register_self_contained_reactive_collection(vertex);
   }
 
-  fn create_impl(&self, res: &ConcurrentStreamUpdateResult) -> Box<dyn GLESModelShapeRenderImpl> {
+  fn create_impl(
+    &self,
+    res: &mut ConcurrentStreamUpdateResult,
+  ) -> Box<dyn GLESModelShapeRenderImpl> {
     Box::new(AttributeMeshDefaultRenderImpl {
       mesh_access: global_entity_component_of::<StandardModelRefAttributeMesh>().read(),
       mode: global_entity_component_of::<AttributeMeshTopology>().read(),
       index: res
-        .get_self_contained_reactive_collection_updated(self.index)
+        .take_self_contained_reactive_collection_updated(self.index)
         .unwrap(),
       vertex: AttributeMeshVertexAccessView {
         semantics: global_entity_component_of::<AttributeMeshVertexBufferSemantic>().read(),
         count: global_entity_component_of::<SceneBufferViewBufferItemCount<AttributeVertexRef>>()
           .read(),
         multi_access: res
-          .get_multi_reactive_collection_updated(self.multi_access)
+          .take_multi_reactive_collection_updated(self.multi_access)
           .unwrap(),
         vertex: res
-          .get_self_contained_reactive_collection_updated(self.vertex)
+          .take_self_contained_reactive_collection_updated(self.vertex)
           .unwrap(),
       },
       count: global_entity_component_of::<SceneBufferViewBufferItemCount<AttributeIndexRef>>()

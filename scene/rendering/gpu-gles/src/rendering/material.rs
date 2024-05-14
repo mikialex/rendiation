@@ -37,11 +37,11 @@ impl RenderImplProvider<Box<dyn GLESModelMaterialRenderImpl>>
 
   fn create_impl(
     &self,
-    res: &ConcurrentStreamUpdateResult,
+    res: &mut ConcurrentStreamUpdateResult,
   ) -> Box<dyn GLESModelMaterialRenderImpl> {
     Box::new(FlatMaterialDefaultRenderImpl {
       material_access: global_entity_component_of::<StandardModelRefFlatMaterial>().read(),
-      uniforms: res.get_multi_updater(self.uniforms).unwrap(),
+      uniforms: res.take_multi_updater_updated(self.uniforms).unwrap(),
     })
   }
 }
@@ -89,12 +89,12 @@ impl RenderImplProvider<Box<dyn GLESModelMaterialRenderImpl>>
 
   fn create_impl(
     &self,
-    res: &ConcurrentStreamUpdateResult,
+    res: &mut ConcurrentStreamUpdateResult,
   ) -> Box<dyn GLESModelMaterialRenderImpl> {
     Box::new(PbrMRMaterialDefaultRenderImpl {
       material_access: global_entity_component_of::<StandardModelRefPbrMRMaterial>().read(),
-      uniforms: res.get_multi_updater(self.uniforms).unwrap(),
-      tex_uniforms: res.get_multi_updater(self.tex_uniforms).unwrap(),
+      uniforms: res.take_multi_updater_updated(self.uniforms).unwrap(),
+      tex_uniforms: res.take_multi_updater_updated(self.tex_uniforms).unwrap(),
       alpha_mode: global_entity_component_of().read(),
       base_color_tex_sampler: TextureSamplerIdView::read_from_global(),
       mr_tex_sampler: TextureSamplerIdView::read_from_global(),

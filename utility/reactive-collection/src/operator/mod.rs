@@ -55,6 +55,13 @@ where
     Box::new(self)
   }
 
+  fn into_reactive_state(self) -> impl ReactiveState<State = Box<dyn std::any::Any>> {
+    ReactiveCollectionAsReactiveState {
+      inner: self,
+      phantom: PhantomData,
+    }
+  }
+
   fn into_change_stream(self) -> impl futures::Stream<Item = Arc<FastHashMap<K, ValueChange<V>>>>
   where
     Self: Unpin,

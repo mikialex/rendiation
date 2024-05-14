@@ -45,7 +45,7 @@ impl RenderImplProvider<Box<dyn GLESSceneModelRenderImpl>>
       .for_each(|i| i.register_resource(source, cx));
   }
 
-  fn create_impl(&self, res: &ConcurrentStreamUpdateResult) -> Box<dyn GLESSceneModelRenderImpl> {
+  fn create_impl(&self, res: &mut ConcurrentStreamUpdateResult) -> Box<dyn GLESSceneModelRenderImpl> {
     Box::new(GLESPreferredComOrderRenderer {
       model_impl: self.model_impl.iter().map(|i| i.create_impl(res)).collect(),
       node: global_entity_component_of::<SceneModelRefNode>().read(),

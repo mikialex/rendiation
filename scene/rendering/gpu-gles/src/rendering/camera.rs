@@ -24,9 +24,9 @@ impl RenderImplProvider<Box<dyn GLESCameraRenderImpl>> for DefaultGLESCameraRend
     self.uniforms = source.register_multi_updater(uniforms);
   }
 
-  fn create_impl(&self, res: &ConcurrentStreamUpdateResult) -> Box<dyn GLESCameraRenderImpl> {
+  fn create_impl(&self, res: &mut ConcurrentStreamUpdateResult) -> Box<dyn GLESCameraRenderImpl> {
     Box::new(DefaultGLESCameraRenderImpl {
-      uniforms: res.get_multi_updater(self.uniforms).unwrap(),
+      uniforms: res.take_multi_updater_updated(self.uniforms).unwrap(),
     })
   }
 }

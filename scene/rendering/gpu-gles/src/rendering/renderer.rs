@@ -34,7 +34,7 @@ impl RenderImplProvider<Box<dyn SceneRenderer>> for GLESRenderSystem {
     }
   }
 
-  fn create_impl(&self, res: &ConcurrentStreamUpdateResult) -> Box<dyn SceneRenderer> {
+  fn create_impl(&self, res: &mut ConcurrentStreamUpdateResult) -> Box<dyn SceneRenderer> {
     Box::new(GLESSceneRenderer {
       scene_model_renderer: self
         .scene_model_impl
@@ -42,7 +42,7 @@ impl RenderImplProvider<Box<dyn SceneRenderer>> for GLESRenderSystem {
         .map(|imp| imp.create_impl(res))
         .collect(),
       model_lookup: res
-        .get_multi_reactive_collection_updated(self.model_lookup)
+        .take_multi_reactive_collection_updated(self.model_lookup)
         .unwrap(),
     })
   }

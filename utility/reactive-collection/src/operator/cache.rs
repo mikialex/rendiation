@@ -14,7 +14,7 @@ where
   K: CKey,
   V: CValue,
 {
-  fn access_ref_collection(&self) -> Box<dyn VirtualCollectionSelfContained<K, V> + '_> {
+  fn access_ref_collection(&self) -> Box<dyn VirtualCollectionSelfContained<K, V>> {
     Box::new(self.cache.make_read_holder())
   }
 }
@@ -65,7 +65,7 @@ where
   K: LinearIdentification + CKey,
   V: CValue,
 {
-  fn access_ref_collection(&self) -> Box<dyn VirtualCollectionSelfContained<K, V> + '_> {
+  fn access_ref_collection(&self) -> Box<dyn VirtualCollectionSelfContained<K, V>> {
     Box::new(self.cache.make_read_holder())
   }
 }

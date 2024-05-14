@@ -19,9 +19,9 @@ impl RenderImplProvider<Box<dyn GLESNodeRenderImpl>> for DefaultGLESNodeRenderIm
     self.uniforms = source.register_multi_updater(uniforms);
   }
 
-  fn create_impl(&self, res: &ConcurrentStreamUpdateResult) -> Box<dyn GLESNodeRenderImpl> {
+  fn create_impl(&self, res: &mut ConcurrentStreamUpdateResult) -> Box<dyn GLESNodeRenderImpl> {
     Box::new(DefaultGLESNodeRenderImpl {
-      node_gpu: res.get_multi_updater(self.uniforms).unwrap(),
+      node_gpu: res.take_multi_updater_updated(self.uniforms).unwrap(),
     })
   }
 }

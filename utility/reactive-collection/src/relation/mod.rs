@@ -15,6 +15,16 @@ pub trait ReactiveOneToManyRelationship<O: CKey, M: CKey>: ReactiveCollection<M,
 pub trait ReactiveOneToManyRelationshipExt<O: CKey, M: CKey>:
   ReactiveOneToManyRelationship<O, M>
 {
+  fn into_reactive_state_many_one(self) -> impl ReactiveState<State = Box<dyn std::any::Any>>
+  where
+    Self: Sized,
+  {
+    ReactiveManyOneRelationAsReactiveState {
+      inner: self,
+      phantom: PhantomData,
+    }
+  }
+
   fn make_multi_accessor(&self) -> impl Fn(&O, &mut dyn FnMut(M)) + Send + Sync + '_ {
     let view = self.multi_access();
     move |k, visitor| view.access_multi_visitor(k, visitor)

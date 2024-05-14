@@ -58,8 +58,8 @@ impl DatabaseMutationWatch {
   ) -> impl ReactiveCollection<AllocIdx<C::Entity>, Option<EntityHandle<C::ForeignEntity>>> {
     todo!();
     // self
-    //   .watch()
-    //   .collective_key_map(|k| AllocIdx::from(k), |k| k.index())
+    //   .watch::<C>()
+    //   .collective_key_convert(|k| AllocIdx::from(k), |k| k.index)
   }
 
   pub fn watch_dyn_foreign_key(
