@@ -110,10 +110,10 @@ impl Mipmap2dReducer for DefaultMipmapReducer {
     current: Node<Vec2<f32>>,
     texel_size: Node<Vec2<f32>>,
   ) -> Node<Vec4<f32>> {
-    let mut r = source.sample_level(sampler, current + texel_size * val(Vec2::new( 0.5,  0.5)), val(0.));
-    r        += source.sample_level(sampler, current + texel_size * val(Vec2::new(-0.5, -0.5)), val(0.));
-    r        += source.sample_level(sampler, current + texel_size * val(Vec2::new(-0.5,  0.5)), val(0.));
-    r        += source.sample_level(sampler, current + texel_size * val(Vec2::new( 0.5, -0.5)), val(0.));
+    let mut r = source.sample_zero_level(sampler, current + texel_size * val(Vec2::new( 0.5,  0.5)));
+    r        += source.sample_zero_level(sampler, current + texel_size * val(Vec2::new(-0.5, -0.5)));
+    r        += source.sample_zero_level(sampler, current + texel_size * val(Vec2::new(-0.5,  0.5)));
+    r        += source.sample_zero_level(sampler, current + texel_size * val(Vec2::new( 0.5, -0.5)));
     r / val(4.).splat()
   }
 }

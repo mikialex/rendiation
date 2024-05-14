@@ -107,176 +107,182 @@ sg_node_impl!(
 );
 
 /// https://www.w3.org/TR/WGSL/#texturesample
-pub trait SingleSampleTarget {
+pub trait ShaderTextureType {
   type Input;
-  type Sampler;
   type Output: PrimitiveShaderNodeType;
 }
 
-impl SingleSampleTarget for ShaderTexture1D {
+impl ShaderTextureType for ShaderTexture1D {
   type Input = f32;
-  type Sampler = ShaderSampler;
   type Output = Vec4<f32>;
 }
 
-impl SingleSampleTarget for ShaderTexture2D {
+impl ShaderTextureType for ShaderTexture2D {
   type Input = Vec2<f32>;
-  type Sampler = ShaderSampler;
   type Output = Vec4<f32>;
 }
 
-impl SingleSampleTarget for ShaderDepthTexture2D {
+impl ShaderTextureType for ShaderDepthTexture2D {
   type Input = Vec2<f32>;
-  type Sampler = ShaderSampler;
   type Output = f32;
 }
 
-impl SingleSampleTarget for ShaderTexture3D {
+impl ShaderTextureType for ShaderTexture3D {
   type Input = Vec3<f32>;
-  type Sampler = ShaderSampler;
   type Output = Vec4<f32>;
 }
 
-impl SingleSampleTarget for ShaderTextureCube {
+impl ShaderTextureType for ShaderTextureCube {
   type Input = Vec3<f32>;
-  type Sampler = ShaderSampler;
   type Output = Vec4<f32>;
 }
 
-impl SingleSampleTarget for ShaderDepthTextureCube {
+impl ShaderTextureType for ShaderDepthTextureCube {
   type Input = Vec3<f32>;
-  type Sampler = ShaderSampler;
-  type Output = Vec4<f32>;
-}
-
-pub trait ArraySampleTarget {
-  type Input;
-  type Sampler;
-  type Output: PrimitiveShaderNodeType;
-}
-
-impl ArraySampleTarget for ShaderTexture2DArray {
-  type Input = Vec2<f32>;
-  type Sampler = ShaderSampler;
-  type Output = Vec4<f32>;
-}
-
-impl ArraySampleTarget for ShaderTextureCubeArray {
-  type Input = Vec2<f32>;
-  type Sampler = ShaderSampler;
-  type Output = Vec4<f32>;
-}
-
-impl ArraySampleTarget for ShaderDepthTexture2DArray {
-  type Input = Vec2<f32>;
-  type Sampler = ShaderSampler;
   type Output = f32;
 }
 
-impl ArraySampleTarget for ShaderDepthTextureCubeArray {
+impl ShaderTextureType for ShaderTexture2DArray {
   type Input = Vec2<f32>;
-  type Sampler = ShaderSampler;
+  type Output = Vec4<f32>;
+}
+impl ShaderTextureType for ShaderTextureCubeArray {
+  type Input = Vec3<f32>;
+  type Output = Vec4<f32>;
+}
+impl ShaderTextureType for ShaderDepthTexture2DArray {
+  type Input = Vec2<f32>;
+  type Output = f32;
+}
+impl ShaderTextureType for ShaderDepthTextureCubeArray {
+  type Input = Vec3<f32>;
   type Output = f32;
 }
 
-impl<T: SingleSampleTarget> HandleNode<T> {
-  pub fn sample(
-    &self,
-    sampler: HandleNode<T::Sampler>,
-    position: impl Into<Node<T::Input>>,
-  ) -> Node<T::Output> {
-    ShaderNodeExpr::TextureSampling {
-      texture: self.handle(),
-      sampler: sampler.handle(),
-      position: position.into().handle(),
-      index: None,
-      level: SampleLevel::Auto,
-      reference: None,
-      offset: None,
-    }
-    .insert_api()
-  }
-
-  pub fn sample_level(
-    &self,
-    sampler: HandleNode<T::Sampler>,
-    position: impl Into<Node<T::Input>>,
-    level: impl Into<Node<f32>>,
-  ) -> Node<T::Output> {
-    ShaderNodeExpr::TextureSampling {
-      texture: self.handle(),
-      sampler: sampler.handle(),
-      position: position.into().handle(),
-      index: None,
-      level: SampleLevel::Exact(level.into().handle()),
-      reference: None,
-      offset: None,
-    }
-    .insert_api()
-  }
-}
+pub trait ArraySampleTarget {}
+impl ArraySampleTarget for ShaderTexture2DArray {}
+impl ArraySampleTarget for ShaderTextureCubeArray {}
+impl ArraySampleTarget for ShaderDepthTexture2DArray {}
+impl ArraySampleTarget for ShaderDepthTextureCubeArray {}
 
 pub trait ShaderArrayTextureSampleIndexType: ShaderNodeType {}
 impl ShaderArrayTextureSampleIndexType for u32 {}
 impl ShaderArrayTextureSampleIndexType for i32 {}
 
-impl<T: ArraySampleTarget> HandleNode<T> {
-  pub fn sample_index(
-    &self,
-    sampler: HandleNode<T::Sampler>,
-    position: Node<T::Input>,
-    index: Node<impl ShaderArrayTextureSampleIndexType>,
-  ) -> Node<T::Output> {
-    ShaderNodeExpr::TextureSampling {
-      texture: self.handle(),
-      sampler: sampler.handle(),
-      position: position.handle(),
-      index: index.handle().into(),
-      level: SampleLevel::Auto,
-      reference: None,
-      offset: None,
-    }
-    .insert_api()
+pub trait DepthSampleTarget: ShaderTextureType<Output = f32> {}
+impl DepthSampleTarget for ShaderDepthTexture2D {}
+impl DepthSampleTarget for ShaderDepthTextureCube {}
+impl DepthSampleTarget for ShaderDepthTexture2DArray {}
+impl DepthSampleTarget for ShaderDepthTextureCubeArray {}
+
+pub struct TextureSamplingAction<T> {
+  tex: PhantomData<T>,
+  info: ShaderTextureSampling,
+}
+
+impl<T: ShaderTextureType> TextureSamplingAction<T> {
+  pub fn with_array_index(mut self, index: Node<impl ShaderArrayTextureSampleIndexType>) -> Self
+  where
+    T: ArraySampleTarget,
+  {
+    self.info.index = Some(index.handle());
+    self
   }
 
-  pub fn sample_index_level(
-    &self,
-    sampler: HandleNode<T::Sampler>,
-    position: Node<T::Input>,
-    index: Node<impl ShaderArrayTextureSampleIndexType>,
-    level: Node<f32>,
-  ) -> Node<T::Output> {
-    ShaderNodeExpr::TextureSampling {
-      texture: self.handle(),
-      sampler: sampler.handle(),
-      position: position.handle(),
-      index: index.handle().into(),
-      level: SampleLevel::Exact(level.handle()),
-      reference: None,
-      offset: None,
-    }
-    .insert_api()
+  pub fn with_level(mut self, level: Node<f32>) -> Self {
+    self.info.level = SampleLevel::Exact(level.handle());
+    self
+  }
+  pub fn sample(self) -> Node<T::Output> {
+    ShaderNodeExpr::TextureSampling(self.info).insert_api()
   }
 }
 
-impl HandleNode<ShaderDepthTexture2DArray> {
-  pub fn sample_compare_index_level(
+impl<T: ShaderTextureType> HandleNode<T> {
+  /// just for shortcut
+  pub fn sample(
+    &self,
+    sampler: HandleNode<ShaderSampler>,
+    position: impl Into<Node<T::Input>>,
+  ) -> Node<T::Output> {
+    self.build_sample_call(sampler, position).sample()
+  }
+  /// just for shortcut
+  pub fn sample_zero_level(
+    &self,
+    sampler: HandleNode<ShaderSampler>,
+    position: impl Into<Node<T::Input>>,
+  ) -> Node<T::Output> {
+    self
+      .build_sample_call(sampler, position)
+      .with_level(val(0.))
+      .sample()
+  }
+
+  pub fn build_sample_call(
+    &self,
+    sampler: HandleNode<ShaderSampler>,
+    position: impl Into<Node<T::Input>>,
+  ) -> TextureSamplingAction<T> {
+    TextureSamplingAction {
+      tex: PhantomData,
+      info: ShaderTextureSampling {
+        texture: self.handle(),
+        sampler: sampler.handle(),
+        position: position.into().handle(),
+        index: None,
+        level: SampleLevel::Auto,
+        reference: None,
+        offset: None,
+      },
+    }
+  }
+}
+
+pub struct DepthTextureSamplingAction<T> {
+  tex: PhantomData<T>,
+  info: ShaderTextureSampling,
+}
+
+impl<T> DepthTextureSamplingAction<T> {
+  pub fn with_array_index(mut self, index: Node<impl ShaderArrayTextureSampleIndexType>) -> Self
+  where
+    T: ArraySampleTarget,
+  {
+    self.info.index = Some(index.handle());
+    self
+  }
+  pub fn with_offset(mut self, offset: Vec2<i32>) -> Self {
+    self.info.offset = Some(offset);
+    self
+  }
+  pub fn with_zero_level(mut self) -> Self {
+    self.info.level = SampleLevel::Zero;
+    self
+  }
+  pub fn sample(self) -> Node<f32> {
+    ShaderNodeExpr::TextureSampling(self.info).insert_api()
+  }
+}
+
+impl<T: ShaderTextureType + DepthSampleTarget> HandleNode<T> {
+  pub fn build_compare_sample_call(
     &self,
     sampler: HandleNode<ShaderCompareSampler>,
-    position: Node<Vec2<f32>>,
-    index: Node<impl ShaderArrayTextureSampleIndexType>,
+    position: impl Into<Node<T::Input>>,
     reference: Node<f32>,
-    offset: Option<Vec2<i32>>,
-  ) -> Node<f32> {
-    ShaderNodeExpr::TextureSampling {
-      texture: self.handle(),
-      sampler: sampler.handle(),
-      position: position.handle(),
-      index: index.handle().into(),
-      level: SampleLevel::Zero,
-      reference: reference.handle().into(),
-      offset,
+  ) -> DepthTextureSamplingAction<T> {
+    DepthTextureSamplingAction {
+      tex: PhantomData,
+      info: ShaderTextureSampling {
+        texture: self.handle(),
+        sampler: sampler.handle(),
+        position: position.into().handle(),
+        index: None,
+        level: SampleLevel::Auto,
+        reference: reference.handle().into(),
+        offset: None,
+      },
     }
-    .insert_api()
   }
 }

@@ -132,8 +132,7 @@ impl<'a> GraphicsShaderProvider for AOComputer<'a> {
             reproject.current_camera_view_projection,
             sample_position_world,
           );
-          // I think the naga's shader uniformity analysis is bugged if we use sample call here.
-          let sample_position_depth = depth_tex.sample_level(sampler, s_uv, val(0.)).x();
+          let sample_position_depth = depth_tex.sample_zero_level(sampler, s_uv).x();
 
           let occluded = (sample_position_depth + parameter.bias)
             .less_equal_than(s_depth)

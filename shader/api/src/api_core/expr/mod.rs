@@ -58,6 +58,16 @@ pub enum SampleLevel {
   },
 }
 
+pub struct ShaderTextureSampling {
+  pub texture: ShaderNodeRawHandle,
+  pub sampler: ShaderNodeRawHandle,
+  pub position: ShaderNodeRawHandle,
+  pub index: Option<ShaderNodeRawHandle>,
+  pub level: SampleLevel,
+  pub reference: Option<ShaderNodeRawHandle>,
+  pub offset: Option<Vec2<i32>>,
+}
+
 pub enum ShaderNodeExpr {
   Zeroed {
     target: ShaderSizedValueType,
@@ -77,15 +87,7 @@ pub enum ShaderNodeExpr {
     meta: ShaderFunctionType,
     parameters: Vec<ShaderNodeRawHandle>,
   },
-  TextureSampling {
-    texture: ShaderNodeRawHandle,
-    sampler: ShaderNodeRawHandle,
-    position: ShaderNodeRawHandle,
-    index: Option<ShaderNodeRawHandle>,
-    level: SampleLevel,
-    reference: Option<ShaderNodeRawHandle>,
-    offset: Option<Vec2<i32>>,
-  },
+  TextureSampling(ShaderTextureSampling),
   Swizzle {
     ty: &'static str,
     source: ShaderNodeRawHandle,

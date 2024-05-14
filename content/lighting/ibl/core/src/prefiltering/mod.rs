@@ -16,7 +16,7 @@ pub fn prefilter_diffuse(
       let light = tbn * sample_hemisphere_cos_fn(random);
       let n_dot_l = normal.dot(light).max(0.);
       n_dot_l.greater_than(0.).select(
-        env.sample_level(sampler, light, 0.).xyz(),
+        env.sample_zero_level(sampler, light).xyz(),
         val(Vec3::zero()),
       )
     })
@@ -53,7 +53,12 @@ pub fn prefilter_specular(
           let omega_p = val(4. * f32::PI()) / (val(6.0) * resolution * resolution);
           let mip_level = (val(0.5) * (omega_s / omega_p).log2() + val(1.)).max(0.);
 
-          let sample = env.sample_level(sampler, light, mip_level).xyz() * n_dot_l;
+          let sample = env
+            .build_sample_call(sampler, light)
+            .with_level(mip_level)
+            .sample()
+            .xyz()
+            * n_dot_l;
           vec4_node((sample, n_dot_l))
         },
         || val(Vec4::zero()),

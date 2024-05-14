@@ -23,9 +23,9 @@ pub fn chromatic_aberration(
   let g_uv = uv + direction * config.color_offset.y().splat::<Vec2<_>>();
   let b_uv = uv + direction * config.color_offset.z().splat::<Vec2<_>>();
 
-  let r = color_tex.sample_level(sampler, r_uv, val(0.)).x();
-  let g = color_tex.sample_level(sampler, g_uv, val(0.)).y();
-  let b = color_tex.sample_level(sampler, b_uv, val(0.)).z();
+  let r = color_tex.sample_zero_level(sampler, r_uv).x();
+  let g = color_tex.sample_zero_level(sampler, g_uv).y();
+  let b = color_tex.sample_zero_level(sampler, b_uv).z();
 
   (r, g, b).into()
 }

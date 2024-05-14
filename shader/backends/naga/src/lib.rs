@@ -713,7 +713,7 @@ impl ShaderAPI for ShaderAPINagaImpl {
             }
           }
         }
-        ShaderNodeExpr::TextureSampling {
+        ShaderNodeExpr::TextureSampling(ShaderTextureSampling {
           texture,
           sampler,
           position,
@@ -721,7 +721,7 @@ impl ShaderAPI for ShaderAPINagaImpl {
           level,
           reference,
           offset,
-        } => naga::Expression::ImageSample {
+        }) => naga::Expression::ImageSample {
           image: self.get_expression(texture),
           sampler: self.get_expression(sampler),
           gather: None,

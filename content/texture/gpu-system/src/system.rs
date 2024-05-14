@@ -187,7 +187,7 @@ impl GPUTextureBindingSystem {
       let texture = textures.index(device_handles.0);
       let sampler = samplers.index(device_handles.1);
       // todo currently mipmap is not supported
-      texture.sample_level(sampler, uv, val(0.))
+      texture.sample_zero_level(sampler, uv)
     } else {
       let texture = self.shader_bind_texture(binding, host_handles.0);
       let sampler = self.shader_bind_sampler(binding, host_handles.1);

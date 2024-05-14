@@ -126,7 +126,7 @@ pub fn ltc_evaluate_rect(
 
       let uv = vec2_node((z * val(0.5) + val(0.5), len));
       let uv = uv * val(LUT_SCALE) + val(LUT_BIAS).splat();
-      let scale = ltc_2.sample_level(sampler, uv, val(0.)).w();
+      let scale = ltc_2.sample_zero_level(sampler, uv).w();
 
       (len * scale).splat()
     },
@@ -278,7 +278,7 @@ pub fn ltc_evaluate_disk(
       // use tabulated horizon-clipped sphere
       let uv = vec2_node((avg_dir.z() * val(0.5) + val(0.5), form_factor));
       let uv = uv * val(LUT_SCALE) + val(LUT_BIAS).splat();
-      let scale = ltc_2.sample_level(sampler, uv, val(0.)).w();
+      let scale = ltc_2.sample_zero_level(sampler, uv).w();
 
       let spec = form_factor * scale;
 
