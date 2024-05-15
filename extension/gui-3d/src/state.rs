@@ -4,6 +4,7 @@ use std::ops::{Deref, DerefMut};
 
 use crate::*;
 
+#[derive(Default)]
 pub struct MessageStore {
   messages: FastHashMap<TypeId, Box<dyn Any>>,
 }
@@ -20,6 +21,7 @@ impl MessageStore {
   }
 }
 
+#[derive(Default)]
 pub struct StateCx {
   pub message: MessageStore,
   states: FastHashMap<TypeId, Vec<*mut ()>>,

@@ -7,6 +7,8 @@
 #![allow(dead_code)]
 #![allow(unused_variables)]
 
+use std::any::Any;
+use std::hash::Hash;
 use std::{alloc::System, sync::Arc};
 
 use database::*;
@@ -15,6 +17,9 @@ use egui_winit::winit::{
   event_loop::EventLoop,
   window::WindowBuilder,
 };
+use rendiation_gui_3d::*;
+use rendiation_lighting_transport::*;
+use rendiation_shader_api::*;
 
 mod egui_cx;
 mod viewer;
@@ -22,7 +27,7 @@ mod viewer;
 use egui_cx::EguiContext;
 use heap_tools::*;
 use rendiation_scene_core::*;
-use rendiation_texture_core::Size;
+use rendiation_texture_core::*;
 use rendiation_webgpu::*;
 use viewer::*;
 
@@ -128,9 +133,9 @@ fn ui_logic(ui: &egui::Context, viewer: &mut Viewer) {
         ui_render_config(ui, &mut ctx.pipeline)
       }
 
-      viewer
-        .terminal
-        .egui(ui, viewer.ctx.as_mut(), &viewer.io_executor);
+      let mut cx = StateCx::default();
+
+      viewer.terminal.egui(ui, &mut cx, &viewer.io_executor);
     });
 }
 

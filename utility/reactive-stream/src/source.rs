@@ -178,7 +178,7 @@ impl<T: 'static> EventSource<T> {
   }
 
   pub fn once_future<R>(
-    &mut self,
+    &self,
     f: impl FnOnce(&T) -> R + Send + Sync + 'static,
   ) -> impl Future<Output = R>
   where

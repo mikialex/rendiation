@@ -2,9 +2,11 @@ use std::sync::Arc;
 
 use crate::*;
 
+mod debug_channels;
 mod pipeline;
 use std::task::Context;
 
+use debug_channels::*;
 use futures::Future;
 pub use pipeline::*;
 use reactive::{EventSource, PollUtils};
@@ -34,7 +36,7 @@ impl Viewer3dRenderingCtx {
   /// only texture could be read. caller must sure the target passed in render call not using
   /// window surface.
   pub fn read_next_render_result(
-    &mut self,
+    &self,
   ) -> impl Future<Output = Result<ReadableTextureBuffer, ViewerRenderResultReadBackErr>> {
     use futures::FutureExt;
     self

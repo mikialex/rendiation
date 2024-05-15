@@ -4121,6 +4121,8 @@ dependencies = [
  "rendiation-algebra",
  "rendiation-controller",
  "rendiation-geometry",
+ "rendiation-gui-3d",
+ "rendiation-lighting-transport",
  "rendiation-mesh-core",
  "rendiation-mesh-generator",
  "rendiation-scene-core",

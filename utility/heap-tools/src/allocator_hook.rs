@@ -16,7 +16,7 @@ impl std::fmt::Debug for ReadableByteDisplay {
 }
 
 #[derive(Default, Debug, Clone, Copy)]
-pub struct PreciseAllocationStat {
+pub struct PreciseAllocationReport {
   pub allocation_real_bytes_count: CounterRecordReport<ReadableByteDisplay>,
   pub allocation_instance_count: CounterRecordReport<u64>,
 }
@@ -45,8 +45,8 @@ impl<T> PreciseAllocationStatistics<T> {
       .reset_history_peak_to_current();
   }
 
-  pub fn report(&self) -> PreciseAllocationStat {
-    PreciseAllocationStat {
+  pub fn report(&self) -> PreciseAllocationReport {
+    PreciseAllocationReport {
       allocation_real_bytes_count: self
         .allocation_real_bytes_count
         .report()

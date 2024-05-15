@@ -19,7 +19,6 @@ pub struct Viewer {
   pub(crate) ctx: Option<Viewer3dRenderingCtx>,
   size: Size,
   pub terminal: Terminal,
-  pub terminal_input: EventSource<String>,
   pub io_executor: futures::executor::ThreadPool,
   pub compute_executor: rayon::ThreadPool,
   pub on_demand_draw: NotifyScope,
@@ -38,13 +37,9 @@ impl Default for Viewer {
       .build()
       .unwrap();
 
-    let terminal_input = EventSource::<String>::default();
-    let command_stream = terminal_input.unbound_listen();
-
     Self {
       content: Viewer3dContent::new(),
       size: Size::from_u32_pair_min_one((100, 100)),
-      terminal_input,
       terminal: Default::default(),
       ctx: None,
       io_executor,

@@ -15,25 +15,15 @@ pub struct Terminal {
   pub command_registry: FastHashMap<String, TerminalCommandCb>,
 }
 
-pub struct CommandCtx<'a> {
-  pub rendering: Option<&'a mut Viewer3dRenderingCtx>,
-}
-
 type TerminalCommandCb =
-  Box<dyn Fn(&mut CommandCtx, &Vec<String>) -> Box<dyn Future<Output = ()> + Send + Unpin>>;
+  Box<dyn Fn(&mut StateCx, &Vec<String>) -> Box<dyn Future<Output = ()> + Send + Unpin>>;
 
 impl Terminal {
-  pub fn egui(
-    &mut self,
-    ui: &mut egui::Ui,
-    rendering: Option<&mut Viewer3dRenderingCtx>,
-    io_executor: &ThreadPool,
-  ) {
+  pub fn egui(&mut self, ui: &mut egui::Ui, cx: &mut StateCx, io_executor: &ThreadPool) {
     ui.label("terminal");
     let re = ui.text_edit_singleline(&mut self.current_input);
     if re.lost_focus() && re.ctx.input(|i| i.key_pressed(egui::Key::Enter)) {
-      let mut cx = CommandCtx { rendering };
-      self.execute_current(&mut cx, io_executor);
+      self.execute_current(cx, io_executor);
     }
     ui.end_row();
   }
@@ -41,7 +31,7 @@ impl Terminal {
   pub fn register_command<F, FR>(&mut self, name: impl AsRef<str>, f: F) -> &mut Self
   where
     FR: Future<Output = ()> + Send + Unpin + 'static,
-    F: Fn(&mut CommandCtx, &Vec<String>) -> FR + 'static,
+    F: Fn(&mut StateCx, &Vec<String>) -> FR + 'static,
   {
     self.command_registry.insert(
       name.as_ref().to_owned(),
@@ -50,7 +40,7 @@ impl Terminal {
     self
   }
 
-  pub fn execute_current(&mut self, ctx: &mut CommandCtx, executor: &ThreadPool) {
+  pub fn execute_current(&mut self, ctx: &mut StateCx, executor: &ThreadPool) {
     let command = self.current_input.take();
     let parameters: Vec<String> = command
       .split_ascii_whitespace()
@@ -74,13 +64,14 @@ impl Terminal {
 pub fn register_default_commands(terminal: &mut Terminal) {
   // this mainly to do test
   terminal.register_command("clear-gpu-resource-cache", |ctx, _parameters| {
-    if let Some(r) = &ctx.rendering {
-      println!(
-        "current gpu resource cache details: {:?}",
-        r.gpu().create_cache_report()
-      );
-      r.gpu().clear_resource_cache();
-    }
+    state_access!(ctx, r, Viewer3dRenderingCtx);
+
+    println!(
+      "current gpu resource cache details: {:?}",
+      r.gpu().create_cache_report()
+    );
+    r.gpu().clear_resource_cache();
+
     Box::pin(async {})
   });
 
@@ -130,27 +121,21 @@ pub fn register_default_commands(terminal: &mut Terminal) {
   // });
 
   terminal.register_command("screenshot", |ctx, _parameters| {
-    let result = ctx
-      .rendering
-      .as_mut()
-      .map(|cx| cx.read_next_render_result());
+    state_access!(ctx, r, Viewer3dRenderingCtx);
+    let result = r.read_next_render_result();
 
-    // todo use ?
     Box::pin(async {
-      if let Some(result) = result{
-        match result.await {
-            Ok(r) =>{
-              if let Some(mut dir) = dirs::download_dir() {
-                dir.push("screenshot.png"); // will override old but ok
-                write_png(&r, dir);
-              }else {
-                log::error!("failed to locate the system's default download directory to write viewer screenshot image")
-              }
-            },
-            Err(e) => log::error!("{e:?}"),
-        }
+      match result.await {
+          Ok(r) =>{
+            if let Some(mut dir) = dirs::download_dir() {
+              dir.push("screenshot.png"); // will override old but ok
+              write_png(&r, dir);
+            }else {
+              log::error!("failed to locate the system's default download directory to write viewer screenshot image")
+            }
+          },
+          Err(e) => log::error!("{e:?}"),
       }
-
     })
   });
 
