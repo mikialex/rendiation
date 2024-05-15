@@ -32,6 +32,26 @@ pub trait StatefulView {
   fn clean_up(&mut self, cx: &mut StateCx);
 }
 
+impl StatefulView for () {
+  fn update_state(&mut self, _: &mut StateCx) {}
+  fn update_view(&mut self, _: &mut StateCx) {}
+  fn clean_up(&mut self, _: &mut StateCx) {}
+}
+
+impl StatefulView for Box<dyn StatefulView> {
+  fn update_state(&mut self, cx: &mut StateCx) {
+    (**self).update_state(cx)
+  }
+
+  fn update_view(&mut self, cx: &mut StateCx) {
+    (**self).update_view(cx)
+  }
+
+  fn clean_up(&mut self, cx: &mut StateCx) {
+    (**self).clean_up(cx)
+  }
+}
+
 pub struct View3dProvider {}
 
 pub struct InteractionState3d {

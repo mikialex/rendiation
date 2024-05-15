@@ -5,7 +5,7 @@ pub fn rotation_gizmo_view(
   v: &mut View3dProvider,
 ) -> impl StatefulView {
   let mut rotate_state = Option::<RotateState>::default();
-  UIGroup::default()
+  ViewGroup::default()
     .with_child(build_rotator(v, AxisType::X, parent))
     .with_child(build_rotator(v, AxisType::Y, parent))
     .with_child(build_rotator(v, AxisType::Z, parent))

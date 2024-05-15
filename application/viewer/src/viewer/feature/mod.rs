@@ -1,0 +1,20 @@
+mod camera_control;
+pub use camera_control::*;
+mod selection;
+pub use selection::*;
+mod selection_control;
+pub use selection_control::*;
+
+use crate::*;
+
+pub fn core_viewer_features<V: StatefulView>(
+  content_logic: impl Fn(&mut StateCx) -> V + 'static,
+) -> impl Fn(&mut StateCx) -> Box<dyn StatefulView> {
+  move |cx| {
+    Box::new(
+      ViewGroup::default()
+        .with_child(gizmo(todo!()))
+        .with_child(content_logic(cx)),
+    )
+  }
+}

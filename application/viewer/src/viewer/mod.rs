@@ -1,27 +1,33 @@
 use crate::*;
-mod content;
-pub use content::*;
+// mod content;
+// pub use content::*;
+
+mod feature;
+pub use feature::*;
 
 mod terminal;
 use rendiation_gui_3d::{state_access, StateCx, StatefulView};
 pub use terminal::*;
 
-mod default_scene;
-// pub use default_scene::*;
 mod rendering;
-use reactive::{EventSource, NotifyScope};
+use reactive::NotifyScope;
 pub use rendering::*;
 use rendiation_texture_core::Size;
 use rendiation_webgpu::*;
 
+pub struct Viewer3dSceneContext {
+  pub main_camera: AllocIdx<SceneCameraEntity>,
+  pub scene: AllocIdx<SceneEntity>,
+}
+
 pub struct Viewer {
-  content: Viewer3dContent,
-  pub terminal: Terminal,
-  pub(crate) ctx: Viewer3dRenderingCtx,
+  on_demand_rendering: bool,
+  on_demand_draw: NotifyScope,
+  scene: Viewer3dSceneContext,
+  content: Box<dyn StatefulView>,
+  terminal: Terminal,
+  ctx: Viewer3dRenderingCtx,
   size: Size,
-  pub io_executor: futures::executor::ThreadPool,
-  pub compute_executor: rayon::ThreadPool,
-  pub on_demand_draw: NotifyScope,
 }
 
 impl StatefulView for Viewer {
@@ -44,25 +50,16 @@ impl StatefulView for Viewer {
 }
 
 impl Viewer {
-  pub fn new(gpu: Arc<GPU>) -> Self {
-    let io_executor = futures::executor::ThreadPool::builder()
-      .name_prefix("viewer_io_threads")
-      .pool_size(2)
-      .create()
-      .unwrap();
-
-    let compute_executor = rayon::ThreadPoolBuilder::new()
-      .thread_name(|i| format!("viewer_compute_threads-{i}"))
-      .build()
-      .unwrap();
-
+  pub fn new(gpu: Arc<GPU>, content_logic: impl StatefulView + 'static) -> Self {
     Self {
-      content: Viewer3dContent::new(),
+      // todo, we current disable the on demand draw
+      // because we not cache the rendering result yet
+      on_demand_rendering: false,
+      content: Box::new(content_logic),
+      scene: todo!(),
       size: Size::from_u32_pair_min_one((100, 100)),
       terminal: Default::default(),
       ctx: Viewer3dRenderingCtx::new(gpu),
-      io_executor,
-      compute_executor,
       on_demand_draw: Default::default(),
     }
   }
@@ -82,22 +79,23 @@ impl Viewer {
           println!("PRESSED")
         }
 
+        ui.separator();
+        ui.checkbox(&mut self.on_demand_rendering, "enable on demand rendering");
+        ui.separator();
         self.ctx.pipeline.egui(ui);
-
-        self.terminal.egui(ui, cx, &self.io_executor);
+        ui.separator();
+        self.terminal.egui(ui, cx);
       });
   }
 
   pub fn draw_canvas(&mut self, canvas: &RenderTargetView) {
-    self.on_demand_draw.notify_by(|cx| {
-      self.content.per_frame_update();
-    });
+    if !self.on_demand_rendering {
+      self.on_demand_draw.wake();
+    }
 
-    self.on_demand_draw.wake(); // todo, we current disable the on demand draw
-                                // because we not cache the rendering result yet
     self.on_demand_draw.update_once(|cx| {
       // println!("draw");
-      self.ctx.render(canvas.clone(), &mut self.content, cx)
+      self.ctx.render(canvas.clone(), &self.scene, cx)
     });
   }
 

@@ -4,12 +4,11 @@ use crate::*;
 
 mod debug_channels;
 mod pipeline;
-use std::task::Context;
 
 use debug_channels::*;
 use futures::Future;
 pub use pipeline::*;
-use reactive::{EventSource, PollUtils};
+use reactive::EventSource;
 use rendiation_webgpu::*;
 
 pub struct Viewer3dRenderingCtx {
@@ -41,12 +40,9 @@ impl Viewer3dRenderingCtx {
     }
   }
 
-  pub fn gpu(&self) -> &GPU {
-    &self.gpu
-  }
-
   /// only texture could be read. caller must sure the target passed in render call not using
   /// window surface.
+  #[allow(unused)] // used in terminal command
   pub fn read_next_render_result(
     &self,
   ) -> impl Future<Output = Result<ReadableTextureBuffer, ViewerRenderResultReadBackErr>> {
@@ -64,24 +60,13 @@ impl Viewer3dRenderingCtx {
   pub fn render(
     &mut self,
     target: RenderTargetView,
-    content: &mut Viewer3dContent,
+    content: &Viewer3dSceneContext,
     cx: &mut std::task::Context,
   ) {
     let mut resource = self.rendering_resource.poll_update_all(cx);
     let renderer = self.renderer_impl.create_impl(&mut resource);
 
-    // renderer.render(scene, camera, pass, ctx, target)
-
-    // let (scene_resource, content_res) = self.resources.get_or_create_scene_sys_with_content(
-    //   &content.scene,
-    //   &content.scene_derived,
-    //   cx,
-    // );
-    // let resource = content_res.read().unwrap();
-
-    // let scene = content.scene.read();
-
-    // let mut ctx = FrameCtx::new(&self.gpu, target.size(), &self.pool);
+    let mut ctx = FrameCtx::new(&self.gpu, target.size(), &self.pool);
     // let scene_res = SceneRenderResourceGroup {
     //   scene: &scene.core.read(),
     //   resources: &resource,
@@ -90,13 +75,13 @@ impl Viewer3dRenderingCtx {
     // };
 
     // self.pipeline.render(&mut ctx, content, &target, &scene_res);
-    // ctx.final_submit();
+    ctx.final_submit();
 
-    // self.on_encoding_finished.emit(&ViewRenderedState {
-    //   target,
-    //   device: self.gpu.device.clone(),
-    //   queue: self.gpu.queue.clone(),
-    // })
+    self.on_encoding_finished.emit(&ViewRenderedState {
+      target,
+      device: self.gpu.device.clone(),
+      queue: self.gpu.queue.clone(),
+    })
   }
 }
 

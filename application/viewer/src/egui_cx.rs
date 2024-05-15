@@ -1,8 +1,5 @@
 use egui::epaint::Shadow;
 use egui::Visuals;
-use egui_wgpu::ScreenDescriptor;
-use egui_winit::State;
-use winit::event::WindowEvent;
 use winit::window::Window;
 
 use crate::*;
@@ -52,7 +49,6 @@ impl<T: StatefulView> StatefulView for EguiContext<T> {
 impl<T> EguiContext<T> {
   pub fn new(inner: T) -> EguiContext<T> {
     let egui_context = egui::Context::default();
-    let id = egui_context.viewport_id();
 
     const BORDER_RADIUS: f32 = 2.0;
 
@@ -70,10 +66,6 @@ impl<T> EguiContext<T> {
       state: None,
       renderer: None,
     }
-  }
-
-  pub fn cx(&self) -> &egui::Context {
-    &self.context
   }
 
   pub fn begin_frame(&mut self, window: &Window) {

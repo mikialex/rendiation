@@ -1,18 +1,18 @@
 use crate::*;
 
 #[derive(Default)]
-pub struct UIGroup {
+pub struct ViewGroup {
   children: Vec<Box<dyn StatefulView>>,
 }
 
-impl UIGroup {
+impl ViewGroup {
   pub fn with_child(mut self, child: impl StatefulView + 'static) -> Self {
     self.children.push(Box::new(child));
     self
   }
 }
 
-impl StatefulView for UIGroup {
+impl StatefulView for ViewGroup {
   fn update_view(&mut self, cx: &mut StateCx) {
     for c in &mut self.children {
       c.update_view(cx)
@@ -32,7 +32,7 @@ impl StatefulView for UIGroup {
 
 pub struct UINode {
   node: AllocIdx<SceneNodeEntity>,
-  children: UIGroup,
+  children: ViewGroup,
 }
 
 impl UINode {

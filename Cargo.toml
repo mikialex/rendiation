@@ -50,6 +50,7 @@ members = [
   "scene/io/obj/loader",
   "scene/io/texture/loader",
   "scene/geometry-query",
+  "platform/event-input",
   "platform/graphics/webgpu",
   "platform/graphics/webgpu-reactive-utils",
   "extension/controller",

@@ -3173,6 +3173,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "rendiation-platform-event-input"
+version = "0.1.0"
+dependencies = [
+ "winit",
+]
+
+[[package]]
 name = "rendiation-scene-core"
 version = "0.1.0"
 dependencies = [
@@ -4126,6 +4133,7 @@ dependencies = [
  "rendiation-lighting-transport",
  "rendiation-mesh-core",
  "rendiation-mesh-generator",
+ "rendiation-platform-event-input",
  "rendiation-scene-core",
  "rendiation-scene-rendering-gpu-gles",
  "rendiation-shader-api",

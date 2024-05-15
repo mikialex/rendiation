@@ -1,0 +1,12 @@
+[package]
+authors = ["MikiAlex <18516340862@163.com>"]
+edition = "2021"
+name = "rendiation-platform-event-input"
+version = "0.1.0"
+
+[dependencies]
+winit = { workspace = true }
+
+
+[lints]
+workspace = true

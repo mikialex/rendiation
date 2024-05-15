@@ -77,8 +77,12 @@ macro_rules! state_mut_access {
 }
 
 impl StateCx {
-  pub fn split_state<T>(&mut self, f: impl FnOnce(&mut T, &mut Self)) {
-    todo!();
+  pub fn split_state<T: 'static>(&mut self, f: impl FnOnce(&mut T, &mut Self)) {
+    unsafe {
+      let ptr = self.unregister_state::<T>();
+      f(ptr.as_mut().unwrap(), self);
+      self.register_state(ptr);
+    }
   }
 
   pub unsafe fn get_state_ref<T: 'static>(&self) -> &T {
@@ -100,21 +104,21 @@ impl StateCx {
     last_ptr as *mut T
   }
 
-  pub unsafe fn register_state<T: 'static>(&mut self, v: &mut T) {
+  pub unsafe fn register_state<T: 'static>(&mut self, v: *mut T) {
     self
       .states
       .entry(TypeId::of::<T>())
       .or_default()
-      .push(v as *mut T as *mut ())
+      .push(v as *mut ())
   }
 
-  pub unsafe fn unregister_state<T: 'static>(&mut self) {
+  pub unsafe fn unregister_state<T: 'static>(&mut self) -> *mut T {
     self
       .states
       .entry(TypeId::of::<T>())
       .or_default()
       .pop()
-      .unwrap();
+      .unwrap() as *mut T
   }
 }
 
@@ -128,7 +132,7 @@ impl<T: 'static, V: StatefulView> StatefulView for StateCtxInject<T, V> {
     unsafe {
       cx.register_state(&mut self.state);
       self.view.update_view(cx);
-      cx.unregister_state::<T>()
+      cx.unregister_state::<T>();
     }
   }
 
@@ -136,7 +140,7 @@ impl<T: 'static, V: StatefulView> StatefulView for StateCtxInject<T, V> {
     unsafe {
       cx.register_state(&mut self.state);
       self.view.update_state(cx);
-      cx.unregister_state::<T>()
+      cx.unregister_state::<T>();
     }
   }
   fn clean_up(&mut self, cx: &mut StateCx) {
@@ -160,7 +164,7 @@ impl<T1: 'static, T2: 'static, F: Fn(&mut T1) -> &mut T2, V: StatefulView> State
 
       cx.register_state(picked);
       self.view.update_view(cx);
-      cx.unregister_state::<T2>()
+      cx.unregister_state::<T2>();
     }
   }
 
@@ -171,7 +175,7 @@ impl<T1: 'static, T2: 'static, F: Fn(&mut T1) -> &mut T2, V: StatefulView> State
 
       cx.register_state(picked);
       self.view.update_state(cx);
-      cx.unregister_state::<T2>()
+      cx.unregister_state::<T2>();
     }
   }
   fn clean_up(&mut self, cx: &mut StateCx) {

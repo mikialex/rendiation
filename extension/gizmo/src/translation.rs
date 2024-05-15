@@ -4,7 +4,7 @@ pub fn translation_gizmo_view(
   parent: AllocIdx<SceneNodeEntity>,
   v: &mut View3dProvider,
 ) -> impl StatefulView {
-  UIGroup::default()
+  ViewGroup::default()
     .with_child(arrow(v, AxisType::X, parent))
     .with_child(arrow(v, AxisType::Y, parent))
     .with_child(arrow(v, AxisType::Z, parent))
@@ -35,7 +35,11 @@ pub fn translation_gizmo_view(
     .with_local_state_inject(AxisActiveState::default())
 }
 
-fn arrow(v: &mut View3dProvider, axis: AxisType, parent: AllocIdx<SceneNodeEntity>) -> impl StatefulView {
+fn arrow(
+  v: &mut View3dProvider,
+  axis: AxisType,
+  parent: AllocIdx<SceneNodeEntity>,
+) -> impl StatefulView {
   UIWidgetModel::new(v)
     .with_parent(v, parent)
     .with_shape(v, ArrowShape::default().build())
@@ -47,7 +51,11 @@ fn arrow(v: &mut View3dProvider, axis: AxisType, parent: AllocIdx<SceneNodeEntit
     .with_state_pick(axis_lens(axis))
 }
 
-fn plane(v: &mut View3dProvider, axis: AxisType, parent: AllocIdx<SceneNodeEntity>) -> impl StatefulView {
+fn plane(
+  v: &mut View3dProvider,
+  axis: AxisType,
+  parent: AllocIdx<SceneNodeEntity>,
+) -> impl StatefulView {
   let mesh = build_attributes_mesh(|builder| {
     builder.triangulate_parametric(
       &ParametricPlane.transform_by(Mat4::translate((-0.5, -0.5, 0.))),

@@ -1,29 +1,43 @@
-use std::{io::Write, path::Path, task::Context};
+use std::{io::Write, path::Path};
 
 use egui::TextBuffer;
 use fast_hash_collection::FastHashMap;
 use futures::{executor::ThreadPool, Future};
-use reactive::PollUtils;
 use rendiation_webgpu::ReadableTextureBuffer;
 
 use crate::*;
 
-#[derive(Default)]
 pub struct Terminal {
   pub current_input: String,
   pub command_history: Vec<String>,
   pub command_registry: FastHashMap<String, TerminalCommandCb>,
+  pub executor: ThreadPool,
+}
+
+impl Default for Terminal {
+  fn default() -> Self {
+    Self {
+      current_input: Default::default(),
+      command_history: Default::default(),
+      command_registry: Default::default(),
+      executor: futures::executor::ThreadPool::builder()
+        .name_prefix("viewer_io_threads")
+        .pool_size(1)
+        .create()
+        .unwrap(),
+    }
+  }
 }
 
 type TerminalCommandCb =
   Box<dyn Fn(&mut StateCx, &Vec<String>) -> Box<dyn Future<Output = ()> + Send + Unpin>>;
 
 impl Terminal {
-  pub fn egui(&mut self, ui: &mut egui::Ui, cx: &mut StateCx, io_executor: &ThreadPool) {
+  pub fn egui(&mut self, ui: &mut egui::Ui, cx: &mut StateCx) {
     ui.label("terminal");
     let re = ui.text_edit_singleline(&mut self.current_input);
     if re.lost_focus() && re.ctx.input(|i| i.key_pressed(egui::Key::Enter)) {
-      self.execute_current(cx, io_executor);
+      self.execute_current(cx);
     }
     ui.end_row();
   }
@@ -40,7 +54,7 @@ impl Terminal {
     self
   }
 
-  pub fn execute_current(&mut self, ctx: &mut StateCx, executor: &ThreadPool) {
+  pub fn execute_current(&mut self, ctx: &mut StateCx) {
     let command = self.current_input.take();
     let parameters: Vec<String> = command
       .split_ascii_whitespace()
@@ -52,7 +66,7 @@ impl Terminal {
         println!("execute: {command}");
 
         let task = exe(ctx, &parameters);
-        executor.spawn_ok(task);
+        self.executor.spawn_ok(task);
       } else {
         println!("unknown command {command_name}")
       }
@@ -64,13 +78,13 @@ impl Terminal {
 pub fn register_default_commands(terminal: &mut Terminal) {
   // this mainly to do test
   terminal.register_command("clear-gpu-resource-cache", |ctx, _parameters| {
-    state_access!(ctx, r, Viewer3dRenderingCtx);
+    state_access!(ctx, gpu, Arc<GPU>);
 
     println!(
       "current gpu resource cache details: {:?}",
-      r.gpu().create_cache_report()
+      gpu.create_cache_report()
     );
-    r.gpu().clear_resource_cache();
+    gpu.clear_resource_cache();
 
     Box::pin(async {})
   });
