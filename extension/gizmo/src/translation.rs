@@ -3,8 +3,8 @@ use crate::*;
 pub fn translation_gizmo_view(
   parent: AllocIdx<SceneNodeEntity>,
   v: &mut View3dProvider,
-) -> impl StatefulView {
-  ViewGroup::default()
+) -> impl Widget {
+  WidgetGroup::default()
     .with_child(arrow(v, AxisType::X, parent))
     .with_child(arrow(v, AxisType::Y, parent))
     .with_child(arrow(v, AxisType::Z, parent))
@@ -39,7 +39,7 @@ fn arrow(
   v: &mut View3dProvider,
   axis: AxisType,
   parent: AllocIdx<SceneNodeEntity>,
-) -> impl StatefulView {
+) -> impl Widget {
   UIWidgetModel::new(v)
     .with_parent(v, parent)
     .with_shape(v, ArrowShape::default().build())
@@ -55,7 +55,7 @@ fn plane(
   v: &mut View3dProvider,
   axis: AxisType,
   parent: AllocIdx<SceneNodeEntity>,
-) -> impl StatefulView {
+) -> impl Widget {
   let mesh = build_attributes_mesh(|builder| {
     builder.triangulate_parametric(
       &ParametricPlane.transform_by(Mat4::translate((-0.5, -0.5, 0.))),

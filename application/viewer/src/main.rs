@@ -42,7 +42,7 @@ static GLOBAL_ALLOCATOR: PreciseAllocationStatistics<System> =
 
 pub fn run_viewer_app<V>(content_logic: impl Fn(&mut StateCx) -> V + 'static)
 where
-  V: StatefulView + 'static,
+  V: Widget + 'static,
 {
   env_logger::builder().init();
 

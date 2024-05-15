@@ -11,7 +11,7 @@ pub struct EguiContext<T> {
   renderer: Option<egui_wgpu::Renderer>,
 }
 
-impl<T: StatefulView> StatefulView for EguiContext<T> {
+impl<T: Widget> Widget for EguiContext<T> {
   fn update_state(&mut self, cx: &mut StateCx) {
     state_access!(cx, window, Window);
     state_access!(cx, platform_event, PlatformEventInput);

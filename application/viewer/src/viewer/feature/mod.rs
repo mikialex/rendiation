@@ -7,12 +7,12 @@ pub use selection_control::*;
 
 use crate::*;
 
-pub fn core_viewer_features<V: StatefulView>(
+pub fn core_viewer_features<V: Widget>(
   content_logic: impl Fn(&mut StateCx) -> V + 'static,
-) -> impl Fn(&mut StateCx) -> Box<dyn StatefulView> {
+) -> impl Fn(&mut StateCx) -> Box<dyn Widget> {
   move |cx| {
     Box::new(
-      ViewGroup::default()
+      WidgetGroup::default()
         .with_child(gizmo(todo!()))
         .with_child(content_logic(cx)),
     )

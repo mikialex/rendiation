@@ -6,7 +6,7 @@ pub struct SceneOrbitCameraControl {
   pub controller: ControllerWinitAdapter<OrbitController>,
 }
 
-impl StatefulView for SceneOrbitCameraControl {
+impl Widget for SceneOrbitCameraControl {
   fn update_state(&mut self, cx: &mut StateCx) {
     state_access!(cx, event, PlatformEventInput);
 

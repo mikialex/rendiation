@@ -1,6 +1,9 @@
 #![allow(clippy::missing_safety_doc)]
 
-use std::ops::{Deref, DerefMut};
+use std::{
+  any::{Any, TypeId},
+  ops::{Deref, DerefMut},
+};
 
 use crate::*;
 
@@ -127,7 +130,7 @@ pub struct StateCtxInject<T, V> {
   pub state: T,
 }
 
-impl<T: 'static, V: StatefulView> StatefulView for StateCtxInject<T, V> {
+impl<T: 'static, V: Widget> Widget for StateCtxInject<T, V> {
   fn update_view(&mut self, cx: &mut StateCx) {
     unsafe {
       cx.register_state(&mut self.state);
@@ -154,7 +157,7 @@ pub struct StateCtxPick<V, F, T1, T2> {
   pub phantom: PhantomData<(T1, T2)>,
 }
 
-impl<T1: 'static, T2: 'static, F: Fn(&mut T1) -> &mut T2, V: StatefulView> StatefulView
+impl<T1: 'static, T2: 'static, F: Fn(&mut T1) -> &mut T2, V: Widget> Widget
   for StateCtxPick<V, F, T1, T2>
 {
   fn update_view(&mut self, cx: &mut StateCx) {

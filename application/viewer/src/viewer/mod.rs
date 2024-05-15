@@ -6,7 +6,7 @@ mod feature;
 pub use feature::*;
 
 mod terminal;
-use rendiation_gui_3d::{state_access, StateCx, StatefulView};
+use rendiation_gui_3d::{state_access, StateCx, Widget};
 pub use terminal::*;
 
 mod rendering;
@@ -24,13 +24,13 @@ pub struct Viewer {
   on_demand_rendering: bool,
   on_demand_draw: NotifyScope,
   scene: Viewer3dSceneContext,
-  content: Box<dyn StatefulView>,
+  content: Box<dyn Widget>,
   terminal: Terminal,
   ctx: Viewer3dRenderingCtx,
   size: Size,
 }
 
-impl StatefulView for Viewer {
+impl Widget for Viewer {
   fn update_state(&mut self, cx: &mut StateCx) {
     // todo, update size
     self.content.update_state(cx)
@@ -50,7 +50,7 @@ impl StatefulView for Viewer {
 }
 
 impl Viewer {
-  pub fn new(gpu: Arc<GPU>, content_logic: impl StatefulView + 'static) -> Self {
+  pub fn new(gpu: Arc<GPU>, content_logic: impl Widget + 'static) -> Self {
     Self {
       // todo, we current disable the on demand draw
       // because we not cache the rendering result yet

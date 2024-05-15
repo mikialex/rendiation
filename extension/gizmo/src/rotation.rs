@@ -3,9 +3,9 @@ use crate::*;
 pub fn rotation_gizmo_view(
   parent: AllocIdx<SceneNodeEntity>,
   v: &mut View3dProvider,
-) -> impl StatefulView {
+) -> impl Widget {
   let mut rotate_state = Option::<RotateState>::default();
-  ViewGroup::default()
+  WidgetGroup::default()
     .with_child(build_rotator(v, AxisType::X, parent))
     .with_child(build_rotator(v, AxisType::Y, parent))
     .with_child(build_rotator(v, AxisType::Z, parent))
@@ -37,7 +37,7 @@ pub fn build_rotator(
   v: &mut View3dProvider,
   axis: AxisType,
   parent: AllocIdx<SceneNodeEntity>,
-) -> impl StatefulView {
+) -> impl Widget {
   let mesh = build_attributes_mesh(|builder| {
     builder.triangulate_parametric(
       &TorusMeshParameter {

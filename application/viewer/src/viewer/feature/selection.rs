@@ -5,7 +5,7 @@ pub struct SelectionProvider<T> {
   // pub picker: MeshBufferIntersectConfig,
 }
 
-impl<T> StatefulView for SelectionProvider<T> {
+impl<T> Widget for SelectionProvider<T> {
   fn update_state(&mut self, cx: &mut StateCx) {
     todo!()
   }

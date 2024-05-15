@@ -1,6 +1,6 @@
 use crate::*;
 
-pub async fn run_application<T: StatefulView>(mut app: T) {
+pub async fn run_application<T: Widget>(mut app: T) {
   let event_loop = EventLoop::new().unwrap();
   let window = WindowBuilder::new().build(&event_loop).unwrap();
   window.set_title("viewer");
