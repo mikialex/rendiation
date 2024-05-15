@@ -26,6 +26,7 @@ pub struct Viewer {
 
 impl StatefulView for Viewer {
   fn update_state(&mut self, cx: &mut StateCx) {
+    // todo, update size
     self.content.update_state(cx)
   }
   fn update_view(&mut self, cx: &mut StateCx) {

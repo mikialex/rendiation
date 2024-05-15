@@ -7,20 +7,50 @@ use winit::window::Window;
 
 use crate::*;
 
-pub struct EguiContext {
+pub struct EguiContext<T> {
+  inner: T,
   context: egui::Context,
-  state: egui_winit::State,
-  renderer: egui_wgpu::Renderer,
+  state: Option<egui_winit::State>,
+  renderer: Option<egui_wgpu::Renderer>,
 }
 
-impl EguiContext {
-  pub fn new(
-    device: &Device,
-    output_color_format: TextureFormat,
-    output_depth_format: Option<TextureFormat>,
-    msaa_samples: u32,
-    window: &Window,
-  ) -> EguiContext {
+impl<T: StatefulView> StatefulView for EguiContext<T> {
+  fn update_state(&mut self, cx: &mut StateCx) {
+    state_access!(cx, window, Window);
+    state_access!(cx, platform_event, PlatformEventInput);
+
+    let state = self.state.get_or_insert_with(|| {
+      let id = self.context.viewport_id();
+      egui_winit::State::new(self.context.clone(), id, &window, None, None)
+    });
+
+    for event in &platform_event.accumulate_events {
+      let _ = state.on_window_event(window, event);
+    }
+
+    self.inner.update_state(cx);
+  }
+
+  fn update_view(&mut self, cx: &mut StateCx) {
+    state_access!(cx, window, Window);
+    self.begin_frame(window);
+
+    // todo, cx register egui
+    self.inner.update_view(cx);
+
+    state_access!(cx, window, Window);
+    state_access!(cx, gpu, Arc<GPU>);
+    state_access!(cx, canvas, RenderTargetView);
+    self.end_frame_and_draw(gpu, window, canvas);
+  }
+
+  fn clean_up(&mut self, cx: &mut StateCx) {
+    self.inner.clean_up(cx)
+  }
+}
+
+impl<T> EguiContext<T> {
+  pub fn new(inner: T) -> EguiContext<T> {
     let egui_context = egui::Context::default();
     let id = egui_context.viewport_id();
 
@@ -34,24 +64,12 @@ impl EguiContext {
 
     egui_context.set_visuals(visuals);
 
-    let egui_state = egui_winit::State::new(egui_context.clone(), id, &window, None, None);
-
-    let egui_renderer = egui_wgpu::Renderer::new(
-      device,
-      output_color_format,
-      output_depth_format,
-      msaa_samples,
-    );
-
     EguiContext {
+      inner,
       context: egui_context,
-      state: egui_state,
-      renderer: egui_renderer,
+      state: None,
+      renderer: None,
     }
-  }
-
-  pub fn handle_input(&mut self, window: &Window, event: &WindowEvent) {
-    let _ = self.state.on_window_event(window, event);
   }
 
   pub fn cx(&self) -> &egui::Context {
@@ -59,26 +77,37 @@ impl EguiContext {
   }
 
   pub fn begin_frame(&mut self, window: &Window) {
-    self.context.begin_frame(self.state.take_egui_input(window));
+    let state = self.state.as_mut().unwrap();
+    self.context.begin_frame(state.take_egui_input(window));
   }
 
   pub fn end_frame_and_draw(&mut self, gpu: &GPU, window: &Window, target: &RenderTargetView) {
+    let state = self.state.as_mut().unwrap();
     let view = target.as_view();
 
     let full_output = self.context.end_frame();
 
-    self
-      .state
-      .handle_platform_output(window, full_output.platform_output);
+    state.handle_platform_output(window, full_output.platform_output);
 
     let tris = self
       .context
       .tessellate(full_output.shapes, full_output.pixels_per_point);
 
+    // todo, recreate renderer if target spec changed
+    let renderer = self.renderer.get_or_insert_with(|| {
+      let output_color_format = target.format();
+      let output_depth_format = None;
+      let msaa_samples = 1;
+      egui_wgpu::Renderer::new(
+        &gpu.device,
+        output_color_format,
+        output_depth_format,
+        msaa_samples,
+      )
+    });
+
     for (id, image_delta) in &full_output.textures_delta.set {
-      self
-        .renderer
-        .update_texture(&gpu.device, &gpu.queue, *id, image_delta);
+      renderer.update_texture(&gpu.device, &gpu.queue, *id, image_delta);
     }
 
     let screen_descriptor = egui_wgpu::ScreenDescriptor {
@@ -93,7 +122,7 @@ impl EguiContext {
           label: Some("GUI encoder"),
         });
 
-    self.renderer.update_buffers(
+    renderer.update_buffers(
       &gpu.device,
       &gpu.queue,
       &mut encoder,
@@ -115,13 +144,13 @@ impl EguiContext {
       timestamp_writes: None,
       occlusion_query_set: None,
     });
-    self.renderer.render(&mut rpass, &tris, &screen_descriptor);
+    renderer.render(&mut rpass, &tris, &screen_descriptor);
     drop(rpass);
 
     gpu.queue.submit(std::iter::once(encoder.finish()));
 
     for x in &full_output.textures_delta.free {
-      self.renderer.free_texture(x)
+      renderer.free_texture(x)
     }
   }
 }

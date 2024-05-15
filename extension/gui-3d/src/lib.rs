@@ -49,19 +49,8 @@ pub trait Picker3d {
   ) -> Option<Vec3<f32>>;
 }
 
-pub trait ViewExt: StatefulView {
-  fn with_view_update(self, f: impl FnMut(&mut Self, &mut StateCx)) -> impl StatefulView;
-  fn with_state_update(self, f: impl FnMut(&mut StateCx)) -> impl StatefulView;
-  fn with_state_post_update(self, f: impl FnMut(&mut StateCx)) -> impl StatefulView;
-  fn with_local_state_inject<X: 'static>(self, state: X) -> impl StatefulView;
-  fn with_state_pick<T1: 'static, T2: 'static>(
-    self,
-    len: impl Fn(&mut T1) -> &mut T2,
-  ) -> impl StatefulView;
-}
-
-impl<T: StatefulView> ViewExt for T {
-  fn with_view_update(self, f: impl FnMut(&mut T, &mut StateCx)) -> impl StatefulView {
+pub trait ViewExt: StatefulView + Sized {
+  fn with_view_update(self, f: impl FnMut(&mut Self, &mut StateCx)) -> impl StatefulView {
     ViewUpdate { inner: self, f }
   }
   fn with_state_update(self, f: impl FnMut(&mut StateCx)) -> impl StatefulView {
@@ -92,6 +81,8 @@ impl<T: StatefulView> ViewExt for T {
     }
   }
 }
+
+impl<T: StatefulView> ViewExt for T {}
 
 pub struct ViewUpdate<T, F> {
   inner: T,
@@ -132,5 +123,32 @@ impl<T: StatefulView, F: FnMut(&mut StateCx)> StatefulView for StateUpdate<T, F>
   }
   fn clean_up(&mut self, cx: &mut StateCx) {
     self.inner.clean_up(cx)
+  }
+}
+
+pub struct StateCxCreateOnce<T, F> {
+  inner: Option<T>,
+  f: F,
+}
+
+impl<T, F: Fn(&mut StateCx) -> T> StateCxCreateOnce<T, F> {
+  pub fn new(f: F) -> Self {
+    Self { inner: None, f }
+  }
+}
+
+impl<T: StatefulView, F: Fn(&mut StateCx) -> T> StatefulView for StateCxCreateOnce<T, F> {
+  fn update_state(&mut self, cx: &mut StateCx) {
+    let inner = self.inner.get_or_insert_with(|| (self.f)(cx));
+    inner.update_state(cx)
+  }
+  fn update_view(&mut self, cx: &mut StateCx) {
+    let inner = self.inner.get_or_insert_with(|| (self.f)(cx));
+    inner.update_view(cx)
+  }
+  fn clean_up(&mut self, cx: &mut StateCx) {
+    if let Some(inner) = &mut self.inner {
+      inner.clean_up(cx)
+    }
   }
 }

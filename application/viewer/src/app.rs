@@ -1,0 +1,82 @@
+use winit::window::Window;
+
+use crate::*;
+
+#[derive(Default)]
+pub struct PlatformEventInput {
+  pub accumulate_events: Vec<WindowEvent>,
+}
+
+impl PlatformEventInput {
+  pub fn queue_event(&mut self, event: WindowEvent) {
+    self.accumulate_events.push(event);
+  }
+  pub fn reset(&mut self) {
+    self.accumulate_events.clear();
+  }
+}
+
+pub async fn run_application<T: StatefulView>(mut app: T) {
+  let event_loop = EventLoop::new().unwrap();
+  let window = WindowBuilder::new().build(&event_loop).unwrap();
+  window.set_title("viewer");
+
+  let minimal_required_features = rendiation_webgpu::Features::all_webgpu_mask();
+  // minimal_required_features.insert(Features::TEXTURE_BINDING_ARRAY);
+  // minimal_required_features.insert(Features::BUFFER_BINDING_ARRAY);
+  // minimal_required_features.insert(Features::PARTIALLY_BOUND_BINDING_ARRAY);
+
+  let config = GPUCreateConfig {
+    surface_for_compatible_check_init: Some((&window, Size::from_usize_pair_min_one((300, 200)))),
+    minimal_required_features,
+    ..Default::default()
+  };
+
+  let (gpu, surface) = GPU::new(config).await.unwrap();
+  let gpu = Arc::new(gpu);
+
+  let mut surface: GPUSurface<'static> = unsafe { std::mem::transmute(surface.unwrap()) };
+
+  let mut window_state = WindowState::default();
+
+  let mut event_state = PlatformEventInput::default();
+
+  let _ = event_loop.run(move |event, target| {
+    window_state.event(&event);
+    let position_info = CanvasWindowPositionInfo::full_window(window_state.size);
+
+    match event {
+      Event::WindowEvent { ref event, .. } => {
+        event_state.queue_event(event.clone());
+
+        match event {
+          WindowEvent::CloseRequested => {
+            target.exit();
+          }
+          WindowEvent::Resized(physical_size) => surface.resize(
+            Size::from_u32_pair_min_one((physical_size.width, physical_size.height)),
+            &gpu.device,
+          ),
+          WindowEvent::RedrawRequested => {
+            let (output, canvas) = surface.get_current_frame_with_render_target_view().unwrap();
+
+            let mut cx = StateCx::default();
+            // todo register state, events
+
+            app.update_state(&mut cx);
+
+            event_state.reset();
+
+            app.update_view(&mut cx);
+
+            output.present();
+            window.request_redraw();
+          }
+
+          _ => {}
+        };
+      }
+      _ => {}
+    }
+  });
+}
