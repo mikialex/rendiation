@@ -1,9 +1,9 @@
-use std::sync::Arc;
-
+use crate::*;
 mod content;
 pub use content::*;
 
 mod terminal;
+use rendiation_gui_3d::{state_access, StateCx, StatefulView};
 pub use terminal::*;
 
 mod default_scene;
@@ -16,16 +16,34 @@ use rendiation_webgpu::*;
 
 pub struct Viewer {
   content: Viewer3dContent,
-  pub(crate) ctx: Option<Viewer3dRenderingCtx>,
-  size: Size,
   pub terminal: Terminal,
+  pub(crate) ctx: Viewer3dRenderingCtx,
+  size: Size,
   pub io_executor: futures::executor::ThreadPool,
   pub compute_executor: rayon::ThreadPool,
   pub on_demand_draw: NotifyScope,
 }
 
-impl Default for Viewer {
-  fn default() -> Self {
+impl StatefulView for Viewer {
+  fn update_state(&mut self, cx: &mut StateCx) {
+    self.content.update_state(cx)
+  }
+  fn update_view(&mut self, cx: &mut StateCx) {
+    state_access!(cx, draw_target_canvas, RenderTargetView);
+    self.draw_canvas(draw_target_canvas);
+
+    cx.split_state::<egui::Context>(|egui_cx, cx| {
+      self.egui(egui_cx, cx);
+    });
+  }
+
+  fn clean_up(&mut self, cx: &mut StateCx) {
+    self.content.clean_up(cx)
+  }
+}
+
+impl Viewer {
+  pub fn new(gpu: Arc<GPU>) -> Self {
     let io_executor = futures::executor::ThreadPool::builder()
       .name_prefix("viewer_io_threads")
       .pool_size(2)
@@ -41,16 +59,35 @@ impl Default for Viewer {
       content: Viewer3dContent::new(),
       size: Size::from_u32_pair_min_one((100, 100)),
       terminal: Default::default(),
-      ctx: None,
+      ctx: Viewer3dRenderingCtx::new(gpu),
       io_executor,
       compute_executor,
       on_demand_draw: Default::default(),
     }
   }
-}
 
-impl Viewer {
-  pub fn draw_canvas(&mut self, gpu: &Arc<GPU>, canvas: &RenderTargetView) {
+  pub fn egui(&mut self, ui: &egui::Context, cx: &mut StateCx) {
+    egui::Window::new("Viewer")
+      .vscroll(true)
+      .default_open(true)
+      .max_width(1000.0)
+      .max_height(800.0)
+      .default_width(800.0)
+      .resizable(true)
+      .movable(true)
+      .anchor(egui::Align2::LEFT_TOP, [3.0, 3.0])
+      .show(ui, |ui| {
+        if ui.add(egui::Button::new("Click me")).clicked() {
+          println!("PRESSED")
+        }
+
+        self.ctx.pipeline.egui(ui);
+
+        self.terminal.egui(ui, cx, &self.io_executor);
+      });
+  }
+
+  pub fn draw_canvas(&mut self, canvas: &RenderTargetView) {
     self.on_demand_draw.notify_by(|cx| {
       self.content.per_frame_update();
     });
@@ -59,33 +96,14 @@ impl Viewer {
                                 // because we not cache the rendering result yet
     self.on_demand_draw.update_once(|cx| {
       // println!("draw");
-      self
-        .ctx
-        .get_or_insert_with(|| Viewer3dRenderingCtx::new(gpu.clone()))
-        .render(canvas.clone(), &mut self.content, cx)
+      self.ctx.render(canvas.clone(), &mut self.content, cx)
     });
-  }
-
-  pub fn event(
-    &mut self,
-    event: &winit::event::Event<()>,
-    states: &WindowState,
-    position_info: CanvasWindowPositionInfo,
-  ) {
-    self
-      .on_demand_draw
-      .notify_by(|cx| self.content.per_event_update(event, states, position_info));
   }
 
   pub fn update_render_size(&mut self, layout_size: (f32, f32)) -> Size {
     let new_size = (layout_size.0 as u32, layout_size.1 as u32);
     let new_size = Size::from_u32_pair_min_one(new_size);
-    if let Some(ctx) = &mut self.ctx {
-      if self.size != new_size {
-        ctx.resize_view();
-        self.content.resize_view(layout_size);
-      }
-    }
+
     self.size = new_size;
     new_size
   }

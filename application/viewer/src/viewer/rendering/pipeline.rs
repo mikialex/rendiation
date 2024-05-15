@@ -4,6 +4,7 @@ use rendiation_algebra::*;
 use rendiation_texture_gpu_process::*;
 use rendiation_webgpu::*;
 
+use super::ScreenChannelDebugger;
 use crate::*;
 
 pub struct ViewerPipeline {
@@ -14,7 +15,7 @@ pub struct ViewerPipeline {
   ssao: SSAO,
   _blur: CrossBlurData,
   pub enable_channel_debugger: bool,
-  // channel_debugger: ScreenChannelDebugger,
+  channel_debugger: ScreenChannelDebugger,
   tonemap: ToneMap,
 }
 
@@ -28,9 +29,14 @@ impl ViewerPipeline {
       enable_ssao: true,
       ssao: SSAO::new(gpu),
       enable_channel_debugger: false,
-      // channel_debugger: ScreenChannelDebugger::default_useful(),
+      channel_debugger: ScreenChannelDebugger::default_useful(),
       tonemap: ToneMap::new(gpu),
     }
+  }
+
+  pub fn egui(&mut self, ui: &mut egui::Ui) {
+    ui.checkbox(&mut self.enable_ssao, "enable ssao");
+    ui.checkbox(&mut self.enable_channel_debugger, "enable channel debug");
   }
 }
 

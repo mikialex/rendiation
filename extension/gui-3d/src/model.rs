@@ -20,7 +20,7 @@ pub struct UIWidgetModel {
   mesh: AllocIdx<AttributeMeshEntity>,
 }
 
-impl View3d for UIWidgetModel {
+impl StatefulView for UIWidgetModel {
   fn update_view(&mut self, cx: &mut StateCx) {
     // if let Some(update) = self.view_update {
     //   // update(self, model)

@@ -2,17 +2,17 @@ use crate::*;
 
 #[derive(Default)]
 pub struct UIGroup {
-  children: Vec<Box<dyn View3d>>,
+  children: Vec<Box<dyn StatefulView>>,
 }
 
 impl UIGroup {
-  pub fn with_child(mut self, child: impl View3d + 'static) -> Self {
+  pub fn with_child(mut self, child: impl StatefulView + 'static) -> Self {
     self.children.push(Box::new(child));
     self
   }
 }
 
-impl View3d for UIGroup {
+impl StatefulView for UIGroup {
   fn update_view(&mut self, cx: &mut StateCx) {
     for c in &mut self.children {
       c.update_view(cx)
@@ -42,7 +42,7 @@ impl UINode {
   pub fn node(&self) -> AllocIdx<SceneNodeEntity> {
     self.node
   }
-  pub fn with_child<V: View3d + 'static>(
+  pub fn with_child<V: StatefulView + 'static>(
     mut self,
     v: &mut View3dProvider,
     child: impl FnOnce(AllocIdx<SceneNodeEntity>, &mut View3dProvider) -> V,
@@ -52,7 +52,7 @@ impl UINode {
   }
 }
 
-impl View3d for UINode {
+impl StatefulView for UINode {
   fn update_view(&mut self, cx: &mut StateCx) {
     self.children.update_view(cx)
   }

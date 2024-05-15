@@ -13,10 +13,29 @@ use winit::{
 use crate::*;
 
 pub struct Viewer3dContent {
+  select_gizmo: Box<dyn StatefulView>,
+  select_target: Option<AllocIdx<SceneModelEntity>>,
   pub main_camera: AllocIdx<SceneCameraEntity>,
   pub scene: AllocIdx<SceneEntity>,
   pub pick_config: MeshBufferIntersectConfig,
   pub controller: ControllerWinitAdapter<OrbitController>,
+}
+
+impl StatefulView for Viewer3dContent {
+  fn update_view(&mut self, cx: &mut StateCx) {
+    state_access!(cx, rendering_cx, Viewer3dRenderingCtx);
+    // todo, sync camera size from rendering ctx canvas size
+    self.select_gizmo.update_view(cx);
+  }
+
+  fn update_state(&mut self, cx: &mut StateCx) {
+    // todo, do scene picking, update self selection target
+    self.select_gizmo.update_state(cx);
+  }
+
+  fn clean_up(&mut self, cx: &mut StateCx) {
+    todo!()
+  }
 }
 
 impl Viewer3dContent {
@@ -29,137 +48,133 @@ impl Viewer3dContent {
       scene: todo!(),
       controller,
       pick_config: Default::default(),
+      select_gizmo: Box::new(gizmo(todo!())),
+      select_target: None,
     }
   }
 
-  pub fn resize_view(&mut self, size: (f32, f32)) {
-    // if let Some(camera) = &self.scene.read().core.read().active_camera {
-    //   camera.resize(size)
-    // }
+  fn fit_camera_view(&self) {
+    //   let padding_ratio = 0.1;
+    //   let scene_inner = self.scene.read();
+    //   let scene = scene_inner.core.read();
+    //   let camera = scene.active_camera.clone().unwrap();
+
+    //   // get the bounding box of all selection
+    //   let bbox = Box3::empty();
+    //   // for model in self.selections.iter_selected() {
+    //   //   let handle = model.read().attach_index().unwrap();
+    //   //   let handle = scene_inner.core.read().models.get_handle(handle).unwrap();
+    //   //   if let Some(b) = self.scene_bounding.get_model_bounding(handle) {
+    //   //     bbox.expand_by_other(*b);
+    //   //   } else {
+    //   //     // for unbound model, we should include the it's coord's center point
+    //   //     // todo, add a trait to support logically better center point
+    //   //     let world = self.scene_derived.get_world_matrix(&model.read().node);
+    //   //     bbox.expand_by_point(world.position());
+    //   //   }
+    //   // }
+
+    //   if bbox.is_empty() {
+    //     println!("not select any thing");
+    //     return;
+    //   }
+
+    //   let camera = camera.read();
+
+    //   let camera_world = self.scene_derived.get_world_matrix(&camera.node);
+    //   let target_center = bbox.center();
+    //   let mut object_radius = bbox.min.distance(target_center);
+
+    //   // if we not even have one box
+    //   if object_radius == 0. {
+    //     object_radius = camera_world.position().distance(target_center);
+    //   }
+
+    //   match camera.projection {
+    //     CameraProjectionEnum::Perspective(proj) => {
+    //       // todo check horizon fov
+    //       let half_fov = proj.fov.to_rad() / 2.;
+    //       let canvas_half_size = half_fov.tan(); // todo consider near far limit
+    //       let padded_canvas_half_size = canvas_half_size * (1.0 - padding_ratio);
+    //       let desired_half_fov = padded_canvas_half_size.atan();
+    //       let desired_distance = object_radius / desired_half_fov.sin();
+
+    //       let look_at_dir_rev = (camera_world.position() - target_center).normalize();
+    //       let desired_camera_center = look_at_dir_rev * desired_distance + target_center;
+    //       // we assume camera has no parent!
+    //       camera.node.set_local_matrix(Mat4::lookat(
+    //         desired_camera_center,
+    //         target_center,
+    //         Vec3::new(0., 1., 0.),
+    //       ))
+    //       //
+    //     }
+    //     _ => {
+    //       println!("only perspective camera support fit view for now")
+    //     }
+    //   }
   }
 
-  // fn fit_camera_view(&self) {
-  //   let padding_ratio = 0.1;
-  //   let scene_inner = self.scene.read();
-  //   let scene = scene_inner.core.read();
-  //   let camera = scene.active_camera.clone().unwrap();
+  // pub fn per_event_update(
+  //   &mut self,
+  //   event: &Event<()>,
+  //   states: &WindowState,
+  //   position_info: CanvasWindowPositionInfo,
+  // ) {
+  //   // let _bound = InputBound {
+  //   //   origin: (
+  //   //     position_info.absolute_position.x,
+  //   //     position_info.absolute_position.y,
+  //   //   )
+  //   //     .into(),
+  //   //   size: (position_info.size.x, position_info.size.y).into(),
+  //   // };
 
-  //   // get the bounding box of all selection
-  //   let bbox = Box3::empty();
-  //   // for model in self.selections.iter_selected() {
-  //   //   let handle = model.read().attach_index().unwrap();
-  //   //   let handle = scene_inner.core.read().models.get_handle(handle).unwrap();
-  //   //   if let Some(b) = self.scene_bounding.get_model_bounding(handle) {
-  //   //     bbox.expand_by_other(*b);
-  //   //   } else {
-  //   //     // for unbound model, we should include the it's coord's center point
-  //   //     // todo, add a trait to support logically better center point
-  //   //     let world = self.scene_derived.get_world_matrix(&model.read().node);
-  //   //     bbox.expand_by_point(world.position());
-  //   //   }
+  //   // let normalized_screen_position = position_info
+  //   //   .compute_normalized_position_in_canvas_coordinate(states)
+  //   //   .into();
+
+  //   // // todo, get correct size from render ctx side
+  //   // let camera_view_size =
+  //   //   Size::from_usize_pair_min_one((position_info.size.x as usize, position_info.size.y as
+  //   // usize));
+
+  //   // enum SelectAction {
+  //   //   DeSelect,
+  //   //   Select(SceneNode),
+  //   //   Nothing,
+  //   // }
+  //   // let mut _act = SelectAction::Nothing;
+
+  //   // {
+  //   //   let s = self.scene.read();
+  //   //   let scene = &s.core.read();
+
+  //   //   let interactive_ctx = scene.build_interactive_ctx(
+  //   //     normalized_screen_position,
+  //   //     camera_view_size,
+  //   //     &self.pick_config,
+  //   //     &self.scene_derived,
+  //   //   );
+
+  //   //   if let Some((MouseButton::Left, ElementState::Pressed)) = mouse(event) {
+  //   //     if let Some((nearest, _)) =
+  //   //       scene.interaction_picking(&interactive_ctx, &mut self.scene_bounding)
+  //   //     {
+  //   //       self.selections.clear();
+  //   //       self.selections.select(nearest);
+
+  //   //       _act = SelectAction::Select(nearest.read().node.clone());
+  //   //     } else {
+  //   //       _act = SelectAction::DeSelect;
+  //   //     }
+  //   //   };
   //   // }
 
-  //   if bbox.is_empty() {
-  //     println!("not select any thing");
-  //     return;
-  //   }
-
-  //   let camera = camera.read();
-
-  //   let camera_world = self.scene_derived.get_world_matrix(&camera.node);
-  //   let target_center = bbox.center();
-  //   let mut object_radius = bbox.min.distance(target_center);
-
-  //   // if we not even have one box
-  //   if object_radius == 0. {
-  //     object_radius = camera_world.position().distance(target_center);
-  //   }
-
-  //   match camera.projection {
-  //     CameraProjectionEnum::Perspective(proj) => {
-  //       // todo check horizon fov
-  //       let half_fov = proj.fov.to_rad() / 2.;
-  //       let canvas_half_size = half_fov.tan(); // todo consider near far limit
-  //       let padded_canvas_half_size = canvas_half_size * (1.0 - padding_ratio);
-  //       let desired_half_fov = padded_canvas_half_size.atan();
-  //       let desired_distance = object_radius / desired_half_fov.sin();
-
-  //       let look_at_dir_rev = (camera_world.position() - target_center).normalize();
-  //       let desired_camera_center = look_at_dir_rev * desired_distance + target_center;
-  //       // we assume camera has no parent!
-  //       camera.node.set_local_matrix(Mat4::lookat(
-  //         desired_camera_center,
-  //         target_center,
-  //         Vec3::new(0., 1., 0.),
-  //       ))
-  //       //
-  //     }
-  //     _ => {
-  //       println!("only perspective camera support fit view for now")
-  //     }
-  //   }
+  //   // if let Some((Some(KeyCode::KeyF), ElementState::Pressed)) = keyboard(event) {
+  //   //   self.fit_camera_view();
+  //   // }
   // }
-
-  pub fn per_event_update(
-    &mut self,
-    event: &Event<()>,
-    states: &WindowState,
-    position_info: CanvasWindowPositionInfo,
-  ) {
-    // let _bound = InputBound {
-    //   origin: (
-    //     position_info.absolute_position.x,
-    //     position_info.absolute_position.y,
-    //   )
-    //     .into(),
-    //   size: (position_info.size.x, position_info.size.y).into(),
-    // };
-
-    // let normalized_screen_position = position_info
-    //   .compute_normalized_position_in_canvas_coordinate(states)
-    //   .into();
-
-    // // todo, get correct size from render ctx side
-    // let camera_view_size =
-    //   Size::from_usize_pair_min_one((position_info.size.x as usize, position_info.size.y as
-    // usize));
-
-    // enum SelectAction {
-    //   DeSelect,
-    //   Select(SceneNode),
-    //   Nothing,
-    // }
-    // let mut _act = SelectAction::Nothing;
-
-    // {
-    //   let s = self.scene.read();
-    //   let scene = &s.core.read();
-
-    //   let interactive_ctx = scene.build_interactive_ctx(
-    //     normalized_screen_position,
-    //     camera_view_size,
-    //     &self.pick_config,
-    //     &self.scene_derived,
-    //   );
-
-    //   if let Some((MouseButton::Left, ElementState::Pressed)) = mouse(event) {
-    //     if let Some((nearest, _)) =
-    //       scene.interaction_picking(&interactive_ctx, &mut self.scene_bounding)
-    //     {
-    //       self.selections.clear();
-    //       self.selections.select(nearest);
-
-    //       _act = SelectAction::Select(nearest.read().node.clone());
-    //     } else {
-    //       _act = SelectAction::DeSelect;
-    //     }
-    //   };
-    // }
-
-    // if let Some((Some(KeyCode::KeyF), ElementState::Pressed)) = keyboard(event) {
-    //   self.fit_camera_view();
-    // }
-  }
 
   pub fn per_frame_update(&mut self) {
     // struct ControlleeWrapper<'a> {

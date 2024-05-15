@@ -21,13 +21,18 @@ pub use model::*;
 mod shape_helper;
 pub use shape_helper::*;
 
-pub struct View3dProvider {}
-
-pub trait View3d {
-  fn update_view(&mut self, cx: &mut StateCx);
+/// state lives in self(internal state) or cx(external state passed in)
+/// view lives in self(self present) or cx(outside view provider passed in)
+pub trait StatefulView {
+  /// foreach frame, view react to event and change state, event info is input from cx
   fn update_state(&mut self, cx: &mut StateCx);
+  /// foreach frame, after update_state, state sync change to view and present to user
+  fn update_view(&mut self, cx: &mut StateCx);
+  /// should be called before self drop, do resource cleanup within the same cx in update cycle
   fn clean_up(&mut self, cx: &mut StateCx);
 }
+
+pub struct View3dProvider {}
 
 pub struct InteractionState3d {
   pub picker: Box<dyn Picker3d>,
@@ -44,42 +49,42 @@ pub trait Picker3d {
   ) -> Option<Vec3<f32>>;
 }
 
-pub trait ViewExt: View3d {
-  fn with_view_update(self, f: impl FnMut(&mut Self, &mut StateCx)) -> impl View3d;
-  fn with_state_update(self, f: impl FnMut(&mut StateCx)) -> impl View3d;
-  fn with_state_post_update(self, f: impl FnMut(&mut StateCx)) -> impl View3d;
-  fn with_local_state_inject<X: 'static>(self, state: X) -> impl View3d;
+pub trait ViewExt: StatefulView {
+  fn with_view_update(self, f: impl FnMut(&mut Self, &mut StateCx)) -> impl StatefulView;
+  fn with_state_update(self, f: impl FnMut(&mut StateCx)) -> impl StatefulView;
+  fn with_state_post_update(self, f: impl FnMut(&mut StateCx)) -> impl StatefulView;
+  fn with_local_state_inject<X: 'static>(self, state: X) -> impl StatefulView;
   fn with_state_pick<T1: 'static, T2: 'static>(
     self,
     len: impl Fn(&mut T1) -> &mut T2,
-  ) -> impl View3d;
+  ) -> impl StatefulView;
 }
 
-impl<T: View3d> ViewExt for T {
-  fn with_view_update(self, f: impl FnMut(&mut T, &mut StateCx)) -> impl View3d {
+impl<T: StatefulView> ViewExt for T {
+  fn with_view_update(self, f: impl FnMut(&mut T, &mut StateCx)) -> impl StatefulView {
     ViewUpdate { inner: self, f }
   }
-  fn with_state_update(self, f: impl FnMut(&mut StateCx)) -> impl View3d {
+  fn with_state_update(self, f: impl FnMut(&mut StateCx)) -> impl StatefulView {
     StateUpdate {
       inner: self,
       f,
       post_update: false,
     }
   }
-  fn with_state_post_update(self, f: impl FnMut(&mut StateCx)) -> impl View3d {
+  fn with_state_post_update(self, f: impl FnMut(&mut StateCx)) -> impl StatefulView {
     StateUpdate {
       inner: self,
       f,
       post_update: true,
     }
   }
-  fn with_local_state_inject<X: 'static>(self, state: X) -> impl View3d {
+  fn with_local_state_inject<X: 'static>(self, state: X) -> impl StatefulView {
     StateCtxInject { view: self, state }
   }
   fn with_state_pick<T1: 'static, T2: 'static>(
     self,
     len: impl Fn(&mut T1) -> &mut T2,
-  ) -> impl View3d {
+  ) -> impl StatefulView {
     StateCtxPick {
       view: self,
       pick: len,
@@ -93,7 +98,7 @@ pub struct ViewUpdate<T, F> {
   f: F,
 }
 
-impl<T: View3d, F: FnMut(&mut T, &mut StateCx)> View3d for ViewUpdate<T, F> {
+impl<T: StatefulView, F: FnMut(&mut T, &mut StateCx)> StatefulView for ViewUpdate<T, F> {
   fn update_view(&mut self, cx: &mut StateCx) {
     (self.f)(&mut self.inner, cx);
     self.inner.update_view(cx)
@@ -112,7 +117,7 @@ pub struct StateUpdate<T, F> {
   post_update: bool,
 }
 
-impl<T: View3d, F: FnMut(&mut StateCx)> View3d for StateUpdate<T, F> {
+impl<T: StatefulView, F: FnMut(&mut StateCx)> StatefulView for StateUpdate<T, F> {
   fn update_view(&mut self, cx: &mut StateCx) {
     self.inner.update_view(cx)
   }

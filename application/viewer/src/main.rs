@@ -17,8 +17,11 @@ use egui_winit::winit::{
   event_loop::EventLoop,
   window::WindowBuilder,
 };
+use reactive::*;
+use rendiation_gizmo::*;
 use rendiation_gui_3d::*;
 use rendiation_lighting_transport::*;
+use rendiation_scene_rendering_gpu_gles::*;
 use rendiation_shader_api::*;
 
 mod egui_cx;
@@ -66,14 +69,13 @@ pub async fn run() {
 
   let mut surface: GPUSurface<'static> = unsafe { std::mem::transmute(surface.unwrap()) };
 
-  let mut viewer = Viewer::default();
+  let mut viewer = Viewer::new(gpu.clone());
   let mut window_state = WindowState::default();
   let mut egui_cx = EguiContext::new(&gpu.device, surface.config.format, None, 1, &window);
 
   let _ = event_loop.run(move |event, target| {
     window_state.event(&event);
     let position_info = CanvasWindowPositionInfo::full_window(window_state.size);
-    viewer.event(&event, &window_state, position_info);
 
     match event {
       Event::WindowEvent { ref event, .. } => {
@@ -94,11 +96,12 @@ pub async fn run() {
           WindowEvent::RedrawRequested => {
             let (output, canvas) = surface.get_current_frame_with_render_target_view().unwrap();
 
-            viewer.draw_canvas(&gpu, &canvas);
+            let mut cx = StateCx::default();
 
             egui_cx.begin_frame(&window);
 
-            ui_logic(egui_cx.cx(), &mut viewer);
+            // todo, cx register egui
+            viewer.update_view(&mut cx);
 
             egui_cx.end_frame_and_draw(&gpu, &window, &canvas);
 
@@ -112,34 +115,4 @@ pub async fn run() {
       _ => {}
     }
   });
-}
-
-fn ui_logic(ui: &egui::Context, viewer: &mut Viewer) {
-  egui::Window::new("Viewer")
-    .vscroll(true)
-    .default_open(true)
-    .max_width(1000.0)
-    .max_height(800.0)
-    .default_width(800.0)
-    .resizable(true)
-    .movable(true)
-    .anchor(egui::Align2::LEFT_TOP, [3.0, 3.0])
-    .show(ui, |ui| {
-      if ui.add(egui::Button::new("Click me")).clicked() {
-        println!("PRESSED")
-      }
-
-      if let Some(ctx) = &mut viewer.ctx {
-        ui_render_config(ui, &mut ctx.pipeline)
-      }
-
-      let mut cx = StateCx::default();
-
-      viewer.terminal.egui(ui, &mut cx, &viewer.io_executor);
-    });
-}
-
-fn ui_render_config(ui: &mut egui::Ui, config: &mut ViewerPipeline) {
-  ui.checkbox(&mut config.enable_ssao, "enable ssao");
-  ui.checkbox(&mut config.enable_channel_debugger, "enable channel debug");
 }

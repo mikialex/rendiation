@@ -77,6 +77,10 @@ macro_rules! state_mut_access {
 }
 
 impl StateCx {
+  pub fn split_state<T>(&mut self, f: impl FnOnce(&mut T, &mut Self)) {
+    todo!();
+  }
+
   pub unsafe fn get_state_ref<T: 'static>(&self) -> &T {
     self.get_state_ptr::<T>().as_ref().unwrap()
   }
@@ -119,7 +123,7 @@ pub struct StateCtxInject<T, V> {
   pub state: T,
 }
 
-impl<T: 'static, V: View3d> View3d for StateCtxInject<T, V> {
+impl<T: 'static, V: StatefulView> StatefulView for StateCtxInject<T, V> {
   fn update_view(&mut self, cx: &mut StateCx) {
     unsafe {
       cx.register_state(&mut self.state);
@@ -146,7 +150,7 @@ pub struct StateCtxPick<V, F, T1, T2> {
   pub phantom: PhantomData<(T1, T2)>,
 }
 
-impl<T1: 'static, T2: 'static, F: Fn(&mut T1) -> &mut T2, V: View3d> View3d
+impl<T1: 'static, T2: 'static, F: Fn(&mut T1) -> &mut T2, V: StatefulView> StatefulView
   for StateCtxPick<V, F, T1, T2>
 {
   fn update_view(&mut self, cx: &mut StateCx) {

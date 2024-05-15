@@ -13,7 +13,7 @@ pub use translation::*;
 /// the user should provide Option::<GizmoControlTargetState> for target selecting,
 /// and should apply change GizmoUpdateTargetLocal to source object, the applied change should sync
 /// back to GizmoControlTargetState
-pub fn gizmo(v: &mut View3dProvider) -> impl View3d {
+pub fn gizmo(v: &mut View3dProvider) -> impl StatefulView {
   UINode::new(v)
     .with_child(v, translation_gizmo_view)
     .with_child(v, rotation_gizmo_view)

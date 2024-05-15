@@ -14,6 +14,8 @@ use rendiation_webgpu::*;
 
 pub struct Viewer3dRenderingCtx {
   pub(crate) pipeline: ViewerPipeline,
+  rendering_resource: ReactiveStateJoinUpdater,
+  renderer_impl: GLESRenderSystem,
   pool: AttachmentPool,
   gpu: Arc<GPU>,
   on_encoding_finished: EventSource<ViewRenderedState>,
@@ -21,7 +23,17 @@ pub struct Viewer3dRenderingCtx {
 
 impl Viewer3dRenderingCtx {
   pub fn new(gpu: Arc<GPU>) -> Self {
+    let resource_cx = GPUResourceCtx {
+      device: gpu.device.clone(),
+      queue: gpu.queue.clone(),
+    };
+
+    let mut renderer_impl = build_default_gles_render_system(&gpu);
+    let mut rendering_resource = ReactiveStateJoinUpdater::default();
+    renderer_impl.register_resource(&mut rendering_resource, &resource_cx);
     Self {
+      rendering_resource,
+      renderer_impl,
       pipeline: ViewerPipeline::new(gpu.as_ref()),
       gpu,
       pool: Default::default(),
@@ -55,7 +67,10 @@ impl Viewer3dRenderingCtx {
     content: &mut Viewer3dContent,
     cx: &mut std::task::Context,
   ) {
-    // self.resources.poll_until_pending_not_care_result(cx);
+    let mut resource = self.rendering_resource.poll_update_all(cx);
+    let renderer = self.renderer_impl.create_impl(&mut resource);
+
+    // renderer.render(scene, camera, pass, ctx, target)
 
     // let (scene_resource, content_res) = self.resources.get_or_create_scene_sys_with_content(
     //   &content.scene,
@@ -94,7 +109,7 @@ struct ViewRenderedState {
 
 #[derive(Debug)]
 pub enum ViewerRenderResultReadBackErr {
-  GPU(rendiation_webgpu::BufferAsyncError),
+  Gpu(rendiation_webgpu::BufferAsyncError),
   UnableToReadSurfaceTexture,
 }
 
@@ -123,7 +138,7 @@ impl ViewRenderedState {
           buffer
         };
 
-        buffer.await.map_err(ViewerRenderResultReadBackErr::GPU)
+        buffer.await.map_err(ViewerRenderResultReadBackErr::Gpu)
       }
       RenderTargetView::SurfaceTexture { .. } => {
         // note: maybe surface could supported by extra copy, but I'm not sure the surface texture's

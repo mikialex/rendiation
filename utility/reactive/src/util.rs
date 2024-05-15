@@ -2,6 +2,7 @@ use crate::*;
 
 pub type BoxedAnyReactiveState = Box<dyn ReactiveState<State = Box<dyn Any>>>;
 
+#[derive(Default)]
 pub struct ReactiveStateJoinUpdater {
   update_logic: FastHashMap<u32, BoxedAnyReactiveState>,
   next: u32,
