@@ -22,7 +22,9 @@ impl<T: Widget> Widget for EguiContext<T> {
     });
 
     for event in &platform_event.accumulate_events {
-      let _ = state.on_window_event(window, event);
+      if let Event::WindowEvent { event, .. } = event {
+        let _ = state.on_window_event(window, event);
+      }
     }
 
     self.inner.update_state(cx);

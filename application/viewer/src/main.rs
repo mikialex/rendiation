@@ -10,6 +10,7 @@ use std::{alloc::System, sync::Arc};
 
 use database::*;
 use reactive::*;
+use rendiation_geometry::*;
 use rendiation_gizmo::*;
 use rendiation_gui_3d::*;
 use rendiation_lighting_transport::*;

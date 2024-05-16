@@ -25,6 +25,7 @@ pub trait Transformed3DControllee {
   fn set_matrix(&mut self, m: Mat4<f32>);
 }
 
+#[derive(Clone, Copy)]
 pub struct InputBound {
   pub origin: Vec2<f32>,
   pub size: Vec2<f32>,

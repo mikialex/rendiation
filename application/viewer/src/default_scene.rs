@@ -38,23 +38,6 @@ use crate::*;
 //   .into()
 // }
 
-type SceneMeshBuilder =
-  IndexedMeshBuilder<GroupedMesh<IndexedMesh<TriangleList, Vec<CommonVertex>, DynIndexContainer>>>;
-
-pub fn build_scene_mesh(
-  f: impl FnOnce(&mut SceneMeshBuilder),
-) -> EntityHandle<AttributeMeshEntity> {
-  let mut builder = SceneMeshBuilder::default();
-  f(&mut builder);
-  let mesh = builder.finish();
-  let mut attribute: AttributesMeshData = mesh.mesh.primitive_iter().collect();
-  attribute.groups = mesh.groups;
-
-  let mut writer = AttributesMesh::create_writer();
-
-  attribute.build().write(&mut writer)
-}
-
 // pub fn load_default_scene(scene: &Scene) {
 //   let path = if cfg!(windows) {
 //     "C:/Users/mk/Desktop/rrf-resource/planets/earth_atmos_2048.jpg"

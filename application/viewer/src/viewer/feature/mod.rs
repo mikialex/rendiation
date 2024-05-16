@@ -4,6 +4,8 @@ mod selection;
 pub use selection::*;
 mod selection_control;
 pub use selection_control::*;
+mod fit_camera_view;
+pub use fit_camera_view::*;
 
 use crate::*;
 

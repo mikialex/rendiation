@@ -5,14 +5,14 @@ use winit::{
 
 #[derive(Default)]
 pub struct PlatformEventInput {
-  pub accumulate_events: Vec<WindowEvent>,
+  pub accumulate_events: Vec<Event<()>>,
   pub previous_frame_window_state: WindowState,
   pub window_state: WindowState,
   pub state_delta: WindowStateChange,
 }
 
 impl PlatformEventInput {
-  pub fn queue_event(&mut self, event: WindowEvent) {
+  pub fn queue_event(&mut self, event: Event<()>) {
     self.accumulate_events.push(event);
   }
   pub fn begin_frame(&mut self) {
@@ -44,8 +44,8 @@ impl WindowState {
 
 #[derive(Default)]
 pub struct WindowStateChange {
-  size_change: bool,
-  mouse_position_change: bool,
+  pub size_change: bool,
+  pub mouse_position_change: bool,
 }
 
 impl WindowState {

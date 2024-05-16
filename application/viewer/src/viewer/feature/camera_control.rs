@@ -11,12 +11,12 @@ impl Widget for SceneOrbitCameraControl {
     state_access!(cx, event, PlatformEventInput);
 
     let bound = InputBound {
-      origin: todo!(),
-      size: todo!(),
+      origin: Vec2::zero(),
+      size: event.window_state.size.into(),
     };
 
     for e in &event.accumulate_events {
-      // self.controller.event(e, bound)
+      self.controller.event(e, bound)
     }
 
     // todo update camera state

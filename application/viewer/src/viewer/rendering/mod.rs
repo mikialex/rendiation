@@ -60,7 +60,7 @@ impl Viewer3dRenderingCtx {
   pub fn render(
     &mut self,
     target: RenderTargetView,
-    content: &Viewer3dSceneContext,
+    content: &Viewer3dSceneCtx,
     cx: &mut std::task::Context,
   ) {
     let mut resource = self.rendering_resource.poll_update_all(cx);

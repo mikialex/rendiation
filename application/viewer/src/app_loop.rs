@@ -17,7 +17,7 @@ pub async fn run_application<T: Widget>(mut app: T) {
   };
 
   let (gpu, surface) = GPU::new(config).await.unwrap();
-  let gpu = Arc::new(gpu);
+  let mut gpu = Arc::new(gpu);
 
   let mut surface: GPUSurface<'static> = unsafe { std::mem::transmute(surface.unwrap()) };
 
@@ -28,9 +28,9 @@ pub async fn run_application<T: Widget>(mut app: T) {
   let _ = event_loop.run(move |event, target| {
     window_state.event(&event);
 
-    if let Event::WindowEvent { ref event, .. } = event {
-      event_state.queue_event(event.clone());
+    event_state.queue_event(event.clone());
 
+    if let Event::WindowEvent { ref event, .. } = event {
       match event {
         WindowEvent::CloseRequested => {
           target.exit();
@@ -40,18 +40,27 @@ pub async fn run_application<T: Widget>(mut app: T) {
           &gpu.device,
         ),
         WindowEvent::RedrawRequested => {
-          let (output, _canvas) = surface.get_current_frame_with_render_target_view().unwrap();
+          let (output, mut canvas) = surface.get_current_frame_with_render_target_view().unwrap();
 
           let mut cx = StateCx::default();
-          // todo register state, events
 
           event_state.begin_frame();
-
-          app.update_state(&mut cx);
+          cx.state_scope(&mut event_state, |cx| {
+            cx.state_scope(&mut gpu, |cx| {
+              cx.state_scope(&mut canvas, |cx| {
+                app.update_state(cx);
+              });
+            });
+          });
 
           event_state.end_frame();
-
-          app.update_view(&mut cx);
+          cx.state_scope(&mut event_state, |cx| {
+            cx.state_scope(&mut gpu, |cx| {
+              cx.state_scope(&mut canvas, |cx| {
+                app.update_view(cx);
+              });
+            });
+          });
 
           output.present();
           window.request_redraw();

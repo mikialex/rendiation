@@ -123,6 +123,14 @@ impl StateCx {
       .pop()
       .unwrap() as *mut T
   }
+
+  pub fn state_scope<T: 'static>(&mut self, state: &mut T, f: impl FnOnce(&mut StateCx)) {
+    unsafe {
+      self.register_state(state);
+      f(self);
+      self.unregister_state::<T>();
+    }
+  }
 }
 
 pub struct StateCtxInject<T, V> {
@@ -132,19 +140,15 @@ pub struct StateCtxInject<T, V> {
 
 impl<T: 'static, V: Widget> Widget for StateCtxInject<T, V> {
   fn update_view(&mut self, cx: &mut StateCx) {
-    unsafe {
-      cx.register_state(&mut self.state);
+    cx.state_scope(&mut self.state, |cx| {
       self.view.update_view(cx);
-      cx.unregister_state::<T>();
-    }
+    })
   }
 
   fn update_state(&mut self, cx: &mut StateCx) {
-    unsafe {
-      cx.register_state(&mut self.state);
+    cx.state_scope(&mut self.state, |cx| {
       self.view.update_state(cx);
-      cx.unregister_state::<T>();
-    }
+    })
   }
   fn clean_up(&mut self, cx: &mut StateCx) {
     self.view.clean_up(cx)
@@ -165,9 +169,9 @@ impl<T1: 'static, T2: 'static, F: Fn(&mut T1) -> &mut T2, V: Widget> Widget
       let s = cx.get_state_ptr::<T1>();
       let picked = (self.pick)(s.as_mut().unwrap());
 
-      cx.register_state(picked);
-      self.view.update_view(cx);
-      cx.unregister_state::<T2>();
+      cx.state_scope(picked, |cx| {
+        self.view.update_view(cx);
+      });
     }
   }
 
@@ -176,9 +180,9 @@ impl<T1: 'static, T2: 'static, F: Fn(&mut T1) -> &mut T2, V: Widget> Widget
       let s = cx.get_state_ptr::<T1>();
       let picked = (self.pick)(s.as_mut().unwrap());
 
-      cx.register_state(picked);
-      self.view.update_state(cx);
-      cx.unregister_state::<T2>();
+      cx.state_scope(picked, |cx| {
+        self.view.update_state(cx);
+      });
     }
   }
   fn clean_up(&mut self, cx: &mut StateCx) {
