@@ -1,4 +1,3 @@
-use database::*;
 use reactive::AllocIdx;
 use rendiation_algebra::*;
 use rendiation_geometry::*;
@@ -15,8 +14,6 @@ mod model;
 pub use model::*;
 mod shape_helper;
 pub use shape_helper::*;
-
-pub struct View3dProvider {}
 
 pub struct InteractionState3d {
   pub picker: Box<dyn Picker3d>,

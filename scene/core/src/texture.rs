@@ -1,5 +1,3 @@
-use rendiation_texture_core::{GPUBufferImage, TextureSampler};
-
 use crate::*;
 
 declare_entity!(SceneTexture2dEntity);
@@ -113,5 +111,38 @@ impl Texture2DWithSamplingDataView {
     writer
       .component_value_writer::<SceneTexture2dRefOf<C>>(self.texture.some_handle())
       .component_value_writer::<SceneSamplerRefOf<C>>(self.sampler.some_handle());
+  }
+}
+
+pub struct TexSamplerWriter<'a> {
+  pub tex_writer: &'a mut EntityWriter<SceneTexture2dEntity>,
+  pub sampler_writer: &'a mut EntityWriter<SceneSamplerEntity>,
+}
+
+impl<'a> TexSamplerWriter<'a> {
+  pub fn write_tex_with_default_sampler(
+    &mut self,
+    texture: GPUBufferImage,
+  ) -> Texture2DWithSamplingDataView {
+    self.write(texture, TextureSampler::tri_linear_repeat())
+  }
+  pub fn write(
+    &mut self,
+    texture: GPUBufferImage,
+    sampler: TextureSampler,
+  ) -> Texture2DWithSamplingDataView {
+    let texture = ExternalRefPtr::new(texture);
+
+    let sampler = self
+      .sampler_writer
+      .component_value_writer::<SceneSamplerInfo>(sampler)
+      .new_entity();
+
+    let texture = self
+      .tex_writer
+      .component_value_writer::<SceneTexture2dEntityDirectContent>(texture.into())
+      .new_entity();
+
+    Texture2DWithSamplingDataView { texture, sampler }
   }
 }

@@ -4,7 +4,7 @@ use database::*;
 use rendiation_algebra::*;
 use rendiation_mesh_core::*;
 use rendiation_scene_core::*;
-use rendiation_scene_io_texture_loader::*;
+use rendiation_texture_loader::*;
 use smallvec::SmallVec;
 
 #[derive(thiserror::Error, Debug)]
@@ -18,14 +18,12 @@ pub fn load_obj(
   node: EntityHandle<SceneNodeEntity>,
   scene: EntityHandle<SceneEntity>,
   default_mat: EntityHandle<PbrSGMaterialEntity>,
+  writer: &mut Scene3dWriter,
 ) -> Result<(), ObjLoadError> {
-  let models = load_obj_content(path, default_mat)?;
-
-  let mut std_model_w = global_entity_of().entity_writer();
-  let mut sm_w = global_entity_of().entity_writer();
+  let models = load_obj_content(path, default_mat, writer)?;
 
   for model in models {
-    let std_model = model.write(&mut std_model_w);
+    let std_model = model.write(&mut writer.std_model_w);
 
     let sm = SceneModelDataModel {
       model: std_model,
@@ -33,7 +31,7 @@ pub fn load_obj(
       node,
     };
 
-    sm.write(&mut sm_w);
+    sm.write(&mut writer.model_writer);
   }
   Ok(())
 }
@@ -41,25 +39,22 @@ pub fn load_obj(
 pub fn load_obj_content(
   path: impl AsRef<Path> + std::fmt::Debug,
   default_mat: EntityHandle<PbrSGMaterialEntity>,
+  writer: &mut Scene3dWriter,
 ) -> Result<Vec<StandardModelDataView>, ObjLoadError> {
   let (models, materials) = tobj::load_obj(path, &tobj::GPU_LOAD_OPTIONS)?;
-
-  let mut mesh_writer = AttributesMesh::create_writer();
-  let mut tex_writer = TexSamplerWriter::default();
-  let mut material_writer = global_entity_of().entity_writer();
 
   let models = models
     .iter()
     .map(|m| {
       let attribute_mesh = create_attribute_mesh_from_obj_mesh(&m.mesh);
-      let attribute_mesh = attribute_mesh.write(&mut mesh_writer);
+      let attribute_mesh = writer.write_attribute_mesh(attribute_mesh);
 
       let mut material = None;
       if let Some(material_id) = m.mesh.material_id {
         if let Ok(materials) = &materials {
           if let Some(m) = materials.get(material_id) {
-            material = into_rff_material(m, &mut tex_writer)
-              .write(&mut material_writer)
+            material = into_rff_material(m, writer)
+              .write(&mut writer.pbr_sg_mat_writer)
               .into();
           }
         }
@@ -83,7 +78,7 @@ pub fn load_obj_content(
 /// convert obj material into scene material, only part of material parameters are supported
 fn into_rff_material(
   m: &tobj::Material,
-  tex_writer: &mut TexSamplerWriter,
+  writer: &mut Scene3dWriter,
 ) -> PhysicalSpecularGlossinessMaterialDataView {
   let mut mat = PhysicalSpecularGlossinessMaterialDataView::default();
   if let Some(diffuse) = m.diffuse {
@@ -93,15 +88,26 @@ fn into_rff_material(
     mat.specular = Vec3::new(specular[0], specular[1], specular[2]);
   }
   if let Some(diffuse_texture) = &m.diffuse_texture {
-    mat.albedo_texture = load_texture_sampler_pair(diffuse_texture, tex_writer).into();
+    let diffuse_texture = load_tex(diffuse_texture);
+    mat.albedo_texture = writer
+      .texture_sample_pair_writer()
+      .write_tex_with_default_sampler(diffuse_texture)
+      .into();
   }
   if let Some(specular_texture) = &m.specular_texture {
-    mat.specular_texture = load_texture_sampler_pair(specular_texture, tex_writer).into();
+    let specular_texture = load_tex(specular_texture);
+    mat.specular_texture = writer
+      .texture_sample_pair_writer()
+      .write_tex_with_default_sampler(specular_texture)
+      .into();
   }
   if let Some(normal_texture) = &m.normal_texture {
+    let normal_texture = load_tex(normal_texture);
     mat.normal_texture = Some(NormalMappingDataView {
       scale: 1.0,
-      content: load_texture_sampler_pair(normal_texture, tex_writer),
+      content: writer
+        .texture_sample_pair_writer()
+        .write_tex_with_default_sampler(normal_texture),
     });
   }
   mat

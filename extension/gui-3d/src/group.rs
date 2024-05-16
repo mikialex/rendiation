@@ -6,16 +6,19 @@ pub struct UINode {
 }
 
 impl UINode {
-  pub fn new(v: &mut View3dProvider) -> Self {
-    todo!()
+  pub fn new(v: &mut Scene3dWriter) -> Self {
+    Self {
+      node: v.node_writer.new_entity().alloc_idx(),
+      children: Default::default(),
+    }
   }
   pub fn node(&self) -> AllocIdx<SceneNodeEntity> {
     self.node
   }
   pub fn with_child<V: Widget + 'static>(
     mut self,
-    v: &mut View3dProvider,
-    child: impl FnOnce(AllocIdx<SceneNodeEntity>, &mut View3dProvider) -> V,
+    v: &mut Scene3dWriter,
+    child: impl FnOnce(AllocIdx<SceneNodeEntity>, &mut Scene3dWriter) -> V,
   ) -> Self {
     self.children = self.children.with_child(child(self.node, v));
     self
@@ -32,7 +35,7 @@ impl Widget for UINode {
   }
 
   fn clean_up(&mut self, cx: &mut StateCx) {
-    todo!();
-    self.children.clean_up(cx)
+    state_mut_access!(cx, scene_cx, Scene3dWriter);
+    // scene_cx.node_writer.delete_entity(self.node);
   }
 }

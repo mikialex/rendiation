@@ -1,10 +1,6 @@
 #![allow(clippy::float_cmp)]
 
 mod address;
-use std::{
-  num::NonZeroUsize,
-  ops::{Deref, DerefMut},
-};
 
 pub use address::*;
 mod filter;
@@ -19,7 +15,6 @@ mod util;
 pub use container::*;
 pub use util::*;
 mod container;
-use image::*;
 use rendiation_algebra::{Lerp, Scalar, Vec2};
 pub use rendiation_texture_types::*;
 pub use wgpu_types::TextureFormat;
@@ -158,53 +153,5 @@ pub trait Texture2DSampleAble: Texture2D {
       |v| address.correct(v),
       |v, a, b| filter.interpolate(v, a, b),
     )
-  }
-}
-
-impl<P, C> Texture2D for ImageBuffer<P, C>
-where
-  P: Pixel + 'static,
-  [P::Subpixel]: EncodableLayout,
-  C: Deref<Target = [P::Subpixel]>,
-  C: DerefMut<Target = [P::Subpixel]>,
-{
-  type Pixel = P;
-
-  fn get(&self, position: impl Into<Vec2<usize>>) -> &Self::Pixel {
-    let position = position.into();
-    self.get_pixel(position.x as u32, position.y as u32)
-  }
-
-  fn get_mut(&mut self, position: impl Into<Vec2<usize>>) -> &mut Self::Pixel {
-    let position = position.into();
-    self.get_pixel_mut(position.x as u32, position.y as u32)
-  }
-
-  fn size(&self) -> Size {
-    let d = self.dimensions();
-    Size {
-      width: NonZeroUsize::new(d.0 as usize).unwrap(),
-      height: NonZeroUsize::new(d.1 as usize).unwrap(),
-    }
-  }
-}
-
-impl Texture2dInitAble for ImageBuffer<Rgba<u8>, Vec<u8>> {
-  fn init_with(size: Size, pixel: Self::Pixel) -> Self {
-    let mut result = ImageBuffer::new(
-      <usize as std::convert::From<_>>::from(size.width) as u32,
-      <usize as std::convert::From<_>>::from(size.height) as u32,
-    );
-    result.clear(pixel);
-    result
-  }
-
-  #[allow(clippy::uninit_vec)]
-  fn init_not_care(size: Size) -> Self {
-    let width = <usize as std::convert::From<_>>::from(size.width);
-    let height = <usize as std::convert::From<_>>::from(size.height);
-    let mut buffer = Vec::with_capacity(width * height * 4);
-    unsafe { buffer.set_len(width * height * 4) };
-    ImageBuffer::from_raw(width as u32, height as u32, buffer).unwrap()
   }
 }

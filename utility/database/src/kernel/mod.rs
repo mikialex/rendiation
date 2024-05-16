@@ -14,18 +14,6 @@ pub use lock::*;
 
 use crate::*;
 
-pub trait AbstractionDataSource {
-  fn create_entity<E: EntitySemantic>(&mut self) -> AllocIdx<E>;
-  fn delete_entity<E: EntitySemantic>(&mut self, entity_id: AllocIdx<E>);
-  fn entity_write<C: ComponentSemantic>(
-    &mut self,
-    entity_id: AllocIdx<C::Entity>,
-    component: C::Data,
-  );
-  fn flush_write(&mut self);
-  fn entity_read<C: ComponentSemantic>(&mut self, entity_id: AllocIdx<C::Entity>) -> C::Data;
-}
-
 pub struct SendSyncPhantomData<T> {
   phantom: PhantomData<T>,
 }

@@ -3100,6 +3100,7 @@ dependencies = [
  "rendiation-algebra",
  "rendiation-shader-api",
  "rendiation-texture-core",
+ "rendiation-texture-loader",
 ]
 
 [[package]]
@@ -3232,20 +3233,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "rendiation-scene-io-texture-loader"
-version = "0.1.0"
-dependencies = [
- "database",
- "image",
- "reactive",
- "rendiation-scene-core",
- "rendiation-texture-core",
- "smallvec",
- "thiserror",
- "tobj",
-]
-
-[[package]]
 name = "rendiation-scene-obj-loader"
 version = "0.1.0"
 dependencies = [
@@ -3255,7 +3242,7 @@ dependencies = [
  "rendiation-algebra",
  "rendiation-mesh-core",
  "rendiation-scene-core",
- "rendiation-scene-io-texture-loader",
+ "rendiation-texture-loader",
  "smallvec",
  "thiserror",
  "tobj",
@@ -3382,7 +3369,6 @@ name = "rendiation-texture-core"
 version = "0.1.0"
 dependencies = [
  "fast-hash-collection",
- "image",
  "rendiation-algebra",
  "rendiation-geometry",
  "rendiation-texture-types",
@@ -3420,6 +3406,16 @@ dependencies = [
  "rendiation-shader-api",
  "rendiation-webgpu",
  "slab",
+]
+
+[[package]]
+name = "rendiation-texture-loader"
+version = "0.1.0"
+dependencies = [
+ "image",
+ "rendiation-algebra",
+ "rendiation-texture-core",
+ "thiserror",
 ]
 
 [[package]]

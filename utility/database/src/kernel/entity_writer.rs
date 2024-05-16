@@ -103,6 +103,14 @@ impl<E: EntitySemantic> EntityWriter<E> {
     self
   }
 
+  pub fn write_component_data<C>(&mut self, idx: AllocIdx<C::Entity>, data: C::Data) -> &mut Self
+  where
+    C: ComponentSemantic<Entity = E>,
+  {
+    todo!();
+    self
+  }
+
   pub fn new_entity(&mut self) -> EntityHandle<E> {
     EntityHandle {
       handle: self.inner.new_entity(),

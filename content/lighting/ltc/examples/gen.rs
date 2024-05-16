@@ -3,6 +3,7 @@ use std::path::Path;
 use rendiation_algebra::Vec4;
 use rendiation_lighting_ltc::*;
 use rendiation_texture_core::*;
+use rendiation_texture_loader::*;
 
 pub fn main() {
   let ltc_map = fit(GGX, &LtcFitConfig::default());
@@ -13,7 +14,7 @@ pub fn main() {
 
 fn write_image(texture: &Texture2DBuffer<Vec4<f32>>, path: impl AsRef<Path>) {
   texture
-    .map::<image::ImageBuffer<image::Rgba<u8>, Vec<u8>>>(|pix| {
+    .map::<ImageLibContainerWrap<image::ImageBuffer<image::Rgba<u8>, Vec<u8>>>>(|pix| {
       image::Rgba([
         (pix.x.clamp(0.0, 1.0) * 255.0) as u8,
         (pix.y.clamp(0.0, 1.0) * 255.0) as u8,
@@ -21,6 +22,7 @@ fn write_image(texture: &Texture2DBuffer<Vec4<f32>>, path: impl AsRef<Path>) {
         (pix.w.clamp(0.0, 1.0) * 255.0) as u8,
       ])
     })
+    .0
     .save(path)
     .unwrap();
 }

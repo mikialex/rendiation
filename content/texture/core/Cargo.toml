@@ -5,7 +5,6 @@ name = "rendiation-texture-core"
 version = "0.1.0"
 
 [dependencies]
-image = "*"
 fast-hash-collection = { path = "../../../utility/fast-hash-collection" }
 rendiation-algebra = { path = "../../../math/algebra" }
 rendiation-geometry = { path = "../../../math/geometry" }

@@ -11,7 +11,7 @@ reactive = { path = "../../../../utility/reactive" }
 rendiation-algebra = { path = "../../../../math/algebra" }
 rendiation-mesh-core = { path = "../../../../content/mesh/core" }
 rendiation-scene-core = { path = "../../../core" }
-rendiation-scene-io-texture-loader = { path = "../../texture/loader" }
+rendiation-texture-loader = { path = "../../../../content/texture/loader" }
 smallvec = { workspace = true }
 thiserror = "1.0.43"
 tobj = "4.0.0"
