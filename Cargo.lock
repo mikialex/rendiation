@@ -4501,6 +4501,7 @@ name = "widget"
 version = "0.0.1"
 dependencies = [
  "fast-hash-collection",
+ "smallvec",
 ]
 
 [[package]]

@@ -35,14 +35,9 @@ pub fn translation_gizmo_view(
     .with_local_state_inject(AxisActiveState::default())
 }
 
-fn arrow(
-  v: &mut Scene3dWriter,
-  axis: AxisType,
-  parent: AllocIdx<SceneNodeEntity>,
-) -> impl Widget {
-  UIWidgetModel::new(v)
+fn arrow(v: &mut Scene3dWriter, axis: AxisType, parent: AllocIdx<SceneNodeEntity>) -> impl Widget {
+  UIWidgetModel::new(v, ArrowShape::default().build())
     .with_parent(v, parent)
-    .with_shape(v, ArrowShape::default().build())
     .with_matrix(v, axis.mat())
     .with_on_mouse_down(start_drag)
     .with_on_mouse_hovering(hovering)
@@ -51,11 +46,7 @@ fn arrow(
     .with_state_pick(axis_lens(axis))
 }
 
-fn plane(
-  v: &mut Scene3dWriter,
-  axis: AxisType,
-  parent: AllocIdx<SceneNodeEntity>,
-) -> impl Widget {
+fn plane(v: &mut Scene3dWriter, axis: AxisType, parent: AllocIdx<SceneNodeEntity>) -> impl Widget {
   let mesh = build_attributes_mesh(|builder| {
     builder.triangulate_parametric(
       &ParametricPlane.transform_by(Mat4::translate((-0.5, -0.5, 0.))),
@@ -97,8 +88,7 @@ fn plane(
   };
   let mat = move_mat * rotate * plane_scale;
 
-  UIWidgetModel::new(v)
-    .with_shape(v, mesh)
+  UIWidgetModel::new(v, mesh)
     .with_parent(v, parent)
     .with_matrix(v, mat)
     .with_view_update(plane_update(AxisType::X))

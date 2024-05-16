@@ -25,9 +25,23 @@ impl MessageStore {
 }
 
 #[derive(Default)]
-pub struct StateCx {
-  pub message: MessageStore,
-  states: FastHashMap<TypeId, Vec<*mut ()>>,
+pub struct TypeIndexRegistry {
+  type_idx: FastHashMap<TypeId, usize>,
+  next: usize,
+}
+
+impl TypeIndexRegistry {
+  pub fn get_ty<T: Any>(&self) -> Option<usize> {
+    self.type_idx.get(&TypeId::of::<T>()).cloned()
+  }
+  pub fn get_or_register_ty<T: Any>(&mut self) -> usize {
+    let index = *self.type_idx.entry(TypeId::of::<T>()).or_insert_with(|| {
+      let r = self.next;
+      self.next += 1;
+      r
+    });
+    index
+  }
 }
 
 pub struct StateGuard<'a, T> {
@@ -79,49 +93,59 @@ macro_rules! state_mut_access {
   };
 }
 
+#[derive(Default)]
+pub struct StateCx {
+  pub message: MessageStore,
+  states: smallvec::SmallVec<[Option<(TypeId, smallvec::SmallVec<[*mut (); 2]>)>; 8]>,
+  type_idx: TypeIndexRegistry,
+}
+
 impl StateCx {
   pub fn split_state<T: 'static>(&mut self, f: impl FnOnce(&mut T, &mut Self)) {
     unsafe {
       let ptr = self.unregister_state::<T>();
-      f(ptr.as_mut().unwrap(), self);
+      f(&mut *ptr, self);
       self.register_state(ptr);
     }
   }
 
   pub unsafe fn get_state_ref<T: 'static>(&self) -> &T {
-    self.get_state_ptr::<T>().as_ref().unwrap()
+    &*self.get_state_ptr::<T>().unwrap()
   }
   pub unsafe fn get_state_mut<T: 'static>(&mut self) -> &mut T {
-    self.get_state_ptr::<T>().as_mut().unwrap()
+    &mut *self.get_state_ptr::<T>().unwrap()
   }
 
-  pub unsafe fn get_state_ptr<T: 'static>(&self) -> *mut T {
-    let last_ptr = self
-      .states
-      .get(&TypeId::of::<T>())
-      .unwrap()
-      .last()
-      .cloned()
-      .unwrap();
+  pub fn get_state_ptr<T: 'static>(&self) -> Option<*mut T> {
+    let idx = self.type_idx.get_ty::<T>()?;
+    let (_, ptr_array) = self.states.get(idx)?.as_ref()?;
+    let last_ptr = ptr_array.last().cloned()?;
 
-    last_ptr as *mut T
+    Some(last_ptr as *mut T)
+  }
+
+  unsafe fn get_ptr_array<T: 'static>(&mut self) -> &mut smallvec::SmallVec<[*mut (); 2]> {
+    let idx = self.type_idx.get_or_register_ty::<T>();
+
+    while self.states.len() <= idx {
+      self.states.push(None)
+    }
+
+    let (_, ptr_array) = self
+      .states
+      .get_mut(idx)
+      .unwrap_unchecked()
+      .get_or_insert_with(|| (TypeId::of::<T>(), smallvec::SmallVec::new()));
+
+    ptr_array
   }
 
   pub unsafe fn register_state<T: 'static>(&mut self, v: *mut T) {
-    self
-      .states
-      .entry(TypeId::of::<T>())
-      .or_default()
-      .push(v as *mut ())
+    self.get_ptr_array::<T>().push(v as *mut ())
   }
 
   pub unsafe fn unregister_state<T: 'static>(&mut self) -> *mut T {
-    self
-      .states
-      .entry(TypeId::of::<T>())
-      .or_default()
-      .pop()
-      .unwrap() as *mut T
+    self.get_ptr_array::<T>().pop().unwrap_unchecked() as *mut T
   }
 
   pub fn state_scope<T: 'static>(&mut self, state: &mut T, f: impl FnOnce(&mut StateCx)) {
@@ -166,8 +190,8 @@ impl<T1: 'static, T2: 'static, F: Fn(&mut T1) -> &mut T2, V: Widget> Widget
 {
   fn update_view(&mut self, cx: &mut StateCx) {
     unsafe {
-      let s = cx.get_state_ptr::<T1>();
-      let picked = (self.pick)(s.as_mut().unwrap());
+      let s = cx.get_state_ptr::<T1>().unwrap();
+      let picked = (self.pick)(&mut *s);
 
       cx.state_scope(picked, |cx| {
         self.view.update_view(cx);
@@ -177,8 +201,8 @@ impl<T1: 'static, T2: 'static, F: Fn(&mut T1) -> &mut T2, V: Widget> Widget
 
   fn update_state(&mut self, cx: &mut StateCx) {
     unsafe {
-      let s = cx.get_state_ptr::<T1>();
-      let picked = (self.pick)(s.as_mut().unwrap());
+      let s = cx.get_state_ptr::<T1>().unwrap();
+      let picked = (self.pick)(&mut *s);
 
       cx.state_scope(picked, |cx| {
         self.view.update_state(cx);

@@ -22,11 +22,7 @@ pub struct UIWidgetModel {
 }
 
 impl Widget for UIWidgetModel {
-  fn update_view(&mut self, cx: &mut StateCx) {
-    // if let Some(update) = self.view_update {
-    //   // update(self, model)
-    // }
-  }
+  fn update_view(&mut self, _: &mut StateCx) {}
   fn update_state(&mut self, cx: &mut StateCx) {
     state_access!(cx, interaction_cx, InteractionState3d);
     if self.mouse_interactive && self.has_any_mouse_event() {
@@ -44,7 +40,22 @@ impl Widget for UIWidgetModel {
 }
 
 impl UIWidgetModel {
-  pub fn new(v: &mut Scene3dWriter) -> Self {
+  pub fn new(v: &mut Scene3dWriter, shape: AttributesMeshData) -> Self {
+    let material = v.flat_mat_writer.new_entity();
+    let mesh = v.write_attribute_mesh(shape.build());
+    let model = StandardModelDataView {
+      material: SceneMaterialDataView::FlatMaterial(material),
+      mesh,
+    }
+    .write(&mut v.std_model_writer);
+    let node = v.node_writer.new_entity();
+    let scene_model = SceneModelDataModel {
+      model,
+      scene: v.scene,
+      node,
+    }
+    .write(&mut v.model_writer);
+
     Self {
       mouse_interactive: true,
       is_mouse_in: false,
@@ -55,11 +66,11 @@ impl UIWidgetModel {
       on_mouse_out: None,
       on_mouse_down: None,
       parent: None,
-      std_model: v.std_model_w.new_entity().alloc_idx(),
-      model: v.model_writer.new_entity().alloc_idx(),
-      node: v.node_writer.new_entity().alloc_idx(),
-      material: v.flat_mat_writer.new_entity().alloc_idx(),
-      mesh: todo!(),
+      std_model: model.alloc_idx(),
+      model: scene_model.alloc_idx(),
+      node: node.alloc_idx(),
+      material: material.alloc_idx(),
+      mesh: mesh.alloc_idx(),
     }
   }
 

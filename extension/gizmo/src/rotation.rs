@@ -57,8 +57,7 @@ pub fn build_rotator(
     AxisType::Z => Mat4::identity(),
   };
 
-  UIWidgetModel::new(v)
-    .with_shape(v, mesh)
+  UIWidgetModel::new(v, mesh)
     .with_parent(v, parent)
     .with_matrix(v, mat)
     .with_on_mouse_down(start_drag)

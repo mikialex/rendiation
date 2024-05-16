@@ -23,7 +23,7 @@ pub fn load_obj(
   let models = load_obj_content(path, default_mat, writer)?;
 
   for model in models {
-    let std_model = model.write(&mut writer.std_model_w);
+    let std_model = model.write(&mut writer.std_model_writer);
 
     let sm = SceneModelDataModel {
       model: std_model,
